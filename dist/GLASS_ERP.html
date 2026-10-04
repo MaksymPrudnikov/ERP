@@ -1989,7 +1989,8 @@ button.recut-btn{border-color:var(--warning);color:var(--warning)}
 .cut-list tbody tr{cursor:grab}
 .cut-list tbody tr.on td{background:var(--accent-soft);color:var(--accent)}
 .cut-list tbody tr.off td{color:var(--text-3)}
-.cut-list input[type=number]{width:36px;padding:1px 3px;font-size:11px}
+.cut-list input[type=number],.cut-list input[data-cut-priority]{width:36px;padding:1px 3px;font-size:11px}
+.cut-list input[data-cut-priority]{text-align:center}
 .cut-list .pill{font-size:10px;padding:1px 6px}
 .cut-sheet-pane{min-width:0}
 .cut-glass{margin-bottom:10px}
@@ -2104,6 +2105,14 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 .cut-orders table{width:100%}
 .cut-orders td,.cut-orders th{padding:5px 8px;font-size:12px}
 @media(max-width:1200px){.cut-grid{grid-template-columns:minmax(0,1fr)}}
+/* Выделение строк списка и полоса «N selected» — приоритет разом. Полоса
+   прижата к низу окна списка. */
+.cut-list tr.pick td{background:var(--accent-soft)}
+.cut-bulk{position:sticky;bottom:0;z-index:3;display:flex;align-items:center;gap:10px;margin:6px 0 0;padding:7px 10px;border:1px solid var(--accent-line);border-radius:8px;background:var(--surface);box-shadow:0 -4px 12px rgba(16,24,40,.12);font-size:12px}
+.cut-bulk[hidden]{display:none}
+.cut-bulk label{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12px;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--text)}
+.cut-bulk input{width:56px;padding:3px 6px}
+.cut-bulk-x{margin-left:auto;border:0;background:transparent;box-shadow:none;min-width:0;padding:2px 6px;font-size:15px;color:var(--text-2)}
 /* Печать схем для стола резки. */
 #cutPrintHost{display:none}
 /* @page cutsheet (книжный или альбомный Letter) ставит cutPrintLayouts. */
@@ -2714,7 +2723,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='df731922533a';
+var ERP_BUILD='1840d24453c9';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -7570,7 +7579,9 @@ const DATA_FIXES=[
  [5,'edgeAllowance','ALW-CNCSHAPEPOLISH-LAMI-3-6',{allowance:'1/16'},['allowance','note']],
  [5,'edgeAllowance','ALW-CNCSHAPEPOLISH-LAMI-8-1000',{allowance:'1/8'},['allowance','note']]
 ];
-const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),0);
+/* Номера правок кодом (не строкой таблицы): 4 — sfSplitEdgeFix, 6 —
+   приоритет раскроя (applyDataFixes). */
+const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),6);
 function applyDataFixes(){
  const have=Number.isInteger(+DB.dataFix)&&+DB.dataFix>0?+DB.dataFix:0;
  if(have>=DATA_FIX_VERSION)return false;
@@ -7587,6 +7598,10 @@ function applyDataFixes(){
   });
  });
  if(have<4&&typeof sfSplitEdgeFix==='function')changed+=sfSplitEdgeFix();
+ /* Номер 6 · 4 октября 2026. Приоритет раскроя перевёрнут: 10 — самый
+    срочный (был 1). Старые значения владелец велел обнулить: «то, что в
+    старых листах, удаляй, не переживай… всегда обнуляй». */
+ if(have<6)(DB.cutPlan||[]).forEach(p=>{const set=p&&p.settings;if(set&&typeof set==='object')Object.values(set).forEach(o=>{if(o&&typeof o==='object'&&'priority' in o){delete o.priority;changed++;}});});
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;
@@ -25382,7 +25397,7 @@ const STK_BLOCKS=[
  {k:'size',label:'Size',group:'Glass',types:STK_ANY,size:[36,8,90],bold:true,details:[['cut','Size before edgework',true]]},
  {k:'area',label:'Area ft²',group:'Glass',types:STK_ANY,size:[13,6,48],details:[]},
  {k:'weight',label:'Weight kg',group:'Glass',types:STK_ALL,size:[13,6,48],details:[]},
- {k:'shape',label:'Shape outline',group:'Glass',types:STK_ALL,size:[90,30,250],graphic:true,details:[['letters','Side letters A B C D',true],['label','SHAPE label',true]]},
+ {k:'shape',label:'Shape outline',group:'Glass',types:STK_ALL,size:[90,30,250],graphic:true,details:[['dims','Side lengths',true],['label','SHAPE label',true]]},
  {k:'route',label:'Route by station',group:'Production',types:['production'],size:[30,12,60],graphic:true,details:[['shipping','SHIPR and SHIP',true]]},
  {k:'services',label:'Services',group:'Production',types:['production'],size:[12,6,36],bold:true,details:[['boxes','Check boxes',true],['station','Station before service',false]]},
  {k:'divider',label:'Divider line',group:'Other',types:STK_ANY,size:[1,0.5,6],graphic:true,multi:true,details:[]},
@@ -25522,7 +25537,23 @@ function stkShapeOf(lite){
  const holes=(fg.holes||[]).map(h=>({x:mx(+h.center[0]),y:+h.center[1],d:+h.diameter})).filter(h=>h.d>0&&Number.isFinite(h.x)&&Number.isFinite(h.y));
  const polys=[].concat(fg.cutouts||[],fg.hardware||[]).map(c=>(c.points||[]).map(p=>[mx(+p[0]),+p[1]])).filter(p=>p.length>2);
  if(stkIsRect(pts)&&!holes.length&&!polys.length)return null;
- return {points:pts,holes,polys};
+ return {points:pts,holes,polys,sides:stkShapeSides(lite,pts,mx)};
+}
+/* Длины прямых сторон — подписи у контура вместо букв A B C D: на чертеже
+   букв нет, и на стикере они «не несут смысла» (владелец, 4 октября 2026).
+   Стороны — из геометрии формы (те же координаты, что у контура); дуги не
+   подписываются. У прямоугольника — только низ и левая, без повторов. Форма
+   без геометрии (DXF) — по точкам контура, если их немного. */
+function stkShapeSides(lite,pts,mx){
+ const groups=lite.result&&Array.isArray(lite.result.edges)?lite.result.edges:null,pt=p=>[mx(+p[0]),+p[1]];
+ let sides=groups?groups.filter(g=>(g.segments||[]).length&&g.segments.every(e=>e.type==='line'&&e.p1&&e.p2)).map(g=>{const a=g.segments[0],z=g.segments[g.segments.length-1];return {a:pt(a.p1),b:pt(z.p2),len:+g.length};})
+  :pts.length<=12?pts.map((p,i)=>{const q=pts[(i+1)%pts.length];return {a:p,b:q,len:Math.hypot(q[0]-p[0],q[1]-p[1])};}):[];
+ sides=sides.filter(x=>x.len>=0.25&&[x.a[0],x.a[1],x.b[0],x.b[1]].every(Number.isFinite));
+ if(stkIsRect(pts)){
+  const minX=Math.min(...pts.map(p=>p[0])),minY=Math.min(...pts.map(p=>p[1])),near=(v,w)=>Math.abs(v-w)<1e-3;
+  sides=sides.filter(x=>near(x.a[1],minY)&&near(x.b[1],minY)||near(x.a[0],minX)&&near(x.b[0],minX));
+ }
+ return sides.length>8?[]:sides;
 }
 function stkFinished(lite,l){return lite&&+lite.finishedW>0&&+lite.finishedH>0?{w:+lite.finishedW,h:+lite.finishedH}:{w:l.width16/16,h:l.height16/16};}
 /* Размер до обработки кромки — размер реза: готовый плюс припуск кромки и
@@ -25745,15 +25776,45 @@ function stkRenderBlock(b,d,x,y,w,col,out){
   case 'area':{if(d.area==null)return 0;line(d.area.toFixed(2)+' ft²',y+sz*.9,sz,bold);return sz*1.2;}
   case 'weight':{if(!d.weight)return 0;line(stkFmtKg(d.weight),y+sz*.9,sz,bold);return sz*1.2;}
   case 'shape':{
-   if(!d.shape)return 0;const side=Math.min(w,sz),bx=ax(side),pts=d.shape.points,xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
-   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),pad=det.letters?9:2,inner=side-2*pad,k=Math.min(inner/((maxX-minX)||1),inner/((maxY-minY)||1));
-   const ox=bx+pad+(inner-(maxX-minX)*k)/2,oy=y+pad+(inner-(maxY-minY)*k)/2,px=v=>ox+(v-minX)*k,py=v=>oy+(maxY-v)*k,path=list=>'M'+list.map(p=>px(p[0]).toFixed(2)+' '+py(p[1]).toFixed(2)).join('L')+'Z';
+   /* Контур с длинами сторон снаружи (владелец, 4 октября 2026: букв A–D
+      на чертеже нет, «заменить размерами»). Подпись отодвигается от своей
+      стороны ровно настолько, чтобы её не касаться; контур — самый крупный,
+      при котором всё влезает в квадрат size × size и в колонку. Подпись,
+      что налезла бы на другую или на контур (вырез, короткие стороны), не
+      печатается — короткие стороны уступают длинным; если из-за подписей
+      контур мельче половины блока, короткие подписи снимаются. */
+   if(!d.shape)return 0;const pts=d.shape.points,xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),spanX=(maxX-minX)||1,spanY=(maxY-minY)||1;
+   const availW=Math.min(w,sz),availH=sz,kMax=Math.min(availW/spanX,availH/spanY),ls=Math.max(6,Math.min(9,Math.round(sz*.11*2)/2)),lh=ls*.9,gap=1.5;
+   const turn=pts.reduce((a,p,i)=>{const q=pts[(i+1)%pts.length];return a+p[0]*q[1]-q[0]*p[1];},0)>=0?1:-1;
+   let cand=(det.dims?d.shape.sides||[]:[]).map(sd=>{
+    const dx=sd.b[0]-sd.a[0],dy=sd.b[1]-sd.a[1],n=Math.hypot(dx,dy)||1,t=frac16(sd.len);
+    return {t,tw:docTextWidth(t,ls,true),mx:(sd.a[0]+sd.b[0])/2,my:(sd.a[1]+sd.b[1])/2,sx:turn*dy/n,sy:turn*dx/n,len:sd.len};
+   }).sort((a,b)=>b.len-a.len);
+   /* Рамка подписи в осях блока (y вниз) при масштабе k, начало — угол minX, maxY. */
+   const boxOf=(q,k)=>{
+    const ax0=(q.mx-minX)*k,ay0=(maxY-q.my)*k;
+    let x0=q.sx>.35?ax0:q.sx<-.35?ax0-q.tw:ax0-q.tw/2,y0=q.sy<-.35?ay0-lh:q.sy>.35?ay0:ay0-lh/2;
+    const near=Math.min(...[[x0,y0],[x0+q.tw,y0],[x0,y0+lh],[x0+q.tw,y0+lh]].map(c=>(c[0]-ax0)*q.sx+(c[1]-ay0)*q.sy)),sh=gap-near;
+    x0+=sh*q.sx;y0+=sh*q.sy;return {x0,y0,x1:x0+q.tw,y1:y0+lh,q};
+   };
+   const cross=(ax,ay,bx,by,cx,cy,dx,dy)=>{const o=(px,py,qx,qy,rx,ry)=>Math.sign((qx-px)*(ry-py)-(qy-py)*(rx-px));return o(ax,ay,bx,by,cx,cy)!==o(ax,ay,bx,by,dx,dy)&&o(cx,cy,dx,dy,ax,ay)!==o(cx,cy,dx,dy,bx,by);};
+   const onOutline=(r,k)=>pts.some((p,i)=>{const q=pts[(i+1)%pts.length],ax1=(p[0]-minX)*k,ay1=(maxY-p[1])*k,bx1=(q[0]-minX)*k,by1=(maxY-q[1])*k;
+    if(ax1>r.x0&&ax1<r.x1&&ay1>r.y0&&ay1<r.y1)return true;
+    return cross(ax1,ay1,bx1,by1,r.x0,r.y0,r.x1,r.y0)||cross(ax1,ay1,bx1,by1,r.x1,r.y0,r.x1,r.y1)||cross(ax1,ay1,bx1,by1,r.x1,r.y1,r.x0,r.y1)||cross(ax1,ay1,bx1,by1,r.x0,r.y1,r.x0,r.y0);});
+   const place=(list,k)=>{const out2=[];list.forEach(q=>{const r=boxOf(q,k);if(out2.some(o=>r.x0<o.x1+1&&o.x0<r.x1+1&&r.y0<o.y1+.5&&o.y0<r.y1+.5)||onOutline(r,k))return;out2.push(r);});return out2;};
+   const bbox=(list,k)=>list.reduce((b,r)=>({x0:Math.min(b.x0,r.x0),y0:Math.min(b.y0,r.y0),x1:Math.max(b.x1,r.x1),y1:Math.max(b.y1,r.y1)}),{x0:0,y0:0,x1:spanX*k,y1:spanY*k});
+   const fits=(list,k)=>{const b=bbox(place(list,k),k);return b.x1-b.x0<=availW+1e-6&&b.y1-b.y0<=availH+1e-6;};
+   const best=list=>{if(fits(list,kMax))return kMax;let lo=kMax*.05,hi=kMax;for(let i=0;i<24;i++){const m=(lo+hi)/2;if(fits(list,m))lo=m;else hi=m;}return lo;};
+   let k=best(cand);while(cand.length&&k<kMax*.55){cand=cand.slice(0,-1);k=best(cand);}
+   const labels=place(cand,k),bb=bbox(labels,k),bw=bb.x1-bb.x0,bh=bb.y1-bb.y0,bx=ax(bw),ox=bx-bb.x0,oy=y-bb.y0;
+   const px=v=>ox+(v-minX)*k,py=v=>oy+(maxY-v)*k,path=list=>'M'+list.map(p=>px(p[0]).toFixed(2)+' '+py(p[1]).toFixed(2)).join('L')+'Z';
    out.push({t:'path',d:path(pts)});
    (d.shape.polys||[]).forEach(pg=>out.push({t:'path',d:path(pg)}));
    (d.shape.holes||[]).forEach(h=>out.push({t:'circle',cx:px(h.x),cy:py(h.y),r:Math.max(1.2,h.d*k/2)}));
-   if(det.letters){const ls=7,cx=bx+side/2,cy=y+side/2;[['A',bx+1,cy+2.5,''],['B',cx,y+side-1,'center'],['C',bx+side-1,cy+2.5,'right'],['D',cx,y+ls,'center']].forEach(a=>out.push({t:'text',s:a[0],x:a[1],y:a[2],size:ls,bold:true,color:K,align:a[3]}));}
-   if(det.label){out.push({t:'text',s:'SHAPE',x:bx+side/2,y:y+side+8,size:7,bold:true,color:K,align:'center'});return side+10;}
-   return side+2;}
+   labels.forEach(r=>out.push({t:'text',s:r.q.t,x:ox+r.x0,y:oy+r.y0+ls*.78,size:ls,bold:true,color:K,align:''}));
+   if(det.label){out.push({t:'text',s:'SHAPE',x:bx+bw/2,y:y+bh+8,size:7,bold:true,color:K,align:'center'});return bh+10;}
+   return bh+2;}
   case 'route':{
    if(!d.route)return 0;const codes=det.shipping?d.route.codes:d.route.codes.filter(c=>!(d.route.shipping||[]).includes(c)),t=codes.join(' > ');let fs=Math.max(6,sz*.56);
    while(fs>6&&docTextWidth(t,fs,true)>w-10)fs-=.5;rect(x,y,w,sz);out.push({t:'text',s:t,x:x+w/2,y:y+sz/2+fs*.36,size:fs,bold:true,color:Wt,align:'center'});return sz+1;}
@@ -25981,13 +26042,15 @@ function cutPlanPut(number,plan){
  touch();
 }
 function cutSave(number){if(!cutEstIs(number))touch();}
-/* Приоритет: 0 — нет (по умолчанию), 1 — самый срочный … 10. «Приоритизация
-   базово 0 у всех, если она будет нужна — я сам выберу» (владелец,
-   18 сентября 2026). cutPrioRank — порядок (без приоритета — последним),
+/* Приоритет: 0 — нет (по умолчанию), 1 … 10 — самый срочный, как в
+   Perfect Cut (владелец, 4 октября 2026: «перевернуть: 10 — самый срочный»;
+   до этого самым срочным был 1, старые значения обнулены — DATA_FIXES 6).
+   «Приоритизация базово 0 у всех, если она будет нужна — я сам выберу»
+   (18 сентября 2026). cutPrioRank — порядок (без приоритета — последним),
    cutPrioWeight — вес срочности (0 у стекла без приоритета). */
 function cutPriority(v){const n=Math.round(+v);return Number.isFinite(n)&&n>=0&&n<=10?n:0;}
-function cutPrioRank(p){return p>0?p:11;}
-function cutPrioWeight(p){return p>0?11-p:0;}
+function cutPrioRank(p){return p>0?11-p:11;}
+function cutPrioWeight(p){return p>0?p:0;}
 /* Размеры листов этого стекла из поставок Master Data. Лист всегда лёжа:
    длинная сторона — X по горизонтали, как на столе и в Perfect Cut
    (владелец, 18 сентября 2026: «ориентация щита должна быть по горизонтали»). */
@@ -27409,13 +27472,19 @@ function cutResetParams(number,glass){
  return cutPlanRedraft(number);
 }
 /* Стекло в раскрой или нет, приоритет, поворот — тоже параметры прогона. */
-function cutSetting(number,pieceId,field,value){
+function cutSetting(number,pieceId,field,value){return cutSettingMany(number,[pieceId],field,value);}
+/* Одна правка на много стёкол — и одна пересборка черновика: приоритет
+   заказчику или выделенным строкам (владелец, 4 октября 2026: «на каждое
+   стекло фокусированный клик и нет массовой логики»). */
+function cutSettingMany(number,pieceIds,field,value){
  const open=cutPlanEditable(number);if(open.error)return open;const plan=open.plan;
  if(!plan.settings||typeof plan.settings!=='object')plan.settings={};
- const own=plan.settings[pieceId]||(plan.settings[pieceId]={});
- if(field==='off')own.off=!!value;
- if(field==='priority')own.priority=cutPriority(value);
- if(field==='norot')own.norot=!!value;
+ [...new Set(pieceIds||[])].forEach(pieceId=>{
+  const own=plan.settings[pieceId]||(plan.settings[pieceId]={});
+  if(field==='off')own.off=!!value;
+  if(field==='priority')own.priority=cutPriority(value);
+  if(field==='norot')own.norot=!!value;
+ });
  return cutPlanRedraft(number);
 }
 /* Помещается ли деталь: внутри листа и не задевает соседей с их зазором. */
@@ -30306,7 +30375,22 @@ function stkFindBlock(id){return stkDraft().tpl.blocks.find(b=>b.id===id);}
 function stkBSet(k,v){const s=stkBuilderState();if(k==='type'&&s.type!==v){s.sample='';s.sel='';s.open='';}s[k]=v;s.notice='';stkBuilderState();render();}
 function stkBType(v){stkBSet('type',v);}
 function stkBSizeKey(v){stkBSet('size',v);}
-function stkBOrient(v){stkEditTpl(t=>{t.orient=v==='landscape'?'landscape':'portrait';});}
+/* Смена ориентации раскладывает блоки по базе этой ориентации: лёжа — две
+   колонки и кегли под 4″ высоты. Вертикальная раскладка в лежачий стикер не
+   влезала (владелец, 4 октября 2026: «сменил портретную на лендскейп, и
+   стикер вылез»). Своё переносится: какие блоки печатать, жирный, детали,
+   свой текст; лишние свои тексты — в конец. Разделители — часть раскладки,
+   у новой ориентации свои. */
+function stkBOrient(v){
+ const s=stkBuilderState(),orient=v==='landscape'?'landscape':'portrait';if(stkDraft().tpl.orient===orient)return;
+ stkEditTpl(t=>{
+  const base=stkBase(s.type,s.size,orient).blocks,used=new Set();
+  base.forEach(b=>{const m=t.blocks.find(x=>x.k===b.k&&!used.has(x));if(!m)return;used.add(m);
+   Object.assign(b,{id:m.id,on:m.on,bold:m.bold,details:Object.assign({},b.details,m.details)},b.k==='text'?{text:m.text}:{});});
+  const rest=t.blocks.filter(x=>!used.has(x)&&x.k!=='divider'),low=x=>x.at==='bottom';
+  t.orient=orient;t.blocks=base.filter(x=>!low(x)).concat(rest.filter(x=>!low(x)).map(x=>Object.assign(x,{at:'full'})),base.filter(low),rest.filter(low));
+ });
+}
 function stkBToggle(id,on){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.on=!!on;});}
 function stkBPlace(id,at){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(!b||!STK_PLACES.some(p=>p.k===at))return;b.at=at;t.blocks=t.blocks.filter(x=>x.at!=='bottom').concat(t.blocks.filter(x=>x.at==='bottom'));});}
 function stkSizeStep(def){return def.k==='divider'?0.5:def.k==='shape'?5:def.k==='barcode'?2:1;}
@@ -30418,7 +30502,9 @@ function stkEditorHTML(){
  };
  const zone=(name,list,z)=>`<div class="stk-zone" data-stk-zone="${z}" ondragover="event.preventDefault()" ondrop="stkDropZone(event,'${z}')"><div class="stk-zone-head">${name}</div>${list.map(row).join('')||'<div class="stk-zone-empty">Drop here</div>'}</div>`;
  const W=pg.w*STK_PX,H=pg.h*STK_PX;
- const hits=pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);return `<div class="stk-hit${s.sel===x.id?' sel':''}" data-stk-hit="${x.id}" draggable="true" title="${esc(b?stkBlockLabel(b):'')}" style="left:${(x.x*STK_PX).toFixed(1)}px;top:${(x.y*STK_PX).toFixed(1)}px;width:${(x.w*STK_PX).toFixed(1)}px;height:${Math.max(6,x.h*STK_PX).toFixed(1)}px" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"></div>`;}).join('');
+ /* Бумага ужимается в колонку превью (лёжа 6″ шире её) — зоны блоков в %. */
+ const pc=(v,of)=>(v/of*100).toFixed(2)+'%';
+ const hits=pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);return `<div class="stk-hit${s.sel===x.id?' sel':''}" data-stk-hit="${x.id}" draggable="true" title="${esc(b?stkBlockLabel(b):'')}" style="left:${pc(x.x,pg.w)};top:${pc(x.y,pg.h)};width:${pc(x.w,pg.w)};height:${pc(Math.max(6/STK_PX,x.h),pg.h)}" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"></div>`;}).join('');
  const fit=pg.overflow.length?`<span class="pill warn" data-stk-fit="no">Doesn't fit: ${esc(pg.overflow.join(', '))}</span>`:'<span class="pill ok" data-stk-fit="yes">Fits</span>';
  const samples=list.length?`<select data-stk-sample aria-label="Sample" onchange="stkBuilderState().sample=this.value;render()">${list.map(x=>`<option value="${esc(x.key)}" ${x.key===key?'selected':''}>${esc(x.label)}</option>`).join('')}</select>`:'<span class="mut">Demo glass</span>';
  return `<div class="stk-builder" data-stk-builder>
@@ -30431,7 +30517,7 @@ function stkEditorHTML(){
   <div class="stk-grid">
    <div class="stk-side">${zone('TOP',usable.filter(b=>b.at!=='bottom'),'top')}${zone('BOTTOM',usable.filter(b=>b.at==='bottom'),'bottom')}
     <div class="stk-add"><button type="button" data-stk-add="text" onclick="stkBAdd('text')">+ Custom text</button>${fieldSelect('data-stk-add-field','stkBAddField(this.value)')}<button type="button" data-stk-add="divider" onclick="stkBAdd('divider')">+ Divider</button></div></div>
-   <div class="stk-preview"><div class="stk-paper" data-stk-paper style="width:${W.toFixed(0)}px;height:${H.toFixed(0)}px">${stkPageSVG(pg,W.toFixed(0),H.toFixed(0))}${hits}</div><div class="stk-fit">${fit}</div></div>
+   <div class="stk-preview"><div class="stk-paper" data-stk-paper style="width:${W.toFixed(0)}px;max-width:100%;aspect-ratio:${W.toFixed(0)}/${H.toFixed(0)}">${stkPageSVG(pg,'100%','100%')}${hits}</div><div class="stk-fit">${fit}</div></div>
   </div>
   ${s.print?`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to template</button><span class="sp"></span><button type="button" onclick="stkPrintEditCancel()">Cancel</button><button type="button" data-stk-save-template onclick="stkPrintEditSave()">Save as template</button><button type="button" class="pri" data-stk-done onclick="stkPrintEditDone()">Done</button></div>`
   :`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to base</button><span class="sp"></span>${dr.dirty?'<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>':s.notice?`<span class="stk-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-stk-save ${dr.dirty?'':'disabled'} onclick="stkBSave()">Save template</button></div>`}
@@ -30532,7 +30618,7 @@ function cutUiSteps(number,it,label,done){
 }
 function cutUiBuild(number){
  if(cutEstIs(number)&&typeof cutEstBuild==='function')return cutEstBuild();
- cutInfo=null;cutWhat=null;
+ cutInfo=null;cutWhat=null;cutPicks().clear();
  return cutUiSteps(number,cutPlanSteps(number),'Building',r=>{
   cutNotice=r&&r.error||'';
   if(r&&r.plan&&cutUi.batch===number){cutUi.sheet=1;cutUi.sel='';}
@@ -30665,8 +30751,24 @@ function cutNeedSizes(b,plan,pieces){
 }
 /* Прикидка из Sales — только просмотр: стекло не выбирается и не двигается. */
 function cutUiPreview(){return cutEstIs(cutUi.batch);}
-function cutUiPick(pieceId){
+/* Выделение строк списка, как в Perfect Cut (владелец, 4 октября 2026):
+   Shift+клик — диапазон в показанном порядке (сортировка по Customer /
+   Order ставит строки заказчика подряд), Cmd/Ctrl+клик — строка в выделение
+   или из него. Выделенным приоритет ставится разом. Простой клик — одно
+   стекло, как раньше. */
+function cutPicks(){return cutUi.picks||(cutUi.picks=new Set());}
+function cutListOrder(){const c=cutListCtx;return c?[c.waiting,c.onSheet,c.off].flatMap(l=>c.sort(l)).map(p=>p.piece):[];}
+function cutUiPick(pieceId,e){
  if(cutUiPreview())return;
+ const picks=cutPicks();
+ if(e&&(e.shiftKey||e.metaKey||e.ctrlKey)){
+  const list=cutListOrder(),a=list.indexOf(cutUi.anchor||cutUi.sel),b=list.indexOf(pieceId);
+  if(!picks.size&&cutUi.sel)picks.add(cutUi.sel);
+  if(e.shiftKey&&a>=0&&b>=0){if(!(e.metaKey||e.ctrlKey))picks.clear();list.slice(Math.min(a,b),Math.max(a,b)+1).forEach(id=>picks.add(id));}
+  else{if(picks.has(pieceId))picks.delete(pieceId);else picks.add(pieceId);cutUi.anchor=pieceId;}
+  cutUiPicksPaint();return;
+ }
+ picks.clear();cutUi.anchor=pieceId;
  const side=document.querySelector('.cut-side-scroll'),scroll=side&&side.scrollTop;
  cutUi.sel=cutUi.sel===pieceId?'':pieceId;
  const at=cutUi.sel&&cutFind(cutPlanFor(cutUi.batch)||{groups:[]},cutUi.sel);
@@ -30811,6 +30913,27 @@ function cutUiKeepSpot(fn){
   if(q){q.focus();if(q.select)q.select();}}
 }
 function cutUiSet(pieceId,field,value){cutUiKeepSpot(()=>cutUiRun(()=>cutSetting(cutUi.batch,pieceId,field,value)));}
+/* Выделение перекрашивается без перерисовки экрана: в батче на 240 листов
+   экран рисуется ~1,5 с. */
+function cutUiPicksPaint(){
+ const picks=cutPicks();document.querySelectorAll('[data-cut-list]').forEach(tr=>tr.classList.toggle('pick',picks.has(tr.dataset.cutList)));
+ const bar=document.querySelector('[data-cut-bulk]');if(bar){bar.hidden=picks.size<2||!!(cutListCtx&&cutListCtx.lock);const n=bar.querySelector('[data-cut-bulk-n]');if(n)n.textContent=picks.size+' selected';}
+}
+function cutUiPicksClear(){const picks=cutPicks();if(!picks.size)return false;picks.clear();cutUiPicksPaint();return true;}
+/* Приоритет в строке выделения — всем выделенным; вне выделения — одному. */
+function cutUiPrioIds(ids,value){if(ids.length)cutUiKeepSpot(()=>cutUiRun(()=>cutSettingMany(cutUi.batch,ids,'priority',value)));}
+function cutUiPrio(pieceId,value){const picks=cutPicks();cutUiPrioIds(picks.size>1&&picks.has(pieceId)?[...picks]:[pieceId],value);}
+/* Поля Pri — текст с цифровой клавиатурой, не number: у узкого числового поля
+   щелчок попадал на стрелку и менял число на 1, а колесо мыши над полем в
+   фокусе меняло его при прокрутке списка — и уходило всем выделенным
+   (проверка 4 октября 2026). Не число 0–10 — «нет приоритета» (cutPriority).
+   Ctrl+V в Pri — сразу, как в Perfect Cut: ввёл 10, Ctrl+C, выделил, Ctrl+V.
+   Без pieceId — полоса «N selected». */
+function cutUiPrioPaste(e,pieceId){
+ const raw=String((e.clipboardData||window.clipboardData).getData('text')||'').trim();
+ if(raw!==''&&!/^\d{1,2}$/.test(raw))return;
+ e.preventDefault();if(pieceId)cutUiPrio(pieceId,raw);else cutUiPrioIds([...cutPicks()],raw);
+}
 /* Сортировка списка стёкол: по клику на заголовок, второй клик — наоборот.
    «Нельзя отфильтровать или отсортировать столбики» (владелец, 21 сентября). */
 function cutUiSort(by){
@@ -31032,12 +31155,40 @@ function cutUiMenu(e,glass,no){
  }
  cutUiMenuShow(rows,e.clientX,e.clientY);
 }
+/* Правая кнопка по строке списка: приоритет заказу, заказчику или
+   выделенным — число и Enter. Собранный раскрой закрыт: Reset → приоритет →
+   Build (владелец, 4 октября 2026). */
+function cutUiListMenu(e,pieceId){
+ e.preventDefault();cutUiMenuClose();if(cutUiPreview()||!cutListCtx)return;
+ const all=[cutListCtx.waiting,cutListCtx.onSheet,cutListCtx.off].flat(),p=all.find(x=>x.piece===pieceId);if(!p)return;
+ const lock=cutListCtx.lock,picks=cutPicks(),cust=x=>(salesRecord(x.orderId)||{}).customerId||x.customer;
+ const rows=[],act=cutMenuAct(rows),keys=[];
+ rows.push(`<div class="cut-menu-head">${esc(p.piece)} · ${esc(p.order)} / ${p.line}</div>`);
+ const group=(key,label,ids)=>{keys.push(key);
+  rows.push(`<div class="cut-menu-sub">${esc(label)} · ${ids.length} glass</div><div class="cut-menu-split"><input type="text" inputmode="numeric" maxlength="2" id="cutPri-${key}" placeholder="1–10" aria-label="Priority, 10 is the most urgent" ${lock?'disabled':''} onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=pri-${key}]').click()">`);
+  act('Set','',()=>cutUiPrioIds(ids,(document.getElementById('cutPri-'+key)||{}).value||0),`data-cut-menu="pri-${key}" ${lock?'disabled':''}`);rows.push('</div>');};
+ if(picks.size>1&&picks.has(pieceId))group('sel','Selected',[...picks]);
+ group('order','Order '+p.order,all.filter(x=>x.orderId===p.orderId).map(x=>x.piece));
+ group('customer',p.customer||'Customer',all.filter(x=>cust(x)===cust(p)).map(x=>x.piece));
+ if(lock)rows.push('<div class="cut-menu-sub" data-cut-menu-locked>Reset first</div>');
+ cutUiMenuShow(rows,e.clientX,e.clientY);
+ const first=!lock&&document.getElementById('cutPri-'+keys[0]);if(first)first.focus();
+}
 /* Клавиши — пока открыт раскрой и курсор не в поле ввода. */
 function cutUiKey(e){
- if(cutBusy||cutUiPreview()||!document.querySelector('[data-cut-sheet]'))return;
+ if(cutBusy||cutUiPreview())return;
  const t=e.target,tag=t&&t.tagName||'';
+ /* Esc закрывает меню и из его поля (туда сразу встаёт курсор) и снимает
+    выделение строк из поля Pri — после ввода фокус остаётся в нём. */
+ if(e.key==='Escape'){
+  if(cutUiMenuClose())return;
+  if(t&&t.matches&&t.matches('[data-cut-priority],[data-cut-bulk-pri]')&&cutUiPicksClear()){t.blur();return;}
+ }
  if(/^(INPUT|SELECT|TEXTAREA)$/.test(tag)||t&&t.isContentEditable)return;
- if(e.key==='Escape'){if(cutUiMenuClose())return;if(cutUi.sel){cutUi.sel='';render();return;}if(cutFull)cutUiFull(false);return;}
+ /* Выделение строк живёт и до Build, когда листа на экране ещё нет. */
+ if(e.key==='Escape'&&document.querySelector('[data-cut-list]')&&cutUiPicksClear())return;
+ if(!document.querySelector('[data-cut-sheet]'))return;
+ if(e.key==='Escape'){if(cutUi.sel){cutUi.sel='';render();return;}if(cutFull)cutUiFull(false);return;}
  if(!cutUi.sel||e.metaKey||e.ctrlKey||e.altKey)return;
  const k=String(e.key||'').toLowerCase();
  if(k==='r'){e.preventDefault();cutUiRotate(e.shiftKey?2:1);}
@@ -31295,12 +31446,12 @@ function cutSumSheet(group,sheet){
   <div class="cut-tiles cut-tiles-sheet" data-cut-current>${cutTile('Used %',cutNum(cutPct(sheet.used,area),1)+'%','use',1)}${cutTile('Used',cutNum(sheet.used,1)+' ft²','use')}${cutTile('Scrap',cutNum(sheet.gross,1)+' ft²','waste')}${cutTile('Net',cutNum(sheet.net,1)+' ft²','waste')}</div>`;
 }
 function cutPieceRow(p,at,sel,lock){
- const place=at?at.sheet.no+' · '+(at.index+1):'—',view=cutUiPreview();
- return `<tr data-cut-list="${esc(p.piece)}" class="${sel?'on':''}${p.off?' off':''}"${view?'':` draggable="true" ondragstart="cutUiDragStart(event,'${esc(p.piece)}')" onclick="cutUiPick('${esc(p.piece)}')"`} onmouseenter="cutUiHover('${esc(p.piece)}')" onmouseleave="cutUiHover('')">
+ const place=at?at.sheet.no+' · '+(at.index+1):'—',view=cutUiPreview(),pick=cutPicks().has(p.piece);
+ return `<tr data-cut-list="${esc(p.piece)}" class="${sel?'on':''}${pick?' pick':''}${p.off?' off':''}"${view?'':` draggable="true" ondragstart="cutUiDragStart(event,'${esc(p.piece)}')" onmousedown="if(event.shiftKey)event.preventDefault()" onclick="cutUiPick('${esc(p.piece)}',event)" oncontextmenu="cutUiListMenu(event,'${esc(p.piece)}')"`} onmouseenter="cutUiHover('${esc(p.piece)}')" onmouseleave="cutUiHover('')">
   <td><input type="checkbox" data-cut-on ${p.off?'':'checked'} ${lock?'disabled':''} aria-label="Cut ${esc(p.piece)}" onclick="event.stopPropagation()" onchange="cutUiSet('${esc(p.piece)}','off',!this.checked)"></td>
   <td class="gb-piece">${esc(p.piece)}</td><td class="nowrap">${esc(frac16(p.w))} × ${esc(frac16(p.h))}″${p.shape?' <span class="pill">shape</span>':''}</td>
   <td>${view?`${esc(p.order)} / ${p.line}`:`<button type="button" class="gb-link" data-cut-open="${esc(p.orderId)}" title="Open the order and its shape" onclick="event.stopPropagation();optimizationOpenOrder('${esc(p.orderId)}')">${esc(p.order)} / ${p.line}</button>`}${p.mark?' · '+esc(p.mark):''}</td><td>${esc(p.customer)}</td>
-  <td class="n"><input type="number" min="0" max="10" step="1" data-cut-priority value="${p.priority||''}" placeholder="—" ${lock?'disabled':''} aria-label="Priority, 1 is the most urgent" onclick="event.stopPropagation()" onchange="cutUiSet('${esc(p.piece)}','priority',this.value||0)"></td>
+  <td class="n"><input type="text" inputmode="numeric" maxlength="2" data-cut-priority value="${p.priority||''}" placeholder="—" ${lock?'disabled title="Reset first"':''} aria-label="Priority, 10 is the most urgent" onclick="event.stopPropagation()" onchange="cutUiPrio('${esc(p.piece)}',this.value||0)" onpaste="cutUiPrioPaste(event,'${esc(p.piece)}')"></td>
   <td class="n">${place}</td></tr>`;
 }
 let cutListCtx=null;
@@ -31319,7 +31470,11 @@ function cutListHTML(ctx){
   shown+=rows.length;
   return `<div class="cut-list-head"${label==='Not on a sheet'?' data-cut-waiting':''}${label==='Not cutting'?' data-cut-off':''}>${label} · ${list.length}</div>${rows.length?ctx.table(rows.map(p=>cutPieceRow(p,ctx.at.get(p.piece)||null,ctx.sel===p.piece,ctx.lock)).join('')):''}`;
  }).join('');
- return `<div class="cut-list-found" data-cut-list-found>${total>shown?`Showing ${shown} of ${total}`:`${total} glass`}</div>${body}${total>shown?'<button type="button" class="cut-list-more" data-cut-list-more onclick="cutUiShowMore()">Show 200 more</button>':''}`;
+ /* Полоса выделения — в конце списка, прижата к низу окна списка: видна при
+    любой прокрутке (сверху закреплены шапки групп и таблицы). */
+ const n=cutPicks().size;
+ const bulk=cutUiPreview()?'':`<div class="cut-bulk" data-cut-bulk ${n>1&&!ctx.lock?'':'hidden'}><b data-cut-bulk-n>${n} selected</b><label>Priority <input type="text" inputmode="numeric" maxlength="2" data-cut-bulk-pri placeholder="—" ${ctx.lock?'disabled title="Reset first"':''} aria-label="Priority for selected, 10 is the most urgent" onchange="cutUiPrioIds([...cutPicks()],this.value||0)" onpaste="cutUiPrioPaste(event,'')"></label><button type="button" class="cut-bulk-x" data-cut-bulk-clear aria-label="Clear selection" title="Clear selection" onclick="cutUiPicksClear()">×</button></div>`;
+ return `<div class="cut-list-found" data-cut-list-found>${total>shown?`Showing ${shown} of ${total}`:`${total} glass`}</div>${body}${total>shown?'<button type="button" class="cut-list-more" data-cut-list-more onclick="cutUiShowMore()">Show 200 more</button>':''}${bulk}`;
 }
 function cutUiShowMore(){
  const side=document.querySelector('.cut-side-scroll'),top=side&&side.scrollTop;
