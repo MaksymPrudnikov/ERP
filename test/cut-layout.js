@@ -521,6 +521,61 @@ module.exports=async function({page,eq,ok}){
  }),{sub:'6CLEAR · 10 glass · 3 sheets',all:true,items:true,count:'1 glass · 1 stock · 1 sheet',sheetBox:false,stickers:true,open:true,notice:'✓ 2 stickers sent',drawings:true,layouts:true,closed:true,sticker:true,drawing:true,
   log:['Stickers · 1 · B-0001','Drawings · 1 · B-0001','Stickers · 1 · B-0001','Drawings · 1 · B-0001']});
 
+ /* Владелец, 4 октября 2026: приоритет как в Perfect Cut — 10 самый срочный;
+    массово: выделение строк (Shift / Cmd), ввод или Ctrl+V во все выделенные,
+    правый клик — заказу или заказчику. Старые значения обнулены (dataFix 6). */
+ eq('приоритет: 10 — самый срочный; выделение строк, ввод и Ctrl+V во все выделенные, правый клик — заказу и заказчику; одна пересборка; собранный раскрой закрыт; Esc снимает',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);
+  const custs={},mk=(name,sizes)=>{const id=oqOrder(custs[name]||(custs[name]=oqCustomer({legalName:name})),{dueDate:'2026-09-25'});salesOrderEdit(id);const m=soDraft.makeups[0];m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];
+   soDraft.lines=sizes.map(([w,h,q],i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:w*16,height16:h*16,qty:q,mark:'M'+(i+1)});salesEnsureLineShape(l);return l;});
+   soDraft.lines.forEach(l=>salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;}));salesOrderSave();soDraft=null;soEdit=null;oqThrough(id,'verified');return id;};
+  const a=mk('Alpha Glass',[[30,20,3]]),b=mk('Beta Doors',[[20,16,2],[18,12,2]]),c=mk('Alpha Glass',[[24,14,1]]);
+  glassBatchAssign(glassBatchRows([a,b,c].map(salesRecord)),{});const bn=DB.glassBatch[0].number;
+  glassBatchOpen(bn);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
+  const rank=[10,1,0].map(cutPrioRank),sorted=(cutUi.sort={by:'pri',dir:1},cutSortPieces([{piece:'x',priority:1},{piece:'y',priority:10},{piece:'z',priority:0}],()=>null).map(p=>p.piece).join());cutUi.sort=null;
+  const pri=()=>{const set=cutSettingsOf(bn);return Object.fromEntries(cutPiecesOf(bn,set).map(p=>[p.piece,p.priority]));};
+  let redrafts=0;const keep=cutPlanRedraft;window.cutPlanRedraft=n=>{redrafts++;return keep(n);};
+  const rows=()=>[...document.querySelectorAll('[data-cut-list]')].map(r=>r.dataset.cutList),click=(id,o)=>document.querySelector('[data-cut-list="'+id+'"]').dispatchEvent(new MouseEvent('click',Object.assign({bubbles:true},o||{})));
+  const ids=rows();click(ids[0]);click(ids[3],{shiftKey:true});
+  const bar=document.querySelector('[data-cut-bulk]'),range={n:document.querySelectorAll('[data-cut-list].pick').length,bar:!bar.hidden&&bar.textContent.includes('4 selected')};
+  const box=document.querySelector('[data-cut-list="'+ids[1]+'"] [data-cut-priority]');box.focus();box.value='10';box.dispatchEvent(new Event('change',{bubbles:true}));
+  const typed=pri(),one=redrafts;
+  /* Фокус остался в Pri — Esc оттуда снимает выделение. */
+  const inPri=!!document.activeElement&&document.activeElement.matches('[data-cut-priority]');document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  const escInput={inPri,left:document.querySelectorAll('[data-cut-list].pick').length,bar:document.querySelector('[data-cut-bulk]').hidden};
+  const four=ids.slice(0,4).every(id=>typed[id]===10)&&ids.slice(4).every(id=>!typed[id]);
+  /* Cmd+клик — две другие строки; Ctrl+V в Pri — сразу обоим. */
+  click(ids[5]);click(ids[6],{metaKey:true});const dt=new DataTransfer();dt.setData('text','7');
+  document.querySelector('[data-cut-list="'+ids[6]+'"] [data-cut-priority]').dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}));
+  const pasted=pri();
+  /* Правый клик: заказчик Alpha Glass — два заказа, 4 стекла. */
+  const alpha=cutPiecesOf(bn,cutSettingsOf(bn)).filter(p=>p.customer.includes('Alpha')).map(p=>p.piece),row=document.querySelector('[data-cut-list="'+alpha[0]+'"]'),r=row.getBoundingClientRect();
+  row.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.x+10,clientY:r.y+5}));
+  const menu=[...document.querySelectorAll('#cutMenu [data-cut-menu]')].map(x=>x.dataset.cutMenu),focus=document.activeElement&&document.activeElement.id;
+  /* Esc из поля меню закрывает меню. */
+  document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const escMenu=!document.getElementById('cutMenu');
+  row.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.x+10,clientY:r.y+5}));
+  document.getElementById('cutPri-customer').value='5';document.querySelector('#cutMenu [data-cut-menu="pri-customer"]').click();
+  const cust=pri();
+  window.cutPlanRedraft=keep;
+  /* Esc снимает выделение. */
+  click(ids[0]);click(ids[2],{shiftKey:true});document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const esc=document.querySelectorAll('[data-cut-list].pick').length;
+  /* Собранный раскрой: поля и меню закрыты, команда отказывает. */
+  click(ids[0]);click(ids[2],{shiftKey:true});cutPlanRun(bn);render();const row2=document.querySelector('[data-cut-list]'),r2=row2.getBoundingClientRect();
+  row2.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r2.x+10,clientY:r2.y+5}));
+  const locked={bar:document.querySelector('[data-cut-bulk]').hidden,field:document.querySelector('[data-cut-priority]').disabled,menu:!!document.querySelector('#cutMenu [data-cut-menu-locked]')&&document.getElementById('cutPri-order').disabled,cmd:!!cutSettingMany(bn,[ids[0]],'priority',3).error};cutUiMenuClose();
+  return {rank,sorted,range,four,one,escInput,escMenu,pasted:[pasted[ids[5]],pasted[ids[6]],pasted[ids[0]]],menu,focus,alpha:alpha.length,cust:alpha.every(id=>cust[id]===5)&&Object.keys(cust).filter(id=>!alpha.includes(id)).every(id=>cust[id]!==5),esc,locked};
+ }),{rank:[1,10,11],sorted:'y,x,z',range:{n:4,bar:true},four:true,one:1,escInput:{inPri:true,left:0,bar:true},escMenu:true,pasted:[7,7,10],menu:['pri-order','pri-customer'],focus:'cutPri-order',alpha:4,cust:true,esc:0,locked:{bar:true,field:true,menu:true,cmd:true}});
+
+ eq('правка данных 6: старые приоритеты раскроя обнуляются (было «1 — самый срочный»), уже исправленная база не трогается',await t.p.evaluate(()=>{
+  const keep={plan:DB.cutPlan,fix:DB.dataFix};
+  DB.cutPlan=[{batch:'B-9',settings:{'G-0000001':{priority:1,off:true},'G-0000002':{priority:0}},groups:[]}];DB.dataFix=5;
+  const ran=applyDataFixes(),cleared=JSON.stringify(DB.cutPlan[0].settings),fix=DB.dataFix;
+  DB.cutPlan[0].settings['G-0000001'].priority=10;const again=applyDataFixes(),kept=DB.cutPlan[0].settings['G-0000001'].priority;
+  DB.cutPlan=keep.plan;DB.dataFix=keep.fix;
+  return {ran,cleared,fix,again,kept};
+ }),{ran:true,cleared:'{"G-0000001":{"off":true},"G-0000002":{}}',fix:6,again:false,kept:10});
+
  eq('остатки мышью: правая кнопка по остатку — To stock и Split с размером; по стоку — печать и возврат в отход',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,30,2]]);const b=DB.glassBatch[0];
   cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();window.cutPrinted=0;
@@ -832,7 +887,7 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-cut-reset-plan]').click();
   const md=document.querySelector('[data-cut-edge-mindist]');md.value='1 1/2';md.dispatchEvent(new Event('change'));
   const g=cutPlanFor(b.number).groups[0];
-  return {prios,value,ph,rank:[cutPrioRank(0),cutPrioRank(1)].join(),row:cutGroupParams(g,{key:'130x96',w:130,h:96}).minDist,reset:!!cutPlanFor(b.number).reset};
+  return {prios,value,ph,rank:[cutPrioRank(0),cutPrioRank(10)].join(),row:cutGroupParams(g,{key:'130x96',w:130,h:96}).minDist,reset:!!cutPlanFor(b.number).reset};
  }),{prios:'0,0',value:'',ph:'—',rank:'11,1',row:1.5,reset:true});
 
  eq('случайные варианты к правильным порядкам: смешанный батч 117 стёкол — 13 листов вместо 14; раскладка повторяется',await t.p.evaluate(()=>{

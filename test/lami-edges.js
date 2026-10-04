@@ -39,7 +39,7 @@ module.exports=async function({page,eq,ok}){
   old.edgeAllowance.find(r=>r.id==='ALW-CNCSHAPEPOLISH-LAMI-3-6').allowance='1/16';old.edgeAllowance.find(r=>r.id==='ALW-CNCSHAPEPOLISH-LAMI-8-1000').allowance='3/32';
   const next=prepareImportedState(old);
   return {seed,fixed:next.edgeAllowance.find(r=>r.id==='ALW-CNCSHAPEPOLISH-LAMI-3-6').allowance,own:next.edgeAllowance.find(r=>r.id==='ALW-CNCSHAPEPOLISH-LAMI-8-1000').allowance,fix:next.dataFix};
- }),{seed:'1/4,1/4',fixed:'1/4',own:'3/32',fix:5});
+ }),{seed:'1/4,1/4',fixed:'1/4',own:'3/32',fix:6});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();

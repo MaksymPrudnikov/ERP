@@ -152,13 +152,15 @@ function cutPlanPut(number,plan){
  touch();
 }
 function cutSave(number){if(!cutEstIs(number))touch();}
-/* Приоритет: 0 — нет (по умолчанию), 1 — самый срочный … 10. «Приоритизация
-   базово 0 у всех, если она будет нужна — я сам выберу» (владелец,
-   18 сентября 2026). cutPrioRank — порядок (без приоритета — последним),
+/* Приоритет: 0 — нет (по умолчанию), 1 … 10 — самый срочный, как в
+   Perfect Cut (владелец, 4 октября 2026: «перевернуть: 10 — самый срочный»;
+   до этого самым срочным был 1, старые значения обнулены — DATA_FIXES 6).
+   «Приоритизация базово 0 у всех, если она будет нужна — я сам выберу»
+   (18 сентября 2026). cutPrioRank — порядок (без приоритета — последним),
    cutPrioWeight — вес срочности (0 у стекла без приоритета). */
 function cutPriority(v){const n=Math.round(+v);return Number.isFinite(n)&&n>=0&&n<=10?n:0;}
-function cutPrioRank(p){return p>0?p:11;}
-function cutPrioWeight(p){return p>0?11-p:0;}
+function cutPrioRank(p){return p>0?11-p:11;}
+function cutPrioWeight(p){return p>0?p:0;}
 /* Размеры листов этого стекла из поставок Master Data. Лист всегда лёжа:
    длинная сторона — X по горизонтали, как на столе и в Perfect Cut
    (владелец, 18 сентября 2026: «ориентация щита должна быть по горизонтали»). */
@@ -1580,13 +1582,19 @@ function cutResetParams(number,glass){
  return cutPlanRedraft(number);
 }
 /* Стекло в раскрой или нет, приоритет, поворот — тоже параметры прогона. */
-function cutSetting(number,pieceId,field,value){
+function cutSetting(number,pieceId,field,value){return cutSettingMany(number,[pieceId],field,value);}
+/* Одна правка на много стёкол — и одна пересборка черновика: приоритет
+   заказчику или выделенным строкам (владелец, 4 октября 2026: «на каждое
+   стекло фокусированный клик и нет массовой логики»). */
+function cutSettingMany(number,pieceIds,field,value){
  const open=cutPlanEditable(number);if(open.error)return open;const plan=open.plan;
  if(!plan.settings||typeof plan.settings!=='object')plan.settings={};
- const own=plan.settings[pieceId]||(plan.settings[pieceId]={});
- if(field==='off')own.off=!!value;
- if(field==='priority')own.priority=cutPriority(value);
- if(field==='norot')own.norot=!!value;
+ [...new Set(pieceIds||[])].forEach(pieceId=>{
+  const own=plan.settings[pieceId]||(plan.settings[pieceId]={});
+  if(field==='off')own.off=!!value;
+  if(field==='priority')own.priority=cutPriority(value);
+  if(field==='norot')own.norot=!!value;
+ });
  return cutPlanRedraft(number);
 }
 /* Помещается ли деталь: внутри листа и не задевает соседей с их зазором. */

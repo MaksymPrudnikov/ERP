@@ -1896,14 +1896,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         spacersNotReseeded: DB.spacerVariant.map(s => s.id),
         silicone: [silicone.name, silicone.supplier]
       };
-    }), { version: [9, 5], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
+    }), { version: [9, 6], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
           spacersNotReseeded: ['SP-OWN-1616'], silicone: ['Opaci-Coat · Silicone Spandrel', 'ICD'] });
     /* Правка разовая. Вернул владелец полосу — после перезагрузки она осталась. */
     await t.p.evaluate(() => { DB.serviceRate.find(r => r.id === 'hole:1-2').active = true; touch(); });
     await t.p.reload();
     await t.p.waitForTimeout(250);
     eq('выполненная правка не повторяется после перезагрузки', await t.p.evaluate(() =>
-      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 5]);
+      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 6]);
     await t.c.close();
 
     /* Старый файл Export JSON — тот же путь, номера правки в нём нет. Цену
@@ -1917,7 +1917,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const fresh = prepareImportedState({ refVersion: 9, dataFix: 1, serviceRate: [clamp] });
       const w = (s, id) => s.serviceRate.find(r => r.id === id);
       return [w(old, 'clamp').station, w(old, 'hole:1-2').active, old.dataFix, w(fresh, 'clamp').station];
-    }), ['DRILL', true, 5, '']);
+    }), ['DRILL', true, 6, '']);
     await t.c.close();
 
     /* Правка номер 2: заводские примечания каталога стекла были по-русски и
@@ -1930,7 +1930,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('заводские русские примечания стекла становятся английскими, свои остаются', await t.p.evaluate(() => {
       const g = id => DB.glassProduct.find(p => p.id === id);
       return [DB.dataFix, g('GL-6LAM015').note, g('GL-6E272').note];
-    }), [5, 'PURCHASED laminate — not made in-house. Supplier and sheet size to be filled in.', 'заказываем у Cardinal напрямую']);
+    }), [6, 'PURCHASED laminate — not made in-house. Supplier and sheet size to be filled in.', 'заказываем у Cardinal напрямую']);
     await t.c.close();
 
     /* Правка номер 3: ставка Heat Soak. Пустая цена в браузере становится $5 за
@@ -1942,7 +1942,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const own = prepareImportedState({ refVersion: 9, dataFix: 2, serviceRate: [
         { id: 'heat_soak', name: 'Heat Soak', station: 'HEAT', stage: 'heat', kind: 'flat', flat: 4, unit: 'ft²' }] }).serviceRate.find(r => r.id === 'heat_soak');
       return [DB.dataFix, w.flat, w.unit, own.flat];
-    }), [5, 5, 'ft²', 4]);
+    }), [6, 5, 'ft²', 4]);
     await t.c.close();
 
     /* Заводские примечания, написанные ещё по-русски, у сохранённого браузера

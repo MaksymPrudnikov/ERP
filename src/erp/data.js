@@ -309,7 +309,9 @@ const DATA_FIXES=[
  [5,'edgeAllowance','ALW-CNCSHAPEPOLISH-LAMI-3-6',{allowance:'1/16'},['allowance','note']],
  [5,'edgeAllowance','ALW-CNCSHAPEPOLISH-LAMI-8-1000',{allowance:'1/8'},['allowance','note']]
 ];
-const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),0);
+/* Номера правок кодом (не строкой таблицы): 4 — sfSplitEdgeFix, 6 —
+   приоритет раскроя (applyDataFixes). */
+const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),6);
 function applyDataFixes(){
  const have=Number.isInteger(+DB.dataFix)&&+DB.dataFix>0?+DB.dataFix:0;
  if(have>=DATA_FIX_VERSION)return false;
@@ -326,6 +328,10 @@ function applyDataFixes(){
   });
  });
  if(have<4&&typeof sfSplitEdgeFix==='function')changed+=sfSplitEdgeFix();
+ /* Номер 6 · 4 октября 2026. Приоритет раскроя перевёрнут: 10 — самый
+    срочный (был 1). Старые значения владелец велел обнулить: «то, что в
+    старых листах, удаляй, не переживай… всегда обнуляй». */
+ if(have<6)(DB.cutPlan||[]).forEach(p=>{const set=p&&p.settings;if(set&&typeof set==='object')Object.values(set).forEach(o=>{if(o&&typeof o==='object'&&'priority' in o){delete o.priority;changed++;}});});
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;
