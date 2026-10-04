@@ -103,26 +103,29 @@ function cutShapeGeom(lite){
 /* Стёкла батча как прямоугольные заготовки. У Shape размер уже включает
    Safety border на стороне скоса; оптимизатор его повторно не прибавляет. */
 function cutPieces(batch,settings){
- const out=[],set=settings||{};
+ const out=[],set=settings||{},nos=typeof glassBatchNumbers==='function'?glassBatchNumbers(batch):new Map();
  (typeof glassBatchActiveItems==='function'?glassBatchActiveItems(batch):[]).forEach(item=>{
   const part=batch.parts[item.part],o=salesRecord(part.orderId),l=o&&(o.lines||[]).find(x=>x.id===part.lineId);
   if(!o||!l)return;
   const c=glassBatchComponents(o,l).find(x=>x.key===part.key);if(!c||c.missing)return;
   const plan=finWithOrder(o,()=>{try{return salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){return {valid:false};}});
   const lite=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return;
-  out.push(cutPieceFrom(o,l,c,lite,item.piece,item.unit,set[item.piece]||{}));
+  /* Стекло из прошлого батча режется первым: приоритет 10, пока его не
+     поменяли руками (владелец, 5 октября 2026: «дата выполнения ближе»). */
+  let own=set[item.piece]||{};if(item.from&&own.priority==null)own=Object.assign({},own,{priority:10});
+  out.push(cutPieceFrom(o,l,c,lite,item.piece,item.unit,own,nos.get(item.piece)));
  });
  return out.sort((a,b)=>a.piece.localeCompare(b.piece));
 }
 /* Строка одного стекла для укладчика. Общая у батча и прикидки из Sales
    (erp/sales/cut-estimate): у них разные только номера стёкол. */
-function cutPieceFrom(o,l,c,lite,piece,unit,own){
+function cutPieceFrom(o,l,c,lite,piece,unit,own,no){
  own=own||{};
  const g=glassProductById(c.glassId);
  const mm=+((g&&g.thicknessMm)||lite.thickness)||0;
  const shaped=!!(typeof stkShapeOf==='function'&&stkShapeOf(lite));
  const geom=shaped?cutShapeGeom(lite):null;
- const row={piece,key:c.key,unit,orderId:o.id,order:o.businessNumber||'',customer:salesCustomerDisplay(o.customerId),
+ const row={piece,no:no||0,key:c.key,unit,orderId:o.id,order:o.businessNumber||'',customer:salesCustomerDisplay(o.customerId),
   line:o.lines.indexOf(l)+1,mark:l.mark||'',lite:c.lite,glass:c.glass,mm,
   w:geom?geom.w:cutRound(+lite.cutW),h:geom?geom.h:cutRound(+lite.cutH),shape:shaped,
   off:!!own.off,priority:cutPriority(own.priority),norot:!!own.norot};
@@ -1525,7 +1528,10 @@ function cutPlanStale(number,pieces){
 }
 function cutPlanIndex(number){
  const plan=cutPlanFor(number),m=new Map();if(!plan)return m;
- plan.groups.forEach(g=>g.sheets.forEach(s=>s.pieces.forEach((p,i)=>m.set(p.piece,{sheet:s.no,pos:i+1,glass:g.glass}))));
+ /* pos — номер стекла в батче, как на схеме листа; idx — место на листе,
+    по нему идёт печать стикеров «по листу». */
+ const nos=typeof glassBatchNumbers==='function'?glassBatchNumbers(glassBatchFind(number)):new Map();
+ plan.groups.forEach(g=>g.sheets.forEach(s=>s.pieces.forEach((p,i)=>m.set(p.piece,{sheet:s.no,pos:nos.get(p.piece)||i+1,idx:i+1,glass:g.glass}))));
  return m;
 }
 

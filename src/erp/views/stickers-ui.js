@@ -113,7 +113,7 @@ function stkBatchJobs(b,pieces,order){
   if(!c)return;
   const at=sheets&&sheets.get(item.piece);
   jobs.push({type:'production',o,l,c,unit:item.unit,piece:item.piece,sheet:at?at.sheet:0,
-   sort:at?[0,at.sheet,at.pos,0]:[+String(o.businessNumber).replace(/\D/g,'')||0,o.lines.indexOf(l),typeof item.unit==='string'?1e6+(+item.unit.split('.')[1]||0):item.unit,cs.indexOf(c)]});
+   sort:at?[0,at.sheet,at.idx,0]:[+String(o.businessNumber).replace(/\D/g,'')||0,o.lines.indexOf(l),typeof item.unit==='string'?1e6+(+item.unit.split('.')[1]||0):item.unit,cs.indexOf(c)]});
  });
  /* По листу: после стёкол листа — его куски в стоке. Стикер стока не
     печатается кнопкой «в сток» — «он будет печататься, следуя листам»

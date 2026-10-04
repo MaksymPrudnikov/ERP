@@ -930,6 +930,26 @@ module.exports=async function({page,eq,ok}){
   return {screen:draw(520,{ids:true}),station:draw(700,{station:true})};
  }),{screen:{big:true,g20:true,clear20:true,tiny:false,tinyNo:true,other:false},station:{big:true,g20:true,clear20:true,tiny:false,tinyNo:true,other:false}});
 
+ /* Владелец, 5 октября 2026: «в Perfect Cut каждое стекло — это 1 и +1»; в
+    батче 330 стёкол — номера 1…330 по порядку списка, перенесённые из старого
+    батча получают новые номера и приоритет 10. */
+ eq('номер стекла в батче, как в Perfect Cut: по порядку списка; Build не меняет; перенесённые — новые номера и приоритет 10; схема, стикер и Contents с тем же номером',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',130,96);
+  ctOrder([[20,30,4],[10,20,3]]);const b=DB.glassBatch[0],ids=b.items.map(i=>i.piece),nos=x=>Object.fromEntries([...glassBatchNumbers(glassBatchFind(x||b.number))]);
+  const first=ids.map(p=>nos()[p]);cutPlanRun(b.number);
+  const plan=cutPlanFor(b.number),g=plan.groups[0],sheet=g.sheets.find(s=>s.pieces.some(p=>p.piece===ids[5]));
+  const host=document.createElement('div');host.innerHTML=cutSheetSVG(g,sheet,520,cutPiecesOf(b.number,plan.settings||{}),{ids:true});
+  const onSheet=[...host.querySelectorAll('[data-cut-piece="'+ids[5]+'"] text')].some(t=>t.textContent.trim()==='6');
+  const sticker=cutPlanIndex(b.number).get(ids[5]).pos;
+  cutPlanReset(b.number);cutPlanRun(b.number);const same=JSON.stringify(nos())===JSON.stringify(Object.fromEntries(ids.map((p,i)=>[p,i+1])));
+  cutPlanReset(b.number);const moved=glassBatchMove(b.number,[ids[5],ids[6]]),nb=DB.glassBatch[1];
+  const newNos=ids.slice(5).map(p=>nos(nb.number)[p]),pri=cutPiecesOf(nb.number,{}).map(p=>p.priority),oldAfter=ids.slice(0,5).map(p=>nos()[p]);
+  glassBatchMove(b.number,[ids[4]],{to:nb.number});const added=nos(nb.number)[ids[4]],gap=nos()[ids[4]]===undefined&&nos()[ids[3]]===4;
+  cutPlanRun(nb.number);cutPlanReset(nb.number);cutSettingMany(nb.number,[ids[5]],'priority','');const manual=cutPiecesOf(nb.number,cutPlanFor(nb.number).settings).find(p=>p.piece===ids[5]).priority;
+  glassBatchOpen(nb.number);const col=glassBatchColumns()[0].k,contents=glassBatchInfos().map(i=>i.memo.no);
+  return {first,onSheet,sticker,same,moved:!moved.error,newNos,pri,oldAfter,added,gap,manual,from:nb.items.map(i=>i.from),col,contents};
+ }),{first:[1,2,3,4,5,6,7],onSheet:true,sticker:6,same:true,moved:true,newNos:[1,2],pri:[10,10],oldAfter:[1,2,3,4,5],added:3,gap:true,manual:0,from:['B-0001','B-0001','B-0001'],col:'no',contents:[1,2,3]});
+
  eq('общий левый Trim Y: уступ 5/16″ исправляется тримом 1 5/16″ на всём листе',await t.p.evaluate(()=>{
   const size={w:144,h:96,key:'144x96'},params={trimX:0,trimY:1,borderX:0,borderY:0,minDist:.75};
   const bottom=Array.from({length:6},(_,i)=>({piece:'B'+i,x:1.3125+i*24,y:0,w:i===5?22.6875:24,h:58.75}));

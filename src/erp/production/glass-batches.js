@@ -10,6 +10,11 @@
    Остаток — места без активной записи. Позиция под замком, пока её стекло в батче. */
 DEFAULT.glassBatch=[];DEFAULT.glassPiece=[];DEFAULT.glassPieceSeq=0;DEFAULT.glassUnitId=[];DEFAULT.glassUnitIdSeq=0;
 const GLASS_WAITING_STATUSES=['verified','batched','ready','done'];
+/* Номер стекла в батче — как в Perfect Cut: по порядку списка батча, у
+   каждого батча свой счёт с 1. Место в списке не меняется: убранное или
+   перенесённое стекло остаётся записью, его номер больше никому не даётся,
+   добавленное позже получает следующий (владелец, 5 октября 2026). */
+function glassBatchNumbers(b){const m=new Map();(b&&b.items||[]).forEach((i,k)=>{if(!i.releasedAt)m.set(i.piece,k+1);});return m;}
 function glassBatchClone(v){return v==null?null:JSON.parse(JSON.stringify(v));}
 function glassPieceValid(id){return typeof id==='string'&&/^G-\d{7,}$/.test(id);}
 function glassPieceNumber(id){return glassPieceValid(id)?+id.slice(2):0;}
@@ -265,7 +270,9 @@ function glassBatchMoveCommand(number,pieceIds,opts){
    if(at<0){at=to.parts.length;to.parts.push(glassBatchClone(src));}
    parts.set(i.part,at);
   }
-  to.items.push({piece:i.piece,part:parts.get(i.part),unit:i.unit,at:now,releasedAt:'',cutStartedAt:''});
+  /* from — батч, откуда стекло пришло: оно ждёт дольше, раскрой даёт ему
+     приоритет 10 (erp/production/cut-layout, cutPieces). */
+  to.items.push({piece:i.piece,part:parts.get(i.part),unit:i.unit,at:now,releasedAt:'',cutStartedAt:'',from:number});
   i.releasedAt=now;i.movedTo=to.number;
  });
  if(!added)DB.glassBatch.push(to);
@@ -313,9 +320,13 @@ function normalizeGlassBatches(){
   if(b.cutOrder!=null&&!(Number.isSafeInteger(b.cutOrder)&&b.cutOrder>0))delete b.cutOrder;
   b.parts=b.parts.map(p=>{p=p&&typeof p==='object'?p:{};const k=String(p.key||'').split('|');return Object.assign(p,{key:String(p.key||''),orderId:k[0]||'',lineId:k[1]||'',snapshot:p.snapshot&&typeof p.snapshot==='object'?p.snapshot:{}});});
   b.items=b.items.filter(i=>i&&typeof i==='object'&&Number.isSafeInteger(i.part)&&b.parts[i.part]&&b.parts[i.part].key.split('|').length===4&&glassUnitValid(i.unit));
-  b.items.forEach(i=>{['at','releasedAt','cutStartedAt'].forEach(k=>{if(typeof i[k]!=='string')i[k]='';});if(!glassPieceValid(i.piece))i.piece='';if(i.movedTo!=null&&(!salesBatchNumber(i.movedTo)||!i.releasedAt))delete i.movedTo;});
+  b.items.forEach(i=>{['at','releasedAt','cutStartedAt'].forEach(k=>{if(typeof i[k]!=='string')i[k]='';});if(!glassPieceValid(i.piece))i.piece='';if(i.from!=null&&!salesBatchNumber(i.from))delete i.from;if(i.movedTo!=null&&(!salesBatchNumber(i.movedTo)||!i.releasedAt))delete i.movedTo;});
   b.history.forEach(h=>{if(!Array.isArray(h.pieces))h.pieces=[];});
  });
+ /* Перенесённые до 5 октября 2026 стёкла пометки from не имели — она
+    восстанавливается по movedTo старого батча. */
+ const byNo=new Map(DB.glassBatch.map(b=>[b.number,b]));
+ DB.glassBatch.forEach(b=>b.items.forEach(i=>{const to=i.movedTo&&byNo.get(i.movedTo);if(!to)return;const n=to.items.find(x=>x.piece===i.piece&&!x.from&&x.at>=i.releasedAt);if(n)n.from=b.number;}));
  let top=Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0;
  DB.glassPiece.forEach(r=>r.ids.concat(...Object.values(r.extra||{})).forEach(id=>{top=Math.max(top,glassPieceNumber(id));}));
  DB.glassBatch.forEach(b=>b.items.forEach(i=>{top=Math.max(top,glassPieceNumber(i.piece));}));
