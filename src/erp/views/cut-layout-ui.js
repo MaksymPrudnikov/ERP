@@ -634,7 +634,7 @@ function cutUiListMenu(e,pieceId){
  const rows=[],act=cutMenuAct(rows),keys=[];
  rows.push(`<div class="cut-menu-head">${esc(p.piece)} · ${esc(p.order)} / ${p.line}</div>`);
  const group=(key,label,ids)=>{keys.push(key);
-  rows.push(`<div class="cut-menu-sub">${esc(label)} · ${ids.length} glass</div><div class="cut-menu-split"><input type="number" min="0" max="10" step="1" id="cutPri-${key}" placeholder="Priority" aria-label="Priority, 10 is the most urgent" ${lock?'disabled':''} onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=pri-${key}]').click()">`);
+  rows.push(`<div class="cut-menu-sub">${esc(label)} · ${ids.length} glass</div><div class="cut-menu-split"><input type="number" min="0" max="10" step="1" id="cutPri-${key}" placeholder="1–10" aria-label="Priority, 10 is the most urgent" ${lock?'disabled':''} onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=pri-${key}]').click()">`);
   act('Set','',()=>cutUiPrioIds(ids,(document.getElementById('cutPri-'+key)||{}).value||0),`data-cut-menu="pri-${key}" ${lock?'disabled':''}`);rows.push('</div>');};
  if(picks.size>1&&picks.has(pieceId))group('sel','Selected',[...picks]);
  group('order','Order '+p.order,all.filter(x=>x.orderId===p.orderId).map(x=>x.piece));
