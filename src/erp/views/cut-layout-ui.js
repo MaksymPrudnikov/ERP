@@ -91,7 +91,7 @@ function cutUiSteps(number,it,label,done){
 }
 function cutUiBuild(number){
  if(cutEstIs(number)&&typeof cutEstBuild==='function')return cutEstBuild();
- cutInfo=null;cutWhat=null;
+ cutInfo=null;cutWhat=null;cutPicks().clear();
  return cutUiSteps(number,cutPlanSteps(number),'Building',r=>{
   cutNotice=r&&r.error||'';
   if(r&&r.plan&&cutUi.batch===number){cutUi.sheet=1;cutUi.sel='';}
@@ -390,7 +390,7 @@ function cutUiSet(pieceId,field,value){cutUiKeepSpot(()=>cutUiRun(()=>cutSetting
    экран рисуется ~1,5 с. */
 function cutUiPicksPaint(){
  const picks=cutPicks();document.querySelectorAll('[data-cut-list]').forEach(tr=>tr.classList.toggle('pick',picks.has(tr.dataset.cutList)));
- const bar=document.querySelector('[data-cut-bulk]');if(bar){bar.hidden=picks.size<2;const n=bar.querySelector('[data-cut-bulk-n]');if(n)n.textContent=picks.size+' selected';}
+ const bar=document.querySelector('[data-cut-bulk]');if(bar){bar.hidden=picks.size<2||!!(cutListCtx&&cutListCtx.lock);const n=bar.querySelector('[data-cut-bulk-n]');if(n)n.textContent=picks.size+' selected';}
 }
 function cutUiPicksClear(){const picks=cutPicks();if(!picks.size)return false;picks.clear();cutUiPicksPaint();return true;}
 /* Приоритет в строке выделения — всем выделенным; вне выделения — одному. */
@@ -946,7 +946,7 @@ function cutListHTML(ctx){
  /* Полоса выделения — в конце списка, прижата к низу окна списка: видна при
     любой прокрутке (сверху закреплены шапки групп и таблицы). */
  const n=cutPicks().size;
- const bulk=cutUiPreview()?'':`<div class="cut-bulk" data-cut-bulk ${n>1?'':'hidden'}><b data-cut-bulk-n>${n} selected</b><label>Priority <input type="text" inputmode="numeric" maxlength="2" data-cut-bulk-pri placeholder="—" ${ctx.lock?'disabled title="Reset first"':''} aria-label="Priority for selected, 10 is the most urgent" onchange="cutUiPrioIds([...cutPicks()],this.value||0)" onpaste="cutUiPrioPaste(event,'')"></label><button type="button" class="cut-bulk-x" data-cut-bulk-clear aria-label="Clear selection" title="Clear selection" onclick="cutUiPicksClear()">×</button></div>`;
+ const bulk=cutUiPreview()?'':`<div class="cut-bulk" data-cut-bulk ${n>1&&!ctx.lock?'':'hidden'}><b data-cut-bulk-n>${n} selected</b><label>Priority <input type="text" inputmode="numeric" maxlength="2" data-cut-bulk-pri placeholder="—" ${ctx.lock?'disabled title="Reset first"':''} aria-label="Priority for selected, 10 is the most urgent" onchange="cutUiPrioIds([...cutPicks()],this.value||0)" onpaste="cutUiPrioPaste(event,'')"></label><button type="button" class="cut-bulk-x" data-cut-bulk-clear aria-label="Clear selection" title="Clear selection" onclick="cutUiPicksClear()">×</button></div>`;
  return `<div class="cut-list-found" data-cut-list-found>${total>shown?`Showing ${shown} of ${total}`:`${total} glass`}</div>${body}${total>shown?'<button type="button" class="cut-list-more" data-cut-list-more onclick="cutUiShowMore()">Show 200 more</button>':''}${bulk}`;
 }
 function cutUiShowMore(){

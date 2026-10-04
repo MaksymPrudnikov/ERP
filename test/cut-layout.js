@@ -561,11 +561,11 @@ module.exports=async function({page,eq,ok}){
   /* Esc снимает выделение. */
   click(ids[0]);click(ids[2],{shiftKey:true});document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const esc=document.querySelectorAll('[data-cut-list].pick').length;
   /* Собранный раскрой: поля и меню закрыты, команда отказывает. */
-  cutPlanRun(bn);render();const row2=document.querySelector('[data-cut-list]'),r2=row2.getBoundingClientRect();
+  click(ids[0]);click(ids[2],{shiftKey:true});cutPlanRun(bn);render();const row2=document.querySelector('[data-cut-list]'),r2=row2.getBoundingClientRect();
   row2.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r2.x+10,clientY:r2.y+5}));
-  const locked={field:document.querySelector('[data-cut-priority]').disabled,menu:!!document.querySelector('#cutMenu [data-cut-menu-locked]')&&document.getElementById('cutPri-order').disabled,cmd:!!cutSettingMany(bn,[ids[0]],'priority',3).error};cutUiMenuClose();
+  const locked={bar:document.querySelector('[data-cut-bulk]').hidden,field:document.querySelector('[data-cut-priority]').disabled,menu:!!document.querySelector('#cutMenu [data-cut-menu-locked]')&&document.getElementById('cutPri-order').disabled,cmd:!!cutSettingMany(bn,[ids[0]],'priority',3).error};cutUiMenuClose();
   return {rank,sorted,range,four,one,escInput,escMenu,pasted:[pasted[ids[5]],pasted[ids[6]],pasted[ids[0]]],menu,focus,alpha:alpha.length,cust:alpha.every(id=>cust[id]===5)&&Object.keys(cust).filter(id=>!alpha.includes(id)).every(id=>cust[id]!==5),esc,locked};
- }),{rank:[1,10,11],sorted:'y,x,z',range:{n:4,bar:true},four:true,one:1,escInput:{inPri:true,left:0,bar:true},escMenu:true,pasted:[7,7,10],menu:['pri-order','pri-customer'],focus:'cutPri-order',alpha:4,cust:true,esc:0,locked:{field:true,menu:true,cmd:true}});
+ }),{rank:[1,10,11],sorted:'y,x,z',range:{n:4,bar:true},four:true,one:1,escInput:{inPri:true,left:0,bar:true},escMenu:true,pasted:[7,7,10],menu:['pri-order','pri-customer'],focus:'cutPri-order',alpha:4,cust:true,esc:0,locked:{bar:true,field:true,menu:true,cmd:true}});
 
  eq('правка данных 6: старые приоритеты раскроя обнуляются (было «1 — самый срочный»), уже исправленная база не трогается',await t.p.evaluate(()=>{
   const keep={plan:DB.cutPlan,fix:DB.dataFix};
