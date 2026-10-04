@@ -197,6 +197,13 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 /* Печать схем для стола резки. */
 #cutPrintHost{display:none}
 /* @page cutsheet (книжный или альбомный Letter) ставит cutPrintLayouts. */
+/* Выделение строк списка и полоса «N selected» — приоритет разом. */
+.cut-list tr.pick td{background:var(--accent-soft)}
+.cut-bulk{display:flex;align-items:center;gap:10px;margin:4px 0 6px;padding:6px 8px;border:1px solid var(--accent-line);border-radius:8px;background:var(--accent-soft);font-size:12px}
+.cut-bulk[hidden]{display:none}
+.cut-bulk label{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12px;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--text)}
+.cut-bulk input{width:56px;padding:3px 6px}
+.cut-bulk-x{margin-left:auto;border:0;background:transparent;box-shadow:none;min-width:0;padding:2px 6px;font-size:15px;color:var(--text-2)}
 @media print{
  html:has(body.cut-printing),body.cut-printing{background:var(--surface)!important}
  body.cut-printing>*{display:none!important}

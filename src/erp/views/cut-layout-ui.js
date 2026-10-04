@@ -224,8 +224,24 @@ function cutNeedSizes(b,plan,pieces){
 }
 /* Прикидка из Sales — только просмотр: стекло не выбирается и не двигается. */
 function cutUiPreview(){return cutEstIs(cutUi.batch);}
-function cutUiPick(pieceId){
+/* Выделение строк списка, как в Perfect Cut (владелец, 4 октября 2026):
+   Shift+клик — диапазон в показанном порядке (сортировка по Customer /
+   Order ставит строки заказчика подряд), Cmd/Ctrl+клик — строка в выделение
+   или из него. Выделенным приоритет ставится разом. Простой клик — одно
+   стекло, как раньше. */
+function cutPicks(){return cutUi.picks||(cutUi.picks=new Set());}
+function cutListOrder(){const c=cutListCtx;return c?[c.waiting,c.onSheet,c.off].flatMap(l=>c.sort(l)).map(p=>p.piece):[];}
+function cutUiPick(pieceId,e){
  if(cutUiPreview())return;
+ const picks=cutPicks();
+ if(e&&(e.shiftKey||e.metaKey||e.ctrlKey)){
+  const list=cutListOrder(),a=list.indexOf(cutUi.anchor||cutUi.sel),b=list.indexOf(pieceId);
+  if(!picks.size&&cutUi.sel)picks.add(cutUi.sel);
+  if(e.shiftKey&&a>=0&&b>=0){if(!(e.metaKey||e.ctrlKey))picks.clear();list.slice(Math.min(a,b),Math.max(a,b)+1).forEach(id=>picks.add(id));}
+  else{if(picks.has(pieceId))picks.delete(pieceId);else picks.add(pieceId);cutUi.anchor=pieceId;}
+  cutUiPicksPaint();return;
+ }
+ picks.clear();cutUi.anchor=pieceId;
  const side=document.querySelector('.cut-side-scroll'),scroll=side&&side.scrollTop;
  cutUi.sel=cutUi.sel===pieceId?'':pieceId;
  const at=cutUi.sel&&cutFind(cutPlanFor(cutUi.batch)||{groups:[]},cutUi.sel);
@@ -370,6 +386,23 @@ function cutUiKeepSpot(fn){
   if(q){q.focus();if(q.select)q.select();}}
 }
 function cutUiSet(pieceId,field,value){cutUiKeepSpot(()=>cutUiRun(()=>cutSetting(cutUi.batch,pieceId,field,value)));}
+/* Выделение перекрашивается без перерисовки экрана: в батче на 240 листов
+   экран рисуется ~1,5 с. */
+function cutUiPicksPaint(){
+ const picks=cutPicks();document.querySelectorAll('[data-cut-list]').forEach(tr=>tr.classList.toggle('pick',picks.has(tr.dataset.cutList)));
+ const bar=document.querySelector('[data-cut-bulk]');if(bar){bar.hidden=picks.size<2;const n=bar.querySelector('[data-cut-bulk-n]');if(n)n.textContent=picks.size+' selected';}
+}
+function cutUiPicksClear(){const picks=cutPicks();if(!picks.size)return false;picks.clear();cutUiPicksPaint();return true;}
+/* Приоритет в строке выделения — всем выделенным; вне выделения — одному. */
+function cutUiPrioIds(ids,value){if(ids.length)cutUiKeepSpot(()=>cutUiRun(()=>cutSettingMany(cutUi.batch,ids,'priority',value)));}
+function cutUiPrio(pieceId,value){const picks=cutPicks();cutUiPrioIds(picks.size>1&&picks.has(pieceId)?[...picks]:[pieceId],value);}
+/* Ctrl+V в Pri — сразу, как в Perfect Cut: ввёл 10, Ctrl+C, выделил, Ctrl+V.
+   Без pieceId — полоса «N selected». */
+function cutUiPrioPaste(e,pieceId){
+ const raw=String((e.clipboardData||window.clipboardData).getData('text')||'').trim();
+ if(raw!==''&&!/^\d{1,2}$/.test(raw))return;
+ e.preventDefault();if(pieceId)cutUiPrio(pieceId,raw);else cutUiPrioIds([...cutPicks()],raw);
+}
 /* Сортировка списка стёкол: по клику на заголовок, второй клик — наоборот.
    «Нельзя отфильтровать или отсортировать столбики» (владелец, 21 сентября). */
 function cutUiSort(by){
@@ -591,11 +624,33 @@ function cutUiMenu(e,glass,no){
  }
  cutUiMenuShow(rows,e.clientX,e.clientY);
 }
+/* Правая кнопка по строке списка: приоритет заказу, заказчику или
+   выделенным — число и Enter. Собранный раскрой закрыт: Reset → приоритет →
+   Build (владелец, 4 октября 2026). */
+function cutUiListMenu(e,pieceId){
+ e.preventDefault();cutUiMenuClose();if(cutUiPreview()||!cutListCtx)return;
+ const all=[cutListCtx.waiting,cutListCtx.onSheet,cutListCtx.off].flat(),p=all.find(x=>x.piece===pieceId);if(!p)return;
+ const lock=cutListCtx.lock,picks=cutPicks(),cust=x=>(salesRecord(x.orderId)||{}).customerId||x.customer;
+ const rows=[],act=cutMenuAct(rows),keys=[];
+ rows.push(`<div class="cut-menu-head">${esc(p.piece)} · ${esc(p.order)} / ${p.line}</div>`);
+ const group=(key,label,ids)=>{keys.push(key);
+  rows.push(`<div class="cut-menu-sub">${esc(label)} · ${ids.length} glass</div><div class="cut-menu-split"><input type="number" min="0" max="10" step="1" id="cutPri-${key}" placeholder="Priority" aria-label="Priority, 10 is the most urgent" ${lock?'disabled':''} onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=pri-${key}]').click()">`);
+  act('Set','',()=>cutUiPrioIds(ids,(document.getElementById('cutPri-'+key)||{}).value||0),`data-cut-menu="pri-${key}" ${lock?'disabled':''}`);rows.push('</div>');};
+ if(picks.size>1&&picks.has(pieceId))group('sel','Selected',[...picks]);
+ group('order','Order '+p.order,all.filter(x=>x.orderId===p.orderId).map(x=>x.piece));
+ group('customer',p.customer||'Customer',all.filter(x=>cust(x)===cust(p)).map(x=>x.piece));
+ if(lock)rows.push('<div class="cut-menu-sub" data-cut-menu-locked>Reset first</div>');
+ cutUiMenuShow(rows,e.clientX,e.clientY);
+ const first=!lock&&document.getElementById('cutPri-'+keys[0]);if(first)first.focus();
+}
 /* Клавиши — пока открыт раскрой и курсор не в поле ввода. */
 function cutUiKey(e){
- if(cutBusy||cutUiPreview()||!document.querySelector('[data-cut-sheet]'))return;
+ if(cutBusy||cutUiPreview())return;
  const t=e.target,tag=t&&t.tagName||'';
  if(/^(INPUT|SELECT|TEXTAREA)$/.test(tag)||t&&t.isContentEditable)return;
+ /* Выделение строк живёт и до Build, когда листа на экране ещё нет. */
+ if(e.key==='Escape'&&!document.getElementById('cutMenu')&&document.querySelector('[data-cut-list]')&&cutUiPicksClear())return;
+ if(!document.querySelector('[data-cut-sheet]'))return;
  if(e.key==='Escape'){if(cutUiMenuClose())return;if(cutUi.sel){cutUi.sel='';render();return;}if(cutFull)cutUiFull(false);return;}
  if(!cutUi.sel||e.metaKey||e.ctrlKey||e.altKey)return;
  const k=String(e.key||'').toLowerCase();
@@ -854,12 +909,12 @@ function cutSumSheet(group,sheet){
   <div class="cut-tiles cut-tiles-sheet" data-cut-current>${cutTile('Used %',cutNum(cutPct(sheet.used,area),1)+'%','use',1)}${cutTile('Used',cutNum(sheet.used,1)+' ft²','use')}${cutTile('Scrap',cutNum(sheet.gross,1)+' ft²','waste')}${cutTile('Net',cutNum(sheet.net,1)+' ft²','waste')}</div>`;
 }
 function cutPieceRow(p,at,sel,lock){
- const place=at?at.sheet.no+' · '+(at.index+1):'—',view=cutUiPreview();
- return `<tr data-cut-list="${esc(p.piece)}" class="${sel?'on':''}${p.off?' off':''}"${view?'':` draggable="true" ondragstart="cutUiDragStart(event,'${esc(p.piece)}')" onclick="cutUiPick('${esc(p.piece)}')"`} onmouseenter="cutUiHover('${esc(p.piece)}')" onmouseleave="cutUiHover('')">
+ const place=at?at.sheet.no+' · '+(at.index+1):'—',view=cutUiPreview(),pick=cutPicks().has(p.piece);
+ return `<tr data-cut-list="${esc(p.piece)}" class="${sel?'on':''}${pick?' pick':''}${p.off?' off':''}"${view?'':` draggable="true" ondragstart="cutUiDragStart(event,'${esc(p.piece)}')" onmousedown="if(event.shiftKey)event.preventDefault()" onclick="cutUiPick('${esc(p.piece)}',event)" oncontextmenu="cutUiListMenu(event,'${esc(p.piece)}')"`} onmouseenter="cutUiHover('${esc(p.piece)}')" onmouseleave="cutUiHover('')">
   <td><input type="checkbox" data-cut-on ${p.off?'':'checked'} ${lock?'disabled':''} aria-label="Cut ${esc(p.piece)}" onclick="event.stopPropagation()" onchange="cutUiSet('${esc(p.piece)}','off',!this.checked)"></td>
   <td class="gb-piece">${esc(p.piece)}</td><td class="nowrap">${esc(frac16(p.w))} × ${esc(frac16(p.h))}″${p.shape?' <span class="pill">shape</span>':''}</td>
   <td>${view?`${esc(p.order)} / ${p.line}`:`<button type="button" class="gb-link" data-cut-open="${esc(p.orderId)}" title="Open the order and its shape" onclick="event.stopPropagation();optimizationOpenOrder('${esc(p.orderId)}')">${esc(p.order)} / ${p.line}</button>`}${p.mark?' · '+esc(p.mark):''}</td><td>${esc(p.customer)}</td>
-  <td class="n"><input type="number" min="0" max="10" step="1" data-cut-priority value="${p.priority||''}" placeholder="—" ${lock?'disabled':''} aria-label="Priority, 1 is the most urgent" onclick="event.stopPropagation()" onchange="cutUiSet('${esc(p.piece)}','priority',this.value||0)"></td>
+  <td class="n"><input type="number" min="0" max="10" step="1" data-cut-priority value="${p.priority||''}" placeholder="—" ${lock?'disabled title="Reset first"':''} aria-label="Priority, 10 is the most urgent" onclick="event.stopPropagation()" onchange="cutUiPrio('${esc(p.piece)}',this.value||0)" onpaste="cutUiPrioPaste(event,'${esc(p.piece)}')"></td>
   <td class="n">${place}</td></tr>`;
 }
 let cutListCtx=null;
@@ -878,7 +933,9 @@ function cutListHTML(ctx){
   shown+=rows.length;
   return `<div class="cut-list-head"${label==='Not on a sheet'?' data-cut-waiting':''}${label==='Not cutting'?' data-cut-off':''}>${label} · ${list.length}</div>${rows.length?ctx.table(rows.map(p=>cutPieceRow(p,ctx.at.get(p.piece)||null,ctx.sel===p.piece,ctx.lock)).join('')):''}`;
  }).join('');
- return `<div class="cut-list-found" data-cut-list-found>${total>shown?`Showing ${shown} of ${total}`:`${total} glass`}</div>${body}${total>shown?'<button type="button" class="cut-list-more" data-cut-list-more onclick="cutUiShowMore()">Show 200 more</button>':''}`;
+ const n=cutPicks().size;
+ const bulk=cutUiPreview()?'':`<div class="cut-bulk" data-cut-bulk ${n>1?'':'hidden'}><b data-cut-bulk-n>${n} selected</b><label>Priority <input type="number" min="0" max="10" step="1" data-cut-bulk-pri placeholder="—" ${ctx.lock?'disabled title="Reset first"':''} aria-label="Priority for selected, 10 is the most urgent" onchange="cutUiPrioIds([...cutPicks()],this.value||0)" onpaste="cutUiPrioPaste(event,'')"></label><button type="button" class="cut-bulk-x" data-cut-bulk-clear aria-label="Clear selection" title="Clear selection" onclick="cutUiPicksClear()">×</button></div>`;
+ return `<div class="cut-list-found" data-cut-list-found>${total>shown?`Showing ${shown} of ${total}`:`${total} glass`}</div>${bulk}${body}${total>shown?'<button type="button" class="cut-list-more" data-cut-list-more onclick="cutUiShowMore()">Show 200 more</button>':''}`;
 }
 function cutUiShowMore(){
  const side=document.querySelector('.cut-side-scroll'),top=side&&side.scrollTop;
