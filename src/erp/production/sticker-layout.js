@@ -135,15 +135,30 @@ function stkRenderBlock(b,d,x,y,w,col,out){
   case 'area':{if(d.area==null)return 0;line(d.area.toFixed(2)+' ft²',y+sz*.9,sz,bold);return sz*1.2;}
   case 'weight':{if(!d.weight)return 0;line(stkFmtKg(d.weight),y+sz*.9,sz,bold);return sz*1.2;}
   case 'shape':{
-   if(!d.shape)return 0;const side=Math.min(w,sz),bx=ax(side),pts=d.shape.points,xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
-   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),pad=det.letters?9:2,inner=side-2*pad,k=Math.min(inner/((maxX-minX)||1),inner/((maxY-minY)||1));
-   const ox=bx+pad+(inner-(maxX-minX)*k)/2,oy=y+pad+(inner-(maxY-minY)*k)/2,px=v=>ox+(v-minX)*k,py=v=>oy+(maxY-v)*k,path=list=>'M'+list.map(p=>px(p[0]).toFixed(2)+' '+py(p[1]).toFixed(2)).join('L')+'Z';
+   /* Контур с длинами сторон снаружи. Поля под подписи считаются по их
+      ширине, контур ужимается — всё вместе в квадрате size × size и не шире
+      колонки. */
+   if(!d.shape)return 0;const pts=d.shape.points,xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),spanX=(maxX-minX)||1,spanY=(maxY-minY)||1;
+   const ls=Math.max(6,Math.min(9,Math.round(sz*.11*2)/2)),gap=2,area=pts.reduce((a,p,i)=>{const q=pts[(i+1)%pts.length];return a+p[0]*q[1]-q[0]*p[1];},0),turn=area>=0?1:-1;
+   const labels=(det.dims?d.shape.sides||[]:[]).map(sd=>{
+    const dx=sd.b[0]-sd.a[0],dy=sd.b[1]-sd.a[1],n=Math.hypot(dx,dy)||1,nx=turn*dy/n,ny=-turn*dx/n,t=frac16(sd.len);
+    return {t,tw:docTextWidth(t,ls,true),mx:(sd.a[0]+sd.b[0])/2,my:(sd.a[1]+sd.b[1])/2,sx:nx,sy:-ny};
+   });
+   const L=Math.max(0,...labels.filter(q=>q.sx<-.35).map(q=>q.tw+gap)),Rm=Math.max(0,...labels.filter(q=>q.sx>.35).map(q=>q.tw+gap));
+   const T=labels.some(q=>q.sy<-.35)?ls+gap:0,Bm=labels.some(q=>q.sy>.35)?ls+gap:0,pad=labels.length?0:2;
+   const k=Math.max(.01,Math.min((sz-T-Bm-2*pad)/spanY,(Math.min(w,sz)-L-Rm-2*pad)/spanX));
+   const bw=spanX*k+L+Rm+2*pad,bh=spanY*k+T+Bm+2*pad,bx=ax(bw),ox=bx+pad+L,oy=y+pad+T,px=v=>ox+(v-minX)*k,py=v=>oy+(maxY-v)*k,path=list=>'M'+list.map(p=>px(p[0]).toFixed(2)+' '+py(p[1]).toFixed(2)).join('L')+'Z';
    out.push({t:'path',d:path(pts)});
    (d.shape.polys||[]).forEach(pg=>out.push({t:'path',d:path(pg)}));
    (d.shape.holes||[]).forEach(h=>out.push({t:'circle',cx:px(h.x),cy:py(h.y),r:Math.max(1.2,h.d*k/2)}));
-   if(det.letters){const ls=7,cx=bx+side/2,cy=y+side/2;[['A',bx+1,cy+2.5,''],['B',cx,y+side-1,'center'],['C',bx+side-1,cy+2.5,'right'],['D',cx,y+ls,'center']].forEach(a=>out.push({t:'text',s:a[0],x:a[1],y:a[2],size:ls,bold:true,color:K,align:a[3]}));}
-   if(det.label){out.push({t:'text',s:'SHAPE',x:bx+side/2,y:y+side+8,size:7,bold:true,color:K,align:'center'});return side+10;}
-   return side+2;}
+   labels.forEach(q=>{
+    const cx=px(q.mx)+q.sx*gap,cy=py(q.my)+q.sy*gap,align=q.sx>.35?'':q.sx<-.35?'right':'center';
+    const by=q.sy>.35?cy+ls*.8:q.sy<-.35?cy-ls*.15:cy+ls*.35,lx=align==='right'?Math.max(x+q.tw,cx):align==='center'?Math.min(R-q.tw/2,Math.max(x+q.tw/2,cx)):Math.min(R-q.tw,cx);
+    out.push({t:'text',s:q.t,x:lx,y:by,size:ls,bold:true,color:K,align});
+   });
+   if(det.label){out.push({t:'text',s:'SHAPE',x:bx+bw/2,y:y+bh+8,size:7,bold:true,color:K,align:'center'});return bh+10;}
+   return bh+2;}
   case 'route':{
    if(!d.route)return 0;const codes=det.shipping?d.route.codes:d.route.codes.filter(c=>!(d.route.shipping||[]).includes(c)),t=codes.join(' > ');let fs=Math.max(6,sz*.56);
    while(fs>6&&docTextWidth(t,fs,true)>w-10)fs-=.5;rect(x,y,w,sz);out.push({t:'text',s:t,x:x+w/2,y:y+sz/2+fs*.36,size:fs,bold:true,color:Wt,align:'center'});return sz+1;}

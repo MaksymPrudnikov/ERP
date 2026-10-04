@@ -141,6 +141,33 @@ module.exports=async function({page,eq,ok}){
   return {size:d.finished,cut:d.cut,svc,withCut,off,shapes,rectShape:rect.shape,rectCut:rect.cut,points:d.shape.points.length};
  }),{size:{w:30,h:40},cut:null,svc:['ROUGH ARRIS'],withCut:['CUT 37 1/8 × 71 1/8″'],off:[],shapes:[true,true,true,true],rectShape:null,rectCut:null,points:4});
 
+ /* Владелец, 4 октября 2026: букв A B C D на чертеже нет — на стикере они
+    «не несут смысла»; у контура — длины сторон. */
+ eq('контур формы на стикере: длины прямых сторон вместо A B C D; у прямоугольника с отверстием — низ и левая; старый шаблон с буквами читается',await t.p.evaluate(()=>{
+  oqReset();const id=stOrder();salesOrderEdit(id);
+  const l=soDraft.lines[1],s=newShapeDef('raked');s.w='30';s.h='40';Object.assign(s.params,{shortHeight:'28',rakeSide:'top',shortSide:'right'});s.ownerLineId=l.id;DB.shapeDef.push(s);l.shapeRef=salesShapeRefFrom(s);
+  const r=soDraft.lines[0],h=newShapeDef('rectangle');h.w='24';h.h='36';h.features.push(shapeNormalizeFeature({type:'hole',diameter:'1',x:'6',y:'6',minEdge:'1/2'}));h.ownerLineId=r.id;DB.shapeDef.push(h);r.shapeRef=salesShapeRefFrom(h);
+  salesOrderSave();soDraft=null;soEdit=null;
+  const o=salesRecord(id),data=li=>stkGlassData('production',o,o.lines[li],glassBatchComponents(o,o.lines[li])[0],1,{});
+  const tpl=stkBase('production','4x6'),shapeId=tpl.blocks.find(b=>b.k==='shape').id;
+  const labels=(t,d)=>{const pg=stkLayout(t,'4x6',d),box=pg.boxes.find(b=>b.id===shapeId);return pg.items.filter(i=>i.t==='text'&&i.y>=box.y&&i.y<=box.y+box.h&&i.x>=box.x-1&&i.x<=box.x+box.w+1&&i.s!=='SHAPE').map(i=>i.s).sort();};
+  const old=stkCleanTemplate('production','4x6',Object.assign({},tpl,{blocks:tpl.blocks.map(b=>b.k==='shape'?Object.assign({},b,{details:{letters:true,label:true}}):b)}));
+  const off=JSON.parse(JSON.stringify(tpl));off.blocks.find(b=>b.k==='shape').details.dims=false;
+  return {raked:labels(tpl,data(1)),rect:labels(tpl,data(0)),oldDims:old.blocks.find(b=>b.k==='shape').details,off:labels(off,data(1))};
+ }),{raked:['28','30','32 5/16','40'],rect:['24','36'],oldDims:{dims:true,label:true},off:[]});
+
+ /* Владелец, 4 октября 2026: «сменил портретную на лендскейп — стикер вылез
+    из блока». Превью ужимается в колонку, блоки встают по раскладке лёжа. */
+ eq('Customize → Landscape: блоки по раскладке лёжа, всё влезает, своё сохраняется; превью не шире колонки',await t.p.evaluate(()=>{
+  oqReset();DB.stickerTemplate={};const id=stOrder();stList([]);stkOpenForOrder(id);stkDialogSize('4x6');stkPrintCustomize();
+  const tpl=()=>stkDraft().tpl,mark=tpl().blocks.find(b=>b.k==='mark');mark.on=false;tpl().blocks.find(b=>b.k==='text').text='FRAGILE';
+  document.querySelector('[data-stk-seg="landscape"]').click();
+  const t=JSON.parse(JSON.stringify(tpl())),paper=document.querySelector('[data-stk-paper]').getBoundingClientRect(),col=document.querySelector('.stk-preview').getBoundingClientRect();
+  const fits=document.querySelector('[data-stk-fit]').dataset.stkFit,barcode=t.blocks.find(b=>b.k==='barcode').at;
+  document.querySelector('[data-stk-seg="portrait"]').click();const back=tpl().orient;stkPrintEditCancel();stkDialogClose();
+  return {orient:t.orient,fits,barcode,markOff:!t.blocks.find(b=>b.k==='mark').on,text:t.blocks.find(b=>b.k==='text').text,inside:paper.left>=col.left-1&&paper.right<=col.right+1,back};
+ }),{orient:'landscape',fits:'yes',barcode:'right',markOff:true,text:'FRAGILE',inside:true,back:'portrait'});
+
  eq('свои поля: {Customer: Name}, {Order: Customer po}, {Line: Mark} в Custom text; + Field… добавляет блок; пустое поле не печатается',await t.p.evaluate(()=>{
   oqReset();stkBuilder=null;DB.stickerTemplate={};const id=stOrder(),o=salesRecord(id),d=stkGlassData('production',o,o.lines[0],glassBatchComponents(o,o.lines[0])[0],1,{});
   const filled=stkFill('{Customer: Name} · PO {Order: Customer po} · {Line: Mark} · {Nope}',d);

@@ -316,7 +316,23 @@ function stkFindBlock(id){return stkDraft().tpl.blocks.find(b=>b.id===id);}
 function stkBSet(k,v){const s=stkBuilderState();if(k==='type'&&s.type!==v){s.sample='';s.sel='';s.open='';}s[k]=v;s.notice='';stkBuilderState();render();}
 function stkBType(v){stkBSet('type',v);}
 function stkBSizeKey(v){stkBSet('size',v);}
-function stkBOrient(v){stkEditTpl(t=>{t.orient=v==='landscape'?'landscape':'portrait';});}
+/* Смена ориентации раскладывает блоки по базе этой ориентации: лёжа — две
+   колонки и кегли под 4″ высоты. Вертикальная раскладка в лежачий стикер не
+   влезала (владелец, 4 октября 2026: «сменил портретную на лендскейп, и
+   стикер вылез»). Своё переносится: какие блоки печатать, жирный, детали,
+   свой текст; лишние свои тексты — в конец. Разделители — часть раскладки,
+   у новой ориентации свои. */
+function stkBOrient(v){
+ const s=stkBuilderState(),orient=v==='landscape'?'landscape':'portrait';
+ stkEditTpl(t=>{
+  if(t.orient===orient)return;
+  const base=stkBase(s.type,s.size,orient).blocks,used=new Set();
+  base.forEach(b=>{const m=t.blocks.find(x=>x.k===b.k&&!used.has(x));if(!m)return;used.add(m);
+   Object.assign(b,{id:m.id,on:m.on,bold:m.bold,details:Object.assign({},b.details,m.details)},b.k==='text'?{text:m.text}:{});});
+  const rest=t.blocks.filter(x=>!used.has(x)&&x.k!=='divider'),low=x=>x.at==='bottom';
+  t.orient=orient;t.blocks=base.filter(x=>!low(x)).concat(rest.filter(x=>!low(x)).map(x=>Object.assign(x,{at:'full'})),base.filter(low),rest.filter(low));
+ });
+}
 function stkBToggle(id,on){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.on=!!on;});}
 function stkBPlace(id,at){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(!b||!STK_PLACES.some(p=>p.k===at))return;b.at=at;t.blocks=t.blocks.filter(x=>x.at!=='bottom').concat(t.blocks.filter(x=>x.at==='bottom'));});}
 function stkSizeStep(def){return def.k==='divider'?0.5:def.k==='shape'?5:def.k==='barcode'?2:1;}
@@ -428,7 +444,9 @@ function stkEditorHTML(){
  };
  const zone=(name,list,z)=>`<div class="stk-zone" data-stk-zone="${z}" ondragover="event.preventDefault()" ondrop="stkDropZone(event,'${z}')"><div class="stk-zone-head">${name}</div>${list.map(row).join('')||'<div class="stk-zone-empty">Drop here</div>'}</div>`;
  const W=pg.w*STK_PX,H=pg.h*STK_PX;
- const hits=pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);return `<div class="stk-hit${s.sel===x.id?' sel':''}" data-stk-hit="${x.id}" draggable="true" title="${esc(b?stkBlockLabel(b):'')}" style="left:${(x.x*STK_PX).toFixed(1)}px;top:${(x.y*STK_PX).toFixed(1)}px;width:${(x.w*STK_PX).toFixed(1)}px;height:${Math.max(6,x.h*STK_PX).toFixed(1)}px" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"></div>`;}).join('');
+  /* Бумага ужимается в колонку превью (лёжа 6″ шире её) — зоны блоков в %. */
+ const pc=(v,of)=>(v/of*100).toFixed(2)+'%';
+ const hits=pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);return `<div class="stk-hit${s.sel===x.id?' sel':''}" data-stk-hit="${x.id}" draggable="true" title="${esc(b?stkBlockLabel(b):'')}" style="left:${pc(x.x,pg.w)};top:${pc(x.y,pg.h)};width:${pc(x.w,pg.w)};height:${pc(Math.max(6/STK_PX,x.h),pg.h)}" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"></div>`;}).join('');
  const fit=pg.overflow.length?`<span class="pill warn" data-stk-fit="no">Doesn't fit: ${esc(pg.overflow.join(', '))}</span>`:'<span class="pill ok" data-stk-fit="yes">Fits</span>';
  const samples=list.length?`<select data-stk-sample aria-label="Sample" onchange="stkBuilderState().sample=this.value;render()">${list.map(x=>`<option value="${esc(x.key)}" ${x.key===key?'selected':''}>${esc(x.label)}</option>`).join('')}</select>`:'<span class="mut">Demo glass</span>';
  return `<div class="stk-builder" data-stk-builder>
@@ -441,7 +459,7 @@ function stkEditorHTML(){
   <div class="stk-grid">
    <div class="stk-side">${zone('TOP',usable.filter(b=>b.at!=='bottom'),'top')}${zone('BOTTOM',usable.filter(b=>b.at==='bottom'),'bottom')}
     <div class="stk-add"><button type="button" data-stk-add="text" onclick="stkBAdd('text')">+ Custom text</button>${fieldSelect('data-stk-add-field','stkBAddField(this.value)')}<button type="button" data-stk-add="divider" onclick="stkBAdd('divider')">+ Divider</button></div></div>
-   <div class="stk-preview"><div class="stk-paper" data-stk-paper style="width:${W.toFixed(0)}px;height:${H.toFixed(0)}px">${stkPageSVG(pg,W.toFixed(0),H.toFixed(0))}${hits}</div><div class="stk-fit">${fit}</div></div>
+   <div class="stk-preview"><div class="stk-paper" data-stk-paper style="width:${W.toFixed(0)}px;max-width:100%;aspect-ratio:${W.toFixed(0)}/${H.toFixed(0)}">${stkPageSVG(pg,'100%','100%')}${hits}</div><div class="stk-fit">${fit}</div></div>
   </div>
   ${s.print?`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to template</button><span class="sp"></span><button type="button" onclick="stkPrintEditCancel()">Cancel</button><button type="button" data-stk-save-template onclick="stkPrintEditSave()">Save as template</button><button type="button" class="pri" data-stk-done onclick="stkPrintEditDone()">Done</button></div>`
   :`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to base</button><span class="sp"></span>${dr.dirty?'<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>':s.notice?`<span class="stk-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-stk-save ${dr.dirty?'':'disabled'} onclick="stkBSave()">Save template</button></div>`}
