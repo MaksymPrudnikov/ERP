@@ -323,9 +323,8 @@ function stkBSizeKey(v){stkBSet('size',v);}
    свой текст; лишние свои тексты — в конец. Разделители — часть раскладки,
    у новой ориентации свои. */
 function stkBOrient(v){
- const s=stkBuilderState(),orient=v==='landscape'?'landscape':'portrait';
+ const s=stkBuilderState(),orient=v==='landscape'?'landscape':'portrait';if(stkDraft().tpl.orient===orient)return;
  stkEditTpl(t=>{
-  if(t.orient===orient)return;
   const base=stkBase(s.type,s.size,orient).blocks,used=new Set();
   base.forEach(b=>{const m=t.blocks.find(x=>x.k===b.k&&!used.has(x));if(!m)return;used.add(m);
    Object.assign(b,{id:m.id,on:m.on,bold:m.bold,details:Object.assign({},b.details,m.details)},b.k==='text'?{text:m.text}:{});});
@@ -444,7 +443,7 @@ function stkEditorHTML(){
  };
  const zone=(name,list,z)=>`<div class="stk-zone" data-stk-zone="${z}" ondragover="event.preventDefault()" ondrop="stkDropZone(event,'${z}')"><div class="stk-zone-head">${name}</div>${list.map(row).join('')||'<div class="stk-zone-empty">Drop here</div>'}</div>`;
  const W=pg.w*STK_PX,H=pg.h*STK_PX;
-  /* Бумага ужимается в колонку превью (лёжа 6″ шире её) — зоны блоков в %. */
+ /* Бумага ужимается в колонку превью (лёжа 6″ шире её) — зоны блоков в %. */
  const pc=(v,of)=>(v/of*100).toFixed(2)+'%';
  const hits=pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);return `<div class="stk-hit${s.sel===x.id?' sel':''}" data-stk-hit="${x.id}" draggable="true" title="${esc(b?stkBlockLabel(b):'')}" style="left:${pc(x.x,pg.w)};top:${pc(x.y,pg.h)};width:${pc(x.w,pg.w)};height:${pc(Math.max(6/STK_PX,x.h),pg.h)}" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"></div>`;}).join('');
  const fit=pg.overflow.length?`<span class="pill warn" data-stk-fit="no">Doesn't fit: ${esc(pg.overflow.join(', '))}</span>`:'<span class="pill ok" data-stk-fit="yes">Fits</span>';

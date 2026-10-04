@@ -135,28 +135,43 @@ function stkRenderBlock(b,d,x,y,w,col,out){
   case 'area':{if(d.area==null)return 0;line(d.area.toFixed(2)+' ft²',y+sz*.9,sz,bold);return sz*1.2;}
   case 'weight':{if(!d.weight)return 0;line(stkFmtKg(d.weight),y+sz*.9,sz,bold);return sz*1.2;}
   case 'shape':{
-   /* Контур с длинами сторон снаружи. Поля под подписи считаются по их
-      ширине, контур ужимается — всё вместе в квадрате size × size и не шире
-      колонки. */
+   /* Контур с длинами сторон снаружи (владелец, 4 октября 2026: букв A–D
+      на чертеже нет, «заменить размерами»). Подпись отодвигается от своей
+      стороны ровно настолько, чтобы её не касаться; контур — самый крупный,
+      при котором всё влезает в квадрат size × size и в колонку. Подпись,
+      что налезла бы на другую или на контур (вырез, короткие стороны), не
+      печатается — короткие стороны уступают длинным; если из-за подписей
+      контур мельче половины блока, короткие подписи снимаются. */
    if(!d.shape)return 0;const pts=d.shape.points,xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
    const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),spanX=(maxX-minX)||1,spanY=(maxY-minY)||1;
-   const ls=Math.max(6,Math.min(9,Math.round(sz*.11*2)/2)),gap=2,area=pts.reduce((a,p,i)=>{const q=pts[(i+1)%pts.length];return a+p[0]*q[1]-q[0]*p[1];},0),turn=area>=0?1:-1;
-   const labels=(det.dims?d.shape.sides||[]:[]).map(sd=>{
-    const dx=sd.b[0]-sd.a[0],dy=sd.b[1]-sd.a[1],n=Math.hypot(dx,dy)||1,nx=turn*dy/n,ny=-turn*dx/n,t=frac16(sd.len);
-    return {t,tw:docTextWidth(t,ls,true),mx:(sd.a[0]+sd.b[0])/2,my:(sd.a[1]+sd.b[1])/2,sx:nx,sy:-ny};
-   });
-   const L=Math.max(0,...labels.filter(q=>q.sx<-.35).map(q=>q.tw+gap)),Rm=Math.max(0,...labels.filter(q=>q.sx>.35).map(q=>q.tw+gap));
-   const T=labels.some(q=>q.sy<-.35)?ls+gap:0,Bm=labels.some(q=>q.sy>.35)?ls+gap:0,pad=labels.length?0:2;
-   const k=Math.max(.01,Math.min((sz-T-Bm-2*pad)/spanY,(Math.min(w,sz)-L-Rm-2*pad)/spanX));
-   const bw=spanX*k+L+Rm+2*pad,bh=spanY*k+T+Bm+2*pad,bx=ax(bw),ox=bx+pad+L,oy=y+pad+T,px=v=>ox+(v-minX)*k,py=v=>oy+(maxY-v)*k,path=list=>'M'+list.map(p=>px(p[0]).toFixed(2)+' '+py(p[1]).toFixed(2)).join('L')+'Z';
+   const availW=Math.min(w,sz),availH=sz,kMax=Math.min(availW/spanX,availH/spanY),ls=Math.max(6,Math.min(9,Math.round(sz*.11*2)/2)),lh=ls*.9,gap=1.5;
+   const turn=pts.reduce((a,p,i)=>{const q=pts[(i+1)%pts.length];return a+p[0]*q[1]-q[0]*p[1];},0)>=0?1:-1;
+   let cand=(det.dims?d.shape.sides||[]:[]).map(sd=>{
+    const dx=sd.b[0]-sd.a[0],dy=sd.b[1]-sd.a[1],n=Math.hypot(dx,dy)||1,t=frac16(sd.len);
+    return {t,tw:docTextWidth(t,ls,true),mx:(sd.a[0]+sd.b[0])/2,my:(sd.a[1]+sd.b[1])/2,sx:turn*dy/n,sy:turn*dx/n,len:sd.len};
+   }).sort((a,b)=>b.len-a.len);
+   /* Рамка подписи в осях блока (y вниз) при масштабе k, начало — угол minX, maxY. */
+   const boxOf=(q,k)=>{
+    const ax0=(q.mx-minX)*k,ay0=(maxY-q.my)*k;
+    let x0=q.sx>.35?ax0:q.sx<-.35?ax0-q.tw:ax0-q.tw/2,y0=q.sy<-.35?ay0-lh:q.sy>.35?ay0:ay0-lh/2;
+    const near=Math.min(...[[x0,y0],[x0+q.tw,y0],[x0,y0+lh],[x0+q.tw,y0+lh]].map(c=>(c[0]-ax0)*q.sx+(c[1]-ay0)*q.sy)),sh=gap-near;
+    x0+=sh*q.sx;y0+=sh*q.sy;return {x0,y0,x1:x0+q.tw,y1:y0+lh,q};
+   };
+   const cross=(ax,ay,bx,by,cx,cy,dx,dy)=>{const o=(px,py,qx,qy,rx,ry)=>Math.sign((qx-px)*(ry-py)-(qy-py)*(rx-px));return o(ax,ay,bx,by,cx,cy)!==o(ax,ay,bx,by,dx,dy)&&o(cx,cy,dx,dy,ax,ay)!==o(cx,cy,dx,dy,bx,by);};
+   const onOutline=(r,k)=>pts.some((p,i)=>{const q=pts[(i+1)%pts.length],ax1=(p[0]-minX)*k,ay1=(maxY-p[1])*k,bx1=(q[0]-minX)*k,by1=(maxY-q[1])*k;
+    if(ax1>r.x0&&ax1<r.x1&&ay1>r.y0&&ay1<r.y1)return true;
+    return cross(ax1,ay1,bx1,by1,r.x0,r.y0,r.x1,r.y0)||cross(ax1,ay1,bx1,by1,r.x1,r.y0,r.x1,r.y1)||cross(ax1,ay1,bx1,by1,r.x1,r.y1,r.x0,r.y1)||cross(ax1,ay1,bx1,by1,r.x0,r.y1,r.x0,r.y0);});
+   const place=(list,k)=>{const out2=[];list.forEach(q=>{const r=boxOf(q,k);if(out2.some(o=>r.x0<o.x1+1&&o.x0<r.x1+1&&r.y0<o.y1+.5&&o.y0<r.y1+.5)||onOutline(r,k))return;out2.push(r);});return out2;};
+   const bbox=(list,k)=>list.reduce((b,r)=>({x0:Math.min(b.x0,r.x0),y0:Math.min(b.y0,r.y0),x1:Math.max(b.x1,r.x1),y1:Math.max(b.y1,r.y1)}),{x0:0,y0:0,x1:spanX*k,y1:spanY*k});
+   const fits=(list,k)=>{const b=bbox(place(list,k),k);return b.x1-b.x0<=availW+1e-6&&b.y1-b.y0<=availH+1e-6;};
+   const best=list=>{if(fits(list,kMax))return kMax;let lo=kMax*.05,hi=kMax;for(let i=0;i<24;i++){const m=(lo+hi)/2;if(fits(list,m))lo=m;else hi=m;}return lo;};
+   let k=best(cand);while(cand.length&&k<kMax*.55){cand=cand.slice(0,-1);k=best(cand);}
+   const labels=place(cand,k),bb=bbox(labels,k),bw=bb.x1-bb.x0,bh=bb.y1-bb.y0,bx=ax(bw),ox=bx-bb.x0,oy=y-bb.y0;
+   const px=v=>ox+(v-minX)*k,py=v=>oy+(maxY-v)*k,path=list=>'M'+list.map(p=>px(p[0]).toFixed(2)+' '+py(p[1]).toFixed(2)).join('L')+'Z';
    out.push({t:'path',d:path(pts)});
    (d.shape.polys||[]).forEach(pg=>out.push({t:'path',d:path(pg)}));
    (d.shape.holes||[]).forEach(h=>out.push({t:'circle',cx:px(h.x),cy:py(h.y),r:Math.max(1.2,h.d*k/2)}));
-   labels.forEach(q=>{
-    const cx=px(q.mx)+q.sx*gap,cy=py(q.my)+q.sy*gap,align=q.sx>.35?'':q.sx<-.35?'right':'center';
-    const by=q.sy>.35?cy+ls*.8:q.sy<-.35?cy-ls*.15:cy+ls*.35,lx=align==='right'?Math.max(x+q.tw,cx):align==='center'?Math.min(R-q.tw/2,Math.max(x+q.tw/2,cx)):Math.min(R-q.tw,cx);
-    out.push({t:'text',s:q.t,x:lx,y:by,size:ls,bold:true,color:K,align});
-   });
+   labels.forEach(r=>out.push({t:'text',s:r.q.t,x:ox+r.x0,y:oy+r.y0+ls*.78,size:ls,bold:true,color:K,align:''}));
    if(det.label){out.push({t:'text',s:'SHAPE',x:bx+bw/2,y:y+bh+8,size:7,bold:true,color:K,align:'center'});return bh+10;}
    return bh+2;}
   case 'route':{

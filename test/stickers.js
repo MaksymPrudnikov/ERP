@@ -153,8 +153,12 @@ module.exports=async function({page,eq,ok}){
   const labels=(t,d)=>{const pg=stkLayout(t,'4x6',d),box=pg.boxes.find(b=>b.id===shapeId);return pg.items.filter(i=>i.t==='text'&&i.y>=box.y&&i.y<=box.y+box.h&&i.x>=box.x-1&&i.x<=box.x+box.w+1&&i.s!=='SHAPE').map(i=>i.s).sort();};
   const old=stkCleanTemplate('production','4x6',Object.assign({},tpl,{blocks:tpl.blocks.map(b=>b.k==='shape'?Object.assign({},b,{details:{letters:true,label:true}}):b)}));
   const off=JSON.parse(JSON.stringify(tpl));off.blocks.find(b=>b.k==='shape').details.dims=false;
-  return {raked:labels(tpl,data(1)),rect:labels(tpl,data(0)),oldDims:old.blocks.find(b=>b.k==='shape').details,off:labels(off,data(1))};
- }),{raked:['28','30','32 5/16','40'],rect:['24','36'],oldDims:{dims:true,label:true},off:[]});
+  /* Вырез сбоку: подписи не налезают друг на друга — короткие уступают. */
+  salesOrderEdit(id);const n=soDraft.lines[1],ns=newShapeDef('notch-left'),nr=ShapeModule.compute(ns);ns.ownerLineId=n.id;DB.shapeDef.push(ns);n.shapeRef=salesShapeRefFrom(ns);n.width16=Math.round(nr.width*16);n.height16=Math.round(nr.height*16);salesOrderSave();soDraft=null;soEdit=null;
+  const no=salesRecord(id),nd=stkGlassData('production',no,no.lines[1],glassBatchComponents(no,no.lines[1])[0],1,{}),npg=stkLayout(tpl,'4x6',nd),nbox=npg.boxes.find(b=>b.id===shapeId),nt=npg.items.filter(i=>i.t==='text'&&i.s!=='SHAPE'&&i.y>=nbox.y&&i.y<=nbox.y+nbox.h&&i.x>=nbox.x-1&&i.x<=nbox.x+nbox.w+1).map(i=>({s:i.s,x0:i.x,x1:i.x+docTextWidth(i.s,i.size,true),y0:i.y-i.size*.8,y1:i.y}));
+  const clash=nt.some((a,i)=>nt.slice(i+1).some(b=>a.x0<b.x1&&b.x0<a.x1&&a.y0<b.y1&&b.y0<a.y1));
+  return {raked:labels(tpl,data(1)),rect:labels(tpl,data(0)),oldDims:old.blocks.find(b=>b.k==='shape').details,off:labels(off,data(1)),notch:{sides:nd.shape.sides.length,shown:nt.length>=4&&nt.length<nd.shape.sides.length,clash}};
+ }),{raked:['28','30','32 5/16','40'],rect:['24','36'],oldDims:{dims:true,label:true},off:[],notch:{sides:8,shown:true,clash:false}});
 
  /* Владелец, 4 октября 2026: «сменил портретную на лендскейп — стикер вылез
     из блока». Превью ужимается в колонку, блоки встают по раскладке лёжа. */
