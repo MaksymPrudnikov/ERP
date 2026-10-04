@@ -714,6 +714,9 @@ function cutPolyMid(pts){
  }
  return Math.abs(a)<1e-9?[pts[0][0],pts[0][1]]:[cx/(3*a),cy/(3*a)];
 }
+/* Поле у края стекла под подписи размеров (cutAxisText): слева и снизу,
+   для центрированной подписи — с обеих сторон. */
+const CUT_LABEL_EDGE=12;
 function cutFitLabel(cx,cy,w,h,lines,color){
  const tw=(t,f)=>String(t).length*f*0.56,pad=6;
  const draw=(rows,f,rot)=>{const lh=f*1.15,y0=-(rows.length-1)*lh/2+f*0.35;
@@ -810,15 +813,20 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   /* Полная подпись — клиент, заказ, номер, размер; у узкого высокого стекла
      она идёт вдоль длинной стороны, как у Perfect Cut. Раньше строка
      «1 · 20 1/4 × 100 1/4″» на узком стекле налезала на соседей. */
+  const gid=typeof glassPieceValid==='function'&&glassPieceValid(p.piece)?p.piece:'';
   const size16=frac16(p.w)+' × '+frac16(p.h)+'″',turnLabel=!(h>52&&w>84)&&w>52&&h>84;
   out.push('<title>'+esc([p.piece,src.order?src.order+' / '+src.line:'',size16,station?(stationState==='cut'?'Cut':stationState==='now'?'Just scanned':stationState==='broken'?'Sheet broke':'Waiting'):null].filter(Boolean).join(' · '))+'</title>');
   if(h>52&&w>84||turnLabel){
    const lines=[[src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(i+1),15,'#101828']];
+   /* Glass ID — мелко под номером, если строка помещается между подписями
+      размеров; не помещается — стекло остаётся с номером, как раньше. */
+   const room=(turnLabel?w:h)-2*CUT_LABEL_EDGE,across=(turnLabel?h:w)-2*CUT_LABEL_EDGE;
+   if(gid&&lines.reduce((a,l)=>a+l[1]*1.25,0)+8*1.25<=room&&gid.length*8*0.56<=across)lines.push([gid,8,'#475467']);
    const total=lines.reduce((a,l)=>a+l[1]*1.25,0);let ty2=-total/2;
    out.push('<g transform="translate('+mid[0].toFixed(1)+' '+mid[1].toFixed(1)+')'+(turnLabel?' rotate(-90)':'')+'">');
    lines.forEach(l=>{ty2+=l[1]*1.15;if(l[0])out.push('<text x="0" y="'+ty2.toFixed(1)+'" text-anchor="middle" font-size="'+l[1]+'" fill="'+l[2]+'">'+esc(l[0])+'</text>');});
    out.push('</g>');
-  }else out.push(cutFitLabel(mid[0],mid[1],w,h,[String(i+1)],'#101828'));
+  }else out.push((gid&&cutFitLabel(mid[0],mid[1],w-2*CUT_LABEL_EDGE,h-2*CUT_LABEL_EDGE,[String(i+1),gid],'#101828'))||cutFitLabel(mid[0],mid[1],w,h,[String(i+1)],'#101828'));
   out.push(cutAxisText(frac16(p.w)+'″',x+w/2,y+h-4,w,false));
   out.push(cutAxisText(frac16(p.h)+'″',x+8,y+h/2,h,true));
   if(p.locked&&w>20&&h>20)out.push('<text x="'+(x+w-4).toFixed(1)+'" y="'+(y+11).toFixed(1)+'" text-anchor="end" font-size="9" fill="#93370d">lock</text>');
