@@ -1881,6 +1881,15 @@ button.recut-btn{border-color:var(--warning);color:var(--warning)}
 .stk-add{display:flex;gap:8px;flex-wrap:wrap}
 .stk-add select,.stk-details select{max-width:260px;font-size:12px}
 .stk-seg-sm button{padding:3px 9px;font-size:12px}
+.stk-edit-tools{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;font-size:12px}
+.stk-edit-tools button{padding:4px 10px;font-size:12px}
+.stk-edit-tools .mut{margin-left:6px}
+.stk-frame-size{width:108px;text-align:center;color:var(--text-2);font-size:12px}
+.stk-frame-fields,.stk-font-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;width:100%}
+.stk-font-fields{grid-template-columns:repeat(2,minmax(0,1fr));padding-top:6px;border-top:1px solid var(--line)}
+.stk-details .stk-number-label{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;color:var(--text-2)}
+.stk-number-label>span{display:flex;align-items:center;gap:5px;width:100%;font-size:11px}
+.stk-number-label input{width:100%;min-width:0;padding:4px 6px;font-size:12px;color:var(--text)}
 .stk-preview{background:var(--surface-3);border-radius:12px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:12px;position:sticky;top:12px}
 .stk-paper{position:relative;box-shadow:0 1px 5px rgba(0,0,0,.25);line-height:0;background:var(--surface)}
 .stk-paper svg{display:block}
@@ -1889,13 +1898,30 @@ button.recut-btn{border-color:var(--warning);color:var(--warning)}
 .stk-hit.sel{outline:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent)}
 .stk-hit.drop-before{box-shadow:0 -3px 0 var(--accent)}
 .stk-hit.drop-after{box-shadow:0 3px 0 var(--accent)}
+.stk-free-paper,.stk-hit.free{touch-action:none}
+.stk-hit.free{cursor:move;min-width:0;min-height:0}
+.stk-hit.free.sel{z-index:2}
+.stk-hit.bad{outline:1px dashed var(--danger)}
+.stk-hit.bad.sel{outline:2px solid var(--danger)}
+.stk-moving,.stk-moving *{user-select:none}
+.stk-resize{position:absolute;width:9px;height:9px;background:var(--surface);border:1px solid var(--accent);border-radius:1px;box-sizing:border-box;z-index:3;line-height:0}
+.stk-resize-nw{left:-5px;top:-5px;cursor:nwse-resize}
+.stk-resize-n{left:calc(50% - 5px);top:-5px;cursor:ns-resize}
+.stk-resize-ne{right:-5px;top:-5px;cursor:nesw-resize}
+.stk-resize-e{right:-5px;top:calc(50% - 5px);cursor:ew-resize}
+.stk-resize-se{right:-5px;bottom:-5px;cursor:nwse-resize}
+.stk-resize-s{left:calc(50% - 5px);bottom:-5px;cursor:ns-resize}
+.stk-resize-sw{left:-5px;bottom:-5px;cursor:nesw-resize}
+.stk-resize-w{left:-5px;top:calc(50% - 5px);cursor:ew-resize}
+.stk-fit{text-align:center;max-width:100%;font-size:12px;line-height:1.4}
+.stk-issues{padding-left:18px;margin:8px 0 0;text-align:left;color:var(--danger);font-size:12px;overflow-wrap:anywhere}
 .pill.ok{background:var(--success-soft);color:var(--success)}
 .stk-foot{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .stk-foot .sp{flex:1}
 .stk-dirty{font-size:12px;color:var(--warning)}
 .stk-saved{font-size:12px;color:var(--success)}
 @media(max-width:1100px){.stk-grid{grid-template-columns:minmax(0,1fr)}.stk-preview{position:static}}
-@media(max-width:760px){.stk-preview{padding:8px;overflow-x:auto;align-items:flex-start}.stk-sample{margin-left:0}.stk-sample select{min-width:0;width:100%}.stk-row{flex-wrap:wrap}}
+@media(max-width:760px){.stk-preview{padding:8px;overflow-x:auto;align-items:flex-start}.stk-sample{margin-left:0}.stk-sample select{min-width:0;width:100%}.stk-row{flex-wrap:wrap}.stk-details{padding-left:12px}.stk-frame-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* Печать: одна этикетка — одна страница без полей. Размер страницы пишется
    перед печатью в @page stk (4×6 или 3×4, стоя или лёжа). */
 #stkPrintHost{display:none}
@@ -2723,7 +2749,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='1840d24453c9';
+var ERP_BUILD='8981f77cc637';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -25452,8 +25478,8 @@ function stkBase(type,size,orient){
 /* Шаблон из хранилища приводится к каталогу: неизвестный блок отбрасывается,
    размер держится в пределах блока, новые блоки каталога дописываются
    выключенными. */
-function stkCleanTemplate(type,size,raw){
- const base=stkBase(type,size),src=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:null;
+function stkCleanVariant(type,size,raw,orient){
+ const base=stkBase(type,size,orient),src=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:null;
  if(!src||!Array.isArray(src.blocks))return base;
  const ids=new Set(),seen=new Set(),blocks=[];
  src.blocks.forEach(b=>{
@@ -25462,10 +25488,49 @@ function stkCleanTemplate(type,size,raw){
   let id=typeof b.id==='string'&&/^[\w-]{1,40}$/.test(b.id)&&!ids.has(b.id)?b.id:stkBlock(def.k,'full').id;ids.add(id);
   const n=Number(b.size),details=stkDetailsBase(def);
   (def.details||[]).forEach(x=>{if(b.details&&typeof b.details[x[0]]==='boolean')details[x[0]]=b.details[x[0]];});
-  blocks.push({id,k:def.k,on:b.on!==false,at:STK_PLACES.some(p=>p.k===b.at)?b.at:'full',align:STK_ALIGNS.some(a=>a.k===b.align)?b.align:'auto',size:Number.isFinite(n)?Math.min(def.size[2],Math.max(def.size[1],Math.round(n*2)/2)):def.size[0],bold:typeof b.bold==='boolean'?b.bold:!!def.bold,details,text:typeof b.text==='string'?b.text.slice(0,STK_TEXT_MAX):''});
+  const block={id,k:def.k,on:b.on!==false,at:STK_PLACES.some(p=>p.k===b.at)?b.at:'full',align:STK_ALIGNS.some(a=>a.k===b.align)?b.align:'auto',size:Number.isFinite(n)?Math.min(def.size[2],Math.max(def.size[1],Math.round(n*2)/2)):def.size[0],bold:typeof b.bold==='boolean'?b.bold:!!def.bold,details,text:typeof b.text==='string'?b.text.slice(0,STK_TEXT_MAX):''};
+  if(['top','middle','bottom'].includes(b.valign))block.valign=b.valign;
+  if(b.frame&&typeof b.frame==='object'){
+   const f=b.frame;if(['x','y','w','h'].every(k=>typeof f[k]==='number'&&Number.isFinite(f[k])&&Math.abs(f[k])<=10000)&&f.w>=1&&f.h>=1)block.frame={x:f.x,y:f.y,w:f.w,h:f.h};
+  }
+  if(b.fonts&&typeof b.fonts==='object'){
+   const fonts={};['dims','label','number','cut','recut','heading','route'].forEach(k=>{const v=b.fonts[k];if(typeof v==='number'&&Number.isFinite(v)&&v>=6&&v<=144)fonts[k]=v;});
+   if(Object.keys(fonts).length)block.fonts=fonts;
+  }
+  blocks.push(block);
  });
  base.blocks.forEach(b=>{if(!blocks.some(x=>x.k===b.k))blocks.push(Object.assign(b,{on:false}));});
- return {orient:src.orient==='landscape'?'landscape':'portrait',blocks};
+ return {orient:orient|| (src.orient==='landscape'?'landscape':'portrait'),layout:src.layout==='free'?'free':'auto',blocks};
+}
+/* Orientation variants are complete, independent layouts. The top-level
+   fields remain the active layout so printing and old callers share one API. */
+function stkCleanTemplate(type,size,raw){
+ const activeOrient=raw&&['portrait','landscape'].includes(raw.orient)?raw.orient:stkBase(type,size).orient;
+ const out=stkCleanVariant(type,size,raw,activeOrient),variants={};
+ ['portrait','landscape'].forEach(key=>{
+  const v=raw&&raw.variants&&raw.variants[key];
+  if(key!==activeOrient&&v&&Array.isArray(v.blocks)){
+   const clean=stkCleanVariant(type,size,v,key);variants[key]={layout:clean.layout||'auto',blocks:clean.blocks};
+  }
+ });
+ if(Object.keys(variants).length)out.variants=variants;
+ return out;
+}
+function stkSwitchOrientation(tpl,type,size,orient){
+ if(tpl.orient===orient)return tpl;
+ const copy=v=>JSON.parse(JSON.stringify(v));
+ const variants=tpl.variants||{};
+ variants[tpl.orient]={layout:tpl.layout||'auto',blocks:copy(tpl.blocks)};
+ let next=variants[orient];
+ if(!next){
+  const base=stkBase(type,size,orient).blocks,used=new Set();
+  base.forEach(b=>{const m=tpl.blocks.find(x=>x.k===b.k&&!used.has(x));if(!m)return;used.add(m);
+   Object.assign(b,{id:m.id,on:m.on,bold:m.bold,details:Object.assign({},b.details,m.details)},m.fonts?{fonts:copy(m.fonts)}:{},b.k==='text'?{text:m.text}:{});});
+  const rest=tpl.blocks.filter(x=>!used.has(x)&&x.k!=='divider').map(x=>{const b=copy(x);delete b.frame;b.at=b.at==='bottom'?'bottom':'full';return b;}),low=x=>x.at==='bottom';
+  next={layout:tpl.layout||'auto',blocks:base.filter(x=>!low(x)).concat(rest.filter(x=>!low(x)),base.filter(low),rest.filter(low))};
+ }
+ tpl.orient=orient;tpl.layout=next.layout||'auto';tpl.blocks=copy(next.blocks);delete variants[orient];tpl.variants=variants;
+ return tpl;
 }
 function stkTemplate(type,size){return stkCleanTemplate(type,size,DB.stickerTemplate&&DB.stickerTemplate[stkKey(type,size)]);}
 function normalizeStickerTemplates(){
@@ -25642,8 +25707,8 @@ function stkDemoData(type){
 /* =====================================================================
    erp/production/sticker-layout  ·  stickers-1.0
    Раскладка стикера по шаблону и SVG для предпросмотра и печати.
-   IN : шаблон {orient, blocks}, размер 4x6 | 3x4, модель стикера
-   OUT: {w, h, items, boxes, overflow} в pt; stkPageSVG
+   IN : шаблон {orient, layout, blocks}, размер 4x6 | 3x4, модель стикера
+   OUT: {w, h, items, boxes, issues, overflow} в pt; stkPageSVG
 
    Правила раскладки:
    - Full — блок на всю ширину; подряд идущие Left / Right — две колонки
@@ -25705,22 +25770,25 @@ function stkWantWidth(b,d,max){if(b.k!=='barcode'||!d.id)return 0;const n=barcod
    колонка вправо, штрихкод и маршрут по центру, остальное влево.
    Владелец, 17 сентября 2026: «баркод хоть и Full, но тянет правее, и в
    конструкторе нельзя отцентровать». */
-function stkAlignOf(b,col){if(b.align&&b.align!=='auto')return b.align;if(col==='right')return 'right';return b.k==='barcode'?'center':'left';}
+function stkAlignOf(b,col){if(b.align&&b.align!=='auto')return b.align;if(col==='right')return 'right';return b.k==='barcode'||b.k==='route'?'center':'left';}
 /* Один блок в прямоугольнике x, y, w. Возвращает высоту в pt (0 — печатать нечего). */
-function stkRenderBlock(b,d,x,y,w,col,out){
+function stkRenderBlock(b,d,x,y,w,col,out,opt){
+ opt=opt||{};const fixed=!!opt.free,fonts=b.fonts||{},explicit=k=>Number.isFinite(+fonts[k])&&+fonts[k]>0,font=(k,f)=>explicit(k)?+fonts[k]:f;
  const det=b.details||{},sz=Math.max(6,+b.size||10),bold=!!b.bold,R=x+w,A=stkAlignOf(b,col),K='#000000',Wt='#ffffff';
  const ax=tw=>A==='right'?R-tw:A==='center'?x+(w-tw)/2:x;
  const put=(s,xx,yy,size,bld,color)=>out.push({t:'text',s,x:xx,y:yy,size,bold:bld,color:color||K,align:''});
- const line=(s,yy,size,bld)=>{const t=stkFit(s,size,bld,w);put(t,ax(docTextWidth(t,size,bld)),yy,size,bld);};
- const para=(s,size,bld,n)=>{const ls=stkWrap(String(s||''),size,bld,w).filter(Boolean).slice(0,n||2);ls.forEach((t,i)=>line(t,y+size*.9+i*size*1.18,size,bld));return ls.length?ls.length*size*1.18+size*.15:0;};
+ const line=(s,yy,size,bld)=>{const ls=fixed?stkWrap(s,size,bld,w):[stkFit(s,size,bld,w)];ls.forEach((t,i)=>put(t,ax(docTextWidth(t,size,bld)),yy+i*size*1.18,size,bld));return ls.length;};
+ const para=(s,size,bld,n)=>{const ls=stkWrap(String(s||''),size,bld,w).filter(Boolean);if(!fixed)ls.splice(n||2);ls.forEach((t,i)=>line(t,y+size*.9+i*size*1.18,size,bld));return ls.length?ls.length*size*1.18+size*.15:0;};
  const rect=(xx,yy,ww,hh,o)=>out.push(Object.assign({t:'rect',x:xx,y:yy,w:ww,h:hh,fill:K},o||{}));
  /* Номер заказа и размер не обрезаются многоточием — кегль уменьшается. */
- const shrink=(s,size,bld,max)=>{let f=size;while(f>6&&docTextWidth(s,f,bld)>max)f-=.5;return f;};
+ const shrink=(s,size,bld,max)=>{if(fixed)return size;let f=size;while(f>6&&docTextWidth(s,f,bld)>max)f-=.5;return f;};
  switch(b.k){
   case 'company':{
    const c=DB.company||{},name=det.name?String(c.legalName||'').toUpperCase():'',logo=det.logo&&c.logo?c.logo:'';if(!name&&!logo)return 0;
    const info=logo&&typeof docJpegInfo==='function'?docJpegInfo(logo):null,lh=sz*1.9,lw=logo?Math.min(w*.5,info&&info.h?lh*info.w/info.h:lh*2):0;
-   const nm=name?stkFit(name,sz,bold,w-(logo?lw+6:0)):'',tw=lw+(logo&&nm?6:0)+(nm?docTextWidth(nm,sz,bold):0),sx=ax(tw);
+   if(fixed){const ls=name?stkWrap(name,sz,bold,Math.max(1,w-(logo?lw+6:0))).filter(Boolean):[],tw=lw+(logo&&ls.length?6:0)+Math.max(0,...ls.map(t=>docTextWidth(t,sz,bold))),sx=ax(tw),nh=ls.length?sz*1.15+(ls.length-1)*sz*1.18:0;
+    if(logo)out.push({t:'image',href:logo,x:sx,y,w:lw,h:lh});ls.forEach((t,i)=>put(t,sx+(logo?lw+6:0),y+(logo?Math.max(sz*.9,lh/2+sz*.35):sz*.9)+i*sz*1.18,sz,bold));return logo?Math.max(lh,nh)+2:nh;}
+   const nm=name?(fixed?name:stkFit(name,sz,bold,w-(logo?lw+6:0))):'',tw=lw+(logo&&nm?6:0)+(nm?docTextWidth(nm,sz,bold):0),sx=ax(tw);
    if(logo)out.push({t:'image',href:logo,x:sx,y,w:lw,h:lh});
    if(nm)put(nm,sx+(logo?lw+6:0),y+(logo?lh/2+sz*.35:sz*.9),sz,bold);
    return logo?lh+2:sz*1.15;}
@@ -25729,13 +25797,13 @@ function stkRenderBlock(b,d,x,y,w,col,out){
   case 'stockFrom':{const fr=d.from;if(!fr)return 0;const t=[fr.batch?'From '+fr.batch:'',fr.sheet?'Sheet '+fr.sheet:'',det.date?fr.date:''].filter(Boolean).join(' · ');if(!t)return 0;line(t,y+sz*.9,sz,bold);return sz*1.2;}
   case 'sheet':{if(!d.sheet)return 0;line('Sheet '+d.sheet.sheet+(det.pos?' · #'+d.sheet.pos:''),y+sz*.9,sz,bold);return sz*1.2;}
   case 'barcode':{
-   if(!d.id)return 0;const m=stkBarModule(d.id,w);if(!m)return 0;
-   const bw=barcode128Width(d.id)*m,bx=ax(bw),ns=Math.max(7,Math.min(16,sz*.26));
-   barcode128Items(d.id,bx,y,sz,m).forEach(r=>out.push(Object.assign(r,{fill:K})));
-   if(det.number){out.push({t:'text',s:d.id,x:bx+bw/2,y:y+sz+ns+1,size:ns,bold:true,color:K,align:'center'});return sz+ns+4;}
-   return sz+2;}
+   if(!d.id)return 0;const m=stkBarModule(d.id,w)||(fixed?STK_BAR_MODULES[STK_BAR_MODULES.length-1]:0);if(!m)return 0;
+   const bw=barcode128Width(d.id)*m,bx=ax(bw),ns=font('number',Math.max(7,Math.min(16,sz*.26))),barH=fixed?Math.max(1,opt.h-(det.number?ns+4:2)):sz;
+   barcode128Items(d.id,bx,y,barH,m).forEach(r=>out.push(Object.assign(r,{fill:K})));
+   if(det.number){out.push({t:'text',s:d.id,x:bx+bw/2,y:y+barH+ns+1,size:ns,bold:true,color:K,align:'center'});return barH+ns+4;}
+   return barH+2;}
   case 'order':{
-   const t=d.order+(det.line?' / '+d.line:''),rs=Math.max(7,Math.round(sz*.4)),tag=det.recut&&d.recut?docTextWidth(d.recut,rs,true)+rs:0,f=shrink(t,sz,bold,w-(tag?tag+8:0)),tw=docTextWidth(t,f,bold),sx=ax(tw+(tag?tag+8:0));
+   if(fixed&&!d.order)return 0;const t=d.order+(det.line?' / '+d.line:''),rs=font('recut',Math.max(7,Math.round(sz*.4))),tag=det.recut&&d.recut?docTextWidth(d.recut,rs,true)+rs:0,f=shrink(t,sz,bold,w-(tag?tag+8:0)),tw=docTextWidth(t,f,bold),sx=ax(tw+(tag?tag+8:0));
    put(t,sx,y+sz*.82,f,bold);
    if(tag){const rx=sx+tw+8;rect(rx,y+sz*.82-rs-5,tag,rs+8);out.push({t:'text',s:d.recut,x:rx+tag/2,y:y+sz*.82-2,size:rs,bold:true,color:Wt,align:'center'});}
    return sz*.95;}
@@ -25754,16 +25822,18 @@ function stkRenderBlock(b,d,x,y,w,col,out){
   case 'summary':{if(!d.summary)return 0;return para((det.label?'Unit  ':'')+d.summary,sz,bold,2);}
   case 'makeup':{
    /* Состав — таблица: подписи строк слева, текст с отступом. */
-   if(!d.rows)return 0;let yy=y;const hs=sz*1.2;
+   if(!d.rows)return 0;let yy=y;const hs=font('heading',sz*1.2);
    const head=[det.heading&&d.heading,det.thickness&&d.thicknessMm?d.thicknessMm.toFixed(1)+' mm':''].filter(Boolean).join(' · ');
-   if(head){const t=stkFit(head,hs,true,w);put(t,ax(docTextWidth(t,hs,true)),yy+hs*.9,hs,true);yy+=hs*1.25;}
-   if(det.code&&d.code){stkWrap(d.code,sz,false,w).filter(Boolean).slice(0,2).forEach(t=>{put(t,x,yy+sz*.9,sz,false);yy+=sz*1.2;});}
+   if(head){const ls=fixed||explicit('heading')?stkWrap(head,hs,true,w):[stkFit(head,hs,true,w)];ls.forEach(t=>{put(t,ax(docTextWidth(t,hs,true)),yy+hs*.9,hs,true);yy+=hs*1.25;});}
+   const tableStart=out.length;
+   if(det.code&&d.code){stkWrap(d.code,sz,false,w).filter(Boolean).slice(0,fixed?undefined:2).forEach(t=>{put(t,x,yy+sz*.9,sz,false);yy+=sz*1.2;});}
    const lab=docTextWidth('Space',sz,true)+sz*.8;
    d.rows.concat(det.muntin&&d.muntin?[{kind:'muntin',label:'Grid',text:d.muntin}]:[]).forEach(r=>{
     const t=r.kind==='muntin'?r.text:stkMakeupRowText(r,det);if(!t)return;
     put(r.label,x,yy+sz*.9,sz,true);
-    stkWrap(t,sz,bold,w-lab).filter(Boolean).slice(0,2).forEach(s=>{put(s,x+lab,yy+sz*.9,sz,bold);yy+=sz*1.2;});
+    stkWrap(t,sz,bold,w-lab).filter(Boolean).slice(0,fixed?undefined:2).forEach(s=>{put(s,x+lab,yy+sz*.9,sz,bold);yy+=sz*1.2;});
    });
+   if(fixed&&A!=='left'){const body=out.slice(tableStart),bounds=stkContentBounds(body);if(bounds){const dx=(A==='right'?R-bounds.w:x+(w-bounds.w)/2)-bounds.x;body.forEach(a=>{if(a.x!=null)a.x+=dx;});}}
    return yy-y;}
   case 'size':{
    /* Крупно — готовый размер; мелко под ним — размер до обработки кромки,
@@ -25771,11 +25841,12 @@ function stkRenderBlock(b,d,x,y,w,col,out){
    const dim=d.finished;if(!dim)return 0;const t=frac16(dim.w)+' × '+frac16(dim.h)+'″',f=shrink(t,sz,bold,w);
    put(t,ax(docTextWidth(t,f,bold)),y+sz*.82,f,bold);
    if(!det.cut||!d.cut)return sz*.98;
-   const cs=Math.max(7,Math.round(sz*.34)),ct='CUT '+frac16(d.cut.w)+' × '+frac16(d.cut.h)+'″',cf=shrink(ct,cs,true,w);
+   const cs=font('cut',Math.max(7,Math.round(sz*.34))),ct='CUT '+frac16(d.cut.w)+' × '+frac16(d.cut.h)+'″',cf=explicit('cut')?cs:shrink(ct,cs,true,w);
    put(ct,ax(docTextWidth(ct,cf,true)),y+sz*.82+cs*1.15,cf,true);return sz*.98+cs*1.25;}
   case 'area':{if(d.area==null)return 0;line(d.area.toFixed(2)+' ft²',y+sz*.9,sz,bold);return sz*1.2;}
   case 'weight':{if(!d.weight)return 0;line(stkFmtKg(d.weight),y+sz*.9,sz,bold);return sz*1.2;}
   case 'shape':{
+   if(fixed||explicit('dims')||explicit('label'))return stkRenderShape(b,d,x,y,fixed?w:Math.min(w,sz),fixed?opt.h:sz+(det.label?10:2),col,out,opt.issue);
    /* Контур с длинами сторон снаружи (владелец, 4 октября 2026: букв A–D
       на чертеже нет, «заменить размерами»). Подпись отодвигается от своей
       стороны ровно настолько, чтобы её не касаться; контур — самый крупный,
@@ -25816,12 +25887,13 @@ function stkRenderBlock(b,d,x,y,w,col,out){
    if(det.label){out.push({t:'text',s:'SHAPE',x:bx+bw/2,y:y+bh+8,size:7,bold:true,color:K,align:'center'});return bh+10;}
    return bh+2;}
   case 'route':{
-   if(!d.route)return 0;const codes=det.shipping?d.route.codes:d.route.codes.filter(c=>!(d.route.shipping||[]).includes(c)),t=codes.join(' > ');let fs=Math.max(6,sz*.56);
-   while(fs>6&&docTextWidth(t,fs,true)>w-10)fs-=.5;rect(x,y,w,sz);out.push({t:'text',s:t,x:x+w/2,y:y+sz/2+fs*.36,size:fs,bold:true,color:Wt,align:'center'});return sz+1;}
+   if(!d.route)return 0;const codes=det.shipping?d.route.codes:d.route.codes.filter(c=>!(d.route.shipping||[]).includes(c)),t=codes.join(' > ');if(fixed&&!t)return 0;let fs=font('route',Math.max(6,sz*.56));
+   if(!fixed&&!explicit('route'))while(fs>6&&docTextWidth(t,fs,true)>w-10)fs-=.5;const rh=fixed?opt.h:sz,routeA=b.align&&b.align!=='auto'?A:'center',tx=fixed&&routeA==='left'?x+5:fixed&&routeA==='right'?R-5:x+w/2,ta=fixed&&routeA==='left'?'':fixed&&routeA==='right'?'right':'center',ty=fixed&&b.valign==='top'?y+3+fs*.8:fixed&&b.valign==='bottom'?y+rh-3-fs*.15:y+rh/2+fs*.36;rect(x,y,w,rh);out.push({t:'text',s:t,x:tx,y:ty,size:fs,bold:true,color:Wt,align:ta});return rh+(fixed?0:1);}
   case 'services':{
    const list=d.route?d.route.services:[];if(!list.length)return 0;
    const box=det.boxes?sz*.85:0,gap=box?sz*.45:0,rows=[[]];let used=0;
-   list.forEach(s=>{const t=stkFit((det.station?s.station+' · ':'')+s.text,sz,bold,w-box-gap),ww=box+gap+docTextWidth(t,sz,bold);
+   if(fixed&&list.some(s=>docTextWidth((det.station?s.station+' · ':'')+s.text,sz,bold)>w-box-gap)){let yy=y;list.forEach(s=>{const ls=stkWrap((det.station?s.station+' · ':'')+s.text,sz,bold,Math.max(1,w-box-gap)),tw=box+gap+Math.max(0,...ls.map(t=>docTextWidth(t,sz,bold))),sx=ax(tw);if(box)rect(sx,yy+sz*.9-box*.95,box,box,{fill:'none',stroke:K,sw:1});ls.forEach((t,i)=>put(t,sx+box+gap,yy+sz*.9+i*sz*1.35,sz,bold));yy+=ls.length*sz*1.35;});return yy-y-sz*.05;}
+   list.forEach(s=>{const raw=(det.station?s.station+' · ':'')+s.text,t=fixed?raw:stkFit(raw,sz,bold,w-box-gap),ww=box+gap+docTextWidth(t,sz,bold);
     if(rows[rows.length-1].length&&used+sz+ww>w){rows.push([]);used=0;}const row=rows[rows.length-1];used+=(row.length?sz:0)+ww;row.push({t,ww});});
    rows.forEach((row,i)=>{const cy=y+sz*.9+i*sz*1.35;let cx=ax(row.reduce((a,r,j)=>a+r.ww+(j?sz:0),0));
     row.forEach(r=>{if(box)rect(cx,cy-box*.95,box,box,{fill:'none',stroke:K,sw:1});put(r.t,cx+box+gap,cy,sz,bold);cx+=r.ww+sz;});});
@@ -25831,15 +25903,120 @@ function stkRenderBlock(b,d,x,y,w,col,out){
  }
  return 0;
 }
+/* A fixed frame fits the outline and all annotations together. Text keeps its
+   chosen point size; an impossible frame is reported rather than dropping labels. */
+function stkRenderShape(b,d,x,y,w,h,col,out,issue){
+ if(!d.shape||!Array.isArray(d.shape.points)||!d.shape.points.length)return 0;
+ const pts=d.shape.points,det=b.details||{},sz=Math.max(6,+b.size||90),fonts=b.fonts||{};
+ const font=(k,f)=>Number.isFinite(+fonts[k])&&+fonts[k]>0?+fonts[k]:f;
+ const ls=font('dims',Math.max(6,Math.min(9,Math.round(sz*.11*2)/2))),labelSize=font('label',7),lh=ls*.94,gap=1.5;
+ const minX=Math.min(...pts.map(p=>p[0])),maxX=Math.max(...pts.map(p=>p[0])),minY=Math.min(...pts.map(p=>p[1])),maxY=Math.max(...pts.map(p=>p[1]));
+ const spanX=maxX-minX||1,spanY=maxY-minY||1,turn=pts.reduce((a,p,i)=>{const q=pts[(i+1)%pts.length];return a+p[0]*q[1]-q[0]*p[1];},0)>=0?1:-1;
+ const cand=(det.dims?d.shape.sides||[]:[]).map(sd=>{const dx=sd.b[0]-sd.a[0],dy=sd.b[1]-sd.a[1],n=Math.hypot(dx,dy)||1,t=frac16(sd.len);return {t,tw:docTextWidth(t,ls,true),mx:(sd.a[0]+sd.b[0])/2,my:(sd.a[1]+sd.b[1])/2,sx:turn*dy/n,sy:turn*dx/n};});
+ const labelsAt=k=>cand.map(q=>{
+  const ax=(q.mx-minX)*k,ay=(maxY-q.my)*k;
+  let x0=q.sx>.35?ax:q.sx<-.35?ax-q.tw:ax-q.tw/2,y0=q.sy<-.35?ay-lh:q.sy>.35?ay:ay-lh/2;
+  const near=Math.min(...[[x0,y0],[x0+q.tw,y0],[x0,y0+lh],[x0+q.tw,y0+lh]].map(c=>(c[0]-ax)*q.sx+(c[1]-ay)*q.sy)),shift=gap-near;
+  x0+=shift*q.sx;y0+=shift*q.sy;return {x0,y0,x1:x0+q.tw,y1:y0+lh,q};
+ });
+ const boundsAt=k=>{
+  const labels=labelsAt(k),bb=labels.reduce((r,a)=>({x0:Math.min(r.x0,a.x0),y0:Math.min(r.y0,a.y0),x1:Math.max(r.x1,a.x1),y1:Math.max(r.y1,a.y1)}),{x0:0,y0:0,x1:spanX*k,y1:spanY*k});
+  let title=null;if(det.label){const tw=docTextWidth('SHAPE',labelSize,true),mid=(bb.x0+bb.x1)/2;title={x0:mid-tw/2,y0:bb.y1+gap,x1:mid+tw/2,y1:bb.y1+gap+labelSize*1.15};bb.x0=Math.min(bb.x0,title.x0);bb.x1=Math.max(bb.x1,title.x1);bb.y1=title.y1;}
+  return {labels,bb,title};
+ };
+ const maxK=Math.min(w/spanX,h/spanY),fits=k=>{const z=boundsAt(k).bb;return z.x1-z.x0<=w+.001&&z.y1-z.y0<=h+.001;};
+ let lo=0,hi=Math.max(0,maxK);if(fits(hi))lo=hi;else for(let i=0;i<36;i++){const mid=(lo+hi)/2;if(fits(mid))lo=mid;else hi=mid;}
+ const k=Math.max(.0001,lo),z=boundsAt(k),bw=z.bb.x1-z.bb.x0,bh=z.bb.y1-z.bb.y0,A=stkAlignOf(b,col);
+ const bx=A==='right'?x+w-bw:A==='center'?x+(w-bw)/2:x,by=b.valign==='bottom'?y+h-bh:b.valign==='middle'?y+(h-bh)/2:y,ox=bx-z.bb.x0,oy=by-z.bb.y0;
+ const px=v=>ox+(v-minX)*k,py=v=>oy+(maxY-v)*k,path=list=>'M'+list.map(p=>px(p[0]).toFixed(2)+' '+py(p[1]).toFixed(2)).join('L')+'Z';
+ const emitPath=list=>{if(!list.length)return;const xs=list.map(p=>px(p[0])),ys=list.map(p=>py(p[1]));out.push({t:'path',d:path(list),bounds:{x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)}});};
+ emitPath(pts);(d.shape.polys||[]).forEach(emitPath);(d.shape.holes||[]).forEach(a=>out.push({t:'circle',cx:px(a.x),cy:py(a.y),r:Math.max(1.2,a.d*k/2)}));
+ z.labels.forEach(a=>out.push({t:'text',s:a.q.t,x:ox+a.x0,y:oy+a.y0+ls*.8,size:ls,bold:true,color:'#000000',align:''}));
+ if(z.title)out.push({t:'text',s:'SHAPE',x:ox+(z.title.x0+z.title.x1)/2,y:oy+z.title.y0+labelSize*.9,size:labelSize,bold:true,color:'#000000',align:'center'});
+ if(issue){
+  if(!fits(k))issue('Annotations do not fit the frame.');
+  const overlaps=(a,r)=>a.x0<r.x1+.5&&r.x0<a.x1+.5&&a.y0<r.y1+.5&&r.y0<a.y1+.5;
+  const segmentHits=(a,p,q)=>{
+   const ax=(p[0]-minX)*k,ay=(maxY-p[1])*k,bx=(q[0]-minX)*k,by=(maxY-q[1])*k,dx=bx-ax,dy=by-ay;
+   let t0=0,t1=1;for(const [v,n] of [[-dx,ax-a.x0],[dx,a.x1-ax],[-dy,ay-a.y0],[dy,a.y1-ay]]){if(Math.abs(v)<1e-9){if(n<0)return false;continue;}const t=n/v;if(v<0)t0=Math.max(t0,t);else t1=Math.min(t1,t);if(t0>t1)return false;}return true;
+  };
+  if(z.labels.some((a,i)=>z.labels.slice(i+1).some(r=>overlaps(a,r))||pts.some((p,j)=>segmentHits(a,p,pts[(j+1)%pts.length]))))issue('Side labels overlap each other or the outline.');
+ }
+ return bh;
+}
+/* Item bounds drive the same overflow diagnostics for preview and print. */
+function stkItemBounds(a){
+ if(a.bounds)return a.bounds;
+ if(a.t==='text'){const w=docTextWidth(a.s,a.size,a.bold),x=a.x-(a.align==='center'?w/2:a.align==='right'?w:0);return {x,y:a.y-a.size*.8,w,h:a.size*.95};}
+ if(a.t==='rect'||a.t==='image')return {x:a.x,y:a.y,w:a.w,h:a.h};
+ if(a.t==='circle')return {x:a.cx-a.r,y:a.cy-a.r,w:a.r*2,h:a.r*2};
+ if(a.t==='path'){const vals=(a.d.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi)||[]).map(Number),xs=[],ys=[];for(let i=0;i+1<vals.length;i+=2){xs.push(vals[i]);ys.push(vals[i+1]);}if(xs.length)return {x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)};}
+ return null;
+}
+function stkContentBounds(items){
+ const boxes=items.map(stkItemBounds).filter(Boolean);if(!boxes.length)return null;
+ const x=Math.min(...boxes.map(a=>a.x)),y=Math.min(...boxes.map(a=>a.y));return {x,y,w:Math.max(...boxes.map(a=>a.x+a.w))-x,h:Math.max(...boxes.map(a=>a.y+a.h))-y};
+}
+function stkValidFrame(f){return f&&['x','y','w','h'].every(k=>Number.isFinite(+f[k]))&&+f.w>0&&+f.h>0;}
+/* Freeze effective automatic typography once, when a block first gets a frame.
+   This includes fonts that the automatic renderer reduced to make a line fit. */
+function stkSeedBlockFonts(b,d,frame,col){
+ const out=[];stkRenderBlock(b,d,frame.x,frame.y,frame.w,col,out);const text=out.filter(a=>a.t==='text'),sz=Math.max(6,+b.size||10),fonts=Object.assign({},b.fonts||{}),set=(k,actual,fallback)=>{if(!(Number.isFinite(+fonts[k])&&+fonts[k]>0))fonts[k]=actual?actual.size:fallback;};
+ if(['order','size','stockNo'].includes(b.k)&&text.length)b.size=text[0].size;
+ if(b.k==='barcode')set('number',text.find(a=>a.s===d.id),Math.max(7,Math.min(16,sz*.26)));
+ if(b.k==='order')set('recut',text.find(a=>d.recut&&a.s===d.recut),Math.max(7,Math.round(sz*.4)));
+ if(b.k==='size')set('cut',text.find(a=>/^CUT /.test(a.s)),Math.max(7,Math.round(sz*.34)));
+ if(b.k==='makeup')set('heading',d.heading?text.find(a=>a.bold&&a.size!==sz):null,sz*1.2);
+ if(b.k==='shape'){set('dims',text.find(a=>a.s!=='SHAPE'),Math.max(6,Math.min(9,Math.round(sz*.11*2)/2)));set('label',text.find(a=>a.s==='SHAPE'),7);}
+ if(b.k==='route'){set('route',text[0],Math.max(6,sz*.56));if(!b.valign)b.valign='middle';}
+ if(Object.keys(fonts).length)b.fonts=fonts;
+}
+/* Seed printed blocks from their exact auto-layout boxes. Missing/off blocks get
+   a usable frame without moving already printed or previously edited blocks. */
+function stkSeedFrames(tpl,size,d){
+ const auto=Object.assign({},tpl,{layout:'auto'}),pg=stkLayout(auto,size,d),M=stkMargin(size),inner=pg.w-2*M,byId=new Map(pg.boxes.map(a=>[a.id,a]));
+ const demo=typeof stkDemoData==='function'?stkDemoData(d.kind):d,fallback=Object.assign({},demo,d);
+ (tpl.blocks||[]).forEach((b,i)=>{
+  if(stkValidFrame(b.frame))return;const actual=byId.get(b.id);
+  if(actual){b.frame={x:actual.x,y:actual.y,w:actual.w,h:Math.max(1,actual.h)};stkSeedBlockFonts(b,d,b.frame,b.at==='right'?'right':b.at==='left'?'left':'full');return;}
+  const col=b.at==='right'?'right':b.at==='left'?'left':'full',w=col==='full'?inner:(inner-10)/2,out=[],h=stkRenderBlock(b,fallback,0,0,w,col,out)||(+b.size||10)*1.25;
+  const before=(tpl.blocks||[]).slice(0,i).reverse().find(a=>byId.has(a.id)),after=(tpl.blocks||[]).slice(i+1).find(a=>byId.has(a.id));
+  const prev=before&&byId.get(before.id),next=after&&byId.get(after.id),y=b.at==='bottom'?pg.h-M-h:next?next.y:prev?Math.min(pg.h-M-h,prev.y+prev.h+3):M;
+  const fh=Math.min(pg.h-2*M,Math.max(4,h));b.frame={x:col==='right'?pg.w-M-w:M,y:Math.max(M,Math.min(pg.h-M-fh,y)),w,h:fh};stkSeedBlockFonts(b,fallback,b.frame,col);
+ });return tpl;
+}
+function stkFixedLayout(tpl,size,d){
+ const dims=stkDims(size,tpl.orient),M=stkMargin(size),items=[],boxes=[],issues=[],issue=(b,message)=>{if(!issues.some(a=>a.id===b.id&&a.message===stkBlockLabel(b)+': '+message))issues.push({id:b.id,message:stkBlockLabel(b)+': '+message});};
+ const supported=b=>b.on&&(stkBlockDef(b.k)||{types:[]}).types.includes(d.kind);
+ const source=(tpl.blocks||[]).some(b=>supported(b)&&!stkValidFrame(b.frame))?stkSeedFrames(Object.assign({},tpl,{blocks:(tpl.blocks||[]).map(b=>Object.assign({},b))}),size,d):tpl;
+ const outside=(r,limit)=>r.x<limit.x-.75||r.y<limit.y-.75||r.x+r.w>limit.x+limit.w+.75||r.y+r.h>limit.y+limit.h+.75;
+ source.blocks.filter(supported).forEach(b=>{
+  const f={x:+b.frame.x,y:+b.frame.y,w:+b.frame.w,h:+b.frame.h},out=[],col=b.at==='right'?'right':b.at==='left'?'left':'full';
+  const h=stkRenderBlock(b,d,f.x,f.y,f.w,col,out,{free:true,h:f.h,issue:m=>issue(b,m)});
+  let content=stkContentBounds(out);
+  if(b.k!=='shape'&&b.k!=='route'&&out.length){const used=Math.max(h,content?content.y+content.h-f.y:0),dy=b.valign==='bottom'?f.h-used:b.valign==='middle'?(f.h-used)/2:0;
+   if(dy)out.forEach(a=>{if(a.y!=null)a.y+=dy;if(a.cy!=null)a.cy+=dy;if(a.bounds)a.bounds.y+=dy;});content=stkContentBounds(out);
+  }
+  if(outside(f,{x:M,y:M,w:dims.w-2*M,h:dims.h-2*M}))issue(b,'Frame is outside the printable area.');
+  if(content&&outside(content,f))issue(b,'Content does not fit the frame.');
+  if(content&&outside(content,{x:M,y:M,w:dims.w-2*M,h:dims.h-2*M}))issue(b,'Content is outside the printable area.');
+  if(stkNeedWidth(b,d)>f.w+.001)issue(b,'Barcode width is below the minimum readable size.');
+  items.push(...out);boxes.push(Object.assign({id:b.id,empty:!out.length},f));
+ });
+ boxes.forEach((a,i)=>boxes.slice(i+1).forEach(b=>{if(!a.empty&&!b.empty&&a.x<b.x+b.w-.5&&b.x<a.x+a.w-.5&&a.y<b.y+b.h-.5&&b.y<a.y+a.h-.5){const first=source.blocks.find(z=>z.id===a.id),second=source.blocks.find(z=>z.id===b.id);issue(first,'Frame overlaps '+stkBlockLabel(second)+'.');issue(second,'Frame overlaps '+stkBlockLabel(first)+'.');}}));
+ boxes.forEach(a=>{a.bad=issues.some(v=>v.id===a.id);});return {w:dims.w,h:dims.h,items,boxes,free:0,issues,overflow:issues.map(a=>a.message)};
+}
 function stkBlockLabel(b){const def=stkBlockDef(b.k);return def?def.label+(b.k==='text'&&b.text?' "'+b.text+'"':''):b.k;}
 /* Два прохода: сначала строки и что не влезло, потом отрисовка. Свободное
    место делится между строками (не больше 10 pt на промежуток), чтобы стикер
    не пустовал посередине: «стикер как будто пустует» (владелец). */
 function stkLayout(tpl,size,d){
- const {w:W,h:H}=stkDims(size,tpl.orient),small=size==='3x4',M=stkMargin(size),gap=small?2.5:3.5,inner=W-2*M,items=[],boxes=[],overflow=[];
+ if(tpl.layout==='free')return stkFixedLayout(tpl,size,d);
+ const {w:W,h:H}=stkDims(size,tpl.orient),small=size==='3x4',M=stkMargin(size),gap=small?2.5:3.5,inner=W-2*M,items=[],boxes=[],overflow=[],issues=[];
+ const issue=(b,message)=>{if(!issues.some(a=>a.id===b.id&&a.message===stkBlockLabel(b)+': '+message))issues.push({id:b.id,message:stkBlockLabel(b)+': '+message});};
  const blocks=(tpl.blocks||[]).filter(b=>b.on&&(stkBlockDef(b.k)||{types:[]}).types.includes(d.kind));
  const measure=(b,w,col)=>stkRenderBlock(b,d,0,0,w,col,[]);
- const draw=(b,x,y,w,col)=>{const out=[],h=stkRenderBlock(b,d,x,y,w,col,out);if(h){items.push(...out);boxes.push({id:b.id,x,y,w,h});}return h;};
+ const draw=(b,x,y,w,col)=>{const out=[],h=stkRenderBlock(b,d,x,y,w,col,out,{issue:m=>issue(b,m)});if(h){items.push(...out);const frame={id:b.id,x,y,w,h};if(b.fonts&&Object.keys(b.fonts).some(k=>+b.fonts[k]>0)){const c=stkContentBounds(out);if(c&&(c.x<x-.75||c.y<y-.75||c.x+c.w>x+w+.75||c.y+c.h>y+h+.75))issue(b,'Content does not fit the block.');}boxes.push(frame);}return h;};
  /* Низ: блоки Bottom в своём порядке, последний — у самого края. */
  const bottom=blocks.filter(b=>b.at==='bottom'),bh=bottom.map(b=>measure(b,inner,'full')),btotal=bh.reduce((s,h)=>s+(h?h+gap:0),0);
  let by=H-M-Math.max(0,btotal-gap);const floor=btotal?by-gap:H-M;
@@ -25871,7 +26048,7 @@ function stkLayout(tpl,size,d){
   else{let ly=yy,ry=yy;r.L.forEach((x,j)=>{if(r.lh[j]){draw(x,M,ly,r.lwid,'left');ly+=r.lh[j]+gap;}});r.Rr.forEach((x,j)=>{if(r.rh[j]){draw(x,W-M-r.rwid,ry,r.rwid,'right');ry+=r.rh[j]+gap;}});}
   yy+=r.h+gap+spread;
  });
- return {w:W,h:H,items,boxes,free:Math.round(free),overflow:overflow.map(stkBlockLabel)};
+ boxes.forEach(b=>{b.bad=issues.some(a=>a.id===b.id);});return {w:W,h:H,items,boxes,free:Math.round(free),issues,overflow:overflow.map(stkBlockLabel).concat(issues.map(a=>a.message))};
 }
 function stkXml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function stkPageSVG(pg,widthCss,heightCss){
@@ -30073,7 +30250,7 @@ function ncrListRow(r,cols){
      блока, блоки двигаются мышкой — в списке и прямо на стикере.
    Glass ID в окнах Sales не показывается — только на бумаге.
    ===================================================================== */
-let stkDialog=null,stkBuilder=null,stkPrintEdit=null,stkDrag='';
+let stkDialog=null,stkBuilder=null,stkPrintEdit=null,stkDrag='',stkPointer=null,stkClickUntil=0;
 const STK_SIZE_PREF='glass_erp_sticker_size_v1',STK_PX=1.3;
 function stkPrefSize(){try{const v=localStorage.getItem(STK_SIZE_PREF);return STK_SIZES.some(s=>s.k===v)?v:'4x6';}catch(e){return '4x6';}}
 function stkSetPrefSize(v){try{localStorage.setItem(STK_SIZE_PREF,v);}catch(e){}}
@@ -30369,27 +30546,22 @@ function stkBuilderState(){
  if(!stkBuilder.drafts[k])stkBuilder.drafts[k]={tpl:stkTemplate(stkBuilder.type,stkBuilder.size),dirty:false};
  return stkBuilder;
 }
-function stkDraft(){const s=stkBuilderState();return s.drafts[stkKey(s.type,s.size)];}
-function stkEditTpl(fn){const d=stkDraft();fn(d.tpl);d.dirty=true;stkBuilderState().notice='';render();}
+function stkDraft(){const s=stkBuilderState(),d=s.drafts[stkKey(s.type,s.size)];if(!d.undo){d.undo=[];d.redo=[];d.saved=JSON.stringify(d.tpl);}return d;}
+function stkClone(v){return JSON.parse(JSON.stringify(v));}
+function stkHistoryRecord(d,before){if(JSON.stringify(before)===JSON.stringify(d.tpl))return false;d.undo.push(before);if(d.undo.length>60)d.undo.shift();d.redo=[];d.dirty=JSON.stringify(d.tpl)!==d.saved;stkBuilderState().notice='';return true;}
+function stkSeedEditorFrames(tpl){const s=stkBuilderState();if(tpl.layout==='free')stkSeedFrames(tpl,s.size,stkSampleData(s.type).data);}
+function stkEditTpl(fn){const d=stkDraft(),before=stkClone(d.tpl);fn(d.tpl);stkSeedEditorFrames(d.tpl);stkHistoryRecord(d,before);render();}
+function stkBUndo(){const d=stkDraft();if(!d.undo.length)return;d.redo.push(stkClone(d.tpl));d.tpl=d.undo.pop();d.dirty=JSON.stringify(d.tpl)!==d.saved;stkBuilderState().notice='';render();}
+function stkBRedo(){const d=stkDraft();if(!d.redo.length)return;d.undo.push(stkClone(d.tpl));d.tpl=d.redo.pop();d.dirty=JSON.stringify(d.tpl)!==d.saved;stkBuilderState().notice='';render();}
+function stkBLayout(v){if(v!=='free'&&v!=='auto'||(stkDraft().tpl.layout||'auto')===v)return;stkEditTpl(t=>{t.layout=v;});}
 function stkFindBlock(id){return stkDraft().tpl.blocks.find(b=>b.id===id);}
 function stkBSet(k,v){const s=stkBuilderState();if(k==='type'&&s.type!==v){s.sample='';s.sel='';s.open='';}s[k]=v;s.notice='';stkBuilderState();render();}
 function stkBType(v){stkBSet('type',v);}
 function stkBSizeKey(v){stkBSet('size',v);}
-/* Смена ориентации раскладывает блоки по базе этой ориентации: лёжа — две
-   колонки и кегли под 4″ высоты. Вертикальная раскладка в лежачий стикер не
-   влезала (владелец, 4 октября 2026: «сменил портретную на лендскейп, и
-   стикер вылез»). Своё переносится: какие блоки печатать, жирный, детали,
-   свой текст; лишние свои тексты — в конец. Разделители — часть раскладки,
-   у новой ориентации свои. */
+/* Ориентации хранят свои макеты. Новый вариант начинается с его базы. */
 function stkBOrient(v){
  const s=stkBuilderState(),orient=v==='landscape'?'landscape':'portrait';if(stkDraft().tpl.orient===orient)return;
- stkEditTpl(t=>{
-  const base=stkBase(s.type,s.size,orient).blocks,used=new Set();
-  base.forEach(b=>{const m=t.blocks.find(x=>x.k===b.k&&!used.has(x));if(!m)return;used.add(m);
-   Object.assign(b,{id:m.id,on:m.on,bold:m.bold,details:Object.assign({},b.details,m.details)},b.k==='text'?{text:m.text}:{});});
-  const rest=t.blocks.filter(x=>!used.has(x)&&x.k!=='divider'),low=x=>x.at==='bottom';
-  t.orient=orient;t.blocks=base.filter(x=>!low(x)).concat(rest.filter(x=>!low(x)).map(x=>Object.assign(x,{at:'full'})),base.filter(low),rest.filter(low));
- });
+ stkEditTpl(t=>{stkSwitchOrientation(t,s.type,s.size,orient);});
 }
 function stkBToggle(id,on){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.on=!!on;});}
 function stkBPlace(id,at){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(!b||!STK_PLACES.some(p=>p.k===at))return;b.at=at;t.blocks=t.blocks.filter(x=>x.at!=='bottom').concat(t.blocks.filter(x=>x.at==='bottom'));});}
@@ -30401,6 +30573,25 @@ function stkBSize(id,v,delta){
 }
 function stkBBold(id){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.bold=!b.bold;});}
 function stkBAlign(id,a){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b&&STK_ALIGNS.some(x=>x.k===a))b.align=a;});}
+function stkBValign(id,a){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b&&['top','middle','bottom'].includes(a))b.valign=a;});}
+function stkBFrame(id,key,mm){const n=Number(mm);if(!['x','y','w','h'].includes(key)||!Number.isFinite(n))return;stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(!b||!b.frame)return;b.frame[key]=stkFrameValue(key,n*72/25.4);});}
+function stkBFont(id,key,v){if(!stkFontFields({k:stkFindBlock(id)?.k}).some(x=>x[0]===key))return;stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(!b)return;stkFontValue(b,key,v);});}
+function stkFrameValue(key,v){return Math.round(Math.max(key==='w'||key==='h'?1:-10000,Math.min(10000,v))*100)/100;}
+function stkFontValue(b,key,v){if(!b.fonts)b.fonts={};if(v==='')delete b.fonts[key];else if(Number.isFinite(Number(v)))b.fonts[key]=Math.max(6,Math.min(144,Math.round(Number(v)*2)/2));if(!Object.keys(b.fonts).length)delete b.fonts;}
+function stkFontFields(b){return ({shape:[['dims','Side lengths'],['label','SHAPE']],barcode:[['number','Barcode number']],size:[['cut','CUT line']],order:[['recut','RECUT']],makeup:[['heading','Makeup heading']],route:[['route','Route text']]})[b.k]||[];}
+/* Numeric edits keep focus and update only the preview until the edit commits. */
+function stkNumberBegin(input){if(!input._stkBefore)input._stkBefore=stkClone(stkDraft().tpl);}
+function stkBNumber(id,kind,key,input,commit){
+ const d=stkDraft(),b=d.tpl.blocks.find(x=>x.id===id);if(!b)return;stkNumberBegin(input);
+ const raw=input.value,n=Number(raw);if(kind==='frame'&&raw!==''&&Number.isFinite(n)&&b.frame)b.frame[key]=stkFrameValue(key,n*72/25.4);
+ if(kind==='font'&&(raw===''||Number.isFinite(n)))stkFontValue(b,key,raw);
+ if(kind==='size'&&raw!==''&&Number.isFinite(n)){const def=stkBlockDef(b.k);b.size=Math.min(def.size[2],Math.max(def.size[1],Math.round(n*2)/2));}
+ d.dirty=JSON.stringify(d.tpl)!==d.saved;stkBuilderState().notice='';
+ if(commit){stkHistoryRecord(d,input._stkBefore);input._stkBefore=null;input.value=kind==='frame'?stkMM(b.frame[key]):kind==='font'?(b.fonts&&b.fonts[key]||''):b.size;}
+ stkPreviewRefresh();stkHistoryRefresh();
+}
+function stkMM(pt){return Math.round(pt*25.4/72*100)/100;}
+function stkHistoryRefresh(){const d=stkDraft(),builder=document.querySelector('[data-stk-builder]');if(!builder)return;const undo=builder.querySelector('[data-stk-undo]'),redo=builder.querySelector('[data-stk-redo]'),save=builder.querySelector('[data-stk-save]');if(undo)undo.disabled=!d.undo.length;if(redo)redo.disabled=!d.redo.length;if(save)save.disabled=!d.dirty;const mark=builder.querySelector('[data-stk-dirty]');if(mark&&!d.dirty)mark.remove();else if(!mark&&d.dirty&&save)save.insertAdjacentHTML('beforebegin','<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>');const saved=builder.querySelector('.stk-saved');if(saved)saved.textContent='';}
 function stkBField(id,label){if(!label)return;stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.text=((b.text||'').trim()+' {'+label+'}').trim().slice(0,STK_TEXT_MAX);});}
 function stkBAddField(label){if(!label)return;const s=stkBuilderState();stkEditTpl(t=>{const b=stkBlock('text','full',null,{text:'{'+label+'}',bold:false}),j=t.blocks.findIndex(x=>x.at==='bottom');t.blocks.splice(j<0?t.blocks.length:j,0,b);s.sel=s.open=b.id;});}
 function stkBDetail(id,key,on){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b&&b.details)b.details[key]=!!on;});}
@@ -30416,11 +30607,11 @@ function stkBSelect(id){
  const r=s.sel&&document.querySelector('[data-stk-block="'+s.sel+'"]');if(r&&r.scrollIntoView)r.scrollIntoView({block:'nearest'});
 }
 function stkBOpen(id){stkBSelect(id);}
-function stkBReset(){const s=stkBuilderState();stkEditTpl(t=>{const base=s.print?stkTemplate(s.type,s.size):stkBase(s.type,s.size);t.orient=base.orient;t.blocks=base.blocks;});s.sel='';s.open='';}
+function stkBReset(){const s=stkBuilderState();s.sel='';s.open='';stkEditTpl(t=>{const orient=t.orient,variants=t.variants,base=s.print?stkTemplate(s.type,s.size):stkBase(s.type,s.size,orient);if(s.print)stkSwitchOrientation(base,s.type,s.size,orient);Object.keys(t).forEach(k=>delete t[k]);Object.assign(t,base);if(variants)t.variants=variants;});}
 function stkBSave(){
  const s=stkBuilderState(),d=stkDraft(),k=stkKey(s.type,s.size);
  DB.stickerTemplate=Object.assign({},DB.stickerTemplate,{[k]:stkCleanTemplate(s.type,s.size,d.tpl)});
- d.tpl=stkTemplate(s.type,s.size);d.dirty=false;s.notice='Saved';touch();render();
+ d.tpl=stkTemplate(s.type,s.size);d.saved=JSON.stringify(d.tpl);d.dirty=false;s.notice='Saved';touch();render();
 }
 /* Перемещение: в списке блок сохраняет свою колонку; на стикере — берёт
    колонку того блока, на который его бросили. Bottom всегда в конце. */
@@ -30449,6 +30640,49 @@ function stkDrop(e,id,adopt){
  if(from&&from!==id)stkMoveBlock(from,id,after?'after':'before',adopt);
 }
 function stkDropZone(e,zone){e.preventDefault();const from=stkDrag;stkDrag='';if(from)stkMoveToZone(from,zone);}
+function stkHitsHTML(pg,tpl,s){
+ const free=tpl.layout==='free',pc=(v,of)=>(v/of*100).toFixed(4)+'%';
+ return pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);if(!b)return '';const sel=s.sel===x.id,bad=x.bad||(pg.issues||[]).some(i=>i.id===x.id);
+  const handles=free&&sel?['nw','n','ne','e','se','s','sw','w'].map(k=>`<span class="stk-resize stk-resize-${k}" data-stk-resize="${k}" title="Resize ${k.toUpperCase()}" aria-hidden="true"></span>`).join(''):'';
+  const drag=free?`draggable="false" onpointerdown="stkPointerStart(event,'${x.id}')" onclick="stkHitClick(event,'${x.id}')"`:`draggable="true" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"`;
+  return `<div class="stk-hit${free?' free':''}${sel?' sel':''}${bad?' bad':''}" data-stk-hit="${x.id}" title="${esc(stkBlockLabel(b))}" style="left:${pc(x.x,pg.w)};top:${pc(x.y,pg.h)};width:${pc(x.w,pg.w)};height:${pc(free?x.h:Math.max(6/STK_PX,x.h),pg.h)}" ${drag}>${handles}</div>`;
+ }).join('');
+}
+function stkFitHTML(pg){
+ const issues=pg.issues||[],messages=[...new Set((pg.overflow||[]).concat(issues.map(i=>i.message)))];
+ return messages.length?`<span class="pill warn" data-stk-fit="no">Doesn't fit</span><ul class="stk-issues" data-stk-issues>${messages.map(m=>`<li>${esc(m)}</li>`).join('')}</ul>`:'<span class="pill ok" data-stk-fit="yes">Fits</span>';
+}
+function stkPreviewRefresh(){
+ const s=stkBuilderState(),tpl=stkDraft().tpl,pg=stkLayout(tpl,s.size,stkSampleData(s.type).data),paper=document.querySelector('[data-stk-paper]');if(!paper)return;
+ paper.innerHTML=stkPageSVG(pg,'100%','100%')+stkHitsHTML(pg,tpl,s);paper.dataset.stkWidth=pg.w;paper.dataset.stkHeight=pg.h;
+ const fit=document.querySelector('[data-stk-fit-wrap]');if(fit)fit.innerHTML=stkFitHTML(pg);
+ const b=tpl.blocks.find(x=>x.id===s.sel);if(b&&b.frame)document.querySelectorAll('[data-stk-details-panel="'+b.id+'"] [data-stk-frame]').forEach(input=>{if(input!==document.activeElement)input.value=stkMM(b.frame[input.dataset.stkFrame]);});
+ document.querySelectorAll('[data-stk-block]').forEach(el=>el.classList.toggle('sel',el.dataset.stkBlock===s.sel));
+}
+function stkHitClick(e,id){if(Date.now()<stkClickUntil){e.preventDefault();e.stopPropagation();return;}stkBSelect(id);}
+/* Pointer capture stays on the paper while its SVG and hit areas update. */
+function stkPointerStart(e,id){
+ if(e.button!==0||stkPointer||stkDraft().tpl.layout!=='free')return;
+ const d=stkDraft(),b=d.tpl.blocks.find(x=>x.id===id),paper=e.currentTarget.closest('[data-stk-paper]');if(!b||!b.frame||!paper)return;
+ e.preventDefault();e.stopPropagation();const r=paper.getBoundingClientRect(),s=stkBuilderState();s.sel=s.open=id;
+ const handle=e.target.closest('[data-stk-resize]');stkPointer={id,pid:e.pointerId,paper,draft:d,before:stkClone(d.tpl),dirty:d.dirty,frame:Object.assign({},b.frame),handle:handle?handle.dataset.stkResize:'move',x:e.clientX,y:e.clientY,sx:Number(paper.dataset.stkWidth)/r.width,sy:Number(paper.dataset.stkHeight)/r.height};
+ try{paper.setPointerCapture(e.pointerId);}catch(x){}paper.classList.add('stk-moving');stkPreviewRefresh();
+}
+function stkPointerMove(e){
+ const p=stkPointer;if(!p||e.pointerId!==p.pid)return;e.preventDefault();const b=p.draft.tpl.blocks.find(x=>x.id===p.id);if(!b)return;
+ const dx=(e.clientX-p.x)*p.sx,dy=(e.clientY-p.y)*p.sy,f=p.frame,next=Object.assign({},f),h=p.handle;
+ if(h==='move'){next.x=f.x+dx;next.y=f.y+dy;}else{
+  if(h.includes('e'))next.w=f.w+dx;if(h.includes('s'))next.h=f.h+dy;
+  if(h.includes('w')){next.w=Math.max(1,Math.min(10000,f.w-dx));next.x=f.x+f.w-next.w;}
+  if(h.includes('n')){next.h=Math.max(1,Math.min(10000,f.h-dy));next.y=f.y+f.h-next.h;}
+ }
+ ['x','y','w','h'].forEach(k=>next[k]=stkFrameValue(k,next[k]));b.frame=next;stkPreviewRefresh();
+}
+function stkPointerEnd(e,cancel){
+ const p=stkPointer;if(!p||e.pointerId!==p.pid)return;stkPointer=null;stkClickUntil=Date.now()+350;
+ if(cancel){p.draft.tpl=p.before;p.draft.dirty=p.dirty;}else stkHistoryRecord(p.draft,p.before);
+ try{p.paper.releasePointerCapture(p.pid);}catch(x){}p.paper.classList.remove('stk-moving');render();
+}
 function stkSamples(type){
  const out=[];
  (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&o.status!=='cancelled').slice().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,15).forEach(o=>(o.lines||[]).forEach((l,li)=>{
@@ -30478,46 +30712,50 @@ function stkSampleData(type){
 }
 function viewMdStickers(){return stkEditorHTML();}
 function stkEditorHTML(){
- const s=stkBuilderState(),dr=stkDraft(),tpl=dr.tpl,{data,list,key}=stkSampleData(s.type),pg=stkLayout(tpl,s.size,data);
+ const s=stkBuilderState(),dr=stkDraft(),tpl=dr.tpl,{data,list,key}=stkSampleData(s.type),pg=stkLayout(tpl,s.size,data),free=tpl.layout==='free';
  const seg=(items,cur,fn,mark)=>`<div class="stk-seg">${items.map(x=>`<button type="button" class="${x.k===cur?'on':''}" data-stk-seg="${x.k}" onclick="${fn}('${x.k}')">${esc(x.label)}${mark&&mark(x)?' •':''}</button>`).join('')}</div>`;
  const dirtyType=t=>STK_SIZES.some(z=>(s.drafts[stkKey(t.k,z.k)]||{}).dirty),dirtySize=z=>!!(s.drafts[stkKey(s.type,z.k)]||{}).dirty;
  const usable=tpl.blocks.filter(b=>(stkBlockDef(b.k)||{types:[]}).types.includes(s.type));
  const fields=Object.keys(data.vars||{}).filter(k=>data.vars[k]!=='');
  const fieldSelect=(attr,call)=>`<select ${attr} aria-label="Insert field" onchange="${call}"><option value="">+ Field…</option>${fields.map(k=>`<option value="${esc(k)}">${esc(k)} — ${esc(String(data.vars[k]).slice(0,28))}</option>`).join('')}</select>`;
  const row=b=>{
-  const def=stkBlockDef(b.k),sel=s.sel===b.id,open=s.open===b.id,A=stkAlignOf(b,b.at==='right'?'right':'full');
+  const def=stkBlockDef(b.k),sel=s.sel===b.id,open=s.open===b.id,A=free&&b.k==='route'&&!STK_ALIGNS.some(a=>a.k===b.align)?'center':stkAlignOf(b,b.at==='right'?'right':'full');
+  const numbers=(kind,key,label,value,unit,min,max)=>`<label class="stk-number-label">${label}<span><input type="number" data-stk-${kind}="${key}" value="${value}" ${min!=null?'min="'+min+'"':''} ${max!=null?'max="'+max+'"':''} step="${kind==='frame'?'0.1':'0.5'}" placeholder="Auto" aria-label="${label} ${unit}" onfocus="stkNumberBegin(this)" oninput="stkBNumber('${b.id}','${kind}','${key}',this,false)" onchange="stkBNumber('${b.id}','${kind}','${key}',this,true)" onblur="if(this._stkBefore)stkBNumber('${b.id}','${kind}','${key}',this,true)">${unit}</span></label>`;
+  const frame=free&&b.frame?`<div class="stk-frame-fields">${[['x','X'],['y','Y'],['w','Width'],['h','Height']].map(([k,label])=>numbers('frame',k,label,stkMM(b.frame[k]),'mm',k==='w'||k==='h'?0.36:null,null)).join('')}</div>`:'';
+  const fonts=stkFontFields(b),fontPanel=fonts.length?`<div class="stk-font-fields">${fonts.map(([k,label])=>numbers('font',k,label,b.fonts&&b.fonts[k]||'','pt',6,144)).join('')}</div>`:'';
   const panel=open?`<div class="stk-details" data-stk-details-panel="${b.id}">
-    ${b.k==='divider'||b.k==='route'?'':`<span class="stk-seg stk-seg-sm">${STK_ALIGNS.map(a=>`<button type="button" class="${A===a.k?'on':''}" data-stk-align="${a.k}" onclick="stkBAlign('${b.id}','${a.k}')">${a.label}</button>`).join('')}</span>`}
+    ${frame}
+    ${!free&&(b.k==='divider'||b.k==='route')?'':`<span class="stk-seg stk-seg-sm" aria-label="Horizontal alignment">${STK_ALIGNS.map(a=>`<button type="button" class="${A===a.k?'on':''}" data-stk-align="${a.k}" onclick="stkBAlign('${b.id}','${a.k}')">${a.label}</button>`).join('')}</span>`}
+    ${free?`<span class="stk-seg stk-seg-sm" aria-label="Vertical alignment">${[['top','Top'],['middle','Middle'],['bottom','Bottom']].map(([k,label])=>`<button type="button" class="${(b.valign||(b.k==='route'?'middle':'top'))===k?'on':''}" data-stk-valign="${k}" onclick="stkBValign('${b.id}','${k}')">${label}</button>`).join('')}</span>`:''}
     ${def.graphic?'':`<label><input type="checkbox" data-stk-bold ${b.bold?'checked':''} onchange="stkBBold('${b.id}')"> Bold</label>`}
     ${def.details.map(x=>`<label><input type="checkbox" data-stk-detail="${x[0]}" ${b.details[x[0]]?'checked':''} onchange="stkBDetail('${b.id}','${x[0]}',this.checked)"> ${esc(x[1])}</label>`).join('')}
-    ${b.k==='text'?fieldSelect('data-stk-field',"stkBField('"+b.id+"',this.value)"):''}</div>`:'';
+    ${b.k==='text'?fieldSelect('data-stk-field',"stkBField('"+b.id+"',this.value)"):''}${fontPanel}</div>`:'';
   return `<div class="stk-row${b.on?'':' off'}${sel?' sel':''}" data-stk-block="${b.id}" data-stk-kind="${b.k}" draggable="true" ondragstart="stkDragStart(event,'${b.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${b.id}',false)" onclick="if(event.target===this||event.target.classList.contains('stk-name'))stkBSelect('${b.id}')">
    <span class="stk-grip" title="Drag">⋮⋮</span><input type="checkbox" data-stk-on ${b.on?'checked':''} aria-label="Print ${esc(def.label)}" onchange="stkBToggle('${b.id}',this.checked)">
    <span class="stk-name">${b.k==='text'?`<input type="text" class="stk-text" data-stk-text value="${esc(b.text)}" maxlength="${STK_TEXT_MAX}" aria-label="Text" placeholder="Text or {field}" onchange="stkBText('${b.id}',this.value)">`:esc(def.label)}</span>
-   <select data-stk-place aria-label="Place" onchange="stkBPlace('${b.id}',this.value)">${STK_PLACES.map(p=>`<option value="${p.k}" ${b.at===p.k?'selected':''}>${p.label}</option>`).join('')}</select>
-   <span class="stk-step"><button type="button" aria-label="Smaller" data-stk-minus onclick="stkBSize('${b.id}',0,-1)">−</button><input type="number" data-stk-size value="${b.size}" min="${def.size[1]}" max="${def.size[2]}" step="${stkSizeStep(def)}" aria-label="Size pt" onchange="stkBSize('${b.id}',this.value)"><button type="button" aria-label="Larger" data-stk-plus onclick="stkBSize('${b.id}',0,1)">+</button></span>
+   <select data-stk-place aria-label="Place" ${free?'disabled title="Position uses frame coordinates"':''} onchange="stkBPlace('${b.id}',this.value)">${STK_PLACES.map(p=>`<option value="${p.k}" ${b.at===p.k?'selected':''}>${p.label}</option>`).join('')}</select>
+   ${free&&['shape','barcode','route'].includes(b.k)?'<span class="stk-frame-size">Frame · mm</span>':`<span class="stk-step"><button type="button" aria-label="Smaller" data-stk-minus onclick="stkBSize('${b.id}',0,-1)">−</button><input type="number" data-stk-size value="${b.size}" min="${def.size[1]}" max="${def.size[2]}" step="${stkSizeStep(def)}" aria-label="Size pt" ${free?`onfocus="stkNumberBegin(this)" oninput="stkBNumber('${b.id}','size','',this,false)" onchange="stkBNumber('${b.id}','size','',this,true)" onblur="if(this._stkBefore)stkBNumber('${b.id}','size','',this,true)"`:`onchange="stkBSize('${b.id}',this.value)"`}><button type="button" aria-label="Larger" data-stk-plus onclick="stkBSize('${b.id}',0,1)">+</button></span>`}
    <button type="button" class="stk-icon${open?' on':''}" data-stk-gear title="Settings" aria-expanded="${open}" onclick="stkBSelect('${b.id}')">⚙</button>
    ${def.multi?`<button type="button" class="stk-icon" data-stk-remove title="Remove" onclick="stkBRemove('${b.id}')">×</button>`:'<span class="stk-icon-sp"></span>'}
   </div>${panel}`;
  };
  const zone=(name,list,z)=>`<div class="stk-zone" data-stk-zone="${z}" ondragover="event.preventDefault()" ondrop="stkDropZone(event,'${z}')"><div class="stk-zone-head">${name}</div>${list.map(row).join('')||'<div class="stk-zone-empty">Drop here</div>'}</div>`;
  const W=pg.w*STK_PX,H=pg.h*STK_PX;
- /* Бумага ужимается в колонку превью (лёжа 6″ шире её) — зоны блоков в %. */
- const pc=(v,of)=>(v/of*100).toFixed(2)+'%';
- const hits=pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);return `<div class="stk-hit${s.sel===x.id?' sel':''}" data-stk-hit="${x.id}" draggable="true" title="${esc(b?stkBlockLabel(b):'')}" style="left:${pc(x.x,pg.w)};top:${pc(x.y,pg.h)};width:${pc(x.w,pg.w)};height:${pc(Math.max(6/STK_PX,x.h),pg.h)}" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"></div>`;}).join('');
- const fit=pg.overflow.length?`<span class="pill warn" data-stk-fit="no">Doesn't fit: ${esc(pg.overflow.join(', '))}</span>`:'<span class="pill ok" data-stk-fit="yes">Fits</span>';
+ const hits=stkHitsHTML(pg,tpl,s),fit=stkFitHTML(pg);
  const samples=list.length?`<select data-stk-sample aria-label="Sample" onchange="stkBuilderState().sample=this.value;render()">${list.map(x=>`<option value="${esc(x.key)}" ${x.key===key?'selected':''}>${esc(x.label)}</option>`).join('')}</select>`:'<span class="mut">Demo glass</span>';
  return `<div class="stk-builder" data-stk-builder>
   <div class="stk-head">
    ${s.print?'':`<div class="stk-ctl"><span class="ncr-label">STICKER</span>${seg(STK_TYPES,s.type,'stkBType',dirtyType)}</div>
    <div class="stk-ctl"><span class="ncr-label">SIZE</span>${seg(STK_SIZES,s.size,'stkBSizeKey',dirtySize)}</div>`}
    <div class="stk-ctl"><span class="ncr-label">ORIENTATION</span>${seg([{k:'portrait',label:'Portrait'},{k:'landscape',label:'Landscape'}],tpl.orient,'stkBOrient')}</div>
+   <div class="stk-ctl"><span class="ncr-label">LAYOUT</span><div class="stk-seg">${[['auto','Automatic'],['free','Free layout']].map(([k,label])=>`<button type="button" class="${(tpl.layout||'auto')===k?'on':''}" data-stk-layout="${k}" onclick="stkBLayout('${k}')">${label}</button>`).join('')}</div></div>
    <div class="stk-ctl stk-sample"><span class="ncr-label">SAMPLE</span>${samples}</div>
   </div>
+  <div class="stk-edit-tools"><button type="button" data-stk-undo ${dr.undo.length?'':'disabled'} onclick="stkBUndo()">↶ Undo</button><button type="button" data-stk-redo ${dr.redo.length?'':'disabled'} onclick="stkBRedo()">↷ Redo</button>${free?'<span class="mut">Drag blocks or resize their frames. Text sizes use pt.</span>':''}</div>
   <div class="stk-grid">
    <div class="stk-side">${zone('TOP',usable.filter(b=>b.at!=='bottom'),'top')}${zone('BOTTOM',usable.filter(b=>b.at==='bottom'),'bottom')}
     <div class="stk-add"><button type="button" data-stk-add="text" onclick="stkBAdd('text')">+ Custom text</button>${fieldSelect('data-stk-add-field','stkBAddField(this.value)')}<button type="button" data-stk-add="divider" onclick="stkBAdd('divider')">+ Divider</button></div></div>
-   <div class="stk-preview"><div class="stk-paper" data-stk-paper style="width:${W.toFixed(0)}px;max-width:100%;aspect-ratio:${W.toFixed(0)}/${H.toFixed(0)}">${stkPageSVG(pg,'100%','100%')}${hits}</div><div class="stk-fit">${fit}</div></div>
+   <div class="stk-preview"><div class="stk-paper${free?' stk-free-paper':''}" data-stk-paper data-stk-width="${pg.w}" data-stk-height="${pg.h}" onpointermove="stkPointerMove(event)" onpointerup="stkPointerEnd(event,false)" onpointercancel="stkPointerEnd(event,true)" style="width:${W.toFixed(0)}px;max-width:100%;aspect-ratio:${pg.w}/${pg.h}">${stkPageSVG(pg,'100%','100%')}${hits}</div><div class="stk-fit" data-stk-fit-wrap>${fit}</div></div>
   </div>
   ${s.print?`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to template</button><span class="sp"></span><button type="button" onclick="stkPrintEditCancel()">Cancel</button><button type="button" data-stk-save-template onclick="stkPrintEditSave()">Save as template</button><button type="button" class="pri" data-stk-done onclick="stkPrintEditDone()">Done</button></div>`
   :`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to base</button><span class="sp"></span>${dr.dirty?'<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>':s.notice?`<span class="stk-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-stk-save ${dr.dirty?'':'disabled'} onclick="stkBSave()">Save template</button></div>`}
