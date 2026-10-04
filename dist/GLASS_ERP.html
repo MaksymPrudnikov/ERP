@@ -2749,7 +2749,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='8981f77cc637';
+var ERP_BUILD='d1ce26e43ec1';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -24963,6 +24963,18 @@ function unitIdNumber(id){return unitIdValid(id)?+id.slice(2):0;}
 function unitIdNext(){DB.glassUnitIdSeq=(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0)+1;return 'U-'+String(DB.glassUnitIdSeq).padStart(7,'0');}
 function unitIdAt(orderId,lineId,unit){const r=(DB.glassUnitId||[]).find(x=>x.key===orderId+'|'+lineId);return r&&r.ids[unit-1]||'';}
 function glassPieceNextId(){DB.glassPieceSeq=(Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0)+1;return 'G-'+String(DB.glassPieceSeq).padStart(7,'0');}
+/* Высший выданный номер G и U живёт и вне базы, в своём ключе браузера.
+   Старая выгрузка откатывает базу, но не этот ключ: номер с уже
+   напечатанного стикера второй раз не выдаётся. Ключ пишется до базы —
+   при сбое записи остаётся пропуск, а не повтор. */
+const GLASS_ID_MARK_KEY='glazing_system_v1-id-mark';
+function glassIdSeq(v){return Number.isSafeInteger(v)&&v>0?v:0;}
+function glassIdMarkRead(){try{const m=JSON.parse(localStorage.getItem(GLASS_ID_MARK_KEY)||'null')||{};return {g:glassIdSeq(m.g),u:glassIdSeq(m.u)};}catch(e){return {g:0,u:0};}}
+function glassIdMarkApply(){const m=glassIdMarkRead();DB.glassPieceSeq=Math.max(glassIdSeq(DB.glassPieceSeq),m.g);DB.glassUnitIdSeq=Math.max(glassIdSeq(DB.glassUnitIdSeq),m.u);}
+function glassIdMarkSave(){
+ const m=glassIdMarkRead(),g=Math.max(m.g,glassIdSeq(DB.glassPieceSeq)),u=Math.max(m.u,glassIdSeq(DB.glassUnitIdSeq));
+ if(g!==m.g||u!==m.u)localStorage.setItem(GLASS_ID_MARK_KEY,JSON.stringify({g,u}));
+}
 /* Стекло позиции — панель, у ламината каждая плита. Позиция без Makeup даёт
    одну запись Glass missing: её количество не теряется из остатка заказа. */
 function glassBatchComponents(o,l){
@@ -25338,10 +25350,12 @@ function glassBatchCutMove(number,dir){
 /* ==== src/erp/production/barcode.js ==== */
 /* =====================================================================
    erp/production/barcode  ·  barcode-1.0
-   Линейный штрихкод Code 128 (набор B) для стикеров стёкол.
-   IN : текст номера (G-0000001, U-0000001)
+   Линейный штрихкод Code 128 (наборы B/C) для стикеров стёкол.
+   IN : текст номера (G-0000001, U-0000001; после 9999999 — 8 цифр и больше)
    OUT: ширины модулей и прямоугольники страницы стикера
    Правило: без внешних библиотек — файл программы открывается с диска.
+   Набор C пишет две цифры одним символом: G-0002789 — 132 модуля вместо
+   154 в наборе B, на узком месте стикера полоса печатается толще.
    Сканер цеха работает как клавиатура и вводит ровно этот текст.
    ===================================================================== */
 const BARCODE128=['212222','222122','222221','121223','121322','131222','122213','122312','132212','221213',
@@ -25355,12 +25369,32 @@ const BARCODE128=['212222','222122','222221','121223','121322','131222','122213'
  '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
  '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
  '114131','311141','411131','211412','211214','211232','2331112'];
-const BARCODE128_START_B=104,BARCODE128_STOP=106,BARCODE128_QUIET=10;
-/* Значения символов: старт B, данные, контрольная сумма, стоп. */
+const BARCODE128_START_B=104,BARCODE128_START_C=105,BARCODE128_STOP=106,BARCODE128_QUIET=10;
+/* Кратчайший путь по наборам B/C: B сохраняет ASCII, C упаковывает пары
+   цифр. Переключение тоже занимает символ; при равной длине не переключаем
+   набор. Штрихкод возвращает исходный текст, включая все ведущие нули. */
 function barcode128Values(text){
- const s=String(text==null?'':text),vals=[BARCODE128_START_B];
- for(const ch of s){const c=ch.charCodeAt(0);if(c<32||c>126)throw new Error('Barcode: unsupported character');vals.push(c-32);}
- let sum=BARCODE128_START_B;for(let i=1;i<vals.length;i++)sum+=vals[i]*i;
+ const s=String(text==null?'':text),n=s.length;
+ for(const ch of s){const c=ch.charCodeAt(0);if(c<32||c>126)throw new Error('Barcode: unsupported character');}
+ const b=new Array(n+1),c=new Array(n+1),toC=new Array(n),toB=new Array(n),pair=i=>i+1<n&&s.charCodeAt(i)>=48&&s.charCodeAt(i)<=57&&s.charCodeAt(i+1)>=48&&s.charCodeAt(i+1)<=57;
+ b[n]=c[n]=0;
+ for(let i=n-1;i>=0;i--){
+  b[i]=1+b[i+1];toC[i]=false;
+  c[i]=2+b[i+1];toB[i]=true;
+  if(pair(i)){
+   if(2+c[i+2]<b[i]){b[i]=2+c[i+2];toC[i]=true;}
+   if(1+c[i+2]<=c[i]){c[i]=1+c[i+2];toB[i]=false;}
+  }
+ }
+ let setC=c[0]<b[0],i=0;const vals=[setC?BARCODE128_START_C:BARCODE128_START_B];
+ while(i<n){
+  if(setC){
+   if(toB[i]){vals.push(100,s.charCodeAt(i)-32);setC=false;i++;}
+   else{vals.push(+s.slice(i,i+2));i+=2;}
+  }else if(toC[i]){vals.push(99,+s.slice(i,i+2));setC=true;i+=2;}
+  else{vals.push(s.charCodeAt(i)-32);i++;}
+ }
+ let sum=vals[0];for(let k=1;k<vals.length;k++)sum+=vals[k]*k;
  vals.push(sum%103,BARCODE128_STOP);return vals;
 }
 /* Ширины полос и промежутков по очереди, начиная с полосы. */
@@ -33703,6 +33737,8 @@ function touch(){
  try{
   /* Журнал заказа: события по разнице с тем, что лежит в базе (erp/sales/order-log). */
   if(typeof orderLogCapture==='function')orderLogCapture();
+  /* Счётчик номеров стёкол — раньше базы (erp/production/glass-batches). */
+  if(typeof glassIdMarkSave==='function')glassIdMarkSave();
   const text=JSON.stringify(DB);
   try{localStorage.setItem(STORAGE_KEY,text);}
   catch(e){if(!storageBackupPresent||storageImporting)throw e;console.warn('Storage full: pre-import copy removed to keep saving.');storageBackupDrop();localStorage.setItem(STORAGE_KEY,text);}
@@ -33949,7 +33985,7 @@ function prepareImportedState(src){
  validateImportedState(src);
  const previous=DB, previousReseeded=referenceReseeded;
  try{
-  DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);normalizeDB();
+  DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB();
   /* Пересев на импорте, а не только на старте. Версия справочников живёт В
      ДАННЫХ ровно затем, чтобы чужой файл со старым каталогом тоже пересеялся;
      до сих пор это срабатывало лишь при следующем F5, и всё это время на
@@ -33999,7 +34035,7 @@ function boot(){
  let hadSavedState=false;
  try{ const s=localStorage.getItem('glazing_system_v1'); if(s){ hadSavedState=true; const parsed=JSON.parse(s);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||!Object.keys(parsed).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a database object.');mergeState(parsed); } }
  catch(e){storageRecovery=true;storageLastError='Stored data could not be read. The original has been preserved.';console.warn(storageLastError,e.message);}
- try{ normalizeDB(); }
+ try{ if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB(); }
  catch(e){storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
  /* Пересев справочников. Идёт ПОСЛЕ первой нормализации (иначе сравнивать не с
     чем) и сам вызывает её повторно, чтобы заводские данные прошли те же правила,
