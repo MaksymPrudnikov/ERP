@@ -817,7 +817,7 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   const size16=frac16(p.w)+' × '+frac16(p.h)+'″',turnLabel=!(h>52&&w>84)&&w>52&&h>84;
   out.push('<title>'+esc([p.piece,src.order?src.order+' / '+src.line:'',size16,station?(stationState==='cut'?'Cut':stationState==='now'?'Just scanned':stationState==='broken'?'Sheet broke':'Waiting'):null].filter(Boolean).join(' · '))+'</title>');
   if(h>52&&w>84||turnLabel){
-   const lines=[[src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(i+1),15,'#101828']];
+   const lines=[[src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(src.no||i+1),15,'#101828']];
    /* Glass ID — мелко под номером, если строка помещается между подписями
       размеров; не помещается — стекло остаётся с номером, как раньше. */
    const room=(turnLabel?w:h)-2*CUT_LABEL_EDGE,across=(turnLabel?h:w)-2*CUT_LABEL_EDGE;
@@ -826,7 +826,7 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
    out.push('<g transform="translate('+mid[0].toFixed(1)+' '+mid[1].toFixed(1)+')'+(turnLabel?' rotate(-90)':'')+'">');
    lines.forEach(l=>{ty2+=l[1]*1.15;if(l[0])out.push('<text x="0" y="'+ty2.toFixed(1)+'" text-anchor="middle" font-size="'+l[1]+'" fill="'+l[2]+'">'+esc(l[0])+'</text>');});
    out.push('</g>');
-  }else out.push((gid&&cutFitLabel(mid[0],mid[1],w-2*CUT_LABEL_EDGE,h-2*CUT_LABEL_EDGE,[String(i+1),gid],'#101828'))||cutFitLabel(mid[0],mid[1],w,h,[String(i+1)],'#101828'));
+  }else out.push((gid&&cutFitLabel(mid[0],mid[1],w-2*CUT_LABEL_EDGE,h-2*CUT_LABEL_EDGE,[String(src.no||i+1),gid],'#101828'))||cutFitLabel(mid[0],mid[1],w,h,[String(src.no||i+1)],'#101828'));
   out.push(cutAxisText(frac16(p.w)+'″',x+w/2,y+h-4,w,false));
   out.push(cutAxisText(frac16(p.h)+'″',x+8,y+h/2,h,true));
   if(p.locked&&w>20&&h>20)out.push('<text x="'+(x+w-4).toFixed(1)+'" y="'+(y+11).toFixed(1)+'" text-anchor="end" font-size="9" fill="#93370d">lock</text>');
