@@ -912,6 +912,16 @@ module.exports=async function({page,eq,ok}){
    turned:!!narrow&&/rotate\(-90\)/.test(cutSheetSVG(g,narrow,480,[],{}))};
  }),{sheets:23,placed:true,clean:true,safe:true,oldSliver:0.5,healed:true,turned:true});
 
+ /* Владелец, 5 октября 2026: «если укладка полоса — столбик — стопка лучше,
+    чем то, что у нас сейчас, и при любых тестах показывает себя лучше — бери».
+    Набор подобран перебором: прежние варианты брали 3 листа. */
+ eq('полоса → столбик → стопка: 26 стёкол на 130 × 96 — 2 листа вместо 3, режется сквозными резами',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',130,96);
+  ctOrder([[35.25,27.75,10],[18,30.5,8],[17,53.75,8]]);const b=DB.glassBatch[0];
+  const c=ctSet(b.number,()=>['trimX','trimY','borderX','borderY'].forEach(f=>cutSetParam(b.number,'6CLEAR',f,'3/4'))).plan,g=c.groups[0];
+  return {sheets:g.sheets.length,strategy:g.strategy,placed:c.stats.placed===c.stats.total,clean:!ctOverlap(c).length&&!ctOutside(c).length,safe:cutGroupCutQuality(g).bad===0};
+ }),{sheets:2,strategy:'stack',placed:true,clean:true,safe:true});
+
  /* Владелец, 5 октября 2026: G number на стекле, мелко, «чтобы влазило даже
     на стекло 20 на 20», и тот же вид, что на стикере. */
  eq('схема листа: Glass ID под номером, как на стикере; 20×20 — на экране и на станции; крошечное — только номер; не на подписях размеров',await t.p.evaluate(()=>{
