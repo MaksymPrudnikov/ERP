@@ -2749,7 +2749,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='23a2d65d9fb5';
+var ERP_BUILD='e54d2fad28ab';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -26326,44 +26326,62 @@ function cutUsable(size,params){
  const x0=+params.trimY||0,y0=+params.trimX||0,x1=cutRound(size.w-(+params.borderY||0)),y1=cutRound(size.h-(+params.borderX||0));
  return {x0,y0,x1,y1,W:cutRound(x1-x0),H:cutRound(y1-y0)};
 }
-/* Trim Y в настройке — минимальная обрезка. Только узкий зазор до первой
-   детали поглощаем тримом; широкая полоса остаётся отдельным отходом/стоком. */
-function cutEffectiveTrimY(sheet,params){
- const parts=cutTaken(sheet),minimum=+params.trimY||0,md=+params.minDist||0;
+/* Trim X (снизу) и Trim Y (слева) в настройке — минимальная обрезка. Только
+   узкий зазор до первой детали поглощаем тримом; широкая полоса остаётся
+   отдельным отходом/стоком. Обе стороны по одному правилу: «мы обсуждали
+   нижнюю левую сторону, вертикальную и горизонтальную… если система приняла
+   решение, то пусть скажет» (владелец, 5 октября 2026).
+   axis — по какой оси меряем: 'x' — левый край (Trim Y), 'y' — нижний (Trim X). */
+function cutTrimAxis(axis){
+ return axis==='y'?{pos:'y',len:'h',cross:'x',crossLen:'w',field:'trimX'}:{pos:'x',len:'w',cross:'y',crossLen:'h',field:'trimY'};
+}
+function cutEffectiveTrim(sheet,params,axis){
+ const a=cutTrimAxis(axis),parts=cutTaken(sheet),minimum=+params[a.field]||0,md=+params.minDist||0;
  if(!parts.length)return minimum;
- const first=Math.min(...parts.map(p=>+p.x)),gap=first-minimum;
+ const first=Math.min(...parts.map(p=>+p[a.pos])),gap=first-minimum;
  return gap>1e-6&&gap<md-1e-6?cutRound(first):minimum;
 }
-/* В соседних горизонтальных полосах нельзя оставлять уступ 5/16″ от
-   общей линии левого трима: это отдельный узкий рез, а не полезный остаток. */
-function cutTrimBands(sheet){
- const parts=cutTaken(sheet),seen=new Set(),bands=[];
+function cutEffectiveTrimY(sheet,params){return cutEffectiveTrim(sheet,params,'x');}
+function cutEffectiveTrimX(sheet,params){return cutEffectiveTrim(sheet,params,'y');}
+/* В соседних полосах нельзя оставлять уступ 5/16″ от общей линии трима:
+   это отдельный узкий рез, а не полезный остаток. Слева полосы — ряды
+   (перекрываются по высоте), снизу — столбцы (перекрываются по ширине). */
+function cutTrimBands(sheet,axis){
+ const a=cutTrimAxis(axis),parts=cutTaken(sheet),seen=new Set(),bands=[];
  parts.forEach(start=>{
   if(seen.has(start))return;
   const band=[start];seen.add(start);
   for(let i=0;i<band.length;i++)parts.forEach(p=>{
-   if(!seen.has(p)&&p.y<band[i].y+band[i].h-1e-6&&band[i].y<p.y+p.h-1e-6){seen.add(p);band.push(p);}
+   if(!seen.has(p)&&p[a.cross]<band[i][a.cross]+band[i][a.crossLen]-1e-6&&band[i][a.cross]<p[a.cross]+p[a.crossLen]-1e-6){seen.add(p);band.push(p);}
   });
-  bands.push({parts:band,left:Math.min(...band.map(p=>+p.x)),y0:Math.min(...band.map(p=>+p.y)),y1:Math.max(...band.map(p=>+p.y+p.h))});
+  bands.push({parts:band,left:Math.min(...band.map(p=>+p[a.pos])),lo:Math.min(...band.map(p=>+p[a.cross])),hi:Math.max(...band.map(p=>+p[a.cross]+p[a.crossLen]))});
  });
  return bands;
 }
+/* Запрет «не режется» — только для левого уступа. Снизу столбцы с уступом
+   выравниваются, где можно (cutAlignTrim), но лист из-за уступа не
+   бракуется: каждая полоска там не тоньше Min distance, а запрет на тесте
+   владельца (102 × 144, 23 листа как у Perfect Cut) давал лишний лист. */
 function cutTrimBandSlivers(sheet,params){
- const bands=cutTrimBands(sheet),md=+params.minDist||0,trim=cutEffectiveTrimY(sheet,params);
- return bands.filter(b=>b.left-trim>1e-6&&b.left-trim<md-1e-6).map(b=>({reason:'minDist',width:cutRound(b.left-trim),required:md,x0:trim,x1:b.left,y0:b.y0,y1:b.y1}));
+ const md=+params.minDist||0,trim=cutEffectiveTrimY(sheet,params);
+ return cutTrimBands(sheet,'x').filter(b=>b.left-trim>1e-6&&b.left-trim<md-1e-6).map(b=>({reason:'minDist',width:cutRound(b.left-trim),required:md,x0:trim,x1:b.left,y0:b.lo,y1:b.hi}));
 }
-function cutAlignTrimY(sheet,size,params){
+function cutAlignTrim(sheet,size,params){
  if(sheet.locked||(sheet.stock||[]).length)return false;
- const bands=cutTrimBands(sheet),md=+params.minDist||0;
- if(bands.length<2||md<=0)return false;
- const left=Math.min(...bands.map(b=>b.left)),target=Math.max(...bands.filter(b=>b.left-left<md-1e-6).map(b=>b.left));
- if(target-left<1e-6)return false;
- const limit=cutUsable(size,params).x1;
+ const md=+params.minDist||0,u=cutUsable(size,params);
+ if(md<=0)return false;
  let changed=false;
- bands.forEach(b=>{
-  const dx=cutRound(target-b.left);
-  if(dx<1e-6||dx>=md-1e-6||b.parts.some(p=>p.locked||p.x+p.w+dx>limit+1e-6))return;
-  b.parts.forEach(p=>{p.x=cutRound(p.x+dx);});changed=true;
+ ['x','y'].forEach(axis=>{
+  const a=cutTrimAxis(axis),bands=cutTrimBands(sheet,axis);
+  if(bands.length<2)return;
+  const left=Math.min(...bands.map(b=>b.left)),target=Math.max(...bands.filter(b=>b.left-left<md-1e-6).map(b=>b.left));
+  if(target-left<1e-6)return;
+  const limit=axis==='x'?u.x1:u.y1;
+  bands.forEach(b=>{
+   const d=cutRound(target-b.left);
+   if(d<1e-6||d>=md-1e-6||b.parts.some(p=>p.locked||p[a.pos]+p[a.len]+d>limit+1e-6))return;
+   b.parts.forEach(p=>{p[a.pos]=cutRound(p[a.pos]+d);});changed=true;
+  });
  });
  return changed;
 }
@@ -26835,7 +26853,7 @@ function cutSheetCuts(sheet,size,params,flips,usableOnly){
  const E=1e-6,u=usableOnly?Object.assign(cutUsable(size,params),{x0:cutEffectiveTrimY(sheet,params)}):{x0:0,y0:0,x1:size.w,y1:size.h},md=usableOnly?0:+params.minDist||0,
   all=cutTaken(sheet).map(p=>({x:+p.x,y:+p.y,w:+p.w,h:+p.h}));
  const set=new Set(Array.isArray(flips)?flips:[]),memo=new Map();
- const cacheKey=[cutCutKey(u),md,+params.trimY||0,[...set].sort().join(';'),all.map(p=>[p.x,p.y,p.w,p.h].join(',')).sort().join(';')].join('|');
+ const cacheKey=[cutCutKey(u),md,+params.trimY||0,+params.trimX||0,[...set].sort().join(';'),all.map(p=>[p.x,p.y,p.w,p.h].join(',')).sort().join(';')].join('|');
  if(cutCutsCache.has(cacheKey))return cutCutsCache.get(cacheKey);
  const inside=r=>all.filter(p=>p.x>=r.x0-E&&p.y>=r.y0-E&&p.x+p.w<=r.x1+E&&p.y+p.h<=r.y1+E);
  const better=(a,b)=>!b||a.stuck.length<b.stuck.length||a.stuck.length===b.stuck.length&&(a.lines.length<b.lines.length||a.lines.length===b.lines.length&&a.cost<b.cost-E);
@@ -26909,7 +26927,7 @@ function cutHealEdgeSlivers(sheet,size,params){
  const E=1e-6,u=cutUsable(size,params),md=+params.minDist||0,pieces=sheet.pieces;
  const fits=()=>pieces.every(p=>p.x>=u.x0-E&&p.y>=u.y0-E&&p.x+p.w<=u.x1+E&&p.y+p.h<=u.y1+E)&&
   pieces.every((p,i)=>pieces.slice(i+1).every(q=>p.x>=q.x+q.w-E||q.x>=p.x+p.w-E||p.y>=q.y+q.h-E||q.y>=p.y+p.h-E));
- let changed=cutAlignTrimY(sheet,size,params);
+ let changed=cutAlignTrim(sheet,size,params);
  for(let pass=0;pass<6;pass++){
   const bad=cutSheetCuts(sheet,size,params).stuck.length;if(!bad)break;
   let healed=false;
@@ -27929,7 +27947,7 @@ function cutMachineSnapshot(number,scope){
   if(!size||!(+size.w>0)||!(+size.h>0)){
    errors.push('Sheet '+sheet.no+' has invalid dimensions or margins.');return;
   }
-  const params=cutGroupParams(group,size),usable=cutUsable(size,params),effectiveTrimY=cutEffectiveTrimY(sheet,params);
+  const params=cutGroupParams(group,size),usable=cutUsable(size,params),effectiveTrimY=cutEffectiveTrimY(sheet,params),effectiveTrimX=cutEffectiveTrimX(sheet,params);
   if(!(usable.W>0)||!(usable.H>0)){
    errors.push('Sheet '+sheet.no+' has invalid dimensions or margins.');return;
   }
@@ -27981,10 +27999,10 @@ function cutMachineSnapshot(number,scope){
   }
   sheets.push({glass:group.glass,mm:+group.mm,no:sheet.no,
    size:{w:+size.w,h:+size.h,key:cutSheetKey(size)},
-   margins:{trimX:params.trimX,trimY:effectiveTrimY,borderX:params.borderX,borderY:params.borderY},
+   margins:{trimX:effectiveTrimX,trimY:effectiveTrimY,borderX:params.borderX,borderY:params.borderY},
    minimumMargins:{trimX:params.trimX,trimY:params.trimY,borderX:params.borderX,borderY:params.borderY},
    minDist:+params.minDist||0,
-   usable:{x0:effectiveTrimY,y0:usable.y0,x1:usable.x1,y1:usable.y1},
+   usable:{x0:effectiveTrimY,y0:effectiveTrimX,x1:usable.x1,y1:usable.y1},
    pieces:parts,stock,
    free:cut?(cut.free||[]).map(r=>({x:r.x0,y:r.y0,w:r.x1-r.x0,h:r.y1-r.y0})):[],
    offcuts:(sheet.offcuts||[]).filter(o=>[o.x,o.y,o.w,o.h].every(Number.isFinite)&&o.w>0&&o.h>0).map(o=>({id:o.id||'',x:o.x,y:o.y,w:o.w,h:o.h})),
@@ -31559,7 +31577,7 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  opts=opts||{};
  const station=!!opts.station,stationCut=opts.stationCut||new Set(),stationBroken=opts.stationBroken||new Set();
  const size=sheet.size||group.sheet,S=px/Math.max(size.w,size.h),W=size.w*S,H=size.h*S,by=new Map((pieces||[]).map(p=>[p.piece,p]));
- const pr=typeof cutGroupParams==='function'?cutGroupParams(group,size):{},u=cutUsable(size,pr),actualTrimY=cutEffectiveTrimY(sheet,pr),outside=p=>p.x<u.x0-1e-6||p.y<u.y0-1e-6||p.x+p.w>u.x1+1e-6||p.y+p.h>u.y1+1e-6,edged=u.x0>0||u.y0>0||u.x1<size.w||u.y1<size.h;
+ const pr=typeof cutGroupParams==='function'?cutGroupParams(group,size):{},u=cutUsable(size,pr),actualTrimY=cutEffectiveTrimY(sheet,pr),actualTrimX=cutEffectiveTrimX(sheet,pr),outside=p=>p.x<u.x0-1e-6||p.y<u.y0-1e-6||p.x+p.w>u.x1+1e-6||p.y+p.h>u.y1+1e-6,edged=u.x0>0||u.y0>0||u.x1<size.w||u.y1<size.h;
  const fy=(y,h)=>(size.h-y-h)*S,pad=CUT_SVG_PAD;
  /* На экране лист тянется на всю ширину колонки; в печати — свой размер. */
  /* Ширину листа на экране ограничивает высота окна: --cut-ar — отношение
@@ -31570,7 +31588,7 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   /* Блик стекла — мягкая диагональ вместо штриховки Perfect Cut. */
   '<defs><linearGradient id="cutGlassSheen" x1="0" y1="0" x2="1" y2="1"><stop class="cut-g1" offset="0"/><stop class="cut-g2" offset="45%"/><stop class="cut-g3" offset="100%"/></linearGradient></defs>',
   '<rect class="'+(edged?'cut-sheet-band':'cut-sheet-free')+'" width="'+W.toFixed(1)+'" height="'+H.toFixed(1)+'"/>'];
- if(edged)out.push('<rect class="cut-sheet-free" x="'+(actualTrimY*S).toFixed(1)+'" y="'+fy(u.y0,u.H).toFixed(1)+'" width="'+((u.x1-actualTrimY)*S).toFixed(1)+'" height="'+(u.H*S).toFixed(1)+'"/>');
+ if(edged)out.push('<rect class="cut-sheet-free" x="'+(actualTrimY*S).toFixed(1)+'" y="'+fy(actualTrimX,u.y1-actualTrimX).toFixed(1)+'" width="'+((u.x1-actualTrimY)*S).toFixed(1)+'" height="'+((u.y1-actualTrimX)*S).toFixed(1)+'"/>');
  /* Остатки: подсказка серым — это отход, пока его не взяли; забуканный в сток
     кусок — зелёный с номером S-…. Правая кнопка по ним — To stock, Split. */
  /* Подпись куска влезает в кусок: одна строка, иначе две, иначе мельче,
@@ -31667,8 +31685,8 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  });
  /* Область, которую сквозными резами не взять: обводим и говорим в шапке. */
  (cuts.stuck||[]).forEach(r=>out.push('<rect class="cut-stuck" data-cut-stuck x="'+(r.x0*S).toFixed(1)+'" y="'+fy(r.y1,0).toFixed(1)+'" width="'+((r.x1-r.x0)*S).toFixed(1)+'" height="'+((r.y1-r.y0)*S).toFixed(1)+'"/>'));
- const line=(edge,x1,y1,x2,y2)=>out.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="#f79009" stroke-width="1.2" pointer-events="none" data-cut-edge="'+edge+'"><title>'+edge.replace(/^(trim|border)/,m=>m[0].toUpperCase()+m.slice(1)+' ')+' '+esc(frac16(edge==='trimY'?actualTrimY:pr[edge]))+'″'+(edge==='trimY'&&actualTrimY>u.x0+1e-6?' (minimum '+esc(frac16(u.x0))+'″)':'')+'</title></line>');
- if(u.y0>0)line('trimX',0,H-u.y0*S,W,H-u.y0*S);
+ const line=(edge,x1,y1,x2,y2)=>out.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="#f79009" stroke-width="1.2" pointer-events="none" data-cut-edge="'+edge+'"><title>'+edge.replace(/^(trim|border)/,m=>m[0].toUpperCase()+m.slice(1)+' ')+' '+esc(frac16(edge==='trimY'?actualTrimY:edge==='trimX'?actualTrimX:pr[edge]))+'″'+(edge==='trimY'&&actualTrimY>u.x0+1e-6?' (minimum '+esc(frac16(u.x0))+'″)':edge==='trimX'&&actualTrimX>u.y0+1e-6?' (minimum '+esc(frac16(u.y0))+'″)':'')+'</title></line>');
+ if(actualTrimX>0)line('trimX',0,H-actualTrimX*S,W,H-actualTrimX*S);
  if(actualTrimY>0)line('trimY',actualTrimY*S,0,actualTrimY*S,H);
  if(u.y1<size.h)line('borderX',0,H-u.y1*S,W,H-u.y1*S);
  if(u.x1<size.w)line('borderY',u.x1*S,0,u.x1*S,H);
@@ -31703,7 +31721,7 @@ function cutPrintLayouts(number,sheetNos){
  const layout=cutPrintPlan(list.map(x=>x.size)),landscape=layout.landscape;
  list.forEach(({g,s,size},k)=>{
   const autoTrim=cutAutoTrimInfo(g,s);
-  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″${autoTrim?' · Trim Y '+esc(frac16(autoTrim.minimum))+'″ → '+esc(frac16(autoTrim.actual))+'″':''}</h3>
+  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″${autoTrim?autoTrim.edges.map(e=>' · '+e.label+' '+esc(frac16(e.minimum))+'″ → '+esc(frac16(e.actual))+'″').join(''):''}</h3>
    <div class="cut-print-sheet">${cutSheetSVG(g,s,Math.floor(Math.max(size.w,size.h)*layout.scales[k]),pieces)}</div></div>`);
  });
  if(!pages.length)return false;
@@ -31831,12 +31849,16 @@ function cutLayoutState(b){
  const sheet=group&&(group.sheets.find(x=>x.no===s.sheet)||group.sheets[0]);
  return {s,stored,built,plan,stale,busy,lock,pieces,laid,live,group,sheet};
 }
-/* Настройка Trim Y — минимум; на конкретном листе первый левый рез может
-   уйти правее. Это должно быть видно без измерения оранжевой линии глазом. */
+/* Настройки Trim X и Trim Y — минимум; на конкретном листе первый нижний
+   или левый рез может уйти дальше. Система это решила — значит, говорит:
+   «если система приняла решение, то пусть скажет» (владелец, 5 октября 2026).
+   extra — наибольшая прибавка, для короткой метки на вкладке листа. */
 function cutAutoTrimInfo(group,sheet){
  if(!group||!sheet||!sheet.pieces.length)return null;
- const params=cutGroupParams(group,sheet.size||group.sheet),minimum=+params.trimY||0,actual=cutEffectiveTrimY(sheet,params);
- return actual>minimum+1e-6?{minimum,actual,extra:cutRound(actual-minimum)}:null;
+ const params=cutGroupParams(group,sheet.size||group.sheet);
+ const edges=[{edge:'trimX',label:'Trim X',side:'Bottom',actual:cutEffectiveTrimX(sheet,params)},{edge:'trimY',label:'Trim Y',side:'Left',actual:cutEffectiveTrimY(sheet,params)}]
+  .map(e=>Object.assign(e,{minimum:+params[e.edge]||0})).filter(e=>e.actual>e.minimum+1e-6).map(e=>Object.assign(e,{extra:cutRound(e.actual-e.minimum)}));
+ return edges.length?{edges,extra:Math.max(...edges.map(e=>e.extra))}:null;
 }
 /* Используем широкое пустое место справа от названия батча. Здесь два уровня
    результата: накопительно Sheets 1–N и открытый лист. Все кнопки обоих
@@ -31851,7 +31873,7 @@ function cutLayoutHeader(b,status){
  const total=laid?cutSumTotal(plan,group,sheet):`<div class="cut-head-unbuilt"><b data-cut-stats>Not built</b><span class="mut">${live} glass</span></div>`;
  const sheetCuts=sheet&&typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null,autoTrim=cutAutoTrimInfo(group,sheet);
  const sheetState=sheet?`<div class="cut-page-sheet" data-cut-page-sheet><div class="cut-page-sheet-summary"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
-  ${autoTrim?`<span class="cut-auto-trim" data-cut-auto-trim="${esc(frac16(autoTrim.extra))}" title="Left Trim Y increased on this sheet">Trim Y ${esc(frac16(autoTrim.minimum))}″ → ${esc(frac16(autoTrim.actual))}″ <b>+${esc(frac16(autoTrim.extra))}″</b></span>`:''}
+  ${autoTrim?autoTrim.edges.map(e=>`<span class="cut-auto-trim" data-cut-auto-trim="${esc(frac16(e.extra))}" data-cut-auto-trim-edge="${e.edge}" title="${e.side} ${e.label} increased on this sheet">${e.label} ${esc(frac16(e.minimum))}″ → ${esc(frac16(e.actual))}″ <b>+${esc(frac16(e.extra))}″</b></span>`).join(''):''}
   ${sheetCuts&&!sheetCuts.ok?`<span class="pill bad" data-cut-not-cuttable>Not cuttable</span>${est?'':`<button type="button" data-cut-repack onclick="cutUiRepack('${esc(group.glass)}',${sheet.no})">Re-pack sheet</button>`}`:''}</div>
   ${est?'':`<div class="cut-page-sheet-actions">${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveMenu(event,'${esc(group.glass)}',${sheet.no})">Move to batch ▾</button>`:''}
    <button type="button" class="cut-icon-btn dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" class="cut-icon-btn" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
