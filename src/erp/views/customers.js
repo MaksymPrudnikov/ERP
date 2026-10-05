@@ -183,6 +183,9 @@ function saveCustomer(force){
  if(cEdit==='new'&&force!==true){const found=customerDuplicates(cDraft);if(found.length){cDup={found};render();return;}}
  if(cDraft.onHold&&!cDraft.holdReason)cDraft.holdReason='Management hold';
  cDraft.updatedAt=new Date().toISOString();if(!cDraft.createdAt)cDraft.createdAt=cDraft.updatedAt;if(cDraft.status==='archived'&&!cDraft.archivedAt)cDraft.archivedAt=cDraft.updatedAt;if(cDraft.status!=='archived')cDraft.archivedAt='';
- if(cEdit==='new')DB.customer.push(cDraft);else{const i=DB.customer.findIndex(c=>c.id===cEdit);if(i>=0)DB.customer[i]=cDraft;else DB.customer.push(cDraft);}
- normalizeCustomers();cEdit=null;cDraft=null;touch();render();
+ /* Форма закрывается только после записи: при отказе правки остаются (аудит 05.10.2026). */
+ const rec=JSON.parse(JSON.stringify(cDraft)),edit=cEdit;
+ const out=storageCommand(()=>{if(edit==='new')DB.customer.push(rec);else{const i=DB.customer.findIndex(c=>c.id===edit);if(i>=0)DB.customer[i]=rec;else DB.customer.push(rec);}normalizeCustomers();return true;});
+ if(!out.ok)return fail(e,out.error);
+ cEdit=null;cDraft=null;render();
 }

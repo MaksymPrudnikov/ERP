@@ -46,8 +46,9 @@ function recutCreate(d){
  if(!picks.length)return {error:'Select the affected glass.'};
  const now=new Date().toISOString();let no=recutNextNo(o.id);
  const made=picks.map(p=>Object.assign({id:salesUid('RC'),orderId:o.id,no:no++,createdAt:now},p,{where:d.where,reasonId:reason.id,reason:reason.name,note:salesString(d.note).slice(0,500)}));
- DB.recut.push(...made);glassPieceEnsure(o);o.updatedAt=now;touch();
- return {recuts:made};
+ /* Запись не прошла — Recut не создан, форма остаётся открытой (аудит 05.10.2026). */
+ const out=storageCommand(()=>{DB.recut.push(...made);glassPieceEnsure(o);o.updatedAt=now;return true;});
+ return out.ok?{recuts:made}:{error:out.error};
 }
 /* Recut, записанный раньше как действие NCR, переносится в заказ один раз:
    номер внутри заказа, места стёкол NCR1001.k → R1.k, номера стёкол те же. */
