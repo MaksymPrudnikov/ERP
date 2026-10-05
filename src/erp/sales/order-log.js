@@ -73,7 +73,7 @@ function orderLogDiff(a,b){
   if(q){const won=b.status==='won'&&(DB.salesOrder||[]).find(x=>x.id===b.wonOrderId);add(salesStatusLabel(b,b.status),won?'→ '+won.businessNumber:'');}
   else if(a.status==='cancelled')add('Restored',salesStatusLabel(b,b.status));
   else if(b.status==='cancelled')add('Cancelled');
-  else add((typeof SALES_PREV_STATUS!=='undefined'&&SALES_PREV_STATUS[a.status]===b.status?'Back to ':'')+salesStatusLabel(b,b.status));
+  else add((typeof salesPrevStatus==='function'&&salesPrevStatus(a)===b.status?'Back to ':'')+salesStatusLabel(b,b.status));
  }
  return out;
 }

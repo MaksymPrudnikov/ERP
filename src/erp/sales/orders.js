@@ -37,11 +37,12 @@ function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesD
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
-   пока в нём нет строк. */
+   пока в нём нет строк, складских позиций, PO и Notes (заказ одного склада
+   без стекла бывает — владелец, 05.10.2026). */
 function salesDraftHasWork(){
  if(!soDraft)return false;
  if(soQuoteCopyOf){const src=DB.salesOrder.find(x=>x.id===soQuoteCopyOf);return !src||salesQuoteContentKey(soDraft)!==salesQuoteContentKey(src);}
- if(soEdit==='new')return soDraft.lines.length>1||soDraft.lines.some(l=>!salesOrderLineIsBlank(l));
+ if(soEdit==='new')return soDraft.lines.length>1||soDraft.lines.some(l=>!salesOrderLineIsBlank(l))||!!(soDraft.extraItems||[]).length||!!salesString(soDraft.customerPo)||!!salesString(soDraft.notes);
  const saved=DB.salesOrder.find(x=>x.id===soEdit);
  return saved?JSON.stringify(saved)!==JSON.stringify(normalizeSalesOrder(soDraft)):soDraft.lines.length>0;
 }
@@ -51,13 +52,13 @@ function salesDraftHasWork(){
    запоминаем формы сохранённого заказа, а «Don't save / Don't update»
    возвращает их как было (владелец, 27.09.2026: «не нажал Update — в заказе
    ничего не меняется»). Новые формы черновика убирает salesPruneOrphanShapes. */
-let soShapeSnapshot=null;
+let soShapeSnapshot=null,soShapeConflicts=new Set();
 function salesShapeIdsOf(o){
  const ids=new Set();
  (o&&o.lines||[]).forEach(l=>{if(l.shapeRef&&l.shapeRef.id)ids.add(l.shapeRef.id);Object.keys(l.liteShapes||{}).forEach(k=>{const r=l.liteShapes[k];if(r&&r.id)ids.add(r.id);});});
  return ids;
 }
-function salesShapeSnapshotTake(o){const ids=salesShapeIdsOf(o);soShapeSnapshot=JSON.stringify((DB.shapeDef||[]).filter(s=>s&&ids.has(s.id)));}
+function salesShapeSnapshotTake(o){soShapeConflicts=new Set();const ids=salesShapeIdsOf(o);soShapeSnapshot=JSON.stringify((DB.shapeDef||[]).filter(s=>s&&ids.has(s.id)));}
 function salesShapeSnapshotRestore(){
  if(soShapeSnapshot==null)return false;
  let changed=false;
@@ -70,7 +71,11 @@ function salesShapeSnapshotRestore(){
    в базу формы как в сохранённом заказе (снимок soShapeSnapshot), а свои
    правки держим в памяти. Свежая база из другой вкладки их не знает — новые
    строки она и вовсе подчистила как сироты, — поэтому при перечитывании формы
-   черновика переносятся из прежней копии. */
+   черновика переносятся из прежней копии.
+   Переносится только то, что правили здесь: форма, которую черновик не трогал,
+   берётся свежей из базы (аудит 05.10.2026: другая вкладка меняла ширину
+   50″, а эта при сохранении Notes возвращала форму 37″). Ту же форму поменяли
+   обе вкладки — Update отказывает, как при конфликте полей заказа. */
 function salesDraftParkText(){
  if(!soDraft||soShapeSnapshot==null||!salesDraftHasWork())return null;
  const parked=JSON.parse(JSON.stringify(DB));
@@ -79,8 +84,16 @@ function salesDraftParkText(){
 }
 function salesDraftKeepShapes(from,to){
  if(!soDraft||!from||!to||!Array.isArray(from.shapeDef)||!Array.isArray(to.shapeDef))return 0;
- const ids=salesShapeIdsOf(soDraft);let n=0;
- from.shapeDef.forEach(s=>{if(!s||!ids.has(s.id))return;const copy=JSON.parse(JSON.stringify(s)),i=to.shapeDef.findIndex(x=>x&&x.id===s.id);if(i<0)to.shapeDef.push(copy);else to.shapeDef[i]=copy;n++;});
+ const ids=salesShapeIdsOf(soDraft),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),clone=x=>JSON.parse(JSON.stringify(x));
+ const snap=soShapeSnapshot==null?null:JSON.parse(soShapeSnapshot),base=new Map((snap||[]).map(s=>[s.id,s]));
+ /* Снимок — сохранённые формы: Don't update и передача записи вернут свежие. */
+ if(snap)soShapeSnapshot=JSON.stringify(snap.map(s=>{const x=to.shapeDef.find(y=>y&&y.id===s.id);return x?clone(x):s;}));
+ let n=0;
+ from.shapeDef.forEach(s=>{if(!s||!ids.has(s.id))return;
+  const i=to.shapeDef.findIndex(x=>x&&x.id===s.id),fresh=i<0?null:to.shapeDef[i],old=base.get(s.id);
+  if(old&&fresh&&same(s,old))return;
+  if(old&&fresh&&!same(fresh,old)&&!same(fresh,s))soShapeConflicts.add(s.id);
+  if(i<0)to.shapeDef.push(clone(s));else to.shapeDef[i]=clone(s);n++;});
  return n;
 }
 /* Убрать черновик. discard — правки не сохраняются: формы возвращаются к
@@ -89,7 +102,7 @@ function salesDraftDrop(discard){
  soSavedBaseline=null;
  const restored=!!discard&&salesShapeSnapshotRestore();
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
- salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;
+ salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
  if(salesPruneOrphanShapes()||restored)touch();
 }
 /* Уход из заказа (владелец, 27.09.2026). Новый не сохранён — «сохранить?»:
@@ -121,6 +134,8 @@ function salesOrderClose(){salesLeaveDraft();}
 function salesRebaseDraft(current){
  if(!soSavedBaseline||soEdit==='new')return true;
  if(!current)return 'This order was removed elsewhere. Your draft is still available; reopen the order list.';
+ const shapes=(soDraft.lines||[]).map((l,i)=>[l.shapeRef&&l.shapeRef.id].concat(Object.values(l.liteShapes||{}).map(r=>r&&r.id)).some(id=>soShapeConflicts.has(id))?i+1:0).filter(Boolean);
+ if(shapes.length)return 'The shape of line '+shapes.join(', ')+' changed elsewhere. Reopen the order before updating; your draft is still available.';
  const base=JSON.parse(soSavedBaseline),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),conflicts=[];
  Object.keys(current).forEach(k=>{
   if(same(current[k],base[k]))return;
@@ -151,7 +166,10 @@ function salesOrderSaveCommand(opts){
  if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&(DB.receipt||[]).some(r=>r.allocations.some(a=>a.orderId===soDraft.id)))return fail(e,'This order has payment records. Its customer cannot change.');
  /* Строки из батча: стекло уже на резке (владелец, 15 сентября 2026). Новый
     размер — новая строка или новый заказ, а не правка строки. */
- if(!opts.unlock){const broken=salesLockViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(broken.length)return fail(e,'Batched lines cannot change: '+broken.join('; ')+'. Add a new line or open a new order.');}
+ if(!opts.unlock){const broken=salesLockViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(broken.length)return fail(e,'Batched lines cannot change: '+broken.join('; ')+'. Add a new line or open a new order.');
+  const started=salesStartedViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(started.length)return fail(e,'Glass already in production: '+started.join('; ')+'. Add a new line or open a new order.');}
+ /* Заказ одного склада: пустая стартовая строка стекла не мешает сохранить. */
+ if((soDraft.extraItems||[]).length)soDraft.lines=soDraft.lines.filter(l=>!salesOrderLineIsBlank(l));
  /* Строка без размера уезжала в Draft молча и всплывала уже в цеху.
     Размер обязателен всегда — и когда введён руками, и когда пришёл из Shape. */
  const noDim=soDraft.lines.map((l,i)=>(!l.width16||!l.height16)?i+1:0).filter(Boolean);
@@ -391,7 +409,7 @@ function salesExtraItemSetPrice(id,v){const x=(soDraft.extraItems||[]).find(x=>x
 function salesFocusLastWidth(){const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
 function salesLineDimChange(i,key,el){
  const line=soDraft.lines[i],n=salesDimTo16(el.value);
- if(salesLineLocked(line)){render();return;}
+ if(salesLineLocked(line)||salesLockedLineGuard(line)){render();return;}
  if(!n){line[key+'16']=null;el.classList.add('bad');salesRefreshLineMetrics(line);return;}
  line[key+'16']=n;el.value=salesDimFrom16(n);el.classList.remove('bad');
  /* Размеры появились или изменились — заводим/двигаем форму строки. */
