@@ -743,7 +743,7 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  opts=opts||{};
  const station=!!opts.station,stationCut=opts.stationCut||new Set(),stationBroken=opts.stationBroken||new Set();
  const size=sheet.size||group.sheet,S=px/Math.max(size.w,size.h),W=size.w*S,H=size.h*S,by=new Map((pieces||[]).map(p=>[p.piece,p]));
- const pr=typeof cutGroupParams==='function'?cutGroupParams(group,size):{},u=cutUsable(size,pr),actualTrimY=cutEffectiveTrimY(sheet,pr),outside=p=>p.x<u.x0-1e-6||p.y<u.y0-1e-6||p.x+p.w>u.x1+1e-6||p.y+p.h>u.y1+1e-6,edged=u.x0>0||u.y0>0||u.x1<size.w||u.y1<size.h;
+ const pr=typeof cutGroupParams==='function'?cutGroupParams(group,size):{},u=cutUsable(size,pr),actualTrimY=cutEffectiveTrimY(sheet,pr),actualTrimX=cutEffectiveTrimX(sheet,pr),outside=p=>p.x<u.x0-1e-6||p.y<u.y0-1e-6||p.x+p.w>u.x1+1e-6||p.y+p.h>u.y1+1e-6,edged=u.x0>0||u.y0>0||u.x1<size.w||u.y1<size.h;
  const fy=(y,h)=>(size.h-y-h)*S,pad=CUT_SVG_PAD;
  /* На экране лист тянется на всю ширину колонки; в печати — свой размер. */
  /* Ширину листа на экране ограничивает высота окна: --cut-ar — отношение
@@ -754,7 +754,7 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   /* Блик стекла — мягкая диагональ вместо штриховки Perfect Cut. */
   '<defs><linearGradient id="cutGlassSheen" x1="0" y1="0" x2="1" y2="1"><stop class="cut-g1" offset="0"/><stop class="cut-g2" offset="45%"/><stop class="cut-g3" offset="100%"/></linearGradient></defs>',
   '<rect class="'+(edged?'cut-sheet-band':'cut-sheet-free')+'" width="'+W.toFixed(1)+'" height="'+H.toFixed(1)+'"/>'];
- if(edged)out.push('<rect class="cut-sheet-free" x="'+(actualTrimY*S).toFixed(1)+'" y="'+fy(u.y0,u.H).toFixed(1)+'" width="'+((u.x1-actualTrimY)*S).toFixed(1)+'" height="'+(u.H*S).toFixed(1)+'"/>');
+ if(edged)out.push('<rect class="cut-sheet-free" x="'+(actualTrimY*S).toFixed(1)+'" y="'+fy(actualTrimX,u.y1-actualTrimX).toFixed(1)+'" width="'+((u.x1-actualTrimY)*S).toFixed(1)+'" height="'+((u.y1-actualTrimX)*S).toFixed(1)+'"/>');
  /* Остатки: подсказка серым — это отход, пока его не взяли; забуканный в сток
     кусок — зелёный с номером S-…. Правая кнопка по ним — To stock, Split. */
  /* Подпись куска влезает в кусок: одна строка, иначе две, иначе мельче,
@@ -851,8 +851,8 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  });
  /* Область, которую сквозными резами не взять: обводим и говорим в шапке. */
  (cuts.stuck||[]).forEach(r=>out.push('<rect class="cut-stuck" data-cut-stuck x="'+(r.x0*S).toFixed(1)+'" y="'+fy(r.y1,0).toFixed(1)+'" width="'+((r.x1-r.x0)*S).toFixed(1)+'" height="'+((r.y1-r.y0)*S).toFixed(1)+'"/>'));
- const line=(edge,x1,y1,x2,y2)=>out.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="#f79009" stroke-width="1.2" pointer-events="none" data-cut-edge="'+edge+'"><title>'+edge.replace(/^(trim|border)/,m=>m[0].toUpperCase()+m.slice(1)+' ')+' '+esc(frac16(edge==='trimY'?actualTrimY:pr[edge]))+'″'+(edge==='trimY'&&actualTrimY>u.x0+1e-6?' (minimum '+esc(frac16(u.x0))+'″)':'')+'</title></line>');
- if(u.y0>0)line('trimX',0,H-u.y0*S,W,H-u.y0*S);
+ const line=(edge,x1,y1,x2,y2)=>out.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="#f79009" stroke-width="1.2" pointer-events="none" data-cut-edge="'+edge+'"><title>'+edge.replace(/^(trim|border)/,m=>m[0].toUpperCase()+m.slice(1)+' ')+' '+esc(frac16(edge==='trimY'?actualTrimY:edge==='trimX'?actualTrimX:pr[edge]))+'″'+(edge==='trimY'&&actualTrimY>u.x0+1e-6?' (minimum '+esc(frac16(u.x0))+'″)':edge==='trimX'&&actualTrimX>u.y0+1e-6?' (minimum '+esc(frac16(u.y0))+'″)':'')+'</title></line>');
+ if(actualTrimX>0)line('trimX',0,H-actualTrimX*S,W,H-actualTrimX*S);
  if(actualTrimY>0)line('trimY',actualTrimY*S,0,actualTrimY*S,H);
  if(u.y1<size.h)line('borderX',0,H-u.y1*S,W,H-u.y1*S);
  if(u.x1<size.w)line('borderY',u.x1*S,0,u.x1*S,H);
@@ -887,7 +887,7 @@ function cutPrintLayouts(number,sheetNos){
  const layout=cutPrintPlan(list.map(x=>x.size)),landscape=layout.landscape;
  list.forEach(({g,s,size},k)=>{
   const autoTrim=cutAutoTrimInfo(g,s);
-  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″${autoTrim?' · Trim Y '+esc(frac16(autoTrim.minimum))+'″ → '+esc(frac16(autoTrim.actual))+'″':''}</h3>
+  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″${autoTrim?autoTrim.edges.map(e=>' · '+e.label+' '+esc(frac16(e.minimum))+'″ → '+esc(frac16(e.actual))+'″').join(''):''}</h3>
    <div class="cut-print-sheet">${cutSheetSVG(g,s,Math.floor(Math.max(size.w,size.h)*layout.scales[k]),pieces)}</div></div>`);
  });
  if(!pages.length)return false;
@@ -1015,12 +1015,16 @@ function cutLayoutState(b){
  const sheet=group&&(group.sheets.find(x=>x.no===s.sheet)||group.sheets[0]);
  return {s,stored,built,plan,stale,busy,lock,pieces,laid,live,group,sheet};
 }
-/* Настройка Trim Y — минимум; на конкретном листе первый левый рез может
-   уйти правее. Это должно быть видно без измерения оранжевой линии глазом. */
+/* Настройки Trim X и Trim Y — минимум; на конкретном листе первый нижний
+   или левый рез может уйти дальше. Система это решила — значит, говорит:
+   «если система приняла решение, то пусть скажет» (владелец, 5 октября 2026).
+   extra — наибольшая прибавка, для короткой метки на вкладке листа. */
 function cutAutoTrimInfo(group,sheet){
  if(!group||!sheet||!sheet.pieces.length)return null;
- const params=cutGroupParams(group,sheet.size||group.sheet),minimum=+params.trimY||0,actual=cutEffectiveTrimY(sheet,params);
- return actual>minimum+1e-6?{minimum,actual,extra:cutRound(actual-minimum)}:null;
+ const params=cutGroupParams(group,sheet.size||group.sheet);
+ const edges=[{edge:'trimX',label:'Trim X',side:'Bottom',actual:cutEffectiveTrimX(sheet,params)},{edge:'trimY',label:'Trim Y',side:'Left',actual:cutEffectiveTrimY(sheet,params)}]
+  .map(e=>Object.assign(e,{minimum:+params[e.edge]||0})).filter(e=>e.actual>e.minimum+1e-6).map(e=>Object.assign(e,{extra:cutRound(e.actual-e.minimum)}));
+ return edges.length?{edges,extra:Math.max(...edges.map(e=>e.extra))}:null;
 }
 /* Используем широкое пустое место справа от названия батча. Здесь два уровня
    результата: накопительно Sheets 1–N и открытый лист. Все кнопки обоих
@@ -1035,7 +1039,7 @@ function cutLayoutHeader(b,status){
  const total=laid?cutSumTotal(plan,group,sheet):`<div class="cut-head-unbuilt"><b data-cut-stats>Not built</b><span class="mut">${live} glass</span></div>`;
  const sheetCuts=sheet&&typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null,autoTrim=cutAutoTrimInfo(group,sheet);
  const sheetState=sheet?`<div class="cut-page-sheet" data-cut-page-sheet><div class="cut-page-sheet-summary"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
-  ${autoTrim?`<span class="cut-auto-trim" data-cut-auto-trim="${esc(frac16(autoTrim.extra))}" title="Left Trim Y increased on this sheet">Trim Y ${esc(frac16(autoTrim.minimum))}″ → ${esc(frac16(autoTrim.actual))}″ <b>+${esc(frac16(autoTrim.extra))}″</b></span>`:''}
+  ${autoTrim?autoTrim.edges.map(e=>`<span class="cut-auto-trim" data-cut-auto-trim="${esc(frac16(e.extra))}" data-cut-auto-trim-edge="${e.edge}" title="${e.side} ${e.label} increased on this sheet">${e.label} ${esc(frac16(e.minimum))}″ → ${esc(frac16(e.actual))}″ <b>+${esc(frac16(e.extra))}″</b></span>`).join(''):''}
   ${sheetCuts&&!sheetCuts.ok?`<span class="pill bad" data-cut-not-cuttable>Not cuttable</span>${est?'':`<button type="button" data-cut-repack onclick="cutUiRepack('${esc(group.glass)}',${sheet.no})">Re-pack sheet</button>`}`:''}</div>
   ${est?'':`<div class="cut-page-sheet-actions">${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveMenu(event,'${esc(group.glass)}',${sheet.no})">Move to batch ▾</button>`:''}
    <button type="button" class="cut-icon-btn dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" class="cut-icon-btn" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>

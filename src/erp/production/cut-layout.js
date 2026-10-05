@@ -214,44 +214,62 @@ function cutUsable(size,params){
  const x0=+params.trimY||0,y0=+params.trimX||0,x1=cutRound(size.w-(+params.borderY||0)),y1=cutRound(size.h-(+params.borderX||0));
  return {x0,y0,x1,y1,W:cutRound(x1-x0),H:cutRound(y1-y0)};
 }
-/* Trim Y в настройке — минимальная обрезка. Только узкий зазор до первой
-   детали поглощаем тримом; широкая полоса остаётся отдельным отходом/стоком. */
-function cutEffectiveTrimY(sheet,params){
- const parts=cutTaken(sheet),minimum=+params.trimY||0,md=+params.minDist||0;
+/* Trim X (снизу) и Trim Y (слева) в настройке — минимальная обрезка. Только
+   узкий зазор до первой детали поглощаем тримом; широкая полоса остаётся
+   отдельным отходом/стоком. Обе стороны по одному правилу: «мы обсуждали
+   нижнюю левую сторону, вертикальную и горизонтальную… если система приняла
+   решение, то пусть скажет» (владелец, 5 октября 2026).
+   axis — по какой оси меряем: 'x' — левый край (Trim Y), 'y' — нижний (Trim X). */
+function cutTrimAxis(axis){
+ return axis==='y'?{pos:'y',len:'h',cross:'x',crossLen:'w',field:'trimX'}:{pos:'x',len:'w',cross:'y',crossLen:'h',field:'trimY'};
+}
+function cutEffectiveTrim(sheet,params,axis){
+ const a=cutTrimAxis(axis),parts=cutTaken(sheet),minimum=+params[a.field]||0,md=+params.minDist||0;
  if(!parts.length)return minimum;
- const first=Math.min(...parts.map(p=>+p.x)),gap=first-minimum;
+ const first=Math.min(...parts.map(p=>+p[a.pos])),gap=first-minimum;
  return gap>1e-6&&gap<md-1e-6?cutRound(first):minimum;
 }
-/* В соседних горизонтальных полосах нельзя оставлять уступ 5/16″ от
-   общей линии левого трима: это отдельный узкий рез, а не полезный остаток. */
-function cutTrimBands(sheet){
- const parts=cutTaken(sheet),seen=new Set(),bands=[];
+function cutEffectiveTrimY(sheet,params){return cutEffectiveTrim(sheet,params,'x');}
+function cutEffectiveTrimX(sheet,params){return cutEffectiveTrim(sheet,params,'y');}
+/* В соседних полосах нельзя оставлять уступ 5/16″ от общей линии трима:
+   это отдельный узкий рез, а не полезный остаток. Слева полосы — ряды
+   (перекрываются по высоте), снизу — столбцы (перекрываются по ширине). */
+function cutTrimBands(sheet,axis){
+ const a=cutTrimAxis(axis),parts=cutTaken(sheet),seen=new Set(),bands=[];
  parts.forEach(start=>{
   if(seen.has(start))return;
   const band=[start];seen.add(start);
   for(let i=0;i<band.length;i++)parts.forEach(p=>{
-   if(!seen.has(p)&&p.y<band[i].y+band[i].h-1e-6&&band[i].y<p.y+p.h-1e-6){seen.add(p);band.push(p);}
+   if(!seen.has(p)&&p[a.cross]<band[i][a.cross]+band[i][a.crossLen]-1e-6&&band[i][a.cross]<p[a.cross]+p[a.crossLen]-1e-6){seen.add(p);band.push(p);}
   });
-  bands.push({parts:band,left:Math.min(...band.map(p=>+p.x)),y0:Math.min(...band.map(p=>+p.y)),y1:Math.max(...band.map(p=>+p.y+p.h))});
+  bands.push({parts:band,left:Math.min(...band.map(p=>+p[a.pos])),lo:Math.min(...band.map(p=>+p[a.cross])),hi:Math.max(...band.map(p=>+p[a.cross]+p[a.crossLen]))});
  });
  return bands;
 }
+/* Запрет «не режется» — только для левого уступа. Снизу столбцы с уступом
+   выравниваются, где можно (cutAlignTrim), но лист из-за уступа не
+   бракуется: каждая полоска там не тоньше Min distance, а запрет на тесте
+   владельца (102 × 144, 23 листа как у Perfect Cut) давал лишний лист. */
 function cutTrimBandSlivers(sheet,params){
- const bands=cutTrimBands(sheet),md=+params.minDist||0,trim=cutEffectiveTrimY(sheet,params);
- return bands.filter(b=>b.left-trim>1e-6&&b.left-trim<md-1e-6).map(b=>({reason:'minDist',width:cutRound(b.left-trim),required:md,x0:trim,x1:b.left,y0:b.y0,y1:b.y1}));
+ const md=+params.minDist||0,trim=cutEffectiveTrimY(sheet,params);
+ return cutTrimBands(sheet,'x').filter(b=>b.left-trim>1e-6&&b.left-trim<md-1e-6).map(b=>({reason:'minDist',width:cutRound(b.left-trim),required:md,x0:trim,x1:b.left,y0:b.lo,y1:b.hi}));
 }
-function cutAlignTrimY(sheet,size,params){
+function cutAlignTrim(sheet,size,params){
  if(sheet.locked||(sheet.stock||[]).length)return false;
- const bands=cutTrimBands(sheet),md=+params.minDist||0;
- if(bands.length<2||md<=0)return false;
- const left=Math.min(...bands.map(b=>b.left)),target=Math.max(...bands.filter(b=>b.left-left<md-1e-6).map(b=>b.left));
- if(target-left<1e-6)return false;
- const limit=cutUsable(size,params).x1;
+ const md=+params.minDist||0,u=cutUsable(size,params);
+ if(md<=0)return false;
  let changed=false;
- bands.forEach(b=>{
-  const dx=cutRound(target-b.left);
-  if(dx<1e-6||dx>=md-1e-6||b.parts.some(p=>p.locked||p.x+p.w+dx>limit+1e-6))return;
-  b.parts.forEach(p=>{p.x=cutRound(p.x+dx);});changed=true;
+ ['x','y'].forEach(axis=>{
+  const a=cutTrimAxis(axis),bands=cutTrimBands(sheet,axis);
+  if(bands.length<2)return;
+  const left=Math.min(...bands.map(b=>b.left)),target=Math.max(...bands.filter(b=>b.left-left<md-1e-6).map(b=>b.left));
+  if(target-left<1e-6)return;
+  const limit=axis==='x'?u.x1:u.y1;
+  bands.forEach(b=>{
+   const d=cutRound(target-b.left);
+   if(d<1e-6||d>=md-1e-6||b.parts.some(p=>p.locked||p[a.pos]+p[a.len]+d>limit+1e-6))return;
+   b.parts.forEach(p=>{p[a.pos]=cutRound(p[a.pos]+d);});changed=true;
+  });
  });
  return changed;
 }
@@ -723,7 +741,7 @@ function cutSheetCuts(sheet,size,params,flips,usableOnly){
  const E=1e-6,u=usableOnly?Object.assign(cutUsable(size,params),{x0:cutEffectiveTrimY(sheet,params)}):{x0:0,y0:0,x1:size.w,y1:size.h},md=usableOnly?0:+params.minDist||0,
   all=cutTaken(sheet).map(p=>({x:+p.x,y:+p.y,w:+p.w,h:+p.h}));
  const set=new Set(Array.isArray(flips)?flips:[]),memo=new Map();
- const cacheKey=[cutCutKey(u),md,+params.trimY||0,[...set].sort().join(';'),all.map(p=>[p.x,p.y,p.w,p.h].join(',')).sort().join(';')].join('|');
+ const cacheKey=[cutCutKey(u),md,+params.trimY||0,+params.trimX||0,[...set].sort().join(';'),all.map(p=>[p.x,p.y,p.w,p.h].join(',')).sort().join(';')].join('|');
  if(cutCutsCache.has(cacheKey))return cutCutsCache.get(cacheKey);
  const inside=r=>all.filter(p=>p.x>=r.x0-E&&p.y>=r.y0-E&&p.x+p.w<=r.x1+E&&p.y+p.h<=r.y1+E);
  const better=(a,b)=>!b||a.stuck.length<b.stuck.length||a.stuck.length===b.stuck.length&&(a.lines.length<b.lines.length||a.lines.length===b.lines.length&&a.cost<b.cost-E);
@@ -797,7 +815,7 @@ function cutHealEdgeSlivers(sheet,size,params){
  const E=1e-6,u=cutUsable(size,params),md=+params.minDist||0,pieces=sheet.pieces;
  const fits=()=>pieces.every(p=>p.x>=u.x0-E&&p.y>=u.y0-E&&p.x+p.w<=u.x1+E&&p.y+p.h<=u.y1+E)&&
   pieces.every((p,i)=>pieces.slice(i+1).every(q=>p.x>=q.x+q.w-E||q.x>=p.x+p.w-E||p.y>=q.y+q.h-E||q.y>=p.y+p.h-E));
- let changed=cutAlignTrimY(sheet,size,params);
+ let changed=cutAlignTrim(sheet,size,params);
  for(let pass=0;pass<6;pass++){
   const bad=cutSheetCuts(sheet,size,params).stuck.length;if(!bad)break;
   let healed=false;

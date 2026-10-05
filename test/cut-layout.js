@@ -987,6 +987,46 @@ module.exports=async function({page,eq,ok}){
    taken:!!taken.ok,manualSafe,manualTrim:cutEffectiveTrimY(g.sheets[0],cutGroupParams(g,size))};
  }),{valid:true,errors:[],actual:1.3125,minimum:1,usable:1.3125,badge:true,tab:true,print:true,taken:true,manualSafe:true,manualTrim:1.3125});
 
+ eq('общий нижний Trim X: уступ 5/16″ у столбцов выравнивается тримом 1 5/16″ на всём листе, лист из-за уступа не бракуется',await t.p.evaluate(()=>{
+  const size={w:96,h:144,key:'96x144'},params={trimX:1,trimY:0,borderX:0,borderY:0,minDist:.75};
+  const left=Array.from({length:6},(_,i)=>({piece:'L'+i,x:0,y:1.3125+i*24,w:58.75,h:i===5?22.6875:24}));
+  const right=Array.from({length:5},(_,i)=>({piece:'R'+i,x:58.75,y:1+i*24,w:27.0625,h:24}));
+  const sheet={size,pieces:left.concat(right),stock:[]};
+  const before=cutSheetCuts(sheet,size,params),fixed=cutHealEdgeSlivers(sheet,size,params),after=cutSheetCuts(sheet,size,params);
+  const group={mm:6,sheet:size,pick:{trimX:1,trimY:0,borderX:0,borderY:0,minDist:.75},sheets:[sheet]};
+  const host=document.createElement('div');host.innerHTML=cutSheetSVG(group,sheet,520,[],{ids:true});
+  const line=host.querySelector('[data-cut-edge="trimX"]'),S=520/144;
+  return {bad:before.stuck.some(x=>x.reason==='minDist'&&Math.abs(x.width-.3125)<1e-6),fixed,safe:after.ok,trim:cutEffectiveTrimX(sheet,params),
+   all:sheet.pieces.every(p=>p.y>=1.3125-1e-6),line:line&&Math.abs(+line.getAttribute('y1')-(144-1.3125)*S)<.06,
+   label:line&&line.querySelector('title').textContent.includes('1 5/16″ (minimum 1″)')};
+ }),{bad:false,fixed:true,safe:true,trim:1.3125,all:true,line:true,label:true});
+
+ eq('144 × 102, два 50 1/4″ друг над другом: нижний Trim X 1 1/4″ → 1 1/2″ — линия, подсказка, печать, снимок станка',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',144,102);
+  ctOrder([[100.25,50.25,2]]);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],size={w:144,h:102,key:'144x102'};
+  g.pick=Object.assign(g.pick||{},{trimX:1.25,trimY:1.25,borderX:0,borderY:0,minDist:1});
+  if(g.params)g.params.minDist=1;
+  const src=cutPieces(b,plan.settings||{});
+  const sheet={no:1,size,pieces:src.map((p,i)=>{const turn=p.w<p.h?1:0;return {piece:p.piece,x:1.25,y:1.25+i*50.25,w:100.25,h:50.25,turn,rot:!!turn};}),stock:[]};
+  g.sheets=[sheet];
+  const params=cutGroupParams(g,size),before=cutSheetCuts(sheet,size,params),healed=cutHealEdgeSlivers(sheet,size,params);
+  cutPlanRefresh(plan);cutUi={batch:'',glass:g.glass,sheet:1,sel:'',drag:''};
+  const after=cutSheetCutsFor(g,sheet),job=cutMachineSnapshot(b.number),s=job.sheets[0];
+  const header=document.createElement('div');header.innerHTML=cutLayoutHeader(b,'Awaiting cutting');
+  const view=document.createElement('div');view.innerHTML=viewCutLayout(b);
+  const badges=[...header.querySelectorAll('[data-cut-auto-trim]')],tab=view.querySelector('[data-cut-tab-trim]');
+  const host=document.createElement('div');host.innerHTML=cutSheetSVG(g,sheet,520,[],{ids:true});
+  const line=host.querySelector('[data-cut-edge="trimX"]'),S=520/144;
+  cutPrintLayouts(b.number);const print=document.getElementById('cutPrintHost').textContent.includes('Trim X 1 1/4″ → 1 1/2″');cutPrintCleanup();
+  return {top:before.stuck.some(x=>x.reason==='minDist'&&Math.abs(x.width-.25)<1e-6&&Math.abs(x.y1-102)<1e-6),healed,ok:after.ok,
+   ys:sheet.pieces.map(p=>p.y).sort((a,b)=>a-b),firstCut:after.lines.some(l=>l.axis==='y'&&Math.abs(l.at-1.5)<1e-6),
+   badges:badges.map(x=>x.getAttribute('data-cut-auto-trim-edge')+' '+x.textContent.trim()),title:badges[0]&&badges[0].title,tab:tab&&tab.textContent,
+   line:line&&Math.abs(+line.getAttribute('y1')-(102-1.5)*S)<.06,print,
+   valid:job.valid,errors:job.errors,trimX:s.margins.trimX,minimum:s.minimumMargins.trimX,usable:s.usable.y0};
+ }),{top:true,healed:true,ok:true,ys:[1.5,51.75],firstCut:true,badges:['trimX Trim X 1 1/4″ → 1 1/2″ +1/4″'],title:'Bottom Trim X increased on this sheet',tab:'Trim +1/4″',
+  line:true,print:true,valid:true,errors:[],trimX:1.5,minimum:1.25,usable:1.5});
+
  eq('два размера листа — берутся оба, где выгоднее: квадратных футов меньше, чем одним размером; количество листов размера соблюдается',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);ctSheet('6CLEAR',96,130);
   ctOrder([[31,25,10],[32,15,11],[67,50,13],[51,76,3]]);const b=DB.glassBatch[0];
