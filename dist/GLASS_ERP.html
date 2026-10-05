@@ -2749,7 +2749,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='179924ddc89a';
+var ERP_BUILD='9de472a939d5';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13353,8 +13353,11 @@ function saveCustomer(force){
  if(cEdit==='new'&&force!==true){const found=customerDuplicates(cDraft);if(found.length){cDup={found};render();return;}}
  if(cDraft.onHold&&!cDraft.holdReason)cDraft.holdReason='Management hold';
  cDraft.updatedAt=new Date().toISOString();if(!cDraft.createdAt)cDraft.createdAt=cDraft.updatedAt;if(cDraft.status==='archived'&&!cDraft.archivedAt)cDraft.archivedAt=cDraft.updatedAt;if(cDraft.status!=='archived')cDraft.archivedAt='';
- if(cEdit==='new')DB.customer.push(cDraft);else{const i=DB.customer.findIndex(c=>c.id===cEdit);if(i>=0)DB.customer[i]=cDraft;else DB.customer.push(cDraft);}
- normalizeCustomers();cEdit=null;cDraft=null;touch();render();
+ /* Форма закрывается только после записи: при отказе правки остаются (аудит 05.10.2026). */
+ const rec=JSON.parse(JSON.stringify(cDraft)),edit=cEdit;
+ const out=storageCommand(()=>{if(edit==='new')DB.customer.push(rec);else{const i=DB.customer.findIndex(c=>c.id===edit);if(i>=0)DB.customer[i]=rec;else DB.customer.push(rec);}normalizeCustomers();return true;});
+ if(!out.ok)return fail(e,out.error);
+ cEdit=null;cDraft=null;render();
 }
 
 /* ==== src/erp/sales/orders.js ==== */
@@ -17341,6 +17344,12 @@ function docBuildModel(kind,order,opts){
   let rows=null,grand=null,deposit=null;
   if(opts.totals){
    rows=[];
+   /* Бесплатная переделка NCR: строки по обычной цене, скидка на всю сумму
+    строкой перед Subtotal — суммы сходятся, итог и налог $0 (владелец,
+    05.10.2026: «главное, что 0»; аудит: строка $265.48 при Total $0). */
+   const free=order.noCharge?salesOrderCommercialTotals(Object.assign({},order,{noCharge:false})):null;
+   const ncr=free&&order.remakeNcrId&&typeof ncrFind==='function'?ncrFind(order.remakeNcrId):null,parent=ncr&&salesRecord(ncr.orderId);
+   const freeRow=free&&{label:'No charge · remake'+(ncr?' for '+ncr.number:'')+(parent?' · order '+parent.businessNumber:''),value:free.complete?'−'+docMoney(free.subtotal):'—'};
    if(opts.groupTotals||mode==='glass'){
     const g={glass:0,services:0,surcharges:0,extra:0};
     (order.lines||[]).forEach(l=>{const p=salesLineCommercialPrice(l,order);if(!p.complete)return;const gl=salesMoney(p.materials*p.qty),su=salesMoney((p.unit-p.base)*p.qty);g.glass+=gl;g.surcharges+=su;g.services+=salesMoney(p.line-gl-su);});
@@ -17348,8 +17357,9 @@ function docBuildModel(kind,order,opts){
     rows.push({label:'Glass & IGU',value:money(salesMoney(g.glass))},{label:'Services and processing',value:money(salesMoney(g.services))});
     if(g.surcharges)rows.push({label:'Surcharges',value:money(salesMoney(g.surcharges))});
     if(g.extra)rows.push({label:'Additional items',value:money(salesMoney(g.extra))});
+    if(freeRow)rows.push(freeRow);
     rows.push({label:'Subtotal',value:money(t.subtotal),strong:true,sep:true});
-   }else rows.push({label:'Subtotal',value:money(t.subtotal)});
+   }else{if(freeRow)rows.push(freeRow);rows.push({label:'Subtotal',value:money(t.subtotal),strong:!!freeRow,sep:!!freeRow});}
    if(c.energy.enabled)rows.push({label:'Energy surcharge '+c.energy.rate+'%',value:money(t.energy)});
    if(c.hst.enabled)rows.push({label:'HST '+c.hst.rate+'%',value:money(t.hst)});
    if(c.card.enabled)rows.push({label:'Card fee '+c.card.rate+'%',value:money(t.card)});
@@ -22969,8 +22979,11 @@ function viewMdOverview(){
 
 /* --- 5. Импорт -------------------------------------------------------- */
 
+/* Каталог стекла и точки поставки — подвиды Materials → Glass; файл идёт в
+   парсер открытого подвида (аудит 05.10.2026: после переезда в Materials
+   проверка mdTab==='glass' не срабатывала, GLASS_PRODUCTS.csv не грузился). */
 function mdImportCard(){
- const isGlass=mdTab==='glass';
+ const isGlass=mdMatView==='glassProduct',kind=isGlass?'glass':'sheets';
  const which=isGlass?'GLASS_PRODUCTS.csv':'GLASS_SHEETS.csv';
  return `<div class="card">
   <div class="section-title"><h3>Load ${which}</h3><span class="pill info">merged by code</span></div>
@@ -22978,8 +22991,8 @@ function mdImportCard(){
    ?'The file updates items with the same codes and adds new ones. Columns missing from the file header are left untouched — a file that came back from Excel without five columns will not wipe the optics of the rest of the catalog.'
    :'A row is identified by product · supply point · sheet size. A row whose code is not in the catalog is rejected: a price with no product would quietly land in the cost.'}</div>
   <div class="row"><button onclick="document.getElementById('mdCsv').click()">Choose file</button>
-   <input type="file" id="mdCsv" accept=".csv,.txt" style="display:none" onchange="mdImportCsv(this,'${mdTab}')"></div>
-  ${mdImportReport&&mdImportReport.which===mdTab?sfReportHTML(mdImportReport.rep):''}</div>`;
+   <input type="file" id="mdCsv" accept=".csv,.txt" style="display:none" onchange="mdImportCsv(this,'${kind}')"></div>
+  ${mdImportReport&&mdImportReport.which===kind?sfReportHTML(mdImportReport.rep):''}</div>`;
 }
 function mdImportCsv(inp,which){
  const f=inp.files[0];inp.value='';
@@ -23895,7 +23908,7 @@ function finPreviewInfo(){
  const p=finPreview,company=(DB.company||{}).legalName||'';
  if(p.kind==='receipt'){const r=DB.receipt.find(x=>x.id===p.id)||{},c=salesFindCustomer(r.customerId);return {title:'Receipt '+(r.number||''),c,file:'Receipt_'+(r.number||''),subject:['Payment receipt '+(r.number||''),company].filter(Boolean).join(' · '),
   body:'Thank you for your payment of '+docMoney(r.amount)+' received on '+docDate(r.date)+'. Receipt '+r.number+' is attached.'};}
- if(p.kind==='statement'){const c=salesFindCustomer(p.id);return {title:'Statement · '+finCustomerName(c),c,file:'Statement_'+((c&&c.code)||'account')+'_'+(p.from||'start')+'_'+(p.to||finToday()),subject:['Statement '+finPeriodText(p.from,p.to),company].filter(Boolean).join(' · '),
+ if(p.kind==='statement'){const c=salesFindCustomer(p.id);return {title:'Statement · '+finCustomerName(c),c,mail:'statement',file:'Statement_'+((c&&c.code)||'account')+'_'+(p.from||'start')+'_'+(p.to||finToday()),subject:['Statement '+finPeriodText(p.from,p.to),company].filter(Boolean).join(' · '),
   body:finStatementMail(p.id,p.from,p.to)};}
  if(p.kind==='balances')return {title:'Customer balances',c:null,file:'Customer_balances_'+finToday()};
  return {title:'Payments due',c:null,file:'Payments_due_'+finToday()};
@@ -23924,9 +23937,12 @@ function finPrintDoc(pages){
 function finPrintPreview(){try{finPrintDoc(finPreviewPages());}catch(e){alert('The document could not be prepared: '+(e&&e.message||e));}}
 /* PDF в Загрузки и письмо в Gmail с адресом клиента — как у Proforma:
    программа с диска не может вложить файл в чужую вкладку сама. */
+/* Выписка — на Statement Email, остальное — на Invoice Email; пусто — на
+   основной контакт (аудит 05.10.2026: выписка уходила на Invoice Email). */
+function finEmailTo(c,mail){return c?(mail==='statement'&&c.statementEmail||c.invoiceEmail||customerPrimaryContact(c).email||''):'';}
 function finEmailDoc(info,pages){
  const bytes=docPdfBytes(pages,{title:info.title});
- const file=info.file.replace(/[^A-Za-z0-9-]+/g,'_')+'.pdf',to=info.c.invoiceEmail||customerPrimaryContact(info.c).email||'',first=String(customerPrimaryContact(info.c).name||'').trim().split(/\s+/)[0];
+ const file=info.file.replace(/[^A-Za-z0-9-]+/g,'_')+'.pdf',to=finEmailTo(info.c,info.mail),first=String(customerPrimaryContact(info.c).name||'').trim().split(/\s+/)[0];
  docDownload(file,bytes);
  const win=window.open(docGmailUrl(to,info.subject,['Hello'+(first?' '+first:'')+',','',info.body,'',(DB.company||{}).legalName||''].join('\n')),'_blank');
  return 'PDF saved to Downloads as '+file+' — drag it into the Gmail message.'+(to?'':' No email for this customer.')+(win?'':' Allow pop-ups for Gmail.');
@@ -23949,7 +23965,7 @@ function finStatementsList(){
 }
 function finStatementsEmail(id){
  const p=finStatements,c=salesFindCustomer(id);if(!p||!c)return;
- try{finEmailDoc({title:'Statement · '+finCustomerName(c),c,file:'Statement_'+(c.code||'account')+'_'+p.from+'_'+p.to,subject:['Statement '+finPeriodText(p.from,p.to),(DB.company||{}).legalName||''].filter(Boolean).join(' · '),body:finStatementMail(id,p.from,p.to)},finStatementDoc(id,p.from,p.to));}
+ try{finEmailDoc({title:'Statement · '+finCustomerName(c),c,mail:'statement',file:'Statement_'+(c.code||'account')+'_'+p.from+'_'+p.to,subject:['Statement '+finPeriodText(p.from,p.to),(DB.company||{}).legalName||''].filter(Boolean).join(' · '),body:finStatementMail(id,p.from,p.to)},finStatementDoc(id,p.from,p.to));}
  catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
  p.sent[id]=true;render();
 }
@@ -23958,7 +23974,7 @@ function finStatementsHTML(){
  return `<div class="sales-service-modal-back fin-modal-back" onclick="if(event.target===this)finCloseStatements()"><div class="sales-service-modal fin-statements" role="dialog" aria-modal="true" aria-label="Statements"><div class="sales-service-modal-head"><h3>Statements · ${esc(err?'':finPeriodText(p.from,p.to))}</h3><button type="button" aria-label="Close" onclick="finCloseStatements()">×</button></div>
  <div class="fin-modal-body"><div class="sales-toolbar">${finRangeButton('statements')}</div>
  ${err?`<p role="alert" class="fin-due">${esc(err)}</p>`:''}
- <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Customer</th><th>Email</th><th class="n">Balance forward</th><th class="n">Billed</th><th class="n">Paid</th><th class="n">Balance</th><th></th></tr></thead><tbody>${list.map(({c,d})=>{const to=c.invoiceEmail||customerPrimaryContact(c).email||'';return `<tr data-statement="${esc(c.id)}"><td><b>${raw(finCustomerName(c))}</b><div class="mut small">${raw(c.code)}</div></td><td>${to?esc(to):'<span class="mut">no email</span>'}</td><td class="n">${finSigned(d.opening)}</td><td class="n">${d.billed?finFmt(d.billed):'<span class="mut">—</span>'}</td><td class="n">${d.paid?finFmt(d.paid):'<span class="mut">—</span>'}</td><td class="n"><b>${finSigned(d.closing)}</b></td><td class="fin-actions">${p.sent[c.id]?'<span class="pill good">Emailed</span> ':''}<button class="sm" onclick="finOpenStatement('${esc(c.id)}',{from:finStatements.from,to:finStatements.to})">View</button><button class="sm pri" onclick="finStatementsEmail('${esc(c.id)}')">Email PDF</button></td></tr>`;}).join('')||`<tr><td colspan="7" class="empty">${err?'Correct the dates.':'No activity in this period.'}</td></tr>`}</tbody></table></div>
+ <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Customer</th><th>Email</th><th class="n">Balance forward</th><th class="n">Billed</th><th class="n">Paid</th><th class="n">Balance</th><th></th></tr></thead><tbody>${list.map(({c,d})=>{const to=finEmailTo(c,'statement');return `<tr data-statement="${esc(c.id)}"><td><b>${raw(finCustomerName(c))}</b><div class="mut small">${raw(c.code)}</div></td><td>${to?esc(to):'<span class="mut">no email</span>'}</td><td class="n">${finSigned(d.opening)}</td><td class="n">${d.billed?finFmt(d.billed):'<span class="mut">—</span>'}</td><td class="n">${d.paid?finFmt(d.paid):'<span class="mut">—</span>'}</td><td class="n"><b>${finSigned(d.closing)}</b></td><td class="fin-actions">${p.sent[c.id]?'<span class="pill good">Emailed</span> ':''}<button class="sm" onclick="finOpenStatement('${esc(c.id)}',{from:finStatements.from,to:finStatements.to})">View</button><button class="sm pri" onclick="finStatementsEmail('${esc(c.id)}')">Email PDF</button></td></tr>`;}).join('')||`<tr><td colspan="7" class="empty">${err?'Correct the dates.':'No activity in this period.'}</td></tr>`}</tbody></table></div>
  ${Object.keys(p.sent).length?'<p class="mut small">PDFs are in Downloads — drag each into its Gmail message.</p>':''}</div></div></div>`;
 }
 
@@ -29609,17 +29625,21 @@ function ncrCreate(d){
  if(!glass.length)return {error:'Select the affected glass.'};
  const now=new Date().toISOString();
  const n={id:salesUid('NCR'),number:ncrNextNumber(),orderId:o.id,createdAt:now,source:NCR_SOURCES.includes(d.source)?d.source:'Customer claim',where:d.where,reasonId:reason.id,reason:reason.name,action:d.action,note:salesString(d.note).slice(0,500),glass,remakeOrderId:''};
- DB.ncr.push(n);
- if(n.action===NCR_REMAKE){
-  const src=JSON.parse(JSON.stringify(o)),byLine=new Map(glass.map(g=>[g.lineId,g.qty]));
-  src.lines=src.lines.filter(l=>byLine.has(l.id)).map(l=>Object.assign(l,{qty:byLine.get(l.id),batchedAt:'',batchNo:'',cutStartedAt:'',batchManaged:false,onHold:false,holdReason:'',holdAt:''}));
-  const used=new Set(src.lines.map(l=>l.makeupId));src.makeups=src.makeups.filter(m=>used.has(m.id));src.extraItems=[];
-  const copy=salesCopySalesRecord(src,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
-   batchNo:'',batchHistory:[],unbatchHistory:[],onHold:false,holdReason:'',holdAt:'',fulfilledVia:'',dueDate:'',notes:'Remake for '+n.number+' · order '+o.businessNumber,noCharge:true,remakeNcrId:n.id,createdAt:now,updatedAt:now});
-  DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesData();
-  n.remakeOrderId=copy.id;glassPieceEnsure(salesRecord(copy.id));
- }
- touch();return {ncr:n};
+ /* Запись не прошла — NCR и переделки нет, форма остаётся открытой. */
+ const out=storageCommand(()=>{
+  DB.ncr.push(n);
+  if(n.action===NCR_REMAKE){
+   const src=JSON.parse(JSON.stringify(o)),byLine=new Map(glass.map(g=>[g.lineId,g.qty]));
+   src.lines=src.lines.filter(l=>byLine.has(l.id)).map(l=>Object.assign(l,{qty:byLine.get(l.id),batchedAt:'',batchNo:'',cutStartedAt:'',batchManaged:false,onHold:false,holdReason:'',holdAt:''}));
+   const used=new Set(src.lines.map(l=>l.makeupId));src.makeups=src.makeups.filter(m=>used.has(m.id));src.extraItems=[];
+   const copy=salesCopySalesRecord(src,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
+    batchNo:'',batchHistory:[],unbatchHistory:[],onHold:false,holdReason:'',holdAt:'',fulfilledVia:'',dueDate:'',notes:'Remake for '+n.number+' · order '+o.businessNumber,noCharge:true,remakeNcrId:n.id,createdAt:now,updatedAt:now});
+   DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesData();
+   n.remakeOrderId=copy.id;glassPieceEnsure(salesRecord(copy.id));
+  }
+  return true;
+ });
+ return out.ok?{ncr:n}:{error:out.error};
 }
 function normalizeNcrRecords(){
  if(!Array.isArray(DB.ncr))DB.ncr=[];
@@ -29691,8 +29711,9 @@ function recutCreate(d){
  if(!picks.length)return {error:'Select the affected glass.'};
  const now=new Date().toISOString();let no=recutNextNo(o.id);
  const made=picks.map(p=>Object.assign({id:salesUid('RC'),orderId:o.id,no:no++,createdAt:now},p,{where:d.where,reasonId:reason.id,reason:reason.name,note:salesString(d.note).slice(0,500)}));
- DB.recut.push(...made);glassPieceEnsure(o);o.updatedAt=now;touch();
- return {recuts:made};
+ /* Запись не прошла — Recut не создан, форма остаётся открытой (аудит 05.10.2026). */
+ const out=storageCommand(()=>{DB.recut.push(...made);glassPieceEnsure(o);o.updatedAt=now;return true;});
+ return out.ok?{recuts:made}:{error:out.error};
 }
 /* Recut, записанный раньше как действие NCR, переносится в заказ один раз:
    номер внутри заказа, места стёкол NCR1001.k → R1.k, номера стёкол те же. */
@@ -30108,11 +30129,13 @@ window.addEventListener('storage',function(e){
  if(current&&current!==storageBaseline)storageLiveReload(current);
 });
 /* «Не на эту долли» — стекло понесли в руках (Critical: отложить или отнести
-   сразу). Скан остаётся, пропадает только тара. */
+   сразу). Скан остаётся, пропадает только тара — у всего юнита, который
+   переехал одним сканом (общий actionId; аудит 05.10.2026: половина
+   собранного юнита оставалась на DL-1). */
 function stationScanOff(id){const out=storageCommand(()=>stationScanOffCommand(id));return out.ok&&out.value;}
 function stationScanOffCommand(id){
  const rec=(DB.stationScan||[]).find(s=>s.id===id&&!s.undoneAt);if(!rec||!rec.on)return false;
- delete rec.on;touch();return true;
+ DB.stationScan.forEach(s=>{if(s===rec||!s.undoneAt&&s.on&&s.station===rec.station&&rec.actionId&&s.actionId===rec.actionId)delete s.on;});touch();return true;
 }
 
 /* ---------------------------------------------------------------------
