@@ -58,14 +58,14 @@ function shippingPages(d,skidOnly){
    o.extras.forEach(x=>{ensure(40);line('From stock · '+x.name,{bold:true});line('Ordered '+x.ordered+' · Before '+x.before+' · Now '+x.now+' · Back order '+x.back,{color:x.back?DOC_COLOR.due:DOC_COLOR.ink});});y+=12;
   });
   if(!d.orders.length)line('Open trip · no items selected');
-  ensure(130);d.skids.forEach(s=>line(s.code+' · '+s.qty+' units · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg'));
+  ensure(130);d.skids.forEach(s=>line(s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg'));
   if(d.note)line(d.note);
   y+=15;line('Received by ____________________    Signature ____________________');line('Date and time ____________________');y+=9;
-  line(d.skids.length+' skids left on site remain property of '+(d.company.name||'the supplier')+'.',{size:8,color:DOC_COLOR.mut});
+  if(d.skids.length)line(shippingCount(d.skids.length,'skid')+' left on site '+(d.skids.length===1?'remains':'remain')+' property of '+(d.company.name||'the supplier')+'.',{size:8,color:DOC_COLOR.mut});
  }
  d.skids.filter(s=>!skidOnly||s.code===skidOnly).forEach(s=>{
   header('SKID CONTENTS');P.text(36,y+35,s.code,{size:40,bold:true});y+=65;
-  line(s.qty+' units · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg',{size:12});
+  line(shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg',{size:12});
   s.rows.forEach(r=>{ensure(75);line('Order '+r.order+(r.po?' · PO '+r.po:''),{size:11,bold:true});line('Line '+r.line+(r.mark?' · '+r.mark:'')+' · '+r.size+' · Qty '+r.now,{bold:true});line(r.makeup);y+=9;});
  });
  pages.forEach((p,n)=>p.text(576,766,(d.number||'Skid contents')+' · '+(n+1)+' / '+pages.length,{size:8,align:'right',color:DOC_COLOR.mut}));return pages;

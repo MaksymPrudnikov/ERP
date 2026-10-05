@@ -53,7 +53,7 @@ function nextSalesQuoteNumber(){
 function salesStatusLabel(o,status){
  status=status||(o&&o.status);
  if(salesIsQuote(o))return status==='won'?'Won':status==='sent'?'Sent':'Not sent';
- if(status==='shipping')return o&&o.status!=='shipping'&&o.statusDates&&o.statusDates.shipping?'Partially shipped':typeof shippingSummary==='function'&&o&&o.id&&shippingSummary(o).back===0?'Shipped':'Partially shipped';
+ if(status==='shipping')return o&&o.status!=='shipping'&&o.statusDates&&o.statusDates.shipping?'Partially shipped':typeof shippingBackCount==='function'&&o&&o.id&&shippingBackCount(o)===0?'Shipped':'Partially shipped';
  if(status==='done')return o&&(o.fulfilledVia||o.delivery)==='delivery'?'Delivered':'Picked up';
  return ({new:'New',verified:'Verified',batched:'Batched',ready:'Ready',closed:'Closed',cancelled:'Cancelled'})[status]||'New';
 }

@@ -76,7 +76,18 @@ function shippingRevert(id,action){return storageCommand(()=>{
  }
  shippingSyncOrders(ids,null,{reopen:true});ids.forEach(oid=>orderLogPush(salesRecord(oid),action==='cancel'?'Packing slip cancelled':'Packing slip rolled back',s.number+' · '+action));return s;
 });}
-function shippingScanSigned(raw,by,date){const number=String(raw||'').trim().toUpperCase();if(!/^PS-\d{4,}$/.test(number))return {ok:false,error:'Scan a packing slip number.'};return shippingMarkDelivered(number,by,date);}
+/* Самовывоз: клиент расписался у фронт-деска, когда забрал стекло, — один
+   скан подписанного PS ставит и Shipped, и Picked up. Сбой на любом шаге
+   откатывает оба (предложено в ревью PR 1, 05.10.2026). */
+function shippingScanSigned(raw,by,date){
+ const number=String(raw||'').trim().toUpperCase();if(!/^PS-\d{4,}$/.test(number))return {ok:false,error:'Scan a packing slip number.'};
+ const s=shippingFind(number);
+ if(s&&s.method==='pickup'&&s.status==='planned')return storageCommand(()=>{
+  const shipped=shippingMarkShipped(s.id);shippingAssert(shipped.ok,shipped.error);
+  const got=shippingMarkDelivered(s.id,by,date);shippingAssert(got.ok,got.error);return got.value;
+ });
+ return shippingMarkDelivered(number,by,date);
+}
 function shippingCheckStamp(){return JSON.stringify(DB);}
 /* Every order is checked before any write/print. Paying or backing out stops
    the entire action. A change during a warning requires a fresh check. */

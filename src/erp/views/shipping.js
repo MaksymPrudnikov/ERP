@@ -5,17 +5,36 @@ const SHIPPING_TABS=[['awaiting','Awaiting readiness'],['ready','Ready'],['shipm
 let shippingTab='ready',shippingNotice=null,shippingDraft=null,shippingOpenId='',shippingPreview=false;
 let shippingSelection=new Set(),shippingCustomer='',shippingReceivedBy='',shippingReceivedOn='';
 function shippingSetTab(key){shippingTab=key;shippingNotice=null;salesListMenu=null;render();}
-function shippingTabs(){return '<div class="oq-tabs" role="tablist">'+SHIPPING_TABS.map(([key,name])=>`<button type="button" role="tab" data-shipping-tab="${key}" aria-selected="${shippingTab===key}" class="${shippingTab===key?'on':''}" onclick="shippingSetTab('${key}')">${name}</button>`).join('')+'</div>';}
+/* Счётчики на вкладках — как были у очереди Shipping: заказы, у Shipments —
+   открытые PS (planned и shipped). */
+function shippingTabCount(key){
+ if(key==='shipments')return (DB.shipment||[]).filter(s=>s.status==='planned'||s.status==='shipped').length;
+ if(key==='ready')return shippingReadyOrders().length;
+ if(key==='backorders')return shippingOrders().filter(o=>o.status==='shipping'&&shippingBackCount(o)>0).length;
+ return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;
+}
+function shippingTabs(){return '<div class="oq-tabs" role="tablist">'+SHIPPING_TABS.map(([key,name])=>`<button type="button" role="tab" data-shipping-tab="${key}" aria-selected="${shippingTab===key}" class="${shippingTab===key?'on':''}" onclick="shippingSetTab('${key}')">${name} <b>${shippingTabCount(key)}</b></button>`).join('')+'</div>';}
 function shippingOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&!['cancelled','closed'].includes(o.status)&&!shippingLegacy(o)&&(o.status!=='new'||shippingAvailable(o).length>0));}
+/* Ready — только то, что можно положить в PS: готовые юниты без PS и товары
+   склада. Заказ, где готового нет, сюда не попадает (он в Awaiting). */
+function shippingReadyExtras(o,q){return o.status!=='new'&&!o.onHold?q.extras.filter(e=>e.ready>0):[];}
+function shippingReadyOrders(){return shippingOrders().filter(o=>{const q=shippingSummary(o);return q.ready>0||shippingReadyExtras(o,q).length>0;});}
 function shippingSelect(customerId,labels,on){if(shippingCustomer!==customerId){shippingSelection.clear();shippingCustomer=customerId;}labels.forEach(id=>on?shippingSelection.add(id):shippingSelection.delete(id));render();}
 function shippingSelectOrder(id,on){const o=salesRecord(id);shippingSelect(o.customerId,shippingAvailable(o).map(i=>i.label),on);}
-function shippingSelectSkid(customerId,code,on){shippingSelect(customerId,shippingOrders().filter(o=>o.customerId===customerId).flatMap(shippingAvailable).filter(i=>i.skid===code).map(i=>i.label),on);}
+function shippingSelectSkid(customerId,code,on){shippingSelect(customerId,shippingWithCtx(()=>shippingOrders().filter(o=>o.customerId===customerId).flatMap(shippingAvailable).filter(i=>i.skid===code).map(i=>i.label)),on);}
 function shippingSelectQty(id,lineId,n){const o=salesRecord(id),units=shippingAvailable(o).filter(i=>i.lineId===lineId);if(shippingCustomer!==o.customerId){shippingSelection.clear();shippingCustomer=o.customerId;}units.forEach((i,k)=>k<Math.max(0,+n||0)?shippingSelection.add(i.label):shippingSelection.delete(i.label));render();}
+/* Способ по умолчанию — из заказов в PS (Pickup / Delivery ставит продавец),
+   у пустого рейса — из карточки клиента. */
 function shippingOpen(customerId,id){
- const s=id&&shippingFind(id),orders=shippingOrders().filter(o=>o.customerId===customerId),c=salesFindCustomer(customerId);
- const all=orders.flatMap(shippingAvailable),selected=all.filter(i=>shippingCustomer===customerId&&shippingSelection.has(i.label));
- shippingDraft=s?shippingClone(s):{customerId,method:String(c&&c.defaultDeliveryMethod||'').toLowerCase().includes('pickup')?'pickup':'delivery',shipTo:shippingDefaultAddress(c),date:finToday(),items:(selected.length?selected:all).map(shippingItem),extras:orders.filter(o=>o.status!=='new'&&!o.onHold).flatMap(o=>shippingSummary(o).extras.filter(x=>x.ready>0).map(x=>({orderId:o.id,extraId:x.x.id,qty:x.ready}))),note:''};
- shippingDraft.error='';render();
+ shippingWithCtx(()=>{
+  const s=id&&shippingFind(id),orders=shippingOrders().filter(o=>o.customerId===customerId),c=salesFindCustomer(customerId);
+  const all=orders.flatMap(shippingAvailable),selected=all.filter(i=>shippingCustomer===customerId&&shippingSelection.has(i.label)),items=selected.length?selected:all;
+  const planned=[...new Set(items.map(i=>i.orderId))].map(oid=>salesRecord(oid).delivery);
+  const method=planned.length?(planned.every(d=>d==='pickup')?'pickup':'delivery'):String(c&&c.defaultDeliveryMethod||'').toLowerCase().includes('pickup')?'pickup':'delivery';
+  shippingDraft=s?shippingClone(s):{customerId,method,shipTo:shippingDefaultAddress(c),date:finToday(),items:items.map(shippingItem),extras:orders.filter(o=>o.status!=='new'&&!o.onHold).flatMap(o=>shippingSummary(o).extras.filter(x=>x.ready>0).map(x=>({orderId:o.id,extraId:x.x.id,qty:x.ready}))),note:''};
+  shippingDraft.error='';
+ });
+ render();
 }
 function shippingDraftQty(orderId,lineId,n){
  const d=shippingDraft,o=salesRecord(orderId);if(!d||!o)return;const available=shippingAvailable(o,d.id).filter(i=>i.lineId===lineId);
@@ -48,15 +67,22 @@ function shippingOrderStrip(o){
  if(salesIsQuote(o))return '';const q=shippingSummary(salesRecord(o.id)||o);if(!q.ps.length)return '';
  return `<div class="shipping-order-strip"><b>Shipped ${q.shipped} / ${q.ordered} · Back order ${q.back}</b>${q.ps.map(s=>`<button type="button" class="sm" onclick="shippingGo('${esc(s.id)}')">${esc(s.number)} · ${shippingStatus(s)}</button>`).join('')}${q.shipped?'<span class="mut">Cancel remaining units</span>':''}</div>`;
 }
+/* Строки — только с готовыми юнитами: остальное видно итогом в строке заказа.
+   Back order — только когда по заказу уже что-то уехало: до первой отгрузки
+   «бэкордер = весь заказ» путал (ревью Claude, 05.10.2026). */
 function shippingReadyHTML(){
- const orders=shippingOrders(),customers=[...new Set(orders.map(o=>o.customerId))];
+ const orders=shippingReadyOrders(),customers=[...new Set(orders.map(o=>o.customerId))];
  return customers.map(id=>{
   const os=orders.filter(o=>o.customerId===id),summaries=os.map(o=>({o,q:shippingSummary(o)})),units=os.flatMap(shippingUnits),free=units.filter(i=>i.ready&&!i.shipment);
-  if(!free.length&&!summaries.some(x=>x.q.extras.some(e=>e.ready)))return '';
-  const c=salesFindCustomer(id),skids=[...new Set(units.filter(i=>i.ready&&i.skid).map(i=>i.skid))];
-  const skidHTML=skids.map(code=>{const all=units.filter(i=>i.ready&&i.skid===code),a=all.filter(i=>!i.shipment),counts=new Map();all.forEach(i=>counts.set(i.orderId,(counts.get(i.orderId)||0)+1));return `<div class="shipping-skid"><label><input type="checkbox" ${a.length?'':'disabled'} ${a.length&&a.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectSkid('${esc(id)}','${code}',this.checked)"><b>${code}</b></label><span>${all.length} units · ${[...counts].map(([oid,n])=>esc(salesRecord(oid).businessNumber)+' ×'+n).join(', ')}${all.length>a.length?' · '+(all.length-a.length)+' on PS':''}</span><button class="sm" onclick="shippingPrintSkid('${esc(id)}','${code}')">Skid sheet</button></div>`;}).join('');
-  const rows=summaries.map(({o,q})=>`<tr class="shipping-order-row"><td colspan="3"><label><input type="checkbox" ${shippingAvailable(o).length&&shippingAvailable(o).every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectOrder('${esc(o.id)}',this.checked)"><button class="sm" onclick="optimizationOpenOrder('${esc(o.id)}')">Order ${esc(o.businessNumber)}</button></label>${o.customerPo?' · PO '+esc(o.customerPo):''}</td><td>${q.ready}</td><td>${Math.max(0,q.glass-q.physicalReady-q.lines.reduce((n,l)=>n+l.shipped,0))}</td><td>${q.back}</td><td></td></tr>`+q.lines.map((r,n)=>`<tr><td>${n+1}${r.l.mark?' · '+esc(r.l.mark):''}</td><td>${esc(docSize(r.l))}</td><td>${esc(salesMakeupSummary(salesMakeupById(o,r.l.makeupId)))}</td><td>${r.ready}</td><td>${Math.max(0,r.ordered-r.physicalReady-r.shipped)}</td><td>${r.back}</td><td><input aria-label="Select quantity for order ${esc(o.businessNumber)} line ${n+1}" type="number" min="0" max="${r.ready}" value="${free.filter(i=>i.lineId===r.l.id&&shippingSelection.has(i.label)).length}" onchange="shippingSelectQty('${esc(o.id)}','${esc(r.l.id)}',this.value)"></td></tr>`).join('')+q.extras.map(e=>`<tr><td colspan="3">From stock · ${esc(salesExtraItemName(e.x))}</td><td>${e.ready}</td><td>0</td><td>${e.back}</td><td>In PS form</td></tr>`).join('')).join('');
-  return `<section class="card shipping-customer"><div class="shipping-customer-head"><div><h3>${esc(salesCustomerDisplay(id))}</h3><span class="mut">${esc(docAddressText(shippingDefaultAddress(c)))||'Choose an address or pickup'}</span></div><button class="pri" data-create-ps="${esc(id)}" onclick="shippingOpen('${esc(id)}')">Create packing slip</button></div>${skidHTML}<p class="mut">Without a skid · ${free.filter(i=>!i.skid).length} units</p><div class="sales-table-wrap"><table class="sl-table shipping-ready-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Ready</th><th>Not ready</th><th>Back order</th><th>Select qty</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+  const c=salesFindCustomer(id),skids=[...new Set(units.filter(i=>i.ready&&i.skid).map(i=>i.skid))],loose=free.filter(i=>!i.skid).length;
+  const skidHTML=skids.map(code=>{const all=units.filter(i=>i.ready&&i.skid===code),a=all.filter(i=>!i.shipment),counts=new Map();all.forEach(i=>counts.set(i.orderId,(counts.get(i.orderId)||0)+1));return `<div class="shipping-skid"><label><input type="checkbox" ${a.length?'':'disabled'} ${a.length&&a.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectSkid('${esc(id)}','${code}',this.checked)"><b>${code}</b></label><span>${shippingCount(all.length,'unit')} · ${[...counts].map(([oid,n])=>esc(salesRecord(oid).businessNumber)+' ×'+n).join(', ')}${all.length>a.length?' · '+(all.length-a.length)+' on PS':''}</span><button class="sm" onclick="shippingPrintSkid('${esc(id)}','${code}')">Skid sheet</button></div>`;}).join('');
+  const rows=summaries.map(({o,q})=>{
+   const avail=free.filter(i=>i.orderId===o.id),back=v=>q.shipped?v:'—';
+   return `<tr class="shipping-order-row"><td colspan="3"><label><input type="checkbox" ${avail.length?'':'disabled'} ${avail.length&&avail.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectOrder('${esc(o.id)}',this.checked)"><button class="sm" onclick="optimizationOpenOrder('${esc(o.id)}')">Order ${esc(o.businessNumber)}</button></label>${o.customerPo?' · PO '+esc(o.customerPo):''}</td><td>${q.ready}</td><td>${Math.max(0,q.glass-q.physicalReady-q.lines.reduce((n,l)=>n+l.shipped,0))}</td><td>${back(q.back)}</td><td></td></tr>`
+    +q.lines.map((r,n)=>({r,n})).filter(x=>x.r.ready>0).map(({r,n})=>`<tr data-ready-line="${esc(r.l.id)}"><td>${n+1}${r.l.mark?' · '+esc(r.l.mark):''}</td><td>${esc(docSize(r.l))}</td><td>${esc(salesMakeupSummary(salesMakeupById(o,r.l.makeupId)))}</td><td>${r.ready}</td><td>${Math.max(0,r.ordered-r.physicalReady-r.shipped)}</td><td>${back(r.back)}</td><td><input aria-label="Select quantity for order ${esc(o.businessNumber)} line ${n+1}" type="number" min="0" max="${r.ready}" value="${free.filter(i=>i.lineId===r.l.id&&shippingSelection.has(i.label)).length}" onchange="shippingSelectQty('${esc(o.id)}','${esc(r.l.id)}',this.value)"></td></tr>`).join('')
+    +shippingReadyExtras(o,q).map(e=>`<tr><td colspan="3">From stock · ${esc(salesExtraItemName(e.x))}</td><td>${e.ready}</td><td>—</td><td>${back(e.back)}</td><td>In PS form</td></tr>`).join('');
+  }).join('');
+  return `<section class="card shipping-customer"><div class="shipping-customer-head"><div><h3>${esc(salesCustomerDisplay(id))}</h3><span class="mut">${esc(docAddressText(shippingDefaultAddress(c)))||'Choose an address or pickup'}</span></div><button class="pri" data-create-ps="${esc(id)}" onclick="shippingOpen('${esc(id)}')">Create packing slip</button></div>${skidHTML}${loose?`<p class="mut">Without a skid · ${shippingCount(loose,'unit')}</p>`:''}<div class="sales-table-wrap"><table class="sl-table shipping-ready-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Ready</th><th>Not ready</th><th>Back order</th><th>Select qty</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
  }).join('')||'<div class="card empty">No units ready for a packing slip.</div>';
 }
 function shippingListScope(){return shippingTab==='shipments'?'shippingPS':shippingTab==='awaiting'?'shippingAwaiting':shippingTab==='done'?'shippingDone':'';}
@@ -89,7 +115,9 @@ function shippingDraftHTML(){
 function shippingFocus(){if(tab!=='shipping'||shippingTab!=='shipments'||shippingDraft||salesDialog||salesListMenu)return;const a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.id!=='shippingSigned')return;const e=document.getElementById('shippingSigned');if(e)e.focus();}
 function viewShipping(){
  if(shippingTab==='shipments')setTimeout(shippingFocus,0);
+ return shippingWithCtx(()=>{
  const body=shippingTab==='ready'?shippingReadyHTML():shippingTab==='shipments'?shippingListHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true);
  return `<section class="shipping-workspace">${shippingTabs()}<div class="shipping-top"><label>Open a trip<select aria-label="Customer for new trip" onchange="if(this.value)shippingOpen(this.value)"><option value="">Choose customer</option>${(DB.customer||[]).filter(c=>c.status!=='archived').map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}</option>`).join('')}</select></label></div>${shippingNotice?`<div class="shipping-notice ${shippingNotice.error?'bad':''}" role="${shippingNotice.error?'alert':'status'}">${esc(shippingNotice.text)}</div>`:''}${body}${shippingDraftHTML()}</section>`;
+ });
 }
 document.addEventListener('focusout',()=>{if(tab==='shipping')setTimeout(shippingFocus,150);});

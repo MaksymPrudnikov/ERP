@@ -101,6 +101,46 @@ module.exports=async function({page,eq,ok}){
  eq('Moving reserved glass to another skid requires reprint and refreshes the printed snapshot',await t.p.evaluate(()=>{
   const [id]=shSeed(),s=shCreate([id],1).value;shippingPrint(s.id);s.items[0].pieces.forEach(p=>stationScansFor(p).at(-1).on='SL-2');const reprint=shippingNeedsReprint(s);shippingPrint(s.id);return {reprint,skid:s.items[0].skid,current:!shippingNeedsReprint(s)};
  }),{reprint:true,skid:'SL-2',current:true});
+ /* Доработка Claude 05.10.2026: ошибка сохранения заказа со складской
+    позицией в PS, вкладка Ready без пустых строк, самовывоз одним сканом,
+    слова на PS, счётчики вкладок и индексы один раз на экран. */
+ eq('Order with stock items on a PS saves unchanged; reducing below the PS quantity is refused',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer(),o=normalizeSalesOrder({id:'SO-STOCK2',businessNumber:'ST2',customerId:c.id,status:'new',lines:[],extraItems:[{id:'EXT-1',table:'stockItem',itemId:'X',qty:3,priceOverride:20}]});DB.salesOrder.push(o);salesSetRecordStatus(o.id,'verified');
+  const made=shippingCreate({customerId:c.id,method:'pickup',shipTo:{},date:finToday(),items:[],extras:[{orderId:o.id,extraId:'EXT-1',qty:2}]}).ok;
+  const same=shippingSaveGuard(shippingClone(o),o),less=shippingClone(o);less.extraItems[0].qty=1;const refused=shippingSaveGuard(less,o);
+  tab='sales';salesOrderEdit(o.id);const ui=!!salesOrderSave();salesDraftDrop();return {made,same,refused,ui};
+ }),{made:true,same:'',refused:'Stock items on a packing slip cannot be removed or reduced below its quantity.',ui:true});
+ eq('Ready lists only lines with ready units; Back order shows only after the first shipment',await t.p.evaluate(()=>{
+  const [id]=shSeed(),o=salesRecord(id),second=o.lines[1].id,u=shippingAvailable(o).find(i=>i.lineId===second);
+  const rec=stationScansFor(u.pieces[0]).find(s=>s.station===shippingStations().ready);stationUndo(rec.id,{name:'QA'});
+  tab='shipping';shippingTab='ready';render();
+  const lines=[...document.querySelectorAll('[data-ready-line]')].map(r=>r.getAttribute('data-ready-line')),before=document.querySelector('.shipping-order-row').children[3].textContent;
+  const s=shCreate([id],1).value;shippingMarkShipped(s.id);render();const after=document.querySelector('.shipping-order-row').children[3].textContent;
+  return {lines:lines.length===1&&lines[0]===o.lines[0].id,before,after};
+ }),{lines:true,before:'—',after:'2'});
+ eq('Pickup: one scan of the signed PS ships and picks up; a failure rolls back both; delivery still needs Shipped',await t.p.evaluate(()=>{
+  let [id]=shSeed(),s=shCreate([id]).value;const ship=shippingStations().ship;
+  const bad=shippingScanSigned(s.number,'Front desk','2999-01-01'),rolled={ok:bad.ok,status:shippingFind(s.id).status,scans:DB.stationScan.filter(x=>x.station===ship&&!x.undoneAt).length};
+  const out=shippingScanSigned(s.number,'Front desk');s=shippingFind(s.id);
+  const one={ok:out.ok,status:s.status,order:salesRecord(id).status,by:s.receivedBy,scanned:s.items.every(i=>i.pieces.every(p=>stationScansFor(p).some(x=>x.station===ship)))};
+  [id]=shSeed();const o=salesRecord(id),d=shippingCreate({customerId:o.customerId,method:'delivery',shipTo:{address1:'1 Site Rd'},date:finToday(),items:shippingAvailable(o).map(shippingItem),extras:[]}).value,refused=shippingScanSigned(d.number);
+  return {rolled,one,delivery:{ok:refused.ok,error:refused.error,status:shippingFind(d.id).status}};
+ }),{rolled:{ok:false,status:'planned',scans:0},one:{ok:true,status:'delivered',order:'done',by:'Front desk',scanned:true},delivery:{ok:false,error:'Mark this packing slip Shipped first.',status:'planned'}});
+ eq('PS wording: one unit and one skid in singular; no skid line on a PS without skids',await t.p.evaluate(()=>{
+  const text=s=>shippingPages(shippingDocument(s)).flatMap(p=>p.items.filter(i=>i.t==='text').map(i=>i.s)).join(' | ');
+  let [id]=shSeed(),o=salesRecord(id);shippingAvailable(o)[0].pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';});const one=text(shCreate([id],1).value);
+  [id]=shSeed();const none=text(shCreate([id]).value);
+  return {unit:one.includes('SL-1 · 1 unit ·'),skid:one.includes('1 skid left on site remains property'),noSkid:!/left on site|0 skid/.test(none)};
+ }),{unit:true,skid:true,noSkid:true});
+ eq('Shipping tabs show counts again: ready orders, open packing slips',await t.p.evaluate(()=>{
+  const ids=shSeed(2),counts=()=>{render();return Object.fromEntries([...document.querySelectorAll('[data-shipping-tab]')].map(b=>[b.dataset.shippingTab,+b.querySelector('b').textContent]));};
+  tab='shipping';shippingTab='ready';const before=counts();shCreate(ids);const after=counts();return {before:[before.ready,before.shipments],after:[after.ready,after.shipments]};
+ }),{before:[2,0],after:[0,1]});
+ eq('Ready screen builds piece and scan indices once, not per order or per glass',await t.p.evaluate(()=>{
+  shSeed(3);tab='shipping';shippingTab='ready';const pi=stationPieceIndex,sf=stationScansFor;let nPi=0,nSf=0;
+  stationPieceIndex=function(){nPi++;return pi.apply(this,arguments);};stationScansFor=function(){nSf++;return sf.apply(this,arguments);};
+  try{render();}finally{stationPieceIndex=pi;stationScansFor=sf;}return {index:nPi,scans:nSf};
+ }),{index:1,scans:0});
  // Real controls: create, dispatch, receipt scan, column filter, compact viewport.
  await t.p.evaluate(()=>{const [id]=shSeed();shippingTab='ready';tab='shipping';window.shCustomer=salesRecord(id).customerId;render();});
  await t.p.locator('[data-create-ps]').click();await t.p.getByLabel('Method',{exact:true}).selectOption('pickup');await t.p.locator('[data-save-ps]').click();

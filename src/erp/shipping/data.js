@@ -16,6 +16,7 @@ function shippingSent(s){return s.status==='shipped'||s.status==='delivered';}
 function shippingLegacy(o){return !!o&&['done','closed'].includes(o.status)&&!shippingForOrder(o.id).length;}
 function shippingStations(){const a=(DB.station||[]).filter(s=>s.always).sort((a,b)=>a.seq-b.seq);return {ready:a.length>1?a[a.length-2].code:'',ship:a.length>1?a[a.length-1].code:''};}
 function shippingKey(i){return [i.orderId,i.lineId,i.unit].join('|');}
+function shippingCount(n,word){return n+' '+word+(n===1?'':'s');}
 function shippingLineQty(l){return Math.max(0,Number(l.qty)||0);}
 function shippingAddress(a){const out={};SHIPPING_ADDRESS_FIELDS.forEach(k=>out[k]=String(a&&a[k]||'').trim().slice(0,300));return out;}
 function shippingDefaultAddress(c){
@@ -23,17 +24,36 @@ function shippingDefaultAddress(c){
  return shippingAddress(Object.assign({},a.find(x=>x.isDefault)||a[0]||{},{contact:contact&&contact.name,phone:contact&&(contact.phone||contact.mobile)}));
 }
 function shippingDateValid(v){return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v;}
+/* Индексы для расчёта готовности. Без них каждый заказ заново перебирал все
+   стёкла, а каждое стекло — весь журнал сканов: на тысячах юнитов цеха
+   (владелец: «в производстве 3000+ юнитов») экран Shipping вставал. Экран и
+   пересчёт при загрузке строят индексы один раз (shippingWithCtx); команда
+   вне экрана — один раз на вызов. Внутри shippingWithCtx базу не меняют. */
+let shippingCtxNow=null;
+function shippingCtx(){
+ if(shippingCtxNow)return shippingCtxNow;
+ const index=stationPieceIndex(),scans=new Map(),asm=new Map(),broken=new Set();
+ (DB.stationScan||[]).forEach(s=>{
+  if(s.undoneAt)return;
+  if(!scans.has(s.piece))scans.set(s.piece,[]);scans.get(s.piece).push(s);
+  if(s.broken)broken.add(s.piece);
+  const hit=s.asm&&index.get(s.piece);if(!hit)return;
+  const k=hit.orderId+'|'+hit.lineId;if(!asm.has(k))asm.set(k,[]);asm.get(k).push(s);
+ });
+ return {index,batches:stationBatchIndex(),scans,asm,broken};
+}
+function shippingWithCtx(fn){if(shippingCtxNow)return fn();shippingCtxNow=shippingCtx();try{return fn();}finally{shippingCtxNow=null;}}
 /* Ready is physical readiness. Available additionally excludes another PS.
    Single-lite recuts fill free order slots; the chosen G is saved on the PS.
    An existing PS pins both slot and actual pieces until it is cancelled. */
 function shippingUnits(o){
  if(!o||salesIsQuote(o)||['closed','cancelled'].includes(o.status)||shippingLegacy(o))return [];
- const index=stationPieceIndex(),batches=stationBatchIndex(),stations=shippingStations(),out=[];
+ const ctx=shippingCtx(),index=ctx.index,batches=ctx.batches,stations=shippingStations(),out=[],scansOf=id=>ctx.scans.get(id)||[];
  const reserved=shippingForOrder(o.id).filter(shippingActive).flatMap(s=>s.items.map(i=>Object.assign({shipment:s},i)));
  (o.lines||[]).forEach(l=>{
   const fixed=reserved.filter(i=>i.lineId===l.id),taken=new Set(fixed.map(i=>i.unit)),labels=new Set(fixed.map(i=>i.label)),candidates=[];
   const mu=stationUnitMerge(o,l),keys=stationLineKeys(o,l);
-  if(mu){stationAsms(o,l,mu,index).filter(a=>a.complete&&!a.broken&&a.unit>0&&a.unit<=l.qty).forEach(a=>{
+  if(mu){stationAsms(o,l,mu,index,{scans:ctx.asm.get(o.id+'|'+l.id)||[],broken:ctx.broken}).filter(a=>a.complete&&!a.broken&&a.unit>0&&a.unit<=l.qty).forEach(a=>{
    if(keys.every(k=>a.lites.has(k)))candidates.push({unit:a.unit,label:unitIdAt(o.id,l.id,a.unit),pieces:[...a.lites.values()]});
   });}else if(keys.length===1){
    const rec=glassPieceMap(o.id).get(keys[0]);if(rec){
@@ -42,9 +62,9 @@ function shippingUnits(o){
    }
   }
   const inspect=i=>{
-   const gs=i.pieces.map(id=>stationGlass(id,index,batches)),places=gs.map(g=>g&&stationPlace(g));
+   const gs=i.pieces.map(id=>stationGlass(id,index,batches)),places=gs.map(g=>g&&stationPlace(g,scansOf(g.id)));
    const ready=!!stations.ship&&gs.length>0&&places.every(p=>p&&!p.broken&&!p.assembling&&p.waiting===stations.ship)&&!o.onHold&&!l.onHold;
-   const ons=gs.map(g=>{const scans=g&&stationScansFor(g.id);return scans&&scans.length?scans[scans.length-1].on||'':'';});
+   const ons=gs.map(g=>{const scans=g&&scansOf(g.id);return scans&&scans.length?scans[scans.length-1].on||'':'';});
    const on=ons.length&&ons.every(x=>x===ons[0])?ons[0]:'';
    return Object.assign({orderId:o.id,lineId:l.id},i,{ready,on,skid:/^S[LA]-/.test(on)?on:'',broken:places.some(p=>!p||p.broken)});
   };
@@ -75,6 +95,14 @@ function shippingSummary(o){
  });
  const sum=(a,k)=>a.reduce((n,x)=>n+x[k],0),all=lines.concat(extras);
  return {lines,extras,ordered:sum(all,'ordered'),shipped:sum(all,'shipped'),delivered:sum(all,'delivered'),back:sum(all,'back'),ready:sum(lines,'ready'),physicalReady:sum(lines,'physicalReady'),glass:sum(lines,'ordered'),ps};
+}
+/* Остаток по отгрузкам, без расчёта готовности: подпись статуса в списках
+   (Partially shipped / Shipped) не должна перебирать стёкла каждой строки. */
+function shippingBackCount(o){
+ if(!o||shippingLegacy(o))return 0;const sent=shippingForOrder(o.id).filter(shippingSent);
+ const units=sent.flatMap(s=>s.items).filter(i=>i.orderId===o.id),extras=sent.flatMap(s=>s.extras).filter(i=>i.orderId===o.id);
+ return (o.lines||[]).reduce((n,l)=>n+Math.max(0,shippingLineQty(l)-units.filter(i=>i.lineId===l.id).length),0)
+  +(o.extraItems||[]).reduce((n,x)=>n+Math.max(0,x.qty-extras.filter(i=>i.extraId===x.id).reduce((a,i)=>a+i.qty,0)),0);
 }
 function shippingPrintedPiece(piece){return (DB.shipment||[]).some(s=>shippingActive(s)&&s.printedAt&&(s.printedItems||s.items).some(i=>(i.pieces||[]).includes(piece)));}
 function shippingPrintedQty(o,l){return new Set(shippingForOrder(o.id).filter(s=>shippingActive(s)&&(s.printedAt||shippingSent(s))).flatMap(s=>s.printedItems||s.items).filter(i=>i.lineId===l.id).map(i=>i.unit)).size;}
@@ -111,7 +139,7 @@ function shippingSaveGuard(draft,saved){
  for(const l of saved.lines||[]){if(!ps.some(s=>s.items.some(i=>i.lineId===l.id)))continue;
   const n=draft.lines.find(x=>x.id===l.id);if(!n||salesLockedLineSnapshot(draft,n)!==salesLockedLineSnapshot(saved,l))return 'Glass on a packing slip cannot change. Cancel the planned packing slip first.';
  }
- for(const x of saved.extraItems||[]){const reserved=ps.flatMap(s=>s.extras).filter(i=>i.orderId===o.id&&i.extraId===x.id).reduce((n,i)=>n+i.qty,0);if(!reserved)continue;
+ for(const x of saved.extraItems||[]){const reserved=ps.flatMap(s=>s.extras).filter(i=>i.orderId===saved.id&&i.extraId===x.id).reduce((n,i)=>n+i.qty,0);if(!reserved)continue;
   const n=(draft.extraItems||[]).find(i=>i.id===x.id);if(!n||n.qty<reserved||n.table!==x.table||n.itemId!==x.itemId)return 'Stock items on a packing slip cannot be removed or reduced below its quantity.';
  }
  return '';
@@ -120,7 +148,7 @@ function normalizeShipments(){
  if(!Array.isArray(DB.shipment))DB.shipment=[];
  DB.shipment.forEach(s=>{s.shipTo=shippingAddress(s.shipTo);s.items=s.items||[];s.extras=s.extras||[];s.scanIds=s.scanIds||[];});
  DB.shipmentSeq=Math.max(Number(DB.shipmentSeq)||0,...DB.shipment.map(s=>Number(String(s.number).slice(3))||0));
- (DB.salesOrder||[]).filter(o=>['ready','shipping'].includes(o.status)).forEach(o=>shippingSyncOrder(o,o.updatedAt));
+ shippingWithCtx(()=>(DB.salesOrder||[]).filter(o=>['ready','shipping'].includes(o.status)).forEach(o=>shippingSyncOrder(o,o.updatedAt)));
 }
 function validateShipmentPayload(src){
  if(src.shipment==null)return;

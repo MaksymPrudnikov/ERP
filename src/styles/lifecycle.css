@@ -23,6 +23,7 @@
 .pill.st-verified{background:var(--accent-soft);color:var(--accent)}
 .pill.st-batched{background:var(--warning-soft);color:var(--warning)}
 .pill.st-ready{background:var(--success-soft);color:var(--success);box-shadow:inset 0 0 0 1px var(--success-line)}
+.pill.st-shipping{background:var(--surface-3);color:var(--success);box-shadow:inset 0 0 0 1px var(--success-line)}
 .pill.st-done{background:var(--success-soft);color:var(--success)}
 .pill.st-closed{background:var(--surface-3);color:var(--text)}
 .pill.st-cancelled{background:var(--danger-soft);color:var(--danger)}

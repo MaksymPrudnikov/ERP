@@ -433,11 +433,13 @@ function stationConfirmSkippedCommand(station,code,who,opts){
 function stationUnitMerge(o,l){const m=salesMakeupById(o,l.makeupId);return m&&typeof salesRouteMerge==='function'?salesRouteMerge(m.unitType,m.panes):'';}
 function stationLineKeys(o,l){return glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>c.key);}
 /* Сборки позиции на станции слияния — из журнала. */
-function stationAsms(o,l,station,index){
+/* pre — готовые сканы этой строки и разбитые стёкла (erp/shipping/data,
+   shippingCtx): экран Shipping не перебирает весь журнал на каждую строку. */
+function stationAsms(o,l,station,index,pre){
  index=index||stationPieceIndex();
- const broken=new Set(),out=new Map();
- (DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)broken.add(s.piece);});
- (DB.stationScan||[]).forEach(s=>{
+ const broken=pre?pre.broken:new Set(),out=new Map();
+ if(!pre)(DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)broken.add(s.piece);});
+ (pre?pre.scans:DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||!s.asm||s.station!==station)return;
   const hit=index.get(s.piece);if(!hit||hit.orderId!==o.id||hit.lineId!==l.id)return;
   if(!out.has(s.asm))out.set(s.asm,{asm:s.asm,lites:new Map(),recs:[],unit:0,broken:false,complete:false});
