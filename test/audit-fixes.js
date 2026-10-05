@@ -25,7 +25,7 @@ module.exports=async function({page,eq,ok}){
   oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();salesSetRecordStatus(id,'verified');const before=JSON.stringify(DB.glassBatch);const out=afFailWrite(()=>glassBatchAssign(glassBatchRows([salesRecord(id)]),{}));return {assigned:!!out,same:JSON.stringify(DB.glassBatch)===before,status:salesRecord(id).status,locked:salesRecord(id).lines.some(salesLineLocked)};
  }),{assigned:false,same:true,status:'verified',locked:false});
  eq('failed shipping transition retains order and open editor status',await t.p.evaluate(()=>{
-  afOrder();salesSetRecordStatus(af.id,'ready');salesOrderEdit(af.id);const out=afFailWrite(()=>salesSetRecordStatus(af.id,'done',{delivery:'pickup'}));const result={changed:out,status:salesRecord(af.id).status,draft:soDraft.status};salesDraftDrop();return result;
+  afOrder();oqReady(af.id);salesOrderEdit(af.id);const out=afFailWrite(()=>oqFulfill(af.id,'pickup'));const result={changed:out,status:salesRecord(af.id).status,draft:soDraft.status};salesDraftDrop();return result;
  }),{changed:false,status:'ready',draft:'ready'});
  eq('scan UI reports failure, retains retry code, then records exactly once',await t.p.evaluate(()=>{
   afOrder();DB.user.push({name:'Audit operator',role:'Shop',station:'CUT',skills:[],pin:'0000'});normalizeUsers();stationCode='CUT';tab='station';stationLogin(DB.user.at(-1).viewProfileId);
@@ -132,7 +132,7 @@ module.exports=async function({page,eq,ok}){
  const B=await two.c.newPage();B.on('pageerror',e=>two.errs.push(e.message));B.on('dialog',d=>{two.errs.push('dialog: '+d.message());d.accept();});await B.goto(A.url());await B.waitForFunction(()=>typeof storageStarting!=='undefined'&&!storageStarting);await require('./optimization-fixture')(B);
  await B.waitForFunction(()=>storageWriter,null,{timeout:5000});
  eq('walk-in: the new tab picks up an order and saves a 2-glass order while the big order waits',await B.evaluate(id=>{
-  salesSetRecordStatus(id,'done');tab='sales';salesOrderNew('order');salesApplyCustomerDefaults(oqCustomer({legalName:'Walk-in Client 2'}).id);
+  oqFulfill(id);tab='sales';salesOrderNew('order');salesApplyCustomerDefaults(oqCustomer({legalName:'Walk-in Client 2'}).id);
   window.afLines=(n,w,h,mark)=>{const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];Object.assign(m.panes[0],{glassProductId:g.id,thicknessMm:6,heatTreatmentId:'HT-FT'});
    return Array.from({length:n},(_,i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:(w+i)*16,height16:h*16,qty:1,mark:mark+(i+1)});salesEnsureLineShape(l);return l;});};
   soDraft.lines=afLines(2,20,21,'S');return {saved:salesOrderSave(),status:salesRecord(id).status};},ready),{saved:true,status:'done'});

@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 
 async function run(){
- const browser=await chromium.launch(),context=await browser.newContext();await context.addInitScript(()=>{window.GF_NO_SIGNIN=true;});const page=await context.newPage(),errors=[];
+ const browser=await chromium.launch(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {}),context=await browser.newContext();await context.addInitScript(()=>{window.GF_NO_SIGNIN=true;});const page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  await page.goto('file://'+path.resolve(__dirname,process.env.TARGET==='dist'?'../dist/GLASS_ERP.html':'../src/index.html'));
  await require('../test/optimization-fixture')(page);
@@ -37,8 +37,8 @@ async function run(){
    out.push({name:'lost at ARRIS',reason:reason&&reason.name,lost:lost.ok,recut:DB.recut.map(r=>r.no),replacement,queue,next:next.number,follow,old:stationCheck('ARRIS',a).kind,waiting:stationPlace(stationGlass(replacement)).waiting});
   }catch(e){out.push({name:'lost at ARRIS',error:e.message,stack:e.stack});}
   try{
-   const x=start();for(const st of stationRouteOf(stationGlass(x.ids[0])).codes)for(const piece of x.ids)move(st,piece);
-   salesSetRecordStatus(x.id,'ready');salesSetRecordStatus(x.id,'done',{delivery:'pickup'});
+   const x=start();for(const st of stationRouteOf(stationGlass(x.ids[0])).codes.filter(s=>s!==shippingStations().ship))for(const piece of x.ids)move(st,piece);
+   oqReady(x.id);oqFulfill(x.id,'pickup');
    const reason=ncrReasonsFor('SHIP',{activeOnly:true}).find(r=>r.name==='Broke in transit');
    const l=salesRecord(x.id).lines[0],n=ncrCreate({orderId:x.id,where:'SHIP',reasonId:reason.id,action:'Remake order',lines:{[l.id]:{on:true,qty:1,which:'unit'}},note:'Pilot damage after delivery'});
    const record=n&&n.ncr,remake=record&&record.remakeOrderId&&salesRecord(record.remakeOrderId);

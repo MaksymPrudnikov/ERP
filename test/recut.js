@@ -38,12 +38,12 @@ module.exports=async function({page,eq,ok}){
   section:['Recut 1 Line 1 · Kitchen Lite 1 · 6CLEAR 2 pcs HEAT · Exploded in furnace In queue Second load','Recut 2 Line 2 · Bedroom Whole unit 1 pc HEAT · Exploded in furnace In queue Second load'],notesAfter:true,ncr:0,
   rows:['R1.1 · Recut 1 · 1 of 2','R1.2 · Recut 1 · 2 of 2','R2.1 · Recut 2 · 1 of 1','R2.1 · Recut 2 · 1 of 1'],fresh:true,ready:false,lines:[2,1],glassIds:false});
 
- eq('батч Recut: блок показывает номер батча, Ready открыт; Unbatch возвращает стекло с тем же номером',await t.p.evaluate(()=>{
+ eq('батч Recut: блок показывает номер батча, Ready ждёт сканов; Unbatch возвращает стекло с тем же номером',await t.p.evaluate(()=>{
   const id=rcId,pieces=glassBatchRows([salesRecord(id)]).map(r=>r.piece),b=glassBatchAssign(glassBatchRows([salesRecord(id)]),{deferTouch:true});salesOrderEdit(id);
   const section=rcSection().map(x=>x.split(' HEAT')[1]),ready=salesRecordTransitionAllowed(salesRecord(id),'ready'),status=salesRecord(id).status;
   const one=b.items.find(i=>i.unit==='R1.2');glassBatchRelease([{batch:b,item:one}],{confirmed:true});salesSetRecordStatus(id,'verified');
   return {batch:b.number,units:b.items.map(i=>i.unit),section,ready,status,back:glassBatchRows([salesRecord(id)]).map(r=>r.unit+':'+(r.piece===pieces[1])),after:recutStatus(DB.recut[0])};
- }),{batch:'B-0002',units:['R1.1','R1.2','R2.1','R2.1'],section:[' · Exploded in furnace Batched · B-0002 Second load',' · Exploded in furnace Batched · B-0002 Second load'],ready:true,status:'batched',back:['R1.2:true'],after:'In queue'});
+ }),{batch:'B-0002',units:['R1.1','R1.2','R2.1','R2.1'],section:[' · Exploded in furnace Batched · B-0002 Second load',' · Exploded in furnace Batched · B-0002 Second load'],ready:false,status:'batched',back:['R1.2:true'],after:'In queue'});
 
  eq('Recut у заказа New: только его стёкла идут в очередь и в батч, статус заказа остаётся New',await t.p.evaluate(()=>{
   oqReset();const id=rcOrder();rcFill(id,{where:'CUT',reason:'Broke',lines:[[1,1,'unit']]});ncrFormCreate();

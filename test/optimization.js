@@ -5,8 +5,8 @@ module.exports=async function({page,eq,ok}){
  eq('Optimization и Shipping показывают свои очереди; квоты и закрытые/отменённые исключены',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer();const states=['new','verified','batched','ready','done','closed','cancelled'];
   states.forEach((status,i)=>{const id=oqOrder(c,{businessNumber:String(76002+i)});if(status==='cancelled')salesSetRecordStatus(id,'cancelled');else if(status!=='new')oqThrough(id,status);});oqOrder(c,{kind:'quote'});oqQueue();
-  return OPTIMIZATION_TABS.concat(SHIPPING_TABS).filter(t=>t[0]!=='all').map(([key])=>{oqQueue(key);return [key,optimizationRows().map(o=>o.status)];});
- }),[['new',['new']],['batch',['verified']],['production',['batched']],['stock',[]],['sheets',[]],['awaiting',['batched']],['ready',['ready']],['done',['done']]]);
+  return OPTIMIZATION_TABS.concat(SHIPPING_TABS).filter(t=>t[0]!=='all').map(([key])=>{oqQueue(key);return [key,optimizationRows().map(o=>o.status).sort()];});
+ }),[['new',['new']],['batch',['verified']],['production',['batched']],['stock',[]],['sheets',[]],['awaiting',['batched','verified']],['ready',['ready']],['shipments',[]],['backorders',[]],['done',['done']]]);
  eq('To batch: галочка всех стёкол (каждое отдельной строкой) и Create batch дают один номер обоим заказам и открывают его состав',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer();window.oqA=oqOrder(c);window.oqB=oqOrder(c);oqThrough(oqA,'verified');oqThrough(oqB,'verified');soDraft=null;soEdit=null;oqQueue('batch');
   document.querySelector('[data-glass-all]').click();const n=glassBatchSelection.size;document.querySelector('[data-glass-action="create"]').click();
@@ -38,16 +38,14 @@ module.exports=async function({page,eq,ok}){
   oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'done');const o=salesRecord(id);o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,width16:320,height16:320}));const closed=salesSetRecordStatus(id,'closed');return {closed,toBatch:optimizationMatches(o,'batch'),toClose:optimizationMatches(o,'done'),status:o.status};
  }),{closed:false,toBatch:true,toClose:false,status:'done'});
  eq('возврат из Ready сохраняет производственный замок и номер батча',await t.p.evaluate(()=>{
-  oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'ready');oqQueue('ready');oqAdvance(id,'back');oqChoose('Move back');const o=salesRecord(id);return [o.status,o.batchNo,o.lines.every(salesLineLocked),!!o.statusDates.ready,!!o.statusDates.batched];
+  oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'ready');oqQueue('ready');const rec=DB.stationScan.find(s=>s.station===shippingStations().ready);stationUndo(rec.id,{name:'QA'});const o=salesRecord(id);return [o.status,o.batchNo,o.lines.every(salesLineLocked),!!o.statusDates.ready,!!o.statusDates.batched];
  }),['batched','B-0001',true,false,true]);
  eq('массовая отмена показывает депозиты по заказам и возвращает оплаты нужным клиентам',await t.p.evaluate(()=>{
   oqReset();const a=oqOrder(oqCustomer()),b=oqOrder(oqCustomer({legalName:'City Glazing'}));oqPay(a);oqPay(b);oqQueue();optimizationRunOrders([a,b],'cancelled');const rows=salesDialog.rows.length;oqChoose('Cancel orders');return {rows,statuses:[salesRecord(a).status,salesRecord(b).status],deposits:[a,b].map(id=>finCustomerDeposit(salesRecord(id).customerId)),allocations:DB.receipt.map(r=>r.allocations.length)};
  }),{rows:2,statuses:['cancelled','cancelled'],deposits:[810.92,810.92],allocations:[0,0]});
  // Проверяем кнопки реальными кликами браузера, а не только вызовом обработчика.
  const readyIds=await t.p.evaluate(()=>{oqReset();window.readyA=oqOrder(oqCustomer());window.readyB=oqOrder(oqCustomer({legalName:'City Glazing'}));oqPay(readyA);oqPay(readyB);oqThrough(readyA,'ready');oqThrough(readyB,'ready');soDraft=null;soEdit=null;oqQueue('ready');return [readyA,readyB];});
- await t.p.locator(`[data-queue-order="${readyIds[0]}"] [data-queue-check]`).check();await t.p.locator('[data-queue-action="pickup"]').click();
- await t.p.locator(`[data-queue-order="${readyIds[1]}"] [data-queue-check]`).check();await t.p.locator('[data-queue-action="delivery"]').click();
- await t.p.locator('[data-queue-tab="done"]').click();
+ await t.p.evaluate(()=>{oqFulfill(readyA,'pickup');oqFulfill(readyB,'delivery');shippingSetTab('done');});
  eq('Picked up и Delivered попадают на общую вкладку; до Close оба заказа остаются открытыми',await t.p.evaluate(()=>optimizationRows().sort((a,b)=>a.businessNumber.localeCompare(b.businessNumber)).map(o=>[salesStatusLabel(o),o.status])),[['Picked up','done'],['Delivered','done']]);
  await t.p.locator('[data-queue-all]').check();await t.p.locator('[data-queue-action="closed"]').click();
  eq('Close закрывает оба выбранных оплаченных заказа',await t.p.evaluate(()=>[salesRecord(readyA).status,salesRecord(readyB).status]),['closed','closed']);
@@ -65,9 +63,9 @@ module.exports=async function({page,eq,ok}){
   tab='sales';const salesBefore=JSON.stringify(salesListLoadPrefs());oqQueue('awaiting');salesListSetFilter('number',{conds:[{op:'contains',v:'76002'}]});const shipping=JSON.stringify(salesListLoadPrefs())!==opt;
   tab='sales';const salesUnchanged=JSON.stringify(salesListLoadPrefs())===salesBefore;oqQueue('all');return {numbers,menu,persisted,shipping,salesUnchanged,optUnchanged:JSON.stringify(salesListLoadPrefs())===opt};
  }),{numbers:['76002','76003'],menu:true,persisted:true,shipping:true,salesUnchanged:true,optUnchanged:true});
- eq('Shipping доступен из меню; только там Mark ready и выдача',await t.p.evaluate(()=>{
-  oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'batched');oqQueue('production');const noReady=!document.querySelector('[data-queue-action="ready"]'),nav=!!document.querySelector('.nav-item[onclick*="shipping"]');oqQueue('awaiting');optimizationSelectAll(true);document.querySelector('[data-queue-action="ready"]').click();return {noReady,nav,status:salesRecord(id).status,tab,unbatch:!!document.querySelector('[data-queue-action="unbatch"]')};
- }),{noReady:true,nav:true,status:'ready',tab:'shipping',unbatch:false});
+ eq('Shipping доступен из меню; Ready от скана, кнопки Mark ready нет',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'batched');oqQueue('production');const noReady=!document.querySelector('[data-queue-action="ready"]'),nav=!!document.querySelector('.nav-item[onclick*="shipping"]');oqQueue('awaiting');const manual=!!document.querySelector('[data-queue-action="ready"]');oqReady(id);return {noReady,nav,manual,status:salesRecord(id).status,tab,unbatch:!!document.querySelector('[data-queue-action="unbatch"]')};
+ }),{noReady:true,nav:true,manual:false,status:'ready',tab:'shipping',unbatch:false});
  eq('частичный Unbatch сохраняет замки остальных строк; повторный Verify обязателен',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'batched');oqQueue('production');const o=salesRecord(id),keep=o.lines[1].id,release=o.lines[0].id;optimizationUnbatch([id]);salesDialogToggleLine(keep,false);salesDialogConfirm(true);oqChoose('Unbatch selected lines');
   const noBatch=salesSetRecordStatus(id,'batched'),locked=[salesLineLocked(o.lines[0]),salesLineLocked(o.lines[1])],history=o.unbatchHistory[0];oqAdvance(id,'verified');oqAdvance(id,'batched');return {noBatch,locked,history:history.lineIds.length===1&&history.lineIds[0]===release,old:o.lines[1].batchNo,new:o.lines[0].batchNo,status:o.status,via:soDraft.status};

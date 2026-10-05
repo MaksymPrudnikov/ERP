@@ -49,8 +49,8 @@ function ncrCanCreate(o){return !!o&&!salesIsQuote(o)&&o.status!=='cancelled';}
    Предупреждение не запрещает: человек знает про частичную отгрузку. */
 function ncrStageWarning(o,d){
  if(!o||!d||!d.where||d.where===NCR_OFFICE)return '';
- if(d.where==='SHIP')return ['done','closed'].includes(o.status)?'':'No shipment in the system yet';
- if(d.where==='SHIPR')return ['ready','done','closed'].includes(o.status)?'':'Order not ready for shipping yet';
+ if(d.where===shippingStations().ship){if(shippingLegacy(o))return '';const lines=Object.keys(d.lines||{}).filter(id=>d.lines[id].on);return shippingForOrder(o.id).some(s=>shippingActive(s)&&(s.printedAt||shippingSent(s))&&s.items.some(i=>!lines.length||lines.includes(i.lineId)))?'':'No printed packing slip or shipment for this glass';}
+ if(d.where===shippingStations().ready)return shippingLegacy(o)||shippingUnits(o).some(i=>i.ready||i.shipment&&shippingSent(i.shipment))?'':'Order not ready for shipping yet';
  const active=glassBatchActive(o.id),lines=[];
  o.lines.forEach((l,i)=>{
   const x=d.lines&&d.lines[l.id];if(!x||!x.on)return;

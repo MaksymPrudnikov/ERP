@@ -15,13 +15,13 @@
    с подтверждением. Отдельного «In production» нет: батч и есть цех.
    ===================================================================== */
 
-const SALES_ORDER_FLOW=['new','verified','batched','ready','done','closed'];
+const SALES_ORDER_FLOW=['new','verified','batched','ready','shipping','done','closed'];
 const SALES_ORDER_STATE_LIST=SALES_ORDER_FLOW.concat(['cancelled']);
 const SALES_QUOTE_STATE_LIST=['open','sent','won'];
 /* Заказ одного склада: стекла нет, резать нечего — после Verified сразу
    Ready, шага Batched у него нет (владелец, 05.10.2026). */
 function salesStockOnly(o){return !!o&&!salesIsQuote(o)&&!(o.lines||[]).length&&!!(o.extraItems||[]).length;}
-function salesOrderFlow(o){return salesStockOnly(o)?SALES_ORDER_FLOW.filter(s=>s!=='batched'):SALES_ORDER_FLOW;}
+function salesOrderFlow(o){return SALES_ORDER_FLOW.filter(s=>(s!=='batched'||!salesStockOnly(o))&&(s!=='shipping'||o.status==='shipping'||!!(o.statusDates&&o.statusDates.shipping)));}
 function salesNextStatus(o){const f=salesOrderFlow(o),i=f.indexOf(o&&o.status);return i>=0?f[i+1]:undefined;}
 function salesPrevStatus(o){const f=salesOrderFlow(o),i=f.indexOf(o&&o.status);return i>0?f[i-1]:undefined;}
 
@@ -39,7 +39,7 @@ function salesLifecycleFields(o){
  const q=kind==='quote',rev=Math.floor(Number(o.quoteRev));
  const batchNo=!q?salesBatchNumber(o.batchNo):'',batchHistory=q?[]:[...new Set((Array.isArray(o.batchHistory)?o.batchHistory:[]).map(salesBatchNumber).filter(Boolean).concat(batchNo?[batchNo]:[]))];
  const unbatchHistory=!q&&Array.isArray(o.unbatchHistory)?o.unbatchHistory.filter(x=>x&&typeof x==='object'&&typeof x.at==='string').map(x=>({at:x.at,batchNumbers:[...new Set((Array.isArray(x.batchNumbers)?x.batchNumbers:[]).map(salesBatchNumber).filter(Boolean))],lineIds:[...new Set((Array.isArray(x.lineIds)?x.lineIds:[]).map(salesRefId).filter(Boolean))]})):[];
- return {kind,status,statusDates,batchNo,batchHistory,unbatchHistory,fulfilledVia:!q&&['done','closed'].includes(status)?(['pickup','delivery'].includes(o.fulfilledVia)?o.fulfilledVia:o.delivery==='delivery'?'delivery':'pickup'):'',fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
+ return {kind,status,statusDates,batchNo,batchHistory,unbatchHistory,fulfilledVia:!q&&['shipping','done','closed'].includes(status)?(['pickup','delivery'].includes(o.fulfilledVia)?o.fulfilledVia:o.delivery==='delivery'?'delivery':'pickup'):'',fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
   quoteGroupId:q?salesRefId(o.quoteGroupId):'',quoteRev:q&&Number.isFinite(rev)&&rev>0&&rev<1000?rev:0,
   sentAt:q?salesString(o.sentAt):'',validUntil:q&&/^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil||''))?String(o.validUntil):'',
   /* On Hold заказа (views/sales-list-ui): пока стоит, заказ не верифицируется и не уходит в батч. */
@@ -53,6 +53,7 @@ function nextSalesQuoteNumber(){
 function salesStatusLabel(o,status){
  status=status||(o&&o.status);
  if(salesIsQuote(o))return status==='won'?'Won':status==='sent'?'Sent':'Not sent';
+ if(status==='shipping')return o&&o.status!=='shipping'&&o.statusDates&&o.statusDates.shipping?'Partially shipped':typeof shippingBackCount==='function'&&o&&o.id&&shippingBackCount(o)===0?'Shipped':'Partially shipped';
  if(status==='done')return o&&(o.fulfilledVia||o.delivery)==='delivery'?'Delivered':'Picked up';
  return ({new:'New',verified:'Verified',batched:'Batched',ready:'Ready',closed:'Closed',cancelled:'Cancelled'})[status]||'New';
 }
@@ -95,7 +96,7 @@ function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='sha
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
  if(salesLineLocked(line))return ` <span class="line-lock" title="Batched ${esc(salesShortDate(line.batchedAt))}${line.batchNo?' · '+esc(line.batchNo):''}">🔒</span>`;
- return ['batched','ready','done'].includes(soDraft.status)?' <span class="pill st-added">added after batch</span>':'';
+ return ['batched','ready','shipping','done'].includes(soDraft.status)?' <span class="pill st-added">added after batch</span>':'';
 }
 /* Фигура строки хранится в DB.shapeDef и сохраняется редактором сразу, поэтому
    её защищают проверки на входе. Всё, что живёт в черновике заказа, ловит
@@ -134,10 +135,11 @@ function salesStartedViolations(draft,saved){
 }
 function salesDeleteBlocked(o){
  if(!o)return false;
+ if(typeof shippingForOrder==='function'&&shippingForOrder(o.id).length){alert('This order has packing slips and cannot be deleted.');return true;}
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
  const ncr=(DB.ncr||[]).find(n=>n.orderId===o.id||n.remakeOrderId===o.id)||((DB.recut||[]).some(r=>r.orderId===o.id)?{number:'a recut'}:null);
  if(!salesIsQuote(o)&&ncr){alert('Order '+(o.businessNumber||'')+' is linked to '+ncr.number+'. Cancel it instead of deleting.');return true;}
- if(!salesIsQuote(o)&&(['batched','ready','done','closed'].includes(o.status)||(o.lines||[]).some(l=>salesLineLocked(l)||typeof glassLineScanned==='function'&&glassLineScanned(o.id,l)))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
+ if(!salesIsQuote(o)&&(['batched','ready','shipping','done','closed'].includes(o.status)||(o.lines||[]).some(l=>salesLineLocked(l)||typeof glassLineScanned==='function'&&glassLineScanned(o.id,l)))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
  return false;
 }
 
@@ -158,7 +160,7 @@ function salesDialogHTML(){
 
 /* ---------------------------- Переходы -------------------------------- */
 function salesNextActionLabel(o){
- return ({new:'Verify order',verified:'Send to batch',batched:'Mark as ready',ready:o.delivery==='delivery'?'Mark as delivered':'Mark as picked up',done:'Close order'})[o.status]||'';
+ return ({new:'Verify order',verified:'Send to batch',done:'Close order'})[o.status]||'';
 }
 function salesTransitionChecks(o,next){
  const out=[],c=salesFindCustomer(o.customerId),num=o.businessNumber||'(new)',b=finOrderBalance(o),name=c?(c.displayName||c.legalName):'No customer';
@@ -214,10 +216,12 @@ function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};
  if(!o||salesIsQuote(o)||!SALES_ORDER_STATE_LIST.includes(next))return false;
  if(opts.restore)return o.status==='cancelled'&&next==='new';
- if(opts.back)return !['cancelled','batched'].includes(o.status)&&salesPrevStatus(o)===next;
- if(next==='cancelled')return !['closed','cancelled'].includes(o.status);
+ if(opts.back)return !['cancelled','batched','ready','shipping','done'].includes(o.status)&&salesPrevStatus(o)===next&&!shippingHasCommitment(o);
+ if(next==='cancelled')return !['closed','cancelled'].includes(o.status)&&!shippingHasSent(o)&&!shippingHasCommitment(o);
+ if(next==='ready'){const q=shippingSummary(o);return !o.onHold&&o.status!=='new'&&q.glass>0&&q.physicalReady===q.glass&&!q.shipped;}
+ if(next==='done'||next==='shipping')return false;
  if(o.onHold&&(next==='verified'||next==='batched'))return false;
- if(next==='batched')return !salesStockOnly(o)&&(o.status==='verified'||['batched','ready','done'].includes(o.status))&&(salesBatchableLines(o).length>0||o.status==='verified'&&!salesUnbatchedLines(o).length);
+ if(next==='batched')return !salesStockOnly(o)&&(o.status==='verified'||['batched','ready','shipping','done'].includes(o.status))&&(salesBatchableLines(o).length>0||o.status==='verified'&&!salesUnbatchedLines(o).length);
  if((next==='ready'||next==='done'||next==='closed')&&salesUnbatchedLines(o).length)return false;
  return salesNextStatus(o)===next;
 }
@@ -245,15 +249,16 @@ function salesSetRecordStatusCommand(orderId,next,opts){
  if(opts.restore){o.statusDates={new:now};o.fulfilledVia='';}
  else if(opts.back){
   SALES_ORDER_FLOW.slice(SALES_ORDER_FLOW.indexOf(next)+1).forEach(k=>{delete o.statusDates[k];});
-  if(SALES_ORDER_FLOW.indexOf(next)<4)o.fulfilledVia='';
+  if(!['shipping','done','closed'].includes(next))o.fulfilledVia='';
  }else o.statusDates[next]=now;
  if(next==='batched'&&!opts.back){
   if(batchRows)glassBatchAssign(batchRows,{batchNo:opts.batchNo,now,deferTouch:true});
-  ['ready','done','closed'].forEach(k=>{delete o.statusDates[k];});o.fulfilledVia='';
+  if(!shippingHasSent(o)){['ready','done','closed'].forEach(k=>{delete o.statusDates[k];});o.fulfilledVia='';}
  }
  if(next==='done'&&!opts.back)o.fulfilledVia=opts.delivery==='delivery'?'delivery':opts.delivery==='pickup'?'pickup':o.delivery;
  o.status=next;o.updatedAt=now;
  if(next==='verified'&&!opts.back)glassPieceEnsure(o);
+ if(next==='verified'&&salesStockOnly(o)||next==='batched'&&shippingHasSent(o))shippingSyncOrder(o,now);
  if(next==='cancelled'){o.fulfilledVia='';finReleaseOrder(o.id);}
  salesSyncRecordLifecycle(o);
  if(!opts.deferTouch)touch();
@@ -376,7 +381,7 @@ function salesOrderBatchNumbers(o){return [...new Set((o.lines||[]).filter(sales
 function salesLockBar(o){
  if(salesIsQuote(o))return '';
  const last=(o.unbatchHistory||[]).slice(-1)[0],history=last?`<div class="sales-quote-note">Unbatched ${esc(salesShortDate(last.at))} · ${esc(last.batchNumbers.join(', ')||'previous batch')} · ${last.lineIds.length} line(s)${o.status==='new'?' · verify again':''}</div>`:'';
- const locked=o.lines.filter(salesLineLocked),active=['batched','ready','done'].includes(o.status);
+ const locked=o.lines.filter(salesLineLocked),active=['batched','ready','shipping','done'].includes(o.status);
  if(!locked.length&&!active)return history;
  const first=locked.map(l=>l.batchedAt).sort()[0],numbers=salesOrderBatchNumbers(o),readonly=salesOrderReadOnly(o);
  return history+`<div class="sales-lockbar">${locked.length?`<span>🔒 <b>Batched ${esc(salesShortDate(first))}${numbers.length?' · '+esc(numbers.join(', ')):''}</b> · lines locked</span>`:''}<span class="sp"></span>${readonly?'':`<button class="sm" onclick="salesOrderAddLine(null,true)">+ Line (charged)</button><button class="sm" onclick="salesNewOrderForCustomer('${esc(o.customerId)}')">New order for this customer</button>`}</div>`;

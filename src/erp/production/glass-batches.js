@@ -9,7 +9,7 @@
    items — одно стекло {piece, part, unit}; history — по номерам стёкол.
    Остаток — места без активной записи. Позиция под замком, пока её стекло в батче. */
 DEFAULT.glassBatch=[];DEFAULT.glassPiece=[];DEFAULT.glassPieceSeq=0;DEFAULT.glassUnitId=[];DEFAULT.glassUnitIdSeq=0;
-const GLASS_WAITING_STATUSES=['verified','batched','ready','done'];
+const GLASS_WAITING_STATUSES=['verified','batched','ready','shipping','done'];
 /* Номер стекла в батче — как в Perfect Cut: по порядку списка батча, у
    каждого батча свой счёт с 1. Место в списке не меняется: убранное или
    перенесённое стекло остаётся записью, его номер больше никому не даётся,
@@ -221,8 +221,8 @@ function glassBatchAssignCommand(rows,opts){
  new Map(chosen.map(r=>[r.l,r.o])).forEach((o,l)=>{l.batchManaged=true;glassBatchSyncLine(o,l);});
  batch.history.push({at:now,action:added?'Added':'Created',pieces:chosen.map(r=>r.piece),qty:chosen.length});
  [...new Set(chosen.map(r=>r.orderId))].forEach(id=>{
-  const o=salesRecord(id);if(o.status==='new'){o.updatedAt=now;salesSyncRecordLifecycle(o);return;}o.status='batched';o.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
-  o.statusDates=Object.assign({},o.statusDates,{batched:now});['ready','done','closed'].forEach(k=>delete o.statusDates[k]);o.fulfilledVia='';o.updatedAt=now;salesSyncRecordLifecycle(o);
+  const o=salesRecord(id);if(o.status==='new'){o.updatedAt=now;salesSyncRecordLifecycle(o);return;}o.status=shippingHasSent(o)?'shipping':'batched';o.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
+  o.statusDates=Object.assign({},o.statusDates,{batched:now});if(!shippingHasSent(o)){['ready','done','closed'].forEach(k=>delete o.statusDates[k]);o.fulfilledVia='';}o.updatedAt=now;salesSyncRecordLifecycle(o);
  });
  if(!opts.deferTouch)touch();return batch;
 }

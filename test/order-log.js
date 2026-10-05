@@ -133,10 +133,10 @@ module.exports=async function({page,eq,ok}){
   const batch=salesRecord(id).batchNo;
   glassBatchRelease(glassBatchOrderReleasable(salesRecord(id)).map(x=>({batch:x.batch,item:x.item})),{confirmed:true});
   salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
-  salesSetRecordStatus(id,'ready');salesSetRecordStatus(id,'done',{delivery:'pickup'});
+  oqReady(id);oqFulfill(id,'pickup');
   const rows=orderLogFor(id);
   return {what:rows.map(r=>r.what+(r.what==='Batched'||r.what==='Unbatched'?(r.note===batch||r.note===salesRecord(id).batchNo?' B':' ?'):'')),edited:rows[1].note,who:[...new Set(rows.map(r=>r.by))]};
- }),{what:['Created','Edited','Verified','Batched B','Unbatched B','Verified','Batched B','Ready','Picked up'],edited:'due date, line 2',who:['Demo Sales']});
+ }),{what:['Created','Edited','Verified','Batched B','Unbatched B','Verified','Batched B','Ready','Packing slip created','Packing slip shipped','Shipped','Packing slip picked up','Picked up'],edited:'due date, line 2',who:['Demo Sales']});
 
  eq('Hold заказа и строки, Cancel / Restore — отдельными строками',await t.p.evaluate(async()=>{
   oqReset();DB.orderEvent=[];const id=oqOrder(oqCustomer());salesDraftDrop();
