@@ -64,6 +64,15 @@ function glassBatchActive(orderId){
  }));
  return m;
 }
+/* Стекло строки уже в цеху без батча — порезано из стока и отсканировано.
+   Это материал клиента: строку менять нельзя, как строку из батча
+   (владелец, 05.10.2026). Undo скана снимает защиту. */
+function glassLineScanned(orderId,line){
+ if(!orderId||!line)return false;
+ const pre=orderId+'|'+line.id+'|',ids=new Set();
+ (DB.glassPiece||[]).forEach(r=>{if(!r||!String(r.key).startsWith(pre))return;(r.ids||[]).forEach(id=>ids.add(id));Object.values(r.extra||{}).forEach(a=>(a||[]).forEach(id=>ids.add(id)));});
+ return ids.size>0&&(DB.stationScan||[]).some(s=>s&&!s.undoneAt&&ids.has(s.piece));
+}
 function glassPieceMap(orderId){const m=new Map();(DB.glassPiece||[]).forEach(r=>{if(!orderId||r.key.startsWith(orderId+'|'))m.set(r.key,r);});return m;}
 /* Места Recut заказа: «ключ стекла|R1.1» (erp/quality/recut). */
 function glassRecutSlots(orderId,lineId){return typeof recutSlotsFor==='function'?recutSlotsFor(orderId,lineId):[];}

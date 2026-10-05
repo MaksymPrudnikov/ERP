@@ -10,11 +10,12 @@ const OPTIMIZATION_TABS=[['all','All'],['new','To verify'],['batch','To batch'],
 let optimizationTab='new',optimizationSel=new Set(),optimizationNotice=null,optimizationScope='';
 function orderQueueKey(){return tab==='shipping'?shippingTab:optimizationTab;}
 function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TABS;}
+/* Заказ одного склада после Verify ждёт выдачи в Shipping, а не батча. */
 function optimizationMatches(o,key){
  if(!o||salesIsQuote(o))return false;
  const fresh=salesUnbatchedLines(o).length;
- return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?o.status==='verified'||(['batched','ready','done'].includes(o.status)&&fresh>0):
-  key==='production'?o.status==='batched':key==='awaiting'?o.status==='batched'&&!fresh:key==='ready'?o.status==='ready'&&!fresh:key==='done'?o.status==='done'&&!fresh:false;
+ return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?!salesStockOnly(o)&&(o.status==='verified'||(['batched','ready','done'].includes(o.status)&&fresh>0)):
+  key==='production'?o.status==='batched':key==='awaiting'?o.status==='batched'&&!fresh||salesStockOnly(o)&&o.status==='verified':key==='ready'?o.status==='ready'&&!fresh:key==='done'?o.status==='done'&&!fresh:false;
 }
 function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:key==='stock'?(DB.stockOffcut||[]).filter(r=>r.status==='stock').length:key==='sheets'?sheetUsageRows().length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}
 function optimizationBase(){return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,orderQueueKey())).map(salesListInfo);}
@@ -37,7 +38,7 @@ function optimizationAction(action,delivery){if(action==='unbatch')optimizationU
    Если данные изменились во время окна, пользователь проверяет их заново. */
 function optimizationRunOrders(ids,action,opts){
  opts=opts||{};ids=[...new Set(ids||[])];if(!ids.length||!action)return;
- const orders=ids.map(salesRecord),next=o=>action==='back'?SALES_PREV_STATUS[o.status]:action;
+ const orders=ids.map(salesRecord),next=o=>action==='back'?salesPrevStatus(o):action;
  const allowed=o=>salesRecordTransitionAllowed(o,next(o),{back:action==='back'});
  const held=orders.find(o=>o&&o.onHold&&['verified','batched'].includes(action));
  if(held){salesHoldBlocked(held.id);return;}
@@ -102,7 +103,7 @@ function viewOrderQueue(shipping){
  const key=orderQueueKey(),infos=optimizationBase(),filtered=salesListRows(infos),rows=filtered.map(i=>i.o),cols=salesListColumns(),selectable=rows.filter(o=>!optimizationBlocked(o));
  optimizationSel=new Set([...optimizationSel].filter(id=>selectable.some(o=>o.id===id)));
  const selected=rows.filter(o=>optimizationSel.has(o.id)),n=selected.length,all=selectable.length>0&&n===selectable.length;
- const can=act=>n>0&&selected.every(o=>salesRecordTransitionAllowed(o,act==='back'?SALES_PREV_STATUS[o.status]:act,{back:act==='back'}));
+ const can=act=>n>0&&selected.every(o=>salesRecordTransitionAllowed(o,act==='back'?salesPrevStatus(o):act,{back:act==='back'}));
  const button=(act,label,cls,enabled,delivery)=>`<button type="button" class="${cls||''}" data-queue-action="${delivery||act}" ${enabled?'':'disabled'} onclick="optimizationAction('${act}'${delivery?",'"+delivery+"'":''})">${label}</button>`;
  let actions='';
  if(shipping){

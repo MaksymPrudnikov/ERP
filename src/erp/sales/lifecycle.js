@@ -18,8 +18,12 @@
 const SALES_ORDER_FLOW=['new','verified','batched','ready','done','closed'];
 const SALES_ORDER_STATE_LIST=SALES_ORDER_FLOW.concat(['cancelled']);
 const SALES_QUOTE_STATE_LIST=['open','sent','won'];
-const SALES_NEXT_STATUS={new:'verified',verified:'batched',batched:'ready',ready:'done',done:'closed'};
-const SALES_PREV_STATUS={verified:'new',batched:'verified',ready:'batched',done:'ready',closed:'done'};
+/* Заказ одного склада: стекла нет, резать нечего — после Verified сразу
+   Ready, шага Batched у него нет (владелец, 05.10.2026). */
+function salesStockOnly(o){return !!o&&!salesIsQuote(o)&&!(o.lines||[]).length&&!!(o.extraItems||[]).length;}
+function salesOrderFlow(o){return salesStockOnly(o)?SALES_ORDER_FLOW.filter(s=>s!=='batched'):SALES_ORDER_FLOW;}
+function salesNextStatus(o){const f=salesOrderFlow(o),i=f.indexOf(o&&o.status);return i>=0?f[i+1]:undefined;}
+function salesPrevStatus(o){const f=salesOrderFlow(o),i=f.indexOf(o&&o.status);return i>0?f[i-1]:undefined;}
 
 function salesKindOf(o){return o&&o.kind==='quote'?'quote':'order';}
 function salesIsQuote(o){return salesKindOf(o)==='quote';}
@@ -77,7 +81,10 @@ function salesLineLocked(line){return !!(line&&(line.batchedAt||line.cutStartedA
 function salesMakeupLocked(order,makeupId){return !!(order&&(order.lines||[]).some(l=>l.makeupId===makeupId&&salesLineLocked(l)));}
 function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled');}
 function salesLockedLineGuard(line){
- if(!salesLineLocked(line))return false;
+ if(!salesLineLocked(line)){
+  if(!soDraft||soEdit==='new'||typeof glassLineScanned!=='function'||!glassLineScanned(soDraft.id,line))return false;
+  alert('Glass of this line is already in production. Add a new line or open a new order.');return true;
+ }
  alert('Line is batched and locked. Unbatch it in Optimization to edit.');
  return true;
 }
@@ -115,12 +122,22 @@ function salesLockViolations(draft,saved){
  });
  return out;
 }
+function salesStartedViolations(draft,saved){
+ const out=[];if(!saved||typeof glassLineScanned!=='function')return out;
+ (saved.lines||[]).forEach((old,i)=>{
+  if(salesLineLocked(old)||!glassLineScanned(saved.id,old))return;
+  const at=(draft.lines||[]).findIndex(l=>l.id===old.id),name=n=>'line '+n+(old.mark?' ('+old.mark+')':'');
+  if(at<0)out.push(name(i+1)+' was removed');
+  else if(salesLockedLineSnapshot(draft,draft.lines[at])!==salesLockedLineSnapshot(saved,old))out.push(name(at+1)+' changed');
+ });
+ return out;
+}
 function salesDeleteBlocked(o){
  if(!o)return false;
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
  const ncr=(DB.ncr||[]).find(n=>n.orderId===o.id||n.remakeOrderId===o.id)||((DB.recut||[]).some(r=>r.orderId===o.id)?{number:'a recut'}:null);
  if(!salesIsQuote(o)&&ncr){alert('Order '+(o.businessNumber||'')+' is linked to '+ncr.number+'. Cancel it instead of deleting.');return true;}
- if(!salesIsQuote(o)&&(['batched','ready','done','closed'].includes(o.status)||(o.lines||[]).some(salesLineLocked))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
+ if(!salesIsQuote(o)&&(['batched','ready','done','closed'].includes(o.status)||(o.lines||[]).some(l=>salesLineLocked(l)||typeof glassLineScanned==='function'&&glassLineScanned(o.id,l)))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
  return false;
 }
 
@@ -197,12 +214,12 @@ function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};
  if(!o||salesIsQuote(o)||!SALES_ORDER_STATE_LIST.includes(next))return false;
  if(opts.restore)return o.status==='cancelled'&&next==='new';
- if(opts.back)return !['cancelled','batched'].includes(o.status)&&SALES_PREV_STATUS[o.status]===next;
+ if(opts.back)return !['cancelled','batched'].includes(o.status)&&salesPrevStatus(o)===next;
  if(next==='cancelled')return !['closed','cancelled'].includes(o.status);
  if(o.onHold&&(next==='verified'||next==='batched'))return false;
- if(next==='batched')return (o.status==='verified'||['batched','ready','done'].includes(o.status))&&(salesBatchableLines(o).length>0||o.status==='verified'&&!salesUnbatchedLines(o).length);
+ if(next==='batched')return !salesStockOnly(o)&&(o.status==='verified'||['batched','ready','done'].includes(o.status))&&(salesBatchableLines(o).length>0||o.status==='verified'&&!salesUnbatchedLines(o).length);
  if((next==='ready'||next==='done'||next==='closed')&&salesUnbatchedLines(o).length)return false;
- return SALES_NEXT_STATUS[o.status]===next;
+ return salesNextStatus(o)===next;
 }
 function salesSyncRecordLifecycle(o){
  if(!soDraft||soDraft.id!==o.id)return;
@@ -266,7 +283,7 @@ function salesUnbatchRecord(orderId,lineIds,opts){
 }
 /* Существующие имена оставлены как адаптеры; кнопок этих действий в заказе нет. */
 function salesSetStatus(next,opts){const changed=soDraft&&salesSetRecordStatus(soDraft.id,next,opts);render();return !!changed;}
-function salesAdvanceStatus(){if(soDraft)optimizationRunOrders([soDraft.id],SALES_NEXT_STATUS[soDraft.status],{delivery:soDraft.delivery});}
+function salesAdvanceStatus(){if(soDraft)optimizationRunOrders([soDraft.id],salesNextStatus(soDraft),{delivery:soDraft.delivery});}
 function salesStepBack(){if(soDraft)optimizationRunOrders([soDraft.id],'back');}
 function salesBatchNewLines(){if(soDraft)optimizationRunOrders([soDraft.id],'batched');}
 function salesCancelOrder(orderId){const id=orderId||(soDraft&&soDraft.id);if(id)optimizationRunOrders([id],'cancelled');}
@@ -351,8 +368,8 @@ function salesStatusStepper(o){
   return bar+`<div class="sales-quote-note">${raw(w.businessNumber)} became order ${won?`<button class="sm" onclick="salesOrderEdit('${esc(won.id)}')">${raw(won.businessNumber)}</button>`:''} on ${esc(salesShortDate(w.statusDates.won))}. The quote is kept read-only for the win history.</div>`;
  }
  if(o.status==='cancelled')return `<div class="sales-status-row"><span class="pill st-cancelled">Cancelled ${esc(salesShortDate(o.statusDates.cancelled))}</span><span class="mut">Status history · read only</span></div>`;
- const at=SALES_ORDER_FLOW.indexOf(o.status);
- const steps=SALES_ORDER_FLOW.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><span class="sales-step-label"><i></i><b>${esc(s==='done'&&at<4?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b></span>${o.statusDates&&o.statusDates[s]?`<small>${esc(salesShortDate(o.statusDates[s]))}</small>`:''}</div>`).join('');
+ const flow=salesOrderFlow(o),at=flow.indexOf(o.status);
+ const steps=flow.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><span class="sales-step-label"><i></i><b>${esc(s==='done'&&at<flow.indexOf('done')?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b></span>${o.statusDates&&o.statusDates[s]?`<small>${esc(salesShortDate(o.statusDates[s]))}</small>`:''}</div>`).join('');
  return `<div class="sales-status-row"><div class="sales-steps">${steps}</div><span class="sales-status-readonly">Status history · read only</span></div>`;
 }
 function salesOrderBatchNumbers(o){return [...new Set((o.lines||[]).filter(salesLineLocked).map(l=>l.batchNo).filter(Boolean).concat(o.batchNo?[o.batchNo]:[]))];}
