@@ -1,5 +1,6 @@
 /* Находки аудита 5 октября 2026 (Codex, проверено Claude): формы строк между
-   вкладками, стекло из стока в цеху, заказ одного склада. */
+   вкладками, стекло из стока в цеху, заказ одного склада; отказ записи
+   клиента, Recut и NCR. */
 module.exports=async function({page,eq,ok}){
  console.log('audit-2026-10-05');const t=await page();await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
@@ -9,6 +10,7 @@ module.exports=async function({page,eq,ok}){
    s.w=String(inches);s.revision=(+s.revision||0)+1;l.width16=inches*16;l.shapeRef.revision=s.revision;
    const text=JSON.stringify(other);localStorage.setItem(STORAGE_KEY,text);storageLiveReload(text);
   };
+  window.a5FailWrite=fn=>{const keep=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw new DOMException('Test quota','QuotaExceededError');return keep.call(this,k,v);};try{return fn();}finally{Storage.prototype.setItem=keep;storageLastError='';storageWarningShown=false;}};
   window.a5Shape=id=>{const o=salesRecord(id);return DB.shapeDef.find(x=>x.id===o.lines[0].shapeRef.id);};
  });
 
@@ -63,6 +65,26 @@ module.exports=async function({page,eq,ok}){
   salesOrderEdit(id);const steps=[...document.querySelectorAll('.sales-step')].map(x=>x.dataset.step).join();salesDraftDrop();
   return {flow,batchAllowed,inBatch,awaiting,ready,back,steps};
  }),{flow:'new,verified,ready,done,closed',batchAllowed:false,inBatch:false,awaiting:true,ready:'ready',back:'verified',steps:'new,verified,ready,done,closed'});
+
+ eq('отказ записи клиента: форма и правка остаются, повторный Save сохраняет',await t.p.evaluate(()=>{
+  const c=oqCustomer();tab='customers';customerEdit(c.id);cDraft.legalName='Renamed Windows Ltd';render();
+  a5FailWrite(()=>saveCustomer());const kept={open:cEdit===c.id,name:cDraft&&cDraft.legalName,db:DB.customer.find(x=>x.id===c.id).legalName,error:/Not saved/.test(document.getElementById('e_customer').textContent)};
+  saveCustomer();return Object.assign(kept,{closed:cEdit===null,saved:DB.customer.find(x=>x.id===c.id).legalName});
+ }),{open:true,name:'Renamed Windows Ltd',db:'Northside Windows Ltd',error:true,closed:true,saved:'Renamed Windows Ltd'});
+
+ eq('отказ записи Recut: форма открыта с ошибкой, повтор создаёт один Recut',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();oqThrough(id,'verified');salesOrderEdit(id);ncrOpenForm('recut');
+  const reason=ncrReasonsFor('HEAT',{activeOnly:true})[0];ncrFormSet('where','HEAT');ncrFormSet('reasonId',reason.id);ncrFormLine(salesRecord(id).lines[0].id,'on',true,true);ncrForm.note='Exploded';
+  a5FailWrite(()=>ncrFormCreate());const failed={open:!!ncrForm,error:/Not saved/.test(ncrForm&&ncrForm.error||''),recuts:DB.recut.length,stored:JSON.parse(localStorage.getItem(STORAGE_KEY)).recut.length};
+  ncrFormCreate();const r=Object.assign(failed,{closed:!ncrForm,after:DB.recut.length});salesDraftDrop();return r;
+ }),{open:true,error:true,recuts:0,stored:0,closed:true,after:1});
+
+ eq('отказ записи NCR: ни NCR, ни переделки',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();oqThrough(id,'closed');const orders=DB.salesOrder.length;
+  const reason=ncrReasonsFor('SHIP',{activeOnly:true})[0];
+  const res=a5FailWrite(()=>ncrCreate({orderId:id,where:'SHIP',reasonId:reason.id,action:NCR_REMAKE,lines:{[salesRecord(id).lines[0].id]:{on:true,qty:1,which:'unit'}},note:''}));
+  return {error:!!res.error,ncr:DB.ncr.length,orders:DB.salesOrder.length===orders};
+ }),{error:true,ncr:0,orders:true});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();

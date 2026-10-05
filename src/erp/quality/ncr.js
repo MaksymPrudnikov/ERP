@@ -81,17 +81,21 @@ function ncrCreate(d){
  if(!glass.length)return {error:'Select the affected glass.'};
  const now=new Date().toISOString();
  const n={id:salesUid('NCR'),number:ncrNextNumber(),orderId:o.id,createdAt:now,source:NCR_SOURCES.includes(d.source)?d.source:'Customer claim',where:d.where,reasonId:reason.id,reason:reason.name,action:d.action,note:salesString(d.note).slice(0,500),glass,remakeOrderId:''};
- DB.ncr.push(n);
- if(n.action===NCR_REMAKE){
-  const src=JSON.parse(JSON.stringify(o)),byLine=new Map(glass.map(g=>[g.lineId,g.qty]));
-  src.lines=src.lines.filter(l=>byLine.has(l.id)).map(l=>Object.assign(l,{qty:byLine.get(l.id),batchedAt:'',batchNo:'',cutStartedAt:'',batchManaged:false,onHold:false,holdReason:'',holdAt:''}));
-  const used=new Set(src.lines.map(l=>l.makeupId));src.makeups=src.makeups.filter(m=>used.has(m.id));src.extraItems=[];
-  const copy=salesCopySalesRecord(src,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
-   batchNo:'',batchHistory:[],unbatchHistory:[],onHold:false,holdReason:'',holdAt:'',fulfilledVia:'',dueDate:'',notes:'Remake for '+n.number+' · order '+o.businessNumber,noCharge:true,remakeNcrId:n.id,createdAt:now,updatedAt:now});
-  DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesData();
-  n.remakeOrderId=copy.id;glassPieceEnsure(salesRecord(copy.id));
- }
- touch();return {ncr:n};
+ /* Запись не прошла — NCR и переделки нет, форма остаётся открытой. */
+ const out=storageCommand(()=>{
+  DB.ncr.push(n);
+  if(n.action===NCR_REMAKE){
+   const src=JSON.parse(JSON.stringify(o)),byLine=new Map(glass.map(g=>[g.lineId,g.qty]));
+   src.lines=src.lines.filter(l=>byLine.has(l.id)).map(l=>Object.assign(l,{qty:byLine.get(l.id),batchedAt:'',batchNo:'',cutStartedAt:'',batchManaged:false,onHold:false,holdReason:'',holdAt:''}));
+   const used=new Set(src.lines.map(l=>l.makeupId));src.makeups=src.makeups.filter(m=>used.has(m.id));src.extraItems=[];
+   const copy=salesCopySalesRecord(src,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
+    batchNo:'',batchHistory:[],unbatchHistory:[],onHold:false,holdReason:'',holdAt:'',fulfilledVia:'',dueDate:'',notes:'Remake for '+n.number+' · order '+o.businessNumber,noCharge:true,remakeNcrId:n.id,createdAt:now,updatedAt:now});
+   DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesData();
+   n.remakeOrderId=copy.id;glassPieceEnsure(salesRecord(copy.id));
+  }
+  return true;
+ });
+ return out.ok?{ncr:n}:{error:out.error};
 }
 function normalizeNcrRecords(){
  if(!Array.isArray(DB.ncr))DB.ncr=[];
