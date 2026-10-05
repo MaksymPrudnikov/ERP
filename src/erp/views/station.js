@@ -179,9 +179,10 @@ function stationShow(check,rec){
 }
 function stationUndoClick(id){
  const who=stationWho();if(!who)return;
- const scan=(DB.stationScan||[]).find(s=>s.id===id),action=scan&&scan.actionId||id,r=stationUndo(id,who);
+ const r=stationUndo(id,who);
  stationNote=r.error||'Scan undone';
- if(!r.error&&stationLast&&(stationLast.rec&&stationLast.rec.id===id||stationLast.check&&stationLast.check.recId===action))stationLast=null;
+ /* Карточка погрузки после Undo устарела в любом случае: скид снова не погружен. */
+ if(!r.error&&stationLast&&(stationLast.rec&&stationLast.rec.id===id||/^ship/.test(stationLast.check.kind)))stationLast=null;
  stationBeep(r.error?'error':'twice');render();
 }
 
@@ -451,7 +452,7 @@ function viewStation(){
  if(stationTab==='queue')return stationTop(who)+(stationCode===stationCutCode()?stationQueueView():stationFlowView())+drawer;
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
-  stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+stationJournal()+
+  stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+(stationIsShip()?stationShipJournal():stationJournal())+
   '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationCarriersCard():(stationIsShip()?stationTripsCard():'')+stationStackCard()+stationPairsCard()+stationCarriersCard()+stationHereCard())+'</div></div>'+drawer;
 }
 /* На станциях после резки листа нет — справа то, что ждёт здесь: заказ →

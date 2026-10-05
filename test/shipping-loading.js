@@ -131,10 +131,11 @@ module.exports=async function({page,eq,ok}){
   const first=stationSubmit('SL-1'),head=ldText('[data-station-result="shipLoaded"] .st-res-h'),chip=ldText('[data-station-trip]'),row=ldText('[data-station-trip-row="PS-0001"]');
   const wrong=stationSubmit('SL-2'),red=!!document.querySelector('.st-res.st-red[data-station-result="shipOther"]'),ship=ldShip();
   stationSubmit('SL-1');const twice=!!document.querySelector('[data-station-result="shipAlready"]');
-  stationSubmit('SL-1');stationUndoClick(DB.stationScan.filter(x=>!x.undoneAt&&x.station===stationCode).pop().id);const afterUndo=ldShip(),note=stationNote;
+  stationSubmit('SL-1');const journal=[...document.querySelectorAll('[data-station-load]')].map(r=>r.dataset.stationLoad+':'+r.cells[2].textContent+':'+r.cells[4].textContent);
+  document.querySelector('[data-station-load="SL-1"] button').click();const afterUndo=ldShip(),note=stationNote,card=stationLast;
   stationTripPick('');const closed=ldText('[data-station-trip]'),other=stationSubmit('SL-2');
-  return {trips,noTrip,first,head:head.includes('SL-1 → PS-0001 · loaded'),chip,row:row.includes('1 skid loaded'),wrong,red,ship,twice,afterUndo,note,closed,other,now:ldText('[data-station-trip] b')};
- }),{trips:2,noTrip:null,first:'shipLoaded',head:true,chip:'Loading PS-0001Customer A✕',row:true,wrong:'shipOther',red:true,ship:6,twice:true,afterUndo:0,note:'Scan undone',closed:null,other:'shipLoaded',now:'PS-0002'});
+  return {trips,noTrip,first,head:head.includes('SL-1 → PS-0001 · loaded'),chip,row:row.includes('1 skid loaded'),wrong,red,ship,twice,journal,afterUndo,note,card,closed,other,now:ldText('[data-station-trip] b')};
+ }),{trips:2,noTrip:null,first:'shipLoaded',head:true,chip:'Loading PS-0001Customer A✕',row:true,wrong:'shipOther',red:true,ship:6,twice:true,journal:['SL-1:PS-0001:3 units'],afterUndo:0,note:'Scan undone',card:null,closed:null,other:'shipLoaded',now:'PS-0002'});
  eq('SHIP screen: Balance due line, queue refusal and the hand mark go through the trip rules',await t.p.evaluate(()=>{
   const [a]=ldSeed('A$'),o=salesRecord(a);ldPut(a,'SL-1',1);ldPS(a,[]);shippingQueueSet(a,[o.lines[1].id],1);ldLogin(shippingStations().ship);
   const loose=shippingAvailable(o).find(u=>u.lineId===o.lines[1].id),queue=stationSubmit('SL-1'),take=ldText('[data-station-result="shipQueue"] .st-res-h');

@@ -83,7 +83,7 @@ function stationShipConfirm(code,who){
 }
 function stationShipCard(L){
  const c=L.check,time='<span>'+esc(stationTime(L.at))+'</span>',what=esc(c.skid||c.label||c.code);
- const trip=c.trip?'<div class="mut">Loading '+esc(c.trip.number)+' · <span data-raw>'+esc(salesCustomerDisplay(c.trip.customerId))+'</span></div>':'';
+ const cur=stationTrip(),trip=c.trip?'<div class="mut">'+(cur&&cur.id===c.trip.id?'Loading ':'')+esc(c.trip.number)+' · <span data-raw>'+esc(salesCustomerDisplay(c.trip.customerId))+'</span></div>':'';
  if(c.kind==='shipLoaded')return '<div class="st-res st-ok" data-station-result="shipLoaded"><div class="st-res-h">✓ '+esc(c.label)+' → '+esc(c.ps)+(c.added?' · added':' · loaded')+time+'</div>'+
   (c.balance?'<div class="st-urg" data-station-balance>BALANCE DUE<span>· office</span></div>':'')+
   '<div class="st-res-b"><div class="st-big st-dark"><small>'+(c.added?'ADDED TO':'LOADED')+'</small><b class="st-big-code">'+esc(c.ps)+'</b><span data-raw>'+esc(c.customer)+'</span></div>'+
@@ -105,6 +105,21 @@ function stationShipCard(L){
  }[c.kind]||{head:esc(c.kind),small:'',big:'STOP',sub:'',info:''};
  return '<div class="st-res st-red" data-station-result="'+esc(c.kind)+'"><div class="st-res-h">✕ '+K.head+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>'+K.small+'</small><b'+(K.big.length>6?' class="st-big-code"':'')+'>'+K.big+'</b><span>'+K.sub+'</span></div>'+
   '<div class="st-info"><div class="st-gid mono">'+what+'</div>'+K.info+'</div></div></div>';
+}
+/* Журнал SHIP — по скидам, а не по стёклам: скид в 150 стёкол иначе занял бы
+   весь список, и Undo предыдущего скида было бы не найти. */
+function stationShipJournal(){
+ const acts=new Map();(DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.station!==stationCode)return;const k=s.actionId||s.id;if(!acts.has(k))acts.set(k,[]);acts.get(k).push(s);});
+ const rows=[...acts.values()].slice(-8).reverse();if(!rows.length)return '';
+ const index=stationPieceIndex();
+ const body=rows.map(list=>{
+  const first=list[0],pieces=new Set(list.map(s=>s.piece)),ps=(DB.shipment||[]).find(s=>shippingActive(s)&&s.items.some(i=>i.pieces.includes(first.piece)));
+  const items=ps?ps.items.filter(i=>i.pieces.some(p=>pieces.has(p))):[],orders=[...new Set(list.map(s=>{const h=index.get(s.piece),o=h&&salesRecord(h.orderId);return o?o.businessNumber||'':'';}).filter(Boolean))];
+  return '<tr data-station-load="'+esc(first.on||first.piece)+'"><td class="mut">'+esc(stationTime(first.at))+'</td><td>'+(first.on?'<b class="st-on">'+esc(first.on)+'</b>':'<b class="mono">'+esc(items[0]?items[0].label:first.piece)+'</b>')+(first.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+'</td>'+
+   '<td>'+(ps?'<b>'+esc(ps.number)+'</b>':'<span class="mut">—</span>')+'</td><td>'+esc(orders.join(', '))+'</td><td>'+(items.length?shippingCount(items.length,'unit'):list.length+' glass')+'</td><td class="mut" data-raw>'+esc(first.by)+'</td>'+
+   '<td style="text-align:right">'+(!ps||ps.status==='planned'?'<button type="button" class="b sm" onclick="stationUndoClick(\''+esc(first.id)+'\')">Undo</button>':'')+'</td></tr>';
+ }).join('');
+ return '<div class="card st-journal"><div class="st-sec"><h3>Loaded</h3></div><table><thead><tr><th>Time</th><th>Skid</th><th>Packing slip</th><th>Order</th><th>Units</th><th>By</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div>';
 }
 /* Справа на SHIP: открытые рейсы. Нажатие — грузить этот. */
 function stationTripsCard(){
