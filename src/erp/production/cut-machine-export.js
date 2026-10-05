@@ -43,7 +43,7 @@ function cutMachineSnapshot(number,scope){
   if(!size||!(+size.w>0)||!(+size.h>0)){
    errors.push('Sheet '+sheet.no+' has invalid dimensions or margins.');return;
   }
-  const params=cutGroupParams(group,size),usable=cutUsable(size,params),effectiveTrimY=cutEffectiveTrimY(sheet,params);
+  const params=cutGroupParams(group,size),usable=cutUsable(size,params),effectiveTrimY=cutEffectiveTrimY(sheet,params),effectiveTrimX=cutEffectiveTrimX(sheet,params);
   if(!(usable.W>0)||!(usable.H>0)){
    errors.push('Sheet '+sheet.no+' has invalid dimensions or margins.');return;
   }
@@ -95,10 +95,10 @@ function cutMachineSnapshot(number,scope){
   }
   sheets.push({glass:group.glass,mm:+group.mm,no:sheet.no,
    size:{w:+size.w,h:+size.h,key:cutSheetKey(size)},
-   margins:{trimX:params.trimX,trimY:effectiveTrimY,borderX:params.borderX,borderY:params.borderY},
+   margins:{trimX:effectiveTrimX,trimY:effectiveTrimY,borderX:params.borderX,borderY:params.borderY},
    minimumMargins:{trimX:params.trimX,trimY:params.trimY,borderX:params.borderX,borderY:params.borderY},
    minDist:+params.minDist||0,
-   usable:{x0:effectiveTrimY,y0:usable.y0,x1:usable.x1,y1:usable.y1},
+   usable:{x0:effectiveTrimY,y0:effectiveTrimX,x1:usable.x1,y1:usable.y1},
    pieces:parts,stock,
    free:cut?(cut.free||[]).map(r=>({x:r.x0,y:r.y0,w:r.x1-r.x0,h:r.y1-r.y0})):[],
    offcuts:(sheet.offcuts||[]).filter(o=>[o.x,o.y,o.w,o.h].every(Number.isFinite)&&o.w>0&&o.h>0).map(o=>({id:o.id||'',x:o.x,y:o.y,w:o.w,h:o.h})),
