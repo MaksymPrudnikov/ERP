@@ -116,7 +116,7 @@ function finPreviewInfo(){
  const p=finPreview,company=(DB.company||{}).legalName||'';
  if(p.kind==='receipt'){const r=DB.receipt.find(x=>x.id===p.id)||{},c=salesFindCustomer(r.customerId);return {title:'Receipt '+(r.number||''),c,file:'Receipt_'+(r.number||''),subject:['Payment receipt '+(r.number||''),company].filter(Boolean).join(' · '),
   body:'Thank you for your payment of '+docMoney(r.amount)+' received on '+docDate(r.date)+'. Receipt '+r.number+' is attached.'};}
- if(p.kind==='statement'){const c=salesFindCustomer(p.id);return {title:'Statement · '+finCustomerName(c),c,file:'Statement_'+((c&&c.code)||'account')+'_'+(p.from||'start')+'_'+(p.to||finToday()),subject:['Statement '+finPeriodText(p.from,p.to),company].filter(Boolean).join(' · '),
+ if(p.kind==='statement'){const c=salesFindCustomer(p.id);return {title:'Statement · '+finCustomerName(c),c,mail:'statement',file:'Statement_'+((c&&c.code)||'account')+'_'+(p.from||'start')+'_'+(p.to||finToday()),subject:['Statement '+finPeriodText(p.from,p.to),company].filter(Boolean).join(' · '),
   body:finStatementMail(p.id,p.from,p.to)};}
  if(p.kind==='balances')return {title:'Customer balances',c:null,file:'Customer_balances_'+finToday()};
  return {title:'Payments due',c:null,file:'Payments_due_'+finToday()};
@@ -145,9 +145,12 @@ function finPrintDoc(pages){
 function finPrintPreview(){try{finPrintDoc(finPreviewPages());}catch(e){alert('The document could not be prepared: '+(e&&e.message||e));}}
 /* PDF в Загрузки и письмо в Gmail с адресом клиента — как у Proforma:
    программа с диска не может вложить файл в чужую вкладку сама. */
+/* Выписка — на Statement Email, остальное — на Invoice Email; пусто — на
+   основной контакт (аудит 05.10.2026: выписка уходила на Invoice Email). */
+function finEmailTo(c,mail){return c?(mail==='statement'&&c.statementEmail||c.invoiceEmail||customerPrimaryContact(c).email||''):'';}
 function finEmailDoc(info,pages){
  const bytes=docPdfBytes(pages,{title:info.title});
- const file=info.file.replace(/[^A-Za-z0-9-]+/g,'_')+'.pdf',to=info.c.invoiceEmail||customerPrimaryContact(info.c).email||'',first=String(customerPrimaryContact(info.c).name||'').trim().split(/\s+/)[0];
+ const file=info.file.replace(/[^A-Za-z0-9-]+/g,'_')+'.pdf',to=finEmailTo(info.c,info.mail),first=String(customerPrimaryContact(info.c).name||'').trim().split(/\s+/)[0];
  docDownload(file,bytes);
  const win=window.open(docGmailUrl(to,info.subject,['Hello'+(first?' '+first:'')+',','',info.body,'',(DB.company||{}).legalName||''].join('\n')),'_blank');
  return 'PDF saved to Downloads as '+file+' — drag it into the Gmail message.'+(to?'':' No email for this customer.')+(win?'':' Allow pop-ups for Gmail.');
@@ -170,7 +173,7 @@ function finStatementsList(){
 }
 function finStatementsEmail(id){
  const p=finStatements,c=salesFindCustomer(id);if(!p||!c)return;
- try{finEmailDoc({title:'Statement · '+finCustomerName(c),c,file:'Statement_'+(c.code||'account')+'_'+p.from+'_'+p.to,subject:['Statement '+finPeriodText(p.from,p.to),(DB.company||{}).legalName||''].filter(Boolean).join(' · '),body:finStatementMail(id,p.from,p.to)},finStatementDoc(id,p.from,p.to));}
+ try{finEmailDoc({title:'Statement · '+finCustomerName(c),c,mail:'statement',file:'Statement_'+(c.code||'account')+'_'+p.from+'_'+p.to,subject:['Statement '+finPeriodText(p.from,p.to),(DB.company||{}).legalName||''].filter(Boolean).join(' · '),body:finStatementMail(id,p.from,p.to)},finStatementDoc(id,p.from,p.to));}
  catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
  p.sent[id]=true;render();
 }
@@ -179,7 +182,7 @@ function finStatementsHTML(){
  return `<div class="sales-service-modal-back fin-modal-back" onclick="if(event.target===this)finCloseStatements()"><div class="sales-service-modal fin-statements" role="dialog" aria-modal="true" aria-label="Statements"><div class="sales-service-modal-head"><h3>Statements · ${esc(err?'':finPeriodText(p.from,p.to))}</h3><button type="button" aria-label="Close" onclick="finCloseStatements()">×</button></div>
  <div class="fin-modal-body"><div class="sales-toolbar">${finRangeButton('statements')}</div>
  ${err?`<p role="alert" class="fin-due">${esc(err)}</p>`:''}
- <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Customer</th><th>Email</th><th class="n">Balance forward</th><th class="n">Billed</th><th class="n">Paid</th><th class="n">Balance</th><th></th></tr></thead><tbody>${list.map(({c,d})=>{const to=c.invoiceEmail||customerPrimaryContact(c).email||'';return `<tr data-statement="${esc(c.id)}"><td><b>${raw(finCustomerName(c))}</b><div class="mut small">${raw(c.code)}</div></td><td>${to?esc(to):'<span class="mut">no email</span>'}</td><td class="n">${finSigned(d.opening)}</td><td class="n">${d.billed?finFmt(d.billed):'<span class="mut">—</span>'}</td><td class="n">${d.paid?finFmt(d.paid):'<span class="mut">—</span>'}</td><td class="n"><b>${finSigned(d.closing)}</b></td><td class="fin-actions">${p.sent[c.id]?'<span class="pill good">Emailed</span> ':''}<button class="sm" onclick="finOpenStatement('${esc(c.id)}',{from:finStatements.from,to:finStatements.to})">View</button><button class="sm pri" onclick="finStatementsEmail('${esc(c.id)}')">Email PDF</button></td></tr>`;}).join('')||`<tr><td colspan="7" class="empty">${err?'Correct the dates.':'No activity in this period.'}</td></tr>`}</tbody></table></div>
+ <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Customer</th><th>Email</th><th class="n">Balance forward</th><th class="n">Billed</th><th class="n">Paid</th><th class="n">Balance</th><th></th></tr></thead><tbody>${list.map(({c,d})=>{const to=finEmailTo(c,'statement');return `<tr data-statement="${esc(c.id)}"><td><b>${raw(finCustomerName(c))}</b><div class="mut small">${raw(c.code)}</div></td><td>${to?esc(to):'<span class="mut">no email</span>'}</td><td class="n">${finSigned(d.opening)}</td><td class="n">${d.billed?finFmt(d.billed):'<span class="mut">—</span>'}</td><td class="n">${d.paid?finFmt(d.paid):'<span class="mut">—</span>'}</td><td class="n"><b>${finSigned(d.closing)}</b></td><td class="fin-actions">${p.sent[c.id]?'<span class="pill good">Emailed</span> ':''}<button class="sm" onclick="finOpenStatement('${esc(c.id)}',{from:finStatements.from,to:finStatements.to})">View</button><button class="sm pri" onclick="finStatementsEmail('${esc(c.id)}')">Email PDF</button></td></tr>`;}).join('')||`<tr><td colspan="7" class="empty">${err?'Correct the dates.':'No activity in this period.'}</td></tr>`}</tbody></table></div>
  ${Object.keys(p.sent).length?'<p class="mut small">PDFs are in Downloads — drag each into its Gmail message.</p>':''}</div></div></div>`;
 }
 

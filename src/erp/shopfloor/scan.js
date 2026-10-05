@@ -370,11 +370,13 @@ window.addEventListener('storage',function(e){
  if(current&&current!==storageBaseline)storageLiveReload(current);
 });
 /* «Не на эту долли» — стекло понесли в руках (Critical: отложить или отнести
-   сразу). Скан остаётся, пропадает только тара. */
+   сразу). Скан остаётся, пропадает только тара — у всего юнита, который
+   переехал одним сканом (общий actionId; аудит 05.10.2026: половина
+   собранного юнита оставалась на DL-1). */
 function stationScanOff(id){const out=storageCommand(()=>stationScanOffCommand(id));return out.ok&&out.value;}
 function stationScanOffCommand(id){
  const rec=(DB.stationScan||[]).find(s=>s.id===id&&!s.undoneAt);if(!rec||!rec.on)return false;
- delete rec.on;touch();return true;
+ DB.stationScan.forEach(s=>{if(s===rec||!s.undoneAt&&s.on&&s.station===rec.station&&rec.actionId&&s.actionId===rec.actionId)delete s.on;});touch();return true;
 }
 
 /* ---------------------------------------------------------------------

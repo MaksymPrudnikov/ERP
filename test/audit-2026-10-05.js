@@ -1,6 +1,7 @@
 /* Находки аудита 5 октября 2026 (Codex, проверено Claude): формы строк между
    вкладками, стекло из стока в цеху, заказ одного склада; отказ записи
-   клиента, Recut и NCR. */
+   клиента, Recut и NCR; тара юнита, бланк бесплатной переделки, адрес
+   выписки, импорт каталога стекла. */
 module.exports=async function({page,eq,ok}){
  console.log('audit-2026-10-05');const t=await page();await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
@@ -85,6 +86,38 @@ module.exports=async function({page,eq,ok}){
   const res=a5FailWrite(()=>ncrCreate({orderId:id,where:'SHIP',reasonId:reason.id,action:NCR_REMAKE,lines:{[salesRecord(id).lines[0].id]:{on:true,qty:1,which:'unit'}},note:''}));
   return {error:!!res.error,ncr:DB.ncr.length,orders:DB.salesOrder.length===orders};
  }),{error:true,ncr:0,orders:true});
+
+ eq('«Not on DL-1» снимает с долли весь юнит',await t.p.evaluate(()=>{
+  oqReset();DB.carrier=[];carrierAdd('DL',1);const id=oqOrder(oqCustomer());salesDraftDrop();salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
+  const o=salesRecord(id),pm=glassPieceMap(id),ids=glassBatchComponents(o,o.lines[0]).map(c=>pm.get(c.key).ids[0]),who={id:'a5',name:'Audit operator'};
+  for(const st of ['CUT','ARRIS','HEAT','IGU'])ids.forEach(g=>{const c=stationCheck(st,g);if(STATION_RECORDED.includes(c.kind))stationMove(st,c,who);});
+  const c=stationCheck('SHIPR',ids[0]);stationMove('SHIPR',c,who,{on:'DL-1'});const on=()=>ids.map(g=>{const r=stationScansFor(g).filter(s=>s.station==='SHIPR'&&!s.undoneAt).pop();return r&&r.on||'—';}).join();
+  const before=on(),rec=stationScansFor(ids[0]).filter(s=>s.station==='SHIPR').pop();stationScanOff(rec.id);return {before,after:on()};
+ }),{before:'DL-1,DL-1',after:'—,—'});
+
+ eq('бесплатная переделка NCR: строка по цене, скидка No charge на всю сумму, итог $0',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();oqPay(id);oqThrough(id,'closed');
+  const reason=ncrReasonsFor('SHIP',{activeOnly:true}).find(r=>r.name==='Broke in transit');
+  const res=ncrCreate({orderId:id,where:'SHIP',reasonId:reason.id,action:NCR_REMAKE,lines:{[salesRecord(id).lines[0].id]:{on:true,qty:1,which:'unit'}},note:''});
+  const r=salesRecord(res.ncr.remakeOrderId),m=docBuildModel('confirmation',r),line=m.items[0].amount;
+  const free=m.end.rows.find(x=>/^No charge/.test(x.label));
+  return {line:line!=='$0.00',free:free&&free.value==='−'+line,label:free&&free.label===('No charge · remake for '+res.ncr.number+' · order '+salesRecord(id).businessNumber),subtotal:m.end.rows.find(x=>x.label==='Subtotal').value,grand:m.end.grand.value};
+ }),{line:true,free:true,label:true,subtotal:'$0.00',grand:'$0.00'});
+
+ eq('выписка — на Statement Email, счета — на Invoice Email',await t.p.evaluate(()=>{
+  const c=oqCustomer({statementEmail:'statement@example.test',invoiceEmail:'invoice@example.test'}),b=oqCustomer({invoiceEmail:'invoice-only@example.test'});
+  const keep=[window.open,docDownload],urls=[];window.open=u=>{urls.push(decodeURIComponent(u));return {};};docDownload=()=>{};
+  try{finEmailDoc({title:'Statement',c,mail:'statement',file:'S',subject:'S',body:''},[]);finEmailDoc({title:'Receipt',c,file:'R',subject:'R',body:''},[]);}catch(e){}
+  window.open=keep[0];docDownload=keep[1];
+  return {statement:finEmailTo(c,'statement'),invoice:finEmailTo(c),fallback:finEmailTo(b,'statement'),mailed:urls.map(u=>/statement@/.test(u)?'statement':/invoice@/.test(u)?'invoice':'?').join()};
+ }),{statement:'statement@example.test',invoice:'invoice@example.test',fallback:'invoice-only@example.test',mailed:'statement,invoice'});
+
+ eq('Glass catalogue грузит GLASS_PRODUCTS.csv, Supply points — GLASS_SHEETS.csv',await t.p.evaluate(()=>{
+  tab='masterdata';mdSetTab('materials');const card=()=>{const d=document.createElement('div');d.innerHTML=mdImportCard();return d.querySelector('h3').textContent+' · '+d.querySelector('#mdCsv').getAttribute('onchange').match(/'(\w+)'/)[1];};
+  mdMatView='glassProduct';const glass=card();mdMatView='glassSheet';const sheets=card();mdMatView='glassProduct';
+  const rep=importGlassProductsCsv('code,name,thickness_mm\nA5TEST,A5 Test Glass,6');DB.glassProduct=DB.glassProduct.filter(p=>p.code!=='A5TEST');
+  return {glass,sheets,added:rep.added};
+ }),{glass:'Load GLASS_PRODUCTS.csv · glass',sheets:'Load GLASS_SHEETS.csv · sheets',added:1});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
