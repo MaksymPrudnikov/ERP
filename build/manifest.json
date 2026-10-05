@@ -18,7 +18,8 @@
   "src/styles/stickers.css",
   "src/styles/cutting.css",
   "src/styles/station.css",
-  "src/styles/theme.css"
+  "src/styles/theme.css",
+  "src/styles/shipping.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -130,6 +131,9 @@
   "src/erp/views/station-queue.js",
   "src/erp/views/production-board.js",
   "src/erp/views/carriers-ui.js",
+  "src/erp/shipping/data.js",
+  "src/erp/shipping/commands.js",
+  "src/erp/shipping/print.js",
   "src/erp/storage.js"
  ]
 }

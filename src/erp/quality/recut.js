@@ -14,7 +14,7 @@
    RECUT на станции производства: сломалось — ввели — ушло в батч.
    ===================================================================== */
 DEFAULT.recut=[];
-const RECUT_OPEN_STATUSES=['new','verified','batched','ready'];
+const RECUT_OPEN_STATUSES=['new','verified','batched','ready','shipping'];
 function recutForOrder(orderId){return (DB.recut||[]).filter(r=>r.orderId===orderId).sort((a,b)=>a.no-b.no);}
 function recutCanOpen(o){return !!o&&!salesIsQuote(o)&&!!salesRecord(o.id)&&RECUT_OPEN_STATUSES.includes(o.status);}
 function recutNextNo(orderId){return (DB.recut||[]).filter(r=>r&&r.orderId===orderId).reduce((n,r)=>Math.max(n,+r.no||0),0)+1;}
@@ -38,7 +38,7 @@ function recutCreate(d){
  const picks=[];
  for(let i=0;i<o.lines.length;i++){
   const l=o.lines[i],x=d.lines&&d.lines[l.id];if(!x||!x.on)continue;
-  const qty=Number(x.qty);if(!Number.isInteger(qty)||qty<1||qty>l.qty)return {error:'Line '+(i+1)+': 1 to '+l.qty+' pcs'};
+  const qty=Number(x.qty);if(shippingPrintedQty(o,l)>0&&qty>l.qty-shippingPrintedQty(o,l))return {error:'Packing slip printed — use NCR for those units.'};if(!Number.isInteger(qty)||qty<1||qty>l.qty)return {error:'Line '+(i+1)+': 1 to '+l.qty+' pcs'};
   const which=String(x.which||'unit'),keys=ncrGlassKeys(o,l,which),opt=ncrLiteOptions(o,l).find(v=>v.value===which);
   if(!keys.length||!opt)return {error:'Line '+(i+1)+': choose which glass.'};
   picks.push({lineId:l.id,line:i+1,mark:l.mark||'',which,lite:opt.label,keys,qty});

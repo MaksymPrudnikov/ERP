@@ -48,16 +48,16 @@ module.exports=async function({page,eq,ok}){
  }),{before:{rows:18,ids:18,valid:true,select:'All · 18 pcs'},picked:9,title:'Batch B-0001',items:9,glass:['6CLEAR'],parts:6,left:['6Q240','6Q270'],leftPcs:9,statuses:['batched','batched','batched'],pill:true,card:true,
   head:'6CLEAR · 9 pcs · 3 orders · Created '+await t.p.evaluate(()=>salesShortDate(glassBatchFind('B-0001').createdAt)),status:'Awaiting cutting',units:true});
 
- eq('пока стекло ждёт, заказ не готов: Ready и Shipping закрыты, позиции под замком',await t.p.evaluate(()=>{
+ eq('пока стекло ждёт, заказ не готов: Awaiting readiness показывает остаток, позиции под замком',await t.p.evaluate(()=>{
   const o=salesRecord(gbA);return {ready:salesRecordTransitionAllowed(o,'ready'),awaiting:optimizationMatches(o,'awaiting'),toBatch:optimizationMatches(o,'batch'),locked:o.lines.every(salesLineLocked),delete:salesDeleteBlocked(o)};
- }),{ready:false,awaiting:false,toBatch:true,locked:true,delete:true});
+ }),{ready:false,awaiting:true,toBatch:true,locked:true,delete:true});
 
- eq('несколько типов сразу: окно Create 2 batches, у каждого типа свой номер; очередь пуста, заказ готов к Ready',await t.p.evaluate(()=>{
+ eq('несколько типов сразу: окно Create 2 batches, у каждого типа свой номер; очередь пуста, Ready ждёт сканов',await t.p.evaluate(()=>{
   gbQueue();glassBatchMaterial('');document.querySelector('[data-glass-all]').click();document.querySelector('[data-glass-action="create"]').click();
   const title=salesDialog.title,rows=salesDialog.rows.map(r=>r.join(' '));oqChoose('Create batches');
   return {title,rows,numbers:DB.glassBatch.map(b=>b.number+':'+[...new Set(b.parts.map(p=>p.snapshot.glass))].join('/')),queue:glassBatchRows().length,tab:optimizationTab,open:glassBatchOpenNumber,
    ready:salesRecordTransitionAllowed(salesRecord(gbA),'ready'),awaiting:optimizationMatches(salesRecord(gbB),'awaiting'),pill:salesStatusPill(salesRecord(gbA)).includes('pcs')};
- }),{title:'Create 2 batches?',rows:['6Q240 6 pcs','6Q270 3 pcs'],numbers:['B-0001:6CLEAR','B-0002:6Q240','B-0003:6Q270'],queue:0,tab:'production',open:'',ready:true,awaiting:true,pill:false});
+ }),{title:'Create 2 batches?',rows:['6Q240 6 pcs','6Q270 3 pcs'],numbers:['B-0001:6CLEAR','B-0002:6Q240','B-0003:6Q270'],queue:0,tab:'production',open:'',ready:false,awaiting:true,pill:false});
 
  eq('реестр Batches: новые сверху, номер открывает состав по стёклам, есть история и счётчики вкладок',await t.p.evaluate(()=>{
   gbQueue();optimizationSetTab('production');const list=[...document.querySelectorAll('[data-glass-row]')].map(r=>r.dataset.glassRow),counts=[...document.querySelectorAll('[data-queue-tab] b')].map(b=>b.textContent);
@@ -226,7 +226,7 @@ module.exports=async function({page,eq,ok}){
  await t.p.locator(`[data-order-row="${unbatchIds[0]}"]`).click({button:'right'});
  eq('Sales: правая кнопка — Unbatch order только у заказа с батчем и только для него',await t.p.evaluate(()=>{
   const menu=[...document.querySelectorAll('.sl-ctx [data-menu]')].map(b=>b.dataset.menu+':'+b.textContent);salesListMenu=null;render();
-  const other=salesListContextHTML({id:gbU[2]},'').includes('data-menu="unbatch"');oqThrough(gbU[2],'batched');salesSetRecordStatus(gbU[2],'ready');const ready=salesListContextHTML({id:gbU[2]},'').includes('data-menu="unbatch"');
+  const other=salesListContextHTML({id:gbU[2]},'').includes('data-menu="unbatch"');oqThrough(gbU[2],'batched');oqReady(gbU[2]);const ready=salesListContextHTML({id:gbU[2]},'').includes('data-menu="unbatch"');
   return {item:menu.filter(x=>x.startsWith('unbatch')),other,ready};
  }),{item:['unbatch:Unbatch order…'],other:false,ready:false});
  await t.p.locator(`[data-order-row="${unbatchIds[0]}"]`).click({button:'right'});

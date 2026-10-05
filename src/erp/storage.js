@@ -254,6 +254,7 @@ function validateImportedState(src){
  if(typeof validateStockOffcutPayload==='function')validateStockOffcutPayload(src);
  if(typeof validateStationScanPayload==='function')validateStationScanPayload(src);
  if(typeof validateCarrierPayload==='function')validateCarrierPayload(src);
+ if(typeof validateShipmentPayload==='function')validateShipmentPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -342,6 +343,7 @@ function normalizeDB(){
  if(typeof normalizeStockOffcuts==='function')normalizeStockOffcuts();
  if(typeof normalizeCarriers==='function')normalizeCarriers();
  if(typeof normalizeStationScans==='function')normalizeStationScans();
+ if(typeof normalizeShipments==='function')normalizeShipments();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();

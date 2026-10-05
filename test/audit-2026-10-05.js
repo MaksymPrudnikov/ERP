@@ -58,14 +58,14 @@ module.exports=async function({page,eq,ok}){
   DB.stockItem=DB.stockItem.filter(s=>s.id!=='STK-A5');return r;
  }),{before:false,enabled:true,asked:true,saved:true,lines:0,items:1,poAsks:true});
 
- eq('заказ одного склада: после Verified сразу Ready, без Batched; Back — в Verified',await t.p.evaluate(()=>{
+ eq('заказ одного склада: Verify автоматически Ready, без Batched; ручного Back нет',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer(),o=normalizeSalesOrder({id:'SO-A5',businessNumber:'95001',customerId:c.id,status:'new',lines:[],extraItems:[{id:'EXT-A5',table:'stockItem',itemId:'X',qty:1,priceOverride:100}]});DB.salesOrder.push(o);
   const id=o.id,flow=salesOrderFlow(o).join();salesSetRecordStatus(id,'verified');
   const batchAllowed=salesRecordTransitionAllowed(salesRecord(id),'batched'),inBatch=optimizationMatches(salesRecord(id),'batch'),awaiting=optimizationMatches(salesRecord(id),'awaiting');
-  oqAdvance(id,'ready');const ready=salesRecord(id).status;oqAdvance(id,'back');oqChoose('Move back');const back=salesRecord(id).status;
+  const ready=salesRecord(id).status,back=salesSetRecordStatus(id,'verified',{back:true});
   salesOrderEdit(id);const steps=[...document.querySelectorAll('.sales-step')].map(x=>x.dataset.step).join();salesDraftDrop();
   return {flow,batchAllowed,inBatch,awaiting,ready,back,steps};
- }),{flow:'new,verified,ready,done,closed',batchAllowed:false,inBatch:false,awaiting:true,ready:'ready',back:'verified',steps:'new,verified,ready,done,closed'});
+ }),{flow:'new,verified,ready,done,closed',batchAllowed:false,inBatch:false,awaiting:false,ready:'ready',back:false,steps:'new,verified,ready,done,closed'});
 
  eq('отказ записи клиента: форма и правка остаются, повторный Save сохраняет',await t.p.evaluate(()=>{
   const c=oqCustomer();tab='customers';customerEdit(c.id);cDraft.legalName='Renamed Windows Ltd';render();

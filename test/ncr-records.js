@@ -27,7 +27,7 @@ module.exports=async function({page,eq,ok}){
   salesOrderEdit(fresh);nrFill(fresh,{where:'HEAT',reason:'Exploded in furnace',action:'Repair',lines:[[0,1,'unit']]});ncrFormCreate();
   const first={warning:(document.querySelector('[data-ncr-warning]')||{}).textContent,button:document.querySelector('[data-ncr-create]').textContent,records:DB.ncr.length};
   ncrFormCreate();return Object.assign(checks,{first,created:DB.ncr.length,number:DB.ncr[0]&&DB.ncr[0].number,status:salesRecord(fresh).status});
- }),{newHeat:'Not cut yet · Line 1, Line 2',newOffice:'',batchedHeat:'',batchedShip:'No shipment in the system yet',batchedShipr:'Order not ready for shipping yet',readyShipr:'',doneShip:'',
+ }),{newHeat:'Not cut yet · Line 1, Line 2',newOffice:'',batchedHeat:'',batchedShip:'No printed packing slip or shipment for this glass',batchedShipr:'Order not ready for shipping yet',readyShipr:'',doneShip:'',
   first:{warning:'⚠ Not cut yet · Line 1',button:'Create anyway',records:0},created:1,number:'NCR1001',status:'new'});
 
  eq('форма NCR: без Source и без Recut в действиях; причины только выбранного места и активные; проверки',await t.p.evaluate(()=>{

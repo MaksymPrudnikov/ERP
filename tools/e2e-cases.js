@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 
 async function run() {
- const browser = await chromium.launch();
+ const browser = await chromium.launch(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {});
  const context = await browser.newContext();
  await context.addInitScript(() => { window.GF_NO_SIGNIN = true; });
  const page = await context.newPage();
@@ -70,15 +70,15 @@ async function run() {
     const routes=ids.map(piece=>stationRouteOf(stationGlass(piece)).codes);
     for(let step=0;step<Math.max(...routes.map(r=>r.length));step++){
      for(let j=0;j<ids.length;j++){
-      const st=routes[j][step];if(!st)continue;
+      const st=routes[j][step];if(!st||st===shippingStations().ship)continue;
       const check=stationCheck(st,ids[j]);
       if(check.kind==='already'){sequence.push(st+':already');continue;}
       const moved=stationMove(st,check,who,{});
       sequence.push(st+':'+check.kind+':'+!!moved.ok);
      }
     }
+    const ready=salesRecord(id).status==='ready',done=oqFulfill(id,'pickup');
     const status=glassBatchStatus(batch),cutDone=batch.items.filter(i=>i.cutStartedAt).length,queue=glassBatchCutQueue().some(b=>b.number===batch.number),waiting=ids.map(piece=>stationPlace(stationGlass(piece)).waiting);
-    const ready=salesSetRecordStatus(id,'ready'),done=salesSetRecordStatus(id,'done',{delivery:'pickup'});
     const order=salesRecord(id),balance=finOrderBalance(order);
     if(balance.total!=null&&balance.total>0)DB.receipt.push(normalizeReceipt({number:'R-PILOT',customerId:customer.id,amount:balance.total,allocations:[{orderId:id,amount:balance.total}]}));
     const paid=finOrderBalance(order),closed=salesSetRecordStatus(id,'closed');

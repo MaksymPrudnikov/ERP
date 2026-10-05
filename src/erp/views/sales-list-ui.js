@@ -62,8 +62,9 @@ let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAncho
 /* ------------------------------ Настройки ------------------------------ */
 /* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
 const salesQueuePrefs={optimization:null,shipping:null};
-function salesListScope(){if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListScope(){if(tab==='shipping'&&typeof shippingListScope==='function'&&shippingListScope())return shippingListScope();if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
 function salesListCatalog(){
+ if(salesListScope()==='shippingPS')return shippingListColumns();
  if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
  if(salesListScope().startsWith('prod')&&typeof prodListColumns==='function')return prodListColumns();
  if(salesListScope()==='glassSheets'&&typeof sheetUsageColumns==='function')return sheetUsageColumns();
@@ -74,7 +75,7 @@ function salesListCatalog(){
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
  const defaults=['number','customer','due','status','glass','unitType','units','batch','balance'];
  return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
-  .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]);
+  .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]).concat(tab==='shipping'&&shippingTab==='awaiting'?[{k:'readyQty',label:'Ready',type:'text',def:true}]:[]);
 }
 function salesListColumn(k){return salesListCatalog().find(c=>c.k===k)||null;}
 function salesListPrefsKey(){const scope=salesListScope();return scope==='sales'?SALES_LIST_PREFS_KEY:'glass_erp_'+scope+'_list_v1';}
@@ -157,6 +158,7 @@ function salesListValue(info,k){
  if(Object.prototype.hasOwnProperty.call(info.memo,k))return info.memo[k];
  const o=info.o,q=info.q,c=info.c,lines=o.lines||[];let v=null;
  switch(k){
+  case 'readyQty':{const r=shippingSummary(o);v=r.physicalReady+' / '+r.glass;break;}
   case 'type':v=q?'Quote':'Order';break;
   case 'number':v=(q?salesQuoteBaseNumber(o):o.businessNumber)||'';break;
   case 'customer':v=c.displayName||c.legalName||'';break;
@@ -251,6 +253,7 @@ function salesListCompare(col,dir){
 }
 /* Строки после галочек Show и кнопок статусов (до фильтров колонок). */
 function salesListBase(){
+ if(salesListScope()==='shippingPS'){const infos=shippingListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope().startsWith('fin')&&typeof finListInfos==='function'){const infos=finListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope()==='glassSheets'&&typeof sheetUsageInfos==='function'){const infos=sheetUsageInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope().startsWith('glass')){const infos=glassBatchInfos();return {all:infos.map(i=>i.o),infos};}
@@ -262,7 +265,7 @@ function salesListBase(){
  return {all:all.concat(ncrs.map(i=>i.o)),infos};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
-function salesListDefaultSort(){const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
+function salesListDefaultSort(){if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
 function salesListDateColumn(){return salesListScope()==='usersLog'?'when':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos,skip){

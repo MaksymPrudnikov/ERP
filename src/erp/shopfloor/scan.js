@@ -161,6 +161,7 @@ function stationRecordCommand(station,check,who,opts){
     позиция узнаёт это через glassBatchSyncLine, как и прежде. */
  const e=check.g&&check.g.entry;
  if(station===stationCutCode()&&e&&!e.item.cutStartedAt){e.item.cutStartedAt=now;glassBatchSyncLine(check.g.o,check.g.l);}
+ if(check.g&&station===shippingStations().ready)shippingSyncOrder(check.g.o,now);
  if(!opts.deferTouch)touch();
  return rec;
 }
@@ -184,6 +185,7 @@ function stationUndoCommand(id,who,opts){
  const rec=(DB.stationScan||[]).find(s=>s.id===id);
  if(!rec||rec.undoneAt)return {error:'Scan not found.'};
  if(rec.broken)return {error:'Recut is in the order — change it there.'};
+ if(!opts.shippingRollback&&(DB.shipment||[]).some(s=>shippingActive(s)&&s.items.some(i=>i.pieces.includes(rec.piece))))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
  const group=rec.actionId?(DB.stationScan||[]).filter(s=>s.actionId===rec.actionId&&!s.undoneAt):[rec];
  const ordered=id=>stationScansFor(id).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
  if(group.some(r=>ordered(r.piece).pop()!==r))return {error:'Glass has moved on — undo the later scan first.'};
@@ -199,6 +201,7 @@ function stationUndoCommand(id,who,opts){
    if(e&&e.item.cutStartedAt===r.at){e.item.cutStartedAt='';const o=salesRecord(e.part.orderId),l=o&&(o.lines||[]).find(x=>x.id===e.part.lineId);if(o&&l)glassBatchSyncLine(o,l);}
   }
  });
+ shippingSyncOrders(group.map(s=>{const g=stationGlass(s.piece);return g&&g.o.id;}).filter(Boolean));
  if(!opts.deferTouch)touch();
  return {ok:true,pieces:group.map(s=>s.piece)};
 }
@@ -297,6 +300,7 @@ function stationBreakCommand(station,check,who,reasonId,opts){
  opts=opts||{};
  if(!check||!check.g||!['ok','hold','already','passed','skipped','route','peek'].includes(check.kind))return {error:'Scan the broken glass first.'};
  const g=check.g,o=g.o,l=g.l,c=g.c;
+ if(shippingPrintedPiece(g.id)||(DB.shipment||[]).some(s=>shippingSent(s)&&s.items.some(i=>i.pieces.includes(g.id))))return {error:'Packing slip printed or shipped — use NCR.'};
  if(!c||c.missing)return {error:'Glass not found in the order.'};
  const plan=stationBreakPlan(g,station,opts.asm);
  const made=recutCreate({orderId:o.id,where:station,reasonId,lines:{[l.id]:{on:true,qty:1,which:plan.which}},note:(plan.whole?'Unit '+(typeof unitIdAt==='function'?unitIdAt(o.id,l.id,plan.asm.unit):plan.asm.unit)+' · glass ':'Glass ')+g.id+' at '+station});
@@ -316,6 +320,7 @@ function stationBreakCommand(station,check,who,reasonId,opts){
  });
  /* Разбилось на резе — стекло всё равно порезано: лист закрывается. */
  const e=g.entry;if(station===stationCutCode()&&e&&!e.item.cutStartedAt){e.item.cutStartedAt=now;glassBatchSyncLine(o,l);}
+ shippingSyncOrder(o,now);
  if(!opts.deferTouch)touch();
  return {ok:true,recut:r,ref,newIds:fresh,allNew,whole:plan.whole,broken:plan.pieces,parked};
 }
