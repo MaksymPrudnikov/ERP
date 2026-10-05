@@ -185,7 +185,10 @@ function stationUndoCommand(id,who,opts){
  const rec=(DB.stationScan||[]).find(s=>s.id===id);
  if(!rec||rec.undoneAt)return {error:'Scan not found.'};
  if(rec.broken)return {error:'Recut is in the order — change it there.'};
- if(!opts.shippingRollback&&(DB.shipment||[]).some(s=>shippingActive(s)&&s.items.some(i=>i.pieces.includes(rec.piece))))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
+ /* Скан погрузки открытого рейса отменяет сам рабочий: юниты возвращаются в
+    Ready, PS остаётся planned (erp/shipping/loading). */
+ const ps=opts.shippingRollback?null:(DB.shipment||[]).find(s=>shippingActive(s)&&s.items.some(i=>i.pieces.includes(rec.piece)));
+ if(ps&&!(ps.status==='planned'&&rec.station===shippingStations().ship))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
  const group=rec.actionId?(DB.stationScan||[]).filter(s=>s.actionId===rec.actionId&&!s.undoneAt):[rec];
  const ordered=id=>stationScansFor(id).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
  if(group.some(r=>ordered(r.piece).pop()!==r))return {error:'Glass has moved on — undo the later scan first.'};
@@ -201,6 +204,7 @@ function stationUndoCommand(id,who,opts){
    if(e&&e.item.cutStartedAt===r.at){e.item.cutStartedAt='';const o=salesRecord(e.part.orderId),l=o&&(o.lines||[]).find(x=>x.id===e.part.lineId);if(o&&l)glassBatchSyncLine(o,l);}
   }
  });
+ shippingLoadUndone(group);
  shippingSyncOrders(group.map(s=>{const g=stationGlass(s.piece);return g&&g.o.id;}).filter(Boolean));
  if(!opts.deferTouch)touch();
  return {ok:true,pieces:group.map(s=>s.piece)};
@@ -410,6 +414,8 @@ function stationConfirmSkippedCommand(station,code,who,opts){
  const now=opts.now||new Date().toISOString();
  check.missed.forEach(m=>stationRecord(m,{kind:'ok',code,g:check.g},who,{deferTouch:true,manual:true,confirmedAt:station,now}));
  const after=stationCheck(station,code);
+ /* Станция отгрузки пишет свой скан сама — по правилам рейса. */
+ if(opts.missedOnly){touch();return {ok:true,check:after,rec:null,mates:[],confirmed:check.missed};}
  const rec=STATION_RECORDED.includes(after.kind)?stationRecord(station,after,who,{deferTouch:true,on:opts.on,now}):null;
  if(!rec)throw new Error('The pair must be assembled before it can move on.');
  const mates=stationRecordMates(station,after,who,{deferTouch:true,on:opts.on,now});

@@ -127,12 +127,14 @@
   "src/erp/views/order-log-ui.js",
   "src/erp/views/station.js",
   "src/erp/views/station-drawings.js",
+  "src/erp/views/station-shipping.js",
   "src/erp/views/batch-drawings.js",
   "src/erp/views/station-queue.js",
   "src/erp/views/production-board.js",
   "src/erp/views/carriers-ui.js",
   "src/erp/shipping/data.js",
   "src/erp/shipping/commands.js",
+  "src/erp/shipping/loading.js",
   "src/erp/shipping/print.js",
   "src/erp/storage.js"
  ]

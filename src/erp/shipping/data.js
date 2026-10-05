@@ -66,7 +66,9 @@ function shippingUnits(o){
    const ready=!!stations.ship&&gs.length>0&&places.every(p=>p&&!p.broken&&!p.assembling&&p.waiting===stations.ship)&&!o.onHold&&!l.onHold;
    const ons=gs.map(g=>{const scans=g&&scansOf(g.id);return scans&&scans.length?scans[scans.length-1].on||'':'';});
    const on=ons.length&&ons.every(x=>x===ons[0])?ons[0]:'';
-   return Object.assign({orderId:o.id,lineId:l.id},i,{ready,on,skid:/^S[LA]-/.test(on)?on:'',broken:places.some(p=>!p||p.broken)});
+   /* Погружен: все стёкла прошли станцию отгрузки (скан погрузки, PR 2). */
+   const loaded=gs.length>0&&places.every(p=>p&&!p.broken&&p.shipped);
+   return Object.assign({orderId:o.id,lineId:l.id},i,{ready,loaded,on,skid:/^S[LA]-/.test(on)?on:'',broken:places.some(p=>!p||p.broken)});
   };
   fixed.forEach(i=>out.push(inspect(i)));
   const live=candidates.map(inspect).filter(i=>!labels.has(i.label)&&!i.broken);
@@ -80,13 +82,15 @@ function shippingUnits(o){
  });
  return out;
 }
-function shippingAvailable(o,exceptId){return shippingUnits(o).filter(i=>i.ready&&(!i.shipment||i.shipment.id===exceptId));}
+/* Свой PS держит и то, что уже погружено: оно больше не «ждёт на станции». */
+function shippingLoadedOn(i,id){return !!i.loaded&&!!i.shipment&&i.shipment.status==='planned'&&(!id||i.shipment.id===id);}
+function shippingAvailable(o,exceptId){return shippingUnits(o).filter(i=>i.ready?!i.shipment||i.shipment.id===exceptId:!!exceptId&&shippingLoadedOn(i,exceptId));}
 function shippingSummary(o){
  const legacy=shippingLegacy(o),ps=shippingForOrder(o.id),units=shippingUnits(o);
  const lines=(o.lines||[]).map(l=>{
   const sent=ps.filter(shippingSent).flatMap(s=>s.items).filter(i=>i.orderId===o.id&&i.lineId===l.id),received=ps.filter(s=>s.status==='delivered').flatMap(s=>s.items).filter(i=>i.orderId===o.id&&i.lineId===l.id);
   const ordered=shippingLineQty(l),shipped=legacy?ordered:sent.length,delivered=legacy?ordered:received.length;
-  return {l,ordered,shipped,delivered,back:Math.max(0,ordered-shipped),ready:units.filter(i=>i.lineId===l.id&&i.ready&&!i.shipment).length,physicalReady:units.filter(i=>i.lineId===l.id&&i.ready&&(!i.shipment||i.shipment.status==='planned')).length};
+  return {l,ordered,shipped,delivered,back:Math.max(0,ordered-shipped),ready:units.filter(i=>i.lineId===l.id&&i.ready&&!i.shipment).length,physicalReady:units.filter(i=>i.lineId===l.id&&(i.ready&&(!i.shipment||i.shipment.status==='planned')||shippingLoadedOn(i))).length};
  });
  const extras=(o.extraItems||[]).map(x=>{
   const count=filter=>ps.filter(filter).flatMap(s=>s.extras).filter(i=>i.orderId===o.id&&i.extraId===x.id).reduce((n,i)=>n+i.qty,0);

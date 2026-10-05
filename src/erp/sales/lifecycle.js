@@ -91,7 +91,7 @@ function salesLockedLineGuard(line){
 }
 /* У строки в батче закрыта каждая ячейка, кроме Shape: форма открывает
    чертёж на просмотр и печать (владелец, 26.09.2026), редактор — нет. */
-function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked'":(line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
+function salesLineRowAttrs(line){return (salesLineLocked(line)?" class='line-locked'":line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
 function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='shape'?String(html).replace(/^<td\b/,'<td inert'):html;}
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
@@ -229,7 +229,7 @@ function salesSyncRecordLifecycle(o){
  if(!soDraft||soDraft.id!==o.id)return;
  ['status','batchNo','fulfilledVia','updatedAt'].forEach(k=>{soDraft[k]=o[k];});
  soDraft.statusDates=Object.assign({},o.statusDates);soDraft.batchHistory=(o.batchHistory||[]).slice();soDraft.unbatchHistory=JSON.parse(JSON.stringify(o.unbatchHistory||[]));
- soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';}});
+ soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';if(saved.shipQueue)l.shipQueue=saved.shipQueue;else delete l.shipQueue;}});
 }
 function salesSetRecordStatus(orderId,next,opts){
  if(storageDepth||opts&&opts.deferTouch)return salesSetRecordStatusCommand(orderId,next,opts);
