@@ -2749,7 +2749,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='5a4f599b2537';
+var ERP_BUILD='179924ddc89a';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11219,8 +11219,12 @@ function salesTemperCompatibilityWarnings(order){
 const SALES_ORDER_FLOW=['new','verified','batched','ready','done','closed'];
 const SALES_ORDER_STATE_LIST=SALES_ORDER_FLOW.concat(['cancelled']);
 const SALES_QUOTE_STATE_LIST=['open','sent','won'];
-const SALES_NEXT_STATUS={new:'verified',verified:'batched',batched:'ready',ready:'done',done:'closed'};
-const SALES_PREV_STATUS={verified:'new',batched:'verified',ready:'batched',done:'ready',closed:'done'};
+/* Заказ одного склада: стекла нет, резать нечего — после Verified сразу
+   Ready, шага Batched у него нет (владелец, 05.10.2026). */
+function salesStockOnly(o){return !!o&&!salesIsQuote(o)&&!(o.lines||[]).length&&!!(o.extraItems||[]).length;}
+function salesOrderFlow(o){return salesStockOnly(o)?SALES_ORDER_FLOW.filter(s=>s!=='batched'):SALES_ORDER_FLOW;}
+function salesNextStatus(o){const f=salesOrderFlow(o),i=f.indexOf(o&&o.status);return i>=0?f[i+1]:undefined;}
+function salesPrevStatus(o){const f=salesOrderFlow(o),i=f.indexOf(o&&o.status);return i>0?f[i-1]:undefined;}
 
 function salesKindOf(o){return o&&o.kind==='quote'?'quote':'order';}
 function salesIsQuote(o){return salesKindOf(o)==='quote';}
@@ -11278,7 +11282,10 @@ function salesLineLocked(line){return !!(line&&(line.batchedAt||line.cutStartedA
 function salesMakeupLocked(order,makeupId){return !!(order&&(order.lines||[]).some(l=>l.makeupId===makeupId&&salesLineLocked(l)));}
 function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled');}
 function salesLockedLineGuard(line){
- if(!salesLineLocked(line))return false;
+ if(!salesLineLocked(line)){
+  if(!soDraft||soEdit==='new'||typeof glassLineScanned!=='function'||!glassLineScanned(soDraft.id,line))return false;
+  alert('Glass of this line is already in production. Add a new line or open a new order.');return true;
+ }
  alert('Line is batched and locked. Unbatch it in Optimization to edit.');
  return true;
 }
@@ -11316,12 +11323,22 @@ function salesLockViolations(draft,saved){
  });
  return out;
 }
+function salesStartedViolations(draft,saved){
+ const out=[];if(!saved||typeof glassLineScanned!=='function')return out;
+ (saved.lines||[]).forEach((old,i)=>{
+  if(salesLineLocked(old)||!glassLineScanned(saved.id,old))return;
+  const at=(draft.lines||[]).findIndex(l=>l.id===old.id),name=n=>'line '+n+(old.mark?' ('+old.mark+')':'');
+  if(at<0)out.push(name(i+1)+' was removed');
+  else if(salesLockedLineSnapshot(draft,draft.lines[at])!==salesLockedLineSnapshot(saved,old))out.push(name(at+1)+' changed');
+ });
+ return out;
+}
 function salesDeleteBlocked(o){
  if(!o)return false;
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
  const ncr=(DB.ncr||[]).find(n=>n.orderId===o.id||n.remakeOrderId===o.id)||((DB.recut||[]).some(r=>r.orderId===o.id)?{number:'a recut'}:null);
  if(!salesIsQuote(o)&&ncr){alert('Order '+(o.businessNumber||'')+' is linked to '+ncr.number+'. Cancel it instead of deleting.');return true;}
- if(!salesIsQuote(o)&&(['batched','ready','done','closed'].includes(o.status)||(o.lines||[]).some(salesLineLocked))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
+ if(!salesIsQuote(o)&&(['batched','ready','done','closed'].includes(o.status)||(o.lines||[]).some(l=>salesLineLocked(l)||typeof glassLineScanned==='function'&&glassLineScanned(o.id,l)))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
  return false;
 }
 
@@ -11398,12 +11415,12 @@ function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};
  if(!o||salesIsQuote(o)||!SALES_ORDER_STATE_LIST.includes(next))return false;
  if(opts.restore)return o.status==='cancelled'&&next==='new';
- if(opts.back)return !['cancelled','batched'].includes(o.status)&&SALES_PREV_STATUS[o.status]===next;
+ if(opts.back)return !['cancelled','batched'].includes(o.status)&&salesPrevStatus(o)===next;
  if(next==='cancelled')return !['closed','cancelled'].includes(o.status);
  if(o.onHold&&(next==='verified'||next==='batched'))return false;
- if(next==='batched')return (o.status==='verified'||['batched','ready','done'].includes(o.status))&&(salesBatchableLines(o).length>0||o.status==='verified'&&!salesUnbatchedLines(o).length);
+ if(next==='batched')return !salesStockOnly(o)&&(o.status==='verified'||['batched','ready','done'].includes(o.status))&&(salesBatchableLines(o).length>0||o.status==='verified'&&!salesUnbatchedLines(o).length);
  if((next==='ready'||next==='done'||next==='closed')&&salesUnbatchedLines(o).length)return false;
- return SALES_NEXT_STATUS[o.status]===next;
+ return salesNextStatus(o)===next;
 }
 function salesSyncRecordLifecycle(o){
  if(!soDraft||soDraft.id!==o.id)return;
@@ -11467,7 +11484,7 @@ function salesUnbatchRecord(orderId,lineIds,opts){
 }
 /* Существующие имена оставлены как адаптеры; кнопок этих действий в заказе нет. */
 function salesSetStatus(next,opts){const changed=soDraft&&salesSetRecordStatus(soDraft.id,next,opts);render();return !!changed;}
-function salesAdvanceStatus(){if(soDraft)optimizationRunOrders([soDraft.id],SALES_NEXT_STATUS[soDraft.status],{delivery:soDraft.delivery});}
+function salesAdvanceStatus(){if(soDraft)optimizationRunOrders([soDraft.id],salesNextStatus(soDraft),{delivery:soDraft.delivery});}
 function salesStepBack(){if(soDraft)optimizationRunOrders([soDraft.id],'back');}
 function salesBatchNewLines(){if(soDraft)optimizationRunOrders([soDraft.id],'batched');}
 function salesCancelOrder(orderId){const id=orderId||(soDraft&&soDraft.id);if(id)optimizationRunOrders([id],'cancelled');}
@@ -11552,8 +11569,8 @@ function salesStatusStepper(o){
   return bar+`<div class="sales-quote-note">${raw(w.businessNumber)} became order ${won?`<button class="sm" onclick="salesOrderEdit('${esc(won.id)}')">${raw(won.businessNumber)}</button>`:''} on ${esc(salesShortDate(w.statusDates.won))}. The quote is kept read-only for the win history.</div>`;
  }
  if(o.status==='cancelled')return `<div class="sales-status-row"><span class="pill st-cancelled">Cancelled ${esc(salesShortDate(o.statusDates.cancelled))}</span><span class="mut">Status history · read only</span></div>`;
- const at=SALES_ORDER_FLOW.indexOf(o.status);
- const steps=SALES_ORDER_FLOW.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><span class="sales-step-label"><i></i><b>${esc(s==='done'&&at<4?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b></span>${o.statusDates&&o.statusDates[s]?`<small>${esc(salesShortDate(o.statusDates[s]))}</small>`:''}</div>`).join('');
+ const flow=salesOrderFlow(o),at=flow.indexOf(o.status);
+ const steps=flow.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><span class="sales-step-label"><i></i><b>${esc(s==='done'&&at<flow.indexOf('done')?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b></span>${o.statusDates&&o.statusDates[s]?`<small>${esc(salesShortDate(o.statusDates[s]))}</small>`:''}</div>`).join('');
  return `<div class="sales-status-row"><div class="sales-steps">${steps}</div><span class="sales-status-readonly">Status history · read only</span></div>`;
 }
 function salesOrderBatchNumbers(o){return [...new Set((o.lines||[]).filter(salesLineLocked).map(l=>l.batchNo).filter(Boolean).concat(o.batchNo?[o.batchNo]:[]))];}
@@ -11818,7 +11835,7 @@ function orderLogDiff(a,b){
   if(q){const won=b.status==='won'&&(DB.salesOrder||[]).find(x=>x.id===b.wonOrderId);add(salesStatusLabel(b,b.status),won?'→ '+won.businessNumber:'');}
   else if(a.status==='cancelled')add('Restored',salesStatusLabel(b,b.status));
   else if(b.status==='cancelled')add('Cancelled');
-  else add((typeof SALES_PREV_STATUS!=='undefined'&&SALES_PREV_STATUS[a.status]===b.status?'Back to ':'')+salesStatusLabel(b,b.status));
+  else add((typeof salesPrevStatus==='function'&&salesPrevStatus(a)===b.status?'Back to ':'')+salesStatusLabel(b,b.status));
  }
  return out;
 }
@@ -13380,11 +13397,12 @@ function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesD
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
-   пока в нём нет строк. */
+   пока в нём нет строк, складских позиций, PO и Notes (заказ одного склада
+   без стекла бывает — владелец, 05.10.2026). */
 function salesDraftHasWork(){
  if(!soDraft)return false;
  if(soQuoteCopyOf){const src=DB.salesOrder.find(x=>x.id===soQuoteCopyOf);return !src||salesQuoteContentKey(soDraft)!==salesQuoteContentKey(src);}
- if(soEdit==='new')return soDraft.lines.length>1||soDraft.lines.some(l=>!salesOrderLineIsBlank(l));
+ if(soEdit==='new')return soDraft.lines.length>1||soDraft.lines.some(l=>!salesOrderLineIsBlank(l))||!!(soDraft.extraItems||[]).length||!!salesString(soDraft.customerPo)||!!salesString(soDraft.notes);
  const saved=DB.salesOrder.find(x=>x.id===soEdit);
  return saved?JSON.stringify(saved)!==JSON.stringify(normalizeSalesOrder(soDraft)):soDraft.lines.length>0;
 }
@@ -13394,13 +13412,13 @@ function salesDraftHasWork(){
    запоминаем формы сохранённого заказа, а «Don't save / Don't update»
    возвращает их как было (владелец, 27.09.2026: «не нажал Update — в заказе
    ничего не меняется»). Новые формы черновика убирает salesPruneOrphanShapes. */
-let soShapeSnapshot=null;
+let soShapeSnapshot=null,soShapeConflicts=new Set();
 function salesShapeIdsOf(o){
  const ids=new Set();
  (o&&o.lines||[]).forEach(l=>{if(l.shapeRef&&l.shapeRef.id)ids.add(l.shapeRef.id);Object.keys(l.liteShapes||{}).forEach(k=>{const r=l.liteShapes[k];if(r&&r.id)ids.add(r.id);});});
  return ids;
 }
-function salesShapeSnapshotTake(o){const ids=salesShapeIdsOf(o);soShapeSnapshot=JSON.stringify((DB.shapeDef||[]).filter(s=>s&&ids.has(s.id)));}
+function salesShapeSnapshotTake(o){soShapeConflicts=new Set();const ids=salesShapeIdsOf(o);soShapeSnapshot=JSON.stringify((DB.shapeDef||[]).filter(s=>s&&ids.has(s.id)));}
 function salesShapeSnapshotRestore(){
  if(soShapeSnapshot==null)return false;
  let changed=false;
@@ -13413,7 +13431,11 @@ function salesShapeSnapshotRestore(){
    в базу формы как в сохранённом заказе (снимок soShapeSnapshot), а свои
    правки держим в памяти. Свежая база из другой вкладки их не знает — новые
    строки она и вовсе подчистила как сироты, — поэтому при перечитывании формы
-   черновика переносятся из прежней копии. */
+   черновика переносятся из прежней копии.
+   Переносится только то, что правили здесь: форма, которую черновик не трогал,
+   берётся свежей из базы (аудит 05.10.2026: другая вкладка меняла ширину
+   50″, а эта при сохранении Notes возвращала форму 37″). Ту же форму поменяли
+   обе вкладки — Update отказывает, как при конфликте полей заказа. */
 function salesDraftParkText(){
  if(!soDraft||soShapeSnapshot==null||!salesDraftHasWork())return null;
  const parked=JSON.parse(JSON.stringify(DB));
@@ -13422,8 +13444,16 @@ function salesDraftParkText(){
 }
 function salesDraftKeepShapes(from,to){
  if(!soDraft||!from||!to||!Array.isArray(from.shapeDef)||!Array.isArray(to.shapeDef))return 0;
- const ids=salesShapeIdsOf(soDraft);let n=0;
- from.shapeDef.forEach(s=>{if(!s||!ids.has(s.id))return;const copy=JSON.parse(JSON.stringify(s)),i=to.shapeDef.findIndex(x=>x&&x.id===s.id);if(i<0)to.shapeDef.push(copy);else to.shapeDef[i]=copy;n++;});
+ const ids=salesShapeIdsOf(soDraft),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),clone=x=>JSON.parse(JSON.stringify(x));
+ const snap=soShapeSnapshot==null?null:JSON.parse(soShapeSnapshot),base=new Map((snap||[]).map(s=>[s.id,s]));
+ /* Снимок — сохранённые формы: Don't update и передача записи вернут свежие. */
+ if(snap)soShapeSnapshot=JSON.stringify(snap.map(s=>{const x=to.shapeDef.find(y=>y&&y.id===s.id);return x?clone(x):s;}));
+ let n=0;
+ from.shapeDef.forEach(s=>{if(!s||!ids.has(s.id))return;
+  const i=to.shapeDef.findIndex(x=>x&&x.id===s.id),fresh=i<0?null:to.shapeDef[i],old=base.get(s.id);
+  if(old&&fresh&&same(s,old))return;
+  if(old&&fresh&&!same(fresh,old)&&!same(fresh,s))soShapeConflicts.add(s.id);
+  if(i<0)to.shapeDef.push(clone(s));else to.shapeDef[i]=clone(s);n++;});
  return n;
 }
 /* Убрать черновик. discard — правки не сохраняются: формы возвращаются к
@@ -13432,7 +13462,7 @@ function salesDraftDrop(discard){
  soSavedBaseline=null;
  const restored=!!discard&&salesShapeSnapshotRestore();
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
- salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;
+ salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
  if(salesPruneOrphanShapes()||restored)touch();
 }
 /* Уход из заказа (владелец, 27.09.2026). Новый не сохранён — «сохранить?»:
@@ -13464,6 +13494,8 @@ function salesOrderClose(){salesLeaveDraft();}
 function salesRebaseDraft(current){
  if(!soSavedBaseline||soEdit==='new')return true;
  if(!current)return 'This order was removed elsewhere. Your draft is still available; reopen the order list.';
+ const shapes=(soDraft.lines||[]).map((l,i)=>[l.shapeRef&&l.shapeRef.id].concat(Object.values(l.liteShapes||{}).map(r=>r&&r.id)).some(id=>soShapeConflicts.has(id))?i+1:0).filter(Boolean);
+ if(shapes.length)return 'The shape of line '+shapes.join(', ')+' changed elsewhere. Reopen the order before updating; your draft is still available.';
  const base=JSON.parse(soSavedBaseline),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),conflicts=[];
  Object.keys(current).forEach(k=>{
   if(same(current[k],base[k]))return;
@@ -13494,7 +13526,10 @@ function salesOrderSaveCommand(opts){
  if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&(DB.receipt||[]).some(r=>r.allocations.some(a=>a.orderId===soDraft.id)))return fail(e,'This order has payment records. Its customer cannot change.');
  /* Строки из батча: стекло уже на резке (владелец, 15 сентября 2026). Новый
     размер — новая строка или новый заказ, а не правка строки. */
- if(!opts.unlock){const broken=salesLockViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(broken.length)return fail(e,'Batched lines cannot change: '+broken.join('; ')+'. Add a new line or open a new order.');}
+ if(!opts.unlock){const broken=salesLockViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(broken.length)return fail(e,'Batched lines cannot change: '+broken.join('; ')+'. Add a new line or open a new order.');
+  const started=salesStartedViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(started.length)return fail(e,'Glass already in production: '+started.join('; ')+'. Add a new line or open a new order.');}
+ /* Заказ одного склада: пустая стартовая строка стекла не мешает сохранить. */
+ if((soDraft.extraItems||[]).length)soDraft.lines=soDraft.lines.filter(l=>!salesOrderLineIsBlank(l));
  /* Строка без размера уезжала в Draft молча и всплывала уже в цеху.
     Размер обязателен всегда — и когда введён руками, и когда пришёл из Shape. */
  const noDim=soDraft.lines.map((l,i)=>(!l.width16||!l.height16)?i+1:0).filter(Boolean);
@@ -13734,7 +13769,7 @@ function salesExtraItemSetPrice(id,v){const x=(soDraft.extraItems||[]).find(x=>x
 function salesFocusLastWidth(){const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
 function salesLineDimChange(i,key,el){
  const line=soDraft.lines[i],n=salesDimTo16(el.value);
- if(salesLineLocked(line)){render();return;}
+ if(salesLineLocked(line)||salesLockedLineGuard(line)){render();return;}
  if(!n){line[key+'16']=null;el.classList.add('bad');salesRefreshLineMetrics(line);return;}
  line[key+'16']=n;el.value=salesDimFrom16(n);el.classList.remove('bad');
  /* Размеры появились или изменились — заводим/двигаем форму строки. */
@@ -21679,11 +21714,12 @@ const OPTIMIZATION_TABS=[['all','All'],['new','To verify'],['batch','To batch'],
 let optimizationTab='new',optimizationSel=new Set(),optimizationNotice=null,optimizationScope='';
 function orderQueueKey(){return tab==='shipping'?shippingTab:optimizationTab;}
 function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TABS;}
+/* Заказ одного склада после Verify ждёт выдачи в Shipping, а не батча. */
 function optimizationMatches(o,key){
  if(!o||salesIsQuote(o))return false;
  const fresh=salesUnbatchedLines(o).length;
- return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?o.status==='verified'||(['batched','ready','done'].includes(o.status)&&fresh>0):
-  key==='production'?o.status==='batched':key==='awaiting'?o.status==='batched'&&!fresh:key==='ready'?o.status==='ready'&&!fresh:key==='done'?o.status==='done'&&!fresh:false;
+ return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?!salesStockOnly(o)&&(o.status==='verified'||(['batched','ready','done'].includes(o.status)&&fresh>0)):
+  key==='production'?o.status==='batched':key==='awaiting'?o.status==='batched'&&!fresh||salesStockOnly(o)&&o.status==='verified':key==='ready'?o.status==='ready'&&!fresh:key==='done'?o.status==='done'&&!fresh:false;
 }
 function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:key==='stock'?(DB.stockOffcut||[]).filter(r=>r.status==='stock').length:key==='sheets'?sheetUsageRows().length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}
 function optimizationBase(){return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,orderQueueKey())).map(salesListInfo);}
@@ -21706,7 +21742,7 @@ function optimizationAction(action,delivery){if(action==='unbatch')optimizationU
    Если данные изменились во время окна, пользователь проверяет их заново. */
 function optimizationRunOrders(ids,action,opts){
  opts=opts||{};ids=[...new Set(ids||[])];if(!ids.length||!action)return;
- const orders=ids.map(salesRecord),next=o=>action==='back'?SALES_PREV_STATUS[o.status]:action;
+ const orders=ids.map(salesRecord),next=o=>action==='back'?salesPrevStatus(o):action;
  const allowed=o=>salesRecordTransitionAllowed(o,next(o),{back:action==='back'});
  const held=orders.find(o=>o&&o.onHold&&['verified','batched'].includes(action));
  if(held){salesHoldBlocked(held.id);return;}
@@ -21771,7 +21807,7 @@ function viewOrderQueue(shipping){
  const key=orderQueueKey(),infos=optimizationBase(),filtered=salesListRows(infos),rows=filtered.map(i=>i.o),cols=salesListColumns(),selectable=rows.filter(o=>!optimizationBlocked(o));
  optimizationSel=new Set([...optimizationSel].filter(id=>selectable.some(o=>o.id===id)));
  const selected=rows.filter(o=>optimizationSel.has(o.id)),n=selected.length,all=selectable.length>0&&n===selectable.length;
- const can=act=>n>0&&selected.every(o=>salesRecordTransitionAllowed(o,act==='back'?SALES_PREV_STATUS[o.status]:act,{back:act==='back'}));
+ const can=act=>n>0&&selected.every(o=>salesRecordTransitionAllowed(o,act==='back'?salesPrevStatus(o):act,{back:act==='back'}));
  const button=(act,label,cls,enabled,delivery)=>`<button type="button" class="${cls||''}" data-queue-action="${delivery||act}" ${enabled?'':'disabled'} onclick="optimizationAction('${act}'${delivery?",'"+delivery+"'":''})">${label}</button>`;
  let actions='';
  if(shipping){
@@ -25004,6 +25040,15 @@ function glassBatchActive(orderId){
   if(!item.releasedAt&&part&&(!orderId||part.orderId===orderId))m.set(part.key+'|'+item.unit,{batch,item,index,part});
  }));
  return m;
+}
+/* Стекло строки уже в цеху без батча — порезано из стока и отсканировано.
+   Это материал клиента: строку менять нельзя, как строку из батча
+   (владелец, 05.10.2026). Undo скана снимает защиту. */
+function glassLineScanned(orderId,line){
+ if(!orderId||!line)return false;
+ const pre=orderId+'|'+line.id+'|',ids=new Set();
+ (DB.glassPiece||[]).forEach(r=>{if(!r||!String(r.key).startsWith(pre))return;(r.ids||[]).forEach(id=>ids.add(id));Object.values(r.extra||{}).forEach(a=>(a||[]).forEach(id=>ids.add(id)));});
+ return ids.size>0&&(DB.stationScan||[]).some(s=>s&&!s.undoneAt&&ids.has(s.piece));
 }
 function glassPieceMap(orderId){const m=new Map();(DB.glassPiece||[]).forEach(r=>{if(!orderId||r.key.startsWith(orderId+'|'))m.set(r.key,r);});return m;}
 /* Места Recut заказа: «ключ стекла|R1.1» (erp/quality/recut). */
