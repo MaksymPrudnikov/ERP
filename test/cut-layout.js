@@ -987,7 +987,7 @@ module.exports=async function({page,eq,ok}){
    taken:!!taken.ok,manualSafe,manualTrim:cutEffectiveTrimY(g.sheets[0],cutGroupParams(g,size))};
  }),{valid:true,errors:[],actual:1.3125,minimum:1,usable:1.3125,badge:true,tab:true,print:true,taken:true,manualSafe:true,manualTrim:1.3125});
 
- eq('общий нижний Trim X: уступ 5/16″ у столбцов исправляется тримом 1 5/16″ на всём листе',await t.p.evaluate(()=>{
+ eq('общий нижний Trim X: уступ 5/16″ у столбцов выравнивается тримом 1 5/16″ на всём листе, лист из-за уступа не бракуется',await t.p.evaluate(()=>{
   const size={w:96,h:144,key:'96x144'},params={trimX:1,trimY:0,borderX:0,borderY:0,minDist:.75};
   const left=Array.from({length:6},(_,i)=>({piece:'L'+i,x:0,y:1.3125+i*24,w:58.75,h:i===5?22.6875:24}));
   const right=Array.from({length:5},(_,i)=>({piece:'R'+i,x:58.75,y:1+i*24,w:27.0625,h:24}));
@@ -999,7 +999,7 @@ module.exports=async function({page,eq,ok}){
   return {bad:before.stuck.some(x=>x.reason==='minDist'&&Math.abs(x.width-.3125)<1e-6),fixed,safe:after.ok,trim:cutEffectiveTrimX(sheet,params),
    all:sheet.pieces.every(p=>p.y>=1.3125-1e-6),line:line&&Math.abs(+line.getAttribute('y1')-(144-1.3125)*S)<.06,
    label:line&&line.querySelector('title').textContent.includes('1 5/16″ (minimum 1″)')};
- }),{bad:true,fixed:true,safe:true,trim:1.3125,all:true,line:true,label:true});
+ }),{bad:false,fixed:true,safe:true,trim:1.3125,all:true,line:true,label:true});
 
  eq('144 × 102, два 50 1/4″ друг над другом: нижний Trim X 1 1/4″ → 1 1/2″ — линия, подсказка, печать, снимок станка',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',144,102);

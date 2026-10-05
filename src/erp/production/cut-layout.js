@@ -246,13 +246,13 @@ function cutTrimBands(sheet,axis){
  });
  return bands;
 }
+/* Запрет «не режется» — только для левого уступа. Снизу столбцы с уступом
+   выравниваются, где можно (cutAlignTrim), но лист из-за уступа не
+   бракуется: каждая полоска там не тоньше Min distance, а запрет на тесте
+   владельца (102 × 144, 23 листа как у Perfect Cut) давал лишний лист. */
 function cutTrimBandSlivers(sheet,params){
- const md=+params.minDist||0;
- return ['x','y'].flatMap(axis=>{
-  const trim=cutEffectiveTrim(sheet,params,axis);
-  return cutTrimBands(sheet,axis).filter(b=>b.left-trim>1e-6&&b.left-trim<md-1e-6).map(b=>Object.assign({reason:'minDist',width:cutRound(b.left-trim),required:md},
-   axis==='x'?{x0:trim,x1:b.left,y0:b.lo,y1:b.hi}:{x0:b.lo,x1:b.hi,y0:trim,y1:b.left}));
- });
+ const md=+params.minDist||0,trim=cutEffectiveTrimY(sheet,params);
+ return cutTrimBands(sheet,'x').filter(b=>b.left-trim>1e-6&&b.left-trim<md-1e-6).map(b=>({reason:'minDist',width:cutRound(b.left-trim),required:md,x0:trim,x1:b.left,y0:b.lo,y1:b.hi}));
 }
 function cutAlignTrim(sheet,size,params){
  if(sheet.locked||(sheet.stock||[]).length)return false;
