@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 110 модулей, 18 стиля.
+  Состав сборки: 113 модулей, 19 стиля.
 -->
 <html lang="en">
 <head>
@@ -1454,6 +1454,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .pill.st-verified{background:var(--accent-soft);color:var(--accent)}
 .pill.st-batched{background:var(--warning-soft);color:var(--warning)}
 .pill.st-ready{background:var(--success-soft);color:var(--success);box-shadow:inset 0 0 0 1px var(--success-line)}
+.pill.st-shipping{background:var(--surface-3);color:var(--success);box-shadow:inset 0 0 0 1px var(--success-line)}
 .pill.st-done{background:var(--success-soft);color:var(--success)}
 .pill.st-closed{background:var(--surface-3);color:var(--text)}
 .pill.st-cancelled{background:var(--danger-soft);color:var(--danger)}
@@ -2723,6 +2724,11 @@ body.cut-full:has([data-cut-full]) .app-foot{display:none}
 body.station-mode .app-alert{position:static;font-size:17px;padding:14px 22px}
 body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:16px}
 
+/* ---- src/styles/shipping.css ---- */
+/* Shipping office: quiet tables, English labels, shared design tokens. */
+.shipping-workspace{display:grid;gap:16px}.shipping-workspace>.oq-tabs{margin:0}.shipping-top{display:flex;justify-content:flex-end}.shipping-top label{display:flex;gap:10px;align-items:center}.shipping-top select{min-width:220px;max-width:50vw}.shipping-customer,.shipping-detail{padding:20px}.shipping-customer-head{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:14px}.shipping-customer-head h3{margin:0 0 5px}.shipping-skid{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.shipping-skid label{display:flex;gap:9px;align-items:center;min-width:100px}.shipping-skid>span{flex:1}.shipping-ready-table input[type=number],.shipping-pick input{width:70px}.shipping-order-row{background:var(--surface-2)}.shipping-order-row label{display:inline-flex;gap:9px;align-items:center}.shipping-scan{display:flex;gap:16px;flex-wrap:wrap;padding:18px;border-bottom:1px solid var(--line)}.shipping-scan label{display:grid;gap:5px}.shipping-scan label:first-child{flex:1;min-width:200px}.shipping-scan input{min-height:38px}.shipping-selected{background:var(--accent-soft)}.shipping-reprint{color:var(--warning);font-weight:700}.shipping-notice{padding:12px 16px;border-radius:8px;background:var(--success-soft);color:var(--success)}.shipping-notice.bad{background:var(--danger-soft);color:var(--danger)}.shipping-detail-order{padding:14px 0;border-bottom:1px solid var(--line);line-height:1.8}.shipping-detail-order>b{display:block}.shipping-detail-order .mut{margin-left:12px}.shipping-preview{display:grid;gap:18px;justify-content:center;padding:24px 0;overflow:auto;background:var(--surface-2);margin-top:18px}.shipping-preview svg{max-width:100%;height:auto;background:var(--on-solid);box-shadow:var(--shadow)}.shipping-modal{width:min(860px,calc(100vw - 24px));max-width:860px;max-height:calc(100vh - 24px);display:flex;flex-direction:column}.shipping-form{padding:18px;overflow:auto}.shipping-form label{display:grid;gap:5px}.shipping-form-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}.shipping-form h4{margin:20px 0 8px}.shipping-form .shipping-pick{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.shipping-pick>span:first-child{flex:1}.shipping-pick small{display:block;color:var(--text-2)}.shipping-form textarea{width:100%;min-height:55px}.shipping-order-strip{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 0}.shipping-workspace .optimization-queue>.oq-tabs{display:none}.shipping-workspace .optimization-queue>.page-head{display:none}.pill.st-shipping{background:var(--accent-soft);color:var(--accent)}
+@media(max-width:650px){.shipping-customer-head{align-items:flex-start;flex-direction:column}.shipping-customer,.shipping-detail{padding:12px}.shipping-form-fields{grid-template-columns:1fr}.shipping-skid{flex-wrap:wrap}.shipping-top{justify-content:flex-start}.shipping-top label{flex-wrap:wrap}.shipping-scan{padding:12px}.shipping-scan input{max-width:100%}}
+
 </style>
 </head>
 <body>
@@ -2749,7 +2755,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='9de472a939d5';
+var ERP_BUILD='5e8438ab9d27';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11216,13 +11222,13 @@ function salesTemperCompatibilityWarnings(order){
    с подтверждением. Отдельного «In production» нет: батч и есть цех.
    ===================================================================== */
 
-const SALES_ORDER_FLOW=['new','verified','batched','ready','done','closed'];
+const SALES_ORDER_FLOW=['new','verified','batched','ready','shipping','done','closed'];
 const SALES_ORDER_STATE_LIST=SALES_ORDER_FLOW.concat(['cancelled']);
 const SALES_QUOTE_STATE_LIST=['open','sent','won'];
 /* Заказ одного склада: стекла нет, резать нечего — после Verified сразу
    Ready, шага Batched у него нет (владелец, 05.10.2026). */
 function salesStockOnly(o){return !!o&&!salesIsQuote(o)&&!(o.lines||[]).length&&!!(o.extraItems||[]).length;}
-function salesOrderFlow(o){return salesStockOnly(o)?SALES_ORDER_FLOW.filter(s=>s!=='batched'):SALES_ORDER_FLOW;}
+function salesOrderFlow(o){return SALES_ORDER_FLOW.filter(s=>(s!=='batched'||!salesStockOnly(o))&&(s!=='shipping'||o.status==='shipping'||!!(o.statusDates&&o.statusDates.shipping)));}
 function salesNextStatus(o){const f=salesOrderFlow(o),i=f.indexOf(o&&o.status);return i>=0?f[i+1]:undefined;}
 function salesPrevStatus(o){const f=salesOrderFlow(o),i=f.indexOf(o&&o.status);return i>0?f[i-1]:undefined;}
 
@@ -11240,7 +11246,7 @@ function salesLifecycleFields(o){
  const q=kind==='quote',rev=Math.floor(Number(o.quoteRev));
  const batchNo=!q?salesBatchNumber(o.batchNo):'',batchHistory=q?[]:[...new Set((Array.isArray(o.batchHistory)?o.batchHistory:[]).map(salesBatchNumber).filter(Boolean).concat(batchNo?[batchNo]:[]))];
  const unbatchHistory=!q&&Array.isArray(o.unbatchHistory)?o.unbatchHistory.filter(x=>x&&typeof x==='object'&&typeof x.at==='string').map(x=>({at:x.at,batchNumbers:[...new Set((Array.isArray(x.batchNumbers)?x.batchNumbers:[]).map(salesBatchNumber).filter(Boolean))],lineIds:[...new Set((Array.isArray(x.lineIds)?x.lineIds:[]).map(salesRefId).filter(Boolean))]})):[];
- return {kind,status,statusDates,batchNo,batchHistory,unbatchHistory,fulfilledVia:!q&&['done','closed'].includes(status)?(['pickup','delivery'].includes(o.fulfilledVia)?o.fulfilledVia:o.delivery==='delivery'?'delivery':'pickup'):'',fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
+ return {kind,status,statusDates,batchNo,batchHistory,unbatchHistory,fulfilledVia:!q&&['shipping','done','closed'].includes(status)?(['pickup','delivery'].includes(o.fulfilledVia)?o.fulfilledVia:o.delivery==='delivery'?'delivery':'pickup'):'',fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
   quoteGroupId:q?salesRefId(o.quoteGroupId):'',quoteRev:q&&Number.isFinite(rev)&&rev>0&&rev<1000?rev:0,
   sentAt:q?salesString(o.sentAt):'',validUntil:q&&/^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil||''))?String(o.validUntil):'',
   /* On Hold заказа (views/sales-list-ui): пока стоит, заказ не верифицируется и не уходит в батч. */
@@ -11254,6 +11260,7 @@ function nextSalesQuoteNumber(){
 function salesStatusLabel(o,status){
  status=status||(o&&o.status);
  if(salesIsQuote(o))return status==='won'?'Won':status==='sent'?'Sent':'Not sent';
+ if(status==='shipping')return o&&o.status!=='shipping'&&o.statusDates&&o.statusDates.shipping?'Partially shipped':typeof shippingBackCount==='function'&&o&&o.id&&shippingBackCount(o)===0?'Shipped':'Partially shipped';
  if(status==='done')return o&&(o.fulfilledVia||o.delivery)==='delivery'?'Delivered':'Picked up';
  return ({new:'New',verified:'Verified',batched:'Batched',ready:'Ready',closed:'Closed',cancelled:'Cancelled'})[status]||'New';
 }
@@ -11296,7 +11303,7 @@ function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='sha
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
  if(salesLineLocked(line))return ` <span class="line-lock" title="Batched ${esc(salesShortDate(line.batchedAt))}${line.batchNo?' · '+esc(line.batchNo):''}">🔒</span>`;
- return ['batched','ready','done'].includes(soDraft.status)?' <span class="pill st-added">added after batch</span>':'';
+ return ['batched','ready','shipping','done'].includes(soDraft.status)?' <span class="pill st-added">added after batch</span>':'';
 }
 /* Фигура строки хранится в DB.shapeDef и сохраняется редактором сразу, поэтому
    её защищают проверки на входе. Всё, что живёт в черновике заказа, ловит
@@ -11335,10 +11342,11 @@ function salesStartedViolations(draft,saved){
 }
 function salesDeleteBlocked(o){
  if(!o)return false;
+ if(typeof shippingForOrder==='function'&&shippingForOrder(o.id).length){alert('This order has packing slips and cannot be deleted.');return true;}
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
  const ncr=(DB.ncr||[]).find(n=>n.orderId===o.id||n.remakeOrderId===o.id)||((DB.recut||[]).some(r=>r.orderId===o.id)?{number:'a recut'}:null);
  if(!salesIsQuote(o)&&ncr){alert('Order '+(o.businessNumber||'')+' is linked to '+ncr.number+'. Cancel it instead of deleting.');return true;}
- if(!salesIsQuote(o)&&(['batched','ready','done','closed'].includes(o.status)||(o.lines||[]).some(l=>salesLineLocked(l)||typeof glassLineScanned==='function'&&glassLineScanned(o.id,l)))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
+ if(!salesIsQuote(o)&&(['batched','ready','shipping','done','closed'].includes(o.status)||(o.lines||[]).some(l=>salesLineLocked(l)||typeof glassLineScanned==='function'&&glassLineScanned(o.id,l)))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
  return false;
 }
 
@@ -11359,7 +11367,7 @@ function salesDialogHTML(){
 
 /* ---------------------------- Переходы -------------------------------- */
 function salesNextActionLabel(o){
- return ({new:'Verify order',verified:'Send to batch',batched:'Mark as ready',ready:o.delivery==='delivery'?'Mark as delivered':'Mark as picked up',done:'Close order'})[o.status]||'';
+ return ({new:'Verify order',verified:'Send to batch',done:'Close order'})[o.status]||'';
 }
 function salesTransitionChecks(o,next){
  const out=[],c=salesFindCustomer(o.customerId),num=o.businessNumber||'(new)',b=finOrderBalance(o),name=c?(c.displayName||c.legalName):'No customer';
@@ -11415,10 +11423,12 @@ function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};
  if(!o||salesIsQuote(o)||!SALES_ORDER_STATE_LIST.includes(next))return false;
  if(opts.restore)return o.status==='cancelled'&&next==='new';
- if(opts.back)return !['cancelled','batched'].includes(o.status)&&salesPrevStatus(o)===next;
- if(next==='cancelled')return !['closed','cancelled'].includes(o.status);
+ if(opts.back)return !['cancelled','batched','ready','shipping','done'].includes(o.status)&&salesPrevStatus(o)===next&&!shippingHasCommitment(o);
+ if(next==='cancelled')return !['closed','cancelled'].includes(o.status)&&!shippingHasSent(o)&&!shippingHasCommitment(o);
+ if(next==='ready'){const q=shippingSummary(o);return !o.onHold&&o.status!=='new'&&q.glass>0&&q.physicalReady===q.glass&&!q.shipped;}
+ if(next==='done'||next==='shipping')return false;
  if(o.onHold&&(next==='verified'||next==='batched'))return false;
- if(next==='batched')return !salesStockOnly(o)&&(o.status==='verified'||['batched','ready','done'].includes(o.status))&&(salesBatchableLines(o).length>0||o.status==='verified'&&!salesUnbatchedLines(o).length);
+ if(next==='batched')return !salesStockOnly(o)&&(o.status==='verified'||['batched','ready','shipping','done'].includes(o.status))&&(salesBatchableLines(o).length>0||o.status==='verified'&&!salesUnbatchedLines(o).length);
  if((next==='ready'||next==='done'||next==='closed')&&salesUnbatchedLines(o).length)return false;
  return salesNextStatus(o)===next;
 }
@@ -11446,15 +11456,16 @@ function salesSetRecordStatusCommand(orderId,next,opts){
  if(opts.restore){o.statusDates={new:now};o.fulfilledVia='';}
  else if(opts.back){
   SALES_ORDER_FLOW.slice(SALES_ORDER_FLOW.indexOf(next)+1).forEach(k=>{delete o.statusDates[k];});
-  if(SALES_ORDER_FLOW.indexOf(next)<4)o.fulfilledVia='';
+  if(!['shipping','done','closed'].includes(next))o.fulfilledVia='';
  }else o.statusDates[next]=now;
  if(next==='batched'&&!opts.back){
   if(batchRows)glassBatchAssign(batchRows,{batchNo:opts.batchNo,now,deferTouch:true});
-  ['ready','done','closed'].forEach(k=>{delete o.statusDates[k];});o.fulfilledVia='';
+  if(!shippingHasSent(o)){['ready','done','closed'].forEach(k=>{delete o.statusDates[k];});o.fulfilledVia='';}
  }
  if(next==='done'&&!opts.back)o.fulfilledVia=opts.delivery==='delivery'?'delivery':opts.delivery==='pickup'?'pickup':o.delivery;
  o.status=next;o.updatedAt=now;
  if(next==='verified'&&!opts.back)glassPieceEnsure(o);
+ if(next==='verified'&&salesStockOnly(o)||next==='batched'&&shippingHasSent(o))shippingSyncOrder(o,now);
  if(next==='cancelled'){o.fulfilledVia='';finReleaseOrder(o.id);}
  salesSyncRecordLifecycle(o);
  if(!opts.deferTouch)touch();
@@ -11577,7 +11588,7 @@ function salesOrderBatchNumbers(o){return [...new Set((o.lines||[]).filter(sales
 function salesLockBar(o){
  if(salesIsQuote(o))return '';
  const last=(o.unbatchHistory||[]).slice(-1)[0],history=last?`<div class="sales-quote-note">Unbatched ${esc(salesShortDate(last.at))} · ${esc(last.batchNumbers.join(', ')||'previous batch')} · ${last.lineIds.length} line(s)${o.status==='new'?' · verify again':''}</div>`:'';
- const locked=o.lines.filter(salesLineLocked),active=['batched','ready','done'].includes(o.status);
+ const locked=o.lines.filter(salesLineLocked),active=['batched','ready','shipping','done'].includes(o.status);
  if(!locked.length&&!active)return history;
  const first=locked.map(l=>l.batchedAt).sort()[0],numbers=salesOrderBatchNumbers(o),readonly=salesOrderReadOnly(o);
  return history+`<div class="sales-lockbar">${locked.length?`<span>🔒 <b>Batched ${esc(salesShortDate(first))}${numbers.length?' · '+esc(numbers.join(', ')):''}</b> · lines locked</span>`:''}<span class="sp"></span>${readonly?'':`<button class="sm" onclick="salesOrderAddLine(null,true)">+ Line (charged)</button><button class="sm" onclick="salesNewOrderForCustomer('${esc(o.customerId)}')">New order for this customer</button>`}</div>`;
@@ -13526,6 +13537,7 @@ function salesOrderSaveCommand(opts){
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
  const previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
+ const shippingError=shippingSaveGuard(soDraft,previousOrder);if(shippingError)return fail(e,shippingError);
  if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&(DB.receipt||[]).some(r=>r.allocations.some(a=>a.orderId===soDraft.id)))return fail(e,'This order has payment records. Its customer cannot change.');
  /* Строки из батча: стекло уже на резке (владелец, 15 сентября 2026). Новый
     размер — новая строка или новый заказ, а не правка строки. */
@@ -13553,7 +13565,7 @@ function salesOrderSaveCommand(opts){
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;if(!soDraft.statusDates[soDraft.status])soDraft.statusDates[soDraft.status]=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
- normalizeSalesData();if(typeof glassPieceEnsure==='function')glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
+ normalizeSalesData();if(typeof glassPieceEnsure==='function')glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
 function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(salesDeleteBlocked(DB.salesOrder[i]))return;if(salesIsQuote(DB.salesOrder[i])){salesQuoteDeleteGroup(DB.salesOrder[i]);return;}const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;if(!confirm(paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?'))return;if(typeof finReleaseOrder==='function')finReleaseOrder(id);DB.salesOrder.splice(i,1);salesPruneOrphanShapes();touch();render();}
 
@@ -18073,7 +18085,7 @@ function salesCustomerOptions(){const rows=(DB.customer||[]).filter(c=>c.status!
 function salesOrderEditor(){
  const o=soDraft,c=salesFindCustomer(o.customerId),title=salesOrderTitle(o),ro=salesOrderReadOnly(o),q=salesIsQuote(o),fromQuote=o.fromQuoteId?((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber:'',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
  return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(q?salesQuoteShown(o):o)}${!q&&o.onHold?'<span class="pill hold" data-hold-pill>On Hold</span>':''}${customerFlags}</div><div class="mut mono">${esc(q?salesQuoteShown(o).id:o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}</div></div>${q?'':salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
- ${salesHoldBar(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro?'<div class="sales-readonly" inert>':''}
+ ${salesHoldBar(o)}${shippingOrderStrip(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro?'<div class="sales-readonly" inert>':''}
  <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" onchange="soDraft.validUntil=this.value;render()"></div>`:''}</div>
  ${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
  ${salesGlassSectionHTML()}
@@ -21728,8 +21740,8 @@ function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TAB
 function optimizationMatches(o,key){
  if(!o||salesIsQuote(o))return false;
  const fresh=salesUnbatchedLines(o).length;
- return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?!salesStockOnly(o)&&(o.status==='verified'||(['batched','ready','done'].includes(o.status)&&fresh>0)):
-  key==='production'?o.status==='batched':key==='awaiting'?o.status==='batched'&&!fresh||salesStockOnly(o)&&o.status==='verified':key==='ready'?o.status==='ready'&&!fresh:key==='done'?o.status==='done'&&!fresh:false;
+ return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?!salesStockOnly(o)&&(o.status==='verified'||(['batched','ready','shipping','done'].includes(o.status)&&fresh>0)):
+  key==='production'?o.status==='batched':key==='awaiting'?['verified','batched'].includes(o.status)&&!salesStockOnly(o):key==='ready'?shippingAvailable(o).length>0||salesStockOnly(o)&&o.status==='ready':key==='done'?o.status==='done'&&!fresh:false;
 }
 function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:key==='stock'?(DB.stockOffcut||[]).filter(r=>r.status==='stock').length:key==='sheets'?sheetUsageRows().length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}
 function optimizationBase(){return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,orderQueueKey())).map(salesListInfo);}
@@ -21821,8 +21833,7 @@ function viewOrderQueue(shipping){
  const button=(act,label,cls,enabled,delivery)=>`<button type="button" class="${cls||''}" data-queue-action="${delivery||act}" ${enabled?'':'disabled'} onclick="optimizationAction('${act}'${delivery?",'"+delivery+"'":''})">${label}</button>`;
  let actions='';
  if(shipping){
-  if(key==='awaiting')actions=button('ready','Mark ready','pri',can('ready'));
-  if(key==='ready')actions=button('done','Mark picked up','pri',can('done'),'pickup')+button('done','Mark delivered','go',can('done'),'delivery');
+  /* Ready and dispatch are driven by scans and packing slips. */
   if(key==='done')actions=button('closed','Close order','pri',can('closed'));
  }else{
   if(key==='all'||key==='new')actions+=button('verified','Verify','pri',can('verified'));
@@ -21833,14 +21844,14 @@ function viewOrderQueue(shipping){
  const th=c=>{const f=salesListLoadPrefs().filters[c.k],active=salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
  const body=filtered.map(info=>{
   const o=info.o,blocked=optimizationBlocked(o),chosen=optimizationSel.has(o.id);
-  const cell=c=>c.k==='batch'?`<td class="oq-batches">${salesOrderBatchNumbers(o).map(v=>`<span class="pill">${esc(v)}</span>`).join(' ')||'—'}</td>`:c.k==='newLines'?`<td class="n">${salesUnbatchedLines(o).length}</td>`:salesListCell(info,c);
+  const cell=c=>c.k==='readyQty'?`<td>${shippingSummary(o).physicalReady} / ${shippingSummary(o).glass}</td>`:c.k==='batch'?`<td class="oq-batches">${salesOrderBatchNumbers(o).map(v=>`<span class="pill">${esc(v)}</span>`).join(' ')||'—'}</td>`:c.k==='newLines'?`<td class="n">${salesUnbatchedLines(o).length}</td>`:salesListCell(info,c);
   return `<tr data-queue-order="${esc(o.id)}" class="${o.onHold?'oq-hold':chosen?'oq-selected':''}"><td><input type="checkbox" data-queue-check aria-label="Select order ${esc(o.businessNumber)}" ${chosen?'checked':''} ${blocked?'disabled':''} onchange="optimizationToggle('${esc(o.id)}',this.checked)"></td>${cols.map(cell).join('')}
    <td class="oq-actions"><button type="button" class="sm" data-queue-open onclick="optimizationOpenOrder('${esc(o.id)}')">Open</button>${o.onHold?`<button type="button" class="sm" data-queue-release onclick="salesReleaseHold(['${esc(o.id)}'])">Release</button>`:''}</td></tr>`;
  }).join('');
  return `<section class="optimization-queue ${shipping?'shipping-queue':''}"><div class="page-head"><div><h2>${shipping?'Shipping':'Order queue'}</h2></div></div>
   <div class="oq-tabs" role="tablist" aria-label="Order queues">${tabs}</div>
   <div class="card oq-card"><div class="oq-toolbar"><b data-queue-selection>${n} order${n===1?'':'s'} selected</b>${actions}
-   ${button('back','← Back','',can('back'))}${button('cancelled','Cancel order','dl',can('cancelled'))}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
+   ${shipping?'':button('back','← Back','',can('back'))}${button('cancelled','Cancel order','dl',can('cancelled'))}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
    ${optimizationNotice?`<div class="oq-notice${optimizationNotice.error?' bad':''}" role="${optimizationNotice.error?'alert':'status'}"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>
@@ -21848,12 +21859,129 @@ function viewOrderQueue(shipping){
 }
 
 /* ==== src/erp/views/shipping.js ==== */
-/* Shipping: готовность, самовывоз/доставка и отдельное закрытие заказа.
-   IN: сохранённые заказы; OUT: общий экран очереди с действиями выдачи.
-   Пока цех не сообщает завершение, Mark ready подтверждают вручную. */
-const SHIPPING_TABS=[['awaiting','Awaiting readiness'],['ready','Ready'],['done','Picked up / Delivered']];
-let shippingTab='awaiting';
-function viewShipping(){return viewOrderQueue(true);}
+/* Shipping office · PR 1, 5 October 2026.
+   Ready by scan, one customer/address per PS, partial dispatch and receipt.
+   Uses the existing Sales column filters. No loading/queue/truck UI here. */
+const SHIPPING_TABS=[['awaiting','Awaiting readiness'],['ready','Ready'],['shipments','Shipments'],['backorders','Backorders'],['done','Done']];
+let shippingTab='ready',shippingNotice=null,shippingDraft=null,shippingOpenId='',shippingPreview=false;
+let shippingSelection=new Set(),shippingCustomer='',shippingReceivedBy='',shippingReceivedOn='';
+function shippingSetTab(key){shippingTab=key;shippingNotice=null;salesListMenu=null;render();}
+/* Счётчики на вкладках — как были у очереди Shipping: заказы, у Shipments —
+   открытые PS (planned и shipped). */
+function shippingTabCount(key){
+ if(key==='shipments')return (DB.shipment||[]).filter(s=>s.status==='planned'||s.status==='shipped').length;
+ if(key==='ready')return shippingReadyOrders().length;
+ if(key==='backorders')return shippingOrders().filter(o=>o.status==='shipping'&&shippingBackCount(o)>0).length;
+ return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;
+}
+function shippingTabs(){return '<div class="oq-tabs" role="tablist">'+SHIPPING_TABS.map(([key,name])=>`<button type="button" role="tab" data-shipping-tab="${key}" aria-selected="${shippingTab===key}" class="${shippingTab===key?'on':''}" onclick="shippingSetTab('${key}')">${name} <b>${shippingTabCount(key)}</b></button>`).join('')+'</div>';}
+function shippingOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&!['cancelled','closed'].includes(o.status)&&!shippingLegacy(o)&&(o.status!=='new'||shippingAvailable(o).length>0));}
+/* Ready — только то, что можно положить в PS: готовые юниты без PS и товары
+   склада. Заказ, где готового нет, сюда не попадает (он в Awaiting). */
+function shippingReadyExtras(o,q){return o.status!=='new'&&!o.onHold?q.extras.filter(e=>e.ready>0):[];}
+function shippingReadyOrders(){return shippingOrders().filter(o=>{const q=shippingSummary(o);return q.ready>0||shippingReadyExtras(o,q).length>0;});}
+function shippingSelect(customerId,labels,on){if(shippingCustomer!==customerId){shippingSelection.clear();shippingCustomer=customerId;}labels.forEach(id=>on?shippingSelection.add(id):shippingSelection.delete(id));render();}
+function shippingSelectOrder(id,on){const o=salesRecord(id);shippingSelect(o.customerId,shippingAvailable(o).map(i=>i.label),on);}
+function shippingSelectSkid(customerId,code,on){shippingSelect(customerId,shippingWithCtx(()=>shippingOrders().filter(o=>o.customerId===customerId).flatMap(shippingAvailable).filter(i=>i.skid===code).map(i=>i.label)),on);}
+function shippingSelectQty(id,lineId,n){const o=salesRecord(id),units=shippingAvailable(o).filter(i=>i.lineId===lineId);if(shippingCustomer!==o.customerId){shippingSelection.clear();shippingCustomer=o.customerId;}units.forEach((i,k)=>k<Math.max(0,+n||0)?shippingSelection.add(i.label):shippingSelection.delete(i.label));render();}
+/* Способ по умолчанию — из заказов в PS (Pickup / Delivery ставит продавец),
+   у пустого рейса — из карточки клиента. */
+function shippingOpen(customerId,id){
+ shippingWithCtx(()=>{
+  const s=id&&shippingFind(id),orders=shippingOrders().filter(o=>o.customerId===customerId),c=salesFindCustomer(customerId);
+  const all=orders.flatMap(shippingAvailable),selected=all.filter(i=>shippingCustomer===customerId&&shippingSelection.has(i.label)),items=selected.length?selected:all;
+  const planned=[...new Set(items.map(i=>i.orderId))].map(oid=>salesRecord(oid).delivery);
+  const method=planned.length?(planned.every(d=>d==='pickup')?'pickup':'delivery'):String(c&&c.defaultDeliveryMethod||'').toLowerCase().includes('pickup')?'pickup':'delivery';
+  shippingDraft=s?shippingClone(s):{customerId,method,shipTo:shippingDefaultAddress(c),date:finToday(),items:items.map(shippingItem),extras:orders.filter(o=>o.status!=='new'&&!o.onHold).flatMap(o=>shippingSummary(o).extras.filter(x=>x.ready>0).map(x=>({orderId:o.id,extraId:x.x.id,qty:x.ready}))),note:''};
+  shippingDraft.error='';
+ });
+ render();
+}
+function shippingDraftQty(orderId,lineId,n){
+ const d=shippingDraft,o=salesRecord(orderId);if(!d||!o)return;const available=shippingAvailable(o,d.id).filter(i=>i.lineId===lineId);
+ available.sort((a,b)=>Number(d.items.some(i=>i.label===b.label))-Number(d.items.some(i=>i.label===a.label)));
+ d.items=d.items.filter(i=>i.orderId!==orderId||i.lineId!==lineId).concat(available.slice(0,Math.max(0,Math.floor(+n)||0)).map(shippingItem));render();
+}
+function shippingDraftExtra(orderId,extraId,n){const d=shippingDraft;if(!d)return;d.extras=d.extras.filter(i=>i.orderId!==orderId||i.extraId!==extraId);if(+n>0)d.extras.push({orderId,extraId,qty:Math.floor(+n)});}
+function shippingDraftAddress(id){const c=salesFindCustomer(shippingDraft.customerId),a=(c.addresses||[]).find(a=>a.id===id);shippingDraft.shipTo=a?shippingAddress(Object.assign({},a,{contact:shippingDraft.shipTo.contact,phone:shippingDraft.shipTo.phone})):shippingAddress({});render();}
+function shippingSave(){
+ const d=shippingDraft;if(!d)return;
+ try{shippingValidateSelection(d,d.id);}catch(e){d.error=e.message;render();return;}
+ shippingWithChecks(shippingOrderIds(d),d.method,false,()=>{
+  const out=d.id?shippingUpdate(d.id,d):shippingCreate(d);if(!out.ok){d.error=out.error;render();return;}
+  shippingDraft=null;shippingSelection.clear();shippingOpenId=out.value.id;shippingTab='shipments';shippingNotice={text:out.value.number+' saved'};render();
+ });
+}
+function shippingResult(out){shippingNotice={error:!out.ok,text:out.ok?out.value.number+' · '+shippingStatus(out.value):out.error};render();}
+function shippingStatus(s){return s.status==='delivered'?(s.method==='pickup'?'Picked up':'Delivered'):({planned:'Planned',shipped:'Shipped',cancelled:'Cancelled'})[s.status]||'';}
+function shippingDispatch(id){shippingResult(shippingMarkShipped(id));}
+function shippingReceive(id){shippingResult(shippingMarkDelivered(id,shippingReceivedBy,shippingReceivedOn||finToday()));}
+function shippingSigned(raw){const out=shippingScanSigned(raw,shippingReceivedBy,shippingReceivedOn||finToday());if(out.ok)shippingOpenId=out.value.id;shippingResult(out);shippingFocus();}
+function shippingUndo(id,action){
+ const s=shippingFind(id);if(!s)return;const before=JSON.stringify(s),verb=action==='cancel'?'Cancel packing slip':action==='receipt'?'Undo receipt':'Undo dispatch';
+ salesDialogOpen({title:verb+' '+s.number+'?',note:'The order quantities and dates will be recalculated.',buttons:[{label:'Back'},{label:verb,kind:'dl',run:()=>{
+  if(JSON.stringify(shippingFind(id))!==before){shippingNotice={error:true,text:'Packing slip changed. Try again.'};render();return;}shippingResult(shippingRevert(id,action));
+ }}]});
+}
+function shippingGo(id){salesLeaveDraft(()=>{shippingTab='shipments';shippingOpenId=id;shippingPreview=false;tab='shipping';render();});}
+function shippingOrderStrip(o){
+ if(salesIsQuote(o))return '';const q=shippingSummary(salesRecord(o.id)||o);if(!q.ps.length)return '';
+ return `<div class="shipping-order-strip"><b>Shipped ${q.shipped} / ${q.ordered} · Back order ${q.back}</b>${q.ps.map(s=>`<button type="button" class="sm" onclick="shippingGo('${esc(s.id)}')">${esc(s.number)} · ${shippingStatus(s)}</button>`).join('')}${q.shipped?'<span class="mut">Cancel remaining units</span>':''}</div>`;
+}
+/* Строки — только с готовыми юнитами: остальное видно итогом в строке заказа.
+   Back order — только когда по заказу уже что-то уехало: до первой отгрузки
+   «бэкордер = весь заказ» путал (ревью Claude, 05.10.2026). */
+function shippingReadyHTML(){
+ const orders=shippingReadyOrders(),customers=[...new Set(orders.map(o=>o.customerId))];
+ return customers.map(id=>{
+  const os=orders.filter(o=>o.customerId===id),summaries=os.map(o=>({o,q:shippingSummary(o)})),units=os.flatMap(shippingUnits),free=units.filter(i=>i.ready&&!i.shipment);
+  const c=salesFindCustomer(id),skids=[...new Set(units.filter(i=>i.ready&&i.skid).map(i=>i.skid))],loose=free.filter(i=>!i.skid).length;
+  const skidHTML=skids.map(code=>{const all=units.filter(i=>i.ready&&i.skid===code),a=all.filter(i=>!i.shipment),counts=new Map();all.forEach(i=>counts.set(i.orderId,(counts.get(i.orderId)||0)+1));return `<div class="shipping-skid"><label><input type="checkbox" ${a.length?'':'disabled'} ${a.length&&a.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectSkid('${esc(id)}','${code}',this.checked)"><b>${code}</b></label><span>${shippingCount(all.length,'unit')} · ${[...counts].map(([oid,n])=>esc(salesRecord(oid).businessNumber)+' ×'+n).join(', ')}${all.length>a.length?' · '+(all.length-a.length)+' on PS':''}</span><button class="sm" onclick="shippingPrintSkid('${esc(id)}','${code}')">Skid sheet</button></div>`;}).join('');
+  const rows=summaries.map(({o,q})=>{
+   const avail=free.filter(i=>i.orderId===o.id),back=v=>q.shipped?v:'—';
+   return `<tr class="shipping-order-row"><td colspan="3"><label><input type="checkbox" ${avail.length?'':'disabled'} ${avail.length&&avail.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectOrder('${esc(o.id)}',this.checked)"><button class="sm" onclick="optimizationOpenOrder('${esc(o.id)}')">Order ${esc(o.businessNumber)}</button></label>${o.customerPo?' · PO '+esc(o.customerPo):''}</td><td>${q.ready}</td><td>${Math.max(0,q.glass-q.physicalReady-q.lines.reduce((n,l)=>n+l.shipped,0))}</td><td>${back(q.back)}</td><td></td></tr>`
+    +q.lines.map((r,n)=>({r,n})).filter(x=>x.r.ready>0).map(({r,n})=>`<tr data-ready-line="${esc(r.l.id)}"><td>${n+1}${r.l.mark?' · '+esc(r.l.mark):''}</td><td>${esc(docSize(r.l))}</td><td>${esc(salesMakeupSummary(salesMakeupById(o,r.l.makeupId)))}</td><td>${r.ready}</td><td>${Math.max(0,r.ordered-r.physicalReady-r.shipped)}</td><td>${back(r.back)}</td><td><input aria-label="Select quantity for order ${esc(o.businessNumber)} line ${n+1}" type="number" min="0" max="${r.ready}" value="${free.filter(i=>i.lineId===r.l.id&&shippingSelection.has(i.label)).length}" onchange="shippingSelectQty('${esc(o.id)}','${esc(r.l.id)}',this.value)"></td></tr>`).join('')
+    +shippingReadyExtras(o,q).map(e=>`<tr><td colspan="3">From stock · ${esc(salesExtraItemName(e.x))}</td><td>${e.ready}</td><td>—</td><td>${back(e.back)}</td><td>In PS form</td></tr>`).join('');
+  }).join('');
+  return `<section class="card shipping-customer"><div class="shipping-customer-head"><div><h3>${esc(salesCustomerDisplay(id))}</h3><span class="mut">${esc(docAddressText(shippingDefaultAddress(c)))||'Choose an address or pickup'}</span></div><button class="pri" data-create-ps="${esc(id)}" onclick="shippingOpen('${esc(id)}')">Create packing slip</button></div>${skidHTML}${loose?`<p class="mut">Without a skid · ${shippingCount(loose,'unit')}</p>`:''}<div class="sales-table-wrap"><table class="sl-table shipping-ready-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Ready</th><th>Not ready</th><th>Back order</th><th>Select qty</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+ }).join('')||'<div class="card empty">No units ready for a packing slip.</div>';
+}
+function shippingListScope(){return shippingTab==='shipments'?'shippingPS':shippingTab==='awaiting'?'shippingAwaiting':shippingTab==='done'?'shippingDone':'';}
+function shippingListColumns(){return [{k:'number',label:'Packing slip',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'date',label:'Date',type:'date'},{k:'method',label:'Method',type:'list'},{k:'skids',label:'Skids',type:'text',tokens:true},{k:'units',label:'Units',type:'number'},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
+function shippingListInfos(){return (DB.shipment||[]).map(s=>({o:s,memo:{number:s.number,customer:salesCustomerDisplay(s.customerId),date:s.date,method:s.method==='pickup'?'Pickup':'Delivery',skids:[...new Set(s.items.map(i=>i.skid).filter(Boolean))].join(', '),units:s.items.length+s.extras.reduce((n,i)=>n+i.qty,0),status:shippingStatus(s)}}));}
+function shippingListHTML(){
+ const infos=shippingListInfos(),cols=shippingListColumns(),rows=salesListRows(infos);
+ const th=c=>`<th><span class="sl-th">${c.label}<button class="sl-fbtn${salesListFilterActive(salesListLoadPrefs().filters[c.k])?' on':''}" aria-label="Filter ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;
+ return `<div class="card"><div class="shipping-scan"><label>Signed packing slip<input id="shippingSigned" data-signed-ps placeholder="Scan PS-0001" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingSigned(this.value)}"></label><label>Received by<input id="shippingReceiver" value="${esc(shippingReceivedBy)}" placeholder="Optional" oninput="shippingReceivedBy=this.value"></label><label>Received on<input id="shippingReceivedOn" type="date" value="${shippingReceivedOn||finToday()}" max="${finToday()}" onchange="shippingReceivedOn=this.value"></label></div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr>${cols.map(th).join('')}<th></th></tr></thead><tbody>${rows.map(i=>`<tr data-ps="${esc(i.o.number)}" class="${i.o.id===shippingOpenId?'shipping-selected':''}">${cols.map(c=>`<td>${c.k==='number'?`<button class="sm" onclick="shippingOpenId='${esc(i.o.id)}';shippingPreview=false;render()">${esc(i.memo[c.k])}</button>`:esc(i.memo[c.k])}${c.k==='status'&&shippingNeedsReprint(i.o)?' <span class="shipping-reprint">reprint</span>':''}</td>`).join('')}<td><button class="sm" ${i.o.status==='cancelled'?'disabled':''} onclick="shippingPrint('${esc(i.o.id)}')">Print</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No packing slips.</td></tr>'}</tbody></table></div>${salesListMenuHTML(infos)}</div>${shippingDetailHTML()}`;
+}
+function shippingDetailHTML(){
+ const s=shippingFind(shippingOpenId);if(!s)return '';const d=shippingDocument(s);
+ const action=(label,fn)=>`<button type="button" onclick="${fn}">${label}</button>`;
+ return `<div class="card shipping-detail"><div class="shipping-customer-head"><h3>${esc(s.number)} · ${esc(salesCustomerDisplay(s.customerId))}</h3><span class="pill">${shippingStatus(s)}</span></div><p>${esc(docAddressText(s.shipTo))||'Pickup'} · ${esc(docDate(s.date))}</p><div class="row">${s.status==='planned'?action('Edit',`shippingOpen('${esc(s.customerId)}','${esc(s.id)}')`)+action('Shipped',`shippingDispatch('${esc(s.id)}')`)+action('Cancel',`shippingUndo('${esc(s.id)}','cancel')`):s.status==='shipped'?action(s.method==='pickup'?'Picked up':'Delivered',`shippingReceive('${esc(s.id)}')`)+action('Undo dispatch',`shippingUndo('${esc(s.id)}','dispatch')`):s.status==='delivered'?action('Undo receipt',`shippingUndo('${esc(s.id)}','receipt')`):''}${s.status!=='cancelled'?action('Print',`shippingPrint('${esc(s.id)}')`):''}${action(shippingPreview?'Hide preview':'Preview','shippingPreview=!shippingPreview;render()')}</div>${d.orders.map(o=>`<div class="shipping-detail-order"><b>Order ${esc(o.number)}${o.po?' · PO '+esc(o.po):''}</b>${o.rows.map(r=>`<div>Line ${r.line} · ${esc(r.size)} · ${esc(r.makeup)} <b>× ${r.now}</b> · ${esc(r.skids)||'No skid'} <span class="mut">Before ${r.before} · Back order ${r.back}</span></div>`).join('')}${o.extras.map(x=>`<div>From stock · ${esc(x.name)} × ${x.now}</div>`).join('')}</div>`).join('')||'<p class="mut">Open trip · no items selected</p>'}${shippingPreview?'<div class="shipping-preview">'+shippingPages(d).map(docPageSVG).join('')+'</div>':''}</div>`;
+}
+function shippingBackordersHTML(){
+ const board=prodBoard();return shippingOrders().map(o=>({o,q:shippingSummary(o)})).filter(x=>x.o.status==='shipping'&&x.q.back>0).map(({o,q})=>{
+  const prod=board.find(p=>p.o.id===o.id);
+  return `<div class="card shipping-customer"><h3><button onclick="optimizationOpenOrder('${esc(o.id)}')">Order ${esc(o.businessNumber)}</button> · ${esc(salesCustomerDisplay(o.customerId))}</h3><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Ordered</th><th>Shipped</th><th>Remaining</th><th>In the shop</th></tr></thead><tbody>${q.lines.filter(r=>r.back>0).map(r=>{const n=o.lines.indexOf(r.l)+1,p=prod&&prod.lines.find(x=>x.no===n);const where=p?p.lites.map(l=>l.glass+': '+Object.entries(l.counts).filter(([k,n])=>n>0).map(([k,n])=>(k==='queue'?'To batch':k)+' '+n).join(', ')+(l.on.length?' · '+l.on.join(', '):'')).join(' / '):'Awaiting production';return `<tr><td>${n} · ${esc(r.l.mark)}</td><td>${esc(docSize(r.l))}</td><td>${r.ordered}</td><td>${r.shipped}</td><td><b>${r.back}</b></td><td>${esc(where)}</td></tr>`;}).join('')}${q.extras.filter(r=>r.back>0).map(r=>`<tr><td colspan="2">From stock · ${esc(salesExtraItemName(r.x))}</td><td>${r.ordered}</td><td>${r.shipped}</td><td>${r.back}</td><td>From stock</td></tr>`).join('')}</tbody></table></div></div>`;
+ }).join('')||'<div class="card empty">No backorders.</div>';
+}
+function shippingDraftHTML(){
+ const d=shippingDraft;if(!d)return '';const c=salesFindCustomer(d.customerId),os=shippingOrders().filter(o=>o.customerId===d.customerId);
+ const field=(key,label)=>`<label>${label}<input value="${esc(d.shipTo[key])}" oninput="shippingDraft.shipTo.${key}=this.value"></label>`;
+ const rows=os.map(o=>{
+  const a=shippingAvailable(o,d.id),q=shippingSummary(o);return `<h4>Order ${esc(o.businessNumber)}${o.customerPo?' · PO '+esc(o.customerPo):''}</h4>`+(o.lines||[]).map((l,n)=>{const max=a.filter(i=>i.lineId===l.id).length,qty=d.items.filter(i=>i.orderId===o.id&&i.lineId===l.id).length;if(!max&&!qty)return '';return `<label class="shipping-pick"><span>Line ${n+1} · ${esc(docSize(l))} · ${esc(l.mark)}<small>${esc(salesMakeupSummary(salesMakeupById(o,l.makeupId)))}</small></span><input type="number" aria-label="PS quantity line ${n+1}" min="0" max="${max}" value="${qty}" onchange="shippingDraftQty('${esc(o.id)}','${esc(l.id)}',this.value)"><span>of ${max} ready</span></label>`;}).join('')+q.extras.filter(()=>o.status!=='new'&&!o.onHold).map(r=>{const current=d.extras.find(i=>i.extraId===r.x.id),original=d.id&&shippingFind(d.id).extras.find(i=>i.extraId===r.x.id),max=r.ready+(original?original.qty:0);return `<label class="shipping-pick"><span>From stock · ${esc(salesExtraItemName(r.x))}</span><input type="number" min="0" max="${max}" value="${current?current.qty:0}" onchange="shippingDraftExtra('${esc(o.id)}','${esc(r.x.id)}',this.value)"><span>of ${max}</span></label>`;}).join('');
+ }).join('');
+ return `<div class="sales-service-modal-back"><div class="sales-service-modal shipping-modal" role="dialog" aria-modal="true" aria-label="Packing slip"><div class="sales-service-modal-head"><h3>${d.id?'Edit '+esc(d.number):'Create packing slip'} · ${esc(salesCustomerDisplay(d.customerId))}</h3><button aria-label="Close" onclick="shippingDraft=null;render()">×</button></div><div class="shipping-form"><div class="shipping-form-fields"><label>Method<select aria-label="Method" onchange="shippingDraft.method=this.value;render()"><option value="delivery" ${d.method==='delivery'?'selected':''}>Delivery</option><option value="pickup" ${d.method==='pickup'?'selected':''}>Pickup</option></select></label><label>Date<input type="date" value="${d.date}" onchange="shippingDraft.date=this.value"></label></div>${d.method==='delivery'?`<label>Delivery address<select onchange="shippingDraftAddress(this.value)"><option value="">Job site / custom address</option>${(c.addresses||[]).filter(a=>a.type==='delivery').map(a=>`<option value="${esc(a.id)}" ${a.address1===d.shipTo.address1?'selected':''}>${esc(a.label||docAddressText(a))}</option>`).join('')}</select></label><div class="shipping-form-fields">${field('addressee','Ship to')}${field('address1','Address')}${field('address2','Address line 2')}${field('address3','Address line 3')}${field('city','City')}${field('province','Province')}${field('postalCode','Postal code')}${field('contact','Contact')}${field('phone','Phone')}</div>`:''}${rows}<label>Note<textarea oninput="shippingDraft.note=this.value">${esc(d.note)}</textarea></label>${d.error?'<p class="err" role="alert" style="display:block">'+esc(d.error)+'</p>':''}</div><div class="sales-dialog-actions"><button onclick="shippingDraft=null;render()">Back</button><button class="pri" data-save-ps onclick="shippingSave()">${d.id?'Save':'Create packing slip'}</button></div></div></div>`;
+}
+function shippingFocus(){if(tab!=='shipping'||shippingTab!=='shipments'||shippingDraft||salesDialog||salesListMenu)return;const a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.id!=='shippingSigned')return;const e=document.getElementById('shippingSigned');if(e)e.focus();}
+function viewShipping(){
+ if(shippingTab==='shipments')setTimeout(shippingFocus,0);
+ return shippingWithCtx(()=>{
+ const body=shippingTab==='ready'?shippingReadyHTML():shippingTab==='shipments'?shippingListHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true);
+ return `<section class="shipping-workspace">${shippingTabs()}<div class="shipping-top"><label>Open a trip<select aria-label="Customer for new trip" onchange="if(this.value)shippingOpen(this.value)"><option value="">Choose customer</option>${(DB.customer||[]).filter(c=>c.status!=='archived').map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}</option>`).join('')}</select></label></div>${shippingNotice?`<div class="shipping-notice ${shippingNotice.error?'bad':''}" role="${shippingNotice.error?'alert':'status'}">${esc(shippingNotice.text)}</div>`:''}${body}${shippingDraftHTML()}</section>`;
+ });
+}
+document.addEventListener('focusout',()=>{if(tab==='shipping')setTimeout(shippingFocus,150);});
 
 /* ==== src/erp/views/production.js ==== */
 /* =====================================================================
@@ -24319,8 +24447,9 @@ let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAncho
 /* ------------------------------ Настройки ------------------------------ */
 /* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
 const salesQueuePrefs={optimization:null,shipping:null};
-function salesListScope(){if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListScope(){if(tab==='shipping'&&typeof shippingListScope==='function'&&shippingListScope())return shippingListScope();if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
 function salesListCatalog(){
+ if(salesListScope()==='shippingPS')return shippingListColumns();
  if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
  if(salesListScope().startsWith('prod')&&typeof prodListColumns==='function')return prodListColumns();
  if(salesListScope()==='glassSheets'&&typeof sheetUsageColumns==='function')return sheetUsageColumns();
@@ -24331,7 +24460,7 @@ function salesListCatalog(){
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
  const defaults=['number','customer','due','status','glass','unitType','units','batch','balance'];
  return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
-  .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]);
+  .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]).concat(tab==='shipping'&&shippingTab==='awaiting'?[{k:'readyQty',label:'Ready',type:'text',def:true}]:[]);
 }
 function salesListColumn(k){return salesListCatalog().find(c=>c.k===k)||null;}
 function salesListPrefsKey(){const scope=salesListScope();return scope==='sales'?SALES_LIST_PREFS_KEY:'glass_erp_'+scope+'_list_v1';}
@@ -24414,6 +24543,7 @@ function salesListValue(info,k){
  if(Object.prototype.hasOwnProperty.call(info.memo,k))return info.memo[k];
  const o=info.o,q=info.q,c=info.c,lines=o.lines||[];let v=null;
  switch(k){
+  case 'readyQty':{const r=shippingSummary(o);v=r.physicalReady+' / '+r.glass;break;}
   case 'type':v=q?'Quote':'Order';break;
   case 'number':v=(q?salesQuoteBaseNumber(o):o.businessNumber)||'';break;
   case 'customer':v=c.displayName||c.legalName||'';break;
@@ -24508,6 +24638,7 @@ function salesListCompare(col,dir){
 }
 /* Строки после галочек Show и кнопок статусов (до фильтров колонок). */
 function salesListBase(){
+ if(salesListScope()==='shippingPS'){const infos=shippingListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope().startsWith('fin')&&typeof finListInfos==='function'){const infos=finListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope()==='glassSheets'&&typeof sheetUsageInfos==='function'){const infos=sheetUsageInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope().startsWith('glass')){const infos=glassBatchInfos();return {all:infos.map(i=>i.o),infos};}
@@ -24519,7 +24650,7 @@ function salesListBase(){
  return {all:all.concat(ncrs.map(i=>i.o)),infos};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
-function salesListDefaultSort(){const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
+function salesListDefaultSort(){if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
 function salesListDateColumn(){return salesListScope()==='usersLog'?'when':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos,skip){
@@ -25002,7 +25133,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesLineHoldMenu){
    items — одно стекло {piece, part, unit}; history — по номерам стёкол.
    Остаток — места без активной записи. Позиция под замком, пока её стекло в батче. */
 DEFAULT.glassBatch=[];DEFAULT.glassPiece=[];DEFAULT.glassPieceSeq=0;DEFAULT.glassUnitId=[];DEFAULT.glassUnitIdSeq=0;
-const GLASS_WAITING_STATUSES=['verified','batched','ready','done'];
+const GLASS_WAITING_STATUSES=['verified','batched','ready','shipping','done'];
 /* Номер стекла в батче — как в Perfect Cut: по порядку списка батча, у
    каждого батча свой счёт с 1. Место в списке не меняется: убранное или
    перенесённое стекло остаётся записью, его номер больше никому не даётся,
@@ -25214,8 +25345,8 @@ function glassBatchAssignCommand(rows,opts){
  new Map(chosen.map(r=>[r.l,r.o])).forEach((o,l)=>{l.batchManaged=true;glassBatchSyncLine(o,l);});
  batch.history.push({at:now,action:added?'Added':'Created',pieces:chosen.map(r=>r.piece),qty:chosen.length});
  [...new Set(chosen.map(r=>r.orderId))].forEach(id=>{
-  const o=salesRecord(id);if(o.status==='new'){o.updatedAt=now;salesSyncRecordLifecycle(o);return;}o.status='batched';o.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
-  o.statusDates=Object.assign({},o.statusDates,{batched:now});['ready','done','closed'].forEach(k=>delete o.statusDates[k]);o.fulfilledVia='';o.updatedAt=now;salesSyncRecordLifecycle(o);
+  const o=salesRecord(id);if(o.status==='new'){o.updatedAt=now;salesSyncRecordLifecycle(o);return;}o.status=shippingHasSent(o)?'shipping':'batched';o.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
+  o.statusDates=Object.assign({},o.statusDates,{batched:now});if(!shippingHasSent(o)){['ready','done','closed'].forEach(k=>delete o.statusDates[k]);o.fulfilledVia='';}o.updatedAt=now;salesSyncRecordLifecycle(o);
  });
  if(!opts.deferTouch)touch();return batch;
 }
@@ -29593,8 +29724,8 @@ function ncrCanCreate(o){return !!o&&!salesIsQuote(o)&&o.status!=='cancelled';}
    Предупреждение не запрещает: человек знает про частичную отгрузку. */
 function ncrStageWarning(o,d){
  if(!o||!d||!d.where||d.where===NCR_OFFICE)return '';
- if(d.where==='SHIP')return ['done','closed'].includes(o.status)?'':'No shipment in the system yet';
- if(d.where==='SHIPR')return ['ready','done','closed'].includes(o.status)?'':'Order not ready for shipping yet';
+ if(d.where===shippingStations().ship){if(shippingLegacy(o))return '';const lines=Object.keys(d.lines||{}).filter(id=>d.lines[id].on);return shippingForOrder(o.id).some(s=>shippingActive(s)&&(s.printedAt||shippingSent(s))&&s.items.some(i=>!lines.length||lines.includes(i.lineId)))?'':'No printed packing slip or shipment for this glass';}
+ if(d.where===shippingStations().ready)return shippingLegacy(o)||shippingUnits(o).some(i=>i.ready||i.shipment&&shippingSent(i.shipment))?'':'Order not ready for shipping yet';
  const active=glassBatchActive(o.id),lines=[];
  o.lines.forEach((l,i)=>{
   const x=d.lines&&d.lines[l.id];if(!x||!x.on)return;
@@ -29679,7 +29810,7 @@ function validateNcrPayload(src){
    RECUT на станции производства: сломалось — ввели — ушло в батч.
    ===================================================================== */
 DEFAULT.recut=[];
-const RECUT_OPEN_STATUSES=['new','verified','batched','ready'];
+const RECUT_OPEN_STATUSES=['new','verified','batched','ready','shipping'];
 function recutForOrder(orderId){return (DB.recut||[]).filter(r=>r.orderId===orderId).sort((a,b)=>a.no-b.no);}
 function recutCanOpen(o){return !!o&&!salesIsQuote(o)&&!!salesRecord(o.id)&&RECUT_OPEN_STATUSES.includes(o.status);}
 function recutNextNo(orderId){return (DB.recut||[]).filter(r=>r&&r.orderId===orderId).reduce((n,r)=>Math.max(n,+r.no||0),0)+1;}
@@ -29703,7 +29834,7 @@ function recutCreate(d){
  const picks=[];
  for(let i=0;i<o.lines.length;i++){
   const l=o.lines[i],x=d.lines&&d.lines[l.id];if(!x||!x.on)continue;
-  const qty=Number(x.qty);if(!Number.isInteger(qty)||qty<1||qty>l.qty)return {error:'Line '+(i+1)+': 1 to '+l.qty+' pcs'};
+  const qty=Number(x.qty);if(shippingPrintedQty(o,l)>0&&qty>l.qty-shippingPrintedQty(o,l))return {error:'Packing slip printed — use NCR for those units.'};if(!Number.isInteger(qty)||qty<1||qty>l.qty)return {error:'Line '+(i+1)+': 1 to '+l.qty+' pcs'};
   const which=String(x.which||'unit'),keys=ncrGlassKeys(o,l,which),opt=ncrLiteOptions(o,l).find(v=>v.value===which);
   if(!keys.length||!opt)return {error:'Line '+(i+1)+': choose which glass.'};
   picks.push({lineId:l.id,line:i+1,mark:l.mark||'',which,lite:opt.label,keys,qty});
@@ -29920,6 +30051,7 @@ function stationRecordCommand(station,check,who,opts){
     позиция узнаёт это через glassBatchSyncLine, как и прежде. */
  const e=check.g&&check.g.entry;
  if(station===stationCutCode()&&e&&!e.item.cutStartedAt){e.item.cutStartedAt=now;glassBatchSyncLine(check.g.o,check.g.l);}
+ if(check.g&&station===shippingStations().ready)shippingSyncOrder(check.g.o,now);
  if(!opts.deferTouch)touch();
  return rec;
 }
@@ -29943,6 +30075,7 @@ function stationUndoCommand(id,who,opts){
  const rec=(DB.stationScan||[]).find(s=>s.id===id);
  if(!rec||rec.undoneAt)return {error:'Scan not found.'};
  if(rec.broken)return {error:'Recut is in the order — change it there.'};
+ if(!opts.shippingRollback&&(DB.shipment||[]).some(s=>shippingActive(s)&&s.items.some(i=>i.pieces.includes(rec.piece))))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
  const group=rec.actionId?(DB.stationScan||[]).filter(s=>s.actionId===rec.actionId&&!s.undoneAt):[rec];
  const ordered=id=>stationScansFor(id).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
  if(group.some(r=>ordered(r.piece).pop()!==r))return {error:'Glass has moved on — undo the later scan first.'};
@@ -29958,6 +30091,7 @@ function stationUndoCommand(id,who,opts){
    if(e&&e.item.cutStartedAt===r.at){e.item.cutStartedAt='';const o=salesRecord(e.part.orderId),l=o&&(o.lines||[]).find(x=>x.id===e.part.lineId);if(o&&l)glassBatchSyncLine(o,l);}
   }
  });
+ shippingSyncOrders(group.map(s=>{const g=stationGlass(s.piece);return g&&g.o.id;}).filter(Boolean));
  if(!opts.deferTouch)touch();
  return {ok:true,pieces:group.map(s=>s.piece)};
 }
@@ -30056,6 +30190,7 @@ function stationBreakCommand(station,check,who,reasonId,opts){
  opts=opts||{};
  if(!check||!check.g||!['ok','hold','already','passed','skipped','route','peek'].includes(check.kind))return {error:'Scan the broken glass first.'};
  const g=check.g,o=g.o,l=g.l,c=g.c;
+ if(shippingPrintedPiece(g.id)||(DB.shipment||[]).some(s=>shippingSent(s)&&s.items.some(i=>i.pieces.includes(g.id))))return {error:'Packing slip printed or shipped — use NCR.'};
  if(!c||c.missing)return {error:'Glass not found in the order.'};
  const plan=stationBreakPlan(g,station,opts.asm);
  const made=recutCreate({orderId:o.id,where:station,reasonId,lines:{[l.id]:{on:true,qty:1,which:plan.which}},note:(plan.whole?'Unit '+(typeof unitIdAt==='function'?unitIdAt(o.id,l.id,plan.asm.unit):plan.asm.unit)+' · glass ':'Glass ')+g.id+' at '+station});
@@ -30075,6 +30210,7 @@ function stationBreakCommand(station,check,who,reasonId,opts){
  });
  /* Разбилось на резе — стекло всё равно порезано: лист закрывается. */
  const e=g.entry;if(station===stationCutCode()&&e&&!e.item.cutStartedAt){e.item.cutStartedAt=now;glassBatchSyncLine(o,l);}
+ shippingSyncOrder(o,now);
  if(!opts.deferTouch)touch();
  return {ok:true,recut:r,ref,newIds:fresh,allNew,whole:plan.whole,broken:plan.pieces,parked};
 }
@@ -30187,11 +30323,13 @@ function stationConfirmSkippedCommand(station,code,who,opts){
 function stationUnitMerge(o,l){const m=salesMakeupById(o,l.makeupId);return m&&typeof salesRouteMerge==='function'?salesRouteMerge(m.unitType,m.panes):'';}
 function stationLineKeys(o,l){return glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>c.key);}
 /* Сборки позиции на станции слияния — из журнала. */
-function stationAsms(o,l,station,index){
+/* pre — готовые сканы этой строки и разбитые стёкла (erp/shipping/data,
+   shippingCtx): экран Shipping не перебирает весь журнал на каждую строку. */
+function stationAsms(o,l,station,index,pre){
  index=index||stationPieceIndex();
- const broken=new Set(),out=new Map();
- (DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)broken.add(s.piece);});
- (DB.stationScan||[]).forEach(s=>{
+ const broken=pre?pre.broken:new Set(),out=new Map();
+ if(!pre)(DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)broken.add(s.piece);});
+ (pre?pre.scans:DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||!s.asm||s.station!==station)return;
   const hit=index.get(s.piece);if(!hit||hit.orderId!==o.id||hit.lineId!==l.id)return;
   if(!out.has(s.asm))out.set(s.asm,{asm:s.asm,lites:new Map(),recs:[],unit:0,broken:false,complete:false});
@@ -33926,6 +34064,383 @@ function carrierPrintLabels(codes){
  return list.length;
 }
 
+/* ==== src/erp/shipping/data.js ==== */
+/* Shipping · office shipments, 5 October 2026.
+   IN: actual assemblies/scans, saved orders; OUT: units and PS quantities.
+   Owner: one PS per customer/address, no prices; Net after the last receipt.
+   A unit is an actual assembly, never matching indices of its component Gs.
+   Legacy manual Ready is test data: recalculate it from scans on import.
+   Legacy done/closed without PS remains fulfilled. No invented shipments. */
+DEFAULT.shipment=[];DEFAULT.shipmentSeq=0;
+const SHIPPING_STATUSES=['planned','shipped','delivered','cancelled'];
+const SHIPPING_ADDRESS_FIELDS=['label','addressee','address1','address2','address3','city','province','country','postalCode','contact','phone'];
+function shippingClone(x){return JSON.parse(JSON.stringify(x));}
+function shippingFind(id){return (DB.shipment||[]).find(s=>s.id===id||s.number===id)||null;}
+function shippingOrderIds(s){return [...new Set((s.items||[]).concat(s.extras||[]).map(i=>i.orderId))];}
+function shippingForOrder(id){return (DB.shipment||[]).filter(s=>shippingOrderIds(s).includes(id));}
+function shippingActive(s){return s.status!=='cancelled';}
+function shippingSent(s){return s.status==='shipped'||s.status==='delivered';}
+function shippingLegacy(o){return !!o&&['done','closed'].includes(o.status)&&!shippingForOrder(o.id).length;}
+function shippingStations(){const a=(DB.station||[]).filter(s=>s.always).sort((a,b)=>a.seq-b.seq);return {ready:a.length>1?a[a.length-2].code:'',ship:a.length>1?a[a.length-1].code:''};}
+function shippingKey(i){return [i.orderId,i.lineId,i.unit].join('|');}
+function shippingCount(n,word){return n+' '+word+(n===1?'':'s');}
+function shippingLineQty(l){return Math.max(0,Number(l.qty)||0);}
+function shippingAddress(a){const out={};SHIPPING_ADDRESS_FIELDS.forEach(k=>out[k]=String(a&&a[k]||'').trim().slice(0,300));return out;}
+function shippingDefaultAddress(c){
+ const a=(c&&c.addresses||[]).filter(a=>a.type==='delivery'),contact=(c&&c.contacts||[]).find(x=>x.isShipping)||(c&&c.contacts||[]).find(x=>x.isPrimary);
+ return shippingAddress(Object.assign({},a.find(x=>x.isDefault)||a[0]||{},{contact:contact&&contact.name,phone:contact&&(contact.phone||contact.mobile)}));
+}
+function shippingDateValid(v){return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v;}
+/* Индексы для расчёта готовности. Без них каждый заказ заново перебирал все
+   стёкла, а каждое стекло — весь журнал сканов: на тысячах юнитов цеха
+   (владелец: «в производстве 3000+ юнитов») экран Shipping вставал. Экран и
+   пересчёт при загрузке строят индексы один раз (shippingWithCtx); команда
+   вне экрана — один раз на вызов. Внутри shippingWithCtx базу не меняют. */
+let shippingCtxNow=null;
+function shippingCtx(){
+ if(shippingCtxNow)return shippingCtxNow;
+ const index=stationPieceIndex(),scans=new Map(),asm=new Map(),broken=new Set();
+ (DB.stationScan||[]).forEach(s=>{
+  if(s.undoneAt)return;
+  if(!scans.has(s.piece))scans.set(s.piece,[]);scans.get(s.piece).push(s);
+  if(s.broken)broken.add(s.piece);
+  const hit=s.asm&&index.get(s.piece);if(!hit)return;
+  const k=hit.orderId+'|'+hit.lineId;if(!asm.has(k))asm.set(k,[]);asm.get(k).push(s);
+ });
+ return {index,batches:stationBatchIndex(),scans,asm,broken};
+}
+function shippingWithCtx(fn){if(shippingCtxNow)return fn();shippingCtxNow=shippingCtx();try{return fn();}finally{shippingCtxNow=null;}}
+/* Ready is physical readiness. Available additionally excludes another PS.
+   Single-lite recuts fill free order slots; the chosen G is saved on the PS.
+   An existing PS pins both slot and actual pieces until it is cancelled. */
+function shippingUnits(o){
+ if(!o||salesIsQuote(o)||['closed','cancelled'].includes(o.status)||shippingLegacy(o))return [];
+ const ctx=shippingCtx(),index=ctx.index,batches=ctx.batches,stations=shippingStations(),out=[],scansOf=id=>ctx.scans.get(id)||[];
+ const reserved=shippingForOrder(o.id).filter(shippingActive).flatMap(s=>s.items.map(i=>Object.assign({shipment:s},i)));
+ (o.lines||[]).forEach(l=>{
+  const fixed=reserved.filter(i=>i.lineId===l.id),taken=new Set(fixed.map(i=>i.unit)),labels=new Set(fixed.map(i=>i.label)),candidates=[];
+  const mu=stationUnitMerge(o,l),keys=stationLineKeys(o,l);
+  if(mu){stationAsms(o,l,mu,index,{scans:ctx.asm.get(o.id+'|'+l.id)||[],broken:ctx.broken}).filter(a=>a.complete&&!a.broken&&a.unit>0&&a.unit<=l.qty).forEach(a=>{
+   if(keys.every(k=>a.lites.has(k)))candidates.push({unit:a.unit,label:unitIdAt(o.id,l.id,a.unit),pieces:[...a.lites.values()]});
+  });}else if(keys.length===1){
+   const rec=glassPieceMap(o.id).get(keys[0]);if(rec){
+    rec.ids.forEach((id,n)=>{if(id)candidates.push({unit:n+1,label:id,pieces:[id]});});
+    Object.values(rec.extra||{}).forEach(a=>a.forEach(id=>{if(id)candidates.push({unit:0,label:id,pieces:[id]});}));
+   }
+  }
+  const inspect=i=>{
+   const gs=i.pieces.map(id=>stationGlass(id,index,batches)),places=gs.map(g=>g&&stationPlace(g,scansOf(g.id)));
+   const ready=!!stations.ship&&gs.length>0&&places.every(p=>p&&!p.broken&&!p.assembling&&p.waiting===stations.ship)&&!o.onHold&&!l.onHold;
+   const ons=gs.map(g=>{const scans=g&&scansOf(g.id);return scans&&scans.length?scans[scans.length-1].on||'':'';});
+   const on=ons.length&&ons.every(x=>x===ons[0])?ons[0]:'';
+   return Object.assign({orderId:o.id,lineId:l.id},i,{ready,on,skid:/^S[LA]-/.test(on)?on:'',broken:places.some(p=>!p||p.broken)});
+  };
+  fixed.forEach(i=>out.push(inspect(i)));
+  const live=candidates.map(inspect).filter(i=>!labels.has(i.label)&&!i.broken);
+  live.sort((a,b)=>Number(b.ready)-Number(a.ready)||Number(!a.unit)-Number(!b.unit)||a.unit-b.unit||a.label.localeCompare(b.label));
+  live.forEach(i=>{
+   let n=i.unit;
+   if(mu&&taken.has(n))return;
+   if(!n||taken.has(n)){n=1;while(taken.has(n)&&n<=l.qty)n++;}
+   if(n>l.qty)return;taken.add(n);i.unit=n;out.push(i);
+  });
+ });
+ return out;
+}
+function shippingAvailable(o,exceptId){return shippingUnits(o).filter(i=>i.ready&&(!i.shipment||i.shipment.id===exceptId));}
+function shippingSummary(o){
+ const legacy=shippingLegacy(o),ps=shippingForOrder(o.id),units=shippingUnits(o);
+ const lines=(o.lines||[]).map(l=>{
+  const sent=ps.filter(shippingSent).flatMap(s=>s.items).filter(i=>i.orderId===o.id&&i.lineId===l.id),received=ps.filter(s=>s.status==='delivered').flatMap(s=>s.items).filter(i=>i.orderId===o.id&&i.lineId===l.id);
+  const ordered=shippingLineQty(l),shipped=legacy?ordered:sent.length,delivered=legacy?ordered:received.length;
+  return {l,ordered,shipped,delivered,back:Math.max(0,ordered-shipped),ready:units.filter(i=>i.lineId===l.id&&i.ready&&!i.shipment).length,physicalReady:units.filter(i=>i.lineId===l.id&&i.ready&&(!i.shipment||i.shipment.status==='planned')).length};
+ });
+ const extras=(o.extraItems||[]).map(x=>{
+  const count=filter=>ps.filter(filter).flatMap(s=>s.extras).filter(i=>i.orderId===o.id&&i.extraId===x.id).reduce((n,i)=>n+i.qty,0);
+  const shipped=legacy?x.qty:count(shippingSent),delivered=legacy?x.qty:count(s=>s.status==='delivered');
+  return {x,ordered:x.qty,shipped,delivered,back:Math.max(0,x.qty-shipped),ready:Math.max(0,x.qty-count(shippingActive))};
+ });
+ const sum=(a,k)=>a.reduce((n,x)=>n+x[k],0),all=lines.concat(extras);
+ return {lines,extras,ordered:sum(all,'ordered'),shipped:sum(all,'shipped'),delivered:sum(all,'delivered'),back:sum(all,'back'),ready:sum(lines,'ready'),physicalReady:sum(lines,'physicalReady'),glass:sum(lines,'ordered'),ps};
+}
+/* Остаток по отгрузкам, без расчёта готовности: подпись статуса в списках
+   (Partially shipped / Shipped) не должна перебирать стёкла каждой строки. */
+function shippingBackCount(o){
+ if(!o||shippingLegacy(o))return 0;const sent=shippingForOrder(o.id).filter(shippingSent);
+ const units=sent.flatMap(s=>s.items).filter(i=>i.orderId===o.id),extras=sent.flatMap(s=>s.extras).filter(i=>i.orderId===o.id);
+ return (o.lines||[]).reduce((n,l)=>n+Math.max(0,shippingLineQty(l)-units.filter(i=>i.lineId===l.id).length),0)
+  +(o.extraItems||[]).reduce((n,x)=>n+Math.max(0,x.qty-extras.filter(i=>i.extraId===x.id).reduce((a,i)=>a+i.qty,0)),0);
+}
+function shippingPrintedPiece(piece){return (DB.shipment||[]).some(s=>shippingActive(s)&&s.printedAt&&(s.printedItems||s.items).some(i=>(i.pieces||[]).includes(piece)));}
+function shippingPrintedQty(o,l){return new Set(shippingForOrder(o.id).filter(s=>shippingActive(s)&&(s.printedAt||shippingSent(s))).flatMap(s=>s.printedItems||s.items).filter(i=>i.lineId===l.id).map(i=>i.unit)).size;}
+function shippingHasSent(o){return shippingLegacy(o)||shippingForOrder(o.id).some(shippingSent);}
+function shippingHasCommitment(o){return shippingForOrder(o.id).some(shippingActive);}
+/* Recompute inside the caller's transaction, after the whole scan action.
+   Creation/reservation never starts Net. Receipt of all stock items matters.
+   A closed order stays closed unless its receipt is explicitly rolled back. */
+function shippingSyncOrder(o,now,opts){
+ if(!o||salesIsQuote(o)||o.status==='cancelled'||shippingLegacy(o))return;
+ opts=opts||{};if(o.status==='closed'&&!opts.reopen)return;
+ const q=shippingSummary(o),old=o.status;now=now||new Date().toISOString();o.statusDates=o.statusDates||{};
+ let next=old;
+ if(q.ordered>0&&q.delivered>=q.ordered){
+  next='done';const last=q.ps.filter(s=>s.status==='delivered').sort((a,b)=>a.deliveredAt.localeCompare(b.deliveredAt)).pop();
+  o.statusDates.done=last.deliveredAt;
+ }else{
+  delete o.statusDates.done;delete o.statusDates.closed;
+  if(q.shipped>0){next='shipping';if(q.back>0&&!o.statusDates.shipping)o.statusDates.shipping=now;}
+  else if((q.glass>0&&q.physicalReady===q.glass)||(salesStockOnly(o)&&old!=='new'))next='ready';
+  else if(['ready','shipping','done','closed'].includes(old))next=(o.lines||[]).some(salesLineLocked)?'batched':'verified';
+ }
+ const last=q.ps.filter(shippingSent).sort((a,b)=>a.shippedAt.localeCompare(b.shippedAt)).pop();o.fulfilledVia=last?last.method:'';
+ if(next!=='ready'&&!q.shipped)delete o.statusDates.ready;
+ if(next==='ready'&&!o.statusDates.ready)o.statusDates.ready=now;
+ if(next!==old){o.status=next;o.updatedAt=now;}
+ salesSyncRecordLifecycle(o);
+}
+function shippingSyncOrders(ids,now,opts){[...new Set(ids)].forEach(id=>shippingSyncOrder(salesRecord(id),now,opts));}
+function shippingSaveGuard(draft,saved){
+ if(!saved)return '';
+ const ps=shippingForOrder(saved.id).filter(shippingActive);if(!ps.length)return '';
+ if(saved.customerId!==draft.customerId)return 'This order has packing slips. Its customer cannot change.';
+ for(const l of saved.lines||[]){if(!ps.some(s=>s.items.some(i=>i.lineId===l.id)))continue;
+  const n=draft.lines.find(x=>x.id===l.id);if(!n||salesLockedLineSnapshot(draft,n)!==salesLockedLineSnapshot(saved,l))return 'Glass on a packing slip cannot change. Cancel the planned packing slip first.';
+ }
+ for(const x of saved.extraItems||[]){const reserved=ps.flatMap(s=>s.extras).filter(i=>i.orderId===saved.id&&i.extraId===x.id).reduce((n,i)=>n+i.qty,0);if(!reserved)continue;
+  const n=(draft.extraItems||[]).find(i=>i.id===x.id);if(!n||n.qty<reserved||n.table!==x.table||n.itemId!==x.itemId)return 'Stock items on a packing slip cannot be removed or reduced below its quantity.';
+ }
+ return '';
+}
+function normalizeShipments(){
+ if(!Array.isArray(DB.shipment))DB.shipment=[];
+ DB.shipment.forEach(s=>{s.shipTo=shippingAddress(s.shipTo);s.items=s.items||[];s.extras=s.extras||[];s.scanIds=s.scanIds||[];});
+ DB.shipmentSeq=Math.max(Number(DB.shipmentSeq)||0,...DB.shipment.map(s=>Number(String(s.number).slice(3))||0));
+ shippingWithCtx(()=>(DB.salesOrder||[]).filter(o=>['ready','shipping'].includes(o.status)).forEach(o=>shippingSyncOrder(o,o.updatedAt)));
+}
+function validateShipmentPayload(src){
+ if(src.shipment==null)return;
+ if(!Array.isArray(src.shipment))throw new Error('Shipments must be an array.');
+ const ids=new Set(),numbers=new Set(),slots=new Set(),labels=new Set(),pieces=new Set(),extraTotals=new Map();
+ const iso=s=>typeof s==='string'&&!isNaN(Date.parse(s));
+ src.shipment.forEach(s=>{
+  if(!s||typeof s!=='object'||!salesRefId(s.id)||ids.has(s.id)||!/^PS-\d{4,}$/.test(s.number)||numbers.has(s.number)||!SHIPPING_STATUSES.includes(s.status)||!['delivery','pickup'].includes(s.method)||!shippingDateValid(s.date)||!salesRefId(s.customerId)||!Array.isArray(s.items)||!Array.isArray(s.extras)||!s.shipTo||typeof s.shipTo!=='object')throw new Error('Invalid or duplicate packing slip.');
+  ids.add(s.id);numbers.add(s.number);
+  if(shippingSent(s)&&(!iso(s.shippedAt)||!s.items.length&&!s.extras.length)||s.status==='delivered'&&!iso(s.deliveredAt))throw new Error('Invalid shipment dates or empty shipment.');
+  const own=new Set();s.items.forEach(i=>{
+   const k=shippingKey(i);if(!salesRefId(i.orderId)||!salesRefId(i.lineId)||!Number.isSafeInteger(i.unit)||i.unit<1||!glassPieceValid(i.label)&&!unitIdValid(i.label)||!Array.isArray(i.pieces)||!i.pieces.length||!i.pieces.every(glassPieceValid)||own.has(k))throw new Error('Invalid or duplicate shipment unit.');
+   own.add(k);if(shippingActive(s)){if(i.pieces.some(p=>pieces.has(p))||new Set(i.pieces).size!==i.pieces.length)throw new Error('Glass is on more than one shipment unit.');i.pieces.forEach(p=>pieces.add(p));if(slots.has(k)||labels.has(i.label))throw new Error('A unit is on more than one packing slip.');slots.add(k);labels.add(i.label);}
+  });
+  const extra=new Set();s.extras.forEach(i=>{const k=i.orderId+'|'+i.extraId;if(!salesRefId(i.orderId)||!salesRefId(i.extraId)||!Number.isSafeInteger(i.qty)||i.qty<1||extra.has(k))throw new Error('Invalid shipment stock quantity.');extra.add(k);if(shippingActive(s))extraTotals.set(k,(extraTotals.get(k)||0)+i.qty);});
+  if(Array.isArray(src.salesOrder)&&shippingActive(s)){
+   const checkOrder=i=>{const o=src.salesOrder.find(o=>o.id===i.orderId);if(!o||o.customerId!==s.customerId)throw new Error('Shipment customer does not match its order.');return o;};
+   s.items.forEach(i=>{const o=checkOrder(i),l=(o.lines||[]).find(l=>l.id===i.lineId);if(!l||i.unit>l.qty)throw new Error('Shipment line or unit no longer exists.');});
+   s.extras.forEach(i=>{const o=checkOrder(i),x=(o.extraItems||[]).find(x=>x.id===i.extraId);if(!x||(extraTotals.get(i.orderId+'|'+i.extraId)||0)>x.qty)throw new Error('Shipment stock quantity exceeds the order.');});
+  }
+ });
+}
+
+/* ==== src/erp/shipping/commands.js ==== */
+/* Office PS commands. All writes, scans, order statuses and log entries commit
+   together. Owner, 5 October 2026: after printing a PS, missing/broken goods
+   are NCR, not a recut/backorder. Printing itself is not proof of delivery.
+   SHIP skid loading, queue priority and truck planning belong to later PRs. */
+function shippingAssert(ok,message){if(!ok)throw new Error(message);}
+function shippingActor(){const a=orderLogActor();return a.by||'Office';}
+function shippingItem(i){return {orderId:i.orderId,lineId:i.lineId,unit:i.unit,label:i.label,skid:i.skid||'',pieces:i.pieces.slice()};}
+function shippingValidateSelection(d,exceptId){
+ shippingAssert(salesFindCustomer(d.customerId),'Choose a customer.');
+ shippingAssert(['pickup','delivery'].includes(d.method)&&shippingDateValid(d.date),'Check the method and date.');
+ shippingAssert(d.method==='pickup'||String(d.shipTo&&d.shipTo.address1||'').trim(),'Enter the delivery address.');
+ const items=[],extras=[],seen=new Set(),available=new Map();
+ (d.items||[]).forEach(i=>{
+  const o=salesRecord(i.orderId);shippingAssert(o&&!salesIsQuote(o)&&o.customerId===d.customerId&&!['cancelled','closed'].includes(o.status),'Check the customer and orders.');
+  if(!available.has(o.id))available.set(o.id,shippingAvailable(o,exceptId));
+  const hit=available.get(o.id).find(x=>x.lineId===i.lineId&&x.unit===i.unit&&x.label===i.label);
+  shippingAssert(hit&&!seen.has(shippingKey(i)),'The selected glass is no longer available. Review the packing slip.');
+  seen.add(shippingKey(i));items.push(shippingItem(hit));
+ });
+ (d.extras||[]).forEach(i=>{
+  const o=salesRecord(i.orderId),x=o&&(o.extraItems||[]).find(x=>x.id===i.extraId),k=i.orderId+'|'+i.extraId;
+  shippingAssert(o&&x&&!salesIsQuote(o)&&o.customerId===d.customerId&&!['new','closed','cancelled'].includes(o.status)&&!o.onHold,'Stock order is not ready.');
+  const used=shippingForOrder(o.id).filter(s=>shippingActive(s)&&s.id!==exceptId).flatMap(s=>s.extras).filter(a=>a.extraId===x.id).reduce((n,a)=>n+a.qty,0);
+  shippingAssert(Number.isSafeInteger(i.qty)&&i.qty>0&&i.qty<=x.qty-used&&!seen.has(k),'Check the available stock quantity.');
+  seen.add(k);extras.push({orderId:o.id,extraId:x.id,qty:i.qty});
+ });
+ return {items,extras};
+}
+function shippingCreate(d){return storageCommand(()=>{
+ const picked=shippingValidateSelection(d),now=new Date().toISOString();
+ DB.shipmentSeq=(Number(DB.shipmentSeq)||0)+1;
+ const s={id:salesUid('PS'),number:'PS-'+String(DB.shipmentSeq).padStart(4,'0'),customerId:d.customerId,method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,status:'planned',...picked,
+  createdAt:now,createdBy:shippingActor(),shippedAt:'',shippedBy:'',deliveredAt:'',receivedBy:'',note:String(d.note||'').slice(0,1000),scanIds:[]};
+ DB.shipment.push(s);shippingOrderIds(s).forEach(id=>orderLogPush(salesRecord(id),'Packing slip created',s.number));return s;
+});}
+function shippingUpdate(id,d){return storageCommand(()=>{
+ const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can change.');
+ shippingAssert(s.customerId===d.customerId,'The packing slip customer cannot change.');
+ const picked=shippingValidateSelection(d,s.id),ids=shippingOrderIds(s);
+ Object.assign(s,picked,{method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,note:String(d.note||'').slice(0,1000)});
+ [...new Set(ids.concat(shippingOrderIds(s)))].forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip updated',s.number));return s;
+});}
+function shippingMarkShipped(id){return storageCommand(()=>{
+ const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can be shipped.');
+ shippingAssert(s.items.length+s.extras.length>0,'An empty packing slip cannot be shipped.');
+ const picked=shippingValidateSelection(s,s.id),now=new Date().toISOString(),station=shippingStations().ship;
+ Object.assign(s,picked);s.document=shippingDocument(s);
+ const who=orderLogActor(),scanIds=[];
+ /* The office button records the confirmed physical dispatch as manual SHIP
+    scans. Rollback owns these IDs only; it never undoes an unrelated scan. */
+ s.items.forEach(i=>i.pieces.forEach(piece=>{
+  const check=stationCheck(station,piece);shippingAssert(check&&check.kind==='ok','Glass is no longer ready. Review the packing slip.');
+  const rec=stationRecord(station,check,{id:who.byId,name:who.by||'Office'},{deferTouch:true,manual:true,now});
+  shippingAssert(rec,'Dispatch was not recorded.');scanIds.push(rec.id);
+ }));
+ s.scanIds=scanIds;s.status='shipped';s.shippedAt=now;s.shippedBy=shippingActor();
+ shippingSyncOrders(shippingOrderIds(s),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
+});}
+function shippingMarkDelivered(id,receivedBy,receivedOn){return storageCommand(()=>{
+ const s=shippingFind(id);shippingAssert(s,'Packing slip not found.');if(s.status==='delivered')return s;
+ shippingAssert(s.status==='shipped','Mark this packing slip Shipped first.');
+ const day=receivedOn||finToday();shippingAssert(shippingDateValid(day)&&day<=finToday()&&day>=finLocalDate(s.shippedAt),'Check the received date.');
+ s.status='delivered';s.deliveredAt=day===finToday()?new Date().toISOString():new Date(day+'T12:00:00').toISOString();s.receivedBy=String(receivedBy||'').trim().slice(0,100);
+ shippingSyncOrders(shippingOrderIds(s));shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),s.method==='pickup'?'Packing slip picked up':'Packing slip delivered',s.number+(s.receivedBy?' · '+s.receivedBy:'')));return s;
+});}
+function shippingRevert(id,action){return storageCommand(()=>{
+ const s=shippingFind(id);shippingAssert(s,'Packing slip not found.');const ids=shippingOrderIds(s);
+ if(action==='cancel'){
+  shippingAssert(s.status==='planned','Only a planned packing slip can be cancelled.');s.document=shippingDocument(s);s.status='cancelled';
+ }else if(action==='receipt'){
+  shippingAssert(s.status==='delivered','This packing slip has not been received.');s.status='shipped';s.deliveredAt='';s.receivedBy='';
+ }else{
+  shippingAssert(action==='dispatch'&&s.status==='shipped','Undo receipt before undoing dispatch.');
+  (s.scanIds||[]).slice().reverse().forEach(scanId=>{const out=stationUndo(scanId,{name:shippingActor()},{deferTouch:true,shippingRollback:true});shippingAssert(out&&!out.error,out&&out.error||'Dispatch cannot be undone.');});
+  s.status='planned';s.shippedAt='';s.shippedBy='';s.scanIds=[];delete s.document;
+ }
+ shippingSyncOrders(ids,null,{reopen:true});ids.forEach(oid=>orderLogPush(salesRecord(oid),action==='cancel'?'Packing slip cancelled':'Packing slip rolled back',s.number+' · '+action));return s;
+});}
+/* Самовывоз: клиент расписался у фронт-деска, когда забрал стекло, — один
+   скан подписанного PS ставит и Shipped, и Picked up. Сбой на любом шаге
+   откатывает оба (предложено в ревью PR 1, 05.10.2026). */
+function shippingScanSigned(raw,by,date){
+ const number=String(raw||'').trim().toUpperCase();if(!/^PS-\d{4,}$/.test(number))return {ok:false,error:'Scan a packing slip number.'};
+ const s=shippingFind(number);
+ if(s&&s.method==='pickup'&&s.status==='planned')return storageCommand(()=>{
+  const shipped=shippingMarkShipped(s.id);shippingAssert(shipped.ok,shipped.error);
+  const got=shippingMarkDelivered(s.id,by,date);shippingAssert(got.ok,got.error);return got.value;
+ });
+ return shippingMarkDelivered(number,by,date);
+}
+function shippingCheckStamp(){return JSON.stringify(DB);}
+/* Every order is checked before any write/print. Paying or backing out stops
+   the entire action. A change during a warning requires a fresh check. */
+function shippingWithChecks(ids,method,printing,done){
+ ids=[...new Set(ids)];const stamp=shippingCheckStamp();
+ const run=n=>{
+  if(shippingCheckStamp()!==stamp){shippingNotice={error:true,text:'Data changed. Review and try again.'};render();return;}
+  if(n===ids.length){done();return;}
+  const o=salesRecord(ids[n]);if(!o){shippingNotice={error:true,text:'Order not found.'};render();return;}
+  const checks=salesTransitionChecks(Object.assign({},o,{delivery:method}),'done').map(c=>Object.assign({},c,{anyway:printing?'Print anyway':'Create anyway'}));
+  salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
+ };run(0);
+}
+
+/* ==== src/erp/shipping/print.js ==== */
+/* Packing slip and skid sheets, Letter. Shared docPage primitives keep
+   preview/print/PDF identical. No pricing enters this model.
+   Dispatch freezes the document; subsequent shipments cannot change Before.
+   Printing is recorded as requested, not a claim that a printer succeeded. */
+function shippingDocument(s){
+ if(s.document)return shippingClone(s.document);
+ if(s.id&&s.status==='planned'){
+  const live=new Map(shippingOrderIds(s).flatMap(id=>shippingUnits(salesRecord(id))).map(i=>[i.label,i]));
+  s=Object.assign({},s,{items:s.items.map(i=>Object.assign({},i,{skid:live.has(i.label)?live.get(i.label).skid:i.skid}))});
+ }
+ const orders=shippingOrderIds(s).map(id=>{
+  const o=salesRecord(id),q=shippingSummary(o);
+  const rows=(o.lines||[]).map((l,n)=>{
+   const items=s.items.filter(i=>i.orderId===id&&i.lineId===l.id);
+   const before=shippingForOrder(id).filter(p=>p.id!==s.id&&shippingSent(p)).flatMap(p=>p.items).filter(i=>i.orderId===id&&i.lineId===l.id).length;
+   const weight=finWithOrder(o,()=>salesLineWeight(l,o)),m=salesMakeupById(o,l.makeupId);
+   return {lineId:l.id,line:n+1,mark:l.mark||'',size:docSize(l),makeup:m?salesMakeupSummary(m):'',ordered:l.qty,before,now:items.length,back:Math.max(0,l.qty-before-items.length),kg:weight.kg,knownKg:weight.knownKg,skids:[...new Set(items.map(i=>i.skid).filter(Boolean))].join(', ')};
+  }).filter(Boolean);
+  const extras=(o.extraItems||[]).map(x=>{
+   const picked=s.extras.find(i=>i.orderId===id&&i.extraId===x.id),qty=picked?picked.qty:0,before=shippingForOrder(id).filter(p=>p.id!==s.id&&shippingSent(p)).flatMap(p=>p.extras).filter(a=>a.orderId===id&&a.extraId===x.id).reduce((n,a)=>n+a.qty,0);
+   return {extraId:x.id,name:salesExtraItemName(x),ordered:x.qty,before,now:qty,back:Math.max(0,x.qty-before-qty)};
+  });
+  const now=rows.concat(extras).reduce((n,r)=>n+r.now,0),left=Math.max(0,q.back-now);
+  return {id,number:o.businessNumber,po:o.customerPo||'',state:left===0?'complete':q.shipped?'back order':'partial',rows,extras};
+ });
+ const skids=[...new Set(s.items.map(i=>i.skid).filter(Boolean))].map(code=>{
+  const rows=[];orders.forEach(o=>o.rows.forEach(r=>{const qty=s.items.filter(i=>i.orderId===o.id&&i.lineId===r.lineId&&i.skid===code).length;if(qty)rows.push({order:o.number,po:o.po,...r,now:qty});}));
+  const exact=rows.every(r=>r.kg!=null);return {code,rows,qty:rows.reduce((n,r)=>n+r.now,0),kg:rows.reduce((n,r)=>n+(r.kg==null?r.knownKg:r.kg)*r.now,0),exact};
+ });
+ return {number:s.number,date:s.date,method:s.method,shipTo:shippingClone(s.shipTo),customer:salesCustomerDisplay(s.customerId),company:docCompanyBlock(),orders,skids,note:s.note||''};
+}
+function shippingNeedsReprint(s){return !!s.printedAt&&s.printedSignature!==JSON.stringify(shippingDocument(s));}
+function shippingPages(d,skidOnly){
+ const pages=[];let P,y,pageTitle,activeOrder;
+ const line=(text,opts)=>{opts=opts||{};const size=opts.size||9;const lines=docWrap(String(text),size,!!opts.bold,540);lines.forEach(t=>{ensure(size+5);P.text(36,y,t,opts);y+=size+5;});};
+ const header=title=>{
+  pageTitle=title;P=docPage();pages.push(P);P.text(36,44,docFit(d.company.name||'Glass Farm',13,true,320),{size:13,bold:true});
+  P.text(576,44,title,{size:17,bold:true,align:'right'});P.text(576,64,d.number||'Not assigned',{size:13,bold:true,align:'right'});
+  if(d.number&&title==='PACKING SLIP')P.items.push(...barcode128Items(d.number,390,75,30,1.05));
+  y=64;d.company.lines.slice(0,3).forEach(t=>{P.text(36,y,docFit(t,8,false,330),{size:8,color:DOC_COLOR.mut});y+=11;});y=Math.max(y+8,121);
+  P.text(36,y,d.customer,{size:12,bold:true});P.text(576,y,docDate(d.date)+' · '+(d.method==='pickup'?'Pickup':'Delivery'),{size:9,align:'right'});y+=17;
+  const a=d.shipTo;[a.addressee,docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean).forEach(t=>{docWrap(t,9,false,540).forEach(t=>{P.text(36,y,t,{size:9});y+=13;});});y+=12;
+ };
+ const ensure=h=>{if(y+h>725)header(pageTitle);};
+ const tableHead=()=>{ensure(30);P.rect(36,y-11,540,21,{fill:DOC_COLOR.bar});['Line / Mark','Size','Makeup','Ordered','Before','Now','Back order','Skid'].forEach((t,n)=>P.text([41,122,211,363,401,435,489,520][n],y+2,t,{size:7,bold:true,align:n>=3&&n<=6?'right':'left'}));y+=23;};
+ const row=r=>{
+  const texts=[String(r.line)+(r.mark?' · '+r.mark:''),r.size,r.makeup,r.skids||'—'],widths=[75,84,99,53];
+  const wrapped=texts.map((t,n)=>docWrap(t,8,false,widths[n])),h=Math.max(...wrapped.map(a=>a.length))*11+12;
+  if(y+h>710){header(pageTitle);if(activeOrder)line(activeOrder+' · continued',{size:11,bold:true});tableHead();}
+  [41,122,211,520].forEach((x,n)=>wrapped[n].forEach((t,k)=>P.text(x,y+k*11,t,{size:8})));
+  [r.ordered,r.before,r.now,r.back].forEach((v,n)=>P.text([363,401,435,489][n],y,String(v),{size:9,bold:n>=2,align:'right',color:n===3&&v>0?DOC_COLOR.due:DOC_COLOR.ink}));
+  y+=h;P.line(36,y-6,576,y-6);
+ };
+ if(!skidOnly){
+  header('PACKING SLIP');
+  d.orders.forEach(o=>{
+   ensure(75);activeOrder='Order '+o.number+(o.po?' · PO '+o.po:'')+' · '+o.state;line(activeOrder,{size:11,bold:true});tableHead();o.rows.forEach(row);
+   o.extras.forEach(x=>{ensure(40);line('From stock · '+x.name,{bold:true});line('Ordered '+x.ordered+' · Before '+x.before+' · Now '+x.now+' · Back order '+x.back,{color:x.back?DOC_COLOR.due:DOC_COLOR.ink});});y+=12;
+  });
+  if(!d.orders.length)line('Open trip · no items selected');
+  ensure(130);d.skids.forEach(s=>line(s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg'));
+  if(d.note)line(d.note);
+  y+=15;line('Received by ____________________    Signature ____________________');line('Date and time ____________________');y+=9;
+  if(d.skids.length)line(shippingCount(d.skids.length,'skid')+' left on site '+(d.skids.length===1?'remains':'remain')+' property of '+(d.company.name||'the supplier')+'.',{size:8,color:DOC_COLOR.mut});
+ }
+ d.skids.filter(s=>!skidOnly||s.code===skidOnly).forEach(s=>{
+  header('SKID CONTENTS');P.text(36,y+35,s.code,{size:40,bold:true});y+=65;
+  line(shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg',{size:12});
+  s.rows.forEach(r=>{ensure(75);line('Order '+r.order+(r.po?' · PO '+r.po:''),{size:11,bold:true});line('Line '+r.line+(r.mark?' · '+r.mark:'')+' · '+r.size+' · Qty '+r.now,{bold:true});line(r.makeup);y+=9;});
+ });
+ pages.forEach((p,n)=>p.text(576,766,(d.number||'Skid contents')+' · '+(n+1)+' / '+pages.length,{size:8,align:'right',color:DOC_COLOR.mut}));return pages;
+}
+function shippingShowPrint(pages){
+ const h=docPrintHost();h.innerHTML=pages.map(p=>'<div class="doc-print-page">'+docPageSVG(p)+'</div>').join('');document.body.classList.add('doc-printing');
+ window.addEventListener('afterprint',docPrintCleanup,{once:true});setTimeout(docPrintCleanup,60000);window.print();
+}
+function shippingPrint(id){
+ const s=shippingFind(id);if(!s||s.status==='cancelled')return;
+ shippingWithChecks(shippingOrderIds(s),s.method,true,()=>{
+  let pages;const out=storageCommand(()=>{
+   const current=shippingFind(id);if(current.status==='planned')Object.assign(current,shippingValidateSelection(current,current.id));
+   const model=shippingDocument(current);pages=shippingPages(model);current.printedAt=new Date().toISOString();current.printedSignature=JSON.stringify(model);
+   const prior=current.printedItems||[];current.printedItems=[...new Map(prior.concat(current.items).map(i=>[i.label,shippingClone(i)])).values()];
+   shippingOrderIds(current).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip print requested',current.number));return current;
+  });
+  if(!out.ok){shippingNotice={error:true,text:out.error};render();return;}
+  render();shippingShowPrint(pages);
+ });
+}
+function shippingPrintSkid(customerId,code){
+ const items=(DB.salesOrder||[]).filter(o=>o.customerId===customerId).flatMap(shippingUnits).filter(i=>i.ready&&i.skid===code);
+ const ps=[...new Set(items.map(i=>i.shipment&&i.shipment.id).filter(Boolean))],s=ps.length===1?shippingFind(ps[0]):null;
+ const model=shippingDocument({number:s?s.number:'',customerId,method:s?s.method:'delivery',date:s?s.date:finToday(),shipTo:s?s.shipTo:shippingDefaultAddress(salesFindCustomer(customerId)),items,extras:[]});
+ shippingShowPrint(shippingPages(model,code));
+}
+
 /* ==== src/erp/storage.js ==== */
 /* =====================================================================
    erp/storage  ·  erp-1.0
@@ -34183,6 +34698,7 @@ function validateImportedState(src){
  if(typeof validateStockOffcutPayload==='function')validateStockOffcutPayload(src);
  if(typeof validateStationScanPayload==='function')validateStationScanPayload(src);
  if(typeof validateCarrierPayload==='function')validateCarrierPayload(src);
+ if(typeof validateShipmentPayload==='function')validateShipmentPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -34271,6 +34787,7 @@ function normalizeDB(){
  if(typeof normalizeStockOffcuts==='function')normalizeStockOffcuts();
  if(typeof normalizeCarriers==='function')normalizeCarriers();
  if(typeof normalizeStationScans==='function')normalizeStationScans();
+ if(typeof normalizeShipments==='function')normalizeShipments();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
