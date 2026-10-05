@@ -260,6 +260,12 @@ function docBuildModel(kind,order,opts){
   let rows=null,grand=null,deposit=null;
   if(opts.totals){
    rows=[];
+   /* Бесплатная переделка NCR: строки по обычной цене, скидка на всю сумму
+    строкой перед Subtotal — суммы сходятся, итог и налог $0 (владелец,
+    05.10.2026: «главное, что 0»; аудит: строка $265.48 при Total $0). */
+   const free=order.noCharge?salesOrderCommercialTotals(Object.assign({},order,{noCharge:false})):null;
+   const ncr=free&&order.remakeNcrId&&typeof ncrFind==='function'?ncrFind(order.remakeNcrId):null,parent=ncr&&salesRecord(ncr.orderId);
+   const freeRow=free&&{label:'No charge · remake'+(ncr?' for '+ncr.number:'')+(parent?' · order '+parent.businessNumber:''),value:free.complete?'−'+docMoney(free.subtotal):'—'};
    if(opts.groupTotals||mode==='glass'){
     const g={glass:0,services:0,surcharges:0,extra:0};
     (order.lines||[]).forEach(l=>{const p=salesLineCommercialPrice(l,order);if(!p.complete)return;const gl=salesMoney(p.materials*p.qty),su=salesMoney((p.unit-p.base)*p.qty);g.glass+=gl;g.surcharges+=su;g.services+=salesMoney(p.line-gl-su);});
@@ -267,8 +273,9 @@ function docBuildModel(kind,order,opts){
     rows.push({label:'Glass & IGU',value:money(salesMoney(g.glass))},{label:'Services and processing',value:money(salesMoney(g.services))});
     if(g.surcharges)rows.push({label:'Surcharges',value:money(salesMoney(g.surcharges))});
     if(g.extra)rows.push({label:'Additional items',value:money(salesMoney(g.extra))});
+    if(freeRow)rows.push(freeRow);
     rows.push({label:'Subtotal',value:money(t.subtotal),strong:true,sep:true});
-   }else rows.push({label:'Subtotal',value:money(t.subtotal)});
+   }else{if(freeRow)rows.push(freeRow);rows.push({label:'Subtotal',value:money(t.subtotal),strong:!!freeRow,sep:!!freeRow});}
    if(c.energy.enabled)rows.push({label:'Energy surcharge '+c.energy.rate+'%',value:money(t.energy)});
    if(c.hst.enabled)rows.push({label:'HST '+c.hst.rate+'%',value:money(t.hst)});
    if(c.card.enabled)rows.push({label:'Card fee '+c.card.rate+'%',value:money(t.card)});

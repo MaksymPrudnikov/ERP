@@ -853,8 +853,11 @@ function viewMdOverview(){
 
 /* --- 5. Импорт -------------------------------------------------------- */
 
+/* Каталог стекла и точки поставки — подвиды Materials → Glass; файл идёт в
+   парсер открытого подвида (аудит 05.10.2026: после переезда в Materials
+   проверка mdTab==='glass' не срабатывала, GLASS_PRODUCTS.csv не грузился). */
 function mdImportCard(){
- const isGlass=mdTab==='glass';
+ const isGlass=mdMatView==='glassProduct',kind=isGlass?'glass':'sheets';
  const which=isGlass?'GLASS_PRODUCTS.csv':'GLASS_SHEETS.csv';
  return `<div class="card">
   <div class="section-title"><h3>Load ${which}</h3><span class="pill info">merged by code</span></div>
@@ -862,8 +865,8 @@ function mdImportCard(){
    ?'The file updates items with the same codes and adds new ones. Columns missing from the file header are left untouched — a file that came back from Excel without five columns will not wipe the optics of the rest of the catalog.'
    :'A row is identified by product · supply point · sheet size. A row whose code is not in the catalog is rejected: a price with no product would quietly land in the cost.'}</div>
   <div class="row"><button onclick="document.getElementById('mdCsv').click()">Choose file</button>
-   <input type="file" id="mdCsv" accept=".csv,.txt" style="display:none" onchange="mdImportCsv(this,'${mdTab}')"></div>
-  ${mdImportReport&&mdImportReport.which===mdTab?sfReportHTML(mdImportReport.rep):''}</div>`;
+   <input type="file" id="mdCsv" accept=".csv,.txt" style="display:none" onchange="mdImportCsv(this,'${kind}')"></div>
+  ${mdImportReport&&mdImportReport.which===kind?sfReportHTML(mdImportReport.rep):''}</div>`;
 }
 function mdImportCsv(inp,which){
  const f=inp.files[0];inp.value='';
