@@ -1719,6 +1719,10 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .gb-table .gb-held td{background:var(--warning-soft)}
 .gb-table .gb-selected td{background:var(--accent-soft)}
 .gb-table .gb-released td{color:var(--text-3);background:var(--surface-2)}
+/* Отменённое стекло и юниты на Hold; батч, раскрой которого устарел. */
+.gb-table .gb-stop td,.gb-table .gb-stale td{background:var(--danger-soft)}
+.gb-state.stop{color:var(--danger);font-weight:700}
+.page-head .gb-stale-note{margin:4px 0 0;color:var(--danger);font-weight:700}
 .gb-link{border:0!important;background:none!important;box-shadow:none!important;color:var(--accent);padding:0;font-size:12px;font-weight:600}
 .gb-settings{display:inline-flex;align-items:center;justify-content:center;border:0;background:none;padding:2px;color:var(--text-2);width:23px;height:23px}
 .gb-settings svg{width:15px;height:15px;display:block}
@@ -2085,6 +2089,9 @@ button.recut-btn{border-color:var(--warning);color:var(--warning)}
 .cut-glass{fill:url(#cutGlassSheen);stroke:var(--cut-glass-line);stroke-width:1.1}
 .cut-pc.sel .cut-glass{fill:var(--cut-glass-sel);stroke:var(--cut-sel-line);stroke-width:3}
 .cut-pc.cut-hl .cut-glass{stroke:var(--cut-sel-line);stroke-width:2}
+/* Стекло, которого в батче больше нет (отмена, Hold units): раскрой устарел. */
+.cut-svg g.cut-pc.gone .cut-glass{fill:var(--danger-soft);stroke:var(--danger);stroke-width:2.4;stroke-dasharray:6 4}
+.ncr-warning.cut-stale-stop{background:var(--danger-soft);border-color:var(--danger-line);color:var(--danger);font-weight:600}
 .cut-glass[data-cut-out]{fill:var(--cut-bad-fill);stroke:var(--cut-bad);stroke-width:2}
 .cut-off{fill:var(--cut-off);stroke:var(--cut-off-line);stroke-width:1.2}
 .cut-stk{fill:var(--cut-stk);stroke:var(--cut-stk-line);stroke-width:1.2}
@@ -2349,6 +2356,9 @@ tr.st-hot td{background:var(--surface-2)}
 .st-pc.cut .cut-glass:not([data-cut-out]){fill:var(--success-soft);stroke:var(--success);stroke-width:2.2}
 .st-pc.now .cut-glass:not([data-cut-out]){fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.4}
 .st-pc.broken .cut-glass{fill:var(--red2);stroke:var(--red);stroke-width:2.2}
+/* Батч изменился после раскроя — резчик его не берёт, пока офис не пересоберёт. */
+.st-stale{display:flex;flex-direction:column;gap:2px;margin:10px 0;padding:10px 14px;border-radius:10px;border:2px solid var(--danger);background:var(--danger-soft);color:var(--danger)}
+.st-stale b{font-size:18px;letter-spacing:.02em}
 .st-pc:hover .cut-glass{stroke-width:2.6}
 .st-pc text{pointer-events:none}
 .st-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:5px;margin-top:12px}
@@ -2772,7 +2782,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='0b750fa817f4';
+var ERP_BUILD='02e88933a903';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -21927,6 +21937,8 @@ function shippingSelectQty(id,lineId,n){const o=salesRecord(id),units=shippingAv
 /* В PS — только отмеченные заказы: их юниты и их товар склада (владелец,
    6 октября 2026: клиент хранит заказы у нас и забирает только нужные).
    Ничего не отмечено — всё готовое клиента. Остальное добавляют в форме.
+   Отмеченное ушло (PS в другой вкладке, Hold, отмена, поломка) — другие заказы
+   не подставляем, а говорим (аудит Shipping, 6.10.2026).
    Способ по умолчанию — из заказов в PS (Pickup / Delivery ставит продавец),
    у пустого рейса — из карточки клиента. */
 function shippingOpen(customerId,id){
@@ -21934,11 +21946,13 @@ function shippingOpen(customerId,id){
   const s=id&&shippingFind(id),orders=shippingOrders().filter(o=>o.customerId===customerId),c=salesFindCustomer(customerId),mine=shippingCustomer===customerId;
   const all=orders.flatMap(shippingAvailable),selected=all.filter(i=>mine&&shippingSelection.has(i.label));
   const chosen=new Set(selected.map(i=>i.orderId).concat(orders.filter(o=>mine&&shippingSelection.has('stock:'+o.id)).map(o=>o.id)));
+  const picked=s||!mine?[]:[...shippingSelection].filter(k=>k.indexOf('stock:')!==0),lost=picked.filter(k=>!selected.some(i=>i.label===k)).length;
+  if(!s&&mine&&shippingSelection.size&&!chosen.size){shippingSelection.clear();shippingNotice={error:true,text:'The selected glass is no longer ready. Select again.'};return;}
   const items=chosen.size?selected:all,inPS=o=>!chosen.size||chosen.has(o.id);
   const planned=(chosen.size?[...chosen]:[...new Set(items.map(i=>i.orderId))]).map(oid=>salesRecord(oid).delivery);
   const method=planned.length?(planned.every(d=>d==='pickup')?'pickup':'delivery'):String(c&&c.defaultDeliveryMethod||'').toLowerCase().includes('pickup')?'pickup':'delivery';
   shippingDraft=s?shippingClone(s):{customerId,method,shipTo:shippingDefaultAddress(c),date:finToday(),items:items.map(shippingItem),extras:orders.filter(o=>o.status!=='new'&&!o.onHold&&inPS(o)).flatMap(o=>shippingSummary(o).extras.filter(x=>x.ready>0).map(x=>({orderId:o.id,extraId:x.x.id,qty:x.ready}))),note:''};
-  shippingDraft.error='';
+  shippingDraft.error=lost?shippingCount(lost,'selected unit')+' no longer ready.':'';
  });
  render();
 }
@@ -25235,8 +25249,8 @@ function salesLineUnitsMenuHTML(m,l,label){
   return dialog('Hold units',fields(max)+'<p class="mut">Least advanced units first.</p>','Put on hold');
  }
  const plan=unitCancelPlan(saved,l,count,new Date().toISOString()),known=plan.units.every(u=>u.charge!=null),total=known?salesMoney(plan.units.reduce((s,u)=>s+u.charge,0)):null;
- const cut=plan.units.some(u=>u.stage!=='uncut'),tempered=plan.units.some(u=>u.stage==='tempered'||u.stage==='assembled');
- const rows=plan.units.map((u,i)=>`<tr data-units-plan="${u.stage}"><td>${i+1}</td><td>${UNIT_STAGE_LABEL[u.stage]}${u.heldAt?' · held '+esc(salesListShortDay(salesListIsoDay(u.heldAt))):''}${u.after?'<span class="line-units-after"> · after hold — not charged</span>':''}</td><td class="n">${u.charge==null?'—':esc(finFmt(u.charge))}</td></tr>`).join('');
+ const cut=plan.units.some(u=>u.now!=='uncut'),tempered=plan.units.some(u=>u.now==='tempered'||u.now==='assembled');
+ const rows=plan.units.map((u,i)=>`<tr data-units-plan="${u.stage}"><td>${i+1}</td><td>${UNIT_STAGE_LABEL[u.now]}${u.heldAt?' · held '+esc(salesListShortDay(salesListIsoDay(u.heldAt))):''}${u.after?'<span class="line-units-after"> · after hold — not charged</span>':''}</td><td class="n">${u.charge==null?'—':esc(finFmt(u.charge))}</td></tr>`).join('');
  const pick=(k,text,off)=>`<label class="chk"><input type="radio" name="unitsGlass" ${m.glass===k?'checked':''} ${off?'disabled':''} onchange="salesLineHoldMenu.glass='${k}'"> ${text}</label>`;
  return dialog('Cancel units',fields(plan.max)+
   (rows?`<div class="sales-table-wrap"><table class="sl-table line-units-plan"><thead><tr><th>#</th><th>Where</th><th class="n">Charge</th></tr></thead><tbody>${rows}</tbody></table></div>`:'')+
@@ -25276,7 +25290,7 @@ document.addEventListener('pointermove',e=>{if(salesLineHoldPress)salesLineHoldM
    IN : заказ и строка в цеху · журнал сканов · цена строки (line-metrics)
    OUT: line.heldUnits [{id, pieces, at, reason}] · line.cancelledUnits (число)
         · o.cancellations [{id, at, by, lineId, reason, units:[{pieces, stage,
-        heldAt, charge, glass}], charge, chargeOverride}]
+        heldAt, charge, glass, takenPs?, off?}], charge, chargeOverride}]
    Владелец, 5.10.2026: «линия 1 имеет 21 панель, клиент спустя 2 дня говорит:
    я не хочу 6 из них… за те, что только порезались, чарджим только за стекло
    и тот сервис, который был проделан; если стекло было закалено — он платит за
@@ -25376,19 +25390,31 @@ function unitHold(orderId,lineId,count,reason){return storageCommand(()=>{
  const {o,l}=unitLine(orderId,lineId),n=Math.floor(+count),why=String(reason||'').trim().slice(0,200);
  unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason for the hold.');
  const free=unitHoldable(o,l);unitAssert(n<=free.length,free.length?'Only '+shippingCount(free.length,'unit')+' can be held.':'No units left to hold.');
- const now=new Date().toISOString();l.heldUnits=(l.heldUnits||[]).concat(free.slice(0,n).map(u=>({id:salesUid('HU'),pieces:u.pieces.slice(),at:now,reason:why})));
+ const now=new Date().toISOString(),picked=free.slice(0,n);l.heldUnits=(l.heldUnits||[]).concat(picked.map(u=>({id:salesUid('HU'),pieces:u.pieces.slice(),at:now,reason:why})));
+ /* Непорезанное стекло уходит с батча, как при отмене: раскрой батча
+    подсвечен, офис пересобирает; после Release стекло снова ждёт батча
+    (владелец, 6.10.2026: «должны были найти батч и убрать стекло с
+    оптимизации»). */
+ glassBatchCancelPieces(picked.flatMap(u=>u.pieces),now,'On hold');
  o.updatedAt=now;orderLogPush(o,'Units on hold',unitLineNo(o,l)+' · '+shippingCount(n,'unit')+' · '+why);shippingSyncOrder(o,now);salesSyncRecordLifecycle(o);return l;
 });}
 function unitRelease(orderId,lineId){return storageCommand(()=>{
  const {o,l}=unitLine(orderId,lineId),n=(l.heldUnits||[]).length;unitAssert(n,'No units on hold.');
  const now=new Date().toISOString();delete l.heldUnits;o.updatedAt=now;orderLogPush(o,'Hold released',unitLineNo(o,l)+' · '+shippingCount(n,'unit'));shippingSyncOrder(o,now);salesSyncRecordLifecycle(o);return l;
 });}
+/* Где стекло юнита сейчас — по всем сканам. stage у отмены — работа ДО Hold
+   (за неё платит клиент); стекло, порезанное после Hold, клиенту $0, но
+   оно есть, и его судьбу выбирают так же (аудит Shipping, 6.10.2026). */
+function unitStageNow(o,l,pieces){
+ const heat=unitHeatStations(),mu=stationUnitMerge(o,l),sc=pieces.map(p=>stationScansFor(p));
+ return mu&&sc.length&&sc.every(x=>x.some(s=>s.station===mu&&s.unit))?'assembled':sc.some(x=>x.some(s=>heat.includes(s.station)))?'tempered':sc.some(x=>x.length)?'cut':'uncut';
+}
 /* Что будет отменено: сначала юниты на Hold (цена — по их времени Hold),
    потом остальные по порядку выбора (цена — на сейчас). */
 function unitCancelPlan(o,l,count,now){
  const held=(l.heldUnits||[]).map(h=>({pieces:h.pieces.slice(),heldAt:h.at})),rest=unitHoldable(o,l).map(u=>({pieces:u.pieces,heldAt:''}));
  const all=held.concat(rest);
- return {max:all.length,units:all.slice(0,Math.max(0,Math.floor(+count)||0)).map(u=>Object.assign(u,unitCharge(o,l,u,u.heldAt||now)))};
+ return {max:all.length,units:all.slice(0,Math.max(0,Math.floor(+count)||0)).map(u=>Object.assign(u,unitCharge(o,l,u,u.heldAt||now),{now:unitStageNow(o,l,u.pieces)}))};
 }
 const UNIT_GLASS=['scrap','customer','stock'];
 function unitChargeOf(c){return c.chargeOverride!=null?c.chargeOverride:c.charge;}
@@ -25405,7 +25431,7 @@ function unitCancel(orderId,lineId,count,reason,opts){return storageCommand(()=>
  const known=plan.units.every(u=>u.charge!=null),charge=known?salesMoney(plan.units.reduce((s,u)=>s+u.charge,0)):null;
  unitAssert(charge!=null||override!=null,'Pricing is not complete. Enter the charge.');
  const pieces=new Set(plan.units.flatMap(u=>u.pieces)),who=orderLogActor();
- const rec={id:salesUid('CU'),at:now,by:who.by||'',lineId:l.id,reason:why,units:plan.units.map(u=>({pieces:u.pieces.slice(),stage:u.stage,heldAt:u.heldAt||'',charge:u.charge,glass:u.stage==='uncut'?'':glass})),charge,chargeOverride:override};
+ const rec={id:salesUid('CU'),at:now,by:who.by||'',lineId:l.id,reason:why,units:plan.units.map(u=>({pieces:u.pieces.slice(),stage:u.stage,heldAt:u.heldAt||'',charge:u.charge,glass:u.now==='uncut'?'':glass})),charge,chargeOverride:override};
  /* Порезанное в сток: размер реза и стекло каждого лайта. */
  if(glass==='stock'){const index=stationPieceIndex(),comps=glassBatchComponents(o,l);rec.units.forEach(u=>{if(!u.glass)return;u.pieces.forEach(id=>{
   if(!stationScansFor(id).length)return;const h=index.get(id),c=h&&comps.find(x=>x.key===h.key);if(!c||c.missing)return;
@@ -25427,6 +25453,26 @@ function unitSetCharge(orderId,cancelId,value){return storageCommand(()=>{
 function unitTakes(o){
  return (o&&o.cancellations||[]).flatMap(c=>{const n=c.units.filter(u=>u.glass==='customer'&&!u.takenPs).reduce((s,u)=>s+u.pieces.length,0),l=(o.lines||[]).find(x=>x.id===c.lineId);return n&&l?[{c,l,line:o.lines.indexOf(l)+1,pieces:n}]:[];});
 }
+/* Отменённое стекло на скиде (аудит Shipping, 6.10.2026): из содержимого скида
+   система убирает его сразу, а физически оно лежит там, пока его не снимут.
+   Снятие — скан его стикера на станции отгрузки (u.off — снятые стёкла); до
+   этого скид на SHIP не грузится. Стекло, которое забирает клиент, едет с PS. */
+function unitCancelOf(o,piece){for(const c of (o&&o.cancellations||[]))for(const u of c.units)if(u.pieces.includes(piece))return u;return null;}
+function unitPieceSkid(piece){
+ const s=stationScansFor(piece).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).pop();
+ return s&&/^S[LA]-/.test(s.on||'')?s.on:'';
+}
+function unitOnSkid(skid){
+ return (DB.salesOrder||[]).flatMap(o=>(o.cancellations||[]).flatMap(c=>c.units.filter(u=>u.glass!=='customer').map(u=>({o,u,pieces:u.pieces.filter(p=>!(u.off||[]).includes(p)&&unitPieceSkid(p)===skid)})))).filter(x=>x.pieces.length);
+}
+/* Собранный IGU снимают целиком: скан любого его стекла снимает все. */
+function unitTakeOff(piece){return storageCommand(()=>{
+ const g=stationGlass(piece),u=g&&unitCancelOf(g.o,piece),skid=unitPieceSkid(piece);
+ unitAssert(u&&u.glass!=='customer'&&skid&&!(u.off||[]).includes(piece),'Nothing to take off.');
+ const joined=p=>stationScansFor(p).some(s=>s.unit),pieces=joined(piece)?u.pieces.filter(p=>joined(p)&&unitPieceSkid(p)===skid):[piece];
+ u.off=[...new Set((u.off||[]).concat(pieces))];g.o.updatedAt=new Date().toISOString();
+ orderLogPush(g.o,'Taken off '+skid,pieces.join(', '));salesSyncRecordLifecycle(g.o);return {skid,pieces};
+});}
 function unitTakesShipped(o,psId){(o&&o.cancellations||[]).forEach(c=>c.units.forEach(u=>{if(u.glass==='customer'&&!u.takenPs)u.takenPs=psId;}));}
 function unitTakesRolledBack(psId){(DB.salesOrder||[]).forEach(o=>(o.cancellations||[]).forEach(c=>c.units.forEach(u=>{if(u.takenPs===psId)delete u.takenPs;})));}
 function normalizeUnitFields(line,src){
@@ -25439,7 +25485,7 @@ function normalizeUnitFields(line,src){
 function normalizeCancellations(list,lines){
  const ids=v=>Array.isArray(v)?v.filter(glassPieceValid):[],iso=v=>typeof v==='string'&&!isNaN(Date.parse(v)),money=v=>v==null?null:salesNonNegOrNull(v);
  return (Array.isArray(list)?list:[]).filter(c=>c&&typeof c==='object'&&iso(c.at)&&lines.some(l=>l.id===c.lineId)&&Array.isArray(c.units)&&c.units.length).map(c=>({id:salesEntityId(c.id,'CU'),at:c.at,by:salesString(c.by).slice(0,80),lineId:c.lineId,reason:salesString(c.reason).slice(0,200),
-  units:c.units.filter(u=>u&&typeof u==='object').map(u=>Object.assign({pieces:ids(u.pieces),stage:UNIT_STAGES.includes(u.stage)?u.stage:'uncut',heldAt:iso(u.heldAt)?u.heldAt:'',charge:money(u.charge),glass:UNIT_GLASS.includes(u.glass)?u.glass:''},salesRefId(u.takenPs)?{takenPs:u.takenPs}:{})),
+  units:c.units.filter(u=>u&&typeof u==='object').map(u=>{const pieces=ids(u.pieces),off=ids(u.off).filter(p=>pieces.includes(p));return Object.assign({pieces,stage:UNIT_STAGES.includes(u.stage)?u.stage:'uncut',heldAt:iso(u.heldAt)?u.heldAt:'',charge:money(u.charge),glass:UNIT_GLASS.includes(u.glass)?u.glass:''},salesRefId(u.takenPs)?{takenPs:u.takenPs}:{},off.length?{off}:{});}),
   charge:money(c.charge),chargeOverride:money(c.chargeOverride)}));
 }
 
@@ -25620,7 +25666,9 @@ function glassBatchRows(orders){
     for(let unit=1;regular&&unit<=l.qty;unit++){
      if(active.has(c.key+'|'+unit)||cancelled.has(c.key+'|'+unit))continue;
      const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';
-     rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,reason:hold||(piece?'':'Glass ID missing')}));
+     /* Hold units: стекло ждёт Release, в батч его не берут. */
+     const uh=!hold&&piece&&(l.heldUnits||[]).find(h=>h.pieces.includes(piece));
+     rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,held:!!uh,reason:hold||(uh?'Units on hold: '+(uh.reason||''):'')||(piece?'':'Glass ID missing')}));
     }
     glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)&&!cancelled.has(x.key+'|'+x.unit)).forEach(x=>{
      const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'';
@@ -25706,15 +25754,44 @@ function glassBatchReleaseCommand(entries,opts){
 /* Отмена юнитов: непорезанные стёкла снимаются с батча по одному, заказ в New
    не возвращается (в отличие от Unbatch) — остальная позиция идёт в работу.
    Порезанное с листа не трогаем: его просто откладывают. */
-function glassBatchCancelPieces(pieceIds,now){
+function glassBatchCancelPieces(pieceIds,now,action){
  const ids=new Set(pieceIds),touched=new Set();
  (DB.glassBatch||[]).forEach(b=>{
   const off=b.items.filter(i=>ids.has(i.piece)&&!i.releasedAt&&!i.cutStartedAt);if(!off.length)return;
   off.forEach(i=>{i.releasedAt=now;const part=b.parts[i.part];if(part)touched.add(part.orderId+'|'+part.lineId);});
-  b.history.push({at:now,action:'Cancelled',pieces:off.map(i=>i.piece),qty:off.length});
+  b.history.push({at:now,action:action||'Cancelled',pieces:off.map(i=>i.piece),qty:off.length});
  });
  touched.forEach(k=>{const [oid,lid]=k.split('|'),o=salesRecord(oid),l=o&&o.lines.find(x=>x.id===lid);if(o&&l)glassBatchSyncLine(o,l);});
  return touched.size;
+}
+/* Стёкла отменённых юнитов и юнитов на Hold (erp/sales/unit-cancel) →
+   причина. Один проход по заказам — для списка батчей сразу. */
+function glassStopMap(){
+ const m=new Map();
+ (DB.salesOrder||[]).forEach(o=>{
+  (o.cancellations||[]).forEach(c=>(c.units||[]).forEach(u=>(u.pieces||[]).forEach(p=>m.set(p,'Cancelled'))));
+  (o.lines||[]).forEach(l=>(l.heldUnits||[]).forEach(h=>(h.pieces||[]).forEach(p=>{if(!m.has(p))m.set(p,'On hold');})));
+ });
+ return m;
+}
+/* Раскрой батча разошёлся с батчем (аудит Shipping, 6.10.2026): на листах
+   сохранённого раскроя есть стекло, которое отменили, поставили на Hold или
+   сняли с батча. Владелец: такой батч «никак не подсвечен, чтобы легко найти
+   и переоптимизировать», а резчик «не должен брать этот батч, пока его не
+   исправят» — подсветка в Batches, в раскрое и на CUT до Reset → Build.
+   Сравнение по номерам стёкол, без пересчёта раскроя — дёшево для списков.
+   Уже порезанное не считается: его не вернуть. gone — стекло → причина. */
+function glassBatchStale(b,stops){
+ const plan=b&&typeof cutPlanFor==='function'?cutPlanFor(b.number):null;
+ if(!plan||plan.reset||!Array.isArray(plan.groups))return null;
+ const live=new Set(glassBatchActiveItems(b).map(i=>i.piece)),cut=new Set(b.items.filter(i=>i.cutStartedAt).map(i=>i.piece)),gone=new Map();stops=stops||glassStopMap();
+ plan.groups.forEach(g=>(g.sheets||[]).forEach(s=>(s.pieces||[]).forEach(p=>{
+  if(cut.has(p.piece))return;const why=stops.get(p.piece)||'';
+  if(why||!live.has(p.piece))gone.set(p.piece,why||'Removed');
+ })));
+ if(!gone.size)return null;
+ const n=k=>[...gone.values()].filter(x=>x===k).length,parts=[['Cancelled','cancelled'],['On hold','on hold'],['Removed','removed']].map(([k,w])=>n(k)?n(k)+' '+w:'').filter(Boolean);
+ return {gone,text:parts.join(' · ')};
 }
 /* Перенос стёкол в новый батч. Последний лист с большим пустым местом бывает
    выгоднее не резать — его стёкла уходят в новый батч; решает человек, «есть
@@ -29754,17 +29831,17 @@ function glassBatchStatus(b){
 }
 function glassBatchInfo(r){
  const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.recut?r.recutLabel+' · '+r.k+' of '+r.of:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
-  status:r.reason?(o.onHold||r.l.onHold?'On Hold':'Needs review'):'Waiting',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo,heat:r.heat,coating:r.coating,reason:r.reason}};
+  status:r.reason?(o.onHold||r.l.onHold||r.held?'On Hold':'Needs review'):'Waiting',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo,heat:r.heat,coating:r.coating,reason:r.reason}};
 }
 function glassBatchInfos(){
  const scope=glassBatchViewScope();
  if(scope==='glassQueue')return glassBatchRows().map(glassBatchInfo);
- if(scope==='glassBatches')return (DB.glassBatch||[]).map(b=>{const a=glassBatchActiveItems(b);return {o:{createdAt:b.createdAt},b,memo:{number:b.number,created:salesListIsoDay(b.createdAt),glass:[...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '),units:a.length,cut:a.filter(i=>i.cutStartedAt).length,queue:(glassBatchCutQueue().findIndex(x=>x===b)+1)||'',orders:new Set(a.map(i=>b.parts[i.part].orderId)).size,status:glassBatchStatus(b)}};});
- const b=glassBatchFind(glassBatchOpenNumber);if(!b)return [];
+ if(scope==='glassBatches'){const stops=glassStopMap();return (DB.glassBatch||[]).map(b=>{const a=glassBatchActiveItems(b);return {o:{createdAt:b.createdAt},b,stale:a.some(i=>!i.cutStartedAt)?glassBatchStale(b,stops):null,memo:{number:b.number,created:salesListIsoDay(b.createdAt),glass:[...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '),units:a.length,cut:a.filter(i=>i.cutStartedAt).length,queue:(glassBatchCutQueue().findIndex(x=>x===b)+1)||'',orders:new Set(a.map(i=>b.parts[i.part].orderId)).size,status:glassBatchStatus(b)}};});}
+ const b=glassBatchFind(glassBatchOpenNumber);if(!b)return [];const stops=glassStopMap();
  return b.items.map((item,index)=>({item,index})).filter(x=>b.parts[x.item.part]).map(({item,index})=>{
   const part=b.parts[item.part],s=part.snapshot,o=salesRecord(part.orderId)||{},l=(o.lines||[]).find(l=>l.id===part.lineId);
   return {o:{createdAt:item.at},b,item,index,part,memo:{no:index+1,piece:item.piece,number:s.order,customer:s.customer,line:s.line,unit:typeof item.unit==='string'?recutUnitText(item.unit,s.of):item.unit+' of '+(s.of||(l?l.qty:'?')),lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:1,due:o.dueDate||'',created:salesListIsoDay(item.at),
-   status:item.releasedAt?(item.movedTo?'Moved to '+item.movedTo:'Unbatched'):item.cutStartedAt?'Cut':o.status==='cancelled'?'Order cancelled':'Batched',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};
+   status:(stop=>stop==='Cancelled'?'Cancelled':stop==='On hold'?'On Hold':item.releasedAt?(item.movedTo?'Moved to '+item.movedTo:'Unbatched'):item.cutStartedAt?'Cut':o.status==='cancelled'?'Order cancelled':'Batched')(item.cutStartedAt?'':stops.get(item.piece)),priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};
  });
 }
 function glassBatchFiltered(){return salesListRows(glassBatchInfos());}
@@ -29842,13 +29919,13 @@ function glassBatchStillWaiting(b){
 function glassBatchHeader(c){const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
 function glassBatchCell(i,c){
  const v=salesListValue(i,c.k);let text=v==null||v===''?'—':c.type==='date'?salesListShortDay(v):['width','height'].includes(c.k)?dimIn16(v):String(v);
- if(c.k==='number')return `<td><button type="button" class="gb-link" onclick="${i.b&&!i.item?`glassBatchOpen('${i.b.number}')`:`optimizationOpenOrder('${esc(i.r?i.r.orderId:i.part.orderId)}')`}">${esc(text)}</button></td>`;
+ if(c.k==='number')return `<td><button type="button" class="gb-link" onclick="${i.b&&!i.item?`glassBatchOpen('${i.b.number}')`:`optimizationOpenOrder('${esc(i.r?i.r.orderId:i.part.orderId)}')`}">${esc(text)}</button>${i.stale?` <span class="pill bad" data-batch-stale title="${esc(i.stale.text)}">Re-optimize</span>`:''}</td>`;
  if(c.k==='piece')return `<td class="gb-piece">${esc(text)}</td>`;
  /* Сколько стёкол батча порезано — по скану станции резки (владелец,
     29.09.2026: «в списке батчей»). */
  if(c.k==='queue'&&i.b&&!i.item)return `<td class="n gb-cutq" data-batch-queue="${esc(i.b.number)}">${v?`<b>${v}</b> <button type="button" class="sm" title="Cut earlier" onclick="event.stopPropagation();glassBatchCutMove('${esc(i.b.number)}',-1)&&render()">▲</button><button type="button" class="sm" title="Cut later" onclick="event.stopPropagation();glassBatchCutMove('${esc(i.b.number)}',1)&&render()">▼</button>`:'<span class="mut">—</span>'}</td>`;
  if(c.k==='cut'&&i.b&&!i.item)return `<td class="n" data-batch-cut>${v?`<b>${v}</b>`:'0'} / ${i.memo.units}</td>`;
- if(c.k==='status')return `<td><span class="gb-state ${text==='On Hold'||text==='Needs review'||text==='Order cancelled'?'held':text==='Unbatched'||text==='Moved'||/^Moved to /.test(text)?'released':text==='Cutting complete'||text==='Cut'?'done':''}" title="${esc(i.r?i.r.reason:'')}">${esc(text)}</span></td>`;
+ if(c.k==='status')return `<td><span class="gb-state ${text==='Cancelled'?'stop':text==='On Hold'||text==='Needs review'||text==='Order cancelled'?'held':text==='Unbatched'||text==='Moved'||/^Moved to /.test(text)?'released':text==='Cutting complete'||text==='Cut'?'done':''}" title="${esc(i.r?i.r.reason:'')}">${esc(text)}</span></td>`;
  return `<td class="${c.type==='number'?'n':''}" title="${esc(text)}">${esc(text)}</td>`;
 }
 function viewGlassBatches(){
@@ -29867,13 +29944,14 @@ function viewGlassBatches(){
  const filter=salesListLoadPrefs().filters.glass,chosen=filter&&filter.values&&filter.values.length===1?filter.values[0]:'';
  const materialSelect=scope==='glassQueue'?`<label class="gb-material">Glass <select data-glass-material aria-label="Filter glass type" onchange="glassBatchMaterial(this.value)"><option value="">${filter?'Custom filter':'All'} · ${infos.length} pcs</option>${[...materials].sort((a,b)=>a[0].localeCompare(b[0])).map(([g,c])=>`<option value="${esc(g)}" ${chosen===g?'selected':''}>${esc(g)} · ${c} pcs</option>`).join('')}</select></label>`:'';
  const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
- const table=`<div class="sales-table-wrap"><table class="sl-table gb-table"><thead><tr><th><span class="sl-header-tools">${registry?'':`<input type="checkbox" data-glass-all aria-label="Select all eligible glass" ${n&&n===pickable.length?'checked':''} ${pickable.length?'':'disabled'} onchange="glassBatchToggleAll(this.checked)">`}${settings}</span></th>${cols.map(glassBatchHeader).join('')}</tr></thead><tbody>${rows.map(i=>{const k=glassBatchRowKey(i),on=glassBatchSelection.has(k),held=i.r&&i.r.reason;return `<tr data-glass-row="${esc(k)}" data-glass-id="${esc(i.memo.piece||'')}" class="${held?'gb-held':on?'gb-selected':i.item&&i.item.releasedAt?'gb-released':''}"><td>${registry?'':`<input type="checkbox" data-glass-check aria-label="Select ${esc(i.memo.piece+' order '+i.memo.number+' line '+i.memo.line+' unit '+i.memo.unit+' lite '+i.memo.lite)}" ${on?'checked':''} ${glassBatchPickable(i)?'':'disabled'} onclick="glassBatchToggle('${esc(k)}',this.checked,event.shiftKey)">`}</td>${cols.map(c=>glassBatchCell(i,c)).join('')}</tr>`;}).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${scope==='glassQueue'?'No glass waiting in this view.':'No batches or glass match this view.'}</td></tr>`}</tbody></table></div>`;
+ const table=`<div class="sales-table-wrap"><table class="sl-table gb-table"><thead><tr><th><span class="sl-header-tools">${registry?'':`<input type="checkbox" data-glass-all aria-label="Select all eligible glass" ${n&&n===pickable.length?'checked':''} ${pickable.length?'':'disabled'} onchange="glassBatchToggleAll(this.checked)">`}${settings}</span></th>${cols.map(glassBatchHeader).join('')}</tr></thead><tbody>${rows.map(i=>{const k=glassBatchRowKey(i),on=glassBatchSelection.has(k),held=i.r&&i.r.reason;return `<tr data-glass-row="${esc(k)}" data-glass-id="${esc(i.memo.piece||'')}" class="${held?'gb-held':i.stale?'gb-stale':i.item&&['Cancelled','On Hold'].includes(i.memo.status)?'gb-stop':on?'gb-selected':i.item&&i.item.releasedAt?'gb-released':''}"><td>${registry?'':`<input type="checkbox" data-glass-check aria-label="Select ${esc(i.memo.piece+' order '+i.memo.number+' line '+i.memo.line+' unit '+i.memo.unit+' lite '+i.memo.lite)}" ${on?'checked':''} ${glassBatchPickable(i)?'':'disabled'} onclick="glassBatchToggle('${esc(k)}',this.checked,event.shiftKey)">`}</td>${cols.map(c=>glassBatchCell(i,c)).join('')}</tr>`;}).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${scope==='glassQueue'?'No glass waiting in this view.':'No batches or glass match this view.'}</td></tr>`}</tbody></table></div>`;
  const pieceOrder=new Map();if(b)b.items.forEach(i=>{const p=b.parts[i.part];if(p)pieceOrder.set(i.piece,p.snapshot.order);});
  const orderNumbers=pieces=>[...new Set((pieces||[]).map(id=>pieceOrder.get(id)).filter(Boolean))];
  const active=b?glassBatchActiveItems(b):[],activeOrders=new Set(active.map(i=>b.parts[i.part].orderId)).size,status=b?glassBatchStatus(b):'';
  const history=b?`<div class="gb-history">${b.history.map(h=>`<div><time>${esc(salesShortDate(h.at))}</time><b>${esc(h.action)}</b><span>${h.qty} pcs</span><span class="gb-orders">${esc(orderNumbers(h.pieces).map(n=>'Order '+n).join(', '))}</span><span class="gb-orders" data-history-pieces>${esc((h.pieces||[]).length<=6?(h.pieces||[]).join(', '):h.pieces[0]+' … '+h.pieces[h.pieces.length-1])}</span></div>`).join('')||'<p class="mut">No events.</p>'}</div>`:'';
  const waiting=b?glassBatchStillWaiting(b):[],plural=(c,w)=>c+' '+w+(c===1?'':'s');
- const head=b?`<p>${esc([...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '))} · ${active.length} pcs · ${plural(activeOrders,'order')} · Created ${esc(salesShortDate(b.createdAt))}</p>`:'';
+ const stale=b?glassBatchStale(b):null;
+ const head=b?`<p>${esc([...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '))} · ${active.length} pcs · ${plural(activeOrders,'order')} · Created ${esc(salesShortDate(b.createdAt))}</p>${stale?`<p class="gb-stale-note" data-batch-stale-note>Layout out of date · ${esc(stale.text)} — Optimization → Reset → Build</p>`:''}`:'';
  const live=rows.filter(i=>!i.item||!i.item.releasedAt);
  const footer=scope==='glassContents'?`${live.length} pcs · ${plural(new Set(live.map(i=>i.part.orderId)).size,'order')}`:registry?`${filteredRows.length} batches · ${filteredRows.reduce((c,i)=>c+i.memo.units,0)} pcs · showing ${filteredRows.length?(glassBatchPage-1)*GLASS_BATCH_PAGE_SIZE+1:0}–${Math.min(glassBatchPage*GLASS_BATCH_PAGE_SIZE,filteredRows.length)}`:`${rows.length} pcs waiting · ${plural(materials.size,'glass type')}`;
  const pager=registry?`<nav class="gb-pages" aria-label="Batch pages"><button type="button" data-batch-prev ${glassBatchPage<=1?'disabled':''} onclick="glassBatchSetPage(${glassBatchPage-1})">Previous</button><span data-batch-page>Page ${glassBatchPage} of ${pages}</span><button type="button" data-batch-next ${glassBatchPage>=pages?'disabled':''} onclick="glassBatchSetPage(${glassBatchPage+1})">Next</button></nav>`:'';
@@ -30346,8 +30424,12 @@ function stationPlace(g,scans){
  return {route,far,waiting:far+1<route.length?route[far+1]:'',shipped:route.length>0&&far===route.length-1};
 }
 /* Разбор скана без записи. kind:
-   ok · hold — пишется; already · passed · skipped · route · cancelled ·
-   unit · unknown — только показывается. */
+   ok · hold — пишется; held · already · passed · skipped · route ·
+   cancelled · unit · unknown — только показывается.
+   held — Hold на станции, которую стекло не ждёт (пропущены сканы, уже
+   прошло, не его маршрут): Hold виден на любой станции, но скан не пишется
+   и вопроса «сделано?» нет — иначе «Yes, done» записал бы CUT…IGU стеклу,
+   которое не резали (аудит Shipping, 6.10.2026). */
 function stationCheck(station,raw){
  const code=stationCodeOf(raw);
  if(!code)return null;
@@ -30359,17 +30441,24 @@ function stationCheck(station,raw){
  const scans=stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station&&!s.park).pop()||null;
  const base={code,g,scans,place,here,stock:!g.entry,priority:g.o.priority||'normal',due:g.o.dueDate||''};
  if(g.o.status==='cancelled')return Object.assign(base,{kind:'cancelled'});
- /* Отменённый юнит (erp/sales/unit-cancel): стекло откладывают. */
- if(unitPieceCancelled(g))return Object.assign(base,{kind:'cancelled',unit:true});
+ /* Отменённый юнит (erp/sales/unit-cancel): стекло откладывают, а если его
+    забирает клиент — оно едет с заказом. skid — скид, с которого его ещё не сняли. */
+ if(unitPieceCancelled(g)){
+  const u=unitCancelOf(g.o,code),takes=!!u&&u.glass==='customer'&&!u.takenPs;
+  return Object.assign(base,{kind:'cancelled',unit:true,takes,skid:u&&u.glass!=='customer'&&!(u.off||[]).includes(code)?unitPieceSkid(code):''});
+ }
  if(place.broken)return Object.assign(base,{kind:'broken'});
  /* Следующий заход на эту станцию — ближайший впереди по маршруту. */
  const w=place.waiting?place.far+1:-1,i=w>=0?place.route.indexOf(station,w):-1;
- if(place.route.indexOf(station)<0)return Object.assign(base,{kind:'route'});
- if(i<0||place.assembling&&i===w)return Object.assign(base,{kind:here?'already':'passed'});
- if(i>w)return Object.assign(base,{kind:'skipped',missed:place.route.slice(w,i)});
- base.mates=stationMatesAt(g,station).map(x=>x.id);
+ const kind=place.route.indexOf(station)<0?'route':i<0||place.assembling&&i===w?(here?'already':'passed'):i>w?'skipped':'ok';
  const held=unitPieceHold(g);
- if(g.o.onHold||g.l.onHold||held)return Object.assign(base,{kind:'hold',reason:(g.o.onHold?g.o.holdReason:g.l.onHold?g.l.holdReason:held.reason)||'',unit:!g.o.onHold&&!g.l.onHold});
+ if(g.o.onHold||g.l.onHold||held){
+  if(kind==='ok')base.mates=stationMatesAt(g,station).map(x=>x.id);
+  return Object.assign(base,{kind:kind==='ok'?'hold':'held',reason:(g.o.onHold?g.o.holdReason:g.l.onHold?g.l.holdReason:held.reason)||'',unit:!g.o.onHold&&!g.l.onHold});
+ }
+ if(kind==='skipped')return Object.assign(base,{kind,missed:place.route.slice(w,i)});
+ if(kind!=='ok')return Object.assign(base,{kind});
+ base.mates=stationMatesAt(g,station).map(x=>x.id);
  return Object.assign(base,{kind:'ok'});
 }
 /* who: {id, name} — рабочий, вошедший на станцию. */
@@ -30424,7 +30513,10 @@ function stationUndoCommand(id,who,opts){
  /* Скан погрузки открытого рейса отменяет сам рабочий: юниты возвращаются в
     Ready, PS остаётся planned (erp/shipping/loading). */
  const ps=opts.shippingRollback?null:(DB.shipment||[]).find(s=>shippingActive(s)&&s.items.some(i=>i.pieces.includes(rec.piece)));
- if(ps&&!(ps.status==='planned'&&rec.station===shippingStations().ship))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
+ /* Повторный скан SHIPR — перенос на другой скид, а не готовность: его
+    откатывают и у planned PS (аудит Shipping, F5). */
+ const restack=rec.station===shippingStations().ready&&stationScansFor(rec.piece).some(s=>s!==rec&&s.station===rec.station&&!s.park&&String(s.at)<=String(rec.at));
+ if(ps&&!(ps.status==='planned'&&(rec.station===shippingStations().ship||restack)))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
  const group=rec.actionId?(DB.stationScan||[]).filter(s=>s.actionId===rec.actionId&&!s.undoneAt):[rec];
  const ordered=id=>stationScansFor(id).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
  if(group.some(r=>ordered(r.piece).pop()!==r))return {error:'Glass has moved on — undo the later scan first.'};
@@ -30538,7 +30630,7 @@ function stationBreak(station,check,who,reasonId,opts){
 }
 function stationBreakCommand(station,check,who,reasonId,opts){
  opts=opts||{};
- if(!check||!check.g||!['ok','hold','already','passed','skipped','route','peek'].includes(check.kind))return {error:'Scan the broken glass first.'};
+ if(!check||!check.g||!['ok','hold','held','already','passed','skipped','route','peek'].includes(check.kind))return {error:'Scan the broken glass first.'};
  const g=check.g,o=g.o,l=g.l,c=g.c;
  if(shippingPrintedPiece(g.id)||(DB.shipment||[]).some(s=>shippingSent(s)&&s.items.some(i=>i.pieces.includes(g.id))))return {error:'Packing slip printed or shipped — use NCR.'};
  if(!c||c.missing)return {error:'Glass not found in the order.'};
@@ -32273,6 +32365,9 @@ function cutAxisText(value,x,y,space,vertical){
 function cutSheetSVG(group,sheet,px,pieces,opts){
  opts=opts||{};
  const station=!!opts.station,stationCut=opts.stationCut||new Set(),stationBroken=opts.stationBroken||new Set();
+ /* gone — стекло, которого в батче больше нет (отмена, Hold units, снято):
+    раскрой устарел, на листе оно красное (glassBatchStale). */
+ const gone=opts.gone||null;
  const size=sheet.size||group.sheet,S=px/Math.max(size.w,size.h),W=size.w*S,H=size.h*S,by=new Map((pieces||[]).map(p=>[p.piece,p]));
  const pr=typeof cutGroupParams==='function'?cutGroupParams(group,size):{},u=cutUsable(size,pr),actualTrimY=cutEffectiveTrimY(sheet,pr),actualTrimX=cutEffectiveTrimX(sheet,pr),outside=p=>p.x<u.x0-1e-6||p.y<u.y0-1e-6||p.x+p.w>u.x1+1e-6||p.y+p.h>u.y1+1e-6,edged=u.x0>0||u.y0>0||u.x1<size.w||u.y1<size.h;
  const fy=(y,h)=>(size.h-y-h)*S,pad=CUT_SVG_PAD;
@@ -32318,8 +32413,9 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  sheet.pieces.forEach((p,i)=>{
   const x=p.x*S,y=fy(p.y,p.h),w=p.w*S,h=p.h*S,src=by.get(p.piece)||{},sel=opts.sel===p.piece;
   const stationState=station?(stationBroken.has(p.piece)?'broken':p.piece===opts.stationNow?'now':stationCut.has(p.piece)?'cut':'wait'):'';
+  const stop=gone&&gone.get(p.piece)||'';
   /* Стекло — группа: прямоугольник и подписи ловят мышь вместе. */
-  out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':station?'<g class="cut-pc st-pc '+stationState+'" data-station-piece="'+esc(p.piece)+'" data-station-state="'+stationState+'">':'<g>');
+  out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+(stop?' gone':'')+'"'+(stop?' data-cut-gone':'')+'>':station?'<g class="cut-pc st-pc '+stationState+(stop?' gone':'')+'" data-station-piece="'+esc(p.piece)+'" data-station-state="'+stationState+'"'+(stop?' data-cut-gone':'')+'>':stop?'<g class="cut-pc gone" data-cut-gone>':'<g>');
   /* Форма: стол вырезает прямоугольную заготовку, а потом режет по контуру.
      Заготовка — серым, как пустое место: то, что внутри неё уйдёт в отход.
      `turn` — 0/90/180/270° против часовой; старый boolean rot читается как
@@ -32346,13 +32442,14 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
      «1 · 20 1/4 × 100 1/4″» на узком стекле налезала на соседей. */
   const gid=typeof glassPieceValid==='function'&&glassPieceValid(p.piece)?p.piece:'';
   const size16=frac16(p.w)+' × '+frac16(p.h)+'″',turnLabel=!(h>52&&w>84)&&w>52&&h>84;
-  out.push('<title>'+esc([p.piece,src.order?src.order+' / '+src.line:'',size16,station?(stationState==='cut'?'Cut':stationState==='now'?'Just scanned':stationState==='broken'?'Sheet broke':'Waiting'):null].filter(Boolean).join(' · '))+'</title>');
+  out.push('<title>'+esc([p.piece,src.order?src.order+' / '+src.line:'',size16,station?(stationState==='cut'?'Cut':stationState==='now'?'Just scanned':stationState==='broken'?'Sheet broke':'Waiting'):null,stop||null].filter(Boolean).join(' · '))+'</title>');
   if(h>52&&w>84||turnLabel){
    const lines=[[src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(src.no||i+1),15,'#101828']];
    /* Glass ID — мелко под номером, если строка помещается между подписями
       размеров; не помещается — стекло остаётся с номером, как раньше. */
    const room=(turnLabel?w:h)-2*CUT_LABEL_EDGE,across=(turnLabel?h:w)-2*CUT_LABEL_EDGE;
    if(gid&&lines.reduce((a,l)=>a+l[1]*1.25,0)+8*1.25<=room&&gid.length*8*0.56<=across)lines.push([gid,8,'#475467']);
+   if(stop)lines.push([stop.toUpperCase(),10,'#b42318']);
    const total=lines.reduce((a,l)=>a+l[1]*1.25,0);let ty2=-total/2;
    out.push('<g transform="translate('+mid[0].toFixed(1)+' '+mid[1].toFixed(1)+')'+(turnLabel?' rotate(-90)':'')+'">');
    lines.forEach(l=>{ty2+=l[1]*1.15;if(l[0])out.push('<text x="0" y="'+ty2.toFixed(1)+'" text-anchor="middle" font-size="'+l[1]+'" fill="'+l[2]+'">'+esc(l[0])+'</text>');});
@@ -32585,11 +32682,13 @@ function viewCutLayout(b){
     сброшенный (и раскроя ещё нет) — черновик по текущим стёклам батча:
     сначала параметры, потом Build. */
  const {s,stored,built,plan,stale,busy,lock,pieces,laid,live,group,sheet}=cutLayoutState(b),est=!!b.estimate;
+ /* Отмена / Hold units после раскроя: какие стёкла ушли — в предупреждение и красным на лист. */
+ const changed=est||!built?null:glassBatchStale(b);
  /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
     над ним повторяла бы то же самое. */
  const need=cutNeedSizes(b,plan,pieces),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
  const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button></div>`:'';
- const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?`<div class="ncr-warning" data-cut-stale>⚠ ${est?'Orders or quotes changed':'Batch changed'} after the layout — Reset, then Build.</div>`:'')+info+cutWhatTable(b.number,busy);
+ const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale||changed?`<div class="ncr-warning${changed?' cut-stale-stop':''}" data-cut-stale>⚠ ${est?'Orders or quotes changed':'Batch changed'} after the layout${changed?' · '+esc(changed.text):''} — Reset, then Build.</div>`:'')+info+cutWhatTable(b.number,busy);
  if(!plan.groups.length)return `${notice}${need}<p class="mut cut-empty">${est?'Nothing to lay out: tick an order or quote with glass.':'Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.'}</p>`;
  const at=id=>cutFind(plan,id);
  const placed=new Set(),locations=new Map();plan.groups.forEach(g=>g.sheets.forEach(x=>x.pieces.forEach((p,i)=>{placed.add(p.piece);locations.set(p.piece,{group:g,sheet:x,piece:p,index:i});})));
@@ -32701,7 +32800,7 @@ function viewCutLayout(b){
   </div></div>
   <div class="cut-sheet-pane">
    ${glasses}${queue}
-   ${sheet?`<div class="cut-paper" data-cut-sheet="${sheet.no}"${est?'':` ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')"`}>${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`
+   ${sheet?`<div class="cut-paper" data-cut-sheet="${sheet.no}"${est?'':` ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')"`}>${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true,gone:changed&&changed.gone})}</div>`
    /* Листов нет — пустой лист первого размера с линиями Trim и Border:
       правка отступов видна сразу, до Build. */
    :`<div class="cut-paper cut-paper-empty" data-cut-empty>${cutSheetSVG(group,{no:0,size:group.sheet,pieces:[],stock:[],offcuts:[]},520,[],{ids:true})}<div class="cut-empty-cap"><b>${waiting.length} glass</b><span>${busy?'Building…':'Press Build'}</span></div></div>`}
@@ -33311,6 +33410,7 @@ function stationSubmit(raw){
  /* Скан не ждёт окна: следующий стикер закрывает открытое окно. */
  stationDrawer=null;stationTab='scan';
  if(check.kind==='carrier'){stationEmptyAsk='';stationCarrierScan(check.code);render();return 'carrier';}
+ if(!stationTakeOff(check))return 'saveError';
  /* Готовый юнит отсканирован ещё раз при выбранном скиде — переложили. */
  if(check.kind==='already'&&stationIsReady()){const moved=stationRestack(check,who);if(moved){render();return moved;}}
  if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
@@ -33335,7 +33435,8 @@ function stationShow(check,rec){
  const foreign=stationReadyForeign(g,rec);if(foreign)stationLast.foreign=foreign;
  /* Лист: показываем лист отсканированного стекла; закрылся — следующий. */
  const kind=check.kind;let sound=kind==='ok'||kind==='hold'?(check.stock?'info':stationUrgency(g&&g.o)===2?'urgent':'ok'):kind==='already'?'twice':'error';
- if(kind==='hold')sound='error';
+ if(kind==='hold'||kind==='held'||kind==='cancelled'&&!check.takes)sound='error';
+ if(kind==='cancelled'&&check.takes)sound='twice';
  if(kind==='skipped')sound='twice';
  if(g&&g.entry&&rec){
   const at=stationSheetFind(g.entry.batch.number,g.id);
@@ -33391,8 +33492,9 @@ function stationSheetFirst(batch,glass){
  const x=all.find(a=>!stationSheetDone(a.sheet,cut))||all[0];return x?{batch,glass:x.group.glass,no:x.sheet.no,done:stationSheetDone(x.sheet,cut)}:null;
 }
 function stationSheetAuto(){
- const q=typeof glassBatchCutQueue==='function'?glassBatchCutQueue():[];
- for(const b of q){const v=stationSheetFirst(b.number);if(v&&!v.done)return {batch:v.batch,glass:v.glass,no:v.no};}
+ const q=typeof glassBatchCutQueue==='function'?glassBatchCutQueue():[],stops=glassStopMap();
+ /* Батч, который офис ещё не пересобрал после отмены / Hold, сам не открываем. */
+ for(const b of q){if(glassBatchStale(b,stops))continue;const v=stationSheetFirst(b.number);if(v&&!v.done)return {batch:v.batch,glass:v.glass,no:v.no};}
  return q.length?{batch:q[0].number,glass:'',no:0}:null;
 }
 function stationBatchOpen(number,glass){
@@ -33406,29 +33508,29 @@ function stationBatchOpen(number,glass){
 function stationBatchView(number){if(!glassBatchFind(number))return false;stationMenu=null;stationDrawer={kind:'batch',batch:number};render();return true;}
 function stationBatchHTML(){
  const b=glassBatchFind(stationDrawer.batch);if(!b)return '';
- const plan=cutPlanFor(b.number),cut=stationCutSet(),broken=stationBrokenSet(),pieces=plan?cutPieces(b,plan.settings||{}):[],live=b.items.filter(i=>!i.releasedAt),done=live.filter(i=>i.cutStartedAt).length;
+ const plan=cutPlanFor(b.number),cut=stationCutSet(),broken=stationBrokenSet(),pieces=plan?cutPieces(b,plan.settings||{}):[],live=b.items.filter(i=>!i.releasedAt),done=live.filter(i=>i.cutStartedAt).length,stale=glassBatchStale(b);
  const orders=[...new Set(live.map(i=>b.parts[i.part]&&b.parts[i.part].orderId))].map(salesRecord).filter(Boolean),urg=Math.max(0,...orders.map(stationUrgency)),due=orders.map(o=>o.dueDate).filter(Boolean).sort()[0]||'';
  const groups=(plan&&plan.groups||[]).map(g=>{
   const left=g.sheets.filter(s=>!stationSheetDone(s,cut)).length;
   return '<div class="st-bgroup"><div class="st-bgh"><b data-raw>'+esc(g.glass)+'</b><span class="mut">'+g.sheets.length+' sheet'+(g.sheets.length===1?'':'s')+' · '+(left?left+' left':'all cut')+'</span></div><div class="st-bsheets">'+
    g.sheets.map(sh=>{const k=sh.pieces.filter(p=>cut.has(p.piece)).length,sz=sh.size||g.sheet||{},stock=/^S-/.test(String(sz.key||''));
-    return '<button type="button" class="st-bsheet'+(stationSheetDone(sh,cut)?' done':'')+'" data-batch-sheet="'+esc(g.glass)+':'+sh.no+'" onclick="stationSheetPick(\''+esc(b.number)+'\',\''+esc(g.glass)+'\','+sh.no+')">'+stationSheetSVG(g,sh,pieces,cut,'',true,broken)+
+    return '<button type="button" class="st-bsheet'+(stationSheetDone(sh,cut)?' done':'')+'" data-batch-sheet="'+esc(g.glass)+':'+sh.no+'" onclick="stationSheetPick(\''+esc(b.number)+'\',\''+esc(g.glass)+'\','+sh.no+')">'+stationSheetSVG(g,sh,pieces,cut,'',true,broken,stale&&stale.gone)+
      '<span class="st-bsheet-t"><b>Sheet '+sh.no+'</b><span>'+sh.pieces.length+' glass'+(k?' · '+k+' cut':'')+'</span>'+(stock?'<span class="pill warn">Offcut '+esc(sz.key)+'</span>':'<span class="mut">'+esc(frac16(sz.w)+' × '+frac16(sz.h))+'</span>')+'</span></button>';}).join('')+'</div></div>';
  }).join('');
  const miss=(plan&&Array.isArray(plan.missing)?plan.missing:[]).map(gl=>'<div class="st-bgroup"><div class="st-bgh"><b data-raw>'+esc(gl)+'</b><span class="pill warn">no cutting plan</span></div></div>').join('');
  return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-wide" role="dialog" aria-label="Batch" data-station-batch-view="'+esc(b.number)+'">'+
   '<h2>Batch <b class="mono st-bnum">'+esc(b.number)+'</b>'+(urg===2?'<span class="pill bad">Critical</span>':urg===1?'<span class="pill warn">Rush</span>':'')+'</h2>'+
-  '<div class="mut">'+done+' of '+live.length+' glass cut · '+orders.length+' order'+(orders.length===1?'':'s')+(due?' · due '+esc(salesListShortDay(due)):'')+'</div>'+
+  '<div class="mut">'+done+' of '+live.length+' glass cut · '+orders.length+' order'+(orders.length===1?'':'s')+(due?' · due '+esc(salesListShortDay(due)):'')+'</div>'+stationStaleHTML(stale)+
   (plan?groups+miss:'<div class="st-noplan"><b>No cutting plan yet</b><div class="mut">Make it in Optimization → Batches</div></div>')+
   '<div class="st-drawer-foot"><span class="mut">Tap a sheet to put it on the table</span><button type="button" class="b" onclick="stationCloseDrawer()">Close</button><button type="button" class="b st-yes" data-batch-cut-open onclick="stationBatchOpen(\''+esc(b.number)+'\')">Cut this batch</button></div></div>';
 }
 /* Над листом: батч (очередь офиса) и стёкла батча — каждое своей кнопкой. */
 function stationBatchBar(v,plan){
- const q=glassBatchCutQueue(),cur=glassBatchFind(v.batch),list=q.slice();if(cur&&!list.includes(cur))list.unshift(cur);
+ const q=glassBatchCutQueue(),cur=glassBatchFind(v.batch),list=q.slice(),stops=glassStopMap();if(cur&&!list.includes(cur))list.unshift(cur);
  /* Порядок офиса — только совет: резчик берёт батч по стеклу, которое стоит
     у стола (владелец, 29.09.2026), бросает начатый и возвращается к нему. */
  const opt=b=>{const live=b.items.filter(i=>!i.releasedAt),cut=live.filter(i=>i.cutStartedAt).length,glass=[...new Set(live.map(i=>{const pt=b.parts[i.part];return pt&&pt.snapshot?pt.snapshot.glass:'';}).filter(Boolean))];
-  return '<option value="'+esc(b.number)+'"'+(b===cur?' selected':'')+'>'+esc(b.number)+(glass.length?' · '+esc(glass.join(', ')):'')+' · '+cut+' / '+live.length+' cut'+(cut&&cut<live.length?' · started':'')+'</option>';};
+  return '<option value="'+esc(b.number)+'"'+(b===cur?' selected':'')+'>'+esc(b.number)+(glass.length?' · '+esc(glass.join(', ')):'')+' · '+cut+' / '+live.length+' cut'+(cut&&cut<live.length?' · started':'')+(glassBatchStale(b,stops)?' · ⚠ changed — wait':'')+'</option>';};
  const cutSet=stationCutSet();
  const miss=plan&&Array.isArray(plan.missing)?plan.missing:[];
  const groups=plan&&plan.groups.length+miss.length>1?plan.groups.map(g=>{const left=g.sheets.filter(s=>!stationSheetDone(s,cutSet)).length;
@@ -33436,11 +33538,14 @@ function stationBatchBar(v,plan){
   miss.map(gl=>'<span class="st-gbtn st-gmiss" data-station-glass-missing="'+esc(gl)+'"><b data-raw>'+esc(gl)+'</b><span>no cutting plan</span></span>').join(''):'';
  return '<div class="st-batchbar"><label>Batch <select data-station-batch onchange="stationBatchOpen(this.value)">'+list.map(opt).join('')+'</select></label><button type="button" class="st-gbtn st-gview" data-station-batch-view-open onclick="stationBatchView(\''+esc(v.batch)+'\')"><b>All sheets</b><span>view the batch</span></button>'+groups+'</div>';
 }
-function stationSheetSVG(group,sheet,pieces,cut,nowId,still,broken){
+function stationSheetSVG(group,sheet,pieces,cut,nowId,still,broken,gone){
  /* CUT and Optimization share contours, rotation, holes, trim and offcuts.
     Station mode adds only scan state and click-to-open on each glass. */
- return cutSheetSVG(group,sheet,still?320:700,pieces,{station:true,stationMini:!!still,stationCut:cut,stationNow:nowId,stationBroken:broken});
+ return cutSheetSVG(group,sheet,still?320:700,pieces,{station:true,stationMini:!!still,stationCut:cut,stationNow:nowId,stationBroken:broken,gone});
 }
+/* Офис ещё не пересобрал раскрой после отмены / Hold units (glassBatchStale):
+   резчик этот батч не берёт (владелец, 6.10.2026). */
+function stationStaleHTML(stale){return stale?'<div class="st-stale" data-station-stale><b>Don’t cut — batch changed</b><span>'+esc(stale.text)+' · wait for the office</span></div>':'';}
 function stationSheetClick(ev){
  const g=ev.target.closest&&ev.target.closest('[data-station-piece]');
  if(!g){stationMenu=null;render();return;}
@@ -33476,14 +33581,14 @@ function stationSheetCard(){
  if(!v)return '<div class="card st-sheet-card st-empty" data-station-nobatch><div><b>Nothing to cut</b><div class="mut">Batches come here in the office order (Optimization → Batches)</div></div></div>';
  const plan=cutPlanFor(v.batch),group=plan&&plan.groups.find(g=>g.glass===v.glass),sheet=group&&group.sheets.find(s=>s.no===v.no);
  if(!sheet)return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+'<div class="st-noplan" data-station-noplan><b>'+esc(v.batch)+' has no cutting plan</b><div class="mut">Make it in Optimization → Batches. Scanning stickers works without it.</div></div></div>';
- const cut=stationCutSet(),broken=stationBrokenSet(),pieces=cutPieces(glassBatchFind(v.batch),plan.settings||{}),nowId=stationLast&&stationLast.check&&stationLast.check.code,size=sheet.size||{};
+ const cut=stationCutSet(),broken=stationBrokenSet(),pieces=cutPieces(glassBatchFind(v.batch),plan.settings||{}),nowId=stationLast&&stationLast.check&&stationLast.check.code,size=sheet.size||{},stale=glassBatchStale(glassBatchFind(v.batch));
  const n=sheet.pieces.filter(p=>cut.has(p.piece)).length;
  const tiles=group.sheets.map(s=>{const done=stationSheetDone(s,cut),k=s.pieces.filter(p=>cut.has(p.piece)).length;
   return '<button type="button" class="st-tile'+(done?' done':'')+(s===sheet?' now':'')+'" onclick="stationSheetPick(\''+esc(v.batch)+'\',\''+esc(group.glass)+'\','+s.no+')"><b>'+s.no+'</b><span>'+(done?'✓':k?k+'/'+s.pieces.length:s.pieces.length)+'</span></button>';}).join('');
  const menu=stationMenu&&sheet.pieces.some(p=>p.piece===stationMenu.piece)?stationMenuHTML():'';
  const breaks=(DB.sheetBreak||[]).filter(x=>x.batch===v.batch&&x.glass===group.glass&&x.sheet===sheet.no).length;
- return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+'<div class="st-sec"><h3>Sheet '+sheet.no+' of '+group.sheets.length+'</h3><span class="pill" data-raw>'+esc(group.glass)+' · '+esc(frac16(size.w)+' × '+frac16(size.h))+'</span>'+(breaks?'<span class="pill bad" data-sheet-breaks>broke '+breaks+'×</span>':'')+'<span class="sp"></span><span class="pill '+(n===sheet.pieces.length?'ok':'')+'">'+n+' / '+sheet.pieces.length+' cut</span><button type="button" class="b sm st-sheetbrk" onclick="stationOpenSheetBreak()">Sheet broke</button></div>'+
-  stationSheetSVG(group,sheet,pieces,cut,nowId,false,broken)+'<div class="st-tiles">'+tiles+'</div>'+menu+'</div>';
+ return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+stationStaleHTML(stale)+'<div class="st-sec"><h3>Sheet '+sheet.no+' of '+group.sheets.length+'</h3><span class="pill" data-raw>'+esc(group.glass)+' · '+esc(frac16(size.w)+' × '+frac16(size.h))+'</span>'+(breaks?'<span class="pill bad" data-sheet-breaks>broke '+breaks+'×</span>':'')+'<span class="sp"></span><span class="pill '+(n===sheet.pieces.length?'ok':'')+'">'+n+' / '+sheet.pieces.length+' cut</span><button type="button" class="b sm st-sheetbrk" onclick="stationOpenSheetBreak()">Sheet broke</button></div>'+
+  stationSheetSVG(group,sheet,pieces,cut,nowId,false,broken,stale&&stale.gone)+'<div class="st-tiles">'+tiles+'</div>'+menu+'</div>';
 }
 function stationMenuHTML(){
  const m=stationMenu,cut=stationCutSet().has(m.piece),x=Math.max(8,m.x-90),y=m.y+12;
@@ -33513,12 +33618,13 @@ function stationCard(){
  const K={
   ok:{cls:c.stock?'st-info':'st-ok',head:'✓ '+verb+(c.stock?' · no batch — stock cut':'')},
   hold:{cls:'st-red',head:'✓ '+verb+(c.unit?' · unit on hold':' · order on hold')},
+  held:{cls:'st-red',head:c.unit?'✕ Unit on hold':'✕ Order on hold'},
   already:{cls:'st-amber',head:'Already '+(verb==='Cut'?'cut':'done')+' · '+who},
   passed:{cls:'st-red',head:'✕ Not for '+stationCode},
   skipped:{cls:'st-amber',head:(c.missed||[]).join(', ')+' not scanned'},
   skippedNo:{cls:'st-red',head:'✕ '+(c.missed||[]).join(', ')+' not done'},
   route:{cls:'st-red',head:'✕ '+stationCode+' is not in its route'},
-  cancelled:{cls:'st-red',head:c.unit?'✕ Unit cancelled':'✕ Order cancelled'},
+  cancelled:{cls:c.takes?'st-amber':'st-red',head:c.takes?'Unit cancelled · customer takes':c.off?'✕ Unit cancelled · off '+c.off:c.unit?'✕ Unit cancelled':'✕ Order cancelled'},
   unit:{cls:'st-red',head:'✕ Unit number'},
   saveError:{cls:'st-red',head:'Not saved — scan again'},
   unknown:{cls:'st-red',head:'✕ Unknown code'},
@@ -33529,10 +33635,11 @@ function stationCard(){
  if(c.kind==='ok'&&urg===2||L.foreign)K.cls='st-red';
  /* Большой блок слева — главное действие рабочего. */
  let big;
- if(c.kind==='hold')big='<div class="st-big st-red"><small>'+(c.unit?'HOLD':'ON HOLD')+'</small><b>SET ASIDE</b><span>'+esc(c.reason||'Order on hold')+'</span></div>';
+ if(c.kind==='hold'||c.kind==='held')big='<div class="st-big st-red"><small>'+(c.unit?'HOLD':'ON HOLD')+'</small><b>SET ASIDE</b><span>'+esc(c.reason||'Order on hold')+'</span></div>';
  else if(c.kind==='skipped')big='<div class="st-big st-ask"><small>CHECK THE GLASS</small><b>'+esc(stationAskWord(c.missed))+'</b><span>'+esc((c.missed||[]).join(', ')+' not scanned')+'</span></div>';
  else if(['passed','skippedNo','route'].includes(c.kind))big='<div class="st-big st-red"><small>WAITING AT</small><b>'+esc(place&&place.waiting||'—')+'</b><span>'+(place&&place.waiting?'Take it to '+esc(place.waiting):'Shipped')+'</span></div>';
- else if(c.kind==='cancelled')big='<div class="st-big st-red"><small>'+(c.unit?'UNIT':'ORDER')+'</small><b>STOP</b><span>Cancelled — set aside</span></div>';
+ else if(c.kind==='cancelled'&&c.takes)big='<div class="st-big st-ask"><small>CUSTOMER TAKES</small><b>SHIP IT</b><span>Cancelled · next packing slip</span></div>';
+ else if(c.kind==='cancelled')big='<div class="st-big st-red"><small>'+(c.unit?'UNIT':'ORDER')+'</small><b>STOP</b><span>'+(c.off?'Off '+esc(c.off)+' — set aside':'Cancelled — set aside')+'</span></div>';
  else if(c.kind==='unit')big='<div class="st-big st-red"><small>UNIT</small><b>'+esc(c.code)+'</b><span>Scan the glass sticker</span></div>';
  else if(c.kind==='recut')big='<div class="st-big st-red"><small>'+(c.whole?'NEW UNIT':'NEW GLASS')+'</small><b class="st-big-code">'+esc((c.newIds||[]).join(', ')||'—')+'</b><span>'+(c.whole?'All its glass — next batch':'Waits for the next batch')+'</span></div>';
  else if(place&&place.assembling&&['ok','hold','already','peek'].includes(c.kind))big='<div class="st-big"><small>UNIT</small><b>IN</b><span>Waiting for its pair</span></div>';
@@ -33759,7 +33866,7 @@ function stationSheetBreakHTML(){
    (Optimization → Batches ▲▼); лист закрыт — когда всё его стекло
    порезано. */
 function stationQueueData(){
- const cut=stationCutSet(),bring=new Map(),cards=[];
+ const cut=stationCutSet(),bring=new Map(),cards=[],stops=glassStopMap();
  glassBatchCutQueue().forEach(b=>{
   const plan=typeof cutPlanFor==='function'?cutPlanFor(b.number):null,live=b.items.filter(i=>!i.releasedAt);
   const orders=[...new Set(live.map(i=>b.parts[i.part].orderId))].map(salesRecord).filter(Boolean);
@@ -33773,7 +33880,7 @@ function stationQueueData(){
    bySize.forEach(r=>{groups.push(r);if(r.total>r.done){const k=r.glass+'|'+r.label,x=bring.get(k)||{glass:r.glass,label:r.label,stock:r.stock,n:0,batches:[]};x.n+=r.total-r.done;if(!x.batches.includes(b.number))x.batches.push(b.number);bring.set(k,x);}});
   });
   cards.push({b,live:live.length,left:live.filter(i=>!i.cutStartedAt).length,orders:orders.length,due:orders.map(o=>o.dueDate).filter(Boolean).sort()[0]||'',
-   urg:Math.max(0,...orders.map(stationUrgency)),groups,plan:!!plan});
+   urg:Math.max(0,...orders.map(stationUrgency)),groups,plan:!!plan,stale:glassBatchStale(b,stops)});
  });
  const recuts=[];
  (DB.recut||[]).forEach(r=>{
@@ -33793,7 +33900,7 @@ function stationQueueView(){
  const head=n?'<div class="st-qhead" data-queue-head><h3>Batches</h3><span class="mut">office order — cut any one · '+n+' batch'+(n===1?'':'es')+(left?' · '+left+' sheet'+(left===1?'':'s')+' left':'')+'</span></div>':'<div class="card"><div class="empty">Nothing to cut</div></div>';
  const onTable=stationSheetView&&stationSheetView.batch;
  const cards=q.cards.map((c,i)=>'<div class="st-qcard'+(c.b.number===onTable?' now':'')+'" data-queue-batch="'+esc(c.b.number)+'"><div class="st-qh"><span class="st-qn">'+(i+1)+'</span><b class="mono">'+esc(c.b.number)+'</b>'+(c.b.number===onTable?'<span class="pill ok">On the table</span>':'')+
-  (c.urg===2?'<span class="pill bad">Critical</span>':c.urg===1?'<span class="pill warn">Rush</span>':'')+'<span class="mut">'+c.left+' of '+c.live+' to cut · '+c.orders+' order'+(c.orders===1?'':'s')+'</span><span class="sp"></span>'+(c.due?'<span class="pill">Due '+esc(salesListShortDay(c.due))+'</span>':'')+'<button type="button" class="b sm" data-queue-view="'+esc(c.b.number)+'" onclick="stationBatchView(\''+esc(c.b.number)+'\')">View</button><button type="button" class="b sm" data-queue-open="'+esc(c.b.number)+'" onclick="stationBatchOpen(\''+esc(c.b.number)+'\')">Cut this batch</button></div>'+
+  (c.stale?'<span class="pill bad" data-queue-stale title="'+esc(c.stale.text)+'">Changed — wait</span>':'')+(c.urg===2?'<span class="pill bad">Critical</span>':c.urg===1?'<span class="pill warn">Rush</span>':'')+'<span class="mut">'+c.left+' of '+c.live+' to cut · '+c.orders+' order'+(c.orders===1?'':'s')+'</span><span class="sp"></span>'+(c.due?'<span class="pill">Due '+esc(salesListShortDay(c.due))+'</span>':'')+'<button type="button" class="b sm" data-queue-view="'+esc(c.b.number)+'" onclick="stationBatchView(\''+esc(c.b.number)+'\')">View</button><button type="button" class="b sm" data-queue-open="'+esc(c.b.number)+'" onclick="stationBatchOpen(\''+esc(c.b.number)+'\')">Cut this batch</button></div>'+
   (c.plan?c.groups.map(g=>'<div class="st-qg"><b data-raw>'+esc(g.glass)+'</b><span>'+(g.stock?'<span class="pill warn">Stock offcut '+esc(g.label)+'</span>':esc(g.label))+'</span><span class="st-qbar"><i style="width:'+Math.round((g.pcs?g.pcut/g.pcs:g.done/g.total)*100)+'%"></i></span><span class="n"><b>'+(g.total-g.done)+'</b> of '+g.total+' sheet'+(g.total===1?'':'s')+' left</span></div>').join(''):'<div class="mut st-qnoplan">No cutting plan yet — the office builds it in Optimize</div>')+'</div>').join('');
  const bring=q.bring.length?'<table><thead><tr><th>Glass</th><th>Sheet</th><th>For</th><th class="n">Sheets</th></tr></thead><tbody>'+q.bring.map(x=>'<tr><td><b data-raw>'+esc(x.glass)+'</b></td><td>'+(x.stock?'<span class="pill warn">'+esc(x.label)+'</span>':esc(x.label))+'</td><td class="mono">'+esc(x.batches.join(', '))+'</td><td class="n st-qbig">'+x.n+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">Nothing to bring</div>';
  let after='';
@@ -34074,6 +34181,13 @@ document.addEventListener('keydown',function(e){
    ===================================================================== */
 function stationIsShip(){return !!stationCode&&stationCode===shippingStations().ship;}
 function stationIsReady(){return !!stationCode&&stationCode===shippingStations().ready;}
+/* Отменённое стекло, отсканированное на станции отгрузки, снято со скида
+   (erp/sales/unit-cancel): скид снова можно грузить. */
+function stationTakeOff(check){
+ if(!check||check.kind!=='cancelled'||!check.skid||!(stationIsShip()||stationIsReady()))return true;
+ const out=unitTakeOff(check.code);if(!out.ok){stationSaveError(check.code,out.error);return false;}
+ check.off=out.value.skid;return true;
+}
 
 /* ------------------------------ SHIPR ------------------------------- */
 /* Скиды-миксы — норма (владелец, 6.10.2026: «микс из клиентов, у которых 1–4
@@ -34180,7 +34294,8 @@ function stationShipSubmit(raw,who,manual){
  if(!t){
   const check=stationCheck(stationCode,raw);if(!check)return false;
   if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
-  if(check.kind==='hold'){stationShipShow({kind:'shipHold',code:check.code,reason:check.reason});render();return 'hold';}
+  if(check.kind==='hold'||check.kind==='held'){stationShipShow({kind:'shipHold',code:check.code,reason:check.reason});render();return check.kind;}
+  if(!stationTakeOff(check))return 'saveError';
   if(check.kind!=='ok'){stationShow(check,null);render();return check.kind;}
   target=check.code;
  }
@@ -34225,6 +34340,7 @@ function stationShipCard(L){
   shipNoPS:{head:'No packing slip',small:'ASK THE OFFICE',big:'NO PS',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:''},
   shipChoose:{head:'Choose the trip',small:'TWO TRIPS',big:'CHOOSE',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:'<div class="mut">Tap the trip on the right</div>'},
   shipMixed:{head:'Two customers on '+what,small:'SKID',big:'STOP',sub:'<span data-raw>'+esc((c.customers||[]).join(', '))+'</span>',info:'<div class="mut">Scan the units one by one</div>'},
+  shipTakeOff:{head:'Cancelled glass on '+what,small:'TAKE OFF',big:shippingCount(c.units||0,'unit').toUpperCase(),sub:'Cancelled · '+esc((c.orders||[]).join(', ')),info:'<div class="mut mono">'+esc(ids)+'</div><div class="mut">Scan it off, then the skid</div>'},
   shipNotReady:{head:'Not ready',small:'NOT READY',big:String((c.ids||[]).length)+' GLASS',sub:c.why==='hold'?'On hold — set aside':c.why?'Scan at '+esc(c.why)+' first':'Ask the office',info:'<div class="mut mono">'+esc(ids)+'</div>'},
   shipNothing:{head:'Nothing ready on '+what,small:'NOTHING READY',big:what,sub:'Nothing to load',info:''},
   shipHold:{head:'On hold',small:'ON HOLD',big:'SET ASIDE',sub:esc(c.reason||'Order on hold'),info:''}
@@ -35046,7 +35162,17 @@ function shippingUpdate(id,d){return storageCommand(()=>{
  shippingAssert(s.customerId===d.customerId,'The packing slip customer cannot change.');
  const loaded=shippingLoadState(s).loaded.map(u=>u.label),picked=shippingValidateSelection(d,s.id),ids=shippingOrderIds(s);
  shippingAssert(loaded.every(label=>picked.items.some(i=>i.label===label)),'Loaded units cannot be removed. Undo loading at the station first.');
+ const was={date:s.date,truckId:s.truckId||''};
  Object.assign(s,picked,{method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,note:String(d.note||'').slice(0,1000)});
+ /* Перенос на другой день — та же машина, последней остановкой, водитель
+    того дня (у цеха он один), время выезда — заново; Pickup — с машины
+    (владелец, 6.10.2026: «перенос нужен для контроля»; аудит Shipping, F6). */
+ if(was.truckId&&(s.date!==was.date||s.method!=='delivery')){
+  delete s.departAt;
+  if(s.method!=='delivery'){delete s.truckId;delete s.stop;delete s.driverId;}
+  else{const mates=deliveryStops(s.date,s.truckId).filter(x=>x!==s);s.stop=mates.length+1;const driver=mates.find(x=>x.driverId);if(driver)s.driverId=driver.driverId;}
+  deliveryRenumber(was.date,was.truckId);
+ }
  [...new Set(ids.concat(shippingOrderIds(s)))].forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip updated',s.number));return s;
 });}
 /* mode 'loaded' — едет только отсканированное на станции отгрузки, остальное
@@ -35057,14 +35183,16 @@ function shippingUpdate(id,d){return storageCommand(()=>{
 function shippingMarkShipped(id,mode){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can be shipped.');
  shippingAssert(s.items.length+s.extras.length>0,'An empty packing slip cannot be shipped.');
- const picked=shippingValidateSelection(s,s.id),now=new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
- Object.assign(s,picked);
+ const now=new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
  const loaded=new Set(shippingLoadState(s).loaded.map(u=>u.label));
+ /* Сначала — что едет, потом проверка: непогруженный юнит, разбитый до
+    печати, не держит отправку погруженных (аудит Shipping, F4). */
  if(mode==='loaded'){
   const left=s.items.filter(i=>!loaded.has(i.label));shippingAssert(left.length<s.items.length,'Nothing is loaded yet.');
   s.items=s.items.filter(i=>loaded.has(i.label));shippingUnprint(s,left);
   [...new Set(left.map(i=>i.orderId))].forEach(oid=>orderLogPush(salesRecord(oid),'Not loaded',s.number+' · '+shippingCount(left.filter(i=>i.orderId===oid).length,'unit')+' back to Ready'));
  }
+ Object.assign(s,shippingValidateSelection(s,s.id));
  /* Какие скиды уезжают — до заморозки документа: на бумаге клиента только они. */
  s.skidsOut=shippingSkidsOut(s,s.items.map(i=>({pieces:i.pieces,skid:i.skid,loaded:loaded.has(i.label)})));
  s.document=shippingDocument(s);
@@ -35211,11 +35339,15 @@ function shippingUnitsOn(skid){
 function shippingLoadPlan(code,tripId){
  const ship=shippingStations().ship,skid=carrierType(code)?carrierCode(code):'',fail=(kind,extra)=>Object.assign({kind,code,skid},extra);
  let units=[],stray=[];
+ /* Отменённый юнит ещё лежит на скиде — скид не грузят, пока его не снимут
+    (владелец, 6.10.2026). */
+ const off=skid?unitOnSkid(skid):[];
+ if(off.length)return fail('shipTakeOff',{ids:off.flatMap(x=>x.pieces),units:off.length,orders:[...new Set(off.map(x=>x.o.businessNumber))]});
  if(skid){const x=shippingUnitsOn(skid);units=x.units;stray=x.stray;}
  else{const g=stationGlass(code),u=g&&shippingUnits(g.o).find(u=>u.pieces.includes(code));if(u&&u.ready)units=[u];else stray=[code];}
  if(stray.length){
   const g=stationGlass(stray[0]),at=g?stationPlace(g).waiting:'';
-  return fail('shipNotReady',{ids:stray,why:g&&(g.o.onHold||g.l.onHold)?'hold':at&&at!==ship?at:''});
+  return fail('shipNotReady',{ids:stray,why:g&&(g.o.onHold||g.l.onHold||unitPieceHold(g))?'hold':at&&at!==ship?at:''});
  }
  if(!units.length){
   const last=(DB.stationScan||[]).filter(s=>!s.undoneAt&&s.on===skid&&s.station===ship).pop();
