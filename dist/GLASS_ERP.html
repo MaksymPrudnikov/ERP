@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 113 модулей, 19 стиля.
+  Состав сборки: 115 модулей, 19 стиля.
 -->
 <html lang="en">
 <head>
@@ -2441,7 +2441,12 @@ tr.st-hot td{background:var(--surface-2)}
 .st-big.st-dark{background:var(--inverse);border-color:var(--text-3)}
 .st-big.st-dark small{color:var(--accent)}.st-big.st-dark b{color:var(--on-solid)}.st-big.st-dark span{color:var(--accent-line)}
 .st-dl{display:grid;grid-template-columns:70px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--line2);font-size:14px;cursor:default}
-.st-dl[data-station-incoming]{cursor:pointer}
+.st-dl[data-station-incoming],.st-dl[data-station-trip-row]{cursor:pointer}
+.st-dl[data-station-trip-row]{grid-template-columns:84px minmax(0,1fr) auto}
+.st-puton span{color:var(--text-2);font-size:13px}
+.st-queue{display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--inverse);color:var(--on-solid);font-weight:800;font-size:16px;letter-spacing:.02em}
+.st-queue span{font-weight:500;font-size:14px}
+.st-skid{display:flex;flex-direction:column;gap:2px;margin-top:8px;font-size:14px}
 .st-dl:last-child{border-bottom:0}
 .st-dl.now{background:var(--blue2);border-radius:8px}
 .st-dl.hot{background:var(--surface-2);border-radius:8px}
@@ -2728,6 +2733,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 /* Shipping office: quiet tables, English labels, shared design tokens. */
 .shipping-workspace{display:grid;gap:16px}.shipping-workspace>.oq-tabs{margin:0}.shipping-top{display:flex;justify-content:flex-end}.shipping-top label{display:flex;gap:10px;align-items:center}.shipping-top select{min-width:220px;max-width:50vw}.shipping-customer,.shipping-detail{padding:20px}.shipping-customer-head{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:14px}.shipping-customer-head h3{margin:0 0 5px}.shipping-skid{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.shipping-skid label{display:flex;gap:9px;align-items:center;min-width:100px}.shipping-skid>span{flex:1}.shipping-ready-table input[type=number],.shipping-pick input{width:70px}.shipping-order-row{background:var(--surface-2)}.shipping-order-row label{display:inline-flex;gap:9px;align-items:center}.shipping-scan{display:flex;gap:16px;flex-wrap:wrap;padding:18px;border-bottom:1px solid var(--line)}.shipping-scan label{display:grid;gap:5px}.shipping-scan label:first-child{flex:1;min-width:200px}.shipping-scan input{min-height:38px}.shipping-selected{background:var(--accent-soft)}.shipping-reprint{color:var(--warning);font-weight:700}.shipping-notice{padding:12px 16px;border-radius:8px;background:var(--success-soft);color:var(--success)}.shipping-notice.bad{background:var(--danger-soft);color:var(--danger)}.shipping-detail-order{padding:14px 0;border-bottom:1px solid var(--line);line-height:1.8}.shipping-detail-order>b{display:block}.shipping-detail-order .mut{margin-left:12px}.shipping-preview{display:grid;gap:18px;justify-content:center;padding:24px 0;overflow:auto;background:var(--surface-2);margin-top:18px}.shipping-preview svg{max-width:100%;height:auto;background:var(--on-solid);box-shadow:var(--shadow)}.shipping-modal{width:min(860px,calc(100vw - 24px));max-width:860px;max-height:calc(100vh - 24px);display:flex;flex-direction:column}.shipping-form{padding:18px;overflow:auto}.shipping-form label{display:grid;gap:5px}.shipping-form-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}.shipping-form h4{margin:20px 0 8px}.shipping-form .shipping-pick{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.shipping-pick>span:first-child{flex:1}.shipping-pick small{display:block;color:var(--text-2)}.shipping-form textarea{width:100%;min-height:55px}.shipping-order-strip{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 0}.shipping-workspace .optimization-queue>.oq-tabs{display:none}.shipping-workspace .optimization-queue>.page-head{display:none}.pill.st-shipping{background:var(--accent-soft);color:var(--accent)}
 @media(max-width:650px){.shipping-customer-head{align-items:flex-start;flex-direction:column}.shipping-customer,.shipping-detail{padding:12px}.shipping-form-fields{grid-template-columns:1fr}.shipping-skid{flex-wrap:wrap}.shipping-top{justify-content:flex-start}.shipping-top label{flex-wrap:wrap}.shipping-scan{padding:12px}.shipping-scan input{max-width:100%}}
+.shipping-queue{width:64px}.shipping-loaded{font-weight:650;color:var(--green)}
 
 </style>
 </head>
@@ -2755,7 +2761,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='5e8438ab9d27';
+var ERP_BUILD='293e4de3133f';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11075,7 +11081,7 @@ function normalizeSalesLiteShapes(raw){
 function normalizeSalesOrderLine(l){
  l=l&&typeof l==='object'?l:{};
  const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
- return {id:salesEntityId(l.id,'SOL'),lineType:'physical',batchManaged:l.batchManaged===true,onHold:l.onHold===true,holdReason:l.onHold===true?salesString(l.holdReason).slice(0,200):'',holdAt:l.onHold===true?salesString(l.holdAt):'',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
+ return {id:salesEntityId(l.id,'SOL'),lineType:'physical',batchManaged:l.batchManaged===true,onHold:l.onHold===true,holdReason:l.onHold===true?salesString(l.holdReason).slice(0,200):'',holdAt:l.onHold===true?salesString(l.holdAt):'',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',...(Number.isSafeInteger(l.shipQueue)&&l.shipQueue>0&&l.shipQueue<1000?{shipQueue:l.shipQueue}:{}),weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
 }
 /* Строка-позиция каталога: изделие из стекла или готовая вещь — не одно и то
    же, и модель их не смешивает (раздел 6 схемы). Владелец: «там, где Single /
@@ -11298,7 +11304,7 @@ function salesLockedLineGuard(line){
 }
 /* У строки в батче закрыта каждая ячейка, кроме Shape: форма открывает
    чертёж на просмотр и печать (владелец, 26.09.2026), редактор — нет. */
-function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked'":(line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
+function salesLineRowAttrs(line){return (salesLineLocked(line)?" class='line-locked'":line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
 function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='shape'?String(html).replace(/^<td\b/,'<td inert'):html;}
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
@@ -11436,7 +11442,7 @@ function salesSyncRecordLifecycle(o){
  if(!soDraft||soDraft.id!==o.id)return;
  ['status','batchNo','fulfilledVia','updatedAt'].forEach(k=>{soDraft[k]=o[k];});
  soDraft.statusDates=Object.assign({},o.statusDates);soDraft.batchHistory=(o.batchHistory||[]).slice();soDraft.unbatchHistory=JSON.parse(JSON.stringify(o.unbatchHistory||[]));
- soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';}});
+ soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';if(saved.shipQueue)l.shipQueue=saved.shipQueue;else delete l.shipQueue;}});
 }
 function salesSetRecordStatus(orderId,next,opts){
  if(storageDepth||opts&&opts.deferTouch)return salesSetRecordStatusCommand(orderId,next,opts);
@@ -11683,7 +11689,7 @@ function salesQuoteValidUntil(o){return o&&o.validUntil||salesAddDays(o&&o.sentA
 function salesCopySalesRecord(src,fields){
  const copy=JSON.parse(JSON.stringify(src));Object.assign(copy,{id:salesUid('SO')},fields||{});
  copy.lines.forEach(line=>{
-  const oldId=line.id;line.id=salesUid('SOL');line.batchedAt='';
+  const oldId=line.id;line.id=salesUid('SOL');line.batchedAt='';delete line.shipQueue;
   const clone=ref=>{const s=salesShapeByRef(ref);if(!s)return ref;const c=JSON.parse(JSON.stringify(s));c.id=salesUid('SHP');if(c.ownerLineId===oldId)c.ownerLineId=line.id;DB.shapeDef.push(c);return Object.assign({},ref,{id:c.id});};
   line.shapeRef=clone(line.shapeRef);
   Object.keys(line.liteShapes||{}).forEach(k=>{line.liteShapes[k]=clone(line.liteShapes[k]);});
@@ -11792,7 +11798,7 @@ DEFAULT.orderEvent=[];
 if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];
 const ORDER_LOG_HEAD=[['customerId','customer'],['customerPo','PO'],['dueDate','due date'],['priority','priority'],['delivery','delivery'],['paymentTerms','terms'],['currency','currency'],['branch','branch'],['notes','notes'],['orderCharges','charges'],['makeups','makeups'],['extraItems','items'],['noCharge','no charge'],['validUntil','valid until']];
 /* Поля строки, которые ведёт цех (батч, Hold строки) — у них свои записи. */
-const ORDER_LOG_LINE_OWN=['batchManaged','batchedAt','cutStartedAt','batchNo','onHold','holdReason','holdAt'];
+const ORDER_LOG_LINE_OWN=['batchManaged','batchedAt','cutStartedAt','batchNo','onHold','holdReason','holdAt','shipQueue'];
 let orderLogBase={text:null,map:null},orderLogPending=null;
 
 function normalizeOrderLog(){
@@ -21861,7 +21867,9 @@ function viewOrderQueue(shipping){
 /* ==== src/erp/views/shipping.js ==== */
 /* Shipping office · PR 1, 5 October 2026.
    Ready by scan, one customer/address per PS, partial dispatch and receipt.
-   Uses the existing Sales column filters. No loading/queue/truck UI here. */
+   Uses the existing Sales column filters. PR 2, 6 October 2026: customer
+   queue in Ready and the Loaded button (rules: erp/shipping/loading).
+   No truck UI here. */
 const SHIPPING_TABS=[['awaiting','Awaiting readiness'],['ready','Ready'],['shipments','Shipments'],['backorders','Backorders'],['done','Done']];
 let shippingTab='ready',shippingNotice=null,shippingDraft=null,shippingOpenId='',shippingPreview=false;
 let shippingSelection=new Set(),shippingCustomer='',shippingReceivedBy='',shippingReceivedOn='';
@@ -21899,7 +21907,7 @@ function shippingOpen(customerId,id){
 }
 function shippingDraftQty(orderId,lineId,n){
  const d=shippingDraft,o=salesRecord(orderId);if(!d||!o)return;const available=shippingAvailable(o,d.id).filter(i=>i.lineId===lineId);
- available.sort((a,b)=>Number(d.items.some(i=>i.label===b.label))-Number(d.items.some(i=>i.label===a.label)));
+ available.sort((a,b)=>Number(!!b.loaded)-Number(!!a.loaded)||Number(d.items.some(i=>i.label===b.label))-Number(d.items.some(i=>i.label===a.label)));
  d.items=d.items.filter(i=>i.orderId!==orderId||i.lineId!==lineId).concat(available.slice(0,Math.max(0,Math.floor(+n)||0)).map(shippingItem));render();
 }
 function shippingDraftExtra(orderId,extraId,n){const d=shippingDraft;if(!d)return;d.extras=d.extras.filter(i=>i.orderId!==orderId||i.extraId!==extraId);if(+n>0)d.extras.push({orderId,extraId,qty:Math.floor(+n)});}
@@ -21914,7 +21922,22 @@ function shippingSave(){
 }
 function shippingResult(out){shippingNotice={error:!out.ok,text:out.ok?out.value.number+' · '+shippingStatus(out.value):out.error};render();}
 function shippingStatus(s){return s.status==='delivered'?(s.method==='pickup'?'Picked up':'Delivered'):({planned:'Planned',shipped:'Shipped',cancelled:'Cancelled'})[s.status]||'';}
-function shippingDispatch(id){shippingResult(shippingMarkShipped(id));}
+function shippingQueueChange(orderId,lineId,value){const out=shippingQueueSet(orderId,[lineId],value);shippingNotice=out.ok?null:{error:true,text:out.error};render();}
+/* Loaded: едет то, что отсканировано на станции отгрузки; что остаётся в
+   Ready — офис видит до записи. Ничего не сканировали — офис подтверждает
+   весь PS сам, как раньше кнопкой Shipped. После записи — печать PS. */
+function shippingLoaded(id){
+ const s=shippingFind(id);if(!s)return;
+ const state=()=>{const now=shippingFind(id);return now&&shippingWithCtx(()=>shippingLoadState(now));},st=state();
+ const stamp=()=>{const now=state();return JSON.stringify([shippingFind(id),now&&now.loaded.map(u=>u.label)]);},before=stamp();
+ const run=mode=>{
+  if(stamp()!==before){shippingNotice={error:true,text:'Packing slip changed. Try again.'};render();return;}
+  const out=shippingMarkShipped(id,mode);shippingResult(out);if(out.ok)shippingPrint(id);
+ };
+ if(!st.units.length||st.loaded.length===st.units.length){run(st.units.length?'loaded':'');return;}
+ if(!st.loaded.length){salesDialogOpen({title:'Nothing scanned at '+shippingStations().ship,note:'Ship all '+shippingLoadPart(st.units)+' on '+s.number+'?',buttons:[{label:'Back'},{label:'Ship all',kind:'pri',run:()=>run('')}]});return;}
+ salesDialogOpen({title:s.number+' · '+shippingLoadPart(st.loaded)+' loaded',note:shippingLoadPart(st.rest)+' not loaded — back to Ready for the next trip.',buttons:[{label:'Back'},{label:'Loaded',kind:'pri',run:()=>run('loaded')}]});
+}
 function shippingReceive(id){shippingResult(shippingMarkDelivered(id,shippingReceivedBy,shippingReceivedOn||finToday()));}
 function shippingSigned(raw){const out=shippingScanSigned(raw,shippingReceivedBy,shippingReceivedOn||finToday());if(out.ok)shippingOpenId=out.value.id;shippingResult(out);shippingFocus();}
 function shippingUndo(id,action){
@@ -21939,11 +21962,11 @@ function shippingReadyHTML(){
   const skidHTML=skids.map(code=>{const all=units.filter(i=>i.ready&&i.skid===code),a=all.filter(i=>!i.shipment),counts=new Map();all.forEach(i=>counts.set(i.orderId,(counts.get(i.orderId)||0)+1));return `<div class="shipping-skid"><label><input type="checkbox" ${a.length?'':'disabled'} ${a.length&&a.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectSkid('${esc(id)}','${code}',this.checked)"><b>${code}</b></label><span>${shippingCount(all.length,'unit')} · ${[...counts].map(([oid,n])=>esc(salesRecord(oid).businessNumber)+' ×'+n).join(', ')}${all.length>a.length?' · '+(all.length-a.length)+' on PS':''}</span><button class="sm" onclick="shippingPrintSkid('${esc(id)}','${code}')">Skid sheet</button></div>`;}).join('');
   const rows=summaries.map(({o,q})=>{
    const avail=free.filter(i=>i.orderId===o.id),back=v=>q.shipped?v:'—';
-   return `<tr class="shipping-order-row"><td colspan="3"><label><input type="checkbox" ${avail.length?'':'disabled'} ${avail.length&&avail.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectOrder('${esc(o.id)}',this.checked)"><button class="sm" onclick="optimizationOpenOrder('${esc(o.id)}')">Order ${esc(o.businessNumber)}</button></label>${o.customerPo?' · PO '+esc(o.customerPo):''}</td><td>${q.ready}</td><td>${Math.max(0,q.glass-q.physicalReady-q.lines.reduce((n,l)=>n+l.shipped,0))}</td><td>${back(q.back)}</td><td></td></tr>`
-    +q.lines.map((r,n)=>({r,n})).filter(x=>x.r.ready>0).map(({r,n})=>`<tr data-ready-line="${esc(r.l.id)}"><td>${n+1}${r.l.mark?' · '+esc(r.l.mark):''}</td><td>${esc(docSize(r.l))}</td><td>${esc(salesMakeupSummary(salesMakeupById(o,r.l.makeupId)))}</td><td>${r.ready}</td><td>${Math.max(0,r.ordered-r.physicalReady-r.shipped)}</td><td>${back(r.back)}</td><td><input aria-label="Select quantity for order ${esc(o.businessNumber)} line ${n+1}" type="number" min="0" max="${r.ready}" value="${free.filter(i=>i.lineId===r.l.id&&shippingSelection.has(i.label)).length}" onchange="shippingSelectQty('${esc(o.id)}','${esc(r.l.id)}',this.value)"></td></tr>`).join('')
-    +shippingReadyExtras(o,q).map(e=>`<tr><td colspan="3">From stock · ${esc(salesExtraItemName(e.x))}</td><td>${e.ready}</td><td>—</td><td>${back(e.back)}</td><td>In PS form</td></tr>`).join('');
+   return `<tr class="shipping-order-row"><td colspan="3"><label><input type="checkbox" ${avail.length?'':'disabled'} ${avail.length&&avail.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectOrder('${esc(o.id)}',this.checked)"><button class="sm" onclick="optimizationOpenOrder('${esc(o.id)}')">Order ${esc(o.businessNumber)}</button></label>${o.customerPo?' · PO '+esc(o.customerPo):''}</td><td>${q.ready}</td><td>${Math.max(0,q.glass-q.physicalReady-q.lines.reduce((n,l)=>n+l.shipped,0))}</td><td>${back(q.back)}</td><td></td><td></td></tr>`
+    +q.lines.map((r,n)=>({r,n})).filter(x=>x.r.ready>0).map(({r,n})=>`<tr data-ready-line="${esc(r.l.id)}"><td>${n+1}${r.l.mark?' · '+esc(r.l.mark):''}</td><td>${esc(docSize(r.l))}</td><td>${esc(salesMakeupSummary(salesMakeupById(o,r.l.makeupId)))}</td><td>${r.ready}</td><td>${Math.max(0,r.ordered-r.physicalReady-r.shipped)}</td><td>${back(r.back)}</td><td><input class="shipping-queue" aria-label="Queue for order ${esc(o.businessNumber)} line ${n+1}" type="number" min="1" max="999" value="${shippingQueueOf(r.l)||''}" onchange="shippingQueueChange('${esc(o.id)}','${esc(r.l.id)}',this.value)"></td><td><input aria-label="Select quantity for order ${esc(o.businessNumber)} line ${n+1}" type="number" min="0" max="${r.ready}" value="${free.filter(i=>i.lineId===r.l.id&&shippingSelection.has(i.label)).length}" onchange="shippingSelectQty('${esc(o.id)}','${esc(r.l.id)}',this.value)"></td></tr>`).join('')
+    +shippingReadyExtras(o,q).map(e=>`<tr><td colspan="3">From stock · ${esc(salesExtraItemName(e.x))}</td><td>${e.ready}</td><td>—</td><td>${back(e.back)}</td><td></td><td>In PS form</td></tr>`).join('');
   }).join('');
-  return `<section class="card shipping-customer"><div class="shipping-customer-head"><div><h3>${esc(salesCustomerDisplay(id))}</h3><span class="mut">${esc(docAddressText(shippingDefaultAddress(c)))||'Choose an address or pickup'}</span></div><button class="pri" data-create-ps="${esc(id)}" onclick="shippingOpen('${esc(id)}')">Create packing slip</button></div>${skidHTML}${loose?`<p class="mut">Without a skid · ${shippingCount(loose,'unit')}</p>`:''}<div class="sales-table-wrap"><table class="sl-table shipping-ready-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Ready</th><th>Not ready</th><th>Back order</th><th>Select qty</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+  return `<section class="card shipping-customer"><div class="shipping-customer-head"><div><h3>${esc(salesCustomerDisplay(id))}</h3><span class="mut">${esc(docAddressText(shippingDefaultAddress(c)))||'Choose an address or pickup'}</span></div><button class="pri" data-create-ps="${esc(id)}" onclick="shippingOpen('${esc(id)}')">Create packing slip</button></div>${skidHTML}${loose?`<p class="mut">Without a skid · ${shippingCount(loose,'unit')}</p>`:''}<div class="sales-table-wrap"><table class="sl-table shipping-ready-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Ready</th><th>Not ready</th><th>Back order</th><th>Queue</th><th>Select qty</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
  }).join('')||'<div class="card empty">No units ready for a packing slip.</div>';
 }
 function shippingListScope(){return shippingTab==='shipments'?'shippingPS':shippingTab==='awaiting'?'shippingAwaiting':shippingTab==='done'?'shippingDone':'';}
@@ -21955,9 +21978,9 @@ function shippingListHTML(){
  return `<div class="card"><div class="shipping-scan"><label>Signed packing slip<input id="shippingSigned" data-signed-ps placeholder="Scan PS-0001" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingSigned(this.value)}"></label><label>Received by<input id="shippingReceiver" value="${esc(shippingReceivedBy)}" placeholder="Optional" oninput="shippingReceivedBy=this.value"></label><label>Received on<input id="shippingReceivedOn" type="date" value="${shippingReceivedOn||finToday()}" max="${finToday()}" onchange="shippingReceivedOn=this.value"></label></div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr>${cols.map(th).join('')}<th></th></tr></thead><tbody>${rows.map(i=>`<tr data-ps="${esc(i.o.number)}" class="${i.o.id===shippingOpenId?'shipping-selected':''}">${cols.map(c=>`<td>${c.k==='number'?`<button class="sm" onclick="shippingOpenId='${esc(i.o.id)}';shippingPreview=false;render()">${esc(i.memo[c.k])}</button>`:esc(i.memo[c.k])}${c.k==='status'&&shippingNeedsReprint(i.o)?' <span class="shipping-reprint">reprint</span>':''}</td>`).join('')}<td><button class="sm" ${i.o.status==='cancelled'?'disabled':''} onclick="shippingPrint('${esc(i.o.id)}')">Print</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No packing slips.</td></tr>'}</tbody></table></div>${salesListMenuHTML(infos)}</div>${shippingDetailHTML()}`;
 }
 function shippingDetailHTML(){
- const s=shippingFind(shippingOpenId);if(!s)return '';const d=shippingDocument(s);
+ const s=shippingFind(shippingOpenId);if(!s)return '';const d=shippingDocument(s),loaded=s.status==='planned'?shippingLoadText(shippingLoadState(s)):'';
  const action=(label,fn)=>`<button type="button" onclick="${fn}">${label}</button>`;
- return `<div class="card shipping-detail"><div class="shipping-customer-head"><h3>${esc(s.number)} · ${esc(salesCustomerDisplay(s.customerId))}</h3><span class="pill">${shippingStatus(s)}</span></div><p>${esc(docAddressText(s.shipTo))||'Pickup'} · ${esc(docDate(s.date))}</p><div class="row">${s.status==='planned'?action('Edit',`shippingOpen('${esc(s.customerId)}','${esc(s.id)}')`)+action('Shipped',`shippingDispatch('${esc(s.id)}')`)+action('Cancel',`shippingUndo('${esc(s.id)}','cancel')`):s.status==='shipped'?action(s.method==='pickup'?'Picked up':'Delivered',`shippingReceive('${esc(s.id)}')`)+action('Undo dispatch',`shippingUndo('${esc(s.id)}','dispatch')`):s.status==='delivered'?action('Undo receipt',`shippingUndo('${esc(s.id)}','receipt')`):''}${s.status!=='cancelled'?action('Print',`shippingPrint('${esc(s.id)}')`):''}${action(shippingPreview?'Hide preview':'Preview','shippingPreview=!shippingPreview;render()')}</div>${d.orders.map(o=>`<div class="shipping-detail-order"><b>Order ${esc(o.number)}${o.po?' · PO '+esc(o.po):''}</b>${o.rows.map(r=>`<div>Line ${r.line} · ${esc(r.size)} · ${esc(r.makeup)} <b>× ${r.now}</b> · ${esc(r.skids)||'No skid'} <span class="mut">Before ${r.before} · Back order ${r.back}</span></div>`).join('')}${o.extras.map(x=>`<div>From stock · ${esc(x.name)} × ${x.now}</div>`).join('')}</div>`).join('')||'<p class="mut">Open trip · no items selected</p>'}${shippingPreview?'<div class="shipping-preview">'+shippingPages(d).map(docPageSVG).join('')+'</div>':''}</div>`;
+ return `<div class="card shipping-detail"><div class="shipping-customer-head"><h3>${esc(s.number)} · ${esc(salesCustomerDisplay(s.customerId))}</h3><span class="pill">${shippingStatus(s)}</span></div><p>${esc(docAddressText(s.shipTo))||'Pickup'} · ${esc(docDate(s.date))}</p>${loaded?`<p class="shipping-loaded" data-ps-loaded>${esc(loaded)}</p>`:''}<div class="row">${s.status==='planned'?action('Edit',`shippingOpen('${esc(s.customerId)}','${esc(s.id)}')`)+action('Loaded',`shippingLoaded('${esc(s.id)}')`)+action('Cancel',`shippingUndo('${esc(s.id)}','cancel')`):s.status==='shipped'?action(s.method==='pickup'?'Picked up':'Delivered',`shippingReceive('${esc(s.id)}')`)+action('Undo dispatch',`shippingUndo('${esc(s.id)}','dispatch')`):s.status==='delivered'?action('Undo receipt',`shippingUndo('${esc(s.id)}','receipt')`):''}${s.status!=='cancelled'?action('Print',`shippingPrint('${esc(s.id)}')`):''}${action(shippingPreview?'Hide preview':'Preview','shippingPreview=!shippingPreview;render()')}</div>${d.orders.map(o=>`<div class="shipping-detail-order"><b>Order ${esc(o.number)}${o.po?' · PO '+esc(o.po):''}</b>${o.rows.map(r=>`<div>Line ${r.line} · ${esc(r.size)} · ${esc(r.makeup)} <b>× ${r.now}</b> · ${esc(r.skids)||'No skid'} <span class="mut">Before ${r.before} · Back order ${r.back}</span></div>`).join('')}${o.extras.map(x=>`<div>From stock · ${esc(x.name)} × ${x.now}</div>`).join('')}</div>`).join('')||'<p class="mut">Open trip · no items selected</p>'}${shippingPreview?'<div class="shipping-preview">'+shippingPages(d).map(docPageSVG).join('')+'</div>':''}</div>`;
 }
 function shippingBackordersHTML(){
  const board=prodBoard();return shippingOrders().map(o=>({o,q:shippingSummary(o)})).filter(x=>x.o.status==='shipping'&&x.q.back>0).map(({o,q})=>{
@@ -25058,9 +25081,13 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesListMenu){e.pr
 /* ==== src/erp/sales/line-hold.js ==== */
 /* Необязательное удержание позиции. Это не производственный замок:
    строка редактируется, но не попадает в батч. Сохранённая позиция получает
-   только поля Hold; прочие несохранённые правки карточки не записываются. */
+   только поля Hold; прочие несохранённые правки карточки не записываются.
+   То же меню задаёт очередь отгрузки строки (erp/shipping/loading) — и у
+   строки в батче: очередь нужна, пока стекло ещё идёт по цеху. */
 let salesLineHoldMenu=null,salesLineHoldPress=null;
 function salesLineHoldAllowed(o,l){return !!o&&!!l&&!salesIsQuote(o)&&!salesOrderReadOnly(o)&&!salesLineLocked(l);}
+function salesLineQueueAllowed(o,l){const saved=o&&salesRecord(o.id);return !!l&&!!saved&&shippingQueueAllowed(saved)&&(saved.lines||[]).some(x=>x.id===l.id);}
+function salesLineMenuAllowed(o,l){return salesLineHoldAllowed(o,l)||salesLineQueueAllowed(o,l);}
 function salesLineHoldRowAttrs(l){
  if(salesIsQuote(soDraft)||salesOrderReadOnly(soDraft))return '';
  const id=esc(l.id),reason=l.onHold?'On Hold: '+(l.holdReason||'Waiting for clarification'):'Right-click for line actions';
@@ -25079,9 +25106,9 @@ function salesLineHoldStamp(ids){
 }
 function salesLineHoldContext(e,id){
  if(e){if(e.preventDefault)e.preventDefault();if(e.stopPropagation)e.stopPropagation();}
- salesLineHoldCancelPress();const o=soDraft,l=o&&o.lines.find(l=>l.id===id);if(!salesLineHoldAllowed(o,l))return;
+ salesLineHoldCancelPress();const o=soDraft,l=o&&o.lines.find(l=>l.id===id);if(!salesLineMenuAllowed(o,l))return;
  const visible=new Set(salesServiceFilteredEntries().map(x=>x.line.id));
- const ids=soSelectedLines.has(id)?o.lines.filter(x=>visible.has(x.id)&&soSelectedLines.has(x.id)&&salesLineHoldAllowed(o,x)).map(x=>x.id):[id];
+ const ids=soSelectedLines.has(id)?o.lines.filter(x=>visible.has(x.id)&&soSelectedLines.has(x.id)&&salesLineMenuAllowed(o,x)).map(x=>x.id):[id];
  if(!ids.length)return;
  const r=e&&e.currentTarget&&e.currentTarget.getBoundingClientRect?e.currentTarget.getBoundingClientRect():null;
  salesLineHoldMenu={kind:'context',orderId:o.id,ids,index:o.lines.indexOf(l)+1,x:e&&e.clientX||r&&r.left||40,y:e&&e.clientY||r&&r.bottom||40,stamp:salesLineHoldStamp(ids)};render();
@@ -25110,6 +25137,17 @@ function salesLineHoldApply(on){
  if(!salesLineHoldSet(m.orderId,m.ids,on,m.reason)){m.error='These lines can no longer be changed.';render();return;}
  salesLineHoldMenu=null;render();
 }
+function salesLineQueueEdit(){
+ const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return;
+ m.kind='queue';m.queue=String(shippingQueueOf(soDraft.lines.find(l=>l.id===m.ids[0]))||'');m.error='';render();
+ requestAnimationFrame(()=>{const e=document.querySelector('[data-line-queue]');if(e)e.focus();});
+}
+function salesLineQueueApply(){
+ const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return;
+ if(m.stamp!==salesLineHoldStamp(m.ids)){salesLineHoldMenu=null;salesDialogOpen({title:'Order changed',note:'Review the lines and open the menu again.',buttons:[{label:'Back'}]});return;}
+ const out=shippingQueueSet(m.orderId,m.ids,m.queue);if(!out.ok){m.error=out.error;render();return;}
+ salesLineHoldMenu=null;render();
+}
 function salesLineHoldMenuHTML(){
  const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return '';
  const lines=m.ids.map(id=>soDraft.lines.find(l=>l.id===id)).filter(Boolean);if(!lines.length)return '';
@@ -25117,9 +25155,22 @@ function salesLineHoldMenuHTML(){
  const style=`left:${Math.max(8,Math.min(m.x,innerWidth-w-8))}px;top:${Math.max(8,Math.min(m.y,innerHeight-300))}px;max-height:${Math.max(100,innerHeight-24)}px`;
  const back='<div class="sl-backdrop" onclick="salesLineHoldClose()" oncontextmenu="event.preventDefault();salesLineHoldClose()"></div>';
  if(m.kind==='reason')return back+`<div class="sl-menu sl-line-hold-menu" style="${style}" role="dialog" aria-label="Line hold reason"><h5>${esc(label)} · On Hold</h5><label>Reason<input type="text" maxlength="200" data-line-hold-reason value="${esc(m.reason)}" oninput="salesLineHoldReason(this.value)"></label><p class="mut">These lines stay editable but cannot go to batch.</p>${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-actions"><button type="button" onclick="salesLineHoldClose()">Back</button><button type="button" class="pri" data-line-hold-confirm onclick="salesLineHoldApply(true)">${held?'Save reason':'Put on hold'}</button></div></div>`;
- return back+`<div class="sl-menu sl-line-hold-menu sl-line-context" style="${style}" role="menu" aria-label="Line actions"><b>${esc(label)}${held?' · On Hold':''}</b>${held?`<p class="mut">${esc(lines.length===1?lines[0].holdReason:'Selected lines are on hold.')}</p>`:''}<hr><button type="button" role="menuitem" data-line-hold-action="hold" onclick="salesLineHoldEdit()">${held?'Edit reason…':'On Hold…'}</button>${lines.some(l=>l.onHold)?'<button type="button" role="menuitem" data-line-hold-action="release" onclick="salesLineHoldApply(false)">Release hold</button>':''}</div>`;
+ if(m.kind==='queue')return back+`<div class="sl-menu sl-line-hold-menu" style="${style}" role="dialog" aria-label="Shipping queue"><h5>${esc(label)} · Shipping queue</h5><label>Queue<input type="number" min="1" max="999" data-line-queue value="${esc(m.queue)}" oninput="salesLineHoldMenu.queue=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();salesLineQueueApply()}"></label><p class="mut">1 loads first · empty — no queue</p>${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-actions"><button type="button" onclick="salesLineHoldClose()">Back</button><button type="button" class="pri" data-line-queue-confirm onclick="salesLineQueueApply()">Save</button></div></div>`;
+ const canHold=lines.every(l=>salesLineHoldAllowed(soDraft,l)),canQueue=lines.every(l=>salesLineQueueAllowed(soDraft,l)),queue=lines.length===1?shippingQueueOf(lines[0]):0;
+ return back+`<div class="sl-menu sl-line-hold-menu sl-line-context" style="${style}" role="menu" aria-label="Line actions"><b>${esc(label)}${held?' · On Hold':''}${queue?' · Queue '+queue:''}</b>${held?`<p class="mut">${esc(lines.length===1?lines[0].holdReason:'Selected lines are on hold.')}</p>`:''}<hr>${canHold?`<button type="button" role="menuitem" data-line-hold-action="hold" onclick="salesLineHoldEdit()">${held?'Edit reason…':'On Hold…'}</button>${lines.some(l=>l.onHold)?'<button type="button" role="menuitem" data-line-hold-action="release" onclick="salesLineHoldApply(false)">Release hold</button>':''}`:''}${canQueue?'<button type="button" role="menuitem" data-line-queue-action onclick="salesLineQueueEdit()">Shipping queue…</button>':''}</div>`;
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesLineHoldMenu){e.preventDefault();salesLineHoldClose();}});
+/* Ячейки строки в батче — inert: нажатие по ним получает таблица, а не
+   строка. Строку под указателем находим по координате. */
+function salesLineLockedRowAt(e){
+ const t=e.target,table=soDraft&&t&&t.closest&&!t.closest('tr[data-metrics-line-id]')?t.closest('.sales-lines-table'):null;if(!table)return '';
+ const row=[...table.querySelectorAll('tr.line-locked[data-metrics-line-id]')].find(r=>{const b=r.getBoundingClientRect();return e.clientY>=b.top&&e.clientY<=b.bottom&&e.clientX>=b.left&&e.clientX<=b.right;});
+ return row?row.getAttribute('data-metrics-line-id'):'';
+}
+document.addEventListener('contextmenu',e=>{const id=salesLineLockedRowAt(e);if(id)salesLineHoldContext(e,id);});
+document.addEventListener('pointerdown',e=>{const id=salesLineLockedRowAt(e);if(id)salesLineHoldPointer(e,id);});
+document.addEventListener('pointermove',e=>{if(salesLineHoldPress)salesLineHoldMove(e);});
+['pointerup','pointercancel'].forEach(k=>document.addEventListener(k,()=>{if(salesLineHoldPress)salesLineHoldCancelPress();}));
 
 /* ==== src/erp/production/glass-batches.js ==== */
 /* Номера стёкол и реестр резки.
@@ -30075,7 +30126,10 @@ function stationUndoCommand(id,who,opts){
  const rec=(DB.stationScan||[]).find(s=>s.id===id);
  if(!rec||rec.undoneAt)return {error:'Scan not found.'};
  if(rec.broken)return {error:'Recut is in the order — change it there.'};
- if(!opts.shippingRollback&&(DB.shipment||[]).some(s=>shippingActive(s)&&s.items.some(i=>i.pieces.includes(rec.piece))))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
+ /* Скан погрузки открытого рейса отменяет сам рабочий: юниты возвращаются в
+    Ready, PS остаётся planned (erp/shipping/loading). */
+ const ps=opts.shippingRollback?null:(DB.shipment||[]).find(s=>shippingActive(s)&&s.items.some(i=>i.pieces.includes(rec.piece)));
+ if(ps&&!(ps.status==='planned'&&rec.station===shippingStations().ship))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
  const group=rec.actionId?(DB.stationScan||[]).filter(s=>s.actionId===rec.actionId&&!s.undoneAt):[rec];
  const ordered=id=>stationScansFor(id).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
  if(group.some(r=>ordered(r.piece).pop()!==r))return {error:'Glass has moved on — undo the later scan first.'};
@@ -30091,6 +30145,7 @@ function stationUndoCommand(id,who,opts){
    if(e&&e.item.cutStartedAt===r.at){e.item.cutStartedAt='';const o=salesRecord(e.part.orderId),l=o&&(o.lines||[]).find(x=>x.id===e.part.lineId);if(o&&l)glassBatchSyncLine(o,l);}
   }
  });
+ shippingLoadUndone(group);
  shippingSyncOrders(group.map(s=>{const g=stationGlass(s.piece);return g&&g.o.id;}).filter(Boolean));
  if(!opts.deferTouch)touch();
  return {ok:true,pieces:group.map(s=>s.piece)};
@@ -30300,6 +30355,8 @@ function stationConfirmSkippedCommand(station,code,who,opts){
  const now=opts.now||new Date().toISOString();
  check.missed.forEach(m=>stationRecord(m,{kind:'ok',code,g:check.g},who,{deferTouch:true,manual:true,confirmedAt:station,now}));
  const after=stationCheck(station,code);
+ /* Станция отгрузки пишет свой скан сама — по правилам рейса. */
+ if(opts.missedOnly){touch();return {ok:true,check:after,rec:null,mates:[],confirmed:check.missed};}
  const rec=STATION_RECORDED.includes(after.kind)?stationRecord(station,after,who,{deferTouch:true,on:opts.on,now}):null;
  if(!rec)throw new Error('The pair must be assembled before it can move on.');
  const mates=stationRecordMates(station,after,who,{deferTouch:true,on:opts.on,now});
@@ -30482,13 +30539,15 @@ function carrierSetCommand(code,field,value){
 /* Что сейчас на таре: стекло, чей последний скан положил его на неё, и
    которое с тех пор не сканировали, не разбили и не отгрузили. */
 function carrierContents(){
- const last=new Map(),out=new Map();
- (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)last.set(s.piece,s);});
+ /* Сканы стекла собираются одним проходом: иначе каждое стекло на таре
+    заново перебирало весь журнал (на SHIP — на каждый скан скида). */
+ const last=new Map(),scans=new Map(),out=new Map();
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;last.set(s.piece,s);if(!scans.has(s.piece))scans.set(s.piece,[]);scans.get(s.piece).push(s);});
  const index=stationPieceIndex(),batches=stationBatchIndex();
  last.forEach((s,piece)=>{
   if(!s.on||s.broken)return;
   const g=stationGlass(piece,index,batches);if(!g)return;
-  const place=stationPlace(g);if(place.broken||place.shipped)return;
+  const place=stationPlace(g,scans.get(piece));if(place.broken||place.shipped)return;
   if(!out.has(s.on))out.set(s.on,[]);
   out.get(s.on).push({id:piece,g,place,scan:s});
  });
@@ -32947,6 +33006,8 @@ function stationBeep(kind){
 /* ------------------------------- Скан ------------------------------- */
 function stationSubmit(raw){
  const who=stationWho();if(!who)return false;
+ /* Станция отгрузки грузит рейс по своим правилам (station-shipping). */
+ if(stationIsShip())return stationShipSubmit(raw,who);
  const check=stationCheck(stationCode,raw);if(!check)return false;
  /* Скан не ждёт окна: следующий стикер закрывает открытое окно. */
  stationDrawer=null;stationTab='scan';
@@ -32970,6 +33031,7 @@ function stationShow(check,rec){
  if(g&&g.c&&!g.c.missing){try{data=stkGlassData('production',g.o,g.l,g.c,g.unit,{batch:g.entry?g.entry.batch.number:''});}catch(e){data=null;}}
  const place=g?stationPlace(g):null;
  stationLast={check,rec,data,place,at:rec?rec.at:new Date().toISOString()};
+ const foreign=stationReadyForeign(g,rec);if(foreign)stationLast.foreign=foreign;
  /* Лист: показываем лист отсканированного стекла; закрылся — следующий. */
  const kind=check.kind;let sound=kind==='ok'||kind==='hold'?(check.stock?'info':stationUrgency(g&&g.o)===2?'urgent':'ok'):kind==='already'?'twice':'error';
  if(kind==='hold')sound='error';
@@ -32987,13 +33049,15 @@ function stationShow(check,rec){
    }
   }
  }else if(g&&g.entry&&!stationSheetView){const at=stationSheetFind(g.entry.batch.number,g.id);if(at)stationSheetView={batch:g.entry.batch.number,glass:at.group.glass,no:at.sheet.no};}
+ if(foreign)sound='error';
  stationBeep(sound);
 }
 function stationUndoClick(id){
  const who=stationWho();if(!who)return;
  const r=stationUndo(id,who);
  stationNote=r.error||'Scan undone';
- if(!r.error&&stationLast&&stationLast.rec&&stationLast.rec.id===id)stationLast=null;
+ /* Карточка погрузки после Undo устарела в любом случае: скид снова не погружен. */
+ if(!r.error&&stationLast&&(stationLast.rec&&stationLast.rec.id===id||/^ship/.test(stationLast.check.kind)))stationLast=null;
  stationBeep(r.error?'error':'twice');render();
 }
 
@@ -33086,6 +33150,7 @@ function stationSheetClick(ev){
    manual: потом видно, как часто стикеры не читаются. */
 function stationMark(piece){
  const who=stationWho();if(!who)return;
+ if(stationIsShip())return stationShipSubmit(piece,who,true);
  const check=stationCheck(stationCode,piece);if(!check)return;
  const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:true,on:stationPutOn()}):null;
  if(out&&!out.ok){stationSaveError(check.code,out.error);return false;}
@@ -33139,6 +33204,7 @@ function stationCard(){
  const L=stationLast;
  if(!L)return '<div class="st-res st-idle"><div class="mut">Ready for the first scan</div></div>';
  if(/^carrier/.test(L.check.kind))return stationCarrierCard(L);
+ if(/^ship/.test(L.check.kind))return stationShipCard(L);
  const c=L.check,d=L.data,g=c.g,o=g&&g.o,urg=stationUrgency(o),place=L.place;
  const verb=stationCode===stationCutCode()?'Cut':'Done';
  const who=c.here?stationTime(c.here.at)+' · '+(c.here.by||'—'):'';
@@ -33159,7 +33225,7 @@ function stationCard(){
   recut:{cls:'st-red',head:'✕ '+(c.whole?'Unit broken':'Broken')+' · Recut '+esc(String(c.ref||'').replace(/^R/,''))+' created'},
   peek:{cls:'st-info',head:'Details'}
  }[c.kind]||{cls:'st-red',head:c.kind};
- if(c.kind==='ok'&&urg===2)K.cls='st-red';
+ if(c.kind==='ok'&&urg===2||L.foreign)K.cls='st-red';
  /* Большой блок слева — главное действие рабочего. */
  let big;
  if(c.kind==='hold')big='<div class="st-big st-red"><small>ON HOLD</small><b>SET ASIDE</b><span>'+esc(c.reason||'Order on hold')+'</span></div>';
@@ -33184,7 +33250,7 @@ function stationCard(){
   (d&&d.cut&&d.finished&&(d.cut.w!==d.finished.w||d.cut.h!==d.finished.h)&&stationCode!==stationCutCode()?'<span class="k">Cut size</span><span>'+esc(frac16(d.cut.w)+' × '+frac16(d.cut.h))+'</span>':'')+
   (size?'<span class="k">'+(stationCode===stationCutCode()?'Cut size':'Finished size')+'</span><span><b>'+esc(frac16(size.w)+' × '+frac16(size.h))+'</b>'+(d.shape?' · Shape':'')+'</span>':'')+
   (d&&d.due?'<span class="k">Due</span><span>'+esc(d.due)+'</span>':'')+
-  (L.rec&&L.rec.on?'<span class="k">On</span><span><b class="st-on">'+esc(L.rec.on)+'</b></span>':'')+
+  (L.rec&&L.rec.on?'<span class="k">On</span><span><b class="st-on">'+esc(L.rec.on)+'</b></span>':'')+stationReadyKv(g)+
   '</div>'+(c.kind==='skipped'?stationWorksHTML(c):'')+stationParkHTML(c)+stationUnitHTML(L)+stationRouteChips(place&&place.route,place)+
   (d&&d.route&&d.route.services&&d.route.services.length?'<div class="st-svc">'+d.route.services.filter(s=>s.station===stationCode&&(s.step==null||s.step===(L.rec&&Number.isInteger(L.rec.step)?L.rec.step:stationRouteStep(place.route,stationCode,place.far)))).map(s=>'<span>'+esc(s.text)+'</span>').join('')+'</div>':''):'<div class="st-gid mono">'+esc(c.code)+'</div>';
  /* Действия по нажатию рабочего: Undo своего скана, Recut разбитого,
@@ -33201,7 +33267,7 @@ function stationCard(){
   (canRecut?'<button type="button" class="b st-red-b" data-station-recut onclick="stationOpenRecut(\''+esc(c.code)+'\')">Recut</button>':'')+
   (stickerFor?'<button type="button" class="b" data-station-sticker onclick="stationPrintSticker(\''+esc(stickerFor)+'\')">'+(c.kind==='recut'?'Print new sticker':'Sticker')+'</button>':'')+unitBtn+drawBtn+'</div>':'';
  return '<div class="st-res '+K.cls+'" data-station-result="'+esc(c.kind)+'">'+(bar||'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>')+
-  (bar&&c.kind!=='ok'?'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>':'')+
+  (bar&&c.kind!=='ok'?'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>':'')+stationForeignBar(L)+stationQueueBar(g)+
   '<div class="st-res-b">'+(thumb?'<div class="st-left">'+big+thumb+'</div>':big)+'<div class="st-info">'+info+'</div></div>'+acts+'</div>';
 }
 
@@ -33235,6 +33301,7 @@ function stationTop(who){
   (who&&stationMergeCodes().includes(stationCode)?'<button type="button" class="st-chip st-autoprint'+(stationAutoPrintOn()?' on':'')+'" data-station-autoprint onclick="stationAutoPrintToggle()" title="Unit sticker when the last lite is scanned">Unit stickers <b>'+(stationAutoPrintOn()?'Auto':'By button')+'</b></button>':'')+
   (who&&stationQuestions.length?'<button type="button" class="st-chip st-ask-chip" data-station-questions onclick="stationShowQuestion()">'+stationQuestions.length+' to answer</button>':'')+
   (who&&stationPutOn()?'<div class="st-chip st-puton" data-station-puton>Putting on <b>'+esc(stationPutOn())+'</b><button type="button" title="Stop putting on this dolly" onclick="stationClearPutOn()">✕</button></div>':'')+
+  (who?stationTripChip():'')+
   (who?'<button type="button" class="st-btn" data-station-drawings onclick="stationDrawPick()">Drawings</button>':'')+
   (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" onclick="stationSwitch()">Switch</button>':'')+
   '<button type="button" class="st-btn st-exit" onclick="stationExit()" title="Back to ERP">ERP</button></div>';
@@ -33260,8 +33327,8 @@ function viewStation(){
  if(stationTab==='queue')return stationTop(who)+(stationCode===stationCutCode()?stationQueueView():stationFlowView())+drawer;
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
-  stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+stationJournal()+
-  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationCarriersCard():stationStackCard()+stationPairsCard()+stationCarriersCard()+stationHereCard())+'</div></div>'+drawer;
+  stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+(stationIsShip()?stationShipJournal():stationJournal())+
+  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationCarriersCard():(stationIsShip()?stationTripsCard():'')+stationStackCard()+stationPairsCard()+stationCarriersCard()+stationHereCard())+'</div></div>'+drawer;
 }
 /* На станциях после резки листа нет — справа то, что ждёт здесь: заказ →
    позиция → стекло и сколько штук. Номера стёкол человеку ничего не говорят
@@ -33459,8 +33526,8 @@ function stationCarrierCard(L){
  const c=L.check,t=typeof carrierType==='function'?carrierType(c.code):null,time='<span>'+esc(stationTime(L.at))+'</span>';
  if(c.kind==='carrierPark')return '<div class="st-res st-ok" data-station-result="carrierPark"><div class="st-res-h">✓ On '+esc(c.code)+' · waits for a pair'+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>SET ASIDE ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.count+' glass waits for Recut</div><div class="mut">When the new glass comes, the screen says where its pair is</div></div></div></div>';
  if(c.kind==='carrierBad')return '<div class="st-res st-red" data-station-result="carrierBad"><div class="st-res-h">✕ Unknown dolly or skid'+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Add it in Master Data</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.code)+'</div><div class="mut">Master Data → Dollies &amp; Skids</div></div></div></div>';
- if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">The stack is on the right, top first</div></div></div></div>';
- return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass':'Empty')+' · another dolly — scan it</div></div></div></div>';
+ if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">The stack is on the right, top first</div>'+stationSkidSummary(c.code)+'</div></div></div>';
+ return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass':'Empty')+' · another dolly — scan it</div>'+stationSkidSummary(c.code)+'</div></div></div>';
 }
 function stationScanOffClick(id){const saved=stationScanOff(id);stationNote=saved?'By hand — not on a dolly':storageLastError||'Nothing to change';if(stationLast&&stationLast.rec&&stationLast.rec.id===id)stationLast.rec=(DB.stationScan||[]).find(s=>s.id===id)||null;render();}
 function stationNextLabel(x){
@@ -33503,6 +33570,10 @@ function stationWorksHTML(c){
 function stationAnswer(code,yes){
  const who=stationWho();if(!who)return false;
  stationQuestions=stationQuestions.filter(q=>q.code!==code);
+ if(yes&&stationIsShip()){
+  const r=stationShipConfirm(code,who);if(!r.ok){stationNote=r.error;render();return false;}
+  stationShipSubmit(code,who);stationNote=r.value.confirmed.join(', ')+' confirmed here';render();return true;
+ }
  if(yes){
   const r=stationConfirmSkipped(stationCode,code,who,{on:stationPutOn()});
   if(r.error){stationNote=r.error;render();return false;}
@@ -33681,6 +33752,140 @@ document.addEventListener('keydown',function(e){
  if(tab!=='station'||!stationDrawer||stationDrawer.kind!=='draw'||e.altKey||e.ctrlKey||e.metaKey)return;
  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();stationDrawStep(e.key==='ArrowRight'?1:-1);}
 });
+
+/* ==== src/erp/views/station-shipping.js ==== */
+/* =====================================================================
+   erp/views/station-shipping  ·  Shipping PR 2, 6 октября 2026
+   Две последние станции маршрута на экране станции.
+   Станция готовности (SHIPR): на карточке стекла — очередь клиента и
+   сколько юнитов заказа уже готово; чужое стекло на скиде — цвет и звук,
+   скан пишется (владелец: «работа не стоит»); карточка скида — клиент и
+   «76015: 20 / 20 ready».
+   Станция отгрузки (SHIP): скан скида грузит рейс — правила и запись в
+   erp/shipping/loading. Первый скид открывает рейс; рейс этой станции
+   живёт в её входе, как и долли, на которую кладут.
+   Коды станций не зашиты: shippingStations().
+   ===================================================================== */
+function stationIsShip(){return !!stationCode&&stationCode===shippingStations().ship;}
+function stationIsReady(){return !!stationCode&&stationCode===shippingStations().ready;}
+
+/* ------------------------------ SHIPR ------------------------------- */
+function stationReadyForeign(g,rec){
+ if(!stationIsReady()||!g||!rec||!/^S[LA]-/.test(rec.on||''))return null;
+ const others=[...new Set((carrierContents().get(rec.on)||[]).filter(x=>x.g.o.customerId!==g.o.customerId).map(x=>salesCustomerDisplay(x.g.o.customerId)))];
+ return others.length?{skid:rec.on,customers:others}:null;
+}
+function stationForeignBar(L){return L.foreign?'<div class="st-urg" data-station-foreign>OTHER CUSTOMER ON '+esc(L.foreign.skid)+'<span data-raw>· '+esc(L.foreign.customers.join(', '))+'</span></div>':'';}
+function stationQueueBar(g){
+ const q=g&&stationIsReady()?shippingQueueOf(g.l):0;
+ return q?'<div class="st-queue" data-station-queue>QUEUE '+q+'<span data-raw>· '+esc(salesCustomerDisplay(g.o.customerId))+'</span></div>':'';
+}
+/* Готово из того, что заказу осталось отгрузить. */
+function stationReadyCount(o){const q=shippingSummary(o),sent=q.lines.reduce((n,r)=>n+r.shipped,0);return {ready:q.physicalReady,of:Math.max(0,q.glass-sent)};}
+function stationReadyKv(g){
+ if(!g||!stationIsReady())return '';
+ const r=stationReadyCount(g.o);return '<span class="k">Ready</span><span data-station-ready-count><b>'+r.ready+' / '+r.of+'</b> units</span>';
+}
+function stationSkidSummary(code){
+ if(!(stationIsReady()||stationIsShip())||!/^S[LA]-/.test(code))return '';
+ return shippingWithCtx(()=>{
+  const orders=[...new Set((carrierContents().get(code)||[]).map(x=>x.g.o))].sort((a,b)=>String(a.businessNumber).localeCompare(String(b.businessNumber)));if(!orders.length)return '';
+  return '<div class="st-skid" data-station-skid><b data-raw>'+esc([...new Set(orders.map(o=>salesCustomerDisplay(o.customerId)))].join(' · '))+'</b>'+
+   orders.map(o=>{const r=stationReadyCount(o);return '<span>'+esc(o.businessNumber||'')+': '+r.ready+' / '+r.of+' ready</span>';}).join('')+'</div>';
+ });
+}
+
+/* ------------------------------- SHIP ------------------------------- */
+function stationTrip(){const s=stationSession(),t=s&&s.trip?shippingFind(s.trip):null;return t&&t.status==='planned'?t:null;}
+function stationSetTrip(id){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.trip=id||'';stationSessionsSave(m);}
+function stationTripPick(id){stationSetTrip(id);stationNote='';render();}
+function stationTripChip(){
+ const t=stationIsShip()?stationTrip():null;
+ return t?'<div class="st-chip st-puton" data-station-trip>Loading <b>'+esc(t.number)+'</b><span data-raw>'+esc(salesCustomerDisplay(t.customerId))+'</span><button type="button" title="Close this trip" onclick="stationTripPick(\'\')">✕</button></div>':'';
+}
+function stationShipShow(out){
+ stationMenu=null;stationNote=out.kind==='saveError'?out.note:'';
+ stationLast={check:out,rec:null,data:null,place:null,at:out.at||new Date().toISOString()};
+ stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':'ok'):out.kind==='shipAlready'?'twice':'error');
+}
+function stationShipSubmit(raw,who,manual){
+ const code=stationCodeOf(raw),t=carrierType(code);if(!code)return false;
+ stationDrawer=null;stationTab='scan';
+ /* Долли на машину не едет — её стекло грузят по стикерам. */
+ if(t&&(t.kind!=='Skid'||!carrierFind(code)||!carrierFind(code).active)){stationCarrierScan(code);render();return 'carrier';}
+ let target=code;
+ if(!t){
+  const check=stationCheck(stationCode,raw);if(!check)return false;
+  if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
+  if(check.kind==='hold'){stationShipShow({kind:'shipHold',code:check.code,reason:check.reason});render();return 'hold';}
+  if(check.kind!=='ok'){stationShow(check,null);render();return check.kind;}
+  target=check.code;
+ }
+ const trip=stationTrip(),out=shippingLoad(target,trip&&trip.id,who,{manual:manual||/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim())});
+ if(out.kind==='shipLoaded')stationSetTrip(out.psId);
+ stationShipShow(out);render();return out.kind;
+}
+/* Юнит принесли без скана готовности: Yes отмечает пропущенное у всех его
+   стёкол, погрузку пишет уже скан рейса. */
+function stationShipConfirm(code,who){
+ return storageCommand(()=>{
+  const check=stationCheck(stationCode,code);if(!check||check.kind!=='skipped')throw new Error('Nothing to confirm.');
+  [code].concat(stationMatesAt(check.g,stationCode).map(x=>x.id)).forEach(id=>{
+   const c=stationCheck(stationCode,id);if(!c||c.kind!=='skipped')return;
+   const r=stationConfirmSkipped(stationCode,id,who,{missedOnly:true,deferTouch:true});if(r.error)throw new Error(r.error);
+  });
+  return {confirmed:check.missed};
+ });
+}
+function stationShipCard(L){
+ const c=L.check,time='<span>'+esc(stationTime(L.at))+'</span>',what=esc(c.skid||c.label||c.code);
+ const cur=stationTrip(),trip=c.trip?'<div class="mut">'+(cur&&cur.id===c.trip.id?'Loading ':'')+esc(c.trip.number)+' · <span data-raw>'+esc(salesCustomerDisplay(c.trip.customerId))+'</span></div>':'';
+ if(c.kind==='shipLoaded')return '<div class="st-res st-ok" data-station-result="shipLoaded"><div class="st-res-h">✓ '+esc(c.label)+' → '+esc(c.ps)+(c.added?' · added':' · loaded')+time+'</div>'+
+  (c.balance?'<div class="st-urg" data-station-balance>BALANCE DUE<span>· office</span></div>':'')+
+  '<div class="st-res-b"><div class="st-big st-dark"><small>'+(c.added?'ADDED TO':'LOADED')+'</small><b class="st-big-code">'+esc(c.ps)+'</b><span data-raw>'+esc(c.customer)+'</span></div>'+
+  '<div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div><div class="st-kv"><span class="k">Units</span><span><b>'+c.units+'</b></span><span class="k">Orders</span><span>'+c.orders.map(o=>'<b>'+esc(o.number)+'</b> ×'+o.units).join(' · ')+'</span></div></div></div>'+
+  '<div class="st-acts"><button type="button" class="b" data-station-load-undo onclick="stationUndoClick(\''+esc(c.recId)+'\')">Undo</button></div></div>';
+ if(c.kind==='shipAlready')return '<div class="st-res st-amber" data-station-result="shipAlready"><div class="st-res-h">Already loaded · '+esc(stationTime(c.at))+' · <span data-raw>'+esc(c.by||'—')+'</span>'+time+'</div>'+
+  '<div class="st-res-b"><div class="st-big st-ask"><small>LOADED</small><b class="st-big-code">'+esc(c.ps)+'</b><span>'+what+'</span></div><div class="st-info"><div class="st-gid mono">'+what+'</div></div></div></div>';
+ const ids=(c.ids||[]).slice(0,4).join(', ')+((c.ids||[]).length>4?' +'+((c.ids||[]).length-4):'');
+ const K={
+  shipQueue:{head:'Take '+esc(c.take)+' first',small:'TAKE FIRST',big:esc(c.take),sub:'Queue '+c.queue,info:trip},
+  shipOther:{head:'Other customer',small:'NOT THIS TRIP',big:'STOP',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:trip},
+  shipOtherPS:{head:'Other packing slip',small:'IS ON',big:esc((c.ps||[]).join(', ')),sub:'Not this trip',info:trip},
+  shipNoPS:{head:'No packing slip',small:'ASK THE OFFICE',big:'NO PS',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:''},
+  shipChoose:{head:'Choose the trip',small:'TWO TRIPS',big:'CHOOSE',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:'<div class="mut">Tap the trip on the right</div>'},
+  shipMixed:{head:'Two customers on '+what,small:'SKID',big:'STOP',sub:'<span data-raw>'+esc((c.customers||[]).join(', '))+'</span>',info:''},
+  shipNotReady:{head:'Not ready',small:'NOT READY',big:String((c.ids||[]).length)+' GLASS',sub:c.why==='hold'?'On hold — set aside':c.why?'Scan at '+esc(c.why)+' first':'Ask the office',info:'<div class="mut mono">'+esc(ids)+'</div>'},
+  shipNothing:{head:'Nothing ready on '+what,small:'NOTHING READY',big:what,sub:'Nothing to load',info:''},
+  shipHold:{head:'On hold',small:'ON HOLD',big:'SET ASIDE',sub:esc(c.reason||'Order on hold'),info:''}
+ }[c.kind]||{head:esc(c.kind),small:'',big:'STOP',sub:'',info:''};
+ return '<div class="st-res st-red" data-station-result="'+esc(c.kind)+'"><div class="st-res-h">✕ '+K.head+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>'+K.small+'</small><b'+(K.big.length>6?' class="st-big-code"':'')+'>'+K.big+'</b><span>'+K.sub+'</span></div>'+
+  '<div class="st-info"><div class="st-gid mono">'+what+'</div>'+K.info+'</div></div></div>';
+}
+/* Журнал SHIP — по скидам, а не по стёклам: скид в 150 стёкол иначе занял бы
+   весь список, и Undo предыдущего скида было бы не найти. */
+function stationShipJournal(){
+ const acts=new Map();(DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.station!==stationCode)return;const k=s.actionId||s.id;if(!acts.has(k))acts.set(k,[]);acts.get(k).push(s);});
+ const rows=[...acts.values()].slice(-8).reverse();if(!rows.length)return '';
+ const index=stationPieceIndex();
+ const body=rows.map(list=>{
+  const first=list[0],pieces=new Set(list.map(s=>s.piece)),ps=(DB.shipment||[]).find(s=>shippingActive(s)&&s.items.some(i=>i.pieces.includes(first.piece)));
+  const items=ps?ps.items.filter(i=>i.pieces.some(p=>pieces.has(p))):[],orders=[...new Set(list.map(s=>{const h=index.get(s.piece),o=h&&salesRecord(h.orderId);return o?o.businessNumber||'':'';}).filter(Boolean))];
+  return '<tr data-station-load="'+esc(first.on||first.piece)+'"><td class="mut">'+esc(stationTime(first.at))+'</td><td>'+(first.on?'<b class="st-on">'+esc(first.on)+'</b>':'<b class="mono">'+esc(items[0]?items[0].label:first.piece)+'</b>')+(first.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+'</td>'+
+   '<td>'+(ps?'<b>'+esc(ps.number)+'</b>':'<span class="mut">—</span>')+'</td><td>'+esc(orders.join(', '))+'</td><td>'+(items.length?shippingCount(items.length,'unit'):list.length+' glass')+'</td><td class="mut" data-raw>'+esc(first.by)+'</td>'+
+   '<td style="text-align:right">'+(!ps||ps.status==='planned'?'<button type="button" class="b sm" onclick="stationUndoClick(\''+esc(first.id)+'\')">Undo</button>':'')+'</td></tr>';
+ }).join('');
+ return '<div class="card st-journal"><div class="st-sec"><h3>Loaded</h3></div><table><thead><tr><th>Time</th><th>Skid</th><th>Packing slip</th><th>Order</th><th>Units</th><th>By</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+/* Справа на SHIP: открытые рейсы. Нажатие — грузить этот. */
+function stationTripsCard(){
+ const trips=shippingOpenTrips(),cur=stationTrip();
+ const rows=shippingWithCtx(()=>trips.map(s=>{
+  const st=shippingLoadState(s),text=shippingLoadText(st)||(st.units.length?shippingLoadPart(st.units)+' planned':'Open trip');
+  return '<div class="st-dl'+(cur&&cur.id===s.id?' now':'')+'" data-station-trip-row="'+esc(s.number)+'" onclick="stationTripPick(\''+esc(s.id)+'\')"><span class="st-dchip">'+esc(s.number)+'</span><span><b data-raw>'+esc(salesCustomerDisplay(s.customerId))+'</b> <span class="mut">'+esc(text)+'</span></span><span class="mut">'+esc(docDate(s.date))+'</span></div>';
+ }).join(''));
+ return '<div class="card" data-station-trips><div class="st-sec"><h3>Trips</h3><span class="sp"></span><span class="mut">first skid opens the trip</span></div>'+(rows||'<div class="mut">No open packing slips</div>')+'</div>';
+}
 
 /* ==== src/erp/views/batch-drawings.js ==== */
 /* =====================================================================
@@ -34133,7 +34338,9 @@ function shippingUnits(o){
    const ready=!!stations.ship&&gs.length>0&&places.every(p=>p&&!p.broken&&!p.assembling&&p.waiting===stations.ship)&&!o.onHold&&!l.onHold;
    const ons=gs.map(g=>{const scans=g&&scansOf(g.id);return scans&&scans.length?scans[scans.length-1].on||'':'';});
    const on=ons.length&&ons.every(x=>x===ons[0])?ons[0]:'';
-   return Object.assign({orderId:o.id,lineId:l.id},i,{ready,on,skid:/^S[LA]-/.test(on)?on:'',broken:places.some(p=>!p||p.broken)});
+   /* Погружен: все стёкла прошли станцию отгрузки (скан погрузки, PR 2). */
+   const loaded=gs.length>0&&places.every(p=>p&&!p.broken&&p.shipped);
+   return Object.assign({orderId:o.id,lineId:l.id},i,{ready,loaded,on,skid:/^S[LA]-/.test(on)?on:'',broken:places.some(p=>!p||p.broken)});
   };
   fixed.forEach(i=>out.push(inspect(i)));
   const live=candidates.map(inspect).filter(i=>!labels.has(i.label)&&!i.broken);
@@ -34147,13 +34354,15 @@ function shippingUnits(o){
  });
  return out;
 }
-function shippingAvailable(o,exceptId){return shippingUnits(o).filter(i=>i.ready&&(!i.shipment||i.shipment.id===exceptId));}
+/* Свой PS держит и то, что уже погружено: оно больше не «ждёт на станции». */
+function shippingLoadedOn(i,id){return !!i.loaded&&!!i.shipment&&i.shipment.status==='planned'&&(!id||i.shipment.id===id);}
+function shippingAvailable(o,exceptId){return shippingUnits(o).filter(i=>i.ready?!i.shipment||i.shipment.id===exceptId:!!exceptId&&shippingLoadedOn(i,exceptId));}
 function shippingSummary(o){
  const legacy=shippingLegacy(o),ps=shippingForOrder(o.id),units=shippingUnits(o);
  const lines=(o.lines||[]).map(l=>{
   const sent=ps.filter(shippingSent).flatMap(s=>s.items).filter(i=>i.orderId===o.id&&i.lineId===l.id),received=ps.filter(s=>s.status==='delivered').flatMap(s=>s.items).filter(i=>i.orderId===o.id&&i.lineId===l.id);
   const ordered=shippingLineQty(l),shipped=legacy?ordered:sent.length,delivered=legacy?ordered:received.length;
-  return {l,ordered,shipped,delivered,back:Math.max(0,ordered-shipped),ready:units.filter(i=>i.lineId===l.id&&i.ready&&!i.shipment).length,physicalReady:units.filter(i=>i.lineId===l.id&&i.ready&&(!i.shipment||i.shipment.status==='planned')).length};
+  return {l,ordered,shipped,delivered,back:Math.max(0,ordered-shipped),ready:units.filter(i=>i.lineId===l.id&&i.ready&&!i.shipment).length,physicalReady:units.filter(i=>i.lineId===l.id&&(i.ready&&(!i.shipment||i.shipment.status==='planned')||shippingLoadedOn(i))).length};
  });
  const extras=(o.extraItems||[]).map(x=>{
   const count=filter=>ps.filter(filter).flatMap(s=>s.extras).filter(i=>i.orderId===o.id&&i.extraId===x.id).reduce((n,i)=>n+i.qty,0);
@@ -34243,10 +34452,11 @@ function validateShipmentPayload(src){
 /* Office PS commands. All writes, scans, order statuses and log entries commit
    together. Owner, 5 October 2026: after printing a PS, missing/broken goods
    are NCR, not a recut/backorder. Printing itself is not proof of delivery.
-   SHIP skid loading, queue priority and truck planning belong to later PRs. */
+   SHIP skid loading and queue priority: erp/shipping/loading (PR 2). Truck
+   planning belongs to a later PR. */
 function shippingAssert(ok,message){if(!ok)throw new Error(message);}
 function shippingActor(){const a=orderLogActor();return a.by||'Office';}
-function shippingItem(i){return {orderId:i.orderId,lineId:i.lineId,unit:i.unit,label:i.label,skid:i.skid||'',pieces:i.pieces.slice()};}
+function shippingItem(i){return Object.assign({orderId:i.orderId,lineId:i.lineId,unit:i.unit,label:i.label,skid:i.skid||'',pieces:i.pieces.slice()},i.added?{added:i.added}:{});}
 function shippingValidateSelection(d,exceptId){
  shippingAssert(salesFindCustomer(d.customerId),'Choose a customer.');
  shippingAssert(['pickup','delivery'].includes(d.method)&&shippingDateValid(d.date),'Check the method and date.');
@@ -34278,29 +34488,42 @@ function shippingCreate(d){return storageCommand(()=>{
 function shippingUpdate(id,d){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can change.');
  shippingAssert(s.customerId===d.customerId,'The packing slip customer cannot change.');
- const picked=shippingValidateSelection(d,s.id),ids=shippingOrderIds(s);
+ const loaded=shippingLoadState(s).loaded.map(u=>u.label),picked=shippingValidateSelection(d,s.id),ids=shippingOrderIds(s);
+ shippingAssert(loaded.every(label=>picked.items.some(i=>i.label===label)),'Loaded units cannot be removed. Undo loading at the station first.');
  Object.assign(s,picked,{method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,note:String(d.note||'').slice(0,1000)});
  [...new Set(ids.concat(shippingOrderIds(s)))].forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip updated',s.number));return s;
 });}
-function shippingMarkShipped(id){return storageCommand(()=>{
+/* mode 'loaded' — едет только отсканированное на станции отгрузки, остальное
+   возвращается в Ready на следующий рейс (владелец, 6 октября 2026: «возможно
+   он везёт двумя доставками… не влезло на машину»). Без mode — весь PS:
+   непогруженное офис подтверждает сам ручными SHIP-сканами, как в PR 1
+   (самовывоз одним сканом подписанного PS, рейс без сканов на станции). */
+function shippingMarkShipped(id,mode){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can be shipped.');
  shippingAssert(s.items.length+s.extras.length>0,'An empty packing slip cannot be shipped.');
- const picked=shippingValidateSelection(s,s.id),now=new Date().toISOString(),station=shippingStations().ship;
- Object.assign(s,picked);s.document=shippingDocument(s);
+ const picked=shippingValidateSelection(s,s.id),now=new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
+ Object.assign(s,picked);
+ const loaded=new Set(shippingLoadState(s).loaded.map(u=>u.label));
+ if(mode==='loaded'){
+  const left=s.items.filter(i=>!loaded.has(i.label));shippingAssert(left.length<s.items.length,'Nothing is loaded yet.');
+  s.items=s.items.filter(i=>loaded.has(i.label));shippingUnprint(s,left);
+  [...new Set(left.map(i=>i.orderId))].forEach(oid=>orderLogPush(salesRecord(oid),'Not loaded',s.number+' · '+shippingCount(left.filter(i=>i.orderId===oid).length,'unit')+' back to Ready'));
+ }
+ s.document=shippingDocument(s);
  const who=orderLogActor(),scanIds=[];
  /* The office button records the confirmed physical dispatch as manual SHIP
     scans. Rollback owns these IDs only; it never undoes an unrelated scan. */
- s.items.forEach(i=>i.pieces.forEach(piece=>{
+ s.items.filter(i=>!loaded.has(i.label)).forEach(i=>i.pieces.forEach(piece=>{
   const check=stationCheck(station,piece);shippingAssert(check&&check.kind==='ok','Glass is no longer ready. Review the packing slip.');
   const rec=stationRecord(station,check,{id:who.byId,name:who.by||'Office'},{deferTouch:true,manual:true,now});
   shippingAssert(rec,'Dispatch was not recorded.');scanIds.push(rec.id);
  }));
  s.scanIds=scanIds;s.status='shipped';s.shippedAt=now;s.shippedBy=shippingActor();
- shippingSyncOrders(shippingOrderIds(s),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
+ shippingSyncOrders(before.concat(shippingOrderIds(s)),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
 });}
 function shippingMarkDelivered(id,receivedBy,receivedOn){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s,'Packing slip not found.');if(s.status==='delivered')return s;
- shippingAssert(s.status==='shipped','Mark this packing slip Shipped first.');
+ shippingAssert(s.status==='shipped','Mark this packing slip Loaded first.');
  const day=receivedOn||finToday();shippingAssert(shippingDateValid(day)&&day<=finToday()&&day>=finLocalDate(s.shippedAt),'Check the received date.');
  s.status='delivered';s.deliveredAt=day===finToday()?new Date().toISOString():new Date(day+'T12:00:00').toISOString();s.receivedBy=String(receivedBy||'').trim().slice(0,100);
  shippingSyncOrders(shippingOrderIds(s));shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),s.method==='pickup'?'Packing slip picked up':'Packing slip delivered',s.number+(s.receivedBy?' · '+s.receivedBy:'')));return s;
@@ -34308,7 +34531,8 @@ function shippingMarkDelivered(id,receivedBy,receivedOn){return storageCommand((
 function shippingRevert(id,action){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s,'Packing slip not found.');const ids=shippingOrderIds(s);
  if(action==='cancel'){
-  shippingAssert(s.status==='planned','Only a planned packing slip can be cancelled.');s.document=shippingDocument(s);s.status='cancelled';
+  shippingAssert(s.status==='planned','Only a planned packing slip can be cancelled.');
+  shippingAssert(!shippingLoadState(s).loaded.length,'Units are loaded. Undo loading at the station first.');s.document=shippingDocument(s);s.status='cancelled';
  }else if(action==='receipt'){
   shippingAssert(s.status==='delivered','This packing slip has not been received.');s.status='shipped';s.deliveredAt='';s.receivedBy='';
  }else{
@@ -34342,6 +34566,131 @@ function shippingWithChecks(ids,method,printing,done){
   const checks=salesTransitionChecks(Object.assign({},o,{delivery:method}),'done').map(c=>Object.assign({},c,{anyway:printing?'Print anyway':'Create anyway'}));
   salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
  };run(0);
+}
+
+/* ==== src/erp/shipping/loading.js ==== */
+/* Shipping · очередь клиента и погрузка на станции отгрузки (PR 2, 6.10.2026).
+   IN : готовые юниты (erp/shipping/data) · открытые PS · журнал сканов.
+   OUT: line.shipQueue · SHIP-сканы погрузки · состав PS (item.added).
+   Владелец: офис открывает рейс, водитель сам выбирает скиды — скан пишет и
+   проверяет. Первый скид открывает рейс; дальше скид чужого клиента или
+   другого PS — красным, ничего не пишется. Грузят и накануне: скид без PS
+   идёт в открытый PS клиента с ближайшей датой. Очередь клиента: готовый
+   скид с меньшим номером грузят первым. Долг cash-клиента погрузку не
+   держит — строка «Balance due — office».
+   «Погружен» не хранится: это юнит открытого PS, прошедший станцию отгрузки.
+   item.added — номер скана, которым юнит добавлен в PS: Undo этого скана его
+   же и убирает. */
+function shippingQueueOf(l){const n=l&&l.shipQueue;return Number.isSafeInteger(n)&&n>0&&n<1000?n:0;}
+function shippingQueueAllowed(o){return !!o&&!salesIsQuote(o)&&!['closed','cancelled'].includes(o.status);}
+function shippingQueueSet(orderId,lineIds,value){return storageCommand(()=>{
+ const o=salesRecord(orderId);shippingAssert(shippingQueueAllowed(o),'This order cannot change.');
+ const text=String(value==null?'':value).trim(),n=text===''?0:Number(text);
+ shippingAssert(Number.isSafeInteger(n)&&n>=0&&n<1000,'Queue is a number from 1 to 999.');
+ const lines=[...new Set(lineIds||[])].map(id=>(o.lines||[]).find(l=>l.id===id));shippingAssert(lines.length&&lines.every(Boolean),'Line not found.');
+ const changed=lines.filter(l=>shippingQueueOf(l)!==n);if(!changed.length)return o;
+ changed.forEach(l=>{if(n)l.shipQueue=n;else delete l.shipQueue;});
+ o.updatedAt=new Date().toISOString();salesSyncRecordLifecycle(o);
+ orderLogPush(o,'Shipping queue',(n?'Queue '+n:'No queue')+' · line '+changed.map(l=>o.lines.indexOf(l)+1).join(', '));return o;
+});}
+function shippingUnitQueue(u){const o=salesRecord(u.orderId);return shippingQueueOf(o&&(o.lines||[]).find(l=>l.id===u.lineId));}
+/* Долг, который держит выдачу у cash-клиента (то же условие, что Take
+   payment в salesTransitionChecks). Суммы на станции нет. */
+function shippingBalanceDue(o){
+ const c=salesFindCustomer(o.customerId),terms=typeof finTermsFor==='function'?finTermsFor(o):paymentTermsFrom(c||{}),b=finOrderBalance(o);
+ return terms.paymentMode!=='credit'&&b.balance!=null&&b.balance>0;
+}
+function shippingOpenTrips(){return (DB.shipment||[]).filter(s=>s.status==='planned').sort((a,b)=>a.date.localeCompare(b.date)||a.number.localeCompare(b.number));}
+/* Открытый PS клиента с ближайшей датой: сегодня или позже, иначе последний
+   просроченный. Два PS на одну дату — рейс выбирает человек. */
+function shippingTripFor(customerId){
+ const open=shippingOpenTrips().filter(s=>s.customerId===customerId),today=finToday(),ahead=open.filter(s=>s.date>=today);
+ const pool=ahead.length?ahead:open.slice().reverse(),same=pool.filter(s=>s.date===pool[0].date);
+ return {trip:same.length===1?same[0]:null,count:same.length};
+}
+/* Юниты открытого PS: что погружено и что ещё ждёт. */
+function shippingLoadState(s){
+ const units=shippingOrderIds(s).flatMap(id=>shippingUnits(salesRecord(id))).filter(u=>u.shipment&&u.shipment.id===s.id);
+ return {units,loaded:units.filter(u=>u.loaded),rest:units.filter(u=>!u.loaded)};
+}
+/* Юнит, который так и не уехал с этим PS, не считается напечатанным на нём:
+   иначе его поломку в цеху пришлось бы оформлять как NCR (решение 20). */
+function shippingUnprint(s,items){if(s.printedItems&&items.length)s.printedItems=s.printedItems.filter(p=>!items.some(i=>i.label===p.label));}
+function shippingLoadPart(list){const skids=new Set(list.map(u=>u.skid).filter(Boolean)).size,loose=list.filter(u=>!u.skid).length;return [skids?shippingCount(skids,'skid'):'',loose?shippingCount(loose,'unit'):''].filter(Boolean).join(' + ');}
+function shippingLoadText(st){return st.loaded.length?shippingLoadPart(st.loaded)+' loaded'+(st.rest.length?' · '+shippingLoadPart(st.rest)+' not loaded':''):'';}
+/* Скид: готовые юниты на нём и стекло, которое лежит там же, но не готово
+   (не прошло станцию готовности, заказ на Hold) — такой скид не грузят. */
+function shippingUnitsOn(skid){
+ const on=carrierContents().get(skid)||[],units=[...new Set(on.map(x=>x.g.o))].flatMap(o=>shippingUnits(o)).filter(u=>u.ready&&u.on===skid);
+ const covered=new Set(units.flatMap(u=>u.pieces));
+ return {units,stray:on.filter(x=>!covered.has(x.id)).map(x=>x.id)};
+}
+/* Разбор скана погрузки без записи. code — скид или номер стекла юнита.
+   kind 'ok' — можно писать; остальное — только показать. */
+function shippingLoadPlan(code,tripId){
+ const ship=shippingStations().ship,skid=carrierType(code)?carrierCode(code):'',fail=(kind,extra)=>Object.assign({kind,code,skid},extra);
+ let units=[],stray=[];
+ if(skid){const x=shippingUnitsOn(skid);units=x.units;stray=x.stray;}
+ else{const g=stationGlass(code),u=g&&shippingUnits(g.o).find(u=>u.pieces.includes(code));if(u&&u.ready)units=[u];else stray=[code];}
+ if(stray.length){
+  const g=stationGlass(stray[0]),at=g?stationPlace(g).waiting:'';
+  return fail('shipNotReady',{ids:stray,why:g&&(g.o.onHold||g.l.onHold)?'hold':at&&at!==ship?at:''});
+ }
+ if(!units.length){
+  const last=(DB.stationScan||[]).filter(s=>!s.undoneAt&&s.on===skid&&s.station===ship).pop();
+  const ps=last&&(DB.shipment||[]).find(s=>shippingActive(s)&&s.items.some(i=>i.pieces.includes(last.piece)));
+  return ps?fail('shipAlready',{ps:ps.number,at:last.at,by:last.by}):fail('shipNothing');
+ }
+ const customers=[...new Set(units.map(u=>salesRecord(u.orderId).customerId))];
+ if(customers.length>1)return fail('shipMixed',{customers:customers.map(salesCustomerDisplay)});
+ const customerId=customers[0],customer=salesCustomerDisplay(customerId),own=[...new Set(units.filter(u=>u.shipment).map(u=>u.shipment.id))];
+ let trip=tripId?shippingFind(tripId):null,opened=false;if(trip&&trip.status!=='planned')trip=null;
+ if(trip&&trip.customerId!==customerId)return fail('shipOther',{trip,customer});
+ if(own.length>1||own.length&&trip&&own[0]!==trip.id)return fail('shipOtherPS',{trip,customer,ps:own.map(id=>shippingFind(id).number)});
+ if(!trip){
+  if(own.length)trip=shippingFind(own[0]);
+  else{const f=shippingTripFor(customerId);if(!f.trip)return fail(f.count?'shipChoose':'shipNoPS',{customer});trip=f.trip;}
+  opened=true;
+ }
+ /* Очередь: готовый юнит этого клиента с меньшим номером (в этом рейсе или
+    без PS) ещё не погружен. Без номера — после всех номеров. */
+ const mine=new Set(units.map(u=>u.label)),q=Math.min(...units.map(u=>shippingUnitQueue(u)||Infinity));
+ const first=(DB.salesOrder||[]).filter(o=>o.customerId===customerId&&!salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status)).flatMap(o=>shippingUnits(o))
+  .filter(u=>u.ready&&!mine.has(u.label)&&(!u.shipment||u.shipment.id===trip.id)).map(u=>({u,q:shippingUnitQueue(u)})).filter(x=>x.q&&x.q<q).sort((a,b)=>a.q-b.q||a.u.label.localeCompare(b.u.label))[0];
+ if(first)return fail('shipQueue',{trip,customer,take:first.u.skid||first.u.label,queue:first.q});
+ return {kind:'ok',code,skid,units,add:units.filter(u=>!u.shipment),trip,opened,customerId,customer};
+}
+function shippingLoad(code,tripId,who,opts){
+ const plan=shippingWithCtx(()=>shippingLoadPlan(code,tripId));if(plan.kind!=='ok')return plan;
+ const out=storageCommand(()=>shippingLoadCommand(code,tripId,who,opts));
+ return out.ok?out.value:{kind:'saveError',code,note:out.error};
+}
+function shippingLoadCommand(code,tripId,who,opts){
+ opts=opts||{};const plan=shippingWithCtx(()=>shippingLoadPlan(code,tripId));shippingAssert(plan.kind==='ok','Scan again.');
+ const ship=shippingStations().ship,now=new Date().toISOString(),s=plan.trip,ids=[...new Set(plan.units.map(u=>u.orderId))];let actionId='';
+ /* Весь скид — одно действие: один actionId, один Undo. */
+ plan.units.forEach(u=>u.pieces.forEach(piece=>{
+  const check=stationCheck(ship,piece);shippingAssert(check&&check.kind==='ok','Glass is no longer ready.');
+  const rec=stationRecord(ship,check,who,{deferTouch:true,manual:!!opts.manual,now,on:u.skid,actionId:actionId||undefined});
+  shippingAssert(rec,'Loading was not recorded.');actionId=actionId||rec.id;
+ }));
+ plan.add.forEach(u=>s.items.push(Object.assign(shippingItem(u),{added:actionId})));
+ shippingSyncOrders(ids,now);
+ const count=id=>plan.units.filter(u=>u.orderId===id).length;
+ ids.forEach(id=>orderLogPush(salesRecord(id),'Loaded',s.number+' · '+(plan.skid||plan.units[0].label)+' · '+shippingCount(count(id),'unit')+(plan.add.some(u=>u.orderId===id)?' · added':'')));
+ return {kind:'shipLoaded',code,skid:plan.skid,label:plan.skid||plan.units[0].label,ps:s.number,psId:s.id,customer:plan.customer,units:plan.units.length,added:plan.add.length,opened:plan.opened,recId:actionId,at:now,
+  orders:ids.map(id=>({number:salesRecord(id).businessNumber,units:count(id)})),balance:ids.some(id=>shippingBalanceDue(salesRecord(id)))};
+}
+/* Undo скана погрузки (erp/shopfloor/scan): добавленное этим сканом уходит
+   из PS, положенное офисом остаётся в нём и снова ждёт погрузки. */
+function shippingLoadUndone(recs){
+ const ship=shippingStations().ship,load=recs.filter(r=>r.station===ship);if(!load.length)return;
+ const pieces=new Set(load.map(r=>r.piece)),actions=new Set(load.map(r=>r.actionId||r.id));
+ (DB.shipment||[]).forEach(s=>{
+  if(s.status!=='planned')return;const hit=s.items.filter(i=>i.pieces.some(p=>pieces.has(p)));if(!hit.length)return;
+  shippingUnprint(s,s.items.filter(i=>i.added&&actions.has(i.added)));s.items=s.items.filter(i=>!(i.added&&actions.has(i.added)));
+  [...new Set(hit.map(i=>i.orderId))].forEach(id=>orderLogPush(salesRecord(id),'Loading undone',s.number));
+ });
 }
 
 /* ==== src/erp/shipping/print.js ==== */
