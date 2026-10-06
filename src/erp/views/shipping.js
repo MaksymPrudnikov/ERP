@@ -27,18 +27,26 @@ function shippingOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&
 function shippingReadyExtras(o,q){return o.status!=='new'&&!o.onHold?q.extras.filter(e=>e.ready>0):[];}
 function shippingReadyOrders(){return shippingOrders().filter(o=>{const q=shippingSummary(o);return q.ready>0||shippingReadyExtras(o,q).length>0;});}
 function shippingSelect(customerId,labels,on){if(shippingCustomer!==customerId){shippingSelection.clear();shippingCustomer=customerId;}labels.forEach(id=>on?shippingSelection.add(id):shippingSelection.delete(id));render();}
-function shippingSelectOrder(id,on){const o=salesRecord(id);shippingSelect(o.customerId,shippingAvailable(o).map(i=>i.label),on);}
+/* Галочка заказа отмечает его готовые юниты; у заказа только с товаром
+   склада юнитов нет — отмечается сам заказ (ключ «stock:»). */
+function shippingOrderKeys(o){const units=shippingAvailable(o).map(i=>i.label);return units.length||!shippingReadyExtras(o,shippingSummary(o)).length?units:['stock:'+o.id];}
+function shippingSelectOrder(id,on){const o=salesRecord(id);shippingSelect(o.customerId,shippingOrderKeys(o),on);}
 function shippingSelectSkid(customerId,code,on){shippingSelect(customerId,shippingWithCtx(()=>shippingOrders().filter(o=>o.customerId===customerId).flatMap(shippingAvailable).filter(i=>i.skid===code).map(i=>i.label)),on);}
 function shippingSelectQty(id,lineId,n){const o=salesRecord(id),units=shippingAvailable(o).filter(i=>i.lineId===lineId);if(shippingCustomer!==o.customerId){shippingSelection.clear();shippingCustomer=o.customerId;}units.forEach((i,k)=>k<Math.max(0,+n||0)?shippingSelection.add(i.label):shippingSelection.delete(i.label));render();}
-/* Способ по умолчанию — из заказов в PS (Pickup / Delivery ставит продавец),
+/* В PS — только отмеченные заказы: их юниты и их товар склада (владелец,
+   6 октября 2026: клиент хранит заказы у нас и забирает только нужные).
+   Ничего не отмечено — всё готовое клиента. Остальное добавляют в форме.
+   Способ по умолчанию — из заказов в PS (Pickup / Delivery ставит продавец),
    у пустого рейса — из карточки клиента. */
 function shippingOpen(customerId,id){
  shippingWithCtx(()=>{
-  const s=id&&shippingFind(id),orders=shippingOrders().filter(o=>o.customerId===customerId),c=salesFindCustomer(customerId);
-  const all=orders.flatMap(shippingAvailable),selected=all.filter(i=>shippingCustomer===customerId&&shippingSelection.has(i.label)),items=selected.length?selected:all;
-  const planned=[...new Set(items.map(i=>i.orderId))].map(oid=>salesRecord(oid).delivery);
+  const s=id&&shippingFind(id),orders=shippingOrders().filter(o=>o.customerId===customerId),c=salesFindCustomer(customerId),mine=shippingCustomer===customerId;
+  const all=orders.flatMap(shippingAvailable),selected=all.filter(i=>mine&&shippingSelection.has(i.label));
+  const chosen=new Set(selected.map(i=>i.orderId).concat(orders.filter(o=>mine&&shippingSelection.has('stock:'+o.id)).map(o=>o.id)));
+  const items=chosen.size?selected:all,inPS=o=>!chosen.size||chosen.has(o.id);
+  const planned=(chosen.size?[...chosen]:[...new Set(items.map(i=>i.orderId))]).map(oid=>salesRecord(oid).delivery);
   const method=planned.length?(planned.every(d=>d==='pickup')?'pickup':'delivery'):String(c&&c.defaultDeliveryMethod||'').toLowerCase().includes('pickup')?'pickup':'delivery';
-  shippingDraft=s?shippingClone(s):{customerId,method,shipTo:shippingDefaultAddress(c),date:finToday(),items:items.map(shippingItem),extras:orders.filter(o=>o.status!=='new'&&!o.onHold).flatMap(o=>shippingSummary(o).extras.filter(x=>x.ready>0).map(x=>({orderId:o.id,extraId:x.x.id,qty:x.ready}))),note:''};
+  shippingDraft=s?shippingClone(s):{customerId,method,shipTo:shippingDefaultAddress(c),date:finToday(),items:items.map(shippingItem),extras:orders.filter(o=>o.status!=='new'&&!o.onHold&&inPS(o)).flatMap(o=>shippingSummary(o).extras.filter(x=>x.ready>0).map(x=>({orderId:o.id,extraId:x.x.id,qty:x.ready}))),note:''};
   shippingDraft.error='';
  });
  render();
@@ -99,8 +107,8 @@ function shippingReadyHTML(){
   const c=salesFindCustomer(id),skids=[...new Set(units.filter(i=>i.ready&&i.skid).map(i=>i.skid))],loose=free.filter(i=>!i.skid).length;
   const skidHTML=skids.map(code=>{const all=units.filter(i=>i.ready&&i.skid===code),a=all.filter(i=>!i.shipment),counts=new Map();all.forEach(i=>counts.set(i.orderId,(counts.get(i.orderId)||0)+1));return `<div class="shipping-skid"><label><input type="checkbox" ${a.length?'':'disabled'} ${a.length&&a.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectSkid('${esc(id)}','${code}',this.checked)"><b>${code}</b></label><span>${shippingCount(all.length,'unit')} · ${[...counts].map(([oid,n])=>esc(salesRecord(oid).businessNumber)+' ×'+n).join(', ')}${all.length>a.length?' · '+(all.length-a.length)+' on PS':''}</span><button class="sm" onclick="shippingPrintSkid('${esc(id)}','${code}')">Skid sheet</button></div>`;}).join('');
   const rows=summaries.map(({o,q})=>{
-   const avail=free.filter(i=>i.orderId===o.id),back=v=>q.shipped?v:'—';
-   return `<tr class="shipping-order-row"><td colspan="3"><label><input type="checkbox" ${avail.length?'':'disabled'} ${avail.length&&avail.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectOrder('${esc(o.id)}',this.checked)"><button class="sm" onclick="optimizationOpenOrder('${esc(o.id)}')">Order ${esc(o.businessNumber)}</button></label>${o.customerPo?' · PO '+esc(o.customerPo):''}</td><td>${q.ready}</td><td>${Math.max(0,q.glass-q.physicalReady-q.lines.reduce((n,l)=>n+l.shipped,0))}</td><td>${back(q.back)}</td><td></td><td></td></tr>`
+   const keys=shippingOrderKeys(o),back=v=>q.shipped?v:'—';
+   return `<tr class="shipping-order-row"><td colspan="3"><label><input type="checkbox" ${keys.length?'':'disabled'} ${keys.length&&keys.every(k=>shippingSelection.has(k))?'checked':''} onchange="shippingSelectOrder('${esc(o.id)}',this.checked)"><button class="sm" onclick="optimizationOpenOrder('${esc(o.id)}')">Order ${esc(o.businessNumber)}</button></label>${o.customerPo?' · PO '+esc(o.customerPo):''}</td><td>${q.ready}</td><td>${Math.max(0,q.glass-q.physicalReady-q.lines.reduce((n,l)=>n+l.shipped,0))}</td><td>${back(q.back)}</td><td></td><td></td></tr>`
     +q.lines.map((r,n)=>({r,n})).filter(x=>x.r.ready>0).map(({r,n})=>`<tr data-ready-line="${esc(r.l.id)}"><td>${n+1}${r.l.mark?' · '+esc(r.l.mark):''}</td><td>${esc(docSize(r.l))}</td><td>${esc(salesMakeupSummary(salesMakeupById(o,r.l.makeupId)))}</td><td>${r.ready}</td><td>${Math.max(0,r.ordered-r.physicalReady-r.shipped)}</td><td>${back(r.back)}</td><td><input class="shipping-queue" aria-label="Queue for order ${esc(o.businessNumber)} line ${n+1}" type="number" min="1" max="999" value="${shippingQueueOf(r.l)||''}" onchange="shippingQueueChange('${esc(o.id)}','${esc(r.l.id)}',this.value)"></td><td><input aria-label="Select quantity for order ${esc(o.businessNumber)} line ${n+1}" type="number" min="0" max="${r.ready}" value="${free.filter(i=>i.lineId===r.l.id&&shippingSelection.has(i.label)).length}" onchange="shippingSelectQty('${esc(o.id)}','${esc(r.l.id)}',this.value)"></td></tr>`).join('')
     +shippingReadyExtras(o,q).map(e=>`<tr><td colspan="3">From stock · ${esc(salesExtraItemName(e.x))}</td><td>${e.ready}</td><td>—</td><td>${back(e.back)}</td><td></td><td>In PS form</td></tr>`).join('');
   }).join('');

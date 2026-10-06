@@ -5,7 +5,7 @@ module.exports=async function({page,eq,ok}){
  await t.p.evaluate(()=>{
   window.print=()=>{window.lkPrints=(window.lkPrints||0)+1;};
   window.lkSeed=function(spec,upTo){
-   oqReset();DB.carrier=[];carrierAdd('SL',3);carrierAdd('DL',1);DB.orderEvent=[];window.lkPrints=0;shippingLookupClose();const cs={};
+   oqReset();DB.carrier=[];carrierAdd('SL',3);carrierAdd('DL',1);DB.orderEvent=[];window.lkPrints=0;shippingLookupReset();shippingLookupBy='order';const cs={};
    const ids=spec.split(' ').map(k=>{cs[k[0]]=cs[k[0]]||oqCustomer(Object.assign({legalName:'Customer '+k[0]},k[1]==='$'?{paymentMode:'cash'}:{}));const id=oqOrder(cs[k[0]]);salesDraftDrop();oqThrough(id,'ready');return id;});
    tab='shipping';shippingTab='ready';render();return ids;
   };
@@ -39,5 +39,19 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-lookup-pickup]').click();const s=DB.shipment[0];lkType(o.businessNumber);
   return Object.assign(out,{units:s.items.length,after:lkText('[data-lookup-ready]'),ps:lkText('[data-lookup-ps]'),again:!!document.querySelector('[data-lookup-pickup]')});
  }),{ready:'2 / 3 ready',shop:'In the shop · SHIPR 2 glass',button:'Pickup packing slip · 2 units',units:2,after:'2 / 3 ready',ps:'PS-0001 · Planned',again:false});
+ eq('Order and PO are searched apart by the switch: the number is exact, the PO goes by a part of its text, and an order number equal to another PO hides nothing',await t.p.evaluate(()=>{
+  const [a,b,c]=lkSeed('A A B'),oa=salesRecord(a),ob=salesRecord(b),oc=salesRecord(c);oa.customerPo='JOB-4521 Tower';ob.customerPo='job-4521 lobby';oc.customerPo='OAI '+oa.businessNumber;
+  const head=()=>lkText('[data-lookup-card] h3'),close=sel=>document.querySelector(sel+' [aria-label="Close"]').click(),by=v=>{const e=document.querySelector('[data-lookup-by]');e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}));},out={};
+  lkType('tower');out.orderMode=lkText('[data-lookup-miss]');
+  lkType(oa.businessNumber);out.number=head()==='Order '+oa.businessNumber+' · Customer A';
+  by('po');out.samePo=head()==='Order '+oc.businessNumber+' · Customer B'&&document.querySelector('[data-order-lookup]').value===oa.businessNumber;
+  lkType('tower');out.one=head()==='Order '+oa.businessNumber+' · Customer A';
+  lkType(' 4521 ');out.title=lkText('[data-lookup-list] h3');out.rows=[...document.querySelectorAll('[data-lookup-list] tbody tr')].map(r=>r.textContent.replace(/\s+/g,' ').trim()).join('|')===[oa,ob].map(o=>o.businessNumber+'Customer A'+o.customerPo+'3 / 3 ready').join('|');out.card=!!document.querySelector('[data-lookup-card]');
+  document.querySelectorAll('[data-lookup-open]')[1].click();out.picked=head()==='Order '+ob.businessNumber+' · Customer A';
+  close('[data-lookup-card]');out.back=!!document.querySelector('[data-lookup-list]')&&!document.querySelector('[data-lookup-card]');
+  close('[data-lookup-list]');out.closed=!document.querySelector('[data-lookup-list]')&&document.querySelector('[data-order-lookup]').value==='';
+  lkType('4521');document.querySelector('[data-lookup-open]').click();document.querySelector('[data-lookup-pickup]').click();out.ps=DB.shipment.length===1&&shippingOrderIds(DB.shipment[0]).join()===a&&!document.querySelector('[data-lookup-list]');
+  lkType('no such po');out.miss=lkText('[data-lookup-miss]');by('order');out.back2=lkText('[data-lookup-miss]');return out;
+ }),{orderMode:'Order tower not found',number:true,samePo:true,one:true,title:'PO 4521 · 2 orders',rows:true,card:false,picked:true,back:true,closed:true,ps:true,miss:'No order with PO no such po',back2:'Order no such po not found'});
  eq('Shipping lookup browser errors',t.errs,[]);await t.c.close();
 };

@@ -93,6 +93,23 @@ module.exports=async function({page,eq,ok}){
   const [id]=shSeed(),o=salesRecord(id),other=oqOrder(oqCustomer({legalName:'Other customer'}));salesDraftDrop();oqThrough(other,'ready');[o,salesRecord(other)].flatMap(shippingAvailable).forEach(i=>i.pieces.forEach(p=>stationScansFor(p).at(-1).on='SL-1'));
   shippingSelectSkid(o.customerId,'SL-1',true);shippingOpen(o.customerId);return {qty:shippingDraft.items.length,own:shippingDraft.items.every(i=>i.orderId===id),selected:shippingSelection.size};
  }),{qty:3,own:true,selected:3});
+ eq('Ticked orders only: the PS takes their units and their stock, nothing from the other orders; a stock-only order can be ticked; nothing ticked takes everything ready',await t.p.evaluate(()=>{
+  const [a,b]=shSeed(2),c=salesRecord(a).customerId,ob=salesRecord(b);ob.extraItems.push({id:'EXT-B',table:'stockItem',itemId:'X',qty:2,priceOverride:20});
+  const st=normalizeSalesOrder({id:'SO-STOCK3',businessNumber:'ST3',customerId:c,status:'new',lines:[],extraItems:[{id:'EXT-S',table:'stockItem',itemId:'X',qty:1,priceOverride:20}]});DB.salesOrder.push(st);salesSetRecordStatus(st.id,'verified');
+  tab='shipping';shippingTab='ready';render();
+  const draft=()=>{shippingOpen(c);const d=shippingDraft,out=[d.items.length,[...new Set(d.items.map(i=>i.orderId))].map(id=>salesRecord(id).businessNumber).join(),d.extras.map(x=>x.extraId+'×'+x.qty).join()];shippingDraft=null;return out;};
+  const boxes=()=>[...document.querySelectorAll('.shipping-order-row input[type=checkbox]')].map(e=>(e.disabled?'off':'on')+(e.checked?'+':'')),A=salesRecord(a).businessNumber,B=ob.businessNumber,out={enabled:boxes()};
+  out.all=draft();shippingSelectOrder(a,true);out.a=draft();shippingSelectOrder(st.id,true);out.aStock=draft();out.ticked=boxes();
+  shippingSelectOrder(a,false);out.stockOnly=draft();shippingSelectOrder(st.id,false);shippingSelectQty(b,ob.lines[0].id,1);out.bOne=draft();
+  return [out,A,B].map((x,n)=>n?undefined:Object.assign(x,{all:x.all.join('|')===[6,A+','+B,'EXT-B×2,EXT-S×1'].join('|'),a:x.a.join('|')===[3,A,''].join('|'),aStock:x.aStock.join('|')===[3,A,'EXT-S×1'].join('|'),stockOnly:x.stockOnly.join('|')===[0,'','EXT-S×1'].join('|'),bOne:x.bOne.join('|')===[1,B,'EXT-B×2'].join('|')}))[0];
+ }),{enabled:['on','on','on'],all:true,a:true,aStock:true,ticked:['on+','on','on+'],stockOnly:true,bOne:true});
+ eq('Customer warning is asked once with the balance of all its orders in the PS; a cash balance is still asked per order',await t.p.evaluate(()=>{
+  const sum=ids=>finFmt(finMoney(ids.reduce((s,id)=>s+finOrderBalance(salesRecord(id)).balance,0))),open=ids=>{const c=salesFindCustomer(salesRecord(ids[0]).customerId);tab='shipping';shippingOpen(c.id);shippingDraft.method='pickup';return c;};
+  let ids=shSeed(1),c=open(ids);c.onHold=true;c.holdReason='Late';shippingSave();const one=salesDialog.rows.map(r=>r[0]).join('|')==='Hold reason|Order '+salesRecord(ids[0]).businessNumber;oqChoose('Back');
+  ids=shSeed(3);c=open(ids);c.onHold=true;shippingSave();const d=salesDialog,row=d.rows.at(-1);oqChoose('Create anyway');const once={hold:d.title.includes('On Hold'),label:row[0],sum:row[1]===sum(ids)&&row[1]!==sum(ids.slice(0,1)),again:!!salesDialog,ps:DB.shipment.length,orders:DB.shipment.length&&shippingOrderIds(DB.shipment[0]).length};
+  ids=shSeed(2);ids.forEach(id=>finSaveTerms(id,{paymentMode:'cash',depositPercent:50,creditDays:null,issuedOn:'',dueOn:''},''));open(ids);shippingSave();const titles=[salesDialog.title];oqChoose('Create anyway');titles.push(salesDialog&&salesDialog.title);oqChoose('Create anyway');
+  return {one,once,cash:titles.join('|')===ids.map(id=>'Order '+salesRecord(id).businessNumber+' has a balance due').join('|'),ps:DB.shipment.length,dialog:!!salesDialog};
+ }),{one:true,once:{hold:true,label:'These 3 orders',sum:true,again:false,ps:1,orders:3},cash:true,ps:1,dialog:false});
  eq('PS includes unselected order lines with Now zero and the remaining backorder',await t.p.evaluate(()=>{
   const [id]=shSeed(),s=shCreate([id],1).value,d=shippingDocument(s);return d.orders[0].rows.map(r=>[r.ordered,r.before,r.now,r.back]);
  }),[[2,0,1,1],[1,0,0,1]]);
