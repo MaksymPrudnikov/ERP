@@ -2293,6 +2293,16 @@ body.station-mode .main{padding-bottom:0}
 .st-col{display:flex;flex-direction:column;gap:var(--st-gap);min-width:0}
 .st-col>*{margin:0}
 .st-col>.card:last-child,.st-col>.st-idle:last-child{flex:1 0 auto}
+/* Экран станции — не выше окна: длинный список прокручивается внутри
+   своей колонки, а не растягивает страницу; короткое остаётся коротким
+   (владелец, 6 октября 2026: «пустоты, всё разбросано» — 100 строк справа
+   тянули пустую карточку слева на несколько экранов). На планшете стоя
+   колонки друг под другом — там прокручивается страница. */
+@media (min-width:901px){
+ .st-body:not(.st-one){max-height:calc(100vh - 68px);box-sizing:border-box;grid-template-rows:minmax(0,1fr)}
+ /* Отступ внутри колонки — чтобы прокрутка не срезала подсветку поля скана и тени. */
+ .st-body:not(.st-one)>.st-col{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:6px;margin:-6px}
+}
 .st-body .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
 .st-sec{display:flex;align-items:center;gap:10px;margin:0 0 12px;min-height:24px}
 .st-sec h3{margin:0;font-size:15px;font-weight:650}
@@ -2463,8 +2473,10 @@ tr.st-hot td{background:var(--surface-2)}
 .st-dl[data-station-incoming],.st-dl[data-station-trip-row]{cursor:pointer}
 .st-dl[data-station-trip-row]{grid-template-columns:84px minmax(0,1fr) auto}
 .st-puton span{color:var(--text-2);font-size:13px}
-.st-queue{display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--inverse);color:var(--on-solid);font-weight:800;font-size:16px;letter-spacing:.02em}
-.st-queue span{font-weight:500;font-size:14px}
+/* Плашка очереди клиента на SHIPR. Не .st-queue: это класс тела вкладки
+   Queue у всех станций — стиль плашки ложился на весь экран (06.10.2026). */
+.st-custq{display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--inverse);color:var(--on-solid);font-weight:800;font-size:16px;letter-spacing:.02em}
+.st-custq span{font-weight:500;font-size:14px}
 .st-skid{display:flex;flex-direction:column;gap:2px;margin-top:8px;font-size:14px}
 .st-dl:last-child{border-bottom:0}
 .st-dl.now{background:var(--blue2);border-radius:8px}
@@ -2540,7 +2552,9 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .st-here-acts td{background:var(--blue2);padding-top:4px;padding-bottom:10px}
 .st-here-acts td{white-space:normal}.st-here-acts .b{margin-left:8px}
 /* IGU: пара для Recut */
-.st-autoprint{font:inherit;cursor:pointer;background:transparent;color:var(--accent-line)}
+/* Подпись на тёмной полосе — как имя станции: accent-line в тёмной теме
+   почти сливался с полосой. */
+.st-autoprint{font:inherit;cursor:pointer;background:transparent;color:color-mix(in srgb,var(--on-solid) 70%,transparent)}
 .st-autoprint.on{background:var(--green);border-color:var(--green)}.st-autoprint.on b{color:var(--on-solid)}
 .st-unit-st{display:flex;align-items:center;gap:8px}
 .st-unit-r .b.sm{padding:1px 8px;font-size:12px}
@@ -2581,6 +2595,11 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
  /* Очередь на планшете: поле скана сжимается, а не выталкивает Switch и ERP за край. */
  .st-topscan{min-width:0;flex:1 1 140px;margin-left:4px}
  .st-top>*{flex-shrink:0}.st-top>.st-topscan{flex-shrink:1}
+ /* Шапка на планшете: ERP уходил за край ещё до кнопки темы. Код станции и
+    инициалы остаются, название станции и имя рабочего прячутся. */
+ .st-name,.st-top .st-chip:has(.st-av) b{display:none}
+ .st-top .st-chip:has(.st-av){padding:6px}
+ .st-btn{padding:8px 11px}
 }
 
 /* Окно выбора чертежа — настоящее окно поверх станции (2 октября 2026). */
@@ -2785,7 +2804,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='68c94d62607a';
+var ERP_BUILD='ab9f662b8d24';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -33784,7 +33803,14 @@ function stationTop(who){
   (who?stationTripChip():'')+
   (who?'<button type="button" class="st-btn" data-station-drawings onclick="stationDrawPick()">Drawings</button>':'')+
   (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" onclick="stationSwitch()">Switch</button>':'')+
-  '<button type="button" class="st-btn st-exit" onclick="stationExit()" title="Back to ERP">ERP</button></div>';
+  stationThemeButton()+'<button type="button" class="st-btn st-exit" onclick="stationExit()" title="Back to ERP">ERP</button></div>';
+}
+/* Тема на станции: бокового меню с логотипом GF здесь нет, а сменить тему
+   нужно (владелец, 6 октября 2026: «тему сменить нельзя»). Тот же выбор
+   браузера, что в офисе; на кнопке — тема, в которую переключит. */
+function stationThemeButton(){
+ const dark=document.documentElement.getAttribute('data-theme')==='dark';
+ return '<button type="button" class="st-btn" data-station-theme onclick="toggleTheme();render()" title="Light / dark">'+(dark?'Light':'Dark')+'</button>';
 }
 function stationLoginView(){
  const pin=stationLoginStep==='pin',hi=typeof signinGreeting==='function'?signinGreeting():'Hello';
@@ -34274,7 +34300,7 @@ function stationReadyForeign(g,rec){
 function stationForeignBar(L){return L.foreign?'<div class="st-urg" data-station-foreign>OTHER CUSTOMER ON '+esc(L.foreign.skid)+'<span data-raw>· '+esc(L.foreign.customers.join(', '))+'</span></div>':'';}
 function stationQueueBar(g){
  const q=g&&stationIsReady()?shippingQueueOf(g.l):0;
- return q?'<div class="st-queue" data-station-queue>QUEUE '+q+'<span data-raw>· '+esc(salesCustomerDisplay(g.o.customerId))+'</span></div>':'';
+ return q?'<div class="st-custq" data-station-queue>QUEUE '+q+'<span data-raw>· '+esc(salesCustomerDisplay(g.o.customerId))+'</span></div>':'';
 }
 /* Готово из того, что заказу осталось отгрузить. */
 function stationReadyCount(o){const q=shippingSummary(o),sent=q.lines.reduce((n,r)=>n+r.shipped,0);return {ready:q.physicalReady,of:Math.max(0,q.glass-sent)};}
@@ -34785,7 +34811,10 @@ function stationFlowBatches(S,d){
 function stationFlowView(){
  const S=stationCode,d=stationFlowData(S),merge=stationMergeCodes().includes(S)&&S!==salesRouteStationOf('lamination','LAM');
  const right=(S===stationHeatCode()?stationFlowLoads(S,d):merge?'':stationFlowWorks(S,d))+(merge?stationPairsCard():'')+stationFlowBatches(S,d);
- return '<div class="st-body st-queue" data-station-flow="'+esc(S)+'"><div class="st-col">'+stationFlowTiles(S,d)+(merge?stationFlowUnits(S,d):'')+stationFlowHere(S,d)+'</div><div class="st-col">'+right+'</div></div>';
+ /* Справа пусто (IGU или SHIPR, а батчи CUT сюда не везут) — «Here now»
+    уходит направо: иначе полэкрана пустует (владелец, 6.10.2026: «пустоты»). */
+ const here=stationFlowHere(S,d),left=stationFlowTiles(S,d)+(merge?stationFlowUnits(S,d):'')+(right?here:'');
+ return '<div class="st-body st-queue" data-station-flow="'+esc(S)+'"><div class="st-col">'+left+'</div><div class="st-col">'+(right||here)+'</div></div>';
 }
 
 /* ==== src/erp/views/production-board.js ==== */
