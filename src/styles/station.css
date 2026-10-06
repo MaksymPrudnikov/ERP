@@ -90,6 +90,9 @@ tr.st-hot td{background:var(--surface-2)}
 .st-pc.cut .cut-glass:not([data-cut-out]){fill:var(--success-soft);stroke:var(--success);stroke-width:2.2}
 .st-pc.now .cut-glass:not([data-cut-out]){fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.4}
 .st-pc.broken .cut-glass{fill:var(--red2);stroke:var(--red);stroke-width:2.2}
+/* Батч изменился после раскроя — резчик его не берёт, пока офис не пересоберёт. */
+.st-stale{display:flex;flex-direction:column;gap:2px;margin:10px 0;padding:10px 14px;border-radius:10px;border:2px solid var(--danger);background:var(--danger-soft);color:var(--danger)}
+.st-stale b{font-size:18px;letter-spacing:.02em}
 .st-pc:hover .cut-glass{stroke-width:2.6}
 .st-pc text{pointer-events:none}
 .st-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:5px;margin-top:12px}
