@@ -48,7 +48,8 @@ function stationSkidBack(code){
  if(!/^S[LA]-/.test(code))return null;const r=skidBack(code,stationWho());
  if(r&&r.error){stationNote=r.error;return null;}return r;
 }
-function stationBackText(c){return c.back?' · <span data-station-back>back from <span data-raw>'+esc(c.back.customer)+'</span></span>':'';}
+/* В заголовке карточки span — это время справа, поэтому здесь b. */
+function stationBackText(c){return c.back?' · <b data-station-back>back from <b data-raw>'+esc(c.back.customer)+'</b></b>':'';}
 
 /* ------------------------------- SHIP ------------------------------- */
 function stationTrip(){const s=stationSession(),t=s&&s.trip?shippingFind(s.trip):null;return t&&t.status==='planned'?t:null;}
@@ -105,9 +106,9 @@ function stationShipCard(L){
   '<div class="st-res-b"><div class="st-big st-dark"><small>'+(c.added?'ADDED TO':'LOADED')+'</small><b class="st-big-code">'+esc(c.ps)+'</b><span data-raw>'+esc(c.customer)+'</span></div>'+
   '<div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div><div class="st-kv"><span class="k">Units</span><span><b>'+c.units+'</b></span><span class="k">Orders</span><span>'+c.orders.map(o=>'<b>'+esc(o.number)+'</b> ×'+o.units).join(' · ')+'</span></div></div></div>'+
   '<div class="st-acts"><button type="button" class="b" data-station-load-undo onclick="stationUndoClick(\''+esc(c.recId)+'\')">Undo</button></div></div>';
- if(c.kind==='shipBack')return '<div class="st-res st-ok" data-station-result="shipBack"><div class="st-res-h">✓ '+what+' back from <span data-raw>'+esc(c.back.customer)+'</span>'+time+'</div>'+
+ if(c.kind==='shipBack')return '<div class="st-res st-ok" data-station-result="shipBack"><div class="st-res-h">✓ '+what+' back from <b data-raw>'+esc(c.back.customer)+'</b>'+time+'</div>'+
   '<div class="st-res-b"><div class="st-big st-dark"><small>BACK FROM</small><b class="st-big-code" data-raw>'+esc(c.back.customer)+'</b><span>'+shippingCount(c.back.days,'day')+' · '+esc(c.back.ps)+'</span></div><div class="st-info"><div class="st-gid mono">'+what+'</div></div></div></div>';
- if(c.kind==='shipAlready')return '<div class="st-res st-amber" data-station-result="shipAlready"><div class="st-res-h">Already loaded · '+esc(stationTime(c.at))+' · <span data-raw>'+esc(c.by||'—')+'</span>'+time+'</div>'+
+ if(c.kind==='shipAlready')return '<div class="st-res st-amber" data-station-result="shipAlready"><div class="st-res-h">Already loaded · '+esc(stationTime(c.at))+' · <b data-raw>'+esc(c.by||'—')+'</b>'+time+'</div>'+
   '<div class="st-res-b"><div class="st-big st-ask"><small>LOADED</small><b class="st-big-code">'+esc(c.ps)+'</b><span>'+what+'</span></div><div class="st-info"><div class="st-gid mono">'+what+'</div></div></div></div>';
  const ids=(c.ids||[]).slice(0,4).join(', ')+((c.ids||[]).length>4?' +'+((c.ids||[]).length-4):'');
  const K={
@@ -127,13 +128,17 @@ function stationShipCard(L){
 /* Журнал SHIP — по скидам, а не по стёклам: скид в 150 стёкол иначе занял бы
    весь список, и Undo предыдущего скида было бы не найти. */
 function stationShipJournal(){
- const acts=new Map();(DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.station!==stationCode)return;const k=s.actionId||s.id;if(!acts.has(k))acts.set(k,[]);acts.get(k).push(s);});
+ /* Офис, подтверждая PS без сканов, пишет скан на каждое стекло — в журнале
+    это одна строка на PS. */
+ const acts=new Map(),psOf=new Map();(DB.shipment||[]).forEach(s=>{if(shippingActive(s))s.items.forEach(i=>i.pieces.forEach(p=>psOf.set(p,s)));});
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.station!==stationCode)return;const own=psOf.get(s.piece),k=s.manual&&!s.on&&own&&own.scanIds&&own.scanIds.includes(s.id)?'ps:'+own.id:s.actionId||s.id;if(!acts.has(k))acts.set(k,[]);acts.get(k).push(s);});
  const rows=[...acts.values()].slice(-8).reverse();if(!rows.length)return '';
  const index=stationPieceIndex();
  const body=rows.map(list=>{
-  const first=list[0],pieces=new Set(list.map(s=>s.piece)),ps=(DB.shipment||[]).find(s=>shippingActive(s)&&s.items.some(i=>i.pieces.includes(first.piece)));
+  const first=list[0],pieces=new Set(list.map(s=>s.piece)),ps=psOf.get(first.piece)||null;
   const items=ps?ps.items.filter(i=>i.pieces.some(p=>pieces.has(p))):[],orders=[...new Set(list.map(s=>{const h=index.get(s.piece),o=h&&salesRecord(h.orderId);return o?o.businessNumber||'':'';}).filter(Boolean))];
-  return '<tr data-station-load="'+esc(first.on||first.piece)+'"><td class="mut">'+esc(stationTime(first.at))+'</td><td>'+(first.on?'<b class="st-on">'+esc(first.on)+'</b>':'<b class="mono">'+esc(items[0]?items[0].label:first.piece)+'</b>')+(first.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+'</td>'+
+  const office=new Set(list.map(s=>s.actionId||s.id)).size>1,skids=[...new Set(items.map(i=>i.skid).filter(Boolean))].join(', ');
+  return '<tr data-station-load="'+esc(first.on||(office?ps.number:first.piece))+'"><td class="mut">'+esc(stationTime(first.at))+'</td><td>'+(first.on?'<b class="st-on">'+esc(first.on)+'</b>':office?(skids?'<b>'+esc(skids)+'</b>':'<span class="mut">No skid</span>'):'<b class="mono">'+esc(items[0]?items[0].label:first.piece)+'</b>')+(first.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+'</td>'+
    '<td>'+(ps?'<b>'+esc(ps.number)+'</b>':'<span class="mut">—</span>')+'</td><td>'+esc(orders.join(', '))+'</td><td>'+(items.length?shippingCount(items.length,'unit'):list.length+' glass')+'</td><td class="mut" data-raw>'+esc(first.by)+'</td>'+
    '<td style="text-align:right">'+(!ps||ps.status==='planned'?'<button type="button" class="b sm" onclick="stationUndoClick(\''+esc(first.id)+'\')">Undo</button>':'')+'</td></tr>';
  }).join('');
