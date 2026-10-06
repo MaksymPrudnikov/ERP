@@ -10,12 +10,16 @@ function shippingSetTab(key){shippingTab=key;shippingNotice=null;salesListMenu=n
 /* Счётчики на вкладках — как были у очереди Shipping: заказы, у Shipments —
    открытые PS (planned и shipped). */
 function shippingTabCount(key){
+ if(key==='delivery')return (DB.shipment||[]).filter(s=>s.method==='delivery'&&s.date===finToday()&&(s.status==='planned'||s.status==='shipped')).length;
  if(key==='shipments')return (DB.shipment||[]).filter(s=>s.status==='planned'||s.status==='shipped').length;
  if(key==='ready')return shippingReadyOrders().length;
  if(key==='backorders')return shippingOrders().filter(o=>o.status==='shipping'&&shippingBackCount(o)>0).length;
  return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;
 }
-function shippingTabs(){return '<div class="oq-tabs" role="tablist">'+SHIPPING_TABS.map(([key,name])=>`<button type="button" role="tab" data-shipping-tab="${key}" aria-selected="${shippingTab===key}" class="${shippingTab===key?'on':''}" onclick="shippingSetTab('${key}')">${name} <b>${shippingTabCount(key)}</b></button>`).join('')+'</div>';}
+/* Delivery — свой экран, не очередь заказов: в SHIPPING_TABS (вкладки
+   очереди, erp/views/optimization) он не входит. */
+function shippingViewTabs(){const t=SHIPPING_TABS.slice();t.splice(t.findIndex(x=>x[0]==='shipments')+1,0,['delivery','Delivery']);return t;}
+function shippingTabs(){return '<div class="oq-tabs" role="tablist">'+shippingViewTabs().map(([key,name])=>`<button type="button" role="tab" data-shipping-tab="${key}" aria-selected="${shippingTab===key}" class="${shippingTab===key?'on':''}" onclick="shippingSetTab('${key}')">${name} <b>${shippingTabCount(key)}</b></button>`).join('')+'</div>';}
 function shippingOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&!['cancelled','closed'].includes(o.status)&&!shippingLegacy(o)&&(o.status!=='new'||shippingAvailable(o).length>0));}
 /* Ready — только то, что можно положить в PS: готовые юниты без PS и товары
    склада. Заказ, где готового нет, сюда не попадает (он в Awaiting). */
@@ -133,7 +137,7 @@ function shippingFocus(){if(tab!=='shipping'||shippingTab!=='shipments'||shippin
 function viewShipping(){
  if(shippingTab==='shipments')setTimeout(shippingFocus,0);
  return shippingWithCtx(()=>{
- const body=shippingTab==='ready'?shippingReadyHTML():shippingTab==='shipments'?shippingListHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true),lookup=shippingLookupHTML();
+ const body=shippingTab==='ready'?shippingReadyHTML():shippingTab==='shipments'?shippingListHTML():shippingTab==='delivery'?deliveryHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true),lookup=shippingLookupHTML();
  return `<section class="shipping-workspace">${shippingTabs()}<div class="shipping-top">${lookup.field}<label>Open a trip<select aria-label="Customer for new trip" onchange="if(this.value)shippingOpen(this.value)"><option value="">Choose customer</option>${(DB.customer||[]).filter(c=>c.status!=='archived').map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}</option>`).join('')}</select></label></div>${shippingNotice?`<div class="shipping-notice ${shippingNotice.error?'bad':''}" role="${shippingNotice.error?'alert':'status'}">${esc(shippingNotice.text)}</div>`:''}${lookup.card}${body}${shippingDraftHTML()}</section>`;
  });
 }
