@@ -66,6 +66,48 @@ module.exports=async function({page,eq,ok}){
   return {before,closed,stack,done,after};
  }),{before:'DL-1:3 glass:B 3|DL-2:1 glass:B 1|No dolly:1 glass:B 1',closed:true,stack:['#3|Line 2 · 30 × 20|1','#2–1|Line 1 · 36 × 24|2'],done:true,after:'DL-2:1 glass:B 1|No dolly:1 glass:B 1'});
 
+ /* Владелец, 6.10.2026: «опция, чтобы я сам проставлял; базово везде
+    долли»; IGU отдаёт на скидах; у SHIPR и SHIP свои правила. */
+ eq('Puts on: по умолчанию Dolly, IGU — Skid, SHIPR и SHIP — свои правила; владелец меняет в Master Data; переживает нормализацию',await t.p.evaluate(()=>{
+  cvReset();const v=c=>sfPutsOn(DB.station.find(s=>s.code===c)),heat=DB.station.find(s=>s.code==='HEAT');
+  const def=['CUT','ARRIS','HEAT','IGU','SHIPR','SHIP'].map(v).join(),ship=sfSetPutsOn('SHIP','dolly');
+  sfSetPutsOn('HEAT','none');normalizeShopFloor();const after=v('HEAT');
+  tab='masterdata';mdSetTab('stations');const igu=document.querySelector('[data-sf-puts-on="IGU"]').value,own=document.querySelector('[data-sf-station="SHIPR"]').textContent.includes('own rules');
+  delete DB.station.find(s=>s.code==='HEAT').putsOn;tab='dashboard';render();
+  return {def,ship,after,igu,own};
+ }),{def:'dolly,dolly,dolly,skid,none,none',ship:false,after:'none',igu:'skid',own:true});
+
+ /* Владелец, 6.10.2026: «засчитывает и ждёт долли»; следующая долли
+    забирает стёкла, отсканированные без неё. */
+ eq('Which dolly?: скан без тары засчитан, жёлтая полоса и плашка; «кладу на» забирает; приехавшая — нет; опция «—» не спрашивает',await t.p.evaluate(()=>{
+  cvReset();carrierAdd('DL',3);const id=cvOrder([[36,24,5]]),g=cvIds(id);cvLogin('CUT','Ivan P.');
+  const kind=stationSubmit(g[0]);stationSubmit(g[1]);
+  const ask=!!document.querySelector('[data-station-ask-dolly]'),chip=document.querySelector('[data-station-loose]').textContent.replace(/\s+/g,' ').trim();
+  stationSubmit('DL-1');const took=stationLast.check.took,card=document.querySelector('[data-station-result]').dataset.stationResult;
+  stationSubmit(g[2]);const gone=!document.querySelector('[data-station-loose]');
+  stationClearPutOn();DB.station.find(s=>s.code==='CUT').putsOn='none';stationSubmit(g[3]);const none=!document.querySelector('[data-station-ask-dolly]')&&!stationLoose().length;
+  delete DB.station.find(s=>s.code==='CUT').putsOn;stationSwitch();
+  cvLogin('ARRIS','Oleg K.');stationSubmit(g[0]);stationSubmit('DL-1');const arrived=stationLast.check.kind+':'+(stationLast.check.took||0)+':'+stationLoose().length;
+  stationSubmit('DL-2');const fresh=stationLast.check.took;stationSwitch();
+  const on=g.map(x=>{const s=DB.stationScan.filter(r=>r.piece===x&&!r.undoneAt).pop();return s?s.station+':'+(s.on||'—'):'-';}).join();
+  tab='dashboard';render();return {kind,ask,chip,took,card,gone,none,arrived,fresh,on};
+ }),{kind:'ok',ask:true,chip:'No dolly · 2',took:2,card:'carrierTook',gone:true,none:true,arrived:'carrierIn:0:1',fresh:1,on:'ARRIS:DL-2,CUT:DL-1,CUT:DL-1,CUT:—,-'});
+
+ /* Владелец, 6.10.2026: «на №3 у него 30 стёкол — выбирает с 31 по 60 и
+    говорит: это на №4»; ошибку можно исправить. */
+ eq('перенос диапазоном: окно тары, номер — порядок укладки, #4–6 сканом DL-2; та же тара — ошибка; откуда и кто записано и переживает нормализацию; Undo',await t.p.evaluate(()=>{
+  cvReset();carrierAdd('DL',2);const id=cvOrder([[36,24,6]]),g=cvIds(id);cvLogin('CUT','Ivan P.');stationSubmit('DL-1');g.forEach(x=>stationSubmit(x));
+  document.querySelector('[data-station-loaded="DL-1"]').click();
+  const rows=[...document.querySelectorAll('[data-dolly-pos]')].map(r=>r.dataset.dollyPos).join();
+  document.querySelector('[data-dolly-pos="4"]').click();document.querySelector('[data-dolly-pos="6"]').click();
+  const sel=document.querySelector('[data-dolly-sel]').textContent.replace(/\s+/g,' ').trim();
+  stationSubmit('DL-1');const same=stationDrawer&&stationDrawer.error;
+  const moved=stationSubmit('DL-2'),c=carrierContents(),dl1=(c.get('DL-1')||[]).map(x=>g.indexOf(x.id)).sort().join(),dl2=(c.get('DL-2')||[]).map(x=>g.indexOf(x.id)).sort().join();
+  normalizeStationScans();const trace=DB.stationScan.filter(s=>s.on==='DL-2').map(s=>s.moved.from+':'+s.moved.by).join();
+  document.querySelector('[data-dolly-undo]').click();const back=(carrierContents().get('DL-1')||[]).length,clean=DB.stationScan.every(s=>!s.moved);
+  stationSwitch();tab='dashboard';render();return {rows,sel,same,moved,dl1,dl2,trace,back,clean};
+ }),{rows:'6,5,4,3,2,1',sel:'3 glass #4–6 →',same:'Already on DL-1',moved:'moved',dl1:'0,1,2',dl2:'3,4,5',trace:'DL-1:Ivan P.,DL-1:Ivan P.,DL-1:Ivan P.',back:6,clean:true});
+
  eq('долли ждут на станции: Critical первой, потом кто раньше',await t.p.evaluate(()=>{
   cvReset();carrierAdd('DL',2);const a=cvOrder([[36,24,1]]),b=cvOrder([[30,20,1]],{priority:'critical'});
   cvLogin('CUT','Ivan P.');stationSubmit('DL-1');stationSubmit(cvIds(a)[0]);stationSubmit('DL-2');stationSubmit(cvIds(b)[0]);stationSwitch();

@@ -35,6 +35,9 @@ body.station-mode .main{padding-bottom:0}
  .st-body:not(.st-one){max-height:calc(100vh - 68px);box-sizing:border-box;grid-template-rows:minmax(0,1fr)}
  /* Отступ внутри колонки — чтобы прокрутка не срезала подсветку поля скана и тени. */
  .st-body:not(.st-one)>.st-col{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:6px;margin:-6px}
+ /* Колонка прокручивается, а блоки не сжимаются: карточка скана с
+    overflow:hidden иначе сплющивалась и обрезалась снизу. */
+ .st-body:not(.st-one)>.st-col>*{flex-shrink:0}
 }
 .st-body .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
 .st-sec{display:flex;align-items:center;gap:10px;margin:0 0 12px;min-height:24px}
@@ -234,6 +237,25 @@ tr.st-hot td{background:var(--surface-2)}
 .st-pos{white-space:nowrap;font-variant-numeric:tabular-nums}
 .st-bcell{white-space:nowrap;font-size:12px}
 .st-more{font-size:12px;margin:-6px 0 10px}
+/* Сначала тара (владелец, 6.10.2026): скан без тары засчитан, станция
+   ждёт тару — жёлтым, как вопрос, а не красным, как ошибка. */
+.st-askbar{display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--amber2);color:var(--warning);font-weight:800;font-size:16px;letter-spacing:.02em;border-bottom:1px solid var(--warning-line)}
+.st-askbar span{font-weight:500;font-size:14px}
+.st-loose-chip{font:inherit;cursor:pointer;background:var(--amber2);color:var(--warning);padding:6px 14px}
+.st-loose-chip b{color:var(--warning)}
+.st-dl[data-station-loaded]{cursor:pointer;border-radius:8px}
+.st-dl[data-station-loaded]:hover{background:var(--surface-2)}
+.st-dl[data-station-loaded].now:hover{background:var(--blue2)}
+.st-fix{margin:-4px 0 12px;text-align:right}
+/* Окно тары: строки выбираются нажатием — первое и последнее стекло. */
+.st-mv{margin-top:6px}
+.st-mv-row{cursor:pointer}
+.st-mv-row:hover td{background:var(--surface-2)}
+.st-mv-row.on td{background:var(--blue2)}
+/* 60 стёкол в окне — кнопка Move видна всегда, не в конце списка. */
+[data-station-dolly] .st-drawer-foot{position:sticky;bottom:-20px;margin:auto -22px -20px;padding:12px 22px 20px;background:var(--surface);border-top:1px solid var(--line)}
+[data-station-dolly] h2 .st-dchip{padding:4px 12px;font-size:18px}
+.st-mv-to{font:inherit;font-size:16px;width:130px;border:2px solid var(--accent);border-radius:10px;padding:7px 10px;background:var(--surface);color:var(--text)}
 tr.st-top1 td{background:var(--blue2);font-weight:600}
 /* Офис: Production → In production (view/production-board) */
 .pb-tiles{display:flex;gap:7px;overflow-x:auto;padding:3px 0 12px}

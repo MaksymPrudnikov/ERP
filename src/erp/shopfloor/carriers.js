@@ -71,6 +71,38 @@ function carrierEmpty(code){const out=storageCommand(()=>{
  const ghosts=typeof unitOnSkid==='function'?unitOnSkid(carrierCode(code)):[];ghosts.forEach(x=>{x.u.off=[...new Set((x.u.off||[]).concat(x.pieces))];x.o.updatedAt=new Date().toISOString();salesSyncRecordLifecycle(x.o);});
  return {count:list.length+ghosts.reduce((n,x)=>n+x.pieces.length,0)};
 });return out.ok?out.value:{error:out.error};}
+/* Перенос стёкол на другую тару — исправление ошибки рабочего (владелец,
+   6 октября 2026: «он знает, что на долли №3 у него 30 стёкол этого батча,
+   выбирает с 31 по 60 и говорит: это на №4»; «ошибку можно исправить»).
+   Меняется тара последнего скана каждого стекла, рядом — откуда, кто и
+   когда (moved). Стекло на packing slip не переносится: его скид грузят
+   по своим правилам. Возвращает, что было, — для Undo. */
+function carrierMove(pieces,to,who){
+ const out=storageCommand(()=>{
+  const c=carrierFind(to);if(!c||!c.active)throw new Error('Unknown dolly or skid.');
+  const last=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)last.set(s.piece,s);});
+  const now=new Date().toISOString(),was=[];
+  (pieces||[]).forEach(p=>{
+   const s=last.get(p);if(!s||s.broken||s.on===c.code)return;
+   if(typeof shippingActive==='function'&&(DB.shipment||[]).some(x=>shippingActive(x)&&x.items.some(i=>i.pieces.includes(p))))throw new Error('Glass is on a packing slip — not moved.');
+   was.push({id:s.id,on:s.on||'',moved:s.moved||null});
+   s.moved={from:s.on||'',at:now,by:String(who&&who.name||'')};s.on=c.code;
+  });
+  if(!was.length)throw new Error('Nothing to move.');
+  return {to:c.code,was};
+ });
+ return out.ok?out.value:{error:out.error};
+}
+/* Undo переноса: тара возвращается тем сканам, что всё ещё на новой таре. */
+function carrierMoveUndo(move){
+ const out=storageCommand(()=>{
+  const by=new Map((DB.stationScan||[]).map(s=>[s.id,s]));let n=0;
+  (move&&move.was||[]).forEach(w=>{const s=by.get(w.id);if(!s||s.undoneAt||s.on!==move.to)return;if(w.on)s.on=w.on;else delete s.on;if(w.moved)s.moved=w.moved;else delete s.moved;n++;});
+  if(!n)throw new Error('Nothing to undo.');
+  return n;
+ });
+ return out.ok?out.value:{error:out.error};
+}
 function normalizeCarriers(){
  if(!Array.isArray(DB.carrier))DB.carrier=[];
  const seen=new Set();
