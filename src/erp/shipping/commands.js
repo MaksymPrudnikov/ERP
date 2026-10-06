@@ -39,7 +39,17 @@ function shippingUpdate(id,d){return storageCommand(()=>{
  shippingAssert(s.customerId===d.customerId,'The packing slip customer cannot change.');
  const loaded=shippingLoadState(s).loaded.map(u=>u.label),picked=shippingValidateSelection(d,s.id),ids=shippingOrderIds(s);
  shippingAssert(loaded.every(label=>picked.items.some(i=>i.label===label)),'Loaded units cannot be removed. Undo loading at the station first.');
+ const was={date:s.date,truckId:s.truckId||''};
  Object.assign(s,picked,{method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,note:String(d.note||'').slice(0,1000)});
+ /* Перенос на другой день — та же машина, последней остановкой, водитель
+    того дня (у цеха он один), время выезда — заново; Pickup — с машины
+    (владелец, 6.10.2026: «перенос нужен для контроля»; аудит Shipping, F6). */
+ if(was.truckId&&(s.date!==was.date||s.method!=='delivery')){
+  delete s.departAt;
+  if(s.method!=='delivery'){delete s.truckId;delete s.stop;delete s.driverId;}
+  else{const mates=deliveryStops(s.date,s.truckId).filter(x=>x!==s);s.stop=mates.length+1;const driver=mates.find(x=>x.driverId);if(driver)s.driverId=driver.driverId;}
+  deliveryRenumber(was.date,was.truckId);
+ }
  [...new Set(ids.concat(shippingOrderIds(s)))].forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip updated',s.number));return s;
 });}
 /* mode 'loaded' — едет только отсканированное на станции отгрузки, остальное
@@ -50,14 +60,16 @@ function shippingUpdate(id,d){return storageCommand(()=>{
 function shippingMarkShipped(id,mode){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can be shipped.');
  shippingAssert(s.items.length+s.extras.length>0,'An empty packing slip cannot be shipped.');
- const picked=shippingValidateSelection(s,s.id),now=new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
- Object.assign(s,picked);
+ const now=new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
  const loaded=new Set(shippingLoadState(s).loaded.map(u=>u.label));
+ /* Сначала — что едет, потом проверка: непогруженный юнит, разбитый до
+    печати, не держит отправку погруженных (аудит Shipping, F4). */
  if(mode==='loaded'){
   const left=s.items.filter(i=>!loaded.has(i.label));shippingAssert(left.length<s.items.length,'Nothing is loaded yet.');
   s.items=s.items.filter(i=>loaded.has(i.label));shippingUnprint(s,left);
   [...new Set(left.map(i=>i.orderId))].forEach(oid=>orderLogPush(salesRecord(oid),'Not loaded',s.number+' · '+shippingCount(left.filter(i=>i.orderId===oid).length,'unit')+' back to Ready'));
  }
+ Object.assign(s,shippingValidateSelection(s,s.id));
  /* Какие скиды уезжают — до заморозки документа: на бумаге клиента только они. */
  s.skidsOut=shippingSkidsOut(s,s.items.map(i=>({pieces:i.pieces,skid:i.skid,loaded:loaded.has(i.label)})));
  s.document=shippingDocument(s);
