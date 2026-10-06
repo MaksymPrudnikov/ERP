@@ -6,7 +6,11 @@ function shippingDocument(s){
  if(s.document)return shippingClone(s.document);
  if(s.id&&s.status==='planned'){
   const live=new Map(shippingOrderIds(s).flatMap(id=>shippingUnits(salesRecord(id))).map(i=>[i.label,i]));
-  s=Object.assign({},s,{items:s.items.map(i=>Object.assign({},i,{skid:live.has(i.label)?live.get(i.label).skid:i.skid}))});
+  /* На бумаге клиента — только скиды, которые с этим PS уезжают: с микса и у
+     стойки выдают юниты, а не скид (erp/shipping/loading, shippingSkidsOut). */
+  const items=s.items.map(i=>Object.assign({},i,{skid:live.has(i.label)?live.get(i.label).skid:i.skid,loaded:live.has(i.label)&&!!live.get(i.label).loaded}));
+  const out=Array.isArray(s.skidsOut)?s.skidsOut:shippingSkidsOut(s,items);
+  s=Object.assign({},s,{items:items.map(i=>{const x=Object.assign({},i,{skid:out.includes(i.skid)?i.skid:''});delete x.loaded;return x;})});
  }
  const orders=shippingOrderIds(s).map(id=>{
   const o=salesRecord(id),q=shippingSummary(o);

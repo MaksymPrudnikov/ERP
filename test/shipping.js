@@ -4,7 +4,8 @@ module.exports=async function({page,eq,ok}){
  console.log('shipping');const t=await page();await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
   window.shSeed=function(n){oqReset();DB.carrier=[];carrierAdd('SL',2);const c=oqCustomer(),ids=[];for(let k=0;k<(n||1);k++){const id=oqOrder(c);salesDraftDrop();oqThrough(id,'ready');ids.push(id);}return ids;};
-  window.shCreate=function(ids,count){const os=ids.map(salesRecord),all=os.flatMap(shippingAvailable);return shippingCreate({customerId:os[0].customerId,method:'pickup',shipTo:{},date:finToday(),items:(count==null?all:all.slice(0,count)).map(shippingItem),extras:[]});};
+  /* method 'delivery' — там, где проверяется скид на бумаге: у стойки (pickup) клиенту выдают юниты, а не скид. */
+  window.shCreate=function(ids,count,method){const os=ids.map(salesRecord),all=os.flatMap(shippingAvailable);return shippingCreate({customerId:os[0].customerId,method:method||'pickup',shipTo:method==='delivery'?{address1:'1 Main St'}:{},date:finToday(),items:(count==null?all:all.slice(0,count)).map(shippingItem),extras:[]});};
   window.shFail=function(fn){const proto=Storage.prototype,old=proto.setItem;proto.setItem=function(k,v){if(k===STORAGE_KEY)throw new Error('Disk full');return old.call(this,k,v);};let r;try{r=fn();}finally{proto.setItem=old;}return r;};
   window.print=()=>{window.shPrints=(window.shPrints||0)+1;};
  });
@@ -67,7 +68,7 @@ module.exports=async function({page,eq,ok}){
   try{validateShipmentPayload({shipment:[{number:'oops'}]});}catch(e){invalid=true;}return {number:round.shipment[0].number,status:round.salesOrder.find(o=>o.id===id).status,duplicate,invalid};
  }),{number:'PS-0001',status:'shipping',duplicate:true,invalid:true});
  eq('Address is a snapshot, PS has quantities/barcode/signature and one Letter page per skid',await t.p.evaluate(()=>{
-  const [id]=shSeed(),o=salesRecord(id);shippingAvailable(o).forEach(i=>i.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));const s=shCreate([id]).value;s.shipTo=shippingAddress({address1:'10 Glass St',city:'Toronto',postalCode:'A1A1A1',contact:'Pat'});const c=salesFindCustomer(o.customerId);c.addresses=[{type:'delivery',address1:'Changed address'}];
+  const [id]=shSeed(),o=salesRecord(id);shippingAvailable(o).forEach(i=>i.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));const s=shCreate([id],null,'delivery').value;s.shipTo=shippingAddress({address1:'10 Glass St',city:'Toronto',postalCode:'A1A1A1',contact:'Pat'});const c=salesFindCustomer(o.customerId);c.addresses=[{type:'delivery',address1:'Changed address'}];
   const d=shippingDocument(s),pages=shippingPages(d),text=pages.flatMap(p=>p.items.filter(i=>i.t==='text').map(i=>i.s)).join(' '),skid=pages.at(-1).items.find(i=>i.t==='text'&&i.s==='SL-1');return {pages:pages.length,skid:skid.size,address:text.includes('10 Glass St'),unchanged:!text.includes('Changed address'),columns:['Ordered','Before','Now','Back order'].every(x=>text.includes(x)),signature:text.includes('Signature'),money:/\$|Subtotal|Tax|Balance due/.test(text),barcode:pages[0].items.some(i=>i.t==='rect'&&i.fill==='#000000')};
  }),{pages:2,skid:40,address:true,unchanged:true,columns:true,signature:true,money:false,barcode:true});
  eq('Editing a printed planned PS requires reprint and empty dispatch is refused',await t.p.evaluate(()=>{
@@ -99,7 +100,7 @@ module.exports=async function({page,eq,ok}){
   const [id]=shSeed(),s=shCreate([id],1).value;shippingRevert(s.id,'cancel');const old=JSON.stringify(shippingDocument(s));salesRecord(id).lines=[];let valid=true;try{validateShipmentPayload(DB);}catch(e){valid=false;}return {valid,frozen:JSON.stringify(shippingDocument(s))===old};
  }),{valid:true,frozen:true});
  eq('Moving reserved glass to another skid requires reprint and refreshes the printed snapshot',await t.p.evaluate(()=>{
-  const [id]=shSeed(),s=shCreate([id],1).value;shippingPrint(s.id);s.items[0].pieces.forEach(p=>stationScansFor(p).at(-1).on='SL-2');const reprint=shippingNeedsReprint(s);shippingPrint(s.id);return {reprint,skid:s.items[0].skid,current:!shippingNeedsReprint(s)};
+  const [id]=shSeed(),s=shCreate([id],1,'delivery').value;shippingPrint(s.id);s.items[0].pieces.forEach(p=>stationScansFor(p).at(-1).on='SL-2');const reprint=shippingNeedsReprint(s);shippingPrint(s.id);return {reprint,skid:s.items[0].skid,current:!shippingNeedsReprint(s)};
  }),{reprint:true,skid:'SL-2',current:true});
  /* Доработка Claude 05.10.2026: ошибка сохранения заказа со складской
     позицией в PS, вкладка Ready без пустых строк, самовывоз одним сканом,
@@ -128,7 +129,7 @@ module.exports=async function({page,eq,ok}){
  }),{rolled:{ok:false,status:'planned',scans:0},one:{ok:true,status:'delivered',order:'done',by:'Front desk',scanned:true},delivery:{ok:false,error:'Mark this packing slip Loaded first.',status:'planned'}});
  eq('PS wording: one unit and one skid in singular; no skid line on a PS without skids',await t.p.evaluate(()=>{
   const text=s=>shippingPages(shippingDocument(s)).flatMap(p=>p.items.filter(i=>i.t==='text').map(i=>i.s)).join(' | ');
-  let [id]=shSeed(),o=salesRecord(id);shippingAvailable(o)[0].pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';});const one=text(shCreate([id],1).value);
+  let [id]=shSeed(),o=salesRecord(id);shippingAvailable(o)[0].pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';});const one=text(shCreate([id],1,'delivery').value);
   [id]=shSeed();const none=text(shCreate([id]).value);
   return {unit:one.includes('SL-1 · 1 unit ·'),skid:one.includes('1 skid left on site remains property'),noSkid:!/left on site|0 skid/.test(none)};
  }),{unit:true,skid:true,noSkid:true});
