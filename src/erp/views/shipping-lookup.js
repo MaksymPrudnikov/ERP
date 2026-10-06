@@ -7,15 +7,19 @@
    Кнопка создаёт PS самовывоза на всё готовое по заказу и печатает его;
    долг проверяется один раз — до записи (Take payment / Print anyway).
    Владелец, 6 октября 2026: клиент хранит заказы у нас и называет номер
-   заказа или свой PO. Номер ищется точно; иначе PO по части текста — на
-   один PO бывает несколько заказов, тогда список на выбор. */
+   заказа или свой PO. Ищут раздельно, переключателем Order | PO: номер
+   заказа бывает таким же, как чужой PO, в одном поле один спрятал бы
+   другой. Номер — точно. PO — по части текста: у PO бывают приставки
+   («OAI 77224»), на один PO — несколько заказов, тогда список на выбор. */
 const SHIPPING_LOOKUP_MAX=12;
-let shippingLookupId='',shippingLookupText='',shippingLookupMiss='',shippingLookupIds=[];
+let shippingLookupId='',shippingLookupText='',shippingLookupMiss='',shippingLookupIds=[],shippingLookupBy='order';
 function shippingLookupOpen(o){return !['done','closed','cancelled'].includes(o.status)&&!shippingLegacy(o);}
 function shippingLookupFind(text){
- const t=text.toLowerCase(),orders=(DB.salesOrder||[]).filter(o=>!salesIsQuote(o)),byNumber=orders.filter(o=>String(o.businessNumber||'').trim().toLowerCase()===t);
- return byNumber.length?byNumber:orders.filter(o=>String(o.customerPo||'').toLowerCase().includes(t)).sort((a,b)=>shippingLookupOpen(b)-shippingLookupOpen(a));
+ const t=text.toLowerCase(),orders=(DB.salesOrder||[]).filter(o=>!salesIsQuote(o));
+ return shippingLookupBy==='po'?orders.filter(o=>String(o.customerPo||'').toLowerCase().includes(t)).sort((a,b)=>shippingLookupOpen(b)-shippingLookupOpen(a)):orders.filter(o=>String(o.businessNumber||'').trim().toLowerCase()===t);
 }
+/* Переключили — тот же текст ищется заново, набирать второй раз не надо. */
+function shippingLookupSetBy(v){const e=document.querySelector('[data-order-lookup]');shippingLookupBy=v==='po'?'po':'order';shippingLookupGo(e?e.value:shippingLookupText);}
 function shippingLookupReset(){shippingLookupId='';shippingLookupText='';shippingLookupMiss='';shippingLookupIds=[];}
 function shippingLookupGo(raw){
  const text=String(raw||'').trim(),found=text?shippingLookupFind(text):[];shippingLookupReset();
@@ -52,11 +56,12 @@ function shippingLookupPickup(id){
  });
 }
 function shippingLookupHTML(){
- const field=`<label class="shipping-lookup-field">Order / PO<input data-order-lookup value="${esc(shippingLookupText)}" placeholder="Number or PO" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingLookupGo(this.value)}"></label>`;
+ const po=shippingLookupBy==='po';
+ const field=`<div class="shipping-lookup-field"><select aria-label="Search by" data-lookup-by onchange="shippingLookupSetBy(this.value)"><option value="order" ${po?'':'selected'}>Order</option><option value="po" ${po?'selected':''}>PO</option></select><input data-order-lookup aria-label="${po?'Customer PO':'Order number'}" value="${esc(shippingLookupText)}" placeholder="${po?'Part of the PO':'Order number'}" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingLookupGo(this.value)}"></div>`;
  const o=shippingLookupId&&salesRecord(shippingLookupId);
  if(!o){
   const list=shippingLookupIds.map(salesRecord).filter(Boolean),more=list.length-SHIPPING_LOOKUP_MAX;
-  if(list.length<2)return {field,card:shippingLookupMiss?`<div class="shipping-notice bad" role="alert" data-lookup-miss>No order or PO ${esc(shippingLookupMiss)}</div>`:''};
+  if(list.length<2)return {field,card:shippingLookupMiss?`<div class="shipping-notice bad" role="alert" data-lookup-miss>${po?'No order with PO':'Order'} ${esc(shippingLookupMiss)}${po?'':' not found'}</div>`:''};
   return {field,card:`<section class="card shipping-customer shipping-lookup" data-lookup-list><div class="shipping-customer-head"><h3>PO ${esc(shippingLookupText)} · ${list.length} orders</h3><button type="button" aria-label="Close" onclick="shippingLookupClose()">×</button></div><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Order</th><th>Customer</th><th>PO</th><th>Status</th></tr></thead><tbody>${list.slice(0,SHIPPING_LOOKUP_MAX).map(x=>`<tr><td><button type="button" class="sm" data-lookup-open onclick="shippingLookupId='${esc(x.id)}';render()">${esc(x.businessNumber)}</button></td><td>${esc(salesCustomerDisplay(x.customerId))}</td><td>${esc(x.customerPo)}</td><td>${shippingLookupPill(x,shippingSummary(x))}</td></tr>`).join('')}</tbody></table></div>${more>0?`<p class="mut">${more} more · type more of the PO</p>`:''}</section>`};
  }
  const m=shippingLookupModel(o),count=n=>shippingCount(n,'unit'),open=shippingLookupOpen(o),pill=shippingLookupPill(o,m.q);
