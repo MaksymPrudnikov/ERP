@@ -110,6 +110,11 @@ module.exports=async function({page,eq,ok}){
   ids=shSeed(2);ids.forEach(id=>finSaveTerms(id,{paymentMode:'cash',depositPercent:50,creditDays:null,issuedOn:'',dueOn:''},''));open(ids);shippingSave();const titles=[salesDialog.title];oqChoose('Create anyway');titles.push(salesDialog&&salesDialog.title);oqChoose('Create anyway');
   return {one,once,cash:titles.join('|')===ids.map(id=>'Order '+salesRecord(id).businessNumber+' has a balance due').join('|'),ps:DB.shipment.length,dialog:!!salesDialog};
  }),{one:true,once:{hold:true,label:'These 3 orders',sum:true,again:false,ps:1,orders:3},cash:true,ps:1,dialog:false});
+ eq('Shipments look like the Sales list: short date, status pill, PS contents as a table with the main action highlighted',await t.p.evaluate(()=>{
+  const [id]=shSeed(),s=shCreate([id],null,'delivery').value;tab='shipping';shippingTab='shipments';shippingOpenId=s.id;render();
+  const row=document.querySelector('[data-ps="'+s.number+'"]'),card=document.querySelector('.shipping-detail');
+  return {date:row.cells[2].textContent===salesListShortDay(finToday()),pill:row.querySelector('.pill.st-new').textContent,card:card.querySelector('.shipping-customer-head .pill').textContent,head:[...card.querySelectorAll('th')].map(e=>e.textContent).join('|'),main:card.querySelector('button.pri').textContent,toolbar:!!document.querySelector('.shipping-toolbar [data-order-lookup]')};
+ }),{date:true,pill:'Planned',card:'Planned',head:'Line / Mark|Size|Makeup|Skids|Qty|Before|Back order',main:'Loaded',toolbar:true});
  eq('PS includes unselected order lines with Now zero and the remaining backorder',await t.p.evaluate(()=>{
   const [id]=shSeed(),s=shCreate([id],1).value,d=shippingDocument(s);return d.orders[0].rows.map(r=>[r.ordered,r.before,r.now,r.back]);
  }),[[2,0,1,1],[1,0,0,1]]);
