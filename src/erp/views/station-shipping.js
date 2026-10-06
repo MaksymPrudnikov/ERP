@@ -14,10 +14,14 @@ function stationIsShip(){return !!stationCode&&stationCode===shippingStations().
 function stationIsReady(){return !!stationCode&&stationCode===shippingStations().ready;}
 
 /* ------------------------------ SHIPR ------------------------------- */
+/* Скиды-миксы — норма (владелец, 6.10.2026: «микс из клиентов, у которых 1–4
+   юнита… в большом заказе никогда на скиде не будет микса»). Предупреждаем
+   один раз — когда скид одного клиента этим сканом становится миксом, и на
+   любой станции: на скид стекло кладут сразу после IGU. */
 function stationReadyForeign(g,rec){
- if(!stationIsReady()||!g||!rec||!/^S[LA]-/.test(rec.on||''))return null;
- const others=[...new Set((carrierContents().get(rec.on)||[]).filter(x=>x.g.o.customerId!==g.o.customerId).map(x=>salesCustomerDisplay(x.g.o.customerId)))];
- return others.length?{skid:rec.on,customers:others}:null;
+ if(!g||!rec||!/^S[LA]-/.test(rec.on||''))return null;
+ const act=rec.actionId||rec.id,before=new Set((carrierContents().get(rec.on)||[]).filter(x=>(x.scan.actionId||x.scan.id)!==act).map(x=>x.g.o.customerId));
+ return before.size===1&&!before.has(g.o.customerId)?{skid:rec.on,customers:[salesCustomerDisplay([...before][0])]}:null;
 }
 function stationForeignBar(L){return L.foreign?'<div class="st-urg" data-station-foreign>OTHER CUSTOMER ON '+esc(L.foreign.skid)+'<span data-raw>· '+esc(L.foreign.customers.join(', '))+'</span></div>':'';}
 function stationQueueBar(g){
@@ -39,6 +43,13 @@ function stationSkidSummary(code){
  });
 }
 
+/* ------------------------- скид вернулся --------------------------- */
+function stationSkidBack(code){
+ if(!/^S[LA]-/.test(code))return null;const r=skidBack(code,stationWho());
+ if(r&&r.error){stationNote=r.error;return null;}return r;
+}
+function stationBackText(c){return c.back?' · <span data-station-back>back from <span data-raw>'+esc(c.back.customer)+'</span></span>':'';}
+
 /* ------------------------------- SHIP ------------------------------- */
 function stationTrip(){const s=stationSession(),t=s&&s.trip?shippingFind(s.trip):null;return t&&t.status==='planned'?t:null;}
 function stationSetTrip(id){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.trip=id||'';stationSessionsSave(m);}
@@ -50,13 +61,18 @@ function stationTripChip(){
 function stationShipShow(out){
  stationMenu=null;stationNote=out.kind==='saveError'?out.note:'';
  stationLast={check:out,rec:null,data:null,place:null,at:out.at||new Date().toISOString()};
- stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':'ok'):out.kind==='shipAlready'?'twice':'error');
+ stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':'ok'):out.kind==='shipBack'?'ok':out.kind==='shipAlready'?'twice':'error');
 }
 function stationShipSubmit(raw,who,manual){
  const code=stationCodeOf(raw),t=carrierType(code);if(!code)return false;
  stationDrawer=null;stationTab='scan';
  /* Долли на машину не едет — её стекло грузят по стикерам. */
  if(t&&(t.kind!=='Skid'||!carrierFind(code)||!carrierFind(code).active)){stationCarrierScan(code);render();return 'carrier';}
+ /* Пустой скид, который числился у клиента: вернулся (PR 4). */
+ if(t){
+  const back=skidBack(code,who);if(back&&back.error){stationShipShow({kind:'saveError',code,note:back.error});render();return 'saveError';}
+  if(back&&!(carrierContents().get(code)||[]).length){stationShipShow({kind:'shipBack',code,skid:code,back});render();return 'shipBack';}
+ }
  let target=code;
  if(!t){
   const check=stationCheck(stationCode,raw);if(!check)return false;
@@ -89,6 +105,8 @@ function stationShipCard(L){
   '<div class="st-res-b"><div class="st-big st-dark"><small>'+(c.added?'ADDED TO':'LOADED')+'</small><b class="st-big-code">'+esc(c.ps)+'</b><span data-raw>'+esc(c.customer)+'</span></div>'+
   '<div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div><div class="st-kv"><span class="k">Units</span><span><b>'+c.units+'</b></span><span class="k">Orders</span><span>'+c.orders.map(o=>'<b>'+esc(o.number)+'</b> ×'+o.units).join(' · ')+'</span></div></div></div>'+
   '<div class="st-acts"><button type="button" class="b" data-station-load-undo onclick="stationUndoClick(\''+esc(c.recId)+'\')">Undo</button></div></div>';
+ if(c.kind==='shipBack')return '<div class="st-res st-ok" data-station-result="shipBack"><div class="st-res-h">✓ '+what+' back from <span data-raw>'+esc(c.back.customer)+'</span>'+time+'</div>'+
+  '<div class="st-res-b"><div class="st-big st-dark"><small>BACK FROM</small><b class="st-big-code" data-raw>'+esc(c.back.customer)+'</b><span>'+shippingCount(c.back.days,'day')+' · '+esc(c.back.ps)+'</span></div><div class="st-info"><div class="st-gid mono">'+what+'</div></div></div></div>';
  if(c.kind==='shipAlready')return '<div class="st-res st-amber" data-station-result="shipAlready"><div class="st-res-h">Already loaded · '+esc(stationTime(c.at))+' · <span data-raw>'+esc(c.by||'—')+'</span>'+time+'</div>'+
   '<div class="st-res-b"><div class="st-big st-ask"><small>LOADED</small><b class="st-big-code">'+esc(c.ps)+'</b><span>'+what+'</span></div><div class="st-info"><div class="st-gid mono">'+what+'</div></div></div></div>';
  const ids=(c.ids||[]).slice(0,4).join(', ')+((c.ids||[]).length>4?' +'+((c.ids||[]).length-4):'');
@@ -98,7 +116,7 @@ function stationShipCard(L){
   shipOtherPS:{head:'Other packing slip',small:'IS ON',big:esc((c.ps||[]).join(', ')),sub:'Not this trip',info:trip},
   shipNoPS:{head:'No packing slip',small:'ASK THE OFFICE',big:'NO PS',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:''},
   shipChoose:{head:'Choose the trip',small:'TWO TRIPS',big:'CHOOSE',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:'<div class="mut">Tap the trip on the right</div>'},
-  shipMixed:{head:'Two customers on '+what,small:'SKID',big:'STOP',sub:'<span data-raw>'+esc((c.customers||[]).join(', '))+'</span>',info:''},
+  shipMixed:{head:'Two customers on '+what,small:'SKID',big:'STOP',sub:'<span data-raw>'+esc((c.customers||[]).join(', '))+'</span>',info:'<div class="mut">Scan the units one by one</div>'},
   shipNotReady:{head:'Not ready',small:'NOT READY',big:String((c.ids||[]).length)+' GLASS',sub:c.why==='hold'?'On hold — set aside':c.why?'Scan at '+esc(c.why)+' first':'Ask the office',info:'<div class="mut mono">'+esc(ids)+'</div>'},
   shipNothing:{head:'Nothing ready on '+what,small:'NOTHING READY',big:what,sub:'Nothing to load',info:''},
   shipHold:{head:'On hold',small:'ON HOLD',big:'SET ASIDE',sub:esc(c.reason||'Order on hold'),info:''}

@@ -7,12 +7,12 @@
    ===================================================================== */
 let carrierSel=new Set();
 function viewMdCarriers(){
- const contents=carrierContents(),list=(DB.carrier||[]).slice().sort((a,b)=>{const x=CARRIER_RE.exec(a.code),y=CARRIER_RE.exec(b.code);return x[1].localeCompare(y[1])||(+x[2])-(+y[2]);});
+ const contents=carrierContents(),out=skidsOut(),list=(DB.carrier||[]).slice().sort((a,b)=>{const x=CARRIER_RE.exec(a.code),y=CARRIER_RE.exec(b.code);return x[1].localeCompare(y[1])||(+x[2])-(+y[2]);});
  const rows=list.map(c=>{
-  const t=carrierType(c.code),on=contents.get(c.code)||[],where=[...new Set(on.map(x=>x.place.waiting).filter(Boolean))];
+  const t=carrierType(c.code),on=contents.get(c.code)||[],where=[...new Set(on.map(x=>x.place.waiting).filter(Boolean))],at=out.get(c.code);
   return `<tr data-carrier="${esc(c.code)}"${c.active?'':' class="mut"'}><td><input type="checkbox" ${carrierSel.has(c.code)?'checked':''} onchange="carrierPick('${esc(c.code)}',this.checked)"></td>
    <td class="mono"><b>${esc(c.code)}</b></td><td>${esc(t.label)}</td>
-   <td>${on.length?`<b>${on.length}</b> glass${where.length?' · waiting at '+esc(where.join(', ')):''}`:'<span class="mut">empty</span>'}</td>
+   <td>${on.length?`<b>${on.length}</b> glass${where.length?' · waiting at '+esc(where.join(', ')):''}`:at?`<span data-carrier-out>at ${esc(salesCustomerDisplay(at.customerId))} since ${esc(docDate(finLocalDate(at.since)))} · ${esc(at.ps)}</span>`:'<span class="mut">empty</span>'}</td>
    <td><input value="${esc(c.note)}" placeholder="Note" onchange="carrierSet('${esc(c.code)}','note',this.value)" style="max-width:220px"></td>
    <td><label class="chk"><input type="checkbox" ${c.active?'checked':''} onchange="carrierSet('${esc(c.code)}','active',this.checked);render()"> Active</label></td>
    <td><button class="sm" onclick="carrierPrintLabels(['${esc(c.code)}'])">Label</button></td></tr>`;

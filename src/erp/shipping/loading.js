@@ -100,7 +100,9 @@ function shippingLoadCommand(code,tripId,who,opts){
  /* Весь скид — одно действие: один actionId, один Undo. */
  plan.units.forEach(u=>u.pieces.forEach(piece=>{
   const check=stationCheck(ship,piece);shippingAssert(check&&check.kind==='ok','Glass is no longer ready.');
-  const rec=stationRecord(ship,check,who,{deferTouch:true,manual:!!opts.manual,now,on:u.skid,actionId:actionId||undefined});
+  /* Скид едет только сканом скида: юнит, взятый по своему стикеру (со
+     скида-микса), уезжает без него — скид остаётся в цеху. */
+  const rec=stationRecord(ship,check,who,{deferTouch:true,manual:!!opts.manual,now,on:plan.skid?u.skid:'',actionId:actionId||undefined});
   shippingAssert(rec,'Loading was not recorded.');actionId=actionId||rec.id;
  }));
  plan.add.forEach(u=>s.items.push(Object.assign(shippingItem(u),{added:actionId})));
