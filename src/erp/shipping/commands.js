@@ -109,14 +109,26 @@ function shippingScanSigned(raw,by,date){
 }
 function shippingCheckStamp(){return JSON.stringify(DB);}
 /* Every order is checked before any write/print. Paying or backing out stops
-   the entire action. A change during a warning requires a fresh check. */
+   the entire action. A change during a warning requires a fresh check.
+   Окно о клиенте (Hold, просрочка, лимит — у него нет pay) — одно на клиента
+   за действие, со строкой долга по всем его заказам в этом действии
+   (владелец, 6 октября 2026: «одно окно на клиента… конкретная сумма на все
+   заказы»). Долг cash-заказа спрашивается по каждому заказу: оплату
+   принимают в заказ. */
 function shippingWithChecks(ids,method,printing,done){
- ids=[...new Set(ids)];const stamp=shippingCheckStamp();
+ ids=[...new Set(ids)];const stamp=shippingCheckStamp(),told=new Set();
+ const checksOf=o=>salesTransitionChecks(Object.assign({},o,{delivery:method}),'done');
  const run=n=>{
   if(shippingCheckStamp()!==stamp){shippingNotice={error:true,text:'Data changed. Review and try again.'};render();return;}
   if(n===ids.length){done();return;}
   const o=salesRecord(ids[n]);if(!o){shippingNotice={error:true,text:'Order not found.'};render();return;}
-  const checks=salesTransitionChecks(Object.assign({},o,{delivery:method}),'done').map(c=>Object.assign({},c,{anyway:printing?'Print anyway':'Create anyway'}));
+  const checks=checksOf(o).filter(c=>c.pay!=null||!told.has(o.customerId)).map(c=>{
+   const out=Object.assign({},c,{anyway:printing?'Print anyway':'Create anyway'});if(c.pay!=null)return out;
+   told.add(o.customerId);
+   const mine=ids.map(salesRecord).filter(x=>x&&x.customerId===o.customerId&&checksOf(x).some(k=>k.pay==null));
+   out.rows=c.rows.concat([[mine.length>1?'These '+mine.length+' orders':'Order '+o.businessNumber,finFmt(finMoney(mine.reduce((s,x)=>s+finOrderBalance(x).balance,0)))]]);
+   return out;
+  });
   salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
  };run(0);
 }
