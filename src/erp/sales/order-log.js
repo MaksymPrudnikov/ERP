@@ -19,7 +19,7 @@ DEFAULT.orderEvent=[];
 if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];
 const ORDER_LOG_HEAD=[['customerId','customer'],['customerPo','PO'],['dueDate','due date'],['priority','priority'],['delivery','delivery'],['paymentTerms','terms'],['currency','currency'],['branch','branch'],['notes','notes'],['orderCharges','charges'],['makeups','makeups'],['extraItems','items'],['noCharge','no charge'],['validUntil','valid until']];
 /* Поля строки, которые ведёт цех (батч, Hold строки) — у них свои записи. */
-const ORDER_LOG_LINE_OWN=['batchManaged','batchedAt','cutStartedAt','batchNo','onHold','holdReason','holdAt','shipQueue'];
+const ORDER_LOG_LINE_OWN=['batchManaged','batchedAt','cutStartedAt','batchNo','onHold','holdReason','holdAt','shipQueue','heldUnits','cancelledUnits'];
 let orderLogBase={text:null,map:null},orderLogPending=null;
 
 function normalizeOrderLog(){

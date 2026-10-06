@@ -6,7 +6,9 @@
 let salesLineHoldMenu=null,salesLineHoldPress=null;
 function salesLineHoldAllowed(o,l){return !!o&&!!l&&!salesIsQuote(o)&&!salesOrderReadOnly(o)&&!salesLineLocked(l);}
 function salesLineQueueAllowed(o,l){const saved=o&&salesRecord(o.id);return !!l&&!!saved&&shippingQueueAllowed(saved)&&(saved.lines||[]).some(x=>x.id===l.id);}
-function salesLineMenuAllowed(o,l){return salesLineHoldAllowed(o,l)||salesLineQueueAllowed(o,l);}
+/* Hold units / Cancel units (erp/sales/unit-cancel) — у строки в цеху. */
+function salesLineUnitsLine(o,l){const saved=o&&salesRecord(o.id);return saved&&!salesIsQuote(saved)&&!['closed','cancelled'].includes(saved.status)?(saved.lines||[]).find(x=>l&&x.id===l.id&&salesLineLocked(x))||null:null;}
+function salesLineMenuAllowed(o,l){return salesLineHoldAllowed(o,l)||salesLineQueueAllowed(o,l)||!!salesLineUnitsLine(o,l);}
 function salesLineHoldRowAttrs(l){
  if(salesIsQuote(soDraft)||salesOrderReadOnly(soDraft))return '';
  const id=esc(l.id),reason=l.onHold?'On Hold: '+(l.holdReason||'Waiting for clarification'):'Right-click for line actions';
@@ -67,16 +69,64 @@ function salesLineQueueApply(){
  const out=shippingQueueSet(m.orderId,m.ids,m.queue);if(!out.ok){m.error=out.error;render();return;}
  salesLineHoldMenu=null;render();
 }
+function salesLineUnitsOpen(kind){
+ const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return;const l=salesLineUnitsLine(soDraft,{id:m.ids[0]});if(!l)return;
+ if(kind==='release'){const out=unitRelease(m.orderId,l.id);if(!out.ok){m.error=out.error;render();return;}salesLineHoldMenu=null;render();return;}
+ const held=l.heldUnits||[];m.ids=[l.id];m.kind=kind==='hold'?'units-hold':'units-cancel';m.count=String(kind==='cancel'&&held.length?held.length:1);m.reason=kind==='cancel'&&held.length?held[0].reason:'';m.glass='scrap';m.charge='';m.error='';render();
+ requestAnimationFrame(()=>{const e=document.querySelector('[data-units-count]');if(e)e.focus();});
+}
+/* Из полосы под строкой: Cancel units и Release без меню. */
+function salesLineUnitsStrip(e,lineId,kind){
+ const l=soDraft&&soDraft.lines.find(x=>x.id===lineId);if(!l)return;
+ salesLineHoldMenu={kind:'context',orderId:soDraft.id,ids:[lineId],index:soDraft.lines.indexOf(l)+1,x:e&&e.clientX||40,y:e&&e.clientY||40,stamp:salesLineHoldStamp([lineId])};salesLineUnitsOpen(kind);
+}
+function salesLineUnitsApply(){
+ const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return;
+ if(m.stamp!==salesLineHoldStamp(m.ids)){salesLineHoldMenu=null;salesDialogOpen({title:'Order changed',note:'Review the lines and open the menu again.',buttons:[{label:'Back'}]});return;}
+ const out=m.kind==='units-hold'?unitHold(m.orderId,m.ids[0],m.count,m.reason):unitCancel(m.orderId,m.ids[0],m.count,m.reason,{glass:m.glass,chargeOverride:m.charge});
+ if(!out.ok){m.error=out.error;render();return;}
+ salesLineHoldMenu=null;render();
+}
+function salesLineUnitsCharge(cancelId,value){const out=unitSetCharge(soDraft.id,cancelId,value);if(!out.ok)alert(out.error);render();}
+/* Полоса под строкой заказа: что на Hold и что отменено. */
+function salesLineUnitsRow(l,span){
+ const saved=soDraft&&salesRecord(soDraft.id),sl=saved&&(saved.lines||[]).find(x=>x.id===l.id);if(!sl||salesIsQuote(saved))return '';
+ const held=sl.heldUnits||[],cancels=(saved.cancellations||[]).filter(c=>c.lineId===l.id);if(!held.length&&!cancels.length)return '';
+ const id=esc(l.id),open=!['closed','cancelled'].includes(saved.status);
+ const glass=c=>{const k=[...new Set(c.units.map(u=>u.glass).filter(Boolean))][0];return k==='customer'?' · customer takes'+(c.units.some(u=>u.glass==='customer'&&!u.takenPs)?' on the next packing slip':''):k==='stock'?' · glass to stock':k==='scrap'?' · glass scrapped':'';};
+ return `<tr class="line-units-row" data-units-row="${id}"><td colspan="${span}">`+
+  (held.length?`<div class="line-units-hold" data-units-held><b>${shippingCount(held.length,'unit')} on hold</b><span>${esc(held[0].reason)} · ${esc(salesShortDate(held[0].at))}</span>${open?`<button type="button" class="sm" data-units-release onclick="salesLineUnitsStrip(event,'${id}','release')">Release</button><button type="button" class="sm" data-units-cancel onclick="salesLineUnitsStrip(event,'${id}','cancel')">Cancel units</button>`:''}</div>`:'')+
+  cancels.map(c=>`<div class="line-units-cancelled" data-units-cancelled><b>Cancelled ${shippingCount(c.units.length,'unit')}</b><span>${esc(c.reason)}${glass(c)} · work done</span><input type="number" min="0" step="0.01" aria-label="Cancellation charge" ${open?'':'disabled'} value="${unitChargeOf(c)==null?'':unitChargeOf(c)}" placeholder="${c.charge==null?'Enter':c.charge}" onchange="salesLineUnitsCharge('${esc(c.id)}',this.value)"></div>`).join('')+
+  `</td></tr>`;
+}
+function salesLineUnitsMenuHTML(m,l,back,style,label){
+ const saved=salesRecord(m.orderId),count=Math.max(0,Math.floor(+m.count)||0),error=m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:'';
+ const fields=max=>`<div class="line-units-fields"><label>Units<input type="number" min="1" max="${max}" data-units-count value="${esc(m.count)}" onchange="salesLineHoldMenu.count=this.value;render()"></label><span class="mut">of ${max}</span><label class="line-units-reason">Reason<input type="text" maxlength="200" data-units-reason value="${esc(m.reason)}" oninput="salesLineHoldMenu.reason=this.value"></label></div>`;
+ if(m.kind==='units-hold'){
+  const max=unitHoldable(saved,l).length;
+  return back+`<div class="sl-menu sl-line-hold-menu line-units-menu" style="${style}" role="dialog" aria-label="Hold units"><h5>${esc(label)} · Hold units</h5>${fields(max)}<p class="mut">Least advanced units first.</p>${error}<div class="sl-actions"><button type="button" onclick="salesLineHoldClose()">Back</button><button type="button" class="pri" data-units-confirm onclick="salesLineUnitsApply()">Put on hold</button></div></div>`;
+ }
+ const plan=unitCancelPlan(saved,l,count,new Date().toISOString()),known=plan.units.every(u=>u.charge!=null),total=known?salesMoney(plan.units.reduce((s,u)=>s+u.charge,0)):null;
+ const cut=plan.units.some(u=>u.stage!=='uncut'),tempered=plan.units.some(u=>u.stage==='tempered'||u.stage==='assembled');
+ const rows=plan.units.map((u,i)=>`<tr data-units-plan="${u.stage}"><td>${i+1}</td><td>${UNIT_STAGE_LABEL[u.stage]}${u.heldAt?' · held '+esc(salesShortDate(u.heldAt)):''}${u.after?'<span class="line-units-after"> · after hold — not charged</span>':''}</td><td class="n">${u.charge==null?'—':esc(finFmt(u.charge))}</td></tr>`).join('');
+ const pick=(k,text,off)=>`<label class="chk"><input type="radio" name="unitsGlass" ${m.glass===k?'checked':''} ${off?'disabled':''} onchange="salesLineHoldMenu.glass='${k}'"> ${text}</label>`;
+ return back+`<div class="sl-menu sl-line-hold-menu line-units-menu wide" style="${style}" role="dialog" aria-label="Cancel units"><h5>${esc(label)} · Cancel units</h5>${fields(plan.max)}`+
+  (rows?`<table class="line-units-plan"><thead><tr><th>#</th><th>Where</th><th class="n">Charge</th></tr></thead><tbody>${rows}</tbody></table>`:'')+
+  (cut?`<div class="line-units-glass"><span class="mut">Glass</span>${pick('scrap','Scrap')}${pick('customer','Customer takes')}${pick('stock','To stock',tempered)}</div>`:'')+
+  `<div class="line-units-total"><span>Charge for the work done</span><b data-units-total>${total==null?'—':esc(finFmt(total))}</b><input type="number" min="0" step="0.01" aria-label="Charge" data-units-charge placeholder="Change" value="${esc(m.charge)}" oninput="salesLineHoldMenu.charge=this.value"></div>${error}<div class="sl-actions"><button type="button" onclick="salesLineHoldClose()">Back</button><button type="button" class="pri" data-units-confirm onclick="salesLineUnitsApply()">Cancel units</button></div></div>`;
+}
 function salesLineHoldMenuHTML(){
  const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return '';
  const lines=m.ids.map(id=>soDraft.lines.find(l=>l.id===id)).filter(Boolean);if(!lines.length)return '';
- const held=lines.every(l=>l.onHold),label=lines.length===1?'Line '+m.index:lines.length+' lines',w=280;
- const style=`left:${Math.max(8,Math.min(m.x,innerWidth-w-8))}px;top:${Math.max(8,Math.min(m.y,innerHeight-300))}px;max-height:${Math.max(100,innerHeight-24)}px`;
+ const units=String(m.kind).indexOf('units-')===0,held=lines.every(l=>l.onHold),label=lines.length===1?'Line '+m.index:lines.length+' lines',w=m.kind==='units-cancel'?440:280;
+ const style=`left:${Math.max(8,Math.min(m.x,innerWidth-w-8))}px;top:${Math.max(8,Math.min(m.y,innerHeight-(units?460:300)))}px;max-height:${Math.max(100,innerHeight-24)}px`;
  const back='<div class="sl-backdrop" onclick="salesLineHoldClose()" oncontextmenu="event.preventDefault();salesLineHoldClose()"></div>';
+ const unitsLine=lines.length===1?salesLineUnitsLine(soDraft,lines[0]):null;
+ if(units)return unitsLine?salesLineUnitsMenuHTML(m,unitsLine,back,style,label):'';
  if(m.kind==='reason')return back+`<div class="sl-menu sl-line-hold-menu" style="${style}" role="dialog" aria-label="Line hold reason"><h5>${esc(label)} · On Hold</h5><label>Reason<input type="text" maxlength="200" data-line-hold-reason value="${esc(m.reason)}" oninput="salesLineHoldReason(this.value)"></label><p class="mut">These lines stay editable but cannot go to batch.</p>${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-actions"><button type="button" onclick="salesLineHoldClose()">Back</button><button type="button" class="pri" data-line-hold-confirm onclick="salesLineHoldApply(true)">${held?'Save reason':'Put on hold'}</button></div></div>`;
  if(m.kind==='queue')return back+`<div class="sl-menu sl-line-hold-menu" style="${style}" role="dialog" aria-label="Shipping queue"><h5>${esc(label)} · Shipping queue</h5><label>Queue<input type="number" min="1" max="999" data-line-queue value="${esc(m.queue)}" oninput="salesLineHoldMenu.queue=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();salesLineQueueApply()}"></label><p class="mut">1 loads first · empty — no queue</p>${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-actions"><button type="button" onclick="salesLineHoldClose()">Back</button><button type="button" class="pri" data-line-queue-confirm onclick="salesLineQueueApply()">Save</button></div></div>`;
  const canHold=lines.every(l=>salesLineHoldAllowed(soDraft,l)),canQueue=lines.every(l=>salesLineQueueAllowed(soDraft,l)),queue=lines.length===1?shippingQueueOf(lines[0]):0;
- return back+`<div class="sl-menu sl-line-hold-menu sl-line-context" style="${style}" role="menu" aria-label="Line actions"><b>${esc(label)}${held?' · On Hold':''}${queue?' · Queue '+queue:''}</b>${held?`<p class="mut">${esc(lines.length===1?lines[0].holdReason:'Selected lines are on hold.')}</p>`:''}<hr>${canHold?`<button type="button" role="menuitem" data-line-hold-action="hold" onclick="salesLineHoldEdit()">${held?'Edit reason…':'On Hold…'}</button>${lines.some(l=>l.onHold)?'<button type="button" role="menuitem" data-line-hold-action="release" onclick="salesLineHoldApply(false)">Release hold</button>':''}`:''}${canQueue?'<button type="button" role="menuitem" data-line-queue-action onclick="salesLineQueueEdit()">Shipping queue…</button>':''}</div>`;
+ return back+`<div class="sl-menu sl-line-hold-menu sl-line-context" style="${style}" role="menu" aria-label="Line actions"><b>${esc(label)}${held?' · On Hold':''}${queue?' · Queue '+queue:''}</b>${held?`<p class="mut">${esc(lines.length===1?lines[0].holdReason:'Selected lines are on hold.')}</p>`:''}<hr>${canHold?`<button type="button" role="menuitem" data-line-hold-action="hold" onclick="salesLineHoldEdit()">${held?'Edit reason…':'On Hold…'}</button>${lines.some(l=>l.onHold)?'<button type="button" role="menuitem" data-line-hold-action="release" onclick="salesLineHoldApply(false)">Release hold</button>':''}`:''}${unitsLine?`<button type="button" role="menuitem" data-line-units="hold" onclick="salesLineUnitsOpen('hold')">Hold units…</button><button type="button" role="menuitem" data-line-units="cancel" onclick="salesLineUnitsOpen('cancel')">Cancel units…</button>${(unitsLine.heldUnits||[]).length?'<button type="button" role="menuitem" data-line-units="release" onclick="salesLineUnitsOpen(\'release\')">Release hold</button>':''}`:''}${canQueue?'<button type="button" role="menuitem" data-line-queue-action onclick="salesLineQueueEdit()">Shipping queue…</button>':''}${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}</div>`;
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesLineHoldMenu){e.preventDefault();salesLineHoldClose();}});
 /* Ячейки строки в батче — inert: нажатие по ним получает таблица, а не

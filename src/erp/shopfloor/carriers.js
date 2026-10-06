@@ -51,7 +51,7 @@ function carrierContents(){
  const index=stationPieceIndex(),batches=stationBatchIndex();
  last.forEach((s,piece)=>{
   if(!s.on||s.broken)return;
-  const g=stationGlass(piece,index,batches);if(!g)return;
+  const g=stationGlass(piece,index,batches);if(!g||unitPieceCancelled(g))return;
   const place=stationPlace(g,scans.get(piece));if(place.broken||place.shipped)return;
   if(!out.has(s.on))out.set(s.on,[]);
   out.get(s.on).push({id:piece,g,place,scan:s});

@@ -25,7 +25,9 @@ function shippingDocument(s){
    return {extraId:x.id,name:salesExtraItemName(x),ordered:x.qty,before,now:qty,back:Math.max(0,x.qty-before-qty)};
   });
   const now=rows.concat(extras).reduce((n,r)=>n+r.now,0),left=Math.max(0,q.back-now);
-  return {id,number:o.businessNumber,po:o.customerPo||'',state:left===0?'complete':q.shipped?'back order':'partial',rows,extras};
+  /* Стекло отменённых юнитов, которое клиент забирает, — строкой на этом PS. */
+  const takes=unitTakes(o).map(x=>({line:x.line,size:docSize(x.l),pieces:x.pieces}));
+  return {id,number:o.businessNumber,po:o.customerPo||'',state:left===0?'complete':q.shipped?'back order':'partial',rows,extras,takes};
  });
  const skids=[...new Set(s.items.map(i=>i.skid).filter(Boolean))].map(code=>{
   const rows=[];orders.forEach(o=>o.rows.forEach(r=>{const qty=s.items.filter(i=>i.orderId===o.id&&i.lineId===r.lineId&&i.skid===code).length;if(qty)rows.push({order:o.number,po:o.po,...r,now:qty});}));
@@ -59,7 +61,8 @@ function shippingPages(d,skidOnly){
   header('PACKING SLIP');
   d.orders.forEach(o=>{
    ensure(75);activeOrder='Order '+o.number+(o.po?' · PO '+o.po:'')+' · '+o.state;line(activeOrder,{size:11,bold:true});tableHead();o.rows.forEach(row);
-   o.extras.forEach(x=>{ensure(40);line('From stock · '+x.name,{bold:true});line('Ordered '+x.ordered+' · Before '+x.before+' · Now '+x.now+' · Back order '+x.back,{color:x.back?DOC_COLOR.due:DOC_COLOR.ink});});y+=12;
+   o.extras.forEach(x=>{ensure(40);line('From stock · '+x.name,{bold:true});line('Ordered '+x.ordered+' · Before '+x.before+' · Now '+x.now+' · Back order '+x.back,{color:x.back?DOC_COLOR.due:DOC_COLOR.ink});});
+   (o.takes||[]).forEach(x=>{ensure(25);line('Cancelled, customer takes · Line '+x.line+' · '+x.size+' · '+x.pieces+' glass',{bold:true});});y+=12;
   });
   if(!d.orders.length)line('Open trip · no items selected');
   ensure(130);d.skids.forEach(s=>line(s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg'));

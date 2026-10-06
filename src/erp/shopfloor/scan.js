@@ -126,6 +126,8 @@ function stationCheck(station,raw){
  const scans=stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station&&!s.park).pop()||null;
  const base={code,g,scans,place,here,stock:!g.entry,priority:g.o.priority||'normal',due:g.o.dueDate||''};
  if(g.o.status==='cancelled')return Object.assign(base,{kind:'cancelled'});
+ /* Отменённый юнит (erp/sales/unit-cancel): стекло откладывают. */
+ if(unitPieceCancelled(g))return Object.assign(base,{kind:'cancelled',unit:true});
  if(place.broken)return Object.assign(base,{kind:'broken'});
  /* Следующий заход на эту станцию — ближайший впереди по маршруту. */
  const w=place.waiting?place.far+1:-1,i=w>=0?place.route.indexOf(station,w):-1;
@@ -133,7 +135,8 @@ function stationCheck(station,raw){
  if(i<0||place.assembling&&i===w)return Object.assign(base,{kind:here?'already':'passed'});
  if(i>w)return Object.assign(base,{kind:'skipped',missed:place.route.slice(w,i)});
  base.mates=stationMatesAt(g,station).map(x=>x.id);
- if(g.o.onHold||g.l.onHold)return Object.assign(base,{kind:'hold',reason:(g.o.onHold?g.o.holdReason:g.l.holdReason)||''});
+ const held=unitPieceHold(g);
+ if(g.o.onHold||g.l.onHold||held)return Object.assign(base,{kind:'hold',reason:(g.o.onHold?g.o.holdReason:g.l.onHold?g.l.holdReason:held.reason)||'',unit:!g.o.onHold&&!g.l.onHold});
  return Object.assign(base,{kind:'ok'});
 }
 /* who: {id, name} — рабочий, вошедший на станцию. */
@@ -217,7 +220,7 @@ function stationWaiting(){
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!byPiece.has(s.piece))byPiece.set(s.piece,[]);byPiece.get(s.piece).push(s);});
  const ids=new Set([...batches.keys(),...byPiece.keys()]),out=new Map();
  ids.forEach(id=>{
-  const g=stationGlass(id,index,batches);if(!g||g.o.status==='cancelled')return;
+  const g=stationGlass(id,index,batches);if(!g||g.o.status==='cancelled'||unitPieceCancelled(g))return;
   const scans=byPiece.get(id)||[],place=stationPlace(g,scans);if(place.broken||place.shipped||!place.waiting)return;
   const last=scans.slice().sort((a,b)=>String(a.at).localeCompare(String(b.at))).pop()||null;
   if(!out.has(place.waiting))out.set(place.waiting,[]);

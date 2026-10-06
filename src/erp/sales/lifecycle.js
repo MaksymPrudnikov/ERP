@@ -229,7 +229,9 @@ function salesSyncRecordLifecycle(o){
  if(!soDraft||soDraft.id!==o.id)return;
  ['status','batchNo','fulfilledVia','updatedAt'].forEach(k=>{soDraft[k]=o[k];});
  soDraft.statusDates=Object.assign({},o.statusDates);soDraft.batchHistory=(o.batchHistory||[]).slice();soDraft.unbatchHistory=JSON.parse(JSON.stringify(o.unbatchHistory||[]));
- soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';if(saved.shipQueue)l.shipQueue=saved.shipQueue;else delete l.shipQueue;}});
+ soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';if(saved.shipQueue)l.shipQueue=saved.shipQueue;else delete l.shipQueue;
+  ['heldUnits','cancelledUnits'].forEach(k=>{if(saved[k]!=null)l[k]=JSON.parse(JSON.stringify(saved[k]));else delete l[k];});}});
+ if(o.cancellations)soDraft.cancellations=JSON.parse(JSON.stringify(o.cancellations));else delete soDraft.cancellations;
 }
 function salesSetRecordStatus(orderId,next,opts){
  if(storageDepth||opts&&opts.deferTouch)return salesSetRecordStatusCommand(orderId,next,opts);

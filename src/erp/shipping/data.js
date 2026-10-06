@@ -17,7 +17,7 @@ function shippingLegacy(o){return !!o&&['done','closed'].includes(o.status)&&!sh
 function shippingStations(){const a=(DB.station||[]).filter(s=>s.always).sort((a,b)=>a.seq-b.seq);return {ready:a.length>1?a[a.length-2].code:'',ship:a.length>1?a[a.length-1].code:''};}
 function shippingKey(i){return [i.orderId,i.lineId,i.unit].join('|');}
 function shippingCount(n,word){return n+' '+word+(n===1?'':'s');}
-function shippingLineQty(l){return Math.max(0,Number(l.qty)||0);}
+function shippingLineQty(l){return Math.max(0,(Number(l.qty)||0)-unitCancelled(l));}
 function shippingAddress(a){const out={};SHIPPING_ADDRESS_FIELDS.forEach(k=>out[k]=String(a&&a[k]||'').trim().slice(0,300));return out;}
 function shippingDefaultAddress(c){
  const a=(c&&c.addresses||[]).filter(a=>a.type==='delivery'),contact=(c&&c.contacts||[]).find(x=>x.isShipping)||(c&&c.contacts||[]).find(x=>x.isPrimary);
@@ -49,8 +49,9 @@ function shippingWithCtx(fn){if(shippingCtxNow)return fn();shippingCtxNow=shippi
 function shippingUnits(o){
  if(!o||salesIsQuote(o)||['closed','cancelled'].includes(o.status)||shippingLegacy(o))return [];
  const ctx=shippingCtx(),index=ctx.index,batches=ctx.batches,stations=shippingStations(),out=[],scansOf=id=>ctx.scans.get(id)||[];
- const reserved=shippingForOrder(o.id).filter(shippingActive).flatMap(s=>s.items.map(i=>Object.assign({shipment:s},i)));
+ const reserved=shippingForOrder(o.id).filter(shippingActive).flatMap(s=>s.items.map(i=>Object.assign({shipment:s},i))),gone=unitCancelledSet(o);
  (o.lines||[]).forEach(l=>{
+  const held=unitHeldSet(l);
   const fixed=reserved.filter(i=>i.lineId===l.id),taken=new Set(fixed.map(i=>i.unit)),labels=new Set(fixed.map(i=>i.label)),candidates=[];
   const mu=stationUnitMerge(o,l),keys=stationLineKeys(o,l);
   if(mu){stationAsms(o,l,mu,index,{scans:ctx.asm.get(o.id+'|'+l.id)||[],broken:ctx.broken}).filter(a=>a.complete&&!a.broken&&a.unit>0&&a.unit<=l.qty).forEach(a=>{
@@ -63,7 +64,7 @@ function shippingUnits(o){
   }
   const inspect=i=>{
    const gs=i.pieces.map(id=>stationGlass(id,index,batches)),places=gs.map(g=>g&&stationPlace(g,scansOf(g.id)));
-   const ready=!!stations.ship&&gs.length>0&&places.every(p=>p&&!p.broken&&!p.assembling&&p.waiting===stations.ship)&&!o.onHold&&!l.onHold;
+   const ready=!!stations.ship&&gs.length>0&&places.every(p=>p&&!p.broken&&!p.assembling&&p.waiting===stations.ship)&&!o.onHold&&!l.onHold&&!i.pieces.some(p=>held.has(p));
    const ons=gs.map(g=>{const scans=g&&scansOf(g.id);return scans&&scans.length?scans[scans.length-1].on||'':'';});
    const on=ons.length&&ons.every(x=>x===ons[0])?ons[0]:'';
    /* Погружен: все стёкла прошли станцию отгрузки (скан погрузки, PR 2). */
@@ -71,7 +72,7 @@ function shippingUnits(o){
    return Object.assign({orderId:o.id,lineId:l.id},i,{ready,loaded,on,skid:/^S[LA]-/.test(on)?on:'',broken:places.some(p=>!p||p.broken)});
   };
   fixed.forEach(i=>out.push(inspect(i)));
-  const live=candidates.map(inspect).filter(i=>!labels.has(i.label)&&!i.broken);
+  const live=candidates.filter(i=>!i.pieces.some(p=>gone.has(p))).map(inspect).filter(i=>!labels.has(i.label)&&!i.broken);
   live.sort((a,b)=>Number(b.ready)-Number(a.ready)||Number(!a.unit)-Number(!b.unit)||a.unit-b.unit||a.label.localeCompare(b.label));
   live.forEach(i=>{
    let n=i.unit;

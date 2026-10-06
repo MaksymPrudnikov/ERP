@@ -148,6 +148,8 @@ function docCompanyBlock(){
 function docSaleItem(model,line,index,order){
  const opts=model.opts,mode=model.mode,m=salesMakeupById(order,line.makeupId),p=salesLineCommercialPrice(line,order),a=p.areas,q=p.qty;
  const it=docItemBase(opts,line,index,m,q);
+ /* Отменённые юниты: заказанное число не меняется, в сумму идут оставшиеся. */
+ if(p.cancelled)it.qty='Qty '+p.ordered+' · '+p.cancelled+' cancelled';
  const glassLine=p.complete?salesMoney(p.materials*q):null;
  it.amount=mode==='none'?null:mode==='glass'?docMoney(glassLine):docMoney(p.line);
  const bits=[];
@@ -251,6 +253,11 @@ function docBuildModel(kind,order,opts){
   const priced=sale&&mode!=='none';
   model.extra={title:sale?'Additional items':'From stock',rows:order.extraItems.map(x=>{const total=salesExtraItemLineTotal(x),unit=salesExtraItemUnitPrice(x);
    return {name:salesExtraItemName(x),qty:'Qty '+salesPositiveInt(x.qty,1),rate:priced&&unit!=null?docMoney(unit):'',amount:priced?(total==null?'Rate required':docMoney(total)):''};})};
+ }
+ /* Отменённые юниты: работа, за которую платит клиент (erp/sales/unit-cancel). */
+ if(sale&&(order.cancellations||[]).length){
+  const rows=order.cancellations.map(c=>{const v=unitChargeOf(c);return {name:'Cancelled '+shippingCount(c.units.length,'unit')+' · line '+((order.lines||[]).findIndex(l=>l.id===c.lineId)+1)+' · work done',qty:'',rate:'',amount:mode==='none'?'':v==null?'Rate required':docMoney(v)};});
+  if(model.extra)model.extra.rows=model.extra.rows.concat(rows);else model.extra={title:'Additional items',rows};
  }
 
  if(sale){
