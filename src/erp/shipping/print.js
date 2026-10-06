@@ -74,17 +74,20 @@ function shippingShowPrint(pages){
  const h=docPrintHost();h.innerHTML=pages.map(p=>'<div class="doc-print-page">'+docPageSVG(p)+'</div>').join('');document.body.classList.add('doc-printing');
  window.addEventListener('afterprint',docPrintCleanup,{once:true});setTimeout(docPrintCleanup,60000);window.print();
 }
+/* Запись о печати одного PS внутри чужой команды; возвращает его страницы
+   (печать PS и пачка рейса — erp/views/delivery). */
+function shippingPrintRecord(id){
+ const current=shippingFind(id);if(current.status==='planned')Object.assign(current,shippingValidateSelection(current,current.id));
+ const model=shippingDocument(current),pages=shippingPages(model);current.printedAt=new Date().toISOString();current.printedSignature=JSON.stringify(model);
+ const prior=current.printedItems||[];current.printedItems=[...new Map(prior.concat(current.items).map(i=>[i.label,shippingClone(i)])).values()];
+ shippingOrderIds(current).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip print requested',current.number));return pages;
+}
 /* checked — долг уже проверен вызывающим в этом же действии (заказ по
    номеру у стойки): второй раз то же окно не показываем. */
 function shippingPrint(id,checked){
  const s=shippingFind(id);if(!s||s.status==='cancelled')return;
  (checked?(ids,method,printing,done)=>done():shippingWithChecks)(shippingOrderIds(s),s.method,true,()=>{
-  let pages;const out=storageCommand(()=>{
-   const current=shippingFind(id);if(current.status==='planned')Object.assign(current,shippingValidateSelection(current,current.id));
-   const model=shippingDocument(current);pages=shippingPages(model);current.printedAt=new Date().toISOString();current.printedSignature=JSON.stringify(model);
-   const prior=current.printedItems||[];current.printedItems=[...new Map(prior.concat(current.items).map(i=>[i.label,shippingClone(i)])).values()];
-   shippingOrderIds(current).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip print requested',current.number));return current;
-  });
+  let pages;const out=storageCommand(()=>{pages=shippingPrintRecord(id);return shippingFind(id);});
   if(!out.ok){shippingNotice={error:true,text:out.error};render();return;}
   render();shippingShowPrint(pages);
  });
