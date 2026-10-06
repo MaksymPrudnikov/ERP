@@ -169,6 +169,15 @@ function salesOrderSaveCommand(opts){
     размер — новая строка или новый заказ, а не правка строки. */
  if(!opts.unlock){const broken=salesLockViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(broken.length)return fail(e,'Batched lines cannot change: '+broken.join('; ')+'. Add a new line or open a new order.');
   const started=salesStartedViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(started.length)return fail(e,'Glass already in production: '+started.join('; ')+'. Add a new line or open a new order.');}
+ /* Меньше юнитов у строки в батче (salesLineShrinkable): лишнее стекло уходит
+    из батча до записи. Резчик мог порезать без скана — спросить. */
+ const shrinks=opts.unlock||soEdit==='new'?[]:salesBatchShrinks(soDraft,previousOrder);
+ if(shrinks.length&&!confirm(shrinks.map(x=>x.text).join('\n')+'\n\nThis glass is not cut yet?'))return;
+ if(shrinks.length){
+  const now=new Date().toISOString(),gone=new Set(shrinks.flatMap(x=>x.pieces));
+  glassBatchCancelPieces([...gone],now,'Quantity changed');
+  shrinks.forEach(x=>orderLogPush(previousOrder,x.to?'Quantity changed':'Line removed','line '+x.no+(x.to?' · '+x.from+' → '+x.to:'')+' · '+x.pieces.length+' glass out of '+(x.batches.join(', ')||'the batch')));
+ }
  /* Заказ одного склада: пустая стартовая строка стекла не мешает сохранить. */
  if((soDraft.extraItems||[]).length)soDraft.lines=soDraft.lines.filter(l=>!salesOrderLineIsBlank(l));
  /* Строка без размера уезжала в Draft молча и всплывала уже в цеху.
@@ -191,7 +200,7 @@ function salesOrderSaveCommand(opts){
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;if(!soDraft.statusDates[soDraft.status])soDraft.statusDates[soDraft.status]=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
- normalizeSalesData();if(typeof glassPieceEnsure==='function')glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
+ normalizeSalesData();if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
 function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(salesDeleteBlocked(DB.salesOrder[i]))return;if(salesIsQuote(DB.salesOrder[i])){salesQuoteDeleteGroup(DB.salesOrder[i]);return;}const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;if(!confirm(paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?'))return;if(typeof finReleaseOrder==='function')finReleaseOrder(id);DB.salesOrder.splice(i,1);salesPruneOrphanShapes();touch();render();}
 
@@ -367,7 +376,7 @@ function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSal
    сохранения — она вернётся, и её фигура обязана быть на месте. Такие фигуры
    убирает уборка после сохранения. Строку, которой в сохранённом заказе нет,
    можно чистить сразу. */
-function salesOrderRemoveLine(i){const l=soDraft.lines[i];if(salesLockedLineGuard(l))return;if(l&&!salesLineInSavedOrder(l.id)){salesDropLineLiteShapes(l);salesDropLineOwnedShape(l);}if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
+function salesOrderRemoveLine(i){const l=soDraft.lines[i];if(!salesLineShrinkableInDraft(l)&&salesLockedLineGuard(l))return;if(l&&!salesLineInSavedOrder(l.id)){salesDropLineLiteShapes(l);salesDropLineOwnedShape(l);}if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
 
 /* Явный +/- для раздела стекла: "+ Add Makeup" открывает GLASS/IGU MAKEUPS,
    "− Makeup" закрывает. Makeup A из soDraft.makeups[0] никогда не удаляется —
