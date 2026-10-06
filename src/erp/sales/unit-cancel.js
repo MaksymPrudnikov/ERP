@@ -4,7 +4,7 @@
    IN : заказ и строка в цеху · журнал сканов · цена строки (line-metrics)
    OUT: line.heldUnits [{id, pieces, at, reason}] · line.cancelledUnits (число)
         · o.cancellations [{id, at, by, lineId, reason, units:[{pieces, stage,
-        heldAt, charge, glass}], charge, chargeOverride}]
+        heldAt, charge, glass, takenPs?, off?}], charge, chargeOverride}]
    Владелец, 5.10.2026: «линия 1 имеет 21 панель, клиент спустя 2 дня говорит:
    я не хочу 6 из них… за те, что только порезались, чарджим только за стекло
    и тот сервис, который был проделан; если стекло было закалено — он платит за
@@ -155,6 +155,26 @@ function unitSetCharge(orderId,cancelId,value){return storageCommand(()=>{
 function unitTakes(o){
  return (o&&o.cancellations||[]).flatMap(c=>{const n=c.units.filter(u=>u.glass==='customer'&&!u.takenPs).reduce((s,u)=>s+u.pieces.length,0),l=(o.lines||[]).find(x=>x.id===c.lineId);return n&&l?[{c,l,line:o.lines.indexOf(l)+1,pieces:n}]:[];});
 }
+/* Отменённое стекло на скиде (аудит Shipping, 6.10.2026): из содержимого скида
+   система убирает его сразу, а физически оно лежит там, пока его не снимут.
+   Снятие — скан его стикера на станции отгрузки (u.off — снятые стёкла); до
+   этого скид на SHIP не грузится. Стекло, которое забирает клиент, едет с PS. */
+function unitCancelOf(o,piece){for(const c of (o&&o.cancellations||[]))for(const u of c.units)if(u.pieces.includes(piece))return u;return null;}
+function unitPieceSkid(piece){
+ const s=stationScansFor(piece).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).pop();
+ return s&&/^S[LA]-/.test(s.on||'')?s.on:'';
+}
+function unitOnSkid(skid){
+ return (DB.salesOrder||[]).flatMap(o=>(o.cancellations||[]).flatMap(c=>c.units.filter(u=>u.glass!=='customer').map(u=>({o,u,pieces:u.pieces.filter(p=>!(u.off||[]).includes(p)&&unitPieceSkid(p)===skid)})))).filter(x=>x.pieces.length);
+}
+/* Собранный IGU снимают целиком: скан любого его стекла снимает все. */
+function unitTakeOff(piece){return storageCommand(()=>{
+ const g=stationGlass(piece),u=g&&unitCancelOf(g.o,piece),skid=unitPieceSkid(piece);
+ unitAssert(u&&u.glass!=='customer'&&skid&&!(u.off||[]).includes(piece),'Nothing to take off.');
+ const joined=p=>stationScansFor(p).some(s=>s.unit),pieces=joined(piece)?u.pieces.filter(p=>joined(p)&&unitPieceSkid(p)===skid):[piece];
+ u.off=[...new Set((u.off||[]).concat(pieces))];g.o.updatedAt=new Date().toISOString();
+ orderLogPush(g.o,'Taken off '+skid,pieces.join(', '));salesSyncRecordLifecycle(g.o);return {skid,pieces};
+});}
 function unitTakesShipped(o,psId){(o&&o.cancellations||[]).forEach(c=>c.units.forEach(u=>{if(u.glass==='customer'&&!u.takenPs)u.takenPs=psId;}));}
 function unitTakesRolledBack(psId){(DB.salesOrder||[]).forEach(o=>(o.cancellations||[]).forEach(c=>c.units.forEach(u=>{if(u.takenPs===psId)delete u.takenPs;})));}
 function normalizeUnitFields(line,src){
@@ -167,6 +187,6 @@ function normalizeUnitFields(line,src){
 function normalizeCancellations(list,lines){
  const ids=v=>Array.isArray(v)?v.filter(glassPieceValid):[],iso=v=>typeof v==='string'&&!isNaN(Date.parse(v)),money=v=>v==null?null:salesNonNegOrNull(v);
  return (Array.isArray(list)?list:[]).filter(c=>c&&typeof c==='object'&&iso(c.at)&&lines.some(l=>l.id===c.lineId)&&Array.isArray(c.units)&&c.units.length).map(c=>({id:salesEntityId(c.id,'CU'),at:c.at,by:salesString(c.by).slice(0,80),lineId:c.lineId,reason:salesString(c.reason).slice(0,200),
-  units:c.units.filter(u=>u&&typeof u==='object').map(u=>Object.assign({pieces:ids(u.pieces),stage:UNIT_STAGES.includes(u.stage)?u.stage:'uncut',heldAt:iso(u.heldAt)?u.heldAt:'',charge:money(u.charge),glass:UNIT_GLASS.includes(u.glass)?u.glass:''},salesRefId(u.takenPs)?{takenPs:u.takenPs}:{})),
+  units:c.units.filter(u=>u&&typeof u==='object').map(u=>{const pieces=ids(u.pieces),off=ids(u.off).filter(p=>pieces.includes(p));return Object.assign({pieces,stage:UNIT_STAGES.includes(u.stage)?u.stage:'uncut',heldAt:iso(u.heldAt)?u.heldAt:'',charge:money(u.charge),glass:UNIT_GLASS.includes(u.glass)?u.glass:''},salesRefId(u.takenPs)?{takenPs:u.takenPs}:{},off.length?{off}:{});}),
   charge:money(c.charge),chargeOverride:money(c.chargeOverride)}));
 }

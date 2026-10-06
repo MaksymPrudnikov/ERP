@@ -12,6 +12,13 @@
    ===================================================================== */
 function stationIsShip(){return !!stationCode&&stationCode===shippingStations().ship;}
 function stationIsReady(){return !!stationCode&&stationCode===shippingStations().ready;}
+/* Отменённое стекло, отсканированное на станции отгрузки, снято со скида
+   (erp/sales/unit-cancel): скид снова можно грузить. */
+function stationTakeOff(check){
+ if(!check||check.kind!=='cancelled'||!check.skid||!(stationIsShip()||stationIsReady()))return true;
+ const out=unitTakeOff(check.code);if(!out.ok){stationSaveError(check.code,out.error);return false;}
+ check.off=out.value.skid;return true;
+}
 
 /* ------------------------------ SHIPR ------------------------------- */
 /* Скиды-миксы — норма (владелец, 6.10.2026: «микс из клиентов, у которых 1–4
@@ -118,7 +125,8 @@ function stationShipSubmit(raw,who,manual){
  if(!t){
   const check=stationCheck(stationCode,raw);if(!check)return false;
   if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
-  if(check.kind==='hold'){stationShipShow({kind:'shipHold',code:check.code,reason:check.reason});render();return 'hold';}
+  if(check.kind==='hold'||check.kind==='held'){stationShipShow({kind:'shipHold',code:check.code,reason:check.reason});render();return check.kind;}
+  if(!stationTakeOff(check))return 'saveError';
   if(check.kind!=='ok'){stationShow(check,null);render();return check.kind;}
   target=check.code;
  }
@@ -163,6 +171,7 @@ function stationShipCard(L){
   shipNoPS:{head:'No packing slip',small:'ASK THE OFFICE',big:'NO PS',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:''},
   shipChoose:{head:'Choose the trip',small:'TWO TRIPS',big:'CHOOSE',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:'<div class="mut">Tap the trip on the right</div>'},
   shipMixed:{head:'Two customers on '+what,small:'SKID',big:'STOP',sub:'<span data-raw>'+esc((c.customers||[]).join(', '))+'</span>',info:'<div class="mut">Scan the units one by one</div>'},
+  shipTakeOff:{head:'Cancelled glass on '+what,small:'TAKE OFF',big:shippingCount(c.units||0,'unit').toUpperCase(),sub:'Cancelled · '+esc((c.orders||[]).join(', ')),info:'<div class="mut mono">'+esc(ids)+'</div><div class="mut">Scan it off, then the skid</div>'},
   shipNotReady:{head:'Not ready',small:'NOT READY',big:String((c.ids||[]).length)+' GLASS',sub:c.why==='hold'?'On hold — set aside':c.why?'Scan at '+esc(c.why)+' first':'Ask the office',info:'<div class="mut mono">'+esc(ids)+'</div>'},
   shipNothing:{head:'Nothing ready on '+what,small:'NOTHING READY',big:what,sub:'Nothing to load',info:''},
   shipHold:{head:'On hold',small:'ON HOLD',big:'SET ASIDE',sub:esc(c.reason||'Order on hold'),info:''}
