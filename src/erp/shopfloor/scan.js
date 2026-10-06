@@ -202,7 +202,10 @@ function stationUndoCommand(id,who,opts){
  /* Скан погрузки открытого рейса отменяет сам рабочий: юниты возвращаются в
     Ready, PS остаётся planned (erp/shipping/loading). */
  const ps=opts.shippingRollback?null:(DB.shipment||[]).find(s=>shippingActive(s)&&s.items.some(i=>i.pieces.includes(rec.piece)));
- if(ps&&!(ps.status==='planned'&&rec.station===shippingStations().ship))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
+ /* Повторный скан SHIPR — перенос на другой скид, а не готовность: его
+    откатывают и у planned PS (аудит Shipping, F5). */
+ const restack=rec.station===shippingStations().ready&&stationScansFor(rec.piece).some(s=>s!==rec&&s.station===rec.station&&!s.park&&String(s.at)<=String(rec.at));
+ if(ps&&!(ps.status==='planned'&&(rec.station===shippingStations().ship||restack)))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
  const group=rec.actionId?(DB.stationScan||[]).filter(s=>s.actionId===rec.actionId&&!s.undoneAt):[rec];
  const ordered=id=>stationScansFor(id).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
  if(group.some(r=>ordered(r.piece).pop()!==r))return {error:'Glass has moved on — undo the later scan first.'};

@@ -141,5 +141,33 @@ module.exports=async function({page,eq,ok}){
   return {plan:[plan.stage,plan.now,plan.charge],where:/Cut/.test(where)&&/after hold — not charged/.test(where),options,saved:[out.charge,out.units[0].glass],takes:unitTakes(o).length};
  }),{plan:['uncut','cut',0],where:true,options:['on','on','on'],saved:[0,'customer'],takes:1});
 
+ /* ---------------- PR 3: Loaded при разбитом, Undo пересборки, перенос дня ---------------- */
+ eq('F4: a unit broken before printing does not hold back the loaded ones — Loaded ships those two, one stays on back order',await t.p.evaluate(()=>{
+  const o=saOrder(3,true),s=saPS(o),u=s.items[0],ready=shippingStations().ready;
+  const broken=stationBreak(ready,{kind:'peek',g:stationGlass(u.pieces[0])},saWho,ncrReasonsFor(ready,{activeOnly:true})[0].id);
+  s.items.filter(i=>i.label!==u.label).forEach(i=>shippingLoad(i.pieces[0],s.id,saWho));
+  const out=shippingMarkShipped(s.id,'loaded'),ps=shippingFind(s.id);
+  return {broken:!!broken.ok,ok:out.ok,error:out.error||'',items:ps.items.length,status:ps.status,back:shippingSummary(o).back};
+ }),{broken:true,ok:true,error:'',items:2,status:'shipped',back:1});
+ eq('F5: a unit of a planned packing slip moved to another skid at SHIPR — Undo puts it back; its first Ready scan still cannot be undone',await t.p.evaluate(()=>{
+  const o=saOrder(2,true),s=saPS(o),u=shippingUnits(o)[0],ready=shippingStations().ready;saLogin(ready);
+  stationSubmit('SL-2');const moved=stationSubmit(u.pieces[0]);
+  document.querySelector('[data-station-move-undo]').click();const note=stationNote,skid=shippingUnits(o).find(x=>x.label===u.label).skid;
+  const first=stationScansFor(u.pieces[0]).filter(x=>x.station===ready)[0];
+  return {moved,note,skid,ps:shippingFind(s.id).status,first:stationUndo(first.id,saWho).error};
+ }),{moved:'shipMoved',note:'Scan undone',skid:'SL-1',ps:'planned',first:'Glass is on a packing slip. Undo or cancel that packing slip first.'});
+ eq('F6: a packing slip moved to another day stays on its truck as the last stop, with that day’s driver and no departure time; Pickup takes it off the truck',await t.p.evaluate(()=>{
+  const o=saOrder(3,true),[a,b,c]=shippingAvailable(o),today=finToday(),tomorrow=finAddDays(today,1);
+  const mk=(u,date)=>shippingCreate({customerId:o.customerId,method:'delivery',shipTo:{address1:'1 Main St'},date,items:[shippingItem(u)],extras:[]}).value.id;
+  const s1=mk(a,today),s2=mk(b,tomorrow),s3=mk(c,today),truck=truckAdd('Truck A').value.id,name=id=>id===s1?'s1':id===s2?'s2':'s3';
+  DB.user.push({name:'Mike'},{name:'Tom'});normalizeUsers();const mike=DB.user.find(u=>u.name==='Mike').viewProfileId,tom=DB.user.find(u=>u.name==='Tom').viewProfileId;
+  [s1,s3,s2].forEach(id=>deliveryAssign(id,truck));deliverySetDriver(today,truck,mike);deliverySetDriver(tomorrow,truck,tom);deliverySetTime(s1,'08:00');
+  const day=d=>deliveryStops(d,truck).map(s=>name(s.id)+':'+s.stop);
+  const moved=shippingUpdate(s1,Object.assign(shippingClone(shippingFind(s1)),{date:tomorrow})).ok,one=shippingFind(s1);
+  const after={today:day(today),tomorrow:day(tomorrow),driver:one.driverId===tom,depart:'departAt' in one};
+  const pickup=shippingUpdate(s3,Object.assign(shippingClone(shippingFind(s3)),{method:'pickup'})).ok,three=shippingFind(s3);
+  return {moved,after,pickup:[pickup,'truckId' in three,'stop' in three,day(today).length]};
+ }),{moved:true,after:{today:['s3:1'],tomorrow:['s2:1','s1:2'],driver:true,depart:false},pickup:[true,false,false,0]});
+
  eq('Shipping audit browser errors',t.errs,[]);await t.c.close();
 };
