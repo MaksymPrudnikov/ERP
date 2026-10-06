@@ -888,12 +888,15 @@ function cutPrintPlan(sizes){
 function cutPrintLayouts(number,sheetNos){
  const plan=cutPlanFor(number);if(!plan)return false;
  const pieces=cutPiecesOf(number,plan.settings||{}),pages=[],only=sheetNos?new Set(sheetNos.map(Number)):null;
+ /* По бумаге тоже режут: устаревший раскрой печатается с предупреждением,
+    отменённое и остановленное — красным (как на CUT). */
+ const changed=cutEstIs(number)?null:glassBatchStale(glassBatchFind(number));
  const list=plan.groups.flatMap(g=>g.sheets.filter(s=>!only||only.has(s.no)).map(s=>({g,s,size:s.size||g.sheet})));
  const layout=cutPrintPlan(list.map(x=>x.size)),landscape=layout.landscape;
  list.forEach(({g,s,size},k)=>{
   const autoTrim=cutAutoTrimInfo(g,s);
-  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″${autoTrim?autoTrim.edges.map(e=>' · '+e.label+' '+esc(frac16(e.minimum))+'″ → '+esc(frac16(e.actual))+'″').join(''):''}</h3>
-   <div class="cut-print-sheet">${cutSheetSVG(g,s,Math.floor(Math.max(size.w,size.h)*layout.scales[k]),pieces)}</div></div>`);
+  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″${autoTrim?autoTrim.edges.map(e=>' · '+e.label+' '+esc(frac16(e.minimum))+'″ → '+esc(frac16(e.actual))+'″').join(''):''}${changed?` · <span class="cut-print-stale" data-print-stale>Changed — don’t cut · ${esc(changed.text)}</span>`:''}</h3>
+   <div class="cut-print-sheet">${cutSheetSVG(g,s,Math.floor(Math.max(size.w,size.h)*layout.scales[k]),pieces,{gone:changed&&changed.gone})}</div></div>`);
  });
  if(!pages.length)return false;
  let st=document.getElementById('cutPageStyle');if(!st){st=document.createElement('style');st.id='cutPageStyle';document.head.appendChild(st);}

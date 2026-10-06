@@ -40,7 +40,7 @@ function shippingLookupModel(o){
  ctx.index.forEach((h,piece)=>{
   if(h.orderId!==o.id||gone.has(piece))return;const g=stationGlass(piece,ctx.index,ctx.batches),scans=ctx.scans.get(piece)||[];if(!g)return;
   const p=stationPlace(g,scans);if(p.broken||p.shipped||!p.waiting||p.waiting===ship)return;
-  const k=!g.entry&&!scans.length?'To batch':p.waiting;shop.set(k,(shop.get(k)||0)+1);
+  const k=g.o.onHold||g.l.onHold||unitPieceHold(g)?'On hold':!g.entry&&!scans.length?'To batch':p.waiting;shop.set(k,(shop.get(k)||0)+1);
  });
  const seq=code=>{const s=(DB.station||[]).find(x=>x.code===code);return s?s.seq:-1;};
  return {q,free,where:[...where].sort((a,b)=>String(a[0]||'~').localeCompare(String(b[0]||'~'),undefined,{numeric:true})),shop:[...shop].sort((a,b)=>seq(a[0])-seq(b[0])),

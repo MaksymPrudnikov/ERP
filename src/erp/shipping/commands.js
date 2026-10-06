@@ -18,9 +18,10 @@ function shippingValidateSelection(d,exceptId){
   shippingAssert(hit&&!seen.has(shippingKey(i)),'The selected glass is no longer available. Review the packing slip.');
   seen.add(shippingKey(i));items.push(shippingItem(hit));
  });
-/* Стекло отменённых юнитов, которое клиент забирает (unitTakes). */
- const takes=[...new Set(d.takes||[])];
- takes.forEach(id=>{const o=salesRecord(id);shippingAssert(o&&!salesIsQuote(o)&&o.customerId===d.customerId&&unitTakes(o).length,'The cancelled glass is no longer waiting. Review the packing slip.');});
+/* Стекло отменённых юнитов, которое клиент забирает (unitTakes). Уже
+   уехавшее с другим PS выпадает молча: везти нечего, а держать отгрузку
+   этого PS незачем (аудит проделанной работы). */
+ const takes=[...new Set(d.takes||[])].filter(id=>{const o=salesRecord(id);shippingAssert(o&&!salesIsQuote(o)&&o.customerId===d.customerId,'Check the customer and orders.');return unitTakes(o).length>0;});
  (d.extras||[]).forEach(i=>{
   const o=salesRecord(i.orderId),x=o&&(o.extraItems||[]).find(x=>x.id===i.extraId),k=i.orderId+'|'+i.extraId;
   shippingAssert(o&&x&&!salesIsQuote(o)&&o.customerId===d.customerId&&!['new','closed','cancelled'].includes(o.status)&&!o.onHold,'Stock order is not ready.');
@@ -72,7 +73,8 @@ function shippingMarkShipped(id,mode){return storageCommand(()=>{
   s.items=s.items.filter(i=>loaded.has(i.label));shippingUnprint(s,left);
   [...new Set(left.map(i=>i.orderId))].forEach(oid=>orderLogPush(salesRecord(oid),'Not loaded',s.number+' · '+shippingCount(left.filter(i=>i.orderId===oid).length,'unit')+' back to Ready'));
  }
- Object.assign(s,shippingValidateSelection(s,s.id));
+ const picked=shippingValidateSelection(s,s.id);delete s.takes;Object.assign(s,picked);
+ shippingAssert(s.items.length+s.extras.length+(s.takes||[]).length>0,'An empty packing slip cannot be shipped.');
  /* Какие скиды уезжают — до заморозки документа: на бумаге клиента только они. */
  s.skidsOut=shippingSkidsOut(s,s.items.map(i=>({pieces:i.pieces,skid:i.skid,loaded:loaded.has(i.label)})));
  s.document=shippingDocument(s);

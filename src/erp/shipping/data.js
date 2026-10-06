@@ -13,6 +13,9 @@ function shippingFind(id){return (DB.shipment||[]).find(s=>s.id===id||s.number==
    юнитов этого заказа на нём нет (аудит Shipping, Д2). */
 function shippingOrderIds(s){return [...new Set((s.items||[]).concat(s.extras||[]).map(i=>i.orderId).concat(s.takes||[]))];}
 function shippingForOrder(id){return (DB.shipment||[]).filter(s=>shippingOrderIds(s).includes(id));}
+/* PS везёт юниты или товар заказа, а не только его отменённое стекло: дата
+   выдачи заказа и начало Net — только по таким (аудит проделанной работы). */
+function shippingCarries(s,id){return (s.items||[]).concat(s.extras||[]).some(i=>i.orderId===id);}
 function shippingActive(s){return s.status!=='cancelled';}
 function shippingSent(s){return s.status==='shipped'||s.status==='delivered';}
 function shippingLegacy(o){return !!o&&['done','closed'].includes(o.status)&&!shippingForOrder(o.id).length;}
@@ -124,7 +127,7 @@ function shippingSyncOrder(o,now,opts){
  const q=shippingSummary(o),old=o.status;now=now||new Date().toISOString();o.statusDates=o.statusDates||{};
  let next=old;
  if(q.ordered>0&&q.delivered>=q.ordered){
-  next='done';const last=q.ps.filter(s=>s.status==='delivered').sort((a,b)=>a.deliveredAt.localeCompare(b.deliveredAt)).pop();
+  next='done';const last=q.ps.filter(s=>s.status==='delivered'&&shippingCarries(s,o.id)).sort((a,b)=>a.deliveredAt.localeCompare(b.deliveredAt)).pop();
   o.statusDates.done=last.deliveredAt;
  }else if(q.ordered===0&&(o.cancellations||[]).length){
   /* Отменили всё (владелец, 6.10.2026): $0 — заказ Cancelled; есть сумма за
@@ -139,7 +142,7 @@ function shippingSyncOrder(o,now,opts){
   else if((q.glass>0&&q.physicalReady===q.glass)||(salesStockOnly(o)&&old!=='new'))next='ready';
   else if(['ready','shipping','done','closed'].includes(old))next=(o.lines||[]).some(salesLineLocked)?'batched':'verified';
  }
- const last=q.ps.filter(shippingSent).sort((a,b)=>a.shippedAt.localeCompare(b.shippedAt)).pop();o.fulfilledVia=last?last.method:'';
+ const last=q.ps.filter(s=>shippingSent(s)&&shippingCarries(s,o.id)).sort((a,b)=>a.shippedAt.localeCompare(b.shippedAt)).pop();o.fulfilledVia=last?last.method:'';
  if(next!=='ready'&&!q.shipped)delete o.statusDates.ready;
  if(next==='ready'&&!o.statusDates.ready)o.statusDates.ready=now;
  if(next!==old){o.status=next;o.updatedAt=now;}

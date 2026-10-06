@@ -63,7 +63,14 @@ function carrierContents(){
 /* Обнулить тару: всё, что на ней лежит, становится «без тары» — как «Not on
    DL-1» у одного стекла. Скид пересобирают заново теми же сканами (владелец,
    6.10.2026). Отгруженное и погруженное на таре уже не числится. */
-function carrierEmpty(code){const out=storageCommand(()=>{const list=carrierContents().get(carrierCode(code))||[];list.forEach(x=>{delete x.scan.on;});return {count:list.length};});return out.ok?out.value:{error:out.error};}
+/* Отменённое стекло в содержимом скида не видно, но скид на SHIP держит
+   (unitOnSkid): обнулённый скид пуст и от него — иначе «призрак» не дал бы
+   грузить скид, пока кто-то не наберёт номер выброшенного стекла. */
+function carrierEmpty(code){const out=storageCommand(()=>{
+ const list=carrierContents().get(carrierCode(code))||[];list.forEach(x=>{delete x.scan.on;});
+ const ghosts=typeof unitOnSkid==='function'?unitOnSkid(carrierCode(code)):[];ghosts.forEach(x=>{x.u.off=[...new Set((x.u.off||[]).concat(x.pieces))];x.o.updatedAt=new Date().toISOString();salesSyncRecordLifecycle(x.o);});
+ return {count:list.length+ghosts.reduce((n,x)=>n+x.pieces.length,0)};
+});return out.ok?out.value:{error:out.error};}
 function normalizeCarriers(){
  if(!Array.isArray(DB.carrier))DB.carrier=[];
  const seen=new Set();
