@@ -133,8 +133,8 @@ function shippingFocus(){if(tab!=='shipping'||shippingTab!=='shipments'||shippin
 function viewShipping(){
  if(shippingTab==='shipments')setTimeout(shippingFocus,0);
  return shippingWithCtx(()=>{
- const body=shippingTab==='ready'?shippingReadyHTML():shippingTab==='shipments'?shippingListHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true);
- return `<section class="shipping-workspace">${shippingTabs()}<div class="shipping-top"><label>Open a trip<select aria-label="Customer for new trip" onchange="if(this.value)shippingOpen(this.value)"><option value="">Choose customer</option>${(DB.customer||[]).filter(c=>c.status!=='archived').map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}</option>`).join('')}</select></label></div>${shippingNotice?`<div class="shipping-notice ${shippingNotice.error?'bad':''}" role="${shippingNotice.error?'alert':'status'}">${esc(shippingNotice.text)}</div>`:''}${body}${shippingDraftHTML()}</section>`;
+ const body=shippingTab==='ready'?shippingReadyHTML():shippingTab==='shipments'?shippingListHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true),lookup=shippingLookupHTML();
+ return `<section class="shipping-workspace">${shippingTabs()}<div class="shipping-top">${lookup.field}<label>Open a trip<select aria-label="Customer for new trip" onchange="if(this.value)shippingOpen(this.value)"><option value="">Choose customer</option>${(DB.customer||[]).filter(c=>c.status!=='archived').map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}</option>`).join('')}</select></label></div>${shippingNotice?`<div class="shipping-notice ${shippingNotice.error?'bad':''}" role="${shippingNotice.error?'alert':'status'}">${esc(shippingNotice.text)}</div>`:''}${lookup.card}${body}${shippingDraftHTML()}</section>`;
  });
 }
 document.addEventListener('focusout',()=>{if(tab==='shipping')setTimeout(shippingFocus,150);});

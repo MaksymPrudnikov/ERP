@@ -74,9 +74,11 @@ function shippingShowPrint(pages){
  const h=docPrintHost();h.innerHTML=pages.map(p=>'<div class="doc-print-page">'+docPageSVG(p)+'</div>').join('');document.body.classList.add('doc-printing');
  window.addEventListener('afterprint',docPrintCleanup,{once:true});setTimeout(docPrintCleanup,60000);window.print();
 }
-function shippingPrint(id){
+/* checked — долг уже проверен вызывающим в этом же действии (заказ по
+   номеру у стойки): второй раз то же окно не показываем. */
+function shippingPrint(id,checked){
  const s=shippingFind(id);if(!s||s.status==='cancelled')return;
- shippingWithChecks(shippingOrderIds(s),s.method,true,()=>{
+ (checked?(ids,method,printing,done)=>done():shippingWithChecks)(shippingOrderIds(s),s.method,true,()=>{
   let pages;const out=storageCommand(()=>{
    const current=shippingFind(id);if(current.status==='planned')Object.assign(current,shippingValidateSelection(current,current.id));
    const model=shippingDocument(current);pages=shippingPages(model);current.printedAt=new Date().toISOString();current.printedSignature=JSON.stringify(model);
