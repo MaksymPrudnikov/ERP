@@ -67,6 +67,9 @@ function shippingMarkShipped(id,mode){return storageCommand(()=>{
   const rec=stationRecord(station,check,{id:who.byId,name:who.by||'Office'},{deferTouch:true,manual:true,now});
   shippingAssert(rec,'Dispatch was not recorded.');scanIds.push(rec.id);
  }));
+ /* Скид уехал с этим PS, только если на нём ничего не осталось: со скида-
+    микса юниты забирают по одному, сам скид стоит в цеху (erp/shipping/skids). */
+ const still=carrierContents();s.skidsOut=[...new Set(s.items.map(i=>i.skid).filter(Boolean))].filter(code=>!(still.get(code)||[]).length);
  s.scanIds=scanIds;s.status='shipped';s.shippedAt=now;s.shippedBy=shippingActor();
  shippingSyncOrders(before.concat(shippingOrderIds(s)),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
 });}
@@ -87,7 +90,7 @@ function shippingRevert(id,action){return storageCommand(()=>{
  }else{
   shippingAssert(action==='dispatch'&&s.status==='shipped','Undo receipt before undoing dispatch.');
   (s.scanIds||[]).slice().reverse().forEach(scanId=>{const out=stationUndo(scanId,{name:shippingActor()},{deferTouch:true,shippingRollback:true});shippingAssert(out&&!out.error,out&&out.error||'Dispatch cannot be undone.');});
-  s.status='planned';s.shippedAt='';s.shippedBy='';s.scanIds=[];delete s.document;
+  s.status='planned';s.shippedAt='';s.shippedBy='';s.scanIds=[];delete s.document;delete s.skidsOut;
  }
  shippingSyncOrders(ids,null,{reopen:true});ids.forEach(oid=>orderLogPush(salesRecord(oid),action==='cancel'?'Packing slip cancelled':'Packing slip rolled back',s.number+' · '+action));return s;
 });}

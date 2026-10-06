@@ -130,6 +130,7 @@
   "src/erp/views/station-shipping.js",
   "src/erp/views/shipping-lookup.js",
   "src/erp/views/delivery.js",
+  "src/erp/views/skids.js",
   "src/erp/views/batch-drawings.js",
   "src/erp/views/station-queue.js",
   "src/erp/views/production-board.js",
@@ -138,6 +139,7 @@
   "src/erp/shipping/commands.js",
   "src/erp/shipping/loading.js",
   "src/erp/shipping/delivery.js",
+  "src/erp/shipping/skids.js",
   "src/erp/shipping/print.js",
   "src/erp/storage.js"
  ]
