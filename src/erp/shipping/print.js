@@ -2,6 +2,15 @@
    preview/print/PDF identical. No pricing enters this model.
    Dispatch freezes the document; subsequent shipments cannot change Before.
    Printing is recorded as requested, not a claim that a printer succeeded. */
+/* Отмена на бумаге клиента (владелец, 6.10.2026: «отменённый юнит указывай,
+   важно, пусть будет на бумаге»): сколько юнитов строки отменено и что со
+   стеклом. Клиент расписывается на PS — и под отменой тоже. */
+function shippingCancelNote(o,l,psId){
+ const units=(o.cancellations||[]).filter(c=>c.lineId===l.id).flatMap(c=>c.units||[]);if(!units.length)return '';
+ const fate=u=>u.glass==='customer'?(u.takenPs&&u.takenPs!==psId?'glass went with '+((shippingFind(u.takenPs)||{}).number||'an earlier packing slip'):'glass goes with this packing slip'):u.glass==='scrap'?'scrapped at your request':u.glass==='stock'?'not shipped':'not made';
+ const m=new Map();units.forEach(u=>{const k=fate(u);m.set(k,(m.get(k)||0)+1);});
+ return shippingCount(units.length,'unit')+' cancelled'+(m.size===1?' · '+[...m.keys()][0]:': '+[...m].map(([k,n])=>n+' '+k).join(', '));
+}
 function shippingDocument(s){
  if(s.document)return shippingClone(s.document);
  if(s.id&&s.status==='planned'){
@@ -18,7 +27,7 @@ function shippingDocument(s){
    const items=s.items.filter(i=>i.orderId===id&&i.lineId===l.id);
    const before=shippingForOrder(id).filter(p=>p.id!==s.id&&shippingSent(p)).flatMap(p=>p.items).filter(i=>i.orderId===id&&i.lineId===l.id).length;
    const weight=finWithOrder(o,()=>salesLineWeight(l,o)),m=salesMakeupById(o,l.makeupId);
-   return {lineId:l.id,line:n+1,mark:l.mark||'',size:docSize(l),makeup:m?salesMakeupSummary(m):'',ordered:l.qty,before,now:items.length,back:Math.max(0,l.qty-before-items.length),kg:weight.kg,knownKg:weight.knownKg,skids:[...new Set(items.map(i=>i.skid).filter(Boolean))].join(', ')};
+   return {lineId:l.id,line:n+1,mark:l.mark||'',size:docSize(l),makeup:m?salesMakeupSummary(m):'',ordered:l.qty,before,now:items.length,back:Math.max(0,shippingLineQty(l)-before-items.length),note:shippingCancelNote(o,l,s.id),kg:weight.kg,knownKg:weight.knownKg,skids:[...new Set(items.map(i=>i.skid).filter(Boolean))].join(', ')};
   }).filter(Boolean);
   const extras=(o.extraItems||[]).map(x=>{
    const picked=s.extras.find(i=>i.orderId===id&&i.extraId===x.id),qty=picked?picked.qty:0,before=shippingForOrder(id).filter(p=>p.id!==s.id&&shippingSent(p)).flatMap(p=>p.extras).filter(a=>a.orderId===id&&a.extraId===x.id).reduce((n,a)=>n+a.qty,0);
@@ -30,7 +39,7 @@ function shippingDocument(s){
   return {id,number:o.businessNumber,po:o.customerPo||'',state:left===0?'complete':q.shipped?'back order':'partial',rows,extras,takes};
  });
  const skids=[...new Set(s.items.map(i=>i.skid).filter(Boolean))].map(code=>{
-  const rows=[];orders.forEach(o=>o.rows.forEach(r=>{const qty=s.items.filter(i=>i.orderId===o.id&&i.lineId===r.lineId&&i.skid===code).length;if(qty)rows.push({order:o.number,po:o.po,...r,now:qty});}));
+  const rows=[];orders.forEach(o=>o.rows.forEach(r=>{const qty=s.items.filter(i=>i.orderId===o.id&&i.lineId===r.lineId&&i.skid===code).length;if(qty)rows.push({order:o.number,po:o.po,...r,now:qty,note:''});}));
   const exact=rows.every(r=>r.kg!=null);return {code,rows,qty:rows.reduce((n,r)=>n+r.now,0),kg:rows.reduce((n,r)=>n+(r.kg==null?r.knownKg:r.kg)*r.now,0),exact};
  });
  return {number:s.number,date:s.date,method:s.method,shipTo:shippingClone(s.shipTo),customer:salesCustomerDisplay(s.customerId),company:docCompanyBlock(),orders,skids,note:s.note||''};
@@ -51,9 +60,10 @@ function shippingPages(d,skidOnly){
  const tableHead=()=>{ensure(30);P.rect(36,y-11,540,21,{fill:DOC_COLOR.bar});['Line / Mark','Size','Makeup','Ordered','Before','Now','Back order','Skid'].forEach((t,n)=>P.text([41,122,211,363,401,435,489,520][n],y+2,t,{size:7,bold:true,align:n>=3&&n<=6?'right':'left'}));y+=23;};
  const row=r=>{
   const texts=[String(r.line)+(r.mark?' · '+r.mark:''),r.size,r.makeup,r.skids||'—'],widths=[75,84,99,53];
-  const wrapped=texts.map((t,n)=>docWrap(t,8,false,widths[n])),h=Math.max(...wrapped.map(a=>a.length))*11+12;
+  const wrapped=texts.map((t,n)=>docWrap(t,8,false,widths[n])),lines=Math.max(...wrapped.map(a=>a.length)),note=r.note?docWrap(r.note,8,false,500):[],h=(lines+note.length)*11+12;
   if(y+h>710){header(pageTitle);if(activeOrder)line(activeOrder+' · continued',{size:11,bold:true});tableHead();}
   [41,122,211,520].forEach((x,n)=>wrapped[n].forEach((t,k)=>P.text(x,y+k*11,t,{size:8})));
+  note.forEach((t,k)=>P.text(41,y+(lines+k)*11,t,{size:8,color:DOC_COLOR.mut}));
   [r.ordered,r.before,r.now,r.back].forEach((v,n)=>P.text([363,401,435,489][n],y,String(v),{size:9,bold:n>=2,align:'right',color:n===3&&v>0?DOC_COLOR.due:DOC_COLOR.ink}));
   y+=h;P.line(36,y-6,576,y-6);
  };

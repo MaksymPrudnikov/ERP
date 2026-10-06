@@ -18,6 +18,9 @@ function shippingValidateSelection(d,exceptId){
   shippingAssert(hit&&!seen.has(shippingKey(i)),'The selected glass is no longer available. Review the packing slip.');
   seen.add(shippingKey(i));items.push(shippingItem(hit));
  });
+/* Стекло отменённых юнитов, которое клиент забирает (unitTakes). */
+ const takes=[...new Set(d.takes||[])];
+ takes.forEach(id=>{const o=salesRecord(id);shippingAssert(o&&!salesIsQuote(o)&&o.customerId===d.customerId&&unitTakes(o).length,'The cancelled glass is no longer waiting. Review the packing slip.');});
  (d.extras||[]).forEach(i=>{
   const o=salesRecord(i.orderId),x=o&&(o.extraItems||[]).find(x=>x.id===i.extraId),k=i.orderId+'|'+i.extraId;
   shippingAssert(o&&x&&!salesIsQuote(o)&&o.customerId===d.customerId&&!['new','closed','cancelled'].includes(o.status)&&!o.onHold,'Stock order is not ready.');
@@ -25,7 +28,7 @@ function shippingValidateSelection(d,exceptId){
   shippingAssert(Number.isSafeInteger(i.qty)&&i.qty>0&&i.qty<=x.qty-used&&!seen.has(k),'Check the available stock quantity.');
   seen.add(k);extras.push({orderId:o.id,extraId:x.id,qty:i.qty});
  });
- return {items,extras};
+ return Object.assign({items,extras},takes.length?{takes}:{});
 }
 function shippingCreate(d){return storageCommand(()=>{
  const picked=shippingValidateSelection(d),now=new Date().toISOString();
@@ -40,7 +43,7 @@ function shippingUpdate(id,d){return storageCommand(()=>{
  const loaded=shippingLoadState(s).loaded.map(u=>u.label),picked=shippingValidateSelection(d,s.id),ids=shippingOrderIds(s);
  shippingAssert(loaded.every(label=>picked.items.some(i=>i.label===label)),'Loaded units cannot be removed. Undo loading at the station first.');
  const was={date:s.date,truckId:s.truckId||''};
- Object.assign(s,picked,{method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,note:String(d.note||'').slice(0,1000)});
+ delete s.takes;Object.assign(s,picked,{method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,note:String(d.note||'').slice(0,1000)});
  /* Перенос на другой день — та же машина, последней остановкой, водитель
     того дня (у цеха он один), время выезда — заново; Pickup — с машины
     (владелец, 6.10.2026: «перенос нужен для контроля»; аудит Shipping, F6). */
@@ -59,7 +62,7 @@ function shippingUpdate(id,d){return storageCommand(()=>{
    (самовывоз одним сканом подписанного PS, рейс без сканов на станции). */
 function shippingMarkShipped(id,mode){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can be shipped.');
- shippingAssert(s.items.length+s.extras.length>0,'An empty packing slip cannot be shipped.');
+ shippingAssert(s.items.length+s.extras.length+(s.takes||[]).length>0,'An empty packing slip cannot be shipped.');
  const now=new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
  const loaded=new Set(shippingLoadState(s).loaded.map(u=>u.label));
  /* Сначала — что едет, потом проверка: непогруженный юнит, разбитый до

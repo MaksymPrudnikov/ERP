@@ -169,5 +169,41 @@ module.exports=async function({page,eq,ok}){
   return {moved,after,pickup:[pickup,'truckId' in three,'stop' in three,day(today).length]};
  }),{moved:true,after:{today:['s3:1'],tomorrow:['s2:1','s1:2'],driver:true,depart:false},pickup:[true,false,false,0]});
 
+ /* ---------------- PR 4: отмена на бумаге, поиск, стекло клиента, всё отменено ---------------- */
+ eq('F2: the cancelled unit is on the packing slip — Ordered 3 · Now 2 · Back order 0 and "1 unit cancelled · scrapped at your request" under the line, on paper and on the card',await t.p.evaluate(()=>{
+  const o=saOrder(3,true),l=o.lines[0];unitCancel(o.id,l.id,1,'Customer cancelled',{glass:'scrap',chargeOverride:0});
+  const s=saPS(o),d=shippingDocument(s),r=d.orders[0].rows[0],paper=shippingPages(d).flatMap(p=>p.items).filter(x=>x.t==='text').map(x=>x.s);
+  tab='shipping';shippingTab='shipments';shippingOpenId=s.id;render();
+  return {row:[r.ordered,r.now,r.back,r.note],state:d.orders[0].state,paper:paper.includes('1 unit cancelled · scrapped at your request'),card:saText('[data-ps-cancel-note]')};
+ }),{row:[3,2,0,'1 unit cancelled · scrapped at your request'],state:'complete',paper:true,card:'1 unit cancelled · scrapped at your request'});
+ eq('F2: different fates of cancelled units are counted under the line',await t.p.evaluate(()=>{
+  const o=saOrder(4,true),l=o.lines[0];unitCancel(o.id,l.id,1,'Not needed',{glass:'scrap',chargeOverride:0});unitCancel(o.id,l.id,1,'Customer takes it',{glass:'customer',chargeOverride:0});
+  const s=saPS(o);return shippingDocument(s).orders[0].rows[0].note;
+ }),'2 units cancelled: 1 scrapped at your request, 1 glass goes with this packing slip');
+ eq('F8: the order card at the counter does not count cancelled glass as still in the shop',await t.p.evaluate(()=>{
+  const o=saOrder(3,false);unitCancel(o.id,o.lines[0].id,2,'No longer needed',{});
+  const m=shippingWithCtx(()=>shippingLookupModel(o));return {left:m.q.ordered,shop:m.shop.reduce((n,[k,c])=>n+c,0),toBatch:m.shop.some(([k])=>k==='To batch')};
+ }),{left:1,shop:2,toBatch:false});
+ eq('Д2: a packing slip only for the glass the customer takes — from Ready and at the counter',await t.p.evaluate(()=>{
+  const o=saOrder(2,true),l=o.lines[0],[u]=shippingAvailable(o);
+  const s1=shippingCreate({customerId:o.customerId,method:'pickup',shipTo:{},date:finToday(),items:[shippingItem(u)],extras:[]}).value;shippingMarkShipped(s1.id);shippingMarkDelivered(s1.id,'Client');
+  unitCancel(o.id,l.id,1,'Customer changed the design',{glass:'customer',chargeOverride:10});
+  tab='shipping';shippingTab='ready';shippingSelection.clear();render();
+  const ready={listed:shippingReadyOrders().includes(o),row:!!document.querySelector('[data-ready-takes]'),status:o.status};
+  shippingSelectOrder(o.id,true);shippingOpen(o.customerId);
+  const draft={items:shippingDraft.items.length,takes:shippingDraft.takes,shown:!!document.querySelector('[data-draft-takes]')};
+  const counter=shippingWithCtx(()=>shippingLookupModel(o)).takes.length;
+  const s2=shippingCreate(shippingDraft).value;shippingDraft=null;
+  const sent=shippingMarkShipped(s2.id),doc=shippingFind(s2.id).document;
+  return {ready,draft:[draft.items,draft.takes.length===1&&draft.takes[0]===o.id,draft.shown],counter,sent:sent.ok,takesOnPaper:doc.orders[0].takes.length,left:unitTakes(o).length,taken:o.cancellations[0].units[0].takenPs===s2.id,
+   import:prepareImportedState(JSON.parse(JSON.stringify(DB))).shipment.find(x=>x.id===s2.id).takes.length};
+ }),{ready:{listed:true,row:true,status:'done'},draft:[0,true,true],counter:1,sent:true,takesOnPaper:1,left:0,taken:true,import:1});
+ eq('Д3: every unit cancelled — at $0 the order is Cancelled; with a charge it is Closed that day and the bill is dated that day',await t.p.evaluate(()=>{
+  const free=saOrder(2,false);unitCancel(free.id,free.lines[0].id,2,'Project cancelled',{});const a=[free.status,!!free.statusDates.cancelled];
+  const paid=saOrder(2,true);unitCancel(paid.id,paid.lines[0].id,2,'Project cancelled',{glass:'scrap',chargeOverride:50});
+  tab='sales';salesOrderEdit(paid.id);render();const step=saText('[data-step="done"]');salesDraftDrop();
+  return {free:a,paid:[paid.status,finBillingDate(paid)===finToday(),finOrderBalance(paid).balance>0,/Units cancelled/.test(step)]};
+ }),{free:['cancelled',true],paid:['closed',true,true,true]});
+
  eq('Shipping audit browser errors',t.errs,[]);await t.c.close();
 };
