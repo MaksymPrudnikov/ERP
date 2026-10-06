@@ -8,7 +8,7 @@
 
 - **Статус PS — цветной таблеткой** (`shippingStatusPill`, классы статусов заказа): Planned серый, Shipped — как Partially shipped, Delivered / Picked up зелёный, Cancelled красный. В списке Shipments, карточке PS, Delivery и самовывозах. «reprint» — таблеткой Reprint.
 - **Даты — «Oct 6»** (`salesListShortDay`), как в Sales: список Shipments, карточка PS, день Delivery, Skids, окно и полоса Hold / Cancel units.
-- **Верхняя панель** (поле Order / PO и Open a trip) — карточкой `.shipping-toolbar`, а не строкой над карточками.
+- **Верхняя панель** (поиск Order | PO и Open a trip) — карточкой `.shipping-toolbar`, а не строкой над карточками.
 - **Карточка PS**: состав — таблицей (Line / Mark, Size, Makeup, Skids, Qty, Before, Back order) с строкой заказа; главное действие статуса (Loaded, Delivered / Picked up) выделено и стоит справа.
 - **Таблицы во всю ширину карточки**, как список Sales: Ready, Shipments, карточка PS, Delivery, Skids, Backorders, список по PO. Самовывозы в Delivery — таблицей. Водитель и печать рейса — одной группой справа.
 - **Поиск заказа**: место стекла — строками, как скиды в Ready («SL-2 · 63 units»); крупных плиток больше нет.
