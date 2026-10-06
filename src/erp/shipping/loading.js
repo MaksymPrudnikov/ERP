@@ -69,11 +69,15 @@ function shippingUnitsOn(skid){
 function shippingLoadPlan(code,tripId){
  const ship=shippingStations().ship,skid=carrierType(code)?carrierCode(code):'',fail=(kind,extra)=>Object.assign({kind,code,skid},extra);
  let units=[],stray=[];
+ /* Отменённый юнит ещё лежит на скиде — скид не грузят, пока его не снимут
+    (владелец, 6.10.2026). */
+ const off=skid?unitOnSkid(skid):[];
+ if(off.length)return fail('shipTakeOff',{ids:off.flatMap(x=>x.pieces),units:off.length,orders:[...new Set(off.map(x=>x.o.businessNumber))]});
  if(skid){const x=shippingUnitsOn(skid);units=x.units;stray=x.stray;}
  else{const g=stationGlass(code),u=g&&shippingUnits(g.o).find(u=>u.pieces.includes(code));if(u&&u.ready)units=[u];else stray=[code];}
  if(stray.length){
   const g=stationGlass(stray[0]),at=g?stationPlace(g).waiting:'';
-  return fail('shipNotReady',{ids:stray,why:g&&(g.o.onHold||g.l.onHold)?'hold':at&&at!==ship?at:''});
+  return fail('shipNotReady',{ids:stray,why:g&&(g.o.onHold||g.l.onHold||unitPieceHold(g))?'hold':at&&at!==ship?at:''});
  }
  if(!units.length){
   const last=(DB.stationScan||[]).filter(s=>!s.undoneAt&&s.on===skid&&s.station===ship).pop();

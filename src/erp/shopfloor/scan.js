@@ -113,8 +113,12 @@ function stationPlace(g,scans){
  return {route,far,waiting:far+1<route.length?route[far+1]:'',shipped:route.length>0&&far===route.length-1};
 }
 /* Разбор скана без записи. kind:
-   ok · hold — пишется; already · passed · skipped · route · cancelled ·
-   unit · unknown — только показывается. */
+   ok · hold — пишется; held · already · passed · skipped · route ·
+   cancelled · unit · unknown — только показывается.
+   held — Hold на станции, которую стекло не ждёт (пропущены сканы, уже
+   прошло, не его маршрут): Hold виден на любой станции, но скан не пишется
+   и вопроса «сделано?» нет — иначе «Yes, done» записал бы CUT…IGU стеклу,
+   которое не резали (аудит Shipping, 6.10.2026). */
 function stationCheck(station,raw){
  const code=stationCodeOf(raw);
  if(!code)return null;
@@ -126,17 +130,24 @@ function stationCheck(station,raw){
  const scans=stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station&&!s.park).pop()||null;
  const base={code,g,scans,place,here,stock:!g.entry,priority:g.o.priority||'normal',due:g.o.dueDate||''};
  if(g.o.status==='cancelled')return Object.assign(base,{kind:'cancelled'});
- /* Отменённый юнит (erp/sales/unit-cancel): стекло откладывают. */
- if(unitPieceCancelled(g))return Object.assign(base,{kind:'cancelled',unit:true});
+ /* Отменённый юнит (erp/sales/unit-cancel): стекло откладывают, а если его
+    забирает клиент — оно едет с заказом. skid — скид, с которого его ещё не сняли. */
+ if(unitPieceCancelled(g)){
+  const u=unitCancelOf(g.o,code),takes=!!u&&u.glass==='customer'&&!u.takenPs;
+  return Object.assign(base,{kind:'cancelled',unit:true,takes,skid:u&&u.glass!=='customer'&&!(u.off||[]).includes(code)?unitPieceSkid(code):''});
+ }
  if(place.broken)return Object.assign(base,{kind:'broken'});
  /* Следующий заход на эту станцию — ближайший впереди по маршруту. */
  const w=place.waiting?place.far+1:-1,i=w>=0?place.route.indexOf(station,w):-1;
- if(place.route.indexOf(station)<0)return Object.assign(base,{kind:'route'});
- if(i<0||place.assembling&&i===w)return Object.assign(base,{kind:here?'already':'passed'});
- if(i>w)return Object.assign(base,{kind:'skipped',missed:place.route.slice(w,i)});
- base.mates=stationMatesAt(g,station).map(x=>x.id);
+ const kind=place.route.indexOf(station)<0?'route':i<0||place.assembling&&i===w?(here?'already':'passed'):i>w?'skipped':'ok';
  const held=unitPieceHold(g);
- if(g.o.onHold||g.l.onHold||held)return Object.assign(base,{kind:'hold',reason:(g.o.onHold?g.o.holdReason:g.l.onHold?g.l.holdReason:held.reason)||'',unit:!g.o.onHold&&!g.l.onHold});
+ if(g.o.onHold||g.l.onHold||held){
+  if(kind==='ok')base.mates=stationMatesAt(g,station).map(x=>x.id);
+  return Object.assign(base,{kind:kind==='ok'?'hold':'held',reason:(g.o.onHold?g.o.holdReason:g.l.onHold?g.l.holdReason:held.reason)||'',unit:!g.o.onHold&&!g.l.onHold});
+ }
+ if(kind==='skipped')return Object.assign(base,{kind,missed:place.route.slice(w,i)});
+ if(kind!=='ok')return Object.assign(base,{kind});
+ base.mates=stationMatesAt(g,station).map(x=>x.id);
  return Object.assign(base,{kind:'ok'});
 }
 /* who: {id, name} — рабочий, вошедший на станцию. */
@@ -305,7 +316,7 @@ function stationBreak(station,check,who,reasonId,opts){
 }
 function stationBreakCommand(station,check,who,reasonId,opts){
  opts=opts||{};
- if(!check||!check.g||!['ok','hold','already','passed','skipped','route','peek'].includes(check.kind))return {error:'Scan the broken glass first.'};
+ if(!check||!check.g||!['ok','hold','held','already','passed','skipped','route','peek'].includes(check.kind))return {error:'Scan the broken glass first.'};
  const g=check.g,o=g.o,l=g.l,c=g.c;
  if(shippingPrintedPiece(g.id)||(DB.shipment||[]).some(s=>shippingSent(s)&&s.items.some(i=>i.pieces.includes(g.id))))return {error:'Packing slip printed or shipped — use NCR.'};
  if(!c||c.missing)return {error:'Glass not found in the order.'};

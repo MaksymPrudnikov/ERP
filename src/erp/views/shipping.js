@@ -36,6 +36,8 @@ function shippingSelectQty(id,lineId,n){const o=salesRecord(id),units=shippingAv
 /* В PS — только отмеченные заказы: их юниты и их товар склада (владелец,
    6 октября 2026: клиент хранит заказы у нас и забирает только нужные).
    Ничего не отмечено — всё готовое клиента. Остальное добавляют в форме.
+   Отмеченное ушло (PS в другой вкладке, Hold, отмена, поломка) — другие заказы
+   не подставляем, а говорим (аудит Shipping, 6.10.2026).
    Способ по умолчанию — из заказов в PS (Pickup / Delivery ставит продавец),
    у пустого рейса — из карточки клиента. */
 function shippingOpen(customerId,id){
@@ -43,11 +45,13 @@ function shippingOpen(customerId,id){
   const s=id&&shippingFind(id),orders=shippingOrders().filter(o=>o.customerId===customerId),c=salesFindCustomer(customerId),mine=shippingCustomer===customerId;
   const all=orders.flatMap(shippingAvailable),selected=all.filter(i=>mine&&shippingSelection.has(i.label));
   const chosen=new Set(selected.map(i=>i.orderId).concat(orders.filter(o=>mine&&shippingSelection.has('stock:'+o.id)).map(o=>o.id)));
+  const picked=s||!mine?[]:[...shippingSelection].filter(k=>k.indexOf('stock:')!==0),lost=picked.filter(k=>!selected.some(i=>i.label===k)).length;
+  if(!s&&mine&&shippingSelection.size&&!chosen.size){shippingSelection.clear();shippingNotice={error:true,text:'The selected glass is no longer ready. Select again.'};return;}
   const items=chosen.size?selected:all,inPS=o=>!chosen.size||chosen.has(o.id);
   const planned=(chosen.size?[...chosen]:[...new Set(items.map(i=>i.orderId))]).map(oid=>salesRecord(oid).delivery);
   const method=planned.length?(planned.every(d=>d==='pickup')?'pickup':'delivery'):String(c&&c.defaultDeliveryMethod||'').toLowerCase().includes('pickup')?'pickup':'delivery';
   shippingDraft=s?shippingClone(s):{customerId,method,shipTo:shippingDefaultAddress(c),date:finToday(),items:items.map(shippingItem),extras:orders.filter(o=>o.status!=='new'&&!o.onHold&&inPS(o)).flatMap(o=>shippingSummary(o).extras.filter(x=>x.ready>0).map(x=>({orderId:o.id,extraId:x.x.id,qty:x.ready}))),note:''};
-  shippingDraft.error='';
+  shippingDraft.error=lost?shippingCount(lost,'selected unit')+' no longer ready.':'';
  });
  render();
 }
