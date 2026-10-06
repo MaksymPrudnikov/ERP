@@ -69,7 +69,11 @@ function shippingMarkShipped(id,mode){return storageCommand(()=>{
  }));
  /* Скид уехал с этим PS, только если на нём ничего не осталось: со скида-
     микса юниты забирают по одному, сам скид стоит в цеху (erp/shipping/skids). */
- const still=carrierContents();s.skidsOut=[...new Set(s.items.map(i=>i.skid).filter(Boolean))].filter(code=>!(still.get(code)||[]).length);
+ /* Самовывоз: скид уезжает, только если его погрузили сканом скида — «клиент
+    пригоняет свой трак, и мы на него грузим скиды» (владелец, 6.10.2026);
+    пару стёкол у стойки отдают без скида. */
+ const still=carrierContents(),went=s.method==='pickup'?s.items.filter(i=>loaded.has(i.label)):s.items;
+ s.skidsOut=[...new Set(went.map(i=>i.skid).filter(Boolean))].filter(code=>!(still.get(code)||[]).length);
  s.scanIds=scanIds;s.status='shipped';s.shippedAt=now;s.shippedBy=shippingActor();
  shippingSyncOrders(before.concat(shippingOrderIds(s)),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
 });}
