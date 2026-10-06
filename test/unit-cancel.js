@@ -32,6 +32,12 @@ module.exports=async function({page,eq,ok}){
   ucMove(1,shippingStations().ship);ucMove(2,shippingStations().ship);const q=shippingSummary(ucO());
   return {bad,ok:out.ok,held:held.length,slots:pieces.join()===ucSlot(1).concat(ucSlot(2)).sort().join(),kind:check.kind,unit:check.unit,reason:check.reason,moved,free,ready:q.ready,log:DB.orderEvent.filter(e=>e.what==='Units on hold').map(e=>e.note)};
  }),{bad:['Enter how many units.','Enter a reason for the hold.','Only 3 units can be held.'],ok:true,held:2,slots:true,kind:'hold',unit:true,reason:'Customer asked to stop',moved:true,free:'hold',ready:1,log:['line 1 · 2 units · Customer asked to stop']});
+ eq('A held unit does not disturb the choice of the next ones: the remaining not cut unit still goes first, even after the held glass was scanned',await t.p.evaluate(()=>{
+  ucOrder(4);ucMove(1,ucAfter('CUT'));ucMove(2,ucAfter('CUT'));unitHold(ucId,ucL().id,1,'Stop');const h=ucL().heldUnits[0];
+  const c=stationCheck('CUT',h.pieces[0]);stationMove('CUT',c,{name:'Shop'},{});
+  const free=unitList(ucO(),ucL()).map(u=>u.stage),plan=unitCancelPlan(ucO(),ucL(),2,new Date().toISOString());
+  return {free,plan:plan.units.map(u=>[u.stage,u.charge,!!u.heldAt]),max:plan.max};
+ }),{free:['uncut','cut','cut'],plan:[['uncut',0,true],['uncut',0,false]],max:4});
  eq('Release hold lets the units go on; nothing else changed',await t.p.evaluate(()=>{
   ucOrder(2);unitHold(ucId,ucL().id,1,'Stop');const kind=stationCheck('CUT',ucSlot(1)[0]).kind,out=unitRelease(ucId,ucL().id);
   return {kind,ok:out.ok,field:'heldUnits' in ucL(),after:stationCheck('CUT',ucSlot(1)[0]).kind,again:unitRelease(ucId,ucL().id).error};
