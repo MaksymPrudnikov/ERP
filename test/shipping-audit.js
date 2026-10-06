@@ -205,5 +205,59 @@ module.exports=async function({page,eq,ok}){
   return {free:a,paid:[paid.status,finBillingDate(paid)===finToday(),finOrderBalance(paid).balance>0,/Units cancelled/.test(step)]};
  }),{free:['cancelled',true],paid:['closed',true,true,true]});
 
+ /* ---------------- Аудит проделанной работы (6.10): A, B, C, E, F, P ---------------- */
+ eq('A: a packing slip with only the glass the customer takes, received later, does not move the order’s billing date',await t.p.evaluate(()=>{
+  const id=saOrder(3,true).id,[u1,u2]=shippingAvailable(salesRecord(id)),cust=salesRecord(id).customerId;
+  const s1=shippingCreate({customerId:cust,method:'pickup',shipTo:{},date:finToday(),items:[u1,u2].map(shippingItem),extras:[]}).value;shippingMarkShipped(s1.id);shippingMarkDelivered(s1.id,'Client');
+  shippingFind(s1.id).deliveredAt='2026-10-01T12:00:00.000Z';
+  unitCancel(id,salesRecord(id).lines[0].id,1,'Customer changed one',{glass:'customer',chargeOverride:10});const before=finBillingDate(salesRecord(id));
+  const s2=shippingCreate({customerId:cust,method:'delivery',shipTo:{address1:'1 Main St'},date:finToday(),items:[],extras:[],takes:[id]}).value;shippingMarkShipped(s2.id);shippingMarkDelivered(s2.id,'Client');
+  return [before,finBillingDate(salesRecord(id)),salesRecord(id).fulfilledVia];
+ }),['2026-10-01','2026-10-01','pickup']);
+ eq('B: two packing slips of one order both carry the glass the customer takes — the first takes it, the second still ships',await t.p.evaluate(()=>{
+  const id=saOrder(3,true).id,cust=salesRecord(id).customerId;unitCancel(id,salesRecord(id).lines[0].id,1,'Customer changed one',{glass:'customer',chargeOverride:10});
+  const [u1,u2]=shippingAvailable(salesRecord(id)),open=u=>{shippingSelection.clear();shippingSelect(cust,[u.label],true);shippingOpen(cust);const s=shippingCreate(shippingDraft).value;shippingDraft=null;return s;};
+  const a=open(u1),b=open(u2),both=[!!a.takes,!!b.takes],first=shippingMarkShipped(a.id),second=shippingMarkShipped(b.id);
+  return {both,first:first.ok,second:second.ok||second.error,takesLeftOnB:'takes' in shippingFind(b.id),takenBy:salesRecord(id).cancellations[0].units[0].takenPs===a.id};
+ }),{both:[true,true],first:true,second:true,takesLeftOnB:false,takenBy:true});
+ eq('C: Empty SL-1 also clears cancelled glass nobody scanned off — the skid loads again',await t.p.evaluate(()=>{
+  const id=saOrder(2,true).id;unitCancel(id,salesRecord(id).lines[0].id,1,'Not needed',{glass:'scrap',chargeOverride:0});
+  const blocked=shippingLoadPlan('SL-1','').kind,out=carrierEmpty('SL-1');
+  return {blocked,count:out.count,left:unitOnSkid('SL-1').length,off:salesRecord(id).cancellations[0].units[0].off.length};
+ }),{blocked:'shipTakeOff',count:4,left:0,off:2});
+ eq('E: the order card at the counter shows held glass as On hold, not To batch',await t.p.evaluate(()=>{
+  const id=saOrder(2,false).id;unitHold(id,salesRecord(id).lines[0].id,1,'Stop');return shippingWithCtx(()=>shippingLookupModel(salesRecord(id))).shop;
+ }),[['On hold',2],['CUT',2]]);
+ eq('F: the printed layout of a changed batch says Changed — don’t cut and shows the cancelled glass red',await t.p.evaluate(()=>{
+  saFresh();const {o,n}=saBatch([[36,24,4]]);unitCancel(o.id,o.lines[0].id,1,'Customer cancelled',{});
+  cutPrintLayouts(n);const host=document.getElementById('cutPrintHost'),out={stale:!!host.querySelector('[data-print-stale]'),red:host.querySelectorAll('[data-cut-gone]').length};cutPrintCleanup();return out;
+ }),{stale:true,red:1});
+ eq('P: a held ready unit is moved to another skid at SHIPR, so its old skid can load',await t.p.evaluate(()=>{
+  const id=saOrder(3,true).id,l=salesRecord(id).lines[0];
+  shippingCreate({customerId:salesRecord(id).customerId,method:'delivery',shipTo:{address1:'1 Main St'},date:finToday(),items:[],extras:[]});
+  unitHold(id,l.id,1,'Customer asked to wait');const g=salesRecord(id).lines[0].heldUnits[0].pieces[0],before=shippingLoadPlan('SL-1','').kind;
+  saLogin(shippingStations().ready);stationSubmit('SL-3');const moved=stationSubmit(g);
+  return {before,moved,skid:unitPieceSkid(g),after:shippingLoadPlan('SL-1','').kind};
+ }),{before:'shipNotReady',moved:'shipMoved',skid:'SL-3',after:'ok'});
+
+ eq('G: every unit cancelled at $0 — like a manual cancel, the order’s payment goes back to the customer’s deposit',await t.p.evaluate(()=>{
+  const id=saOrder(2,false).id,o=salesRecord(id);
+  DB.receipt=[normalizeReceipt({number:'R-0001',customerId:o.customerId,amount:50,allocations:[{orderId:id,amount:50}]})];
+  unitCancel(id,o.lines[0].id,2,'Project cancelled',{});
+  const r=DB.receipt[0];return {status:salesRecord(id).status,allocated:r.allocations.length,onAccount:finReceiptOnAccount(r)};
+ }),{status:'cancelled',allocated:0,onAccount:50});
+ eq('Д2 by hand: tick the order with the glass the customer takes in Ready, Create packing slip, Save — the slip carries that glass',await t.p.evaluate(()=>{
+  const id=saOrder(2,true).id,[u]=shippingAvailable(salesRecord(id)),cust=salesRecord(id).customerId;
+  const s1=shippingCreate({customerId:cust,method:'pickup',shipTo:{},date:finToday(),items:[shippingItem(u)],extras:[]}).value;shippingMarkShipped(s1.id);shippingMarkDelivered(s1.id,'Client');
+  unitCancel(id,salesRecord(id).lines[0].id,1,'Customer changed the design',{glass:'customer',chargeOverride:10});
+  tab='shipping';shippingTab='ready';shippingSelection.clear();render();
+  document.querySelector('tr.shipping-order-row input[type=checkbox]').click();const ticked=shippingSelection.has('takes:'+id);
+  document.querySelector('[data-create-ps="'+cust+'"]').click();const shown=!!document.querySelector('[data-draft-takes]');
+  document.querySelector('[data-save-ps]').click();
+  const anyway=[...document.querySelectorAll('[data-dialog-button]')].find(b=>/anyway/i.test(b.textContent));if(anyway)anyway.click();
+  const ps=DB.shipment.find(s=>s.id!==s1.id);
+  return {ticked,shown,created:!!ps,takes:!!ps&&!!ps.takes&&ps.takes[0]===id,items:ps?ps.items.length:-1};
+ }),{ticked:true,shown:true,created:true,takes:true,items:0});
+
  eq('Shipping audit browser errors',t.errs,[]);await t.c.close();
 };
