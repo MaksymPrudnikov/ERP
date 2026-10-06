@@ -159,7 +159,7 @@ module.exports=async function({page,eq,ok}){
   stationSubmit('U2');const byU={kind:stationLast.check.kind,moved:DB.stationScan.filter(s=>s.station==='SHIPR').length,manual:DB.stationScan.filter(s=>s.station==='SHIPR').slice(-2).map(s=>s.manual).join()};
   document.querySelector('[data-station-unit-reprint]').click();const printed=window.unPrinted,label=!!document.querySelector('.stk-print-page');stkPrintCleanup();
   unOut();return {text,acts,moved,manual,byU,printed,label};
- }),{text:'Line 1 · 37 × 71|Unit · 6CLEAR / 6Q240|2|',acts:['✓ Mark 1 unit done','Print a new unit sticker','Drawing'],moved:2,manual:true,byU:{kind:'ok',moved:4,manual:'true,true'},printed:1,label:true});
+ }),{text:'Line 1 · 37 × 71|Unit · 6CLEAR / 6Q240|B-0001|2|',acts:['✓ Mark 1 unit done','Print a new unit sticker','Drawing'],moved:2,manual:true,byU:{kind:'ok',moved:4,manual:'true,true'},printed:1,label:true});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();

@@ -31,7 +31,7 @@ module.exports=async function({page,eq,ok}){
   const x=sqSetup();sqOpen('ARRIS');
   const out={tab:!!document.querySelector('[data-station-flow="ARRIS"]'),tiles:sqTiles(),here:sqRows('[data-flow-here]',1).map(r=>r.replace(/\|Oct \d+$/,'')),works:sqRows('[data-flow-works]'),batches:sqRows('[data-flow-batches]',1),first:document.querySelector('[data-flow-here] tbody tr').textContent.includes('Critical')};
   sqOut();return out;
- }),{tab:true,tiles:'CUT:next:6,here:3',here:['Line 1 · 37 × 71|6CLEAR|ROUGH ARRIS|1|DL-3','Line 1 · 37 × 71|6Q240|ROUGH ARRIS|1|DL-3','Line 2 · 30 × 40|6Q240|ROUGH ARRIS|1|DL-3'],works:['ROUGH ARRIS|3|6'],batches:['6CLEAR, 6Q240|6'],first:true});
+ }),{tab:true,tiles:'CUT:next:6,here:3',here:['Line 1 · 37 × 71|Lite 1 · 6CLEAR|ROUGH ARRIS|B-0002|1|DL-3','Line 1 · 37 × 71|Lite 2 · 6Q240|ROUGH ARRIS|B-0002|1|DL-3','Line 2 · 30 × 40|Lite 2 · 6Q240|ROUGH ARRIS|B-0002|1|DL-3'],works:['ROUGH ARRIS|3|6'],batches:['6CLEAR, 6Q240|6'],first:true});
 
  eq('HEAT: загрузки печи — толщина, стекло и закалка отдельно; кв. футы и штуки здесь и в пути, откуда едет; Critical',await t.p.evaluate(()=>{
   const x=sqSetup();const oc=salesRecord(x.c);oc.makeups[0].panes[1].heatTreatmentId='HT-HS';oc.updatedAt=new Date().toISOString();sqOpen('HEAT');
