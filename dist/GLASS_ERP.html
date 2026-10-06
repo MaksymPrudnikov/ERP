@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 120 модулей, 19 стиля.
+  Состав сборки: 121 модулей, 19 стиля.
 -->
 <html lang="en">
 <head>
@@ -1651,6 +1651,14 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sl-line-context hr{border:0;border-top:1px solid var(--line);margin:8px 0 4px}
 .sl-line-context button{display:block;width:100%;padding:7px 5px;text-align:left;border:0;background:none;border-radius:5px;font-size:12px}
 .sl-line-context button:hover,.sl-line-context button:focus-visible{background:var(--surface-3)}
+/* Hold units / Cancel units (erp/sales/unit-cancel). */
+.sl-line-hold-menu.line-units-menu.wide{width:440px}
+.line-units-fields{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}.line-units-fields label{display:flex;flex-direction:column;gap:5px}.line-units-fields label input{margin-top:0}.line-units-fields>.mut{padding-bottom:9px}.line-units-fields input[type=number]{width:80px}.line-units-fields .line-units-reason{flex:1;min-width:160px}.line-units-fields .line-units-reason input{width:100%}
+.line-units-plan{width:100%;margin:10px 0;font-size:12px}.line-units-plan td,.line-units-plan th{padding:4px 6px;text-align:left}.line-units-plan .n{text-align:right}.line-units-after{color:var(--mut)}
+.line-units-glass{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0;font-size:12px}
+.line-units-total{display:flex;gap:10px;align-items:center;margin:8px 0}.line-units-total b{margin-left:auto}.line-units-total input{width:110px;margin-top:0}
+.line-units-row td{padding:6px 12px 10px 44px}.line-units-hold,.line-units-cancelled{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;padding:4px 0}
+.line-units-hold{color:var(--red)}.line-units-hold span{color:var(--red)}.line-units-cancelled span{color:var(--text-2)}.line-units-cancelled input{width:110px}
 
 /* ---- src/styles/optimization.css ---- */
 /* Очередь Optimization: вкладки, выбор заказов, общий батч и On Hold.
@@ -2764,7 +2772,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='ceb3f8815267';
+var ERP_BUILD='4a2856b8ad70';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11084,7 +11092,8 @@ function normalizeSalesLiteShapes(raw){
 function normalizeSalesOrderLine(l){
  l=l&&typeof l==='object'?l:{};
  const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
- return {id:salesEntityId(l.id,'SOL'),lineType:'physical',batchManaged:l.batchManaged===true,onHold:l.onHold===true,holdReason:l.onHold===true?salesString(l.holdReason).slice(0,200):'',holdAt:l.onHold===true?salesString(l.holdAt):'',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',...(Number.isSafeInteger(l.shipQueue)&&l.shipQueue>0&&l.shipQueue<1000?{shipQueue:l.shipQueue}:{}),weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
+ /* Hold units / Cancel units (erp/sales/unit-cancel) — поля только там, где они есть. */
+ return normalizeUnitFields({id:salesEntityId(l.id,'SOL'),lineType:'physical',batchManaged:l.batchManaged===true,onHold:l.onHold===true,holdReason:l.onHold===true?salesString(l.holdReason).slice(0,200):'',holdAt:l.onHold===true?salesString(l.holdAt):'',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',...(Number.isSafeInteger(l.shipQueue)&&l.shipQueue>0&&l.shipQueue<1000?{shipQueue:l.shipQueue}:{}),weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))},l);
 }
 /* Строка-позиция каталога: изделие из стекла или готовая вещь — не одно и то
    же, и модель их не смешивает (раздел 6 схемы). Владелец: «там, где Single /
@@ -11131,7 +11140,8 @@ function normalizeSalesOrder(o){
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
  return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
-  remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
+  remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
+  ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines))};
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
@@ -11445,7 +11455,9 @@ function salesSyncRecordLifecycle(o){
  if(!soDraft||soDraft.id!==o.id)return;
  ['status','batchNo','fulfilledVia','updatedAt'].forEach(k=>{soDraft[k]=o[k];});
  soDraft.statusDates=Object.assign({},o.statusDates);soDraft.batchHistory=(o.batchHistory||[]).slice();soDraft.unbatchHistory=JSON.parse(JSON.stringify(o.unbatchHistory||[]));
- soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';if(saved.shipQueue)l.shipQueue=saved.shipQueue;else delete l.shipQueue;}});
+ soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';if(saved.shipQueue)l.shipQueue=saved.shipQueue;else delete l.shipQueue;
+  ['heldUnits','cancelledUnits'].forEach(k=>{if(saved[k]!=null)l[k]=JSON.parse(JSON.stringify(saved[k]));else delete l[k];});}});
+ if(o.cancellations)soDraft.cancellations=JSON.parse(JSON.stringify(o.cancellations));else delete soDraft.cancellations;
 }
 function salesSetRecordStatus(orderId,next,opts){
  if(storageDepth||opts&&opts.deferTouch)return salesSetRecordStatusCommand(orderId,next,opts);
@@ -11692,7 +11704,7 @@ function salesQuoteValidUntil(o){return o&&o.validUntil||salesAddDays(o&&o.sentA
 function salesCopySalesRecord(src,fields){
  const copy=JSON.parse(JSON.stringify(src));Object.assign(copy,{id:salesUid('SO')},fields||{});
  copy.lines.forEach(line=>{
-  const oldId=line.id;line.id=salesUid('SOL');line.batchedAt='';delete line.shipQueue;
+  const oldId=line.id;line.id=salesUid('SOL');line.batchedAt='';delete line.shipQueue;delete line.heldUnits;delete line.cancelledUnits;
   const clone=ref=>{const s=salesShapeByRef(ref);if(!s)return ref;const c=JSON.parse(JSON.stringify(s));c.id=salesUid('SHP');if(c.ownerLineId===oldId)c.ownerLineId=line.id;DB.shapeDef.push(c);return Object.assign({},ref,{id:c.id});};
   line.shapeRef=clone(line.shapeRef);
   Object.keys(line.liteShapes||{}).forEach(k=>{line.liteShapes[k]=clone(line.liteShapes[k]);});
@@ -11801,7 +11813,7 @@ DEFAULT.orderEvent=[];
 if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];
 const ORDER_LOG_HEAD=[['customerId','customer'],['customerPo','PO'],['dueDate','due date'],['priority','priority'],['delivery','delivery'],['paymentTerms','terms'],['currency','currency'],['branch','branch'],['notes','notes'],['orderCharges','charges'],['makeups','makeups'],['extraItems','items'],['noCharge','no charge'],['validUntil','valid until']];
 /* Поля строки, которые ведёт цех (батч, Hold строки) — у них свои записи. */
-const ORDER_LOG_LINE_OWN=['batchManaged','batchedAt','cutStartedAt','batchNo','onHold','holdReason','holdAt','shipQueue'];
+const ORDER_LOG_LINE_OWN=['batchManaged','batchedAt','cutStartedAt','batchNo','onHold','holdReason','holdAt','shipQueue','heldUnits','cancelledUnits'];
 let orderLogBase={text:null,map:null},orderLogPending=null;
 
 function normalizeOrderLog(){
@@ -15768,11 +15780,13 @@ function salesOrderCommercialTotals(order){
  /* Позиции каталога — те же деньги, в тот же subtotal, без геометрии и без
     Makeup: у них попросту нет areas/services, которые считает p.complete выше. */
  (order&&order.extraItems||[]).forEach(function(x){const t=salesExtraItemLineTotal(x);qty+=salesPositiveInt(x.qty,1);if(t!=null)subtotal+=t;else missing++;});
+ /* Отменённые юниты: клиент платит за сделанную работу (erp/sales/unit-cancel). */
+ (order&&order.cancellations||[]).forEach(function(c){const v=unitChargeOf(c);if(v!=null)subtotal+=v;else missing++;});
  const out=salesApplyOrderCharges(subtotal,order&&order.orderCharges);out.complete=!missing;out.missing=missing;out.qty=qty;return out;
 }
 function salesLineCommercialPrice(line,order){
  order=order||soDraft;
- const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),rate=salesMakeupUnitPrice(m),q=salesPositiveInt(line.qty,1);
+ const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),rate=salesMakeupUnitPrice(m),q=salesPositiveInt(line.qty,1),live=Math.max(0,q-unitCancelled(line));
  const services=salesLinePricingSummary(line),materials=areas.valid?rate.total*areas.billable:0;
  const base=salesMoney(materials+services.total/q),rules=salesMetricRules(order),adjustments=[];
  const unsupportedCurrency=!!(order.currency&&order.currency!=='CAD');
@@ -15782,7 +15796,7 @@ function salesLineCommercialPrice(line,order){
  if(adjustments.length>1&&rules.combination==='pending')incomplete=true;
  let running=base;
  adjustments.forEach(a=>{a.base=rules.combination==='compound'?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
- return {areas:areas,materialRate:rate.total,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*q),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:q};
+ return {areas:areas,materialRate:rate.total,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:live,ordered:q,cancelled:q-live};
 }
 function salesLineCommercialAdjustments(line,order){
  const price=salesLineCommercialPrice(line,order);
@@ -17253,6 +17267,8 @@ function docCompanyBlock(){
 function docSaleItem(model,line,index,order){
  const opts=model.opts,mode=model.mode,m=salesMakeupById(order,line.makeupId),p=salesLineCommercialPrice(line,order),a=p.areas,q=p.qty;
  const it=docItemBase(opts,line,index,m,q);
+ /* Отменённые юниты: заказанное число не меняется, в сумму идут оставшиеся. */
+ if(p.cancelled)it.qty='Qty '+p.ordered+' · '+p.cancelled+' cancelled';
  const glassLine=p.complete?salesMoney(p.materials*q):null;
  it.amount=mode==='none'?null:mode==='glass'?docMoney(glassLine):docMoney(p.line);
  const bits=[];
@@ -17356,6 +17372,11 @@ function docBuildModel(kind,order,opts){
   const priced=sale&&mode!=='none';
   model.extra={title:sale?'Additional items':'From stock',rows:order.extraItems.map(x=>{const total=salesExtraItemLineTotal(x),unit=salesExtraItemUnitPrice(x);
    return {name:salesExtraItemName(x),qty:'Qty '+salesPositiveInt(x.qty,1),rate:priced&&unit!=null?docMoney(unit):'',amount:priced?(total==null?'Rate required':docMoney(total)):''};})};
+ }
+ /* Отменённые юниты: работа, за которую платит клиент (erp/sales/unit-cancel). */
+ if(sale&&(order.cancellations||[]).length){
+  const rows=order.cancellations.map(c=>{const v=unitChargeOf(c);return {name:'Cancelled '+shippingCount(c.units.length,'unit')+' · line '+((order.lines||[]).findIndex(l=>l.id===c.lineId)+1)+' · work done',qty:'',rate:'',amount:mode==='none'?'':v==null?'Rate required':docMoney(v)};});
+  if(model.extra)model.extra.rows=model.extra.rows.concat(rows);else model.extra={title:'Additional items',rows};
  }
 
  if(sale){
@@ -21517,7 +21538,7 @@ function salesOrderColumnCell(key,l,i,linked,st){
 }
 function salesOrderLines(){
   var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce(function(n,g){return n+g.lines;},0),hasServices=pricing.charges>0||commercial.length>0,columns=salesOrderScreenColumns();
-  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag and reorder columns in Columns</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`)}</tr>`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
+  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag and reorder columns in Columns</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`)}</tr>${salesLineUnitsRow(l,columns.length+3)}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
 }
 
 /* ---------- Edgework Set editor ---------- */
@@ -25096,7 +25117,9 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesListMenu){e.pr
 let salesLineHoldMenu=null,salesLineHoldPress=null;
 function salesLineHoldAllowed(o,l){return !!o&&!!l&&!salesIsQuote(o)&&!salesOrderReadOnly(o)&&!salesLineLocked(l);}
 function salesLineQueueAllowed(o,l){const saved=o&&salesRecord(o.id);return !!l&&!!saved&&shippingQueueAllowed(saved)&&(saved.lines||[]).some(x=>x.id===l.id);}
-function salesLineMenuAllowed(o,l){return salesLineHoldAllowed(o,l)||salesLineQueueAllowed(o,l);}
+/* Hold units / Cancel units (erp/sales/unit-cancel) — у строки в цеху. */
+function salesLineUnitsLine(o,l){const saved=o&&salesRecord(o.id);return saved&&!salesIsQuote(saved)&&!['closed','cancelled'].includes(saved.status)?(saved.lines||[]).find(x=>l&&x.id===l.id&&salesLineLocked(x))||null:null;}
+function salesLineMenuAllowed(o,l){return salesLineHoldAllowed(o,l)||salesLineQueueAllowed(o,l)||!!salesLineUnitsLine(o,l);}
 function salesLineHoldRowAttrs(l){
  if(salesIsQuote(soDraft)||salesOrderReadOnly(soDraft))return '';
  const id=esc(l.id),reason=l.onHold?'On Hold: '+(l.holdReason||'Waiting for clarification'):'Right-click for line actions';
@@ -25157,16 +25180,64 @@ function salesLineQueueApply(){
  const out=shippingQueueSet(m.orderId,m.ids,m.queue);if(!out.ok){m.error=out.error;render();return;}
  salesLineHoldMenu=null;render();
 }
+function salesLineUnitsOpen(kind){
+ const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return;const l=salesLineUnitsLine(soDraft,{id:m.ids[0]});if(!l)return;
+ if(kind==='release'){const out=unitRelease(m.orderId,l.id);if(!out.ok){m.error=out.error;render();return;}salesLineHoldMenu=null;render();return;}
+ const held=l.heldUnits||[];m.ids=[l.id];m.kind=kind==='hold'?'units-hold':'units-cancel';m.count=String(kind==='cancel'&&held.length?held.length:1);m.reason=kind==='cancel'&&held.length?held[0].reason:'';m.glass='scrap';m.charge='';m.error='';render();
+ requestAnimationFrame(()=>{const e=document.querySelector('[data-units-count]');if(e)e.focus();});
+}
+/* Из полосы под строкой: Cancel units и Release без меню. */
+function salesLineUnitsStrip(e,lineId,kind){
+ const l=soDraft&&soDraft.lines.find(x=>x.id===lineId);if(!l)return;
+ salesLineHoldMenu={kind:'context',orderId:soDraft.id,ids:[lineId],index:soDraft.lines.indexOf(l)+1,x:e&&e.clientX||40,y:e&&e.clientY||40,stamp:salesLineHoldStamp([lineId])};salesLineUnitsOpen(kind);
+}
+function salesLineUnitsApply(){
+ const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return;
+ if(m.stamp!==salesLineHoldStamp(m.ids)){salesLineHoldMenu=null;salesDialogOpen({title:'Order changed',note:'Review the lines and open the menu again.',buttons:[{label:'Back'}]});return;}
+ const out=m.kind==='units-hold'?unitHold(m.orderId,m.ids[0],m.count,m.reason):unitCancel(m.orderId,m.ids[0],m.count,m.reason,{glass:m.glass,chargeOverride:m.charge});
+ if(!out.ok){m.error=out.error;render();return;}
+ salesLineHoldMenu=null;render();
+}
+function salesLineUnitsCharge(cancelId,value){const out=unitSetCharge(soDraft.id,cancelId,value);if(!out.ok)alert(out.error);render();}
+/* Полоса под строкой заказа: что на Hold и что отменено. */
+function salesLineUnitsRow(l,span){
+ const saved=soDraft&&salesRecord(soDraft.id),sl=saved&&(saved.lines||[]).find(x=>x.id===l.id);if(!sl||salesIsQuote(saved))return '';
+ const held=sl.heldUnits||[],cancels=(saved.cancellations||[]).filter(c=>c.lineId===l.id);if(!held.length&&!cancels.length)return '';
+ const id=esc(l.id),open=!['closed','cancelled'].includes(saved.status);
+ const glass=c=>{const k=[...new Set(c.units.map(u=>u.glass).filter(Boolean))][0];return k==='customer'?' · customer takes'+(c.units.some(u=>u.glass==='customer'&&!u.takenPs)?' on the next packing slip':''):k==='stock'?' · glass to stock':k==='scrap'?' · glass scrapped':'';};
+ return `<tr class="line-units-row" data-units-row="${id}"><td colspan="${span}">`+
+  (held.length?`<div class="line-units-hold" data-units-held><b>${shippingCount(held.length,'unit')} on hold</b><span>${esc(held[0].reason)} · ${esc(salesShortDate(held[0].at))}</span>${open?`<button type="button" class="sm" data-units-release onclick="salesLineUnitsStrip(event,'${id}','release')">Release</button><button type="button" class="sm" data-units-cancel onclick="salesLineUnitsStrip(event,'${id}','cancel')">Cancel units</button>`:''}</div>`:'')+
+  cancels.map(c=>`<div class="line-units-cancelled" data-units-cancelled><b>Cancelled ${shippingCount(c.units.length,'unit')}</b><span>${esc(c.reason)}${glass(c)} · work done</span><input type="number" min="0" step="0.01" aria-label="Cancellation charge" ${open?'':'disabled'} value="${unitChargeOf(c)==null?'':unitChargeOf(c)}" placeholder="${c.charge==null?'Enter':c.charge}" onchange="salesLineUnitsCharge('${esc(c.id)}',this.value)"></div>`).join('')+
+  `</td></tr>`;
+}
+function salesLineUnitsMenuHTML(m,l,back,style,label){
+ const saved=salesRecord(m.orderId),count=Math.max(0,Math.floor(+m.count)||0),error=m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:'';
+ const fields=max=>`<div class="line-units-fields"><label>Units<input type="number" min="1" max="${max}" data-units-count value="${esc(m.count)}" onchange="salesLineHoldMenu.count=this.value;render()"></label><span class="mut">of ${max}</span><label class="line-units-reason">Reason<input type="text" maxlength="200" data-units-reason value="${esc(m.reason)}" oninput="salesLineHoldMenu.reason=this.value"></label></div>`;
+ if(m.kind==='units-hold'){
+  const max=unitHoldable(saved,l).length;
+  return back+`<div class="sl-menu sl-line-hold-menu line-units-menu" style="${style}" role="dialog" aria-label="Hold units"><h5>${esc(label)} · Hold units</h5>${fields(max)}<p class="mut">Least advanced units first.</p>${error}<div class="sl-actions"><button type="button" onclick="salesLineHoldClose()">Back</button><button type="button" class="pri" data-units-confirm onclick="salesLineUnitsApply()">Put on hold</button></div></div>`;
+ }
+ const plan=unitCancelPlan(saved,l,count,new Date().toISOString()),known=plan.units.every(u=>u.charge!=null),total=known?salesMoney(plan.units.reduce((s,u)=>s+u.charge,0)):null;
+ const cut=plan.units.some(u=>u.stage!=='uncut'),tempered=plan.units.some(u=>u.stage==='tempered'||u.stage==='assembled');
+ const rows=plan.units.map((u,i)=>`<tr data-units-plan="${u.stage}"><td>${i+1}</td><td>${UNIT_STAGE_LABEL[u.stage]}${u.heldAt?' · held '+esc(salesShortDate(u.heldAt)):''}${u.after?'<span class="line-units-after"> · after hold — not charged</span>':''}</td><td class="n">${u.charge==null?'—':esc(finFmt(u.charge))}</td></tr>`).join('');
+ const pick=(k,text,off)=>`<label class="chk"><input type="radio" name="unitsGlass" ${m.glass===k?'checked':''} ${off?'disabled':''} onchange="salesLineHoldMenu.glass='${k}'"> ${text}</label>`;
+ return back+`<div class="sl-menu sl-line-hold-menu line-units-menu wide" style="${style}" role="dialog" aria-label="Cancel units"><h5>${esc(label)} · Cancel units</h5>${fields(plan.max)}`+
+  (rows?`<table class="line-units-plan"><thead><tr><th>#</th><th>Where</th><th class="n">Charge</th></tr></thead><tbody>${rows}</tbody></table>`:'')+
+  (cut?`<div class="line-units-glass"><span class="mut">Glass</span>${pick('scrap','Scrap')}${pick('customer','Customer takes')}${pick('stock','To stock',tempered)}</div>`:'')+
+  `<div class="line-units-total"><span>Charge for the work done</span><b data-units-total>${total==null?'—':esc(finFmt(total))}</b><input type="number" min="0" step="0.01" aria-label="Charge" data-units-charge placeholder="Change" value="${esc(m.charge)}" oninput="salesLineHoldMenu.charge=this.value"></div>${error}<div class="sl-actions"><button type="button" onclick="salesLineHoldClose()">Back</button><button type="button" class="pri" data-units-confirm onclick="salesLineUnitsApply()">Cancel units</button></div></div>`;
+}
 function salesLineHoldMenuHTML(){
  const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return '';
  const lines=m.ids.map(id=>soDraft.lines.find(l=>l.id===id)).filter(Boolean);if(!lines.length)return '';
- const held=lines.every(l=>l.onHold),label=lines.length===1?'Line '+m.index:lines.length+' lines',w=280;
- const style=`left:${Math.max(8,Math.min(m.x,innerWidth-w-8))}px;top:${Math.max(8,Math.min(m.y,innerHeight-300))}px;max-height:${Math.max(100,innerHeight-24)}px`;
+ const units=String(m.kind).indexOf('units-')===0,held=lines.every(l=>l.onHold),label=lines.length===1?'Line '+m.index:lines.length+' lines',w=m.kind==='units-cancel'?440:280;
+ const style=`left:${Math.max(8,Math.min(m.x,innerWidth-w-8))}px;top:${Math.max(8,Math.min(m.y,innerHeight-(units?460:300)))}px;max-height:${Math.max(100,innerHeight-24)}px`;
  const back='<div class="sl-backdrop" onclick="salesLineHoldClose()" oncontextmenu="event.preventDefault();salesLineHoldClose()"></div>';
+ const unitsLine=lines.length===1?salesLineUnitsLine(soDraft,lines[0]):null;
+ if(units)return unitsLine?salesLineUnitsMenuHTML(m,unitsLine,back,style,label):'';
  if(m.kind==='reason')return back+`<div class="sl-menu sl-line-hold-menu" style="${style}" role="dialog" aria-label="Line hold reason"><h5>${esc(label)} · On Hold</h5><label>Reason<input type="text" maxlength="200" data-line-hold-reason value="${esc(m.reason)}" oninput="salesLineHoldReason(this.value)"></label><p class="mut">These lines stay editable but cannot go to batch.</p>${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-actions"><button type="button" onclick="salesLineHoldClose()">Back</button><button type="button" class="pri" data-line-hold-confirm onclick="salesLineHoldApply(true)">${held?'Save reason':'Put on hold'}</button></div></div>`;
  if(m.kind==='queue')return back+`<div class="sl-menu sl-line-hold-menu" style="${style}" role="dialog" aria-label="Shipping queue"><h5>${esc(label)} · Shipping queue</h5><label>Queue<input type="number" min="1" max="999" data-line-queue value="${esc(m.queue)}" oninput="salesLineHoldMenu.queue=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();salesLineQueueApply()}"></label><p class="mut">1 loads first · empty — no queue</p>${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-actions"><button type="button" onclick="salesLineHoldClose()">Back</button><button type="button" class="pri" data-line-queue-confirm onclick="salesLineQueueApply()">Save</button></div></div>`;
  const canHold=lines.every(l=>salesLineHoldAllowed(soDraft,l)),canQueue=lines.every(l=>salesLineQueueAllowed(soDraft,l)),queue=lines.length===1?shippingQueueOf(lines[0]):0;
- return back+`<div class="sl-menu sl-line-hold-menu sl-line-context" style="${style}" role="menu" aria-label="Line actions"><b>${esc(label)}${held?' · On Hold':''}${queue?' · Queue '+queue:''}</b>${held?`<p class="mut">${esc(lines.length===1?lines[0].holdReason:'Selected lines are on hold.')}</p>`:''}<hr>${canHold?`<button type="button" role="menuitem" data-line-hold-action="hold" onclick="salesLineHoldEdit()">${held?'Edit reason…':'On Hold…'}</button>${lines.some(l=>l.onHold)?'<button type="button" role="menuitem" data-line-hold-action="release" onclick="salesLineHoldApply(false)">Release hold</button>':''}`:''}${canQueue?'<button type="button" role="menuitem" data-line-queue-action onclick="salesLineQueueEdit()">Shipping queue…</button>':''}</div>`;
+ return back+`<div class="sl-menu sl-line-hold-menu sl-line-context" style="${style}" role="menu" aria-label="Line actions"><b>${esc(label)}${held?' · On Hold':''}${queue?' · Queue '+queue:''}</b>${held?`<p class="mut">${esc(lines.length===1?lines[0].holdReason:'Selected lines are on hold.')}</p>`:''}<hr>${canHold?`<button type="button" role="menuitem" data-line-hold-action="hold" onclick="salesLineHoldEdit()">${held?'Edit reason…':'On Hold…'}</button>${lines.some(l=>l.onHold)?'<button type="button" role="menuitem" data-line-hold-action="release" onclick="salesLineHoldApply(false)">Release hold</button>':''}`:''}${unitsLine?`<button type="button" role="menuitem" data-line-units="hold" onclick="salesLineUnitsOpen('hold')">Hold units…</button><button type="button" role="menuitem" data-line-units="cancel" onclick="salesLineUnitsOpen('cancel')">Cancel units…</button>${(unitsLine.heldUnits||[]).length?'<button type="button" role="menuitem" data-line-units="release" onclick="salesLineUnitsOpen(\'release\')">Release hold</button>':''}`:''}${canQueue?'<button type="button" role="menuitem" data-line-queue-action onclick="salesLineQueueEdit()">Shipping queue…</button>':''}${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}</div>`;
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesLineHoldMenu){e.preventDefault();salesLineHoldClose();}});
 /* Ячейки строки в батче — inert: нажатие по ним получает таблица, а не
@@ -25180,6 +25251,177 @@ document.addEventListener('contextmenu',e=>{const id=salesLineLockedRowAt(e);if(
 document.addEventListener('pointerdown',e=>{const id=salesLineLockedRowAt(e);if(id)salesLineHoldPointer(e,id);});
 document.addEventListener('pointermove',e=>{if(salesLineHoldPress)salesLineHoldMove(e);});
 ['pointerup','pointercancel'].forEach(k=>document.addEventListener(k,()=>{if(salesLineHoldPress)salesLineHoldCancelPress();}));
+
+/* ==== src/erp/sales/unit-cancel.js ==== */
+/* =====================================================================
+   erp/sales/unit-cancel  ·  Shipping PR 5, 6 октября 2026
+   Hold units и Cancel units: клиент отказывается от части позиции.
+   IN : заказ и строка в цеху · журнал сканов · цена строки (line-metrics)
+   OUT: line.heldUnits [{id, pieces, at, reason}] · line.cancelledUnits (число)
+        · o.cancellations [{id, at, by, lineId, reason, units:[{pieces, stage,
+        heldAt, charge, glass}], charge, chargeOverride}]
+   Владелец, 5.10.2026: «линия 1 имеет 21 панель, клиент спустя 2 дня говорит:
+   я не хочу 6 из них… за те, что только порезались, чарджим только за стекло
+   и тот сервис, который был проделан; если стекло было закалено — он платит за
+   весь путь и закалку; если это IGU — не платит за распорку и силикон».
+   Не порезано — $0, и за стекло тоже. Цена — по работе ДО Hold: клиент сказал
+   «стоп» во вторник, порезали в среду — платим мы.
+   Какие юниты — выбирает система: непорезанные, потом те, что прошли меньше
+   работ, закалённые, собранные — последними.
+   qty строки не меняется и номера стёкол не перекладываются: заказано =
+   qty − cancelledUnits. Юнит здесь — набор стёкол: собранный на станции
+   слияния — как собран, несобранные лайты — по одному на лайт, от наименее
+   продвинутых.
+   ===================================================================== */
+function unitAssert(ok,message){if(!ok)throw new Error(message);}
+function unitCancelled(l){return Number.isSafeInteger(l&&l.cancelledUnits)&&l.cancelledUnits>0?l.cancelledUnits:0;}
+function unitHeldSet(l){const s=new Set();(l&&l.heldUnits||[]).forEach(h=>(h.pieces||[]).forEach(p=>s.add(p)));return s;}
+function unitCancelledSet(o){const s=new Set();(o&&o.cancellations||[]).forEach(c=>(c.units||[]).forEach(u=>(u.pieces||[]).forEach(p=>s.add(p))));return s;}
+/* Стекло на станции: на Hold (возвращает запись) / отменено. */
+function unitPieceHold(g){return g&&g.l&&(g.l.heldUnits||[]).find(h=>h.pieces.includes(g.id))||null;}
+function unitPieceCancelled(g){return !!g&&!!g.o&&(g.o.cancellations||[]).some(c=>c.units.some(u=>u.pieces.includes(g.id)));}
+function unitHeatStations(){return [salesRouteStationOf('tempering','HEAT'),salesRouteStationOf('heat_strengthening','HEAT')];}
+const UNIT_STAGES=['uncut','cut','tempered','assembled'];
+const UNIT_STAGE_LABEL={uncut:'Not cut',cut:'Cut',tempered:'Tempered',assembled:'Assembled'};
+/* Юниты строки, которые ещё можно остановить или отменить: не отгружены, не в
+   PS, не отменены. Порядок — решение 15. */
+function unitList(o,l){
+ const comps=glassBatchComponents(o,l).filter(c=>!c.missing),map=glassPieceMap(o.id),index=stationPieceIndex(),batches=stationBatchIndex(),heat=unitHeatStations();
+ const gone=unitCancelledSet(o),onPs=new Set((DB.shipment||[]).filter(shippingActive).flatMap(s=>s.items).filter(i=>i.orderId===o.id&&i.lineId===l.id).flatMap(i=>i.pieces));
+ const far=new Map(),live=id=>{
+  if(!id||gone.has(id)||onPs.has(id))return false;const g=stationGlass(id,index,batches);if(!g)return false;
+  const p=stationPlace(g);if(p.broken||p.shipped)return false;far.set(id,p.far);return true;
+ };
+ const mu=stationUnitMerge(o,l),units=[],used=new Set();
+ if(mu)stationAsms(o,l,mu,index).filter(a=>a.complete&&!a.broken).forEach(a=>{const pieces=[...a.lites.values()];pieces.forEach(p=>used.add(p));if(pieces.every(live))units.push({pieces,assembled:true});});
+ const pools=comps.map(c=>{const rec=map.get(c.key),ids=rec?rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean):[];return ids.filter(id=>!used.has(id)&&live(id)).sort((a,b)=>far.get(a)-far.get(b)||a.localeCompare(b));});
+ for(let k=0,n=Math.max(0,...pools.map(p=>p.length));k<n;k++){const pieces=pools.map(p=>p[k]).filter(Boolean);if(pieces.length)units.push({pieces,assembled:false});}
+ units.forEach(u=>{
+  const st=u.pieces.map(p=>{const sc=stationScansFor(p);return {n:sc.length,t:sc.some(s=>heat.includes(s.station))};});
+  u.stage=u.assembled?'assembled':st.some(x=>x.t)?'tempered':st.some(x=>x.n)?'cut':'uncut';u.work=st.reduce((n,x)=>n+x.n,0);
+ });
+ return units.sort((a,b)=>UNIT_STAGES.indexOf(a.stage)-UNIT_STAGES.indexOf(b.stage)||a.work-b.work||a.pieces[0].localeCompare(b.pieces[0]));
+}
+/* Станция работы строки по ключу её начисления. Пусто — неизвестна: такую
+   работу считаем только у закалённого или собранного стекла (в пользу клиента). */
+function unitRowStation(row){
+ const p=String(row&&row.key||'').split(':');
+ if(p[0]==='EDGE')return salesRouteStationOf(p[1]==='bevel'?'bevel:'+p[2]:p[1],'');
+ if(p[0]==='MI')return p[1]==='hole'?salesRouteStationOf('hole:'+p[2],''):salesRouteStationOf(p[1],salesRouteStationOf('hinge',''));
+ if(p[0]==='FEATURE'){const k=String(p[1]||'');return k==='radius'?salesRouteStationOf('radiusCorner',''):k==='cutout'?salesRouteStationOf('cutout',''):k==='notch-cnc'?salesRouteStationOf('notchCnc',''):k==='notch-hand'?salesRouteStationOf('notchHand',''):k.indexOf('sandblast')===0?salesRouteStationOf('sandblasting',''):'';}
+ if(p[0]==='HEATSOAK')return salesRouteStationOf('heat_soak','');
+ return '';
+}
+/* Сколько стоит отменить юнит: работа по сканам до at. charge null — цена
+   строки неполная, сумму вводит продавец. */
+function unitCharge(o,l,u,at){return finWithOrder(o,()=>{
+ const p=salesLineCommercialPrice(l,o),heat=unitHeatStations(),index=stationPieceIndex(),comps=glassBatchComponents(o,l).filter(c=>!c.missing);
+ const seen=u.pieces.map(id=>{const all=stationScansFor(id),before=all.filter(s=>!at||s.at<=at);return {id,c:comps.find(c=>c.key===(index.get(id)||{}).key)||null,scans:before,after:all.length>before.length,tempered:before.some(s=>heat.includes(s.station))};});
+ const after=seen.some(x=>x.after),mu=stationUnitMerge(o,l),joined=!!mu&&seen.length>0&&seen.every(x=>x.scans.some(s=>s.station===mu&&s.unit));
+ const stage=joined?'assembled':seen.some(x=>x.tempered)?'tempered':seen.some(x=>x.scans.length)?'cut':'uncut';
+ if(stage==='uncut')return {stage,after,charge:0,glass:0,works:0};
+ if(!p.complete)return {stage,after,charge:null,glass:null,works:null};
+ if(joined)return {stage,after,charge:p.unit,glass:null,works:null};
+ /* Стекло: порезано — цена отожжённого, прошло печь — цена закалённого. */
+ const area=p.areas.billable,money=v=>v==null?null:+v,lam=salesRouteStationOf('lamination','LAM'),glued=new Set();let glass=0,known=true;
+ seen.forEach(x=>{
+  if(!x.c||!x.scans.length)return;const spec=x.c.spec||{},g=glassProductById(spec.glassProductId);
+  /* Плиты уже склеены — лайт идёт целиком, с плёнкой. */
+  if(x.c.ply){const plies=seen.filter(y=>y.c&&y.c.paneId===x.c.paneId);
+   if(plies.length>1&&plies.every(y=>y.scans.some(s=>s.station===lam&&s.joined))){if(glued.has(x.c.paneId))return;glued.add(x.c.paneId);const v=x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane);if(v==null)known=false;else glass+=v*area;return;}}
+  const full=x.c.ply?salesPlyPrice(spec):(x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane));
+  /* Цену продавца не превышаем: отожжённое по прайсу — не дороже цены лайта в заказе. */
+  const rate=x.tempered||full==null?money(full):money(g&&g.salePriceAnnealed!=null?Math.min(g.salePriceAnnealed,full):full);
+  if(rate==null)known=false;else glass+=rate*area;
+ });
+ if(!known)return {stage,after,charge:null,glass:null,works:null};
+ /* Работы строки — доля стёкол юнита, прошедших станцию этой работы до at. */
+ let works=0;const allTempered=seen.every(x=>x.tempered);
+ salesLineChargeRows(l).forEach(row=>{
+  const rate=salesChargePricingState(l,row).effectiveRate;if(rate==null)return;
+  const station=unitRowStation(row),share=station?seen.filter(x=>x.scans.some(s=>s.station===station)).length/seen.length:allTempered?1:0;
+  works+=row.basis*rate*share;
+ });
+ const rules=salesMetricRules(o),base=salesMoney(glass+works);let running=base;
+ p.adjustments.forEach(a=>{running=salesMoney(running+salesMoney((rules.combination==='compound'?running:base)*a.percent/100));});
+ return {stage,after,charge:running,glass:salesMoney(glass),works:salesMoney(works)};
+});}
+function unitLine(orderId,lineId){
+ const o=salesRecord(orderId),l=o&&(o.lines||[]).find(x=>x.id===lineId);
+ unitAssert(o&&l&&!salesIsQuote(o)&&!['closed','cancelled'].includes(o.status),'This order cannot change.');return {o,l};
+}
+function unitLineNo(o,l){return 'line '+(o.lines.indexOf(l)+1);}
+function unitHoldable(o,l){const held=unitHeldSet(l);return unitList(o,l).filter(u=>!u.pieces.some(p=>held.has(p)));}
+function unitHold(orderId,lineId,count,reason){return storageCommand(()=>{
+ const {o,l}=unitLine(orderId,lineId),n=Math.floor(+count),why=String(reason||'').trim().slice(0,200);
+ unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason for the hold.');
+ const free=unitHoldable(o,l);unitAssert(n<=free.length,free.length?'Only '+shippingCount(free.length,'unit')+' can be held.':'No units left to hold.');
+ const now=new Date().toISOString();l.heldUnits=(l.heldUnits||[]).concat(free.slice(0,n).map(u=>({id:salesUid('HU'),pieces:u.pieces.slice(),at:now,reason:why})));
+ o.updatedAt=now;orderLogPush(o,'Units on hold',unitLineNo(o,l)+' · '+shippingCount(n,'unit')+' · '+why);shippingSyncOrder(o,now);salesSyncRecordLifecycle(o);return l;
+});}
+function unitRelease(orderId,lineId){return storageCommand(()=>{
+ const {o,l}=unitLine(orderId,lineId),n=(l.heldUnits||[]).length;unitAssert(n,'No units on hold.');
+ const now=new Date().toISOString();delete l.heldUnits;o.updatedAt=now;orderLogPush(o,'Hold released',unitLineNo(o,l)+' · '+shippingCount(n,'unit'));shippingSyncOrder(o,now);salesSyncRecordLifecycle(o);return l;
+});}
+/* Что будет отменено: сначала юниты на Hold (цена — по их времени Hold),
+   потом остальные по порядку выбора (цена — на сейчас). */
+function unitCancelPlan(o,l,count,now){
+ const held=(l.heldUnits||[]).map(h=>({pieces:h.pieces.slice(),heldAt:h.at})),rest=unitHoldable(o,l).map(u=>({pieces:u.pieces,heldAt:''}));
+ const all=held.concat(rest);
+ return {max:all.length,units:all.slice(0,Math.max(0,Math.floor(+count)||0)).map(u=>Object.assign(u,unitCharge(o,l,u,u.heldAt||now)))};
+}
+const UNIT_GLASS=['scrap','customer','stock'];
+function unitChargeOf(c){return c.chargeOverride!=null?c.chargeOverride:c.charge;}
+/* opts: glass — что делать со стеклом порезанных юнитов; chargeOverride —
+   сумма продавца (обязательна, когда цена строки неполная). */
+function unitCancel(orderId,lineId,count,reason,opts){return storageCommand(()=>{
+ opts=opts||{};const {o,l}=unitLine(orderId,lineId),n=Math.floor(+count),why=String(reason||'').trim().slice(0,200),now=new Date().toISOString();
+ unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason.');
+ const plan=unitCancelPlan(o,l,n,now);unitAssert(n<=plan.max,plan.max?'Only '+shippingCount(plan.max,'unit')+' can be cancelled.':'No units left to cancel.');
+ const glass=UNIT_GLASS.includes(opts.glass)?opts.glass:'scrap',heat=unitHeatStations();
+ unitAssert(glass!=='stock'||!plan.units.some(u=>u.pieces.some(p=>stationScansFor(p).some(s=>heat.includes(s.station)))),'Tempered glass cannot go to stock.');
+ const override=opts.chargeOverride===''||opts.chargeOverride==null?null:salesNonNegOrNull(opts.chargeOverride);
+ unitAssert(opts.chargeOverride===''||opts.chargeOverride==null||override!=null,'Check the charge.');
+ const known=plan.units.every(u=>u.charge!=null),charge=known?salesMoney(plan.units.reduce((s,u)=>s+u.charge,0)):null;
+ unitAssert(charge!=null||override!=null,'Pricing is not complete. Enter the charge.');
+ const pieces=new Set(plan.units.flatMap(u=>u.pieces)),who=orderLogActor();
+ const rec={id:salesUid('CU'),at:now,by:who.by||'',lineId:l.id,reason:why,units:plan.units.map(u=>({pieces:u.pieces.slice(),stage:u.stage,heldAt:u.heldAt||'',charge:u.charge,glass:u.stage==='uncut'?'':glass})),charge,chargeOverride:override};
+ /* Порезанное в сток: размер реза и стекло каждого лайта. */
+ if(glass==='stock'){const index=stationPieceIndex(),comps=glassBatchComponents(o,l);rec.units.forEach(u=>{if(!u.glass)return;u.pieces.forEach(id=>{
+  if(!stationScansFor(id).length)return;const h=index.get(id),c=h&&comps.find(x=>x.key===h.key);if(!c||c.missing)return;
+  let d=null;try{d=finWithOrder(o,()=>stkGlassData('production',o,l,c,h.unit,{}));}catch(e){d=null;}const size=d&&(d.cut||d.finished);
+  if(size)stockOffcutAdd({glass:c.glass,mm:+(c.spec&&c.spec.thicknessMm)||0,w:size.w,h:size.h,at:now});
+ });});}
+ o.cancellations=(o.cancellations||[]).concat(rec);l.cancelledUnits=unitCancelled(l)+rec.units.length;
+ const held=(l.heldUnits||[]).filter(h=>!h.pieces.some(p=>pieces.has(p)));if(held.length)l.heldUnits=held;else delete l.heldUnits;
+ glassBatchCancelPieces([...pieces],now);
+ o.updatedAt=now;orderLogPush(o,'Units cancelled',unitLineNo(o,l)+' · '+shippingCount(rec.units.length,'unit')+' · '+why);
+ shippingSyncOrder(o,now);salesSyncRecordLifecycle(o);return rec;
+});}
+function unitSetCharge(orderId,cancelId,value){return storageCommand(()=>{
+ const o=salesRecord(orderId),c=o&&(o.cancellations||[]).find(x=>x.id===cancelId);unitAssert(o&&c&&!['closed','cancelled'].includes(o.status),'This order cannot change.');
+ const v=value===''||value==null?null:salesNonNegOrNull(value);unitAssert(value===''||value==null||v!=null,'Check the charge.');unitAssert(v!=null||c.charge!=null,'Pricing is not complete. Enter the charge.');
+ c.chargeOverride=v;o.updatedAt=new Date().toISOString();orderLogPush(o,'Cancellation charge',finFmt(unitChargeOf(c)));salesSyncRecordLifecycle(o);return c;
+});}
+/* Стекло, которое клиент забирает: ждёт следующего PS этого заказа. */
+function unitTakes(o){
+ return (o&&o.cancellations||[]).flatMap(c=>{const n=c.units.filter(u=>u.glass==='customer'&&!u.takenPs).reduce((s,u)=>s+u.pieces.length,0),l=(o.lines||[]).find(x=>x.id===c.lineId);return n&&l?[{c,l,line:o.lines.indexOf(l)+1,pieces:n}]:[];});
+}
+function unitTakesShipped(o,psId){(o&&o.cancellations||[]).forEach(c=>c.units.forEach(u=>{if(u.glass==='customer'&&!u.takenPs)u.takenPs=psId;}));}
+function unitTakesRolledBack(psId){(DB.salesOrder||[]).forEach(o=>(o.cancellations||[]).forEach(c=>c.units.forEach(u=>{if(u.takenPs===psId)delete u.takenPs;})));}
+function normalizeUnitFields(line,src){
+ const ids=v=>Array.isArray(v)?v.filter(glassPieceValid):[],iso=v=>typeof v==='string'&&!isNaN(Date.parse(v));
+ const held=(Array.isArray(src.heldUnits)?src.heldUnits:[]).filter(h=>h&&typeof h==='object'&&ids(h.pieces).length&&iso(h.at)).map(h=>({id:salesEntityId(h.id,'HU'),pieces:ids(h.pieces),at:h.at,reason:salesString(h.reason).slice(0,200)}));
+ if(held.length)line.heldUnits=held;
+ if(Number.isSafeInteger(src.cancelledUnits)&&src.cancelledUnits>0)line.cancelledUnits=Math.min(src.cancelledUnits,line.qty);
+ return line;
+}
+function normalizeCancellations(list,lines){
+ const ids=v=>Array.isArray(v)?v.filter(glassPieceValid):[],iso=v=>typeof v==='string'&&!isNaN(Date.parse(v)),money=v=>v==null?null:salesNonNegOrNull(v);
+ return (Array.isArray(list)?list:[]).filter(c=>c&&typeof c==='object'&&iso(c.at)&&lines.some(l=>l.id===c.lineId)&&Array.isArray(c.units)&&c.units.length).map(c=>({id:salesEntityId(c.id,'CU'),at:c.at,by:salesString(c.by).slice(0,80),lineId:c.lineId,reason:salesString(c.reason).slice(0,200),
+  units:c.units.filter(u=>u&&typeof u==='object').map(u=>Object.assign({pieces:ids(u.pieces),stage:UNIT_STAGES.includes(u.stage)?u.stage:'uncut',heldAt:iso(u.heldAt)?u.heldAt:'',charge:money(u.charge),glass:UNIT_GLASS.includes(u.glass)?u.glass:''},salesRefId(u.takenPs)?{takenPs:u.takenPs}:{})),
+  charge:money(c.charge),chargeOverride:money(c.chargeOverride)}));
+}
 
 /* ==== src/erp/production/glass-batches.js ==== */
 /* Номера стёкол и реестр резки.
@@ -25279,12 +25521,20 @@ function glassLookup(code){
  return null;
 }
 function glassBatchTaken(active,key,qty){let n=0;for(let u=1;u<=qty;u++)if(active.has(key+'|'+u))n++;return n;}
-function glassBatchRemaining(o,l,active){
+/* Слоты отменённых юнитов (erp/sales/unit-cancel): в очередь батча они не
+   возвращаются, хотя с батча сняты. */
+function glassCancelledSlots(o){
+ const out=new Set(),gone=unitCancelledSet(o);if(!gone.size)return out;
+ (DB.glassPiece||[]).forEach(r=>{if(!r.key.startsWith(o.id+'|'))return;r.ids.forEach((id,i)=>{if(gone.has(id))out.add(r.key+'|'+(i+1));});Object.keys(r.extra||{}).forEach(ref=>r.extra[ref].forEach((id,k)=>{if(gone.has(id))out.add(r.key+'|'+ref+'.'+(k+1));}));});
+ return out;
+}
+function glassBatchRemaining(o,l,active,cancelled){
  const cs=glassBatchComponents(o,l),recut=glassRecutSlots(o.id,l.id);
- active=active||glassBatchActive(o.id);
- const pending=recut.filter(x=>!active.has(x.key+'|'+x.unit)).length;
+ active=active||glassBatchActive(o.id);cancelled=cancelled||glassCancelledSlots(o);
+ const pending=recut.filter(x=>!active.has(x.key+'|'+x.unit)&&!cancelled.has(x.key+'|'+x.unit)).length;
  if(!l.batchManaged)return (salesLineLocked(l)?0:l.qty*cs.length)+pending;
- return cs.reduce((n,c)=>n+l.qty-glassBatchTaken(active,c.key,l.qty),0)+pending;
+ const off=c=>{let n=0;for(let u=1;u<=l.qty;u++)if(cancelled.has(c.key+'|'+u)&&!active.has(c.key+'|'+u))n++;return n;};
+ return cs.reduce((n,c)=>n+l.qty-glassBatchTaken(active,c.key,l.qty)-off(c),0)+pending;
 }
 function glassBatchProgress(o){
  const active=glassBatchActive(o.id);let total=0,left=0;
@@ -25337,9 +25587,9 @@ function glassBatchRows(orders){
  /* Заказ New в очередь не попадает, кроме его Recut: стекло из стока режут без
     Verify, и сломанное стекло должно уйти в батч сразу. */
  (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&(GLASS_WAITING_STATUSES.includes(o.status)||o.status==='new'&&glassRecutSlots(o.id).length)).forEach(o=>finWithOrder(o,()=>{
-  const regular=GLASS_WAITING_STATUSES.includes(o.status),active=glassBatchActive(o.id),pieces=glassPieceMap(o.id),customer=salesCustomerDisplay(o.customerId),hasCustomer=!!salesFindCustomer(o.customerId);
+  const regular=GLASS_WAITING_STATUSES.includes(o.status),active=glassBatchActive(o.id),pieces=glassPieceMap(o.id),customer=salesCustomerDisplay(o.customerId),hasCustomer=!!salesFindCustomer(o.customerId),cancelled=glassCancelledSlots(o);
   (o.lines||[]).forEach((l,li)=>{
-   if(!glassBatchRemaining(o,l,active))return;
+   if(!glassBatchRemaining(o,l,active,cancelled))return;
    let plan;try{plan=salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){plan={valid:false,reason:'Check cutting geometry'};}
    glassBatchComponents(o,l).forEach(c=>{
     const cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index),own=c.missing?null:salesLineShapeForLite(l,c.index),rec=pieces.get(c.key);
@@ -25348,11 +25598,11 @@ function glassBatchRows(orders){
     const base={o,l,line:li+1,of:l.qty,cut,shape:own,shapeLabel:own&&!salesShapeIsLineRect(own)?'Shape':'Rect',width:cut?cut.cutW:null,height:cut?cut.cutH:null,
      heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.missing?'':(salesCoatingSurfaceOf(c.pane,c.index,c.ply)||''),customer};
     for(let unit=1;regular&&unit<=l.qty;unit++){
-     if(active.has(c.key+'|'+unit))continue;
+     if(active.has(c.key+'|'+unit)||cancelled.has(c.key+'|'+unit))continue;
      const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';
      rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,reason:hold||(piece?'':'Glass ID missing')}));
     }
-    glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)).forEach(x=>{
+    glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)&&!cancelled.has(x.key+'|'+x.unit)).forEach(x=>{
      const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'';
      rows.push(Object.assign({},c,base,{slot:x.key+'|'+x.unit,unit:x.unit,k:x.k,of:x.of,recut:x.ref,recutLabel:x.label,piece,reason:hold||(piece?'':'Glass ID missing')}));
     });
@@ -25432,6 +25682,19 @@ function glassBatchReleaseCommand(entries,opts){
   o.status='new';o.statusDates={new:now};o.fulfilledVia='';o.updatedAt=now;salesSyncRecordLifecycle(o);
  });
  if(!opts.deferTouch)touch();return true;
+}
+/* Отмена юнитов: непорезанные стёкла снимаются с батча по одному, заказ в New
+   не возвращается (в отличие от Unbatch) — остальная позиция идёт в работу.
+   Порезанное с листа не трогаем: его просто откладывают. */
+function glassBatchCancelPieces(pieceIds,now){
+ const ids=new Set(pieceIds),touched=new Set();
+ (DB.glassBatch||[]).forEach(b=>{
+  const off=b.items.filter(i=>ids.has(i.piece)&&!i.releasedAt&&!i.cutStartedAt);if(!off.length)return;
+  off.forEach(i=>{i.releasedAt=now;const part=b.parts[i.part];if(part)touched.add(part.orderId+'|'+part.lineId);});
+  b.history.push({at:now,action:'Cancelled',pieces:off.map(i=>i.piece),qty:off.length});
+ });
+ touched.forEach(k=>{const [oid,lid]=k.split('|'),o=salesRecord(oid),l=o&&o.lines.find(x=>x.id===lid);if(o&&l)glassBatchSyncLine(o,l);});
+ return touched.size;
 }
 /* Перенос стёкол в новый батч. Последний лист с большим пустым местом бывает
    выгоднее не резать — его стёкла уходят в новый батч; решает человек, «есть
@@ -30076,6 +30339,8 @@ function stationCheck(station,raw){
  const scans=stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station&&!s.park).pop()||null;
  const base={code,g,scans,place,here,stock:!g.entry,priority:g.o.priority||'normal',due:g.o.dueDate||''};
  if(g.o.status==='cancelled')return Object.assign(base,{kind:'cancelled'});
+ /* Отменённый юнит (erp/sales/unit-cancel): стекло откладывают. */
+ if(unitPieceCancelled(g))return Object.assign(base,{kind:'cancelled',unit:true});
  if(place.broken)return Object.assign(base,{kind:'broken'});
  /* Следующий заход на эту станцию — ближайший впереди по маршруту. */
  const w=place.waiting?place.far+1:-1,i=w>=0?place.route.indexOf(station,w):-1;
@@ -30083,7 +30348,8 @@ function stationCheck(station,raw){
  if(i<0||place.assembling&&i===w)return Object.assign(base,{kind:here?'already':'passed'});
  if(i>w)return Object.assign(base,{kind:'skipped',missed:place.route.slice(w,i)});
  base.mates=stationMatesAt(g,station).map(x=>x.id);
- if(g.o.onHold||g.l.onHold)return Object.assign(base,{kind:'hold',reason:(g.o.onHold?g.o.holdReason:g.l.holdReason)||''});
+ const held=unitPieceHold(g);
+ if(g.o.onHold||g.l.onHold||held)return Object.assign(base,{kind:'hold',reason:(g.o.onHold?g.o.holdReason:g.l.onHold?g.l.holdReason:held.reason)||'',unit:!g.o.onHold&&!g.l.onHold});
  return Object.assign(base,{kind:'ok'});
 }
 /* who: {id, name} — рабочий, вошедший на станцию. */
@@ -30167,7 +30433,7 @@ function stationWaiting(){
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!byPiece.has(s.piece))byPiece.set(s.piece,[]);byPiece.get(s.piece).push(s);});
  const ids=new Set([...batches.keys(),...byPiece.keys()]),out=new Map();
  ids.forEach(id=>{
-  const g=stationGlass(id,index,batches);if(!g||g.o.status==='cancelled')return;
+  const g=stationGlass(id,index,batches);if(!g||g.o.status==='cancelled'||unitPieceCancelled(g))return;
   const scans=byPiece.get(id)||[],place=stationPlace(g,scans);if(place.broken||place.shipped||!place.waiting)return;
   const last=scans.slice().sort((a,b)=>String(a.at).localeCompare(String(b.at))).pop()||null;
   if(!out.has(place.waiting))out.set(place.waiting,[]);
@@ -30555,7 +30821,7 @@ function carrierContents(){
  const index=stationPieceIndex(),batches=stationBatchIndex();
  last.forEach((s,piece)=>{
   if(!s.on||s.broken)return;
-  const g=stationGlass(piece,index,batches);if(!g)return;
+  const g=stationGlass(piece,index,batches);if(!g||unitPieceCancelled(g))return;
   const place=stationPlace(g,scans.get(piece));if(place.broken||place.shipped)return;
   if(!out.has(s.on))out.set(s.on,[]);
   out.get(s.on).push({id:piece,g,place,scan:s});
@@ -33226,13 +33492,13 @@ function stationCard(){
  const waitName=place&&place.waiting?stationName(place.waiting):'';
  const K={
   ok:{cls:c.stock?'st-info':'st-ok',head:'✓ '+verb+(c.stock?' · no batch — stock cut':'')},
-  hold:{cls:'st-red',head:'✓ '+verb+' · order on hold'},
+  hold:{cls:'st-red',head:'✓ '+verb+(c.unit?' · unit on hold':' · order on hold')},
   already:{cls:'st-amber',head:'Already '+(verb==='Cut'?'cut':'done')+' · '+who},
   passed:{cls:'st-red',head:'✕ Not for '+stationCode},
   skipped:{cls:'st-amber',head:(c.missed||[]).join(', ')+' not scanned'},
   skippedNo:{cls:'st-red',head:'✕ '+(c.missed||[]).join(', ')+' not done'},
   route:{cls:'st-red',head:'✕ '+stationCode+' is not in its route'},
-  cancelled:{cls:'st-red',head:'✕ Order cancelled'},
+  cancelled:{cls:'st-red',head:c.unit?'✕ Unit cancelled':'✕ Order cancelled'},
   unit:{cls:'st-red',head:'✕ Unit number'},
   saveError:{cls:'st-red',head:'Not saved — scan again'},
   unknown:{cls:'st-red',head:'✕ Unknown code'},
@@ -33243,10 +33509,10 @@ function stationCard(){
  if(c.kind==='ok'&&urg===2||L.foreign)K.cls='st-red';
  /* Большой блок слева — главное действие рабочего. */
  let big;
- if(c.kind==='hold')big='<div class="st-big st-red"><small>ON HOLD</small><b>SET ASIDE</b><span>'+esc(c.reason||'Order on hold')+'</span></div>';
+ if(c.kind==='hold')big='<div class="st-big st-red"><small>'+(c.unit?'HOLD':'ON HOLD')+'</small><b>SET ASIDE</b><span>'+esc(c.reason||'Order on hold')+'</span></div>';
  else if(c.kind==='skipped')big='<div class="st-big st-ask"><small>CHECK THE GLASS</small><b>'+esc(stationAskWord(c.missed))+'</b><span>'+esc((c.missed||[]).join(', ')+' not scanned')+'</span></div>';
  else if(['passed','skippedNo','route'].includes(c.kind))big='<div class="st-big st-red"><small>WAITING AT</small><b>'+esc(place&&place.waiting||'—')+'</b><span>'+(place&&place.waiting?'Take it to '+esc(place.waiting):'Shipped')+'</span></div>';
- else if(c.kind==='cancelled')big='<div class="st-big st-red"><small>ORDER</small><b>STOP</b><span>Cancelled — set aside</span></div>';
+ else if(c.kind==='cancelled')big='<div class="st-big st-red"><small>'+(c.unit?'UNIT':'ORDER')+'</small><b>STOP</b><span>Cancelled — set aside</span></div>';
  else if(c.kind==='unit')big='<div class="st-big st-red"><small>UNIT</small><b>'+esc(c.code)+'</b><span>Scan the glass sticker</span></div>';
  else if(c.kind==='recut')big='<div class="st-big st-red"><small>'+(c.whole?'NEW UNIT':'NEW GLASS')+'</small><b class="st-big-code">'+esc((c.newIds||[]).join(', ')||'—')+'</b><span>'+(c.whole?'All its glass — next batch':'Waits for the next batch')+'</span></div>';
  else if(place&&place.assembling&&['ok','hold','already','peek'].includes(c.kind))big='<div class="st-big"><small>UNIT</small><b>IN</b><span>Waiting for its pair</span></div>';
@@ -34535,7 +34801,7 @@ function shippingLegacy(o){return !!o&&['done','closed'].includes(o.status)&&!sh
 function shippingStations(){const a=(DB.station||[]).filter(s=>s.always).sort((a,b)=>a.seq-b.seq);return {ready:a.length>1?a[a.length-2].code:'',ship:a.length>1?a[a.length-1].code:''};}
 function shippingKey(i){return [i.orderId,i.lineId,i.unit].join('|');}
 function shippingCount(n,word){return n+' '+word+(n===1?'':'s');}
-function shippingLineQty(l){return Math.max(0,Number(l.qty)||0);}
+function shippingLineQty(l){return Math.max(0,(Number(l.qty)||0)-unitCancelled(l));}
 function shippingAddress(a){const out={};SHIPPING_ADDRESS_FIELDS.forEach(k=>out[k]=String(a&&a[k]||'').trim().slice(0,300));return out;}
 function shippingDefaultAddress(c){
  const a=(c&&c.addresses||[]).filter(a=>a.type==='delivery'),contact=(c&&c.contacts||[]).find(x=>x.isShipping)||(c&&c.contacts||[]).find(x=>x.isPrimary);
@@ -34567,8 +34833,9 @@ function shippingWithCtx(fn){if(shippingCtxNow)return fn();shippingCtxNow=shippi
 function shippingUnits(o){
  if(!o||salesIsQuote(o)||['closed','cancelled'].includes(o.status)||shippingLegacy(o))return [];
  const ctx=shippingCtx(),index=ctx.index,batches=ctx.batches,stations=shippingStations(),out=[],scansOf=id=>ctx.scans.get(id)||[];
- const reserved=shippingForOrder(o.id).filter(shippingActive).flatMap(s=>s.items.map(i=>Object.assign({shipment:s},i)));
+ const reserved=shippingForOrder(o.id).filter(shippingActive).flatMap(s=>s.items.map(i=>Object.assign({shipment:s},i))),gone=unitCancelledSet(o);
  (o.lines||[]).forEach(l=>{
+  const held=unitHeldSet(l);
   const fixed=reserved.filter(i=>i.lineId===l.id),taken=new Set(fixed.map(i=>i.unit)),labels=new Set(fixed.map(i=>i.label)),candidates=[];
   const mu=stationUnitMerge(o,l),keys=stationLineKeys(o,l);
   if(mu){stationAsms(o,l,mu,index,{scans:ctx.asm.get(o.id+'|'+l.id)||[],broken:ctx.broken}).filter(a=>a.complete&&!a.broken&&a.unit>0&&a.unit<=l.qty).forEach(a=>{
@@ -34581,7 +34848,7 @@ function shippingUnits(o){
   }
   const inspect=i=>{
    const gs=i.pieces.map(id=>stationGlass(id,index,batches)),places=gs.map(g=>g&&stationPlace(g,scansOf(g.id)));
-   const ready=!!stations.ship&&gs.length>0&&places.every(p=>p&&!p.broken&&!p.assembling&&p.waiting===stations.ship)&&!o.onHold&&!l.onHold;
+   const ready=!!stations.ship&&gs.length>0&&places.every(p=>p&&!p.broken&&!p.assembling&&p.waiting===stations.ship)&&!o.onHold&&!l.onHold&&!i.pieces.some(p=>held.has(p));
    const ons=gs.map(g=>{const scans=g&&scansOf(g.id);return scans&&scans.length?scans[scans.length-1].on||'':'';});
    const on=ons.length&&ons.every(x=>x===ons[0])?ons[0]:'';
    /* Погружен: все стёкла прошли станцию отгрузки (скан погрузки, PR 2). */
@@ -34589,7 +34856,7 @@ function shippingUnits(o){
    return Object.assign({orderId:o.id,lineId:l.id},i,{ready,loaded,on,skid:/^S[LA]-/.test(on)?on:'',broken:places.some(p=>!p||p.broken)});
   };
   fixed.forEach(i=>out.push(inspect(i)));
-  const live=candidates.map(inspect).filter(i=>!labels.has(i.label)&&!i.broken);
+  const live=candidates.filter(i=>!i.pieces.some(p=>gone.has(p))).map(inspect).filter(i=>!labels.has(i.label)&&!i.broken);
   live.sort((a,b)=>Number(b.ready)-Number(a.ready)||Number(!a.unit)-Number(!b.unit)||a.unit-b.unit||a.label.localeCompare(b.label));
   live.forEach(i=>{
    let n=i.unit;
@@ -34767,6 +35034,8 @@ function shippingMarkShipped(id,mode){return storageCommand(()=>{
   shippingAssert(rec,'Dispatch was not recorded.');scanIds.push(rec.id);
  }));
  s.scanIds=scanIds;s.status='shipped';s.shippedAt=now;s.shippedBy=shippingActor();
+ /* Стекло отменённых юнитов, которое клиент забирает, уехало с этим PS. */
+ shippingOrderIds(s).forEach(oid=>unitTakesShipped(salesRecord(oid),s.id));
  shippingSyncOrders(before.concat(shippingOrderIds(s)),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
 });}
 function shippingMarkDelivered(id,receivedBy,receivedOn){return storageCommand(()=>{
@@ -34786,7 +35055,7 @@ function shippingRevert(id,action){return storageCommand(()=>{
  }else{
   shippingAssert(action==='dispatch'&&s.status==='shipped','Undo receipt before undoing dispatch.');
   (s.scanIds||[]).slice().reverse().forEach(scanId=>{const out=stationUndo(scanId,{name:shippingActor()},{deferTouch:true,shippingRollback:true});shippingAssert(out&&!out.error,out&&out.error||'Dispatch cannot be undone.');});
-  s.status='planned';s.shippedAt='';s.shippedBy='';s.scanIds=[];delete s.document;delete s.skidsOut;
+  s.status='planned';s.shippedAt='';s.shippedBy='';s.scanIds=[];delete s.document;delete s.skidsOut;unitTakesRolledBack(s.id);
  }
  shippingSyncOrders(ids,null,{reopen:true});ids.forEach(oid=>orderLogPush(salesRecord(oid),action==='cancel'?'Packing slip cancelled':'Packing slip rolled back',s.number+' · '+action));return s;
 });}
@@ -35126,7 +35395,9 @@ function shippingDocument(s){
    return {extraId:x.id,name:salesExtraItemName(x),ordered:x.qty,before,now:qty,back:Math.max(0,x.qty-before-qty)};
   });
   const now=rows.concat(extras).reduce((n,r)=>n+r.now,0),left=Math.max(0,q.back-now);
-  return {id,number:o.businessNumber,po:o.customerPo||'',state:left===0?'complete':q.shipped?'back order':'partial',rows,extras};
+  /* Стекло отменённых юнитов, которое клиент забирает, — строкой на этом PS. */
+  const takes=unitTakes(o).map(x=>({line:x.line,size:docSize(x.l),pieces:x.pieces}));
+  return {id,number:o.businessNumber,po:o.customerPo||'',state:left===0?'complete':q.shipped?'back order':'partial',rows,extras,takes};
  });
  const skids=[...new Set(s.items.map(i=>i.skid).filter(Boolean))].map(code=>{
   const rows=[];orders.forEach(o=>o.rows.forEach(r=>{const qty=s.items.filter(i=>i.orderId===o.id&&i.lineId===r.lineId&&i.skid===code).length;if(qty)rows.push({order:o.number,po:o.po,...r,now:qty});}));
@@ -35160,7 +35431,8 @@ function shippingPages(d,skidOnly){
   header('PACKING SLIP');
   d.orders.forEach(o=>{
    ensure(75);activeOrder='Order '+o.number+(o.po?' · PO '+o.po:'')+' · '+o.state;line(activeOrder,{size:11,bold:true});tableHead();o.rows.forEach(row);
-   o.extras.forEach(x=>{ensure(40);line('From stock · '+x.name,{bold:true});line('Ordered '+x.ordered+' · Before '+x.before+' · Now '+x.now+' · Back order '+x.back,{color:x.back?DOC_COLOR.due:DOC_COLOR.ink});});y+=12;
+   o.extras.forEach(x=>{ensure(40);line('From stock · '+x.name,{bold:true});line('Ordered '+x.ordered+' · Before '+x.before+' · Now '+x.now+' · Back order '+x.back,{color:x.back?DOC_COLOR.due:DOC_COLOR.ink});});
+   (o.takes||[]).forEach(x=>{ensure(25);line('Cancelled, customer takes · Line '+x.line+' · '+x.size+' · '+x.pieces+' glass',{bold:true});});y+=12;
   });
   if(!d.orders.length)line('Open trip · no items selected');
   ensure(130);d.skids.forEach(s=>line(s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg'));
