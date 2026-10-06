@@ -2092,6 +2092,7 @@ button.recut-btn{border-color:var(--warning);color:var(--warning)}
 /* Стекло, которого в батче больше нет (отмена, Hold units): раскрой устарел. */
 .cut-svg g.cut-pc.gone .cut-glass{fill:var(--danger-soft);stroke:var(--danger);stroke-width:2.4;stroke-dasharray:6 4}
 .ncr-warning.cut-stale-stop{background:var(--danger-soft);border-color:var(--danger-line);color:var(--danger);font-weight:600}
+.cut-print-stale{color:var(--danger);font-weight:700}
 .cut-glass[data-cut-out]{fill:var(--cut-bad-fill);stroke:var(--cut-bad);stroke-width:2}
 .cut-off{fill:var(--cut-off);stroke:var(--cut-off-line);stroke-width:1.2}
 .cut-stk{fill:var(--cut-stk);stroke:var(--cut-stk-line);stroke-width:1.2}
@@ -2784,7 +2785,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='64c80bd3a711';
+var ERP_BUILD='4c9dee39c8c2';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -30956,7 +30957,14 @@ function carrierContents(){
 /* Обнулить тару: всё, что на ней лежит, становится «без тары» — как «Not on
    DL-1» у одного стекла. Скид пересобирают заново теми же сканами (владелец,
    6.10.2026). Отгруженное и погруженное на таре уже не числится. */
-function carrierEmpty(code){const out=storageCommand(()=>{const list=carrierContents().get(carrierCode(code))||[];list.forEach(x=>{delete x.scan.on;});return {count:list.length};});return out.ok?out.value:{error:out.error};}
+/* Отменённое стекло в содержимом скида не видно, но скид на SHIP держит
+   (unitOnSkid): обнулённый скид пуст и от него — иначе «призрак» не дал бы
+   грузить скид, пока кто-то не наберёт номер выброшенного стекла. */
+function carrierEmpty(code){const out=storageCommand(()=>{
+ const list=carrierContents().get(carrierCode(code))||[];list.forEach(x=>{delete x.scan.on;});
+ const ghosts=typeof unitOnSkid==='function'?unitOnSkid(carrierCode(code)):[];ghosts.forEach(x=>{x.u.off=[...new Set((x.u.off||[]).concat(x.pieces))];x.o.updatedAt=new Date().toISOString();salesSyncRecordLifecycle(x.o);});
+ return {count:list.length+ghosts.reduce((n,x)=>n+x.pieces.length,0)};
+});return out.ok?out.value:{error:out.error};}
 function normalizeCarriers(){
  if(!Array.isArray(DB.carrier))DB.carrier=[];
  const seen=new Set();
@@ -32522,12 +32530,15 @@ function cutPrintPlan(sizes){
 function cutPrintLayouts(number,sheetNos){
  const plan=cutPlanFor(number);if(!plan)return false;
  const pieces=cutPiecesOf(number,plan.settings||{}),pages=[],only=sheetNos?new Set(sheetNos.map(Number)):null;
+ /* По бумаге тоже режут: устаревший раскрой печатается с предупреждением,
+    отменённое и остановленное — красным (как на CUT). */
+ const changed=cutEstIs(number)?null:glassBatchStale(glassBatchFind(number));
  const list=plan.groups.flatMap(g=>g.sheets.filter(s=>!only||only.has(s.no)).map(s=>({g,s,size:s.size||g.sheet})));
  const layout=cutPrintPlan(list.map(x=>x.size)),landscape=layout.landscape;
  list.forEach(({g,s,size},k)=>{
   const autoTrim=cutAutoTrimInfo(g,s);
-  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″${autoTrim?autoTrim.edges.map(e=>' · '+e.label+' '+esc(frac16(e.minimum))+'″ → '+esc(frac16(e.actual))+'″').join(''):''}</h3>
-   <div class="cut-print-sheet">${cutSheetSVG(g,s,Math.floor(Math.max(size.w,size.h)*layout.scales[k]),pieces)}</div></div>`);
+  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″${autoTrim?autoTrim.edges.map(e=>' · '+e.label+' '+esc(frac16(e.minimum))+'″ → '+esc(frac16(e.actual))+'″').join(''):''}${changed?` · <span class="cut-print-stale" data-print-stale>Changed — don’t cut · ${esc(changed.text)}</span>`:''}</h3>
+   <div class="cut-print-sheet">${cutSheetSVG(g,s,Math.floor(Math.max(size.w,size.h)*layout.scales[k]),pieces,{gone:changed&&changed.gone})}</div></div>`);
  });
  if(!pages.length)return false;
  let st=document.getElementById('cutPageStyle');if(!st){st=document.createElement('style');st.id='cutPageStyle';document.head.appendChild(st);}
@@ -33422,8 +33433,10 @@ function stationSubmit(raw){
  stationDrawer=null;stationTab='scan';
  if(check.kind==='carrier'){stationEmptyAsk='';stationCarrierScan(check.code);render();return 'carrier';}
  if(!stationTakeOff(check))return 'saveError';
- /* Готовый юнит отсканирован ещё раз при выбранном скиде — переложили. */
- if(check.kind==='already'&&stationIsReady()){const moved=stationRestack(check,who);if(moved){render();return moved;}}
+ /* Готовый юнит отсканирован ещё раз при выбранном скиде — переложили. Юнит
+    на Hold тоже: отложить его на другой скид — это и есть SET ASIDE, иначе
+    его скид не уедет (аудит проделанной работы). */
+ if((check.kind==='already'||check.kind==='held'&&check.here)&&stationIsReady()){const moved=stationRestack(check,who);if(moved){render();return moved;}}
  if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
  const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()}):null;
  if(out&&!out.ok){stationSaveError(check.code,out.error);return 'saveError';}
@@ -34431,7 +34444,7 @@ function shippingLookupModel(o){
  ctx.index.forEach((h,piece)=>{
   if(h.orderId!==o.id||gone.has(piece))return;const g=stationGlass(piece,ctx.index,ctx.batches),scans=ctx.scans.get(piece)||[];if(!g)return;
   const p=stationPlace(g,scans);if(p.broken||p.shipped||!p.waiting||p.waiting===ship)return;
-  const k=!g.entry&&!scans.length?'To batch':p.waiting;shop.set(k,(shop.get(k)||0)+1);
+  const k=g.o.onHold||g.l.onHold||unitPieceHold(g)?'On hold':!g.entry&&!scans.length?'To batch':p.waiting;shop.set(k,(shop.get(k)||0)+1);
  });
  const seq=code=>{const s=(DB.station||[]).find(x=>x.code===code);return s?s.seq:-1;};
  return {q,free,where:[...where].sort((a,b)=>String(a[0]||'~').localeCompare(String(b[0]||'~'),undefined,{numeric:true})),shop:[...shop].sort((a,b)=>seq(a[0])-seq(b[0])),
@@ -34969,6 +34982,9 @@ function shippingFind(id){return (DB.shipment||[]).find(s=>s.id===id||s.number==
    юнитов этого заказа на нём нет (аудит Shipping, Д2). */
 function shippingOrderIds(s){return [...new Set((s.items||[]).concat(s.extras||[]).map(i=>i.orderId).concat(s.takes||[]))];}
 function shippingForOrder(id){return (DB.shipment||[]).filter(s=>shippingOrderIds(s).includes(id));}
+/* PS везёт юниты или товар заказа, а не только его отменённое стекло: дата
+   выдачи заказа и начало Net — только по таким (аудит проделанной работы). */
+function shippingCarries(s,id){return (s.items||[]).concat(s.extras||[]).some(i=>i.orderId===id);}
 function shippingActive(s){return s.status!=='cancelled';}
 function shippingSent(s){return s.status==='shipped'||s.status==='delivered';}
 function shippingLegacy(o){return !!o&&['done','closed'].includes(o.status)&&!shippingForOrder(o.id).length;}
@@ -35080,7 +35096,7 @@ function shippingSyncOrder(o,now,opts){
  const q=shippingSummary(o),old=o.status;now=now||new Date().toISOString();o.statusDates=o.statusDates||{};
  let next=old;
  if(q.ordered>0&&q.delivered>=q.ordered){
-  next='done';const last=q.ps.filter(s=>s.status==='delivered').sort((a,b)=>a.deliveredAt.localeCompare(b.deliveredAt)).pop();
+  next='done';const last=q.ps.filter(s=>s.status==='delivered'&&shippingCarries(s,o.id)).sort((a,b)=>a.deliveredAt.localeCompare(b.deliveredAt)).pop();
   o.statusDates.done=last.deliveredAt;
  }else if(q.ordered===0&&(o.cancellations||[]).length){
   /* Отменили всё (владелец, 6.10.2026): $0 — заказ Cancelled; есть сумма за
@@ -35088,14 +35104,16 @@ function shippingSyncOrder(o,now,opts){
      берёт statusDates.done). */
   const day=o.cancellations.map(c=>c.at).sort().pop(),charge=o.cancellations.reduce((n,c)=>n+(unitChargeOf(c)||0),0);
   next=charge>0?'closed':'cancelled';
-  if(next==='closed'){o.statusDates.done=day;o.statusDates.closed=day;}else o.statusDates.cancelled=day;
+  if(next==='closed'){o.statusDates.done=day;o.statusDates.closed=day;}
+  /* Как ручная отмена заказа: оплата по нему возвращается на депозит клиента. */
+  else{o.statusDates.cancelled=day;if(old!=='cancelled'&&typeof finReleaseOrder==='function')finReleaseOrder(o.id);}
  }else{
   delete o.statusDates.done;delete o.statusDates.closed;
   if(q.shipped>0){next='shipping';if(q.back>0&&!o.statusDates.shipping)o.statusDates.shipping=now;}
   else if((q.glass>0&&q.physicalReady===q.glass)||(salesStockOnly(o)&&old!=='new'))next='ready';
   else if(['ready','shipping','done','closed'].includes(old))next=(o.lines||[]).some(salesLineLocked)?'batched':'verified';
  }
- const last=q.ps.filter(shippingSent).sort((a,b)=>a.shippedAt.localeCompare(b.shippedAt)).pop();o.fulfilledVia=last?last.method:'';
+ const last=q.ps.filter(s=>shippingSent(s)&&shippingCarries(s,o.id)).sort((a,b)=>a.shippedAt.localeCompare(b.shippedAt)).pop();o.fulfilledVia=last?last.method:'';
  if(next!=='ready'&&!q.shipped)delete o.statusDates.ready;
  if(next==='ready'&&!o.statusDates.ready)o.statusDates.ready=now;
  if(next!==old){o.status=next;o.updatedAt=now;}
@@ -35165,9 +35183,10 @@ function shippingValidateSelection(d,exceptId){
   shippingAssert(hit&&!seen.has(shippingKey(i)),'The selected glass is no longer available. Review the packing slip.');
   seen.add(shippingKey(i));items.push(shippingItem(hit));
  });
-/* Стекло отменённых юнитов, которое клиент забирает (unitTakes). */
- const takes=[...new Set(d.takes||[])];
- takes.forEach(id=>{const o=salesRecord(id);shippingAssert(o&&!salesIsQuote(o)&&o.customerId===d.customerId&&unitTakes(o).length,'The cancelled glass is no longer waiting. Review the packing slip.');});
+/* Стекло отменённых юнитов, которое клиент забирает (unitTakes). Уже
+   уехавшее с другим PS выпадает молча: везти нечего, а держать отгрузку
+   этого PS незачем (аудит проделанной работы). */
+ const takes=[...new Set(d.takes||[])].filter(id=>{const o=salesRecord(id);shippingAssert(o&&!salesIsQuote(o)&&o.customerId===d.customerId,'Check the customer and orders.');return unitTakes(o).length>0;});
  (d.extras||[]).forEach(i=>{
   const o=salesRecord(i.orderId),x=o&&(o.extraItems||[]).find(x=>x.id===i.extraId),k=i.orderId+'|'+i.extraId;
   shippingAssert(o&&x&&!salesIsQuote(o)&&o.customerId===d.customerId&&!['new','closed','cancelled'].includes(o.status)&&!o.onHold,'Stock order is not ready.');
@@ -35219,7 +35238,8 @@ function shippingMarkShipped(id,mode){return storageCommand(()=>{
   s.items=s.items.filter(i=>loaded.has(i.label));shippingUnprint(s,left);
   [...new Set(left.map(i=>i.orderId))].forEach(oid=>orderLogPush(salesRecord(oid),'Not loaded',s.number+' · '+shippingCount(left.filter(i=>i.orderId===oid).length,'unit')+' back to Ready'));
  }
- Object.assign(s,shippingValidateSelection(s,s.id));
+ const picked=shippingValidateSelection(s,s.id);delete s.takes;Object.assign(s,picked);
+ shippingAssert(s.items.length+s.extras.length+(s.takes||[]).length>0,'An empty packing slip cannot be shipped.');
  /* Какие скиды уезжают — до заморозки документа: на бумаге клиента только они. */
  s.skidsOut=shippingSkidsOut(s,s.items.map(i=>({pieces:i.pieces,skid:i.skid,loaded:loaded.has(i.label)})));
  s.document=shippingDocument(s);
