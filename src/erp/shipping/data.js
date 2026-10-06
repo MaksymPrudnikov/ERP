@@ -135,7 +135,9 @@ function shippingSyncOrder(o,now,opts){
      берёт statusDates.done). */
   const day=o.cancellations.map(c=>c.at).sort().pop(),charge=o.cancellations.reduce((n,c)=>n+(unitChargeOf(c)||0),0);
   next=charge>0?'closed':'cancelled';
-  if(next==='closed'){o.statusDates.done=day;o.statusDates.closed=day;}else o.statusDates.cancelled=day;
+  if(next==='closed'){o.statusDates.done=day;o.statusDates.closed=day;}
+  /* Как ручная отмена заказа: оплата по нему возвращается на депозит клиента. */
+  else{o.statusDates.cancelled=day;if(old!=='cancelled'&&typeof finReleaseOrder==='function')finReleaseOrder(o.id);}
  }else{
   delete o.statusDates.done;delete o.statusDates.closed;
   if(q.shipped>0){next='shipping';if(q.back>0&&!o.statusDates.shipping)o.statusDates.shipping=now;}

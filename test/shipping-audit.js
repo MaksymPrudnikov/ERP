@@ -240,5 +240,24 @@ module.exports=async function({page,eq,ok}){
   return {before,moved,skid:unitPieceSkid(g),after:shippingLoadPlan('SL-1','').kind};
  }),{before:'shipNotReady',moved:'shipMoved',skid:'SL-3',after:'ok'});
 
+ eq('G: every unit cancelled at $0 — like a manual cancel, the order’s payment goes back to the customer’s deposit',await t.p.evaluate(()=>{
+  const id=saOrder(2,false).id,o=salesRecord(id);
+  DB.receipt=[normalizeReceipt({number:'R-0001',customerId:o.customerId,amount:50,allocations:[{orderId:id,amount:50}]})];
+  unitCancel(id,o.lines[0].id,2,'Project cancelled',{});
+  const r=DB.receipt[0];return {status:salesRecord(id).status,allocated:r.allocations.length,onAccount:finReceiptOnAccount(r)};
+ }),{status:'cancelled',allocated:0,onAccount:50});
+ eq('Д2 by hand: tick the order with the glass the customer takes in Ready, Create packing slip, Save — the slip carries that glass',await t.p.evaluate(()=>{
+  const id=saOrder(2,true).id,[u]=shippingAvailable(salesRecord(id)),cust=salesRecord(id).customerId;
+  const s1=shippingCreate({customerId:cust,method:'pickup',shipTo:{},date:finToday(),items:[shippingItem(u)],extras:[]}).value;shippingMarkShipped(s1.id);shippingMarkDelivered(s1.id,'Client');
+  unitCancel(id,salesRecord(id).lines[0].id,1,'Customer changed the design',{glass:'customer',chargeOverride:10});
+  tab='shipping';shippingTab='ready';shippingSelection.clear();render();
+  document.querySelector('tr.shipping-order-row input[type=checkbox]').click();const ticked=shippingSelection.has('takes:'+id);
+  document.querySelector('[data-create-ps="'+cust+'"]').click();const shown=!!document.querySelector('[data-draft-takes]');
+  document.querySelector('[data-save-ps]').click();
+  const anyway=[...document.querySelectorAll('[data-dialog-button]')].find(b=>/anyway/i.test(b.textContent));if(anyway)anyway.click();
+  const ps=DB.shipment.find(s=>s.id!==s1.id);
+  return {ticked,shown,created:!!ps,takes:!!ps&&!!ps.takes&&ps.takes[0]===id,items:ps?ps.items.length:-1};
+ }),{ticked:true,shown:true,created:true,takes:true,items:0});
+
  eq('Shipping audit browser errors',t.errs,[]);await t.c.close();
 };
