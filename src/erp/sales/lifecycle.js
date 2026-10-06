@@ -376,7 +376,10 @@ function salesStatusStepper(o){
  }
  if(o.status==='cancelled')return `<div class="sales-status-row"><span class="pill st-cancelled">Cancelled ${esc(salesShortDate(o.statusDates.cancelled))}</span><span class="mut">Status history · read only</span></div>`;
  const flow=salesOrderFlow(o),at=flow.indexOf(o.status);
- const steps=flow.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><span class="sales-step-label"><i></i><b>${esc(s==='done'&&at<flow.indexOf('done')?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b></span>${o.statusDates&&o.statusDates[s]?`<small>${esc(salesShortDate(o.statusDates[s]))}</small>`:''}</div>`).join('');
+ /* Отменили всё, сумма за отмену — заказ закрыт днём отмены (erp/shipping/data,
+    shippingSyncOrder): шаг выдачи называется честно. */
+ const allCancelled=o.status==='closed'&&(o.cancellations||[]).length>0&&typeof shippingForOrder==='function'&&!shippingForOrder(o.id).some(shippingSent);
+ const steps=flow.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><span class="sales-step-label"><i></i><b>${esc(s==='done'&&allCancelled?'Units cancelled':s==='done'&&at<flow.indexOf('done')?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b></span>${o.statusDates&&o.statusDates[s]?`<small>${esc(salesShortDate(o.statusDates[s]))}</small>`:''}</div>`).join('');
  return `<div class="sales-status-row"><div class="sales-steps">${steps}</div><span class="sales-status-readonly">Status history · read only</span></div>`;
 }
 function salesOrderBatchNumbers(o){return [...new Set((o.lines||[]).filter(salesLineLocked).map(l=>l.batchNo).filter(Boolean).concat(o.batchNo?[o.batchNo]:[]))];}

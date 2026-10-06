@@ -9,7 +9,9 @@ const SHIPPING_STATUSES=['planned','shipped','delivered','cancelled'];
 const SHIPPING_ADDRESS_FIELDS=['label','addressee','address1','address2','address3','city','province','country','postalCode','contact','phone'];
 function shippingClone(x){return JSON.parse(JSON.stringify(x));}
 function shippingFind(id){return (DB.shipment||[]).find(s=>s.id===id||s.number===id)||null;}
-function shippingOrderIds(s){return [...new Set((s.items||[]).concat(s.extras||[]).map(i=>i.orderId))];}
+/* takes — заказы, чьё отменённое стекло клиент забирает с этим PS, когда
+   юнитов этого заказа на нём нет (аудит Shipping, Д2). */
+function shippingOrderIds(s){return [...new Set((s.items||[]).concat(s.extras||[]).map(i=>i.orderId).concat(s.takes||[]))];}
 function shippingForOrder(id){return (DB.shipment||[]).filter(s=>shippingOrderIds(s).includes(id));}
 function shippingActive(s){return s.status!=='cancelled';}
 function shippingSent(s){return s.status==='shipped'||s.status==='delivered';}
@@ -124,6 +126,13 @@ function shippingSyncOrder(o,now,opts){
  if(q.ordered>0&&q.delivered>=q.ordered){
   next='done';const last=q.ps.filter(s=>s.status==='delivered').sort((a,b)=>a.deliveredAt.localeCompare(b.deliveredAt)).pop();
   o.statusDates.done=last.deliveredAt;
+ }else if(q.ordered===0&&(o.cancellations||[]).length){
+  /* Отменили всё (владелец, 6.10.2026): $0 — заказ Cancelled; есть сумма за
+     отмену — заказ закрыт днём отмены, срок оплаты — от него (finBillingDate
+     берёт statusDates.done). */
+  const day=o.cancellations.map(c=>c.at).sort().pop(),charge=o.cancellations.reduce((n,c)=>n+(unitChargeOf(c)||0),0);
+  next=charge>0?'closed':'cancelled';
+  if(next==='closed'){o.statusDates.done=day;o.statusDates.closed=day;}else o.statusDates.cancelled=day;
  }else{
   delete o.statusDates.done;delete o.statusDates.closed;
   if(q.shipped>0){next='shipping';if(q.back>0&&!o.statusDates.shipping)o.statusDates.shipping=now;}
@@ -151,7 +160,7 @@ function shippingSaveGuard(draft,saved){
 }
 function normalizeShipments(){
  if(!Array.isArray(DB.shipment))DB.shipment=[];
- DB.shipment.forEach(s=>{s.shipTo=shippingAddress(s.shipTo);s.items=s.items||[];s.extras=s.extras||[];s.scanIds=s.scanIds||[];});
+ DB.shipment.forEach(s=>{s.shipTo=shippingAddress(s.shipTo);s.items=s.items||[];s.extras=s.extras||[];s.scanIds=s.scanIds||[];if(Array.isArray(s.takes)&&s.takes.length)s.takes=[...new Set(s.takes.filter(salesRefId))];else delete s.takes;});
  DB.shipmentSeq=Math.max(Number(DB.shipmentSeq)||0,...DB.shipment.map(s=>Number(String(s.number).slice(3))||0));
  shippingWithCtx(()=>(DB.salesOrder||[]).filter(o=>['ready','shipping'].includes(o.status)).forEach(o=>shippingSyncOrder(o,o.updatedAt)));
 }
@@ -163,7 +172,8 @@ function validateShipmentPayload(src){
  src.shipment.forEach(s=>{
   if(!s||typeof s!=='object'||!salesRefId(s.id)||ids.has(s.id)||!/^PS-\d{4,}$/.test(s.number)||numbers.has(s.number)||!SHIPPING_STATUSES.includes(s.status)||!['delivery','pickup'].includes(s.method)||!shippingDateValid(s.date)||!salesRefId(s.customerId)||!Array.isArray(s.items)||!Array.isArray(s.extras)||!s.shipTo||typeof s.shipTo!=='object')throw new Error('Invalid or duplicate packing slip.');
   ids.add(s.id);numbers.add(s.number);
-  if(shippingSent(s)&&(!iso(s.shippedAt)||!s.items.length&&!s.extras.length)||s.status==='delivered'&&!iso(s.deliveredAt))throw new Error('Invalid shipment dates or empty shipment.');
+  if(s.takes!=null&&(!Array.isArray(s.takes)||!s.takes.every(salesRefId)))throw new Error('Invalid or duplicate packing slip.');
+  if(shippingSent(s)&&(!iso(s.shippedAt)||!s.items.length&&!s.extras.length&&!(s.takes||[]).length)||s.status==='delivered'&&!iso(s.deliveredAt))throw new Error('Invalid shipment dates or empty shipment.');
   const own=new Set();s.items.forEach(i=>{
    const k=shippingKey(i);if(!salesRefId(i.orderId)||!salesRefId(i.lineId)||!Number.isSafeInteger(i.unit)||i.unit<1||!glassPieceValid(i.label)&&!unitIdValid(i.label)||!Array.isArray(i.pieces)||!i.pieces.length||!i.pieces.every(glassPieceValid)||own.has(k))throw new Error('Invalid or duplicate shipment unit.');
    own.add(k);if(shippingActive(s)){if(i.pieces.some(p=>pieces.has(p))||new Set(i.pieces).size!==i.pieces.length)throw new Error('Glass is on more than one shipment unit.');i.pieces.forEach(p=>pieces.add(p));if(slots.has(k)||labels.has(i.label))throw new Error('A unit is on more than one packing slip.');slots.add(k);labels.add(i.label);}
@@ -173,6 +183,7 @@ function validateShipmentPayload(src){
    const checkOrder=i=>{const o=src.salesOrder.find(o=>o.id===i.orderId);if(!o||o.customerId!==s.customerId)throw new Error('Shipment customer does not match its order.');return o;};
    s.items.forEach(i=>{const o=checkOrder(i),l=(o.lines||[]).find(l=>l.id===i.lineId);if(!l||i.unit>l.qty)throw new Error('Shipment line or unit no longer exists.');});
    s.extras.forEach(i=>{const o=checkOrder(i),x=(o.extraItems||[]).find(x=>x.id===i.extraId);if(!x||(extraTotals.get(i.orderId+'|'+i.extraId)||0)>x.qty)throw new Error('Shipment stock quantity exceeds the order.');});
+   (s.takes||[]).forEach(id=>checkOrder({orderId:id}));
   }
  });
 }
