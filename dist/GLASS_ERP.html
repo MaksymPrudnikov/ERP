@@ -2772,7 +2772,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='4a2856b8ad70';
+var ERP_BUILD='bd6a3cf531bb';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -25283,13 +25283,16 @@ function unitPieceCancelled(g){return !!g&&!!g.o&&(g.o.cancellations||[]).some(c
 function unitHeatStations(){return [salesRouteStationOf('tempering','HEAT'),salesRouteStationOf('heat_strengthening','HEAT')];}
 const UNIT_STAGES=['uncut','cut','tempered','assembled'];
 const UNIT_STAGE_LABEL={uncut:'Not cut',cut:'Cut',tempered:'Tempered',assembled:'Assembled'};
-/* Юниты строки, которые ещё можно остановить или отменить: не отгружены, не в
-   PS, не отменены. Порядок — решение 15. */
+/* Свободные юниты строки — те, что ещё можно остановить или отменить: не
+   отгружены, не в PS, не отменены и не на Hold. Порядок — решение 15.
+   Стёкла на Hold в подбор пар не идут: иначе остановленный лайт вставал в
+   пару к непорезанному соседу, и тот пропадал из выбора (найдено прогоном
+   полного пути 6.10.2026 — вместо непорезанного юнита отменялся порезанный). */
 function unitList(o,l){
- const comps=glassBatchComponents(o,l).filter(c=>!c.missing),map=glassPieceMap(o.id),index=stationPieceIndex(),batches=stationBatchIndex(),heat=unitHeatStations();
+ const comps=glassBatchComponents(o,l).filter(c=>!c.missing),map=glassPieceMap(o.id),index=stationPieceIndex(),batches=stationBatchIndex(),heat=unitHeatStations(),held=unitHeldSet(l);
  const gone=unitCancelledSet(o),onPs=new Set((DB.shipment||[]).filter(shippingActive).flatMap(s=>s.items).filter(i=>i.orderId===o.id&&i.lineId===l.id).flatMap(i=>i.pieces));
  const far=new Map(),live=id=>{
-  if(!id||gone.has(id)||onPs.has(id))return false;const g=stationGlass(id,index,batches);if(!g)return false;
+  if(!id||gone.has(id)||onPs.has(id)||held.has(id))return false;const g=stationGlass(id,index,batches);if(!g)return false;
   const p=stationPlace(g);if(p.broken||p.shipped)return false;far.set(id,p.far);return true;
  };
  const mu=stationUnitMerge(o,l),units=[],used=new Set();
@@ -25351,7 +25354,7 @@ function unitLine(orderId,lineId){
  unitAssert(o&&l&&!salesIsQuote(o)&&!['closed','cancelled'].includes(o.status),'This order cannot change.');return {o,l};
 }
 function unitLineNo(o,l){return 'line '+(o.lines.indexOf(l)+1);}
-function unitHoldable(o,l){const held=unitHeldSet(l);return unitList(o,l).filter(u=>!u.pieces.some(p=>held.has(p)));}
+function unitHoldable(o,l){return unitList(o,l);}
 function unitHold(orderId,lineId,count,reason){return storageCommand(()=>{
  const {o,l}=unitLine(orderId,lineId),n=Math.floor(+count),why=String(reason||'').trim().slice(0,200);
  unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason for the hold.');
