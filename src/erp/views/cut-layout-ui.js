@@ -742,6 +742,9 @@ function cutAxisText(value,x,y,space,vertical){
 function cutSheetSVG(group,sheet,px,pieces,opts){
  opts=opts||{};
  const station=!!opts.station,stationCut=opts.stationCut||new Set(),stationBroken=opts.stationBroken||new Set();
+ /* gone — стекло, которого в батче больше нет (отмена, Hold units, снято):
+    раскрой устарел, на листе оно красное (glassBatchStale). */
+ const gone=opts.gone||null;
  const size=sheet.size||group.sheet,S=px/Math.max(size.w,size.h),W=size.w*S,H=size.h*S,by=new Map((pieces||[]).map(p=>[p.piece,p]));
  const pr=typeof cutGroupParams==='function'?cutGroupParams(group,size):{},u=cutUsable(size,pr),actualTrimY=cutEffectiveTrimY(sheet,pr),actualTrimX=cutEffectiveTrimX(sheet,pr),outside=p=>p.x<u.x0-1e-6||p.y<u.y0-1e-6||p.x+p.w>u.x1+1e-6||p.y+p.h>u.y1+1e-6,edged=u.x0>0||u.y0>0||u.x1<size.w||u.y1<size.h;
  const fy=(y,h)=>(size.h-y-h)*S,pad=CUT_SVG_PAD;
@@ -787,8 +790,9 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  sheet.pieces.forEach((p,i)=>{
   const x=p.x*S,y=fy(p.y,p.h),w=p.w*S,h=p.h*S,src=by.get(p.piece)||{},sel=opts.sel===p.piece;
   const stationState=station?(stationBroken.has(p.piece)?'broken':p.piece===opts.stationNow?'now':stationCut.has(p.piece)?'cut':'wait'):'';
+  const stop=gone&&gone.get(p.piece)||'';
   /* Стекло — группа: прямоугольник и подписи ловят мышь вместе. */
-  out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':station?'<g class="cut-pc st-pc '+stationState+'" data-station-piece="'+esc(p.piece)+'" data-station-state="'+stationState+'">':'<g>');
+  out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+(stop?' gone':'')+'"'+(stop?' data-cut-gone':'')+'>':station?'<g class="cut-pc st-pc '+stationState+(stop?' gone':'')+'" data-station-piece="'+esc(p.piece)+'" data-station-state="'+stationState+'"'+(stop?' data-cut-gone':'')+'>':stop?'<g class="cut-pc gone" data-cut-gone>':'<g>');
   /* Форма: стол вырезает прямоугольную заготовку, а потом режет по контуру.
      Заготовка — серым, как пустое место: то, что внутри неё уйдёт в отход.
      `turn` — 0/90/180/270° против часовой; старый boolean rot читается как
@@ -815,13 +819,14 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
      «1 · 20 1/4 × 100 1/4″» на узком стекле налезала на соседей. */
   const gid=typeof glassPieceValid==='function'&&glassPieceValid(p.piece)?p.piece:'';
   const size16=frac16(p.w)+' × '+frac16(p.h)+'″',turnLabel=!(h>52&&w>84)&&w>52&&h>84;
-  out.push('<title>'+esc([p.piece,src.order?src.order+' / '+src.line:'',size16,station?(stationState==='cut'?'Cut':stationState==='now'?'Just scanned':stationState==='broken'?'Sheet broke':'Waiting'):null].filter(Boolean).join(' · '))+'</title>');
+  out.push('<title>'+esc([p.piece,src.order?src.order+' / '+src.line:'',size16,station?(stationState==='cut'?'Cut':stationState==='now'?'Just scanned':stationState==='broken'?'Sheet broke':'Waiting'):null,stop||null].filter(Boolean).join(' · '))+'</title>');
   if(h>52&&w>84||turnLabel){
    const lines=[[src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(src.no||i+1),15,'#101828']];
    /* Glass ID — мелко под номером, если строка помещается между подписями
       размеров; не помещается — стекло остаётся с номером, как раньше. */
    const room=(turnLabel?w:h)-2*CUT_LABEL_EDGE,across=(turnLabel?h:w)-2*CUT_LABEL_EDGE;
    if(gid&&lines.reduce((a,l)=>a+l[1]*1.25,0)+8*1.25<=room&&gid.length*8*0.56<=across)lines.push([gid,8,'#475467']);
+   if(stop)lines.push([stop.toUpperCase(),10,'#b42318']);
    const total=lines.reduce((a,l)=>a+l[1]*1.25,0);let ty2=-total/2;
    out.push('<g transform="translate('+mid[0].toFixed(1)+' '+mid[1].toFixed(1)+')'+(turnLabel?' rotate(-90)':'')+'">');
    lines.forEach(l=>{ty2+=l[1]*1.15;if(l[0])out.push('<text x="0" y="'+ty2.toFixed(1)+'" text-anchor="middle" font-size="'+l[1]+'" fill="'+l[2]+'">'+esc(l[0])+'</text>');});
@@ -1054,11 +1059,13 @@ function viewCutLayout(b){
     сброшенный (и раскроя ещё нет) — черновик по текущим стёклам батча:
     сначала параметры, потом Build. */
  const {s,stored,built,plan,stale,busy,lock,pieces,laid,live,group,sheet}=cutLayoutState(b),est=!!b.estimate;
+ /* Отмена / Hold units после раскроя: какие стёкла ушли — в предупреждение и красным на лист. */
+ const changed=est||!built?null:glassBatchStale(b);
  /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
     над ним повторяла бы то же самое. */
  const need=cutNeedSizes(b,plan,pieces),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
  const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button></div>`:'';
- const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?`<div class="ncr-warning" data-cut-stale>⚠ ${est?'Orders or quotes changed':'Batch changed'} after the layout — Reset, then Build.</div>`:'')+info+cutWhatTable(b.number,busy);
+ const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale||changed?`<div class="ncr-warning${changed?' cut-stale-stop':''}" data-cut-stale>⚠ ${est?'Orders or quotes changed':'Batch changed'} after the layout${changed?' · '+esc(changed.text):''} — Reset, then Build.</div>`:'')+info+cutWhatTable(b.number,busy);
  if(!plan.groups.length)return `${notice}${need}<p class="mut cut-empty">${est?'Nothing to lay out: tick an order or quote with glass.':'Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.'}</p>`;
  const at=id=>cutFind(plan,id);
  const placed=new Set(),locations=new Map();plan.groups.forEach(g=>g.sheets.forEach(x=>x.pieces.forEach((p,i)=>{placed.add(p.piece);locations.set(p.piece,{group:g,sheet:x,piece:p,index:i});})));
@@ -1170,7 +1177,7 @@ function viewCutLayout(b){
   </div></div>
   <div class="cut-sheet-pane">
    ${glasses}${queue}
-   ${sheet?`<div class="cut-paper" data-cut-sheet="${sheet.no}"${est?'':` ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')"`}>${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`
+   ${sheet?`<div class="cut-paper" data-cut-sheet="${sheet.no}"${est?'':` ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')"`}>${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true,gone:changed&&changed.gone})}</div>`
    /* Листов нет — пустой лист первого размера с линиями Trim и Border:
       правка отступов видна сразу, до Build. */
    :`<div class="cut-paper cut-paper-empty" data-cut-empty>${cutSheetSVG(group,{no:0,size:group.sheet,pieces:[],stock:[],offcuts:[]},520,[],{ids:true})}<div class="cut-empty-cap"><b>${waiting.length} glass</b><span>${busy?'Building…':'Press Build'}</span></div></div>`}

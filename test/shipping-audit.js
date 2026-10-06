@@ -88,5 +88,58 @@ module.exports=async function({page,eq,ok}){
   return {block:unitOnSkid('SL-1').length,scan,card:/SHIP IT/.test(card)&&!/STOP/.test(card),amber,load,off:'off' in u};
  }),{block:0,scan:'cancelled',card:true,amber:true,load:'shipLoaded',off:false});
 
+ /* ---------------- PR 2: Hold снимает с батча, подсветка изменённых батчей, F7 ---------------- */
+ await t.p.evaluate(()=>{
+  /* Однокамерный заказ в своём батче с раскроем (как test/cut-batch.js). */
+  window.saBatch=function(sizes){
+   if(!DB.glassSheet.some(s=>s.productCode==='6CLEAR'&&+s.sheetWIn===144))DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock'}));
+   const id=oqOrder(oqCustomer({legalName:'North Shore Windows'}));salesOrderEdit(id);const m=soDraft.makeups[0];m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];
+   soDraft.lines=sizes.map(([w,h,q],i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:w*16,height16:h*16,qty:q,mark:'M'+(i+1)});salesEnsureLineShape(l);return l;});
+   soDraft.lines.forEach(l=>salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;}));
+   if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;oqThrough(id,'verified');
+   glassBatchAssign(glassBatchRows([salesRecord(id)]),{});const n=DB.glassBatch[DB.glassBatch.length-1].number;cutPlanRun(n);return {o:salesRecord(id),n};
+  };
+  window.saFresh=function(){oqReset();DB.stationScan=[];DB.carrier=[];DB.sheetBreak=[];DB.orderEvent=[];DB.stockOffcut=[];stationLast=null;stationSheetView=null;stationIncoming='';stationQuestions=[];stationNote='';stationDrawer=null;stationMenu=null;stationTab='scan';};
+  window.saItem=function(n,piece){return glassBatchFind(n).items.find(i=>i.piece===piece);};
+ });
+ eq('Hold units takes uncut glass off its batch; in the glass queue it is On Hold and cannot be batched; Release brings it back',await t.p.evaluate(()=>{
+  saFresh();const {o,n}=saBatch([[36,24,3],[48,30,2]]),l=o.lines[1];
+  unitHold(o.id,l.id,1,'Customer checks sizes');const piece=l.heldUnits[0].pieces[0],row=()=>glassBatchRows([o]).find(r=>r.piece===piece);
+  const held={off:!!saItem(n,piece).releasedAt,history:glassBatchFind(n).history.slice(-1)[0].action,reason:row().reason,status:glassBatchInfo(row()).memo.status,pick:glassBatchPickable(glassBatchInfo(row()))};
+  unitRelease(o.id,l.id);
+  return {held,released:{reason:row().reason,status:glassBatchInfo(row()).memo.status,pick:glassBatchPickable(glassBatchInfo(row()))}};
+ }),{held:{off:true,history:'On hold',reason:'Units on hold: Customer checks sizes',status:'On Hold',pick:false},released:{reason:'',status:'Waiting',pick:true}});
+ eq('Batch whose layout still has cancelled and held glass: Re-optimize in Batches, Cancelled / On Hold in its contents, red on the layout; Reset → Build clears it',await t.p.evaluate(()=>{
+  saFresh();const {o,n}=saBatch([[36,24,6],[48,30,4]]);
+  unitCancel(o.id,o.lines[0].id,2,'Customer cancelled',{});unitHold(o.id,o.lines[1].id,1,'Customer checks sizes');
+  const text=glassBatchStale(glassBatchFind(n)).text;
+  tab='optimization';optimizationTab='production';glassBatchOpenNumber='';render();
+  const list={pill:!!document.querySelector('[data-batch-stale]'),row:!!document.querySelector('tr.gb-stale')};
+  glassBatchOpen(n);const contents={stop:[...document.querySelectorAll('tr.gb-stop .gb-state')].map(e=>e.textContent).sort(),note:!!document.querySelector('[data-batch-stale-note]')};
+  glassBatchDetailTab='optimization';render();
+  const layout={warning:(document.querySelector('[data-cut-stale]')||{}).textContent||'',red:document.querySelectorAll('[data-cut-gone]').length};
+  cutPlanReset(n);cutPlanRun(n);glassBatchOpenNumber='';render();
+  return {text,list,contents,layout:{warning:layout.warning.includes('2 cancelled · 1 on hold'),red:layout.red},after:[glassBatchStale(glassBatchFind(n)),!!document.querySelector('[data-batch-stale]')]};
+ }),{text:'2 cancelled · 1 on hold',list:{pill:true,row:true},contents:{stop:['Cancelled','Cancelled','On Hold'],note:true},layout:{warning:true,red:3},after:[null,false]});
+ eq('CUT: a changed batch is not opened by itself; opened, it says Don’t cut with its cancelled glass red; the batch list and Queue say changed',await t.p.evaluate(()=>{
+  saFresh();const a=saBatch([[36,24,4]]),b=saBatch([[30,20,3]]);unitCancel(a.o.id,a.o.lines[0].id,1,'Customer cancelled',{});
+  DB.user=DB.user.filter(u=>u.name!=='Ivan P.');DB.user.push({name:'Ivan P.',role:'Shop',station:'CUT',skills:[],pin:'0000'});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}
+  stationCode='CUT';tab='station';stationLogin(DB.user[DB.user.length-1].viewProfileId);render();
+  const auto=stationSheetView&&stationSheetView.batch,clean=!document.querySelector('[data-station-stale]');
+  stationBatchOpen(a.n);const banner=saText('[data-station-stale]'),red=document.querySelectorAll('.st-sheet-card [data-cut-gone]').length;
+  const option=[...document.querySelectorAll('[data-station-batch] option')].find(x=>x.value===a.n).textContent;
+  document.querySelector('[data-station-tab="queue"]').click();const queue=!!document.querySelector('[data-queue-batch="'+a.n+'"] [data-queue-stale]')&&!document.querySelector('[data-queue-batch="'+b.n+'"] [data-queue-stale]');
+  return {auto:auto===b.n,clean,banner:/Don’t cut/.test(banner)&&/1 cancelled/.test(banner),red,option:/changed — wait/.test(option),queue};
+ }),{auto:true,clean:true,banner:true,red:1,option:true,queue:true});
+ eq('F7: glass cut after Hold costs the customer $0, but the cancel window still offers its fate and keeps the choice',await t.p.evaluate(()=>{
+  const o=saOrder(2,false),l=o.lines[0];unitHold(o.id,l.id,1,'Stop');const h=l.heldUnits[0];h.at=new Date(Date.now()-60000).toISOString();
+  h.pieces.forEach(piece=>stationMove('CUT',stationCheck('CUT',piece),saWho,{}));
+  const plan=unitCancelPlan(o,l,1,new Date().toISOString()).units[0];
+  tab='sales';salesOrderEdit(o.id);salesLineUnitsStrip(null,l.id,'cancel');
+  const where=saText('[data-units-plan]'),options=[...document.querySelectorAll('.line-units-glass input')].map(x=>x.disabled?'off':'on');salesLineHoldClose();salesDraftDrop();
+  const out=unitCancel(o.id,l.id,1,'Customer takes the cut glass',{glass:'customer'}).value;
+  return {plan:[plan.stage,plan.now,plan.charge],where:/Cut/.test(where)&&/after hold — not charged/.test(where),options,saved:[out.charge,out.units[0].glass],takes:unitTakes(o).length};
+ }),{plan:['uncut','cut',0],where:true,options:['on','on','on'],saved:[0,'customer'],takes:1});
+
  eq('Shipping audit browser errors',t.errs,[]);await t.c.close();
 };

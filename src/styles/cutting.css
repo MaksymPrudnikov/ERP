@@ -140,6 +140,9 @@
 .cut-glass{fill:url(#cutGlassSheen);stroke:var(--cut-glass-line);stroke-width:1.1}
 .cut-pc.sel .cut-glass{fill:var(--cut-glass-sel);stroke:var(--cut-sel-line);stroke-width:3}
 .cut-pc.cut-hl .cut-glass{stroke:var(--cut-sel-line);stroke-width:2}
+/* Стекло, которого в батче больше нет (отмена, Hold units): раскрой устарел. */
+.cut-svg g.cut-pc.gone .cut-glass{fill:var(--danger-soft);stroke:var(--danger);stroke-width:2.4;stroke-dasharray:6 4}
+.ncr-warning.cut-stale-stop{background:var(--danger-soft);border-color:var(--danger-line);color:var(--danger);font-weight:600}
 .cut-glass[data-cut-out]{fill:var(--cut-bad-fill);stroke:var(--cut-bad);stroke-width:2}
 .cut-off{fill:var(--cut-off);stroke:var(--cut-off-line);stroke-width:1.2}
 .cut-stk{fill:var(--cut-stk);stroke:var(--cut-stk-line);stroke-width:1.2}

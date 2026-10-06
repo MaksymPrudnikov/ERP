@@ -109,8 +109,8 @@ function salesLineUnitsMenuHTML(m,l,label){
   return dialog('Hold units',fields(max)+'<p class="mut">Least advanced units first.</p>','Put on hold');
  }
  const plan=unitCancelPlan(saved,l,count,new Date().toISOString()),known=plan.units.every(u=>u.charge!=null),total=known?salesMoney(plan.units.reduce((s,u)=>s+u.charge,0)):null;
- const cut=plan.units.some(u=>u.stage!=='uncut'),tempered=plan.units.some(u=>u.stage==='tempered'||u.stage==='assembled');
- const rows=plan.units.map((u,i)=>`<tr data-units-plan="${u.stage}"><td>${i+1}</td><td>${UNIT_STAGE_LABEL[u.stage]}${u.heldAt?' · held '+esc(salesListShortDay(salesListIsoDay(u.heldAt))):''}${u.after?'<span class="line-units-after"> · after hold — not charged</span>':''}</td><td class="n">${u.charge==null?'—':esc(finFmt(u.charge))}</td></tr>`).join('');
+ const cut=plan.units.some(u=>u.now!=='uncut'),tempered=plan.units.some(u=>u.now==='tempered'||u.now==='assembled');
+ const rows=plan.units.map((u,i)=>`<tr data-units-plan="${u.stage}"><td>${i+1}</td><td>${UNIT_STAGE_LABEL[u.now]}${u.heldAt?' · held '+esc(salesListShortDay(salesListIsoDay(u.heldAt))):''}${u.after?'<span class="line-units-after"> · after hold — not charged</span>':''}</td><td class="n">${u.charge==null?'—':esc(finFmt(u.charge))}</td></tr>`).join('');
  const pick=(k,text,off)=>`<label class="chk"><input type="radio" name="unitsGlass" ${m.glass===k?'checked':''} ${off?'disabled':''} onchange="salesLineHoldMenu.glass='${k}'"> ${text}</label>`;
  return dialog('Cancel units',fields(plan.max)+
   (rows?`<div class="sales-table-wrap"><table class="sl-table line-units-plan"><thead><tr><th>#</th><th>Where</th><th class="n">Charge</th></tr></thead><tbody>${rows}</tbody></table></div>`:'')+

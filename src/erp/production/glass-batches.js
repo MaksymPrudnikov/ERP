@@ -174,7 +174,9 @@ function glassBatchRows(orders){
     for(let unit=1;regular&&unit<=l.qty;unit++){
      if(active.has(c.key+'|'+unit)||cancelled.has(c.key+'|'+unit))continue;
      const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';
-     rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,reason:hold||(piece?'':'Glass ID missing')}));
+     /* Hold units: стекло ждёт Release, в батч его не берут. */
+     const uh=!hold&&piece&&(l.heldUnits||[]).find(h=>h.pieces.includes(piece));
+     rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,held:!!uh,reason:hold||(uh?'Units on hold: '+(uh.reason||''):'')||(piece?'':'Glass ID missing')}));
     }
     glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)&&!cancelled.has(x.key+'|'+x.unit)).forEach(x=>{
      const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'';
@@ -260,15 +262,44 @@ function glassBatchReleaseCommand(entries,opts){
 /* Отмена юнитов: непорезанные стёкла снимаются с батча по одному, заказ в New
    не возвращается (в отличие от Unbatch) — остальная позиция идёт в работу.
    Порезанное с листа не трогаем: его просто откладывают. */
-function glassBatchCancelPieces(pieceIds,now){
+function glassBatchCancelPieces(pieceIds,now,action){
  const ids=new Set(pieceIds),touched=new Set();
  (DB.glassBatch||[]).forEach(b=>{
   const off=b.items.filter(i=>ids.has(i.piece)&&!i.releasedAt&&!i.cutStartedAt);if(!off.length)return;
   off.forEach(i=>{i.releasedAt=now;const part=b.parts[i.part];if(part)touched.add(part.orderId+'|'+part.lineId);});
-  b.history.push({at:now,action:'Cancelled',pieces:off.map(i=>i.piece),qty:off.length});
+  b.history.push({at:now,action:action||'Cancelled',pieces:off.map(i=>i.piece),qty:off.length});
  });
  touched.forEach(k=>{const [oid,lid]=k.split('|'),o=salesRecord(oid),l=o&&o.lines.find(x=>x.id===lid);if(o&&l)glassBatchSyncLine(o,l);});
  return touched.size;
+}
+/* Стёкла отменённых юнитов и юнитов на Hold (erp/sales/unit-cancel) →
+   причина. Один проход по заказам — для списка батчей сразу. */
+function glassStopMap(){
+ const m=new Map();
+ (DB.salesOrder||[]).forEach(o=>{
+  (o.cancellations||[]).forEach(c=>(c.units||[]).forEach(u=>(u.pieces||[]).forEach(p=>m.set(p,'Cancelled'))));
+  (o.lines||[]).forEach(l=>(l.heldUnits||[]).forEach(h=>(h.pieces||[]).forEach(p=>{if(!m.has(p))m.set(p,'On hold');})));
+ });
+ return m;
+}
+/* Раскрой батча разошёлся с батчем (аудит Shipping, 6.10.2026): на листах
+   сохранённого раскроя есть стекло, которое отменили, поставили на Hold или
+   сняли с батча. Владелец: такой батч «никак не подсвечен, чтобы легко найти
+   и переоптимизировать», а резчик «не должен брать этот батч, пока его не
+   исправят» — подсветка в Batches, в раскрое и на CUT до Reset → Build.
+   Сравнение по номерам стёкол, без пересчёта раскроя — дёшево для списков.
+   Уже порезанное не считается: его не вернуть. gone — стекло → причина. */
+function glassBatchStale(b,stops){
+ const plan=b&&typeof cutPlanFor==='function'?cutPlanFor(b.number):null;
+ if(!plan||plan.reset||!Array.isArray(plan.groups))return null;
+ const live=new Set(glassBatchActiveItems(b).map(i=>i.piece)),cut=new Set(b.items.filter(i=>i.cutStartedAt).map(i=>i.piece)),gone=new Map();stops=stops||glassStopMap();
+ plan.groups.forEach(g=>(g.sheets||[]).forEach(s=>(s.pieces||[]).forEach(p=>{
+  if(cut.has(p.piece))return;const why=stops.get(p.piece)||'';
+  if(why||!live.has(p.piece))gone.set(p.piece,why||'Removed');
+ })));
+ if(!gone.size)return null;
+ const n=k=>[...gone.values()].filter(x=>x===k).length,parts=[['Cancelled','cancelled'],['On hold','on hold'],['Removed','removed']].map(([k,w])=>n(k)?n(k)+' '+w:'').filter(Boolean);
+ return {gone,text:parts.join(' · ')};
 }
 /* Перенос стёкол в новый батч. Последний лист с большим пустым местом бывает
    выгоднее не резать — его стёкла уходят в новый батч; решает человек, «есть

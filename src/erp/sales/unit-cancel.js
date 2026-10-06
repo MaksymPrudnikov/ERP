@@ -104,19 +104,31 @@ function unitHold(orderId,lineId,count,reason){return storageCommand(()=>{
  const {o,l}=unitLine(orderId,lineId),n=Math.floor(+count),why=String(reason||'').trim().slice(0,200);
  unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason for the hold.');
  const free=unitHoldable(o,l);unitAssert(n<=free.length,free.length?'Only '+shippingCount(free.length,'unit')+' can be held.':'No units left to hold.');
- const now=new Date().toISOString();l.heldUnits=(l.heldUnits||[]).concat(free.slice(0,n).map(u=>({id:salesUid('HU'),pieces:u.pieces.slice(),at:now,reason:why})));
+ const now=new Date().toISOString(),picked=free.slice(0,n);l.heldUnits=(l.heldUnits||[]).concat(picked.map(u=>({id:salesUid('HU'),pieces:u.pieces.slice(),at:now,reason:why})));
+ /* Непорезанное стекло уходит с батча, как при отмене: раскрой батча
+    подсвечен, офис пересобирает; после Release стекло снова ждёт батча
+    (владелец, 6.10.2026: «должны были найти батч и убрать стекло с
+    оптимизации»). */
+ glassBatchCancelPieces(picked.flatMap(u=>u.pieces),now,'On hold');
  o.updatedAt=now;orderLogPush(o,'Units on hold',unitLineNo(o,l)+' · '+shippingCount(n,'unit')+' · '+why);shippingSyncOrder(o,now);salesSyncRecordLifecycle(o);return l;
 });}
 function unitRelease(orderId,lineId){return storageCommand(()=>{
  const {o,l}=unitLine(orderId,lineId),n=(l.heldUnits||[]).length;unitAssert(n,'No units on hold.');
  const now=new Date().toISOString();delete l.heldUnits;o.updatedAt=now;orderLogPush(o,'Hold released',unitLineNo(o,l)+' · '+shippingCount(n,'unit'));shippingSyncOrder(o,now);salesSyncRecordLifecycle(o);return l;
 });}
+/* Где стекло юнита сейчас — по всем сканам. stage у отмены — работа ДО Hold
+   (за неё платит клиент); стекло, порезанное после Hold, клиенту $0, но
+   оно есть, и его судьбу выбирают так же (аудит Shipping, 6.10.2026). */
+function unitStageNow(o,l,pieces){
+ const heat=unitHeatStations(),mu=stationUnitMerge(o,l),sc=pieces.map(p=>stationScansFor(p));
+ return mu&&sc.length&&sc.every(x=>x.some(s=>s.station===mu&&s.unit))?'assembled':sc.some(x=>x.some(s=>heat.includes(s.station)))?'tempered':sc.some(x=>x.length)?'cut':'uncut';
+}
 /* Что будет отменено: сначала юниты на Hold (цена — по их времени Hold),
    потом остальные по порядку выбора (цена — на сейчас). */
 function unitCancelPlan(o,l,count,now){
  const held=(l.heldUnits||[]).map(h=>({pieces:h.pieces.slice(),heldAt:h.at})),rest=unitHoldable(o,l).map(u=>({pieces:u.pieces,heldAt:''}));
  const all=held.concat(rest);
- return {max:all.length,units:all.slice(0,Math.max(0,Math.floor(+count)||0)).map(u=>Object.assign(u,unitCharge(o,l,u,u.heldAt||now)))};
+ return {max:all.length,units:all.slice(0,Math.max(0,Math.floor(+count)||0)).map(u=>Object.assign(u,unitCharge(o,l,u,u.heldAt||now),{now:unitStageNow(o,l,u.pieces)}))};
 }
 const UNIT_GLASS=['scrap','customer','stock'];
 function unitChargeOf(c){return c.chargeOverride!=null?c.chargeOverride:c.charge;}
@@ -133,7 +145,7 @@ function unitCancel(orderId,lineId,count,reason,opts){return storageCommand(()=>
  const known=plan.units.every(u=>u.charge!=null),charge=known?salesMoney(plan.units.reduce((s,u)=>s+u.charge,0)):null;
  unitAssert(charge!=null||override!=null,'Pricing is not complete. Enter the charge.');
  const pieces=new Set(plan.units.flatMap(u=>u.pieces)),who=orderLogActor();
- const rec={id:salesUid('CU'),at:now,by:who.by||'',lineId:l.id,reason:why,units:plan.units.map(u=>({pieces:u.pieces.slice(),stage:u.stage,heldAt:u.heldAt||'',charge:u.charge,glass:u.stage==='uncut'?'':glass})),charge,chargeOverride:override};
+ const rec={id:salesUid('CU'),at:now,by:who.by||'',lineId:l.id,reason:why,units:plan.units.map(u=>({pieces:u.pieces.slice(),stage:u.stage,heldAt:u.heldAt||'',charge:u.charge,glass:u.now==='uncut'?'':glass})),charge,chargeOverride:override};
  /* Порезанное в сток: размер реза и стекло каждого лайта. */
  if(glass==='stock'){const index=stationPieceIndex(),comps=glassBatchComponents(o,l);rec.units.forEach(u=>{if(!u.glass)return;u.pieces.forEach(id=>{
   if(!stationScansFor(id).length)return;const h=index.get(id),c=h&&comps.find(x=>x.key===h.key);if(!c||c.missing)return;

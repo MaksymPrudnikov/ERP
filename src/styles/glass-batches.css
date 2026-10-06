@@ -8,6 +8,10 @@
 .gb-table .gb-held td{background:var(--warning-soft)}
 .gb-table .gb-selected td{background:var(--accent-soft)}
 .gb-table .gb-released td{color:var(--text-3);background:var(--surface-2)}
+/* Отменённое стекло и юниты на Hold; батч, раскрой которого устарел. */
+.gb-table .gb-stop td,.gb-table .gb-stale td{background:var(--danger-soft)}
+.gb-state.stop{color:var(--danger);font-weight:700}
+.page-head .gb-stale-note{margin:4px 0 0;color:var(--danger);font-weight:700}
 .gb-link{border:0!important;background:none!important;box-shadow:none!important;color:var(--accent);padding:0;font-size:12px;font-weight:600}
 .gb-settings{display:inline-flex;align-items:center;justify-content:center;border:0;background:none;padding:2px;color:var(--text-2);width:23px;height:23px}
 .gb-settings svg{width:15px;height:15px;display:block}
