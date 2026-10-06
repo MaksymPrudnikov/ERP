@@ -25,6 +25,11 @@ module.exports=async function({page,eq,ok}){
   const [a,a2,b,c]=skSeed('A A B C');const before=skidsOut().size;skShip(a,2);skShip(a2,5);skShip(b,1);skShip(c,3,{method:'pickup'});
   return {before,out:skOut(),count:skidsOut().size};
  }),{before:0,out:['Customer A: SL-2 5d PS-0002, SL-1 2d PS-0001','Customer B: SL-3 1d PS-0003'],count:3});
+ eq('Pickup takes the skid only when the skid itself was scanned onto the customer truck',await t.p.evaluate(()=>{
+  const [a,b]=skSeed('A B'),ps=id=>shippingCreate({customerId:salesRecord(id).customerId,method:'pickup',shipTo:{},date:finToday(),items:shippingAvailable(salesRecord(id)).map(shippingItem),extras:[]}).value;
+  const truck=ps(a),desk=ps(b);shippingLoad('SL-1',truck.id,{id:'qa',name:'QA'});shippingMarkShipped(truck.id,'loaded');shippingScanSigned(desk.number,'Customer');
+  return {truck:truck.skidsOut,desk:desk.skidsOut,out:skOut(),status:[truck.status,desk.status]};
+ }),{truck:['SL-1'],desk:[],out:['Customer A: SL-1 0d PS-0001'],status:['shipped','delivered']});
  eq('A planned or rolled back PS does not take the skid; the next delivery moves it to the new customer',await t.p.evaluate(()=>{
   const [a,b]=skSeed('A B'),s=skShip(a,0),sent=skidsOut().has('SL-1');shippingRevert(s.id,'dispatch');const rolled=skidsOut().size;shippingMarkShipped(s.id);
   skidBack('SL-1',{name:'QA'});shippingAvailable(salesRecord(b)).forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));const s2=skShip(b,0);
@@ -41,6 +46,14 @@ module.exports=async function({page,eq,ok}){
   const whole=stationSubmit('SL-1'),hint=skText('[data-station-result="shipMixed"] .st-info'),units=shippingAvailable(o).map(u=>stationSubmit(u.pieces[0]));shippingMarkShipped(s.id,'loaded');
   return {whole,hint:hint.includes('Scan the units one by one'),units,skids:[...new Set(s.items.map(i=>i.skid))],out:skidsOut().size,stillOn:(carrierContents().get('SL-1')||[]).length};
  }),{whole:'shipMixed',hint:true,units:['shipLoaded','shipLoaded','shipLoaded'],skids:[''],out:0,stillOn:6});
+ eq('The customer paper shows a skid only when the skid leaves with it: not from a mix, not at the front desk',await t.p.evaluate(()=>{
+  const [a,b,c]=skSeed('A B C');shippingAvailable(salesRecord(b)).forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));
+  const mk=(id,method)=>shippingCreate({customerId:salesRecord(id).customerId,method,shipTo:{address1:'1 Main St'},date:finToday(),items:shippingAvailable(salesRecord(id)).map(shippingItem),extras:[]}).value;
+  const text=s=>shippingPages(shippingDocument(s)).flatMap(p=>p.items.filter(i=>i.t==='text').map(i=>i.s)).join(' | '),has=s=>({skid:/SL-\d/.test(text(s)),sheet:text(s).includes('SKID CONTENTS'),left:text(s).includes('left on site')});
+  const mix=mk(a,'delivery'),planned=has(mix);shippingMarkShipped(mix.id);const shipped=has(mix),list=shippingListInfos().find(i=>i.o.id===mix.id).memo.skids;
+  const last=mk(b,'delivery'),whole=has(last),desk=has(mk(c,'pickup'));
+  return {planned,shipped,list,whole,desk};
+ }),{planned:{skid:false,sheet:false,left:false},shipped:{skid:false,sheet:false,left:false},list:'',whole:{skid:true,sheet:true,left:true},desk:{skid:false,sheet:false,left:false}});
  eq('SHIP: an empty skid that was at a customer comes back by one scan; a second scan is not a second return',await t.p.evaluate(()=>{
   const [a]=skSeed('A');skShip(a,4);skLogin(shippingStations().ship);
   const first=stationSubmit('SL-1'),head=skText('[data-station-result="shipBack"] .st-res-h'),big=skText('[data-station-result="shipBack"] .st-big'),rec=DB.skidReturn[0];

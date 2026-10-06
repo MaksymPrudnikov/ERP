@@ -109,7 +109,7 @@ function shippingReadyHTML(){
 }
 function shippingListScope(){return shippingTab==='shipments'?'shippingPS':shippingTab==='awaiting'?'shippingAwaiting':shippingTab==='done'?'shippingDone':'';}
 function shippingListColumns(){return [{k:'number',label:'Packing slip',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'date',label:'Date',type:'date'},{k:'method',label:'Method',type:'list'},{k:'skids',label:'Skids',type:'text',tokens:true},{k:'units',label:'Units',type:'number'},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
-function shippingListInfos(){return (DB.shipment||[]).map(s=>({o:s,memo:{number:s.number,customer:salesCustomerDisplay(s.customerId),date:s.date,method:s.method==='pickup'?'Pickup':'Delivery',skids:[...new Set(s.items.map(i=>i.skid).filter(Boolean))].join(', '),units:s.items.length+s.extras.reduce((n,i)=>n+i.qty,0),status:shippingStatus(s)}}));}
+function shippingListInfos(){return (DB.shipment||[]).map(s=>({o:s,memo:{number:s.number,customer:salesCustomerDisplay(s.customerId),date:s.date,method:s.method==='pickup'?'Pickup':'Delivery',skids:(Array.isArray(s.skidsOut)?s.skidsOut:[...new Set(s.items.map(i=>i.skid).filter(Boolean))]).join(', '),units:s.items.length+s.extras.reduce((n,i)=>n+i.qty,0),status:shippingStatus(s)}}));}
 function shippingListHTML(){
  const infos=shippingListInfos(),cols=shippingListColumns(),rows=salesListRows(infos);
  const th=c=>`<th><span class="sl-th">${c.label}<button class="sl-fbtn${salesListFilterActive(salesListLoadPrefs().filters[c.k])?' on':''}" aria-label="Filter ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;

@@ -45,6 +45,16 @@ function shippingLoadState(s){
 /* Юнит, который так и не уехал с этим PS, не считается напечатанным на нём:
    иначе его поломку в цеху пришлось бы оформлять как NCR (решение 20). */
 function shippingUnprint(s,items){if(s.printedItems&&items.length)s.printedItems=s.printedItems.filter(p=>!items.some(i=>i.label===p.label));}
+/* Какие скиды уезжают с PS. Владелец, 6.10.2026: «мы ему выдали юниты из
+   скида, а не сам скид с юнитами» — скид едет, только если на нём не остаётся
+   чужого стекла; на самовывозе — только если его погрузили сканом скида
+   («клиент пригоняет свой трак, и мы на него грузим скиды»).
+   units — юниты PS как их видит цех сейчас: {pieces, skid, loaded}. */
+function shippingCarriers(){const c=shippingCtxNow;return c?c.carriers||(c.carriers=carrierContents()):carrierContents();}
+function shippingSkidsOut(s,units){
+ const mine=new Set(units.flatMap(u=>u.pieces)),on=shippingCarriers(),went=s.method==='pickup'?units.filter(u=>u.loaded):units;
+ return [...new Set(went.map(u=>u.skid).filter(Boolean))].filter(code=>!(on.get(code)||[]).some(x=>!mine.has(x.id)));
+}
 function shippingLoadPart(list){const skids=new Set(list.map(u=>u.skid).filter(Boolean)).size,loose=list.filter(u=>!u.skid).length;return [skids?shippingCount(skids,'skid'):'',loose?shippingCount(loose,'unit'):''].filter(Boolean).join(' + ');}
 function shippingLoadText(st){return st.loaded.length?shippingLoadPart(st.loaded)+' loaded'+(st.rest.length?' · '+shippingLoadPart(st.rest)+' not loaded':''):'';}
 /* Скид: готовые юниты на нём и стекло, которое лежит там же, но не готово

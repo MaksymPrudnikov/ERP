@@ -58,6 +58,8 @@ function shippingMarkShipped(id,mode){return storageCommand(()=>{
   s.items=s.items.filter(i=>loaded.has(i.label));shippingUnprint(s,left);
   [...new Set(left.map(i=>i.orderId))].forEach(oid=>orderLogPush(salesRecord(oid),'Not loaded',s.number+' · '+shippingCount(left.filter(i=>i.orderId===oid).length,'unit')+' back to Ready'));
  }
+ /* Какие скиды уезжают — до заморозки документа: на бумаге клиента только они. */
+ s.skidsOut=shippingSkidsOut(s,s.items.map(i=>({pieces:i.pieces,skid:i.skid,loaded:loaded.has(i.label)})));
  s.document=shippingDocument(s);
  const who=orderLogActor(),scanIds=[];
  /* The office button records the confirmed physical dispatch as manual SHIP
@@ -67,9 +69,6 @@ function shippingMarkShipped(id,mode){return storageCommand(()=>{
   const rec=stationRecord(station,check,{id:who.byId,name:who.by||'Office'},{deferTouch:true,manual:true,now});
   shippingAssert(rec,'Dispatch was not recorded.');scanIds.push(rec.id);
  }));
- /* Скид уехал с этим PS, только если на нём ничего не осталось: со скида-
-    микса юниты забирают по одному, сам скид стоит в цеху (erp/shipping/skids). */
- const still=carrierContents();s.skidsOut=[...new Set(s.items.map(i=>i.skid).filter(Boolean))].filter(code=>!(still.get(code)||[]).length);
  s.scanIds=scanIds;s.status='shipped';s.shippedAt=now;s.shippedBy=shippingActor();
  shippingSyncOrders(before.concat(shippingOrderIds(s)),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
 });}

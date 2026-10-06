@@ -6,19 +6,19 @@
    возвращается сканом; чужой заводим новым кодом с этикеткой, а наш,
    оставшийся у клиента, списывается как обменянный.
    Где скид — не хранится, а считается (как «где стекло»): последний
-   отправленный PS с ним против последнего возврата. Самовывоз скид не
-   увозит: стекло перекладывают в машину клиента. Скид-микс (на нём стекло
-   нескольких клиентов) уезжает только с последним своим стеклом. Skid Deposit — отдельно,
+   отправленный PS с ним против последнего возврата. Скид-микс (на нём стекло
+   нескольких клиентов) уезжает только с последним своим стеклом. Самовывоз
+   увозит скид, только если его погрузили сканом скида на станции отгрузки. Skid Deposit — отдельно,
    деньги этот учёт не трогает. */
 DEFAULT.skidReturn=[];
 /* skidsOut пишет отгрузка: скиды, на которых после неё ничего не осталось.
    У PS, отправленных до 6.10.2026, поля нет — берём скиды из документа. */
-function skidCodes(s){return Array.isArray(s.skidsOut)?s.skidsOut:s.document?s.document.skids.map(k=>k.code):[...new Set((s.items||[]).map(i=>i.skid).filter(Boolean))];}
+function skidCodes(s){return Array.isArray(s.skidsOut)?s.skidsOut:s.method!=='delivery'?[]:s.document?s.document.skids.map(k=>k.code):[...new Set((s.items||[]).map(i=>i.skid).filter(Boolean))];}
 /* Скиды, которые сейчас у клиентов: код → {customerId, since, ps, psId}. */
 function skidsOut(){
  const out=new Map(),back=new Map();
  (DB.skidReturn||[]).forEach(r=>{if(!back.has(r.code)||r.at>back.get(r.code))back.set(r.code,r.at);});
- (DB.shipment||[]).filter(s=>shippingSent(s)&&s.method==='delivery').sort((a,b)=>a.shippedAt.localeCompare(b.shippedAt)).forEach(s=>skidCodes(s).forEach(code=>out.set(code,{code,customerId:s.customerId,since:s.shippedAt,ps:s.number,psId:s.id})));
+ (DB.shipment||[]).filter(shippingSent).sort((a,b)=>a.shippedAt.localeCompare(b.shippedAt)).forEach(s=>skidCodes(s).forEach(code=>out.set(code,{code,customerId:s.customerId,since:s.shippedAt,ps:s.number,psId:s.id})));
  out.forEach((x,code)=>{if(back.has(code)&&back.get(code)>=x.since)out.delete(code);});
  return out;
 }
