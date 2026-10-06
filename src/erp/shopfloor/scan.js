@@ -257,6 +257,7 @@ function normalizeStationScans(){
   .map(s=>({id:s.id,at:s.at,piece:s.piece,station:sfCode(s.station),by:String(s.by==null?'':s.by).slice(0,80),byId:String(s.byId==null?'':s.byId).slice(0,80),manual:s.manual===true,
    undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):'',
    ...(typeof s.on==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.on)?{on:s.on}:{}),
+   ...(s.moved&&typeof s.moved==='object'&&iso(s.moved.at)?{moved:{from:typeof s.moved.from==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.moved.from)?s.moved.from:'',at:s.moved.at,by:String(s.moved.by==null?'':s.moved.by).slice(0,80)}}:{}),
    ...(typeof s.confirmedAt==='string'&&SF_CODE_RE.test(sfCode(s.confirmedAt))?{confirmedAt:sfCode(s.confirmedAt)}:{}),
    ...(Number.isInteger(s.step)&&s.step>=0?{step:s.step}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.actionId))?{actionId:s.actionId}:{}),

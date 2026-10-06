@@ -201,6 +201,23 @@ function sfSplitEdgeFix(){
  return n;
 }
 
+/* На что кладут стекло после станции (владелец, 6 октября 2026: «опция,
+   чтобы я сам проставлял, убирал, добавлял; базово поставь везде долли»).
+   Пусто — по умолчанию: IGU получает на долли, а отдаёт на скидах; у SHIPR
+   и SHIP свои правила (скиды, машина) — опции у них нет. Станция с опцией
+   спрашивает тару, если её не отсканировали (views/station, «Which dolly?»). */
+const SF_PUTS_ON=[['dolly','Dolly'],['skid','Skid'],['none','—']];
+function sfPutsOnOwn(code){const sh=typeof shippingStations==='function'?shippingStations():null;return !!sh&&!!code&&(code===sh.ready||code===sh.ship);}
+function sfPutsOn(s){
+ if(!s||sfPutsOnOwn(s.code))return 'none';
+ if(s.putsOn)return s.putsOn;
+ return typeof salesRouteStationOf==='function'&&s.code===salesRouteStationOf('igu_assembly','IGU')?'skid':'dolly';
+}
+function sfSetPutsOn(code,v){
+ const out=storageCommand(()=>{const s=(DB.station||[]).find(x=>x.code===code);if(!s||sfPutsOnOwn(code)||!SF_PUTS_ON.some(([k])=>k===v))throw new Error('Not changed.');s.putsOn=v;return true;});
+ return out.ok;
+}
+
 function normalizeShopFloor(){
  normalizeEdgeAllowance();
  const seen=Object.create(null);
@@ -214,7 +231,8 @@ function normalizeShopFloor(){
      запретило бы вообще всё и выглядело бы как поломка расчёта. */
   const dim=v=>{const n=+v;return isFinite(n)&&n>0?n:null;};
   return {seq,code:sfCode(s.code),name:sfStr(s.name),nameEn:sfStr(s.nameEn),always:s.always===true,
-   maxW:dim(s.maxW),maxL:dim(s.maxL),sizeMeasured:s.sizeMeasured===true,note:sfStr(s.note)};
+   maxW:dim(s.maxW),maxL:dim(s.maxL),sizeMeasured:s.sizeMeasured===true,note:sfStr(s.note),
+   ...(SF_PUTS_ON.some(([k])=>k===s.putsOn)?{putsOn:s.putsOn}:{})};
  }).sort((a,b)=>a.seq-b.seq);
 
  const tSeen=Object.create(null);
