@@ -441,7 +441,14 @@ function stationTop(who){
   (who?stationTripChip():'')+
   (who?'<button type="button" class="st-btn" data-station-drawings onclick="stationDrawPick()">Drawings</button>':'')+
   (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" onclick="stationSwitch()">Switch</button>':'')+
-  '<button type="button" class="st-btn st-exit" onclick="stationExit()" title="Back to ERP">ERP</button></div>';
+  stationThemeButton()+'<button type="button" class="st-btn st-exit" onclick="stationExit()" title="Back to ERP">ERP</button></div>';
+}
+/* Тема на станции: бокового меню с логотипом GF здесь нет, а сменить тему
+   нужно (владелец, 6 октября 2026: «тему сменить нельзя»). Тот же выбор
+   браузера, что в офисе; на кнопке — тема, в которую переключит. */
+function stationThemeButton(){
+ const dark=document.documentElement.getAttribute('data-theme')==='dark';
+ return '<button type="button" class="st-btn" data-station-theme onclick="toggleTheme();render()" title="Light / dark">'+(dark?'Light':'Dark')+'</button>';
 }
 function stationLoginView(){
  const pin=stationLoginStep==='pin',hi=typeof signinGreeting==='function'?signinGreeting():'Hello';
