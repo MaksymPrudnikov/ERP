@@ -2785,7 +2785,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='4c9dee39c8c2';
+var ERP_BUILD='68c94d62607a';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11316,7 +11316,9 @@ function salesOrderTitle(o){
 /* Строка, ушедшая в батч, несёт дату батча. Пока она стоит, у строки нельзя
    менять размер, количество, Makeup, фигуру и кромку, и строку нельзя
    удалить. Цены остаются правкой продавца. Новые строки заказа идут без
-   даты — это «added after batch», их отправляют в батч из очереди Optimization. */
+   даты — это «added after batch», их отправляют в батч из очереди Optimization.
+   Исключение — стекло строки ещё не порезано: количество можно уменьшить, строку
+   убрать (salesLineShrinkable, владелец 6.10.2026). */
 function salesLineLocked(line){return !!(line&&(line.batchedAt||line.cutStartedAt));}
 function salesMakeupLocked(order,makeupId){return !!(order&&(order.lines||[]).some(l=>l.makeupId===makeupId&&salesLineLocked(l)));}
 function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled');}
@@ -11331,7 +11333,7 @@ function salesLockedLineGuard(line){
 /* У строки в батче закрыта каждая ячейка, кроме Shape: форма открывает
    чертёж на просмотр и печать (владелец, 26.09.2026), редактор — нет. */
 function salesLineRowAttrs(line){return (salesLineLocked(line)?" class='line-locked'":line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
-function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='shape'?String(html).replace(/^<td\b/,'<td inert'):html;}
+function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='shape'&&!((key==='qty'||key==='delete')&&salesLineShrinkableInDraft(line))?String(html).replace(/^<td\b/,'<td inert'):html;}
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
  if(salesLineLocked(line))return ` <span class="line-lock" title="Batched ${esc(salesShortDate(line.batchedAt))}${line.batchNo?' · '+esc(line.batchNo):''}">🔒</span>`;
@@ -11351,14 +11353,47 @@ function salesLockedLineSnapshot(order,line){
  return JSON.stringify({w:line.width16,h:line.height16,q:line.qty,m:m?salesStripPrices({unitType:m.unitType,panes:m.panes,cavities:m.cavities}):null,
   shape:line.shapeRef&&line.shapeRef.id||'',lites:line.liteShapes||{},set:line.serviceSetId||'',overrides:line.serviceOverrides||null,sides:line.sideMap||null});
 }
+/* Строка в батче, стекло которой ещё не порезано: клиент сменил количество —
+   его просто уменьшают, лишнюю строку убирают крестиком; лишнее стекло
+   уходит из батча, батч подсвечивается «Re-optimize». Больше юнитов — новой
+   строкой или новым заказом (владелец, 6.10.2026). Порезано хоть одно стекло
+   строки или по ней есть отмена — только через Cancel units. */
+function salesLineShrinkable(o,l){
+ return !!o&&!!l&&!salesIsQuote(o)&&!['closed','cancelled'].includes(o.status)&&salesLineLocked(l)&&!l.cutStartedAt
+  &&!(typeof glassLineScanned==='function'&&glassLineScanned(o.id,l))&&!(o.cancellations||[]).some(c=>c.lineId===l.id);
+}
+function salesLineShrinkableInDraft(l){const o=soDraft&&soEdit!=='new'?salesRecord(soDraft.id):null,old=o&&l&&(o.lines||[]).find(x=>x.id===l.id);return salesLineShrinkable(o,old);}
 function salesLockViolations(draft,saved){
  const out=[];if(!saved)return out;
  (saved.lines||[]).forEach((old,i)=>{
   if(!salesLineLocked(old))return;
-  const at=(draft.lines||[]).findIndex(l=>l.id===old.id),now=draft.lines[at],name=n=>'line '+n+(old.mark?' ('+old.mark+')':'');
-  if(!now){out.push(name(i+1)+' was removed');return;}
+  const at=(draft.lines||[]).findIndex(l=>l.id===old.id),now=draft.lines[at],name=n=>'line '+n+(old.mark?' ('+old.mark+')':''),free=salesLineShrinkable(saved,old);
+  if(!now){if(!free)out.push(name(i+1)+' was removed');return;}
   now.batchManaged=old.batchManaged;now.batchedAt=old.batchedAt;now.batchNo=old.batchNo||'';now.cutStartedAt=old.cutStartedAt||'';
-  if(salesLockedLineSnapshot(draft,now)!==salesLockedLineSnapshot(saved,old))out.push(name(at+1)+' changed');
+  const was=salesLockedLineSnapshot(saved,old);if(salesLockedLineSnapshot(draft,now)===was)return;
+  const onlyQty=salesLockedLineSnapshot(draft,Object.assign({},now,{qty:old.qty}))===was;
+  if(onlyQty&&free&&now.qty<old.qty)return;
+  out.push(name(at+1)+(onlyQty&&free?' can only go down':' changed'));
+ });
+ return out;
+}
+/* Hold на юнит, стекла которого больше нет (количество уменьшили), уходит вместе
+   с ним — иначе Cancel units предложил бы отменить больше, чем заказано. */
+function salesDropStaleHolds(o){
+ if(!o||typeof glassPieceMap!=='function')return;
+ const all=new Set([...glassPieceMap(o.id).values()].flatMap(r=>(r.ids||[]).concat(...Object.values(r.extra||{}))));
+ (o.lines||[]).forEach(l=>{if(!l.heldUnits)return;l.heldUnits=l.heldUnits.filter(h=>h.pieces.every(p=>all.has(p)));if(!l.heldUnits.length)delete l.heldUnits;});
+}
+/* Что уходит из батча при сохранении: стекло последних юнитов строки (номера
+   юнитов идут по порядку) или всей убранной строки. */
+function salesBatchShrinks(draft,saved){
+ if(!saved||typeof glassPieceMap!=='function')return [];const map=glassPieceMap(saved.id),out=[];
+ (saved.lines||[]).forEach((old,i)=>{
+  if(!salesLineShrinkable(saved,old))return;
+  const now=(draft.lines||[]).find(l=>l.id===old.id),to=now?now.qty:0;if(to>=old.qty)return;
+  const pieces=glassBatchComponents(saved,old).flatMap(c=>{const rec=map.get(c.key);return rec?rec.ids.slice(to,old.qty).filter(glassPieceValid):[];});
+  const batches=[...new Set((DB.glassBatch||[]).filter(b=>b.items.some(x=>!x.releasedAt&&pieces.includes(x.piece))).map(b=>b.number))];
+  out.push({line:old,no:i+1,from:old.qty,to,pieces,batches,text:'Line '+(i+1)+(old.mark?' ('+old.mark+')':'')+(now?': '+old.qty+' → '+to+' units':' removed')+' — '+pieces.length+' glass leave '+(batches.join(', ')||'the batch')});
  });
  return out;
 }
@@ -13580,6 +13615,15 @@ function salesOrderSaveCommand(opts){
     размер — новая строка или новый заказ, а не правка строки. */
  if(!opts.unlock){const broken=salesLockViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(broken.length)return fail(e,'Batched lines cannot change: '+broken.join('; ')+'. Add a new line or open a new order.');
   const started=salesStartedViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(started.length)return fail(e,'Glass already in production: '+started.join('; ')+'. Add a new line or open a new order.');}
+ /* Меньше юнитов у строки в батче (salesLineShrinkable): лишнее стекло уходит
+    из батча до записи. Резчик мог порезать без скана — спросить. */
+ const shrinks=opts.unlock||soEdit==='new'?[]:salesBatchShrinks(soDraft,previousOrder);
+ if(shrinks.length&&!confirm(shrinks.map(x=>x.text).join('\n')+'\n\nThis glass is not cut yet?'))return;
+ if(shrinks.length){
+  const now=new Date().toISOString(),gone=new Set(shrinks.flatMap(x=>x.pieces));
+  glassBatchCancelPieces([...gone],now,'Quantity changed');
+  shrinks.forEach(x=>orderLogPush(previousOrder,x.to?'Quantity changed':'Line removed','line '+x.no+(x.to?' · '+x.from+' → '+x.to:'')+' · '+x.pieces.length+' glass out of '+(x.batches.join(', ')||'the batch')));
+ }
  /* Заказ одного склада: пустая стартовая строка стекла не мешает сохранить. */
  if((soDraft.extraItems||[]).length)soDraft.lines=soDraft.lines.filter(l=>!salesOrderLineIsBlank(l));
  /* Строка без размера уезжала в Draft молча и всплывала уже в цеху.
@@ -13602,7 +13646,7 @@ function salesOrderSaveCommand(opts){
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;if(!soDraft.statusDates[soDraft.status])soDraft.statusDates[soDraft.status]=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
- normalizeSalesData();if(typeof glassPieceEnsure==='function')glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
+ normalizeSalesData();if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
 function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(salesDeleteBlocked(DB.salesOrder[i]))return;if(salesIsQuote(DB.salesOrder[i])){salesQuoteDeleteGroup(DB.salesOrder[i]);return;}const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;if(!confirm(paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?'))return;if(typeof finReleaseOrder==='function')finReleaseOrder(id);DB.salesOrder.splice(i,1);salesPruneOrphanShapes();touch();render();}
 
@@ -13778,7 +13822,7 @@ function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSal
    сохранения — она вернётся, и её фигура обязана быть на месте. Такие фигуры
    убирает уборка после сохранения. Строку, которой в сохранённом заказе нет,
    можно чистить сразу. */
-function salesOrderRemoveLine(i){const l=soDraft.lines[i];if(salesLockedLineGuard(l))return;if(l&&!salesLineInSavedOrder(l.id)){salesDropLineLiteShapes(l);salesDropLineOwnedShape(l);}if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
+function salesOrderRemoveLine(i){const l=soDraft.lines[i];if(!salesLineShrinkableInDraft(l)&&salesLockedLineGuard(l))return;if(l&&!salesLineInSavedOrder(l.id)){salesDropLineLiteShapes(l);salesDropLineOwnedShape(l);}if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
 
 /* Явный +/- для раздела стекла: "+ Add Makeup" открывает GLASS/IGU MAKEUPS,
    "− Makeup" закрывает. Makeup A из soDraft.makeups[0] никогда не удаляется —
@@ -21543,7 +21587,11 @@ function salesOrderColumnCell(key,l,i,linked,st){
   var metric=SALES_METRIC_COLUMNS.find(function(c){return c.key===key;});if(metric)return salesMetricCell(l,metric,'screen');
   if(key==='mu')return `<td><select class='line-mu' onchange='soDraft.lines[${i}].makeupId=this.value;render()'>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${l.makeupId===m.id?'selected':''}>${esc(m.code)}</option>`;}).join('')}</select></td>`;
   if(key==='set')return `<td class='ss-cell'>${salesSetBadge(l)}</td>`;
-  if(key==='qty')return `<td><input class='line-qty' type='number' min='1' step='1' value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=salesPositiveInt(this.value,1)' onchange='render()'></td>`;
+  if(key==='qty'){
+   /* Строка в батче, стекло не порезано: количество только вниз (salesLineShrinkable). */
+   var max=salesLineLocked(l)&&salesLineShrinkableInDraft(l)?((salesRecord(soDraft.id).lines||[]).find(function(x){return x.id===l.id;})||{}).qty:0;
+   return `<td><input class='line-qty' type='number' min='1' step='1'${max?` max='${max}' title='Not cut yet — fewer units only'`:''} value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=${max?`Math.min(${max},salesPositiveInt(this.value,1))`:'salesPositiveInt(this.value,1)'}' onchange='render()'></td>`;
+  }
   if(key==='width')return `<td><input data-so-width class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.width16))}' placeholder='34 13/16' onchange='salesLineDimChange(${i},"width",this)'></td>`;
   if(key==='height')return `<td><input class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.height16))}' placeholder='15 5/16' onchange='salesLineDimChange(${i},"height",this)'></td>`;
   if(key==='mark')return `<td><input class='line-mark' value='${esc(l.mark)}' oninput='soDraft.lines[${i}].mark=this.value' onkeydown='salesLineMarkKey(${i},event)'></td>`;
@@ -21554,7 +21602,7 @@ function salesOrderColumnCell(key,l,i,linked,st){
 }
 function salesOrderLines(){
   var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce(function(n,g){return n+g.lines;},0),hasServices=pricing.charges>0||commercial.length>0,columns=salesOrderScreenColumns();
-  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag and reorder columns in Columns</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`)}</tr>${salesLineUnitsRow(l,columns.length+3)}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
+  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag and reorder columns in Columns</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
 }
 
 /* ---------- Edgework Set editor ---------- */
