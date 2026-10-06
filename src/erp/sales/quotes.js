@@ -56,7 +56,7 @@ function salesQuoteValidUntil(o){return o&&o.validUntil||salesAddDays(o&&o.sentA
 function salesCopySalesRecord(src,fields){
  const copy=JSON.parse(JSON.stringify(src));Object.assign(copy,{id:salesUid('SO')},fields||{});
  copy.lines.forEach(line=>{
-  const oldId=line.id;line.id=salesUid('SOL');line.batchedAt='';
+  const oldId=line.id;line.id=salesUid('SOL');line.batchedAt='';delete line.shipQueue;
   const clone=ref=>{const s=salesShapeByRef(ref);if(!s)return ref;const c=JSON.parse(JSON.stringify(s));c.id=salesUid('SHP');if(c.ownerLineId===oldId)c.ownerLineId=line.id;DB.shapeDef.push(c);return Object.assign({},ref,{id:c.id});};
   line.shapeRef=clone(line.shapeRef);
   Object.keys(line.liteShapes||{}).forEach(k=>{line.liteShapes[k]=clone(line.liteShapes[k]);});

@@ -118,14 +118,14 @@ module.exports=async function({page,eq,ok}){
   const s=shCreate([id],1).value;shippingMarkShipped(s.id);render();const after=document.querySelector('.shipping-order-row').children[3].textContent;
   return {lines:lines.length===1&&lines[0]===o.lines[0].id,before,after};
  }),{lines:true,before:'—',after:'2'});
- eq('Pickup: one scan of the signed PS ships and picks up; a failure rolls back both; delivery still needs Shipped',await t.p.evaluate(()=>{
+ eq('Pickup: one scan of the signed PS ships and picks up; a failure rolls back both; delivery still needs Loaded',await t.p.evaluate(()=>{
   let [id]=shSeed(),s=shCreate([id]).value;const ship=shippingStations().ship;
   const bad=shippingScanSigned(s.number,'Front desk','2999-01-01'),rolled={ok:bad.ok,status:shippingFind(s.id).status,scans:DB.stationScan.filter(x=>x.station===ship&&!x.undoneAt).length};
   const out=shippingScanSigned(s.number,'Front desk');s=shippingFind(s.id);
   const one={ok:out.ok,status:s.status,order:salesRecord(id).status,by:s.receivedBy,scanned:s.items.every(i=>i.pieces.every(p=>stationScansFor(p).some(x=>x.station===ship)))};
   [id]=shSeed();const o=salesRecord(id),d=shippingCreate({customerId:o.customerId,method:'delivery',shipTo:{address1:'1 Site Rd'},date:finToday(),items:shippingAvailable(o).map(shippingItem),extras:[]}).value,refused=shippingScanSigned(d.number);
   return {rolled,one,delivery:{ok:refused.ok,error:refused.error,status:shippingFind(d.id).status}};
- }),{rolled:{ok:false,status:'planned',scans:0},one:{ok:true,status:'delivered',order:'done',by:'Front desk',scanned:true},delivery:{ok:false,error:'Mark this packing slip Shipped first.',status:'planned'}});
+ }),{rolled:{ok:false,status:'planned',scans:0},one:{ok:true,status:'delivered',order:'done',by:'Front desk',scanned:true},delivery:{ok:false,error:'Mark this packing slip Loaded first.',status:'planned'}});
  eq('PS wording: one unit and one skid in singular; no skid line on a PS without skids',await t.p.evaluate(()=>{
   const text=s=>shippingPages(shippingDocument(s)).flatMap(p=>p.items.filter(i=>i.t==='text').map(i=>i.s)).join(' | ');
   let [id]=shSeed(),o=salesRecord(id);shippingAvailable(o)[0].pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';});const one=text(shCreate([id],1).value);
@@ -144,7 +144,7 @@ module.exports=async function({page,eq,ok}){
  // Real controls: create, dispatch, receipt scan, column filter, compact viewport.
  await t.p.evaluate(()=>{const [id]=shSeed();shippingTab='ready';tab='shipping';window.shCustomer=salesRecord(id).customerId;render();});
  await t.p.locator('[data-create-ps]').click();await t.p.getByLabel('Method',{exact:true}).selectOption('pickup');await t.p.locator('[data-save-ps]').click();
- await t.p.getByRole('button',{name:'Shipped',exact:true}).click();await t.p.locator('[data-signed-ps]').fill('PS-0001');await t.p.locator('[data-signed-ps]').press('Enter');
+ await t.p.getByRole('button',{name:'Loaded',exact:true}).click();await t.p.getByRole('button',{name:'Ship all',exact:true}).click();await t.p.locator('[data-signed-ps]').fill('PS-0001');await t.p.locator('[data-signed-ps]').press('Enter');
  eq('Office controls create, ship and scan the signed PS; scan focus returns',await t.p.evaluate(()=>({status:DB.shipment[0].status,order:DB.salesOrder[0].status,focus:document.activeElement.id})),{status:'delivered',order:'done',focus:'shippingSigned'});
  await t.p.getByRole('button',{name:'Filter Customer',exact:true}).click();ok('Shipment column filter opens',await t.p.locator('.sl-menu').count()>0);await t.p.evaluate(()=>{salesListMenu=null;render();});
  await t.p.setViewportSize({width:390,height:844});eq('Shipping fits the narrow viewport',await t.p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
