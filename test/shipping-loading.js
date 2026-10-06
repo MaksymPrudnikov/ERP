@@ -151,11 +151,11 @@ module.exports=async function({page,eq,ok}){
  eq('SHIPR: another customer on the skid warns in red and still records; the card shows queue and order readiness',await t.p.evaluate(()=>{
   const [a,b]=ldSeed('A B',shippingStations().ready),o=salesRecord(a);shippingQueueSet(a,o.lines.map(l=>l.id),3);ldLogin(shippingStations().ready);
   const pieces=id=>[...stationPieceIndex()].filter(([p,h])=>h.orderId===id).map(([p])=>p);let sound='';const beep=stationBeep;stationBeep=k=>{sound=k;};
-  stationSubmit('SL-1');const own=stationSubmit(pieces(a)[0]),ownForeign=!!stationLast.foreign,ownSound=sound,queue=ldText('[data-station-queue]'),count=ldText('[data-station-ready-count]');
+  stationSubmit('SL-1');const own=stationSubmit(pieces(a)[0]),ownForeign=!!stationLast.foreign,ownSound=sound,queue=ldText('[data-station-queue]'),queueDark=getComputedStyle(document.querySelector('[data-station-queue]')).backgroundColor!=='rgba(0, 0, 0, 0)',count=ldText('[data-station-ready-count]');
   const mixed=stationSubmit(pieces(b)[0]),foreign=ldText('[data-station-foreign]'),red=!!document.querySelector('.st-res.st-red[data-station-result="ok"]'),on=stationLast.rec.on,noQueue=ldText('[data-station-queue]');
   stationBeep=beep;stationSubmit('SL-1');
-  return {own,ownForeign,ownSound,queue,count,mixed,foreign,red,sound,on,noQueue,skid:ldText('[data-station-skid]')===('Customer A · Customer B'+o.businessNumber+': 1 / 3 ready'+salesRecord(b).businessNumber+': 1 / 3 ready')};
- }),{own:'ok',ownForeign:false,ownSound:'ok',queue:'QUEUE 3· Customer A',count:'1 / 3 units',mixed:'ok',foreign:'OTHER CUSTOMER ON SL-1· Customer A',red:true,sound:'error',on:'SL-1',noQueue:null,skid:true});
+  return {own,ownForeign,ownSound,queue,queueDark,count,mixed,foreign,red,sound,on,noQueue,skid:ldText('[data-station-skid]')===('Customer A · Customer B'+o.businessNumber+': 1 / 3 ready'+salesRecord(b).businessNumber+': 1 / 3 ready')};
+ }),{own:'ok',ownForeign:false,ownSound:'ok',queue:'QUEUE 3· Customer A',queueDark:true,count:'1 / 3 units',mixed:'ok',foreign:'OTHER CUSTOMER ON SL-1· Customer A',red:true,sound:'error',on:'SL-1',noQueue:null,skid:true});
 
  /* ---------------------------- экран офиса ---------------------------- */
  await t.p.evaluate(()=>{const [a,b]=ldSeed('A A');ldPut(a,'SL-1');ldPut(b,'SL-2');window.ldIds=[a,b];const s=ldPS(a,[a,b]);ldLoad('SL-1');window.ldPrints=0;tab='shipping';shippingTab='shipments';shippingOpenId=s.id;render();});

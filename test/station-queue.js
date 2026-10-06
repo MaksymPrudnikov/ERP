@@ -46,6 +46,26 @@ module.exports=async function({page,eq,ok}){
   sqOut();return out;
  }),{tiles:'CUT:next:6,ARRIS:3,HEAT:6,here:3',ready:['Line 1 · 37 × 71|6CLEAR / 6Q240|1'],partial:['Line 1 · 37 × 71|Lite 1 · 6CLEAR|Lite 2 · 6Q240 — HEAT 1|1'],pill:'1 unit'});
 
+ /* 6.10.2026 стиль тёмной плашки очереди SHIPR назывался .st-queue — как
+    тело вкладки Queue — и ложился на весь экран: белый текст на белых
+    карточках, тёмный фон, колонки в узкую полосу. Разметка была верной,
+    поэтому проверяется вид: сетка, цвет текста, фон. */
+ eq('Queue читается: тело — сетка без своего фона, заголовки, цифры и строки — цветом текста (ARRIS и CUT)',await t.p.evaluate(()=>{
+  sqSetup();const cs=e=>e?getComputedStyle(e):{},text=getComputedStyle(document.body).color;
+  sqOpen('ARRIS');const a=document.querySelector('[data-station-flow]');
+  const arris={grid:cs(a).display,bg:cs(a).backgroundColor,h3:cs(a.querySelector('h3')).color===text,tile:cs(a.querySelector('.st-fb b')).color===text,cell:cs(a.querySelector('[data-flow-here] tbody td')).color===text};
+  sqOut();sqOpen('CUT');const c=document.querySelector('.st-body.st-queue');
+  const cut={grid:cs(c).display,bg:cs(c).backgroundColor,h3:cs(c.querySelector('[data-queue-head] h3')).color===text};
+  sqOut();return {arris,cut};
+ }),{arris:{grid:'grid',bg:'rgba(0, 0, 0, 0)',h3:true,tile:true,cell:true},cut:{grid:'grid',bg:'rgba(0, 0, 0, 0)',h3:true}});
+
+ eq('Тема на станции: кнопка в шапке переключает светлую и тёмную и пишет, куда переключит',await t.p.evaluate(()=>{
+  sqSetup();sqOpen('ARRIS');const root=document.documentElement,label=()=>document.querySelector('[data-station-theme]').textContent,start=root.getAttribute('data-theme');
+  const before=label();document.querySelector('[data-station-theme]').click();const mid=root.getAttribute('data-theme'),after=label();
+  document.querySelector('[data-station-theme]').click();const back=root.getAttribute('data-theme');sqOut();
+  return {start,before,mid,after,back};
+ }),{start:'light',before:'Dark',mid:'dark',after:'Light',back:'light'});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

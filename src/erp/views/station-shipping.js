@@ -33,7 +33,7 @@ function stationReadyForeign(g,rec){
 function stationForeignBar(L){return L.foreign?'<div class="st-urg" data-station-foreign>OTHER CUSTOMER ON '+esc(L.foreign.skid)+'<span data-raw>· '+esc(L.foreign.customers.join(', '))+'</span></div>':'';}
 function stationQueueBar(g){
  const q=g&&stationIsReady()?shippingQueueOf(g.l):0;
- return q?'<div class="st-queue" data-station-queue>QUEUE '+q+'<span data-raw>· '+esc(salesCustomerDisplay(g.o.customerId))+'</span></div>':'';
+ return q?'<div class="st-custq" data-station-queue>QUEUE '+q+'<span data-raw>· '+esc(salesCustomerDisplay(g.o.customerId))+'</span></div>':'';
 }
 /* Готово из того, что заказу осталось отгрузить. */
 function stationReadyCount(o){const q=shippingSummary(o),sent=q.lines.reduce((n,r)=>n+r.shipped,0);return {ready:q.physicalReady,of:Math.max(0,q.glass-sent)};}

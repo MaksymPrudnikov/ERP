@@ -116,5 +116,8 @@ function stationFlowBatches(S,d){
 function stationFlowView(){
  const S=stationCode,d=stationFlowData(S),merge=stationMergeCodes().includes(S)&&S!==salesRouteStationOf('lamination','LAM');
  const right=(S===stationHeatCode()?stationFlowLoads(S,d):merge?'':stationFlowWorks(S,d))+(merge?stationPairsCard():'')+stationFlowBatches(S,d);
- return '<div class="st-body st-queue" data-station-flow="'+esc(S)+'"><div class="st-col">'+stationFlowTiles(S,d)+(merge?stationFlowUnits(S,d):'')+stationFlowHere(S,d)+'</div><div class="st-col">'+right+'</div></div>';
+ /* Справа пусто (IGU или SHIPR, а батчи CUT сюда не везут) — «Here now»
+    уходит направо: иначе полэкрана пустует (владелец, 6.10.2026: «пустоты»). */
+ const here=stationFlowHere(S,d),left=stationFlowTiles(S,d)+(merge?stationFlowUnits(S,d):'')+(right?here:'');
+ return '<div class="st-body st-queue" data-station-flow="'+esc(S)+'"><div class="st-col">'+left+'</div><div class="st-col">'+(right||here)+'</div></div>';
 }
