@@ -2764,7 +2764,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='64da37298a80';
+var ERP_BUILD='ceb3f8815267';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -21979,7 +21979,7 @@ function shippingReadyHTML(){
 }
 function shippingListScope(){return shippingTab==='shipments'?'shippingPS':shippingTab==='awaiting'?'shippingAwaiting':shippingTab==='done'?'shippingDone':'';}
 function shippingListColumns(){return [{k:'number',label:'Packing slip',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'date',label:'Date',type:'date'},{k:'method',label:'Method',type:'list'},{k:'skids',label:'Skids',type:'text',tokens:true},{k:'units',label:'Units',type:'number'},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
-function shippingListInfos(){return (DB.shipment||[]).map(s=>({o:s,memo:{number:s.number,customer:salesCustomerDisplay(s.customerId),date:s.date,method:s.method==='pickup'?'Pickup':'Delivery',skids:[...new Set(s.items.map(i=>i.skid).filter(Boolean))].join(', '),units:s.items.length+s.extras.reduce((n,i)=>n+i.qty,0),status:shippingStatus(s)}}));}
+function shippingListInfos(){return (DB.shipment||[]).map(s=>({o:s,memo:{number:s.number,customer:salesCustomerDisplay(s.customerId),date:s.date,method:s.method==='pickup'?'Pickup':'Delivery',skids:(Array.isArray(s.skidsOut)?s.skidsOut:[...new Set(s.items.map(i=>i.skid).filter(Boolean))]).join(', '),units:s.items.length+s.extras.reduce((n,i)=>n+i.qty,0),status:shippingStatus(s)}}));}
 function shippingListHTML(){
  const infos=shippingListInfos(),cols=shippingListColumns(),rows=salesListRows(infos);
  const th=c=>`<th><span class="sl-th">${c.label}<button class="sl-fbtn${salesListFilterActive(salesListLoadPrefs().filters[c.k])?' on':''}" aria-label="Filter ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;
@@ -30564,6 +30564,10 @@ function carrierContents(){
  out.forEach(list=>list.sort((a,b)=>String(b.scan.at).localeCompare(String(a.scan.at))||b.scan.id.localeCompare(a.scan.id)));
  return out;
 }
+/* Обнулить тару: всё, что на ней лежит, становится «без тары» — как «Not on
+   DL-1» у одного стекла. Скид пересобирают заново теми же сканами (владелец,
+   6.10.2026). Отгруженное и погруженное на таре уже не числится. */
+function carrierEmpty(code){const out=storageCommand(()=>{const list=carrierContents().get(carrierCode(code))||[];list.forEach(x=>{delete x.scan.on;});return {count:list.length};});return out.ok?out.value:{error:out.error};}
 function normalizeCarriers(){
  if(!Array.isArray(DB.carrier))DB.carrier=[];
  const seen=new Set();
@@ -33020,7 +33024,9 @@ function stationSubmit(raw){
  const check=stationCheck(stationCode,raw);if(!check)return false;
  /* Скан не ждёт окна: следующий стикер закрывает открытое окно. */
  stationDrawer=null;stationTab='scan';
- if(check.kind==='carrier'){stationCarrierScan(check.code);render();return 'carrier';}
+ if(check.kind==='carrier'){stationEmptyAsk='';stationCarrierScan(check.code);render();return 'carrier';}
+ /* Готовый юнит отсканирован ещё раз при выбранном скиде — переложили. */
+ if(check.kind==='already'&&stationIsReady()){const moved=stationRestack(check,who);if(moved){render();return moved;}}
  if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
  const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()}):null;
  if(out&&!out.ok){stationSaveError(check.code,out.error);return 'saveError';}
@@ -33540,8 +33546,8 @@ function stationCarrierCard(L){
  const c=L.check,t=typeof carrierType==='function'?carrierType(c.code):null,time='<span>'+esc(stationTime(L.at))+'</span>';
  if(c.kind==='carrierPark')return '<div class="st-res st-ok" data-station-result="carrierPark"><div class="st-res-h">✓ On '+esc(c.code)+' · waits for a pair'+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>SET ASIDE ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.count+' glass waits for Recut</div><div class="mut">When the new glass comes, the screen says where its pair is</div></div></div></div>';
  if(c.kind==='carrierBad')return '<div class="st-res st-red" data-station-result="carrierBad"><div class="st-res-h">✕ Unknown dolly or skid'+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Add it in Master Data</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.code)+'</div><div class="mut">Master Data → Dollies &amp; Skids</div></div></div></div>';
- if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">'+(stationPutOn()===c.code?'Glass stays on '+esc(c.code):'The stack is on the right, top first')+'</div>'+stationSkidSummary(c.code)+'</div></div></div>';
- return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass':'Empty')+' · another dolly — scan it</div>'+stationSkidSummary(c.code)+'</div></div></div>';
+ if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">'+(stationPutOn()===c.code?'Glass stays on '+esc(c.code):'The stack is on the right, top first')+'</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
+ return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass':'Empty')+' · another dolly — scan it</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
 }
 function stationScanOffClick(id){const saved=stationScanOff(id);stationNote=saved?'By hand — not on a dolly':storageLastError||'Nothing to change';if(stationLast&&stationLast.rec&&stationLast.rec.id===id)stationLast.rec=(DB.stationScan||[]).find(s=>s.id===id)||null;render();}
 function stationNextLabel(x){
@@ -33813,6 +33819,46 @@ function stationSkidSummary(code){
  });
 }
 
+/* ------------------------ пересборка скидов ------------------------- */
+/* Владелец, 6.10.2026: «выполняем 40 юнитов из 100, кладём на 2 разных скида,
+   а потом можем сделать пересборку этих скидов согласно размерам… иногда из 3
+   скидов делают 2 или наоборот… иногда нужно обнулить скид». На станции
+   готовности: скан скида, потом уже готового юнита — юнит переезжает на этот
+   скид. Это повторный скан станции с новой тарой: место стекла он не меняет,
+   журнал хранит оба, Undo возвращает юнит на прежний скид. Погруженный в
+   машину юнит не перекладывается. */
+function stationRestack(check,who){
+ const to=stationPutOn(),g=check.g,ship=shippingStations().ship;if(!to||!g||!g.c)return '';
+ const ids=[check.code].concat(stationMatesAt(g,stationCode).map(x=>x.id)),glass=ids.map(id=>stationGlass(id));
+ if(!glass.every(x=>x&&stationPlace(x).waiting===ship))return '';
+ const last=stationScansFor(check.code).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).pop(),from=last&&last.on||'';
+ const unit=shippingUnits(g.o).find(u=>u.pieces.includes(check.code)),label=unit?unit.label:check.code;
+ if(from===to){stationShipShow({kind:'shipOnSkid',code:check.code,label,skid:to});return 'shipOnSkid';}
+ const out=storageCommand(()=>{
+  const now=new Date().toISOString();let first=null;
+  ids.forEach(id=>{const rec=stationRecord(stationCode,Object.assign({},stationCheck(stationCode,id),{kind:'ok'}),who,{deferTouch:true,now,on:to,actionId:first?first.id:undefined});if(!rec)throw new Error('Not moved. Scan again.');first=first||rec;});
+  return first;
+ });
+ if(!out.ok){stationSaveError(check.code,out.error);return 'saveError';}
+ const foreign=stationReadyForeign(g,out.value);
+ stationShipShow({kind:'shipMoved',code:check.code,label,from,skid:to,recId:out.value.id,at:out.value.at,order:g.o.businessNumber||'',customer:salesCustomerDisplay(g.o.customerId)});
+ if(foreign){stationLast.foreign=foreign;stationBeep('error');}
+ return 'shipMoved';
+}
+/* Обнулить скид — в два нажатия: назад это не откатывается. */
+let stationEmptyAsk='';
+function stationSkidEmpty(code){
+ if(stationEmptyAsk!==code){stationEmptyAsk=code;render();return false;}
+ stationEmptyAsk='';const r=carrierEmpty(code);
+ if(r.error){stationNote=r.error;stationBeep('error');render();return false;}
+ stationShipShow({kind:'shipEmptied',code,skid:code,count:r.count});render();return true;
+}
+function stationSkidEmptyButton(c){
+ if(!stationIsReady()||!/^S[LA]-/.test(c.code)||!(carrierContents().get(c.code)||[]).length)return '';
+ const n=(carrierContents().get(c.code)||[]).length,ask=stationEmptyAsk===c.code;
+ return '<div class="st-acts"><button type="button" class="b'+(ask?' st-red-b':'')+'" data-skid-empty onclick="stationSkidEmpty(\''+esc(c.code)+'\')">'+(ask?'Empty '+n+' glass — tap again':'Empty '+esc(c.code))+'</button></div>';
+}
+
 /* ------------------------- скид вернулся --------------------------- */
 function stationSkidBack(code){
  if(!/^S[LA]-/.test(code))return null;const r=skidBack(code,stationWho());
@@ -33832,7 +33878,7 @@ function stationTripChip(){
 function stationShipShow(out){
  stationMenu=null;stationNote=out.kind==='saveError'?out.note:'';
  stationLast={check:out,rec:null,data:null,place:null,at:out.at||new Date().toISOString()};
- stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':'ok'):out.kind==='shipBack'?'ok':out.kind==='shipAlready'?'twice':'error');
+ stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':'ok'):['shipBack','shipMoved','shipEmptied'].includes(out.kind)?'ok':['shipAlready','shipOnSkid'].includes(out.kind)?'twice':'error');
 }
 function stationShipSubmit(raw,who,manual){
  const code=stationCodeOf(raw),t=carrierType(code);if(!code)return false;
@@ -33876,6 +33922,11 @@ function stationShipCard(L){
   '<div class="st-res-b"><div class="st-big st-dark"><small>'+(c.added?'ADDED TO':'LOADED')+'</small><b class="st-big-code">'+esc(c.ps)+'</b><span data-raw>'+esc(c.customer)+'</span></div>'+
   '<div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div><div class="st-kv"><span class="k">Units</span><span><b>'+c.units+'</b></span><span class="k">Orders</span><span>'+c.orders.map(o=>'<b>'+esc(o.number)+'</b> ×'+o.units).join(' · ')+'</span></div></div></div>'+
   '<div class="st-acts"><button type="button" class="b" data-station-load-undo onclick="stationUndoClick(\''+esc(c.recId)+'\')">Undo</button></div></div>';
+ if(c.kind==='shipMoved')return '<div class="st-res '+(L.foreign?'st-red':'st-ok')+'" data-station-result="shipMoved"><div class="st-res-h">✓ Moved '+esc(c.from||'No skid')+' → '+what+time+'</div>'+stationForeignBar(L)+
+  '<div class="st-res-b"><div class="st-big st-dark"><small>NOW ON</small><b>'+what+'</b><span>was on '+esc(c.from||'no skid')+'</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div><div class="st-kv"><span class="k">Order</span><span><b>'+esc(c.order)+'</b> · <span data-raw>'+esc(c.customer)+'</span></span></div></div></div>'+
+  '<div class="st-acts"><button type="button" class="b" data-station-move-undo onclick="stationUndoClick(\''+esc(c.recId)+'\')">Undo</button></div></div>';
+ if(c.kind==='shipOnSkid')return '<div class="st-res st-amber" data-station-result="shipOnSkid"><div class="st-res-h">Already on '+what+time+'</div><div class="st-res-b"><div class="st-big st-ask"><small>ALREADY ON</small><b>'+what+'</b><span>Another skid — scan it</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div></div></div></div>';
+ if(c.kind==='shipEmptied')return '<div class="st-res st-ok" data-station-result="shipEmptied"><div class="st-res-h">✓ '+what+' emptied'+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>EMPTY</small><b>'+what+'</b><span>'+c.count+' glass without a skid</span></div><div class="st-info"><div class="st-gid">Scan the skid, then the units</div></div></div></div>';
  if(c.kind==='shipBack')return '<div class="st-res st-ok" data-station-result="shipBack"><div class="st-res-h">✓ '+what+' back from <b data-raw>'+esc(c.back.customer)+'</b>'+time+'</div>'+
   '<div class="st-res-b"><div class="st-big st-dark"><small>BACK FROM</small><b class="st-big-code" data-raw>'+esc(c.back.customer)+'</b><span>'+shippingCount(c.back.days,'day')+' · '+esc(c.back.ps)+'</span></div><div class="st-info"><div class="st-gid mono">'+what+'</div></div></div></div>';
  if(c.kind==='shipAlready')return '<div class="st-res st-amber" data-station-result="shipAlready"><div class="st-res-h">Already loaded · '+esc(stationTime(c.at))+' · <b data-raw>'+esc(c.by||'—')+'</b>'+time+'</div>'+
@@ -34704,6 +34755,8 @@ function shippingMarkShipped(id,mode){return storageCommand(()=>{
   s.items=s.items.filter(i=>loaded.has(i.label));shippingUnprint(s,left);
   [...new Set(left.map(i=>i.orderId))].forEach(oid=>orderLogPush(salesRecord(oid),'Not loaded',s.number+' · '+shippingCount(left.filter(i=>i.orderId===oid).length,'unit')+' back to Ready'));
  }
+ /* Какие скиды уезжают — до заморозки документа: на бумаге клиента только они. */
+ s.skidsOut=shippingSkidsOut(s,s.items.map(i=>({pieces:i.pieces,skid:i.skid,loaded:loaded.has(i.label)})));
  s.document=shippingDocument(s);
  const who=orderLogActor(),scanIds=[];
  /* The office button records the confirmed physical dispatch as manual SHIP
@@ -34713,9 +34766,6 @@ function shippingMarkShipped(id,mode){return storageCommand(()=>{
   const rec=stationRecord(station,check,{id:who.byId,name:who.by||'Office'},{deferTouch:true,manual:true,now});
   shippingAssert(rec,'Dispatch was not recorded.');scanIds.push(rec.id);
  }));
- /* Скид уехал с этим PS, только если на нём ничего не осталось: со скида-
-    микса юниты забирают по одному, сам скид стоит в цеху (erp/shipping/skids). */
- const still=carrierContents();s.skidsOut=[...new Set(s.items.map(i=>i.skid).filter(Boolean))].filter(code=>!(still.get(code)||[]).length);
  s.scanIds=scanIds;s.status='shipped';s.shippedAt=now;s.shippedBy=shippingActor();
  shippingSyncOrders(before.concat(shippingOrderIds(s)),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
 });}
@@ -34814,6 +34864,16 @@ function shippingLoadState(s){
 /* Юнит, который так и не уехал с этим PS, не считается напечатанным на нём:
    иначе его поломку в цеху пришлось бы оформлять как NCR (решение 20). */
 function shippingUnprint(s,items){if(s.printedItems&&items.length)s.printedItems=s.printedItems.filter(p=>!items.some(i=>i.label===p.label));}
+/* Какие скиды уезжают с PS. Владелец, 6.10.2026: «мы ему выдали юниты из
+   скида, а не сам скид с юнитами» — скид едет, только если на нём не остаётся
+   чужого стекла; на самовывозе — только если его погрузили сканом скида
+   («клиент пригоняет свой трак, и мы на него грузим скиды»).
+   units — юниты PS как их видит цех сейчас: {pieces, skid, loaded}. */
+function shippingCarriers(){const c=shippingCtxNow;return c?c.carriers||(c.carriers=carrierContents()):carrierContents();}
+function shippingSkidsOut(s,units){
+ const mine=new Set(units.flatMap(u=>u.pieces)),on=shippingCarriers(),went=s.method==='pickup'?units.filter(u=>u.loaded):units;
+ return [...new Set(went.map(u=>u.skid).filter(Boolean))].filter(code=>!(on.get(code)||[]).some(x=>!mine.has(x.id)));
+}
 function shippingLoadPart(list){const skids=new Set(list.map(u=>u.skid).filter(Boolean)).size,loose=list.filter(u=>!u.skid).length;return [skids?shippingCount(skids,'skid'):'',loose?shippingCount(loose,'unit'):''].filter(Boolean).join(' + ');}
 function shippingLoadText(st){return st.loaded.length?shippingLoadPart(st.loaded)+' loaded'+(st.rest.length?' · '+shippingLoadPart(st.rest)+' not loaded':''):'';}
 /* Скид: готовые юниты на нём и стекло, которое лежит там же, но не готово
@@ -34986,19 +35046,19 @@ function deliveryDay(date){
    возвращается сканом; чужой заводим новым кодом с этикеткой, а наш,
    оставшийся у клиента, списывается как обменянный.
    Где скид — не хранится, а считается (как «где стекло»): последний
-   отправленный PS с ним против последнего возврата. Самовывоз скид не
-   увозит: стекло перекладывают в машину клиента. Скид-микс (на нём стекло
-   нескольких клиентов) уезжает только с последним своим стеклом. Skid Deposit — отдельно,
+   отправленный PS с ним против последнего возврата. Скид-микс (на нём стекло
+   нескольких клиентов) уезжает только с последним своим стеклом. Самовывоз
+   увозит скид, только если его погрузили сканом скида на станции отгрузки. Skid Deposit — отдельно,
    деньги этот учёт не трогает. */
 DEFAULT.skidReturn=[];
 /* skidsOut пишет отгрузка: скиды, на которых после неё ничего не осталось.
    У PS, отправленных до 6.10.2026, поля нет — берём скиды из документа. */
-function skidCodes(s){return Array.isArray(s.skidsOut)?s.skidsOut:s.document?s.document.skids.map(k=>k.code):[...new Set((s.items||[]).map(i=>i.skid).filter(Boolean))];}
+function skidCodes(s){return Array.isArray(s.skidsOut)?s.skidsOut:s.method!=='delivery'?[]:s.document?s.document.skids.map(k=>k.code):[...new Set((s.items||[]).map(i=>i.skid).filter(Boolean))];}
 /* Скиды, которые сейчас у клиентов: код → {customerId, since, ps, psId}. */
 function skidsOut(){
  const out=new Map(),back=new Map();
  (DB.skidReturn||[]).forEach(r=>{if(!back.has(r.code)||r.at>back.get(r.code))back.set(r.code,r.at);});
- (DB.shipment||[]).filter(s=>shippingSent(s)&&s.method==='delivery').sort((a,b)=>a.shippedAt.localeCompare(b.shippedAt)).forEach(s=>skidCodes(s).forEach(code=>out.set(code,{code,customerId:s.customerId,since:s.shippedAt,ps:s.number,psId:s.id})));
+ (DB.shipment||[]).filter(shippingSent).sort((a,b)=>a.shippedAt.localeCompare(b.shippedAt)).forEach(s=>skidCodes(s).forEach(code=>out.set(code,{code,customerId:s.customerId,since:s.shippedAt,ps:s.number,psId:s.id})));
  out.forEach((x,code)=>{if(back.has(code)&&back.get(code)>=x.since)out.delete(code);});
  return out;
 }
@@ -35047,7 +35107,11 @@ function shippingDocument(s){
  if(s.document)return shippingClone(s.document);
  if(s.id&&s.status==='planned'){
   const live=new Map(shippingOrderIds(s).flatMap(id=>shippingUnits(salesRecord(id))).map(i=>[i.label,i]));
-  s=Object.assign({},s,{items:s.items.map(i=>Object.assign({},i,{skid:live.has(i.label)?live.get(i.label).skid:i.skid}))});
+  /* На бумаге клиента — только скиды, которые с этим PS уезжают: с микса и у
+     стойки выдают юниты, а не скид (erp/shipping/loading, shippingSkidsOut). */
+  const items=s.items.map(i=>Object.assign({},i,{skid:live.has(i.label)?live.get(i.label).skid:i.skid,loaded:live.has(i.label)&&!!live.get(i.label).loaded}));
+  const out=Array.isArray(s.skidsOut)?s.skidsOut:shippingSkidsOut(s,items);
+  s=Object.assign({},s,{items:items.map(i=>{const x=Object.assign({},i,{skid:out.includes(i.skid)?i.skid:''});delete x.loaded;return x;})});
  }
  const orders=shippingOrderIds(s).map(id=>{
   const o=salesRecord(id),q=shippingSummary(o);
