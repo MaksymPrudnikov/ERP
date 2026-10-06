@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 116 модулей, 19 стиля.
+  Состав сборки: 118 модулей, 19 стиля.
 -->
 <html lang="en">
 <head>
@@ -2735,6 +2735,8 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 @media(max-width:650px){.shipping-customer-head{align-items:flex-start;flex-direction:column}.shipping-customer,.shipping-detail{padding:12px}.shipping-form-fields{grid-template-columns:1fr}.shipping-skid{flex-wrap:wrap}.shipping-top{justify-content:flex-start}.shipping-top label{flex-wrap:wrap}.shipping-scan{padding:12px}.shipping-scan input{max-width:100%}}
 .shipping-queue{width:64px}.shipping-loaded{font-weight:650;color:var(--green)}
 .shipping-top{justify-content:space-between;gap:16px;flex-wrap:wrap}.shipping-lookup-field input{width:160px}.shipping-lookup-row{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px}.shipping-lookup-where{display:flex;flex-direction:column;gap:2px;padding:10px 16px;border-radius:12px;background:var(--surface-2);font-size:13px;color:var(--text-2)}.shipping-lookup-where b{font-size:22px;color:var(--text)}.shipping-lookup-bad{font-weight:650;color:var(--red)}.shipping-lookup .row{align-items:center}.shipping-lookup .row .sp{flex:1}
+.delivery-day{display:flex;gap:10px;align-items:center;padding:12px 20px}.delivery-day b{margin-left:8px}.delivery-truck .shipping-customer-head label{display:flex;gap:10px;align-items:center}.delivery-truck .shipping-customer-head .row{margin-top:0}.delivery-table input[type=time]{width:120px}.delivery-acts{white-space:nowrap;text-align:right}.delivery-acts button{margin-left:4px}.delivery-pickup{display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line2)}.delivery-pickup:last-child{border-bottom:0}
+.delivery-day input[type=date]{width:auto;flex:none}
 
 </style>
 </head>
@@ -2762,7 +2764,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='d54c66e3f82d';
+var ERP_BUILD='a06eb1e055fa';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -21878,12 +21880,16 @@ function shippingSetTab(key){shippingTab=key;shippingNotice=null;salesListMenu=n
 /* Счётчики на вкладках — как были у очереди Shipping: заказы, у Shipments —
    открытые PS (planned и shipped). */
 function shippingTabCount(key){
+ if(key==='delivery')return (DB.shipment||[]).filter(s=>s.method==='delivery'&&s.date===finToday()&&(s.status==='planned'||s.status==='shipped')).length;
  if(key==='shipments')return (DB.shipment||[]).filter(s=>s.status==='planned'||s.status==='shipped').length;
  if(key==='ready')return shippingReadyOrders().length;
  if(key==='backorders')return shippingOrders().filter(o=>o.status==='shipping'&&shippingBackCount(o)>0).length;
  return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;
 }
-function shippingTabs(){return '<div class="oq-tabs" role="tablist">'+SHIPPING_TABS.map(([key,name])=>`<button type="button" role="tab" data-shipping-tab="${key}" aria-selected="${shippingTab===key}" class="${shippingTab===key?'on':''}" onclick="shippingSetTab('${key}')">${name} <b>${shippingTabCount(key)}</b></button>`).join('')+'</div>';}
+/* Delivery — свой экран, не очередь заказов: в SHIPPING_TABS (вкладки
+   очереди, erp/views/optimization) он не входит. */
+function shippingViewTabs(){const t=SHIPPING_TABS.slice();t.splice(t.findIndex(x=>x[0]==='shipments')+1,0,['delivery','Delivery']);return t;}
+function shippingTabs(){return '<div class="oq-tabs" role="tablist">'+shippingViewTabs().map(([key,name])=>`<button type="button" role="tab" data-shipping-tab="${key}" aria-selected="${shippingTab===key}" class="${shippingTab===key?'on':''}" onclick="shippingSetTab('${key}')">${name} <b>${shippingTabCount(key)}</b></button>`).join('')+'</div>';}
 function shippingOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&!['cancelled','closed'].includes(o.status)&&!shippingLegacy(o)&&(o.status!=='new'||shippingAvailable(o).length>0));}
 /* Ready — только то, что можно положить в PS: готовые юниты без PS и товары
    склада. Заказ, где готового нет, сюда не попадает (он в Awaiting). */
@@ -22001,7 +22007,7 @@ function shippingFocus(){if(tab!=='shipping'||shippingTab!=='shipments'||shippin
 function viewShipping(){
  if(shippingTab==='shipments')setTimeout(shippingFocus,0);
  return shippingWithCtx(()=>{
- const body=shippingTab==='ready'?shippingReadyHTML():shippingTab==='shipments'?shippingListHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true),lookup=shippingLookupHTML();
+ const body=shippingTab==='ready'?shippingReadyHTML():shippingTab==='shipments'?shippingListHTML():shippingTab==='delivery'?deliveryHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true),lookup=shippingLookupHTML();
  return `<section class="shipping-workspace">${shippingTabs()}<div class="shipping-top">${lookup.field}<label>Open a trip<select aria-label="Customer for new trip" onchange="if(this.value)shippingOpen(this.value)"><option value="">Choose customer</option>${(DB.customer||[]).filter(c=>c.status!=='archived').map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}</option>`).join('')}</select></label></div>${shippingNotice?`<div class="shipping-notice ${shippingNotice.error?'bad':''}" role="${shippingNotice.error?'alert':'status'}">${esc(shippingNotice.text)}</div>`:''}${lookup.card}${body}${shippingDraftHTML()}</section>`;
  });
 }
@@ -22309,6 +22315,7 @@ const MD_TABS=[
  {k:'stickers',  label:'Stickers'},
  {k:'cutting',   label:'Cutting'},
  {k:'carriers',  label:'Dollies & Skids'},
+ {k:'trucks',    label:'Trucks'},
  {k:'ncr',       label:'NCR'},
  {k:'overview',  label:'Data overview'}
 ];
@@ -22364,7 +22371,7 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,stations:viewMdStations,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,stations:viewMdStations,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
@@ -33944,6 +33951,84 @@ function shippingLookupHTML(){
   +`<div class="row">${m.ps.map(s=>`<button type="button" class="sm" data-lookup-ps onclick="shippingLookupId='';shippingGo('${esc(s.id)}')">${esc(s.number)} · ${shippingStatus(s)}</button>`).join('')}<span class="sp"></span><button type="button" onclick="optimizationOpenOrder('${esc(o.id)}')">Open order</button>${can?`<button type="button" class="pri" data-lookup-pickup onclick="shippingLookupPickup('${esc(o.id)}')">Pickup packing slip${m.free.length?' · '+count(m.free.length):''}</button>`:''}<button type="button" aria-label="Close" onclick="shippingLookupClose()">×</button></div></section>`};
 }
 
+/* ==== src/erp/views/delivery.js ==== */
+/* =====================================================================
+   view/delivery  ·  Shipping PR 3, 6 октября 2026
+   Shipping → Delivery: день → машины → остановки (PS) по порядку, у каждой
+   время отбытия; PS этого дня без машины; самовывозы отдельным списком.
+   Master Data → Trucks. Лист рейса на Letter — один или вместе с PS.
+   Данные и команды — erp/shipping/delivery.
+   ===================================================================== */
+let deliveryDate='',deliveryNotice='';
+function deliveryShownDate(){return shippingDateValid(deliveryDate)?deliveryDate:finToday();}
+function deliverySetDate(v){deliveryDate=shippingDateValid(v)?v:'';deliveryNotice='';render();}
+function deliveryRun(out){deliveryNotice=out.ok?'':out.error;render();}
+/* На листе время — как пишут на доске: «8:00 AM», «11:30 AM». */
+function deliveryTime(v){const m=/^(\d{2}):(\d{2})$/.exec(v||'');if(!m)return '—';const h=+m[1];return (h%12||12)+':'+m[2]+(h<12?' AM':' PM');}
+function deliveryWeight(load){return (load.exact?'':'~')+docNum(load.kg,0)+' kg';}
+function deliveryHTML(){
+ const day=deliveryDay(deliveryShownDate()),date=day.date,users=(DB.user||[]).filter(u=>u.name),active=(DB.truck||[]).filter(t=>t.active);
+ const status=s=>`<span class="pill">${shippingStatus(s)}</span>`,ps=s=>`<button type="button" class="sm" onclick="shippingGo('${esc(s.id)}')">${esc(s.number)}</button>`;
+ const address=s=>esc(docAddressText(s.shipTo))||'<span class="mut">No address</span>';
+ const head=`<div class="card delivery-day"><button type="button" class="sm" aria-label="Previous day" onclick="deliverySetDate(finAddDays('${date}',-1))">‹</button><input type="date" aria-label="Delivery day" value="${date}" onchange="deliverySetDate(this.value)"><button type="button" class="sm" aria-label="Next day" onclick="deliverySetDate(finAddDays('${date}',1))">›</button><button type="button" class="sm" onclick="deliverySetDate('')">Today</button><b>${esc(docDate(date))}</b></div>`;
+ const trucks=day.trucks.map(({t,stops})=>{
+  const loads=stops.map(deliveryLoad),kg=loads.reduce((n,l)=>n+l.kg,0),exact=loads.every(l=>l.exact),skids=loads.reduce((n,l)=>n+l.skids.length,0),driver=deliveryDriver(date,t.id);
+  const rows=stops.map((s,i)=>{const locked=s.status==='delivered',load=loads[i];
+   return `<tr data-stop="${esc(s.number)}"><td>${i+1}</td><td><input type="time" aria-label="Departs ${esc(s.number)}" value="${esc(s.departAt||'')}" ${locked?'disabled':''} onchange="deliveryRun(deliverySetTime('${esc(s.id)}',this.value))"></td><td>${ps(s)}</td><td><b>${esc(salesCustomerDisplay(s.customerId))}</b></td><td>${address(s)}</td><td>${esc(load.skids.join(', '))||'—'}</td><td>${deliveryWeight(load)}</td><td>${status(s)}</td><td class="delivery-acts">${locked?'':`<button type="button" class="sm" aria-label="Move ${esc(s.number)} up" ${i?'':'disabled'} onclick="deliveryRun(deliveryMove('${esc(s.id)}',-1))">▲</button><button type="button" class="sm" aria-label="Move ${esc(s.number)} down" ${i<stops.length-1?'':'disabled'} onclick="deliveryRun(deliveryMove('${esc(s.id)}',1))">▼</button><button type="button" class="sm" aria-label="Take ${esc(s.number)} off the truck" onclick="deliveryRun(deliveryAssign('${esc(s.id)}',''))">×</button>`}</td></tr>`;}).join('');
+  return `<section class="card shipping-customer delivery-truck" data-truck="${esc(t.id)}"><div class="shipping-customer-head"><div><h3>${esc(t.name)}${t.active?'':' <span class="pill">inactive</span>'}</h3><span class="mut" data-truck-load>${shippingCount(stops.length,'stop')} · ${shippingCount(skids,'skid')} · ${(exact?'':'~')+docNum(kg,0)} kg</span></div><label>Driver<select aria-label="Driver ${esc(t.name)}" ${stops.length?'':'disabled'} onchange="deliveryRun(deliverySetDriver('${date}','${esc(t.id)}',this.value))"><option value="">Not set</option>${users.map(u=>`<option value="${esc(u.viewProfileId)}" ${driver&&driver.viewProfileId===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label><div class="row">${stops.length?`<button type="button" class="sm" data-trip-sheet onclick="deliveryPrint('${date}','${esc(t.id)}',false)">Trip sheet</button><button type="button" class="sm" data-trip-packet onclick="deliveryPrint('${date}','${esc(t.id)}',true)">With packing slips</button>`:''}</div></div>${stops.length?`<div class="sales-table-wrap"><table class="sl-table delivery-table"><thead><tr><th>#</th><th>Departs</th><th>Packing slip</th><th>Customer</th><th>Address</th><th>Skids</th><th>Weight</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="mut">No stops</p>'}</section>`;
+ }).join('');
+ const free=day.free.length?`<section class="card shipping-customer" data-delivery-free><h3>Not on a truck</h3><div class="sales-table-wrap"><table class="sl-table delivery-table"><thead><tr><th>Packing slip</th><th>Customer</th><th>Address</th><th>Skids</th><th>Weight</th><th>Status</th><th>Truck</th></tr></thead><tbody>${day.free.map(s=>{const load=deliveryLoad(s);return `<tr data-free="${esc(s.number)}"><td>${ps(s)}</td><td><b>${esc(salesCustomerDisplay(s.customerId))}</b></td><td>${address(s)}</td><td>${esc(load.skids.join(', '))||'—'}</td><td>${deliveryWeight(load)}</td><td>${status(s)}</td><td>${s.status==='delivered'?'':`<select aria-label="Truck for ${esc(s.number)}" onchange="deliveryRun(deliveryAssign('${esc(s.id)}',this.value))"><option value="">Choose truck</option>${active.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select>`}</td></tr>`;}).join('')}</tbody></table></div></section>`:'';
+ const pickups=day.pickups.length?`<section class="card shipping-customer" data-delivery-pickups><h3>Pickups</h3>${day.pickups.map(s=>`<div class="delivery-pickup">${ps(s)}<b>${esc(salesCustomerDisplay(s.customerId))}</b><span class="mut">${shippingCount(s.items.length,'unit')}</span>${status(s)}</div>`).join('')}</section>`:'';
+ const none=!active.length?'<div class="card empty">No trucks yet. Add them in Master Data → Trucks.</div>':!day.free.length&&!day.pickups.length&&!day.trucks.some(x=>x.stops.length)?'<div class="card empty">No packing slips for this day.</div>':'';
+ return head+(deliveryNotice?`<div class="shipping-notice bad" role="alert">${esc(deliveryNotice)}</div>`:'')+none+free+trucks+pickups;
+}
+/* Лист рейса: что стоит в списке машины на момент печати. */
+function deliveryPages(date,truckId){
+ const t=truckFind(truckId),stops=deliveryStops(date,truckId),company=docCompanyBlock(),driver=deliveryDriver(date,truckId),pages=[];let P,y;
+ const header=()=>{
+  P=docPage();pages.push(P);P.text(36,44,docFit(company.name||'Glass Farm',13,true,320),{size:13,bold:true});
+  P.text(576,44,'TRIP SHEET',{size:17,bold:true,align:'right'});P.text(576,64,docDate(date),{size:13,bold:true,align:'right'});
+  P.text(36,70,docFit((t?t.name:'Truck')+' · Driver: '+(driver?driver.name:'not set'),12,true,380),{size:12,bold:true});y=104;
+  P.rect(36,y-11,540,21,{fill:DOC_COLOR.bar});['#','Departs','Customer / address','Packing slip','Skids','Weight'].forEach((h,n)=>P.text([41,62,122,372,452,571][n],y+2,h,{size:7,bold:true,align:n===5?'right':'left'}));y+=25;
+ };
+ header();let total=0,exact=true,skids=0;
+ stops.forEach((s,i)=>{
+  const load=deliveryLoad(s),a=s.shipTo,place=docWrap([a.addressee,docAddressText(a)].filter(Boolean).join(' · ')||'No address',8,false,240),contact=[a.contact,a.phone].filter(Boolean).join(' · ');
+  const lines=[salesCustomerDisplay(s.customerId)].concat(place,contact?[contact]:[]),sk=docWrap(load.skids.join(', ')||'—',8,false,70),h=Math.max(lines.length,sk.length,2)*11+14;
+  if(y+h>720)header();
+  P.text(41,y,String(i+1),{size:9,bold:true});P.text(62,y,deliveryTime(s.departAt),{size:9,bold:true});
+  lines.forEach((text,k)=>P.text(122,y+k*11,docFit(text,k?8:9,!k,240),{size:k?8:9,bold:!k}));
+  P.text(372,y,s.number,{size:9,bold:true});P.text(372,y+11,shippingCount(load.units,'unit'),{size:8,color:DOC_COLOR.mut});
+  sk.forEach((text,k)=>P.text(452,y+k*11,text,{size:8}));P.text(571,y,deliveryWeight(load),{size:9,align:'right'});
+  y+=h;P.line(36,y-6,576,y-6);total+=load.kg;exact=exact&&load.exact;skids+=load.skids.length;
+ });
+ if(!stops.length){P.text(41,y,'No stops',{size:9});y+=20;}
+ P.text(576,y+10,shippingCount(stops.length,'stop')+' · '+shippingCount(skids,'skid')+' · '+(exact?'':'~')+docNum(total,0)+' kg',{size:10,bold:true,align:'right'});
+ pages.forEach((p,n)=>p.text(576,766,'Trip sheet · '+(n+1)+' / '+pages.length,{size:8,align:'right',color:DOC_COLOR.mut}));return pages;
+}
+/* withPS — лист рейса и PS всех остановок одной пачкой; долг проверяется,
+   как при печати каждого PS. Один лист ничего не записывает и не проверяет. */
+function deliveryPrint(date,truckId,withPS){
+ const stops=deliveryStops(date,truckId);if(!stops.length)return;
+ if(!withPS){shippingShowPrint(deliveryPages(date,truckId));return;}
+ shippingWithChecks(stops.flatMap(shippingOrderIds),'delivery',true,()=>{
+  let pages;const out=storageCommand(()=>{pages=deliveryPages(date,truckId);deliveryStops(date,truckId).forEach(s=>{pages=pages.concat(shippingPrintRecord(s.id));});return true;});
+  if(!out.ok){deliveryNotice=out.error;render();return;}
+  render();shippingShowPrint(pages);
+ });
+}
+
+/* ----------------------- Master Data → Trucks ----------------------- */
+function viewMdTrucks(){
+ const set=(t,field,value)=>`mdTruckSet('${esc(t.id)}','${field}',${value})`;
+ const rows=(DB.truck||[]).map(t=>`<tr data-truck-row="${esc(t.id)}"${t.active?'':' class="mut"'}><td><input aria-label="Truck name" value="${esc(t.name)}" onchange="${set(t,'name','this.value')}" style="max-width:220px"></td><td><input aria-label="Note" value="${esc(t.note)}" placeholder="Note" onchange="${set(t,'note','this.value')}" style="max-width:260px"></td><td><label class="chk"><input type="checkbox" ${t.active?'checked':''} onchange="${set(t,'active','this.checked')}"> Active</label></td></tr>`).join('');
+ return `<div class="sub">Own trucks for the delivery plan. The driver is picked for the day in Shipping → Delivery.</div>
+  <div class="row" style="margin:0 0 12px"><button class="sm" data-truck-add onclick="mdTruckAdd()">+ Truck</button></div>
+  <table><thead><tr><th>Name</th><th>Note</th><th>Active</th></tr></thead><tbody>${rows||'<tr><td colspan="3" class="empty">No trucks yet</td></tr>'}</tbody></table>`;
+}
+function mdTruckAdd(){const out=truckAdd('');if(!out.ok)alert(out.error);render();}
+function mdTruckSet(id,field,value){const out=truckSet(id,field,value);if(!out.ok)alert(out.error);render();}
+
 /* ==== src/erp/views/batch-drawings.js ==== */
 /* =====================================================================
    view/batch-drawings  ·  batch-drawings-1.0
@@ -34750,6 +34835,90 @@ function shippingLoadUndone(recs){
  });
 }
 
+/* ==== src/erp/shipping/delivery.js ==== */
+/* Shipping · план доставки (PR 3, 6 октября 2026).
+   IN : DB.shipment (PS со способом Delivery) · DB.user (водитель)
+   OUT: DB.truck {id, name, note, active} · у PS: truckId, driverId, departAt, stop
+   Владелец: свои машины, нужен план на день и лист рейса водителю. Машина
+   делает за день «0, 1, 2, 3, 4 рейса, зависит от дистанции»; на доске
+   сейчас пишут «ABC morning 8:00, BCA 11:30 am» — время отбытия, и оно
+   плавает (пробки). Поэтому рейса с номером нет: у машины на день список
+   остановок по порядку, у каждой своё время отбытия, которое правят одним
+   вводом. План ничего не блокирует — погрузка и PS живут по своим правилам. */
+DEFAULT.truck=[];
+function truckFind(id){return id?(DB.truck||[]).find(t=>t.id===id)||null:null;}
+function truckAdd(name){return storageCommand(()=>{
+ if(!Array.isArray(DB.truck))DB.truck=[];
+ const t={id:salesUid('TRK'),name:String(name||'').trim().slice(0,60)||'Truck '+(DB.truck.length+1),note:'',active:true};DB.truck.push(t);return t;
+});}
+function truckSet(id,field,value){return storageCommand(()=>{
+ const t=truckFind(id);shippingAssert(t,'Truck not found.');
+ if(field==='name'){const v=String(value||'').trim().slice(0,60);shippingAssert(v,'Enter a truck name.');t.name=v;}
+ else if(field==='note')t.note=String(value==null?'':value).slice(0,120);
+ else if(field==='active')t.active=!!value;
+ else shippingAssert(false,'Unknown field.');
+ return t;
+});}
+function normalizeTrucks(){
+ if(!Array.isArray(DB.truck))DB.truck=[];
+ const seen=new Set();
+ DB.truck=DB.truck.filter(t=>t&&typeof t==='object'&&salesRefId(t.id)&&!seen.has(t.id)&&(seen.add(t.id),true))
+  .map(t=>({id:t.id,name:String(t.name==null?'':t.name).trim().slice(0,60)||'Truck',note:String(t.note==null?'':t.note).slice(0,120),active:t.active!==false}));
+ /* Поля плана у PS: мусор и машину, которой больше нет, снимаем. */
+ (DB.shipment||[]).forEach(s=>{
+  if(!s||typeof s!=='object')return;
+  if(!seen.has(s.truckId)){delete s.truckId;delete s.stop;delete s.driverId;delete s.departAt;return;}
+  if(!Number.isSafeInteger(s.stop)||s.stop<1)s.stop=1;
+  if(typeof s.driverId!=='string')delete s.driverId;
+  if(!/^\d{2}:\d{2}$/.test(s.departAt||''))delete s.departAt;
+ });
+}
+function validateTruckPayload(src){
+ if(src&&Object.prototype.hasOwnProperty.call(src,'truck')&&!Array.isArray(src.truck))throw new Error('The "truck" field must be an array.');
+}
+/* Остановки машины за день — по порядку. */
+function deliveryStops(date,truckId){
+ return (DB.shipment||[]).filter(s=>shippingActive(s)&&s.method==='delivery'&&s.date===date&&s.truckId===truckId).sort((a,b)=>(a.stop||0)-(b.stop||0)||a.number.localeCompare(b.number));
+}
+function deliveryRenumber(date,truckId){deliveryStops(date,truckId).forEach((s,i)=>{s.stop=i+1;});}
+function deliveryStop(id){const s=shippingFind(id);shippingAssert(s&&shippingActive(s)&&s.method==='delivery','Only a delivery packing slip goes on a truck.');shippingAssert(s.status!=='delivered','This packing slip is already delivered.');return s;}
+/* truckId пустой — снять с машины. Новая остановка встаёт последней и берёт
+   водителя, который уже стоит у этой машины в этот день. */
+function deliveryAssign(id,truckId){return storageCommand(()=>{
+ const s=deliveryStop(id),from=s.truckId||'';truckId=truckId||'';
+ if(truckId){const t=truckFind(truckId);shippingAssert(t&&t.active,'Choose an active truck.');}
+ if(from===truckId)return s;
+ if(truckId){const mates=deliveryStops(s.date,truckId);s.truckId=truckId;s.stop=mates.length+1;if(mates.length&&mates[0].driverId)s.driverId=mates[0].driverId;else delete s.driverId;}
+ else{delete s.truckId;delete s.stop;delete s.driverId;delete s.departAt;}
+ if(from)deliveryRenumber(s.date,from);
+ return s;
+});}
+function deliveryMove(id,dir){return storageCommand(()=>{
+ const s=deliveryStop(id);shippingAssert(s.truckId,'Put the packing slip on a truck first.');
+ const list=deliveryStops(s.date,s.truckId),i=list.indexOf(s),j=i+(dir<0?-1:1);if(j<0||j>=list.length)return s;
+ list[i]=list[j];list[j]=s;list.forEach((x,n)=>{x.stop=n+1;});return s;
+});}
+function deliverySetTime(id,value){return storageCommand(()=>{
+ const s=deliveryStop(id),v=String(value||'').trim();shippingAssert(!v||/^([01]\d|2[0-3]):[0-5]\d$/.test(v),'Enter the time as HH:MM.');
+ if(v)s.departAt=v;else delete s.departAt;return s;
+});}
+function deliverySetDriver(date,truckId,driverId){return storageCommand(()=>{
+ shippingAssert(truckFind(truckId),'Truck not found.');shippingAssert(!driverId||(DB.user||[]).some(u=>u.viewProfileId===driverId),'Driver not found.');
+ deliveryStops(date,truckId).forEach(s=>{if(driverId)s.driverId=driverId;else delete s.driverId;});return true;
+});}
+function deliveryDriver(date,truckId){const s=deliveryStops(date,truckId).find(s=>s.driverId);return s?(DB.user||[]).find(u=>u.viewProfileId===s.driverId)||null:null;}
+/* Сколько везёт остановка: скиды, юниты и вес по тем же строкам, что на PS. */
+function deliveryLoad(s){
+ const d=shippingDocument(s);let kg=0,exact=true;
+ d.orders.forEach(o=>o.rows.forEach(r=>{if(!r.now)return;if(r.kg==null)exact=false;kg+=(r.kg==null?r.knownKg:r.kg)*r.now;}));
+ return {skids:d.skids.map(k=>k.code),units:s.items.length,kg,exact};
+}
+function deliveryDay(date){
+ const all=(DB.shipment||[]).filter(s=>shippingActive(s)&&s.date===date);
+ return {date,trucks:(DB.truck||[]).filter(t=>t.active||all.some(s=>s.truckId===t.id)).map(t=>({t,stops:deliveryStops(date,t.id)})),
+  free:all.filter(s=>s.method==='delivery'&&!truckFind(s.truckId)).sort((a,b)=>a.number.localeCompare(b.number)),pickups:all.filter(s=>s.method==='pickup').sort((a,b)=>a.number.localeCompare(b.number))};
+}
+
 /* ==== src/erp/shipping/print.js ==== */
 /* Packing slip and skid sheets, Letter. Shared docPage primitives keep
    preview/print/PDF identical. No pricing enters this model.
@@ -34827,17 +34996,20 @@ function shippingShowPrint(pages){
  const h=docPrintHost();h.innerHTML=pages.map(p=>'<div class="doc-print-page">'+docPageSVG(p)+'</div>').join('');document.body.classList.add('doc-printing');
  window.addEventListener('afterprint',docPrintCleanup,{once:true});setTimeout(docPrintCleanup,60000);window.print();
 }
+/* Запись о печати одного PS внутри чужой команды; возвращает его страницы
+   (печать PS и пачка рейса — erp/views/delivery). */
+function shippingPrintRecord(id){
+ const current=shippingFind(id);if(current.status==='planned')Object.assign(current,shippingValidateSelection(current,current.id));
+ const model=shippingDocument(current),pages=shippingPages(model);current.printedAt=new Date().toISOString();current.printedSignature=JSON.stringify(model);
+ const prior=current.printedItems||[];current.printedItems=[...new Map(prior.concat(current.items).map(i=>[i.label,shippingClone(i)])).values()];
+ shippingOrderIds(current).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip print requested',current.number));return pages;
+}
 /* checked — долг уже проверен вызывающим в этом же действии (заказ по
    номеру у стойки): второй раз то же окно не показываем. */
 function shippingPrint(id,checked){
  const s=shippingFind(id);if(!s||s.status==='cancelled')return;
  (checked?(ids,method,printing,done)=>done():shippingWithChecks)(shippingOrderIds(s),s.method,true,()=>{
-  let pages;const out=storageCommand(()=>{
-   const current=shippingFind(id);if(current.status==='planned')Object.assign(current,shippingValidateSelection(current,current.id));
-   const model=shippingDocument(current);pages=shippingPages(model);current.printedAt=new Date().toISOString();current.printedSignature=JSON.stringify(model);
-   const prior=current.printedItems||[];current.printedItems=[...new Map(prior.concat(current.items).map(i=>[i.label,shippingClone(i)])).values()];
-   shippingOrderIds(current).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip print requested',current.number));return current;
-  });
+  let pages;const out=storageCommand(()=>{pages=shippingPrintRecord(id);return shippingFind(id);});
   if(!out.ok){shippingNotice={error:true,text:out.error};render();return;}
   render();shippingShowPrint(pages);
  });
@@ -35107,6 +35279,7 @@ function validateImportedState(src){
  if(typeof validateStationScanPayload==='function')validateStationScanPayload(src);
  if(typeof validateCarrierPayload==='function')validateCarrierPayload(src);
  if(typeof validateShipmentPayload==='function')validateShipmentPayload(src);
+ if(typeof validateTruckPayload==='function')validateTruckPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -35196,6 +35369,7 @@ function normalizeDB(){
  if(typeof normalizeCarriers==='function')normalizeCarriers();
  if(typeof normalizeStationScans==='function')normalizeStationScans();
  if(typeof normalizeShipments==='function')normalizeShipments();
+ if(typeof normalizeTrucks==='function')normalizeTrucks();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
