@@ -2752,6 +2752,8 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 .shipping-workspace{display:grid;gap:16px}.shipping-workspace>.oq-tabs{margin:0}.shipping-toolbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 20px}.shipping-toolbar label{display:flex;gap:10px;align-items:center;white-space:nowrap}.shipping-toolbar label select{min-width:220px;max-width:50vw}.shipping-customer,.shipping-detail{--pad:20px;padding:var(--pad) var(--pad) 0;overflow:hidden}.shipping-customer>.sales-table-wrap,.shipping-detail>.sales-table-wrap{margin:0 calc(-1*var(--pad))}.shipping-customer>:last-child:not(.sales-table-wrap),.shipping-detail>:last-child:not(.sales-table-wrap){margin-bottom:var(--pad)}:is(.shipping-customer,.shipping-detail) .sl-table :is(th,td):last-child{padding-right:20px}:is(.shipping-customer,.shipping-detail) .sl-table tbody tr:last-child td{border-bottom:0}.shipping-detail .n{text-align:right;font-variant-numeric:tabular-nums}.shipping-workspace .sales-toolbar{margin:0 0 14px}.shipping-workspace .sales-toolbar label{display:flex;gap:10px;align-items:center;white-space:nowrap}.shipping-customer-head{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:14px}.shipping-customer-head h3{margin:0 0 5px}.shipping-skid{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.shipping-skid label{display:flex;gap:9px;align-items:center;min-width:100px}.shipping-skid>span{flex:1}.shipping-ready-table input[type=number],.shipping-pick input{width:70px}.shipping-order-row{background:var(--surface-2)}.shipping-order-row label{display:inline-flex;gap:9px;align-items:center}.shipping-scan{display:flex;gap:16px;flex-wrap:wrap;padding:18px;border-bottom:1px solid var(--line)}.shipping-scan label{display:grid;gap:5px}.shipping-scan label:first-child{flex:1;min-width:200px}.shipping-scan input{min-height:38px}.shipping-selected{background:var(--accent-soft)}.shipping-notice{padding:12px 16px;border-radius:8px;background:var(--success-soft);color:var(--success)}.shipping-notice.bad{background:var(--danger-soft);color:var(--danger)}.shipping-preview{display:grid;gap:18px;justify-content:center;padding:24px 0;overflow:auto;background:var(--surface-2);margin-top:18px}.shipping-preview svg{max-width:100%;height:auto;background:var(--on-solid);box-shadow:var(--shadow)}.shipping-modal{width:min(860px,calc(100vw - 24px));max-width:860px;max-height:calc(100vh - 24px);display:flex;flex-direction:column}.shipping-form{padding:18px;overflow:auto}.shipping-form label{display:grid;gap:5px}.shipping-form-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}.shipping-form h4{margin:20px 0 8px}.shipping-form .shipping-pick{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.shipping-pick>span:first-child{flex:1}.shipping-pick small{display:block;color:var(--text-2)}.shipping-form textarea{width:100%;min-height:55px}.shipping-order-strip{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 0}.shipping-workspace .optimization-queue>.oq-tabs{display:none}.shipping-workspace .optimization-queue>.page-head{display:none}.pill.st-shipping{background:var(--accent-soft);color:var(--accent)}
 @media(max-width:650px){.shipping-customer-head{align-items:flex-start;flex-direction:column}.shipping-customer,.shipping-detail{--pad:12px}.shipping-form-fields{grid-template-columns:1fr}.shipping-skid{flex-wrap:wrap}.shipping-toolbar label{flex-wrap:wrap;white-space:normal}.shipping-scan{padding:12px}.shipping-scan input{max-width:100%}}
 .shipping-queue{width:64px}.shipping-loaded{font-weight:650;color:var(--green)}
+/* Отмена под строкой PS и стекло, которое забирает клиент. */
+.shipping-cancel-note td{padding-top:0;color:var(--text-2);font-size:12px}
 .shipping-lookup-field{display:flex;gap:8px;align-items:center}.shipping-lookup-field select{width:auto}.shipping-lookup-field input{width:160px}.shipping-lookup-where b{min-width:100px}.shipping-lookup-where+p,.shipping-lookup-where+.sales-toolbar{margin-top:14px}.shipping-lookup-bad{font-weight:650;color:var(--red)}
 .delivery-day{display:flex;gap:10px;align-items:center;padding:12px 20px}.delivery-day b{margin-left:8px}.delivery-truck .shipping-customer-head .sales-toolbar{margin:0}.delivery-table input[type=time]{width:120px}.delivery-acts{white-space:nowrap;text-align:right}.delivery-acts button{margin-left:4px;min-width:30px;min-height:28px;font-size:13px}
 .delivery-day input[type=date]{width:auto;flex:none}
@@ -2782,7 +2784,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='02e88933a903';
+var ERP_BUILD='64c80bd3a711';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11612,7 +11614,10 @@ function salesStatusStepper(o){
  }
  if(o.status==='cancelled')return `<div class="sales-status-row"><span class="pill st-cancelled">Cancelled ${esc(salesShortDate(o.statusDates.cancelled))}</span><span class="mut">Status history · read only</span></div>`;
  const flow=salesOrderFlow(o),at=flow.indexOf(o.status);
- const steps=flow.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><span class="sales-step-label"><i></i><b>${esc(s==='done'&&at<flow.indexOf('done')?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b></span>${o.statusDates&&o.statusDates[s]?`<small>${esc(salesShortDate(o.statusDates[s]))}</small>`:''}</div>`).join('');
+ /* Отменили всё, сумма за отмену — заказ закрыт днём отмены (erp/shipping/data,
+    shippingSyncOrder): шаг выдачи называется честно. */
+ const allCancelled=o.status==='closed'&&(o.cancellations||[]).length>0&&typeof shippingForOrder==='function'&&!shippingForOrder(o.id).some(shippingSent);
+ const steps=flow.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><span class="sales-step-label"><i></i><b>${esc(s==='done'&&allCancelled?'Units cancelled':s==='done'&&at<flow.indexOf('done')?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b></span>${o.statusDates&&o.statusDates[s]?`<small>${esc(salesShortDate(o.statusDates[s]))}</small>`:''}</div>`).join('');
  return `<div class="sales-status-row"><div class="sales-steps">${steps}</div><span class="sales-status-readonly">Status history · read only</span></div>`;
 }
 function salesOrderBatchNumbers(o){return [...new Set((o.lines||[]).filter(salesLineLocked).map(l=>l.batchNo).filter(Boolean).concat(o.batchNo?[o.batchNo]:[]))];}
@@ -21926,11 +21931,14 @@ function shippingOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&
 /* Ready — только то, что можно положить в PS: готовые юниты без PS и товары
    склада. Заказ, где готового нет, сюда не попадает (он в Awaiting). */
 function shippingReadyExtras(o,q){return o.status!=='new'&&!o.onHold?q.extras.filter(e=>e.ready>0):[];}
-function shippingReadyOrders(){return shippingOrders().filter(o=>{const q=shippingSummary(o);return q.ready>0||shippingReadyExtras(o,q).length>0;});}
+/* Стекло отменённых юнитов, которое забирает клиент, ждёт PS и у заказа,
+   где отгружать больше нечего (аудит Shipping, Д2) — такой заказ тоже в Ready. */
+function shippingTakesOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&unitTakes(o).length>0);}
+function shippingReadyOrders(){const own=shippingOrders().filter(o=>{const q=shippingSummary(o);return q.ready>0||shippingReadyExtras(o,q).length>0;});return own.concat(shippingTakesOrders().filter(o=>!own.includes(o)));}
 function shippingSelect(customerId,labels,on){if(shippingCustomer!==customerId){shippingSelection.clear();shippingCustomer=customerId;}labels.forEach(id=>on?shippingSelection.add(id):shippingSelection.delete(id));render();}
 /* Галочка заказа отмечает его готовые юниты; у заказа только с товаром
    склада юнитов нет — отмечается сам заказ (ключ «stock:»). */
-function shippingOrderKeys(o){const units=shippingAvailable(o).map(i=>i.label);return units.length||!shippingReadyExtras(o,shippingSummary(o)).length?units:['stock:'+o.id];}
+function shippingOrderKeys(o){const units=shippingAvailable(o).map(i=>i.label);if(units.length)return units;if(shippingReadyExtras(o,shippingSummary(o)).length)return ['stock:'+o.id];return unitTakes(o).length?['takes:'+o.id]:[];}
 function shippingSelectOrder(id,on){const o=salesRecord(id);shippingSelect(o.customerId,shippingOrderKeys(o),on);}
 function shippingSelectSkid(customerId,code,on){shippingSelect(customerId,shippingWithCtx(()=>shippingOrders().filter(o=>o.customerId===customerId).flatMap(shippingAvailable).filter(i=>i.skid===code).map(i=>i.label)),on);}
 function shippingSelectQty(id,lineId,n){const o=salesRecord(id),units=shippingAvailable(o).filter(i=>i.lineId===lineId);if(shippingCustomer!==o.customerId){shippingSelection.clear();shippingCustomer=o.customerId;}units.forEach((i,k)=>k<Math.max(0,+n||0)?shippingSelection.add(i.label):shippingSelection.delete(i.label));render();}
@@ -21943,15 +21951,17 @@ function shippingSelectQty(id,lineId,n){const o=salesRecord(id),units=shippingAv
    у пустого рейса — из карточки клиента. */
 function shippingOpen(customerId,id){
  shippingWithCtx(()=>{
-  const s=id&&shippingFind(id),orders=shippingOrders().filter(o=>o.customerId===customerId),c=salesFindCustomer(customerId),mine=shippingCustomer===customerId;
+  const s=id&&shippingFind(id),own=shippingOrders().filter(o=>o.customerId===customerId),c=salesFindCustomer(customerId),mine=shippingCustomer===customerId;
+  const orders=own.concat(shippingTakesOrders().filter(o=>o.customerId===customerId&&!own.includes(o)));
   const all=orders.flatMap(shippingAvailable),selected=all.filter(i=>mine&&shippingSelection.has(i.label));
-  const chosen=new Set(selected.map(i=>i.orderId).concat(orders.filter(o=>mine&&shippingSelection.has('stock:'+o.id)).map(o=>o.id)));
-  const picked=s||!mine?[]:[...shippingSelection].filter(k=>k.indexOf('stock:')!==0),lost=picked.filter(k=>!selected.some(i=>i.label===k)).length;
+  const chosen=new Set(selected.map(i=>i.orderId).concat(orders.filter(o=>mine&&(shippingSelection.has('stock:'+o.id)||shippingSelection.has('takes:'+o.id))).map(o=>o.id)));
+  const picked=s||!mine?[]:[...shippingSelection].filter(k=>!/^(stock|takes):/.test(k)),lost=picked.filter(k=>!selected.some(i=>i.label===k)).length;
   if(!s&&mine&&shippingSelection.size&&!chosen.size){shippingSelection.clear();shippingNotice={error:true,text:'The selected glass is no longer ready. Select again.'};return;}
   const items=chosen.size?selected:all,inPS=o=>!chosen.size||chosen.has(o.id);
   const planned=(chosen.size?[...chosen]:[...new Set(items.map(i=>i.orderId))]).map(oid=>salesRecord(oid).delivery);
   const method=planned.length?(planned.every(d=>d==='pickup')?'pickup':'delivery'):String(c&&c.defaultDeliveryMethod||'').toLowerCase().includes('pickup')?'pickup':'delivery';
-  shippingDraft=s?shippingClone(s):{customerId,method,shipTo:shippingDefaultAddress(c),date:finToday(),items:items.map(shippingItem),extras:orders.filter(o=>o.status!=='new'&&!o.onHold&&inPS(o)).flatMap(o=>shippingSummary(o).extras.filter(x=>x.ready>0).map(x=>({orderId:o.id,extraId:x.x.id,qty:x.ready}))),note:''};
+  shippingDraft=s?shippingClone(s):{customerId,method,shipTo:shippingDefaultAddress(c),date:finToday(),items:items.map(shippingItem),extras:own.filter(o=>o.status!=='new'&&!o.onHold&&inPS(o)).flatMap(o=>shippingSummary(o).extras.filter(x=>x.ready>0).map(x=>({orderId:o.id,extraId:x.x.id,qty:x.ready}))),note:''};
+  if(!s){const takes=orders.filter(o=>inPS(o)&&unitTakes(o).length).map(o=>o.id);if(takes.length)shippingDraft.takes=takes;}
   shippingDraft.error=lost?shippingCount(lost,'selected unit')+' no longer ready.':'';
  });
  render();
@@ -22017,7 +22027,8 @@ function shippingReadyHTML(){
    const keys=shippingOrderKeys(o),back=v=>q.shipped?v:'—';
    return `<tr class="shipping-order-row"><td colspan="3"><label><input type="checkbox" ${keys.length?'':'disabled'} ${keys.length&&keys.every(k=>shippingSelection.has(k))?'checked':''} onchange="shippingSelectOrder('${esc(o.id)}',this.checked)"><button class="sm" onclick="optimizationOpenOrder('${esc(o.id)}')">Order ${esc(o.businessNumber)}</button></label>${o.customerPo?' · PO '+esc(o.customerPo):''}</td><td>${q.ready}</td><td>${Math.max(0,q.glass-q.physicalReady-q.lines.reduce((n,l)=>n+l.shipped,0))}</td><td>${back(q.back)}</td><td></td><td></td></tr>`
     +q.lines.map((r,n)=>({r,n})).filter(x=>x.r.ready>0).map(({r,n})=>`<tr data-ready-line="${esc(r.l.id)}"><td>${n+1}${r.l.mark?' · '+esc(r.l.mark):''}</td><td>${esc(docSize(r.l))}</td><td>${esc(salesMakeupSummary(salesMakeupById(o,r.l.makeupId)))}</td><td>${r.ready}</td><td>${Math.max(0,r.ordered-r.physicalReady-r.shipped)}</td><td>${back(r.back)}</td><td><input class="shipping-queue" aria-label="Queue for order ${esc(o.businessNumber)} line ${n+1}" type="number" min="1" max="999" value="${shippingQueueOf(r.l)||''}" onchange="shippingQueueChange('${esc(o.id)}','${esc(r.l.id)}',this.value)"></td><td><input aria-label="Select quantity for order ${esc(o.businessNumber)} line ${n+1}" type="number" min="0" max="${r.ready}" value="${free.filter(i=>i.lineId===r.l.id&&shippingSelection.has(i.label)).length}" onchange="shippingSelectQty('${esc(o.id)}','${esc(r.l.id)}',this.value)"></td></tr>`).join('')
-    +shippingReadyExtras(o,q).map(e=>`<tr><td colspan="3">From stock · ${esc(salesExtraItemName(e.x))}</td><td>${e.ready}</td><td>—</td><td>${back(e.back)}</td><td></td><td>In PS form</td></tr>`).join('');
+    +shippingReadyExtras(o,q).map(e=>`<tr><td colspan="3">From stock · ${esc(salesExtraItemName(e.x))}</td><td>${e.ready}</td><td>—</td><td>${back(e.back)}</td><td></td><td>In PS form</td></tr>`).join('')
+    +unitTakes(o).map(x=>`<tr data-ready-takes><td colspan="3">Cancelled · customer takes · line ${x.line} · ${esc(docSize(x.l))}</td><td>${x.pieces} glass</td><td>—</td><td>—</td><td></td><td>In PS form</td></tr>`).join('');
   }).join('');
   return `<section class="card shipping-customer"><div class="shipping-customer-head"><div><h3>${esc(salesCustomerDisplay(id))}</h3><span class="mut">${esc(docAddressText(shippingDefaultAddress(c)))||'Choose an address or pickup'}</span></div><button class="pri" data-create-ps="${esc(id)}" onclick="shippingOpen('${esc(id)}')">Create packing slip</button></div>${skidHTML}${loose?`<p class="mut">Without a skid · ${shippingCount(loose,'unit')}</p>`:''}<div class="sales-table-wrap"><table class="sl-table shipping-ready-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Ready</th><th>Not ready</th><th>Back order</th><th>Queue</th><th>Select qty</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
  }).join('')||'<div class="card empty">No units ready for a packing slip.</div>';
@@ -22037,7 +22048,7 @@ function shippingDetailHTML(){
  /* Главное действие статуса — справа и выделено, как + New Sales Order. */
  const main=s.status==='planned'?action('Loaded',`shippingLoaded('${id}')`,'pri'):s.status==='shipped'?action(s.method==='pickup'?'Picked up':'Delivered',`shippingReceive('${id}')`,'pri'):'';
  const rest=(s.status==='planned'?action('Edit',`shippingOpen('${esc(s.customerId)}','${id}')`)+action('Cancel',`shippingUndo('${id}','cancel')`):s.status==='shipped'?action('Undo dispatch',`shippingUndo('${id}','dispatch')`):s.status==='delivered'?action('Undo receipt',`shippingUndo('${id}','receipt')`):'')+(s.status!=='cancelled'?action('Print',`shippingPrint('${id}')`):'')+action(shippingPreview?'Hide preview':'Preview','shippingPreview=!shippingPreview;render()');
- const rows=d.orders.map(o=>`<tr class="shipping-order-row"><td colspan="7"><b>Order ${esc(o.number)}</b>${o.po?' · PO '+esc(o.po):''}</td></tr>`+o.rows.map(r=>`<tr><td>${r.line}${r.mark?' · '+esc(r.mark):''}</td><td>${esc(r.size)}</td><td>${esc(r.makeup)}</td><td>${esc(r.skids)||'<span class="mut">—</span>'}</td><td class="n"><b>${r.now}</b></td><td class="n">${r.before}</td><td class="n">${r.back}</td></tr>`).join('')+o.extras.map(x=>`<tr><td colspan="3">From stock · ${esc(x.name)}</td><td><span class="mut">—</span></td><td class="n"><b>${x.now}</b></td><td class="n">${x.before}</td><td class="n">${x.back}</td></tr>`).join('')).join('');
+ const rows=d.orders.map(o=>`<tr class="shipping-order-row"><td colspan="7"><b>Order ${esc(o.number)}</b>${o.po?' · PO '+esc(o.po):''}</td></tr>`+o.rows.map(r=>`<tr><td>${r.line}${r.mark?' · '+esc(r.mark):''}</td><td>${esc(r.size)}</td><td>${esc(r.makeup)}</td><td>${esc(r.skids)||'<span class="mut">—</span>'}</td><td class="n"><b>${r.now}</b></td><td class="n">${r.before}</td><td class="n">${r.back}</td></tr>`+(r.note?`<tr class="shipping-cancel-note" data-ps-cancel-note><td colspan="7">${esc(r.note)}</td></tr>`:'')).join('')+(o.takes||[]).map(x=>`<tr data-ps-takes><td colspan="4">Cancelled · customer takes · line ${x.line} · ${esc(x.size)}</td><td class="n"><b>${x.pieces}</b> glass</td><td></td><td></td></tr>`).join('')+o.extras.map(x=>`<tr><td colspan="3">From stock · ${esc(x.name)}</td><td><span class="mut">—</span></td><td class="n"><b>${x.now}</b></td><td class="n">${x.before}</td><td class="n">${x.back}</td></tr>`).join('')).join('');
  return `<div class="card shipping-detail"><div class="shipping-customer-head"><div><h3>${esc(s.number)} · ${esc(salesCustomerDisplay(s.customerId))}</h3><span class="mut">${esc(docAddressText(s.shipTo))||'Pickup'} · ${esc(salesListShortDay(s.date))}</span></div>${shippingStatusPill(s)}</div>${loaded?`<p class="shipping-loaded" data-ps-loaded>${esc(loaded)}</p>`:''}<div class="sales-toolbar">${rest}<span class="sales-toolbar-sp"></span>${main}</div>${rows?`<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Skids</th><th class="n">Qty</th><th class="n">Before</th><th class="n">Back order</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="mut">Open trip · no items selected</p>'}${shippingPreview?'<div class="shipping-preview">'+shippingPages(d).map(docPageSVG).join('')+'</div>':''}</div>`;
 }
 function shippingBackordersHTML(){
@@ -22052,7 +22063,7 @@ function shippingDraftHTML(){
  const rows=os.map(o=>{
   const a=shippingAvailable(o,d.id),q=shippingSummary(o);return `<h4>Order ${esc(o.businessNumber)}${o.customerPo?' · PO '+esc(o.customerPo):''}</h4>`+(o.lines||[]).map((l,n)=>{const max=a.filter(i=>i.lineId===l.id).length,qty=d.items.filter(i=>i.orderId===o.id&&i.lineId===l.id).length;if(!max&&!qty)return '';return `<label class="shipping-pick"><span>Line ${n+1} · ${esc(docSize(l))} · ${esc(l.mark)}<small>${esc(salesMakeupSummary(salesMakeupById(o,l.makeupId)))}</small></span><input type="number" aria-label="PS quantity line ${n+1}" min="0" max="${max}" value="${qty}" onchange="shippingDraftQty('${esc(o.id)}','${esc(l.id)}',this.value)"><span>of ${max} ready</span></label>`;}).join('')+q.extras.filter(()=>o.status!=='new'&&!o.onHold).map(r=>{const current=d.extras.find(i=>i.extraId===r.x.id),original=d.id&&shippingFind(d.id).extras.find(i=>i.extraId===r.x.id),max=r.ready+(original?original.qty:0);return `<label class="shipping-pick"><span>From stock · ${esc(salesExtraItemName(r.x))}</span><input type="number" min="0" max="${max}" value="${current?current.qty:0}" onchange="shippingDraftExtra('${esc(o.id)}','${esc(r.x.id)}',this.value)"><span>of ${max}</span></label>`;}).join('');
  }).join('');
- return `<div class="sales-service-modal-back"><div class="sales-service-modal shipping-modal" role="dialog" aria-modal="true" aria-label="Packing slip"><div class="sales-service-modal-head"><h3>${d.id?'Edit '+esc(d.number):'Create packing slip'} · ${esc(salesCustomerDisplay(d.customerId))}</h3><button aria-label="Close" onclick="shippingDraft=null;render()">×</button></div><div class="shipping-form"><div class="shipping-form-fields"><label>Method<select aria-label="Method" onchange="shippingDraft.method=this.value;render()"><option value="delivery" ${d.method==='delivery'?'selected':''}>Delivery</option><option value="pickup" ${d.method==='pickup'?'selected':''}>Pickup</option></select></label><label>Date<input type="date" value="${d.date}" onchange="shippingDraft.date=this.value"></label></div>${d.method==='delivery'?`<label>Delivery address<select onchange="shippingDraftAddress(this.value)"><option value="">Job site / custom address</option>${(c.addresses||[]).filter(a=>a.type==='delivery').map(a=>`<option value="${esc(a.id)}" ${a.address1===d.shipTo.address1?'selected':''}>${esc(a.label||docAddressText(a))}</option>`).join('')}</select></label><div class="shipping-form-fields">${field('addressee','Ship to')}${field('address1','Address')}${field('address2','Address line 2')}${field('address3','Address line 3')}${field('city','City')}${field('province','Province')}${field('postalCode','Postal code')}${field('contact','Contact')}${field('phone','Phone')}</div>`:''}${rows}<label>Note<textarea oninput="shippingDraft.note=this.value">${esc(d.note)}</textarea></label>${d.error?'<p class="err" role="alert" style="display:block">'+esc(d.error)+'</p>':''}</div><div class="sales-dialog-actions"><button onclick="shippingDraft=null;render()">Back</button><button class="pri" data-save-ps onclick="shippingSave()">${d.id?'Save':'Create packing slip'}</button></div></div></div>`;
+ return `<div class="sales-service-modal-back"><div class="sales-service-modal shipping-modal" role="dialog" aria-modal="true" aria-label="Packing slip"><div class="sales-service-modal-head"><h3>${d.id?'Edit '+esc(d.number):'Create packing slip'} · ${esc(salesCustomerDisplay(d.customerId))}</h3><button aria-label="Close" onclick="shippingDraft=null;render()">×</button></div><div class="shipping-form"><div class="shipping-form-fields"><label>Method<select aria-label="Method" onchange="shippingDraft.method=this.value;render()"><option value="delivery" ${d.method==='delivery'?'selected':''}>Delivery</option><option value="pickup" ${d.method==='pickup'?'selected':''}>Pickup</option></select></label><label>Date<input type="date" value="${d.date}" onchange="shippingDraft.date=this.value"></label></div>${d.method==='delivery'?`<label>Delivery address<select onchange="shippingDraftAddress(this.value)"><option value="">Job site / custom address</option>${(c.addresses||[]).filter(a=>a.type==='delivery').map(a=>`<option value="${esc(a.id)}" ${a.address1===d.shipTo.address1?'selected':''}>${esc(a.label||docAddressText(a))}</option>`).join('')}</select></label><div class="shipping-form-fields">${field('addressee','Ship to')}${field('address1','Address')}${field('address2','Address line 2')}${field('address3','Address line 3')}${field('city','City')}${field('province','Province')}${field('postalCode','Postal code')}${field('contact','Contact')}${field('phone','Phone')}</div>`:''}${rows}${(d.takes||[]).map(salesRecord).filter(Boolean).map(o=>unitTakes(o).map(x=>`<div class="shipping-pick" data-draft-takes><span>Order ${esc(o.businessNumber)} · cancelled · customer takes · line ${x.line} · ${esc(docSize(x.l))}</span><span>${x.pieces} glass</span></div>`).join('')).join('')}<label>Note<textarea oninput="shippingDraft.note=this.value">${esc(d.note)}</textarea></label>${d.error?'<p class="err" role="alert" style="display:block">'+esc(d.error)+'</p>':''}</div><div class="sales-dialog-actions"><button onclick="shippingDraft=null;render()">Back</button><button class="pri" data-save-ps onclick="shippingSave()">${d.id?'Save':'Create packing slip'}</button></div></div></div>`;
 }
 function shippingFocus(){if(tab!=='shipping'||shippingTab!=='shipments'||shippingDraft||salesDialog||salesListMenu)return;const a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.id!=='shippingSigned')return;const e=document.getElementById('shippingSigned');if(e)e.focus();}
 function viewShipping(){
@@ -34414,22 +34425,23 @@ function shippingLookupPill(o,q){
 }
 function shippingLookupModel(o){
  const q=shippingSummary(o),free=shippingUnits(o).filter(u=>u.ready&&!u.shipment),ctx=shippingCtx(),ship=shippingStations().ship;
- const where=new Map(),shop=new Map();free.forEach(u=>where.set(u.on||'',(where.get(u.on||'')||0)+1));
- /* Что ещё в цеху: стёкла заказа по станциям, где они ждут. */
+ const where=new Map(),shop=new Map(),gone=unitCancelledSet(o);free.forEach(u=>where.set(u.on||'',(where.get(u.on||'')||0)+1));
+ /* Что ещё в цеху: стёкла заказа по станциям, где они ждут. Отменённое —
+    история, не остаток (аудит Shipping, F8). */
  ctx.index.forEach((h,piece)=>{
-  if(h.orderId!==o.id)return;const g=stationGlass(piece,ctx.index,ctx.batches),scans=ctx.scans.get(piece)||[];if(!g)return;
+  if(h.orderId!==o.id||gone.has(piece))return;const g=stationGlass(piece,ctx.index,ctx.batches),scans=ctx.scans.get(piece)||[];if(!g)return;
   const p=stationPlace(g,scans);if(p.broken||p.shipped||!p.waiting||p.waiting===ship)return;
   const k=!g.entry&&!scans.length?'To batch':p.waiting;shop.set(k,(shop.get(k)||0)+1);
  });
  const seq=code=>{const s=(DB.station||[]).find(x=>x.code===code);return s?s.seq:-1;};
  return {q,free,where:[...where].sort((a,b)=>String(a[0]||'~').localeCompare(String(b[0]||'~'),undefined,{numeric:true})),shop:[...shop].sort((a,b)=>seq(a[0])-seq(b[0])),
-  extras:o.status!=='new'&&!o.onHold?q.extras.filter(e=>e.ready>0):[],ps:q.ps.filter(shippingActive),due:shippingBalanceDue(o)?finOrderBalance(o).balance:0};
+  extras:o.status!=='new'&&!o.onHold?q.extras.filter(e=>e.ready>0):[],takes:unitTakes(o),ps:q.ps.filter(shippingActive),due:shippingBalanceDue(o)?finOrderBalance(o).balance:0};
 }
 function shippingLookupPickup(id){
  const o=salesRecord(id);if(!o)return;
  shippingWithChecks([id],'pickup',true,()=>{
   const m=shippingWithCtx(()=>shippingLookupModel(salesRecord(id)));
-  const out=shippingCreate({customerId:o.customerId,method:'pickup',shipTo:shippingDefaultAddress(salesFindCustomer(o.customerId)),date:finToday(),items:m.free.map(shippingItem),extras:m.extras.map(e=>({orderId:id,extraId:e.x.id,qty:e.ready})),note:''});
+  const out=shippingCreate(Object.assign({customerId:o.customerId,method:'pickup',shipTo:shippingDefaultAddress(salesFindCustomer(o.customerId)),date:finToday(),items:m.free.map(shippingItem),extras:m.extras.map(e=>({orderId:id,extraId:e.x.id,qty:e.ready})),note:''},m.takes.length?{takes:[id]}:{}));
   if(!out.ok){shippingNotice={error:true,text:out.error};render();return;}
   shippingLookupReset();shippingSelection.clear();shippingOpenId=out.value.id;shippingPreview=false;shippingTab='shipments';shippingNotice={text:out.value.number+' saved'};render();
   shippingPrint(out.value.id,true);
@@ -34446,11 +34458,12 @@ function shippingLookupHTML(){
  }
  const m=shippingLookupModel(o),count=n=>shippingCount(n,'unit'),open=shippingLookupOpen(o),pill=shippingLookupPill(o,m.q);
  const where=m.where.map(([code,n])=>`<div class="shipping-skid shipping-lookup-where"><b>${esc(code||'No skid')}</b><span>${count(n)}</span></div>`).join('');
- const can=open&&(m.free.length>0||m.extras.length>0);
+ const can=open&&(m.free.length>0||m.extras.length>0)||m.takes.length>0;
  return {field,card:`<section class="card shipping-customer shipping-lookup" data-lookup-card><div class="shipping-customer-head"><div><h3>Order ${esc(o.businessNumber)} · ${esc(salesCustomerDisplay(o.customerId))}</h3><span class="mut">${o.delivery==='delivery'?'Delivery':'Pickup'}${o.customerPo?' · PO '+esc(o.customerPo):''}</span></div>${pill}</div>`
   +(o.onHold?`<p class="shipping-lookup-bad">On hold${o.holdReason?' · '+esc(o.holdReason):''}</p>`:'')
   +where
   +(m.extras.length?`<p class="mut">From stock · ${m.extras.map(e=>esc(salesExtraItemName(e.x))+' ×'+e.ready).join(', ')}</p>`:'')
+  +(m.takes.length?`<p class="mut" data-lookup-takes>Cancelled · customer takes · ${m.takes.map(x=>'line '+x.line+' · '+x.pieces+' glass').join(', ')}</p>`:'')
   +(open&&m.shop.length?`<p class="mut" data-lookup-shop>In the shop · ${m.shop.map(([k,n])=>esc(k)+' '+n).join(' · ')} glass</p>`:'')
   +(m.due?`<p class="shipping-lookup-bad" data-lookup-due>Balance due ${esc(finFmt(m.due))}</p>`:'')
   +`<div class="sales-toolbar">${m.ps.map(s=>`<button type="button" class="sm" data-lookup-ps onclick="shippingLookupReset();shippingGo('${esc(s.id)}')">${esc(s.number)} · ${shippingStatus(s)}</button>`).join('')}<span class="sales-toolbar-sp"></span><button type="button" onclick="optimizationOpenOrder('${esc(o.id)}')">Open order</button>${can?`<button type="button" class="pri" data-lookup-pickup onclick="shippingLookupPickup('${esc(o.id)}')">Pickup packing slip${m.free.length?' · '+count(m.free.length):''}</button>`:''}<button type="button" aria-label="Close" onclick="shippingLookupClose()">×</button></div></section>`};
@@ -34952,7 +34965,9 @@ const SHIPPING_STATUSES=['planned','shipped','delivered','cancelled'];
 const SHIPPING_ADDRESS_FIELDS=['label','addressee','address1','address2','address3','city','province','country','postalCode','contact','phone'];
 function shippingClone(x){return JSON.parse(JSON.stringify(x));}
 function shippingFind(id){return (DB.shipment||[]).find(s=>s.id===id||s.number===id)||null;}
-function shippingOrderIds(s){return [...new Set((s.items||[]).concat(s.extras||[]).map(i=>i.orderId))];}
+/* takes — заказы, чьё отменённое стекло клиент забирает с этим PS, когда
+   юнитов этого заказа на нём нет (аудит Shipping, Д2). */
+function shippingOrderIds(s){return [...new Set((s.items||[]).concat(s.extras||[]).map(i=>i.orderId).concat(s.takes||[]))];}
 function shippingForOrder(id){return (DB.shipment||[]).filter(s=>shippingOrderIds(s).includes(id));}
 function shippingActive(s){return s.status!=='cancelled';}
 function shippingSent(s){return s.status==='shipped'||s.status==='delivered';}
@@ -35067,6 +35082,13 @@ function shippingSyncOrder(o,now,opts){
  if(q.ordered>0&&q.delivered>=q.ordered){
   next='done';const last=q.ps.filter(s=>s.status==='delivered').sort((a,b)=>a.deliveredAt.localeCompare(b.deliveredAt)).pop();
   o.statusDates.done=last.deliveredAt;
+ }else if(q.ordered===0&&(o.cancellations||[]).length){
+  /* Отменили всё (владелец, 6.10.2026): $0 — заказ Cancelled; есть сумма за
+     отмену — заказ закрыт днём отмены, срок оплаты — от него (finBillingDate
+     берёт statusDates.done). */
+  const day=o.cancellations.map(c=>c.at).sort().pop(),charge=o.cancellations.reduce((n,c)=>n+(unitChargeOf(c)||0),0);
+  next=charge>0?'closed':'cancelled';
+  if(next==='closed'){o.statusDates.done=day;o.statusDates.closed=day;}else o.statusDates.cancelled=day;
  }else{
   delete o.statusDates.done;delete o.statusDates.closed;
   if(q.shipped>0){next='shipping';if(q.back>0&&!o.statusDates.shipping)o.statusDates.shipping=now;}
@@ -35094,7 +35116,7 @@ function shippingSaveGuard(draft,saved){
 }
 function normalizeShipments(){
  if(!Array.isArray(DB.shipment))DB.shipment=[];
- DB.shipment.forEach(s=>{s.shipTo=shippingAddress(s.shipTo);s.items=s.items||[];s.extras=s.extras||[];s.scanIds=s.scanIds||[];});
+ DB.shipment.forEach(s=>{s.shipTo=shippingAddress(s.shipTo);s.items=s.items||[];s.extras=s.extras||[];s.scanIds=s.scanIds||[];if(Array.isArray(s.takes)&&s.takes.length)s.takes=[...new Set(s.takes.filter(salesRefId))];else delete s.takes;});
  DB.shipmentSeq=Math.max(Number(DB.shipmentSeq)||0,...DB.shipment.map(s=>Number(String(s.number).slice(3))||0));
  shippingWithCtx(()=>(DB.salesOrder||[]).filter(o=>['ready','shipping'].includes(o.status)).forEach(o=>shippingSyncOrder(o,o.updatedAt)));
 }
@@ -35106,7 +35128,8 @@ function validateShipmentPayload(src){
  src.shipment.forEach(s=>{
   if(!s||typeof s!=='object'||!salesRefId(s.id)||ids.has(s.id)||!/^PS-\d{4,}$/.test(s.number)||numbers.has(s.number)||!SHIPPING_STATUSES.includes(s.status)||!['delivery','pickup'].includes(s.method)||!shippingDateValid(s.date)||!salesRefId(s.customerId)||!Array.isArray(s.items)||!Array.isArray(s.extras)||!s.shipTo||typeof s.shipTo!=='object')throw new Error('Invalid or duplicate packing slip.');
   ids.add(s.id);numbers.add(s.number);
-  if(shippingSent(s)&&(!iso(s.shippedAt)||!s.items.length&&!s.extras.length)||s.status==='delivered'&&!iso(s.deliveredAt))throw new Error('Invalid shipment dates or empty shipment.');
+  if(s.takes!=null&&(!Array.isArray(s.takes)||!s.takes.every(salesRefId)))throw new Error('Invalid or duplicate packing slip.');
+  if(shippingSent(s)&&(!iso(s.shippedAt)||!s.items.length&&!s.extras.length&&!(s.takes||[]).length)||s.status==='delivered'&&!iso(s.deliveredAt))throw new Error('Invalid shipment dates or empty shipment.');
   const own=new Set();s.items.forEach(i=>{
    const k=shippingKey(i);if(!salesRefId(i.orderId)||!salesRefId(i.lineId)||!Number.isSafeInteger(i.unit)||i.unit<1||!glassPieceValid(i.label)&&!unitIdValid(i.label)||!Array.isArray(i.pieces)||!i.pieces.length||!i.pieces.every(glassPieceValid)||own.has(k))throw new Error('Invalid or duplicate shipment unit.');
    own.add(k);if(shippingActive(s)){if(i.pieces.some(p=>pieces.has(p))||new Set(i.pieces).size!==i.pieces.length)throw new Error('Glass is on more than one shipment unit.');i.pieces.forEach(p=>pieces.add(p));if(slots.has(k)||labels.has(i.label))throw new Error('A unit is on more than one packing slip.');slots.add(k);labels.add(i.label);}
@@ -35116,6 +35139,7 @@ function validateShipmentPayload(src){
    const checkOrder=i=>{const o=src.salesOrder.find(o=>o.id===i.orderId);if(!o||o.customerId!==s.customerId)throw new Error('Shipment customer does not match its order.');return o;};
    s.items.forEach(i=>{const o=checkOrder(i),l=(o.lines||[]).find(l=>l.id===i.lineId);if(!l||i.unit>l.qty)throw new Error('Shipment line or unit no longer exists.');});
    s.extras.forEach(i=>{const o=checkOrder(i),x=(o.extraItems||[]).find(x=>x.id===i.extraId);if(!x||(extraTotals.get(i.orderId+'|'+i.extraId)||0)>x.qty)throw new Error('Shipment stock quantity exceeds the order.');});
+   (s.takes||[]).forEach(id=>checkOrder({orderId:id}));
   }
  });
 }
@@ -35141,6 +35165,9 @@ function shippingValidateSelection(d,exceptId){
   shippingAssert(hit&&!seen.has(shippingKey(i)),'The selected glass is no longer available. Review the packing slip.');
   seen.add(shippingKey(i));items.push(shippingItem(hit));
  });
+/* Стекло отменённых юнитов, которое клиент забирает (unitTakes). */
+ const takes=[...new Set(d.takes||[])];
+ takes.forEach(id=>{const o=salesRecord(id);shippingAssert(o&&!salesIsQuote(o)&&o.customerId===d.customerId&&unitTakes(o).length,'The cancelled glass is no longer waiting. Review the packing slip.');});
  (d.extras||[]).forEach(i=>{
   const o=salesRecord(i.orderId),x=o&&(o.extraItems||[]).find(x=>x.id===i.extraId),k=i.orderId+'|'+i.extraId;
   shippingAssert(o&&x&&!salesIsQuote(o)&&o.customerId===d.customerId&&!['new','closed','cancelled'].includes(o.status)&&!o.onHold,'Stock order is not ready.');
@@ -35148,7 +35175,7 @@ function shippingValidateSelection(d,exceptId){
   shippingAssert(Number.isSafeInteger(i.qty)&&i.qty>0&&i.qty<=x.qty-used&&!seen.has(k),'Check the available stock quantity.');
   seen.add(k);extras.push({orderId:o.id,extraId:x.id,qty:i.qty});
  });
- return {items,extras};
+ return Object.assign({items,extras},takes.length?{takes}:{});
 }
 function shippingCreate(d){return storageCommand(()=>{
  const picked=shippingValidateSelection(d),now=new Date().toISOString();
@@ -35163,7 +35190,7 @@ function shippingUpdate(id,d){return storageCommand(()=>{
  const loaded=shippingLoadState(s).loaded.map(u=>u.label),picked=shippingValidateSelection(d,s.id),ids=shippingOrderIds(s);
  shippingAssert(loaded.every(label=>picked.items.some(i=>i.label===label)),'Loaded units cannot be removed. Undo loading at the station first.');
  const was={date:s.date,truckId:s.truckId||''};
- Object.assign(s,picked,{method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,note:String(d.note||'').slice(0,1000)});
+ delete s.takes;Object.assign(s,picked,{method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,note:String(d.note||'').slice(0,1000)});
  /* Перенос на другой день — та же машина, последней остановкой, водитель
     того дня (у цеха он один), время выезда — заново; Pickup — с машины
     (владелец, 6.10.2026: «перенос нужен для контроля»; аудит Shipping, F6). */
@@ -35182,7 +35209,7 @@ function shippingUpdate(id,d){return storageCommand(()=>{
    (самовывоз одним сканом подписанного PS, рейс без сканов на станции). */
 function shippingMarkShipped(id,mode){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can be shipped.');
- shippingAssert(s.items.length+s.extras.length>0,'An empty packing slip cannot be shipped.');
+ shippingAssert(s.items.length+s.extras.length+(s.takes||[]).length>0,'An empty packing slip cannot be shipped.');
  const now=new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
  const loaded=new Set(shippingLoadState(s).loaded.map(u=>u.label));
  /* Сначала — что едет, потом проверка: непогруженный юнит, разбитый до
@@ -35558,6 +35585,15 @@ function validateSkidReturnPayload(src){
    preview/print/PDF identical. No pricing enters this model.
    Dispatch freezes the document; subsequent shipments cannot change Before.
    Printing is recorded as requested, not a claim that a printer succeeded. */
+/* Отмена на бумаге клиента (владелец, 6.10.2026: «отменённый юнит указывай,
+   важно, пусть будет на бумаге»): сколько юнитов строки отменено и что со
+   стеклом. Клиент расписывается на PS — и под отменой тоже. */
+function shippingCancelNote(o,l,psId){
+ const units=(o.cancellations||[]).filter(c=>c.lineId===l.id).flatMap(c=>c.units||[]);if(!units.length)return '';
+ const fate=u=>u.glass==='customer'?(u.takenPs&&u.takenPs!==psId?'glass went with '+((shippingFind(u.takenPs)||{}).number||'an earlier packing slip'):'glass goes with this packing slip'):u.glass==='scrap'?'scrapped at your request':u.glass==='stock'?'not shipped':'not made';
+ const m=new Map();units.forEach(u=>{const k=fate(u);m.set(k,(m.get(k)||0)+1);});
+ return shippingCount(units.length,'unit')+' cancelled'+(m.size===1?' · '+[...m.keys()][0]:': '+[...m].map(([k,n])=>n+' '+k).join(', '));
+}
 function shippingDocument(s){
  if(s.document)return shippingClone(s.document);
  if(s.id&&s.status==='planned'){
@@ -35574,7 +35610,7 @@ function shippingDocument(s){
    const items=s.items.filter(i=>i.orderId===id&&i.lineId===l.id);
    const before=shippingForOrder(id).filter(p=>p.id!==s.id&&shippingSent(p)).flatMap(p=>p.items).filter(i=>i.orderId===id&&i.lineId===l.id).length;
    const weight=finWithOrder(o,()=>salesLineWeight(l,o)),m=salesMakeupById(o,l.makeupId);
-   return {lineId:l.id,line:n+1,mark:l.mark||'',size:docSize(l),makeup:m?salesMakeupSummary(m):'',ordered:l.qty,before,now:items.length,back:Math.max(0,l.qty-before-items.length),kg:weight.kg,knownKg:weight.knownKg,skids:[...new Set(items.map(i=>i.skid).filter(Boolean))].join(', ')};
+   return {lineId:l.id,line:n+1,mark:l.mark||'',size:docSize(l),makeup:m?salesMakeupSummary(m):'',ordered:l.qty,before,now:items.length,back:Math.max(0,shippingLineQty(l)-before-items.length),note:shippingCancelNote(o,l,s.id),kg:weight.kg,knownKg:weight.knownKg,skids:[...new Set(items.map(i=>i.skid).filter(Boolean))].join(', ')};
   }).filter(Boolean);
   const extras=(o.extraItems||[]).map(x=>{
    const picked=s.extras.find(i=>i.orderId===id&&i.extraId===x.id),qty=picked?picked.qty:0,before=shippingForOrder(id).filter(p=>p.id!==s.id&&shippingSent(p)).flatMap(p=>p.extras).filter(a=>a.orderId===id&&a.extraId===x.id).reduce((n,a)=>n+a.qty,0);
@@ -35586,7 +35622,7 @@ function shippingDocument(s){
   return {id,number:o.businessNumber,po:o.customerPo||'',state:left===0?'complete':q.shipped?'back order':'partial',rows,extras,takes};
  });
  const skids=[...new Set(s.items.map(i=>i.skid).filter(Boolean))].map(code=>{
-  const rows=[];orders.forEach(o=>o.rows.forEach(r=>{const qty=s.items.filter(i=>i.orderId===o.id&&i.lineId===r.lineId&&i.skid===code).length;if(qty)rows.push({order:o.number,po:o.po,...r,now:qty});}));
+  const rows=[];orders.forEach(o=>o.rows.forEach(r=>{const qty=s.items.filter(i=>i.orderId===o.id&&i.lineId===r.lineId&&i.skid===code).length;if(qty)rows.push({order:o.number,po:o.po,...r,now:qty,note:''});}));
   const exact=rows.every(r=>r.kg!=null);return {code,rows,qty:rows.reduce((n,r)=>n+r.now,0),kg:rows.reduce((n,r)=>n+(r.kg==null?r.knownKg:r.kg)*r.now,0),exact};
  });
  return {number:s.number,date:s.date,method:s.method,shipTo:shippingClone(s.shipTo),customer:salesCustomerDisplay(s.customerId),company:docCompanyBlock(),orders,skids,note:s.note||''};
@@ -35607,9 +35643,10 @@ function shippingPages(d,skidOnly){
  const tableHead=()=>{ensure(30);P.rect(36,y-11,540,21,{fill:DOC_COLOR.bar});['Line / Mark','Size','Makeup','Ordered','Before','Now','Back order','Skid'].forEach((t,n)=>P.text([41,122,211,363,401,435,489,520][n],y+2,t,{size:7,bold:true,align:n>=3&&n<=6?'right':'left'}));y+=23;};
  const row=r=>{
   const texts=[String(r.line)+(r.mark?' · '+r.mark:''),r.size,r.makeup,r.skids||'—'],widths=[75,84,99,53];
-  const wrapped=texts.map((t,n)=>docWrap(t,8,false,widths[n])),h=Math.max(...wrapped.map(a=>a.length))*11+12;
+  const wrapped=texts.map((t,n)=>docWrap(t,8,false,widths[n])),lines=Math.max(...wrapped.map(a=>a.length)),note=r.note?docWrap(r.note,8,false,500):[],h=(lines+note.length)*11+12;
   if(y+h>710){header(pageTitle);if(activeOrder)line(activeOrder+' · continued',{size:11,bold:true});tableHead();}
   [41,122,211,520].forEach((x,n)=>wrapped[n].forEach((t,k)=>P.text(x,y+k*11,t,{size:8})));
+  note.forEach((t,k)=>P.text(41,y+(lines+k)*11,t,{size:8,color:DOC_COLOR.mut}));
   [r.ordered,r.before,r.now,r.back].forEach((v,n)=>P.text([363,401,435,489][n],y,String(v),{size:9,bold:n>=2,align:'right',color:n===3&&v>0?DOC_COLOR.due:DOC_COLOR.ink}));
   y+=h;P.line(36,y-6,576,y-6);
  };
