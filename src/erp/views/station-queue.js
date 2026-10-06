@@ -46,15 +46,16 @@ function stationFlowTiles(S,d){
  return '<div class="card"><div class="st-sec"><h3>Flow to '+esc(S)+'</h3><span class="mut">glass</span></div><div class="st-flow">'+tiles+
   '<div class="st-fb here" data-flow-at="here"><small>HERE NOW</small><b>'+d.here.length+'</b><span>'+stationPlural([...new Set(d.here.map(x=>x.last&&x.last.on).filter(Boolean))].length,'dolly','dollies')+'</span></div></div></div>';
 }
-/* Здесь сейчас: заказ → позиция → стекло, работа станции, тара, срок. */
+/* Здесь сейчас: заказ → позиция → стекло (лайт), работа станции, батч,
+   тара, срок. */
 function stationFlowHere(S,d){
  const groups=new Map();
  d.here.forEach(x=>{const g=x.g,k=g.o.id+'|'+g.l.id+'|'+(g.c?g.c.key:'');
-  if(!groups.has(k))groups.set(k,{g,n:0,on:new Set(),li:(g.o.lines||[]).indexOf(g.l)+1});const G=groups.get(k);G.n++;if(x.last&&x.last.on)G.on.add(x.last.on);});
+  if(!groups.has(k))groups.set(k,{g,n:0,on:new Set(),batch:new Set(),li:(g.o.lines||[]).indexOf(g.l)+1});const G=groups.get(k);G.n++;if(x.last&&x.last.on)G.on.add(x.last.on);if(g.entry)G.batch.add(g.entry.batch.number);});
  const rows=[...groups.values()].sort((a,b)=>stationUrgency(b.g.o)-stationUrgency(a.g.o)||String(a.g.o.dueDate||'9').localeCompare(String(b.g.o.dueDate||'9'))||String(a.g.o.businessNumber).localeCompare(String(b.g.o.businessNumber))||a.li-b.li).slice(0,60);
  return '<div class="card"><div class="st-sec"><h3>Here now</h3><span class="pill info">'+d.here.length+' glass</span><span class="sp"></span><span class="mut">Critical first, then due</span></div>'+
-  (rows.length?'<table data-flow-here><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th>Work</th><th class="n">Pcs</th><th>On</th><th>Due</th></tr></thead><tbody>'+rows.map(x=>{const o=x.g.o,l=x.g.l;
-   return '<tr'+(stationUrgency(o)===2?' class="st-hot"':'')+'><td><b>'+esc(o.businessNumber||'')+'</b>'+stationUrgPill(o)+'</td><td>Line '+x.li+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(x.g.c?x.g.c.glass:'')+'</td><td>'+esc(stationWorksAt(x.g,S).join(', '))+'</td><td class="n"><b>'+x.n+'</b></td><td>'+[...x.on].map(c=>'<b class="st-on">'+esc(c)+'</b>').join(' ')+'</td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>';}).join('')+'</tbody></table>':'<div class="empty">Nothing here yet</div>')+'</div>';
+  (rows.length?'<table data-flow-here><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th>Work</th><th>Batch</th><th class="n">Pcs</th><th>On</th><th>Due</th></tr></thead><tbody>'+rows.map(x=>{const o=x.g.o,l=x.g.l,lites=glassBatchComponents(o,l).filter(c=>!c.missing).length;
+   return '<tr'+(stationUrgency(o)===2?' class="st-hot"':'')+'><td><b>'+esc(o.businessNumber||'')+'</b>'+stationUrgPill(o)+'</td><td>Line '+x.li+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(x.g.c?(lites>1?'Lite '+x.g.c.lite+' · ':'')+x.g.c.glass:'')+'</td><td>'+esc(stationWorksAt(x.g,S).join(', '))+'</td><td class="mono st-bcell">'+esc([...x.batch].join(', ')||'—')+'</td><td class="n"><b>'+x.n+'</b></td><td>'+[...x.on].map(c=>'<b class="st-on">'+esc(c)+'</b>').join(' ')+'</td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>';}).join('')+'</tbody></table>':'<div class="empty">Nothing here yet</div>')+'</div>';
 }
 /* Работы станции: сколько здесь и сколько едет. */
 function stationFlowWorks(S,d){

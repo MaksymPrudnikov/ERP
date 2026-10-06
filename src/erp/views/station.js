@@ -472,45 +472,105 @@ function viewStation(){
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+(stationIsShip()?stationShipJournal():stationJournal())+
-  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationCarriersCard():(stationIsShip()?stationTripsCard():'')+stationStackCard()+stationPairsCard()+stationCarriersCard()+stationHereCard())+'</div></div>'+drawer;
+  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationLoadedCard():(stationIsShip()?stationTripsCard():'')+stationPairsCard()+stationHereCard()+stationLoadedCard())+'</div></div>'+drawer;
 }
-/* На станциях после резки листа нет — справа то, что ждёт здесь: заказ →
-   позиция → стекло и сколько штук. Номера стёкол человеку ничего не говорят
-   (владелец, 29.09.2026) — их читает сканер. */
-/* После IGU — юнитами: заказ → позиция → сколько юнитов. */
-let stationHereOpen='';     // строка «Waiting here», открытая нажатием
-function stationHereGroups(){
- const list=stationWaiting().get(stationCode)||[],groups=new Map(),asmOf=new Map();
+/* ------------------------ Ждёт здесь: по долли ------------------------ */
+/* Владелец, 6 октября 2026: «что каким батчем на какой долли — непонятно,
+   какой-то беспредел». Справа не простыня стёкол, а тара, что привезла
+   стекло сюда: код, сколько, из каких батчей; нажатие — её стопка сверху
+   вниз. Стекло без тары — своей строкой «No dolly». Номер в стопке —
+   порядок укладки: 1 положили первым, оно внизу. Одинаковые стёкла подряд —
+   одной строкой «#30–21». Номера стёкол человеку ничего не говорят
+   (владелец, 29.09.2026) — их читает сканер. После IGU — юнитами. */
+let stationHereOpen='';     // строка стекла, открытая нажатием: «стикер не читается»
+const STATION_NO_DOLLY='-'; // stationIncoming для стекла без тары; '~' — всё свёрнуто
+function stationHereItems(){
+ const list=stationWaiting().get(stationCode)||[],asmOf=new Map();
  (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)asmOf.set(s.piece,s.asm);});
- list.forEach(x=>{
+ return list.map(x=>{
   const g=x.g,asm=asmOf.get(x.id),route=stationRouteOf(g).codes,mu=stationUnitMerge(g.o,g.l),unit=!!asm&&!!mu&&route.indexOf(stationCode,x.place.far+1)>route.indexOf(mu);
-  const k=g.o.id+'|'+g.l.id+'|'+(unit?'unit':(g.c?g.c.key:''));
-  if(!groups.has(k))groups.set(k,{k,g,unit,n:0,ids:[],asms:new Set(),li:(g.o.lines||[]).indexOf(g.l)+1});
-  const G=groups.get(k);G.ids.push(x.id);if(unit){G.asms.add(asm);G.n=G.asms.size;}else G.n++;
+  return {id:x.id,g,unit,asm,on:x.last&&x.last.on||'',at:x.last?x.last.at:'',batch:g.entry?g.entry.batch.number:'',k:g.o.id+'|'+g.l.id+'|'+(unit?'unit':(g.c?g.c.key:''))};
  });
- return [...groups.values()].sort((a,b)=>stationUrgency(b.g.o)-stationUrgency(a.g.o)||String(a.g.o.dueDate||'9').localeCompare(String(b.g.o.dueDate||'9'))||String(a.g.o.businessNumber).localeCompare(String(b.g.o.businessNumber))||a.li-b.li);
 }
-/* Стекло группы, которое можно отметить здесь: ждёт и ещё не отсканировано. */
-function stationHerePick(k){
- const G=stationHereGroups().find(x=>x.k===k);if(!G)return '';
- return G.ids.find(id=>{const c=stationCheck(stationCode,id);return c&&STATION_RECORDED.includes(c.kind);})||'';
+/* Сколько: стёкол — или юнитов, когда всё собрано (после IGU). */
+function stationHereCount(list){const u=list.length&&list.every(x=>x.unit)?new Set(list.map(x=>x.asm)).size:0;return u?stationPlural(u,'unit','units'):stationPlural(list.length,'glass','glass');}
+function stationBatchMix(list){
+ const m=new Map();list.forEach(x=>m.set(x.batch,(m.get(x.batch)||0)+1));
+ return [...m].sort((a,b)=>(a[0]?0:1)-(b[0]?0:1)||a[0].localeCompare(b[0])).map(([b,n])=>'<span class="st-bm'+(b?'':' none')+'"><b>'+esc(b||'no batch')+'</b> '+n+'</span>').join('');
+}
+/* Откуда стекло здесь: тара (срочная первой, потом кто раньше), в конце —
+   без тары. other — стекло на той же таре для других станций. */
+function stationHereSources(){
+ const by=new Map();stationHereItems().forEach(x=>{if(!by.has(x.on))by.set(x.on,[]);by.get(x.on).push(x);});
+ const all=typeof carrierContents==='function'&&[...by.keys()].some(Boolean)?carrierContents():new Map();
+ return [...by].map(([code,list])=>({code,list,urg:Math.max(0,...list.map(x=>stationUrgency(x.g.o))),since:list.map(x=>x.at).filter(Boolean).sort()[0]||'',
+  other:code?(all.get(code)||[]).filter(x=>x.place.waiting!==stationCode).length:0}))
+  .sort((a,b)=>(a.code?0:1)-(b.code?0:1)||b.urg-a.urg||String(a.since).localeCompare(String(b.since)));
+}
+/* Строки открытой тары: стопка сверху вниз, одинаковые подряд — одной
+   строкой. Без тары — по позиции, срочное и батч первыми. */
+function stationHereRows(s){
+ const row=(key,list,pos)=>{const x=list[0];return {key,g:x.g,unit:x.unit,list,ids:list.map(y=>y.id),pos,li:(x.g.o.lines||[]).indexOf(x.g.l)+1,n:x.unit?new Set(list.map(y=>y.asm)).size:list.length};};
+ if(s.code){
+  const top=s.list.slice().sort((a,b)=>String(a.at).localeCompare(String(b.at))||a.id.localeCompare(b.id)).map((x,i)=>Object.assign({pos:i+1},x)).reverse(),runs=[];
+  top.forEach(x=>{const r=runs[runs.length-1];if(r&&r[0].k===x.k)r.push(x);else runs.push([x]);});
+  return runs.map(r=>row(s.code+'#'+r[r.length-1].pos,r,[r[0].pos,r[r.length-1].pos]));
+ }
+ const m=new Map();s.list.forEach(x=>{if(!m.has(x.k))m.set(x.k,[]);m.get(x.k).push(x);});
+ return [...m].map(([k,list])=>row(STATION_NO_DOLLY+k,list,null)).sort((a,b)=>stationUrgency(b.g.o)-stationUrgency(a.g.o)||String(a.list[0].batch||'~').localeCompare(String(b.list[0].batch||'~'))||
+  String(a.g.o.dueDate||'9').localeCompare(String(b.g.o.dueDate||'9'))||String(a.g.o.businessNumber).localeCompare(String(b.g.o.businessNumber))||a.li-b.li);
+}
+function stationHereRowFind(key){for(const s of stationHereSources()){const r=stationHereRows(s).find(x=>x.key===key);if(r)return r;}return null;}
+/* Стекло строки, которое можно отметить здесь: ждёт и ещё не отсканировано;
+   в стопке — верхнее. */
+function stationHerePick(key){
+ const r=stationHereRowFind(key);if(!r)return '';
+ return r.ids.find(id=>{const c=stationCheck(stationCode,id);return c&&STATION_RECORDED.includes(c.kind);})||'';
 }
 /* Стикер не читается и номера не разобрать: стёкла одной позиции и одного
    лайта одинаковые — отмечается любое из ждущих здесь; после IGU — юнит. */
-function stationHereMark(k){const id=stationHerePick(k);stationHereOpen='';if(!id){stationNote='Nothing to mark here';render();return false;}stationMark(id);return id;}
-function stationHerePrint(k){
- const id=stationHerePick(k),G=stationHereGroups().find(x=>x.k===k);stationHereOpen='';if(!id){stationNote='Nothing to print';render();return false;}
- const r=G&&G.unit?stationPrintUnit(id):stationPrintSticker(id);render();return r;
+function stationHereMark(key){const id=stationHerePick(key);stationHereOpen='';if(!id){stationNote='Nothing to mark here';render();return false;}stationMark(id);return id;}
+function stationHerePrint(key){
+ const r=stationHereRowFind(key),id=stationHerePick(key);stationHereOpen='';if(!id){stationNote='Nothing to print';render();return false;}
+ const out=r&&r.unit?stationPrintUnit(id):stationPrintSticker(id);render();return out;
+}
+/* Открыта тара, которую выбрали (нажатием или сканом «приехала»); одна
+   тара — открыта сама. */
+function stationHereOpenSrc(srcs){
+ if(stationIncoming==='~')return null;
+ return srcs.find(s=>(s.code||STATION_NO_DOLLY)===stationIncoming)||(srcs.length===1?srcs[0]:null);
+}
+function stationHereSrc(id){const open=stationHereOpenSrc(stationHereSources());stationIncoming=open&&(open.code||STATION_NO_DOLLY)===id?'~':id;stationHereOpen='';render();}
+function stationHereSrcRow(s,open){
+ const u=s.urg;
+ return '<div class="st-dl st-src'+(open?' open':'')+(u===2?' hot':'')+'" '+(s.code?'data-station-incoming="'+esc(s.code)+'"':'data-station-nodolly')+' onclick="stationHereSrc(\''+esc(s.code||STATION_NO_DOLLY)+'\')">'+
+  '<span class="st-dchip'+(s.code?(/^S/.test(s.code)?' skid':''):' none')+'">'+esc(s.code||'No dolly')+'</span>'+
+  '<span class="st-src-t"><b>'+stationHereCount(s.list)+'</b>'+(u===2?'<span class="pill bad">Critical</span>':u===1?'<span class="pill warn">Rush</span>':'')+'<span class="st-bmix">'+stationBatchMix(s.list)+'</span>'+(s.other?'<span class="mut">+'+s.other+' for other stations</span>':'')+'</span>'+
+  '<span class="mut st-src-r">'+(s.since?esc(stationTime(s.since))+' ':'')+(open?'▾':'▸')+'</span></div>';
+}
+const STATION_HERE_MAX=60;
+function stationHereTable(s){
+ const all=stationHereRows(s),rows=all.slice(0,STATION_HERE_MAX),stack=!!s.code;
+ const body=rows.map(r=>{
+  const o=r.g.o,l=r.g.l,urg=stationUrgency(o),open=stationHereOpen===r.key,comps=glassBatchComponents(o,l).filter(c=>!c.missing);
+  const glass=r.unit?'Unit · '+comps.map(c=>c.glass).join(' / '):(r.g.c?(comps.length>1?'Lite '+r.g.c.lite+' · ':'')+r.g.c.glass:'');
+  const batches=[...new Set(r.list.map(x=>x.batch).filter(Boolean))].join(', '),cols=stack?7:6;
+  return '<tr class="st-here-row'+(urg===2?' st-hot':'')+(open?' open':'')+'" data-station-here="'+esc(r.key)+'" onclick="stationHereOpen=stationHereOpen===\''+esc(r.key)+'\'?\'\':\''+esc(r.key)+'\';render()">'+
+   (stack?'<td class="mut st-pos">#'+(r.pos[0]===r.pos[1]?r.pos[0]:r.pos[0]+'–'+r.pos[1])+'</td>':'')+
+   '<td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+r.li+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(glass)+'</td>'+
+   '<td class="mono st-bcell">'+esc(batches||'—')+'</td><td class="n"><b>'+r.n+'</b></td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>'+
+   (open?'<tr class="st-here-acts"><td colspan="'+cols+'"><span class="mut">Sticker unreadable?</span><button type="button" class="b" data-station-here-mark onclick="stationHereMark(\''+esc(r.key)+'\')">✓ Mark 1 '+(r.unit?'unit':'glass')+' done</button><button type="button" class="b" data-station-here-print onclick="stationHerePrint(\''+esc(r.key)+'\')">Print a new '+(r.unit?'unit ':'')+'sticker</button>'+(l.shapeRef?'<button type="button" class="b" data-station-here-drawing onclick="stationDrawOpen(\''+esc(o.id)+'\',\''+esc(l.id)+'\')">Drawing</button>':'')+'</td></tr>':'');
+ }).join('');
+ return '<table class="st-here-t" '+(stack?'data-station-stack="'+esc(s.code)+'"':'data-station-nodolly-list')+'><thead><tr>'+(stack?'<th>#</th>':'')+'<th>Order</th><th>Line</th><th>Glass</th><th>Batch</th><th class="n">Pcs</th><th>Due</th></tr></thead><tbody>'+body+'</tbody></table>'+
+  (all.length>rows.length?'<div class="mut st-more">+'+(all.length-rows.length)+' more rows</div>':'');
 }
 function stationHereCard(){
- const groups=stationHereGroups(),total=groups.reduce((n,x)=>n+x.ids.length,0);
- const rows=groups.slice(0,40).map(x=>{
-  const o=x.g.o,l=x.g.l,urg=stationUrgency(o),open=stationHereOpen===x.k;
-  const glass=x.unit?'Unit · '+glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>c.glass).join(' / '):(x.g.c?x.g.c.glass:'');
-  return '<tr class="st-here-row'+(urg===2?' st-hot':'')+(open?' open':'')+'" data-station-here="'+esc(x.k)+'" onclick="stationHereOpen=stationHereOpen===\''+esc(x.k)+'\'?\'\':\''+esc(x.k)+'\';render()"><td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+x.li+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(glass)+'</td><td class="n"><b>'+x.n+'</b></td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>'+
-   (open?'<tr class="st-here-acts"><td colspan="5"><span class="mut">Sticker unreadable?</span><button type="button" class="b" data-station-here-mark onclick="stationHereMark(\''+esc(x.k)+'\')">✓ Mark 1 '+(x.unit?'unit':'glass')+' done</button><button type="button" class="b" data-station-here-print onclick="stationHerePrint(\''+esc(x.k)+'\')">Print a new '+(x.unit?'unit ':'')+'sticker</button>'+(l.shapeRef?'<button type="button" class="b" data-station-here-drawing onclick="stationDrawOpen(\''+esc(o.id)+'\',\''+esc(l.id)+'\')">Drawing</button>':'')+'</td></tr>':'');}).join('');
- return '<div class="card st-here"><div class="st-sec"><h3>Waiting here</h3><span class="pill info">'+total+' glass</span><span class="sp"></span><span class="mut">tap a row — no sticker</span></div>'+
-  (groups.length?'<table><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th class="n">Pcs</th><th>Due</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty">Nothing waiting</div>')+'</div>';
+ const srcs=stationHereSources(),open=stationHereOpenSrc(srcs),total=srcs.reduce((n,s)=>n+s.list.length,0);
+ /* Отсканированная «приехала» тара опустела — сказать, а не молча пропасть. */
+ const done=stationIncoming&&!['~',STATION_NO_DOLLY].includes(stationIncoming)&&!srcs.some(s=>s.code===stationIncoming)&&typeof carrierFind==='function'&&carrierFind(stationIncoming)?
+  '<div class="st-dl st-src done" data-station-stack-done="'+esc(stationIncoming)+'"><span class="st-dchip">'+esc(stationIncoming)+'</span><span class="mut">Nothing left for '+esc(stationCode)+' on it</span><span class="pill ok">done</span></div>':'';
+ return '<div class="card st-here"><div class="st-sec"><h3>Waiting here</h3><span class="pill info">'+total+' glass</span><span class="sp"></span><span class="mut">'+(srcs.length>1?'tap a dolly':'tap a row — no sticker')+'</span></div>'+done+
+  (srcs.length?srcs.map(s=>stationHereSrcRow(s,s===open)+(s===open?stationHereTable(s):'')).join(''):'<div class="empty">Nothing waiting</div>')+'</div>';
 }
 function stationKey(ev,el){
  if(ev.key!=='Enter'&&!(ev.key==='Tab'&&el.value.trim()))return;
@@ -683,31 +743,23 @@ function stationNextLabel(x){
  const svc=(stationRouteOf(x.g).services||[]).find(s=>s.station===x.place.waiting&&(s.step==null||s.step===x.place.far+1));
  return x.place.waiting+(svc?' · '+svc.text:'');
 }
-/* Справа: тара, что привезла стекло сюда (срочная первой, потом кто раньше),
-   и тара, которую загрузили здесь. */
-function stationCarriersCard(){
+/* Тара, которую загрузили здесь: сколько на ней, из каких батчей и куда
+   едет; та, на которую кладут сейчас, — первой и отмечена. Тара, что
+   привезла стекло сюда, — в «Waiting here». */
+function stationLoadedCard(){
  if(typeof carrierContents!=='function'||!(DB.carrier||[]).length)return '';
- const all=carrierContents(),put=stationPutOn(),incoming=[],loaded=[];
- all.forEach((list,code)=>{
-  const here=list.filter(x=>x.place.waiting===stationCode),mine=list.filter(x=>x.scan.station===stationCode);
-  if(here.length)incoming.push({code,list:here,urg:Math.max(0,...here.map(x=>stationUrgency(x.g.o))),since:here.map(x=>x.scan.at).sort()[0]});
-  if(mine.length)loaded.push({code,list:mine,since:mine.map(x=>x.scan.at).sort()[0]});
- });
- incoming.sort((a,b)=>b.urg-a.urg||String(a.since).localeCompare(String(b.since)));
- loaded.sort((a,b)=>String(a.since).localeCompare(String(b.since)));
- const mix=list=>{const m=new Map();list.forEach(x=>{const k=stationNextLabel(x);m.set(k,(m.get(k)||0)+1);});return [...m].map(([k,n])=>esc(k)+' '+n).join(' · ');};
- const row=(x,click)=>'<div class="st-dl'+(x.code===put?' now':'')+(x.urg===2?' hot':'')+'"'+(click?' onclick="stationIncoming=\''+esc(x.code)+'\';render()" data-station-incoming="'+esc(x.code)+'"':' data-station-loaded="'+esc(x.code)+'"')+'><span class="st-dchip'+(/^S/.test(x.code)?' skid':'')+'">'+esc(x.code)+'</span><span><b>'+x.list.length+' glass</b>'+(x.urg===2?' <span class="pill bad">Critical</span>':'')+' <span class="mut">'+mix(x.list)+'</span></span><span class="mut">'+esc(stationTime(x.since))+'</span></div>';
- const inc=incoming.length?'<div class="st-sec"><h3>Dollies waiting</h3><span class="mut">urgent first, then oldest</span></div>'+incoming.map(x=>row(x,true)).join(''):'';
- const out=loaded.length?'<div class="st-sec"'+(inc?' style="margin-top:14px"':'')+'><h3>Dollies at '+esc(stationCode)+'</h3><span class="sp"></span><span class="mut">another dolly: scan it</span></div>'+loaded.map(x=>row(x,false)).join(''):'';
- return inc||out?'<div class="card">'+inc+out+'</div>':'';
-}
-function stationStackCard(){
- if(!stationIncoming||typeof carrierContents!=='function')return '';
- const list=(carrierContents().get(stationIncoming)||[]).filter(x=>x.place.waiting===stationCode);
- if(!list.length)return '<div class="card"><div class="st-sec"><h3>'+esc(stationIncoming)+'</h3><span class="pill ok">done</span></div><div class="mut">Nothing left for '+esc(stationCode)+' on it</div></div>';
- return '<div class="card" data-station-stack="'+esc(stationIncoming)+'"><div class="st-sec"><h3>'+esc(stationIncoming)+' · top of the stack first</h3><span class="sp"></span><span class="pill info">'+list.length+'</span></div><table><tbody>'+
-  list.map((x,i)=>{const o=x.g.o,l=x.g.l,urg=stationUrgency(o);
-   return '<tr class="'+(i===0?'st-top1':'')+(urg===2?' st-hot':'')+'"><td class="mut">'+(i+1)+'</td><td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(x.g.c?x.g.c.glass:'')+'</td><td class="mut">'+(i===0?'on top':'')+'</td></tr>';}).join('')+'</tbody></table></div>';
+ const put=stationPutOn(),rows=[];
+ carrierContents().forEach((list,code)=>{const mine=list.filter(x=>x.scan.station===stationCode);if(mine.length)rows.push({code,list:mine,since:mine.map(x=>x.scan.at).sort()[0]||''});});
+ if(put&&!rows.some(r=>r.code===put))rows.push({code:put,list:[],since:''});
+ if(!rows.length)return '';
+ rows.sort((a,b)=>(b.code===put)-(a.code===put)||String(a.since).localeCompare(String(b.since)));
+ const next=list=>{const m=new Map();list.forEach(x=>{const k=stationNextLabel(x);m.set(k,(m.get(k)||0)+1);});return [...m].map(([k,n])=>'→ '+esc(k)+' '+n).join(' · ');};
+ const batchOf=list=>list.map(x=>({batch:x.g.entry?x.g.entry.batch.number:''}));
+ const kind=rows.every(r=>/^S/.test(r.code))?'Skids':'Dollies';
+ return '<div class="card" data-station-loaded-card><div class="st-sec"><h3>'+kind+' at '+esc(stationCode)+'</h3><span class="sp"></span><span class="mut">another one: scan it</span></div>'+
+  rows.map(r=>'<div class="st-dl'+(r.code===put?' now':'')+'" data-station-loaded="'+esc(r.code)+'"><span class="st-dchip'+(/^S/.test(r.code)?' skid':'')+'">'+esc(r.code)+'</span>'+
+   '<span class="st-src-t"><b>'+(r.list.length?stationPlural(r.list.length,'glass','glass'):'Empty')+'</b>'+(r.list.length?'<span class="st-bmix">'+stationBatchMix(batchOf(r.list))+'</span><span class="mut">'+next(r.list)+'</span>':'')+'</span>'+
+   '<span class="mut st-src-r">'+(r.code===put?'<span class="pill ok">putting on</span>':esc(stationTime(r.since)))+'</span></div>').join('')+'</div>';
 }
 
 /* --------------------- Пропущенная станция: вопрос --------------------- */

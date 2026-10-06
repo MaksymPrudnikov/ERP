@@ -216,6 +216,24 @@ tr.st-hot td{background:var(--surface-2)}
 .st-dl.hot{background:var(--surface-2);border-radius:8px}
 .st-dchip{font-weight:800;font-size:14px;border-radius:8px;padding:4px 0;text-align:center;background:var(--inverse);color:var(--on-solid)}
 .st-dchip.skid{background:var(--inverse)}
+/* Ждёт здесь — по долли (владелец, 6 октября 2026): строка тары, её
+   батчи, нажатие — стопка под строкой. */
+.st-dl.st-src{grid-template-columns:78px minmax(0,1fr) auto;cursor:pointer;border-radius:8px}
+.st-dl.st-src:hover{background:var(--surface-2)}
+.st-dl.st-src.open{background:var(--blue2)}
+.st-dl.st-src.done{cursor:default;background:none}
+.st-dl[data-station-loaded]{grid-template-columns:78px minmax(0,1fr) auto}
+.st-src-t{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0}
+.st-src-r{white-space:nowrap}
+.st-dchip.none{background:var(--surface-3);color:var(--text-2);font-size:12px}
+.st-bmix{display:inline-flex;flex-wrap:wrap;gap:4px}
+.st-bm{font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;background:var(--surface);color:var(--text-2);white-space:nowrap}
+.st-bm b{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--text)}
+.st-bm.none b{font-family:inherit;font-weight:500}
+.st-here-t{margin:2px 0 12px}
+.st-pos{white-space:nowrap;font-variant-numeric:tabular-nums}
+.st-bcell{white-space:nowrap;font-size:12px}
+.st-more{font-size:12px;margin:-6px 0 10px}
 tr.st-top1 td{background:var(--blue2);font-weight:600}
 /* Офис: Production → In production (view/production-board) */
 .pb-tiles{display:flex;gap:7px;overflow-x:auto;padding:3px 0 12px}
@@ -230,6 +248,12 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .pb-n{display:inline-block;min-width:30px;border-radius:7px;padding:2px 6px;font-weight:800;background:var(--blue2);color:var(--accent)}
 .pb-n.pb-cut{background:var(--surface-3);color:var(--text-2)}
 .pb-z{color:var(--text-3)}
+/* Где стекло, там и тара (владелец, 6.10.2026: «20 на tempering — 5 on
+   dolly #7, 15 on dolly #8»): под числом станции — столбиком. */
+.pb-split{display:flex;flex-direction:column;align-items:center;gap:1px;margin-top:3px;font-size:11px;line-height:1.25;white-space:nowrap}
+.pb-split i{font-style:normal;color:var(--text-2)}
+.pb-split i b{color:var(--text);font-weight:700}
+.pb-split i.pb-loose{color:var(--text-3)}
 .pb-done{color:var(--green);font-weight:800}
 .pb-row{cursor:pointer}
 .pb-row.pb-hot td{background:var(--surface-2)}

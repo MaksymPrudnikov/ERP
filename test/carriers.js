@@ -43,13 +43,28 @@ module.exports=async function({page,eq,ok}){
   cvReset();carrierAdd('DL',1);carrierAdd('DA',1);const id=cvOrder([[36,24,3]]);const g=cvIds(id);
   cvLogin('CUT','Ivan P.');stationSubmit('DL-1');g.forEach(x=>stationSubmit(x));stationSwitch();
   cvLogin('ARRIS','Oleg K.');const inc=stationSubmit('DL-1'),incKind=stationLast.check.kind,putAfterIn=stationPutOn();
-  const stack=[...document.querySelectorAll('[data-station-stack] tbody tr')].length,waiting=[...document.querySelectorAll('[data-station-incoming]')].map(x=>x.dataset.stationIncoming).join();
+  const stack=[...document.querySelectorAll('[data-station-stack] tbody tr .n b')].reduce((n,b)=>n+ +b.textContent,0),waiting=[...document.querySelectorAll('[data-station-incoming]')].map(x=>x.dataset.stationIncoming).join();
   stationSubmit('DA-1');const putKind=stationLast.check.kind;stationSubmit(g[2]);
   const c=carrierContents(),left=(c.get('DL-1')||[]).length,onDA=(c.get('DA-1')||[]).map(x=>x.place.waiting).join();
   const bad=stationSubmit('DL-77')&&stationLast.check.kind;DB.carrier.find(x=>x.code==='DA-1').active=false;stationSubmit('DA-1');const inactive=stationLast.check.kind;
   stationSwitch();tab='dashboard';render();
   return {inc,incKind,putAfterIn,stack,waiting,putKind,left,onDA,bad,inactive};
  }),{inc:'carrier',incKind:'carrierIn',putAfterIn:'',stack:3,waiting:'DL-1',putKind:'carrierPut',left:2,onDA:'HEAT',bad:'carrierBad',inactive:'carrierBad'});
+
+ /* Владелец, 6.10.2026: «что каким батчем на какой долли — непонятно». */
+ eq('ARRIS «Waiting here» по долли: тара с батчами и счётом, без тары — своей строкой; нажатие — стопка: номер — порядок укладки, одинаковые подряд — одной строкой; опустевшая — done',await t.p.evaluate(()=>{
+  cvReset();carrierAdd('DL',2);const id=cvOrder([[36,24,3],[30,20,2]]),g=cvIds(id),bn=DB.glassBatch.at(-1).number;
+  cvLogin('CUT','Ivan P.');stationSubmit('DL-1');[g[0],g[1],g[3]].forEach(x=>stationSubmit(x));stationSubmit('DL-2');stationSubmit(g[2]);stationClearPutOn();stationSubmit(g[4]);stationSwitch();
+  cvLogin('ARRIS','Oleg K.');
+  const src=()=>[...document.querySelectorAll('.st-src:not(.done)')].map(r=>r.querySelector('.st-dchip').textContent+':'+r.querySelector('.st-src-t b').textContent+':'+[...r.querySelectorAll('.st-bm')].map(b=>b.textContent.replace(bn,'B')).join(' ')).join('|');
+  const before=src(),closed=!document.querySelector('[data-station-stack]');
+  document.querySelector('[data-station-incoming="DL-1"]').click();
+  const stack=[...document.querySelectorAll('[data-station-stack="DL-1"] tbody tr')].map(tr=>tr.children[0].textContent+'|'+tr.children[2].textContent+'|'+tr.children[5].textContent);
+  stationSubmit('DL-1');[g[3],g[0],g[1]].forEach(x=>stationSubmit(x));
+  const done=!!document.querySelector('[data-station-stack-done="DL-1"]'),after=src();
+  stationSwitch();tab='dashboard';render();
+  return {before,closed,stack,done,after};
+ }),{before:'DL-1:3 glass:B 3|DL-2:1 glass:B 1|No dolly:1 glass:B 1',closed:true,stack:['#3|Line 2 · 30 × 20|1','#2–1|Line 1 · 36 × 24|2'],done:true,after:'DL-2:1 glass:B 1|No dolly:1 glass:B 1'});
 
  eq('долли ждут на станции: Critical первой, потом кто раньше',await t.p.evaluate(()=>{
   cvReset();carrierAdd('DL',2);const a=cvOrder([[36,24,1]]),b=cvOrder([[30,20,1]],{priority:'critical'});
@@ -58,14 +73,17 @@ module.exports=async function({page,eq,ok}){
   return order;
  }),'DL-2,DL-1');
 
- eq('Production: колонка On — на какой таре лежат стёкла заказа и позиции',await t.p.evaluate(()=>{
+ /* Владелец, 6.10.2026: «где стекло, там и долли» — тара под числом
+    станции, у заказа и у позиции; отдельной колонки On по умолчанию нет. */
+ eq('Production: под числом станции — на какой таре лежат стёкла заказа и позиции',await t.p.evaluate(()=>{
   cvReset();carrierAdd('DL',1);carrierAdd('SA',1);const id=cvOrder([[36,24,2],[30,20,1]]);const g=cvIds(id);
   cvLogin('CUT','Ivan P.');stationSubmit('DL-1');stationSubmit(g[0]);stationSubmit('SA-1');stationSubmit(g[2]);stationSwitch();
   tab='production';subtab='orders';prodOpen=new Set([id]);const p=salesListLoadPrefs();p.filters={};render();
-  const heads=[...document.querySelectorAll('.pb-table thead th')].map(th=>th.textContent.trim()),on=heads.indexOf('On');
-  const row=document.querySelector(`[data-prod-order="${id}"]`).children[on].textContent.trim(),sub=[...document.querySelectorAll('.pb-sub')].map(tr=>tr.children[on].textContent.trim()).join('|');
-  tab='dashboard';render();return {row,sub};
- }),{row:'DL-1 SA-1',sub:'DL-1|SA-1'});
+  const heads=[...document.querySelectorAll('.pb-table thead th')].map(th=>th.textContent.trim()),split=el=>[...el.querySelectorAll('[data-prod-on] i')].map(i=>i.textContent).join(',');
+  const row=split(document.querySelector(`[data-prod-order="${id}"]`)),sub=[...document.querySelectorAll('.pb-sub')].map(split).join('|');
+  const tile=document.querySelector('[data-prod-station="ARRIS"] small').textContent;
+  tab='dashboard';render();return {onColumn:heads.includes('On'),row,sub,tile};
+ }),{onColumn:false,row:'DL-1 1,SA-1 1',sub:'DL-1 1|SA-1 1',tile:'waiting · 2 dollies'});
 
  eq('Master Data → Dollies & Skids: добавить, что на таре сейчас, этикетка 4 × 6 с кодом и штрихкодом',await t.p.evaluate(()=>{
   cvReset();tab='masterdata';mdSetTab('carriers');document.querySelector('[data-carrier-add="DA"]').click();document.querySelector('[data-carrier-add="DA"]').click();document.querySelector('[data-carrier-add="SL"]').click();
