@@ -70,6 +70,8 @@ function shippingMarkShipped(id,mode){return storageCommand(()=>{
   shippingAssert(rec,'Dispatch was not recorded.');scanIds.push(rec.id);
  }));
  s.scanIds=scanIds;s.status='shipped';s.shippedAt=now;s.shippedBy=shippingActor();
+ /* Стекло отменённых юнитов, которое клиент забирает, уехало с этим PS. */
+ shippingOrderIds(s).forEach(oid=>unitTakesShipped(salesRecord(oid),s.id));
  shippingSyncOrders(before.concat(shippingOrderIds(s)),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
 });}
 function shippingMarkDelivered(id,receivedBy,receivedOn){return storageCommand(()=>{
@@ -89,7 +91,7 @@ function shippingRevert(id,action){return storageCommand(()=>{
  }else{
   shippingAssert(action==='dispatch'&&s.status==='shipped','Undo receipt before undoing dispatch.');
   (s.scanIds||[]).slice().reverse().forEach(scanId=>{const out=stationUndo(scanId,{name:shippingActor()},{deferTouch:true,shippingRollback:true});shippingAssert(out&&!out.error,out&&out.error||'Dispatch cannot be undone.');});
-  s.status='planned';s.shippedAt='';s.shippedBy='';s.scanIds=[];delete s.document;delete s.skidsOut;
+  s.status='planned';s.shippedAt='';s.shippedBy='';s.scanIds=[];delete s.document;delete s.skidsOut;unitTakesRolledBack(s.id);
  }
  shippingSyncOrders(ids,null,{reopen:true});ids.forEach(oid=>orderLogPush(salesRecord(oid),action==='cancel'?'Packing slip cancelled':'Packing slip rolled back',s.number+' · '+action));return s;
 });}

@@ -72,11 +72,13 @@ function salesOrderCommercialTotals(order){
  /* Позиции каталога — те же деньги, в тот же subtotal, без геометрии и без
     Makeup: у них попросту нет areas/services, которые считает p.complete выше. */
  (order&&order.extraItems||[]).forEach(function(x){const t=salesExtraItemLineTotal(x);qty+=salesPositiveInt(x.qty,1);if(t!=null)subtotal+=t;else missing++;});
+ /* Отменённые юниты: клиент платит за сделанную работу (erp/sales/unit-cancel). */
+ (order&&order.cancellations||[]).forEach(function(c){const v=unitChargeOf(c);if(v!=null)subtotal+=v;else missing++;});
  const out=salesApplyOrderCharges(subtotal,order&&order.orderCharges);out.complete=!missing;out.missing=missing;out.qty=qty;return out;
 }
 function salesLineCommercialPrice(line,order){
  order=order||soDraft;
- const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),rate=salesMakeupUnitPrice(m),q=salesPositiveInt(line.qty,1);
+ const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),rate=salesMakeupUnitPrice(m),q=salesPositiveInt(line.qty,1),live=Math.max(0,q-unitCancelled(line));
  const services=salesLinePricingSummary(line),materials=areas.valid?rate.total*areas.billable:0;
  const base=salesMoney(materials+services.total/q),rules=salesMetricRules(order),adjustments=[];
  const unsupportedCurrency=!!(order.currency&&order.currency!=='CAD');
@@ -86,7 +88,7 @@ function salesLineCommercialPrice(line,order){
  if(adjustments.length>1&&rules.combination==='pending')incomplete=true;
  let running=base;
  adjustments.forEach(a=>{a.base=rules.combination==='compound'?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
- return {areas:areas,materialRate:rate.total,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*q),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:q};
+ return {areas:areas,materialRate:rate.total,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:live,ordered:q,cancelled:q-live};
 }
 function salesLineCommercialAdjustments(line,order){
  const price=salesLineCommercialPrice(line,order);

@@ -338,13 +338,13 @@ function stationCard(){
  const waitName=place&&place.waiting?stationName(place.waiting):'';
  const K={
   ok:{cls:c.stock?'st-info':'st-ok',head:'✓ '+verb+(c.stock?' · no batch — stock cut':'')},
-  hold:{cls:'st-red',head:'✓ '+verb+' · order on hold'},
+  hold:{cls:'st-red',head:'✓ '+verb+(c.unit?' · unit on hold':' · order on hold')},
   already:{cls:'st-amber',head:'Already '+(verb==='Cut'?'cut':'done')+' · '+who},
   passed:{cls:'st-red',head:'✕ Not for '+stationCode},
   skipped:{cls:'st-amber',head:(c.missed||[]).join(', ')+' not scanned'},
   skippedNo:{cls:'st-red',head:'✕ '+(c.missed||[]).join(', ')+' not done'},
   route:{cls:'st-red',head:'✕ '+stationCode+' is not in its route'},
-  cancelled:{cls:'st-red',head:'✕ Order cancelled'},
+  cancelled:{cls:'st-red',head:c.unit?'✕ Unit cancelled':'✕ Order cancelled'},
   unit:{cls:'st-red',head:'✕ Unit number'},
   saveError:{cls:'st-red',head:'Not saved — scan again'},
   unknown:{cls:'st-red',head:'✕ Unknown code'},
@@ -355,10 +355,10 @@ function stationCard(){
  if(c.kind==='ok'&&urg===2||L.foreign)K.cls='st-red';
  /* Большой блок слева — главное действие рабочего. */
  let big;
- if(c.kind==='hold')big='<div class="st-big st-red"><small>ON HOLD</small><b>SET ASIDE</b><span>'+esc(c.reason||'Order on hold')+'</span></div>';
+ if(c.kind==='hold')big='<div class="st-big st-red"><small>'+(c.unit?'HOLD':'ON HOLD')+'</small><b>SET ASIDE</b><span>'+esc(c.reason||'Order on hold')+'</span></div>';
  else if(c.kind==='skipped')big='<div class="st-big st-ask"><small>CHECK THE GLASS</small><b>'+esc(stationAskWord(c.missed))+'</b><span>'+esc((c.missed||[]).join(', ')+' not scanned')+'</span></div>';
  else if(['passed','skippedNo','route'].includes(c.kind))big='<div class="st-big st-red"><small>WAITING AT</small><b>'+esc(place&&place.waiting||'—')+'</b><span>'+(place&&place.waiting?'Take it to '+esc(place.waiting):'Shipped')+'</span></div>';
- else if(c.kind==='cancelled')big='<div class="st-big st-red"><small>ORDER</small><b>STOP</b><span>Cancelled — set aside</span></div>';
+ else if(c.kind==='cancelled')big='<div class="st-big st-red"><small>'+(c.unit?'UNIT':'ORDER')+'</small><b>STOP</b><span>Cancelled — set aside</span></div>';
  else if(c.kind==='unit')big='<div class="st-big st-red"><small>UNIT</small><b>'+esc(c.code)+'</b><span>Scan the glass sticker</span></div>';
  else if(c.kind==='recut')big='<div class="st-big st-red"><small>'+(c.whole?'NEW UNIT':'NEW GLASS')+'</small><b class="st-big-code">'+esc((c.newIds||[]).join(', ')||'—')+'</b><span>'+(c.whole?'All its glass — next batch':'Waits for the next batch')+'</span></div>';
  else if(place&&place.assembling&&['ok','hold','already','peek'].includes(c.kind))big='<div class="st-big"><small>UNIT</small><b>IN</b><span>Waiting for its pair</span></div>';

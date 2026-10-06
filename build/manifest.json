@@ -99,6 +99,7 @@
   "src/erp/views/sales-list-ui.js",
   "src/erp/views/sales-list-controls.js",
   "src/erp/sales/line-hold.js",
+  "src/erp/sales/unit-cancel.js",
   "src/erp/production/glass-batches.js",
   "src/erp/production/barcode.js",
   "src/erp/production/stickers.js",

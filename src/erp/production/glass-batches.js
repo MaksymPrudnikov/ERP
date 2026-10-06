@@ -95,12 +95,20 @@ function glassLookup(code){
  return null;
 }
 function glassBatchTaken(active,key,qty){let n=0;for(let u=1;u<=qty;u++)if(active.has(key+'|'+u))n++;return n;}
-function glassBatchRemaining(o,l,active){
+/* Слоты отменённых юнитов (erp/sales/unit-cancel): в очередь батча они не
+   возвращаются, хотя с батча сняты. */
+function glassCancelledSlots(o){
+ const out=new Set(),gone=unitCancelledSet(o);if(!gone.size)return out;
+ (DB.glassPiece||[]).forEach(r=>{if(!r.key.startsWith(o.id+'|'))return;r.ids.forEach((id,i)=>{if(gone.has(id))out.add(r.key+'|'+(i+1));});Object.keys(r.extra||{}).forEach(ref=>r.extra[ref].forEach((id,k)=>{if(gone.has(id))out.add(r.key+'|'+ref+'.'+(k+1));}));});
+ return out;
+}
+function glassBatchRemaining(o,l,active,cancelled){
  const cs=glassBatchComponents(o,l),recut=glassRecutSlots(o.id,l.id);
- active=active||glassBatchActive(o.id);
- const pending=recut.filter(x=>!active.has(x.key+'|'+x.unit)).length;
+ active=active||glassBatchActive(o.id);cancelled=cancelled||glassCancelledSlots(o);
+ const pending=recut.filter(x=>!active.has(x.key+'|'+x.unit)&&!cancelled.has(x.key+'|'+x.unit)).length;
  if(!l.batchManaged)return (salesLineLocked(l)?0:l.qty*cs.length)+pending;
- return cs.reduce((n,c)=>n+l.qty-glassBatchTaken(active,c.key,l.qty),0)+pending;
+ const off=c=>{let n=0;for(let u=1;u<=l.qty;u++)if(cancelled.has(c.key+'|'+u)&&!active.has(c.key+'|'+u))n++;return n;};
+ return cs.reduce((n,c)=>n+l.qty-glassBatchTaken(active,c.key,l.qty)-off(c),0)+pending;
 }
 function glassBatchProgress(o){
  const active=glassBatchActive(o.id);let total=0,left=0;
@@ -153,9 +161,9 @@ function glassBatchRows(orders){
  /* Заказ New в очередь не попадает, кроме его Recut: стекло из стока режут без
     Verify, и сломанное стекло должно уйти в батч сразу. */
  (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&(GLASS_WAITING_STATUSES.includes(o.status)||o.status==='new'&&glassRecutSlots(o.id).length)).forEach(o=>finWithOrder(o,()=>{
-  const regular=GLASS_WAITING_STATUSES.includes(o.status),active=glassBatchActive(o.id),pieces=glassPieceMap(o.id),customer=salesCustomerDisplay(o.customerId),hasCustomer=!!salesFindCustomer(o.customerId);
+  const regular=GLASS_WAITING_STATUSES.includes(o.status),active=glassBatchActive(o.id),pieces=glassPieceMap(o.id),customer=salesCustomerDisplay(o.customerId),hasCustomer=!!salesFindCustomer(o.customerId),cancelled=glassCancelledSlots(o);
   (o.lines||[]).forEach((l,li)=>{
-   if(!glassBatchRemaining(o,l,active))return;
+   if(!glassBatchRemaining(o,l,active,cancelled))return;
    let plan;try{plan=salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){plan={valid:false,reason:'Check cutting geometry'};}
    glassBatchComponents(o,l).forEach(c=>{
     const cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index),own=c.missing?null:salesLineShapeForLite(l,c.index),rec=pieces.get(c.key);
@@ -164,11 +172,11 @@ function glassBatchRows(orders){
     const base={o,l,line:li+1,of:l.qty,cut,shape:own,shapeLabel:own&&!salesShapeIsLineRect(own)?'Shape':'Rect',width:cut?cut.cutW:null,height:cut?cut.cutH:null,
      heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.missing?'':(salesCoatingSurfaceOf(c.pane,c.index,c.ply)||''),customer};
     for(let unit=1;regular&&unit<=l.qty;unit++){
-     if(active.has(c.key+'|'+unit))continue;
+     if(active.has(c.key+'|'+unit)||cancelled.has(c.key+'|'+unit))continue;
      const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';
      rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,reason:hold||(piece?'':'Glass ID missing')}));
     }
-    glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)).forEach(x=>{
+    glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)&&!cancelled.has(x.key+'|'+x.unit)).forEach(x=>{
      const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'';
      rows.push(Object.assign({},c,base,{slot:x.key+'|'+x.unit,unit:x.unit,k:x.k,of:x.of,recut:x.ref,recutLabel:x.label,piece,reason:hold||(piece?'':'Glass ID missing')}));
     });
@@ -248,6 +256,19 @@ function glassBatchReleaseCommand(entries,opts){
   o.status='new';o.statusDates={new:now};o.fulfilledVia='';o.updatedAt=now;salesSyncRecordLifecycle(o);
  });
  if(!opts.deferTouch)touch();return true;
+}
+/* Отмена юнитов: непорезанные стёкла снимаются с батча по одному, заказ в New
+   не возвращается (в отличие от Unbatch) — остальная позиция идёт в работу.
+   Порезанное с листа не трогаем: его просто откладывают. */
+function glassBatchCancelPieces(pieceIds,now){
+ const ids=new Set(pieceIds),touched=new Set();
+ (DB.glassBatch||[]).forEach(b=>{
+  const off=b.items.filter(i=>ids.has(i.piece)&&!i.releasedAt&&!i.cutStartedAt);if(!off.length)return;
+  off.forEach(i=>{i.releasedAt=now;const part=b.parts[i.part];if(part)touched.add(part.orderId+'|'+part.lineId);});
+  b.history.push({at:now,action:'Cancelled',pieces:off.map(i=>i.piece),qty:off.length});
+ });
+ touched.forEach(k=>{const [oid,lid]=k.split('|'),o=salesRecord(oid),l=o&&o.lines.find(x=>x.id===lid);if(o&&l)glassBatchSyncLine(o,l);});
+ return touched.size;
 }
 /* Перенос стёкол в новый батч. Последний лист с большим пустым местом бывает
    выгоднее не резать — его стёкла уходят в новый батч; решает человек, «есть

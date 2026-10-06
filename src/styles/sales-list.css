@@ -114,3 +114,11 @@
 .sl-line-context hr{border:0;border-top:1px solid var(--line);margin:8px 0 4px}
 .sl-line-context button{display:block;width:100%;padding:7px 5px;text-align:left;border:0;background:none;border-radius:5px;font-size:12px}
 .sl-line-context button:hover,.sl-line-context button:focus-visible{background:var(--surface-3)}
+/* Hold units / Cancel units (erp/sales/unit-cancel). */
+.sl-line-hold-menu.line-units-menu.wide{width:440px}
+.line-units-fields{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}.line-units-fields label{display:flex;flex-direction:column;gap:5px}.line-units-fields label input{margin-top:0}.line-units-fields>.mut{padding-bottom:9px}.line-units-fields input[type=number]{width:80px}.line-units-fields .line-units-reason{flex:1;min-width:160px}.line-units-fields .line-units-reason input{width:100%}
+.line-units-plan{width:100%;margin:10px 0;font-size:12px}.line-units-plan td,.line-units-plan th{padding:4px 6px;text-align:left}.line-units-plan .n{text-align:right}.line-units-after{color:var(--mut)}
+.line-units-glass{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0;font-size:12px}
+.line-units-total{display:flex;gap:10px;align-items:center;margin:8px 0}.line-units-total b{margin-left:auto}.line-units-total input{width:110px;margin-top:0}
+.line-units-row td{padding:6px 12px 10px 44px}.line-units-hold,.line-units-cancelled{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;padding:4px 0}
+.line-units-hold{color:var(--red)}.line-units-hold span{color:var(--red)}.line-units-cancelled span{color:var(--text-2)}.line-units-cancelled input{width:110px}
