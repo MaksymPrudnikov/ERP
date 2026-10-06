@@ -77,7 +77,9 @@ function salesOrderTitle(o){
 /* Строка, ушедшая в батч, несёт дату батча. Пока она стоит, у строки нельзя
    менять размер, количество, Makeup, фигуру и кромку, и строку нельзя
    удалить. Цены остаются правкой продавца. Новые строки заказа идут без
-   даты — это «added after batch», их отправляют в батч из очереди Optimization. */
+   даты — это «added after batch», их отправляют в батч из очереди Optimization.
+   Исключение — стекло строки ещё не порезано: количество можно уменьшить, строку
+   убрать (salesLineShrinkable, владелец 6.10.2026). */
 function salesLineLocked(line){return !!(line&&(line.batchedAt||line.cutStartedAt));}
 function salesMakeupLocked(order,makeupId){return !!(order&&(order.lines||[]).some(l=>l.makeupId===makeupId&&salesLineLocked(l)));}
 function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled');}
@@ -92,7 +94,7 @@ function salesLockedLineGuard(line){
 /* У строки в батче закрыта каждая ячейка, кроме Shape: форма открывает
    чертёж на просмотр и печать (владелец, 26.09.2026), редактор — нет. */
 function salesLineRowAttrs(line){return (salesLineLocked(line)?" class='line-locked'":line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
-function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='shape'?String(html).replace(/^<td\b/,'<td inert'):html;}
+function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='shape'&&!((key==='qty'||key==='delete')&&salesLineShrinkableInDraft(line))?String(html).replace(/^<td\b/,'<td inert'):html;}
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
  if(salesLineLocked(line))return ` <span class="line-lock" title="Batched ${esc(salesShortDate(line.batchedAt))}${line.batchNo?' · '+esc(line.batchNo):''}">🔒</span>`;
@@ -112,14 +114,47 @@ function salesLockedLineSnapshot(order,line){
  return JSON.stringify({w:line.width16,h:line.height16,q:line.qty,m:m?salesStripPrices({unitType:m.unitType,panes:m.panes,cavities:m.cavities}):null,
   shape:line.shapeRef&&line.shapeRef.id||'',lites:line.liteShapes||{},set:line.serviceSetId||'',overrides:line.serviceOverrides||null,sides:line.sideMap||null});
 }
+/* Строка в батче, стекло которой ещё не порезано: клиент сменил количество —
+   его просто уменьшают, лишнюю строку убирают крестиком; лишнее стекло
+   уходит из батча, батч подсвечивается «Re-optimize». Больше юнитов — новой
+   строкой или новым заказом (владелец, 6.10.2026). Порезано хоть одно стекло
+   строки или по ней есть отмена — только через Cancel units. */
+function salesLineShrinkable(o,l){
+ return !!o&&!!l&&!salesIsQuote(o)&&!['closed','cancelled'].includes(o.status)&&salesLineLocked(l)&&!l.cutStartedAt
+  &&!(typeof glassLineScanned==='function'&&glassLineScanned(o.id,l))&&!(o.cancellations||[]).some(c=>c.lineId===l.id);
+}
+function salesLineShrinkableInDraft(l){const o=soDraft&&soEdit!=='new'?salesRecord(soDraft.id):null,old=o&&l&&(o.lines||[]).find(x=>x.id===l.id);return salesLineShrinkable(o,old);}
 function salesLockViolations(draft,saved){
  const out=[];if(!saved)return out;
  (saved.lines||[]).forEach((old,i)=>{
   if(!salesLineLocked(old))return;
-  const at=(draft.lines||[]).findIndex(l=>l.id===old.id),now=draft.lines[at],name=n=>'line '+n+(old.mark?' ('+old.mark+')':'');
-  if(!now){out.push(name(i+1)+' was removed');return;}
+  const at=(draft.lines||[]).findIndex(l=>l.id===old.id),now=draft.lines[at],name=n=>'line '+n+(old.mark?' ('+old.mark+')':''),free=salesLineShrinkable(saved,old);
+  if(!now){if(!free)out.push(name(i+1)+' was removed');return;}
   now.batchManaged=old.batchManaged;now.batchedAt=old.batchedAt;now.batchNo=old.batchNo||'';now.cutStartedAt=old.cutStartedAt||'';
-  if(salesLockedLineSnapshot(draft,now)!==salesLockedLineSnapshot(saved,old))out.push(name(at+1)+' changed');
+  const was=salesLockedLineSnapshot(saved,old);if(salesLockedLineSnapshot(draft,now)===was)return;
+  const onlyQty=salesLockedLineSnapshot(draft,Object.assign({},now,{qty:old.qty}))===was;
+  if(onlyQty&&free&&now.qty<old.qty)return;
+  out.push(name(at+1)+(onlyQty&&free?' can only go down':' changed'));
+ });
+ return out;
+}
+/* Hold на юнит, стекла которого больше нет (количество уменьшили), уходит вместе
+   с ним — иначе Cancel units предложил бы отменить больше, чем заказано. */
+function salesDropStaleHolds(o){
+ if(!o||typeof glassPieceMap!=='function')return;
+ const all=new Set([...glassPieceMap(o.id).values()].flatMap(r=>(r.ids||[]).concat(...Object.values(r.extra||{}))));
+ (o.lines||[]).forEach(l=>{if(!l.heldUnits)return;l.heldUnits=l.heldUnits.filter(h=>h.pieces.every(p=>all.has(p)));if(!l.heldUnits.length)delete l.heldUnits;});
+}
+/* Что уходит из батча при сохранении: стекло последних юнитов строки (номера
+   юнитов идут по порядку) или всей убранной строки. */
+function salesBatchShrinks(draft,saved){
+ if(!saved||typeof glassPieceMap!=='function')return [];const map=glassPieceMap(saved.id),out=[];
+ (saved.lines||[]).forEach((old,i)=>{
+  if(!salesLineShrinkable(saved,old))return;
+  const now=(draft.lines||[]).find(l=>l.id===old.id),to=now?now.qty:0;if(to>=old.qty)return;
+  const pieces=glassBatchComponents(saved,old).flatMap(c=>{const rec=map.get(c.key);return rec?rec.ids.slice(to,old.qty).filter(glassPieceValid):[];});
+  const batches=[...new Set((DB.glassBatch||[]).filter(b=>b.items.some(x=>!x.releasedAt&&pieces.includes(x.piece))).map(b=>b.number))];
+  out.push({line:old,no:i+1,from:old.qty,to,pieces,batches,text:'Line '+(i+1)+(old.mark?' ('+old.mark+')':'')+(now?': '+old.qty+' → '+to+' units':' removed')+' — '+pieces.length+' glass leave '+(batches.join(', ')||'the batch')});
  });
  return out;
 }
