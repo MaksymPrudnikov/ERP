@@ -43,6 +43,46 @@ function stationSkidSummary(code){
  });
 }
 
+/* ------------------------ пересборка скидов ------------------------- */
+/* Владелец, 6.10.2026: «выполняем 40 юнитов из 100, кладём на 2 разных скида,
+   а потом можем сделать пересборку этих скидов согласно размерам… иногда из 3
+   скидов делают 2 или наоборот… иногда нужно обнулить скид». На станции
+   готовности: скан скида, потом уже готового юнита — юнит переезжает на этот
+   скид. Это повторный скан станции с новой тарой: место стекла он не меняет,
+   журнал хранит оба, Undo возвращает юнит на прежний скид. Погруженный в
+   машину юнит не перекладывается. */
+function stationRestack(check,who){
+ const to=stationPutOn(),g=check.g,ship=shippingStations().ship;if(!to||!g||!g.c)return '';
+ const ids=[check.code].concat(stationMatesAt(g,stationCode).map(x=>x.id)),glass=ids.map(id=>stationGlass(id));
+ if(!glass.every(x=>x&&stationPlace(x).waiting===ship))return '';
+ const last=stationScansFor(check.code).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).pop(),from=last&&last.on||'';
+ const unit=shippingUnits(g.o).find(u=>u.pieces.includes(check.code)),label=unit?unit.label:check.code;
+ if(from===to){stationShipShow({kind:'shipOnSkid',code:check.code,label,skid:to});return 'shipOnSkid';}
+ const out=storageCommand(()=>{
+  const now=new Date().toISOString();let first=null;
+  ids.forEach(id=>{const rec=stationRecord(stationCode,Object.assign({},stationCheck(stationCode,id),{kind:'ok'}),who,{deferTouch:true,now,on:to,actionId:first?first.id:undefined});if(!rec)throw new Error('Not moved. Scan again.');first=first||rec;});
+  return first;
+ });
+ if(!out.ok){stationSaveError(check.code,out.error);return 'saveError';}
+ const foreign=stationReadyForeign(g,out.value);
+ stationShipShow({kind:'shipMoved',code:check.code,label,from,skid:to,recId:out.value.id,at:out.value.at,order:g.o.businessNumber||'',customer:salesCustomerDisplay(g.o.customerId)});
+ if(foreign){stationLast.foreign=foreign;stationBeep('error');}
+ return 'shipMoved';
+}
+/* Обнулить скид — в два нажатия: назад это не откатывается. */
+let stationEmptyAsk='';
+function stationSkidEmpty(code){
+ if(stationEmptyAsk!==code){stationEmptyAsk=code;render();return false;}
+ stationEmptyAsk='';const r=carrierEmpty(code);
+ if(r.error){stationNote=r.error;stationBeep('error');render();return false;}
+ stationShipShow({kind:'shipEmptied',code,skid:code,count:r.count});render();return true;
+}
+function stationSkidEmptyButton(c){
+ if(!stationIsReady()||!/^S[LA]-/.test(c.code)||!(carrierContents().get(c.code)||[]).length)return '';
+ const n=(carrierContents().get(c.code)||[]).length,ask=stationEmptyAsk===c.code;
+ return '<div class="st-acts"><button type="button" class="b'+(ask?' st-red-b':'')+'" data-skid-empty onclick="stationSkidEmpty(\''+esc(c.code)+'\')">'+(ask?'Empty '+n+' glass — tap again':'Empty '+esc(c.code))+'</button></div>';
+}
+
 /* ------------------------- скид вернулся --------------------------- */
 function stationSkidBack(code){
  if(!/^S[LA]-/.test(code))return null;const r=skidBack(code,stationWho());
@@ -62,7 +102,7 @@ function stationTripChip(){
 function stationShipShow(out){
  stationMenu=null;stationNote=out.kind==='saveError'?out.note:'';
  stationLast={check:out,rec:null,data:null,place:null,at:out.at||new Date().toISOString()};
- stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':'ok'):out.kind==='shipBack'?'ok':out.kind==='shipAlready'?'twice':'error');
+ stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':'ok'):['shipBack','shipMoved','shipEmptied'].includes(out.kind)?'ok':['shipAlready','shipOnSkid'].includes(out.kind)?'twice':'error');
 }
 function stationShipSubmit(raw,who,manual){
  const code=stationCodeOf(raw),t=carrierType(code);if(!code)return false;
@@ -106,6 +146,11 @@ function stationShipCard(L){
   '<div class="st-res-b"><div class="st-big st-dark"><small>'+(c.added?'ADDED TO':'LOADED')+'</small><b class="st-big-code">'+esc(c.ps)+'</b><span data-raw>'+esc(c.customer)+'</span></div>'+
   '<div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div><div class="st-kv"><span class="k">Units</span><span><b>'+c.units+'</b></span><span class="k">Orders</span><span>'+c.orders.map(o=>'<b>'+esc(o.number)+'</b> ×'+o.units).join(' · ')+'</span></div></div></div>'+
   '<div class="st-acts"><button type="button" class="b" data-station-load-undo onclick="stationUndoClick(\''+esc(c.recId)+'\')">Undo</button></div></div>';
+ if(c.kind==='shipMoved')return '<div class="st-res '+(L.foreign?'st-red':'st-ok')+'" data-station-result="shipMoved"><div class="st-res-h">✓ Moved '+esc(c.from||'No skid')+' → '+what+time+'</div>'+stationForeignBar(L)+
+  '<div class="st-res-b"><div class="st-big st-dark"><small>NOW ON</small><b>'+what+'</b><span>was on '+esc(c.from||'no skid')+'</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div><div class="st-kv"><span class="k">Order</span><span><b>'+esc(c.order)+'</b> · <span data-raw>'+esc(c.customer)+'</span></span></div></div></div>'+
+  '<div class="st-acts"><button type="button" class="b" data-station-move-undo onclick="stationUndoClick(\''+esc(c.recId)+'\')">Undo</button></div></div>';
+ if(c.kind==='shipOnSkid')return '<div class="st-res st-amber" data-station-result="shipOnSkid"><div class="st-res-h">Already on '+what+time+'</div><div class="st-res-b"><div class="st-big st-ask"><small>ALREADY ON</small><b>'+what+'</b><span>Another skid — scan it</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div></div></div></div>';
+ if(c.kind==='shipEmptied')return '<div class="st-res st-ok" data-station-result="shipEmptied"><div class="st-res-h">✓ '+what+' emptied'+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>EMPTY</small><b>'+what+'</b><span>'+c.count+' glass without a skid</span></div><div class="st-info"><div class="st-gid">Scan the skid, then the units</div></div></div></div>';
  if(c.kind==='shipBack')return '<div class="st-res st-ok" data-station-result="shipBack"><div class="st-res-h">✓ '+what+' back from <b data-raw>'+esc(c.back.customer)+'</b>'+time+'</div>'+
   '<div class="st-res-b"><div class="st-big st-dark"><small>BACK FROM</small><b class="st-big-code" data-raw>'+esc(c.back.customer)+'</b><span>'+shippingCount(c.back.days,'day')+' · '+esc(c.back.ps)+'</span></div><div class="st-info"><div class="st-gid mono">'+what+'</div></div></div></div>';
  if(c.kind==='shipAlready')return '<div class="st-res st-amber" data-station-result="shipAlready"><div class="st-res-h">Already loaded · '+esc(stationTime(c.at))+' · <b data-raw>'+esc(c.by||'—')+'</b>'+time+'</div>'+

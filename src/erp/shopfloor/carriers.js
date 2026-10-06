@@ -60,6 +60,10 @@ function carrierContents(){
  out.forEach(list=>list.sort((a,b)=>String(b.scan.at).localeCompare(String(a.scan.at))||b.scan.id.localeCompare(a.scan.id)));
  return out;
 }
+/* Обнулить тару: всё, что на ней лежит, становится «без тары» — как «Not on
+   DL-1» у одного стекла. Скид пересобирают заново теми же сканами (владелец,
+   6.10.2026). Отгруженное и погруженное на таре уже не числится. */
+function carrierEmpty(code){const out=storageCommand(()=>{const list=carrierContents().get(carrierCode(code))||[];list.forEach(x=>{delete x.scan.on;});return {count:list.length};});return out.ok?out.value:{error:out.error};}
 function normalizeCarriers(){
  if(!Array.isArray(DB.carrier))DB.carrier=[];
  const seen=new Set();
