@@ -11,6 +11,11 @@
 
 let finRecordBaseline='',finRecordBaselineId='';
 let finTab='accounts',finEdit=null,finDraft=null,finApply=null;
+/* Откуда пришли в квитанцию через «Take payment» (Optimization, Shipping,
+   заказ): после Save или Cancel — обратно, со строкой о квитанции
+   (проход 7.10.2026: из Verify попадал в Payments со старым фильтром
+   «Order 76006», свежей квитанции не видно, и назад — вручную). */
+let finBack=null;
 
 function finFmt(v){return v==null||!Number.isFinite(+v)?'—':(v<0?'−$':'$')+Math.abs(+v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function finCustomerName(c){return c?(c.displayName||c.legalName||c.code):'—';}
@@ -22,18 +27,36 @@ function viewFinance(){return finWorkspaceHTML();}
 /* ------------------------------ Форма -------------------------------- */
 function finNewReceipt(customerId){
  if(!finCanLeave())return false;
- finRecordBaseline='';finRecordBaselineId='';finTab='receipts';finEdit='new';
+ finBack=null;finRecordBaseline='';finRecordBaselineId='';finTab='receipts';finEdit='new';
  finDraft={customerId:customerId&&salesFindCustomer(customerId)?customerId:'',date:finToday(),method:'cash',reference:'',amount:'',note:'',apply:{},currency:'CAD',reason:'',duplicate:false};
  finDraftBaseline=JSON.stringify(finDraft);render();return true;
+}
+/* Список открыт по заказу (кнопка Payments в заказе) или по клиенту — новая
+   квитанция сразу на них: клиент выбран, долг заказа разнесён (проход
+   7.10.2026: клиент не подставлялся, сумма шла «на счёт», заказ оставался
+   «Deposit due»). */
+function finNewReceiptHere(){
+ const o=finOrderFilter?salesRecord(finOrderFilter):null,cid=o?o.customerId:finCustomerFilter||finAccountId||'';
+ if(finNewReceipt(cid)===false)return false;
+ /* Наличный заказ без депозита — сумма депозита, иначе весь долг. */
+ if(o){const b=finOrderBalance(o),t=finTermsFor(o),pct=t.paymentMode==='cash'?paymentDepositPercent(t):0,dep=salesMoney((b.total||0)*pct/100),v=pct>0&&b.paid<dep?salesMoney(dep-b.paid):b.balance;
+  if(v>0){finDraft.amount=v.toFixed(2);finDraft.apply[o.id]=finDraft.amount;}finDraft.note='Order '+o.businessNumber;render();}
+ return true;
 }
 function finOpenReceipt(id){
  if(!finCanLeave())return;
  const r=(DB.receipt||[]).find(x=>x.id===id);if(!r)return;
- finRecordBaseline=JSON.stringify(r);finRecordBaselineId=id;finTab='receipts';finEdit=id;
+ finBack=null;finRecordBaseline=JSON.stringify(r);finRecordBaselineId=id;finTab='receipts';finEdit=id;
  finDraft={customerId:r.customerId,date:r.date,method:r.method,reference:r.reference,amount:String(r.amount),note:r.note,apply:Object.fromEntries(r.allocations.map(a=>[a.orderId,String(a.amount)])),currency:finCurrency(r),reason:'',duplicate:false};
  finDraftBaseline=JSON.stringify(finDraft);render();
 }
-function finCloseReceipt(force){if(!force&&!finCanLeave())return;finEdit=null;finDraft=null;finDraftBaseline='';render();}
+function finCloseReceipt(force,saved){if(!force&&!finCanLeave())return;finEdit=null;finDraft=null;finDraftBaseline='';const back=finBack;finBack=null;if(back)finGoBack(back,saved);render();}
+function finGoBack(back,r){
+ tab=back.tab;subtab=back.subtab||null;if(!r)return;
+ const text='Payment '+r.number+' saved · '+finFmt(r.amount);
+ if(tab==='optimization')optimizationNotice={title:text,detail:'Run the action again.'};
+ else if(tab==='shipping')shippingNotice={text:text+' · create the packing slip again'};
+}
 /* Заказы клиента для разнесения: долг считается «до этой квитанции» — при
    правке уже разнесённая ею сумма возвращается в долг заказа. */
 function finFormOrders(){
@@ -110,7 +133,7 @@ function finSaveReceipt(){
  const d=Object.assign({},finDraft,{allocations:Object.entries(finDraft.apply).map(([orderId,amount])=>({orderId,amount:amount===''?0:amount}))});
  const out=finPersist(()=>finSaveReceiptRecord(d,finEdit==='new'?null:finEdit,d.reason,d.duplicate));
  if(!out.ok){if(/reference already exists/.test(out.error)){render();}return fail(document.getElementById('e_fin'),out.error);}
- finCloseReceipt(true);
+ finCloseReceipt(true,out.value);
 }
 function finVoidCurrent(){
  const r=(DB.receipt||[]).find(x=>x.id===finEdit);if(!r)return;

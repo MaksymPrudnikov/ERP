@@ -200,6 +200,12 @@ function salesNextActionLabel(o){
 function salesTransitionChecks(o,next){
  const out=[],c=salesFindCustomer(o.customerId),num=o.businessNumber||'(new)',b=finOrderBalance(o),name=c?(c.displayName||c.legalName):'No customer';
  const terms=typeof finTermsFor==='function'?finTermsFor(o):paymentTermsFrom(c||{}),sub=name+' · '+paymentTermsLabel(terms);
+ /* «PO required» у клиента — не только плашка в Sales: без PO заказ
+    останавливается окном на Verify, батче и отгрузке, как депозит
+    (проход 7.10.2026: Harbour 76005 без PO прошёл до самовывоза).
+    perOrder — в Shipping окно своё у каждого заказа, без строки долга. */
+ const noPo=c&&c.poRequired&&!String(o.customerPo||'').trim()&&['verified','batched','done'].includes(next);
+ if(noPo)out.push({title:'PO missing — order '+num,sub,rows:[['Customer',name+' requires a PO']],note:'Enter the PO in the order.',anyway:next==='verified'?'Verify anyway':next==='batched'?'Send anyway':'Continue anyway',perOrder:true});
  if(next==='verified'||next==='batched'){
   if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway:'Continue anyway'});
   if(b.total==null)out.push({title:'Pricing is not complete',sub,rows:[],note:'Some lines have no price.',anyway:'Continue anyway'});
@@ -337,8 +343,10 @@ function salesRestoreOrder(orderId){
 /* Оплата из очереди не сохраняет посторонний открытый черновик. */
 function salesTakeRecordPayment(orderId,amount){
  const o=salesRecord(orderId);if(!o)return;
- const b=finOrderBalance(o);
- if(finNewReceipt(o.customerId)===false)return;tab='finance';subtab=null;
+ const b=finOrderBalance(o),from=tab,fromSub=subtab;
+ if(finNewReceipt(o.customerId)===false)return;
+ /* После Save — назад туда, откуда пришли; в Payments — этот заказ. */
+ finBack=from!=='finance'?{tab:from,subtab:fromSub}:null;finOrderFilter=o.id;finCustomerFilter='';finPaymentsClearFilters();tab='finance';subtab=null;
  if(b.balance>0){const v=Math.min(salesMoney(+amount||b.balance),b.balance).toFixed(2);finDraft.amount=v;finDraft.apply[o.id]=v;}
  finDraft.note='Order '+o.businessNumber;render();
 }

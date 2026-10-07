@@ -73,7 +73,9 @@ function salesListCatalog(){
  if(salesListScope()==='customers'&&typeof custColumns==='function')return custColumns();
  if(salesListScope()==='usersLog'&&typeof authLogColumns==='function')return authLogColumns();
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
- const defaults=['number','customer','due','status','glass','unitType','units','batch','balance'];
+ /* Priority видна сразу: Critical-заказ стоял посередине очереди, и офис
+    не видел, что он срочный (проход 7.10.2026). */
+ const defaults=['number','customer','due','status','priority','glass','unitType','units','batch','balance'];
  return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
   .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]).concat(tab==='shipping'&&shippingTab==='awaiting'?[{k:'readyQty',label:'Ready',type:'text',def:true}]:[]);
 }
