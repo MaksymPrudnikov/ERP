@@ -101,7 +101,7 @@ function salesOrderColumnCell(key,l,i,linked,st){
   if(key==='qty'){
    /* Строка в батче, стекло не порезано: количество только вниз (salesLineShrinkable). */
    var max=salesLineLocked(l)&&salesLineShrinkableInDraft(l)?((salesRecord(soDraft.id).lines||[]).find(function(x){return x.id===l.id;})||{}).qty:0;
-   return `<td><input class='line-qty' type='number' min='1' step='1'${max?` max='${max}' title='Not cut yet — fewer units only'`:''} value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=${max?`Math.min(${max},salesPositiveInt(this.value,1))`:'salesPositiveInt(this.value,1)'}' onchange='render()'></td>`;
+   return `<td><input class='line-qty' type='number' min='1' step='1'${max?` max='${max}' title='Not cut yet — fewer units only'`:''} value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=${max?`Math.min(${max},salesPositiveInt(this.value,1))`:'salesPositiveInt(this.value,1)'}' onchange='salesLineQtyChange(${i})'></td>`;
   }
   if(key==='width')return `<td><input data-so-width class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.width16))}' placeholder='34 13/16' onchange='salesLineDimChange(${i},"width",this)'></td>`;
   if(key==='height')return `<td><input class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.height16))}' placeholder='15 5/16' onchange='salesLineDimChange(${i},"height",this)'></td>`;

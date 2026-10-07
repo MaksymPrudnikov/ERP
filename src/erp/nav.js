@@ -110,7 +110,9 @@ function render(){
   optimization:['Optimization','Verification · batches · uncut lines'],
   shipping:['Shipping','Readiness · pickup · delivery · closeout'],
   production:['Production','Stations · work positions · operations · terminals'],
-  masterdata:['Master Data','Glass catalog · supply points · hardware · database overview'],finance:['Finance','Customer receipts · deposits on account · order balances']
+  masterdata:['Master Data','Glass catalog · supply points · hardware · database overview'],finance:['Finance','Customer receipts · deposits on account · order balances'],
+  /* Вкладка станции — «ARRIS · Glass Farm», а не «Glass Farm · Glass Farm». */
+  station:[typeof stationCode==='string'&&stationCode?stationCode:'Station','Station screen']
  }[tab]||['Glass Farm','Production system'];
  document.getElementById('hdr').textContent=meta[0];
  document.title=meta[0]+' · Glass Farm';
@@ -119,9 +121,35 @@ function render(){
  const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
+ const focus=renderFocusKey();
  document.getElementById('app').innerHTML = (V ? V() : '<div class="empty">module planned</div>')+(window.APP_OVERLAYS||[]).map(f=>f()).join('');
  navHideRepeatedTitle(meta[0]);
  afterRender();
+ renderFocusBack(focus);
+}
+/* Курсор переживает перерисовку: поле, где он стоял (или куда только что
+   кликнули), ищется в новом #app по тому же виду и порядковому номеру и
+   получает фокус обратно с той же кареткой. Не нашлось или поле было в
+   окне, а окно закрылось, — фокус не трогаем. Проход 7.10.2026: после
+   выбора клиента Tab из PO не попадал в дату. */
+function renderFocusKey(){
+ const a=document.activeElement,app=document.getElementById('app');
+ if(!a||!app||!app.contains(a)||!/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName))return null;
+ const tag=a.tagName.toLowerCase(),data=[...a.attributes].map(x=>x.name).filter(n=>/^data-/.test(n)).map(n=>'['+n+']').join('');
+ const css=el=>el.tagName.toLowerCase()+(el.id?'#'+CSS.escape(el.id):'')+[...el.classList].map(c=>'.'+CSS.escape(c)).join('');
+ let sel=css(a)+(a.name?'[name="'+CSS.escape(a.name)+'"]':'')+data;
+ /* Поле без класса и имени (Customer, PO) — по ближайшему блоку с классом. */
+ if(sel===tag){const box=a.parentElement&&a.parentElement.closest('[class]');if(!box||box===app||!app.contains(box))return null;sel=css(box)+' '+tag;}
+ const i=[...app.querySelectorAll(sel)].indexOf(a);if(i<0)return null;
+ let start=null,end=null;try{start=a.selectionStart;end=a.selectionEnd;}catch(e){}
+ return {sel,i,start,end,dialog:!!a.closest('[role="dialog"]')};
+}
+function renderFocusBack(k){
+ if(!k)return;const app=document.getElementById('app'),el=app&&app.querySelectorAll(k.sel)[k.i];
+ if(!el||el.disabled||document.activeElement===el||!!el.closest('[role="dialog"]')!==k.dialog)return;
+ if(document.activeElement&&document.activeElement!==document.body&&app.contains(document.activeElement))return;
+ el.focus({preventScroll:true});
+ try{if(k.start!=null&&el.setSelectionRange)el.setSelectionRange(k.start,k.end);}catch(e){}
 }
 /* Заголовок раздела, который повторяет пункт меню («Sales» под иконкой Sales),
    не показываем. Конкретные заголовки — «Batch B-0001», «Sales Order 76002» —

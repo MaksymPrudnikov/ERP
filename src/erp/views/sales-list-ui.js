@@ -73,8 +73,14 @@ function salesListCatalog(){
  if(salesListScope()==='customers'&&typeof custColumns==='function')return custColumns();
  if(salesListScope()==='usersLog'&&typeof authLogColumns==='function')return authLogColumns();
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
- const defaults=['number','customer','due','status','glass','unitType','units','batch','balance'];
- return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
+ /* Priority видна сразу: Critical-заказ стоял посередине очереди, и офис
+    не видел, что он срочный (проход 7.10.2026). */
+ const defaults=['number','customer','due','status','priority','glass','unitType','units','batch','balance'];
+ /* Оптимизатору деньги не нужны — «лишняя информация» (владелец,
+    7.10.2026): в очереди Optimization нет Total, Receipts и Balance. В
+    Shipping долг остаётся — по нему решают, отдавать ли. */
+ const money=tab==='optimization';
+ return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)&&!(money&&c.money)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
   .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]).concat(tab==='shipping'&&shippingTab==='awaiting'?[{k:'readyQty',label:'Ready',type:'text',def:true}]:[]);
 }
 function salesListColumn(k){return salesListCatalog().find(c=>c.k===k)||null;}
@@ -369,7 +375,10 @@ function salesListFooter(rows,cols){
  const orders=rows.filter(r=>!r.q&&!r.n),quotes=rows.filter(r=>r.q),ncrs=rows.filter(r=>r.n);
  const tally=(list,fn)=>{const m={};list.forEach(r=>{const s=fn(r);m[s]=(m[s]||0)+1;});return Object.keys(m).map(k=>k+' '+m[k]).join(' · ');};
  const detail=[tally(orders,r=>salesStatusLabel(r.o)),quotes.length?'Quotes: '+tally(quotes,r=>salesStatusLabel(r.o,salesListStatus(r.o))):'',ncrs.length?'NCR: '+tally(ncrs,r=>r.memo.status):''].filter(Boolean).join(' · ');
- const head=`<b>${rows.length} row${rows.length===1?'':'s'} · Orders ${orders.length} · Quotes ${quotes.length}${salesShow.ncr?' · NCR '+ncrs.length:''}</b>${detail?`<small>${esc(detail)}</small>`:''}`;
+ /* В очередях (Optimization, Shipping) квот не бывает — квоты считают и
+    мешают в Sales (владелец, 7.10.2026): только «N orders». */
+ const queue=salesListScope()!=='sales';
+ const head=`<b>${queue?orders.length+' order'+(orders.length===1?'':'s'):rows.length+' row'+(rows.length===1?'':'s')+' · Orders '+orders.length+' · Quotes '+quotes.length+(salesShow.ncr?' · NCR '+ncrs.length:'')}</b>${detail?`<small>${esc(detail)}</small>`:''}`;
  const first=cols.findIndex(c=>c.sum),lead=first<0?cols.length:first;
  const sums=cols.slice(lead).map(c=>{
   if(!c.sum)return '<td></td>';

@@ -138,8 +138,8 @@ function shippingWithChecks(ids,method,printing,done){
   if(shippingCheckStamp()!==stamp){shippingNotice={error:true,text:'Data changed. Review and try again.'};render();return;}
   if(n===ids.length){done();return;}
   const o=salesRecord(ids[n]);if(!o){shippingNotice={error:true,text:'Order not found.'};render();return;}
-  const checks=salesTransitionChecks(Object.assign({},o,{delivery:method}),'done').filter(c=>c.pay!=null||!told.has(o.customerId)).map(c=>{
-   const out=Object.assign({},c,{anyway:printing?'Print anyway':'Create anyway'});if(c.pay!=null)return out;
+  const checks=salesTransitionChecks(Object.assign({},o,{delivery:method}),'done').filter(c=>c.pay!=null||c.perOrder||!told.has(o.customerId)).map(c=>{
+   const out=Object.assign({},c,{anyway:printing?'Print anyway':'Create anyway'});if(c.pay!=null||c.perOrder)return out;
    told.add(o.customerId);
    const mine=ids.map(salesRecord).filter(x=>x&&x.customerId===o.customerId);
    out.rows=c.rows.concat([[mine.length>1?'These '+mine.length+' orders':'Order '+o.businessNumber,finFmt(finMoney(mine.reduce((s,x)=>s+Math.max(0,finOrderBalance(x).balance||0),0)))]]);

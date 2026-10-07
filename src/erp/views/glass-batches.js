@@ -26,7 +26,11 @@ function glassBatchStatus(b){
  const a=glassBatchActiveItems(b);
  if(!a.length)return b.items.length&&b.items.every(i=>i.movedTo)?'Moved':'Unbatched';
  if(a.every(i=>!!i.cutStartedAt))return 'Cutting complete';
- return a.some(i=>{const p=b.parts[i.part],l=((salesRecord(p.orderId)||{}).lines||[]).find(l=>l.id===p.lineId);return i.cutStartedAt||l&&l.cutStartedAt;})?'Cutting started':'Awaiting cutting';
+ /* Только свои стёкла батча: строку заказа уже резали в другом батче, но
+    батч перерезки из одного стекла — ещё «Awaiting cutting» (проход
+    7.10.2026). Старые данные с меткой только у строки переносятся на
+    стёкла при загрузке (production/glass-batches). */
+ return a.some(i=>!!i.cutStartedAt)?'Cutting started':'Awaiting cutting';
 }
 function glassBatchInfo(r){
  const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.recut?r.recutLabel+' · '+r.k+' of '+r.of:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
@@ -152,7 +156,7 @@ function viewGlassBatches(){
  const stale=b?glassBatchStale(b):null;
  const head=b?`<p>${esc([...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '))} · ${active.length} pcs · ${plural(activeOrders,'order')} · Created ${esc(salesShortDate(b.createdAt))}</p>${stale?`<p class="gb-stale-note" data-batch-stale-note>Layout out of date · ${esc(stale.text)} — Optimization → Reset → Build</p>`:''}`:'';
  const live=rows.filter(i=>!i.item||!i.item.releasedAt);
- const footer=scope==='glassContents'?`${live.length} pcs · ${plural(new Set(live.map(i=>i.part.orderId)).size,'order')}`:registry?`${filteredRows.length} batches · ${filteredRows.reduce((c,i)=>c+i.memo.units,0)} pcs · showing ${filteredRows.length?(glassBatchPage-1)*GLASS_BATCH_PAGE_SIZE+1:0}–${Math.min(glassBatchPage*GLASS_BATCH_PAGE_SIZE,filteredRows.length)}`:`${rows.length} pcs waiting · ${plural(materials.size,'glass type')}`;
+ const footer=scope==='glassContents'?`${live.length} pcs · ${plural(new Set(live.map(i=>i.part.orderId)).size,'order')}`:registry?`${filteredRows.length} batches · ${filteredRows.reduce((c,i)=>c+i.memo.units,0)} pcs · showing ${filteredRows.length?(glassBatchPage-1)*GLASS_BATCH_PAGE_SIZE+1:0}–${Math.min(glassBatchPage*GLASS_BATCH_PAGE_SIZE,filteredRows.length)}`:`${rows.length} pcs waiting · ${plural(new Set(rows.map(i=>i.memo.glass)).size,'glass type')}`;
  const pager=registry?`<nav class="gb-pages" aria-label="Batch pages"><button type="button" data-batch-prev ${glassBatchPage<=1?'disabled':''} onclick="glassBatchSetPage(${glassBatchPage-1})">Previous</button><span data-batch-page>Page ${glassBatchPage} of ${pages}</span><button type="button" data-batch-next ${glassBatchPage>=pages?'disabled':''} onclick="glassBatchSetPage(${glassBatchPage+1})">Next</button></nav>`:'';
  const statusBadge=b?`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':status==='Cutting complete'?'done':'off'}" data-batch-status>${esc(status)}</span>`:'';
  const cutHead=b&&glassBatchDetailTab==='optimization'&&typeof cutLayoutHeader==='function'?cutLayoutHeader(b,status):'';

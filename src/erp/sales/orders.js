@@ -430,6 +430,11 @@ function salesLineDimChange(i,key,el){
  salesRefreshLineMetrics(line);
  touch();
 }
+/* Qty — как размеры: без render(). Набрал Qty, кликнул мышью в Width —
+   перерисовка заменяла поле, в которое кликнули, и набранное пропадало
+   (проход «как человек», 7.10.2026). Итоги строки и заказа обновляются на
+   месте. */
+function salesLineQtyChange(i){const line=soDraft&&soDraft.lines[i];if(!line)return;salesRefreshLineMetrics(line);touch();}
 function salesLineMarkKey(i,e){if(e.key!=='Tab'||e.shiftKey)return;const l=soDraft.lines[i];if(!l||!l.width16||!l.height16)return;e.preventDefault();salesOrderAddLine(l.makeupId,true);}
 function salesToggleLine(id,on){if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);salesRefreshBulkBar();}
 function salesToggleAllLines(on){soSelectedLines=new Set(on?soDraft.lines.map(l=>l.id):[]);render();}
@@ -815,6 +820,10 @@ function salesExcelCellKey(ev,i,field){
 
 function salesExcelApply(){
  if(!soDraft)return;
+ /* Новый заказ открывается с пустой строкой 1; вставка добавляла строки
+    после неё, и пустую с «!» удаляли руками (проход 7.10.2026). Пустые
+    нетронутые строки уходят, когда вставка что-то добавила. */
+ const blank=soDraft.lines.filter(l=>!l.width16&&!l.height16&&!String(l.mark||'').trim()&&!salesLineLocked(l));
  const keep=[];let added=0;
  (soExcelRows||[]).forEach(function(row){
   const v=salesExcelValidateRow(row);
@@ -829,6 +838,7 @@ function salesExcelApply(){
   added++;
  });
  if(!added)return;
+ if(blank.length)soDraft.lines=soDraft.lines.filter(l=>!blank.includes(l));
  /* Строки с ошибкой не исчезают в счётчике «Skipped: N» — они остаются в
     таблице, чтобы их поправить и нажать Add ещё раз. Добавленные из таблицы
     убираются, поэтому повтор не дублирует их. */
