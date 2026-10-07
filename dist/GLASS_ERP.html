@@ -2855,7 +2855,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='682d32bd1e8f';
+var ERP_BUILD='45e27b3008d1';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12161,6 +12161,10 @@ const DOC_KINDS=[
  {k:'workOrder',label:'Work order'},
  {k:'proforma',label:'Proforma invoice'},
  {k:'confirmation',label:'Order confirmation'},
+ /* Счёт — один на заказ, когда клиент получил последний юнит (владелец,
+    7.10.2026: «счёт выставляется только когда клиент получил последний
+    юнит»; бухгалтер набирал их в QuickBooks руками). */
+ {k:'invoice',label:'Invoice'},
  {k:'quote',label:'Quote'}
 ];
 const DOC_PRICE_MODES=[
@@ -12170,13 +12174,13 @@ const DOC_PRICE_MODES=[
  {k:'unit',label:'Unit price and line total'},
  {k:'none',label:'No prices'}
 ];
-const DOC_ALL=['workOrder','proforma','confirmation','quote'],DOC_SALE=['proforma','confirmation','quote'],DOC_ORDER_SALE=['proforma','confirmation'],DOC_SHOP=['workOrder'];
+const DOC_ALL=['workOrder','proforma','confirmation','invoice','quote'],DOC_SALE=['proforma','confirmation','invoice','quote'],DOC_ORDER_SALE=['proforma','confirmation','invoice'],DOC_SHOP=['workOrder'];
 const DOC_FIELDS=[
  {k:'company',g:'Header',label:'Company logo and details',kinds:DOC_ALL,on:DOC_ALL},
- {k:'date',g:'Header',label:'Date',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'date',g:'Header',label:'Date',kinds:DOC_ALL,on:DOC_ALL,as:{invoice:'Invoice date'}},
  {k:'validUntil',g:'Header',label:'Valid until',kinds:['quote'],on:['quote']},
  {k:'customerPo',g:'Header',label:'Customer PO',kinds:DOC_ALL,on:DOC_ALL},
- {k:'dueDate',g:'Header',label:'Due date',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'dueDate',g:'Header',label:'Due date',kinds:DOC_ALL,on:DOC_ALL,as:{invoice:'Payment due'}},
  {k:'terms',g:'Header',label:'Payment terms',kinds:DOC_SALE,on:DOC_SALE},
  {k:'salesRep',g:'Header',label:'Sales rep',kinds:DOC_ALL,on:DOC_ALL},
  {k:'currency',g:'Header',label:'Currency',kinds:DOC_SALE,on:DOC_SALE},
@@ -12207,14 +12211,16 @@ const DOC_FIELDS=[
  {k:'totals',g:'Bottom',label:'Subtotal · ES · HST · Total',kinds:DOC_SALE,on:DOC_SALE},
  {k:'receipts',g:'Bottom',label:'Receipts and balance',hint:'paid to date and balance due, when paid',kinds:DOC_ORDER_SALE,on:DOC_ORDER_SALE},
  {k:'orderSummary',g:'Bottom',label:'Order summary',hint:'units, ft², kg',kinds:DOC_ALL,on:DOC_SHOP},
- {k:'payment',g:'Bottom',label:'Deposit or credit terms',kinds:DOC_SALE,on:DOC_SALE},
- {k:'paymentInstructions',g:'Bottom',label:'Payment instructions',kinds:DOC_ORDER_SALE,on:['proforma']},
+ {k:'payment',g:'Bottom',label:'Deposit or credit terms',kinds:DOC_SALE,on:DOC_SALE,as:{invoice:'Amount due and due date'}},
+ {k:'paymentInstructions',g:'Bottom',label:'Payment instructions',kinds:DOC_ORDER_SALE,on:['proforma','invoice']},
  {k:'notes',g:'Bottom',label:'Order notes',kinds:DOC_ALL,on:DOC_ALL},
  {k:'termsText',g:'Bottom',label:'Terms and conditions',kinds:DOC_SALE,on:DOC_SALE},
  {k:'signature',g:'Bottom',label:'Customer signature',kinds:DOC_SALE,on:['confirmation','quote']}
 ];
 function docKindLabel(kind){const d=DOC_KINDS.find(x=>x.k===kind);return d?d.label:'Document';}
-function docFieldsFor(kind){return DOC_FIELDS.filter(f=>f.kinds.includes(kind));}
+/* У поля может быть своя подпись в бланке (as): в счёте Date — это Invoice
+   date, Due date — срок оплаты, а не срок заказа. */
+function docFieldsFor(kind){return DOC_FIELDS.filter(f=>f.kinds.includes(kind)).map(f=>f.as&&f.as[kind]?Object.assign({},f,{label:f.as[kind]}):f);}
 function docBaseOptions(kind){
  const o={};docFieldsFor(kind).forEach(f=>{o[f.k]=f.on.includes(kind);});
  if(DOC_SALE.includes(kind))o.priceMode='full';
@@ -12447,8 +12453,8 @@ function finEvent(kind,before,after,reason,entity){
 function finEnsureHistory(r){if(!finHistoryFor(r.id).length)finEvent('opening',null,r,'Existing record; earlier changes are not available.');}
 function normalizeFinanceLedger(){
  for(const k of FIN_TABLES)if(!Array.isArray(DB[k]))DB[k]=[];
- /* Отметка выгрузки живёт, пока жива сама оплата или возврат. */
- const alive=new Set((DB.receipt||[]).concat(DB.refund||[]).map(x=>x&&x.id));
+ /* Invoice хранится на заказе: его отметка тоже переживает загрузку базы. */
+ const alive=new Set((DB.receipt||[]).concat(DB.refund||[],DB.salesOrder||[]).map(x=>x&&x.id));
  DB.financeExport=DB.financeExport.filter(e=>e&&typeof e==='object'&&alive.has(e.entityId));
  DB.financeVersion=1;
  (DB.receipt||[]).forEach(finEnsureHistory);
@@ -12545,6 +12551,11 @@ function finShortDate(date,today){
    delivered. Nobody has to remember to set it, and it disappears again if the
    pickup is undone. */
 function finBillingDate(o){const t=finTermsFor(o);return t.issuedOn||finLocalDate(o&&o.statusDates&&o.statusDates.done);}
+/* Счёт — один на заказ, когда клиент получил последний юнит (владелец,
+   7.10.2026). Номер — номер заказа, дата — день выдачи (billing date, от неё
+   же идёт Net). До полной выдачи счёта нет. */
+const FIN_INVOICE_EXPORT_FROM='2026-10-07';
+function finInvoiceDate(o){return finOrderCounts(o)&&!salesIsQuote(o)&&finShipped(o)?finBillingDate(o):'';}
 /* Payment due: agreed date, otherwise billing date + Net days (credit) or the
    billing date itself (cash pays at pickup). Before pickup there is no date;
    credit without Net days has none either — it is not invented. */
@@ -12648,12 +12659,30 @@ function finMonthRange(offset,today){
    возврата запоминается подпись того, что ушло в файл. Новая запись, правка
    после выгрузки и Void после выгрузки попадают в следующий файл с пометкой;
    аннулированная до выгрузки в QuickBooks не нужна. */
+/* Те же поля для подписи и CSV: изменение условий, срока или Paid нельзя
+   потерять. Последняя выгруженная строка нужна для отмены после Undo receipt. */
+function finInvoiceExportRow(o,voided){
+ const c=salesFindCustomer(o.customerId)||{},b=finOrderBalance(o),due=finPaymentDue(o),e=finExportRecord(o.id);
+ let row=[finInvoiceDate(o),o.businessNumber,'Invoice',finCustomerName(c),c.code||'',paymentTermsLabel(finTermsFor(o)),o.customerPo||'',b.total==null?'':b.total.toFixed(2),finCurrency(o),o.businessNumber,b.balance>0?(due?'Due '+due:'Due on receipt'):'Paid',''];
+ if(voided){
+  if(e&&e.invoice)row=e.invoice.slice();
+  /* Совместимость с отметкой ранней версии Invoice без сохранённой строки. */
+  else if(e){try{const old=JSON.parse(e.sig);row[0]=old[0]||row[0];}catch(err){}}
+  row[10]='Void';row[11]='Invoice withdrawn: order is no longer fully received.';
+ }
+ return row;
+}
 function finExportSig(kind,x){
+ if(kind==='invoice')return JSON.stringify(finInvoiceExportRow(x));
  return JSON.stringify(kind==='refund'?[x.date,x.amount,x.method,x.reference,x.receiptId,!!x.voided,finCurrency(x),x.reason||'',x.voidReason||'']:[x.date,x.amount,x.method,x.reference,x.customerId,!!x.voided,(x.allocations||[]).map(a=>[a.orderId,a.amount]),finCurrency(x),x.note||'',x.voidReason||'']);
 }
 function finExportRecord(id){return (DB.financeExport||[]).find(e=>e.entityId===id)||null;}
 function finExportState(kind,x){
  const e=finExportRecord(x.id);
+ if(kind==='invoice'){
+  if(!finInvoiceDate(x))return !e?'skip':e.voided?'done':'voided';
+  if(e&&e.voided)return 'changed';
+ }
  if(!e)return x.voided?'skip':'new';
  return e.sig===finExportSig(kind,x)?'done':x.voided?'voided':'changed';
 }
@@ -12662,6 +12691,15 @@ function finExportPending(){
  const out=[];
  (DB.receipt||[]).forEach(x=>{const state=finExportState('receipt',x);if(state!=='done'&&state!=='skip')out.push({kind:'receipt',x,state});});
  (DB.refund||[]).forEach(x=>{const state=finExportState('refund',x);if(state!=='done'&&state!=='skip')out.push({kind:'refund',x,state});});
+ /* Счета — бухгалтер больше не набирает их в QuickBooks руками. Раньше
+    7.10.2026 она набирала их сама: старые не выгружаем, иначе задвоятся. */
+ (DB.salesOrder||[]).forEach(o=>{
+  const d=finInvoiceDate(o),e=finExportRecord(o.id);
+  if(!e&&(!d||d<FIN_INVOICE_EXPORT_FROM))return;
+  if(d&&finOrderBalance(o).total==null)return;
+  const state=finExportState('invoice',o);
+  if(state!=='done'&&state!=='skip')out.push({kind:'invoice',x:o,state});
+ });
  return out;
 }
 function finExportLastBatch(){return (DB.financeExport||[]).concat(DB.financeExportBatch||[]).reduce((n,e)=>Math.max(n,e.batch||0),0);}
@@ -12669,9 +12707,10 @@ function finExportMark(list){
  finAssert(list.length,'Nothing new to export.');
  const batch=finExportLastBatch()+1,at=new Date().toISOString();
  const states=new Map(list.map(x=>[x.x.id,x.state]));
- DB.financeExportBatch.push({batch,at,name:'quickbooks_'+finToday()+'_'+String(batch).padStart(3,'0')+'.csv',csv:finMovementsCSV(list.filter(x=>x.kind==='receipt').map(x=>x.x),list.filter(x=>x.kind==='refund').map(x=>x.x),states)});
- list.forEach(({kind,x})=>{
+ DB.financeExportBatch.push({batch,at,name:'quickbooks_'+finToday()+'_'+String(batch).padStart(3,'0')+'.csv',csv:finMovementsCSV(list.filter(x=>x.kind==='receipt').map(x=>x.x),list.filter(x=>x.kind==='refund').map(x=>x.x),states,list.filter(x=>x.kind==='invoice').map(x=>x.x))});
+ list.forEach(({kind,x,state})=>{
   const e={entityId:x.id,kind,sig:finExportSig(kind,x),at,batch},i=DB.financeExport.findIndex(y=>y.entityId===x.id);
+  if(kind==='invoice'){e.voided=state==='voided';e.invoice=finInvoiceExportRow(x,e.voided);}
   if(i<0)DB.financeExport.push(e);else DB.financeExport[i]=e;
  });
  return batch;
@@ -12682,7 +12721,11 @@ function finValidatePayload(src){
  for(const k of FIN_TABLES)finAssert(src[k]==null||Array.isArray(src[k]),k+' must be an array.');
  unique(src.financeExport,'entityId','QuickBooks export');
  const exportBatches=new Set();(src.financeExportBatch||[]).forEach(e=>{finAssert(e&&Number.isSafeInteger(e.batch)&&e.batch>0&&!exportBatches.has(e.batch)&&Number.isFinite(Date.parse(e.at))&&typeof e.name==='string'&&typeof e.csv==='string','Invalid or duplicate saved QuickBooks CSV.');exportBatches.add(e.batch);});
- (src.financeExport||[]).forEach(e=>finAssert(['receipt','refund'].includes(e.kind)&&typeof e.sig==='string'&&Number.isSafeInteger(e.batch)&&e.batch>0&&Number.isFinite(Date.parse(e.at)),'Invalid QuickBooks export record.'));
+ (src.financeExport||[]).forEach(e=>finAssert(['receipt','refund','invoice'].includes(e.kind)&&typeof e.sig==='string'&&Number.isSafeInteger(e.batch)&&e.batch>0&&Number.isFinite(Date.parse(e.at)),'Invalid QuickBooks export record.'));
+ (src.financeExport||[]).filter(e=>e.kind==='invoice').forEach(e=>{
+  finAssert(e.voided==null||typeof e.voided==='boolean','Invalid invoice export status.');
+  finAssert(e.invoice==null||Array.isArray(e.invoice)&&e.invoice.length===12&&e.invoice.every(v=>typeof v==='string'),'Invalid saved invoice export.');
+ });
  unique(src.refund,'id','Refund');unique(src.financeEvent,'id','Journal');unique(src.financeTerms,'orderId','Terms');
  unique(src.receipt,'id','Payment');
  const receipts=new Map((src.receipt||[]).map(r=>[r.id,r])),refunds=new Map(),orders=new Map((src.salesOrder||[]).map(o=>[o.id,o]));
@@ -17327,7 +17370,7 @@ function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div cl
    иначе цифра на бумаге однажды разошлась бы с цифрой на экране заказа.
    ===================================================================== */
 
-const DOC_TITLES={workOrder:'WORK ORDER',proforma:'PROFORMA INVOICE',confirmation:'ORDER CONFIRMATION',quote:'QUOTE'};
+const DOC_TITLES={workOrder:'WORK ORDER',proforma:'PROFORMA INVOICE',confirmation:'ORDER CONFIRMATION',invoice:'INVOICE',quote:'QUOTE'};
 const DOC_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function docNum(v,digits){return Number(v).toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits});}
@@ -17455,6 +17498,16 @@ function docLineDrawing(line,order){
  }catch(e){return null;}
 }
 
+/* Счёт: куда на самом деле доставили — адрес последнего доставленного PS
+   (адрес объекта), а не адрес доставки из карточки клиента. */
+function docInvoiceShipTo(order){
+ const s=(DB.shipment||[]).filter(x=>x.status==='delivered'&&x.method==='delivery'&&(x.items||[]).some(i=>i.orderId===order.id)).sort((a,b)=>String(a.deliveredAt||a.date).localeCompare(String(b.deliveredAt||b.date))).pop();
+ return s&&s.shipTo?{title:s.shipTo.addressee||s.shipTo.label||'',text:docAddressText(s.shipTo)}:null;
+}
+/* Дата последней оплаты заказа — под отметкой PAID. */
+function docLastPaidOn(order){
+ return (DB.receipt||[]).filter(r=>!r.voided&&(r.allocations||[]).some(a=>a.orderId===order.id&&+a.amount>0)).map(r=>r.date).sort().pop()||'';
+}
 function docCompanyBlock(){
  const c=DB.company||{};
  /* Провинция без города и индекса — ещё не адрес: пока реквизиты не
@@ -17544,10 +17597,14 @@ function docBuildModel(kind,order,opts){
   items:[],extra:null,end:null,terms:'',signature:'',summary:null,notes:'',footerLeft:'',footerRight:''};
 
  const cell=(on,label,value)=>{if(on)model.meta.push({label,value:value||'—'});};
- cell(opts.date,sale?'Date':'Order date',docDate(kind==='quote'&&order.sentAt||order.createdAt)||docDate(new Date().toISOString()));
+ /* Счёт: дата — день выдачи последнего юнита, срок — оплаты (Net от него). */
+ const invoice=kind==='invoice',billed=invoice&&typeof finInvoiceDate==='function'?finInvoiceDate(order):'',payDue=invoice&&billed?finPaymentDue(order):'';
+ if(invoice)cell(opts.date,'Invoice date',docDate(billed)||'Not delivered yet');
+ else cell(opts.date,sale?'Date':'Order date',docDate(kind==='quote'&&order.sentAt||order.createdAt)||docDate(new Date().toISOString()));
  if(kind==='quote')cell(opts.validUntil,'Valid until',docDate(salesQuoteValidUntil(order)));
  cell(opts.customerPo,'Customer PO',order.customerPo);
- cell(opts.dueDate,'Due date',docDate(order.dueDate));
+ if(invoice)cell(opts.dueDate,'Payment due',payDue?docDate(payDue):'On receipt');
+ else cell(opts.dueDate,'Due date',docDate(order.dueDate));
  if(sale)cell(opts.terms,'Terms',paymentTermsLabel(terms));
  cell(opts.priority,'Priority',salesPriorityLabel(order.priority));
  cell(opts.delivery,'Delivery',salesDeliveryLabel(order.delivery));
@@ -17563,7 +17620,9 @@ function docBuildModel(kind,order,opts){
   model.boxes.push({label:sale?'Bill to':'Customer',title:C?(C.legalName||C.displayName):'No customer selected',lines});
  }
  if(opts.shipTo){
-  if(order.delivery==='delivery'){const ad=C?customerAddressByType(C,'delivery'):null,t=docAddressText(ad);model.boxes.push({label:'Ship to',title:(ad&&ad.addressee)||model.customerName||'Delivery',lines:[t||'Delivery address not set']});}
+  const went=invoice?docInvoiceShipTo(order):null;
+  if(went)model.boxes.push({label:'Shipped to',title:went.title||model.customerName||'Delivery',lines:[went.text||'Delivery address not set']});
+  else if(order.delivery==='delivery'){const ad=C?customerAddressByType(C,'delivery'):null,t=docAddressText(ad);model.boxes.push({label:'Ship to',title:(ad&&ad.addressee)||model.customerName||'Delivery',lines:[t||'Delivery address not set']});}
   else model.boxes.push({label:'Pickup',title:'Customer pickup',lines:[]});
  }
 
@@ -17581,7 +17640,9 @@ function docBuildModel(kind,order,opts){
 
  if(sale){
   const t=salesOrderCommercialTotals(order),c=t.charges,money=v=>t.complete?docMoney(v):'—',left=[];
-  if(opts.paymentInstructions)left.push({label:'Payment',text:[company.paymentInstructions,'Please reference order '+number+' with your payment.'].filter(Boolean).join('\n')});
+  /* Оплаченному счёту инструкции оплаты не нужны — на нём PAID. */
+  const settled=invoice&&t.complete&&typeof finOrderPaid==='function'&&salesMoney(t.grand-finOrderPaid(order.id).paid)<=0;
+  if(opts.paymentInstructions&&!settled)left.push({label:'Payment',text:[company.paymentInstructions,'Please reference order '+number+' with your payment.'].filter(Boolean).join('\n')});
   if(opts.notes&&order.notes)left.push({label:'Order notes',text:order.notes});
   let rows=null,grand=null,deposit=null;
   if(opts.totals){
@@ -17617,7 +17678,14 @@ function docBuildModel(kind,order,opts){
    const rest=salesMoney(t.grand-got.paid);
    paid=[{label:'Paid to date · '+got.receipts+' receipt'+(got.receipts>1?'s':''),value:docMoney(got.paid)},{label:rest>0?'Balance due':rest<0?'Overpaid':'Paid in full',value:t.complete?docMoney(Math.abs(rest)):'—',tone:rest>0?'due':''}];
   }
-  if(opts.payment){
+  /* Счёт: к оплате — остаток и срок; оплачено полностью — отметка PAID
+     (владелец: «у нас маленький штамп, но если будет PAID на бумаге — топ»). */
+  const rest=t.complete?salesMoney(t.grand-got.paid):null;
+  if(invoice&&t.complete&&rest<=0)model.stamp={text:'PAID',sub:docDate(docLastPaidOn(order))};
+  if(invoice&&opts.payment){
+   deposit=rest!=null&&rest<=0?[{label:'Paid in full · thank you',value:docMoney(0),strong:true}]
+    :[{label:payDue&&terms.paymentMode==='credit'?'Payment due '+docDate(payDue)+' · '+paymentTermsLabel(terms):'Due on receipt',value:money(rest),strong:true}];
+  }else if(opts.payment){
    const pct=paymentDepositPercent(terms);
    if(terms.paymentMode==='credit')deposit=[{label:'Payment terms · '+paymentTermsLabel(terms),value:money(t.grand),strong:true},{label:terms.creditDays!=null?'Due within '+terms.creditDays+' days of invoice · no deposit':'On credit · no deposit',value:''}];
    else if(pct>0){
@@ -17660,7 +17728,7 @@ function docBuildModel(kind,order,opts){
 
 const DOC_PAGE={w:612,h:792,left:36,right:576,top:34,bottom:748,footer:764};
 const DOC_COL={item:44,desc:62,chips:175,basis:452,rate:504,amount:568};
-const DOC_COLOR={due:'#b42318',ink:'#1c2330',navy:'#16325c',mut:'#6b7588',faint:'#8a93a3',line:'#d9dfe8',chip:'#c9d1dd',bar:'#eef2f8',box:'#f4f6fa',adj:'#9a4b00',warn:'#b54708'};
+const DOC_COLOR={paid:'#1d7a46',due:'#b42318',ink:'#1c2330',navy:'#16325c',mut:'#6b7588',faint:'#8a93a3',line:'#d9dfe8',chip:'#c9d1dd',bar:'#eef2f8',box:'#f4f6fa',adj:'#9a4b00',warn:'#b54708'};
 
 /* Ширины знаков Helvetica и Helvetica-Bold в тысячных кегля, коды 32…255 в
    кодировке WinAnsi, по два знака base36 на символ. Это метрика самих шрифтов
@@ -17773,6 +17841,8 @@ function docHeader(P,m){
  const numberLabel=m.numberLabel!=null?m.numberLabel:'No.';
  if(numberLabel)P.text(W.right-docTextWidth(m.number,10.5,true)-3,y+30,numberLabel,{size:8,align:'right'});
  P.text(W.right,y+41,'Page',{size:7,color:C.faint,align:'right',pageLabel:true});
+ /* Счёт оплачен — отметка PAID рамкой слева от заголовка, как штамп. */
+ if(m.stamp){const sw=92,sx=W.right-200,sy=y+3;P.rect(sx,sy,sw,38,{stroke:C.paid,lw:2,r:4});P.text(sx+sw/2,sy+22,m.stamp.text,{size:20,bold:true,color:C.paid,align:'center',ls:2});if(m.stamp.sub)P.text(sx+sw/2,sy+33,m.stamp.sub,{size:7,bold:true,color:C.paid,align:'center'});}
  y=Math.max(leftBottom,y+44)+12;
  if(m.meta.length)y=docCells(P,m.meta,y,28,7.8)+10;
  if(m.boxes.length)y=docBoxes(P,m.boxes,y)+12;
@@ -22170,7 +22240,12 @@ function shippingSave(){
   shippingDraft=null;shippingSelection.clear();shippingOpenId=out.value.id;shippingTab='shipments';shippingNotice={text:out.value.number+' saved'};render();
  });
 }
-function shippingResult(out){shippingNotice={error:!out.ok,text:out.ok?out.value.number+' · '+shippingStatus(out.value):out.error};render();}
+/* Последний юнит у клиента — счёт готов: строка говорит, какой (Finance →
+   Due dates → Invoice, или в заказе → Documents). */
+function shippingResult(out){
+ const bills=out.ok&&out.value.status==='delivered'?shippingOrderIds(out.value).map(salesRecord).filter(o=>o&&finInvoiceDate(o)).map(o=>o.businessNumber):[];
+ shippingNotice={error:!out.ok,text:out.ok?out.value.number+' · '+shippingStatus(out.value)+(bills.length?' · Invoice '+bills.join(', ')+' ready':''):out.error};render();
+}
 function shippingStatus(s){return s.status==='delivered'?(s.method==='pickup'?'Picked up':'Delivered'):({planned:'Planned',shipped:'Shipped',cancelled:'Cancelled'})[s.status]||'';}
 /* Статус PS — цветной таблеткой тех же классов, что статус заказа в Sales. */
 /* Статус и «Balance due» — одним блоком: в шапке PS они не разъезжаются. */
@@ -23714,7 +23789,8 @@ let docState=null,docLastKind='proforma';
 
 /* Квота печатается только бланком Quote, заказ — тремя бланками заказа. У
    квоты с ревизиями галочками выбирается, какие ревизии печатать и слать. */
-function docKindsFor(o){return DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote');}
+/* Invoice — только когда клиент получил последний юнит (finInvoiceDate). */
+function docKindsFor(o){return DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote'&&(d.k!=='invoice'||!!finInvoiceDate(o)));}
 /* Чертежи строк — не бланк, а своя вкладка окна (владелец, 26–27.09.2026):
    лист текущей строки крупно, лента мини-листов, печать — этот лист или все.
    focus — строка, с которой открыть окно (клик по форме строки в батче). */
@@ -23924,7 +24000,15 @@ function docEmailSubject(){
 function docEmailBody(){
  const c=DB.company||{},C=salesFindCustomer(soDraft.customerId),first=String((C&&customerPrimaryContact(C).name)||'').trim().split(/\s+/)[0];
  const lines=['Hello'+(first?' '+first:'')+',','','Please find attached '+docKindLabel(docState.kind).toLowerCase()+' '+(soDraft.businessNumber||'')+(soDraft.customerPo?' for PO '+soDraft.customerPo:'')+'.'];
- if(docState.kind!=='workOrder'){
+ if(docState.kind==='invoice'){
+  /* Счёт: сумма, оплачено, к оплате и срок; оплачен — спасибо. */
+  const t=salesOrderCommercialTotals(soDraft),terms=finTermsFor(soDraft),got=typeof finOrderPaid==='function'?finOrderPaid(soDraft.id).paid:0,rest=salesMoney(t.grand-got),due=finPaymentDue(soDraft);
+  if(t.complete){
+   lines.push('Total: '+docMoney(t.grand)+' '+soDraft.currency+'.');
+   if(got>0)lines.push('Received: '+docMoney(got)+'.');
+   lines.push(rest>0?'Balance due: '+docMoney(rest)+(terms.paymentMode==='credit'&&due?' by '+docDate(due)+' ('+paymentTermsLabel(terms)+').':' on receipt.'):'Paid in full. Thank you!');
+  }
+ }else if(docState.kind!=='workOrder'){
   const t=salesOrderCommercialTotals(soDraft),terms=finTermsFor(soDraft),pct=paymentDepositPercent(terms),got=typeof finOrderPaid==='function'?finOrderPaid(soDraft.id).paid:0;
   if(t.complete){
    lines.push('Total: '+docMoney(t.grand)+' '+soDraft.currency+'.');
@@ -24000,7 +24084,7 @@ function viewMdCompany(){
  const c=DB.company;
  const f=(k,label,o)=>{o=o||{};const ph=o.ph?` placeholder="${esc(o.ph)}"`:'';
   return `<div${o.wide?' class="doc-company-wide"':''}><label>${label}</label>${o.area?`<textarea rows="${o.rows||3}" data-company="${k}"${ph} onchange="companySet('${k}',this.value)">${esc(c[k])}</textarea>`:`<input${o.type?` type="${o.type}"`:''} data-company="${k}" value="${esc(c[k])}"${ph} onchange="companySet('${k}',this.value)">`}</div>`;};
- return `<div class="sub">Company details for Quotes, Work orders, Proforma invoices and Order confirmations. Empty fields are not printed.</div>
+ return `<div class="sub">Company details for Quotes, Work orders, Proforma invoices, Order confirmations and Invoices. Empty fields are not printed.</div>
  <div class="doc-company">
   <div class="doc-company-logo"><label>Logo</label><div class="doc-logo-box">${c.logo?`<img src="${c.logo}" alt="Company logo">`:'<span>No logo</span>'}</div>
    <div class="doc-logo-actions"><button type="button" onclick="document.getElementById('docLogoFile').click()">${c.logo?'Replace logo':'Upload logo'}</button>${c.logo?'<button type="button" onclick="companyRemoveLogo()">Remove</button>':''}</div>
@@ -24318,6 +24402,8 @@ function finAccountHTML(){
  ${events.length?`<details class="fin-history-box"><summary>History · ${events.length}</summary>${finJournalTable(events)}</details>`:''}`;
 }
 function finOpenSales(id){if(!finCanLeave())return;const go=()=>{finDraft=null;finEdit=null;tab='sales';salesOrderEdit(id);};if(soDraft&&salesDraftHasWork())salesLeaveDraft(go);else go();}
+/* Счёт выданного заказа — сразу бланком Invoice: печать, PDF и Gmail. */
+function finOpenInvoice(id){if(!finCanLeave())return;const go=()=>{finDraft=null;finEdit=null;tab='sales';salesOrderEdit(id);if(soDraft&&soDraft.id===id)docOpen('invoice');};if(soDraft&&soDraft.id!==id&&salesDraftHasWork())salesLeaveDraft(go);else go();}
 
 /* --------------------------- Оплата: форма --------------------------- */
 function finReceiptSummary(){return finSummaryHTML(finMoney(finDraft.amount),finFormApplied(),finEdit!=='new'?finRefunded(finEdit):0);}
@@ -24470,11 +24556,13 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&finRangeMenu){e.pre
 /* Движение денег для переноса в QuickBooks: оплаты и возвраты одной
    таблицей по дате, возврат — минусом. Колонка QuickBooks: для выгрузки
    «только новое» — New / Corrected / Voided, для обычной — выгружено ли. */
-function finMovementsCSV(receipts,refunds,states){
+function finMovementsCSV(receipts,refunds,states,invoices){
  const who=id=>{const c=salesFindCustomer(id)||{};return [finCustomerName(c),c.code||''];};
  const qb=(kind,x)=>{if(states&&states.has(x.id))return FIN_EXPORT_LABELS[states.get(x.id)];const e=finExportRecord(x.id);return e?'Exported '+finLocalDate(e.at):'';};
  const rows=receipts.map(r=>[r.date,r.number,'Payment',...who(r.customerId),finMethodLabel(r.method),r.reference,r.amount.toFixed(2),finCurrency(r),r.allocations.map(a=>finOrderNumber(a.orderId)+': '+a.amount.toFixed(2)).join('; '),r.voided?'Void':'Active',r.voided?r.voidReason:r.note,qb('receipt',r)])
   .concat(refunds.map(x=>[x.date,x.number,'Refund',...who(x.customerId),finMethodLabel(x.method),x.reference,(-x.amount).toFixed(2),x.currency,'Payment '+((DB.receipt.find(r=>r.id===x.receiptId)||{}).number||''),x.voided?'Void':'Active',x.voided?x.voidReason:x.reason,qb('refund',x)]))
+  /* Счёт: Method — условия оплаты, Reference — PO, Status — срок или Paid. */
+  .concat((invoices||[]).map(o=>finInvoiceExportRow(o,(states&&states.get(o.id)||finExportState('invoice',o))==='voided').concat(qb('invoice',o))))
   .sort((a,b)=>(a[0]+a[1]).localeCompare(b[0]+b[1]));
  return [['Date','Document','Type','Customer','Account','Method','Reference','Amount','Currency','Applied to orders','Status','Note','QuickBooks']].concat(rows).map(row=>row.map(finCsvCell).join(',')).join('\r\n');
 }
@@ -24497,7 +24585,7 @@ function finExportAgain(){
 }
 function finExportButtonHTML(){
  const n=finExportPending().length,batch=finExportLastBatch(),last=batch?(DB.financeExportBatch||[]).filter(e=>e.batch===batch).concat(DB.financeExport.filter(e=>e.batch===batch)):[];
- return `<button type="button" class="${n?'pri':''}" ${n?'':'disabled'} onclick="finExportQuickBooks()" title="CSV of new or corrected payments and refunds; import it into QuickBooks">${n?'QuickBooks · '+n+' new':batch?'QuickBooks · CSV exported':'QuickBooks · no new entries'}</button>${last.length?`<button type="button" class="fin-link fin-export-last" onclick="finExportAgain()" title="Download the last QuickBooks file again">Last file · ${esc(finShortDate(finLocalDate(last[0].at)))}</button>`:''}`;
+ return `<button type="button" class="${n?'pri':''}" ${n?'':'disabled'} onclick="finExportQuickBooks()" title="CSV of new or corrected invoices, payments and refunds; import it into QuickBooks">${n?'QuickBooks · '+n+' new':batch?'QuickBooks · CSV exported':'QuickBooks · no new entries'}</button>${last.length?`<button type="button" class="fin-link fin-export-last" onclick="finExportAgain()" title="Download the last QuickBooks file again">Last file · ${esc(finShortDate(finLocalDate(last[0].at)))}</button>`:''}`;
 }
 
 /* ------------------------- Карточка клиента ------------------------- */
@@ -24678,7 +24766,7 @@ function finDueCell(r,c){
 }
 function finDueFiltered(){return salesListRows(finDueInfos());}
 function finScheduleHTML(){
- const infos=finDueInfos();infos.forEach(r=>{r.actions=`<button class="sm" onclick="finEditTerms('${esc(r.o.id)}')">Terms</button>`;});
+ const infos=finDueInfos();infos.forEach(r=>{r.actions=(finInvoiceDate(r.o)?`<button class="sm" data-fin-invoice="${esc(r.o.businessNumber)}" onclick="finOpenInvoice('${esc(r.o.id)}')">Invoice</button> `:'')+`<button class="sm" onclick="finEditTerms('${esc(r.o.id)}')">Terms</button>`;});
  const t=finListTable(infos,finDueCell,r=>`data-due-order="${esc(r.o.id)}"`,'order','Nothing unpaid.');
  return `<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><button ${t.rows.length?'':'disabled'} onclick="finDueExport()">CSV</button><button ${t.rows.length?'':'disabled'} onclick="finOpenPreview('schedule')">Print</button></div>${t.html}${infos.review?`<p class="mut small">${infos.review} not priced — not in totals.</p>`:''}`;
 }
