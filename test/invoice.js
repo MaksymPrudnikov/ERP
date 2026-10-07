@@ -31,13 +31,13 @@ module.exports=async function({page,eq,ok}){
   salesDraftDrop();tab='dashboard';render();return out;
  }),{title:'INVOICE',number:true,date:true,due:true,box:'Summit Builders · Tower B | 1450 Marine Dr, Toronto, ON M5H 1A1',deposit:true,value:true,stamp:null,signature:'',footer:true});
 
- eq('оплачен полностью — отметка PAID с датой оплаты на бланке и в PDF, «Paid in full · thank you»; письмо — «Paid in full»',await t.p.evaluate(()=>{
+ eq('оплачен полностью — отметка PAID с датой оплаты на бланке и в PDF, «Paid in full · thank you», без инструкций оплаты; письмо — «Paid in full»',await t.p.evaluate(()=>{
   const id=ivOrder();ivShip(id,shippingAvailable(salesRecord(id)));
   const before=(tab='sales',salesOrderEdit(id),docOpen('invoice'),docEmailBody());salesDraftDrop();
   oqPay(id);const m=ivModel(id),pages=docLayout(m),texts=pages.flatMap(p=>p.items.filter(x=>x.t==='text').map(x=>x.s));
   docOpen('invoice');const body=docEmailBody(),subject=docEmailSubject();docState=null;salesDraftDrop();tab='dashboard';render();
-  return {stamp:m.stamp&&m.stamp.text,paidOn:!!(m.stamp&&m.stamp.sub),onPage:texts.includes('PAID'),deposit:m.end.deposit[0].label,before:/Balance due: \$[\d,.]+ by \w+ \d+, \d{4} \(Net 30 days\)\./.test(before),after:body.includes('Paid in full. Thank you!'),subject:/^Invoice \d+ · PO SB-2207/.test(subject)};
- }),{stamp:'PAID',paidOn:true,onPage:true,deposit:'Paid in full · thank you',before:true,after:true,subject:true});
+  return {stamp:m.stamp&&m.stamp.text,paidOn:!!(m.stamp&&m.stamp.sub),onPage:texts.includes('PAID'),deposit:m.end.deposit[0].label,instructions:m.end.left.some(x=>x.label==='Payment'),before:/Balance due: \$[\d,.]+ by \w+ \d+, \d{4} \(Net 30 days\)\./.test(before),after:body.includes('Paid in full. Thank you!'),subject:/^Invoice \d+ · PO SB-2207/.test(subject)};
+ }),{stamp:'PAID',paidOn:true,onPage:true,deposit:'Paid in full · thank you',instructions:false,before:true,after:true,subject:true});
 
  eq('конструктор счёта: поля с подписями счёта (Invoice date, Payment due, Amount due and due date), подпись клиента выключена, инструкции оплаты включены; свой набор сохраняется по умолчанию',await t.p.evaluate(()=>{
   const labels=docFieldsFor('invoice').filter(f=>['date','dueDate','payment'].includes(f.k)).map(f=>f.label),base=docDefaultOptions('invoice');

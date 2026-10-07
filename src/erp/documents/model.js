@@ -278,7 +278,9 @@ function docBuildModel(kind,order,opts){
 
  if(sale){
   const t=salesOrderCommercialTotals(order),c=t.charges,money=v=>t.complete?docMoney(v):'—',left=[];
-  if(opts.paymentInstructions)left.push({label:'Payment',text:[company.paymentInstructions,'Please reference order '+number+' with your payment.'].filter(Boolean).join('\n')});
+  /* Оплаченному счёту инструкции оплаты не нужны — на нём PAID. */
+  const settled=invoice&&t.complete&&typeof finOrderPaid==='function'&&salesMoney(t.grand-finOrderPaid(order.id).paid)<=0;
+  if(opts.paymentInstructions&&!settled)left.push({label:'Payment',text:[company.paymentInstructions,'Please reference order '+number+' with your payment.'].filter(Boolean).join('\n')});
   if(opts.notes&&order.notes)left.push({label:'Order notes',text:order.notes});
   let rows=null,grand=null,deposit=null;
   if(opts.totals){
