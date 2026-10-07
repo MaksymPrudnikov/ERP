@@ -64,6 +64,46 @@ module.exports=async function({page,eq,ok}){
   const out={tab,kind:docState&&docState.kind,order:soDraft&&soDraft.id===id};docState=null;salesDraftDrop();tab='dashboard';render();return out;
  }),{tab:'sales',kind:'invoice',order:true});
 
+ eq('QuickBooks: Net, согласованный срок и Paid меняют выгруженный счёт на Corrected',await t.p.evaluate(()=>{
+  const id=ivOrder();ivShip(id,shippingAvailable(salesRecord(id)));const o=salesRecord(id);
+  const pending=()=>finExportPending().filter(x=>x.kind==='invoice'&&x.x.id===id),mark=()=>finPersist(()=>finExportMark(pending())).ok;
+  const first=mark(),set=d=>finPersist(()=>finSaveTerms(id,Object.assign({},finTermsFor(o),d),'Agreed with customer')).ok;
+  const net=set({creditDays:60}),netState=pending().map(x=>x.state),netCSV=finMovementsCSV([],[],null,[o]);mark();
+  const due=finAddDays(finToday(),75),agreed=set({dueOn:due}),dueState=pending().map(x=>x.state),dueCSV=finMovementsCSV([],[],null,[o]);mark();
+  oqPay(id);const paidState=pending().map(x=>x.state),paidCSV=finMovementsCSV([],[],null,[o]);mark();
+  return {first,net,netState,netCSV:netCSV.includes('Net 60 days')&&netCSV.includes('Due '+finAddDays(finToday(),60)),agreed,dueState,dueCSV:dueCSV.includes('Due '+due),paidState,paidCSV:paidCSV.includes(',Paid,'),last:pending().length};
+ }),{first:true,net:true,netState:['changed'],netCSV:true,agreed:true,dueState:['changed'],dueCSV:true,paidState:['changed'],paidCSV:true,last:0});
+
+ eq('QuickBooks: Undo receipt выгружает Voided один раз с прежними реквизитами; повторная выдача — Corrected',await t.p.evaluate(()=>{
+  const id=ivOrder(),s=ivShip(id,shippingAvailable(salesRecord(id))).ps,o=salesRecord(id);
+  const pending=()=>finExportPending().filter(x=>x.kind==='invoice'&&x.x.id===id),mark=()=>finPersist(()=>finExportMark(pending())).ok;
+  mark();const original=finExportRecord(id).invoice.slice(),undo=shippingRevert(s.id,'receipt').ok,state=pending().map(x=>x.state);
+  const exported=mark(),batch=DB.financeExportBatch[DB.financeExportBatch.length-1],row=finExportRecord(id).invoice;
+  const kept=JSON.stringify(row.slice(0,10))===JSON.stringify(original.slice(0,10));
+  normalizeFinanceLedger();const after= pending().length;
+  const received=shippingMarkDelivered(s.id,'Foreman',finToday()).ok,again=pending().map(x=>x.state);mark();
+  return {undo,state,exported,kept,voidCSV:batch.csv.includes(',Void,')&&batch.csv.includes(',Voided'),after,received,again,last:pending().length,active:!finExportRecord(id).voided};
+ }),{undo:true,state:['voided'],exported:true,kept:true,voidCSV:true,after:0,received:true,again:['changed'],last:0,active:true});
+
+ eq('QuickBooks: невыписанный и старый счёт не выгружаются; Undo до первой выгрузки не создаёт Voided',await t.p.evaluate(()=>{
+  const id=ivOrder(),o=salesRecord(id),pending=()=>finExportPending().filter(x=>x.kind==='invoice'&&x.x.id===id);
+  const before=pending().length,s=ivShip(id,shippingAvailable(o)).ps;
+  const undo=shippingRevert(s.id,'receipt').ok,after=pending().length;
+  shippingMarkDelivered(s.id,'Foreman',finToday());o.statusDates.done='2026-10-01T12:00:00.000Z';
+  return {before,undo,after,old:pending().length};
+ }),{before:0,undo:true,after:0,old:0});
+
+ const reload=await t.p.evaluate(()=>{
+  const id=ivOrder();ivShip(id,shippingAvailable(salesRecord(id)));
+  const out=finPersist(()=>finExportMark(finExportPending().filter(x=>x.kind==='invoice'&&x.x.id===id)));
+  const saved=finCopy(finExportRecord(id));let invalid=false;
+  const payload=finCopy(DB);payload.financeExport.find(x=>x.entityId===id).invoice={bad:true};
+  try{finValidatePayload(payload);}catch(e){invalid=e.message==='Invalid saved invoice export.';}
+  return {id,ok:out.ok,saved,invalid};
+ });
+ await t.p.reload();await t.p.waitForFunction(()=>typeof storageWriter!=='undefined'&&storageWriter);
+ eq('QuickBooks: отметка Invoice и строка переживают настоящую перезагрузку; повторной выгрузки нет, повреждённый снимок отклонён',await t.p.evaluate(r=>({ok:r.ok,invalid:r.invalid,kept:JSON.stringify(finExportRecord(r.id))===JSON.stringify(r.saved),pending:finExportPending().filter(x=>x.kind==='invoice'&&x.x.id===r.id).length,recovery:storageRecovery}),reload),{ok:true,invalid:true,kept:true,pending:0,recovery:false});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

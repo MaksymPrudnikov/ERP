@@ -224,7 +224,7 @@ function finMovementsCSV(receipts,refunds,states,invoices){
  const rows=receipts.map(r=>[r.date,r.number,'Payment',...who(r.customerId),finMethodLabel(r.method),r.reference,r.amount.toFixed(2),finCurrency(r),r.allocations.map(a=>finOrderNumber(a.orderId)+': '+a.amount.toFixed(2)).join('; '),r.voided?'Void':'Active',r.voided?r.voidReason:r.note,qb('receipt',r)])
   .concat(refunds.map(x=>[x.date,x.number,'Refund',...who(x.customerId),finMethodLabel(x.method),x.reference,(-x.amount).toFixed(2),x.currency,'Payment '+((DB.receipt.find(r=>r.id===x.receiptId)||{}).number||''),x.voided?'Void':'Active',x.voided?x.voidReason:x.reason,qb('refund',x)]))
   /* Счёт: Method — условия оплаты, Reference — PO, Status — срок или Paid. */
-  .concat((invoices||[]).map(o=>{const b=finOrderBalance(o),due=finPaymentDue(o);return [finInvoiceDate(o),o.businessNumber,'Invoice',...who(o.customerId),paymentTermsLabel(finTermsFor(o)),o.customerPo||'',b.total.toFixed(2),finCurrency(o),o.businessNumber,b.balance>0?(due?'Due '+due:'Due on receipt'):'Paid','',qb('invoice',o)];}))
+  .concat((invoices||[]).map(o=>finInvoiceExportRow(o,(states&&states.get(o.id)||finExportState('invoice',o))==='voided').concat(qb('invoice',o))))
   .sort((a,b)=>(a[0]+a[1]).localeCompare(b[0]+b[1]));
  return [['Date','Document','Type','Customer','Account','Method','Reference','Amount','Currency','Applied to orders','Status','Note','QuickBooks']].concat(rows).map(row=>row.map(finCsvCell).join(',')).join('\r\n');
 }
