@@ -53,8 +53,6 @@ function stationIguBoard(){
   return {orders,missed:orders.reduce((n,r)=>n+r.missed.length,0),noSkid:orders.reduce((n,r)=>n+r.noSkid.length,0)};
  });
 }
-/* Юниты IGU на этой станции — в листе «From IGU», а не в «Waiting here». */
-function stationHereShown(x){return !(stationIsReady()&&x.unit&&stationUnitMerge(x.g.o,x.g.l)===stationIguCode());}
 function stationIguUnits(b,keys){
  const out=[];(b?b.orders:[]).forEach(r=>{
   r.skids.forEach((list,code)=>{if(keys.has('s|'+r.o.id+'|'+code))out.push(...list);});

@@ -518,7 +518,7 @@ function stationBatchMix(list){
 /* Откуда стекло здесь: тара (срочная первой, потом кто раньше), в конце —
    без тары. other — стекло на той же таре для других станций. */
 function stationHereSources(){
- const by=new Map();stationHereItems().filter(stationHereShown).forEach(x=>{if(!by.has(x.on))by.set(x.on,[]);by.get(x.on).push(x);});
+ const by=new Map();stationHereItems().forEach(x=>{if(!by.has(x.on))by.set(x.on,[]);by.get(x.on).push(x);});
  const all=typeof carrierContents==='function'&&[...by.keys()].some(Boolean)?carrierContents():new Map();
  return [...by].map(([code,list])=>({code,list,urg:Math.max(0,...list.map(x=>stationUrgency(x.g.o))),since:list.map(x=>x.at).filter(Boolean).sort()[0]||'',
   other:code?(all.get(code)||[]).filter(x=>x.place.waiting!==stationCode).length:0}))

@@ -47,7 +47,7 @@ module.exports=async function({page,eq}){
   return out;
  }),{puts:'none',ask:false,loose:0,unit:['IGU:—','IGU:—'],single:'IGU:—',md:'none'});
 
- eq('лист From IGU у Олега: пропущенный — красным (собран раньше отсканированного), собранный позже — «in line», отсканированное — по скидам; в «Waiting here» юнитов IGU нет',await t.p.evaluate(()=>{
+ eq('лист From IGU у Олега: пропущенный — красным (собран раньше отсканированного), собранный позже — «in line», отсканированное — по скидам; «Waiting here» остаётся (стикер не читается — там)',await t.p.evaluate(()=>{
   irLine();irLogin(shippingStations().ready);
   const g=n=>'.st-igu-g:has([data-igu-order="'+n+'"]) ',name=x=>String(x).replace(/U-\d{7}/g,u=>{for(const [id,k] of [[ir.A,'A'],[ir.B,'B']])for(let n=1;n<=3;n++)if(irUnit(id,n)===u)return k+n;return u;});
   const before={card:!!document.querySelector('[data-station-igu]'),line:name(irText(g(ir.an)+'[data-igu-line]'))};
@@ -58,9 +58,9 @@ module.exports=async function({page,eq}){
    missed:[...document.querySelectorAll(g(ir.bn)+'[data-igu-missed]')].map(e=>name(e.dataset.iguMissed)),
    b:[irText('[data-igu-order="'+ir.bn+'"] .st-igu-n'),name(irText(g(ir.bn)+'[data-igu-line]'))],
    first:document.querySelector('[data-station-igu] .st-igu-o').dataset.iguOrder===ir.bn,
-   waiting:irText('.st-here .empty')};
+   waiting:document.querySelectorAll('[data-station-here],[data-station-nodolly]').length>0};
   irOut();return out;
- }),{before:{card:true,line:'In line3 A1, A2, A3coming'},pills:['1 not scanned',null],a:['3 / 3 ✓','SL-1 3'],missed:['B1'],b:['0 / 2','In line1 B2coming'],first:true,waiting:'Nothing waiting'});
+ }),{before:{card:true,line:'In line3 A1, A2, A3coming'},pills:['1 not scanned',null],a:['3 / 3 ✓','SL-1 3'],missed:['B1'],b:['0 / 2','In line1 B2coming'],first:true,waiting:true});
 
  eq('Ready без скида — жёлтым у Олега и в Shipping; ✓ Mark ready у пропущенного; Broken — Recut всего юнита',await t.p.evaluate(()=>{
   irLine();irLogin(shippingStations().ready);stationSubmit('SL-1');[1,2,3].forEach(n=>stationSubmit(irUnit(ir.A,n)));
