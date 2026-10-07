@@ -2826,6 +2826,8 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 .shipping-lookup-field{display:flex;gap:8px;align-items:center}.shipping-lookup-field select{width:auto}.shipping-lookup-field input{width:160px}.shipping-lookup-where b{min-width:100px}.shipping-lookup-where+p,.shipping-lookup-where+.sales-toolbar{margin-top:14px}.shipping-lookup-bad{font-weight:650;color:var(--red)}
 .delivery-day{display:flex;gap:10px;align-items:center;padding:12px 20px}.delivery-day b{margin-left:8px}.delivery-truck .shipping-customer-head .sales-toolbar{margin:0}.delivery-table input[type=time]{width:120px}.delivery-acts{white-space:nowrap;text-align:right}.delivery-acts button{margin-left:4px;min-width:30px;min-height:28px;font-size:13px}
 .delivery-day input[type=date]{width:auto;flex:none}
+/* Статус PS и «Balance due» — рядом (views/shipping, shippingStatusPill). */
+.shipping-pills{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
 
 </style>
 </head>
@@ -2853,7 +2855,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a12d3e596c1b';
+var ERP_BUILD='682d32bd1e8f';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12560,6 +12562,9 @@ function finOrderFinancial(o,today){
  const overdue=b.balance>0&&dueOn&&dueOn<day?b.balance:0;
  const depositRequired=b.total==null?null:finMoney(b.total*(t.paymentMode==='cash'?t.depositPercent:0)/100);
  const depositMissing=depositRequired==null?null:finShipped(o)?0:finMoney(Math.max(0,depositRequired-b.paid));
+ /* Срок идёт от выдачи: у доставки — «after delivery», не «after pickup»
+    (проход 7.10.2026: North Shore с доставкой видел «Net 30 after pickup»). */
+ const handover=o.delivery==='delivery'?'delivery':'pickup';
  let status,tone='info';
  if(!finOrderCounts(o))status='Inactive';
  else if(finCurrency(o)!=='CAD'){status='Currency review';tone='warn';}
@@ -12571,8 +12576,8 @@ function finOrderFinancial(o,today){
  else if(depositMissing>0){status='Deposit due';tone='bad';}
  else if(dueOn)status=dueOn===day?'Due today':'Due '+finShortDate(dueOn,day);
  else if(t.paymentMode==='credit'&&t.creditDays==null){status='Net days not set';tone='warn';}
- else status=t.paymentMode==='credit'&&t.creditDays?'Net '+t.creditDays+' after pickup':'Due at pickup';
- return {b,terms:t,dueOn,overdue,depositRequired,depositMissing,status,tone};
+ else status=t.paymentMode==='credit'&&t.creditDays?'Net '+t.creditDays+' after '+handover:'Due at '+handover;
+ return {b,terms:t,dueOn,overdue,depositRequired,depositMissing,status,tone,handover};
 }
 function finCustomerOverdue(customerId,today){
  return finMoney((DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)).reduce((s,o)=>s+finOrderFinancial(o,today).overdue,0));
@@ -18214,7 +18219,7 @@ function finReceiptDoc(id){
 /* Срок для клиента — без внутренних пометок вроде «Customer on hold». */
 function finDueText(f){
  if(f.dueOn)return docDate(f.dueOn);
- const t=f.terms;return t.paymentMode==='credit'&&t.creditDays?'Net '+t.creditDays+' after pickup':'At pickup';
+ const t=f.terms,w=f.handover||'pickup';return t.paymentMode==='credit'&&t.creditDays?'Net '+t.creditDays+' after '+w:'At '+w;
 }
 function finSigned(v){return v<0?'-'+docMoney(-v):docMoney(v);}
 const FIN_MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -22168,18 +22173,38 @@ function shippingSave(){
 function shippingResult(out){shippingNotice={error:!out.ok,text:out.ok?out.value.number+' · '+shippingStatus(out.value):out.error};render();}
 function shippingStatus(s){return s.status==='delivered'?(s.method==='pickup'?'Picked up':'Delivered'):({planned:'Planned',shipped:'Shipped',cancelled:'Cancelled'})[s.status]||'';}
 /* Статус PS — цветной таблеткой тех же классов, что статус заказа в Sales. */
-function shippingStatusPill(s){return `<span class="pill st-${({planned:'new',shipped:'shipping',delivered:'done',cancelled:'cancelled'})[s.status]||'new'}">${shippingStatus(s)}</span>`;}
+/* Статус и «Balance due» — одним блоком: в шапке PS они не разъезжаются. */
+function shippingStatusPill(s){return `<span class="shipping-pills"><span class="pill st-${({planned:'new',shipped:'shipping',delivered:'done',cancelled:'cancelled'})[s.status]||'new'}">${shippingStatus(s)}</span>${shippingBalancePill(s)}</span>`;}
+/* Подсветка: в PS заказ cash-клиента с долгом — деньги взять до выдачи. */
+function shippingBalancePill(s){return ['planned','shipped'].includes(s.status)&&shippingOrderIds(s).some(id=>{const o=salesRecord(id);return o&&shippingBalanceDue(o);})?' <span class="pill bad" data-ps-balance>Balance due</span>':'';}
 function shippingQueueChange(orderId,lineId,value){const out=shippingQueueSet(orderId,[lineId],value);shippingNotice=out.ok?null:{error:true,text:out.error};render();}
 /* Loaded: едет то, что отсканировано на станции отгрузки; что остаётся в
    Ready — офис видит до записи. Ничего не сканировали — офис подтверждает
    весь PS сам, как раньше кнопкой Shipped. После записи — печать PS. */
+/* Деньги до отгрузки у cash-клиента (владелец, 7.10.2026: «нужно сначала
+   взять деньги, если у клиента не кредитование — пусть будет окно и
+   подсветка; кредит и лимиты — дело бухгалтерии»). Окно на каждый заказ
+   PS с долгом: Back · Load anyway · Take payment (после оплаты — обратно
+   сюда). Кредитных не спрашиваем. */
+function shippingCashFirst(s,done){
+ const ids=shippingOrderIds(s).filter(oid=>{const o=salesRecord(oid);return o&&shippingBalanceDue(o);});
+ const run=n=>{
+  if(n===ids.length){done();return;}
+  const o=salesRecord(ids[n]),checks=salesTransitionChecks(Object.assign({},o,{delivery:s.method}),'done').filter(c=>c.pay!=null).map(c=>Object.assign({},c,{anyway:'Load anyway'}));
+  salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
+ };run(0);
+}
 function shippingLoaded(id){
+ const s=shippingFind(id);if(!s)return;
+ shippingCashFirst(s,()=>shippingLoadedGo(id));
+}
+function shippingLoadedGo(id){
  const s=shippingFind(id);if(!s)return;
  const state=()=>{const now=shippingFind(id);return now&&shippingWithCtx(()=>shippingLoadState(now));},st=state();
  const stamp=()=>{const now=state();return JSON.stringify([shippingFind(id),now&&now.loaded.map(u=>u.label)]);},before=stamp();
  const run=mode=>{
   if(stamp()!==before){shippingNotice={error:true,text:'Packing slip changed. Try again.'};render();return;}
-  const out=shippingMarkShipped(id,mode);shippingResult(out);if(out.ok)shippingPrint(id);
+  const out=shippingMarkShipped(id,mode);shippingResult(out);if(out.ok)shippingPrint(id,true);
  };
  if(!st.units.length||st.loaded.length===st.units.length){run(st.units.length?'loaded':'');return;}
  if(!st.loaded.length){salesDialogOpen({title:'Nothing scanned at '+shippingStations().ship,note:'Ship all '+shippingLoadPart(st.units)+' on '+s.number+'?',buttons:[{label:'Back'},{label:'Ship all',kind:'pri',run:()=>run('')}]});return;}
@@ -24073,7 +24098,7 @@ function finGoBack(back,r){
  tab=back.tab;subtab=back.subtab||null;if(!r)return;
  const text='Payment '+r.number+' saved · '+finFmt(r.amount);
  if(tab==='optimization')optimizationNotice={title:text,detail:'Run the action again.'};
- else if(tab==='shipping')shippingNotice={text:text+' · create the packing slip again'};
+ else if(tab==='shipping')shippingNotice={text:text+' · run the action again'};
 }
 /* Заказы клиента для разнесения: долг считается «до этой квитанции» — при
    правке уже разнесённая ею сумма возвращается в долг заказа. */
@@ -24493,7 +24518,7 @@ function finCustomerStrip(customerId){
    переход на летнее время их не сдвигает.
    ===================================================================== */
 function finDueDayDiff(date,today){return Math.round((Date.parse(date+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000);}
-function finDueTiming(x){return x.days==null?(x.f.terms.paymentMode==='credit'?'After pickup':'At pickup'):x.days<0?Math.abs(x.days)+(x.days===-1?' day':' days')+' overdue':x.days===0?'Due today':'In '+x.days+(x.days===1?' day':' days');}
+function finDueTiming(x){const w=x.f.handover||'pickup';return x.days==null?(x.f.terms.paymentMode==='credit'?'After ':'At ')+w:x.days<0?Math.abs(x.days)+(x.days===-1?' day':' days')+' overdue':x.days===0?'Due today':'In '+x.days+(x.days===1?' day':' days');}
 function finDueCSV(rows){return [['Customer','Order','Customer PO','Terms','Billing date','Payment due','Days until due','Currency','Total','Paid','Outstanding','Status']].concat(rows.map(({o,c,f,days})=>[finCustomerName(c),o.businessNumber,o.customerPo||'',paymentTermsLabel(f.terms),finBillingDate(o),f.dueOn,days==null?'':days,'CAD',f.b.total,f.b.paid,f.b.balance,f.status])).map(row=>row.map(finCsvCell).join(',')).join('\r\n');}
 
 /* ==== src/erp/views/finance-lists.js ==== */
@@ -34820,7 +34845,7 @@ function stationTripChip(){
 function stationShipShow(out){
  stationMenu=null;stationNote=out.kind==='saveError'?out.note:'';
  stationLast={check:out,rec:null,data:null,place:null,at:out.at||new Date().toISOString()};
- stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':'ok'):['shipBack','shipMoved','shipEmptied'].includes(out.kind)?'ok':['shipAlready','shipOnSkid'].includes(out.kind)?'twice':'error');
+ stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':out.switched?'warn':'ok'):['shipBack','shipMoved','shipEmptied'].includes(out.kind)?'ok':['shipAlready','shipOnSkid'].includes(out.kind)?'twice':'error');
 }
 function stationShipSubmit(raw,who,manual){
  const code=stationCodeOf(raw),t=carrierType(code);if(!code)return false;
@@ -34861,6 +34886,7 @@ function stationShipCard(L){
  const c=L.check,time='<span>'+esc(stationTime(L.at))+'</span>',what=esc(c.skid||c.label||c.code);
  const cur=stationTrip(),trip=c.trip?'<div class="mut">'+(cur&&cur.id===c.trip.id?'Loading ':'')+esc(c.trip.number)+' · <span data-raw>'+esc(salesCustomerDisplay(c.trip.customerId))+'</span></div>':'';
  if(c.kind==='shipLoaded')return '<div class="st-res st-ok" data-station-result="shipLoaded"><div class="st-res-h">✓ '+esc(c.label)+' → '+esc(c.ps)+(c.added?' · added':' · loaded')+time+'</div>'+
+  (c.switched?'<div class="st-askbar" data-station-other-trip>'+(c.switched.other?'OTHER CUSTOMER':'OTHER PACKING SLIP')+'<span>On '+esc(c.ps)+' · was loading '+esc(c.switched.from)+' · same truck</span></div>':'')+
   (c.balance?'<div class="st-urg" data-station-balance>BALANCE DUE<span>· office</span></div>':'')+
   '<div class="st-res-b"><div class="st-big st-dark"><small>'+(c.added?'ADDED TO':'LOADED')+'</small><b class="st-big-code">'+esc(c.ps)+'</b><span data-raw>'+esc(c.customer)+'</span></div>'+
   '<div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div><div class="st-kv"><span class="k">Units</span><span><b>'+c.units+'</b></span><span class="k">Orders</span><span>'+c.orders.map(o=>'<b>'+esc(o.number)+'</b> ×'+o.units).join(' · ')+'</span></div></div></div>'+
@@ -34877,7 +34903,6 @@ function stationShipCard(L){
  const ids=(c.ids||[]).slice(0,4).join(', ')+((c.ids||[]).length>4?' +'+((c.ids||[]).length-4):'');
  const K={
   shipQueue:{head:'Take '+esc(c.take)+' first',small:'TAKE FIRST',big:esc(c.take),sub:'Queue '+c.queue,info:trip},
-  shipOther:{head:'Other customer',small:'NOT THIS TRIP',big:'STOP',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:trip},
   shipOtherPS:{head:'Other packing slip',small:'IS ON',big:esc((c.ps||[]).join(', ')),sub:'Not this trip',info:trip},
   shipNoPS:{head:'No packing slip',small:'ASK THE OFFICE',big:'NO PS',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:''},
   shipChoose:{head:'Choose the trip',small:'TWO TRIPS',big:'CHOOSE',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:'<div class="mut">Tap the trip on the right</div>'},
@@ -35853,8 +35878,10 @@ function shippingWithChecks(ids,method,printing,done){
    IN : готовые юниты (erp/shipping/data) · открытые PS · журнал сканов.
    OUT: line.shipQueue · SHIP-сканы погрузки · состав PS (item.added).
    Владелец: офис открывает рейс, водитель сам выбирает скиды — скан пишет и
-   проверяет. Первый скид открывает рейс; дальше скид чужого клиента или
-   другого PS — красным, ничего не пишется. Грузят и накануне: скид без PS
+   проверяет. Первый скид открывает рейс. Скид другого клиента или другого
+   PS грузится в свой PS — экран предупреждает жёлтым (владелец, 7.10.2026:
+   «зачем блокировать — на машину можно погрузить 3 скида и отвезти трём
+   разным клиентам по очереди»). Грузят и накануне: скид без PS
    идёт в открытый PS клиента с ближайшей датой. Очередь клиента: готовый
    скид с меньшим номером грузят первым. Долг cash-клиента погрузку не
    держит — строка «Balance due — office».
@@ -35938,9 +35965,11 @@ function shippingLoadPlan(code,tripId){
  const customers=[...new Set(units.map(u=>salesRecord(u.orderId).customerId))];
  if(customers.length>1)return fail('shipMixed',{customers:customers.map(salesCustomerDisplay)});
  const customerId=customers[0],customer=salesCustomerDisplay(customerId),own=[...new Set(units.filter(u=>u.shipment).map(u=>u.shipment.id))];
- let trip=tripId?shippingFind(tripId):null,opened=false;if(trip&&trip.status!=='planned')trip=null;
- if(trip&&trip.customerId!==customerId)return fail('shipOther',{trip,customer});
- if(own.length>1||own.length&&trip&&own[0]!==trip.id)return fail('shipOtherPS',{trip,customer,ps:own.map(id=>shippingFind(id).number)});
+ let trip=tripId?shippingFind(tripId):null,opened=false,switched=null;if(trip&&trip.status!=='planned')trip=null;
+ /* Юниты скида в двух PS — какой из них грузить, решает офис. */
+ if(own.length>1)return fail('shipOtherPS',{trip,customer,ps:own.map(id=>shippingFind(id).number)});
+ /* Другой клиент или другой PS — тот же рейс, свой PS. */
+ if(trip&&(trip.customerId!==customerId||own.length&&own[0]!==trip.id)){switched={from:trip.number,other:trip.customerId!==customerId};trip=null;}
  if(!trip){
   if(own.length)trip=shippingFind(own[0]);
   else{const f=shippingTripFor(customerId);if(!f.trip)return fail(f.count?'shipChoose':'shipNoPS',{customer});trip=f.trip;}
@@ -35952,7 +35981,7 @@ function shippingLoadPlan(code,tripId){
  const first=(DB.salesOrder||[]).filter(o=>o.customerId===customerId&&!salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status)).flatMap(o=>shippingUnits(o))
   .filter(u=>u.ready&&!mine.has(u.label)&&(!u.shipment||u.shipment.id===trip.id)).map(u=>({u,q:shippingUnitQueue(u)})).filter(x=>x.q&&x.q<q).sort((a,b)=>a.q-b.q||a.u.label.localeCompare(b.u.label))[0];
  if(first)return fail('shipQueue',{trip,customer,take:first.u.skid||first.u.label,queue:first.q});
- return {kind:'ok',code,skid,units,add:units.filter(u=>!u.shipment),trip,opened,customerId,customer};
+ return {kind:'ok',code,skid,units,add:units.filter(u=>!u.shipment),trip,opened,switched,customerId,customer};
 }
 function shippingLoad(code,tripId,who,opts){
  const plan=shippingWithCtx(()=>shippingLoadPlan(code,tripId));if(plan.kind!=='ok')return plan;
@@ -35974,7 +36003,7 @@ function shippingLoadCommand(code,tripId,who,opts){
  shippingSyncOrders(ids,now);
  const count=id=>plan.units.filter(u=>u.orderId===id).length;
  ids.forEach(id=>orderLogPush(salesRecord(id),'Loaded',s.number+' · '+(plan.skid||plan.units[0].label)+' · '+shippingCount(count(id),'unit')+(plan.add.some(u=>u.orderId===id)?' · added':'')));
- return {kind:'shipLoaded',code,skid:plan.skid,label:plan.skid||plan.units[0].label,ps:s.number,psId:s.id,customer:plan.customer,units:plan.units.length,added:plan.add.length,opened:plan.opened,recId:actionId,at:now,
+ return {kind:'shipLoaded',code,skid:plan.skid,label:plan.skid||plan.units[0].label,ps:s.number,psId:s.id,customer:plan.customer,units:plan.units.length,added:plan.add.length,opened:plan.opened,switched:plan.switched,recId:actionId,at:now,
   orders:ids.map(id=>({number:salesRecord(id).businessNumber,units:count(id)})),balance:ids.some(id=>shippingBalanceDue(salesRecord(id)))};
 }
 /* Undo скана погрузки (erp/shopfloor/scan): добавленное этим сканом уходит
