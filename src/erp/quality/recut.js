@@ -95,6 +95,22 @@ function recutDrawingCommand(id,shape,liteIndex,now){
  orderLogPush(o,'Recut drawing','Recut '+r.no+' · line '+r.line+(out.length?' · '+out.length+' glass out of '+batches.join(', '):''));
  return {orderId:o.id,recut:r,released:out.length,batches};
 }
+/* Размер прямоугольного Recut правится прямо в строке блока Recuts, как в
+   строке заказа (владелец, 7 октября 2026: «вводил 55 7/8, а должно быть
+   55 1/8 — нужно лезть в шейп?»). Фигура и свои формы лайтов — через Shape. */
+function recutSizeEditable(r,l){
+ const g=recutLine(r,l),s=g&&salesLineGeometryShape(g);
+ return !!s&&s.type==='rectangle'&&!(s.features||[]).length&&!shapeIsDxfSource(s)&&!Object.keys(g.liteShapes||{}).length;
+}
+function recutSizeCommand(id,w16,h16,now){
+ const r=recutFind(id),o=r&&salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId);
+ if(!r||!l)return {error:'Recut not found.'};
+ if(!recutSizeEditable(r,l))return {error:'Change this drawing with Shape.'};
+ const g=recutLine(r,l),base=salesLineGeometryShape(g),s=normalizeShapeDef(JSON.parse(JSON.stringify(base)));
+ s.id=newShapeId();s.w=salesDimFrom16(w16);s.h=salesDimFrom16(h16);s.revision=(+base.revision||0)+1;
+ if(!recutHasShape(r))s.name='Recut '+r.no+' · Line '+r.line;
+ return recutDrawingCommand(id,s,null,now);
+}
 /* Разбилось стекло Recut со своим чертежом — новый перерез режется по тому
    же чертежу, а не по неверному чертежу позиции. Формы — свои копии. */
 function recutInheritDrawing(r,src){

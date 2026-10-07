@@ -35,7 +35,7 @@ module.exports=async function({page,eq,ok}){
    rows:rows.map(r=>r.unit+' · '+glassBatchInfo(r).memo.unit),fresh:rows.every(r=>/^G-\d{7}$/.test(r.piece)&&+r.piece.slice(2)>seq),ready:salesRecordTransitionAllowed(o,'ready'),lines:o.lines.map(l=>l.qty),
    glassIds:/G-\d{7}/.test(document.getElementById('app').innerText)};
  }),{recuts:[[1,1,'Lite 1 · 6CLEAR',2,1],[2,2,'Whole unit',1,2]],form:false,view:false,
-  section:['Recut 1 Line 1 · Kitchen 37″ × 71″ Shape Lite 1 · 6CLEAR 2 pcs HEAT · Exploded in furnace In queue Second load','Recut 2 Line 2 · Bedroom 30″ × 40″ Shape Whole unit 1 pc HEAT · Exploded in furnace In queue Second load'],notesAfter:true,ncr:0,
+  section:['Recut 1 Line 1 · Kitchen × Shape Lite 1 · 6CLEAR 2 pcs HEAT · Exploded in furnace In queue Second load','Recut 2 Line 2 · Bedroom × Shape Whole unit 1 pc HEAT · Exploded in furnace In queue Second load'],notesAfter:true,ncr:0,
   rows:['R1.1 · Recut 1 · 1 of 2','R1.2 · Recut 1 · 2 of 2','R2.1 · Recut 2 · 1 of 1','R2.1 · Recut 2 · 1 of 1'],fresh:true,ready:false,lines:[2,1],glassIds:false});
 
  eq('батч Recut: блок показывает номер батча, Ready ждёт сканов; Unbatch возвращает стекло с тем же номером',await t.p.evaluate(()=>{
@@ -105,8 +105,8 @@ module.exports=async function({page,eq,ok}){
   btn.click();
   const open={tab,isNew:sEdit==='new',band:(document.querySelector('[data-shape-recut-band]')||{}).textContent,title:document.querySelector('.shape-workspace-identity b').textContent,inDb:DB.shapeDef.some(s=>s.id===sDraft.id),name:sDraft.name};
   sDraft.w='36';cancelShapeEdit();
-  return {size:row.querySelector('[data-recut-size]').textContent,own:btn.classList.contains('own'),open,back:tab,same:localStorage.getItem(STORAGE_KEY)===before,recut:JSON.stringify(DB.recut[0]).includes('shapeRef')};
- }),{size:'37″ × 71″',own:false,open:{tab:'configurators',isNew:true,band:'RECUT 1 · Line 1 · Office · Drawing wrong · Was 37″ × 71″',title:'Recut drawing',inDb:false,name:'Recut 1 · Line 1'},back:'sales',same:true,recut:false});
+  return {size:[...row.querySelectorAll('[data-recut-size] input')].map(i=>i.value).join(' × '),own:btn.classList.contains('own'),open,back:tab,same:localStorage.getItem(STORAGE_KEY)===before,recut:JSON.stringify(DB.recut[0]).includes('shapeRef')};
+ }),{size:'37 × 71',own:false,open:{tab:'configurators',isNew:true,band:'RECUT 1 · Line 1 · Office · Drawing wrong · Was 37″ × 71″',title:'Recut drawing',inDb:false,name:'Recut 1 · Line 1'},back:'sales',same:true,recut:false});
 
  eq('Save revision: чертёж у Recut, строка и её цена как заказано; очередь, раскрой, стикер и лист Recut — по чертежу Recut',await t.p.evaluate(()=>{
   const geo=l=>JSON.stringify([l.width16,l.height16,l.shapeRef,l.liteShapes,salesShapeByRef(l.shapeRef)]),line=geo(rdLine()),total=finOrderTotals(salesRecord(rd.id)).total;
@@ -117,9 +117,9 @@ module.exports=async function({page,eq,ok}){
   return {w:r.width16/16,ref:!!r.shapeRef.id,owner:DB.shapeDef.find(s=>s.id===r.shapeRef.id).ownerLineId===l.id,lineSame:geo(l)===line,
    total:finOrderTotals(o).total===total,rows:rows.map(x=>x.unit+':'+x.width),sticker:[sticker.finished.w,sticker.recut],old:old.finished.w,cut,
    parts:b.parts.map(p=>p.snapshot.recut+':'+p.snapshot.width),log:DB.orderEvent.filter(e=>e.orderId===rd.id&&e.what==='Recut drawing').map(e=>e.note),
-   tab,section:document.querySelector('[data-recut-size]').textContent,own:document.querySelector('[data-recut-shape]').classList.contains('own')};
+   tab,section:[...document.querySelectorAll('[data-recut-size] input')].map(i=>i.value).join(' × '),own:document.querySelector('[data-recut-shape]').classList.contains('own')};
  }),{w:36,ref:true,owner:true,lineSame:true,total:true,rows:['R1.1:36','R1.2:36','R1.1:36','R1.2:36'],sticker:[36,'RECUT 1'],old:37,cut:['R1.1:36','R1.2:36','R1.1:36','R1.2:36'],
-  parts:['R1:36','R1:36'],log:['Recut 1 · line 1'],tab:'sales',section:'36″ × 71″',own:true});
+  parts:['R1:36','R1:36'],log:['Recut 1 · line 1'],tab:'sales',section:'36 × 71',own:true});
 
  eq('чертёж Recut в батче, но не порезан: правка возвращает стекло в To batch; порезано — правка закрыта',await t.p.evaluate(()=>{
   const b=DB.glassBatch.find(x=>x.items.some(i=>typeof i.unit==='string'&&!i.releasedAt)),pieces=b.items.filter(i=>typeof i.unit==='string').map(i=>i.piece);
@@ -163,16 +163,19 @@ module.exports=async function({page,eq,ok}){
   return {same:JSON.stringify(next.recut)===JSON.stringify(src.recut),shapes:src.recut.every(r=>next.shapeDef.some(s=>s.id===r.shapeRef.id)),err,plain};
  }),{same:true,shapes:true,err:'Recut 1 references a missing Shape.',plain:'id,orderId,no,createdAt,lineId,line,mark,which,lite,keys,qty,where,reasonId,reason,note'});
 
- eq('IGU: Recut одного лайта со своим чертежом собирается со старым вторым лайтом',await t.p.evaluate(()=>{
+ eq('IGU: размер Recut правится прямо в строке; у фигуры — только через Shape; Recut одного лайта собирается со старым вторым лайтом',await t.p.evaluate(()=>{
   oqReset();DB.recut=[];DB.glassBatch=[];DB.productionRoute=[];stationRouteReset();
   const id=oqOrder(oqCustomer());salesDraftDrop();salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
   tab='sales';salesOrderEdit(id);rcFill(id,{where:'OFFICE',reason:'Drawing wrong',lines:[[1,1,0]]});ncrFormCreate();
-  const r=DB.recut[0];salesOrderEdit(id);salesOpenRecutShape(r.id);sDraft.w='29';saveShape();glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
+  salesOrderEdit(id);const inp=document.querySelector('[data-recut-w]');inp.value='29 1/8';inp.dispatchEvent(new Event('change'));
+  const typed={w:DB.recut[0].width16/16,line:salesRecord(id).lines[1].width16/16,cell:document.querySelector('[data-recut-w]').value,log:DB.orderEvent.filter(e=>e.orderId===id&&e.what==='Recut drawing').length};
+  salesOpenRecutShape(DB.recut[0].id);setShapeType('raked');saveShape();const figure={inputs:document.querySelectorAll('[data-recut-size] input').length,text:/″ × /.test(document.querySelector('[data-recut-size]').textContent)};
+  glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
   const o=salesRecord(id),l=o.lines[1],pm=glassPieceMap(id),cs=glassBatchComponents(o,l),lite2=pm.get(cs[1].key).ids[0],lite1=pm.get(cs[0].key).extra.R1[0];
   const go=pid=>{const g=stationGlass(pid);for(let i=0;i<8;i++){const p=stationPlace(g);if(!p.waiting||p.waiting==='IGU')break;rdScan(p.waiting,pid);}return stationPlace(g).waiting;};
   const at=[lite2,lite1].map(go);rdScan('IGU',lite1);rdScan('IGU',lite2);
-  const out={at,w:DB.recut[0].width16/16,asm:stationAsms(o,l,'IGU').map(a=>[a.lites.size,a.unit])};return out;
- }),{at:['IGU','IGU'],w:29,asm:[[2,1]]});
+  return {typed,figure,at,asm:stationAsms(o,l,'IGU').map(a=>[a.lites.size,a.unit])};
+ }),{typed:{w:29.125,line:30,cell:'29 1/8',log:1},figure:{inputs:0,text:true},at:['IGU','IGU'],asm:[[2,1]]});
 
  await t.p.setViewportSize({width:390,height:844});
  eq('на телефоне форма и блок Recut не шире экрана',await t.p.evaluate(()=>{const id=DB.salesOrder[0].id;salesOrderEdit(id);const block=document.documentElement.scrollWidth<=innerWidth+1;ncrOpenForm('recut');const r=document.querySelector('.ncr-modal').getBoundingClientRect();return block&&r.left>=0&&r.right<=innerWidth+1;}),true);
