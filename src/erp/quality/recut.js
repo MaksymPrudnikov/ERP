@@ -28,6 +28,100 @@ function recutStatus(r){
  const active=glassBatchActive(r.orderId),slots=recutSlots(r),pending=slots.some(s=>!active.has(s.key+'|'+s.unit));
  return pending?'In queue':'Batched · '+[...new Set(slots.map(s=>active.get(s.key+'|'+s.unit).batch.number))].join(', ');
 }
+/* ---------- Свой чертёж Recut ----------
+   Владелец, 7 октября 2026 (заказ 76004: позиции 13–24 порезаны по неверному
+   чертежу, Recut 1–12 «Office · Drawing wrong»): «в рикат идёт новый шейп и
+   новый чертёж — чтобы был трек самой ошибки». Строка заказа, её цена и Work
+   order остаются как заказано; стекло Recut режется, клеится и печатается по
+   чертежу Recut. Править можно, пока стекло Recut не порезано и не
+   отсканировано. Формы — копии в DB.shapeDef с ownerLineId позиции.
+   Поля записи: shapeRef, liteShapes, width16, height16 — только у Recut со
+   своим чертежом. */
+function recutFind(id){return (DB.recut||[]).find(r=>r&&r.id===id)||null;}
+function recutHasShape(r){return !!(r&&r.shapeRef&&r.shapeRef.id);}
+/* Место стекла «R3.1» → его Recut. */
+function recutOfUnit(orderId,lineId,unit){
+ if(typeof unit!=='string'||!/^R\d+\.\d+$/.test(unit))return null;
+ const no=+unit.slice(1).split('.')[0];
+ return (DB.recut||[]).find(r=>r&&r.orderId===orderId&&r.lineId===lineId&&r.no===no)||null;
+}
+/* Вид строки только для геометрии: чертёж и размер Recut, остальное — строки.
+   Настоящая строка нужна для всего прочего: номер, indexOf, правки. */
+/* Правки кромок строки относятся к контуру строки — у чертежа Recut их нет. */
+function recutLine(r,l){return recutHasShape(r)&&l?Object.assign({},l,{shapeRef:r.shapeRef,liteShapes:r.liteShapes||{},width16:r.width16,height16:r.height16,serviceOverrides:{pinnedTopology:'',edges:{}}}):l;}
+function recutGeoLine(orderId,l,unit){return l?recutLine(recutOfUnit(orderId,l.id,unit),l):l;}
+function recutPieces(r){const pieces=glassPieceMap(r.orderId);return recutSlots(r).map(s=>glassPieceAt(pieces.get(s.key),s.unit)).filter(glassPieceValid);}
+/* Почему чертёж Recut больше не правится; '' — можно. */
+function recutDrawingLock(r){
+ const o=r&&salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId);
+ if(!o||!l)return 'Order line not found.';
+ const pieces=new Set(recutPieces(r));
+ if((DB.glassBatch||[]).some(b=>(b.items||[]).some(i=>i.cutStartedAt&&pieces.has(i.piece))))return 'Recut glass is already cut.';
+ if((DB.stationScan||[]).some(s=>s&&!s.undoneAt&&pieces.has(s.piece)))return 'Recut glass is already in production.';
+ return '';
+}
+/* Какую форму открыть: свою форму выбранного лайта, иначе общую. */
+function recutDrawingLite(r,view){return r&&/^\d+$/.test(String(r.which))&&salesLineLiteShape(view,+r.which)?+r.which:null;}
+/* Запись чертежа — внутри storageCommand. shape — новая форма из редактора.
+   Первый свой чертёж копирует формы позиции: остальное стекло Recut остаётся
+   по чертежу позиции. Стекло Recut в батче, но не порезано, уходит обратно
+   в To batch — батч подсвечивается Re-optimize (glassBatchStale). */
+function recutDrawingCommand(id,shape,liteIndex,now){
+ const r=recutFind(id),o=r&&salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId);
+ if(!r||!o||!l)return {error:'Recut not found.'};
+ const lock=recutDrawingLock(r);if(lock)return {error:lock};
+ now=now||new Date().toISOString();
+ const ref=s=>normalizeShapeRef({id:s.id,revision:s.revision||0});
+ const copy=s=>{const c=normalizeShapeDef(JSON.parse(JSON.stringify(s)));c.id=newShapeId();c.ownerLineId=l.id;DB.shapeDef.push(c);return c;};
+ const drop=x=>{const i=x&&x.id?DB.shapeDef.findIndex(s=>s.id===x.id):-1;if(i>=0)DB.shapeDef.splice(i,1);};
+ /* Форма из редактора — всегда новая запись: id формы позиции не повторяется. */
+ if(!shape.id||DB.shapeDef.some(s=>s&&s.id===shape.id))shape.id=newShapeId();
+ shape.ownerLineId=l.id;DB.shapeDef.push(shape);
+ const key=liteIndex==null?null:String(liteIndex);
+ if(!recutHasShape(r)){
+  const base=key==null?shape:copy(salesLineGeometryShape(l)),lites={};
+  Object.keys(l.liteShapes||{}).forEach(k=>{const s=k!==key&&salesLineLiteShape(l,+k);if(s)lites[k]=ref(copy(s));});
+  if(key!=null)lites[key]=ref(shape);
+  r.shapeRef=ref(base);r.liteShapes=lites;
+ }else if(key==null){drop(r.shapeRef);r.shapeRef=ref(shape);}
+ else{drop((r.liteShapes||{})[key]);r.liteShapes=Object.assign({},r.liteShapes,{[key]:ref(shape)});}
+ const main=salesShapeByRef(r.shapeRef),res=main&&ShapeModule.compute(main);
+ if(!res||!(res.valid||res.externalFile&&res.sourceValid))return {error:'Check the drawing.'};
+ r.shapeRef=salesShapeRefFrom(main);r.width16=Math.round(res.width*16);r.height16=Math.round(res.height*16);
+ const active=glassBatchActive(o.id),out=recutSlots(r).map(s=>active.get(s.key+'|'+s.unit)).filter(Boolean),batches=[...new Set(out.map(x=>x.batch.number))];
+ if(out.length)glassBatchCancelPieces(out.map(x=>x.item.piece),now,'Recut drawing');
+ /* Кэши станций (маршрут, площадь, табло, чертежи) живут по версии заказа. */
+ o.updatedAt=now;
+ orderLogPush(o,'Recut drawing','Recut '+r.no+' · line '+r.line+(out.length?' · '+out.length+' glass out of '+batches.join(', '):''));
+ return {orderId:o.id,recut:r,released:out.length,batches};
+}
+/* Размер прямоугольного Recut правится прямо в строке блока Recuts, как в
+   строке заказа (владелец, 7 октября 2026: «вводил 55 7/8, а должно быть
+   55 1/8 — нужно лезть в шейп?»). Фигура и свои формы лайтов — через Shape. */
+function recutSizeEditable(r,l){
+ const g=recutLine(r,l),s=g&&salesLineGeometryShape(g);
+ return !!s&&s.type==='rectangle'&&!(s.features||[]).length&&!shapeIsDxfSource(s)&&!Object.keys(g.liteShapes||{}).length;
+}
+function recutSizeCommand(id,w16,h16,now){
+ const r=recutFind(id),o=r&&salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId);
+ if(!r||!l)return {error:'Recut not found.'};
+ if(!recutSizeEditable(r,l))return {error:'Change this drawing with Shape.'};
+ const g=recutLine(r,l),base=salesLineGeometryShape(g),s=normalizeShapeDef(JSON.parse(JSON.stringify(base)));
+ s.id=newShapeId();s.w=salesDimFrom16(w16);s.h=salesDimFrom16(h16);s.revision=(+base.revision||0)+1;
+ if(!recutHasShape(r))s.name='Recut '+r.no+' · Line '+r.line;
+ return recutDrawingCommand(id,s,null,now);
+}
+/* Разбилось стекло Recut со своим чертежом — новый перерез режется по тому
+   же чертежу, а не по неверному чертежу позиции. Формы — свои копии. */
+function recutInheritDrawing(r,src){
+ /* Чертёж Recut одного лайта не годится юниту целиком. */
+ if(!recutHasShape(src)||recutHasShape(r)||!(r.keys||[]).every(k=>(src.keys||[]).includes(k)))return false;
+ const copy=ref=>{const s=salesShapeByRef(ref);if(!s)return null;const c=normalizeShapeDef(JSON.parse(JSON.stringify(s)));c.id=newShapeId();DB.shapeDef.push(c);return c.id;};
+ const main=copy(src.shapeRef);if(!main)return false;
+ const lites={};Object.keys(src.liteShapes||{}).forEach(k=>{const id=copy(src.liteShapes[k]);if(id)lites[k]=Object.assign({},src.liteShapes[k],{id});});
+ Object.assign(r,{shapeRef:Object.assign({},src.shapeRef,{id:main}),liteShapes:lites,width16:src.width16,height16:src.height16});
+ return true;
+}
 /* Одна позиция формы — один Recut. Всё проверяется до записи. */
 function recutCreate(d){
  const o=salesRecord(d&&d.orderId);
@@ -79,7 +173,9 @@ function normalizeRecuts(){
  DB.recut=DB.recut.filter(r=>r&&typeof r==='object').map(r=>({id:typeof r.id==='string'&&r.id?r.id:salesUid('RC'),orderId:salesString(r.orderId),no:Math.max(1,Math.floor(+r.no)||1),createdAt:salesString(r.createdAt),
   lineId:salesString(r.lineId),line:Math.max(1,Math.floor(+r.line)||1),mark:salesString(r.mark),which:r.which==null?'unit':String(r.which),lite:salesString(r.lite),
   keys:(Array.isArray(r.keys)?r.keys:[]).filter(k=>typeof k==='string'&&k.split('|').length===4),qty:Math.max(1,Math.floor(+r.qty)||1),
-  where:salesString(r.where).toUpperCase(),reasonId:salesString(r.reasonId),reason:ncrName(r.reason),note:salesString(r.note).slice(0,500)}))
+  where:salesString(r.where).toUpperCase(),reasonId:salesString(r.reasonId),reason:ncrName(r.reason),note:salesString(r.note).slice(0,500),
+  /* Свой чертёж — только у тех, кому его дали: старые записи не меняются. */
+  ...(r.shapeRef&&typeof r.shapeRef==='object'&&salesRefId(r.shapeRef.id)&&salesStoredDim16(r.width16)&&salesStoredDim16(r.height16)?{shapeRef:normalizeShapeRef(r.shapeRef),liteShapes:normalizeSalesLiteShapes(r.liteShapes),width16:+r.width16,height16:+r.height16}:{})}))
   .filter(r=>{if(!r.orderId||!r.lineId||!r.keys.length||ids.has(r.id))return false;ids.add(r.id);return true;});
 }
 function validateRecutPayload(src){
@@ -88,5 +184,6 @@ function validateRecutPayload(src){
  src.recut.forEach(r=>{
   if(!r||typeof r!=='object'||Array.isArray(r)||!salesRefId(r.orderId)||!Number.isSafeInteger(r.no)||r.no<1)throw new Error('Invalid recut record.');
   const k=r.orderId+'#'+r.no;if(seen.has(k))throw new Error('Duplicate recut number.');seen.add(k);
+  if(r.shapeRef!=null&&(typeof r.shapeRef!=='object'||!salesRefId(r.shapeRef.id)||!salesStoredDim16(r.width16)||!salesStoredDim16(r.height16)||r.liteShapes!=null&&(typeof r.liteShapes!=='object'||Array.isArray(r.liteShapes))))throw new Error('Invalid recut drawing.');
  });
 }

@@ -415,7 +415,7 @@ function stationCard(){
  const unitNo=g&&c.kind!=='recut'?stationUnitNo(g):0,unitBtn=unitNo&&!(L.check&&stationUnitMerge(g.o,g.l)===stationCode)?'<button type="button" class="b" data-station-unit-reprint onclick="stationPrintUnit(\''+esc(c.code)+'\')">Unit sticker</button>':'';
  if(c.kind==='skipped')return '<div class="st-res st-amber" data-station-result="skipped"><div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div><div class="st-res-b">'+big+'<div class="st-info">'+info+'</div></div>'+
   '<div class="st-acts"><button type="button" class="b st-yes" data-station-yes onclick="stationAnswer(\''+esc(c.code)+'\',true)">✓ Yes, done</button><button type="button" class="b st-red-b" data-station-no onclick="stationAnswer(\''+esc(c.code)+'\',false)">✕ No — back to '+esc((c.missed||[])[0]||'')+'</button></div></div>';
- const thumb=g&&d?(stationDrawThumb(g,d)||(!d.shape&&c.kind!=='recut'?stationGlassPreview(g,size):'')):'',drawBtn=g&&g.l.shapeRef&&c.kind!=='recut'?'<button type="button" class="b" data-station-drawing onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\')">Drawing</button>':'';
+ const thumb=g&&d?(stationDrawThumb(g,d)||(!d.shape&&c.kind!=='recut'?stationGlassPreview(g,size):'')):'',drawBtn=g&&(g.l.shapeRef||stationDrawRecut(g.o,g.l,g.unit))&&c.kind!=='recut'?'<button type="button" class="b" data-station-drawing onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\',\''+esc(String(g.unit))+'\')">Drawing</button>':'';
  const acts=(L.rec||canRecut||stickerFor||drawBtn)?'<div class="st-acts">'+(L.rec?'<button type="button" class="b" onclick="stationUndoClick(\''+esc(L.rec.id)+'\')">Undo</button>':'')+
   (L.rec&&L.rec.on?'<button type="button" class="b" data-station-off onclick="stationScanOffClick(\''+esc(L.rec.id)+'\')">Not on '+esc(L.rec.on)+'</button>':'')+
   (canRecut?'<button type="button" class="b st-red-b" data-station-recut onclick="stationOpenRecut(\''+esc(c.code)+'\')">Recut</button>':'')+
@@ -507,7 +507,8 @@ function stationHereItems(){
  (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)asmOf.set(s.piece,s.asm);});
  return list.map(x=>{
   const g=x.g,asm=asmOf.get(x.id),route=stationRouteOf(g).codes,mu=stationUnitMerge(g.o,g.l),unit=!!asm&&!!mu&&route.indexOf(stationCode,x.place.far+1)>route.indexOf(mu);
-  return {id:x.id,g,unit,asm,on:x.last&&x.last.on||'',at:x.last?x.last.at:'',batch:g.entry?g.entry.batch.number:'',k:g.o.id+'|'+g.l.id+'|'+(unit?'unit':(g.c?g.c.key:''))};
+  /* Стекло Recut со своим чертежом — отдельной строкой: другой размер. */
+  return {id:x.id,g,unit,asm,on:x.last&&x.last.on||'',at:x.last?x.last.at:'',batch:g.entry?g.entry.batch.number:'',k:g.o.id+'|'+g.l.id+'|'+(unit?'unit|'+stationUnitTag(g.o,g.l,g.unit):(g.c?g.c.key+'|'+stationDrawingKey(g.o,g.l,g.unit):''))};
  });
 }
 /* Сколько: стёкол — или юнитов, когда всё собрано (после IGU). */
@@ -575,9 +576,9 @@ function stationHereTable(s){
   const batches=[...new Set(r.list.map(x=>x.batch).filter(Boolean))].join(', '),cols=stack?7:6;
   return '<tr class="st-here-row'+(urg===2?' st-hot':'')+(open?' open':'')+'" data-station-here="'+esc(r.key)+'" onclick="stationHereOpen=stationHereOpen===\''+esc(r.key)+'\'?\'\':\''+esc(r.key)+'\';render()">'+
    (stack?'<td class="mut st-pos">#'+(r.pos[0]===r.pos[1]?r.pos[0]:r.pos[0]+'–'+r.pos[1])+'</td>':'')+
-   '<td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+r.li+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(glass)+'</td>'+
+   '<td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+r.li+' · <b>'+esc(frac16(stationGeo(r.g).width16/16)+' × '+frac16(stationGeo(r.g).height16/16))+'</b></td><td data-raw>'+esc(glass)+'</td>'+
    '<td class="mono st-bcell">'+esc(batches||'—')+'</td><td class="n"><b>'+r.n+'</b></td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>'+
-   (open?'<tr class="st-here-acts"><td colspan="'+cols+'"><span class="mut">Sticker unreadable?</span><button type="button" class="b" data-station-here-mark onclick="stationHereMark(\''+esc(r.key)+'\')">✓ Mark 1 '+(r.unit?'unit':'glass')+' done</button><button type="button" class="b" data-station-here-print onclick="stationHerePrint(\''+esc(r.key)+'\')">Print a new '+(r.unit?'unit ':'')+'sticker</button>'+(l.shapeRef?'<button type="button" class="b" data-station-here-drawing onclick="stationDrawOpen(\''+esc(o.id)+'\',\''+esc(l.id)+'\')">Drawing</button>':'')+'</td></tr>':'');
+   (open?'<tr class="st-here-acts"><td colspan="'+cols+'"><span class="mut">Sticker unreadable?</span><button type="button" class="b" data-station-here-mark onclick="stationHereMark(\''+esc(r.key)+'\')">✓ Mark 1 '+(r.unit?'unit':'glass')+' done</button><button type="button" class="b" data-station-here-print onclick="stationHerePrint(\''+esc(r.key)+'\')">Print a new '+(r.unit?'unit ':'')+'sticker</button>'+(l.shapeRef||stationDrawRecut(o,l,r.g.unit)?'<button type="button" class="b" data-station-here-drawing onclick="stationDrawOpen(\''+esc(o.id)+'\',\''+esc(l.id)+'\',\''+esc(String(r.g.unit))+'\')">Drawing</button>':'')+'</td></tr>':'');
  }).join('');
  return '<table class="st-here-t" '+(stack?'data-station-stack="'+esc(s.code)+'"':'data-station-nodolly-list')+'><thead><tr>'+(stack?'<th>#</th>':'')+'<th>Order</th><th>Line</th><th>Glass</th><th>Batch</th><th class="n">Pcs</th><th>Due</th></tr></thead><tbody>'+body+'</tbody></table>'+
   (all.length>rows.length?'<div class="mut st-more">+'+(all.length-rows.length)+' more rows</div>':'');
@@ -638,7 +639,7 @@ function stationRecutHTML(){
  const line=g?(g.o.lines||[]).indexOf(g.l)+1:0;
  return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer" role="dialog" aria-label="Recut">'+
   '<h2><span class="st-flag">RECUT</span><span class="mono">'+esc(d.piece)+'</span></h2>'+
-  (g?'<div class="st-dinfo"><span class="k">Order</span><span><b>'+esc(g.o.businessNumber||'')+'</b> · <span data-raw>'+esc(salesCustomerDisplay(g.o.customerId))+'</span></span><span class="k">Line</span><span>Line '+line+' · <b>'+esc(frac16(g.l.width16/16)+' × '+frac16(g.l.height16/16))+'</b></span><span class="k">Glass</span><span><b data-raw>'+esc(g.c?g.c.glass:'')+'</b></span></div>':'')+
+  (g?'<div class="st-dinfo"><span class="k">Order</span><span><b>'+esc(g.o.businessNumber||'')+'</b> · <span data-raw>'+esc(salesCustomerDisplay(g.o.customerId))+'</span></span><span class="k">Line</span><span>Line '+line+' · <b>'+esc(frac16(stationGeo(g).width16/16)+' × '+frac16(stationGeo(g).height16/16))+'</b></span><span class="k">Glass</span><span><b data-raw>'+esc(g.c?g.c.glass:'')+'</b></span></div>':'')+
   stationRecutPlanHTML(g)+
   (own.length?'<div class="st-rgroup">'+esc(stationCode)+'</div><div class="st-reasons">'+own.map(btn).join('')+'</div>':'')+
   '<div class="st-rgroup">Any station</div><div class="st-reasons">'+common.map(btn).join('')+'</div>'+
@@ -720,7 +721,7 @@ function stationQueueView(){
  let after='';
  const v=stationSheetView,plan=v&&cutPlanFor(v.batch),group=plan&&plan.groups.find(g=>g.glass===v.glass),sheet=group&&group.sheets.find(s=>s.no===v.no);
  if(sheet){const next=stationSheetNext(v.batch,group,sheet);after=next?'Sheet '+next.sheet.no+' · <b data-raw>'+esc(next.group.glass)+'</b> · '+next.sheet.pieces.length+' glass'+(next.group.glass!==group.glass?'<div class="st-qchange">Glass change → <b data-raw>'+esc(next.group.glass)+'</b></div>':''):'Batch '+esc(v.batch)+' — last sheet';}
- const recuts=q.recuts.length?'<table><tbody>'+q.recuts.map(x=>'<tr><td><b>'+esc(x.o.businessNumber||'')+'</b></td><td>Line '+x.r.line+(x.l?' · '+esc(frac16(x.l.width16/16)+' × '+frac16(x.l.height16/16)):'')+'</td><td data-raw>'+esc(x.r.lite)+'</td><td class="mut">'+esc(x.r.where)+' · '+raw(x.r.reason)+'</td><td class="n"><b>'+x.n+'</b></td></tr>').join('')+'</tbody></table>':'';
+ const recuts=q.recuts.length?'<table><tbody>'+q.recuts.map(x=>'<tr><td><b>'+esc(x.o.businessNumber||'')+'</b></td><td>Line '+x.r.line+(x.l?' · '+esc(frac16(recutLine(x.r,x.l).width16/16)+' × '+frac16(recutLine(x.r,x.l).height16/16)):'')+'</td><td data-raw>'+esc(x.r.lite)+'</td><td class="mut">'+esc(x.r.where)+' · '+raw(x.r.reason)+'</td><td class="n"><b>'+x.n+'</b></td></tr>').join('')+'</tbody></table>':'';
  return '<div class="st-body st-queue"><div class="st-col">'+head+cards+
   (recuts?'<div class="card"><div class="st-sec"><span class="st-flag">RECUT</span><h3>Waiting for a batch</h3></div>'+recuts+'</div>':'')+'</div>'+
   '<div class="st-col"><div class="card"><div class="st-sec"><h3>Bring to the table</h3></div>'+bring+'</div>'+(after?'<div class="card"><div class="st-sec"><h3>After this sheet</h3></div><div class="st-qafter">'+after+'</div></div>':'')+'</div></div>';
@@ -944,7 +945,7 @@ function stationDollyHTML(){
  const rows=list.map((x,i)=>({x,pos:i+1})).reverse().map(({x,pos})=>{
   const o=x.g.o,l=x.g.l,comps=glassBatchComponents(o,l).filter(c=>!c.missing),on=d.a&&pos>=lo&&pos<=hi;
   const glass=x.g.c?(comps.length>1?'Lite '+x.g.c.lite+' · ':'')+x.g.c.glass:'';
-  return '<tr class="st-mv-row'+(on?' on':'')+'" data-dolly-pos="'+pos+'" onclick="stationDollyTap('+pos+')"><td class="st-pos">#'+pos+'</td><td><b>'+esc(o.businessNumber||'')+'</b></td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td>'+
+  return '<tr class="st-mv-row'+(on?' on':'')+'" data-dolly-pos="'+pos+'" onclick="stationDollyTap('+pos+')"><td class="st-pos">#'+pos+'</td><td><b>'+esc(o.businessNumber||'')+'</b></td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(stationGeo(x.g).width16/16)+' × '+frac16(stationGeo(x.g).height16/16))+'</b></td>'+
    '<td data-raw>'+esc(glass)+'</td><td class="mono st-bcell">'+esc(x.g.entry?x.g.entry.batch.number:'—')+'</td><td>'+(x.place&&x.place.waiting?'→ '+esc(x.place.waiting):'')+'</td><td class="mut">'+esc(x.scan.station)+' '+esc(stationTime(x.scan.at))+'</td></tr>';
  }).join('');
  const title=d.code||'No '+stationTareWord();
@@ -1009,13 +1010,15 @@ function stationUnitNo(g){const mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAs
 function stationPrintUnit(code){
  const g=stationGlass(code),mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;
  if(!a||!a.unit||typeof stkPrint!=='function')return false;
- return stkPrint(stkPages([{type:'unit',o:g.o,l:g.l,unit:a.unit}],stkPrefSize()));
+ /* from — стекло сборки: юнит из стекла Recut со своим чертежом — по нему. */
+ return stkPrint(stkPages([{type:'unit',o:g.o,l:g.l,unit:a.unit,from:g.unit}],stkPrefSize()));
 }
 /* Пару забраковали у света — её не сканируют (скан закрыл бы юнит и
    напечатал стикер), а жмут Recut у недостающего лайта. */
 function stationRecutMissing(asm,key){
  const a=(DB.stationScan||[]).find(s=>s.asm===asm&&!s.undoneAt),g=a?stationGlass(a.piece):null;if(!g)return false;
- const piece=stationPairCandidate(g.o,g.l,key,stationCode);
+ const index=stationPieceIndex(),mates=(DB.stationScan||[]).filter(s=>s.asm===asm&&!s.undoneAt).map(s=>index.get(s.piece)).filter(Boolean);
+ const piece=stationPairCandidate(g.o,g.l,key,stationCode,mates);
  if(!piece){stationNote='No glass of this lite left to recut';render();return false;}
  stationMenu=null;stationDrawer={kind:'recut',piece,asm};render();return true;
 }
@@ -1035,7 +1038,7 @@ function stationPairsCard(){
   const r=(DB.recut||[]).find(y=>y.orderId===g.o.id&&'R'+y.no===x.rec.recut),need=r?glassBatchComponents(g.o,g.l).filter(c=>(r.keys||[]).includes(c.key)):[];
   const fresh=r?(r.keys||[]).flatMap(k=>{const p=(DB.glassPiece||[]).find(q=>q.key===k);return p&&p.extra&&p.extra[x.rec.recut]?p.extra[x.rec.recut].filter(Boolean):[];}):[];
   const f=fresh[0]?stationGlass(fresh[0]):null,fp=f?stationPlace(f):null,where=!f?'':!f.entry&&!stationScansFor(f.id).length?'To batch':fp&&fp.waiting?'at '+fp.waiting:'';
-  return '<tr'+(stationUrgency(g.o)===2?' class="st-hot"':'')+'><td><b>'+esc(g.o.businessNumber||'')+'</b></td><td>Line '+((g.o.lines||[]).indexOf(g.l)+1)+' · <b>'+esc(frac16(g.l.width16/16)+' × '+frac16(g.l.height16/16))+'</b></td><td data-raw>Lite '+esc(g.c.lite)+' · '+esc(g.c.glass)+'</td><td>'+(x.rec.on?'<b class="st-on">'+esc(x.rec.on)+'</b>':'<span class="mut">—</span>')+'</td>'+
+  return '<tr'+(stationUrgency(g.o)===2?' class="st-hot"':'')+'><td><b>'+esc(g.o.businessNumber||'')+'</b></td><td>Line '+((g.o.lines||[]).indexOf(g.l)+1)+' · <b>'+esc(frac16(stationGeo(g).width16/16)+' × '+frac16(stationGeo(g).height16/16))+'</b></td><td data-raw>Lite '+esc(g.c.lite)+' · '+esc(g.c.glass)+'</td><td>'+(x.rec.on?'<b class="st-on">'+esc(x.rec.on)+'</b>':'<span class="mut">—</span>')+'</td>'+
    '<td class="mut">'+(need.length?'needs '+need.map(c=>esc(c.glass)).join(', '):'')+(r?' · Recut '+r.no+(where?' '+esc(where):''):'')+'</td></tr>';
  }).join('');
  return '<div class="card" data-station-pairs><div class="st-sec"><h3>Waiting for a pair</h3><span class="pill warn">'+list.length+'</span></div><table><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th>On</th><th>Pair</th></tr></thead><tbody>'+rows+'</tbody></table></div>';

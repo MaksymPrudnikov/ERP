@@ -108,7 +108,9 @@ function cutPieces(batch,settings){
   const part=batch.parts[item.part],o=salesRecord(part.orderId),l=o&&(o.lines||[]).find(x=>x.id===part.lineId);
   if(!o||!l)return;
   const c=glassBatchComponents(o,l).find(x=>x.key===part.key);if(!c||c.missing)return;
-  const plan=finWithOrder(o,()=>{try{return salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){return {valid:false};}});
+  /* Стекло Recut со своим чертежом режется по нему (erp/quality/recut). */
+  const geo=typeof glassRecutLine==='function'?glassRecutLine(o,l,item.unit):l;
+  const plan=finWithOrder(o,()=>{try{return salesEffectiveCuttingPlan(geo,salesLineGeometryShape(geo),o);}catch(e){return {valid:false};}});
   const lite=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return;
   /* Стекло из прошлого батча режется первым: приоритет 10, пока его не
      поменяли руками (владелец, 5 октября 2026: «дата выполнения ближе»). */

@@ -80,6 +80,13 @@ button.recut-btn{border-color:var(--warning);color:var(--warning)}
 .recut-row:first-of-type{border-top:0}
 .recut-row>span:not(.pill){color:var(--text-2)}
 .recut-row .mut{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Чертёж Recut: размер и Shape цветом перереза; свой чертёж — жирным. */
+.recut-row>span.recut-size{color:var(--warning);font-variant-numeric:tabular-nums;white-space:nowrap}
+.recut-row>span.recut-size.own{font-weight:700}
+.recut-row input.recut-dim{width:84px;color:var(--warning);border-color:var(--warning-line);font-weight:inherit}
+.recut-row button.recut-shape{border-color:var(--warning);color:var(--warning)}
+.recut-row button.recut-shape.own{background:var(--warning);color:var(--surface)}
+.shape-recut-band{margin:8px;padding:8px 10px;border:1px solid var(--warning-line);border-left:4px solid var(--warning);border-radius:8px;background:var(--warning-soft);color:var(--warning);font-size:11px;font-weight:700;letter-spacing:.04em}
 .ncr-pick.ncr-pick-two{grid-template-columns:1fr 1.4fr}
 .ncr-actions-card{margin-top:16px}
 .ncr-warning{padding:8px 12px;border-radius:8px;background:var(--warning-soft);border:1px solid var(--warning-line);color:var(--warning);font-size:13px}

@@ -19,8 +19,9 @@ function stationHeatCode(){return typeof salesRouteStationOf==='function'?salesR
 /* Площадь стекла — кв. футы готового размера; один раз на позицию и версию заказа. */
 let stationAreaCache=new Map();
 function stationSqft(g){
- const k=g.o.id+'|'+g.l.id+'|'+(g.o.updatedAt||'');
- if(!stationAreaCache.has(k)){let a=null;try{a=finWithOrder(g.o,()=>stkPieceArea(g.l,g.o));}catch(e){}stationAreaCache.set(k,Number.isFinite(+a)&&+a>0?+a:(+g.l.width16||0)*(+g.l.height16||0)/256/144);}
+ /* У стекла Recut со своим чертежом — его площадь. */
+ const geo=stationGeo(g),k=g.o.id+'|'+g.l.id+'|'+(geo===g.l?'':JSON.stringify(geo.shapeRef))+'|'+(g.o.updatedAt||'');
+ if(!stationAreaCache.has(k)){let a=null;try{a=finWithOrder(g.o,()=>stkPieceArea(geo,g.o));}catch(e){}stationAreaCache.set(k,Number.isFinite(+a)&&+a>0?+a:(+geo.width16||0)*(+geo.height16||0)/256/144);}
  return stationAreaCache.get(k);
 }
 /* Что здесь и что едет на станцию S (стекло, в маршруте которого S впереди). */
@@ -50,12 +51,12 @@ function stationFlowTiles(S,d){
    тара, срок. */
 function stationFlowHere(S,d){
  const groups=new Map();
- d.here.forEach(x=>{const g=x.g,k=g.o.id+'|'+g.l.id+'|'+(g.c?g.c.key:'');
+ d.here.forEach(x=>{const g=x.g,k=g.o.id+'|'+g.l.id+'|'+(g.c?g.c.key+'|'+stationDrawingKey(g.o,g.l,g.unit):'');
   if(!groups.has(k))groups.set(k,{g,n:0,on:new Set(),batch:new Set(),li:(g.o.lines||[]).indexOf(g.l)+1});const G=groups.get(k);G.n++;if(x.last&&x.last.on)G.on.add(x.last.on);if(g.entry)G.batch.add(g.entry.batch.number);});
  const rows=[...groups.values()].sort((a,b)=>stationUrgency(b.g.o)-stationUrgency(a.g.o)||String(a.g.o.dueDate||'9').localeCompare(String(b.g.o.dueDate||'9'))||String(a.g.o.businessNumber).localeCompare(String(b.g.o.businessNumber))||a.li-b.li).slice(0,60);
  return '<div class="card"><div class="st-sec"><h3>Here now</h3><span class="pill info">'+d.here.length+' glass</span><span class="sp"></span><span class="mut">Critical first, then due</span></div>'+
   (rows.length?'<table data-flow-here><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th>Work</th><th>Batch</th><th class="n">Pcs</th><th>On</th><th>Due</th></tr></thead><tbody>'+rows.map(x=>{const o=x.g.o,l=x.g.l,lites=glassBatchComponents(o,l).filter(c=>!c.missing).length;
-   return '<tr'+(stationUrgency(o)===2?' class="st-hot"':'')+'><td><b>'+esc(o.businessNumber||'')+'</b>'+stationUrgPill(o)+'</td><td>Line '+x.li+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(x.g.c?(lites>1?'Lite '+x.g.c.lite+' · ':'')+x.g.c.glass:'')+'</td><td>'+esc(stationWorksAt(x.g,S).join(', '))+'</td><td class="mono st-bcell">'+esc([...x.batch].join(', ')||'—')+'</td><td class="n"><b>'+x.n+'</b></td><td>'+[...x.on].map(c=>'<b class="st-on">'+esc(c)+'</b>').join(' ')+'</td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>';}).join('')+'</tbody></table>':'<div class="empty">Nothing here yet</div>')+'</div>';
+   return '<tr'+(stationUrgency(o)===2?' class="st-hot"':'')+'><td><b>'+esc(o.businessNumber||'')+'</b>'+stationUrgPill(o)+'</td><td>Line '+x.li+' · <b>'+esc(frac16(stationGeo(x.g).width16/16)+' × '+frac16(stationGeo(x.g).height16/16))+'</b></td><td data-raw>'+esc(x.g.c?(lites>1?'Lite '+x.g.c.lite+' · ':'')+x.g.c.glass:'')+'</td><td>'+esc(stationWorksAt(x.g,S).join(', '))+'</td><td class="mono st-bcell">'+esc([...x.batch].join(', ')||'—')+'</td><td class="n"><b>'+x.n+'</b></td><td>'+[...x.on].map(c=>'<b class="st-on">'+esc(c)+'</b>').join(' ')+'</td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>';}).join('')+'</tbody></table>':'<div class="empty">Nothing here yet</div>')+'</div>';
 }
 /* Работы станции: сколько здесь и сколько едет. */
 function stationFlowWorks(S,d){
@@ -86,7 +87,8 @@ function stationFlowLoads(S,d){
 /* IGU: сколько юнитов можно собрать сейчас и каким не хватает лайта. */
 function stationFlowUnits(S,d){
  const inAsm=new Set();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.station===S)inAsm.add(s.piece);});
- const lines=new Map(),line=g=>{const k=g.o.id+'|'+g.l.id;if(!lines.has(k))lines.set(k,{g,comps:glassBatchComponents(g.o,g.l).filter(c=>!c.missing),here:new Map(),coming:new Map()});return lines.get(k);};
+ /* Юнит Recut со своим чертежом собирается только из своего стекла. */
+ const lines=new Map(),line=g=>{const k=g.o.id+'|'+g.l.id+'|'+stationUnitTag(g.o,g.l,g.unit);if(!lines.has(k))lines.set(k,{g,comps:glassBatchComponents(g.o,g.l).filter(c=>!c.missing),here:new Map(),coming:new Map()});return lines.get(k);};
  d.here.forEach(x=>{if(inAsm.has(x.id)||!x.g.c||stationUnitMerge(x.g.o,x.g.l)!==S)return;const L=line(x.g);L.here.set(x.g.c.key,(L.here.get(x.g.c.key)||0)+1);});
  d.coming.forEach(x=>{if(!x.g.c||stationUnitMerge(x.g.o,x.g.l)!==S)return;const L=line(x.g);if(!L.coming.has(x.g.c.key))L.coming.set(x.g.c.key,new Map());const c=L.coming.get(x.g.c.key);c.set(x.at,(c.get(x.at)||0)+1);});
  const ready=[],partial=[];
@@ -97,7 +99,7 @@ function stationFlowUnits(S,d){
   if(top>n)partial.push({L,n:top-n,has:L.comps.filter(c=>(L.here.get(c.key)||0)>n),miss:L.comps.filter(c=>(L.here.get(c.key)||0)<top)});
  });
  const sort=(a,b)=>stationUrgency(b.L.g.o)-stationUrgency(a.L.g.o)||String(a.L.g.o.dueDate||'9').localeCompare(String(b.L.g.o.dueDate||'9'));
- const lineTd=L=>{const o=L.g.o,l=L.g.l;return '<td><b>'+esc(o.businessNumber||'')+'</b>'+stationUrgPill(o)+'</td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td>';};
+ const lineTd=L=>{const o=L.g.o,l=L.g.l,geo=stationGeo(L.g);return '<td><b>'+esc(o.businessNumber||'')+'</b>'+stationUrgPill(o)+'</td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(geo.width16/16)+' × '+frac16(geo.height16/16))+'</b></td>';};
  const where=(L,c)=>{const m=L.coming.get(c.key);return m&&m.size?[...m.entries()].map(([a,n])=>'<b>'+esc(a)+'</b> '+n).join(' · '):'<span class="mut">not in production</span>';};
  return '<div class="card"><div class="st-sec"><h3>Ready to assemble</h3><span class="pill ok">'+stationPlural(ready.reduce((s,x)=>s+x.n,0),'unit','units')+'</span><span class="sp"></span><span class="mut">all lites here</span></div>'+
   (ready.length?'<table data-flow-ready><thead><tr><th>Order</th><th>Line</th><th>Makeup</th><th class="n">Units</th><th>Due</th></tr></thead><tbody>'+ready.sort(sort).map(x=>'<tr'+(stationUrgency(x.L.g.o)===2?' class="st-hot"':'')+'>'+lineTd(x.L)+'<td data-raw>'+esc(x.L.comps.map(c=>c.glass).join(' / '))+'</td><td class="n st-qbig">'+x.n+'</td><td class="mut">'+esc(x.L.g.o.dueDate?salesListShortDay(x.L.g.o.dueDate):'')+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">No full sets here yet</div>')+'</div>'+
