@@ -76,7 +76,7 @@ function finReceiptDoc(id){
 /* Срок для клиента — без внутренних пометок вроде «Customer on hold». */
 function finDueText(f){
  if(f.dueOn)return docDate(f.dueOn);
- const t=f.terms;return t.paymentMode==='credit'&&t.creditDays?'Net '+t.creditDays+' after pickup':'At pickup';
+ const t=f.terms,w=f.handover||'pickup';return t.paymentMode==='credit'&&t.creditDays?'Net '+t.creditDays+' after '+w:'At '+w;
 }
 function finSigned(v){return v<0?'-'+docMoney(-v):docMoney(v);}
 const FIN_MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];

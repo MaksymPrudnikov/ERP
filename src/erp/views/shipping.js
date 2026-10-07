@@ -78,18 +78,37 @@ function shippingSave(){
 function shippingResult(out){shippingNotice={error:!out.ok,text:out.ok?out.value.number+' · '+shippingStatus(out.value):out.error};render();}
 function shippingStatus(s){return s.status==='delivered'?(s.method==='pickup'?'Picked up':'Delivered'):({planned:'Planned',shipped:'Shipped',cancelled:'Cancelled'})[s.status]||'';}
 /* Статус PS — цветной таблеткой тех же классов, что статус заказа в Sales. */
-function shippingStatusPill(s){return `<span class="pill st-${({planned:'new',shipped:'shipping',delivered:'done',cancelled:'cancelled'})[s.status]||'new'}">${shippingStatus(s)}</span>`;}
+function shippingStatusPill(s){return `<span class="pill st-${({planned:'new',shipped:'shipping',delivered:'done',cancelled:'cancelled'})[s.status]||'new'}">${shippingStatus(s)}</span>`+shippingBalancePill(s);}
+/* Подсветка: в PS заказ cash-клиента с долгом — деньги взять до выдачи. */
+function shippingBalancePill(s){return ['planned','shipped'].includes(s.status)&&shippingOrderIds(s).some(id=>{const o=salesRecord(id);return o&&shippingBalanceDue(o);})?' <span class="pill bad" data-ps-balance>Balance due</span>':'';}
 function shippingQueueChange(orderId,lineId,value){const out=shippingQueueSet(orderId,[lineId],value);shippingNotice=out.ok?null:{error:true,text:out.error};render();}
 /* Loaded: едет то, что отсканировано на станции отгрузки; что остаётся в
    Ready — офис видит до записи. Ничего не сканировали — офис подтверждает
    весь PS сам, как раньше кнопкой Shipped. После записи — печать PS. */
+/* Деньги до отгрузки у cash-клиента (владелец, 7.10.2026: «нужно сначала
+   взять деньги, если у клиента не кредитование — пусть будет окно и
+   подсветка; кредит и лимиты — дело бухгалтерии»). Окно на каждый заказ
+   PS с долгом: Back · Load anyway · Take payment (после оплаты — обратно
+   сюда). Кредитных не спрашиваем. */
+function shippingCashFirst(s,done){
+ const ids=shippingOrderIds(s).filter(oid=>{const o=salesRecord(oid);return o&&shippingBalanceDue(o);});
+ const run=n=>{
+  if(n===ids.length){done();return;}
+  const o=salesRecord(ids[n]),checks=salesTransitionChecks(Object.assign({},o,{delivery:s.method}),'done').filter(c=>c.pay!=null).map(c=>Object.assign({},c,{anyway:'Load anyway'}));
+  salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
+ };run(0);
+}
 function shippingLoaded(id){
+ const s=shippingFind(id);if(!s)return;
+ shippingCashFirst(s,()=>shippingLoadedGo(id));
+}
+function shippingLoadedGo(id){
  const s=shippingFind(id);if(!s)return;
  const state=()=>{const now=shippingFind(id);return now&&shippingWithCtx(()=>shippingLoadState(now));},st=state();
  const stamp=()=>{const now=state();return JSON.stringify([shippingFind(id),now&&now.loaded.map(u=>u.label)]);},before=stamp();
  const run=mode=>{
   if(stamp()!==before){shippingNotice={error:true,text:'Packing slip changed. Try again.'};render();return;}
-  const out=shippingMarkShipped(id,mode);shippingResult(out);if(out.ok)shippingPrint(id);
+  const out=shippingMarkShipped(id,mode);shippingResult(out);if(out.ok)shippingPrint(id,true);
  };
  if(!st.units.length||st.loaded.length===st.units.length){run(st.units.length?'loaded':'');return;}
  if(!st.loaded.length){salesDialogOpen({title:'Nothing scanned at '+shippingStations().ship,note:'Ship all '+shippingLoadPart(st.units)+' on '+s.number+'?',buttons:[{label:'Back'},{label:'Ship all',kind:'pri',run:()=>run('')}]});return;}

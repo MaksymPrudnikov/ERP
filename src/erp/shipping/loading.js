@@ -2,8 +2,10 @@
    IN : готовые юниты (erp/shipping/data) · открытые PS · журнал сканов.
    OUT: line.shipQueue · SHIP-сканы погрузки · состав PS (item.added).
    Владелец: офис открывает рейс, водитель сам выбирает скиды — скан пишет и
-   проверяет. Первый скид открывает рейс; дальше скид чужого клиента или
-   другого PS — красным, ничего не пишется. Грузят и накануне: скид без PS
+   проверяет. Первый скид открывает рейс. Скид другого клиента или другого
+   PS грузится в свой PS — экран предупреждает жёлтым (владелец, 7.10.2026:
+   «зачем блокировать — на машину можно погрузить 3 скида и отвезти трём
+   разным клиентам по очереди»). Грузят и накануне: скид без PS
    идёт в открытый PS клиента с ближайшей датой. Очередь клиента: готовый
    скид с меньшим номером грузят первым. Долг cash-клиента погрузку не
    держит — строка «Balance due — office».
@@ -87,9 +89,11 @@ function shippingLoadPlan(code,tripId){
  const customers=[...new Set(units.map(u=>salesRecord(u.orderId).customerId))];
  if(customers.length>1)return fail('shipMixed',{customers:customers.map(salesCustomerDisplay)});
  const customerId=customers[0],customer=salesCustomerDisplay(customerId),own=[...new Set(units.filter(u=>u.shipment).map(u=>u.shipment.id))];
- let trip=tripId?shippingFind(tripId):null,opened=false;if(trip&&trip.status!=='planned')trip=null;
- if(trip&&trip.customerId!==customerId)return fail('shipOther',{trip,customer});
- if(own.length>1||own.length&&trip&&own[0]!==trip.id)return fail('shipOtherPS',{trip,customer,ps:own.map(id=>shippingFind(id).number)});
+ let trip=tripId?shippingFind(tripId):null,opened=false,switched=null;if(trip&&trip.status!=='planned')trip=null;
+ /* Юниты скида в двух PS — какой из них грузить, решает офис. */
+ if(own.length>1)return fail('shipOtherPS',{trip,customer,ps:own.map(id=>shippingFind(id).number)});
+ /* Другой клиент или другой PS — тот же рейс, свой PS. */
+ if(trip&&(trip.customerId!==customerId||own.length&&own[0]!==trip.id)){switched={from:trip.number,other:trip.customerId!==customerId};trip=null;}
  if(!trip){
   if(own.length)trip=shippingFind(own[0]);
   else{const f=shippingTripFor(customerId);if(!f.trip)return fail(f.count?'shipChoose':'shipNoPS',{customer});trip=f.trip;}
@@ -101,7 +105,7 @@ function shippingLoadPlan(code,tripId){
  const first=(DB.salesOrder||[]).filter(o=>o.customerId===customerId&&!salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status)).flatMap(o=>shippingUnits(o))
   .filter(u=>u.ready&&!mine.has(u.label)&&(!u.shipment||u.shipment.id===trip.id)).map(u=>({u,q:shippingUnitQueue(u)})).filter(x=>x.q&&x.q<q).sort((a,b)=>a.q-b.q||a.u.label.localeCompare(b.u.label))[0];
  if(first)return fail('shipQueue',{trip,customer,take:first.u.skid||first.u.label,queue:first.q});
- return {kind:'ok',code,skid,units,add:units.filter(u=>!u.shipment),trip,opened,customerId,customer};
+ return {kind:'ok',code,skid,units,add:units.filter(u=>!u.shipment),trip,opened,switched,customerId,customer};
 }
 function shippingLoad(code,tripId,who,opts){
  const plan=shippingWithCtx(()=>shippingLoadPlan(code,tripId));if(plan.kind!=='ok')return plan;
@@ -123,7 +127,7 @@ function shippingLoadCommand(code,tripId,who,opts){
  shippingSyncOrders(ids,now);
  const count=id=>plan.units.filter(u=>u.orderId===id).length;
  ids.forEach(id=>orderLogPush(salesRecord(id),'Loaded',s.number+' · '+(plan.skid||plan.units[0].label)+' · '+shippingCount(count(id),'unit')+(plan.add.some(u=>u.orderId===id)?' · added':'')));
- return {kind:'shipLoaded',code,skid:plan.skid,label:plan.skid||plan.units[0].label,ps:s.number,psId:s.id,customer:plan.customer,units:plan.units.length,added:plan.add.length,opened:plan.opened,recId:actionId,at:now,
+ return {kind:'shipLoaded',code,skid:plan.skid,label:plan.skid||plan.units[0].label,ps:s.number,psId:s.id,customer:plan.customer,units:plan.units.length,added:plan.add.length,opened:plan.opened,switched:plan.switched,recId:actionId,at:now,
   orders:ids.map(id=>({number:salesRecord(id).businessNumber,units:count(id)})),balance:ids.some(id=>shippingBalanceDue(salesRecord(id)))};
 }
 /* Undo скана погрузки (erp/shopfloor/scan): добавленное этим сканом уходит

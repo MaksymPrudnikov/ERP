@@ -55,7 +55,7 @@ function finGoBack(back,r){
  tab=back.tab;subtab=back.subtab||null;if(!r)return;
  const text='Payment '+r.number+' saved · '+finFmt(r.amount);
  if(tab==='optimization')optimizationNotice={title:text,detail:'Run the action again.'};
- else if(tab==='shipping')shippingNotice={text:text+' · create the packing slip again'};
+ else if(tab==='shipping')shippingNotice={text:text+' · run the action again'};
 }
 /* Заказы клиента для разнесения: долг считается «до этой квитанции» — при
    правке уже разнесённая ею сумма возвращается в долг заказа. */

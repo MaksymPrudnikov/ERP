@@ -143,6 +143,9 @@ function finOrderFinancial(o,today){
  const overdue=b.balance>0&&dueOn&&dueOn<day?b.balance:0;
  const depositRequired=b.total==null?null:finMoney(b.total*(t.paymentMode==='cash'?t.depositPercent:0)/100);
  const depositMissing=depositRequired==null?null:finShipped(o)?0:finMoney(Math.max(0,depositRequired-b.paid));
+ /* Срок идёт от выдачи: у доставки — «after delivery», не «after pickup»
+    (проход 7.10.2026: North Shore с доставкой видел «Net 30 after pickup»). */
+ const handover=o.delivery==='delivery'?'delivery':'pickup';
  let status,tone='info';
  if(!finOrderCounts(o))status='Inactive';
  else if(finCurrency(o)!=='CAD'){status='Currency review';tone='warn';}
@@ -154,8 +157,8 @@ function finOrderFinancial(o,today){
  else if(depositMissing>0){status='Deposit due';tone='bad';}
  else if(dueOn)status=dueOn===day?'Due today':'Due '+finShortDate(dueOn,day);
  else if(t.paymentMode==='credit'&&t.creditDays==null){status='Net days not set';tone='warn';}
- else status=t.paymentMode==='credit'&&t.creditDays?'Net '+t.creditDays+' after pickup':'Due at pickup';
- return {b,terms:t,dueOn,overdue,depositRequired,depositMissing,status,tone};
+ else status=t.paymentMode==='credit'&&t.creditDays?'Net '+t.creditDays+' after '+handover:'Due at '+handover;
+ return {b,terms:t,dueOn,overdue,depositRequired,depositMissing,status,tone,handover};
 }
 function finCustomerOverdue(customerId,today){
  return finMoney((DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)).reduce((s,o)=>s+finOrderFinancial(o,today).overdue,0));
