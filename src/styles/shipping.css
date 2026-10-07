@@ -7,3 +7,5 @@
 .shipping-lookup-field{display:flex;gap:8px;align-items:center}.shipping-lookup-field select{width:auto}.shipping-lookup-field input{width:160px}.shipping-lookup-where b{min-width:100px}.shipping-lookup-where+p,.shipping-lookup-where+.sales-toolbar{margin-top:14px}.shipping-lookup-bad{font-weight:650;color:var(--red)}
 .delivery-day{display:flex;gap:10px;align-items:center;padding:12px 20px}.delivery-day b{margin-left:8px}.delivery-truck .shipping-customer-head .sales-toolbar{margin:0}.delivery-table input[type=time]{width:120px}.delivery-acts{white-space:nowrap;text-align:right}.delivery-acts button{margin-left:4px;min-width:30px;min-height:28px;font-size:13px}
 .delivery-day input[type=date]{width:auto;flex:none}
+/* Статус PS и «Balance due» — рядом (views/shipping, shippingStatusPill). */
+.shipping-pills{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}

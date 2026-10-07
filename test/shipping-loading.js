@@ -53,11 +53,14 @@ module.exports=async function({page,eq,ok}){
   ldLoad('SL-1');const r=ldLoad('SL-2',s.id);
   return {printed,r,items:s.items.length,added:s.items.filter(i=>i.added).length,reprint:shippingNeedsReprint(s),free:shippingAvailable(salesRecord(b)).length,text:shippingLoadText(shippingLoadState(s)),log:DB.orderEvent.filter(e=>e.what==='Loaded').map(e=>e.note).pop()};
  }),{printed:true,r:{kind:'shipLoaded',ps:'PS-0001',units:3,added:3,opened:false,balance:false},items:6,added:3,reprint:true,free:0,text:'2 skids loaded',log:'PS-0001 · SL-2 · 3 units · added'});
- eq('Another customer and another packing slip are refused on the open trip and nothing is written',await t.p.evaluate(()=>{
+ /* Владелец, 7.10.2026: «зачем блокировать — на машину можно погрузить 3
+    скида и отвезти трём разным клиентам по очереди». */
+ eq('Another customer and another packing slip on the open trip load into their own PS with a notice',await t.p.evaluate(()=>{
   const [a,a2,b]=ldSeed('A A B');ldPut(a,'SL-1');ldPut(a2,'SL-2');ldPut(b,'SL-3');
-  const s=ldPS(a,[a]),other=ldPS(a2,[a2],{shipTo:{address1:'9 Lake Rd'}});ldPS(b,[b]);ldLoad('SL-1');const before=JSON.stringify(DB);
-  return {customer:ldLoad('SL-3',s.id).kind,address:ldLoad('SL-2',s.id).kind,same:before===JSON.stringify(DB),ship:ldShip(),ownTrip:ldLoad('SL-2',other.id).ps};
- }),{customer:'shipOther',address:'shipOtherPS',same:true,ship:6,ownTrip:'PS-0002'});
+  const s=ldPS(a,[a]);ldPS(a2,[a2],{shipTo:{address1:'9 Lake Rd'}});ldPS(b,[b]);ldLoad('SL-1');
+  const one=r=>({kind:r.kind,ps:r.ps,other:r.switched&&r.switched.other,from:r.switched&&r.switched.from});
+  return {customer:one(shippingLoad('SL-3',s.id,ldWho)),address:one(shippingLoad('SL-2',s.id,ldWho)),ship:ldShip()};
+ }),{customer:{kind:'shipLoaded',ps:'PS-0003',other:true,from:'PS-0001'},address:{kind:'shipLoaded',ps:'PS-0002',other:false,from:'PS-0001'},ship:18});
  eq('No open PS, two PS for one day, and the nearest date: today first, tomorrow for evening loading, then overdue',await t.p.evaluate(()=>{
   let [a]=ldSeed('A');ldPut(a,'SL-1');const none=ldLoad('SL-1').kind;
   const late=ldPS(a,[],{date:finAddDays(finToday(),-1)}),overdue=ldLoad('SL-1').ps;stationUndo(DB.stationScan.at(-1).id,ldWho);
@@ -83,11 +86,11 @@ module.exports=async function({page,eq,ok}){
   shippingAvailable(salesRecord(b))[0].pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';});const before=JSON.stringify(DB);
   return {held:[held.kind,held.ids.length],mixed:ldLoad('SL-1').kind,empty:ldLoad('SL-4').kind,same:before===JSON.stringify(DB),ship:ldShip()};
  }),{held:['shipNotReady',3],mixed:'shipMixed',empty:'shipNothing',same:true,ship:0});
- eq('A unit without a skid loads by its glass sticker under the same rules',await t.p.evaluate(()=>{
+ eq('A unit without a skid loads by its glass sticker under the same rules; another customer without its own PS — ask the office',await t.p.evaluate(()=>{
   const [a,b]=ldSeed('A B'),u=shippingAvailable(salesRecord(a))[0],s=ldPS(a,[]);
   const r=shippingLoad(u.pieces[1],'',ldWho),other=ldLoad(shippingAvailable(salesRecord(b))[0].pieces[0],s.id).kind;
   return {kind:r.kind,label:r.label===u.label,units:r.units,added:r.added,ship:ldShip(),skid:s.items[0].skid,other,text:shippingLoadText(shippingLoadState(s))};
- }),{kind:'shipLoaded',label:true,units:1,added:1,ship:2,skid:'',other:'shipOther',text:'1 unit loaded'});
+ }),{kind:'shipLoaded',label:true,units:1,added:1,ship:2,skid:'',other:'shipNoPS',text:'1 unit loaded'});
  eq('Storage failure during loading leaves scans, the PS and the log untouched',await t.p.evaluate(()=>{
   const [a,b]=ldSeed('A A');ldPut(a,'SL-1');ldPut(b,'SL-2');const s=ldPS(a,[a]),before=JSON.stringify(DB);
   const r=ldFail(()=>shippingLoad('SL-2',s.id,ldWho));return {kind:r.kind,note:!!r.note,same:before===JSON.stringify(DB)};
@@ -125,17 +128,17 @@ module.exports=async function({page,eq,ok}){
  }),{refused:'Glass is on a packing slip. Undo or cancel that packing slip first.',after:true,ship:0});
 
  /* --------------------------- экран станции --------------------------- */
- eq('SHIP screen: the first skid opens the trip, a wrong skid is red, Undo returns the skid',await t.p.evaluate(()=>{
+ eq('SHIP screen: the first skid opens the trip, another customer’s skid loads on its PS with a yellow notice, Undo returns the skid',await t.p.evaluate(()=>{
   const [a,b]=ldSeed('A B');ldPut(a,'SL-1');ldPut(b,'SL-2');ldPS(a,[a]);ldPS(b,[b]);ldLogin(shippingStations().ship);
   const trips=document.querySelectorAll('[data-station-trip-row]').length,noTrip=ldText('[data-station-trip]');
   const first=stationSubmit('SL-1'),head=ldText('[data-station-result="shipLoaded"] .st-res-h'),chip=ldText('[data-station-trip]'),row=ldText('[data-station-trip-row="PS-0001"]');
-  const wrong=stationSubmit('SL-2'),red=!!document.querySelector('.st-res.st-red[data-station-result="shipOther"]'),ship=ldShip();
+  const wrong=stationSubmit('SL-2'),red=ldText('[data-station-other-trip]'),ship=ldShip();
   stationSubmit('SL-1');const twice=!!document.querySelector('[data-station-result="shipAlready"]');
   stationSubmit('SL-1');const journal=[...document.querySelectorAll('[data-station-load]')].map(r=>r.dataset.stationLoad+':'+r.cells[2].textContent+':'+r.cells[4].textContent);
   document.querySelector('[data-station-load="SL-1"] button').click();const afterUndo=ldShip(),note=stationNote,card=stationLast;
-  stationTripPick('');const closed=ldText('[data-station-trip]'),other=stationSubmit('SL-2');
+  stationTripPick('');const closed=ldText('[data-station-trip]'),other=stationSubmit('SL-1');
   return {trips,noTrip,first,head:head.includes('SL-1 → PS-0001 · loaded'),chip,row:row.includes('1 skid loaded'),wrong,red,ship,twice,journal,afterUndo,note,card,closed,other,now:ldText('[data-station-trip] b')};
- }),{trips:2,noTrip:null,first:'shipLoaded',head:true,chip:'Loading PS-0001Customer A✕',row:true,wrong:'shipOther',red:true,ship:6,twice:true,journal:['SL-1:PS-0001:3 units'],afterUndo:0,note:'Scan undone',card:null,closed:null,other:'shipLoaded',now:'PS-0002'});
+ }),{trips:2,noTrip:null,first:'shipLoaded',head:true,chip:'Loading PS-0001Customer A✕',row:true,wrong:'shipLoaded',red:'OTHER CUSTOMEROn PS-0002 · was loading PS-0001 · same truck',ship:12,twice:true,journal:['SL-2:PS-0002:3 units','SL-1:PS-0001:3 units'],afterUndo:6,note:'Scan undone',card:null,closed:null,other:'shipLoaded',now:'PS-0001'});
  eq('SHIP screen: Balance due line, queue refusal and the hand mark go through the trip rules',await t.p.evaluate(()=>{
   const [a]=ldSeed('A$'),o=salesRecord(a);ldPut(a,'SL-1',1);ldPS(a,[]);shippingQueueSet(a,[o.lines[1].id],1);ldLogin(shippingStations().ship);
   const loose=shippingAvailable(o).find(u=>u.lineId===o.lines[1].id),queue=stationSubmit('SL-1'),take=ldText('[data-station-result="shipQueue"] .st-res-h');

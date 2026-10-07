@@ -112,7 +112,7 @@ function stationTripChip(){
 function stationShipShow(out){
  stationMenu=null;stationNote=out.kind==='saveError'?out.note:'';
  stationLast={check:out,rec:null,data:null,place:null,at:out.at||new Date().toISOString()};
- stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':'ok'):['shipBack','shipMoved','shipEmptied'].includes(out.kind)?'ok':['shipAlready','shipOnSkid'].includes(out.kind)?'twice':'error');
+ stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':out.switched?'warn':'ok'):['shipBack','shipMoved','shipEmptied'].includes(out.kind)?'ok':['shipAlready','shipOnSkid'].includes(out.kind)?'twice':'error');
 }
 function stationShipSubmit(raw,who,manual){
  const code=stationCodeOf(raw),t=carrierType(code);if(!code)return false;
@@ -153,6 +153,7 @@ function stationShipCard(L){
  const c=L.check,time='<span>'+esc(stationTime(L.at))+'</span>',what=esc(c.skid||c.label||c.code);
  const cur=stationTrip(),trip=c.trip?'<div class="mut">'+(cur&&cur.id===c.trip.id?'Loading ':'')+esc(c.trip.number)+' · <span data-raw>'+esc(salesCustomerDisplay(c.trip.customerId))+'</span></div>':'';
  if(c.kind==='shipLoaded')return '<div class="st-res st-ok" data-station-result="shipLoaded"><div class="st-res-h">✓ '+esc(c.label)+' → '+esc(c.ps)+(c.added?' · added':' · loaded')+time+'</div>'+
+  (c.switched?'<div class="st-askbar" data-station-other-trip>'+(c.switched.other?'OTHER CUSTOMER':'OTHER PACKING SLIP')+'<span>On '+esc(c.ps)+' · was loading '+esc(c.switched.from)+' · same truck</span></div>':'')+
   (c.balance?'<div class="st-urg" data-station-balance>BALANCE DUE<span>· office</span></div>':'')+
   '<div class="st-res-b"><div class="st-big st-dark"><small>'+(c.added?'ADDED TO':'LOADED')+'</small><b class="st-big-code">'+esc(c.ps)+'</b><span data-raw>'+esc(c.customer)+'</span></div>'+
   '<div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div><div class="st-kv"><span class="k">Units</span><span><b>'+c.units+'</b></span><span class="k">Orders</span><span>'+c.orders.map(o=>'<b>'+esc(o.number)+'</b> ×'+o.units).join(' · ')+'</span></div></div></div>'+
@@ -169,7 +170,6 @@ function stationShipCard(L){
  const ids=(c.ids||[]).slice(0,4).join(', ')+((c.ids||[]).length>4?' +'+((c.ids||[]).length-4):'');
  const K={
   shipQueue:{head:'Take '+esc(c.take)+' first',small:'TAKE FIRST',big:esc(c.take),sub:'Queue '+c.queue,info:trip},
-  shipOther:{head:'Other customer',small:'NOT THIS TRIP',big:'STOP',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:trip},
   shipOtherPS:{head:'Other packing slip',small:'IS ON',big:esc((c.ps||[]).join(', ')),sub:'Not this trip',info:trip},
   shipNoPS:{head:'No packing slip',small:'ASK THE OFFICE',big:'NO PS',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:''},
   shipChoose:{head:'Choose the trip',small:'TWO TRIPS',big:'CHOOSE',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:'<div class="mut">Tap the trip on the right</div>'},
