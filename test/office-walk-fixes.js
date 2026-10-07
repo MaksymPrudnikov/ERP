@@ -65,11 +65,15 @@ module.exports=async function({page,eq,ok}){
   soDraft=null;soEdit=null;tab='dashboard';render();return {before,blank,after,again,marked};
  }),{before:1,blank:true,after:['2:20×30:A','1:24×36:B'],again:3,marked:true});
 
- eq('очередь Optimization: колонка Priority видна сразу',await t.p.evaluate(()=>{
+ /* Владелец, 7.10.2026: «зачем суммы для оптимизатора — лишняя информация;
+    зачем там квоты — квоты оптимизируются в Sales». */
+ eq('очередь Optimization: Priority видна сразу; денег (Total, Receipts, Balance) нет; внизу «N orders» без Quotes; в Shipping Balance остаётся',await t.p.evaluate(()=>{
   oqReset();oqOrder(oqCustomer({}),{priority:'critical'});soDraft=null;soEdit=null;oqQueue();
   const heads=[...document.querySelectorAll('.sl-table thead th')].map(th=>th.textContent.trim()),cell=[...document.querySelectorAll('.sl-table tbody td')].some(td=>/Critical/.test(td.textContent));
-  tab='dashboard';render();return {priority:heads.some(h=>/^Priority/.test(h)),cell};
- }),{priority:true,cell:true});
+  const money=heads.filter(h=>/^(Total|Receipts|Balance)/.test(h)),foot=document.querySelector('[data-foot-count] b').textContent,columns=salesListCatalog().filter(c=>c.money).length;
+  oqQueue('awaiting');const ship=[...document.querySelectorAll('.sl-table thead th')].some(th=>/^Balance/.test(th.textContent.trim()));
+  tab='dashboard';render();return {priority:heads.some(h=>/^Priority/.test(h)),cell,money,foot,columns,ship};
+ }),{priority:true,cell:true,money:[],foot:'1 order',columns:0,ship:true});
 
  eq('Payments из заказа → «+ New receipt»: клиент выбран, депозит наличного заказа разнесён на заказ',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer({paymentMode:'cash'})),o=salesRecord(id),dep=salesMoney(finOrderBalance(o).total*.5).toFixed(2);soDraft=null;soEdit=null;
