@@ -91,7 +91,7 @@ function shapeMetricProductionOptions(result,interactive){
       var pts=shapeLiteContourPoints(selected);
       if(pts&&pts.length>=3){
         metric.points=pts;
-        var line=(typeof soDraft!=='undefined'&&soDraft&&typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.kind==='shape')?(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;}):null;
+        var line=shapeBridgeLine();
         var own=line?salesLineLiteShape(line,selected):null,source=own?ShapeModule.compute(own):result;
         metric.edgeIds=source&&source.geometry?(source.geometry.edges||[]).map(function(e){return e.id;}):[];
       }
@@ -2046,9 +2046,27 @@ function shapeBaseEdgeworkHint(has){
    его отступ и его кромку. Показываем только когда лайтов больше одного. */
 /* Открыта СВОЯ форма лайта — говорим об этом в шапке редактора, а не внутри
    свёрнутой секции кромок, иначе подсказку не видно. */
+/* Строка заказа под редактором; у чертежа Recut — вид строки с его формами
+   (erp/quality/recut). */
+function shapeBridgeLine(){
+  if(typeof soDraft==='undefined'||!soDraft||typeof salesBridge==='undefined'||!salesBridge||salesBridge.kind!=='shape')return null;
+  var line=(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;})||null;
+  var rc=line&&salesBridge.recutId&&typeof recutFind==='function'?recutFind(salesBridge.recutId):null;
+  return rc?recutLine(rc,line):line;
+}
+/* Чертёж Recut: полоса «RECUT n · Line m · где · что · Was W × H» — размер
+   строки заказа, по которому порезали с ошибкой. */
+function shapeRecutBanner(){
+  var rc=salesBridge&&salesBridge.kind==='shape'&&salesBridge.recutId&&typeof recutFind==='function'?recutFind(salesBridge.recutId):null;if(!rc)return '';
+  var line=typeof soDraft!=='undefined'&&soDraft?(soDraft.lines||[]).find(function(l){return l.id===rc.lineId;}):null;
+  var was=line?dimIn16(line.width16/16)+' × '+dimIn16(line.height16/16):'';
+  return `<div class='shape-recut-band' data-shape-recut-band>${esc(['RECUT '+rc.no,'Line '+rc.line,ncrWhereLabel(rc),rc.reason,was?'Was '+was:''].filter(Boolean).join(' · '))}</div>`;
+}
 function shapeLiteBanner(){
-  if(!salesBridge||salesBridge.kind!=='shape'||salesBridge.liteIndex==null)return '';
-  return `<div class='shape-lite-note own'>This is the own Shape of <b>Lite ${salesBridge.liteIndex+1}</b> of this order line. The other lites live on the shared Shape.</div>`;
+  if(!salesBridge||salesBridge.kind!=='shape')return '';
+  var recut=shapeRecutBanner();
+  if(salesBridge.liteIndex==null)return recut;
+  return recut+`<div class='shape-lite-note own'>This is the own Shape of <b>Lite ${salesBridge.liteIndex+1}</b> of this ${salesBridge.recutId?'recut':'order line'}. The other lites live on the shared Shape.</div>`;
 }
 function shapeEdgeLiteTabs(){
   if(salesBridge&&salesBridge.kind==='shape'&&salesBridge.liteIndex!=null)return '';
@@ -2091,7 +2109,7 @@ function shapeMiniContourSvg(points,cls){
 /* Контур конкретного лайта прямо из редактора: своя форма → её контур, иначе
    контур формы с отступом лайта; зеркало применяется последним. */
 function shapeLiteContourPoints(liteIndex){
-  var line=(typeof soDraft!=='undefined'&&soDraft&&salesBridge&&salesBridge.kind==='shape')?(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;}):null;
+  var line=shapeBridgeLine();
   var own=line?salesLineLiteShape(line,liteIndex):null;
   var def=own||sDraft,r=def?ShapeModule.compute(def):null;
   if(!r||!r.valid||!r.cutting||!r.cutting.finishedPoints)return null;
@@ -2113,7 +2131,9 @@ function shapeLiteSplitEditor(){
   if(salesBridge&&salesBridge.kind==='shape'&&salesBridge.liteIndex!=null)return '';
   var lites=shapeEditorLites();
   if(lites.length<2)return '';
-  var line=(typeof soDraft!=='undefined'&&soDraft&&salesBridge)?(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;}):null;
+  /* У чертежа Recut свои формы лайтов позиции не отделяются и не
+     возвращаются: эти кнопки правят строку заказа. */
+  var line=shapeBridgeLine(),act=line&&!salesBridge.recutId;
   var groups=shapeGroups(),changed=0;
   var rows=lites.map(function(l){
     var spec=(sDraft.lites||{})[String(l.index)]||{},own=line?salesLineLiteShape(line,l.index):null;
@@ -2122,9 +2142,9 @@ function shapeLiteSplitEditor(){
     var state=own?`<span class='pill info' data-raw>${esc(own.name)}</span>`
       :(spec.mirror?`<span class='pill info'>Mirror</span>`:'')+(insetCount?`<span class='pill info'>Inset</span>`:'')||`<span class='pill'>Same as Shape</span>`;
     var actions=own
-      ? `<button type='button' class='sm' onclick='salesOpenLiteShape("${esc(line.id)}",${l.index})'>Open</button><button type='button' class='sm dl' onclick='salesReattachLiteShape("${esc(line.id)}",${l.index})'>Back to shared</button>`
+      ? (act?`<button type='button' class='sm' onclick='salesOpenLiteShape("${esc(line.id)}",${l.index})'>Open</button><button type='button' class='sm dl' onclick='salesReattachLiteShape("${esc(line.id)}",${l.index})'>Back to shared</button>`:'')
       : `<label class='shape-lite-mirror'><input type='checkbox' ${spec.mirror?'checked':''} onchange='setShapeLiteMirror(${l.index},this.checked)'><span>Mirror</span></label>`
-        +(line?`<button type='button' class='sm' onclick='salesOpenLiteShape("${esc(line.id)}",${l.index})'>Own shape</button>`:'');
+        +(act?`<button type='button' class='sm' onclick='salesOpenLiteShape("${esc(line.id)}",${l.index})'>Own shape</button>`:'');
     var insets=own?'':`<div class='shape-lite-insets'><span>Inset per edge</span>${groups.map(function(g,gi){
       var v=(spec.inset||{})[g.id]||'';
       return `<label><b>${esc(g.id)}</b><input value='${esc(v)}' placeholder='0' onchange='setShapeLiteInsetFor(${l.index},${gi},this.value)'></label>`;
@@ -2433,6 +2453,8 @@ function saveShape(){
   var r=ShapeModule.compute(sDraft),external=r.externalFile&&r.sourceValid;if(!r.valid&&!external)return fail(e,(r.errors&&r.errors.length?r.errors:[r.reason]).map(function(x){return String(x||'');}).join(' · '));
   var prior=sEdit==='new'?null:DB.shapeDef[sEdit];
   var saved=r.definition||normalizeShapeDef(sDraft);saved.name=sDraft.name;saved.revision=prior?(prior.revision||0)+1:1;saved.status='draft';
+  /* Чертёж Recut пишется одной записью вместе с Recut и батчем (erp/quality/recut). */
+  if(typeof salesBridgeSaveRecut==='function'&&salesBridgeSaveRecut(saved,e))return;
   if(sEdit==='new')DB.shapeDef.push(saved);else DB.shapeDef[sEdit]=saved;var savedId=saved.id;touch();
   if(typeof salesBridgeOnShapeSaved==='function'&&salesBridgeOnShapeSaved(savedId))return;
   sEdit=null;sDraft=null;render();

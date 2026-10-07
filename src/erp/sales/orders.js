@@ -1440,6 +1440,8 @@ function salesPruneOrphanShapes(){
  };
  (DB.salesOrder||[]).forEach(function(o){(o&&o.lines||[]).forEach(keep);});
  if(typeof soDraft!=='undefined'&&soDraft)(soDraft.lines||[]).forEach(keep);
+ /* Чертёж Recut (erp/quality/recut) держит свои формы сам. */
+ (DB.recut||[]).forEach(function(r){if(!r||!r.shapeRef)return;[r.shapeRef].concat(Object.values(r.liteShapes||{})).forEach(function(x){if(x&&x.id)ids.add(x.id);});});
  const before=DB.shapeDef.length;
  DB.shapeDef=DB.shapeDef.filter(function(s){return s&&(ids.has(s.id)||(s.ownerLineId&&lineIds.has(s.ownerLineId)));});
  return before-DB.shapeDef.length;

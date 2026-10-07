@@ -53,9 +53,10 @@ function prodBoard(){
    glassBatchComponents(o,l).forEach(c=>{
     if(c.missing)return;
     const rec=pieces.get(c.key);if(!rec)return;
-    const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean),lc={queue:0},lr={},lon=new Set(),lonAt={};let ls=0,lb=0;
-    ids.forEach(id=>{
-     const e=batches.get(id)||null,scans=scansBy.get(id)||[],g={id,o,l,c,entry:e};total++;
+    /* С местом стекла: у стекла Recut со своим чертежом свой маршрут. */
+    const ids=rec.ids.map((id,i)=>[id,i+1]).concat(...Object.keys(rec.extra||{}).map(nr=>rec.extra[nr].map((id,k)=>[id,nr+'.'+(k+1)]))).filter(x=>x[0]),lc={queue:0},lr={},lon=new Set(),lonAt={};let ls=0,lb=0;
+    ids.forEach(([id,unit])=>{
+     const e=batches.get(id)||null,scans=scansBy.get(id)||[],g={id,o,l,c,unit,entry:e};total++;
      const place=stationPlace(g,scans),queued=!e&&!scans.length;
      /* Разбитое стекло не в производстве: вместо него едет стекло Recut. */
      if(place.broken){total--;lb++;return;}
