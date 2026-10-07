@@ -171,5 +171,22 @@ module.exports=async function({page,eq,ok}){
  eq('Office controls create, ship and scan the signed PS; scan focus returns',await t.p.evaluate(()=>({status:DB.shipment[0].status,order:DB.salesOrder[0].status,focus:document.activeElement.id})),{status:'delivered',order:'done',focus:'shippingSigned'});
  await t.p.getByRole('button',{name:'Filter Customer',exact:true}).click();ok('Shipment column filter opens',await t.p.locator('.sl-menu').count()>0);await t.p.evaluate(()=>{salesListMenu=null;render();});
  await t.p.setViewportSize({width:390,height:844});eq('Shipping fits the narrow viewport',await t.p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+ // Both order lists share the class of the small Queue input in Ready.
+ // A width intended for that input must never collapse the whole list.
+ await t.p.evaluate(()=>{const id=oqOrder(oqCustomer());salesDraftDrop();salesSetRecordStatus(id,'verified');tab='shipping';render();});
+ const queueWidths=[];
+ for(const width of [1440,768,390]){
+  await t.p.setViewportSize({width,height:900});
+  for(const key of ['awaiting','done']){
+   await t.p.locator('[data-shipping-tab="'+key+'"]').click();
+   queueWidths.push(await t.p.evaluate(()=>{
+    const queue=document.querySelector('section.shipping-queue'),workspace=document.querySelector('.shipping-workspace');
+    return !!queue&&Math.abs(queue.getBoundingClientRect().width-workspace.getBoundingClientRect().width)<2&&queue.querySelectorAll('[data-queue-order]').length>0&&document.documentElement.scrollWidth<=innerWidth+1;
+   }));
+  }
+ }
+ await t.p.evaluate(()=>{shSeed();tab='shipping';shippingTab='ready';render();});
+ const compactQueue=await t.p.locator('input.shipping-queue').first().evaluate(e=>e.getBoundingClientRect().width>0&&e.getBoundingClientRect().width<=80);
+ eq('Awaiting readiness and Done fill the available width at desktop, tablet and phone sizes; Queue input stays compact',{queues:queueWidths,input:compactQueue},{queues:[true,true,true,true,true,true],input:true});
  eq('Shipping browser errors',t.errs,[]);await t.c.close();
 };
