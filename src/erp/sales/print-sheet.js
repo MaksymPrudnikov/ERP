@@ -16,12 +16,18 @@ function salesSheetLineOf(shape){
   var lines=soDraft.lines||[];
   var line=id?lines.find(function(l){return l.id===id;}):null;
   if(!line&&shape&&shape.ownerLineId)line=lines.find(function(l){return l.id===shape.ownerLineId;});
-  return line||null;
+  /* Лист Recut — по чертежу Recut (erp/quality/recut). */
+  var rc=salesSheetRecut();
+  return line&&rc&&rc.lineId===line.id?recutLine(rc,line):line||null;
+}
+function salesSheetRecut(){
+  var id=typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.kind==='shape'?salesBridge.recutId:'';
+  return id&&typeof recutFind==='function'?recutFind(id):null;
 }
 function salesSheetLineNumber(line){
   if(!line||typeof soDraft==='undefined'||!soDraft)return '';
-  var i=(soDraft.lines||[]).indexOf(line);
-  return i<0?'':String(i+1);
+  var i=(soDraft.lines||[]).findIndex(function(l){return l.id===line.id;}),rc=salesSheetRecut();
+  return i<0?'':String(i+1)+(rc?' · RECUT '+rc.no:'');
 }
 /* Заголовок листа: у одинарного стекла это само стекло, у пакета — его состав.
    Разбивка L1 / C1 / L2 показывает, что за чем стоит. */
@@ -274,7 +280,7 @@ function salesShapeSheetHTML(shape,result,svg,kind){
   var layered=salesSheetIsLayered(makeup),t=salesSheetTitleLines(makeup,line);
   /* Одинарное стекло считают штуками, пакет и ламинат — юнитами: это разные
      вещи на складе и в отгрузке. */
-  var n=line?(line.qty||1):0;
+  var rc=salesSheetRecut(),n=rc?rc.qty:line?(line.qty||1):0;
   var assembled=makeup&&((makeup.panes||[]).length>1||(makeup.panes||[]).some(function(p){return p.category==='laminated';}));
   var qty=line?(n+' '+(assembled?(n===1?'unit':'units'):(n===1?'pc':'pcs'))):'';
   /* Метка строки — это примечание цеху, поэтому она стоит в NOTE, а не рядом с
@@ -327,13 +333,15 @@ function salesSheetFoot(html,text){
    открыть и не распечатать. Редактор рисует лист из своего sDraft и
    salesBridge, поэтому на время отрисовки подставляем копию формы строки и
    всё возвращаем. Редактировать здесь нечего — строка в батче тоже рисуется. */
-function salesLineDrawing(line){
-  var shape=line&&salesShapeByRef(line.shapeRef);if(!shape)return null;
+/* recut — лист Recut со своим чертежом: «Recut n · Line m». */
+function salesLineDrawing(line,recut){
+  var geo=recut&&typeof recutLine==='function'?recutLine(recut,line):line;
+  var shape=geo&&salesShapeByRef(geo.shapeRef);if(!shape)return null;
   var keep={draft:sDraft,bridge:salesBridge,view:sView,lite:typeof sEdgeLite==='undefined'?null:sEdgeLite,place:sManufacturingPlace};
   try{
-    sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));salesBridge={kind:'shape',lineId:line.id};
+    sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));salesBridge=Object.assign({kind:'shape',lineId:line.id},geo!==line?{recutId:recut.id}:{});
     sView='production';sEdgeLite=null;sManufacturingPlace=null;
-    if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(line,sDraft);
+    if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(geo,sDraft);
     var r=ShapeModule.compute(sDraft);
     if(!shapeSheetOk(r))return {line:line,error:String((r.errors&&r.errors[0])||r.reason||'Invalid geometry')};
     return {line:line,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false),'PRODUCTION DRAWING')};

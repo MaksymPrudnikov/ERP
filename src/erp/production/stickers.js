@@ -181,7 +181,8 @@ function stkVarValue(v){
  const t=String(v);if(/^\d{4}-\d{2}-\d{2}(T|$)/.test(t)){const d=stkDue(t.slice(0,10));return d.day?d.weekday+' '+d.day:t;}
  return t.replace(/\s*\n\s*/g,' ');
 }
-function stkVars(o,l,li){
+/* geo — геометрия стекла (у Recut со своим чертежом — его размер). */
+function stkVars(o,l,li,geo){geo=geo||l;
  const vars={},skip=/(^id$|Id$|Ids$|Ref$|16$|^price|Price|Override$|^rev$|Rev$|fingerprint)/i;
  const add=(group,obj,depth)=>Object.keys(obj||{}).forEach(k=>{
   const v=obj[k];if(skip.test(k)||Array.isArray(v))return;
@@ -189,14 +190,14 @@ function stkVars(o,l,li){
   const label=group.includes(':')?group+' '+stkHuman(k).toLowerCase():group+': '+stkHuman(k);vars[label]=stkVarValue(v);
  });
  add('Order',o,0);add('Customer',typeof salesFindCustomer==='function'?salesFindCustomer(o.customerId):null,0);add('Line',l,0);
- Object.assign(vars,{'Line: Number':String(li+1),'Line: Width':frac16(l.width16/16)+'″','Line: Height':frac16(l.height16/16)+'″','Order: Status':typeof salesStatusLabel==='function'?salesStatusLabel(o):o.status,'Customer: Name':salesCustomerDisplay(o.customerId)});
+ Object.assign(vars,{'Line: Number':String(li+1),'Line: Width':frac16(geo.width16/16)+'″','Line: Height':frac16(geo.height16/16)+'″','Order: Status':typeof salesStatusLabel==='function'?salesStatusLabel(o):o.status,'Customer: Name':salesCustomerDisplay(o.customerId)});
  return vars;
 }
 function stkFill(text,d){return String(text||'').replace(/\{([^{}]{1,80})\}/g,(m,k)=>d&&d.vars&&Object.prototype.hasOwnProperty.call(d.vars,k.trim())?d.vars[k.trim()]:'');}
-function stkOrderData(o,l,li){
+function stkOrderData(o,l,li,geo){
  const due=stkDue(o.dueDate);
  return {order:o.businessNumber||'',line:li+1,customer:salesCustomerDisplay(o.customerId),po:o.customerPo||'',mark:l.mark||'',due:due.day,dueWeekday:due.weekday,
-  rush:['rush','critical'].includes(o.priority),priority:o.priority&&o.priority!=='normal'?(SALES_LIST_PRIORITY[o.priority]||''):'',delivery:salesDeliveryLabel(o.delivery),created:stkDue(String(o.createdAt||'').slice(0,10)).day,vars:stkVars(o,l,li)};
+  rush:['rush','critical'].includes(o.priority),priority:o.priority&&o.priority!=='normal'?(SALES_LIST_PRIORITY[o.priority]||''):'',delivery:salesDeliveryLabel(o.delivery),created:stkDue(String(o.createdAt||'').slice(0,10)).day,vars:stkVars(o,l,li,geo)};
 }
 /* Одно стекло: название и код, толщина, закалка, HST, сторона покрытия,
    фрит и спандрел со своей стороной. Сторона берётся тем же контрактом, что
@@ -280,17 +281,21 @@ function stkGlassData(kind,o,l,c,unit,opts){
  opts=opts||{};
  return finWithOrder(o,()=>{
   const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],recut=typeof unit==='string',nr=recut?unit.split('.')[0]:'';
-  const plan=stkPlan(o,l),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);
+  /* Размер, контур и маршрут стекла Recut — по его чертежу (erp/quality/recut). */
+  const geo=glassRecutLine(o,l,unit),plan=stkPlan(o,geo),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);
   const rec=glassPieceMap(o.id).get(c.key),comps=glassBatchComponents(o,l);
-  return Object.assign(stkOrderData(o,l,li),{kind,id:glassPieceAt(rec,unit)||'',unit:recut?0:unit,of:l.qty,lite:c.lite,lites:panes.length,recut:recut?'RECUT '+nr.replace(/^R/,''):'',batch:opts.batch||'',
+  return Object.assign(stkOrderData(o,l,li,geo),{kind,id:glassPieceAt(rec,unit)||'',unit:recut?0:unit,of:l.qty,lite:c.lite,lites:panes.length,recut:recut?'RECUT '+nr.replace(/^R/,''):'',batch:opts.batch||'',
    glass:c.missing?{name:'Glass missing',code:'',mm:null,heat:'',heatSoak:false,surface:'',paint:[],ply:''}:stkGlassInfo(c.pane,c.index,c.ply),
-   cut:stkCut(cut,stkFinished(cut,l)),finished:stkFinished(cut,l),area:stkPieceArea(l,o),weight:stkWeight(l,o,c.lite),
+   cut:stkCut(cut,stkFinished(cut,geo)),finished:stkFinished(cut,geo),area:stkPieceArea(geo,o),weight:stkWeight(geo,o,c.lite),
    sheet:stkSheetOf(opts.batch,glassPieceAt(rec,unit)),
-   shape:stkShapeOf(cut),route:kind==='production'&&typeof stationRouteOf==='function'?stationRouteOf({o,l,c}):kind==='production'?stkRoute(o,l,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
+   shape:stkShapeOf(cut),route:kind==='production'&&typeof stationRouteOf==='function'?stationRouteOf({o,l,c,unit}):kind==='production'?stkRoute(o,geo,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
  });
 }
-function stkUnitData(o,l,unit){
+/* from — место стекла, из которого собран юнит: юнит из стекла Recut со своим
+   чертежом печатается по этому чертежу. */
+function stkUnitData(o,l,unit,from){
  return finWithOrder(o,()=>{
+  const geo=glassRecutLine(o,l,from);
   const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],lam=panes.some(p=>p.category==='laminated');
   const rows=[];
   panes.forEach((p,i)=>{
@@ -300,10 +305,10 @@ function stkUnitData(o,l,unit){
     rows.push({kind:'lam',label:'Lite '+(i+1),outer:stkGlassInfo(p,i,'outer'),inner:stkGlassInfo(p,i,'inner'),films:(L.interlayers||[]).map(f=>{const prod=mdById('interlayerProduct',f.productId);return {name:prod?prod.name:'Interlayer',mm:+f.thicknessMm||null,layers:+f.layers||1};})});}
    else rows.push({kind:'glass',label:'Lite '+(i+1),glass:stkGlassInfo(p,i,'')});
   });
-  const plan=stkPlan(o,l),lite=plan.valid&&(plan.lites||[])[0],mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
-  return Object.assign(stkOrderData(o,l,li),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
+  const plan=stkPlan(o,geo),lite=plan.valid&&(plan.lites||[])[0],mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
+  return Object.assign(stkOrderData(o,l,li,geo),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
    heading:type+(lam&&m.unitType!=='single'?' · laminated':''),thicknessMm:mm,code:m?salesMakeupSummary(m):'',rows,muntin:muntin?'Muntins · '+salesMuntinSections(l)+' sections':'',
-   finished:stkFinished(lite,l),cut:null,area:stkPieceArea(l,o),weight:stkWeight(l,o,null),shape:stkShapeOf(lite)});
+   finished:stkFinished(lite,geo),cut:null,area:stkPieceArea(geo,o),weight:stkWeight(geo,o,null),shape:stkShapeOf(lite)});
  });
 }
 /* Данные стикера остатка из записи DB.stockOffcut. */
