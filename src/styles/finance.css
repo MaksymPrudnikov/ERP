@@ -71,6 +71,8 @@
 .fin-preview{width:min(860px,96vw);display:flex;flex-direction:column;max-height:92vh;overflow:hidden}.fin-preview .sales-service-modal-head{align-items:center}.fin-preview .fin-preview-actions{flex-direction:row;gap:8px;margin-left:auto}.fin-preview .doc-pages{background:var(--surface-3);flex:1}.fin-preview .fin-preview-note{margin:8px 16px 0}
 .fin-statements{width:min(980px,96vw)}.fin-preview-back{z-index:120}
 @media(max-width:900px){.fin-workspace-head{align-items:flex-start;flex-wrap:wrap}.fin-stat{min-width:0;flex:1}.fin-event-diff{padding:0 0 12px;grid-template-columns:1fr}.fin-event-time{max-width:120px}.fin-account-head .row{flex-wrap:wrap}.fin-account-totals{gap:16px}}
+/* Телефон: четыре плитки в одну строку не помещаются — по две, кнопка ниже. */
+@media(max-width:650px){.fin-overview{flex-basis:100%}.fin-stat{flex:1 1 130px}}
 .fin-form>.fin-form-actions{position:sticky;bottom:0;background:var(--surface);padding:12px 0;border-top:1px solid var(--line);z-index:1}
 /* Таблицы Finance на движке Sales (views/finance-lists) */
 .fin-card .sl-quiet.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}

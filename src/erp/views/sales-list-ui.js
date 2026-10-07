@@ -80,7 +80,11 @@ function salesListCatalog(){
     7.10.2026): в очереди Optimization нет Total, Receipts и Balance. В
     Shipping долг остаётся — по нему решают, отдавать ли. */
  const money=tab==='optimization';
- return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)&&!(money&&c.money)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
+ /* Оптимизатору важно, сколько стекла и сколько ft² (владелец, 7.10.2026):
+    Area ft² видна сразу, рядом с Units — Glass pcs, стекло к резке (у
+    стеклопакета два-три, у ламината — каждая плита, как в To batch). */
+ const pcs={k:'pcs',label:'Glass pcs',type:'number',def:true,sum:true};
+ return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)&&!(money&&c.money)).flatMap(c=>{const col=Object.assign({},c,{def:defaults.includes(c.k)||money&&c.k==='area',tokens:c.k==='glass'});return money&&c.k==='units'?[col,pcs]:[col];})
   .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]).concat(tab==='shipping'&&shippingTab==='awaiting'?[{k:'readyQty',label:'Ready',type:'text',def:true}]:[]);
 }
 function salesListColumn(k){return salesListCatalog().find(c=>c.k===k)||null;}
@@ -177,6 +181,7 @@ function salesListValue(info,k){
   case 'batch':v=salesOrderBatchNumbers(o).join(', ');break;
   case 'newLines':v=salesUnbatchedLines(o).length;break;
   case 'units':v=lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1),0);break;
+  case 'pcs':v=lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1)*glassBatchComponents(o,l).length,0);break;
   case 'area':v=Math.round(finWithOrder(o,()=>lines.reduce((s,l)=>{const a=salesLineAreas(l,o);return s+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0))*10)/10;break;
   case 'total':{const t=finOrderTotals(o);v=t.complete?finMoney(t.grand):null;break;}
   case 'receipts':v=!q&&finOrderCounts(o)?finOrderPaid(o.id).paid:null;break;
@@ -359,7 +364,7 @@ function salesListCell(info,col){
   case 'created':case 'due':case 'validUntil':case 'updated':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'status':return `<td>${q?salesQuoteGroupPill(o):salesStatusPill(o)}${!q&&o.onHold?' <span class="pill hold">On Hold</span>':''}</td>`;
   case 'glass':return `<td><span class="sl-glass" title="${esc(v)}">${raw(v||'—')}</span></td>`;
-  case 'units':case 'lines':case 'shapes':case 'revisions':case 'weight':return `<td class="n">${salesListNum(v)}</td>`;
+  case 'units':case 'pcs':case 'lines':case 'shapes':case 'revisions':case 'weight':return `<td class="n">${salesListNum(v)}</td>`;
   case 'area':return `<td class="n">${salesListNum(v,1)}</td>`;
   case 'total':return `<td class="n${!q&&finOrderCounts(o)?'':' mut'}">${finFmt(v)}</td>`;
   case 'receipts':return `<td class="n">${v==null?'<span class="mut">—</span>':finFmt(v)}</td>`;
