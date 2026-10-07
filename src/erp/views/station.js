@@ -138,6 +138,8 @@ function stationSubmit(raw){
  const check=stationCheck(stationCode,raw);if(!check)return false;
  /* Окно тары с выбранными стёклами: скан тары — «перенести сюда». */
  if(check.kind==='carrier'&&stationDrawer&&stationDrawer.kind==='dolly'&&stationDrawer.a)return stationDollyMove(check.code)?'moved':'carrier';
+ /* Лист «From IGU» с выбранным — скан скида: «перенести сюда». */
+ if(check.kind==='carrier'&&!stationDrawer&&stationIsReady()&&stationIguSel.size)return stationIguMove(check.code)?'moved':'carrier';
  /* Скан не ждёт окна: следующий стикер закрывает открытое окно. */
  stationDrawer=null;stationTab='scan';
  if(check.kind==='carrier'&&stationWarnTare(check.code))return stationWarnMove(check.code);
@@ -487,7 +489,7 @@ function viewStation(){
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+(stationIsShip()?stationShipJournal():stationJournal())+
-  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationLoadedCard():(stationIsShip()?stationTripsCard():'')+stationPairsCard()+stationHereCard()+stationLoadedCard())+'</div></div>'+drawer;
+  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationLoadedCard():(stationIsShip()?stationTripsCard():'')+stationIguCard()+stationPairsCard()+stationHereCard()+stationLoadedCard())+'</div></div>'+drawer;
 }
 /* ------------------------ Ждёт здесь: по долли ------------------------ */
 /* Владелец, 6 октября 2026: «что каким батчем на какой долли — непонятно,
@@ -516,7 +518,7 @@ function stationBatchMix(list){
 /* Откуда стекло здесь: тара (срочная первой, потом кто раньше), в конце —
    без тары. other — стекло на той же таре для других станций. */
 function stationHereSources(){
- const by=new Map();stationHereItems().forEach(x=>{if(!by.has(x.on))by.set(x.on,[]);by.get(x.on).push(x);});
+ const by=new Map();stationHereItems().filter(stationHereShown).forEach(x=>{if(!by.has(x.on))by.set(x.on,[]);by.get(x.on).push(x);});
  const all=typeof carrierContents==='function'&&[...by.keys()].some(Boolean)?carrierContents():new Map();
  return [...by].map(([code,list])=>({code,list,urg:Math.max(0,...list.map(x=>stationUrgency(x.g.o))),since:list.map(x=>x.at).filter(Boolean).sort()[0]||'',
   other:code?(all.get(code)||[]).filter(x=>x.place.waiting!==stationCode).length:0}))
@@ -751,16 +753,17 @@ function stationCarrierScan(code){
   stationIncoming=c.code;stationLast={check:{kind:'carrierIn',code:c.code,count:here.length,took,back},rec:null,data:null,place:null,at:now};stationBeep('info');return 'in';
  }
  stationSetPutOn(c.code);const took=stationLooseTake(c.code);
- stationLast={check:{kind:'carrierPut',code:c.code,count:on.length+took,took,back},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'put';
+ stationLast={check:{kind:'carrierPut',code:c.code,count:on.length+took,took,back,since:on.length&&typeof carrierSince==='function'?carrierSince(on):''},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'put';
 }
 function stationCarrierCard(L){
  const c=L.check,t=typeof carrierType==='function'?carrierType(c.code):null,time='<span>'+esc(stationTime(L.at))+'</span>';
  if(c.kind==='carrierPark')return '<div class="st-res st-ok" data-station-result="carrierPark"><div class="st-res-h">✓ On '+esc(c.code)+' · waits for a pair'+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>SET ASIDE ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.count+' glass waits for Recut</div><div class="mut">When the new glass comes, the screen says where its pair is</div></div></div></div>';
  if(c.kind==='carrierBad')return '<div class="st-res st-red" data-station-result="carrierBad"><div class="st-res-h">✕ Unknown dolly or skid'+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Add it in Master Data</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.code)+'</div><div class="mut">Master Data → Dollies &amp; Skids</div></div></div></div>';
  if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+(c.took?' · took '+c.took+' glass':'')+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">'+(stationPutOn()===c.code?'Glass stays on '+esc(c.code):'The stack is on the right, top first')+'</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
- if(c.kind==='carrierMoved')return '<div class="st-res st-ok" data-station-result="carrierMoved"><div class="st-res-h">✓ Moved '+c.count+' glass · '+esc(c.from||'no '+stationTareWord())+' → '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>NOW ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.count+' glass moved</div><div class="mut">From '+esc(c.from||'no '+stationTareWord())+(c.puton?' · next glass goes on '+esc(c.code):'')+'</div></div></div><div class="st-acts"><button type="button" class="b" data-dolly-undo onclick="stationDollyUndo()">Undo move</button></div></div>';
+ if(c.kind==='carrierMoved')return '<div class="st-res st-ok" data-station-result="carrierMoved"><div class="st-res-h">✓ Moved '+stationMovedWhat(c)+' · '+esc(c.from||'no '+stationTareWord())+' → '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>NOW ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+stationMovedWhat(c)+' moved</div><div class="mut">From '+esc(c.from||'no '+stationTareWord())+(c.puton?' · next glass goes on '+esc(c.code):'')+'</div></div></div><div class="st-acts"><button type="button" class="b" data-dolly-undo onclick="stationDollyUndo()">Undo move</button></div></div>';
+ if(c.kind==='carrierEmptied')return stationEmptiedCard(L);
  if(c.took)return '<div class="st-res st-ok" data-station-result="carrierTook"><div class="st-res-h">Putting on '+esc(c.code)+' · took '+c.took+' glass'+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.took+' glass without a '+stationTareWord()+' — on '+esc(c.code)+' now</div><div class="mut">Next glass goes on '+esc(c.code)+'</div></div></div></div>';
- return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass':'Empty')+' · another dolly — scan it</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
+ return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass'+(c.since?' · since '+esc(c.since):''):'Empty')+' · another dolly — scan it</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
 }
 function stationScanOffClick(id){const saved=stationScanOff(id);stationNote=saved?'By hand — not on a dolly':storageLastError||'Nothing to change';if(stationLast&&stationLast.rec&&stationLast.rec.id===id)stationLast.rec=(DB.stationScan||[]).find(s=>s.id===id)||null;render();}
 function stationNextLabel(x){
@@ -950,7 +953,7 @@ function stationDollyHTML(){
   (n?'<table class="st-mv"><thead><tr><th>#</th><th>Order</th><th>Line</th><th>Glass</th><th>Batch</th><th>Next</th><th>Scanned</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty">Nothing on it</div>')+
   (d.error?'<div class="st-pin-err" role="alert">'+esc(d.error)+'</div>':'')+
   '<div class="st-drawer-foot">'+(count?'<span data-dolly-sel><b>'+count+' glass</b> #'+lo+(hi>lo?'–'+hi:'')+' →</span><input class="st-mv-to" data-station-keep data-dolly-to placeholder="DL-4" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationDollyMove(this.value)}"><button type="button" class="b st-yes" data-dolly-move onclick="stationDollyMove(document.querySelector(\'[data-dolly-to]\').value)">Move</button>':'<span class="mut">Select glass to move</span>')+
-  '<button type="button" class="b" onclick="stationCloseDrawer()">Close</button></div></div>';
+  (d.code&&n&&!count?stationEmptyButton(d.code):'')+'<button type="button" class="b" onclick="stationCloseDrawer()">Close</button></div></div>';
 }
 
 /* --------------------- Пропущенная станция: вопрос --------------------- */

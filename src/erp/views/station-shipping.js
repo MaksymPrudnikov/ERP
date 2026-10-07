@@ -79,18 +79,37 @@ function stationRestack(check,who){
  if(foreign){stationLast.foreign=foreign;stationBeep('error');}
  return 'shipMoved';
 }
-/* Обнулить скид — в два нажатия: назад это не откатывается. */
+/* Обнулить тару — в два нажатия, Undo сразу после. Любая станция, любая
+   тара (владелец, 7.10.2026: «опция на скид или на долли — стереть всё, что
+   на ней, иначе много лишнего подвиснет»): стекло остаётся на своей
+   станции, просто без тары. На SHIP скан скида грузит рейс — там скид не
+   обнуляют. */
 let stationEmptyAsk='';
 function stationSkidEmpty(code){
  if(stationEmptyAsk!==code){stationEmptyAsk=code;render();return false;}
- stationEmptyAsk='';const r=carrierEmpty(code);
+ stationEmptyAsk='';const list=carrierContents().get(code)||[],what=list.length?stationTareCount(list):'';
+ const r=carrierEmpty(code,stationWho());
  if(r.error){stationNote=r.error;stationBeep('error');render();return false;}
- stationShipShow({kind:'shipEmptied',code,skid:code,count:r.count});render();return true;
+ stationMenu=null;stationNote='';stationDrawer=null;
+ stationLast={check:{kind:'carrierEmptied',code:r.code,count:r.count,what},empty:r,rec:null,data:null,place:null,at:new Date().toISOString()};
+ stationBeep('ok');render();return true;
 }
-function stationSkidEmptyButton(c){
- if(!stationIsReady()||!/^S[LA]-/.test(c.code)||!(carrierContents().get(c.code)||[]).length)return '';
- const n=(carrierContents().get(c.code)||[]).length,ask=stationEmptyAsk===c.code;
- return '<div class="st-acts"><button type="button" class="b'+(ask?' st-red-b':'')+'" data-skid-empty onclick="stationSkidEmpty(\''+esc(c.code)+'\')">'+(ask?'Empty '+n+' glass — tap again':'Empty '+esc(c.code))+'</button></div>';
+function stationEmptyUndo(){
+ const L=stationLast;if(!L||!L.empty)return false;
+ const r=carrierEmptyUndo(L.empty),bad=r&&r.error;
+ stationNote=bad?r.error:'Back on '+L.check.code;if(!bad)stationLast=null;stationBeep(bad?'error':'twice');render();return !bad;
+}
+function stationEmptyButton(code){
+ const list=carrierContents().get(code)||[];if(!list.length||stationIsShip()&&/^S[LA]-/.test(code))return '';
+ const ask=stationEmptyAsk===code;
+ return '<button type="button" class="b'+(ask?' st-red-b':'')+'" data-skid-empty onclick="stationSkidEmpty(\''+esc(code)+'\')">'+(ask?'Empty '+stationTareCount(list)+' — tap again':'Empty '+esc(code))+'</button>';
+}
+function stationSkidEmptyButton(c){const b=stationEmptyButton(c.code);return b?'<div class="st-acts">'+b+'</div>':'';}
+function stationEmptiedCard(L){
+ const c=L.check,t=carrierType(c.code),word=t&&t.kind==='Skid'?'skid':'dolly';
+ return '<div class="st-res st-ok" data-station-result="carrierEmptied"><div class="st-res-h">✓ '+esc(c.code)+' emptied<span>'+esc(stationTime(L.at))+'</span></div>'+
+  '<div class="st-res-b"><div class="st-big st-dark"><small>EMPTY</small><b>'+esc(c.code)+'</b><span>'+esc(c.what||c.count+' glass')+' without a '+word+'</span></div><div class="st-info"><div class="st-gid">Glass stays at its station</div><div class="mut">Scan the '+word+', then what goes on it</div></div></div>'+
+  '<div class="st-acts"><button type="button" class="b" data-empty-undo onclick="stationEmptyUndo()">Undo</button></div></div>';
 }
 
 /* ------------------------- скид вернулся --------------------------- */
@@ -112,7 +131,7 @@ function stationTripChip(){
 function stationShipShow(out){
  stationMenu=null;stationNote=out.kind==='saveError'?out.note:'';
  stationLast={check:out,rec:null,data:null,place:null,at:out.at||new Date().toISOString()};
- stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':out.switched?'warn':'ok'):['shipBack','shipMoved','shipEmptied'].includes(out.kind)?'ok':['shipAlready','shipOnSkid'].includes(out.kind)?'twice':'error');
+ stationBeep(out.kind==='shipLoaded'?(out.balance?'urgent':out.switched?'warn':'ok'):['shipBack','shipMoved'].includes(out.kind)?'ok':['shipAlready','shipOnSkid'].includes(out.kind)?'twice':'error');
 }
 function stationShipSubmit(raw,who,manual){
  const code=stationCodeOf(raw),t=carrierType(code);if(!code)return false;
@@ -162,7 +181,6 @@ function stationShipCard(L){
   '<div class="st-res-b"><div class="st-big st-dark"><small>NOW ON</small><b>'+what+'</b><span>was on '+esc(c.from||'no skid')+'</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div><div class="st-kv"><span class="k">Order</span><span><b>'+esc(c.order)+'</b> · <span data-raw>'+esc(c.customer)+'</span></span></div></div></div>'+
   '<div class="st-acts"><button type="button" class="b" data-station-move-undo onclick="stationUndoClick(\''+esc(c.recId)+'\')">Undo</button></div></div>';
  if(c.kind==='shipOnSkid')return '<div class="st-res st-amber" data-station-result="shipOnSkid"><div class="st-res-h">Already on '+what+time+'</div><div class="st-res-b"><div class="st-big st-ask"><small>ALREADY ON</small><b>'+what+'</b><span>Another skid — scan it</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div></div></div></div>';
- if(c.kind==='shipEmptied')return '<div class="st-res st-ok" data-station-result="shipEmptied"><div class="st-res-h">✓ '+what+' emptied'+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>EMPTY</small><b>'+what+'</b><span>'+c.count+' glass without a skid</span></div><div class="st-info"><div class="st-gid">Scan the skid, then the units</div></div></div></div>';
  if(c.kind==='shipBack')return '<div class="st-res st-ok" data-station-result="shipBack"><div class="st-res-h">✓ '+what+' back from <b data-raw>'+esc(c.back.customer)+'</b>'+time+'</div>'+
   '<div class="st-res-b"><div class="st-big st-dark"><small>BACK FROM</small><b class="st-big-code" data-raw>'+esc(c.back.customer)+'</b><span>'+shippingCount(c.back.days,'day')+' · '+esc(c.back.ps)+'</span></div><div class="st-info"><div class="st-gid mono">'+what+'</div></div></div></div>';
  if(c.kind==='shipAlready')return '<div class="st-res st-amber" data-station-result="shipAlready"><div class="st-res-h">Already loaded · '+esc(stationTime(c.at))+' · <b data-raw>'+esc(c.by||'—')+'</b>'+time+'</div>'+

@@ -129,6 +129,7 @@
   "src/erp/views/station.js",
   "src/erp/views/station-drawings.js",
   "src/erp/views/station-shipping.js",
+  "src/erp/views/station-from-igu.js",
   "src/erp/views/shipping-lookup.js",
   "src/erp/views/delivery.js",
   "src/erp/views/skids.js",
