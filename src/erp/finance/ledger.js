@@ -126,6 +126,11 @@ function finShortDate(date,today){
    delivered. Nobody has to remember to set it, and it disappears again if the
    pickup is undone. */
 function finBillingDate(o){const t=finTermsFor(o);return t.issuedOn||finLocalDate(o&&o.statusDates&&o.statusDates.done);}
+/* Счёт — один на заказ, когда клиент получил последний юнит (владелец,
+   7.10.2026). Номер — номер заказа, дата — день выдачи (billing date, от неё
+   же идёт Net). До полной выдачи счёта нет. */
+const FIN_INVOICE_EXPORT_FROM='2026-10-07';
+function finInvoiceDate(o){return finOrderCounts(o)&&!salesIsQuote(o)&&finShipped(o)?finBillingDate(o):'';}
 /* Payment due: agreed date, otherwise billing date + Net days (credit) or the
    billing date itself (cash pays at pickup). Before pickup there is no date;
    credit without Net days has none either — it is not invented. */
@@ -230,6 +235,8 @@ function finMonthRange(offset,today){
    после выгрузки и Void после выгрузки попадают в следующий файл с пометкой;
    аннулированная до выгрузки в QuickBooks не нужна. */
 function finExportSig(kind,x){
+ /* Счёт: дата, сумма, клиент, PO — изменилось после выгрузки — «Corrected». */
+ if(kind==='invoice')return JSON.stringify([finInvoiceDate(x),finOrderBalance(x).total,x.customerId,x.customerPo||'',x.businessNumber||'',finCurrency(x)]);
  return JSON.stringify(kind==='refund'?[x.date,x.amount,x.method,x.reference,x.receiptId,!!x.voided,finCurrency(x),x.reason||'',x.voidReason||'']:[x.date,x.amount,x.method,x.reference,x.customerId,!!x.voided,(x.allocations||[]).map(a=>[a.orderId,a.amount]),finCurrency(x),x.note||'',x.voidReason||'']);
 }
 function finExportRecord(id){return (DB.financeExport||[]).find(e=>e.entityId===id)||null;}
@@ -243,6 +250,9 @@ function finExportPending(){
  const out=[];
  (DB.receipt||[]).forEach(x=>{const state=finExportState('receipt',x);if(state!=='done'&&state!=='skip')out.push({kind:'receipt',x,state});});
  (DB.refund||[]).forEach(x=>{const state=finExportState('refund',x);if(state!=='done'&&state!=='skip')out.push({kind:'refund',x,state});});
+ /* Счета — бухгалтер больше не набирает их в QuickBooks руками. Раньше
+    7.10.2026 она набирала их сама: старые не выгружаем, иначе задвоятся. */
+ (DB.salesOrder||[]).forEach(o=>{const d=finInvoiceDate(o);if(!d||d<FIN_INVOICE_EXPORT_FROM||finOrderBalance(o).total==null)return;const state=finExportState('invoice',o);if(state!=='done'&&state!=='skip')out.push({kind:'invoice',x:o,state});});
  return out;
 }
 function finExportLastBatch(){return (DB.financeExport||[]).concat(DB.financeExportBatch||[]).reduce((n,e)=>Math.max(n,e.batch||0),0);}
@@ -250,7 +260,7 @@ function finExportMark(list){
  finAssert(list.length,'Nothing new to export.');
  const batch=finExportLastBatch()+1,at=new Date().toISOString();
  const states=new Map(list.map(x=>[x.x.id,x.state]));
- DB.financeExportBatch.push({batch,at,name:'quickbooks_'+finToday()+'_'+String(batch).padStart(3,'0')+'.csv',csv:finMovementsCSV(list.filter(x=>x.kind==='receipt').map(x=>x.x),list.filter(x=>x.kind==='refund').map(x=>x.x),states)});
+ DB.financeExportBatch.push({batch,at,name:'quickbooks_'+finToday()+'_'+String(batch).padStart(3,'0')+'.csv',csv:finMovementsCSV(list.filter(x=>x.kind==='receipt').map(x=>x.x),list.filter(x=>x.kind==='refund').map(x=>x.x),states,list.filter(x=>x.kind==='invoice').map(x=>x.x))});
  list.forEach(({kind,x})=>{
   const e={entityId:x.id,kind,sig:finExportSig(kind,x),at,batch},i=DB.financeExport.findIndex(y=>y.entityId===x.id);
   if(i<0)DB.financeExport.push(e);else DB.financeExport[i]=e;
@@ -263,7 +273,7 @@ function finValidatePayload(src){
  for(const k of FIN_TABLES)finAssert(src[k]==null||Array.isArray(src[k]),k+' must be an array.');
  unique(src.financeExport,'entityId','QuickBooks export');
  const exportBatches=new Set();(src.financeExportBatch||[]).forEach(e=>{finAssert(e&&Number.isSafeInteger(e.batch)&&e.batch>0&&!exportBatches.has(e.batch)&&Number.isFinite(Date.parse(e.at))&&typeof e.name==='string'&&typeof e.csv==='string','Invalid or duplicate saved QuickBooks CSV.');exportBatches.add(e.batch);});
- (src.financeExport||[]).forEach(e=>finAssert(['receipt','refund'].includes(e.kind)&&typeof e.sig==='string'&&Number.isSafeInteger(e.batch)&&e.batch>0&&Number.isFinite(Date.parse(e.at)),'Invalid QuickBooks export record.'));
+ (src.financeExport||[]).forEach(e=>finAssert(['receipt','refund','invoice'].includes(e.kind)&&typeof e.sig==='string'&&Number.isSafeInteger(e.batch)&&e.batch>0&&Number.isFinite(Date.parse(e.at)),'Invalid QuickBooks export record.'));
  unique(src.refund,'id','Refund');unique(src.financeEvent,'id','Journal');unique(src.financeTerms,'orderId','Terms');
  unique(src.receipt,'id','Payment');
  const receipts=new Map((src.receipt||[]).map(r=>[r.id,r])),refunds=new Map(),orders=new Map((src.salesOrder||[]).map(o=>[o.id,o]));

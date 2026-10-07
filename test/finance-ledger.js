@@ -135,7 +135,7 @@ module.exports=async function({page,eq}){
  }),{first:['R-0001:new','R-0002:new'],afterFirst:0,noteOnly:1,second:['R-0001:changed','R-0002:voided','RF-0001:new'],rolled:3,last:0,labels:true,batches:2});
  eq('QuickBooks marks travel with the JSON backup and damaged marks are rejected',await t.p.evaluate(()=>{
   financeSeed();financePayment(100,0);const old=customerDownload;customerDownload=()=>{};finExportQuickBooks();customerDownload=old;
-  const raw=finCopy(DB),next=prepareImportedState(raw);raw.financeExport[0].kind='invoice';let rejected=false;try{prepareImportedState(raw);}catch(e){rejected=true;}
+  const raw=finCopy(DB),next=prepareImportedState(raw);raw.financeExport[0].kind='bogus';let rejected=false;try{prepareImportedState(raw);}catch(e){rejected=true;}
   return {kept:next.financeExport.length,rejected};
  }),{kept:1,rejected:true});
  eq('balances: prepaid is money on orders not yet picked up; totals for all customers; customer card shows the same numbers',await t.p.evaluate(()=>{

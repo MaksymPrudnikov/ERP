@@ -86,6 +86,10 @@ const DOC_KINDS=[
  {k:'workOrder',label:'Work order'},
  {k:'proforma',label:'Proforma invoice'},
  {k:'confirmation',label:'Order confirmation'},
+ /* Счёт — один на заказ, когда клиент получил последний юнит (владелец,
+    7.10.2026: «счёт выставляется только когда клиент получил последний
+    юнит»; бухгалтер набирал их в QuickBooks руками). */
+ {k:'invoice',label:'Invoice'},
  {k:'quote',label:'Quote'}
 ];
 const DOC_PRICE_MODES=[
@@ -95,13 +99,13 @@ const DOC_PRICE_MODES=[
  {k:'unit',label:'Unit price and line total'},
  {k:'none',label:'No prices'}
 ];
-const DOC_ALL=['workOrder','proforma','confirmation','quote'],DOC_SALE=['proforma','confirmation','quote'],DOC_ORDER_SALE=['proforma','confirmation'],DOC_SHOP=['workOrder'];
+const DOC_ALL=['workOrder','proforma','confirmation','invoice','quote'],DOC_SALE=['proforma','confirmation','invoice','quote'],DOC_ORDER_SALE=['proforma','confirmation','invoice'],DOC_SHOP=['workOrder'];
 const DOC_FIELDS=[
  {k:'company',g:'Header',label:'Company logo and details',kinds:DOC_ALL,on:DOC_ALL},
- {k:'date',g:'Header',label:'Date',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'date',g:'Header',label:'Date',kinds:DOC_ALL,on:DOC_ALL,as:{invoice:'Invoice date'}},
  {k:'validUntil',g:'Header',label:'Valid until',kinds:['quote'],on:['quote']},
  {k:'customerPo',g:'Header',label:'Customer PO',kinds:DOC_ALL,on:DOC_ALL},
- {k:'dueDate',g:'Header',label:'Due date',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'dueDate',g:'Header',label:'Due date',kinds:DOC_ALL,on:DOC_ALL,as:{invoice:'Payment due'}},
  {k:'terms',g:'Header',label:'Payment terms',kinds:DOC_SALE,on:DOC_SALE},
  {k:'salesRep',g:'Header',label:'Sales rep',kinds:DOC_ALL,on:DOC_ALL},
  {k:'currency',g:'Header',label:'Currency',kinds:DOC_SALE,on:DOC_SALE},
@@ -132,14 +136,16 @@ const DOC_FIELDS=[
  {k:'totals',g:'Bottom',label:'Subtotal · ES · HST · Total',kinds:DOC_SALE,on:DOC_SALE},
  {k:'receipts',g:'Bottom',label:'Receipts and balance',hint:'paid to date and balance due, when paid',kinds:DOC_ORDER_SALE,on:DOC_ORDER_SALE},
  {k:'orderSummary',g:'Bottom',label:'Order summary',hint:'units, ft², kg',kinds:DOC_ALL,on:DOC_SHOP},
- {k:'payment',g:'Bottom',label:'Deposit or credit terms',kinds:DOC_SALE,on:DOC_SALE},
- {k:'paymentInstructions',g:'Bottom',label:'Payment instructions',kinds:DOC_ORDER_SALE,on:['proforma']},
+ {k:'payment',g:'Bottom',label:'Deposit or credit terms',kinds:DOC_SALE,on:DOC_SALE,as:{invoice:'Amount due and due date'}},
+ {k:'paymentInstructions',g:'Bottom',label:'Payment instructions',kinds:DOC_ORDER_SALE,on:['proforma','invoice']},
  {k:'notes',g:'Bottom',label:'Order notes',kinds:DOC_ALL,on:DOC_ALL},
  {k:'termsText',g:'Bottom',label:'Terms and conditions',kinds:DOC_SALE,on:DOC_SALE},
  {k:'signature',g:'Bottom',label:'Customer signature',kinds:DOC_SALE,on:['confirmation','quote']}
 ];
 function docKindLabel(kind){const d=DOC_KINDS.find(x=>x.k===kind);return d?d.label:'Document';}
-function docFieldsFor(kind){return DOC_FIELDS.filter(f=>f.kinds.includes(kind));}
+/* У поля может быть своя подпись в бланке (as): в счёте Date — это Invoice
+   date, Due date — срок оплаты, а не срок заказа. */
+function docFieldsFor(kind){return DOC_FIELDS.filter(f=>f.kinds.includes(kind)).map(f=>f.as&&f.as[kind]?Object.assign({},f,{label:f.as[kind]}):f);}
 function docBaseOptions(kind){
  const o={};docFieldsFor(kind).forEach(f=>{o[f.k]=f.on.includes(kind);});
  if(DOC_SALE.includes(kind))o.priceMode='full';
