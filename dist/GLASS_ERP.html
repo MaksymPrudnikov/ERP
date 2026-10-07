@@ -2853,7 +2853,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='97b33384fe53';
+var ERP_BUILD='a12d3e596c1b';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11528,6 +11528,12 @@ function salesNextActionLabel(o){
 function salesTransitionChecks(o,next){
  const out=[],c=salesFindCustomer(o.customerId),num=o.businessNumber||'(new)',b=finOrderBalance(o),name=c?(c.displayName||c.legalName):'No customer';
  const terms=typeof finTermsFor==='function'?finTermsFor(o):paymentTermsFrom(c||{}),sub=name+' · '+paymentTermsLabel(terms);
+ /* «PO required» у клиента — не только плашка в Sales: без PO заказ
+    останавливается окном на Verify, батче и отгрузке, как депозит
+    (проход 7.10.2026: Harbour 76005 без PO прошёл до самовывоза).
+    perOrder — в Shipping окно своё у каждого заказа, без строки долга. */
+ const noPo=c&&c.poRequired&&!String(o.customerPo||'').trim()&&['verified','batched','done'].includes(next);
+ if(noPo)out.push({title:'PO missing — order '+num,sub,rows:[['Customer',name+' requires a PO']],note:'Enter the PO in the order.',anyway:next==='verified'?'Verify anyway':next==='batched'?'Send anyway':'Continue anyway',perOrder:true});
  if(next==='verified'||next==='batched'){
   if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway:'Continue anyway'});
   if(b.total==null)out.push({title:'Pricing is not complete',sub,rows:[],note:'Some lines have no price.',anyway:'Continue anyway'});
@@ -11665,8 +11671,10 @@ function salesRestoreOrder(orderId){
 /* Оплата из очереди не сохраняет посторонний открытый черновик. */
 function salesTakeRecordPayment(orderId,amount){
  const o=salesRecord(orderId);if(!o)return;
- const b=finOrderBalance(o);
- if(finNewReceipt(o.customerId)===false)return;tab='finance';subtab=null;
+ const b=finOrderBalance(o),from=tab,fromSub=subtab;
+ if(finNewReceipt(o.customerId)===false)return;
+ /* После Save — назад туда, откуда пришли; в Payments — этот заказ. */
+ finBack=from!=='finance'?{tab:from,subtab:fromSub}:null;finOrderFilter=o.id;finCustomerFilter='';finPaymentsClearFilters();tab='finance';subtab=null;
  if(b.balance>0){const v=Math.min(salesMoney(+amount||b.balance),b.balance).toFixed(2);finDraft.amount=v;finDraft.apply[o.id]=v;}
  finDraft.note='Order '+o.businessNumber;render();
 }
@@ -12868,7 +12876,9 @@ function render(){
   optimization:['Optimization','Verification · batches · uncut lines'],
   shipping:['Shipping','Readiness · pickup · delivery · closeout'],
   production:['Production','Stations · work positions · operations · terminals'],
-  masterdata:['Master Data','Glass catalog · supply points · hardware · database overview'],finance:['Finance','Customer receipts · deposits on account · order balances']
+  masterdata:['Master Data','Glass catalog · supply points · hardware · database overview'],finance:['Finance','Customer receipts · deposits on account · order balances'],
+  /* Вкладка станции — «ARRIS · Glass Farm», а не «Glass Farm · Glass Farm». */
+  station:[typeof stationCode==='string'&&stationCode?stationCode:'Station','Station screen']
  }[tab]||['Glass Farm','Production system'];
  document.getElementById('hdr').textContent=meta[0];
  document.title=meta[0]+' · Glass Farm';
@@ -12877,9 +12887,35 @@ function render(){
  const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
+ const focus=renderFocusKey();
  document.getElementById('app').innerHTML = (V ? V() : '<div class="empty">module planned</div>')+(window.APP_OVERLAYS||[]).map(f=>f()).join('');
  navHideRepeatedTitle(meta[0]);
  afterRender();
+ renderFocusBack(focus);
+}
+/* Курсор переживает перерисовку: поле, где он стоял (или куда только что
+   кликнули), ищется в новом #app по тому же виду и порядковому номеру и
+   получает фокус обратно с той же кареткой. Не нашлось или поле было в
+   окне, а окно закрылось, — фокус не трогаем. Проход 7.10.2026: после
+   выбора клиента Tab из PO не попадал в дату. */
+function renderFocusKey(){
+ const a=document.activeElement,app=document.getElementById('app');
+ if(!a||!app||!app.contains(a)||!/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName))return null;
+ const tag=a.tagName.toLowerCase(),data=[...a.attributes].map(x=>x.name).filter(n=>/^data-/.test(n)).map(n=>'['+n+']').join('');
+ const css=el=>el.tagName.toLowerCase()+(el.id?'#'+CSS.escape(el.id):'')+[...el.classList].map(c=>'.'+CSS.escape(c)).join('');
+ let sel=css(a)+(a.name?'[name="'+CSS.escape(a.name)+'"]':'')+data;
+ /* Поле без класса и имени (Customer, PO) — по ближайшему блоку с классом. */
+ if(sel===tag){const box=a.parentElement&&a.parentElement.closest('[class]');if(!box||box===app||!app.contains(box))return null;sel=css(box)+' '+tag;}
+ const i=[...app.querySelectorAll(sel)].indexOf(a);if(i<0)return null;
+ let start=null,end=null;try{start=a.selectionStart;end=a.selectionEnd;}catch(e){}
+ return {sel,i,start,end,dialog:!!a.closest('[role="dialog"]')};
+}
+function renderFocusBack(k){
+ if(!k)return;const app=document.getElementById('app'),el=app&&app.querySelectorAll(k.sel)[k.i];
+ if(!el||el.disabled||document.activeElement===el||!!el.closest('[role="dialog"]')!==k.dialog)return;
+ if(document.activeElement&&document.activeElement!==document.body&&app.contains(document.activeElement))return;
+ el.focus({preventScroll:true});
+ try{if(k.start!=null&&el.setSelectionRange)el.setSelectionRange(k.start,k.end);}catch(e){}
 }
 /* Заголовок раздела, который повторяет пункт меню («Sales» под иконкой Sales),
    не показываем. Конкретные заголовки — «Batch B-0001», «Sales Order 76002» —
@@ -13965,6 +14001,11 @@ function salesLineDimChange(i,key,el){
  salesRefreshLineMetrics(line);
  touch();
 }
+/* Qty — как размеры: без render(). Набрал Qty, кликнул мышью в Width —
+   перерисовка заменяла поле, в которое кликнули, и набранное пропадало
+   (проход «как человек», 7.10.2026). Итоги строки и заказа обновляются на
+   месте. */
+function salesLineQtyChange(i){const line=soDraft&&soDraft.lines[i];if(!line)return;salesRefreshLineMetrics(line);touch();}
 function salesLineMarkKey(i,e){if(e.key!=='Tab'||e.shiftKey)return;const l=soDraft.lines[i];if(!l||!l.width16||!l.height16)return;e.preventDefault();salesOrderAddLine(l.makeupId,true);}
 function salesToggleLine(id,on){if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);salesRefreshBulkBar();}
 function salesToggleAllLines(on){soSelectedLines=new Set(on?soDraft.lines.map(l=>l.id):[]);render();}
@@ -14350,6 +14391,10 @@ function salesExcelCellKey(ev,i,field){
 
 function salesExcelApply(){
  if(!soDraft)return;
+ /* Новый заказ открывается с пустой строкой 1; вставка добавляла строки
+    после неё, и пустую с «!» удаляли руками (проход 7.10.2026). Пустые
+    нетронутые строки уходят, когда вставка что-то добавила. */
+ const blank=soDraft.lines.filter(l=>!l.width16&&!l.height16&&!String(l.mark||'').trim()&&!salesLineLocked(l));
  const keep=[];let added=0;
  (soExcelRows||[]).forEach(function(row){
   const v=salesExcelValidateRow(row);
@@ -14364,6 +14409,7 @@ function salesExcelApply(){
   added++;
  });
  if(!added)return;
+ if(blank.length)soDraft.lines=soDraft.lines.filter(l=>!blank.includes(l));
  /* Строки с ошибкой не исчезают в счётчике «Skipped: N» — они остаются в
     таблице, чтобы их поправить и нажать Add ещё раз. Добавленные из таблицы
     убираются, поэтому повтор не дублирует их. */
@@ -21679,7 +21725,7 @@ function salesOrderColumnCell(key,l,i,linked,st){
   if(key==='qty'){
    /* Строка в батче, стекло не порезано: количество только вниз (salesLineShrinkable). */
    var max=salesLineLocked(l)&&salesLineShrinkableInDraft(l)?((salesRecord(soDraft.id).lines||[]).find(function(x){return x.id===l.id;})||{}).qty:0;
-   return `<td><input class='line-qty' type='number' min='1' step='1'${max?` max='${max}' title='Not cut yet — fewer units only'`:''} value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=${max?`Math.min(${max},salesPositiveInt(this.value,1))`:'salesPositiveInt(this.value,1)'}' onchange='render()'></td>`;
+   return `<td><input class='line-qty' type='number' min='1' step='1'${max?` max='${max}' title='Not cut yet — fewer units only'`:''} value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=${max?`Math.min(${max},salesPositiveInt(this.value,1))`:'salesPositiveInt(this.value,1)'}' onchange='salesLineQtyChange(${i})'></td>`;
   }
   if(key==='width')return `<td><input data-so-width class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.width16))}' placeholder='34 13/16' onchange='salesLineDimChange(${i},"width",this)'></td>`;
   if(key==='height')return `<td><input class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.height16))}' placeholder='15 5/16' onchange='salesLineDimChange(${i},"height",this)'></td>`;
@@ -23983,6 +24029,11 @@ function companyLogoUpload(input){
 
 let finRecordBaseline='',finRecordBaselineId='';
 let finTab='accounts',finEdit=null,finDraft=null,finApply=null;
+/* Откуда пришли в квитанцию через «Take payment» (Optimization, Shipping,
+   заказ): после Save или Cancel — обратно, со строкой о квитанции
+   (проход 7.10.2026: из Verify попадал в Payments со старым фильтром
+   «Order 76006», свежей квитанции не видно, и назад — вручную). */
+let finBack=null;
 
 function finFmt(v){return v==null||!Number.isFinite(+v)?'—':(v<0?'−$':'$')+Math.abs(+v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function finCustomerName(c){return c?(c.displayName||c.legalName||c.code):'—';}
@@ -23994,18 +24045,36 @@ function viewFinance(){return finWorkspaceHTML();}
 /* ------------------------------ Форма -------------------------------- */
 function finNewReceipt(customerId){
  if(!finCanLeave())return false;
- finRecordBaseline='';finRecordBaselineId='';finTab='receipts';finEdit='new';
+ finBack=null;finRecordBaseline='';finRecordBaselineId='';finTab='receipts';finEdit='new';
  finDraft={customerId:customerId&&salesFindCustomer(customerId)?customerId:'',date:finToday(),method:'cash',reference:'',amount:'',note:'',apply:{},currency:'CAD',reason:'',duplicate:false};
  finDraftBaseline=JSON.stringify(finDraft);render();return true;
+}
+/* Список открыт по заказу (кнопка Payments в заказе) или по клиенту — новая
+   квитанция сразу на них: клиент выбран, долг заказа разнесён (проход
+   7.10.2026: клиент не подставлялся, сумма шла «на счёт», заказ оставался
+   «Deposit due»). */
+function finNewReceiptHere(){
+ const o=finOrderFilter?salesRecord(finOrderFilter):null,cid=o?o.customerId:finCustomerFilter||finAccountId||'';
+ if(finNewReceipt(cid)===false)return false;
+ /* Наличный заказ без депозита — сумма депозита, иначе весь долг. */
+ if(o){const b=finOrderBalance(o),t=finTermsFor(o),pct=t.paymentMode==='cash'?paymentDepositPercent(t):0,dep=salesMoney((b.total||0)*pct/100),v=pct>0&&b.paid<dep?salesMoney(dep-b.paid):b.balance;
+  if(v>0){finDraft.amount=v.toFixed(2);finDraft.apply[o.id]=finDraft.amount;}finDraft.note='Order '+o.businessNumber;render();}
+ return true;
 }
 function finOpenReceipt(id){
  if(!finCanLeave())return;
  const r=(DB.receipt||[]).find(x=>x.id===id);if(!r)return;
- finRecordBaseline=JSON.stringify(r);finRecordBaselineId=id;finTab='receipts';finEdit=id;
+ finBack=null;finRecordBaseline=JSON.stringify(r);finRecordBaselineId=id;finTab='receipts';finEdit=id;
  finDraft={customerId:r.customerId,date:r.date,method:r.method,reference:r.reference,amount:String(r.amount),note:r.note,apply:Object.fromEntries(r.allocations.map(a=>[a.orderId,String(a.amount)])),currency:finCurrency(r),reason:'',duplicate:false};
  finDraftBaseline=JSON.stringify(finDraft);render();
 }
-function finCloseReceipt(force){if(!force&&!finCanLeave())return;finEdit=null;finDraft=null;finDraftBaseline='';render();}
+function finCloseReceipt(force,saved){if(!force&&!finCanLeave())return;finEdit=null;finDraft=null;finDraftBaseline='';const back=finBack;finBack=null;if(back)finGoBack(back,saved);render();}
+function finGoBack(back,r){
+ tab=back.tab;subtab=back.subtab||null;if(!r)return;
+ const text='Payment '+r.number+' saved · '+finFmt(r.amount);
+ if(tab==='optimization')optimizationNotice={title:text,detail:'Run the action again.'};
+ else if(tab==='shipping')shippingNotice={text:text+' · create the packing slip again'};
+}
 /* Заказы клиента для разнесения: долг считается «до этой квитанции» — при
    правке уже разнесённая ею сумма возвращается в долг заказа. */
 function finFormOrders(){
@@ -24082,7 +24151,7 @@ function finSaveReceipt(){
  const d=Object.assign({},finDraft,{allocations:Object.entries(finDraft.apply).map(([orderId,amount])=>({orderId,amount:amount===''?0:amount}))});
  const out=finPersist(()=>finSaveReceiptRecord(d,finEdit==='new'?null:finEdit,d.reason,d.duplicate));
  if(!out.ok){if(/reference already exists/.test(out.error)){render();}return fail(document.getElementById('e_fin'),out.error);}
- finCloseReceipt(true);
+ finCloseReceipt(true,out.value);
 }
 function finVoidCurrent(){
  const r=(DB.receipt||[]).find(x=>x.id===finEdit);if(!r)return;
@@ -24182,7 +24251,7 @@ function finFilterChips(){
 }
 const FIN_TABS=[['accounts','Accounts'],['schedule','Due dates'],['receipts','Payments']];
 function finWorkspaceHTML(){
- return `<div class="card fin-card"><div class="fin-workspace-head">${finOverviewHTML()}<button type="button" class="pri" onclick="finNewReceipt()">+ New receipt</button></div>
+ return `<div class="card fin-card"><div class="fin-workspace-head">${finOverviewHTML()}<button type="button" class="pri" data-fin-new onclick="finNewReceiptHere()">+ New receipt</button></div>
  <div class="tabs" role="tablist" aria-label="Finance sections">${FIN_TABS.map(t=>`<button role="tab" aria-selected="${finTab===t[0]}" class="${finTab===t[0]?'on':''}" onclick="finSetTab('${t[0]}')">${t[1]}</button>`).join('')}</div>
  ${finTab==='accounts'?(finAccountId?finAccountHTML():finAccountsWorkspace()):finTab==='schedule'?finScheduleHTML():finEdit!==null?finReceiptForm():finReceiptsView()}</div>${finApplyModal()}${finActionHTML()}${finStatementsHTML()}${finPreviewHTML()}${finRangeMenuHTML()}`;
 }
@@ -24698,8 +24767,14 @@ function salesListCatalog(){
  if(salesListScope()==='customers'&&typeof custColumns==='function')return custColumns();
  if(salesListScope()==='usersLog'&&typeof authLogColumns==='function')return authLogColumns();
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
- const defaults=['number','customer','due','status','glass','unitType','units','batch','balance'];
- return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
+ /* Priority видна сразу: Critical-заказ стоял посередине очереди, и офис
+    не видел, что он срочный (проход 7.10.2026). */
+ const defaults=['number','customer','due','status','priority','glass','unitType','units','batch','balance'];
+ /* Оптимизатору деньги не нужны — «лишняя информация» (владелец,
+    7.10.2026): в очереди Optimization нет Total, Receipts и Balance. В
+    Shipping долг остаётся — по нему решают, отдавать ли. */
+ const money=tab==='optimization';
+ return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)&&!(money&&c.money)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
   .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]).concat(tab==='shipping'&&shippingTab==='awaiting'?[{k:'readyQty',label:'Ready',type:'text',def:true}]:[]);
 }
 function salesListColumn(k){return salesListCatalog().find(c=>c.k===k)||null;}
@@ -24994,7 +25069,10 @@ function salesListFooter(rows,cols){
  const orders=rows.filter(r=>!r.q&&!r.n),quotes=rows.filter(r=>r.q),ncrs=rows.filter(r=>r.n);
  const tally=(list,fn)=>{const m={};list.forEach(r=>{const s=fn(r);m[s]=(m[s]||0)+1;});return Object.keys(m).map(k=>k+' '+m[k]).join(' · ');};
  const detail=[tally(orders,r=>salesStatusLabel(r.o)),quotes.length?'Quotes: '+tally(quotes,r=>salesStatusLabel(r.o,salesListStatus(r.o))):'',ncrs.length?'NCR: '+tally(ncrs,r=>r.memo.status):''].filter(Boolean).join(' · ');
- const head=`<b>${rows.length} row${rows.length===1?'':'s'} · Orders ${orders.length} · Quotes ${quotes.length}${salesShow.ncr?' · NCR '+ncrs.length:''}</b>${detail?`<small>${esc(detail)}</small>`:''}`;
+ /* В очередях (Optimization, Shipping) квот не бывает — квоты считают и
+    мешают в Sales (владелец, 7.10.2026): только «N orders». */
+ const queue=salesListScope()!=='sales';
+ const head=`<b>${queue?orders.length+' order'+(orders.length===1?'':'s'):rows.length+' row'+(rows.length===1?'':'s')+' · Orders '+orders.length+' · Quotes '+quotes.length+(salesShow.ncr?' · NCR '+ncrs.length:'')}</b>${detail?`<small>${esc(detail)}</small>`:''}`;
  const first=cols.findIndex(c=>c.sum),lead=first<0?cols.length:first;
  const sums=cols.slice(lead).map(c=>{
   if(!c.sum)return '<td></td>';
@@ -29985,7 +30063,11 @@ function glassBatchStatus(b){
  const a=glassBatchActiveItems(b);
  if(!a.length)return b.items.length&&b.items.every(i=>i.movedTo)?'Moved':'Unbatched';
  if(a.every(i=>!!i.cutStartedAt))return 'Cutting complete';
- return a.some(i=>{const p=b.parts[i.part],l=((salesRecord(p.orderId)||{}).lines||[]).find(l=>l.id===p.lineId);return i.cutStartedAt||l&&l.cutStartedAt;})?'Cutting started':'Awaiting cutting';
+ /* Только свои стёкла батча: строку заказа уже резали в другом батче, но
+    батч перерезки из одного стекла — ещё «Awaiting cutting» (проход
+    7.10.2026). Старые данные с меткой только у строки переносятся на
+    стёкла при загрузке (production/glass-batches). */
+ return a.some(i=>!!i.cutStartedAt)?'Cutting started':'Awaiting cutting';
 }
 function glassBatchInfo(r){
  const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.recut?r.recutLabel+' · '+r.k+' of '+r.of:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
@@ -30111,7 +30193,7 @@ function viewGlassBatches(){
  const stale=b?glassBatchStale(b):null;
  const head=b?`<p>${esc([...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '))} · ${active.length} pcs · ${plural(activeOrders,'order')} · Created ${esc(salesShortDate(b.createdAt))}</p>${stale?`<p class="gb-stale-note" data-batch-stale-note>Layout out of date · ${esc(stale.text)} — Optimization → Reset → Build</p>`:''}`:'';
  const live=rows.filter(i=>!i.item||!i.item.releasedAt);
- const footer=scope==='glassContents'?`${live.length} pcs · ${plural(new Set(live.map(i=>i.part.orderId)).size,'order')}`:registry?`${filteredRows.length} batches · ${filteredRows.reduce((c,i)=>c+i.memo.units,0)} pcs · showing ${filteredRows.length?(glassBatchPage-1)*GLASS_BATCH_PAGE_SIZE+1:0}–${Math.min(glassBatchPage*GLASS_BATCH_PAGE_SIZE,filteredRows.length)}`:`${rows.length} pcs waiting · ${plural(materials.size,'glass type')}`;
+ const footer=scope==='glassContents'?`${live.length} pcs · ${plural(new Set(live.map(i=>i.part.orderId)).size,'order')}`:registry?`${filteredRows.length} batches · ${filteredRows.reduce((c,i)=>c+i.memo.units,0)} pcs · showing ${filteredRows.length?(glassBatchPage-1)*GLASS_BATCH_PAGE_SIZE+1:0}–${Math.min(glassBatchPage*GLASS_BATCH_PAGE_SIZE,filteredRows.length)}`:`${rows.length} pcs waiting · ${plural(new Set(rows.map(i=>i.memo.glass)).size,'glass type')}`;
  const pager=registry?`<nav class="gb-pages" aria-label="Batch pages"><button type="button" data-batch-prev ${glassBatchPage<=1?'disabled':''} onclick="glassBatchSetPage(${glassBatchPage-1})">Previous</button><span data-batch-page>Page ${glassBatchPage} of ${pages}</span><button type="button" data-batch-next ${glassBatchPage>=pages?'disabled':''} onclick="glassBatchSetPage(${glassBatchPage+1})">Next</button></nav>`:'';
  const statusBadge=b?`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':status==='Cutting complete'?'done':'off'}" data-batch-status>${esc(status)}</span>`:'';
  const cutHead=b&&glassBatchDetailTab==='optimization'&&typeof cutLayoutHeader==='function'?cutLayoutHeader(b,status):'';
@@ -35755,8 +35837,8 @@ function shippingWithChecks(ids,method,printing,done){
   if(shippingCheckStamp()!==stamp){shippingNotice={error:true,text:'Data changed. Review and try again.'};render();return;}
   if(n===ids.length){done();return;}
   const o=salesRecord(ids[n]);if(!o){shippingNotice={error:true,text:'Order not found.'};render();return;}
-  const checks=salesTransitionChecks(Object.assign({},o,{delivery:method}),'done').filter(c=>c.pay!=null||!told.has(o.customerId)).map(c=>{
-   const out=Object.assign({},c,{anyway:printing?'Print anyway':'Create anyway'});if(c.pay!=null)return out;
+  const checks=salesTransitionChecks(Object.assign({},o,{delivery:method}),'done').filter(c=>c.pay!=null||c.perOrder||!told.has(o.customerId)).map(c=>{
+   const out=Object.assign({},c,{anyway:printing?'Print anyway':'Create anyway'});if(c.pay!=null||c.perOrder)return out;
    told.add(o.customerId);
    const mine=ids.map(salesRecord).filter(x=>x&&x.customerId===o.customerId);
    out.rows=c.rows.concat([[mine.length>1?'These '+mine.length+' orders':'Order '+o.businessNumber,finFmt(finMoney(mine.reduce((s,x)=>s+Math.max(0,finOrderBalance(x).balance||0),0)))]]);
