@@ -13,7 +13,8 @@ let docState=null,docLastKind='proforma';
 
 /* Квота печатается только бланком Quote, заказ — тремя бланками заказа. У
    квоты с ревизиями галочками выбирается, какие ревизии печатать и слать. */
-function docKindsFor(o){return DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote');}
+/* Invoice — только когда клиент получил последний юнит (finInvoiceDate). */
+function docKindsFor(o){return DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote'&&(d.k!=='invoice'||!!finInvoiceDate(o)));}
 /* Чертежи строк — не бланк, а своя вкладка окна (владелец, 26–27.09.2026):
    лист текущей строки крупно, лента мини-листов, печать — этот лист или все.
    focus — строка, с которой открыть окно (клик по форме строки в батче). */
@@ -223,7 +224,15 @@ function docEmailSubject(){
 function docEmailBody(){
  const c=DB.company||{},C=salesFindCustomer(soDraft.customerId),first=String((C&&customerPrimaryContact(C).name)||'').trim().split(/\s+/)[0];
  const lines=['Hello'+(first?' '+first:'')+',','','Please find attached '+docKindLabel(docState.kind).toLowerCase()+' '+(soDraft.businessNumber||'')+(soDraft.customerPo?' for PO '+soDraft.customerPo:'')+'.'];
- if(docState.kind!=='workOrder'){
+ if(docState.kind==='invoice'){
+  /* Счёт: сумма, оплачено, к оплате и срок; оплачен — спасибо. */
+  const t=salesOrderCommercialTotals(soDraft),terms=finTermsFor(soDraft),got=typeof finOrderPaid==='function'?finOrderPaid(soDraft.id).paid:0,rest=salesMoney(t.grand-got),due=finPaymentDue(soDraft);
+  if(t.complete){
+   lines.push('Total: '+docMoney(t.grand)+' '+soDraft.currency+'.');
+   if(got>0)lines.push('Received: '+docMoney(got)+'.');
+   lines.push(rest>0?'Balance due: '+docMoney(rest)+(terms.paymentMode==='credit'&&due?' by '+docDate(due)+' ('+paymentTermsLabel(terms)+').':' on receipt.'):'Paid in full. Thank you!');
+  }
+ }else if(docState.kind!=='workOrder'){
   const t=salesOrderCommercialTotals(soDraft),terms=finTermsFor(soDraft),pct=paymentDepositPercent(terms),got=typeof finOrderPaid==='function'?finOrderPaid(soDraft.id).paid:0;
   if(t.complete){
    lines.push('Total: '+docMoney(t.grand)+' '+soDraft.currency+'.');
@@ -299,7 +308,7 @@ function viewMdCompany(){
  const c=DB.company;
  const f=(k,label,o)=>{o=o||{};const ph=o.ph?` placeholder="${esc(o.ph)}"`:'';
   return `<div${o.wide?' class="doc-company-wide"':''}><label>${label}</label>${o.area?`<textarea rows="${o.rows||3}" data-company="${k}"${ph} onchange="companySet('${k}',this.value)">${esc(c[k])}</textarea>`:`<input${o.type?` type="${o.type}"`:''} data-company="${k}" value="${esc(c[k])}"${ph} onchange="companySet('${k}',this.value)">`}</div>`;};
- return `<div class="sub">Company details for Quotes, Work orders, Proforma invoices and Order confirmations. Empty fields are not printed.</div>
+ return `<div class="sub">Company details for Quotes, Work orders, Proforma invoices, Order confirmations and Invoices. Empty fields are not printed.</div>
  <div class="doc-company">
   <div class="doc-company-logo"><label>Logo</label><div class="doc-logo-box">${c.logo?`<img src="${c.logo}" alt="Company logo">`:'<span>No logo</span>'}</div>
    <div class="doc-logo-actions"><button type="button" onclick="document.getElementById('docLogoFile').click()">${c.logo?'Replace logo':'Upload logo'}</button>${c.logo?'<button type="button" onclick="companyRemoveLogo()">Remove</button>':''}</div>

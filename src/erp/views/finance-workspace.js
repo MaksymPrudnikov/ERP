@@ -64,6 +64,8 @@ function finAccountHTML(){
  ${events.length?`<details class="fin-history-box"><summary>History · ${events.length}</summary>${finJournalTable(events)}</details>`:''}`;
 }
 function finOpenSales(id){if(!finCanLeave())return;const go=()=>{finDraft=null;finEdit=null;tab='sales';salesOrderEdit(id);};if(soDraft&&salesDraftHasWork())salesLeaveDraft(go);else go();}
+/* Счёт выданного заказа — сразу бланком Invoice: печать, PDF и Gmail. */
+function finOpenInvoice(id){if(!finCanLeave())return;const go=()=>{finDraft=null;finEdit=null;tab='sales';salesOrderEdit(id);if(soDraft&&soDraft.id===id)docOpen('invoice');};if(soDraft&&soDraft.id!==id&&salesDraftHasWork())salesLeaveDraft(go);else go();}
 
 /* --------------------------- Оплата: форма --------------------------- */
 function finReceiptSummary(){return finSummaryHTML(finMoney(finDraft.amount),finFormApplied(),finEdit!=='new'?finRefunded(finEdit):0);}
@@ -216,11 +218,13 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&finRangeMenu){e.pre
 /* Движение денег для переноса в QuickBooks: оплаты и возвраты одной
    таблицей по дате, возврат — минусом. Колонка QuickBooks: для выгрузки
    «только новое» — New / Corrected / Voided, для обычной — выгружено ли. */
-function finMovementsCSV(receipts,refunds,states){
+function finMovementsCSV(receipts,refunds,states,invoices){
  const who=id=>{const c=salesFindCustomer(id)||{};return [finCustomerName(c),c.code||''];};
  const qb=(kind,x)=>{if(states&&states.has(x.id))return FIN_EXPORT_LABELS[states.get(x.id)];const e=finExportRecord(x.id);return e?'Exported '+finLocalDate(e.at):'';};
  const rows=receipts.map(r=>[r.date,r.number,'Payment',...who(r.customerId),finMethodLabel(r.method),r.reference,r.amount.toFixed(2),finCurrency(r),r.allocations.map(a=>finOrderNumber(a.orderId)+': '+a.amount.toFixed(2)).join('; '),r.voided?'Void':'Active',r.voided?r.voidReason:r.note,qb('receipt',r)])
   .concat(refunds.map(x=>[x.date,x.number,'Refund',...who(x.customerId),finMethodLabel(x.method),x.reference,(-x.amount).toFixed(2),x.currency,'Payment '+((DB.receipt.find(r=>r.id===x.receiptId)||{}).number||''),x.voided?'Void':'Active',x.voided?x.voidReason:x.reason,qb('refund',x)]))
+  /* Счёт: Method — условия оплаты, Reference — PO, Status — срок или Paid. */
+  .concat((invoices||[]).map(o=>finInvoiceExportRow(o,(states&&states.get(o.id)||finExportState('invoice',o))==='voided').concat(qb('invoice',o))))
   .sort((a,b)=>(a[0]+a[1]).localeCompare(b[0]+b[1]));
  return [['Date','Document','Type','Customer','Account','Method','Reference','Amount','Currency','Applied to orders','Status','Note','QuickBooks']].concat(rows).map(row=>row.map(finCsvCell).join(',')).join('\r\n');
 }
@@ -243,7 +247,7 @@ function finExportAgain(){
 }
 function finExportButtonHTML(){
  const n=finExportPending().length,batch=finExportLastBatch(),last=batch?(DB.financeExportBatch||[]).filter(e=>e.batch===batch).concat(DB.financeExport.filter(e=>e.batch===batch)):[];
- return `<button type="button" class="${n?'pri':''}" ${n?'':'disabled'} onclick="finExportQuickBooks()" title="CSV of new or corrected payments and refunds; import it into QuickBooks">${n?'QuickBooks · '+n+' new':batch?'QuickBooks · CSV exported':'QuickBooks · no new entries'}</button>${last.length?`<button type="button" class="fin-link fin-export-last" onclick="finExportAgain()" title="Download the last QuickBooks file again">Last file · ${esc(finShortDate(finLocalDate(last[0].at)))}</button>`:''}`;
+ return `<button type="button" class="${n?'pri':''}" ${n?'':'disabled'} onclick="finExportQuickBooks()" title="CSV of new or corrected invoices, payments and refunds; import it into QuickBooks">${n?'QuickBooks · '+n+' new':batch?'QuickBooks · CSV exported':'QuickBooks · no new entries'}</button>${last.length?`<button type="button" class="fin-link fin-export-last" onclick="finExportAgain()" title="Download the last QuickBooks file again">Last file · ${esc(finShortDate(finLocalDate(last[0].at)))}</button>`:''}`;
 }
 
 /* ------------------------- Карточка клиента ------------------------- */

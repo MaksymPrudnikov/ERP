@@ -154,7 +154,7 @@ function finDueCell(r,c){
 }
 function finDueFiltered(){return salesListRows(finDueInfos());}
 function finScheduleHTML(){
- const infos=finDueInfos();infos.forEach(r=>{r.actions=`<button class="sm" onclick="finEditTerms('${esc(r.o.id)}')">Terms</button>`;});
+ const infos=finDueInfos();infos.forEach(r=>{r.actions=(finInvoiceDate(r.o)?`<button class="sm" data-fin-invoice="${esc(r.o.businessNumber)}" onclick="finOpenInvoice('${esc(r.o.id)}')">Invoice</button> `:'')+`<button class="sm" onclick="finEditTerms('${esc(r.o.id)}')">Terms</button>`;});
  const t=finListTable(infos,finDueCell,r=>`data-due-order="${esc(r.o.id)}"`,'order','Nothing unpaid.');
  return `<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><button ${t.rows.length?'':'disabled'} onclick="finDueExport()">CSV</button><button ${t.rows.length?'':'disabled'} onclick="finOpenPreview('schedule')">Print</button></div>${t.html}${infos.review?`<p class="mut small">${infos.review} not priced — not in totals.</p>`:''}`;
 }

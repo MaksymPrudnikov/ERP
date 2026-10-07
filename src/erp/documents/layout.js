@@ -10,7 +10,7 @@
 
 const DOC_PAGE={w:612,h:792,left:36,right:576,top:34,bottom:748,footer:764};
 const DOC_COL={item:44,desc:62,chips:175,basis:452,rate:504,amount:568};
-const DOC_COLOR={due:'#b42318',ink:'#1c2330',navy:'#16325c',mut:'#6b7588',faint:'#8a93a3',line:'#d9dfe8',chip:'#c9d1dd',bar:'#eef2f8',box:'#f4f6fa',adj:'#9a4b00',warn:'#b54708'};
+const DOC_COLOR={paid:'#1d7a46',due:'#b42318',ink:'#1c2330',navy:'#16325c',mut:'#6b7588',faint:'#8a93a3',line:'#d9dfe8',chip:'#c9d1dd',bar:'#eef2f8',box:'#f4f6fa',adj:'#9a4b00',warn:'#b54708'};
 
 /* Ширины знаков Helvetica и Helvetica-Bold в тысячных кегля, коды 32…255 в
    кодировке WinAnsi, по два знака base36 на символ. Это метрика самих шрифтов
@@ -123,6 +123,8 @@ function docHeader(P,m){
  const numberLabel=m.numberLabel!=null?m.numberLabel:'No.';
  if(numberLabel)P.text(W.right-docTextWidth(m.number,10.5,true)-3,y+30,numberLabel,{size:8,align:'right'});
  P.text(W.right,y+41,'Page',{size:7,color:C.faint,align:'right',pageLabel:true});
+ /* Счёт оплачен — отметка PAID рамкой слева от заголовка, как штамп. */
+ if(m.stamp){const sw=92,sx=W.right-200,sy=y+3;P.rect(sx,sy,sw,38,{stroke:C.paid,lw:2,r:4});P.text(sx+sw/2,sy+22,m.stamp.text,{size:20,bold:true,color:C.paid,align:'center',ls:2});if(m.stamp.sub)P.text(sx+sw/2,sy+33,m.stamp.sub,{size:7,bold:true,color:C.paid,align:'center'});}
  y=Math.max(leftBottom,y+44)+12;
  if(m.meta.length)y=docCells(P,m.meta,y,28,7.8)+10;
  if(m.boxes.length)y=docBoxes(P,m.boxes,y)+12;

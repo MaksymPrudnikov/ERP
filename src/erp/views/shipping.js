@@ -75,7 +75,12 @@ function shippingSave(){
   shippingDraft=null;shippingSelection.clear();shippingOpenId=out.value.id;shippingTab='shipments';shippingNotice={text:out.value.number+' saved'};render();
  });
 }
-function shippingResult(out){shippingNotice={error:!out.ok,text:out.ok?out.value.number+' · '+shippingStatus(out.value):out.error};render();}
+/* Последний юнит у клиента — счёт готов: строка говорит, какой (Finance →
+   Due dates → Invoice, или в заказе → Documents). */
+function shippingResult(out){
+ const bills=out.ok&&out.value.status==='delivered'?shippingOrderIds(out.value).map(salesRecord).filter(o=>o&&finInvoiceDate(o)).map(o=>o.businessNumber):[];
+ shippingNotice={error:!out.ok,text:out.ok?out.value.number+' · '+shippingStatus(out.value)+(bills.length?' · Invoice '+bills.join(', ')+' ready':''):out.error};render();
+}
 function shippingStatus(s){return s.status==='delivered'?(s.method==='pickup'?'Picked up':'Delivered'):({planned:'Planned',shipped:'Shipped',cancelled:'Cancelled'})[s.status]||'';}
 /* Статус PS — цветной таблеткой тех же классов, что статус заказа в Sales. */
 /* Статус и «Balance due» — одним блоком: в шапке PS они не разъезжаются. */

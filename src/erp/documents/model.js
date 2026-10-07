@@ -8,7 +8,7 @@
    иначе цифра на бумаге однажды разошлась бы с цифрой на экране заказа.
    ===================================================================== */
 
-const DOC_TITLES={workOrder:'WORK ORDER',proforma:'PROFORMA INVOICE',confirmation:'ORDER CONFIRMATION',quote:'QUOTE'};
+const DOC_TITLES={workOrder:'WORK ORDER',proforma:'PROFORMA INVOICE',confirmation:'ORDER CONFIRMATION',invoice:'INVOICE',quote:'QUOTE'};
 const DOC_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function docNum(v,digits){return Number(v).toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits});}
@@ -136,6 +136,16 @@ function docLineDrawing(line,order){
  }catch(e){return null;}
 }
 
+/* Счёт: куда на самом деле доставили — адрес последнего доставленного PS
+   (адрес объекта), а не адрес доставки из карточки клиента. */
+function docInvoiceShipTo(order){
+ const s=(DB.shipment||[]).filter(x=>x.status==='delivered'&&x.method==='delivery'&&(x.items||[]).some(i=>i.orderId===order.id)).sort((a,b)=>String(a.deliveredAt||a.date).localeCompare(String(b.deliveredAt||b.date))).pop();
+ return s&&s.shipTo?{title:s.shipTo.addressee||s.shipTo.label||'',text:docAddressText(s.shipTo)}:null;
+}
+/* Дата последней оплаты заказа — под отметкой PAID. */
+function docLastPaidOn(order){
+ return (DB.receipt||[]).filter(r=>!r.voided&&(r.allocations||[]).some(a=>a.orderId===order.id&&+a.amount>0)).map(r=>r.date).sort().pop()||'';
+}
 function docCompanyBlock(){
  const c=DB.company||{};
  /* Провинция без города и индекса — ещё не адрес: пока реквизиты не
@@ -225,10 +235,14 @@ function docBuildModel(kind,order,opts){
   items:[],extra:null,end:null,terms:'',signature:'',summary:null,notes:'',footerLeft:'',footerRight:''};
 
  const cell=(on,label,value)=>{if(on)model.meta.push({label,value:value||'—'});};
- cell(opts.date,sale?'Date':'Order date',docDate(kind==='quote'&&order.sentAt||order.createdAt)||docDate(new Date().toISOString()));
+ /* Счёт: дата — день выдачи последнего юнита, срок — оплаты (Net от него). */
+ const invoice=kind==='invoice',billed=invoice&&typeof finInvoiceDate==='function'?finInvoiceDate(order):'',payDue=invoice&&billed?finPaymentDue(order):'';
+ if(invoice)cell(opts.date,'Invoice date',docDate(billed)||'Not delivered yet');
+ else cell(opts.date,sale?'Date':'Order date',docDate(kind==='quote'&&order.sentAt||order.createdAt)||docDate(new Date().toISOString()));
  if(kind==='quote')cell(opts.validUntil,'Valid until',docDate(salesQuoteValidUntil(order)));
  cell(opts.customerPo,'Customer PO',order.customerPo);
- cell(opts.dueDate,'Due date',docDate(order.dueDate));
+ if(invoice)cell(opts.dueDate,'Payment due',payDue?docDate(payDue):'On receipt');
+ else cell(opts.dueDate,'Due date',docDate(order.dueDate));
  if(sale)cell(opts.terms,'Terms',paymentTermsLabel(terms));
  cell(opts.priority,'Priority',salesPriorityLabel(order.priority));
  cell(opts.delivery,'Delivery',salesDeliveryLabel(order.delivery));
@@ -244,7 +258,9 @@ function docBuildModel(kind,order,opts){
   model.boxes.push({label:sale?'Bill to':'Customer',title:C?(C.legalName||C.displayName):'No customer selected',lines});
  }
  if(opts.shipTo){
-  if(order.delivery==='delivery'){const ad=C?customerAddressByType(C,'delivery'):null,t=docAddressText(ad);model.boxes.push({label:'Ship to',title:(ad&&ad.addressee)||model.customerName||'Delivery',lines:[t||'Delivery address not set']});}
+  const went=invoice?docInvoiceShipTo(order):null;
+  if(went)model.boxes.push({label:'Shipped to',title:went.title||model.customerName||'Delivery',lines:[went.text||'Delivery address not set']});
+  else if(order.delivery==='delivery'){const ad=C?customerAddressByType(C,'delivery'):null,t=docAddressText(ad);model.boxes.push({label:'Ship to',title:(ad&&ad.addressee)||model.customerName||'Delivery',lines:[t||'Delivery address not set']});}
   else model.boxes.push({label:'Pickup',title:'Customer pickup',lines:[]});
  }
 
@@ -262,7 +278,9 @@ function docBuildModel(kind,order,opts){
 
  if(sale){
   const t=salesOrderCommercialTotals(order),c=t.charges,money=v=>t.complete?docMoney(v):'—',left=[];
-  if(opts.paymentInstructions)left.push({label:'Payment',text:[company.paymentInstructions,'Please reference order '+number+' with your payment.'].filter(Boolean).join('\n')});
+  /* Оплаченному счёту инструкции оплаты не нужны — на нём PAID. */
+  const settled=invoice&&t.complete&&typeof finOrderPaid==='function'&&salesMoney(t.grand-finOrderPaid(order.id).paid)<=0;
+  if(opts.paymentInstructions&&!settled)left.push({label:'Payment',text:[company.paymentInstructions,'Please reference order '+number+' with your payment.'].filter(Boolean).join('\n')});
   if(opts.notes&&order.notes)left.push({label:'Order notes',text:order.notes});
   let rows=null,grand=null,deposit=null;
   if(opts.totals){
@@ -298,7 +316,14 @@ function docBuildModel(kind,order,opts){
    const rest=salesMoney(t.grand-got.paid);
    paid=[{label:'Paid to date · '+got.receipts+' receipt'+(got.receipts>1?'s':''),value:docMoney(got.paid)},{label:rest>0?'Balance due':rest<0?'Overpaid':'Paid in full',value:t.complete?docMoney(Math.abs(rest)):'—',tone:rest>0?'due':''}];
   }
-  if(opts.payment){
+  /* Счёт: к оплате — остаток и срок; оплачено полностью — отметка PAID
+     (владелец: «у нас маленький штамп, но если будет PAID на бумаге — топ»). */
+  const rest=t.complete?salesMoney(t.grand-got.paid):null;
+  if(invoice&&t.complete&&rest<=0)model.stamp={text:'PAID',sub:docDate(docLastPaidOn(order))};
+  if(invoice&&opts.payment){
+   deposit=rest!=null&&rest<=0?[{label:'Paid in full · thank you',value:docMoney(0),strong:true}]
+    :[{label:payDue&&terms.paymentMode==='credit'?'Payment due '+docDate(payDue)+' · '+paymentTermsLabel(terms):'Due on receipt',value:money(rest),strong:true}];
+  }else if(opts.payment){
    const pct=paymentDepositPercent(terms);
    if(terms.paymentMode==='credit')deposit=[{label:'Payment terms · '+paymentTermsLabel(terms),value:money(t.grand),strong:true},{label:terms.creditDays!=null?'Due within '+terms.creditDays+' days of invoice · no deposit':'On credit · no deposit',value:''}];
    else if(pct>0){
