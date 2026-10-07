@@ -525,7 +525,10 @@ function stationUnitCheck(station,code){
  const o=salesRecord(u.orderId),l=o&&(o.lines||[]).find(x=>x.id===u.lineId);if(!o||!l)return {kind:'unknown',code};
  const mu=stationUnitMerge(o,l),a=mu?stationAsms(o,l,mu).find(x=>x.unit===u.unit&&!x.broken):null;
  const first=a?stationGlass([...a.lites.values()][0]):null,route=first?stationRouteOf(first).codes:[];
- if(!a||route.lastIndexOf(station)<=route.indexOf(mu))return {kind:'unit',code};
+ /* Юнит ещё не собран (лайт в перерезке, в пути) — так и сказать, а не
+    «Unit number» (проход 7.10.2026: U-0000028 на SHIPR). */
+ if(!a)return {kind:'unit',code,open:mu||''};
+ if(route.lastIndexOf(station)<=route.indexOf(mu))return {kind:'unit',code};
  const ids=[...a.lites.values()],checks=ids.map(id=>stationCheck(station,id)),main=checks.find(c=>STATION_RECORDED.includes(c.kind))||checks[0];
  return Object.assign(main,{unitCode:code,mates:ids.filter(id=>id!==main.code)});
 }

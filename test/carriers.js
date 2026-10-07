@@ -39,7 +39,8 @@ module.exports=async function({page,eq,ok}){
   stationSwitch();tab='dashboard';render();return out;
  }),{put:'carrier',dl1:'top,mid,bottom',dl2:1,on:'DL-1,DL-1,DL-1,DL-2,—',chip:'Putting on DL-2✕',journalOn:'—,DL-2,DL-1,DL-1,DL-1'});
 
- eq('ARRIS: долли со стеклом для ARRIS — «приехала», стопка справа, кладу не меняется; пустая — кладу на неё; стекло уходит со старой долли на новую',await t.p.evaluate(()=>{
+ /* Владелец, 7.10.2026: «скан пришедшей долли = кладу на неё же». */
+ eq('ARRIS: долли со стеклом для ARRIS — «приехала», стопка справа, и кладут на неё же; пустая — кладу на неё; стекло уходит со старой долли на новую',await t.p.evaluate(()=>{
   cvReset();carrierAdd('DL',1);carrierAdd('DA',1);const id=cvOrder([[36,24,3]]);const g=cvIds(id);
   cvLogin('CUT','Ivan P.');stationSubmit('DL-1');g.forEach(x=>stationSubmit(x));stationSwitch();
   cvLogin('ARRIS','Oleg K.');const inc=stationSubmit('DL-1'),incKind=stationLast.check.kind,putAfterIn=stationPutOn();
@@ -49,7 +50,7 @@ module.exports=async function({page,eq,ok}){
   const bad=stationSubmit('DL-77')&&stationLast.check.kind;DB.carrier.find(x=>x.code==='DA-1').active=false;stationSubmit('DA-1');const inactive=stationLast.check.kind;
   stationSwitch();tab='dashboard';render();
   return {inc,incKind,putAfterIn,stack,waiting,putKind,left,onDA,bad,inactive};
- }),{inc:'carrier',incKind:'carrierIn',putAfterIn:'',stack:3,waiting:'DL-1',putKind:'carrierPut',left:2,onDA:'HEAT',bad:'carrierBad',inactive:'carrierBad'});
+ }),{inc:'carrier',incKind:'carrierIn',putAfterIn:'DL-1',stack:3,waiting:'DL-1',putKind:'carrierPut',left:2,onDA:'HEAT',bad:'carrierBad',inactive:'carrierBad'});
 
  /* Владелец, 6.10.2026: «что каким батчем на какой долли — непонятно». */
  eq('ARRIS «Waiting here» по долли: тара с батчами и счётом, без тары — своей строкой; нажатие — стопка: номер — порядок укладки, одинаковые подряд — одной строкой; опустевшая — done',await t.p.evaluate(()=>{
@@ -67,19 +68,21 @@ module.exports=async function({page,eq,ok}){
  }),{before:'DL-1:3 glass:B 3|DL-2:1 glass:B 1|No dolly:1 glass:B 1',closed:true,stack:['#3|Line 2 · 30 × 20|1','#2–1|Line 1 · 36 × 24|2'],done:true,after:'DL-2:1 glass:B 1|No dolly:1 glass:B 1'});
 
  /* Владелец, 6.10.2026: «опция, чтобы я сам проставлял; базово везде
-    долли»; IGU отдаёт на скидах; у SHIPR и SHIP свои правила. */
- eq('Puts on: по умолчанию Dolly, IGU — Skid, SHIPR и SHIP — свои правила; владелец меняет в Master Data; переживает нормализацию',await t.p.evaluate(()=>{
+    долли»; IGU отдаёт на скидах; SHIPR — всегда скид (проход 7.10.2026:
+    без скида SHIP было нечего грузить), SHIP — свои правила. */
+ eq('Puts on: по умолчанию Dolly, IGU — Skid, SHIPR — всегда Skid, SHIP — свои правила; владелец меняет в Master Data; переживает нормализацию',await t.p.evaluate(()=>{
   cvReset();const v=c=>sfPutsOn(DB.station.find(s=>s.code===c)),heat=DB.station.find(s=>s.code==='HEAT');
   const def=['CUT','ARRIS','HEAT','IGU','SHIPR','SHIP'].map(v).join(),ship=sfSetPutsOn('SHIP','dolly');
   sfSetPutsOn('HEAT','none');normalizeShopFloor();const after=v('HEAT');
-  tab='masterdata';mdSetTab('stations');const igu=document.querySelector('[data-sf-puts-on="IGU"]').value,own=document.querySelector('[data-sf-station="SHIPR"]').textContent.includes('own rules');
+  tab='masterdata';mdSetTab('stations');const igu=document.querySelector('[data-sf-puts-on="IGU"]').value,own=document.querySelector('[data-sf-station="SHIP"]').textContent.includes('own rules')&&document.querySelector('[data-sf-station="SHIPR"]').textContent.includes('Skid · always');
   delete DB.station.find(s=>s.code==='HEAT').putsOn;tab='dashboard';render();
   return {def,ship,after,igu,own};
- }),{def:'dolly,dolly,dolly,skid,none,none',ship:false,after:'none',igu:'skid',own:true});
+ }),{def:'dolly,dolly,dolly,skid,skid,none',ship:false,after:'none',igu:'skid',own:true});
 
  /* Владелец, 6.10.2026: «засчитывает и ждёт долли»; следующая долли
-    забирает стёкла, отсканированные без неё. */
- eq('Which dolly?: скан без тары засчитан, жёлтая полоса и плашка; «кладу на» забирает; приехавшая — нет; опция «—» не спрашивает',await t.p.evaluate(()=>{
+    забирает стёкла, отсканированные без неё. 7.10.2026: приехавшая долли —
+    «кладу на неё же», значит, забирает и она. */
+ eq('Which dolly?: скан без тары засчитан, жёлтая полоса и плашка; «кладу на» забирает, приехавшая — тоже; опция «—» не спрашивает',await t.p.evaluate(()=>{
   cvReset();carrierAdd('DL',3);const id=cvOrder([[36,24,5]]),g=cvIds(id);cvLogin('CUT','Ivan P.');
   const kind=stationSubmit(g[0]);stationSubmit(g[1]);
   const ask=!!document.querySelector('[data-station-ask-dolly]'),chip=document.querySelector('[data-station-loose]').textContent.replace(/\s+/g,' ').trim();
@@ -91,7 +94,7 @@ module.exports=async function({page,eq,ok}){
   stationSubmit('DL-2');const fresh=stationLast.check.took;stationSwitch();
   const on=g.map(x=>{const s=DB.stationScan.filter(r=>r.piece===x&&!r.undoneAt).pop();return s?s.station+':'+(s.on||'—'):'-';}).join();
   tab='dashboard';render();return {kind,ask,chip,took,card,gone,none,arrived,fresh,on};
- }),{kind:'ok',ask:true,chip:'No dolly · 2',took:2,card:'carrierTook',gone:true,none:true,arrived:'carrierIn:0:1',fresh:1,on:'ARRIS:DL-2,CUT:DL-1,CUT:DL-1,CUT:—,-'});
+ }),{kind:'ok',ask:true,chip:'No dolly · 2',took:2,card:'carrierTook',gone:true,none:true,arrived:'carrierIn:1:0',fresh:0,on:'ARRIS:DL-1,CUT:DL-1,CUT:DL-1,CUT:—,-'});
 
  /* Владелец, 6.10.2026: «на №3 у него 30 стёкол — выбирает с 31 по 60 и
     говорит: это на №4»; ошибку можно исправить. */
