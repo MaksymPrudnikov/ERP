@@ -78,7 +78,8 @@ function shippingSave(){
 function shippingResult(out){shippingNotice={error:!out.ok,text:out.ok?out.value.number+' · '+shippingStatus(out.value):out.error};render();}
 function shippingStatus(s){return s.status==='delivered'?(s.method==='pickup'?'Picked up':'Delivered'):({planned:'Planned',shipped:'Shipped',cancelled:'Cancelled'})[s.status]||'';}
 /* Статус PS — цветной таблеткой тех же классов, что статус заказа в Sales. */
-function shippingStatusPill(s){return `<span class="pill st-${({planned:'new',shipped:'shipping',delivered:'done',cancelled:'cancelled'})[s.status]||'new'}">${shippingStatus(s)}</span>`+shippingBalancePill(s);}
+/* Статус и «Balance due» — одним блоком: в шапке PS они не разъезжаются. */
+function shippingStatusPill(s){return `<span class="shipping-pills"><span class="pill st-${({planned:'new',shipped:'shipping',delivered:'done',cancelled:'cancelled'})[s.status]||'new'}">${shippingStatus(s)}</span>${shippingBalancePill(s)}</span>`;}
 /* Подсветка: в PS заказ cash-клиента с долгом — деньги взять до выдачи. */
 function shippingBalancePill(s){return ['planned','shipped'].includes(s.status)&&shippingOrderIds(s).some(id=>{const o=salesRecord(id);return o&&shippingBalanceDue(o);})?' <span class="pill bad" data-ps-balance>Balance due</span>':'';}
 function shippingQueueChange(orderId,lineId,value){const out=shippingQueueSet(orderId,[lineId],value);shippingNotice=out.ok?null:{error:true,text:out.error};render();}
