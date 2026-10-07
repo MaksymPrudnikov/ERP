@@ -19,7 +19,7 @@ DEFAULT.orderEvent=[];
 if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];
 const ORDER_LOG_HEAD=[['customerId','customer'],['customerPo','PO'],['dueDate','due date'],['priority','priority'],['delivery','delivery'],['paymentTerms','terms'],['currency','currency'],['branch','branch'],['notes','notes'],['orderCharges','charges'],['makeups','makeups'],['extraItems','items'],['noCharge','no charge'],['validUntil','valid until']];
 /* Поля строки, которые ведёт цех (батч, Hold строки) — у них свои записи. */
-const ORDER_LOG_LINE_OWN=['batchManaged','batchedAt','cutStartedAt','batchNo','onHold','holdReason','holdAt','shipQueue','heldUnits','cancelledUnits'];
+const ORDER_LOG_LINE_OWN=['priceManual','batchManaged','batchedAt','cutStartedAt','batchNo','onHold','holdReason','holdAt','shipQueue','heldUnits','cancelledUnits'];
 let orderLogBase={text:null,map:null},orderLogPending=null;
 
 function normalizeOrderLog(){
@@ -59,6 +59,10 @@ function orderLogDiff(a,b){
  const gone=(a.lines||[]).filter(l=>!(b.lines||[]).some(x=>x.id===l.id)).length;
  if(gone)parts.push(gone===1?'line removed':gone+' lines removed');
  if(parts.length)add('Edited',parts.length>6?parts.slice(0,6).join(', ')+' +'+(parts.length-6):parts.join(', '));
+ /* Деньги руками — со значениями: было → стало. */
+ const money=v=>v==null?'calculated':'$'+(+v).toFixed(2);
+ (b.lines||[]).forEach((l,i)=>{const was=before.get(l.id);if(was&&(was.priceManual??null)!==(l.priceManual??null))add('Price by hand','line '+(i+1)+' · '+money(was.priceManual)+' → '+money(l.priceManual));});
+ if(JSON.stringify(a.adjustments||[])!==JSON.stringify(b.adjustments||[]))add('Adjustments',(b.adjustments||[]).map(x=>(x.label||'Adjustment')+' '+(x.amount<0?'−':'+')+'$'+Math.abs(x.amount).toFixed(2)).join('; ')||'removed');
  /* Hold заказа и строк. */
  if(!a.onHold&&b.onHold)add('On Hold',b.holdReason);
  if(a.onHold&&!b.onHold)add('Hold released');
