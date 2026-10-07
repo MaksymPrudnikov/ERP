@@ -170,7 +170,7 @@ function stationRecordCommand(station,check,who,opts){
  if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
  DB.stationScan.push(rec);
- if(check.g)stationAsmJoin(rec,check.g,station);
+ if(check.g)stationAsmJoin(rec,check.g,station,opts.asm);
  /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
     позиция узнаёт это через glassBatchSyncLine, как и прежде. */
  const e=check.g&&check.g.entry;
@@ -480,13 +480,15 @@ function stationAssemblyKeys(g,station){
  const lam=salesRouteStationOf('lamination','LAM');
  return glassBatchComponents(g.o,g.l).filter(c=>!c.missing&&(station!==lam||!g.c.ply||c.index===g.c.index)).map(c=>c.key);
 }
-function stationAsmJoin(rec,g,station){
+/* want — сборка, в которую встаёт стекло (erp/shopfloor/skip): id открытой
+   сборки или 'new'. Без want — самая ранняя открытая, как у сканера. */
+function stationAsmJoin(rec,g,station,want){
  if(!g||!g.c||g.c.missing)return;
  const mu=stationUnitMerge(g.o,g.l),lam=salesRouteStationOf('lamination','LAM');
  if(station!==mu&&!(station===lam&&g.c.ply))return;
  const expected=stationAssemblyKeys(g,station),index=stationPieceIndex();
  const open=stationAsms(g.o,g.l,station,index).filter(a=>!a.complete&&!a.broken&&!a.lites.has(g.c.key)&&!a.recs.includes(rec)&&[...a.lites.keys()].every(k=>expected.includes(k)));
- rec.asm=open.length?open[0].asm:rec.id;
+ rec.asm=want==='new'?rec.id:want&&open.some(a=>a.asm===want)?want:open.length?open[0].asm:rec.id;
  const all=stationAsms(g.o,g.l,station,index),a=all.find(x=>x.asm===rec.asm);
  if(!a||!expected.every(k=>a.lites.has(k)))return;
  if(station!==mu){a.recs.forEach(r=>{r.joined=true;});return;}

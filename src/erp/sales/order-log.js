@@ -118,7 +118,7 @@ function orderLogCommitted(text){if(orderLogPending)orderLogBase={text,map:order
    созданного до журнала, первой строкой — дата создания без имени. */
 function orderLogFor(orderId){
  const o=(DB.salesOrder||[]).find(x=>x.id===orderId);
- const rows=(DB.orderEvent||[]).filter(e=>e.orderId===orderId).map(e=>({at:e.at,by:e.by,what:e.what,note:e.note}));
+ const rows=(DB.orderEvent||[]).filter(e=>e.orderId===orderId).map(e=>({id:e.id,at:e.at,by:e.by,what:e.what,note:e.note}));
  (DB.financeEvent||[]).forEach(e=>{
   if(e.kind==='opening'||!(e.orders||[]).some(x=>x.id===orderId))return;
   const r=e.after||e.before||{},amount=typeof r.amount==='number'?'$'+r.amount.toFixed(2):'';

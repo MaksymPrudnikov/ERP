@@ -61,10 +61,11 @@ function shippingUpdate(id,d){return storageCommand(()=>{
    он везёт двумя доставками… не влезло на машину»). Без mode — весь PS:
    непогруженное офис подтверждает сам ручными SHIP-сканами, как в PR 1
    (самовывоз одним сканом подписанного PS, рейс без сканов на станции). */
-function shippingMarkShipped(id,mode){return storageCommand(()=>{
+/* at — время выдачи задним числом (Skip, erp/shopfloor/skip: забрали в субботу). */
+function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can be shipped.');
  shippingAssert(s.items.length+s.extras.length+(s.takes||[]).length>0,'An empty packing slip cannot be shipped.');
- const now=new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
+ const now=at||new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
  const loaded=new Set(shippingLoadState(s).loaded.map(u=>u.label));
  /* Сначала — что едет, потом проверка: непогруженный юнит, разбитый до
     печати, не держит отправку погруженных (аудит Shipping, F4). */
