@@ -74,15 +74,28 @@ module.exports=async function({page,eq}){
   return {no,acts,broken,marked,ship};
  }),{no:['1 no skid','No skid1 B2NO SKID'],acts:['✓ Mark ready','Print sticker','Broken'],broken:['recut',true],marked:[null,'2 no skid','SHIPR:—'],ship:'Without a skid · 2 units'});
 
- eq('перенос по клиенту: нажал скид заказа — скан другого скида, все его юниты переехали; Undo — назад; «No skid» — кнопкой скида; микс виден, не ошибка',await t.p.evaluate(()=>{
+ eq('скид заказа в листе — окно скида с этим заказом: скан другого скида — его юниты переехали; Undo — назад; «No skid» — кнопкой скида; микс виден, не ошибка',await t.p.evaluate(()=>{
   irLine();irLogin(shippingStations().ready);stationSubmit('SL-1');[1,2,3].forEach(n=>stationSubmit(irUnit(ir.A,n)));stationClearPutOn();[1,2].forEach(n=>stationSubmit(irUnit(ir.B,n)));
-  document.querySelector('[data-igu-order="'+ir.an+'"] [data-igu-pick="SL-1"]').click();const foot=irText('[data-igu-foot]');
-  stationSubmit('SL-2');const moved=[stationLast.check.kind,irText('[data-station-result="carrierMoved"] .st-res-h').replace(/\d\d:\d\d.*$/,'').trim(),irOn(irLites(ir.A)[1][2])];
+  document.querySelector('[data-igu-order="'+ir.an+'"] [data-igu-pick="SL-1"]').click();
+  const win=[stationDrawer.kind,irText('[data-station-skid-window] h2'),irText('[data-skid-order="'+ir.an+'"]').replace(ir.an,'A'),irText('[data-skid-sel]')];
+  stationSubmit('SL-2');const moved=[stationLast.check.kind,irText('[data-station-result="carrierMoved"] .st-res-h').replace(/\d\d:\d\d.*$/,'').trim(),irOn(irLites(ir.A)[1][2]),stationDrawer];
   document.querySelector('[data-dolly-undo]').click();const back=irOn(irLites(ir.A)[0][0]);
-  document.querySelector('[data-igu-noskid]').click();document.querySelector('[data-igu-to="SL-1"]').click();
+  document.querySelector('[data-igu-noskid]').click();const foot=irText('[data-igu-foot]');document.querySelector('[data-igu-to="SL-1"]').click();
   const mix=[irText('[data-igu-order="'+ir.an+'"] [data-igu-pick="SL-1"]'),irText('[data-igu-order="'+ir.bn+'"] [data-igu-pick="SL-1"]'),irText('[data-igu-noskid-count]')];
-  irOut();return {foot,moved,back,mix};
- }),{foot:'3 units →SL-1MoveClear',moved:['carrierMoved','✓ Moved 3 units · SL-1 → SL-2','SHIPR:SL-2'],back:'SHIPR:SL-1',mix:['SL-1 3 mix','SL-1 2 mix',null]});
+  irOut();return {win,moved,back,foot,mix};
+ }),{win:['skid','SL-13 units','✓A · Summit Builders3 units','3 selected →'],moved:['carrierMoved','✓ Moved 3 units · SL-1 → SL-2','SHIPR:SL-2',null],back:'SHIPR:SL-1',foot:'2 units →SL-1MoveClear',mix:['SL-1 3 mix','SL-1 2 mix',null]});
+
+ eq('окно скида юнитами по клиентам (Skids at SHIPR): клиент — все его юниты, юнит — по одному; перенос кнопкой скида; ничего не выбрано — Empty',await t.p.evaluate(()=>{
+  irLine();irLogin(shippingStations().ready);stationSubmit('SL-1');[1,2,3].forEach(n=>stationSubmit(irUnit(ir.A,n)));stationSubmit(irUnit(ir.B,1));document.querySelector('[data-station-warn-keep]').click();stationSubmit('SL-2');stationSubmit(irUnit(ir.B,2));
+  document.querySelector('[data-station-loaded="SL-1"]').click();
+  const rows=[...document.querySelectorAll('[data-station-skid-window] tr')].map(r=>r.dataset.skidOrder?'order '+(r.dataset.skidOrder===ir.an?'A':'B')+' '+r.querySelector('.n').textContent:'unit '+r.dataset.skidUnit.replace(/U-\d+/,'U'));
+  const empty=irText('[data-station-skid-window] [data-skid-empty]');
+  document.querySelector('[data-skid-order="'+ir.bn+'"]').click();document.querySelector('[data-station-skid-window] [data-skid-unit="'+irUnit(ir.A,3)+'"]').click();
+  const sel=[irText('[data-skid-sel]'),[...document.querySelectorAll('[data-station-skid-window] tr.on')].length,[...document.querySelectorAll('[data-skid-to]')].map(b=>b.dataset.skidTo)];
+  document.querySelector('[data-skid-to="SL-2"]').click();
+  const after=[irText('[data-station-result="carrierMoved"] .st-res-h').replace(/\d\d:\d\d.*$/,'').trim(),(carrierContents().get('SL-1')||[]).length,(carrierContents().get('SL-2')||[]).length];
+  irOut();return {rows,empty,sel,after};
+ }),{rows:['order A 3 units','unit U','unit U','unit U','order B 1 unit','unit U'],empty:'Empty SL-1',sel:['2 selected →',3,['SL-2']],after:['✓ Moved 2 units · SL-1 → SL-2',4,6]});
 
  eq('Empty — у любой тары на любой станции: долли на CUT, два нажатия, стекло остаётся на станции без тары; Undo — обратно',await t.p.evaluate(()=>{
   irReset();carrierAdd('DL',1);const s=irLites(irOrder('North Shore Windows',2,'single')).flat();

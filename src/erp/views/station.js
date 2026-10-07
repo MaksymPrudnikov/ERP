@@ -138,6 +138,7 @@ function stationSubmit(raw){
  const check=stationCheck(stationCode,raw);if(!check)return false;
  /* Окно тары с выбранными стёклами: скан тары — «перенести сюда». */
  if(check.kind==='carrier'&&stationDrawer&&stationDrawer.kind==='dolly'&&stationDrawer.a)return stationDollyMove(check.code)?'moved':'carrier';
+ if(check.kind==='carrier'&&stationDrawer&&stationDrawer.kind==='skid'&&stationDrawer.sel.size)return stationSkidMove(check.code)?'moved':'carrier';
  /* Лист «From IGU» с выбранным — скан скида: «перенести сюда». */
  if(check.kind==='carrier'&&!stationDrawer&&stationIsReady()&&stationIguSel.size)return stationIguMove(check.code)?'moved':'carrier';
  /* Скан не ждёт окна: следующий стикер закрывает открытое окно. */
@@ -484,7 +485,7 @@ function viewStation(){
  if(!who)return stationTop(null)+'<div class="st-body st-one">'+stationLoginView()+'</div>';
  setTimeout(stationFocus,0);
  if(stationCode===stationCutCode())stationSheetEnsure();
- const drawer=stationDrawer?(stationDrawer.kind==='recut'?stationRecutHTML():stationDrawer.kind==='batch'?stationBatchHTML():stationDrawer.kind==='draw'?stationDrawHTML():stationDrawer.kind==='dolly'?stationDollyHTML():stationSheetBreakHTML()):'';
+ const drawer=stationDrawer?(stationDrawer.kind==='recut'?stationRecutHTML():stationDrawer.kind==='batch'?stationBatchHTML():stationDrawer.kind==='draw'?stationDrawHTML():stationDrawer.kind==='dolly'?stationDollyHTML():stationDrawer.kind==='skid'?stationSkidHTML():stationSheetBreakHTML()):'';
  if(stationTab==='queue')return stationTop(who)+(stationCode===stationCutCode()?stationQueueView():stationFlowView())+drawer;
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
@@ -912,7 +913,7 @@ function stationDollyList(d){
  if(d.scope==='here')return (stationWaiting().get(stationCode)||[]).filter(x=>x.last&&!x.last.on).map(x=>({id:x.id,g:x.g,place:x.place,scan:x.last})).sort(asc);
  return stationLooseOut().sort(asc);
 }
-function stationDollyOpen(code,scope){stationMenu=null;stationDrawer={kind:'dolly',code:code||'',scope:scope||'',a:0,b:0,error:''};render();}
+function stationDollyOpen(code,scope){if(code&&!scope&&/^S[LA]-/.test(code))return stationSkidOpen(code);stationMenu=null;stationDrawer={kind:'dolly',code:code||'',scope:scope||'',a:0,b:0,error:''};render();}
 function stationDollyTap(pos){const d=stationDrawer;if(!d||d.kind!=='dolly')return;if(!d.a||d.b){d.a=pos;d.b=0;}else d.b=pos;d.error='';render();}
 function stationDollyRange(d){return d.a?[Math.min(d.a,d.b||d.a),Math.max(d.a,d.b||d.a)]:[0,0];}
 function stationDollyMove(to){
