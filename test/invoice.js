@@ -64,6 +64,14 @@ module.exports=async function({page,eq,ok}){
   const out={tab,kind:docState&&docState.kind,order:soDraft&&soDraft.id===id};docState=null;salesDraftDrop();tab='dashboard';render();return out;
  }),{tab:'sales',kind:'invoice',order:true});
 
+ /* Проверка мест изменений после #232: оплаченного заказа нет в Due dates
+    (там только долг) — счёт с PAID открывается из счёта клиента. */
+ eq('Finance → Accounts → клиент: у оплаченного выданного заказа кнопка Invoice — бланк с PAID',await t.p.evaluate(()=>{
+  const id=ivOrder({paymentMode:'cash'});oqPay(id);ivShip(id,shippingAvailable(salesRecord(id)));tab='finance';finOpenAccount(salesRecord(id).customerId);finAccountPaid=true;render();
+  const btn=document.querySelector('.fin-table [data-fin-invoice="'+salesRecord(id).businessNumber+'"]');if(!btn)return 'no button';btn.click();
+  const out={kind:docState&&docState.kind,stamp:(docBuildModel('invoice',soDraft,docState.opts).stamp||{}).text};docState=null;salesDraftDrop();tab='dashboard';render();return out;
+ }),{kind:'invoice',stamp:'PAID'});
+
  eq('QuickBooks: Net, согласованный срок и Paid меняют выгруженный счёт на Corrected',await t.p.evaluate(()=>{
   const id=ivOrder();ivShip(id,shippingAvailable(salesRecord(id)));const o=salesRecord(id);
   const pending=()=>finExportPending().filter(x=>x.kind==='invoice'&&x.x.id===id),mark=()=>finPersist(()=>finExportMark(pending())).ok;
