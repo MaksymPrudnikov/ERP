@@ -98,17 +98,19 @@ module.exports=async function({page,eq,ok}){
   };
   window.rdLine=()=>salesRecord(rd.id).lines[0];
   window.rdSave=(fn)=>{salesOpenRecutShape(rd.r.id);if(fn)fn();saveShape();return DB.recut[0];};
+  /* Документы клиента: Recut — внутренняя проблема цеха, всегда $0 (владелец, 7.10.2026). */
+  window.rdDocs=()=>{const o=salesRecord(rd.id);return JSON.stringify(['proforma','confirmation','invoice'].map(k=>finWithOrder(o,()=>docLayout(docBuildModel(k,o)))));};
  });
 
  eq('строка Recut: размер и Shape; редактор — несохранённая копия с полосой RECUT и Was; Cancel ничего не пишет',await t.p.evaluate(()=>{
-  rdOrder();const row=document.querySelector('[data-recut-row]'),btn=row.querySelector('[data-recut-shape]'),before=localStorage.getItem(STORAGE_KEY);
+  rdOrder();window.rdDocsBefore=rdDocs();const row=document.querySelector('[data-recut-row]'),btn=row.querySelector('[data-recut-shape]'),before=localStorage.getItem(STORAGE_KEY);
   btn.click();
   const open={tab,isNew:sEdit==='new',band:(document.querySelector('[data-shape-recut-band]')||{}).textContent,title:document.querySelector('.shape-workspace-identity b').textContent,inDb:DB.shapeDef.some(s=>s.id===sDraft.id),name:sDraft.name};
   sDraft.w='36';cancelShapeEdit();
   return {size:[...row.querySelectorAll('[data-recut-size] input')].map(i=>i.value).join(' × '),own:btn.classList.contains('own'),open,back:tab,same:localStorage.getItem(STORAGE_KEY)===before,recut:JSON.stringify(DB.recut[0]).includes('shapeRef')};
  }),{size:'37 × 71',own:false,open:{tab:'configurators',isNew:true,band:'RECUT 1 · Line 1 · Office · Drawing wrong · Was 37″ × 71″',title:'Recut drawing',inDb:false,name:'Recut 1 · Line 1'},back:'sales',same:true,recut:false});
 
- eq('Save revision: чертёж у Recut, строка и её цена как заказано; очередь, раскрой, стикер и лист Recut — по чертежу Recut',await t.p.evaluate(()=>{
+ eq('Save revision: чертёж у Recut, строка и её цена как заказано, документы клиента без Recut и без перемен; очередь, раскрой, стикер и лист Recut — по чертежу Recut',await t.p.evaluate(()=>{
   const geo=l=>JSON.stringify([l.width16,l.height16,l.shapeRef,l.liteShapes,salesShapeByRef(l.shapeRef)]),line=geo(rdLine()),total=finOrderTotals(salesRecord(rd.id)).total;
   const r=rdSave(()=>{sDraft.w='36';});
   const o=salesRecord(rd.id),l=o.lines[0],rows=glassBatchRows([o]),c=glassBatchComponents(o,l)[0];
@@ -117,9 +119,10 @@ module.exports=async function({page,eq,ok}){
   return {w:r.width16/16,ref:!!r.shapeRef.id,owner:DB.shapeDef.find(s=>s.id===r.shapeRef.id).ownerLineId===l.id,lineSame:geo(l)===line,
    total:finOrderTotals(o).total===total,rows:rows.map(x=>x.unit+':'+x.width),sticker:[sticker.finished.w,sticker.recut],old:old.finished.w,cut,
    parts:b.parts.map(p=>p.snapshot.recut+':'+p.snapshot.width),log:DB.orderEvent.filter(e=>e.orderId===rd.id&&e.what==='Recut drawing').map(e=>e.note),
-   tab,section:[...document.querySelectorAll('[data-recut-size] input')].map(i=>i.value).join(' × '),own:document.querySelector('[data-recut-shape]').classList.contains('own')};
+   tab,section:[...document.querySelectorAll('[data-recut-size] input')].map(i=>i.value).join(' × '),own:document.querySelector('[data-recut-shape]').classList.contains('own'),
+   docs:rdDocs()===rdDocsBefore&&!/recut/i.test(rdDocsBefore)&&/37\\+" × 71/.test(rdDocsBefore)};
  }),{w:36,ref:true,owner:true,lineSame:true,total:true,rows:['R1.1:36','R1.2:36','R1.1:36','R1.2:36'],sticker:[36,'RECUT 1'],old:37,cut:['R1.1:36','R1.2:36','R1.1:36','R1.2:36'],
-  parts:['R1:36','R1:36'],log:['Recut 1 · line 1'],tab:'sales',section:'36 × 71',own:true});
+  parts:['R1:36','R1:36'],log:['Recut 1 · line 1'],tab:'sales',section:'36 × 71',own:true,docs:true});
 
  eq('чертёж Recut в батче, но не порезан: правка возвращает стекло в To batch; порезано — правка закрыта',await t.p.evaluate(()=>{
   const b=DB.glassBatch.find(x=>x.items.some(i=>typeof i.unit==='string'&&!i.releasedAt)),pieces=b.items.filter(i=>typeof i.unit==='string').map(i=>i.piece);
