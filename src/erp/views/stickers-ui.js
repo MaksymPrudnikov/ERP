@@ -240,7 +240,7 @@ function stkDialogHTML(){
   const opts=unitType?[{v:'all',t:'Whole unit'}]:[{v:'all',t:row.comps.length>1?'All glass':'Lite '+(row.comps[0]?row.comps[0].lite+' · '+row.comps[0].glass:'')}].concat(row.comps.length>1?row.comps.map(c=>({v:c.key,t:'Lite '+c.lite+' · '+c.glass})):[]);
   const max=row.kind==='recut'?row.r.qty:row.l.qty,name=row.kind==='recut'?`<b class="stk-recut">Recut ${row.r.no}</b> · Line ${row.li+1}`:'Line '+(row.li+1)+(row.l.mark?' · '+esc(row.l.mark):'');
   return `<tr data-stk-row="${esc(row.key)}" class="${on?'on':''}${usable?'':' off'}"><td><input type="checkbox" data-stk-row-on ${on?'checked':''} ${usable?'':'disabled'} aria-label="Print ${row.kind==='recut'?'recut '+row.r.no:'line '+(row.li+1)}" onchange="stkDialogRow('${esc(row.key)}','on',this.checked,true)"></td>
-   <td>${name}</td><td class="nowrap">${esc(dimIn16(row.l.width16/16))} × ${esc(dimIn16(row.l.height16/16))}</td><td class="n">${max}</td>
+   <td>${name}</td><td class="nowrap">${(g=>`${esc(dimIn16(g.width16/16))} × ${esc(dimIn16(g.height16/16))}`)(row.kind==='recut'?recutLine(row.r,row.l):row.l)}</td><td class="n">${max}</td>
    <td>${usable?`<select data-stk-which ${on&&opts.length>1?'':'disabled'} aria-label="Which glass" onchange="stkDialogRow('${esc(row.key)}','which',this.value,true)">${opts.map(v=>`<option value="${esc(v.v)}" ${x.which===v.v?'selected':''}>${esc(v.t)}</option>`).join('')}</select>`:`<span class="mut">${unitType?'Single glass':'No glass'}</span>`}</td>
    <td><input type="text" data-stk-units value="${esc(x.units)}" placeholder="1-${max}" ${on?'':'disabled'} aria-label="Units" oninput="stkDialogRow('${esc(row.key)}','units',this.value)"></td></tr>`;
  }).join('');
@@ -269,12 +269,13 @@ function stkBatchDialogHTML(d,seg){
  const sub=[glass,x.all.filter(j=>j.type!=='stock').length+' glass',x.laid?plural(x.max,'sheet'):'Not built · in order'].join(' · ');
  const cur=typeof cutUi!=='undefined'&&cutUi&&cutUi.batch===b.number&&+cutUi.sheet||1;
  const sheets=x.laid?`<div><div class="ncr-label">SHEETS</div><div class="stk-sheets"><div class="stk-seg"><button type="button" class="${d.sheets===''?'on':''}" data-stk-sheets-all onclick="stkBatchSheets('')">All</button><button type="button" class="${d.sheets===String(cur)?'on':''}" data-stk-sheets-this onclick="stkBatchSheets('${cur}')">This · ${cur}</button></div><input type="text" data-stk-sheets value="${esc(d.sheets)}" placeholder="1-${x.max}" aria-label="Sheets" onchange="stkBatchSheets(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();stkBatchSheets(this.value);}"></div></div>`:'';
- const lines=new Map(),info=j=>{const k=j.o.id+'|'+j.l.id;if(!lines.has(k))lines.set(k,{shape:!salesShapeIsLineRect(salesLineGeometryShape(j.l)),many:glassBatchComponents(j.o,j.l).length>1});return lines.get(k);};
+ /* Стекло Recut со своим чертежом — его форма и размер (erp/quality/recut). */
+ const lines=new Map(),info=j=>{const g=glassRecutLine(j.o,j.l,j.unit),k=j.o.id+'|'+j.l.id+'|'+(g===j.l?'':String(j.unit).split('.')[0]);if(!lines.has(k))lines.set(k,{g,shape:!salesShapeIsLineRect(salesLineGeometryShape(g)),many:glassBatchComponents(j.o,j.l).length>1});return lines.get(k);};
  const row=j=>{
   const k=stkJobKey(j),on=!d.off.has(k);
   if(j.type==='stock')return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" onchange="stkBatchCheck('item','${esc(k)}',this.checked)"></td><td class="gb-piece">${esc(k)}</td><td class="mut">Stock offcut</td><td></td><td class="nowrap">${esc(frac16(j.rec.w))} × ${esc(frac16(j.rec.h))}″</td><td></td></tr>`;
   const f=info(j),li=j.o.lines.indexOf(j.l)+1;
-  return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" onchange="stkBatchCheck('item','${esc(k)}',this.checked)"></td><td class="gb-piece">${esc(k)}</td><td>${esc(j.o.businessNumber||'')} / ${li}${f.many?' · Lite '+esc(j.c.lite):''}${j.l.mark?' · '+esc(j.l.mark):''}</td><td>${esc(salesCustomerDisplay(j.o.customerId))}</td><td class="nowrap">${esc(dimIn16(j.l.width16/16))} × ${esc(dimIn16(j.l.height16/16))}</td><td>${f.shape?'<span class="pill">shape</span>':''}</td></tr>`;
+  return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" onchange="stkBatchCheck('item','${esc(k)}',this.checked)"></td><td class="gb-piece">${esc(k)}</td><td>${esc(j.o.businessNumber||'')} / ${li}${f.many?' · Lite '+esc(j.c.lite):''}${j.l.mark?' · '+esc(j.l.mark):''}</td><td>${esc(salesCustomerDisplay(j.o.customerId))}</td><td class="nowrap">${esc(dimIn16(f.g.width16/16))} × ${esc(dimIn16(f.g.height16/16))}</td><td>${f.shape?'<span class="pill">shape</span>':''}</td></tr>`;
  };
  const groups=[];x.scope.forEach(j=>{const g=groups[groups.length-1];if(g&&g.no===j.sheet)g.jobs.push(j);else groups.push({no:j.sheet,jobs:[j]});});
  const body=groups.map(g=>{
@@ -456,7 +457,7 @@ function stkSamples(type){
  }));
  return out.slice(0,80);
 }
-function stkJobData(j){return j.type==='stock'?stkStockData(j.rec):j.type==='unit'?stkUnitData(j.o,j.l,j.unit):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});}
+function stkJobData(j){return j.type==='stock'?stkStockData(j.rec):j.type==='unit'?stkUnitData(j.o,j.l,j.unit,j.from):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});}
 function stkSampleData(type){
  const st=stkBuilderState();
  if(type==='stock'&&!st.print){
