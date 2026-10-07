@@ -23,14 +23,17 @@ function stationTakeOff(check){
 /* ------------------------------ SHIPR ------------------------------- */
 /* Скиды-миксы — норма (владелец, 6.10.2026: «микс из клиентов, у которых 1–4
    юнита… в большом заказе никогда на скиде не будет микса»). Предупреждаем
-   один раз — когда скид одного клиента этим сканом становится миксом, и на
-   любой станции: на скид стекло кладут сразу после IGU. */
+   один раз — когда скид одного клиента этим сканом становится миксом. Только
+   на SHIPR: на IGU скиды мешают свободно (владелец, 7.10.2026: «на IGU можно
+   мешать»), по клиентам их собирают на SHIPR. */
 function stationReadyForeign(g,rec){
- if(!g||!rec||!/^S[LA]-/.test(rec.on||''))return null;
+ if(!g||!rec||!stationIsReady()||!/^S[LA]-/.test(rec.on||''))return null;
  const act=rec.actionId||rec.id,before=new Set((carrierContents().get(rec.on)||[]).filter(x=>(x.scan.actionId||x.scan.id)!==act).map(x=>x.g.o.customerId));
  return before.size===1&&!before.has(g.o.customerId)?{skid:rec.on,customers:[salesCustomerDisplay([...before][0])]}:null;
 }
-function stationForeignBar(L){return L.foreign?'<div class="st-urg" data-station-foreign>OTHER CUSTOMER ON '+esc(L.foreign.skid)+'<span data-raw>· '+esc(L.foreign.customers.join(', '))+'</span></div>':'';}
+/* Как «стекло едет не туда» (views/station): ✓ оставить или сразу скан
+   другого скида — юнит переедет на него. */
+function stationForeignBar(L){return L.foreign?'<div class="st-urg" data-station-foreign>OTHER CUSTOMER ON '+esc(L.foreign.skid)+'<span data-raw>· '+esc(L.foreign.customers.join(', '))+'</span>'+stationWarnKeepBtn(L.foreign.skid)+'</div>':'';}
 function stationQueueBar(g){
  const q=g&&stationIsReady()?shippingQueueOf(g.l):0;
  return q?'<div class="st-custq" data-station-queue>QUEUE '+q+'<span data-raw>· '+esc(salesCustomerDisplay(g.o.customerId))+'</span></div>':'';

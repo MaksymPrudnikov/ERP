@@ -155,7 +155,7 @@ module.exports=async function({page,eq,ok}){
   const mixed=stationSubmit(pieces(b)[0]),foreign=ldText('[data-station-foreign]'),red=!!document.querySelector('.st-res.st-red[data-station-result="ok"]'),on=stationLast.rec.on,noQueue=ldText('[data-station-queue]');
   stationBeep=beep;stationSubmit('SL-1');
   return {own,ownForeign,ownSound,queue,queueDark,count,mixed,foreign,red,sound,on,noQueue,skid:ldText('[data-station-skid]')===('Customer A · Customer B'+o.businessNumber+': 1 / 3 ready'+salesRecord(b).businessNumber+': 1 / 3 ready')};
- }),{own:'ok',ownForeign:false,ownSound:'ok',queue:'QUEUE 3· Customer A',queueDark:true,count:'1 / 3 units',mixed:'ok',foreign:'OTHER CUSTOMER ON SL-1· Customer A',red:true,sound:'error',on:'SL-1',noQueue:null,skid:true});
+ }),{own:'ok',ownForeign:false,ownSound:'ok',queue:'QUEUE 3· Customer A',queueDark:true,count:'1 / 3 units',mixed:'ok',foreign:'OTHER CUSTOMER ON SL-1· Customer A✓ Keep on SL-1',red:true,sound:'error',on:'SL-1',noQueue:null,skid:true});
 
  /* ---------------------------- экран офиса ---------------------------- */
  await t.p.evaluate(()=>{const [a,b]=ldSeed('A A');ldPut(a,'SL-1');ldPut(b,'SL-2');window.ldIds=[a,b];const s=ldPS(a,[a,b]);ldLoad('SL-1');window.ldPrints=0;tab='shipping';shippingTab='shipments';shippingOpenId=s.id;render();});

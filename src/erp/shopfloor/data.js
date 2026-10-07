@@ -203,13 +203,16 @@ function sfSplitEdgeFix(){
 
 /* На что кладут стекло после станции (владелец, 6 октября 2026: «опция,
    чтобы я сам проставлял, убирал, добавлял; базово поставь везде долли»).
-   Пусто — по умолчанию: IGU получает на долли, а отдаёт на скидах; у SHIPR
-   и SHIP свои правила (скиды, машина) — опции у них нет. Станция с опцией
-   спрашивает тару, если её не отсканировали (views/station, «Which dolly?»). */
+   Пусто — по умолчанию: IGU получает на долли, а отдаёт на скидах. У SHIPR
+   и SHIP опции нет: SHIPR всегда на скидах («шипинг реди уже на скидах»;
+   проход 7.10.2026: без скида 104 стекла остались без тары, и SHIP было
+   нечего грузить), SHIP грузит скиды в машину. Станция с тарой спрашивает
+   её, если не отсканировали (views/station, «Which dolly?»). */
 const SF_PUTS_ON=[['dolly','Dolly'],['skid','Skid'],['none','—']];
 function sfPutsOnOwn(code){const sh=typeof shippingStations==='function'?shippingStations():null;return !!sh&&!!code&&(code===sh.ready||code===sh.ship);}
 function sfPutsOn(s){
- if(!s||sfPutsOnOwn(s.code))return 'none';
+ if(!s)return 'none';
+ if(sfPutsOnOwn(s.code))return s.code===shippingStations().ready?'skid':'none';
  if(s.putsOn)return s.putsOn;
  return typeof salesRouteStationOf==='function'&&s.code===salesRouteStationOf('igu_assembly','IGU')?'skid':'dolly';
 }

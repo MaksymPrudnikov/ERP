@@ -53,7 +53,8 @@ function stationFromHash(){const h=stationHash();return h?h.code:'';}
 (function(){const h=stationHash();if(h){stationCode=h.code;tab='station';if(h.batch)stationSheetView={batch:h.batch,glass:'',no:0};}})();
 window.addEventListener('hashchange',function(){
  const h=stationHash();
- if(h){stationCode=h.code;tab='station';stationLast=null;stationSheetView=h.batch?{batch:h.batch,glass:'',no:0}:null;render();}
+ /* Другая станция в той же вкладке — без строки и стопки прежней. */
+ if(h){stationCode=h.code;tab='station';stationLast=null;stationNote='';stationIncoming='';stationHereOpen='';stationDrawer=null;stationSheetView=h.batch?{batch:h.batch,glass:'',no:0}:null;render();}
  else if(tab==='station'){tab='production';render();}
 });
 function stationOpen(code,batch){
@@ -96,7 +97,8 @@ function stationLogin(id){
    пользователь может работать на разных станциях» (владелец, 2 октября 2026).
    Номер — в Users. Ошибка не говорит, что неверно — номер или PIN. */
 function stationLoginKey(k){
- stationPinError='';
+ /* Enter по привычке после PIN не стирает «Wrong number or PIN». */
+ if(k!=='ok')stationPinError='';
  if(stationLoginStep==='no'){
   if(k==='back')stationLoginNo=stationLoginNo.slice(0,-1);
   else if(/^\d$/.test(k)&&stationLoginNo.length<4)stationLoginNo+=k;
@@ -122,7 +124,7 @@ let stationAudio=null;
 function stationBeep(kind){
  try{
   stationAudio=stationAudio||new (window.AudioContext||window.webkitAudioContext)();
-  const tones={ok:[[880,.07]],info:[[880,.07]],twice:[[660,.06],[660,.06]],error:[[220,.35]],sheet:[[660,.08],[990,.14]],urgent:[[880,.07],[1320,.12]]}[kind]||[[880,.07]];
+  const tones={ok:[[880,.07]],info:[[880,.07]],twice:[[660,.06],[660,.06]],error:[[220,.35]],sheet:[[660,.08],[990,.14]],warn:[[523,.1],[392,.18]],urgent:[[880,.07],[1320,.12]]}[kind]||[[880,.07]];
   let t=stationAudio.currentTime+.01;
   tones.forEach(([f,d])=>{const o=stationAudio.createOscillator(),g=stationAudio.createGain();o.type=kind==='error'?'square':'sine';o.frequency.value=f;g.gain.value=.12;o.connect(g);g.connect(stationAudio.destination);o.start(t);o.stop(t+d);t+=d+.05;});
  }catch(e){}
@@ -138,6 +140,7 @@ function stationSubmit(raw){
  if(check.kind==='carrier'&&stationDrawer&&stationDrawer.kind==='dolly'&&stationDrawer.a)return stationDollyMove(check.code)?'moved':'carrier';
  /* Скан не ждёт окна: следующий стикер закрывает открытое окно. */
  stationDrawer=null;stationTab='scan';
+ if(check.kind==='carrier'&&stationWarnTare(check.code))return stationWarnMove(check.code);
  if(check.kind==='carrier'){stationEmptyAsk='';stationCarrierScan(check.code);render();return 'carrier';}
  if(!stationTakeOff(check))return 'saveError';
  /* Готовый юнит отсканирован ещё раз при выбранном скиде — переложили. Юнит
@@ -145,7 +148,7 @@ function stationSubmit(raw){
     его скид не уедет (аудит проделанной работы). */
  if((check.kind==='already'||check.kind==='held'&&check.here)&&stationIsReady()){const moved=stationRestack(check,who);if(moved){render();return moved;}}
  if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
- const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()}):null;
+ const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()||stationStaysOn(check)}):null;
  if(out&&!out.ok){stationSaveError(check.code,out.error);return 'saveError';}
  const rec=out?out.value.rec:null,mates=out?out.value.mates:[];
  stationLooseAdd([rec].concat(mates));
@@ -165,12 +168,16 @@ function stationShow(check,rec){
  const place=g?stationPlace(g):null;
  stationLast={check,rec,data,place,at:rec?rec.at:new Date().toISOString()};
  const foreign=stationReadyForeign(g,rec);if(foreign)stationLast.foreign=foreign;
- /* Лист: показываем лист отсканированного стекла; закрылся — следующий. */
+ const wrong=foreign?null:stationWrongWay(g,rec);if(wrong)stationLast.wrong=wrong;
+ /* Лист: показываем лист отсканированного стекла; закрылся — следующий.
+    Только на CUT: на ARRIS и дальше лист давно дорезан, и каждый скан
+    писал бы «Sheet 3 done» со звуком листа. */
+ const cutting=stationCode===stationCutCode();
  const kind=check.kind;let sound=kind==='ok'||kind==='hold'?(check.stock?'info':stationUrgency(g&&g.o)===2?'urgent':'ok'):kind==='already'?'twice':'error';
  if(kind==='hold'||kind==='held'||kind==='cancelled'&&!check.takes)sound='error';
  if(kind==='cancelled'&&check.takes)sound='twice';
  if(kind==='skipped')sound='twice';
- if(g&&g.entry&&rec){
+ if(cutting&&g&&g.entry&&rec){
   const at=stationSheetFind(g.entry.batch.number,g.id);
   if(at){
    stationSheetView={batch:g.entry.batch.number,glass:at.group.glass,no:at.sheet.no};
@@ -182,8 +189,8 @@ function stationShow(check,rec){
     sound='sheet';
    }
   }
- }else if(g&&g.entry&&!stationSheetView){const at=stationSheetFind(g.entry.batch.number,g.id);if(at)stationSheetView={batch:g.entry.batch.number,glass:at.group.glass,no:at.sheet.no};}
- if(foreign)sound='error';
+ }else if(cutting&&g&&g.entry&&!stationSheetView){const at=stationSheetFind(g.entry.batch.number,g.id);if(at)stationSheetView={batch:g.entry.batch.number,glass:at.group.glass,no:at.sheet.no};}
+ if(foreign)sound='error';else if(wrong)sound='warn';
  stationBeep(sound);
 }
 function stationUndoClick(id){
@@ -261,8 +268,11 @@ function stationBatchBar(v,plan){
  const q=glassBatchCutQueue(),cur=glassBatchFind(v.batch),list=q.slice(),stops=glassStopMap();if(cur&&!list.includes(cur))list.unshift(cur);
  /* Порядок офиса — только совет: резчик берёт батч по стеклу, которое стоит
     у стола (владелец, 29.09.2026), бросает начатый и возвращается к нему. */
+ /* Срочность видна в списке: перерезка Critical-заказа иначе стоит за 30
+    листами другого батча, и резчик о ней не знает (проход 7.10.2026). */
  const opt=b=>{const live=b.items.filter(i=>!i.releasedAt),cut=live.filter(i=>i.cutStartedAt).length,glass=[...new Set(live.map(i=>{const pt=b.parts[i.part];return pt&&pt.snapshot?pt.snapshot.glass:'';}).filter(Boolean))];
-  return '<option value="'+esc(b.number)+'"'+(b===cur?' selected':'')+'>'+esc(b.number)+(glass.length?' · '+esc(glass.join(', ')):'')+' · '+cut+' / '+live.length+' cut'+(cut&&cut<live.length?' · started':'')+(glassBatchStale(b,stops)?' · ⚠ changed — wait':'')+'</option>';};
+  const urg=Math.max(0,...[...new Set(live.map(i=>b.parts[i.part]&&b.parts[i.part].orderId))].map(salesRecord).filter(Boolean).map(stationUrgency));
+  return '<option value="'+esc(b.number)+'"'+(b===cur?' selected':'')+' data-urgency="'+urg+'">'+esc(b.number)+(urg===2?' · CRITICAL':urg===1?' · RUSH':'')+(glass.length?' · '+esc(glass.join(', ')):'')+' · '+cut+' / '+live.length+' cut'+(cut&&cut<live.length?' · started':'')+(glassBatchStale(b,stops)?' · ⚠ changed — wait':'')+'</option>';};
  const cutSet=stationCutSet();
  const miss=plan&&Array.isArray(plan.missing)?plan.missing:[];
  const groups=plan&&plan.groups.length+miss.length>1?plan.groups.map(g=>{const left=g.sheets.filter(s=>!stationSheetDone(s,cutSet)).length;
@@ -358,14 +368,14 @@ function stationCard(){
   skippedNo:{cls:'st-red',head:'✕ '+(c.missed||[]).join(', ')+' not done'},
   route:{cls:'st-red',head:'✕ '+stationCode+' is not in its route'},
   cancelled:{cls:c.takes?'st-amber':'st-red',head:c.takes?'Unit cancelled · customer takes':c.off?'✕ Unit cancelled · off '+c.off:c.unit?'✕ Unit cancelled':'✕ Order cancelled'},
-  unit:{cls:'st-red',head:'✕ Unit number'},
+  unit:{cls:'st-red',head:c.open?'✕ Unit not assembled':'✕ Unit number'},
   saveError:{cls:'st-red',head:'Not saved — scan again'},
   unknown:{cls:'st-red',head:'✕ Unknown code'},
   broken:{cls:'st-red',head:'✕ Broken · '+(place&&place.broken?'Recut '+esc(String(place.broken.recut).replace(/^R/,''))+' · '+esc(place.broken.reason||''):'')},
   recut:{cls:'st-red',head:'✕ '+(c.whole?'Unit broken':'Broken')+' · Recut '+esc(String(c.ref||'').replace(/^R/,''))+' created'},
   peek:{cls:'st-info',head:'Details'}
  }[c.kind]||{cls:'st-red',head:c.kind};
- if(c.kind==='ok'&&urg===2||L.foreign)K.cls='st-red';
+ if(c.kind==='ok'&&urg===2||L.foreign)K.cls='st-red';else if(L.wrong)K.cls='st-amber';
  /* Большой блок слева — главное действие рабочего. */
  let big;
  if(c.kind==='hold'||c.kind==='held')big='<div class="st-big st-red"><small>'+(c.unit?'HOLD':'ON HOLD')+'</small><b>SET ASIDE</b><span>'+esc(c.reason||'Order on hold')+'</span></div>';
@@ -373,7 +383,7 @@ function stationCard(){
  else if(['passed','skippedNo','route'].includes(c.kind))big='<div class="st-big st-red"><small>WAITING AT</small><b>'+esc(place&&place.waiting||'—')+'</b><span>'+(place&&place.waiting?'Take it to '+esc(place.waiting):'Shipped')+'</span></div>';
  else if(c.kind==='cancelled'&&c.takes)big='<div class="st-big st-ask"><small>CUSTOMER TAKES</small><b>SHIP IT</b><span>Cancelled · next packing slip</span></div>';
  else if(c.kind==='cancelled')big='<div class="st-big st-red"><small>'+(c.unit?'UNIT':'ORDER')+'</small><b>STOP</b><span>'+(c.off?'Off '+esc(c.off)+' — set aside':'Cancelled — set aside')+'</span></div>';
- else if(c.kind==='unit')big='<div class="st-big st-red"><small>UNIT</small><b>'+esc(c.code)+'</b><span>Scan the glass sticker</span></div>';
+ else if(c.kind==='unit')big='<div class="st-big st-red"><small>UNIT</small><b>'+esc(c.code)+'</b><span>'+(c.open?'Not assembled at '+esc(c.open)+' yet':'Scan the glass sticker')+'</span></div>';
  else if(c.kind==='recut')big='<div class="st-big st-red"><small>'+(c.whole?'NEW UNIT':'NEW GLASS')+'</small><b class="st-big-code">'+esc((c.newIds||[]).join(', ')||'—')+'</b><span>'+(c.whole?'All its glass — next batch':'Waits for the next batch')+'</span></div>';
  else if(place&&place.assembling&&['ok','hold','already','peek'].includes(c.kind))big='<div class="st-big"><small>UNIT</small><b>IN</b><span>Waiting for its pair</span></div>';
  else if(c.kind==='broken')big='<div class="st-big st-red"><small>BROKEN</small><b>RECUT</b><span>Glass left the route</span></div>';
@@ -408,7 +418,7 @@ function stationCard(){
   (canRecut?'<button type="button" class="b st-red-b" data-station-recut onclick="stationOpenRecut(\''+esc(c.code)+'\')">Recut</button>':'')+
   (stickerFor?'<button type="button" class="b" data-station-sticker onclick="stationPrintSticker(\''+esc(stickerFor)+'\')">'+(c.kind==='recut'?'Print new sticker':'Sticker')+'</button>':'')+unitBtn+drawBtn+'</div>':'';
  return '<div class="st-res '+K.cls+'" data-station-result="'+esc(c.kind)+'">'+(bar||'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>')+
-  (bar&&c.kind!=='ok'?'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>':'')+stationForeignBar(L)+stationQueueBar(g)+stationAskBar(L)+
+  (bar&&c.kind!=='ok'?'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>':'')+stationForeignBar(L)+stationWrongBar(L)+stationQueueBar(g)+stationAskBar(L)+
   '<div class="st-res-b">'+(thumb?'<div class="st-left">'+big+thumb+'</div>':big)+'<div class="st-info">'+info+'</div></div>'+acts+'</div>';
 }
 
@@ -458,7 +468,7 @@ function stationThemeButton(){
 function stationLoginView(){
  const pin=stationLoginStep==='pin',hi=typeof signinGreeting==='function'?signinGreeting():'Hello';
  const shown=pin?'<div class="st-dots'+(stationPinError?' bad':'')+'">'+[0,1,2,3].map(i=>'<i class="'+(i<stationPin.length?'f':'')+'"></i>').join('')+'</div>'
-  :'<div class="st-login-no'+(stationLoginNo?'':' empty')+'" data-station-login-no>'+(stationLoginNo?esc(stationLoginNo):'· ·')+'</div>';
+  :'<div class="st-login-no'+(stationLoginNo?'':' blank')+'" data-station-login-no>'+(stationLoginNo?esc(stationLoginNo):'· ·')+'</div>';
  const keys=['1','2','3','4','5','6','7','8','9','back','0','ok'].map(k=>'<button type="button"'+(k==='ok'?' class="st-key-ok"'+(pin||!stationLoginNo?' disabled':''):'')+' data-station-key="'+k+'" onclick="stationLoginKey(\''+k+'\')">'+(k==='back'?'⌫':k==='ok'?'→':k)+'</button>').join('');
  return '<div class="st-login card"><div class="st-login-hi">'+esc(hi)+(typeof signinClock==='function'?' · <span data-signin-clock>'+esc(signinClock())+'</span>':'')+'</div><h2>'+(pin?'PIN':'Your number')+'</h2>'+shown+
   '<div class="st-pin-err" role="alert">'+esc(stationPinError)+'</div><div class="st-keys">'+keys+'</div></div>';
@@ -730,10 +740,16 @@ function stationCarrierScan(code){
   if(recs.length){const saved=storageCommand(()=>{recs.forEach(s=>{s.on=c.code;});});if(!saved.ok){stationParkPending=recs.map(s=>s.id);stationNote=saved.error;stationBeep('error');return 'saveError';}stationLast={check:{kind:'carrierPark',code:c.code,count:recs.length},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'park';}
  }
  const on=carrierContents().get(c.code)||[],here=on.filter(x=>x.place.waiting===stationCode);
- /* На станции готовности стекло со скида не снимают (его кладут на скид
-    сразу после IGU) — следующие сканы оставляют его на этом скиде. */
- if(here.length&&stationIsReady()&&/^S[LA]-/.test(c.code))stationSetPutOn(c.code);
- if(here.length){stationIncoming=c.code;stationLast={check:{kind:'carrierIn',code:c.code,count:here.length,back},rec:null,data:null,place:null,at:now};stationBeep('info');return 'in';}
+ /* Привезла стекло сюда — его же и кладут обратно (владелец, 7.10.2026:
+    «скан пришедшей долли = кладу на неё же»: сверловка снимает дверь с
+    DA-2 и кладёт на DA-2). Только тара того вида, что кладут здесь: на
+    IGU получают на долли, а отдают на скидах. На станции готовности так
+    было и раньше: стекло со скида не снимают. */
+ if(here.length){
+  const t=carrierType(c.code),mine=!!t&&t.kind.toLowerCase()===stationPutsOnHere();
+  const took=mine?(stationSetPutOn(c.code),stationLooseTake(c.code)):0;
+  stationIncoming=c.code;stationLast={check:{kind:'carrierIn',code:c.code,count:here.length,took,back},rec:null,data:null,place:null,at:now};stationBeep('info');return 'in';
+ }
  stationSetPutOn(c.code);const took=stationLooseTake(c.code);
  stationLast={check:{kind:'carrierPut',code:c.code,count:on.length+took,took,back},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'put';
 }
@@ -741,8 +757,8 @@ function stationCarrierCard(L){
  const c=L.check,t=typeof carrierType==='function'?carrierType(c.code):null,time='<span>'+esc(stationTime(L.at))+'</span>';
  if(c.kind==='carrierPark')return '<div class="st-res st-ok" data-station-result="carrierPark"><div class="st-res-h">✓ On '+esc(c.code)+' · waits for a pair'+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>SET ASIDE ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.count+' glass waits for Recut</div><div class="mut">When the new glass comes, the screen says where its pair is</div></div></div></div>';
  if(c.kind==='carrierBad')return '<div class="st-res st-red" data-station-result="carrierBad"><div class="st-res-h">✕ Unknown dolly or skid'+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Add it in Master Data</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.code)+'</div><div class="mut">Master Data → Dollies &amp; Skids</div></div></div></div>';
- if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">'+(stationPutOn()===c.code?'Glass stays on '+esc(c.code):'The stack is on the right, top first')+'</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
- if(c.kind==='carrierMoved')return '<div class="st-res st-ok" data-station-result="carrierMoved"><div class="st-res-h">✓ Moved '+c.count+' glass · '+esc(c.from||'no '+stationTareWord())+' → '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>NOW ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.count+' glass moved</div><div class="mut">From '+esc(c.from||'no '+stationTareWord())+'</div></div></div><div class="st-acts"><button type="button" class="b" data-dolly-undo onclick="stationDollyUndo()">Undo move</button></div></div>';
+ if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+(c.took?' · took '+c.took+' glass':'')+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">'+(stationPutOn()===c.code?'Glass stays on '+esc(c.code):'The stack is on the right, top first')+'</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
+ if(c.kind==='carrierMoved')return '<div class="st-res st-ok" data-station-result="carrierMoved"><div class="st-res-h">✓ Moved '+c.count+' glass · '+esc(c.from||'no '+stationTareWord())+' → '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>NOW ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.count+' glass moved</div><div class="mut">From '+esc(c.from||'no '+stationTareWord())+(c.puton?' · next glass goes on '+esc(c.code):'')+'</div></div></div><div class="st-acts"><button type="button" class="b" data-dolly-undo onclick="stationDollyUndo()">Undo move</button></div></div>';
  if(c.took)return '<div class="st-res st-ok" data-station-result="carrierTook"><div class="st-res-h">Putting on '+esc(c.code)+' · took '+c.took+' glass'+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.took+' glass without a '+stationTareWord()+' — on '+esc(c.code)+' now</div><div class="mut">Next glass goes on '+esc(c.code)+'</div></div></div></div>';
  return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass':'Empty')+' · another dolly — scan it</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
 }
@@ -750,6 +766,12 @@ function stationScanOffClick(id){const saved=stationScanOff(id);stationNote=save
 function stationNextLabel(x){
  const svc=(stationRouteOf(x.g).services||[]).find(s=>s.station===x.place.waiting&&(s.step==null||s.step===x.place.far+1));
  return x.place.waiting+(svc?' · '+svc.text:'');
+}
+/* Сколько на таре: после сборки — юнитами («SL-1 · 33 units», а не
+   «66 glass»), как в «Waiting here». */
+function stationTareCount(list){
+ const asmOf=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)asmOf.set(s.piece,s.asm);});
+ return stationHereCount(list.map(x=>{const mu=stationUnitMerge(x.g.o,x.g.l),r=x.place.route||[];return {unit:!!mu&&asmOf.has(x.id)&&r.indexOf(mu)>-1&&r.indexOf(mu)<=x.place.far,asm:asmOf.get(x.id)};}));
 }
 /* Тара, которую загрузили здесь: сколько на ней, из каких батчей и куда
    едет; та, на которую кладут сейчас, — первой и отмечена. Тара, что
@@ -766,7 +788,7 @@ function stationLoadedCard(){
  const kind=rows.length&&rows.every(r=>/^S/.test(r.code))||!rows.length&&stationTareWord()==='skid'?'Skids':'Dollies';
  return '<div class="card" data-station-loaded-card><div class="st-sec"><h3>'+kind+' at '+esc(stationCode)+'</h3><span class="sp"></span><span class="mut">another one: scan it</span></div>'+
   rows.map(r=>'<div class="st-dl'+(r.code===put?' now':'')+'" data-station-loaded="'+esc(r.code)+'" onclick="stationDollyOpen(\''+esc(r.code)+'\')"><span class="st-dchip'+(/^S/.test(r.code)?' skid':'')+'">'+esc(r.code)+'</span>'+
-   '<span class="st-src-t"><b>'+(r.list.length?stationPlural(r.list.length,'glass','glass'):'Empty')+'</b>'+(r.list.length?'<span class="st-bmix">'+stationBatchMix(batchOf(r.list))+'</span><span class="mut">'+next(r.list)+'</span>':'')+'</span>'+
+   '<span class="st-src-t"><b>'+(r.list.length?stationTareCount(r.list):'Empty')+'</b>'+(r.list.length?'<span class="st-bmix">'+stationBatchMix(batchOf(r.list))+'</span><span class="mut">'+next(r.list)+'</span>':'')+'</span>'+
    '<span class="mut st-src-r">'+(r.code===put?'<span class="pill ok">putting on</span>':esc(stationTime(r.since)))+'</span></div>').join('')+
   /* Отсканировано здесь без тары и ушло дальше — видно и исправляется. */
   (loose.length?'<div class="st-dl" data-station-loaded="'+STATION_NO_DOLLY+'" onclick="stationDollyOpen(\'\',\'out\')"><span class="st-dchip none">No '+stationTareWord()+'</span><span class="st-src-t"><b>'+stationPlural(loose.length,'glass','glass')+'</b><span class="st-bmix">'+stationBatchMix(batchOf(loose))+'</span><span class="mut">'+next(loose)+'</span></span><span class="mut st-src-r">fix ›</span></div>':'')+'</div>';
@@ -775,10 +797,10 @@ function stationLoadedCard(){
 /* -------------------- Сначала тара: «Which dolly?» -------------------- */
 /* Владелец, 6 октября 2026: скан без тары засчитывается, экран ждёт тару;
    следующая тара, на которую кладут, забирает всё, что отсканировали без
-   неё. Опция станции — Master Data → Stations, «Puts on». У SHIPR и SHIP
-   свои правила. Какие сканы ждут тару — в сессии станции, как «кладу на»:
+   неё. Опция станции — Master Data → Stations, «Puts on». SHIPR — всегда
+   скид, SHIP — без тары (грузит скиды). Какие сканы ждут тару — в сессии станции, как «кладу на»:
    переживают перезагрузку и уходят со сменой. */
-function stationPutsOnHere(){return typeof sfPutsOn==='function'&&!stationIsShip()&&!stationIsReady()?sfPutsOn(stationRow()):'none';}
+function stationPutsOnHere(){return typeof sfPutsOn==='function'?sfPutsOn(stationRow()):'none';}
 function stationTareWord(){return stationPutsOnHere()==='skid'?'skid':'dolly';}
 function stationLooseIds(){const s=stationSession();return s&&Array.isArray(s.loose)?s.loose:[];}
 function stationLooseSave(ids){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.loose=ids;stationSessionsSave(m);}
@@ -807,6 +829,61 @@ function stationAskBar(L){
  const loose=stationLoose();if(!L.rec||!loose.some(s=>s.id===L.rec.id))return '';
  const w=stationTareWord();
  return '<div class="st-askbar" data-station-ask-dolly>WHICH '+w.toUpperCase()+'?<span>Scan it · '+loose.length+' glass without a '+w+'</span></div>';
+}
+/* SHIPR: юнит приехал с IGU на скиде и с него не снимается — без выбранного
+   скида скан оставляет его на том же скиде, а не «без тары». */
+function stationStaysOn(check){
+ if(!stationIsReady()||!check||!check.code)return '';
+ const last=(DB.stationScan||[]).filter(s=>s.piece===check.code&&!s.undoneAt).pop();
+ return last&&/^S[LA]-/.test(last.on||'')&&carrierFind(last.on)&&carrierFind(last.on).active?last.on:'';
+}
+
+/* ---------------------- Стекло едет не туда ---------------------- */
+/* Владелец, 7 октября 2026: «все должны обращать внимание, что стекло
+   двигается не туда» — и на ARRIS, и на мойке перед закалкой, и на CUT
+   (резчики держат долли на ARRIS и на POLISH отдельно). На таре уже
+   стекло на другую станцию, а это — нет: жёлтым и звуком, скан записан,
+   работа не стоит. Исправить — сразу скан нужной тары (это стекло
+   переедет, на неё и кладут дальше) или ✓ «оставить». Стекло, что
+   привезли сюда и ещё не сделали, не считается. Клиенты на скиде IGU —
+   не повод (владелец: «на IGU можно мешать»), там все едут на SHIPR. */
+function stationWrongWay(g,rec){
+ if(!g||!rec||!rec.on||stationPutsOnHere()==='none'||typeof carrierContents!=='function')return null;
+ const mine=stationPlace(g);if(!mine||mine.assembling||!mine.waiting)return null;
+ const act=rec.actionId||rec.id;
+ const others=(carrierContents().get(rec.on)||[]).filter(x=>(x.scan.actionId||x.scan.id)!==act&&x.place.waiting&&x.place.waiting!==stationCode&&!x.place.assembling);
+ if(!others.length||others.some(x=>x.place.waiting===mine.waiting))return null;
+ return {on:rec.on,to:[...new Set(others.map(x=>x.place.waiting))],mine:mine.waiting};
+}
+function stationWrongBar(L){
+ const w=L.wrong;if(!w)return '';
+ return '<div class="st-askbar st-wrong" data-station-wrong>'+esc(w.on)+' → '+esc(w.to.join(', '))+'<span>This glass → '+esc(w.mine)+' · scan its '+stationTareWord()+'</span>'+stationWarnKeepBtn(w.on)+'</div>';
+}
+function stationWarnKeepBtn(code){return '<button type="button" class="b sm" data-station-warn-keep onclick="stationWarnKeep()">✓ Keep on '+esc(code)+'</button>';}
+/* Скан тары сразу после предупреждения — «вот куда»: тара того же вида,
+   что кладут здесь (на SHIPR — скид). */
+function stationWarnTare(code){
+ const L=stationLast,w=L&&(L.wrong||L.foreign),t=typeof carrierType==='function'?carrierType(code):null;
+ return !!w&&!!t&&t.kind.toLowerCase()===stationPutsOnHere();
+}
+/* Стёкла предупреждённого скана: юнит — все его лайты одним действием. */
+function stationWarnPieces(L){
+ const id=L.rec?L.rec.id:L.check&&L.check.recId,rec=(DB.stationScan||[]).find(s=>s.id===id);if(!rec)return [];
+ const act=rec.actionId||rec.id;return (DB.stationScan||[]).filter(s=>!s.undoneAt&&(s.actionId||s.id)===act).map(s=>s.piece);
+}
+function stationWarnMove(code){
+ const L=stationLast,w=L.wrong||L.foreign,from=w.on||w.skid,to=carrierCode(code);
+ /* Та же тара — «так и оставить», дальше обычный скан тары (её карточка). */
+ if(to===from){L.wrong=null;L.foreign=null;stationCarrierScan(code);render();return 'carrier';}
+ const r=carrierMove(stationWarnPieces(L),to,stationWho());
+ if(r.error){stationNote=r.error;stationBeep('error');render();return 'saveError';}
+ stationSetPutOn(r.to);
+ stationLast={check:{kind:'carrierMoved',code:r.to,from,count:r.was.length,puton:true},move:r,rec:null,data:null,place:null,at:new Date().toISOString()};
+ stationBeep('ok');render();return 'moved';
+}
+function stationWarnKeep(){
+ const L=stationLast,w=L&&(L.wrong||L.foreign);if(!w)return false;
+ L.wrong=null;L.foreign=null;stationNote='Left on '+(w.on||w.skid);render();return true;
 }
 
 /* ------------------- Окно тары: исправить, на чём стекло ------------------- */
@@ -844,12 +921,18 @@ function stationDollyMove(to){
  const r=carrierMove(pieces,code,who);
  if(r.error){d.error=r.error;stationBeep('error');render();return false;}
  stationDrawer=null;
- stationLast={check:{kind:'carrierMoved',code:r.to,from:d.code,count:r.was.length},move:r,rec:null,data:null,place:null,at:new Date().toISOString()};
+ /* Перенесли с той, на которую клали (или забытое без тары), — значит,
+    грузят уже новую: следующие стёкла туда же (проход 7.10.2026: после
+    переноса на DL-2 экран продолжал класть на DL-1). */
+ const puton=d.code?d.code===stationPutOn():d.scope==='out'&&!stationPutOn()&&stationPutsOnHere()!=='none';
+ if(puton)stationSetPutOn(r.to);
+ stationLast={check:{kind:'carrierMoved',code:r.to,from:d.code,count:r.was.length,puton},move:r,rec:null,data:null,place:null,at:new Date().toISOString()};
  stationBeep('ok');render();return r;
 }
 function stationDollyUndo(){
  const L=stationLast;if(!L||!L.move)return false;
  const r=carrierMoveUndo(L.move),bad=r&&r.error;
+ if(!bad&&L.check.puton&&stationPutOn()===L.check.code)stationSetPutOn(L.check.from||'');
  stationNote=bad?r.error:'Move undone';if(!bad)stationLast=null;stationBeep(bad?'error':'twice');render();return !bad;
 }
 function stationDollyHTML(){

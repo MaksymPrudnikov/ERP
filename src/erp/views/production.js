@@ -108,7 +108,7 @@ function viewSfStations(edit){
 /* На что кладут стекло после станции — ставит владелец (6.10.2026). Без
    тары скан засчитывается, а станция спрашивает «Which dolly?». */
 function sfPutsOnCell(s,edit){
- if(sfPutsOnOwn(s.code))return '<span class="mut">own rules</span>';
+ if(sfPutsOnOwn(s.code))return '<span class="mut">'+(sfPutsOn(s)==='skid'?'Skid · always':'own rules')+'</span>';
  const v=sfPutsOn(s);
  if(!edit)return v==='none'?'<span class="mut">—</span>':esc(SF_PUTS_ON.find(([k])=>k===v)[1]);
  return `<select data-sf-puts-on="${esc(s.code)}" style="min-width:96px" onchange="sfSetPutsOn('${esc(s.code)}',this.value);render()">${SF_PUTS_ON.map(([k,l])=>`<option value="${k}"${k===v?' selected':''}>${l}</option>`).join('')}</select>`;

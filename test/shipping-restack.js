@@ -44,7 +44,7 @@ module.exports=async function({page,eq,ok}){
   stationSubmit('SL-2');const first=stationSubmit(ua[0].pieces[0]),warn=rsText('[data-station-foreign]'),red=!!document.querySelector('.st-res.st-red[data-station-result="shipMoved"]'),s1=sound;
   const second=stationSubmit(ua[1].pieces[0]),quiet=rsText('[data-station-foreign]'),s2=sound;stationBeep=beep;
   return {first,warn,red,s1,second,quiet,s2};
- }),{first:'shipMoved',warn:'OTHER CUSTOMER ON SL-2· Customer B',red:true,s1:'error',second:'shipMoved',quiet:null,s2:'ok'});
+ }),{first:'shipMoved',warn:'OTHER CUSTOMER ON SL-2· Customer B✓ Keep on SL-2',red:true,s1:'error',second:'shipMoved',quiet:null,s2:'ok'});
  eq('Empty a skid takes two taps; its glass is then without a skid and the skid is rebuilt by the same scans',await t.p.evaluate(()=>{
   const [a]=rsSeed('A'),o=salesRecord(a);stationSubmit('SL-1');const button=rsText('[data-skid-empty]');
   document.querySelector('[data-skid-empty]').click();const ask=rsText('[data-skid-empty]'),still=rsOn()['SL-1'];
