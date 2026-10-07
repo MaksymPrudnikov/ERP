@@ -193,8 +193,9 @@ body.no-admin [data-admin]{display:none!important}
 .empty{padding:22px;text-align:center;color:var(--mut)}
 .note{background:var(--amber2);border:1px solid var(--warning-line);border-radius:10px;padding:11px 13px;font-size:13px;color:var(--warning);margin-bottom:14px}
 .stub{background:var(--blue2);border:1px solid var(--accent-line);border-radius:10px;padding:11px 13px;font-size:13px;color:var(--accent);margin-bottom:14px}
-.tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--line)}
-.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;padding:9px 11px;background:none;color:var(--text-2)}
+/* Вкладки не шире карточки: 13 вкладок Master Data не помещались на 768–1280 px и сдвигали страницу вбок. */
+.tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--line);max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabs button{flex:none;border:0;border-bottom:2px solid transparent;border-radius:0;padding:9px 11px;background:none;color:var(--text-2)}
 .tabs button.on{border-bottom-color:var(--accent);color:var(--accent);font-weight:650}
 svg{display:block}
 .preview-svg{background:var(--surface);border:1px solid var(--line);border-radius:10px}
@@ -324,8 +325,6 @@ button.skill-card.active{border-color:var(--accent-line);background:var(--accent
  .page-head{align-items:flex-start;flex-direction:column}
  table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
  .card,.form,.main,main,.section-title,.page-head{min-width:0;max-width:100%}
- .tabs{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
- .tabs button{flex:none}
  input,select,textarea{min-width:0}
 }
 @media(max-width:520px){
@@ -490,7 +489,7 @@ body.signin-mode main#app{padding:0}
 
 /* sales 3B · compact order makeups ---------------------------------- */
 .sales-order-editor{--sa:var(--accent);--sa2:var(--accent-soft);--sink:var(--inverse);--swarm:var(--surface-2);--sline:var(--line);display:flex;flex-direction:column;gap:10px}
-.sales-page-head{margin-bottom:10px;align-items:center}.sales-page-head h2{font-size:20px;margin-bottom:2px}.sales-page-head p{font-size:11.5px}.sales-list-card{padding:14px}.sales-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.sales-search{width:min(520px,100%)}.sales-table-wrap{overflow:auto}.sales-row-actions{white-space:nowrap}
+.sales-page-head{margin-bottom:10px;align-items:center}.sales-page-head h2{font-size:20px;margin-bottom:2px}.sales-page-head p{font-size:11.5px}.sales-list-card{padding:14px}.sales-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.sales-search{width:min(520px,100%)}.sales-table-wrap{overflow:auto}.customer-table-wrap{overflow-x:auto}.sales-row-actions{white-space:nowrap}
 .sales-editor-top{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 12px}.sales-order-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sales-order-title h3{font-size:15px;margin:0}.sales-editor-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sales-editor-actions button{padding:6px 10px}
 /* Первая колонка — клиент: имя длинное («QA1 · Northside Windows Ltd»), ей вдвое шире;
    остальные поля делят строку без пустых колонок (у заказа их 6, у квоты 7). */
@@ -1419,6 +1418,8 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .fin-preview{width:min(860px,96vw);display:flex;flex-direction:column;max-height:92vh;overflow:hidden}.fin-preview .sales-service-modal-head{align-items:center}.fin-preview .fin-preview-actions{flex-direction:row;gap:8px;margin-left:auto}.fin-preview .doc-pages{background:var(--surface-3);flex:1}.fin-preview .fin-preview-note{margin:8px 16px 0}
 .fin-statements{width:min(980px,96vw)}.fin-preview-back{z-index:120}
 @media(max-width:900px){.fin-workspace-head{align-items:flex-start;flex-wrap:wrap}.fin-stat{min-width:0;flex:1}.fin-event-diff{padding:0 0 12px;grid-template-columns:1fr}.fin-event-time{max-width:120px}.fin-account-head .row{flex-wrap:wrap}.fin-account-totals{gap:16px}}
+/* Телефон: четыре плитки в одну строку не помещаются — по две, кнопка ниже. */
+@media(max-width:650px){.fin-overview{flex-basis:100%}.fin-stat{flex:1 1 130px}}
 .fin-form>.fin-form-actions{position:sticky;bottom:0;background:var(--surface);padding:12px 0;border-top:1px solid var(--line);z-index:1}
 /* Таблицы Finance на движке Sales (views/finance-lists) */
 .fin-card .sl-quiet.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}
@@ -2316,8 +2317,9 @@ body.station-mode .main{padding-bottom:0}
 .st-scan-lab b{font-size:12px;letter-spacing:.14em;color:var(--accent)}
 .st-scan input{border:0;outline:0;font:inherit;font-size:24px;padding:2px 0;background:transparent;width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .st-scan input::placeholder{color:var(--text-3);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
-.st-ready{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--green);font-weight:700;white-space:nowrap}
-.st-ready i{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--success) 18%,transparent)}
+/* Только в поле скана: класс st-ready есть и у плашки статуса заказа (.pill.st-ready). */
+.st-scan .st-ready{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--green);font-weight:700;white-space:nowrap}
+.st-scan .st-ready i{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--success) 18%,transparent)}
 /* Карточка результата */
 .st-res{border-radius:16px;border:2px solid var(--green);background:var(--surface);overflow:hidden}
 .st-res-h{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--green2);color:var(--green);font-weight:700;font-size:16px}
@@ -2818,13 +2820,13 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 
 /* ---- src/styles/shipping.css ---- */
 /* Shipping office: quiet tables, English labels, shared design tokens. */
-.shipping-workspace{display:grid;gap:16px}.shipping-workspace>.oq-tabs{margin:0}.shipping-toolbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 20px}.shipping-toolbar label{display:flex;gap:10px;align-items:center;white-space:nowrap}.shipping-toolbar label select{min-width:220px;max-width:50vw}.shipping-customer,.shipping-detail{--pad:20px;padding:var(--pad) var(--pad) 0;overflow:hidden}.shipping-customer>.sales-table-wrap,.shipping-detail>.sales-table-wrap{margin:0 calc(-1*var(--pad))}.shipping-customer>:last-child:not(.sales-table-wrap),.shipping-detail>:last-child:not(.sales-table-wrap){margin-bottom:var(--pad)}:is(.shipping-customer,.shipping-detail) .sl-table :is(th,td):last-child{padding-right:20px}:is(.shipping-customer,.shipping-detail) .sl-table tbody tr:last-child td{border-bottom:0}.shipping-detail .n{text-align:right;font-variant-numeric:tabular-nums}.shipping-workspace .sales-toolbar{margin:0 0 14px}.shipping-workspace .sales-toolbar label{display:flex;gap:10px;align-items:center;white-space:nowrap}.shipping-customer-head{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:14px}.shipping-customer-head h3{margin:0 0 5px}.shipping-skid{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.shipping-skid label{display:flex;gap:9px;align-items:center;min-width:100px}.shipping-skid>span{flex:1}.shipping-ready-table input[type=number],.shipping-pick input{width:70px}.shipping-order-row{background:var(--surface-2)}.shipping-order-row label{display:inline-flex;gap:9px;align-items:center}.shipping-scan{display:flex;gap:16px;flex-wrap:wrap;padding:18px;border-bottom:1px solid var(--line)}.shipping-scan label{display:grid;gap:5px}.shipping-scan label:first-child{flex:1;min-width:200px}.shipping-scan input{min-height:38px}.shipping-selected{background:var(--accent-soft)}.shipping-notice{padding:12px 16px;border-radius:8px;background:var(--success-soft);color:var(--success)}.shipping-notice.bad{background:var(--danger-soft);color:var(--danger)}.shipping-preview{display:grid;gap:18px;justify-content:center;padding:24px 0;overflow:auto;background:var(--surface-2);margin-top:18px}.shipping-preview svg{max-width:100%;height:auto;background:var(--on-solid);box-shadow:var(--shadow)}.shipping-modal{width:min(860px,calc(100vw - 24px));max-width:860px;max-height:calc(100vh - 24px);display:flex;flex-direction:column}.shipping-form{padding:18px;overflow:auto}.shipping-form label{display:grid;gap:5px}.shipping-form-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}.shipping-form h4{margin:20px 0 8px}.shipping-form .shipping-pick{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.shipping-pick>span:first-child{flex:1}.shipping-pick small{display:block;color:var(--text-2)}.shipping-form textarea{width:100%;min-height:55px}.shipping-order-strip{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 0}.shipping-workspace .optimization-queue>.oq-tabs{display:none}.shipping-workspace .optimization-queue>.page-head{display:none}.pill.st-shipping{background:var(--accent-soft);color:var(--accent)}
+.shipping-workspace{display:grid;gap:16px}.shipping-workspace>.oq-tabs{margin:0}.shipping-toolbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 20px}.shipping-toolbar label{display:flex;gap:10px;align-items:center;white-space:nowrap}.shipping-toolbar label select{min-width:220px;max-width:50vw}.shipping-customer,.shipping-detail{--pad:20px;padding:var(--pad) var(--pad) 0;overflow:hidden}.shipping-customer>.sales-table-wrap,.shipping-detail>.sales-table-wrap{margin:0 calc(-1*var(--pad))}.shipping-customer>:last-child:not(.sales-table-wrap),.shipping-detail>:last-child:not(.sales-table-wrap){margin-bottom:var(--pad)}:is(.shipping-customer,.shipping-detail) .sl-table :is(th,td):last-child{padding-right:20px}:is(.shipping-customer,.shipping-detail) .sl-table tbody tr:last-child td{border-bottom:0}.shipping-detail .n{text-align:right;font-variant-numeric:tabular-nums}.shipping-workspace .sales-toolbar{margin:0 0 14px}.shipping-workspace .sales-toolbar label{display:flex;gap:10px;align-items:center;white-space:nowrap}.shipping-customer-head{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:14px}.shipping-customer-head h3{margin:0 0 5px}.shipping-customer>h3>button{white-space:nowrap}.shipping-skid{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.shipping-skid label{display:flex;gap:9px;align-items:center;min-width:100px}.shipping-skid>span{flex:1}.shipping-ready-table input[type=number],.shipping-pick input{width:70px}.shipping-order-row{background:var(--surface-2)}.shipping-order-row label{display:inline-flex;gap:9px;align-items:center}.shipping-scan{display:flex;gap:16px;flex-wrap:wrap;padding:18px;border-bottom:1px solid var(--line)}.shipping-scan label{display:grid;gap:5px}.shipping-scan label:first-child{flex:1;min-width:200px}.shipping-scan input{min-height:38px}.shipping-selected{background:var(--accent-soft)}.shipping-notice{padding:12px 16px;border-radius:8px;background:var(--success-soft);color:var(--success)}.shipping-notice.bad{background:var(--danger-soft);color:var(--danger)}.shipping-preview{display:grid;gap:18px;justify-content:center;padding:24px 0;overflow:auto;background:var(--surface-2);margin-top:18px}.shipping-preview svg{max-width:100%;height:auto;background:var(--on-solid);box-shadow:var(--shadow)}.shipping-modal{width:min(860px,calc(100vw - 24px));max-width:860px;max-height:calc(100vh - 24px);display:flex;flex-direction:column}.shipping-form{padding:18px;overflow:auto}.shipping-form label{display:grid;gap:5px}.shipping-form-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}.shipping-form h4{margin:20px 0 8px}.shipping-form .shipping-pick{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.shipping-pick>span:first-child{flex:1}.shipping-pick small{display:block;color:var(--text-2)}.shipping-form textarea{width:100%;min-height:55px}.shipping-order-strip{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 0}.shipping-workspace .optimization-queue>.oq-tabs{display:none}.shipping-workspace .optimization-queue>.page-head{display:none}.pill.st-shipping{background:var(--accent-soft);color:var(--accent)}
 @media(max-width:650px){.shipping-customer-head{align-items:flex-start;flex-direction:column}.shipping-customer,.shipping-detail{--pad:12px}.shipping-form-fields{grid-template-columns:1fr}.shipping-skid{flex-wrap:wrap}.shipping-toolbar label{flex-wrap:wrap;white-space:normal}.shipping-scan{padding:12px}.shipping-scan input{max-width:100%}}
-.shipping-queue{width:64px}.shipping-loaded{font-weight:650;color:var(--green)}
+.shipping-workspace>.shipping-queue{min-width:0}input.shipping-queue{width:64px}.shipping-loaded{font-weight:650;color:var(--green)}
 /* Отмена под строкой PS и стекло, которое забирает клиент. */
 .shipping-cancel-note td{padding-top:0;color:var(--text-2);font-size:12px}
 .shipping-lookup-field{display:flex;gap:8px;align-items:center}.shipping-lookup-field select{width:auto}.shipping-lookup-field input{width:160px}.shipping-lookup-where b{min-width:100px}.shipping-lookup-where+p,.shipping-lookup-where+.sales-toolbar{margin-top:14px}.shipping-lookup-bad{font-weight:650;color:var(--red)}
-.delivery-day{display:flex;gap:10px;align-items:center;padding:12px 20px}.delivery-day b{margin-left:8px}.delivery-truck .shipping-customer-head .sales-toolbar{margin:0}.delivery-table input[type=time]{width:120px}.delivery-acts{white-space:nowrap;text-align:right}.delivery-acts button{margin-left:4px;min-width:30px;min-height:28px;font-size:13px}
+.delivery-day{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 20px}.delivery-day b{margin-left:8px;white-space:nowrap}.delivery-truck .shipping-customer-head .sales-toolbar{margin:0}.delivery-table input[type=time]{width:120px}.delivery-acts{white-space:nowrap;text-align:right}.delivery-acts button{margin-left:4px;min-width:30px;min-height:28px;font-size:13px}
 .delivery-day input[type=date]{width:auto;flex:none}
 /* Статус PS и «Balance due» — рядом (views/shipping, shippingStatusPill). */
 .shipping-pills{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -2855,7 +2857,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='45e27b3008d1';
+var ERP_BUILD='347a1ff40a33';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12673,7 +12675,9 @@ function finInvoiceExportRow(o,voided){
  return row;
 }
 function finExportSig(kind,x){
- if(kind==='invoice')return JSON.stringify(finInvoiceExportRow(x));
+ /* Клиент в подписи счёта — по id, как у оплат: переименование клиента в
+    справочнике не делает все его выгруженные счета «Corrected». */
+ if(kind==='invoice'){const row=finInvoiceExportRow(x);row.splice(3,2,x.customerId);return JSON.stringify(row);}
  return JSON.stringify(kind==='refund'?[x.date,x.amount,x.method,x.reference,x.receiptId,!!x.voided,finCurrency(x),x.reason||'',x.voidReason||'']:[x.date,x.amount,x.method,x.reference,x.customerId,!!x.voided,(x.allocations||[]).map(a=>[a.orderId,a.amount]),finCurrency(x),x.note||'',x.voidReason||'']);
 }
 function finExportRecord(id){return (DB.financeExport||[]).find(e=>e.entityId===id)||null;}
@@ -12684,6 +12688,8 @@ function finExportState(kind,x){
   if(e&&e.voided)return 'changed';
  }
  if(!e)return x.voided?'skip':'new';
+ /* Выгрузка v5.144 подписывала счёт строкой CSV с именем клиента. */
+ if(kind==='invoice'&&e.sig===JSON.stringify(finInvoiceExportRow(x)))return 'done';
  return e.sig===finExportSig(kind,x)?'done':x.voided?'voided':'changed';
 }
 const FIN_EXPORT_LABELS={new:'New',changed:'Corrected',voided:'Voided',done:'Exported',skip:'Not needed'};
@@ -22463,8 +22469,8 @@ function viewSfStations(edit){
  return `${edit&&stEdit!==null?sfStationForm():''}
   <div class="sub">${edit?'Glass goes through the steps in order. The same step number makes stations parallel — a glass visits only the ones its works need. Each work in <b>Works</b> names its station: that is the route, the sticker and the scan screen.':'Route steps in order. Stations are added, removed and ordered in Master Data → Stations.'}</div>
   ${edit?'':`<div class="row" style="margin:0 0 10px"><button class="sm" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`}
-  <table><thead><tr><th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th title="What glass goes on after this station">Puts on</th><th>Works</th><th>Note</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="9" class="empty">empty</td></tr>'}</tbody></table>
+  <div class="sales-table-wrap"><table><thead><tr><th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th title="What glass goes on after this station">Puts on</th><th>Works</th><th>Note</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="9" class="empty">empty</td></tr>'}</tbody></table></div>
   ${edit&&stEdit===null?'<div class="row"><button class="pri" data-sf-add onclick="stEdit=&quot;new&quot;;render()">Add station</button><button data-sf-tidy onclick="sfStationsTidy()" title="Renumber steps 1, 2, 3… keeping parallel stations together">Tidy step numbers</button></div>':''}`;
 }
 /* На что кладут стекло после станции — ставит владелец (6.10.2026). Без
@@ -23259,7 +23265,7 @@ function viewMdHardware(){
  return `<div class="sub">The shop works by name: a person sees “Vienna 180” on the drawing and picks that template. So the catalog keeps the model name, not the seat dimensions — the template knows them. Kinds are created here as well: a pivot, or anything else, needs no code change.</div>
   ${orphans?`<div class="note">Models without a kind: <b>${orphans}</b>. That happens after a kind is deleted — the model itself is not lost, but it needs its kind back.</div>`:''}
   <div class="section-title"><h3>Kinds</h3><span class="pill info">the kind code goes into the drawing mark</span></div>
-  <table><thead><tr><th>Kind</th><th>Code</th><th>On the drawing</th><th>Models</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
+  <div class="sales-table-wrap"><table><thead><tr><th>Kind</th><th>Code</th><th>On the drawing</th><th>Models</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
   <tbody>${kinds.map(k=>{
    const used=mdHwKindUsage(k.code);
    return `<tr><td><b>${raw(hardwareKindName(k.code))}</b><div class="mut"><span data-raw>${esc(k.name)} · ${esc(k.nameEn)}</span></div></td>
@@ -23269,11 +23275,11 @@ function viewMdHardware(){
     <td class="mono">${used}</td>
     <td><span class="pill ${k.active===false?'warn':'ok'}">${k.active===false?'inactive':'active'}</span></td>
     <td style="white-space:nowrap"><button class="sm" onclick="mdHwKindEditRow('${esc(k.code)}')">Edit</button><button class="sm dl" onclick="mdHwKindDelete('${esc(k.code)}')">×</button></td></tr>`;
-  }).join('')||'<tr><td colspan="7" class="empty">no kinds</td></tr>'}</tbody></table>
+  }).join('')||'<tr><td colspan="7" class="empty">no kinds</td></tr>'}</tbody></table></div>
   <div class="row"><button onclick="mdHwKindNew()">+ New kind</button></div>
   <div class="section-title"><h3>Models</h3><span class="pill info">the name exactly as it reads on the shop template</span></div>
   <div class="row"><label>Kind</label><select onchange="mdHwFilter=this.value;render()"><option value="">— all —</option>${kinds.map(k=>`<option value="${esc(k.code)}" ${mdHwFilter===k.code?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select></div>
-  <table><thead><tr><th>Model</th><th>Kind</th><th>Series</th><th>On the drawing</th><th>Glass thickness</th><th>Supplier code</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
+  <div class="sales-table-wrap"><table><thead><tr><th>Model</th><th>Kind</th><th>Series</th><th>On the drawing</th><th>Glass thickness</th><th>Supplier code</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
   <tbody>${sorted.map(m=>{
    const used=mdHwModelUsage(m.id),kind=hardwareKindRow(m.kind);
    return `<tr><td><b>${raw(m.name)}</b>${m.note?`<div class="mut">${raw(m.note)}</div>`:''}</td>
@@ -23285,7 +23291,7 @@ function viewMdHardware(){
     <td class="mono">${used}</td>
     <td><span class="pill ${m.active===false?'warn':'ok'}">${m.active===false?'inactive':'active'}</span></td>
     <td style="white-space:nowrap"><button class="sm" onclick="mdHwModelEditRow('${esc(m.id)}')">Edit</button><button class="sm dl" onclick="mdHwModelDelete('${esc(m.id)}')">×</button></td></tr>`;
-  }).join('')||'<tr><td colspan="9" class="empty">no models</td></tr>'}</tbody></table>
+  }).join('')||'<tr><td colspan="9" class="empty">no models</td></tr>'}</tbody></table></div>
   <div class="row"><button class="pri" onclick="mdHwModelNew()">+ New model</button></div>`;
 }
 function mdHwKindNew(){mdHwKindEdit='new';mdHwKindDraft={code:'',name:'',nameEn:'',short:'',active:true,note:''};render();}
@@ -24887,7 +24893,11 @@ function salesListCatalog(){
     7.10.2026): в очереди Optimization нет Total, Receipts и Balance. В
     Shipping долг остаётся — по нему решают, отдавать ли. */
  const money=tab==='optimization';
- return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)&&!(money&&c.money)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
+ /* Оптимизатору важно, сколько стекла и сколько ft² (владелец, 7.10.2026):
+    Area ft² видна сразу, рядом с Units — Glass pcs, стекло к резке (у
+    стеклопакета два-три, у ламината — каждая плита, как в To batch). */
+ const pcs={k:'pcs',label:'Glass pcs',type:'number',def:true,sum:true};
+ return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)&&!(money&&c.money)).flatMap(c=>{const col=Object.assign({},c,{def:defaults.includes(c.k)||money&&c.k==='area',tokens:c.k==='glass'});return money&&c.k==='units'?[col,pcs]:[col];})
   .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]).concat(tab==='shipping'&&shippingTab==='awaiting'?[{k:'readyQty',label:'Ready',type:'text',def:true}]:[]);
 }
 function salesListColumn(k){return salesListCatalog().find(c=>c.k===k)||null;}
@@ -24984,6 +24994,7 @@ function salesListValue(info,k){
   case 'batch':v=salesOrderBatchNumbers(o).join(', ');break;
   case 'newLines':v=salesUnbatchedLines(o).length;break;
   case 'units':v=lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1),0);break;
+  case 'pcs':v=lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1)*glassBatchComponents(o,l).length,0);break;
   case 'area':v=Math.round(finWithOrder(o,()=>lines.reduce((s,l)=>{const a=salesLineAreas(l,o);return s+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0))*10)/10;break;
   case 'total':{const t=finOrderTotals(o);v=t.complete?finMoney(t.grand):null;break;}
   case 'receipts':v=!q&&finOrderCounts(o)?finOrderPaid(o.id).paid:null;break;
@@ -25166,7 +25177,7 @@ function salesListCell(info,col){
   case 'created':case 'due':case 'validUntil':case 'updated':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'status':return `<td>${q?salesQuoteGroupPill(o):salesStatusPill(o)}${!q&&o.onHold?' <span class="pill hold">On Hold</span>':''}</td>`;
   case 'glass':return `<td><span class="sl-glass" title="${esc(v)}">${raw(v||'—')}</span></td>`;
-  case 'units':case 'lines':case 'shapes':case 'revisions':case 'weight':return `<td class="n">${salesListNum(v)}</td>`;
+  case 'units':case 'pcs':case 'lines':case 'shapes':case 'revisions':case 'weight':return `<td class="n">${salesListNum(v)}</td>`;
   case 'area':return `<td class="n">${salesListNum(v,1)}</td>`;
   case 'total':return `<td class="n${!q&&finOrderCounts(o)?'':' mut'}">${finFmt(v)}</td>`;
   case 'receipts':return `<td class="n">${v==null?'<span class="mut">—</span>':finFmt(v)}</td>`;
