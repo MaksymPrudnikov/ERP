@@ -34,9 +34,10 @@ function stationIguBoard(){
    const r={o,total:igus.reduce((n,l)=>n+shippingLineQty(l),0),done:0,skids:new Map(),noSkid:[],pending:[],lastAt:''};
    shippingUnits(o).forEach(u=>{
     const l=igus.find(x=>x.id===u.lineId);if(!l)return;
-    const places=u.pieces.map(p=>{const g=stationGlass(p,ctx.index,ctx.batches);return g&&stationPlace(g,ctx.scans.get(p)||[]);});
+    const gs=u.pieces.map(p=>stationGlass(p,ctx.index,ctx.batches)),places=gs.map((g,i)=>g&&stationPlace(g,ctx.scans.get(u.pieces[i])||[]));
     const at=u.pieces.flatMap(p=>(ctx.scans.get(p)||[]).filter(s=>s.station===igu&&s.unit).map(s=>s.at)).sort().pop()||'';
-    const x=Object.assign({},u,{l,at});if(at>r.lastAt)r.lastAt=at;
+    /* Размер — как на станции: у стекла Recut со своим чертежом — его (stationGeo, PR #234). */
+    const x=Object.assign({},u,{l,at,geo:typeof stationGeo==='function'&&gs[0]?stationGeo(gs[0]):l});if(at>r.lastAt)r.lastAt=at;
     if(u.loaded||places.every(p=>p&&p.waiting===st.ship)){
      r.done++;if(at>edge)edge=at;if(u.loaded)return;
      if(u.skid){if(!r.skids.has(u.skid))r.skids.set(u.skid,[]);r.skids.get(u.skid).push(x);}else r.noSkid.push(x);
@@ -78,7 +79,7 @@ function stationIguMove(to){
  stationBeep('ok');render();return r;
 }
 function stationMovedWhat(c){return stationPlural(c.count,c.word||'glass',c.word?c.word+'s':'glass');}
-function stationIguSize(l){return frac16(l.width16/16)+' × '+frac16(l.height16/16);}
+function stationIguSize(g){return frac16(g.width16/16)+' × '+frac16(g.height16/16);}
 function stationIguLabels(list){return list.slice(0,4).map(u=>u.label||u.pieces[0]).join(', ')+(list.length>4?' +'+(list.length-4):'');}
 function stationIguOrder(r){
  const id=r.o.id,customer=salesCustomerDisplay(r.o.customerId);
@@ -87,7 +88,7 @@ function stationIguOrder(r){
  const head='<div class="st-igu-o'+(r.rank===3?' done':'')+'" data-igu-order="'+esc(r.o.businessNumber||'')+'"><span class="st-igu-who"><b>'+esc(r.o.businessNumber||'')+'</b> <span data-raw>'+esc(customer)+'</span></span>'+
   '<span class="st-igu-sks">'+chips+'</span><b class="st-igu-n">'+r.done+' / '+r.total+(r.done===r.total?' ✓':'')+'</b></div>';
  const missed=r.missed.slice(0,STATION_IGU_ROWS).map(u=>{const p=u.pieces[0],open=stationIguOpen===p;
-  return '<div class="st-igu-r bad'+(open?' open':'')+'" data-igu-missed="'+esc(u.label||p)+'" onclick="stationIguToggle(\''+esc(p)+'\')"><span class="st-dchip st-igu-x">✕</span><span><b class="mono">'+esc(u.label||p)+'</b> · '+esc(stationIguSize(u.l))+' · '+esc(stationTime(u.at))+'</span><span class="st-igu-tag">NOT SCANNED</span></div>'+
+  return '<div class="st-igu-r bad'+(open?' open':'')+'" data-igu-missed="'+esc(u.label||p)+'" onclick="stationIguToggle(\''+esc(p)+'\')"><span class="st-dchip st-igu-x">✕</span><span><b class="mono">'+esc(u.label||p)+'</b> · '+esc(stationIguSize(u.geo))+' · '+esc(stationTime(u.at))+'</span><span class="st-igu-tag">NOT SCANNED</span></div>'+
    (open?'<div class="st-igu-acts"><button type="button" class="b" data-igu-mark onclick="stationMark(\''+esc(p)+'\')">✓ Mark ready</button><button type="button" class="b" data-igu-print onclick="stationPrintUnit(\''+esc(p)+'\')">Print sticker</button><button type="button" class="b st-red-b" data-igu-broken onclick="stationOpenRecut(\''+esc(p)+'\')">Broken</button></div>':'');}).join('')+
   (r.missed.length>STATION_IGU_ROWS?'<div class="mut st-more">+'+(r.missed.length-STATION_IGU_ROWS)+' more not scanned</div>':'');
  const nk='n|'+id,noSkid=r.noSkid.length?'<div class="st-igu-r warn'+(stationIguSel.has(nk)?' sel':'')+'" data-igu-noskid onclick="stationIguPick(\''+esc(nk)+'\')"><span class="st-dchip none">No skid</span><span><b>'+r.noSkid.length+'</b> <span class="mono mut">'+esc(stationIguLabels(r.noSkid))+'</span></span><span class="st-igu-tag">NO SKID</span></div>':'';
