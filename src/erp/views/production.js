@@ -101,8 +101,8 @@ function viewSfStations(edit){
  return `${edit&&stEdit!==null?sfStationForm():''}
   <div class="sub">${edit?'Glass goes through the steps in order. The same step number makes stations parallel — a glass visits only the ones its works need. Each work in <b>Works</b> names its station: that is the route, the sticker and the scan screen.':'Route steps in order. Stations are added, removed and ordered in Master Data → Stations.'}</div>
   ${edit?'':`<div class="row" style="margin:0 0 10px"><button class="sm" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`}
-  <table><thead><tr><th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th title="What glass goes on after this station">Puts on</th><th>Works</th><th>Note</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="9" class="empty">empty</td></tr>'}</tbody></table>
+  <div class="sales-table-wrap"><table><thead><tr><th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th title="What glass goes on after this station">Puts on</th><th>Works</th><th>Note</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="9" class="empty">empty</td></tr>'}</tbody></table></div>
   ${edit&&stEdit===null?'<div class="row"><button class="pri" data-sf-add onclick="stEdit=&quot;new&quot;;render()">Add station</button><button data-sf-tidy onclick="sfStationsTidy()" title="Renumber steps 1, 2, 3… keeping parallel stations together">Tidy step numbers</button></div>':''}`;
 }
 /* На что кладут стекло после станции — ставит владелец (6.10.2026). Без

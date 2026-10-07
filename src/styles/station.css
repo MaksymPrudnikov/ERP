@@ -49,8 +49,9 @@ body.station-mode .main{padding-bottom:0}
 .st-scan-lab b{font-size:12px;letter-spacing:.14em;color:var(--accent)}
 .st-scan input{border:0;outline:0;font:inherit;font-size:24px;padding:2px 0;background:transparent;width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .st-scan input::placeholder{color:var(--text-3);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
-.st-ready{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--green);font-weight:700;white-space:nowrap}
-.st-ready i{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--success) 18%,transparent)}
+/* Только в поле скана: класс st-ready есть и у плашки статуса заказа (.pill.st-ready). */
+.st-scan .st-ready{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--green);font-weight:700;white-space:nowrap}
+.st-scan .st-ready i{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--success) 18%,transparent)}
 /* Карточка результата */
 .st-res{border-radius:16px;border:2px solid var(--green);background:var(--surface);overflow:hidden}
 .st-res-h{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--green2);color:var(--green);font-weight:700;font-size:16px}

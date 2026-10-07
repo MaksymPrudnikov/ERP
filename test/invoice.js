@@ -93,6 +93,16 @@ module.exports=async function({page,eq,ok}){
   return {before,undo,after,old:pending().length};
  }),{before:0,undo:true,after:0,old:0});
 
+ eq('QuickBooks: переименование клиента и смена кода в справочнике не делают выгруженный счёт Corrected; отметка v5.144 со строкой CSV считается выгруженной',await t.p.evaluate(()=>{
+  const id=ivOrder();ivShip(id,shippingAvailable(salesRecord(id)));const o=salesRecord(id),c=salesFindCustomer(o.customerId);
+  const pending=()=>finExportPending().filter(x=>x.kind==='invoice'&&x.x.id===id).map(x=>x.state);
+  finPersist(()=>finExportMark(finExportPending().filter(x=>x.kind==='invoice'&&x.x.id===id)));
+  c.displayName='Summit Builders Inc.';c.legalName='Summit Builders Inc.';c.code='SB-NEW';const renamed=pending();
+  const e=finExportRecord(id),sig=e.sig;e.sig=JSON.stringify(finInvoiceExportRow(o));const legacy=pending();e.sig=sig;
+  o.customerPo='SB-2207-B';const po=pending();
+  return {renamed,legacy,po};
+ }),{renamed:[],legacy:[],po:['changed']});
+
  const reload=await t.p.evaluate(()=>{
   const id=ivOrder();ivShip(id,shippingAvailable(salesRecord(id)));
   const out=finPersist(()=>finExportMark(finExportPending().filter(x=>x.kind==='invoice'&&x.x.id===id)));

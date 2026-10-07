@@ -91,8 +91,9 @@ body.no-admin [data-admin]{display:none!important}
 .empty{padding:22px;text-align:center;color:var(--mut)}
 .note{background:var(--amber2);border:1px solid var(--warning-line);border-radius:10px;padding:11px 13px;font-size:13px;color:var(--warning);margin-bottom:14px}
 .stub{background:var(--blue2);border:1px solid var(--accent-line);border-radius:10px;padding:11px 13px;font-size:13px;color:var(--accent);margin-bottom:14px}
-.tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--line)}
-.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;padding:9px 11px;background:none;color:var(--text-2)}
+/* Вкладки не шире карточки: 13 вкладок Master Data не помещались на 768–1280 px и сдвигали страницу вбок. */
+.tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--line);max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabs button{flex:none;border:0;border-bottom:2px solid transparent;border-radius:0;padding:9px 11px;background:none;color:var(--text-2)}
 .tabs button.on{border-bottom-color:var(--accent);color:var(--accent);font-weight:650}
 svg{display:block}
 .preview-svg{background:var(--surface);border:1px solid var(--line);border-radius:10px}
@@ -222,8 +223,6 @@ button.skill-card.active{border-color:var(--accent-line);background:var(--accent
  .page-head{align-items:flex-start;flex-direction:column}
  table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
  .card,.form,.main,main,.section-title,.page-head{min-width:0;max-width:100%}
- .tabs{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
- .tabs button{flex:none}
  input,select,textarea{min-width:0}
 }
 @media(max-width:520px){

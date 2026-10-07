@@ -248,7 +248,9 @@ function finInvoiceExportRow(o,voided){
  return row;
 }
 function finExportSig(kind,x){
- if(kind==='invoice')return JSON.stringify(finInvoiceExportRow(x));
+ /* Клиент в подписи счёта — по id, как у оплат: переименование клиента в
+    справочнике не делает все его выгруженные счета «Corrected». */
+ if(kind==='invoice'){const row=finInvoiceExportRow(x);row.splice(3,2,x.customerId);return JSON.stringify(row);}
  return JSON.stringify(kind==='refund'?[x.date,x.amount,x.method,x.reference,x.receiptId,!!x.voided,finCurrency(x),x.reason||'',x.voidReason||'']:[x.date,x.amount,x.method,x.reference,x.customerId,!!x.voided,(x.allocations||[]).map(a=>[a.orderId,a.amount]),finCurrency(x),x.note||'',x.voidReason||'']);
 }
 function finExportRecord(id){return (DB.financeExport||[]).find(e=>e.entityId===id)||null;}
@@ -259,6 +261,8 @@ function finExportState(kind,x){
   if(e&&e.voided)return 'changed';
  }
  if(!e)return x.voided?'skip':'new';
+ /* Выгрузка v5.144 подписывала счёт строкой CSV с именем клиента. */
+ if(kind==='invoice'&&e.sig===JSON.stringify(finInvoiceExportRow(x)))return 'done';
  return e.sig===finExportSig(kind,x)?'done':x.voided?'voided':'changed';
 }
 const FIN_EXPORT_LABELS={new:'New',changed:'Corrected',voided:'Voided',done:'Exported',skip:'Not needed'};

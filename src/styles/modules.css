@@ -72,7 +72,7 @@
 
 /* sales 3B · compact order makeups ---------------------------------- */
 .sales-order-editor{--sa:var(--accent);--sa2:var(--accent-soft);--sink:var(--inverse);--swarm:var(--surface-2);--sline:var(--line);display:flex;flex-direction:column;gap:10px}
-.sales-page-head{margin-bottom:10px;align-items:center}.sales-page-head h2{font-size:20px;margin-bottom:2px}.sales-page-head p{font-size:11.5px}.sales-list-card{padding:14px}.sales-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.sales-search{width:min(520px,100%)}.sales-table-wrap{overflow:auto}.sales-row-actions{white-space:nowrap}
+.sales-page-head{margin-bottom:10px;align-items:center}.sales-page-head h2{font-size:20px;margin-bottom:2px}.sales-page-head p{font-size:11.5px}.sales-list-card{padding:14px}.sales-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.sales-search{width:min(520px,100%)}.sales-table-wrap{overflow:auto}.customer-table-wrap{overflow-x:auto}.sales-row-actions{white-space:nowrap}
 .sales-editor-top{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 12px}.sales-order-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sales-order-title h3{font-size:15px;margin:0}.sales-editor-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sales-editor-actions button{padding:6px 10px}
 /* Первая колонка — клиент: имя длинное («QA1 · Northside Windows Ltd»), ей вдвое шире;
    остальные поля делят строку без пустых колонок (у заказа их 6, у квоты 7). */
