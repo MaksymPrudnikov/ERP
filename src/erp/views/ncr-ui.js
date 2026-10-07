@@ -101,11 +101,61 @@ function ncrOrderStrip(o){
  const remake=src?`<div class="ncr-strip-row ncr-remake" data-ncr-remake><b>Remake for ${esc(src.number)}</b><span>${parent?'order '+esc(parent.businessNumber):''}</span><label class="chk"><input type="checkbox" data-no-charge ${o.noCharge?'checked':''} onchange="soDraft.noCharge=this.checked;render()"> No charge</label><button type="button" class="sm" onclick="ncrView('${esc(src.id)}')">View NCR</button></div>`:'';
  return list.length||remake?`<div class="ncr-strip">${remake}${items}</div>`:'';
 }
-/* Блок Recuts над Notes: стёкла перереза этого заказа по позициям. */
+/* Блок Recuts над Notes: стёкла перереза этого заказа по позициям. Размер
+   и кнопка Shape — чертёж этого Recut (erp/quality/recut): у Recut со своим
+   чертежом они подсвечены. */
 function recutOrderSection(o){
  if(!o||salesIsQuote(o)||soEdit==='new')return '';
  const list=recutForOrder(o.id);if(!list.length)return '';
- return `<div class="recut-section" data-recut-section><div class="recut-head">RECUTS</div>${list.map(r=>{const st=recutStatus(r);return `<div class="recut-row" data-recut-row="${esc(r.id)}"><b>Recut ${r.no}</b><span>Line ${r.line}${r.mark?' · '+esc(r.mark):''}</span><span>${esc(r.lite)}</span><span>${r.qty} pc${r.qty===1?'':'s'}</span><span>${esc(ncrWhereLabel(r))} · ${esc(r.reason)}</span><span class="pill ${st==='In queue'?'ncr-st-open':'ncr-st-done'}">${esc(st)}</span>${r.note?`<span class="mut" title="${esc(r.note)}">${esc(r.note)}</span>`:''}</div>`;}).join('')}</div>`;
+ return `<div class="recut-section" data-recut-section><div class="recut-head">RECUTS</div>${list.map(r=>{const st=recutStatus(r),l=(o.lines||[]).find(x=>x.id===r.lineId),g=l&&recutLine(r,l),own=recutHasShape(r),lock=l?recutDrawingLock(r):'';
+  const dim=k=>`<input class="line-dim recut-dim" data-recut-${k} value="${esc(salesDimFrom16(g[k==='w'?'width16':'height16']))}" aria-label="Recut ${r.no} ${k==='w'?'width':'height'}" onchange="recutSizeChange('${esc(r.id)}','${k}',this)">`;
+  const size=g?`<span class="recut-size${own?' own':''}" data-recut-size>${!lock&&recutSizeEditable(r,l)?dim('w')+' × '+dim('h'):esc(dimIn16(g.width16/16))+' × '+esc(dimIn16(g.height16/16))}</span><button type="button" class="sm recut-shape${own?' own':''}" data-recut-shape ${lock?`disabled title="${esc(lock)}"`:`title="${own?'Recut drawing':'Fix the drawing for this recut'}"`} onclick="salesOpenRecutShape('${esc(r.id)}')">Shape</button>`:'';
+  return `<div class="recut-row" data-recut-row="${esc(r.id)}"><b>Recut ${r.no}</b><span>Line ${r.line}${r.mark?' · '+esc(r.mark):''}</span>${size}<span>${esc(r.lite)}</span><span>${r.qty} pc${r.qty===1?'':'s'}</span><span>${esc(ncrWhereLabel(r))} · ${esc(r.reason)}</span><span class="pill ${st==='In queue'?'ncr-st-open':'ncr-st-done'}">${esc(st)}</span>${r.note?`<span class="mut" title="${esc(r.note)}">${esc(r.note)}</span>`:''}</div>`;}).join('')}</div>`;
+}
+/* Черновик заказа должен быть сохранён: запись чертежа Recut может снять его
+   стекло с батча. updatedAt черновика после Recut отстаёт от базы — правкой
+   это не считается. */
+function recutDraftClean(o){
+ if(!o||!soDraft||soDraft.id!==o.id||soEdit==='new')return false;
+ const plain=x=>JSON.stringify(Object.assign({},x,{updatedAt:''}));
+ if(plain(o)===plain(normalizeSalesOrder(soDraft)))return true;
+ salesDialogOpen({title:'Save the order first',buttons:[{label:'Back'}]});return false;
+}
+/* W × H в строке Recut — сразу в чертёж Recut, одной записью. */
+function recutSizeChange(id,key,el){
+ const r=recutFind(id),o=r&&salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId),n=salesDimTo16(el.value);
+ if(!r||!l)return false;
+ if(!n){el.classList.add('bad');return false;}
+ const g=recutLine(r,l),w=key==='w'?n:g.width16,h=key==='h'?n:g.height16;
+ if(w===g.width16&&h===g.height16){el.value=salesDimFrom16(n);el.classList.remove('bad');return false;}
+ if(!recutDraftClean(o)){render();return false;}
+ const out=storageCommand(()=>recutSizeCommand(id,w,h));
+ if(!out.ok){alert(out.error);render();return false;}
+ salesOrderEdit(o.id);return true;
+}
+/* Shape у строки Recut: тот же редактор формы, копия текущего чертежа Recut
+   (или позиции), ничего не пишется до Save revision. */
+function salesOpenRecutShape(id){
+ const r=recutFind(id),o=r&&salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId);
+ if(!r||!o||!l||!recutDraftClean(o))return false;
+ const lock=recutDrawingLock(r);if(lock){alert(lock);return false;}
+ const view=recutLine(r,l),lite=recutDrawingLite(r,view),base=lite==null?salesLineGeometryShape(view):salesLineLiteShape(view,lite);
+ if(!base){alert('Line needs Width and Height first.');return false;}
+ const copy=normalizeShapeDef(JSON.parse(JSON.stringify(base)));copy.id=newShapeId();copy.ownerLineId=l.id;
+ if(!recutHasShape(r))copy.name='Recut '+r.no+' · Line '+r.line+(lite==null?'':' · Lite '+(lite+1));
+ salesBridge=Object.assign({kind:'shape',lineId:l.id,recutId:r.id},lite==null?{}:{liteIndex:lite});
+ tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
+ sEdit='new';sDraft=copy;salesApplyLineGlassThicknessToShape(view,sDraft,lite);soEdgeworkLineId=null;
+ render();return true;
+}
+/* Save revision чертежа Recut — одна запись: форма, Recut, батч, журнал. */
+function salesBridgeSaveRecut(saved,errEl){
+ if(typeof salesBridge==='undefined'||!salesBridge||salesBridge.kind!=='shape'||!salesBridge.recutId)return false;
+ const b=salesBridge,out=storageCommand(()=>recutDrawingCommand(b.recutId,saved,b.liteIndex==null?null:b.liteIndex));
+ if(!out.ok){fail(errEl,out.error);return true;}
+ salesBridge=null;sEdit=null;sDraft=null;tab='sales';subtab='orders';
+ if(soDraft&&soDraft.id===out.value.orderId)salesOrderEdit(soDraft.id);else render();
+ return true;
 }
 /* Строки NCR в списке Sales: значения колонок заранее, без расчётов заказа. */
 function ncrListInfos(){

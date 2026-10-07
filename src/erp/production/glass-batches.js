@@ -76,6 +76,9 @@ function glassLineScanned(orderId,line){
 function glassPieceMap(orderId){const m=new Map();(DB.glassPiece||[]).forEach(r=>{if(!orderId||r.key.startsWith(orderId+'|'))m.set(r.key,r);});return m;}
 /* Места Recut заказа: «ключ стекла|R1.1» (erp/quality/recut). */
 function glassRecutSlots(orderId,lineId){return typeof recutSlotsFor==='function'?recutSlotsFor(orderId,lineId):[];}
+/* Геометрия стекла: у места Recut со своим чертежом — вид строки с чертежом
+   Recut (erp/quality/recut, recutGeoLine), иначе сама строка. */
+function glassRecutLine(o,l,unit){return o&&l&&typeof unit==='string'&&typeof recutGeoLine==='function'?recutGeoLine(o.id,l,unit):l;}
 function glassUnitValid(u){return Number.isSafeInteger(u)&&u>=0||typeof u==='string'&&/^(NCR|R)\d+\.\d+$/.test(u);}
 function glassPieceAt(rec,unit){
  if(!rec)return '';
@@ -172,13 +175,18 @@ function glassBatchRows(orders){
   const regular=GLASS_WAITING_STATUSES.includes(o.status),active=glassBatchActive(o.id),pieces=glassPieceMap(o.id),customer=salesCustomerDisplay(o.customerId),hasCustomer=!!salesFindCustomer(o.customerId),cancelled=glassCancelledSlots(o);
   (o.lines||[]).forEach((l,li)=>{
    if(!glassBatchRemaining(o,l,active,cancelled))return;
-   let plan;try{plan=salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){plan={valid:false,reason:'Check cutting geometry'};}
+   /* План резки — по строке, у Recut со своим чертежом — по его чертежу. */
+   const plans=new Map(),planOf=unit=>{const geo=glassRecutLine(o,l,unit),k=geo===l?'':String(unit).split('.')[0];
+    if(!plans.has(k)){let plan;try{plan=salesEffectiveCuttingPlan(geo,salesLineGeometryShape(geo),o);}catch(e){plan={valid:false,reason:'Check cutting geometry'};}plans.set(k,{geo,plan});}return plans.get(k);};
    glassBatchComponents(o,l).forEach(c=>{
-    const cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index),own=c.missing?null:salesLineShapeForLite(l,c.index),rec=pieces.get(c.key);
-    const hold=o.onHold?'Order on hold: '+(o.holdReason||''):l.onHold?'On Hold: '+(l.holdReason||''):
-     !hasCustomer?'Customer missing':c.missing||!glassProductById(c.glassId)?'Glass missing':!cut?(plan.reason||'Check cutting geometry'):'';
-    const base={o,l,line:li+1,of:l.qty,cut,shape:own,shapeLabel:own&&!salesShapeIsLineRect(own)?'Shape':'Rect',width:cut?cut.cutW:null,height:cut?cut.cutH:null,
-     heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.missing?'':(salesCoatingSurfaceOf(c.pane,c.index,c.ply)||''),customer};
+    const rec=pieces.get(c.key),baseOf=unit=>{
+     const {geo,plan}=planOf(unit),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index),own=c.missing?null:salesLineShapeForLite(geo,c.index);
+     const hold=o.onHold?'Order on hold: '+(o.holdReason||''):l.onHold?'On Hold: '+(l.holdReason||''):
+      !hasCustomer?'Customer missing':c.missing||!glassProductById(c.glassId)?'Glass missing':!cut?(plan.reason||'Check cutting geometry'):'';
+     return {hold,base:{o,l,geo,line:li+1,of:l.qty,cut,shape:own,shapeLabel:own&&!salesShapeIsLineRect(own)?'Shape':'Rect',width:cut?cut.cutW:null,height:cut?cut.cutH:null,
+      heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.missing?'':(salesCoatingSurfaceOf(c.pane,c.index,c.ply)||''),customer}};
+    };
+    const {hold,base}=baseOf(1);
     for(let unit=1;regular&&unit<=l.qty;unit++){
      if(active.has(c.key+'|'+unit)||cancelled.has(c.key+'|'+unit))continue;
      const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';if(piece&&cutDone.has(piece))continue;
@@ -187,7 +195,7 @@ function glassBatchRows(orders){
      rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,held:!!uh,reason:hold||(uh?'Units on hold: '+(uh.reason||''):'')||(piece?'':'Glass ID missing')}));
     }
     glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)&&!cancelled.has(x.key+'|'+x.unit)).forEach(x=>{
-     const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'';if(piece&&cutDone.has(piece))return;
+     const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'',{hold,base}=baseOf(x.unit);if(piece&&cutDone.has(piece))return;
      rows.push(Object.assign({},c,base,{slot:x.key+'|'+x.unit,unit:x.unit,k:x.k,of:x.of,recut:x.ref,recutLabel:x.label,piece,reason:hold||(piece?'':'Glass ID missing')}));
     });
    });
@@ -202,11 +210,11 @@ function glassBatchSyncLine(o,l){
 }
 function glassBatchSelectionStamp(rows){
  const ids=[...new Set(rows.map(r=>r.orderId))];
- return JSON.stringify([ids.map(salesRecord),DB.glassBatch,DB.glassPiece,DB.shapeDef,DB.glassProduct,DB.serviceRate,DB.customer,DB.receipt]);
+ return JSON.stringify([ids.map(salesRecord),DB.glassBatch,DB.glassPiece,DB.shapeDef,DB.glassProduct,DB.serviceRate,DB.customer,DB.receipt,(DB.recut||[]).filter(r=>ids.includes(r.orderId))]);
 }
 function glassBatchPartSnapshot(r){
  return {order:r.o.businessNumber,customer:r.customer,line:r.line,of:r.of,...(r.recut?{recut:r.recut}:{}),lite:r.lite,glassId:r.glassId,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,heat:r.heat,coating:r.coating,
-  production:{pane:glassBatchClone(r.pane),shape:glassBatchClone(r.shape),cuttingPoints:glassBatchClone(r.cut.cuttingPoints||[]),line:salesLockedLineSnapshot(r.o,r.l)}};
+  production:{pane:glassBatchClone(r.pane),shape:glassBatchClone(r.shape),cuttingPoints:glassBatchClone(r.cut.cuttingPoints||[]),line:salesLockedLineSnapshot(r.o,r.geo||r.l)}};
 }
 /* Внутренний commit вызывается только после всех проверок выбранной группы.
    Независимый повторный разбор прямо перед записью исключает двойной запуск.
@@ -229,12 +237,15 @@ function glassBatchAssignCommand(rows,opts){
  if(!batch){batch={number,createdAt:now,parts:[],items:[],history:[]};(DB.glassBatch||(DB.glassBatch=[])).push(batch);}
  const parts=new Map();
  chosen.forEach(r=>{
-  if(!parts.has(r.key)){
+  /* Часть — снимок стекла: у Recut свой (свой чертёж), стекло позиции и
+     Recut в одну часть не сливаются. */
+  const pk=r.key+'|'+(r.recut||'');
+  if(!parts.has(pk)){
    const snapshot=glassBatchPartSnapshot(r),text=JSON.stringify(snapshot);let part=batch.parts.findIndex(p=>p.key===r.key&&JSON.stringify(p.snapshot)===text);
    if(part<0){part=batch.parts.length;batch.parts.push({key:r.key,orderId:r.orderId,lineId:r.lineId,snapshot});}
-   parts.set(r.key,part);
+   parts.set(pk,part);
   }
-  batch.items.push({piece:r.piece,part:parts.get(r.key),unit:r.unit,at:now,releasedAt:'',cutStartedAt:''});
+  batch.items.push({piece:r.piece,part:parts.get(pk),unit:r.unit,at:now,releasedAt:'',cutStartedAt:''});
  });
  new Map(chosen.map(r=>[r.l,r.o])).forEach((o,l)=>{l.batchManaged=true;glassBatchSyncLine(o,l);});
  batch.history.push({at:now,action:added?'Added':'Created',pieces:chosen.map(r=>r.piece),qty:chosen.length});

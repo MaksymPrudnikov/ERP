@@ -78,12 +78,22 @@ function stationFrozenRoute(key){
  if(stationFrozenIndex.list!==list||stationFrozenIndex.size!==list.length)stationFrozenIndex={list,size:list.length,map:new Map(list.map(x=>[x.key,x]))};
  const x=key&&stationFrozenIndex.map.get(key);return x?x.route:null;
 }
+/* Чертёж стекла: позиции ('') или своего Recut ('R3'). У стекла Recut со
+   своим чертежом и маршрут свой: фигура может добавить станции. */
+function stationDrawingKey(o,l,unit){const r=typeof recutOfUnit==='function'?recutOfUnit(o.id,l.id,unit):null;return r&&recutHasShape(r)?'R'+r.no:'';}
+/* Геометрия стекла для размеров на станциях. */
+function stationGeo(g){return g&&typeof glassRecutLine==='function'?glassRecutLine(g.o,g.l,g.unit):g&&g.l;}
+/* Группа юнита: Recut всего юнита со своим чертежом — отдельно; Recut
+   одного лайта собирается со старыми лайтами (stationDrawingFits). */
+function stationUnitTag(o,l,unit){const r=typeof recutOfUnit==='function'?recutOfUnit(o.id,l.id,unit):null;return r&&recutHasShape(r)&&r.which==='unit'?'R'+r.no:'';}
+function stationRouteKey(g){if(!g||!g.c)return '';const d=stationDrawingKey(g.o,g.l,g.unit);return g.c.key+(d?'|'+d:'');}
 function stationRouteOf(g){
- const frozen=g.c&&stationFrozenRoute(g.c.key);if(frozen)return frozen;
- const key=[g.o.id,g.l.id,g.c?g.c.key:'',g.o.updatedAt||''].join('|');
+ const rk=stationRouteKey(g),frozen=g.c&&stationFrozenRoute(rk);if(frozen)return frozen;
+ const geo=typeof glassRecutLine==='function'?glassRecutLine(g.o,g.l,g.unit):g.l;
+ const key=[g.o.id,g.l.id,rk,geo===g.l?'':geo.shapeRef.id+'#'+geo.shapeRef.revision,g.o.updatedAt||''].join('|');
  if(stationRouteCache.has(key))return stationRouteCache.get(key);
  let r=null;
- try{if(g.c&&!g.c.missing)r=finWithOrder(g.o,()=>stkRoute(g.o,g.l,g.c));}catch(e){r=null;}
+ try{if(g.c&&!g.c.missing)r=finWithOrder(g.o,()=>stkRoute(g.o,geo,g.c));}catch(e){r=null;}
  if(!r||!Array.isArray(r.codes)||!r.codes.length){
   /* Маршрут не собрался (нет стекла в Makeup) — стекло всё равно проходит
      резку и отгрузку: станции «always». */
@@ -165,7 +175,7 @@ function stationRecordCommand(station,check,who,opts){
  rec.actionId=opts.actionId||rec.id;check.actionId=rec.actionId;check.recordedAt=rec.at;
  if(check.g&&check.g.c){
   const route=stationRouteOf(check.g);rec.step=stationRouteStep(route.codes,station,stationPlace(check.g).far);
-  if(!stationFrozenRoute(check.g.c.key))DB.productionRoute.push({key:check.g.c.key,at:now,route:JSON.parse(JSON.stringify(route))});
+  const rk=stationRouteKey(check.g);if(!stationFrozenRoute(rk))DB.productionRoute.push({key:rk,at:now,route:JSON.parse(JSON.stringify(route))});
  }
  if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
@@ -328,6 +338,10 @@ function stationBreakCommand(station,check,who,reasonId,opts){
  const made=recutCreate({orderId:o.id,where:station,reasonId,lines:{[l.id]:{on:true,qty:1,which:plan.which}},note:(plan.whole?'Unit '+(typeof unitIdAt==='function'?unitIdAt(o.id,l.id,plan.asm.unit):plan.asm.unit)+' · glass ':'Glass ')+g.id+' at '+station});
  if(made.error)return made;
  const r=made.recuts[0],now=r.createdAt,ref='R'+r.no;
+ /* Стекло было из Recut со своим чертежом (или собрано с ним) — чертёж
+    переходит в новый Recut (erp/quality/recut). */
+ const index=stationPieceIndex(),src=[g.id].concat(plan.pieces).map(id=>index.get(id)).filter(Boolean).map(h=>recutOfUnit(o.id,l.id,h.unit)).find(recutHasShape);
+ if(src)recutInheritDrawing(r,src);
  const rec=(DB.glassPiece||[]).find(x=>x.key===c.key),fresh=rec&&rec.extra&&rec.extra[ref]?rec.extra[ref].filter(Boolean):[];
  const allNew=(r.keys||[]).flatMap(k=>{const x=(DB.glassPiece||[]).find(p=>p.key===k);return x&&x.extra&&x.extra[ref]?x.extra[ref].filter(Boolean):[];});
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
@@ -480,14 +494,24 @@ function stationAssemblyKeys(g,station){
  const lam=salesRouteStationOf('lamination','LAM');
  return glassBatchComponents(g.o,g.l).filter(c=>!c.missing&&(station!==lam||!g.c.ply||c.index===g.c.index)).map(c=>c.key);
 }
+/* Юнит собирается только из стекла одного чертежа: старое неверное стекло
+   с новым из Recut не сходится (владелец, 7 октября 2026). Recut одного лайта
+   со своим чертежом идёт к лайтам, которых он не касается. a, b — {key, unit}. */
+function stationDrawingFits(o,l,a,b){
+ const ta=stationDrawingKey(o,l,a.unit),tb=stationDrawingKey(o,l,b.unit);if(ta===tb)return true;
+ const covers=(t,key)=>!!t&&(DB.recut||[]).some(r=>r&&r.orderId===o.id&&r.lineId===l.id&&'R'+r.no===t&&(r.keys||[]).includes(key));
+ return !covers(ta,b.key)&&!covers(tb,a.key);
+}
+/* Стекло p подходит к сборке a: со всеми её стёклами. */
+function stationAsmFits(a,o,l,index,p){return a.recs.every(s=>{const h=index.get(s.piece);return !h||stationDrawingFits(o,l,h,p);});}
 /* want — сборка, в которую встаёт стекло (erp/shopfloor/skip): id открытой
    сборки или 'new'. Без want — самая ранняя открытая, как у сканера. */
 function stationAsmJoin(rec,g,station,want){
  if(!g||!g.c||g.c.missing)return;
  const mu=stationUnitMerge(g.o,g.l),lam=salesRouteStationOf('lamination','LAM');
  if(station!==mu&&!(station===lam&&g.c.ply))return;
- const expected=stationAssemblyKeys(g,station),index=stationPieceIndex();
- const open=stationAsms(g.o,g.l,station,index).filter(a=>!a.complete&&!a.broken&&!a.lites.has(g.c.key)&&!a.recs.includes(rec)&&[...a.lites.keys()].every(k=>expected.includes(k)));
+ const expected=stationAssemblyKeys(g,station),index=stationPieceIndex(),me={key:g.c.key,unit:g.unit};
+ const open=stationAsms(g.o,g.l,station,index).filter(a=>!a.complete&&!a.broken&&!a.lites.has(g.c.key)&&!a.recs.includes(rec)&&[...a.lites.keys()].every(k=>expected.includes(k))&&stationAsmFits(a,g.o,g.l,index,me));
  rec.asm=want==='new'?rec.id:want&&open.some(a=>a.asm===want)?want:open.length?open[0].asm:rec.id;
  const all=stationAsms(g.o,g.l,station,index),a=all.find(x=>x.asm===rec.asm);
  if(!a||!expected.every(k=>a.lites.has(k)))return;
@@ -541,12 +565,14 @@ function stationRecordMates(station,check,who,opts){
 /* Какое стекло отметить разбитым, когда пару забраковали у света, не
    сканируя: лайты позиции взаимозаменяемы — берём то, что ждёт здесь
    дольше всех, иначе то, что ближе всех к станции. */
-function stationPairCandidate(o,l,key,station){
- const inAsm=id=>stationScansFor(id).some(s=>s.asm&&s.station===station);
- const here=(stationWaiting().get(station)||[]).filter(x=>x.g.l.id===l.id&&x.g.c&&x.g.c.key===key&&!inAsm(x.id));
+/* mates — стёкла сборки {key, unit}: пара берётся из стекла, которое к ним
+   подходит по чертежу. */
+function stationPairCandidate(o,l,key,station,mates){
+ const inAsm=id=>stationScansFor(id).some(s=>s.asm&&s.station===station),same=g=>(mates||[]).every(m=>stationDrawingFits(o,l,m,{key,unit:g.unit}));
+ const here=(stationWaiting().get(station)||[]).filter(x=>x.g.l.id===l.id&&x.g.c&&x.g.c.key===key&&!inAsm(x.id)&&same(x.g));
  if(here.length)return here[0].id;
  const rec=(DB.glassPiece||[]).find(x=>x.key===key);if(!rec)return '';
- const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean).map(id=>stationGlass(id)).filter(g=>g&&!inAsm(g.id));
+ const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean).map(id=>stationGlass(id)).filter(g=>g&&!inAsm(g.id)&&same(g));
  const live=ids.map(g=>({g,p:stationPlace(g)})).filter(x=>!x.p.broken&&!x.p.shipped).sort((a,b)=>b.p.far-a.p.far);
  return live.length?live[0].g.id:'';
 }
@@ -561,13 +587,13 @@ function stationParked(filter){
 function stationUnitStatus(g,station){
  if(!g||!g.c||stationUnitMerge(g.o,g.l)!==station)return null;
  const a=stationAsmOf(g,station);if(!a||a.broken)return null;
- const index=stationPieceIndex(),waiting=stationWaiting().get(station)||[];
+ const index=stationPieceIndex(),waiting=stationWaiting().get(station)||[],fits=(key,unit)=>stationAsmFits(a,g.o,g.l,index,{key,unit});
  const lites=glassBatchComponents(g.o,g.l).filter(c=>!c.missing).map(c=>{
   const id=a.lites.get(c.key),base={lite:c.lite,glass:c.glass,key:c.key};
   if(id)return Object.assign(base,{here:true,id});
-  const park=stationParked((h)=>h.orderId===g.o.id&&h.lineId===g.l.id&&h.key===c.key)[0];
+  const park=stationParked((h)=>h.orderId===g.o.id&&h.lineId===g.l.id&&h.key===c.key&&fits(h.key,h.unit))[0];
   if(park)return Object.assign(base,{here:false,parked:park.rec.on||'set aside',parkId:park.id});
-  const n=waiting.filter(x=>x.g.l.id===g.l.id&&x.g.c&&x.g.c.key===c.key&&!stationScansFor(x.id).some(s=>s.asm&&s.station===station)).length;
+  const n=waiting.filter(x=>x.g.l.id===g.l.id&&x.g.c&&x.g.c.key===c.key&&fits(c.key,x.g.unit)&&!stationScansFor(x.id).some(s=>s.asm&&s.station===station)).length;
   return Object.assign(base,{here:false,waitingHere:n});
  });
  lites.sort((x,y)=>String(x.lite).localeCompare(String(y.lite),undefined,{numeric:true}));

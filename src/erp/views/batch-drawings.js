@@ -18,7 +18,8 @@ function batchDrawingPages(number,jobs){
  const pages=[],bad=[],seen=new Map();
  (jobs||[]).forEach(j=>{
   if(j.type!=='production'||!j.o||!j.l)return;
-  const k=j.o.id+'|'+j.l.id;if(!seen.has(k))seen.set(k,stationDrawingOf(j.o,j.l));
+  /* Стекло Recut со своим чертежом — лист Recut (erp/quality/recut). */
+  const rc=stationDrawRecut(j.o,j.l,j.unit),k=j.o.id+'|'+j.l.id+'|'+(rc?rc.id:'');if(!seen.has(k))seen.set(k,stationDrawingOf(j.o,j.l,j.unit));
   const d=seen.get(k);
   if(d&&d.html)pages.push({j,html:salesSheetFoot(d.html,batchDrawingTag(number,j))});else bad.push(j.piece||'');
  });
