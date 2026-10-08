@@ -1025,9 +1025,15 @@ function stationUnitHTML(L){
 }
 function stationUnitNo(g){const mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;return a&&a.unit&&!a.broken?a.unit:0;}
 function stationPrintUnit(code){
- const g=stationGlass(code),mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;
- if(!a||!a.unit||typeof stkPrint!=='function')return false;
- /* from — стекло сборки: юнит из стекла Recut со своим чертежом — по нему. */
+ code=stationCodeOf(code);let g=stationGlass(code);
+ if(!g){
+  const u=glassLookup(code),o=u&&u.kind==='unit'&&salesRecord(u.orderId),l=o&&(o.lines||[]).find(x=>x.id===u.lineId),mu=l&&stationUnitMerge(o,l);
+  const a=mu&&stationAsms(o,l,mu).find(x=>x.unit===u.unit&&!x.broken);
+  if(a)g=stationGlass([...a.lites.values()][0]);
+ }
+ const mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;
+ if(!a||!a.unit||a.broken||typeof stkPrint!=='function')return false;
+ /* stkUnitData выбирает геометрию всей сборки для автоматической и повторной печати. */
  return stkPrint(stkPages([{type:'unit',o:g.o,l:g.l,unit:a.unit,from:g.unit}],stkPrefSize()));
 }
 /* Пару забраковали у света — её не сканируют (скан закрыл бы юнит и

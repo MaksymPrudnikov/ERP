@@ -59,6 +59,25 @@ module.exports=async function({page,eq,ok}){
   unOut();return out;
  }),{kind:'ok',note:'ARRIS confirmed here',journal:'G',edge:'HEAT',waiting:'IGU',chip:false});
 
+ eq('step: больший размер исправленного Recut одинаков при обоих порядках сборки и печати через G / U',await t.p.evaluate(async()=>{
+  const out=[];
+  for(const which of ['unit','1'])for(const reverse of [false,true]){
+   unReset();const id=oqOrder(oqCustomer());salesOrderEdit(id);const line=soDraft.lines[0],shape=salesLineGeometryShape(line);shape.lites={'0':{inset:{A:'1',B:'1',C:'1',D:'1'},edgeOps:{},mirror:false}};salesOrderSave();salesDraftDrop();salesSetRecordStatus(id,'verified');
+   const o=salesRecord(id),l=o.lines[0],reason=ncrReasonsFor('OFFICE',{activeOnly:true}).find(x=>x.name==='Drawing wrong');
+   recutCreate({orderId:id,where:'OFFICE',reasonId:reason.id,lines:{[l.id]:{on:true,qty:1,which}}});const r=DB.recut[0];storageCommand(()=>recutSizeCommand(r.id,36*16,71*16));
+   glassBatchAssign(glassBatchRows([o]),{});const comps=glassBatchComponents(o,l),pieces=glassPieceMap(id),ids=which==='unit'?recutPieces(r):[pieces.get(comps[0].key).ids[0],recutPieces(r)[0]];ids.forEach(pid=>['CUT','ARRIS','HEAT'].forEach(st=>unScan(st,pid)));
+   unLogin('IGU','Step operator');localStorage.setItem(STATION_AUTOPRINT_KEY,JSON.stringify({IGU:true}));
+   const order=reverse?ids.slice().reverse():ids;stationSubmit(order[0]);stationSubmit(order[1]);await new Promise(resolve=>setTimeout(resolve,100));
+   const a=stationAsmOf(stationGlass(ids[0]),'IGU'),uid=unitIdAt(id,l.id,a.unit),data=ids.map(pid=>stkUnitData(o,l,a.unit,stationGlass(pid).unit));
+   const text=()=>document.getElementById('stkPrintHost').textContent;
+   const autoText=text(),automatic={count:window.unPrinted,large:autoText.includes('36 × 71″'),small:autoText.includes('34 × 69″')};
+   const labels=ids.concat(uid).map(code=>{const printed=stationPrintUnit(code);return {printed,large:text().includes('36 × 71″'),same:text()===autoText};});
+   out.push({complete:a.complete,each:ids.map(pid=>{const g=stationGlass(pid);return stkGlassData('final',o,l,g.c,g.unit,{}).finished;}),sizes:data.map(d=>d.finished),automatic,labels});
+   localStorage.removeItem(STATION_AUTOPRINT_KEY);stkPrintCleanup();unOut();
+  }
+  return out;
+ }),['unit','1'].flatMap(which=>[false,true].map(()=>({complete:true,each:[{w:which==='unit'?34:35,h:69},{w:36,h:71}],sizes:[{w:36,h:71},{w:36,h:71}],automatic:{count:1,large:true,small:false},labels:[1,2,3].map(()=>({printed:true,large:true,same:true}))}))));
+
  eq('IGU: юнит собирается из того, что сканируют, — лайт 1 юнита 1 с лайтом 2 юнита 2; номер юнита — когда собран; стикер юнита',await t.p.evaluate(()=>{
   unReset();const u=unOrder(),a1=u.lite(0,1),b2=u.lite(1,2);
   [a1,b2].forEach(x=>['CUT','ARRIS','HEAT'].forEach(st=>unScan(st,x)));unLogin('IGU','Anna L.');

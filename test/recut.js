@@ -166,7 +166,7 @@ module.exports=async function({page,eq,ok}){
   return {same:JSON.stringify(next.recut)===JSON.stringify(src.recut),shapes:src.recut.every(r=>next.shapeDef.some(s=>s.id===r.shapeRef.id)),err,plain};
  }),{same:true,shapes:true,err:'Recut 1 references a missing Shape.',plain:'id,orderId,no,createdAt,lineId,line,mark,which,lite,keys,qty,where,reasonId,reason,note'});
 
- eq('IGU: размер Recut правится прямо в строке; у фигуры — только через Shape; Recut одного лайта собирается со старым вторым лайтом',await t.p.evaluate(()=>{
+ eq('IGU: размер Recut правится прямо в строке; у фигуры — только через Shape; разные размеры обычного юнита ждут правильную пару',await t.p.evaluate(()=>{
   oqReset();DB.recut=[];DB.glassBatch=[];DB.productionRoute=[];stationRouteReset();
   const id=oqOrder(oqCustomer());salesDraftDrop();salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
   tab='sales';salesOrderEdit(id);rcFill(id,{where:'OFFICE',reason:'Drawing wrong',lines:[[1,1,0]]});ncrFormCreate();
@@ -178,7 +178,18 @@ module.exports=async function({page,eq,ok}){
   const go=pid=>{const g=stationGlass(pid);for(let i=0;i<8;i++){const p=stationPlace(g);if(!p.waiting||p.waiting==='IGU')break;rdScan(p.waiting,pid);}return stationPlace(g).waiting;};
   const at=[lite2,lite1].map(go);rdScan('IGU',lite1);rdScan('IGU',lite2);
   return {typed,figure,at,asm:stationAsms(o,l,'IGU').map(a=>[a.lites.size,a.unit])};
- }),{typed:{w:29.125,line:30,cell:'29 1/8',log:1},figure:{inputs:0,text:true},at:['IGU','IGU'],asm:[[2,1]]});
+ }),{typed:{w:29.125,line:30,cell:'29 1/8',log:1},figure:{inputs:0,text:true},at:['IGU','IGU'],asm:[[1,0],[1,0]]});
+
+ eq('обычный юнит: Recut одного лайта того же размера собирается с исходной парой; стикер одинаков через оба G и U',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();salesSetRecordStatus(id,'verified');
+  salesOrderEdit(id);rcFill(id,{where:'OFFICE',reason:'Drawing wrong',lines:[[1,1,0]]});ncrFormCreate();const r=DB.recut[0];
+  const changed=storageCommand(()=>recutSizeCommand(r.id,30*16,40*16));salesDraftDrop();glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
+  const o=salesRecord(id),l=o.lines[1],cs=glassBatchComponents(o,l),pm=glassPieceMap(id),ids=[pm.get(cs[0].key).extra.R1[0],pm.get(cs[1].key).ids[0]];
+  ids.forEach(pid=>{for(let i=0;i<8;i++){const g=stationGlass(pid),p=stationPlace(g);if(!p.waiting||p.waiting==='IGU')break;rdScan(p.waiting,pid);}rdScan('IGU',pid);});
+  const asm=stationAsms(o,l,'IGU').find(a=>a.unit),data=ids.map(pid=>stkUnitData(o,l,asm.unit,stationGlass(pid).unit));
+  const oldPrint=window.print;window.print=()=>{};const prints=ids.concat(unitIdAt(id,l.id,asm.unit)).map(stationPrintUnit);window.print=oldPrint;stkPrintCleanup();
+  return {changed:changed.ok,assembled:asm.lites.size,size:data.map(d=>d.finished),same:JSON.stringify(data[0])===JSON.stringify(data[1]),prints};
+ }),{changed:true,assembled:2,size:[{w:30,h:40},{w:30,h:40}],same:true,prints:[true,true,true]});
 
  await t.p.setViewportSize({width:390,height:844});
  eq('на телефоне форма и блок Recut не шире экрана',await t.p.evaluate(()=>{const id=DB.salesOrder[0].id;salesOrderEdit(id);const block=document.documentElement.scrollWidth<=innerWidth+1;ncrOpenForm('recut');const r=document.querySelector('.ncr-modal').getBoundingClientRect();return block&&r.left>=0&&r.right<=innerWidth+1;}),true);

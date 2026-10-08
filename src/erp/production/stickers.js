@@ -291,11 +291,23 @@ function stkGlassData(kind,o,l,c,unit,opts){
    shape:stkShapeOf(cut),route:kind==='production'&&typeof stationRouteOf==='function'?stationRouteOf({o,l,c,unit}):kind==='production'?stkRoute(o,geo,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
  });
 }
-/* from — место стекла, из которого собран юнит: юнит из стекла Recut со своим
-   чертежом печатается по этому чертежу. */
+/* Владелец, 8 октября 2026: обычный юнит — лайты одного размера; offset /
+   step — стикер по большему лайту. Источник — вся действующая сборка,
+   независимо от последнего скана и того, через какой G / U печатают.
+   До сборки (офис / образец) — лайты чертежа позиции или указанного Recut. */
+function stkUnitGeometry(o,l,unit,from){
+ const merge=stationUnitMerge(o,l),asm=merge&&stationAsms(o,l,merge).find(a=>a.unit===unit&&!a.broken);
+ const candidates=[];
+ const add=(geo,index,id)=>{const plan=stkPlan(o,geo);if(!plan.valid)return;
+  (plan.lites||[]).filter(x=>index==null||x.index===index).forEach(lite=>candidates.push({geo,lite,id:id||''}));};
+ if(asm)[...asm.lites.values()].forEach(id=>{const g=stationGlass(id);if(g&&g.c)add(stationGeo(g),g.c.index,id);});
+ else add(glassRecutLine(o,l,from),null,'');
+ candidates.sort((a,b)=>b.lite.finishedW*b.lite.finishedH-a.lite.finishedW*a.lite.finishedH||b.lite.finishedW-a.lite.finishedW||b.lite.finishedH-a.lite.finishedH||a.lite.index-b.lite.index||a.id.localeCompare(b.id));
+ return candidates[0]||{geo:glassRecutLine(o,l,from),lite:null};
+}
 function stkUnitData(o,l,unit,from){
  return finWithOrder(o,()=>{
-  const geo=glassRecutLine(o,l,from);
+  const {geo,lite}=stkUnitGeometry(o,l,unit,from),finished=stkFinished(lite,geo);
   const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],lam=panes.some(p=>p.category==='laminated');
   const rows=[];
   panes.forEach((p,i)=>{
@@ -305,10 +317,10 @@ function stkUnitData(o,l,unit,from){
     rows.push({kind:'lam',label:'Lite '+(i+1),outer:stkGlassInfo(p,i,'outer'),inner:stkGlassInfo(p,i,'inner'),films:(L.interlayers||[]).map(f=>{const prod=mdById('interlayerProduct',f.productId);return {name:prod?prod.name:'Interlayer',mm:+f.thicknessMm||null,layers:+f.layers||1};})});}
    else rows.push({kind:'glass',label:'Lite '+(i+1),glass:stkGlassInfo(p,i,'')});
   });
-  const plan=stkPlan(o,geo),lite=plan.valid&&(plan.lites||[])[0],mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
-  return Object.assign(stkOrderData(o,l,li,geo),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
+  const mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
+  return Object.assign(stkOrderData(o,l,li,Object.assign({},geo,{width16:finished.w*16,height16:finished.h*16})),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
    heading:type+(lam&&m.unitType!=='single'?' · laminated':''),thicknessMm:mm,code:m?salesMakeupSummary(m):'',rows,muntin:muntin?'Muntins · '+salesMuntinSections(l)+' sections':'',
-   finished:stkFinished(lite,geo),cut:null,area:stkPieceArea(geo,o),weight:stkWeight(geo,o,null),shape:stkShapeOf(lite)});
+   finished,cut:null,area:stkPieceArea(geo,o),weight:stkWeight(geo,o,null),shape:stkShapeOf(lite)});
  });
 }
 /* Данные стикера остатка из записи DB.stockOffcut. */

@@ -499,11 +499,22 @@ function stationAssemblyKeys(g,station){
 }
 /* Юнит собирается только из стекла одного чертежа: старое неверное стекло
    с новым из Recut не сходится (владелец, 7 октября 2026). Recut одного лайта
-   со своим чертежом идёт к лайтам, которых он не касается. a, b — {key, unit}. */
+   идёт к лайтам, которых он не касается, если размеры обычного юнита
+   совпадают. Разные размеры допускает заданная геометрия offset / step,
+   а не сам факт Recut (владелец, 8 октября 2026). a, b — {key, unit}. */
 function stationDrawingFits(o,l,a,b){
  const ta=stationDrawingKey(o,l,a.unit),tb=stationDrawingKey(o,l,b.unit);if(ta===tb)return true;
  const covers=(t,key)=>!!t&&(DB.recut||[]).some(r=>r&&r.orderId===o.id&&r.lineId===l.id&&'R'+r.no===t&&(r.keys||[]).includes(key));
- return !covers(ta,b.key)&&!covers(tb,a.key);
+ if(covers(ta,b.key)||covers(tb,a.key))return false;
+ return finWithOrder(o,()=>{
+  const comps=glassBatchComponents(o,l),ca=comps.find(c=>c.key===a.key),cb=comps.find(c=>c.key===b.key);
+  const pa=stkPlan(o,glassRecutLine(o,l,a.unit)),pb=stkPlan(o,glassRecutLine(o,l,b.unit));
+  if(!ca||!cb||!pa.valid||!pb.valid)return false;
+  const step=p=>p.lites.some(x=>x.inset||Math.abs(x.finishedW-p.lites[0].finishedW)>1e-6||Math.abs(x.finishedH-p.lites[0].finishedH)>1e-6);
+  if(step(pa)||step(pb))return true;
+  const da=pa.lites.find(x=>x.index===ca.index),db=pb.lites.find(x=>x.index===cb.index);
+  return !!da&&!!db&&Math.abs(da.finishedW-db.finishedW)<1e-6&&Math.abs(da.finishedH-db.finishedH)<1e-6;
+ });
 }
 /* Стекло p подходит к сборке a: со всеми её стёклами. */
 function stationAsmFits(a,o,l,index,p){return a.recs.every(s=>{const h=index.get(s.piece);return !h||stationDrawingFits(o,l,h,p);});}
