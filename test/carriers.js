@@ -68,16 +68,17 @@ module.exports=async function({page,eq,ok}){
  }),{before:'DL-1:3 glass:B 3|DL-2:1 glass:B 1|No dolly:1 glass:B 1',closed:true,stack:['#3|Line 2 · 30 × 20|1','#2–1|Line 1 · 36 × 24|2'],done:true,after:'DL-2:1 glass:B 1|No dolly:1 glass:B 1'});
 
  /* Владелец, 6.10.2026: «опция, чтобы я сам проставлял; базово везде
-    долли»; IGU отдаёт на скидах; SHIPR — всегда скид (проход 7.10.2026:
-    без скида SHIP было нечего грузить), SHIP — свои правила. */
- eq('Puts on: по умолчанию Dolly, IGU — Skid, SHIPR — всегда Skid, SHIP — свои правила; владелец меняет в Master Data; переживает нормализацию',await t.p.evaluate(()=>{
+    долли»; SHIPR — всегда скид (проход 7.10.2026: без скида SHIP было
+    нечего грузить), SHIP — свои правила. IGU — без тары (7.10.2026: юнит
+    едет по линии на силикон, скид сканирует Shipping ready). */
+ eq('Puts on: по умолчанию Dolly, IGU — «—», SHIPR — всегда Skid, SHIP — свои правила; владелец меняет в Master Data; переживает нормализацию',await t.p.evaluate(()=>{
   cvReset();const v=c=>sfPutsOn(DB.station.find(s=>s.code===c)),heat=DB.station.find(s=>s.code==='HEAT');
   const def=['CUT','ARRIS','HEAT','IGU','SHIPR','SHIP'].map(v).join(),ship=sfSetPutsOn('SHIP','dolly');
   sfSetPutsOn('HEAT','none');normalizeShopFloor();const after=v('HEAT');
   tab='masterdata';mdSetTab('stations');const igu=document.querySelector('[data-sf-puts-on="IGU"]').value,own=document.querySelector('[data-sf-station="SHIP"]').textContent.includes('own rules')&&document.querySelector('[data-sf-station="SHIPR"]').textContent.includes('Skid · always');
   delete DB.station.find(s=>s.code==='HEAT').putsOn;tab='dashboard';render();
   return {def,ship,after,igu,own};
- }),{def:'dolly,dolly,dolly,skid,skid,none',ship:false,after:'none',igu:'skid',own:true});
+ }),{def:'dolly,dolly,dolly,none,skid,none',ship:false,after:'none',igu:'none',own:true});
 
  /* Владелец, 6.10.2026: «засчитывает и ждёт долли»; следующая долли
     забирает стёкла, отсканированные без неё. 7.10.2026: приехавшая долли —

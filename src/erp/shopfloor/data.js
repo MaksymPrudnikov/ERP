@@ -203,8 +203,10 @@ function sfSplitEdgeFix(){
 
 /* На что кладут стекло после станции (владелец, 6 октября 2026: «опция,
    чтобы я сам проставлял, убирал, добавлял; базово поставь везде долли»).
-   Пусто — по умолчанию: IGU получает на долли, а отдаёт на скидах. У SHIPR
-   и SHIP опции нет: SHIPR всегда на скидах («шипинг реди уже на скидах»;
+   Пусто — по умолчанию. IGU — без тары: юнит после спейсера едет по линии
+   на силикон, на скид его кладёт и сканирует Shipping ready (владелец,
+   7 октября 2026: спейсер и скиды в 50 метрах, «Андрей сканирует только
+   лайты»; до этого IGU отдавал на скидах). У SHIPR и SHIP опции нет: SHIPR всегда на скидах («шипинг реди уже на скидах»;
    проход 7.10.2026: без скида 104 стекла остались без тары, и SHIP было
    нечего грузить), SHIP грузит скиды в машину. Станция с тарой спрашивает
    её, если не отсканировали (views/station, «Which dolly?»). */
@@ -214,7 +216,7 @@ function sfPutsOn(s){
  if(!s)return 'none';
  if(sfPutsOnOwn(s.code))return s.code===shippingStations().ready?'skid':'none';
  if(s.putsOn)return s.putsOn;
- return typeof salesRouteStationOf==='function'&&s.code===salesRouteStationOf('igu_assembly','IGU')?'skid':'dolly';
+ return typeof salesRouteStationOf==='function'&&s.code===salesRouteStationOf('igu_assembly','IGU')?'none':'dolly';
 }
 function sfSetPutsOn(code,v){
  const out=storageCommand(()=>{const s=(DB.station||[]).find(x=>x.code===code);if(!s||sfPutsOnOwn(code)||!SF_PUTS_ON.some(([k])=>k===v))throw new Error('Not changed.');s.putsOn=v;return true;});

@@ -48,10 +48,10 @@ module.exports=async function({page,eq,ok}){
  eq('Empty a skid takes two taps; its glass is then without a skid and the skid is rebuilt by the same scans',await t.p.evaluate(()=>{
   const [a]=rsSeed('A'),o=salesRecord(a);stationSubmit('SL-1');const button=rsText('[data-skid-empty]');
   document.querySelector('[data-skid-empty]').click();const ask=rsText('[data-skid-empty]'),still=rsOn()['SL-1'];
-  document.querySelector('[data-skid-empty]').click();const card=stationLast.check.kind,text=rsText('[data-station-result="shipEmptied"] .st-big'),empty=rsOn(),loose=rsUnits(a);
+  document.querySelector('[data-skid-empty]').click();const card=stationLast.check.kind,text=rsText('[data-station-result="carrierEmptied"] .st-big'),empty=rsOn(),loose=rsUnits(a);
   const u=shippingAvailable(o)[0];stationSubmit('SL-1');const back=stationSubmit(u.pieces[0]);
   return {button,ask,still,card,text,empty,loose:loose.map(x=>x.split('@')[1]),ready:shippingAvailable(o).length,back,on:rsOn()};
- }),{button:'Empty SL-1',ask:'Empty 6 glass — tap again',still:6,card:'shipEmptied',text:'EMPTYSL-16 glass without a skid',empty:{},loose:['-','-','-'],ready:3,back:'shipMoved',on:{'SL-1':2}});
+ }),{button:'Empty SL-1',ask:'Empty 3 units — tap again',still:6,card:'carrierEmptied',text:'EMPTYSL-13 units without a skid',empty:{},loose:['-','-','-'],ready:3,back:'shipMoved',on:{'SL-1':2}});
  eq('A move that cannot be saved changes nothing',await t.p.evaluate(()=>{
   const [a]=rsSeed('A'),u=shippingAvailable(salesRecord(a))[0];stationSubmit('SL-2');const before=JSON.stringify(DB),kind=rsFail(()=>stationSubmit(u.pieces[0]));
   return {kind,same:before===JSON.stringify(DB),on:rsOn()};
