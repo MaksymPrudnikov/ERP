@@ -1829,6 +1829,13 @@ button.recut-btn{border-color:var(--warning);color:var(--warning)}
 .recut-row:first-of-type{border-top:0}
 .recut-row>span:not(.pill){color:var(--text-2)}
 .recut-row .mut{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Чертёж Recut: размер и Shape цветом перереза; свой чертёж — жирным. */
+.recut-row>span.recut-size{color:var(--warning);font-variant-numeric:tabular-nums;white-space:nowrap}
+.recut-row>span.recut-size.own{font-weight:700}
+.recut-row input.recut-dim{width:84px;color:var(--warning);border-color:var(--warning-line);font-weight:inherit}
+.recut-row button.recut-shape{border-color:var(--warning);color:var(--warning)}
+.recut-row button.recut-shape.own{background:var(--warning);color:var(--surface)}
+.shape-recut-band{margin:8px;padding:8px 10px;border:1px solid var(--warning-line);border-left:4px solid var(--warning);border-radius:8px;background:var(--warning-soft);color:var(--warning);font-size:11px;font-weight:700;letter-spacing:.04em}
 .ncr-pick.ncr-pick-two{grid-template-columns:1fr 1.4fr}
 .ncr-actions-card{margin-top:16px}
 .ncr-warning{padding:8px 12px;border-radius:8px;background:var(--warning-soft);border:1px solid var(--warning-line);color:var(--warning);font-size:13px}
@@ -2857,7 +2864,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='8411322e2a55';
+var ERP_BUILD='882aae4aaa7c';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11271,6 +11278,8 @@ function validateSalesPayload(src){
 function validateSalesReferences(){
  const customers=new Set((DB.customer||[]).map(c=>c.id)),shapeIds=new Set((DB.shapeDef||[]).map(s=>s.id));
  DB.salesOrder.forEach((o,i)=>{if(o.customerId&&!customers.has(o.customerId))throw new Error('Sales Order '+(o.businessNumber||i+1)+' references a missing Customer.');const mus=new Set(o.makeups.map(m=>m.id));o.lines.forEach((l,j)=>{if(!mus.has(l.makeupId))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Makeup.');if(l.shapeRef.id&&!shapeIds.has(l.shapeRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Shape.');});});
+ /* Свой чертёж Recut (erp/quality/recut) — те же формы в DB.shapeDef. */
+ (DB.recut||[]).forEach(r=>{if(r&&r.shapeRef&&[r.shapeRef].concat(Object.values(r.liteShapes||{})).some(x=>x&&x.id&&!shapeIds.has(x.id)))throw new Error('Recut '+r.no+' references a missing Shape.');});
 }
 function nextSalesOrderNumber(){let max=76001;DB.salesOrder.forEach(o=>{if(o.kind==='quote'||/^Q-/i.test(String(o.businessNumber||'')))return;const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
 function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:SALES_ORDER_CHARGE_DEFAULTS,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
@@ -15065,6 +15074,8 @@ function salesPruneOrphanShapes(){
  };
  (DB.salesOrder||[]).forEach(function(o){(o&&o.lines||[]).forEach(keep);});
  if(typeof soDraft!=='undefined'&&soDraft)(soDraft.lines||[]).forEach(keep);
+ /* Чертёж Recut (erp/quality/recut) держит свои формы сам. */
+ (DB.recut||[]).forEach(function(r){if(!r||!r.shapeRef)return;[r.shapeRef].concat(Object.values(r.liteShapes||{})).forEach(function(x){if(x&&x.id)ids.add(x.id);});});
  const before=DB.shapeDef.length;
  DB.shapeDef=DB.shapeDef.filter(function(s){return s&&(ids.has(s.id)||(s.ownerLineId&&lineIds.has(s.ownerLineId)));});
  return before-DB.shapeDef.length;
@@ -16573,12 +16584,18 @@ function salesSheetLineOf(shape){
   var lines=soDraft.lines||[];
   var line=id?lines.find(function(l){return l.id===id;}):null;
   if(!line&&shape&&shape.ownerLineId)line=lines.find(function(l){return l.id===shape.ownerLineId;});
-  return line||null;
+  /* Лист Recut — по чертежу Recut (erp/quality/recut). */
+  var rc=salesSheetRecut();
+  return line&&rc&&rc.lineId===line.id?recutLine(rc,line):line||null;
+}
+function salesSheetRecut(){
+  var id=typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.kind==='shape'?salesBridge.recutId:'';
+  return id&&typeof recutFind==='function'?recutFind(id):null;
 }
 function salesSheetLineNumber(line){
   if(!line||typeof soDraft==='undefined'||!soDraft)return '';
-  var i=(soDraft.lines||[]).indexOf(line);
-  return i<0?'':String(i+1);
+  var i=(soDraft.lines||[]).findIndex(function(l){return l.id===line.id;}),rc=salesSheetRecut();
+  return i<0?'':String(i+1)+(rc?' · RECUT '+rc.no:'');
 }
 /* Заголовок листа: у одинарного стекла это само стекло, у пакета — его состав.
    Разбивка L1 / C1 / L2 показывает, что за чем стоит. */
@@ -16831,7 +16848,7 @@ function salesShapeSheetHTML(shape,result,svg,kind){
   var layered=salesSheetIsLayered(makeup),t=salesSheetTitleLines(makeup,line);
   /* Одинарное стекло считают штуками, пакет и ламинат — юнитами: это разные
      вещи на складе и в отгрузке. */
-  var n=line?(line.qty||1):0;
+  var rc=salesSheetRecut(),n=rc?rc.qty:line?(line.qty||1):0;
   var assembled=makeup&&((makeup.panes||[]).length>1||(makeup.panes||[]).some(function(p){return p.category==='laminated';}));
   var qty=line?(n+' '+(assembled?(n===1?'unit':'units'):(n===1?'pc':'pcs'))):'';
   /* Метка строки — это примечание цеху, поэтому она стоит в NOTE, а не рядом с
@@ -16884,13 +16901,15 @@ function salesSheetFoot(html,text){
    открыть и не распечатать. Редактор рисует лист из своего sDraft и
    salesBridge, поэтому на время отрисовки подставляем копию формы строки и
    всё возвращаем. Редактировать здесь нечего — строка в батче тоже рисуется. */
-function salesLineDrawing(line){
-  var shape=line&&salesShapeByRef(line.shapeRef);if(!shape)return null;
+/* recut — лист Recut со своим чертежом: «Recut n · Line m». */
+function salesLineDrawing(line,recut){
+  var geo=recut&&typeof recutLine==='function'?recutLine(recut,line):line;
+  var shape=geo&&salesShapeByRef(geo.shapeRef);if(!shape)return null;
   var keep={draft:sDraft,bridge:salesBridge,view:sView,lite:typeof sEdgeLite==='undefined'?null:sEdgeLite,place:sManufacturingPlace};
   try{
-    sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));salesBridge={kind:'shape',lineId:line.id};
+    sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));salesBridge=Object.assign({kind:'shape',lineId:line.id},geo!==line?{recutId:recut.id}:{});
     sView='production';sEdgeLite=null;sManufacturingPlace=null;
-    if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(line,sDraft);
+    if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(geo,sDraft);
     var r=ShapeModule.compute(sDraft);
     if(!shapeSheetOk(r))return {line:line,error:String((r.errors&&r.errors[0])||r.reason||'Invalid geometry')};
     return {line:line,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false),'PRODUCTION DRAWING')};
@@ -18822,7 +18841,7 @@ function shapeMetricProductionOptions(result,interactive){
       var pts=shapeLiteContourPoints(selected);
       if(pts&&pts.length>=3){
         metric.points=pts;
-        var line=(typeof soDraft!=='undefined'&&soDraft&&typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.kind==='shape')?(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;}):null;
+        var line=shapeBridgeLine();
         var own=line?salesLineLiteShape(line,selected):null,source=own?ShapeModule.compute(own):result;
         metric.edgeIds=source&&source.geometry?(source.geometry.edges||[]).map(function(e){return e.id;}):[];
       }
@@ -20777,9 +20796,27 @@ function shapeBaseEdgeworkHint(has){
    его отступ и его кромку. Показываем только когда лайтов больше одного. */
 /* Открыта СВОЯ форма лайта — говорим об этом в шапке редактора, а не внутри
    свёрнутой секции кромок, иначе подсказку не видно. */
+/* Строка заказа под редактором; у чертежа Recut — вид строки с его формами
+   (erp/quality/recut). */
+function shapeBridgeLine(){
+  if(typeof soDraft==='undefined'||!soDraft||typeof salesBridge==='undefined'||!salesBridge||salesBridge.kind!=='shape')return null;
+  var line=(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;})||null;
+  var rc=line&&salesBridge.recutId&&typeof recutFind==='function'?recutFind(salesBridge.recutId):null;
+  return rc?recutLine(rc,line):line;
+}
+/* Чертёж Recut: полоса «RECUT n · Line m · где · что · Was W × H» — размер
+   строки заказа, по которому порезали с ошибкой. */
+function shapeRecutBanner(){
+  var rc=salesBridge&&salesBridge.kind==='shape'&&salesBridge.recutId&&typeof recutFind==='function'?recutFind(salesBridge.recutId):null;if(!rc)return '';
+  var line=typeof soDraft!=='undefined'&&soDraft?(soDraft.lines||[]).find(function(l){return l.id===rc.lineId;}):null;
+  var was=line?dimIn16(line.width16/16)+' × '+dimIn16(line.height16/16):'';
+  return `<div class='shape-recut-band' data-shape-recut-band>${esc(['RECUT '+rc.no,'Line '+rc.line,ncrWhereLabel(rc),rc.reason,was?'Was '+was:''].filter(Boolean).join(' · '))}</div>`;
+}
 function shapeLiteBanner(){
-  if(!salesBridge||salesBridge.kind!=='shape'||salesBridge.liteIndex==null)return '';
-  return `<div class='shape-lite-note own'>This is the own Shape of <b>Lite ${salesBridge.liteIndex+1}</b> of this order line. The other lites live on the shared Shape.</div>`;
+  if(!salesBridge||salesBridge.kind!=='shape')return '';
+  var recut=shapeRecutBanner();
+  if(salesBridge.liteIndex==null)return recut;
+  return recut+`<div class='shape-lite-note own'>This is the own Shape of <b>Lite ${salesBridge.liteIndex+1}</b> of this ${salesBridge.recutId?'recut':'order line'}. The other lites live on the shared Shape.</div>`;
 }
 function shapeEdgeLiteTabs(){
   if(salesBridge&&salesBridge.kind==='shape'&&salesBridge.liteIndex!=null)return '';
@@ -20822,7 +20859,7 @@ function shapeMiniContourSvg(points,cls){
 /* Контур конкретного лайта прямо из редактора: своя форма → её контур, иначе
    контур формы с отступом лайта; зеркало применяется последним. */
 function shapeLiteContourPoints(liteIndex){
-  var line=(typeof soDraft!=='undefined'&&soDraft&&salesBridge&&salesBridge.kind==='shape')?(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;}):null;
+  var line=shapeBridgeLine();
   var own=line?salesLineLiteShape(line,liteIndex):null;
   var def=own||sDraft,r=def?ShapeModule.compute(def):null;
   if(!r||!r.valid||!r.cutting||!r.cutting.finishedPoints)return null;
@@ -20844,7 +20881,9 @@ function shapeLiteSplitEditor(){
   if(salesBridge&&salesBridge.kind==='shape'&&salesBridge.liteIndex!=null)return '';
   var lites=shapeEditorLites();
   if(lites.length<2)return '';
-  var line=(typeof soDraft!=='undefined'&&soDraft&&salesBridge)?(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;}):null;
+  /* У чертежа Recut свои формы лайтов позиции не отделяются и не
+     возвращаются: эти кнопки правят строку заказа. */
+  var line=shapeBridgeLine(),act=line&&!salesBridge.recutId;
   var groups=shapeGroups(),changed=0;
   var rows=lites.map(function(l){
     var spec=(sDraft.lites||{})[String(l.index)]||{},own=line?salesLineLiteShape(line,l.index):null;
@@ -20853,9 +20892,9 @@ function shapeLiteSplitEditor(){
     var state=own?`<span class='pill info' data-raw>${esc(own.name)}</span>`
       :(spec.mirror?`<span class='pill info'>Mirror</span>`:'')+(insetCount?`<span class='pill info'>Inset</span>`:'')||`<span class='pill'>Same as Shape</span>`;
     var actions=own
-      ? `<button type='button' class='sm' onclick='salesOpenLiteShape("${esc(line.id)}",${l.index})'>Open</button><button type='button' class='sm dl' onclick='salesReattachLiteShape("${esc(line.id)}",${l.index})'>Back to shared</button>`
+      ? (act?`<button type='button' class='sm' onclick='salesOpenLiteShape("${esc(line.id)}",${l.index})'>Open</button><button type='button' class='sm dl' onclick='salesReattachLiteShape("${esc(line.id)}",${l.index})'>Back to shared</button>`:'')
       : `<label class='shape-lite-mirror'><input type='checkbox' ${spec.mirror?'checked':''} onchange='setShapeLiteMirror(${l.index},this.checked)'><span>Mirror</span></label>`
-        +(line?`<button type='button' class='sm' onclick='salesOpenLiteShape("${esc(line.id)}",${l.index})'>Own shape</button>`:'');
+        +(act?`<button type='button' class='sm' onclick='salesOpenLiteShape("${esc(line.id)}",${l.index})'>Own shape</button>`:'');
     var insets=own?'':`<div class='shape-lite-insets'><span>Inset per edge</span>${groups.map(function(g,gi){
       var v=(spec.inset||{})[g.id]||'';
       return `<label><b>${esc(g.id)}</b><input value='${esc(v)}' placeholder='0' onchange='setShapeLiteInsetFor(${l.index},${gi},this.value)'></label>`;
@@ -21164,6 +21203,8 @@ function saveShape(){
   var r=ShapeModule.compute(sDraft),external=r.externalFile&&r.sourceValid;if(!r.valid&&!external)return fail(e,(r.errors&&r.errors.length?r.errors:[r.reason]).map(function(x){return String(x||'');}).join(' · '));
   var prior=sEdit==='new'?null:DB.shapeDef[sEdit];
   var saved=r.definition||normalizeShapeDef(sDraft);saved.name=sDraft.name;saved.revision=prior?(prior.revision||0)+1:1;saved.status='draft';
+  /* Чертёж Recut пишется одной записью вместе с Recut и батчем (erp/quality/recut). */
+  if(typeof salesBridgeSaveRecut==='function'&&salesBridgeSaveRecut(saved,e))return;
   if(sEdit==='new')DB.shapeDef.push(saved);else DB.shapeDef[sEdit]=saved;var savedId=saved.id;touch();
   if(typeof salesBridgeOnShapeSaved==='function'&&salesBridgeOnShapeSaved(savedId))return;
   sEdit=null;sDraft=null;render();
@@ -21680,7 +21721,7 @@ shapeForm=function(){
   var tabs=external
     ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`
     : `<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`;
-  return `<div class='module-editor shape-workspace-editor' id='shapeEditorRoot'>${shapeLiteBanner()}<div class='shape-workspace-toolbar'><div class='shape-workspace-identity'><b>${sEdit==='new'?'New Production Shape':'Edit Production Shape'}</b><span data-raw>${esc(sDraft.name||shapePresetInfo(sDraft.type).label)}</span></div><span class='sp'></span><div class='shape-workspace-actions'><button onclick='cancelShapeEdit()'>Cancel</button><button class='pri' onclick='saveShape()'>Save revision</button></div></div><div class='err' id='e_shape'></div><div class='shape-editor-layout'><div class='shape-workspace-left'>${workspaceTabs}<div class='shape-controls'>${controls}</div></div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div></div>`;
+  return `<div class='module-editor shape-workspace-editor' id='shapeEditorRoot'>${shapeLiteBanner()}<div class='shape-workspace-toolbar'><div class='shape-workspace-identity'><b>${typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.recutId?'Recut drawing':sEdit==='new'?'New Production Shape':'Edit Production Shape'}</b><span data-raw>${esc(sDraft.name||shapePresetInfo(sDraft.type).label)}</span></div><span class='sp'></span><div class='shape-workspace-actions'><button onclick='cancelShapeEdit()'>Cancel</button><button class='pri' onclick='saveShape()'>Save revision</button></div></div><div class='err' id='e_shape'></div><div class='shape-editor-layout'><div class='shape-workspace-left'>${workspaceTabs}<div class='shape-controls'>${controls}</div></div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div></div>`;
 };
 
 /* ==== src/erp/views/configurators.js ==== */
@@ -23880,12 +23921,16 @@ function docModal(){
 /* Лист — тот же, что уйдёт на печать (salesLineDrawing), в бумаге 850 × 1100,
    уменьшенной под окно (крупно) и под ленту (мини). Листы строятся один раз на открытие окна: пока
    оно открыто, заказ не правится, а 60 строк считались ~3 с на перерисовку. */
+/* За строками — Recut со своим чертежом, отдельным листом «Recut n · Line m»
+   (erp/quality/recut). key — строки или Recut. */
 function docDrawingItems(){
- const done=docState.drawings||(docState.drawings=new Map());
- return (soDraft.lines||[]).map((l,i)=>{if(!done.has(l.id))done.set(l.id,salesLineDrawing(l));const d=done.get(l.id);return d?Object.assign({i},d):null;}).filter(Boolean);
+ const done=docState.drawings||(docState.drawings=new Map()),lines=soDraft.lines||[];
+ const recuts=salesIsQuote(soDraft)||typeof recutForOrder!=='function'?[]:recutForOrder(soDraft.id).filter(recutHasShape);
+ const all=lines.map((l,i)=>({key:l.id,i,l,r:null})).concat(recuts.map(r=>{const i=lines.findIndex(l=>l.id===r.lineId);return {key:r.id,i,l:lines[i],r};}).filter(x=>x.l));
+ return all.map(x=>{if(!done.has(x.key))done.set(x.key,salesLineDrawing(x.l,x.r));const d=done.get(x.key);return d?Object.assign({i:x.i,key:x.key,recut:x.r},d):null;}).filter(Boolean);
 }
-function docDrawingName(x){return 'Line '+(x.i+1)+(x.line.mark?' · '+x.line.mark:'');}
-function docDrawingNow(items){return items.find(x=>x.line.id===docState.current)||items[0]||null;}
+function docDrawingName(x){return (x.recut?'Recut '+x.recut.no+' · ':'')+'Line '+(x.i+1)+(x.line.mark?' · '+x.line.mark:'');}
+function docDrawingNow(items){return items.find(x=>x.key===docState.current)||items[0]||null;}
 function docDrawingTools(items){
  const now=docDrawingNow(items);
  return `<span class="doc-drawing-now" data-doc-drawing-now>${now?esc(docDrawingName(now))+' · '+(items.indexOf(now)+1)+' of '+items.length:''}</span>`;
@@ -23903,8 +23948,8 @@ function docDrawingsBody(items){
  const now=docDrawingNow(items),at=items.indexOf(now),many=items.length>1;
  const step=(d,label,sign,off)=>many?`<button type="button" class="doc-step" data-doc-${d} aria-label="${label}" title="${label} (${d==='prev'?'←':'→'})" ${off?'disabled':''} onclick="docDrawingStep(${sign})">${d==='prev'?'‹':'›'}</button>`:'';
  return `<div class="doc-drawings" data-doc-drawings>
-  <div class="doc-stage">${step('prev','Previous drawing',-1,at<=0)}<figure class="doc-drawing" data-doc-drawing="${esc(now.line.id)}" style="zoom:${docDrawingZoom().toFixed(3)}">${docDrawingSheet(now)}</figure>${step('next','Next drawing',1,at>=items.length-1)}</div>
-  ${many?`<div class="doc-film" data-doc-film>${items.map(x=>`<button type="button" class="doc-thumb${x===now?' on':''}" data-doc-thumb="${esc(x.line.id)}" title="${esc(docDrawingName(x))}" onclick="docDrawingGo('${esc(x.line.id)}')"><span class="doc-thumb-paper"><span class="doc-thumb-sheet">${x.html?docDrawingSheet(x):''}</span></span><b>${x.i+1}</b></button>`).join('')}</div>`:''}
+  <div class="doc-stage">${step('prev','Previous drawing',-1,at<=0)}<figure class="doc-drawing" data-doc-drawing="${esc(now.key)}" style="zoom:${docDrawingZoom().toFixed(3)}">${docDrawingSheet(now)}</figure>${step('next','Next drawing',1,at>=items.length-1)}</div>
+  ${many?`<div class="doc-film" data-doc-film>${items.map(x=>`<button type="button" class="doc-thumb${x===now?' on':''}${x.recut?' doc-thumb-recut':''}" data-doc-thumb="${esc(x.key)}" title="${esc(docDrawingName(x))}" onclick="docDrawingGo('${esc(x.key)}')"><span class="doc-thumb-paper"><span class="doc-thumb-sheet">${x.html?docDrawingSheet(x):''}</span></span><b>${x.recut?'R'+x.recut.no+' · ':''}${x.i+1}</b></button>`).join('')}</div>`:''}
  </div>`;
 }
 function docDrawingsFit(){
@@ -23914,7 +23959,7 @@ function docDrawingsFit(){
 function docDrawingFilmShow(){const el=document.querySelector('.doc-thumb.on');if(el&&el.scrollIntoView)el.scrollIntoView({block:'nearest',inline:'center'});}
 function docDrawingGo(id){
  if(!docState||docState.kind!=='drawings')return;
- const items=docDrawingItems(),x=items.find(i=>i.line.id===id),fig=document.querySelector('[data-doc-drawing]');if(!x||!fig)return;
+ const items=docDrawingItems(),x=items.find(i=>i.key===id),fig=document.querySelector('[data-doc-drawing]');if(!x||!fig)return;
  docState.current=id;const at=items.indexOf(x);
  fig.dataset.docDrawing=id;fig.innerHTML=docDrawingSheet(x);
  const sheet=fig.querySelector('.print-sheet');if(sheet)salesSheetFitDrawing(sheet);
@@ -23929,7 +23974,7 @@ function docDrawingGo(id){
 function docDrawingStep(d){
  if(!docState||docState.kind!=='drawings')return;
  const items=docDrawingItems(),at=items.indexOf(docDrawingNow(items)),x=items[Math.max(0,Math.min(items.length-1,at+d))];
- if(x)docDrawingGo(x.line.id);
+ if(x)docDrawingGo(x.key);
 }
 document.addEventListener('keydown',e=>{
  if(!docState||docState.kind!=='drawings'||e.altKey||e.ctrlKey||e.metaKey)return;
@@ -23941,7 +23986,7 @@ function docDrawingPrintMenu(e){
  e.stopPropagation();
  const m=document.querySelector('[data-doc-print-menu]');if(!m)return;
  const items=docDrawingItems().filter(x=>x.html),now=docDrawingNow(docDrawingItems());
- m.innerHTML=(now&&now.html?`<button type="button" data-doc-print-one onclick="docDrawingsPrint('one')">This drawing · ${esc('Line '+(now.i+1))}</button>`:'')+`<button type="button" data-doc-print-all onclick="docDrawingsPrint('all')">All · ${items.length}</button>`;
+ m.innerHTML=(now&&now.html?`<button type="button" data-doc-print-one onclick="docDrawingsPrint('one')">This drawing · ${esc((now.recut?'Recut '+now.recut.no+' · ':'')+'Line '+(now.i+1))}</button>`:'')+`<button type="button" data-doc-print-all onclick="docDrawingsPrint('all')">All · ${items.length}</button>`;
  m.hidden=!m.hidden;
  if(!m.hidden)setTimeout(()=>document.addEventListener('click',()=>{m.hidden=true;},{once:true}),0);
 }
@@ -25930,6 +25975,9 @@ function glassLineScanned(orderId,line){
 function glassPieceMap(orderId){const m=new Map();(DB.glassPiece||[]).forEach(r=>{if(!orderId||r.key.startsWith(orderId+'|'))m.set(r.key,r);});return m;}
 /* Места Recut заказа: «ключ стекла|R1.1» (erp/quality/recut). */
 function glassRecutSlots(orderId,lineId){return typeof recutSlotsFor==='function'?recutSlotsFor(orderId,lineId):[];}
+/* Геометрия стекла: у места Recut со своим чертежом — вид строки с чертежом
+   Recut (erp/quality/recut, recutGeoLine), иначе сама строка. */
+function glassRecutLine(o,l,unit){return o&&l&&typeof unit==='string'&&typeof recutGeoLine==='function'?recutGeoLine(o.id,l,unit):l;}
 function glassUnitValid(u){return Number.isSafeInteger(u)&&u>=0||typeof u==='string'&&/^(NCR|R)\d+\.\d+$/.test(u);}
 function glassPieceAt(rec,unit){
  if(!rec)return '';
@@ -26018,13 +26066,18 @@ function glassBatchRows(orders){
   const regular=GLASS_WAITING_STATUSES.includes(o.status),active=glassBatchActive(o.id),pieces=glassPieceMap(o.id),customer=salesCustomerDisplay(o.customerId),hasCustomer=!!salesFindCustomer(o.customerId),cancelled=glassCancelledSlots(o);
   (o.lines||[]).forEach((l,li)=>{
    if(!glassBatchRemaining(o,l,active,cancelled))return;
-   let plan;try{plan=salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){plan={valid:false,reason:'Check cutting geometry'};}
+   /* План резки — по строке, у Recut со своим чертежом — по его чертежу. */
+   const plans=new Map(),planOf=unit=>{const geo=glassRecutLine(o,l,unit),k=geo===l?'':String(unit).split('.')[0];
+    if(!plans.has(k)){let plan;try{plan=salesEffectiveCuttingPlan(geo,salesLineGeometryShape(geo),o);}catch(e){plan={valid:false,reason:'Check cutting geometry'};}plans.set(k,{geo,plan});}return plans.get(k);};
    glassBatchComponents(o,l).forEach(c=>{
-    const cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index),own=c.missing?null:salesLineShapeForLite(l,c.index),rec=pieces.get(c.key);
-    const hold=o.onHold?'Order on hold: '+(o.holdReason||''):l.onHold?'On Hold: '+(l.holdReason||''):
-     !hasCustomer?'Customer missing':c.missing||!glassProductById(c.glassId)?'Glass missing':!cut?(plan.reason||'Check cutting geometry'):'';
-    const base={o,l,line:li+1,of:l.qty,cut,shape:own,shapeLabel:own&&!salesShapeIsLineRect(own)?'Shape':'Rect',width:cut?cut.cutW:null,height:cut?cut.cutH:null,
-     heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.missing?'':(salesCoatingSurfaceOf(c.pane,c.index,c.ply)||''),customer};
+    const rec=pieces.get(c.key),baseOf=unit=>{
+     const {geo,plan}=planOf(unit),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index),own=c.missing?null:salesLineShapeForLite(geo,c.index);
+     const hold=o.onHold?'Order on hold: '+(o.holdReason||''):l.onHold?'On Hold: '+(l.holdReason||''):
+      !hasCustomer?'Customer missing':c.missing||!glassProductById(c.glassId)?'Glass missing':!cut?(plan.reason||'Check cutting geometry'):'';
+     return {hold,base:{o,l,geo,line:li+1,of:l.qty,cut,shape:own,shapeLabel:own&&!salesShapeIsLineRect(own)?'Shape':'Rect',width:cut?cut.cutW:null,height:cut?cut.cutH:null,
+      heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.missing?'':(salesCoatingSurfaceOf(c.pane,c.index,c.ply)||''),customer}};
+    };
+    const {hold,base}=baseOf(1);
     for(let unit=1;regular&&unit<=l.qty;unit++){
      if(active.has(c.key+'|'+unit)||cancelled.has(c.key+'|'+unit))continue;
      const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';
@@ -26033,7 +26086,7 @@ function glassBatchRows(orders){
      rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,held:!!uh,reason:hold||(uh?'Units on hold: '+(uh.reason||''):'')||(piece?'':'Glass ID missing')}));
     }
     glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)&&!cancelled.has(x.key+'|'+x.unit)).forEach(x=>{
-     const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'';
+     const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'',{hold,base}=baseOf(x.unit);
      rows.push(Object.assign({},c,base,{slot:x.key+'|'+x.unit,unit:x.unit,k:x.k,of:x.of,recut:x.ref,recutLabel:x.label,piece,reason:hold||(piece?'':'Glass ID missing')}));
     });
    });
@@ -26048,11 +26101,11 @@ function glassBatchSyncLine(o,l){
 }
 function glassBatchSelectionStamp(rows){
  const ids=[...new Set(rows.map(r=>r.orderId))];
- return JSON.stringify([ids.map(salesRecord),DB.glassBatch,DB.glassPiece,DB.shapeDef,DB.glassProduct,DB.serviceRate,DB.customer,DB.receipt]);
+ return JSON.stringify([ids.map(salesRecord),DB.glassBatch,DB.glassPiece,DB.shapeDef,DB.glassProduct,DB.serviceRate,DB.customer,DB.receipt,(DB.recut||[]).filter(r=>ids.includes(r.orderId))]);
 }
 function glassBatchPartSnapshot(r){
  return {order:r.o.businessNumber,customer:r.customer,line:r.line,of:r.of,...(r.recut?{recut:r.recut}:{}),lite:r.lite,glassId:r.glassId,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,heat:r.heat,coating:r.coating,
-  production:{pane:glassBatchClone(r.pane),shape:glassBatchClone(r.shape),cuttingPoints:glassBatchClone(r.cut.cuttingPoints||[]),line:salesLockedLineSnapshot(r.o,r.l)}};
+  production:{pane:glassBatchClone(r.pane),shape:glassBatchClone(r.shape),cuttingPoints:glassBatchClone(r.cut.cuttingPoints||[]),line:salesLockedLineSnapshot(r.o,r.geo||r.l)}};
 }
 /* Внутренний commit вызывается только после всех проверок выбранной группы.
    Независимый повторный разбор прямо перед записью исключает двойной запуск.
@@ -26075,12 +26128,15 @@ function glassBatchAssignCommand(rows,opts){
  if(!batch){batch={number,createdAt:now,parts:[],items:[],history:[]};(DB.glassBatch||(DB.glassBatch=[])).push(batch);}
  const parts=new Map();
  chosen.forEach(r=>{
-  if(!parts.has(r.key)){
+  /* Часть — снимок стекла: у Recut свой (свой чертёж), стекло позиции и
+     Recut в одну часть не сливаются. */
+  const pk=r.key+'|'+(r.recut||'');
+  if(!parts.has(pk)){
    const snapshot=glassBatchPartSnapshot(r),text=JSON.stringify(snapshot);let part=batch.parts.findIndex(p=>p.key===r.key&&JSON.stringify(p.snapshot)===text);
    if(part<0){part=batch.parts.length;batch.parts.push({key:r.key,orderId:r.orderId,lineId:r.lineId,snapshot});}
-   parts.set(r.key,part);
+   parts.set(pk,part);
   }
-  batch.items.push({piece:r.piece,part:parts.get(r.key),unit:r.unit,at:now,releasedAt:'',cutStartedAt:''});
+  batch.items.push({piece:r.piece,part:parts.get(pk),unit:r.unit,at:now,releasedAt:'',cutStartedAt:''});
  });
  new Map(chosen.map(r=>[r.l,r.o])).forEach((o,l)=>{l.batchManaged=true;glassBatchSyncLine(o,l);});
  batch.history.push({at:now,action:added?'Added':'Created',pieces:chosen.map(r=>r.piece),qty:chosen.length});
@@ -26577,7 +26633,8 @@ function stkVarValue(v){
  const t=String(v);if(/^\d{4}-\d{2}-\d{2}(T|$)/.test(t)){const d=stkDue(t.slice(0,10));return d.day?d.weekday+' '+d.day:t;}
  return t.replace(/\s*\n\s*/g,' ');
 }
-function stkVars(o,l,li){
+/* geo — геометрия стекла (у Recut со своим чертежом — его размер). */
+function stkVars(o,l,li,geo){geo=geo||l;
  const vars={},skip=/(^id$|Id$|Ids$|Ref$|16$|^price|Price|Override$|^rev$|Rev$|fingerprint)/i;
  const add=(group,obj,depth)=>Object.keys(obj||{}).forEach(k=>{
   const v=obj[k];if(skip.test(k)||Array.isArray(v))return;
@@ -26585,14 +26642,14 @@ function stkVars(o,l,li){
   const label=group.includes(':')?group+' '+stkHuman(k).toLowerCase():group+': '+stkHuman(k);vars[label]=stkVarValue(v);
  });
  add('Order',o,0);add('Customer',typeof salesFindCustomer==='function'?salesFindCustomer(o.customerId):null,0);add('Line',l,0);
- Object.assign(vars,{'Line: Number':String(li+1),'Line: Width':frac16(l.width16/16)+'″','Line: Height':frac16(l.height16/16)+'″','Order: Status':typeof salesStatusLabel==='function'?salesStatusLabel(o):o.status,'Customer: Name':salesCustomerDisplay(o.customerId)});
+ Object.assign(vars,{'Line: Number':String(li+1),'Line: Width':frac16(geo.width16/16)+'″','Line: Height':frac16(geo.height16/16)+'″','Order: Status':typeof salesStatusLabel==='function'?salesStatusLabel(o):o.status,'Customer: Name':salesCustomerDisplay(o.customerId)});
  return vars;
 }
 function stkFill(text,d){return String(text||'').replace(/\{([^{}]{1,80})\}/g,(m,k)=>d&&d.vars&&Object.prototype.hasOwnProperty.call(d.vars,k.trim())?d.vars[k.trim()]:'');}
-function stkOrderData(o,l,li){
+function stkOrderData(o,l,li,geo){
  const due=stkDue(o.dueDate);
  return {order:o.businessNumber||'',line:li+1,customer:salesCustomerDisplay(o.customerId),po:o.customerPo||'',mark:l.mark||'',due:due.day,dueWeekday:due.weekday,
-  rush:['rush','critical'].includes(o.priority),priority:o.priority&&o.priority!=='normal'?(SALES_LIST_PRIORITY[o.priority]||''):'',delivery:salesDeliveryLabel(o.delivery),created:stkDue(String(o.createdAt||'').slice(0,10)).day,vars:stkVars(o,l,li)};
+  rush:['rush','critical'].includes(o.priority),priority:o.priority&&o.priority!=='normal'?(SALES_LIST_PRIORITY[o.priority]||''):'',delivery:salesDeliveryLabel(o.delivery),created:stkDue(String(o.createdAt||'').slice(0,10)).day,vars:stkVars(o,l,li,geo)};
 }
 /* Одно стекло: название и код, толщина, закалка, HST, сторона покрытия,
    фрит и спандрел со своей стороной. Сторона берётся тем же контрактом, что
@@ -26676,17 +26733,21 @@ function stkGlassData(kind,o,l,c,unit,opts){
  opts=opts||{};
  return finWithOrder(o,()=>{
   const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],recut=typeof unit==='string',nr=recut?unit.split('.')[0]:'';
-  const plan=stkPlan(o,l),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);
+  /* Размер, контур и маршрут стекла Recut — по его чертежу (erp/quality/recut). */
+  const geo=glassRecutLine(o,l,unit),plan=stkPlan(o,geo),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);
   const rec=glassPieceMap(o.id).get(c.key),comps=glassBatchComponents(o,l);
-  return Object.assign(stkOrderData(o,l,li),{kind,id:glassPieceAt(rec,unit)||'',unit:recut?0:unit,of:l.qty,lite:c.lite,lites:panes.length,recut:recut?'RECUT '+nr.replace(/^R/,''):'',batch:opts.batch||'',
+  return Object.assign(stkOrderData(o,l,li,geo),{kind,id:glassPieceAt(rec,unit)||'',unit:recut?0:unit,of:l.qty,lite:c.lite,lites:panes.length,recut:recut?'RECUT '+nr.replace(/^R/,''):'',batch:opts.batch||'',
    glass:c.missing?{name:'Glass missing',code:'',mm:null,heat:'',heatSoak:false,surface:'',paint:[],ply:''}:stkGlassInfo(c.pane,c.index,c.ply),
-   cut:stkCut(cut,stkFinished(cut,l)),finished:stkFinished(cut,l),area:stkPieceArea(l,o),weight:stkWeight(l,o,c.lite),
+   cut:stkCut(cut,stkFinished(cut,geo)),finished:stkFinished(cut,geo),area:stkPieceArea(geo,o),weight:stkWeight(geo,o,c.lite),
    sheet:stkSheetOf(opts.batch,glassPieceAt(rec,unit)),
-   shape:stkShapeOf(cut),route:kind==='production'&&typeof stationRouteOf==='function'?stationRouteOf({o,l,c}):kind==='production'?stkRoute(o,l,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
+   shape:stkShapeOf(cut),route:kind==='production'&&typeof stationRouteOf==='function'?stationRouteOf({o,l,c,unit}):kind==='production'?stkRoute(o,geo,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
  });
 }
-function stkUnitData(o,l,unit){
+/* from — место стекла, из которого собран юнит: юнит из стекла Recut со своим
+   чертежом печатается по этому чертежу. */
+function stkUnitData(o,l,unit,from){
  return finWithOrder(o,()=>{
+  const geo=glassRecutLine(o,l,from);
   const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],lam=panes.some(p=>p.category==='laminated');
   const rows=[];
   panes.forEach((p,i)=>{
@@ -26696,10 +26757,10 @@ function stkUnitData(o,l,unit){
     rows.push({kind:'lam',label:'Lite '+(i+1),outer:stkGlassInfo(p,i,'outer'),inner:stkGlassInfo(p,i,'inner'),films:(L.interlayers||[]).map(f=>{const prod=mdById('interlayerProduct',f.productId);return {name:prod?prod.name:'Interlayer',mm:+f.thicknessMm||null,layers:+f.layers||1};})});}
    else rows.push({kind:'glass',label:'Lite '+(i+1),glass:stkGlassInfo(p,i,'')});
   });
-  const plan=stkPlan(o,l),lite=plan.valid&&(plan.lites||[])[0],mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
-  return Object.assign(stkOrderData(o,l,li),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
+  const plan=stkPlan(o,geo),lite=plan.valid&&(plan.lites||[])[0],mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
+  return Object.assign(stkOrderData(o,l,li,geo),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
    heading:type+(lam&&m.unitType!=='single'?' · laminated':''),thicknessMm:mm,code:m?salesMakeupSummary(m):'',rows,muntin:muntin?'Muntins · '+salesMuntinSections(l)+' sections':'',
-   finished:stkFinished(lite,l),cut:null,area:stkPieceArea(l,o),weight:stkWeight(l,o,null),shape:stkShapeOf(lite)});
+   finished:stkFinished(lite,geo),cut:null,area:stkPieceArea(geo,o),weight:stkWeight(geo,o,null),shape:stkShapeOf(lite)});
  });
 }
 /* Данные стикера остатка из записи DB.stockOffcut. */
@@ -27194,7 +27255,9 @@ function cutPieces(batch,settings){
   const part=batch.parts[item.part],o=salesRecord(part.orderId),l=o&&(o.lines||[]).find(x=>x.id===part.lineId);
   if(!o||!l)return;
   const c=glassBatchComponents(o,l).find(x=>x.key===part.key);if(!c||c.missing)return;
-  const plan=finWithOrder(o,()=>{try{return salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){return {valid:false};}});
+  /* Стекло Recut со своим чертежом режется по нему (erp/quality/recut). */
+  const geo=typeof glassRecutLine==='function'?glassRecutLine(o,l,item.unit):l;
+  const plan=finWithOrder(o,()=>{try{return salesEffectiveCuttingPlan(geo,salesLineGeometryShape(geo),o);}catch(e){return {valid:false};}});
   const lite=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return;
   /* Стекло из прошлого батча режется первым: приоритет 10, пока его не
      поменяли руками (владелец, 5 октября 2026: «дата выполнения ближе»). */
@@ -30611,6 +30674,100 @@ function recutStatus(r){
  const active=glassBatchActive(r.orderId),slots=recutSlots(r),pending=slots.some(s=>!active.has(s.key+'|'+s.unit));
  return pending?'In queue':'Batched · '+[...new Set(slots.map(s=>active.get(s.key+'|'+s.unit).batch.number))].join(', ');
 }
+/* ---------- Свой чертёж Recut ----------
+   Владелец, 7 октября 2026 (заказ 76004: позиции 13–24 порезаны по неверному
+   чертежу, Recut 1–12 «Office · Drawing wrong»): «в рикат идёт новый шейп и
+   новый чертёж — чтобы был трек самой ошибки». Строка заказа, её цена и Work
+   order остаются как заказано; стекло Recut режется, клеится и печатается по
+   чертежу Recut. Править можно, пока стекло Recut не порезано и не
+   отсканировано. Формы — копии в DB.shapeDef с ownerLineId позиции.
+   Поля записи: shapeRef, liteShapes, width16, height16 — только у Recut со
+   своим чертежом. */
+function recutFind(id){return (DB.recut||[]).find(r=>r&&r.id===id)||null;}
+function recutHasShape(r){return !!(r&&r.shapeRef&&r.shapeRef.id);}
+/* Место стекла «R3.1» → его Recut. */
+function recutOfUnit(orderId,lineId,unit){
+ if(typeof unit!=='string'||!/^R\d+\.\d+$/.test(unit))return null;
+ const no=+unit.slice(1).split('.')[0];
+ return (DB.recut||[]).find(r=>r&&r.orderId===orderId&&r.lineId===lineId&&r.no===no)||null;
+}
+/* Вид строки только для геометрии: чертёж и размер Recut, остальное — строки.
+   Настоящая строка нужна для всего прочего: номер, indexOf, правки. */
+/* Правки кромок строки относятся к контуру строки — у чертежа Recut их нет. */
+function recutLine(r,l){return recutHasShape(r)&&l?Object.assign({},l,{shapeRef:r.shapeRef,liteShapes:r.liteShapes||{},width16:r.width16,height16:r.height16,serviceOverrides:{pinnedTopology:'',edges:{}}}):l;}
+function recutGeoLine(orderId,l,unit){return l?recutLine(recutOfUnit(orderId,l.id,unit),l):l;}
+function recutPieces(r){const pieces=glassPieceMap(r.orderId);return recutSlots(r).map(s=>glassPieceAt(pieces.get(s.key),s.unit)).filter(glassPieceValid);}
+/* Почему чертёж Recut больше не правится; '' — можно. */
+function recutDrawingLock(r){
+ const o=r&&salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId);
+ if(!o||!l)return 'Order line not found.';
+ const pieces=new Set(recutPieces(r));
+ if((DB.glassBatch||[]).some(b=>(b.items||[]).some(i=>i.cutStartedAt&&pieces.has(i.piece))))return 'Recut glass is already cut.';
+ if((DB.stationScan||[]).some(s=>s&&!s.undoneAt&&pieces.has(s.piece)))return 'Recut glass is already in production.';
+ return '';
+}
+/* Какую форму открыть: свою форму выбранного лайта, иначе общую. */
+function recutDrawingLite(r,view){return r&&/^\d+$/.test(String(r.which))&&salesLineLiteShape(view,+r.which)?+r.which:null;}
+/* Запись чертежа — внутри storageCommand. shape — новая форма из редактора.
+   Первый свой чертёж копирует формы позиции: остальное стекло Recut остаётся
+   по чертежу позиции. Стекло Recut в батче, но не порезано, уходит обратно
+   в To batch — батч подсвечивается Re-optimize (glassBatchStale). */
+function recutDrawingCommand(id,shape,liteIndex,now){
+ const r=recutFind(id),o=r&&salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId);
+ if(!r||!o||!l)return {error:'Recut not found.'};
+ const lock=recutDrawingLock(r);if(lock)return {error:lock};
+ now=now||new Date().toISOString();
+ const ref=s=>normalizeShapeRef({id:s.id,revision:s.revision||0});
+ const copy=s=>{const c=normalizeShapeDef(JSON.parse(JSON.stringify(s)));c.id=newShapeId();c.ownerLineId=l.id;DB.shapeDef.push(c);return c;};
+ const drop=x=>{const i=x&&x.id?DB.shapeDef.findIndex(s=>s.id===x.id):-1;if(i>=0)DB.shapeDef.splice(i,1);};
+ /* Форма из редактора — всегда новая запись: id формы позиции не повторяется. */
+ if(!shape.id||DB.shapeDef.some(s=>s&&s.id===shape.id))shape.id=newShapeId();
+ shape.ownerLineId=l.id;DB.shapeDef.push(shape);
+ const key=liteIndex==null?null:String(liteIndex);
+ if(!recutHasShape(r)){
+  const base=key==null?shape:copy(salesLineGeometryShape(l)),lites={};
+  Object.keys(l.liteShapes||{}).forEach(k=>{const s=k!==key&&salesLineLiteShape(l,+k);if(s)lites[k]=ref(copy(s));});
+  if(key!=null)lites[key]=ref(shape);
+  r.shapeRef=ref(base);r.liteShapes=lites;
+ }else if(key==null){drop(r.shapeRef);r.shapeRef=ref(shape);}
+ else{drop((r.liteShapes||{})[key]);r.liteShapes=Object.assign({},r.liteShapes,{[key]:ref(shape)});}
+ const main=salesShapeByRef(r.shapeRef),res=main&&ShapeModule.compute(main);
+ if(!res||!(res.valid||res.externalFile&&res.sourceValid))return {error:'Check the drawing.'};
+ r.shapeRef=salesShapeRefFrom(main);r.width16=Math.round(res.width*16);r.height16=Math.round(res.height*16);
+ const active=glassBatchActive(o.id),out=recutSlots(r).map(s=>active.get(s.key+'|'+s.unit)).filter(Boolean),batches=[...new Set(out.map(x=>x.batch.number))];
+ if(out.length)glassBatchCancelPieces(out.map(x=>x.item.piece),now,'Recut drawing');
+ /* Кэши станций (маршрут, площадь, табло, чертежи) живут по версии заказа. */
+ o.updatedAt=now;
+ orderLogPush(o,'Recut drawing','Recut '+r.no+' · line '+r.line+(out.length?' · '+out.length+' glass out of '+batches.join(', '):''));
+ return {orderId:o.id,recut:r,released:out.length,batches};
+}
+/* Размер прямоугольного Recut правится прямо в строке блока Recuts, как в
+   строке заказа (владелец, 7 октября 2026: «вводил 55 7/8, а должно быть
+   55 1/8 — нужно лезть в шейп?»). Фигура и свои формы лайтов — через Shape. */
+function recutSizeEditable(r,l){
+ const g=recutLine(r,l),s=g&&salesLineGeometryShape(g);
+ return !!s&&s.type==='rectangle'&&!(s.features||[]).length&&!shapeIsDxfSource(s)&&!Object.keys(g.liteShapes||{}).length;
+}
+function recutSizeCommand(id,w16,h16,now){
+ const r=recutFind(id),o=r&&salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId);
+ if(!r||!l)return {error:'Recut not found.'};
+ if(!recutSizeEditable(r,l))return {error:'Change this drawing with Shape.'};
+ const g=recutLine(r,l),base=salesLineGeometryShape(g),s=normalizeShapeDef(JSON.parse(JSON.stringify(base)));
+ s.id=newShapeId();s.w=salesDimFrom16(w16);s.h=salesDimFrom16(h16);s.revision=(+base.revision||0)+1;
+ if(!recutHasShape(r))s.name='Recut '+r.no+' · Line '+r.line;
+ return recutDrawingCommand(id,s,null,now);
+}
+/* Разбилось стекло Recut со своим чертежом — новый перерез режется по тому
+   же чертежу, а не по неверному чертежу позиции. Формы — свои копии. */
+function recutInheritDrawing(r,src){
+ /* Чертёж Recut одного лайта не годится юниту целиком. */
+ if(!recutHasShape(src)||recutHasShape(r)||!(r.keys||[]).every(k=>(src.keys||[]).includes(k)))return false;
+ const copy=ref=>{const s=salesShapeByRef(ref);if(!s)return null;const c=normalizeShapeDef(JSON.parse(JSON.stringify(s)));c.id=newShapeId();DB.shapeDef.push(c);return c.id;};
+ const main=copy(src.shapeRef);if(!main)return false;
+ const lites={};Object.keys(src.liteShapes||{}).forEach(k=>{const id=copy(src.liteShapes[k]);if(id)lites[k]=Object.assign({},src.liteShapes[k],{id});});
+ Object.assign(r,{shapeRef:Object.assign({},src.shapeRef,{id:main}),liteShapes:lites,width16:src.width16,height16:src.height16});
+ return true;
+}
 /* Одна позиция формы — один Recut. Всё проверяется до записи. */
 function recutCreate(d){
  const o=salesRecord(d&&d.orderId);
@@ -30662,7 +30819,9 @@ function normalizeRecuts(){
  DB.recut=DB.recut.filter(r=>r&&typeof r==='object').map(r=>({id:typeof r.id==='string'&&r.id?r.id:salesUid('RC'),orderId:salesString(r.orderId),no:Math.max(1,Math.floor(+r.no)||1),createdAt:salesString(r.createdAt),
   lineId:salesString(r.lineId),line:Math.max(1,Math.floor(+r.line)||1),mark:salesString(r.mark),which:r.which==null?'unit':String(r.which),lite:salesString(r.lite),
   keys:(Array.isArray(r.keys)?r.keys:[]).filter(k=>typeof k==='string'&&k.split('|').length===4),qty:Math.max(1,Math.floor(+r.qty)||1),
-  where:salesString(r.where).toUpperCase(),reasonId:salesString(r.reasonId),reason:ncrName(r.reason),note:salesString(r.note).slice(0,500)}))
+  where:salesString(r.where).toUpperCase(),reasonId:salesString(r.reasonId),reason:ncrName(r.reason),note:salesString(r.note).slice(0,500),
+  /* Свой чертёж — только у тех, кому его дали: старые записи не меняются. */
+  ...(r.shapeRef&&typeof r.shapeRef==='object'&&salesRefId(r.shapeRef.id)&&salesStoredDim16(r.width16)&&salesStoredDim16(r.height16)?{shapeRef:normalizeShapeRef(r.shapeRef),liteShapes:normalizeSalesLiteShapes(r.liteShapes),width16:+r.width16,height16:+r.height16}:{})}))
   .filter(r=>{if(!r.orderId||!r.lineId||!r.keys.length||ids.has(r.id))return false;ids.add(r.id);return true;});
 }
 function validateRecutPayload(src){
@@ -30671,6 +30830,7 @@ function validateRecutPayload(src){
  src.recut.forEach(r=>{
   if(!r||typeof r!=='object'||Array.isArray(r)||!salesRefId(r.orderId)||!Number.isSafeInteger(r.no)||r.no<1)throw new Error('Invalid recut record.');
   const k=r.orderId+'#'+r.no;if(seen.has(k))throw new Error('Duplicate recut number.');seen.add(k);
+  if(r.shapeRef!=null&&(typeof r.shapeRef!=='object'||!salesRefId(r.shapeRef.id)||!salesStoredDim16(r.width16)||!salesStoredDim16(r.height16)||r.liteShapes!=null&&(typeof r.liteShapes!=='object'||Array.isArray(r.liteShapes))))throw new Error('Invalid recut drawing.');
  });
 }
 
@@ -30755,12 +30915,22 @@ function stationFrozenRoute(key){
  if(stationFrozenIndex.list!==list||stationFrozenIndex.size!==list.length)stationFrozenIndex={list,size:list.length,map:new Map(list.map(x=>[x.key,x]))};
  const x=key&&stationFrozenIndex.map.get(key);return x?x.route:null;
 }
+/* Чертёж стекла: позиции ('') или своего Recut ('R3'). У стекла Recut со
+   своим чертежом и маршрут свой: фигура может добавить станции. */
+function stationDrawingKey(o,l,unit){const r=typeof recutOfUnit==='function'?recutOfUnit(o.id,l.id,unit):null;return r&&recutHasShape(r)?'R'+r.no:'';}
+/* Геометрия стекла для размеров на станциях. */
+function stationGeo(g){return g&&typeof glassRecutLine==='function'?glassRecutLine(g.o,g.l,g.unit):g&&g.l;}
+/* Группа юнита: Recut всего юнита со своим чертежом — отдельно; Recut
+   одного лайта собирается со старыми лайтами (stationDrawingFits). */
+function stationUnitTag(o,l,unit){const r=typeof recutOfUnit==='function'?recutOfUnit(o.id,l.id,unit):null;return r&&recutHasShape(r)&&r.which==='unit'?'R'+r.no:'';}
+function stationRouteKey(g){if(!g||!g.c)return '';const d=stationDrawingKey(g.o,g.l,g.unit);return g.c.key+(d?'|'+d:'');}
 function stationRouteOf(g){
- const frozen=g.c&&stationFrozenRoute(g.c.key);if(frozen)return frozen;
- const key=[g.o.id,g.l.id,g.c?g.c.key:'',g.o.updatedAt||''].join('|');
+ const rk=stationRouteKey(g),frozen=g.c&&stationFrozenRoute(rk);if(frozen)return frozen;
+ const geo=typeof glassRecutLine==='function'?glassRecutLine(g.o,g.l,g.unit):g.l;
+ const key=[g.o.id,g.l.id,rk,geo===g.l?'':geo.shapeRef.id+'#'+geo.shapeRef.revision,g.o.updatedAt||''].join('|');
  if(stationRouteCache.has(key))return stationRouteCache.get(key);
  let r=null;
- try{if(g.c&&!g.c.missing)r=finWithOrder(g.o,()=>stkRoute(g.o,g.l,g.c));}catch(e){r=null;}
+ try{if(g.c&&!g.c.missing)r=finWithOrder(g.o,()=>stkRoute(g.o,geo,g.c));}catch(e){r=null;}
  if(!r||!Array.isArray(r.codes)||!r.codes.length){
   /* Маршрут не собрался (нет стекла в Makeup) — стекло всё равно проходит
      резку и отгрузку: станции «always». */
@@ -30842,7 +31012,7 @@ function stationRecordCommand(station,check,who,opts){
  rec.actionId=opts.actionId||rec.id;check.actionId=rec.actionId;check.recordedAt=rec.at;
  if(check.g&&check.g.c){
   const route=stationRouteOf(check.g);rec.step=stationRouteStep(route.codes,station,stationPlace(check.g).far);
-  if(!stationFrozenRoute(check.g.c.key))DB.productionRoute.push({key:check.g.c.key,at:now,route:JSON.parse(JSON.stringify(route))});
+  const rk=stationRouteKey(check.g);if(!stationFrozenRoute(rk))DB.productionRoute.push({key:rk,at:now,route:JSON.parse(JSON.stringify(route))});
  }
  if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
@@ -31005,6 +31175,10 @@ function stationBreakCommand(station,check,who,reasonId,opts){
  const made=recutCreate({orderId:o.id,where:station,reasonId,lines:{[l.id]:{on:true,qty:1,which:plan.which}},note:(plan.whole?'Unit '+(typeof unitIdAt==='function'?unitIdAt(o.id,l.id,plan.asm.unit):plan.asm.unit)+' · glass ':'Glass ')+g.id+' at '+station});
  if(made.error)return made;
  const r=made.recuts[0],now=r.createdAt,ref='R'+r.no;
+ /* Стекло было из Recut со своим чертежом (или собрано с ним) — чертёж
+    переходит в новый Recut (erp/quality/recut). */
+ const index=stationPieceIndex(),src=[g.id].concat(plan.pieces).map(id=>index.get(id)).filter(Boolean).map(h=>recutOfUnit(o.id,l.id,h.unit)).find(recutHasShape);
+ if(src)recutInheritDrawing(r,src);
  const rec=(DB.glassPiece||[]).find(x=>x.key===c.key),fresh=rec&&rec.extra&&rec.extra[ref]?rec.extra[ref].filter(Boolean):[];
  const allNew=(r.keys||[]).flatMap(k=>{const x=(DB.glassPiece||[]).find(p=>p.key===k);return x&&x.extra&&x.extra[ref]?x.extra[ref].filter(Boolean):[];});
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
@@ -31157,12 +31331,22 @@ function stationAssemblyKeys(g,station){
  const lam=salesRouteStationOf('lamination','LAM');
  return glassBatchComponents(g.o,g.l).filter(c=>!c.missing&&(station!==lam||!g.c.ply||c.index===g.c.index)).map(c=>c.key);
 }
+/* Юнит собирается только из стекла одного чертежа: старое неверное стекло
+   с новым из Recut не сходится (владелец, 7 октября 2026). Recut одного лайта
+   со своим чертежом идёт к лайтам, которых он не касается. a, b — {key, unit}. */
+function stationDrawingFits(o,l,a,b){
+ const ta=stationDrawingKey(o,l,a.unit),tb=stationDrawingKey(o,l,b.unit);if(ta===tb)return true;
+ const covers=(t,key)=>!!t&&(DB.recut||[]).some(r=>r&&r.orderId===o.id&&r.lineId===l.id&&'R'+r.no===t&&(r.keys||[]).includes(key));
+ return !covers(ta,b.key)&&!covers(tb,a.key);
+}
+/* Стекло p подходит к сборке a: со всеми её стёклами. */
+function stationAsmFits(a,o,l,index,p){return a.recs.every(s=>{const h=index.get(s.piece);return !h||stationDrawingFits(o,l,h,p);});}
 function stationAsmJoin(rec,g,station){
  if(!g||!g.c||g.c.missing)return;
  const mu=stationUnitMerge(g.o,g.l),lam=salesRouteStationOf('lamination','LAM');
  if(station!==mu&&!(station===lam&&g.c.ply))return;
- const expected=stationAssemblyKeys(g,station),index=stationPieceIndex();
- const open=stationAsms(g.o,g.l,station,index).filter(a=>!a.complete&&!a.broken&&!a.lites.has(g.c.key)&&!a.recs.includes(rec)&&[...a.lites.keys()].every(k=>expected.includes(k)));
+ const expected=stationAssemblyKeys(g,station),index=stationPieceIndex(),me={key:g.c.key,unit:g.unit};
+ const open=stationAsms(g.o,g.l,station,index).filter(a=>!a.complete&&!a.broken&&!a.lites.has(g.c.key)&&!a.recs.includes(rec)&&[...a.lites.keys()].every(k=>expected.includes(k))&&stationAsmFits(a,g.o,g.l,index,me));
  rec.asm=open.length?open[0].asm:rec.id;
  const all=stationAsms(g.o,g.l,station,index),a=all.find(x=>x.asm===rec.asm);
  if(!a||!expected.every(k=>a.lites.has(k)))return;
@@ -31216,12 +31400,14 @@ function stationRecordMates(station,check,who,opts){
 /* Какое стекло отметить разбитым, когда пару забраковали у света, не
    сканируя: лайты позиции взаимозаменяемы — берём то, что ждёт здесь
    дольше всех, иначе то, что ближе всех к станции. */
-function stationPairCandidate(o,l,key,station){
- const inAsm=id=>stationScansFor(id).some(s=>s.asm&&s.station===station);
- const here=(stationWaiting().get(station)||[]).filter(x=>x.g.l.id===l.id&&x.g.c&&x.g.c.key===key&&!inAsm(x.id));
+/* mates — стёкла сборки {key, unit}: пара берётся из стекла, которое к ним
+   подходит по чертежу. */
+function stationPairCandidate(o,l,key,station,mates){
+ const inAsm=id=>stationScansFor(id).some(s=>s.asm&&s.station===station),same=g=>(mates||[]).every(m=>stationDrawingFits(o,l,m,{key,unit:g.unit}));
+ const here=(stationWaiting().get(station)||[]).filter(x=>x.g.l.id===l.id&&x.g.c&&x.g.c.key===key&&!inAsm(x.id)&&same(x.g));
  if(here.length)return here[0].id;
  const rec=(DB.glassPiece||[]).find(x=>x.key===key);if(!rec)return '';
- const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean).map(id=>stationGlass(id)).filter(g=>g&&!inAsm(g.id));
+ const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean).map(id=>stationGlass(id)).filter(g=>g&&!inAsm(g.id)&&same(g));
  const live=ids.map(g=>({g,p:stationPlace(g)})).filter(x=>!x.p.broken&&!x.p.shipped).sort((a,b)=>b.p.far-a.p.far);
  return live.length?live[0].g.id:'';
 }
@@ -31236,13 +31422,13 @@ function stationParked(filter){
 function stationUnitStatus(g,station){
  if(!g||!g.c||stationUnitMerge(g.o,g.l)!==station)return null;
  const a=stationAsmOf(g,station);if(!a||a.broken)return null;
- const index=stationPieceIndex(),waiting=stationWaiting().get(station)||[];
+ const index=stationPieceIndex(),waiting=stationWaiting().get(station)||[],fits=(key,unit)=>stationAsmFits(a,g.o,g.l,index,{key,unit});
  const lites=glassBatchComponents(g.o,g.l).filter(c=>!c.missing).map(c=>{
   const id=a.lites.get(c.key),base={lite:c.lite,glass:c.glass,key:c.key};
   if(id)return Object.assign(base,{here:true,id});
-  const park=stationParked((h)=>h.orderId===g.o.id&&h.lineId===g.l.id&&h.key===c.key)[0];
+  const park=stationParked((h)=>h.orderId===g.o.id&&h.lineId===g.l.id&&h.key===c.key&&fits(h.key,h.unit))[0];
   if(park)return Object.assign(base,{here:false,parked:park.rec.on||'set aside',parkId:park.id});
-  const n=waiting.filter(x=>x.g.l.id===g.l.id&&x.g.c&&x.g.c.key===c.key&&!stationScansFor(x.id).some(s=>s.asm&&s.station===station)).length;
+  const n=waiting.filter(x=>x.g.l.id===g.l.id&&x.g.c&&x.g.c.key===c.key&&fits(c.key,x.g.unit)&&!stationScansFor(x.id).some(s=>s.asm&&s.station===station)).length;
   return Object.assign(base,{here:false,waitingHere:n});
  });
  lites.sort((x,y)=>String(x.lite).localeCompare(String(y.lite),undefined,{numeric:true}));
@@ -31469,11 +31655,61 @@ function ncrOrderStrip(o){
  const remake=src?`<div class="ncr-strip-row ncr-remake" data-ncr-remake><b>Remake for ${esc(src.number)}</b><span>${parent?'order '+esc(parent.businessNumber):''}</span><label class="chk"><input type="checkbox" data-no-charge ${o.noCharge?'checked':''} onchange="soDraft.noCharge=this.checked;render()"> No charge</label><button type="button" class="sm" onclick="ncrView('${esc(src.id)}')">View NCR</button></div>`:'';
  return list.length||remake?`<div class="ncr-strip">${remake}${items}</div>`:'';
 }
-/* Блок Recuts над Notes: стёкла перереза этого заказа по позициям. */
+/* Блок Recuts над Notes: стёкла перереза этого заказа по позициям. Размер
+   и кнопка Shape — чертёж этого Recut (erp/quality/recut): у Recut со своим
+   чертежом они подсвечены. */
 function recutOrderSection(o){
  if(!o||salesIsQuote(o)||soEdit==='new')return '';
  const list=recutForOrder(o.id);if(!list.length)return '';
- return `<div class="recut-section" data-recut-section><div class="recut-head">RECUTS</div>${list.map(r=>{const st=recutStatus(r);return `<div class="recut-row" data-recut-row="${esc(r.id)}"><b>Recut ${r.no}</b><span>Line ${r.line}${r.mark?' · '+esc(r.mark):''}</span><span>${esc(r.lite)}</span><span>${r.qty} pc${r.qty===1?'':'s'}</span><span>${esc(ncrWhereLabel(r))} · ${esc(r.reason)}</span><span class="pill ${st==='In queue'?'ncr-st-open':'ncr-st-done'}">${esc(st)}</span>${r.note?`<span class="mut" title="${esc(r.note)}">${esc(r.note)}</span>`:''}</div>`;}).join('')}</div>`;
+ return `<div class="recut-section" data-recut-section><div class="recut-head">RECUTS</div>${list.map(r=>{const st=recutStatus(r),l=(o.lines||[]).find(x=>x.id===r.lineId),g=l&&recutLine(r,l),own=recutHasShape(r),lock=l?recutDrawingLock(r):'';
+  const dim=k=>`<input class="line-dim recut-dim" data-recut-${k} value="${esc(salesDimFrom16(g[k==='w'?'width16':'height16']))}" aria-label="Recut ${r.no} ${k==='w'?'width':'height'}" onchange="recutSizeChange('${esc(r.id)}','${k}',this)">`;
+  const size=g?`<span class="recut-size${own?' own':''}" data-recut-size>${!lock&&recutSizeEditable(r,l)?dim('w')+' × '+dim('h'):esc(dimIn16(g.width16/16))+' × '+esc(dimIn16(g.height16/16))}</span><button type="button" class="sm recut-shape${own?' own':''}" data-recut-shape ${lock?`disabled title="${esc(lock)}"`:`title="${own?'Recut drawing':'Fix the drawing for this recut'}"`} onclick="salesOpenRecutShape('${esc(r.id)}')">Shape</button>`:'';
+  return `<div class="recut-row" data-recut-row="${esc(r.id)}"><b>Recut ${r.no}</b><span>Line ${r.line}${r.mark?' · '+esc(r.mark):''}</span>${size}<span>${esc(r.lite)}</span><span>${r.qty} pc${r.qty===1?'':'s'}</span><span>${esc(ncrWhereLabel(r))} · ${esc(r.reason)}</span><span class="pill ${st==='In queue'?'ncr-st-open':'ncr-st-done'}">${esc(st)}</span>${r.note?`<span class="mut" title="${esc(r.note)}">${esc(r.note)}</span>`:''}</div>`;}).join('')}</div>`;
+}
+/* Черновик заказа должен быть сохранён: запись чертежа Recut может снять его
+   стекло с батча. updatedAt черновика после Recut отстаёт от базы — правкой
+   это не считается. */
+function recutDraftClean(o){
+ if(!o||!soDraft||soDraft.id!==o.id||soEdit==='new')return false;
+ const plain=x=>JSON.stringify(Object.assign({},x,{updatedAt:''}));
+ if(plain(o)===plain(normalizeSalesOrder(soDraft)))return true;
+ salesDialogOpen({title:'Save the order first',buttons:[{label:'Back'}]});return false;
+}
+/* W × H в строке Recut — сразу в чертёж Recut, одной записью. */
+function recutSizeChange(id,key,el){
+ const r=recutFind(id),o=r&&salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId),n=salesDimTo16(el.value);
+ if(!r||!l)return false;
+ if(!n){el.classList.add('bad');return false;}
+ const g=recutLine(r,l),w=key==='w'?n:g.width16,h=key==='h'?n:g.height16;
+ if(w===g.width16&&h===g.height16){el.value=salesDimFrom16(n);el.classList.remove('bad');return false;}
+ if(!recutDraftClean(o)){render();return false;}
+ const out=storageCommand(()=>recutSizeCommand(id,w,h));
+ if(!out.ok){alert(out.error);render();return false;}
+ salesOrderEdit(o.id);return true;
+}
+/* Shape у строки Recut: тот же редактор формы, копия текущего чертежа Recut
+   (или позиции), ничего не пишется до Save revision. */
+function salesOpenRecutShape(id){
+ const r=recutFind(id),o=r&&salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId);
+ if(!r||!o||!l||!recutDraftClean(o))return false;
+ const lock=recutDrawingLock(r);if(lock){alert(lock);return false;}
+ const view=recutLine(r,l),lite=recutDrawingLite(r,view),base=lite==null?salesLineGeometryShape(view):salesLineLiteShape(view,lite);
+ if(!base){alert('Line needs Width and Height first.');return false;}
+ const copy=normalizeShapeDef(JSON.parse(JSON.stringify(base)));copy.id=newShapeId();copy.ownerLineId=l.id;
+ if(!recutHasShape(r))copy.name='Recut '+r.no+' · Line '+r.line+(lite==null?'':' · Lite '+(lite+1));
+ salesBridge=Object.assign({kind:'shape',lineId:l.id,recutId:r.id},lite==null?{}:{liteIndex:lite});
+ tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
+ sEdit='new';sDraft=copy;salesApplyLineGlassThicknessToShape(view,sDraft,lite);soEdgeworkLineId=null;
+ render();return true;
+}
+/* Save revision чертежа Recut — одна запись: форма, Recut, батч, журнал. */
+function salesBridgeSaveRecut(saved,errEl){
+ if(typeof salesBridge==='undefined'||!salesBridge||salesBridge.kind!=='shape'||!salesBridge.recutId)return false;
+ const b=salesBridge,out=storageCommand(()=>recutDrawingCommand(b.recutId,saved,b.liteIndex==null?null:b.liteIndex));
+ if(!out.ok){fail(errEl,out.error);return true;}
+ salesBridge=null;sEdit=null;sDraft=null;tab='sales';subtab='orders';
+ if(soDraft&&soDraft.id===out.value.orderId)salesOrderEdit(soDraft.id);else render();
+ return true;
 }
 /* Строки NCR в списке Sales: значения колонок заранее, без расчётов заказа. */
 function ncrListInfos(){
@@ -31743,7 +31979,7 @@ function stkDialogHTML(){
   const opts=unitType?[{v:'all',t:'Whole unit'}]:[{v:'all',t:row.comps.length>1?'All glass':'Lite '+(row.comps[0]?row.comps[0].lite+' · '+row.comps[0].glass:'')}].concat(row.comps.length>1?row.comps.map(c=>({v:c.key,t:'Lite '+c.lite+' · '+c.glass})):[]);
   const max=row.kind==='recut'?row.r.qty:row.l.qty,name=row.kind==='recut'?`<b class="stk-recut">Recut ${row.r.no}</b> · Line ${row.li+1}`:'Line '+(row.li+1)+(row.l.mark?' · '+esc(row.l.mark):'');
   return `<tr data-stk-row="${esc(row.key)}" class="${on?'on':''}${usable?'':' off'}"><td><input type="checkbox" data-stk-row-on ${on?'checked':''} ${usable?'':'disabled'} aria-label="Print ${row.kind==='recut'?'recut '+row.r.no:'line '+(row.li+1)}" onchange="stkDialogRow('${esc(row.key)}','on',this.checked,true)"></td>
-   <td>${name}</td><td class="nowrap">${esc(dimIn16(row.l.width16/16))} × ${esc(dimIn16(row.l.height16/16))}</td><td class="n">${max}</td>
+   <td>${name}</td><td class="nowrap">${(g=>`${esc(dimIn16(g.width16/16))} × ${esc(dimIn16(g.height16/16))}`)(row.kind==='recut'?recutLine(row.r,row.l):row.l)}</td><td class="n">${max}</td>
    <td>${usable?`<select data-stk-which ${on&&opts.length>1?'':'disabled'} aria-label="Which glass" onchange="stkDialogRow('${esc(row.key)}','which',this.value,true)">${opts.map(v=>`<option value="${esc(v.v)}" ${x.which===v.v?'selected':''}>${esc(v.t)}</option>`).join('')}</select>`:`<span class="mut">${unitType?'Single glass':'No glass'}</span>`}</td>
    <td><input type="text" data-stk-units value="${esc(x.units)}" placeholder="1-${max}" ${on?'':'disabled'} aria-label="Units" oninput="stkDialogRow('${esc(row.key)}','units',this.value)"></td></tr>`;
  }).join('');
@@ -31772,12 +32008,13 @@ function stkBatchDialogHTML(d,seg){
  const sub=[glass,x.all.filter(j=>j.type!=='stock').length+' glass',x.laid?plural(x.max,'sheet'):'Not built · in order'].join(' · ');
  const cur=typeof cutUi!=='undefined'&&cutUi&&cutUi.batch===b.number&&+cutUi.sheet||1;
  const sheets=x.laid?`<div><div class="ncr-label">SHEETS</div><div class="stk-sheets"><div class="stk-seg"><button type="button" class="${d.sheets===''?'on':''}" data-stk-sheets-all onclick="stkBatchSheets('')">All</button><button type="button" class="${d.sheets===String(cur)?'on':''}" data-stk-sheets-this onclick="stkBatchSheets('${cur}')">This · ${cur}</button></div><input type="text" data-stk-sheets value="${esc(d.sheets)}" placeholder="1-${x.max}" aria-label="Sheets" onchange="stkBatchSheets(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();stkBatchSheets(this.value);}"></div></div>`:'';
- const lines=new Map(),info=j=>{const k=j.o.id+'|'+j.l.id;if(!lines.has(k))lines.set(k,{shape:!salesShapeIsLineRect(salesLineGeometryShape(j.l)),many:glassBatchComponents(j.o,j.l).length>1});return lines.get(k);};
+ /* Стекло Recut со своим чертежом — его форма и размер (erp/quality/recut). */
+ const lines=new Map(),info=j=>{const g=glassRecutLine(j.o,j.l,j.unit),k=j.o.id+'|'+j.l.id+'|'+(g===j.l?'':String(j.unit).split('.')[0]);if(!lines.has(k))lines.set(k,{g,shape:!salesShapeIsLineRect(salesLineGeometryShape(g)),many:glassBatchComponents(j.o,j.l).length>1});return lines.get(k);};
  const row=j=>{
   const k=stkJobKey(j),on=!d.off.has(k);
   if(j.type==='stock')return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" onchange="stkBatchCheck('item','${esc(k)}',this.checked)"></td><td class="gb-piece">${esc(k)}</td><td class="mut">Stock offcut</td><td></td><td class="nowrap">${esc(frac16(j.rec.w))} × ${esc(frac16(j.rec.h))}″</td><td></td></tr>`;
   const f=info(j),li=j.o.lines.indexOf(j.l)+1;
-  return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" onchange="stkBatchCheck('item','${esc(k)}',this.checked)"></td><td class="gb-piece">${esc(k)}</td><td>${esc(j.o.businessNumber||'')} / ${li}${f.many?' · Lite '+esc(j.c.lite):''}${j.l.mark?' · '+esc(j.l.mark):''}</td><td>${esc(salesCustomerDisplay(j.o.customerId))}</td><td class="nowrap">${esc(dimIn16(j.l.width16/16))} × ${esc(dimIn16(j.l.height16/16))}</td><td>${f.shape?'<span class="pill">shape</span>':''}</td></tr>`;
+  return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" onchange="stkBatchCheck('item','${esc(k)}',this.checked)"></td><td class="gb-piece">${esc(k)}</td><td>${esc(j.o.businessNumber||'')} / ${li}${f.many?' · Lite '+esc(j.c.lite):''}${j.l.mark?' · '+esc(j.l.mark):''}</td><td>${esc(salesCustomerDisplay(j.o.customerId))}</td><td class="nowrap">${esc(dimIn16(f.g.width16/16))} × ${esc(dimIn16(f.g.height16/16))}</td><td>${f.shape?'<span class="pill">shape</span>':''}</td></tr>`;
  };
  const groups=[];x.scope.forEach(j=>{const g=groups[groups.length-1];if(g&&g.no===j.sheet)g.jobs.push(j);else groups.push({no:j.sheet,jobs:[j]});});
  const body=groups.map(g=>{
@@ -31959,7 +32196,7 @@ function stkSamples(type){
  }));
  return out.slice(0,80);
 }
-function stkJobData(j){return j.type==='stock'?stkStockData(j.rec):j.type==='unit'?stkUnitData(j.o,j.l,j.unit):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});}
+function stkJobData(j){return j.type==='stock'?stkStockData(j.rec):j.type==='unit'?stkUnitData(j.o,j.l,j.unit,j.from):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});}
 function stkSampleData(type){
  const st=stkBuilderState();
  if(type==='stock'&&!st.print){
@@ -34097,7 +34334,7 @@ function stationCard(){
  const unitNo=g&&c.kind!=='recut'?stationUnitNo(g):0,unitBtn=unitNo&&!(L.check&&stationUnitMerge(g.o,g.l)===stationCode)?'<button type="button" class="b" data-station-unit-reprint onclick="stationPrintUnit(\''+esc(c.code)+'\')">Unit sticker</button>':'';
  if(c.kind==='skipped')return '<div class="st-res st-amber" data-station-result="skipped"><div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div><div class="st-res-b">'+big+'<div class="st-info">'+info+'</div></div>'+
   '<div class="st-acts"><button type="button" class="b st-yes" data-station-yes onclick="stationAnswer(\''+esc(c.code)+'\',true)">✓ Yes, done</button><button type="button" class="b st-red-b" data-station-no onclick="stationAnswer(\''+esc(c.code)+'\',false)">✕ No — back to '+esc((c.missed||[])[0]||'')+'</button></div></div>';
- const thumb=g&&d?(stationDrawThumb(g,d)||(!d.shape&&c.kind!=='recut'?stationGlassPreview(g,size):'')):'',drawBtn=g&&g.l.shapeRef&&c.kind!=='recut'?'<button type="button" class="b" data-station-drawing onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\')">Drawing</button>':'';
+ const thumb=g&&d?(stationDrawThumb(g,d)||(!d.shape&&c.kind!=='recut'?stationGlassPreview(g,size):'')):'',drawBtn=g&&(g.l.shapeRef||stationDrawRecut(g.o,g.l,g.unit))&&c.kind!=='recut'?'<button type="button" class="b" data-station-drawing onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\',\''+esc(String(g.unit))+'\')">Drawing</button>':'';
  const acts=(L.rec||canRecut||stickerFor||drawBtn)?'<div class="st-acts">'+(L.rec?'<button type="button" class="b" onclick="stationUndoClick(\''+esc(L.rec.id)+'\')">Undo</button>':'')+
   (L.rec&&L.rec.on?'<button type="button" class="b" data-station-off onclick="stationScanOffClick(\''+esc(L.rec.id)+'\')">Not on '+esc(L.rec.on)+'</button>':'')+
   (canRecut?'<button type="button" class="b st-red-b" data-station-recut onclick="stationOpenRecut(\''+esc(c.code)+'\')">Recut</button>':'')+
@@ -34189,7 +34426,8 @@ function stationHereItems(){
  (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)asmOf.set(s.piece,s.asm);});
  return list.map(x=>{
   const g=x.g,asm=asmOf.get(x.id),route=stationRouteOf(g).codes,mu=stationUnitMerge(g.o,g.l),unit=!!asm&&!!mu&&route.indexOf(stationCode,x.place.far+1)>route.indexOf(mu);
-  return {id:x.id,g,unit,asm,on:x.last&&x.last.on||'',at:x.last?x.last.at:'',batch:g.entry?g.entry.batch.number:'',k:g.o.id+'|'+g.l.id+'|'+(unit?'unit':(g.c?g.c.key:''))};
+  /* Стекло Recut со своим чертежом — отдельной строкой: другой размер. */
+  return {id:x.id,g,unit,asm,on:x.last&&x.last.on||'',at:x.last?x.last.at:'',batch:g.entry?g.entry.batch.number:'',k:g.o.id+'|'+g.l.id+'|'+(unit?'unit|'+stationUnitTag(g.o,g.l,g.unit):(g.c?g.c.key+'|'+stationDrawingKey(g.o,g.l,g.unit):''))};
  });
 }
 /* Сколько: стёкол — или юнитов, когда всё собрано (после IGU). */
@@ -34257,9 +34495,9 @@ function stationHereTable(s){
   const batches=[...new Set(r.list.map(x=>x.batch).filter(Boolean))].join(', '),cols=stack?7:6;
   return '<tr class="st-here-row'+(urg===2?' st-hot':'')+(open?' open':'')+'" data-station-here="'+esc(r.key)+'" onclick="stationHereOpen=stationHereOpen===\''+esc(r.key)+'\'?\'\':\''+esc(r.key)+'\';render()">'+
    (stack?'<td class="mut st-pos">#'+(r.pos[0]===r.pos[1]?r.pos[0]:r.pos[0]+'–'+r.pos[1])+'</td>':'')+
-   '<td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+r.li+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(glass)+'</td>'+
+   '<td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+r.li+' · <b>'+esc(frac16(stationGeo(r.g).width16/16)+' × '+frac16(stationGeo(r.g).height16/16))+'</b></td><td data-raw>'+esc(glass)+'</td>'+
    '<td class="mono st-bcell">'+esc(batches||'—')+'</td><td class="n"><b>'+r.n+'</b></td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>'+
-   (open?'<tr class="st-here-acts"><td colspan="'+cols+'"><span class="mut">Sticker unreadable?</span><button type="button" class="b" data-station-here-mark onclick="stationHereMark(\''+esc(r.key)+'\')">✓ Mark 1 '+(r.unit?'unit':'glass')+' done</button><button type="button" class="b" data-station-here-print onclick="stationHerePrint(\''+esc(r.key)+'\')">Print a new '+(r.unit?'unit ':'')+'sticker</button>'+(l.shapeRef?'<button type="button" class="b" data-station-here-drawing onclick="stationDrawOpen(\''+esc(o.id)+'\',\''+esc(l.id)+'\')">Drawing</button>':'')+'</td></tr>':'');
+   (open?'<tr class="st-here-acts"><td colspan="'+cols+'"><span class="mut">Sticker unreadable?</span><button type="button" class="b" data-station-here-mark onclick="stationHereMark(\''+esc(r.key)+'\')">✓ Mark 1 '+(r.unit?'unit':'glass')+' done</button><button type="button" class="b" data-station-here-print onclick="stationHerePrint(\''+esc(r.key)+'\')">Print a new '+(r.unit?'unit ':'')+'sticker</button>'+(l.shapeRef||stationDrawRecut(o,l,r.g.unit)?'<button type="button" class="b" data-station-here-drawing onclick="stationDrawOpen(\''+esc(o.id)+'\',\''+esc(l.id)+'\',\''+esc(String(r.g.unit))+'\')">Drawing</button>':'')+'</td></tr>':'');
  }).join('');
  return '<table class="st-here-t" '+(stack?'data-station-stack="'+esc(s.code)+'"':'data-station-nodolly-list')+'><thead><tr>'+(stack?'<th>#</th>':'')+'<th>Order</th><th>Line</th><th>Glass</th><th>Batch</th><th class="n">Pcs</th><th>Due</th></tr></thead><tbody>'+body+'</tbody></table>'+
   (all.length>rows.length?'<div class="mut st-more">+'+(all.length-rows.length)+' more rows</div>':'');
@@ -34320,7 +34558,7 @@ function stationRecutHTML(){
  const line=g?(g.o.lines||[]).indexOf(g.l)+1:0;
  return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer" role="dialog" aria-label="Recut">'+
   '<h2><span class="st-flag">RECUT</span><span class="mono">'+esc(d.piece)+'</span></h2>'+
-  (g?'<div class="st-dinfo"><span class="k">Order</span><span><b>'+esc(g.o.businessNumber||'')+'</b> · <span data-raw>'+esc(salesCustomerDisplay(g.o.customerId))+'</span></span><span class="k">Line</span><span>Line '+line+' · <b>'+esc(frac16(g.l.width16/16)+' × '+frac16(g.l.height16/16))+'</b></span><span class="k">Glass</span><span><b data-raw>'+esc(g.c?g.c.glass:'')+'</b></span></div>':'')+
+  (g?'<div class="st-dinfo"><span class="k">Order</span><span><b>'+esc(g.o.businessNumber||'')+'</b> · <span data-raw>'+esc(salesCustomerDisplay(g.o.customerId))+'</span></span><span class="k">Line</span><span>Line '+line+' · <b>'+esc(frac16(stationGeo(g).width16/16)+' × '+frac16(stationGeo(g).height16/16))+'</b></span><span class="k">Glass</span><span><b data-raw>'+esc(g.c?g.c.glass:'')+'</b></span></div>':'')+
   stationRecutPlanHTML(g)+
   (own.length?'<div class="st-rgroup">'+esc(stationCode)+'</div><div class="st-reasons">'+own.map(btn).join('')+'</div>':'')+
   '<div class="st-rgroup">Any station</div><div class="st-reasons">'+common.map(btn).join('')+'</div>'+
@@ -34402,7 +34640,7 @@ function stationQueueView(){
  let after='';
  const v=stationSheetView,plan=v&&cutPlanFor(v.batch),group=plan&&plan.groups.find(g=>g.glass===v.glass),sheet=group&&group.sheets.find(s=>s.no===v.no);
  if(sheet){const next=stationSheetNext(v.batch,group,sheet);after=next?'Sheet '+next.sheet.no+' · <b data-raw>'+esc(next.group.glass)+'</b> · '+next.sheet.pieces.length+' glass'+(next.group.glass!==group.glass?'<div class="st-qchange">Glass change → <b data-raw>'+esc(next.group.glass)+'</b></div>':''):'Batch '+esc(v.batch)+' — last sheet';}
- const recuts=q.recuts.length?'<table><tbody>'+q.recuts.map(x=>'<tr><td><b>'+esc(x.o.businessNumber||'')+'</b></td><td>Line '+x.r.line+(x.l?' · '+esc(frac16(x.l.width16/16)+' × '+frac16(x.l.height16/16)):'')+'</td><td data-raw>'+esc(x.r.lite)+'</td><td class="mut">'+esc(x.r.where)+' · '+raw(x.r.reason)+'</td><td class="n"><b>'+x.n+'</b></td></tr>').join('')+'</tbody></table>':'';
+ const recuts=q.recuts.length?'<table><tbody>'+q.recuts.map(x=>'<tr><td><b>'+esc(x.o.businessNumber||'')+'</b></td><td>Line '+x.r.line+(x.l?' · '+esc(frac16(recutLine(x.r,x.l).width16/16)+' × '+frac16(recutLine(x.r,x.l).height16/16)):'')+'</td><td data-raw>'+esc(x.r.lite)+'</td><td class="mut">'+esc(x.r.where)+' · '+raw(x.r.reason)+'</td><td class="n"><b>'+x.n+'</b></td></tr>').join('')+'</tbody></table>':'';
  return '<div class="st-body st-queue"><div class="st-col">'+head+cards+
   (recuts?'<div class="card"><div class="st-sec"><span class="st-flag">RECUT</span><h3>Waiting for a batch</h3></div>'+recuts+'</div>':'')+'</div>'+
   '<div class="st-col"><div class="card"><div class="st-sec"><h3>Bring to the table</h3></div>'+bring+'</div>'+(after?'<div class="card"><div class="st-sec"><h3>After this sheet</h3></div><div class="st-qafter">'+after+'</div></div>':'')+'</div></div>';
@@ -34625,7 +34863,7 @@ function stationDollyHTML(){
  const rows=list.map((x,i)=>({x,pos:i+1})).reverse().map(({x,pos})=>{
   const o=x.g.o,l=x.g.l,comps=glassBatchComponents(o,l).filter(c=>!c.missing),on=d.a&&pos>=lo&&pos<=hi;
   const glass=x.g.c?(comps.length>1?'Lite '+x.g.c.lite+' · ':'')+x.g.c.glass:'';
-  return '<tr class="st-mv-row'+(on?' on':'')+'" data-dolly-pos="'+pos+'" onclick="stationDollyTap('+pos+')"><td class="st-pos">#'+pos+'</td><td><b>'+esc(o.businessNumber||'')+'</b></td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td>'+
+  return '<tr class="st-mv-row'+(on?' on':'')+'" data-dolly-pos="'+pos+'" onclick="stationDollyTap('+pos+')"><td class="st-pos">#'+pos+'</td><td><b>'+esc(o.businessNumber||'')+'</b></td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(stationGeo(x.g).width16/16)+' × '+frac16(stationGeo(x.g).height16/16))+'</b></td>'+
    '<td data-raw>'+esc(glass)+'</td><td class="mono st-bcell">'+esc(x.g.entry?x.g.entry.batch.number:'—')+'</td><td>'+(x.place&&x.place.waiting?'→ '+esc(x.place.waiting):'')+'</td><td class="mut">'+esc(x.scan.station)+' '+esc(stationTime(x.scan.at))+'</td></tr>';
  }).join('');
  const title=d.code||'No '+stationTareWord();
@@ -34690,13 +34928,15 @@ function stationUnitNo(g){const mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAs
 function stationPrintUnit(code){
  const g=stationGlass(code),mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;
  if(!a||!a.unit||typeof stkPrint!=='function')return false;
- return stkPrint(stkPages([{type:'unit',o:g.o,l:g.l,unit:a.unit}],stkPrefSize()));
+ /* from — стекло сборки: юнит из стекла Recut со своим чертежом — по нему. */
+ return stkPrint(stkPages([{type:'unit',o:g.o,l:g.l,unit:a.unit,from:g.unit}],stkPrefSize()));
 }
 /* Пару забраковали у света — её не сканируют (скан закрыл бы юнит и
    напечатал стикер), а жмут Recut у недостающего лайта. */
 function stationRecutMissing(asm,key){
  const a=(DB.stationScan||[]).find(s=>s.asm===asm&&!s.undoneAt),g=a?stationGlass(a.piece):null;if(!g)return false;
- const piece=stationPairCandidate(g.o,g.l,key,stationCode);
+ const index=stationPieceIndex(),mates=(DB.stationScan||[]).filter(s=>s.asm===asm&&!s.undoneAt).map(s=>index.get(s.piece)).filter(Boolean);
+ const piece=stationPairCandidate(g.o,g.l,key,stationCode,mates);
  if(!piece){stationNote='No glass of this lite left to recut';render();return false;}
  stationMenu=null;stationDrawer={kind:'recut',piece,asm};render();return true;
 }
@@ -34716,7 +34956,7 @@ function stationPairsCard(){
   const r=(DB.recut||[]).find(y=>y.orderId===g.o.id&&'R'+y.no===x.rec.recut),need=r?glassBatchComponents(g.o,g.l).filter(c=>(r.keys||[]).includes(c.key)):[];
   const fresh=r?(r.keys||[]).flatMap(k=>{const p=(DB.glassPiece||[]).find(q=>q.key===k);return p&&p.extra&&p.extra[x.rec.recut]?p.extra[x.rec.recut].filter(Boolean):[];}):[];
   const f=fresh[0]?stationGlass(fresh[0]):null,fp=f?stationPlace(f):null,where=!f?'':!f.entry&&!stationScansFor(f.id).length?'To batch':fp&&fp.waiting?'at '+fp.waiting:'';
-  return '<tr'+(stationUrgency(g.o)===2?' class="st-hot"':'')+'><td><b>'+esc(g.o.businessNumber||'')+'</b></td><td>Line '+((g.o.lines||[]).indexOf(g.l)+1)+' · <b>'+esc(frac16(g.l.width16/16)+' × '+frac16(g.l.height16/16))+'</b></td><td data-raw>Lite '+esc(g.c.lite)+' · '+esc(g.c.glass)+'</td><td>'+(x.rec.on?'<b class="st-on">'+esc(x.rec.on)+'</b>':'<span class="mut">—</span>')+'</td>'+
+  return '<tr'+(stationUrgency(g.o)===2?' class="st-hot"':'')+'><td><b>'+esc(g.o.businessNumber||'')+'</b></td><td>Line '+((g.o.lines||[]).indexOf(g.l)+1)+' · <b>'+esc(frac16(stationGeo(g).width16/16)+' × '+frac16(stationGeo(g).height16/16))+'</b></td><td data-raw>Lite '+esc(g.c.lite)+' · '+esc(g.c.glass)+'</td><td>'+(x.rec.on?'<b class="st-on">'+esc(x.rec.on)+'</b>':'<span class="mut">—</span>')+'</td>'+
    '<td class="mut">'+(need.length?'needs '+need.map(c=>esc(c.glass)).join(', '):'')+(r?' · Recut '+r.no+(where?' '+esc(where):''):'')+'</td></tr>';
  }).join('');
  return '<div class="card" data-station-pairs><div class="st-sec"><h3>Waiting for a pair</h3><span class="pill warn">'+list.length+'</span></div><table><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th>On</th><th>Pair</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
@@ -34735,21 +34975,31 @@ function stationPairsCard(){
    IN : salesLineDrawing · salesSheetFitDrawing · stationDrawer
    OUT: html
    ===================================================================== */
-/* Лист строится ~40 мс на строку — один раз на строку и версию заказа. */
+/* Лист строится ~40 мс на строку — один раз на строку и версию заказа.
+   unit — место стекла: у стекла Recut со своим чертежом — лист Recut
+   (erp/quality/recut), старое стекло позиции — по чертежу позиции. */
 let stationDrawCache=new Map();
-function stationDrawingOf(o,l){
- const k=o.id+'|'+l.id+'|'+(o.updatedAt||'');
+function stationDrawRecut(o,l,unit){const r=typeof recutOfUnit==='function'?recutOfUnit(o.id,l.id,unit):null;return r&&recutHasShape(r)?r:null;}
+function stationDrawingOf(o,l,unit){
+ const r=stationDrawRecut(o,l,unit),k=o.id+'|'+l.id+'|'+(r?r.id+JSON.stringify([r.shapeRef,r.liteShapes]):'')+'|'+(o.updatedAt||'');
  if(stationDrawCache.has(k))return stationDrawCache.get(k);
  let d=null;
- try{d=finWithOrder(o,()=>salesLineDrawing(l));}catch(e){d={line:l,error:String(e&&e.message||e)};}
+ try{d=finWithOrder(o,()=>salesLineDrawing(l,r));}catch(e){d={line:l,error:String(e&&e.message||e)};}
  if(stationDrawCache.size>200)stationDrawCache=new Map();
  stationDrawCache.set(k,d);return d;
 }
 function stationDrawLines(o){return (o&&o.lines||[]).filter(l=>l.shapeRef&&salesShapeByRef(l.shapeRef));}
-function stationDrawOpen(orderId,lineId){
+/* Листы заказа: строки с формой, за ними Recut со своим чертежом.
+   id — строки или Recut. */
+function stationDrawItems(o){
+ const rc=typeof recutForOrder==='function'?recutForOrder(o.id).filter(recutHasShape).map(r=>({id:r.id,l:(o.lines||[]).find(x=>x.id===r.lineId),r})).filter(x=>x.l):[];
+ return stationDrawLines(o).map(l=>({id:l.id,l,r:null})).concat(rc);
+}
+/* unit — место стекла: стекло Recut со своим чертежом открывает лист Recut. */
+function stationDrawOpen(orderId,lineId,unit){
  const o=salesRecord(orderId);if(!o)return false;
- const lines=stationDrawLines(o);
- stationMenu=null;stationDrawer={kind:'draw',orderId:o.id,lineId:lines.length?(lines.find(l=>l.id===lineId)||lines[0]).id:'',error:''};render();return true;
+ const items=stationDrawItems(o),l=(o.lines||[]).find(x=>x.id===lineId),r=l&&stationDrawRecut(o,l,unit),id=r?r.id:lineId;
+ stationMenu=null;stationDrawer={kind:'draw',orderId:o.id,lineId:items.length?(items.find(x=>x.id===id)||items[0]).id:'',error:''};render();return true;
 }
 /* Кнопка в шапке: без заказа — выбор заказа. */
 function stationDrawPick(){stationMenu=null;stationDrawer={kind:'draw',orderId:'',lineId:'',error:''};render();}
@@ -34757,14 +35007,14 @@ function stationDrawPick(){stationMenu=null;stationDrawer={kind:'draw',orderId:'
 function stationDrawFind(raw){
  const v=String(raw==null?'':raw).trim();if(!v)return false;
  const code=stationCodeOf(v),g=glassPieceValid(code)?stationGlass(code):null;
- if(g)return stationDrawOpen(g.o.id,g.l.id);
+ if(g)return stationDrawOpen(g.o.id,g.l.id,g.unit);
  const o=(DB.salesOrder||[]).find(x=>String(x.businessNumber||'').toUpperCase()===v.toUpperCase()&&!salesIsQuote(x));
  if(o)return stationDrawOpen(o.id,'');
  stationDrawer.error='Order '+v+' not found';render();return false;
 }
 function stationDrawStep(d){
  const x=stationDrawer;if(!x||x.kind!=='draw'||!x.orderId)return;
- const lines=stationDrawLines(salesRecord(x.orderId)),at=lines.findIndex(l=>l.id===x.lineId),next=lines[Math.max(0,Math.min(lines.length-1,at+d))];
+ const lines=stationDrawItems(salesRecord(x.orderId)),at=lines.findIndex(l=>l.id===x.lineId),next=lines[Math.max(0,Math.min(lines.length-1,at+d))];
  if(next&&next.id!==x.lineId){x.lineId=next.id;render();}
 }
 function stationDrawZoom(){return Math.max(.2,Math.min(1,(Math.min(1400,window.innerWidth)-160)/850,(window.innerHeight-64-150)/1100));}
@@ -34776,7 +35026,7 @@ function stationDrawOrders(){
  const ids=[];
  (stationWaiting().get(stationCode)||[]).forEach(x=>{if(!ids.includes(x.g.o.id))ids.push(x.g.o.id);});
  (DB.stationScan||[]).filter(s=>s.station===stationCode&&!s.undoneAt).slice(-60).reverse().forEach(s=>{const g=stationGlass(s.piece);if(g&&!ids.includes(g.o.id))ids.push(g.o.id);});
- return ids.map(salesRecord).filter(o=>o&&stationDrawLines(o).length).slice(0,24);
+ return ids.map(salesRecord).filter(o=>o&&stationDrawItems(o).length).slice(0,24);
 }
 function stationDrawHTML(){
  const x=stationDrawer,o=x.orderId?salesRecord(x.orderId):null;
@@ -34789,25 +35039,25 @@ function stationDrawHTML(){
   const list=stationDrawOrders();
   return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw st-draw-pick" role="dialog" aria-label="Drawings" data-station-draw>'+head('Drawings · '+esc(stationCode))+
    '<p class="st-draw-hint">Open any order\'s drawing: tap an order, type its number or scan a glass sticker.</p>'+
-   '<div class="st-rgroup">Orders with glass at '+esc(stationCode)+'</div><div class="st-draw-orders">'+(list.length?list.map(r=>{const n=stationDrawLines(r).length;return '<button type="button" class="st-draw-order" data-station-draw-order="'+esc(r.businessNumber||'')+'" onclick="stationDrawOpen(\''+esc(r.id)+'\',\'\')"><b>'+esc(r.businessNumber||'')+'</b><span data-raw>'+esc(salesCustomerDisplay(r.customerId))+'</span><small>'+n+' drawing'+(n===1?'':'s')+'</small></button>';}).join(''):'<div class="mut">No orders here yet — type the order number or scan a glass sticker</div>')+'</div></div>';
+   '<div class="st-rgroup">Orders with glass at '+esc(stationCode)+'</div><div class="st-draw-orders">'+(list.length?list.map(r=>{const n=stationDrawItems(r).length;return '<button type="button" class="st-draw-order" data-station-draw-order="'+esc(r.businessNumber||'')+'" onclick="stationDrawOpen(\''+esc(r.id)+'\',\'\')"><b>'+esc(r.businessNumber||'')+'</b><span data-raw>'+esc(salesCustomerDisplay(r.customerId))+'</span><small>'+n+' drawing'+(n===1?'':'s')+'</small></button>';}).join(''):'<div class="mut">No orders here yet — type the order number or scan a glass sticker</div>')+'</div></div>';
  }
- const lines=stationDrawLines(o),l=lines.find(y=>y.id===x.lineId)||lines[0],at=lines.indexOf(l);
+ const lines=stationDrawItems(o),it=lines.find(y=>y.id===x.lineId)||lines[0],at=lines.indexOf(it),l=it&&it.l,rc=it&&it.r;
  const title='Drawings · <b>'+esc(o.businessNumber||'')+'</b> <span class="mut" data-raw>'+esc(salesCustomerDisplay(o.customerId))+'</span>';
  if(!l)return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw>'+head(title)+'<div class="empty">No drawings in this order</div></div>';
  setTimeout(stationDrawFit,0);
- const li=(o.lines||[]).indexOf(l)+1,many=lines.length>1;
+ const li=(o.lines||[]).indexOf(l)+1,many=lines.length>1,geo=rc?recutLine(rc,l):l;
  const step=(sign,off)=>many?'<button type="button" class="doc-step" '+(off?'disabled':'')+' onclick="stationDrawStep('+sign+')">'+(sign<0?'‹':'›')+'</button>':'';
  return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw="'+esc(l.id)+'">'+head(title)+
-  '<div class="st-draw-stage">'+step(-1,at<=0)+'<figure class="doc-drawing" style="zoom:'+stationDrawZoom().toFixed(3)+'">'+stationDrawSheet(stationDrawingOf(o,l))+'</figure>'+step(1,at>=lines.length-1)+'</div>'+
-  (many?'<div class="st-draw-film">'+lines.map(y=>{const n=(o.lines||[]).indexOf(y)+1;return '<button type="button" class="st-draw-chip'+(y===l?' on':'')+'" data-station-draw-line="'+n+'" onclick="stationDrawer.lineId=\''+esc(y.id)+'\';render()"><b>Line '+n+'</b><span>'+esc(frac16(y.width16/16)+' × '+frac16(y.height16/16))+(y.mark?' · '+esc(y.mark):'')+'</span></button>';}).join('')+'</div>':'')+
-  '<div class="st-draw-foot mut">Line '+li+' · '+(at+1)+' of '+lines.length+(many?' · ← → to flip':'')+'</div></div>';
+  '<div class="st-draw-stage">'+step(-1,at<=0)+'<figure class="doc-drawing" style="zoom:'+stationDrawZoom().toFixed(3)+'">'+stationDrawSheet(rc?stationDrawingOf(o,l,'R'+rc.no+'.1'):stationDrawingOf(o,l))+'</figure>'+step(1,at>=lines.length-1)+'</div>'+
+  (many?'<div class="st-draw-film">'+lines.map(y=>{const n=(o.lines||[]).indexOf(y.l)+1,g=y.r?recutLine(y.r,y.l):y.l;return '<button type="button" class="st-draw-chip'+(y===it?' on':'')+(y.r?' st-draw-recut':'')+'" data-station-draw-line="'+(y.r?'R'+y.r.no:n)+'" onclick="stationDrawer.lineId=\''+esc(y.id)+'\';render()"><b>'+(y.r?'Recut '+y.r.no+' · ':'')+'Line '+n+'</b><span>'+esc(frac16(g.width16/16)+' × '+frac16(g.height16/16))+(y.l.mark?' · '+esc(y.l.mark):'')+'</span></button>';}).join('')+'</div>':'')+
+  '<div class="st-draw-foot mut">'+(rc?'Recut '+rc.no+' · ':'')+'Line '+li+' · '+(at+1)+' of '+lines.length+(many?' · ← → to flip':'')+'</div></div>';
 }
 /* Мини-лист на карточке скана: у стекла форма, отверстия или вырезы. */
 function stationDrawThumb(g,d){
- if(!g||!d||!d.shape||!g.l.shapeRef)return '';
- const sheet=stationDrawingOf(g.o,g.l);if(!sheet||!sheet.html)return '';
+ if(!g||!d||!d.shape||!g.l.shapeRef&&!stationDrawRecut(g.o,g.l,g.unit))return '';
+ const sheet=stationDrawingOf(g.o,g.l,g.unit);if(!sheet||!sheet.html)return '';
  setTimeout(stationDrawFit,0);
- return '<button type="button" class="st-drawthumb" data-station-drawthumb onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\')" title="Open the drawing"><span class="st-drawthumb-paper"><span class="st-drawthumb-sheet">'+stationDrawSheet(sheet)+'</span></span><span class="st-drawthumb-t">Drawing</span></button>';
+ return '<button type="button" class="st-drawthumb" data-station-drawthumb onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\',\''+esc(String(g.unit))+'\')" title="Open the drawing"><span class="st-drawthumb-paper"><span class="st-drawthumb-sheet">'+stationDrawSheet(sheet)+'</span></span><span class="st-drawthumb-t">Drawing</span></button>';
 }
 /* Прямоугольник под плашкой NEXT (владелец, 1 октября 2026): у фигуры там
    миниатюра чертежа, у прямоугольника было пусто. Стекло в пропорциях, тем же
@@ -34815,7 +35065,7 @@ function stationDrawThumb(g,d){
    форму и ориентацию (30 × 20 не перепутать с 20 × 30). Нажатие — чертёж. */
 function stationGlassPreview(g,size){
  if(!g||!size||!(size.w>0)||!(size.h>0))return '';
- const k=Math.min(196/size.w,130/size.h),W=Math.round(size.w*k),H=Math.round(size.h*k),open=g.l.shapeRef?' onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\')"':'';
+ const k=Math.min(196/size.w,130/size.h),W=Math.round(size.w*k),H=Math.round(size.h*k),open=g.l.shapeRef||stationDrawRecut(g.o,g.l,g.unit)?' onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\',\''+esc(String(g.unit))+'\')"':'';
  const svg='<svg width="'+(W+34)+'" height="'+(H+30)+'" viewBox="-28 -4 '+(W+34)+' '+(H+30)+'" aria-hidden="true">'+
   '<defs><linearGradient id="st-glass-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--cut-glass-a)"/><stop offset="1" style="stop-color:var(--cut-glass-c)"/></linearGradient></defs>'+
   '<rect x="0" y="0" width="'+W+'" height="'+H+'" rx="2" class="st-glassprev-glass"/>'+
@@ -35249,7 +35499,8 @@ function batchDrawingPages(number,jobs){
  const pages=[],bad=[],seen=new Map();
  (jobs||[]).forEach(j=>{
   if(j.type!=='production'||!j.o||!j.l)return;
-  const k=j.o.id+'|'+j.l.id;if(!seen.has(k))seen.set(k,stationDrawingOf(j.o,j.l));
+  /* Стекло Recut со своим чертежом — лист Recut (erp/quality/recut). */
+  const rc=stationDrawRecut(j.o,j.l,j.unit),k=j.o.id+'|'+j.l.id+'|'+(rc?rc.id:'');if(!seen.has(k))seen.set(k,stationDrawingOf(j.o,j.l,j.unit));
   const d=seen.get(k);
   if(d&&d.html)pages.push({j,html:salesSheetFoot(d.html,batchDrawingTag(number,j))});else bad.push(j.piece||'');
  });
@@ -35284,8 +35535,9 @@ function stationHeatCode(){return typeof salesRouteStationOf==='function'?salesR
 /* Площадь стекла — кв. футы готового размера; один раз на позицию и версию заказа. */
 let stationAreaCache=new Map();
 function stationSqft(g){
- const k=g.o.id+'|'+g.l.id+'|'+(g.o.updatedAt||'');
- if(!stationAreaCache.has(k)){let a=null;try{a=finWithOrder(g.o,()=>stkPieceArea(g.l,g.o));}catch(e){}stationAreaCache.set(k,Number.isFinite(+a)&&+a>0?+a:(+g.l.width16||0)*(+g.l.height16||0)/256/144);}
+ /* У стекла Recut со своим чертежом — его площадь. */
+ const geo=stationGeo(g),k=g.o.id+'|'+g.l.id+'|'+(geo===g.l?'':JSON.stringify(geo.shapeRef))+'|'+(g.o.updatedAt||'');
+ if(!stationAreaCache.has(k)){let a=null;try{a=finWithOrder(g.o,()=>stkPieceArea(geo,g.o));}catch(e){}stationAreaCache.set(k,Number.isFinite(+a)&&+a>0?+a:(+geo.width16||0)*(+geo.height16||0)/256/144);}
  return stationAreaCache.get(k);
 }
 /* Что здесь и что едет на станцию S (стекло, в маршруте которого S впереди). */
@@ -35315,12 +35567,12 @@ function stationFlowTiles(S,d){
    тара, срок. */
 function stationFlowHere(S,d){
  const groups=new Map();
- d.here.forEach(x=>{const g=x.g,k=g.o.id+'|'+g.l.id+'|'+(g.c?g.c.key:'');
+ d.here.forEach(x=>{const g=x.g,k=g.o.id+'|'+g.l.id+'|'+(g.c?g.c.key+'|'+stationDrawingKey(g.o,g.l,g.unit):'');
   if(!groups.has(k))groups.set(k,{g,n:0,on:new Set(),batch:new Set(),li:(g.o.lines||[]).indexOf(g.l)+1});const G=groups.get(k);G.n++;if(x.last&&x.last.on)G.on.add(x.last.on);if(g.entry)G.batch.add(g.entry.batch.number);});
  const rows=[...groups.values()].sort((a,b)=>stationUrgency(b.g.o)-stationUrgency(a.g.o)||String(a.g.o.dueDate||'9').localeCompare(String(b.g.o.dueDate||'9'))||String(a.g.o.businessNumber).localeCompare(String(b.g.o.businessNumber))||a.li-b.li).slice(0,60);
  return '<div class="card"><div class="st-sec"><h3>Here now</h3><span class="pill info">'+d.here.length+' glass</span><span class="sp"></span><span class="mut">Critical first, then due</span></div>'+
   (rows.length?'<table data-flow-here><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th>Work</th><th>Batch</th><th class="n">Pcs</th><th>On</th><th>Due</th></tr></thead><tbody>'+rows.map(x=>{const o=x.g.o,l=x.g.l,lites=glassBatchComponents(o,l).filter(c=>!c.missing).length;
-   return '<tr'+(stationUrgency(o)===2?' class="st-hot"':'')+'><td><b>'+esc(o.businessNumber||'')+'</b>'+stationUrgPill(o)+'</td><td>Line '+x.li+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(x.g.c?(lites>1?'Lite '+x.g.c.lite+' · ':'')+x.g.c.glass:'')+'</td><td>'+esc(stationWorksAt(x.g,S).join(', '))+'</td><td class="mono st-bcell">'+esc([...x.batch].join(', ')||'—')+'</td><td class="n"><b>'+x.n+'</b></td><td>'+[...x.on].map(c=>'<b class="st-on">'+esc(c)+'</b>').join(' ')+'</td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>';}).join('')+'</tbody></table>':'<div class="empty">Nothing here yet</div>')+'</div>';
+   return '<tr'+(stationUrgency(o)===2?' class="st-hot"':'')+'><td><b>'+esc(o.businessNumber||'')+'</b>'+stationUrgPill(o)+'</td><td>Line '+x.li+' · <b>'+esc(frac16(stationGeo(x.g).width16/16)+' × '+frac16(stationGeo(x.g).height16/16))+'</b></td><td data-raw>'+esc(x.g.c?(lites>1?'Lite '+x.g.c.lite+' · ':'')+x.g.c.glass:'')+'</td><td>'+esc(stationWorksAt(x.g,S).join(', '))+'</td><td class="mono st-bcell">'+esc([...x.batch].join(', ')||'—')+'</td><td class="n"><b>'+x.n+'</b></td><td>'+[...x.on].map(c=>'<b class="st-on">'+esc(c)+'</b>').join(' ')+'</td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>';}).join('')+'</tbody></table>':'<div class="empty">Nothing here yet</div>')+'</div>';
 }
 /* Работы станции: сколько здесь и сколько едет. */
 function stationFlowWorks(S,d){
@@ -35351,7 +35603,8 @@ function stationFlowLoads(S,d){
 /* IGU: сколько юнитов можно собрать сейчас и каким не хватает лайта. */
 function stationFlowUnits(S,d){
  const inAsm=new Set();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.station===S)inAsm.add(s.piece);});
- const lines=new Map(),line=g=>{const k=g.o.id+'|'+g.l.id;if(!lines.has(k))lines.set(k,{g,comps:glassBatchComponents(g.o,g.l).filter(c=>!c.missing),here:new Map(),coming:new Map()});return lines.get(k);};
+ /* Юнит Recut со своим чертежом собирается только из своего стекла. */
+ const lines=new Map(),line=g=>{const k=g.o.id+'|'+g.l.id+'|'+stationUnitTag(g.o,g.l,g.unit);if(!lines.has(k))lines.set(k,{g,comps:glassBatchComponents(g.o,g.l).filter(c=>!c.missing),here:new Map(),coming:new Map()});return lines.get(k);};
  d.here.forEach(x=>{if(inAsm.has(x.id)||!x.g.c||stationUnitMerge(x.g.o,x.g.l)!==S)return;const L=line(x.g);L.here.set(x.g.c.key,(L.here.get(x.g.c.key)||0)+1);});
  d.coming.forEach(x=>{if(!x.g.c||stationUnitMerge(x.g.o,x.g.l)!==S)return;const L=line(x.g);if(!L.coming.has(x.g.c.key))L.coming.set(x.g.c.key,new Map());const c=L.coming.get(x.g.c.key);c.set(x.at,(c.get(x.at)||0)+1);});
  const ready=[],partial=[];
@@ -35362,7 +35615,7 @@ function stationFlowUnits(S,d){
   if(top>n)partial.push({L,n:top-n,has:L.comps.filter(c=>(L.here.get(c.key)||0)>n),miss:L.comps.filter(c=>(L.here.get(c.key)||0)<top)});
  });
  const sort=(a,b)=>stationUrgency(b.L.g.o)-stationUrgency(a.L.g.o)||String(a.L.g.o.dueDate||'9').localeCompare(String(b.L.g.o.dueDate||'9'));
- const lineTd=L=>{const o=L.g.o,l=L.g.l;return '<td><b>'+esc(o.businessNumber||'')+'</b>'+stationUrgPill(o)+'</td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td>';};
+ const lineTd=L=>{const o=L.g.o,l=L.g.l,geo=stationGeo(L.g);return '<td><b>'+esc(o.businessNumber||'')+'</b>'+stationUrgPill(o)+'</td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(geo.width16/16)+' × '+frac16(geo.height16/16))+'</b></td>';};
  const where=(L,c)=>{const m=L.coming.get(c.key);return m&&m.size?[...m.entries()].map(([a,n])=>'<b>'+esc(a)+'</b> '+n).join(' · '):'<span class="mut">not in production</span>';};
  return '<div class="card"><div class="st-sec"><h3>Ready to assemble</h3><span class="pill ok">'+stationPlural(ready.reduce((s,x)=>s+x.n,0),'unit','units')+'</span><span class="sp"></span><span class="mut">all lites here</span></div>'+
   (ready.length?'<table data-flow-ready><thead><tr><th>Order</th><th>Line</th><th>Makeup</th><th class="n">Units</th><th>Due</th></tr></thead><tbody>'+ready.sort(sort).map(x=>'<tr'+(stationUrgency(x.L.g.o)===2?' class="st-hot"':'')+'>'+lineTd(x.L)+'<td data-raw>'+esc(x.L.comps.map(c=>c.glass).join(' / '))+'</td><td class="n st-qbig">'+x.n+'</td><td class="mut">'+esc(x.L.g.o.dueDate?salesListShortDay(x.L.g.o.dueDate):'')+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">No full sets here yet</div>')+'</div>'+
@@ -35444,9 +35697,10 @@ function prodBoard(){
    glassBatchComponents(o,l).forEach(c=>{
     if(c.missing)return;
     const rec=pieces.get(c.key);if(!rec)return;
-    const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean),lc={queue:0},lr={},lon=new Set(),lonAt={};let ls=0,lb=0;
-    ids.forEach(id=>{
-     const e=batches.get(id)||null,scans=scansBy.get(id)||[],g={id,o,l,c,entry:e};total++;
+    /* С местом стекла: у стекла Recut со своим чертежом свой маршрут. */
+    const ids=rec.ids.map((id,i)=>[id,i+1]).concat(...Object.keys(rec.extra||{}).map(nr=>rec.extra[nr].map((id,k)=>[id,nr+'.'+(k+1)]))).filter(x=>x[0]),lc={queue:0},lr={},lon=new Set(),lonAt={};let ls=0,lb=0;
+    ids.forEach(([id,unit])=>{
+     const e=batches.get(id)||null,scans=scansBy.get(id)||[],g={id,o,l,c,unit,entry:e};total++;
      const place=stationPlace(g,scans),queued=!e&&!scans.length;
      /* Разбитое стекло не в производстве: вместо него едет стекло Recut. */
      if(place.broken){total--;lb++;return;}
