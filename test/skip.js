@@ -138,6 +138,12 @@ module.exports=async function({page,eq}){
   const restored=skipUndo(k.id);return {rows:rows.length,allowed,assigned,count:pieces.length,skipped:pieces.includes(k.pieces[0]),undone:!restored.error,left:glassBatchRows([salesRecord(id)]).length};
  }),{rows:9,allowed:true,assigned:true,count:9,skipped:false,undone:true,left:1});
 
+ eq('Undo из станционного журнала не обходит защиту последующего Skip задним числом',await t.p.evaluate(()=>{
+  const id=skSingle(),piece=skPieces(id)[0];skipRun({orderId:id,codes:[piece],to:'CUT',date:finToday()});const cut=stationScansFor(piece)[0];
+  skipRun({orderId:id,codes:[piece],to:'HEAT',date:skDay});const before=JSON.stringify(DB),undo=stationUndo(cut.id,skWho);
+  return {error:undo.error,same:JSON.stringify(DB)===before,live:stationScansFor(piece).map(s=>s.station)};
+ }),{error:'Glass has moved on — undo the later scan first.',same:true,live:['CUT','ARRIS','HEAT']});
+
  eq('JSON: Skip переживает экспорт и импорт; не массив — понятная ошибка',await t.p.evaluate(()=>{
   const id=skNew();skipRun({orderId:id,lines:{[salesRecord(id).lines[1].id]:'all'},to:'pickup',date:finToday()});
   const src=JSON.parse(JSON.stringify(DB)),next=prepareImportedState(JSON.parse(JSON.stringify(src)));let err='';try{const x=JSON.parse(JSON.stringify(src));x.skip={};prepareImportedState(x);}catch(e){err=e.message;}
