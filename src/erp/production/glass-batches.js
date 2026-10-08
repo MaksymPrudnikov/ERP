@@ -159,8 +159,16 @@ function glassPieceEnsure(o){
 }
 /* Строки очереди — отдельные стёкла. План резки читает Makeup через soDraft,
    поэтому считается внутри finWithOrder: очередь работает с сохранённой записью. */
+/* Стекло со сканом CUT без батча (из стока, Skip) уже порезано: в To batch
+   его нет, иначе его порежут второй раз (владелец, 7.10.2026: «в субботу
+   стекло могут порезать со стока и выдать клиенту»). */
+function glassCutByScan(){
+ const cut=typeof stationCutCode==='function'?stationCutCode():'CUT',out=new Set();
+ (DB.stationScan||[]).forEach(s=>{if(s&&!s.undoneAt&&!s.park&&s.station===cut)out.add(s.piece);});
+ return out;
+}
 function glassBatchRows(orders){
- const rows=[];
+ const rows=[],cutDone=glassCutByScan();
  /* Заказ New в очередь не попадает, кроме его Recut: стекло из стока режут без
     Verify, и сломанное стекло должно уйти в батч сразу. */
  (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&(GLASS_WAITING_STATUSES.includes(o.status)||o.status==='new'&&glassRecutSlots(o.id).length)).forEach(o=>finWithOrder(o,()=>{
@@ -181,13 +189,13 @@ function glassBatchRows(orders){
     const {hold,base}=baseOf(1);
     for(let unit=1;regular&&unit<=l.qty;unit++){
      if(active.has(c.key+'|'+unit)||cancelled.has(c.key+'|'+unit))continue;
-     const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';
+     const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';if(piece&&cutDone.has(piece))continue;
      /* Hold units: стекло ждёт Release, в батч его не берут. */
      const uh=!hold&&piece&&(l.heldUnits||[]).find(h=>h.pieces.includes(piece));
      rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,held:!!uh,reason:hold||(uh?'Units on hold: '+(uh.reason||''):'')||(piece?'':'Glass ID missing')}));
     }
     glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)&&!cancelled.has(x.key+'|'+x.unit)).forEach(x=>{
-     const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'',{hold,base}=baseOf(x.unit);
+     const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'',{hold,base}=baseOf(x.unit);if(piece&&cutDone.has(piece))return;
      rows.push(Object.assign({},c,base,{slot:x.key+'|'+x.unit,unit:x.unit,k:x.k,of:x.of,recut:x.ref,recutLabel:x.label,piece,reason:hold||(piece?'':'Glass ID missing')}));
     });
    });

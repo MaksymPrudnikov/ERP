@@ -58,6 +58,8 @@ button.ncr-btn{border-color:var(--danger-line);color:var(--danger)}
 .ncr-lines th.n,.ncr-lines td.n{text-align:right}
 .ncr-lines tr.on td{background:var(--accent-soft)}
 .ncr-lines input[type=number]{width:72px}
+/* Skip (erp/shopfloor/skip): «весь заказ» над таблицей строк. */
+.skip-all{display:inline-flex;align-items:center;gap:8px;margin:0;font-size:13px;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--text)}
 .ncr-lines select{min-width:150px}
 .ncr-pick{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:12px}
 .ncr-effect{margin:0}

@@ -17,7 +17,9 @@ function orderLogDialogHTML(){
  const v=orderLogView;if(!v)return '';
  if(!accessCan('sales')){orderLogView=null;return '';}
  const o=(DB.salesOrder||[]).find(x=>x.id===v.id);if(!o){orderLogView=null;return '';}
- const rows=orderLogFor(o.id).map(r=>`<tr data-order-log-row><td>${esc(orderLogWhen(r.at))}</td><td>${r.by?raw(r.by):'<span class="mut">—</span>'}</td><td><b>${esc(r.what)}</b>${r.note?` <span class="order-log-note">· ${raw(r.note)}</span>`:''}</td></tr>`).join('');
+ /* Skip отменяется отсюда целиком (erp/shopfloor/skip) — Users и Finance. */
+ const undo=r=>{const k=r.id&&typeof skipAllowed==='function'&&skipAllowed()?(DB.skip||[]).find(x=>x.eventId===r.id&&!x.undoneAt):null;return k?` <button type="button" class="sm" data-skip-undo="${esc(k.id)}" onclick="skipUndoClick('${esc(k.id)}')">Undo</button>`:'';};
+ const rows=orderLogFor(o.id).map(r=>`<tr data-order-log-row><td>${esc(orderLogWhen(r.at))}</td><td>${r.by?raw(r.by):'<span class="mut">—</span>'}</td><td><b>${esc(r.what)}</b>${r.note?` <span class="order-log-note">· ${raw(r.note)}</span>`:''}${undo(r)}</td></tr>`).join('');
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)orderLogClose()"><div class="sales-service-modal sales-dialog order-log-dialog" role="dialog" aria-modal="true" aria-label="Activity log" data-order-log>
   <div class="sales-service-modal-head"><div><span>Activity log</span><h3 data-raw>${esc([o.businessNumber,salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))}</h3></div><button type="button" aria-label="Close" onclick="orderLogClose()">×</button></div>
   <div class="sales-dialog-body"><table class="order-log-table"><thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`;
