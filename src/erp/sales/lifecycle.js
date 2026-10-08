@@ -204,9 +204,10 @@ function salesTransitionChecks(o,next){
  /* «PO required» у клиента — не только плашка в Sales: без PO заказ
     останавливается окном на Verify, батче и отгрузке, как депозит
     (проход 7.10.2026: Harbour 76005 без PO прошёл до самовывоза).
-    perOrder — в Shipping окно своё у каждого заказа, без строки долга. */
+    perOrder — в Shipping окно своё у каждого заказа, без строки долга.
+    block — без «…anyway»: без PO дальше не идёт (владелец, 8.10.2026). */
  const noPo=c&&c.poRequired&&!String(o.customerPo||'').trim()&&['verified','batched','done'].includes(next);
- if(noPo)out.push({title:'PO missing — order '+num,sub,rows:[['Customer',name+' requires a PO']],note:'Enter the PO in the order.',anyway:next==='verified'?'Verify anyway':next==='batched'?'Send anyway':'Continue anyway',perOrder:true});
+ if(noPo)out.push({title:'PO missing — order '+num,sub,rows:[['Customer',name+' requires a PO']],note:'Enter the PO in the order.',block:true,perOrder:true});
  if(next==='verified'||next==='batched'){
   if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway:'Continue anyway'});
   if(b.total==null)out.push({title:'Pricing is not complete',sub,rows:[],note:'Some lines have no price.',anyway:'Continue anyway'});
@@ -239,7 +240,8 @@ function salesTransitionChecks(o,next){
 function salesRunChecks(checks,done,takePayment){
  if(!checks.length){done();return;}
  const c=checks[0],rest=()=>salesRunChecks(checks.slice(1),done,takePayment),buttons=[{label:'Back'}];
- if(c.pay!=null&&c.pay>0)buttons.push({label:c.anyway,run:rest},{label:'Take payment',kind:'pri',run:()=>takePayment?takePayment(c.pay):salesTakePayment(c.pay)});
+ if(c.block){/* только Back */}
+ else if(c.pay!=null&&c.pay>0)buttons.push({label:c.anyway,run:rest},{label:'Take payment',kind:'pri',run:()=>takePayment?takePayment(c.pay):salesTakePayment(c.pay)});
  else buttons.push({label:c.anyway,kind:'pri',run:rest});
  salesDialogOpen(Object.assign({},c,{buttons}));
 }
@@ -252,7 +254,9 @@ function salesNextBatchNumber(){
  return 'B-'+String(n+1).padStart(4,'0');
 }
 function salesRecord(id){return (DB.salesOrder||[]).find(o=>o.id===id);}
-function salesUnbatchedLines(o){return (o&&o.lines||[]).filter(l=>l.batchManaged?glassBatchRemaining(o,l)>0:!salesLineLocked(l));}
+/* Строка, всё стекло которой порезано по скану без батча (Skip, сток), — не
+   «без батча»: иначе заказ не закрыть (владелец, 8.10.2026). */
+function salesUnbatchedLines(o){return (o&&o.lines||[]).filter(l=>l.batchManaged?glassBatchRemaining(o,l)>0:!salesLineLocked(l)&&!(l.qty>0&&glassBatchComponents(o,l).length&&glassBatchRemaining(o,l)===0));}
 function salesBatchableLines(o){return salesUnbatchedLines(o).filter(l=>!l.onHold);}
 function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};

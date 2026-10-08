@@ -108,10 +108,14 @@ function glassCancelledSlots(o){
 function glassBatchRemaining(o,l,active,cancelled){
  const cs=glassBatchComponents(o,l),recut=glassRecutSlots(o.id,l.id);
  active=active||glassBatchActive(o.id);cancelled=cancelled||glassCancelledSlots(o);
- const pending=recut.filter(x=>!active.has(x.key+'|'+x.unit)&&!cancelled.has(x.key+'|'+x.unit)).length;
- if(!l.batchManaged)return (salesLineLocked(l)?0:l.qty*cs.length)+pending;
+ /* Порезано по скану без батча (из стока, Skip) — сделано: заказ не висит
+    на «9/10» (владелец, 8.10.2026: «чтобы никогда нигде ничего не висело»). */
+ const cut=glassCutByScan();let pieces=null;const done=(key,unit)=>{if(!cut.size)return false;pieces=pieces||glassPieceMap(o.id);const id=glassPieceAt(pieces.get(key),unit);return !!id&&cut.has(id);};
+ const pending=recut.filter(x=>!active.has(x.key+'|'+x.unit)&&!cancelled.has(x.key+'|'+x.unit)&&!done(x.key,x.unit)).length;
+ const scanned=c=>{let n=0;for(let u=1;u<=l.qty;u++)if(!active.has(c.key+'|'+u)&&!cancelled.has(c.key+'|'+u)&&done(c.key,u))n++;return n;};
+ if(!l.batchManaged)return (salesLineLocked(l)?0:cs.reduce((n,c)=>n+l.qty-scanned(c),0))+pending;
  const off=c=>{let n=0;for(let u=1;u<=l.qty;u++)if(cancelled.has(c.key+'|'+u)&&!active.has(c.key+'|'+u))n++;return n;};
- return cs.reduce((n,c)=>n+l.qty-glassBatchTaken(active,c.key,l.qty)-off(c),0)+pending;
+ return cs.reduce((n,c)=>n+l.qty-glassBatchTaken(active,c.key,l.qty)-off(c)-scanned(c),0)+pending;
 }
 function glassBatchProgress(o){
  const active=glassBatchActive(o.id);let total=0,left=0;
@@ -162,9 +166,15 @@ function glassPieceEnsure(o){
 /* Стекло со сканом CUT без батча (из стока, Skip) уже порезано: в To batch
    его нет, иначе его порежут второй раз (владелец, 7.10.2026: «в субботу
    стекло могут порезать со стока и выдать клиенту»). */
+/* Набор считается один раз до следующей записи (storageInvalidate): его
+   спрашивает каждая строка каждого заказа в списках. Внутри записи — заново. */
+let glassCutCache=null;
 function glassCutByScan(){
+ const list=DB.stationScan||[];
+ if(!storageDepth&&glassCutCache&&glassCutCache.list===list&&glassCutCache.size===list.length)return glassCutCache.out;
  const cut=typeof stationCutCode==='function'?stationCutCode():'CUT',out=new Set();
- (DB.stationScan||[]).forEach(s=>{if(s&&!s.undoneAt&&!s.park&&s.station===cut)out.add(s.piece);});
+ list.forEach(s=>{if(s&&!s.undoneAt&&!s.park&&s.station===cut)out.add(s.piece);});
+ if(!storageDepth)glassCutCache={list,size:list.length,out};
  return out;
 }
 function glassBatchRows(orders){
