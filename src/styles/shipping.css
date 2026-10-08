@@ -9,3 +9,5 @@
 .delivery-day input[type=date]{width:auto;flex:none}
 /* Статус PS и «Balance due» — рядом (views/shipping, shippingStatusPill). */
 .shipping-pills{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
+/* Готово, но без скида (7.10.2026): видно цветом — найти скид или разобраться. */
+.shipping-noskid{display:inline-block;margin:0 0 12px;padding:4px 10px;border-radius:8px;background:var(--warning-soft);color:var(--warning);font-weight:600}
