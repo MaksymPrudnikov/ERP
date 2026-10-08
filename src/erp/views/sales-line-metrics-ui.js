@@ -88,13 +88,15 @@ function salesMetricCell(line,c,context,price,a,weight){
   else if(c.key==='materials'||c.key==='unitPrice'||c.key==='lineTotal')value=c.key==='materials'?(!price.missingMaterials&&!price.unsupportedCurrency?price.materials:null):(c.key==='unitPrice'?price.unit:price.line);
   else{value=c.key==='unitWeight'?weight.kg:weight.lineKg;panel='weight';}
   const text=value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2);
-  const body=`<b data-raw>${text}</b>`;
+  const hand=price.manual&&(c.key==='unitPrice'||c.key==='lineTotal');
+  const body=`<b data-raw>${text}</b>${hand&&context==='screen'?'<i class="metric-hand" title="Price by hand">✎</i>':''}`;
   return `<td class="line-metric${value==null?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
 }
 function salesCommercialOrderSummary(interactive){
  const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2):'—';
  const item=(key,label,rate,value,shown)=>`<span class="metric-order-charge-item charge-${key}${shown?'':' is-empty'}"><span class="metric-order-charge-label">${label}${rate!=null?` <small data-raw>${rate}%</small>`:''}</span><b data-raw>${shown?money(value):''}</b></span>`;
- const rows=[item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(salesCardNetworkLabel(c.card.network)),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
+ const adj=(soDraft.adjustments||[]).reduce((n,a)=>salesMoney(n+(+a.amount||0)),0);
+ const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(salesCardNetworkLabel(c.card.network)),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
  rows.push(`<span class="metric-order-charge-item charge-total metric-grand-total"><span class="metric-order-charge-label">Total</span><b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${'lines need pricing'}</small>`:''}</span>`);
  const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" onclick="salesOpenMetrics('orderCharges')">Service +</button>`;
  return `<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · <span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`;
@@ -113,6 +115,19 @@ function salesSetCardNetwork(network){
  if(!Object.prototype.hasOwnProperty.call(SALES_CARD_FEE_RATES,network))return;
  soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges.card.network=network;soDraft.orderCharges.card.rate=SALES_CARD_FEE_RATES[network];touch();render();
 }
+/* Поправки на заказ руками (normalizeSalesAdjustments): текст и сумма. */
+function salesAddAdjustment(){if(!soDraft)return;soDraft.adjustments=(soDraft.adjustments||[]).concat([{id:salesUid('ADJ'),label:'',amount:0}]);render();}
+function salesRemoveAdjustment(i){if(!soDraft||!soDraft.adjustments)return;soDraft.adjustments.splice(i,1);if(!soDraft.adjustments.length)delete soDraft.adjustments;touch();render();}
+function salesSetAdjustment(i,key,value){
+ const a=soDraft&&(soDraft.adjustments||[])[i];if(!a)return;
+ if(key==='label'){a.label=String(value).slice(0,120);return;}
+ const n=Number(value);if(!Number.isFinite(n)){alert('Enter an amount. Minus — less to pay.');render();return;}
+ a.amount=Math.round(n*100)/100;touch();render();
+}
+function salesAdjustmentsHTML(){
+ const list=soDraft.adjustments||[];
+ return `<div class="metric-adjustments" data-adjustments><b>Adjustments</b>${list.map((a,i)=>`<div class="metric-adjustment-row" data-adjustment="${i}"><input type="text" data-adjustment-label value="${esc(a.label)}" maxlength="120" placeholder="Price correction" oninput="salesSetAdjustment(${i},'label',this.value)" onchange="touch()"><input type="number" step="0.01" data-adjustment-amount value="${esc(a.amount)}" onchange="salesSetAdjustment(${i},'amount',this.value)"><span>${esc(soDraft.currency)}</span><button type="button" class="sm dl" aria-label="Remove adjustment" onclick="salesRemoveAdjustment(${i})">×</button></div>`).join('')}<button type="button" class="sm" data-adjustment-add onclick="salesAddAdjustment()">+ Adjustment</button><small>Minus — less to pay. Goes to the subtotal.</small></div>`;
+}
 function salesOrderChargesPanel(){
  const c=normalizeSalesOrderCharges(soDraft.orderCharges),toggle=(key,label,body)=>`<div class="metric-order-charge-row ${c[key].enabled?'on':''}"><label><input type="checkbox" ${c[key].enabled?'checked':''} onchange="salesSetOrderChargeEnabled('${key}',this.checked)"><b>${label}</b></label>${body}</div>`;
  const pct=(key)=>`<label>${'Rate'}<input type="number" min="0" step="0.01" value="${c[key].rate}" onchange="salesSetOrderChargeValue('${key}','rate',this.value)"><span>%</span></label>`;
@@ -122,7 +137,7 @@ function salesOrderChargesPanel(){
    ${toggle('card','Card fee',`<label>${'Card'}<select onchange="salesSetCardNetwork(this.value)">${Object.keys(SALES_CARD_FEE_RATES).map(k=>`<option value="${k}" ${c.card.network===k?'selected':''}>${esc(salesCardNetworkLabel(k))}</option>`).join('')}</select></label>${pct('card')}`)}
    ${toggle('delivery','Delivery',`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${c.delivery.amount}" onchange="salesSetOrderChargeValue('delivery','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${'Excluded from the ES, HST and Card fee bases.'}</small>`)}
    ${toggle('skidDeposit','Skid Deposit',`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${c.skidDeposit.amount}" onchange="salesSetOrderChargeValue('skidDeposit','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${'Customer skid deposit; excluded from all fee bases.'}</small>`)}
- </div><div class="metric-order-charge-preview">${salesCommercialOrderSummary()}</div>`;
+ </div>${salesAdjustmentsHTML()}<div class="metric-order-charge-preview">${salesCommercialOrderSummary()}</div>`;
 }
 function salesColumnsPanel(){
  const p=salesLoadViewPrefs();
@@ -133,9 +148,20 @@ function salesAreaPanel(line){
  const a=salesLineAreas(line,soDraft);
  return `<div class="metric-explanation"><p>${'Areas are per unit. Qty does not change a single unit’s area.'}</p><dl><dt>Actual Area</dt><dd>${a.valid?a.actual.toFixed(4):'—'} ft²</dd><dt>Rounded Area</dt><dd>${a.valid?`${a.roundedWidth} × ${a.roundedHeight}″ ÷ 144 → ${a.rounded.toFixed(1)} ft²`:'—'}</dd><dt>Billable Area</dt><dd>${a.valid?a.billable.toFixed(1):'—'} ft²</dd></dl><p>${'Actual Area is the finished contour area. Rounded Area uses bounding dimensions, each rounded up to a whole inch, then rounds the area to one decimal place. Billable Area applies the billing minimum.'}</p><p>${'Materials and Shape Unit use Billable Area. Edges use length, per-piece work uses quantity, and surface treatments retain their processing area. Weight uses actual geometry.'}</p></div>`;
 }
+/* Цена руками: своя цена юнита вместо расчёта, в любой строке, даже в батче
+   и после выдачи. Clear возвращает расчёт. */
+function salesSetLinePriceManual(lineId,value){
+ const l=soDraft&&(soDraft.lines||[]).find(x=>x.id===lineId);if(!l)return;
+ if(String(value).trim()===''){delete l.priceManual;}else{const n=salesNonNegOrNull(value);if(n==null){alert('Enter a price of zero or greater.');render();return;}l.priceManual=n;}
+ touch();render();
+}
+function salesPriceManualHTML(line,p,cur){
+ const on=line.priceManual!=null,calc=p.manual?p.computedUnit:p.unit;
+ return `<div class="metric-manual${on?' on':''}" data-price-manual><label>Price by hand<input type="number" min="0" step="0.01" data-price-manual-input value="${on?esc(line.priceManual):''}" placeholder="${calc==null?'':calc.toFixed(2)}" onchange="salesSetLinePriceManual('${esc(line.id)}',this.value)"><span>${cur} / unit</span></label>${on?`<button type="button" class="sm" data-price-manual-clear onclick="salesSetLinePriceManual('${esc(line.id)}','')">Clear</button>`:''}<small>${on?'Calculated '+(calc==null?'—':calc.toFixed(2)+' '+cur):'Empty — calculated price'}</small></div>`;
+}
 function salesPricePanel(line){
  const p=salesLineCommercialPrice(line,soDraft),cur=esc(soDraft.currency),row=(label,value)=>`<div class="metric-price-row"><span>${label}</span><b data-raw>${value==null?'—':value.toFixed(2)+' '+cur}</b></div>`;
- return `<p class="mut">${'Calculation for one finished unit'}</p>${row('Materials'+` · ${p.materialRate.toFixed(2)} × ${p.areas.billable==null?'—':p.areas.billable.toFixed(1)} ft²`,p.missingMaterials||p.unsupportedCurrency?null:p.materials)}${row('Services and processing',p.missingServices||p.unsupportedCurrency?null:p.services)}${row('Base unit price',p.missingMaterials||p.missingServices||p.unsupportedCurrency?null:p.base)}${p.adjustments.map(a=>row(`${esc(a.label)} · +${a.percent}% × ${a.base.toFixed(2)}`,p.complete?a.amount:null)).join('')}${row('Unit Price',p.unit)}${row('Line Total · Qty '+p.qty,p.line)}${p.unsupportedCurrency?`<p class="metric-incomplete">${'Catalog prices are in CAD. USD totals require a defined currency conversion; CAD amounts are not relabelled as USD.'}</p>`:''}${!p.complete?`<p class="metric-incomplete">${'Calculation incomplete: check dimensions and material / service prices.'}</p>`:''}<p class="mut">${'Triple and Large unit each apply to the base unit price including services. Before energy surcharge, tax and delivery.'}</p><button type="button" onclick="salesMetricsPanel=null;salesOpenLineServices('${esc(line.id)}')">${'Open services'}</button>`;
+ return salesPriceManualHTML(line,p,cur)+`<p class="mut">${'Calculation for one finished unit'}</p>${row('Materials'+` · ${p.materialRate.toFixed(2)} × ${p.areas.billable==null?'—':p.areas.billable.toFixed(1)} ft²`,p.missingMaterials||p.unsupportedCurrency?null:p.materials)}${row('Services and processing',p.missingServices||p.unsupportedCurrency?null:p.services)}${row('Base unit price',p.missingMaterials||p.missingServices||p.unsupportedCurrency?null:p.base)}${p.adjustments.map(a=>row(`${esc(a.label)} · +${a.percent}% × ${a.base.toFixed(2)}`,p.complete?a.amount:null)).join('')}${row('Unit Price',p.unit)}${row('Line Total · Qty '+p.qty,p.line)}${p.unsupportedCurrency?`<p class="metric-incomplete">${'Catalog prices are in CAD. USD totals require a defined currency conversion; CAD amounts are not relabelled as USD.'}</p>`:''}${!p.complete?`<p class="metric-incomplete">${'Calculation incomplete: check dimensions and material / service prices.'}</p>`:''}<p class="mut">${'Triple and Large unit each apply to the base unit price including services. Before energy surcharge, tax and delivery.'}</p><button type="button" onclick="salesMetricsPanel=null;salesOpenLineServices('${esc(line.id)}')">${'Open services'}</button>`;
 }
 function salesRulePanel(){
  const r=salesMetricRules(soDraft),labels={triplePercent:'Triple units, %',largePercent:'Large units, %',largeThresholdFt2:'Large units: area strictly above, ft²',minimumAreaFt2:'Minimum billable area, ft²'};

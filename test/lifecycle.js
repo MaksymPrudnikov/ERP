@@ -57,8 +57,9 @@ module.exports=async function({page,eq,ok}){
   oqReset();const id=oqOrder(oqCustomer());oqQueue();oqThrough(id,'batched');tab='sales';salesOrderEdit(id);
   /* Закрыта каждая ячейка, кроме Shape (форма открывает чертёж, не редактор) и —
      пока стекло не порезано — количества и крестика: меньше юнитов и убрать
-     строку можно (владелец, 6.10.2026; test/batched-line-qty.js). */
-  const inert=[...document.querySelectorAll('tr[data-metrics-line-id]')].every(r=>r.classList.contains('line-locked')&&[...r.children].every(td=>td.hasAttribute('inert')!==!!td.querySelector('[data-line-drawing],.line-qty,.line-delete'))),muLocked=!!document.querySelector('.mu-locked[inert]');
+     строку можно (владелец, 6.10.2026; test/batched-line-qty.js). Цена тоже
+     открыта: Price by hand (владелец, 7.10.2026; test/money.js). */
+  const inert=[...document.querySelectorAll('tr[data-metrics-line-id]')].every(r=>r.classList.contains('line-locked')&&[...r.children].every(td=>td.hasAttribute('inert')!==!!(td.querySelector('[data-line-drawing],.line-qty,.line-delete')||['unitPrice','lineTotal'].includes(td.dataset.metric)))),muLocked=!!document.querySelector('.mu-locked[inert]');
   const alerts=[],prev=window.alert;window.alert=m=>alerts.push(m);salesOrderConfigureShape(0);salesOrderRemoveLine(0);window.alert=prev;
   document.querySelector('[data-line-drawing]').click();
   const drawing=!!docState&&docState.kind==='drawings'&&docState.focus===soDraft.lines[0].id&&tab==='sales';docClose();

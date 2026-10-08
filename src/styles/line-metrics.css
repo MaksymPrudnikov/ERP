@@ -10,3 +10,15 @@
 .sales-line-tools{flex-wrap:wrap;min-width:0;max-width:100%}
 @media(max-width:900px){.sales-order-editor .mu-totals{grid-column:1/-1;justify-self:start;margin-left:0;max-width:100%;flex-wrap:wrap}.sales-lines-head{flex-wrap:wrap}.sales-lines-head>div:first-child{min-width:0}}
 @media(max-width:620px){.sales-line-tools button{flex:0 1 auto}.sales-order-editor .mu-totals{white-space:normal}.sales-order-editor .mu-total{flex-wrap:wrap}}
+/* Деньги руками: цена юнита строки и поправки на заказ (владелец, 7.10.2026). */
+.metric-manual{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:13px}
+.metric-manual.on{border-color:var(--warning-line);background:var(--warning-soft)}
+.metric-manual label{display:inline-flex;align-items:center;gap:8px;margin:0;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--text)}
+.metric-manual input{width:110px}
+.metric-manual small{color:var(--text-2)}
+.metric-hand{font-style:normal;margin-left:4px;color:var(--warning)}
+.metric-adjustments{display:grid;gap:8px;margin-top:14px;font-size:13px}
+.metric-adjustment-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.metric-adjustment-row input[type=text]{flex:1 1 180px;min-width:0}
+.metric-adjustment-row input[type=number]{width:110px}
+.metric-adjustments small{color:var(--text-2)}

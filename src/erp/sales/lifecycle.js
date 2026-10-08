@@ -94,7 +94,8 @@ function salesLockedLineGuard(line){
 /* У строки в батче закрыта каждая ячейка, кроме Shape: форма открывает
    чертёж на просмотр и печать (владелец, 26.09.2026), редактор — нет. */
 function salesLineRowAttrs(line){return (salesLineLocked(line)?" class='line-locked'":line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
-function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='shape'&&!((key==='qty'||key==='delete')&&salesLineShrinkableInDraft(line))?String(html).replace(/^<td\b/,'<td inert'):html;}
+/* Цена строки открыта и у строки в батче: цену правят руками (Price by hand). */
+function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='shape'&&key!=='unitPrice'&&key!=='lineTotal'&&!((key==='qty'||key==='delete')&&salesLineShrinkableInDraft(line))?String(html).replace(/^<td\b/,'<td inert'):html;}
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
  if(salesLineLocked(line))return ` <span class="line-lock" title="Batched ${esc(salesShortDate(line.batchedAt))}${line.batchNo?' · '+esc(line.batchNo):''}">🔒</span>`;
