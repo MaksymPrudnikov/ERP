@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 122 модулей, 19 стиля.
+  Состав сборки: 124 модулей, 19 стиля.
 -->
 <html lang="en">
 <head>
@@ -1807,6 +1807,8 @@ button.ncr-btn{border-color:var(--danger-line);color:var(--danger)}
 .ncr-lines th.n,.ncr-lines td.n{text-align:right}
 .ncr-lines tr.on td{background:var(--accent-soft)}
 .ncr-lines input[type=number]{width:72px}
+/* Skip (erp/shopfloor/skip): «весь заказ» над таблицей строк. */
+.skip-all{display:inline-flex;align-items:center;gap:8px;margin:0;font-size:13px;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--text)}
 .ncr-lines select{min-width:150px}
 .ncr-pick{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:12px}
 .ncr-effect{margin:0}
@@ -2895,7 +2897,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='877304e9a094';
+var ERP_BUILD='2da6c2b06287';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12106,7 +12108,7 @@ function orderLogCommitted(text){if(orderLogPending)orderLogBase={text,map:order
    созданного до журнала, первой строкой — дата создания без имени. */
 function orderLogFor(orderId){
  const o=(DB.salesOrder||[]).find(x=>x.id===orderId);
- const rows=(DB.orderEvent||[]).filter(e=>e.orderId===orderId).map(e=>({at:e.at,by:e.by,what:e.what,note:e.note}));
+ const rows=(DB.orderEvent||[]).filter(e=>e.orderId===orderId).map(e=>({id:e.id,at:e.at,by:e.by,what:e.what,note:e.note}));
  (DB.financeEvent||[]).forEach(e=>{
   if(e.kind==='opening'||!(e.orders||[]).some(x=>x.id===orderId))return;
   const r=e.after||e.before||{},amount=typeof r.amount==='number'?'$'+r.amount.toFixed(2):'';
@@ -25427,7 +25429,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" onclick="salesListMenuRun('${act}')">${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof glassBatchCanUnbatchOrder==='function'&&glassBatchCanUnbatchOrder(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof glassBatchCanUnbatchOrder==='function'&&glassBatchCanUnbatchOrder(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -25435,6 +25437,7 @@ function salesListMenuRun(act){
  const sel=salesListSelectedOrders(),ids=sel.includes(o.id)?sel:[o.id],held=id=>!!(DB.salesOrder.find(x=>x.id===id)||{}).onHold;
  if(act==='open')salesOrderEdit(o.id);
  else if(act==='log')orderLogOpen(o.id);
+ else if(act==='skip')skipOpen(o.id);
  else if(act==='hold')salesHoldOpen(ids.filter(id=>!held(id)));
  else if(act==='release')salesReleaseHold(ids.filter(held));
  else if(act==='documents'){salesOrderEdit(o.id);docOpen();}
@@ -26091,8 +26094,16 @@ function glassPieceEnsure(o){
 }
 /* Строки очереди — отдельные стёкла. План резки читает Makeup через soDraft,
    поэтому считается внутри finWithOrder: очередь работает с сохранённой записью. */
+/* Стекло со сканом CUT без батча (из стока, Skip) уже порезано: в To batch
+   его нет, иначе его порежут второй раз (владелец, 7.10.2026: «в субботу
+   стекло могут порезать со стока и выдать клиенту»). */
+function glassCutByScan(){
+ const cut=typeof stationCutCode==='function'?stationCutCode():'CUT',out=new Set();
+ (DB.stationScan||[]).forEach(s=>{if(s&&!s.undoneAt&&!s.park&&s.station===cut)out.add(s.piece);});
+ return out;
+}
 function glassBatchRows(orders){
- const rows=[];
+ const rows=[],cutDone=glassCutByScan();
  /* Заказ New в очередь не попадает, кроме его Recut: стекло из стока режут без
     Verify, и сломанное стекло должно уйти в батч сразу. */
  (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&(GLASS_WAITING_STATUSES.includes(o.status)||o.status==='new'&&glassRecutSlots(o.id).length)).forEach(o=>finWithOrder(o,()=>{
@@ -26113,13 +26124,13 @@ function glassBatchRows(orders){
     const {hold,base}=baseOf(1);
     for(let unit=1;regular&&unit<=l.qty;unit++){
      if(active.has(c.key+'|'+unit)||cancelled.has(c.key+'|'+unit))continue;
-     const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';
+     const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';if(piece&&cutDone.has(piece))continue;
      /* Hold units: стекло ждёт Release, в батч его не берут. */
      const uh=!hold&&piece&&(l.heldUnits||[]).find(h=>h.pieces.includes(piece));
      rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,held:!!uh,reason:hold||(uh?'Units on hold: '+(uh.reason||''):'')||(piece?'':'Glass ID missing')}));
     }
     glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)&&!cancelled.has(x.key+'|'+x.unit)).forEach(x=>{
-     const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'',{hold,base}=baseOf(x.unit);
+     const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'',{hold,base}=baseOf(x.unit);if(piece&&cutDone.has(piece))return;
      rows.push(Object.assign({},c,base,{slot:x.key+'|'+x.unit,unit:x.unit,k:x.k,of:x.of,recut:x.ref,recutLabel:x.label,piece,reason:hold||(piece?'':'Glass ID missing')}));
     });
    });
@@ -31050,7 +31061,7 @@ function stationRecordCommand(station,check,who,opts){
  if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
  DB.stationScan.push(rec);
- if(check.g)stationAsmJoin(rec,check.g,station);
+ if(check.g)stationAsmJoin(rec,check.g,station,opts.asm);
  /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
     позиция узнаёт это через glassBatchSyncLine, как и прежде. */
  const e=check.g&&check.g.entry;
@@ -31374,13 +31385,15 @@ function stationDrawingFits(o,l,a,b){
 }
 /* Стекло p подходит к сборке a: со всеми её стёклами. */
 function stationAsmFits(a,o,l,index,p){return a.recs.every(s=>{const h=index.get(s.piece);return !h||stationDrawingFits(o,l,h,p);});}
-function stationAsmJoin(rec,g,station){
+/* want — сборка, в которую встаёт стекло (erp/shopfloor/skip): id открытой
+   сборки или 'new'. Без want — самая ранняя открытая, как у сканера. */
+function stationAsmJoin(rec,g,station,want){
  if(!g||!g.c||g.c.missing)return;
  const mu=stationUnitMerge(g.o,g.l),lam=salesRouteStationOf('lamination','LAM');
  if(station!==mu&&!(station===lam&&g.c.ply))return;
  const expected=stationAssemblyKeys(g,station),index=stationPieceIndex(),me={key:g.c.key,unit:g.unit};
  const open=stationAsms(g.o,g.l,station,index).filter(a=>!a.complete&&!a.broken&&!a.lites.has(g.c.key)&&!a.recs.includes(rec)&&[...a.lites.keys()].every(k=>expected.includes(k))&&stationAsmFits(a,g.o,g.l,index,me));
- rec.asm=open.length?open[0].asm:rec.id;
+ rec.asm=want==='new'?rec.id:want&&open.some(a=>a.asm===want)?want:open.length?open[0].asm:rec.id;
  const all=stationAsms(g.o,g.l,station,index),a=all.find(x=>x.asm===rec.asm);
  if(!a||!expected.every(k=>a.lites.has(k)))return;
  if(station!==mu){a.recs.forEach(r=>{r.joined=true;});return;}
@@ -33960,7 +33973,9 @@ function orderLogDialogHTML(){
  const v=orderLogView;if(!v)return '';
  if(!accessCan('sales')){orderLogView=null;return '';}
  const o=(DB.salesOrder||[]).find(x=>x.id===v.id);if(!o){orderLogView=null;return '';}
- const rows=orderLogFor(o.id).map(r=>`<tr data-order-log-row><td>${esc(orderLogWhen(r.at))}</td><td>${r.by?raw(r.by):'<span class="mut">—</span>'}</td><td><b>${esc(r.what)}</b>${r.note?` <span class="order-log-note">· ${raw(r.note)}</span>`:''}</td></tr>`).join('');
+ /* Skip отменяется отсюда целиком (erp/shopfloor/skip) — Users и Finance. */
+ const undo=r=>{const k=r.id&&typeof skipAllowed==='function'&&skipAllowed()?(DB.skip||[]).find(x=>x.eventId===r.id&&!x.undoneAt):null;return k?` <button type="button" class="sm" data-skip-undo="${esc(k.id)}" onclick="skipUndoClick('${esc(k.id)}')">Undo</button>`:'';};
+ const rows=orderLogFor(o.id).map(r=>`<tr data-order-log-row><td>${esc(orderLogWhen(r.at))}</td><td>${r.by?raw(r.by):'<span class="mut">—</span>'}</td><td><b>${esc(r.what)}</b>${r.note?` <span class="order-log-note">· ${raw(r.note)}</span>`:''}${undo(r)}</td></tr>`).join('');
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)orderLogClose()"><div class="sales-service-modal sales-dialog order-log-dialog" role="dialog" aria-modal="true" aria-label="Activity log" data-order-log>
   <div class="sales-service-modal-head"><div><span>Activity log</span><h3 data-raw>${esc([o.businessNumber,salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))}</h3></div><button type="button" aria-label="Close" onclick="orderLogClose()">×</button></div>
   <div class="sales-dialog-body"><table class="order-log-table"><thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`;
@@ -36405,10 +36420,11 @@ function shippingUpdate(id,d){return storageCommand(()=>{
    он везёт двумя доставками… не влезло на машину»). Без mode — весь PS:
    непогруженное офис подтверждает сам ручными SHIP-сканами, как в PR 1
    (самовывоз одним сканом подписанного PS, рейс без сканов на станции). */
-function shippingMarkShipped(id,mode){return storageCommand(()=>{
+/* at — время выдачи задним числом (Skip, erp/shopfloor/skip: забрали в субботу). */
+function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can be shipped.');
  shippingAssert(s.items.length+s.extras.length+(s.takes||[]).length>0,'An empty packing slip cannot be shipped.');
- const now=new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
+ const now=at||new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
  const loaded=new Set(shippingLoadState(s).loaded.map(u=>u.label));
  /* Сначала — что едет, потом проверка: непогруженный юнит, разбитый до
     печати, не держит отправку погруженных (аудит Shipping, F4). */
@@ -36902,6 +36918,305 @@ function shippingPrintSkid(customerId,code){
  shippingShowPrint(shippingPages(model,code));
 }
 
+/* ==== src/erp/shopfloor/skip.js ==== */
+/* =====================================================================
+   erp/shopfloor/skip  ·  skip-1.0
+   Skip — ручной проход стекла по станциям из офиса. Владелец, 7 октября
+   2026: «клиенты приходят в субботу и забирают заказ, когда никто не
+   выдаёт пакинг слип… координатор говорит: приходил ABS и забрал этот
+   заказ — его нужно скипнуть от cutting по выдали»; «максимально
+   флексибл: клиент может забрать одно стекло из большого заказа»; «от
+   создания заказа до выдачи полностью»; «в субботу стекло могут порезать
+   со стока и выдать клиенту». Делают только админ (раздел Users) и
+   акаунтинг (раздел Finance).
+   Каждая отметка — настоящая запись журнала станций: manual, «Skip · кто»,
+   общий actionId — «где стекло» остаётся правдой. Picked up — PS
+   самовывоза этим днём, выданный. Undo снимает весь Skip разом.
+   IN : заказ; выбор — строки с количеством, Glass ID / U-, товар со склада;
+        куда (Picked up или станция); день; причина; кто забрал
+   OUT: DB.skip {id, orderId, at, date, to, reason, receivedBy, by, byId,
+        actionId, pieces, shipments, status, eventId, undoneAt, undoneBy}
+   ===================================================================== */
+DEFAULT.skip=[];
+const SKIP_PICKUP='pickup';
+function skipAllowed(){return typeof accessCan==='function'&&(accessCan('users')||accessCan('finance'));}
+function skipFind(id){return (DB.skip||[]).find(s=>s&&s.id===id)||null;}
+function skipCanOpen(o){return !!o&&!salesIsQuote(o)&&!['closed','cancelled'].includes(o.status)&&!!salesRecord(o.id);}
+function skipForOrder(orderId){return (DB.skip||[]).filter(s=>s&&s.orderId===orderId);}
+/* Индексы на один расчёт: Skip смотрит на сотни стёкол заказа. */
+function skipCtx(){
+ const scans=new Map(),onPs=new Set();
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!scans.has(s.piece))scans.set(s.piece,[]);scans.get(s.piece).push(s);});
+ (DB.shipment||[]).filter(shippingActive).forEach(s=>s.items.forEach(i=>i.pieces.forEach(p=>onPs.add(p))));
+ return {index:stationPieceIndex(),batches:stationBatchIndex(),scans,onPs,used:new Set(),taken:new Map()};
+}
+/* Стекло, которое можно провести: живое, не уехало, не на другом PS. */
+function skipPiece(id,ctx){
+ const g=stationGlass(id,ctx.index,ctx.batches);if(!g||!g.c||g.c.missing||unitPieceCancelled(g)||ctx.onPs.has(id))return null;
+ const p=stationPlace(g,ctx.scans.get(id)||[]);return p.broken||p.shipped?null:{id,g,p};
+}
+/* Свободные стёкла лайта строки, дальше всех прошедшие — первыми. */
+function skipFree(o,l,key,ctx){
+ const rec=glassPieceMap(o.id).get(key),ids=rec?rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean):[];
+ return ids.map(id=>skipPiece(id,ctx)).filter(x=>x&&!ctx.used.has(x.id)).sort((a,b)=>b.p.far-a.p.far||a.id.localeCompare(b.id));
+}
+/* Открытая сборка стекла на станции слияния (LAM, IGU): её стёкла едут вместе. */
+function skipOpenAsm(id,ctx){
+ const s=(ctx.scans.get(id)||[]).find(x=>x.asm&&!x.unit&&!x.joined);if(!s)return [];
+ return (DB.stationScan||[]).filter(x=>!x.undoneAt&&x.asm===s.asm&&x.piece!==id).map(x=>x.piece);
+}
+/* Юнит — стёкла всех лайтов (у ламината — обе плиты). Сначала собранные
+   юниты, потом начатые сборки, потом — из отдельных стёкол. first — стекло,
+   с которого юнит начинается (Glass ID из окна). */
+function skipLineUnits(o,l,want,ctx,first){
+ /* Не больше, чем штук в строке: стекла (с Recut) бывает больше, чем юнитов. */
+ const ps=(DB.shipment||[]).filter(shippingActive).flatMap(s=>s.items).filter(i=>i.orderId===o.id&&i.lineId===l.id).length;
+ want=Math.min(want,shippingLineQty(l)-ps-(ctx.taken.get(l.id)||0));
+ const keys=stationLineKeys(o,l),units=[];if(!keys.length||want<1)return units;
+ const mu=stationUnitMerge(o,l),take=u=>{u.pieces.forEach(id=>ctx.used.add(id));ctx.taken.set(l.id,(ctx.taken.get(l.id)||0)+1);units.push(u);};
+ if(keys.length===1){
+  (first?[first]:skipFree(o,l,keys[0],ctx)).some(x=>{if(units.length>=want)return true;take({lineId:l.id,pieces:[x.id]});return false;});
+  return units;
+ }
+ /* Собранный юнит (U-) — целиком, если ни одно его стекло не уехало. */
+ const whole=a=>{const ids=[...a.lites.values()];return ids.every(id=>!ctx.used.has(id)&&skipPiece(id,ctx))?{lineId:l.id,pieces:ids}:null;};
+ const asms=mu?stationAsms(o,l,mu,ctx.index).filter(a=>a.complete&&!a.broken):[];
+ const build=start=>{
+  const u={lineId:l.id,pieces:[]},has=new Set(),add=x=>{if(!x||u.pieces.includes(x.id))return;u.pieces.push(x.id);has.add(x.g.c.key);skipOpenAsm(x.id,ctx).forEach(m=>{const y=skipPiece(m,ctx);if(y&&!ctx.used.has(y.id)&&!has.has(y.g.c.key)&&keys.includes(y.g.c.key)){u.pieces.push(y.id);has.add(y.g.c.key);}});};
+  if(start)add(start);
+  for(const k of keys){if(has.has(k))continue;const x=skipFree(o,l,k,ctx).find(x=>!u.pieces.includes(x.id)&&(typeof stationDrawingFits!=='function'||u.pieces.every(id=>{const h=ctx.index.get(id);return !h||stationDrawingFits(o,l,h,{key:k,unit:x.g.unit});})));if(!x)return null;add(x);}
+  return keys.every(k=>has.has(k))?u:null;
+ };
+ if(first){
+  const a=asms.find(a=>[...a.lites.values()].includes(first.id)),u=a?whole(a):build(first);if(u)take(u);return units;
+ }
+ asms.forEach(a=>{if(units.length>=want)return;const u=whole(a);if(u)take(u);});
+ while(units.length<want){const u=build(null);if(!u)break;take(u);}
+ return units;
+}
+/* Выбор из окна → юниты. d.lines {lineId: число | 'all'}, d.codes — G-/U-. */
+function skipPick(o,d,ctx){
+ const units=[],problems=[];
+ (d.codes||[]).map(c=>String(c||'').trim().toUpperCase()).filter(Boolean).forEach(code=>{
+  const hit=glassLookup(code);if(!hit||hit.orderId!==o.id){problems.push(code+' is not in this order');return;}
+  const l=(o.lines||[]).find(x=>x.id===hit.lineId);if(!l){problems.push(code+' is not in this order');return;}
+  if(hit.kind==='unit'){
+   const mu=stationUnitMerge(o,l),a=mu&&stationAsms(o,l,mu,ctx.index).find(x=>x.unit===hit.unit&&!x.broken);
+   const ids=a?[...a.lites.values()]:[];if(!ids.length||ids.some(id=>ctx.used.has(id)||!skipPiece(id,ctx))){problems.push(code+' is not assembled or already shipped');return;}
+   ids.forEach(id=>ctx.used.add(id));units.push({lineId:l.id,pieces:ids});return;
+  }
+  const x=!ctx.used.has(code)&&skipPiece(code,ctx);if(!x){problems.push(code+' is shipped, broken or already picked');return;}
+  const got=skipLineUnits(o,l,1,ctx,x);if(!got.length){problems.push(code+': its other lites are not available');return;}
+  units.push(...got);
+ });
+ (o.lines||[]).forEach((l,i)=>{
+  const v=d.lines&&d.lines[l.id];if(v==null||v===''||v===0)return;
+  const want=v==='all'?Infinity:Math.floor(+v);if(!(want>0)){problems.push('Line '+(i+1)+': check the quantity');return;}
+  const got=skipLineUnits(o,l,want,ctx);
+  if(want!==Infinity&&got.length<want)problems.push('Line '+(i+1)+': only '+got.length+' of '+want+' can be skipped');
+  units.push(...got);
+ });
+ return {units,problems};
+}
+/* Сколько юнитов строки ещё можно провести — для окна. */
+function skipLineLeft(o,l){return skipLineUnits(o,l,Infinity,skipCtx()).length;}
+/* Сборка на станции слияния: стекло встаёт к стёклам своего юнита. */
+function skipWantAsm(u,g,station){
+ const keys=stationAssemblyKeys(g,station),index=stationPieceIndex();
+ for(const id of u.pieces){
+  if(id===g.id)continue;
+  const s=stationScansFor(id).find(x=>x.station===station&&x.asm&&!x.unit&&!x.joined),h=s&&index.get(id);
+  if(h&&keys.includes(h.key))return s.asm;
+ }
+ return 'new';
+}
+/* Ручные отметки: по шагу маршрута за проход, пока стекло не дошло до
+   target включительно. Сборка ждёт своих стёкол — следующий проход. */
+function skipRecord(units,target,at,who,skip){
+ const lam=salesRouteStationOf('lamination','LAM');
+ for(let pass=0;pass<200;pass++){
+  let moved=false;
+  units.forEach(u=>u.pieces.forEach(id=>{
+   const g=stationGlass(id);if(!g||!g.c)return;const p=stationPlace(g);
+   if(p.broken||p.shipped||!p.waiting||p.assembling)return;
+   const ti=p.route.lastIndexOf(target),wi=p.route.indexOf(p.waiting,p.far+1);if(ti<0||wi<0||wi>ti)return;
+   const st=p.waiting,mu=stationUnitMerge(g.o,g.l),merge=st===mu||st===lam&&!!g.c.ply;
+   const rec=stationRecordCommand(st,{kind:'ok',code:id,g},who,{deferTouch:true,manual:true,now:at,actionId:skip.actionId||undefined,asm:merge?skipWantAsm(u,g,st):undefined});
+   if(!rec)throw new Error('Skip was not recorded.');
+   if(!skip.actionId)skip.actionId=rec.actionId;moved=true;
+  }));
+  if(!moved)break;
+ }
+ const stuck=units.filter(u=>u.pieces.some(id=>{const g=stationGlass(id),p=g&&stationPlace(g);if(!p||p.broken)return true;const ti=p.route.lastIndexOf(target);return ti>=0&&!p.shipped&&p.far<ti;}));
+ if(stuck.length)throw new Error(shippingCount(stuck.length,'unit')+' could not be moved to '+target+'.');
+}
+function skipAt(date){return date===finToday()?new Date().toISOString():new Date(date+'T12:00:00').toISOString();}
+/* d: {orderId, lines, codes, extras {extraId: qty}, to, date, reason, receivedBy}. */
+function skipRun(d){
+ if(!skipAllowed())return {error:'Only Users or Finance can skip.'};
+ const out=storageCommand(()=>skipCommand(d));
+ return out.ok?out.value:{error:out.error};
+}
+function skipCommand(d){
+ const o=salesRecord(d&&d.orderId);shippingAssert(skipCanOpen(o),'Skip is not available for this order.');
+ shippingAssert(!o.onHold,'Order is On Hold. Release it first.');
+ const date=String(d.date||finToday());shippingAssert(shippingDateValid(date)&&date<=finToday(),'Check the date.');
+ const stations=shippingStations(),to=d.to===SKIP_PICKUP||!d.to?SKIP_PICKUP:sfCode(d.to),target=to===SKIP_PICKUP?stations.ready:to;
+ shippingAssert(target&&(DB.station||[]).some(s=>s.code===target),'Choose where to skip to.');
+ const ctx=skipCtx(),pick=skipPick(o,d,ctx),extras=Object.keys(d.extras||{}).map(extraId=>({orderId:o.id,extraId,qty:Math.floor(+d.extras[extraId])})).filter(x=>x.qty>0);
+ shippingAssert(!pick.problems.length,pick.problems.join('. ')+'.');
+ shippingAssert(pick.units.length||to===SKIP_PICKUP&&extras.length,'Choose what to skip.');
+ shippingAssert(!extras.length||to===SKIP_PICKUP,'Stock items can only be picked up.');
+ pick.units.forEach(u=>{const l=(o.lines||[]).find(x=>x.id===u.lineId);shippingAssert(l&&!l.onHold&&!u.pieces.some(id=>unitPieceHold(stationGlass(id))),'Line '+((o.lines||[]).indexOf(l)+1)+' is On Hold. Release it first.');});
+ const at=skipAt(date),pieces=pick.units.flatMap(u=>u.pieces);
+ /* Отметка не может стать раньше уже сделанного скана этого стекла. */
+ const late=pieces.find(id=>(ctx.scans.get(id)||[]).some(s=>String(s.at)>at));
+ shippingAssert(!late,'Glass '+(late||'')+' was scanned after this date. Pick a later date.');
+ const actor=orderLogActor(),who={id:actor.byId,name:('Skip · '+(actor.by||'Office')).slice(0,80)};
+ const skip={id:salesUid('SK'),orderId:o.id,at:new Date().toISOString(),date,to,reason:String(d.reason||'').trim().slice(0,200),receivedBy:String(d.receivedBy||'').trim().slice(0,100),
+  by:actor.by||'',byId:actor.byId||'',actionId:'',pieces,shipments:[],status:o.status,eventId:'',undoneAt:'',undoneBy:''};
+ /* «От создания заказа»: Skip сам себе Verify. */
+ if(o.status==='new'){o.status='verified';o.statusDates=Object.assign({},o.statusDates,{verified:at});salesSyncRecordLifecycle(o);}
+ skipRecord(pick.units,target,at,who,skip);
+ if(to===SKIP_PICKUP){
+  const sel=new Set(pieces),items=shippingAvailable(o).filter(i=>i.pieces.length&&i.pieces.every(p=>sel.has(p))).map(shippingItem);
+  shippingAssert(items.length===pick.units.length,'Some units are not ready to pick up.');
+  const made=shippingCreate({customerId:o.customerId,method:'pickup',shipTo:{},date,items,extras,note:('Skip'+(skip.reason?' · '+skip.reason:'')).slice(0,1000)});shippingAssert(made.ok,made.error);
+  const s=made.value;s.skip=skip.id;skip.shipments.push(s.id);
+  const sent=shippingMarkShipped(s.id,undefined,at);shippingAssert(sent.ok,sent.error);
+  /* Отметки SHIP этого PS — тоже Skip, а не скан у ворот. */
+  (s.scanIds||[]).forEach(sid=>{const r=(DB.stationScan||[]).find(x=>x.id===sid);if(r)r.by=who.name;});
+  const got=shippingMarkDelivered(s.id,skip.receivedBy,date);shippingAssert(got.ok,got.error);
+ }
+ shippingSyncOrder(o,at);
+ const ps=skip.shipments.map(id=>shippingFind(id)).filter(Boolean).map(s=>s.number);
+ const e=orderLogPush(o,'Skipped',[pieces.length+' glass','→ '+(to===SKIP_PICKUP?'Picked up':to),date,skip.reason,skip.receivedBy?'by '+skip.receivedBy:'',ps.join(', ')].filter(Boolean).join(' · '));
+ skip.eventId=e?e.id:'';
+ (DB.skip||(DB.skip=[])).push(skip);
+ return skip;
+}
+/* Undo — весь Skip разом: его PS назад (выдан → отгружен → отменён), его
+   отметки станций сняты, заказ — в прежний статус, если он был New. */
+function skipUndo(id){
+ if(!skipAllowed())return {error:'Only Users or Finance can undo a skip.'};
+ const out=storageCommand(()=>skipUndoCommand(id));
+ return out.ok?out.value:{error:out.error};
+}
+function skipUndoCommand(id){
+ const k=skipFind(id);shippingAssert(k&&!k.undoneAt,'Skip not found.');
+ const o=salesRecord(k.orderId);shippingAssert(o,'Order not found.');
+ k.shipments.slice().reverse().forEach(sid=>{
+  const s=shippingFind(sid);if(!s||s.status==='cancelled')return;
+  [['delivered','receipt'],['shipped','dispatch'],['planned','cancel']].forEach(([st,action])=>{if(s.status!==st)return;const r=shippingRevert(s.id,action);shippingAssert(r.ok,r.error);});
+ });
+ const group=(DB.stationScan||[]).filter(s=>k.actionId&&s.actionId===k.actionId&&!s.undoneAt);
+ const later=group.find(r=>stationScansFor(r.piece).some(s=>!group.includes(s)&&String(s.at)>=String(r.at)&&String(s.id)>String(r.id)));
+ shippingAssert(!later,'Glass '+(later?later.piece:'')+' has moved on. Undo the later scans first.');
+ const now=new Date().toISOString(),cut=stationCutCode(),who=orderLogActor();
+ group.forEach(r=>{
+  r.undoneAt=now;r.undoneBy=('Undo skip · '+(who.by||'Office')).slice(0,80);stationAsmReopen(r);
+  if(r.station===cut&&!stationScansFor(r.piece).some(s=>s.station===cut)){
+   const e=stationBatchIndex().get(r.piece);
+   if(e&&e.item.cutStartedAt===r.at){e.item.cutStartedAt='';const oo=salesRecord(e.part.orderId),l=oo&&(oo.lines||[]).find(x=>x.id===e.part.lineId);if(oo&&l)glassBatchSyncLine(oo,l);}
+  }
+ });
+ shippingSyncOrder(o,now,{reopen:true});
+ if(k.status==='new'&&o.status==='verified'){o.status='new';o.statusDates={new:(o.statusDates||{}).new||o.createdAt||now};o.updatedAt=now;salesSyncRecordLifecycle(o);}
+ k.undoneAt=now;k.undoneBy=who.by||'Office';
+ orderLogPush(o,'Skip undone',[shippingCount(group.length,'mark'),k.date].join(' · '));
+ return k;
+}
+function normalizeSkips(){
+ if(!Array.isArray(DB.skip))DB.skip=[];
+ const ids=new Set(),s=v=>typeof v==='string'?v:'';
+ DB.skip=DB.skip.filter(k=>k&&typeof k==='object'&&salesRefId(k.id)&&!ids.has(k.id)&&salesRefId(k.orderId)&&(ids.add(k.id),true)).map(k=>({id:k.id,orderId:k.orderId,at:s(k.at),date:s(k.date),to:s(k.to)||SKIP_PICKUP,reason:s(k.reason).slice(0,200),receivedBy:s(k.receivedBy).slice(0,100),
+  by:s(k.by).slice(0,80),byId:s(k.byId),actionId:STATION_SCAN_ID_RE.test(s(k.actionId))?k.actionId:'',pieces:(Array.isArray(k.pieces)?k.pieces:[]).filter(glassPieceValid),shipments:(Array.isArray(k.shipments)?k.shipments:[]).filter(salesRefId),
+  status:s(k.status),eventId:s(k.eventId),undoneAt:s(k.undoneAt),undoneBy:s(k.undoneBy).slice(0,80)}));
+}
+function validateSkipPayload(src){
+ if(src.skip==null)return;
+ if(!Array.isArray(src.skip))throw new Error('The "skip" field must be an array.');
+ const ids=new Set();src.skip.forEach(k=>{if(!k||typeof k!=='object'||!salesRefId(k.id)||ids.has(k.id)||!salesRefId(k.orderId))throw new Error('Invalid skip record.');ids.add(k.id);});
+}
+
+/* ==== src/erp/views/skip-ui.js ==== */
+/* =====================================================================
+   view/skip · skip-ui-1.0
+   Окно Skip поверх Sales: правая кнопка на заказе → Skip… Что провести
+   (строки с количеством, весь заказ, Glass ID / U-, товар со склада), куда
+   (Picked up или станция), день, кто забрал, причина. Undo — в Activity log.
+   Видят только Users и Finance (erp/shopfloor/skip, skipAllowed).
+   IN : skipRun, skipLineLeft; OUT: окно
+   ===================================================================== */
+let skipDialog=null;
+function skipOpen(orderId){
+ const o=salesRecord(orderId);salesListMenu=null;
+ if(!skipAllowed()||!skipCanOpen(o)){render();return false;}
+ skipDialog={orderId:o.id,lines:{},extras:{},all:false,codes:'',to:SKIP_PICKUP,date:finToday(),reason:'',receivedBy:'',error:'',left:null};
+ render();return true;
+}
+function skipClose(){skipDialog=null;render();}
+function skipSet(key,value,redraw){if(!skipDialog)return;skipDialog[key]=value;skipDialog.error='';if(redraw)render();}
+function skipSetLine(lineId,value){if(!skipDialog)return;skipDialog.lines[lineId]=value;skipDialog.all=false;skipDialog.error='';}
+function skipSetExtra(extraId,value){if(!skipDialog)return;skipDialog.extras[extraId]=value;skipDialog.all=false;skipDialog.error='';}
+/* Весь заказ: все строки целиком и весь товар со склада. */
+function skipSetAll(on){
+ const d=skipDialog,o=d&&salesRecord(d.orderId);if(!o)return;d.all=!!on;d.error='';
+ (o.lines||[]).forEach(l=>{d.lines[l.id]=on?'all':'';});
+ (o.extraItems||[]).forEach(x=>{d.extras[x.id]=on?String(skipExtraLeft(o,x)):'';});
+ render();
+}
+function skipExtraLeft(o,x){return Math.max(0,x.qty-shippingForOrder(o.id).filter(shippingActive).flatMap(s=>s.extras).filter(i=>i.extraId===x.id).reduce((n,i)=>n+i.qty,0));}
+function skipConfirm(){
+ const d=skipDialog;if(!d)return false;
+ const o=salesRecord(d.orderId),clean=!!o&&!!soDraft&&soDraft.id===o.id&&JSON.stringify(o)===JSON.stringify(normalizeSalesOrder(soDraft));
+ const lines={};Object.keys(d.lines).forEach(id=>{const v=String(d.lines[id]).trim();if(v)lines[id]=v==='all'?'all':Number(v);});
+ const extras={};Object.keys(d.extras).forEach(id=>{const v=Number(d.extras[id]);if(v>0)extras[id]=v;});
+ const res=skipRun({orderId:d.orderId,lines,extras,codes:String(d.codes||'').split(/[\s,;]+/).filter(Boolean),to:d.to,date:d.date,reason:d.reason,receivedBy:d.receivedBy});
+ if(res.error){d.error=res.error;render();return false;}
+ skipDialog=null;
+ /* Открытый и не правленный заказ перечитывается: Skip поменял его в базе. */
+ if(clean)salesOrderEdit(o.id);else render();
+ return true;
+}
+function skipUndoClick(id){
+ const k=skipFind(id);if(!k)return false;
+ if(!confirm('Undo this skip? Its station marks'+(k.shipments.length?' and packing slip':'')+' will be removed.'))return false;
+ const res=skipUndo(id);if(res.error){alert(res.error);return false;}
+ render();return true;
+}
+function skipDialogHTML(){
+ const d=skipDialog;if(!d)return '';
+ const o=salesRecord(d.orderId);if(!o||!skipAllowed()||!skipCanOpen(o)){skipDialog=null;return '';}
+ if(!d.left)d.left=Object.fromEntries((o.lines||[]).map(l=>[l.id,skipLineLeft(o,l)]));
+ const glassCodes=l=>{const m=salesMakeupById(o,l.makeupId);return m?(m.panes||[]).map(ncrPaneCode).join(' / '):'—';};
+ const pickup=d.to===SKIP_PICKUP;
+ const rows=(o.lines||[]).map((l,i)=>{const v=d.lines[l.id]==null?'':d.lines[l.id],left=d.left[l.id]||0;
+  return `<tr data-skip-line="${esc(l.id)}" class="${v?'on':''}"><td>Line ${i+1}${l.mark?' · '+esc(l.mark):''}</td><td class="nowrap">${esc(dimIn16(l.width16/16))} × ${esc(dimIn16(l.height16/16))}</td><td>${esc(glassCodes(l))}</td><td class="n">${l.qty}</td><td class="n">${left}</td>
+   <td><input type="number" min="0" max="${left}" step="1" data-skip-qty value="${v==='all'?left:esc(v)}" ${left?'':'disabled'} aria-label="Line ${i+1} units" oninput="skipSetLine('${esc(l.id)}',this.value)"></td></tr>`;}).join('');
+ const extras=(o.extraItems||[]).map(x=>{const left=skipExtraLeft(o,x),v=d.extras[x.id]||'';
+  return `<tr data-skip-extra="${esc(x.id)}"><td colspan="3">${esc(salesExtraItemName(x))}</td><td class="n">${x.qty}</td><td class="n">${left}</td><td><input type="number" min="0" max="${left}" step="1" data-skip-extra-qty value="${esc(v)}" ${left&&pickup?'':'disabled'} aria-label="Stock item units" oninput="skipSetExtra('${esc(x.id)}',this.value)"></td></tr>`;}).join('');
+ const stations=(DB.station||[]).filter(s=>s.code!==shippingStations().ship);
+ return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)skipClose()"><div class="sales-service-modal sales-dialog ncr-modal skip-dialog" role="dialog" aria-modal="true" aria-label="Skip" data-skip-dialog>
+  <div class="sales-service-modal-head"><h3>Skip · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" onclick="skipClose()">×</button></div>
+  <div class="sales-dialog-body ncr-form">
+   <p class="mut">${esc([salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · '))}</p>
+   <label class="skip-all"><input type="checkbox" data-skip-all ${d.all?'checked':''} onchange="skipSetAll(this.checked)"> Whole order</label>
+   <div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th class="n">Left</th><th>Skip</th></tr></thead><tbody>${rows}${extras}</tbody></table></div>
+   <label><span class="ncr-label">GLASS ID OR UNIT</span><input type="text" data-skip-codes value="${esc(d.codes)}" placeholder="Scan G- or U-" oninput="skipSet('codes',this.value)"></label>
+   <div class="ncr-pick">
+    <label><span class="ncr-label">TO</span><select data-skip-to onchange="skipSet('to',this.value,true)"><option value="${SKIP_PICKUP}" ${pickup?'selected':''}>Picked up</option>${stations.map(s=>`<option value="${esc(s.code)}" ${d.to===s.code?'selected':''}>${esc(s.code)} done</option>`).join('')}</select></label>
+    <label><span class="ncr-label">DATE</span><input type="date" data-skip-date max="${esc(finToday())}" value="${esc(d.date)}" onchange="skipSet('date',this.value)"></label>
+    <label><span class="ncr-label">PICKED UP BY</span><input type="text" data-skip-by value="${esc(d.receivedBy)}" maxlength="100" ${pickup?'':'disabled'} oninput="skipSet('receivedBy',this.value)"></label>
+   </div>
+   <label><span class="ncr-label">REASON</span><input type="text" data-skip-reason value="${esc(d.reason)}" maxlength="200" placeholder="Picked up Saturday" oninput="skipSet('reason',this.value)"></label>
+   ${d.error?`<div class="ncr-error" role="alert" data-skip-error>${esc(d.error)}</div>`:''}
+  </div>
+  <div class="sales-dialog-actions"><button type="button" onclick="skipClose()">Back</button><button type="button" class="pri" data-skip-run onclick="skipConfirm()">Skip</button></div></div></div>`;
+}
+(window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(skipDialogHTML);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&skipDialog)skipClose();});
+
 /* ==== src/erp/storage.js ==== */
 /* =====================================================================
    erp/storage  ·  erp-1.0
@@ -37151,6 +37466,7 @@ function validateImportedState(src){
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
  if(typeof validateRecutPayload==='function')validateRecutPayload(src);
+ if(typeof validateSkipPayload==='function')validateSkipPayload(src);
  if(typeof validateStickerPayload==='function')validateStickerPayload(src);
 
  if(typeof validateCuttingPayload==='function')validateCuttingPayload(src);
@@ -37251,6 +37567,7 @@ function normalizeDB(){
  if(typeof normalizeCarriers==='function')normalizeCarriers();
  if(typeof normalizeStationScans==='function')normalizeStationScans();
  if(typeof normalizeShipments==='function')normalizeShipments();
+ if(typeof normalizeSkips==='function')normalizeSkips();
  if(typeof normalizeTrucks==='function')normalizeTrucks();
  if(typeof normalizeSkidReturns==='function')normalizeSkidReturns();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
