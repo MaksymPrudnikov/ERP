@@ -86,7 +86,7 @@ function stationWho(){
    и вход: живёт в сессии этого браузера. */
 function stationPutOn(){
  const s=stationSession(),c=s&&s.putOn&&typeof carrierFind==='function'?carrierFind(s.putOn):null;
- if(c&&c.active&&(s.putOnMode==null||s.putOnMode===stationPutsOnHere()))return c.code;
+ if(c&&c.active&&(s.putOnMode==null||s.putOnMode===stationPutsOnHere())){if(s.putOnMode==null)stationSetPutOn(c.code);return c.code;}
  if(s&&s.putOn)stationSetPutOn('');return '';
 }
 function stationSetPutOn(code){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.putOn=code||'';s.putOnMode=stationPutsOnHere();stationSessionsSave(m);}

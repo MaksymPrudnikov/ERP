@@ -151,9 +151,10 @@ module.exports=async function({page,eq,ok}){
  eq('выбор тары обновляется после отключения и смены Puts on; производство без тары остаётся разрешённым',await t.p.evaluate(()=>{
   cvReset();carrierAdd('DL',1);const id=cvOrder([[36,24,3]]),pieces=cvIds(id);cvLogin('CUT','QA');stationSubmit('DL-1');stationSubmit(pieces[0]);carrierSet('DL-1','active',false);
   const kind=stationSubmit(pieces[1]),inactive=stationScansFor(pieces[1]).at(-1).on||'',loose=stationLoose().length;
-  carrierSet('DL-1','active',true);stationSubmit('DL-1');sfSetPutsOn('CUT','none');const changed=stationSubmit(pieces[2]),none=stationScansFor(pieces[2]).at(-1).on||'',put=stationPutOn();sfSetPutsOn('CUT','dolly');
-  return {kind,inactive,loose,changed,none,put};
- }),{kind:'ok',inactive:'',loose:1,changed:'ok',none:'',put:''});
+  carrierSet('DL-1','active',true);stationSubmit('DL-1');const sessions=stationSessions();delete sessions[stationCode].putOnMode;stationSessionsSave(sessions);const legacy=stationPutOn();
+  sfSetPutsOn('CUT','none');const changed=stationSubmit(pieces[2]),none=stationScansFor(pieces[2]).at(-1).on||'',put=stationPutOn();sfSetPutsOn('CUT','dolly');
+  return {kind,inactive,loose,legacy,changed,none,put};
+ }),{kind:'ok',inactive:'',loose:1,legacy:'DL-1',changed:'ok',none:'',put:''});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
