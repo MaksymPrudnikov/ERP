@@ -114,10 +114,12 @@ function salesOrderCommercialAdjustments(order){
 /* Coefficients are measured product norms. Empty is unknown, explicit zero is
    allowed (e.g. consumables already included in a filled-spacer norm). */
 function salesWeightRate(key){const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;}
-function salesLineWeight(line,order){
+/* productionPlan — фактические лайты собранного юнита (частичный Recut).
+   Без него коммерческие документы по-прежнему считают геометрию заказа. */
+function salesLineWeight(line,order,productionPlan){
  order=order||soDraft;
  const rows=[],m=salesMakeupById(order,line.makeupId),shape=salesLineGeometryShape(line),areas=salesLineAreas(line,order);
- const plan=shape&&m?salesEffectiveCuttingPlan(line,shape,order):null;
+ const plan=productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
  const add=(label,kg,note)=>rows.push({label:label,kg:Number.isFinite(kg)&&kg>=0?kg:null,note:note||''});
  const norm=(key,label,basis,unit,note)=>{const rate=salesWeightRate(key);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||''});};
  if(!m||!areas.valid)return {rows:[],kg:null,lineKg:null,knownKg:0,complete:false,missing:1};

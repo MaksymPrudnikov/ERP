@@ -19,12 +19,18 @@ let stationIguSel=new Set();   // «No skid» заказа, выбранное �
 let stationIguOpen='';         // пропущенный юнит, раскрытый нажатием
 const STATION_IGU_ORDERS=25,STATION_IGU_ROWS=12;
 function stationIguCode(){return typeof salesRouteStationOf==='function'?salesRouteStationOf('igu_assembly','IGU'):'IGU';}
+/* Строка целого U и его стикер используют один готовый размер сборки. */
+function stationIguGeometry(g,unit){
+ if(!unit)return stationGeo(g);
+ const d=finWithOrder(g.o,()=>stkUnitGeometry(g.o,g.l,unit,g.unit));
+ return {width16:d.finished.w*16,height16:d.finished.h*16};
+}
 /* Заказы с юнитами IGU, которые ещё не погружены; по каждому — скиды,
    без скида, пропущенные и в линии. */
 function stationIguBoard(){
  const igu=stationIguCode(),st=shippingStations();if(!igu||!st.ready||!st.ship)return null;
  return shippingWithCtx(()=>{
-  const ctx=shippingCtx(),ids=new Set();
+  const ctx=shippingCtx(),ids=new Set(),geometry=new Map();
   ctx.asm.forEach((list,k)=>{if(list.some(s=>s.station===igu&&s.unit&&!ctx.broken.has(s.piece)))ids.add(k.split('|')[0]);});
   const mix=new Map();carrierContents().forEach((list,code)=>mix.set(code,new Set(list.map(x=>x.g.o.customerId)).size>1));
   let edge='';const orders=[];
@@ -32,14 +38,19 @@ function stationIguBoard(){
    const o=salesRecord(id);if(!o)return;
    const igus=(o.lines||[]).filter(l=>stationUnitMerge(o,l)===igu);if(!igus.length)return;
    const r={o,total:igus.reduce((n,l)=>n+shippingLineQty(l),0),done:0,skids:new Map(),noSkid:[],pending:[],lastAt:''};
-   shippingUnits(o).forEach(u=>{
+   shippingUnits(o,{includeClosed:true}).forEach(u=>{
     const l=igus.find(x=>x.id===u.lineId);if(!l)return;
     const gs=u.pieces.map(p=>stationGlass(p,ctx.index,ctx.batches)),places=gs.map((g,i)=>g&&stationPlace(g,ctx.scans.get(u.pieces[i])||[]));
     const at=u.pieces.flatMap(p=>(ctx.scans.get(p)||[]).filter(s=>s.station===igu&&s.unit).map(s=>s.at)).sort().pop()||'';
-    /* Размер — как на станции: у стекла Recut со своим чертежом — его (stationGeo, PR #234). */
-    const x=Object.assign({},u,{l,at,geo:typeof stationGeo==='function'&&gs[0]?stationGeo(gs[0]):l});if(at>r.lastAt)r.lastAt=at;
-    if(u.loaded||places.every(p=>p&&p.waiting===st.ship)){
-     r.done++;if(at>edge)edge=at;if(u.loaded)return;
+    if(at>r.lastAt)r.lastAt=at;
+    const ready=u.loaded||places.every(p=>p&&p.waiting===st.ship);
+    if(ready){r.done++;if(at>edge)edge=at;if(u.loaded)return;}
+    /* Одинаковый состав чертежей — один расчёт на этот экран, а не на
+       каждый из тысяч юнитов. История выданных размеров не требует. */
+    const key=o.id+'|'+l.id+'|'+gs.map(g=>g&&g.c?g.c.key+'|'+stationDrawingKey(o,l,g.unit):'').sort().join(';');
+    if(!geometry.has(key))geometry.set(key,gs[0]?stationIguGeometry(gs[0],u.unit):l);
+    const x=Object.assign({},u,{l,at,geo:geometry.get(key)});
+    if(ready){
      if(u.skid){if(!r.skids.has(u.skid))r.skids.set(u.skid,[]);r.skids.get(u.skid).push(x);}else r.noSkid.push(x);
     }else if(places.every(p=>p&&!p.assembling&&p.waiting===st.ready))r.pending.push(x);
    });
@@ -131,7 +142,7 @@ function stationSkidItems(code){
  (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)unitOf.set(s.piece,s);});
  list.forEach(x=>{
   const s=unitOf.get(x.id),u=s&&stationUnitMerge(x.g.o,x.g.l)===s.station?s:null,key=u?'a|'+u.asm:'g|'+x.id;
-  if(!items.has(key))items.set(key,{key,o:x.g.o,l:x.g.l,geo:typeof stationGeo==='function'?stationGeo(x.g):x.g.l,pieces:[],unit:u?u.unit:0,label:u&&typeof unitIdAt==='function'&&unitIdAt(x.g.o.id,x.g.l.id,u.unit)||x.id,at:''});
+  if(!items.has(key))items.set(key,{key,o:x.g.o,l:x.g.l,geo:stationIguGeometry(x.g,u?u.unit:0),pieces:[],unit:u?u.unit:0,label:u&&typeof unitIdAt==='function'&&unitIdAt(x.g.o.id,x.g.l.id,u.unit)||x.id,at:''});
   const it=items.get(key);it.pieces.push(x.id);if(String(x.scan.at)>it.at)it.at=String(x.scan.at);
  });
  return [...items.values()];

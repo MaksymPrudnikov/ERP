@@ -67,8 +67,8 @@ module.exports=async function({page,eq,ok}){
   oqReset();const id=stOrder();salesOrderEdit(id);const line=soDraft.lines[0];salesOpenLiteShape(line.id,1);sDraft.w='39';sDraft.h='73';sDraft.features.push(shapeNormalizeFeature({type:'hole',diameter:'1',x:'6',y:'6',minEdge:'1/2'}));saveShape();salesOrderSave();salesDraftDrop();
   const o=salesRecord(id),l=o.lines[0],d=stkUnitData(o,l,1),comps=glassBatchComponents(o,l),each=comps.map(c=>stkGlassData('final',o,l,c,1,{}).finished);
   const pts=d.shape.points,bounds={w:Math.max(...pts.map(p=>p[0]))-Math.min(...pts.map(p=>p[0])),h:Math.max(...pts.map(p=>p[1]))-Math.min(...pts.map(p=>p[1]))};
-  return {each,finished:d.finished,bounds,vars:[d.vars['Line: Width'],d.vars['Line: Height']]};
- }),{each:[{w:37,h:71},{w:39,h:73}],finished:{w:39,h:73},bounds:{w:39,h:73},vars:['39″','73″']});
+  return {each,finished:d.finished,bounds,area:Math.round(d.area*100)/100,vars:[d.vars['Line: Width'],d.vars['Line: Height']]};
+ }),{each:[{w:37,h:71},{w:39,h:73}],finished:{w:39,h:73},bounds:{w:39,h:73},area:19.77,vars:['39″','73″']});
 
  eq('базовые шаблоны: 3 стикера × 4×6 и 3×4 × стоя и лёжа помещаются, только чёрное и белое; Bottom прижат к низу',await t.p.evaluate(()=>{
   oqReset();const id=stOrder(),o=salesRecord(id),l=o.lines[0],cs=glassBatchComponents(o,l),bad=[];let colors=0,bottom=[];

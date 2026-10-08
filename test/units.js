@@ -190,6 +190,17 @@ module.exports=async function({page,eq,ok}){
    unLogin('LAM','Laminator');pieces.forEach(p=>stationSubmit(p));const loose=stationLoose().length;stationSubmit('DL-1');result.push([pieces.length,loose,(carrierContents().get('DL-1')||[]).length,pieces.every(p=>stationScansFor(p).at(-1).on==='DL-1')]);unOut();
   }return result;
  }),[[2,2,2,true],[2,2,2,true]]);
+ eq('частичный step Recut: фактические площадь и вес, тот же размер в From IGU и окне скида',await t.p.evaluate(()=>{
+  unReset();carrierAdd('SL',1);const id=oqOrder(oqCustomer());salesOrderEdit(id);const line=soDraft.lines[0];line.weightExtras=[{label:'Additional part',kg:7}];salesLineGeometryShape(line).lites={'0':{inset:{A:'1',B:'1',C:'1',D:'1'},edgeOps:{},mirror:false}};salesOrderSave();salesDraftDrop();salesSetRecordStatus(id,'verified');
+  const o=salesRecord(id),l=o.lines[0],commercial=finWithOrder(o,()=>JSON.stringify([salesLineWeight(l,o),salesOrderCommercialTotals(o)])),reason=ncrReasonsFor('OFFICE',{activeOnly:true}).find(x=>x.name==='Drawing wrong');
+  const made=recutCreate({orderId:id,where:'OFFICE',reasonId:reason.id,lines:{[l.id]:{on:true,qty:1,which:'1'}}}),r=made.recuts[0];storageCommand(()=>recutSizeCommand(r.id,36*16,71*16));
+  const first=glassPieceMap(id).get(glassBatchComponents(o,l)[0].key).ids[0],fresh=recutPieces(r)[0],pieces=[first,fresh];pieces.forEach(p=>['CUT','ARRIS','HEAT'].forEach(st=>unScan(st,p)));pieces.forEach(p=>unScan('IGU',p));
+  const a=stationAsmOf(stationGlass(first),'IGU'),unit=stkUnitData(o,l,a.unit),board=stationIguBoard().orders.find(x=>x.o.id===id),round=v=>Math.round(v*100)/100;
+  const each=pieces.map(p=>{const g=stationGlass(p),d=stkGlassData('final',o,l,g.c,g.unit);return {size:d.finished,area:round(d.area)};});
+  stationMove('SHIPR',stationCheck('SHIPR',first),unWho,{on:'SL-1'});const skid=stationSkidItems('SL-1')[0];
+  return {each,unit:{size:unit.finished,area:round(unit.area),kg:round(unit.weight.kg),exact:unit.weight.exact},board:stationIguSize(board.line[0].geo),skid:stationIguSize(skid.geo),commercial:commercial===finWithOrder(o,()=>JSON.stringify([salesLineWeight(l,o),salesOrderCommercialTotals(o)]))};
+ }),{each:[{size:{w:35,h:69},area:16.77},{size:{w:36,h:71},area:17.75}],unit:{size:{w:36,h:71},area:17.75,kg:52.45,exact:false},board:'36 × 71',skid:'36 × 71',commercial:true});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

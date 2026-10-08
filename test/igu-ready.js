@@ -140,6 +140,14 @@ module.exports=async function({page,eq}){
   return {same:JSON.stringify(before)===JSON.stringify(after),count:after.length,hidden:!board.orders.some(r=>r.o.id===ir.A)};
  }),{same:true,count:1,hidden:true});
 
+ eq('Close order сохраняет пропущенный B; Undo последних сканов A действительно снимает предупреждение',await t.p.evaluate(()=>{
+  irLine();irLogin(shippingStations().ready);stationSubmit('SL-1');[1,2,3].forEach(n=>stationSubmit(irUnit(ir.A,n)));
+  const missed=()=>stationIguBoard().orders.find(r=>r.o.id===ir.B).missed.length,before=missed(),o=salesRecord(ir.A),made=shippingCreate({customerId:o.customerId,method:'pickup',date:finToday(),items:shippingAvailable(o).map(shippingItem)});
+  shippingMarkShipped(made.value.id);shippingMarkDelivered(made.value.id);const closed=salesSetRecordStatus(o.id,'closed'),after=missed(),hidden=!stationIguBoard().orders.some(r=>r.o.id===ir.A),unavailable=shippingAvailable(salesRecord(o.id)).length;
+  const rollback=['receipt','dispatch','cancel'].map(action=>shippingRevert(made.value.id,action).ok),piece=irLites(ir.A)[0][2],undo=stationUndo(stationScansFor(piece).at(-1).id,stationWho());
+  return {before,closed,after,hidden,unavailable,rollback,undo:!undo.error,last:missed()};
+ }),{before:1,closed:true,after:1,hidden:true,unavailable:0,rollback:[true,true,true],undo:true,last:0});
+
  eq('поздний скан скида после сборки IGU назначает оба лайта; перенос на Dolly отклоняется атомарно',await t.p.evaluate(()=>{
   irReset();carrierAdd('SL',2);carrierAdd('DL',1);const id=irOrder('Late skid',1),pieces=irLites(id).flat();irPass('CUT',pieces);irPass('ARRIS',pieces);sfSetPutsOn('IGU','skid');irLogin('IGU');pieces.forEach(p=>stationSubmit(p));
   const loose=stationLoose().length;stationSubmit('SL-1');const on=(carrierContents().get('SL-1')||[]).length;

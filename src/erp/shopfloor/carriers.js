@@ -119,6 +119,8 @@ function carrierMoveUndo(move){
   (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)last.set(s.piece,s);});
   const was=move&&move.was||[];if(!was.length)throw new Error('Nothing to undo.');
   if(was.some(w=>{const s=by.get(w.id);return !s||s.undoneAt||s.broken||s.on!==move.to||last.get(s.piece)!==s||!s.moved||s.moved.id!==move.id;}))throw new Error('Glass has moved on. Undo the later action first.');
+  const pieces=new Set(was.map(w=>by.get(w.id).piece));
+  if((DB.shipment||[]).some(s=>shippingActive(s)&&s.items.some(i=>i.pieces.some(p=>pieces.has(p)))))throw new Error('Glass is on a packing slip. Cancel the packing slip before Undo.');
   was.forEach(w=>{const s=by.get(w.id);if(w.on)s.on=w.on;else delete s.on;if(w.moved)s.moved=w.moved;else delete s.moved;});
   return was.length;
  });

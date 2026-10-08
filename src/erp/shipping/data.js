@@ -51,8 +51,10 @@ function shippingWithCtx(fn){if(shippingCtxNow)return fn();shippingCtxNow=shippi
 /* Ready is physical readiness. Available additionally excludes another PS.
    Single-lite recuts fill free order slots; the chosen G is saved on the PS.
    An existing PS pins both slot and actual pieces until it is cancelled. */
-function shippingUnits(o){
- if(!o||salesIsQuote(o)||['closed','cancelled'].includes(o.status)||shippingLegacy(o))return [];
+/* includeClosed — только история линии From IGU: закрытие заказа не
+   отменяет его сканы. Обычная отгрузка закрытый заказ не предлагает. */
+function shippingUnits(o,opts){
+ if(!o||salesIsQuote(o)||o.status==='cancelled'||o.status==='closed'&&!(opts&&opts.includeClosed)||shippingLegacy(o))return [];
  const ctx=shippingCtx(),index=ctx.index,batches=ctx.batches,stations=shippingStations(),out=[],scansOf=id=>ctx.scans.get(id)||[];
  const reserved=shippingForOrder(o.id).filter(shippingActive).flatMap(s=>s.items.map(i=>Object.assign({shipment:s},i))),gone=unitCancelledSet(o);
  (o.lines||[]).forEach(l=>{

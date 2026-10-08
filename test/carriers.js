@@ -156,6 +156,14 @@ module.exports=async function({page,eq,ok}){
   return {kind,inactive,loose,legacy,changed,none,put};
  }),{kind:'ok',inactive:'',loose:1,legacy:'DL-1',changed:'ok',none:'',put:''});
 
+ eq('Undo переноса после создания PS не меняет скид ни одного участника; после отмены PS работает',await t.p.evaluate(()=>{
+  cvReset();carrierAdd('SL',2);const id=cvOrder([[36,24,2]]),o=salesRecord(id);oqReady(id);const pieces=cvIds(id);
+  carrierMove(pieces,'SL-1',{name:'QA'});const move=carrierMove(pieces,'SL-2',{name:'QA'}),made=shippingCreate({customerId:o.customerId,method:'pickup',date:finToday(),items:shippingAvailable(o).slice(0,1).map(shippingItem)});
+  const before=JSON.stringify(DB),undo=carrierMoveUndo(move),atomic=JSON.stringify(DB)===before,ps=shippingFind(made.value.id).items[0].skid;
+  const cancel=shippingRevert(made.value.id,'cancel'),again=carrierMoveUndo(move);
+  return {created:made.ok,error:undo.error,atomic,ps,cancel:cancel.ok,again,on:pieces.map(p=>stationScansFor(p).at(-1).on)};
+ }),{created:true,error:'Glass is on a packing slip. Cancel the packing slip before Undo.',atomic:true,ps:'SL-2',cancel:true,again:2,on:['SL-1','SL-1']});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
