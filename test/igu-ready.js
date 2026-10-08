@@ -119,6 +119,19 @@ module.exports=async function({page,eq}){
   tab='dashboard';render();return {ask,big,noskid,cell,dialog,after,undo};
  }),{ask:'Empty 3 units — tap again',big:'EMPTYSL-13 units without a skid',noskid:'3 no skid',cell:'6 glass · waiting at SHIP since — Empty',dialog:'Empty SL-1?',after:[0,'SL-1 emptied · 6 glass without a skid Undo'],undo:6});
 
+ /* Владелец, 8.10.2026: «если что-то выделено, оно блокирует скан… надо
+    сейчас исправить, просто указав, где проблема». Забытое выделение раньше
+    съедало скан скида «кладу на». На SHIPR тара — скид, не долли. */
+ eq('выбрано «No skid» — скан не проходит и говорит, где выбрано (и после выхода); Clear — скан скида снова «кладу на»; на SHIPR — No skid / Put on a skid',await t.p.evaluate(()=>{
+  irLine();const ready=shippingStations().ready;irLogin(ready);stationSubmit('SL-1');[1,2,3].forEach(n=>stationSubmit(irUnit(ir.A,n)));stationClearPutOn();stationSubmit(irUnit(ir.B,1));
+  document.querySelector('[data-igu-noskid]').click();irOut();irLogin(ready);
+  const words=[irText('[data-station-nodolly] .st-dchip'),irText('[data-station-fix]')];
+  const blocked=[stationSubmit('SL-2'),stationSubmit(irUnit(ir.B,2)),stationNote,irOn(irLites(ir.B)[0][0]),irOn(irLites(ir.B)[0][1])];
+  [...document.querySelectorAll('[data-igu-foot] button')].find(b=>b.textContent==='Clear').click();
+  const after=[stationSubmit('SL-2'),stationPutOn(),stationSubmit(irUnit(ir.B,2)),irOn(irLites(ir.B)[0][1]),stationNote];
+  irOut();return {words,blocked,after};
+ }),{words:['No skid','Put on a skid'],blocked:['blocked','blocked','Selected in From IGU: Lakeview Glass · 1 unit — tap a skid or Clear','SHIPR:—','IGU:—'],after:['carrier','SL-2','ok','SHIPR:SL-2','']});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

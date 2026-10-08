@@ -138,7 +138,6 @@ function skipRun(d){
 }
 function skipCommand(d){
  const o=salesRecord(d&&d.orderId);shippingAssert(skipCanOpen(o),'Skip is not available for this order.');
- shippingAssert(!o.onHold,'Order is On Hold. Release it first.');
  const date=String(d.date||finToday());shippingAssert(shippingDateValid(date)&&date<=finToday(),'Check the date.');
  const stations=shippingStations(),to=d.to===SKIP_PICKUP||!d.to?SKIP_PICKUP:sfCode(d.to),target=to===SKIP_PICKUP?stations.ready:to;
  shippingAssert(target&&(DB.station||[]).some(s=>s.code===target),'Choose where to skip to.');
@@ -146,11 +145,13 @@ function skipCommand(d){
  shippingAssert(!pick.problems.length,pick.problems.join('. ')+'.');
  shippingAssert(pick.units.length||to===SKIP_PICKUP&&extras.length,'Choose what to skip.');
  shippingAssert(!extras.length||to===SKIP_PICKUP,'Stock items can only be picked up.');
- pick.units.forEach(u=>{const l=(o.lines||[]).find(x=>x.id===u.lineId);shippingAssert(l&&!l.onHold&&!u.pieces.some(id=>unitPieceHold(stationGlass(id))),'Line '+((o.lines||[]).indexOf(l)+1)+' is On Hold. Release it first.');});
- const at=skipAt(date),pieces=pick.units.flatMap(u=>u.pieces);
- /* Отметка не может стать раньше уже сделанного скана этого стекла. */
- const late=pieces.find(id=>(ctx.scans.get(id)||[]).some(s=>String(s.at)>at));
- shippingAssert(!late,'Glass '+(late||'')+' was scanned after this date. Pick a later date.');
+ /* Skip есть всегда (владелец, 8.10.2026: «никаких ограничений… человеческий
+    фактор в действии»): ни Hold, ни поздний скан его не останавливают. День —
+    выбранный; время — после последнего скана этого стекла в тот же день
+    (в субботу порезали из стока в 15:00 и сразу отдали), чтобы «где стекло»
+    шло по порядку. */
+ const pieces=pick.units.flatMap(u=>u.pieces);let at=skipAt(date);
+ pieces.forEach(id=>(ctx.scans.get(id)||[]).forEach(s=>{if(String(s.at)>=at&&finLocalDate(s.at)===date)at=new Date(Date.parse(s.at)+1000).toISOString();}));
  const actor=orderLogActor(),who={id:actor.byId,name:('Skip · '+(actor.by||'Office')).slice(0,80)};
  const skip={id:salesUid('SK'),orderId:o.id,at:new Date().toISOString(),date,to,reason:String(d.reason||'').trim().slice(0,200),receivedBy:String(d.receivedBy||'').trim().slice(0,100),
   by:actor.by||'',byId:actor.byId||'',actionId:'',pieces,shipments:[],status:o.status,eventId:'',undoneAt:'',undoneBy:''};
@@ -158,6 +159,10 @@ function skipCommand(d){
  if(o.status==='new'){o.status='verified';o.statusDates=Object.assign({},o.statusDates,{verified:at});salesSyncRecordLifecycle(o);}
  skipRecord(pick.units,target,at,who,skip);
  if(to===SKIP_PICKUP){
+  /* Hold заказа, строк и юнитов не мешает выдаче Skip: снят на время
+     выдачи и возвращён тем же (Undo Skip его не трогает). */
+  const holds={o:o.onHold,lines:(o.lines||[]).map(l=>[l,l.onHold,l.heldUnits])};
+  o.onHold=false;(o.lines||[]).forEach(l=>{l.onHold=false;if(l.heldUnits)l.heldUnits=[];});
   const sel=new Set(pieces),items=shippingAvailable(o).filter(i=>i.pieces.length&&i.pieces.every(p=>sel.has(p))).map(shippingItem);
   shippingAssert(items.length===pick.units.length,'Some units are not ready to pick up.');
   const made=shippingCreate({customerId:o.customerId,method:'pickup',shipTo:{},date,items,extras,note:('Skip'+(skip.reason?' · '+skip.reason:'')).slice(0,1000)});shippingAssert(made.ok,made.error);
@@ -166,6 +171,7 @@ function skipCommand(d){
   /* Отметки SHIP этого PS — тоже Skip, а не скан у ворот. */
   (s.scanIds||[]).forEach(sid=>{const r=(DB.stationScan||[]).find(x=>x.id===sid);if(r)r.by=who.name;});
   const got=shippingMarkDelivered(s.id,skip.receivedBy,date);shippingAssert(got.ok,got.error);
+  o.onHold=holds.o;holds.lines.forEach(([l,h,u])=>{l.onHold=h;if(u)l.heldUnits=u;});
  }
  shippingSyncOrder(o,at);
  const ps=skip.shipments.map(id=>shippingFind(id)).filter(Boolean).map(s=>s.number);

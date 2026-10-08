@@ -56,7 +56,14 @@ function stationIguBoard(){
 }
 function stationIguUnits(b,keys){return (b?b.orders:[]).flatMap(r=>keys.has('n|'+r.o.id)?r.noSkid:[]);}
 function stationIguPick(key){if(stationIguSel.has(key))stationIguSel.delete(key);else stationIguSel.add(key);stationNote='';render();}
-function stationIguClear(){stationIguSel.clear();render();}
+function stationIguClear(){stationIguSel.clear();stationNote='';render();}
+/* Что выбрано и что сделать — пока выбрано, скан не проходит. Выбранное уже
+   ушло со строки «No skid» (Mark ready, скан) — выбор снят, ответ пустой. */
+function stationIguBlockNote(){
+ const b=stationIguBoard(),orders=(b?b.orders:[]).filter(r=>stationIguSel.has('n|'+r.o.id)&&r.noSkid.length),n=stationIguUnits(b,stationIguSel).length;
+ if(!n){stationIguSel.clear();return '';}
+ return 'Selected in From '+stationIguCode()+': '+orders.map(r=>salesCustomerDisplay(r.o.customerId)).join(', ')+' · '+stationPlural(n,'unit','units')+' — tap a skid or Clear';
+}
 function stationIguToggle(piece){stationIguOpen=stationIguOpen===piece?'':piece;render();}
 /* «No skid» — на скид: нажатием, номером или сканом скида. Undo — как у
    переноса в окне тары. Скид заказа нажатием открывает окно скида

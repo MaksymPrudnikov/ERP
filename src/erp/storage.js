@@ -33,6 +33,7 @@ function storageInvalidate(){
  if(typeof stationRouteCache!=='undefined')stationRouteCache=new Map();
  if(typeof prodBoardCache!=='undefined')prodBoardCache={stamp:'',data:null};
  if(typeof stationAreaCache!=='undefined')stationAreaCache=new Map();
+ if(typeof glassCutCache!=='undefined')glassCutCache=null;
 }
 function storageCommand(fn){
  if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}

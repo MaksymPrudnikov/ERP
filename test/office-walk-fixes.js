@@ -40,13 +40,17 @@ module.exports=async function({page,eq,ok}){
   oqAdvance(id,'verified');out.after=salesRecord(id).status;tab='dashboard';render();return out;
  }),{inFinance:true,filter:true,back:'optimization',notice:true,applied:'true',status:'new',after:'verified'});
 
- eq('«PO required»: без PO — окно на Verify, на батче и в Shipping (своё у заказа); Back ничего не меняет; с PO — без окна',await t.p.evaluate(()=>{
-  oqReset();const c=oqCustomer({legalName:'Harbour Facades',poRequired:true}),id=oqOrder(c,{customerPo:''});soDraft=null;soEdit=null;oqQueue();
+ /* Владелец, 8.10.2026: «без PO ничего не сохранять… PO сразу же с заказом». */
+ eq('«PO required»: без PO заказ не сохраняется; старый заказ без PO — Verify, батч и Shipping только с Back; с PO — без окна',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'Harbour Facades',poRequired:true});let save='';
+  try{oqOrder(c,{customerPo:''});}catch(e){save=(document.getElementById('e_sales_order')||{}).textContent||'';}
+  soDraft=null;soEdit=null;const id=oqOrder(c,{customerPo:'HF-1'});soDraft=null;soEdit=null;salesRecord(id).customerPo='';oqQueue();
   oqAdvance(id,'verified');const title=salesDialog&&salesDialog.title,buttons=salesDialog?salesDialog.buttons.map(b=>b.label):[];oqChoose('Back');const back=salesRecord(id).status;
-  const o=salesRecord(id),batched=salesTransitionChecks(o,'batched').map(x=>x.title),done=salesTransitionChecks(o,'done').filter(x=>x.perOrder).map(x=>x.anyway);
+  const o=salesRecord(id),batched=salesTransitionChecks(o,'batched').filter(x=>x.block).map(x=>x.title),done=salesTransitionChecks(o,'done').filter(x=>x.perOrder).map(x=>!!x.block);
+  let shipped=false;shippingWithChecks([id],'pickup',false,()=>{shipped=true;});const ship=salesDialog?salesDialog.buttons.map(b=>b.label):[];oqChoose('Back');
   o.customerPo='HF-1';const withPo=salesTransitionChecks(o,'verified').map(x=>x.title);o.customerPo='';
-  tab='dashboard';render();return {title:/^PO missing — order \d+$/.test(title),buttons,back,batched:batched.some(x=>/^PO missing/.test(x)),done,withPo};
- }),{title:true,buttons:['Back','Verify anyway'],back:'new',batched:true,done:['Continue anyway'],withPo:[]});
+  tab='dashboard';render();return {save,title:/^PO missing — order \d+$/.test(title),buttons,back,batched:batched.some(x=>/^PO missing/.test(x)),done,ship,shipped,withPo};
+ }),{save:'This customer requires a PO. Enter the PO.',title:true,buttons:['Back'],back:'new',batched:true,done:[true],ship:['Back'],shipped:false,withPo:[]});
 
  eq('батч перерезки — «Awaiting cutting»: строку заказа резали в другом батче, но это стекло ещё нет',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer({}));soDraft=null;soEdit=null;salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});

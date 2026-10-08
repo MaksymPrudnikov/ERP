@@ -75,12 +75,37 @@ module.exports=async function({page,eq}){
   return {ok:!r.error&&!r2.error,at,blocked,ps:shippingForOrder(id).length,waiting:DB.skip[1].pieces.map(p=>stationPlace(stationGlass(p)).waiting),status:salesRecord(id).status};
  }),{ok:true,at:['IGU','IGU'],blocked:true,ps:0,waiting:['SHIP','SHIP'],status:'batched'});
 
- eq('нельзя: On Hold, дата в будущем, стекло сканировали после даты, пустой выбор, лишнее количество',await t.p.evaluate(()=>{
-  const id=skNew();oqThrough(id,'batched');const o=salesRecord(id),l=o.lines[0],run=d=>skipRun(Object.assign({orderId:id,to:'pickup',date:finToday()},d)).error||'';
-  const piece=skPieces(id)[0];skScan('CUT',piece);
-  const out={empty:run({}),future:run({lines:{[l.id]:1},date:finAddDays(finToday(),1)}),late:run({codes:[piece],date:finAddDays(finToday(),-5)})==='Glass '+piece+' was scanned after this date. Pick a later date.',many:run({lines:{[l.id]:5}}),foreign:run({codes:['G-9999999']})};
-  salesHoldApply([id],'Unpaid');out.hold=run({lines:{[l.id]:1}});return out;
- }),{empty:'Choose what to skip.',future:'Check the date.',late:true,many:'Line 1: only 2 of 5 can be skipped.',foreign:'G-9999999 is not in this order.',hold:'Order is On Hold. Release it first.'});
+ /* Владелец, 8.10.2026: «никаких ограничений, скип есть всегда… человеческий
+    фактор в действии». Отказ — только там, где делать нечего. */
+ eq('отказ только там, где делать нечего: пустой выбор, будущий день, больше штук, чужое стекло',await t.p.evaluate(()=>{
+  const id=skNew();oqThrough(id,'batched');const l=salesRecord(id).lines[0],run=d=>skipRun(Object.assign({orderId:id,to:'pickup',date:finToday()},d)).error||'';
+  return {empty:run({}),future:run({lines:{[l.id]:1},date:finAddDays(finToday(),1)}),many:run({lines:{[l.id]:5}}),foreign:run({codes:['G-9999999']}),skips:DB.skip.length};
+ }),{empty:'Choose what to skip.',future:'Check the date.',many:'Line 1: only 2 of 5 can be skipped.',foreign:'G-9999999 is not in this order.',skips:0});
+
+ eq('Skip есть всегда: заказ, строка и юнит на Hold — выдача проходит, Hold остаётся; стекло сканировали позже выбранного дня — проходит тем днём',await t.p.evaluate(()=>{
+  const id=skNew();oqThrough(id,'batched');const o=salesRecord(id),[l1,l2]=o.lines;
+  skPieces(id).filter(x=>stationGlass(x).l.id===l2.id).forEach(x=>skScan('CUT',x));
+  salesHoldApply([id],'Unpaid');l2.onHold=true;l2.holdReason='Check';
+  const r=skipRun({orderId:id,lines:{[l1.id]:1},to:'pickup',date:finToday()}),ps=shippingForOrder(id).map(s=>s.status);
+  const later=skipRun({orderId:id,lines:{[l2.id]:'all'},to:'HEAT',date:finAddDays(finToday(),-5)});
+  return {ok:[r.error||'ok',later.error||'ok'],ps,hold:[salesRecord(id).onHold,salesRecord(id).lines[1].onHold],day:later.date===finAddDays(finToday(),-5)};
+ }),{ok:['ok','ok'],ps:['delivered'],hold:[true,true],day:true});
+
+ eq('суббота: стекло порезали из стока в 15:00 и сразу отдали — Skip на субботу проходит, отметки после реза, PS и счёт — субботой',await t.p.evaluate(()=>{
+  const id=skSingle();oqThrough(id,'verified');const piece=glassBatchRows([salesRecord(id)])[0].piece,sat=finAddDays(finToday(),-2);
+  skScan('CUT',piece);const cut=DB.stationScan.filter(x=>x.piece===piece).pop();cut.at=new Date(sat+'T15:00:00').toISOString();
+  const r=skipRun({orderId:id,codes:[piece],to:'pickup',date:sat,receivedBy:'ABS'}),marks=DB.stationScan.filter(x=>x.piece===piece&&x!==cut);
+  const s=shippingForOrder(id)[0];
+  return {ok:r.error||'ok',after:marks.every(x=>x.at>cut.at&&finLocalDate(x.at)===sat),stations:marks.map(x=>x.station),ps:[s.status,s.date===sat],shipped:stationPlace(stationGlass(piece)).shipped};
+ }),{ok:'ok',after:true,stations:['ARRIS','HEAT','SHIPR','SHIP'],ps:['delivered',true],shipped:true});
+
+ eq('ничего не висит: одно стекло из 10 — Skip до станции, 9 в батч → 10/10; весь заказ Skip из New — строк «без батча» нет, заказ закрывается',await t.p.evaluate(()=>{
+  const id=skSingle();oqThrough(id,'verified');const piece=glassBatchRows([salesRecord(id)])[0].piece;
+  skipRun({orderId:id,codes:[piece],to:'HEAT',date:finToday()});glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
+  const o=salesRecord(id),p=glassBatchProgress(o),part=[p.assigned+'/'+p.total,salesUnbatchedLines(o).length,salesStatusPill(o).replace(/<[^>]+>/g,'')];
+  const all=skNew();skipRun({orderId:all,lines:Object.fromEntries(salesRecord(all).lines.map(l=>[l.id,'all'])),to:'pickup',date:finToday()});const a=salesRecord(all);
+  return {part,whole:[a.status,salesUnbatchedLines(a).length,salesRecordTransitionAllowed(a,'closed')]};
+ }),{part:['10/10',0,'Batched 🔒'],whole:['done',0,true]});
 
  eq('JSON: Skip переживает экспорт и импорт; не массив — понятная ошибка',await t.p.evaluate(()=>{
   const id=skNew();skipRun({orderId:id,lines:{[salesRecord(id).lines[1].id]:'all'},to:'pickup',date:finToday()});

@@ -139,8 +139,11 @@ function stationSubmit(raw){
  /* Окно тары с выбранными стёклами: скан тары — «перенести сюда». */
  if(check.kind==='carrier'&&stationDrawer&&stationDrawer.kind==='dolly'&&stationDrawer.a)return stationDollyMove(check.code)?'moved':'carrier';
  if(check.kind==='carrier'&&stationDrawer&&stationDrawer.kind==='skid'&&stationDrawer.sel.size)return stationSkidMove(check.code)?'moved':'carrier';
- /* Лист «From IGU» с выбранным — скан скида: «перенести сюда». */
- if(check.kind==='carrier'&&!stationDrawer&&stationIsReady()&&stationIguSel.size)return stationIguMove(check.code)?'moved':'carrier';
+ /* Лист «From IGU» с выбранным: перенос не закончен — скан не проходит,
+    экран говорит, где выбрано (владелец, 8.10.2026: «если что-то выделено,
+    оно блокирует скан… надо сейчас исправить, просто указав, где проблема»).
+    Иначе забытое выделение съедало скан скида «кладу на». */
+ if(!stationDrawer&&stationIsReady()&&stationIguSel.size){const note=stationIguBlockNote();if(note){stationNote=note;stationBeep('error');render();return 'blocked';}}
  /* Скан не ждёт окна: следующий стикер закрывает открытое окно. */
  stationDrawer=null;stationTab='scan';
  if(check.kind==='carrier'&&stationWarnTare(check.code))return stationWarnMove(check.code);
@@ -563,7 +566,7 @@ function stationHereSrc(id){const open=stationHereOpenSrc(stationHereSources());
 function stationHereSrcRow(s,open){
  const u=s.urg;
  return '<div class="st-dl st-src'+(open?' open':'')+(u===2?' hot':'')+'" '+(s.code?'data-station-incoming="'+esc(s.code)+'"':'data-station-nodolly')+' onclick="stationHereSrc(\''+esc(s.code||STATION_NO_DOLLY)+'\')">'+
-  '<span class="st-dchip'+(s.code?(/^S/.test(s.code)?' skid':''):' none')+'">'+esc(s.code||'No dolly')+'</span>'+
+  '<span class="st-dchip'+(s.code?(/^S/.test(s.code)?' skid':''):' none')+'">'+esc(s.code||'No '+stationTareWord())+'</span>'+
   '<span class="st-src-t"><b>'+stationHereCount(s.list)+'</b>'+(u===2?'<span class="pill bad">Critical</span>':u===1?'<span class="pill warn">Rush</span>':'')+'<span class="st-bmix">'+stationBatchMix(s.list)+'</span>'+(s.other?'<span class="mut">+'+s.other+' for other stations</span>':'')+'</span>'+
   '<span class="mut st-src-r">'+(s.since?esc(stationTime(s.since))+' ':'')+(open?'▾':'▸')+'</span></div>';
 }
@@ -588,8 +591,8 @@ function stationHereCard(){
  /* Отсканированная «приехала» тара опустела — сказать, а не молча пропасть. */
  const done=stationIncoming&&!['~',STATION_NO_DOLLY].includes(stationIncoming)&&!srcs.some(s=>s.code===stationIncoming)&&typeof carrierFind==='function'&&carrierFind(stationIncoming)?
   '<div class="st-dl st-src done" data-station-stack-done="'+esc(stationIncoming)+'"><span class="st-dchip">'+esc(stationIncoming)+'</span><span class="mut">Nothing left for '+esc(stationCode)+' on it</span><span class="pill ok">done</span></div>':'';
- return '<div class="card st-here"><div class="st-sec"><h3>Waiting here</h3><span class="pill info">'+total+' glass</span><span class="sp"></span><span class="mut">'+(srcs.length>1?'tap a dolly':'tap a row — no sticker')+'</span></div>'+done+
-  (srcs.length?srcs.map(s=>stationHereSrcRow(s,s===open)+(s===open?stationHereTable(s)+'<div class="st-fix"><button type="button" class="b sm" data-station-fix="'+esc(s.code||STATION_NO_DOLLY)+'" onclick="stationDollyOpen(\''+esc(s.code)+'\',\'here\')">'+(s.code?'Move glass to another dolly':'Put on a dolly')+'</button></div>':'')).join(''):'<div class="empty">Nothing waiting</div>')+'</div>';
+ return '<div class="card st-here"><div class="st-sec"><h3>Waiting here</h3><span class="pill info">'+total+' glass</span><span class="sp"></span><span class="mut">'+(srcs.length>1?'tap a '+stationTareWord():'tap a row — no sticker')+'</span></div>'+done+
+  (srcs.length?srcs.map(s=>stationHereSrcRow(s,s===open)+(s===open?stationHereTable(s)+'<div class="st-fix"><button type="button" class="b sm" data-station-fix="'+esc(s.code||STATION_NO_DOLLY)+'" onclick="stationDollyOpen(\''+esc(s.code)+'\',\'here\')">'+(s.code?'Move glass to another '+stationTareWord():'Put on a '+stationTareWord())+'</button></div>':'')).join(''):'<div class="empty">Nothing waiting</div>')+'</div>';
 }
 function stationKey(ev,el){
  if(ev.key!=='Enter'&&!(ev.key==='Tab'&&el.value.trim()))return;
