@@ -66,11 +66,27 @@ function carrierContents(){
 /* Отменённое стекло в содержимом скида не видно, но скид на SHIP держит
    (unitOnSkid): обнулённый скид пуст и от него — иначе «призрак» не дал бы
    грузить скид, пока кто-то не наберёт номер выброшенного стекла. */
-function carrierEmpty(code){const out=storageCommand(()=>{
- const list=carrierContents().get(carrierCode(code))||[];list.forEach(x=>{delete x.scan.on;});
- const ghosts=typeof unitOnSkid==='function'?unitOnSkid(carrierCode(code)):[];ghosts.forEach(x=>{x.u.off=[...new Set((x.u.off||[]).concat(x.pieces))];x.o.updatedAt=new Date().toISOString();salesSyncRecordLifecycle(x.o);});
- return {count:list.length+ghosts.reduce((n,x)=>n+x.pieces.length,0)};
+/* Любая тара на любой станции и в Master Data (владелец, 7.10.2026: «опция на
+   скид или на долли — стереть всё, что на ней, иначе много лишнего
+   подвиснет»). Рядом со сканом — откуда, кто и когда (moved), как у
+   переноса; Undo возвращает. */
+function carrierEmpty(code,who){const out=storageCommand(()=>{
+ const c=carrierCode(code),list=carrierContents().get(c)||[],now=new Date().toISOString(),was=[],off=[];
+ list.forEach(x=>{was.push({id:x.scan.id,on:x.scan.on||'',moved:x.scan.moved||null});x.scan.moved={from:c,at:now,by:String(who&&who.name||'')};delete x.scan.on;});
+ const ghosts=typeof unitOnSkid==='function'?unitOnSkid(c):[];ghosts.forEach(x=>{off.push({orderId:x.o.id,pieces:x.u.pieces.slice(),off:(x.u.off||[]).slice()});x.u.off=[...new Set((x.u.off||[]).concat(x.pieces))];x.o.updatedAt=now;salesSyncRecordLifecycle(x.o);});
+ return {code:c,count:list.length+ghosts.reduce((n,x)=>n+x.pieces.length,0),was,off};
 });return out.ok?out.value:{error:out.error};}
+/* Undo обнуления: тара возвращается тем сканам, что так и остались без тары. */
+function carrierEmptyUndo(r){
+ const out=storageCommand(()=>{
+  const by=new Map((DB.stationScan||[]).map(s=>[s.id,s])),last=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)last.set(s.piece,s);});let n=0;
+  (r&&r.was||[]).forEach(w=>{const s=by.get(w.id);if(!s||s.undoneAt||s.on||last.get(s.piece)!==s)return;s.on=w.on;if(w.moved)s.moved=w.moved;else delete s.moved;n++;});
+  (r&&r.off||[]).forEach(w=>{const o=salesRecord(w.orderId),u=o&&(o.cancellations||[]).flatMap(c=>c.units).find(u=>u.pieces.join()===w.pieces.join());if(!u)return;u.off=w.off;if(!u.off.length)delete u.off;o.updatedAt=new Date().toISOString();salesSyncRecordLifecycle(o);n++;});
+  if(!n)throw new Error('Nothing to undo.');
+  return n;
+ });
+ return out.ok?out.value:{error:out.error};
+}
 /* Перенос стёкол на другую тару — исправление ошибки рабочего (владелец,
    6 октября 2026: «он знает, что на долли №3 у него 30 стёкол этого батча,
    выбирает с 31 по 60 и говорит: это на №4»; «ошибку можно исправить»).
