@@ -1255,6 +1255,18 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sales-line-tools{flex-wrap:wrap;min-width:0;max-width:100%}
 @media(max-width:900px){.sales-order-editor .mu-totals{grid-column:1/-1;justify-self:start;margin-left:0;max-width:100%;flex-wrap:wrap}.sales-lines-head{flex-wrap:wrap}.sales-lines-head>div:first-child{min-width:0}}
 @media(max-width:620px){.sales-line-tools button{flex:0 1 auto}.sales-order-editor .mu-totals{white-space:normal}.sales-order-editor .mu-total{flex-wrap:wrap}}
+/* Деньги руками: цена юнита строки и поправки на заказ (владелец, 7.10.2026). */
+.metric-manual{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:13px}
+.metric-manual.on{border-color:var(--warning-line);background:var(--warning-soft)}
+.metric-manual label{display:inline-flex;align-items:center;gap:8px;margin:0;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--text)}
+.metric-manual input{width:110px}
+.metric-manual small{color:var(--text-2)}
+.metric-hand{font-style:normal;margin-left:4px;color:var(--warning)}
+.metric-adjustments{display:grid;gap:8px;margin-top:14px;font-size:13px}
+.metric-adjustment-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.metric-adjustment-row input[type=text]{flex:1 1 180px;min-width:0}
+.metric-adjustment-row input[type=number]{width:110px}
+.metric-adjustments small{color:var(--text-2)}
 
 /* ---- src/styles/documents.css ---- */
 /* Бланки заказа: окно Preview, панель ✎ Customize, печать листов Letter,
@@ -2897,7 +2909,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='2da6c2b06287';
+var ERP_BUILD='84479c52d946';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11241,7 +11253,9 @@ function normalizeSalesOrderLine(l){
  l=l&&typeof l==='object'?l:{};
  const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
  /* Hold units / Cancel units (erp/sales/unit-cancel) — поля только там, где они есть. */
- return normalizeUnitFields({id:salesEntityId(l.id,'SOL'),lineType:'physical',batchManaged:l.batchManaged===true,onHold:l.onHold===true,holdReason:l.onHold===true?salesString(l.holdReason).slice(0,200):'',holdAt:l.onHold===true?salesString(l.holdAt):'',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',...(Number.isSafeInteger(l.shipQueue)&&l.shipQueue>0&&l.shipQueue<1000?{shipQueue:l.shipQueue}:{}),weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))},l);
+ return normalizeUnitFields({id:salesEntityId(l.id,'SOL'),lineType:'physical',batchManaged:l.batchManaged===true,onHold:l.onHold===true,holdReason:l.onHold===true?salesString(l.holdReason).slice(0,200):'',holdAt:l.onHold===true?salesString(l.holdAt):'',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',...(Number.isSafeInteger(l.shipQueue)&&l.shipQueue>0&&l.shipQueue<1000?{shipQueue:l.shipQueue}:{}),weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)})),
+  /* Цена руками (line-metrics, salesLineCommercialPrice) — только если задана. */
+  ...(salesNonNegOrNull(l.priceManual)!=null?{priceManual:salesNonNegOrNull(l.priceManual)}:{})},l);
 }
 /* Строка-позиция каталога: изделие из стекла или готовая вещь — не одно и то
    же, и модель их не смешивает (раздел 6 схемы). Владелец: «там, где Single /
@@ -11289,7 +11303,14 @@ function normalizeSalesOrder(o){
  return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
   remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
-  ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines))};
+  ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines)),
+  ...(a=>a.length?{adjustments:a}:{})(normalizeSalesAdjustments(o.adjustments))};
+}
+/* Поправка на заказ руками: свой текст и сумма, минус — меньше платить
+   (владелец, 7.10.2026: «то, что касается денег, должно быть максимально
+   флексибл — иногда где-то ошибка, и нужна возможность решить её руками»). */
+function normalizeSalesAdjustments(raw){
+ return (Array.isArray(raw)?raw:[]).filter(x=>x&&typeof x==='object'&&Number.isFinite(+x.amount)).map(x=>({id:salesEntityId(x.id,'ADJ'),label:salesString(x.label).slice(0,120),amount:Math.round(+x.amount*100)/100}));
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
@@ -11302,6 +11323,8 @@ function validateSalesPayload(src){
  const ids=new Set(),numbers=new Set(),lineIds=new Set(),entityId=/^[A-Za-z0-9_-]{1,96}$/;(src.salesOrder||[]).forEach((o,i)=>{
   if(!o||typeof o!=='object'||Array.isArray(o))throw new Error('Sales Order row '+(i+1)+' must be an object.');
   if(o.lines!=null&&!Array.isArray(o.lines))throw new Error('Sales Order '+(i+1)+': lines must be an array.');
+  if(o.adjustments!=null&&(!Array.isArray(o.adjustments)||o.adjustments.some(x=>!x||typeof x!=='object'||!Number.isFinite(+x.amount))))throw new Error('Sales Order '+(i+1)+': invalid adjustments.');
+  (Array.isArray(o.lines)?o.lines:[]).forEach((l,j)=>{if(l&&l.priceManual!=null&&l.priceManual!==''&&!(Number.isFinite(+l.priceManual)&&+l.priceManual>=0))throw new Error('Sales Order '+(i+1)+', line '+(j+1)+': invalid price.');});
   if(o.extraItems!=null&&!Array.isArray(o.extraItems))throw new Error('Sales Order '+(i+1)+': extraItems must be an array.');
   if(o.makeups!=null&&!Array.isArray(o.makeups))throw new Error('Sales Order '+(i+1)+': makeups must be an array.');
   if(o.id){const id=salesString(o.id);if(!entityId.test(id))throw new Error('Sales Order '+(i+1)+' has an invalid id.');if(ids.has(id))throw new Error('Sales Orders contains duplicate id "'+id+'".');ids.add(id);}
@@ -11470,7 +11493,8 @@ function salesLockedLineGuard(line){
 /* У строки в батче закрыта каждая ячейка, кроме Shape: форма открывает
    чертёж на просмотр и печать (владелец, 26.09.2026), редактор — нет. */
 function salesLineRowAttrs(line){return (salesLineLocked(line)?" class='line-locked'":line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
-function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='shape'&&!((key==='qty'||key==='delete')&&salesLineShrinkableInDraft(line))?String(html).replace(/^<td\b/,'<td inert'):html;}
+/* Цена строки открыта и у строки в батче: цену правят руками (Price by hand). */
+function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='shape'&&key!=='unitPrice'&&key!=='lineTotal'&&!((key==='qty'||key==='delete')&&salesLineShrinkableInDraft(line))?String(html).replace(/^<td\b/,'<td inert'):html;}
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
  if(salesLineLocked(line))return ` <span class="line-lock" title="Batched ${esc(salesShortDate(line.batchedAt))}${line.batchNo?' · '+esc(line.batchNo):''}">🔒</span>`;
@@ -12009,7 +12033,7 @@ DEFAULT.orderEvent=[];
 if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];
 const ORDER_LOG_HEAD=[['customerId','customer'],['customerPo','PO'],['dueDate','due date'],['priority','priority'],['delivery','delivery'],['paymentTerms','terms'],['currency','currency'],['branch','branch'],['notes','notes'],['orderCharges','charges'],['makeups','makeups'],['extraItems','items'],['noCharge','no charge'],['validUntil','valid until']];
 /* Поля строки, которые ведёт цех (батч, Hold строки) — у них свои записи. */
-const ORDER_LOG_LINE_OWN=['batchManaged','batchedAt','cutStartedAt','batchNo','onHold','holdReason','holdAt','shipQueue','heldUnits','cancelledUnits'];
+const ORDER_LOG_LINE_OWN=['priceManual','batchManaged','batchedAt','cutStartedAt','batchNo','onHold','holdReason','holdAt','shipQueue','heldUnits','cancelledUnits'];
 let orderLogBase={text:null,map:null},orderLogPending=null;
 
 function normalizeOrderLog(){
@@ -12049,6 +12073,10 @@ function orderLogDiff(a,b){
  const gone=(a.lines||[]).filter(l=>!(b.lines||[]).some(x=>x.id===l.id)).length;
  if(gone)parts.push(gone===1?'line removed':gone+' lines removed');
  if(parts.length)add('Edited',parts.length>6?parts.slice(0,6).join(', ')+' +'+(parts.length-6):parts.join(', '));
+ /* Деньги руками — со значениями: было → стало. */
+ const money=v=>v==null?'calculated':'$'+(+v).toFixed(2);
+ (b.lines||[]).forEach((l,i)=>{const was=before.get(l.id);if(was&&(was.priceManual??null)!==(l.priceManual??null))add('Price by hand','line '+(i+1)+' · '+money(was.priceManual)+' → '+money(l.priceManual));});
+ if(JSON.stringify(a.adjustments||[])!==JSON.stringify(b.adjustments||[]))add('Adjustments',(b.adjustments||[]).map(x=>(x.label||'Adjustment')+' '+(x.amount<0?'−':'+')+'$'+Math.abs(x.amount).toFixed(2)).join('; ')||'removed');
  /* Hold заказа и строк. */
  if(!a.onHold&&b.onHold)add('On Hold',b.holdReason);
  if(a.onHold&&!b.onHold)add('Hold released');
@@ -16077,6 +16105,8 @@ function salesOrderCommercialTotals(order){
  (order&&order.extraItems||[]).forEach(function(x){const t=salesExtraItemLineTotal(x);qty+=salesPositiveInt(x.qty,1);if(t!=null)subtotal+=t;else missing++;});
  /* Отменённые юниты: клиент платит за сделанную работу (erp/sales/unit-cancel). */
  (order&&order.cancellations||[]).forEach(function(c){const v=unitChargeOf(c);if(v!=null)subtotal+=v;else missing++;});
+ /* Поправки руками (normalizeSalesAdjustments). */
+ (order&&order.adjustments||[]).forEach(function(a){if(Number.isFinite(+a.amount))subtotal=salesMoney(subtotal+(+a.amount));});
  const out=salesApplyOrderCharges(subtotal,order&&order.orderCharges);out.complete=!missing;out.missing=missing;out.qty=qty;return out;
 }
 function salesLineCommercialPrice(line,order){
@@ -16091,7 +16121,11 @@ function salesLineCommercialPrice(line,order){
  if(adjustments.length>1&&rules.combination==='pending')incomplete=true;
  let running=base;
  adjustments.forEach(a=>{a.base=rules.combination==='compound'?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
- return {areas:areas,materialRate:rate.total,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:live,ordered:q,cancelled:q-live};
+ const out={areas:areas,materialRate:rate.total,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:live,ordered:q,cancelled:q-live};
+ /* Цена руками: итоговая цена юнита, наценки к ней не прибавляются; расчёт
+    остаётся для справки (computedUnit). */
+ if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,line:salesMoney(v*live),complete:!unsupportedCurrency});}
+ return out;
 }
 function salesLineCommercialAdjustments(line,order){
  const price=salesLineCommercialPrice(line,order);
@@ -17582,7 +17616,7 @@ function docSaleItem(model,line,index,order){
  const it=docItemBase(opts,line,index,m,q);
  /* Отменённые юниты: заказанное число не меняется, в сумму идут оставшиеся. */
  if(p.cancelled)it.qty='Qty '+p.ordered+' · '+p.cancelled+' cancelled';
- const glassLine=p.complete?salesMoney(p.materials*q):null;
+ const glassLine=p.manual?p.line:p.complete?salesMoney(p.materials*q):null;
  it.amount=mode==='none'?null:mode==='glass'?docMoney(glassLine):docMoney(p.line);
  const bits=[];
  if(opts.billableArea&&a.valid)bits.push('Billable '+docNum(a.billable,1)+' ft² per unit');
@@ -17592,7 +17626,9 @@ function docSaleItem(model,line,index,order){
  if(!p.complete&&mode!=='none')it.sub.push({text:'Pricing incomplete — '+docIncompleteReason(p),tone:'warn'});
  const services=docServiceRows(line),names=services.map(s=>s.label).join(', ');
  const fmt=r=>({desc:r.desc,basis:opts.basisRate?r.basis||'':'',rate:opts.basisRate?r.rate||'':'',amount:r.value==null?(r.required?'Rate required':''):docMoney(r.value),tone:r.tone||''});
- if(mode==='full'){
+ /* Цена руками — без разбивки: итог юнита не сложить из материалов и работ. */
+ if(p.manual){}
+ else if(mode==='full'){
   const mat=[],svc=[];
   (m?m.panes:[]).forEach((pn,i)=>{
    const rate=pn.priceOverride!=null?pn.priceOverride:salesPaneCatalogPrice(pn),heat=docHeatName(pn.category==='laminated'?(pn.laminated||{}).outer:pn);
@@ -17618,7 +17654,7 @@ function docSaleItem(model,line,index,order){
  }else if(opts.serviceNames&&services.length){
   it.note=(mode==='unit'?'Includes: ':'Services: ')+names;
  }
- if(mode==='glass')it.unitRow=[{label:'Glass price per unit',value:docMoney(p.complete?p.materials:null)},{label:'×',value:String(q)},{label:'Glass total',value:docMoney(glassLine)}];
+ if(mode==='glass'&&!p.manual)it.unitRow=[{label:'Glass price per unit',value:docMoney(p.complete?p.materials:null)},{label:'×',value:String(q)},{label:'Glass total',value:docMoney(glassLine)}];
  else if(mode!=='none')it.unitRow=[{label:'Unit price',value:docMoney(p.unit)},{label:'×',value:String(q)},{label:'Line total',value:docMoney(p.line)}];
  return it;
 }
@@ -17692,6 +17728,11 @@ function docBuildModel(kind,order,opts){
   model.extra={title:sale?'Additional items':'From stock',rows:order.extraItems.map(x=>{const total=salesExtraItemLineTotal(x),unit=salesExtraItemUnitPrice(x);
    return {name:salesExtraItemName(x),qty:'Qty '+salesPositiveInt(x.qty,1),rate:priced&&unit!=null?docMoney(unit):'',amount:priced?(total==null?'Rate required':docMoney(total)):''};})};
  }
+ /* Поправки руками — строками, как товар (normalizeSalesAdjustments). */
+ if(sale&&(order.adjustments||[]).length){
+  const rows=order.adjustments.map(a=>({name:a.label||'Adjustment',qty:'',rate:'',amount:mode==='none'?'':(a.amount<0?'−':'')+docMoney(Math.abs(a.amount))}));
+  if(model.extra)model.extra.rows=model.extra.rows.concat(rows);else model.extra={title:'Additional items',rows};
+ }
  /* Отменённые юниты: работа, за которую платит клиент (erp/sales/unit-cancel). */
  if(sale&&(order.cancellations||[]).length){
   const rows=order.cancellations.map(c=>{const v=unitChargeOf(c);return {name:'Cancelled '+shippingCount(c.units.length,'unit')+' · line '+((order.lines||[]).findIndex(l=>l.id===c.lineId)+1)+' · work done',qty:'',rate:'',amount:mode==='none'?'':v==null?'Rate required':docMoney(v)};});
@@ -17715,8 +17756,9 @@ function docBuildModel(kind,order,opts){
    const freeRow=free&&{label:'No charge · remake'+(ncr?' for '+ncr.number:'')+(parent?' · order '+parent.businessNumber:''),value:free.complete?'−'+docMoney(free.subtotal):'—'};
    if(opts.groupTotals||mode==='glass'){
     const g={glass:0,services:0,surcharges:0,extra:0};
-    (order.lines||[]).forEach(l=>{const p=salesLineCommercialPrice(l,order);if(!p.complete)return;const gl=salesMoney(p.materials*p.qty),su=salesMoney((p.unit-p.base)*p.qty);g.glass+=gl;g.surcharges+=su;g.services+=salesMoney(p.line-gl-su);});
+    (order.lines||[]).forEach(l=>{const p=salesLineCommercialPrice(l,order);if(!p.complete)return;const gl=p.manual?p.line:salesMoney(p.materials*p.qty),su=p.manual?0:salesMoney((p.unit-p.base)*p.qty);g.glass+=gl;g.surcharges+=su;g.services+=salesMoney(p.line-gl-su);});
     (order.extraItems||[]).forEach(x=>{const v=salesExtraItemLineTotal(x);if(v!=null)g.extra+=v;});
+    (order.adjustments||[]).forEach(a=>{g.extra+=+a.amount||0;});
     rows.push({label:'Glass & IGU',value:money(salesMoney(g.glass))},{label:'Services and processing',value:money(salesMoney(g.services))});
     if(g.surcharges)rows.push({label:'Surcharges',value:money(salesMoney(g.surcharges))});
     if(g.extra)rows.push({label:'Additional items',value:money(salesMoney(g.extra))});
@@ -18672,13 +18714,15 @@ function salesMetricCell(line,c,context,price,a,weight){
   else if(c.key==='materials'||c.key==='unitPrice'||c.key==='lineTotal')value=c.key==='materials'?(!price.missingMaterials&&!price.unsupportedCurrency?price.materials:null):(c.key==='unitPrice'?price.unit:price.line);
   else{value=c.key==='unitWeight'?weight.kg:weight.lineKg;panel='weight';}
   const text=value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2);
-  const body=`<b data-raw>${text}</b>`;
+  const hand=price.manual&&(c.key==='unitPrice'||c.key==='lineTotal');
+  const body=`<b data-raw>${text}</b>${hand&&context==='screen'?'<i class="metric-hand" title="Price by hand">✎</i>':''}`;
   return `<td class="line-metric${value==null?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
 }
 function salesCommercialOrderSummary(interactive){
  const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2):'—';
  const item=(key,label,rate,value,shown)=>`<span class="metric-order-charge-item charge-${key}${shown?'':' is-empty'}"><span class="metric-order-charge-label">${label}${rate!=null?` <small data-raw>${rate}%</small>`:''}</span><b data-raw>${shown?money(value):''}</b></span>`;
- const rows=[item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(salesCardNetworkLabel(c.card.network)),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
+ const adj=(soDraft.adjustments||[]).reduce((n,a)=>salesMoney(n+(+a.amount||0)),0);
+ const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(salesCardNetworkLabel(c.card.network)),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
  rows.push(`<span class="metric-order-charge-item charge-total metric-grand-total"><span class="metric-order-charge-label">Total</span><b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${'lines need pricing'}</small>`:''}</span>`);
  const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" onclick="salesOpenMetrics('orderCharges')">Service +</button>`;
  return `<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · <span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`;
@@ -18697,6 +18741,19 @@ function salesSetCardNetwork(network){
  if(!Object.prototype.hasOwnProperty.call(SALES_CARD_FEE_RATES,network))return;
  soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges.card.network=network;soDraft.orderCharges.card.rate=SALES_CARD_FEE_RATES[network];touch();render();
 }
+/* Поправки на заказ руками (normalizeSalesAdjustments): текст и сумма. */
+function salesAddAdjustment(){if(!soDraft)return;soDraft.adjustments=(soDraft.adjustments||[]).concat([{id:salesUid('ADJ'),label:'',amount:0}]);render();}
+function salesRemoveAdjustment(i){if(!soDraft||!soDraft.adjustments)return;soDraft.adjustments.splice(i,1);if(!soDraft.adjustments.length)delete soDraft.adjustments;touch();render();}
+function salesSetAdjustment(i,key,value){
+ const a=soDraft&&(soDraft.adjustments||[])[i];if(!a)return;
+ if(key==='label'){a.label=String(value).slice(0,120);return;}
+ const n=Number(value);if(!Number.isFinite(n)){alert('Enter an amount. Minus — less to pay.');render();return;}
+ a.amount=Math.round(n*100)/100;touch();render();
+}
+function salesAdjustmentsHTML(){
+ const list=soDraft.adjustments||[];
+ return `<div class="metric-adjustments" data-adjustments><b>Adjustments</b>${list.map((a,i)=>`<div class="metric-adjustment-row" data-adjustment="${i}"><input type="text" data-adjustment-label value="${esc(a.label)}" maxlength="120" placeholder="Price correction" oninput="salesSetAdjustment(${i},'label',this.value)" onchange="touch()"><input type="number" step="0.01" data-adjustment-amount value="${esc(a.amount)}" onchange="salesSetAdjustment(${i},'amount',this.value)"><span>${esc(soDraft.currency)}</span><button type="button" class="sm dl" aria-label="Remove adjustment" onclick="salesRemoveAdjustment(${i})">×</button></div>`).join('')}<button type="button" class="sm" data-adjustment-add onclick="salesAddAdjustment()">+ Adjustment</button><small>Minus — less to pay. Goes to the subtotal.</small></div>`;
+}
 function salesOrderChargesPanel(){
  const c=normalizeSalesOrderCharges(soDraft.orderCharges),toggle=(key,label,body)=>`<div class="metric-order-charge-row ${c[key].enabled?'on':''}"><label><input type="checkbox" ${c[key].enabled?'checked':''} onchange="salesSetOrderChargeEnabled('${key}',this.checked)"><b>${label}</b></label>${body}</div>`;
  const pct=(key)=>`<label>${'Rate'}<input type="number" min="0" step="0.01" value="${c[key].rate}" onchange="salesSetOrderChargeValue('${key}','rate',this.value)"><span>%</span></label>`;
@@ -18706,7 +18763,7 @@ function salesOrderChargesPanel(){
    ${toggle('card','Card fee',`<label>${'Card'}<select onchange="salesSetCardNetwork(this.value)">${Object.keys(SALES_CARD_FEE_RATES).map(k=>`<option value="${k}" ${c.card.network===k?'selected':''}>${esc(salesCardNetworkLabel(k))}</option>`).join('')}</select></label>${pct('card')}`)}
    ${toggle('delivery','Delivery',`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${c.delivery.amount}" onchange="salesSetOrderChargeValue('delivery','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${'Excluded from the ES, HST and Card fee bases.'}</small>`)}
    ${toggle('skidDeposit','Skid Deposit',`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${c.skidDeposit.amount}" onchange="salesSetOrderChargeValue('skidDeposit','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${'Customer skid deposit; excluded from all fee bases.'}</small>`)}
- </div><div class="metric-order-charge-preview">${salesCommercialOrderSummary()}</div>`;
+ </div>${salesAdjustmentsHTML()}<div class="metric-order-charge-preview">${salesCommercialOrderSummary()}</div>`;
 }
 function salesColumnsPanel(){
  const p=salesLoadViewPrefs();
@@ -18717,9 +18774,20 @@ function salesAreaPanel(line){
  const a=salesLineAreas(line,soDraft);
  return `<div class="metric-explanation"><p>${'Areas are per unit. Qty does not change a single unit’s area.'}</p><dl><dt>Actual Area</dt><dd>${a.valid?a.actual.toFixed(4):'—'} ft²</dd><dt>Rounded Area</dt><dd>${a.valid?`${a.roundedWidth} × ${a.roundedHeight}″ ÷ 144 → ${a.rounded.toFixed(1)} ft²`:'—'}</dd><dt>Billable Area</dt><dd>${a.valid?a.billable.toFixed(1):'—'} ft²</dd></dl><p>${'Actual Area is the finished contour area. Rounded Area uses bounding dimensions, each rounded up to a whole inch, then rounds the area to one decimal place. Billable Area applies the billing minimum.'}</p><p>${'Materials and Shape Unit use Billable Area. Edges use length, per-piece work uses quantity, and surface treatments retain their processing area. Weight uses actual geometry.'}</p></div>`;
 }
+/* Цена руками: своя цена юнита вместо расчёта, в любой строке, даже в батче
+   и после выдачи. Clear возвращает расчёт. */
+function salesSetLinePriceManual(lineId,value){
+ const l=soDraft&&(soDraft.lines||[]).find(x=>x.id===lineId);if(!l)return;
+ if(String(value).trim()===''){delete l.priceManual;}else{const n=salesNonNegOrNull(value);if(n==null){alert('Enter a price of zero or greater.');render();return;}l.priceManual=n;}
+ touch();render();
+}
+function salesPriceManualHTML(line,p,cur){
+ const on=line.priceManual!=null,calc=p.manual?p.computedUnit:p.unit;
+ return `<div class="metric-manual${on?' on':''}" data-price-manual><label>Price by hand<input type="number" min="0" step="0.01" data-price-manual-input value="${on?esc(line.priceManual):''}" placeholder="${calc==null?'':calc.toFixed(2)}" onchange="salesSetLinePriceManual('${esc(line.id)}',this.value)"><span>${cur} / unit</span></label>${on?`<button type="button" class="sm" data-price-manual-clear onclick="salesSetLinePriceManual('${esc(line.id)}','')">Clear</button>`:''}<small>${on?'Calculated '+(calc==null?'—':calc.toFixed(2)+' '+cur):'Empty — calculated price'}</small></div>`;
+}
 function salesPricePanel(line){
  const p=salesLineCommercialPrice(line,soDraft),cur=esc(soDraft.currency),row=(label,value)=>`<div class="metric-price-row"><span>${label}</span><b data-raw>${value==null?'—':value.toFixed(2)+' '+cur}</b></div>`;
- return `<p class="mut">${'Calculation for one finished unit'}</p>${row('Materials'+` · ${p.materialRate.toFixed(2)} × ${p.areas.billable==null?'—':p.areas.billable.toFixed(1)} ft²`,p.missingMaterials||p.unsupportedCurrency?null:p.materials)}${row('Services and processing',p.missingServices||p.unsupportedCurrency?null:p.services)}${row('Base unit price',p.missingMaterials||p.missingServices||p.unsupportedCurrency?null:p.base)}${p.adjustments.map(a=>row(`${esc(a.label)} · +${a.percent}% × ${a.base.toFixed(2)}`,p.complete?a.amount:null)).join('')}${row('Unit Price',p.unit)}${row('Line Total · Qty '+p.qty,p.line)}${p.unsupportedCurrency?`<p class="metric-incomplete">${'Catalog prices are in CAD. USD totals require a defined currency conversion; CAD amounts are not relabelled as USD.'}</p>`:''}${!p.complete?`<p class="metric-incomplete">${'Calculation incomplete: check dimensions and material / service prices.'}</p>`:''}<p class="mut">${'Triple and Large unit each apply to the base unit price including services. Before energy surcharge, tax and delivery.'}</p><button type="button" onclick="salesMetricsPanel=null;salesOpenLineServices('${esc(line.id)}')">${'Open services'}</button>`;
+ return salesPriceManualHTML(line,p,cur)+`<p class="mut">${'Calculation for one finished unit'}</p>${row('Materials'+` · ${p.materialRate.toFixed(2)} × ${p.areas.billable==null?'—':p.areas.billable.toFixed(1)} ft²`,p.missingMaterials||p.unsupportedCurrency?null:p.materials)}${row('Services and processing',p.missingServices||p.unsupportedCurrency?null:p.services)}${row('Base unit price',p.missingMaterials||p.missingServices||p.unsupportedCurrency?null:p.base)}${p.adjustments.map(a=>row(`${esc(a.label)} · +${a.percent}% × ${a.base.toFixed(2)}`,p.complete?a.amount:null)).join('')}${row('Unit Price',p.unit)}${row('Line Total · Qty '+p.qty,p.line)}${p.unsupportedCurrency?`<p class="metric-incomplete">${'Catalog prices are in CAD. USD totals require a defined currency conversion; CAD amounts are not relabelled as USD.'}</p>`:''}${!p.complete?`<p class="metric-incomplete">${'Calculation incomplete: check dimensions and material / service prices.'}</p>`:''}<p class="mut">${'Triple and Large unit each apply to the base unit price including services. Before energy surcharge, tax and delivery.'}</p><button type="button" onclick="salesMetricsPanel=null;salesOpenLineServices('${esc(line.id)}')">${'Open services'}</button>`;
 }
 function salesRulePanel(){
  const r=salesMetricRules(soDraft),labels={triplePercent:'Triple units, %',largePercent:'Large units, %',largeThresholdFt2:'Large units: area strictly above, ft²',minimumAreaFt2:'Minimum billable area, ft²'};
