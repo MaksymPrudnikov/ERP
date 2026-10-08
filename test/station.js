@@ -167,10 +167,13 @@ module.exports=async function({page,eq,ok}){
 
  eq('Users → Production: PIN — четыре цифры; без офиса и без навыков',await t.p.evaluate(async()=>{
   tab='users';subtab='production';userEditOpen('new');uDraft.name='Pin Test';uDraft.newPin='12';render();await saveUser();const err=document.getElementById('e_user').textContent;
-  uDraft.newPin='0042';await saveUser();const u=DB.user.find(x=>x.name==='Pin Test');
+  /* Соль / отпечаток могут случайно содержать цифры PIN. Подставляем их
+     в соль явно: открытый PIN — целое значение, не подстрока HEX. */
+  uDraft.newPin='0042';const random=crypto.getRandomValues;crypto.getRandomValues=a=>{random.call(crypto,a);a[0]=0;a[1]=0x42;return a;};
+  try{await saveUser();}finally{crypto.getRandomValues=random;}const u=DB.user.find(x=>x.name==='Pin Test');
   DB.user.push({name:'Junk',role:'Shop',pin:'abcd'});normalizeUsers();const junk='pin' in DB.user.find(x=>x.name==='Junk');
   DB.user=DB.user.filter(x=>!['Pin Test','Junk'].includes(x.name));render();
-  return {err,pin:userPinCheck(u,'0042'),plain:JSON.stringify(u).includes('0042'),junk,access:u&&u.access,keys:u&&Object.keys(u).filter(k=>['role','skills','station'].includes(k))};
+  return {err,pin:userPinCheck(u,'0042'),plain:JSON.stringify(u).includes('"0042"'),junk,access:u&&u.access,keys:u&&Object.keys(u).filter(k=>['role','skills','station'].includes(k))};
  }),{err:'PIN: 4 digits',pin:true,plain:false,junk:false,access:[],keys:[]});
 
  /* Владелец, 3 октября 2026: «он может быть на двух станциях одновременно
