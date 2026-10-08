@@ -146,13 +146,14 @@ function finShipped(o){return !!o&&['done','closed'].includes(o.status);}
 function finOrderFinancial(o,today){
  const b=finOrderBalance(o),t=finTermsFor(o),dueOn=finPaymentDue(o),c=salesFindCustomer(o.customerId),day=today||finToday();
  const overdue=b.balance>0&&dueOn&&dueOn<day?b.balance:0;
- const depositRequired=b.total==null?null:finMoney(b.total*(t.paymentMode==='cash'?t.depositPercent:0)/100);
+ const depositRequired=b.total==null||b.status==='review'?null:finMoney(b.total*(t.paymentMode==='cash'?t.depositPercent:0)/100);
  const depositMissing=depositRequired==null?null:finShipped(o)?0:finMoney(Math.max(0,depositRequired-b.paid));
  /* Срок идёт от выдачи: у доставки — «after delivery», не «after pickup»
     (проход 7.10.2026: North Shore с доставкой видел «Net 30 after pickup»). */
  const handover=o.delivery==='delivery'?'delivery':'pickup';
  let status,tone='info';
  if(!finOrderCounts(o))status='Inactive';
+ else if(b.status==='review'){status='Review required';tone='warn';}
  else if(finCurrency(o)!=='CAD'){status='Currency review';tone='warn';}
  else if(b.total==null){status='Pricing incomplete';tone='warn';}
  else if(b.balance<0)status='Overpaid';
@@ -179,6 +180,7 @@ function finCustomerMoney(customerId,today){
 function finMoneyAdd(m,o,day){
  const f=finOrderFinancial(o,day),b=f.b;
  if(b.total==null)m.incomplete++;
+ if(b.status==='review')m.review=(m.review||0)+1;
  if(b.balance>0){m.balance+=b.balance;m.orders++;}
  m.overdue+=f.overdue;
  if(!finShipped(o)&&finCurrency(o)==='CAD')m.prepaid+=b.paid;
@@ -238,7 +240,7 @@ function finMonthRange(offset,today){
    потерять. Последняя выгруженная строка нужна для отмены после Undo receipt. */
 function finInvoiceExportRow(o,voided){
  const c=salesFindCustomer(o.customerId)||{},b=finOrderBalance(o),due=finPaymentDue(o),e=finExportRecord(o.id);
- let row=[finInvoiceDate(o),o.businessNumber,'Invoice',finCustomerName(c),c.code||'',paymentTermsLabel(finTermsFor(o)),o.customerPo||'',b.total==null?'':b.total.toFixed(2),finCurrency(o),o.businessNumber,b.balance>0?(due?'Due '+due:'Due on receipt'):'Paid',''];
+ let row=[finInvoiceDate(o),o.businessNumber,'Invoice',finCustomerName(c),c.code||'',paymentTermsLabel(finTermsFor(o)),o.customerPo||'',b.total==null?'':b.total.toFixed(2),finCurrency(o),o.businessNumber,b.status==='review'?'Review required':b.total==null?'Currency / pricing review':b.balance>0?(due?'Due '+due:'Due on receipt'):'Paid',''];
  if(voided){
   if(e&&e.invoice)row=e.invoice.slice();
   /* Совместимость с отметкой ранней версии Invoice без сохранённой строки. */

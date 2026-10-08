@@ -94,7 +94,7 @@ function finListTable(infos,cell,rowAttrs,noun,empty){
 function finDateCell(v){return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;}
 
 /* ------------------------------ Accounts ----------------------------- */
-function finAccountState(c,a){return c.status==='archived'?'Archived':c.onHold?'On hold':a.overLimit?'Over limit':'Active';}
+function finAccountState(c,a){return a.review?'Review required':c.status==='archived'?'Archived':c.onHold?'On hold':a.overLimit?'Over limit':'Active';}
 function finAccountInfos(){
  return (DB.customer||[]).map(c=>{
   const m=finAccountMetrics(c),x=m.money,a=m.account;

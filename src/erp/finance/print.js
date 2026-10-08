@@ -90,7 +90,7 @@ function finStatementOrders(customerId,from,to,today){
  const inPeriod=d=>!!d&&(!from||d>=from)&&(!to||d<=to);
  const paidIn=new Set(finActiveReceipts().filter(r=>r.customerId===customerId&&inPeriod(r.date)).flatMap(r=>r.allocations.map(a=>a.orderId)));
  return (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)&&finCurrency(o)==='CAD').map(o=>({o,f:finOrderFinancial(o,today),billed:finBillingDate(o)}))
-  .filter(x=>x.f.b.total!=null&&(x.f.b.balance>0||paidIn.has(x.o.id)||inPeriod(x.billed)||!x.billed&&x.f.b.paid>0))
+  .filter(x=>x.f.b.total!=null&&(x.f.b.status==='review'||x.f.b.balance>0||paidIn.has(x.o.id)||inPeriod(x.billed)||!x.billed&&x.f.b.paid>0))
   .sort((a,b)=>(a.billed||'9999').localeCompare(b.billed||'9999')||String(a.o.businessNumber).localeCompare(String(b.o.businessNumber)));
 }
 /* Выписка за период — клиенту раз в месяц для его учёта: какие заказы и на
@@ -105,15 +105,17 @@ function finStatementDoc(customerId,from,to,today){
  const orders=finStatementOrders(c.id,from,to,day);
  m.sections=[
   {title:'Orders',empty:'No orders in this period.',cols:[{label:'Order',x:36,w:58,bold:true},{label:'Customer PO',x:98,w:96},{label:'Picked up',x:198,w:64},{label:'Due',x:266,w:100,due:true},{label:'Total',x:430,w:62,align:'right'},{label:'Paid',x:504,w:62,align:'right'},{label:'Balance',x:576,w:62,align:'right',bold:true,due:true}],
-   rows:orders.map(({o,f,billed})=>({due:f.overdue>0,mut:!billed,cells:[o.businessNumber,o.customerPo||'—',billed?docDate(billed):'In work',finDueText(f)+(f.overdue?' · overdue':''),money(f.b.total),money(f.b.paid),money(Math.max(0,f.b.balance))]}))},
+   rows:orders.map(({o,f,billed})=>({due:f.overdue>0,mut:!billed,cells:[o.businessNumber,o.customerPo||'—',billed?docDate(billed):'In work',f.b.status==='review'?'Review required':finDueText(f)+(f.overdue?' · overdue':''),money(f.b.total),money(f.b.paid),money(f.b.status==='review'?f.b.balance:Math.max(0,f.b.balance))]}))},
   {title:'Account activity',empty:'',cols:[{label:'Date',x:36,w:58},{label:'Document',x:98,w:52,bold:true},{label:'Description',x:154,w:204},{label:'Charges',x:418,w:58,align:'right'},{label:'Payments',x:494,w:58,align:'right'},{label:'Balance',x:576,w:66,align:'right',bold:true}],
    rows:[{mut:true,cells:[from?docDate(from):'','','Balance forward','','',finSigned(d.opening)]}].concat(d.rows.map(l=>({due:l.overdue,cells:[docDate(l.date),l.doc,l.text,l.charge?money(l.charge):'',l.payment?money(l.payment):'',finSigned(l.balance)]})))}
  ];
  const left=[];if(company.paymentInstructions)left.push({label:'Payment',text:company.paymentInstructions});
+ const review=orders.some(x=>x.f.b.status==='review');
+ if(review)left.push({label:'Review required',text:'Negative order totals need review. Please contact us to resolve them.'});
  if(orders.some(x=>!x.billed))left.push({label:'In work',text:'Orders not yet picked up are billed on pickup.'+(d.prepaid>0?' '+money(d.prepaid)+' already paid on them is in the balance.':'')});
  const rows=[{label:'Balance forward',value:finSigned(d.opening)},{label:'Orders billed',value:money(d.billed)},{label:'Payments received',value:d.paid>0?'-'+money(d.paid):money(0)}];
  if(d.refunded>0)rows.push({label:'Refunds',value:money(d.refunded)});
- m.end={left,rows,grand:d.closing>=0?{label:'Balance due',value:money(d.closing)}:{label:'Credit balance',value:money(-d.closing)},paid:d.overdue>0?[{label:'Overdue now',value:money(d.overdue),tone:'due'}]:null};
+ m.end={left,rows,grand:review&&d.closing<0?{label:'Review required',value:finSigned(d.closing)}:d.closing>=0?{label:'Balance due',value:money(d.closing)}:{label:'Credit balance',value:money(-d.closing)},paid:d.overdue>0?[{label:'Overdue now',value:money(d.overdue),tone:'due'}]:null};
  m.footerRight=finPeriodText(from,to);
  return finDocLayout(m);
 }

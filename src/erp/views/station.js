@@ -84,8 +84,12 @@ function stationWho(){
 }
 /* На какую тару рабочий сейчас кладёт стекло — свойство рабочего места, как
    и вход: живёт в сессии этого браузера. */
-function stationPutOn(){const s=stationSession();return s&&s.putOn&&typeof carrierFind==='function'&&carrierFind(s.putOn)?s.putOn:'';}
-function stationSetPutOn(code){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.putOn=code||'';stationSessionsSave(m);}
+function stationPutOn(){
+ const s=stationSession(),c=s&&s.putOn&&typeof carrierFind==='function'?carrierFind(s.putOn):null;
+ if(c&&c.active&&(s.putOnMode==null||s.putOnMode===stationPutsOnHere()))return c.code;
+ if(s&&s.putOn)stationSetPutOn('');return '';
+}
+function stationSetPutOn(code){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.putOn=code||'';s.putOnMode=stationPutsOnHere();stationSessionsSave(m);}
 function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a dolly';render();}
 function stationLogin(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;
@@ -823,7 +827,10 @@ function stationLoose(){
    лайт в машине, пока юнит не закрыт: тара ему не нужна. */
 function stationLooseAdd(recs){
  if(stationPutsOnHere()==='none'||stationPutOn())return;
- const add=(recs||[]).filter(r=>r&&!r.on&&!r.park).filter(r=>{const g=stationGlass(r.piece);if(!g)return false;const p=stationPlace(g);return !p.assembling&&p.waiting!==stationCode;}).map(r=>r.id);
+ /* Последний лайт закрыл сборку: тару теперь ждут все её компоненты,
+    включая первый скан, который до этого ещё был в машине. */
+ const closed=new Set((recs||[]).filter(r=>r&&r.asm&&(r.unit||r.joined)).map(r=>r.asm)),all=(recs||[]).concat((DB.stationScan||[]).filter(s=>!s.undoneAt&&s.station===stationCode&&closed.has(s.asm)));
+ const add=all.filter(r=>r&&!r.on&&!r.park).filter(r=>{const g=stationGlass(r.piece);if(!g)return false;const p=stationPlace(g);return !p.assembling&&p.waiting!==stationCode;}).map(r=>r.id);
  if(add.length)stationLooseSave([...new Set(stationLoose().map(s=>s.id).concat(add))]);
 }
 /* Следующая тара «кладу на» забирает всё, что ждало её. */
@@ -883,7 +890,14 @@ function stationWarnMove(code){
  const L=stationLast,w=L.wrong||L.foreign,from=w.on||w.skid,to=carrierCode(code);
  /* Та же тара — «так и оставить», дальше обычный скан тары (её карточка). */
  if(to===from){L.wrong=null;L.foreign=null;stationCarrierScan(code);render();return 'carrier';}
- const r=carrierMove(stationWarnPieces(L),to,stationWho());
+ const pieces=stationWarnPieces(L),reserved=(DB.shipment||[]).some(s=>shippingActive(s)&&s.items.some(i=>i.pieces.some(p=>pieces.includes(p))));
+ if(stationIsReady()&&reserved){
+  const before=stationPutOn();stationSetPutOn(to);
+  const result=stationRestack(stationCheck(stationCode,pieces[0]),stationWho());
+  if(result&&result!=='saveError'){render();return result;}
+  stationSetPutOn(before);if(result){render();return result;}
+ }
+ const r=carrierMove(pieces,to,stationWho());
  if(r.error){stationNote=r.error;stationBeep('error');render();return 'saveError';}
  stationSetPutOn(r.to);
  stationLast={check:{kind:'carrierMoved',code:r.to,from,count:r.was.length,puton:true},move:r,rec:null,data:null,place:null,at:new Date().toISOString()};

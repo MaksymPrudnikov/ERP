@@ -267,7 +267,12 @@ function salesRecordTransitionAllowed(o,next,opts){
  if(next==='ready'){const q=shippingSummary(o);return !o.onHold&&o.status!=='new'&&q.glass>0&&q.physicalReady===q.glass&&!q.shipped;}
  if(next==='done'||next==='shipping')return false;
  if(o.onHold&&(next==='verified'||next==='batched'))return false;
- if(next==='batched')return !salesStockOnly(o)&&(o.status==='verified'||['batched','ready','shipping','done'].includes(o.status))&&(salesBatchableLines(o).length>0||o.status==='verified'&&!salesUnbatchedLines(o).length);
+ if(next==='batched'){
+  if(salesStockOnly(o)||!['verified','batched','ready','shipping','done'].includes(o.status))return false;
+  /* Restore может вернуть Verified с уже назначенным, ещё не порезанным
+     стеклом. Возобновляем его батч; полностью пройденный Skip не батчим. */
+  return salesBatchableLines(o).length>0||o.status==='verified'&&[...glassBatchActive(o.id).values()].some(x=>!x.item.cutStartedAt&&!glassCutByScan().has(x.item.piece));
+ }
  if((next==='ready'||next==='done'||next==='closed')&&salesUnbatchedLines(o).length)return false;
  return salesNextStatus(o)===next;
 }

@@ -145,6 +145,8 @@ function skipCommand(d){
  shippingAssert(!pick.problems.length,pick.problems.join('. ')+'.');
  shippingAssert(pick.units.length||to===SKIP_PICKUP&&extras.length,'Choose what to skip.');
  shippingAssert(!extras.length||to===SKIP_PICKUP,'Stock items can only be picked up.');
+ const offRoute=pick.units.flatMap(u=>u.pieces).find(id=>!stationPlace(stationGlass(id)).route.includes(target));
+ shippingAssert(!offRoute,'Glass '+(offRoute||'')+' does not pass '+target+'. Choose a station on its route.');
  /* Skip есть всегда (владелец, 8.10.2026: «никаких ограничений… человеческий
     фактор в действии»): ни Hold, ни поздний скан его не останавливают. День —
     выбранный; время — после последнего скана этого стекла в тот же день
@@ -158,6 +160,7 @@ function skipCommand(d){
  /* «От создания заказа»: Skip сам себе Verify. */
  if(o.status==='new'){o.status='verified';o.statusDates=Object.assign({},o.statusDates,{verified:at});salesSyncRecordLifecycle(o);}
  skipRecord(pick.units,target,at,who,skip);
+ shippingAssert(to===SKIP_PICKUP||!!skip.actionId,'The selected glass has already passed '+target+'.');
  if(to===SKIP_PICKUP){
   /* Hold заказа, строк и юнитов не мешает выдаче Skip: снят на время
      выдачи и возвращён тем же (Undo Skip его не трогает). */
@@ -190,13 +193,18 @@ function skipUndo(id){
 function skipUndoCommand(id){
  const k=skipFind(id);shippingAssert(k&&!k.undoneAt,'Skip not found.');
  const o=salesRecord(k.orderId);shippingAssert(o,'Order not found.');
+ const group=(DB.stationScan||[]).filter(s=>k.actionId&&s.actionId===k.actionId&&!s.undoneAt),own=new Set(group.map(s=>s.id));
+ k.shipments.forEach(sid=>{const s=shippingFind(sid);if(s)(s.scanIds||[]).forEach(id=>own.add(id));});
+ /* День Skip может быть прошлым. Зависимость — порядок записи SC, а не
+    выбранная дата. Собственные сканы выдачи снимаются вместе с этим Skip. */
+ const later=group.find(r=>stationScansFor(r.piece).some(s=>!own.has(s.id)&&+s.id.slice(3)>+r.id.slice(3)));
+ const reserved=(DB.shipment||[]).find(s=>shippingActive(s)&&!k.shipments.includes(s.id)&&s.items.some(i=>i.pieces.some(p=>k.pieces.includes(p))));
+ shippingAssert(!later,'Glass '+(later?later.piece:'')+' has moved on. Undo the later scans first.');
+ shippingAssert(!reserved,'Glass is on a packing slip. Cancel the packing slip before Undo.');
  k.shipments.slice().reverse().forEach(sid=>{
   const s=shippingFind(sid);if(!s||s.status==='cancelled')return;
   [['delivered','receipt'],['shipped','dispatch'],['planned','cancel']].forEach(([st,action])=>{if(s.status!==st)return;const r=shippingRevert(s.id,action);shippingAssert(r.ok,r.error);});
  });
- const group=(DB.stationScan||[]).filter(s=>k.actionId&&s.actionId===k.actionId&&!s.undoneAt);
- const later=group.find(r=>stationScansFor(r.piece).some(s=>!group.includes(s)&&String(s.at)>=String(r.at)&&String(s.id)>String(r.id)));
- shippingAssert(!later,'Glass '+(later?later.piece:'')+' has moved on. Undo the later scans first.');
  const now=new Date().toISOString(),cut=stationCutCode(),who=orderLogActor();
  group.forEach(r=>{
   r.undoneAt=now;r.undoneBy=('Undo skip · '+(who.by||'Office')).slice(0,80);stationAsmReopen(r);

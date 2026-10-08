@@ -24,8 +24,8 @@ function stationIguCode(){return typeof salesRouteStationOf==='function'?salesRo
 function stationIguBoard(){
  const igu=stationIguCode(),st=shippingStations();if(!igu||!st.ready||!st.ship)return null;
  return shippingWithCtx(()=>{
-  const ctx=shippingCtx(),ids=new Set(),lastOf=p=>{const l=ctx.scans.get(p);return l&&l[l.length-1];};
-  ctx.asm.forEach((list,k)=>{if(list.some(s=>s.station===igu&&s.unit&&!ctx.broken.has(s.piece)&&(lastOf(s.piece)||{}).station!==st.ship))ids.add(k.split('|')[0]);});
+  const ctx=shippingCtx(),ids=new Set();
+  ctx.asm.forEach((list,k)=>{if(list.some(s=>s.station===igu&&s.unit&&!ctx.broken.has(s.piece)))ids.add(k.split('|')[0]);});
   const mix=new Map();carrierContents().forEach((list,code)=>mix.set(code,new Set(list.map(x=>x.g.o.customerId)).size>1));
   let edge='';const orders=[];
   ids.forEach(id=>{
@@ -71,7 +71,7 @@ function stationIguToggle(piece){stationIguOpen=stationIguOpen===piece?'':piece;
 function stationIguMove(to){
  const who=stationWho();if(!who||!stationIguSel.size)return false;
  const code=typeof carrierCode==='function'?carrierCode(to):'';
- if(!code||!carrierType(code)){stationNote='Scan the skid or type its number';stationBeep('error');render();return false;}
+ if(!code||!carrierType(code)||carrierType(code).kind!=='Skid'){stationNote='Scan the skid or type its number';stationBeep('error');render();return false;}
  const units=stationIguUnits(stationIguBoard(),stationIguSel),from=[...new Set(units.map(u=>u.skid||'No skid'))].join(', ');
  const r=carrierMove(units.flatMap(u=>u.pieces),code,who);
  if(r.error){stationNote=r.error;stationBeep('error');render();return false;}
@@ -149,7 +149,7 @@ function stationSkidPick(key){const d=stationDrawer;if(!d||d.kind!=='skid')retur
 function stationSkidMove(to){
  const d=stationDrawer,who=stationWho();if(!d||d.kind!=='skid'||!d.sel.size||!who)return false;
  const code=typeof carrierCode==='function'?carrierCode(to):'';
- if(!code||!carrierType(code)){d.error='Scan the skid or type its number';stationBeep('error');render();return false;}
+ if(!code||!carrierType(code)||carrierType(code).kind!=='Skid'){d.error='Scan the skid or type its number';stationBeep('error');render();return false;}
  if(code===d.code){d.error='Already on '+code;stationBeep('error');render();return false;}
  const items=stationSkidItems(d.code).filter(i=>d.sel.has(i.key)),r=carrierMove(items.flatMap(i=>i.pieces),code,who);
  if(r.error){d.error=r.error;stationBeep('error');render();return false;}

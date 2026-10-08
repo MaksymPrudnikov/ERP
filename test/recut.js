@@ -182,5 +182,19 @@ module.exports=async function({page,eq,ok}){
 
  await t.p.setViewportSize({width:390,height:844});
  eq('на телефоне форма и блок Recut не шире экрана',await t.p.evaluate(()=>{const id=DB.salesOrder[0].id;salesOrderEdit(id);const block=document.documentElement.scrollWidth<=innerWidth+1;ncrOpenForm('recut');const r=document.querySelector('.ncr-modal').getBoundingClientRect();return block&&r.left>=0&&r.right<=innerWidth+1;}),true);
+ eq('после CUT → Undo новая геометрия Recut обновляет только его маршрут, включая DRILL',await t.p.evaluate(()=>{
+  rdOrder();rdSave(()=>{sDraft.w='36';});glassBatchAssign(glassBatchRows([salesRecord(rd.id)]),{});
+  const piece=recutPieces(DB.recut[0])[0],scan=rdScan('CUT',piece),old=DB.productionRoute.filter(x=>!x.key.includes('|R')).map(x=>JSON.stringify(x));
+  stationUndo(scan.value.rec.id,rdWho);salesOrderEdit(rd.id);rdSave(()=>sDraft.features.push(shapeNormalizeFeature({type:'hole',diameter:'1',x:'6',y:'6',minEdge:'1/2'})));
+  const g=stationGlass(piece),route=stationRouteOf(g).codes,expected=stkRoute(g.o,stationGeo(g),g.c).codes;
+  return {drill:route.includes('DRILL'),same:JSON.stringify(route)===JSON.stringify(expected),originals:JSON.stringify(old)===JSON.stringify(DB.productionRoute.filter(x=>!x.key.includes('|R')).map(x=>JSON.stringify(x)))};
+ }),{drill:true,same:true,originals:true});
+ eq('Recut целого юнита: собственная форма лайта открывается сразу из строки; Cancel ничего не пишет, Save меняет только копию',await t.p.evaluate(()=>{
+  oqReset();DB.recut=[];const id=oqOrder(oqCustomer());salesOrderEdit(id);const l=soDraft.lines[1];salesOpenLiteShape(l.id,0);sDraft.w='29';saveShape();salesOrderSave();salesDraftDrop();salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
+  salesOrderEdit(id);rcFill(id,{where:'OFFICE',reason:'Drawing wrong',lines:[[1,1,'unit']]});ncrFormCreate();const r=DB.recut[0],original=JSON.stringify(salesRecord(id)),ref=salesRecord(id).lines[1].liteShapes['0'],shape=JSON.stringify(salesShapeByRef(ref));
+  let row=document.querySelector('[data-recut-row]');row.querySelector('[data-recut-drawing]').value='0';row.querySelector('[data-recut-shape]').click();const opened=salesBridge.liteIndex===0,before=JSON.stringify(DB);sDraft.w='28';cancelShapeEdit();const cancelled=JSON.stringify(DB)===before;
+  row=document.querySelector('[data-recut-row]');row.querySelector('[data-recut-drawing]').value='0';row.querySelector('[data-recut-shape]').click();sDraft.w='28';saveShape();
+  const current=recutFind(r.id),own=salesShapeByRef(current.liteShapes['0']);return {opened,cancelled,width:ShapeModule.compute(own).width,copy:own.id!==ref.id,shape:JSON.stringify(salesShapeByRef(ref))===shape,line:JSON.stringify(salesRecord(id).lines)===JSON.stringify(JSON.parse(original).lines),queue:glassBatchRows([salesRecord(id)]).filter(x=>x.recut).map(x=>x.width)};
+ }),{opened:true,cancelled:true,width:28,copy:true,shape:true,line:true,queue:[28,30]});
  eq('Recut без ошибок страницы',t.errs,[]);await t.c.close();
 };

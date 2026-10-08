@@ -161,6 +161,16 @@ module.exports=async function({page,eq,ok}){
   unOut();return {text,acts,moved,manual,byU,printed,label};
  }),{text:'Line 1 · 37 × 71|Unit · 6CLEAR / 6Q240|B-0001|2|',acts:['✓ Mark 1 unit done','Print a new unit sticker','Drawing'],moved:2,manual:true,byU:{kind:'ok',moved:4,manual:'true,true'},printed:1,label:true});
 
+ eq('поздняя долли забирает оба слоя LAM: отдельный ламинат и ламинированный лайт внутри IGU',await t.p.evaluate(()=>{
+  const result=[];for(const type of ['single','double']){
+   unReset();carrierAdd('DL',1);const id=oqOrder(oqCustomer());salesOrderEdit(id);const m=soDraft.makeups[0];m.unitType=type;
+   const lam=normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0);lam.priceOverride=9;m.panes=type==='single'?[lam]:[lam,m.panes[1]];if(type==='single')m.cavities=[];soDraft.lines=[soDraft.lines[0]];soDraft.lines[0].qty=1;
+   salesOrderSave();salesDraftDrop();salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
+   const pieces=[...stationPieceIndex()].filter(([p,h])=>h.orderId===id&&stationGlass(p).c.ply).map(([p])=>p);
+   for(const p of pieces)for(let n=0;n<8;n++){const g=stationGlass(p),s=stationPlace(g).waiting;if(!s||s==='LAM')break;stationMove(s,stationCheck(s,p),unWho);}
+   unLogin('LAM','Laminator');pieces.forEach(p=>stationSubmit(p));const loose=stationLoose().length;stationSubmit('DL-1');result.push([pieces.length,loose,(carrierContents().get('DL-1')||[]).length,pieces.every(p=>stationScansFor(p).at(-1).on==='DL-1')]);unOut();
+  }return result;
+ }),[[2,2,2,true],[2,2,2,true]]);
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

@@ -95,7 +95,7 @@ function finOrderPaid(orderId){
 function finOrderBalance(order){
  const t=finOrderTotals(order),p=finOrderPaid(order.id),total=t.complete&&finCurrency(order)==='CAD'?finMoney(t.grand):null;
  const balance=total==null?null:finMoney(total-p.paid);
- let status=total==null?'incomplete':balance>0?'due':balance<0?'overpaid':'paid';
+ let status=t.complete&&t.grand<0?'review':total==null?'incomplete':balance>0?'due':balance<0?'overpaid':'paid';
  if(total===0&&p.paid===0)status='empty';
  return {total,paid:p.paid,receipts:p.receipts,balance,status};
 }
@@ -104,14 +104,14 @@ function finCustomerDeposit(customerId,currency){
  return finMoney(finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===currency).reduce((s,r)=>s+finReceiptOnAccount(r),0));
 }
 function finCustomerAccount(c){
- let due=0,dueOrders=0,incomplete=0;
+ let due=0,dueOrders=0,incomplete=0,review=0;
  (DB.salesOrder||[]).filter(o=>o.customerId===c.id&&finOrderCounts(o)).forEach(o=>{
   const b=finOrderBalance(o);
-  if(b.status==='due'){due+=b.balance;dueOrders++;}else if(b.status==='incomplete')incomplete++;
+  if(b.status==='due'){due+=b.balance;dueOrders++;}else if(b.status==='incomplete')incomplete++;else if(b.status==='review')review++;
  });
  due=finMoney(due);
  const limit=c.creditLimit!=null&&c.creditLimit!==''&&Number.isFinite(+c.creditLimit)?finMoney(c.creditLimit):null;
- return {customer:c,terms:paymentTermsLabel(c),creditLimit:limit,balanceDue:due,dueOrders,incomplete,deposit:finCustomerDeposit(c.id),
+ return {customer:c,terms:paymentTermsLabel(c),creditLimit:limit,balanceDue:due,dueOrders,incomplete,...(review?{review}:{}),deposit:finCustomerDeposit(c.id),
   available:limit==null?null:finMoney(limit-due),overLimit:limit!=null&&due>limit};
 }
 

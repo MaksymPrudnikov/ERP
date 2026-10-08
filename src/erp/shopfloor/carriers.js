@@ -97,25 +97,30 @@ function carrierMove(pieces,to,who){
  const out=storageCommand(()=>{
   const c=carrierFind(to);if(!c||!c.active)throw new Error('Unknown dolly or skid.');
   const last=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)last.set(s.piece,s);});
-  const now=new Date().toISOString(),was=[];
+  const now=new Date().toISOString(),was=[],id=salesUid('MV');
   (pieces||[]).forEach(p=>{
    const s=last.get(p);if(!s||s.broken||s.on===c.code)return;
    if(typeof shippingActive==='function'&&(DB.shipment||[]).some(x=>shippingActive(x)&&x.items.some(i=>i.pieces.includes(p))))throw new Error('Glass is on a packing slip — not moved.');
    was.push({id:s.id,on:s.on||'',moved:s.moved||null});
-   s.moved={from:s.on||'',at:now,by:String(who&&who.name||'')};s.on=c.code;
+   s.moved={id,from:s.on||'',at:now,by:String(who&&who.name||'')};s.on=c.code;
   });
   if(!was.length)throw new Error('Nothing to move.');
-  return {to:c.code,was};
+  const back=typeof skidsOut==='function'&&skidsOut().get(c.code);
+  if(back)skidReturnPush(c.code,back,'back','',who&&who.name,now);
+  return {id,to:c.code,was};
  });
  return out.ok?out.value:{error:out.error};
 }
-/* Undo переноса: тара возвращается тем сканам, что всё ещё на новой таре. */
+/* Undo конкретного последнего переноса, целиком. Совпадение кода тары
+   после новых перекладок не означает, что старое действие ещё действует. */
 function carrierMoveUndo(move){
  const out=storageCommand(()=>{
-  const by=new Map((DB.stationScan||[]).map(s=>[s.id,s]));let n=0;
-  (move&&move.was||[]).forEach(w=>{const s=by.get(w.id);if(!s||s.undoneAt||s.on!==move.to)return;if(w.on)s.on=w.on;else delete s.on;if(w.moved)s.moved=w.moved;else delete s.moved;n++;});
-  if(!n)throw new Error('Nothing to undo.');
-  return n;
+  const by=new Map((DB.stationScan||[]).map(s=>[s.id,s])),last=new Map();
+  (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)last.set(s.piece,s);});
+  const was=move&&move.was||[];if(!was.length)throw new Error('Nothing to undo.');
+  if(was.some(w=>{const s=by.get(w.id);return !s||s.undoneAt||s.broken||s.on!==move.to||last.get(s.piece)!==s||!s.moved||s.moved.id!==move.id;}))throw new Error('Glass has moved on. Undo the later action first.');
+  was.forEach(w=>{const s=by.get(w.id);if(w.on)s.on=w.on;else delete s.on;if(w.moved)s.moved=w.moved;else delete s.moved;});
+  return was.length;
  });
  return out.ok?out.value:{error:out.error};
 }

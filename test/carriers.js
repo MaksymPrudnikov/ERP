@@ -139,6 +139,22 @@ module.exports=async function({page,eq,ok}){
   return {rows,printed,labels,bars:bars>20,calls:window.cvPrinted};
  }),{rows:'DA-1:A-shape dolly:empty|DA-2:A-shape dolly:empty|SL-1:L-shape skid:empty',printed:2,labels:'DA-2,SL-1',bars:true,calls:1});
 
+ eq('старый Undo переноса не стирает новые перекладки или следующий производственный скан',await t.p.evaluate(()=>{
+  cvReset();carrierAdd('DL',3);const id=cvOrder([[36,24,2]]),pieces=cvIds(id);cvLogin('CUT','QA');stationSubmit('DL-1');pieces.forEach(p=>stationSubmit(p));
+  const who=stationWho(),first=carrierMove(pieces,'DL-2',who);carrierMove(pieces,'DL-3',who);carrierMove(pieces,'DL-2',{name:'Later operator'});
+  const before=JSON.stringify(DB),old=carrierMoveUndo(first),same=JSON.stringify(DB)===before;
+  const last=carrierMove(pieces,'DL-3',who);stationMove('ARRIS',stationCheck('ARRIS',pieces[0]),who,{on:'DL-3'});
+  const after=JSON.stringify(DB),next=carrierMoveUndo(last);
+  return {old:!!old.error,same,next:!!next.error,atomic:JSON.stringify(DB)===after};
+ }),{old:true,same:true,next:true,atomic:true});
+
+ eq('выбор тары обновляется после отключения и смены Puts on; производство без тары остаётся разрешённым',await t.p.evaluate(()=>{
+  cvReset();carrierAdd('DL',1);const id=cvOrder([[36,24,3]]),pieces=cvIds(id);cvLogin('CUT','QA');stationSubmit('DL-1');stationSubmit(pieces[0]);carrierSet('DL-1','active',false);
+  const kind=stationSubmit(pieces[1]),inactive=stationScansFor(pieces[1]).at(-1).on||'',loose=stationLoose().length;
+  carrierSet('DL-1','active',true);stationSubmit('DL-1');sfSetPutsOn('CUT','none');const changed=stationSubmit(pieces[2]),none=stationScansFor(pieces[2]).at(-1).on||'',put=stationPutOn();sfSetPutsOn('CUT','dolly');
+  return {kind,inactive,loose,changed,none,put};
+ }),{kind:'ok',inactive:'',loose:1,changed:'ok',none:'',put:''});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
