@@ -2911,7 +2911,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='c57bb86103da';
+var ERP_BUILD='cf318445dcd6';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11570,13 +11570,20 @@ function salesStartedViolations(draft,saved){
  });
  return out;
 }
+/* Delete — на любом этапе (владелец, 9 октября 2026: «Олег ошибся… и
+   накладную тоже удалить»): заказ сам возвращается и удаляется
+   (salesOrderDelete). Тронутый заказ — в работе, с накладной, NCR или Recut —
+   удаляют только Users, Finance и Optimization («не доверил бы Оле»). */
+function salesDeleteTouched(o){
+ if(!o||salesIsQuote(o))return false;
+ return (typeof shippingForOrder==='function'&&shippingForOrder(o.id).length>0)||(DB.ncr||[]).some(n=>n.orderId===o.id||n.remakeOrderId===o.id)||(DB.recut||[]).some(r=>r.orderId===o.id)
+  ||['batched','ready','shipping','done','closed'].includes(o.status)||(o.lines||[]).some(l=>salesLineLocked(l)||typeof glassLineScanned==='function'&&glassLineScanned(o.id,l));
+}
+function salesDeleteAllowed(){return accessCan('users')||accessCan('finance')||accessCan('optimization');}
 function salesDeleteBlocked(o){
  if(!o)return false;
- if(typeof shippingForOrder==='function'&&shippingForOrder(o.id).some(s=>shippingOrderIds(s).includes(o.id))){alert('This order has packing slips and cannot be deleted.');return true;}
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
- const ncr=(DB.ncr||[]).find(n=>n.orderId===o.id||n.remakeOrderId===o.id)||((DB.recut||[]).some(r=>r.orderId===o.id)?{number:'a recut'}:null);
- if(!salesIsQuote(o)&&ncr){alert('Order '+(o.businessNumber||'')+' is linked to '+ncr.number+'. Cancel it instead of deleting.');return true;}
- if(!salesIsQuote(o)&&(['batched','ready','shipping','done','closed'].includes(o.status)||(o.lines||[]).some(l=>salesLineLocked(l)||typeof glassLineScanned==='function'&&glassLineScanned(o.id,l)))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
+ if(salesDeleteTouched(o)&&!salesDeleteAllowed()){alert('Ask Finance, Optimization or Users to delete this order.');return true;}
  return false;
 }
 
@@ -13915,16 +13922,39 @@ function salesOrderSaveCommand(opts){
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
  normalizeSalesData();if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
+/* Delete на любом этапе (владелец, 9 октября 2026): тронутый заказ сначала
+   возвращает всё стекло (erp/shopfloor/production-unbatch), накладная только
+   этого заказа удаляется, из общей уходит только он (erp/shipping/commands),
+   оплаты — на депозит. Одно окно со всем, что произойдёт; одна запись в базу.
+   Сумму видят только Sales и Finance — оптимизатору денег не показываем. */
+function salesDeleteConfirmText(o){
+ const paid=typeof finOrderPaid==='function'?finOrderPaid(o.id).paid:0;
+ if(!salesDeleteTouched(o))return paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?';
+ const batches=typeof productionUnbatchDeleteBatches==='function'?productionUnbatchDeleteBatches(o):[],ps=typeof shippingDropPlan==='function'?shippingDropPlan(o.id):{deleted:[],corrected:[]};
+ const money=accessCan('sales')||accessCan('finance'),qb=typeof finExportRecord==='function'&&finExportRecord(o.id),numbers=list=>list.map(s=>s.number).join(', ');
+ return ['Delete order '+o.businessNumber+'?',
+  batches.length?'Glass leaves batch '+batches.join(', ')+'.':'',
+  ps.deleted.length?numbers(ps.deleted)+(ps.deleted.length>1?' are':' is')+' deleted.':'',
+  ps.corrected.length?numbers(ps.corrected)+' keep'+(ps.corrected.length>1?'':'s')+' the other orders.':'',
+  paid>0?(money?'$'+paid.toFixed(2)+' goes':'Receipts go')+' back to the customer deposit.':'',
+  qb&&qb.kind==='invoice'&&!qb.voided?'The invoice is already in QuickBooks.':''].filter(Boolean).join('\n');
+}
 function salesOrderDelete(id){
  const o=salesRecord(id);if(!o||salesDeleteBlocked(o))return false;
  if(salesIsQuote(o)){salesQuoteDeleteGroup(o);return;}
- const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;
- if(!confirm(paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?'))return false;
+ if(!confirm(salesDeleteConfirmText(o)))return false;
  const out=storageCommand(()=>{
-  const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0||salesDeleteBlocked(DB.salesOrder[i]))return false;
+  const x=salesRecord(id);if(!x||salesDeleteBlocked(x))return false;
+  if(salesDeleteTouched(x)){
+   if(typeof productionUnbatchForDelete==='function')productionUnbatchForDelete(x);
+   if(typeof shippingDropOrder==='function')shippingDropOrder(id);
+  }
   if(typeof finReleaseOrder==='function')finReleaseOrder(id);
-  DB.salesOrder.splice(i,1);salesPruneOrphanShapes();return true;
+  DB.salesOrder.splice(DB.salesOrder.indexOf(x),1);salesPruneOrphanShapes();return true;
  });
+ /* Открытый черновик удалённого заказа (Delete из Optimization) закрывается:
+    его Save вернул бы заказ в базу. */
+ if(out.ok&&out.value&&soDraft&&soDraft.id===id)salesDraftDrop();
  if(!out.ok)alert(out.error);render();return out.ok&&out.value;
 }
 
@@ -22249,7 +22279,7 @@ function optimizationOpenOrder(id){
  if(soDraft&&soDraft.id===id){tab='sales';render();return;}
  salesLeaveDraft(()=>{tab='sales';salesOrderEdit(id);});
 }
-function optimizationAction(action,delivery){if(action==='unbatch')optimizationUnbatch([...optimizationSel]);else optimizationRunOrders([...optimizationSel],action,{delivery});}
+function optimizationAction(action,delivery){if(action==='unbatch')optimizationUnbatch([...optimizationSel]);else if(action==='delete')salesOrderDelete([...optimizationSel][0]);else optimizationRunOrders([...optimizationSel],action,{delivery});}
 /* Все предупреждения группы проходят ДО записи. Back или Take payment
    прекращает весь переход; частично отправленного батча не возникает.
    Если данные изменились во время окна, пользователь проверяет их заново. */
@@ -22342,7 +22372,7 @@ function viewOrderQueue(shipping){
  return `<section class="optimization-queue ${shipping?'shipping-queue':''}"><div class="page-head"><div><h2>${shipping?'Shipping':'Order queue'}</h2></div></div>
   <div class="oq-tabs" role="tablist" aria-label="Order queues">${tabs}</div>
   <div class="card oq-card"><div class="oq-toolbar"><b data-queue-selection>${n} order${n===1?'':'s'} selected</b>${actions}
-   ${shipping?'':button('back','← Back','',can('back'))}${button('cancelled','Cancel order','dl',can('cancelled'))}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
+   ${shipping?'':button('back','← Back','',can('back'))}${button('cancelled','Cancel order','dl',can('cancelled'))}${shipping?'':button('delete','Delete','dl',n===1&&salesDeleteAllowed())}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
    ${optimizationNotice?`<div class="oq-notice${optimizationNotice.error?' bad':''}" role="${optimizationNotice.error?'alert':'status'}"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>
@@ -36681,6 +36711,28 @@ function shippingRevert(id,action){return storageCommand(()=>{
  }
  shippingSyncOrders(ids,null,{reopen:true});ids.forEach(oid=>orderLogPush(salesRecord(oid),action==='cancel'?'Packing slip cancelled':'Packing slip rolled back',s.number+' · '+action));return s;
 });}
+/* Order Delete (owner, 9 October 2026: «и накладную тоже удалить»). A PS of
+   this order alone is removed; a shared PS keeps the other orders and loses
+   only this one. PS numbers are not reused: DB.shipmentSeq only grows.
+   Runs inside the Delete storageCommand, after production Unbatch. */
+function shippingDropPlan(orderId){
+ const mine=(DB.shipment||[]).filter(s=>shippingHistoryOrderIds(s).includes(orderId));
+ return {deleted:mine.filter(s=>shippingHistoryOrderIds(s).every(id=>id===orderId)),corrected:mine.filter(s=>shippingHistoryOrderIds(s).some(id=>id!==orderId))};
+}
+function shippingDropOrder(orderId){
+ const plan=shippingDropPlan(orderId),gone=new Set(plan.deleted);
+ DB.shipment=(DB.shipment||[]).filter(s=>!gone.has(s));
+ plan.deleted.forEach(s=>{if(s.truckId&&typeof deliveryRenumber==='function')deliveryRenumber(s.date,s.truckId);});
+ plan.corrected.forEach(s=>{
+  const removed=s.items.filter(i=>i.orderId===orderId);
+  if(!removed.length&&!(s.extras||[]).some(i=>i.orderId===orderId)&&!(s.takes||[]).includes(orderId))return;
+  if(!s.document&&!s.unbatchOriginalDocument)s.unbatchOriginalDocument=shippingDocument(s);
+  s.items=s.items.filter(i=>i.orderId!==orderId);s.extras=(s.extras||[]).filter(i=>i.orderId!==orderId);shippingUnprint(s,removed);
+  if(s.takes)s.takes=s.takes.filter(id=>id!==orderId);
+  if(shippingActive(s)&&!s.items.length&&!s.extras.length&&!(s.takes||[]).length){s.status='cancelled';if(!s.document)s.document=s.unbatchOriginalDocument;}
+ });
+ return plan;
+}
 /* Самовывоз: клиент расписался у фронт-деска, когда забрал стекло, — один
    скан подписанного PS ставит и Shipped, и Picked up. Сбой на любом шаге
    откатывает оба (предложено в ревью PR 1, 05.10.2026). */
@@ -37558,7 +37610,12 @@ function productionUnbatchScanSteps(g,recs){
 }
 function productionUnbatchPreview(d){
  if(!productionUnbatchAllowed())return {error:'Only Users or Finance can unbatch.'};
- const o=salesRecord(d&&d.orderId);if(!productionUnbatchCanOpen(o))return {error:'Unbatch is not available for this order.'};
+ return productionUnbatchPlan(d);
+}
+/* forDelete: order Delete (erp/sales/orders) checks its own rights, and a
+   cancelled order is returned as well. */
+function productionUnbatchPlan(d,forDelete){
+ const o=salesRecord(d&&d.orderId);if(!(forDelete?!!o&&!salesIsQuote(o):productionUnbatchCanOpen(o)))return {error:'Unbatch is not available for this order.'};
  const catalog=productionUnbatchUnits(o),pick=productionUnbatchPick(o,d,catalog),target=d.target||PRODUCTION_UNBATCH_UNCUT,targets=productionUnbatchTargets(pick.units);
  if(pick.problems.length)return {error:pick.problems.join('. ')+'.',catalog,targets};
  if(!pick.units.length)return {error:'Choose what to unbatch.',catalog,targets};
@@ -37583,9 +37640,9 @@ function productionUnbatchRun(d){
  if(!productionUnbatchAllowed())return {error:'Only Users or Finance can unbatch.'};
  const out=storageCommand(()=>productionUnbatchCommand(d));return out.ok?out.value:{error:out.error};
 }
-function productionUnbatchCommand(d){
- shippingAssert(d&&typeof d.stamp==='string'&&d.stamp===productionUnbatchStamp(),'Data changed. Review and try again.');
- const plan=productionUnbatchPreview(d);shippingAssert(!plan.error,plan.error);shippingAssert(plan.pieces.length,'The selected glass does not need to move back.');
+function productionUnbatchCommand(d,forDelete){
+ if(!forDelete)shippingAssert(d&&typeof d.stamp==='string'&&d.stamp===productionUnbatchStamp(),'Data changed. Review and try again.');
+ const plan=forDelete?productionUnbatchPlan(d,true):productionUnbatchPreview(d);shippingAssert(!plan.error,plan.error);shippingAssert(plan.pieces.length,'The selected glass does not need to move back.');
  const o=salesRecord(plan.orderId),now=new Date().toISOString(),who=orderLogActor(),sel=new Set(plan.pieces),scans=new Set(plan.scanIds);
  const record={id:salesUid('PU'),orderId:o.id,at:now,target:plan.target,reason:String(d.reason||'').trim().slice(0,200),by:who.by||'Office',byId:who.byId||'',pieces:plan.pieces,scanIds:plan.scanIds,batchNumbers:plan.batchNumbers,shipments:plan.shipments,skipIds:(DB.skip||[]).filter(k=>!k.undoneAt&&k.pieces.some(p=>sel.has(p))).map(k=>k.id)};
  /* s.items is the effective composition. Excluded items retain their whole
@@ -37625,6 +37682,21 @@ function productionUnbatchCommand(d){
  (DB.productionUnbatch||(DB.productionUnbatch=[])).push(record);
  orderLogPush(o,'Production unbatched',[shippingCount(plan.units.length,'unit'),shippingCount(plan.pieces.length,'glass piece'),'→ '+productionUnbatchTargetLabel(plan.target),plan.shipments.map(s=>s.number).join(', '),record.reason].filter(Boolean).join(' · '));
  return record;
+}
+/* Order Delete at any stage (owner, 9 October 2026: a mistaken Skip is
+   deleted together with its packing slip). All glass returns as Unbatch to
+   Not cut; what Unbatch leaves (broken glass, cancelled units) also leaves
+   its batches. Runs inside the Delete storageCommand. */
+function productionUnbatchDeleteDraft(o){return {orderId:o.id,lines:Object.fromEntries((o.lines||[]).map(l=>[l.id,'all'])),target:PRODUCTION_UNBATCH_UNCUT,reason:'Order deleted'};}
+function productionUnbatchDeleteBatches(o){return [...new Set((DB.glassBatch||[]).filter(b=>b.items.some(i=>!i.releasedAt&&(b.parts[i.part]||{}).orderId===o.id)).map(b=>b.number))];}
+function productionUnbatchForDelete(o){
+ const d=productionUnbatchDeleteDraft(o),plan=productionUnbatchPlan(d,true);
+ if(!plan.error&&plan.pieces.length)productionUnbatchCommand(d,true);
+ const now=new Date().toISOString();
+ (DB.glassBatch||[]).forEach(b=>{
+  const off=b.items.filter(i=>!i.releasedAt&&(b.parts[i.part]||{}).orderId===o.id);if(!off.length)return;
+  off.forEach(i=>{i.releasedAt=now;});b.history.push({at:now,action:'Order deleted',pieces:off.map(i=>i.piece).filter(Boolean),qty:off.length});
+ });
 }
 function productionUnbatchSkipPieces(k){return [...new Set((DB.productionUnbatch||[]).filter(u=>u.skipIds.includes(k.id)).flatMap(u=>u.pieces).filter(p=>k.pieces.includes(p)))];}
 function normalizeProductionUnbatches(){if(!Array.isArray(DB.productionUnbatch))DB.productionUnbatch=[];}
