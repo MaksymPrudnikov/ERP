@@ -142,6 +142,7 @@
   "src/erp/shipping/commands.js",
   "src/erp/shipping/loading.js",
   "src/erp/shipping/delivery.js",
+  "src/erp/shipping/trip-km.js",
   "src/erp/shipping/skids.js",
   "src/erp/shipping/print.js",
   "src/erp/shopfloor/skip.js",

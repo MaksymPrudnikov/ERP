@@ -20,7 +20,7 @@ module.exports=async function({page,eq,ok}){
   const old=window.accessCan;window.accessCan=k=>k!=='reports';tab='dashboard';render();const hidden=!document.querySelector('.side [title="Reports"]');window.accessCan=old;
   rpOpenTab();const folders=[...document.querySelectorAll('[data-rep-folder]')].map(x=>x.dataset.repFolder);
   return {inSections:USER_SECTIONS.includes('reports'),hidden,empty:!!document.querySelector('[data-rep-empty]'),widgets:rpWidgets().length,folders,starters:(DB.report||[]).filter(r=>/^RP-start-/.test(r.id)).length};
- }),{inSections:true,hidden:true,empty:true,widgets:0,folders:['All','Finance','People','Production','Quality','Sales','Shipping'],starters:21});
+ }),{inSections:true,hidden:true,empty:true,widgets:0,folders:['All','Finance','People','Production','Quality','Sales','Shipping'],starters:22});
 
  eq('Отчёт «Glass cut · by month» открывается страницей Summary; на второй странице — свои графики; поиск по каталогу',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repQ='glass cut';render();const found=[...document.querySelectorAll('[data-rep-item]')].map(x=>x.querySelector('b').textContent);
@@ -74,7 +74,7 @@ module.exports=async function({page,eq,ok}){
   let bad='';try{validateImportedState(Object.assign({},json,{report:{}}));}catch(e){bad=e.message;}
   DB.report=DB.report.filter(r=>r.name!=='Owner · weekly');normalizeReports();const gone=!DB.report.some(r=>r.name==='Owner · weekly');
   DB.report=json.report;normalizeReports();return {back:DB.report.some(r=>r.name==='Owner · weekly'),gone,bad,starters:DB.report.filter(r=>/^RP-start-/.test(r.id)).length};
- }),{back:true,gone:true,bad:'The "report" field must be an array.',starters:21});
+ }),{back:true,gone:true,bad:'The "report" field must be an array.',starters:22});
 
  eq('Линия со сравнением — пунктир прошлого периода; печать — название, период, графики, без кнопок правки',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repOpen('RP-start-stations');const line=document.querySelector('[data-rep-type="line"]');

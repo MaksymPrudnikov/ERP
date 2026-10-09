@@ -103,10 +103,23 @@ module.exports=async function({page,eq,ok}){
   sizeBand:'10–30 ft²',maker:true,gated:{payments:false,balances:false,quotes:true}});
 
  eq('Стартовые отчёты по версиям: база получает новые, удалённый владельцем стартовый не возвращается',await t.p.evaluate(()=>{
-  DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes'].includes(r.id));
+  DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes','RP-start-km'].includes(r.id));
   DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
   return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
- }),{ids:['RP-start-balances','RP-start-cut','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes'],again:6,seed:2});
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes'],again:7,seed:2});
+ eq('Км рейса по карте Google: цех → остановки → цех, запоминаются за рейс; отчёт — км и км на рейс; поменяли остановки — видно',await t.p.evaluate(async()=>{
+  oqReset();const c=oqCustomer({legalName:'North Shore Windows'});DB.truck=[{id:'T1',name:'Truck 1',active:true}];DB.tripKm=[];
+  DB.company=Object.assign({},DB.company,{address1:'10 Shop Rd',city:'Vaughan',province:'ON'});
+  const calls=[];window.google={maps:{DirectionsService:function(){this.route=(req,cb)=>{calls.push([req.origin,req.destination,req.waypoints.map(w=>w.location)]);cb({routes:[{legs:req.waypoints.map(()=>({distance:{value:12000}})).concat([{distance:{value:8000}}])}]},'OK');};}}};
+  const ids=[1,2].map(()=>rbOrder(c,'6CLEAR','double',[[30,40,1]],{delivery:'delivery'}));rbBatch(ids);ids.forEach(id=>oqReady(id));
+  const ps=ids.map((id,i)=>shippingCreate({customerId:c.id,method:'delivery',shipTo:{address1:(i+1)+' Main St',city:i?'Brampton':'Mississauga',province:'ON'},date:finToday(),items:shippingAvailable(salesRecord(id)).map(shippingItem)}).value);
+  ps.forEach((s,i)=>{s.truckId='T1';s.stop=i+1;});touch();
+  const rec=await tripKmCalc(finToday(),'T1');const q=repQuery({source:'deliveries',date:{preset:'today'},metrics:['km','trips','kmPerTrip']});
+  tab='shipping';shippingTab='delivery';deliveryDate='';render();const chip=[...document.querySelector('[data-trip-km="T1"]').children].map(x=>x.textContent.trim()).filter(Boolean).join('|');
+  ps[1].stop=3;const p3=ps[1];p3.stop=1;ps[0].stop=2;touch();render();const stale=/stops changed/.test(document.querySelector('[data-trip-km="T1"]').textContent);
+  delete window.google;tab='dashboard';render();
+  return {km:rec.km,stops:rec.stops.length,call:calls[0][0]+' → '+calls[0][2].join(' → ')+' → '+calls[0][1],report:q.metrics.map((m,i)=>m.label+' '+repFmt(m,q.total[i])),chip:chip.replace(/\s+/g,' ').trim(),stale};
+ }),{km:32,stops:2,call:'10 Shop Rd, Vaughan, ON, Canada → 1 Main St, Mississauga, ON → 2 Main St, Brampton, ON → 10 Shop Rd, Vaughan, ON, Canada',report:['Km 32','Trips 1','Km per trip 32'],chip:'32 km|Recalculate km',stale:true});
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

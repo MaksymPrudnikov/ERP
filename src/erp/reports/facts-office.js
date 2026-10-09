@@ -116,14 +116,17 @@ function repOrderedFacts(){
 const REP_PS_STATUS={planned:'Planned',shipped:'Shipped',delivered:'Delivered'};
 let repDeliveryCache={stamp:'',rows:null};
 function repDeliveryFacts(){
- const stamp=(DB.shipment||[]).map(s=>s.id+s.status+s.date+(s.truckId||'')+(s.stop||'')+(s.items||[]).length).join(',')+'|'+(DB.truck||[]).length;
+ const stamp=(DB.shipment||[]).map(s=>s.id+s.status+s.date+(s.truckId||'')+(s.stop||'')+(s.items||[]).length).join(',')+'|'+(DB.truck||[]).length+'|'+JSON.stringify(DB.tripKm||[]);
  if(repDeliveryCache.stamp===stamp&&repDeliveryCache.rows)return repDeliveryCache.rows;
  const rows=shippingWithCtx(()=>(DB.shipment||[]).filter(s=>shippingActive(s)).map(s=>{
   const truck=s.method==='delivery'?truckFind(s.truckId):null,drv=s.driverId?(DB.user||[]).find(u=>u.viewProfileId===s.driverId):null;
   let load={skids:[],units:(s.items||[]).length,kg:null};try{load=deliveryLoad(s);}catch(e){}
+  /* Километры рейса — у первой остановки рейса: сумма по PS даёт километры. */
+  const first=truck&&deliveryStops(s.date,truck.id)[0],km=first&&first.id===s.id?(tripKmFind(s.date,truck.id)||{}).km:null;
   return {id:s.id,at:s.date,date:s.date,ps:s.number,method:s.method==='pickup'?'Pickup':'Delivery',status:s.status==='delivered'&&s.method==='pickup'?'Picked up':REP_PS_STATUS[s.status]||s.status,
    customerId:s.customerId||'',truck:truck?truck.name:'',driver:drv?drv.name:'',trip:truck?s.date+'|'+truck.id:'',units:load.units,skids:(load.skids||[]).length,kg:load.kg||null,
-   city:s.shipTo&&s.shipTo.city||'',stop:s.method==='delivery'&&s.stop?s.stop:null,depart:s.departAt?String(+String(s.departAt).slice(0,2))+':00':''};
+   city:s.shipTo&&s.shipTo.city||'',stop:s.method==='delivery'&&s.stop?s.stop:null,depart:s.departAt?String(+String(s.departAt).slice(0,2))+':00':'',
+   km:km==null?null:km,tripFirst:first&&first.id===s.id?1:0,kmDone:km==null?0:1};
  }));
  repDeliveryCache={stamp,rows};
  return rows;

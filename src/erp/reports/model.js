@@ -133,6 +133,9 @@ function REP_STARTERS(){
     repW('bars','balances',{title:'Balance by status',date:{f:'due'},dims:['status'],metrics:['balance']})]]],2),
   R('offcuts','Offcuts · stock by glass','Production','all',['glass','mm'],[
    ['Summary',[repW('number','offcuts',{metrics:['count','area'],filters:[{f:'status',op:'in',v:['In stock']}]}),repW('table','offcuts',{title:'Glass × status',dims:['glass','status'],metrics:['count']})]]],2),
+  R('km','Deliveries · km by truck','Shipping','thisMonth',['truck','driver'],[
+   ['Summary',[repW('number','deliveries',{metrics:['km','trips','kmPerTrip'],compare:'prev'}),repW('table','deliveries',{title:'By truck',dims:['truck'],metrics:['km','trips','kmPerTrip','count','units']}),
+    repW('columns','deliveries',{title:'Km by week',dims:['at:week'],metrics:['km']})]]],2),
   R('sizes','Glass by size band','Production','thisMonth',['station','glass'],[
    ['Summary',[repW('bars','glass',{title:'Glass by size band',dims:['sizeBand'],metrics:['count'],width:'half'}),repW('pie','ordered',{title:'Ordered ft² by size band',date:{f:'created'},dims:['sizeBand'],metrics:['area'],width:'half'}),
     repW('table','glass',{title:'Station × size band',dims:['station','sizeBand'],metrics:['count']})]]],2)
