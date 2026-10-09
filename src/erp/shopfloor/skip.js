@@ -173,7 +173,7 @@ function skipCommand(d){
  const skip={id:salesUid('SK'),orderId:o.id,at:new Date().toISOString(),date,to,reason:String(d.reason||'').trim().slice(0,200),receivedBy:String(d.receivedBy||'').trim().slice(0,100),
   by:actor.by||'',byId:actor.byId||'',actionId:'',pieces,shipments:[],status:o.status,eventId:'',undoneAt:'',undoneBy:''};
  /* «От создания заказа»: Skip сам себе Verify. */
- if(o.status==='new'){o.status='verified';o.statusDates=Object.assign({},o.statusDates,{verified:at});salesSyncRecordLifecycle(o);}
+ if(o.status==='new'){o.productionUnbatchVerify=false;o.status='verified';o.statusDates=Object.assign({},o.statusDates,{verified:at});salesSyncRecordLifecycle(o);}
  skipRecord(pick.units,target,at,who,skip);
  shippingAssert(to===SKIP_PICKUP||!!skip.actionId,'The selected glass has already passed '+target+'.');
  if(to===SKIP_PICKUP){
@@ -207,6 +207,7 @@ function skipUndo(id){
 }
 function skipUndoCommand(id){
  const k=skipFind(id);shippingAssert(k&&!k.undoneAt,'Skip not found.');
+ shippingAssert(!productionUnbatchSkipPieces(k).length,'This skip was corrected by Unbatch. Use Skip to move the glass forward.');
  const o=salesRecord(k.orderId);shippingAssert(o,'Order not found.');
  const group=(DB.stationScan||[]).filter(s=>k.actionId&&s.actionId===k.actionId&&!s.undoneAt),own=new Set(group.map(s=>s.id));
  k.shipments.forEach(sid=>{const s=shippingFind(sid);if(s)(s.scanIds||[]).forEach(id=>own.add(id));});

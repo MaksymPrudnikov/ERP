@@ -534,7 +534,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" onclick="salesListMenuRun('${act}')">${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof glassBatchCanUnbatchOrder==='function'&&glassBatchCanUnbatchOrder(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -548,7 +548,7 @@ function salesListMenuRun(act){
  else if(act==='documents'){salesOrderEdit(o.id);docOpen();}
  else if(act==='drawings'){salesOrderEdit(o.id);docOpen('drawings');}
  else if(act==='cutpreview')salesCutEstimateOpen(salesListSel.has(o.id)?salesCutEstimateIds():[o.id]);
- else if(act==='unbatch')glassBatchUnbatchOrder(o.id);
+ else if(act==='unbatch')productionUnbatchOpen(o.id);
  else if(act==='stickers')stkOpenForOrder(o.id);
  else if(act==='cancel')salesCancelOrder(o.id);
  else if(act==='restore')salesRestoreOrder(o.id);

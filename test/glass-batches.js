@@ -224,14 +224,13 @@ module.exports=async function({page,eq,ok}){
   tab='sales';salesShow={orders:true,quotes:false};salesStatusFilter='';salesListSel=new Set(gbU.slice(0,2));render();return gbU;
  });
  await t.p.locator(`[data-order-row="${unbatchIds[0]}"]`).click({button:'right'});
- eq('Sales: правая кнопка — Unbatch order только у заказа с батчем и только для него',await t.p.evaluate(()=>{
+ eq('Sales: обратный Unbatch доступен выбранному заказу до батча и после Ready',await t.p.evaluate(()=>{
   const menu=[...document.querySelectorAll('.sl-ctx [data-menu]')].map(b=>b.dataset.menu+':'+b.textContent);salesListMenu=null;render();
   const other=salesListContextHTML({id:gbU[2]},'').includes('data-menu="unbatch"');oqThrough(gbU[2],'batched');oqReady(gbU[2]);const ready=salesListContextHTML({id:gbU[2]},'').includes('data-menu="unbatch"');
   return {item:menu.filter(x=>x.startsWith('unbatch')),other,ready};
- }),{item:['unbatch:Unbatch order…'],other:false,ready:false});
- await t.p.locator(`[data-order-row="${unbatchIds[0]}"]`).click({button:'right'});
- await t.p.locator('.sl-ctx [data-menu="unbatch"]').click();
- eq('окно Unbatch order: батчи заказа без номеров стёкол; снимаются стёкла только этого заказа в отмеченных батчах',await t.p.evaluate(()=>{
+ }),{item:['unbatch:Unbatch order…'],other:true,ready:true});
+ await t.p.evaluate(()=>glassBatchUnbatchOrder(gbU[0]));
+ eq('прежний Unbatch батчей остаётся доступен: снимает только непорезанные стёкла выбранного заказа',await t.p.evaluate(()=>{
   const d=salesDialog,a=gbU[0],b=gbU[1],text=document.querySelector('.sales-dialog').innerText;
   const shown={title:d.title===('Unbatch order '+salesRecord(a).businessNumber+'?'),choices:d.lineChoices.map(x=>x.label+' '+x.detail),noGlassIds:!/G-\d{7}/.test(text),confirm:text.includes('Cutting not started')};
   salesDialogToggleLine('B-0002',false);salesDialogConfirm(true);oqChoose('Unbatch order');

@@ -11,8 +11,18 @@ function shippingCancelNote(o,l,psId){
  const m=new Map();units.forEach(u=>{const k=fate(u);m.set(k,(m.get(k)||0)+1);});
  return shippingCount(units.length,'unit')+' cancelled'+(m.size===1?' · '+[...m.keys()][0]:': '+[...m].map(([k,n])=>n+' '+k).join(', '));
 }
+function shippingUnbatchDocument(s,d){
+ const items=s.unbatchedItems||[];if(!items.length)return d;
+ const ids=new Set(items.map(i=>i.unbatchId));
+ d.corrections=(DB.productionUnbatch||[]).filter(r=>ids.has(r.id)).map(r=>{
+  const a=items.filter(i=>i.unbatchId===r.id);
+  return 'Unbatch '+finLocalDate(r.at)+' · '+shippingCount(a.length,'unit')+' excluded · '+a.map(i=>i.label).join(', ')+' → '+productionUnbatchTargetLabel(r.target)+' · '+r.by+(r.reason?' · '+r.reason:'');
+ });
+ d.corrections.unshift('Corrected packing slip · '+shippingCount(s.items.length,'unit')+' remain. Original quantities below.');
+ return d;
+}
 function shippingDocument(s){
- if(s.document)return shippingClone(s.document);
+ if(s.document)return shippingUnbatchDocument(s,shippingClone(s.document));
  if(s.id&&s.status==='planned'){
   const live=new Map(shippingOrderIds(s).flatMap(id=>shippingUnits(salesRecord(id))).map(i=>[i.label,i]));
   /* На бумаге клиента — только скиды, которые с этим PS уезжают: с микса и у
@@ -42,7 +52,7 @@ function shippingDocument(s){
   const rows=[];orders.forEach(o=>o.rows.forEach(r=>{const qty=s.items.filter(i=>i.orderId===o.id&&i.lineId===r.lineId&&i.skid===code).length;if(qty)rows.push({order:o.number,po:o.po,...r,now:qty,note:''});}));
   const exact=rows.every(r=>r.kg!=null);return {code,rows,qty:rows.reduce((n,r)=>n+r.now,0),kg:rows.reduce((n,r)=>n+(r.kg==null?r.knownKg:r.kg)*r.now,0),exact};
  });
- return {number:s.number,date:s.date,method:s.method,shipTo:shippingClone(s.shipTo),customer:salesCustomerDisplay(s.customerId),company:docCompanyBlock(),orders,skids,note:s.note||''};
+ return shippingUnbatchDocument(s,{number:s.number,date:s.date,method:s.method,shipTo:shippingClone(s.shipTo),customer:salesCustomerDisplay(s.customerId),company:docCompanyBlock(),orders,skids,note:s.note||''});
 }
 function shippingNeedsReprint(s){return !!s.printedAt&&s.printedSignature!==JSON.stringify(shippingDocument(s));}
 function shippingPages(d,skidOnly){
@@ -69,6 +79,7 @@ function shippingPages(d,skidOnly){
  };
  if(!skidOnly){
   header('PACKING SLIP');
+  (d.corrections||[]).forEach(text=>line(text,{bold:true,color:DOC_COLOR.due}));
   d.orders.forEach(o=>{
    ensure(75);activeOrder='Order '+o.number+(o.po?' · PO '+o.po:'')+' · '+o.state;line(activeOrder,{size:11,bold:true});tableHead();o.rows.forEach(row);
    o.extras.forEach(x=>{ensure(40);line('From stock · '+x.name,{bold:true});line('Ordered '+x.ordered+' · Before '+x.before+' · Now '+x.now+' · Back order '+x.back,{color:x.back?DOC_COLOR.due:DOC_COLOR.ink});});
@@ -97,12 +108,12 @@ function shippingPrintRecord(id){
  const current=shippingFind(id);if(current.status==='planned')Object.assign(current,shippingValidateSelection(current,current.id));
  const model=shippingDocument(current),pages=shippingPages(model);current.printedAt=new Date().toISOString();current.printedSignature=JSON.stringify(model);
  const prior=current.printedItems||[];current.printedItems=[...new Map(prior.concat(current.items).map(i=>[i.label,shippingClone(i)])).values()];
- shippingOrderIds(current).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip print requested',current.number));return pages;
+ shippingHistoryOrderIds(current).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip print requested',current.number));return pages;
 }
 /* checked — долг уже проверен вызывающим в этом же действии (заказ по
    номеру у стойки): второй раз то же окно не показываем. */
 function shippingPrint(id,checked){
- const s=shippingFind(id);if(!s||s.status==='cancelled')return;
+ const s=shippingFind(id);if(!s||s.status==='cancelled'&&!s.unbatchedItems?.length)return;
  (checked?(ids,method,printing,done)=>done():shippingWithChecks)(shippingOrderIds(s),s.method,true,()=>{
   let pages;const out=storageCommand(()=>{pages=shippingPrintRecord(id);return shippingFind(id);});
   if(!out.ok){shippingNotice={error:true,text:out.error};render();return;}
