@@ -30,7 +30,10 @@ window.addEventListener('beforeunload',function(e){if(!repDirty())return;e.preve
 function repViewFilters(r){const v=repView(r.id);return v.f!==undefined?v.f:r.filters||{};}
 function repPage(r){return r?r.pages.find(p=>p.id===repPageId)||r.pages[0]:null;}
 function repSelWidget(r){const p=repPage(r);return p?p.widgets.find(w=>w.id===repSelW)||null:null;}
-function repCtx(){const u=typeof signinUser==='function'?signinUser():null;return {person:u?u.name:'',station:''};}
+/* Подстановки фильтров: «Me» — вошедший человек, «This station» — станция
+   экрана. На экране станции и в Overview их задаёт сам экран. */
+let repCtxOverride=null;
+function repCtx(){if(repCtxOverride)return repCtxOverride;const u=typeof signinUser==='function'?signinUser():null;return {person:u?u.name:'',station:''};}
 function repDateText(d){if(!d)return 'All time';if(d.from||d.to)return (d.from?salesListShortDay(d.from):'…')+' – '+(d.to?salesListShortDay(d.to):'…');const p=REP_PRESETS.find(x=>x[0]===d.preset);return p?p[1]:'All time';}
 /* Запрос графика с периодом и фильтрами отчёта (если график не задал свой
    период): фильтр отчёта действует там, где у источника есть это поле. */
@@ -66,7 +69,7 @@ function repPickAttrs(r,S,d,k){
  const p=repDimParse(d),f=repField(S,p.f);if(!f||f.type==='date'||k==='__other'||k==='—')return '';
  repPicks.push([r.id,p.f,k]);const i=repPicks.length-1;return ` role="button" tabindex="0" data-rep-pick="${esc(p.f)}" onclick="repPickAt(${i})" onkeydown="if(event.key==='Enter')repPickAt(${i})"`;
 }
-function repPickAt(i){const x=repPicks[i],r=repOpenReport();if(!x||!r)return;const base=Object.assign({},repViewFilters(r));repViewSet(x[0],v=>{v.f=Object.assign(base,{[x[1]]:[x[2]]});});repMenu=null;render();}
+function repPickAt(i){const x=repPicks[i],r=x&&(repOpenReport()&&repOpenReport().id===x[0]?repOpenReport():repFind(x[0]));if(!x||!r)return;const base=Object.assign({},repViewFilters(r));repViewSet(x[0],v=>{v.f=Object.assign(base,{[x[1]]:[x[2]]});});repMenu=null;render();}
 function repNumbers(res){
  /* Сравнение — изменение и само число прошлого периода: «▲ 12% · Last year 231». */
  const sub=(m,i)=>{if(!res.compare)return '';const d=repDelta(res.total[i],res.compare.total[i]);return esc((d?d+' · ':'')+(res.compare.kind==='year'?'Last year ':'Previous ')+repFmt(m,res.compare.total[i]));};
@@ -153,6 +156,13 @@ function repMenuHTML(r){
   return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-date-menu><h5>Period</h5><div class="sl-presets">${REP_PRESETS.map(([k,l])=>`<button type="button" class="sl-btn${!cur.from&&!cur.to&&cur.preset===k?' on':''}" onclick="repSetViewDate({preset:'${k}'})">${l}</button>`).join('')}</div>
    <h5>Custom</h5><div class="sl-row"><input type="date" id="repFrom" value="${esc(cur.from||'')}"><input type="date" id="repTo" value="${esc(cur.to||'')}"></div><div class="sl-actions"><button type="button" class="pri" onclick="repSetViewDate({from:document.getElementById('repFrom').value,to:document.getElementById('repTo').value})">Apply</button></div></div>`;
  }
+ if(m.kind==='screens'){
+  const sc=r.screens||{stations:[],people:[]},people=(DB.user||[]).filter(u=>u&&u.name&&(typeof userOffice!=='function'||userOffice(u)));
+  const box=(kind,id,label)=>`<label><input type="checkbox" ${(m.draft[kind]||[]).includes(id)?'checked':''} onchange="repScreensToggle('${kind}',this.dataset.id,this.checked)" data-id="${esc(id)}" data-rep-screen-box="${kind}"> <span data-raw>${esc(label)}</span></label>`;
+  return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-screens-menu><h5>Board of stations</h5><div class="sl-vals">${(DB.station||[]).map(s=>box('stations',s.code,s.code+' · '+sfName(s))).join('')}</div>
+   <h5>Overview of people</h5><div class="sl-vals">${people.map(u=>box('people',u.viewProfileId,u.name)).join('')||'<div class="mut">No office users</div>'}</div>
+   <div class="hint">Filters “This station” and “Me” follow the screen.</div><div class="sl-actions"><button type="button" class="pri" data-rep-screens-apply onclick="repScreensApply()">Apply</button></div></div>`;
+ }
  if(m.kind==='ctl'){
   const all=repControlValues(r,m.f),q=String(m.search||'').toLowerCase(),shown=all.filter(x=>!q||x.toLowerCase().includes(q));
   return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-ctl-menu="${esc(m.f)}"><input type="text" class="sl-search" id="repCtlSearch" placeholder="Search values…" value="${esc(m.search||'')}" oninput="repMenu.search=this.value;render();setTimeout(()=>{const e=document.getElementById('repCtlSearch');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},0)">
@@ -162,6 +172,11 @@ function repMenuHTML(r){
  return '';
 }
 function repAt(e){const t=e&&e.currentTarget&&e.currentTarget.getBoundingClientRect?e.currentTarget.getBoundingClientRect():null;return {x:t?t.left:40,y:t?t.bottom+6:40};}
+/* Show on: станции и люди, на чьих экранах отчёт — вкладкой. Ставит
+   администратор («я собираю для каждого»). */
+function repOpenScreens(e){if(e)e.stopPropagation();const r=repOpenReport();if(!r)return;repMenu=Object.assign({kind:'screens',draft:JSON.parse(JSON.stringify(r.screens||{stations:[],people:[]}))},repAt(e));render();}
+function repScreensToggle(kind,id,on){if(!repMenu)return;const l=repMenu.draft[kind]=(repMenu.draft[kind]||[]).filter(x=>x!==id);if(on)l.push(id);}
+function repScreensApply(){const d=repMenu&&repMenu.draft;repMenu=null;if(!d)return;repEditCur(r=>{r.screens={stations:d.stations||[],people:d.people||[]};});}
 function repOpenDate(e){if(e)e.stopPropagation();repMenu=Object.assign({kind:'date'},repAt(e));render();}
 function repOpenCtl(e,f){if(e)e.stopPropagation();const r=repOpenReport();repMenu=Object.assign({kind:'ctl',f,draft:(repViewFilters(r)[f]||[]).slice(),search:''},repAt(e));render();}
 function repCtlToggle(v,on){if(!repMenu)return;repMenu.draft=repMenu.draft.filter(x=>x!==v);if(on)repMenu.draft.push(v);}
@@ -277,12 +292,25 @@ function repPrintHTML(){
 }
 function repPrint(){const was=repEditOn,html=repPrintHTML();repEditOn=was;repMenu=null;return html&&printSheet(html,'');}
 
+/* Отчёт на чужом экране — Board станции или Overview человека: страницы и
+   графики, без правки и фильтров; подстановки — станция и человек экрана. */
+let repScreenPage={};
+function repScreenHTML(r,ctx){
+ const was=repCtxOverride,wasEdit=repEditOn;repCtxOverride=ctx;repEditOn=false;
+ try{
+  const p=r.pages.find(x=>x.id===repScreenPage[r.id])||r.pages[0],tabs=r.pages.length>1?`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-screen-page="${esc(x.id)}" onclick="repScreenPage[this.dataset.rid]=this.dataset.repScreenPage;render()" data-rid="${esc(r.id)}">${esc(x.name)}</button>`).join('')}</div>`:'';
+  return `<div class="rep-screen" data-rep-screen="${esc(r.id)}">${tabs}<div class="mut small rep-screen-period">${esc(repDateText(r.date))}</div><div class="rep-ws">${p.widgets.map((w,i)=>repWidgetCard(r,w,i,p.widgets.length)).join('')}</div></div>`;
+ }finally{repCtxOverride=was;repEditOn=wasEdit;}
+}
+/* Вкладки экрана: «Now» — встроенный экран, дальше — назначенные отчёты. */
+function repScreenTabs(reps,cur,setter){return `<div class="rep-screen-tabs tabs" data-rep-screen-tabs>${[['','Now']].concat(reps.map(r=>[r.id,r.name])).map(([id,n])=>`<button type="button" class="${id===cur?'on':''}" data-rep-screen-tab="${esc(id)}" onclick="${setter}(this.dataset.repScreenTab)">${esc(n)}</button>`).join('')}</div>`;}
+
 /* ------------------------------ Экран ------------------------------ */
 function repMain(r){
  if(!r)return `<div class="card rep-empty" data-rep-empty><h3>Pick a report</h3><p class="mut">Choose one on the left, or start a new one. Every chart can be changed: data, type, dimensions, metrics, filters, period.</p><button type="button" class="pri" onclick="repNew()">+ New report</button></div>`;
  const can=repEditOn||repCanEdit(repFind(r.id)),p=repPage(r),n=p.widgets.length,folders=[...new Set((DB.report||[]).map(x=>x.folder).filter(Boolean))];
  const head=repEditOn?`<div class="rep-title-edit"><input type="text" data-rep-name value="${esc(r.name)}" aria-label="Report name" onchange="repSetMeta('name',this.value)"><input type="text" list="repFolders" value="${esc(r.folder)}" placeholder="Folder" aria-label="Folder" onchange="repSetMeta('folder',this.value)"><datalist id="repFolders">${folders.map(f=>`<option value="${esc(f)}">`).join('')}</datalist>
-   <select aria-label="Who sees it" onchange="repSetMeta('share',this.value)">${repOpt([['me','Only me'],['all','Everyone with Reports']],r.share==='all'?'all':'me')}</select><select aria-label="Default period" title="Default period" onchange="repSetMeta('date',this.value)">${repOpt(REP_PRESETS,r.date.preset)}</select></div>`
+   <select aria-label="Who sees it" onchange="repSetMeta('share',this.value)">${repOpt([['me','Only me'],['all','Everyone with Reports']],r.share==='all'?'all':'me')}</select>${repIsAdmin()?`<button type="button" class="sm" data-rep-screens onclick="repOpenScreens(event)" title="Station boards and people's Overview">Show on${(r.screens.stations.length+r.screens.people.length)?' · '+(r.screens.stations.length+r.screens.people.length):''}</button>`:''}<select aria-label="Default period" title="Default period" onchange="repSetMeta('date',this.value)">${repOpt(REP_PRESETS,r.date.preset)}</select></div>`
   :`<h2 class="rep-title" data-raw>${esc(r.name)}</h2>`;
  const dirty=repDirty(),saved=!!repFind(r.id);
  const acts=repEditOn?`${dirty?'<span class="mut small" data-rep-unsaved>Unsaved changes</span>':''}<button type="button" class="pri sm" data-rep-save onclick="repSaveEdit()">Save</button><button type="button" class="sm" data-rep-cancel onclick="repCancelEdit()">Cancel</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>${saved?`<button type="button" class="sm dl" onclick="repDeleteOpen()">Delete</button>`:''}`
