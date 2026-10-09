@@ -3,7 +3,8 @@
    Факты цеха для Board станции, Overview и отчётов: одна строка — одно
    событие. Только данные: на входе DB, на выходе массивы строк.
    IN : журнал сканов станций, заказы, работы (Works) и их прайс
-   OUT: repWorkFacts() — скан станции с мерой сделанной работы
+   OUT: repWorkFacts() — скан станции с мерой сделанной работы; остальные
+        источники — reports/facts-office, reports/sources
    Правило: файл ничего не рисует.
 
    Владелец, 9 октября 2026: работу человека и станции меряем физически —
@@ -61,11 +62,12 @@ function repLineWork(o,l,geo,tag){
  const stamp=repCatalogStamp();if(repLineMemo.stamp!==stamp)repLineMemo={stamp,map:new Map()};
  const key=[o.id,o.updatedAt||'',l.id,tag].join('|');
  if(repLineMemo.map.has(key))return repLineMemo.map.get(key);
- let out={rows:[],plan:{valid:false},comps:[]};
+ let out={rows:[],plan:{valid:false},comps:[],unitType:''};
  try{out=finWithOrder(o,()=>({
   rows:salesLineChargeRows(geo).map(row=>({row,station:repChargeStation(row),rate:salesChargePricingState(geo,row).catalogRate})).filter(x=>x.station),
   plan:stkPlan(o,geo),
-  comps:glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const mm=stkGlassInfo(c.pane,c.index,c.ply).mm;return Object.assign({},c,{mm:mm||null,band:mm?salesPricingBandFor(mm).band:''});})
+  comps:glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const info=stkGlassInfo(c.pane,c.index,c.ply),mm=info.mm;return Object.assign({},c,{mm:mm||null,band:mm?salesPricingBandFor(mm).band:'',heat:info.heat||'Annealed'});}),
+  unitType:(()=>{const m=salesMakeupById(o,l.makeupId);return m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';})()
  }));}catch(e){}
  if(repLineMemo.map.size>4000)repLineMemo.map=new Map();
  repLineMemo.map.set(key,out);return out;
@@ -73,7 +75,7 @@ function repLineWork(o,l,geo,tag){
 /* Что сделано с одним стеклом на одной станции: площадь, толщина и работы
    с количеством в единице работы (in · ft² · pc) и $ по прайсу. */
 function repGlassWork(g,station){
- const empty={area:null,mm:null,works:[]};
+ const empty={area:null,mm:null,heat:'',unitType:'',works:[]};
  if(!g||!g.c||g.c.missing)return empty;
  const geo=stationGeo(g)||g.l,tag=typeof g.unit==='string'?g.unit:'',lw=repLineWork(g.o,g.l,geo,tag);
  const me=lw.comps.find(c=>c.key===g.c.key);if(!me)return empty;
@@ -84,9 +86,11 @@ function repGlassWork(g,station){
   if(x.station!==station||!repRowFits(x.row,me))return;
   const mates=lw.comps.filter(c=>repRowFits(x.row,c)&&stationRouteOf({o:g.o,l:g.l,c,unit:g.unit}).codes.includes(station)).length||1;
   const qty=x.row.basis/mates;
-  works.push({key:x.row.key,label:x.row.label,unit:x.row.unit,qty,usd:x.rate==null?null:qty*x.rate});
+  /* Операция без хвоста толщины («Flat Polish · 10 mm» → «Flat Polish»):
+     толщина — своё поле, по ней и так можно разбить. */
+  works.push({key:x.row.key,label:x.row.label,op:String(x.row.label).replace(/ · [\d.]+ mm$/,''),unit:x.row.unit,qty,usd:x.rate==null?null:qty*x.rate});
  });
- return {area:area>0?area:null,mm:me.mm,works};
+ return {area:area>0?area:null,mm:me.mm,heat:me.heat,unitType:lw.unitType,works};
 }
 
 /* День и час — по часам этого компьютера, как finToday. */
@@ -96,6 +100,15 @@ function repHour(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?-1:
 /* Факты работы: скан, который продвинул стекло. Разбитое (Recut) и вынутое
    из машины на IGU («waits for a pair») — не сделанная работа. Отменённый
    скан не считается. Сумма по работам — в мерах: дюймы, ft² работ, штуки. */
+/* Поля заказа и строки для отчётов: PO, продажник, город клиента (основной
+   адрес), условия оплаты, тип клиента, срок; у строки — отметка, размер,
+   фигура или прямоугольник. Заказ считается один раз на сборку фактов. */
+function repCustomerAddr(c){const list=c&&Array.isArray(c.addresses)?c.addresses:[];return list.find(a=>a&&a.isPrimary)||list.find(a=>a&&a.isInvoice)||list[0]||{};}
+function repOrderInfo(o){
+ const c=salesFindCustomer(o.customerId)||{},a=repCustomerAddr(c),t=typeof finTermsFor==='function'?finTermsFor(o)||{}:{};
+ return {po:o.customerPo||'',rep:c.salesRep||'',city:a.city||'',province:a.province||'',terms:t.paymentMode==='credit'?'Credit':'Cash',ctype:c.customerType||'',due:o.dueDate||'',delivery:o.delivery==='delivery'?'Delivery':'Pickup'};
+}
+function repLineInfo(l){return {mark:l.mark||'',size:frac16((+l.width16||0)/16)+' × '+frac16((+l.height16||0)/16),shape:typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle'};}
 let repWorkCache={stamp:'',rows:null};
 let repWorkBuilds=0;
 function repWorkStamp(){
@@ -105,17 +118,20 @@ function repWorkStamp(){
 function repWorkFacts(){
  const stamp=repWorkStamp();if(repWorkCache.stamp===stamp&&repWorkCache.rows)return repWorkCache.rows;
  repWorkBuilds++;
- const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[];
+ const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[],orders=new Map(),lines=new Map();
+ const oInfo=o=>{if(!orders.has(o.id))orders.set(o.id,repOrderInfo(o));return orders.get(o.id);},lInfo=l=>{if(!lines.has(l))lines.set(l,repLineInfo(l));return lines.get(l);};
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||s.broken||s.park)return;
-  const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station):{area:null,mm:null,works:[]};
+  const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station):{area:null,mm:null,heat:'',unitType:'',works:[]};
   const sum=u=>w.works.filter(x=>x.unit===u).reduce((n,x)=>n+x.qty,0);
   const priced=w.works.filter(x=>x.usd!=null);
   rows.push({id:s.id,at:s.at,day:repDay(s.at),hour:repHour(s.at),station:s.station,personId:s.byId||s.by||'',person:s.by||'',piece:s.piece,
    orderId:g?g.o.id:'',order:g?g.o.businessNumber||'':'',customerId:g?g.o.customerId||'':'',priority:g?g.o.priority||'':'',
-   glass:g&&g.c?g.c.glass:'',mm:w.mm,area:w.area,works:w.works,inches:sum('in'),workFt2:sum('ft²'),pcs:sum('pc'),
+   glass:g&&g.c?g.c.glass:'',mm:w.mm,heat:w.heat,unitType:w.unitType,lite:g&&g.c?g.c.lite:'',batch:g&&g.entry?g.entry.batch.number:'',unitKey:g?g.o.id+'|'+g.l.id+'|'+g.unit:'',
+   area:w.area,works:w.works,inches:sum('in'),workFt2:sum('ft²'),pcs:sum('pc'),
    usd:priced.length?priced.reduce((n,x)=>n+x.usd,0):null,unpriced:w.works.length-priced.length,
-   asm:s.asm||'',unitDone:!!(s.unit||s.joined),manual:!!s.manual,confirmedAt:s.confirmedAt||''});
+   asm:s.asm||'',unitDone:!!(s.unit||s.joined),asmDone:(s.unit||s.joined)&&s.asm?s.asm:'',manual:!!s.manual,confirmedAt:s.confirmedAt||'',
+   on:s.on||'',recut:g&&typeof g.unit==='string'?'Recut':'Original',...(g?oInfo(g.o):{}),...(g?lInfo(g.l):{})});
  });
  repWorkCache={stamp,rows};
  return rows;

@@ -18,6 +18,7 @@ const NAV=[
  {k:'shipping', label:'Shipping', icon:'shipping'},
  {k:'finance', label:'Finance', icon:'finance'},
  {k:'customers', label:'Customers', icon:'users'},
+ {k:'reports', label:'Reports', icon:'report'},
  {k:'masterdata', label:'Data', title:'Master Data', icon:'database', bottom:1},
  {k:'users', label:'Users', icon:'users', bottom:1},
  {k:'dashboard', label:'Overview', icon:'home', bottom:1}
@@ -103,6 +104,7 @@ function render(){
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={
   dashboard:['Overview','Orders, shop and shipping now'],
+  reports:['Reports','Report builder'],
   users:['Users','Office and station sign-in'],
   customers:['Customers','Customer master, contacts and commercial terms'],
   sales:['Sales','Orders and commercial configuration'],
@@ -118,7 +120,7 @@ function render(){
  document.title=meta[0]+' · Glass Farm';
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
- const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,station:typeof viewStation==='function'?viewStation:null}[tab];
+ const V={dashboard:viewDashboard,reports:typeof viewReports==='function'?viewReports:null,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
  const focus=renderFocusKey();
