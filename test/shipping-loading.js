@@ -180,5 +180,15 @@ module.exports=async function({page,eq,ok}){
   const id=ldIds[1],out={menu,saved:salesRecord(id).lines[1].shipQueue,draft:soDraft.lines[1].shipQueue,closed:salesLineHoldMenu===null};
   salesLineHoldContext({clientX:60,clientY:60},salesRecord(id).lines[0].id);out.title=ldText('.sl-line-context b');salesLineHoldClose();salesDraftDrop();return out;
  },menu),{menu:{queue:true,hold:false},saved:7,draft:7,closed:true,title:'Line 1 · Queue 4'});
+ eq('перенос из окна скида фиксирует возврат от клиента; неудачное сохранение откатывает и перенос, и возврат',await t.p.evaluate(()=>{
+  const [a,b]=ldSeed('A B');DB.skidReturn=[];ldPut(a,'SL-1');ldPut(b,'SL-2');const sa=ldPS(a,[a]);shippingMarkShipped(sa.id);shippingMarkDelivered(sa.id);ldLogin(shippingStations().ready);stationSkidOpen('SL-2',b);
+  const before=JSON.stringify(DB),failed=ldFail(()=>stationSkidMove('SL-1')),same=before===JSON.stringify(DB),moved=stationSkidMove('SL-1');
+  return {failed,same,moved:!!moved,returns:DB.skidReturn.length,out:skidsOut().has('SL-1'),contents:(carrierContents().get('SL-1')||[]).length};
+ }),{failed:false,same:true,moved:true,returns:1,out:false,contents:6});
+
+ eq('чужой клиент на planned PS: исправление сканом скида переносит весь юнит, требует reprint и поддерживает Undo',await t.p.evaluate(()=>{
+  const [a,b]=ldSeed('A B');ldPut(a,'SL-1');ldPut(b,'SL-2');const ps=ldPS(a,[a]);shippingPrint(ps.id);const unit=shippingUnits(salesRecord(a))[0];ldLogin(shippingStations().ready);stationSubmit('SL-2');stationSubmit(unit.label);const foreign=!!stationLast.foreign,corrected=stationSubmit('SL-3'),rec=stationLast.check.recId;
+  const on=unit.pieces.map(p=>stationScansFor(p).at(-1).on),reprint=shippingNeedsReprint(shippingFind(ps.id)),undone=stationUndo(rec,ldWho);return {foreign,corrected,on,reprint,undone:undone.ok,back:unit.pieces.map(p=>stationScansFor(p).at(-1).on),planned:shippingFind(ps.id).status};
+ }),{foreign:true,corrected:'shipMoved',on:['SL-3','SL-3'],reprint:true,undone:true,back:['SL-2','SL-2'],planned:'planned'});
  eq('Shipping loading browser errors',t.errs,[]);await t.c.close();
 };

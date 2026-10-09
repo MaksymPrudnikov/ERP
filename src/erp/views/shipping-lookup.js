@@ -71,6 +71,7 @@ function shippingLookupHTML(){
  return {field,card:`<section class="card shipping-customer shipping-lookup" data-lookup-card><div class="shipping-customer-head"><div><h3>Order ${esc(o.businessNumber)} · ${esc(salesCustomerDisplay(o.customerId))}</h3><span class="mut">${o.delivery==='delivery'?'Delivery':'Pickup'}${o.customerPo?' · PO '+esc(o.customerPo):''}</span></div>${pill}</div>`
   +(o.onHold?`<p class="shipping-lookup-bad">On hold${o.holdReason?' · '+esc(o.holdReason):''}</p>`:'')
   +where
+  +salesOrderReviewHTML(o)
   +(m.extras.length?`<p class="mut">From stock · ${m.extras.map(e=>esc(salesExtraItemName(e.x))+' ×'+e.ready).join(', ')}</p>`:'')
   +(m.takes.length?`<p class="mut" data-lookup-takes>Cancelled · customer takes · ${m.takes.map(x=>'line '+x.line+' · '+x.pieces+' glass').join(', ')}</p>`:'')
   +(open&&m.shop.length?`<p class="mut" data-lookup-shop>In the shop · ${m.shop.map(([k,n])=>esc(k)+' '+n).join(' · ')} glass</p>`:'')

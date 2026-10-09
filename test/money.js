@@ -49,6 +49,25 @@ module.exports=async function({page,eq}){
    adj:fail(x=>{x.salesOrder[0].adjustments={};}),price:fail(x=>{x.salesOrder[0].lines[0].priceManual=-5;})};
  }),{same:true,plain:true,adj:'Sales Order 1: invalid adjustments.',price:'Sales Order 1, line 1: invalid price.'});
 
+ eq('100 USD руками — 100 USD за юнит: 2 + 1 = 300, документы полны, CAD Finance не смешивает валюты',await t.p.evaluate(()=>{
+  const id=mnOrder('verified');soDraft.currency='USD';soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);Object.values(soDraft.orderCharges).forEach(c=>c.enabled=false);soDraft.lines.forEach(l=>salesSetLinePriceManual(l.id,'100'));salesOrderSave();
+  const o=salesRecord(id),total=finOrderTotals(o),docs=['proforma','confirmation','invoice'].map(k=>mnDoc(k,id)),mixed=JSON.parse(JSON.stringify(o));delete mixed.lines[1].priceManual;
+  return {qty:o.lines.map(l=>l.qty),lines:o.lines.map(l=>salesLineCommercialPrice(l,o).line),subtotal:total.subtotal,grand:total.grand,complete:total.complete,documents:docs.every(m=>!m.end.missing&&m.end.grand.value==='$300.00'),finance:finOrderFinancial(o).status,totalCad:finOrderBalance(o).total,mixed:salesOrderCommercialTotals(mixed).complete};
+ }),{qty:[2,1],lines:[200,100],subtotal:300,grand:300,complete:true,documents:true,finance:'Currency review',totalCad:null,mixed:false});
+
+ eq('отрицательный итог сохраняется: экран, Finance, Invoice, CSV и Statement требуют Review вместо ложной оплаты',await t.p.evaluate(()=>{
+  const id=mnOrder('done');soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);Object.values(soDraft.orderCharges).forEach(c=>c.enabled=false);const total=salesOrderCommercialTotals(soDraft).subtotal;soDraft.adjustments=[{id:'ADJ-negative',label:'Correction',amount:-total-100}];salesOrderSave();
+  const o=salesRecord(id),customer=salesFindCustomer(o.customerId),metrics=finAccountMetrics(customer),account=finAccountInfos().find(x=>x.c.id===customer.id),before=JSON.stringify(DB.receipt),b=finOrderBalance(o),invoice=mnDoc('invoice',id),proforma=mnDoc('proforma',id),statement=finStatementDoc(o.customerId,'','')[0];salesRefreshLineMetrics(soDraft.lines[0]);salesRefreshLineMetrics(soDraft.lines[0]);
+  return {grand:finOrderTotals(o).grand,warning:document.querySelectorAll('.sales-lines-block>[data-order-review]').length===1,status:b.status,financial:finOrderFinancial(o).status,open:finAccountOpen(metrics),account:finAccountCell(account,{k:'customer'}).includes('Review required'),balanceCsv:finBalancesCSV([{c:customer,m:metrics}]).split('\r\n').map(r=>r.split(',').at(-1)),stamp:invoice.stamp&&invoice.stamp.text||'',paid:JSON.stringify(invoice.end).includes('Paid in full'),review:invoice.end.deposit[0].label,proforma:proforma.end.deposit[0].label,csv:finInvoiceExportRow(o)[10],statement:JSON.stringify(statement).includes('Review required'),deposit:finReleaseOverpayment(o),receipts:JSON.stringify(DB.receipt)===before};
+ }),{grand:-100,warning:true,status:'review',financial:'Review required',open:true,account:true,balanceCsv:['Orders needing review','1'],stamp:'',paid:false,review:'Review required',proforma:'Review required',csv:'Review required',statement:true,deposit:0,receipts:true});
+
+ eq('отрицательная база сохраняет Energy → HST → Card и фиксированные начисления; No charge NCR остаётся нулём',await t.p.evaluate(()=>{
+  const t=salesApplyOrderCharges(-100,{energy:{enabled:true,rate:9.75},hst:{enabled:true,rate:13},card:{enabled:true,rate:2.34},delivery:{enabled:true,amount:10},skidDeposit:{enabled:false}});
+  const o=Object.assign({},DB.salesOrder[0],{noCharge:true});return {parts:[t.subtotal,t.energy,t.hst,t.card,t.delivery,t.grand],free:salesOrderCommercialTotals(o).grand};
+ }),{parts:[-100,-9.75,-14.27,-2.9,10,-116.92],free:0});
+
+ await t.p.reload();
+ eq('сохранённый отрицательный заказ после reload сохраняет знак и Review',await t.p.evaluate(()=>{const o=DB.salesOrder[0];tab='sales';salesOrderEdit(o.id);return [finOrderTotals(o).grand,finOrderBalance(o).status,!!document.querySelector('[data-order-review]')];}),[-100,'review',true]);
  eq('окна цены и поправок без русского',await t.p.evaluate(()=>{const id=DB.salesOrder[0].id;salesOrderEdit(id);salesOpenMetrics('price',soDraft.lines[0].id);const a=document.querySelector('.metric-modal').innerText;salesOpenMetrics('orderCharges');const b=document.querySelector('.metric-modal').innerText;salesCloseMetrics();return /[А-яЁё]/.test(a+b);}),false);
  eq('деньги руками без ошибок страницы',t.errs,[]);await t.c.close();
 };

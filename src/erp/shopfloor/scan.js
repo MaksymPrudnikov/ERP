@@ -177,7 +177,9 @@ function stationRecordCommand(station,check,who,opts){
   const route=stationRouteOf(check.g);rec.step=stationRouteStep(route.codes,station,stationPlace(check.g).far);
   const rk=stationRouteKey(check.g);if(!stationFrozenRoute(rk))DB.productionRoute.push({key:rk,at:now,route:JSON.parse(JSON.stringify(route))});
  }
- if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
+ if(opts.on&&typeof carrierFind==='function'){
+  const c=carrierFind(opts.on);if(c&&c.active)rec.on=c.code;
+ }
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
  DB.stationScan.push(rec);
  if(check.g)stationAsmJoin(rec,check.g,station,opts.asm);
@@ -217,7 +219,8 @@ function stationUndoCommand(id,who,opts){
  const restack=rec.station===shippingStations().ready&&stationScansFor(rec.piece).some(s=>s!==rec&&s.station===rec.station&&!s.park&&String(s.at)<=String(rec.at));
  if(ps&&!(ps.status==='planned'&&(rec.station===shippingStations().ship||restack)))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
  const group=rec.actionId?(DB.stationScan||[]).filter(s=>s.actionId===rec.actionId&&!s.undoneAt):[rec];
- const ordered=id=>stationScansFor(id).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
+ /* Дата Skip может быть прошлой; зависимость задаёт порядок записи SC. */
+ const ordered=id=>stationScansFor(id).sort((a,b)=>+a.id.slice(3)-+b.id.slice(3));
  if(group.some(r=>ordered(r.piece).pop()!==r))return {error:'Glass has moved on — undo the later scan first.'};
  if(rec.asm){
   const assembly=(DB.stationScan||[]).filter(s=>s.asm===rec.asm&&!s.undoneAt);
@@ -267,7 +270,7 @@ function normalizeStationScans(){
   .map(s=>({id:s.id,at:s.at,piece:s.piece,station:sfCode(s.station),by:String(s.by==null?'':s.by).slice(0,80),byId:String(s.byId==null?'':s.byId).slice(0,80),manual:s.manual===true,
    undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):'',
    ...(typeof s.on==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.on)?{on:s.on}:{}),
-   ...(s.moved&&typeof s.moved==='object'&&iso(s.moved.at)?{moved:{from:typeof s.moved.from==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.moved.from)?s.moved.from:'',at:s.moved.at,by:String(s.moved.by==null?'':s.moved.by).slice(0,80)}}:{}),
+   ...(s.moved&&typeof s.moved==='object'&&iso(s.moved.at)?{moved:{...(salesRefId(s.moved.id)?{id:s.moved.id}:{}),from:typeof s.moved.from==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.moved.from)?s.moved.from:'',at:s.moved.at,by:String(s.moved.by==null?'':s.moved.by).slice(0,80)}}:{}),
    ...(typeof s.confirmedAt==='string'&&SF_CODE_RE.test(sfCode(s.confirmedAt))?{confirmedAt:sfCode(s.confirmedAt)}:{}),
    ...(Number.isInteger(s.step)&&s.step>=0?{step:s.step}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.actionId))?{actionId:s.actionId}:{}),
@@ -496,11 +499,22 @@ function stationAssemblyKeys(g,station){
 }
 /* Юнит собирается только из стекла одного чертежа: старое неверное стекло
    с новым из Recut не сходится (владелец, 7 октября 2026). Recut одного лайта
-   со своим чертежом идёт к лайтам, которых он не касается. a, b — {key, unit}. */
+   идёт к лайтам, которых он не касается, если размеры обычного юнита
+   совпадают. Разные размеры допускает заданная геометрия offset / step,
+   а не сам факт Recut (владелец, 8 октября 2026). a, b — {key, unit}. */
 function stationDrawingFits(o,l,a,b){
  const ta=stationDrawingKey(o,l,a.unit),tb=stationDrawingKey(o,l,b.unit);if(ta===tb)return true;
  const covers=(t,key)=>!!t&&(DB.recut||[]).some(r=>r&&r.orderId===o.id&&r.lineId===l.id&&'R'+r.no===t&&(r.keys||[]).includes(key));
- return !covers(ta,b.key)&&!covers(tb,a.key);
+ if(covers(ta,b.key)||covers(tb,a.key))return false;
+ return finWithOrder(o,()=>{
+  const comps=glassBatchComponents(o,l),ca=comps.find(c=>c.key===a.key),cb=comps.find(c=>c.key===b.key);
+  const pa=stkPlan(o,glassRecutLine(o,l,a.unit)),pb=stkPlan(o,glassRecutLine(o,l,b.unit));
+  if(!ca||!cb||!pa.valid||!pb.valid)return false;
+  const step=p=>p.lites.some(x=>x.inset||Math.abs(x.finishedW-p.lites[0].finishedW)>1e-6||Math.abs(x.finishedH-p.lites[0].finishedH)>1e-6);
+  if(step(pa)||step(pb))return true;
+  const da=pa.lites.find(x=>x.index===ca.index),db=pb.lites.find(x=>x.index===cb.index);
+  return !!da&&!!db&&Math.abs(da.finishedW-db.finishedW)<1e-6&&Math.abs(da.finishedH-db.finishedH)<1e-6;
+ });
 }
 /* Стекло p подходит к сборке a: со всеми её стёклами. */
 function stationAsmFits(a,o,l,index,p){return a.recs.every(s=>{const h=index.get(s.piece);return !h||stationDrawingFits(o,l,h,p);});}

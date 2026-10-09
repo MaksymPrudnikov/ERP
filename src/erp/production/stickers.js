@@ -208,7 +208,10 @@ function stkGlassInfo(pane,index,ply){
  return {name:g?g.name:'Unknown glass',code:g?g.code:'',mm:g&&+g.thicknessMm||+(spec&&spec.thicknessMm)||null,heat:ht&&ht.code&&ht.code!=='AN'?ht.name:'',
   heatSoak:!!(spec&&spec.heatSoak&&ht&&ht.code==='FT'),surface:coat?coat.where:'',paint:treatments.filter(t=>t.kind!=='coating').map(t=>t.summary),ply:ply||''};
 }
-function stkPieceArea(l,o){const a=salesLineAreas(l,o);return a&&a.valid?a.actual:null;}
+function stkPieceArea(l,o,lite){
+ if(lite)return (lite.result&&lite.result.valid?lite.result.area:Math.abs(fabSignedArea(lite.finishedPoints)))/144;
+ const a=salesLineAreas(l,o);return a&&a.valid?a.actual:null;
+}
 function stkPlan(o,l){try{return salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){return {valid:false};}}
 function stkIsRect(pts){
  if(!pts||pts.length!==4)return false;
@@ -262,8 +265,8 @@ function stkRoute(o,l,c){
  row.stations.forEach((s,step)=>{if(s.code===salesRouteStationOf('cutting','CUT'))return;s.items.forEach(t=>{if(t===s.name)return;const text=String(t).toUpperCase();if(!services.some(x=>x.text===text&&x.step===step))services.push({station:s.code,text,step});});});
  return {codes,shipping:tail,services};
 }
-function stkWeight(l,o,lite){
- const w=salesLineWeight(l,o);
+function stkWeight(l,o,lite,plan){
+ const w=salesLineWeight(l,o,plan);
  if(lite==null)return w.kg!=null?{kg:w.kg,exact:true}:w.knownKg?{kg:w.knownKg,exact:false}:null;
  const rows=w.rows.filter(r=>r.label.startsWith('Lite '+lite+' ·')&&r.kg!=null);
  return rows.length?{kg:rows.reduce((s,r)=>s+r.kg,0),exact:true}:null;
@@ -286,16 +289,30 @@ function stkGlassData(kind,o,l,c,unit,opts){
   const rec=glassPieceMap(o.id).get(c.key),comps=glassBatchComponents(o,l);
   return Object.assign(stkOrderData(o,l,li,geo),{kind,id:glassPieceAt(rec,unit)||'',unit:recut?0:unit,of:l.qty,lite:c.lite,lites:panes.length,recut:recut?'RECUT '+nr.replace(/^R/,''):'',batch:opts.batch||'',
    glass:c.missing?{name:'Glass missing',code:'',mm:null,heat:'',heatSoak:false,surface:'',paint:[],ply:''}:stkGlassInfo(c.pane,c.index,c.ply),
-   cut:stkCut(cut,stkFinished(cut,geo)),finished:stkFinished(cut,geo),area:stkPieceArea(geo,o),weight:stkWeight(geo,o,c.lite),
+   cut:stkCut(cut,stkFinished(cut,geo)),finished:stkFinished(cut,geo),area:stkPieceArea(geo,o,cut),weight:stkWeight(geo,o,c.lite),
    sheet:stkSheetOf(opts.batch,glassPieceAt(rec,unit)),
    shape:stkShapeOf(cut),route:kind==='production'&&typeof stationRouteOf==='function'?stationRouteOf({o,l,c,unit}):kind==='production'?stkRoute(o,geo,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
  });
 }
-/* from — место стекла, из которого собран юнит: юнит из стекла Recut со своим
-   чертежом печатается по этому чертежу. */
+/* Владелец, 8 октября 2026: обычный юнит — лайты одного размера; offset /
+   step — стикер по большему лайту. Источник — вся действующая сборка,
+   независимо от последнего скана и того, через какой G / U печатают.
+   До сборки (офис / образец) — лайты чертежа позиции или указанного Recut. */
+function stkUnitGeometry(o,l,unit,from){
+ const merge=stationUnitMerge(o,l),asm=merge&&stationAsms(o,l,merge).find(a=>a.unit===unit&&!a.broken);
+ const candidates=[];
+ const add=(geo,index,id)=>{const plan=stkPlan(o,geo);if(!plan.valid)return;
+  (plan.lites||[]).filter(x=>index==null||x.index===index).forEach(lite=>candidates.push({geo,lite,id:id||''}));};
+ if(asm)[...asm.lites.values()].forEach(id=>{const g=stationGlass(id);if(g&&g.c)add(stationGeo(g),g.c.index,id);});
+ else add(glassRecutLine(o,l,from),null,'');
+ candidates.sort((a,b)=>b.lite.finishedW*b.lite.finishedH-a.lite.finishedW*a.lite.finishedH||b.lite.finishedW-a.lite.finishedW||b.lite.finishedH-a.lite.finishedH||a.lite.index-b.lite.index||a.id.localeCompare(b.id));
+ const chosen=candidates[0]||{geo:glassRecutLine(o,l,from),lite:null};
+ const lites=[...new Map(candidates.map(x=>[x.lite.index,x.lite])).values()].sort((a,b)=>a.index-b.index);
+ return Object.assign({},chosen,{finished:stkFinished(chosen.lite,chosen.geo),plan:lites.length?{valid:true,lites}:null});
+}
 function stkUnitData(o,l,unit,from){
  return finWithOrder(o,()=>{
-  const geo=glassRecutLine(o,l,from);
+  const {geo,lite,finished,plan}=stkUnitGeometry(o,l,unit,from);
   const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],lam=panes.some(p=>p.category==='laminated');
   const rows=[];
   panes.forEach((p,i)=>{
@@ -305,10 +322,10 @@ function stkUnitData(o,l,unit,from){
     rows.push({kind:'lam',label:'Lite '+(i+1),outer:stkGlassInfo(p,i,'outer'),inner:stkGlassInfo(p,i,'inner'),films:(L.interlayers||[]).map(f=>{const prod=mdById('interlayerProduct',f.productId);return {name:prod?prod.name:'Interlayer',mm:+f.thicknessMm||null,layers:+f.layers||1};})});}
    else rows.push({kind:'glass',label:'Lite '+(i+1),glass:stkGlassInfo(p,i,'')});
   });
-  const plan=stkPlan(o,geo),lite=plan.valid&&(plan.lites||[])[0],mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
-  return Object.assign(stkOrderData(o,l,li,geo),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
+  const mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
+  return Object.assign(stkOrderData(o,l,li,Object.assign({},geo,{width16:finished.w*16,height16:finished.h*16})),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
    heading:type+(lam&&m.unitType!=='single'?' · laminated':''),thicknessMm:mm,code:m?salesMakeupSummary(m):'',rows,muntin:muntin?'Muntins · '+salesMuntinSections(l)+' sections':'',
-   finished:stkFinished(lite,geo),cut:null,area:stkPieceArea(geo,o),weight:stkWeight(geo,o,null),shape:stkShapeOf(lite)});
+   finished,cut:null,area:stkPieceArea(geo,o,lite),weight:stkWeight(geo,o,null,plan),shape:stkShapeOf(lite)});
  });
 }
 /* Данные стикера остатка из записи DB.stockOffcut. */

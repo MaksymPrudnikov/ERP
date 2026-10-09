@@ -39,10 +39,17 @@ function skipFree(o,l,key,ctx){
  const rec=glassPieceMap(o.id).get(key),ids=rec?rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean):[];
  return ids.map(id=>skipPiece(id,ctx)).filter(x=>x&&!ctx.used.has(x.id)).sort((a,b)=>b.p.far-a.p.far||a.id.localeCompare(b.id));
 }
-/* Открытая сборка стекла на станции слияния (LAM, IGU): её стёкла едут вместе. */
-function skipOpenAsm(id,ctx){
- const s=(ctx.scans.get(id)||[]).find(x=>x.asm&&!x.unit&&!x.joined);if(!s)return [];
- return (DB.stationScan||[]).filter(x=>!x.undoneAt&&x.asm===s.asm&&x.piece!==id).map(x=>x.piece);
+/* Начатые и завершённые сборки едут вместе. Склеенный LAM внутри IGU
+   нельзя заново составить из первых свободных номеров его двух слоёв. */
+function skipAssemblyPieces(id,ctx){
+ const pieces=new Set([id]),asms=new Set();
+ for(const p of pieces)(ctx.scans.get(p)||[]).forEach(s=>{
+  if(!s.asm||asms.has(s.asm))return;asms.add(s.asm);
+  const group=(DB.stationScan||[]).filter(x=>!x.undoneAt&&x.asm===s.asm);
+  if(group.some(x=>(ctx.scans.get(x.piece)||[]).some(r=>r.broken)))return;
+  group.forEach(x=>pieces.add(x.piece));
+ });
+ return [...pieces];
 }
 /* Юнит — стёкла всех лайтов (у ламината — обе плиты). Сначала собранные
    юниты, потом начатые сборки, потом — из отдельных стёкол. first — стекло,
@@ -61,9 +68,15 @@ function skipLineUnits(o,l,want,ctx,first){
  const whole=a=>{const ids=[...a.lites.values()];return ids.every(id=>!ctx.used.has(id)&&skipPiece(id,ctx))?{lineId:l.id,pieces:ids}:null;};
  const asms=mu?stationAsms(o,l,mu,ctx.index).filter(a=>a.complete&&!a.broken):[];
  const build=start=>{
-  const u={lineId:l.id,pieces:[]},has=new Set(),add=x=>{if(!x||u.pieces.includes(x.id))return;u.pieces.push(x.id);has.add(x.g.c.key);skipOpenAsm(x.id,ctx).forEach(m=>{const y=skipPiece(m,ctx);if(y&&!ctx.used.has(y.id)&&!has.has(y.g.c.key)&&keys.includes(y.g.c.key)){u.pieces.push(y.id);has.add(y.g.c.key);}});};
-  if(start)add(start);
-  for(const k of keys){if(has.has(k))continue;const x=skipFree(o,l,k,ctx).find(x=>!u.pieces.includes(x.id)&&(typeof stationDrawingFits!=='function'||u.pieces.every(id=>{const h=ctx.index.get(id);return !h||stationDrawingFits(o,l,h,{key:k,unit:x.g.unit});})));if(!x)return null;add(x);}
+  const u={lineId:l.id,pieces:[]},has=new Set(),add=x=>{
+   const group=skipAssemblyPieces(x.id,ctx).filter(id=>!u.pieces.includes(id)).map(id=>skipPiece(id,ctx));
+   if(group.some(y=>!y||ctx.used.has(y.id)||has.has(y.g.c.key)||!keys.includes(y.g.c.key)))return false;
+   const picked=u.pieces.concat(group.map(y=>y.id)).map(id=>ctx.index.get(id));
+   if(picked.some((a,i)=>picked.slice(i+1).some(b=>a.key===b.key||!stationDrawingFits(o,l,a,b))))return false;
+   group.forEach(y=>{u.pieces.push(y.id);has.add(y.g.c.key);});return true;
+  };
+  if(start&&!add(start))return null;
+  for(const k of keys){if(has.has(k))continue;if(!skipFree(o,l,k,ctx).some(add))return null;}
   return keys.every(k=>has.has(k))?u:null;
  };
  if(first){
@@ -82,7 +95,9 @@ function skipPick(o,d,ctx){
   if(hit.kind==='unit'){
    const mu=stationUnitMerge(o,l),a=mu&&stationAsms(o,l,mu,ctx.index).find(x=>x.unit===hit.unit&&!x.broken);
    const ids=a?[...a.lites.values()]:[];if(!ids.length||ids.some(id=>ctx.used.has(id)||!skipPiece(id,ctx))){problems.push(code+' is not assembled or already shipped');return;}
-   ids.forEach(id=>ctx.used.add(id));units.push({lineId:l.id,pieces:ids});return;
+   const got=skipLineUnits(o,l,1,ctx,skipPiece(ids[0],ctx));
+   if(!got.length){problems.push(code+': no units left to skip');return;}
+   units.push(...got);return;
   }
   const x=!ctx.used.has(code)&&skipPiece(code,ctx);if(!x){problems.push(code+' is shipped, broken or already picked');return;}
   const got=skipLineUnits(o,l,1,ctx,x);if(!got.length){problems.push(code+': its other lites are not available');return;}
@@ -145,6 +160,8 @@ function skipCommand(d){
  shippingAssert(!pick.problems.length,pick.problems.join('. ')+'.');
  shippingAssert(pick.units.length||to===SKIP_PICKUP&&extras.length,'Choose what to skip.');
  shippingAssert(!extras.length||to===SKIP_PICKUP,'Stock items can only be picked up.');
+ const offRoute=pick.units.flatMap(u=>u.pieces).find(id=>!stationPlace(stationGlass(id)).route.includes(target));
+ shippingAssert(!offRoute,'Glass '+(offRoute||'')+' does not pass '+target+'. Choose a station on its route.');
  /* Skip есть всегда (владелец, 8.10.2026: «никаких ограничений… человеческий
     фактор в действии»): ни Hold, ни поздний скан его не останавливают. День —
     выбранный; время — после последнего скана этого стекла в тот же день
@@ -158,6 +175,7 @@ function skipCommand(d){
  /* «От создания заказа»: Skip сам себе Verify. */
  if(o.status==='new'){o.status='verified';o.statusDates=Object.assign({},o.statusDates,{verified:at});salesSyncRecordLifecycle(o);}
  skipRecord(pick.units,target,at,who,skip);
+ shippingAssert(to===SKIP_PICKUP||!!skip.actionId,'The selected glass has already passed '+target+'.');
  if(to===SKIP_PICKUP){
   /* Hold заказа, строк и юнитов не мешает выдаче Skip: снят на время
      выдачи и возвращён тем же (Undo Skip его не трогает). */
@@ -190,13 +208,18 @@ function skipUndo(id){
 function skipUndoCommand(id){
  const k=skipFind(id);shippingAssert(k&&!k.undoneAt,'Skip not found.');
  const o=salesRecord(k.orderId);shippingAssert(o,'Order not found.');
+ const group=(DB.stationScan||[]).filter(s=>k.actionId&&s.actionId===k.actionId&&!s.undoneAt),own=new Set(group.map(s=>s.id));
+ k.shipments.forEach(sid=>{const s=shippingFind(sid);if(s)(s.scanIds||[]).forEach(id=>own.add(id));});
+ /* День Skip может быть прошлым. Зависимость — порядок записи SC, а не
+    выбранная дата. Собственные сканы выдачи снимаются вместе с этим Skip. */
+ const later=group.find(r=>stationScansFor(r.piece).some(s=>!own.has(s.id)&&+s.id.slice(3)>+r.id.slice(3)));
+ const reserved=(DB.shipment||[]).find(s=>shippingActive(s)&&!k.shipments.includes(s.id)&&s.items.some(i=>i.pieces.some(p=>k.pieces.includes(p))));
+ shippingAssert(!later,'Glass '+(later?later.piece:'')+' has moved on. Undo the later scans first.');
+ shippingAssert(!reserved,'Glass is on a packing slip. Cancel the packing slip before Undo.');
  k.shipments.slice().reverse().forEach(sid=>{
   const s=shippingFind(sid);if(!s||s.status==='cancelled')return;
   [['delivered','receipt'],['shipped','dispatch'],['planned','cancel']].forEach(([st,action])=>{if(s.status!==st)return;const r=shippingRevert(s.id,action);shippingAssert(r.ok,r.error);});
  });
- const group=(DB.stationScan||[]).filter(s=>k.actionId&&s.actionId===k.actionId&&!s.undoneAt);
- const later=group.find(r=>stationScansFor(r.piece).some(s=>!group.includes(s)&&String(s.at)>=String(r.at)&&String(s.id)>String(r.id)));
- shippingAssert(!later,'Glass '+(later?later.piece:'')+' has moved on. Undo the later scans first.');
  const now=new Date().toISOString(),cut=stationCutCode(),who=orderLogActor();
  group.forEach(r=>{
   r.undoneAt=now;r.undoneBy=('Undo skip · '+(who.by||'Office')).slice(0,80);stationAsmReopen(r);

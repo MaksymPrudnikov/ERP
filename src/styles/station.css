@@ -144,6 +144,7 @@ tr.st-hot td{background:var(--surface-2)}
 .st-tabs{display:flex;gap:2px;margin-left:10px;padding:3px;border-radius:12px;background:color-mix(in srgb,var(--on-solid) 8%,transparent)}
 .st-tabs button{font:inherit;font-size:14px;font-weight:600;color:color-mix(in srgb,var(--on-solid) 65%,transparent);background:none;border:0;padding:8px 18px;border-radius:9px}
 .st-tabs button.on{background:color-mix(in srgb,var(--on-solid) 16%,transparent);color:var(--on-solid)}
+.st-tabs button:hover,.st-tabs button:focus-visible{background:color-mix(in srgb,var(--on-solid) 16%,transparent);color:var(--on-solid)}
 .st-topscan{display:flex;align-items:center;gap:8px;background:var(--surface);border:2px solid var(--accent);border-radius:10px;padding:5px 12px;min-width:260px;margin-left:12px}
 .st-topscan svg{width:20px;height:20px;stroke:var(--blue);fill:none;stroke-width:1.8;flex:none}
 .st-topscan input{border:0;outline:0;font:inherit;font-size:15px;width:100%;background:transparent}

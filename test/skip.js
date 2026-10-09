@@ -107,6 +107,62 @@ module.exports=async function({page,eq}){
   return {part,whole:[a.status,salesUnbatchedLines(a).length,salesRecordTransitionAllowed(a,'closed')]};
  }),{part:['10/10',0,'Batched 🔒'],whole:['done',0,true]});
 
+ eq('Undo раннего Skip не стирает позднюю выдачу задним числом; отказ атомарен',await t.p.evaluate(()=>{
+  const id=skNew(),l=salesRecord(id).lines[1],first=skipRun({orderId:id,lines:{[l.id]:'all'},to:'HEAT',date:finToday()});
+  const last=skipRun({orderId:id,codes:[first.pieces[0]],to:'pickup',date:finAddDays(finToday(),-5)}),before=JSON.stringify(DB),r=skipUndo(first.id);
+  return {picked:!last.error,blocked:!!r.error,same:JSON.stringify(DB)===before,delivered:shippingForOrder(id).every(s=>s.status==='delivered')};
+ }),{picked:true,blocked:true,same:true,delivered:true});
+
+ eq('Undo Skip до готовности не разрушает созданный после него packing slip',await t.p.evaluate(()=>{
+  const id=skNew(),l=salesRecord(id).lines[1],k=skipRun({orderId:id,lines:{[l.id]:'all'},to:'SHIPR',date:finToday()}),o=salesRecord(id);
+  const ps=shippingCreate({customerId:o.customerId,method:'pickup',date:finToday(),items:shippingAvailable(o).map(shippingItem)}),before=JSON.stringify(DB),r=skipUndo(k.id);
+  return {planned:ps.ok,blocked:!!r.error,same:JSON.stringify(DB)===before};
+ }),{planned:true,blocked:true,same:true});
+
+ eq('Skip выбирает станцию реального маршрута: Single → IGU и повторный HEAT не пишут ложный успех',await t.p.evaluate(()=>{
+  const id=skSingle(),l=salesRecord(id).lines[0],before=JSON.stringify(DB),bad=skipRun({orderId:id,lines:{[l.id]:'all'},to:'IGU',date:finToday()}),same=JSON.stringify(DB)===before;
+  const good=skipRun({orderId:id,lines:{[l.id]:'all'},to:'HEAT',date:finToday()}),after=JSON.stringify(DB),repeat=skipRun({orderId:id,lines:{[l.id]:'all'},to:'HEAT',date:finToday()});
+  return {offRoute:!!bad.error,same,good:!!good.actionId,repeat:!!repeat.error,unchanged:JSON.stringify(DB)===after};
+ }),{offRoute:true,same:true,good:true,repeat:true,unchanged:true});
+
+ eq('после полного Skip до HEAT / SHIPR / SHIP / выдачи нет пустого Batched из New или Verified',await t.p.evaluate(()=>{
+  const results=[];for(const status of ['new','verified'])for(const to of ['HEAT','SHIPR','SHIP','pickup']){
+   const id=skSingle();if(status==='verified')salesSetRecordStatus(id,'verified');const l=salesRecord(id).lines[0],r=skipRun({orderId:id,lines:{[l.id]:'all'},to,date:finToday()}),o=salesRecord(id),before=JSON.stringify(DB);
+   results.push(!r.error&&!salesRecordTransitionAllowed(o,'batched')&&!salesSetRecordStatus(id,'batched')&&!glassBatchRows([o]).length&&before===JSON.stringify(DB));
+  }return results;
+ }),Array(8).fill(true));
+
+ eq('частичный Skip оставляет девять свободных G для батча; Undo последнего Skip возвращает остаток',await t.p.evaluate(()=>{
+  const id=skSingle(),l=salesRecord(id).lines[0],k=skipRun({orderId:id,lines:{[l.id]:1},to:'HEAT',date:finToday()}),rows=glassBatchRows([salesRecord(id)]),allowed=salesRecordTransitionAllowed(salesRecord(id),'batched');
+  const assigned=salesSetRecordStatus(id,'batched'),pieces=DB.glassBatch.flatMap(b=>b.items.map(i=>i.piece));
+  const restored=skipUndo(k.id);return {rows:rows.length,allowed,assigned,count:pieces.length,skipped:pieces.includes(k.pieces[0]),undone:!restored.error,left:glassBatchRows([salesRecord(id)]).length};
+ }),{rows:9,allowed:true,assigned:true,count:9,skipped:false,undone:true,left:1});
+
+ eq('Undo из станционного журнала не обходит защиту последующего Skip задним числом',await t.p.evaluate(()=>{
+  const id=skSingle(),piece=skPieces(id)[0];skipRun({orderId:id,codes:[piece],to:'CUT',date:finToday()});const cut=stationScansFor(piece)[0];
+  skipRun({orderId:id,codes:[piece],to:'HEAT',date:skDay});const before=JSON.stringify(DB),undo=stationUndo(cut.id,skWho);
+  return {error:undo.error,same:JSON.stringify(DB)===before,live:stationScansFor(piece).map(s=>s.station)};
+ }),{error:'Glass has moved on — undo the later scan first.',same:true,live:['CUT','ARRIS','HEAT']});
+
+ eq('Skip сохраняет перекрёстно склеенные пары LAM внутри IGU; Undo возвращает их целыми',await t.p.evaluate(()=>{
+  const out=[];for(const byCode of [false,true]){
+   const id=skNew();salesOrderEdit(id);const m=soDraft.makeups[0];m.panes[0]=normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0);m.panes[0].priceOverride=9;soDraft.lines=[soDraft.lines[0]];salesOrderSave();salesDraftDrop();salesSetRecordStatus(id,'verified');
+   const o=salesRecord(id),l=o.lines[0],cs=glassBatchComponents(o,l),pm=glassPieceMap(id),ids=cs.map(c=>pm.get(c.key).ids.slice()),[a,b,plain]=ids;
+   ids.flat().forEach(p=>{for(let n=0;n<12;n++){const st=stationPlace(stationGlass(p)).waiting;if(st===(plain.includes(p)?'IGU':'LAM'))break;skScan(st,p);}});
+   [a[0],b[1],a[1],b[0]].forEach(p=>skScan('LAM',p));const lam=()=>stationAsms(salesRecord(id),salesRecord(id).lines[0],'LAM').map(x=>[...x.lites.values()]),before=JSON.stringify(lam());
+   const r=skipRun({orderId:id,...(byCode?{codes:[a[0]]}:{lines:{[l.id]:1}}),to:'SHIPR',date:finToday()}),selected=r.pieces||[];
+   const other=[a[1],b[0],plain[1]].map(p=>stationPlace(stationGlass(p)).waiting),undo=skipUndo(r.id);
+   out.push({ok:!r.error,pair:selected.includes(a[0])&&selected.includes(b[1])&&!selected.includes(b[0]),other,undo:!undo.error,lam:JSON.stringify(lam())===before,allBack:ids.flat().every(p=>stationPlace(stationGlass(p)).waiting==='IGU')});
+  }return out;
+ }),[false,true].map(()=>({ok:true,pair:true,other:['IGU','IGU','IGU'],undo:true,lam:true,allBack:true})));
+
+ eq('Skip: U плюс вся строка учитывает выбранный юнит один раз и не производит лишний Recut',await t.p.evaluate(()=>{
+  const id=skNew();salesSetRecordStatus(id,'verified');const o=salesRecord(id),l=o.lines[0];skipRun({orderId:id,lines:{[l.id]:1},to:'IGU',date:finToday()});
+  const reason=ncrReasonsFor('OFFICE',{activeOnly:true}).find(x=>x.name==='Drawing wrong'),made=recutCreate({orderId:id,where:'OFFICE',reasonId:reason.id,lines:{[l.id]:{on:true,qty:1,which:'unit'}}}),fresh=recutPieces(made.recuts[0]);
+  skipOpen(id);skipSetLine(l.id,'all');skipSet('codes',unitIdAt(id,l.id,1));skipSet('to','SHIPR');const saved=skipConfirm(),r=DB.skip.at(-1);
+  return {saved,glass:r.pieces.length,assemblies:stationAsms(salesRecord(id),salesRecord(id).lines[0],'IGU').filter(a=>a.unit).length,fresh:fresh.map(p=>stationPlace(stationGlass(p)).waiting),ready:shippingAvailable(salesRecord(id)).filter(u=>u.lineId===l.id).length};
+ }),{saved:true,glass:4,assemblies:2,fresh:['CUT','CUT'],ready:2});
+
  eq('JSON: Skip переживает экспорт и импорт; не массив — понятная ошибка',await t.p.evaluate(()=>{
   const id=skNew();skipRun({orderId:id,lines:{[salesRecord(id).lines[1].id]:'all'},to:'pickup',date:finToday()});
   const src=JSON.parse(JSON.stringify(DB)),next=prepareImportedState(JSON.parse(JSON.stringify(src)));let err='';try{const x=JSON.parse(JSON.stringify(src));x.skip={};prepareImportedState(x);}catch(e){err=e.message;}

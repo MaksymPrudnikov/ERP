@@ -139,6 +139,31 @@ module.exports=async function({page,eq,ok}){
   return {rows,printed,labels,bars:bars>20,calls:window.cvPrinted};
  }),{rows:'DA-1:A-shape dolly:empty|DA-2:A-shape dolly:empty|SL-1:L-shape skid:empty',printed:2,labels:'DA-2,SL-1',bars:true,calls:1});
 
+ eq('старый Undo переноса не стирает новые перекладки или следующий производственный скан',await t.p.evaluate(()=>{
+  cvReset();carrierAdd('DL',3);const id=cvOrder([[36,24,2]]),pieces=cvIds(id);cvLogin('CUT','QA');stationSubmit('DL-1');pieces.forEach(p=>stationSubmit(p));
+  const who=stationWho(),first=carrierMove(pieces,'DL-2',who);carrierMove(pieces,'DL-3',who);carrierMove(pieces,'DL-2',{name:'Later operator'});
+  const before=JSON.stringify(DB),old=carrierMoveUndo(first),same=JSON.stringify(DB)===before;
+  const last=carrierMove(pieces,'DL-3',who);stationMove('ARRIS',stationCheck('ARRIS',pieces[0]),who,{on:'DL-3'});
+  const after=JSON.stringify(DB),next=carrierMoveUndo(last);
+  return {old:!!old.error,same,next:!!next.error,atomic:JSON.stringify(DB)===after};
+ }),{old:true,same:true,next:true,atomic:true});
+
+ eq('выбор тары обновляется после отключения и смены Puts on; производство без тары остаётся разрешённым',await t.p.evaluate(()=>{
+  cvReset();carrierAdd('DL',1);const id=cvOrder([[36,24,3]]),pieces=cvIds(id);cvLogin('CUT','QA');stationSubmit('DL-1');stationSubmit(pieces[0]);carrierSet('DL-1','active',false);
+  const kind=stationSubmit(pieces[1]),inactive=stationScansFor(pieces[1]).at(-1).on||'',loose=stationLoose().length;
+  carrierSet('DL-1','active',true);stationSubmit('DL-1');const sessions=stationSessions();delete sessions[stationCode].putOnMode;stationSessionsSave(sessions);const legacy=stationPutOn();
+  sfSetPutsOn('CUT','none');const changed=stationSubmit(pieces[2]),none=stationScansFor(pieces[2]).at(-1).on||'',put=stationPutOn();sfSetPutsOn('CUT','dolly');
+  return {kind,inactive,loose,legacy,changed,none,put};
+ }),{kind:'ok',inactive:'',loose:1,legacy:'DL-1',changed:'ok',none:'',put:''});
+
+ eq('Undo переноса после создания PS не меняет скид ни одного участника; после отмены PS работает',await t.p.evaluate(()=>{
+  cvReset();carrierAdd('SL',2);const id=cvOrder([[36,24,2]]),o=salesRecord(id);oqReady(id);const pieces=cvIds(id);
+  carrierMove(pieces,'SL-1',{name:'QA'});const move=carrierMove(pieces,'SL-2',{name:'QA'}),made=shippingCreate({customerId:o.customerId,method:'pickup',date:finToday(),items:shippingAvailable(o).slice(0,1).map(shippingItem)});
+  const before=JSON.stringify(DB),undo=carrierMoveUndo(move),atomic=JSON.stringify(DB)===before,ps=shippingFind(made.value.id).items[0].skid;
+  const cancel=shippingRevert(made.value.id,'cancel'),again=carrierMoveUndo(move);
+  return {created:made.ok,error:undo.error,atomic,ps,cancel:cancel.ok,again,on:pieces.map(p=>stationScansFor(p).at(-1).on)};
+ }),{created:true,error:'Glass is on a packing slip. Cancel the packing slip before Undo.',atomic:true,ps:'SL-2',cancel:true,again:2,on:['SL-1','SL-1']});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

@@ -56,7 +56,7 @@ function salesLineAreas(line,order){
 }
 function salesMoney(value){return Math.round((value+Number.EPSILON)*100)/100;}
 function salesApplyOrderCharges(subtotal,raw){
- const c=normalizeSalesOrderCharges(raw),base=salesMoney(Math.max(0,+subtotal||0));
+ const c=normalizeSalesOrderCharges(raw),base=salesMoney(+subtotal||0);
  const energy=c.energy.enabled?salesMoney(base*c.energy.rate/100):0;
  const hstBase=salesMoney(base+energy),hst=c.hst.enabled?salesMoney(hstBase*c.hst.rate/100):0;
  const cardBase=salesMoney(hstBase+hst),card=c.card.enabled?salesMoney(cardBase*c.card.rate/100):0;
@@ -93,7 +93,7 @@ function salesLineCommercialPrice(line,order){
  const out={areas:areas,materialRate:rate.total,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:live,ordered:q,cancelled:q-live};
  /* Цена руками: итоговая цена юнита, наценки к ней не прибавляются; расчёт
     остаётся для справки (computedUnit). */
- if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,line:salesMoney(v*live),complete:!unsupportedCurrency});}
+ if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,line:salesMoney(v*live),complete:true,unsupportedCurrency:false});}
  return out;
 }
 function salesLineCommercialAdjustments(line,order){
@@ -114,10 +114,12 @@ function salesOrderCommercialAdjustments(order){
 /* Coefficients are measured product norms. Empty is unknown, explicit zero is
    allowed (e.g. consumables already included in a filled-spacer norm). */
 function salesWeightRate(key){const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;}
-function salesLineWeight(line,order){
+/* productionPlan — фактические лайты собранного юнита (частичный Recut).
+   Без него коммерческие документы по-прежнему считают геометрию заказа. */
+function salesLineWeight(line,order,productionPlan){
  order=order||soDraft;
  const rows=[],m=salesMakeupById(order,line.makeupId),shape=salesLineGeometryShape(line),areas=salesLineAreas(line,order);
- const plan=shape&&m?salesEffectiveCuttingPlan(line,shape,order):null;
+ const plan=productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
  const add=(label,kg,note)=>rows.push({label:label,kg:Number.isFinite(kg)&&kg>=0?kg:null,note:note||''});
  const norm=(key,label,basis,unit,note)=>{const rate=salesWeightRate(key);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||''});};
  if(!m||!areas.valid)return {rows:[],kg:null,lineKg:null,knownKg:0,complete:false,missing:1};

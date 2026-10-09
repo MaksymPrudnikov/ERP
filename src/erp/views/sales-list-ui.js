@@ -371,7 +371,7 @@ function salesListCell(info,col){
   case 'balance':{
    if(v==null&&!info.memo.balanceInfo)return '<td class="n"><span class="mut">—</span></td>';
    const b=info.memo.balanceInfo;
-   return `<td class="n">${b.status==='due'?`<span class="pill bad">${finFmt(b.balance)}</span>`:b.status==='paid'?'<span class="pill good">Paid</span>':b.status==='overpaid'?`<span class="pill info">Overpaid ${finFmt(-b.balance)}</span>`:finFmt(b.balance)}</td>`;
+   return `<td class="n">${b.status==='review'?'<span class="pill warn">Review required</span>':b.status==='due'?`<span class="pill bad">${finFmt(b.balance)}</span>`:b.status==='paid'?'<span class="pill good">Paid</span>':b.status==='overpaid'?`<span class="pill info">Overpaid ${finFmt(-b.balance)}</span>`:finFmt(b.balance)}</td>`;
   }
   default:return `<td>${v==null||v===''?'<span class="mut">—</span>':raw(String(v))}</td>`;
  }

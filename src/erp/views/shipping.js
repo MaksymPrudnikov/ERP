@@ -86,7 +86,10 @@ function shippingStatus(s){return s.status==='delivered'?(s.method==='pickup'?'P
 /* Статус и «Balance due» — одним блоком: в шапке PS они не разъезжаются. */
 function shippingStatusPill(s){return `<span class="shipping-pills"><span class="pill st-${({planned:'new',shipped:'shipping',delivered:'done',cancelled:'cancelled'})[s.status]||'new'}">${shippingStatus(s)}</span>${shippingBalancePill(s)}</span>`;}
 /* Подсветка: в PS заказ cash-клиента с долгом — деньги взять до выдачи. */
-function shippingBalancePill(s){return ['planned','shipped'].includes(s.status)&&shippingOrderIds(s).some(id=>{const o=salesRecord(id);return o&&shippingBalanceDue(o);})?' <span class="pill bad" data-ps-balance>Balance due</span>':'';}
+function shippingBalancePill(s){
+ const orders=shippingOrderIds(s).map(salesRecord).filter(Boolean),review=orders.some(o=>finOrderBalance(o).status==='review');
+ return (review?' <span class="pill warn" data-ps-review>Review required</span>':'')+(['planned','shipped'].includes(s.status)&&orders.some(shippingBalanceDue)?' <span class="pill bad" data-ps-balance>Balance due</span>':'');
+}
 function shippingQueueChange(orderId,lineId,value){const out=shippingQueueSet(orderId,[lineId],value);shippingNotice=out.ok?null:{error:true,text:out.error};render();}
 /* Loaded: едет то, что отсканировано на станции отгрузки; что остаётся в
    Ready — офис видит до записи. Ничего не сканировали — офис подтверждает

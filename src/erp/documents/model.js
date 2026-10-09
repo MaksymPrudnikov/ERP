@@ -284,10 +284,11 @@ function docBuildModel(kind,order,opts){
  }
 
  if(sale){
-  const t=salesOrderCommercialTotals(order),c=t.charges,money=v=>t.complete?docMoney(v):'—',left=[];
+  const t=salesOrderCommercialTotals(order),c=t.charges,money=v=>t.complete?docMoney(v):'—',left=[],review=t.complete&&t.grand<0;
   /* Оплаченному счёту инструкции оплаты не нужны — на нём PAID. */
-  const settled=invoice&&t.complete&&typeof finOrderPaid==='function'&&salesMoney(t.grand-finOrderPaid(order.id).paid)<=0;
-  if(opts.paymentInstructions&&!settled)left.push({label:'Payment',text:[company.paymentInstructions,'Please reference order '+number+' with your payment.'].filter(Boolean).join('\n')});
+  const settled=invoice&&t.complete&&!review&&typeof finOrderPaid==='function'&&salesMoney(t.grand-finOrderPaid(order.id).paid)<=0;
+  if(review)left.push({label:'Review required',text:'Negative order total. Please contact us to resolve it.'});
+  if(opts.paymentInstructions&&!settled&&!review)left.push({label:'Payment',text:[company.paymentInstructions,'Please reference order '+number+' with your payment.'].filter(Boolean).join('\n')});
   if(opts.notes&&order.notes)left.push({label:'Order notes',text:order.notes});
   let rows=null,grand=null,deposit=null;
   if(opts.totals){
@@ -322,13 +323,14 @@ function docBuildModel(kind,order,opts){
   let paid=null;
   if(opts.receipts&&rows&&got.paid>0){
    const rest=salesMoney(t.grand-got.paid);
-   paid=[{label:'Paid to date · '+got.receipts+' receipt'+(got.receipts>1?'s':''),value:docMoney(got.paid)},{label:rest>0?'Balance due':rest<0?'Overpaid':'Paid in full',value:t.complete?docMoney(Math.abs(rest)):'—',tone:rest>0?'due':''}];
+   paid=[{label:'Paid to date · '+got.receipts+' receipt'+(got.receipts>1?'s':''),value:docMoney(got.paid)},{label:review?'Review required':rest>0?'Balance due':rest<0?'Overpaid':'Paid in full',value:t.complete?docMoney(review?rest:Math.abs(rest)):'—',tone:rest>0?'due':''}];
   }
   /* Счёт: к оплате — остаток и срок; оплачено полностью — отметка PAID
      (владелец: «у нас маленький штамп, но если будет PAID на бумаге — топ»). */
   const rest=t.complete?salesMoney(t.grand-got.paid):null;
-  if(invoice&&t.complete&&rest<=0)model.stamp={text:'PAID',sub:docDate(docLastPaidOn(order))};
-  if(invoice&&opts.payment){
+  if(invoice&&t.complete&&!review&&rest<=0)model.stamp={text:'PAID',sub:docDate(docLastPaidOn(order))};
+  if(review&&opts.payment)deposit=[{label:'Review required',value:money(t.grand),strong:true}];
+  else if(invoice&&opts.payment){
    deposit=rest!=null&&rest<=0?[{label:'Paid in full · thank you',value:docMoney(0),strong:true}]
     :[{label:payDue&&terms.paymentMode==='credit'?'Payment due '+docDate(payDue)+' · '+paymentTermsLabel(terms):'Due on receipt',value:money(rest),strong:true}];
   }else if(opts.payment){

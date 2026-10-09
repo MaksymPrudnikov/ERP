@@ -59,6 +59,25 @@ module.exports=async function({page,eq,ok}){
   unOut();return out;
  }),{kind:'ok',note:'ARRIS confirmed here',journal:'G',edge:'HEAT',waiting:'IGU',chip:false});
 
+ eq('step: больший размер исправленного Recut одинаков при обоих порядках сборки и печати через G / U',await t.p.evaluate(async()=>{
+  const out=[];
+  for(const which of ['unit','1'])for(const reverse of [false,true]){
+   unReset();const id=oqOrder(oqCustomer());salesOrderEdit(id);const line=soDraft.lines[0],shape=salesLineGeometryShape(line);shape.lites={'0':{inset:{A:'1',B:'1',C:'1',D:'1'},edgeOps:{},mirror:false}};salesOrderSave();salesDraftDrop();salesSetRecordStatus(id,'verified');
+   const o=salesRecord(id),l=o.lines[0],reason=ncrReasonsFor('OFFICE',{activeOnly:true}).find(x=>x.name==='Drawing wrong');
+   recutCreate({orderId:id,where:'OFFICE',reasonId:reason.id,lines:{[l.id]:{on:true,qty:1,which}}});const r=DB.recut[0];storageCommand(()=>recutSizeCommand(r.id,36*16,71*16));
+   glassBatchAssign(glassBatchRows([o]),{});const comps=glassBatchComponents(o,l),pieces=glassPieceMap(id),ids=which==='unit'?recutPieces(r):[pieces.get(comps[0].key).ids[0],recutPieces(r)[0]];ids.forEach(pid=>['CUT','ARRIS','HEAT'].forEach(st=>unScan(st,pid)));
+   unLogin('IGU','Step operator');localStorage.setItem(STATION_AUTOPRINT_KEY,JSON.stringify({IGU:true}));
+   const order=reverse?ids.slice().reverse():ids;stationSubmit(order[0]);stationSubmit(order[1]);await new Promise(resolve=>setTimeout(resolve,100));
+   const a=stationAsmOf(stationGlass(ids[0]),'IGU'),uid=unitIdAt(id,l.id,a.unit),data=ids.map(pid=>stkUnitData(o,l,a.unit,stationGlass(pid).unit));
+   const text=()=>document.getElementById('stkPrintHost').textContent;
+   const autoText=text(),automatic={count:window.unPrinted,large:autoText.includes('36 × 71″'),small:autoText.includes('34 × 69″')};
+   const labels=ids.concat(uid).map(code=>{const printed=stationPrintUnit(code);return {printed,large:text().includes('36 × 71″'),same:text()===autoText};});
+   out.push({complete:a.complete,each:ids.map(pid=>{const g=stationGlass(pid);return stkGlassData('final',o,l,g.c,g.unit,{}).finished;}),sizes:data.map(d=>d.finished),automatic,labels});
+   localStorage.removeItem(STATION_AUTOPRINT_KEY);stkPrintCleanup();unOut();
+  }
+  return out;
+ }),['unit','1'].flatMap(which=>[false,true].map(()=>({complete:true,each:[{w:which==='unit'?34:35,h:69},{w:36,h:71}],sizes:[{w:36,h:71},{w:36,h:71}],automatic:{count:1,large:true,small:false},labels:[1,2,3].map(()=>({printed:true,large:true,same:true}))}))));
+
  eq('IGU: юнит собирается из того, что сканируют, — лайт 1 юнита 1 с лайтом 2 юнита 2; номер юнита — когда собран; стикер юнита',await t.p.evaluate(()=>{
   unReset();const u=unOrder(),a1=u.lite(0,1),b2=u.lite(1,2);
   [a1,b2].forEach(x=>['CUT','ARRIS','HEAT'].forEach(st=>unScan(st,x)));unLogin('IGU','Anna L.');
@@ -160,6 +179,27 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-station-unit-reprint]').click();const printed=window.unPrinted,label=!!document.querySelector('.stk-print-page');stkPrintCleanup();
   unOut();return {text,acts,moved,manual,byU,printed,label};
  }),{text:'Line 1 · 37 × 71|Unit · 6CLEAR / 6Q240|B-0001|2|',acts:['✓ Mark 1 unit done','Print a new unit sticker','Drawing'],moved:2,manual:true,byU:{kind:'ok',moved:4,manual:'true,true'},printed:1,label:true});
+
+ eq('поздняя долли забирает оба слоя LAM: отдельный ламинат и ламинированный лайт внутри IGU',await t.p.evaluate(()=>{
+  const result=[];for(const type of ['single','double']){
+   unReset();carrierAdd('DL',1);const id=oqOrder(oqCustomer());salesOrderEdit(id);const m=soDraft.makeups[0];m.unitType=type;
+   const lam=normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0);lam.priceOverride=9;m.panes=type==='single'?[lam]:[lam,m.panes[1]];if(type==='single')m.cavities=[];soDraft.lines=[soDraft.lines[0]];soDraft.lines[0].qty=1;
+   salesOrderSave();salesDraftDrop();salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
+   const pieces=[...stationPieceIndex()].filter(([p,h])=>h.orderId===id&&stationGlass(p).c.ply).map(([p])=>p);
+   for(const p of pieces)for(let n=0;n<8;n++){const g=stationGlass(p),s=stationPlace(g).waiting;if(!s||s==='LAM')break;stationMove(s,stationCheck(s,p),unWho);}
+   unLogin('LAM','Laminator');pieces.forEach(p=>stationSubmit(p));const loose=stationLoose().length;stationSubmit('DL-1');result.push([pieces.length,loose,(carrierContents().get('DL-1')||[]).length,pieces.every(p=>stationScansFor(p).at(-1).on==='DL-1')]);unOut();
+  }return result;
+ }),[[2,2,2,true],[2,2,2,true]]);
+ eq('частичный step Recut: фактические площадь и вес, тот же размер в From IGU и окне скида',await t.p.evaluate(()=>{
+  unReset();carrierAdd('SL',1);const id=oqOrder(oqCustomer());salesOrderEdit(id);const line=soDraft.lines[0];line.weightExtras=[{label:'Additional part',kg:7}];salesLineGeometryShape(line).lites={'0':{inset:{A:'1',B:'1',C:'1',D:'1'},edgeOps:{},mirror:false}};salesOrderSave();salesDraftDrop();salesSetRecordStatus(id,'verified');
+  const o=salesRecord(id),l=o.lines[0],commercial=finWithOrder(o,()=>JSON.stringify([salesLineWeight(l,o),salesOrderCommercialTotals(o)])),reason=ncrReasonsFor('OFFICE',{activeOnly:true}).find(x=>x.name==='Drawing wrong');
+  const made=recutCreate({orderId:id,where:'OFFICE',reasonId:reason.id,lines:{[l.id]:{on:true,qty:1,which:'1'}}}),r=made.recuts[0];storageCommand(()=>recutSizeCommand(r.id,36*16,71*16));
+  const first=glassPieceMap(id).get(glassBatchComponents(o,l)[0].key).ids[0],fresh=recutPieces(r)[0],pieces=[first,fresh];pieces.forEach(p=>['CUT','ARRIS','HEAT'].forEach(st=>unScan(st,p)));pieces.forEach(p=>unScan('IGU',p));
+  const a=stationAsmOf(stationGlass(first),'IGU'),unit=stkUnitData(o,l,a.unit),board=stationIguBoard().orders.find(x=>x.o.id===id),round=v=>Math.round(v*100)/100;
+  const each=pieces.map(p=>{const g=stationGlass(p),d=stkGlassData('final',o,l,g.c,g.unit);return {size:d.finished,area:round(d.area)};});
+  stationMove('SHIPR',stationCheck('SHIPR',first),unWho,{on:'SL-1'});const skid=stationSkidItems('SL-1')[0];
+  return {each,unit:{size:unit.finished,area:round(unit.area),kg:round(unit.weight.kg),exact:unit.weight.exact},board:stationIguSize(board.line[0].geo),skid:stationIguSize(skid.geo),commercial:commercial===finWithOrder(o,()=>JSON.stringify([salesLineWeight(l,o),salesOrderCommercialTotals(o)]))};
+ }),{each:[{size:{w:35,h:69},area:16.77},{size:{w:36,h:71},area:17.75}],unit:{size:{w:36,h:71},area:17.75,kg:52.45,exact:false},board:'36 × 71',skid:'36 × 71',commercial:true});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();

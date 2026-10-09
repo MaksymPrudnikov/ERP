@@ -88,6 +88,11 @@ function recutDrawingCommand(id,shape,liteIndex,now){
  const main=salesShapeByRef(r.shapeRef),res=main&&ShapeModule.compute(main);
  if(!res||!(res.valid||res.externalFile&&res.sourceValid))return {error:'Check the drawing.'};
  r.shapeRef=salesShapeRefFrom(main);r.width16=Math.round(res.width*16);r.height16=Math.round(res.height*16);
+ /* После Undo разрешён новый чертёж: старый замороженный маршрут только
+    этого Recut больше не описывает его отверстия и обработку. Lock выше
+    гарантирует отсутствие действующих сканов всех его стёкол. */
+ const routeKeys=new Set(recutPieces(r).map(id=>stationRouteKey(stationGlass(id))));
+ DB.productionRoute=(DB.productionRoute||[]).filter(x=>!routeKeys.has(x.key));
  const active=glassBatchActive(o.id),out=recutSlots(r).map(s=>active.get(s.key+'|'+s.unit)).filter(Boolean),batches=[...new Set(out.map(x=>x.batch.number))];
  if(out.length)glassBatchCancelPieces(out.map(x=>x.item.piece),now,'Recut drawing');
  /* Кэши станций (маршрут, площадь, табло, чертежи) живут по версии заказа. */
