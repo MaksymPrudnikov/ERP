@@ -1,0 +1,59 @@
+/* =====================================================================
+   Графики, Board станции и отчёты (view/charts, view/station-board).
+   Только токены из styles/tokens.css. Полосы — акцент «кромка стекла»;
+   подложка полосы — шаг от поверхности; текст — цветом текста.
+   ===================================================================== */
+
+/* ---- плитка с числом ---- */
+.ch-stats{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px}
+.ch-stat{flex:1 1 110px;min-width:0;background:var(--surface-2);border:1px solid var(--line-soft);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.ch-stat span{font-size:12px;color:var(--text-2);font-weight:550}
+.ch-stat b{font-size:26px;font-weight:700;line-height:1.15;color:var(--text);letter-spacing:-.01em}
+.ch-stat small{font-size:12px;color:var(--text-3)}
+
+/* ---- полосы: категория × меры со своим масштабом ---- */
+.ch-track{display:block;flex:1 1 auto;min-width:24px;height:14px;border-radius:0 4px 4px 0;background:var(--surface-3);overflow:hidden}
+.ch-track i{display:block;height:100%;max-height:24px;background:var(--accent);border-radius:0 4px 4px 0}
+.ch-grid{display:grid;grid-template-columns:minmax(64px,auto) repeat(var(--ch-cols),minmax(0,1fr));column-gap:16px;font-size:13.5px}
+.ch-grid-row{display:contents}
+.ch-grid-row>span{padding:7px 0;border-bottom:1px solid var(--line-soft);min-width:0}
+.ch-grid-head>span{font-size:12px;font-weight:600;color:var(--text-3);padding-top:0}
+.ch-grid-label{display:flex;align-items:center;color:var(--text);padding-left:6px!important}
+.ch-grid-cell{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ch-grid-cell b{font-variant-numeric:tabular-nums;min-width:34px;text-align:right;font-weight:650;color:var(--text)}
+.ch-grid-cell small{flex-basis:100%;font-size:11.5px;color:var(--text-3);margin-top:-3px}
+.ch-grid-cell .ch-none{color:var(--text-3);font-style:normal}
+/* Выделенная строка (своя станция) — тёмная метка, как .sb-chip.on;
+   строка без единого значения приглушена. */
+.ch-grid-row.on>.ch-grid-label b{background:var(--inverse);color:var(--on-solid);border-radius:6px;padding:1px 7px;margin-left:-7px}
+.ch-grid-row.zero>span,.ch-grid-row.zero b{color:var(--text-3)}
+.ch-grid-row:hover>span{background:var(--surface-2)}
+.ch-grid-row:last-child>span{border-bottom:0}
+
+/* ---- столбики по времени: базовая линия сплошная, подписи под ней ---- */
+.ch-cols{display:flex;height:150px;padding-top:18px}
+.ch-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
+.ch-col-bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:0 1px;border-bottom:1px solid var(--line)}
+.ch-col-bar i{display:block;width:100%;max-width:24px;background:var(--accent);border-radius:4px 4px 0 0;opacity:.78}
+.ch-col.on .ch-col-bar i,.ch-col:hover .ch-col-bar i{opacity:1}
+.ch-col-bar b{font-size:11.5px;font-weight:650;color:var(--text);margin-bottom:2px;font-variant-numeric:tabular-nums}
+.ch-col em{font-style:normal;font-size:11px;color:var(--text-3);height:18px;line-height:18px;text-align:center}
+
+/* ---- Board станции ---- */
+.sb-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;border-radius:6px;padding:2px 7px;background:var(--surface-3);color:var(--text-2);margin:0 4px 3px 0;white-space:nowrap}
+.sb-chip b{color:var(--text)}
+.sb-chip.on{background:var(--inverse);color:var(--on-solid)}
+.sb-chip.on b{color:var(--on-solid)}
+.sb-hot{display:grid;grid-template-columns:62px minmax(0,1fr) auto auto;grid-template-areas:"no cust pri due" "at at at prog";gap:4px 10px;align-items:center;padding:9px 8px;border-bottom:1px solid var(--line-soft);font-size:13.5px}
+.sb-hot:last-of-type{border-bottom:0}
+.sb-hot.crit{background:var(--danger-soft);border-radius:10px;border-bottom-color:transparent}
+.sb-hot>b{grid-area:no;font-size:13px}
+.sb-hot .sb-cust{grid-area:cust;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+.sb-hot>span:nth-child(3){grid-area:pri}
+.sb-hot .sb-due{grid-area:due;text-align:right;white-space:nowrap}
+.sb-hot .sb-at{grid-area:at;min-width:0}
+.sb-hot .sb-prog{grid-area:prog;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.sb-hot .sb-prog .ch-track{width:70px;flex:none;height:8px}
+.sb-late{color:var(--danger);font-weight:650}
+.sb-ship{display:grid;grid-template-columns:84px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--line-soft);font-size:14px}
+.sb-ship:last-child{border-bottom:0}
