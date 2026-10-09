@@ -2832,16 +2832,10 @@ main#app{padding:28px 36px}
 /* Полноэкранный раскрой — только лист, без футера. */
 body.cut-full:has([data-cut-full]) .app-foot{display:none}
 
-/* ---- Overview: путь заказа и справочники, карточки ведут в раздел ---- */
+/* ---- Overview: «что сейчас» (view/dashboard, графики — styles/reports.css) ---- */
 .dash-card{padding:20px 22px;margin-bottom:16px}
 .dash-card .section-title{margin-bottom:14px}
-.dash-go{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;font:inherit;color:inherit;text-align:left;cursor:pointer;box-shadow:none;border-radius:12px}
-.dash-go:hover{border-color:var(--accent);background:var(--accent-soft)}
-.dash-go b{display:block;margin-top:10px}
-.dash-go small{display:block;margin-top:4px;color:var(--text-2)}
-.dash-setup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .dash-build{margin:6px 2px 0;font-size:12px;color:var(--text-3)}
-@media (max-width:900px){.dash-card .flow-row{flex-direction:column}.dash-card .flow-arrow{transform:rotate(90deg);align-self:center}.dash-setup{grid-template-columns:1fr}}
 
 /* ---- Data → Supply points: таблица как в Sales, форма из двух блоков ---- */
 .md-supply-head{display:flex;align-items:center;gap:12px;margin:4px 0 10px}
@@ -2899,6 +2893,13 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 .ch-stat b{font-size:26px;font-weight:700;line-height:1.15;color:var(--text);letter-spacing:-.01em}
 .ch-stat small{font-size:12px;color:var(--text-3)}
 
+/* Плитка-кнопка ведёт в свой список; «warn» — есть что разобрать. */
+button.ch-stat{font:inherit;text-align:left;cursor:pointer;box-shadow:none;color:inherit}
+button.ch-stat:hover,button.ch-stat:focus-visible{border-color:var(--accent-line);background:var(--accent-soft)}
+button.ch-stat.warn{background:var(--warning-soft);border-color:var(--warning-line)}
+button.ch-stat.warn b{color:var(--warning)}
+.ch-grid-row[role=button]{cursor:pointer}
+
 /* ---- полосы: категория × меры со своим масштабом ---- */
 .ch-track{display:block;flex:1 1 auto;min-width:24px;height:14px;border-radius:0 4px 4px 0;background:var(--surface-3);overflow:hidden}
 .ch-track i{display:block;height:100%;max-height:24px;background:var(--accent);border-radius:0 4px 4px 0}
@@ -2946,6 +2947,12 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 .sb-ship{display:grid;grid-template-columns:84px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--line-soft);font-size:14px}
 .sb-ship:last-child{border-bottom:0}
 
+/* ---- Overview ---- */
+.dash-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;align-items:start}
+.dash-col{display:flex;flex-direction:column;min-width:0}
+.dash-sub{font-size:12px;font-weight:600;color:var(--text-3);margin:2px 0 4px}
+@media (max-width:900px){.dash-grid{grid-template-columns:minmax(0,1fr)}}
+
 </style>
 </head>
 <body>
@@ -2972,7 +2979,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='5d6e3f597624';
+var ERP_BUILD='579dc0a3cd85';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12993,7 +13000,7 @@ const NAV=[
  {k:'customers', label:'Customers', icon:'users'},
  {k:'masterdata', label:'Data', title:'Master Data', icon:'database', bottom:1},
  {k:'users', label:'Users', icon:'users', bottom:1},
- {k:'dashboard', label:'Overview', title:'System overview', icon:'home', bottom:1}
+ {k:'dashboard', label:'Overview', icon:'home', bottom:1}
 ];
 const NAV_TABBAR=5;
 let tab='dashboard';
@@ -13075,7 +13082,7 @@ function render(){
  renderNav();
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={
-  dashboard:['System overview','ERP map and current status'],
+  dashboard:['Overview','Orders, shop and shipping now'],
   users:['Users','Office and station sign-in'],
   customers:['Customers','Customer master, contacts and commercial terms'],
   sales:['Sales','Orders and commercial configuration'],
@@ -13140,40 +13147,94 @@ function navHideRepeatedTitle(section){
 /* ==== src/erp/views/dashboard.js ==== */
 /* =====================================================================
    view/dashboard  ·  Overview
-   Карта Glass Farm: путь заказа по разделам и справочники. Каждая карточка
-   ведёт в свой раздел. Без статистики (владелец: цифры — в будущие отчёты),
-   без дорожной карты и заглушек: прежний экран прототипа убран 2 октября 2026.
-   IN : —
+   Главная офиса — «что сейчас»: что горит в заказах, что ждёт в цеху, что
+   уезжает сегодня, сколько переделок. Владелец, 9 октября 2026: дашборды в
+   производстве и в офисе; «я бы не сильно сверкал деньгами — людям это не
+   надо видеть»: денег здесь нет. Цифры за недели и месяцы — в Reports.
+   Карта разделов убрана: её повторяет левое меню.
+
+   · Блок виден, только если у человека есть галочка его раздела в Users
+     (accessCan): без Shipping нет отгрузок, без Production — цеха.
+   · Каждая цифра нажимается и открывает свой список: Sales с быстрым видом,
+     очередь Optimization, Production с фильтром станции, вкладку Shipping.
+   · Цех — все станции: ждёт сейчас · прошло сегодня; сутки — 0:00–24:00.
+     На Board станции — только своя станция; вместе — только здесь.
+   IN : заказы, prodBoard(), repWorkFacts(), DB.shipment, DB.recut
    OUT: html
-   Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
    ===================================================================== */
 
-const DASH_FLOW=[
- ['sales','sales','Sales','Quotes · orders · shapes · documents · stickers'],
- ['optimization','optimize','Optimize','Batches · cut layout · Maver / Disai files'],
- ['production','factory','Production','Stations · scans · recuts · NCR'],
- ['shipping','shipping','Shipping','Ready · pickup · delivery'],
- ['finance','finance','Finance','Receipts · balances · statements · QuickBooks']
-];
-const DASH_SETUP=[
- ['customers','users','Customers','Accounts · terms · contacts'],
- ['masterdata','database','Data','Glass catalog · stations · services · prices'],
- ['users','users','Users','Office passwords · sections · station PINs']
-];
-/* Раздел без галочки в Users остаётся на карте пути заказа, но не нажимается. */
-function dashNode(n){
- return `<button type="button" class="domain-node active dash-go" data-dash-go="${n[0]}"${accessCan(n[0])?'':' disabled'} onclick="navGo('${n[0]}')"><div class="node-icon">${ico(n[1])}</div><b>${n[2]}</b><small>${n[3]}</small></button>`;
+/* Переход из Overview в раздел — сразу с нужным видом. Уход может придержать
+   несохранённый заказ (NAV_GUARDS) — тогда вид не ставится. */
+function dashGo(k,then){navGo(k);if(tab===k&&then)then();}
+function dashSalesQuick(key){dashGo('sales',()=>salesQuickSet(key));}
+function dashQueue(key){dashGo('optimization',()=>optimizationSetTab(key));}
+function dashShipping(key){dashGo('shipping',()=>{if(key==='delivery')deliveryDate='';shippingSetTab(key);});}
+/* Станция в Production → In production: остаётся фильтр только этой станции. */
+function dashStation(code){
+ dashGo('production',()=>{
+  subtab='orders';salesListMenu=null;const p=salesListLoadPrefs();
+  Object.keys(p.filters).filter(k=>/^st_/.test(k)).forEach(k=>delete p.filters[k]);
+  const f=salesListCleanFilter('st_'+code,{mode:'include',conds:[{op:'gt',v:'0',v2:'',join:'and'}],values:null,preset:''});if(f)p.filters['st_'+code]=f;
+  salesListSavePrefs();render();
+ });
+}
+function dashTile(label,n,sub,go,attr,warn){
+ return `<button type="button" class="ch-stat ch-go${warn&&n?' warn':''}" data-dash-tile="${attr}" onclick="${go}">${'<span>'+esc(label)+'</span><b>'+chNum(n)+'</b>'}${sub?`<small>${esc(sub)}</small>`:''}</button>`;
+}
+
+/* 1. Заказы: быстрые виды Sales и очередь Optimization — число заказов. */
+function dashOrders(){
+ const tiles=[];
+ if(accessCan('sales')){
+  const orders=(DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)).map(o=>({o})),n=k=>orders.filter(x=>salesQuickTest(k,x)).length;
+  tiles.push(dashTile('Due today',n('today'),'orders',"dashSalesQuick('today')",'today'),
+   dashTile('Due this week',n('week'),'orders',"dashSalesQuick('week')",'week'),
+   dashTile('Needs attention',n('attention'),'on hold · overdue',"dashSalesQuick('attention')",'attention',true));
+ }
+ if(accessCan('optimization'))tiles.push(dashTile('To verify',optimizationTabCount('new'),'orders',"dashQueue('new')",'verify'),dashTile('To batch',optimizationTabCount('batch'),'orders',"dashQueue('batch')",'batch'));
+ return tiles.length?`<div class="card dash-card" data-dash-orders><div class="section-title"><h3>Orders</h3></div><div class="ch-stats">${tiles.join('')}</div></div>`:'';
+}
+/* 2. Цех: ждёт сейчас и прошло сегодня по каждой станции — две полосы со
+   своим масштабом. Все станции вместе — только здесь, у офиса и менеджера:
+   на Board станция видит только себя (владелец, 9 октября 2026). */
+function dashShopRows(d){
+ const waiting={},tare={},done={},cut=stationCutCode();
+ d.orders.forEach(x=>{
+  Object.keys(x.counts).forEach(k=>{if(k!=='queue')waiting[k]=(waiting[k]||0)+x.counts[k];});
+  Object.keys(x.onAt||{}).forEach(k=>Object.keys(x.onAt[k]).forEach(c=>{if(c)(tare[k]||(tare[k]=new Set())).add(c);}));
+ });
+ d.facts.forEach(f=>{done[f.station]=(done[f.station]||0)+1;});
+ return [{label:'To batch',cells:{w:d.orders.reduce((n,x)=>n+(x.counts.queue||0),0),d:null},notes:{w:'in queue'}}].concat((DB.station||[]).map(s=>{
+  const t=tare[s.code],n=t?t.size:0,word=t&&[...t].every(c=>/^S/.test(c))?(n===1?'skid':'skids'):(n===1?'dolly':'dollies'),go=`dashStation('${esc(s.code)}')`;
+  return {label:s.code,labelHTML:`<b>${esc(s.code)}</b>`,attrs:` data-board-station="${esc(s.code)}" role="button" tabindex="0" onclick="${go}" onkeydown="if(event.key==='Enter')${go}"`,
+   cells:{w:waiting[s.code]||0,d:done[s.code]||0},notes:{w:s.code===cut&&waiting[s.code]?'in batches':n?n+' '+word:''}};
+ }));
+}
+function dashShop(d){
+ return `<div class="card dash-card" data-dash-shop><div class="section-title"><h3>Shop now</h3><span class="mut">glass · tap a station</span></div>${chartBarGrid(dashShopRows(d),[{k:'w',label:'Waiting now'},{k:'d',label:'Done today'}])}</div>`;
+}
+/* 3. Отгрузки: те же счётчики, что на вкладках Shipping, и PS на сегодня. */
+function dashShip(d){
+ const tiles=[dashTile('Ready',shippingTabCount('ready'),'orders to ship',"dashShipping('ready')",'ready'),
+  dashTile('Deliveries today',shippingTabCount('delivery'),'packing slips',"dashShipping('delivery')",'delivery'),
+  dashTile('Open packing slips',shippingTabCount('shipments'),'planned · shipped',"dashShipping('shipments')",'shipments'),
+  dashTile('Backorders',shippingTabCount('backorders'),'orders',"dashShipping('backorders')",'backorders')];
+ const rows=stationBoardShipRows(d);
+ return `<div class="card dash-card" data-dash-ship><div class="section-title"><h3>Shipping</h3></div><div class="ch-stats">${tiles.join('')}</div><div class="dash-sub">Today</div>${rows||'<div class="mut">No packing slips today.</div>'}</div>`;
+}
+/* 4. Переделки: стекло Recut за последние 7 дней — где разбили. */
+function dashQuality(){
+ const from=stationBoardDay(-6),by={};
+ (DB.recut||[]).forEach(r=>{const day=repDay(r.createdAt);if(!day||day<from)return;const k=r.where||'—';by[k]=(by[k]||0)+(+r.qty||0)*Math.max(1,(r.keys||[]).length);});
+ const codes=(DB.station||[]).map(s=>s.code).filter(c=>by[c]).concat(Object.keys(by).filter(c=>!(DB.station||[]).some(s=>s.code===c)));
+ const total=codes.reduce((n,c)=>n+by[c],0);
+ return `<div class="card dash-card" data-dash-quality><div class="section-title"><h3>Recuts · 7 days</h3><span class="mut">${chNum(total)} glass</span></div>${codes.length?chartBarGrid(codes.map(c=>({label:c,labelHTML:`<b>${esc(c)}</b>`,cells:{n:by[c]}})),[{k:'n',label:'Glass to recut'}]):'<div class="mut">No recuts in the last 7 days.</div>'}</div>`;
 }
 function viewDashboard(){
- return `<div class="card dash-card">
-   <div class="section-title"><h3>How an order moves</h3></div>
-   <div class="domain-map"><div class="flow-row">${DASH_FLOW.map(dashNode).join(`<div class="flow-arrow">${ico('arrow')}</div>`)}</div></div>
-  </div>
-  <div class="card dash-card">
-   <div class="section-title"><h3>Setup</h3></div>
-   <div class="dash-setup">${DASH_SETUP.map(dashNode).join('')}</div>
-  </div>
-  <p class="dash-build">Glass Farm${typeof ERP_BUILD!=='undefined'?' · build '+esc(ERP_BUILD):''} · data lives in this browser — Export JSON keeps a copy.</p>`;
+ const shop=accessCan('production'),ship=accessCan('shipping'),today=finToday(),d=shop||ship?{today,orders:prodBoard(),facts:repWorkFacts().filter(f=>f.day===today)}:null;
+ const orders=dashOrders(),left=shop?dashShop(d):'',right=(ship?dashShip(d):'')+(shop?dashQuality():'');
+ const body=orders+(left||right?`<div class="dash-grid">${left?`<div class="dash-col">${left}</div>`:''}${right?`<div class="dash-col">${right}</div>`:''}</div>`:'');
+ return (body||'<div class="card empty">Nothing to show here.</div>')+`<p class="dash-build">Glass Farm${typeof ERP_BUILD!=='undefined'?' · build '+esc(ERP_BUILD):''} · data lives in this browser — Export JSON keeps a copy.</p>`;
 }
 
 /* ==== src/erp/views/users.js ==== */
