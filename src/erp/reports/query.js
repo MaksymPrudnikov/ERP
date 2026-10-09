@@ -114,9 +114,24 @@ function repDimOptions(S){
 }
 
 /* ------------------------------ Метрики ------------------------------ */
+/* Вычисляемая метрика (как calculated field в Looker): метрика ÷ × + −
+   другая метрика или число. Ключ «calc:area~div~hours», число — «n:1000».
+   Делится сумма на сумму по той же выборке: ft² в час — все ft² на все
+   часы, а не среднее из долей. */
+const REP_CALC_OPS=[['div','÷'],['mul','×'],['add','+'],['sub','−']];
+function repCalcParse(k){const m=/^calc:(.+?)~(div|mul|add|sub)~(.+)$/.exec(String(k||''));return m?{a:m[1],op:m[2],b:m[3]}:null;}
+function repCalcKey(a,op,b){return 'calc:'+a+'~'+op+'~'+b;}
 /* Метрика по ключу: своя у источника или числовое поле с агрегатом
-   («area:avg»), или число разных значений поля («distinct:customer»). */
+   («area:avg»), или число разных значений поля («distinct:customer»), или
+   вычисляемая. */
 function repMetric(S,k){
+ const c=repCalcParse(k);
+ if(c){
+  const a=repMetric(S,c.a),num=/^n:/.test(c.b)?+c.b.slice(2):null,b=num==null?repMetric(S,c.b):null;
+  if(!a||(num==null&&!b)||(num!=null&&!Number.isFinite(num)))return null;
+  const sign=REP_CALC_OPS.find(x=>x[0]===c.op)[1],money=c.op==='div'||c.op==='mul'?!!a.money&&!(b&&b.money):!!a.money&&!!(b&&b.money);
+  return {k,label:a.label+' '+sign+' '+(b?b.label:chNum(num,4)),agg:'calc',op:c.op,a,b,num,money,digits:c.op==='div'?2:Math.max(a.digits||0,b&&b.digits||0)};
+ }
  const own=(S.metrics||[]).find(m=>m.k===k);if(own)return own;
  const i=String(k).indexOf(':'),a=i<0?k:k.slice(0,i),b=i<0?'':k.slice(i+1);
  if(a==='distinct'){const f=repField(S,b);return f?{k,label:f.label+' · distinct',agg:'distinct',f:b}:null;}
@@ -133,6 +148,7 @@ function repMetricOptions(S){
  return out;
 }
 function repAgg(S,m,list){
+ if(m.agg==='calc'){const a=repAgg(S,m.a,list),b=m.b?repAgg(S,m.b,list):m.num;if(a==null||b==null)return null;return m.op==='div'?(b?a/b:null):m.op==='mul'?a*b:m.op==='add'?a+b:a-b;}
  if(m.agg==='count')return list.length;
  if(m.agg==='distinct'){const f=repField(S,m.f),set=new Set();list.forEach(r=>{const v=f?repGet(f,r):r[m.f];if(v!=null&&v!==''&&v!=='—')set.add(v);});return set.size;}
  if(m.agg==='ratio'){let a=0,b=0;list.forEach(r=>{a+=+r[m.num]||0;b+=+r[m.den]||0;});return b?a/b*(m.pct?100:1):null;}

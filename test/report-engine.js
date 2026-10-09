@@ -76,6 +76,14 @@ module.exports=async function({page,eq,ok}){
   const top=repQuery({source:'glass',date:{preset:'all'},dims:['customer'],metrics:['count'],limit:1,other:true});
   return {me,top:top.keys.map(k=>repKeyText(REP_SRC.glass,'customer',k)+' '+top.rowTotals.get(k)[0])};
  }),{me:4,top:['South Glass 8','Other 2']});
+ eq('Поля заказа и строки (PO, город, отметка, размер, Recut) и вычисляемые метрики: $ за дюйм, ft² ÷ число',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'North Shore Windows',salesRep:'Kate',addresses:[{label:'Main',address1:'1 King St',city:'Toronto',province:'ON',isPrimary:true}]}),who={id:'u1',name:'Andrei'};
+  const a=rbOrder(c,'6CLEAR','double',[[37,71,1]],{customerPo:'PO-77'});salesRecord(a).lines[0].mark='Kitchen';rbBatch([a]);rbIds(a).forEach(p=>{rbGo('CUT',p,who);rbGo('ARRIS',p,who);});
+  const one=repQuery({source:'glass',date:{preset:'all'},dims:['city'],metrics:['count']}),f=repWorkFacts()[0];
+  const perIn=repQuery({source:'edgework',date:{preset:'all'},metrics:['calc:usd~div~inches','calc:inches~div~n:12']});
+  return {city:one.keys,po:f.po,rep:f.rep,mark:f.mark,size:f.size,recut:f.recut,terms:f.terms,
+   calc:perIn.metrics.map((m,i)=>m.label+' = '+repFmt(m,perIn.total[i])),badCalc:repMetric(REP_SRC.edgework,'calc:inches~div~nothing')};
+ }),{city:['Toronto'],po:'PO-77',rep:'Kate',mark:'Kitchen',size:'37 × 71',recut:'Original',terms:'Credit',calc:['$ by price list ÷ Linear in = $0.01','Linear in ÷ 12 = 36'],badCalc:null});
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

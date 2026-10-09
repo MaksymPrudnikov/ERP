@@ -57,7 +57,7 @@ button.ch-stat.warn b{color:var(--warning)}
 .ch-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 8px;font-size:12.5px;color:var(--text-2)}
 .ch-legend>span{display:inline-flex;align-items:center;gap:6px}
 .ch-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
-.ch-col[role=button],.ch-grid-row[role=button]{cursor:pointer}
+.ch-col[role=button]{cursor:pointer}
 
 /* ---- полосы по категориям ---- */
 .ch-hbars{display:grid;grid-template-columns:minmax(70px,max-content) minmax(0,1fr) auto;gap:7px 12px;align-items:center;font-size:13px}
@@ -158,6 +158,7 @@ button.ch-stat.warn b{color:var(--warning)}
 .rep-types{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .rep-types button{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:7px 4px;font:inherit;font-size:12.5px;color:var(--text-2);cursor:pointer;box-shadow:none}
 .rep-types button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--text);font-weight:650}
+.rep-calc{border:1px solid var(--accent-line);border-radius:10px;padding:8px;margin:0 0 6px;background:var(--accent-soft)}
 .rep-filter-row{border:1px solid var(--line-soft);border-radius:10px;padding:8px;margin:0 0 6px;background:var(--surface-2)}
 .rep-chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .rep-chip{display:inline-flex;align-items:center;gap:4px;background:var(--accent-soft);border-radius:999px;padding:2px 4px 2px 9px;font-size:12px}

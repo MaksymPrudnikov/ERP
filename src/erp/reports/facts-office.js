@@ -35,7 +35,7 @@ function repBreakFacts(){
  });
  const row=(kind,ref,src,o,l,c,qty,s)=>{
   const at=s?s.at:src.createdAt,per=o&&l?finWithOrder(o,()=>{const a=salesLineAreas(l,o);return a&&a.valid?a.actual:0;}):0,area=qty*per,price=repGlassPrice(c);
-  rows.push({id:kind+'-'+ref+'-'+(s?s.piece:(c?c.key:'')),at,day:repDay(at),hour:repHour(at),kind,ref,station:src.where||'',reason:src.reason||'',
+  rows.push({...(o?repOrderInfo(o):{}),...(l?repLineInfo(l):{}),id:kind+'-'+ref+'-'+(s?s.piece:(c?c.key:'')),at,day:repDay(at),hour:repHour(at),kind,ref,station:src.where||'',reason:src.reason||'',
    personId:s?s.byId||s.by||'':'',person:s?s.by||'':'',orderId:o?o.id:'',order:o?o.businessNumber||'':'',customerId:o?o.customerId||'':'',
    glass:c?c.glass:'',mm:repCompMm(c),glassN:qty,area:area||null,usd:price==null||!area?null:area*price});
  };
@@ -72,7 +72,10 @@ function repOrderFacts(){
   const area=finWithOrder(o,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,o);return n+(a.valid?a.actual*Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)):0);},0));
   const created=salesListIsoDay(o.createdAt),c=salesFindCustomer(o.customerId)||{},t=finOrderTotals(o);
   const glassN=lines.reduce((n,l)=>n+Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l))*glassBatchComponents(o,l).filter(x=>!x.missing).length,0);
-  rows.push({id:o.id,at:o.createdAt||'',created,due,shipped,order:o.businessNumber||'',customerId:o.customerId||'',rep:c.salesRep||'',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',
+  const shapes=lines.filter(l=>typeof salesListShapedLine==='function'&&salesListShapedLine(l)).length;
+  let kg=0;try{finWithOrder(o,()=>lines.forEach(l=>{const w=salesLineWeight(l,o);if(w&&w.lineKg!=null)kg+=w.lineKg;}));}catch(e){}
+  rows.push({...repOrderInfo(o),id:o.id,at:o.createdAt||'',created,due,shipped,order:o.businessNumber||'',customerId:o.customerId||'',rep:c.salesRep||'',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',
+   lines:lines.length,shapes,kg:kg||null,hold:o.onHold?'On hold':'Not on hold',
    delivery:o.delivery==='delivery'?'Delivery':'Pickup',status:salesStatusLabel(o),state,daysLate:state==='Late'?Math.max(0,days(due,shipped||today)):0,
    lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,area:area||null,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,shippedN:shipped&&due?1:0,total:t&&t.complete?t.grand:null});
  });
@@ -97,7 +100,7 @@ function repOrderedFacts(){
    const shape=typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle';
    glassBatchComponents(o,l).filter(c=>!c.missing).forEach((c,i)=>{
     const info=stkGlassInfo(c.pane,c.index,c.ply);
-    rows.push({id:o.id+'|'+l.id+'|'+c.key,at:o.createdAt||'',created:salesListIsoDay(o.createdAt),due:o.dueDate||'',order:o.businessNumber||'',customerId:o.customerId||'',
+    rows.push({...repOrderInfo(o),...repLineInfo(l),id:o.id+'|'+l.id+'|'+c.key,at:o.createdAt||'',created:salesListIsoDay(o.createdAt),due:o.dueDate||'',order:o.businessNumber||'',customerId:o.customerId||'',
      status:salesStatusLabel(o),glass:c.glass,mm:info.mm||null,heat:info.heat||'Annealed',unitType,shape,glassN:live,area:live*per||null,units:i?0:live});
    });
   }));
@@ -118,7 +121,8 @@ function repDeliveryFacts(){
   const truck=s.method==='delivery'?truckFind(s.truckId):null,drv=s.driverId?(DB.user||[]).find(u=>u.viewProfileId===s.driverId):null;
   let load={skids:[],units:(s.items||[]).length,kg:null};try{load=deliveryLoad(s);}catch(e){}
   return {id:s.id,at:s.date,date:s.date,ps:s.number,method:s.method==='pickup'?'Pickup':'Delivery',status:s.status==='delivered'&&s.method==='pickup'?'Picked up':REP_PS_STATUS[s.status]||s.status,
-   customerId:s.customerId||'',truck:truck?truck.name:'',driver:drv?drv.name:'',trip:truck?s.date+'|'+truck.id:'',units:load.units,skids:(load.skids||[]).length,kg:load.kg||null};
+   customerId:s.customerId||'',truck:truck?truck.name:'',driver:drv?drv.name:'',trip:truck?s.date+'|'+truck.id:'',units:load.units,skids:(load.skids||[]).length,kg:load.kg||null,
+   city:s.shipTo&&s.shipTo.city||'',stop:s.method==='delivery'&&s.stop?s.stop:null,depart:s.departAt?String(+String(s.departAt).slice(0,2))+':00':''};
  }));
  repDeliveryCache={stamp,rows};
  return rows;

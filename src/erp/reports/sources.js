@@ -26,6 +26,12 @@ const REP_F={
  text:(k,label,get)=>({k,label,type:'text',get}),
  num:(k,label,opts)=>Object.assign({k,label,type:'num'},opts||{})
 };
+/* Поля заказа и строки — во всех источниках, где есть заказ. */
+function repOrderFields(){
+ return [REP_F.text('po','PO',r=>r.po||'—'),REP_F.dim('rep','Sales rep',r=>r.rep||'—'),REP_F.dim('city','City',r=>r.city||'—'),REP_F.dim('province','Province',r=>r.province||'—'),
+  REP_F.dim('terms','Terms',r=>r.terms||'—'),REP_F.dim('ctype','Customer type',r=>r.ctype||'—')];
+}
+function repLineFields(){return [REP_F.text('mark','Line mark',r=>r.mark||'—'),REP_F.dim('size','Size',r=>r.size||'—'),REP_F.dim('shape','Shape',r=>r.shape||'—')];}
 /* Поля, общие для сканов станций. */
 function repScanFields(person){
  return [REP_F.date('at','Scan time'),REP_F.dim('station','Station'),REP_F.dim('person',person||'Person',r=>r.person||'—'),
@@ -33,7 +39,8 @@ function repScanFields(person){
   REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('heat','Temper',r=>r.heat||'—'),REP_F.dim('unitType','Unit type',r=>r.unitType||'—'),
   REP_F.dim('priority','Priority',r=>SALES_LIST_PRIORITY[r.priority]||'Normal'),REP_F.text('batch','Batch',r=>r.batch||'—'),
   REP_F.dim('scan','Scan',r=>r.confirmedAt?'Confirmed elsewhere':r.manual?'By hand':'Scanned'),REP_F.text('piece','Glass ID'),
-  REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('usd','$ by price list',{money:true})];
+  REP_F.dim('on','Dolly / skid',r=>r.on||'—'),REP_F.dim('recut','Original or recut',r=>r.recut||'—'),REP_F.date('due','Due')]
+  .concat(repOrderFields(),repLineFields(),[REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('usd','$ by price list',{money:true})]);
 }
 /* Станции работы по справочнику Works: закалка — станция работы tempering. */
 function repStationsOf(ids){return [...new Set(ids.map(id=>{const w=salesRouteWork(id);return w&&w.station;}).filter(Boolean))];}
@@ -78,23 +85,25 @@ const REP_SRC={
   metrics:[{k:'units',label:'Units',agg:'distinct',f:'unitKey'},{k:'count',label:'Glass',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'}]},
  deliveries:{label:'Deliveries & pickups',group:'Shipping',hint:'Packing slips, trips, skids',rows:()=>repDeliveryFacts(),date:['at'],
   fields:()=>[REP_F.date('at','Date'),REP_F.dim('method','Method'),REP_F.dim('status','Status'),REP_F.dim('truck','Truck',r=>r.truck||'—'),REP_F.dim('driver','Driver',r=>r.driver||'—'),
-   REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.text('ps','Packing slip'),REP_F.num('units','Units'),REP_F.num('skids','Skids'),REP_F.num('kg','Weight kg')],
+   REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.text('ps','Packing slip'),REP_F.dim('city','City',r=>r.city||'—'),REP_F.dim('depart','Departs',r=>r.depart||'—'),
+   REP_F.num('stop','Stop #'),REP_F.num('units','Units'),REP_F.num('skids','Skids'),REP_F.num('kg','Weight kg')],
   metrics:[{k:'count',label:'Packing slips',agg:'count'},{k:'trips',label:'Trips',agg:'distinct',f:'trip'},{k:'units',label:'Units',agg:'sum',f:'units'},{k:'skids',label:'Skids',agg:'sum',f:'skids'},{k:'kg',label:'Weight kg',agg:'sum',f:'kg'}]},
  orders:{label:'Orders & due dates',group:'Sales',hint:'On time, late, lead time',rows:()=>repOrderFacts(),date:['due','created','shipped'],
   fields:()=>[REP_F.date('due','Due'),REP_F.date('created','Created'),REP_F.date('shipped','Shipped'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
-   REP_F.dim('rep','Sales rep',r=>r.rep||'—'),REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery'),REP_F.dim('status','Status'),REP_F.dim('state','On time'),
-   REP_F.num('units','Units'),REP_F.num('glassN','Glass pcs'),REP_F.num('area','Area ft²',{digits:1}),REP_F.num('daysLate','Days late'),REP_F.num('lead','Lead time, days'),REP_F.num('total','Order total',{money:true})],
+   REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery'),REP_F.dim('status','Status'),REP_F.dim('state','On time'),REP_F.dim('hold','On hold')]
+   .concat(repOrderFields(),[REP_F.num('units','Units'),REP_F.num('glassN','Glass pcs'),REP_F.num('area','Area ft²',{digits:1}),REP_F.num('lines','Lines'),REP_F.num('shapes','Shapes'),REP_F.num('kg','Weight kg'),
+   REP_F.num('daysLate','Days late'),REP_F.num('lead','Lead time, days'),REP_F.num('total','Order total',{money:true})]),
   metrics:[{k:'count',label:'Orders',agg:'count'},{k:'late',label:'Late orders',agg:'sum',f:'late'},{k:'onTime',label:'On time %',agg:'ratio',num:'onTimeN',den:'shippedN',pct:true,digits:0},
    {k:'units',label:'Units',agg:'sum',f:'units'},{k:'glassN',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1},{k:'total',label:'Order total',agg:'sum',f:'total',money:true}]},
  ordered:{label:'Ordered glass',group:'Sales',hint:'Glass, thickness and ft² ordered',rows:()=>repOrderedFacts(),date:['created','due'],
   fields:()=>[REP_F.date('created','Created'),REP_F.date('due','Due'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('glass','Glass'),
-   REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('heat','Temper'),REP_F.dim('unitType','Unit type'),REP_F.dim('shape','Shape'),REP_F.dim('status','Status'),
-   REP_F.num('glassN','Glass pcs'),REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('units','Units')],
+   REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('heat','Temper'),REP_F.dim('unitType','Unit type'),REP_F.dim('status','Status')]
+   .concat(repOrderFields(),repLineFields(),[REP_F.num('glassN','Glass pcs'),REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('units','Units')]),
   metrics:[{k:'glassN',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'units',label:'Units',agg:'sum',f:'units'},{k:'orders',label:'Orders',agg:'distinct',f:'order'}]},
  breaks:{label:'Breaks & recuts',group:'Quality',hint:'Recut and NCR glass',rows:()=>repBreakFacts(),date:['at'],
   fields:()=>[REP_F.date('at','Date'),REP_F.dim('kind','Kind'),REP_F.dim('station','Station',r=>r.station||'—'),REP_F.dim('reason','Reason',r=>r.reason||'—'),REP_F.dim('person','Person',r=>r.person||'—'),
-   REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.text('order','Order'),REP_F.dim('glass','Glass',r=>r.glass||'—'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),
-   REP_F.num('glassN','Glass pcs'),REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('usd','$ by price list',{money:true})],
+   REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.text('order','Order'),REP_F.dim('glass','Glass',r=>r.glass||'—'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm))]
+   .concat(repOrderFields(),repLineFields(),[REP_F.num('glassN','Glass pcs'),REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('usd','$ by price list',{money:true})]),
   metrics:[{k:'glassN',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true},{k:'count',label:'Records',agg:'count'}]},
  time:{label:'Time at stations',group:'People',hint:'First to last scan per person and day',rows:()=>repTimeFacts(),date:['at'],
   fields:()=>[REP_F.date('at','Day'),REP_F.dim('person','Person'),REP_F.dim('station','Station'),REP_F.num('start','First scan hour'),REP_F.num('end','Last scan hour'),

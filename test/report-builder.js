@@ -81,6 +81,13 @@ module.exports=async function({page,eq,ok}){
   const html=repPrintHTML();return {dashed:!!line.querySelector('.ch-dash'),legend:[...line.querySelectorAll('.ch-legend > span')].map(x=>x.textContent),
    print:{name:html.includes('Stations · glass by day'),period:/Date: This week/.test(html),charts:(html.match(/data-rep-widget=/g)||[]).length,tools:/rep-wtools/.test(html)}};
  }),{dashed:true,legend:['Glass','vs previous period'],print:{name:true,period:true,charts:4,tools:false}});
+ eq('+ Calculated: метрика ÷ метрика или число прямо в настройке графика',await t.p.evaluate(()=>{
+  rpScans();rpOpenTab();repNew();repSetW('type','table');repSetSource('edgework');repSetDim(0,'person');
+  document.querySelector('[data-rep-add-calc]').click();const row=document.querySelector('[data-rep-calc]');const label1=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] thead th`)].map(x=>x.textContent);
+  repSetCalc(1,'b','n:');repSetCalc(1,'n','100');const label2=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] thead th`)].map(x=>x.textContent);
+  const cells=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] tbody tr`)].map(tr=>[...tr.children].map(td=>td.textContent.trim()).join('|'));repCancelEdit();
+  return {row:!!row,label1,label2,cells};
+ }),{row:true,label1:['Person','Linear in','Linear in ÷ Operations'],label2:['Person','Linear in','Linear in ÷ 100'],cells:['Andrei|432|4.32','Vasyl|280|2.8']});
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

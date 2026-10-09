@@ -100,6 +100,15 @@ function repHour(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?-1:
 /* Факты работы: скан, который продвинул стекло. Разбитое (Recut) и вынутое
    из машины на IGU («waits for a pair») — не сделанная работа. Отменённый
    скан не считается. Сумма по работам — в мерах: дюймы, ft² работ, штуки. */
+/* Поля заказа и строки для отчётов: PO, продажник, город клиента (основной
+   адрес), условия оплаты, тип клиента, срок; у строки — отметка, размер,
+   фигура или прямоугольник. Заказ считается один раз на сборку фактов. */
+function repCustomerAddr(c){const list=c&&Array.isArray(c.addresses)?c.addresses:[];return list.find(a=>a&&a.isPrimary)||list.find(a=>a&&a.isInvoice)||list[0]||{};}
+function repOrderInfo(o){
+ const c=salesFindCustomer(o.customerId)||{},a=repCustomerAddr(c),t=typeof finTermsFor==='function'?finTermsFor(o)||{}:{};
+ return {po:o.customerPo||'',rep:c.salesRep||'',city:a.city||'',province:a.province||'',terms:t.paymentMode==='credit'?'Credit':'Cash',ctype:c.customerType||'',due:o.dueDate||'',delivery:o.delivery==='delivery'?'Delivery':'Pickup'};
+}
+function repLineInfo(l){return {mark:l.mark||'',size:frac16((+l.width16||0)/16)+' × '+frac16((+l.height16||0)/16),shape:typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle'};}
 let repWorkCache={stamp:'',rows:null};
 let repWorkBuilds=0;
 function repWorkStamp(){
@@ -109,7 +118,8 @@ function repWorkStamp(){
 function repWorkFacts(){
  const stamp=repWorkStamp();if(repWorkCache.stamp===stamp&&repWorkCache.rows)return repWorkCache.rows;
  repWorkBuilds++;
- const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[];
+ const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[],orders=new Map(),lines=new Map();
+ const oInfo=o=>{if(!orders.has(o.id))orders.set(o.id,repOrderInfo(o));return orders.get(o.id);},lInfo=l=>{if(!lines.has(l))lines.set(l,repLineInfo(l));return lines.get(l);};
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||s.broken||s.park)return;
   const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station):{area:null,mm:null,heat:'',unitType:'',works:[]};
@@ -120,7 +130,8 @@ function repWorkFacts(){
    glass:g&&g.c?g.c.glass:'',mm:w.mm,heat:w.heat,unitType:w.unitType,lite:g&&g.c?g.c.lite:'',batch:g&&g.entry?g.entry.batch.number:'',unitKey:g?g.o.id+'|'+g.l.id+'|'+g.unit:'',
    area:w.area,works:w.works,inches:sum('in'),workFt2:sum('ft²'),pcs:sum('pc'),
    usd:priced.length?priced.reduce((n,x)=>n+x.usd,0):null,unpriced:w.works.length-priced.length,
-   asm:s.asm||'',unitDone:!!(s.unit||s.joined),asmDone:(s.unit||s.joined)&&s.asm?s.asm:'',manual:!!s.manual,confirmedAt:s.confirmedAt||''});
+   asm:s.asm||'',unitDone:!!(s.unit||s.joined),asmDone:(s.unit||s.joined)&&s.asm?s.asm:'',manual:!!s.manual,confirmedAt:s.confirmedAt||'',
+   on:s.on||'',recut:g&&typeof g.unit==='string'?'Recut':'Original',...(g?oInfo(g.o):{}),...(g?lInfo(g.l):{})});
  });
  repWorkCache={stamp,rows};
  return rows;
