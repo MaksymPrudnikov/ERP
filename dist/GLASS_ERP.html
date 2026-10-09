@@ -1849,6 +1849,7 @@ button.recut-btn{border-color:var(--warning);color:var(--warning)}
 .recut-row input.recut-dim{width:84px;color:var(--warning);border-color:var(--warning-line);font-weight:inherit}
 .recut-row button.recut-shape{border-color:var(--warning);color:var(--warning)}
 .recut-row button.recut-shape.own{background:var(--warning);color:var(--surface)}
+.recut-row select[data-recut-drawing]{width:auto;max-width:100%}
 .shape-recut-band{margin:8px;padding:8px 10px;border:1px solid var(--warning-line);border-left:4px solid var(--warning);border-radius:8px;background:var(--warning-soft);color:var(--warning);font-size:11px;font-weight:700;letter-spacing:.04em}
 .ncr-pick.ncr-pick-two{grid-template-columns:1fr 1.4fr}
 .ncr-actions-card{margin-top:16px}
@@ -2433,6 +2434,7 @@ tr.st-hot td{background:var(--surface-2)}
 .st-tabs{display:flex;gap:2px;margin-left:10px;padding:3px;border-radius:12px;background:color-mix(in srgb,var(--on-solid) 8%,transparent)}
 .st-tabs button{font:inherit;font-size:14px;font-weight:600;color:color-mix(in srgb,var(--on-solid) 65%,transparent);background:none;border:0;padding:8px 18px;border-radius:9px}
 .st-tabs button.on{background:color-mix(in srgb,var(--on-solid) 16%,transparent);color:var(--on-solid)}
+.st-tabs button:hover,.st-tabs button:focus-visible{background:color-mix(in srgb,var(--on-solid) 16%,transparent);color:var(--on-solid)}
 .st-topscan{display:flex;align-items:center;gap:8px;background:var(--surface);border:2px solid var(--accent);border-radius:10px;padding:5px 12px;min-width:260px;margin-left:12px}
 .st-topscan svg{width:20px;height:20px;stroke:var(--blue);fill:none;stroke-width:1.8;flex:none}
 .st-topscan input{border:0;outline:0;font:inherit;font-size:15px;width:100%;background:transparent}
@@ -2909,7 +2911,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='bd01f5491a82';
+var ERP_BUILD='7a124f78330a';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11666,7 +11668,12 @@ function salesRecordTransitionAllowed(o,next,opts){
  if(next==='ready'){const q=shippingSummary(o);return !o.onHold&&o.status!=='new'&&q.glass>0&&q.physicalReady===q.glass&&!q.shipped;}
  if(next==='done'||next==='shipping')return false;
  if(o.onHold&&(next==='verified'||next==='batched'))return false;
- if(next==='batched')return !salesStockOnly(o)&&(o.status==='verified'||['batched','ready','shipping','done'].includes(o.status))&&(salesBatchableLines(o).length>0||o.status==='verified'&&!salesUnbatchedLines(o).length);
+ if(next==='batched'){
+  if(salesStockOnly(o)||!['verified','batched','ready','shipping','done'].includes(o.status))return false;
+  /* Restore может вернуть Verified с уже назначенным, ещё не порезанным
+     стеклом. Возобновляем его батч; полностью пройденный Skip не батчим. */
+  return salesBatchableLines(o).length>0||o.status==='verified'&&[...glassBatchActive(o.id).values()].some(x=>!x.item.cutStartedAt&&!glassCutByScan().has(x.item.piece));
+ }
  if((next==='ready'||next==='done'||next==='closed')&&salesUnbatchedLines(o).length)return false;
  return salesNextStatus(o)===next;
 }
@@ -12422,7 +12429,7 @@ function finOrderPaid(orderId){
 function finOrderBalance(order){
  const t=finOrderTotals(order),p=finOrderPaid(order.id),total=t.complete&&finCurrency(order)==='CAD'?finMoney(t.grand):null;
  const balance=total==null?null:finMoney(total-p.paid);
- let status=total==null?'incomplete':balance>0?'due':balance<0?'overpaid':'paid';
+ let status=t.complete&&t.grand<0?'review':total==null?'incomplete':balance>0?'due':balance<0?'overpaid':'paid';
  if(total===0&&p.paid===0)status='empty';
  return {total,paid:p.paid,receipts:p.receipts,balance,status};
 }
@@ -12431,14 +12438,14 @@ function finCustomerDeposit(customerId,currency){
  return finMoney(finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===currency).reduce((s,r)=>s+finReceiptOnAccount(r),0));
 }
 function finCustomerAccount(c){
- let due=0,dueOrders=0,incomplete=0;
+ let due=0,dueOrders=0,incomplete=0,review=0;
  (DB.salesOrder||[]).filter(o=>o.customerId===c.id&&finOrderCounts(o)).forEach(o=>{
   const b=finOrderBalance(o);
-  if(b.status==='due'){due+=b.balance;dueOrders++;}else if(b.status==='incomplete')incomplete++;
+  if(b.status==='due'){due+=b.balance;dueOrders++;}else if(b.status==='incomplete')incomplete++;else if(b.status==='review')review++;
  });
  due=finMoney(due);
  const limit=c.creditLimit!=null&&c.creditLimit!==''&&Number.isFinite(+c.creditLimit)?finMoney(c.creditLimit):null;
- return {customer:c,terms:paymentTermsLabel(c),creditLimit:limit,balanceDue:due,dueOrders,incomplete,deposit:finCustomerDeposit(c.id),
+ return {customer:c,terms:paymentTermsLabel(c),creditLimit:limit,balanceDue:due,dueOrders,incomplete,...(review?{review}:{}),deposit:finCustomerDeposit(c.id),
   available:limit==null?null:finMoney(limit-due),overLimit:limit!=null&&due>limit};
 }
 
@@ -12649,13 +12656,14 @@ function finShipped(o){return !!o&&['done','closed'].includes(o.status);}
 function finOrderFinancial(o,today){
  const b=finOrderBalance(o),t=finTermsFor(o),dueOn=finPaymentDue(o),c=salesFindCustomer(o.customerId),day=today||finToday();
  const overdue=b.balance>0&&dueOn&&dueOn<day?b.balance:0;
- const depositRequired=b.total==null?null:finMoney(b.total*(t.paymentMode==='cash'?t.depositPercent:0)/100);
+ const depositRequired=b.total==null||b.status==='review'?null:finMoney(b.total*(t.paymentMode==='cash'?t.depositPercent:0)/100);
  const depositMissing=depositRequired==null?null:finShipped(o)?0:finMoney(Math.max(0,depositRequired-b.paid));
  /* Срок идёт от выдачи: у доставки — «after delivery», не «after pickup»
     (проход 7.10.2026: North Shore с доставкой видел «Net 30 after pickup»). */
  const handover=o.delivery==='delivery'?'delivery':'pickup';
  let status,tone='info';
  if(!finOrderCounts(o))status='Inactive';
+ else if(b.status==='review'){status='Review required';tone='warn';}
  else if(finCurrency(o)!=='CAD'){status='Currency review';tone='warn';}
  else if(b.total==null){status='Pricing incomplete';tone='warn';}
  else if(b.balance<0)status='Overpaid';
@@ -12682,6 +12690,7 @@ function finCustomerMoney(customerId,today){
 function finMoneyAdd(m,o,day){
  const f=finOrderFinancial(o,day),b=f.b;
  if(b.total==null)m.incomplete++;
+ if(b.status==='review')m.review=(m.review||0)+1;
  if(b.balance>0){m.balance+=b.balance;m.orders++;}
  m.overdue+=f.overdue;
  if(!finShipped(o)&&finCurrency(o)==='CAD')m.prepaid+=b.paid;
@@ -12741,7 +12750,7 @@ function finMonthRange(offset,today){
    потерять. Последняя выгруженная строка нужна для отмены после Undo receipt. */
 function finInvoiceExportRow(o,voided){
  const c=salesFindCustomer(o.customerId)||{},b=finOrderBalance(o),due=finPaymentDue(o),e=finExportRecord(o.id);
- let row=[finInvoiceDate(o),o.businessNumber,'Invoice',finCustomerName(c),c.code||'',paymentTermsLabel(finTermsFor(o)),o.customerPo||'',b.total==null?'':b.total.toFixed(2),finCurrency(o),o.businessNumber,b.balance>0?(due?'Due '+due:'Due on receipt'):'Paid',''];
+ let row=[finInvoiceDate(o),o.businessNumber,'Invoice',finCustomerName(c),c.code||'',paymentTermsLabel(finTermsFor(o)),o.customerPo||'',b.total==null?'':b.total.toFixed(2),finCurrency(o),o.businessNumber,b.status==='review'?'Review required':b.total==null?'Currency / pricing review':b.balance>0?(due?'Due '+due:'Due on receipt'):'Paid',''];
  if(voided){
   if(e&&e.invoice)row=e.invoice.slice();
   /* Совместимость с отметкой ранней версии Invoice без сохранённой строки. */
@@ -16094,7 +16103,7 @@ function salesLineAreas(line,order){
 }
 function salesMoney(value){return Math.round((value+Number.EPSILON)*100)/100;}
 function salesApplyOrderCharges(subtotal,raw){
- const c=normalizeSalesOrderCharges(raw),base=salesMoney(Math.max(0,+subtotal||0));
+ const c=normalizeSalesOrderCharges(raw),base=salesMoney(+subtotal||0);
  const energy=c.energy.enabled?salesMoney(base*c.energy.rate/100):0;
  const hstBase=salesMoney(base+energy),hst=c.hst.enabled?salesMoney(hstBase*c.hst.rate/100):0;
  const cardBase=salesMoney(hstBase+hst),card=c.card.enabled?salesMoney(cardBase*c.card.rate/100):0;
@@ -16131,7 +16140,7 @@ function salesLineCommercialPrice(line,order){
  const out={areas:areas,materialRate:rate.total,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:live,ordered:q,cancelled:q-live};
  /* Цена руками: итоговая цена юнита, наценки к ней не прибавляются; расчёт
     остаётся для справки (computedUnit). */
- if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,line:salesMoney(v*live),complete:!unsupportedCurrency});}
+ if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,line:salesMoney(v*live),complete:true,unsupportedCurrency:false});}
  return out;
 }
 function salesLineCommercialAdjustments(line,order){
@@ -16152,10 +16161,12 @@ function salesOrderCommercialAdjustments(order){
 /* Coefficients are measured product norms. Empty is unknown, explicit zero is
    allowed (e.g. consumables already included in a filled-spacer norm). */
 function salesWeightRate(key){const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;}
-function salesLineWeight(line,order){
+/* productionPlan — фактические лайты собранного юнита (частичный Recut).
+   Без него коммерческие документы по-прежнему считают геометрию заказа. */
+function salesLineWeight(line,order,productionPlan){
  order=order||soDraft;
  const rows=[],m=salesMakeupById(order,line.makeupId),shape=salesLineGeometryShape(line),areas=salesLineAreas(line,order);
- const plan=shape&&m?salesEffectiveCuttingPlan(line,shape,order):null;
+ const plan=productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
  const add=(label,kg,note)=>rows.push({label:label,kg:Number.isFinite(kg)&&kg>=0?kg:null,note:note||''});
  const norm=(key,label,basis,unit,note)=>{const rate=salesWeightRate(key);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||''});};
  if(!m||!areas.valid)return {rows:[],kg:null,lineKg:null,knownKg:0,complete:false,missing:1};
@@ -17747,10 +17758,11 @@ function docBuildModel(kind,order,opts){
  }
 
  if(sale){
-  const t=salesOrderCommercialTotals(order),c=t.charges,money=v=>t.complete?docMoney(v):'—',left=[];
+  const t=salesOrderCommercialTotals(order),c=t.charges,money=v=>t.complete?docMoney(v):'—',left=[],review=t.complete&&t.grand<0;
   /* Оплаченному счёту инструкции оплаты не нужны — на нём PAID. */
-  const settled=invoice&&t.complete&&typeof finOrderPaid==='function'&&salesMoney(t.grand-finOrderPaid(order.id).paid)<=0;
-  if(opts.paymentInstructions&&!settled)left.push({label:'Payment',text:[company.paymentInstructions,'Please reference order '+number+' with your payment.'].filter(Boolean).join('\n')});
+  const settled=invoice&&t.complete&&!review&&typeof finOrderPaid==='function'&&salesMoney(t.grand-finOrderPaid(order.id).paid)<=0;
+  if(review)left.push({label:'Review required',text:'Negative order total. Please contact us to resolve it.'});
+  if(opts.paymentInstructions&&!settled&&!review)left.push({label:'Payment',text:[company.paymentInstructions,'Please reference order '+number+' with your payment.'].filter(Boolean).join('\n')});
   if(opts.notes&&order.notes)left.push({label:'Order notes',text:order.notes});
   let rows=null,grand=null,deposit=null;
   if(opts.totals){
@@ -17785,13 +17797,14 @@ function docBuildModel(kind,order,opts){
   let paid=null;
   if(opts.receipts&&rows&&got.paid>0){
    const rest=salesMoney(t.grand-got.paid);
-   paid=[{label:'Paid to date · '+got.receipts+' receipt'+(got.receipts>1?'s':''),value:docMoney(got.paid)},{label:rest>0?'Balance due':rest<0?'Overpaid':'Paid in full',value:t.complete?docMoney(Math.abs(rest)):'—',tone:rest>0?'due':''}];
+   paid=[{label:'Paid to date · '+got.receipts+' receipt'+(got.receipts>1?'s':''),value:docMoney(got.paid)},{label:review?'Review required':rest>0?'Balance due':rest<0?'Overpaid':'Paid in full',value:t.complete?docMoney(review?rest:Math.abs(rest)):'—',tone:rest>0?'due':''}];
   }
   /* Счёт: к оплате — остаток и срок; оплачено полностью — отметка PAID
      (владелец: «у нас маленький штамп, но если будет PAID на бумаге — топ»). */
   const rest=t.complete?salesMoney(t.grand-got.paid):null;
-  if(invoice&&t.complete&&rest<=0)model.stamp={text:'PAID',sub:docDate(docLastPaidOn(order))};
-  if(invoice&&opts.payment){
+  if(invoice&&t.complete&&!review&&rest<=0)model.stamp={text:'PAID',sub:docDate(docLastPaidOn(order))};
+  if(review&&opts.payment)deposit=[{label:'Review required',value:money(t.grand),strong:true}];
+  else if(invoice&&opts.payment){
    deposit=rest!=null&&rest<=0?[{label:'Paid in full · thank you',value:docMoney(0),strong:true}]
     :[{label:payDue&&terms.paymentMode==='credit'?'Payment due '+docDate(payDue)+' · '+paymentTermsLabel(terms):'Due on receipt',value:money(rest),strong:true}];
   }else if(opts.payment){
@@ -18412,7 +18425,7 @@ function finStatementOrders(customerId,from,to,today){
  const inPeriod=d=>!!d&&(!from||d>=from)&&(!to||d<=to);
  const paidIn=new Set(finActiveReceipts().filter(r=>r.customerId===customerId&&inPeriod(r.date)).flatMap(r=>r.allocations.map(a=>a.orderId)));
  return (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)&&finCurrency(o)==='CAD').map(o=>({o,f:finOrderFinancial(o,today),billed:finBillingDate(o)}))
-  .filter(x=>x.f.b.total!=null&&(x.f.b.balance>0||paidIn.has(x.o.id)||inPeriod(x.billed)||!x.billed&&x.f.b.paid>0))
+  .filter(x=>x.f.b.total!=null&&(x.f.b.status==='review'||x.f.b.balance>0||paidIn.has(x.o.id)||inPeriod(x.billed)||!x.billed&&x.f.b.paid>0))
   .sort((a,b)=>(a.billed||'9999').localeCompare(b.billed||'9999')||String(a.o.businessNumber).localeCompare(String(b.o.businessNumber)));
 }
 /* Выписка за период — клиенту раз в месяц для его учёта: какие заказы и на
@@ -18427,15 +18440,17 @@ function finStatementDoc(customerId,from,to,today){
  const orders=finStatementOrders(c.id,from,to,day);
  m.sections=[
   {title:'Orders',empty:'No orders in this period.',cols:[{label:'Order',x:36,w:58,bold:true},{label:'Customer PO',x:98,w:96},{label:'Picked up',x:198,w:64},{label:'Due',x:266,w:100,due:true},{label:'Total',x:430,w:62,align:'right'},{label:'Paid',x:504,w:62,align:'right'},{label:'Balance',x:576,w:62,align:'right',bold:true,due:true}],
-   rows:orders.map(({o,f,billed})=>({due:f.overdue>0,mut:!billed,cells:[o.businessNumber,o.customerPo||'—',billed?docDate(billed):'In work',finDueText(f)+(f.overdue?' · overdue':''),money(f.b.total),money(f.b.paid),money(Math.max(0,f.b.balance))]}))},
+   rows:orders.map(({o,f,billed})=>({due:f.overdue>0,mut:!billed,cells:[o.businessNumber,o.customerPo||'—',billed?docDate(billed):'In work',f.b.status==='review'?'Review required':finDueText(f)+(f.overdue?' · overdue':''),money(f.b.total),money(f.b.paid),money(f.b.status==='review'?f.b.balance:Math.max(0,f.b.balance))]}))},
   {title:'Account activity',empty:'',cols:[{label:'Date',x:36,w:58},{label:'Document',x:98,w:52,bold:true},{label:'Description',x:154,w:204},{label:'Charges',x:418,w:58,align:'right'},{label:'Payments',x:494,w:58,align:'right'},{label:'Balance',x:576,w:66,align:'right',bold:true}],
    rows:[{mut:true,cells:[from?docDate(from):'','','Balance forward','','',finSigned(d.opening)]}].concat(d.rows.map(l=>({due:l.overdue,cells:[docDate(l.date),l.doc,l.text,l.charge?money(l.charge):'',l.payment?money(l.payment):'',finSigned(l.balance)]})))}
  ];
  const left=[];if(company.paymentInstructions)left.push({label:'Payment',text:company.paymentInstructions});
+ const review=orders.some(x=>x.f.b.status==='review');
+ if(review)left.push({label:'Review required',text:'Negative order totals need review. Please contact us to resolve them.'});
  if(orders.some(x=>!x.billed))left.push({label:'In work',text:'Orders not yet picked up are billed on pickup.'+(d.prepaid>0?' '+money(d.prepaid)+' already paid on them is in the balance.':'')});
  const rows=[{label:'Balance forward',value:finSigned(d.opening)},{label:'Orders billed',value:money(d.billed)},{label:'Payments received',value:d.paid>0?'-'+money(d.paid):money(0)}];
  if(d.refunded>0)rows.push({label:'Refunds',value:money(d.refunded)});
- m.end={left,rows,grand:d.closing>=0?{label:'Balance due',value:money(d.closing)}:{label:'Credit balance',value:money(-d.closing)},paid:d.overdue>0?[{label:'Overdue now',value:money(d.overdue),tone:'due'}]:null};
+ m.end={left,rows,grand:review&&d.closing<0?{label:'Review required',value:finSigned(d.closing)}:d.closing>=0?{label:'Balance due',value:money(d.closing)}:{label:'Credit balance',value:money(-d.closing)},paid:d.overdue>0?[{label:'Overdue now',value:money(d.overdue),tone:'due'}]:null};
  m.footerRight=finPeriodText(from,to);
  return finDocLayout(m);
 }
@@ -18732,7 +18747,11 @@ function salesCommercialOrderSummary(interactive){
  const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(salesCardNetworkLabel(c.card.network)),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
  rows.push(`<span class="metric-order-charge-item charge-total metric-grand-total"><span class="metric-order-charge-label">Total</span><b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${'lines need pricing'}</small>`:''}</span>`);
  const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" onclick="salesOpenMetrics('orderCharges')">Service +</button>`;
- return `<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · <span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`;
+ return salesOrderReviewHTML(soDraft,t)+`<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · <span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`;
+}
+function salesOrderReviewHTML(o,t){
+ t=t||finOrderTotals(o);if(!t.complete||t.grand>=0)return '';
+ return `<div class="sales-pricing-warning" role="alert" data-order-review><b>Negative order total · Review required</b><span>Order ${esc(o.businessNumber)} · ${esc(salesCustomerDisplay(o.customerId))} · ${esc(t.grand.toFixed(2))} ${esc(o.currency||'CAD')} · Resolve with the customer</span></div>`;
 }
 function salesCardNetworkLabel(value){return ({visa:'Visa card fee',mastercard:'Mastercard fee',amex:'American Express fee'})[value]||'Card fee';}
 function salesSetOrderChargeEnabled(key,enabled){
@@ -18851,7 +18870,7 @@ function salesRefreshLineMetrics(line){
   const next=Array.from(holder.children);tr.querySelectorAll('td[data-metric]').forEach((cell,i)=>{if(next[i])cell.replaceWith(next[i]);});
   const services=tr.querySelector('.line-services-cell');if(services)services.innerHTML=salesLineServicesSummary(line);
  }
- const total=document.querySelector('.sales-lines-block>.metric-order-total');if(total)total.outerHTML=salesCommercialOrderSummary();
+ const total=document.querySelector('.sales-lines-block>.metric-order-total');if(total){const warning=total.previousElementSibling;if(warning&&warning.matches('[data-order-review]'))warning.remove();total.outerHTML=salesCommercialOrderSummary();}
  const prices=document.querySelector('.sales-services-order-btn .sales-order-price-summary');
  if(prices){const p=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce((n,g)=>n+g.lines,0);prices.innerHTML=`<b>${p.total.toFixed(2)} ${esc(soDraft.currency)}</b>${p.unpriced?`<small>${p.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}`;}
 
@@ -22408,7 +22427,10 @@ function shippingStatus(s){return s.status==='delivered'?(s.method==='pickup'?'P
 /* Статус и «Balance due» — одним блоком: в шапке PS они не разъезжаются. */
 function shippingStatusPill(s){return `<span class="shipping-pills"><span class="pill st-${({planned:'new',shipped:'shipping',delivered:'done',cancelled:'cancelled'})[s.status]||'new'}">${shippingStatus(s)}</span>${shippingBalancePill(s)}</span>`;}
 /* Подсветка: в PS заказ cash-клиента с долгом — деньги взять до выдачи. */
-function shippingBalancePill(s){return ['planned','shipped'].includes(s.status)&&shippingOrderIds(s).some(id=>{const o=salesRecord(id);return o&&shippingBalanceDue(o);})?' <span class="pill bad" data-ps-balance>Balance due</span>':'';}
+function shippingBalancePill(s){
+ const orders=shippingOrderIds(s).map(salesRecord).filter(Boolean),review=orders.some(o=>finOrderBalance(o).status==='review');
+ return (review?' <span class="pill warn" data-ps-review>Review required</span>':'')+(['planned','shipped'].includes(s.status)&&orders.some(shippingBalanceDue)?' <span class="pill bad" data-ps-balance>Balance due</span>':'');
+}
 function shippingQueueChange(orderId,lineId,value){const out=shippingQueueSet(orderId,[lineId],value);shippingNotice=out.ok?null:{error:true,text:out.error};render();}
 /* Loaded: едет то, что отсканировано на станции отгрузки; что остаётся в
    Ready — офис видит до записи. Ничего не сканировали — офис подтверждает
@@ -24541,8 +24563,8 @@ function finAccountMetrics(c){
  const rows=(DB.salesOrder||[]).filter(o=>o.customerId===c.id&&finOrderCounts(o)).map(o=>({o,f:finOrderFinancial(o)}));
  return {rows,account:finCustomerAccount(c),money:finCustomerMoney(c.id)};
 }
-function finAccountOpen(m){const x=m.money;return x.balance>0||x.deposit>0||x.prepaid>0||x.incomplete>0;}
-function finBalancesCSV(list){return [['Customer','Account','Terms','Balance','Overdue','Prepaid','On account','Credit limit','Over limit','Orders not priced']].concat(list.map(({c,m})=>[finCustomerName(c),c.code||'',m.account.terms,m.money.balance.toFixed(2),m.money.overdue.toFixed(2),m.money.prepaid.toFixed(2),m.money.deposit.toFixed(2),m.account.creditLimit==null?'':m.account.creditLimit.toFixed(2),m.account.overLimit?'Yes':'',m.money.incomplete||''])).map(row=>row.map(finCsvCell).join(',')).join('\r\n');}
+function finAccountOpen(m){const x=m.money;return x.balance>0||x.deposit>0||x.prepaid>0||x.incomplete>0||x.review>0;}
+function finBalancesCSV(list){return [['Customer','Account','Terms','Balance','Overdue','Prepaid','On account','Credit limit','Over limit','Orders not priced','Orders needing review']].concat(list.map(({c,m})=>[finCustomerName(c),c.code||'',m.account.terms,m.money.balance.toFixed(2),m.money.overdue.toFixed(2),m.money.prepaid.toFixed(2),m.money.deposit.toFixed(2),m.account.creditLimit==null?'':m.account.creditLimit.toFixed(2),m.account.overLimit?'Yes':'',m.money.incomplete||'',m.money.review||''])).map(row=>row.map(finCsvCell).join(',')).join('\r\n');}
 function finBalancesExport(){const list=finAccountsList();if(!list.length)return;customerDownload('customer-balances_'+finToday()+'.csv',finBalancesCSV(list),'text/csv;charset=utf-8');}
 function finListDescription(){
  const p=salesListLoadPrefs(),parts=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])).map(k=>salesListFilterSummary(salesListColumn(k),p.filters[k]));
@@ -24869,7 +24891,7 @@ function finListTable(infos,cell,rowAttrs,noun,empty){
 function finDateCell(v){return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;}
 
 /* ------------------------------ Accounts ----------------------------- */
-function finAccountState(c,a){return c.status==='archived'?'Archived':c.onHold?'On hold':a.overLimit?'Over limit':'Active';}
+function finAccountState(c,a){return a.review?'Review required':c.status==='archived'?'Archived':c.onHold?'On hold':a.overLimit?'Over limit':'Active';}
 function finAccountInfos(){
  return (DB.customer||[]).map(c=>{
   const m=finAccountMetrics(c),x=m.money,a=m.account;
@@ -24879,7 +24901,7 @@ function finAccountInfos(){
 function finAccountCell(r,c){
  const v=salesListValue(r,c.k),x=r.m.money;
  switch(c.k){
-  case 'customer':return `<td><button class="fin-link" onclick="finOpenAccount('${esc(r.c.id)}')">${raw(v)}</button><div class="mut small">${raw(r.c.code||'')}${r.c.onHold?' · <b class="fin-due">On hold</b>':''}</div></td>`;
+  case 'customer':return `<td><button class="fin-link" onclick="finOpenAccount('${esc(r.c.id)}')">${raw(v)}</button>${x.review?'<span class="pill warn">Review required</span>':''}<div class="mut small">${raw(r.c.code||'')}${r.c.onHold?' · <b class="fin-due">On hold</b>':''}</div></td>`;
   case 'balance':return `<td class="n">${v>0?`<b>${finFmt(v)}</b>`:'<span class="mut">—</span>'}${x.incomplete?`<div class="mut small">${x.incomplete} not priced</div>`:''}</td>`;
   case 'overdue':return `<td class="n">${v>0?`<b class="fin-due">${finFmt(v)}</b>`:'<span class="mut">—</span>'}</td>`;
   case 'deposit':return `<td class="n">${v>0?`<span class="fin-deposit">${finFmt(v)}</span>`:'<span class="mut">—</span>'}</td>`;
@@ -25341,7 +25363,7 @@ function salesListCell(info,col){
   case 'balance':{
    if(v==null&&!info.memo.balanceInfo)return '<td class="n"><span class="mut">—</span></td>';
    const b=info.memo.balanceInfo;
-   return `<td class="n">${b.status==='due'?`<span class="pill bad">${finFmt(b.balance)}</span>`:b.status==='paid'?'<span class="pill good">Paid</span>':b.status==='overpaid'?`<span class="pill info">Overpaid ${finFmt(-b.balance)}</span>`:finFmt(b.balance)}</td>`;
+   return `<td class="n">${b.status==='review'?'<span class="pill warn">Review required</span>':b.status==='due'?`<span class="pill bad">${finFmt(b.balance)}</span>`:b.status==='paid'?'<span class="pill good">Paid</span>':b.status==='overpaid'?`<span class="pill info">Overpaid ${finFmt(-b.balance)}</span>`:finFmt(b.balance)}</td>`;
   }
   default:return `<td>${v==null||v===''?'<span class="mut">—</span>':raw(String(v))}</td>`;
  }
@@ -26789,7 +26811,10 @@ function stkGlassInfo(pane,index,ply){
  return {name:g?g.name:'Unknown glass',code:g?g.code:'',mm:g&&+g.thicknessMm||+(spec&&spec.thicknessMm)||null,heat:ht&&ht.code&&ht.code!=='AN'?ht.name:'',
   heatSoak:!!(spec&&spec.heatSoak&&ht&&ht.code==='FT'),surface:coat?coat.where:'',paint:treatments.filter(t=>t.kind!=='coating').map(t=>t.summary),ply:ply||''};
 }
-function stkPieceArea(l,o){const a=salesLineAreas(l,o);return a&&a.valid?a.actual:null;}
+function stkPieceArea(l,o,lite){
+ if(lite)return (lite.result&&lite.result.valid?lite.result.area:Math.abs(fabSignedArea(lite.finishedPoints)))/144;
+ const a=salesLineAreas(l,o);return a&&a.valid?a.actual:null;
+}
 function stkPlan(o,l){try{return salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){return {valid:false};}}
 function stkIsRect(pts){
  if(!pts||pts.length!==4)return false;
@@ -26843,8 +26868,8 @@ function stkRoute(o,l,c){
  row.stations.forEach((s,step)=>{if(s.code===salesRouteStationOf('cutting','CUT'))return;s.items.forEach(t=>{if(t===s.name)return;const text=String(t).toUpperCase();if(!services.some(x=>x.text===text&&x.step===step))services.push({station:s.code,text,step});});});
  return {codes,shipping:tail,services};
 }
-function stkWeight(l,o,lite){
- const w=salesLineWeight(l,o);
+function stkWeight(l,o,lite,plan){
+ const w=salesLineWeight(l,o,plan);
  if(lite==null)return w.kg!=null?{kg:w.kg,exact:true}:w.knownKg?{kg:w.knownKg,exact:false}:null;
  const rows=w.rows.filter(r=>r.label.startsWith('Lite '+lite+' ·')&&r.kg!=null);
  return rows.length?{kg:rows.reduce((s,r)=>s+r.kg,0),exact:true}:null;
@@ -26867,16 +26892,30 @@ function stkGlassData(kind,o,l,c,unit,opts){
   const rec=glassPieceMap(o.id).get(c.key),comps=glassBatchComponents(o,l);
   return Object.assign(stkOrderData(o,l,li,geo),{kind,id:glassPieceAt(rec,unit)||'',unit:recut?0:unit,of:l.qty,lite:c.lite,lites:panes.length,recut:recut?'RECUT '+nr.replace(/^R/,''):'',batch:opts.batch||'',
    glass:c.missing?{name:'Glass missing',code:'',mm:null,heat:'',heatSoak:false,surface:'',paint:[],ply:''}:stkGlassInfo(c.pane,c.index,c.ply),
-   cut:stkCut(cut,stkFinished(cut,geo)),finished:stkFinished(cut,geo),area:stkPieceArea(geo,o),weight:stkWeight(geo,o,c.lite),
+   cut:stkCut(cut,stkFinished(cut,geo)),finished:stkFinished(cut,geo),area:stkPieceArea(geo,o,cut),weight:stkWeight(geo,o,c.lite),
    sheet:stkSheetOf(opts.batch,glassPieceAt(rec,unit)),
    shape:stkShapeOf(cut),route:kind==='production'&&typeof stationRouteOf==='function'?stationRouteOf({o,l,c,unit}):kind==='production'?stkRoute(o,geo,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
  });
 }
-/* from — место стекла, из которого собран юнит: юнит из стекла Recut со своим
-   чертежом печатается по этому чертежу. */
+/* Владелец, 8 октября 2026: обычный юнит — лайты одного размера; offset /
+   step — стикер по большему лайту. Источник — вся действующая сборка,
+   независимо от последнего скана и того, через какой G / U печатают.
+   До сборки (офис / образец) — лайты чертежа позиции или указанного Recut. */
+function stkUnitGeometry(o,l,unit,from){
+ const merge=stationUnitMerge(o,l),asm=merge&&stationAsms(o,l,merge).find(a=>a.unit===unit&&!a.broken);
+ const candidates=[];
+ const add=(geo,index,id)=>{const plan=stkPlan(o,geo);if(!plan.valid)return;
+  (plan.lites||[]).filter(x=>index==null||x.index===index).forEach(lite=>candidates.push({geo,lite,id:id||''}));};
+ if(asm)[...asm.lites.values()].forEach(id=>{const g=stationGlass(id);if(g&&g.c)add(stationGeo(g),g.c.index,id);});
+ else add(glassRecutLine(o,l,from),null,'');
+ candidates.sort((a,b)=>b.lite.finishedW*b.lite.finishedH-a.lite.finishedW*a.lite.finishedH||b.lite.finishedW-a.lite.finishedW||b.lite.finishedH-a.lite.finishedH||a.lite.index-b.lite.index||a.id.localeCompare(b.id));
+ const chosen=candidates[0]||{geo:glassRecutLine(o,l,from),lite:null};
+ const lites=[...new Map(candidates.map(x=>[x.lite.index,x.lite])).values()].sort((a,b)=>a.index-b.index);
+ return Object.assign({},chosen,{finished:stkFinished(chosen.lite,chosen.geo),plan:lites.length?{valid:true,lites}:null});
+}
 function stkUnitData(o,l,unit,from){
  return finWithOrder(o,()=>{
-  const geo=glassRecutLine(o,l,from);
+  const {geo,lite,finished,plan}=stkUnitGeometry(o,l,unit,from);
   const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],lam=panes.some(p=>p.category==='laminated');
   const rows=[];
   panes.forEach((p,i)=>{
@@ -26886,10 +26925,10 @@ function stkUnitData(o,l,unit,from){
     rows.push({kind:'lam',label:'Lite '+(i+1),outer:stkGlassInfo(p,i,'outer'),inner:stkGlassInfo(p,i,'inner'),films:(L.interlayers||[]).map(f=>{const prod=mdById('interlayerProduct',f.productId);return {name:prod?prod.name:'Interlayer',mm:+f.thicknessMm||null,layers:+f.layers||1};})});}
    else rows.push({kind:'glass',label:'Lite '+(i+1),glass:stkGlassInfo(p,i,'')});
   });
-  const plan=stkPlan(o,geo),lite=plan.valid&&(plan.lites||[])[0],mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
-  return Object.assign(stkOrderData(o,l,li,geo),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
+  const mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
+  return Object.assign(stkOrderData(o,l,li,Object.assign({},geo,{width16:finished.w*16,height16:finished.h*16})),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
    heading:type+(lam&&m.unitType!=='single'?' · laminated':''),thicknessMm:mm,code:m?salesMakeupSummary(m):'',rows,muntin:muntin?'Muntins · '+salesMuntinSections(l)+' sections':'',
-   finished:stkFinished(lite,geo),cut:null,area:stkPieceArea(geo,o),weight:stkWeight(geo,o,null),shape:stkShapeOf(lite)});
+   finished,cut:null,area:stkPieceArea(geo,o,lite),weight:stkWeight(geo,o,null,plan),shape:stkShapeOf(lite)});
  });
 }
 /* Данные стикера остатка из записи DB.stockOffcut. */
@@ -30863,6 +30902,11 @@ function recutDrawingCommand(id,shape,liteIndex,now){
  const main=salesShapeByRef(r.shapeRef),res=main&&ShapeModule.compute(main);
  if(!res||!(res.valid||res.externalFile&&res.sourceValid))return {error:'Check the drawing.'};
  r.shapeRef=salesShapeRefFrom(main);r.width16=Math.round(res.width*16);r.height16=Math.round(res.height*16);
+ /* После Undo разрешён новый чертёж: старый замороженный маршрут только
+    этого Recut больше не описывает его отверстия и обработку. Lock выше
+    гарантирует отсутствие действующих сканов всех его стёкол. */
+ const routeKeys=new Set(recutPieces(r).map(id=>stationRouteKey(stationGlass(id))));
+ DB.productionRoute=(DB.productionRoute||[]).filter(x=>!routeKeys.has(x.key));
  const active=glassBatchActive(o.id),out=recutSlots(r).map(s=>active.get(s.key+'|'+s.unit)).filter(Boolean),batches=[...new Set(out.map(x=>x.batch.number))];
  if(out.length)glassBatchCancelPieces(out.map(x=>x.item.piece),now,'Recut drawing');
  /* Кэши станций (маршрут, площадь, табло, чертежи) живут по версии заказа. */
@@ -31143,7 +31187,9 @@ function stationRecordCommand(station,check,who,opts){
   const route=stationRouteOf(check.g);rec.step=stationRouteStep(route.codes,station,stationPlace(check.g).far);
   const rk=stationRouteKey(check.g);if(!stationFrozenRoute(rk))DB.productionRoute.push({key:rk,at:now,route:JSON.parse(JSON.stringify(route))});
  }
- if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
+ if(opts.on&&typeof carrierFind==='function'){
+  const c=carrierFind(opts.on);if(c&&c.active)rec.on=c.code;
+ }
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
  DB.stationScan.push(rec);
  if(check.g)stationAsmJoin(rec,check.g,station,opts.asm);
@@ -31183,7 +31229,8 @@ function stationUndoCommand(id,who,opts){
  const restack=rec.station===shippingStations().ready&&stationScansFor(rec.piece).some(s=>s!==rec&&s.station===rec.station&&!s.park&&String(s.at)<=String(rec.at));
  if(ps&&!(ps.status==='planned'&&(rec.station===shippingStations().ship||restack)))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
  const group=rec.actionId?(DB.stationScan||[]).filter(s=>s.actionId===rec.actionId&&!s.undoneAt):[rec];
- const ordered=id=>stationScansFor(id).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
+ /* Дата Skip может быть прошлой; зависимость задаёт порядок записи SC. */
+ const ordered=id=>stationScansFor(id).sort((a,b)=>+a.id.slice(3)-+b.id.slice(3));
  if(group.some(r=>ordered(r.piece).pop()!==r))return {error:'Glass has moved on — undo the later scan first.'};
  if(rec.asm){
   const assembly=(DB.stationScan||[]).filter(s=>s.asm===rec.asm&&!s.undoneAt);
@@ -31233,7 +31280,7 @@ function normalizeStationScans(){
   .map(s=>({id:s.id,at:s.at,piece:s.piece,station:sfCode(s.station),by:String(s.by==null?'':s.by).slice(0,80),byId:String(s.byId==null?'':s.byId).slice(0,80),manual:s.manual===true,
    undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):'',
    ...(typeof s.on==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.on)?{on:s.on}:{}),
-   ...(s.moved&&typeof s.moved==='object'&&iso(s.moved.at)?{moved:{from:typeof s.moved.from==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.moved.from)?s.moved.from:'',at:s.moved.at,by:String(s.moved.by==null?'':s.moved.by).slice(0,80)}}:{}),
+   ...(s.moved&&typeof s.moved==='object'&&iso(s.moved.at)?{moved:{...(salesRefId(s.moved.id)?{id:s.moved.id}:{}),from:typeof s.moved.from==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.moved.from)?s.moved.from:'',at:s.moved.at,by:String(s.moved.by==null?'':s.moved.by).slice(0,80)}}:{}),
    ...(typeof s.confirmedAt==='string'&&SF_CODE_RE.test(sfCode(s.confirmedAt))?{confirmedAt:sfCode(s.confirmedAt)}:{}),
    ...(Number.isInteger(s.step)&&s.step>=0?{step:s.step}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.actionId))?{actionId:s.actionId}:{}),
@@ -31462,11 +31509,22 @@ function stationAssemblyKeys(g,station){
 }
 /* Юнит собирается только из стекла одного чертежа: старое неверное стекло
    с новым из Recut не сходится (владелец, 7 октября 2026). Recut одного лайта
-   со своим чертежом идёт к лайтам, которых он не касается. a, b — {key, unit}. */
+   идёт к лайтам, которых он не касается, если размеры обычного юнита
+   совпадают. Разные размеры допускает заданная геометрия offset / step,
+   а не сам факт Recut (владелец, 8 октября 2026). a, b — {key, unit}. */
 function stationDrawingFits(o,l,a,b){
  const ta=stationDrawingKey(o,l,a.unit),tb=stationDrawingKey(o,l,b.unit);if(ta===tb)return true;
  const covers=(t,key)=>!!t&&(DB.recut||[]).some(r=>r&&r.orderId===o.id&&r.lineId===l.id&&'R'+r.no===t&&(r.keys||[]).includes(key));
- return !covers(ta,b.key)&&!covers(tb,a.key);
+ if(covers(ta,b.key)||covers(tb,a.key))return false;
+ return finWithOrder(o,()=>{
+  const comps=glassBatchComponents(o,l),ca=comps.find(c=>c.key===a.key),cb=comps.find(c=>c.key===b.key);
+  const pa=stkPlan(o,glassRecutLine(o,l,a.unit)),pb=stkPlan(o,glassRecutLine(o,l,b.unit));
+  if(!ca||!cb||!pa.valid||!pb.valid)return false;
+  const step=p=>p.lites.some(x=>x.inset||Math.abs(x.finishedW-p.lites[0].finishedW)>1e-6||Math.abs(x.finishedH-p.lites[0].finishedH)>1e-6);
+  if(step(pa)||step(pb))return true;
+  const da=pa.lites.find(x=>x.index===ca.index),db=pb.lites.find(x=>x.index===cb.index);
+  return !!da&&!!db&&Math.abs(da.finishedW-db.finishedW)<1e-6&&Math.abs(da.finishedH-db.finishedH)<1e-6;
+ });
 }
 /* Стекло p подходит к сборке a: со всеми её стёклами. */
 function stationAsmFits(a,o,l,index,p){return a.recs.every(s=>{const h=index.get(s.piece);return !h||stationDrawingFits(o,l,h,p);});}
@@ -31666,25 +31724,32 @@ function carrierMove(pieces,to,who){
  const out=storageCommand(()=>{
   const c=carrierFind(to);if(!c||!c.active)throw new Error('Unknown dolly or skid.');
   const last=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)last.set(s.piece,s);});
-  const now=new Date().toISOString(),was=[];
+  const now=new Date().toISOString(),was=[],id=salesUid('MV');
   (pieces||[]).forEach(p=>{
    const s=last.get(p);if(!s||s.broken||s.on===c.code)return;
    if(typeof shippingActive==='function'&&(DB.shipment||[]).some(x=>shippingActive(x)&&x.items.some(i=>i.pieces.includes(p))))throw new Error('Glass is on a packing slip — not moved.');
    was.push({id:s.id,on:s.on||'',moved:s.moved||null});
-   s.moved={from:s.on||'',at:now,by:String(who&&who.name||'')};s.on=c.code;
+   s.moved={id,from:s.on||'',at:now,by:String(who&&who.name||'')};s.on=c.code;
   });
   if(!was.length)throw new Error('Nothing to move.');
-  return {to:c.code,was};
+  const back=typeof skidsOut==='function'&&skidsOut().get(c.code);
+  if(back)skidReturnPush(c.code,back,'back','',who&&who.name,now);
+  return {id,to:c.code,was};
  });
  return out.ok?out.value:{error:out.error};
 }
-/* Undo переноса: тара возвращается тем сканам, что всё ещё на новой таре. */
+/* Undo конкретного последнего переноса, целиком. Совпадение кода тары
+   после новых перекладок не означает, что старое действие ещё действует. */
 function carrierMoveUndo(move){
  const out=storageCommand(()=>{
-  const by=new Map((DB.stationScan||[]).map(s=>[s.id,s]));let n=0;
-  (move&&move.was||[]).forEach(w=>{const s=by.get(w.id);if(!s||s.undoneAt||s.on!==move.to)return;if(w.on)s.on=w.on;else delete s.on;if(w.moved)s.moved=w.moved;else delete s.moved;n++;});
-  if(!n)throw new Error('Nothing to undo.');
-  return n;
+  const by=new Map((DB.stationScan||[]).map(s=>[s.id,s])),last=new Map();
+  (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)last.set(s.piece,s);});
+  const was=move&&move.was||[];if(!was.length)throw new Error('Nothing to undo.');
+  if(was.some(w=>{const s=by.get(w.id);return !s||s.undoneAt||s.broken||s.on!==move.to||last.get(s.piece)!==s||!s.moved||s.moved.id!==move.id;}))throw new Error('Glass has moved on. Undo the later action first.');
+  const pieces=new Set(was.map(w=>by.get(w.id).piece));
+  if((DB.shipment||[]).some(s=>shippingActive(s)&&s.items.some(i=>i.pieces.some(p=>pieces.has(p)))))throw new Error('Glass is on a packing slip. Cancel the packing slip before Undo.');
+  was.forEach(w=>{const s=by.get(w.id);if(w.on)s.on=w.on;else delete s.on;if(w.moved)s.moved=w.moved;else delete s.moved;});
+  return was.length;
  });
  return out.ok?out.value:{error:out.error};
 }
@@ -31810,7 +31875,9 @@ function recutOrderSection(o){
  const list=recutForOrder(o.id);if(!list.length)return '';
  return `<div class="recut-section" data-recut-section><div class="recut-head">RECUTS</div>${list.map(r=>{const st=recutStatus(r),l=(o.lines||[]).find(x=>x.id===r.lineId),g=l&&recutLine(r,l),own=recutHasShape(r),lock=l?recutDrawingLock(r):'';
   const dim=k=>`<input class="line-dim recut-dim" data-recut-${k} value="${esc(salesDimFrom16(g[k==='w'?'width16':'height16']))}" aria-label="Recut ${r.no} ${k==='w'?'width':'height'}" onchange="recutSizeChange('${esc(r.id)}','${k}',this)">`;
-  const size=g?`<span class="recut-size${own?' own':''}" data-recut-size>${!lock&&recutSizeEditable(r,l)?dim('w')+' × '+dim('h'):esc(dimIn16(g.width16/16))+' × '+esc(dimIn16(g.height16/16))}</span><button type="button" class="sm recut-shape${own?' own':''}" data-recut-shape ${lock?`disabled title="${esc(lock)}"`:`title="${own?'Recut drawing':'Fix the drawing for this recut'}"`} onclick="salesOpenRecutShape('${esc(r.id)}')">Shape</button>`:'';
+  const lites=g?[...new Set(glassBatchComponents(o,l).filter(c=>(r.keys||[]).includes(c.key)).map(c=>c.index))].filter(i=>salesLineLiteShape(g,i)):[],selected=g?recutDrawingLite(r,g):null;
+  const choice=lites.length?`<select class="sm" data-recut-drawing aria-label="Recut ${r.no} drawing" ${lock?'disabled':''}><option value="">Shared Shape</option>${lites.map(i=>`<option value="${i}" ${i===selected?'selected':''}>Lite ${i+1} · Own shape</option>`).join('')}</select>`:'';
+  const size=g?`<span class="recut-size${own?' own':''}" data-recut-size>${!lock&&recutSizeEditable(r,l)?dim('w')+' × '+dim('h'):esc(dimIn16(g.width16/16))+' × '+esc(dimIn16(g.height16/16))}</span>${choice}<button type="button" class="sm recut-shape${own?' own':''}" data-recut-shape ${lock?`disabled title="${esc(lock)}"`:`title="${own?'Recut drawing':'Fix the drawing for this recut'}"`} onclick="salesOpenRecutShape('${esc(r.id)}'${choice?',this.previousElementSibling.value===\'\'?null:+this.previousElementSibling.value':''})">Shape</button>`:'';
   return `<div class="recut-row" data-recut-row="${esc(r.id)}"><b>Recut ${r.no}</b><span>Line ${r.line}${r.mark?' · '+esc(r.mark):''}</span>${size}<span>${esc(r.lite)}</span><span>${r.qty} pc${r.qty===1?'':'s'}</span><span>${esc(ncrWhereLabel(r))} · ${esc(r.reason)}</span><span class="pill ${st==='In queue'?'ncr-st-open':'ncr-st-done'}">${esc(st)}</span>${r.note?`<span class="mut" title="${esc(r.note)}">${esc(r.note)}</span>`:''}</div>`;}).join('')}</div>`;
 }
 /* Черновик заказа должен быть сохранён: запись чертежа Recut может снять его
@@ -31836,11 +31903,11 @@ function recutSizeChange(id,key,el){
 }
 /* Shape у строки Recut: тот же редактор формы, копия текущего чертежа Recut
    (или позиции), ничего не пишется до Save revision. */
-function salesOpenRecutShape(id){
+function salesOpenRecutShape(id,liteIndex){
  const r=recutFind(id),o=r&&salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId);
  if(!r||!o||!l||!recutDraftClean(o))return false;
  const lock=recutDrawingLock(r);if(lock){alert(lock);return false;}
- const view=recutLine(r,l),lite=recutDrawingLite(r,view),base=lite==null?salesLineGeometryShape(view):salesLineLiteShape(view,lite);
+ const view=recutLine(r,l),lite=liteIndex===undefined?recutDrawingLite(r,view):liteIndex,base=lite==null?salesLineGeometryShape(view):salesLineLiteShape(view,lite);
  if(!base){alert('Line needs Width and Height first.');return false;}
  const copy=normalizeShapeDef(JSON.parse(JSON.stringify(base)));copy.id=newShapeId();copy.ownerLineId=l.id;
  if(!recutHasShape(r))copy.name='Recut '+r.no+' · Line '+r.line+(lite==null?'':' · Lite '+(lite+1));
@@ -34155,8 +34222,12 @@ function stationWho(){
 }
 /* На какую тару рабочий сейчас кладёт стекло — свойство рабочего места, как
    и вход: живёт в сессии этого браузера. */
-function stationPutOn(){const s=stationSession();return s&&s.putOn&&typeof carrierFind==='function'&&carrierFind(s.putOn)?s.putOn:'';}
-function stationSetPutOn(code){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.putOn=code||'';stationSessionsSave(m);}
+function stationPutOn(){
+ const s=stationSession(),c=s&&s.putOn&&typeof carrierFind==='function'?carrierFind(s.putOn):null;
+ if(c&&c.active&&(s.putOnMode==null||s.putOnMode===stationPutsOnHere())){if(s.putOnMode==null)stationSetPutOn(c.code);return c.code;}
+ if(s&&s.putOn)stationSetPutOn('');return '';
+}
+function stationSetPutOn(code){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.putOn=code||'';s.putOnMode=stationPutsOnHere();stationSessionsSave(m);}
 function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a dolly';render();}
 function stationLogin(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;
@@ -34894,7 +34965,10 @@ function stationLoose(){
    лайт в машине, пока юнит не закрыт: тара ему не нужна. */
 function stationLooseAdd(recs){
  if(stationPutsOnHere()==='none'||stationPutOn())return;
- const add=(recs||[]).filter(r=>r&&!r.on&&!r.park).filter(r=>{const g=stationGlass(r.piece);if(!g)return false;const p=stationPlace(g);return !p.assembling&&p.waiting!==stationCode;}).map(r=>r.id);
+ /* Последний лайт закрыл сборку: тару теперь ждут все её компоненты,
+    включая первый скан, который до этого ещё был в машине. */
+ const closed=new Set((recs||[]).filter(r=>r&&r.asm&&(r.unit||r.joined)).map(r=>r.asm)),all=(recs||[]).concat((DB.stationScan||[]).filter(s=>!s.undoneAt&&s.station===stationCode&&closed.has(s.asm)));
+ const add=all.filter(r=>r&&!r.on&&!r.park).filter(r=>{const g=stationGlass(r.piece);if(!g)return false;const p=stationPlace(g);return !p.assembling&&p.waiting!==stationCode;}).map(r=>r.id);
  if(add.length)stationLooseSave([...new Set(stationLoose().map(s=>s.id).concat(add))]);
 }
 /* Следующая тара «кладу на» забирает всё, что ждало её. */
@@ -34954,7 +35028,14 @@ function stationWarnMove(code){
  const L=stationLast,w=L.wrong||L.foreign,from=w.on||w.skid,to=carrierCode(code);
  /* Та же тара — «так и оставить», дальше обычный скан тары (её карточка). */
  if(to===from){L.wrong=null;L.foreign=null;stationCarrierScan(code);render();return 'carrier';}
- const r=carrierMove(stationWarnPieces(L),to,stationWho());
+ const pieces=stationWarnPieces(L),reserved=(DB.shipment||[]).some(s=>shippingActive(s)&&s.items.some(i=>i.pieces.some(p=>pieces.includes(p))));
+ if(stationIsReady()&&reserved){
+  const before=stationPutOn();stationSetPutOn(to);
+  const result=stationRestack(stationCheck(stationCode,pieces[0]),stationWho());
+  if(result&&result!=='saveError'){render();return result;}
+  stationSetPutOn(before);if(result){render();return result;}
+ }
+ const r=carrierMove(pieces,to,stationWho());
  if(r.error){stationNote=r.error;stationBeep('error');render();return 'saveError';}
  stationSetPutOn(r.to);
  stationLast={check:{kind:'carrierMoved',code:r.to,from,count:r.was.length,puton:true},move:r,rec:null,data:null,place:null,at:new Date().toISOString()};
@@ -35082,9 +35163,15 @@ function stationUnitHTML(L){
 }
 function stationUnitNo(g){const mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;return a&&a.unit&&!a.broken?a.unit:0;}
 function stationPrintUnit(code){
- const g=stationGlass(code),mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;
- if(!a||!a.unit||typeof stkPrint!=='function')return false;
- /* from — стекло сборки: юнит из стекла Recut со своим чертежом — по нему. */
+ code=stationCodeOf(code);let g=stationGlass(code);
+ if(!g){
+  const u=glassLookup(code),o=u&&u.kind==='unit'&&salesRecord(u.orderId),l=o&&(o.lines||[]).find(x=>x.id===u.lineId),mu=l&&stationUnitMerge(o,l);
+  const a=mu&&stationAsms(o,l,mu).find(x=>x.unit===u.unit&&!x.broken);
+  if(a)g=stationGlass([...a.lites.values()][0]);
+ }
+ const mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;
+ if(!a||!a.unit||a.broken||typeof stkPrint!=='function')return false;
+ /* stkUnitData выбирает геометрию всей сборки для автоматической и повторной печати. */
  return stkPrint(stkPages([{type:'unit',o:g.o,l:g.l,unit:a.unit,from:g.unit}],stkPrefSize()));
 }
 /* Пару забраковали у света — её не сканируют (скан закрыл бы юнит и
@@ -35491,27 +35578,38 @@ let stationIguSel=new Set();   // «No skid» заказа, выбранное �
 let stationIguOpen='';         // пропущенный юнит, раскрытый нажатием
 const STATION_IGU_ORDERS=25,STATION_IGU_ROWS=12;
 function stationIguCode(){return typeof salesRouteStationOf==='function'?salesRouteStationOf('igu_assembly','IGU'):'IGU';}
+/* Строка целого U и его стикер используют один готовый размер сборки. */
+function stationIguGeometry(g,unit){
+ if(!unit)return stationGeo(g);
+ const d=finWithOrder(g.o,()=>stkUnitGeometry(g.o,g.l,unit,g.unit));
+ return {width16:d.finished.w*16,height16:d.finished.h*16};
+}
 /* Заказы с юнитами IGU, которые ещё не погружены; по каждому — скиды,
    без скида, пропущенные и в линии. */
 function stationIguBoard(){
  const igu=stationIguCode(),st=shippingStations();if(!igu||!st.ready||!st.ship)return null;
  return shippingWithCtx(()=>{
-  const ctx=shippingCtx(),ids=new Set(),lastOf=p=>{const l=ctx.scans.get(p);return l&&l[l.length-1];};
-  ctx.asm.forEach((list,k)=>{if(list.some(s=>s.station===igu&&s.unit&&!ctx.broken.has(s.piece)&&(lastOf(s.piece)||{}).station!==st.ship))ids.add(k.split('|')[0]);});
+  const ctx=shippingCtx(),ids=new Set(),geometry=new Map();
+  ctx.asm.forEach((list,k)=>{if(list.some(s=>s.station===igu&&s.unit&&!ctx.broken.has(s.piece)))ids.add(k.split('|')[0]);});
   const mix=new Map();carrierContents().forEach((list,code)=>mix.set(code,new Set(list.map(x=>x.g.o.customerId)).size>1));
   let edge='';const orders=[];
   ids.forEach(id=>{
    const o=salesRecord(id);if(!o)return;
    const igus=(o.lines||[]).filter(l=>stationUnitMerge(o,l)===igu);if(!igus.length)return;
    const r={o,total:igus.reduce((n,l)=>n+shippingLineQty(l),0),done:0,skids:new Map(),noSkid:[],pending:[],lastAt:''};
-   shippingUnits(o).forEach(u=>{
+   shippingUnits(o,{includeClosed:true}).forEach(u=>{
     const l=igus.find(x=>x.id===u.lineId);if(!l)return;
     const gs=u.pieces.map(p=>stationGlass(p,ctx.index,ctx.batches)),places=gs.map((g,i)=>g&&stationPlace(g,ctx.scans.get(u.pieces[i])||[]));
     const at=u.pieces.flatMap(p=>(ctx.scans.get(p)||[]).filter(s=>s.station===igu&&s.unit).map(s=>s.at)).sort().pop()||'';
-    /* Размер — как на станции: у стекла Recut со своим чертежом — его (stationGeo, PR #234). */
-    const x=Object.assign({},u,{l,at,geo:typeof stationGeo==='function'&&gs[0]?stationGeo(gs[0]):l});if(at>r.lastAt)r.lastAt=at;
-    if(u.loaded||places.every(p=>p&&p.waiting===st.ship)){
-     r.done++;if(at>edge)edge=at;if(u.loaded)return;
+    if(at>r.lastAt)r.lastAt=at;
+    const ready=u.loaded||places.every(p=>p&&p.waiting===st.ship);
+    if(ready){r.done++;if(at>edge)edge=at;if(u.loaded)return;}
+    /* Одинаковый состав чертежей — один расчёт на этот экран, а не на
+       каждый из тысяч юнитов. История выданных размеров не требует. */
+    const key=o.id+'|'+l.id+'|'+gs.map(g=>g&&g.c?g.c.key+'|'+stationDrawingKey(o,l,g.unit):'').sort().join(';');
+    if(!geometry.has(key))geometry.set(key,gs[0]?stationIguGeometry(gs[0],u.unit):l);
+    const x=Object.assign({},u,{l,at,geo:geometry.get(key)});
+    if(ready){
      if(u.skid){if(!r.skids.has(u.skid))r.skids.set(u.skid,[]);r.skids.get(u.skid).push(x);}else r.noSkid.push(x);
     }else if(places.every(p=>p&&!p.assembling&&p.waiting===st.ready))r.pending.push(x);
    });
@@ -35543,7 +35641,7 @@ function stationIguToggle(piece){stationIguOpen=stationIguOpen===piece?'':piece;
 function stationIguMove(to){
  const who=stationWho();if(!who||!stationIguSel.size)return false;
  const code=typeof carrierCode==='function'?carrierCode(to):'';
- if(!code||!carrierType(code)){stationNote='Scan the skid or type its number';stationBeep('error');render();return false;}
+ if(!code||!carrierType(code)||carrierType(code).kind!=='Skid'){stationNote='Scan the skid or type its number';stationBeep('error');render();return false;}
  const units=stationIguUnits(stationIguBoard(),stationIguSel),from=[...new Set(units.map(u=>u.skid||'No skid'))].join(', ');
  const r=carrierMove(units.flatMap(u=>u.pieces),code,who);
  if(r.error){stationNote=r.error;stationBeep('error');render();return false;}
@@ -35603,7 +35701,7 @@ function stationSkidItems(code){
  (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)unitOf.set(s.piece,s);});
  list.forEach(x=>{
   const s=unitOf.get(x.id),u=s&&stationUnitMerge(x.g.o,x.g.l)===s.station?s:null,key=u?'a|'+u.asm:'g|'+x.id;
-  if(!items.has(key))items.set(key,{key,o:x.g.o,l:x.g.l,geo:typeof stationGeo==='function'?stationGeo(x.g):x.g.l,pieces:[],unit:u?u.unit:0,label:u&&typeof unitIdAt==='function'&&unitIdAt(x.g.o.id,x.g.l.id,u.unit)||x.id,at:''});
+  if(!items.has(key))items.set(key,{key,o:x.g.o,l:x.g.l,geo:stationIguGeometry(x.g,u?u.unit:0),pieces:[],unit:u?u.unit:0,label:u&&typeof unitIdAt==='function'&&unitIdAt(x.g.o.id,x.g.l.id,u.unit)||x.id,at:''});
   const it=items.get(key);it.pieces.push(x.id);if(String(x.scan.at)>it.at)it.at=String(x.scan.at);
  });
  return [...items.values()];
@@ -35621,7 +35719,7 @@ function stationSkidPick(key){const d=stationDrawer;if(!d||d.kind!=='skid')retur
 function stationSkidMove(to){
  const d=stationDrawer,who=stationWho();if(!d||d.kind!=='skid'||!d.sel.size||!who)return false;
  const code=typeof carrierCode==='function'?carrierCode(to):'';
- if(!code||!carrierType(code)){d.error='Scan the skid or type its number';stationBeep('error');render();return false;}
+ if(!code||!carrierType(code)||carrierType(code).kind!=='Skid'){d.error='Scan the skid or type its number';stationBeep('error');render();return false;}
  if(code===d.code){d.error='Already on '+code;stationBeep('error');render();return false;}
  const items=stationSkidItems(d.code).filter(i=>d.sel.has(i.key)),r=carrierMove(items.flatMap(i=>i.pieces),code,who);
  if(r.error){d.error=r.error;stationBeep('error');render();return false;}
@@ -35724,6 +35822,7 @@ function shippingLookupHTML(){
  return {field,card:`<section class="card shipping-customer shipping-lookup" data-lookup-card><div class="shipping-customer-head"><div><h3>Order ${esc(o.businessNumber)} · ${esc(salesCustomerDisplay(o.customerId))}</h3><span class="mut">${o.delivery==='delivery'?'Delivery':'Pickup'}${o.customerPo?' · PO '+esc(o.customerPo):''}</span></div>${pill}</div>`
   +(o.onHold?`<p class="shipping-lookup-bad">On hold${o.holdReason?' · '+esc(o.holdReason):''}</p>`:'')
   +where
+  +salesOrderReviewHTML(o)
   +(m.extras.length?`<p class="mut">From stock · ${m.extras.map(e=>esc(salesExtraItemName(e.x))+' ×'+e.ready).join(', ')}</p>`:'')
   +(m.takes.length?`<p class="mut" data-lookup-takes>Cancelled · customer takes · ${m.takes.map(x=>'line '+x.line+' · '+x.pieces+' glass').join(', ')}</p>`:'')
   +(open&&m.shop.length?`<p class="mut" data-lookup-shop>In the shop · ${m.shop.map(([k,n])=>esc(k)+' '+n).join(' · ')} glass</p>`:'')
@@ -36309,8 +36408,10 @@ function shippingWithCtx(fn){if(shippingCtxNow)return fn();shippingCtxNow=shippi
 /* Ready is physical readiness. Available additionally excludes another PS.
    Single-lite recuts fill free order slots; the chosen G is saved on the PS.
    An existing PS pins both slot and actual pieces until it is cancelled. */
-function shippingUnits(o){
- if(!o||salesIsQuote(o)||['closed','cancelled'].includes(o.status)||shippingLegacy(o))return [];
+/* includeClosed — только история линии From IGU: закрытие заказа не
+   отменяет его сканы. Обычная отгрузка закрытый заказ не предлагает. */
+function shippingUnits(o,opts){
+ if(!o||salesIsQuote(o)||o.status==='cancelled'||o.status==='closed'&&!(opts&&opts.includeClosed)||shippingLegacy(o))return [];
  const ctx=shippingCtx(),index=ctx.index,batches=ctx.batches,stations=shippingStations(),out=[],scansOf=id=>ctx.scans.get(id)||[];
  const reserved=shippingForOrder(o.id).filter(shippingActive).flatMap(s=>s.items.map(i=>Object.assign({shipment:s},i))),gone=unitCancelledSet(o);
  (o.lines||[]).forEach(l=>{
@@ -37055,10 +37156,17 @@ function skipFree(o,l,key,ctx){
  const rec=glassPieceMap(o.id).get(key),ids=rec?rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean):[];
  return ids.map(id=>skipPiece(id,ctx)).filter(x=>x&&!ctx.used.has(x.id)).sort((a,b)=>b.p.far-a.p.far||a.id.localeCompare(b.id));
 }
-/* Открытая сборка стекла на станции слияния (LAM, IGU): её стёкла едут вместе. */
-function skipOpenAsm(id,ctx){
- const s=(ctx.scans.get(id)||[]).find(x=>x.asm&&!x.unit&&!x.joined);if(!s)return [];
- return (DB.stationScan||[]).filter(x=>!x.undoneAt&&x.asm===s.asm&&x.piece!==id).map(x=>x.piece);
+/* Начатые и завершённые сборки едут вместе. Склеенный LAM внутри IGU
+   нельзя заново составить из первых свободных номеров его двух слоёв. */
+function skipAssemblyPieces(id,ctx){
+ const pieces=new Set([id]),asms=new Set();
+ for(const p of pieces)(ctx.scans.get(p)||[]).forEach(s=>{
+  if(!s.asm||asms.has(s.asm))return;asms.add(s.asm);
+  const group=(DB.stationScan||[]).filter(x=>!x.undoneAt&&x.asm===s.asm);
+  if(group.some(x=>(ctx.scans.get(x.piece)||[]).some(r=>r.broken)))return;
+  group.forEach(x=>pieces.add(x.piece));
+ });
+ return [...pieces];
 }
 /* Юнит — стёкла всех лайтов (у ламината — обе плиты). Сначала собранные
    юниты, потом начатые сборки, потом — из отдельных стёкол. first — стекло,
@@ -37077,9 +37185,15 @@ function skipLineUnits(o,l,want,ctx,first){
  const whole=a=>{const ids=[...a.lites.values()];return ids.every(id=>!ctx.used.has(id)&&skipPiece(id,ctx))?{lineId:l.id,pieces:ids}:null;};
  const asms=mu?stationAsms(o,l,mu,ctx.index).filter(a=>a.complete&&!a.broken):[];
  const build=start=>{
-  const u={lineId:l.id,pieces:[]},has=new Set(),add=x=>{if(!x||u.pieces.includes(x.id))return;u.pieces.push(x.id);has.add(x.g.c.key);skipOpenAsm(x.id,ctx).forEach(m=>{const y=skipPiece(m,ctx);if(y&&!ctx.used.has(y.id)&&!has.has(y.g.c.key)&&keys.includes(y.g.c.key)){u.pieces.push(y.id);has.add(y.g.c.key);}});};
-  if(start)add(start);
-  for(const k of keys){if(has.has(k))continue;const x=skipFree(o,l,k,ctx).find(x=>!u.pieces.includes(x.id)&&(typeof stationDrawingFits!=='function'||u.pieces.every(id=>{const h=ctx.index.get(id);return !h||stationDrawingFits(o,l,h,{key:k,unit:x.g.unit});})));if(!x)return null;add(x);}
+  const u={lineId:l.id,pieces:[]},has=new Set(),add=x=>{
+   const group=skipAssemblyPieces(x.id,ctx).filter(id=>!u.pieces.includes(id)).map(id=>skipPiece(id,ctx));
+   if(group.some(y=>!y||ctx.used.has(y.id)||has.has(y.g.c.key)||!keys.includes(y.g.c.key)))return false;
+   const picked=u.pieces.concat(group.map(y=>y.id)).map(id=>ctx.index.get(id));
+   if(picked.some((a,i)=>picked.slice(i+1).some(b=>a.key===b.key||!stationDrawingFits(o,l,a,b))))return false;
+   group.forEach(y=>{u.pieces.push(y.id);has.add(y.g.c.key);});return true;
+  };
+  if(start&&!add(start))return null;
+  for(const k of keys){if(has.has(k))continue;if(!skipFree(o,l,k,ctx).some(add))return null;}
   return keys.every(k=>has.has(k))?u:null;
  };
  if(first){
@@ -37098,7 +37212,9 @@ function skipPick(o,d,ctx){
   if(hit.kind==='unit'){
    const mu=stationUnitMerge(o,l),a=mu&&stationAsms(o,l,mu,ctx.index).find(x=>x.unit===hit.unit&&!x.broken);
    const ids=a?[...a.lites.values()]:[];if(!ids.length||ids.some(id=>ctx.used.has(id)||!skipPiece(id,ctx))){problems.push(code+' is not assembled or already shipped');return;}
-   ids.forEach(id=>ctx.used.add(id));units.push({lineId:l.id,pieces:ids});return;
+   const got=skipLineUnits(o,l,1,ctx,skipPiece(ids[0],ctx));
+   if(!got.length){problems.push(code+': no units left to skip');return;}
+   units.push(...got);return;
   }
   const x=!ctx.used.has(code)&&skipPiece(code,ctx);if(!x){problems.push(code+' is shipped, broken or already picked');return;}
   const got=skipLineUnits(o,l,1,ctx,x);if(!got.length){problems.push(code+': its other lites are not available');return;}
@@ -37161,6 +37277,8 @@ function skipCommand(d){
  shippingAssert(!pick.problems.length,pick.problems.join('. ')+'.');
  shippingAssert(pick.units.length||to===SKIP_PICKUP&&extras.length,'Choose what to skip.');
  shippingAssert(!extras.length||to===SKIP_PICKUP,'Stock items can only be picked up.');
+ const offRoute=pick.units.flatMap(u=>u.pieces).find(id=>!stationPlace(stationGlass(id)).route.includes(target));
+ shippingAssert(!offRoute,'Glass '+(offRoute||'')+' does not pass '+target+'. Choose a station on its route.');
  /* Skip есть всегда (владелец, 8.10.2026: «никаких ограничений… человеческий
     фактор в действии»): ни Hold, ни поздний скан его не останавливают. День —
     выбранный; время — после последнего скана этого стекла в тот же день
@@ -37174,6 +37292,7 @@ function skipCommand(d){
  /* «От создания заказа»: Skip сам себе Verify. */
  if(o.status==='new'){o.status='verified';o.statusDates=Object.assign({},o.statusDates,{verified:at});salesSyncRecordLifecycle(o);}
  skipRecord(pick.units,target,at,who,skip);
+ shippingAssert(to===SKIP_PICKUP||!!skip.actionId,'The selected glass has already passed '+target+'.');
  if(to===SKIP_PICKUP){
   /* Hold заказа, строк и юнитов не мешает выдаче Skip: снят на время
      выдачи и возвращён тем же (Undo Skip его не трогает). */
@@ -37206,13 +37325,18 @@ function skipUndo(id){
 function skipUndoCommand(id){
  const k=skipFind(id);shippingAssert(k&&!k.undoneAt,'Skip not found.');
  const o=salesRecord(k.orderId);shippingAssert(o,'Order not found.');
+ const group=(DB.stationScan||[]).filter(s=>k.actionId&&s.actionId===k.actionId&&!s.undoneAt),own=new Set(group.map(s=>s.id));
+ k.shipments.forEach(sid=>{const s=shippingFind(sid);if(s)(s.scanIds||[]).forEach(id=>own.add(id));});
+ /* День Skip может быть прошлым. Зависимость — порядок записи SC, а не
+    выбранная дата. Собственные сканы выдачи снимаются вместе с этим Skip. */
+ const later=group.find(r=>stationScansFor(r.piece).some(s=>!own.has(s.id)&&+s.id.slice(3)>+r.id.slice(3)));
+ const reserved=(DB.shipment||[]).find(s=>shippingActive(s)&&!k.shipments.includes(s.id)&&s.items.some(i=>i.pieces.some(p=>k.pieces.includes(p))));
+ shippingAssert(!later,'Glass '+(later?later.piece:'')+' has moved on. Undo the later scans first.');
+ shippingAssert(!reserved,'Glass is on a packing slip. Cancel the packing slip before Undo.');
  k.shipments.slice().reverse().forEach(sid=>{
   const s=shippingFind(sid);if(!s||s.status==='cancelled')return;
   [['delivered','receipt'],['shipped','dispatch'],['planned','cancel']].forEach(([st,action])=>{if(s.status!==st)return;const r=shippingRevert(s.id,action);shippingAssert(r.ok,r.error);});
  });
- const group=(DB.stationScan||[]).filter(s=>k.actionId&&s.actionId===k.actionId&&!s.undoneAt);
- const later=group.find(r=>stationScansFor(r.piece).some(s=>!group.includes(s)&&String(s.at)>=String(r.at)&&String(s.id)>String(r.id)));
- shippingAssert(!later,'Glass '+(later?later.piece:'')+' has moved on. Undo the later scans first.');
  const now=new Date().toISOString(),cut=stationCutCode(),who=orderLogActor();
  group.forEach(r=>{
   r.undoneAt=now;r.undoneBy=('Undo skip · '+(who.by||'Office')).slice(0,80);stationAsmReopen(r);
