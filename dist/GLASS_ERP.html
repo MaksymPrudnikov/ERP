@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 134 модулей, 20 стиля.
+  Состав сборки: 135 модулей, 20 стиля.
 -->
 <html lang="en">
 <head>
@@ -2883,6 +2883,9 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 .shipping-pills{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
 /* Готово, но без скида (7.10.2026): видно цветом — найти скид или разобраться. */
 .shipping-noskid{display:inline-block;margin:0 0 12px;padding:4px 10px;border-radius:8px;background:var(--warning-soft);color:var(--warning);font-weight:600}
+/* Километры рейса по карте Google (views/delivery, shipping/trip-km). */
+.delivery-km{display:inline-flex;align-items:center;gap:6px;margin-left:10px}
+.delivery-km b{font-variant-numeric:tabular-nums}
 
 /* ---- src/styles/reports.css ---- */
 /* =====================================================================
@@ -3125,7 +3128,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='d47aa2457482';
+var ERP_BUILD='fe8a1705f89d';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -36152,6 +36155,21 @@ function shippingLookupHTML(){
    Данные и команды — erp/shipping/delivery.
    ===================================================================== */
 let deliveryDate='',deliveryNotice='';
+/* Километры рейса по карте Google (shipping/trip-km): кнопка у машины, ключ
+   спрашивается один раз и хранится в этом браузере. */
+let deliveryKmBusy='';
+function deliveryKmHTML(date,t,stops){
+ if(!stops.length)return '';
+ const r=tripKmFind(date,t.id),stale=tripKmStale(r,stops),busy=deliveryKmBusy===date+'|'+t.id;
+ return `<span class="delivery-km" data-trip-km="${esc(t.id)}">${r?`<b>${chNum(r.km,1)} km</b>${stale?' <span class="mut">· stops changed</span>':''}`:''}<button type="button" class="sm" data-trip-km-run ${busy?'disabled':''} onclick="deliveryKmRun('${date}','${esc(t.id)}')">${busy?'Calculating…':r?'Recalculate km':'Calculate km'}</button>${tripKmKey()?`<button type="button" class="sm" title="Google Maps key in this browser" onclick="deliveryKmKey()">Key</button>`:''}</span>`;
+}
+function deliveryKmKey(){const k=prompt('Google Maps key (stays in this browser only):',tripKmKey());if(k!==null)tripKmSetKey(k);render();}
+async function deliveryKmRun(date,truckId){
+ if(!tripKmKey()){const k=prompt('Google Maps key (stays in this browser only):');if(!k)return;tripKmSetKey(k);}
+ deliveryKmBusy=date+'|'+truckId;deliveryNotice='';render();
+ try{await tripKmCalc(date,truckId);}catch(e){deliveryNotice=e.message||'Km not calculated.';}
+ deliveryKmBusy='';render();
+}
 function deliveryShownDate(){return shippingDateValid(deliveryDate)?deliveryDate:finToday();}
 function deliverySetDate(v){deliveryDate=shippingDateValid(v)?v:'';deliveryNotice='';render();}
 function deliveryRun(out){deliveryNotice=out.ok?'':out.error;render();}
@@ -36167,7 +36185,7 @@ function deliveryHTML(){
   const loads=stops.map(deliveryLoad),kg=loads.reduce((n,l)=>n+l.kg,0),exact=loads.every(l=>l.exact),skids=loads.reduce((n,l)=>n+l.skids.length,0),driver=deliveryDriver(date,t.id);
   const rows=stops.map((s,i)=>{const locked=s.status==='delivered',load=loads[i];
    return `<tr data-stop="${esc(s.number)}"><td>${i+1}</td><td><input type="time" aria-label="Departs ${esc(s.number)}" value="${esc(s.departAt||'')}" ${locked?'disabled':''} onchange="deliveryRun(deliverySetTime('${esc(s.id)}',this.value))"></td><td>${ps(s)}</td><td><b>${esc(salesCustomerDisplay(s.customerId))}</b></td><td>${address(s)}</td><td>${esc(load.skids.join(', '))||'<span class="mut">—</span>'}</td><td>${deliveryWeight(load)}</td><td>${status(s)}</td><td class="delivery-acts">${locked?'':`<button type="button" class="sm" aria-label="Move ${esc(s.number)} up" ${i?'':'disabled'} onclick="deliveryRun(deliveryMove('${esc(s.id)}',-1))">▲</button><button type="button" class="sm" aria-label="Move ${esc(s.number)} down" ${i<stops.length-1?'':'disabled'} onclick="deliveryRun(deliveryMove('${esc(s.id)}',1))">▼</button><button type="button" class="sm" aria-label="Take ${esc(s.number)} off the truck" onclick="deliveryRun(deliveryAssign('${esc(s.id)}',''))">×</button>`}</td></tr>`;}).join('');
-  return `<section class="card shipping-customer delivery-truck" data-truck="${esc(t.id)}"><div class="shipping-customer-head"><div><h3>${esc(t.name)}${t.active?'':' <span class="pill">inactive</span>'}</h3><span class="mut" data-truck-load>${shippingCount(stops.length,'stop')} · ${shippingCount(skids,'skid')} · ${(exact?'':'~')+docNum(kg,0)} kg</span></div><div class="sales-toolbar"><label>Driver<select aria-label="Driver ${esc(t.name)}" ${stops.length?'':'disabled'} onchange="deliveryRun(deliverySetDriver('${date}','${esc(t.id)}',this.value))"><option value="">Not set</option>${users.map(u=>`<option value="${esc(u.viewProfileId)}" ${driver&&driver.viewProfileId===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label>${stops.length?`<button type="button" class="sm" data-trip-sheet onclick="deliveryPrint('${date}','${esc(t.id)}',false)">Trip sheet</button><button type="button" class="sm" data-trip-packet onclick="deliveryPrint('${date}','${esc(t.id)}',true)">With packing slips</button>`:''}</div></div>${stops.length?`<div class="sales-table-wrap"><table class="sl-table delivery-table"><thead><tr><th>#</th><th>Departs</th><th>Packing slip</th><th>Customer</th><th>Address</th><th>Skids</th><th>Weight</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="mut">No stops</p>'}</section>`;
+  return `<section class="card shipping-customer delivery-truck" data-truck="${esc(t.id)}"><div class="shipping-customer-head"><div><h3>${esc(t.name)}${t.active?'':' <span class="pill">inactive</span>'}</h3><span class="mut" data-truck-load>${shippingCount(stops.length,'stop')} · ${shippingCount(skids,'skid')} · ${(exact?'':'~')+docNum(kg,0)} kg</span>${deliveryKmHTML(date,t,stops)}</div><div class="sales-toolbar"><label>Driver<select aria-label="Driver ${esc(t.name)}" ${stops.length?'':'disabled'} onchange="deliveryRun(deliverySetDriver('${date}','${esc(t.id)}',this.value))"><option value="">Not set</option>${users.map(u=>`<option value="${esc(u.viewProfileId)}" ${driver&&driver.viewProfileId===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label>${stops.length?`<button type="button" class="sm" data-trip-sheet onclick="deliveryPrint('${date}','${esc(t.id)}',false)">Trip sheet</button><button type="button" class="sm" data-trip-packet onclick="deliveryPrint('${date}','${esc(t.id)}',true)">With packing slips</button>`:''}</div></div>${stops.length?`<div class="sales-table-wrap"><table class="sl-table delivery-table"><thead><tr><th>#</th><th>Departs</th><th>Packing slip</th><th>Customer</th><th>Address</th><th>Skids</th><th>Weight</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="mut">No stops</p>'}</section>`;
  }).join('');
  const free=day.free.length?`<section class="card shipping-customer" data-delivery-free><h3>Not on a truck</h3><div class="sales-table-wrap"><table class="sl-table delivery-table"><thead><tr><th>Packing slip</th><th>Customer</th><th>Address</th><th>Skids</th><th>Weight</th><th>Status</th><th>Truck</th></tr></thead><tbody>${day.free.map(s=>{const load=deliveryLoad(s);return `<tr data-free="${esc(s.number)}"><td>${ps(s)}</td><td><b>${esc(salesCustomerDisplay(s.customerId))}</b></td><td>${address(s)}</td><td>${esc(load.skids.join(', '))||'<span class="mut">—</span>'}</td><td>${deliveryWeight(load)}</td><td>${status(s)}</td><td>${s.status==='delivered'?'':`<select aria-label="Truck for ${esc(s.number)}" onchange="deliveryRun(deliveryAssign('${esc(s.id)}',this.value))"><option value="">Choose truck</option>${active.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select>`}</td></tr>`;}).join('')}</tbody></table></div></section>`:'';
  const pickups=day.pickups.length?`<section class="card shipping-customer" data-delivery-pickups><h3>Pickups</h3><div class="sales-table-wrap"><table class="sl-table delivery-table"><thead><tr><th>Packing slip</th><th>Customer</th><th>Units</th><th>Status</th></tr></thead><tbody>${day.pickups.map(s=>`<tr class="delivery-pickup"><td>${ps(s)}</td><td><b>${esc(salesCustomerDisplay(s.customerId))}</b></td><td>${s.items.length}</td><td>${status(s)}</td></tr>`).join('')}</tbody></table></div></section>`:'';
@@ -37271,6 +37289,69 @@ function deliveryDay(date){
   free:all.filter(s=>s.method==='delivery'&&!truckFind(s.truckId)).sort((a,b)=>a.number.localeCompare(b.number)),pickups:all.filter(s=>s.method==='pickup').sort((a,b)=>a.number.localeCompare(b.number))};
 }
 
+/* ==== src/erp/shipping/trip-km.js ==== */
+/* =====================================================================
+   shipping/trip-km  ·  km-1.0
+   Километры рейса по карте Google: цех → остановки по порядку → цех.
+   IN : остановки машины на день (deliveryStops), адрес цеха (Master Data →
+        Company), ключ Google Maps (хранится только в этом браузере)
+   OUT: DB.tripKm [{key:'день|машина', km, stops:[PS], at}] — отчёты
+        доставки берут километры отсюда, без интернета
+
+   Владелец, 9 октября 2026: доставку «нужно считать количество поездок и
+   км от локации изначальной»; км — «по карте (Google)». Ключ — платный
+   ключ владельца в Google Cloud (Maps JavaScript API, Directions); в Export
+   JSON он не уходит. Остановки поменяли после расчёта — экран это
+   показывает, пересчёт одной кнопкой.
+   ===================================================================== */
+DEFAULT.tripKm=[];
+const TRIP_KM_KEY='glass_erp_gmaps_key';
+function tripKmKey(){try{return localStorage.getItem(TRIP_KM_KEY)||'';}catch(e){return '';}}
+function tripKmSetKey(v){try{const k=String(v||'').trim();if(k)localStorage.setItem(TRIP_KM_KEY,k);else localStorage.removeItem(TRIP_KM_KEY);}catch(e){}}
+function tripKmAddr(a){a=a||{};return [a.address1,a.address2,a.city,a.province,a.postalCode,a.country].map(x=>String(x||'').trim()).filter(Boolean).join(', ');}
+function tripKmOrigin(){const c=DB.company||{};return c.address1||c.city?tripKmAddr(c):'';}
+function tripKmFind(date,truckId){return (DB.tripKm||[]).find(r=>r&&r.key===date+'|'+truckId)||null;}
+function tripKmStale(r,stops){return !!r&&r.stops.join('|')!==stops.map(s=>s.number).join('|');}
+function normalizeTripKm(){
+ if(!Array.isArray(DB.tripKm))DB.tripKm=[];
+ const seen=new Set();
+ DB.tripKm=DB.tripKm.filter(r=>r&&typeof r==='object'&&typeof r.key==='string'&&/^\d{4}-\d{2}-\d{2}\|.+/.test(r.key)&&Number.isFinite(+r.km)&&+r.km>=0&&!seen.has(r.key)&&(seen.add(r.key),true))
+  .map(r=>({key:r.key.slice(0,140),km:Math.round(+r.km*10)/10,stops:(Array.isArray(r.stops)?r.stops:[]).map(x=>String(x).slice(0,20)).slice(0,60),at:String(r.at||'').slice(0,40)}));
+}
+/* Карта грузится только по кнопке: файл офлайновый, интернет нужен лишь
+   для расчёта. */
+let tripKmLoading=null;
+function tripKmMaps(){
+ if(window.google&&google.maps&&google.maps.DirectionsService)return Promise.resolve(google.maps);
+ const key=tripKmKey();if(!key)return Promise.reject(new Error('Enter the Google Maps key first.'));
+ if(tripKmLoading)return tripKmLoading;
+ tripKmLoading=new Promise((ok,no)=>{
+  const cb='tripKmReady'+Date.now(),s=document.createElement('script');
+  window[cb]=()=>{delete window[cb];ok(google.maps);};
+  s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key)+'&callback='+cb;s.async=true;
+  s.onerror=()=>{tripKmLoading=null;no(new Error('Google Maps did not load. Check the internet and the key.'));};
+  document.head.appendChild(s);
+ });
+ return tripKmLoading;
+}
+async function tripKmCalc(date,truckId){
+ const stops=deliveryStops(date,truckId),origin=tripKmOrigin();
+ if(!origin)throw new Error('Fill the company address in Master Data → Company.');
+ const addr=stops.map(s=>tripKmAddr(s.shipTo)).filter(Boolean);
+ if(!addr.length)throw new Error('No delivery addresses on this truck.');
+ const maps=await tripKmMaps();
+ const res=await new Promise((ok,no)=>new maps.DirectionsService().route({origin,destination:origin,waypoints:addr.map(a=>({location:a,stopover:true})),optimizeWaypoints:false,travelMode:'DRIVING'},
+  (r,status)=>status==='OK'&&r&&r.routes&&r.routes[0]?ok(r):no(new Error('Google could not build the route: '+status))));
+ const meters=(res.routes[0].legs||[]).reduce((n,l)=>n+(l&&l.distance&&+l.distance.value||0),0);
+ const out=storageCommand(()=>{
+  if(!Array.isArray(DB.tripKm))DB.tripKm=[];
+  const key=date+'|'+truckId,rec={key,km:Math.round(meters/100)/10,stops:stops.map(s=>s.number),at:new Date().toISOString()},i=DB.tripKm.findIndex(r=>r.key===key);
+  if(i<0)DB.tripKm.push(rec);else DB.tripKm[i]=rec;return rec;
+ });
+ if(!out.ok)throw new Error(out.error||'Not saved.');
+ return out.value;
+}
+
 /* ==== src/erp/shipping/skids.js ==== */
 /* Shipping · скиды у клиентов (PR 4, 6 октября 2026).
    IN : отправленные PS со способом Delivery (скиды в их составе) · DB.carrier
@@ -38131,7 +38212,7 @@ function repGlassWork(g,station){
      толщина — своё поле, по ней и так можно разбить. */
   works.push({key:x.row.key,label:x.row.label,op:String(x.row.label).replace(/ · [\d.]+ mm$/,''),unit:x.row.unit,qty,usd:x.rate==null?null:qty*x.rate});
  });
- return {area:area>0?area:null,mm:me.mm,heat:me.heat,unitType:lw.unitType,works};
+ return {area:area>0?area:null,mm:me.mm,heat:me.heat,unitType:lw.unitType,maker:repMaker(me.glassId),works};
 }
 
 /* День и час — по часам этого компьютера, как finToday. */
@@ -38145,10 +38226,15 @@ function repHour(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?-1:
    адрес), условия оплаты, тип клиента, срок; у строки — отметка, размер,
    фигура или прямоугольник. Заказ считается один раз на сборку фактов. */
 function repCustomerAddr(c){const list=c&&Array.isArray(c.addresses)?c.addresses:[];return list.find(a=>a&&a.isPrimary)||list.find(a=>a&&a.isInvoice)||list[0]||{};}
+function repCustomerInfo(id){const c=salesFindCustomer(id)||{},a=repCustomerAddr(c);return {rep:c.salesRep||'',city:a.city||'',province:a.province||'',ctype:c.customerType||''};}
 function repOrderInfo(o){
- const c=salesFindCustomer(o.customerId)||{},a=repCustomerAddr(c),t=typeof finTermsFor==='function'?finTermsFor(o)||{}:{};
- return {po:o.customerPo||'',rep:c.salesRep||'',city:a.city||'',province:a.province||'',terms:t.paymentMode==='credit'?'Credit':'Cash',ctype:c.customerType||'',due:o.dueDate||'',delivery:o.delivery==='delivery'?'Delivery':'Pickup'};
+ const t=typeof finTermsFor==='function'?finTermsFor(o)||{}:{};
+ return Object.assign(repCustomerInfo(o.customerId),{po:o.customerPo||'',terms:t.paymentMode==='credit'?'Credit':'Cash',due:o.dueDate||'',delivery:o.delivery==='delivery'?'Delivery':'Pickup'});
 }
+/* Размерная группа стекла по ft² одного стекла и производитель стекла из
+   каталога — для разреза «какие стёкла» (владелец: «анализа не бывает мало»). */
+function repSizeBand(ft2){return !(ft2>0)?'':ft2<10?'Under 10 ft²':ft2<30?'10–30 ft²':ft2<60?'30–60 ft²':'60 ft² and up';}
+function repMaker(glassId){const g=glassId&&glassProductById(glassId);return g&&g.manufacturer||'';}
 function repLineInfo(l){return {mark:l.mark||'',size:frac16((+l.width16||0)/16)+' × '+frac16((+l.height16||0)/16),shape:typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle'};}
 let repWorkCache={stamp:'',rows:null};
 let repWorkBuilds=0;
@@ -38172,7 +38258,7 @@ function repWorkFacts(){
    area:w.area,works:w.works,inches:sum('in'),workFt2:sum('ft²'),pcs:sum('pc'),
    usd:priced.length?priced.reduce((n,x)=>n+x.usd,0):null,unpriced:w.works.length-priced.length,
    asm:s.asm||'',unitDone:!!(s.unit||s.joined),asmDone:(s.unit||s.joined)&&s.asm?s.asm:'',manual:!!s.manual,confirmedAt:s.confirmedAt||'',
-   on:s.on||'',recut:g&&typeof g.unit==='string'?'Recut':'Original',...(g?oInfo(g.o):{}),...(g?lInfo(g.l):{})});
+   on:s.on||'',recut:g&&typeof g.unit==='string'?'Recut':'Original',sizeBand:repSizeBand(w.area),maker:w.maker||'',...(g?oInfo(g.o):{}),...(g?lInfo(g.l):{})});
  });
  repWorkCache={stamp,rows};
  return rows;
@@ -38185,7 +38271,8 @@ function repWorkFacts(){
    заказанное стекло, доставки, листы, время людей у станций.
    IN : DB (Recut, NCR, заказы, PS, раскрои), факты сканов (reports/facts)
    OUT: repBreakFacts · repOrderFacts · repOrderedFacts · repDeliveryFacts ·
-        repSheetFacts · repTimeFacts — массивы строк, кэш по метке данных
+        repSheetFacts · repTimeFacts · repQuoteFacts · repReceiptFacts ·
+        repBalanceFacts · repOffcutFacts — массивы строк, кэш по метке данных
    Правило: файл ничего не рисует. Каждая строка — одно событие или одна
    вещь; считает и группирует движок (reports/query).
    ===================================================================== */
@@ -38281,7 +38368,7 @@ function repOrderedFacts(){
    const shape=typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle';
    glassBatchComponents(o,l).filter(c=>!c.missing).forEach((c,i)=>{
     const info=stkGlassInfo(c.pane,c.index,c.ply);
-    rows.push({...repOrderInfo(o),...repLineInfo(l),id:o.id+'|'+l.id+'|'+c.key,at:o.createdAt||'',created:salesListIsoDay(o.createdAt),due:o.dueDate||'',order:o.businessNumber||'',customerId:o.customerId||'',
+    rows.push({...repOrderInfo(o),...repLineInfo(l),sizeBand:repSizeBand(per),maker:repMaker(c.glassId),id:o.id+'|'+l.id+'|'+c.key,at:o.createdAt||'',created:salesListIsoDay(o.createdAt),due:o.dueDate||'',order:o.businessNumber||'',customerId:o.customerId||'',
      status:salesStatusLabel(o),glass:c.glass,mm:info.mm||null,heat:info.heat||'Annealed',unitType,shape,glassN:live,area:live*per||null,units:i?0:live});
    });
   }));
@@ -38296,14 +38383,17 @@ function repOrderedFacts(){
 const REP_PS_STATUS={planned:'Planned',shipped:'Shipped',delivered:'Delivered'};
 let repDeliveryCache={stamp:'',rows:null};
 function repDeliveryFacts(){
- const stamp=(DB.shipment||[]).map(s=>s.id+s.status+s.date+(s.truckId||'')+(s.stop||'')+(s.items||[]).length).join(',')+'|'+(DB.truck||[]).length;
+ const stamp=(DB.shipment||[]).map(s=>s.id+s.status+s.date+(s.truckId||'')+(s.stop||'')+(s.items||[]).length).join(',')+'|'+(DB.truck||[]).length+'|'+JSON.stringify(DB.tripKm||[]);
  if(repDeliveryCache.stamp===stamp&&repDeliveryCache.rows)return repDeliveryCache.rows;
  const rows=shippingWithCtx(()=>(DB.shipment||[]).filter(s=>shippingActive(s)).map(s=>{
   const truck=s.method==='delivery'?truckFind(s.truckId):null,drv=s.driverId?(DB.user||[]).find(u=>u.viewProfileId===s.driverId):null;
   let load={skids:[],units:(s.items||[]).length,kg:null};try{load=deliveryLoad(s);}catch(e){}
+  /* Километры рейса — у первой остановки рейса: сумма по PS даёт километры. */
+  const first=truck&&deliveryStops(s.date,truck.id)[0],km=first&&first.id===s.id?(tripKmFind(s.date,truck.id)||{}).km:null;
   return {id:s.id,at:s.date,date:s.date,ps:s.number,method:s.method==='pickup'?'Pickup':'Delivery',status:s.status==='delivered'&&s.method==='pickup'?'Picked up':REP_PS_STATUS[s.status]||s.status,
    customerId:s.customerId||'',truck:truck?truck.name:'',driver:drv?drv.name:'',trip:truck?s.date+'|'+truck.id:'',units:load.units,skids:(load.skids||[]).length,kg:load.kg||null,
-   city:s.shipTo&&s.shipTo.city||'',stop:s.method==='delivery'&&s.stop?s.stop:null,depart:s.departAt?String(+String(s.departAt).slice(0,2))+':00':''};
+   city:s.shipTo&&s.shipTo.city||'',stop:s.method==='delivery'&&s.stop?s.stop:null,depart:s.departAt?String(+String(s.departAt).slice(0,2))+':00':'',
+   km:km==null?null:km,tripFirst:first&&first.id===s.id?1:0,kmDone:km==null?0:1};
  }));
  repDeliveryCache={stamp,rows};
  return rows;
@@ -38312,7 +38402,7 @@ function repDeliveryFacts(){
 /* Листы: батч × стекло × размер листа (журнал Optimization → Sheets). */
 function repSheetFacts(){
  return (typeof sheetUsageRows==='function'?sheetUsageRows():[]).map(r=>({id:r.batch+'|'+r.glass+'|'+(r.stock||r.w+'x'+r.h),at:r.built||'',built:salesListIsoDay(r.built),batch:r.batch,glass:r.glass,mm:r.mm||null,
-  size:(r.stock?r.stock+' · ':'')+frac16(r.w)+' × '+frac16(r.h)+'″',kind:r.stock?'Offcut':'Sheet',status:r.status,sheets:r.sheets,broken:r.broken,area:r.area,used:r.used,waste:r.net,keep:r.keep}));
+  size:(r.stock?r.stock+' · ':'')+frac16(r.w)+' × '+frac16(r.h)+'″',kind:r.stock?'Offcut':'Sheet',maker:(glassProductByCode(r.glass)||{}).manufacturer||'',status:r.status,sheets:r.sheets,broken:r.broken,area:r.area,used:r.used,waste:r.net,keep:r.keep}));
 }
 
 /* Время у станции: человек × день × станция — первый и последний скан.
@@ -38329,6 +38419,61 @@ function repTimeFacts(){
  const rows=[...m.values()].map(r=>{const hours=Math.max(0,(Date.parse(r.last)-Date.parse(r.first))/36e5),timed=hours>=0.5;return Object.assign(r,{at:r.first,hours,start:repHour(r.first),end:repHour(r.last),hoursTimed:timed?hours:0,glassTimed:timed?r.glassN:0});});
  repTimeCache={src,rows};
  return rows;
+}
+
+/* Квоты: строка на квоту со всеми ревизиями. Won — какая-то ревизия
+   выиграла; Expired — не выиграна и срок цены прошёл; иначе Sent или Not
+   sent. Сумма и ft² — по выигравшей ревизии, иначе по последней. */
+let repQuoteCache={stamp:'',rows:null};
+function repQuoteFacts(){
+ const today=finToday(),stamp=today+'|'+(DB.salesOrder||[]).filter(o=>o&&salesIsQuote(o)).map(o=>o.id+(o.updatedAt||'')+o.status).join(',');
+ if(repQuoteCache.stamp===stamp&&repQuoteCache.rows)return repQuoteCache.rows;
+ const groups=new Map();
+ (DB.salesOrder||[]).forEach(o=>{if(!o||!salesIsQuote(o))return;const g=salesQuoteGroupId(o);if(!groups.has(g))groups.set(g,[]);groups.get(g).push(o);});
+ const rows=[...groups.entries()].map(([g,ms])=>{
+  ms.sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0));
+  const base=ms.find(m=>!m.quoteRev)||ms[0],won=ms.find(m=>m.status==='won'),q=won||ms[ms.length-1],sent=ms.map(m=>m.sentAt||'').filter(Boolean).sort().pop()||'';
+  const valid=q.validUntil||'',state=won?'Won':valid&&valid<today?'Expired':sent?'Sent':'Not sent',t=finOrderTotals(q),lines=q.lines||[];
+  const units=lines.reduce((n,l)=>n+salesPositiveInt(l.qty,1),0),area=finWithOrder(q,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,q);return n+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0));
+  const value=t&&t.complete?t.grand:null,order=won&&won.wonOrderId?(salesRecord(won.wonOrderId)||{}).businessNumber||'':'';
+  return {...repOrderInfo(q),id:g,at:base.createdAt||'',created:salesListIsoDay(base.createdAt),sent:salesListIsoDay(sent),validUntil:valid,quote:salesQuoteBaseNumber(base),customerId:q.customerId||'',
+   state,won:won?1:0,one:1,revisions:ms.length,units,area:area||null,value,wonValue:won?value:0,order};
+ });
+ repQuoteCache={stamp,rows};
+ return rows;
+}
+
+/* Оплаты (только с Finance): квитанция — дата, клиент, способ, сумма,
+   сколько разнесено на заказы и сколько осталось на счёте. Отменённые не
+   считаются. */
+function repReceiptFacts(){
+ return (DB.receipt||[]).filter(r=>r&&!r.voided).map(r=>{
+  const applied=(r.allocations||[]).reduce((n,a)=>n+(+a.amount||0),0),m=FIN_METHODS.find(x=>x.k===r.method);
+  return {...repCustomerInfo(r.customerId),id:r.id,at:r.date,date:r.date,receipt:r.number,customerId:r.customerId||'',method:m?m.label:r.method,currency:r.currency||'CAD',
+   amount:r.amount,applied,onAccount:Math.max(0,r.amount-applied),orders:(r.allocations||[]).length};
+ });
+}
+
+/* Долги (только с Finance): заказ — сумма, оплачено, остаток, срок оплаты,
+   просрочка (как в Finance: finOrderFinancial). */
+const REP_BAL_STATUS={paid:'Paid',due:'Due',overpaid:'Overpaid',incomplete:'Not priced',review:'Review',empty:'Empty'};
+function repBalanceFacts(){
+ const today=finToday();
+ return (DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&o.status!=='cancelled').map(o=>{
+  let f=null;try{f=finOrderFinancial(o,today);}catch(e){return null;}
+  const b=f.b||{},billed=typeof finBillingDate==='function'?finBillingDate(o)||'':'',late=f.overdue>0;
+  return {...repOrderInfo(o),id:o.id,at:billed||o.createdAt||'',billed,due:f.dueOn||'',order:o.businessNumber||'',customerId:o.customerId||'',
+   status:late?'Overdue':REP_BAL_STATUS[b.status]||b.status||'',total:b.total,paid:b.paid,balance:b.balance,overdue:f.overdue||0,overdueN:late?1:0,
+   daysOverdue:late&&f.dueOn?Math.max(0,Math.round((Date.parse(today+'T12:00:00')-Date.parse(f.dueOn+'T12:00:00'))/864e5)):0};
+ }).filter(Boolean);
+}
+
+/* Остатки листа в стоке: лежит, ушёл в раскрой вместо листа или снят. */
+function repOffcutFacts(){
+ const used=new Set();
+ (DB.cutPlan||[]).forEach(p=>{if(!p||p.reset)return;(p.groups||[]).forEach(g=>(g.sheets||[]).forEach(s=>{const k=s.size&&s.size.key;if(/^S-/.test(k||''))used.add(k);}));});
+ return (DB.stockOffcut||[]).map(r=>({id:r.id,at:r.at,created:salesListIsoDay(r.at),offcut:r.id,glass:r.glass,mm:r.mm||null,maker:(glassProductByCode(r.glass)||{}).manufacturer||'',
+  size:frac16(Math.max(r.w,r.h))+' × '+frac16(Math.min(r.w,r.h))+'″',area:r.w&&r.h?r.w*r.h/144:null,batch:r.batch,status:r.status==='cancelled'?'Removed':used.has(r.id)?'Used':'In stock'}));
 }
 
 /* ==== src/erp/reports/sources.js ==== */
@@ -38365,7 +38510,8 @@ function repOrderFields(){
  return [REP_F.text('po','PO',r=>r.po||'—'),REP_F.dim('rep','Sales rep',r=>r.rep||'—'),REP_F.dim('city','City',r=>r.city||'—'),REP_F.dim('province','Province',r=>r.province||'—'),
   REP_F.dim('terms','Terms',r=>r.terms||'—'),REP_F.dim('ctype','Customer type',r=>r.ctype||'—')];
 }
-function repLineFields(){return [REP_F.text('mark','Line mark',r=>r.mark||'—'),REP_F.dim('size','Size',r=>r.size||'—'),REP_F.dim('shape','Shape',r=>r.shape||'—')];}
+function repLineFields(){return [REP_F.text('mark','Line mark',r=>r.mark||'—'),REP_F.dim('size','Size',r=>r.size||'—'),REP_F.dim('shape','Shape',r=>r.shape||'—'),
+ REP_F.dim('sizeBand','Size band',r=>r.sizeBand||'—'),REP_F.dim('maker','Manufacturer',r=>r.maker||'—')];}
 /* Поля, общие для сканов станций. */
 function repScanFields(person){
  return [REP_F.date('at','Scan time'),REP_F.dim('station','Station'),REP_F.dim('person',person||'Person',r=>r.person||'—'),
@@ -38401,7 +38547,7 @@ const REP_SRC={
  cutting:{label:'Cutting',group:'Production',hint:'Glass cut at CUT',rows:()=>repScansAt([stationCutCode()]),date:['at'],fields:()=>repScanFields('Cutter'),
   metrics:[{k:'count',label:'Glass cut',agg:'count'},{k:'area',label:'ft² cut',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'},{k:'batches',label:'Batches',agg:'distinct',f:'batch'}]},
  sheets:{label:'Sheets',group:'Production',hint:'Sheet sizes used and waste',rows:()=>repSheetFacts(),date:['at'],
-  fields:()=>[REP_F.date('at','Built'),REP_F.text('batch','Batch'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('size','Sheet size'),REP_F.dim('kind','Sheet or offcut'),REP_F.dim('status','Status'),
+  fields:()=>[REP_F.date('at','Built'),REP_F.text('batch','Batch'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('size','Sheet size'),REP_F.dim('kind','Sheet or offcut'),REP_F.dim('status','Status'),REP_F.dim('maker','Manufacturer',r=>r.maker||'—'),
    REP_F.num('sheets','Sheets'),REP_F.num('broken','Broken'),REP_F.num('area','Sheet ft²',{digits:1}),REP_F.num('used','Glass ft²',{digits:1}),REP_F.num('waste','Waste ft²',{digits:1}),REP_F.num('keep','To stock ft²',{digits:1})],
   metrics:[{k:'sheets',label:'Sheets',agg:'sum',f:'sheets'},{k:'area',label:'Sheet ft²',agg:'sum',f:'area',digits:1},{k:'used',label:'Glass ft²',agg:'sum',f:'used',digits:1},{k:'waste',label:'Waste ft²',agg:'sum',f:'waste',digits:1},
    {k:'yield',label:'Used %',agg:'ratio',num:'used',den:'area',pct:true,digits:1},{k:'broken',label:'Broken',agg:'sum',f:'broken'}]},
@@ -38420,8 +38566,9 @@ const REP_SRC={
  deliveries:{label:'Deliveries & pickups',group:'Shipping',hint:'Packing slips, trips, skids',rows:()=>repDeliveryFacts(),date:['at'],
   fields:()=>[REP_F.date('at','Date'),REP_F.dim('method','Method'),REP_F.dim('status','Status'),REP_F.dim('truck','Truck',r=>r.truck||'—'),REP_F.dim('driver','Driver',r=>r.driver||'—'),
    REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.text('ps','Packing slip'),REP_F.dim('city','City',r=>r.city||'—'),REP_F.dim('depart','Departs',r=>r.depart||'—'),
-   REP_F.num('stop','Stop #'),REP_F.num('units','Units'),REP_F.num('skids','Skids'),REP_F.num('kg','Weight kg')],
-  metrics:[{k:'count',label:'Packing slips',agg:'count'},{k:'trips',label:'Trips',agg:'distinct',f:'trip'},{k:'units',label:'Units',agg:'sum',f:'units'},{k:'skids',label:'Skids',agg:'sum',f:'skids'},{k:'kg',label:'Weight kg',agg:'sum',f:'kg'}]},
+   REP_F.num('stop','Stop #'),REP_F.num('units','Units'),REP_F.num('skids','Skids'),REP_F.num('kg','Weight kg'),REP_F.num('km','Km',{digits:1})],
+  metrics:[{k:'count',label:'Packing slips',agg:'count'},{k:'trips',label:'Trips',agg:'distinct',f:'trip'},{k:'units',label:'Units',agg:'sum',f:'units'},{k:'skids',label:'Skids',agg:'sum',f:'skids'},{k:'kg',label:'Weight kg',agg:'sum',f:'kg'},
+   {k:'km',label:'Km',agg:'sum',f:'km',digits:1},{k:'kmPerTrip',label:'Km per trip',agg:'ratio',num:'km',den:'kmDone',digits:1}]},
  orders:{label:'Orders & due dates',group:'Sales',hint:'On time, late, lead time',rows:()=>repOrderFacts(),date:['due','created','shipped'],
   fields:()=>[REP_F.date('due','Due'),REP_F.date('created','Created'),REP_F.date('shipped','Shipped'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
    REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery'),REP_F.dim('status','Status'),REP_F.dim('state','On time'),REP_F.dim('hold','On hold')]
@@ -38445,7 +38592,32 @@ const REP_SRC={
   metrics:[{k:'hours',label:'Hours',agg:'sum',f:'hours',digits:1},{k:'glassN',label:'Glass',agg:'sum',f:'glassN'},{k:'perHour',label:'Glass per hour',agg:'ratio',num:'glassTimed',den:'hoursTimed',digits:1},
    {k:'count',label:'Person-days',agg:'count'}]}
 };
-const REP_GROUPS=['Production','Shipping','Sales','Quality','People'];
+/* Источник с access виден только с этой галочкой в Users: деньги — Finance. */
+function repSourceAllowed(k){const S=REP_SRC[k];return !!S&&(!S.access||typeof accessCan!=='function'||accessCan(S.access));}
+Object.assign(REP_SRC,{
+ quotes:{label:'Quotes',group:'Sales',hint:'Won, sent, expired, value',rows:()=>repQuoteFacts(),date:['created','sent','validUntil'],
+  fields:()=>[REP_F.date('created','Created'),REP_F.date('sent','Sent'),REP_F.date('validUntil','Valid until'),REP_F.text('quote','Quote'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
+   REP_F.dim('state','Status'),REP_F.text('order','Won order',r=>r.order||'—')].concat(repOrderFields(),[REP_F.num('revisions','Revisions'),REP_F.num('units','Units'),REP_F.num('area','Area ft²',{digits:1}),
+   REP_F.num('value','Quote value',{money:true}),REP_F.num('wonValue','Won value',{money:true})]),
+  metrics:[{k:'count',label:'Quotes',agg:'count'},{k:'won',label:'Won',agg:'sum',f:'won'},{k:'winRate',label:'Win rate %',agg:'ratio',num:'won',den:'one',pct:true,digits:0},
+   {k:'value',label:'Quote value',agg:'sum',f:'value',money:true},{k:'wonValue',label:'Won value',agg:'sum',f:'wonValue',money:true},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1}]},
+ payments:{label:'Payments',group:'Finance',access:'finance',hint:'Receipts by date, customer, method',rows:()=>repReceiptFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Date'),REP_F.text('receipt','Receipt'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('method','Method'),REP_F.dim('currency','Currency'),
+   REP_F.dim('rep','Sales rep',r=>r.rep||'—'),REP_F.dim('city','City',r=>r.city||'—'),REP_F.dim('ctype','Customer type',r=>r.ctype||'—'),
+   REP_F.num('amount','Amount',{money:true}),REP_F.num('applied','Applied to orders',{money:true}),REP_F.num('onAccount','On account',{money:true}),REP_F.num('orders','Orders paid')],
+  metrics:[{k:'amount',label:'Amount',agg:'sum',f:'amount',money:true},{k:'count',label:'Receipts',agg:'count'},{k:'applied',label:'Applied to orders',agg:'sum',f:'applied',money:true},
+   {k:'onAccount',label:'On account',agg:'sum',f:'onAccount',money:true},{k:'customers',label:'Customers',agg:'distinct',f:'customer'}]},
+ balances:{label:'Balances & overdue',group:'Finance',access:'finance',hint:'What customers owe and how late',rows:()=>repBalanceFacts(),date:['due','billed'],
+  fields:()=>[REP_F.date('due','Payment due'),REP_F.date('billed','Billed'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('status','Status')]
+   .concat(repOrderFields(),[REP_F.num('total','Order total',{money:true}),REP_F.num('paid','Paid',{money:true}),REP_F.num('balance','Balance',{money:true}),REP_F.num('overdue','Overdue',{money:true}),REP_F.num('daysOverdue','Days overdue')]),
+  metrics:[{k:'balance',label:'Balance',agg:'sum',f:'balance',money:true},{k:'overdue',label:'Overdue',agg:'sum',f:'overdue',money:true},{k:'overdueN',label:'Overdue orders',agg:'sum',f:'overdueN'},
+   {k:'count',label:'Orders',agg:'count'},{k:'paid',label:'Paid',agg:'sum',f:'paid',money:true},{k:'total',label:'Order total',agg:'sum',f:'total',money:true}]},
+ offcuts:{label:'Offcuts in stock',group:'Production',hint:'Sheet offcuts kept, used, removed',rows:()=>repOffcutFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Booked'),REP_F.text('offcut','Offcut'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('maker','Manufacturer',r=>r.maker||'—'),
+   REP_F.dim('size','Size'),REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.dim('status','Status'),REP_F.num('area','Area ft²',{digits:1})],
+  metrics:[{k:'count',label:'Offcuts',agg:'count'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1}]}
+});
+const REP_GROUPS=['Production','Shipping','Sales','Finance','Quality','People'];
 
 /* ==== src/erp/reports/query.js ==== */
 /* =====================================================================
@@ -38747,7 +38919,7 @@ function repKeyText(S,d,k){return k==='__other'?'Other':repDimText(S,d,k);}
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=1;
+const REP_SEED_VERSION=2;
 /* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
 function repUid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();}
 function repMe(){const u=typeof signinUser==='function'?signinUser():null;return u?u.viewProfileId:'';}
@@ -38787,7 +38959,10 @@ function repClean(r){
 function normalizeReports(){
  if(!Array.isArray(DB.report))DB.report=[];
  const seen=new Set();DB.report=DB.report.filter(r=>r&&typeof r==='object').map(repClean).filter(r=>!seen.has(r.id)&&(seen.add(r.id),true));
- if(!(+DB.reportSeed>=REP_SEED_VERSION)){REP_STARTERS().forEach(r=>{if(!DB.report.some(x=>x.id===r.id))DB.report.push(repClean(r));});DB.reportSeed=REP_SEED_VERSION;}
+ /* Стартовые отчёты добавляются по версиям: база получает только новые
+    для себя — удалённый владельцем стартовый не возвращается. */
+ const seed=+DB.reportSeed||0;
+ if(seed<REP_SEED_VERSION){REP_STARTERS().filter(r=>(r.seed||1)>seed).forEach(r=>{if(!DB.report.some(x=>x.id===r.id))DB.report.push(repClean(r));});DB.reportSeed=REP_SEED_VERSION;}
 }
 function validateReportsPayload(src){
  if(src.report!=null&&!Array.isArray(src.report))throw new Error('The "report" field must be an array.');
@@ -38798,7 +38973,7 @@ function validateReportsPayload(src){
 /* Образцы по участкам — первые отчёты каталога. w(тип, источник, …). */
 function repW(type,source,o){o=o||{};return {type,title:o.title||'',width:o.width||'full',q:{source,date:o.date||{},dims:o.dims||[],metrics:o.metrics||[],filters:o.filters||[],sort:o.sort||null,limit:o.limit||0,other:!!o.other,compare:o.compare||''},opts:o.opts||{}};}
 function REP_STARTERS(){
- const R=(id,name,folder,date,controls,pages)=>({id:'RP-start-'+id,name,folder,ownerId:'',share:'all',date:{preset:date},controls,pages:pages.map((p,i)=>({id:'PG-start-'+id+'-'+i,name:p[0],widgets:p[1].map((w,j)=>Object.assign({id:'W-start-'+id+'-'+i+'-'+j},w))}))});
+ const R=(id,name,folder,date,controls,pages,seed)=>({id:'RP-start-'+id,name,folder,ownerId:'',share:'all',seed:seed||1,date:{preset:date},controls,pages:pages.map((p,i)=>({id:'PG-start-'+id+'-'+i,name:p[0],widgets:p[1].map((w,j)=>Object.assign({id:'W-start-'+id+'-'+i+'-'+j},w))}))});
  return [
   R('cut','Glass cut · by month','Production','thisYear',['glass','mm','person'],[
    ['Summary',[repW('number','cutting',{metrics:['count','area','batches'],compare:'year'}),repW('columns','cutting',{title:'Glass cut by month · thickness',dims:['at:month','mm'],metrics:['count']}),
@@ -38846,7 +39021,25 @@ function REP_STARTERS(){
    ['Summary',[repW('table','orders',{title:'Lead time, days',date:{f:'shipped'},dims:['customer'],metrics:['lead:avg','lead:max','count']})]]]),
   R('recuts','Recuts · by reason','Quality','last30',['station','reason','person'],[
    ['Summary',[repW('number','breaks',{metrics:['glassN','area','usd']}),repW('bars','breaks',{title:'By reason',dims:['reason'],metrics:['glassN'],width:'half'}),
-    repW('bars','breaks',{title:'By station',dims:['station'],metrics:['glassN'],width:'half'}),repW('columns','breaks',{title:'By week · kind',dims:['at:week','kind'],metrics:['glassN']})]]])
+    repW('bars','breaks',{title:'By station',dims:['station'],metrics:['glassN'],width:'half'}),repW('columns','breaks',{title:'By week · kind',dims:['at:week','kind'],metrics:['glassN']})]]]),
+  /* Версия 2 (10 октября 2026): квоты, оплаты, долги, остатки, размеры. */
+  R('quotes','Quotes · win rate by rep','Sales','thisQuarter',['rep','customer'],[
+   ['Summary',[repW('number','quotes',{date:{f:'created'},metrics:['count','won','winRate','wonValue']}),repW('table','quotes',{title:'By sales rep',date:{f:'created'},dims:['rep'],metrics:['count','won','winRate','value','wonValue']}),
+    repW('columns','quotes',{title:'Quotes by month · status',date:{f:'created'},dims:['created:month','state'],metrics:['count']})]]],2),
+  R('payments','Payments · by month','Finance','thisYear',['customer','method'],[
+   ['Summary',[repW('number','payments',{metrics:['amount','count','onAccount'],compare:'year'}),repW('columns','payments',{title:'Received by month',dims:['at:month'],metrics:['amount']}),
+    repW('pie','payments',{title:'By method',dims:['method'],metrics:['amount'],width:'half'}),repW('table','payments',{title:'Top customers',dims:['customer'],metrics:['amount','count'],limit:10,other:true,width:'half'})]]],2),
+  R('balances','Balances · overdue by customer','Finance','all',['customer','terms'],[
+   ['Summary',[repW('number','balances',{date:{f:'due'},metrics:['balance','overdue','overdueN']}),repW('table','balances',{title:'By customer',date:{f:'due'},dims:['customer'],metrics:['balance','overdue','overdueN','daysOverdue:max']}),
+    repW('bars','balances',{title:'Balance by status',date:{f:'due'},dims:['status'],metrics:['balance']})]]],2),
+  R('offcuts','Offcuts · stock by glass','Production','all',['glass','mm'],[
+   ['Summary',[repW('number','offcuts',{metrics:['count','area'],filters:[{f:'status',op:'in',v:['In stock']}]}),repW('table','offcuts',{title:'Glass × status',dims:['glass','status'],metrics:['count']})]]],2),
+  R('km','Deliveries · km by truck','Shipping','thisMonth',['truck','driver'],[
+   ['Summary',[repW('number','deliveries',{metrics:['km','trips','kmPerTrip'],compare:'prev'}),repW('table','deliveries',{title:'By truck',dims:['truck'],metrics:['km','trips','kmPerTrip','count','units']}),
+    repW('columns','deliveries',{title:'Km by week',dims:['at:week'],metrics:['km']})]]],2),
+  R('sizes','Glass by size band','Production','thisMonth',['station','glass'],[
+   ['Summary',[repW('bars','glass',{title:'Glass by size band',dims:['sizeBand'],metrics:['count'],width:'half'}),repW('pie','ordered',{title:'Ordered ft² by size band',date:{f:'created'},dims:['sizeBand'],metrics:['area'],width:'half'}),
+    repW('table','glass',{title:'Station × size band',dims:['station','sizeBand'],metrics:['count']})]]],2)
  ];
 }
 
@@ -39157,6 +39350,7 @@ function repTableHTML(r,S,res,w){
 function repParts(res,cls,k){return res.keys2.map(b=>({value:(res.cells.get(k+'\u0001'+b)||[])[0]||0,cls:cls.get(b)}));}
 function repLegend(S,res,cls){const d2=res.dims[1];return chartLegend(res.keys2.filter(b=>(res.colTotals.get(b)||[])[0]).map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b)})));}
 function repChart(r,w){
+ if(!repSourceAllowed(w.q.source))return '<div class="mut">Needs Finance access.</div>';
  const q=repWidgetQuery(r,w),res=repQuery(q,repCtx());if(!res)return '<div class="mut">Choose data.</div>';
  const S=REP_SRC[q.source],m=res.metrics[0],fmt=v=>repFmt(m,v),d1=res.dims[0],d2=res.dims[1];
  if(w.type==='number')return repNumbers(res);
@@ -39200,7 +39394,7 @@ function repWidgetCard(r,w,i,n){
 }
 
 /* ------------------------------ Фильтры отчёта ------------------------------ */
-function repSources(r){return [...new Set(r.pages.flatMap(p=>p.widgets.map(w=>w.q.source)))].map(k=>REP_SRC[k]).filter(Boolean);}
+function repSources(r){return [...new Set(r.pages.flatMap(p=>p.widgets.map(w=>w.q.source)))].filter(repSourceAllowed).map(k=>REP_SRC[k]);}
 function repControlFields(r){const m=new Map();repSources(r).forEach(S=>repFields(S).forEach(f=>{if(f.type==='dim'&&!m.has(f.k))m.set(f.k,f.label);}));return m;}
 function repControlValues(r,f){const set=new Set();repSources(r).forEach(S=>{if(repField(S,f))repFieldValues(S,f).forEach(v=>set.add(v));});return [...set].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));}
 function repControls(r){
@@ -39239,7 +39433,7 @@ function repSaveDefaults(){const r=repOpenReport();if(!r||repDraft)return;const 
 
 /* ------------------------------ Настройка графика ------------------------------ */
 function repOpt(list,cur,none){return (none?`<option value="">${esc(none)}</option>`:'')+list.map(([k,l])=>`<option value="${esc(k)}"${k===cur?' selected':''}>${esc(l)}</option>`).join('');}
-function repSrcOptions(cur){return REP_GROUPS.map(g=>`<optgroup label="${esc(g)}">${Object.keys(REP_SRC).filter(k=>REP_SRC[k].group===g).map(k=>`<option value="${k}"${k===cur?' selected':''}>${esc(REP_SRC[k].label)}</option>`).join('')}</optgroup>`).join('');}
+function repSrcOptions(cur){return REP_GROUPS.map(g=>`<optgroup label="${esc(g)}">${Object.keys(REP_SRC).filter(k=>REP_SRC[k].group===g&&(repSourceAllowed(k)||k===cur)).map(k=>`<option value="${k}"${k===cur?' selected':''}>${esc(REP_SRC[k].label)}</option>`).join('')}</optgroup>`).join('');}
 function repFilterRow(S,f,i){
  const fd=repField(S,f.f),ops=fd?REP_OPS[fd.type]||REP_OPS.text:REP_OPS.text,fields=repFields(S).map(x=>[x.k,x.label]);
  let val='';
@@ -39722,6 +39916,7 @@ function normalizeDB(){
  if(typeof normalizeTrucks==='function')normalizeTrucks();
  if(typeof normalizeSkidReturns==='function')normalizeSkidReturns();
  if(typeof normalizeReports==='function')normalizeReports();
+ if(typeof normalizeTripKm==='function')normalizeTripKm();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
