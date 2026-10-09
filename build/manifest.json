@@ -19,7 +19,8 @@
   "src/styles/cutting.css",
   "src/styles/station.css",
   "src/styles/theme.css",
-  "src/styles/shipping.css"
+  "src/styles/shipping.css",
+  "src/styles/reports.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -147,6 +148,9 @@
   "src/erp/views/skip-ui.js",
   "src/erp/shopfloor/production-unbatch.js",
   "src/erp/views/production-unbatch-ui.js",
+  "src/erp/reports/facts.js",
+  "src/erp/views/charts.js",
+  "src/erp/views/station-board.js",
   "src/erp/storage.js"
  ]
 }

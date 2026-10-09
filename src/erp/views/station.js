@@ -21,7 +21,7 @@ let stationSheetView=null; // какой лист показан: {batch, glass,
 let stationMenu=null;      // меню стекла на листе: {piece, x, y}
 let stationLoginNo='',stationLoginStep='no'; // вход: личный номер, затем PIN
 let stationPin='',stationPinError='';
-let stationTab='scan';      // CUT: scan | queue
+let stationTab='scan';      // scan | queue | board
 let stationIncoming='';    // долли, которая привезла стекло на эту станцию: её стопка справа
 let stationQuestions=[];   // пропущенная станция: вопрос ждёт ответа, работа не стоит
 let stationParkPending=[]; // IGU: вынутые из машины стёкла ждут скана долли, на которую их положили
@@ -456,8 +456,8 @@ function stationBatchChip(){
 }
 function stationTop(who){
  const s=stationRow();
- const tabs=who?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button></div>'+
-  (stationTab==='queue'?'<label class="st-topscan">'+ico('scan')+'<input data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
+ const tabs=who?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button><button type="button" class="'+(stationTab==='board'?'on':'')+'" data-station-tab="board" onclick="stationTab=\'board\';stationMenu=null;render()">Board</button></div>'+
+  (stationTab==='queue'||stationTab==='board'?'<label class="st-topscan">'+ico('scan')+'<input data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
  return '<div class="st-top"><div class="st-code">'+esc(stationCode)+'</div><div class="st-name">'+(s?sfLabel(s):'Unknown station')+'</div>'+tabs+'<span class="sp"></span>'+
   (who&&stationMergeCodes().includes(stationCode)?'<button type="button" class="st-chip st-autoprint'+(stationAutoPrintOn()?' on':'')+'" data-station-autoprint onclick="stationAutoPrintToggle()" title="Unit sticker when the last lite is scanned">Unit stickers <b>'+(stationAutoPrintOn()?'Auto':'By button')+'</b></button>':'')+
   (who&&stationQuestions.length?'<button type="button" class="st-chip st-ask-chip" data-station-questions onclick="stationShowQuestion()">'+stationQuestions.length+' to answer</button>':'')+
@@ -494,6 +494,8 @@ function viewStation(){
  if(stationCode===stationCutCode())stationSheetEnsure();
  const drawer=stationDrawer?(stationDrawer.kind==='recut'?stationRecutHTML():stationDrawer.kind==='batch'?stationBatchHTML():stationDrawer.kind==='draw'?stationDrawHTML():stationDrawer.kind==='dolly'?stationDollyHTML():stationDrawer.kind==='skid'?stationSkidHTML():stationSheetBreakHTML()):'';
  if(stationTab==='queue')return stationTop(who)+(stationCode===stationCutCode()?stationQueueView():stationFlowView())+drawer;
+ /* Board (view/station-board) считается только здесь, когда вкладка открыта. */
+ if(stationTab==='board')return stationTop(who)+stationBoardView(who)+drawer;
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+(stationIsShip()?stationShipJournal():stationJournal())+
