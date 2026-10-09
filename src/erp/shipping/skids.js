@@ -13,7 +13,7 @@
 DEFAULT.skidReturn=[];
 /* skidsOut пишет отгрузка: скиды, на которых после неё ничего не осталось.
    У PS, отправленных до 6.10.2026, поля нет — берём скиды из документа. */
-function skidCodes(s){return Array.isArray(s.skidsOut)?s.skidsOut:s.method!=='delivery'?[]:s.document?s.document.skids.map(k=>k.code):[...new Set((s.items||[]).map(i=>i.skid).filter(Boolean))];}
+function skidCodes(s){const codes=Array.isArray(s.skidsOut)?s.skidsOut:s.method!=='delivery'?[]:s.document?s.document.skids.map(k=>k.code):[...new Set((s.items||[]).map(i=>i.skid).filter(Boolean))];return s.unbatchedItems?.length?codes.filter(code=>s.items.some(i=>i.skid===code)):codes;}
 /* Скиды, которые сейчас у клиентов: код → {customerId, since, ps, psId}. */
 function skidsOut(){
  const out=new Map(),back=new Map();

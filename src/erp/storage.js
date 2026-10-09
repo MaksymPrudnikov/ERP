@@ -248,6 +248,7 @@ function validateImportedState(src){
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
  if(typeof validateRecutPayload==='function')validateRecutPayload(src);
  if(typeof validateSkipPayload==='function')validateSkipPayload(src);
+ if(typeof validateProductionUnbatchPayload==='function')validateProductionUnbatchPayload(src);
  if(typeof validateStickerPayload==='function')validateStickerPayload(src);
 
  if(typeof validateCuttingPayload==='function')validateCuttingPayload(src);
@@ -349,6 +350,7 @@ function normalizeDB(){
  if(typeof normalizeStationScans==='function')normalizeStationScans();
  if(typeof normalizeShipments==='function')normalizeShipments();
  if(typeof normalizeSkips==='function')normalizeSkips();
+ if(typeof normalizeProductionUnbatches==='function')normalizeProductionUnbatches();
  if(typeof normalizeTrucks==='function')normalizeTrucks();
  if(typeof normalizeSkidReturns==='function')normalizeSkidReturns();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();

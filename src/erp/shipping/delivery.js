@@ -72,8 +72,8 @@ function deliveryDriver(date,truckId){const s=deliveryStops(date,truckId).find(s
 /* Сколько везёт остановка: скиды, юниты и вес по тем же строкам, что на PS. */
 function deliveryLoad(s){
  const d=shippingDocument(s);let kg=0,exact=true;
- d.orders.forEach(o=>o.rows.forEach(r=>{if(!r.now)return;if(r.kg==null)exact=false;kg+=(r.kg==null?r.knownKg:r.kg)*r.now;}));
- return {skids:d.skids.map(k=>k.code),units:s.items.length,kg,exact};
+ d.orders.forEach(o=>o.rows.forEach(r=>{const qty=s.items.filter(i=>i.orderId===o.id&&i.lineId===r.lineId).length;if(!qty)return;if(r.kg==null)exact=false;kg+=(r.kg==null?r.knownKg:r.kg)*qty;}));
+ return {skids:skidCodes(s),units:s.items.length,kg,exact};
 }
 function deliveryDay(date){
  const all=(DB.shipment||[]).filter(s=>shippingActive(s)&&s.date===date);

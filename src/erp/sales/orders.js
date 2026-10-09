@@ -205,7 +205,18 @@ function salesOrderSaveCommand(opts){
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
  normalizeSalesData();if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
-function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(salesDeleteBlocked(DB.salesOrder[i]))return;if(salesIsQuote(DB.salesOrder[i])){salesQuoteDeleteGroup(DB.salesOrder[i]);return;}const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;if(!confirm(paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?'))return;if(typeof finReleaseOrder==='function')finReleaseOrder(id);DB.salesOrder.splice(i,1);salesPruneOrphanShapes();touch();render();}
+function salesOrderDelete(id){
+ const o=salesRecord(id);if(!o||salesDeleteBlocked(o))return false;
+ if(salesIsQuote(o)){salesQuoteDeleteGroup(o);return;}
+ const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;
+ if(!confirm(paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?'))return false;
+ const out=storageCommand(()=>{
+  const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0||salesDeleteBlocked(DB.salesOrder[i]))return false;
+  if(typeof finReleaseOrder==='function')finReleaseOrder(id);
+  DB.salesOrder.splice(i,1);salesPruneOrphanShapes();return true;
+ });
+ if(!out.ok)alert(out.error);render();return out.ok&&out.value;
+}
 
 function salesCurrentMakeup(){if(!soDraft)return null;let m=salesMakeupById(soDraft,soMakeupId);if(!m)m=soDraft.makeups[0]||null;if(m)soMakeupId=m.id;return m;}
 function salesSelectMakeup(id){if(salesMakeupById(soDraft,id)){soMakeupId=id;soOpenSectionKey='lite-0';render();}}

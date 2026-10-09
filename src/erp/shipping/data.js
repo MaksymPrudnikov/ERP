@@ -12,7 +12,8 @@ function shippingFind(id){return (DB.shipment||[]).find(s=>s.id===id||s.number==
 /* takes — заказы, чьё отменённое стекло клиент забирает с этим PS, когда
    юнитов этого заказа на нём нет (аудит Shipping, Д2). */
 function shippingOrderIds(s){return [...new Set((s.items||[]).concat(s.extras||[]).map(i=>i.orderId).concat(s.takes||[]))];}
-function shippingForOrder(id){return (DB.shipment||[]).filter(s=>shippingOrderIds(s).includes(id));}
+function shippingHistoryOrderIds(s){return [...new Set(shippingOrderIds(s).concat((s.unbatchedItems||[]).map(i=>i.orderId)))];}
+function shippingForOrder(id){return (DB.shipment||[]).filter(s=>shippingHistoryOrderIds(s).includes(id));}
 /* PS везёт юниты или товар заказа, а не только его отменённое стекло: дата
    выдачи заказа и начало Net — только по таким (аудит проделанной работы). */
 function shippingCarries(s,id){return (s.items||[]).concat(s.extras||[]).some(i=>i.orderId===id);}
@@ -118,8 +119,8 @@ function shippingBackCount(o){
 }
 function shippingPrintedPiece(piece){return (DB.shipment||[]).some(s=>shippingActive(s)&&s.printedAt&&(s.printedItems||s.items).some(i=>(i.pieces||[]).includes(piece)));}
 function shippingPrintedQty(o,l){return new Set(shippingForOrder(o.id).filter(s=>shippingActive(s)&&(s.printedAt||shippingSent(s))).flatMap(s=>s.printedItems||s.items).filter(i=>i.lineId===l.id).map(i=>i.unit)).size;}
-function shippingHasSent(o){return shippingLegacy(o)||shippingForOrder(o.id).some(shippingSent);}
-function shippingHasCommitment(o){return shippingForOrder(o.id).some(shippingActive);}
+function shippingHasSent(o){return shippingLegacy(o)||shippingForOrder(o.id).some(s=>shippingSent(s)&&shippingCarries(s,o.id));}
+function shippingHasCommitment(o){return shippingForOrder(o.id).some(s=>shippingActive(s)&&shippingCarries(s,o.id));}
 /* Recompute inside the caller's transaction, after the whole scan action.
    Creation/reservation never starts Net. Receipt of all stock items matters.
    A closed order stays closed unless its receipt is explicitly rolled back. */
@@ -146,6 +147,7 @@ function shippingSyncOrder(o,now,opts){
   else if((q.glass>0&&q.physicalReady===q.glass)||(salesStockOnly(o)&&old!=='new'))next='ready';
   else if(['ready','shipping','done','closed'].includes(old))next=(o.lines||[]).some(salesLineLocked)?'batched':'verified';
  }
+ if(o.productionUnbatchVerify){next='new';delete o.statusDates.done;delete o.statusDates.closed;}
  const last=q.ps.filter(s=>shippingSent(s)&&shippingCarries(s,o.id)).sort((a,b)=>a.shippedAt.localeCompare(b.shippedAt)).pop();o.fulfilledVia=last?last.method:'';
  if(next!=='ready'&&!q.shipped)delete o.statusDates.ready;
  if(next==='ready'&&!o.statusDates.ready)o.statusDates.ready=now;
@@ -155,7 +157,7 @@ function shippingSyncOrder(o,now,opts){
 function shippingSyncOrders(ids,now,opts){[...new Set(ids)].forEach(id=>shippingSyncOrder(salesRecord(id),now,opts));}
 function shippingSaveGuard(draft,saved){
  if(!saved)return '';
- const ps=shippingForOrder(saved.id).filter(shippingActive);if(!ps.length)return '';
+ const ps=shippingForOrder(saved.id).filter(s=>shippingActive(s)&&shippingCarries(s,saved.id));if(!ps.length)return '';
  if(saved.customerId!==draft.customerId)return 'This order has packing slips. Its customer cannot change.';
  for(const l of saved.lines||[]){if(!ps.some(s=>s.items.some(i=>i.lineId===l.id)))continue;
   const n=draft.lines.find(x=>x.id===l.id);if(!n||salesLockedLineSnapshot(draft,n)!==salesLockedLineSnapshot(saved,l))return 'Glass on a packing slip cannot change. Cancel the planned packing slip first.';

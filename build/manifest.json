@@ -145,6 +145,8 @@
   "src/erp/shipping/print.js",
   "src/erp/shopfloor/skip.js",
   "src/erp/views/skip-ui.js",
+  "src/erp/shopfloor/production-unbatch.js",
+  "src/erp/views/production-unbatch-ui.js",
   "src/erp/storage.js"
  ]
 }

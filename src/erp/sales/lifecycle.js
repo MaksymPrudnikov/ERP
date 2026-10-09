@@ -39,7 +39,7 @@ function salesLifecycleFields(o){
  const q=kind==='quote',rev=Math.floor(Number(o.quoteRev));
  const batchNo=!q?salesBatchNumber(o.batchNo):'',batchHistory=q?[]:[...new Set((Array.isArray(o.batchHistory)?o.batchHistory:[]).map(salesBatchNumber).filter(Boolean).concat(batchNo?[batchNo]:[]))];
  const unbatchHistory=!q&&Array.isArray(o.unbatchHistory)?o.unbatchHistory.filter(x=>x&&typeof x==='object'&&typeof x.at==='string').map(x=>({at:x.at,batchNumbers:[...new Set((Array.isArray(x.batchNumbers)?x.batchNumbers:[]).map(salesBatchNumber).filter(Boolean))],lineIds:[...new Set((Array.isArray(x.lineIds)?x.lineIds:[]).map(salesRefId).filter(Boolean))]})):[];
- return {kind,status,statusDates,batchNo,batchHistory,unbatchHistory,fulfilledVia:!q&&['shipping','done','closed'].includes(status)?(['pickup','delivery'].includes(o.fulfilledVia)?o.fulfilledVia:o.delivery==='delivery'?'delivery':'pickup'):'',fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
+ return {kind,status,statusDates,batchNo,batchHistory,unbatchHistory,productionUnbatchVerify:!q&&o.productionUnbatchVerify===true,fulfilledVia:!q&&['shipping','done','closed'].includes(status)?(['pickup','delivery'].includes(o.fulfilledVia)?o.fulfilledVia:o.delivery==='delivery'?'delivery':'pickup'):'',fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
   quoteGroupId:q?salesRefId(o.quoteGroupId):'',quoteRev:q&&Number.isFinite(rev)&&rev>0&&rev<1000?rev:0,
   sentAt:q?salesString(o.sentAt):'',validUntil:q&&/^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil||''))?String(o.validUntil):'',
   /* On Hold заказа (views/sales-list-ui): пока стоит, заказ не верифицируется и не уходит в батч. */
@@ -171,7 +171,7 @@ function salesStartedViolations(draft,saved){
 }
 function salesDeleteBlocked(o){
  if(!o)return false;
- if(typeof shippingForOrder==='function'&&shippingForOrder(o.id).length){alert('This order has packing slips and cannot be deleted.');return true;}
+ if(typeof shippingForOrder==='function'&&shippingForOrder(o.id).some(s=>shippingOrderIds(s).includes(o.id))){alert('This order has packing slips and cannot be deleted.');return true;}
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
  const ncr=(DB.ncr||[]).find(n=>n.orderId===o.id||n.remakeOrderId===o.id)||((DB.recut||[]).some(r=>r.orderId===o.id)?{number:'a recut'}:null);
  if(!salesIsQuote(o)&&ncr){alert('Order '+(o.businessNumber||'')+' is linked to '+ncr.number+'. Cancel it instead of deleting.');return true;}
@@ -278,7 +278,7 @@ function salesRecordTransitionAllowed(o,next,opts){
 }
 function salesSyncRecordLifecycle(o){
  if(!soDraft||soDraft.id!==o.id)return;
- ['status','batchNo','fulfilledVia','updatedAt'].forEach(k=>{soDraft[k]=o[k];});
+ ['status','batchNo','fulfilledVia','updatedAt','productionUnbatchVerify'].forEach(k=>{soDraft[k]=o[k];});
  soDraft.statusDates=Object.assign({},o.statusDates);soDraft.batchHistory=(o.batchHistory||[]).slice();soDraft.unbatchHistory=JSON.parse(JSON.stringify(o.unbatchHistory||[]));
  soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';if(saved.shipQueue)l.shipQueue=saved.shipQueue;else delete l.shipQueue;
   ['heldUnits','cancelledUnits'].forEach(k=>{if(saved[k]!=null)l[k]=JSON.parse(JSON.stringify(saved[k]));else delete l[k];});}});
@@ -291,7 +291,7 @@ function salesSetRecordStatus(orderId,next,opts){
 function salesSetRecordStatusCommand(orderId,next,opts){
  opts=opts||{};const o=salesRecord(orderId);
  if(!salesRecordTransitionAllowed(o,next,opts))return false;
- const now=opts.now||new Date().toISOString();
+ const now=opts.now||new Date().toISOString(),unbatchVerify=o.productionUnbatchVerify===true;
  /* Батч заказа целиком: все свободные стёкла без Hold одним номером.
     Проверка до записи — неудача не оставляет дат и статуса. Номера стёкол
     выдаются при сохранении заказа; перед батчем недостающие добавляются. */
@@ -310,8 +310,8 @@ function salesSetRecordStatusCommand(orderId,next,opts){
  }
  if(next==='done'&&!opts.back)o.fulfilledVia=opts.delivery==='delivery'?'delivery':opts.delivery==='pickup'?'pickup':o.delivery;
  o.status=next;o.updatedAt=now;
- if(next==='verified'&&!opts.back)glassPieceEnsure(o);
- if(next==='verified'&&salesStockOnly(o)||next==='batched'&&shippingHasSent(o))shippingSyncOrder(o,now);
+ if(next==='verified'&&!opts.back){o.productionUnbatchVerify=false;glassPieceEnsure(o);}
+ if(next==='verified'&&(salesStockOnly(o)||unbatchVerify)||next==='batched'&&shippingHasSent(o))shippingSyncOrder(o,now);
  if(next==='cancelled'){o.fulfilledVia='';finReleaseOrder(o.id);}
  salesSyncRecordLifecycle(o);
  if(!opts.deferTouch)touch();
