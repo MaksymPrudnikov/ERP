@@ -175,3 +175,26 @@
 .rep-print .rep-w{box-shadow:none;border:1px solid var(--line);padding:10px 12px}
 .rep-print .ch-track>i,.rep-print .ch-col-bar>i,.rep-print .ch-stack i,.rep-print .ch-hstack i,.rep-print .ch-legend i,.rep-print .ch-track,.rep-print .ch-seg,.rep-print .ch-l{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 @media print{.rep-print .rep-w,.rep-print .ch-stats{break-inside:avoid}.rep-print .sales-table-wrap{overflow:visible;max-height:none}}
+/* Компактнее (владелец: «как Google Analytics, только текст можно поменьше»). */
+.rep-app{font-size:12.5px}
+.rep-app button,.rep-app select,.rep-app input{font-size:12.5px}
+.rep-app .sl-table{font-size:12.5px}
+.rep-app .sl-table th,.rep-app .sl-table td{padding:6px 10px}
+.rep-app .ch-stat{padding:8px 11px}
+.rep-app .ch-stat b{font-size:20px}
+.rep-app .ch-stat span,.rep-app .ch-stat small{font-size:11.5px}
+.rep-app .ch-hbars,.rep-app .ch-grid{font-size:12px}
+.rep-app .ch-legend{font-size:11.5px}
+.rep-app .tabs button{font-size:12.5px}
+.rep-app .sl-quiet{font-size:12.5px;padding:5px 10px}
+.rep-cat-head h3,.rep-setup-head h3{font-size:14px}
+.rep-title{font-size:16px}
+.rep-wh h3{font-size:13px}
+.rep-wh .mut{font-size:11.5px}
+.rep-item{padding:6px 8px}
+.rep-item b{font-size:12.5px}
+.rep-item small{font-size:11px}
+.rep-folder{padding:5px 8px}
+.rep-setup h5{font-size:10.5px;margin:12px 0 5px}
+.rep-setup select,.rep-setup input[type=text],.rep-setup input[type=number],.rep-setup input[type=date]{padding:5px 8px}
+.rep-types button{font-size:12px;padding:6px 4px}

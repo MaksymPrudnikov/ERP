@@ -3,7 +3,7 @@
    Отчёты конструктора: хранение, права, стартовые отчёты, команды.
    IN : DB.report, вошедший человек (erp/signin), REP_SRC
    OUT: DB.report — [{id, name, folder, ownerId, share, controls, date,
-        pages:[{id, name, widgets:[{id, type, title, width, q, opts}]}]}]
+        filters, pages:[{id, name, widgets:[{id, type, title, width, q, opts}]}]}]
 
    Владелец, 9 октября 2026: «модуль отчётов не хуже Looker Studio или
    Tableau», «а если я хочу 10 или 50 разных заготовленных отчётов для
@@ -11,7 +11,8 @@
    сразу вываливаться блоком». Отчёт — страницы и графики в своём порядке;
    у графика свой источник, тип и настройки (reports/query).
    Кто правит: автор и администратор (Users); остальные смотрят и берут
-   копию. share: 'all' — всем с Reports, 'me' — только автору, [id] — кому.
+   копию. Правка идёт в черновике и записывается кнопкой Save (владелец:
+   «вижу Edit, Copy, Print, но не вижу сохранить»); Cancel — как было. share: 'all' — всем с Reports, 'me' — только автору, [id] — кому.
    Стартовые отчёты — обычные, их можно править и удалять.
    ===================================================================== */
 DEFAULT.report=[];
@@ -46,11 +47,12 @@ function repCleanWidget(w){
 function repClean(r){
  r=r&&typeof r==='object'?r:{};
  const pages=(Array.isArray(r.pages)?r.pages:[]).filter(p=>p&&typeof p==='object').slice(0,20).map(p=>({id:repStr(p.id,80)||repUid('PG'),name:repStr(p.name,60)||'Page',widgets:(Array.isArray(p.widgets)?p.widgets:[]).slice(0,40).map(repCleanWidget)}));
- const d=r.date&&typeof r.date==='object'?r.date:{};
+ const d=r.date&&typeof r.date==='object'?r.date:{},fl=r.filters&&typeof r.filters==='object'&&!Array.isArray(r.filters)?r.filters:{},filters={};
+ Object.keys(fl).slice(0,20).forEach(k=>{if(Array.isArray(fl[k])&&fl[k].length)filters[repStr(k,40)]=fl[k].map(x=>repStr(x,120)).slice(0,200);});
  return {id:repStr(r.id,80)||repUid('RP'),name:repStr(r.name,120)||'Untitled report',folder:repStr(r.folder,60),note:repStr(r.note,500),ownerId:repStr(r.ownerId,80),
   share:r.share==='all'||r.share==='me'?r.share:Array.isArray(r.share)?r.share.map(x=>repStr(x,80)).slice(0,200):'me',
   controls:(Array.isArray(r.controls)?r.controls:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,10),
-  date:{preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'thisMonth',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},
+  date:{preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'thisMonth',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},filters,
   pages:pages.length?pages:[{id:repUid('PG'),name:'Page 1',widgets:[]}],createdAt:repStr(r.createdAt,40),updatedAt:repStr(r.updatedAt,40)};
 }
 function normalizeReports(){
@@ -126,13 +128,17 @@ function repWrite(fn){
  return out.ok?out.value:null;
 }
 function repTouch(r){r.updatedAt=new Date().toISOString();}
-function repCreate(folder){
- return repWrite(()=>{const r=repClean({name:'New report',folder:folder||'',ownerId:repMe(),share:'me',createdAt:new Date().toISOString(),date:{preset:'thisMonth'},pages:[{name:'Page 1',widgets:[repW('table','glass',{dims:['station'],metrics:['count']})]}]});repTouch(r);DB.report.push(r);return r;});
+/* Новый отчёт и копия — черновики: в базе они появятся по Save. */
+function repBlank(folder){return repClean({name:'New report',folder:folder||'',ownerId:repMe(),share:'me',createdAt:new Date().toISOString(),date:{preset:'thisMonth'},pages:[{name:'Page 1',widgets:[repW('table','glass',{dims:['station'],metrics:['count']})]}]});}
+function repCopyOf(src){
+ const r=repClean(JSON.parse(JSON.stringify(src)));r.id=repUid('RP');r.name=(src.name+' · copy').slice(0,120);r.ownerId=repMe();r.share='me';r.createdAt=new Date().toISOString();
+ r.pages.forEach(p=>{p.id=repUid('PG');p.widgets.forEach(w=>{w.id=repUid('W');});});return r;
 }
-function repCopy(id){
- const src=repFind(id);if(!src)return null;
- return repWrite(()=>{const r=repClean(JSON.parse(JSON.stringify(src)));r.id=repUid('RP');r.name=(src.name+' · copy').slice(0,120);r.ownerId=repMe();r.share='me';r.createdAt=new Date().toISOString();
-  r.pages.forEach(p=>{p.id=repUid('PG');p.widgets.forEach(w=>{w.id=repUid('W');});});repTouch(r);DB.report.push(r);return r;});
+/* Записать черновик: свой новый отчёт — любому с Reports, существующий —
+   автору и администратору. */
+function repSave(draft){
+ const was=draft&&repFind(draft.id);if(!draft||(was?!repCanEdit(was):!(repIsAdmin()||draft.ownerId===repMe())))return null;
+ return repWrite(()=>{const c=repClean(JSON.parse(JSON.stringify(draft)));repTouch(c);const i=DB.report.findIndex(x=>x.id===c.id);if(i<0)DB.report.push(c);else DB.report[i]=c;return c;});
 }
 function repDelete(id){const r=repFind(id);if(!repCanEdit(r))return false;return repWrite(()=>{DB.report=DB.report.filter(x=>x.id!==id);return true;});}
 /* Правка отчёта одной командой: fn меняет отчёт, потом чистка и время. */

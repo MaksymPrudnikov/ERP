@@ -28,13 +28,15 @@ module.exports=async function({page,eq,ok}){
   document.querySelectorAll('[data-rep-page]')[1].click();return {found,p1,pages,p2:rpWidgets()};
  }),{found:['Glass cut · by month'],p1:['number','columns','table'],pages:['Summary','By cutter'],p2:['table','columns']});
 
- eq('Edit: тип графика меняется одной кнопкой (как в Looker), настройки сохраняются в отчёте; Copy — своя копия только для себя',await t.p.evaluate(()=>{
-  rpScans();rpOpenTab();repOpen('RP-start-edge');repEditToggle();const w=repFind('RP-start-edge').pages[0].widgets[0];repSelectWidget(w.id);
-  document.querySelector('[data-rep-type-btn="columns"]').click();const saved=repFind('RP-start-edge').pages[0].widgets[0].type;
-  document.querySelector('[data-rep-type-btn="pie"]').click();const pie=!!document.querySelector(`[data-rep-widget="${w.id}"] .ch-pie`);
-  repEditToggle();repCopyOpen();const copy=repOpenReport();
-  return {saved,pie,copy:{name:copy.name,share:copy.share,own:copy.id!=='RP-start-edge',editing:repEditOn,pages:copy.pages.length}};
- }),{saved:'columns',pie:true,copy:{name:'Edgework · by operation · copy',share:'me',own:true,editing:true,pages:1}});
+ eq('Edit — черновик: тип графика меняется одной кнопкой, в базу — только по Save; Cancel возвращает; Copy — своя копия только для себя, в базе после Save',await t.p.evaluate(()=>{
+  rpScans();rpOpenTab();repOpen('RP-start-edge');repEditToggle();const w=repOpenReport().pages[0].widgets[0];repSelectWidget(w.id);
+  document.querySelector('[data-rep-type-btn="columns"]').click();const draft=repOpenReport().pages[0].widgets[0].type,before=repFind('RP-start-edge').pages[0].widgets[0].type,unsaved=!!document.querySelector('[data-rep-unsaved]');
+  document.querySelector('[data-rep-save]').click();const saved=repFind('RP-start-edge').pages[0].widgets[0].type,editing=repEditOn;
+  repEditToggle();repSelectWidget(w.id);document.querySelector('[data-rep-type-btn="pie"]').click();const pie=!!document.querySelector(`[data-rep-widget="${w.id}"] .ch-pie`);
+  document.querySelector('[data-rep-cancel]').click();const cancelled=repFind('RP-start-edge').pages[0].widgets[0].type;
+  repCopyOpen();const copy=repOpenReport(),inDb=!!repFind(copy.id);repSaveEdit();
+  return {draft,before,unsaved,saved,editing,pie,cancelled,copy:{name:copy.name,share:copy.share,own:copy.id!=='RP-start-edge',inDb,afterSave:!!repFind(copy.id),editing:repEditOn}};
+ }),{draft:'columns',before:'bars',unsaved:true,saved:'columns',editing:false,pie:true,cancelled:'columns',copy:{name:'Edgework · by operation · copy',share:'me',own:true,inDb:false,afterSave:true,editing:false}});
 
  eq('Новый отчёт: источник Tempering по толщине, метрики стекло и ft²; свой фильтр; период графика свой или отчёта',await t.p.evaluate(()=>{
   rpScans();const ids=rbIds(DB.salesOrder[0].id),who={id:'u3',name:'Oleg'};ids.forEach(p=>rbGo('HEAT',p,who));
@@ -42,9 +44,9 @@ module.exports=async function({page,eq,ok}){
   repSetW('type','table');repSetSource('tempering');repSetDim(0,'mm');repSetMetric(0,'count');repAddMetric();repSetMetric(1,'area');
   const cells=()=>[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] tbody tr`)].map(tr=>[...tr.children].map(td=>td.textContent.trim()).join('|'));
   const before=cells();repAddFilter();repSetFilter(0,'f','mm');repSetFilter(0,'op','notIn');repFilterAddVal(0,'6 mm');const filtered=cells();
-  repDelFilter(0);repSetDateUse('lastYear');const lastYear=cells();repSetDateUse('report');
-  return {name:r.name,before,filtered,lastYear,after:cells(),stored:repFind(r.id).pages[0].widgets[0].q.metrics};
- }),{name:'New report',before:['6 mm|2|36.5'],filtered:[],lastYear:[],after:['6 mm|2|36.5'],stored:['count','area']});
+  repDelFilter(0);repSetDateUse('lastYear');const lastYear=cells();repSetDateUse('report');const after=cells(),notYet=!repFind(r.id);repSaveEdit();
+  return {name:r.name,before,filtered,lastYear,after,notYet,stored:repFind(r.id).pages[0].widgets[0].q.metrics};
+ }),{name:'New report',before:['6 mm|2|36.5'],filtered:[],lastYear:[],after:['6 mm|2|36.5'],notYet:true,stored:['count','area']});
 
  eq('Фильтры отчёта: значение в Station действует на все графики с этим полем; нажатие на строку ставит фильтр; Reset снимает',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repOpen('RP-start-people');const num=()=>[...document.querySelectorAll('[data-rep-widget] tbody tr')].length;
@@ -54,6 +56,12 @@ module.exports=async function({page,eq,ok}){
   repResetView();return {before,ctl,rows,picked:JSON.stringify(picked),after:num()};
  }),{before:4,ctl:'Station: POLISH',rows:1,picked:'{"person":["Andrei"]}',after:4});
 
+ eq('Save as default: свой период и фильтры становятся периодом и фильтрами отчёта; Reset после этого возвращает уже их',await t.p.evaluate(()=>{
+  rpScans();rpOpenTab();repOpen('RP-start-people');repOpenCtl(null,'station');repCtlToggle('POLISH',true);repCtlApply();repSetViewDate({preset:'last30'});
+  document.querySelector('[data-rep-save-view]').click();const r=repFind('RP-start-people');
+  return {filters:JSON.stringify(r.filters),date:r.date.preset,view:JSON.stringify(repView(r.id)),ctl:document.querySelector('[data-rep-ctl="station"]').textContent.replace('▾','').trim(),reset:!!document.querySelector('[data-rep-reset]')};
+ }),{filters:'{"station":["POLISH"]}',date:'last30',view:'{}',ctl:'Station: POLISH',reset:false});
+
  eq('Права: стартовый отчёт правит только администратор, остальным — Copy; свою копию человек правит',await t.p.evaluate(()=>{
   rpScans();const oldA=window.accessCan,oldU=window.signinUser;window.accessCan=k=>k!=='users';window.signinUser=()=>({viewProfileId:'U-anna',name:'Anna'});
   try{rpOpenTab();repOpen('RP-start-cut');const editBtn=!!document.querySelector('[data-rep-edit]'),can=repCanEdit(repFind('RP-start-cut'));
@@ -62,7 +70,7 @@ module.exports=async function({page,eq,ok}){
  }),{editBtn:false,can:false,copyOwner:'U-anna',canCopy:true,visibleToOthers:'me'});
 
  eq('Export / Import JSON: отчёты уезжают с базой; битое поле report при импорте отклоняется',await t.p.evaluate(()=>{
-  rpScans();rpOpenTab();repNew();repSetMeta('name','Owner · weekly');const json=JSON.parse(JSON.stringify(DB));
+  rpScans();rpOpenTab();repNew();repSetMeta('name','Owner · weekly');repSaveEdit();const json=JSON.parse(JSON.stringify(DB));
   let bad='';try{validateImportedState(Object.assign({},json,{report:{}}));}catch(e){bad=e.message;}
   DB.report=DB.report.filter(r=>r.name!=='Owner · weekly');normalizeReports();const gone=!DB.report.some(r=>r.name==='Owner · weekly');
   DB.report=json.report;normalizeReports();return {back:DB.report.some(r=>r.name==='Owner · weekly'),gone,bad,starters:DB.report.filter(r=>/^RP-start-/.test(r.id)).length};

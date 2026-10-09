@@ -9,15 +9,25 @@
    своему логическому порядку», «не должны сразу вываливаться блоком» —
    сначала каталог, отчёт открывается по выбору, на странице только её
    графики. Тип графика меняется в один клик, как в Looker.
-   Свои фильтры зрителя (период, значения) живут в этом браузере; сам отчёт
-   и его настройки — в базе (Export JSON их уносит).
+   Свои фильтры зрителя (период, значения) живут в этом браузере; Save as
+   default записывает их в отчёт. Сам отчёт — в базе (Export JSON его
+   уносит). Edit открывает черновик: Save — записать, Cancel — как было;
+   уход с несохранёнными правками спрашивает.
    ===================================================================== */
-let repOpenId='',repPageId='',repEditOn=false,repSelW='',repQ='',repFolderSel='All',repMenu=null,repPicks=[];
+let repOpenId='',repPageId='',repEditOn=false,repSelW='',repQ='',repFolderSel='All',repMenu=null,repPicks=[],repDraft=null,repDraftBase='';
 const REP_VIEW_KEY='glass_erp_report_view_v1';
 function repViewAll(){try{const v=JSON.parse(localStorage.getItem(REP_VIEW_KEY)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return {};}}
 function repView(id){const v=repViewAll()[id];return v&&typeof v==='object'?v:{};}
 function repViewSet(id,fn){const all=repViewAll(),v=all[id]&&typeof all[id]==='object'?all[id]:{};fn(v);all[id]=v;try{localStorage.setItem(REP_VIEW_KEY,JSON.stringify(all));}catch(e){}}
-function repOpenReport(){const r=repFind(repOpenId);return r&&repVisible(r)?r:null;}
+function repOpenReport(){if(repDraft&&repDraft.id===repOpenId)return repDraft;const r=repFind(repOpenId);return r&&repVisible(r)?r:null;}
+/* Черновик правки: новый (ещё не в базе) — всегда несохранён. */
+function repDirty(){return !!repDraft&&(!repFind(repDraft.id)||JSON.stringify(repDraft)!==repDraftBase);}
+function repCanLeave(){return !repDirty()||confirm('Leave without saving the report?');}
+function repDropDraft(){repDraft=null;repDraftBase='';repEditOn=false;repSelW='';repMenu=null;}
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){if(tab!=='reports'||k==='reports')return false;if(!repCanLeave())return true;repDropDraft();return false;});
+window.addEventListener('beforeunload',function(e){if(!repDirty())return;e.preventDefault();e.returnValue='';});
+/* Фильтры зрителя: свои в этом браузере, иначе — сохранённые в отчёте. */
+function repViewFilters(r){const v=repView(r.id);return v.f!==undefined?v.f:r.filters||{};}
 function repPage(r){return r?r.pages.find(p=>p.id===repPageId)||r.pages[0]:null;}
 function repSelWidget(r){const p=repPage(r);return p?p.widgets.find(w=>w.id===repSelW)||null:null;}
 function repCtx(){const u=typeof signinUser==='function'?signinUser():null;return {person:u?u.name:'',station:''};}
@@ -27,7 +37,7 @@ function repDateText(d){if(!d)return 'All time';if(d.from||d.to)return (d.from?s
 function repWidgetQuery(r,w){
  const q=JSON.parse(JSON.stringify(w.q)),v=repView(r.id),S=REP_SRC[q.source];
  if(q.date.use!=='own'){const d=v.date||r.date;q.date=Object.assign({},q.date,{preset:d.preset||'',from:d.from||'',to:d.to||''});}
- Object.entries(v.f||{}).forEach(([f,vals])=>{if(Array.isArray(vals)&&vals.length&&S&&repField(S,f))q.filters.push({f,op:'in',v:vals});});
+ Object.entries(repViewFilters(r)).forEach(([f,vals])=>{if(Array.isArray(vals)&&vals.length&&S&&repField(S,f))q.filters.push({f,op:'in',v:vals});});
  return q;
 }
 
@@ -56,7 +66,7 @@ function repPickAttrs(r,S,d,k){
  const p=repDimParse(d),f=repField(S,p.f);if(!f||f.type==='date'||k==='__other'||k==='—')return '';
  repPicks.push([r.id,p.f,k]);const i=repPicks.length-1;return ` role="button" tabindex="0" data-rep-pick="${esc(p.f)}" onclick="repPickAt(${i})" onkeydown="if(event.key==='Enter')repPickAt(${i})"`;
 }
-function repPickAt(i){const x=repPicks[i];if(!x)return;repViewSet(x[0],v=>{v.f=v.f||{};v.f[x[1]]=[x[2]];});repMenu=null;render();}
+function repPickAt(i){const x=repPicks[i],r=repOpenReport();if(!x||!r)return;const base=Object.assign({},repViewFilters(r));repViewSet(x[0],v=>{v.f=Object.assign(base,{[x[1]]:[x[2]]});});repMenu=null;render();}
 function repNumbers(res){
  /* Сравнение — изменение и само число прошлого периода: «▲ 12% · Last year 231». */
  const sub=(m,i)=>{if(!res.compare)return '';const d=repDelta(res.total[i],res.compare.total[i]);return esc((d?d+' · ':'')+(res.compare.kind==='year'?'Last year ':'Previous ')+repFmt(m,res.compare.total[i]));};
@@ -128,11 +138,11 @@ function repSources(r){return [...new Set(r.pages.flatMap(p=>p.widgets.map(w=>w.
 function repControlFields(r){const m=new Map();repSources(r).forEach(S=>repFields(S).forEach(f=>{if(f.type==='dim'&&!m.has(f.k))m.set(f.k,f.label);}));return m;}
 function repControlValues(r,f){const set=new Set();repSources(r).forEach(S=>{if(repField(S,f))repFieldValues(S,f).forEach(v=>set.add(v));});return [...set].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));}
 function repControls(r){
- const v=repView(r.id),labels=repControlFields(r),active=Object.keys(v.f||{}).filter(f=>(v.f[f]||[]).length);
+ const v=repView(r.id),vf=repViewFilters(r),labels=repControlFields(r),active=Object.keys(vf).filter(f=>(vf[f]||[]).length);
  const keys=[...new Set(r.controls.filter(f=>labels.has(f)).concat(active))];
- const btn=f=>{const vals=(v.f||{})[f]||[],on=vals.length>0;return `<span class="rep-ctl${on?' on':''}"><button type="button" class="sl-quiet" data-rep-ctl="${esc(f)}" onclick="repOpenCtl(event,'${esc(f)}')">${esc(labels.get(f)||f)}${on?': '+esc(vals.length>2?vals.length+' values':vals.join(', ')):''}<span class="sl-disclosure">▾</span></button>${on?`<button type="button" class="rep-x" aria-label="Clear" onclick="repClearCtl('${esc(f)}')">×</button>`:''}${repEditOn&&r.controls.includes(f)?`<button type="button" class="rep-x" title="Remove control" onclick="repDelControl('${esc(f)}')">−</button>`:''}</span>`;};
+ const btn=f=>{const vals=vf[f]||[],on=vals.length>0;return `<span class="rep-ctl${on?' on':''}"><button type="button" class="sl-quiet" data-rep-ctl="${esc(f)}" onclick="repOpenCtl(event,'${esc(f)}')">${esc(labels.get(f)||f)}${on?': '+esc(vals.length>2?vals.length+' values':vals.join(', ')):''}<span class="sl-disclosure">▾</span></button>${on?`<button type="button" class="rep-x" aria-label="Clear" onclick="repClearCtl('${esc(f)}')">×</button>`:''}${repEditOn&&r.controls.includes(f)?`<button type="button" class="rep-x" title="Remove control" onclick="repDelControl('${esc(f)}')">−</button>`:''}</span>`;};
  const free=[...labels.keys()].filter(f=>!keys.includes(f));
- return `<div class="rep-bar"><button type="button" class="sl-quiet rep-ctl-date" data-rep-date onclick="repOpenDate(event)">Date: ${esc(repDateText(v.date||r.date))}<span class="sl-disclosure">▾</span></button>${keys.map(btn).join('')}${repEditOn&&free.length?`<select class="rep-add-ctl" aria-label="Add control" onchange="if(this.value)repAddControl(this.value)"><option value="">+ Control</option>${free.map(f=>`<option value="${esc(f)}">${esc(labels.get(f))}</option>`).join('')}</select>`:''}${v.date||active.length?`<button type="button" class="sm" data-rep-reset onclick="repResetView()">Reset</button>`:''}</div>`;
+ return `<div class="rep-bar"><button type="button" class="sl-quiet rep-ctl-date" data-rep-date onclick="repOpenDate(event)">Date: ${esc(repDateText(v.date||r.date))}<span class="sl-disclosure">▾</span></button>${keys.map(btn).join('')}${repEditOn&&free.length?`<select class="rep-add-ctl" aria-label="Add control" onchange="if(this.value)repAddControl(this.value)"><option value="">+ Control</option>${free.map(f=>`<option value="${esc(f)}">${esc(labels.get(f))}</option>`).join('')}</select>`:''}${v.date||v.f!==undefined?`<button type="button" class="sm" data-rep-reset onclick="repResetView()" title="Back to the report's own period and filters">Reset</button>${!repEditOn&&repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-save-view onclick="repSaveDefaults()" title="Keep this period and these filters in the report">Save as default</button>`:''}`:''}</div>`;
 }
 function repMenuHTML(r){
  const m=repMenu;if(!m||!r)return '';
@@ -152,12 +162,14 @@ function repMenuHTML(r){
 }
 function repAt(e){const t=e&&e.currentTarget&&e.currentTarget.getBoundingClientRect?e.currentTarget.getBoundingClientRect():null;return {x:t?t.left:40,y:t?t.bottom+6:40};}
 function repOpenDate(e){if(e)e.stopPropagation();repMenu=Object.assign({kind:'date'},repAt(e));render();}
-function repOpenCtl(e,f){if(e)e.stopPropagation();const r=repOpenReport();repMenu=Object.assign({kind:'ctl',f,draft:((repView(r.id).f||{})[f]||[]).slice(),search:''},repAt(e));render();}
+function repOpenCtl(e,f){if(e)e.stopPropagation();const r=repOpenReport();repMenu=Object.assign({kind:'ctl',f,draft:(repViewFilters(r)[f]||[]).slice(),search:''},repAt(e));render();}
 function repCtlToggle(v,on){if(!repMenu)return;repMenu.draft=repMenu.draft.filter(x=>x!==v);if(on)repMenu.draft.push(v);}
-function repCtlApply(){const r=repOpenReport(),m=repMenu;if(!r||!m)return;repViewSet(r.id,v=>{v.f=v.f||{};if(m.draft.length)v.f[m.f]=m.draft.slice();else delete v.f[m.f];});repMenu=null;render();}
-function repClearCtl(f){const r=repOpenReport();if(!r)return;repViewSet(r.id,v=>{if(v.f)delete v.f[f];});render();}
+function repCtlApply(){const r=repOpenReport(),m=repMenu;if(!r||!m)return;const base=Object.assign({},repViewFilters(r));if(m.draft.length)base[m.f]=m.draft.slice();else delete base[m.f];repViewSet(r.id,v=>{v.f=base;});repMenu=null;render();}
+function repClearCtl(f){const r=repOpenReport();if(!r)return;const base=Object.assign({},repViewFilters(r));delete base[f];repViewSet(r.id,v=>{v.f=base;});render();}
 function repSetViewDate(d){const r=repOpenReport();if(!r)return;repViewSet(r.id,v=>{v.date={preset:d.preset||'',from:d.from||'',to:d.to||''};});repMenu=null;render();}
 function repResetView(){const r=repOpenReport();if(!r)return;repViewSet(r.id,v=>{delete v.date;delete v.f;});repMenu=null;render();}
+/* Save as default: свой период и фильтры становятся периодом и фильтрами отчёта. */
+function repSaveDefaults(){const r=repOpenReport();if(!r||repDraft)return;const v=repView(r.id);if(repEditReport(r.id,x=>{if(v.date)x.date=v.date;if(v.f!==undefined)x.filters=v.f;}))repResetView();}
 
 /* ------------------------------ Настройка графика ------------------------------ */
 function repOpt(list,cur,none){return (none?`<option value="">${esc(none)}</option>`:'')+list.map(([k,l])=>`<option value="${esc(k)}"${k===cur?' selected':''}>${esc(l)}</option>`).join('');}
@@ -196,12 +208,16 @@ function repSetup(r){
 }
 
 /* ------------------------------ Команды экрана ------------------------------ */
-function repOpen(id){const r=repFind(id);if(!r)return;repOpenId=id;repPageId=r.pages[0].id;repSelW='';repMenu=null;repEditOn=false;render();}
-function repNew(){const r=repCreate(repFolderSel!=='All'?repFolderSel:'');if(!r)return;repOpenId=r.id;repPageId=r.pages[0].id;repEditOn=true;repSelW=r.pages[0].widgets[0]&&r.pages[0].widgets[0].id||'';render();}
-function repCopyOpen(){const r=repCopy(repOpenId);if(!r)return;repOpenId=r.id;repPageId=r.pages[0].id;repEditOn=true;repSelW='';render();}
-function repDeleteOpen(){const r=repOpenReport();if(!r||!confirm('Delete report "'+r.name+'"?'))return;if(repDelete(r.id)){repOpenId='';repEditOn=false;render();}}
-function repEditToggle(){repEditOn=!repEditOn;repSelW='';repMenu=null;render();}
-function repEditCur(fn){const r=repOpenReport();if(!r)return;repEditReport(r.id,fn);render();}
+function repOpen(id){const r=repFind(id);if(!r||!repCanLeave())return;repDropDraft();repOpenId=id;repPageId=r.pages[0].id;render();}
+function repStartDraft(r){repDraft=JSON.parse(JSON.stringify(r));repDraftBase=repFind(r.id)?JSON.stringify(repDraft):'';repOpenId=r.id;repPageId=repDraft.pages[0].id;repEditOn=true;repSelW='';repMenu=null;}
+function repNew(){if(!repCanLeave())return;repDropDraft();const r=repBlank(repFolderSel!=='All'?repFolderSel:'');repStartDraft(r);repSelW=r.pages[0].widgets[0].id;render();}
+function repCopyOpen(){const src=repOpenReport();if(!src||!repCanLeave())return;const r=repCopyOf(src);repDropDraft();repStartDraft(r);render();}
+function repEditToggle(){const r=repFind(repOpenId);if(!r||!repCanEdit(r))return;repStartDraft(r);render();}
+function repSaveEdit(){if(!repDraft)return;const saved=repSave(repDraft);if(!saved)return;repDropDraft();repOpenId=saved.id;render();}
+function repCancelEdit(){if(!repDraft||!repCanLeave())return;const kept=repFind(repDraft.id);repDropDraft();if(!kept)repOpenId='';render();}
+function repDeleteOpen(){const r=repOpenReport();if(!r)return;if(!repFind(r.id)){repDropDraft();repOpenId='';render();return;}if(!confirm('Delete report "'+r.name+'"?'))return;if(repDelete(r.id)){repDropDraft();repOpenId='';render();}}
+/* Правка черновика: изменения только в памяти до Save. */
+function repEditCur(fn){if(!repDraft)return;fn(repDraft);Object.assign(repDraft,repClean(repDraft));render();}
 function repWEdit(fn){const id=repSelW;repEditCur(r=>{r.pages.forEach(p=>p.widgets.forEach(w=>{if(w.id===id)fn(w);}));});}
 function repSetW(path,v){repWEdit(w=>{
  const p=path.split('.');
@@ -256,11 +272,13 @@ function repPrint(){const was=repEditOn,html=repPrintHTML();repEditOn=was;repMen
 /* ------------------------------ Экран ------------------------------ */
 function repMain(r){
  if(!r)return `<div class="card rep-empty" data-rep-empty><h3>Pick a report</h3><p class="mut">Choose one on the left, or start a new one. Every chart can be changed: data, type, dimensions, metrics, filters, period.</p><button type="button" class="pri" onclick="repNew()">+ New report</button></div>`;
- const can=repCanEdit(r),p=repPage(r),n=p.widgets.length,folders=[...new Set((DB.report||[]).map(x=>x.folder).filter(Boolean))];
+ const can=repEditOn||repCanEdit(repFind(r.id)),p=repPage(r),n=p.widgets.length,folders=[...new Set((DB.report||[]).map(x=>x.folder).filter(Boolean))];
  const head=repEditOn?`<div class="rep-title-edit"><input type="text" data-rep-name value="${esc(r.name)}" aria-label="Report name" onchange="repSetMeta('name',this.value)"><input type="text" list="repFolders" value="${esc(r.folder)}" placeholder="Folder" aria-label="Folder" onchange="repSetMeta('folder',this.value)"><datalist id="repFolders">${folders.map(f=>`<option value="${esc(f)}">`).join('')}</datalist>
    <select aria-label="Who sees it" onchange="repSetMeta('share',this.value)">${repOpt([['me','Only me'],['all','Everyone with Reports']],r.share==='all'?'all':'me')}</select><select aria-label="Default period" title="Default period" onchange="repSetMeta('date',this.value)">${repOpt(REP_PRESETS,r.date.preset)}</select></div>`
   :`<h2 class="rep-title" data-raw>${esc(r.name)}</h2>`;
- const acts=`${can?`<button type="button" class="${repEditOn?'pri':''}" data-rep-edit onclick="repEditToggle()">${repEditOn?'Done':'Edit'}</button>`:''}<button type="button" data-rep-copy onclick="repCopyOpen()">Copy</button><button type="button" data-rep-print onclick="repPrint()">Print</button>${repEditOn&&can?`<button type="button" class="dl" onclick="repDeleteOpen()">Delete</button>`:''}`;
+ const dirty=repDirty(),saved=!!repFind(r.id);
+ const acts=repEditOn?`${dirty?'<span class="mut small" data-rep-unsaved>Unsaved changes</span>':''}<button type="button" class="pri sm" data-rep-save onclick="repSaveEdit()">Save</button><button type="button" class="sm" data-rep-cancel onclick="repCancelEdit()">Cancel</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>${saved?`<button type="button" class="sm dl" onclick="repDeleteOpen()">Delete</button>`:''}`
+  :`${repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-edit onclick="repEditToggle()">Edit</button>`:''}<button type="button" class="sm" data-rep-copy onclick="repCopyOpen()">Copy</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>`;
  const tabs=`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-page="${esc(x.id)}" onclick="repPageId=this.dataset.repPage;repSelW='';render()">${esc(x.name)}</button>`).join('')}${repEditOn?`<button type="button" onclick="repAddPage()">+ Page</button>`:''}</div>
   ${repEditOn?`<div class="rep-page-edit"><input type="text" value="${esc(p.name)}" aria-label="Page name" onchange="repRenamePage(this.value)"><button type="button" class="sm" title="Move page left" onclick="repMovePage(-1)">←</button><button type="button" class="sm" title="Move page right" onclick="repMovePage(1)">→</button>${r.pages.length>1?`<button type="button" class="sm dl" onclick="repDelPage()">Delete page</button>`:''}</div>`:''}`;
  const body=p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
