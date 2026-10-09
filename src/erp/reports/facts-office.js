@@ -4,7 +4,8 @@
    заказанное стекло, доставки, листы, время людей у станций.
    IN : DB (Recut, NCR, заказы, PS, раскрои), факты сканов (reports/facts)
    OUT: repBreakFacts · repOrderFacts · repOrderedFacts · repDeliveryFacts ·
-        repSheetFacts · repTimeFacts — массивы строк, кэш по метке данных
+        repSheetFacts · repTimeFacts · repQuoteFacts · repReceiptFacts ·
+        repBalanceFacts · repOffcutFacts — массивы строк, кэш по метке данных
    Правило: файл ничего не рисует. Каждая строка — одно событие или одна
    вещь; считает и группирует движок (reports/query).
    ===================================================================== */
@@ -100,7 +101,7 @@ function repOrderedFacts(){
    const shape=typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle';
    glassBatchComponents(o,l).filter(c=>!c.missing).forEach((c,i)=>{
     const info=stkGlassInfo(c.pane,c.index,c.ply);
-    rows.push({...repOrderInfo(o),...repLineInfo(l),id:o.id+'|'+l.id+'|'+c.key,at:o.createdAt||'',created:salesListIsoDay(o.createdAt),due:o.dueDate||'',order:o.businessNumber||'',customerId:o.customerId||'',
+    rows.push({...repOrderInfo(o),...repLineInfo(l),sizeBand:repSizeBand(per),maker:repMaker(c.glassId),id:o.id+'|'+l.id+'|'+c.key,at:o.createdAt||'',created:salesListIsoDay(o.createdAt),due:o.dueDate||'',order:o.businessNumber||'',customerId:o.customerId||'',
      status:salesStatusLabel(o),glass:c.glass,mm:info.mm||null,heat:info.heat||'Annealed',unitType,shape,glassN:live,area:live*per||null,units:i?0:live});
    });
   }));
@@ -115,14 +116,17 @@ function repOrderedFacts(){
 const REP_PS_STATUS={planned:'Planned',shipped:'Shipped',delivered:'Delivered'};
 let repDeliveryCache={stamp:'',rows:null};
 function repDeliveryFacts(){
- const stamp=(DB.shipment||[]).map(s=>s.id+s.status+s.date+(s.truckId||'')+(s.stop||'')+(s.items||[]).length).join(',')+'|'+(DB.truck||[]).length;
+ const stamp=(DB.shipment||[]).map(s=>s.id+s.status+s.date+(s.truckId||'')+(s.stop||'')+(s.items||[]).length).join(',')+'|'+(DB.truck||[]).length+'|'+JSON.stringify(DB.tripKm||[]);
  if(repDeliveryCache.stamp===stamp&&repDeliveryCache.rows)return repDeliveryCache.rows;
  const rows=shippingWithCtx(()=>(DB.shipment||[]).filter(s=>shippingActive(s)).map(s=>{
   const truck=s.method==='delivery'?truckFind(s.truckId):null,drv=s.driverId?(DB.user||[]).find(u=>u.viewProfileId===s.driverId):null;
   let load={skids:[],units:(s.items||[]).length,kg:null};try{load=deliveryLoad(s);}catch(e){}
+  /* Километры рейса — у первой остановки рейса: сумма по PS даёт километры. */
+  const first=truck&&deliveryStops(s.date,truck.id)[0],km=first&&first.id===s.id?(tripKmFind(s.date,truck.id)||{}).km:null;
   return {id:s.id,at:s.date,date:s.date,ps:s.number,method:s.method==='pickup'?'Pickup':'Delivery',status:s.status==='delivered'&&s.method==='pickup'?'Picked up':REP_PS_STATUS[s.status]||s.status,
    customerId:s.customerId||'',truck:truck?truck.name:'',driver:drv?drv.name:'',trip:truck?s.date+'|'+truck.id:'',units:load.units,skids:(load.skids||[]).length,kg:load.kg||null,
-   city:s.shipTo&&s.shipTo.city||'',stop:s.method==='delivery'&&s.stop?s.stop:null,depart:s.departAt?String(+String(s.departAt).slice(0,2))+':00':''};
+   city:s.shipTo&&s.shipTo.city||'',stop:s.method==='delivery'&&s.stop?s.stop:null,depart:s.departAt?String(+String(s.departAt).slice(0,2))+':00':'',
+   km:km==null?null:km,tripFirst:first&&first.id===s.id?1:0,kmDone:km==null?0:1};
  }));
  repDeliveryCache={stamp,rows};
  return rows;
@@ -131,7 +135,7 @@ function repDeliveryFacts(){
 /* Листы: батч × стекло × размер листа (журнал Optimization → Sheets). */
 function repSheetFacts(){
  return (typeof sheetUsageRows==='function'?sheetUsageRows():[]).map(r=>({id:r.batch+'|'+r.glass+'|'+(r.stock||r.w+'x'+r.h),at:r.built||'',built:salesListIsoDay(r.built),batch:r.batch,glass:r.glass,mm:r.mm||null,
-  size:(r.stock?r.stock+' · ':'')+frac16(r.w)+' × '+frac16(r.h)+'″',kind:r.stock?'Offcut':'Sheet',status:r.status,sheets:r.sheets,broken:r.broken,area:r.area,used:r.used,waste:r.net,keep:r.keep}));
+  size:(r.stock?r.stock+' · ':'')+frac16(r.w)+' × '+frac16(r.h)+'″',kind:r.stock?'Offcut':'Sheet',maker:(glassProductByCode(r.glass)||{}).manufacturer||'',status:r.status,sheets:r.sheets,broken:r.broken,area:r.area,used:r.used,waste:r.net,keep:r.keep}));
 }
 
 /* Время у станции: человек × день × станция — первый и последний скан.
@@ -148,4 +152,59 @@ function repTimeFacts(){
  const rows=[...m.values()].map(r=>{const hours=Math.max(0,(Date.parse(r.last)-Date.parse(r.first))/36e5),timed=hours>=0.5;return Object.assign(r,{at:r.first,hours,start:repHour(r.first),end:repHour(r.last),hoursTimed:timed?hours:0,glassTimed:timed?r.glassN:0});});
  repTimeCache={src,rows};
  return rows;
+}
+
+/* Квоты: строка на квоту со всеми ревизиями. Won — какая-то ревизия
+   выиграла; Expired — не выиграна и срок цены прошёл; иначе Sent или Not
+   sent. Сумма и ft² — по выигравшей ревизии, иначе по последней. */
+let repQuoteCache={stamp:'',rows:null};
+function repQuoteFacts(){
+ const today=finToday(),stamp=today+'|'+(DB.salesOrder||[]).filter(o=>o&&salesIsQuote(o)).map(o=>o.id+(o.updatedAt||'')+o.status).join(',');
+ if(repQuoteCache.stamp===stamp&&repQuoteCache.rows)return repQuoteCache.rows;
+ const groups=new Map();
+ (DB.salesOrder||[]).forEach(o=>{if(!o||!salesIsQuote(o))return;const g=salesQuoteGroupId(o);if(!groups.has(g))groups.set(g,[]);groups.get(g).push(o);});
+ const rows=[...groups.entries()].map(([g,ms])=>{
+  ms.sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0));
+  const base=ms.find(m=>!m.quoteRev)||ms[0],won=ms.find(m=>m.status==='won'),q=won||ms[ms.length-1],sent=ms.map(m=>m.sentAt||'').filter(Boolean).sort().pop()||'';
+  const valid=q.validUntil||'',state=won?'Won':valid&&valid<today?'Expired':sent?'Sent':'Not sent',t=finOrderTotals(q),lines=q.lines||[];
+  const units=lines.reduce((n,l)=>n+salesPositiveInt(l.qty,1),0),area=finWithOrder(q,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,q);return n+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0));
+  const value=t&&t.complete?t.grand:null,order=won&&won.wonOrderId?(salesRecord(won.wonOrderId)||{}).businessNumber||'':'';
+  return {...repOrderInfo(q),id:g,at:base.createdAt||'',created:salesListIsoDay(base.createdAt),sent:salesListIsoDay(sent),validUntil:valid,quote:salesQuoteBaseNumber(base),customerId:q.customerId||'',
+   state,won:won?1:0,one:1,revisions:ms.length,units,area:area||null,value,wonValue:won?value:0,order};
+ });
+ repQuoteCache={stamp,rows};
+ return rows;
+}
+
+/* Оплаты (только с Finance): квитанция — дата, клиент, способ, сумма,
+   сколько разнесено на заказы и сколько осталось на счёте. Отменённые не
+   считаются. */
+function repReceiptFacts(){
+ return (DB.receipt||[]).filter(r=>r&&!r.voided).map(r=>{
+  const applied=(r.allocations||[]).reduce((n,a)=>n+(+a.amount||0),0),m=FIN_METHODS.find(x=>x.k===r.method);
+  return {...repCustomerInfo(r.customerId),id:r.id,at:r.date,date:r.date,receipt:r.number,customerId:r.customerId||'',method:m?m.label:r.method,currency:r.currency||'CAD',
+   amount:r.amount,applied,onAccount:Math.max(0,r.amount-applied),orders:(r.allocations||[]).length};
+ });
+}
+
+/* Долги (только с Finance): заказ — сумма, оплачено, остаток, срок оплаты,
+   просрочка (как в Finance: finOrderFinancial). */
+const REP_BAL_STATUS={paid:'Paid',due:'Due',overpaid:'Overpaid',incomplete:'Not priced',review:'Review',empty:'Empty'};
+function repBalanceFacts(){
+ const today=finToday();
+ return (DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&o.status!=='cancelled').map(o=>{
+  let f=null;try{f=finOrderFinancial(o,today);}catch(e){return null;}
+  const b=f.b||{},billed=typeof finBillingDate==='function'?finBillingDate(o)||'':'',late=f.overdue>0;
+  return {...repOrderInfo(o),id:o.id,at:billed||o.createdAt||'',billed,due:f.dueOn||'',order:o.businessNumber||'',customerId:o.customerId||'',
+   status:late?'Overdue':REP_BAL_STATUS[b.status]||b.status||'',total:b.total,paid:b.paid,balance:b.balance,overdue:f.overdue||0,overdueN:late?1:0,
+   daysOverdue:late&&f.dueOn?Math.max(0,Math.round((Date.parse(today+'T12:00:00')-Date.parse(f.dueOn+'T12:00:00'))/864e5)):0};
+ }).filter(Boolean);
+}
+
+/* Остатки листа в стоке: лежит, ушёл в раскрой вместо листа или снят. */
+function repOffcutFacts(){
+ const used=new Set();
+ (DB.cutPlan||[]).forEach(p=>{if(!p||p.reset)return;(p.groups||[]).forEach(g=>(g.sheets||[]).forEach(s=>{const k=s.size&&s.size.key;if(/^S-/.test(k||''))used.add(k);}));});
+ return (DB.stockOffcut||[]).map(r=>({id:r.id,at:r.at,created:salesListIsoDay(r.at),offcut:r.id,glass:r.glass,mm:r.mm||null,maker:(glassProductByCode(r.glass)||{}).manufacturer||'',
+  size:frac16(Math.max(r.w,r.h))+' × '+frac16(Math.min(r.w,r.h))+'″',area:r.w&&r.h?r.w*r.h/144:null,batch:r.batch,status:r.status==='cancelled'?'Removed':used.has(r.id)?'Used':'In stock'}));
 }
