@@ -260,6 +260,7 @@ function validateImportedState(src){
  if(typeof validateShipmentPayload==='function')validateShipmentPayload(src);
  if(typeof validateTruckPayload==='function')validateTruckPayload(src);
  if(typeof validateSkidReturnPayload==='function')validateSkidReturnPayload(src);
+ if(typeof validateReportsPayload==='function')validateReportsPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -353,6 +354,7 @@ function normalizeDB(){
  if(typeof normalizeProductionUnbatches==='function')normalizeProductionUnbatches();
  if(typeof normalizeTrucks==='function')normalizeTrucks();
  if(typeof normalizeSkidReturns==='function')normalizeSkidReturns();
+ if(typeof normalizeReports==='function')normalizeReports();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();

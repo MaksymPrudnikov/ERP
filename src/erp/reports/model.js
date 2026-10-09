@@ -18,7 +18,8 @@ DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
 const REP_SEED_VERSION=1;
-function repUid(p){return (typeof salesUid==='function'?salesUid(p):p+'-'+Date.now().toString(36))+Math.random().toString(36).slice(2,5);}
+/* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
+function repUid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();}
 function repMe(){const u=typeof signinUser==='function'?signinUser():null;return u?u.viewProfileId:'';}
 /* Администратор — галочка Users; без входа (пустая база, картинки) — открыто, как accessCan. */
 function repIsAdmin(){return typeof accessCan==='function'&&accessCan(ACCESS_ADMIN);}
@@ -39,14 +40,14 @@ function repCleanQuery(q){
 }
 function repCleanWidget(w){
  w=w&&typeof w==='object'?w:{};
- return {id:repStr(w.id,40)||repUid('W'),type:REP_TYPES.some(t=>t[0]===w.type)?w.type:'table',title:repStr(w.title,120),width:w.width==='half'?'half':'full',
+ return {id:repStr(w.id,80)||repUid('W'),type:REP_TYPES.some(t=>t[0]===w.type)?w.type:'table',title:repStr(w.title,120),width:w.width==='half'?'half':'full',
   q:repCleanQuery(w.q),opts:{totals:!(w.opts&&w.opts.totals===false),labels:!!(w.opts&&w.opts.labels)}};
 }
 function repClean(r){
  r=r&&typeof r==='object'?r:{};
- const pages=(Array.isArray(r.pages)?r.pages:[]).filter(p=>p&&typeof p==='object').slice(0,20).map(p=>({id:repStr(p.id,40)||repUid('PG'),name:repStr(p.name,60)||'Page',widgets:(Array.isArray(p.widgets)?p.widgets:[]).slice(0,40).map(repCleanWidget)}));
+ const pages=(Array.isArray(r.pages)?r.pages:[]).filter(p=>p&&typeof p==='object').slice(0,20).map(p=>({id:repStr(p.id,80)||repUid('PG'),name:repStr(p.name,60)||'Page',widgets:(Array.isArray(p.widgets)?p.widgets:[]).slice(0,40).map(repCleanWidget)}));
  const d=r.date&&typeof r.date==='object'?r.date:{};
- return {id:repStr(r.id,40)||repUid('RP'),name:repStr(r.name,120)||'Untitled report',folder:repStr(r.folder,60),note:repStr(r.note,500),ownerId:repStr(r.ownerId,80),
+ return {id:repStr(r.id,80)||repUid('RP'),name:repStr(r.name,120)||'Untitled report',folder:repStr(r.folder,60),note:repStr(r.note,500),ownerId:repStr(r.ownerId,80),
   share:r.share==='all'||r.share==='me'?r.share:Array.isArray(r.share)?r.share.map(x=>repStr(x,80)).slice(0,200):'me',
   controls:(Array.isArray(r.controls)?r.controls:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,10),
   date:{preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'thisMonth',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},

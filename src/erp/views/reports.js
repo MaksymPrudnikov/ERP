@@ -58,7 +58,9 @@ function repPickAttrs(r,S,d,k){
 }
 function repPickAt(i){const x=repPicks[i];if(!x)return;repViewSet(x[0],v=>{v.f=v.f||{};v.f[x[1]]=[x[2]];});repMenu=null;render();}
 function repNumbers(res){
- return `<div class="ch-stats rep-nums">${res.metrics.map((m,i)=>chartStat(m.label,esc(repFmt(m,res.total[i])),res.compare?esc(repDelta(res.total[i],res.compare.total[i])+' '+repCmpText(res)).trim():'',` data-rep-number="${esc(m.k)}"`)).join('')}</div>`;
+ /* Сравнение — изменение и само число прошлого периода: «▲ 12% · Last year 231». */
+ const sub=(m,i)=>{if(!res.compare)return '';const d=repDelta(res.total[i],res.compare.total[i]);return esc((d?d+' · ':'')+(res.compare.kind==='year'?'Last year ':'Previous ')+repFmt(m,res.compare.total[i]));};
+ return `<div class="ch-stats rep-nums">${res.metrics.map((m,i)=>chartStat(m.label,esc(repFmt(m,res.total[i])),sub(m,i),` data-rep-number="${esc(m.k)}"`)).join('')}</div>`;
 }
 function repTableHTML(r,S,res,w){
  const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],MAX=200,cmp=res.compare&&!d2;

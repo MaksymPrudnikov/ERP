@@ -152,8 +152,10 @@
   "src/erp/reports/facts-office.js",
   "src/erp/reports/sources.js",
   "src/erp/reports/query.js",
+  "src/erp/reports/model.js",
   "src/erp/views/charts.js",
   "src/erp/views/station-board.js",
+  "src/erp/views/reports.js",
   "src/erp/storage.js"
  ]
 }
