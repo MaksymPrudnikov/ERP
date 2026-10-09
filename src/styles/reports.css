@@ -11,6 +11,13 @@
 .ch-stat b{font-size:26px;font-weight:700;line-height:1.15;color:var(--text);letter-spacing:-.01em}
 .ch-stat small{font-size:12px;color:var(--text-3)}
 
+/* Плитка-кнопка ведёт в свой список; «warn» — есть что разобрать. */
+button.ch-stat{font:inherit;text-align:left;cursor:pointer;box-shadow:none;color:inherit}
+button.ch-stat:hover,button.ch-stat:focus-visible{border-color:var(--accent-line);background:var(--accent-soft)}
+button.ch-stat.warn{background:var(--warning-soft);border-color:var(--warning-line)}
+button.ch-stat.warn b{color:var(--warning)}
+.ch-grid-row[role=button]{cursor:pointer}
+
 /* ---- полосы: категория × меры со своим масштабом ---- */
 .ch-track{display:block;flex:1 1 auto;min-width:24px;height:14px;border-radius:0 4px 4px 0;background:var(--surface-3);overflow:hidden}
 .ch-track i{display:block;height:100%;max-height:24px;background:var(--accent);border-radius:0 4px 4px 0}
@@ -57,3 +64,9 @@
 .sb-late{color:var(--danger);font-weight:650}
 .sb-ship{display:grid;grid-template-columns:84px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--line-soft);font-size:14px}
 .sb-ship:last-child{border-bottom:0}
+
+/* ---- Overview ---- */
+.dash-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;align-items:start}
+.dash-col{display:flex;flex-direction:column;min-width:0}
+.dash-sub{font-size:12px;font-weight:600;color:var(--text-3);margin:2px 0 4px}
+@media (max-width:900px){.dash-grid{grid-template-columns:minmax(0,1fr)}}
