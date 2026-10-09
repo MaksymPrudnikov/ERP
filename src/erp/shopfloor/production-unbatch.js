@@ -158,7 +158,9 @@ function validateProductionUnbatchPayload(src){
  const ids=new Set(),records=new Map(),scans=new Map((src.stationScan||[]).filter(s=>s&&s.id).map(s=>[s.id,s])),iso=v=>typeof v==='string'&&!isNaN(Date.parse(v));
  src.productionUnbatch.forEach(r=>{
   if(!r||!salesRefId(r.id)||ids.has(r.id)||!salesRefId(r.orderId)||!iso(r.at)||typeof r.target!=='string'||!(r.target===PRODUCTION_UNBATCH_UNCUT||/^.+@\d+$/.test(r.target))||typeof r.by!=='string'||typeof r.byId!=='string'||typeof r.reason!=='string'||!Array.isArray(r.pieces)||!r.pieces.length||!r.pieces.every(glassPieceValid)||new Set(r.pieces).size!==r.pieces.length||!Array.isArray(r.scanIds)||!r.scanIds.every(s=>STATION_SCAN_ID_RE.test(s))||!Array.isArray(r.batchNumbers)||!r.batchNumbers.every(s=>salesBatchNumber(s)===s)||!Array.isArray(r.shipments)||!r.shipments.every(s=>s&&salesRefId(s.id)&&typeof s.number==='string'&&Number.isSafeInteger(s.qty)&&s.qty>0)||!Array.isArray(r.skipIds)||!r.skipIds.every(salesRefId))throw new Error('Invalid production unbatch record.');
-  if(Array.isArray(src.salesOrder)&&!src.salesOrder.some(o=>o.id===r.orderId))throw new Error('Unbatch order not found.');
+  /* Fully returned orders may be deleted; their existing Deleted event keeps
+     the order identity while the PS and Unbatch journal remain historical. */
+  if(Array.isArray(src.salesOrder)&&!src.salesOrder.some(o=>o.id===r.orderId)&&!(src.orderEvent||[]).some(e=>e&&e.orderId===r.orderId&&e.what==='Deleted'&&iso(e.at)&&e.at>=r.at))throw new Error('Unbatch order not found.');
   if(r.scanIds.some(id=>{const s=scans.get(id);return !s||!s.undoneAt||!r.pieces.includes(s.piece);} ))throw new Error('Unbatch scan not found.');
   ids.add(r.id);records.set(r.id,r);
  });

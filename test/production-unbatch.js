@@ -112,5 +112,23 @@ module.exports=async function({page,eq}){
   puReset();const id=puOrder('double',2);oqThrough(id,'ready');puShip([id]);const o=salesRecord(id),l=o.lines[0],code=unitIdAt(id,l.id,1),r=puRun({orderId:id,codes:[code],lines:{[l.id]:'all'},target:'uncut'}),before=JSON.stringify(DB),again=puRun({orderId:id,lines:{[l.id]:'all'},target:'uncut'});
   return {ok:!r.error,units:r.shipments?.[0].qty,glass:r.pieces?.length,again:!!again.error,same:JSON.stringify(DB)===before,records:DB.productionUnbatch.length};
  }),{ok:true,units:2,glass:4,again:true,same:true,records:1});
+ eq('Pickup → full Unbatch → Delete preserves historical PS and imports twice',await t.p.evaluate(()=>{
+  puReset();const id=puOrder('single',2),o=salesRecord(id),l=o.lines[0];oqPay(id);const amount=finOrderPaid(id).paid,customer=o.customerId;
+  skipRun({orderId:id,lines:{[l.id]:'all'},to:'pickup',date:finToday()});const ps=shippingForOrder(id)[0],doc=JSON.stringify(ps.document);
+  puRun({orderId:id,lines:{[l.id]:'all'},target:'uncut'});const deleted=salesOrderDelete(id),one=prepareImportedState(shippingClone(DB)),two=prepareImportedState(shippingClone(one));
+  const bad=shippingClone(two);bad.orderEvent=bad.orderEvent.filter(e=>e.what!=='Deleted');let rejected=false;try{prepareImportedState(bad);}catch(e){rejected=true;}
+  return {deleted,gone:!salesRecord(id),ps:ps.status,original:JSON.stringify(ps.document)===doc,history:two.productionUnbatch.length,deletedEvent:two.orderEvent.some(e=>e.orderId===id&&e.what==='Deleted'),deposit:finCustomerDeposit(customer)===amount,roundtrip:two.salesOrder.length===0&&two.shipment[0].unbatchedItems.length===2,rejected,print:shippingPrintRecord(ps.id).length>0};
+ }),{deleted:true,gone:true,ps:'cancelled',original:true,history:1,deletedEvent:true,deposit:true,roundtrip:true,rejected:true,print:true});
+ eq('Partial return still blocks Delete; a fully excluded order can be deleted from a shared active PS',await t.p.evaluate(()=>{
+  puReset();const c=oqCustomer(),a=puOrder('single',2,c),b=puOrder('single',2,c);oqThrough(a,'ready');oqThrough(b,'ready');const ps=puShip([a,b]),ids=puIds(a);
+  puRun({orderId:a,codes:[ids[0]],target:'uncut'});const blocked=salesDeleteBlocked(salesRecord(a)),exists=!!salesRecord(a);
+  puRun({orderId:a,codes:[ids[1]],target:'uncut'});const deleted=salesOrderDelete(a),next=prepareImportedState(shippingClone(DB));
+  return {blocked,exists,deleted,other:salesRecord(b).status,issued:shippingSummary(salesRecord(b)).delivered,ps:ps.status,items:ps.items.length,imported:next.salesOrder.length===1&&next.shipment[0].unbatchedItems.length===2,print:shippingPrintRecord(ps.id).length>0};
+ }),{blocked:true,exists:true,deleted:true,other:'done',issued:2,ps:'delivered',items:2,imported:true,print:true});
+ eq('Failed Delete save after Unbatch retains order, payments and historical references',await t.p.evaluate(()=>{
+  puReset();const id=puOrder('single',1),l=salesRecord(id).lines[0];oqPay(id);skipRun({orderId:id,lines:{[l.id]:'all'},to:'pickup',date:finToday()});puRun({orderId:id,lines:{[l.id]:'all'},target:'uncut'});
+  const before=JSON.stringify(DB),saved=localStorage.getItem(STORAGE_KEY),old=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw Error('Full');return old.call(this,k,v);};let deleted;try{deleted=salesOrderDelete(id);}finally{Storage.prototype.setItem=old;}
+  return {deleted,same:JSON.stringify(DB)===before,saved:localStorage.getItem(STORAGE_KEY)===saved,exists:!!salesRecord(id),retry:salesOrderDelete(id)};
+ }),{deleted:false,same:true,saved:true,exists:true,retry:true});
  eq('production Unbatch has no page errors',t.errs,[]);await t.c.close();
 };

@@ -170,5 +170,21 @@ module.exports=async function({page,eq}){
  }),{same:true,n:1,err:'The "skip" field must be an array.'});
 
  eq('окно Skip без русского и без ошибок страницы',await t.p.evaluate(()=>{const id=skNew();skipOpen(id);const text=document.querySelector('[data-skip-dialog]').innerText;skipClose();return /[А-яЁё]/.test(text);}),false);
+ eq('Skip offers every configured station plus Delivered and Picked up',await t.p.evaluate(()=>{
+  const id=skSingle();DB.station.push({code:'QA',name:'QA',seq:99});skipOpen(id);skipSet('to','delivery',true);
+  const values=[...document.querySelector('[data-skip-to]').options].map(o=>o.value),r={all:DB.station.every(s=>values.includes(s.code)),delivery:values.includes('delivery'),pickup:values.includes('pickup'),address:!!document.querySelector('[data-skip-address]'),receiver:!document.querySelector('[data-skip-by]').disabled};
+  DB.station=DB.station.filter(s=>s.code!=='QA');skipClose();return r;
+ }),{all:true,delivery:true,pickup:true,address:true,receiver:true});
+ eq('Delivered Skip: two of ten, delivery address, Hold, money, import and Undo',await t.p.evaluate(()=>{
+  const id=skSingle(),o=salesRecord(id),l=o.lines[0],c=salesFindCustomer(o.customerId);c.addresses=[{type:'delivery',address1:'42 Test Road',city:'Toronto',isDefault:true}];o.onHold=true;l.onHold=true;oqPay(id);const money=JSON.stringify(DB.receipt);
+  const r=skipRun({orderId:id,lines:{[l.id]:2},to:'delivery',date:skDay,receivedBy:'Receiver'}),ps=shippingForOrder(id)[0];
+  const before={ok:!r.error,method:ps.method,status:ps.status,address:ps.shipTo.address1,receiver:ps.receivedBy,day:finLocalDate(ps.deliveredAt)===skDay,issued:shippingSummary(o).delivered,back:shippingSummary(o).back,hold:[o.onHold,l.onHold],money:JSON.stringify(DB.receipt)===money};
+  const next=prepareImportedState(shippingClone(DB)),undo=skipUndo(r.id);return {before,imported:next.skip[0].to==='delivery'&&next.shipment[0].method==='delivery',undo:!undo.error,issued:shippingSummary(salesRecord(id)).delivered,ps:ps.status};
+ }),{before:{ok:true,method:'delivery',status:'delivered',address:'42 Test Road',receiver:'Receiver',day:true,issued:2,back:8,hold:[true,true],money:true},imported:true,undo:true,issued:0,ps:'cancelled'});
+ eq('SHIP Skip creates a dispatched PS; address failure is atomic and receipt remains separate',await t.p.evaluate(()=>{
+  const id=skSingle(),o=salesRecord(id),l=o.lines[0];o.delivery='delivery';const d={orderId:id,lines:{[l.id]:'all'},to:'SHIP',date:skDay},before=JSON.stringify(DB),bad=skipRun(d),same=JSON.stringify(DB)===before;
+  const r=skipRun({...d,shipTo:{address1:'42 Test Road'}}),ps=shippingForOrder(id)[0],sent={ok:!r.error,method:ps.method,ps:ps.status,status:salesRecord(id).status,shipped:shippingSummary(salesRecord(id)).shipped,received:shippingSummary(salesRecord(id)).delivered};
+  const got=shippingMarkDelivered(ps.id,'Receiver',skDay),done=salesRecord(id).status,undo=skipUndo(r.id);return {bad:!!bad.error,same,sent,got:got.ok,done,undo:!undo.error,live:DB.stationScan.filter(s=>!s.undoneAt).length};
+ }),{bad:true,same:true,sent:{ok:true,method:'delivery',ps:'shipped',status:'shipping',shipped:10,received:0},got:true,done:'done',undo:true,live:0});
  eq('Skip без ошибок страницы',t.errs,[]);await t.c.close();
 };

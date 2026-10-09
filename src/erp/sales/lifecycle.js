@@ -171,7 +171,7 @@ function salesStartedViolations(draft,saved){
 }
 function salesDeleteBlocked(o){
  if(!o)return false;
- if(typeof shippingForOrder==='function'&&shippingForOrder(o.id).length){alert('This order has packing slips and cannot be deleted.');return true;}
+ if(typeof shippingForOrder==='function'&&shippingForOrder(o.id).some(s=>shippingOrderIds(s).includes(o.id))){alert('This order has packing slips and cannot be deleted.');return true;}
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
  const ncr=(DB.ncr||[]).find(n=>n.orderId===o.id||n.remakeOrderId===o.id)||((DB.recut||[]).some(r=>r.orderId===o.id)?{number:'a recut'}:null);
  if(!salesIsQuote(o)&&ncr){alert('Order '+(o.businessNumber||'')+' is linked to '+ncr.number+'. Cancel it instead of deleting.');return true;}
