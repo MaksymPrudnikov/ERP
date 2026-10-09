@@ -235,6 +235,9 @@ function salesOrderDelete(id){
   if(typeof finReleaseOrder==='function')finReleaseOrder(id);
   DB.salesOrder.splice(DB.salesOrder.indexOf(x),1);salesPruneOrphanShapes();return true;
  });
+ /* Открытый черновик удалённого заказа (Delete из Optimization) закрывается:
+    его Save вернул бы заказ в базу. */
+ if(out.ok&&out.value&&soDraft&&soDraft.id===id)salesDraftDrop();
  if(!out.ok)alert(out.error);render();return out.ok&&out.value;
 }
 

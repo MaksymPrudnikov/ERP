@@ -96,5 +96,11 @@ module.exports=async function({page,eq}){
   return {two,enabled,label,gone:!salesRecord(a),other:!!salesRecord(b)};
  }),{two:true,enabled:true,label:'Delete',gone:true,other:true});
 
+ eq('заказ открыт в редакторе, Delete из Optimization: черновик закрывается, Save не возвращает заказ',await t.p.evaluate(()=>{
+  odReset();const id=odOrder();oqThrough(id,'batched');salesOrderEdit(id);tab='optimization';optimizationSetTab('all');render();
+  const open=!!soDraft&&soDraft.id===id,deleted=odDelete(id);tab='sales';render();const saved=soDraft?salesOrderSave():false;
+  return {open,deleted,draft:!!soDraft,back:!!salesRecord(id),saved};
+ }),{open:true,deleted:true,draft:false,back:false,saved:false});
+
  eq('Delete без ошибок страницы',t.errs,[]);await t.c.close();
 };
