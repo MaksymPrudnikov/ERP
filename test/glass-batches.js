@@ -49,7 +49,7 @@ module.exports=async function({page,eq,ok}){
   head:'6CLEAR · 9 pcs · 3 orders · Created '+await t.p.evaluate(()=>salesShortDate(glassBatchFind('B-0001').createdAt)),status:'Awaiting cutting',units:true});
 
  eq('пока стекло ждёт, заказ не готов: Awaiting readiness показывает остаток, позиции под замком',await t.p.evaluate(()=>{
-  const o=salesRecord(gbA);return {ready:salesRecordTransitionAllowed(o,'ready'),awaiting:optimizationMatches(o,'awaiting'),toBatch:optimizationMatches(o,'batch'),locked:o.lines.every(salesLineLocked),delete:salesDeleteBlocked(o)};
+  const o=salesRecord(gbA);return {ready:salesRecordTransitionAllowed(o,'ready'),awaiting:optimizationMatches(o,'awaiting'),toBatch:optimizationMatches(o,'batch'),locked:o.lines.every(salesLineLocked),delete:salesDeleteTouched(o)};
  }),{ready:false,awaiting:true,toBatch:true,locked:true,delete:true});
 
  eq('несколько типов сразу: окно Create 2 batches, у каждого типа свой номер; очередь пуста, Ready ждёт сканов',await t.p.evaluate(()=>{

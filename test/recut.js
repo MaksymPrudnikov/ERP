@@ -65,10 +65,10 @@ module.exports=async function({page,eq,ok}){
  eq('после перезагрузки Recut и его номера стёкол те же',await t.p.evaluate(saved=>JSON.stringify([DB.recut,DB.glassPiece])===saved,saved),true);
  await helpers();
 
- eq('JSON: Recut переживает экспорт и импорт; повтор номера в заказе и не-массив не импортируются; удалить заказ с Recut нельзя',await t.p.evaluate(()=>{
+ eq('JSON: Recut переживает экспорт и импорт; повтор номера в заказе и не-массив не импортируются; заказ с Recut удаляют только Users, Finance, Optimization',await t.p.evaluate(()=>{
   const src=JSON.parse(JSON.stringify(DB)),next=prepareImportedState(JSON.parse(JSON.stringify(src)));
   const fail=m=>{const x=JSON.parse(JSON.stringify(src));m(x);try{prepareImportedState(x);return '';}catch(e){return e.message;}};
-  return {same:JSON.stringify(next.recut)===JSON.stringify(src.recut),dup:fail(x=>{x.recut.push(Object.assign({},x.recut[0],{id:'RC-copy'}));}),shape:fail(x=>{x.recut={};}),del:salesDeleteBlocked(DB.salesOrder[0])};
+  return {same:JSON.stringify(next.recut)===JSON.stringify(src.recut),dup:fail(x=>{x.recut.push(Object.assign({},x.recut[0],{id:'RC-copy'}));}),shape:fail(x=>{x.recut={};}),del:salesDeleteTouched(DB.salesOrder[0])};
  }),{same:true,dup:'Duplicate recut number.',shape:'The "recut" field must be an array.',del:true});
 
  eq('экран Recut без русского; заметка не исполняет HTML',await t.p.evaluate(()=>{
