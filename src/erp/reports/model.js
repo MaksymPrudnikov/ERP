@@ -144,13 +144,13 @@ function REP_STARTERS(){
     repW('columns','deliveries',{title:'Km by week',dims:['at:week'],metrics:['km']})]]],2),
   /* Версия 3: экраны — «эта станция» и «я» подставляются на месте. */
   R('myday','Station · my day','Screens','today',[],[
-   ['Today',[repW('number','glass',{title:'This station today',metrics:['count','area'],filters:[{f:'station',op:'in',v:['@station']}]}),
-    repW('number','glass',{title:'You today',metrics:['count','area'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
+   ['Today',[repW('number','glass',{title:'This station today',width:'half',metrics:['count','area'],filters:[{f:'station',op:'in',v:['@station']}]}),
+    repW('number','glass',{title:'You today',width:'half',metrics:['count','area'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
     repW('columns','glass',{title:'Glass by hour',dims:['at:hour'],metrics:['count'],filters:[{f:'station',op:'in',v:['@station']}]}),
     repW('table','glass',{title:'Orders done here today',dims:['order'],metrics:['count'],filters:[{f:'station',op:'in',v:['@station']}],limit:10,other:true})]]],3),
   R('myedge','Edgework · my day','Screens','today',[],[
-   ['Today',[repW('number','edgework',{title:'Linear in here today',metrics:['inches','glass'],filters:[{f:'station',op:'in',v:['@station']}]}),
-    repW('number','edgework',{title:'Your linear in today',metrics:['inches','glass'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
+   ['Today',[repW('number','edgework',{title:'Linear in here today',width:'half',metrics:['inches','glass'],filters:[{f:'station',op:'in',v:['@station']}]}),
+    repW('number','edgework',{title:'Your linear in today',width:'half',metrics:['inches','glass'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
     repW('columns','edgework',{title:'Linear in by hour',dims:['at:hour'],metrics:['inches'],filters:[{f:'station',op:'in',v:['@station']}]}),
     repW('table','edgework',{title:'By thickness',dims:['mm'],metrics:['inches','glass'],filters:[{f:'station',op:'in',v:['@station']}]})]]],3),
   R('mycustomers','Sales · my customers','Screens','thisMonth',['customer'],[
