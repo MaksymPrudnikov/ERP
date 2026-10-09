@@ -20,7 +20,7 @@ module.exports=async function({page,eq,ok}){
   const old=window.accessCan;window.accessCan=k=>k!=='reports';tab='dashboard';render();const hidden=!document.querySelector('.side [title="Reports"]');window.accessCan=old;
   rpOpenTab();const folders=[...document.querySelectorAll('[data-rep-folder]')].map(x=>x.dataset.repFolder);
   return {inSections:USER_SECTIONS.includes('reports'),hidden,empty:!!document.querySelector('[data-rep-empty]'),widgets:rpWidgets().length,folders,starters:(DB.report||[]).filter(r=>/^RP-start-/.test(r.id)).length};
- }),{inSections:true,hidden:true,empty:true,widgets:0,folders:['All','People','Production','Quality','Sales','Shipping'],starters:16});
+ }),{inSections:true,hidden:true,empty:true,widgets:0,folders:['All','Finance','People','Production','Quality','Sales','Shipping'],starters:21});
 
  eq('Отчёт «Glass cut · by month» открывается страницей Summary; на второй странице — свои графики; поиск по каталогу',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repQ='glass cut';render();const found=[...document.querySelectorAll('[data-rep-item]')].map(x=>x.querySelector('b').textContent);
@@ -74,7 +74,7 @@ module.exports=async function({page,eq,ok}){
   let bad='';try{validateImportedState(Object.assign({},json,{report:{}}));}catch(e){bad=e.message;}
   DB.report=DB.report.filter(r=>r.name!=='Owner · weekly');normalizeReports();const gone=!DB.report.some(r=>r.name==='Owner · weekly');
   DB.report=json.report;normalizeReports();return {back:DB.report.some(r=>r.name==='Owner · weekly'),gone,bad,starters:DB.report.filter(r=>/^RP-start-/.test(r.id)).length};
- }),{back:true,gone:true,bad:'The "report" field must be an array.',starters:16});
+ }),{back:true,gone:true,bad:'The "report" field must be an array.',starters:21});
 
  eq('Линия со сравнением — пунктир прошлого периода; печать — название, период, графики, без кнопок правки',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repOpen('RP-start-stations');const line=document.querySelector('[data-rep-type="line"]');
@@ -88,6 +88,12 @@ module.exports=async function({page,eq,ok}){
   const cells=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] tbody tr`)].map(tr=>[...tr.children].map(td=>td.textContent.trim()).join('|'));repCancelEdit();
   return {row:!!row,label1,label2,cells};
  }),{row:true,label1:['Person','Linear in','Linear in ÷ Operations'],label2:['Person','Linear in','Linear in ÷ 100'],cells:['Andrei|432|4.32','Vasyl|280|2.8']});
+ eq('Без Finance: источников Payments и Balances нет в списке, их графики пишут «Needs Finance access»',await t.p.evaluate(()=>{
+  rpScans();const old=window.accessCan;window.accessCan=k=>k!=='finance';
+  try{rpOpenTab();repOpen('RP-start-payments');const text=document.querySelector('[data-rep-widget]').textContent;repNew();
+   const opts=[...document.querySelectorAll('[data-rep-source] option')].map(o=>o.value);repCancelEdit();return {needs:/Needs Finance access/.test(text),payments:opts.includes('payments'),balances:opts.includes('balances'),quotes:opts.includes('quotes')};}
+  finally{window.accessCan=old;}
+ }),{needs:true,payments:false,balances:false,quotes:true});
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

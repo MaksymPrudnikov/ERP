@@ -84,6 +84,29 @@ module.exports=async function({page,eq,ok}){
   return {city:one.keys,po:f.po,rep:f.rep,mark:f.mark,size:f.size,recut:f.recut,terms:f.terms,
    calc:perIn.metrics.map((m,i)=>m.label+' = '+repFmt(m,perIn.total[i])),badCalc:repMetric(REP_SRC.edgework,'calc:inches~div~nothing')};
  }),{city:['Toronto'],po:'PO-77',rep:'Kate',mark:'Kitchen',size:'37 × 71',recut:'Original',terms:'Credit',calc:['$ by price list ÷ Linear in = $0.01','Linear in ÷ 12 = 36'],badCalc:null});
+ eq('Quotes: Won / Sent / Expired / Not sent и win rate; Payments и Balances — только с Finance; Offcuts — лежит, снят; размерная группа и производитель стекла',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'North Shore Windows',salesRep:'Kate'}),who={id:'u1',name:'Andrei'},past=repAddDays(finToday(),-5),later=repAddDays(finToday(),20);
+  const q1=oqOrder(c,{kind:'quote'}),q2=oqOrder(c,{kind:'quote'}),q3=oqOrder(c,{kind:'quote'}),q4=oqOrder(c,{kind:'quote'});soDraft=null;soEdit=null;
+  Object.assign(salesRecord(q1),{status:'won',sentAt:new Date().toISOString(),validUntil:later});Object.assign(salesRecord(q2),{status:'sent',sentAt:new Date().toISOString(),validUntil:later});
+  Object.assign(salesRecord(q3),{validUntil:past});Object.assign(salesRecord(q4),{validUntil:later});
+  const quotes=repQuery({source:'quotes',date:{f:'created',preset:'all'},dims:['state'],metrics:['count','winRate'],sort:{by:'label',dir:'asc'}});
+  const a=rbOrder(c,'6CLEAR','double',[[37,71,1]]);rbBatch([a]);rbIds(a).forEach(p=>rbGo('CUT',p,who));
+  DB.receipt=[normalizeReceipt({number:'R-0001',customerId:c.id,amount:300,method:'cheque',date:finToday(),allocations:[{orderId:a,amount:200}]})];
+  const pay=repQuery({source:'payments',date:{preset:'all'},metrics:['amount','applied','onAccount','count']}),bal=repQuery({source:'balances',date:{f:'due',preset:'all'},metrics:['paid','count']});
+  stockOffcutAdd({glass:'6CLEAR',mm:6,w:40,h:30,batch:'B-0001',sheet:1});const gone=stockOffcutAdd({glass:'6CLEAR',mm:6,w:20,h:12,batch:'B-0001',sheet:1});stockOffcutCancel(gone.id);
+  const off=repQuery({source:'offcuts',date:{preset:'all'},dims:['status'],metrics:['count','area'],sort:{by:'label',dir:'asc'}}),f=repWorkFacts()[0];
+  const old=window.accessCan;window.accessCan=k=>k!=='finance';const gated={payments:repSourceAllowed('payments'),balances:repSourceAllowed('balances'),quotes:repSourceAllowed('quotes')};window.accessCan=old;
+  return {quotes:quotes.keys.map(k=>k+' '+quotes.rowTotals.get(k)[0]),winRate:repFmt(quotes.metrics[1],quotes.total[1]),
+   pay:pay.metrics.map((m,i)=>repFmt(m,pay.total[i])),balPaid:repFmt(bal.metrics[0],bal.total[0]),off:off.keys.map(k=>k+' '+off.rowTotals.get(k)[0]+' · '+repFmt(off.metrics[1],off.rowTotals.get(k)[1])),
+   sizeBand:f.sizeBand,maker:f.maker===(glassProductByCode('6CLEAR').manufacturer||''),gated};
+ }),{quotes:['Expired 1','Not sent 1','Sent 1','Won 1'],winRate:'25%',pay:['$300.00','$200.00','$100.00','1'],balPaid:'$200.00',off:['In stock 1 · 8.3','Removed 1 · 1.7'],
+  sizeBand:'10–30 ft²',maker:true,gated:{payments:false,balances:false,quotes:true}});
+
+ eq('Стартовые отчёты по версиям: база получает новые, удалённый владельцем стартовый не возвращается',await t.p.evaluate(()=>{
+  DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes'].includes(r.id));
+  DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
+  return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes'],again:6,seed:2});
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

@@ -18,7 +18,7 @@
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=1;
+const REP_SEED_VERSION=2;
 /* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
 function repUid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();}
 function repMe(){const u=typeof signinUser==='function'?signinUser():null;return u?u.viewProfileId:'';}
@@ -58,7 +58,10 @@ function repClean(r){
 function normalizeReports(){
  if(!Array.isArray(DB.report))DB.report=[];
  const seen=new Set();DB.report=DB.report.filter(r=>r&&typeof r==='object').map(repClean).filter(r=>!seen.has(r.id)&&(seen.add(r.id),true));
- if(!(+DB.reportSeed>=REP_SEED_VERSION)){REP_STARTERS().forEach(r=>{if(!DB.report.some(x=>x.id===r.id))DB.report.push(repClean(r));});DB.reportSeed=REP_SEED_VERSION;}
+ /* Стартовые отчёты добавляются по версиям: база получает только новые
+    для себя — удалённый владельцем стартовый не возвращается. */
+ const seed=+DB.reportSeed||0;
+ if(seed<REP_SEED_VERSION){REP_STARTERS().filter(r=>(r.seed||1)>seed).forEach(r=>{if(!DB.report.some(x=>x.id===r.id))DB.report.push(repClean(r));});DB.reportSeed=REP_SEED_VERSION;}
 }
 function validateReportsPayload(src){
  if(src.report!=null&&!Array.isArray(src.report))throw new Error('The "report" field must be an array.');
@@ -69,7 +72,7 @@ function validateReportsPayload(src){
 /* Образцы по участкам — первые отчёты каталога. w(тип, источник, …). */
 function repW(type,source,o){o=o||{};return {type,title:o.title||'',width:o.width||'full',q:{source,date:o.date||{},dims:o.dims||[],metrics:o.metrics||[],filters:o.filters||[],sort:o.sort||null,limit:o.limit||0,other:!!o.other,compare:o.compare||''},opts:o.opts||{}};}
 function REP_STARTERS(){
- const R=(id,name,folder,date,controls,pages)=>({id:'RP-start-'+id,name,folder,ownerId:'',share:'all',date:{preset:date},controls,pages:pages.map((p,i)=>({id:'PG-start-'+id+'-'+i,name:p[0],widgets:p[1].map((w,j)=>Object.assign({id:'W-start-'+id+'-'+i+'-'+j},w))}))});
+ const R=(id,name,folder,date,controls,pages,seed)=>({id:'RP-start-'+id,name,folder,ownerId:'',share:'all',seed:seed||1,date:{preset:date},controls,pages:pages.map((p,i)=>({id:'PG-start-'+id+'-'+i,name:p[0],widgets:p[1].map((w,j)=>Object.assign({id:'W-start-'+id+'-'+i+'-'+j},w))}))});
  return [
   R('cut','Glass cut · by month','Production','thisYear',['glass','mm','person'],[
    ['Summary',[repW('number','cutting',{metrics:['count','area','batches'],compare:'year'}),repW('columns','cutting',{title:'Glass cut by month · thickness',dims:['at:month','mm'],metrics:['count']}),
@@ -117,7 +120,22 @@ function REP_STARTERS(){
    ['Summary',[repW('table','orders',{title:'Lead time, days',date:{f:'shipped'},dims:['customer'],metrics:['lead:avg','lead:max','count']})]]]),
   R('recuts','Recuts · by reason','Quality','last30',['station','reason','person'],[
    ['Summary',[repW('number','breaks',{metrics:['glassN','area','usd']}),repW('bars','breaks',{title:'By reason',dims:['reason'],metrics:['glassN'],width:'half'}),
-    repW('bars','breaks',{title:'By station',dims:['station'],metrics:['glassN'],width:'half'}),repW('columns','breaks',{title:'By week · kind',dims:['at:week','kind'],metrics:['glassN']})]]])
+    repW('bars','breaks',{title:'By station',dims:['station'],metrics:['glassN'],width:'half'}),repW('columns','breaks',{title:'By week · kind',dims:['at:week','kind'],metrics:['glassN']})]]]),
+  /* Версия 2 (10 октября 2026): квоты, оплаты, долги, остатки, размеры. */
+  R('quotes','Quotes · win rate by rep','Sales','thisQuarter',['rep','customer'],[
+   ['Summary',[repW('number','quotes',{date:{f:'created'},metrics:['count','won','winRate','wonValue']}),repW('table','quotes',{title:'By sales rep',date:{f:'created'},dims:['rep'],metrics:['count','won','winRate','value','wonValue']}),
+    repW('columns','quotes',{title:'Quotes by month · status',date:{f:'created'},dims:['created:month','state'],metrics:['count']})]]],2),
+  R('payments','Payments · by month','Finance','thisYear',['customer','method'],[
+   ['Summary',[repW('number','payments',{metrics:['amount','count','onAccount'],compare:'year'}),repW('columns','payments',{title:'Received by month',dims:['at:month'],metrics:['amount']}),
+    repW('pie','payments',{title:'By method',dims:['method'],metrics:['amount'],width:'half'}),repW('table','payments',{title:'Top customers',dims:['customer'],metrics:['amount','count'],limit:10,other:true,width:'half'})]]],2),
+  R('balances','Balances · overdue by customer','Finance','all',['customer','terms'],[
+   ['Summary',[repW('number','balances',{date:{f:'due'},metrics:['balance','overdue','overdueN']}),repW('table','balances',{title:'By customer',date:{f:'due'},dims:['customer'],metrics:['balance','overdue','overdueN','daysOverdue:max']}),
+    repW('bars','balances',{title:'Balance by status',date:{f:'due'},dims:['status'],metrics:['balance']})]]],2),
+  R('offcuts','Offcuts · stock by glass','Production','all',['glass','mm'],[
+   ['Summary',[repW('number','offcuts',{metrics:['count','area'],filters:[{f:'status',op:'in',v:['In stock']}]}),repW('table','offcuts',{title:'Glass × status',dims:['glass','status'],metrics:['count']})]]],2),
+  R('sizes','Glass by size band','Production','thisMonth',['station','glass'],[
+   ['Summary',[repW('bars','glass',{title:'Glass by size band',dims:['sizeBand'],metrics:['count'],width:'half'}),repW('pie','ordered',{title:'Ordered ft² by size band',date:{f:'created'},dims:['sizeBand'],metrics:['area'],width:'half'}),
+    repW('table','glass',{title:'Station × size band',dims:['station','sizeBand'],metrics:['count']})]]],2)
  ];
 }
 

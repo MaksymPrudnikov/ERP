@@ -90,7 +90,7 @@ function repGlassWork(g,station){
      толщина — своё поле, по ней и так можно разбить. */
   works.push({key:x.row.key,label:x.row.label,op:String(x.row.label).replace(/ · [\d.]+ mm$/,''),unit:x.row.unit,qty,usd:x.rate==null?null:qty*x.rate});
  });
- return {area:area>0?area:null,mm:me.mm,heat:me.heat,unitType:lw.unitType,works};
+ return {area:area>0?area:null,mm:me.mm,heat:me.heat,unitType:lw.unitType,maker:repMaker(me.glassId),works};
 }
 
 /* День и час — по часам этого компьютера, как finToday. */
@@ -104,10 +104,15 @@ function repHour(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?-1:
    адрес), условия оплаты, тип клиента, срок; у строки — отметка, размер,
    фигура или прямоугольник. Заказ считается один раз на сборку фактов. */
 function repCustomerAddr(c){const list=c&&Array.isArray(c.addresses)?c.addresses:[];return list.find(a=>a&&a.isPrimary)||list.find(a=>a&&a.isInvoice)||list[0]||{};}
+function repCustomerInfo(id){const c=salesFindCustomer(id)||{},a=repCustomerAddr(c);return {rep:c.salesRep||'',city:a.city||'',province:a.province||'',ctype:c.customerType||''};}
 function repOrderInfo(o){
- const c=salesFindCustomer(o.customerId)||{},a=repCustomerAddr(c),t=typeof finTermsFor==='function'?finTermsFor(o)||{}:{};
- return {po:o.customerPo||'',rep:c.salesRep||'',city:a.city||'',province:a.province||'',terms:t.paymentMode==='credit'?'Credit':'Cash',ctype:c.customerType||'',due:o.dueDate||'',delivery:o.delivery==='delivery'?'Delivery':'Pickup'};
+ const t=typeof finTermsFor==='function'?finTermsFor(o)||{}:{};
+ return Object.assign(repCustomerInfo(o.customerId),{po:o.customerPo||'',terms:t.paymentMode==='credit'?'Credit':'Cash',due:o.dueDate||'',delivery:o.delivery==='delivery'?'Delivery':'Pickup'});
 }
+/* Размерная группа стекла по ft² одного стекла и производитель стекла из
+   каталога — для разреза «какие стёкла» (владелец: «анализа не бывает мало»). */
+function repSizeBand(ft2){return !(ft2>0)?'':ft2<10?'Under 10 ft²':ft2<30?'10–30 ft²':ft2<60?'30–60 ft²':'60 ft² and up';}
+function repMaker(glassId){const g=glassId&&glassProductById(glassId);return g&&g.manufacturer||'';}
 function repLineInfo(l){return {mark:l.mark||'',size:frac16((+l.width16||0)/16)+' × '+frac16((+l.height16||0)/16),shape:typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle'};}
 let repWorkCache={stamp:'',rows:null};
 let repWorkBuilds=0;
@@ -131,7 +136,7 @@ function repWorkFacts(){
    area:w.area,works:w.works,inches:sum('in'),workFt2:sum('ft²'),pcs:sum('pc'),
    usd:priced.length?priced.reduce((n,x)=>n+x.usd,0):null,unpriced:w.works.length-priced.length,
    asm:s.asm||'',unitDone:!!(s.unit||s.joined),asmDone:(s.unit||s.joined)&&s.asm?s.asm:'',manual:!!s.manual,confirmedAt:s.confirmedAt||'',
-   on:s.on||'',recut:g&&typeof g.unit==='string'?'Recut':'Original',...(g?oInfo(g.o):{}),...(g?lInfo(g.l):{})});
+   on:s.on||'',recut:g&&typeof g.unit==='string'?'Recut':'Original',sizeBand:repSizeBand(w.area),maker:w.maker||'',...(g?oInfo(g.o):{}),...(g?lInfo(g.l):{})});
  });
  repWorkCache={stamp,rows};
  return rows;

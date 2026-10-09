@@ -31,7 +31,8 @@ function repOrderFields(){
  return [REP_F.text('po','PO',r=>r.po||'—'),REP_F.dim('rep','Sales rep',r=>r.rep||'—'),REP_F.dim('city','City',r=>r.city||'—'),REP_F.dim('province','Province',r=>r.province||'—'),
   REP_F.dim('terms','Terms',r=>r.terms||'—'),REP_F.dim('ctype','Customer type',r=>r.ctype||'—')];
 }
-function repLineFields(){return [REP_F.text('mark','Line mark',r=>r.mark||'—'),REP_F.dim('size','Size',r=>r.size||'—'),REP_F.dim('shape','Shape',r=>r.shape||'—')];}
+function repLineFields(){return [REP_F.text('mark','Line mark',r=>r.mark||'—'),REP_F.dim('size','Size',r=>r.size||'—'),REP_F.dim('shape','Shape',r=>r.shape||'—'),
+ REP_F.dim('sizeBand','Size band',r=>r.sizeBand||'—'),REP_F.dim('maker','Manufacturer',r=>r.maker||'—')];}
 /* Поля, общие для сканов станций. */
 function repScanFields(person){
  return [REP_F.date('at','Scan time'),REP_F.dim('station','Station'),REP_F.dim('person',person||'Person',r=>r.person||'—'),
@@ -67,7 +68,7 @@ const REP_SRC={
  cutting:{label:'Cutting',group:'Production',hint:'Glass cut at CUT',rows:()=>repScansAt([stationCutCode()]),date:['at'],fields:()=>repScanFields('Cutter'),
   metrics:[{k:'count',label:'Glass cut',agg:'count'},{k:'area',label:'ft² cut',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'},{k:'batches',label:'Batches',agg:'distinct',f:'batch'}]},
  sheets:{label:'Sheets',group:'Production',hint:'Sheet sizes used and waste',rows:()=>repSheetFacts(),date:['at'],
-  fields:()=>[REP_F.date('at','Built'),REP_F.text('batch','Batch'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('size','Sheet size'),REP_F.dim('kind','Sheet or offcut'),REP_F.dim('status','Status'),
+  fields:()=>[REP_F.date('at','Built'),REP_F.text('batch','Batch'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('size','Sheet size'),REP_F.dim('kind','Sheet or offcut'),REP_F.dim('status','Status'),REP_F.dim('maker','Manufacturer',r=>r.maker||'—'),
    REP_F.num('sheets','Sheets'),REP_F.num('broken','Broken'),REP_F.num('area','Sheet ft²',{digits:1}),REP_F.num('used','Glass ft²',{digits:1}),REP_F.num('waste','Waste ft²',{digits:1}),REP_F.num('keep','To stock ft²',{digits:1})],
   metrics:[{k:'sheets',label:'Sheets',agg:'sum',f:'sheets'},{k:'area',label:'Sheet ft²',agg:'sum',f:'area',digits:1},{k:'used',label:'Glass ft²',agg:'sum',f:'used',digits:1},{k:'waste',label:'Waste ft²',agg:'sum',f:'waste',digits:1},
    {k:'yield',label:'Used %',agg:'ratio',num:'used',den:'area',pct:true,digits:1},{k:'broken',label:'Broken',agg:'sum',f:'broken'}]},
@@ -111,4 +112,29 @@ const REP_SRC={
   metrics:[{k:'hours',label:'Hours',agg:'sum',f:'hours',digits:1},{k:'glassN',label:'Glass',agg:'sum',f:'glassN'},{k:'perHour',label:'Glass per hour',agg:'ratio',num:'glassTimed',den:'hoursTimed',digits:1},
    {k:'count',label:'Person-days',agg:'count'}]}
 };
-const REP_GROUPS=['Production','Shipping','Sales','Quality','People'];
+/* Источник с access виден только с этой галочкой в Users: деньги — Finance. */
+function repSourceAllowed(k){const S=REP_SRC[k];return !!S&&(!S.access||typeof accessCan!=='function'||accessCan(S.access));}
+Object.assign(REP_SRC,{
+ quotes:{label:'Quotes',group:'Sales',hint:'Won, sent, expired, value',rows:()=>repQuoteFacts(),date:['created','sent','validUntil'],
+  fields:()=>[REP_F.date('created','Created'),REP_F.date('sent','Sent'),REP_F.date('validUntil','Valid until'),REP_F.text('quote','Quote'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
+   REP_F.dim('state','Status'),REP_F.text('order','Won order',r=>r.order||'—')].concat(repOrderFields(),[REP_F.num('revisions','Revisions'),REP_F.num('units','Units'),REP_F.num('area','Area ft²',{digits:1}),
+   REP_F.num('value','Quote value',{money:true}),REP_F.num('wonValue','Won value',{money:true})]),
+  metrics:[{k:'count',label:'Quotes',agg:'count'},{k:'won',label:'Won',agg:'sum',f:'won'},{k:'winRate',label:'Win rate %',agg:'ratio',num:'won',den:'one',pct:true,digits:0},
+   {k:'value',label:'Quote value',agg:'sum',f:'value',money:true},{k:'wonValue',label:'Won value',agg:'sum',f:'wonValue',money:true},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1}]},
+ payments:{label:'Payments',group:'Finance',access:'finance',hint:'Receipts by date, customer, method',rows:()=>repReceiptFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Date'),REP_F.text('receipt','Receipt'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('method','Method'),REP_F.dim('currency','Currency'),
+   REP_F.dim('rep','Sales rep',r=>r.rep||'—'),REP_F.dim('city','City',r=>r.city||'—'),REP_F.dim('ctype','Customer type',r=>r.ctype||'—'),
+   REP_F.num('amount','Amount',{money:true}),REP_F.num('applied','Applied to orders',{money:true}),REP_F.num('onAccount','On account',{money:true}),REP_F.num('orders','Orders paid')],
+  metrics:[{k:'amount',label:'Amount',agg:'sum',f:'amount',money:true},{k:'count',label:'Receipts',agg:'count'},{k:'applied',label:'Applied to orders',agg:'sum',f:'applied',money:true},
+   {k:'onAccount',label:'On account',agg:'sum',f:'onAccount',money:true},{k:'customers',label:'Customers',agg:'distinct',f:'customer'}]},
+ balances:{label:'Balances & overdue',group:'Finance',access:'finance',hint:'What customers owe and how late',rows:()=>repBalanceFacts(),date:['due','billed'],
+  fields:()=>[REP_F.date('due','Payment due'),REP_F.date('billed','Billed'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('status','Status')]
+   .concat(repOrderFields(),[REP_F.num('total','Order total',{money:true}),REP_F.num('paid','Paid',{money:true}),REP_F.num('balance','Balance',{money:true}),REP_F.num('overdue','Overdue',{money:true}),REP_F.num('daysOverdue','Days overdue')]),
+  metrics:[{k:'balance',label:'Balance',agg:'sum',f:'balance',money:true},{k:'overdue',label:'Overdue',agg:'sum',f:'overdue',money:true},{k:'overdueN',label:'Overdue orders',agg:'sum',f:'overdueN'},
+   {k:'count',label:'Orders',agg:'count'},{k:'paid',label:'Paid',agg:'sum',f:'paid',money:true},{k:'total',label:'Order total',agg:'sum',f:'total',money:true}]},
+ offcuts:{label:'Offcuts in stock',group:'Production',hint:'Sheet offcuts kept, used, removed',rows:()=>repOffcutFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Booked'),REP_F.text('offcut','Offcut'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('maker','Manufacturer',r=>r.maker||'—'),
+   REP_F.dim('size','Size'),REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.dim('status','Status'),REP_F.num('area','Area ft²',{digits:1})],
+  metrics:[{k:'count',label:'Offcuts',agg:'count'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1}]}
+});
+const REP_GROUPS=['Production','Shipping','Sales','Finance','Quality','People'];
