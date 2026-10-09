@@ -54,6 +54,44 @@ module.exports=async function({page,eq,ok}){
   return {made:made.ok,atArris,ship:ship&&[...ship.children].slice(1).map(x=>x.textContent.replace(/\s+/g,' ').trim()).join(' · ')};
  }),{made:true,atArris:{hot:true,crit:true,due:'Tomorrow',chips:['Here 2','Coming 1'],done:'1 / 4 done',shipping:false},ship:'North Shore Windows Pickup · 1 / 1 ready'});
 
+
+ /* Overview (view/dashboard): «что сейчас» без денег; блок — по галочке
+    раздела в Users; каждая цифра открывает свой список. */
+ eq('Overview: блоки по галочкам разделов, денег нигде нет',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'North Shore Windows'});rbOrder(c,'6CLEAR','double',[[37,71,1]],{dueDate:finToday()});
+  const as=keys=>{const old=window.accessCan;window.accessCan=k=>keys.includes(k);try{tab='dashboard';render();const app=document.getElementById('app');
+   return {blocks:['orders','shop','ship','quality'].filter(k=>app.querySelector('[data-dash-'+k+']')),tiles:[...app.querySelectorAll('[data-dash-tile]')].map(x=>x.dataset.dashTile),money:/\$|USD|CAD|Balance|Total/.test(app.innerText)};}finally{window.accessCan=old;tab='dashboard';render();}};
+  return {sales:as(['dashboard','sales']),shop:as(['dashboard','production']),all:as(USER_SECTIONS)};
+ }),{sales:{blocks:['orders'],tiles:['today','week','attention'],money:false},shop:{blocks:['shop','quality'],tiles:[],money:false},
+  all:{blocks:['orders','shop','ship','quality'],tiles:['today','week','attention','verify','batch','ready','delivery','shipments','backorders'],money:false}});
+
+ eq('Overview: числа как на вкладках Sales / Optimization / Shipping; нажатие открывает тот же вид; станция — Production с фильтром только этой станции',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'North Shore Windows'}),who=rbUser('Andrei','1111');
+  const d=new Date();d.setDate(d.getDate()-2);const p=v=>String(v).padStart(2,'0'),past=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+  const a=rbOrder(c,'6CLEAR','double',[[37,71,1]],{dueDate:finToday()}),b=rbOrder(c,'6CLEAR','double',[[30,40,1]],{dueDate:past}),n=rbOrder(c,'6CLEAR','double',[[30,40,1]]);
+  rbBatch([a,b]);rbIds(a).forEach(x=>rbGo('CUT',x,who));
+  tab='dashboard';render();const num=k=>+document.querySelector(`[data-dash-tile="${k}"] b`).textContent;
+  const counts={today:num('today'),attention:num('attention'),verify:num('verify')===optimizationTabCount('new'),batch:num('batch')===optimizationTabCount('batch'),ready:num('ready')===shippingTabCount('ready')};
+  const warn=document.querySelector('[data-dash-tile="attention"]').classList.contains('warn');
+  document.querySelector('[data-dash-tile="today"]').click();const sales={tab,quick:salesListLoadPrefs().quick};salesQuickSet('all');
+  tab='dashboard';render();document.querySelector('[data-dash-tile="verify"]').click();const opt={tab,queue:optimizationTab};
+  tab='production';subtab='orders';render();prodFocusStation('HEAT');
+  tab='dashboard';render();document.querySelector('[data-dash-shop] [data-board-station="ARRIS"]').click();
+  const prod={tab,subtab,filters:Object.keys(salesListLoadPrefs().filters).filter(k=>/^st_/.test(k)),rows:[...document.querySelectorAll('[data-prod-order]')].length};
+  prodFocusStation('ARRIS');tab='dashboard';render();
+  return {counts,warn,sales,opt,prod};
+ }),{counts:{today:1,attention:1,verify:true,batch:true,ready:true},warn:true,sales:{tab:'sales',quick:'today'},opt:{tab:'optimization',queue:'new'},prod:{tab:'production',subtab:'orders',filters:['st_ARRIS'],rows:1}});
+
+ eq('Overview: Recuts · 7 days — стекло Recut по станциям за последние 7 дней, старое не считается',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'North Shore Windows'}),who=rbUser('Andrei','1111');
+  const a=rbOrder(c,'6CLEAR','double',[[37,71,2]]);rbBatch([a]);const o=salesRecord(a),reason=id=>ncrReasonsFor(id,{activeOnly:true})[0].id;
+  const r1=recutCreate({orderId:a,where:'ARRIS',reasonId:reason('ARRIS'),lines:{[o.lines[0].id]:{on:true,qty:2,which:'unit'}}});
+  const r2=recutCreate({orderId:a,where:'CUT',reasonId:reason('CUT'),lines:{[o.lines[0].id]:{on:true,qty:1,which:'unit'}}});
+  const old=new Date();old.setDate(old.getDate()-10);r2.recuts[0].createdAt=old.toISOString();
+  tab='dashboard';render();const q=document.querySelector('[data-dash-quality]');
+  return {made:!!(r1.recuts&&r2.recuts),total:q.querySelector('.section-title .mut').textContent,rows:[...q.querySelectorAll('.ch-grid-row:not(.ch-grid-head)')].map(x=>x.querySelector('.ch-grid-label').textContent+' '+x.querySelector('.ch-grid-cell b').textContent)};
+ }),{made:true,total:'4 glass',rows:['ARRIS 4']});
+
  /* Цех на 3400 стёкол и 20 000 сканов: факты и Board считаются за разумное
     время; повторная отрисовка без новых сканов берёт кэш. */
  const perf=await t.p.evaluate(()=>{

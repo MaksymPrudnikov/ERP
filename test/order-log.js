@@ -51,12 +51,13 @@ module.exports=async function({page,eq,ok}){
  }),{types:['password','password','password'],shown:['text','Hide'],hidden:['password','Show'],kept:'abc-12345',again:true});
 
  /* Доступ — галочки разделов (владелец, 3 октября 2026: «видит / не видит»). */
- eq('Demo Sales видит только свои разделы: меню, переход и карточки Overview',await t.p.evaluate(async()=>{
+ eq('Demo Sales видит только свои разделы: меню, переход и блоки Overview',await t.p.evaluate(async()=>{
   const nav=[...document.querySelectorAll('#side .nav-item:not(.nav-user):not(.nav-more)>span:last-child')].map(x=>x.textContent);
   navGo('finance');const go=tab;tab='users';render();const forced=tab;navGo('dashboard');
-  const off=[...document.querySelectorAll('.dash-go:disabled')].map(b=>b.dataset.dashGo);tab='sales';render();
-  return {nav,go,forced,off};
- }),{nav:['Sales','Optimize','Production','Shipping','Customers','Overview'],go:'dashboard',forced:'sales',off:['finance','masterdata','users']});
+  /* Overview с 9 октября 2026 — блоки «что сейчас», каждый по галочке своего раздела. */
+  const blocks=['orders','shop','ship','quality'].filter(k=>document.querySelector('[data-dash-'+k+']'));tab='sales';render();
+  return {nav,go,forced,blocks};
+ }),{nav:['Sales','Optimize','Production','Shipping','Customers','Overview'],go:'dashboard',forced:'sales',blocks:['orders','shop','ship','quality']});
  eq('Export / Import JSON — только у администратора (Users): кнопок нет, вызов ничего не делает',await t.p.evaluate(async()=>{
   const shown=[...document.querySelectorAll('[data-admin]')].filter(b=>getComputedStyle(b).display!=='none').length;
   const keep=storageDownload;let saved=0;storageDownload=()=>{saved++;};doExport();storageDownload=keep;

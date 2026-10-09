@@ -21,7 +21,7 @@ const NAV=[
  {k:'reports', label:'Reports', icon:'report'},
  {k:'masterdata', label:'Data', title:'Master Data', icon:'database', bottom:1},
  {k:'users', label:'Users', icon:'users', bottom:1},
- {k:'dashboard', label:'Overview', title:'System overview', icon:'home', bottom:1}
+ {k:'dashboard', label:'Overview', icon:'home', bottom:1}
 ];
 const NAV_TABBAR=5;
 let tab='dashboard';
@@ -103,7 +103,7 @@ function render(){
  renderNav();
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={
-  dashboard:['System overview','ERP map and current status'],
+  dashboard:['Overview','Orders, shop and shipping now'],
   reports:['Reports','Report builder'],
   users:['Users','Office and station sign-in'],
   customers:['Customers','Customer master, contacts and commercial terms'],

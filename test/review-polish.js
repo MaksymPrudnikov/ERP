@@ -1,14 +1,15 @@
-/* Мелочи после проверки Glass Farm (владелец, 2 октября 2026): Overview —
-   карта разделов без прототипных цифр; буквы сторон в редакторе формы видны
-   в тёмной теме; имя клиента в шапке заказа не обрезается. */
+/* Мелочи после проверки Glass Farm (владелец, 2 октября 2026): буквы сторон
+   в редакторе формы видны в тёмной теме; имя клиента в шапке заказа не
+   обрезается. Overview с 9 октября 2026 — «что сейчас» вместо карты разделов
+   (test/reports.js); здесь — что прототипного текста там по-прежнему нет. */
 module.exports=async function({page,eq}){
  console.log('review-polish');const t=await page(undefined,{width:1440,height:900});await require('./optimization-fixture')(t.p);
- eq('Overview: путь заказа и справочники ведут в свои разделы; прототипного текста нет',await t.p.evaluate(()=>{
-  tab='dashboard';render();const app=document.getElementById('app'),cards=[...app.querySelectorAll('[data-dash-go]')].map(b=>b.dataset.dashGo);
+ eq('Overview: блоки «что сейчас», плитка ведёт в свой раздел; прототипного текста нет',await t.p.evaluate(()=>{
+  tab='dashboard';render();const app=document.getElementById('app'),blocks=['orders','shop','ship','quality'].filter(k=>app.querySelector('[data-dash-'+k+']'));
   const text=app.innerText,stale=['Roadmap','prototype','ERP map','Inventory','Purchasing','needs a decision'].filter(w=>text.includes(w));
-  (app.querySelector('[data-dash-go="shipping"]')||{click(){}}).click();const went=tab;tab='dashboard';render();
-  return {cards,stale,went};
- }),{cards:['sales','optimization','production','shipping','finance','customers','masterdata','users'],stale:[],went:'shipping'});
+  app.querySelector('[data-dash-tile="ready"]').click();const went=tab;tab='dashboard';render();
+  return {blocks,stale,went};
+ }),{blocks:['orders','shop','ship','quality'],stale:[],went:'shipping'});
  eq('редактор формы: буква A — цвет чертежа в светлой теме и светлее в тёмной',await t.p.evaluate(()=>{
   tab='configurators';subtab='shape';openShapeNew('smart');
   /* color-mix браузер отдаёт как color(srgb 0..1) — приводим к 0..255. */
