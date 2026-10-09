@@ -12,7 +12,7 @@ PR 2 из четырёх (после Board на станции). Главная 
 - **Recuts · 7 days** — стекло Recut за последние 7 дней (сегодня и 6 дней назад) по станциям, где разбили: юниты × стёкла выбранной части.
 - **Блок — по галочке раздела** (`accessCan`): Orders — Sales и / или Optimization, Shop now и Recuts — Production, Shipping — Shipping. Нет ни одной — «Nothing to show here.». Стили карты (`.dash-go`, `.dash-setup`) убраны; новые — в `src/styles/reports.css`.
 
-Проверки: `test/reports.js` (+3) — блоки по галочкам без денег; числа как на вкладках и переходы (Sales Today, Optimization To verify, станция ARRIS → один фильтр); Recut за 7 дней без старого. `test/review-polish.js`: проверка Overview переписана — вместо карты разделов блоки «что сейчас» и переход с плитки Ready в Shipping. Всего 1519 проверок src / dist.
+Проверки: `test/reports.js` (+3) — блоки по галочкам без денег; числа как на вкладках и переходы (Sales Today, Optimization To verify, станция ARRIS → один фильтр); Recut за 7 дней без старого. `test/review-polish.js`: проверка Overview переписана — вместо карты разделов блоки «что сейчас» и переход с плитки Ready в Shipping; `test/order-log.js`: Demo Sales видит блоки Overview по своим галочкам (раньше — недоступные карточки карты). Всего 1519 проверок src / dist.
 
 ## Board на экране станции · 9 октября 2026 (v5.159)
 
