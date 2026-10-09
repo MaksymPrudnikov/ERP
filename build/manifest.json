@@ -149,6 +149,9 @@
   "src/erp/shopfloor/production-unbatch.js",
   "src/erp/views/production-unbatch-ui.js",
   "src/erp/reports/facts.js",
+  "src/erp/reports/facts-office.js",
+  "src/erp/reports/sources.js",
+  "src/erp/reports/query.js",
   "src/erp/views/charts.js",
   "src/erp/views/station-board.js",
   "src/erp/storage.js"
