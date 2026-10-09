@@ -42,7 +42,7 @@ module.exports=async function({page,eq,ok}){
   const who={id:'a5',name:'Audit operator'};['CUT','ARRIS'].forEach(s=>{const c=stationCheck(s,glass);stationMove(s,c,who);});
   salesOrderEdit(id);soDraft.lines[0].qty=1;const saved=salesOrderSave(),error=(document.getElementById('e_sales_order')||{}).textContent||'';salesDraftDrop(true);
   salesOrderEdit(id);const guard=salesLockedLineGuard(soDraft.lines[0]),other=salesLockedLineGuard(soDraft.lines[1]);salesDraftDrop(true);
-  const deleteBlocked=salesDeleteBlocked(salesRecord(id));
+  const deleteBlocked=salesDeleteTouched(salesRecord(id));
   const r={saved,error:/Glass already in production: line 1 \(Kitchen\) changed/.test(error),qty:salesRecord(id).lines[0].qty,id:glassPieceMap(id).get(key).ids[1]===glass,heat:stationCheck('HEAT',glass).kind!=='unknown',guard,other,deleteBlocked};
   stationScansFor(glass).slice().reverse().forEach(s=>stationUndo(s.id,who));
   salesOrderEdit(id);soDraft.lines[0].qty=1;r.afterUndo=salesOrderSave();salesDraftDrop();return r;

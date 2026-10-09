@@ -53,10 +53,10 @@ module.exports=async function({page,eq,ok}){
  }),{action:'Remake order',forced:'Choose the action.',whichDisabled:true,number:'NCR1001',source:'Customer claim',
   remake:[true,'new',1,1,true,1,true,0,true,'Remake for NCR1001 · order 76002'],original:['closed',2],pieces:true,status:'Open',recuts:0});
 
- eq('заказ-переделка: полоса Remake for NCR и No charge; снятая галочка возвращает цену; удалить связанные заказы нельзя',await t.p.evaluate(()=>{
+ eq('заказ-переделка: полоса Remake for NCR и No charge; снятая галочка возвращает цену; связанные заказы удаляют только Users, Finance, Optimization',await t.p.evaluate(()=>{
   const [id,rid]=nrRemake;ncrViewId='';salesOrderEdit(rid);const strip=document.querySelector('[data-ncr-remake]').innerText.replace(/\s+/g,' ');
   document.querySelector('[data-no-charge]').click();salesOrderSave();const charged=finOrderTotals(salesRecord(rid)).grand>0;
-  const del=[salesDeleteBlocked(salesRecord(id)),salesDeleteBlocked(salesRecord(rid))];salesSetRecordStatus(rid,'cancelled');
+  const del=[salesDeleteTouched(salesRecord(id)),salesDeleteTouched(salesRecord(rid))];salesSetRecordStatus(rid,'cancelled');
   return {strip:strip.includes('Remake for NCR1001')&&strip.includes('No charge'),charged,del,done:ncrStatus(DB.ncr[0])};
  }),{strip:true,charged:true,del:[true,true],done:'Done'});
 

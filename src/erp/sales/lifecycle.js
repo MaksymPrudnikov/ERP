@@ -169,13 +169,20 @@ function salesStartedViolations(draft,saved){
  });
  return out;
 }
+/* Delete — на любом этапе (владелец, 9 октября 2026: «Олег ошибся… и
+   накладную тоже удалить»): заказ сам возвращается и удаляется
+   (salesOrderDelete). Тронутый заказ — в работе, с накладной, NCR или Recut —
+   удаляют только Users, Finance и Optimization («не доверил бы Оле»). */
+function salesDeleteTouched(o){
+ if(!o||salesIsQuote(o))return false;
+ return (typeof shippingForOrder==='function'&&shippingForOrder(o.id).length>0)||(DB.ncr||[]).some(n=>n.orderId===o.id||n.remakeOrderId===o.id)||(DB.recut||[]).some(r=>r.orderId===o.id)
+  ||['batched','ready','shipping','done','closed'].includes(o.status)||(o.lines||[]).some(l=>salesLineLocked(l)||typeof glassLineScanned==='function'&&glassLineScanned(o.id,l));
+}
+function salesDeleteAllowed(){return accessCan('users')||accessCan('finance')||accessCan('optimization');}
 function salesDeleteBlocked(o){
  if(!o)return false;
- if(typeof shippingForOrder==='function'&&shippingForOrder(o.id).some(s=>shippingOrderIds(s).includes(o.id))){alert('This order has packing slips and cannot be deleted.');return true;}
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
- const ncr=(DB.ncr||[]).find(n=>n.orderId===o.id||n.remakeOrderId===o.id)||((DB.recut||[]).some(r=>r.orderId===o.id)?{number:'a recut'}:null);
- if(!salesIsQuote(o)&&ncr){alert('Order '+(o.businessNumber||'')+' is linked to '+ncr.number+'. Cancel it instead of deleting.');return true;}
- if(!salesIsQuote(o)&&(['batched','ready','shipping','done','closed'].includes(o.status)||(o.lines||[]).some(l=>salesLineLocked(l)||typeof glassLineScanned==='function'&&glassLineScanned(o.id,l)))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
+ if(salesDeleteTouched(o)&&!salesDeleteAllowed()){alert('Ask Finance, Optimization or Users to delete this order.');return true;}
  return false;
 }
 

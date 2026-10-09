@@ -205,16 +205,39 @@ function salesOrderSaveCommand(opts){
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
  normalizeSalesData();if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
+/* Delete на любом этапе (владелец, 9 октября 2026): тронутый заказ сначала
+   возвращает всё стекло (erp/shopfloor/production-unbatch), накладная только
+   этого заказа удаляется, из общей уходит только он (erp/shipping/commands),
+   оплаты — на депозит. Одно окно со всем, что произойдёт; одна запись в базу.
+   Сумму видят только Sales и Finance — оптимизатору денег не показываем. */
+function salesDeleteConfirmText(o){
+ const paid=typeof finOrderPaid==='function'?finOrderPaid(o.id).paid:0;
+ if(!salesDeleteTouched(o))return paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?';
+ const batches=typeof productionUnbatchDeleteBatches==='function'?productionUnbatchDeleteBatches(o):[],ps=typeof shippingDropPlan==='function'?shippingDropPlan(o.id):{deleted:[],corrected:[]};
+ const money=accessCan('sales')||accessCan('finance'),qb=typeof finExportRecord==='function'&&finExportRecord(o.id),numbers=list=>list.map(s=>s.number).join(', ');
+ return ['Delete order '+o.businessNumber+'?',
+  batches.length?'Glass leaves batch '+batches.join(', ')+'.':'',
+  ps.deleted.length?numbers(ps.deleted)+(ps.deleted.length>1?' are':' is')+' deleted.':'',
+  ps.corrected.length?numbers(ps.corrected)+' keep'+(ps.corrected.length>1?'':'s')+' the other orders.':'',
+  paid>0?(money?'$'+paid.toFixed(2)+' goes':'Receipts go')+' back to the customer deposit.':'',
+  qb&&qb.kind==='invoice'&&!qb.voided?'The invoice is already in QuickBooks.':''].filter(Boolean).join('\n');
+}
 function salesOrderDelete(id){
  const o=salesRecord(id);if(!o||salesDeleteBlocked(o))return false;
  if(salesIsQuote(o)){salesQuoteDeleteGroup(o);return;}
- const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;
- if(!confirm(paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?'))return false;
+ if(!confirm(salesDeleteConfirmText(o)))return false;
  const out=storageCommand(()=>{
-  const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0||salesDeleteBlocked(DB.salesOrder[i]))return false;
+  const x=salesRecord(id);if(!x||salesDeleteBlocked(x))return false;
+  if(salesDeleteTouched(x)){
+   if(typeof productionUnbatchForDelete==='function')productionUnbatchForDelete(x);
+   if(typeof shippingDropOrder==='function')shippingDropOrder(id);
+  }
   if(typeof finReleaseOrder==='function')finReleaseOrder(id);
-  DB.salesOrder.splice(i,1);salesPruneOrphanShapes();return true;
+  DB.salesOrder.splice(DB.salesOrder.indexOf(x),1);salesPruneOrphanShapes();return true;
  });
+ /* Открытый черновик удалённого заказа (Delete из Optimization) закрывается:
+    его Save вернул бы заказ в базу. */
+ if(out.ok&&out.value&&soDraft&&soDraft.id===id)salesDraftDrop();
  if(!out.ok)alert(out.error);render();return out.ok&&out.value;
 }
 

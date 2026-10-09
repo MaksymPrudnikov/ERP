@@ -82,7 +82,12 @@ function productionUnbatchScanSteps(g,recs){
 }
 function productionUnbatchPreview(d){
  if(!productionUnbatchAllowed())return {error:'Only Users or Finance can unbatch.'};
- const o=salesRecord(d&&d.orderId);if(!productionUnbatchCanOpen(o))return {error:'Unbatch is not available for this order.'};
+ return productionUnbatchPlan(d);
+}
+/* forDelete: order Delete (erp/sales/orders) checks its own rights, and a
+   cancelled order is returned as well. */
+function productionUnbatchPlan(d,forDelete){
+ const o=salesRecord(d&&d.orderId);if(!(forDelete?!!o&&!salesIsQuote(o):productionUnbatchCanOpen(o)))return {error:'Unbatch is not available for this order.'};
  const catalog=productionUnbatchUnits(o),pick=productionUnbatchPick(o,d,catalog),target=d.target||PRODUCTION_UNBATCH_UNCUT,targets=productionUnbatchTargets(pick.units);
  if(pick.problems.length)return {error:pick.problems.join('. ')+'.',catalog,targets};
  if(!pick.units.length)return {error:'Choose what to unbatch.',catalog,targets};
@@ -107,9 +112,9 @@ function productionUnbatchRun(d){
  if(!productionUnbatchAllowed())return {error:'Only Users or Finance can unbatch.'};
  const out=storageCommand(()=>productionUnbatchCommand(d));return out.ok?out.value:{error:out.error};
 }
-function productionUnbatchCommand(d){
- shippingAssert(d&&typeof d.stamp==='string'&&d.stamp===productionUnbatchStamp(),'Data changed. Review and try again.');
- const plan=productionUnbatchPreview(d);shippingAssert(!plan.error,plan.error);shippingAssert(plan.pieces.length,'The selected glass does not need to move back.');
+function productionUnbatchCommand(d,forDelete){
+ if(!forDelete)shippingAssert(d&&typeof d.stamp==='string'&&d.stamp===productionUnbatchStamp(),'Data changed. Review and try again.');
+ const plan=forDelete?productionUnbatchPlan(d,true):productionUnbatchPreview(d);shippingAssert(!plan.error,plan.error);shippingAssert(plan.pieces.length,'The selected glass does not need to move back.');
  const o=salesRecord(plan.orderId),now=new Date().toISOString(),who=orderLogActor(),sel=new Set(plan.pieces),scans=new Set(plan.scanIds);
  const record={id:salesUid('PU'),orderId:o.id,at:now,target:plan.target,reason:String(d.reason||'').trim().slice(0,200),by:who.by||'Office',byId:who.byId||'',pieces:plan.pieces,scanIds:plan.scanIds,batchNumbers:plan.batchNumbers,shipments:plan.shipments,skipIds:(DB.skip||[]).filter(k=>!k.undoneAt&&k.pieces.some(p=>sel.has(p))).map(k=>k.id)};
  /* s.items is the effective composition. Excluded items retain their whole
@@ -149,6 +154,21 @@ function productionUnbatchCommand(d){
  (DB.productionUnbatch||(DB.productionUnbatch=[])).push(record);
  orderLogPush(o,'Production unbatched',[shippingCount(plan.units.length,'unit'),shippingCount(plan.pieces.length,'glass piece'),'→ '+productionUnbatchTargetLabel(plan.target),plan.shipments.map(s=>s.number).join(', '),record.reason].filter(Boolean).join(' · '));
  return record;
+}
+/* Order Delete at any stage (owner, 9 October 2026: a mistaken Skip is
+   deleted together with its packing slip). All glass returns as Unbatch to
+   Not cut; what Unbatch leaves (broken glass, cancelled units) also leaves
+   its batches. Runs inside the Delete storageCommand. */
+function productionUnbatchDeleteDraft(o){return {orderId:o.id,lines:Object.fromEntries((o.lines||[]).map(l=>[l.id,'all'])),target:PRODUCTION_UNBATCH_UNCUT,reason:'Order deleted'};}
+function productionUnbatchDeleteBatches(o){return [...new Set((DB.glassBatch||[]).filter(b=>b.items.some(i=>!i.releasedAt&&(b.parts[i.part]||{}).orderId===o.id)).map(b=>b.number))];}
+function productionUnbatchForDelete(o){
+ const d=productionUnbatchDeleteDraft(o),plan=productionUnbatchPlan(d,true);
+ if(!plan.error&&plan.pieces.length)productionUnbatchCommand(d,true);
+ const now=new Date().toISOString();
+ (DB.glassBatch||[]).forEach(b=>{
+  const off=b.items.filter(i=>!i.releasedAt&&(b.parts[i.part]||{}).orderId===o.id);if(!off.length)return;
+  off.forEach(i=>{i.releasedAt=now;});b.history.push({at:now,action:'Order deleted',pieces:off.map(i=>i.piece).filter(Boolean),qty:off.length});
+ });
 }
 function productionUnbatchSkipPieces(k){return [...new Set((DB.productionUnbatch||[]).filter(u=>u.skipIds.includes(k.id)).flatMap(u=>u.pieces).filter(p=>k.pieces.includes(p)))];}
 function normalizeProductionUnbatches(){if(!Array.isArray(DB.productionUnbatch))DB.productionUnbatch=[];}

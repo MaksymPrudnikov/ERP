@@ -113,6 +113,28 @@ function shippingRevert(id,action){return storageCommand(()=>{
  }
  shippingSyncOrders(ids,null,{reopen:true});ids.forEach(oid=>orderLogPush(salesRecord(oid),action==='cancel'?'Packing slip cancelled':'Packing slip rolled back',s.number+' · '+action));return s;
 });}
+/* Order Delete (owner, 9 October 2026: «и накладную тоже удалить»). A PS of
+   this order alone is removed; a shared PS keeps the other orders and loses
+   only this one. PS numbers are not reused: DB.shipmentSeq only grows.
+   Runs inside the Delete storageCommand, after production Unbatch. */
+function shippingDropPlan(orderId){
+ const mine=(DB.shipment||[]).filter(s=>shippingHistoryOrderIds(s).includes(orderId));
+ return {deleted:mine.filter(s=>shippingHistoryOrderIds(s).every(id=>id===orderId)),corrected:mine.filter(s=>shippingHistoryOrderIds(s).some(id=>id!==orderId))};
+}
+function shippingDropOrder(orderId){
+ const plan=shippingDropPlan(orderId),gone=new Set(plan.deleted);
+ DB.shipment=(DB.shipment||[]).filter(s=>!gone.has(s));
+ plan.deleted.forEach(s=>{if(s.truckId&&typeof deliveryRenumber==='function')deliveryRenumber(s.date,s.truckId);});
+ plan.corrected.forEach(s=>{
+  const removed=s.items.filter(i=>i.orderId===orderId);
+  if(!removed.length&&!(s.extras||[]).some(i=>i.orderId===orderId)&&!(s.takes||[]).includes(orderId))return;
+  if(!s.document&&!s.unbatchOriginalDocument)s.unbatchOriginalDocument=shippingDocument(s);
+  s.items=s.items.filter(i=>i.orderId!==orderId);s.extras=(s.extras||[]).filter(i=>i.orderId!==orderId);shippingUnprint(s,removed);
+  if(s.takes)s.takes=s.takes.filter(id=>id!==orderId);
+  if(shippingActive(s)&&!s.items.length&&!s.extras.length&&!(s.takes||[]).length){s.status='cancelled';if(!s.document)s.document=s.unbatchOriginalDocument;}
+ });
+ return plan;
+}
 /* Самовывоз: клиент расписался у фронт-деска, когда забрал стекло, — один
    скан подписанного PS ставит и Shipped, и Picked up. Сбой на любом шаге
    откатывает оба (предложено в ревью PR 1, 05.10.2026). */
