@@ -1798,7 +1798,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        код станка отбрасывается, офисная роль становится всеми разделами. */
     eq('станок у человека отброшен, роль стала галочками', await t.p.evaluate(() =>
       DB.user.map(u => [u.name, 'station' in u, u.workPosition === undefined, u.access.length])
-    ), [['Ivan',false,true,9], ['Petr',false,true,9]]);
+    ), [['Ivan',false,true,10], ['Petr',false,true,10]]);
     await t.c.close();
 
     /* Данных без refVersion — так выглядит браузер, который не открывали с
@@ -2130,7 +2130,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] }] });
       return [next.refVersion, next.station.length, next.workPosition === undefined,
               next.station[0].code, 'station' in next.user[0], next.user[0].access.length];
-    }), [9, 15, true, 'CUT', false, 9]);
+    }), [9, 15, true, 'CUT', false, 10]);
     await t.c.close();
 
     t = await page();
@@ -2154,7 +2154,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     t = await page();
     eq('галочки доступа — ровно разделы меню', await t.p.evaluate(() => ({same:JSON.stringify(USER_SECTIONS)===JSON.stringify(NAV.map(n=>n.k))})), {same:true});
     eq('чистый браузер получает трёх демо-пользователей', await t.p.evaluate(() => DB.user.map(u => u.name + ' · ' + u.access.length)),
-      ['Demo Sales · 6','Demo Accounting · 4','Demo Owner · 9']);
+      ['Demo Sales · 6','Demo Accounting · 4','Demo Owner · 10']);
     /* Роли и навыки — ХРАНИМЫЕ значения, и английский интерфейс их переименовал.
        У владельца в браузере лежат пользователи со старыми русскими значениями:
        без переноса роль стала бы «unknown role» на импорте, а навыки исчезли бы
@@ -2168,7 +2168,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const imported=(()=>{try{return prepareImportedState({user:[{name:'X',role:'Владелец',skills:[{skill:'?'}]},{name:'Y',role:'Цех'}]}).user.map(u=>u.access.length).join('/');}catch(e){return 'ошибка: '+e.message;}})();
       const out={accounting:pick('Legacy Person'),shop:pick('Legacy Shop'),admin:pick('Legacy Admin'),imported};
       DB.user=DB.user.filter(x=>!/^Legacy /.test(x.name));return out;
-    }), {accounting:[9,0,false],shop:[0,0,true],admin:[9,0,false],imported:'9/0'});
+    }), {accounting:[10,0,false],shop:[0,0,true],admin:[10,0,false],imported:'10/0'});
     /* Засев обязан быть одноразовым: иначе удалённые демо-записи возвращались бы
        после каждого обновления страницы, и удалить их было бы невозможно. */
     await t.p.evaluate(() => { DB.user=[]; touch(); });
@@ -4739,7 +4739,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       setShapeWorkspaceTab('cutout');
       const opened={active:document.querySelector('.shape-workspace-tabs .on b').textContent.trim(),designer:document.querySelectorAll('.shape-master-fields').length,cutout:document.querySelectorAll('.shape-cutout-workspace').length,marks:document.querySelectorAll('.shape-mi-marker').length,drawing:document.querySelectorAll('#shapeLivePreview svg').length};
       sEdit=null;sDraft=null;render();const closed=!document.body.classList.contains('shape-workspace-mode');return {initial,cutting,opened,closed};
-    }), {initial:{tabs:['Shape Designer','Fabrication'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:9,labelsHidden:false,headerHidden:true,toggle:0,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},opened:{active:'Fabrication',designer:0,cutout:1,marks:1,drawing:1},closed:true});
+    }), {initial:{tabs:['Shape Designer','Fabrication'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:10,labelsHidden:false,headerHidden:true,toggle:0,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},opened:{active:'Fabrication',designer:0,cutout:1,marks:1,drawing:1},closed:true});
 
     /* Выбор notch сначала создаёт E/F без размеров. Это нормальное промежуточное
        состояние ввода: Edge processing не должен исчезать из рабочего места.
@@ -4764,7 +4764,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const wide=Math.round(main.getBoundingClientRect().width);
       return {cap:getComputedStyle(main).maxWidth,sideScroll:side.scrollHeight-side.clientHeight,fillsViewport:wide>innerWidth-100,
         labels:[...side.querySelectorAll('.nav-item')].filter(x=>x.getBoundingClientRect().width>0).map(x=>x.textContent.trim())};
-    }), {cap:'none',sideScroll:0,fillsViewport:true,labels:['Sales','Optimize','Production','Shipping','Finance','Customers','Data','Users','Overview']});
+    }), {cap:'none',sideScroll:0,fillsViewport:true,labels:['Sales','Optimize','Production','Shipping','Finance','Customers','Reports','Data','Users','Overview']});
     eq('боковое меню не создаёт горизонтальную прокрутку', await t.p.evaluate(() => {
       const side=document.getElementById('side');render();return {fits:side.scrollWidth<=side.clientWidth};
     }), {fits:true});
