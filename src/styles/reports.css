@@ -13,7 +13,7 @@
 
 /* ---- полосы: категория × меры со своим масштабом ---- */
 .ch-track{display:block;flex:1 1 auto;min-width:24px;height:14px;border-radius:0 4px 4px 0;background:var(--surface-3);overflow:hidden}
-.ch-track i{display:block;height:100%;max-height:24px;background:var(--accent);border-radius:0 4px 4px 0}
+.ch-track>i{display:block;height:100%;max-height:24px;background:var(--accent);border-radius:0 4px 4px 0}
 .ch-grid{display:grid;grid-template-columns:minmax(64px,auto) repeat(var(--ch-cols),minmax(0,1fr));column-gap:16px;font-size:13.5px}
 .ch-grid-row{display:contents}
 .ch-grid-row>span{padding:7px 0;border-bottom:1px solid var(--line-soft);min-width:0}
@@ -34,10 +34,50 @@
 .ch-cols{display:flex;height:150px;padding-top:18px}
 .ch-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
 .ch-col-bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:0 1px;border-bottom:1px solid var(--line)}
-.ch-col-bar i{display:block;width:100%;max-width:24px;background:var(--accent);border-radius:4px 4px 0 0;opacity:.78}
-.ch-col.on .ch-col-bar i,.ch-col:hover .ch-col-bar i{opacity:1}
-.ch-col-bar b{font-size:11.5px;font-weight:650;color:var(--text);margin-bottom:2px;font-variant-numeric:tabular-nums}
+/* Столбик не сжимается под подписью: подпись уходит в запас сверху (.ch-cols padding-top). */
+.ch-col-bar>i{display:block;flex-shrink:0;width:100%;max-width:24px;background:var(--accent);border-radius:4px 4px 0 0;opacity:.78}
+.ch-col.on .ch-col-bar>i,.ch-col:hover .ch-col-bar>i{opacity:1}
+.ch-col-bar b{flex-shrink:0;font-size:11.5px;font-weight:650;color:var(--text);margin-bottom:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .ch-col em{font-style:normal;font-size:11px;color:var(--text-3);height:18px;line-height:18px;text-align:center}
+
+/* ---- разбивка цветом: слои снизу вверх, 2 px поверхности между ними ---- */
+.ch-stack{display:flex;flex-shrink:0;flex-direction:column-reverse;width:100%;max-width:24px;gap:2px}
+.ch-stack i{display:block;min-height:2px}
+.ch-stack i:last-child{border-radius:4px 4px 0 0}
+.ch-s1{background:var(--series-1);stroke:var(--series-1)}.ch-s2{background:var(--series-2);stroke:var(--series-2)}.ch-s3{background:var(--series-3);stroke:var(--series-3)}.ch-s4{background:var(--series-4);stroke:var(--series-4)}
+.ch-s5{background:var(--series-5);stroke:var(--series-5)}.ch-s6{background:var(--series-6);stroke:var(--series-6)}.ch-s7{background:var(--series-7);stroke:var(--series-7)}.ch-s8{background:var(--series-8);stroke:var(--series-8)}
+.ch-so{background:var(--text-3);stroke:var(--text-3)}
+.ch-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 8px;font-size:12.5px;color:var(--text-2)}
+.ch-legend>span{display:inline-flex;align-items:center;gap:6px}
+.ch-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.ch-col[role=button],.ch-grid-row[role=button]{cursor:pointer}
+
+/* ---- полосы по категориям ---- */
+.ch-hbars{display:grid;grid-template-columns:minmax(70px,max-content) minmax(0,1fr) auto;gap:7px 12px;align-items:center;font-size:13px}
+.ch-hbar{display:contents}
+.ch-hbar-label{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px}
+.ch-hbar b{font-variant-numeric:tabular-nums;text-align:right;font-weight:650}
+.ch-hstack{display:flex;height:100%;gap:2px}
+.ch-hstack i{display:block;height:100%}
+.ch-hstack i:last-child{border-radius:0 4px 4px 0}
+.ch-hbar[role=button]:hover .ch-hbar-label{color:var(--accent)}
+/* ---- линия ---- */
+.ch-line{display:block;width:100%;height:auto}
+.ch-gl{stroke:var(--line);stroke-width:1}
+.ch-yt,.ch-xt{fill:var(--text-3);font:11px var(--font)}
+.ch-l{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.ch-l.ch-acc,.ch-pt.ch-acc{stroke:var(--accent)}
+.ch-dash{stroke-dasharray:6 5;opacity:.7}
+.ch-pt{fill:var(--surface);stroke-width:2}
+/* ---- круг ---- */
+.ch-pie{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.ch-pie svg{width:170px;height:170px;flex:none}
+.ch-seg{fill:none;stroke-width:6}
+.ch-pie-total{font:700 5px var(--font);fill:var(--text)}
+.ch-pie-legend{flex-direction:column;gap:6px;margin:0}
+.ch-pie-legend>span{gap:8px}
+.ch-pie-legend b{color:var(--text);font-variant-numeric:tabular-nums}
+.ch-pie-legend small{color:var(--text-3)}
 
 /* ---- Board станции ---- */
 .sb-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;border-radius:6px;padding:2px 7px;background:var(--surface-3);color:var(--text-2);margin:0 4px 3px 0;white-space:nowrap}

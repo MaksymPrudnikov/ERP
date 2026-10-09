@@ -11,6 +11,9 @@
                  («кромка стекла», заменил прежний синий)
    Статусы       success · warning · danger · violet — у каждого
                  сам цвет, -soft (подложка) и -line (рамка)
+   Серии         series-1…8 — цвета разбивки на графиках отчётов, всегда
+                 в этом порядке; проверены на различимость при дальтонизме
+                 (dataviz validate_palette) в светлой и тёмной теме
 
    Тёмная тема — те же токены с другими значениями (<html data-theme="dark">).
    Светлые островки — бумага: .gf-light, лист чертежа .print-sheet, бланки
@@ -27,6 +30,7 @@
  --warning:#9a5b0f;--warning-soft:#fdf5e4;--warning-line:#efd5a1;
  --danger:#b42318;--danger-soft:#fdecea;--danger-line:#f3c4bf;
  --violet:#6941c6;--violet-soft:#f3effc;--violet-line:#d6caf3;
+ --series-1:#1baf7a;--series-2:#eb6834;--series-3:#2a78d6;--series-4:#eda100;--series-5:#e87ba4;--series-6:#008300;--series-7:#4a3aa7;--series-8:#e34948;
  --shadow:0 1px 3px rgba(16,24,40,.05),0 1px 2px rgba(16,24,40,.03);
  --shadow-lg:0 12px 40px rgba(16,24,40,.12);
  --edge-mix:100%;
@@ -42,6 +46,7 @@
  --warning:#d08a26;--warning-soft:#2a2112;--warning-line:#4d3a1a;
  --danger:#e0524a;--danger-soft:#2e1615;--danger-line:#5a2a26;
  --violet:#9b7be8;--violet-soft:#211b33;--violet-line:#3e3363;
+ --series-1:#199e70;--series-2:#d95926;--series-3:#3987e5;--series-4:#c98500;--series-5:#d55181;--series-6:#008300;--series-7:#9085e9;--series-8:#e66767;
  --shadow:0 1px 2px rgba(0,0,0,.4);
  --shadow-lg:0 20px 50px rgba(0,0,0,.5);
  --edge-mix:62%;
