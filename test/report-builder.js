@@ -20,7 +20,7 @@ module.exports=async function({page,eq,ok}){
   const old=window.accessCan;window.accessCan=k=>k!=='reports';tab='dashboard';render();const hidden=!document.querySelector('.side [title="Reports"]');window.accessCan=old;
   rpOpenTab();const folders=[...document.querySelectorAll('[data-rep-folder]')].map(x=>x.dataset.repFolder);
   return {inSections:USER_SECTIONS.includes('reports'),hidden,empty:!!document.querySelector('[data-rep-empty]'),widgets:rpWidgets().length,folders,starters:(DB.report||[]).filter(r=>/^RP-start-/.test(r.id)).length};
- }),{inSections:true,hidden:true,empty:true,widgets:0,folders:['All','Finance','People','Production','Quality','Sales','Shipping'],starters:22});
+ }),{inSections:true,hidden:true,empty:true,widgets:0,folders:['All','Finance','People','Production','Quality','Sales','Screens','Shipping'],starters:25});
 
  eq('Отчёт «Glass cut · by month» открывается страницей Summary; на второй странице — свои графики; поиск по каталогу',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repQ='glass cut';render();const found=[...document.querySelectorAll('[data-rep-item]')].map(x=>x.querySelector('b').textContent);
@@ -63,10 +63,10 @@ module.exports=async function({page,eq,ok}){
  }),{filters:'{"station":["POLISH"]}',date:'last30',view:'{}',ctl:'Station: POLISH',reset:false});
 
  eq('Права: стартовый отчёт правит только администратор, остальным — Copy; свою копию человек правит',await t.p.evaluate(()=>{
-  rpScans();const oldA=window.accessCan,oldU=window.signinUser;window.accessCan=k=>k!=='users';window.signinUser=()=>({viewProfileId:'U-anna',name:'Anna'});
+  rpScans();const oldA=window.accessCan,oldU=window.signinUser;window.accessCan=k=>k!=='users';window.signinUser=()=>({viewProfileId:'U-anna',name:'Anna'});signinOwner=null;
   try{rpOpenTab();repOpen('RP-start-cut');const editBtn=!!document.querySelector('[data-rep-edit]'),can=repCanEdit(repFind('RP-start-cut'));
    repCopyOpen();const mine=repOpenReport();return {editBtn,can,copyOwner:mine.ownerId,canCopy:repCanEdit(mine),visibleToOthers:mine.share};}
-  finally{window.accessCan=oldA;window.signinUser=oldU;}
+  finally{window.accessCan=oldA;window.signinUser=oldU;signinOwner=null;}
  }),{editBtn:false,can:false,copyOwner:'U-anna',canCopy:true,visibleToOthers:'me'});
 
  eq('Export / Import JSON: отчёты уезжают с базой; битое поле report при импорте отклоняется',await t.p.evaluate(()=>{
@@ -74,7 +74,7 @@ module.exports=async function({page,eq,ok}){
   let bad='';try{validateImportedState(Object.assign({},json,{report:{}}));}catch(e){bad=e.message;}
   DB.report=DB.report.filter(r=>r.name!=='Owner · weekly');normalizeReports();const gone=!DB.report.some(r=>r.name==='Owner · weekly');
   DB.report=json.report;normalizeReports();return {back:DB.report.some(r=>r.name==='Owner · weekly'),gone,bad,starters:DB.report.filter(r=>/^RP-start-/.test(r.id)).length};
- }),{back:true,gone:true,bad:'The "report" field must be an array.',starters:22});
+ }),{back:true,gone:true,bad:'The "report" field must be an array.',starters:25});
 
  eq('Линия со сравнением — пунктир прошлого периода; печать — название, период, графики, без кнопок правки',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repOpen('RP-start-stations');const line=document.querySelector('[data-rep-type="line"]');
@@ -94,6 +94,27 @@ module.exports=async function({page,eq,ok}){
    const opts=[...document.querySelectorAll('[data-rep-source] option')].map(o=>o.value);repCancelEdit();return {needs:/Needs Finance access/.test(text),payments:opts.includes('payments'),balances:opts.includes('balances'),quotes:opts.includes('quotes')};}
   finally{window.accessCan=old;}
  }),{needs:true,payments:false,balances:false,quotes:true});
+ eq('Экраны: администратор ставит отчёт на станцию (Show on) — на Board вкладка; «This station» и «Me» — станция и вошедший',await t.p.evaluate(()=>{
+  rpScans();const andrei=DB.user.find(u=>u.name==='Andrei'),vasyl=DB.user.find(u=>u.name==='Vasyl');
+  rpOpenTab();repOpen('RP-start-myday');repEditToggle();repOpenScreens(null);repScreensToggle('stations','POLISH',true);repScreensApply();document.querySelector('[data-rep-save]').click();
+  const saved=JSON.stringify(repFind('RP-start-myday').screens);
+  rbStation('POLISH',{id:vasyl.viewProfileId,name:'Vasyl'});stationTab='board';render();const tabs=[...document.querySelectorAll('[data-rep-screen-tab]')].map(x=>x.textContent);
+  document.querySelector('[data-rep-screen-tab="RP-start-myday"]').click();
+  const nums=[...document.querySelectorAll('[data-rep-screen] [data-rep-number="count"] b')].map(x=>x.textContent);
+  const arris=(rbStation('ARRIS',{id:andrei.viewProfileId,name:'Andrei'}),stationTab='board',render(),document.querySelectorAll('[data-rep-screen-tab]').length);
+  stationSwitch();tab='dashboard';render();return {saved,tabs,nums,arris};
+ }),{saved:'{"stations":["POLISH"],"people":[]}',tabs:['Now','Station · my day'],nums:['2','2'],arris:0});
+
+ eq('Экраны: отчёт в Overview человека — вкладка после «Now»; «Me» в фильтре продажника — его клиенты',await t.p.evaluate(()=>{
+  oqReset();const kate=oqCustomer({legalName:'Kate Glass',salesRep:'Kate'}),other=oqCustomer({legalName:'Other Glass',salesRep:'Bob'});
+  rbOrder(kate,'6CLEAR','double',[[30,40,1]],{dueDate:finToday()});rbOrder(other,'6CLEAR','double',[[30,40,1]],{dueDate:finToday()});rbOrder(other,'6CLEAR','double',[[30,40,1]],{dueDate:finToday()});
+  repEditReport('RP-start-mycustomers',r=>{r.screens={stations:[],people:['U-kate']};});
+  /* Смена человека за компьютером перезагружает страницу (erp/signin) — в тесте «чья работа в памяти» сбрасывается. */
+  const old=window.signinUser;window.signinUser=()=>({viewProfileId:'U-kate',name:'Kate',access:USER_SECTIONS.slice()});signinOwner=null;
+  try{tab='dashboard';dashShow='';render();const tabs=[...document.querySelectorAll('[data-rep-screen-tab]')].map(x=>x.textContent),now=!!document.querySelector('[data-dash-orders]');
+   document.querySelector('[data-rep-screen-tab="RP-start-mycustomers"]').click();const orders=document.querySelector('[data-rep-screen] [data-rep-number="count"] b').textContent;
+   dashShowSet('');return {tabs,now,orders};}finally{window.signinUser=old;signinOwner=null;tab='dashboard';render();}
+ }),{tabs:['Now','Sales · my customers'],now:true,orders:'1'});
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

@@ -3,7 +3,8 @@
    Отчёты конструктора: хранение, права, стартовые отчёты, команды.
    IN : DB.report, вошедший человек (erp/signin), REP_SRC
    OUT: DB.report — [{id, name, folder, ownerId, share, controls, date,
-        filters, pages:[{id, name, widgets:[{id, type, title, width, q, opts}]}]}]
+        filters, screens:{stations, people},
+        pages:[{id, name, widgets:[{id, type, title, width, q, opts}]}]}]
 
    Владелец, 9 октября 2026: «модуль отчётов не хуже Looker Studio или
    Tableau», «а если я хочу 10 или 50 разных заготовленных отчётов для
@@ -14,11 +15,15 @@
    копию. Правка идёт в черновике и записывается кнопкой Save (владелец:
    «вижу Edit, Copy, Print, но не вижу сохранить»); Cancel — как было. share: 'all' — всем с Reports, 'me' — только автору, [id] — кому.
    Стартовые отчёты — обычные, их можно править и удалять.
+   Экраны (владелец: «я собираю для каждого»): администратор ставит отчёту
+   «Show on» — станции и люди; отчёт появляется вкладкой на Board этих
+   станций и в Overview этих людей. Фильтры «This station» и «Me» в
+   графиках подставляют станцию и вошедшего человека.
    ===================================================================== */
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=2;
+const REP_SEED_VERSION=3;
 /* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
 function repUid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();}
 function repMe(){const u=typeof signinUser==='function'?signinUser():null;return u?u.viewProfileId:'';}
@@ -53,6 +58,7 @@ function repClean(r){
   share:r.share==='all'||r.share==='me'?r.share:Array.isArray(r.share)?r.share.map(x=>repStr(x,80)).slice(0,200):'me',
   controls:(Array.isArray(r.controls)?r.controls:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,10),
   date:{preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'thisMonth',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},filters,
+  screens:{stations:(r.screens&&Array.isArray(r.screens.stations)?r.screens.stations:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,100),people:(r.screens&&Array.isArray(r.screens.people)?r.screens.people:[]).map(x=>repStr(x,80)).filter(Boolean).slice(0,200)},
   pages:pages.length?pages:[{id:repUid('PG'),name:'Page 1',widgets:[]}],createdAt:repStr(r.createdAt,40),updatedAt:repStr(r.updatedAt,40)};
 }
 function normalizeReports(){
@@ -136,11 +142,29 @@ function REP_STARTERS(){
   R('km','Deliveries · km by truck','Shipping','thisMonth',['truck','driver'],[
    ['Summary',[repW('number','deliveries',{metrics:['km','trips','kmPerTrip'],compare:'prev'}),repW('table','deliveries',{title:'By truck',dims:['truck'],metrics:['km','trips','kmPerTrip','count','units']}),
     repW('columns','deliveries',{title:'Km by week',dims:['at:week'],metrics:['km']})]]],2),
+  /* Версия 3: экраны — «эта станция» и «я» подставляются на месте. */
+  R('myday','Station · my day','Screens','today',[],[
+   ['Today',[repW('number','glass',{title:'This station today',width:'half',metrics:['count','area'],filters:[{f:'station',op:'in',v:['@station']}]}),
+    repW('number','glass',{title:'You today',width:'half',metrics:['count','area'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
+    repW('columns','glass',{title:'Glass by hour',dims:['at:hour'],metrics:['count'],filters:[{f:'station',op:'in',v:['@station']}]}),
+    repW('table','glass',{title:'Orders done here today',dims:['order'],metrics:['count'],filters:[{f:'station',op:'in',v:['@station']}],limit:10,other:true})]]],3),
+  R('myedge','Edgework · my day','Screens','today',[],[
+   ['Today',[repW('number','edgework',{title:'Linear in here today',width:'half',metrics:['inches','glass'],filters:[{f:'station',op:'in',v:['@station']}]}),
+    repW('number','edgework',{title:'Your linear in today',width:'half',metrics:['inches','glass'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
+    repW('columns','edgework',{title:'Linear in by hour',dims:['at:hour'],metrics:['inches'],filters:[{f:'station',op:'in',v:['@station']}]}),
+    repW('table','edgework',{title:'By thickness',dims:['mm'],metrics:['inches','glass'],filters:[{f:'station',op:'in',v:['@station']}]})]]],3),
+  R('mycustomers','Sales · my customers','Screens','thisMonth',['customer'],[
+   ['Orders',[repW('number','orders',{date:{f:'due'},metrics:['count','late','onTime'],filters:[{f:'rep',op:'in',v:['@me']}]}),
+    repW('table','orders',{title:'By customer',date:{f:'due'},dims:['customer'],metrics:['count','late','units','area'],filters:[{f:'rep',op:'in',v:['@me']}]})]],
+   ['Quotes',[repW('table','quotes',{title:'My quotes',date:{f:'created'},dims:['state'],metrics:['count','value'],filters:[{f:'rep',op:'in',v:['@me']}]})]]],3),
   R('sizes','Glass by size band','Production','thisMonth',['station','glass'],[
    ['Summary',[repW('bars','glass',{title:'Glass by size band',dims:['sizeBand'],metrics:['count'],width:'half'}),repW('pie','ordered',{title:'Ordered ft² by size band',date:{f:'created'},dims:['sizeBand'],metrics:['area'],width:'half'}),
     repW('table','glass',{title:'Station × size band',dims:['station','sizeBand'],metrics:['count']})]]],2)
  ];
 }
+
+/* Отчёты на экране станции или человека — по имени. */
+function repScreensFor(kind,id){return (DB.report||[]).filter(r=>r.screens&&(r.screens[kind]||[]).includes(id)).sort((a,b)=>a.name.localeCompare(b.name));}
 
 /* ------------------------------ Команды ------------------------------ */
 function repWrite(fn){

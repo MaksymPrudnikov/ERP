@@ -83,7 +83,17 @@ function dashQuality(){
  const total=codes.reduce((n,c)=>n+by[c],0);
  return `<div class="card dash-card" data-dash-quality><div class="section-title"><h3>Recuts · 7 days</h3><span class="mut">${chNum(total)} glass</span></div>${codes.length?chartBarGrid(codes.map(c=>({label:c,labelHTML:`<b>${esc(c)}</b>`,cells:{n:by[c]}})),[{k:'n',label:'Glass to recut'}]):'<div class="mut">No recuts in the last 7 days.</div>'}</div>`;
 }
+/* Отчёты, которые администратор поставил этому человеку (Reports → Show
+   on), — вкладками после «Now»; «Me» — вошедший человек. */
+let dashShow='';
+function dashShowSet(id){dashShow=id||'';render();}
+function dashReports(){const u=typeof signinUser==='function'?signinUser():null;return u&&typeof repScreensFor==='function'?{u,reps:repScreensFor('people',u.viewProfileId)}:{u,reps:[]};}
 function viewDashboard(){
+ const {u,reps}=dashReports(),cur=reps.some(r=>r.id===dashShow)?dashShow:'',tabs=reps.length?repScreenTabs(reps,cur,'dashShowSet'):'';
+ if(cur)return tabs+repScreenHTML(reps.find(r=>r.id===cur),{person:u.name,station:''});
+ return tabs+viewDashboardNow();
+}
+function viewDashboardNow(){
  const shop=accessCan('production'),ship=accessCan('shipping'),today=finToday(),d=shop||ship?{today,orders:prodBoard(),facts:repWorkFacts().filter(f=>f.day===today)}:null;
  const orders=dashOrders(),left=shop?dashShop(d):'',right=(ship?dashShip(d):'')+(shop?dashQuality():'');
  const body=orders+(left||right?`<div class="dash-grid">${left?`<div class="dash-col">${left}</div>`:''}${right?`<div class="dash-col">${right}</div>`:''}</div>`:'');

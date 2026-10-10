@@ -90,7 +90,15 @@ function stationBoardShipping(d){
  const rows=stationBoardShipRows(d);
  return `<div class="card" data-board-shipping><div class="st-sec"><h3>Shipping today</h3></div>${rows||'<div class="mut">No packing slips today.</div>'}</div>`;
 }
+/* Отчёты, которые администратор поставил на эту станцию (Reports → Show
+   on), — вкладками после «Now»; «This station» и «Me» — эта станция и
+   вошедший человек. */
+let stationBoardShow='';
+function stationBoardSet(id){stationBoardShow=id||'';render();}
 function stationBoardView(who){
+ const reps=typeof repScreensFor==='function'?repScreensFor('stations',stationCode):[],cur=reps.some(r=>r.id===stationBoardShow)?stationBoardShow:'';
+ const tabs=reps.length?'<div class="sb-tabs">'+repScreenTabs(reps,cur,'stationBoardSet')+'</div>':'';
+ if(cur)return tabs+'<div class="sb-report">'+repScreenHTML(reps.find(r=>r.id===cur),{station:stationCode,person:who.name})+'</div>';
  const d=stationBoardData(),ship=stationIsShip()||stationIsReady();
- return '<div class="st-body sb"><div class="st-col">'+stationBoardHere(d)+stationBoardMine(d,who)+'</div><div class="st-col">'+stationBoardHot(d)+(ship?stationBoardShipping(d):'')+'</div></div>';
+ return tabs+'<div class="st-body sb"><div class="st-col">'+stationBoardHere(d)+stationBoardMine(d,who)+'</div><div class="st-col">'+stationBoardHot(d)+(ship?stationBoardShipping(d):'')+'</div></div>';
 }
