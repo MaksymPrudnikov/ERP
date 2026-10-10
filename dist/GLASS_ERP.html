@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 129 модулей, 20 стиля.
+  Состав сборки: 135 модулей, 20 стиля.
 -->
 <html lang="en">
 <head>
@@ -39,6 +39,9 @@
                  («кромка стекла», заменил прежний синий)
    Статусы       success · warning · danger · violet — у каждого
                  сам цвет, -soft (подложка) и -line (рамка)
+   Серии         series-1…8 — цвета разбивки на графиках отчётов, всегда
+                 в этом порядке; проверены на различимость при дальтонизме
+                 (dataviz validate_palette) в светлой и тёмной теме
 
    Тёмная тема — те же токены с другими значениями (<html data-theme="dark">).
    Светлые островки — бумага: .gf-light, лист чертежа .print-sheet, бланки
@@ -55,6 +58,7 @@
  --warning:#9a5b0f;--warning-soft:#fdf5e4;--warning-line:#efd5a1;
  --danger:#b42318;--danger-soft:#fdecea;--danger-line:#f3c4bf;
  --violet:#6941c6;--violet-soft:#f3effc;--violet-line:#d6caf3;
+ --series-1:#1baf7a;--series-2:#eb6834;--series-3:#2a78d6;--series-4:#eda100;--series-5:#e87ba4;--series-6:#008300;--series-7:#4a3aa7;--series-8:#e34948;
  --shadow:0 1px 3px rgba(16,24,40,.05),0 1px 2px rgba(16,24,40,.03);
  --shadow-lg:0 12px 40px rgba(16,24,40,.12);
  --edge-mix:100%;
@@ -70,6 +74,7 @@
  --warning:#d08a26;--warning-soft:#2a2112;--warning-line:#4d3a1a;
  --danger:#e0524a;--danger-soft:#2e1615;--danger-line:#5a2a26;
  --violet:#9b7be8;--violet-soft:#211b33;--violet-line:#3e3363;
+ --series-1:#199e70;--series-2:#d95926;--series-3:#3987e5;--series-4:#c98500;--series-5:#d55181;--series-6:#008300;--series-7:#9085e9;--series-8:#e66767;
  --shadow:0 1px 2px rgba(0,0,0,.4);
  --shadow-lg:0 20px 50px rgba(0,0,0,.5);
  --edge-mix:62%;
@@ -2878,6 +2883,9 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 .shipping-pills{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
 /* Готово, но без скида (7.10.2026): видно цветом — найти скид или разобраться. */
 .shipping-noskid{display:inline-block;margin:0 0 12px;padding:4px 10px;border-radius:8px;background:var(--warning-soft);color:var(--warning);font-weight:600}
+/* Километры рейса по карте Google (views/delivery, shipping/trip-km). */
+.delivery-km{display:inline-flex;align-items:center;gap:6px;margin-left:10px}
+.delivery-km b{font-variant-numeric:tabular-nums}
 
 /* ---- src/styles/reports.css ---- */
 /* =====================================================================
@@ -2902,7 +2910,7 @@ button.ch-stat.warn b{color:var(--warning)}
 
 /* ---- полосы: категория × меры со своим масштабом ---- */
 .ch-track{display:block;flex:1 1 auto;min-width:24px;height:14px;border-radius:0 4px 4px 0;background:var(--surface-3);overflow:hidden}
-.ch-track i{display:block;height:100%;max-height:24px;background:var(--accent);border-radius:0 4px 4px 0}
+.ch-track>i{display:block;height:100%;max-height:24px;background:var(--accent);border-radius:0 4px 4px 0}
 .ch-grid{display:grid;grid-template-columns:minmax(64px,auto) repeat(var(--ch-cols),minmax(0,1fr));column-gap:16px;font-size:13.5px}
 .ch-grid-row{display:contents}
 .ch-grid-row>span{padding:7px 0;border-bottom:1px solid var(--line-soft);min-width:0}
@@ -2923,10 +2931,50 @@ button.ch-stat.warn b{color:var(--warning)}
 .ch-cols{display:flex;height:150px;padding-top:18px}
 .ch-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
 .ch-col-bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:0 1px;border-bottom:1px solid var(--line)}
-.ch-col-bar i{display:block;width:100%;max-width:24px;background:var(--accent);border-radius:4px 4px 0 0;opacity:.78}
-.ch-col.on .ch-col-bar i,.ch-col:hover .ch-col-bar i{opacity:1}
-.ch-col-bar b{font-size:11.5px;font-weight:650;color:var(--text);margin-bottom:2px;font-variant-numeric:tabular-nums}
+/* Столбик не сжимается под подписью: подпись уходит в запас сверху (.ch-cols padding-top). */
+.ch-col-bar>i{display:block;flex-shrink:0;width:100%;max-width:24px;background:var(--accent);border-radius:4px 4px 0 0;opacity:.78}
+.ch-col.on .ch-col-bar>i,.ch-col:hover .ch-col-bar>i{opacity:1}
+.ch-col-bar b{flex-shrink:0;font-size:11.5px;font-weight:650;color:var(--text);margin-bottom:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .ch-col em{font-style:normal;font-size:11px;color:var(--text-3);height:18px;line-height:18px;text-align:center}
+
+/* ---- разбивка цветом: слои снизу вверх, 2 px поверхности между ними ---- */
+.ch-stack{display:flex;flex-shrink:0;flex-direction:column-reverse;width:100%;max-width:24px;gap:2px}
+.ch-stack i{display:block;min-height:2px}
+.ch-stack i:last-child{border-radius:4px 4px 0 0}
+.ch-s1{background:var(--series-1);stroke:var(--series-1)}.ch-s2{background:var(--series-2);stroke:var(--series-2)}.ch-s3{background:var(--series-3);stroke:var(--series-3)}.ch-s4{background:var(--series-4);stroke:var(--series-4)}
+.ch-s5{background:var(--series-5);stroke:var(--series-5)}.ch-s6{background:var(--series-6);stroke:var(--series-6)}.ch-s7{background:var(--series-7);stroke:var(--series-7)}.ch-s8{background:var(--series-8);stroke:var(--series-8)}
+.ch-so{background:var(--text-3);stroke:var(--text-3)}
+.ch-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 8px;font-size:12.5px;color:var(--text-2)}
+.ch-legend>span{display:inline-flex;align-items:center;gap:6px}
+.ch-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.ch-col[role=button]{cursor:pointer}
+
+/* ---- полосы по категориям ---- */
+.ch-hbars{display:grid;grid-template-columns:minmax(70px,max-content) minmax(0,1fr) auto;gap:7px 12px;align-items:center;font-size:13px}
+.ch-hbar{display:contents}
+.ch-hbar-label{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px}
+.ch-hbar b{font-variant-numeric:tabular-nums;text-align:right;font-weight:650}
+.ch-hstack{display:flex;height:100%;gap:2px}
+.ch-hstack i{display:block;height:100%}
+.ch-hstack i:last-child{border-radius:0 4px 4px 0}
+.ch-hbar[role=button]:hover .ch-hbar-label{color:var(--accent)}
+/* ---- линия ---- */
+.ch-line{display:block;width:100%;height:auto}
+.ch-gl{stroke:var(--line);stroke-width:1}
+.ch-yt,.ch-xt{fill:var(--text-3);font:11px var(--font)}
+.ch-l{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.ch-l.ch-acc,.ch-pt.ch-acc{stroke:var(--accent)}
+.ch-dash{stroke-dasharray:6 5;opacity:.7}
+.ch-pt{fill:var(--surface);stroke-width:2}
+/* ---- круг ---- */
+.ch-pie{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.ch-pie svg{width:170px;height:170px;flex:none}
+.ch-seg{fill:none;stroke-width:6}
+.ch-pie-total{font:700 5px var(--font);fill:var(--text)}
+.ch-pie-legend{flex-direction:column;gap:6px;margin:0}
+.ch-pie-legend>span{gap:8px}
+.ch-pie-legend b{color:var(--text);font-variant-numeric:tabular-nums}
+.ch-pie-legend small{color:var(--text-3)}
 
 /* ---- Board станции ---- */
 .sb-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;border-radius:6px;padding:2px 7px;background:var(--surface-3);color:var(--text-2);margin:0 4px 3px 0;white-space:nowrap}
@@ -2947,6 +2995,107 @@ button.ch-stat.warn b{color:var(--warning)}
 .sb-ship{display:grid;grid-template-columns:84px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--line-soft);font-size:14px}
 .sb-ship:last-child{border-bottom:0}
 
+/* ---- Reports: конструктор (view/reports) ---- */
+.rep-app{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px;align-items:start}
+.rep-app.editing{grid-template-columns:230px minmax(0,1fr) 320px}
+.rep-cat{position:sticky;top:12px;max-height:calc(100vh - 90px);overflow:auto;padding:14px;margin:0}
+.rep-cat-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}
+.rep-cat-head h3{margin:0;font-size:15px}
+.rep-search{width:100%;margin:0 0 10px;box-sizing:border-box}
+.rep-folders{display:flex;flex-direction:column;gap:2px;margin:0 0 10px}
+.rep-folder{display:flex;justify-content:space-between;gap:8px;border:0;background:transparent;border-radius:8px;padding:6px 8px;color:var(--text-2);font:inherit;text-align:left;cursor:pointer;box-shadow:none}
+.rep-folder:hover{background:var(--surface-2)}
+.rep-folder.on{background:var(--accent-soft);color:var(--text);font-weight:650}
+.rep-list{display:flex;flex-direction:column;gap:1px;border-top:1px solid var(--line-soft);padding-top:6px}
+.rep-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:0;background:transparent;border-radius:8px;padding:7px 8px;font:inherit;text-align:left;cursor:pointer;color:var(--text);box-shadow:none}
+.rep-item small{color:var(--text-3);font-size:11.5px;font-weight:400}
+.rep-item:hover{background:var(--surface-2)}
+.rep-item.on{background:var(--surface-3);font-weight:650}
+.rep-main{min-width:0}
+.rep-head{margin:0 0 14px}
+.rep-head-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rep-title{margin:0;font-size:18px}
+.rep-title-edit{display:flex;gap:8px;flex-wrap:wrap;flex:1 1 520px;align-items:center}
+.rep-title-edit>*{flex:1 1 130px;width:auto;min-width:0;margin:0}
+.rep-title-edit input[data-rep-name]{font-size:15px;font-weight:650;flex:3 1 240px}
+.rep-pages{margin:12px 0 10px}
+.rep-page-edit{display:flex;gap:6px;align-items:center;margin:0 0 10px}
+.rep-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rep-ctl{display:inline-flex;align-items:center;gap:2px}
+.rep-ctl.on .sl-quiet{border-color:var(--accent-line);background:var(--accent-soft);color:var(--text)}
+.rep-x{border:0;background:transparent;color:var(--text-3);font-size:15px;cursor:pointer;padding:0 4px;box-shadow:none}
+.rep-add-ctl{width:auto}
+.rep-ws{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.rep-w{grid-column:span 2;margin:0;min-width:0}
+.rep-w.half{grid-column:span 1}
+.rep-w.sel{outline:2px solid var(--accent);box-shadow:0 0 0 5px var(--accent-soft)}
+.rep-wh{display:flex;align-items:baseline;gap:10px;margin:0 0 10px;flex-wrap:wrap}
+.rep-wh h3{margin:0;font-size:14px}
+.rep-wh .mut{font-size:12px}
+.rep-wtools{margin-left:auto;display:flex;gap:4px}
+.rep-add{grid-column:span 2;border:1px dashed var(--line-strong);background:transparent;color:var(--text-2);font:inherit;padding:18px;cursor:pointer;margin:0;box-shadow:none}
+.rep-add:hover{border-color:var(--accent);color:var(--accent)}
+.rep-empty{text-align:center;padding:40px 20px}
+.rep-empty h3{margin:0 0 6px}
+.rep-setup{position:sticky;top:12px;max-height:calc(100vh - 90px);overflow:auto;margin:0;padding:14px}
+.rep-setup-head{display:flex;justify-content:space-between;align-items:center}
+.rep-setup-head h3{margin:0;font-size:15px}
+.rep-setup h5{margin:14px 0 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)}
+.rep-setup select,.rep-setup input[type=text],.rep-setup input[type=number],.rep-setup input[type=date]{width:100%;margin:0 0 6px;box-sizing:border-box}
+.rep-setup .sl-row{display:flex;gap:6px;align-items:center}
+.rep-setup .sl-row select,.rep-setup .sl-row input{flex:1 1 0;min-width:0}
+.rep-setup .hint{margin:0 0 4px}
+.rep-types{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.rep-types button{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:7px 4px;font:inherit;font-size:12.5px;color:var(--text-2);cursor:pointer;box-shadow:none}
+.rep-types button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--text);font-weight:650}
+.rep-calc{border:1px solid var(--accent-line);border-radius:10px;padding:8px;margin:0 0 6px;background:var(--accent-soft)}
+.rep-filter-row{border:1px solid var(--line-soft);border-radius:10px;padding:8px;margin:0 0 6px;background:var(--surface-2)}
+.rep-chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.rep-chip{display:inline-flex;align-items:center;gap:4px;background:var(--accent-soft);border-radius:999px;padding:2px 4px 2px 9px;font-size:12px}
+.rep-chip button{border:0;background:transparent;cursor:pointer;color:var(--text-3);box-shadow:none}
+.rep-setup .rep-chips select{width:auto;margin:0}
+.rep-inline{display:inline-flex;gap:6px;align-items:center;font-size:12.5px;color:var(--text-2);white-space:nowrap}
+.rep-setup .rep-inline input[type=number]{width:70px;margin:0}
+.rep-cmp{color:var(--text-3);font-size:12px}
+.rep-w .n{text-align:right;font-variant-numeric:tabular-nums}
+.rep-table td[role=button]{cursor:pointer}
+.rep-table td[role=button]:hover b{color:var(--accent)}
+.rep-key-acc{background:var(--accent)}
+.rep-menu{width:300px}
+@media (max-width:1100px){.rep-app,.rep-app.editing{grid-template-columns:minmax(0,1fr)}.rep-cat,.rep-setup{position:static;max-height:none}}
+@media (max-width:900px){.rep-ws{grid-template-columns:minmax(0,1fr)}.rep-w,.rep-w.half,.rep-add{grid-column:span 1}}
+/* ---- печать отчёта (printSheet: лист — светлая «бумага» .print-sheet) ---- */
+.rep-print{font:12px/1.35 var(--font);color:var(--text)}
+.rep-print-head{margin:0 0 4mm}
+.rep-print-head h2{margin:0 0 1mm;font-size:18px}
+.rep-print-head div{font-size:12px;color:var(--text-2)}
+.rep-print-head small{font-size:10.5px;color:var(--text-3)}
+.rep-print .rep-w{box-shadow:none;border:1px solid var(--line);padding:10px 12px}
+.rep-print .ch-track>i,.rep-print .ch-col-bar>i,.rep-print .ch-stack i,.rep-print .ch-hstack i,.rep-print .ch-legend i,.rep-print .ch-track,.rep-print .ch-seg,.rep-print .ch-l{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@media print{.rep-print .rep-w,.rep-print .ch-stats{break-inside:avoid}.rep-print .sales-table-wrap{overflow:visible;max-height:none}}
+/* Компактнее (владелец: «как Google Analytics, только текст можно поменьше»). */
+.rep-app{font-size:12.5px}
+.rep-app button,.rep-app select,.rep-app input{font-size:12.5px}
+.rep-app .sl-table{font-size:12.5px}
+.rep-app .sl-table th,.rep-app .sl-table td{padding:6px 10px}
+.rep-app .ch-stat{padding:8px 11px}
+.rep-app .ch-stat b{font-size:20px}
+.rep-app .ch-stat span,.rep-app .ch-stat small{font-size:11.5px}
+.rep-app .ch-hbars,.rep-app .ch-grid{font-size:12px}
+.rep-app .ch-legend{font-size:11.5px}
+.rep-app .tabs button{font-size:12.5px}
+.rep-app .sl-quiet{font-size:12.5px;padding:5px 10px}
+.rep-cat-head h3,.rep-setup-head h3{font-size:14px}
+.rep-title{font-size:16px}
+.rep-wh h3{font-size:13px}
+.rep-wh .mut{font-size:11.5px}
+.rep-item{padding:6px 8px}
+.rep-item b{font-size:12.5px}
+.rep-item small{font-size:11px}
+.rep-folder{padding:5px 8px}
+.rep-setup h5{font-size:10.5px;margin:12px 0 5px}
+.rep-setup select,.rep-setup input[type=text],.rep-setup input[type=number],.rep-setup input[type=date]{padding:5px 8px}
+.rep-types button{font-size:12px;padding:6px 4px}
 /* ---- Overview ---- */
 .dash-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;align-items:start}
 .dash-col{display:flex;flex-direction:column;min-width:0}
@@ -2979,7 +3128,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='579dc0a3cd85';
+var ERP_BUILD='fe8a1705f89d';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -7461,7 +7610,7 @@ const MuntinModule={code:'MUNTIN',name:'Adaptive Muntin',version:'v4.5-port',com
      сами не трогают; про секреты экраны знают только «задан / не задан».
    Правило: файл не знает про заказы, цены и экраны.
    ===================================================================== */
-const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','masterdata','users','dashboard'];
+const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','reports','masterdata','users','dashboard'];
 const ACCESS_ADMIN='users';
 /* Никто не вошёл. Пока вход не настроен (пароля нет ни у кого с Users,
    erp/signin → signinOn) — открыто, как в пустой базе: иначе завести
@@ -12998,6 +13147,7 @@ const NAV=[
  {k:'shipping', label:'Shipping', icon:'shipping'},
  {k:'finance', label:'Finance', icon:'finance'},
  {k:'customers', label:'Customers', icon:'users'},
+ {k:'reports', label:'Reports', icon:'report'},
  {k:'masterdata', label:'Data', title:'Master Data', icon:'database', bottom:1},
  {k:'users', label:'Users', icon:'users', bottom:1},
  {k:'dashboard', label:'Overview', icon:'home', bottom:1}
@@ -13083,6 +13233,7 @@ function render(){
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={
   dashboard:['Overview','Orders, shop and shipping now'],
+  reports:['Reports','Report builder'],
   users:['Users','Office and station sign-in'],
   customers:['Customers','Customer master, contacts and commercial terms'],
   sales:['Sales','Orders and commercial configuration'],
@@ -13098,7 +13249,7 @@ function render(){
  document.title=meta[0]+' · Glass Farm';
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
- const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,station:typeof viewStation==='function'?viewStation:null}[tab];
+ const V={dashboard:viewDashboard,reports:typeof viewReports==='function'?viewReports:null,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
  const focus=renderFocusKey();
@@ -36004,6 +36155,21 @@ function shippingLookupHTML(){
    Данные и команды — erp/shipping/delivery.
    ===================================================================== */
 let deliveryDate='',deliveryNotice='';
+/* Километры рейса по карте Google (shipping/trip-km): кнопка у машины, ключ
+   спрашивается один раз и хранится в этом браузере. */
+let deliveryKmBusy='';
+function deliveryKmHTML(date,t,stops){
+ if(!stops.length)return '';
+ const r=tripKmFind(date,t.id),stale=tripKmStale(r,stops),busy=deliveryKmBusy===date+'|'+t.id;
+ return `<span class="delivery-km" data-trip-km="${esc(t.id)}">${r?`<b>${chNum(r.km,1)} km</b>${stale?' <span class="mut">· stops changed</span>':''}`:''}<button type="button" class="sm" data-trip-km-run ${busy?'disabled':''} onclick="deliveryKmRun('${date}','${esc(t.id)}')">${busy?'Calculating…':r?'Recalculate km':'Calculate km'}</button>${tripKmKey()?`<button type="button" class="sm" title="Google Maps key in this browser" onclick="deliveryKmKey()">Key</button>`:''}</span>`;
+}
+function deliveryKmKey(){const k=prompt('Google Maps key (stays in this browser only):',tripKmKey());if(k!==null)tripKmSetKey(k);render();}
+async function deliveryKmRun(date,truckId){
+ if(!tripKmKey()){const k=prompt('Google Maps key (stays in this browser only):');if(!k)return;tripKmSetKey(k);}
+ deliveryKmBusy=date+'|'+truckId;deliveryNotice='';render();
+ try{await tripKmCalc(date,truckId);}catch(e){deliveryNotice=e.message||'Km not calculated.';}
+ deliveryKmBusy='';render();
+}
 function deliveryShownDate(){return shippingDateValid(deliveryDate)?deliveryDate:finToday();}
 function deliverySetDate(v){deliveryDate=shippingDateValid(v)?v:'';deliveryNotice='';render();}
 function deliveryRun(out){deliveryNotice=out.ok?'':out.error;render();}
@@ -36019,7 +36185,7 @@ function deliveryHTML(){
   const loads=stops.map(deliveryLoad),kg=loads.reduce((n,l)=>n+l.kg,0),exact=loads.every(l=>l.exact),skids=loads.reduce((n,l)=>n+l.skids.length,0),driver=deliveryDriver(date,t.id);
   const rows=stops.map((s,i)=>{const locked=s.status==='delivered',load=loads[i];
    return `<tr data-stop="${esc(s.number)}"><td>${i+1}</td><td><input type="time" aria-label="Departs ${esc(s.number)}" value="${esc(s.departAt||'')}" ${locked?'disabled':''} onchange="deliveryRun(deliverySetTime('${esc(s.id)}',this.value))"></td><td>${ps(s)}</td><td><b>${esc(salesCustomerDisplay(s.customerId))}</b></td><td>${address(s)}</td><td>${esc(load.skids.join(', '))||'<span class="mut">—</span>'}</td><td>${deliveryWeight(load)}</td><td>${status(s)}</td><td class="delivery-acts">${locked?'':`<button type="button" class="sm" aria-label="Move ${esc(s.number)} up" ${i?'':'disabled'} onclick="deliveryRun(deliveryMove('${esc(s.id)}',-1))">▲</button><button type="button" class="sm" aria-label="Move ${esc(s.number)} down" ${i<stops.length-1?'':'disabled'} onclick="deliveryRun(deliveryMove('${esc(s.id)}',1))">▼</button><button type="button" class="sm" aria-label="Take ${esc(s.number)} off the truck" onclick="deliveryRun(deliveryAssign('${esc(s.id)}',''))">×</button>`}</td></tr>`;}).join('');
-  return `<section class="card shipping-customer delivery-truck" data-truck="${esc(t.id)}"><div class="shipping-customer-head"><div><h3>${esc(t.name)}${t.active?'':' <span class="pill">inactive</span>'}</h3><span class="mut" data-truck-load>${shippingCount(stops.length,'stop')} · ${shippingCount(skids,'skid')} · ${(exact?'':'~')+docNum(kg,0)} kg</span></div><div class="sales-toolbar"><label>Driver<select aria-label="Driver ${esc(t.name)}" ${stops.length?'':'disabled'} onchange="deliveryRun(deliverySetDriver('${date}','${esc(t.id)}',this.value))"><option value="">Not set</option>${users.map(u=>`<option value="${esc(u.viewProfileId)}" ${driver&&driver.viewProfileId===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label>${stops.length?`<button type="button" class="sm" data-trip-sheet onclick="deliveryPrint('${date}','${esc(t.id)}',false)">Trip sheet</button><button type="button" class="sm" data-trip-packet onclick="deliveryPrint('${date}','${esc(t.id)}',true)">With packing slips</button>`:''}</div></div>${stops.length?`<div class="sales-table-wrap"><table class="sl-table delivery-table"><thead><tr><th>#</th><th>Departs</th><th>Packing slip</th><th>Customer</th><th>Address</th><th>Skids</th><th>Weight</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="mut">No stops</p>'}</section>`;
+  return `<section class="card shipping-customer delivery-truck" data-truck="${esc(t.id)}"><div class="shipping-customer-head"><div><h3>${esc(t.name)}${t.active?'':' <span class="pill">inactive</span>'}</h3><span class="mut" data-truck-load>${shippingCount(stops.length,'stop')} · ${shippingCount(skids,'skid')} · ${(exact?'':'~')+docNum(kg,0)} kg</span>${deliveryKmHTML(date,t,stops)}</div><div class="sales-toolbar"><label>Driver<select aria-label="Driver ${esc(t.name)}" ${stops.length?'':'disabled'} onchange="deliveryRun(deliverySetDriver('${date}','${esc(t.id)}',this.value))"><option value="">Not set</option>${users.map(u=>`<option value="${esc(u.viewProfileId)}" ${driver&&driver.viewProfileId===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label>${stops.length?`<button type="button" class="sm" data-trip-sheet onclick="deliveryPrint('${date}','${esc(t.id)}',false)">Trip sheet</button><button type="button" class="sm" data-trip-packet onclick="deliveryPrint('${date}','${esc(t.id)}',true)">With packing slips</button>`:''}</div></div>${stops.length?`<div class="sales-table-wrap"><table class="sl-table delivery-table"><thead><tr><th>#</th><th>Departs</th><th>Packing slip</th><th>Customer</th><th>Address</th><th>Skids</th><th>Weight</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="mut">No stops</p>'}</section>`;
  }).join('');
  const free=day.free.length?`<section class="card shipping-customer" data-delivery-free><h3>Not on a truck</h3><div class="sales-table-wrap"><table class="sl-table delivery-table"><thead><tr><th>Packing slip</th><th>Customer</th><th>Address</th><th>Skids</th><th>Weight</th><th>Status</th><th>Truck</th></tr></thead><tbody>${day.free.map(s=>{const load=deliveryLoad(s);return `<tr data-free="${esc(s.number)}"><td>${ps(s)}</td><td><b>${esc(salesCustomerDisplay(s.customerId))}</b></td><td>${address(s)}</td><td>${esc(load.skids.join(', '))||'<span class="mut">—</span>'}</td><td>${deliveryWeight(load)}</td><td>${status(s)}</td><td>${s.status==='delivered'?'':`<select aria-label="Truck for ${esc(s.number)}" onchange="deliveryRun(deliveryAssign('${esc(s.id)}',this.value))"><option value="">Choose truck</option>${active.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select>`}</td></tr>`;}).join('')}</tbody></table></div></section>`:'';
  const pickups=day.pickups.length?`<section class="card shipping-customer" data-delivery-pickups><h3>Pickups</h3><div class="sales-table-wrap"><table class="sl-table delivery-table"><thead><tr><th>Packing slip</th><th>Customer</th><th>Units</th><th>Status</th></tr></thead><tbody>${day.pickups.map(s=>`<tr class="delivery-pickup"><td>${ps(s)}</td><td><b>${esc(salesCustomerDisplay(s.customerId))}</b></td><td>${s.items.length}</td><td>${status(s)}</td></tr>`).join('')}</tbody></table></div></section>`:'';
@@ -37123,6 +37289,69 @@ function deliveryDay(date){
   free:all.filter(s=>s.method==='delivery'&&!truckFind(s.truckId)).sort((a,b)=>a.number.localeCompare(b.number)),pickups:all.filter(s=>s.method==='pickup').sort((a,b)=>a.number.localeCompare(b.number))};
 }
 
+/* ==== src/erp/shipping/trip-km.js ==== */
+/* =====================================================================
+   shipping/trip-km  ·  km-1.0
+   Километры рейса по карте Google: цех → остановки по порядку → цех.
+   IN : остановки машины на день (deliveryStops), адрес цеха (Master Data →
+        Company), ключ Google Maps (хранится только в этом браузере)
+   OUT: DB.tripKm [{key:'день|машина', km, stops:[PS], at}] — отчёты
+        доставки берут километры отсюда, без интернета
+
+   Владелец, 9 октября 2026: доставку «нужно считать количество поездок и
+   км от локации изначальной»; км — «по карте (Google)». Ключ — платный
+   ключ владельца в Google Cloud (Maps JavaScript API, Directions); в Export
+   JSON он не уходит. Остановки поменяли после расчёта — экран это
+   показывает, пересчёт одной кнопкой.
+   ===================================================================== */
+DEFAULT.tripKm=[];
+const TRIP_KM_KEY='glass_erp_gmaps_key';
+function tripKmKey(){try{return localStorage.getItem(TRIP_KM_KEY)||'';}catch(e){return '';}}
+function tripKmSetKey(v){try{const k=String(v||'').trim();if(k)localStorage.setItem(TRIP_KM_KEY,k);else localStorage.removeItem(TRIP_KM_KEY);}catch(e){}}
+function tripKmAddr(a){a=a||{};return [a.address1,a.address2,a.city,a.province,a.postalCode,a.country].map(x=>String(x||'').trim()).filter(Boolean).join(', ');}
+function tripKmOrigin(){const c=DB.company||{};return c.address1||c.city?tripKmAddr(c):'';}
+function tripKmFind(date,truckId){return (DB.tripKm||[]).find(r=>r&&r.key===date+'|'+truckId)||null;}
+function tripKmStale(r,stops){return !!r&&r.stops.join('|')!==stops.map(s=>s.number).join('|');}
+function normalizeTripKm(){
+ if(!Array.isArray(DB.tripKm))DB.tripKm=[];
+ const seen=new Set();
+ DB.tripKm=DB.tripKm.filter(r=>r&&typeof r==='object'&&typeof r.key==='string'&&/^\d{4}-\d{2}-\d{2}\|.+/.test(r.key)&&Number.isFinite(+r.km)&&+r.km>=0&&!seen.has(r.key)&&(seen.add(r.key),true))
+  .map(r=>({key:r.key.slice(0,140),km:Math.round(+r.km*10)/10,stops:(Array.isArray(r.stops)?r.stops:[]).map(x=>String(x).slice(0,20)).slice(0,60),at:String(r.at||'').slice(0,40)}));
+}
+/* Карта грузится только по кнопке: файл офлайновый, интернет нужен лишь
+   для расчёта. */
+let tripKmLoading=null;
+function tripKmMaps(){
+ if(window.google&&google.maps&&google.maps.DirectionsService)return Promise.resolve(google.maps);
+ const key=tripKmKey();if(!key)return Promise.reject(new Error('Enter the Google Maps key first.'));
+ if(tripKmLoading)return tripKmLoading;
+ tripKmLoading=new Promise((ok,no)=>{
+  const cb='tripKmReady'+Date.now(),s=document.createElement('script');
+  window[cb]=()=>{delete window[cb];ok(google.maps);};
+  s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key)+'&callback='+cb;s.async=true;
+  s.onerror=()=>{tripKmLoading=null;no(new Error('Google Maps did not load. Check the internet and the key.'));};
+  document.head.appendChild(s);
+ });
+ return tripKmLoading;
+}
+async function tripKmCalc(date,truckId){
+ const stops=deliveryStops(date,truckId),origin=tripKmOrigin();
+ if(!origin)throw new Error('Fill the company address in Master Data → Company.');
+ const addr=stops.map(s=>tripKmAddr(s.shipTo)).filter(Boolean);
+ if(!addr.length)throw new Error('No delivery addresses on this truck.');
+ const maps=await tripKmMaps();
+ const res=await new Promise((ok,no)=>new maps.DirectionsService().route({origin,destination:origin,waypoints:addr.map(a=>({location:a,stopover:true})),optimizeWaypoints:false,travelMode:'DRIVING'},
+  (r,status)=>status==='OK'&&r&&r.routes&&r.routes[0]?ok(r):no(new Error('Google could not build the route: '+status))));
+ const meters=(res.routes[0].legs||[]).reduce((n,l)=>n+(l&&l.distance&&+l.distance.value||0),0);
+ const out=storageCommand(()=>{
+  if(!Array.isArray(DB.tripKm))DB.tripKm=[];
+  const key=date+'|'+truckId,rec={key,km:Math.round(meters/100)/10,stops:stops.map(s=>s.number),at:new Date().toISOString()},i=DB.tripKm.findIndex(r=>r.key===key);
+  if(i<0)DB.tripKm.push(rec);else DB.tripKm[i]=rec;return rec;
+ });
+ if(!out.ok)throw new Error(out.error||'Not saved.');
+ return out.value;
+}
+
 /* ==== src/erp/shipping/skids.js ==== */
 /* Shipping · скиды у клиентов (PR 4, 6 октября 2026).
    IN : отправленные PS со способом Delivery (скиды в их составе) · DB.carrier
@@ -37896,7 +38125,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&productionUnbatchDi
    Факты цеха для Board станции, Overview и отчётов: одна строка — одно
    событие. Только данные: на входе DB, на выходе массивы строк.
    IN : журнал сканов станций, заказы, работы (Works) и их прайс
-   OUT: repWorkFacts() — скан станции с мерой сделанной работы
+   OUT: repWorkFacts() — скан станции с мерой сделанной работы; остальные
+        источники — reports/facts-office, reports/sources
    Правило: файл ничего не рисует.
 
    Владелец, 9 октября 2026: работу человека и станции меряем физически —
@@ -37954,11 +38184,12 @@ function repLineWork(o,l,geo,tag){
  const stamp=repCatalogStamp();if(repLineMemo.stamp!==stamp)repLineMemo={stamp,map:new Map()};
  const key=[o.id,o.updatedAt||'',l.id,tag].join('|');
  if(repLineMemo.map.has(key))return repLineMemo.map.get(key);
- let out={rows:[],plan:{valid:false},comps:[]};
+ let out={rows:[],plan:{valid:false},comps:[],unitType:''};
  try{out=finWithOrder(o,()=>({
   rows:salesLineChargeRows(geo).map(row=>({row,station:repChargeStation(row),rate:salesChargePricingState(geo,row).catalogRate})).filter(x=>x.station),
   plan:stkPlan(o,geo),
-  comps:glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const mm=stkGlassInfo(c.pane,c.index,c.ply).mm;return Object.assign({},c,{mm:mm||null,band:mm?salesPricingBandFor(mm).band:''});})
+  comps:glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const info=stkGlassInfo(c.pane,c.index,c.ply),mm=info.mm;return Object.assign({},c,{mm:mm||null,band:mm?salesPricingBandFor(mm).band:'',heat:info.heat||'Annealed'});}),
+  unitType:(()=>{const m=salesMakeupById(o,l.makeupId);return m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';})()
  }));}catch(e){}
  if(repLineMemo.map.size>4000)repLineMemo.map=new Map();
  repLineMemo.map.set(key,out);return out;
@@ -37966,7 +38197,7 @@ function repLineWork(o,l,geo,tag){
 /* Что сделано с одним стеклом на одной станции: площадь, толщина и работы
    с количеством в единице работы (in · ft² · pc) и $ по прайсу. */
 function repGlassWork(g,station){
- const empty={area:null,mm:null,works:[]};
+ const empty={area:null,mm:null,heat:'',unitType:'',works:[]};
  if(!g||!g.c||g.c.missing)return empty;
  const geo=stationGeo(g)||g.l,tag=typeof g.unit==='string'?g.unit:'',lw=repLineWork(g.o,g.l,geo,tag);
  const me=lw.comps.find(c=>c.key===g.c.key);if(!me)return empty;
@@ -37977,9 +38208,11 @@ function repGlassWork(g,station){
   if(x.station!==station||!repRowFits(x.row,me))return;
   const mates=lw.comps.filter(c=>repRowFits(x.row,c)&&stationRouteOf({o:g.o,l:g.l,c,unit:g.unit}).codes.includes(station)).length||1;
   const qty=x.row.basis/mates;
-  works.push({key:x.row.key,label:x.row.label,unit:x.row.unit,qty,usd:x.rate==null?null:qty*x.rate});
+  /* Операция без хвоста толщины («Flat Polish · 10 mm» → «Flat Polish»):
+     толщина — своё поле, по ней и так можно разбить. */
+  works.push({key:x.row.key,label:x.row.label,op:String(x.row.label).replace(/ · [\d.]+ mm$/,''),unit:x.row.unit,qty,usd:x.rate==null?null:qty*x.rate});
  });
- return {area:area>0?area:null,mm:me.mm,works};
+ return {area:area>0?area:null,mm:me.mm,heat:me.heat,unitType:lw.unitType,maker:repMaker(me.glassId),works};
 }
 
 /* День и час — по часам этого компьютера, как finToday. */
@@ -37989,6 +38222,20 @@ function repHour(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?-1:
 /* Факты работы: скан, который продвинул стекло. Разбитое (Recut) и вынутое
    из машины на IGU («waits for a pair») — не сделанная работа. Отменённый
    скан не считается. Сумма по работам — в мерах: дюймы, ft² работ, штуки. */
+/* Поля заказа и строки для отчётов: PO, продажник, город клиента (основной
+   адрес), условия оплаты, тип клиента, срок; у строки — отметка, размер,
+   фигура или прямоугольник. Заказ считается один раз на сборку фактов. */
+function repCustomerAddr(c){const list=c&&Array.isArray(c.addresses)?c.addresses:[];return list.find(a=>a&&a.isPrimary)||list.find(a=>a&&a.isInvoice)||list[0]||{};}
+function repCustomerInfo(id){const c=salesFindCustomer(id)||{},a=repCustomerAddr(c);return {rep:c.salesRep||'',city:a.city||'',province:a.province||'',ctype:c.customerType||''};}
+function repOrderInfo(o){
+ const t=typeof finTermsFor==='function'?finTermsFor(o)||{}:{};
+ return Object.assign(repCustomerInfo(o.customerId),{po:o.customerPo||'',terms:t.paymentMode==='credit'?'Credit':'Cash',due:o.dueDate||'',delivery:o.delivery==='delivery'?'Delivery':'Pickup'});
+}
+/* Размерная группа стекла по ft² одного стекла и производитель стекла из
+   каталога — для разреза «какие стёкла» (владелец: «анализа не бывает мало»). */
+function repSizeBand(ft2){return !(ft2>0)?'':ft2<10?'Under 10 ft²':ft2<30?'10–30 ft²':ft2<60?'30–60 ft²':'60 ft² and up';}
+function repMaker(glassId){const g=glassId&&glassProductById(glassId);return g&&g.manufacturer||'';}
+function repLineInfo(l){return {mark:l.mark||'',size:frac16((+l.width16||0)/16)+' × '+frac16((+l.height16||0)/16),shape:typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle'};}
 let repWorkCache={stamp:'',rows:null};
 let repWorkBuilds=0;
 function repWorkStamp(){
@@ -37998,20 +38245,828 @@ function repWorkStamp(){
 function repWorkFacts(){
  const stamp=repWorkStamp();if(repWorkCache.stamp===stamp&&repWorkCache.rows)return repWorkCache.rows;
  repWorkBuilds++;
- const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[];
+ const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[],orders=new Map(),lines=new Map();
+ const oInfo=o=>{if(!orders.has(o.id))orders.set(o.id,repOrderInfo(o));return orders.get(o.id);},lInfo=l=>{if(!lines.has(l))lines.set(l,repLineInfo(l));return lines.get(l);};
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||s.broken||s.park)return;
-  const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station):{area:null,mm:null,works:[]};
+  const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station):{area:null,mm:null,heat:'',unitType:'',works:[]};
   const sum=u=>w.works.filter(x=>x.unit===u).reduce((n,x)=>n+x.qty,0);
   const priced=w.works.filter(x=>x.usd!=null);
   rows.push({id:s.id,at:s.at,day:repDay(s.at),hour:repHour(s.at),station:s.station,personId:s.byId||s.by||'',person:s.by||'',piece:s.piece,
    orderId:g?g.o.id:'',order:g?g.o.businessNumber||'':'',customerId:g?g.o.customerId||'':'',priority:g?g.o.priority||'':'',
-   glass:g&&g.c?g.c.glass:'',mm:w.mm,area:w.area,works:w.works,inches:sum('in'),workFt2:sum('ft²'),pcs:sum('pc'),
+   glass:g&&g.c?g.c.glass:'',mm:w.mm,heat:w.heat,unitType:w.unitType,lite:g&&g.c?g.c.lite:'',batch:g&&g.entry?g.entry.batch.number:'',unitKey:g?g.o.id+'|'+g.l.id+'|'+g.unit:'',
+   area:w.area,works:w.works,inches:sum('in'),workFt2:sum('ft²'),pcs:sum('pc'),
    usd:priced.length?priced.reduce((n,x)=>n+x.usd,0):null,unpriced:w.works.length-priced.length,
-   asm:s.asm||'',unitDone:!!(s.unit||s.joined),manual:!!s.manual,confirmedAt:s.confirmedAt||''});
+   asm:s.asm||'',unitDone:!!(s.unit||s.joined),asmDone:(s.unit||s.joined)&&s.asm?s.asm:'',manual:!!s.manual,confirmedAt:s.confirmedAt||'',
+   on:s.on||'',recut:g&&typeof g.unit==='string'?'Recut':'Original',sizeBand:repSizeBand(w.area),maker:w.maker||'',...(g?oInfo(g.o):{}),...(g?lInfo(g.l):{})});
  });
  repWorkCache={stamp,rows};
  return rows;
+}
+
+/* ==== src/erp/reports/facts-office.js ==== */
+/* =====================================================================
+   reports/facts-office  ·  facts-1.0
+   Факты офиса и отгрузки для конструктора отчётов: брак, заказы и сроки,
+   заказанное стекло, доставки, листы, время людей у станций.
+   IN : DB (Recut, NCR, заказы, PS, раскрои), факты сканов (reports/facts)
+   OUT: repBreakFacts · repOrderFacts · repOrderedFacts · repDeliveryFacts ·
+        repSheetFacts · repTimeFacts · repQuoteFacts · repReceiptFacts ·
+        repBalanceFacts · repOffcutFacts — массивы строк, кэш по метке данных
+   Правило: файл ничего не рисует. Каждая строка — одно событие или одна
+   вещь; считает и группирует движок (reports/query).
+   ===================================================================== */
+/* Цена стекла по прайсу — как Makeup берёт её без ручной правки
+   (salesPaneCatalogPrice): каталог стекла, закалённое или нет. У плиты
+   ламината — своё стекло и своя закалка. $ за ft². */
+function repGlassPrice(c){
+ const spec=c&&c.spec||{},g=glassProductById(spec.glassProductId);if(!g)return null;
+ const ht=mdById('heatTreatment',spec.heatTreatmentId),code=String(ht&&ht.code||'').toUpperCase();
+ const v=code==='FT'||code==='HS'?g.salePriceTempered:g.salePriceAnnealed;
+ return v==null||v===''||!Number.isFinite(+v)?null:+v;
+}
+function repCompMm(c){const mm=c&&c.pane?stkGlassInfo(c.pane,c.index,c.ply).mm:null;return mm||null;}
+
+/* Брак: разбитое стекло и переделки. Разбитое на станции — строка на стекло
+   со сканом поломки: кто, где, когда (erp/shopfloor/scan, stationBreak).
+   Recut, заведённый в офисе, и NCR (претензия после отгрузки) человека не
+   знают — строка на стекло заказа × количество. $ — стекло по прайсу × ft²:
+   сколько стоило бы такое стекло без работ. */
+let repBreakCache={stamp:'',rows:null};
+function repBreakFacts(){
+ const stamp=[repWorkStamp(),(DB.recut||[]).length,(DB.ncr||[]).length,(DB.recut||[]).map(r=>r.createdAt).join(','),(DB.ncr||[]).map(n=>n.createdAt).join(',')].join('|');
+ if(repBreakCache.stamp===stamp&&repBreakCache.rows)return repBreakCache.rows;
+ const index=stationPieceIndex(),batches=stationBatchIndex(),byRef=new Map(),rows=[];
+ (DB.stationScan||[]).forEach(s=>{
+  if(!s.broken||s.undoneAt||!s.recut)return;const g=stationGlass(s.piece,index,batches);if(!g)return;
+  const k=g.o.id+'|'+s.recut;if(!byRef.has(k))byRef.set(k,[]);byRef.get(k).push({s,g});
+ });
+ const row=(kind,ref,src,o,l,c,qty,s)=>{
+  const at=s?s.at:src.createdAt,per=o&&l?finWithOrder(o,()=>{const a=salesLineAreas(l,o);return a&&a.valid?a.actual:0;}):0,area=qty*per,price=repGlassPrice(c);
+  rows.push({...(o?repOrderInfo(o):{}),...(l?repLineInfo(l):{}),id:kind+'-'+ref+'-'+(s?s.piece:(c?c.key:'')),at,day:repDay(at),hour:repHour(at),kind,ref,station:src.where||'',reason:src.reason||'',
+   personId:s?s.byId||s.by||'':'',person:s?s.by||'':'',orderId:o?o.id:'',order:o?o.businessNumber||'':'',customerId:o?o.customerId||'':'',
+   glass:c?c.glass:'',mm:repCompMm(c),glassN:qty,area:area||null,usd:price==null||!area?null:area*price});
+ };
+ (DB.recut||[]).forEach(r=>{
+  const o=salesRecord(r.orderId),l=o&&(o.lines||[]).find(x=>x.id===r.lineId),ref='R'+r.no,hit=byRef.get(r.orderId+'|'+ref);
+  if(hit&&hit.length){hit.forEach(({s,g})=>row('Recut',r.no,r,g.o,g.l,g.c,1,s));return;}
+  const comps=o&&l?glassBatchComponents(o,l):[];
+  (r.keys||[]).forEach(key=>row('Recut',r.no,r,o,l,comps.find(c=>c.key===key)||null,+r.qty||0,null));
+ });
+ (DB.ncr||[]).forEach(n=>{
+  const o=salesRecord(n.orderId);
+  (n.glass||[]).forEach(gr=>{const l=o&&(o.lines||[]).find(x=>x.id===gr.lineId),comps=o&&l?glassBatchComponents(o,l):[];
+   (gr.keys||[]).forEach(key=>row('NCR',n.number,n,o,l,comps.find(c=>c.key===key)||null,+gr.qty||0,null));});
+ });
+ repBreakCache={stamp,rows};
+ return rows;
+}
+
+/* Заказы и сроки: одна строка на заказ. Отгружен — последний отправленный PS,
+   когда заказ выдан целиком (Done / Closed). Вовремя — отгружен не позже
+   срока; Late — позже срока или срок прошёл, а заказ не выдан; Open — срок
+   ещё не наступил. */
+let repOrderCache={stamp:'',rows:null};
+function repOrderFacts(){
+ const today=finToday(),stamp=[today,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.shipment||[]).map(s=>s.id+s.status+s.date).join(',')].join('|');
+ if(repOrderCache.stamp===stamp&&repOrderCache.rows)return repOrderCache.rows;
+ const rows=[],days=(a,b)=>Math.round((Date.parse(b+'T12:00:00')-Date.parse(a+'T12:00:00'))/864e5);
+ (DB.salesOrder||[]).forEach(o=>{
+  if(!o||salesIsQuote(o)||o.status==='cancelled')return;
+  const done=['done','closed'].includes(o.status),sent=done?shippingForOrder(o.id).filter(s=>shippingSent(s)&&shippingCarries(s,o.id)).map(s=>s.date).sort():[];
+  const shipped=done?sent[sent.length-1]||salesListIsoDay(o.statusDates&&o.statusDates.done)||'':'',due=o.dueDate||'';
+  const state=!due?'No due date':shipped?(shipped<=due?'On time':'Late'):(due<today?'Late':'Open');
+  const lines=o.lines||[],units=lines.reduce((n,l)=>n+Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)),0);
+  const area=finWithOrder(o,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,o);return n+(a.valid?a.actual*Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)):0);},0));
+  const created=salesListIsoDay(o.createdAt),c=salesFindCustomer(o.customerId)||{},t=finOrderTotals(o);
+  const glassN=lines.reduce((n,l)=>n+Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l))*glassBatchComponents(o,l).filter(x=>!x.missing).length,0);
+  const shapes=lines.filter(l=>typeof salesListShapedLine==='function'&&salesListShapedLine(l)).length;
+  let kg=0;try{finWithOrder(o,()=>lines.forEach(l=>{const w=salesLineWeight(l,o);if(w&&w.lineKg!=null)kg+=w.lineKg;}));}catch(e){}
+  rows.push({...repOrderInfo(o),id:o.id,at:o.createdAt||'',created,due,shipped,order:o.businessNumber||'',customerId:o.customerId||'',rep:c.salesRep||'',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',
+   lines:lines.length,shapes,kg:kg||null,hold:o.onHold?'On hold':'Not on hold',
+   delivery:o.delivery==='delivery'?'Delivery':'Pickup',status:salesStatusLabel(o),state,daysLate:state==='Late'?Math.max(0,days(due,shipped||today)):0,
+   lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,area:area||null,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,shippedN:shipped&&due?1:0,total:t&&t.complete?t.grand:null});
+ });
+ repOrderCache={stamp,rows};
+ return rows;
+}
+
+/* Заказанное стекло: строка заказа × стекло юнита (лайт, плита ламината) —
+   что заказали: стекло, толщина, закалка, ft², фигура или прямоугольник.
+   Юниты строки записаны у первого стекла, чтобы сумма юнитов не умножалась
+   на число стёкол. */
+let repOrderedCache={stamp:'',rows:null};
+function repOrderedFacts(){
+ const stamp=(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(',');
+ if(repOrderedCache.stamp===stamp&&repOrderedCache.rows)return repOrderedCache.rows;
+ const rows=[];
+ (DB.salesOrder||[]).forEach(o=>{
+  if(!o||salesIsQuote(o)||o.status==='cancelled')return;
+  finWithOrder(o,()=>(o.lines||[]).forEach(l=>{
+   const live=Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)),a=salesLineAreas(l,o),per=a&&a.valid?a.actual:0,m=salesMakeupById(o,l.makeupId);
+   const unitType=m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';
+   const shape=typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle';
+   glassBatchComponents(o,l).filter(c=>!c.missing).forEach((c,i)=>{
+    const info=stkGlassInfo(c.pane,c.index,c.ply);
+    rows.push({...repOrderInfo(o),...repLineInfo(l),sizeBand:repSizeBand(per),maker:repMaker(c.glassId),id:o.id+'|'+l.id+'|'+c.key,at:o.createdAt||'',created:salesListIsoDay(o.createdAt),due:o.dueDate||'',order:o.businessNumber||'',customerId:o.customerId||'',
+     status:salesStatusLabel(o),glass:c.glass,mm:info.mm||null,heat:info.heat||'Annealed',unitType,shape,glassN:live,area:live*per||null,units:i?0:live});
+   });
+  }));
+ });
+ repOrderedCache={stamp,rows};
+ return rows;
+}
+
+/* Доставка и самовывоз: строка на PS. Рейс — день и машина: на одной
+   машине за день несколько остановок. Километры — по карте Google (позже,
+   владелец 9 октября 2026). */
+const REP_PS_STATUS={planned:'Planned',shipped:'Shipped',delivered:'Delivered'};
+let repDeliveryCache={stamp:'',rows:null};
+function repDeliveryFacts(){
+ const stamp=(DB.shipment||[]).map(s=>s.id+s.status+s.date+(s.truckId||'')+(s.stop||'')+(s.items||[]).length).join(',')+'|'+(DB.truck||[]).length+'|'+JSON.stringify(DB.tripKm||[]);
+ if(repDeliveryCache.stamp===stamp&&repDeliveryCache.rows)return repDeliveryCache.rows;
+ const rows=shippingWithCtx(()=>(DB.shipment||[]).filter(s=>shippingActive(s)).map(s=>{
+  const truck=s.method==='delivery'?truckFind(s.truckId):null,drv=s.driverId?(DB.user||[]).find(u=>u.viewProfileId===s.driverId):null;
+  let load={skids:[],units:(s.items||[]).length,kg:null};try{load=deliveryLoad(s);}catch(e){}
+  /* Километры рейса — у первой остановки рейса: сумма по PS даёт километры. */
+  const first=truck&&deliveryStops(s.date,truck.id)[0],km=first&&first.id===s.id?(tripKmFind(s.date,truck.id)||{}).km:null;
+  return {id:s.id,at:s.date,date:s.date,ps:s.number,method:s.method==='pickup'?'Pickup':'Delivery',status:s.status==='delivered'&&s.method==='pickup'?'Picked up':REP_PS_STATUS[s.status]||s.status,
+   customerId:s.customerId||'',truck:truck?truck.name:'',driver:drv?drv.name:'',trip:truck?s.date+'|'+truck.id:'',units:load.units,skids:(load.skids||[]).length,kg:load.kg||null,
+   city:s.shipTo&&s.shipTo.city||'',stop:s.method==='delivery'&&s.stop?s.stop:null,depart:s.departAt?String(+String(s.departAt).slice(0,2))+':00':'',
+   km:km==null?null:km,tripFirst:first&&first.id===s.id?1:0,kmDone:km==null?0:1};
+ }));
+ repDeliveryCache={stamp,rows};
+ return rows;
+}
+
+/* Листы: батч × стекло × размер листа (журнал Optimization → Sheets). */
+function repSheetFacts(){
+ return (typeof sheetUsageRows==='function'?sheetUsageRows():[]).map(r=>({id:r.batch+'|'+r.glass+'|'+(r.stock||r.w+'x'+r.h),at:r.built||'',built:salesListIsoDay(r.built),batch:r.batch,glass:r.glass,mm:r.mm||null,
+  size:(r.stock?r.stock+' · ':'')+frac16(r.w)+' × '+frac16(r.h)+'″',kind:r.stock?'Offcut':'Sheet',maker:(glassProductByCode(r.glass)||{}).manufacturer||'',status:r.status,sheets:r.sheets,broken:r.broken,area:r.area,used:r.used,waste:r.net,keep:r.keep}));
+}
+
+/* Время у станции: человек × день × станция — первый и последний скан.
+   Табеля нет; это время между сканами, а не рабочие часы. «В час» считается
+   только по дням, где между сканами не меньше получаса: пять ручных сканов
+   за минуту дали бы тысячи стёкол в час. */
+let repTimeCache={src:null,rows:null};
+function repTimeFacts(){
+ const src=repWorkFacts();if(repTimeCache.src===src&&repTimeCache.rows)return repTimeCache.rows;
+ const m=new Map();
+ src.forEach(f=>{if(!f.day||!f.personId)return;const k=f.personId+'|'+f.day+'|'+f.station;let r=m.get(k);
+  if(!r){r={id:k,at:f.at,day:f.day,person:f.person,personId:f.personId,station:f.station,first:f.at,last:f.at,glassN:0,area:0};m.set(k,r);}
+  if(f.at<r.first)r.first=f.at;if(f.at>r.last)r.last=f.at;r.glassN++;r.area+=+f.area||0;});
+ const rows=[...m.values()].map(r=>{const hours=Math.max(0,(Date.parse(r.last)-Date.parse(r.first))/36e5),timed=hours>=0.5;return Object.assign(r,{at:r.first,hours,start:repHour(r.first),end:repHour(r.last),hoursTimed:timed?hours:0,glassTimed:timed?r.glassN:0});});
+ repTimeCache={src,rows};
+ return rows;
+}
+
+/* Квоты: строка на квоту со всеми ревизиями. Won — какая-то ревизия
+   выиграла; Expired — не выиграна и срок цены прошёл; иначе Sent или Not
+   sent. Сумма и ft² — по выигравшей ревизии, иначе по последней. */
+let repQuoteCache={stamp:'',rows:null};
+function repQuoteFacts(){
+ const today=finToday(),stamp=today+'|'+(DB.salesOrder||[]).filter(o=>o&&salesIsQuote(o)).map(o=>o.id+(o.updatedAt||'')+o.status).join(',');
+ if(repQuoteCache.stamp===stamp&&repQuoteCache.rows)return repQuoteCache.rows;
+ const groups=new Map();
+ (DB.salesOrder||[]).forEach(o=>{if(!o||!salesIsQuote(o))return;const g=salesQuoteGroupId(o);if(!groups.has(g))groups.set(g,[]);groups.get(g).push(o);});
+ const rows=[...groups.entries()].map(([g,ms])=>{
+  ms.sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0));
+  const base=ms.find(m=>!m.quoteRev)||ms[0],won=ms.find(m=>m.status==='won'),q=won||ms[ms.length-1],sent=ms.map(m=>m.sentAt||'').filter(Boolean).sort().pop()||'';
+  const valid=q.validUntil||'',state=won?'Won':valid&&valid<today?'Expired':sent?'Sent':'Not sent',t=finOrderTotals(q),lines=q.lines||[];
+  const units=lines.reduce((n,l)=>n+salesPositiveInt(l.qty,1),0),area=finWithOrder(q,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,q);return n+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0));
+  const value=t&&t.complete?t.grand:null,order=won&&won.wonOrderId?(salesRecord(won.wonOrderId)||{}).businessNumber||'':'';
+  return {...repOrderInfo(q),id:g,at:base.createdAt||'',created:salesListIsoDay(base.createdAt),sent:salesListIsoDay(sent),validUntil:valid,quote:salesQuoteBaseNumber(base),customerId:q.customerId||'',
+   state,won:won?1:0,one:1,revisions:ms.length,units,area:area||null,value,wonValue:won?value:0,order};
+ });
+ repQuoteCache={stamp,rows};
+ return rows;
+}
+
+/* Оплаты (только с Finance): квитанция — дата, клиент, способ, сумма,
+   сколько разнесено на заказы и сколько осталось на счёте. Отменённые не
+   считаются. */
+function repReceiptFacts(){
+ return (DB.receipt||[]).filter(r=>r&&!r.voided).map(r=>{
+  const applied=(r.allocations||[]).reduce((n,a)=>n+(+a.amount||0),0),m=FIN_METHODS.find(x=>x.k===r.method);
+  return {...repCustomerInfo(r.customerId),id:r.id,at:r.date,date:r.date,receipt:r.number,customerId:r.customerId||'',method:m?m.label:r.method,currency:r.currency||'CAD',
+   amount:r.amount,applied,onAccount:Math.max(0,r.amount-applied),orders:(r.allocations||[]).length};
+ });
+}
+
+/* Долги (только с Finance): заказ — сумма, оплачено, остаток, срок оплаты,
+   просрочка (как в Finance: finOrderFinancial). */
+const REP_BAL_STATUS={paid:'Paid',due:'Due',overpaid:'Overpaid',incomplete:'Not priced',review:'Review',empty:'Empty'};
+function repBalanceFacts(){
+ const today=finToday();
+ return (DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&o.status!=='cancelled').map(o=>{
+  let f=null;try{f=finOrderFinancial(o,today);}catch(e){return null;}
+  const b=f.b||{},billed=typeof finBillingDate==='function'?finBillingDate(o)||'':'',late=f.overdue>0;
+  return {...repOrderInfo(o),id:o.id,at:billed||o.createdAt||'',billed,due:f.dueOn||'',order:o.businessNumber||'',customerId:o.customerId||'',
+   status:late?'Overdue':REP_BAL_STATUS[b.status]||b.status||'',total:b.total,paid:b.paid,balance:b.balance,overdue:f.overdue||0,overdueN:late?1:0,
+   daysOverdue:late&&f.dueOn?Math.max(0,Math.round((Date.parse(today+'T12:00:00')-Date.parse(f.dueOn+'T12:00:00'))/864e5)):0};
+ }).filter(Boolean);
+}
+
+/* Остатки листа в стоке: лежит, ушёл в раскрой вместо листа или снят. */
+function repOffcutFacts(){
+ const used=new Set();
+ (DB.cutPlan||[]).forEach(p=>{if(!p||p.reset)return;(p.groups||[]).forEach(g=>(g.sheets||[]).forEach(s=>{const k=s.size&&s.size.key;if(/^S-/.test(k||''))used.add(k);}));});
+ return (DB.stockOffcut||[]).map(r=>({id:r.id,at:r.at,created:salesListIsoDay(r.at),offcut:r.id,glass:r.glass,mm:r.mm||null,maker:(glassProductByCode(r.glass)||{}).manufacturer||'',
+  size:frac16(Math.max(r.w,r.h))+' × '+frac16(Math.min(r.w,r.h))+'″',area:r.w&&r.h?r.w*r.h/144:null,batch:r.batch,status:r.status==='cancelled'?'Removed':used.has(r.id)?'Used':'In stock'}));
+}
+
+/* ==== src/erp/reports/sources.js ==== */
+/* =====================================================================
+   reports/sources  ·  sources-1.0
+   Источники конструктора отчётов: что можно считать и по чему делить.
+   IN : факты reports/facts, reports/facts-office
+   OUT: REP_SRC — источник: строки, поля (измерения, даты, числа), метрики
+
+   Владелец, 9 октября 2026: отчёты «как в Looker», источники — по участкам
+   и логике цеха, у каждого свои метрики: «не к каждой станции применяется
+   линейный инч, а только к полировке»; закалка — стёкла, мм, ft²; выдача на
+   Shipping — кто сколько стёкол и юнитов выдал; доставка — рейсы и км;
+   резка — «сколько порезали за прошлый год». Источники — «все и даже то,
+   что ты считаешь»: сверх названного — заказанное стекло, листы, время у
+   станции.
+
+   Поле: {k, label, type: 'dim' (значения списком) | 'text' | 'date' | 'num',
+   get(row) — значение, если оно не лежит в row[k]}. Метрика: {k, label,
+   agg: 'count' | 'sum' | 'distinct' | 'ratio', f — поле, num/den — для
+   доли, pct — в процентах, digits, money}. Любое числовое поле можно взять
+   ещё средним, минимумом и максимумом (reports/query).
+   ===================================================================== */
+function repCustomer(id){return id?salesCustomerDisplay(id)||'—':'—';}
+function repMmText(mm){return mm?String(+mm)+' mm':'—';}
+const REP_F={
+ date:(k,label)=>({k,label,type:'date'}),
+ dim:(k,label,get)=>({k,label,type:'dim',get}),
+ text:(k,label,get)=>({k,label,type:'text',get}),
+ num:(k,label,opts)=>Object.assign({k,label,type:'num'},opts||{})
+};
+/* Поля заказа и строки — во всех источниках, где есть заказ. */
+function repOrderFields(){
+ return [REP_F.text('po','PO',r=>r.po||'—'),REP_F.dim('rep','Sales rep',r=>r.rep||'—'),REP_F.dim('city','City',r=>r.city||'—'),REP_F.dim('province','Province',r=>r.province||'—'),
+  REP_F.dim('terms','Terms',r=>r.terms||'—'),REP_F.dim('ctype','Customer type',r=>r.ctype||'—')];
+}
+function repLineFields(){return [REP_F.text('mark','Line mark',r=>r.mark||'—'),REP_F.dim('size','Size',r=>r.size||'—'),REP_F.dim('shape','Shape',r=>r.shape||'—'),
+ REP_F.dim('sizeBand','Size band',r=>r.sizeBand||'—'),REP_F.dim('maker','Manufacturer',r=>r.maker||'—')];}
+/* Поля, общие для сканов станций. */
+function repScanFields(person){
+ return [REP_F.date('at','Scan time'),REP_F.dim('station','Station'),REP_F.dim('person',person||'Person',r=>r.person||'—'),
+  REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.text('order','Order'),REP_F.dim('glass','Glass',r=>r.glass||'—'),
+  REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('heat','Temper',r=>r.heat||'—'),REP_F.dim('unitType','Unit type',r=>r.unitType||'—'),
+  REP_F.dim('priority','Priority',r=>SALES_LIST_PRIORITY[r.priority]||'Normal'),REP_F.text('batch','Batch',r=>r.batch||'—'),
+  REP_F.dim('scan','Scan',r=>r.confirmedAt?'Confirmed elsewhere':r.manual?'By hand':'Scanned'),REP_F.text('piece','Glass ID'),
+  REP_F.dim('on','Dolly / skid',r=>r.on||'—'),REP_F.dim('recut','Original or recut',r=>r.recut||'—'),REP_F.date('due','Due')]
+  .concat(repOrderFields(),repLineFields(),[REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('usd','$ by price list',{money:true})]);
+}
+/* Станции работы по справочнику Works: закалка — станция работы tempering. */
+function repStationsOf(ids){return [...new Set(ids.map(id=>{const w=salesRouteWork(id);return w&&w.station;}).filter(Boolean))];}
+function repScansAt(codes){const set=new Set(codes);return repWorkFacts().filter(f=>set.has(f.station));}
+/* Операции: скан × работа станции. Кромка — строки начислений EDGE (в
+   дюймах), сверловка и ЧПУ — штуки (отверстия, фурнитура, нотчи, вырезы). */
+let repOpCache={src:null,rows:null};
+function repOpFacts(){
+ const src=repWorkFacts();if(repOpCache.src===src&&repOpCache.rows)return repOpCache.rows;
+ const rows=[];
+ src.forEach(f=>(f.works||[]).forEach((w,i)=>rows.push(Object.assign({},f,{id:f.id+'#'+i,works:null,op:w.op||w.label,unit:w.unit==='in'?'Linear in':w.unit==='ft²'?'ft²':'pcs',kind:String(w.key).split(':')[0],
+  qty:w.qty,inches:w.unit==='in'?w.qty:0,workFt2:w.unit==='ft²'?w.qty:0,pcs:w.unit==='pc'?w.qty:0,usd:w.usd}))));
+ repOpCache={src,rows};
+ return rows;
+}
+function repOpFields(){
+ return repScanFields().filter(f=>!['usd','area','scan','piece'].includes(f.k)).concat([REP_F.dim('op','Operation'),REP_F.dim('unit','Unit'),
+  REP_F.num('qty','Quantity',{digits:1}),REP_F.num('inches','Linear in'),REP_F.num('workFt2','Work ft²',{digits:1}),REP_F.num('pcs','Pieces'),REP_F.num('usd','$ by price list',{money:true})]);
+}
+const REP_SRC={
+ glass:{label:'Station work',group:'Production',hint:'Glass through every station',rows:()=>repWorkFacts(),date:['at'],fields:()=>repScanFields(),
+  metrics:[{k:'count',label:'Glass',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'units',label:'Units',agg:'distinct',f:'unitKey'},
+   {k:'orders',label:'Orders',agg:'distinct',f:'order'},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true}]},
+ cutting:{label:'Cutting',group:'Production',hint:'Glass cut at CUT',rows:()=>repScansAt([stationCutCode()]),date:['at'],fields:()=>repScanFields('Cutter'),
+  metrics:[{k:'count',label:'Glass cut',agg:'count'},{k:'area',label:'ft² cut',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'},{k:'batches',label:'Batches',agg:'distinct',f:'batch'}]},
+ sheets:{label:'Sheets',group:'Production',hint:'Sheet sizes used and waste',rows:()=>repSheetFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Built'),REP_F.text('batch','Batch'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('size','Sheet size'),REP_F.dim('kind','Sheet or offcut'),REP_F.dim('status','Status'),REP_F.dim('maker','Manufacturer',r=>r.maker||'—'),
+   REP_F.num('sheets','Sheets'),REP_F.num('broken','Broken'),REP_F.num('area','Sheet ft²',{digits:1}),REP_F.num('used','Glass ft²',{digits:1}),REP_F.num('waste','Waste ft²',{digits:1}),REP_F.num('keep','To stock ft²',{digits:1})],
+  metrics:[{k:'sheets',label:'Sheets',agg:'sum',f:'sheets'},{k:'area',label:'Sheet ft²',agg:'sum',f:'area',digits:1},{k:'used',label:'Glass ft²',agg:'sum',f:'used',digits:1},{k:'waste',label:'Waste ft²',agg:'sum',f:'waste',digits:1},
+   {k:'yield',label:'Used %',agg:'ratio',num:'used',den:'area',pct:true,digits:1},{k:'broken',label:'Broken',agg:'sum',f:'broken'}]},
+ edgework:{label:'Edgework',group:'Production',hint:'Linear inches by operation',rows:()=>repOpFacts().filter(r=>r.kind==='EDGE'),date:['at'],fields:repOpFields,
+  metrics:[{k:'inches',label:'Linear in',agg:'sum',f:'inches'},{k:'count',label:'Operations',agg:'count'},{k:'glass',label:'Glass',agg:'distinct',f:'piece'},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true}]},
+ drilling:{label:'Drilling & CNC',group:'Production',hint:'Holes, notches, cutouts, hardware',rows:()=>repOpFacts().filter(r=>r.unit==='pcs'),date:['at'],fields:repOpFields,
+  metrics:[{k:'pcs',label:'Pieces',agg:'sum',f:'pcs'},{k:'glass',label:'Glass',agg:'distinct',f:'piece'},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true}]},
+ ops:{label:'All operations',group:'Production',hint:'Every priced work at every station',rows:()=>repOpFacts(),date:['at'],fields:repOpFields,
+  metrics:[{k:'qty',label:'Quantity',agg:'sum',f:'qty',digits:1},{k:'inches',label:'Linear in',agg:'sum',f:'inches'},{k:'workFt2',label:'Work ft²',agg:'sum',f:'workFt2',digits:1},{k:'pcs',label:'Pieces',agg:'sum',f:'pcs'},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true}]},
+ tempering:{label:'Tempering',group:'Production',hint:'Glass through the furnace',rows:()=>repScansAt(repStationsOf(['tempering','heat_strengthening'])),date:['at'],fields:()=>repScanFields('Operator'),
+  metrics:[{k:'count',label:'Glass',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'}]},
+ assembly:{label:'IGU & lamination',group:'Production',hint:'Units assembled',rows:()=>repScansAt(stationMergeCodes()),date:['at'],fields:()=>repScanFields('Assembler'),
+  metrics:[{k:'units',label:'Units',agg:'distinct',f:'asmDone'},{k:'count',label:'Glass',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1}]},
+ shipping:{label:'Shipping handout',group:'Shipping',hint:'Glass and units handed out at SHIP',rows:()=>repScansAt([shippingStations().ship]),date:['at'],fields:()=>repScanFields('Handed out by'),
+  metrics:[{k:'units',label:'Units',agg:'distinct',f:'unitKey'},{k:'count',label:'Glass',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'}]},
+ deliveries:{label:'Deliveries & pickups',group:'Shipping',hint:'Packing slips, trips, skids',rows:()=>repDeliveryFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Date'),REP_F.dim('method','Method'),REP_F.dim('status','Status'),REP_F.dim('truck','Truck',r=>r.truck||'—'),REP_F.dim('driver','Driver',r=>r.driver||'—'),
+   REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.text('ps','Packing slip'),REP_F.dim('city','City',r=>r.city||'—'),REP_F.dim('depart','Departs',r=>r.depart||'—'),
+   REP_F.num('stop','Stop #'),REP_F.num('units','Units'),REP_F.num('skids','Skids'),REP_F.num('kg','Weight kg'),REP_F.num('km','Km',{digits:1})],
+  metrics:[{k:'count',label:'Packing slips',agg:'count'},{k:'trips',label:'Trips',agg:'distinct',f:'trip'},{k:'units',label:'Units',agg:'sum',f:'units'},{k:'skids',label:'Skids',agg:'sum',f:'skids'},{k:'kg',label:'Weight kg',agg:'sum',f:'kg'},
+   {k:'km',label:'Km',agg:'sum',f:'km',digits:1},{k:'kmPerTrip',label:'Km per trip',agg:'ratio',num:'km',den:'kmDone',digits:1}]},
+ orders:{label:'Orders & due dates',group:'Sales',hint:'On time, late, lead time',rows:()=>repOrderFacts(),date:['due','created','shipped'],
+  fields:()=>[REP_F.date('due','Due'),REP_F.date('created','Created'),REP_F.date('shipped','Shipped'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
+   REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery'),REP_F.dim('status','Status'),REP_F.dim('state','On time'),REP_F.dim('hold','On hold')]
+   .concat(repOrderFields(),[REP_F.num('units','Units'),REP_F.num('glassN','Glass pcs'),REP_F.num('area','Area ft²',{digits:1}),REP_F.num('lines','Lines'),REP_F.num('shapes','Shapes'),REP_F.num('kg','Weight kg'),
+   REP_F.num('daysLate','Days late'),REP_F.num('lead','Lead time, days'),REP_F.num('total','Order total',{money:true})]),
+  metrics:[{k:'count',label:'Orders',agg:'count'},{k:'late',label:'Late orders',agg:'sum',f:'late'},{k:'onTime',label:'On time %',agg:'ratio',num:'onTimeN',den:'shippedN',pct:true,digits:0},
+   {k:'units',label:'Units',agg:'sum',f:'units'},{k:'glassN',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1},{k:'total',label:'Order total',agg:'sum',f:'total',money:true}]},
+ ordered:{label:'Ordered glass',group:'Sales',hint:'Glass, thickness and ft² ordered',rows:()=>repOrderedFacts(),date:['created','due'],
+  fields:()=>[REP_F.date('created','Created'),REP_F.date('due','Due'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('glass','Glass'),
+   REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('heat','Temper'),REP_F.dim('unitType','Unit type'),REP_F.dim('status','Status')]
+   .concat(repOrderFields(),repLineFields(),[REP_F.num('glassN','Glass pcs'),REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('units','Units')]),
+  metrics:[{k:'glassN',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'units',label:'Units',agg:'sum',f:'units'},{k:'orders',label:'Orders',agg:'distinct',f:'order'}]},
+ breaks:{label:'Breaks & recuts',group:'Quality',hint:'Recut and NCR glass',rows:()=>repBreakFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Date'),REP_F.dim('kind','Kind'),REP_F.dim('station','Station',r=>r.station||'—'),REP_F.dim('reason','Reason',r=>r.reason||'—'),REP_F.dim('person','Person',r=>r.person||'—'),
+   REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.text('order','Order'),REP_F.dim('glass','Glass',r=>r.glass||'—'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm))]
+   .concat(repOrderFields(),repLineFields(),[REP_F.num('glassN','Glass pcs'),REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('usd','$ by price list',{money:true})]),
+  metrics:[{k:'glassN',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true},{k:'count',label:'Records',agg:'count'}]},
+ time:{label:'Time at stations',group:'People',hint:'First to last scan per person and day',rows:()=>repTimeFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Day'),REP_F.dim('person','Person'),REP_F.dim('station','Station'),REP_F.num('start','First scan hour'),REP_F.num('end','Last scan hour'),
+   REP_F.num('hours','Hours between scans',{digits:1}),REP_F.num('glassN','Glass'),REP_F.num('area','Glass ft²',{digits:1})],
+  metrics:[{k:'hours',label:'Hours',agg:'sum',f:'hours',digits:1},{k:'glassN',label:'Glass',agg:'sum',f:'glassN'},{k:'perHour',label:'Glass per hour',agg:'ratio',num:'glassTimed',den:'hoursTimed',digits:1},
+   {k:'count',label:'Person-days',agg:'count'}]}
+};
+/* Источник с access виден только с этой галочкой в Users: деньги — Finance. */
+function repSourceAllowed(k){const S=REP_SRC[k];return !!S&&(!S.access||typeof accessCan!=='function'||accessCan(S.access));}
+Object.assign(REP_SRC,{
+ quotes:{label:'Quotes',group:'Sales',hint:'Won, sent, expired, value',rows:()=>repQuoteFacts(),date:['created','sent','validUntil'],
+  fields:()=>[REP_F.date('created','Created'),REP_F.date('sent','Sent'),REP_F.date('validUntil','Valid until'),REP_F.text('quote','Quote'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
+   REP_F.dim('state','Status'),REP_F.text('order','Won order',r=>r.order||'—')].concat(repOrderFields(),[REP_F.num('revisions','Revisions'),REP_F.num('units','Units'),REP_F.num('area','Area ft²',{digits:1}),
+   REP_F.num('value','Quote value',{money:true}),REP_F.num('wonValue','Won value',{money:true})]),
+  metrics:[{k:'count',label:'Quotes',agg:'count'},{k:'won',label:'Won',agg:'sum',f:'won'},{k:'winRate',label:'Win rate %',agg:'ratio',num:'won',den:'one',pct:true,digits:0},
+   {k:'value',label:'Quote value',agg:'sum',f:'value',money:true},{k:'wonValue',label:'Won value',agg:'sum',f:'wonValue',money:true},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1}]},
+ payments:{label:'Payments',group:'Finance',access:'finance',hint:'Receipts by date, customer, method',rows:()=>repReceiptFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Date'),REP_F.text('receipt','Receipt'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('method','Method'),REP_F.dim('currency','Currency'),
+   REP_F.dim('rep','Sales rep',r=>r.rep||'—'),REP_F.dim('city','City',r=>r.city||'—'),REP_F.dim('ctype','Customer type',r=>r.ctype||'—'),
+   REP_F.num('amount','Amount',{money:true}),REP_F.num('applied','Applied to orders',{money:true}),REP_F.num('onAccount','On account',{money:true}),REP_F.num('orders','Orders paid')],
+  metrics:[{k:'amount',label:'Amount',agg:'sum',f:'amount',money:true},{k:'count',label:'Receipts',agg:'count'},{k:'applied',label:'Applied to orders',agg:'sum',f:'applied',money:true},
+   {k:'onAccount',label:'On account',agg:'sum',f:'onAccount',money:true},{k:'customers',label:'Customers',agg:'distinct',f:'customer'}]},
+ balances:{label:'Balances & overdue',group:'Finance',access:'finance',hint:'What customers owe and how late',rows:()=>repBalanceFacts(),date:['due','billed'],
+  fields:()=>[REP_F.date('due','Payment due'),REP_F.date('billed','Billed'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('status','Status')]
+   .concat(repOrderFields(),[REP_F.num('total','Order total',{money:true}),REP_F.num('paid','Paid',{money:true}),REP_F.num('balance','Balance',{money:true}),REP_F.num('overdue','Overdue',{money:true}),REP_F.num('daysOverdue','Days overdue')]),
+  metrics:[{k:'balance',label:'Balance',agg:'sum',f:'balance',money:true},{k:'overdue',label:'Overdue',agg:'sum',f:'overdue',money:true},{k:'overdueN',label:'Overdue orders',agg:'sum',f:'overdueN'},
+   {k:'count',label:'Orders',agg:'count'},{k:'paid',label:'Paid',agg:'sum',f:'paid',money:true},{k:'total',label:'Order total',agg:'sum',f:'total',money:true}]},
+ offcuts:{label:'Offcuts in stock',group:'Production',hint:'Sheet offcuts kept, used, removed',rows:()=>repOffcutFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Booked'),REP_F.text('offcut','Offcut'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('maker','Manufacturer',r=>r.maker||'—'),
+   REP_F.dim('size','Size'),REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.dim('status','Status'),REP_F.num('area','Area ft²',{digits:1})],
+  metrics:[{k:'count',label:'Offcuts',agg:'count'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1}]}
+});
+const REP_GROUPS=['Production','Shipping','Sales','Finance','Quality','People'];
+
+/* ==== src/erp/reports/query.js ==== */
+/* =====================================================================
+   reports/query  ·  query-1.0
+   Движок конструктора отчётов: один запрос — источник, период, фильтры,
+   измерение и разбивка, метрики, сортировка, топ, сравнение с прошлым.
+   IN : REP_SRC (reports/sources)
+   OUT: repQuery(q, ctx) → итог, строки по измерению, ячейки по разбивке,
+        то же за период сравнения
+   Правило: файл ничего не рисует.
+
+   Запрос q:
+   { source, date:{f, preset | from,to}, filters:[{f, op, v}],
+     dims:['station' | 'at:month'] (до двух: строки и разбивка),
+     metrics:['count' | 'area' | 'area:avg' | 'distinct:customer' …],
+     sort:{by:'label'|'metric', i, dir}, limit, other, compare:'prev'|'year' }
+   ctx — подстановки экранов: {person, station} для '@me' и '@station'.
+   Сутки — 0:00–24:00 по часам компьютера, неделя — с понедельника.
+   ===================================================================== */
+const REP_GRAINS=[['day','Day'],['week','Week'],['month','Month'],['quarter','Quarter'],['year','Year'],['weekday','Weekday'],['hour','Hour']];
+const REP_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek','This week'],['lastWeek','Last week'],['last7','Last 7 days'],['last30','Last 30 days'],['last90','Last 90 days'],
+ ['thisMonth','This month'],['lastMonth','Last month'],['thisQuarter','This quarter'],['lastQuarter','Last quarter'],['thisYear','This year'],['lastYear','Last year'],['all','All time']];
+const REP_AGGS=[['sum','Sum'],['avg','Average'],['min','Min'],['max','Max']];
+const REP_WEEK=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const REP_OPS={dim:[['in','Is any of'],['notIn','Is none of']],text:[['contains','Contains'],['equals','Equals'],['notContains','Does not contain']],
+ num:[['gt','>'],['gte','≥'],['lt','<'],['lte','≤'],['between','Between']],date:[['between','Between']]};
+
+/* ------------------------------ Даты -------------------------------- */
+function repYmd(d){const p=v=>String(v).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+function repParse(ymd){const [y,m,d]=String(ymd).split('-').map(Number);return new Date(y,(m||1)-1,d||1,12);}
+function repAddDays(ymd,n){const d=repParse(ymd);d.setDate(d.getDate()+n);return repYmd(d);}
+function repMonday(ymd){const d=repParse(ymd);d.setDate(d.getDate()-(d.getDay()+6)%7);return repYmd(d);}
+function repDaysBetween(a,b){return Math.round((repParse(b)-repParse(a))/864e5);}
+function repPresetRange(key,now){
+ const t=repYmd(now||new Date()),d=repParse(t),y=d.getFullYear(),m=d.getMonth(),q=Math.floor(m/3),last=(yy,mm)=>repYmd(new Date(yy,mm+1,0,12));
+ switch(key){
+  case 'today':return [t,t];
+  case 'yesterday':{const x=repAddDays(t,-1);return [x,x];}
+  case 'thisWeek':{const a=repMonday(t);return [a,repAddDays(a,6)];}
+  case 'lastWeek':{const a=repAddDays(repMonday(t),-7);return [a,repAddDays(a,6)];}
+  case 'last7':return [repAddDays(t,-6),t];
+  case 'last30':return [repAddDays(t,-29),t];
+  case 'last90':return [repAddDays(t,-89),t];
+  case 'thisMonth':return [repYmd(new Date(y,m,1,12)),last(y,m)];
+  case 'lastMonth':return [repYmd(new Date(y,m-1,1,12)),last(y,m-1)];
+  case 'thisQuarter':return [repYmd(new Date(y,q*3,1,12)),last(y,q*3+2)];
+  case 'lastQuarter':return [repYmd(new Date(y,q*3-3,1,12)),last(y,q*3-1)];
+  case 'thisYear':return [y+'-01-01',y+'-12-31'];
+  case 'lastYear':return [(y-1)+'-01-01',(y-1)+'-12-31'];
+ }
+ return null;
+}
+/* Период запроса: свои даты или пресет; null — всё время. */
+function repRange(dt){
+ if(!dt)return null;
+ if(dt.from||dt.to)return [dt.from||'',dt.to||''];
+ return repPresetRange(dt.preset);
+}
+/* Сравнение: прошлый период той же длины или те же даты год назад. */
+function repCompareRange(r,kind){
+ if(!r||!r[0]||!r[1])return null;
+ if(kind==='year'){const s=x=>{const d=repParse(x);d.setFullYear(d.getFullYear()-1);return repYmd(d);};return [s(r[0]),s(r[1])];}
+ if(kind==='prev'){const len=repDaysBetween(r[0],r[1])+1;return [repAddDays(r[0],-len),repAddDays(r[0],-1)];}
+ return null;
+}
+function repIsoDay(v){return typeof salesListIsoDay==='function'?salesListIsoDay(v):String(v||'').slice(0,10);}
+
+/* ------------------------------ Поля -------------------------------- */
+function repFields(S){return S.fields();}
+function repField(S,k){return repFields(S).find(f=>f.k===k)||null;}
+function repGet(f,row){return f.get?f.get(row):row[f.k];}
+function repDimParse(d){const i=String(d||'').indexOf(':');return i<0?{f:String(d||''),g:''}:{f:d.slice(0,i),g:d.slice(i+1)};}
+/* Корзина даты: день, понедельник недели, месяц, квартал, год, день недели,
+   час. Ключи — строки, по ним и сортируется. */
+function repBucket(v,g){
+ const day=repIsoDay(v);if(!day)return '';
+ switch(g){
+  case 'week':return repMonday(day);
+  case 'month':return day.slice(0,7);
+  case 'quarter':return day.slice(0,4)+'-Q'+(Math.floor((+day.slice(5,7)-1)/3)+1);
+  case 'year':return day.slice(0,4);
+  case 'weekday':return String((repParse(day).getDay()+6)%7);
+  case 'hour':{const d=new Date(v);return /T/.test(String(v))&&!Number.isNaN(d.getTime())?String(d.getHours()).padStart(2,'0'):'';}
+ }
+ return day;
+}
+function repBucketText(g,v){
+ if(v===''||v==null)return '—';
+ switch(g){
+  case 'week':return 'Wk '+salesListShortDay(v);
+  case 'month':{const [y,m]=v.split('-');return new Date(+y,+m-1,1).toLocaleDateString('en-US',{month:'short',year:'numeric'});}
+  case 'quarter':{const [y,q]=v.split('-');return q+' '+y;}
+  case 'year':return v;
+  case 'weekday':return REP_WEEK[+v]||v;
+  case 'hour':return (+v)+':00';
+ }
+ return salesListShortDay(v);
+}
+function repDimValue(S,row,d){
+ const p=repDimParse(d),f=repField(S,p.f);if(!f)return '—';
+ const v=repGet(f,row);
+ if(f.type==='date')return repBucket(v,p.g||'day');
+ return v==null||v===''?'—':String(v);
+}
+function repDimText(S,d,v){const p=repDimParse(d),f=repField(S,p.f);return f&&f.type==='date'?repBucketText(p.g||'day',v):String(v);}
+function repDimLabel(S,d){const p=repDimParse(d),f=repField(S,p.f);if(!f)return d;const g=REP_GRAINS.find(x=>x[0]===p.g);return f.type==='date'?(g?g[1]:'Day')+(repDates(S).length>1?' · '+f.label:''):f.label;}
+function repDates(S){return (S.date||[]).filter(k=>repField(S,k));}
+/* Что можно выбрать измерением: поля-списки и текст, даты по корзинам. */
+function repDimOptions(S){
+ const out=[];
+ repFields(S).forEach(f=>{
+  if(f.type==='dim'||f.type==='text')out.push([f.k,f.label]);
+  if(f.type==='date')REP_GRAINS.forEach(([g,l])=>{if(g==='hour'&&!/at$/.test(f.k))return;out.push([f.k+':'+g,l+(repDates(S).length>1?' · '+f.label:'')]);});
+ });
+ return out;
+}
+
+/* ------------------------------ Метрики ------------------------------ */
+/* Вычисляемая метрика (как calculated field в Looker): метрика ÷ × + −
+   другая метрика или число. Ключ «calc:area~div~hours», число — «n:1000».
+   Делится сумма на сумму по той же выборке: ft² в час — все ft² на все
+   часы, а не среднее из долей. */
+const REP_CALC_OPS=[['div','÷'],['mul','×'],['add','+'],['sub','−']];
+function repCalcParse(k){const m=/^calc:(.+?)~(div|mul|add|sub)~(.+)$/.exec(String(k||''));return m?{a:m[1],op:m[2],b:m[3]}:null;}
+function repCalcKey(a,op,b){return 'calc:'+a+'~'+op+'~'+b;}
+/* Метрика по ключу: своя у источника или числовое поле с агрегатом
+   («area:avg»), или число разных значений поля («distinct:customer»), или
+   вычисляемая. */
+function repMetric(S,k){
+ const c=repCalcParse(k);
+ if(c){
+  const a=repMetric(S,c.a),num=/^n:/.test(c.b)?+c.b.slice(2):null,b=num==null?repMetric(S,c.b):null;
+  if(!a||(num==null&&!b)||(num!=null&&!Number.isFinite(num)))return null;
+  const sign=REP_CALC_OPS.find(x=>x[0]===c.op)[1],money=c.op==='div'||c.op==='mul'?!!a.money&&!(b&&b.money):!!a.money&&!!(b&&b.money);
+  return {k,label:a.label+' '+sign+' '+(b?b.label:chNum(num,4)),agg:'calc',op:c.op,a,b,num,money,digits:c.op==='div'?2:Math.max(a.digits||0,b&&b.digits||0)};
+ }
+ const own=(S.metrics||[]).find(m=>m.k===k);if(own)return own;
+ const i=String(k).indexOf(':'),a=i<0?k:k.slice(0,i),b=i<0?'':k.slice(i+1);
+ if(a==='distinct'){const f=repField(S,b);return f?{k,label:f.label+' · distinct',agg:'distinct',f:b}:null;}
+ const f=repField(S,a);if(!f||f.type!=='num')return null;
+ const agg=REP_AGGS.some(x=>x[0]===b)?b:'sum';
+ return {k,label:f.label+(agg==='sum'?'':' · '+REP_AGGS.find(x=>x[0]===agg)[1].toLowerCase()),agg,f:a,digits:agg==='avg'?Math.max(1,f.digits||0):f.digits,money:f.money};
+}
+function repMetricOptions(S){
+ const out=(S.metrics||[]).map(m=>[m.k,m.label]);
+ repFields(S).forEach(f=>{
+  if(f.type==='num'){REP_AGGS.forEach(([a,l])=>{const k=a==='sum'?f.k:f.k+':'+a;if(!out.some(x=>x[0]===k))out.push([k,f.label+(a==='sum'?'':' · '+l.toLowerCase())]);});}
+  if(f.type==='dim'||f.type==='text')out.push(['distinct:'+f.k,f.label+' · distinct']);
+ });
+ return out;
+}
+function repAgg(S,m,list){
+ if(m.agg==='calc'){const a=repAgg(S,m.a,list),b=m.b?repAgg(S,m.b,list):m.num;if(a==null||b==null)return null;return m.op==='div'?(b?a/b:null):m.op==='mul'?a*b:m.op==='add'?a+b:a-b;}
+ if(m.agg==='count')return list.length;
+ if(m.agg==='distinct'){const f=repField(S,m.f),set=new Set();list.forEach(r=>{const v=f?repGet(f,r):r[m.f];if(v!=null&&v!==''&&v!=='—')set.add(v);});return set.size;}
+ if(m.agg==='ratio'){let a=0,b=0;list.forEach(r=>{a+=+r[m.num]||0;b+=+r[m.den]||0;});return b?a/b*(m.pct?100:1):null;}
+ let s=0,n=0,lo=null,hi=null;
+ list.forEach(r=>{const v=r[m.f];if(v==null||v===''||!Number.isFinite(+v))return;const x=+v;s+=x;n++;if(lo==null||x<lo)lo=x;if(hi==null||x>hi)hi=x;});
+ if(!n)return m.agg==='sum'&&!m.money?0:null;
+ return m.agg==='avg'?s/n:m.agg==='min'?lo:m.agg==='max'?hi:s;
+}
+function repFmt(m,v){
+ if(v==null||Number.isNaN(v))return '—';
+ if(m.money)return (v<0?'-$':'$')+Math.abs(+v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+ return chNum(v,m.digits||0)+(m.pct?'%':'');
+}
+
+/* ------------------------------ Фильтры ------------------------------ */
+function repSub(v,ctx){return v==='@me'?ctx.person||'':v==='@station'?ctx.station||'':v;}
+function repFilterTest(S,flt,row,ctx){
+ const f=repField(S,flt.f);if(!f)return true;
+ let v=repGet(f,row);if(f.type==='date')v=repIsoDay(v);
+ const list=(Array.isArray(flt.v)?flt.v:[flt.v]).map(x=>repSub(x,ctx));
+ const s=v==null?'':String(v),low=s.toLowerCase(),a=list[0],b=list[1];
+ switch(flt.op){
+  case 'in':return list.includes(s===''?'—':s);
+  case 'notIn':return !list.includes(s===''?'—':s);
+  case 'contains':return low.includes(String(a||'').toLowerCase());
+  case 'notContains':return !low.includes(String(a||'').toLowerCase());
+  case 'equals':return low===String(a||'').toLowerCase();
+  case 'gt':return v!==''&&v!=null&&+v>+a;
+  case 'gte':return v!==''&&v!=null&&+v>=+a;
+  case 'lt':return v!==''&&v!=null&&+v<+a;
+  case 'lte':return v!==''&&v!=null&&+v<=+a;
+  case 'between':return f.type==='date'?!!s&&(!a||s>=a)&&(!b||s<=b):v!==''&&v!=null&&(a===''||a==null||+v>=+a)&&(b===''||b==null||+v<=+b);
+ }
+ return true;
+}
+function repSelect(S,df,range,filters,ctx){
+ const f=df?repField(S,df):null;
+ return S.rows().filter(r=>{
+  if(f&&range){const d=repIsoDay(repGet(f,r));if(!d||(range[0]&&d<range[0])||(range[1]&&d>range[1]))return false;}
+  return (filters||[]).every(x=>repFilterTest(S,x,r,ctx));
+ });
+}
+/* Значения поля для фильтра «Is any of» — то, что есть в данных. */
+function repFieldValues(S,k){const f=repField(S,k);if(!f)return [];const set=new Set();S.rows().forEach(r=>{const v=repGet(f,r);set.add(v==null||v===''?'—':String(v));});return [...set].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));}
+
+/* ------------------------------ Порядок ------------------------------ */
+/* Все корзины периода, и пустые: месяц без резки — ноль, а не дыра. Без
+   границ периода — от первой до последней корзины в данных; слишком много
+   корзин (дни за десять лет) — только те, где есть данные. */
+function repDateKeys(g,range,present){
+ if(g==='hour')return Array.from({length:24},(_,h)=>String(h).padStart(2,'0'));
+ if(g==='weekday')return ['0','1','2','3','4','5','6'];
+ const have=present.filter(Boolean).sort(),lo=range&&range[0]?repBucket(range[0],g):have[0],hi=range&&range[1]?repBucket(range[1],g):have[have.length-1],out=[];
+ if(!lo||!hi)return have;
+ if(g==='day'||g==='week'){for(let d=lo;d<=hi&&out.length<=400;d=repAddDays(d,g==='week'?7:1))out.push(d);}
+ else if(g==='month'){let [y,m]=lo.split('-').map(Number);for(let k=lo;k<=hi&&out.length<=400;){out.push(k);if(++m>12){m=1;y++;}k=y+'-'+String(m).padStart(2,'0');}}
+ else if(g==='quarter'){let y=+lo.slice(0,4),q=+lo.slice(6);for(let k=lo;k<=hi&&out.length<=400;){out.push(k);if(++q>4){q=1;y++;}k=y+'-Q'+q;}}
+ else if(g==='year'){for(let y=+lo;y<=+hi&&out.length<=400;y++)out.push(String(y));}
+ return out.length>400?have:out;
+}
+function repIsTime(S,d){const p=repDimParse(d),f=repField(S,p.f);return !!f&&f.type==='date';}
+function repOrderKeys(S,d,groups,ms,q,range){
+ const keys=[...groups.keys()],p=repDimParse(d);
+ if(repIsTime(S,d)){
+  const all=repDateKeys(p.g||'day',range,keys);
+  const sorted=all.length?all:keys.sort();
+  return q.sort&&q.sort.dir==='desc'&&(!q.sort.by||q.sort.by==='label')?sorted.slice().reverse():sorted;
+ }
+ const by=q.sort&&q.sort.by==='label'?'label':'metric',i=q.sort&&Number.isInteger(q.sort.i)?q.sort.i:0,dir=q.sort&&q.sort.dir==='asc'?1:-1;
+ if(by==='label'||!ms.length){
+  const seq=(DB.station||[]).map(s=>s.code),at=v=>{const n=seq.indexOf(v);return n<0?999:n;};
+  if(p.f==='station'&&!(q.sort&&q.sort.by==='label'))return keys.sort((a,b)=>at(a)-at(b));
+  return keys.sort((a,b)=>(q.sort&&q.sort.by==='label'?dir:1)*String(a).localeCompare(String(b),undefined,{numeric:true}));
+ }
+ const m=ms[Math.min(i,ms.length-1)],val=new Map(keys.map(k=>[k,repAgg(S,m,groups.get(k))]));
+ return keys.sort((a,b)=>dir*((val.get(a)||0)-(val.get(b)||0))||String(a).localeCompare(String(b),undefined,{numeric:true}));
+}
+function repGroupBy(S,rows,d){const g=new Map();rows.forEach(r=>{const k=repDimValue(S,r,d);if(!g.has(k))g.set(k,[]);g.get(k).push(r);});return g;}
+
+/* ------------------------------- Запрос ------------------------------ */
+function repQuery(q,ctx){
+ ctx=ctx||{};const S=REP_SRC[q&&q.source];if(!S)return null;
+ const dates=repDates(S),df=q.date&&dates.includes(q.date.f)?q.date.f:dates[0]||'',range=df?repRange(q.date||{}):null;
+ const ms=(q.metrics&&q.metrics.length?q.metrics:[S.metrics[0].k]).map(k=>repMetric(S,k)).filter(Boolean);
+ const dims=(q.dims||[]).filter(d=>d&&repField(S,repDimParse(d).f)).slice(0,2);
+ const vals=list=>ms.map(m=>repAgg(S,m,list));
+ const rows=repSelect(S,df,range,q.filters,ctx);
+ const out={source:q.source,label:S.label,df,range,dims,metrics:ms,count:rows.length,rows,total:vals(rows),keys:[],keys2:[],cells:new Map(),rowTotals:new Map(),colTotals:new Map(),groups:new Map()};
+ if(dims[0]){
+  const g1=repGroupBy(S,rows,dims[0]);let keys=repOrderKeys(S,dims[0],g1,ms,q,range);
+  /* Топ N: остальное — строкой «Other», если попросили. Даты не режутся. */
+  if(!repIsTime(S,dims[0])&&q.limit>0&&keys.length>q.limit){const rest=keys.slice(q.limit);keys=keys.slice(0,q.limit);if(q.other){g1.set('__other',rest.flatMap(k=>g1.get(k)));keys.push('__other');}}
+  out.keys=keys;out.groups=g1;keys.forEach(k=>out.rowTotals.set(k,vals(g1.get(k)||[])));
+  if(dims[1]){
+   /* Разбивка — до восьми значений: семь самых больших по первой метрике
+      и «Other»; дальше — по имени (станции — по маршруту). Цвет значению
+      даёт экран по полному списку значений поля, а не по этой выборке. */
+   const g2=repGroupBy(S,rows,dims[1]);let k2=repIsTime(S,dims[1])?repOrderKeys(S,dims[1],g2,ms,{},range).filter(k=>g2.has(k)):[...g2.keys()];
+   if(!repIsTime(S,dims[1])){
+    if(k2.length>8){const m=ms[0];k2=k2.sort((a,b)=>(repAgg(S,m,g2.get(b))||0)-(repAgg(S,m,g2.get(a))||0));const rest=k2.slice(7);k2=k2.slice(0,7);g2.set('__other',rest.flatMap(k=>g2.get(k)));}
+    const seq=(DB.station||[]).map(s=>s.code),at=v=>{const n=seq.indexOf(v);return n<0?999:n;};
+    k2=k2.sort(repDimParse(dims[1]).f==='station'?(a,b)=>at(a)-at(b):(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
+    if(g2.has('__other'))k2.push('__other');
+   }
+   out.keys2=k2;
+   const in2=new Map();k2.forEach(k=>in2.set(k,new Set(g2.get(k)||[])));
+   keys.forEach(a=>{const list=g1.get(a)||[];k2.forEach(b=>out.cells.set(a+'\u0001'+b,vals(list.filter(r=>in2.get(b).has(r)))));});
+   k2.forEach(b=>out.colTotals.set(b,vals(g2.get(b)||[])));
+  }
+ }
+ if(q.compare&&range&&range[0]&&range[1]){
+  const cr=repCompareRange(range,q.compare);
+  if(cr){
+   const crows=repSelect(S,df,cr,q.filters,ctx),c={range:cr,kind:q.compare,total:vals(crows),rowTotals:new Map()};
+   if(dims[0]){
+    const g=repGroupBy(S,crows,dims[0]);
+    /* Даты сравниваются по месту: первый месяц с первым месяцем. */
+    if(repIsTime(S,dims[0])){const ck=repDateKeys(repDimParse(dims[0]).g||'day',cr,[...g.keys()]);out.keys.forEach((k,i)=>c.rowTotals.set(k,vals(g.get(ck[i])||[])));}
+    else out.keys.forEach(k=>c.rowTotals.set(k,vals(k==='__other'?[]:g.get(k)||[])));
+   }
+   out.compare=c;
+  }
+ }
+ return out;
+}
+function repKeyText(S,d,k){return k==='__other'?'Other':repDimText(S,d,k);}
+
+/* ==== src/erp/reports/model.js ==== */
+/* =====================================================================
+   reports/model  ·  reports-2.0
+   Отчёты конструктора: хранение, права, стартовые отчёты, команды.
+   IN : DB.report, вошедший человек (erp/signin), REP_SRC
+   OUT: DB.report — [{id, name, folder, ownerId, share, controls, date,
+        filters, pages:[{id, name, widgets:[{id, type, title, width, q, opts}]}]}]
+
+   Владелец, 9 октября 2026: «модуль отчётов не хуже Looker Studio или
+   Tableau», «а если я хочу 10 или 50 разных заготовленных отчётов для
+   владельца?», «создавать отчёты по своему логическому порядку», «не должны
+   сразу вываливаться блоком». Отчёт — страницы и графики в своём порядке;
+   у графика свой источник, тип и настройки (reports/query).
+   Кто правит: автор и администратор (Users); остальные смотрят и берут
+   копию. Правка идёт в черновике и записывается кнопкой Save (владелец:
+   «вижу Edit, Copy, Print, но не вижу сохранить»); Cancel — как было. share: 'all' — всем с Reports, 'me' — только автору, [id] — кому.
+   Стартовые отчёты — обычные, их можно править и удалять.
+   ===================================================================== */
+DEFAULT.report=[];
+DEFAULT.reportSeed=0;
+const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
+const REP_SEED_VERSION=2;
+/* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
+function repUid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();}
+function repMe(){const u=typeof signinUser==='function'?signinUser():null;return u?u.viewProfileId:'';}
+/* Администратор — галочка Users; без входа (пустая база, картинки) — открыто, как accessCan. */
+function repIsAdmin(){return typeof accessCan==='function'&&accessCan(ACCESS_ADMIN);}
+function repCanEdit(r){return !!r&&(repIsAdmin()||!!r.ownerId&&r.ownerId===repMe());}
+function repVisible(r){const me=repMe();return !!r&&(repIsAdmin()||r.share==='all'||r.ownerId===me||Array.isArray(r.share)&&r.share.includes(me));}
+function repFind(id){return (DB.report||[]).find(r=>r.id===id)||null;}
+
+/* ------------------------------ Чистка ------------------------------- */
+const repStr=(v,n)=>String(v==null?'':v).slice(0,n||200);
+function repCleanQuery(q){
+ q=q&&typeof q==='object'?q:{};const S=REP_SRC[q.source]?q.source:'glass';
+ const arr=(v,n)=>(Array.isArray(v)?v:[]).map(x=>repStr(x,120)).filter(Boolean).slice(0,n);
+ const d=q.date&&typeof q.date==='object'?q.date:{};
+ return {source:S,date:{f:repStr(d.f,40),use:d.use==='own'?'own':'report',preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},
+  filters:(Array.isArray(q.filters)?q.filters:[]).filter(f=>f&&typeof f==='object'&&f.f).slice(0,20).map(f=>({f:repStr(f.f,40),op:repStr(f.op,20)||'in',v:(Array.isArray(f.v)?f.v:[f.v]).map(x=>repStr(x,120)).slice(0,200)})),
+  dims:arr(q.dims,2),metrics:arr(q.metrics,8),sort:q.sort&&typeof q.sort==='object'?{by:q.sort.by==='label'?'label':'metric',i:Math.max(0,Math.min(7,Math.floor(+q.sort.i||0))),dir:q.sort.dir==='asc'?'asc':'desc'}:null,
+  limit:Math.max(0,Math.min(500,Math.floor(+q.limit||0))),other:q.other===true,compare:['prev','year'].includes(q.compare)?q.compare:''};
+}
+function repCleanWidget(w){
+ w=w&&typeof w==='object'?w:{};
+ return {id:repStr(w.id,80)||repUid('W'),type:REP_TYPES.some(t=>t[0]===w.type)?w.type:'table',title:repStr(w.title,120),width:w.width==='half'?'half':'full',
+  q:repCleanQuery(w.q),opts:{totals:!(w.opts&&w.opts.totals===false),labels:!!(w.opts&&w.opts.labels)}};
+}
+function repClean(r){
+ r=r&&typeof r==='object'?r:{};
+ const pages=(Array.isArray(r.pages)?r.pages:[]).filter(p=>p&&typeof p==='object').slice(0,20).map(p=>({id:repStr(p.id,80)||repUid('PG'),name:repStr(p.name,60)||'Page',widgets:(Array.isArray(p.widgets)?p.widgets:[]).slice(0,40).map(repCleanWidget)}));
+ const d=r.date&&typeof r.date==='object'?r.date:{},fl=r.filters&&typeof r.filters==='object'&&!Array.isArray(r.filters)?r.filters:{},filters={};
+ Object.keys(fl).slice(0,20).forEach(k=>{if(Array.isArray(fl[k])&&fl[k].length)filters[repStr(k,40)]=fl[k].map(x=>repStr(x,120)).slice(0,200);});
+ return {id:repStr(r.id,80)||repUid('RP'),name:repStr(r.name,120)||'Untitled report',folder:repStr(r.folder,60),note:repStr(r.note,500),ownerId:repStr(r.ownerId,80),
+  share:r.share==='all'||r.share==='me'?r.share:Array.isArray(r.share)?r.share.map(x=>repStr(x,80)).slice(0,200):'me',
+  controls:(Array.isArray(r.controls)?r.controls:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,10),
+  date:{preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'thisMonth',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},filters,
+  pages:pages.length?pages:[{id:repUid('PG'),name:'Page 1',widgets:[]}],createdAt:repStr(r.createdAt,40),updatedAt:repStr(r.updatedAt,40)};
+}
+function normalizeReports(){
+ if(!Array.isArray(DB.report))DB.report=[];
+ const seen=new Set();DB.report=DB.report.filter(r=>r&&typeof r==='object').map(repClean).filter(r=>!seen.has(r.id)&&(seen.add(r.id),true));
+ /* Стартовые отчёты добавляются по версиям: база получает только новые
+    для себя — удалённый владельцем стартовый не возвращается. */
+ const seed=+DB.reportSeed||0;
+ if(seed<REP_SEED_VERSION){REP_STARTERS().filter(r=>(r.seed||1)>seed).forEach(r=>{if(!DB.report.some(x=>x.id===r.id))DB.report.push(repClean(r));});DB.reportSeed=REP_SEED_VERSION;}
+}
+function validateReportsPayload(src){
+ if(src.report!=null&&!Array.isArray(src.report))throw new Error('The "report" field must be an array.');
+ (src.report||[]).forEach(r=>{if(!r||typeof r!=='object'||Array.isArray(r))throw new Error('Reports: every report must be an object.');});
+}
+
+/* --------------------------- Стартовые ------------------------------- */
+/* Образцы по участкам — первые отчёты каталога. w(тип, источник, …). */
+function repW(type,source,o){o=o||{};return {type,title:o.title||'',width:o.width||'full',q:{source,date:o.date||{},dims:o.dims||[],metrics:o.metrics||[],filters:o.filters||[],sort:o.sort||null,limit:o.limit||0,other:!!o.other,compare:o.compare||''},opts:o.opts||{}};}
+function REP_STARTERS(){
+ const R=(id,name,folder,date,controls,pages,seed)=>({id:'RP-start-'+id,name,folder,ownerId:'',share:'all',seed:seed||1,date:{preset:date},controls,pages:pages.map((p,i)=>({id:'PG-start-'+id+'-'+i,name:p[0],widgets:p[1].map((w,j)=>Object.assign({id:'W-start-'+id+'-'+i+'-'+j},w))}))});
+ return [
+  R('cut','Glass cut · by month','Production','thisYear',['glass','mm','person'],[
+   ['Summary',[repW('number','cutting',{metrics:['count','area','batches'],compare:'year'}),repW('columns','cutting',{title:'Glass cut by month · thickness',dims:['at:month','mm'],metrics:['count']}),
+    repW('table','cutting',{title:'By glass and thickness',dims:['glass','mm'],metrics:['count']})]],
+   ['By cutter',[repW('table','cutting',{title:'By cutter',dims:['person'],metrics:['count','area','batches']}),repW('columns','cutting',{title:'By week · cutter',dims:['at:week','person'],metrics:['count']})]]]),
+  R('polish','Polishing · linear in by person','Production','thisMonth',['person','mm'],[
+   ['Summary',[repW('number','edgework',{metrics:['inches','glass','usd'],filters:[{f:'op',op:'in',v:['Flat Polish']}]}),
+    repW('table','edgework',{title:'Linear in by person and thickness',dims:['person','mm'],metrics:['inches'],filters:[{f:'op',op:'in',v:['Flat Polish']}]}),
+    repW('columns','edgework',{title:'By day · person',dims:['at:day','person'],metrics:['inches'],filters:[{f:'op',op:'in',v:['Flat Polish']}]})]]]),
+  R('edge','Edgework · by operation','Production','thisMonth',['station','person','mm'],[
+   ['Summary',[repW('bars','edgework',{title:'Linear in by operation',dims:['op'],metrics:['inches'],width:'half'}),repW('pie','edgework',{title:'Share by thickness',dims:['mm'],metrics:['inches'],width:'half'}),
+    repW('table','edgework',{title:'Operation × thickness',dims:['op','mm'],metrics:['inches']}),repW('table','edgework',{title:'By person',dims:['person'],metrics:['inches','glass','usd']})]]]),
+  R('temper','Tempering · ft² by thickness','Production','thisWeek',['mm','glass'],[
+   ['Summary',[repW('number','tempering',{metrics:['count','area'],compare:'prev'}),repW('bars','tempering',{title:'ft² by thickness',dims:['mm'],metrics:['area'],width:'half'}),
+    repW('columns','tempering',{title:'Glass by day',dims:['at:day'],metrics:['count'],width:'half'}),repW('table','tempering',{title:'Glass × thickness',dims:['glass','mm'],metrics:['count']})]]]),
+  R('igu','IGU & lamination · units','Production','thisWeek',['person','unitType'],[
+   ['Summary',[repW('number','assembly',{metrics:['units','count']}),repW('columns','assembly',{title:'Units by day · person',dims:['at:day','person'],metrics:['units']}),
+    repW('table','assembly',{title:'By unit type',dims:['unitType'],metrics:['units','area']})]]]),
+  R('drill','Drilling & CNC · pieces','Production','thisMonth',['station','person'],[
+   ['Summary',[repW('bars','drilling',{title:'Pieces by operation',dims:['op'],metrics:['pcs']}),repW('table','drilling',{title:'Person × operation',dims:['person','op'],metrics:['pcs']})]]]),
+  R('stations','Stations · glass by day','Production','thisWeek',['station','person'],[
+   ['Summary',[repW('bars','glass',{title:'Glass by station',dims:['station'],metrics:['count'],width:'half'}),repW('line','glass',{title:'Glass by day',dims:['at:day'],metrics:['count'],width:'half',compare:'prev'}),
+    repW('table','glass',{title:'Station × day',dims:['station','at:day'],metrics:['count']}),repW('columns','glass',{title:'Glass by hour',dims:['at:hour'],metrics:['count']})]]]),
+  R('sheets','Sheets · waste by glass','Production','thisMonth',['glass','mm'],[
+   ['Summary',[repW('number','sheets',{metrics:['sheets','area','waste','yield']}),repW('bars','sheets',{title:'Used % by glass',dims:['glass'],metrics:['yield']}),
+    repW('table','sheets',{title:'Sheet size × glass',dims:['size','glass'],metrics:['sheets']})]]]),
+  R('people','People · output by station','People','thisWeek',['station','person'],[
+   ['Summary',[repW('table','glass',{title:'Glass by person and station',dims:['person','station'],metrics:['count']}),repW('table','glass',{title:'By person',dims:['person'],metrics:['count','area','units','usd']})]],
+   ['Edgework',[repW('table','edgework',{title:'Linear in · person × operation',dims:['person','op'],metrics:['inches']}),repW('table','edgework',{title:'$ by price list · person × thickness',dims:['person','mm'],metrics:['usd']})]]]),
+  R('time','People · time at stations','People','thisWeek',['person','station'],[
+   ['Summary',[repW('table','time',{title:'By person',dims:['person'],metrics:['hours','glassN','perHour','count']}),repW('columns','time',{title:'Hours by day · person',dims:['at:day','person'],metrics:['hours']})]]]),
+  R('handout','Shipping · handed out by person','Shipping','thisWeek',['person','customer'],[
+   ['Summary',[repW('number','shipping',{metrics:['units','count','orders']}),repW('table','shipping',{title:'By person',dims:['person'],metrics:['units','count','area']}),
+    repW('columns','shipping',{title:'Units by day · person',dims:['at:day','person'],metrics:['units']})]]]),
+  R('trips','Deliveries · trips by truck','Shipping','thisMonth',['truck','driver','method'],[
+   ['Summary',[repW('number','deliveries',{metrics:['trips','count','units','skids']}),repW('table','deliveries',{title:'By truck',dims:['truck'],metrics:['trips','count','units','kg']}),
+    repW('columns','deliveries',{title:'Trips by week',dims:['at:week'],metrics:['trips']})]]]),
+  R('due','Due dates · on time','Sales','thisMonth',['customer','priority'],[
+   ['Summary',[repW('number','orders',{date:{f:'due'},metrics:['count','late','onTime']}),repW('columns','orders',{title:'Orders by due week',date:{f:'due'},dims:['due:week','state'],metrics:['count']}),
+    repW('table','orders',{title:'By customer',date:{f:'due'},dims:['customer'],metrics:['count','late','onTime','units','area']})]]]),
+  R('ordered','Ordered glass · by thickness','Sales','thisMonth',['customer','glass'],[
+   ['Summary',[repW('bars','ordered',{title:'ft² by thickness',date:{f:'created'},dims:['mm'],metrics:['area'],width:'half'}),repW('pie','ordered',{title:'Units by type',date:{f:'created'},dims:['unitType'],metrics:['units'],width:'half'}),
+    repW('table','ordered',{title:'Glass × thickness',date:{f:'created'},dims:['glass','mm'],metrics:['glassN']})]]]),
+  R('lead','Lead time by customer','Sales','lastQuarter',['customer'],[
+   ['Summary',[repW('table','orders',{title:'Lead time, days',date:{f:'shipped'},dims:['customer'],metrics:['lead:avg','lead:max','count']})]]]),
+  R('recuts','Recuts · by reason','Quality','last30',['station','reason','person'],[
+   ['Summary',[repW('number','breaks',{metrics:['glassN','area','usd']}),repW('bars','breaks',{title:'By reason',dims:['reason'],metrics:['glassN'],width:'half'}),
+    repW('bars','breaks',{title:'By station',dims:['station'],metrics:['glassN'],width:'half'}),repW('columns','breaks',{title:'By week · kind',dims:['at:week','kind'],metrics:['glassN']})]]]),
+  /* Версия 2 (10 октября 2026): квоты, оплаты, долги, остатки, размеры. */
+  R('quotes','Quotes · win rate by rep','Sales','thisQuarter',['rep','customer'],[
+   ['Summary',[repW('number','quotes',{date:{f:'created'},metrics:['count','won','winRate','wonValue']}),repW('table','quotes',{title:'By sales rep',date:{f:'created'},dims:['rep'],metrics:['count','won','winRate','value','wonValue']}),
+    repW('columns','quotes',{title:'Quotes by month · status',date:{f:'created'},dims:['created:month','state'],metrics:['count']})]]],2),
+  R('payments','Payments · by month','Finance','thisYear',['customer','method'],[
+   ['Summary',[repW('number','payments',{metrics:['amount','count','onAccount'],compare:'year'}),repW('columns','payments',{title:'Received by month',dims:['at:month'],metrics:['amount']}),
+    repW('pie','payments',{title:'By method',dims:['method'],metrics:['amount'],width:'half'}),repW('table','payments',{title:'Top customers',dims:['customer'],metrics:['amount','count'],limit:10,other:true,width:'half'})]]],2),
+  R('balances','Balances · overdue by customer','Finance','all',['customer','terms'],[
+   ['Summary',[repW('number','balances',{date:{f:'due'},metrics:['balance','overdue','overdueN']}),repW('table','balances',{title:'By customer',date:{f:'due'},dims:['customer'],metrics:['balance','overdue','overdueN','daysOverdue:max']}),
+    repW('bars','balances',{title:'Balance by status',date:{f:'due'},dims:['status'],metrics:['balance']})]]],2),
+  R('offcuts','Offcuts · stock by glass','Production','all',['glass','mm'],[
+   ['Summary',[repW('number','offcuts',{metrics:['count','area'],filters:[{f:'status',op:'in',v:['In stock']}]}),repW('table','offcuts',{title:'Glass × status',dims:['glass','status'],metrics:['count']})]]],2),
+  R('km','Deliveries · km by truck','Shipping','thisMonth',['truck','driver'],[
+   ['Summary',[repW('number','deliveries',{metrics:['km','trips','kmPerTrip'],compare:'prev'}),repW('table','deliveries',{title:'By truck',dims:['truck'],metrics:['km','trips','kmPerTrip','count','units']}),
+    repW('columns','deliveries',{title:'Km by week',dims:['at:week'],metrics:['km']})]]],2),
+  R('sizes','Glass by size band','Production','thisMonth',['station','glass'],[
+   ['Summary',[repW('bars','glass',{title:'Glass by size band',dims:['sizeBand'],metrics:['count'],width:'half'}),repW('pie','ordered',{title:'Ordered ft² by size band',date:{f:'created'},dims:['sizeBand'],metrics:['area'],width:'half'}),
+    repW('table','glass',{title:'Station × size band',dims:['station','sizeBand'],metrics:['count']})]]],2)
+ ];
+}
+
+/* ------------------------------ Команды ------------------------------ */
+function repWrite(fn){
+ const out=storageCommand(()=>{const v=fn();if(v===false)throw new Error('Not saved.');return v;});
+ if(!out.ok&&typeof alert==='function')alert(out.error||'Not saved.');
+ return out.ok?out.value:null;
+}
+function repTouch(r){r.updatedAt=new Date().toISOString();}
+/* Новый отчёт и копия — черновики: в базе они появятся по Save. */
+function repBlank(folder){return repClean({name:'New report',folder:folder||'',ownerId:repMe(),share:'me',createdAt:new Date().toISOString(),date:{preset:'thisMonth'},pages:[{name:'Page 1',widgets:[repW('table','glass',{dims:['station'],metrics:['count']})]}]});}
+function repCopyOf(src){
+ const r=repClean(JSON.parse(JSON.stringify(src)));r.id=repUid('RP');r.name=(src.name+' · copy').slice(0,120);r.ownerId=repMe();r.share='me';r.createdAt=new Date().toISOString();
+ r.pages.forEach(p=>{p.id=repUid('PG');p.widgets.forEach(w=>{w.id=repUid('W');});});return r;
+}
+/* Записать черновик: свой новый отчёт — любому с Reports, существующий —
+   автору и администратору. */
+function repSave(draft){
+ const was=draft&&repFind(draft.id);if(!draft||(was?!repCanEdit(was):!(repIsAdmin()||draft.ownerId===repMe())))return null;
+ return repWrite(()=>{const c=repClean(JSON.parse(JSON.stringify(draft)));repTouch(c);const i=DB.report.findIndex(x=>x.id===c.id);if(i<0)DB.report.push(c);else DB.report[i]=c;return c;});
+}
+function repDelete(id){const r=repFind(id);if(!repCanEdit(r))return false;return repWrite(()=>{DB.report=DB.report.filter(x=>x.id!==id);return true;});}
+/* Правка отчёта одной командой: fn меняет отчёт, потом чистка и время. */
+function repEditReport(id,fn){
+ const r=repFind(id);if(!repCanEdit(r))return null;
+ return repWrite(()=>{const x=repFind(id);fn(x);const c=repClean(x);Object.assign(x,c);repTouch(x);return x;});
 }
 
 /* ==== src/erp/views/charts.js ==== */
@@ -38052,16 +39107,55 @@ function chartBarGrid(rows,cols){
  }).join('')}</div>`).join('');
  return `<div class="ch-grid" style="--ch-cols:${cols.length}">${head}${body}</div>`;
 }
-/* Столбики по времени. points: [{label, value, title, on, tick}] — tick
-   ставит подпись под столбиком (каждый третий час, а не все 24). */
+/* Столбики по времени. points: [{label, value, title, on, tick, attrs,
+   parts}] — tick ставит подпись под столбиком (каждый третий час, а не все
+   24); parts — разбивка столбика цветом [{value, cls}] снизу вверх, cls —
+   ch-s1…ch-s8 (серии по порядку) или ch-so («Other»); attrs — нажатие. */
 function chartColumns(points,opts){
  opts=opts||{};
  const max=Math.max(0,...points.map(p=>+p.value||0)),top=points.reduce((b,p,i)=>(+p.value||0)>(+points[b].value||0)?i:b,0);
  const cols=points.map((p,i)=>{
   const v=+p.value||0,h=max?Math.max(v?3:0,Math.round(v/max*100)):0,show=v>0&&(i===top||p.on);
-  return `<span class="ch-col${p.on?' on':''}" title="${esc(p.title||p.label+': '+chNum(v))}"><span class="ch-col-bar">${show?`<b>${esc(opts.fmt?opts.fmt(v):chNum(v))}</b>`:''}<i style="height:${h}%"></i></span><em>${p.tick===false?'':esc(p.label)}</em></span>`;
+  const bar=p.parts?`<span class="ch-stack" style="height:${h}%">${p.parts.filter(x=>x.value>0).map(x=>`<i class="${x.cls}" style="flex:${x.value} 1 0"></i>`).join('')}</span>`:`<i style="height:${h}%"></i>`;
+  return `<span class="ch-col${p.on?' on':''}" title="${esc(p.title||p.label+': '+chNum(v))}"${p.attrs||''}><span class="ch-col-bar">${show?`<b>${esc(opts.fmt?opts.fmt(v):chNum(v))}</b>`:''}${bar}</span><em>${p.tick===false?'':esc(p.label)}</em></span>`;
  }).join('');
  return `<div class="ch-cols" role="img" aria-label="${esc(opts.label||'')}">${cols}</div>`;
+}
+/* Легенда разбивки: цветной квадрат и подпись цветом текста. */
+function chartLegend(items){
+ return `<div class="ch-legend">${items.map(x=>`<span><i class="${x.cls}"></i><span data-raw>${esc(x.label)}</span></span>`).join('')}</div>`;
+}
+/* Круглая верхняя граница шкалы: 37 → 40, 1 840 → 2 000. */
+function chNice(v){if(!(v>0))return 1;const p=Math.pow(10,Math.floor(Math.log10(v))),f=v/p;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p;}
+/* Полосы по категориям, с разбивкой цветом или без. rows: [{label, value,
+   parts:[{value, cls}], attrs, title}] — attrs — нажатие. */
+function chartHBars(rows,opts){
+ opts=opts||{};const max=Math.max(0,...rows.map(r=>+r.value||0)),fmt=opts.fmt||(v=>chNum(v));
+ return `<div class="ch-hbars" role="img" aria-label="${esc(opts.label||'')}">${rows.map(r=>{
+  const v=+r.value||0,w=max?Math.max(v?2:0,v/max*100):0;
+  const bar=r.parts?`<span class="ch-hstack" style="width:${w}%">${r.parts.filter(x=>x.value>0).map(x=>`<i class="${x.cls}" style="flex:${x.value} 1 0"></i>`).join('')}</span>`:`<i style="width:${w}%"></i>`;
+  return `<div class="ch-hbar" title="${esc(r.title||r.label+': '+fmt(v))}"${r.attrs||''}><span class="ch-hbar-label" data-raw>${esc(r.label)}</span><span class="ch-track">${bar}</span><b>${esc(fmt(v))}</b></div>`;
+ }).join('')}</div>`;
+}
+/* Линия по времени. series: [{label, cls, values, dashed}] — пунктир для
+   периода сравнения. Шкала одна, от нуля; подписи осей — цветом текста. */
+function chartLine(labels,series,opts){
+ opts=opts||{};const W=720,H=220,L=52,R=14,T=14,B=28,n=labels.length,fmt=opts.fmt||(v=>chNum(v));
+ const max=chNice(Math.max(0,...series.flatMap(s=>s.values.filter(v=>v!=null).map(Number))));
+ const x=i=>L+(n<=1?(W-L-R)/2:i*(W-L-R)/(n-1)),y=v=>T+(1-(+v||0)/max)*(H-T-B),every=Math.max(1,Math.ceil(n/12));
+ const grid=[0,.5,1].map(f=>`<line class="ch-gl" x1="${L}" x2="${W-R}" y1="${y(max*f)}" y2="${y(max*f)}"/><text class="ch-yt" x="${L-8}" y="${y(max*f)+4}" text-anchor="end">${esc(fmt(max*f))}</text>`).join('');
+ const xs=labels.map((l,i)=>i%every===0?`<text class="ch-xt" x="${x(i)}" y="${H-8}" text-anchor="middle">${esc(l)}</text>`:'').join('');
+ const lines=series.map(s=>`<polyline class="ch-l ${s.cls}${s.dashed?' ch-dash':''}" points="${s.values.map((v,i)=>x(i).toFixed(1)+','+y(v).toFixed(1)).join(' ')}"/>`+(s.dashed?'':s.values.map((v,i)=>`<circle class="ch-pt ${s.cls}" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4"><title>${esc(s.label+' · '+labels[i]+': '+fmt(+v||0))}</title></circle>`).join(''))).join('');
+ return `<svg class="ch-line" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label||'')}">${grid}${xs}${lines}</svg>`;
+}
+/* Круг (кольцо): доля частей; посередине — итог. Частей до восьми. */
+function chartPie(parts,opts){
+ opts=opts||{};const fmt=opts.fmt||(v=>chNum(v)),shown=parts.filter(p=>+p.value>0),total=shown.reduce((n,p)=>n+(+p.value),0);
+ if(!total)return '';
+ let off=25;
+ const segs=shown.map(p=>{const pct=p.value/total*100,len=shown.length>1?Math.max(0,pct-0.8):pct,s=`<circle class="ch-seg ${p.cls}" cx="21" cy="21" r="15.9155" stroke-dasharray="${len.toFixed(2)} ${(100-len).toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}"${p.attrs||''}><title>${esc(p.label+': '+fmt(p.value)+' · '+Math.round(pct)+'%')}</title></circle>`;off=(off-pct+100)%100;return s;}).join('');
+ const legend=shown.map(p=>`<span${p.attrs||''}><i class="${p.cls}"></i><span data-raw>${esc(p.label)}</span><b>${esc(fmt(p.value))}</b><small>${Math.round(p.value/total*100)}%</small></span>`).join('');
+ return `<div class="ch-pie"><svg viewBox="0 0 42 42" role="img" aria-label="${esc(opts.label||'')}">${segs}<text x="21" y="22.6" text-anchor="middle" class="ch-pie-total">${esc(fmt(total))}</text></svg><div class="ch-legend ch-pie-legend">${legend}</div></div>`;
 }
 
 /* ==== src/erp/views/station-board.js ==== */
@@ -38160,6 +39254,308 @@ function stationBoardShipping(d){
 function stationBoardView(who){
  const d=stationBoardData(),ship=stationIsShip()||stationIsReady();
  return '<div class="st-body sb"><div class="st-col">'+stationBoardHere(d)+stationBoardMine(d,who)+'</div><div class="st-col">'+stationBoardHot(d)+(ship?stationBoardShipping(d):'')+'</div></div>';
+}
+
+/* ==== src/erp/views/reports.js ==== */
+/* =====================================================================
+   view/reports  ·  reports-2.0
+   Конструктор отчётов: каталог слева, отчёт со страницами и фильтрами в
+   центре, настройка выбранного графика справа (в режиме Edit).
+   IN : DB.report (reports/model), движок reports/query, графики view/charts
+   OUT: html
+
+   Владелец, 9 октября 2026: «не хуже Looker Studio», «создавать отчёты по
+   своему логическому порядку», «не должны сразу вываливаться блоком» —
+   сначала каталог, отчёт открывается по выбору, на странице только её
+   графики. Тип графика меняется в один клик, как в Looker.
+   Свои фильтры зрителя (период, значения) живут в этом браузере; Save as
+   default записывает их в отчёт. Сам отчёт — в базе (Export JSON его
+   уносит). Edit открывает черновик: Save — записать, Cancel — как было;
+   уход с несохранёнными правками спрашивает.
+   ===================================================================== */
+let repOpenId='',repPageId='',repEditOn=false,repSelW='',repQ='',repFolderSel='All',repMenu=null,repPicks=[],repDraft=null,repDraftBase='';
+const REP_VIEW_KEY='glass_erp_report_view_v1';
+function repViewAll(){try{const v=JSON.parse(localStorage.getItem(REP_VIEW_KEY)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return {};}}
+function repView(id){const v=repViewAll()[id];return v&&typeof v==='object'?v:{};}
+function repViewSet(id,fn){const all=repViewAll(),v=all[id]&&typeof all[id]==='object'?all[id]:{};fn(v);all[id]=v;try{localStorage.setItem(REP_VIEW_KEY,JSON.stringify(all));}catch(e){}}
+function repOpenReport(){if(repDraft&&repDraft.id===repOpenId)return repDraft;const r=repFind(repOpenId);return r&&repVisible(r)?r:null;}
+/* Черновик правки: новый (ещё не в базе) — всегда несохранён. */
+function repDirty(){return !!repDraft&&(!repFind(repDraft.id)||JSON.stringify(repDraft)!==repDraftBase);}
+function repCanLeave(){return !repDirty()||confirm('Leave without saving the report?');}
+function repDropDraft(){repDraft=null;repDraftBase='';repEditOn=false;repSelW='';repMenu=null;}
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){if(tab!=='reports'||k==='reports')return false;if(!repCanLeave())return true;repDropDraft();return false;});
+window.addEventListener('beforeunload',function(e){if(!repDirty())return;e.preventDefault();e.returnValue='';});
+/* Фильтры зрителя: свои в этом браузере, иначе — сохранённые в отчёте. */
+function repViewFilters(r){const v=repView(r.id);return v.f!==undefined?v.f:r.filters||{};}
+function repPage(r){return r?r.pages.find(p=>p.id===repPageId)||r.pages[0]:null;}
+function repSelWidget(r){const p=repPage(r);return p?p.widgets.find(w=>w.id===repSelW)||null:null;}
+function repCtx(){const u=typeof signinUser==='function'?signinUser():null;return {person:u?u.name:'',station:''};}
+function repDateText(d){if(!d)return 'All time';if(d.from||d.to)return (d.from?salesListShortDay(d.from):'…')+' – '+(d.to?salesListShortDay(d.to):'…');const p=REP_PRESETS.find(x=>x[0]===d.preset);return p?p[1]:'All time';}
+/* Запрос графика с периодом и фильтрами отчёта (если график не задал свой
+   период): фильтр отчёта действует там, где у источника есть это поле. */
+function repWidgetQuery(r,w){
+ const q=JSON.parse(JSON.stringify(w.q)),v=repView(r.id),S=REP_SRC[q.source];
+ if(q.date.use!=='own'){const d=v.date||r.date;q.date=Object.assign({},q.date,{preset:d.preset||'',from:d.from||'',to:d.to||''});}
+ Object.entries(repViewFilters(r)).forEach(([f,vals])=>{if(Array.isArray(vals)&&vals.length&&S&&repField(S,f))q.filters.push({f,op:'in',v:vals});});
+ return q;
+}
+
+/* ------------------------------ Каталог ------------------------------ */
+function repFolderOf(r){return r.folder||'Unfiled';}
+function repCatalog(){
+ const list=(DB.report||[]).filter(repVisible),q=repQ.trim().toLowerCase(),folders=[...new Set(list.map(repFolderOf))].sort((a,b)=>a.localeCompare(b));
+ const inFolder=r=>repFolderSel==='All'||repFolderOf(r)===repFolderSel,shown=list.filter(r=>q?(r.name+' '+r.folder).toLowerCase().includes(q):inFolder(r)).sort((a,b)=>a.name.localeCompare(b.name));
+ const src=r=>{const s=[...new Set(r.pages.flatMap(p=>p.widgets.map(w=>(REP_SRC[w.q.source]||{}).label)).filter(Boolean))];return s.slice(0,2).join(', ')+(s.length>2?' +'+(s.length-2):'');};
+ return `<div class="card rep-cat" data-rep-catalog><div class="rep-cat-head"><h3>Reports</h3><button type="button" class="pri sm" data-rep-new onclick="repNew()">+ New</button></div>
+  <input type="search" class="rep-search" data-rep-search placeholder="Search ${list.length} reports…" value="${esc(repQ)}" oninput="repQ=this.value;render()">
+  <div class="rep-folders">${['All'].concat(folders).map(f=>{const n=f==='All'?list.length:list.filter(r=>repFolderOf(r)===f).length;return `<button type="button" class="rep-folder${!q&&repFolderSel===f?' on':''}" data-rep-folder="${esc(f)}" onclick="repFolderSel=this.dataset.repFolder;repQ='';render()"><span data-raw>${esc(f)}</span><span>${n}</span></button>`;}).join('')}</div>
+  <div class="rep-list">${shown.map(r=>`<button type="button" class="rep-item${r.id===repOpenId?' on':''}" data-rep-item="${esc(r.id)}" onclick="repOpen(this.dataset.repItem)"><b data-raw>${esc(r.name)}</b><small data-raw>${esc(src(r))} · ${esc(repDateText(r.date))}</small></button>`).join('')||'<div class="mut">Nothing found.</div>'}</div></div>`;
+}
+
+/* ------------------------------ Графики ------------------------------ */
+function repDelta(cur,prev){if(cur==null||prev==null||!prev)return '';const d=(cur-prev)/Math.abs(prev)*100;return (d>=0?'▲ ':'▼ ')+Math.abs(d).toFixed(Math.abs(d)<10?1:0)+'%';}
+function repCmpText(res){const c=res.compare;return c?(c.kind==='year'?'vs last year':'vs previous period'):'';}
+/* Цвет значения разбивки — по его месту в полном списке значений поля, а не
+   в выборке: фильтр не перекрашивает (dataviz). */
+function repSeriesCls(S,d,keys){
+ const p=repDimParse(d),all=repIsTime(S,d)?keys:repFieldValues(S,p.f),rank=k=>{const i=all.indexOf(k);return i<0?9999:i;};
+ const order=keys.filter(k=>k!=='__other').slice().sort((a,b)=>rank(a)-rank(b)),m=new Map();order.forEach((k,i)=>m.set(k,'ch-s'+(i%8+1)));m.set('__other','ch-so');return m;
+}
+function repPickAttrs(r,S,d,k){
+ const p=repDimParse(d),f=repField(S,p.f);if(!f||f.type==='date'||k==='__other'||k==='—')return '';
+ repPicks.push([r.id,p.f,k]);const i=repPicks.length-1;return ` role="button" tabindex="0" data-rep-pick="${esc(p.f)}" onclick="repPickAt(${i})" onkeydown="if(event.key==='Enter')repPickAt(${i})"`;
+}
+function repPickAt(i){const x=repPicks[i],r=repOpenReport();if(!x||!r)return;const base=Object.assign({},repViewFilters(r));repViewSet(x[0],v=>{v.f=Object.assign(base,{[x[1]]:[x[2]]});});repMenu=null;render();}
+function repNumbers(res){
+ /* Сравнение — изменение и само число прошлого периода: «▲ 12% · Last year 231». */
+ const sub=(m,i)=>{if(!res.compare)return '';const d=repDelta(res.total[i],res.compare.total[i]);return esc((d?d+' · ':'')+(res.compare.kind==='year'?'Last year ':'Previous ')+repFmt(m,res.compare.total[i]));};
+ return `<div class="ch-stats rep-nums">${res.metrics.map((m,i)=>chartStat(m.label,esc(repFmt(m,res.total[i])),sub(m,i),` data-rep-number="${esc(m.k)}"`)).join('')}</div>`;
+}
+function repTableHTML(r,S,res,w){
+ const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],MAX=200,cmp=res.compare&&!d2;
+ if(!d1)return `<div class="sales-table-wrap"><table class="sl-table rep-table"><thead><tr>${ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')}</tr></thead><tbody><tr>${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr></tbody></table></div>`;
+ const keys=res.keys,label=k=>repKeyText(S,d1,k);let head,body,foot='';
+ if(d2){
+  const m=ms[0],k2=res.keys2;
+  head=`<th>${esc(repDimLabel(S,d1))}</th>${k2.map(k=>`<th class="n" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n">Total</th>`;
+  body=keys.slice(0,MAX).map(k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${k2.map(b=>{const v=(res.cells.get(k+'\u0001'+b)||[])[0];return `<td class="n">${v?esc(repFmt(m,v)):'<span class="mut">·</span>'}</td>`;}).join('')}<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(k)[0]))}</b></td></tr>`).join('');
+  if(w.opts.totals)foot=`<tr class="sl-foot"><td><b>Total</b></td>${k2.map(b=>`<td class="n"><b>${esc(repFmt(m,res.colTotals.get(b)[0]))}</b></td>`).join('')}<td class="n"><b>${esc(repFmt(m,res.total[0]))}</b></td></tr>`;
+ }else{
+  head=`<th>${esc(repDimLabel(S,d1))}</th>${ms.map(m=>`<th class="n">${esc(m.label)}</th>`+(cmp?`<th class="n rep-cmp">${esc(repCmpText(res))}</th>`:'')).join('')}`;
+  body=keys.slice(0,MAX).map(k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${ms.map((m,i)=>`<td class="n">${esc(repFmt(m,res.rowTotals.get(k)[i]))}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`).join('');
+  if(w.opts.totals)foot=`<tr class="sl-foot"><td><b>Total</b></td>${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.total[i],res.compare.total[i]))}</td>`:'')).join('')}</tr>`;
+ }
+ return `<div class="sales-table-wrap"><table class="sl-table rep-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>MAX?`<div class="mut">First ${MAX} of ${keys.length}</div>`:''}`;
+}
+function repParts(res,cls,k){return res.keys2.map(b=>({value:(res.cells.get(k+'\u0001'+b)||[])[0]||0,cls:cls.get(b)}));}
+function repLegend(S,res,cls){const d2=res.dims[1];return chartLegend(res.keys2.filter(b=>(res.colTotals.get(b)||[])[0]).map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b)})));}
+function repChart(r,w){
+ if(!repSourceAllowed(w.q.source))return '<div class="mut">Needs Finance access.</div>';
+ const q=repWidgetQuery(r,w),res=repQuery(q,repCtx());if(!res)return '<div class="mut">Choose data.</div>';
+ const S=REP_SRC[q.source],m=res.metrics[0],fmt=v=>repFmt(m,v),d1=res.dims[0],d2=res.dims[1];
+ if(w.type==='number')return repNumbers(res);
+ if(w.type==='table')return repTableHTML(r,S,res,w);
+ if(!d1)return repNumbers(res)+'<div class="mut">Choose a dimension to draw this chart.</div>';
+ if(!res.count&&!(res.compare&&res.compare.total.some(Boolean)))return '<div class="mut">No data for this period and filters.</div>';
+ const cls=d2?repSeriesCls(S,d2,res.keys2):null,text=k=>repKeyText(S,d1,k),every=Math.max(1,Math.ceil(res.keys.length/14));
+ if(w.type==='bars'){
+  const rows=res.keys.slice(0,40).map(k=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])}));
+  return (d2?repLegend(S,res,cls):'')+chartHBars(rows,{fmt,label:w.title})+(res.keys.length>40?'<div class="mut">Top 40 — set Top N</div>':'');
+ }
+ if(w.type==='columns'){
+  const pts=res.keys.map((k,i)=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,tick:i%every===0,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])+(res.compare?' · '+repCmpText(res)+' '+fmt((res.compare.rowTotals.get(k)||[])[0]):'')}));
+  return (d2?repLegend(S,res,cls):'')+chartColumns(pts,{fmt,label:w.title});
+ }
+ if(w.type==='line'){
+  const labels=res.keys.map(text);let series;
+  if(d2)series=res.keys2.map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b),values:res.keys.map(k=>(res.cells.get(k+'\u0001'+b)||[])[0]||0)}));
+  else series=[{label:m.label,cls:'ch-acc',values:res.keys.map(k=>res.rowTotals.get(k)[0]||0)}];
+  if(res.compare&&!d2)series.push({label:repCmpText(res),cls:'ch-so',dashed:true,values:res.keys.map(k=>(res.compare.rowTotals.get(k)||[])[0]||0)});
+  const legend=d2?repLegend(S,res,cls):res.compare?chartLegend([{label:m.label,cls:'rep-key-acc'},{label:repCmpText(res),cls:'ch-so'}]):'';
+  return legend+chartLine(labels,series,{fmt,label:w.title});
+ }
+ if(w.type==='pie'){
+  let keys=res.keys.filter(k=>(res.rowTotals.get(k)[0]||0)>0);const pc=repSeriesCls(S,d1,keys.slice(0,7));
+  const parts=keys.slice(0,7).map(k=>({label:text(k),value:res.rowTotals.get(k)[0],cls:pc.get(k),attrs:repPickAttrs(r,S,d1,k)}));
+  if(keys.length>7)parts.push({label:'Other',value:keys.slice(7).reduce((n,k)=>n+(res.rowTotals.get(k)[0]||0),0),cls:'ch-so'});
+  return chartPie(parts,{fmt,label:w.title})||'<div class="mut">No data for this period and filters.</div>';
+ }
+ return '';
+}
+function repWidgetTitle(w){
+ if(w.title)return w.title;const S=REP_SRC[w.q.source];if(!S)return 'Chart';
+ const ms=w.q.metrics.map(k=>repMetric(S,k)).filter(Boolean).map(m=>m.label).join(', ')||S.metrics[0].label;
+ return ms+(w.q.dims[0]?' by '+repDimLabel(S,w.q.dims[0]).toLowerCase():'')+(w.q.dims[1]?' · '+repDimLabel(S,w.q.dims[1]).toLowerCase():'');
+}
+function repWidgetCard(r,w,i,n){
+ const sel=repEditOn&&w.id===repSelW,tools=repEditOn?`<span class="rep-wtools"><button type="button" class="sm" onclick="repSelectWidget('${esc(w.id)}')">Edit</button><button type="button" class="sm" title="Duplicate" onclick="repDupWidget('${esc(w.id)}')">Duplicate</button><button type="button" class="sm" title="Move up" ${i?'':'disabled'} onclick="repMoveWidget('${esc(w.id)}',-1)">↑</button><button type="button" class="sm" title="Move down" ${i<n-1?'':'disabled'} onclick="repMoveWidget('${esc(w.id)}',1)">↓</button><button type="button" class="sm dl" title="Remove" onclick="repDelWidget('${esc(w.id)}')">×</button></span>`:'';
+ const src=REP_SRC[w.q.source],own=w.q.date.use==='own'?' · '+repDateText(w.q.date):'';
+ return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${esc(w.id)}" data-rep-type="${w.type}"${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select'))repSelectWidget('${esc(w.id)}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span>${tools}</div>${repChart(r,w)}</div>`;
+}
+
+/* ------------------------------ Фильтры отчёта ------------------------------ */
+function repSources(r){return [...new Set(r.pages.flatMap(p=>p.widgets.map(w=>w.q.source)))].filter(repSourceAllowed).map(k=>REP_SRC[k]);}
+function repControlFields(r){const m=new Map();repSources(r).forEach(S=>repFields(S).forEach(f=>{if(f.type==='dim'&&!m.has(f.k))m.set(f.k,f.label);}));return m;}
+function repControlValues(r,f){const set=new Set();repSources(r).forEach(S=>{if(repField(S,f))repFieldValues(S,f).forEach(v=>set.add(v));});return [...set].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));}
+function repControls(r){
+ const v=repView(r.id),vf=repViewFilters(r),labels=repControlFields(r),active=Object.keys(vf).filter(f=>(vf[f]||[]).length);
+ const keys=[...new Set(r.controls.filter(f=>labels.has(f)).concat(active))];
+ const btn=f=>{const vals=vf[f]||[],on=vals.length>0;return `<span class="rep-ctl${on?' on':''}"><button type="button" class="sl-quiet" data-rep-ctl="${esc(f)}" onclick="repOpenCtl(event,'${esc(f)}')">${esc(labels.get(f)||f)}${on?': '+esc(vals.length>2?vals.length+' values':vals.join(', ')):''}<span class="sl-disclosure">▾</span></button>${on?`<button type="button" class="rep-x" aria-label="Clear" onclick="repClearCtl('${esc(f)}')">×</button>`:''}${repEditOn&&r.controls.includes(f)?`<button type="button" class="rep-x" title="Remove control" onclick="repDelControl('${esc(f)}')">−</button>`:''}</span>`;};
+ const free=[...labels.keys()].filter(f=>!keys.includes(f));
+ return `<div class="rep-bar"><button type="button" class="sl-quiet rep-ctl-date" data-rep-date onclick="repOpenDate(event)">Date: ${esc(repDateText(v.date||r.date))}<span class="sl-disclosure">▾</span></button>${keys.map(btn).join('')}${repEditOn&&free.length?`<select class="rep-add-ctl" aria-label="Add control" onchange="if(this.value)repAddControl(this.value)"><option value="">+ Control</option>${free.map(f=>`<option value="${esc(f)}">${esc(labels.get(f))}</option>`).join('')}</select>`:''}${v.date||v.f!==undefined?`<button type="button" class="sm" data-rep-reset onclick="repResetView()" title="Back to the report's own period and filters">Reset</button>${!repEditOn&&repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-save-view onclick="repSaveDefaults()" title="Keep this period and these filters in the report">Save as default</button>`:''}`:''}</div>`;
+}
+function repMenuHTML(r){
+ const m=repMenu;if(!m||!r)return '';
+ const style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-320))}px;top:${Math.max(8,m.y)}px`,back='<div class="sl-backdrop" onclick="repMenu=null;render()"></div>';
+ if(m.kind==='date'){
+  const cur=repView(r.id).date||r.date;
+  return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-date-menu><h5>Period</h5><div class="sl-presets">${REP_PRESETS.map(([k,l])=>`<button type="button" class="sl-btn${!cur.from&&!cur.to&&cur.preset===k?' on':''}" onclick="repSetViewDate({preset:'${k}'})">${l}</button>`).join('')}</div>
+   <h5>Custom</h5><div class="sl-row"><input type="date" id="repFrom" value="${esc(cur.from||'')}"><input type="date" id="repTo" value="${esc(cur.to||'')}"></div><div class="sl-actions"><button type="button" class="pri" onclick="repSetViewDate({from:document.getElementById('repFrom').value,to:document.getElementById('repTo').value})">Apply</button></div></div>`;
+ }
+ if(m.kind==='ctl'){
+  const all=repControlValues(r,m.f),q=String(m.search||'').toLowerCase(),shown=all.filter(x=>!q||x.toLowerCase().includes(q));
+  return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-ctl-menu="${esc(m.f)}"><input type="text" class="sl-search" id="repCtlSearch" placeholder="Search values…" value="${esc(m.search||'')}" oninput="repMenu.search=this.value;render();setTimeout(()=>{const e=document.getElementById('repCtlSearch');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},0)">
+   <div class="sl-vals">${shown.map(x=>`<label><input type="checkbox" ${m.draft.includes(x)?'checked':''} onchange="repCtlToggle(this.dataset.v,this.checked)" data-v="${esc(x)}"> <span data-raw>${esc(x)}</span></label>`).join('')||'<div class="mut">No values</div>'}</div>
+   <div class="sl-actions"><button type="button" class="sl-btn" onclick="repMenu.draft=[];repCtlApply()">Clear</button><button type="button" class="pri" data-rep-ctl-apply onclick="repCtlApply()">Apply</button></div></div>`;
+ }
+ return '';
+}
+function repAt(e){const t=e&&e.currentTarget&&e.currentTarget.getBoundingClientRect?e.currentTarget.getBoundingClientRect():null;return {x:t?t.left:40,y:t?t.bottom+6:40};}
+function repOpenDate(e){if(e)e.stopPropagation();repMenu=Object.assign({kind:'date'},repAt(e));render();}
+function repOpenCtl(e,f){if(e)e.stopPropagation();const r=repOpenReport();repMenu=Object.assign({kind:'ctl',f,draft:(repViewFilters(r)[f]||[]).slice(),search:''},repAt(e));render();}
+function repCtlToggle(v,on){if(!repMenu)return;repMenu.draft=repMenu.draft.filter(x=>x!==v);if(on)repMenu.draft.push(v);}
+function repCtlApply(){const r=repOpenReport(),m=repMenu;if(!r||!m)return;const base=Object.assign({},repViewFilters(r));if(m.draft.length)base[m.f]=m.draft.slice();else delete base[m.f];repViewSet(r.id,v=>{v.f=base;});repMenu=null;render();}
+function repClearCtl(f){const r=repOpenReport();if(!r)return;const base=Object.assign({},repViewFilters(r));delete base[f];repViewSet(r.id,v=>{v.f=base;});render();}
+function repSetViewDate(d){const r=repOpenReport();if(!r)return;repViewSet(r.id,v=>{v.date={preset:d.preset||'',from:d.from||'',to:d.to||''};});repMenu=null;render();}
+function repResetView(){const r=repOpenReport();if(!r)return;repViewSet(r.id,v=>{delete v.date;delete v.f;});repMenu=null;render();}
+/* Save as default: свой период и фильтры становятся периодом и фильтрами отчёта. */
+function repSaveDefaults(){const r=repOpenReport();if(!r||repDraft)return;const v=repView(r.id);if(repEditReport(r.id,x=>{if(v.date)x.date=v.date;if(v.f!==undefined)x.filters=v.f;}))repResetView();}
+
+/* ------------------------------ Настройка графика ------------------------------ */
+function repOpt(list,cur,none){return (none?`<option value="">${esc(none)}</option>`:'')+list.map(([k,l])=>`<option value="${esc(k)}"${k===cur?' selected':''}>${esc(l)}</option>`).join('');}
+function repSrcOptions(cur){return REP_GROUPS.map(g=>`<optgroup label="${esc(g)}">${Object.keys(REP_SRC).filter(k=>REP_SRC[k].group===g&&(repSourceAllowed(k)||k===cur)).map(k=>`<option value="${k}"${k===cur?' selected':''}>${esc(REP_SRC[k].label)}</option>`).join('')}</optgroup>`).join('');}
+function repFilterRow(S,f,i){
+ const fd=repField(S,f.f),ops=fd?REP_OPS[fd.type]||REP_OPS.text:REP_OPS.text,fields=repFields(S).map(x=>[x.k,x.label]);
+ let val='';
+ if(fd&&fd.type==='dim'&&(f.op==='in'||f.op==='notIn')){
+  const sub={'@me':'Me (signed in)','@station':'This station'},left=['@me','@station'].concat(repFieldValues(S,f.f)).filter(x=>!f.v.includes(x));
+  val=`<div class="rep-chips">${f.v.map((x,j)=>`<span class="rep-chip"><span data-raw>${esc(sub[x]||x)}</span><button type="button" onclick="repFilterDelVal(${i},${j})">×</button></span>`).join('')}<select aria-label="Add value" onchange="if(this.value)repFilterAddVal(${i},this.value)"><option value="">+ value</option>${left.map(x=>`<option value="${esc(x)}">${esc(sub[x]||x)}</option>`).join('')}</select></div>`;
+ }else if(f.op==='between')val=`<div class="sl-row"><input type="${fd&&fd.type==='date'?'date':'number'}" value="${esc(f.v[0]||'')}" onchange="repSetFilter(${i},'v0',this.value)"><input type="${fd&&fd.type==='date'?'date':'number'}" value="${esc(f.v[1]||'')}" onchange="repSetFilter(${i},'v1',this.value)"></div>`;
+ else val=`<input type="${fd&&fd.type==='num'?'number':'text'}" value="${esc(f.v[0]||'')}" onchange="repSetFilter(${i},'v0',this.value)">`;
+ return `<div class="rep-filter-row"><div class="sl-row"><select aria-label="Field" onchange="repSetFilter(${i},'f',this.value)">${repOpt(fields,f.f)}</select><select aria-label="Condition" onchange="repSetFilter(${i},'op',this.value)">${repOpt(ops,f.op)}</select><button type="button" class="sm dl" onclick="repDelFilter(${i})">×</button></div>${val}</div>`;
+}
+function repSetup(r){
+ const w=repSelWidget(r);if(!w)return `<div class="card rep-setup"><h3>Chart setup</h3><p class="mut">Click a chart to set it up, or add a new one.</p><button type="button" class="pri" onclick="repAddWidget()">+ Add chart</button></div>`;
+ const S=REP_SRC[w.q.source],q=w.q,dims=repDimOptions(S),mets=repMetricOptions(S),dates=repDates(S),cmp=[['','No comparison'],['prev','Previous period'],['year','Same period last year']];
+ const sortOpts=[['','Default']].concat([['label:asc','Name A → Z'],['label:desc','Name Z → A']]).concat(q.metrics.flatMap((k,i)=>{const m=repMetric(S,k);return m?[['metric:'+i+':desc',m.label+' · high → low'],['metric:'+i+':asc',m.label+' · low → high']]:[];}));
+ const sortCur=!q.sort?'':q.sort.by==='label'?'label:'+q.sort.dir:'metric:'+q.sort.i+':'+q.sort.dir;
+ const dateCur=q.date.use!=='own'?'report':q.date.from||q.date.to?'custom':q.date.preset||'all';
+ return `<div class="card rep-setup" data-rep-setup><div class="rep-setup-head"><h3>Chart setup</h3><button type="button" class="sm" onclick="repSelW='';render()">Close</button></div>
+  <h5>Chart type</h5><div class="rep-types">${REP_TYPES.map(([k,l])=>`<button type="button" class="${w.type===k?'on':''}" data-rep-type-btn="${k}" onclick="repSetW('type','${k}')">${l}</button>`).join('')}</div>
+  <h5>Title</h5><input type="text" value="${esc(w.title)}" placeholder="${esc(repWidgetTitle(Object.assign({},w,{title:''})))}" onchange="repSetW('title',this.value)">
+  <h5>Data</h5><select data-rep-source onchange="repSetSource(this.value)">${repSrcOptions(q.source)}</select><div class="hint">${esc(S.hint||'')}</div>
+  <h5>Dimension</h5><select data-rep-dim="0" onchange="repSetDim(0,this.value)">${repOpt(dims,q.dims[0]||'','None — totals only')}</select>
+  ${w.type!=='number'&&w.type!=='pie'?`<h5>Breakdown</h5><select data-rep-dim="1" onchange="repSetDim(1,this.value)">${repOpt(dims.filter(d=>d[0]!==q.dims[0]),q.dims[1]||'','None')}</select>`:''}
+  <h5>Metrics</h5>${(q.metrics.length?q.metrics:[S.metrics[0].k]).map((k,i)=>{const c=repCalcParse(k),del=q.metrics.length>1?`<button type="button" class="sm dl" onclick="repDelMetric(${i})">×</button>`:'';
+   if(!c)return `<div class="sl-row"><select data-rep-metric="${i}" onchange="repSetMetric(${i},this.value)">${repOpt(mets,k)}</select>${del}</div>`;
+   const num=/^n:/.test(c.b);
+   return `<div class="rep-calc" data-rep-calc="${i}"><div class="sl-row"><select aria-label="First metric" onchange="repSetCalc(${i},'a',this.value)">${repOpt(mets,c.a)}</select>${del}</div><div class="sl-row"><select aria-label="Operation" onchange="repSetCalc(${i},'op',this.value)">${repOpt(REP_CALC_OPS,c.op)}</select><select aria-label="Second metric or number" onchange="repSetCalc(${i},'b',this.value)">${repOpt([['n:','Number']].concat(mets),num?'n:':c.b)}</select>${num?`<input type="number" step="any" aria-label="Number" value="${esc(c.b.slice(2))}" onchange="repSetCalc(${i},'n',this.value)">`:''}</div></div>`;}).join('')}
+  <div class="sl-row"><button type="button" class="sl-btn" data-rep-add-metric onclick="repAddMetric()">+ Add metric</button><button type="button" class="sl-btn" data-rep-add-calc onclick="repAddCalc()" title="Metric ÷ × + − another metric or a number">+ Calculated</button></div>
+  <h5>Filter</h5>${q.filters.map((f,i)=>repFilterRow(S,f,i)).join('')}<button type="button" class="sl-btn" data-rep-add-filter onclick="repAddFilter()">+ Add filter</button>
+  <h5>Date range</h5>${dates.length>1?`<select aria-label="Date field" onchange="repSetW('date.f',this.value)">${repOpt(dates.map(k=>[k,repField(S,k).label]),q.date.f||dates[0])}</select>`:''}
+  <select data-rep-date-use onchange="repSetDateUse(this.value)">${repOpt([['report','Report period']].concat(REP_PRESETS).concat([['custom','Custom dates']]),dateCur)}</select>
+  ${dateCur==='custom'?`<div class="sl-row"><input type="date" value="${esc(q.date.from)}" onchange="repSetW('date.from',this.value)"><input type="date" value="${esc(q.date.to)}" onchange="repSetW('date.to',this.value)"></div>`:''}
+  <select data-rep-compare onchange="repSetW('compare',this.value)">${repOpt(cmp,q.compare||'')}</select>
+  <h5>Sort · rows</h5><select data-rep-sort onchange="repSetSort(this.value)">${repOpt(sortOpts,sortCur)}</select>
+  <div class="sl-row"><label class="rep-inline">Top <input type="number" min="0" step="1" value="${q.limit||''}" placeholder="all" onchange="repSetW('limit',this.value)"></label><label class="rep-inline"><input type="checkbox" ${q.other?'checked':''} onchange="repSetW('other',this.checked)"> Other row</label></div>
+  <h5>Layout</h5><div class="sl-row"><select aria-label="Width" onchange="repSetW('width',this.value)">${repOpt([['full','Full width'],['half','Half width']],w.width)}</select>${w.type==='table'?`<label class="rep-inline"><input type="checkbox" ${w.opts.totals?'checked':''} onchange="repSetW('opts.totals',this.checked)"> Totals</label>`:''}</div></div>`;
+}
+
+/* ------------------------------ Команды экрана ------------------------------ */
+function repOpen(id){const r=repFind(id);if(!r||!repCanLeave())return;repDropDraft();repOpenId=id;repPageId=r.pages[0].id;render();}
+function repStartDraft(r){repDraft=JSON.parse(JSON.stringify(r));repDraftBase=repFind(r.id)?JSON.stringify(repDraft):'';repOpenId=r.id;repPageId=repDraft.pages[0].id;repEditOn=true;repSelW='';repMenu=null;}
+function repNew(){if(!repCanLeave())return;repDropDraft();const r=repBlank(repFolderSel!=='All'?repFolderSel:'');repStartDraft(r);repSelW=r.pages[0].widgets[0].id;render();}
+function repCopyOpen(){const src=repOpenReport();if(!src||!repCanLeave())return;const r=repCopyOf(src);repDropDraft();repStartDraft(r);render();}
+function repEditToggle(){const r=repFind(repOpenId);if(!r||!repCanEdit(r))return;repStartDraft(r);render();}
+function repSaveEdit(){if(!repDraft)return;const saved=repSave(repDraft);if(!saved)return;repDropDraft();repOpenId=saved.id;render();}
+function repCancelEdit(){if(!repDraft||!repCanLeave())return;const kept=repFind(repDraft.id);repDropDraft();if(!kept)repOpenId='';render();}
+function repDeleteOpen(){const r=repOpenReport();if(!r)return;if(!repFind(r.id)){repDropDraft();repOpenId='';render();return;}if(!confirm('Delete report "'+r.name+'"?'))return;if(repDelete(r.id)){repDropDraft();repOpenId='';render();}}
+/* Правка черновика: изменения только в памяти до Save. */
+function repEditCur(fn){if(!repDraft)return;fn(repDraft);Object.assign(repDraft,repClean(repDraft));render();}
+function repWEdit(fn){const id=repSelW;repEditCur(r=>{r.pages.forEach(p=>p.widgets.forEach(w=>{if(w.id===id)fn(w);}));});}
+function repSetW(path,v){repWEdit(w=>{
+ const p=path.split('.');
+ if(p[0]==='type'||p[0]==='title'||p[0]==='width')w[p[0]]=v;
+ else if(p[0]==='opts')w.opts[p[1]]=v;
+ else if(p[0]==='date'){w.q.date[p[1]]=v;}
+ else if(p[0]==='limit')w.q.limit=Math.max(0,Math.floor(+v||0));
+ else if(p[0]==='other')w.q.other=!!v;
+ else if(p[0]==='compare')w.q.compare=v;
+ if(w.type==='number'||w.type==='pie')w.q.dims=w.type==='number'?[]:w.q.dims.slice(0,1);
+});}
+function repSetSource(k){const S=REP_SRC[k];if(!S)return;repWEdit(w=>{w.q.source=k;w.q.filters=[];w.q.metrics=[S.metrics[0].k];w.q.dims=w.type==='number'?[]:[repDimOptions(S)[0][0]];w.q.sort=null;w.q.date.f='';});}
+function repSetDim(i,v){repWEdit(w=>{const d=w.q.dims.slice();d[i]=v;w.q.dims=d.filter(Boolean);if(w.q.dims[0]===w.q.dims[1])w.q.dims.length=1;w.q.sort=null;});}
+function repSetMetric(i,v){repWEdit(w=>{const m=w.q.metrics.length?w.q.metrics.slice():[REP_SRC[w.q.source].metrics[0].k];m[i]=v;w.q.metrics=m;});}
+function repAddMetric(){repWEdit(w=>{const S=REP_SRC[w.q.source],have=w.q.metrics.length?w.q.metrics:[S.metrics[0].k],next=S.metrics.find(m=>!have.includes(m.k));w.q.metrics=have.concat(next?[next.k]:[]);});}
+/* Вычисляемая метрика: первая метрика ÷ вторая (или число) — по умолчанию. */
+function repAddCalc(){repWEdit(w=>{const S=REP_SRC[w.q.source],have=w.q.metrics.length?w.q.metrics:[S.metrics[0].k],a=have.find(k=>!repCalcParse(k))||S.metrics[0].k,b=S.metrics.find(m=>m.k!==a);w.q.metrics=have.concat([repCalcKey(a,'div',b?b.k:'n:1')]);});}
+function repSetCalc(i,part,v){repWEdit(w=>{const c=repCalcParse(w.q.metrics[i]);if(!c)return;if(part==='a')c.a=v;else if(part==='op')c.op=v;else if(part==='b')c.b=v==='n:'?'n:1':v;else if(part==='n')c.b='n:'+(Number.isFinite(+v)?+v:1);w.q.metrics[i]=repCalcKey(c.a,c.op,c.b);});}
+function repDelMetric(i){repWEdit(w=>{w.q.metrics.splice(i,1);w.q.sort=null;});}
+function repAddFilter(){repWEdit(w=>{const S=REP_SRC[w.q.source],f=repFields(S).find(x=>x.type==='dim');if(f)w.q.filters.push({f:f.k,op:'in',v:[]});});}
+function repDelFilter(i){repWEdit(w=>{w.q.filters.splice(i,1);});}
+function repSetFilter(i,key,v){repWEdit(w=>{const f=w.q.filters[i];if(!f)return;const S=REP_SRC[w.q.source];
+ if(key==='f'){const fd=repField(S,v);f.f=v;f.op=fd?(REP_OPS[fd.type]||REP_OPS.text)[0][0]:'contains';f.v=[];}
+ else if(key==='op'){f.op=v;f.v=[];}else if(key==='v0')f.v[0]=v;else if(key==='v1'){f.v[0]=f.v[0]||'';f.v[1]=v;}});}
+function repFilterAddVal(i,v){repWEdit(w=>{const f=w.q.filters[i];if(f&&!f.v.includes(v))f.v.push(v);});}
+function repFilterDelVal(i,j){repWEdit(w=>{const f=w.q.filters[i];if(f)f.v.splice(j,1);});}
+function repSetDateUse(v){repWEdit(w=>{if(v==='report'){w.q.date.use='report';}else{w.q.date.use='own';if(v==='custom'){w.q.date.preset='';w.q.date.from=w.q.date.from||finToday();w.q.date.to=w.q.date.to||finToday();}else{w.q.date.preset=v;w.q.date.from='';w.q.date.to='';}}});}
+function repSetSort(v){repWEdit(w=>{if(!v){w.q.sort=null;return;}const p=v.split(':');w.q.sort=p[0]==='label'?{by:'label',i:0,dir:p[1]}:{by:'metric',i:+p[1],dir:p[2]};});}
+function repSelectWidget(id){repSelW=id;render();}
+function repAddWidget(){let id='';repEditCur(r=>{const p=r.pages.find(x=>x.id===repPageId)||r.pages[0],last=p.widgets[p.widgets.length-1],src=last?last.q.source:'glass',S=REP_SRC[src];
+ const w=repCleanWidget({type:'columns',q:{source:src,dims:[repDimOptions(S).find(d=>/:day$/.test(d[0]))?.[0]||repDimOptions(S)[0][0]],metrics:[S.metrics[0].k]}});id=w.id;p.widgets.push(w);});repSelW=id;render();}
+function repDupWidget(wid){let nid='';repEditCur(r=>{r.pages.forEach(p=>{const i=p.widgets.findIndex(w=>w.id===wid);if(i<0)return;const c=repCleanWidget(JSON.parse(JSON.stringify(p.widgets[i])));c.id=repUid('W');nid=c.id;p.widgets.splice(i+1,0,c);});});repSelW=nid;render();}
+function repDelWidget(wid){repEditCur(r=>{r.pages.forEach(p=>{p.widgets=p.widgets.filter(w=>w.id!==wid);});});if(repSelW===wid)repSelW='';render();}
+function repMoveWidget(wid,d){repEditCur(r=>{r.pages.forEach(p=>{const i=p.widgets.findIndex(w=>w.id===wid),j=i+d;if(i<0||j<0||j>=p.widgets.length)return;const x=p.widgets[i];p.widgets[i]=p.widgets[j];p.widgets[j]=x;});});}
+function repAddPage(){let id='';repEditCur(r=>{const p={id:repUid('PG'),name:'Page '+(r.pages.length+1),widgets:[]};id=p.id;r.pages.push(p);});repPageId=id;repSelW='';render();}
+function repDelPage(){const r=repOpenReport();if(!r||r.pages.length<2||!confirm('Delete this page and its charts?'))return;const pid=repPage(r).id;repEditCur(x=>{x.pages=x.pages.filter(p=>p.id!==pid);});repPageId='';render();}
+function repRenamePage(v){const pid=repPage(repOpenReport()).id;repEditCur(r=>{const p=r.pages.find(x=>x.id===pid);if(p)p.name=String(v||'').trim()||p.name;});}
+function repMovePage(d){const r=repOpenReport(),pid=repPage(r).id;repEditCur(x=>{const i=x.pages.findIndex(p=>p.id===pid),j=i+d;if(i<0||j<0||j>=x.pages.length)return;const t=x.pages[i];x.pages[i]=x.pages[j];x.pages[j]=t;});}
+function repSetMeta(k,v){repEditCur(r=>{if(k==='name')r.name=String(v||'').trim()||r.name;if(k==='folder')r.folder=String(v||'').trim();if(k==='share')r.share=v==='all'?'all':'me';if(k==='date')r.date={preset:v,from:'',to:''};});}
+function repAddControl(f){repEditCur(r=>{if(!r.controls.includes(f))r.controls.push(f);});}
+function repDelControl(f){repEditCur(r=>{r.controls=r.controls.filter(x=>x!==f);});}
+
+/* ------------------------------ Печать ------------------------------ */
+/* Страница отчёта на Letter, светлым: название, период, фильтры, графики.
+   Путь печати общий (printSheet); в окне печати есть и «Save as PDF». */
+function repPrintHTML(){
+ const r=repOpenReport();if(!r)return '';const p=repPage(r),v=repView(r.id),now=new Date();
+ const filters=Object.entries(v.f||{}).filter(([f,x])=>x&&x.length).map(([f,x])=>(repControlFields(r).get(f)||f)+': '+x.join(', '));
+ repEditOn=false;
+ const body=p.widgets.map((w,i)=>repWidgetCard(r,w,i,p.widgets.length)).join('');
+ return `<div class="rep-print"><div class="rep-print-head"><h2 data-raw>${esc(r.name)}${r.pages.length>1?' · '+esc(p.name):''}</h2><div>${esc(['Date: '+repDateText(v.date||r.date)].concat(filters).join(' · '))}</div><small>Glass Farm · printed ${esc(now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}))} ${esc(now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}))}</small></div><div class="rep-ws">${body}</div></div>`;
+}
+function repPrint(){const was=repEditOn,html=repPrintHTML();repEditOn=was;repMenu=null;return html&&printSheet(html,'');}
+
+/* ------------------------------ Экран ------------------------------ */
+function repMain(r){
+ if(!r)return `<div class="card rep-empty" data-rep-empty><h3>Pick a report</h3><p class="mut">Choose one on the left, or start a new one. Every chart can be changed: data, type, dimensions, metrics, filters, period.</p><button type="button" class="pri" onclick="repNew()">+ New report</button></div>`;
+ const can=repEditOn||repCanEdit(repFind(r.id)),p=repPage(r),n=p.widgets.length,folders=[...new Set((DB.report||[]).map(x=>x.folder).filter(Boolean))];
+ const head=repEditOn?`<div class="rep-title-edit"><input type="text" data-rep-name value="${esc(r.name)}" aria-label="Report name" onchange="repSetMeta('name',this.value)"><input type="text" list="repFolders" value="${esc(r.folder)}" placeholder="Folder" aria-label="Folder" onchange="repSetMeta('folder',this.value)"><datalist id="repFolders">${folders.map(f=>`<option value="${esc(f)}">`).join('')}</datalist>
+   <select aria-label="Who sees it" onchange="repSetMeta('share',this.value)">${repOpt([['me','Only me'],['all','Everyone with Reports']],r.share==='all'?'all':'me')}</select><select aria-label="Default period" title="Default period" onchange="repSetMeta('date',this.value)">${repOpt(REP_PRESETS,r.date.preset)}</select></div>`
+  :`<h2 class="rep-title" data-raw>${esc(r.name)}</h2>`;
+ const dirty=repDirty(),saved=!!repFind(r.id);
+ const acts=repEditOn?`${dirty?'<span class="mut small" data-rep-unsaved>Unsaved changes</span>':''}<button type="button" class="pri sm" data-rep-save onclick="repSaveEdit()">Save</button><button type="button" class="sm" data-rep-cancel onclick="repCancelEdit()">Cancel</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>${saved?`<button type="button" class="sm dl" onclick="repDeleteOpen()">Delete</button>`:''}`
+  :`${repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-edit onclick="repEditToggle()">Edit</button>`:''}<button type="button" class="sm" data-rep-copy onclick="repCopyOpen()">Copy</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>`;
+ const tabs=`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-page="${esc(x.id)}" onclick="repPageId=this.dataset.repPage;repSelW='';render()">${esc(x.name)}</button>`).join('')}${repEditOn?`<button type="button" onclick="repAddPage()">+ Page</button>`:''}</div>
+  ${repEditOn?`<div class="rep-page-edit"><input type="text" value="${esc(p.name)}" aria-label="Page name" onchange="repRenamePage(this.value)"><button type="button" class="sm" title="Move page left" onclick="repMovePage(-1)">←</button><button type="button" class="sm" title="Move page right" onclick="repMovePage(1)">→</button>${r.pages.length>1?`<button type="button" class="sm dl" onclick="repDelPage()">Delete page</button>`:''}</div>`:''}`;
+ const body=p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
+ return `<div class="card rep-head"><div class="rep-head-row">${head}<span class="sales-toolbar-sp"></span>${acts}</div>${!can&&!repEditOn?`<div class="mut small">${r.ownerId?'Shared with you':'Starter report'} · Copy to change it</div>`:''}${tabs}${repControls(r)}</div><div class="rep-ws">${body}</div>`;
+}
+function viewReports(){
+ repPicks=[];
+ const r=repOpenReport();if(!r){repOpenId='';repEditOn=false;}
+ const setup=r&&repEditOn?repSetup(r):'';
+ return `<div class="rep-app${setup?' editing':''}">${repCatalog()}<div class="rep-main">${repMain(r)}</div>${setup}</div>${repMenuHTML(r)}`;
 }
 
 /* ==== src/erp/storage.js ==== */
@@ -38425,6 +39821,7 @@ function validateImportedState(src){
  if(typeof validateShipmentPayload==='function')validateShipmentPayload(src);
  if(typeof validateTruckPayload==='function')validateTruckPayload(src);
  if(typeof validateSkidReturnPayload==='function')validateSkidReturnPayload(src);
+ if(typeof validateReportsPayload==='function')validateReportsPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -38518,6 +39915,8 @@ function normalizeDB(){
  if(typeof normalizeProductionUnbatches==='function')normalizeProductionUnbatches();
  if(typeof normalizeTrucks==='function')normalizeTrucks();
  if(typeof normalizeSkidReturns==='function')normalizeSkidReturns();
+ if(typeof normalizeReports==='function')normalizeReports();
+ if(typeof normalizeTripKm==='function')normalizeTripKm();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
