@@ -145,7 +145,9 @@ tr.st-hot td{background:var(--surface-2)}
 .st-tabs button{font:inherit;font-size:14px;font-weight:600;color:color-mix(in srgb,var(--on-solid) 65%,transparent);background:none;border:0;padding:8px 18px;border-radius:9px}
 .st-tabs button.on{background:color-mix(in srgb,var(--on-solid) 16%,transparent);color:var(--on-solid)}
 .st-tabs button:hover,.st-tabs button:focus-visible{background:color-mix(in srgb,var(--on-solid) 16%,transparent);color:var(--on-solid)}
-.st-topscan{display:flex;align-items:center;gap:8px;background:var(--surface);border:2px solid var(--accent);border-radius:10px;padding:5px 12px;min-width:260px;margin-left:12px}
+.st-topscan{display:flex;align-items:center;gap:8px;background:var(--surface);border:2px solid var(--accent);border-radius:10px;padding:5px 12px;flex:0 1 260px;min-width:120px;margin-left:12px}
+/* Шапка не вылезает за край: плашки не сжимаются (Batch не ломается в три строки), сжимается только поле скана. */
+.st-top>*{flex-shrink:0}.st-top>.st-topscan{flex-shrink:1}
 .st-topscan svg{width:20px;height:20px;stroke:var(--blue);fill:none;stroke-width:1.8;flex:none}
 .st-topscan input{border:0;outline:0;font:inherit;font-size:15px;width:100%;background:transparent}
 /* Разбитое стекло на листе */
@@ -373,14 +375,19 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
  .st-body{grid-template-columns:minmax(0,1fr)}
  .st-res-b{grid-template-columns:minmax(0,1fr)}
  .st-big{min-width:0}
- .st-top{gap:8px;padding:0 12px}
- .st-top .st-chip:not(:has(.st-av)){display:none}
  .st-names{grid-template-columns:minmax(0,1fr)}
  /* Очередь на планшете: поле скана сжимается, а не выталкивает Switch и ERP за край. */
  .st-topscan{min-width:0;flex:1 1 140px;margin-left:4px}
- .st-top>*{flex-shrink:0}.st-top>.st-topscan{flex-shrink:1}
- /* Шапка на планшете: ERP уходил за край ещё до кнопки темы. Код станции и
-    инициалы остаются, название станции и имя рабочего прячутся. */
+}
+/* Шапка на планшете и узком ноутбуке: ERP уходил за край (ещё до кнопки
+   темы, а с кнопкой Board — уже на 1280). Код станции и инициалы остаются,
+   название станции и имя рабочего прячутся. */
+@media (max-width:1366px){.st-top:has(.st-topscan) .st-name{display:none}}
+@media (max-width:1000px){.st-top .st-chip:not(:has(.st-av)){display:none}}
+@media (max-width:1200px){
+ .st-top{gap:8px;padding:0 12px}
+ .st-top>.st-topscan{margin-left:4px}
+ .st-tabs button{padding:8px 12px}
  .st-name,.st-top .st-chip:has(.st-av) b{display:none}
  .st-top .st-chip:has(.st-av){padding:6px}
  .st-btn{padding:8px 11px}
