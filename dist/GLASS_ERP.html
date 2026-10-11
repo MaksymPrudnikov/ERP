@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 135 модулей, 20 стиля.
+  Состав сборки: 137 модулей, 20 стиля.
 -->
 <html lang="en">
 <head>
@@ -1445,6 +1445,19 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .fin-list td .small{font-size:11px}
 .sl-backdrop.fin-range-back{z-index:139}.sl-menu.fin-range-menu{z-index:140}
 .fin-preview .sales-toolbar.fin-preview-period{margin:0;padding:10px 16px;border-bottom:1px solid var(--line,var(--accent-line))}
+/* Commissions (view/commissions): период кнопками, галочка With HST, выплата строкой. */
+.com-period{display:inline-flex;gap:6px}
+.com-check{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2)}
+.com-detail h4{margin:14px 0 6px}
+.com-pay-form{margin:10px 0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.com-pay-form h4{margin:0 0 8px}
+.com-pay-form .sl-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.com-pay-form .sl-row>*{flex:none;width:auto}.com-pay-form .sl-row input[type=date]{width:170px}.com-pay-form .sl-row input[type=text]{flex:1 1 auto;max-width:420px}
+.com-form [data-com-customer]{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.com-form [data-com-customer] select{flex:0 1 360px;min-width:0}
+.com-form [data-com-customer] input[type=number]{flex:none;width:90px}
+.com-form [data-com-customer] .dl{flex:none;width:auto;margin-left:0}
+.com-form [data-com-add-customer]{margin-bottom:10px}
 
 /* ---- src/styles/lifecycle.css ---- */
 /* Квота и заказ: галочки Show, фильтр статусов, цепочка шагов, замок строк
@@ -3154,7 +3167,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='aec76a5d1be0';
+var ERP_BUILD='d2491d2908fb';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -7636,7 +7649,7 @@ const MuntinModule={code:'MUNTIN',name:'Adaptive Muntin',version:'v4.5-port',com
      сами не трогают; про секреты экраны знают только «задан / не задан».
    Правило: файл не знает про заказы, цены и экраны.
    ===================================================================== */
-const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','reports','screens','masterdata','users','dashboard'];
+const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','reports','commissions','screens','masterdata','users','dashboard'];
 /* Галочки, у которых нет своего пункта меню: Screens — ставить отчёты на
    экраны станций и людей (Reports → Edit → Show on; владелец, 11.10.2026). */
 const USER_ACCESS_LABELS={screens:'Screens'};
@@ -13111,6 +13124,107 @@ function finValidatePayload(src){
  (src.financeTerms||[]).forEach(t=>{finAssert(['cash','credit'].includes(t.paymentMode)&&Number.isFinite(t.depositPercent)&&t.depositPercent>=0&&t.depositPercent<=100&&(t.creditDays==null||Number.isInteger(t.creditDays)&&t.creditDays>=0&&t.creditDays<=365)&&(!t.issuedOn||finDateValid(t.issuedOn))&&(!t.dueOn||finDateValid(t.dueOn))&&(!t.issuedOn||!t.dueOn||t.dueOn>=t.issuedOn),'Invalid payment terms.');});
 }
 
+/* ==== src/erp/finance/commissions.js ==== */
+/* =====================================================================
+   erp/finance/commissions  ·  commissions-1.0
+   Комиссия тем, кто привёл клиента. Владелец, 11.10.2026: человек со
+   стороны — «имя и фамилию, возможно номер телефона или почту, и назначаем
+   клиента или двух или троих; доступа к ERP у них нет и не будет; это
+   считает владелец и только он даёт этим людям деньги, возможно раз в год».
+   Процент — «только за то, что клиент заплатил»; без HST, галочка «with
+   HST» — отдельными колонками. Раздел свой (галочка Commissions в Users):
+   продажникам это знать не надо.
+   IN : DB.receipt (оплаты на заказы), DB.salesOrder, DB.customer
+   OUT: DB.referrer {id, name, phone, email, note, customers[{customerId, pct}]},
+        DB.referrerPayout {id, referrerId, date, amount, note, orders[{orderId, amount}]}
+   Правило: клиент — у одного человека. Выплата — по заказам: в неё входит
+   только ещё не выплаченная комиссия каждого заказа, сумма считается сама
+   (владелец: «чтобы я не заплатил дважды за один и тот же заказ»).
+   ===================================================================== */
+DEFAULT.referrer=[];DEFAULT.referrerPayout=[];
+function comStr(v,n){return String(v==null?'':v).trim().slice(0,n||200);}
+function comPct(v){const n=+v;return Number.isFinite(n)&&n>0&&n<=100?Math.round(n*100)/100:0;}
+function comClean(r){
+ const seen=new Set();
+ return {id:comStr(r.id,60),name:comStr(r.name,120),phone:comStr(r.phone,40),email:comStr(r.email,120),note:comStr(r.note,500),createdAt:comStr(r.createdAt,40),
+  customers:(Array.isArray(r.customers)?r.customers:[]).filter(c=>c&&comStr(c.customerId)&&!seen.has(c.customerId)&&(seen.add(c.customerId),true)).map(c=>({customerId:comStr(c.customerId,80),pct:comPct(c.pct)}))};
+}
+function comPayoutClean(p){
+ const orders=(Array.isArray(p.orders)?p.orders:[]).filter(x=>x&&comStr(x.orderId)).map(x=>({orderId:comStr(x.orderId,80),amount:finMoney(x.amount)})).filter(x=>x.amount!==0);
+ return {id:comStr(p.id,60),referrerId:comStr(p.referrerId,60),date:/^\d{4}-\d{2}-\d{2}$/.test(p.date||'')?p.date:'',amount:finMoney(orders.reduce((n,x)=>n+x.amount,0)),note:comStr(p.note,300),createdAt:comStr(p.createdAt,40),orders};
+}
+function normalizeCommissions(){
+ const ids=new Set(),owner=new Set();
+ DB.referrer=(Array.isArray(DB.referrer)?DB.referrer:[]).filter(r=>r&&typeof r==='object'&&comStr(r.id)&&!ids.has(r.id)&&(ids.add(r.id),true)).map(comClean).filter(r=>r.name);
+ DB.referrer.forEach(r=>{r.customers=r.customers.filter(c=>!owner.has(c.customerId)&&(owner.add(c.customerId),true));});
+ const live=new Set(DB.referrer.map(r=>r.id));
+ DB.referrerPayout=(Array.isArray(DB.referrerPayout)?DB.referrerPayout:[]).filter(p=>p&&typeof p==='object').map(comPayoutClean).filter(p=>p.id&&live.has(p.referrerId)&&p.orders.length&&p.date);
+}
+function comFind(id){return (DB.referrer||[]).find(r=>r.id===id)||null;}
+function comOfCustomer(customerId){return (DB.referrer||[]).find(r=>r.customers.some(c=>c.customerId===customerId))||null;}
+
+/* Запись: имя обязательно; клиент, которого забрали у другого, у того
+   пропадает (клиент — у одного человека). */
+function comSave(d){
+ const r=comClean(Object.assign({},d,{id:d.id||salesUid('RFR'),createdAt:d.createdAt||new Date().toISOString()}));
+ if(!r.name)return {error:'Enter a name.'};
+ if(r.customers.some(c=>!salesFindCustomer(c.customerId)))return {error:'Pick a customer.'};
+ if(r.customers.some(c=>!c.pct))return {error:'Enter a percent from 0.01 to 100.'};
+ return finPersist(()=>{
+  if(!Array.isArray(DB.referrer))DB.referrer=[];
+  const mine=new Set(r.customers.map(c=>c.customerId));
+  DB.referrer.forEach(x=>{if(x.id!==r.id)x.customers=x.customers.filter(c=>!mine.has(c.customerId));});
+  const i=DB.referrer.findIndex(x=>x.id===r.id);if(i<0)DB.referrer.push(r);else DB.referrer[i]=r;
+  return r;
+ });
+}
+function comDelete(id){return finPersist(()=>{DB.referrer=(DB.referrer||[]).filter(r=>r.id!==id);DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.referrerId!==id);return true;});}
+/* Выплата по выбранным заказам: каждый — на свой долг сейчас. Заказ без
+   долга в выплату не входит — дважды за один заказ не заплатить. */
+function comPayoutAdd(d){
+ const ref=comFind(d.referrerId);if(!ref)return {error:'Person not found.'};
+ const due=comDue(ref),want=new Set(d.orderIds||[]);
+ const p=comPayoutClean({id:salesUid('RFP'),createdAt:new Date().toISOString(),referrerId:ref.id,date:d.date,note:d.note,
+  orders:[...due.values()].filter(x=>want.has(x.o.id)&&x.due>0).map(x=>({orderId:x.o.id,amount:x.due}))});
+ if(!p.date)return {error:'Enter the date.'};
+ if(!p.orders.length)return {error:'Nothing to pay.'};
+ return finPersist(()=>{if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
+}
+function comPayoutDelete(id){return finPersist(()=>{DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.id!==id);return true;});}
+
+/* Доля заказа без HST: оплата делится в пропорции суммы заказа. */
+function comNoHstShare(o){const t=finOrderTotals(o);return t&&t.grand>0?Math.max(0,(t.grand-t.hst)/t.grand):1;}
+/* Заказы клиентов человека с оплатами за период (по дате оплаты). range —
+   {from, to} днями или null (всё время). */
+function comOrders(ref,range){
+ const pct=new Map(ref.customers.map(c=>[c.customerId,c.pct])),by=new Map();
+ finActiveReceipts().forEach(r=>{
+  if(range&&(r.date<range.from||r.date>range.to))return;
+  r.allocations.forEach(a=>{const o=salesRecord(a.orderId);if(!o||!pct.has(o.customerId))return;
+   const x=by.get(o.id)||{o,paid:0,payments:0};x.paid+=a.amount;x.payments++;by.set(o.id,x);});
+ });
+ return [...by.values()].map(x=>{
+  const p=pct.get(x.o.customerId),paid=finMoney(x.paid),base=finMoney(paid*comNoHstShare(x.o)),t=finOrderTotals(x.o);
+  return {o:x.o,customerId:x.o.customerId,number:x.o.businessNumber,date:salesListIsoDay(x.o.createdAt),total:t&&t.complete?t.grand:null,paid,base,payments:x.payments,pct:p,com:finMoney(base*p/100),comHst:finMoney(paid*p/100)};
+ }).sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.number).localeCompare(String(a.number)));
+}
+/* Долг по заказам за всё время: начислено − выплачено. Отрицательный —
+   переплачено (оплату клиента аннулировали после выплаты). */
+function comDue(ref){
+ const paid=new Map();(DB.referrerPayout||[]).filter(p=>p.referrerId===ref.id).forEach(p=>p.orders.forEach(x=>paid.set(x.orderId,finMoney((paid.get(x.orderId)||0)+x.amount))));
+ const m=new Map(comOrders(ref,null).map(x=>[x.o.id,{o:x.o,number:x.number,customerId:x.customerId,com:x.com,paidOut:paid.get(x.o.id)||0}]));
+ paid.forEach((v,id)=>{if(!m.has(id)){const o=salesRecord(id);if(o)m.set(id,{o,number:o.businessNumber,customerId:o.customerId,com:0,paidOut:v});}});
+ m.forEach(x=>{x.due=finMoney(x.com-x.paidOut);});
+ return m;
+}
+/* Итоги человека: за период и «к выплате» за всё время. */
+function comSummary(ref,range){
+ const rows=comOrders(ref,range),all=range?comOrders(ref,null):rows,sum=(list,k)=>finMoney(list.reduce((n,x)=>n+x[k],0));
+ const paidOut=finMoney((DB.referrerPayout||[]).filter(p=>p.referrerId===ref.id).reduce((n,p)=>n+p.amount,0));
+ return {rows,orders:rows.length,base:sum(rows,'base'),paid:sum(rows,'paid'),com:sum(rows,'com'),comHst:sum(rows,'comHst'),
+  earned:sum(all,'com'),earnedHst:sum(all,'comHst'),paidOut,toPay:finMoney(sum(all,'com')-paidOut),toPayHst:finMoney(sum(all,'comHst')-paidOut)};
+}
+
 /* ==== src/erp/icons.js ==== */
 /* =====================================================================
    erp/icons  ·  erp-1.0
@@ -13189,6 +13303,7 @@ const NAV=[
  {k:'finance', label:'Finance', icon:'finance'},
  {k:'customers', label:'Customers', icon:'users'},
  {k:'reports', label:'Reports', icon:'report'},
+ {k:'commissions', label:'Agents', icon:'link'},
  {k:'masterdata', label:'Data', title:'Master Data', icon:'database', bottom:1},
  {k:'users', label:'Users', icon:'users', bottom:1},
  {k:'dashboard', label:'Overview', icon:'home', bottom:1}
@@ -13275,6 +13390,7 @@ function render(){
  const meta={
   dashboard:['Overview','Orders, shop and shipping now'],
   reports:['Reports','Report builder'],
+  commissions:['Agents','People who bring customers · commission'],
   users:['Users','Office and station sign-in'],
   customers:['Customers','Customer master, contacts and commercial terms'],
   sales:['Sales','Orders and commercial configuration'],
@@ -13290,7 +13406,7 @@ function render(){
  document.title=meta[0]+' · Glass Farm';
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
- const V={dashboard:viewDashboard,reports:typeof viewReports==='function'?viewReports:null,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,station:typeof viewStation==='function'?viewStation:null}[tab];
+ const V={dashboard:viewDashboard,reports:typeof viewReports==='function'?viewReports:null,commissions:typeof viewCommissions==='function'?viewCommissions:null,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
  const focus=renderFocusKey();
@@ -25369,6 +25485,71 @@ function finExportCsv(){
  const refunds=DB.refund.filter(x=>(!finCustomerFilter||x.customerId===finCustomerFilter)&&(!finOrderFilter||rows.some(r=>r.id===x.receiptId))&&(!f||salesListFilterTest(col,f,{o:{},memo:{date:x.date}})));
  customerDownload('payments_'+finToday()+'.csv',finMovementsCSV(rows,refunds),'text/csv;charset=utf-8');
 }
+
+/* ==== src/erp/views/commissions.js ==== */
+/* =====================================================================
+   view/commissions  ·  commissions-1.0
+   Раздел Agents (своя галочка в Users; владелец, 11.10.2026: «Commissions»
+   не влезает в меню слева — слово короче): люди, которые привели
+   клиентов, сколько им начислено и сколько отдать. Владелец, 11.10.2026:
+   «видеть по этим людям, сколько нужно в целостности отдать комиссионные,
+   потом открыть по заказам и по количеству, чтобы этих людей тоже можно было
+   оценить: заказов может быть больше, а сумма меньше».
+   IN : erp/finance/commissions
+   ===================================================================== */
+let comOpen='',comDraft=null,comPayDraft=null,comPeriod='year',comHst=false,comNotice='';
+const COM_PERIODS=[['year','This year'],['last','Last year'],['all','All time']];
+function comRange(){const y=+finToday().slice(0,4);return comPeriod==='all'?null:comPeriod==='last'?{from:(y-1)+'-01-01',to:(y-1)+'-12-31'}:{from:y+'-01-01',to:y+'-12-31'};}
+function comCustomerName(id){return finCustomerName(salesFindCustomer(id));}
+function viewCommissions(){
+ const range=comRange(),list=(DB.referrer||[]).map(r=>({r,s:comSummary(r,range)})).sort((a,b)=>b.s.toPay-a.s.toPay||a.r.name.localeCompare(b.r.name));
+ const sum=k=>finMoney(list.reduce((n,x)=>n+x.s[k],0)),money=v=>v?finFmt(v):'<span class="mut">—</span>';
+ const hstHead=comHst?'<th class="n">Paid with HST</th><th class="n">Commission with HST</th>':'';
+ const rows=list.map(({r,s})=>`<tr data-com-row="${esc(r.id)}" class="fin-row${comOpen===r.id?' shipping-selected':''}" onclick="comOpen='${esc(r.id)}';comDraft=null;comPayDraft=null;render()">
+   <td><b data-raw>${esc(r.name)}</b></td><td class="mut" data-raw>${esc([r.phone,r.email].filter(Boolean).join(' · '))||'—'}</td><td data-raw>${esc(r.customers.map(c=>comCustomerName(c.customerId)+' '+c.pct+'%').join(', '))||'<span class="mut">—</span>'}</td>
+   <td class="n">${s.orders}</td><td class="n">${money(s.base)}</td><td class="n"><b>${money(s.com)}</b></td>${comHst?`<td class="n">${money(s.paid)}</td><td class="n">${money(s.comHst)}</td>`:''}<td class="n">${money(s.paidOut)}</td><td class="n"><b class="${s.toPay>0?'fin-due':''}">${finFmt(s.toPay)}</b></td></tr>`).join('');
+ const foot=list.length?`<tfoot><tr class="sl-foot"><td colspan="3"><b>${list.length} ${list.length===1?'person':'people'}</b></td><td class="n">${list.reduce((n,x)=>n+x.s.orders,0)}</td><td class="n">${finFmt(sum('base'))}</td><td class="n"><b>${finFmt(sum('com'))}</b></td>${comHst?`<td class="n">${finFmt(sum('paid'))}</td><td class="n">${finFmt(sum('comHst'))}</td>`:''}<td class="n">${finFmt(sum('paidOut'))}</td><td class="n"><b>${finFmt(sum('toPay'))}</b></td></tr></tfoot>`:'';
+ const tools=`<div class="sales-toolbar"><div class="com-period" data-com-period>${COM_PERIODS.map(([k,l])=>`<button type="button" class="sl-btn${comPeriod===k?' on':''}" onclick="comPeriod='${k}';render()">${l}</button>`).join('')}</div><label class="com-check"><input type="checkbox" data-com-hst ${comHst?'checked':''} onchange="comHst=this.checked;render()"> With HST</label><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-com-add onclick="comEditOpen('')">+ Person</button></div>`;
+ const table=`<div class="sales-table-wrap"><table class="sl-table fin-list" data-com-table><thead><tr><th>Person</th><th>Contact</th><th>Customers · %</th><th class="n" title="Orders with payments in the period">Orders</th><th class="n" title="Payments without HST">Paid</th><th class="n">Commission</th>${hstHead}<th class="n" title="All time">Paid out</th><th class="n" title="All time: commission − paid out">To pay</th></tr></thead><tbody>${rows||`<tr><td colspan="${comHst?11:9}" class="empty">Nobody yet. + Person — who brought a customer and the percent.</td></tr>`}</tbody>${foot}</table></div>`;
+ return `<div class="page-head"><div><h2>Agents</h2><p>People who bring customers · percent of what the customer paid, without HST.</p></div></div>
+  ${comNotice?`<div class="ncr-error" role="alert" data-com-error>${esc(comNotice)}</div>`:''}
+  <div class="card sales-list-card">${tools}${table}</div>${comDraft?comFormHTML():comOpen&&comFind(comOpen)?comDetailHTML(comFind(comOpen),range):''}`;
+}
+/* Заказы человека: начислено за период; «Paid out» и «Due» — за всё время
+   по заказу. Выплата — галочками по заказам с долгом, сумма считается сама. */
+function comDetailHTML(r,range){
+ const s=comSummary(r,range),due=comDue(r),money=v=>v?finFmt(v):'<span class="mut">—</span>',open=o=>`<button type="button" class="fin-link mono" onclick="event.stopPropagation();salesLeaveDraft(()=>{tab='sales';salesOrderEdit('${esc(o.id)}')})">${esc(o.businessNumber)}</button>`;
+ const dueCell=id=>{const d=due.get(id);return `<td class="n">${money(d&&d.paidOut)}</td><td class="n"><b class="${d&&d.due>0?'fin-due':''}" data-com-due>${d?finFmt(d.due):'—'}</b></td>`;};
+ const rows=s.rows.map(x=>`<tr data-com-order="${esc(x.number)}"><td>${open(x.o)}</td><td data-raw>${esc(comCustomerName(x.customerId))}</td><td>${esc(salesListShortDay(x.date))}</td><td class="n">${money(x.total)}</td><td class="n">${money(x.base)}</td><td class="n">${x.pct}%</td><td class="n"><b>${money(x.com)}</b></td>${comHst?`<td class="n">${money(x.paid)}</td><td class="n">${money(x.comHst)}</td>`:''}${dueCell(x.o.id)}</tr>`).join('');
+ const pays=(DB.referrerPayout||[]).filter(p=>p.referrerId===r.id).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt));
+ const owed=[...due.values()].filter(x=>x.due>0).sort((a,b)=>String(a.number).localeCompare(String(b.number)));
+ const picked=comPayDraft?owed.filter(x=>comPayDraft.orderIds.includes(x.o.id)):[],total=finMoney(picked.reduce((n,x)=>n+x.due,0));
+ const payForm=comPayDraft?`<div class="com-pay-form" data-com-pay-form><h4>Payout · ${picked.length} of ${owed.length} orders · <span data-com-pay-total>${finFmt(total)}</span></h4>
+   ${owed.length?`<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th></th><th>Order</th><th>Customer</th><th class="n">Commission</th><th class="n">Paid out</th><th class="n">Due</th></tr></thead><tbody>${owed.map(x=>`<tr><td class="sl-check"><input type="checkbox" data-com-pay-order="${esc(x.number)}" ${comPayDraft.orderIds.includes(x.o.id)?'checked':''} onchange="comPayPick('${esc(x.o.id)}',this.checked)"></td><td>${open(x.o)}</td><td data-raw>${esc(comCustomerName(x.customerId))}</td><td class="n">${finFmt(x.com)}</td><td class="n">${money(x.paidOut)}</td><td class="n"><b>${finFmt(x.due)}</b></td></tr>`).join('')}</tbody></table></div>`:'<p class="mut">Nothing to pay: every order is paid out.</p>'}
+   <div class="sl-row"><input type="date" aria-label="Payout date" value="${esc(comPayDraft.date)}" onchange="comPayDraft.date=this.value"><input type="text" placeholder="Note" value="${esc(comPayDraft.note)}" oninput="comPayDraft.note=this.value"><button type="button" class="pri sm" data-com-pay-save ${picked.length?'':'disabled'} onclick="comPaySave()">Save payout</button><button type="button" class="sm" onclick="comPayDraft=null;render()">Cancel</button></div></div>`:'';
+ return `<div class="card com-detail" data-com-detail><div class="shipping-customer-head"><div><h3 data-raw>${esc(r.name)}</h3><span class="mut" data-raw>${esc([r.phone,r.email].filter(Boolean).join(' · '))}</span></div><div class="sales-toolbar"><button type="button" class="sm" onclick="comEditOpen('${esc(r.id)}')">Edit</button><button type="button" class="sm" data-com-pay onclick="comPayOpen('${esc(r.id)}')">+ Payout</button></div></div>
+  <div class="fin-strip"><div><small>Orders</small><b>${s.orders}</b></div><div><small>Paid · no HST</small><b>${finFmt(s.base)}</b></div><div><small>Commission</small><b>${finFmt(s.com)}</b></div><div><small>Paid out · all time</small><b>${finFmt(s.paidOut)}</b></div><div><small>To pay</small><b class="${s.toPay>0?'fin-due':''}" data-com-topay>${finFmt(s.toPay)}</b></div></div>
+  ${payForm}
+  <div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Order</th><th>Customer</th><th>Date</th><th class="n">Order total</th><th class="n">Paid · no HST</th><th class="n">%</th><th class="n">Commission</th>${comHst?'<th class="n">Paid with HST</th><th class="n">Commission with HST</th>':''}<th class="n" title="All time">Paid out</th><th class="n" title="All time: commission − paid out">Due</th></tr></thead><tbody>${rows||`<tr><td colspan="${comHst?11:9}" class="empty">No payments in this period.</td></tr>`}</tbody></table></div>
+  ${pays.length?`<h4>Payouts</h4><div class="sales-table-wrap"><table class="sl-table" data-com-payouts><thead><tr><th>Date</th><th class="n">Amount</th><th>Orders</th><th>Note</th><th></th></tr></thead><tbody>${pays.map(p=>`<tr><td>${esc(salesListShortDay(p.date))}</td><td class="n">${finFmt(p.amount)}</td><td class="mono">${esc(p.orders.map(x=>{const o=salesRecord(x.orderId);return (o?o.businessNumber:'?')+' '+finFmt(x.amount);}).join(' · '))}</td><td data-raw>${esc(p.note)}</td><td class="sales-row-actions"><button type="button" class="sm dl" title="Delete payout — its orders are due again" onclick="comPayDelete('${esc(p.id)}')">×</button></td></tr>`).join('')}</tbody></table></div>`:''}</div>`;
+}
+function comFormHTML(){
+ const d=comDraft,taken=new Map((DB.referrer||[]).filter(r=>r.id!==d.id).flatMap(r=>r.customers.map(c=>[c.customerId,r.name])));
+ const opts=sel=>`<option value="">Customer…</option>`+(DB.customer||[]).slice().sort((a,b)=>finCustomerName(a).localeCompare(finCustomerName(b))).map(c=>`<option value="${esc(c.id)}" ${c.id===sel?'selected':''}>${esc(finCustomerName(c))}${taken.has(c.id)?' · now '+esc(taken.get(c.id)):''}</option>`).join('');
+ const rows=d.customers.map((c,i)=>`<div class="sl-row" data-com-customer="${i}"><select aria-label="Customer" onchange="comDraft.customers[${i}].customerId=this.value">${opts(c.customerId)}</select><input type="number" min="0" max="100" step="0.1" aria-label="Percent" placeholder="%" value="${esc(c.pct)}" oninput="comDraft.customers[${i}].pct=this.value"><span class="mut">%</span><button type="button" class="sm dl" onclick="comDraft.customers.splice(${i},1);render()">×</button></div>`).join('');
+ return `<div class="card form com-form" data-com-form><h3>${d.id?'Edit':'New person'}</h3>
+  <div class="grid"><div><label>Name *</label><input id="com_name" value="${esc(d.name)}" oninput="comDraft.name=this.value"></div><div><label>Phone</label><input value="${esc(d.phone)}" oninput="comDraft.phone=this.value"></div><div><label>Email</label><input value="${esc(d.email)}" oninput="comDraft.email=this.value"></div></div>
+  <label>Customers</label>${rows}<button type="button" class="sm" data-com-add-customer onclick="comDraft.customers.push({customerId:'',pct:''});render()">+ Customer</button>
+  <div><label>Note</label><input value="${esc(d.note)}" oninput="comDraft.note=this.value"></div>
+  <div class="sales-toolbar"><button type="button" class="pri" data-com-save onclick="comFormSave()">Save</button><button type="button" onclick="comDraft=null;render()">Cancel</button>${d.id?`<span class="sales-toolbar-sp"></span><button type="button" class="dl" onclick="comFormDelete()">Delete</button>`:''}</div></div>`;
+}
+function comEditOpen(id){const r=id?comFind(id):null;comNotice='';comPayDraft=null;comDraft=r?JSON.parse(JSON.stringify(r)):{id:'',name:'',phone:'',email:'',note:'',customers:[{customerId:'',pct:''}]};render();setTimeout(()=>{const el=document.getElementById('com_name');if(el&&!id)el.focus();},0);}
+function comFormSave(){const d=Object.assign({},comDraft,{customers:comDraft.customers.filter(c=>c.customerId||c.pct)});const out=comSave(d);if(out.error){comNotice=out.error;render();return;}comNotice='';comOpen=out.value.id;comDraft=null;render();}
+function comFormDelete(){const d=comDraft;if(!d||!d.id||!confirm('Delete '+d.name+' and their payouts?'))return;const out=comDelete(d.id);comNotice=out.error||'';if(!out.error){comDraft=null;comOpen='';}render();}
+function comPayOpen(id){const r=comFind(id);if(!r)return;comOpen=id;comDraft=null;comNotice='';comPayDraft={referrerId:id,date:finToday(),note:'',orderIds:[...comDue(r).values()].filter(x=>x.due>0).map(x=>x.o.id)};render();}
+function comPayPick(id,on){if(!comPayDraft)return;comPayDraft.orderIds=comPayDraft.orderIds.filter(x=>x!==id);if(on)comPayDraft.orderIds.push(id);render();}
+function comPaySave(){const out=comPayoutAdd(comPayDraft);if(out.error){comNotice=out.error;render();return;}comNotice='';comPayDraft=null;render();}
+function comPayDelete(id){if(!confirm('Delete this payout? Its orders are due again.'))return;const out=comPayoutDelete(id);comNotice=out.error||'';render();}
 
 /* ==== src/erp/views/sales-list-ui.js ==== */
 /* =====================================================================
@@ -40154,6 +40335,7 @@ function normalizeDB(){
  if(typeof normalizeTripKm==='function')normalizeTripKm();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
+ if(typeof normalizeCommissions==='function')normalizeCommissions();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
  if(typeof normalizeAuthLog==='function')normalizeAuthLog();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
