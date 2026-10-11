@@ -3141,7 +3141,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='e69c9c189e3f';
+var ERP_BUILD='902059ea9ef5';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -7623,7 +7623,10 @@ const MuntinModule={code:'MUNTIN',name:'Adaptive Muntin',version:'v4.5-port',com
      сами не трогают; про секреты экраны знают только «задан / не задан».
    Правило: файл не знает про заказы, цены и экраны.
    ===================================================================== */
-const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','reports','masterdata','users','dashboard'];
+const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','reports','screens','masterdata','users','dashboard'];
+/* Галочки, у которых нет своего пункта меню: Screens — ставить отчёты на
+   экраны станций и людей (Reports → Edit → Show on; владелец, 11.10.2026). */
+const USER_ACCESS_LABELS={screens:'Screens'};
 const ACCESS_ADMIN='users';
 /* Никто не вошёл. Пока вход не настроен (пароля нет ни у кого с Users,
    erp/signin → signinOn) — открыто, как в пустой базе: иначе завести
@@ -13427,7 +13430,7 @@ function viewDashboardNow(){
 /* uEdit — 'new' или viewProfileId, а не номер строки: × на другой строке,
    пока форма открыта, сдвигает список, и Save писал бы не в того человека. */
 let uEdit=null, uDraft=null;
-function userSectionNav(k){return NAV.find(n=>n.k===k)||{k,label:k,icon:'report'};}
+function userSectionNav(k){return NAV.find(n=>n.k===k)||{k,label:USER_ACCESS_LABELS[k]||k,icon:'report'};}
 function userAccessHTML(u){
  if(!userOffice(u))return '<span class="mut">—</span>';
  if(u.access.length===USER_SECTIONS.length)return '<span class="pill ok">All sections</span>';
@@ -38212,14 +38215,19 @@ function repLineWork(o,l,geo,tag){
   rows:salesLineChargeRows(geo).map(row=>({row,station:repChargeStation(row),rate:salesChargePricingState(geo,row).catalogRate})).filter(x=>x.station),
   plan:stkPlan(o,geo),
   comps:glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const info=stkGlassInfo(c.pane,c.index,c.ply),mm=info.mm;return Object.assign({},c,{mm:mm||null,band:mm?salesPricingBandFor(mm).band:'',heat:info.heat||'Annealed'});}),
-  unitType:(()=>{const m=salesMakeupById(o,l.makeupId);return m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';})()
+  unitType:(()=>{const m=salesMakeupById(o,l.makeupId);return m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';})(),
+  /* Маршрут каждого стекла со своими работами по шагам — тот же, что на стикере. */
+  visits:(()=>{const r=salesPrintRoute(geo,o,salesLineGeometryShape(geo),null),m=new Map();
+   glassBatchComponents(o,l).forEach(c=>{const row=r.lites.find(x=>x.label==='Lite '+c.lite)||r.lites[c.index]||r.lites[0];m.set(c.key,row?row.stations.map(s=>({code:s.code,works:s.works||[]})):[]);});return m;})()
  }));}catch(e){}
  if(repLineMemo.map.size>4000)repLineMemo.map=new Map();
  repLineMemo.map.set(key,out);return out;
 }
 /* Что сделано с одним стеклом на одной станции: площадь, толщина и работы
    с количеством в единице работы (in · ft² · pc) и $ по прайсу. */
-function repGlassWork(g,station){
+/* visit — шаг маршрута скана (scan.step); у старых сканов без шага — номер
+   захода со знаком минус (-1 первый, -2 второй). */
+function repGlassWork(g,station,visit){
  const empty={area:null,mm:null,heat:'',unitType:'',works:[]};
  if(!g||!g.c||g.c.missing)return empty;
  const geo=stationGeo(g)||g.l,tag=typeof g.unit==='string'?g.unit:'',lw=repLineWork(g.o,g.l,geo,tag);
@@ -38227,8 +38235,19 @@ function repGlassWork(g,station){
  const lite=lw.plan&&lw.plan.valid?(lw.plan.lites||[]).find(x=>x.index===g.c.index):null;
  let area=null;try{area=finWithOrder(g.o,()=>stkPieceArea(geo,g.o,lite));}catch(e){}
  const works=[];
+ /* Станция бывает в маршруте дважды: у ламината POLISH до закалки (плиты) и
+    после склейки (Lami Polish). Работа засчитывается тому заходу, в маршрут
+    которого она записана, а работы без своего захода — первому: иначе каждый
+    заход получал бы все работы станции, и дюймы двоились. */
+ const steps=(lw.visits&&lw.visits.get(g.c.key))||[],at=steps.map((s,i)=>s.code===station?i:-1).filter(i=>i>=0);
+ let only=null;
+ if(at.length>1){
+  const i=Number.isInteger(visit)&&visit>=0?(at.includes(visit)?visit:at[0]):at[Math.min(-(visit||-1)-1,at.length-1)];
+  only={first:i===at[0],mine:new Set(steps[i].works),any:new Set(at.flatMap(j=>steps[j].works))};
+ }
  lw.rows.forEach(x=>{
   if(x.station!==station||!repRowFits(x.row,me))return;
+  if(only){const p=String(x.row.key).split(':'),w=p[0]==='EDGE'?p[1]:'';if(w&&only.any.has(w)?!only.mine.has(w):!only.first)return;}
   const mates=lw.comps.filter(c=>repRowFits(x.row,c)&&stationRouteOf({o:g.o,l:g.l,c,unit:g.unit}).codes.includes(station)).length||1;
   const qty=x.row.basis/mates;
   /* Операция без хвоста толщины («Flat Polish · 10 mm» → «Flat Polish»):
@@ -38268,16 +38287,24 @@ function repWorkStamp(){
 function repWorkFacts(){
  const stamp=repWorkStamp();if(repWorkCache.stamp===stamp&&repWorkCache.rows)return repWorkCache.rows;
  repWorkBuilds++;
- const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[],orders=new Map(),lines=new Map();
+ const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[],orders=new Map(),lines=new Map(),visits=new Map();
+ /* Юнит после сборки — сама сборка (стеклопакет на IGU, склейка на LAM), а
+    не номер стекла в позиции: лайты одного пакета бывают из разных юнитов
+    позиции, и «юниты» на выдаче считались бы по стёклам. */
+ const asmAt=new Map(),built=new Map();
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||!s.asm||!(s.unit||s.joined))return;const t=asmAt.get(s.asm);if(!t||s.at>t)asmAt.set(s.asm,s.at);});
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||!s.asm||!(s.unit||s.joined))return;const was=built.get(s.piece);if(!was||s.unit&&!was.unit)built.set(s.piece,{asm:s.asm,unit:!!s.unit,at:asmAt.get(s.asm)});});
  const oInfo=o=>{if(!orders.has(o.id))orders.set(o.id,repOrderInfo(o));return orders.get(o.id);},lInfo=l=>{if(!lines.has(l))lines.set(l,repLineInfo(l));return lines.get(l);};
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||s.broken||s.park)return;
-  const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station):{area:null,mm:null,heat:'',unitType:'',works:[]};
+  const vk=s.piece+'|'+s.station,nth=(visits.get(vk)||0)+1;visits.set(vk,nth);
+  const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station,Number.isInteger(s.step)?s.step:-nth):{area:null,mm:null,heat:'',unitType:'',works:[]};
+  const b=built.get(s.piece),unitKey=!g?'':b&&b.at<=s.at?'A:'+b.asm:g.o.id+'|'+g.l.id+'|'+g.unit;
   const sum=u=>w.works.filter(x=>x.unit===u).reduce((n,x)=>n+x.qty,0);
   const priced=w.works.filter(x=>x.usd!=null);
   rows.push({id:s.id,at:s.at,day:repDay(s.at),hour:repHour(s.at),station:s.station,personId:s.byId||s.by||'',person:s.by||'',piece:s.piece,
    orderId:g?g.o.id:'',order:g?g.o.businessNumber||'':'',customerId:g?g.o.customerId||'':'',priority:g?g.o.priority||'':'',
-   glass:g&&g.c?g.c.glass:'',mm:w.mm,heat:w.heat,unitType:w.unitType,lite:g&&g.c?g.c.lite:'',batch:g&&g.entry?g.entry.batch.number:'',unitKey:g?g.o.id+'|'+g.l.id+'|'+g.unit:'',
+   glass:g&&g.c?g.c.glass:'',mm:w.mm,heat:w.heat,unitType:w.unitType,lite:g&&g.c?g.c.lite:'',batch:g&&g.entry?g.entry.batch.number:'',unitKey,
    area:w.area,works:w.works,inches:sum('in'),workFt2:sum('ft²'),pcs:sum('pc'),
    usd:priced.length?priced.reduce((n,x)=>n+x.usd,0):null,unpriced:w.works.length-priced.length,
    asm:s.asm||'',unitDone:!!(s.unit||s.joined),asmDone:(s.unit||s.joined)&&s.asm?s.asm:'',manual:!!s.manual,confirmedAt:s.confirmedAt||'',
@@ -38348,17 +38375,31 @@ function repBreakFacts(){
 /* Заказы и сроки: одна строка на заказ. Отгружен — последний отправленный PS,
    когда заказ выдан целиком (Done / Closed). Вовремя — отгружен не позже
    срока; Late — позже срока или срок прошёл, а заказ не выдан; Open — срок
-   ещё не наступил. */
+   ещё не наступил.
+   Самовывоз — по готовности (владелец, 11.10.2026: «нет даты, когда клиент
+   обязан забрать… может оставить на месяц»): заказ вовремя, если всё его
+   стекло готово к выдаче (скан станции готовности) не позже срока, когда бы
+   клиент его ни забрал. On time % — из заказов On time и Late: просроченный
+   невыданный заказ тоже опоздал. */
 let repOrderCache={stamp:'',rows:null};
 function repOrderFacts(){
- const today=finToday(),stamp=[today,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.shipment||[]).map(s=>s.id+s.status+s.date).join(',')].join('|');
+ const today=finToday(),stamp=[today,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.shipment||[]).map(s=>s.id+s.status+s.date).join(','),(DB.stationScan||[]).length].join('|');
  if(repOrderCache.stamp===stamp&&repOrderCache.rows)return repOrderCache.rows;
  const rows=[],days=(a,b)=>Math.round((Date.parse(b+'T12:00:00')-Date.parse(a+'T12:00:00'))/864e5);
+ /* Когда стекло заказа стало готово к выдаче: последний скан станции готовности. */
+ const readySt=shippingStations().ready,index=stationPieceIndex(),readyAt=new Map();
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||s.park||s.station!==readySt)return;const h=index.get(s.piece);if(!h)return;const t=readyAt.get(h.orderId);if(!t||s.at>t)readyAt.set(h.orderId,s.at);});
+ const pickupReady=(o,done,shipped)=>{
+  if(o.status==='ready')return salesListIsoDay(o.statusDates&&o.statusDates.ready)||repDay(readyAt.get(o.id)||'');
+  if(done||o.status==='shipping'&&(()=>{const q=shippingSummary(o);return q.glass>0&&q.physicalReady+q.lines.reduce((n,r)=>n+r.shipped,0)>=q.glass;})())return repDay(readyAt.get(o.id)||'')||shipped;
+  return '';
+ };
  (DB.salesOrder||[]).forEach(o=>{
   if(!o||salesIsQuote(o)||o.status==='cancelled')return;
   const done=['done','closed'].includes(o.status),sent=done?shippingForOrder(o.id).filter(s=>shippingSent(s)&&shippingCarries(s,o.id)).map(s=>s.date).sort():[];
   const shipped=done?sent[sent.length-1]||salesListIsoDay(o.statusDates&&o.statusDates.done)||'':'',due=o.dueDate||'';
-  const state=!due?'No due date':shipped?(shipped<=due?'On time':'Late'):(due<today?'Late':'Open');
+  const ready=o.delivery==='pickup'?pickupReady(o,done,shipped):'',finish=o.delivery==='pickup'?ready:shipped;
+  const state=!due?'No due date':finish?(finish<=due?'On time':'Late'):(due<today?'Late':'Open');
   const lines=o.lines||[],units=lines.reduce((n,l)=>n+Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)),0);
   const area=finWithOrder(o,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,o);return n+(a.valid?a.actual*Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)):0);},0));
   const created=salesListIsoDay(o.createdAt),c=salesFindCustomer(o.customerId)||{},t=finOrderTotals(o);
@@ -38367,8 +38408,8 @@ function repOrderFacts(){
   let kg=0;try{finWithOrder(o,()=>lines.forEach(l=>{const w=salesLineWeight(l,o);if(w&&w.lineKg!=null)kg+=w.lineKg;}));}catch(e){}
   rows.push({...repOrderInfo(o),id:o.id,at:o.createdAt||'',created,due,shipped,order:o.businessNumber||'',customerId:o.customerId||'',rep:c.salesRep||'',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',
    lines:lines.length,shapes,kg:kg||null,hold:o.onHold?'On hold':'Not on hold',
-   delivery:o.delivery==='delivery'?'Delivery':'Pickup',status:salesStatusLabel(o),state,daysLate:state==='Late'?Math.max(0,days(due,shipped||today)):0,
-   lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,area:area||null,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,shippedN:shipped&&due?1:0,total:t&&t.complete?t.grand:null});
+   delivery:o.delivery==='delivery'?'Delivery':'Pickup',status:salesStatusLabel(o),state,daysLate:state==='Late'?Math.max(0,days(due,finish||today)):0,ready,
+   lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,area:area||null,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,judgedN:state==='On time'||state==='Late'?1:0,total:t&&t.complete?t.grand:null});
  });
  repOrderCache={stamp,rows};
  return rows;
@@ -38593,11 +38634,11 @@ const REP_SRC={
   metrics:[{k:'count',label:'Packing slips',agg:'count'},{k:'trips',label:'Trips',agg:'distinct',f:'trip'},{k:'units',label:'Units',agg:'sum',f:'units'},{k:'skids',label:'Skids',agg:'sum',f:'skids'},{k:'kg',label:'Weight kg',agg:'sum',f:'kg'},
    {k:'km',label:'Km',agg:'sum',f:'km',digits:1},{k:'kmPerTrip',label:'Km per trip',agg:'ratio',num:'km',den:'kmDone',digits:1}]},
  orders:{label:'Orders & due dates',group:'Sales',hint:'On time, late, lead time',rows:()=>repOrderFacts(),date:['due','created','shipped'],
-  fields:()=>[REP_F.date('due','Due'),REP_F.date('created','Created'),REP_F.date('shipped','Shipped'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
+  fields:()=>[REP_F.date('due','Due'),REP_F.date('created','Created'),REP_F.date('shipped','Shipped'),REP_F.date('ready','Ready for pickup'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
    REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery'),REP_F.dim('status','Status'),REP_F.dim('state','On time'),REP_F.dim('hold','On hold')]
    .concat(repOrderFields(),[REP_F.num('units','Units'),REP_F.num('glassN','Glass pcs'),REP_F.num('area','Area ft²',{digits:1}),REP_F.num('lines','Lines'),REP_F.num('shapes','Shapes'),REP_F.num('kg','Weight kg'),
    REP_F.num('daysLate','Days late'),REP_F.num('lead','Lead time, days'),REP_F.num('total','Order total',{money:true})]),
-  metrics:[{k:'count',label:'Orders',agg:'count'},{k:'late',label:'Late orders',agg:'sum',f:'late'},{k:'onTime',label:'On time %',agg:'ratio',num:'onTimeN',den:'shippedN',pct:true,digits:0},
+  metrics:[{k:'count',label:'Orders',agg:'count'},{k:'late',label:'Late orders',agg:'sum',f:'late'},{k:'onTime',label:'On time %',agg:'ratio',num:'onTimeN',den:'judgedN',pct:true,digits:0},
    {k:'units',label:'Units',agg:'sum',f:'units'},{k:'glassN',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1},{k:'total',label:'Order total',agg:'sum',f:'total',money:true}]},
  ordered:{label:'Ordered glass',group:'Sales',hint:'Glass, thickness and ft² ordered',rows:()=>repOrderedFacts(),date:['created','due'],
   fields:()=>[REP_F.date('created','Created'),REP_F.date('due','Due'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('glass','Glass'),
@@ -38728,7 +38769,7 @@ function repBucket(v,g){
  return day;
 }
 function repBucketText(g,v){
- if(v===''||v==null)return '—';
+ if(v===''||v==null)return 'No date';
  switch(g){
   case 'week':return 'Wk '+salesListShortDay(v);
   case 'month':{const [y,m]=v.split('-');return new Date(+y,+m-1,1).toLocaleDateString('en-US',{month:'short',year:'numeric'});}
@@ -38814,6 +38855,9 @@ function repFilterTest(S,flt,row,ctx){
  const f=repField(S,flt.f);if(!f)return true;
  let v=repGet(f,row);if(f.type==='date')v=repIsoDay(v);
  const list=(Array.isArray(flt.v)?flt.v:[flt.v]).map(x=>repSub(x,ctx));
+ /* Фильтр без значений (только что добавленный «Is any of») ничего не
+    отсекает — иначе график молча становится нулём. */
+ if((flt.op==='in'||flt.op==='notIn')&&!list.filter(x=>x!==''&&x!=null).length)return true;
  const s=v==null?'':String(v),low=s.toLowerCase(),a=list[0],b=list[1];
  switch(flt.op){
   case 'in':return list.includes(s===''?'—':s);
@@ -38858,8 +38902,11 @@ function repIsTime(S,d){const p=repDimParse(d),f=repField(S,p.f);return !!f&&f.t
 function repOrderKeys(S,d,groups,ms,q,range){
  const keys=[...groups.keys()],p=repDimParse(d);
  if(repIsTime(S,d)){
-  const all=repDateKeys(p.g||'day',range,keys);
-  const sorted=all.length?all:keys.sort();
+  /* Корзины периода — и те, что есть в данных вне них: строка без даты
+     («No date») и дата другого поля за границей периода. Иначе итог больше
+     суммы строк, а разница нигде не видна. */
+  const all=repDateKeys(p.g||'day',range,keys),inAll=new Set(all),extra=keys.filter(k=>k&&!inAll.has(k));
+  const sorted=(all.length?all.concat(extra).sort():keys.filter(Boolean).sort()).concat(keys.includes('')?['']:[]);
   return q.sort&&q.sort.dir==='desc'&&(!q.sort.by||q.sort.by==='label')?sorted.slice().reverse():sorted;
  }
  const by=q.sort&&q.sort.by==='label'?'label':'metric',i=q.sort&&Number.isInteger(q.sort.i)?q.sort.i:0,dir=q.sort&&q.sort.dir==='asc'?1:-1;
@@ -38947,12 +38994,15 @@ function repKeyText(S,d,k){return k==='__other'?'Other':repDimText(S,d,k);}
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=3;
+const REP_SEED_VERSION=4;
 /* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
 function repUid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();}
 function repMe(){const u=typeof signinUser==='function'?signinUser():null;return u?u.viewProfileId:'';}
 /* Администратор — галочка Users; без входа (пустая база, картинки) — открыто, как accessCan. */
 function repIsAdmin(){return typeof accessCan==='function'&&accessCan(ACCESS_ADMIN);}
+/* Ставить отчёты на экраны станций и людей — администратор или галочка
+   Screens в Users (владелец, 11.10.2026: начальник производства, Shipping). */
+function repCanScreens(){return repIsAdmin()||typeof accessCan==='function'&&typeof USER_SECTIONS!=='undefined'&&USER_SECTIONS.includes('screens')&&accessCan('screens');}
 function repCanEdit(r){return !!r&&(repIsAdmin()||!!r.ownerId&&r.ownerId===repMe());}
 function repVisible(r){const me=repMe();return !!r&&(repIsAdmin()||r.share==='all'||r.ownerId===me||Array.isArray(r.share)&&r.share.includes(me));}
 function repFind(id){return (DB.report||[]).find(r=>r.id===id)||null;}
@@ -38991,7 +39041,14 @@ function normalizeReports(){
  /* Стартовые отчёты добавляются по версиям: база получает только новые
     для себя — удалённый владельцем стартовый не возвращается. */
  const seed=+DB.reportSeed||0;
- if(seed<REP_SEED_VERSION){REP_STARTERS().filter(r=>(r.seed||1)>seed).forEach(r=>{if(!DB.report.some(x=>x.id===r.id))DB.report.push(repClean(r));});DB.reportSeed=REP_SEED_VERSION;}
+ if(seed<REP_SEED_VERSION){
+  REP_STARTERS().filter(r=>(r.seed||1)>seed).forEach(r=>{if(!DB.report.some(x=>x.id===r.id))DB.report.push(repClean(r));});
+  /* Версия 4: «Sales · my customers» считал заказы по сроку — заказ без Due
+     date не попадал ни в один период. Теперь по дате заказа; правим только
+     графики, которые ещё как в стартовом. */
+  if(seed>=3&&seed<4){const x=DB.report.find(r=>r.id==='RP-start-mycustomers');if(x)x.pages.forEach(p=>p.widgets.forEach(w=>{if(w.q.source==='orders'&&w.q.date.f==='due'&&w.q.date.use!=='own')w.q.date.f='created';}));}
+  DB.reportSeed=REP_SEED_VERSION;
+ }
 }
 function validateReportsPayload(src){
  if(src.report!=null&&!Array.isArray(src.report))throw new Error('The "report" field must be an array.');
@@ -39078,8 +39135,8 @@ function REP_STARTERS(){
     repW('columns','edgework',{title:'Linear in by hour',dims:['at:hour'],metrics:['inches'],filters:[{f:'station',op:'in',v:['@station']}]}),
     repW('table','edgework',{title:'By thickness',dims:['mm'],metrics:['inches','glass'],filters:[{f:'station',op:'in',v:['@station']}]})]]],3),
   R('mycustomers','Sales · my customers','Screens','thisMonth',['customer'],[
-   ['Orders',[repW('number','orders',{date:{f:'due'},metrics:['count','late','onTime'],filters:[{f:'rep',op:'in',v:['@me']}]}),
-    repW('table','orders',{title:'By customer',date:{f:'due'},dims:['customer'],metrics:['count','late','units','area'],filters:[{f:'rep',op:'in',v:['@me']}]})]],
+   ['Orders',[repW('number','orders',{date:{f:'created'},metrics:['count','late','onTime'],filters:[{f:'rep',op:'in',v:['@me']}]}),
+    repW('table','orders',{title:'By customer',date:{f:'created'},dims:['customer'],metrics:['count','late','units','area'],filters:[{f:'rep',op:'in',v:['@me']}]})]],
    ['Quotes',[repW('table','quotes',{title:'My quotes',date:{f:'created'},dims:['state'],metrics:['count','value'],filters:[{f:'rep',op:'in',v:['@me']}]})]]],3),
   R('sizes','Glass by size band','Production','thisMonth',['station','glass'],[
    ['Summary',[repW('bars','glass',{title:'Glass by size band',dims:['sizeBand'],metrics:['count'],width:'half'}),repW('pie','ordered',{title:'Ordered ft² by size band',date:{f:'created'},dims:['sizeBand'],metrics:['area'],width:'half'}),
@@ -39394,10 +39451,13 @@ function repTableHTML(r,S,res,w){
  if(!d1)return `<div class="sales-table-wrap"><table class="sl-table rep-table"><thead><tr>${ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')}</tr></thead><tbody><tr>${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr></tbody></table></div>`;
  const keys=res.keys,label=k=>repKeyText(S,d1,k);let head,body,foot='';
  if(d2){
-  const m=ms[0],k2=res.keys2;
-  head=`<th>${esc(repDimLabel(S,d1))}</th>${k2.map(k=>`<th class="n" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n">Total</th>`;
-  body=keys.slice(0,MAX).map(k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${k2.map(b=>{const v=(res.cells.get(k+'\u0001'+b)||[])[0];return `<td class="n">${v?esc(repFmt(m,v)):'<span class="mut">·</span>'}</td>`;}).join('')}<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(k)[0]))}</b></td></tr>`).join('');
-  if(w.opts.totals)foot=`<tr class="sl-foot"><td><b>Total</b></td>${k2.map(b=>`<td class="n"><b>${esc(repFmt(m,res.colTotals.get(b)[0]))}</b></td>`).join('')}<td class="n"><b>${esc(repFmt(m,res.total[0]))}</b></td></tr>`;
+  /* Разбивка и несколько метрик: у каждого значения разбивки — все метрики
+     (раньше молча оставалась только первая). */
+  const k2=res.keys2,cell=(v,m)=>v?esc(repFmt(m,v)):'<span class="mut">·</span>',many=ms.length>1;
+  head=many?`<th rowspan="2">${esc(repDimLabel(S,d1))}</th>${k2.map(k=>`<th class="n rep-group" colspan="${ms.length}" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n rep-group" colspan="${ms.length}">Total</th></tr><tr>${k2.concat(['']).map(()=>ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')).join('')}`
+   :`<th>${esc(repDimLabel(S,d1))}</th>${k2.map(k=>`<th class="n" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n">Total</th>`;
+  body=keys.slice(0,MAX).map(k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${k2.map(b=>ms.map((m,i)=>`<td class="n">${cell((res.cells.get(k+'\u0001'+b)||[])[i],m)}</td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(k)[i]))}</b></td>`).join('')}</tr>`).join('');
+  if(w.opts.totals)foot=`<tr class="sl-foot"><td><b>Total</b></td>${k2.map(b=>ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.colTotals.get(b)[i]))}</b></td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr>`;
  }else{
   head=`<th>${esc(repDimLabel(S,d1))}</th>${ms.map(m=>`<th class="n">${esc(m.label)}</th>`+(cmp?`<th class="n rep-cmp">${esc(repCmpText(res))}</th>`:'')).join('')}`;
   body=keys.slice(0,MAX).map(k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${ms.map((m,i)=>`<td class="n">${esc(repFmt(m,res.rowTotals.get(k)[i]))}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`).join('');
@@ -39460,13 +39520,13 @@ function repControls(r){
  const keys=[...new Set(r.controls.filter(f=>labels.has(f)).concat(active))];
  const btn=f=>{const vals=vf[f]||[],on=vals.length>0;return `<span class="rep-ctl${on?' on':''}"><button type="button" class="sl-quiet" data-rep-ctl="${esc(f)}" onclick="repOpenCtl(event,'${esc(f)}')">${esc(labels.get(f)||f)}${on?': '+esc(vals.length>2?vals.length+' values':vals.join(', ')):''}<span class="sl-disclosure">▾</span></button>${on?`<button type="button" class="rep-x" aria-label="Clear" onclick="repClearCtl('${esc(f)}')">×</button>`:''}${repEditOn&&r.controls.includes(f)?`<button type="button" class="rep-x" title="Remove control" onclick="repDelControl('${esc(f)}')">−</button>`:''}</span>`;};
  const free=[...labels.keys()].filter(f=>!keys.includes(f));
- return `<div class="rep-bar"><button type="button" class="sl-quiet rep-ctl-date" data-rep-date onclick="repOpenDate(event)">Date: ${esc(repDateText(v.date||r.date))}<span class="sl-disclosure">▾</span></button>${keys.map(btn).join('')}${repEditOn&&free.length?`<select class="rep-add-ctl" aria-label="Add control" onchange="if(this.value)repAddControl(this.value)"><option value="">+ Control</option>${free.map(f=>`<option value="${esc(f)}">${esc(labels.get(f))}</option>`).join('')}</select>`:''}${v.date||v.f!==undefined?`<button type="button" class="sm" data-rep-reset onclick="repResetView()" title="Back to the report's own period and filters">Reset</button>${!repEditOn&&repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-save-view onclick="repSaveDefaults()" title="Keep this period and these filters in the report">Save as default</button>`:''}`:''}</div>`;
+ return `<div class="rep-bar"><button type="button" class="sl-quiet rep-ctl-date" data-rep-date onclick="repOpenDate(event)">Date: ${esc(repDateText(repEditOn?r.date:v.date||r.date))}<span class="sl-disclosure">▾</span></button>${keys.map(btn).join('')}${repEditOn&&free.length?`<select class="rep-add-ctl" aria-label="Add control" onchange="if(this.value)repAddControl(this.value)"><option value="">+ Control</option>${free.map(f=>`<option value="${esc(f)}">${esc(labels.get(f))}</option>`).join('')}</select>`:''}${v.date||v.f!==undefined?`<button type="button" class="sm" data-rep-reset onclick="repResetView()" title="Back to the report's own period and filters">Reset</button>${!repEditOn&&repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-save-view onclick="repSaveDefaults()" title="Keep this period and these filters in the report">Save as default</button>`:''}`:''}</div>`;
 }
 function repMenuHTML(r){
  const m=repMenu;if(!m||!r)return '';
  const style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-320))}px;top:${Math.max(8,m.y)}px`,back='<div class="sl-backdrop" onclick="repMenu=null;render()"></div>';
  if(m.kind==='date'){
-  const cur=repView(r.id).date||r.date;
+  const cur=repEditOn?r.date:repView(r.id).date||r.date;
   return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-date-menu><h5>Period</h5><div class="sl-presets">${REP_PRESETS.map(([k,l])=>`<button type="button" class="sl-btn${!cur.from&&!cur.to&&cur.preset===k?' on':''}" onclick="repSetViewDate({preset:'${k}'})">${l}</button>`).join('')}</div>
    <h5>Custom</h5><div class="sl-row"><input type="date" id="repFrom" value="${esc(cur.from||'')}"><input type="date" id="repTo" value="${esc(cur.to||'')}"></div><div class="sl-actions"><button type="button" class="pri" onclick="repSetViewDate({from:document.getElementById('repFrom').value,to:document.getElementById('repTo').value})">Apply</button></div></div>`;
  }
@@ -39496,7 +39556,12 @@ function repOpenCtl(e,f){if(e)e.stopPropagation();const r=repOpenReport();repMen
 function repCtlToggle(v,on){if(!repMenu)return;repMenu.draft=repMenu.draft.filter(x=>x!==v);if(on)repMenu.draft.push(v);}
 function repCtlApply(){const r=repOpenReport(),m=repMenu;if(!r||!m)return;const base=Object.assign({},repViewFilters(r));if(m.draft.length)base[m.f]=m.draft.slice();else delete base[m.f];repViewSet(r.id,v=>{v.f=base;});repMenu=null;render();}
 function repClearCtl(f){const r=repOpenReport();if(!r)return;const base=Object.assign({},repViewFilters(r));delete base[f];repViewSet(r.id,v=>{v.f=base;});render();}
-function repSetViewDate(d){const r=repOpenReport();if(!r)return;repViewSet(r.id,v=>{v.date={preset:d.preset||'',from:d.from||'',to:d.to||''};});repMenu=null;render();}
+/* В Edit кнопка Date — период самого отчёта (сохраняется по Save); в
+   просмотре — свой период зрителя в этом браузере. Раньше и в Edit она
+   меняла период зрителя, и Save его не сохранял. */
+function repSetViewDate(d){const r=repOpenReport();if(!r)return;const date={preset:d.preset||'',from:d.from||'',to:d.to||''};
+ if(repEditOn&&repDraft){repViewSet(r.id,v=>{delete v.date;});repMenu=null;repEditCur(x=>{x.date=date;});return;}
+ repViewSet(r.id,v=>{v.date=date;});repMenu=null;render();}
 function repResetView(){const r=repOpenReport();if(!r)return;repViewSet(r.id,v=>{delete v.date;delete v.f;});repMenu=null;render();}
 /* Save as default: свой период и фильтры становятся периодом и фильтрами отчёта. */
 function repSaveDefaults(){const r=repOpenReport();if(!r||repDraft)return;const v=repView(r.id);if(repEditReport(r.id,x=>{if(v.date)x.date=v.date;if(v.f!==undefined)x.filters=v.f;}))repResetView();}
@@ -39525,7 +39590,7 @@ function repSetup(r){
   <h5>Title</h5><input type="text" value="${esc(w.title)}" placeholder="${esc(repWidgetTitle(Object.assign({},w,{title:''})))}" onchange="repSetW('title',this.value)">
   <h5>Data</h5><select data-rep-source onchange="repSetSource(this.value)">${repSrcOptions(q.source)}</select><div class="hint">${esc(S.hint||'')}</div>
   <h5>Dimension</h5><select data-rep-dim="0" onchange="repSetDim(0,this.value)">${repOpt(dims,q.dims[0]||'','None — totals only')}</select>
-  ${w.type!=='number'&&w.type!=='pie'?`<h5>Breakdown</h5><select data-rep-dim="1" onchange="repSetDim(1,this.value)">${repOpt(dims.filter(d=>d[0]!==q.dims[0]),q.dims[1]||'','None')}</select>`:''}
+  ${w.type!=='number'&&w.type!=='pie'?`<h5>Breakdown</h5><select data-rep-dim="1" onchange="repSetDim(1,this.value)">${repOpt(dims.filter(d=>d[0]!==q.dims[0]),q.dims[1]||'','None')}</select>${q.dims[1]&&w.type!=='table'&&q.metrics.length>1?'<div class="hint" data-rep-first-metric>Chart shows the first metric; Table shows all.</div>':''}`:''}
   <h5>Metrics</h5>${(q.metrics.length?q.metrics:[S.metrics[0].k]).map((k,i)=>{const c=repCalcParse(k),del=q.metrics.length>1?`<button type="button" class="sm dl" onclick="repDelMetric(${i})">×</button>`:'';
    if(!c)return `<div class="sl-row"><select data-rep-metric="${i}" onchange="repSetMetric(${i},this.value)">${repOpt(mets,k)}</select>${del}</div>`;
    const num=/^n:/.test(c.b);
@@ -39624,7 +39689,7 @@ function repMain(r){
  if(!r)return `<div class="card rep-empty" data-rep-empty><h3>Pick a report</h3><p class="mut">Choose one on the left, or start a new one. Every chart can be changed: data, type, dimensions, metrics, filters, period.</p><button type="button" class="pri" onclick="repNew()">+ New report</button></div>`;
  const can=repEditOn||repCanEdit(repFind(r.id)),p=repPage(r),n=p.widgets.length,folders=[...new Set((DB.report||[]).map(x=>x.folder).filter(Boolean))];
  const head=repEditOn?`<div class="rep-title-edit"><input type="text" data-rep-name value="${esc(r.name)}" aria-label="Report name" onchange="repSetMeta('name',this.value)"><input type="text" list="repFolders" value="${esc(r.folder)}" placeholder="Folder" aria-label="Folder" onchange="repSetMeta('folder',this.value)"><datalist id="repFolders">${folders.map(f=>`<option value="${esc(f)}">`).join('')}</datalist>
-   <select aria-label="Who sees it" onchange="repSetMeta('share',this.value)">${repOpt([['me','Only me'],['all','Everyone with Reports']],r.share==='all'?'all':'me')}</select>${repIsAdmin()?`<button type="button" class="sm" data-rep-screens onclick="repOpenScreens(event)" title="Station boards and people's Overview">Show on${(r.screens.stations.length+r.screens.people.length)?' · '+(r.screens.stations.length+r.screens.people.length):''}</button>`:''}<select aria-label="Default period" title="Default period" onchange="repSetMeta('date',this.value)">${repOpt(REP_PRESETS,r.date.preset)}</select></div>`
+   <select aria-label="Who sees it" onchange="repSetMeta('share',this.value)">${repOpt([['me','Only me'],['all','Everyone with Reports']],r.share==='all'?'all':'me')}</select>${repCanScreens()?`<button type="button" class="sm" data-rep-screens onclick="repOpenScreens(event)" title="Station boards and people's Overview">Show on${(r.screens.stations.length+r.screens.people.length)?' · '+(r.screens.stations.length+r.screens.people.length):''}</button>`:''}</div>`
   :`<h2 class="rep-title" data-raw>${esc(r.name)}</h2>`;
  const dirty=repDirty(),saved=!!repFind(r.id);
  const acts=repEditOn?`${dirty?'<span class="mut small" data-rep-unsaved>Unsaved changes</span>':''}<button type="button" class="pri sm" data-rep-save onclick="repSaveEdit()">Save</button><button type="button" class="sm" data-rep-cancel onclick="repCancelEdit()">Cancel</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>${saved?`<button type="button" class="sm dl" onclick="repDeleteOpen()">Delete</button>`:''}`
