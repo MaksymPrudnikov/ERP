@@ -73,6 +73,33 @@ module.exports=async function({page,eq,ok}){
   return {people:next.referrer.map(x=>x.name),pct:next.referrer[0].customers[0].pct,payouts:next.referrerPayout.map(p=>p.amount===paid&&p.orders.length)};
  }),{people:['Sergey Petrov'],pct:3,payouts:[1]});
 
+ /* Ревью 12.10.2026 (агент): переплата по одному заказу не вычиталась из
+    выплаты по другому — одну комиссию можно было выплатить дважды. */
+ eq('Оплату перенесли на другой заказ после выплаты: новая выплата не платит второй раз («earlier payouts cover it»), выплачено = начислено',await t.p.evaluate(()=>{
+  const {sky,a}=cmSeed();const b=oqOrder(sky);salesDraftDrop();const r0=cmPay(a,500);
+  const r=comSave({name:'Sergey Petrov',customers:[{customerId:sky.id,pct:10}]}).value;comPayoutAdd({referrerId:r.id,date:finToday(),orderIds:[a,b]});
+  r0.allocations=[{orderId:b,amount:500}];touch();
+  const again=comPayoutAdd({referrerId:r.id,date:finToday(),orderIds:[a,b]}).error,s=comSummary(r,null);
+  return {again,paidOut:s.paidOut===s.earned,toPay:s.toPay};
+ }),{again:'Nothing to pay: earlier payouts cover it.',paidOut:true,toPay:0});
+
+ eq('Переплата вычитается из следующей выплаты строкой: заказ отменили и удалили после выплаты, клиент заплатил по новому — выплата только разницы',await t.p.evaluate(()=>{
+  const {sky,a}=cmSeed();cmPay(a,300);const r=comSave({name:'Sergey Petrov',customers:[{customerId:sky.id,pct:10}]}).value;
+  const p1=comPayoutAdd({referrerId:r.id,date:finToday(),orderIds:[a]}).value.amount;
+  DB.receipt.forEach(x=>{x.allocations=x.allocations.filter(al=>al.orderId!==a);});DB.salesOrder=DB.salesOrder.filter(o=>o.id!==a);touch();
+  const b=oqOrder(sky);salesDraftDrop();cmPay(b,500);const due=comDue(r),gone=[...due.values()].find(x=>x.orderId===a);
+  const p2=comPayoutAdd({referrerId:r.id,date:finToday(),orderIds:[b]}).value,s=comSummary(r,null);
+  return {gone:gone&&gone.number==='Deleted order'&&gone.due===-p1,lines:p2.orders.length,amount:p2.amount===finMoney(due.get(b).due-p1),paidOut:s.paidOut===s.earned,dues:[...comDue(r).values()].every(x=>x.due===0)};
+ }),{gone:true,lines:2,amount:true,paidOut:true,dues:true});
+
+ eq('Экран Agents считает итоги заказа один раз за показ (раньше ~10 раз на заказ)',await t.p.evaluate(()=>{
+  const {sky,north,a,b}=cmSeed();const c=oqOrder(sky);salesDraftDrop();[a,b,c].forEach(id=>cmPay(id,100));
+  const r=comSave({name:'Sergey Petrov',customers:[{customerId:sky.id,pct:3},{customerId:north.id,pct:2}]}).value;comPayoutAdd({referrerId:r.id,date:finToday(),orderIds:[a]});
+  const old=window.finOrderTotals;let n=0;window.finOrderTotals=o=>{n++;return old(o);};
+  try{comOpen=r.id;comDraft=null;comPayDraft={referrerId:r.id,date:finToday(),note:'',orderIds:[b,c]};comHst=true;tab='commissions';render();}finally{window.finOrderTotals=old;}
+  comPayDraft=null;comHst=false;tab='dashboard';render();return {calls:n};
+ }),{calls:3});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

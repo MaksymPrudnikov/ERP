@@ -252,11 +252,16 @@ function salesTransitionChecks(o,next){
 function salesRunChecksMany(list,done,anyway){
  const all=list.flatMap(x=>x.checks.map(c=>({o:x.o,c,take:x.take})));
  if(!all.length){done();return;}
- const block=all.find(x=>x.c.block);if(block){salesRunChecks([block.c],()=>{},block.take);return;}
+ /* Нет PO у нескольких заказов — все одним окном, только Back (ревью 12.10.2026). */
+ const blocks=all.filter(x=>x.c.block);
+ if(blocks.length===1){salesRunChecks([blocks[0].c],()=>{},blocks[0].take);return;}
+ if(blocks.length){salesDialogOpen({title:blocks.length+' orders cannot go on',rows:blocks.map(x=>[x.o.businessNumber+' · '+salesCustomerDisplay(x.o.customerId),x.c.short||x.c.title,true]),note:'Enter the PO in each order.',buttons:[{label:'Back'}]});return;}
  const ids=new Set(all.map(x=>x.o.id));
  if(ids.size===1){const x=list.find(y=>y.checks.length);salesRunChecks(x.checks,done,x.take);return;}
+ /* В подписи — все выбранные заказы: «anyway» отправляет и те, у кого всё в порядке. */
+ const n=list.length;
  salesDialogOpen({title:ids.size+' orders need attention',rows:all.map(x=>[x.o.businessNumber+' · '+salesCustomerDisplay(x.o.customerId),x.c.short||x.c.title,true]),
-  note:'Back changes nothing. '+anyway+' — '+(ids.size===2?'both orders':'all '+ids.size+' orders')+'.',buttons:[{label:'Back'},{label:anyway,kind:'pri',run:done}]});
+  note:'Back changes nothing. '+anyway+' — '+(n===2?'both orders':'all '+n+' orders')+'.',buttons:[{label:'Back'},{label:anyway,kind:'pri',run:done}]});
 }
 function salesRunChecks(checks,done,takePayment){
  if(!checks.length){done();return;}

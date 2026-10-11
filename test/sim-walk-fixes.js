@@ -126,6 +126,15 @@ module.exports=async function({page,eq,ok}){
   tab='dashboard';render();return {r,main,list};
  }),{r:'shipLoaded',main:'Ship',list:'1 skid loaded'});
 
+ eq('Ревью 12.10: окно нескольких заказов считает все выбранные («all 3 orders»); нет PO у двух — одно окно с обоими, только Back',await t.p.evaluate(()=>{
+  oqReset();const cash=()=>oqCustomer({legalName:'Cash '+Math.random(),paymentMode:'cash'}),a=oqOrder(cash()),b=oqOrder(cash()),c=oqOrder(oqCustomer({legalName:'Net buyer'}));salesDraftDrop();
+  [a,b,c].forEach(id=>salesSetRecordStatus(id,'verified'));oqQueue('batch');optimizationRunOrders([a,b,c],'batched');const note=salesDialog.note;oqChoose('Back');
+  const p1=oqOrder(oqCustomer({legalName:'PO One',poRequired:true}),{customerPo:'X'}),p2=oqOrder(oqCustomer({legalName:'PO Two',poRequired:true}),{customerPo:'Y'});salesDraftDrop();
+  [p1,p2].forEach(id=>{salesRecord(id).customerPo='';salesSetRecordStatus(id,'verified');});optimizationRunOrders([p1,p2],'batched');
+  const d={title:salesDialog.title,rows:salesDialog.rows.length,buttons:salesDialog.buttons.map(x=>x.label)};oqChoose('Back');tab='dashboard';render();
+  return {note,d,status:[p1,p2].map(id=>salesRecord(id).status)};
+ }),{note:'Back changes nothing. Send anyway — all 3 orders.',d:{title:'2 orders cannot go on',rows:2,buttons:['Back']},status:['verified','verified']});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
