@@ -319,12 +319,18 @@ function stationBreakPlan(g,station,asmId){
  /* Юнит уже собран и уехал с IGU (разбили на скиде через пару дней) —
     переделывается весь юнит. */
  if(a&&a.unit&&!a.broken&&station!==mu)return {which:'unit',whole:true,asm:a,pieces:[...a.lites.values()],out:[]};
- const which=panes.length<2?'unit':String(g.c.index),keys=ncrGlassKeys(g.o,g.l,which);
+ /* Плита ламината до склейки — перерезают одну её: целая ждёт новую пару на
+    LAM (владелец, 11.10.2026: «режем одну плиту»; раньше перерезались обе, а
+    целая навсегда оставалась «в работе»). Склеенный сэндвич лопается целиком:
+    обе плиты разбиты и перерезаются. */
+ const lam=salesRouteStationOf('lamination','LAM'),la=g.c.ply&&lam!==mu?stationAsmOf(g,lam):null,joined=!!(la&&la.complete&&!la.broken);
+ const which=g.c.ply&&!joined&&!(a&&a.complete)?g.c.index+':'+g.c.ply:panes.length<2?'unit':String(g.c.index),keys=ncrGlassKeys(g.o,g.l,which);
+ const sandwich=joined?[...la.lites.values()].filter(id=>id!==g.id):[];
  /* На IGU перед закрытием — контроль: поцарапан один лайт, остальные
     вынимают из машины, они ждут пару на долли (владелец, 29.09.2026). */
  const out=a&&!a.broken&&station===mu?[...a.lites.entries()].filter(([k,id])=>id!==g.id&&!keys.includes(k)).map(([k,id])=>id):[];
  const same=a&&!a.broken&&station===mu?[...a.lites.entries()].filter(([k,id])=>id!==g.id&&keys.includes(k)).map(([k,id])=>id):[];
- return {which,whole:false,asm:a,pieces:[g.id].concat(same),out};
+ return {which,whole:false,asm:a,pieces:[g.id].concat(same,sandwich),out};
 }
 function stationBreak(station,check,who,reasonId,opts){
  if(storageDepth||opts&&opts.deferTouch)return stationBreakCommand(station,check,who,reasonId,opts);
