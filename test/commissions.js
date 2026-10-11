@@ -18,13 +18,24 @@ module.exports=async function({page,eq,ok}){
   return {orders:s.orders,base:s.base===base,com:s.com===finMoney(base*0.03),comHst:s.comHst===finMoney(half*0.03),hst:tt.hst>0,toPay:s.toPay===s.com};
  }),{orders:1,base:true,com:true,comHst:true,hst:true,toPay:true});
 
- eq('Аннулированная оплата не считается; выплата уменьшает «To pay»; оплата прошлого года — не в «This year», но в «To pay»',await t.p.evaluate(()=>{
-  const {sky,a}=cmSeed(),y=+finToday().slice(0,4);const r1=cmPay(a,100),r2=cmPay(a,50,(y-1)+'-06-15');const v=cmPay(a,30);v.voided=true;v.voidReason='Bounced';
-  const r=comSave({name:'Sergey Petrov',customers:[{customerId:sky.id,pct:10}]}).value;const tt=finOrderTotals(salesRecord(a)),k=(tt.grand-tt.hst)/tt.grand;
-  comPayoutAdd({referrerId:r.id,date:finToday(),amount:5,note:'Cash'});
+ eq('Аннулированная оплата не считается; оплата прошлого года — не в «This year», но в долге за всё время',await t.p.evaluate(()=>{
+  const {sky,a}=cmSeed(),y=+finToday().slice(0,4);cmPay(a,100);cmPay(a,50,(y-1)+'-06-15');const v=cmPay(a,30);v.voided=true;v.voidReason='Bounced';
+  const r=comSave({name:'Sergey Petrov',customers:[{customerId:sky.id,pct:10}]}).value,tt=finOrderTotals(salesRecord(a)),k=(tt.grand-tt.hst)/tt.grand;
   const year=comSummary(r,{from:y+'-01-01',to:y+'-12-31'}),all=comSummary(r,null);
-  return {yearPaid:year.paid,allPaid:all.paid,paidOut:all.paidOut,toPay:year.toPay===finMoney(all.com-5)&&all.toPay===year.toPay,ratio:all.com===finMoney(finMoney(150*k)*0.1)};
- }),{yearPaid:100,allPaid:150,paidOut:5,toPay:true,ratio:true});
+  return {yearPaid:year.paid,allPaid:all.paid,com:all.com===finMoney(finMoney(150*k)*0.1),toPay:year.toPay===all.com};
+ }),{yearPaid:100,allPaid:150,com:true,toPay:true});
+
+ eq('Дважды за один заказ не заплатить: выплата закрывает долг заказов; вторая — «Nothing to pay»; клиент доплатил — к выплате только новая часть; удалили выплату — долг вернулся',await t.p.evaluate(()=>{
+  const {sky,a,b}=cmSeed();const o2=oqOrder(sky);salesDraftDrop();cmPay(a,200);cmPay(o2,100);
+  const r=comSave({name:'Sergey Petrov',customers:[{customerId:sky.id,pct:5}]}).value,before=comSummary(r,null).toPay;
+  const p1=comPayoutAdd({referrerId:r.id,date:finToday(),orderIds:[a,o2],note:'Cash'}).value;
+  const after=comSummary(r,null).toPay,again=comPayoutAdd({referrerId:r.id,date:finToday(),orderIds:[a,o2]}).error;
+  cmPay(a,100);const d=comDue(r).get(a),tt=finOrderTotals(salesRecord(a)),k=(tt.grand-tt.hst)/tt.grand;
+  const onlyNew=d.due===finMoney(finMoney(finMoney(300*k)*0.05)-finMoney(finMoney(200*k)*0.05));
+  const p2=comPayoutAdd({referrerId:r.id,date:finToday(),orderIds:[a,o2]}).value;
+  comPayoutDelete(p1.id);const back=comDue(r).get(o2).due>0&&comDue(r).get(a).due===comDue(r).get(a).com-p2.amount;
+  return {p1:p1.orders.length,sum:p1.amount===before,after,again,onlyNew,p2:p2.orders.map(x=>x.orderId===a),back,other:!!b};
+ }),{p1:2,sum:true,after:0,again:'Nothing to pay.',onlyNew:true,p2:[true],back:true,other:true});
 
  eq('Клиент — у одного человека: отдал клиента другому — у первого он пропал; без имени и без процента не сохраняется',await t.p.evaluate(()=>{
   const {sky,north}=cmSeed();const a=comSave({name:'Sergey Petrov',customers:[{customerId:sky.id,pct:3},{customerId:north.id,pct:2}]}).value;
@@ -49,17 +60,18 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-com-hst]').click();const h2=heads().length;
   document.querySelector(`[data-com-row="${comOfCustomer(north.id).id}"]`).click();const orders=[...document.querySelectorAll('[data-com-order]')].map(x=>x.dataset.comOrder);
   const before=document.querySelector('[data-com-topay]').textContent;document.querySelector('[data-com-pay]').click();
-  const f=document.querySelector('[data-com-pay-form]');f.querySelector('input[type=number]').value='1';f.querySelector('input[type=number]').dispatchEvent(new Event('input'));document.querySelector('[data-com-pay-save]').click();
-  const after=document.querySelector('[data-com-topay]').textContent,payouts=document.querySelectorAll('[data-com-payouts] tbody tr').length;
-  comHst=false;tab='dashboard';render();
-  return {h1,people,h2,orders:orders.length===1&&orders[0]===salesRecord(b).businessNumber,changed:before!==after,payouts};
- }),{h1:['Person','Contact','Customers · %','Orders','Paid','Commission','Paid out','To pay'],people:['Olga Marchenko','Sergey Petrov'],h2:10,orders:true,changed:true,payouts:1});
+  const checked=[...document.querySelectorAll('[data-com-pay-order]')].map(x=>x.checked),total=document.querySelector('[data-com-pay-total]').textContent;document.querySelector('[data-com-pay-save]').click();
+  const after=document.querySelector('[data-com-topay]').textContent,due=document.querySelector('[data-com-due]').textContent,payouts=[...document.querySelectorAll('[data-com-payouts] tbody tr td:nth-child(3)')].map(x=>x.textContent);
+  document.querySelector('[data-com-pay]').click();const nothing=/Nothing to pay/.test(document.querySelector('[data-com-pay-form]').textContent)&&document.querySelector('[data-com-pay-save]').disabled;
+  comPayDraft=null;comHst=false;tab='dashboard';render();
+  return {h1,people,h2,orders:orders.length===1&&orders[0]===salesRecord(b).businessNumber,checked,total:total===before,after,due,payouts:payouts.length===1&&payouts[0].startsWith(salesRecord(b).businessNumber+' '),nothing};
+ }),{h1:['Person','Contact','Customers · %','Orders','Paid','Commission','Paid out','To pay'],people:['Olga Marchenko','Sergey Petrov'],h2:10,orders:true,checked:[true],total:true,after:'$0.00',due:'$0.00',payouts:true,nothing:true});
 
  eq('Export / Import JSON: люди и выплаты переносятся, мусор чистится',await t.p.evaluate(()=>{
-  const {sky}=cmSeed();const r=comSave({name:'Sergey Petrov',customers:[{customerId:sky.id,pct:3}]}).value;comPayoutAdd({referrerId:r.id,date:finToday(),amount:12.5,note:''});
+  const {sky,a}=cmSeed();cmPay(a,500);const r=comSave({name:'Sergey Petrov',customers:[{customerId:sky.id,pct:3}]}).value;const paid=comPayoutAdd({referrerId:r.id,date:finToday(),orderIds:[a],note:''}).value.amount;
   const next=prepareImportedState(JSON.parse(JSON.stringify(Object.assign({},DB,{referrer:DB.referrer.concat([{id:'x',name:''},null]),referrerPayout:DB.referrerPayout.concat([{id:'p',referrerId:'nobody',date:finToday(),amount:5}])}))));
-  return {people:next.referrer.map(x=>x.name),pct:next.referrer[0].customers[0].pct,payouts:next.referrerPayout.map(p=>p.amount)};
- }),{people:['Sergey Petrov'],pct:3,payouts:[12.5]});
+  return {people:next.referrer.map(x=>x.name),pct:next.referrer[0].customers[0].pct,payouts:next.referrerPayout.map(p=>p.amount===paid&&p.orders.length)};
+ }),{people:['Sergey Petrov'],pct:3,payouts:[1]});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
