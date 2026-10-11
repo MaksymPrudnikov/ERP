@@ -194,9 +194,9 @@ async function cutUiTrialSave(machine){
    листы остаются. */
 function cutUiReset(number){
  const plan=cutPlanFor(number);if(!plan||plan.reset||cutBusy)return;
- const st=plan.groups.flatMap(g=>g.sheets.filter(x=>!x.locked).flatMap(x=>(x.stock||[]).map(o=>o.id)));
+ const pre=cutResetPreview(number);
  const kept=plan.groups.reduce((n,g)=>n+g.sheets.filter(x=>x.locked).length,0);
- if(!confirm('Reset the optimization? Sheets are cleared'+(kept?', '+kept+' locked sheet'+(kept>1?'s stay':' stays'):'')+'.'+(st.length?' Stock '+st.join(', ')+' goes back to waste.':'')))return;
+ if(!confirm((pre.cut?pre.cut+' of '+pre.of+' glass in '+number+' already cut. ':'')+'Reset the optimization? Sheets are cleared'+(kept?', '+kept+' locked sheet'+(kept>1?'s stay':' stays'):'')+'.'+(pre.cancel.length?' Stock '+pre.cancel.join(', ')+' goes back to waste.':'')+(pre.keep.length?' Stock '+pre.keep.join(', ')+' stays (sheet cut).':'')))return;
  const r=cutPlanReset(number);cutNotice=r.error||'';cutInfo=null;cutWhat=null;cutUi.sheet=1;cutUi.sel='';render();
 }
 /* Размер листа прямо с экрана оптимизации: уходит в размеры цеха (Master
@@ -205,7 +205,7 @@ function cutUiReset(number){
 function cutUiAddSize(number,wId,hId,build){
  const w=document.getElementById(wId),h=document.getElementById(hId);
  const plan=cutPlanFor(number),built=plan&&!plan.reset;
- if(build&&built&&!confirm('Reset the optimization and build again?'))return;
+ if(build&&built&&!confirm('Reset the optimization and build again?'+cutResetWarn(number)))return;
  const r=cutShopSizeAdd(w?w.value:'',h?h.value:'');
  if(r.error){cutNotice=r.error;render();return;}
  if(build)return cutUiBuild(number);
@@ -332,7 +332,7 @@ function cutUiSameSizeRemove(glass,key){cutUiRun(()=>cutRemoveSameSize(cutUi.bat
    размера и Build одним нажатием. */
 function cutUiOverSize(glass,key){
  const n=cutUi.batch,plan=cutPlanFor(n);
- if(plan&&!plan.reset){if(!confirm('Reset the optimization and build again with this sheet?'))return;cutPlanReset(n);}
+ if(plan&&!plan.reset){if(!confirm('Reset the optimization and build again with this sheet?'+cutResetWarn(n)))return;cutPlanReset(n);}
  const r=cutAddSameSize(n,glass,key);if(r.error){cutNotice=r.error;render();return;}
  cutUiBuild(n);
 }
