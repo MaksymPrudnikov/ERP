@@ -89,6 +89,18 @@ module.exports=async function({page,eq,ok}){
   cbOut();return {onB:onB===b+':6CLEAR:1',back:back===a+':6CLEAR:1',count,opts,table};
  }),{onB:true,back:true,count:true,opts:['B · 6CLEAR · 3 / 24 cut · started','B · 6CLEAR · 1 / 4 cut · started'],table:true});
 
+ /* Проход 11.10.2026 (tools/sim-shop.js): Reset на порезанном батче стирал
+    раскладку без слов о резке, снимал со стока остаток уже порезанного листа
+    и ничего не писал в History. */
+ eq('Reset порезанного батча: окно говорит «N of M glass already cut», остаток порезанного листа остаётся в стоке, непорезанного — уходит; запись в History',await t.p.evaluate(()=>{
+  cbReset();DB.stockOffcut=[];const n=cbOrder([[60,40,6]]);cutPlanRun(n);const b=glassBatchFind(n),plan=cutPlanFor(n),g=plan.groups[0];
+  const book=s=>{const r=stockOffcutAdd({glass:g.glass,mm:g.mm,w:10,h:10,batch:n,sheet:s.no,x:0,y:0});s.stock.push({id:r.id,x:0,y:0,w:10,h:10});return r.id;};
+  const [a,c]=[book(g.sheets[0]),book(g.sheets[1])];b.items.find(i=>i.piece===g.sheets[0].pieces[0].piece).cutStartedAt=new Date().toISOString();touch();
+  let msg='';const old=window.confirm;window.confirm=m=>{msg=m;return true;};try{cutUiReset(n);}finally{window.confirm=old;}
+  const st=id=>stockOffcutFind(id).status,h=b.history[b.history.length-1];
+  return {sheets:g.sheets.length,msg:msg.replace(/B-\d+/,'B-#'),kept:st(a),gone:st(c),reset:cutPlanFor(n).reset,history:h.action,qty:h.qty};
+ }),{sheets:2,msg:'1 of 6 glass in B-# already cut. Reset the optimization? Sheets are cleared. Stock S-0000002 goes back to waste. Stock S-0000001 stays (sheet cut).',kept:'stock',gone:'cancelled',reset:true,history:'Layout reset · 2 sheets · 1 of 6 already cut',qty:6});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

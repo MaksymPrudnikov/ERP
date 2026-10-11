@@ -330,6 +330,14 @@ function glassBatchStale(b,stops){
  const n=k=>[...gone.values()].filter(x=>x===k).length,parts=[['Cancelled','cancelled'],['On hold','on hold'],['Removed','removed']].map(([k,w])=>n(k)?n(k)+' '+w:'').filter(Boolean);
  return {gone,text:parts.join(' · ')};
 }
+/* Какие стёкла ушли из раскроя — строками для человека: Glass ID, заказ,
+   позиция, причина. Владелец, 11.10.2026: «чтобы оптимизатор понял, что
+   одно из стёкол ушло именно этого заказа… если стёкол тысяча в батче». */
+function glassBatchGoneRows(b,stale){
+ if(!b||!stale)return [];
+ const part=new Map();b.items.forEach(i=>{const p=b.parts[i.part];if(p&&!part.has(i.piece))part.set(i.piece,p.snapshot||{});});
+ return [...stale.gone].map(([piece,why])=>{const x=part.get(piece)||{};return [piece+(x.order?' · Order '+x.order:'')+(x.line?' · Line '+x.line:''),why];});
+}
 /* Перенос стёкол в новый батч. Последний лист с большим пустым местом бывает
    выгоднее не резать — его стёкла уходят в новый батч; решает человек, «есть
    такая переменная как день ожидания» (владелец, 18 сентября 2026). Запись

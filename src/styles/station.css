@@ -383,6 +383,17 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
    темы, а с кнопкой Board — уже на 1280). Код станции и инициалы остаются,
    название станции и имя рабочего прячутся. */
 @media (max-width:1366px){.st-top:has(.st-topscan) .st-name{display:none}}
+/* Queue/Board с плашками «No dolly», «Putting on», батча и рабочего шапка
+   была шире окна уже на 1440 (проход 11.10.2026: 1572 px, поле скана
+   «Scan b», ERP за краем). С полем скана до 1600 — без названия станции и
+   имени рабочего; до 1366 — без слов «Putting on» и счётчика «cut». */
+@media (max-width:1600px){
+ .st-top:has(.st-topscan) .st-name,.st-top:has(.st-topscan) .st-chip:has(.st-av) b{display:none}
+ .st-top:has(.st-topscan) .st-chip:has(.st-av){padding:6px}
+}
+@media (max-width:1366px){.st-top:has(.st-topscan) .st-chip-more{display:none}}
+/* До 1200 — ещё без слова «Batch» и кнопки темы (тема — на вкладке Scan). */
+@media (max-width:1200px){.st-top:has(.st-topscan) .st-chip-word,.st-top:has(.st-topscan) [data-station-theme]{display:none}}
 @media (max-width:1000px){.st-top .st-chip:not(:has(.st-av)){display:none}}
 @media (max-width:1200px){
  .st-top{gap:8px;padding:0 12px}

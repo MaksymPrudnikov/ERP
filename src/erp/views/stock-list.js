@@ -47,7 +47,7 @@ function stockUiUse(id,number){
  const rec=stockOffcutFind(id);if(!rec)return;
  const plan=cutPlanFor(number);
  if(plan&&!plan.reset){
-  if(!confirm('Reset the optimization of '+number+' and add '+id+'? Its layout is built again.'))return;
+  if(!confirm('Reset the optimization of '+number+' and add '+id+'? Its layout is built again.'+cutResetWarn(number)))return;
   cutPlanReset(number);
  }
  const r=cutSetStock(number,rec.glass,id,'off',false);

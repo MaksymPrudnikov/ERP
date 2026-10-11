@@ -194,9 +194,9 @@ async function cutUiTrialSave(machine){
    листы остаются. */
 function cutUiReset(number){
  const plan=cutPlanFor(number);if(!plan||plan.reset||cutBusy)return;
- const st=plan.groups.flatMap(g=>g.sheets.filter(x=>!x.locked).flatMap(x=>(x.stock||[]).map(o=>o.id)));
+ const pre=cutResetPreview(number);
  const kept=plan.groups.reduce((n,g)=>n+g.sheets.filter(x=>x.locked).length,0);
- if(!confirm('Reset the optimization? Sheets are cleared'+(kept?', '+kept+' locked sheet'+(kept>1?'s stay':' stays'):'')+'.'+(st.length?' Stock '+st.join(', ')+' goes back to waste.':'')))return;
+ if(!confirm((pre.cut?pre.cut+' of '+pre.of+' glass in '+number+' already cut. ':'')+'Reset the optimization? Sheets are cleared'+(kept?', '+kept+' locked sheet'+(kept>1?'s stay':' stays'):'')+'.'+(pre.cancel.length?' Stock '+pre.cancel.join(', ')+' goes back to waste.':'')+(pre.keep.length?' Stock '+pre.keep.join(', ')+' stays (sheet cut).':'')))return;
  const r=cutPlanReset(number);cutNotice=r.error||'';cutInfo=null;cutWhat=null;cutUi.sheet=1;cutUi.sel='';render();
 }
 /* Размер листа прямо с экрана оптимизации: уходит в размеры цеха (Master
@@ -205,7 +205,7 @@ function cutUiReset(number){
 function cutUiAddSize(number,wId,hId,build){
  const w=document.getElementById(wId),h=document.getElementById(hId);
  const plan=cutPlanFor(number),built=plan&&!plan.reset;
- if(build&&built&&!confirm('Reset the optimization and build again?'))return;
+ if(build&&built&&!confirm('Reset the optimization and build again?'+cutResetWarn(number)))return;
  const r=cutShopSizeAdd(w?w.value:'',h?h.value:'');
  if(r.error){cutNotice=r.error;render();return;}
  if(build)return cutUiBuild(number);
@@ -332,7 +332,7 @@ function cutUiSameSizeRemove(glass,key){cutUiRun(()=>cutRemoveSameSize(cutUi.bat
    размера и Build одним нажатием. */
 function cutUiOverSize(glass,key){
  const n=cutUi.batch,plan=cutPlanFor(n);
- if(plan&&!plan.reset){if(!confirm('Reset the optimization and build again with this sheet?'))return;cutPlanReset(n);}
+ if(plan&&!plan.reset){if(!confirm('Reset the optimization and build again with this sheet?'+cutResetWarn(n)))return;cutPlanReset(n);}
  const r=cutAddSameSize(n,glass,key);if(r.error){cutNotice=r.error;render();return;}
  cutUiBuild(n);
 }
@@ -1068,7 +1068,7 @@ function viewCutLayout(b){
     над ним повторяла бы то же самое. */
  const need=cutNeedSizes(b,plan,pieces),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
  const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button></div>`:'';
- const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale||changed?`<div class="ncr-warning${changed?' cut-stale-stop':''}" data-cut-stale>⚠ ${est?'Orders or quotes changed':'Batch changed'} after the layout${changed?' · '+esc(changed.text):''} — Reset, then Build.</div>`:'')+info+cutWhatTable(b.number,busy);
+ const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale||changed?`<div class="ncr-warning${changed?' cut-stale-stop':''}" data-cut-stale>⚠ ${est?'Orders or quotes changed':'Batch changed'} after the layout${changed?' · '+esc(changed.text):''} — Reset, then Build.${changed?`<span class="gb-stale-list" data-cut-stale-list>${esc(glassBatchGoneRows(b,changed).slice(0,6).map(r=>r[0]).join('; ')+(changed.gone.size>6?'; +'+(changed.gone.size-6)+' more':''))}</span>`:''}</div>`:'')+info+cutWhatTable(b.number,busy);
  if(!plan.groups.length)return `${notice}${need}<p class="mut cut-empty">${est?'Nothing to lay out: tick an order or quote with glass.':'Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.'}</p>`;
  const at=id=>cutFind(plan,id);
  const placed=new Set(),locations=new Map();plan.groups.forEach(g=>g.sheets.forEach(x=>x.pieces.forEach((p,i)=>{placed.add(p.piece);locations.set(p.piece,{group:g,sheet:x,piece:p,index:i});})));
