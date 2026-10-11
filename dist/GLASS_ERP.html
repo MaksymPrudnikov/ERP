@@ -3167,7 +3167,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='543a5a231b53';
+var ERP_BUILD='4082ed6c907a';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11874,18 +11874,18 @@ function salesTransitionChecks(o,next){
     perOrder — в Shipping окно своё у каждого заказа, без строки долга.
     block — без «…anyway»: без PO дальше не идёт (владелец, 8.10.2026). */
  const noPo=c&&c.poRequired&&!String(o.customerPo||'').trim()&&['verified','batched','done'].includes(next);
- if(noPo)out.push({title:'PO missing — order '+num,sub,rows:[['Customer',name+' requires a PO']],note:'Enter the PO in the order.',block:true,perOrder:true});
+ if(noPo)out.push({title:'PO missing — order '+num,sub,rows:[['Customer',name+' requires a PO']],note:'Enter the PO in the order.',block:true,perOrder:true,short:'PO missing'});
  if(next==='verified'||next==='batched'){
-  if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway:'Continue anyway'});
-  if(b.total==null)out.push({title:'Pricing is not complete',sub,rows:[],note:'Some lines have no price.',anyway:'Continue anyway'});
+  if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway:'Continue anyway',short:'Customer on hold'});
+  if(b.total==null)out.push({title:'Pricing is not complete',sub,rows:[],note:'Some lines have no price.',anyway:'Continue anyway',short:'Pricing not complete'});
   else if(terms.paymentMode==='cash'){
    const pct=paymentDepositPercent(terms),dep=salesMoney(b.total*pct/100);
    if(pct>0&&b.paid<dep)out.push({title:'Deposit not received — order '+num,sub,rows:[['Order total',finFmt(b.total)],['Deposit required · '+pct+'%',finFmt(dep)],['Received',finFmt(b.paid),true]],
     note:next==='verified'?'Cut only after the deposit.':'Deposit not paid.',
-    anyway:next==='verified'?'Verify anyway':'Send anyway',pay:salesMoney(dep-b.paid)});
+    anyway:next==='verified'?'Verify anyway':'Send anyway',pay:salesMoney(dep-b.paid),short:'Deposit '+finFmt(dep)+' · received '+finFmt(b.paid)});
   }else if(next==='verified'&&c){
    const acc=finCustomerAccount(c),due=salesMoney(acc.balanceDue+(salesOrderIsSaved(o)?0:Math.max(0,b.balance||0)));
-   if(acc.creditLimit!=null&&due>acc.creditLimit)out.push({title:name+' is over the credit limit',sub,rows:[['Credit limit',finFmt(acc.creditLimit)],['Balance due with this order',finFmt(due),true],['Over by',finFmt(salesMoney(due-acc.creditLimit)),true]],note:'',anyway:'Verify anyway'});
+   if(acc.creditLimit!=null&&due>acc.creditLimit)out.push({title:name+' is over the credit limit',sub,rows:[['Credit limit',finFmt(acc.creditLimit)],['Balance due with this order',finFmt(due),true],['Over by',finFmt(salesMoney(due-acc.creditLimit)),true]],note:'',anyway:'Verify anyway',short:'Over credit limit by '+finFmt(salesMoney(due-acc.creditLimit))});
   }
  }
  /* Кредит: товар уходит без оплаты — срок считается от дня выдачи
@@ -11903,6 +11903,20 @@ function salesTransitionChecks(o,next){
    anyway:next==='closed'?'Close anyway':anyway,pay:next==='done'?b.balance:null});
  }
  return out;
+}
+/* Несколько заказов сразу (Create batch, Verify в очереди): одно окно со
+   всеми заказами, а не окно на каждый (проход 11.10.2026: пять неоплаченных —
+   пять окон подряд, Back на втором терял «Send anyway» первого). Один заказ —
+   прежнее окно (с Take payment). Окно-запрет (нет PO) — как прежде, только
+   Back. list — [{o, checks, take}], anyway — подпись кнопки. */
+function salesRunChecksMany(list,done,anyway){
+ const all=list.flatMap(x=>x.checks.map(c=>({o:x.o,c,take:x.take})));
+ if(!all.length){done();return;}
+ const block=all.find(x=>x.c.block);if(block){salesRunChecks([block.c],()=>{},block.take);return;}
+ const ids=new Set(all.map(x=>x.o.id));
+ if(ids.size===1){const x=list.find(y=>y.checks.length);salesRunChecks(x.checks,done,x.take);return;}
+ salesDialogOpen({title:ids.size+' orders need attention',rows:all.map(x=>[x.o.businessNumber+' · '+salesCustomerDisplay(x.o.customerId),x.c.short||x.c.title,true]),
+  note:'Back changes nothing. '+anyway+' — '+(ids.size===2?'both orders':'all '+ids.size+' orders')+'.',buttons:[{label:'Back'},{label:anyway,kind:'pri',run:done}]});
 }
 function salesRunChecks(checks,done,takePayment){
  if(!checks.length){done();return;}
@@ -22762,12 +22776,8 @@ function optimizationRunOrders(ids,action,opts){
    note:cancel?'Payments → customer deposit.':'Locks stay.',
    buttons:[{label:'Back'},{label:cancel?'Cancel orders':'Move back',kind:cancel?'dl':'pri',run:finish}]});return;
  }
- const checkOrder=i=>{
-  if(i===orders.length){finish();return;}
-  const o=orders[i],forChecks=action==='done'&&opts.delivery?Object.assign({},o,{delivery:opts.delivery}):o;
-  salesRunChecks(salesTransitionChecks(forChecks,action),()=>checkOrder(i+1),amount=>salesTakeRecordPayment(o.id,amount));
- };
- checkOrder(0);
+ const list=orders.map(o=>{const forChecks=action==='done'&&opts.delivery?Object.assign({},o,{delivery:opts.delivery}):o;return {o,checks:salesTransitionChecks(forChecks,action),take:amount=>salesTakeRecordPayment(o.id,amount)};});
+ salesRunChecksMany(list,finish,action==='verified'?'Verify anyway':action==='batched'?'Send anyway':'Continue anyway');
 }
 /* Снятие батча — отдельное действие, обычный Back замок не снимает. */
 function optimizationUnbatch(ids){
@@ -22926,13 +22936,13 @@ function shippingQueueChange(orderId,lineId,value){const out=shippingQueueSet(or
 /* Деньги до отгрузки у cash-клиента (владелец, 7.10.2026: «нужно сначала
    взять деньги, если у клиента не кредитование — пусть будет окно и
    подсветка; кредит и лимиты — дело бухгалтерии»). Окно на каждый заказ
-   PS с долгом: Back · Load anyway · Take payment (после оплаты — обратно
+   PS с долгом: Back · Ship anyway · Take payment (после оплаты — обратно
    сюда). Кредитных не спрашиваем. */
 function shippingCashFirst(s,done){
  const ids=shippingOrderIds(s).filter(oid=>{const o=salesRecord(oid);return o&&shippingBalanceDue(o);});
  const run=n=>{
   if(n===ids.length){done();return;}
-  const o=salesRecord(ids[n]),checks=salesTransitionChecks(Object.assign({},o,{delivery:s.method}),'done').filter(c=>c.pay!=null).map(c=>Object.assign({},c,{anyway:'Load anyway'}));
+  const o=salesRecord(ids[n]),checks=salesTransitionChecks(Object.assign({},o,{delivery:s.method}),'done').filter(c=>c.pay!=null).map(c=>Object.assign({},c,{anyway:'Ship anyway'}));
   salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
  };run(0);
 }
@@ -22965,7 +22975,7 @@ function shippingLoadedGo(id){
  };
  if(!st.units.length||st.loaded.length===st.units.length){run(st.units.length?'loaded':'');return;}
  if(!st.loaded.length){salesDialogOpen({title:'Nothing scanned at '+shippingStations().ship,note:'Ship all '+shippingLoadPart(st.units)+' on '+s.number+'?',buttons:[{label:'Back'},{label:'Ship all',kind:'pri',run:()=>run('')}]});return;}
- salesDialogOpen({title:s.number+' · '+shippingLoadPart(st.loaded)+' loaded',note:shippingLoadPart(st.rest)+' not loaded — back to Ready for the next trip.',buttons:[{label:'Back'},{label:'Loaded',kind:'pri',run:()=>run('loaded')}]});
+ salesDialogOpen({title:s.number+' · '+shippingLoadPart(st.loaded)+' loaded',note:shippingLoadPart(st.rest)+' not loaded — back to Ready for the next trip.',buttons:[{label:'Back'},{label:'Ship',kind:'pri',run:()=>run('loaded')}]});
 }
 /* «Received by» — имя одного получателя: после принятой накладной поле
    пустеет, иначе оно молча уходило в следующий PS стопки (проход 11.10.2026). */
@@ -23007,14 +23017,16 @@ function shippingListInfos(){return (DB.shipment||[]).map(s=>({o:s,memo:{number:
 function shippingListHTML(){
  const infos=shippingListInfos(),cols=shippingListColumns(),rows=salesListRows(infos);
  const th=c=>`<th${c.type==='number'?' class="n"':''}><span class="sl-th">${c.label}<button class="sl-fbtn${salesListFilterActive(salesListLoadPrefs().filters[c.k])?' on':''}" aria-label="Filter ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;
- const cell=(i,c)=>c.k==='number'?`<button class="sm" onclick="shippingOpenId='${esc(i.o.id)}';shippingPreview=false;render()">${esc(i.memo.number)}</button>`:c.k==='customer'?`<b>${esc(i.memo.customer)}</b>`:c.k==='date'?esc(salesListShortDay(i.memo.date)):c.k==='status'?shippingStatusPill(i.o)+(shippingNeedsReprint(i.o)?' <span class="pill st-batched">Reprint</span>':''):esc(i.memo[c.k])||'<span class="mut">—</span>';
+ const cell=(i,c)=>c.k==='number'?`<button class="sm" onclick="shippingOpenId='${esc(i.o.id)}';shippingPreview=false;render()">${esc(i.memo.number)}</button>`:c.k==='customer'?`<b>${esc(i.memo.customer)}</b>`:c.k==='date'?esc(salesListShortDay(i.memo.date)):c.k==='status'?shippingStatusPill(i.o)+(i.o.status==='planned'?(t=>t?` <span class="mut small" data-ps-list-loaded>${esc(t)}</span>`:'')(shippingWithCtx(()=>shippingLoadText(shippingLoadState(i.o)))):'')+(shippingNeedsReprint(i.o)?' <span class="pill st-batched">Reprint</span>':''):esc(i.memo[c.k])||'<span class="mut">—</span>';
  return `<div class="card sales-list-card shipping-list-card"><div class="shipping-scan"><label>Signed packing slip<input id="shippingSigned" data-signed-ps placeholder="Scan PS-0001" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingSigned(this.value)}"></label><label>Received by<input id="shippingReceiver" value="${esc(shippingReceivedBy)}" placeholder="Optional" oninput="shippingReceivedBy=this.value"></label><label>Received on<input id="shippingReceivedOn" type="date" value="${shippingReceivedOn||finToday()}" max="${finToday()}" onchange="shippingReceivedOn=this.value"></label></div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr>${cols.map(th).join('')}<th></th></tr></thead><tbody>${rows.map(i=>`<tr data-ps="${esc(i.o.number)}" class="${i.o.id===shippingOpenId?'shipping-selected':''}">${cols.map(c=>`<td${c.type==='number'?' class="n"':''}>${cell(i,c)}</td>`).join('')}<td class="sales-row-actions"><button class="sm" ${i.o.status==='cancelled'&&!i.o.unbatchedItems?.length?'disabled':''} onclick="shippingPrint('${esc(i.o.id)}')">Print</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No packing slips.</td></tr>'}</tbody></table></div>${salesListMenuHTML(infos)}</div>${shippingDetailHTML()}`;
 }
 function shippingDetailHTML(){
  const s=shippingFind(shippingOpenId);if(!s)return '';const d=shippingDocument(s),loaded=s.status==='planned'?shippingLoadText(shippingLoadState(s)):'';
  const action=(label,fn,kind)=>`<button type="button"${kind?` class="${kind}"`:''} onclick="${fn}">${label}</button>`,id=esc(s.id);
  /* Главное действие статуса — справа и выделено, как + New Sales Order. */
- const main=s.status==='planned'?action('Loaded',`shippingLoaded('${id}')`,'pri'):s.status==='shipped'?action(s.method==='pickup'?'Picked up':'Delivered',`shippingReceive('${id}')`,'pri'):'';
+ /* «Ship» — машина уехала (проход 11.10.2026: кнопка звалась «Loaded»,
+    а ставила Shipped; погрузку пишет станция SHIP). */
+ const main=s.status==='planned'?action('Ship',`shippingLoaded('${id}')`,'pri'):s.status==='shipped'?action(s.method==='pickup'?'Picked up':'Delivered',`shippingReceive('${id}')`,'pri'):'';
  const rest=(s.status==='planned'?action('Edit',`shippingOpen('${esc(s.customerId)}','${id}')`)+action('Cancel',`shippingUndo('${id}','cancel')`):s.status==='shipped'?action('Undo dispatch',`shippingUndo('${id}','dispatch')`):s.status==='delivered'?action('Undo receipt',`shippingUndo('${id}','receipt')`):'')+(s.status!=='cancelled'||s.unbatchedItems?.length?action('Print',`shippingPrint('${id}')`):'')+action(shippingPreview?'Hide preview':'Preview','shippingPreview=!shippingPreview;render()');
  const rows=d.orders.map(o=>`<tr class="shipping-order-row"><td colspan="7"><b>Order ${esc(o.number)}</b>${o.po?' · PO '+esc(o.po):''}</td></tr>`+o.rows.map(r=>`<tr><td>${r.line}${r.mark?' · '+esc(r.mark):''}</td><td>${esc(r.size)}</td><td>${esc(r.makeup)}</td><td>${esc(r.skids)||'<span class="mut">—</span>'}</td><td class="n"><b>${r.now}</b></td><td class="n">${r.before}</td><td class="n">${r.back}</td></tr>`+(r.note?`<tr class="shipping-cancel-note" data-ps-cancel-note><td colspan="7">${esc(r.note)}</td></tr>`:'')).join('')+(o.takes||[]).map(x=>`<tr data-ps-takes><td colspan="4">Cancelled · customer takes · line ${x.line} · ${esc(x.size)}</td><td class="n"><b>${x.pieces}</b> glass</td><td></td><td></td></tr>`).join('')+o.extras.map(x=>`<tr><td colspan="3">From stock · ${esc(x.name)}</td><td><span class="mut">—</span></td><td class="n"><b>${x.now}</b></td><td class="n">${x.before}</td><td class="n">${x.back}</td></tr>`).join('')).join('');
  return `<div class="card shipping-detail"><div class="shipping-customer-head"><div><h3>${esc(s.number)} · ${esc(salesCustomerDisplay(s.customerId))}</h3><span class="mut">${esc(docAddressText(s.shipTo))||'Pickup'} · ${esc(salesListShortDay(s.date))}</span></div>${shippingStatusPill(s)}</div>${(d.corrections||[]).map(text=>`<p class="shipping-loaded" data-ps-unbatch>${esc(text)}</p>`).join('')}${loaded?`<p class="shipping-loaded" data-ps-loaded>${esc(loaded)}</p>`:''}${s.status==='delivered'?`<p class="shipping-loaded" data-ps-received>${esc('Received '+salesListShortDay(salesListIsoDay(s.deliveredAt))+(s.receivedBy?' · '+s.receivedBy:''))}</p>`:''}<div class="sales-toolbar">${rest}<span class="sales-toolbar-sp"></span>${main}</div>${rows?`<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Skids</th><th class="n">Qty</th><th class="n">Before</th><th class="n">Back order</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="mut">Open trip · no items selected</p>'}${shippingPreview?'<div class="shipping-preview">'+shippingPages(d).map(docPageSVG).join('')+'</div>':''}</div>`;
@@ -26869,6 +26881,7 @@ function glassBatchAssignCommand(rows,opts){
  });
  new Map(chosen.map(r=>[r.l,r.o])).forEach((o,l)=>{l.batchManaged=true;glassBatchSyncLine(o,l);});
  batch.history.push({at:now,action:added?'Added':'Created',pieces:chosen.map(r=>r.piece),qty:chosen.length});
+ glassBatchRushFirst(batch);
  [...new Set(chosen.map(r=>r.orderId))].forEach(id=>{
   const o=salesRecord(id);if(o.status==='new'){o.updatedAt=now;salesSyncRecordLifecycle(o);return;}o.status=shippingHasSent(o)?'shipping':'batched';o.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
   o.statusDates=Object.assign({},o.statusDates,{batched:now});if(!shippingHasSent(o)){['ready','done','closed'].forEach(k=>delete o.statusDates[k]);o.fulfilledVia='';}o.updatedAt=now;salesSyncRecordLifecycle(o);
@@ -27114,10 +27127,20 @@ function validateGlassBatchesPayload(src){
 /* Очередь резки. Порядок задаёт офис (владелец, 29 сентября 2026): ▲▼ в
    Optimization → Batches; резчик видит его во вкладке Queue станции CUT.
    В очереди — батчи, где есть непорезанное стекло; новый батч встаёт в
-   конец. */
+   конец, срочный — перед менее срочными (glassBatchRushFirst). */
 function glassBatchCutQueue(){
  return (DB.glassBatch||[]).filter(b=>{const a=b.items.filter(i=>!i.releasedAt);return a.length&&a.some(i=>!i.cutStartedAt);})
   .sort((x,y)=>(x.cutOrder||1e9)-(y.cutOrder||1e9)||String(x.number).localeCompare(String(y.number)));
+}
+/* Срочное — первым на резку (проход 11.10.2026: батч с Rush-Recut встал
+   вторым, оптимизатор поднимал его ▲ сам). Батч со стеклом Rush / Critical
+   встаёт перед первым менее срочным батчем, резку которого ещё не начали;
+   начатый батч не перебивается, ▲▼ офиса остаются. */
+function glassBatchUrgency(b){return Math.max(0,...b.items.filter(i=>!i.releasedAt).map(i=>{const p=b.parts[i.part];return p&&typeof stationUrgency==='function'?stationUrgency(salesRecord(p.orderId)):0;}));}
+function glassBatchRushFirst(batch){
+ const u=glassBatchUrgency(batch),all=glassBatchCutQueue();if(!u||!all.includes(batch))return;
+ const q=all.filter(b=>b!==batch),i=q.findIndex(b=>!b.items.some(x=>x.cutStartedAt&&!x.releasedAt)&&glassBatchUrgency(b)<u);if(i<0)return;
+ q.splice(i,0,batch);q.forEach((b,k)=>{b.cutOrder=k+1;});
 }
 function glassBatchCutMove(number,dir){
  const q=glassBatchCutQueue(),i=q.findIndex(b=>b.number===number),j=i+(dir<0?-1:1);
@@ -31078,8 +31101,8 @@ function glassBatchCreateSelected(){
   glassBatchSelection.clear();glassBatchAnchor='';
   if(made.length===1)glassBatchOpen(made[0].number);else{glassBatchOpenNumber='';optimizationTab='production';salesListMenu=null;render();}
  };
- const check=i=>{if(i===orders.length){finish();return;}salesRunChecks(salesTransitionChecks(orders[i],'batched'),()=>check(i+1),amount=>salesTakeRecordPayment(orders[i].id,amount));};
- if(groups.size>1){salesDialogOpen({title:'Create '+groups.size+' batches?',rows:[...groups.values()].map(a=>[a[0].glass,a.length+' pcs']),note:'One batch per glass type.',buttons:[{label:'Back'},{label:'Create batches',kind:'pri',run:()=>check(0)}]});}else check(0);
+ const check=()=>salesRunChecksMany(orders.map(o=>({o,checks:salesTransitionChecks(o,'batched'),take:amount=>salesTakeRecordPayment(o.id,amount)})),finish,'Send anyway');
+ if(groups.size>1){salesDialogOpen({title:'Create '+groups.size+' batches?',rows:[...groups.values()].map(a=>[a[0].glass,a.length+' pcs']),note:'One batch per glass type.',buttons:[{label:'Back'},{label:'Create batches',kind:'pri',run:check}]});}else check();
 }
 function glassBatchUnbatchSelected(){
  const selected=glassBatchFiltered().filter(i=>i.item&&glassBatchSelection.has(glassBatchRowKey(i))&&glassBatchPickable(i));if(!selected.length)return;
