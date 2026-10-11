@@ -22,12 +22,16 @@ function ncrPaneCode(p){
  const g=glassProductById(p&&p.glassProductId);return g?g.code:'?';
 }
 /* Какое стекло позиции: весь пакет или один лайт (у ламината — обе плиты). */
+/* Плита ламината — свой выбор «0:outer» / «0:inner»: перерезают одну
+   лопнувшую плиту, целая ждёт новую пару (владелец, 11.10.2026: «режем одну
+   плиту»). */
 function ncrLiteOptions(o,l){
  const m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[];
- if(panes.length<2)return [{value:'unit',label:panes.length?'Glass · '+ncrPaneCode(panes[0]):'Whole unit'}];
- return [{value:'unit',label:'Whole unit'}].concat(panes.map((p,i)=>({value:String(i),label:'Lite '+(i+1)+' · '+ncrPaneCode(p)})));
+ const plies=(p,i)=>p.category==='laminated'?glassBatchComponents(o,l).filter(c=>c.index===i&&c.ply).map(c=>({value:i+':'+c.ply,label:'Ply '+c.lite+' · '+c.glass})):[];
+ if(panes.length<2)return [{value:'unit',label:panes.length?'Glass · '+ncrPaneCode(panes[0]):'Whole unit'}].concat(panes.length?plies(panes[0],0):[]);
+ return [{value:'unit',label:'Whole unit'}].concat(panes.flatMap((p,i)=>[{value:String(i),label:'Lite '+(i+1)+' · '+ncrPaneCode(p)}].concat(plies(p,i))));
 }
-function ncrGlassKeys(o,l,which){return glassBatchComponents(o,l).filter(c=>which==='unit'||String(c.index)===String(which)).map(c=>c.key);}
+function ncrGlassKeys(o,l,which){return glassBatchComponents(o,l).filter(c=>which==='unit'||String(c.index)===String(which)||!!c.ply&&c.index+':'+c.ply===String(which)).map(c=>c.key);}
 /* Статус выводится из связей: Remake открыт, пока новый заказ не выдан или
    не закрыт; прочие действия сразу Done. */
 function ncrStatus(n){

@@ -3154,7 +3154,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='e566c9e0ba0c';
+var ERP_BUILD='c9f4cd109ab8';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -29147,11 +29147,28 @@ function cutPlanDraft(number){
  const plan={batch:number,at:'',stamp:cutStamp(all),settings,sheetPick,groups,missing,excluded:all.filter(p=>p.off).map(p=>p.piece),stats:{},reset:true};
  return cutPlanRefresh(plan,all);
 }
+/* Что сделает Reset (проход 11.10.2026: на порезанном батче он молча стирал
+   раскладку и снимал со стока остатки, которые уже лежат на стеллаже).
+   Лист с порезанным стеклом — порезан: его остаток в стоке остаётся.
+   cut / of — сколько стёкла батча уже порезано. */
+function cutResetPreview(number){
+ const prev=cutPlanFor(number),b=cutEstIs(number)?null:glassBatchFind(number);
+ const live=b?b.items.filter(i=>!i.releasedAt):[],cutSet=new Set(live.filter(i=>i.cutStartedAt).map(i=>i.piece));
+ const out={cancel:[],keep:[],sheets:0,pieces:0,cut:cutSet.size,of:live.length};
+ if(prev&&!prev.reset)prev.groups.forEach(g=>g.sheets.filter(s=>!s.locked).forEach(s=>{
+  const done=(s.pieces||[]).some(p=>cutSet.has(p.piece));out.sheets++;out.pieces+=(s.pieces||[]).length;
+  (s.stock||[]).forEach(x=>(done?out.keep:out.cancel).push(x.id));
+ }));
+ return out;
+}
+function cutResetWarn(number){const r=cutResetPreview(number);return r.cut?' '+r.cut+' of '+r.of+' glass already cut.':'';}
 function cutPlanReset(number){
- const prev=cutPlanFor(number),plan=cutPlanDraft(number);if(!plan)return {error:'Batch not found.'};
- const cancelled=[];
- if(prev)prev.groups.forEach(g=>g.sheets.filter(s=>!s.locked).forEach(s=>(s.stock||[]).forEach(x=>{if(typeof stockOffcutCancel==='function')stockOffcutCancel(x.id);cancelled.push(x.id);})));
- cutPlanPut(number,plan);return {ok:true,plan,cancelled};
+ const prev=cutPlanFor(number),pre=cutResetPreview(number),plan=cutPlanDraft(number);if(!plan)return {error:'Batch not found.'};
+ pre.cancel.forEach(id=>{if(typeof stockOffcutCancel==='function')stockOffcutCancel(id);});
+ /* Reset построенного раскроя — в History батча. */
+ const b=cutEstIs(number)?null:glassBatchFind(number);
+ if(b&&prev&&!prev.reset)b.history.push({at:new Date().toISOString(),action:'Layout reset · '+pre.sheets+' sheet'+(pre.sheets===1?'':'s')+(pre.cut?' · '+pre.cut+' of '+pre.of+' already cut':''),pieces:[],qty:pre.pieces});
+ cutPlanPut(number,plan);return {ok:true,plan,cancelled:pre.cancel,kept:pre.keep};
 }
 /* Раскладка есть — хоть один лист. По ней печать «By sheet». */
 function cutPlanLaid(number){const p=cutPlanFor(number);return p&&p.groups.some(g=>g.sheets.length)?p:null;}
@@ -33077,9 +33094,9 @@ async function cutUiTrialSave(machine){
    листы остаются. */
 function cutUiReset(number){
  const plan=cutPlanFor(number);if(!plan||plan.reset||cutBusy)return;
- const st=plan.groups.flatMap(g=>g.sheets.filter(x=>!x.locked).flatMap(x=>(x.stock||[]).map(o=>o.id)));
+ const pre=cutResetPreview(number);
  const kept=plan.groups.reduce((n,g)=>n+g.sheets.filter(x=>x.locked).length,0);
- if(!confirm('Reset the optimization? Sheets are cleared'+(kept?', '+kept+' locked sheet'+(kept>1?'s stay':' stays'):'')+'.'+(st.length?' Stock '+st.join(', ')+' goes back to waste.':'')))return;
+ if(!confirm((pre.cut?pre.cut+' of '+pre.of+' glass in '+number+' already cut. ':'')+'Reset the optimization? Sheets are cleared'+(kept?', '+kept+' locked sheet'+(kept>1?'s stay':' stays'):'')+'.'+(pre.cancel.length?' Stock '+pre.cancel.join(', ')+' goes back to waste.':'')+(pre.keep.length?' Stock '+pre.keep.join(', ')+' stays (sheet cut).':'')))return;
  const r=cutPlanReset(number);cutNotice=r.error||'';cutInfo=null;cutWhat=null;cutUi.sheet=1;cutUi.sel='';render();
 }
 /* Размер листа прямо с экрана оптимизации: уходит в размеры цеха (Master
@@ -33088,7 +33105,7 @@ function cutUiReset(number){
 function cutUiAddSize(number,wId,hId,build){
  const w=document.getElementById(wId),h=document.getElementById(hId);
  const plan=cutPlanFor(number),built=plan&&!plan.reset;
- if(build&&built&&!confirm('Reset the optimization and build again?'))return;
+ if(build&&built&&!confirm('Reset the optimization and build again?'+cutResetWarn(number)))return;
  const r=cutShopSizeAdd(w?w.value:'',h?h.value:'');
  if(r.error){cutNotice=r.error;render();return;}
  if(build)return cutUiBuild(number);
@@ -33215,7 +33232,7 @@ function cutUiSameSizeRemove(glass,key){cutUiRun(()=>cutRemoveSameSize(cutUi.bat
    размера и Build одним нажатием. */
 function cutUiOverSize(glass,key){
  const n=cutUi.batch,plan=cutPlanFor(n);
- if(plan&&!plan.reset){if(!confirm('Reset the optimization and build again with this sheet?'))return;cutPlanReset(n);}
+ if(plan&&!plan.reset){if(!confirm('Reset the optimization and build again with this sheet?'+cutResetWarn(n)))return;cutPlanReset(n);}
  const r=cutAddSameSize(n,glass,key);if(r.error){cutNotice=r.error;render();return;}
  cutUiBuild(n);
 }
@@ -34123,7 +34140,7 @@ function stockUiUse(id,number){
  const rec=stockOffcutFind(id);if(!rec)return;
  const plan=cutPlanFor(number);
  if(plan&&!plan.reset){
-  if(!confirm('Reset the optimization of '+number+' and add '+id+'? Its layout is built again.'))return;
+  if(!confirm('Reset the optimization of '+number+' and add '+id+'? Its layout is built again.'+cutResetWarn(number)))return;
   cutPlanReset(number);
  }
  const r=cutSetStock(number,rec.glass,id,'off',false);
