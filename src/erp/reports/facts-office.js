@@ -65,8 +65,12 @@ function repBreakFacts(){
    клиент его ни забрал. On time % — из заказов On time и Late: просроченный
    невыданный заказ тоже опоздал. */
 let repOrderCache={stamp:'',rows:null};
+/* Готовность самовывоза меняют только сканы станции готовности: остальные
+   сканы цеха не пересчитывают заказы (аудит 12.10.2026: раньше любой скан
+   сбрасывал расчёт отчётов по заказам). */
+function repReadyScanCount(){const st=shippingStations().ready;let n=0;(DB.stationScan||[]).forEach(s=>{if(s.station===st)n+=s.undoneAt?2:1;});return n;}
 function repOrderFacts(){
- const today=finToday(),stamp=[today,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.shipment||[]).map(s=>s.id+s.status+s.date).join(','),(DB.stationScan||[]).length].join('|');
+ const today=finToday(),stamp=[today,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.shipment||[]).map(s=>s.id+s.status+s.date).join(','),repReadyScanCount()].join('|');
  if(repOrderCache.stamp===stamp&&repOrderCache.rows)return repOrderCache.rows;
  const rows=[],days=(a,b)=>Math.round((Date.parse(b+'T12:00:00')-Date.parse(a+'T12:00:00'))/864e5);
  /* Когда стекло заказа стало готово к выдаче: последний скан станции готовности. */

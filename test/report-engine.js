@@ -173,6 +173,14 @@ module.exports=async function({page,eq,ok}){
   const res={start:fields(now),copy:fields(DB.report.find(r=>r.id==='RP-my-copy')),seed:DB.reportSeed};DB.report=DB.report.filter(r=>r.id!=='RP-my-copy');return res;
  }),{start:'created,created',copy:'due,due',seed:4});
 
+ eq('Аудит 12.10: отчёты по заказам пересчитываются после скана готовности (SHIPR), а не после любого скана цеха',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},id=rbOrder(c,'6CLEAR','single',[[30,40,2]],{delivery:'pickup'});rbBatch([id]);
+  const [a,b]=rbIds(id),first=repOrderFacts();rbGo('CUT',a,who);const afterCut=repOrderFacts()===first;
+  const route=stationRouteOf(stationGlass(b)).codes,ready=shippingStations().ready;route.slice(0,route.indexOf(ready)).forEach(st=>rbGo(st,b,who));const beforeReady=repOrderFacts()===first;
+  rbGo(ready,b,who);const afterReady=repOrderFacts()!==first;
+  return {afterCut,beforeReady,afterReady};
+ }),{afterCut:true,beforeReady:true,afterReady:true});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
