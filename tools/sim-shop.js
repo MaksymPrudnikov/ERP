@@ -945,7 +945,11 @@ function simPage() {
     for (let i = PICKUPS.length - 1; i >= 0; i--) {
       const pu = PICKUPS[i]; if (pu.day > day) continue; PICKUPS.splice(i, 1);
       const s = shippingFind(pu.ps); if (!s || s.status !== 'planned') continue;
-      at(T(day, 8.5 + rnd() * 7.5));
+      /* Клиент приезжает в рабочее время, но не раньше, чем стекло готово:
+         работа станций за день считается раньше выдач, и без этого выдача
+         получала время раньше сборки (аудит 12.10.2026). */
+      const lastScan = s.items.flatMap(i => i.pieces).flatMap(p => stationScansFor(p)).reduce((m, x) => x.at > m ? x.at : m, '');
+      at(Math.max(T(day, 8.5 + rnd() * 7.5), lastScan ? Date.parse(lastScan) + int(10, 40) * 60000 : 0));
       const who = people[chance(0.6) ? 'Nazar Bilyk' : 'Stepan Koval'], st = shippingStations().ship; shiftSignIn(st, who);
       /* Cash-клиент платит остаток при выдаче. */
       shippingOrderIds(s).forEach(id => cashBalance(id, day, 'pickup'));

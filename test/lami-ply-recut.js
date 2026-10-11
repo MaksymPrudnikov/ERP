@@ -57,6 +57,14 @@ module.exports=async function({page,eq,ok}){
   return {one:r1.recut.which,oneNew:(r1.allNew||[]).length,two:r2.recut.which,twoNew:(r2.allNew||[]).length,twoBroken:r2.broken.slice().sort().join()===[ids2[1],ids2[2]].sort().join(),liteAlive:!stationPlace(stationGlass(ids2[0])).broken};
  }),{one:'1:inner',oneNew:1,two:'1',twoNew:2,twoBroken:true,liteAlive:true});
 
+ eq('Аудит 12.10: сэндвич в сборке IGU лопнул — каждая плита записана разбитой один раз',await t.p.evaluate(()=>{
+  const id=lpIgu(),o=salesRecord(id),pm=glassPieceMap(id),ids=glassBatchComponents(o,o.lines[0]).map(c=>pm.get(c.key).ids[0]);
+  ids.forEach(p=>lpTo(p,'LAM'));stationMove('LAM',stationCheck('LAM',ids[1]),lpWho,{});stationMove('LAM',stationCheck('LAM',ids[2]),lpWho,{});
+  ids.forEach(p=>lpTo(p,'IGU'));stationRecord('IGU',stationCheck('IGU',ids[1]),lpWho,{});stationRecord('IGU',stationCheck('IGU',ids[2]),lpWho,{});
+  const r=stationBreak('IGU',stationCheck('IGU',ids[2]),lpWho,(DB.ncrReason||[])[0]&&DB.ncrReason[0].id||'');
+  return {broken:r.broken.length,records:DB.stationScan.filter(s=>s.broken).length};
+ }),{broken:2,records:2});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

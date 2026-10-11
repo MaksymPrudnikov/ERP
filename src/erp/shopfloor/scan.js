@@ -330,7 +330,9 @@ function stationBreakPlan(g,station,asmId){
     вынимают из машины, они ждут пару на долли (владелец, 29.09.2026). */
  const out=a&&!a.broken&&station===mu?[...a.lites.entries()].filter(([k,id])=>id!==g.id&&!keys.includes(k)).map(([k,id])=>id):[];
  const same=a&&!a.broken&&station===mu?[...a.lites.entries()].filter(([k,id])=>id!==g.id&&keys.includes(k)).map(([k,id])=>id):[];
- return {which,whole:false,asm:a,pieces:[g.id].concat(same,sandwich),out};
+ /* Плита сэндвича бывает и в сборке IGU (same), и в склейке LAM (sandwich) —
+    разбитой она записывается один раз (аудит 12.10.2026: брак +1). */
+ return {which,whole:false,asm:a,pieces:[...new Set([g.id].concat(same,sandwich))],out};
 }
 function stationBreak(station,check,who,reasonId,opts){
  if(storageDepth||opts&&opts.deferTouch)return stationBreakCommand(station,check,who,reasonId,opts);
