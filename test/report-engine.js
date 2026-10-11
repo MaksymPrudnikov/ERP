@@ -52,13 +52,13 @@ module.exports=async function({page,eq,ok}){
   return {total:q.total,byTruck:q.keys.map(k=>k+' '+q.rowTotals.get(k).join('/'))};
  }),{total:[3,2,3],byTruck:['Truck 1 2/1/2','Truck 2 1/1/1']});
 
- eq('Orders: On time % — из отгруженных со сроком; дни опоздания; lead time — от создания до отгрузки',await t.p.evaluate(()=>{
+ eq('Orders: On time % — из заказов On time и Late (просроченный невыданный тоже опоздал); дни опоздания; lead time — от создания до отгрузки',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'}),day=n=>repAddDays(finToday(),n);
   const mk=due=>rbOrder(c,'6CLEAR','double',[[30,40,1]],{dueDate:due,delivery:'pickup'});
   const a=mk(day(-1)),b=mk(day(2)),x=mk(day(-3)),y=mk(day(5));rbBatch([a,b,x,y]);[a,b].forEach(id=>{oqReady(id);oqFulfill(id,'pickup');});
   const q=repQuery({source:'orders',date:{f:'due',preset:'all'},dims:['state'],metrics:['count','onTime','daysLate:max','lead:avg'],sort:{by:'label',dir:'asc'}});
   return {byState:q.keys.map(k=>k+' '+q.rowTotals.get(k)[0]),onTime:repFmt(q.metrics[1],q.total[1]),maxLate:q.total[2],lead:q.total[3]};
- }),{byState:['Late 2','On time 1','Open 1'],onTime:'50%',maxLate:3,lead:0});
+ }),{byState:['Late 2','On time 1','Open 1'],onTime:'33%',maxLate:3,lead:0});
 
  eq('Time at stations: часы между первым и последним сканом; стёкла в час — только дни от получаса',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'}),who=rbUser('Andrei','1111');
@@ -106,7 +106,7 @@ module.exports=async function({page,eq,ok}){
   DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes','RP-start-km','RP-start-myday','RP-start-myedge','RP-start-mycustomers'].includes(r.id));
   DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
   return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
- }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes'],again:10,seed:3});
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes'],again:10,seed:4});
  eq('Км рейса по карте Google: цех → остановки → цех, запоминаются за рейс; отчёт — км и км на рейс; поменяли остановки — видно',await t.p.evaluate(async()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'});DB.truck=[{id:'T1',name:'Truck 1',active:true}];DB.tripKm=[];
   DB.company=Object.assign({},DB.company,{address1:'10 Shop Rd',city:'Vaughan',province:'ON'});
@@ -120,6 +120,59 @@ module.exports=async function({page,eq,ok}){
   delete window.google;tab='dashboard';render();
   return {km:rec.km,stops:rec.stops.length,call:calls[0][0]+' → '+calls[0][2].join(' → ')+' → '+calls[0][1],report:q.metrics.map((m,i)=>m.label+' '+repFmt(m,q.total[i])),chip:chip.replace(/\s+/g,' ').trim(),stale};
  }),{km:32,stops:2,call:'10 Shop Rd, Vaughan, ON, Canada → 1 Main St, Mississauga, ON → 2 Main St, Brampton, ON → 10 Shop Rd, Vaughan, ON, Canada',report:['Km 32','Trips 1','Km per trip 32'],chip:'32 km|Recalculate km',stale:true});
+ /* Проход цеха 11.10.2026 (tools/sim-shop.js): сверка отчётов с собственным
+    счётом симуляции за 14 месяцев. */
+ eq('Кромка ламината: два захода на POLISH — плиты до закалки (Flat Polish) засчитаны первому, выравнивание после склейки (Lami Polish) — второму; не двоится',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'Railpro Systems'}),andrei={id:'u1',name:'Andrei'},vasyl={id:'u2',name:'Vasyl'};
+  tab='sales';salesOrderNew('order');salesSetUnitType('single');
+  const m=soDraft.makeups[0],pn=m.panes[0];pn.category='laminated';['outer','inner'].forEach(k=>{const g=glassProductByCode('6CLEAR');Object.assign(pn.laminated[k],{glassProductId:g.id,thicknessMm:6,heatTreatmentId:'HT-FT'});});
+  soDraft.makeups[0]=normalizeOrderMakeup(m,0);
+  const l=normalizeSalesOrderLine({makeupId:soDraft.makeups[0].id,width16:40*16,height16:36*16,qty:1});soDraft.lines=[l];const s=salesEnsureLineShape(l);
+  ShapeModule.compute(s).edges.forEach(e=>{s.edgeOps[e.id]=[shapeNormalizeOp({type:'Flat Polish'}),shapeNormalizeOp({type:'Lami Polish'})];});
+  salesApplyCustomerDefaults(c.id);salesOrderSave();const A=soDraft.id;soDraft=null;soEdit=null;rbBatch([A]);
+  const ids=rbIds(A);ids.forEach(p=>rbGo('CUT',p,andrei));ids.forEach(p=>rbGo('POLISH',p,andrei));ids.forEach(p=>rbGo('HEAT',p,andrei));ids.forEach(p=>rbGo('LAM',p,andrei));stationMove('POLISH',stationCheck('POLISH',ids[0]),vasyl,{});
+  const q=repQuery({source:'edgework',date:{preset:'all'},dims:['person','op'],metrics:['inches'],sort:{by:'label',dir:'asc'}});
+  return q.keys.flatMap(k=>q.keys2.filter(k2=>(q.cells.get(k+'\u0001'+k2)||[])[0]).map(k2=>k+' '+k2+' '+q.cells.get(k+'\u0001'+k2)[0]));
+ }),['Andrei Flat Polish 304','Vasyl Lami Polish 152']);
+
+ eq('Shipping handout: юнит — собранный стеклопакет, а не номер стекла в позиции (лайты одного пакета из разных юнитов позиции)',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'Northview Windows'}),op={id:'u1',name:'Andrei K.'},vlad={id:'u2',name:'Vlad'},ruslan={id:'u3',name:'Ruslan'};
+  const A=rbOrder(c,'6CLEAR','double',[[30,40,2]]);rbBatch([A]);const pm=[...glassPieceMap(A).values()].map(r=>r.ids);
+  const mv=(st,id,w)=>{const ch=stationCheck(st,id);if(ch.kind!=='ok')throw new Error(st+' '+id+' '+ch.kind);return stationMove(st,ch,w,{});};
+  pm.flat().forEach(id=>{mv('CUT',id,op);mv('ARRIS',id,op);mv('HEAT',id,op);});
+  mv('IGU',pm[0][0],op);mv('IGU',pm[1][1],op);mv('IGU',pm[0][1],op);mv('IGU',pm[1][0],op);
+  mv('SHIPR',pm[0][0],op);mv('SHIPR',pm[0][1],op);mv('SHIP',pm[0][0],vlad);mv('SHIP',pm[0][1],ruslan);
+  const q=repQuery({source:'shipping',date:{preset:'all'},dims:['person'],metrics:['units','count'],sort:{by:'label',dir:'asc'}});
+  return q.keys.map(k=>k+': '+q.rowTotals.get(k).join(' units / ')+' glass');
+ }),['Ruslan: 1 units / 2 glass','Vlad: 1 units / 2 glass']);
+
+ eq('Сроки самовывоза — по готовности: готово к сроку и не забрано — вовремя; готово к сроку, забрали позже — вовремя; срок прошёл, не готово — опоздал',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},day=n=>repAddDays(finToday(),n);
+  const mk=due=>rbOrder(c,'6CLEAR','single',[[30,40,1]],{dueDate:due,delivery:'pickup'});
+  const a=mk(day(2)),b=mk(day(-1)),x=mk(day(-1));rbBatch([a,b,x]);
+  oqReady(a);
+  const g=stationGlass(rbIds(b)[0]),route=stationRouteOf(g).codes,ready=shippingStations().ready;
+  route.slice(0,route.indexOf(ready)+1).forEach((st,i)=>rbGo(st,rbIds(b)[0],who,rbAt(-3,9,i)));oqFulfill(b,'pickup');
+  const q=repQuery({source:'orders',date:{f:'due',preset:'all'},dims:['order'],metrics:['count','onTime']}),f=repOrderFacts();
+  return {state:[a,b,x].map(id=>f.find(r=>r.id===id).state),onTime:repFmt(q.metrics[1],q.total[1])};
+ }),{state:['On time','On time','Late'],onTime:'67%'});
+
+ eq('Конструктор: строки без даты — строкой «No date», итог равен сумме строк; пустой фильтр «Is any of» ничего не отсекает',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'North Shore Windows'}),who={id:'u1',name:'Andrei'};
+  const a=rbOrder(c,'6CLEAR','double',[[30,40,1]],{dueDate:repAddDays(finToday(),3)}),b=rbOrder(c,'6CLEAR','double',[[30,40,1]],{dueDate:''});
+  const q=repQuery({source:'orders',dims:['due:month'],metrics:['count']}),sum=q.keys.reduce((n,k)=>n+q.rowTotals.get(k)[0],0);
+  rbBatch([a]);rbIds(a).forEach(p=>rbGo('CUT',p,who));
+  const all=repQuery({source:'glass',date:{preset:'all'},metrics:['count']}).total[0],empty=repQuery({source:'glass',date:{preset:'all'},metrics:['count'],filters:[{f:'station',op:'in',v:[]}]}).total[0];
+  return {last:repKeyText(REP_SRC.orders,'due:month',q.keys[q.keys.length-1]),sum,total:q.total[0],all,empty};
+ }),{last:'No date',sum:2,total:2,all:2,empty:2});
+
+ eq('Стартовые версии 4: «Sales · my customers» — заказы по дате заказа; у базы на версии 3 стартовый правится сам, свой отчёт не трогается',await t.p.evaluate(()=>{
+  const mine=DB.report.find(r=>r.id==='RP-start-mycustomers');mine.pages[0].widgets.forEach(w=>{w.q.date.f='due';});
+  const copy=repClean(JSON.parse(JSON.stringify(Object.assign({},mine,{id:'RP-my-copy'}))));DB.report.push(copy);DB.reportSeed=3;normalizeReports();
+  const fields=r=>r.pages[0].widgets.map(w=>w.q.date.f).join(),now=DB.report.find(r=>r.id==='RP-start-mycustomers');
+  const res={start:fields(now),copy:fields(DB.report.find(r=>r.id==='RP-my-copy')),seed:DB.reportSeed};DB.report=DB.report.filter(r=>r.id!=='RP-my-copy');return res;
+ }),{start:'created,created',copy:'due,due',seed:4});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

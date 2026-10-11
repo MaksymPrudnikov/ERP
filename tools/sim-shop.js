@@ -490,6 +490,7 @@ function simPage() {
     ids.forEach(id => {
       const p = pieceInfo(id); if (!p) return;
       add(TR.station, station + '|' + m, 1);
+      if (station === 'SHIPR') { (READYSET[p.o] = READYSET[p.o] || new Set()).add(p.key + '|' + p.unit); if (!(READYDAY[p.o] >= day)) READYDAY[p.o] = day; }
       if (station === 'CUT') { const k = m + '|' + p.mm; TR.cut[k] = TR.cut[k] || { n: 0, ft2: 0 }; TR.cut[k].n++; TR.cut[k].ft2 += p.area; add(TR.cutBy, who + '|' + m, 1); }
       if (station === 'HEAT') { const k = m + '|' + p.mm; TR.temper[k] = TR.temper[k] || { n: 0, ft2: 0 }; TR.temper[k].n++; TR.temper[k].ft2 += p.area; }
       const op = station === 'POLISH' ? (p.lamiPolish && p.polished ? 'Lami Polish' : 'Flat Polish') : station === 'ARRIS' ? 'Rough Arris' : station === 'BEVEL' ? 'Beveling 1' : station === 'MITER' ? 'Mitering 45°' : station === 'CNC' && p.edge === 'cnc' ? 'CNC Shape Polish' : '';
@@ -1005,8 +1006,16 @@ function simPage() {
      ===================================================================== */
   const PAY = [];              /* {day, orderId, customerId} */
   const PAID = {}, DUE = {}, SHIPPED = {}, TOTAL = {};   /* свой счёт: оплачено, срок, день полной выдачи, сумма */
+  const READYDAY = {}, READYSET = {};                   /* самовывоз: день последнего скана SHIPR и какие стёкла (позиция|номер) прошли */
   const ORDINFO = {};          /* id → {c: клиент, due, cancelled} — для сроков в конце */
-  const ordInfo = id => { const o = salesRecord(id); if (o && !salesIsQuote(o)) ORDINFO[id] = { c: salesCustomerDisplay(o.customerId), due: o.dueDate || '', cancelled: o.status === 'cancelled' }; };
+  const ordInfo = id => { const o = salesRecord(id); if (o && !salesIsQuote(o)) ORDINFO[id] = { c: salesCustomerDisplay(o.customerId), due: o.dueDate || '', cancelled: o.status === 'cancelled', pickup: o.delivery === 'pickup', glass: (o.lines || []).reduce((n, l) => n + glassBatchComponents(o, l).length * (+l.qty || 1), 0) }; };
+  /* Срок: доставка — день, когда клиент получил последний юнит; самовывоз —
+     день, когда всё стекло прошло SHIPR (владелец, 11.10.2026: клиент может
+     забрать и через месяц — срок цеха, когда готово). */
+  const ordState = (id, x, end) => {
+    const ready = x.pickup && READYSET[id] && READYSET[id].size >= x.glass ? READYDAY[id] : '', fin = x.pickup ? ready : SHIPPED[id] || '';
+    return fin ? (fin <= x.due ? 'On time' : 'Late') : (x.due < end ? 'Late' : 'Open');
+  };
   function receipt(customerId, day, allocs, method, note) {
     asOffice(people['Irina Petrova']);
     const amount = round2(allocs.reduce((n, a) => n + a.amount, 0)); if (!(amount > 0)) return;
@@ -1243,10 +1252,10 @@ function simPage() {
   SIM.finish = function (end) {
     at(T(end, 21));
     DB.salesOrder.forEach(o => { if (!salesIsQuote(o)) ordInfo(o.id); });
-    /* Опоздания — по своему счёту: день, когда клиент получил последний юнит. */
+    /* Опоздания — по своему счёту (ordState). */
     Object.entries(ORDINFO).forEach(([id, x]) => {
       if (x.cancelled || !x.due) return;
-      const shipped = SHIPPED[id] || '', state = shipped ? (shipped <= x.due ? 'On time' : 'Late') : (x.due < end ? 'Late' : 'Open');
+      const state = ordState(id, x, end);
       const t = TR.orders[x.c] = TR.orders[x.c] || { n: 0, late: 0, onTime: 0, open: 0 }; t.n++; if (state === 'Late') t.late++; if (state === 'On time') t.onTime++; if (state === 'Open') t.open++;
     });
     /* Долги на конец: сумма заказа (цена ERP) минус свои оплаты; просрочка — свой срок.
@@ -1312,7 +1321,7 @@ function simPage() {
     cmp('Сроки: заказов со сроком по клиентам', 'шт', sumBy(TR.orders, ([c]) => c, 'n'), cells(r, 0));
     cmp('Сроки: опоздавших заказов по клиентам', 'шт', sumBy(TR.orders, ([c]) => c, 'late'), cells(r, 1));
     /* Где «Late» разошёлся — по заказу: срок, отгружен по ERP и по факту. */
-    out.orderDiff = repOrderFacts().filter(x => x.due).map(x => { const mine = SHIPPED[x.id] || '', my = mine ? (mine <= x.due ? 'On time' : 'Late') : (x.due < end ? 'Late' : 'Open'); return my === x.state ? null : { order: x.order, customer: repCustomer(x.customerId), delivery: x.delivery, due: x.due, erpShipped: x.shipped, erpState: x.state, handedOver: mine, myState: my }; }).filter(Boolean).slice(0, 20);
+    out.orderDiff = repOrderFacts().filter(x => x.due && ORDINFO[x.id]).map(x => { const mine = SHIPPED[x.id] || '', my = ordState(x.id, ORDINFO[x.id], end); return my === x.state ? null : { order: x.order, customer: repCustomer(x.customerId), delivery: x.delivery, due: x.due, erpShipped: x.shipped, erpReady: x.ready, erpState: x.state, handedOver: mine, myReady: READYDAY[x.id] || '', myState: my }; }).filter(Boolean).slice(0, 20);
     r = Q('quotes rep', { source: 'quotes', date: { f: 'created', from: start, to: end }, dims: ['rep'], metrics: ['count', 'won'] });
     cmp('Квоты: создано по продажникам', 'шт', sumBy(TR.quotes, ([rep]) => rep, 'n'), cells(r, 0));
     cmp('Квоты: выиграно по продажникам', 'шт', sumBy(TR.quotes, ([rep]) => rep, 'won'), cells(r, 1));

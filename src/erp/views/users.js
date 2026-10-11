@@ -13,7 +13,7 @@
 /* uEdit — 'new' или viewProfileId, а не номер строки: × на другой строке,
    пока форма открыта, сдвигает список, и Save писал бы не в того человека. */
 let uEdit=null, uDraft=null;
-function userSectionNav(k){return NAV.find(n=>n.k===k)||{k,label:k,icon:'report'};}
+function userSectionNav(k){return NAV.find(n=>n.k===k)||{k,label:USER_ACCESS_LABELS[k]||k,icon:'report'};}
 function userAccessHTML(u){
  if(!userOffice(u))return '<span class="mut">—</span>';
  if(u.access.length===USER_SECTIONS.length)return '<span class="pill ok">All sections</span>';
