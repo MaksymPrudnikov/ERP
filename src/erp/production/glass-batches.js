@@ -259,6 +259,7 @@ function glassBatchAssignCommand(rows,opts){
  });
  new Map(chosen.map(r=>[r.l,r.o])).forEach((o,l)=>{l.batchManaged=true;glassBatchSyncLine(o,l);});
  batch.history.push({at:now,action:added?'Added':'Created',pieces:chosen.map(r=>r.piece),qty:chosen.length});
+ glassBatchRushFirst(batch);
  [...new Set(chosen.map(r=>r.orderId))].forEach(id=>{
   const o=salesRecord(id);if(o.status==='new'){o.updatedAt=now;salesSyncRecordLifecycle(o);return;}o.status=shippingHasSent(o)?'shipping':'batched';o.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
   o.statusDates=Object.assign({},o.statusDates,{batched:now});if(!shippingHasSent(o)){['ready','done','closed'].forEach(k=>delete o.statusDates[k]);o.fulfilledVia='';}o.updatedAt=now;salesSyncRecordLifecycle(o);
@@ -504,10 +505,20 @@ function validateGlassBatchesPayload(src){
 /* Очередь резки. Порядок задаёт офис (владелец, 29 сентября 2026): ▲▼ в
    Optimization → Batches; резчик видит его во вкладке Queue станции CUT.
    В очереди — батчи, где есть непорезанное стекло; новый батч встаёт в
-   конец. */
+   конец, срочный — перед менее срочными (glassBatchRushFirst). */
 function glassBatchCutQueue(){
  return (DB.glassBatch||[]).filter(b=>{const a=b.items.filter(i=>!i.releasedAt);return a.length&&a.some(i=>!i.cutStartedAt);})
   .sort((x,y)=>(x.cutOrder||1e9)-(y.cutOrder||1e9)||String(x.number).localeCompare(String(y.number)));
+}
+/* Срочное — первым на резку (проход 11.10.2026: батч с Rush-Recut встал
+   вторым, оптимизатор поднимал его ▲ сам). Батч со стеклом Rush / Critical
+   встаёт перед первым менее срочным батчем, резку которого ещё не начали;
+   начатый батч не перебивается, ▲▼ офиса остаются. */
+function glassBatchUrgency(b){return Math.max(0,...b.items.filter(i=>!i.releasedAt).map(i=>{const p=b.parts[i.part];return p&&typeof stationUrgency==='function'?stationUrgency(salesRecord(p.orderId)):0;}));}
+function glassBatchRushFirst(batch){
+ const u=glassBatchUrgency(batch),all=glassBatchCutQueue();if(!u||!all.includes(batch))return;
+ const q=all.filter(b=>b!==batch),i=q.findIndex(b=>!b.items.some(x=>x.cutStartedAt&&!x.releasedAt)&&glassBatchUrgency(b)<u);if(i<0)return;
+ q.splice(i,0,batch);q.forEach((b,k)=>{b.cutOrder=k+1;});
 }
 function glassBatchCutMove(number,dir){
  const q=glassBatchCutQueue(),i=q.findIndex(b=>b.number===number),j=i+(dir<0?-1:1);

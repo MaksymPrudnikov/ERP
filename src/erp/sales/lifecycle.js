@@ -214,18 +214,18 @@ function salesTransitionChecks(o,next){
     perOrder — в Shipping окно своё у каждого заказа, без строки долга.
     block — без «…anyway»: без PO дальше не идёт (владелец, 8.10.2026). */
  const noPo=c&&c.poRequired&&!String(o.customerPo||'').trim()&&['verified','batched','done'].includes(next);
- if(noPo)out.push({title:'PO missing — order '+num,sub,rows:[['Customer',name+' requires a PO']],note:'Enter the PO in the order.',block:true,perOrder:true});
+ if(noPo)out.push({title:'PO missing — order '+num,sub,rows:[['Customer',name+' requires a PO']],note:'Enter the PO in the order.',block:true,perOrder:true,short:'PO missing'});
  if(next==='verified'||next==='batched'){
-  if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway:'Continue anyway'});
-  if(b.total==null)out.push({title:'Pricing is not complete',sub,rows:[],note:'Some lines have no price.',anyway:'Continue anyway'});
+  if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway:'Continue anyway',short:'Customer on hold'});
+  if(b.total==null)out.push({title:'Pricing is not complete',sub,rows:[],note:'Some lines have no price.',anyway:'Continue anyway',short:'Pricing not complete'});
   else if(terms.paymentMode==='cash'){
    const pct=paymentDepositPercent(terms),dep=salesMoney(b.total*pct/100);
    if(pct>0&&b.paid<dep)out.push({title:'Deposit not received — order '+num,sub,rows:[['Order total',finFmt(b.total)],['Deposit required · '+pct+'%',finFmt(dep)],['Received',finFmt(b.paid),true]],
     note:next==='verified'?'Cut only after the deposit.':'Deposit not paid.',
-    anyway:next==='verified'?'Verify anyway':'Send anyway',pay:salesMoney(dep-b.paid)});
+    anyway:next==='verified'?'Verify anyway':'Send anyway',pay:salesMoney(dep-b.paid),short:'Deposit '+finFmt(dep)+' · received '+finFmt(b.paid)});
   }else if(next==='verified'&&c){
    const acc=finCustomerAccount(c),due=salesMoney(acc.balanceDue+(salesOrderIsSaved(o)?0:Math.max(0,b.balance||0)));
-   if(acc.creditLimit!=null&&due>acc.creditLimit)out.push({title:name+' is over the credit limit',sub,rows:[['Credit limit',finFmt(acc.creditLimit)],['Balance due with this order',finFmt(due),true],['Over by',finFmt(salesMoney(due-acc.creditLimit)),true]],note:'',anyway:'Verify anyway'});
+   if(acc.creditLimit!=null&&due>acc.creditLimit)out.push({title:name+' is over the credit limit',sub,rows:[['Credit limit',finFmt(acc.creditLimit)],['Balance due with this order',finFmt(due),true],['Over by',finFmt(salesMoney(due-acc.creditLimit)),true]],note:'',anyway:'Verify anyway',short:'Over credit limit by '+finFmt(salesMoney(due-acc.creditLimit))});
   }
  }
  /* Кредит: товар уходит без оплаты — срок считается от дня выдачи
@@ -243,6 +243,20 @@ function salesTransitionChecks(o,next){
    anyway:next==='closed'?'Close anyway':anyway,pay:next==='done'?b.balance:null});
  }
  return out;
+}
+/* Несколько заказов сразу (Create batch, Verify в очереди): одно окно со
+   всеми заказами, а не окно на каждый (проход 11.10.2026: пять неоплаченных —
+   пять окон подряд, Back на втором терял «Send anyway» первого). Один заказ —
+   прежнее окно (с Take payment). Окно-запрет (нет PO) — как прежде, только
+   Back. list — [{o, checks, take}], anyway — подпись кнопки. */
+function salesRunChecksMany(list,done,anyway){
+ const all=list.flatMap(x=>x.checks.map(c=>({o:x.o,c,take:x.take})));
+ if(!all.length){done();return;}
+ const block=all.find(x=>x.c.block);if(block){salesRunChecks([block.c],()=>{},block.take);return;}
+ const ids=new Set(all.map(x=>x.o.id));
+ if(ids.size===1){const x=list.find(y=>y.checks.length);salesRunChecks(x.checks,done,x.take);return;}
+ salesDialogOpen({title:ids.size+' orders need attention',rows:all.map(x=>[x.o.businessNumber+' · '+salesCustomerDisplay(x.o.customerId),x.c.short||x.c.title,true]),
+  note:'Back changes nothing. '+anyway+' — all '+ids.size+' orders.',buttons:[{label:'Back'},{label:anyway,kind:'pri',run:done}]});
 }
 function salesRunChecks(checks,done,takePayment){
  if(!checks.length){done();return;}

@@ -114,7 +114,7 @@ module.exports=async function({page,eq,ok}){
   const [id]=shSeed(),s=shCreate([id],null,'delivery').value;tab='shipping';shippingTab='shipments';shippingOpenId=s.id;render();
   const row=document.querySelector('[data-ps="'+s.number+'"]'),card=document.querySelector('.shipping-detail');
   return {date:row.cells[2].textContent===salesListShortDay(finToday()),pill:row.querySelector('.pill.st-new').textContent,card:card.querySelector('.shipping-customer-head .pill').textContent,head:[...card.querySelectorAll('th')].map(e=>e.textContent).join('|'),main:card.querySelector('button.pri').textContent,toolbar:!!document.querySelector('.shipping-toolbar [data-order-lookup]')};
- }),{date:true,pill:'Planned',card:'Planned',head:'Line / Mark|Size|Makeup|Skids|Qty|Before|Back order',main:'Loaded',toolbar:true});
+ }),{date:true,pill:'Planned',card:'Planned',head:'Line / Mark|Size|Makeup|Skids|Qty|Before|Back order',main:'Ship',toolbar:true});
  eq('PS includes unselected order lines with Now zero and the remaining backorder',await t.p.evaluate(()=>{
   const [id]=shSeed(),s=shCreate([id],1).value,d=shippingDocument(s);return d.orders[0].rows.map(r=>[r.ordered,r.before,r.now,r.back]);
  }),[[2,0,1,1],[1,0,0,1]]);
@@ -167,7 +167,7 @@ module.exports=async function({page,eq,ok}){
  // Real controls: create, dispatch, receipt scan, column filter, compact viewport.
  await t.p.evaluate(()=>{const [id]=shSeed();shippingTab='ready';tab='shipping';window.shCustomer=salesRecord(id).customerId;render();});
  await t.p.locator('[data-create-ps]').click();await t.p.getByLabel('Method',{exact:true}).selectOption('pickup');await t.p.locator('[data-save-ps]').click();
- await t.p.getByRole('button',{name:'Loaded',exact:true}).click();await t.p.getByRole('button',{name:'Ship all',exact:true}).click();await t.p.locator('[data-signed-ps]').fill('PS-0001');await t.p.locator('[data-signed-ps]').press('Enter');
+ await t.p.getByRole('button',{name:'Ship',exact:true}).click();await t.p.getByRole('button',{name:'Ship all',exact:true}).click();await t.p.locator('[data-signed-ps]').fill('PS-0001');await t.p.locator('[data-signed-ps]').press('Enter');
  eq('Office controls create, ship and scan the signed PS; scan focus returns',await t.p.evaluate(()=>({status:DB.shipment[0].status,order:DB.salesOrder[0].status,focus:document.activeElement.id})),{status:'delivered',order:'done',focus:'shippingSigned'});
  await t.p.getByRole('button',{name:'Filter Customer',exact:true}).click();ok('Shipment column filter opens',await t.p.locator('.sl-menu').count()>0);await t.p.evaluate(()=>{salesListMenu=null;render();});
  await t.p.setViewportSize({width:390,height:844});eq('Shipping fits the narrow viewport',await t.p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);

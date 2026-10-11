@@ -13,12 +13,12 @@ module.exports=async function({page,eq,ok}){
   window.swNoFinance=function(fn){const old=window.accessCan;window.accessCan=k=>k!=='finance';try{return fn();}finally{window.accessCan=old;}};
  });
 
- eq('Без Finance: окно «balance due» без Take payment — Back и Load anyway; в заказе нет кнопок Payments и Apply deposit, суммы видны',await t.p.evaluate(()=>swNoFinance(()=>{
+ eq('Без Finance: окно «balance due» без Take payment — Back и Ship anyway; в заказе нет кнопок Payments и Apply deposit, суммы видны',await t.p.evaluate(()=>swNoFinance(()=>{
   const id=swSeed({paymentMode:'cash'}),s=swPS(id);swOpen(s);
   shippingLoaded(s.id);const buttons=salesDialog?salesDialog.buttons.map(b=>b.label):[];oqChoose('Back');
   tab='sales';salesOrderEdit(id);const strip=document.querySelector('.fin-strip'),pay=[...strip.querySelectorAll('button')].map(b=>b.textContent);
   const out={buttons,pay,sums:/Balance/.test(strip.textContent),status:shippingFind(s.id).status};salesDraftDrop();tab='dashboard';render();return out;
- })),{buttons:['Back','Load anyway'],pay:[],sums:true,status:'planned'});
+ })),{buttons:['Back','Ship anyway'],pay:[],sums:true,status:'planned'});
 
  eq('Convert квоты у клиента «PO required»: окно спрашивает PO, пустое не пускает, заказ создаётся с введённым PO',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'Redwood Glass',poRequired:true}),q=oqOrder(c,{kind:'quote'});salesOrderEdit(q);const before=DB.salesOrder.length;
@@ -77,6 +77,32 @@ module.exports=async function({page,eq,ok}){
    return !top.querySelector('.st-topscan')||!top.querySelector('[data-station-puton]')||document.documentElement.scrollWidth>innerWidth+1?k+' '+w+' '+top.scrollWidth:'';}).filter(Boolean),w));}
  await t.p.setViewportSize({width:1440,height:900});await t.p.evaluate(()=>{window.stationLoose=swLoose;stationSwitch();tab='dashboard';render();});
  eq('Шапка CUT на Queue и Board с плашками No dolly, Putting on, батча и рабочего — не шире окна на 1440, 1366, 1280 и 1024',wide,[]);
+
+ /* Неудобства прохода, выбранные владельцем 11.10.2026: Rush первым на
+    резку, депозит одним окном, «Loaded» → «Ship». */
+ eq('Rush первым на резку: новый батч со срочным заказом встаёт перед обычными, которые ещё не режут; начатый не перебивается; ▲▼ работают',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'Northside Windows'}),a=oqOrder(c),b=oqOrder(c),r=oqOrder(c,{priority:'rush'});salesDraftDrop();
+  rbBatch([a]);const A=DB.glassBatch.slice(-1)[0];A.items[0].cutStartedAt=new Date().toISOString();rbBatch([b]);const B=DB.glassBatch.slice(-1)[0];rbBatch([r]);const R=DB.glassBatch.slice(-1)[0];
+  const q=()=>glassBatchCutQueue().map(x=>x===A?'A':x===B?'B':x===R?'R':'?');const first=q();glassBatchCutMove(R.number,1);
+  return {first,moved:q()};
+ }),{first:['A','R','B'],moved:['A','B','R']});
+
+ eq('Create batch из нескольких неоплаченных заказов: одно окно со всеми заказами и депозитами; Back не создаёт ничего, Send anyway — батч на все',await t.p.evaluate(()=>{
+  oqReset();const a=oqOrder(oqCustomer({legalName:'Ridgeway Contracting',paymentMode:'cash'})),b=oqOrder(oqCustomer({legalName:'Stonegate Builders',paymentMode:'cash'}));salesDraftDrop();
+  [a,b].forEach(id=>salesSetRecordStatus(id,'verified'));const before=(DB.glassBatch||[]).length;
+  tab='optimization';optimizationTab='batch';render();glassBatchToggleAll(true);glassBatchCreateSelected();
+  const d={title:salesDialog&&salesDialog.title,rows:salesDialog?salesDialog.rows.map(r=>/^\d+ · /.test(r[0])&&/^Deposit \$[\d,.]+ · received \$0\.00$/.test(r[1])):[],buttons:salesDialog?salesDialog.buttons.map(x=>x.label):[]};
+  oqChoose('Back');const none=(DB.glassBatch||[]).length===before;
+  glassBatchToggleAll(true);glassBatchCreateSelected();oqChoose('Send anyway');const made=(DB.glassBatch||[]).length-before;
+  tab='dashboard';render();return {d,none,made,status:[a,b].map(id=>salesRecord(id).status)};
+ }),{d:{title:'2 orders need attention',rows:[true,true],buttons:['Back','Send anyway']},none:true,made:1,status:['batched','batched']});
+
+ eq('Накладная: главная кнопка — «Ship» (машина уехала); в списке у Planned видно, что скид уже погружен',await t.p.evaluate(()=>{
+  const id=swSeed(),s=swPS(id,'delivery');shippingLoadState(s).units.forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));
+  const r=shippingLoad('SL-1',s.id,{id:'qa',name:'QA'}).kind;swOpen(s);
+  const main=[...document.querySelectorAll('.shipping-detail .sales-toolbar button')].pop().textContent,list=(document.querySelector(`[data-ps="${s.number}"] [data-ps-list-loaded]`)||{}).textContent;
+  tab='dashboard';render();return {r,main,list};
+ }),{r:'shipLoaded',main:'Ship',list:'1 skid loaded'});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();

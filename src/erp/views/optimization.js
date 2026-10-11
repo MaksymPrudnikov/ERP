@@ -68,12 +68,8 @@ function optimizationRunOrders(ids,action,opts){
    note:cancel?'Payments → customer deposit.':'Locks stay.',
    buttons:[{label:'Back'},{label:cancel?'Cancel orders':'Move back',kind:cancel?'dl':'pri',run:finish}]});return;
  }
- const checkOrder=i=>{
-  if(i===orders.length){finish();return;}
-  const o=orders[i],forChecks=action==='done'&&opts.delivery?Object.assign({},o,{delivery:opts.delivery}):o;
-  salesRunChecks(salesTransitionChecks(forChecks,action),()=>checkOrder(i+1),amount=>salesTakeRecordPayment(o.id,amount));
- };
- checkOrder(0);
+ const list=orders.map(o=>{const forChecks=action==='done'&&opts.delivery?Object.assign({},o,{delivery:opts.delivery}):o;return {o,checks:salesTransitionChecks(forChecks,action),take:amount=>salesTakeRecordPayment(o.id,amount)};});
+ salesRunChecksMany(list,finish,action==='verified'?'Verify anyway':action==='batched'?'Send anyway':'Continue anyway');
 }
 /* Снятие батча — отдельное действие, обычный Back замок не снимает. */
 function optimizationUnbatch(ids){

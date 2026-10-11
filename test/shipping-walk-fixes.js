@@ -12,14 +12,14 @@ module.exports=async function({page,eq,ok}){
   window.swOpen=function(s){tab='shipping';shippingTab='shipments';shippingOpenId=s.id;render();};
  });
 
- eq('Loaded у cash-клиента с долгом: сначала окно «balance due» — Back ничего не пишет, Load anyway продолжает погрузку',await t.p.evaluate(()=>{
+ eq('Loaded у cash-клиента с долгом: сначала окно «balance due» — Back ничего не пишет, Ship anyway продолжает погрузку',await t.p.evaluate(()=>{
   const id=swSeed({paymentMode:'cash'}),s=swPS(id);swOpen(s);
   const pill=!!document.querySelector('[data-ps-balance]');
   shippingLoaded(s.id);const title=salesDialog&&salesDialog.title,buttons=salesDialog?salesDialog.buttons.map(b=>b.label):[];
   oqChoose('Back');const back=shippingFind(s.id).status;
-  shippingLoaded(s.id);oqChoose('Load anyway');const next=salesDialog&&salesDialog.title;oqChoose('Ship all');
+  shippingLoaded(s.id);oqChoose('Ship anyway');const next=salesDialog&&salesDialog.title;oqChoose('Ship all');
   const out={pill,title:/^Order \d+ has a balance due$/.test(title),buttons,back,next,status:shippingFind(s.id).status};tab='dashboard';render();return out;
- }),{pill:true,title:true,buttons:['Back','Load anyway','Take payment'],back:'planned',next:'Nothing scanned at SHIP',status:'shipped'});
+ }),{pill:true,title:true,buttons:['Back','Ship anyway','Take payment'],back:'planned',next:'Nothing scanned at SHIP',status:'shipped'});
 
  eq('Take payment из окна Loaded: квитанция на заказ, после Save — обратно в Shipping; долг закрыт — подсветки нет, Loaded без окна',await t.p.evaluate(()=>{
   const id=swSeed({paymentMode:'cash'}),s=swPS(id);swOpen(s);
