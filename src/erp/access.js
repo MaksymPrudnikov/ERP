@@ -21,7 +21,10 @@
      сами не трогают; про секреты экраны знают только «задан / не задан».
    Правило: файл не знает про заказы, цены и экраны.
    ===================================================================== */
-const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','reports','masterdata','users','dashboard'];
+const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','reports','screens','masterdata','users','dashboard'];
+/* Галочки, у которых нет своего пункта меню: Screens — ставить отчёты на
+   экраны станций и людей (Reports → Edit → Show on; владелец, 11.10.2026). */
+const USER_ACCESS_LABELS={screens:'Screens'};
 const ACCESS_ADMIN='users';
 /* Никто не вошёл. Пока вход не настроен (пароля нет ни у кого с Users,
    erp/signin → signinOn) — открыто, как в пустой базе: иначе завести

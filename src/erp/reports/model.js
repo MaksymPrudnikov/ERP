@@ -23,12 +23,15 @@
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=3;
+const REP_SEED_VERSION=4;
 /* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
 function repUid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();}
 function repMe(){const u=typeof signinUser==='function'?signinUser():null;return u?u.viewProfileId:'';}
 /* Администратор — галочка Users; без входа (пустая база, картинки) — открыто, как accessCan. */
 function repIsAdmin(){return typeof accessCan==='function'&&accessCan(ACCESS_ADMIN);}
+/* Ставить отчёты на экраны станций и людей — администратор или галочка
+   Screens в Users (владелец, 11.10.2026: начальник производства, Shipping). */
+function repCanScreens(){return repIsAdmin()||typeof accessCan==='function'&&typeof USER_SECTIONS!=='undefined'&&USER_SECTIONS.includes('screens')&&accessCan('screens');}
 function repCanEdit(r){return !!r&&(repIsAdmin()||!!r.ownerId&&r.ownerId===repMe());}
 function repVisible(r){const me=repMe();return !!r&&(repIsAdmin()||r.share==='all'||r.ownerId===me||Array.isArray(r.share)&&r.share.includes(me));}
 function repFind(id){return (DB.report||[]).find(r=>r.id===id)||null;}
@@ -67,7 +70,14 @@ function normalizeReports(){
  /* Стартовые отчёты добавляются по версиям: база получает только новые
     для себя — удалённый владельцем стартовый не возвращается. */
  const seed=+DB.reportSeed||0;
- if(seed<REP_SEED_VERSION){REP_STARTERS().filter(r=>(r.seed||1)>seed).forEach(r=>{if(!DB.report.some(x=>x.id===r.id))DB.report.push(repClean(r));});DB.reportSeed=REP_SEED_VERSION;}
+ if(seed<REP_SEED_VERSION){
+  REP_STARTERS().filter(r=>(r.seed||1)>seed).forEach(r=>{if(!DB.report.some(x=>x.id===r.id))DB.report.push(repClean(r));});
+  /* Версия 4: «Sales · my customers» считал заказы по сроку — заказ без Due
+     date не попадал ни в один период. Теперь по дате заказа; правим только
+     графики, которые ещё как в стартовом. */
+  if(seed>=3&&seed<4){const x=DB.report.find(r=>r.id==='RP-start-mycustomers');if(x)x.pages.forEach(p=>p.widgets.forEach(w=>{if(w.q.source==='orders'&&w.q.date.f==='due'&&w.q.date.use!=='own')w.q.date.f='created';}));}
+  DB.reportSeed=REP_SEED_VERSION;
+ }
 }
 function validateReportsPayload(src){
  if(src.report!=null&&!Array.isArray(src.report))throw new Error('The "report" field must be an array.');
@@ -154,8 +164,8 @@ function REP_STARTERS(){
     repW('columns','edgework',{title:'Linear in by hour',dims:['at:hour'],metrics:['inches'],filters:[{f:'station',op:'in',v:['@station']}]}),
     repW('table','edgework',{title:'By thickness',dims:['mm'],metrics:['inches','glass'],filters:[{f:'station',op:'in',v:['@station']}]})]]],3),
   R('mycustomers','Sales · my customers','Screens','thisMonth',['customer'],[
-   ['Orders',[repW('number','orders',{date:{f:'due'},metrics:['count','late','onTime'],filters:[{f:'rep',op:'in',v:['@me']}]}),
-    repW('table','orders',{title:'By customer',date:{f:'due'},dims:['customer'],metrics:['count','late','units','area'],filters:[{f:'rep',op:'in',v:['@me']}]})]],
+   ['Orders',[repW('number','orders',{date:{f:'created'},metrics:['count','late','onTime'],filters:[{f:'rep',op:'in',v:['@me']}]}),
+    repW('table','orders',{title:'By customer',date:{f:'created'},dims:['customer'],metrics:['count','late','units','area'],filters:[{f:'rep',op:'in',v:['@me']}]})]],
    ['Quotes',[repW('table','quotes',{title:'My quotes',date:{f:'created'},dims:['state'],metrics:['count','value'],filters:[{f:'rep',op:'in',v:['@me']}]})]]],3),
   R('sizes','Glass by size band','Production','thisMonth',['station','glass'],[
    ['Summary',[repW('bars','glass',{title:'Glass by size band',dims:['sizeBand'],metrics:['count'],width:'half'}),repW('pie','ordered',{title:'Ordered ft² by size band',date:{f:'created'},dims:['sizeBand'],metrics:['area'],width:'half'}),
