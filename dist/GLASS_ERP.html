@@ -3167,7 +3167,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='4082ed6c907a';
+var ERP_BUILD='62f7bd93aea4';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -31981,7 +31981,9 @@ function stationBreakPlan(g,station,asmId){
     вынимают из машины, они ждут пару на долли (владелец, 29.09.2026). */
  const out=a&&!a.broken&&station===mu?[...a.lites.entries()].filter(([k,id])=>id!==g.id&&!keys.includes(k)).map(([k,id])=>id):[];
  const same=a&&!a.broken&&station===mu?[...a.lites.entries()].filter(([k,id])=>id!==g.id&&keys.includes(k)).map(([k,id])=>id):[];
- return {which,whole:false,asm:a,pieces:[g.id].concat(same,sandwich),out};
+ /* Плита сэндвича бывает и в сборке IGU (same), и в склейке LAM (sandwich) —
+    разбитой она записывается один раз (аудит 12.10.2026: брак +1). */
+ return {which,whole:false,asm:a,pieces:[...new Set([g.id].concat(same,sandwich))],out};
 }
 function stationBreak(station,check,who,reasonId,opts){
  if(storageDepth||opts&&opts.deferTouch)return stationBreakCommand(station,check,who,reasonId,opts);
@@ -38689,8 +38691,12 @@ function repBreakFacts(){
    клиент его ни забрал. On time % — из заказов On time и Late: просроченный
    невыданный заказ тоже опоздал. */
 let repOrderCache={stamp:'',rows:null};
+/* Готовность самовывоза меняют только сканы станции готовности: остальные
+   сканы цеха не пересчитывают заказы (аудит 12.10.2026: раньше любой скан
+   сбрасывал расчёт отчётов по заказам). */
+function repReadyScanCount(){const st=shippingStations().ready;let n=0;(DB.stationScan||[]).forEach(s=>{if(s.station===st)n+=s.undoneAt?2:1;});return n;}
 function repOrderFacts(){
- const today=finToday(),stamp=[today,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.shipment||[]).map(s=>s.id+s.status+s.date).join(','),(DB.stationScan||[]).length].join('|');
+ const today=finToday(),stamp=[today,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.shipment||[]).map(s=>s.id+s.status+s.date).join(','),repReadyScanCount()].join('|');
  if(repOrderCache.stamp===stamp&&repOrderCache.rows)return repOrderCache.rows;
  const rows=[],days=(a,b)=>Math.round((Date.parse(b+'T12:00:00')-Date.parse(a+'T12:00:00'))/864e5);
  /* Когда стекло заказа стало готово к выдаче: последний скан станции готовности. */
