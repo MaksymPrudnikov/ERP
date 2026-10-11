@@ -6,11 +6,11 @@
 
 Владелец: «в перформанс-инвойсе не указывается создатель заказа: мы видим это в колонке Sales — ищем номер заказа, и сбоку стоит имя, или уже внутри заказа система подтягивает имя того, кто залогинен в системе и создал заказ». Hold, когда скид ещё не грузили: «понятно сказать, не отпускать».
 
-- **Created by** (`orderCreatedBy`, `src/erp/sales/order-log.js`) — кто был вошедшим в офис, когда заказ или квоту записали (событие Created журнала заказа). В Sales — колонка **Created by** рядом с Customer, видна по умолчанию; в шапке заказа под номером — «Created by Kate Novak · Oct 11». У заказа, созданного до журнала, имени нет.
+- **Created by** (`orderCreatedBy`, `src/erp/sales/order-log.js`) — кто был вошедшим в офис, когда заказ или квоту записали (событие Created журнала заказа). В Sales — колонка **Created by** рядом с Customer, по выбору: по умолчанию скрыта, включается в Columns (владелец: «не всегда нужно видеть, кто создал, — только если там косяки»); в шапке заказа под номером — «Created by Kate Novak · Oct 11». У заказа, созданного до журнала, имени нет.
 - **Sales rep с бланков убран** (`DOC_FIELDS`, `src/erp/documents/company.js`): proforma, подтверждение, счёт, квота и Work order больше не печатают продажника из карточки клиента; сохранённые наборы полей теряют этот пункт при загрузке. Поле Sales rep в карточке клиента и колонка Sales rep в Sales (по умолчанию скрыта) остались. Кто привёл клиента — раздел Agents.
 - **Loaded, заказ на Hold, его стекло не грузили** (`shippingHoldFirst`, `src/erp/views/shipping.js`): окно «Order N is On Hold» — «Its glass stays in the shop. Release the hold, or take the order off this packing slip.», кнопки Back и Edit packing slip. Раньше после «Ship anyway» была красная строка «The selected glass is no longer available». Скид погрузили до Hold — как раньше: предупреждение и Ship anyway.
 
-Проверки: `test/sim-walk-fixes.js` (+2), `test/sales-list.js` — колонка Created by в наборе по умолчанию. Всего 1578 проверок src / dist.
+Проверки: `test/sim-walk-fixes.js` (+2). Всего 1578 проверок src / dist.
 
 ## Agents: комиссия тем, кто привёл клиента · 11 октября 2026 (v5.168)
 

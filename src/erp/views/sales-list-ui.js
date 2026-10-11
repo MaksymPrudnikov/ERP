@@ -22,7 +22,7 @@ const SALES_LIST_COLUMNS=[
  {k:'type',label:'Type',type:'list',def:true},
  {k:'number',label:'Number',type:'text',def:true},
  {k:'customer',label:'Customer',type:'text',def:true},
- {k:'createdBy',label:'Created by',type:'text',def:true},
+ {k:'createdBy',label:'Created by',type:'text'},
  {k:'po',label:'PO',type:'text',def:true},
  {k:'created',label:'Created',type:'date',def:true},
  {k:'due',label:'Due',type:'date',def:true},
