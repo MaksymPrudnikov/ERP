@@ -81,8 +81,8 @@ function glassBatchCreateSelected(){
   glassBatchSelection.clear();glassBatchAnchor='';
   if(made.length===1)glassBatchOpen(made[0].number);else{glassBatchOpenNumber='';optimizationTab='production';salesListMenu=null;render();}
  };
- const check=i=>{if(i===orders.length){finish();return;}salesRunChecks(salesTransitionChecks(orders[i],'batched'),()=>check(i+1),amount=>salesTakeRecordPayment(orders[i].id,amount));};
- if(groups.size>1){salesDialogOpen({title:'Create '+groups.size+' batches?',rows:[...groups.values()].map(a=>[a[0].glass,a.length+' pcs']),note:'One batch per glass type.',buttons:[{label:'Back'},{label:'Create batches',kind:'pri',run:()=>check(0)}]});}else check(0);
+ const check=()=>salesRunChecksMany(orders.map(o=>({o,checks:salesTransitionChecks(o,'batched'),take:amount=>salesTakeRecordPayment(o.id,amount)})),finish,'Send anyway');
+ if(groups.size>1){salesDialogOpen({title:'Create '+groups.size+' batches?',rows:[...groups.values()].map(a=>[a[0].glass,a.length+' pcs']),note:'One batch per glass type.',buttons:[{label:'Back'},{label:'Create batches',kind:'pri',run:check}]});}else check();
 }
 function glassBatchUnbatchSelected(){
  const selected=glassBatchFiltered().filter(i=>i.item&&glassBatchSelection.has(glassBatchRowKey(i))&&glassBatchPickable(i));if(!selected.length)return;

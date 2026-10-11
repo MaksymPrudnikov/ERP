@@ -163,9 +163,9 @@ module.exports=async function({page,eq,ok}){
  /* ---------------------------- экран офиса ---------------------------- */
  await t.p.evaluate(()=>{const [a,b]=ldSeed('A A');ldPut(a,'SL-1');ldPut(b,'SL-2');window.ldIds=[a,b];const s=ldPS(a,[a,b]);ldLoad('SL-1');window.ldPrints=0;tab='shipping';shippingTab='shipments';shippingOpenId=s.id;render();});
  eq('PS card shows what is loaded',await t.p.evaluate(()=>ldText('[data-ps-loaded]')),'1 skid loaded · 1 skid not loaded');
- await t.p.getByRole('button',{name:'Loaded',exact:true}).click();
+ await t.p.getByRole('button',{name:'Ship',exact:true}).click();
  eq('Loaded says what stays in Ready before it writes',await t.p.evaluate(()=>({title:salesDialog.title,note:salesDialog.note,status:DB.shipment[0].status})),{title:'PS-0001 · 1 skid loaded',note:'1 skid not loaded — back to Ready for the next trip.',status:'planned'});
- await t.p.locator('.sales-dialog').getByRole('button',{name:'Loaded',exact:true}).click();
+ await t.p.locator('.sales-dialog').getByRole('button',{name:'Ship',exact:true}).click();
  eq('Loaded ships the scanned skid and prints the PS',await t.p.evaluate(()=>({status:DB.shipment[0].status,items:DB.shipment[0].items.length,prints:ldPrints,ready:shippingAvailable(salesRecord(ldIds[1])).length})),{status:'shipped',items:3,prints:1,ready:3});
  await t.p.evaluate(()=>{shippingTab='ready';render();});
  await t.p.getByLabel(/^Queue for order .* line 1$/).fill('4');await t.p.getByLabel(/^Queue for order .* line 1$/).press('Tab');

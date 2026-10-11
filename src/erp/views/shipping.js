@@ -97,13 +97,13 @@ function shippingQueueChange(orderId,lineId,value){const out=shippingQueueSet(or
 /* Деньги до отгрузки у cash-клиента (владелец, 7.10.2026: «нужно сначала
    взять деньги, если у клиента не кредитование — пусть будет окно и
    подсветка; кредит и лимиты — дело бухгалтерии»). Окно на каждый заказ
-   PS с долгом: Back · Load anyway · Take payment (после оплаты — обратно
+   PS с долгом: Back · Ship anyway · Take payment (после оплаты — обратно
    сюда). Кредитных не спрашиваем. */
 function shippingCashFirst(s,done){
  const ids=shippingOrderIds(s).filter(oid=>{const o=salesRecord(oid);return o&&shippingBalanceDue(o);});
  const run=n=>{
   if(n===ids.length){done();return;}
-  const o=salesRecord(ids[n]),checks=salesTransitionChecks(Object.assign({},o,{delivery:s.method}),'done').filter(c=>c.pay!=null).map(c=>Object.assign({},c,{anyway:'Load anyway'}));
+  const o=salesRecord(ids[n]),checks=salesTransitionChecks(Object.assign({},o,{delivery:s.method}),'done').filter(c=>c.pay!=null).map(c=>Object.assign({},c,{anyway:'Ship anyway'}));
   salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
  };run(0);
 }
@@ -136,7 +136,7 @@ function shippingLoadedGo(id){
  };
  if(!st.units.length||st.loaded.length===st.units.length){run(st.units.length?'loaded':'');return;}
  if(!st.loaded.length){salesDialogOpen({title:'Nothing scanned at '+shippingStations().ship,note:'Ship all '+shippingLoadPart(st.units)+' on '+s.number+'?',buttons:[{label:'Back'},{label:'Ship all',kind:'pri',run:()=>run('')}]});return;}
- salesDialogOpen({title:s.number+' · '+shippingLoadPart(st.loaded)+' loaded',note:shippingLoadPart(st.rest)+' not loaded — back to Ready for the next trip.',buttons:[{label:'Back'},{label:'Loaded',kind:'pri',run:()=>run('loaded')}]});
+ salesDialogOpen({title:s.number+' · '+shippingLoadPart(st.loaded)+' loaded',note:shippingLoadPart(st.rest)+' not loaded — back to Ready for the next trip.',buttons:[{label:'Back'},{label:'Ship',kind:'pri',run:()=>run('loaded')}]});
 }
 /* «Received by» — имя одного получателя: после принятой накладной поле
    пустеет, иначе оно молча уходило в следующий PS стопки (проход 11.10.2026). */
@@ -178,14 +178,16 @@ function shippingListInfos(){return (DB.shipment||[]).map(s=>({o:s,memo:{number:
 function shippingListHTML(){
  const infos=shippingListInfos(),cols=shippingListColumns(),rows=salesListRows(infos);
  const th=c=>`<th${c.type==='number'?' class="n"':''}><span class="sl-th">${c.label}<button class="sl-fbtn${salesListFilterActive(salesListLoadPrefs().filters[c.k])?' on':''}" aria-label="Filter ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;
- const cell=(i,c)=>c.k==='number'?`<button class="sm" onclick="shippingOpenId='${esc(i.o.id)}';shippingPreview=false;render()">${esc(i.memo.number)}</button>`:c.k==='customer'?`<b>${esc(i.memo.customer)}</b>`:c.k==='date'?esc(salesListShortDay(i.memo.date)):c.k==='status'?shippingStatusPill(i.o)+(shippingNeedsReprint(i.o)?' <span class="pill st-batched">Reprint</span>':''):esc(i.memo[c.k])||'<span class="mut">—</span>';
+ const cell=(i,c)=>c.k==='number'?`<button class="sm" onclick="shippingOpenId='${esc(i.o.id)}';shippingPreview=false;render()">${esc(i.memo.number)}</button>`:c.k==='customer'?`<b>${esc(i.memo.customer)}</b>`:c.k==='date'?esc(salesListShortDay(i.memo.date)):c.k==='status'?shippingStatusPill(i.o)+(i.o.status==='planned'?(t=>t?` <span class="mut small" data-ps-list-loaded>${esc(t)}</span>`:'')(shippingWithCtx(()=>shippingLoadText(shippingLoadState(i.o)))):'')+(shippingNeedsReprint(i.o)?' <span class="pill st-batched">Reprint</span>':''):esc(i.memo[c.k])||'<span class="mut">—</span>';
  return `<div class="card sales-list-card shipping-list-card"><div class="shipping-scan"><label>Signed packing slip<input id="shippingSigned" data-signed-ps placeholder="Scan PS-0001" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingSigned(this.value)}"></label><label>Received by<input id="shippingReceiver" value="${esc(shippingReceivedBy)}" placeholder="Optional" oninput="shippingReceivedBy=this.value"></label><label>Received on<input id="shippingReceivedOn" type="date" value="${shippingReceivedOn||finToday()}" max="${finToday()}" onchange="shippingReceivedOn=this.value"></label></div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr>${cols.map(th).join('')}<th></th></tr></thead><tbody>${rows.map(i=>`<tr data-ps="${esc(i.o.number)}" class="${i.o.id===shippingOpenId?'shipping-selected':''}">${cols.map(c=>`<td${c.type==='number'?' class="n"':''}>${cell(i,c)}</td>`).join('')}<td class="sales-row-actions"><button class="sm" ${i.o.status==='cancelled'&&!i.o.unbatchedItems?.length?'disabled':''} onclick="shippingPrint('${esc(i.o.id)}')">Print</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No packing slips.</td></tr>'}</tbody></table></div>${salesListMenuHTML(infos)}</div>${shippingDetailHTML()}`;
 }
 function shippingDetailHTML(){
  const s=shippingFind(shippingOpenId);if(!s)return '';const d=shippingDocument(s),loaded=s.status==='planned'?shippingLoadText(shippingLoadState(s)):'';
  const action=(label,fn,kind)=>`<button type="button"${kind?` class="${kind}"`:''} onclick="${fn}">${label}</button>`,id=esc(s.id);
  /* Главное действие статуса — справа и выделено, как + New Sales Order. */
- const main=s.status==='planned'?action('Loaded',`shippingLoaded('${id}')`,'pri'):s.status==='shipped'?action(s.method==='pickup'?'Picked up':'Delivered',`shippingReceive('${id}')`,'pri'):'';
+ /* «Ship» — машина уехала (проход 11.10.2026: кнопка звалась «Loaded»,
+    а ставила Shipped; погрузку пишет станция SHIP). */
+ const main=s.status==='planned'?action('Ship',`shippingLoaded('${id}')`,'pri'):s.status==='shipped'?action(s.method==='pickup'?'Picked up':'Delivered',`shippingReceive('${id}')`,'pri'):'';
  const rest=(s.status==='planned'?action('Edit',`shippingOpen('${esc(s.customerId)}','${id}')`)+action('Cancel',`shippingUndo('${id}','cancel')`):s.status==='shipped'?action('Undo dispatch',`shippingUndo('${id}','dispatch')`):s.status==='delivered'?action('Undo receipt',`shippingUndo('${id}','receipt')`):'')+(s.status!=='cancelled'||s.unbatchedItems?.length?action('Print',`shippingPrint('${id}')`):'')+action(shippingPreview?'Hide preview':'Preview','shippingPreview=!shippingPreview;render()');
  const rows=d.orders.map(o=>`<tr class="shipping-order-row"><td colspan="7"><b>Order ${esc(o.number)}</b>${o.po?' · PO '+esc(o.po):''}</td></tr>`+o.rows.map(r=>`<tr><td>${r.line}${r.mark?' · '+esc(r.mark):''}</td><td>${esc(r.size)}</td><td>${esc(r.makeup)}</td><td>${esc(r.skids)||'<span class="mut">—</span>'}</td><td class="n"><b>${r.now}</b></td><td class="n">${r.before}</td><td class="n">${r.back}</td></tr>`+(r.note?`<tr class="shipping-cancel-note" data-ps-cancel-note><td colspan="7">${esc(r.note)}</td></tr>`:'')).join('')+(o.takes||[]).map(x=>`<tr data-ps-takes><td colspan="4">Cancelled · customer takes · line ${x.line} · ${esc(x.size)}</td><td class="n"><b>${x.pieces}</b> glass</td><td></td><td></td></tr>`).join('')+o.extras.map(x=>`<tr><td colspan="3">From stock · ${esc(x.name)}</td><td><span class="mut">—</span></td><td class="n"><b>${x.now}</b></td><td class="n">${x.before}</td><td class="n">${x.back}</td></tr>`).join('')).join('');
  return `<div class="card shipping-detail"><div class="shipping-customer-head"><div><h3>${esc(s.number)} · ${esc(salesCustomerDisplay(s.customerId))}</h3><span class="mut">${esc(docAddressText(s.shipTo))||'Pickup'} · ${esc(salesListShortDay(s.date))}</span></div>${shippingStatusPill(s)}</div>${(d.corrections||[]).map(text=>`<p class="shipping-loaded" data-ps-unbatch>${esc(text)}</p>`).join('')}${loaded?`<p class="shipping-loaded" data-ps-loaded>${esc(loaded)}</p>`:''}${s.status==='delivered'?`<p class="shipping-loaded" data-ps-received>${esc('Received '+salesListShortDay(salesListIsoDay(s.deliveredAt))+(s.receivedBy?' · '+s.receivedBy:''))}</p>`:''}<div class="sales-toolbar">${rest}<span class="sales-toolbar-sp"></span>${main}</div>${rows?`<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Skids</th><th class="n">Qty</th><th class="n">Before</th><th class="n">Back order</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="mut">Open trip · no items selected</p>'}${shippingPreview?'<div class="shipping-preview">'+shippingPages(d).map(docPageSVG).join('')+'</div>':''}</div>`;
