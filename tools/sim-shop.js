@@ -950,7 +950,17 @@ function simPage() {
       shippingOrderIds(s).forEach(id => cashBalance(id, day, 'pickup'));
       loadPs(s, who);
       asOffice(people['Tom Walsh']);
-      const out = shippingMarkShipped(s.id, 'loaded'); if (!out.ok) { const again = shippingMarkShipped(s.id); if (!again.ok) { fail('pickup ship', again.error); continue; } officeShip(s.id); }
+      let out = shippingMarkShipped(s.id, 'loaded');
+      if (!out.ok) { out = shippingMarkShipped(s.id); if (out.ok) officeShip(s.id); }
+      /* Что-то в PS больше не готово (Recut, Hold) — офис пересобирает PS из
+         готового и выдаёт; не вышло — отменяет, заказы вернутся в план. */
+      if (!out.ok) {
+        const items = shippingOrderIds(s).flatMap(id => shippingAvailable(salesRecord(id), s.id)).map(shippingItem);
+        const up = items.length ? shippingUpdate(s.id, { customerId: s.customerId, method: s.method, shipTo: s.shipTo, date: s.date, items, extras: [], note: s.note }) : { ok: false };
+        if (up.ok) { out = shippingMarkShipped(s.id); if (out.ok) officeShip(s.id); }
+        if (!out.ok) { fail('pickup ship', out.error); shippingRevert(s.id, 'cancel'); shippingOrderIds(s).forEach(id => { READY.add(id); touchOrder(id); }); continue; }
+        cnt('pickup repaired');
+      }
       const c = salesFindCustomer(s.customerId), d = shippingMarkDelivered(s.id, person(), day); if (!d.ok) fail('pickup', d.error);
       shippingOrderIds(s).forEach(id => { touchOrder(id); billed(id, day); });
       cnt('pickup');
