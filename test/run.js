@@ -4740,7 +4740,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       setShapeWorkspaceTab('cutout');
       const opened={active:document.querySelector('.shape-workspace-tabs .on b').textContent.trim(),designer:document.querySelectorAll('.shape-master-fields').length,cutout:document.querySelectorAll('.shape-cutout-workspace').length,marks:document.querySelectorAll('.shape-mi-marker').length,drawing:document.querySelectorAll('#shapeLivePreview svg').length};
       sEdit=null;sDraft=null;render();const closed=!document.body.classList.contains('shape-workspace-mode');return {initial,cutting,opened,closed};
-    }), {initial:{tabs:['Shape Designer','Fabrication'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:10,labelsHidden:false,headerHidden:true,toggle:0,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},opened:{active:'Fabrication',designer:0,cutout:1,marks:1,drawing:1},closed:true});
+    }), {initial:{tabs:['Shape Designer','Fabrication'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:11,labelsHidden:false,headerHidden:true,toggle:0,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},opened:{active:'Fabrication',designer:0,cutout:1,marks:1,drawing:1},closed:true});
 
     /* Выбор notch сначала создаёт E/F без размеров. Это нормальное промежуточное
        состояние ввода: Edge processing не должен исчезать из рабочего места.
@@ -4765,7 +4765,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const wide=Math.round(main.getBoundingClientRect().width);
       return {cap:getComputedStyle(main).maxWidth,sideScroll:side.scrollHeight-side.clientHeight,fillsViewport:wide>innerWidth-100,
         labels:[...side.querySelectorAll('.nav-item')].filter(x=>x.getBoundingClientRect().width>0).map(x=>x.textContent.trim())};
-    }), {cap:'none',sideScroll:0,fillsViewport:true,labels:['Sales','Optimize','Production','Shipping','Finance','Customers','Reports','Data','Users','Overview']});
+    }), {cap:'none',sideScroll:0,fillsViewport:true,labels:['Sales','Optimize','Production','Shipping','Finance','Customers','Reports','Agents','Data','Users','Overview']});
     eq('боковое меню не создаёт горизонтальную прокрутку', await t.p.evaluate(() => {
       const side=document.getElementById('side');render();return {fits:side.scrollWidth<=side.clientWidth};
     }), {fits:true});
