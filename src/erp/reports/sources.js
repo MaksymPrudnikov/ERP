@@ -91,11 +91,11 @@ const REP_SRC={
   metrics:[{k:'count',label:'Packing slips',agg:'count'},{k:'trips',label:'Trips',agg:'distinct',f:'trip'},{k:'units',label:'Units',agg:'sum',f:'units'},{k:'skids',label:'Skids',agg:'sum',f:'skids'},{k:'kg',label:'Weight kg',agg:'sum',f:'kg'},
    {k:'km',label:'Km',agg:'sum',f:'km',digits:1},{k:'kmPerTrip',label:'Km per trip',agg:'ratio',num:'km',den:'kmDone',digits:1}]},
  orders:{label:'Orders & due dates',group:'Sales',hint:'On time, late, lead time',rows:()=>repOrderFacts(),date:['due','created','shipped'],
-  fields:()=>[REP_F.date('due','Due'),REP_F.date('created','Created'),REP_F.date('shipped','Shipped'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
+  fields:()=>[REP_F.date('due','Due'),REP_F.date('created','Created'),REP_F.date('shipped','Shipped'),REP_F.date('ready','Ready for pickup'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
    REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery'),REP_F.dim('status','Status'),REP_F.dim('state','On time'),REP_F.dim('hold','On hold')]
    .concat(repOrderFields(),[REP_F.num('units','Units'),REP_F.num('glassN','Glass pcs'),REP_F.num('area','Area ft²',{digits:1}),REP_F.num('lines','Lines'),REP_F.num('shapes','Shapes'),REP_F.num('kg','Weight kg'),
    REP_F.num('daysLate','Days late'),REP_F.num('lead','Lead time, days'),REP_F.num('total','Order total',{money:true})]),
-  metrics:[{k:'count',label:'Orders',agg:'count'},{k:'late',label:'Late orders',agg:'sum',f:'late'},{k:'onTime',label:'On time %',agg:'ratio',num:'onTimeN',den:'shippedN',pct:true,digits:0},
+  metrics:[{k:'count',label:'Orders',agg:'count'},{k:'late',label:'Late orders',agg:'sum',f:'late'},{k:'onTime',label:'On time %',agg:'ratio',num:'onTimeN',den:'judgedN',pct:true,digits:0},
    {k:'units',label:'Units',agg:'sum',f:'units'},{k:'glassN',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1},{k:'total',label:'Order total',agg:'sum',f:'total',money:true}]},
  ordered:{label:'Ordered glass',group:'Sales',hint:'Glass, thickness and ft² ordered',rows:()=>repOrderedFacts(),date:['created','due'],
   fields:()=>[REP_F.date('created','Created'),REP_F.date('due','Due'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('glass','Glass'),

@@ -83,7 +83,7 @@ function repBucket(v,g){
  return day;
 }
 function repBucketText(g,v){
- if(v===''||v==null)return '—';
+ if(v===''||v==null)return 'No date';
  switch(g){
   case 'week':return 'Wk '+salesListShortDay(v);
   case 'month':{const [y,m]=v.split('-');return new Date(+y,+m-1,1).toLocaleDateString('en-US',{month:'short',year:'numeric'});}
@@ -169,6 +169,9 @@ function repFilterTest(S,flt,row,ctx){
  const f=repField(S,flt.f);if(!f)return true;
  let v=repGet(f,row);if(f.type==='date')v=repIsoDay(v);
  const list=(Array.isArray(flt.v)?flt.v:[flt.v]).map(x=>repSub(x,ctx));
+ /* Фильтр без значений (только что добавленный «Is any of») ничего не
+    отсекает — иначе график молча становится нулём. */
+ if((flt.op==='in'||flt.op==='notIn')&&!list.filter(x=>x!==''&&x!=null).length)return true;
  const s=v==null?'':String(v),low=s.toLowerCase(),a=list[0],b=list[1];
  switch(flt.op){
   case 'in':return list.includes(s===''?'—':s);
@@ -213,8 +216,11 @@ function repIsTime(S,d){const p=repDimParse(d),f=repField(S,p.f);return !!f&&f.t
 function repOrderKeys(S,d,groups,ms,q,range){
  const keys=[...groups.keys()],p=repDimParse(d);
  if(repIsTime(S,d)){
-  const all=repDateKeys(p.g||'day',range,keys);
-  const sorted=all.length?all:keys.sort();
+  /* Корзины периода — и те, что есть в данных вне них: строка без даты
+     («No date») и дата другого поля за границей периода. Иначе итог больше
+     суммы строк, а разница нигде не видна. */
+  const all=repDateKeys(p.g||'day',range,keys),inAll=new Set(all),extra=keys.filter(k=>k&&!inAll.has(k));
+  const sorted=(all.length?all.concat(extra).sort():keys.filter(Boolean).sort()).concat(keys.includes('')?['']:[]);
   return q.sort&&q.sort.dir==='desc'&&(!q.sort.by||q.sort.by==='label')?sorted.slice().reverse():sorted;
  }
  const by=q.sort&&q.sort.by==='label'?'label':'metric',i=q.sort&&Number.isInteger(q.sort.i)?q.sort.i:0,dir=q.sort&&q.sort.dir==='asc'?1:-1;

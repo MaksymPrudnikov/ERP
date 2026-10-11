@@ -67,14 +67,19 @@ function repLineWork(o,l,geo,tag){
   rows:salesLineChargeRows(geo).map(row=>({row,station:repChargeStation(row),rate:salesChargePricingState(geo,row).catalogRate})).filter(x=>x.station),
   plan:stkPlan(o,geo),
   comps:glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const info=stkGlassInfo(c.pane,c.index,c.ply),mm=info.mm;return Object.assign({},c,{mm:mm||null,band:mm?salesPricingBandFor(mm).band:'',heat:info.heat||'Annealed'});}),
-  unitType:(()=>{const m=salesMakeupById(o,l.makeupId);return m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';})()
+  unitType:(()=>{const m=salesMakeupById(o,l.makeupId);return m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';})(),
+  /* Маршрут каждого стекла со своими работами по шагам — тот же, что на стикере. */
+  visits:(()=>{const r=salesPrintRoute(geo,o,salesLineGeometryShape(geo),null),m=new Map();
+   glassBatchComponents(o,l).forEach(c=>{const row=r.lites.find(x=>x.label==='Lite '+c.lite)||r.lites[c.index]||r.lites[0];m.set(c.key,row?row.stations.map(s=>({code:s.code,works:s.works||[]})):[]);});return m;})()
  }));}catch(e){}
  if(repLineMemo.map.size>4000)repLineMemo.map=new Map();
  repLineMemo.map.set(key,out);return out;
 }
 /* Что сделано с одним стеклом на одной станции: площадь, толщина и работы
    с количеством в единице работы (in · ft² · pc) и $ по прайсу. */
-function repGlassWork(g,station){
+/* visit — шаг маршрута скана (scan.step); у старых сканов без шага — номер
+   захода со знаком минус (-1 первый, -2 второй). */
+function repGlassWork(g,station,visit){
  const empty={area:null,mm:null,heat:'',unitType:'',works:[]};
  if(!g||!g.c||g.c.missing)return empty;
  const geo=stationGeo(g)||g.l,tag=typeof g.unit==='string'?g.unit:'',lw=repLineWork(g.o,g.l,geo,tag);
@@ -82,8 +87,19 @@ function repGlassWork(g,station){
  const lite=lw.plan&&lw.plan.valid?(lw.plan.lites||[]).find(x=>x.index===g.c.index):null;
  let area=null;try{area=finWithOrder(g.o,()=>stkPieceArea(geo,g.o,lite));}catch(e){}
  const works=[];
+ /* Станция бывает в маршруте дважды: у ламината POLISH до закалки (плиты) и
+    после склейки (Lami Polish). Работа засчитывается тому заходу, в маршрут
+    которого она записана, а работы без своего захода — первому: иначе каждый
+    заход получал бы все работы станции, и дюймы двоились. */
+ const steps=(lw.visits&&lw.visits.get(g.c.key))||[],at=steps.map((s,i)=>s.code===station?i:-1).filter(i=>i>=0);
+ let only=null;
+ if(at.length>1){
+  const i=Number.isInteger(visit)&&visit>=0?(at.includes(visit)?visit:at[0]):at[Math.min(-(visit||-1)-1,at.length-1)];
+  only={first:i===at[0],mine:new Set(steps[i].works),any:new Set(at.flatMap(j=>steps[j].works))};
+ }
  lw.rows.forEach(x=>{
   if(x.station!==station||!repRowFits(x.row,me))return;
+  if(only){const p=String(x.row.key).split(':'),w=p[0]==='EDGE'?p[1]:'';if(w&&only.any.has(w)?!only.mine.has(w):!only.first)return;}
   const mates=lw.comps.filter(c=>repRowFits(x.row,c)&&stationRouteOf({o:g.o,l:g.l,c,unit:g.unit}).codes.includes(station)).length||1;
   const qty=x.row.basis/mates;
   /* Операция без хвоста толщины («Flat Polish · 10 mm» → «Flat Polish»):
@@ -123,16 +139,24 @@ function repWorkStamp(){
 function repWorkFacts(){
  const stamp=repWorkStamp();if(repWorkCache.stamp===stamp&&repWorkCache.rows)return repWorkCache.rows;
  repWorkBuilds++;
- const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[],orders=new Map(),lines=new Map();
+ const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[],orders=new Map(),lines=new Map(),visits=new Map();
+ /* Юнит после сборки — сама сборка (стеклопакет на IGU, склейка на LAM), а
+    не номер стекла в позиции: лайты одного пакета бывают из разных юнитов
+    позиции, и «юниты» на выдаче считались бы по стёклам. */
+ const asmAt=new Map(),built=new Map();
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||!s.asm||!(s.unit||s.joined))return;const t=asmAt.get(s.asm);if(!t||s.at>t)asmAt.set(s.asm,s.at);});
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||!s.asm||!(s.unit||s.joined))return;const was=built.get(s.piece);if(!was||s.unit&&!was.unit)built.set(s.piece,{asm:s.asm,unit:!!s.unit,at:asmAt.get(s.asm)});});
  const oInfo=o=>{if(!orders.has(o.id))orders.set(o.id,repOrderInfo(o));return orders.get(o.id);},lInfo=l=>{if(!lines.has(l))lines.set(l,repLineInfo(l));return lines.get(l);};
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||s.broken||s.park)return;
-  const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station):{area:null,mm:null,heat:'',unitType:'',works:[]};
+  const vk=s.piece+'|'+s.station,nth=(visits.get(vk)||0)+1;visits.set(vk,nth);
+  const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station,Number.isInteger(s.step)?s.step:-nth):{area:null,mm:null,heat:'',unitType:'',works:[]};
+  const b=built.get(s.piece),unitKey=!g?'':b&&b.at<=s.at?'A:'+b.asm:g.o.id+'|'+g.l.id+'|'+g.unit;
   const sum=u=>w.works.filter(x=>x.unit===u).reduce((n,x)=>n+x.qty,0);
   const priced=w.works.filter(x=>x.usd!=null);
   rows.push({id:s.id,at:s.at,day:repDay(s.at),hour:repHour(s.at),station:s.station,personId:s.byId||s.by||'',person:s.by||'',piece:s.piece,
    orderId:g?g.o.id:'',order:g?g.o.businessNumber||'':'',customerId:g?g.o.customerId||'':'',priority:g?g.o.priority||'':'',
-   glass:g&&g.c?g.c.glass:'',mm:w.mm,heat:w.heat,unitType:w.unitType,lite:g&&g.c?g.c.lite:'',batch:g&&g.entry?g.entry.batch.number:'',unitKey:g?g.o.id+'|'+g.l.id+'|'+g.unit:'',
+   glass:g&&g.c?g.c.glass:'',mm:w.mm,heat:w.heat,unitType:w.unitType,lite:g&&g.c?g.c.lite:'',batch:g&&g.entry?g.entry.batch.number:'',unitKey,
    area:w.area,works:w.works,inches:sum('in'),workFt2:sum('ft²'),pcs:sum('pc'),
    usd:priced.length?priced.reduce((n,x)=>n+x.usd,0):null,unpriced:w.works.length-priced.length,
    asm:s.asm||'',unitDone:!!(s.unit||s.joined),asmDone:(s.unit||s.joined)&&s.asm?s.asm:'',manual:!!s.manual,confirmedAt:s.confirmedAt||'',

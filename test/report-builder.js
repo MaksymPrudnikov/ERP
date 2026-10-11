@@ -115,6 +115,29 @@ module.exports=async function({page,eq,ok}){
    document.querySelector('[data-rep-screen-tab="RP-start-mycustomers"]').click();const orders=document.querySelector('[data-rep-screen] [data-rep-number="count"] b').textContent;
    dashShowSet('');return {tabs,now,orders};}finally{window.signinUser=old;signinOwner=null;tab='dashboard';render();}
  }),{tabs:['Now','Sales · my customers'],now:true,orders:'1'});
+ /* Проход цеха 11.10.2026 (tools/sim-shop.js). */
+ eq('Таблица с разбивкой показывает все метрики (у каждой колонки разбивки — каждая метрика), у графика — подсказка, что он рисует первую',await t.p.evaluate(()=>{
+  rpScans();rpOpenTab();repNew();repSetW('type','table');repSetSource('edgework');repSetDim(0,'person');repSetDim(1,'op');
+  document.querySelector('[data-rep-add-metric]').click();const rows=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] thead tr`)].map(tr=>[...tr.children].map(x=>x.textContent).join('|'));
+  const andrei=[...document.querySelector(`[data-rep-widget="${repSelW}"] tbody tr`).children].map(td=>td.textContent.trim()).join('|'),tableHint=!!document.querySelector('[data-rep-first-metric]');
+  repSetW('type','columns');const chartHint=!!document.querySelector('[data-rep-first-metric]');repCancelEdit();
+  return {rows,andrei,tableHint,chartHint};
+ }),{rows:['Person|Flat Polish|Rough Arris|Total','Linear in|Operations|Linear in|Operations|Linear in|Operations'],andrei:'Andrei|·|·|432|2|432|2',tableHint:false,chartHint:true});
+
+ eq('Date в Edit — период самого отчёта: сохраняется по Save, у зрителя своего периода не остаётся; в просмотре — свой период зрителя',await t.p.evaluate(()=>{
+  rpScans();rpOpenTab();repOpen('RP-start-cut');repEditToggle();repSetViewDate({preset:'lastMonth'});
+  const btn=document.querySelector('[data-rep-date]').textContent,before=repFind('RP-start-cut').date.preset;document.querySelector('[data-rep-save]').click();
+  const saved=repFind('RP-start-cut').date.preset,viewer=repView('RP-start-cut').date||null;
+  repSetViewDate({preset:'thisQuarter'});const look=repFind('RP-start-cut').date.preset,own=repView('RP-start-cut').date.preset;repResetView();
+  return {btn,before,saved,viewer,look,own};
+ }),{btn:'Date: Last month▾',before:'thisYear',saved:'lastMonth',viewer:null,look:'lastMonth',own:'thisQuarter'});
+
+ eq('Show on — своя галочка Screens в Users: без неё и без Users кнопки нет; с ней — есть',await t.p.evaluate(()=>{
+  rpScans();const old=window.accessCan,label=userSectionNav('screens').label,btn=()=>{rpOpenTab();repNew();const on=!!document.querySelector('[data-rep-screens]');repCancelEdit();return on;};
+  try{window.accessCan=k=>k!=='users'&&k!=='screens';const none=btn();window.accessCan=k=>k!=='users';const screens=btn();return {label,inSections:USER_SECTIONS.includes('screens'),none,screens};}
+  finally{window.accessCan=old;}
+ }),{label:'Screens',inSections:true,none:false,screens:true});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
