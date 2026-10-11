@@ -75,15 +75,18 @@ function finListFocus(tabKey,filters,all){
 }
 function finMoneyText(v){return v>0?finFmt(v):'<span class="mut">—</span>';}
 function finListTh(c,p){const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${c.label}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
-/* Итог внизу: число строк и суммы денежных колонок — только строкой. */
-function finListFooter(rows,cols,noun){
+/* Итог внизу: число строк и суммы денежных колонок — только строкой.
+   Аннулированный (Void) платёж в итог не входит — его денег нет (проход
+   11.10.2026: подвал Payments расходился с плитками и Reports). */
+function finListFooter(all,cols,noun){
+ const rows=all.filter(r=>!(r.r&&r.r.voided)),voids=all.length-rows.length;
  const first=cols.findIndex(c=>c.sum),lead=first<0?cols.length:first;
  const sums=cols.slice(lead).map(c=>{
   if(!c.sum)return '<td></td>';
   const total=rows.reduce((s,r)=>{const v=salesListValue(r,c.k);return v==null||v===''?s:s+Number(v);},0);
   return `<td class="n" data-sum="${c.k}">${c.money?finFmt(finMoney(total)):total.toLocaleString('en-US')}</td>`;
  }).join('');
- const count=`<b>${rows.length} ${noun}${rows.length===1?'':'s'}</b>`;
+ const count=`<b>${rows.length} ${noun}${rows.length===1?'':'s'}</b>${voids?` <span class="mut" data-foot-void>· ${voids} void not counted</span>`:''}`;
  return `<tfoot><tr class="sl-foot">${lead?`<td colspan="${lead}" class="sl-foot-head" data-foot-count>${count}</td>`:''}${sums}<td${lead?'':' data-foot-count'}>${lead?'':count}</td></tr></tfoot>`;
 }
 function finListTable(infos,cell,rowAttrs,noun,empty){
