@@ -358,6 +358,7 @@ function normalizeDB(){
  if(typeof normalizeTripKm==='function')normalizeTripKm();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
+ if(typeof normalizeCommissions==='function')normalizeCommissions();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
  if(typeof normalizeAuthLog==='function')normalizeAuthLog();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:

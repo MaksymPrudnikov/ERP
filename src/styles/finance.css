@@ -81,3 +81,16 @@
 .fin-list td .small{font-size:11px}
 .sl-backdrop.fin-range-back{z-index:139}.sl-menu.fin-range-menu{z-index:140}
 .fin-preview .sales-toolbar.fin-preview-period{margin:0;padding:10px 16px;border-bottom:1px solid var(--line,var(--accent-line))}
+/* Commissions (view/commissions): период кнопками, галочка With HST, выплата строкой. */
+.com-period{display:inline-flex;gap:6px}
+.com-check{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2)}
+.com-detail h4{margin:14px 0 6px}
+.com-pay-form{margin:10px 0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.com-pay-form h4{margin:0 0 8px}
+.com-pay-form .sl-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.com-pay-form .sl-row>*{flex:none;width:auto}.com-pay-form .sl-row input[type=date]{width:170px}.com-pay-form .sl-row input[type=text]{flex:1 1 auto;max-width:420px}
+.com-form [data-com-customer]{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.com-form [data-com-customer] select{flex:0 1 360px;min-width:0}
+.com-form [data-com-customer] input[type=number]{flex:none;width:90px}
+.com-form [data-com-customer] .dl{flex:none;width:auto;margin-left:0}
+.com-form [data-com-add-customer]{margin-bottom:10px}
