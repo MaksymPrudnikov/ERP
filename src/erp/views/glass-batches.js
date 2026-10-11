@@ -90,8 +90,19 @@ function glassBatchUnbatchSelected(){
  const lineChoices=selected.map(i=>({id:glassBatchRowKey(i),label:i.item.piece+' · Order '+i.memo.number+' · Line '+i.memo.line+' · Unit '+i.memo.unit+' · Lite '+i.memo.lite,detail:i.memo.glass}));
  salesDialogOpen({title:'Unbatch selected glass',lineChoices,checkedLines:lineChoices.map(x=>x.id),confirmed:false,note:'Selected glass → queue · order → To verify.',buttons:[{label:'Back'},{label:'Unbatch selected glass',kind:'pri',requiresConfirmation:true,run:d=>{
   if(before!==stamp()){salesDialogOpen({title:'Batch changed',note:'Try again.',buttons:[{label:'Back'}]});return;}
-  if(glassBatchRelease(selected.filter(i=>d.checkedLines.includes(glassBatchRowKey(i))).map(i=>({batch:i.b,item:i.item})),{confirmed:d.confirmed})){glassBatchSelection.clear();glassBatchAnchor='';render();}
+  const picked=selected.filter(i=>d.checkedLines.includes(glassBatchRowKey(i)));
+  if(glassBatchRelease(picked.map(i=>({batch:i.b,item:i.item})),{confirmed:d.confirmed})){glassBatchSelection.clear();glassBatchAnchor='';glassBatchReoptimizeNote([...new Set(picked.map(i=>i.b.number))]);}
  }}]});
+}
+/* После Unbatch у батча с раскроем — окно: раскрой устарел, какие стёкла
+   каких заказов ушли (на листе они красные), и сразу в Optimization. */
+function glassBatchReoptimizeNote(numbers){
+ const list=numbers.map(n=>glassBatchFind(n)).map(b=>({b,stale:b&&glassBatchStale(b)})).filter(x=>x.stale);
+ if(!list.length){render();return;}
+ const rows=list.flatMap(x=>glassBatchGoneRows(x.b,x.stale).slice(0,12).map(r=>[r[0],(list.length>1?x.b.number+' · ':'')+r[1]]));
+ const more=list.reduce((n,x)=>n+Math.max(0,x.stale.gone.size-12),0);if(more)rows.push(['…',more+' more']);
+ salesDialogOpen({title:'Re-optimize '+list.map(x=>x.b.number).join(', '),sub:'These glass left the layout — red on the sheets.',rows,note:'Optimization → Reset → Build before cutting.',
+  buttons:[{label:'Later'},{label:'Open Optimization',kind:'pri',run:()=>cutUiOpenBatch(list[0].b.number)}]});
 }
 /* Unbatch целого заказа из Sales — редкое действие, только для заказа под
    правой кнопкой (владелец, 17 сентября 2026). Окно показывает батчи заказа
@@ -154,7 +165,7 @@ function viewGlassBatches(){
  const history=b?`<div class="gb-history">${b.history.map(h=>`<div><time>${esc(salesShortDate(h.at))}</time><b>${esc(h.action)}</b><span>${h.qty} pcs</span><span class="gb-orders">${esc(orderNumbers(h.pieces).map(n=>'Order '+n).join(', '))}</span><span class="gb-orders" data-history-pieces>${esc((h.pieces||[]).length<=6?(h.pieces||[]).join(', '):h.pieces[0]+' … '+h.pieces[h.pieces.length-1])}</span></div>`).join('')||'<p class="mut">No events.</p>'}</div>`:'';
  const waiting=b?glassBatchStillWaiting(b):[],plural=(c,w)=>c+' '+w+(c===1?'':'s');
  const stale=b?glassBatchStale(b):null;
- const head=b?`<p>${esc([...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '))} · ${active.length} pcs · ${plural(activeOrders,'order')} · Created ${esc(salesShortDate(b.createdAt))}</p>${stale?`<p class="gb-stale-note" data-batch-stale-note>Layout out of date · ${esc(stale.text)} — Optimization → Reset → Build</p>`:''}`:'';
+ const head=b?`<p>${esc([...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '))} · ${active.length} pcs · ${plural(activeOrders,'order')} · Created ${esc(salesShortDate(b.createdAt))}</p>${stale?`<p class="gb-stale-note" data-batch-stale-note>Layout out of date · ${esc(stale.text)} — Optimization → Reset → Build<span class="gb-stale-list" data-batch-stale-list>${esc(glassBatchGoneRows(b,stale).slice(0,6).map(r=>r[0]).join('; ')+(stale.gone.size>6?'; +'+(stale.gone.size-6)+' more':''))}</span></p>`:''}`:'';
  const live=rows.filter(i=>!i.item||!i.item.releasedAt);
  const footer=scope==='glassContents'?`${live.length} pcs · ${plural(new Set(live.map(i=>i.part.orderId)).size,'order')}`:registry?`${filteredRows.length} batches · ${filteredRows.reduce((c,i)=>c+i.memo.units,0)} pcs · showing ${filteredRows.length?(glassBatchPage-1)*GLASS_BATCH_PAGE_SIZE+1:0}–${Math.min(glassBatchPage*GLASS_BATCH_PAGE_SIZE,filteredRows.length)}`:`${rows.length} pcs waiting · ${plural(new Set(rows.map(i=>i.memo.glass)).size,'glass type')}`;
  const pager=registry?`<nav class="gb-pages" aria-label="Batch pages"><button type="button" data-batch-prev ${glassBatchPage<=1?'disabled':''} onclick="glassBatchSetPage(${glassBatchPage-1})">Previous</button><span data-batch-page>Page ${glassBatchPage} of ${pages}</span><button type="button" data-batch-next ${glassBatchPage>=pages?'disabled':''} onclick="glassBatchSetPage(${glassBatchPage+1})">Next</button></nav>`:'';
