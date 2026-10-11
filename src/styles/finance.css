@@ -86,5 +86,8 @@
 .com-check{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2)}
 .com-detail h4{margin:14px 0 6px}
 .com-pay-form{margin:8px 0;gap:8px}
-.com-form .sl-row{gap:8px;margin-bottom:6px}
-.com-form input[type=number]{width:90px}
+.com-form [data-com-customer]{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.com-form [data-com-customer] select{flex:0 1 360px;min-width:0}
+.com-form [data-com-customer] input[type=number]{flex:none;width:90px}
+.com-form [data-com-customer] .dl{flex:none;width:auto;margin-left:0}
+.com-form [data-com-add-customer]{margin-bottom:10px}

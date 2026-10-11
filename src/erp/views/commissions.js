@@ -1,6 +1,7 @@
 /* =====================================================================
    view/commissions  ·  commissions-1.0
-   Раздел Commissions (своя галочка в Users): люди, которые привели
+   Раздел Agents (своя галочка в Users; владелец, 11.10.2026: «Commissions»
+   не влезает в меню слева — слово короче): люди, которые привели
    клиентов, сколько им начислено и сколько отдать. Владелец, 11.10.2026:
    «видеть по этим людям, сколько нужно в целостности отдать комиссионные,
    потом открыть по заказам и по количеству, чтобы этих людей тоже можно было
@@ -21,7 +22,7 @@ function viewCommissions(){
  const foot=list.length?`<tfoot><tr class="sl-foot"><td colspan="3"><b>${list.length} ${list.length===1?'person':'people'}</b></td><td class="n">${list.reduce((n,x)=>n+x.s.orders,0)}</td><td class="n">${finFmt(sum('base'))}</td><td class="n"><b>${finFmt(sum('com'))}</b></td>${comHst?`<td class="n">${finFmt(sum('paid'))}</td><td class="n">${finFmt(sum('comHst'))}</td>`:''}<td class="n">${finFmt(sum('paidOut'))}</td><td class="n"><b>${finFmt(sum('toPay'))}</b></td></tr></tfoot>`:'';
  const tools=`<div class="sales-toolbar"><div class="com-period" data-com-period>${COM_PERIODS.map(([k,l])=>`<button type="button" class="sl-btn${comPeriod===k?' on':''}" onclick="comPeriod='${k}';render()">${l}</button>`).join('')}</div><label class="com-check"><input type="checkbox" data-com-hst ${comHst?'checked':''} onchange="comHst=this.checked;render()"> With HST</label><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-com-add onclick="comEditOpen('')">+ Person</button></div>`;
  const table=`<div class="sales-table-wrap"><table class="sl-table fin-list" data-com-table><thead><tr><th>Person</th><th>Contact</th><th>Customers · %</th><th class="n" title="Orders with payments in the period">Orders</th><th class="n" title="Payments without HST">Paid</th><th class="n">Commission</th>${hstHead}<th class="n" title="All time">Paid out</th><th class="n" title="All time: commission − paid out">To pay</th></tr></thead><tbody>${rows||`<tr><td colspan="${comHst?11:9}" class="empty">Nobody yet. + Person — who brought a customer and the percent.</td></tr>`}</tbody>${foot}</table></div>`;
- return `<div class="page-head"><div><h2>Commissions</h2><p>People who bring customers · percent of what the customer paid, without HST.</p></div></div>
+ return `<div class="page-head"><div><h2>Agents</h2><p>People who bring customers · percent of what the customer paid, without HST.</p></div></div>
   ${comNotice?`<div class="ncr-error" role="alert" data-com-error>${esc(comNotice)}</div>`:''}
   <div class="card sales-list-card">${tools}${table}</div>${comDraft?comFormHTML():comOpen&&comFind(comOpen)?comDetailHTML(comFind(comOpen),range):''}`;
 }

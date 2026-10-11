@@ -32,10 +32,10 @@ module.exports=async function({page,eq,ok}){
   return {a:comFind(a.id).customers.map(c=>c.customerId===sky.id),b:comOfCustomer(north.id).name,noName:comSave({name:' ',customers:[]}).error,noPct:comSave({name:'X',customers:[{customerId:sky.id,pct:''}]}).error};
  }),{a:[true],b:'Olga Marchenko',noName:'Enter a name.',noPct:'Enter a percent from 0.01 to 100.'});
 
- eq('Раздел Commissions — своя галочка: без неё пункта меню нет и вкладка не открывается; продажник с Sales его не видит',await t.p.evaluate(()=>{
+ eq('Раздел Agents — своя галочка: без неё пункта меню нет и вкладка не открывается; продажник с Sales его не видит',await t.p.evaluate(()=>{
   const old=window.accessCan;
-  try{window.accessCan=k=>k!=='commissions';tab='commissions';render();const hidden=!document.querySelector('.side [title="Commissions"]'),moved=tab!=='commissions';
-   window.accessCan=k=>true;tab='commissions';render();const shown=!!document.querySelector('.side [title="Commissions"]')&&!!document.querySelector('[data-com-table]');
+  try{window.accessCan=k=>k!=='commissions';tab='commissions';render();const hidden=!document.querySelector('.side [title="Agents"]'),moved=tab!=='commissions';
+   window.accessCan=k=>true;tab='commissions';render();const shown=!!document.querySelector('.side [title="Agents"]')&&!!document.querySelector('[data-com-table]');
    return {inSections:USER_SECTIONS.includes('commissions'),hidden,moved,shown};}
   finally{window.accessCan=old;tab='dashboard';render();}
  }),{inSections:true,hidden:true,moved:true,shown:true});

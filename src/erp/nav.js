@@ -19,7 +19,7 @@ const NAV=[
  {k:'finance', label:'Finance', icon:'finance'},
  {k:'customers', label:'Customers', icon:'users'},
  {k:'reports', label:'Reports', icon:'report'},
- {k:'commissions', label:'Commissions', icon:'finance'},
+ {k:'commissions', label:'Agents', icon:'link'},
  {k:'masterdata', label:'Data', title:'Master Data', icon:'database', bottom:1},
  {k:'users', label:'Users', icon:'users', bottom:1},
  {k:'dashboard', label:'Overview', icon:'home', bottom:1}
@@ -106,7 +106,7 @@ function render(){
  const meta={
   dashboard:['Overview','Orders, shop and shipping now'],
   reports:['Reports','Report builder'],
-  commissions:['Commissions','People who bring customers'],
+  commissions:['Agents','People who bring customers · commission'],
   users:['Users','Office and station sign-in'],
   customers:['Customers','Customer master, contacts and commercial terms'],
   sales:['Sales','Orders and commercial configuration'],
