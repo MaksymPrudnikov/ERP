@@ -107,12 +107,19 @@ function shippingCashFirst(s,done){
   salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
  };run(0);
 }
-/* Заказ на Hold в накладной — предупреждение, не запрет («ничего не
-   блокировать, а только уведомить», владелец 11.10.2026). */
+/* Заказ на Hold в накладной. Его стекло уже погрузили на SHIP — только
+   предупреждение («ничего не блокировать, а только уведомить», владелец
+   11.10.2026). Не грузили — стекло остаётся в цеху, и окно говорит это
+   прямо (владелец: «понятно сказать, не отпускать»; раньше было
+   «The selected glass is no longer available»). */
 function shippingHoldFirst(s,done){
  const held=shippingOrderIds(s).map(salesRecord).filter(o=>o&&o.onHold);if(!held.length){done();return;}
- salesDialogOpen({title:held.length===1?'Order '+held[0].businessNumber+' is On Hold':held.length+' orders are On Hold',sub:salesCustomerDisplay(s.customerId)+' · '+s.number,
-  rows:held.map(o=>['Order '+o.businessNumber,o.holdReason||'On hold',true]),note:'The customer asked to stop. Check before the glass leaves.',
+ const loaded=new Set(shippingWithCtx(()=>shippingLoadState(s)).loaded.map(u=>u.orderId)),stay=held.filter(o=>!loaded.has(o.id));
+ const sub=salesCustomerDisplay(s.customerId)+' · '+s.number,rows=list=>list.map(o=>['Order '+o.businessNumber,o.holdReason||'On hold',true]);
+ const title=list=>list.length===1?'Order '+list[0].businessNumber+' is On Hold':list.length+' orders are On Hold';
+ if(stay.length){salesDialogOpen({title:title(stay),sub,rows:rows(stay),note:'Its glass stays in the shop. Release the hold, or take the order off this packing slip.',
+  buttons:[{label:'Back'},{label:'Edit packing slip',kind:'pri',run:()=>shippingOpen(s.customerId,s.id)}]});return;}
+ salesDialogOpen({title:title(held),sub,rows:rows(held),note:'Already loaded. The customer asked to stop — check before the truck leaves.',
   buttons:[{label:'Back'},{label:'Ship anyway',kind:'pri',run:done}]});
 }
 function shippingLoaded(id){

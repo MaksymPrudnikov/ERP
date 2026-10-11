@@ -78,6 +78,28 @@ module.exports=async function({page,eq,ok}){
  await t.p.setViewportSize({width:1440,height:900});await t.p.evaluate(()=>{window.stationLoose=swLoose;stationSwitch();tab='dashboard';render();});
  eq('Шапка CUT на Queue и Board с плашками No dolly, Putting on, батча и рабочего — не шире окна на 1440, 1366, 1280 и 1024',wide,[]);
 
+ /* Владелец, 11.10.2026: «кто залогинен и создал заказ — тот создал»; на
+    бланке имя не печатается — его видно в Sales колонкой и внутри заказа. */
+ eq('Created by: в Sales колонка по выбору (Columns, по умолчанию скрыта) — кто создал заказ, а не продажник из карточки; в шапке заказа — «Created by · дата»; на proforma строки Sales rep нет',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'Redwood Glass',salesRep:'Olena Bondar'}),id=oqOrder(c);salesDraftDrop();const o=salesRecord(id);
+  DB.orderEvent=(DB.orderEvent||[]).filter(e=>e.orderId!==id).concat([{id:'OE-t1',at:'2026-10-11T14:05:00.000Z',orderId:id,no:o.businessNumber,what:'Created',note:'',by:'Kate Novak',byId:'U-kate'}]);
+  try{localStorage.removeItem(salesListPrefsKey());}catch(e){}salesListPrefs=null;tab='sales';subtab='orders';soDraft=null;soEdit=null;render();
+  const hidden=![...document.querySelectorAll('.sl-table thead th')].some(x=>x.textContent.trim()==='Created by');salesListLoadPrefs().cols.find(c=>c.k==='createdBy').on=true;render();
+  const heads=[...document.querySelectorAll('.sl-table thead th')].map(x=>x.textContent.trim()),col=heads.indexOf('Created by');
+  const cell=col<0?'':document.querySelector(`[data-order-row="${id}"]`).children[col].textContent.trim();
+  salesOrderEdit(id);const head=(document.querySelector('[data-created-by]')||{}).textContent||'';salesDraftDrop();
+  const meta=docBuildModel('proforma',salesRecord(id),docDefaultOptions('proforma')).meta.map(m=>m.label);
+  DB.documentSettings={proforma:Object.assign({},docBaseOptions('proforma'),{salesRep:true})};normalizeDocumentSettings();
+  salesListLoadPrefs().cols.find(c=>c.k==='createdBy').on=false;tab='dashboard';render();
+  return {hidden,col:col>=0,cell,head:/ · Created by Kate Novak · Oct 11$/.test(head),salesRep:meta.includes('Sales rep'),saved:'salesRep' in DB.documentSettings.proforma};
+ }),{hidden:true,col:true,cell:'Kate Novak',head:true,salesRep:false,saved:false});
+
+ eq('Hold, скид ещё не грузили: Loaded — «Order N is On Hold», стекло остаётся в цеху; Back или Edit packing slip, ничего не отправлено',await t.p.evaluate(()=>{
+  const id=swSeed(),s=swPS(id,'delivery');salesHoldApply([id],'Customer request');swOpen(s);
+  shippingLoaded(s.id);const d={title:/^Order \d+ is On Hold$/.test(salesDialog.title),rows:salesDialog.rows.map(r=>r[1]),note:salesDialog.note,buttons:salesDialog.buttons.map(b=>b.label)};
+  oqChoose('Edit packing slip');const edit=!!shippingDraft&&shippingDraft.id===s.id;shippingDraft=null;
+  const out={d,edit,status:shippingFind(s.id).status};tab='dashboard';render();return out;
+ }),{d:{title:true,rows:['Customer request'],note:'Its glass stays in the shop. Release the hold, or take the order off this packing slip.',buttons:['Back','Edit packing slip']},edit:true,status:'planned'});
  /* Неудобства прохода, выбранные владельцем 11.10.2026: Rush первым на
     резку, депозит одним окном, «Loaded» → «Ship». */
  eq('Rush первым на резку: новый батч со срочным заказом встаёт перед обычными, которые ещё не режут; начатый не перебивается; ▲▼ работают',await t.p.evaluate(()=>{

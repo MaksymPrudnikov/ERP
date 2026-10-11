@@ -107,7 +107,6 @@ const DOC_FIELDS=[
  {k:'customerPo',g:'Header',label:'Customer PO',kinds:DOC_ALL,on:DOC_ALL},
  {k:'dueDate',g:'Header',label:'Due date',kinds:DOC_ALL,on:DOC_ALL,as:{invoice:'Payment due'}},
  {k:'terms',g:'Header',label:'Payment terms',kinds:DOC_SALE,on:DOC_SALE},
- {k:'salesRep',g:'Header',label:'Sales rep',kinds:DOC_ALL,on:DOC_ALL},
  {k:'currency',g:'Header',label:'Currency',kinds:DOC_SALE,on:DOC_SALE},
  {k:'priority',g:'Header',label:'Priority',kinds:DOC_ALL,on:DOC_SHOP},
  {k:'delivery',g:'Header',label:'Pickup / Delivery',kinds:DOC_ALL,on:DOC_SHOP},

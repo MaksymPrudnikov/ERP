@@ -248,7 +248,6 @@ function docBuildModel(kind,order,opts){
  if(sale)cell(opts.terms,'Terms',paymentTermsLabel(terms));
  cell(opts.priority,'Priority',salesPriorityLabel(order.priority));
  cell(opts.delivery,'Delivery',salesDeliveryLabel(order.delivery));
- cell(opts.salesRep,'Sales rep',C&&C.salesRep);
  if(sale)cell(opts.currency,'Currency',order.currency);
  if(opts.accountCode&&C&&C.code)model.meta.push({label:'Account',value:C.code});
  if(sale&&opts.taxNumber&&C){const t=C.taxExempt?('Exempt '+(C.taxExemptionNumber||'')).trim():C.taxNumber;if(t)model.meta.push({label:C.taxExempt?'Tax status':'Customer tax #',value:t});}
