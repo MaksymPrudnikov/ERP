@@ -256,7 +256,7 @@ function salesRunChecksMany(list,done,anyway){
  const ids=new Set(all.map(x=>x.o.id));
  if(ids.size===1){const x=list.find(y=>y.checks.length);salesRunChecks(x.checks,done,x.take);return;}
  salesDialogOpen({title:ids.size+' orders need attention',rows:all.map(x=>[x.o.businessNumber+' · '+salesCustomerDisplay(x.o.customerId),x.c.short||x.c.title,true]),
-  note:'Back changes nothing. '+anyway+' — all '+ids.size+' orders.',buttons:[{label:'Back'},{label:anyway,kind:'pri',run:done}]});
+  note:'Back changes nothing. '+anyway+' — '+(ids.size===2?'both orders':'all '+ids.size+' orders')+'.',buttons:[{label:'Back'},{label:anyway,kind:'pri',run:done}]});
 }
 function salesRunChecks(checks,done,takePayment){
  if(!checks.length){done();return;}
