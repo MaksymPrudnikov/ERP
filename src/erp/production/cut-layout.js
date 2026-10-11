@@ -1443,11 +1443,28 @@ function cutPlanDraft(number){
  const plan={batch:number,at:'',stamp:cutStamp(all),settings,sheetPick,groups,missing,excluded:all.filter(p=>p.off).map(p=>p.piece),stats:{},reset:true};
  return cutPlanRefresh(plan,all);
 }
+/* Что сделает Reset (проход 11.10.2026: на порезанном батче он молча стирал
+   раскладку и снимал со стока остатки, которые уже лежат на стеллаже).
+   Лист с порезанным стеклом — порезан: его остаток в стоке остаётся.
+   cut / of — сколько стёкла батча уже порезано. */
+function cutResetPreview(number){
+ const prev=cutPlanFor(number),b=cutEstIs(number)?null:glassBatchFind(number);
+ const live=b?b.items.filter(i=>!i.releasedAt):[],cutSet=new Set(live.filter(i=>i.cutStartedAt).map(i=>i.piece));
+ const out={cancel:[],keep:[],sheets:0,pieces:0,cut:cutSet.size,of:live.length};
+ if(prev&&!prev.reset)prev.groups.forEach(g=>g.sheets.filter(s=>!s.locked).forEach(s=>{
+  const done=(s.pieces||[]).some(p=>cutSet.has(p.piece));out.sheets++;out.pieces+=(s.pieces||[]).length;
+  (s.stock||[]).forEach(x=>(done?out.keep:out.cancel).push(x.id));
+ }));
+ return out;
+}
+function cutResetWarn(number){const r=cutResetPreview(number);return r.cut?' '+r.cut+' of '+r.of+' glass already cut.':'';}
 function cutPlanReset(number){
- const prev=cutPlanFor(number),plan=cutPlanDraft(number);if(!plan)return {error:'Batch not found.'};
- const cancelled=[];
- if(prev)prev.groups.forEach(g=>g.sheets.filter(s=>!s.locked).forEach(s=>(s.stock||[]).forEach(x=>{if(typeof stockOffcutCancel==='function')stockOffcutCancel(x.id);cancelled.push(x.id);})));
- cutPlanPut(number,plan);return {ok:true,plan,cancelled};
+ const prev=cutPlanFor(number),pre=cutResetPreview(number),plan=cutPlanDraft(number);if(!plan)return {error:'Batch not found.'};
+ pre.cancel.forEach(id=>{if(typeof stockOffcutCancel==='function')stockOffcutCancel(id);});
+ /* Reset построенного раскроя — в History батча. */
+ const b=cutEstIs(number)?null:glassBatchFind(number);
+ if(b&&prev&&!prev.reset)b.history.push({at:new Date().toISOString(),action:'Layout reset · '+pre.sheets+' sheet'+(pre.sheets===1?'':'s')+(pre.cut?' · '+pre.cut+' of '+pre.of+' already cut':''),pieces:[],qty:pre.pieces});
+ cutPlanPut(number,plan);return {ok:true,plan,cancelled:pre.cancel,kept:pre.keep};
 }
 /* Раскладка есть — хоть один лист. По ней печать «By sheet». */
 function cutPlanLaid(number){const p=cutPlanFor(number);return p&&p.groups.some(g=>g.sheets.length)?p:null;}

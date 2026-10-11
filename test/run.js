@@ -1798,7 +1798,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        код станка отбрасывается, офисная роль становится всеми разделами. */
     eq('станок у человека отброшен, роль стала галочками', await t.p.evaluate(() =>
       DB.user.map(u => [u.name, 'station' in u, u.workPosition === undefined, u.access.length])
-    ), [['Ivan',false,true,10], ['Petr',false,true,10]]);
+    ), [['Ivan',false,true,11], ['Petr',false,true,11]]);
     await t.c.close();
 
     /* Данных без refVersion — так выглядит браузер, который не открывали с
@@ -2130,7 +2130,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] }] });
       return [next.refVersion, next.station.length, next.workPosition === undefined,
               next.station[0].code, 'station' in next.user[0], next.user[0].access.length];
-    }), [9, 15, true, 'CUT', false, 10]);
+    }), [9, 15, true, 'CUT', false, 11]);
     await t.c.close();
 
     t = await page();
@@ -2152,9 +2152,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     /* --- B8: реальные роли и демо-пользователи ---------------------- */
     t = await page();
-    eq('галочки доступа — ровно разделы меню', await t.p.evaluate(() => ({same:JSON.stringify(USER_SECTIONS)===JSON.stringify(NAV.map(n=>n.k))})), {same:true});
+    /* Плюс галочки без своего пункта меню (USER_ACCESS_LABELS): Screens — ставить отчёты на экраны. */
+    eq('галочки доступа — ровно разделы меню и Screens', await t.p.evaluate(() => ({same:JSON.stringify(USER_SECTIONS.filter(k=>!USER_ACCESS_LABELS[k]))===JSON.stringify(NAV.map(n=>n.k)),extra:Object.keys(USER_ACCESS_LABELS)})), {same:true,extra:['screens']});
     eq('чистый браузер получает трёх демо-пользователей', await t.p.evaluate(() => DB.user.map(u => u.name + ' · ' + u.access.length)),
-      ['Demo Sales · 6','Demo Accounting · 4','Demo Owner · 10']);
+      ['Demo Sales · 6','Demo Accounting · 4','Demo Owner · 11']);
     /* Роли и навыки — ХРАНИМЫЕ значения, и английский интерфейс их переименовал.
        У владельца в браузере лежат пользователи со старыми русскими значениями:
        без переноса роль стала бы «unknown role» на импорте, а навыки исчезли бы
@@ -2168,7 +2169,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const imported=(()=>{try{return prepareImportedState({user:[{name:'X',role:'Владелец',skills:[{skill:'?'}]},{name:'Y',role:'Цех'}]}).user.map(u=>u.access.length).join('/');}catch(e){return 'ошибка: '+e.message;}})();
       const out={accounting:pick('Legacy Person'),shop:pick('Legacy Shop'),admin:pick('Legacy Admin'),imported};
       DB.user=DB.user.filter(x=>!/^Legacy /.test(x.name));return out;
-    }), {accounting:[10,0,false],shop:[0,0,true],admin:[10,0,false],imported:'10/0'});
+    }), {accounting:[11,0,false],shop:[0,0,true],admin:[11,0,false],imported:'11/0'});
     /* Засев обязан быть одноразовым: иначе удалённые демо-записи возвращались бы
        после каждого обновления страницы, и удалить их было бы невозможно. */
     await t.p.evaluate(() => { DB.user=[]; touch(); });
@@ -6062,7 +6063,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
   }
 
-  await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./invoice.js')({page,eq,ok}); await require('./review-polish.js')({page,eq,ok}); await require('./station-polish.js')({page,eq,ok}); await require('./supply-points.js')({page,eq,ok}); await require('./customers.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./finance-ledger.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./shipping.js')({page,eq,ok}); await require('./shipping-loading.js')({page,eq,ok}); await require('./shipping-walk-fixes.js')({page,eq,ok}); await require('./shipping-lookup.js')({page,eq,ok}); await require('./shipping-delivery.js')({page,eq,ok}); await require('./shipping-skids.js')({page,eq,ok}); await require('./shipping-restack.js')({page,eq,ok}); await require('./unit-cancel.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./money.js')({page,eq,ok}); await require('./skip.js')({page,eq,ok}); await require('./production-unbatch.js')({page,eq,ok}); await require('./order-delete.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./sticker-free-layout.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok}); await require('./sheet-usage.js')({page,eq,ok}); await require('./sales-cut-estimate.js')({page,eq,ok}); await require('./docs.js')({eq,ok}); await require('./station.js')({page,eq,ok}); await require('./carriers.js')({page,eq,ok}); await require('./station-wrong-way.js')({page,eq,ok}); await require('./igu-ready.js')({page,eq,ok}); await require('./units.js')({page,eq,ok}); await require('./cut-batch.js')({page,eq,ok}); await require('./station-drawings.js')({page,eq,ok}); await require('./station-queue.js')({page,eq,ok}); await require('./reports.js')({page,eq,ok}); await require('./report-engine.js')({page,eq,ok}); await require('./report-builder.js')({page,eq,ok}); await require('./md-stations.js')({page,eq,ok}); await require('./route-repeat.js')({page,eq,ok}); await require('./lami-edges.js')({page,eq,ok}); await require('./lami-ply-recut.js')({page,eq,ok}); await require('./audit-fixes.js')({page,eq,ok}); await require('./audit-2026-10-05.js')({page,eq,ok}); await require('./order-log.js')({page,eq,ok}); await require('./office-walk-fixes.js')({page,eq,ok}); await require('./users-commands.js')({page,eq,ok}); await require('./drawing-layout.js')({page,eq,ok}); await require('./design-tokens.js')({page,eq,ok}); await require('./shipping-audit.js')({page,eq,ok}); await require('./batched-line-qty.js')({page,eq,ok}); await require('./screen-fixes.js')({page,eq,ok}); await require('./pilot-orders.js')({eq});
+  await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./invoice.js')({page,eq,ok}); await require('./review-polish.js')({page,eq,ok}); await require('./station-polish.js')({page,eq,ok}); await require('./supply-points.js')({page,eq,ok}); await require('./customers.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./finance-ledger.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./shipping.js')({page,eq,ok}); await require('./shipping-loading.js')({page,eq,ok}); await require('./shipping-walk-fixes.js')({page,eq,ok}); await require('./shipping-lookup.js')({page,eq,ok}); await require('./shipping-delivery.js')({page,eq,ok}); await require('./shipping-skids.js')({page,eq,ok}); await require('./shipping-restack.js')({page,eq,ok}); await require('./unit-cancel.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./money.js')({page,eq,ok}); await require('./skip.js')({page,eq,ok}); await require('./production-unbatch.js')({page,eq,ok}); await require('./order-delete.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./sticker-free-layout.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok}); await require('./sheet-usage.js')({page,eq,ok}); await require('./sales-cut-estimate.js')({page,eq,ok}); await require('./docs.js')({eq,ok}); await require('./station.js')({page,eq,ok}); await require('./carriers.js')({page,eq,ok}); await require('./station-wrong-way.js')({page,eq,ok}); await require('./igu-ready.js')({page,eq,ok}); await require('./units.js')({page,eq,ok}); await require('./cut-batch.js')({page,eq,ok}); await require('./station-drawings.js')({page,eq,ok}); await require('./station-queue.js')({page,eq,ok}); await require('./reports.js')({page,eq,ok}); await require('./report-engine.js')({page,eq,ok}); await require('./report-builder.js')({page,eq,ok}); await require('./md-stations.js')({page,eq,ok}); await require('./route-repeat.js')({page,eq,ok}); await require('./lami-edges.js')({page,eq,ok}); await require('./lami-ply-recut.js')({page,eq,ok}); await require('./audit-fixes.js')({page,eq,ok}); await require('./audit-2026-10-05.js')({page,eq,ok}); await require('./order-log.js')({page,eq,ok}); await require('./office-walk-fixes.js')({page,eq,ok}); await require('./users-commands.js')({page,eq,ok}); await require('./drawing-layout.js')({page,eq,ok}); await require('./design-tokens.js')({page,eq,ok}); await require('./shipping-audit.js')({page,eq,ok}); await require('./batched-line-qty.js')({page,eq,ok}); await require('./screen-fixes.js')({page,eq,ok}); await require('./sim-walk-fixes.js')({page,eq,ok}); await require('./pilot-orders.js')({eq});
   await b.close();
   /* Счёт проверок в README — настоящий: его знает только этот прогон.
      «провер», а не «проверк»: в тексте бывает и «проверки», и «проверок». */

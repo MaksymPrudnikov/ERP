@@ -452,7 +452,7 @@ function stationJournal(){
 function stationBatchChip(){
  const b=stationCode===stationCutCode()&&stationSheetView?glassBatchFind(stationSheetView.batch):null;if(!b)return '';
  const live=b.items.filter(i=>!i.releasedAt),cut=live.filter(i=>i.cutStartedAt).length;
- return '<div class="st-chip">Batch <b class="mono">'+esc(b.number)+'</b> · <b>'+cut+'</b> / '+live.length+' cut</div>';
+ return '<div class="st-chip" title="'+cut+' / '+live.length+' cut"><span class="st-chip-word">Batch </span><b class="mono">'+esc(b.number)+'</b><span class="st-chip-more"> · <b>'+cut+'</b> / '+live.length+' cut</span></div>';
 }
 function stationTop(who){
  const s=stationRow();
@@ -462,7 +462,7 @@ function stationTop(who){
   (who&&stationMergeCodes().includes(stationCode)?'<button type="button" class="st-chip st-autoprint'+(stationAutoPrintOn()?' on':'')+'" data-station-autoprint onclick="stationAutoPrintToggle()" title="Unit sticker when the last lite is scanned">Unit stickers <b>'+(stationAutoPrintOn()?'Auto':'By button')+'</b></button>':'')+
   (who&&stationQuestions.length?'<button type="button" class="st-chip st-ask-chip" data-station-questions onclick="stationShowQuestion()">'+stationQuestions.length+' to answer</button>':'')+
   (who&&stationLoose().length?'<button type="button" class="st-chip st-loose-chip" data-station-loose onclick="stationDollyOpen(\'\',\'out\')" title="Scanned without a '+stationTareWord()+'">No '+stationTareWord()+' · <b>'+stationLoose().length+'</b></button>':'')+
-  (who&&stationPutOn()?'<div class="st-chip st-puton" data-station-puton>Putting on <b>'+esc(stationPutOn())+'</b><button type="button" title="Stop putting on this dolly" onclick="stationClearPutOn()">✕</button></div>':'')+
+  (who&&stationPutOn()?'<div class="st-chip st-puton" data-station-puton title="Putting on"><span class="st-chip-more">Putting on </span><b>'+esc(stationPutOn())+'</b><button type="button" title="Stop putting on this dolly" onclick="stationClearPutOn()">✕</button></div>':'')+
   (who?stationTripChip():'')+
   (who?'<button type="button" class="st-btn" data-station-drawings onclick="stationDrawPick()">Drawings</button>':'')+
   (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" onclick="stationSwitch()">Switch</button>':'')+

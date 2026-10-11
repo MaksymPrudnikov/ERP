@@ -107,9 +107,17 @@ function shippingCashFirst(s,done){
   salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
  };run(0);
 }
+/* Заказ на Hold в накладной — предупреждение, не запрет («ничего не
+   блокировать, а только уведомить», владелец 11.10.2026). */
+function shippingHoldFirst(s,done){
+ const held=shippingOrderIds(s).map(salesRecord).filter(o=>o&&o.onHold);if(!held.length){done();return;}
+ salesDialogOpen({title:held.length===1?'Order '+held[0].businessNumber+' is On Hold':held.length+' orders are On Hold',sub:salesCustomerDisplay(s.customerId)+' · '+s.number,
+  rows:held.map(o=>['Order '+o.businessNumber,o.holdReason||'On hold',true]),note:'The customer asked to stop. Check before the glass leaves.',
+  buttons:[{label:'Back'},{label:'Ship anyway',kind:'pri',run:done}]});
+}
 function shippingLoaded(id){
  const s=shippingFind(id);if(!s)return;
- shippingCashFirst(s,()=>shippingLoadedGo(id));
+ shippingHoldFirst(s,()=>shippingCashFirst(s,()=>shippingLoadedGo(id)));
 }
 function shippingLoadedGo(id){
  const s=shippingFind(id);if(!s)return;
@@ -123,8 +131,10 @@ function shippingLoadedGo(id){
  if(!st.loaded.length){salesDialogOpen({title:'Nothing scanned at '+shippingStations().ship,note:'Ship all '+shippingLoadPart(st.units)+' on '+s.number+'?',buttons:[{label:'Back'},{label:'Ship all',kind:'pri',run:()=>run('')}]});return;}
  salesDialogOpen({title:s.number+' · '+shippingLoadPart(st.loaded)+' loaded',note:shippingLoadPart(st.rest)+' not loaded — back to Ready for the next trip.',buttons:[{label:'Back'},{label:'Loaded',kind:'pri',run:()=>run('loaded')}]});
 }
-function shippingReceive(id){shippingResult(shippingMarkDelivered(id,shippingReceivedBy,shippingReceivedOn||finToday()));}
-function shippingSigned(raw){const out=shippingScanSigned(raw,shippingReceivedBy,shippingReceivedOn||finToday());if(out.ok)shippingOpenId=out.value.id;shippingResult(out);shippingFocus();}
+/* «Received by» — имя одного получателя: после принятой накладной поле
+   пустеет, иначе оно молча уходило в следующий PS стопки (проход 11.10.2026). */
+function shippingReceive(id){const out=shippingMarkDelivered(id,shippingReceivedBy,shippingReceivedOn||finToday());if(out.ok)shippingReceivedBy='';shippingResult(out);}
+function shippingSigned(raw){const out=shippingScanSigned(raw,shippingReceivedBy,shippingReceivedOn||finToday());if(out.ok){shippingOpenId=out.value.id;shippingReceivedBy='';}shippingResult(out);shippingFocus();}
 function shippingUndo(id,action){
  const s=shippingFind(id);if(!s)return;const before=JSON.stringify(s),verb=action==='cancel'?'Cancel packing slip':action==='receipt'?'Undo receipt':'Undo dispatch';
  salesDialogOpen({title:verb+' '+s.number+'?',note:'The order quantities and dates will be recalculated.',buttons:[{label:'Back'},{label:verb,kind:'dl',run:()=>{
@@ -171,7 +181,7 @@ function shippingDetailHTML(){
  const main=s.status==='planned'?action('Loaded',`shippingLoaded('${id}')`,'pri'):s.status==='shipped'?action(s.method==='pickup'?'Picked up':'Delivered',`shippingReceive('${id}')`,'pri'):'';
  const rest=(s.status==='planned'?action('Edit',`shippingOpen('${esc(s.customerId)}','${id}')`)+action('Cancel',`shippingUndo('${id}','cancel')`):s.status==='shipped'?action('Undo dispatch',`shippingUndo('${id}','dispatch')`):s.status==='delivered'?action('Undo receipt',`shippingUndo('${id}','receipt')`):'')+(s.status!=='cancelled'||s.unbatchedItems?.length?action('Print',`shippingPrint('${id}')`):'')+action(shippingPreview?'Hide preview':'Preview','shippingPreview=!shippingPreview;render()');
  const rows=d.orders.map(o=>`<tr class="shipping-order-row"><td colspan="7"><b>Order ${esc(o.number)}</b>${o.po?' · PO '+esc(o.po):''}</td></tr>`+o.rows.map(r=>`<tr><td>${r.line}${r.mark?' · '+esc(r.mark):''}</td><td>${esc(r.size)}</td><td>${esc(r.makeup)}</td><td>${esc(r.skids)||'<span class="mut">—</span>'}</td><td class="n"><b>${r.now}</b></td><td class="n">${r.before}</td><td class="n">${r.back}</td></tr>`+(r.note?`<tr class="shipping-cancel-note" data-ps-cancel-note><td colspan="7">${esc(r.note)}</td></tr>`:'')).join('')+(o.takes||[]).map(x=>`<tr data-ps-takes><td colspan="4">Cancelled · customer takes · line ${x.line} · ${esc(x.size)}</td><td class="n"><b>${x.pieces}</b> glass</td><td></td><td></td></tr>`).join('')+o.extras.map(x=>`<tr><td colspan="3">From stock · ${esc(x.name)}</td><td><span class="mut">—</span></td><td class="n"><b>${x.now}</b></td><td class="n">${x.before}</td><td class="n">${x.back}</td></tr>`).join('')).join('');
- return `<div class="card shipping-detail"><div class="shipping-customer-head"><div><h3>${esc(s.number)} · ${esc(salesCustomerDisplay(s.customerId))}</h3><span class="mut">${esc(docAddressText(s.shipTo))||'Pickup'} · ${esc(salesListShortDay(s.date))}</span></div>${shippingStatusPill(s)}</div>${(d.corrections||[]).map(text=>`<p class="shipping-loaded" data-ps-unbatch>${esc(text)}</p>`).join('')}${loaded?`<p class="shipping-loaded" data-ps-loaded>${esc(loaded)}</p>`:''}<div class="sales-toolbar">${rest}<span class="sales-toolbar-sp"></span>${main}</div>${rows?`<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Skids</th><th class="n">Qty</th><th class="n">Before</th><th class="n">Back order</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="mut">Open trip · no items selected</p>'}${shippingPreview?'<div class="shipping-preview">'+shippingPages(d).map(docPageSVG).join('')+'</div>':''}</div>`;
+ return `<div class="card shipping-detail"><div class="shipping-customer-head"><div><h3>${esc(s.number)} · ${esc(salesCustomerDisplay(s.customerId))}</h3><span class="mut">${esc(docAddressText(s.shipTo))||'Pickup'} · ${esc(salesListShortDay(s.date))}</span></div>${shippingStatusPill(s)}</div>${(d.corrections||[]).map(text=>`<p class="shipping-loaded" data-ps-unbatch>${esc(text)}</p>`).join('')}${loaded?`<p class="shipping-loaded" data-ps-loaded>${esc(loaded)}</p>`:''}${s.status==='delivered'?`<p class="shipping-loaded" data-ps-received>${esc('Received '+salesListShortDay(salesListIsoDay(s.deliveredAt))+(s.receivedBy?' · '+s.receivedBy:''))}</p>`:''}<div class="sales-toolbar">${rest}<span class="sales-toolbar-sp"></span>${main}</div>${rows?`<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Skids</th><th class="n">Qty</th><th class="n">Before</th><th class="n">Back order</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="mut">Open trip · no items selected</p>'}${shippingPreview?'<div class="shipping-preview">'+shippingPages(d).map(docPageSVG).join('')+'</div>':''}</div>`;
 }
 function shippingBackordersHTML(){
  const board=prodBoard();return shippingOrders().map(o=>({o,q:shippingSummary(o)})).filter(x=>x.o.status==='shipping'&&x.q.back>0).map(({o,q})=>{
