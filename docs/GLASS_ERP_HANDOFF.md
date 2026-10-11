@@ -1,6 +1,20 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.163 · 10 октября 2026 — экраны из конструктора: администратор ставит отчёт на Board станций и в Overview людей (Show on); «This station» и «Me» подставляются на месте.
+Версия 5.165 · 11 октября 2026 — баги прохода «цех за 14 месяцев»: без Finance нет кнопок оплаты (окно долга остаётся), PO при Convert квоты, шапка CUT на Queue/Board, Received by одной накладной, итог Payments без Void, Hold на Loaded, Unbatch называет ушедшие стёкла.
+
+## Баги прохода «цех за 14 месяцев» · 11 октября 2026 (v5.165)
+
+Волна 1 симуляции (`tools/sim-shop.js`, агенты в ролях оптимизатора, продажника, CUT, Shipping, бухгалтера). Ответы владельца: без Finance — «только показать окно, что заказ не оплачен… решит на его ответственность. Ничего не блокируем»; Hold на погруженном — «лучше ничего не блокировать, а только уведомить»; Unbatch — «чтобы оптимизатор понял, что одно из стёкол ушло именно этого заказа… если стёкол тысяча».
+
+- **Без галочки Finance — без кнопок оплаты** (`salesRunChecks`, `src/erp/sales/lifecycle.js`; `finCanOpen`, `src/erp/views/finance.js`). Окна «Deposit not received» и «balance due» показывают суммы как раньше, но кнопки **Take payment** нет — только Back и «…anyway»: решает человек. В заказе нет кнопок Payments и Apply deposit / Move to deposit. Раньше они уводили человека без Finance в список Sales.
+- **Convert квоты у клиента «PO required»** (`salesConvertQuoteRecord`): окно спрашивает Customer PO (поле в общем окне Sales, `d.input`), пустое не пускает. Раньше заказ создавался с пустым PO молча, хотя Save без PO запрещён (8.10).
+- **Шапка CUT на Queue и Board** (`src/styles/station.css`): с плашками No dolly, Putting on, батча и рабочего она была шире окна уже на 1440 (1572 px, поле скана «Scan b», ERP за краем). Теперь с полем скана до 1600 прячутся название станции и имя рабочего (инициалы остаются), до 1366 — слова «Putting on» и счётчик «cut» у батча (он в подсказке), до 1200 — слово «Batch» и кнопка темы (тема — на вкладке Scan). Проверено на 1440, 1366, 1280, 1024.
+- **Received by — одной накладной** (`shippingSigned`, `shippingReceive`): после принятой накладной поле пустеет; раньше имя молча уходило в следующий PS стопки. В карточке PS — строка «Received <дата> · <кто>».
+- **Итог Payments без Void** (`finListFooter`, `src/erp/views/finance-lists.js`): число и суммы — только живые квитанции, рядом «N void not counted». Раньше подвал расходился с плитками и Reports.
+- **Hold и Loaded** (`shippingHoldFirst`, `src/erp/views/shipping.js`): если заказ в накладной на Hold (скид погрузили до Hold), Loaded сначала показывает окно «Order N is On Hold» с причиной — Back или **Ship anyway**. Не запрет. На SHIP скан скида заказа на Hold и раньше давал «Not ready · On hold».
+- **Unbatch из батча с раскроем** (`glassBatchReoptimizeNote`, `glassBatchGoneRows`): окно «Re-optimize B-…» — какие стёкла каких заказов ушли (Glass ID · Order · Line · причина), кнопки Later / Open Optimization. Тот же список — в красной строке шапки батча и в предупреждении Optimization; на листе эти стёкла красные, как раньше. Заказ, как и раньше, уходит в To verify.
+
+Проверки: `test/sim-walk-fixes.js` (+8). Всего 1554 проверки src / dist.
 
 ## Экраны из конструктора: Board станций и Overview людей · 10 октября 2026 (v5.163)
 

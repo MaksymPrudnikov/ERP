@@ -197,7 +197,7 @@ function salesDialogHTML(){
  const d=salesDialog;if(!d)return '';
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)salesDialogChoose(0)"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="${esc(d.title)}">
   <div class="sales-service-modal-head"><h3>${esc(d.title)}</h3><button type="button" aria-label="Close" onclick="salesDialogChoose(0)">×</button></div>
-  ${(body=>body?`<div class="sales-dialog-body">${body}</div>`:'')(`${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.lineChoices?`<div class="sales-dialog-lines">${d.lineChoices.map(l=>`<label><input type="checkbox" data-unbatch-line="${esc(l.id)}" ${d.checkedLines.includes(l.id)?'checked':''} ${l.disabled?'disabled':''} onchange="salesDialogToggleLine('${esc(l.id)}',this.checked)"><span><b>${esc(l.label)}</b><small>${esc(l.detail)}${l.disabled?' · Cutting started — locked':''}</small></span></label>`).join('')}</div><label class="sales-unbatch-confirm"><input type="checkbox" data-unbatch-confirm ${d.confirmed?'checked':''} onchange="salesDialogConfirm(this.checked)"> ${esc(d.confirmLabel||'Cutting not started')}</label>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}`)}
+  ${(body=>body?`<div class="sales-dialog-body">${body}</div>`:'')(`${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.lineChoices?`<div class="sales-dialog-lines">${d.lineChoices.map(l=>`<label><input type="checkbox" data-unbatch-line="${esc(l.id)}" ${d.checkedLines.includes(l.id)?'checked':''} ${l.disabled?'disabled':''} onchange="salesDialogToggleLine('${esc(l.id)}',this.checked)"><span><b>${esc(l.label)}</b><small>${esc(l.detail)}${l.disabled?' · Cutting started — locked':''}</small></span></label>`).join('')}</div><label class="sales-unbatch-confirm"><input type="checkbox" data-unbatch-confirm ${d.confirmed?'checked':''} onchange="salesDialogConfirm(this.checked)"> ${esc(d.confirmLabel||'Cutting not started')}</label>`:''}${d.input?`<label class="sales-dialog-input"><span>${esc(d.input.label)}</span><input type="text" data-dialog-input maxlength="80" value="${esc(d.input.value||'')}" oninput="salesDialog.input.value=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();salesDialogChoose(${d.buttons.length-1})}"></label>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}`)}
   <div class="sales-dialog-actions">${d.buttons.map((b,i)=>`<button type="button" class="${b.kind||''}" data-dialog-button="${i}" ${b.requiresConfirmation&&(!d.confirmed||!d.checkedLines.length)?'disabled':''} onclick="salesDialogChoose(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
 }
 
@@ -247,8 +247,12 @@ function salesTransitionChecks(o,next){
 function salesRunChecks(checks,done,takePayment){
  if(!checks.length){done();return;}
  const c=checks[0],rest=()=>salesRunChecks(checks.slice(1),done,takePayment),buttons=[{label:'Back'}];
+ /* Take payment — только с галочкой Finance: без неё кнопка уводила в Sales
+    (проход 11.10.2026). Окно всё равно показывает долг, решает человек
+    (владелец: «решит это на его ответственность… ничего не блокируем»). */
+ const canPay=typeof accessCan!=='function'||accessCan('finance');
  if(c.block){/* только Back */}
- else if(c.pay!=null&&c.pay>0)buttons.push({label:c.anyway,run:rest},{label:'Take payment',kind:'pri',run:()=>takePayment?takePayment(c.pay):salesTakePayment(c.pay)});
+ else if(c.pay!=null&&c.pay>0&&canPay)buttons.push({label:c.anyway,run:rest},{label:'Take payment',kind:'pri',run:()=>takePayment?takePayment(c.pay):salesTakePayment(c.pay)});
  else buttons.push({label:c.anyway,kind:'pri',run:rest});
  salesDialogOpen(Object.assign({},c,{buttons}));
 }
@@ -388,10 +392,18 @@ function salesConvertQuote(){
   choices:members.map(m=>({id:m.id,label:m.businessNumber,detail:salesQuoteRevState(m),value:salesQuoteTotalText(m)})),choice:rec.id,
   buttons:[{label:'Back'},{label:'Convert to order',kind:'pri',run:d=>salesConvertQuoteRecord(d&&d.choice||rec.id)}]});
 }
-function salesConvertQuoteRecord(id){
+/* «PO required»: заказ без PO не пишется и из квоты (проход 11.10.2026:
+   Convert создавал заказ с пустым PO молча). PO спрашивается здесь же. */
+function salesConvertQuoteRecord(id,po){
  const quote=DB.salesOrder.find(o=>o.id===id);if(!quote||!salesIsQuote(quote)||salesQuoteWonMember(quote))return;
+ const c=salesFindCustomer(quote.customerId),poText=salesString(po!=null?po:quote.customerPo);
+ if(c&&c.poRequired&&!poText){
+  salesDialogOpen({title:'PO required · '+quote.businessNumber,sub:(c.displayName||c.legalName)+' requires a PO',rows:[],input:{label:'Customer PO',value:''},note:po!=null?'Enter the PO.':'',
+   buttons:[{label:'Back'},{label:'Convert to order',kind:'pri',run:d=>salesConvertQuoteRecord(id,d.input.value)}]});
+  setTimeout(()=>{const el=document.querySelector('[data-dialog-input]');if(el)el.focus();},0);return;
+ }
  const now=new Date().toISOString();
- const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now});
+ const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now,customerPo:poText});
  const order=normalizeSalesOrder(copy);DB.salesOrder.push(order);
  if(typeof finCaptureTerms==='function')finCaptureTerms(order);
  quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;

@@ -192,10 +192,13 @@ function salesPaymentStrip(o){
  /* Отменённый заказ не долг: его оплаты ушли на депозит клиента. */
  if(!finOrderCounts(o))return '<div class="fin-strip fin-strip-new">Cancelled — not counted in the customer balance</div>';
  const f=finOrderFinancial(o),b=f.b;
- return `<div class="fin-strip">${finStatusPill(f)}<div><small>Order total</small><b>${finFmt(b.total)}</b></div><div><small>Paid</small><b>${finFmt(b.paid)}</b></div><div><small>Balance</small><b class="${f.tone==='bad'?'fin-due':b.status==='paid'?'fin-paid':''}">${finFmt(b.balance)}</b></div><button type="button" class="sm" onclick="finShowOrder('${esc(o.id)}')">Payments</button></div>`;
+ return `<div class="fin-strip">${finStatusPill(f)}<div><small>Order total</small><b>${finFmt(b.total)}</b></div><div><small>Paid</small><b>${finFmt(b.paid)}</b></div><div><small>Balance</small><b class="${f.tone==='bad'?'fin-due':b.status==='paid'?'fin-paid':''}">${finFmt(b.balance)}</b></div>${finCanOpen()?`<button type="button" class="sm" onclick="finShowOrder('${esc(o.id)}')">Payments</button>`:''}</div>`;
 }
+/* Кнопки, ведущие в Finance, — только с её галочкой (без неё они уводили в
+   Sales); суммы в полосе заказа видны всем. */
+function finCanOpen(){return typeof accessCan!=='function'||accessCan('finance');}
 function salesDepositHint(o){
- if(!salesOrderIsSaved(o)||!o.customerId||!finOrderCounts(o))return '';
+ if(!salesOrderIsSaved(o)||!o.customerId||!finOrderCounts(o)||!finCanOpen())return '';
  const saved=DB.salesOrder.find(x=>x.id===o.id),b=finOrderBalance(saved),dep=finCustomerDeposit(o.customerId),c=salesFindCustomer(o.customerId),out=[];
  if(dep>0&&b.status==='due')out.push(`<div class="fin-hint">${raw(finCustomerName(c))} has <b>${finFmt(dep)}</b> on account. <button type="button" class="sm" onclick="finOpenApply('${esc(o.customerId)}','${esc(o.id)}')">Apply deposit to this order</button></div>`);
  if(b.status==='overpaid')out.push(`<div class="fin-hint">Receipts exceed the saved order total by <b>${finFmt(-b.balance)}</b>. <button type="button" class="sm" onclick="finMoveOverpayment('${esc(o.id)}')">Move to deposit on account</button></div>`);
