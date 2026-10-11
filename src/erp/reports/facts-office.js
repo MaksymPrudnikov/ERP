@@ -58,17 +58,31 @@ function repBreakFacts(){
 /* Заказы и сроки: одна строка на заказ. Отгружен — последний отправленный PS,
    когда заказ выдан целиком (Done / Closed). Вовремя — отгружен не позже
    срока; Late — позже срока или срок прошёл, а заказ не выдан; Open — срок
-   ещё не наступил. */
+   ещё не наступил.
+   Самовывоз — по готовности (владелец, 11.10.2026: «нет даты, когда клиент
+   обязан забрать… может оставить на месяц»): заказ вовремя, если всё его
+   стекло готово к выдаче (скан станции готовности) не позже срока, когда бы
+   клиент его ни забрал. On time % — из заказов On time и Late: просроченный
+   невыданный заказ тоже опоздал. */
 let repOrderCache={stamp:'',rows:null};
 function repOrderFacts(){
- const today=finToday(),stamp=[today,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.shipment||[]).map(s=>s.id+s.status+s.date).join(',')].join('|');
+ const today=finToday(),stamp=[today,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.shipment||[]).map(s=>s.id+s.status+s.date).join(','),(DB.stationScan||[]).length].join('|');
  if(repOrderCache.stamp===stamp&&repOrderCache.rows)return repOrderCache.rows;
  const rows=[],days=(a,b)=>Math.round((Date.parse(b+'T12:00:00')-Date.parse(a+'T12:00:00'))/864e5);
+ /* Когда стекло заказа стало готово к выдаче: последний скан станции готовности. */
+ const readySt=shippingStations().ready,index=stationPieceIndex(),readyAt=new Map();
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||s.park||s.station!==readySt)return;const h=index.get(s.piece);if(!h)return;const t=readyAt.get(h.orderId);if(!t||s.at>t)readyAt.set(h.orderId,s.at);});
+ const pickupReady=(o,done,shipped)=>{
+  if(o.status==='ready')return salesListIsoDay(o.statusDates&&o.statusDates.ready)||repDay(readyAt.get(o.id)||'');
+  if(done||o.status==='shipping'&&(()=>{const q=shippingSummary(o);return q.glass>0&&q.physicalReady+q.lines.reduce((n,r)=>n+r.shipped,0)>=q.glass;})())return repDay(readyAt.get(o.id)||'')||shipped;
+  return '';
+ };
  (DB.salesOrder||[]).forEach(o=>{
   if(!o||salesIsQuote(o)||o.status==='cancelled')return;
   const done=['done','closed'].includes(o.status),sent=done?shippingForOrder(o.id).filter(s=>shippingSent(s)&&shippingCarries(s,o.id)).map(s=>s.date).sort():[];
   const shipped=done?sent[sent.length-1]||salesListIsoDay(o.statusDates&&o.statusDates.done)||'':'',due=o.dueDate||'';
-  const state=!due?'No due date':shipped?(shipped<=due?'On time':'Late'):(due<today?'Late':'Open');
+  const ready=o.delivery==='pickup'?pickupReady(o,done,shipped):'',finish=o.delivery==='pickup'?ready:shipped;
+  const state=!due?'No due date':finish?(finish<=due?'On time':'Late'):(due<today?'Late':'Open');
   const lines=o.lines||[],units=lines.reduce((n,l)=>n+Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)),0);
   const area=finWithOrder(o,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,o);return n+(a.valid?a.actual*Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)):0);},0));
   const created=salesListIsoDay(o.createdAt),c=salesFindCustomer(o.customerId)||{},t=finOrderTotals(o);
@@ -77,8 +91,8 @@ function repOrderFacts(){
   let kg=0;try{finWithOrder(o,()=>lines.forEach(l=>{const w=salesLineWeight(l,o);if(w&&w.lineKg!=null)kg+=w.lineKg;}));}catch(e){}
   rows.push({...repOrderInfo(o),id:o.id,at:o.createdAt||'',created,due,shipped,order:o.businessNumber||'',customerId:o.customerId||'',rep:c.salesRep||'',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',
    lines:lines.length,shapes,kg:kg||null,hold:o.onHold?'On hold':'Not on hold',
-   delivery:o.delivery==='delivery'?'Delivery':'Pickup',status:salesStatusLabel(o),state,daysLate:state==='Late'?Math.max(0,days(due,shipped||today)):0,
-   lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,area:area||null,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,shippedN:shipped&&due?1:0,total:t&&t.complete?t.grand:null});
+   delivery:o.delivery==='delivery'?'Delivery':'Pickup',status:salesStatusLabel(o),state,daysLate:state==='Late'?Math.max(0,days(due,finish||today)):0,ready,
+   lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,area:area||null,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,judgedN:state==='On time'||state==='Late'?1:0,total:t&&t.complete?t.grand:null});
  });
  repOrderCache={stamp,rows};
  return rows;
