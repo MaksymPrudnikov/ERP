@@ -22,6 +22,7 @@ const SALES_LIST_COLUMNS=[
  {k:'type',label:'Type',type:'list',def:true},
  {k:'number',label:'Number',type:'text',def:true},
  {k:'customer',label:'Customer',type:'text',def:true},
+ {k:'createdBy',label:'Created by',type:'text'},
  {k:'po',label:'PO',type:'text',def:true},
  {k:'created',label:'Created',type:'date',def:true},
  {k:'due',label:'Due',type:'date',def:true},
@@ -189,6 +190,7 @@ function salesListValue(info,k){
   case 'hold':v=!q&&o.onHold?'On Hold':'Not on hold';break;
   case 'delivery':v=o.delivery==='delivery'?'Delivery':'Pickup';break;
   case 'rep':v=c.salesRep||'';break;
+  case 'createdBy':{const e=orderCreatedBy(o.id);v=e?e.by:'';break;}
   case 'terms':v=finTermsFor(o).paymentMode==='credit'?'Credit':'Cash';break;
   case 'lines':v=lines.length;break;
   case 'weight':v=finWithOrder(o,()=>{let kg=0,known=lines.length>0;lines.forEach(l=>{const w=salesLineWeight(l,o);if(w.complete&&w.lineKg!=null)kg+=w.lineKg;else known=false;});return known?Math.round(kg):null;});break;

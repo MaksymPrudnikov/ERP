@@ -117,6 +117,15 @@ function orderLogCapture(){
 }
 function orderLogCommitted(text){if(orderLogPending)orderLogBase={text,map:orderLogPending};orderLogPending=null;}
 
+/* Кто создал заказ — вошедший в офис, когда заказ записали (владелец,
+   11.10.2026: «кто залогинен и создал заказ — тот создал»). Видно в Sales
+   колонкой Created by и в шапке заказа; на бланках не печатается. */
+let orderLogCreators={ref:null,n:-1,map:null};
+function orderCreatedBy(orderId){
+ const ev=DB.orderEvent||[];
+ if(orderLogCreators.ref!==ev||orderLogCreators.n!==ev.length){const m=new Map();ev.forEach(e=>{if(e.what==='Created'&&!m.has(e.orderId))m.set(e.orderId,e);});orderLogCreators={ref:ev,n:ev.length,map:m};}
+ return orderLogCreators.map.get(orderId)||null;
+}
 /* ---------------------------- для окна ---------------------------- */
 /* Записи журнала и оплаты Finance по этому заказу, по времени. У заказа,
    созданного до журнала, первой строкой — дата создания без имени. */
