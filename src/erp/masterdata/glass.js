@@ -300,7 +300,7 @@ function normalizeGlassSheet(s){
  const cur=mdString(s.currency).toUpperCase();
  return {
   id:mdString(s.id)||glassSheetId(code,supplier,wIn,hIn),
-  productCode:code,supplier,
+  productCode:code,supplier,supplierId:mdString(s.supplierId),
   currency:CURRENCY_RE.test(cur)?cur:GLASS_DEFAULT_CURRENCY,
   sheetWIn:wIn,sheetHIn:hIn,
   purchaseUnit:mdUnitCode(s.purchaseUnit,GLASS_DEFAULT_UNIT),
@@ -1241,6 +1241,7 @@ function importGlassSheetsCsv(text){
   if(!inFile[glassSheetKey(s.productCode,s.supplier,s.sheetWIn,s.sheetHIn)])rep.missing.push(s.productCode+' · '+s.supplier);
  });
  normalizeMasterData();
+ if(typeof normalizePurchasing==='function')normalizePurchasing();
  return rep;
 }
 

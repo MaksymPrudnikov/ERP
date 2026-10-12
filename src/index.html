@@ -7,7 +7,7 @@
   Правишь код модуля — достаточно F5, пересобирать не нужно. Пересборка нужна
   только при смене состава модулей (build/manifest.json) или правке шапки
   (src/shell.html). Работает и с сервера, и при открытии с диска (file://).
-  Состав: 137 модулей, 20 стиля.
+  Состав: 139 модулей, 21 стиля.
 -->
 <html lang="en">
 <head>
@@ -34,6 +34,7 @@
 <link rel="stylesheet" href="styles/theme.css">
 <link rel="stylesheet" href="styles/shipping.css">
 <link rel="stylesheet" href="styles/reports.css">
+<link rel="stylesheet" href="styles/purchasing.css">
 </head>
 <body>
 <div class="shell">
@@ -59,7 +60,7 @@
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='8079fbd5d3cd';
+var ERP_BUILD='5307e0aaee97';
 </script>
 <script src="core/dim.js"></script>
 <script src="core/poly.js"></script>
@@ -103,6 +104,7 @@ var ERP_BUILD='8079fbd5d3cd';
 <script src="erp/finance/data.js"></script>
 <script src="erp/finance/ledger.js"></script>
 <script src="erp/finance/commissions.js"></script>
+<script src="erp/purchasing/suppliers.js"></script>
 <script src="erp/icons.js"></script>
 <script src="erp/nav.js"></script>
 <script src="erp/views/dashboard.js"></script>
@@ -137,6 +139,7 @@ var ERP_BUILD='8079fbd5d3cd';
 <script src="erp/views/finance-schedule.js"></script>
 <script src="erp/views/finance-lists.js"></script>
 <script src="erp/views/commissions.js"></script>
+<script src="erp/views/purchasing.js"></script>
 <script src="erp/views/sales-list-ui.js"></script>
 <script src="erp/views/sales-list-controls.js"></script>
 <script src="erp/sales/line-hold.js"></script>

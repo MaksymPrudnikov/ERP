@@ -379,6 +379,11 @@ function mdSheetPickSet(k,v){
 /* Точка поставки знает свою валюту: Vitro Barrie — CAD, Vitro USA — USD. */
 function mdSheetPoints(){const m=new Map();(DB.glassSheet||[]).forEach(s=>{if(s.supplier&&!m.has(s.supplier))m.set(s.supplier,s.currency||'');});return m;}
 function mdSheetPointPicked(v){const cur=mdSheetPoints().get(String(v||'').trim()),el=document.getElementById('md_sheetCurrency');if(cur&&el)el.value=cur;}
+/* Card links do not rename established supply points or reprice a sheet. */
+function mdSheetSupplierPicked(id){
+ const card=purSupplierFind(id),point=document.getElementById('md_sheetSupplier');
+ if(card&&point&&!point.value.trim()){point.value=card.name;document.getElementById('md_sheetCurrency').value=card.currency;}
+}
 function mdSheetForm(){
  const r=mdSheetDraft,isNew=mdSheetEdit==='new',p=r.productCode?glassProductByCode(r.productCode):null;
  if(!mdSheetPick.touched){mdSheetPick={mfr:p?p.manufacturer:'',thick:p?String(p.thicknessMm):'',q:'',touched:true};}
@@ -391,6 +396,7 @@ function mdSheetForm(){
    <div class="md-sheet-wide"><label>Product *</label><select id="md_sheetCode" size="8">${mdSheetProductOptions(r.productCode)}</select><div class="mut md-sheet-tiny"><span id="md_sheetCount">${mdSheetProducts().length} of ${DB.glassProduct.length}</span></div></div>
   </div></div>
   <div class="md-sheet-box"><h4>Supply</h4><div class="md-sheet-fields md-sheet-3">
+   <div class="md-sheet-wide"><label>Supplier card</label><select id="md_sheetSupplierId" onchange="mdSheetSupplierPicked(this.value)"><option value="">Match by supply point</option>${(DB.supplier||[]).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>`<option value="${esc(s.id)}" ${s.id===r.supplierId?'selected':''} data-raw>${esc(s.name)}${s.active?'':' · Archived'}</option>`).join('')}</select></div>
    <div><label>Supply point *</label><input id="md_sheetSupplier" list="md_sheetPoints" autocomplete="off" value="${esc(r.supplier)}" placeholder="Vitro Barrie" onchange="mdSheetPointPicked(this.value)"><datalist id="md_sheetPoints">${[...points.keys()].map(n=>`<option value="${esc(n)}"></option>`).join('')}</datalist></div>
    <div><label>Currency</label><input id="md_sheetCurrency" value="${esc(r.currency)}" maxlength="3" title="Filled from the supply point"></div>
    <div><label>Availability</label><select id="md_sheetAvail">${mdVocabOptions('availability',r.availability)}</select></div>
@@ -417,7 +423,7 @@ function mdSheetSave(){
  if(date&&!ISO_DATE_RE.test(date))return fail(e,'Price date: format YYYY-MM-DD');
  const next=normalizeGlassSheet({
   id:mdSheetEdit==='new'?'':mdSheetDraft.id,
-  productCode:code,supplier,currency:cur||GLASS_DEFAULT_CURRENCY,
+  productCode:code,supplier,supplierId:mdVal('md_sheetSupplierId'),currency:cur||GLASS_DEFAULT_CURRENCY,
   sheetWIn:w===''?null:+w,sheetHIn:h===''?null:+h,
   purchaseUnit:mdVal('md_sheetUnit'),
   purchasePrice:mdVal('md_sheetPrice')===''?null:+mdVal('md_sheetPrice'),
@@ -429,9 +435,13 @@ function mdSheetSave(){
  const clash=(DB.glassSheet||[]).some(s=>s.id!==mdSheetDraft.id&&
   glassSheetKey(s.productCode,s.supplier,s.sheetWIn,s.sheetHIn)===glassSheetKey(next.productCode,next.supplier,next.sheetWIn,next.sheetHIn));
  if(clash)return fail(e,'This supply point with this sheet is already there');
- if(mdSheetEdit==='new')DB.glassSheet.push(next);
- else{const at=DB.glassSheet.findIndex(s=>s.id===mdSheetDraft.id);if(at<0)return fail(e,'Row not found');DB.glassSheet[at]=next;}
- mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',q:''};normalizeMasterData();touch();render();
+ const result=storageCommand(()=>{
+  if(mdSheetEdit==='new')DB.glassSheet.push(next);
+  else{const at=DB.glassSheet.findIndex(s=>s.id===mdSheetDraft.id);if(at<0)throw new Error('Row not found.');DB.glassSheet[at]=next;}
+  normalizeMasterData();normalizePurchasing();
+ });
+ if(!result.ok)return fail(e,result.error);
+ mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',q:''};render();
 }
 function mdSheetDelete(id){
  if(!confirm('Delete this supply row?'))return;

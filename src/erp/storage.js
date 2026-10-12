@@ -243,6 +243,7 @@ function validateImportedState(src){
  Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('The "'+k+'" field must be an array.');});
  if(typeof finValidatePayload==='function')finValidatePayload(src);
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
+ if(typeof validatePurchasingPayload==='function')validatePurchasingPayload(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
@@ -334,6 +335,7 @@ function normalizeDB(){
  normalizeUsers();
  normalizeSalesModules();
  if(typeof normalizeMasterData==='function')normalizeMasterData();
+ if(typeof normalizePurchasing==='function')normalizePurchasing();
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
