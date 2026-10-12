@@ -53,40 +53,64 @@ function comSave(d){
 }
 function comDelete(id){return finPersist(()=>{DB.referrer=(DB.referrer||[]).filter(r=>r.id!==id);DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.referrerId!==id);return true;});}
 /* Выплата по выбранным заказам: каждый — на свой долг сейчас. Заказ без
-   долга в выплату не входит — дважды за один заказ не заплатить. */
+   долга в выплату не входит — дважды за один заказ не заплатить. Переплата
+   по другим заказам (оплату клиента перенесли на другой заказ, заказ
+   отменили или удалили, оплату аннулировали после выплаты) вычитается из
+   этой выплаты отдельными строками (ревью 12.10.2026: иначе одну и ту же
+   комиссию можно было выплатить дважды). */
+function comPayoutPlan(ref,orderIds){
+ const due=[...comDue(ref).values()],want=new Set(orderIds||[]);
+ const pay=due.filter(x=>want.has(x.orderId)&&x.due>0),back=due.filter(x=>x.due<0);
+ return {pay,back,total:finMoney(pay.concat(back).reduce((n,x)=>n+x.due,0))};
+}
 function comPayoutAdd(d){
  const ref=comFind(d.referrerId);if(!ref)return {error:'Person not found.'};
- const due=comDue(ref),want=new Set(d.orderIds||[]);
+ const plan=comPayoutPlan(ref,d.orderIds);
  const p=comPayoutClean({id:salesUid('RFP'),createdAt:new Date().toISOString(),referrerId:ref.id,date:d.date,note:d.note,
-  orders:[...due.values()].filter(x=>want.has(x.o.id)&&x.due>0).map(x=>({orderId:x.o.id,amount:x.due}))});
+  orders:plan.pay.concat(plan.back).map(x=>({orderId:x.orderId,amount:x.due}))});
  if(!p.date)return {error:'Enter the date.'};
- if(!p.orders.length)return {error:'Nothing to pay.'};
+ if(!plan.pay.length)return {error:'Nothing to pay.'};
+ if(plan.total<=0)return {error:'Nothing to pay: earlier payouts cover it.'};
  return finPersist(()=>{if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
 }
 function comPayoutDelete(id){return finPersist(()=>{DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.id!==id);return true;});}
 
+/* Итоги заказа считаются один раз за экран (ревью 12.10.2026: каждый
+   показ считал их ~10 раз на заказ — секунды на сотнях заказов). comScope —
+   память одного показа Agents; вне него — как обычно. */
+let comScope=null;
+function comWithScope(fn){const was=comScope;comScope={totals:new Map(),orders:new Map()};try{return fn();}finally{comScope=was;}}
+function comTotals(o){
+ if(!comScope)return finOrderTotals(o);
+ const k=o.id+'|'+(o.updatedAt||'');if(!comScope.totals.has(k))comScope.totals.set(k,finOrderTotals(o));return comScope.totals.get(k);
+}
 /* Доля заказа без HST: оплата делится в пропорции суммы заказа. */
-function comNoHstShare(o){const t=finOrderTotals(o);return t&&t.grand>0?Math.max(0,(t.grand-t.hst)/t.grand):1;}
+function comNoHstShare(t){return t&&t.grand>0?Math.max(0,(t.grand-t.hst)/t.grand):1;}
 /* Заказы клиентов человека с оплатами за период (по дате оплаты). range —
    {from, to} днями или null (всё время). */
 function comOrders(ref,range){
+ const key=ref.id+'|'+JSON.stringify(ref.customers)+'|'+(range?range.from+'|'+range.to:'all');
+ if(comScope&&comScope.orders.has(key))return comScope.orders.get(key);
  const pct=new Map(ref.customers.map(c=>[c.customerId,c.pct])),by=new Map();
  finActiveReceipts().forEach(r=>{
   if(range&&(r.date<range.from||r.date>range.to))return;
   r.allocations.forEach(a=>{const o=salesRecord(a.orderId);if(!o||!pct.has(o.customerId))return;
    const x=by.get(o.id)||{o,paid:0,payments:0};x.paid+=a.amount;x.payments++;by.set(o.id,x);});
  });
- return [...by.values()].map(x=>{
-  const p=pct.get(x.o.customerId),paid=finMoney(x.paid),base=finMoney(paid*comNoHstShare(x.o)),t=finOrderTotals(x.o);
+ const out=[...by.values()].map(x=>{
+  const t=comTotals(x.o),p=pct.get(x.o.customerId),paid=finMoney(x.paid),base=finMoney(paid*comNoHstShare(t));
   return {o:x.o,customerId:x.o.customerId,number:x.o.businessNumber,date:salesListIsoDay(x.o.createdAt),total:t&&t.complete?t.grand:null,paid,base,payments:x.payments,pct:p,com:finMoney(base*p/100),comHst:finMoney(paid*p/100)};
  }).sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.number).localeCompare(String(a.number)));
+ if(comScope)comScope.orders.set(key,out);
+ return out;
 }
 /* Долг по заказам за всё время: начислено − выплачено. Отрицательный —
-   переплачено (оплату клиента аннулировали после выплаты). */
+   переплачено (оплату перенесли или аннулировали после выплаты). Удалённый
+   заказ с выплатой остаётся строкой — его переплата тоже вычитается. */
 function comDue(ref){
  const paid=new Map();(DB.referrerPayout||[]).filter(p=>p.referrerId===ref.id).forEach(p=>p.orders.forEach(x=>paid.set(x.orderId,finMoney((paid.get(x.orderId)||0)+x.amount))));
- const m=new Map(comOrders(ref,null).map(x=>[x.o.id,{o:x.o,number:x.number,customerId:x.customerId,com:x.com,paidOut:paid.get(x.o.id)||0}]));
- paid.forEach((v,id)=>{if(!m.has(id)){const o=salesRecord(id);if(o)m.set(id,{o,number:o.businessNumber,customerId:o.customerId,com:0,paidOut:v});}});
+ const m=new Map(comOrders(ref,null).map(x=>[x.o.id,{orderId:x.o.id,o:x.o,number:x.number,customerId:x.customerId,com:x.com,paidOut:paid.get(x.o.id)||0}]));
+ paid.forEach((v,id)=>{if(!m.has(id)){const o=salesRecord(id);m.set(id,{orderId:id,o,number:o?o.businessNumber:'Deleted order',customerId:o?o.customerId:'',com:0,paidOut:v});}});
  m.forEach(x=>{x.due=finMoney(x.com-x.paidOut);});
  return m;
 }
