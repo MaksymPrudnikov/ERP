@@ -3167,7 +3167,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='62f7bd93aea4';
+var ERP_BUILD='8079fbd5d3cd';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11912,11 +11912,16 @@ function salesTransitionChecks(o,next){
 function salesRunChecksMany(list,done,anyway){
  const all=list.flatMap(x=>x.checks.map(c=>({o:x.o,c,take:x.take})));
  if(!all.length){done();return;}
- const block=all.find(x=>x.c.block);if(block){salesRunChecks([block.c],()=>{},block.take);return;}
+ /* Нет PO у нескольких заказов — все одним окном, только Back (ревью 12.10.2026). */
+ const blocks=all.filter(x=>x.c.block);
+ if(blocks.length===1){salesRunChecks([blocks[0].c],()=>{},blocks[0].take);return;}
+ if(blocks.length){salesDialogOpen({title:blocks.length+' orders cannot go on',rows:blocks.map(x=>[x.o.businessNumber+' · '+salesCustomerDisplay(x.o.customerId),x.c.short||x.c.title,true]),note:'Enter the PO in each order.',buttons:[{label:'Back'}]});return;}
  const ids=new Set(all.map(x=>x.o.id));
  if(ids.size===1){const x=list.find(y=>y.checks.length);salesRunChecks(x.checks,done,x.take);return;}
+ /* В подписи — все выбранные заказы: «anyway» отправляет и те, у кого всё в порядке. */
+ const n=list.length;
  salesDialogOpen({title:ids.size+' orders need attention',rows:all.map(x=>[x.o.businessNumber+' · '+salesCustomerDisplay(x.o.customerId),x.c.short||x.c.title,true]),
-  note:'Back changes nothing. '+anyway+' — '+(ids.size===2?'both orders':'all '+ids.size+' orders')+'.',buttons:[{label:'Back'},{label:anyway,kind:'pri',run:done}]});
+  note:'Back changes nothing. '+anyway+' — '+(n===2?'both orders':'all '+n+' orders')+'.',buttons:[{label:'Back'},{label:anyway,kind:'pri',run:done}]});
 }
 function salesRunChecks(checks,done,takePayment){
  if(!checks.length){done();return;}
@@ -13202,40 +13207,64 @@ function comSave(d){
 }
 function comDelete(id){return finPersist(()=>{DB.referrer=(DB.referrer||[]).filter(r=>r.id!==id);DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.referrerId!==id);return true;});}
 /* Выплата по выбранным заказам: каждый — на свой долг сейчас. Заказ без
-   долга в выплату не входит — дважды за один заказ не заплатить. */
+   долга в выплату не входит — дважды за один заказ не заплатить. Переплата
+   по другим заказам (оплату клиента перенесли на другой заказ, заказ
+   отменили или удалили, оплату аннулировали после выплаты) вычитается из
+   этой выплаты отдельными строками (ревью 12.10.2026: иначе одну и ту же
+   комиссию можно было выплатить дважды). */
+function comPayoutPlan(ref,orderIds){
+ const due=[...comDue(ref).values()],want=new Set(orderIds||[]);
+ const pay=due.filter(x=>want.has(x.orderId)&&x.due>0),back=due.filter(x=>x.due<0);
+ return {pay,back,total:finMoney(pay.concat(back).reduce((n,x)=>n+x.due,0))};
+}
 function comPayoutAdd(d){
  const ref=comFind(d.referrerId);if(!ref)return {error:'Person not found.'};
- const due=comDue(ref),want=new Set(d.orderIds||[]);
+ const plan=comPayoutPlan(ref,d.orderIds);
  const p=comPayoutClean({id:salesUid('RFP'),createdAt:new Date().toISOString(),referrerId:ref.id,date:d.date,note:d.note,
-  orders:[...due.values()].filter(x=>want.has(x.o.id)&&x.due>0).map(x=>({orderId:x.o.id,amount:x.due}))});
+  orders:plan.pay.concat(plan.back).map(x=>({orderId:x.orderId,amount:x.due}))});
  if(!p.date)return {error:'Enter the date.'};
- if(!p.orders.length)return {error:'Nothing to pay.'};
+ if(!plan.pay.length)return {error:'Nothing to pay.'};
+ if(plan.total<=0)return {error:'Nothing to pay: earlier payouts cover it.'};
  return finPersist(()=>{if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
 }
 function comPayoutDelete(id){return finPersist(()=>{DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.id!==id);return true;});}
 
+/* Итоги заказа считаются один раз за экран (ревью 12.10.2026: каждый
+   показ считал их ~10 раз на заказ — секунды на сотнях заказов). comScope —
+   память одного показа Agents; вне него — как обычно. */
+let comScope=null;
+function comWithScope(fn){const was=comScope;comScope={totals:new Map(),orders:new Map()};try{return fn();}finally{comScope=was;}}
+function comTotals(o){
+ if(!comScope)return finOrderTotals(o);
+ const k=o.id+'|'+(o.updatedAt||'');if(!comScope.totals.has(k))comScope.totals.set(k,finOrderTotals(o));return comScope.totals.get(k);
+}
 /* Доля заказа без HST: оплата делится в пропорции суммы заказа. */
-function comNoHstShare(o){const t=finOrderTotals(o);return t&&t.grand>0?Math.max(0,(t.grand-t.hst)/t.grand):1;}
+function comNoHstShare(t){return t&&t.grand>0?Math.max(0,(t.grand-t.hst)/t.grand):1;}
 /* Заказы клиентов человека с оплатами за период (по дате оплаты). range —
    {from, to} днями или null (всё время). */
 function comOrders(ref,range){
+ const key=ref.id+'|'+JSON.stringify(ref.customers)+'|'+(range?range.from+'|'+range.to:'all');
+ if(comScope&&comScope.orders.has(key))return comScope.orders.get(key);
  const pct=new Map(ref.customers.map(c=>[c.customerId,c.pct])),by=new Map();
  finActiveReceipts().forEach(r=>{
   if(range&&(r.date<range.from||r.date>range.to))return;
   r.allocations.forEach(a=>{const o=salesRecord(a.orderId);if(!o||!pct.has(o.customerId))return;
    const x=by.get(o.id)||{o,paid:0,payments:0};x.paid+=a.amount;x.payments++;by.set(o.id,x);});
  });
- return [...by.values()].map(x=>{
-  const p=pct.get(x.o.customerId),paid=finMoney(x.paid),base=finMoney(paid*comNoHstShare(x.o)),t=finOrderTotals(x.o);
+ const out=[...by.values()].map(x=>{
+  const t=comTotals(x.o),p=pct.get(x.o.customerId),paid=finMoney(x.paid),base=finMoney(paid*comNoHstShare(t));
   return {o:x.o,customerId:x.o.customerId,number:x.o.businessNumber,date:salesListIsoDay(x.o.createdAt),total:t&&t.complete?t.grand:null,paid,base,payments:x.payments,pct:p,com:finMoney(base*p/100),comHst:finMoney(paid*p/100)};
  }).sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.number).localeCompare(String(a.number)));
+ if(comScope)comScope.orders.set(key,out);
+ return out;
 }
 /* Долг по заказам за всё время: начислено − выплачено. Отрицательный —
-   переплачено (оплату клиента аннулировали после выплаты). */
+   переплачено (оплату перенесли или аннулировали после выплаты). Удалённый
+   заказ с выплатой остаётся строкой — его переплата тоже вычитается. */
 function comDue(ref){
  const paid=new Map();(DB.referrerPayout||[]).filter(p=>p.referrerId===ref.id).forEach(p=>p.orders.forEach(x=>paid.set(x.orderId,finMoney((paid.get(x.orderId)||0)+x.amount))));
- const m=new Map(comOrders(ref,null).map(x=>[x.o.id,{o:x.o,number:x.number,customerId:x.customerId,com:x.com,paidOut:paid.get(x.o.id)||0}]));
- paid.forEach((v,id)=>{if(!m.has(id)){const o=salesRecord(id);if(o)m.set(id,{o,number:o.businessNumber,customerId:o.customerId,com:0,paidOut:v});}});
+ const m=new Map(comOrders(ref,null).map(x=>[x.o.id,{orderId:x.o.id,o:x.o,number:x.number,customerId:x.customerId,com:x.com,paidOut:paid.get(x.o.id)||0}]));
+ paid.forEach((v,id)=>{if(!m.has(id)){const o=salesRecord(id);m.set(id,{orderId:id,o,number:o?o.businessNumber:'Deleted order',customerId:o?o.customerId:'',com:0,paidOut:v});}});
  m.forEach(x=>{x.due=finMoney(x.com-x.paidOut);});
  return m;
 }
@@ -25527,7 +25556,8 @@ let comOpen='',comDraft=null,comPayDraft=null,comPeriod='year',comHst=false,comN
 const COM_PERIODS=[['year','This year'],['last','Last year'],['all','All time']];
 function comRange(){const y=+finToday().slice(0,4);return comPeriod==='all'?null:comPeriod==='last'?{from:(y-1)+'-01-01',to:(y-1)+'-12-31'}:{from:y+'-01-01',to:y+'-12-31'};}
 function comCustomerName(id){return finCustomerName(salesFindCustomer(id));}
-function viewCommissions(){
+function viewCommissions(){return comWithScope(viewCommissionsIn);}
+function viewCommissionsIn(){
  const range=comRange(),list=(DB.referrer||[]).map(r=>({r,s:comSummary(r,range)})).sort((a,b)=>b.s.toPay-a.s.toPay||a.r.name.localeCompare(b.r.name));
  const sum=k=>finMoney(list.reduce((n,x)=>n+x.s[k],0)),money=v=>v?finFmt(v):'<span class="mut">—</span>';
  const hstHead=comHst?'<th class="n">Paid with HST</th><th class="n">Commission with HST</th>':'';
@@ -25544,15 +25574,17 @@ function viewCommissions(){
 /* Заказы человека: начислено за период; «Paid out» и «Due» — за всё время
    по заказу. Выплата — галочками по заказам с долгом, сумма считается сама. */
 function comDetailHTML(r,range){
- const s=comSummary(r,range),due=comDue(r),money=v=>v?finFmt(v):'<span class="mut">—</span>',open=o=>`<button type="button" class="fin-link mono" onclick="event.stopPropagation();salesLeaveDraft(()=>{tab='sales';salesOrderEdit('${esc(o.id)}')})">${esc(o.businessNumber)}</button>`;
+ const s=comSummary(r,range),due=comDue(r),money=v=>v?finFmt(v):'<span class="mut">—</span>',open=o=>!o?'<span class="mut">Deleted order</span>':`<button type="button" class="fin-link mono" onclick="event.stopPropagation();salesLeaveDraft(()=>{tab='sales';salesOrderEdit('${esc(o.id)}')})">${esc(o.businessNumber)}</button>`;
  const dueCell=id=>{const d=due.get(id);return `<td class="n">${money(d&&d.paidOut)}</td><td class="n"><b class="${d&&d.due>0?'fin-due':''}" data-com-due>${d?finFmt(d.due):'—'}</b></td>`;};
  const rows=s.rows.map(x=>`<tr data-com-order="${esc(x.number)}"><td>${open(x.o)}</td><td data-raw>${esc(comCustomerName(x.customerId))}</td><td>${esc(salesListShortDay(x.date))}</td><td class="n">${money(x.total)}</td><td class="n">${money(x.base)}</td><td class="n">${x.pct}%</td><td class="n"><b>${money(x.com)}</b></td>${comHst?`<td class="n">${money(x.paid)}</td><td class="n">${money(x.comHst)}</td>`:''}${dueCell(x.o.id)}</tr>`).join('');
  const pays=(DB.referrerPayout||[]).filter(p=>p.referrerId===r.id).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt));
  const owed=[...due.values()].filter(x=>x.due>0).sort((a,b)=>String(a.number).localeCompare(String(b.number)));
- const picked=comPayDraft?owed.filter(x=>comPayDraft.orderIds.includes(x.o.id)):[],total=finMoney(picked.reduce((n,x)=>n+x.due,0));
- const payForm=comPayDraft?`<div class="com-pay-form" data-com-pay-form><h4>Payout · ${picked.length} of ${owed.length} orders · <span data-com-pay-total>${finFmt(total)}</span></h4>
-   ${owed.length?`<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th></th><th>Order</th><th>Customer</th><th class="n">Commission</th><th class="n">Paid out</th><th class="n">Due</th></tr></thead><tbody>${owed.map(x=>`<tr><td class="sl-check"><input type="checkbox" data-com-pay-order="${esc(x.number)}" ${comPayDraft.orderIds.includes(x.o.id)?'checked':''} onchange="comPayPick('${esc(x.o.id)}',this.checked)"></td><td>${open(x.o)}</td><td data-raw>${esc(comCustomerName(x.customerId))}</td><td class="n">${finFmt(x.com)}</td><td class="n">${money(x.paidOut)}</td><td class="n"><b>${finFmt(x.due)}</b></td></tr>`).join('')}</tbody></table></div>`:'<p class="mut">Nothing to pay: every order is paid out.</p>'}
-   <div class="sl-row"><input type="date" aria-label="Payout date" value="${esc(comPayDraft.date)}" onchange="comPayDraft.date=this.value"><input type="text" placeholder="Note" value="${esc(comPayDraft.note)}" oninput="comPayDraft.note=this.value"><button type="button" class="pri sm" data-com-pay-save ${picked.length?'':'disabled'} onclick="comPaySave()">Save payout</button><button type="button" class="sm" onclick="comPayDraft=null;render()">Cancel</button></div></div>`:'';
+ /* Переплата по другим заказам вычитается из выплаты (comPayoutPlan). */
+ const plan=comPayDraft?comPayoutPlan(r,comPayDraft.orderIds):{pay:[],back:[],total:0},picked=plan.pay,total=plan.total;
+ const back=plan.back.length?`<div class="sales-table-wrap"><table class="sl-table" data-com-pay-back><thead><tr><th>Overpaid earlier · taken off</th><th>Customer</th><th class="n">Commission</th><th class="n">Paid out</th><th class="n">Due</th></tr></thead><tbody>${plan.back.map(x=>`<tr><td>${open(x.o)}</td><td data-raw>${esc(comCustomerName(x.customerId))}</td><td class="n">${finFmt(x.com)}</td><td class="n">${finFmt(x.paidOut)}</td><td class="n"><b class="fin-due">${finFmt(x.due)}</b></td></tr>`).join('')}</tbody></table></div>`:'';
+ const payForm=comPayDraft?`<div class="com-pay-form" data-com-pay-form><h4>Payout · ${picked.length} of ${owed.length} orders · <span data-com-pay-total>${finFmt(Math.max(0,total))}</span></h4>
+   ${owed.length?`<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th></th><th>Order</th><th>Customer</th><th class="n">Commission</th><th class="n">Paid out</th><th class="n">Due</th></tr></thead><tbody>${owed.map(x=>`<tr><td class="sl-check"><input type="checkbox" data-com-pay-order="${esc(x.number)}" ${comPayDraft.orderIds.includes(x.orderId)?'checked':''} onchange="comPayPick('${esc(x.orderId)}',this.checked)"></td><td>${open(x.o)}</td><td data-raw>${esc(comCustomerName(x.customerId))}</td><td class="n">${finFmt(x.com)}</td><td class="n">${money(x.paidOut)}</td><td class="n"><b>${finFmt(x.due)}</b></td></tr>`).join('')}</tbody></table></div>`:'<p class="mut">Nothing to pay: every order is paid out.</p>'}${back}${picked.length&&total<=0?'<p class="mut" data-com-pay-covered>Nothing to pay: earlier payouts cover it.</p>':''}
+   <div class="sl-row"><input type="date" aria-label="Payout date" value="${esc(comPayDraft.date)}" onchange="comPayDraft.date=this.value"><input type="text" placeholder="Note" value="${esc(comPayDraft.note)}" oninput="comPayDraft.note=this.value"><button type="button" class="pri sm" data-com-pay-save ${picked.length&&total>0?'':'disabled'} onclick="comPaySave()">Save payout</button><button type="button" class="sm" onclick="comPayDraft=null;render()">Cancel</button></div></div>`:'';
  return `<div class="card com-detail" data-com-detail><div class="shipping-customer-head"><div><h3 data-raw>${esc(r.name)}</h3><span class="mut" data-raw>${esc([r.phone,r.email].filter(Boolean).join(' · '))}</span></div><div class="sales-toolbar"><button type="button" class="sm" onclick="comEditOpen('${esc(r.id)}')">Edit</button><button type="button" class="sm" data-com-pay onclick="comPayOpen('${esc(r.id)}')">+ Payout</button></div></div>
   <div class="fin-strip"><div><small>Orders</small><b>${s.orders}</b></div><div><small>Paid · no HST</small><b>${finFmt(s.base)}</b></div><div><small>Commission</small><b>${finFmt(s.com)}</b></div><div><small>Paid out · all time</small><b>${finFmt(s.paidOut)}</b></div><div><small>To pay</small><b class="${s.toPay>0?'fin-due':''}" data-com-topay>${finFmt(s.toPay)}</b></div></div>
   ${payForm}
@@ -25572,7 +25604,7 @@ function comFormHTML(){
 function comEditOpen(id){const r=id?comFind(id):null;comNotice='';comPayDraft=null;comDraft=r?JSON.parse(JSON.stringify(r)):{id:'',name:'',phone:'',email:'',note:'',customers:[{customerId:'',pct:''}]};render();setTimeout(()=>{const el=document.getElementById('com_name');if(el&&!id)el.focus();},0);}
 function comFormSave(){const d=Object.assign({},comDraft,{customers:comDraft.customers.filter(c=>c.customerId||c.pct)});const out=comSave(d);if(out.error){comNotice=out.error;render();return;}comNotice='';comOpen=out.value.id;comDraft=null;render();}
 function comFormDelete(){const d=comDraft;if(!d||!d.id||!confirm('Delete '+d.name+' and their payouts?'))return;const out=comDelete(d.id);comNotice=out.error||'';if(!out.error){comDraft=null;comOpen='';}render();}
-function comPayOpen(id){const r=comFind(id);if(!r)return;comOpen=id;comDraft=null;comNotice='';comPayDraft={referrerId:id,date:finToday(),note:'',orderIds:[...comDue(r).values()].filter(x=>x.due>0).map(x=>x.o.id)};render();}
+function comPayOpen(id){const r=comFind(id);if(!r)return;comOpen=id;comDraft=null;comNotice='';comPayDraft={referrerId:id,date:finToday(),note:'',orderIds:[...comDue(r).values()].filter(x=>x.due>0).map(x=>x.orderId)};render();}
 function comPayPick(id,on){if(!comPayDraft)return;comPayDraft.orderIds=comPayDraft.orderIds.filter(x=>x!==id);if(on)comPayDraft.orderIds.push(id);render();}
 function comPaySave(){const out=comPayoutAdd(comPayDraft);if(out.error){comNotice=out.error;render();return;}comNotice='';comPayDraft=null;render();}
 function comPayDelete(id){if(!confirm('Delete this payout? Its orders are due again.'))return;const out=comPayoutDelete(id);comNotice=out.error||'';render();}
