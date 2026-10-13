@@ -20,7 +20,8 @@
   "src/styles/station.css",
   "src/styles/theme.css",
   "src/styles/shipping.css",
-  "src/styles/reports.css"
+  "src/styles/reports.css",
+  "src/styles/purchasing.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -65,6 +66,7 @@
   "src/erp/finance/data.js",
   "src/erp/finance/ledger.js",
   "src/erp/finance/commissions.js",
+  "src/erp/purchasing/suppliers.js",
   "src/erp/icons.js",
   "src/erp/nav.js",
   "src/erp/views/dashboard.js",
@@ -99,6 +101,7 @@
   "src/erp/views/finance-schedule.js",
   "src/erp/views/finance-lists.js",
   "src/erp/views/commissions.js",
+  "src/erp/views/purchasing.js",
   "src/erp/views/sales-list-ui.js",
   "src/erp/views/sales-list-controls.js",
   "src/erp/sales/line-hold.js",
