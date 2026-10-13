@@ -78,28 +78,37 @@ function purPOStatusStrip(p){
 /* The lists use the same visible controls and preference engine as Sales. */
 function purListStatus(value){if(value)salesListSetFilter('status',{values:[value]});else salesListClearFilter('status');}
 function purListFilters(infos){
- const columns=salesListCatalog(),has=k=>columns.some(c=>c.k===k),prefs=salesListLoadPrefs();
- let quick='';
+ const columns=salesListCatalog(),has=k=>columns.some(c=>c.k===k),prefs=salesListLoadPrefs(),quickKey=prefs.quick||'all',base=salesListRows(infos,purView==='orders'&&quickKey!=='all'?['status','date']:['status']).filter(i=>purView!=='orders'||purQuickTest(quickKey,i));
+ let status='';
  if(has('status')){
-  const base=salesListRows(infos,['status']),statuses=purView==='orders'?['Draft','Sent','Partially received','Received','Closed','Cancelled']:purView==='suppliers'?['Active','Archived']:[...new Set(base.map(i=>salesListValue(i,'status')).filter(Boolean))],f=prefs.filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
-  quick='<div class="sl-quick" role="tablist" aria-label="Purchase status">'+['',...statuses].map(status=>'<button type="button" role="tab" aria-selected="'+(!status?!salesListFilterActive(f):selected===status)+'" class="sl-quick-pill '+((!status?!salesListFilterActive(f):selected===status)?'on':'')+'" data-pur-status="'+esc(status)+'" onclick="purListStatus('+purArg(status)+')">'+esc(status||'All')+' <b>'+base.filter(i=>!status||salesListValue(i,'status')===status).length+'</b></button>').join('')+'</div>';
+  const statuses=purView==='orders'?['Draft','Sent','Partially received','Received','Closed','Cancelled']:purView==='suppliers'?['Active','Archived']:[...new Set(base.map(i=>salesListValue(i,'status')).filter(Boolean))],f=prefs.filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
+  status=salesListStatusControlHTML(statuses.map(n=>({key:n,label:n,n:base.filter(i=>salesListValue(i,'status')===n).length})),selected,base.length,'purListStatus');
  }
- const button=(k,label)=>'<button type="button" class="sl-quiet" data-pur-filter="'+k+'" onclick="salesListOpenFilter(event,\''+k+'\')">'+label+'<span class="sl-disclosure">▾</span></button>';
- const date=purListDateColumn();
- return quick+'<div class="sl-view-controls">'+(has('supplierName')?button('supplierName','Supplier'):purView==='suppliers'?button('name','Supplier'):'')+(date?salesListDateButton(date):'')+(has('currency')?button('currency','Currency'):'')+(purView==='history'?button('entity','Document')+button('by','Recorded by'):'')+'</div>'+salesListFilterChips();
+ const quick=purView==='orders'?salesQuickHTML(salesListRows(infos),salesListRows(infos,['date']),{test:purQuickTest,set:'purQuickSet'}):'',date=purListDateColumn();
+ return quick+'<div class="sl-view-controls">'+status+(date?salesListDateButton(date):'')+'</div>'+salesListFilterChips();
 }
+function purQuickTest(key,info){
+ if(key==='all')return true;const p=info.p;if(!p||p.deletedAt||['Received','Closed','Cancelled'].includes(purOrderStatus(p)))return false;
+ const today=finToday(),week=salesListPresetRange('thisWeek'),dates=[p.expectedDate,...p.lines.map(l=>l.expectedDate)].filter(Boolean);
+ if(key==='today')return dates.includes(today);
+ if(key==='week')return dates.some(d=>d>=week[0]&&d<=week[1]);
+ return dates.some(d=>d<today)||!purOrderTotals(p).complete;
+}
+function purOrderListRows(infos){const quick=salesListLoadPrefs().quick||'all';return purView==='orders'&&quick!=='all'?salesListRows(infos,['date']).filter(i=>purQuickTest(quick,i)):salesListRows(infos);}
+function purQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK.some(q=>q[0]===key)?key:'all';salesListSavePrefs();render();}
 
 function purListDefaults(){return ['orders','receipts','requests','invoices','payments'].includes(purView)?{date:{preset:'last30'}}:purView==='history'?{at:{preset:'last30'}}:{};}
 let purPages={};
 function purPageState(rows){
- const scope=purListScope(),prefs=salesListLoadPrefs(),signature=JSON.stringify([prefs.filters,prefs.sort]);
+ const scope=purListScope(),prefs=salesListLoadPrefs(),signature=JSON.stringify([prefs.filters,prefs.sort,prefs.quick]);
  if(!purPages[scope]||purPages[scope].signature!==signature)purPages[scope]={signature,index:0};
  const state=purPages[scope];state.index=Math.max(0,Math.min(state.index,Math.ceil(rows.length/50)-1));return state;
 }
 function purPageRows(rows){const p=purPageState(rows);return rows.slice(p.index*50,p.index*50+50);}
 function purListPager(rows){
- const p=purPageState(rows),from=rows.length?p.index*50+1:0,to=Math.min(rows.length,(p.index+1)*50);
- return '<div class="pur-pagination"><span>'+from+'–'+to+' of '+rows.length+' records</span><span class="sales-toolbar-sp"></span><button type="button" class="sl-quiet" aria-label="Previous page" '+(!p.index?'disabled':'')+' onclick="purPages[purListScope()].index--;render()">←</button><button type="button" class="sl-quiet" aria-label="Next page" '+(to>=rows.length?'disabled':'')+' onclick="purPages[purListScope()].index++;render()">→</button></div>';
+ if(!rows.length)return '';const p=purPageState(rows),from=p.index*50+1,to=Math.min(rows.length,(p.index+1)*50);
+ const buttons=rows.length>50?'<button type="button" class="sl-quiet" aria-label="Previous page" '+(!p.index?'disabled':'')+' onclick="purPages[purListScope()].index--;render()">←</button><button type="button" class="sl-quiet" aria-label="Next page" '+(to>=rows.length?'disabled':'')+' onclick="purPages[purListScope()].index++;render()">→</button>':'';
+ return '<div class="pur-pagination"><span>'+from+'–'+to+' of '+rows.length+' records</span><span class="sales-toolbar-sp"></span>'+buttons+'</div>';
 }
 
 function purListDateColumn(){const columns=purListColumns();return ['date','at','expectedDate'].find(k=>columns.some(c=>c.k===k&&c.type==='date'))||'';}

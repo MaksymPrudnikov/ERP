@@ -1,5 +1,5 @@
 /* Purchasing: existing table/filter styles, responsive supplier cards. */
-.purchasing-workspace{max-width:1600px;margin:0 auto}
+.purchasing-workspace{min-width:0}
 .pur-toolbar{margin:0 0 14px;gap:12px;flex-wrap:wrap}
 .pur-toolbar h2{margin:0;font-size:20px}
 .pur-supplier-name{text-align:left;font-weight:600}
@@ -23,8 +23,6 @@
 .pur-event dl{margin:12px 0 0}
 .pur-event dl>div{display:grid;grid-template-columns:180px 1fr;gap:12px;padding:5px 0;font-size:12px}
 .pur-event dt{font-weight:600}.pur-event dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
-.pur-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
-.pur-tabs .on{background:var(--accent-soft);border-color:var(--accent)}
 .pur-po-edit{border:0;margin:0;padding:0;min-width:0}
 .pur-po-edit input:not([type=checkbox]),.pur-po-edit select,.pur-po-edit textarea{box-sizing:border-box;width:100%}
 .pur-po-edit .pur-card{margin-bottom:16px}
@@ -69,10 +67,11 @@
 .purchasing-workspace .pur-toolbar{margin-bottom:0}
 .pur-glass-table td,.pur-extra-table td{position:relative}
 .pur-pagination{display:flex;align-items:center;gap:6px;border-top:1px solid var(--line);padding-top:10px;margin-top:8px;font-size:12px;color:var(--text-2)}
-.purchasing-workspace>.oq-tabs{margin-bottom:10px}
 .purchasing-workspace .sales-list-card .sales-toolbar{flex-wrap:wrap}
 .purchasing-workspace .sales-list-card .sales-toolbar h2{font-size:15px;margin:0}
 .purchasing-workspace .sales-list-card .sales-toolbar>label{display:flex;gap:5px;align-items:center;font-size:11px;text-transform:none;margin:0}
 .purchasing-workspace .sales-list-card .sales-toolbar>label input{width:auto}
 .pur-receiving-row{grid-template-columns:repeat(4,minmax(0,1fr))}.pur-receiving-row>div:first-child{grid-column:1 / -1}
 @media(max-width:900px){.pur-receiving-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.pur-pagination{padding:10px 20px 14px}
