@@ -245,6 +245,7 @@ function validateImportedState(src){
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
  if(typeof validatePurchasingPayload==='function')validatePurchasingPayload(src);
  if(typeof validatePurchaseOrders==='function')validatePurchaseOrders(src);
+ if(typeof validatePurchaseReceiving==='function')validatePurchaseReceiving(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
@@ -338,6 +339,7 @@ function normalizeDB(){
  if(typeof normalizeMasterData==='function')normalizeMasterData();
  if(typeof normalizePurchasing==='function')normalizePurchasing();
  if(typeof normalizePurchaseOrders==='function')normalizePurchaseOrders();
+ if(typeof normalizePurchaseReceiving==='function')normalizePurchaseReceiving();
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();

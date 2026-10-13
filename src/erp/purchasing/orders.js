@@ -8,7 +8,7 @@ DEFAULT.purchaseOrder=[];DEFAULT.purchaseOrderSeq=0;
 const PUR_ORDER_STATES={draft:'Draft',sent:'Sent',closed:'Closed',cancelled:'Cancelled'};
 function purOrderFind(id){return (DB.purchaseOrder||[]).find(p=>p.id===id)||null;}
 function purOrderNumber(n){return 'PO-'+String(n).padStart(4,'0');}
-function purOrderStatus(p){return p.deletedAt?'Deleted':PUR_ORDER_STATES[p.state]||'Draft';}
+function purOrderStatus(p){return p.deletedAt?'Deleted':['closed','cancelled'].includes(p.state)?PUR_ORDER_STATES[p.state]:purReceiptState(p)||PUR_ORDER_STATES[p.state]||'Draft';}
 function purLineClean(x,i){
  x=x&&typeof x==='object'?x:{};
  const l={id:purText(x.id)||'line-'+(i+1),kind:['sheet','order','other'].includes(x.kind)?x.kind:'other'};

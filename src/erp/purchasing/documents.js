@@ -16,6 +16,7 @@ const PUR_PO_FIELDS=[
  ['glass','Specification','Glass / thickness / treatment / coating',true],['size','Specification','Finished size',true],
  ['cutSize','Specification','Size before edgework',true],['services','Specification','Edgework and fabrication',true],
  ['drawing','Specification','Shape, holes and cutouts',true],
+ ['receiving','Receiving','Received and outstanding quantities',false],['damage','Receiving','Recorded damage',false],
  ['prices','Bottom','Line prices and totals',true],['totals','Bottom','PO total',true],
  ['notes','Bottom','PO / line / source notes',true],['companyTerms','Bottom','Company terms',false],['footer','Bottom','Company footer',false]
 ].map(([k,g,label,on])=>({k,g,label,on}));
@@ -46,12 +47,12 @@ function purDocRowValues(p,l,i,opt){
   qty:(l.qty==null?'Not set':l.qty)+(l.unit?' '+mdUnitName(l.unit):''),
   price:l.price==null?'Not set':docNum(l.price,2)+(l.priceUnit||l.unit?' / '+mdUnitName(l.priceUnit||l.unit):''),amount:amount==null?'Not complete':docNum(amount,2)};
 }
-function purDocPages(p,raw){
+function purDocPages(p,raw,title){
  const opt=purDocOptions(raw),pages=[],W=DOC_PAGE,C=DOC_COLOR,cols=purDocColumns(p,opt);let P,y,tableOn=false;
  const tableHead=()=>{cols.forEach(c=>docLabel(P,c.right?c.x+c.w-6:c.x+6,y+8,c.label,{align:c.right?'right':'left'}));P.line(W.left,y+14,W.right,y+14,{stroke:C.navy,lw:1.3});y+=20;};
  const start=()=>{
   P=docPage();pages.push(P);y=W.top;
-  P.text(W.left,y+12,'PURCHASE ORDER',{size:14,bold:true,color:C.navy});
+  P.text(W.left,y+12,title||'PURCHASE ORDER',{size:14,bold:true,color:C.navy});
   P.text(W.right,y+12,p.number||'Draft',{size:12,bold:true,align:'right'});y+=28;
   P.line(W.left,y,W.right,y);y+=12;if(tableOn)tableHead();
  };
@@ -103,10 +104,11 @@ function purDocPages(p,raw){
    y+=110;
    (shape.holes||[]).forEach(h=>text('Hole diameter '+h.d+' in · X '+h.x+' · Y '+h.y));
   });
+  if(opt.receiving||opt.damage){const b=purReceived(p,l);if(opt.receiving)field(l.held?'Held at supplier':'Delivery','Purchased '+(b.ordered??'Unknown')+' · received '+b.received+' · remaining '+(b.remaining??'Unknown')+' '+l.unit+(b.unknown?' · Review units / quantities':''));if(opt.damage)field('Recorded damage',b.damaged+' '+l.unit+' · '+b.damagedSheets+' sheets');}
   if(opt.notes&&l.note)field('Note',l.note);gap();
  });
  if(opt.totals){const t=purOrderTotals(p);text((t.complete?'TOTAL':'KNOWN SUBTOTAL')+': '+docNum(t.known,2)+' '+p.currency,11,true);if(t.missing)text(t.missing+' line(s) need price, quantity or conversion.');gap();}
- if(opt.notes&&p.note){text('PO notes',9,true);text(p.note);}
+ if(opt.notes&&p.note){text(title?'Notes':'PO notes',9,true);text(p.note);}
  if(opt.companyTerms&&(DB.company||{}).termsText){gap();text(DB.company.termsText);}
  if(opt.footer&&(DB.company||{}).footerText){gap();text(DB.company.footerText);}
  pages.forEach((page,i)=>{page.line(W.left,W.footer-9,W.right,W.footer-9);page.text(W.right,W.footer,p.number+' · Page '+(i+1)+' of '+pages.length,{size:7,align:'right',color:C.mut});});
