@@ -36,7 +36,7 @@ module.exports=async function({page,eq}){
  eq('a minimal supplier needs no email, address, terms or delivery lead time',await t.p.evaluate(()=>{
   const before=JSON.stringify({receipts:DB.receipt,orders:DB.salesOrder,shipments:DB.shipment}),r=purSupplierSave({name:'Small local shop'});
   return {ok:r.ok,name:r.value.name,currency:r.value.currency,email:r.value.email,days:r.value.paymentDays,lead:r.value.leadTimeDays,otherData:before===JSON.stringify({receipts:DB.receipt,orders:DB.salesOrder,shipments:DB.shipment})};
- }),{ok:true,name:'Small local shop',currency:'USD',email:'',days:null,lead:null,otherData:true});
+ }),{ok:true,name:'Small local shop',currency:'CAD',email:'',days:null,lead:null,otherData:true});
 
  eq('contact lists, custom fields, zero-day terms and blank values survive Export / Import JSON',await t.p.evaluate(()=>{
   const r=purSupplierSave({name:'Special supplier',paymentDays:0,leadTimeDays:'',currency:'CAD',accountNumber:'AC-77',contacts:[{name:'Anna',role:'Orders',email:'anna@example.test',phone:''},{name:'Max',role:'Cover',email:'cover@example.test',phone:'123'}],customFields:[{id:'dock',label:'Dock instructions',value:'Call before arrival'},{id:'extra',label:'Reference',value:''}]});
@@ -111,7 +111,7 @@ module.exports=async function({page,eq}){
  }),{name:'West Glass',email:'orders@example.test',days:30,contact:'cover@example.test',field:'North gate',closed:true});
 
  eq('supplier lists use independent Sales column filters, including blank lead times and archive status',await t.p.evaluate(()=>{
-  purSupplierSave({name:'Other supplier',currency:'CAD',leadTimeDays:7,active:false});render();
+  purSupplierSave({name:'Other supplier',currency:'USD',leadTimeDays:7,active:false});render();
   const rows=()=>document.querySelectorAll('[data-pur-supplier]').length;
   const all=rows();salesListSetFilter('currency',{values:['USD']});const usd=rows();
   salesListClearAll();salesListSetFilter('leadTimeDays',{conds:[{op:'empty',v:''}]});const unknown=rows();

@@ -10,7 +10,7 @@ const PUR_MONEY={invoice:{key:'purchaseInvoice',seq:'purchaseInvoiceSeq',prefix:
 function purMoneyFind(kind,id){return (DB[PUR_MONEY[kind].key]||[]).find(d=>d.id===id)||null;}
 function purMoneyClean(x){
  const d={};['id','number','invoiceNumber','invoiceId','supplierId','supplierName','currency','date','dueDate','method','reference','note','createdAt','createdBy','createdById','updatedAt','updatedBy','updatedById','voidAt'].forEach(k=>d[k]=purText(x[k]));
- d.currency=d.currency.toUpperCase()||'USD';const amount=purNumber(x.amount);d.amount=amount==null?null:salesMoney(amount);d.paymentDays=purNumber(x.paymentDays);
+ d.currency=d.currency.toUpperCase()||'CAD';const amount=purNumber(x.amount);d.amount=amount==null?null:salesMoney(amount);d.paymentDays=purNumber(x.paymentDays);
  d.poIds=[...new Set((Array.isArray(x.poIds)?x.poIds:[]).map(purText).filter(Boolean))];d.rev=Number.isSafeInteger(x.rev)&&x.rev>0?x.rev:1;return d;
 }
 function normalizePurchaseInvoices(){
@@ -39,6 +39,7 @@ function purMoneySave(kind,raw){
   const c=PUR_MONEY[kind],old=raw.id?purMoneyFind(kind,raw.id):null;
   if(raw.id&&!old)throw new Error(c.label+' no longer exists.');if(old&&(old.rev!==raw.rev||old.voidAt))throw new Error(c.label+' changed elsewhere. Reopen it.');
   const d=purMoneyClean(raw),n=purNumber(raw.amount);
+  purResolveSupplier(d);
   if(purText(raw.amount)!==''&&(n==null||!Number.isFinite(d.amount)))throw new Error('Amount: enter a number or leave empty.');
   if(!CURRENCY_RE.test(d.currency))throw new Error('Currency: enter a three-letter code.');
   ['date','dueDate'].forEach(k=>{if(d[k]&&!ISO_DATE_RE.test(d[k]))throw new Error('Date: use YYYY-MM-DD or leave empty.');});

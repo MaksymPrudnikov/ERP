@@ -77,7 +77,7 @@ module.exports=async function({page,eq}){
   return {invoice:texts.includes('INV-100'),shared:texts.includes('shared across 2 POs'),payment:texts.includes(piPayment1.number)&&texts.includes('300.00 USD')};
  }),{invoice:true,shared:true,payment:true});
  await t.p.evaluate(()=>{tab='purchasing';purMoneyEdit('invoice','');});
- await t.p.locator('#pur_money_supplierName').fill('Local shop form');await t.p.locator('#pur_money_invoiceNumber').fill('STORE-1');await t.p.locator('#pur_money_date').fill('2026-10-13');await t.p.locator('#pur_money_amount').fill('123.45');await t.p.locator('#pur_money_paymentDays').fill('30');
+ await t.p.getByRole('button',{name:'Add supplier',exact:true}).click();await t.p.locator('#pur_money_supplierName').fill('Local shop form');await t.p.getByRole('button',{name:'Add supplier',exact:true}).last().click();await t.p.locator('#pur_money_invoiceNumber').fill('STORE-1');await t.p.locator('#pur_money_date').fill('2026-10-13');await t.p.locator('#pur_money_amount').fill('123.45');await t.p.locator('#pur_money_paymentDays').fill('30');
  await t.p.getByRole('button',{name:'Use payment terms',exact:true}).click();
  await t.p.locator('#pur_invoice_add_po').selectOption(await t.p.evaluate(()=>piPO1.id));await t.p.locator('#pur_invoice_add_po').selectOption(await t.p.evaluate(()=>piPO2.id));await t.p.locator('[data-pur-money-save]').click();
  eq('real invoice form retains a one-off supplier, multiple POs, amount and editable payment terms',await t.p.evaluate(()=>({supplier:purMoneyDraft.data.supplierName,amount:purMoneyDraft.data.amount,due:purMoneyDraft.data.dueDate,po:purMoneyDraft.data.poIds.length,number:purMoneyDraft.data.invoiceNumber})),{supplier:'Local shop form',amount:123.45,due:'2026-11-12',po:2,number:'STORE-1'});
