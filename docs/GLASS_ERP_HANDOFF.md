@@ -38,7 +38,7 @@ PDF / Customize / Print используют бланк PO с заголовко
 Код: purchasing/receiving.js, views/purchasing-receiving.js,
 views/purchasing-delivery-documents.js; интеграции PO / история / storage.
 Данные входят в Export / Import JSON. test/purchasing-receiving.js —
-20 проверок, всего 1647; полный test:snap и prepush src / dist перед PR,
+21 проверка, всего 1648; полный test:snap и prepush src / dist перед PR,
 ручной проход и снимки на выгрузке владельца. Склад, раскрой, станочные
 маршруты и клиентский Finance не меняются. P4 — счета и оплаты поставщикам.
 

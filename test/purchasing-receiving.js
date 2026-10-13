@@ -100,5 +100,8 @@ module.exports=async function({page,eq}){
   purGo('receipts');const a=salesListScope();salesListSetFilter('supplierName',{values:['Unplanned local shop']});const count=salesListRows(purReceivingInfos()).length;purGo('held');const b=salesListScope();purGo('history');const history=document.querySelector('.purchasing-workspace').textContent;
   purHistoryOpen('receipt',prReceipt);return {a,b,count,history:history.includes('GR-0001')&&history.includes('Receipt'),opened:purFulfilDraft.data.id===prReceipt};
  }),{a:'purchasing-receipts',b:'purchasing-held',count:1,history:true,opened:true});
+ await t.p.evaluate(()=>purFulfilEdit('request',prRequest));
+ await t.p.getByRole('button',{name:'Receive',exact:true}).click();
+ eq('Receive from a saved request opens only its outstanding quantity with both links intact',await t.p.evaluate(()=>({kind:purFulfilDraft.kind,request:purFulfilDraft.data.requestId===prRequest,po:purFulfilDraft.data.poId===prPO.id,qty:purFulfilDraft.data.lines[0].qty,line:purFulfilDraft.data.lines[0].requestLineId===purFulfilFind('request',prRequest).lines[0].id})),{kind:'receipt',request:true,po:true,qty:3,line:true});
  eq('receiving screens have no JavaScript errors',t.errs,[]);await t.c.close();
 };

@@ -46,6 +46,7 @@ function purRequestReceived(d,l){
  return (DB.purchaseReceipt||[]).filter(r=>!r.voidAt&&r.requestId===d.id).flatMap(r=>r.lines).filter(x=>x.requestLineId===l.id&&purUnit(x.unit)===purUnit(l.unit)).reduce((n,x)=>n+(x.qty||0),0);
 }
 function purFulfilStatus(kind,d){
+ if(!d.id)return 'Draft';
  if(d.voidAt)return kind==='receipt'?'Undone':'Cancelled';if(kind==='receipt')return 'Received';
  const a=d.lines.map(l=>({qty:l.qty,n:purRequestReceived(d,l)}));
  if(a.length&&a.every(x=>x.qty!=null&&x.n>=x.qty)&&a.some(x=>x.n>0))return 'Received';

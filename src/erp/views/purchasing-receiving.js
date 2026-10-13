@@ -12,6 +12,7 @@ function purFulfilEdit(kind,id,poId,requestId){
  purSupplierDraft=null;purView=kind==='receipt'?'receipts':'requests';purFulfilDraft={kind,data:purClone(d)};purFulfilOriginal=JSON.stringify(purFulfilDraft);purNotice='';render();
 }
 function purReceiveFromOrder(kind){if(!purOrderSaveForm(true))return;const id=purOrderDraft.id;purFulfilEdit(kind,'',id);}
+function purReceiveRequest(){if(!purFulfilSaveForm())return;const d=purFulfilDraft.data;purFulfilEdit('receipt','',d.poId,d.id);}
 function purFulfilSaveForm(){
  const f=purFulfilDraft,r=purFulfilSave(f.kind,f.data);if(!r.ok){purNotice=r.error;render();return false;}
  f.data=purClone(r.value);purFulfilOriginal=JSON.stringify(f);purNotice='Saved.';render();return true;
@@ -54,7 +55,7 @@ function purFulfilLineHTML(l,i){
 function purFulfilForm(){
  const f=purFulfilDraft,d=f.data,receipt=f.kind==='receipt',p=purOrderFind(d.poId),requests=(DB.purchaseDeliveryRequest||[]).filter(r=>r.poId===d.poId);
  return '<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><button type="button" onclick="if(purFulfilLeave())render()">← '+(receipt?'Receipts':'Delivery requests')+'</button><h2>'+esc(d.number||'New '+(receipt?'receipt':'delivery request'))+'</h2><span class="pill">'+purFulfilStatus(f.kind,d)+'</span><span class="sales-toolbar-sp"></span>'+
-  (d.voidAt?'<button type="button" onclick="purFulfilUndoForm(true)">Restore</button>':'<button type="button" class="pri" data-pur-delivery-save onclick="purFulfilSaveForm()">Save</button>'+(receipt?'':'<button type="button" onclick="purRequestPreviewOpen()">Preview / PDF / Email</button>')+(d.id?'<button type="button" onclick="purFulfilUndoForm(false)">'+(receipt?'Undo receipt':'Cancel request')+'</button>':''))+'</div>'+
+  (d.voidAt?'<button type="button" onclick="purFulfilUndoForm(true)">Restore</button>':'<button type="button" class="pri" data-pur-delivery-save onclick="purFulfilSaveForm()">Save</button>'+(receipt?'':'<button type="button" onclick="purRequestPreviewOpen()">Preview / PDF / Email</button>'+(d.id?'<button type="button" onclick="purReceiveRequest()">Receive</button>':''))+(d.id?'<button type="button" onclick="purFulfilUndoForm(false)">'+(receipt?'Undo receipt':'Cancel request')+'</button>':''))+'</div>'+
   (purNotice?'<div role="status" class="pur-notice">'+esc(purNotice)+'</div>':'')+'<div class="pur-notice" data-pur-delivery-warnings>'+purFulfilWarnings(f.kind,d).map(s=>'<p>'+esc(s)+'</p>').join('')+'</div>'+
   '<fieldset class="pur-po-edit form" '+(d.voidAt?'disabled':'')+'><section class="card pur-card"><div class="pur-fields"><div><label for="pur_delivery_po">Purchase order · optional</label><select id="pur_delivery_po" onchange="purFulfilSelectPO(this.value)"><option value="">Without PO</option>'+(DB.purchaseOrder||[]).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===d.poId?'selected':'')+'>'+esc(x.number+' · '+x.supplierName+' · '+purOrderStatus(x))+'</option>').join('')+(d.poId&&!p?'<option selected value="'+esc(d.poId)+'">Missing PO</option>':'')+'</select></div>'+
   purFulfilField('supplierName','Supplier / shop name')+purFulfilField('date',receipt?'Received date':'Request date','date')+
@@ -71,7 +72,7 @@ function purReceivingColumns(){
  const waiting=['backorders','held'].includes(purView),cols=waiting?
   [['number','PO','text'],['supplierName','Supplier','text'],['description','Description','text'],['size','Sheet size, in','text'],['ordered','Purchased','number'],['received','Received','number'],['remaining',purView==='held'?'At supplier':'Outstanding','number'],['unit','Unit','list'],['expectedDate','Expected','date'],['review','Review','text']]:
   [['number',purView==='receipts'?'Receipt':'Request','text'],['po','PO','text'],['supplierName','Supplier','text'],['date','Date','date'],['expectedDate','Requested delivery','date'],['packingSlip','Packing slip','text'],['receivedBy','Received by','text'],['status','Status','list'],['createdBy','Recorded by','text']];
- return cols.map(([k,label,type])=>({k,label,type,def:true}));
+ return cols.map(([k,label,type])=>({k,label,type,def:waiting||!(purView==='receipts'?['expectedDate']:['packingSlip','receivedBy']).includes(k)}));
 }
 function purReceivingInfos(){
  if(['backorders','held'].includes(purView))return purWaitingRows(purView==='held').map(({p,l,b})=>({o:{id:p.id+'|'+l.id},p,l,memo:{number:p.number,supplierName:p.supplierName,description:l.description,size:l.widthIn&&l.heightIn?l.widthIn+' × '+l.heightIn:'',ordered:b.ordered,received:b.received,remaining:b.remaining,unit:l.unit,expectedDate:l.expectedDate||p.expectedDate,review:b.unknown?'Unknown quantity / unit changed':''}}));
