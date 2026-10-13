@@ -17,6 +17,7 @@ const PUR_PO_FIELDS=[
  ['cutSize','Specification','Size before edgework',true],['services','Specification','Edgework and fabrication',true],
  ['drawing','Specification','Shape, holes and cutouts',true],
  ['receiving','Receiving','Received and outstanding quantities',false],['damage','Receiving','Recorded damage',false],
+ ['invoices','Invoices','Linked supplier invoices and balances',false],['payments','Invoices','Recorded supplier payments',false],
  ['prices','Bottom','Line prices and totals',true],['totals','Bottom','PO total',true],
  ['notes','Bottom','PO / line / source notes',true],['companyTerms','Bottom','Company terms',false],['footer','Bottom','Company footer',false]
 ].map(([k,g,label,on])=>({k,g,label,on}));
@@ -109,6 +110,8 @@ function purDocPages(p,raw,title){
  });
  if(opt.totals){const t=purOrderTotals(p);text((t.complete?'TOTAL':'KNOWN SUBTOTAL')+': '+docNum(t.known,2)+' '+p.currency,11,true);if(t.missing)text(t.missing+' line(s) need price, quantity or conversion.');gap();}
  if(opt.notes&&p.note){text(title?'Notes':'PO notes',9,true);text(p.note);}
+ if(opt.invoices){gap();purInvoicePrintLines(p.id).forEach(s=>text(s));}
+ if(opt.payments){gap();purPaymentPrintLines(p.id).forEach(s=>text(s));}
  if(opt.companyTerms&&(DB.company||{}).termsText){gap();text(DB.company.termsText);}
  if(opt.footer&&(DB.company||{}).footerText){gap();text(DB.company.footerText);}
  pages.forEach((page,i)=>{page.line(W.left,W.footer-9,W.right,W.footer-9);page.text(W.right,W.footer,p.number+' · Page '+(i+1)+' of '+pages.length,{size:7,align:'right',color:C.mut});});
