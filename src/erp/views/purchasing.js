@@ -4,13 +4,14 @@
    No global search, no stock balances and no purchase in customer Finance. */
 let purSupplierDraft=null,purSupplierOriginal='',purNotice='';
 function purArg(v){return esc(JSON.stringify(String(v)));}
-function purListScope(){return 'purchaseSuppliers';}
+function purListScope(){return purView==='suppliers'?'purchaseSuppliers':purView==='history'?'purchaseHistory':'purchaseOrders';}
 function purListColumns(){
+ if(purView!=='suppliers')return purOrderColumns();
  const visible=['name','email','phone','currency','paymentDays','leadTimeDays'];
  return PUR_SUPPLIER_FIELDS.map(f=>({k:f.k,label:f.label,type:f.type==='days'?'number':f.k==='currency'?'list':'text',def:visible.includes(f.k)}))
   .concat([{k:'supplyCount',label:'Supply rows',type:'number',def:true},{k:'status',label:'Status',type:'list',def:true}]);
 }
-function purListDefaultSort(){return {k:'name',dir:'asc'};}
+function purListDefaultSort(){return purView==='suppliers'?{k:'name',dir:'asc'}:{k:purView==='history'?'at':'number',dir:'desc'};}
 function purSupplierInfos(){
  const counts=new Map();(DB.glassSheet||[]).forEach(s=>counts.set(s.supplierId,(counts.get(s.supplierId)||0)+1));
  return (DB.supplier||[]).map(s=>({o:{id:s.id},s,memo:Object.assign({},s,{supplyCount:counts.get(s.id)||0,status:s.active?'Active':'Archived'})}));
@@ -22,6 +23,8 @@ function purListHeader(c){
 function viewPurchasing(){
  if(!accessCan('purchasing'))return '<div class="empty">Purchasing access is required.</div>';
  if(purSupplierDraft)return purSupplierForm();
+ if(purOrderDraft)return purOrderForm();
+ if(purView!=='suppliers')return purOrderList();
  const infos=purSupplierInfos(),rows=salesListRows(infos),cols=salesListColumns();
  const cell=(i,c)=>{
   const v=salesListValue(i,c.k);
@@ -29,7 +32,7 @@ function viewPurchasing(){
   if(c.k==='status')return `<td><span class="pill ${i.s.active?'ok':''}">${esc(v)}</span></td>`;
   return `<td class="${c.type==='number'?'n':''}" data-raw>${v==null||v===''?'<span class="mut">—</span>':esc(v)}</td>`;
  };
- return `<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><h2>Suppliers</h2><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new onclick="purSupplierEdit('')">+ Supplier</button></div>
+ return `<div class="purchasing-workspace">${purNav()}<div class="sales-toolbar pur-toolbar"><h2>Suppliers</h2><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new onclick="purSupplierEdit('')">+ Supplier</button></div>
   ${purNotice?`<div class="ncr-error" role="alert">${esc(purNotice)}</div>`:''}
   ${salesListFilterChips()}<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table" data-pur-suppliers><thead><tr><th><button type="button" class="gb-settings" title="Columns" aria-label="Columns" data-columns-button onclick="salesListOpenColumns(event)">${ico('settings')}</button></th>${cols.map(purListHeader).join('')}</tr></thead>
   <tbody>${rows.map(i=>`<tr data-pur-supplier="${esc(i.s.id)}"><td></td>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No suppliers yet. Add a supplier when you need a reusable card.'}</td></tr>`}</tbody>
@@ -37,7 +40,7 @@ function viewPurchasing(){
 }
 function purSupplierEdit(id){
  if(!accessCan('purchasing'))return;
- const s=id?purSupplierFind(id):null;if(id&&!s)return;
+ const s=id?purSupplierFind(id):null;if(id&&!s)return;purView='suppliers';
  purSupplierDraft=purClone(s||purSupplierClean({}));purSupplierOriginal=JSON.stringify(purSupplierDraft);purNotice='';salesListMenu=null;render();
  if(!id)setTimeout(()=>document.getElementById('pur_supplier_name')?.focus(),0);
 }
@@ -69,6 +72,7 @@ function purSupplierForm(){
 function purHistoryValue(value){
  if(value==null||value==='')return '—';
  if(typeof value==='boolean')return value?'Yes':'No';
+ if(Array.isArray(value)&&value.some(x=>x&&x.kind))return value.map((x,i)=>'Line '+(i+1)+': '+JSON.stringify(x)).join('\n');
  if(Array.isArray(value))return value.map(x=>x&&typeof x==='object'?(x.label?x.label+': '+x.value:[x.name,x.role,x.email,x.phone].filter(Boolean).join(' · ')):String(x)).join('; ')||'—';
  return typeof value==='object'?JSON.stringify(value):String(value);
 }
