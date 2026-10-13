@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 147 модулей, 21 стиля.
+  Состав сборки: 149 модулей, 21 стиля.
 -->
 <html lang="en">
 <head>
@@ -3193,6 +3193,9 @@ button.ch-stat.warn b{color:var(--warning)}
 [data-pur-delivery-warnings]:empty{display:none}
 @media(max-width:900px){.pur-receiving-row{grid-template-columns:repeat(2,minmax(0,1fr))}.pur-receiving-row>div:first-child{grid-column:1 / -1}}
 
+.pur-invoice-links{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.pur-invoice-links>span{border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+[data-pur-money-warnings]:empty{display:none}
+
 </style>
 </head>
 <body>
@@ -3219,7 +3222,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='c14677f2c0dc';
+var ERP_BUILD='85e79f472bf7';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13692,6 +13695,92 @@ function purWaitingRows(held){
  return (DB.purchaseOrder||[]).filter(p=>!p.deletedAt&&!['closed','cancelled'].includes(p.state)).flatMap(p=>p.lines.filter(l=>!!l.held===held).map(l=>({p,l,b:purReceived(p,l)})).filter(x=>x.b.remaining==null||x.b.remaining!==0||x.b.unknown));
 }
 
+/* ==== src/erp/purchasing/invoices.js ==== */
+/* Purchasing P4 · supplier invoices and manually recorded payments.
+   This ledger never writes DB.receipt or customer Finance / QuickBooks.
+   Currency and supplier on a payment are historical facts. Editing an
+   invoice must not silently turn an old USD payment into CAD, or move it
+   to another supplier. Deleted invoices keep payments as supplier credit.
+   Blank amounts remain unknown; signed amounts allow credits/refunds. */
+DEFAULT.purchaseInvoice=[];DEFAULT.purchaseInvoiceSeq=0;
+DEFAULT.purchasePayment=[];DEFAULT.purchasePaymentSeq=0;
+const PUR_MONEY={invoice:{key:'purchaseInvoice',seq:'purchaseInvoiceSeq',prefix:'PI',label:'Supplier invoice'},payment:{key:'purchasePayment',seq:'purchasePaymentSeq',prefix:'PP',label:'Supplier payment'}};
+function purMoneyFind(kind,id){return (DB[PUR_MONEY[kind].key]||[]).find(d=>d.id===id)||null;}
+function purMoneyClean(x){
+ const d={};['id','number','invoiceNumber','invoiceId','supplierId','supplierName','currency','date','dueDate','method','reference','note','createdAt','createdBy','createdById','updatedAt','updatedBy','updatedById','voidAt'].forEach(k=>d[k]=purText(x[k]));
+ d.currency=d.currency.toUpperCase()||'USD';const amount=purNumber(x.amount);d.amount=amount==null?null:salesMoney(amount);d.paymentDays=purNumber(x.paymentDays);
+ d.poIds=[...new Set((Array.isArray(x.poIds)?x.poIds:[]).map(purText).filter(Boolean))];d.rev=Number.isSafeInteger(x.rev)&&x.rev>0?x.rev:1;return d;
+}
+function normalizePurchaseInvoices(){
+ Object.values(PUR_MONEY).forEach(c=>{const ids=new Set();DB[c.key]=(DB[c.key]||[]).filter(d=>d&&purText(d.id)&&!ids.has(purText(d.id))&&(ids.add(purText(d.id)),true)).map(purMoneyClean);DB[c.seq]=DB[c.key].reduce((n,d)=>Math.max(n,new RegExp('^'+c.prefix+'-\\d+$').test(d.number)?+d.number.slice(3):0),Number.isSafeInteger(DB[c.seq])&&DB[c.seq]>=0?DB[c.seq]:0);});
+}
+function validatePurchaseInvoices(src){
+ Object.values(PUR_MONEY).forEach(c=>{if(!Array.isArray(src[c.key]))return;const ids=new Set(),nums=new Set();src[c.key].forEach(d=>{
+  if(!d||typeof d!=='object'||Array.isArray(d)||!purText(d.id)||ids.has(purText(d.id))||!new RegExp('^'+c.prefix+'-\\d+$').test(d.number)||nums.has(d.number)||d.amount!=null&&(typeof d.amount!=='number'||!Number.isFinite(d.amount))||d.poIds!=null&&(!Array.isArray(d.poIds)||d.poIds.some(x=>typeof x!=='string')))throw new Error(c.label+': invalid or duplicate record.');
+  ids.add(purText(d.id));nums.add(d.number);
+ });});
+}
+function purSupplierKey(d){return d.supplierId?'id:'+d.supplierId:purNameKey(d.supplierName)?'name:'+purNameKey(d.supplierName):'unknown:'+(d.invoiceId||d.id||'new');}
+function purMoneyReference(d){return d.invoiceNumber||d.number||'New invoice';}
+function purInvoicePayments(id){return (DB.purchasePayment||[]).filter(p=>p.invoiceId===id&&!p.voidAt);}
+function purInvoiceBalance(d){
+ const payments=purInvoicePayments(d.id),matching=payments.filter(p=>p.currency===d.currency&&purSupplierKey(p)===purSupplierKey(d)),paid=salesMoney(matching.reduce((n,p)=>n+(p.amount||0),0)),review=payments.some(p=>p.amount==null||!matching.includes(p));
+ return {paid,balance:purNumber(d.amount)==null||review?null:salesMoney(Number(d.amount)-paid),knownBalance:purNumber(d.amount)==null?null:salesMoney(Number(d.amount)-paid),review,payments};
+}
+function purInvoiceStatus(d){
+ if(d.voidAt)return 'Deleted';const b=purInvoiceBalance(d);
+ if(purNumber(d.amount)==null)return 'Amount needed';if(b.review)return 'Review payments';if(b.balance<0)return d.amount<0?'Credit':'Overpaid';if(b.balance===0)return 'Paid';return b.paid>0?'Partially paid':'Unpaid';
+}
+function purInvoiceDue(date,days){if(!date||days==null)return '';const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+Number(days));return finLocalDate(d);}
+function purMoneySave(kind,raw){
+ return purPersist(()=>{
+  const c=PUR_MONEY[kind],old=raw.id?purMoneyFind(kind,raw.id):null;
+  if(raw.id&&!old)throw new Error(c.label+' no longer exists.');if(old&&(old.rev!==raw.rev||old.voidAt))throw new Error(c.label+' changed elsewhere. Reopen it.');
+  const d=purMoneyClean(raw),n=purNumber(raw.amount);
+  if(purText(raw.amount)!==''&&(n==null||!Number.isFinite(d.amount)))throw new Error('Amount: enter a number or leave empty.');
+  if(!CURRENCY_RE.test(d.currency))throw new Error('Currency: enter a three-letter code.');
+  ['date','dueDate'].forEach(k=>{if(d[k]&&!ISO_DATE_RE.test(d[k]))throw new Error('Date: use YYYY-MM-DD or leave empty.');});
+  if(purText(raw.paymentDays)!==''&&(d.paymentDays==null||d.paymentDays<0||!Number.isInteger(d.paymentDays)))throw new Error('Payment terms: enter whole days or leave empty.');
+  const actor=orderLogActor(),now=new Date().toISOString();d.id=old?old.id:salesUid(c.prefix);d.number=old?old.number:c.prefix+'-'+String(++DB[c.seq]).padStart(4,'0');d.createdAt=old?old.createdAt:now;d.createdBy=old?old.createdBy:actor.by;d.createdById=old?old.createdById:actor.byId;d.updatedAt=now;d.updatedBy=actor.by;d.updatedById=actor.byId;d.rev=old?old.rev+1:1;d.voidAt='';
+  const changes=['invoiceNumber','invoiceId','supplierId','supplierName','currency','date','dueDate','method','reference','note','amount','paymentDays','poIds'].filter(k=>JSON.stringify(old&&old[k])!==JSON.stringify(d[k])).map(k=>({field:k,label:({poIds:'Purchase orders',invoiceId:'Invoice',invoiceNumber:'Supplier invoice number'})[k]||stkHuman(k),before:old?old[k]:null,after:d[k]}));
+  if(old)DB[c.key][DB[c.key].indexOf(old)]=d;else DB[c.key].push(d);
+  if(changes.length){purRecordEvent(kind,d.id,old?'Edited':'Created',changes);
+   if(kind==='payment')[...new Set([old&&old.invoiceId,d.invoiceId].filter(Boolean))].forEach(id=>purRecordEvent('invoice',id,(old?'Edited payment ':'Recorded payment ')+d.number,[{field:'payment',label:'Payment',before:old?{amount:old.amount,currency:old.currency}:null,after:{amount:d.amount,currency:d.currency}}]));
+   else [...new Set([...(old?old.poIds:[]),...d.poIds])].forEach(id=>purRecordEvent('po',id,(old?'Edited invoice ':'Linked invoice ')+purMoneyReference(d),[]));
+  }return d;
+ });
+}
+function purMoneyUndo(kind,id,rev,restore){
+ return purPersist(()=>{const d=purMoneyFind(kind,id);if(!d||d.rev!==rev)throw new Error('Document changed elsewhere. Reopen it.');d.voidAt=restore?'':new Date().toISOString();d.rev++;const what=restore?'Restored':kind==='invoice'?'Deleted':'Undone';purRecordEvent(kind,id,what,[]);if(kind==='payment'&&d.invoiceId)purRecordEvent('invoice',d.invoiceId,what+' payment '+d.number,[]);if(kind==='invoice')d.poIds.forEach(id=>purRecordEvent('po',id,what+' invoice '+purMoneyReference(d),[]));return d;});
+}
+function purMoneyWarnings(kind,d){
+ const a=[];
+ if(d.amount==null||purText(d.amount)==='')a.push('Amount is unknown. Balances remain incomplete.');
+ if(kind==='invoice'){
+  const payments=d.id?purInvoicePayments(d.id):[];
+  if(payments.some(p=>p.currency!==d.currency||purSupplierKey(p)!==purSupplierKey(d)))a.push('Existing payments keep their currency and supplier. Review them before using this invoice balance.');
+  if(d.invoiceNumber&&(DB.purchaseInvoice||[]).some(x=>x.id!==d.id&&!x.voidAt&&purSupplierKey(x)===purSupplierKey(d)&&purNameKey(x.invoiceNumber)===purNameKey(d.invoiceNumber)))a.push('This supplier invoice number is already recorded.');
+  d.poIds.forEach(id=>{const p=purOrderFind(id);if(!p||p.deletedAt||p.state==='cancelled')a.push('Linked PO is missing, deleted or cancelled.');else if(p.currency!==d.currency)a.push(p.number+' has a different currency. Enter the supplier invoice total.');});
+ }else{
+  const inv=purMoneyFind('invoice',d.invoiceId);
+  if(d.invoiceId&&!inv)a.push('Linked invoice is missing. Payment remains on the supplier account.');
+  else if(inv){
+   if(inv.voidAt)a.push('Invoice is deleted. Payment remains on the supplier account.');
+   if(inv.currency!==d.currency||purSupplierKey(inv)!==purSupplierKey(d))a.push('Currency or supplier differs from the invoice. Review this payment.');
+   else if(inv.amount!=null&&purNumber(d.amount)!=null){const paid=purInvoicePayments(inv.id).filter(p=>p.id!==d.id&&p.currency===inv.currency&&purSupplierKey(p)===purSupplierKey(inv)).reduce((n,p)=>n+(p.amount||0),0);if(salesMoney(paid+Number(d.amount))>inv.amount)a.push('Payment exceeds the invoice balance. You can record it anyway.');}
+  }else a.push('No invoice linked. This payment stays on the supplier account.');
+ }return [...new Set(a)];
+}
+function purSupplierAccounts(today){
+ today=today||finToday();const map=new Map(),get=d=>{const key=purSupplierKey(d)+'|'+d.currency;if(!map.has(key)){const s=purSupplierFind(d.supplierId);map.set(key,{id:key,supplierKey:purSupplierKey(d),supplierId:d.supplierId,supplierName:s?s.name:d.supplierName||'Supplier not set',currency:d.currency,invoiced:0,paid:0,knownBalance:0,unknown:0,overdue:0,review:0,invoices:[],payments:[]});}return map.get(key);};
+ (DB.purchaseInvoice||[]).filter(d=>!d.voidAt).forEach(d=>{const a=get(d);a.invoices.push(d);if(d.amount==null)a.unknown++;else a.invoiced=salesMoney(a.invoiced+d.amount);const b=purInvoiceBalance(d);if(b.review)a.review++;if(d.dueDate&&d.dueDate<today&&b.balance>0)a.overdue=salesMoney(a.overdue+b.balance);});
+ (DB.purchasePayment||[]).filter(d=>!d.voidAt).forEach(d=>{const a=get(d);a.payments.push(d);if(d.amount==null)a.unknown++;else a.paid=salesMoney(a.paid+d.amount);});
+ return [...map.values()].map(a=>Object.assign(a,{knownBalance:salesMoney(a.invoiced-a.paid),balance:a.unknown?null:salesMoney(a.invoiced-a.paid)}));
+}
+function purInvoicesForPO(id){return (DB.purchaseInvoice||[]).filter(d=>!d.voidAt&&d.poIds.includes(id));}
+function purInvoicePrintLines(id){return purInvoicesForPO(id).map(d=>{const b=purInvoiceBalance(d);return purMoneyReference(d)+' · '+(d.amount==null?'Amount needed':docNum(d.amount,2))+' '+d.currency+' · balance '+(b.balance==null?'Review':docNum(b.balance,2))+(d.poIds.length>1?' · shared across '+d.poIds.length+' POs':'');});}
+function purPaymentPrintLines(id){return purInvoicesForPO(id).flatMap(d=>purInvoicePayments(d.id).map(p=>p.number+' · '+docDate(p.date)+' · '+(p.amount==null?'Amount needed':docNum(p.amount,2))+' '+p.currency+' · '+p.method));}
+
 /* ==== src/erp/purchasing/specification.js ==== */
 /* PO specification snapshots use the same glass/geometry/service readers
    as stickers and work orders. Selecting an order never verifies, batches
@@ -13753,6 +13842,7 @@ const PUR_PO_FIELDS=[
  ['cutSize','Specification','Size before edgework',true],['services','Specification','Edgework and fabrication',true],
  ['drawing','Specification','Shape, holes and cutouts',true],
  ['receiving','Receiving','Received and outstanding quantities',false],['damage','Receiving','Recorded damage',false],
+ ['invoices','Invoices','Linked supplier invoices and balances',false],['payments','Invoices','Recorded supplier payments',false],
  ['prices','Bottom','Line prices and totals',true],['totals','Bottom','PO total',true],
  ['notes','Bottom','PO / line / source notes',true],['companyTerms','Bottom','Company terms',false],['footer','Bottom','Company footer',false]
 ].map(([k,g,label,on])=>({k,g,label,on}));
@@ -13845,6 +13935,8 @@ function purDocPages(p,raw,title){
  });
  if(opt.totals){const t=purOrderTotals(p);text((t.complete?'TOTAL':'KNOWN SUBTOTAL')+': '+docNum(t.known,2)+' '+p.currency,11,true);if(t.missing)text(t.missing+' line(s) need price, quantity or conversion.');gap();}
  if(opt.notes&&p.note){text(title?'Notes':'PO notes',9,true);text(p.note);}
+ if(opt.invoices){gap();purInvoicePrintLines(p.id).forEach(s=>text(s));}
+ if(opt.payments){gap();purPaymentPrintLines(p.id).forEach(s=>text(s));}
  if(opt.companyTerms&&(DB.company||{}).termsText){gap();text(DB.company.termsText);}
  if(opt.footer&&(DB.company||{}).footerText){gap();text(DB.company.footerText);}
  pages.forEach((page,i)=>{page.line(W.left,W.footer-9,W.right,W.footer-9);page.text(W.right,W.footer,p.number+' · Page '+(i+1)+' of '+pages.length,{size:7,align:'right',color:C.mut});});
@@ -26203,15 +26295,16 @@ function comPayDelete(id){if(!confirm('Delete this payout? Its orders are due ag
    No global search, no stock balances and no purchase in customer Finance. */
 let purSupplierDraft=null,purSupplierOriginal='',purNotice='';
 function purArg(v){return esc(JSON.stringify(String(v)));}
-function purListScope(){if(['receipts','requests','backorders','held'].includes(purView))return 'purchasing-'+purView;return purView==='suppliers'?'purchaseSuppliers':purView==='history'?'purchaseHistory':'purchaseOrders';}
+function purListScope(){if(['invoices','payments','payables'].includes(purView))return 'purchasing-'+purView;if(['receipts','requests','backorders','held'].includes(purView))return 'purchasing-'+purView;return purView==='suppliers'?'purchaseSuppliers':purView==='history'?'purchaseHistory':'purchaseOrders';}
 function purListColumns(){
+ if(['invoices','payments','payables'].includes(purView))return purMoneyColumns();
  if(['receipts','requests','backorders','held'].includes(purView))return purReceivingColumns();
  if(purView!=='suppliers')return purOrderColumns();
  const visible=['name','email','phone','currency','paymentDays','leadTimeDays'];
  return PUR_SUPPLIER_FIELDS.map(f=>({k:f.k,label:f.label,type:f.type==='days'?'number':f.k==='currency'?'list':'text',def:visible.includes(f.k)}))
   .concat([{k:'supplyCount',label:'Supply rows',type:'number',def:true},{k:'status',label:'Status',type:'list',def:true}]);
 }
-function purListDefaultSort(){return purView==='suppliers'?{k:'name',dir:'asc'}:{k:purView==='history'?'at':'number',dir:'desc'};}
+function purListDefaultSort(){if(purView==='payables')return {k:'supplierName',dir:'asc'};return purView==='suppliers'?{k:'name',dir:'asc'}:{k:purView==='history'?'at':'number',dir:'desc'};}
 function purSupplierInfos(){
  const counts=new Map();(DB.glassSheet||[]).forEach(s=>counts.set(s.supplierId,(counts.get(s.supplierId)||0)+1));
  return (DB.supplier||[]).map(s=>({o:{id:s.id},s,memo:Object.assign({},s,{supplyCount:counts.get(s.id)||0,status:s.active?'Active':'Archived'})}));
@@ -26222,9 +26315,11 @@ function purListHeader(c){
 }
 function viewPurchasing(){
  if(!accessCan('purchasing'))return '<div class="empty">Purchasing access is required.</div>';
+ if(purMoneyDraft)return purMoneyForm();
  if(purFulfilDraft)return purFulfilForm();
  if(purSupplierDraft)return purSupplierForm();
  if(purOrderDraft)return purOrderForm();
+ if(['invoices','payments','payables'].includes(purView))return purMoneyList();
  if(['receipts','requests','backorders','held'].includes(purView))return purReceivingList();
  if(purView!=='suppliers')return purOrderList();
  const infos=purSupplierInfos(),rows=salesListRows(infos),cols=salesListColumns();
@@ -26298,9 +26393,9 @@ function purSupplierCancel(){
    Gmail only opens a compose window. Sending is confirmed manually. */
 let purView='orders',purOrderDraft=null,purOrderOriginal='',purShowDeleted=false,purPicker=null,purDoc=null;
 function purNav(){
- return '<div class="pur-tabs">'+[['orders','Purchase orders'],['receipts','Receipts'],['backorders','Backorders'],['held','Held at supplier'],['requests','Delivery requests'],['suppliers','Suppliers'],['history','History']].map(([k,n])=>'<button type="button" class="'+(purView===k?'on':'')+'" onclick="purGo(\''+k+'\')">'+n+'</button>').join('')+'</div>';
+ return '<div class="pur-tabs">'+[['orders','Purchase orders'],['receipts','Receipts'],['backorders','Backorders'],['held','Held at supplier'],['requests','Delivery requests'],['invoices','Invoices'],['payments','Payments'],['payables','We owe'],['suppliers','Suppliers'],['history','History']].map(([k,n])=>'<button type="button" class="'+(purView===k?'on':'')+'" onclick="purGo(\''+k+'\')">'+n+'</button>').join('')+'</div>';
 }
-function purGo(v){if(!purFulfilLeave()||!purOrderLeave())return;purSupplierDraft=null;purView=v;purNotice='';salesListMenu=null;render();}
+function purGo(v){if(!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;purSupplierDraft=null;purView=v;purNotice='';salesListMenu=null;render();}
 function purOrderLeave(){
  if(purOrderDraft&&JSON.stringify(purOrderDraft)!==purOrderOriginal&&!confirm('Discard unsaved purchase order changes?'))return false;
  purOrderDraft=null;purPicker=null;purDoc=null;return true;
@@ -26310,7 +26405,7 @@ function purOrderColumns(){
  return [['number','PO','text'],['supplierName','Supplier','text'],['date','Date','date'],['expectedDate','Expected','date'],['currency','Currency','list'],['amount','Amount','number'],['pricing','Pricing','list'],['status','Status','list'],['held','Held at supplier','number'],['createdBy','Created by','text']].map(([k,label,type])=>({k,label,type,def:true}));
 }
 function purOrderInfos(){
- if(purView==='history')return (DB.purchasingEvent||[]).map(e=>{const p=e.entity==='po'?purOrderFind(e.entityId):PUR_FULFIL[e.entity]?purFulfilFind(e.entity,e.entityId):purSupplierFind(e.entityId);return {o:{id:e.id},e,memo:Object.assign({},e,{entity:e.entity==='po'?'PO':PUR_FULFIL[e.entity]?PUR_FULFIL[e.entity].label:'Supplier',name:p?(p.number||p.name):e.entityId})};});
+ if(purView==='history')return (DB.purchasingEvent||[]).map(e=>{const p=e.entity==='po'?purOrderFind(e.entityId):PUR_FULFIL[e.entity]?purFulfilFind(e.entity,e.entityId):PUR_MONEY[e.entity]?purMoneyFind(e.entity,e.entityId):purSupplierFind(e.entityId);return {o:{id:e.id},e,memo:Object.assign({},e,{entity:e.entity==='po'?'PO':PUR_FULFIL[e.entity]?PUR_FULFIL[e.entity].label:PUR_MONEY[e.entity]?PUR_MONEY[e.entity].label:'Supplier',name:p?(p.number||p.name):e.entityId})};});
  return (DB.purchaseOrder||[]).filter(p=>purShowDeleted||!p.deletedAt).map(p=>{const t=purOrderTotals(p);return {o:{id:p.id},p,memo:Object.assign({},p,{amount:t.complete?t.known:null,pricing:t.complete?'Complete':'Price / quantity needed',status:purOrderStatus(p),held:p.lines.filter(l=>l.held).length})};});
 }
 function purOrderList(){
@@ -26324,9 +26419,9 @@ function purOrderList(){
   '<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="gb-settings" aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
   rows.map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody><tfoot><tr><td colspan="'+(cols.length+1)+'">'+rows.length+' records</td></tr></tfoot></table></div></div>'+salesListMenuHTML(infos)+'</div>';
 }
-function purHistoryOpen(entity,id){if(PUR_FULFIL[entity])purFulfilEdit(entity,id);else if(entity==='po')purOrderEdit(id);else purSupplierEdit(id);}
+function purHistoryOpen(entity,id){if(PUR_MONEY[entity])purMoneyEdit(entity,id);else if(PUR_FULFIL[entity])purFulfilEdit(entity,id);else if(entity==='po')purOrderEdit(id);else purSupplierEdit(id);}
 function purOrderEdit(id){
- if(!accessCan('purchasing')||!purFulfilLeave())return;
+ if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave())return;
  const p=id?purOrderFind(id):null;if(id&&!p)return;
  purSupplierDraft=null;purView='orders';purPicker=null;purDoc=null;purNotice='';
  purOrderDraft=purClone(p||purOrderClean({date:finToday(),lines:[{id:salesUid('PL'),qty:1}]}));
@@ -26394,7 +26489,7 @@ function purOrderForm(){
   '<div class="pur-line-actions"><button type="button" data-pur-add-line onclick="purOrderAddLine()">+ Line</button><button type="button" onclick="purPicker={kind:\'sheet\'};render()">From supply points</button><button type="button" onclick="purPicker={kind:\'order\',orderId:\'\',lineId:\'\'};render()">From customer order</button></div>'+
   '<datalist id="pur_units">'+MD_UNITS.map(u=>'<option value="'+u.code+'">'+u.nameEn+'</option>').join('')+'<option value="block">block</option></datalist>'+
   d.lines.map(purOrderLineHTML).join('')+'</fieldset><div class="pur-total" data-pur-total><b>'+(t.complete?'Total':'Known subtotal')+': '+esc(docNum(t.known,2)+' '+d.currency)+'</b>'+(t.missing?' · '+t.missing+' line(s) need price, quantity or conversion':'')+'</div>'+
-  (d.id?purPOReceivingHTML(d)+purHistoryHTML('po',d.id):'')+purPickerHTML()+(purDoc?purDocHTML():'')+'</div>';
+  (d.id?purPOReceivingHTML(d)+purPOInvoicesHTML(d)+purHistoryHTML('po',d.id):'')+purPickerHTML()+(purDoc?purDocHTML():'')+'</div>';
 }
 function purPickerHTML(){
  if(!purPicker)return '';const p=purPicker;
@@ -26474,7 +26569,7 @@ function purFulfilLeave(){
  purFulfilDraft=null;purFulfilPreview=false;return true;
 }
 function purFulfilEdit(kind,id,poId,requestId){
- if(!accessCan('purchasing')||!purFulfilLeave()||!purOrderLeave())return;
+ if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
  const d=id?purFulfilFind(kind,id):purFulfilFromPO(kind,poId||'',requestId);if(!d)return;
  purSupplierDraft=null;purView=kind==='receipt'?'receipts':'requests';purFulfilDraft={kind,data:purClone(d)};purFulfilOriginal=JSON.stringify(purFulfilDraft);purNotice='';render();
 }
@@ -26549,7 +26644,7 @@ function purReceivingList(){
  const infos=purReceivingInfos(),rows=salesListRows(infos),cols=salesListColumns(),kind=purView==='receipts'?'receipt':'request',waiting=['backorders','held'].includes(purView),title=({receipts:'Receipts',requests:'Delivery requests',backorders:'Waiting from suppliers',held:'Held at supplier'})[purView];
  const cell=(i,c)=>{const v=salesListValue(i,c.k);return '<td'+(c.type==='number'?' class="n"':'')+'>'+(c.k==='number'?'<button type="button" class="fin-link" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purFulfilEdit('+purArg(i.kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>':v==null||v===''?'—':esc(v))+'</td>';};
  return '<div class="purchasing-workspace">'+purNav()+'<div class="sales-toolbar pur-toolbar"><h2>'+title+'</h2><span class="sales-toolbar-sp"></span>'+(waiting?'':'<label><input type="checkbox" '+(purShowUndone?'checked':'')+' onchange="purShowUndone=this.checked;render()"> Include undone / cancelled</label><button type="button" class="pri" onclick="purFulfilEdit(\''+kind+'\',\'\')">+ '+(kind==='receipt'?'Receipt':'Request')+'</button>')+'</div>'+salesListFilterChips()+
-  '<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+rows.map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div></div>'+salesListMenuHTML(infos)+'</div>';
+  '<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="gb-settings" aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+rows.map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div></div>'+salesListMenuHTML(infos)+'</div>';
 }
 function purPOReceivingHTML(p){
  const receipts=(DB.purchaseReceipt||[]).filter(r=>r.poId===p.id),requests=(DB.purchaseDeliveryRequest||[]).filter(r=>r.poId===p.id);
@@ -26567,13 +26662,13 @@ function purRequestPages(d,options){
   const source=p&&p.lines.find(x=>x.id===l.poLineId);
   return Object.assign({},source||{},l,{held:false,sheetsPerBlock:null});
  })}));
- return purDocPages(model,Object.assign({},purDocOptions(options),{currency:false,prices:false,totals:false,receiving:false,damage:false}),'DELIVERY REQUEST');
+ return purDocPages(model,Object.assign({},purDocOptions(options),{currency:false,prices:false,totals:false,receiving:false,damage:false,invoices:false,payments:false}),'DELIVERY REQUEST');
 }
 function purRequestPreviewOpen(){
  if(!purFulfilSaveForm())return;purFulfilPreview={opts:purDocOptions(DB.purchaseDocumentOptions),panel:false};render();
 }
 function purRequestPreviewHTML(){
- const d=purFulfilDraft.data,v=purFulfilPreview,fields=PUR_PO_FIELDS.filter(f=>!['currency','prices','totals','receiving','damage','held'].includes(f.k));
+ const d=purFulfilDraft.data,v=purFulfilPreview,fields=PUR_PO_FIELDS.filter(f=>!['currency','prices','totals','receiving','damage','held','invoices','payments'].includes(f.k));
  const panel='<aside class="doc-panel"><b>Customize · Delivery request</b>'+fields.map(f=>'<label class="doc-opt"><input type="checkbox" '+(v.opts[f.k]?'checked':'')+' onchange="purFulfilPreview.opts.'+f.k+'=this.checked;render()"><span>'+f.label+'</span></label>').join('')+'</aside>';
  return '<div class="doc-back"><div class="doc-window" role="dialog" aria-label="Delivery request preview"><div class="doc-bar"><b>'+esc(d.number)+'</b><span class="doc-spacer"></span><button type="button" onclick="purFulfilPreview.panel=!purFulfilPreview.panel;render()">✎ Customize</button><button type="button" onclick="purRequestDocAction(\'pdf\')">Download PDF</button><button type="button" onclick="purRequestDocAction(\'print\')">Print</button><button type="button" onclick="purRequestDocAction(\'email\')">Open Gmail + PDF</button><button type="button" onclick="purRequestSentForm()">Mark sent</button><button type="button" onclick="purFulfilPreview=false;render()">Close</button></div><div class="doc-status">'+esc(purNotice||'Attach the PDF yourself. Mark sent after sending.')+'</div><div class="doc-body'+(v.panel?' with-panel':'')+'"><div class="doc-pages">'+purRequestPages(d,v.opts).map(pg=>'<div class="doc-sheet">'+docPageSVG(pg)+'</div>').join('')+'</div>'+(v.panel?panel:'')+'</div></div></div>';
 }
@@ -26594,6 +26689,87 @@ function purRequestGmailURL(d){
  const p=purOrderFind(d.poId),body=['Hello,','','Please deliver the items in the attached request.',p?'Purchase order: '+p.number:'',d.expectedDate?'Requested delivery: '+docDate(d.expectedDate):'',d.note,'','Thank you,',(DB.company||{}).legalName||''].join('\n');
  return docGmailUrl(d.to,'Delivery request '+d.number+(p?' · '+p.number:''),body)+(d.cc?'&cc='+encodeURIComponent(d.cc):'');
 }
+
+/* ==== src/erp/views/purchasing-invoices.js ==== */
+/* Supplier ledger UI. Payments record bank/card/check facts; this screen
+   does not initiate transfers. Every list uses the existing Sales filters. */
+let purMoneyDraft=null,purMoneyOriginal='',purMoneyShowUndone=false,purAccountKey='';
+function purMoneyLeave(){if(purMoneyDraft&&JSON.stringify(purMoneyDraft)!==purMoneyOriginal&&!confirm('Discard unsaved invoice or payment changes?'))return false;purMoneyDraft=null;purAccountKey='';return true;}
+function purMoneyEdit(kind,id,invoiceId,poId){
+ if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
+ const old=id?purMoneyFind(kind,id):null;if(id&&!old)return;
+ purSupplierDraft=null;purView=kind==='invoice'?'invoices':'payments';purMoneyDraft={kind,data:purClone(old||purMoneyClean({date:finToday(),method:kind==='payment'?'Bank transfer':''}))};purNotice='';
+ if(invoiceId)purMoneyPickInvoice(invoiceId,false);if(poId)purInvoiceAddPO(poId,false);purMoneyOriginal=JSON.stringify(purMoneyDraft);render();
+}
+function purMoneySetSupplier(id){
+ const d=purMoneyDraft.data,s=purSupplierFind(id);d.supplierId=id;if(s){d.supplierName=s.name;d.currency=s.currency;d.paymentDays=s.paymentDays;if(purMoneyDraft.kind==='payment')d.method=s.paymentMethod;if(!d.dueDate)d.dueDate=purInvoiceDue(d.date,d.paymentDays);}render();
+}
+function purMoneyPickInvoice(id,draw){
+ const d=purMoneyDraft.data,inv=purMoneyFind('invoice',id);d.invoiceId=id;
+ if(inv&&!d.id){d.supplierId=inv.supplierId;d.supplierName=inv.supplierName;d.currency=inv.currency;const b=purInvoiceBalance(inv);d.amount=b.balance==null?null:Math.max(0,b.balance);const s=purSupplierFind(inv.supplierId);d.method=s?s.paymentMethod:'Bank transfer';}
+ if(draw!==false)render();
+}
+function purInvoiceAddPO(id,draw){
+ const d=purMoneyDraft.data,p=purOrderFind(id);if(!p)return;if(!d.poIds.includes(id))d.poIds.push(id);
+ if(d.poIds.length===1&&!d.supplierName&&!d.supplierId){d.supplierId=p.supplierId;d.supplierName=p.supplierName;d.currency=p.currency;const s=p.supplier||purSupplierFind(p.supplierId);d.paymentDays=s?s.paymentDays:null;if(!d.dueDate)d.dueDate=purInvoiceDue(d.date,d.paymentDays);}
+ if(draw!==false)render();
+}
+function purInvoiceFromPO(){if(!purOrderSaveForm(true))return;const id=purOrderDraft.id;purMoneyEdit('invoice','',null,id);}
+function purInvoiceRecordPayment(){if(!purMoneySaveForm())return;const id=purMoneyDraft.data.id;purMoneyEdit('payment','',id);}
+function purMoneySaveForm(){
+ const f=purMoneyDraft,r=purMoneySave(f.kind,f.data);if(!r.ok){purNotice=r.error;render();return false;}f.data=purClone(r.value);purMoneyOriginal=JSON.stringify(f);purNotice='Saved.';render();return true;
+}
+function purMoneyUndoForm(restore){
+ const f=purMoneyDraft,d=f.data,verb=restore?'Restore':f.kind==='invoice'?'Delete':'Undo';
+ if(!confirm(verb+' '+d.number+'? '+(f.kind==='invoice'?'Payments remain recorded on the supplier account.':'Supplier balances are recalculated.')+' The document and its history remain.'))return;
+ const r=purMoneyUndo(f.kind,d.id,d.rev,restore);if(r.ok){f.data=purClone(r.value);purMoneyOriginal=JSON.stringify(f);purNotice='';}else purNotice=r.error;render();
+}
+function purMoneyField(k,label,type){const d=purMoneyDraft.data;return '<div><label for="pur_money_'+k+'">'+label+'</label><input id="pur_money_'+k+'" type="'+(type||'text')+'" '+(type==='number'?'step="any"':'')+' value="'+esc(d[k]??'')+'" oninput="purMoneyDraft.data.'+k+'=this.value;purMoneyRefresh()"></div>';}
+function purMoneyRefresh(){const el=document.querySelector('[data-pur-money-warnings]');if(el)el.innerHTML=purMoneyWarnings(purMoneyDraft.kind,purMoneyDraft.data).map(s=>'<p>'+esc(s)+'</p>').join('');}
+function purMoneyForm(){
+ const f=purMoneyDraft,d=f.data,invoice=f.kind==='invoice',b=invoice&&d.id?purInvoiceBalance(d):null;
+ return '<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><button type="button" onclick="if(purMoneyLeave())render()">← '+(invoice?'Invoices':'Payments')+'</button><h2>'+esc(d.number||'New '+(invoice?'supplier invoice':'payment record'))+'</h2><span class="pill">'+(invoice?purInvoiceStatus(d):d.voidAt?'Undone':d.id?'Recorded':'Draft')+'</span><span class="sales-toolbar-sp"></span>'+
+  (d.voidAt?'<button type="button" onclick="purMoneyUndoForm(true)">Restore</button>':'<button type="button" class="pri" data-pur-money-save onclick="purMoneySaveForm()">Save</button>'+(invoice&&d.id?'<button type="button" onclick="purInvoiceRecordPayment()">Record payment</button>':'')+(d.id?'<button type="button" onclick="purMoneyUndoForm(false)">'+(invoice?'Delete invoice':'Undo payment')+'</button>':''))+'</div>'+
+  (purNotice?'<div role="status" class="pur-notice">'+esc(purNotice)+'</div>':'')+'<div class="pur-notice" data-pur-money-warnings>'+purMoneyWarnings(f.kind,d).map(s=>'<p>'+esc(s)+'</p>').join('')+'</div>'+
+  '<fieldset class="pur-po-edit form" '+(d.voidAt?'disabled':'')+'><section class="card pur-card"><div class="pur-fields">'+
+  (!invoice?'<div class="pur-wide"><label for="pur_money_invoice">Invoice · optional</label><select id="pur_money_invoice" onchange="purMoneyPickInvoice(this.value)"><option value="">Without invoice / advance</option>'+(DB.purchaseInvoice||[]).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===d.invoiceId?'selected':'')+'>'+esc(purMoneyReference(x)+' · '+x.supplierName+' · '+x.currency+(x.voidAt?' · Deleted':''))+'</option>').join('')+(d.invoiceId&&!purMoneyFind('invoice',d.invoiceId)?'<option selected value="'+esc(d.invoiceId)+'">Missing invoice</option>':'')+'</select></div>':'')+
+  '<div><label for="pur_money_supplier">Supplier card · optional</label><select id="pur_money_supplier" onchange="purMoneySetSupplier(this.value)"><option value="">One-off / free text</option>'+(DB.supplier||[]).map(s=>'<option value="'+esc(s.id)+'" '+(s.id===d.supplierId?'selected':'')+'>'+esc(s.name)+'</option>').join('')+'</select></div>'+purMoneyField('supplierName','Supplier / shop name')+
+  (invoice?purMoneyField('invoiceNumber','Supplier invoice number'):'')+purMoneyField('date',invoice?'Invoice date':'Payment date','date')+purMoneyField('amount',invoice?'Invoice total':'Amount paid','number')+purMoneyField('currency','Currency')+
+  (invoice?purMoneyField('paymentDays','Payment terms · Net days','number')+purMoneyField('dueDate','Due date','date'):'')+
+  (!invoice?purMoneyField('method','Payment method')+purMoneyField('reference','Bank / cheque reference'):'')+'</div>'+
+  (invoice?'<p><button type="button" onclick="purMoneyDraft.data.dueDate=purInvoiceDue(purMoneyDraft.data.date,purMoneyDraft.data.paymentDays);render()">Use payment terms</button></p>':'<p class="mut">Record a payment already made. Negative amounts record a refund.</p>')+
+  '<label for="pur_money_note">Notes</label><textarea id="pur_money_note" oninput="purMoneyDraft.data.note=this.value">'+esc(d.note)+'</textarea></section>'+
+  (invoice?'<section class="card pur-card"><h3>Purchase orders</h3><label for="pur_invoice_add_po">Link a PO · optional</label><select id="pur_invoice_add_po" onchange="purInvoiceAddPO(this.value)"><option value="">Choose a purchase order</option>'+(DB.purchaseOrder||[]).filter(p=>!d.poIds.includes(p.id)).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.number+' · '+p.supplierName+(p.deletedAt?' · Deleted':''))+'</option>').join('')+'</select><div class="pur-invoice-links">'+d.poIds.map(id=>{const p=purOrderFind(id);return '<span>'+esc(p?p.number+' · '+p.supplierName:id+' · Missing PO')+' <button type="button" aria-label="Remove PO link '+esc(p?p.number:id)+'" onclick="purMoneyDraft.data.poIds=purMoneyDraft.data.poIds.filter(x=>x!=='+purArg(id)+');render()">×</button></span>';}).join('')+'</div><p class="mut">One invoice can cover several POs. Enter the full supplier invoice total once.</p></section>':'')+'</fieldset>'+
+  (b?'<section class="card pur-card"><h3>Payments</h3><p>'+esc('Paid: '+docNum(b.paid,2)+' '+d.currency+' · Balance: '+(b.balance==null?'Review amount / payments':docNum(b.balance,2)+' '+d.currency))+'</p>'+b.payments.map(p=>'<p><button type="button" class="fin-link" onclick="purMoneyEdit(\'payment\','+purArg(p.id)+')">'+esc(p.number+' · '+p.date+' · '+(p.amount==null?'Unknown':docNum(p.amount,2))+' '+p.currency+' · '+p.method)+'</button></p>').join('')+'</section>':'')+
+  (d.id?purHistoryHTML(f.kind,d.id):'')+'</div>';
+}
+function purMoneyColumns(){
+ const a=purView==='payables'?[['supplierName','Supplier','text'],['currency','Currency','list'],['invoiced','Invoiced','number'],['paid','Paid','number'],['balance','We owe','number'],['knownBalance','Known balance','number'],['overdue','Overdue invoices','number'],['unknown','Unknown amounts','number'],['review','Review payments','number']]:
+  purView==='invoices'?[['reference','Invoice','text'],['number','Record','text'],['supplierName','Supplier','text'],['date','Date','date'],['dueDate','Due','date'],['currency','Currency','list'],['amount','Total','number'],['paid','Paid','number'],['balance','Balance','number'],['status','Status','list'],['overdue','Overdue','list'],['po','Purchase orders','text']]:
+  [['number','Payment','text'],['reference','Reference','text'],['invoice','Invoice','text'],['supplierName','Supplier','text'],['date','Date','date'],['currency','Currency','list'],['amount','Amount','number'],['method','Method','list'],['status','Status','list'],['createdBy','Recorded by','text']];
+ return a.map(([k,label,type])=>({k,label,type,def:k!=='knownBalance'}));
+}
+function purMoneyInfos(){
+ if(purView==='payables')return purSupplierAccounts().map(a=>({o:{id:a.id},account:a,memo:a}));
+ const kind=purView==='invoices'?'invoice':'payment';return (DB[PUR_MONEY[kind].key]||[]).filter(d=>purMoneyShowUndone||!d.voidAt).map(d=>{
+  const b=kind==='invoice'?purInvoiceBalance(d):null,inv=kind==='payment'?purMoneyFind('invoice',d.invoiceId):null;
+  return {o:{id:d.id},d,kind,memo:Object.assign({},d,kind==='invoice'?{reference:purMoneyReference(d),paid:b.paid,balance:b.balance,status:purInvoiceStatus(d),overdue:!d.voidAt&&d.dueDate&&d.dueDate<finToday()&&b.balance>0?'Yes':'No',po:d.poIds.map(id=>(purOrderFind(id)||{}).number||id).join(', ')}:{invoice:inv?purMoneyReference(inv):'',status:d.voidAt?'Undone':'Recorded'})};
+ });
+}
+function purMoneyList(){
+ if(purAccountKey)return purAccountHTML();
+ const infos=purMoneyInfos(),rows=salesListRows(infos),cols=salesListColumns(),accounts=purView==='payables',kind=purView==='invoices'?'invoice':'payment';
+ const cell=(i,c)=>{const v=salesListValue(i,c.k),link=i.account&&c.k==='supplierName'||i.d&&c.k===(kind==='invoice'?'reference':'number');return '<td class="'+(c.type==='number'?'n':'')+'">'+(link?'<button type="button" class="fin-link" onclick="'+(i.account?'purAccountKey='+purArg(i.account.id)+';render()':'purMoneyEdit('+purArg(kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>':v==null||v===''?'—':esc(c.type==='number'&&!['unknown','review'].includes(c.k)?docNum(v,2):v))+'</td>';};
+ return '<div class="purchasing-workspace">'+purNav()+'<div class="sales-toolbar pur-toolbar"><h2>'+({invoices:'Supplier invoices',payments:'Supplier payments',payables:'We owe suppliers'})[purView]+'</h2><span class="sales-toolbar-sp"></span>'+(accounts?'':'<label><input type="checkbox" '+(purMoneyShowUndone?'checked':'')+' onchange="purMoneyShowUndone=this.checked;render()"> Include deleted / undone</label><button type="button" class="pri" onclick="purMoneyEdit(\''+kind+'\',\'\')">+ '+(kind==='invoice'?'Invoice':'Payment record')+'</button>')+'</div>'+(accounts?'<p class="mut">Each currency has its own balance. Negative balances are supplier credits.</p>':'')+salesListFilterChips()+
+  '<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="gb-settings" aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+rows.map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div></div>'+salesListMenuHTML(infos)+'</div>';
+}
+function purAccountHTML(){
+ const a=purSupplierAccounts().find(a=>a.id===purAccountKey);if(!a){purAccountKey='';return purMoneyList();}
+ const link=(kind,d)=>'<p><button type="button" class="fin-link" onclick="purMoneyEdit('+purArg(kind)+','+purArg(d.id)+')">'+esc((kind==='invoice'?purMoneyReference(d):d.number)+' · '+d.date+' · '+(d.amount==null?'Unknown':docNum(d.amount,2))+' '+d.currency)+'</button></p>';
+ return '<div class="purchasing-workspace">'+purNav()+'<div class="sales-toolbar pur-toolbar"><button type="button" onclick="purAccountKey=\'\';render()">← Accounts</button><h2>'+esc(a.supplierName+' · '+a.currency)+'</h2></div><p>'+esc('We owe: '+(a.balance==null?'Incomplete':docNum(a.balance,2))+' · Known balance: '+docNum(a.knownBalance,2)+' · Overdue invoices: '+docNum(a.overdue,2))+'</p><div class="pur-form"><section class="card pur-card"><h3>Invoices</h3>'+a.invoices.map(d=>link('invoice',d)).join('')+'</section><section class="card pur-card"><h3>Payments</h3>'+a.payments.map(d=>link('payment',d)).join('')+'</section></div></div>';
+}
+function purPOInvoicesHTML(p){return '<section class="card pur-card pur-receiving"><div class="pur-section-head"><h3>Supplier invoices</h3><button type="button" onclick="purInvoiceFromPO()">+ Invoice</button></div>'+purInvoicesForPO(p.id).map(d=>'<p><button type="button" class="fin-link" onclick="purMoneyEdit(\'invoice\','+purArg(d.id)+')">'+esc(purMoneyReference(d)+' · '+purInvoiceStatus(d)+' · '+(d.amount==null?'Unknown':docNum(d.amount,2))+' '+d.currency+(d.poIds.length>1?' · shared across '+d.poIds.length+' POs':''))+'</button></p>').join('')+'</section>';}
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(to=>tab==='purchasing'&&to!=='purchasing'&&!purMoneyLeave());
 
 /* ==== src/erp/views/sales-list-ui.js ==== */
 /* =====================================================================
@@ -41287,6 +41463,7 @@ function validateImportedState(src){
  if(typeof validatePurchasingPayload==='function')validatePurchasingPayload(src);
  if(typeof validatePurchaseOrders==='function')validatePurchaseOrders(src);
  if(typeof validatePurchaseReceiving==='function')validatePurchaseReceiving(src);
+ if(typeof validatePurchaseInvoices==='function')validatePurchaseInvoices(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
@@ -41381,6 +41558,7 @@ function normalizeDB(){
  if(typeof normalizePurchasing==='function')normalizePurchasing();
  if(typeof normalizePurchaseOrders==='function')normalizePurchaseOrders();
  if(typeof normalizePurchaseReceiving==='function')normalizePurchaseReceiving();
+ if(typeof normalizePurchaseInvoices==='function')normalizePurchaseInvoices();
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
