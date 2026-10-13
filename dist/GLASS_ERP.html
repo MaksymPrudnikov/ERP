@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 149 модулей, 21 стиля.
+  Состав сборки: 151 модулей, 21 стиля.
 -->
 <html lang="en">
 <head>
@@ -3143,7 +3143,7 @@ button.ch-stat.warn b{color:var(--warning)}
 
 /* ---- src/styles/purchasing.css ---- */
 /* Purchasing: existing table/filter styles, responsive supplier cards. */
-.purchasing-workspace{max-width:1600px;margin:0 auto}
+.purchasing-workspace{min-width:0}
 .pur-toolbar{margin:0 0 14px;gap:12px;flex-wrap:wrap}
 .pur-toolbar h2{margin:0;font-size:20px}
 .pur-supplier-name{text-align:left;font-weight:600}
@@ -3167,8 +3167,6 @@ button.ch-stat.warn b{color:var(--warning)}
 .pur-event dl{margin:12px 0 0}
 .pur-event dl>div{display:grid;grid-template-columns:180px 1fr;gap:12px;padding:5px 0;font-size:12px}
 .pur-event dt{font-weight:600}.pur-event dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
-.pur-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
-.pur-tabs .on{background:var(--accent-soft);border-color:var(--accent)}
 .pur-po-edit{border:0;margin:0;padding:0;min-width:0}
 .pur-po-edit input:not([type=checkbox]),.pur-po-edit select,.pur-po-edit textarea{box-sizing:border-box;width:100%}
 .pur-po-edit .pur-card{margin-bottom:16px}
@@ -3196,6 +3194,32 @@ button.ch-stat.warn b{color:var(--warning)}
 .pur-invoice-links{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.pur-invoice-links>span{border:1px solid var(--line);border-radius:8px;padding:7px 10px}
 [data-pur-money-warnings]:empty{display:none}
 
+/* Purchasing uses Sales components; only column widths differ. */
+.purchasing-workspace.sales-order-editor{max-width:none;min-width:0}
+.pur-po-edit>.sales-block,.pur-po-edit>.sales-header-compact{margin-bottom:10px}
+.pur-select-add{display:flex;gap:5px;align-items:center}.pur-select-add select{min-width:0;flex:1}.pur-select-add button{flex:none}
+.pur-new-supplier{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}.pur-new-supplier label{width:100%}.pur-new-supplier input{flex:1;min-width:110px}
+.pur-glass-table,.pur-extra-table{width:100%;table-layout:fixed}
+.pur-glass-table th:first-child{width:28px}.pur-glass-table th:nth-child(2){width:180px}.pur-glass-table th:nth-child(3){width:56px}.pur-glass-table th:nth-child(11){width:44px}.pur-glass-table th:last-child,.pur-extra-table th:last-child{width:30px}
+.pur-glass-table td>div>label,.pur-extra-table td>label,.pur-extra-table td>div>label,.pur-cell-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.pur-glass-table input[type=checkbox]{width:auto;height:auto}
+.pur-glass-detail .pur-spec{margin:0}.pur-glass-detail td{padding-top:0}.pur-glass-detail summary{font-size:10px;color:var(--mut);text-align:left}
+.pur-glass-detail .sales-header-compact{margin-top:8px}
+.pur-extra-table th:first-child{width:30%}.pur-extra-table th:nth-child(6){width:20%}
+.purchasing-workspace .sales-block{min-width:0}.purchasing-workspace .sales-table-wrap{max-width:100%}
+.purchasing-workspace .mu-builder-actions{flex-wrap:wrap}.purchasing-workspace .mu-field-grid select{width:100%}
+.purchasing-workspace .pur-toolbar{margin-bottom:0}
+.pur-glass-table td,.pur-extra-table td{position:relative}
+.pur-pagination{display:flex;align-items:center;gap:6px;border-top:1px solid var(--line);padding-top:10px;margin-top:8px;font-size:12px;color:var(--text-2)}
+.purchasing-workspace .sales-list-card .sales-toolbar{flex-wrap:wrap}
+.purchasing-workspace .sales-list-card .sales-toolbar h2{font-size:15px;margin:0}
+.purchasing-workspace .sales-list-card .sales-toolbar>label{display:flex;gap:5px;align-items:center;font-size:11px;text-transform:none;margin:0}
+.purchasing-workspace .sales-list-card .sales-toolbar>label input{width:auto}
+.pur-receiving-row{grid-template-columns:repeat(4,minmax(0,1fr))}.pur-receiving-row>div:first-child{grid-column:1 / -1}
+@media(max-width:900px){.pur-receiving-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.pur-pagination{padding:10px 20px 14px}
+
 </style>
 </head>
 <body>
@@ -3222,7 +3246,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='85e79f472bf7';
+var ERP_BUILD='d9f6d47fff13';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12224,9 +12248,7 @@ function salesStatusChips(rows){
  if(salesShow.orders)SALES_ORDER_STATE_LIST.forEach(s=>chips.push({key:'order:'+s,label:s==='done'?'Picked up / Delivered':salesStatusLabel({kind:'order'},s),n:count('order',s)}));
  if(salesShow.quotes)SALES_QUOTE_STATE_LIST.forEach(s=>chips.push({key:'quote:'+s,label:salesStatusLabel({kind:'quote'},s),n:count('quote',s)}));
  if(salesShow.ncr)['Open','Done'].forEach(s=>chips.push({key:'ncr:'+s.toLowerCase(),label:'NCR '+s,n:rows.filter(o=>o.kind==='ncr'&&o.ncrStatus===s).length}));
- const p=salesListLoadPrefs(),selected=chips.find(c=>c.key===salesStatusFilter),label=selected?selected.label:'All',n=selected?selected.n:rows.length;
- const toggle=`<button type="button" class="sl-status-toggle" data-status-toggle aria-expanded="${p.statusExpanded}" title="${p.statusExpanded?'Hide status filters':'Show status filters'}" onclick="salesListToggleStatuses()">${esc(label)} <b>${n}</b><span class="sl-disclosure" aria-hidden="true">${p.statusExpanded?'▾':'▸'}</span></button>`;
- return `<div class="sales-status-chips sl-status-compact">${toggle}${p.statusExpanded?`<div class="sl-status-options"><button type="button" data-status-all class="${salesStatusFilter?'':'on'}" onclick="salesSetStatusFilter('')">All <b>${rows.length}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${c.key}" class="${salesStatusFilter===c.key?'on':''}" onclick="salesSetStatusFilter('${c.key}')">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`:''}</div>`;
+ return salesListStatusControlHTML(chips,salesStatusFilter,rows.length,'salesSetStatusFilter');
 }
 
 /* ==== src/erp/sales/quotes.js ==== */
@@ -13335,8 +13357,8 @@ function comSummary(ref,range){
 /* ==== src/erp/purchasing/suppliers.js ==== */
 /* =====================================================================
    Purchasing · suppliers · 12 October 2026.
-   Supplier cards are optional for a purchase. A one-off shop stays text
-   on its PO; only Save as supplier creates a card (Purchasing P2).
+   Owner correction 13 October: new glass purchases select supplier cards.
+   Legacy free names stay historical; new cards start in CAD.
    The old glassSheet.supplier is a supply-point name used by cutting:
    migration and card edits must NEVER rewrite it, sizes, prices or stock.
    One company can have several supply points, each with its own currency.
@@ -13352,7 +13374,7 @@ const PUR_SUPPLIER_FIELDS=[
  {k:'contact',label:'Contact name',group:'Primary contact'},
  {k:'email',label:'Email for PO',group:'Primary contact'},
  {k:'phone',label:'Phone',group:'Primary contact'},
- {k:'currency',label:'Currency',group:'Purchasing',default:'USD'},
+ {k:'currency',label:'Currency',group:'Purchasing',default:'CAD'},
  {k:'paymentDays',label:'Payment terms · Net days',group:'Purchasing',type:'days'},
  {k:'leadTimeDays',label:'Lead time · days',group:'Purchasing',type:'days'},
  {k:'paymentMethod',label:'Payment method',group:'Purchasing',default:'Bank transfer'},
@@ -13368,7 +13390,7 @@ function purSupplierNamed(name){const k=purNameKey(name);return k?(DB.supplier||
 function purSupplierClean(raw){
  const s=raw&&typeof raw==='object'?raw:{},out={id:purText(s.id)};
  PUR_SUPPLIER_FIELDS.forEach(f=>{out[f.k]=f.type==='days'?purNumber(s[f.k]):purText(s[f.k]);});
- out.currency=out.currency.toUpperCase()||'USD';
+ out.currency=out.currency.toUpperCase()||'CAD';
  if(s.paymentMethod==null)out.paymentMethod='Bank transfer';
  out.active=s.active!==false;
  out.contacts=(Array.isArray(s.contacts)?s.contacts:[]).filter(c=>c&&typeof c==='object').map(c=>({
@@ -13397,7 +13419,7 @@ function purLinkSupplyRows(){
   if(!card){
    let id='SUP-'+sha256Hex(k).slice(0,20),n=1;
    while(ids.has(id))id='SUP-'+sha256Hex(k).slice(0,20)+'-'+n++;
-   card=purSupplierClean({id,name:row.supplier,currency:row.currency||'USD'});
+   card=purSupplierClean({id,name:row.supplier,currency:row.currency||'CAD'});
    DB.supplier.push(card);ids.set(id,card);names.set(k,card);
   }
   row.supplierId=card.id;
@@ -13448,6 +13470,7 @@ function purSupplierSave(d){
   if(old&&old.rev!==d.rev)throw new Error('Supplier changed elsewhere. Reopen the card to keep those changes.');
   const s=purSupplierClean(d);
   if(!s.name)throw new Error('Enter a supplier name.');
+  if(!old&&purSupplierNamed(s.name))throw new Error('Supplier already exists. Select its card.');
   if(!CURRENCY_RE.test(s.currency))throw new Error('Currency: enter a three-letter code.');
   PUR_SUPPLIER_FIELDS.filter(f=>f.type==='days').forEach(f=>{
    if(purText(d[f.k])!==''&&(s[f.k]==null||!Number.isInteger(s[f.k])||s[f.k]<0))throw new Error(f.label+': enter whole days, or leave empty.');
@@ -13468,7 +13491,9 @@ function purSupplierSave(d){
 
 /* ==== src/erp/purchasing/orders.js ==== */
 /* Purchasing P2 · 13 October 2026.
-   A PO needs one line, not a supplier card, known price or delivery date.
+   Owner correction 13 October: new glass lines require catalogue glass
+   and a supplier card. Extras and legacy free lines remain editable.
+   Price or delivery date may remain unknown.
    Saved numbers are allocated inside storageCommand. Edits at any stage
    are allowed and logged. Delete keeps the document and its history.
    Quantities use the chosen purchasing unit; blocks have no fixed size.
@@ -13480,8 +13505,8 @@ function purOrderNumber(n){return 'PO-'+String(n).padStart(4,'0');}
 function purOrderStatus(p){return p.deletedAt?'Deleted':['closed','cancelled'].includes(p.state)?PUR_ORDER_STATES[p.state]:purReceiptState(p)||PUR_ORDER_STATES[p.state]||'Draft';}
 function purLineClean(x,i){
  x=x&&typeof x==='object'?x:{};
- const l={id:purText(x.id)||'line-'+(i+1),kind:['sheet','order','other'].includes(x.kind)?x.kind:'other'};
- ['description','unit','priceUnit','sourceCurrency','sheetId','productCode','orderId','lineId','componentKey','expectedDate','note'].forEach(k=>l[k]=purText(x[k]));
+ const l={id:purText(x.id)||'line-'+(i+1),kind:['glass','sheet','order','stock','other'].includes(x.kind)?x.kind:'other'};
+ ['description','unit','priceUnit','sourceCurrency','sheetId','productId','productCode','table','itemId','orderId','lineId','componentKey','expectedDate','note'].forEach(k=>l[k]=purText(x[k]));
  ['qty','price','widthIn','heightIn','sheetsPerBlock'].forEach(k=>l[k]=purNumber(x[k]));
  l.held=!!x.held;
  l.spec=x.spec&&typeof x.spec==='object'&&!Array.isArray(x.spec)?purClone(x.spec):null;
@@ -13490,7 +13515,7 @@ function purLineClean(x,i){
 function purOrderClean(x){
  const p={};
  ['id','number','supplierId','supplierName','date','expectedDate','currency','to','cc','note','createdAt','createdBy','createdById','updatedAt','updatedBy','updatedById','sentAt','deletedAt'].forEach(k=>p[k]=purText(x[k]));
- p.currency=p.currency.toUpperCase()||'USD';
+ p.currency=p.currency.toUpperCase()||'CAD';
  p.state=Object.prototype.hasOwnProperty.call(PUR_ORDER_STATES,x.state)?x.state:'draft';
  p.rev=Number.isSafeInteger(x.rev)&&x.rev>0?x.rev:1;
  p.supplier=x.supplier&&typeof x.supplier==='object'?purSupplierClean(x.supplier):null;
@@ -13553,6 +13578,8 @@ function purOrderSave(d){
   if(d.id&&!old)throw new Error('Purchase order no longer exists.');
   if(old&&(old.deletedAt||old.rev!==d.rev))throw new Error('Purchase order changed elsewhere. Reopen it to keep those changes.');
   const p=purOrderClean(d);
+  purResolveSupplier(p);
+  purValidateGlassLines(p,old);
   if(!p.lines.length)throw new Error('Add at least one line.');
   if(!CURRENCY_RE.test(p.currency))throw new Error('Currency: enter a three-letter code.');
   ['date','expectedDate'].forEach(k=>{if(p[k]&&!ISO_DATE_RE.test(p[k]))throw new Error('Date: use YYYY-MM-DD or leave empty.');});
@@ -13589,8 +13616,51 @@ function purOrderLog(id,what,changes){return purPersist(()=>{if(!purOrderFind(id
 function purSheetLine(id){
  const s=(DB.glassSheet||[]).find(s=>s.id===id);if(!s)return null;
  const g=glassProductByCode(s.productCode);
- return purLineClean({id:salesUid('PL'),kind:'sheet',sheetId:id,productCode:s.productCode,description:(g?g.name:s.productCode)+' · '+[s.sheetWIn,s.sheetHIn].join(' × ')+' in',unit:'sheet',priceUnit:s.purchaseUnit,sourceCurrency:s.currency,price:s.purchasePrice,qty:1,widthIn:s.sheetWIn,heightIn:s.sheetHIn},0);
+ return purLineClean({id:salesUid('PL'),kind:'sheet',sheetId:id,productId:g?g.id:'',productCode:s.productCode,description:(g?g.name:s.productCode)+' · '+[s.sheetWIn,s.sheetHIn].join(' × ')+' in',unit:'sheet',priceUnit:s.purchaseUnit,sourceCurrency:s.currency,price:s.purchasePrice,qty:1,widthIn:s.sheetWIn,heightIn:s.sheetHIn},0);
 }
+
+/* ==== src/erp/purchasing/catalog.js ==== */
+/* Owner correction, 13 October 2026: glass is catalogue data, like Sales.
+   Labels are snapshots; supplier/product IDs are identity. Stock and other
+   purchases remain separate. CAD is the default, never an FX conversion. */
+function purSupplierDisplay(d){const s=purSupplierFind(d.supplierId);return s?s.name:d.supplierName||'';}
+function purResolveSupplier(d){const s=purSupplierFind(d.supplierId);if(s)d.supplierName=s.name;}
+function purIsGlass(l){return ['glass','sheet','order'].includes(l.kind);}
+function purGlassProduct(l){return (l.productId&&glassProductById(l.productId))||(!l.productId&&glassProductByCode(l.productCode))||null;}
+function purGlassIdentity(l){return {kind:l.kind,productId:l.productId||'',productCode:l.productCode||'',sheetId:l.sheetId||'',table:l.table||'',itemId:l.itemId||''};}
+function purValidateGlassLines(p,old){
+ p.lines.forEach((l,i)=>{
+  if(l.kind==='order'){const prior=old&&old.lines.find(x=>x.id===l.id);if(!purSupplierFind(p.supplierId)&&!(prior&&old.supplierId===p.supplierId))throw new Error('Choose a supplier for glass.');return;}
+  if(!['glass','sheet'].includes(l.kind))return;
+  const g=purGlassProduct(l),prior=old&&old.lines.find(x=>x.id===l.id),retained=prior&&JSON.stringify(purGlassIdentity(prior))===JSON.stringify(purGlassIdentity(l));
+  if(!g&&!retained)throw new Error('Line '+(i+1)+': choose glass from the catalogue.');
+  if(!purSupplierFind(p.supplierId)&&!(retained&&old.supplierId===p.supplierId))throw new Error('Choose a supplier for glass.');
+  if(g){l.productId=g.id;l.productCode=g.code;l.description=g.name;}
+  const s=(DB.glassSheet||[]).find(s=>s.id===l.sheetId);
+  if(s&&(s.supplierId!==p.supplierId||s.productCode!==l.productCode)&&!retained)throw new Error('Line '+(i+1)+': choose a supply point for this glass and supplier.');
+ });
+}
+function purCatalogueLine(id){const g=glassProductById(id);return purLineClean({id:salesUid('PL'),kind:'glass',productId:g?g.id:'',productCode:g?g.code:'',description:g?g.name:'',qty:1,unit:'sheet',priceUnit:'sqft'},0);}
+function purStockLine(table,id){
+ const r=SALES_EXTRA_ITEM_TABLES.includes(table)&&salesExtraItemRow(table,id);if(!r)return null;
+ return purLineClean({id:salesUid('PL'),kind:'stock',table,itemId:id,description:r.name,qty:1,unit:r.purchaseUnit||'each',priceUnit:r.purchaseUnit||'each',price:r.purchasePrice,sourceCurrency:r.currency},0);
+}
+
+function purReceiptGlassMatches(a,b){
+ if(a.productId&&b.productId)return a.productId===b.productId;
+ return !a.productCode||!b.productCode||a.productCode===b.productCode;
+}
+function purValidateReceiptGlass(d,old){
+ d.lines.forEach((l,i)=>{
+  if(!['glass','sheet'].includes(l.kind))return;
+  const g=purGlassProduct(l),prior=old&&old.lines.find(x=>x.id===l.id),retained=prior&&JSON.stringify(purGlassIdentity(prior))===JSON.stringify(purGlassIdentity(l));
+  if(!g&&!retained)throw new Error('Line '+(i+1)+': choose glass from the catalogue.');
+  if(!purSupplierFind(d.supplierId)&&!(retained&&old.supplierId===d.supplierId))throw new Error('Choose a supplier for glass.');
+  if(g){l.productId=g.id;l.productCode=g.code;l.description=g.name;}
+ });
+}
+
+function purReceiptSupplierMatches(a,b){return !a.supplierId||!b.supplierId||a.supplierId===b.supplierId;}
 
 /* ==== src/erp/purchasing/receiving.js ==== */
 /* Purchasing P3 · receiving and supplier-held purchases.
@@ -13605,7 +13675,7 @@ const PUR_FULFIL={receipt:{key:'purchaseReceipt',seq:'purchaseReceiptSeq',prefix
 function purFulfilFind(kind,id){return (DB[PUR_FULFIL[kind].key]||[]).find(x=>x.id===id)||null;}
 function purFulfilLine(x,i){
  x=x||{};const l={};
- ['id','poLineId','requestLineId','description','unit','reason','resolution','note'].forEach(k=>l[k]=purText(x[k]));l.id=l.id||'line-'+(i+1);
+ ['id','poLineId','requestLineId','kind','productId','productCode','sheetId','table','itemId','description','unit','reason','resolution','note'].forEach(k=>l[k]=purText(x[k]));l.id=l.id||'line-'+(i+1);
  ['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>l[k]=purNumber(x[k]));return l;
 }
 function purFulfilClean(x){
@@ -13627,8 +13697,8 @@ function purReceiptRows(poId,lineId,exclude){
  return (DB.purchaseReceipt||[]).filter(r=>!r.voidAt&&r.poId===poId&&r.id!==exclude).flatMap(r=>r.lines.filter(l=>l.poLineId===lineId).map(l=>({r,l})));
 }
 function purReceived(p,l,exclude){
- const rows=purReceiptRows(p.id,l.id,exclude),match=rows.filter(x=>purUnit(x.l.unit)===purUnit(l.unit));
- const received=match.reduce((n,x)=>n+(x.l.qty||0),0),ordered=purNumber(l.qty),unknown=rows.some(x=>x.l.qty==null||purUnit(x.l.unit)!==purUnit(l.unit));
+ const rows=purReceiptRows(p.id,l.id,exclude),match=rows.filter(x=>purUnit(x.l.unit)===purUnit(l.unit)&&purReceiptGlassMatches(x.l,l)&&purReceiptSupplierMatches(x.r,p));
+ const received=match.reduce((n,x)=>n+(x.l.qty||0),0),ordered=purNumber(l.qty),unknown=rows.some(x=>x.l.qty==null||purUnit(x.l.unit)!==purUnit(l.unit)||!purReceiptGlassMatches(x.l,l)||!purReceiptSupplierMatches(x.r,p));
  return {received,ordered,remaining:ordered==null?null:ordered-received,unknown,damaged:match.reduce((n,x)=>n+(x.l.damaged||0),0),sheets:rows.reduce((n,x)=>n+(x.l.actualSheets||0),0),damagedSheets:rows.reduce((n,x)=>n+(x.l.damagedSheets||0),0),rows};
 }
 function purReceiptState(p){
@@ -13638,7 +13708,7 @@ function purReceiptState(p){
  return a.some(x=>x.received>0||x.unknown)?'Partially received':'';
 }
 function purRequestReceived(d,l){
- return (DB.purchaseReceipt||[]).filter(r=>!r.voidAt&&r.requestId===d.id).flatMap(r=>r.lines).filter(x=>x.requestLineId===l.id&&purUnit(x.unit)===purUnit(l.unit)).reduce((n,x)=>n+(x.qty||0),0);
+ return (DB.purchaseReceipt||[]).filter(r=>!r.voidAt&&r.requestId===d.id&&purReceiptSupplierMatches(r,d)).flatMap(r=>r.lines).filter(x=>x.requestLineId===l.id&&purUnit(x.unit)===purUnit(l.unit)&&purReceiptGlassMatches(x,l)).reduce((n,x)=>n+(x.qty||0),0);
 }
 function purFulfilStatus(kind,d){
  if(!d.id)return 'Draft';
@@ -13652,7 +13722,8 @@ function purFulfilSave(kind,raw){
   const c=PUR_FULFIL[kind],old=raw.id?purFulfilFind(kind,raw.id):null;
   if(raw.id&&!old)throw new Error(c.label+' no longer exists.');
   if(old&&(old.rev!==raw.rev||old.voidAt))throw new Error(c.label+' changed elsewhere. Reopen it.');
-  const d=purFulfilClean(raw);if(!d.lines.length)throw new Error('Add at least one line.');
+  const d=purFulfilClean(raw);
+  purResolveSupplier(d);purValidateReceiptGlass(d,old);if(!d.lines.length)throw new Error('Add at least one line.');
   ['date','expectedDate'].forEach(k=>{if(d[k]&&!ISO_DATE_RE.test(d[k]))throw new Error('Date: use YYYY-MM-DD or leave empty.');});
   const ids=new Set();d.lines.forEach((l,i)=>{if(ids.has(l.id))throw new Error('Duplicate line.');ids.add(l.id);['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>{if(purText(raw.lines[i][k])!==''&&(l[k]==null||l[k]<0))throw new Error('Line '+(i+1)+': enter a non-negative number or leave empty.');});});
   const now=new Date().toISOString(),actor=orderLogActor();d.id=old?old.id:salesUid(c.prefix);d.number=old?old.number:c.prefix+'-'+String(++DB[c.seq]).padStart(4,'0');
@@ -13673,7 +13744,9 @@ function purFulfilWarnings(kind,d){
  if(d.poId&&!p)a.push('The linked PO is missing.');
  if(p&&(p.deletedAt||['closed','cancelled'].includes(p.state)))a.push('PO is '+purOrderStatus(p).toLowerCase()+'. You can still record this delivery.');
  if(request&&(request.voidAt||request.poId!==d.poId))a.push('Review the delivery request link.');
+ if(p&&!purReceiptSupplierMatches(d,p))a.push('Supplier differs from the PO. Review the link; this receipt does not reduce its balance.');
  d.lines.forEach((l,i)=>{const n='Line '+(i+1)+': ',pl=p&&p.lines.find(x=>x.id===l.poLineId);
+  if(pl&&!purReceiptGlassMatches(l,pl))a.push(n+'Glass differs from the PO line. Review the link; it does not reduce the ordered glass balance.');
   if(l.poLineId&&!pl)a.push(n+'PO line no longer exists. The saved description remains.');
   if(l.damaged>l.qty&&l.qty!=null)a.push(n+'damaged quantity exceeds the received quantity.');
   if(l.damagedSheets>l.actualSheets&&l.actualSheets!=null)a.push(n+'damaged sheets exceed the received sheets.');
@@ -13681,15 +13754,15 @@ function purFulfilWarnings(kind,d){
    if(!same)a.push(n+'unit differs from the PO; quantities need review.');
    const total=d.lines.filter(x=>x.poLineId===pl.id&&purUnit(x.unit)===purUnit(pl.unit)).reduce((sum,x)=>sum+(purNumber(x.qty)||0),0);
    if(same&&r.remaining!=null&&total>r.remaining)a.push(n+(kind==='request'?'request exceeds the held balance.':'received more than ordered.'));
-   if((l.widthIn&&pl.widthIn&&+l.widthIn!==+pl.widthIn)||(l.heightIn&&pl.heightIn&&+l.heightIn!==+pl.heightIn))a.push(n+'sheet size differs from the PO; this quantity counts against the selected line.');
+   if((l.widthIn&&pl.widthIn&&+l.widthIn!==+pl.widthIn)||(l.heightIn&&pl.heightIn&&+l.heightIn!==+pl.heightIn))a.push(n+'sheet size differs from the PO'+(purReceiptGlassMatches(l,pl)&&purReceiptSupplierMatches(d,p)?'; this quantity counts against the selected line.':'.'));
    if(kind==='request'&&!pl.held)a.push(n+'PO line is not marked Held at supplier.');
   }
  });return a;
 }
 function purFulfilFromPO(kind,id,requestId){
  const p=purOrderFind(id),r=requestId&&purFulfilFind('request',requestId);
- const lines=r?r.lines.map(l=>Object.assign({},l,{id:salesUid('RL'),requestLineId:l.id,qty:l.qty==null?null:Math.max(0,l.qty-purRequestReceived(r,l))})):p?p.lines.filter(l=>kind==='receipt'||l.held).map(l=>{const n=purReceived(p,l).remaining;return {id:salesUid('RL'),poLineId:l.id,description:l.description,unit:l.unit,widthIn:l.widthIn,heightIn:l.heightIn,qty:kind==='request'||n==null?null:Math.max(0,n)};}):[];
- return purFulfilClean({poId:id,requestId:requestId||'',date:finToday(),receivedBy:kind==='receipt'?orderLogActor().by:'',supplierId:p?p.supplierId:'',supplierName:p?p.supplierName:'',to:p?p.to:'',cc:p?p.cc:'',lines:lines.length?lines:[{id:salesUid('RL')}]});
+ const lines=r?r.lines.map(l=>Object.assign({},l,{id:salesUid('RL'),requestLineId:l.id,qty:l.qty==null?null:Math.max(0,l.qty-purRequestReceived(r,l))})):p?p.lines.filter(l=>kind==='receipt'||l.held).map(l=>{const n=purReceived(p,l).remaining;return {id:salesUid('RL'),poLineId:l.id,...purGlassIdentity(l),description:l.description,unit:l.unit,widthIn:l.widthIn,heightIn:l.heightIn,qty:kind==='request'||n==null?null:Math.max(0,n)};}):[];
+ return purFulfilClean({poId:id,requestId:requestId||'',date:finToday(),receivedBy:kind==='receipt'?orderLogActor().by:'',supplierId:p?p.supplierId:'',supplierName:p?p.supplierName:'',to:p?p.to:'',cc:p?p.cc:'',lines:lines.length?lines:[{id:salesUid('RL'),kind:'glass',unit:'sheet'}]});
 }
 function purWaitingRows(held){
  return (DB.purchaseOrder||[]).filter(p=>!p.deletedAt&&!['closed','cancelled'].includes(p.state)).flatMap(p=>p.lines.filter(l=>!!l.held===held).map(l=>({p,l,b:purReceived(p,l)})).filter(x=>x.b.remaining==null||x.b.remaining!==0||x.b.unknown));
@@ -13708,7 +13781,7 @@ const PUR_MONEY={invoice:{key:'purchaseInvoice',seq:'purchaseInvoiceSeq',prefix:
 function purMoneyFind(kind,id){return (DB[PUR_MONEY[kind].key]||[]).find(d=>d.id===id)||null;}
 function purMoneyClean(x){
  const d={};['id','number','invoiceNumber','invoiceId','supplierId','supplierName','currency','date','dueDate','method','reference','note','createdAt','createdBy','createdById','updatedAt','updatedBy','updatedById','voidAt'].forEach(k=>d[k]=purText(x[k]));
- d.currency=d.currency.toUpperCase()||'USD';const amount=purNumber(x.amount);d.amount=amount==null?null:salesMoney(amount);d.paymentDays=purNumber(x.paymentDays);
+ d.currency=d.currency.toUpperCase()||'CAD';const amount=purNumber(x.amount);d.amount=amount==null?null:salesMoney(amount);d.paymentDays=purNumber(x.paymentDays);
  d.poIds=[...new Set((Array.isArray(x.poIds)?x.poIds:[]).map(purText).filter(Boolean))];d.rev=Number.isSafeInteger(x.rev)&&x.rev>0?x.rev:1;return d;
 }
 function normalizePurchaseInvoices(){
@@ -13737,6 +13810,7 @@ function purMoneySave(kind,raw){
   const c=PUR_MONEY[kind],old=raw.id?purMoneyFind(kind,raw.id):null;
   if(raw.id&&!old)throw new Error(c.label+' no longer exists.');if(old&&(old.rev!==raw.rev||old.voidAt))throw new Error(c.label+' changed elsewhere. Reopen it.');
   const d=purMoneyClean(raw),n=purNumber(raw.amount);
+  purResolveSupplier(d);
   if(purText(raw.amount)!==''&&(n==null||!Number.isFinite(d.amount)))throw new Error('Amount: enter a number or leave empty.');
   if(!CURRENCY_RE.test(d.currency))throw new Error('Currency: enter a three-letter code.');
   ['date','dueDate'].forEach(k=>{if(d[k]&&!ISO_DATE_RE.test(d[k]))throw new Error('Date: use YYYY-MM-DD or leave empty.');});
@@ -26329,11 +26403,11 @@ function viewPurchasing(){
   if(c.k==='status')return `<td><span class="pill ${i.s.active?'ok':''}">${esc(v)}</span></td>`;
   return `<td class="${c.type==='number'?'n':''}" data-raw>${v==null||v===''?'<span class="mut">—</span>':esc(v)}</td>`;
  };
- return `<div class="purchasing-workspace">${purNav()}<div class="sales-toolbar pur-toolbar"><h2>Suppliers</h2><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new onclick="purSupplierEdit('')">+ Supplier</button></div>
+ return `<div class="purchasing-workspace"><div class="card sales-list-card"><div class="sales-toolbar">${purNav()}<span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new onclick="purSupplierEdit('')">+ Supplier</button></div>
   ${purNotice?`<div class="ncr-error" role="alert">${esc(purNotice)}</div>`:''}
-  ${salesListFilterChips()}<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table" data-pur-suppliers><thead><tr><th><button type="button" class="gb-settings" title="Columns" aria-label="Columns" data-columns-button onclick="salesListOpenColumns(event)">${ico('settings')}</button></th>${cols.map(purListHeader).join('')}</tr></thead>
-  <tbody>${rows.map(i=>`<tr data-pur-supplier="${esc(i.s.id)}"><td></td>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No suppliers yet. Add a supplier when you need a reusable card.'}</td></tr>`}</tbody>
-  <tfoot><tr class="sl-foot"><td colspan="${cols.length+1}">${rows.length} of ${infos.length} suppliers</td></tr></tfoot></table></div></div>${salesListMenuHTML(infos)}</div>`;
+  ${purListFilters(infos)}<div class="sales-table-wrap"><table class="sl-table" data-pur-suppliers><thead><tr><th><button type="button" class="sl-settings" title="Columns" aria-label="Columns" data-columns-button onclick="salesListOpenColumns(event)">${ico('settings')}</button></th>${cols.map(purListHeader).join('')}</tr></thead>
+  <tbody>${purPageRows(rows).map(i=>`<tr data-pur-supplier="${esc(i.s.id)}"><td></td>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No suppliers yet. Add a supplier when you need a reusable card.'}</td></tr>`}</tbody>
+  </table></div>${purListPager(rows)}${salesListMenuHTML(infos)}</div></div>`;
 }
 function purSupplierEdit(id){
  if(!accessCan('purchasing'))return;
@@ -26389,56 +26463,55 @@ function purSupplierCancel(){
 
 /* ==== src/erp/views/purchase-orders.js ==== */
 /* Purchasing P2: reusable Sales column filters and draft PO forms.
-   The owner enters one-off suppliers as text; a card is an explicit action.
+   Owner correction 13.10: glass and suppliers use catalogue identities;
+   the default purchase is glass, extras are a separate Sales-style block.
    Gmail only opens a compose window. Sending is confirmed manually. */
 let purView='orders',purOrderDraft=null,purOrderOriginal='',purShowDeleted=false,purPicker=null,purDoc=null;
-function purNav(){
- return '<div class="pur-tabs">'+[['orders','Purchase orders'],['receipts','Receipts'],['backorders','Backorders'],['held','Held at supplier'],['requests','Delivery requests'],['invoices','Invoices'],['payments','Payments'],['payables','We owe'],['suppliers','Suppliers'],['history','History']].map(([k,n])=>'<button type="button" class="'+(purView===k?'on':'')+'" onclick="purGo(\''+k+'\')">'+n+'</button>').join('')+'</div>';
-}
-function purGo(v){if(!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;purSupplierDraft=null;purView=v;purNotice='';salesListMenu=null;render();}
+const PUR_VIEWS=[['orders','Purchase orders'],['receipts','Receipts'],['backorders','Backorders'],['held','Held at supplier'],['requests','Delivery requests'],['invoices','Invoices'],['payments','Payments'],['payables','We owe'],['suppliers','Suppliers'],['history','History']];
+function purNav(){return '<button type="button" class="sl-quiet" data-pur-sections aria-haspopup="dialog" onclick="purSectionsOpen(event)">'+esc((PUR_VIEWS.find(v=>v[0]===purView)||PUR_VIEWS[0])[1])+'<span class="sl-disclosure">▾</span></button>';}
+function purSectionsOpen(e){salesListMenu=Object.assign({kind:'pur-sections',scope:salesListScope()},salesListAt(e,240));render();}
+function purSectionsMenuHTML(style){return '<div class="sl-menu sl-show-menu" style="'+style+'" role="dialog" aria-label="Purchasing sections">'+PUR_VIEWS.map(([k,n])=>'<label><input type="radio" name="pur-section" '+(k===purView?'checked':'')+' onchange="purGo(\''+k+'\')">'+n+'</label>').join('')+(purView==='orders'?'<hr><label><input type="checkbox" '+(purShowDeleted?'checked':'')+' onchange="purShowDeleted=this.checked;render()">Include deleted</label>':'')+'</div>';}
+function purGo(v){if(!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;purSupplierDraft=null;purView=v;purNotice='';purNewSupplier=null;salesListMenu=null;render();}
 function purOrderLeave(){
  if(purOrderDraft&&JSON.stringify(purOrderDraft)!==purOrderOriginal&&!confirm('Discard unsaved purchase order changes?'))return false;
  purOrderDraft=null;purPicker=null;purDoc=null;return true;
 }
 function purOrderColumns(){
  if(purView==='history')return [['at','When','date'],['entity','Document','text'],['name','Reference','text'],['what','Action','list'],['by','Who','text']].map(([k,label,type])=>({k,label,type,def:true}));
- return [['number','PO','text'],['supplierName','Supplier','text'],['date','Date','date'],['expectedDate','Expected','date'],['currency','Currency','list'],['amount','Amount','number'],['pricing','Pricing','list'],['status','Status','list'],['held','Held at supplier','number'],['createdBy','Created by','text']].map(([k,label,type])=>({k,label,type,def:true}));
+ return [['number','PO','text'],['supplierName','Supplier','text'],['date','Date','date'],['expectedDate','Expected','date'],['currency','Currency','list'],['amount','Amount','number'],['pricing','Pricing','list'],['status','Status','list'],['held','Held at supplier','number'],['createdBy','Created by','text']].map(([k,label,type])=>({k,label,type,def:!['pricing','held','createdBy'].includes(k)}));
 }
 function purOrderInfos(){
- if(purView==='history')return (DB.purchasingEvent||[]).map(e=>{const p=e.entity==='po'?purOrderFind(e.entityId):PUR_FULFIL[e.entity]?purFulfilFind(e.entity,e.entityId):PUR_MONEY[e.entity]?purMoneyFind(e.entity,e.entityId):purSupplierFind(e.entityId);return {o:{id:e.id},e,memo:Object.assign({},e,{entity:e.entity==='po'?'PO':PUR_FULFIL[e.entity]?PUR_FULFIL[e.entity].label:PUR_MONEY[e.entity]?PUR_MONEY[e.entity].label:'Supplier',name:p?(p.number||p.name):e.entityId})};});
- return (DB.purchaseOrder||[]).filter(p=>purShowDeleted||!p.deletedAt).map(p=>{const t=purOrderTotals(p);return {o:{id:p.id},p,memo:Object.assign({},p,{amount:t.complete?t.known:null,pricing:t.complete?'Complete':'Price / quantity needed',status:purOrderStatus(p),held:p.lines.filter(l=>l.held).length})};});
+ if(purView==='history')return (DB.purchasingEvent||[]).slice().reverse().map(e=>{const p=e.entity==='po'?purOrderFind(e.entityId):PUR_FULFIL[e.entity]?purFulfilFind(e.entity,e.entityId):PUR_MONEY[e.entity]?purMoneyFind(e.entity,e.entityId):purSupplierFind(e.entityId);return {o:{id:e.id},e,memo:Object.assign({},e,{at:finLocalDate(new Date(e.at)),entity:e.entity==='po'?'PO':PUR_FULFIL[e.entity]?PUR_FULFIL[e.entity].label:PUR_MONEY[e.entity]?PUR_MONEY[e.entity].label:'Supplier',name:p?(p.number||p.name):e.entityId})};});
+ return (DB.purchaseOrder||[]).filter(p=>purShowDeleted||!p.deletedAt).map(p=>{const t=purOrderTotals(p);return {o:{id:p.id},p,memo:Object.assign({},p,{supplierName:purSupplierDisplay(p),amount:t.complete?t.known:null,pricing:t.complete?'Complete':'Price / quantity needed',status:purOrderStatus(p),held:p.lines.filter(l=>l.held).length})};});
 }
 function purOrderList(){
- const infos=purOrderInfos(),rows=salesListRows(infos),cols=salesListColumns(),history=purView==='history';
+ const infos=purOrderInfos(),rows=purOrderListRows(infos),cols=salesListColumns(),history=purView==='history';
  const cell=(i,c)=>{
   const v=salesListValue(i,c.k);
   if(c.k==='number'||history&&c.k==='name')return '<td><button type="button" class="fin-link" data-pur-po="'+esc(i.p?i.p.id:i.e.entityId)+'" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purHistoryOpen('+purArg(i.e.entity)+','+purArg(i.e.entityId)+')')+'">'+esc(v)+'</button></td>';
-  return '<td data-raw class="'+(c.type==='number'?'n':'')+'">'+(v==null||v===''?'—':c.k==='amount'?esc(docNum(v,2)):c.k==='at'?esc(new Date(v).toLocaleString()):esc(v))+'</td>';
+  return '<td data-raw class="'+(c.type==='number'?'n':'')+'">'+(v==null||v===''?'—':c.k==='amount'?esc(docNum(v,2)):c.k==='at'?esc(new Date(i.e.at).toLocaleString()):esc(v))+'</td>';
  };
- return '<div class="purchasing-workspace">'+purNav()+'<div class="sales-toolbar pur-toolbar"><h2>'+(history?'Purchasing history':'Purchase orders')+'</h2><span class="sales-toolbar-sp"></span>'+(history?'':'<label><input type="checkbox" '+(purShowDeleted?'checked':'')+' onchange="purShowDeleted=this.checked;render()"> Include deleted</label><button type="button" class="pri" data-pur-po-new onclick="purOrderEdit(\'\')">+ PO</button>')+'</div>'+salesListFilterChips()+
-  '<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="gb-settings" aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
-  rows.map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody><tfoot><tr><td colspan="'+(cols.length+1)+'">'+rows.length+' records</td></tr></tfoot></table></div></div>'+salesListMenuHTML(infos)+'</div>';
+ return '<div class="purchasing-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(history?'':'<button type="button" class="pri" data-pur-po-new onclick="purOrderEdit(\'\')">+ New Purchase Order</button>')+'</div>'+purListFilters(infos)+
+  '<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
+  purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
 }
 function purHistoryOpen(entity,id){if(PUR_MONEY[entity])purMoneyEdit(entity,id);else if(PUR_FULFIL[entity])purFulfilEdit(entity,id);else if(entity==='po')purOrderEdit(id);else purSupplierEdit(id);}
 function purOrderEdit(id){
  if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave())return;
  const p=id?purOrderFind(id):null;if(id&&!p)return;
- purSupplierDraft=null;purView='orders';purPicker=null;purDoc=null;purNotice='';
- purOrderDraft=purClone(p||purOrderClean({date:finToday(),lines:[{id:salesUid('PL'),qty:1}]}));
+ purSupplierDraft=null;purView='orders';purPicker=null;purDoc=null;purNotice='';purNewSupplier=null;purGlassFilter={};
+ purOrderDraft=purClone(p||purOrderClean({date:finToday(),lines:[purCatalogueLine('')]}));
  purOrderOriginal=JSON.stringify(purOrderDraft);render();
 }
 function purOrderField(k,label,type){
  const v=purOrderDraft[k]??'';
  return '<div><label for="pur_po_'+k+'">'+label+'</label><input id="pur_po_'+k+'" type="'+(type||'text')+'" value="'+esc(v)+'" oninput="purOrderDraft.'+k+'=this.value"></div>';
 }
-function purPickSupplier(id){
- const s=purSupplierFind(id),d=purOrderDraft;d.supplierId=id;d.supplier=s?purClone(s):null;
- if(s){d.supplierName=s.name;d.to=s.email;d.currency=s.currency;if(s.leadTimeDays!=null&&d.date){const date=new Date(d.date+'T12:00:00');date.setDate(date.getDate()+s.leadTimeDays);d.expectedDate=finLocalDate(date);}}
- render();
-}
-function purPOStoreSupplier(){
- const d=purOrderDraft,r=purSupplierSave({name:d.supplierName,email:d.to,currency:d.currency});
- if(!r.ok){purNotice=r.error;render();return;}d.supplierId=r.value.id;d.supplier=purClone(r.value);purNotice='';render();
+function purPickSupplier(id,draw){
+ const s=purSupplierFind(id),d=purOrderDraft;d.supplierId=id;d.supplier=s?purClone(s):null;d.supplierName=s?s.name:'';
+ if(s){d.to=s.email;if(s.leadTimeDays!=null&&d.date){const date=new Date(d.date+'T12:00:00');date.setDate(date.getDate()+s.leadTimeDays);d.expectedDate=finLocalDate(date);}}
+ d.lines.forEach(l=>{const row=(DB.glassSheet||[]).find(s=>s.id===l.sheetId);if(row&&row.supplierId!==id){l.sheetId='';l.sourceCurrency='';}});
+ if(draw!==false)render();
 }
 function purOrderSaveForm(stay){
  const old=purOrderDraft.id&&purOrderFind(purOrderDraft.id),sent=old&&!!old.sentAt,r=purOrderSave(purOrderDraft);
@@ -26452,43 +26525,33 @@ function purOrderRemove(){
  const r=purOrderDelete(d.id,d.rev);if(!r.ok){purNotice=r.error;render();return;}purOrderDraft=null;purNotice='';render();
 }
 function purOrderRestoreForm(){const r=purOrderRestore(purOrderDraft.id);if(!r.ok){purNotice=r.error;render();return;}purOrderEdit(r.value.id);}
-function purOrderAddLine(){purOrderDraft.lines.push(purLineClean({id:salesUid('PL'),qty:1},0));render();}
+function purOrderAddLine(kind){if(kind==='other'&&purOrderDraft.lines.length===1&&!purOrderDraft.lines[0].description&&!purOrderDraft.lines[0].productCode)purOrderDraft.lines=[];purOrderDraft.lines.push(kind==='other'?purLineClean({id:salesUid('PL'),kind:'other',qty:1},0):purCatalogueLine(''));render();}
 function purLineInput(l,i,k,label,type){
  return '<div><label for="pur_line_'+i+'_'+k+'">'+label+'</label><input id="pur_line_'+i+'_'+k+'" value="'+esc(l[k]??'')+'" '+(type==='number'?'type="number" step="any" min="0"':type==='date'?'type="date"':'type="text"')+(k==='unit'||k==='priceUnit'?' list="pur_units"':'')+' oninput="purOrderDraft.lines['+i+'].'+k+'=this.value;purRefreshTotals()"></div>';
 }
 function purOrderLineHTML(l,i){
- const total=purLineTotal(l),spec=purSpecTexts(l.spec),warn=l.spec&&l.spec.parts.some(p=>p.missing);
- return '<section class="card pur-card pur-po-line" data-pur-line="'+i+'"><div class="pur-section-head"><h3>Line '+(i+1)+'</h3><button type="button" class="sm dl" aria-label="Remove line '+(i+1)+'" onclick="purOrderDraft.lines.splice('+i+',1);render()">Remove</button></div>'+
-  '<label for="pur_line_'+i+'_description">Description</label><textarea id="pur_line_'+i+'_description" rows="2" oninput="purOrderDraft.lines['+i+'].description=this.value">'+esc(l.description)+'</textarea>'+
-  '<div class="pur-line-fields">'+[['qty','Quantity','number'],['unit','Order unit'],['price','Price','number'],['priceUnit','Price per'],['expectedDate','Expected','date']].map(([k,n,t])=>purLineInput(l,i,k,n,t)).join('')+'</div>'+
-  (l.sourceCurrency&&l.sourceCurrency!==purOrderDraft.currency?'<p class="warn">Supply quote: '+esc(l.sourceCurrency)+'. Enter the agreed price in '+esc(purOrderDraft.currency)+'.</p>':'')+
-  ('<details class="pur-spec" '+(l.kind==='sheet'||purUnit(l.unit)==='block'?'open':'')+'><summary>Sheet / block details</summary><div class="pur-line-fields">'+[['widthIn','Sheet width, in'],['heightIn','Sheet height, in'],['sheetsPerBlock','Sheets per block']].map(([k,n])=>purLineInput(l,i,k,n,'number')).join('')+'</div></details>')+
-  '<div class="pur-section-head"><label class="pur-active"><input type="checkbox" '+(l.held?'checked':'')+' onchange="purOrderDraft.lines['+i+'].held=this.checked"> Held at supplier</label><b data-pur-line-total="'+i+'">Line total: '+(total==null?'Not complete':esc(docNum(total,2)+' '+purOrderDraft.currency))+'</b></div>'+
-  '<label for="pur_line_'+i+'_note">Line note</label><input id="pur_line_'+i+'_note" value="'+esc(l.note)+'" oninput="purOrderDraft.lines['+i+'].note=this.value">'+
-  (spec.length?'<details class="pur-spec"><summary>Source specification · '+esc(l.spec.part)+'</summary>'+(warn?'<p class="warn">Glass is missing from the catalogue. Review the description before ordering.</p>':'')+'<div data-raw>'+spec.map(s=>'<p>'+esc(s)+'</p>').join('')+'</div><p class="mut">Snapshot from the customer order. Receive external glass and use Skip in the shop.</p></details>':'')+'</section>';
+ const total=purLineTotal(l);
+ return '<tr data-pur-line="'+i+'"><td><label for="pur_line_'+i+'_description">Item</label>'+(l.kind==='stock'?'<b data-raw>'+esc(l.description)+'</b>':'<input id="pur_line_'+i+'_description" value="'+esc(l.description)+'" oninput="purOrderDraft.lines['+i+'].description=this.value">')+'</td>'+purPOCell(l,i,'qty','Quantity','number')+purPOCell(l,i,'unit','Order unit')+purPOCell(l,i,'price','Price','number')+purPOCell(l,i,'priceUnit','Price per')+purPOCell(l,i,'note','Line note')+'<td class="n"><b data-pur-line-total="'+i+'">'+(total==null?'—':esc(docNum(total,2)))+'</b></td><td><button type="button" class="line-x" aria-label="Remove line '+(i+1)+'" onclick="purOrderDraft.lines.splice('+i+',1);render()">×</button></td></tr>';
 }
 /* Update figures in place: rerendering on blur can remove the next input
    between focusing it and typing, silently losing its value. */
 function purRefreshTotals(){
  if(!purOrderDraft)return;
- purOrderDraft.lines.forEach((l,i)=>{const el=document.querySelector('[data-pur-line-total="'+i+'"]'),n=purLineTotal(l);if(el)el.textContent='Line total: '+(n==null?'Not complete':docNum(n,2)+' '+purOrderDraft.currency);});
+ purOrderDraft.lines.forEach((l,i)=>{const el=document.querySelector('[data-pur-line-total="'+i+'"]'),n=purLineTotal(l);if(el)el.textContent=n==null?'—':docNum(n,2);});
  const t=purOrderTotals(purOrderDraft),el=document.querySelector('[data-pur-total]');
  if(el)el.textContent=(t.complete?'Total':'Known subtotal')+': '+docNum(t.known,2)+' '+purOrderDraft.currency+(t.missing?' · '+t.missing+' line(s) need price, quantity or conversion':'');
 }
 function purOrderForm(){
  const d=purOrderDraft,t=purOrderTotals(d),deleted=!!d.deletedAt;
- return '<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><button type="button" onclick="if(purOrderLeave())render()">← Purchase orders</button><h2>'+esc(d.number||'New purchase order')+'</h2><span class="pill">'+purOrderStatus(d)+'</span><span class="sales-toolbar-sp"></span>'+
-  (deleted?'<button type="button" onclick="purOrderRestoreForm()">Restore</button>':'<button type="button" onclick="purDocOpen()">Preview / PDF / Email</button><button type="button" class="pri" data-pur-po-save onclick="purOrderSaveForm(true)">Save</button>'+(d.id?'<button type="button" onclick="purOrderRemove()">Delete</button>':''))+'</div>'+
+ return '<div class="page-head sales-page-head"><div><h2>Purchasing</h2></div></div><div class="purchasing-workspace sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>'+esc(d.number||'New Purchase Order · Auto Number')+'</h3><span class="pill">'+purOrderStatus(d)+'</span></div><div class="mut mono" data-raw>'+esc(d.id||'Not saved')+'</div></div><div class="sales-editor-actions"><button type="button" onclick="if(purOrderLeave())render()">Close</button>'+
+  (deleted?'<button type="button" onclick="purOrderRestoreForm()">Restore</button>':'<button type="button" class="pri" data-pur-po-save onclick="purOrderSaveForm(true)">Save</button><button type="button" onclick="purDocOpen()">Documents</button>'+(d.id?'<button type="button" onclick="purOrderRemove()">Delete</button>':''))+'</div></div>'+purPOStatusStrip(d)+
   (purNotice?'<div role="status" data-pur-po-notice class="pur-notice">'+esc(purNotice)+'</div>':'')+
-  '<fieldset class="pur-po-edit form" '+(deleted?'disabled':'')+'><section class="card pur-card"><div class="pur-fields">'+
-  '<div><label for="pur_po_card">Supplier card · optional</label><select id="pur_po_card" onchange="purPickSupplier(this.value)"><option value="">One-off / free text</option>'+(DB.supplier||[]).map(s=>'<option value="'+esc(s.id)+'" '+(s.id===d.supplierId?'selected':'')+'>'+esc(s.name)+(s.active?'':' · Archived')+'</option>').join('')+'</select></div>'+
-  purOrderField('supplierName','Supplier / shop name')+purOrderField('date','Order date','date')+purOrderField('expectedDate','Expected date','date')+purOrderField('currency','Currency')+purOrderField('to','Email to')+purOrderField('cc','CC')+
-  '<div><label>Status</label><select aria-label="PO status" onchange="purOrderDraft.state=this.value">'+Object.entries(PUR_ORDER_STATES).map(([k,n])=>'<option value="'+k+'" '+(d.state===k?'selected':'')+'>'+n+'</option>').join('')+'</select></div></div>'+
-  (!d.supplierId?'<p><button type="button" onclick="purPOStoreSupplier()">Save as supplier</button></p>':'')+
-  '<label for="pur_po_note">PO notes</label><textarea id="pur_po_note" rows="2" oninput="purOrderDraft.note=this.value">'+esc(d.note)+'</textarea></section>'+
-  '<div class="pur-line-actions"><button type="button" data-pur-add-line onclick="purOrderAddLine()">+ Line</button><button type="button" onclick="purPicker={kind:\'sheet\'};render()">From supply points</button><button type="button" onclick="purPicker={kind:\'order\',orderId:\'\',lineId:\'\'};render()">From customer order</button></div>'+
-  '<datalist id="pur_units">'+MD_UNITS.map(u=>'<option value="'+u.code+'">'+u.nameEn+'</option>').join('')+'<option value="block">block</option></datalist>'+
-  d.lines.map(purOrderLineHTML).join('')+'</fieldset><div class="pur-total" data-pur-total><b>'+(t.complete?'Total':'Known subtotal')+': '+esc(docNum(t.known,2)+' '+d.currency)+'</b>'+(t.missing?' · '+t.missing+' line(s) need price, quantity or conversion':'')+'</div>'+
+  '<fieldset class="pur-po-edit form" '+(deleted?'disabled':'')+'><div class="sales-header-compact">'+
+  purSupplierControl(d,'po')+purOrderField('date','Order date','date')+purOrderField('expectedDate','Expected date','date')+purCurrencyControl(d,'pur_po_currency','purOrderDraft.currency=this.value')+
+  '<div><label for="pur_po_state">Status</label><select id="pur_po_state" aria-label="PO status" onchange="purOrderDraft.state=this.value">'+Object.entries(PUR_ORDER_STATES).map(([k,n])=>salesOption(k,n,d.state,true)).join('')+'</select></div></div>'+
+  '<details class="sales-block pur-spec"><summary>Email / notes</summary><div class="sales-header-compact">'+purOrderField('to','Email to')+purOrderField('cc','CC')+'</div>'+
+  '<label for="pur_po_note">PO notes</label><textarea id="pur_po_note" rows="2" oninput="purOrderDraft.note=this.value">'+esc(d.note)+'</textarea></details>'+
+  '<datalist id="pur_units">'+MD_UNITS.map(u=>'<option value="'+u.code+'">'+u.nameEn+'</option>').join('')+'<option value="block">block</option></datalist>'+purPOLinesHTML()+'</fieldset><div class="pur-total" data-pur-total><b>'+(t.complete?'Total':'Known subtotal')+': '+esc(docNum(t.known,2)+' '+d.currency)+'</b>'+(t.missing?' · '+t.missing+' line(s) need price, quantity or conversion':'')+'</div>'+
   (d.id?purPOReceivingHTML(d)+purPOInvoicesHTML(d)+purHistoryHTML('po',d.id):'')+purPickerHTML()+(purDoc?purDocHTML():'')+'</div>';
 }
 function purPickerHTML(){
@@ -26498,6 +26561,8 @@ function purPickerHTML(){
   const rows=(DB.glassSheet||[]).filter(s=>!purOrderDraft.supplierId||s.supplierId===purOrderDraft.supplierId);
   body='<p class="mut">Purchase prices keep their unit. All values can be changed in the PO.</p><label><input type="checkbox" onchange="purPicker.all=this.checked;render()" '+(p.all?'checked':'')+'> All suppliers</label>'+
    '<div class="pur-picker-list">'+(p.all?DB.glassSheet:rows).map(s=>'<button type="button" onclick="purPickerAddSheet('+purArg(s.id)+')">'+esc([s.productCode,s.supplier,s.sheetWIn+' × '+s.sheetHIn+' in',s.currency].join(' · '))+'</button>').join('')+'</div>';
+ }else if(p.kind==='stock'){
+  body='<div class="pur-picker-list">'+salesExtraItemCandidates().map(c=>'<button type="button" onclick="purPickerPush(purStockLine('+purArg(c.table)+','+purArg(c.id)+'))">'+esc(c.name+' · '+c.code)+'</button>').join('')+'</div>';
  }else{
   const orders=(DB.salesOrder||[]).filter(o=>!salesIsQuote(o)),o=salesRecord(p.orderId),l=o&&(o.lines||[]).find(l=>l.id===p.lineId);
   body='<label for="pur_source_order">Customer order</label><select id="pur_source_order" onchange="purPicker.orderId=this.value;purPicker.lineId=\'\';render()"><option value="">Choose order</option>'+orders.map(o=>'<option value="'+esc(o.id)+'" '+(o.id===p.orderId?'selected':'')+'>'+esc([o.businessNumber,salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))+'</option>').join('')+'</select>'+
@@ -26507,11 +26572,16 @@ function purPickerHTML(){
  return '<div class="doc-back"><section class="card pur-picker" role="dialog" aria-label="Add purchase line"><div class="pur-section-head"><h3>Add purchase line</h3><button type="button" onclick="purPicker=null;render()">Close</button></div>'+body+'</section></div>';
 }
 function purPickerPush(l){if(!l)return;const a=purOrderDraft.lines;if(a.length===1&&!a[0].description&&!a[0].spec&&!a[0].sheetId&&a[0].price==null)a.splice(0,1);a.push(l);purPicker=null;render();}
-function purPickerAddSheet(id){const l=purSheetLine(id);if(!l)return;const s=DB.glassSheet.find(s=>s.id===id);if(s.currency!==purOrderDraft.currency)purNotice='Supply price is in '+s.currency+'. Review the PO currency or enter the agreed price.';purPickerPush(l);}
+function purPickerAddSheet(id){
+ const l=purSheetLine(id);if(!l)return;const s=DB.glassSheet.find(s=>s.id===id);
+ if(!purOrderDraft.supplierId&&s.supplierId)purPickSupplier(s.supplierId,false);
+ if(s.supplierId!==purOrderDraft.supplierId){purNotice='Choose a supply point for the selected supplier.';purPicker=null;render();return;}
+ purPickerPush(l);
+}
 function purPickerAddComponent(key){purPickerPush(purOrderComponentLine(purPicker.orderId,purPicker.lineId,key));}
 function purSalesLinksHTML(orderId,l,colspan){
  const links=purLinkedPurchases(orderId,l.id);if(!links.length)return '';
- return '<tr class="pur-sales-links"><td colspan="'+colspan+'">'+links.map(({p,l})=>'<span>'+esc(l.spec?l.spec.part:'Glass')+' · ordered from '+esc(p.supplierName||'Supplier not set')+' · '+(accessCan('purchasing')?'<button type="button" class="fin-link" onclick="purOpenLinked('+purArg(p.id)+')">'+esc(p.number)+'</button>':esc(p.number))+esc((l.expectedDate||p.expectedDate)?' · expected '+docDate(l.expectedDate||p.expectedDate):'')+'</span>').join(' · ')+'</td></tr>';
+ return '<tr class="pur-sales-links"><td colspan="'+colspan+'">'+links.map(({p,l})=>'<span>'+esc(l.spec?l.spec.part:'Glass')+' · ordered from '+esc(purSupplierDisplay(p)||'Supplier not set')+' · '+(accessCan('purchasing')?'<button type="button" class="fin-link" onclick="purOpenLinked('+purArg(p.id)+')">'+esc(p.number)+'</button>':esc(p.number))+esc((l.expectedDate||p.expectedDate)?' · expected '+docDate(l.expectedDate||p.expectedDate):'')+'</span>').join(' · ')+'</td></tr>';
 }
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push((to)=>tab==='purchasing'&&to!=='purchasing'&&!purOrderLeave());
 
@@ -26520,6 +26590,131 @@ function purOpenLinked(id){
  const go=()=>{tab='purchasing';subtab=null;navMoreOpen=false;purOrderEdit(id);};
  if((window.NAV_GUARDS||[]).some(g=>g('purchasing',go)))return;go();
 }
+
+/* ==== src/erp/views/purchasing-catalog.js ==== */
+/* Purchasing uses Sales' compact header, blocks, tables and catalogue
+   selects. New supplier names create a reusable card explicitly. A name
+   typed on a document must never become a second supplier account. */
+let purNewSupplier=null,purGlassFilter={},purActiveGlass='';
+function purSupplierControl(d,target){
+ const prefix=target==='po'?'pur_po':target==='money'?'pur_money':'pur_delivery',id=target==='po'?prefix+'_card':prefix+'_supplier',change=target==='po'?'purPickSupplier':target==='money'?'purMoneySetSupplier':'purFulfilSetSupplier';
+ const rows=(DB.supplier||[]).filter(s=>s.active||s.id===d.supplierId).slice().sort((a,b)=>a.name.localeCompare(b.name));
+ const legacy=!d.supplierId&&d.supplierName,missing=d.supplierId&&!purSupplierFind(d.supplierId);
+ return '<div class="pur-supplier-select"><label for="'+id+'">Supplier</label><div class="pur-select-add"><select id="'+id+'" onchange="'+change+'(this.value)"><option value="">Choose supplier</option>'+rows.map(s=>salesOption(s.id,s.name+(s.active?'':' · Archived'),d.supplierId,true)).join('')+(legacy?'<option value="" selected data-raw>'+esc(d.supplierName)+' · Legacy name</option>':'')+(missing?'<option selected value="'+esc(d.supplierId)+'" data-raw>'+esc(d.supplierName)+' · Missing card</option>':'')+'</select><button type="button" class="sm" aria-label="Add supplier" onclick="purNewSupplier={target:\''+target+'\',name:\'\'};render()">+</button></div>'+
+  (purNewSupplier&&purNewSupplier.target===target?'<div class="pur-new-supplier"><label for="'+prefix+'_supplierName">New supplier name</label><input id="'+prefix+'_supplierName" value="'+esc(purNewSupplier.name)+'" oninput="purNewSupplier.name=this.value"><button type="button" class="sm" onclick="purSupplierCreate(\''+target+'\')">Add supplier</button><button type="button" class="sm" onclick="purNewSupplier=null;render()">Cancel</button></div>':'')+'</div>';
+}
+function purSupplierCreate(target){
+ if(!purNewSupplier)return;const name=purText(purNewSupplier.name);if(!name){purNotice='Enter a supplier name.';render();return;}
+ const existing=purSupplierNamed(name),r=existing?{ok:true,value:existing}:purSupplierSave({name,currency:'CAD'});
+ if(!r.ok){purNotice=r.error;render();return;}purNewSupplier=null;purNotice='';
+ if(target==='po')purPickSupplier(r.value.id);else if(target==='money')purMoneySetSupplier(r.value.id);else purFulfilSetSupplier(r.value.id);
+}
+function purFulfilSetSupplier(id){const d=purFulfilDraft.data,s=purSupplierFind(id);d.supplierId=id;d.supplierName=s?s.name:'';if(s)d.to=s.email;render();}
+function purCurrencyControl(d,id,change){
+ return '<div><label for="'+id+'">Currency</label><select id="'+id+'" onchange="'+change+';render()">'+[...new Set(['CAD','USD',d.currency].filter(Boolean))].map(c=>salesOption(c,c,d.currency,true)).join('')+'</select></div>';
+}
+function purGlassSelect(l,i,target){
+ const key=target+':'+l.id,g=purGlassProduct(l),f=purGlassFilter[key]||{manufacturer:g?g.manufacturer:'',mm:g?String(g.thicknessMm):''},all=activeGlassProducts(),rows=all.filter(x=>(!f.manufacturer||x.manufacturer===f.manufacturer)&&(!f.mm||x.thicknessMm===+f.mm));
+ if(g&&!rows.some(x=>x.id===g.id))rows.push(g);
+ const handler=target==='po'?'purPOGlassPicked':'purReceiptGlassPicked';
+ const baseLabel=x=>f.mm?salesGlassLabel(x):x.name+(x.name.replace(/\s+/g,'').toLowerCase().includes(x.thicknessMm+'mm')?'':' · '+x.thicknessMm+' mm');
+ const labels=new Map();rows.forEach(x=>labels.set(baseLabel(x),(labels.get(baseLabel(x))||0)+1));
+ const label=x=>baseLabel(x)+(labels.get(baseLabel(x))>1?' · '+[x.manufacturer,x.code].filter(Boolean).join(' · '):'');
+ const filter=(field,options)=>'<select aria-label="'+(field==='manufacturer'?'Manufacturer ':'Thickness ')+(i+1)+'" onchange="purGlassFilterChanged('+i+',\''+target+'\',\''+field+'\',this.value)">'+options+'</select>';
+ return '<div class="mu-field-grid mu-field-grid-4 pur-glass-selector"><div><label>Manufacturer</label>'+filter('manufacturer','<option value="">All manufacturers</option>'+salesUnique(all.map(g=>g.manufacturer)).sort().map(n=>salesOption(n,n,f.manufacturer,true)).join(''))+'</div><div><label>Thickness</label>'+filter('mm','<option value="">All thicknesses</option>'+salesUnique(all.filter(g=>!f.manufacturer||g.manufacturer===f.manufacturer).map(g=>g.thicknessMm)).sort((a,b)=>a-b).map(n=>salesOption(String(n),n+' mm',f.mm,true)).join(''))+'</div>'+
+  '<div><label>Glass</label><select id="pur_'+target+'_glass_'+i+'" aria-label="Glass '+(i+1)+'" onchange="'+handler+'('+i+',this.value)"><option value="">Choose glass</option>'+salesSortGlass(rows,false).map(x=>salesOption(x.id,label(x)+(glassIsPreorder(x)?' · '+glassLabel('stock','preorder'):''),g?g.id:l.productId,true)).join('')+(!g&&(l.productId||l.productCode)?'<option selected value="'+esc(l.productId)+'">'+esc(l.description||l.productCode)+' · Missing glass</option>':'')+'</select>'+(g?salesGlassMetaFor(g.id):'')+'</div>'+
+  (target==='po'?purSupplyControl(l,i):'<div><label>Code</label><span class="mono" data-raw>'+esc(l.productCode||'—')+'</span></div>')+'</div>';
+}
+function purSupplyControl(l,i){
+ const g=purGlassProduct(l),sheets=(DB.glassSheet||[]).filter(s=>s.productCode===(g?g.code:l.productCode)&&(!purOrderDraft.supplierId||s.supplierId===purOrderDraft.supplierId));
+ return '<div><label for="pur_po_supply_'+i+'">Supply point / sheet size</label><select id="pur_po_supply_'+i+'" onchange="purPOSupplyPicked('+i+',this.value)"><option value="">Agreed size / price</option>'+sheets.map(s=>salesOption(s.id,[s.supplier,s.sheetWIn+' × '+s.sheetHIn+' in',s.currency].join(' · '),l.sheetId,true)).join('')+'</select></div>';
+}
+function purGlassLetter(i){return String.fromCharCode(65+i%26)+(i>=26?Math.floor(i/26):'');}
+function purPOGlassBuilder(entries){
+ if(!entries.length)return '';
+ const active=entries.find(x=>x.l.id===purActiveGlass)||entries[0],l=active.l,i=active.i,letter=purGlassLetter(i),g=purGlassProduct(l);
+ const tabs=entries.map(({l,i})=>'<button type="button" class="mu-tab '+(l.id===active.l.id?'on':'')+'" onclick="purActiveGlass='+purArg(l.id)+';render()"><b>'+purGlassLetter(i)+'</b><span data-raw>'+esc(l.description||'Choose glass')+'</span></button>').join('');
+ return '<section class="sales-block"><div class="sales-block-head"><div><b>GLASS / PURCHASE ITEMS</b></div></div><div class="mu-strip"><div class="mu-strip-scroll">'+tabs+'</div><button type="button" class="mu-add" data-pur-add-glass onclick="purOrderAddLine(\'glass\');purActiveGlass=purOrderDraft.lines.at(-1).id;render()">+ Glass</button></div><div class="mu-builder"><div class="mu-builder-head"><div><b>GLASS '+letter+'</b><span data-raw>'+esc(l.description||'Choose glass')+'</span></div><div class="mu-builder-actions"><button type="button" class="sm" onclick="purPicker={kind:\'sheet\'};render()">From supply points</button><button type="button" class="sm" onclick="purPicker={kind:\'order\',orderId:\'\',lineId:\'\'};render()">From customer order</button></div></div><details class="mu-section" open><summary><span class="mu-chevron">⌄</span><b>GLASS '+letter+'</b><span class="mu-summary" data-raw>'+esc(g?g.code:l.spec?l.spec.orderNumber:'')+'</span></summary><div class="mu-section-body">'+(l.kind==='order'?'<div data-raw>'+purSpecTexts(l.spec).map(x=>'<p>'+esc(x)+'</p>').join('')+'</div>':purGlassSelect(l,i,'po'))+'</div></details></div></section>';
+}
+function purPOGlassPicked(i,id){
+ const d=purOrderDraft,l=d.lines[i],g=glassProductById(id);if(!g){purClearGlass(l);render();return;}
+ Object.assign(l,{kind:'glass',productId:g.id,productCode:g.code,description:g.name,sheetId:'',sourceCurrency:'',price:null});render();
+}
+function purPOSupplyPicked(i,id){
+ const l=purOrderDraft.lines[i],s=(DB.glassSheet||[]).find(s=>s.id===id);if(!s){l.sheetId='';l.sourceCurrency='';render();return;}
+ if(!purOrderDraft.supplierId&&s.supplierId)purPickSupplier(s.supplierId,false);
+ if(s.supplierId!==purOrderDraft.supplierId){purNotice='Choose a supply point for the selected supplier.';render();return;}
+ const row=purSheetLine(id);Object.assign(l,row,{id:l.id,qty:l.qty,unit:l.unit||row.unit,held:l.held,note:l.note,expectedDate:l.expectedDate,sheetsPerBlock:l.sheetsPerBlock});render();
+}
+function purPOCell(l,i,k,label,type){
+ const input=purLineInput(l,i,k,label,type);return '<td>'+input+'</td>';
+}
+function purPOGlassRow(l,i){
+ const total=purLineTotal(l);
+ return '<tr data-pur-line="'+i+'"><td class="mono line-num">'+(i+1)+'</td><td><button type="button" class="line-link-btn" data-pur-glass-ref="'+i+'" onclick="purActiveGlass='+purArg(l.id)+';render()">'+purGlassLetter(i)+' · '+esc(l.description||'Choose glass')+'</button></td>'+purPOCell(l,i,'qty','Quantity','number')+purPOCell(l,i,'widthIn','Width, in','number')+purPOCell(l,i,'heightIn','Height, in','number')+'<td><label class="pur-cell-label" for="pur_line_'+i+'_unit">Order unit</label><select id="pur_line_'+i+'_unit" onchange="purOrderDraft.lines['+i+'].unit=this.value;render()">'+[...new Set(['sheet','block','each',l.unit].filter(Boolean))].map(u=>salesOption(u,mdUnitName(u)||u,l.unit,true)).join('')+'</select></td>'+purPOCell(l,i,'sheetsPerBlock','Sheets per block','number')+purPOCell(l,i,'price','Price','number')+purPOCell(l,i,'priceUnit','Price per')+'<td class="n"><b data-pur-line-total="'+i+'">'+(total==null?'—':esc(docNum(total,2)))+'</b></td><td><input type="checkbox" aria-label="Held at supplier '+(i+1)+'" '+(l.held?'checked':'')+' onchange="purOrderDraft.lines['+i+'].held=this.checked"></td><td><button type="button" class="sm dl line-delete" aria-label="Remove line '+(i+1)+'" onclick="purOrderDraft.lines.splice('+i+',1);render()">×</button></td></tr>'+
+  '<tr class="pur-glass-detail"><td colspan="12"><details class="pur-spec"><summary>Line note / expected date</summary><div class="sales-header-compact">'+purLineInput(l,i,'expectedDate','Expected','date')+purLineInput(l,i,'note','Line note')+'</div></details>'+(l.sourceCurrency&&l.sourceCurrency!==purOrderDraft.currency?'<p class="warn">Supply quote: '+esc(l.sourceCurrency)+'. Enter the agreed price in '+esc(purOrderDraft.currency)+'.</p>':'')+'</td></tr>';
+}
+function purPOLinesHTML(){
+ const glass=purOrderDraft.lines.map((l,i)=>({l,i})).filter(x=>purIsGlass(x.l)),extra=purOrderDraft.lines.map((l,i)=>({l,i})).filter(x=>!purIsGlass(x.l));
+ return purPOGlassBuilder(glass)+'<section class="sales-block sales-lines-block"><div class="sales-lines-head"><div><b>ORDER LINES</b></div><div class="sales-line-tools"><button type="button" class="pri" onclick="purOrderAddLine(\'glass\');purActiveGlass=purOrderDraft.lines.at(-1).id;render()">+ Line</button></div></div><div class="sales-table-wrap"><table class="sales-lines-table pur-glass-table"><thead><tr>'+['#','Glass','Qty','Width, in','Height, in','Unit','Sheets / block','Price','Price per','Line total','Held',''].map(n=>'<th>'+esc(n)+'</th>').join('')+'</tr></thead><tbody>'+glass.map(({l,i})=>purPOGlassRow(l,i)).join('')+(!glass.length?'<tr><td colspan="12" class="empty">No glass in this order.</td></tr>':'')+'</tbody></table></div></section>'+
+  (extra.length?'<section class="sales-block sales-extra-items"><div class="sales-block-head"><b>STOCK &amp; EXTRA ITEMS</b></div><div class="customer-table-wrap"><table class="sales-lines-table pur-extra-table"><thead><tr>'+['Item','Qty','Unit','Price','Price per','Note','Total',''].map(n=>'<th>'+n+'</th>').join('')+'</tr></thead><tbody>'+extra.map(({l,i})=>purOrderLineHTML(l,i)).join('')+'</tbody></table></div></section>':'')+
+  '<div class="sales-extra-items-quiet"><button type="button" class="sm" onclick="purPicker={kind:\'stock\'};render()">+ Add Stock Item</button><button type="button" class="sm" data-pur-add-line onclick="purOrderAddLine(\'other\')">+ Other item</button></div>';
+}
+function purReceiptGlassPicked(i,id){const l=purFulfilDraft.data.lines[i],g=glassProductById(id);if(g)Object.assign(l,{kind:'glass',productId:g.id,productCode:g.code,description:g.name,sheetId:''});else purClearGlass(l);render();}
+
+function purFulfilAddLine(kind){const d=purFulfilDraft.data;if(kind==='other'&&d.lines.length===1&&!d.lines[0].description&&!d.lines[0].productCode)d.lines=[];d.lines.push(purFulfilLine({id:salesUid('RL'),kind,unit:kind==='glass'?'sheet':''},0));render();}
+
+function purPOStatusStrip(p){
+ const status=purOrderStatus(p),states=['Draft','Sent','Partially received','Received','Closed'];
+ return '<div class="sales-status-row"><div class="sales-steps">'+states.map(n=>'<div class="sales-step '+(status===n?'cur':'')+'"><span class="sales-step-label"><i></i><b>'+n+'</b></span></div>').join('')+'</div><div class="sales-status-readonly">Status history · read only</div></div>';
+}
+
+/* The lists use the same visible controls and preference engine as Sales. */
+function purListStatus(value){if(value)salesListSetFilter('status',{values:[value]});else salesListClearFilter('status');}
+function purListFilters(infos){
+ const columns=salesListCatalog(),has=k=>columns.some(c=>c.k===k),prefs=salesListLoadPrefs(),quickKey=prefs.quick||'all',base=salesListRows(infos,purView==='orders'&&quickKey!=='all'?['status','date']:['status']).filter(i=>purView!=='orders'||purQuickTest(quickKey,i));
+ let status='';
+ if(has('status')){
+  const statuses=purView==='orders'?['Draft','Sent','Partially received','Received','Closed','Cancelled']:purView==='suppliers'?['Active','Archived']:[...new Set(base.map(i=>salesListValue(i,'status')).filter(Boolean))],f=prefs.filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
+  status=salesListStatusControlHTML(statuses.map(n=>({key:n,label:n,n:base.filter(i=>salesListValue(i,'status')===n).length})),selected,base.length,'purListStatus');
+ }
+ const quick=purView==='orders'?salesQuickHTML(salesListRows(infos),salesListRows(infos,['date']),{test:purQuickTest,set:'purQuickSet'}):'',date=purListDateColumn();
+ return quick+'<div class="sl-view-controls">'+status+(date?salesListDateButton(date):'')+'</div>'+salesListFilterChips();
+}
+function purQuickTest(key,info){
+ if(key==='all')return true;const p=info.p;if(!p||p.deletedAt||['Received','Closed','Cancelled'].includes(purOrderStatus(p)))return false;
+ const today=finToday(),week=salesListPresetRange('thisWeek'),dates=[p.expectedDate,...p.lines.map(l=>l.expectedDate)].filter(Boolean);
+ if(key==='today')return dates.includes(today);
+ if(key==='week')return dates.some(d=>d>=week[0]&&d<=week[1]);
+ return dates.some(d=>d<today)||!purOrderTotals(p).complete;
+}
+function purOrderListRows(infos){const quick=salesListLoadPrefs().quick||'all';return purView==='orders'&&quick!=='all'?salesListRows(infos,['date']).filter(i=>purQuickTest(quick,i)):salesListRows(infos);}
+function purQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK.some(q=>q[0]===key)?key:'all';salesListSavePrefs();render();}
+
+function purListDefaults(){return ['orders','receipts','requests','invoices','payments'].includes(purView)?{date:{preset:'last30'}}:purView==='history'?{at:{preset:'last30'}}:{};}
+let purPages={};
+function purPageState(rows){
+ const scope=purListScope(),prefs=salesListLoadPrefs(),signature=JSON.stringify([prefs.filters,prefs.sort,prefs.quick]);
+ if(!purPages[scope]||purPages[scope].signature!==signature)purPages[scope]={signature,index:0};
+ const state=purPages[scope];state.index=Math.max(0,Math.min(state.index,Math.ceil(rows.length/50)-1));return state;
+}
+function purPageRows(rows){const p=purPageState(rows);return rows.slice(p.index*50,p.index*50+50);}
+function purListPager(rows){
+ if(!rows.length)return '';const p=purPageState(rows),from=p.index*50+1,to=Math.min(rows.length,(p.index+1)*50);
+ const buttons=rows.length>50?'<button type="button" class="sl-quiet" aria-label="Previous page" '+(!p.index?'disabled':'')+' onclick="purPages[purListScope()].index--;render()">←</button><button type="button" class="sl-quiet" aria-label="Next page" '+(to>=rows.length?'disabled':'')+' onclick="purPages[purListScope()].index++;render()">→</button>':'';
+ return '<div class="pur-pagination"><span>'+from+'–'+to+' of '+rows.length+' records</span><span class="sales-toolbar-sp"></span>'+buttons+'</div>';
+}
+
+function purListDateColumn(){const columns=purListColumns();return ['date','at','expectedDate'].find(k=>columns.some(c=>c.k===k&&c.type==='date'))||'';}
+
+function purGlassFilterChanged(i,target,field,value){
+ const l=target==='po'?purOrderDraft.lines[i]:purFulfilDraft.data.lines[i],g=purGlassProduct(l),key=target+':'+l.id,f=purGlassFilter[key]||{manufacturer:g?g.manufacturer:'',mm:g?String(g.thicknessMm):''};
+ f[field]=value;if(field==='manufacturer')f.mm='';purGlassFilter[key]=f;
+ if(g&&((f.manufacturer&&g.manufacturer!==f.manufacturer)||(f.mm&&g.thicknessMm!==+f.mm)))purClearGlass(l);
+ render();
+}
+
+function purClearGlass(l){Object.assign(l,{kind:'glass',productId:'',productCode:'',description:'',sheetId:'',sourceCurrency:'',price:null});}
 
 /* ==== src/erp/views/purchase-documents.js ==== */
 /* Purchase document actions: PDF download and Gmail compose only.
@@ -26571,7 +26766,7 @@ function purFulfilLeave(){
 function purFulfilEdit(kind,id,poId,requestId){
  if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
  const d=id?purFulfilFind(kind,id):purFulfilFromPO(kind,poId||'',requestId);if(!d)return;
- purSupplierDraft=null;purView=kind==='receipt'?'receipts':'requests';purFulfilDraft={kind,data:purClone(d)};purFulfilOriginal=JSON.stringify(purFulfilDraft);purNotice='';render();
+ purNewSupplier=null;purSupplierDraft=null;purView=kind==='receipt'?'receipts':'requests';purFulfilDraft={kind,data:purClone(d)};purFulfilOriginal=JSON.stringify(purFulfilDraft);purNotice='';render();
 }
 function purReceiveFromOrder(kind){if(!purOrderSaveForm(true))return;const id=purOrderDraft.id;purFulfilEdit(kind,'',id);}
 function purReceiveRequest(){if(!purFulfilSaveForm())return;const d=purFulfilDraft.data;purFulfilEdit('receipt','',d.poId,d.id);}
@@ -26603,26 +26798,26 @@ function purFulfilLoadPO(){
 }
 function purFulfilLinkLine(i,id){
  const d=purFulfilDraft.data,l=d.lines[i],p=purOrderFind(d.poId),pl=p&&p.lines.find(x=>x.id===id);l.poLineId=id;l.requestLineId='';
- if(pl){['description','unit','widthIn','heightIn'].forEach(k=>{if(l[k]==null||l[k]==='')l[k]=pl[k];});}render();
+ if(pl){Object.assign(l,purGlassIdentity(pl));['description','unit','widthIn','heightIn'].forEach(k=>{if(l[k]==null||l[k]==='')l[k]=pl[k];});}render();
 }
 function purFulfilLineHTML(l,i){
  const f=purFulfilDraft,p=purOrderFind(f.data.poId),receipt=f.kind==='receipt',request=receipt&&purFulfilFind('request',f.data.requestId);
  return '<section class="card pur-card"><div class="pur-section-head"><h3>Line '+(i+1)+'</h3><button type="button" onclick="purFulfilDraft.data.lines.splice('+i+',1);render()">Remove</button></div>'+
   (p?'<label for="pur_receipt_link_'+i+'">PO line</label><select id="pur_receipt_link_'+i+'" onchange="purFulfilLinkLine('+i+',this.value)"><option value="">Unplanned / other item</option>'+p.lines.map((pl,j)=>'<option value="'+esc(pl.id)+'" '+(pl.id===l.poLineId?'selected':'')+'>'+esc((j+1)+'. '+pl.description)+'</option>').join('')+(l.poLineId&&!p.lines.some(pl=>pl.id===l.poLineId)?'<option selected value="'+esc(l.poLineId)+'">Removed PO line</option>':'')+'</select>':'')+
   (request?'<label for="pur_request_line_'+i+'">Request line</label><select id="pur_request_line_'+i+'" onchange="purFulfilDraft.data.lines['+i+'].requestLineId=this.value;purFulfilRefresh()"><option value="">Outside this request</option>'+request.lines.map((rl,j)=>'<option value="'+esc(rl.id)+'" '+(rl.id===l.requestLineId?'selected':'')+'>'+esc((j+1)+'. '+rl.description)+'</option>').join('')+'</select>':'')+
-  '<div class="pur-line-fields pur-receiving-row">'+purFulfilInput(l,i,'description','Description')+purFulfilInput(l,i,'qty',receipt?'Quantity received':'Quantity requested','number')+purFulfilInput(l,i,'unit','Unit')+purFulfilInput(l,i,'widthIn',receipt?'Actual width, in':'Width, in','number')+purFulfilInput(l,i,'heightIn',receipt?'Actual height, in':'Height, in','number')+'</div>'+
+  '<div class="pur-line-fields pur-receiving-row">'+(['glass','sheet'].includes(l.kind)?purGlassSelect(l,i,'delivery'):l.kind==='order'?'<div data-raw>'+esc(l.description)+'</div>':purFulfilInput(l,i,'description','Description'))+purFulfilInput(l,i,'qty',receipt?'Quantity received':'Quantity requested','number')+purFulfilInput(l,i,'unit','Unit')+purFulfilInput(l,i,'widthIn',receipt?'Actual width, in':'Width, in','number')+purFulfilInput(l,i,'heightIn',receipt?'Actual height, in':'Height, in','number')+'</div>'+
   (receipt?'<div class="pur-line-fields">'+purFulfilInput(l,i,'actualSheets','Actual sheets','number')+purFulfilInput(l,i,'damaged','Damaged · same unit','number')+purFulfilInput(l,i,'damagedSheets','Damaged sheets','number')+purFulfilInput(l,i,'reason','Damage reason')+purFulfilInput(l,i,'resolution','Resolution')+'</div>':'')+
   purFulfilInput(l,i,'note','Line note')+'</section>';
 }
 function purFulfilForm(){
  const f=purFulfilDraft,d=f.data,receipt=f.kind==='receipt',p=purOrderFind(d.poId),requests=(DB.purchaseDeliveryRequest||[]).filter(r=>r.poId===d.poId);
- return '<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><button type="button" onclick="if(purFulfilLeave())render()">← '+(receipt?'Receipts':'Delivery requests')+'</button><h2>'+esc(d.number||'New '+(receipt?'receipt':'delivery request'))+'</h2><span class="pill">'+purFulfilStatus(f.kind,d)+'</span><span class="sales-toolbar-sp"></span>'+
+ return '<div class="purchasing-workspace sales-order-editor"><div class="sales-editor-top pur-toolbar"><button type="button" onclick="if(purFulfilLeave())render()">← '+(receipt?'Receipts':'Delivery requests')+'</button><h2>'+esc(d.number||'New '+(receipt?'receipt':'delivery request'))+'</h2><span class="pill">'+purFulfilStatus(f.kind,d)+'</span><span class="sales-toolbar-sp"></span>'+
   (d.voidAt?'<button type="button" onclick="purFulfilUndoForm(true)">Restore</button>':'<button type="button" class="pri" data-pur-delivery-save onclick="purFulfilSaveForm()">Save</button>'+(receipt?'':'<button type="button" onclick="purRequestPreviewOpen()">Preview / PDF / Email</button>'+(d.id?'<button type="button" onclick="purReceiveRequest()">Receive</button>':''))+(d.id?'<button type="button" onclick="purFulfilUndoForm(false)">'+(receipt?'Undo receipt':'Cancel request')+'</button>':''))+'</div>'+
   (purNotice?'<div role="status" class="pur-notice">'+esc(purNotice)+'</div>':'')+'<div class="pur-notice" data-pur-delivery-warnings>'+purFulfilWarnings(f.kind,d).map(s=>'<p>'+esc(s)+'</p>').join('')+'</div>'+
-  '<fieldset class="pur-po-edit form" '+(d.voidAt?'disabled':'')+'><section class="card pur-card"><div class="pur-fields"><div><label for="pur_delivery_po">Purchase order · optional</label><select id="pur_delivery_po" onchange="purFulfilSelectPO(this.value)"><option value="">Without PO</option>'+(DB.purchaseOrder||[]).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===d.poId?'selected':'')+'>'+esc(x.number+' · '+x.supplierName+' · '+purOrderStatus(x))+'</option>').join('')+(d.poId&&!p?'<option selected value="'+esc(d.poId)+'">Missing PO</option>':'')+'</select></div>'+
-  purFulfilField('supplierName','Supplier / shop name')+purFulfilField('date',receipt?'Received date':'Request date','date')+
+  '<fieldset class="pur-po-edit form" '+(d.voidAt?'disabled':'')+'><section class="card pur-card"><div class="sales-header-compact"><div><label for="pur_delivery_po">Purchase order · optional</label><select id="pur_delivery_po" onchange="purFulfilSelectPO(this.value)"><option value="">Without PO</option>'+(DB.purchaseOrder||[]).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===d.poId?'selected':'')+'>'+esc(x.number+' · '+x.supplierName+' · '+purOrderStatus(x))+'</option>').join('')+(d.poId&&!p?'<option selected value="'+esc(d.poId)+'">Missing PO</option>':'')+'</select></div>'+
+  purSupplierControl(d,'delivery')+purFulfilField('date',receipt?'Received date':'Request date','date')+
   (receipt?purFulfilField('receivedBy','Received by')+purFulfilField('packingSlip','Supplier packing slip')+'<div><label for="pur_delivery_request">Delivery request · optional</label><select id="pur_delivery_request" onchange="purFulfilDraft.data.requestId=this.value;purFulfilDraft.data.lines.forEach(l=>l.requestLineId=\'\');render()"><option value="">Without request</option>'+requests.map(r=>'<option value="'+esc(r.id)+'" '+(r.id===d.requestId?'selected':'')+'>'+esc(r.number+' · '+purFulfilStatus('request',r))+'</option>').join('')+'</select>'+(d.requestId?'<button type="button" onclick="purFulfilLoadRequest()">Load request lines</button>':'')+'</div>':purFulfilField('expectedDate','Requested delivery','date')+purFulfilField('to','Email to')+purFulfilField('cc','CC'))+'</div><p class="mut">'+(receipt?'Received quantities include damaged goods. Actual sheets are recorded separately from blocks.':'Request any quantity. Only actual receipts reduce the held balance.')+'</p><label for="pur_delivery_note">Notes</label><textarea id="pur_delivery_note" oninput="purFulfilDraft.data.note=this.value">'+esc(d.note)+'</textarea></section>'+
-  '<div class="pur-line-actions"><button type="button" onclick="purFulfilDraft.data.lines.push(purFulfilLine({id:salesUid(\'RL\')},0));render()">+ Line</button>'+(p?'<button type="button" onclick="purFulfilLoadPO()">Load PO lines</button>':'')+'</div>'+d.lines.map(purFulfilLineHTML).join('')+
+  '<div class="pur-line-actions"><button type="button" onclick="purFulfilAddLine(\'glass\')">+ Add glass</button><button type="button" onclick="purFulfilAddLine(\'other\')">+ Other item</button>'+(p?'<button type="button" onclick="purFulfilLoadPO()">Load PO lines</button>':'')+'</div>'+d.lines.map(purFulfilLineHTML).join('')+
   '<datalist id="pur_reason"><option>In transit</option><option>Factory defect</option><option>Our breakage</option><option>Other</option></datalist><datalist id="pur_resolution"><option>Credit requested</option><option>Replacement</option><option>Written off</option><option>Other</option></datalist></fieldset>'+
   (d.id?purHistoryHTML(f.kind,d.id):'')+(purFulfilPreview?purRequestPreviewHTML():'')+'</div>';
 }
@@ -26637,14 +26832,14 @@ function purReceivingColumns(){
  return cols.map(([k,label,type])=>({k,label,type,def:waiting||!(purView==='receipts'?['expectedDate']:['packingSlip','receivedBy']).includes(k)}));
 }
 function purReceivingInfos(){
- if(['backorders','held'].includes(purView))return purWaitingRows(purView==='held').map(({p,l,b})=>({o:{id:p.id+'|'+l.id},p,l,memo:{number:p.number,supplierName:p.supplierName,description:l.description,size:l.widthIn&&l.heightIn?l.widthIn+' × '+l.heightIn:'',ordered:b.ordered,received:b.received,remaining:b.remaining,unit:l.unit,expectedDate:l.expectedDate||p.expectedDate,review:b.unknown?'Unknown quantity / unit changed':''}}));
- const kind=purView==='receipts'?'receipt':'request';return (DB[PUR_FULFIL[kind].key]||[]).filter(d=>purShowUndone||!d.voidAt).map(d=>({o:{id:d.id},d,kind,memo:Object.assign({},d,{po:(purOrderFind(d.poId)||{}).number||'',status:purFulfilStatus(kind,d)})}));
+ if(['backorders','held'].includes(purView))return purWaitingRows(purView==='held').map(({p,l,b})=>({o:{id:p.id+'|'+l.id},p,l,memo:{number:p.number,supplierName:purSupplierDisplay(p),description:l.description,size:l.widthIn&&l.heightIn?l.widthIn+' × '+l.heightIn:'',ordered:b.ordered,received:b.received,remaining:b.remaining,unit:l.unit,expectedDate:l.expectedDate||p.expectedDate,review:b.unknown?'Review quantity / unit / glass':''}}));
+ const kind=purView==='receipts'?'receipt':'request';return (DB[PUR_FULFIL[kind].key]||[]).filter(d=>purShowUndone||!d.voidAt).map(d=>({o:{id:d.id},d,kind,memo:Object.assign({},d,{supplierName:purSupplierDisplay(d)},{po:(purOrderFind(d.poId)||{}).number||'',status:purFulfilStatus(kind,d)})}));
 }
 function purReceivingList(){
  const infos=purReceivingInfos(),rows=salesListRows(infos),cols=salesListColumns(),kind=purView==='receipts'?'receipt':'request',waiting=['backorders','held'].includes(purView),title=({receipts:'Receipts',requests:'Delivery requests',backorders:'Waiting from suppliers',held:'Held at supplier'})[purView];
  const cell=(i,c)=>{const v=salesListValue(i,c.k);return '<td'+(c.type==='number'?' class="n"':'')+'>'+(c.k==='number'?'<button type="button" class="fin-link" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purFulfilEdit('+purArg(i.kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>':v==null||v===''?'—':esc(v))+'</td>';};
- return '<div class="purchasing-workspace">'+purNav()+'<div class="sales-toolbar pur-toolbar"><h2>'+title+'</h2><span class="sales-toolbar-sp"></span>'+(waiting?'':'<label><input type="checkbox" '+(purShowUndone?'checked':'')+' onchange="purShowUndone=this.checked;render()"> Include undone / cancelled</label><button type="button" class="pri" onclick="purFulfilEdit(\''+kind+'\',\'\')">+ '+(kind==='receipt'?'Receipt':'Request')+'</button>')+'</div>'+salesListFilterChips()+
-  '<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="gb-settings" aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+rows.map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div></div>'+salesListMenuHTML(infos)+'</div>';
+ return '<div class="purchasing-workspace">'+'<div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(waiting?'':'<label><input type="checkbox" '+(purShowUndone?'checked':'')+' onchange="purShowUndone=this.checked;render()"> Include undone / cancelled</label><button type="button" class="pri" onclick="purFulfilEdit(\''+kind+'\',\'\')">+ '+(kind==='receipt'?'Receipt':'Request')+'</button>')+'</div>'+purListFilters(infos)+
+  '<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
 }
 function purPOReceivingHTML(p){
  const receipts=(DB.purchaseReceipt||[]).filter(r=>r.poId===p.id),requests=(DB.purchaseDeliveryRequest||[]).filter(r=>r.poId===p.id);
@@ -26698,11 +26893,11 @@ function purMoneyLeave(){if(purMoneyDraft&&JSON.stringify(purMoneyDraft)!==purMo
 function purMoneyEdit(kind,id,invoiceId,poId){
  if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
  const old=id?purMoneyFind(kind,id):null;if(id&&!old)return;
- purSupplierDraft=null;purView=kind==='invoice'?'invoices':'payments';purMoneyDraft={kind,data:purClone(old||purMoneyClean({date:finToday(),method:kind==='payment'?'Bank transfer':''}))};purNotice='';
+ purNewSupplier=null;purSupplierDraft=null;purView=kind==='invoice'?'invoices':'payments';purMoneyDraft={kind,data:purClone(old||purMoneyClean({date:finToday(),method:kind==='payment'?'Bank transfer':''}))};purNotice='';
  if(invoiceId)purMoneyPickInvoice(invoiceId,false);if(poId)purInvoiceAddPO(poId,false);purMoneyOriginal=JSON.stringify(purMoneyDraft);render();
 }
 function purMoneySetSupplier(id){
- const d=purMoneyDraft.data,s=purSupplierFind(id);d.supplierId=id;if(s){d.supplierName=s.name;d.currency=s.currency;d.paymentDays=s.paymentDays;if(purMoneyDraft.kind==='payment')d.method=s.paymentMethod;if(!d.dueDate)d.dueDate=purInvoiceDue(d.date,d.paymentDays);}render();
+ const d=purMoneyDraft.data,s=purSupplierFind(id);d.supplierId=id;d.supplierName=s?s.name:'';if(s){d.paymentDays=s.paymentDays;if(purMoneyDraft.kind==='payment')d.method=s.paymentMethod;if(!d.dueDate)d.dueDate=purInvoiceDue(d.date,d.paymentDays);}render();
 }
 function purMoneyPickInvoice(id,draw){
  const d=purMoneyDraft.data,inv=purMoneyFind('invoice',id);d.invoiceId=id;
@@ -26728,13 +26923,13 @@ function purMoneyField(k,label,type){const d=purMoneyDraft.data;return '<div><la
 function purMoneyRefresh(){const el=document.querySelector('[data-pur-money-warnings]');if(el)el.innerHTML=purMoneyWarnings(purMoneyDraft.kind,purMoneyDraft.data).map(s=>'<p>'+esc(s)+'</p>').join('');}
 function purMoneyForm(){
  const f=purMoneyDraft,d=f.data,invoice=f.kind==='invoice',b=invoice&&d.id?purInvoiceBalance(d):null;
- return '<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><button type="button" onclick="if(purMoneyLeave())render()">← '+(invoice?'Invoices':'Payments')+'</button><h2>'+esc(d.number||'New '+(invoice?'supplier invoice':'payment record'))+'</h2><span class="pill">'+(invoice?purInvoiceStatus(d):d.voidAt?'Undone':d.id?'Recorded':'Draft')+'</span><span class="sales-toolbar-sp"></span>'+
+ return '<div class="purchasing-workspace sales-order-editor"><div class="sales-editor-top pur-toolbar"><button type="button" onclick="if(purMoneyLeave())render()">← '+(invoice?'Invoices':'Payments')+'</button><h2>'+esc(d.number||'New '+(invoice?'supplier invoice':'payment record'))+'</h2><span class="pill">'+(invoice?purInvoiceStatus(d):d.voidAt?'Undone':d.id?'Recorded':'Draft')+'</span><span class="sales-toolbar-sp"></span>'+
   (d.voidAt?'<button type="button" onclick="purMoneyUndoForm(true)">Restore</button>':'<button type="button" class="pri" data-pur-money-save onclick="purMoneySaveForm()">Save</button>'+(invoice&&d.id?'<button type="button" onclick="purInvoiceRecordPayment()">Record payment</button>':'')+(d.id?'<button type="button" onclick="purMoneyUndoForm(false)">'+(invoice?'Delete invoice':'Undo payment')+'</button>':''))+'</div>'+
   (purNotice?'<div role="status" class="pur-notice">'+esc(purNotice)+'</div>':'')+'<div class="pur-notice" data-pur-money-warnings>'+purMoneyWarnings(f.kind,d).map(s=>'<p>'+esc(s)+'</p>').join('')+'</div>'+
-  '<fieldset class="pur-po-edit form" '+(d.voidAt?'disabled':'')+'><section class="card pur-card"><div class="pur-fields">'+
+  '<fieldset class="pur-po-edit form" '+(d.voidAt?'disabled':'')+'><section class="card pur-card"><div class="sales-header-compact">'+
   (!invoice?'<div class="pur-wide"><label for="pur_money_invoice">Invoice · optional</label><select id="pur_money_invoice" onchange="purMoneyPickInvoice(this.value)"><option value="">Without invoice / advance</option>'+(DB.purchaseInvoice||[]).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===d.invoiceId?'selected':'')+'>'+esc(purMoneyReference(x)+' · '+x.supplierName+' · '+x.currency+(x.voidAt?' · Deleted':''))+'</option>').join('')+(d.invoiceId&&!purMoneyFind('invoice',d.invoiceId)?'<option selected value="'+esc(d.invoiceId)+'">Missing invoice</option>':'')+'</select></div>':'')+
-  '<div><label for="pur_money_supplier">Supplier card · optional</label><select id="pur_money_supplier" onchange="purMoneySetSupplier(this.value)"><option value="">One-off / free text</option>'+(DB.supplier||[]).map(s=>'<option value="'+esc(s.id)+'" '+(s.id===d.supplierId?'selected':'')+'>'+esc(s.name)+'</option>').join('')+'</select></div>'+purMoneyField('supplierName','Supplier / shop name')+
-  (invoice?purMoneyField('invoiceNumber','Supplier invoice number'):'')+purMoneyField('date',invoice?'Invoice date':'Payment date','date')+purMoneyField('amount',invoice?'Invoice total':'Amount paid','number')+purMoneyField('currency','Currency')+
+  purSupplierControl(d,'money')+
+  (invoice?purMoneyField('invoiceNumber','Supplier invoice number'):'')+purMoneyField('date',invoice?'Invoice date':'Payment date','date')+purMoneyField('amount',invoice?'Invoice total':'Amount paid','number')+purCurrencyControl(d,'pur_money_currency','purMoneyDraft.data.currency=this.value')+
   (invoice?purMoneyField('paymentDays','Payment terms · Net days','number')+purMoneyField('dueDate','Due date','date'):'')+
   (!invoice?purMoneyField('method','Payment method')+purMoneyField('reference','Bank / cheque reference'):'')+'</div>'+
   (invoice?'<p><button type="button" onclick="purMoneyDraft.data.dueDate=purInvoiceDue(purMoneyDraft.data.date,purMoneyDraft.data.paymentDays);render()">Use payment terms</button></p>':'<p class="mut">Record a payment already made. Negative amounts record a refund.</p>')+
@@ -26753,20 +26948,20 @@ function purMoneyInfos(){
  if(purView==='payables')return purSupplierAccounts().map(a=>({o:{id:a.id},account:a,memo:a}));
  const kind=purView==='invoices'?'invoice':'payment';return (DB[PUR_MONEY[kind].key]||[]).filter(d=>purMoneyShowUndone||!d.voidAt).map(d=>{
   const b=kind==='invoice'?purInvoiceBalance(d):null,inv=kind==='payment'?purMoneyFind('invoice',d.invoiceId):null;
-  return {o:{id:d.id},d,kind,memo:Object.assign({},d,kind==='invoice'?{reference:purMoneyReference(d),paid:b.paid,balance:b.balance,status:purInvoiceStatus(d),overdue:!d.voidAt&&d.dueDate&&d.dueDate<finToday()&&b.balance>0?'Yes':'No',po:d.poIds.map(id=>(purOrderFind(id)||{}).number||id).join(', ')}:{invoice:inv?purMoneyReference(inv):'',status:d.voidAt?'Undone':'Recorded'})};
+  return {o:{id:d.id},d,kind,memo:Object.assign({},d,{supplierName:purSupplierDisplay(d)},kind==='invoice'?{reference:purMoneyReference(d),paid:b.paid,balance:b.balance,status:purInvoiceStatus(d),overdue:!d.voidAt&&d.dueDate&&d.dueDate<finToday()&&b.balance>0?'Yes':'No',po:d.poIds.map(id=>(purOrderFind(id)||{}).number||id).join(', ')}:{invoice:inv?purMoneyReference(inv):'',status:d.voidAt?'Undone':'Recorded'})};
  });
 }
 function purMoneyList(){
  if(purAccountKey)return purAccountHTML();
  const infos=purMoneyInfos(),rows=salesListRows(infos),cols=salesListColumns(),accounts=purView==='payables',kind=purView==='invoices'?'invoice':'payment';
  const cell=(i,c)=>{const v=salesListValue(i,c.k),link=i.account&&c.k==='supplierName'||i.d&&c.k===(kind==='invoice'?'reference':'number');return '<td class="'+(c.type==='number'?'n':'')+'">'+(link?'<button type="button" class="fin-link" onclick="'+(i.account?'purAccountKey='+purArg(i.account.id)+';render()':'purMoneyEdit('+purArg(kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>':v==null||v===''?'—':esc(c.type==='number'&&!['unknown','review'].includes(c.k)?docNum(v,2):v))+'</td>';};
- return '<div class="purchasing-workspace">'+purNav()+'<div class="sales-toolbar pur-toolbar"><h2>'+({invoices:'Supplier invoices',payments:'Supplier payments',payables:'We owe suppliers'})[purView]+'</h2><span class="sales-toolbar-sp"></span>'+(accounts?'':'<label><input type="checkbox" '+(purMoneyShowUndone?'checked':'')+' onchange="purMoneyShowUndone=this.checked;render()"> Include deleted / undone</label><button type="button" class="pri" onclick="purMoneyEdit(\''+kind+'\',\'\')">+ '+(kind==='invoice'?'Invoice':'Payment record')+'</button>')+'</div>'+(accounts?'<p class="mut">Each currency has its own balance. Negative balances are supplier credits.</p>':'')+salesListFilterChips()+
-  '<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="gb-settings" aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+rows.map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div></div>'+salesListMenuHTML(infos)+'</div>';
+ return '<div class="purchasing-workspace">'+'<div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(accounts?'':'<label><input type="checkbox" '+(purMoneyShowUndone?'checked':'')+' onchange="purMoneyShowUndone=this.checked;render()"> Include deleted / undone</label><button type="button" class="pri" onclick="purMoneyEdit(\''+kind+'\',\'\')">+ '+(kind==='invoice'?'Invoice':'Payment record')+'</button>')+'</div>'+(accounts?'<p class="mut">Each currency has its own balance. Negative balances are supplier credits.</p>':'')+purListFilters(infos)+
+  '<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
 }
 function purAccountHTML(){
  const a=purSupplierAccounts().find(a=>a.id===purAccountKey);if(!a){purAccountKey='';return purMoneyList();}
  const link=(kind,d)=>'<p><button type="button" class="fin-link" onclick="purMoneyEdit('+purArg(kind)+','+purArg(d.id)+')">'+esc((kind==='invoice'?purMoneyReference(d):d.number)+' · '+d.date+' · '+(d.amount==null?'Unknown':docNum(d.amount,2))+' '+d.currency)+'</button></p>';
- return '<div class="purchasing-workspace">'+purNav()+'<div class="sales-toolbar pur-toolbar"><button type="button" onclick="purAccountKey=\'\';render()">← Accounts</button><h2>'+esc(a.supplierName+' · '+a.currency)+'</h2></div><p>'+esc('We owe: '+(a.balance==null?'Incomplete':docNum(a.balance,2))+' · Known balance: '+docNum(a.knownBalance,2)+' · Overdue invoices: '+docNum(a.overdue,2))+'</p><div class="pur-form"><section class="card pur-card"><h3>Invoices</h3>'+a.invoices.map(d=>link('invoice',d)).join('')+'</section><section class="card pur-card"><h3>Payments</h3>'+a.payments.map(d=>link('payment',d)).join('')+'</section></div></div>';
+ return '<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><button type="button" onclick="purAccountKey=\'\';render()">← Accounts</button><h2>'+esc(a.supplierName+' · '+a.currency)+'</h2></div><p>'+esc('We owe: '+(a.balance==null?'Incomplete':docNum(a.balance,2))+' · Known balance: '+docNum(a.knownBalance,2)+' · Overdue invoices: '+docNum(a.overdue,2))+'</p><div class="pur-form"><section class="card pur-card"><h3>Invoices</h3>'+a.invoices.map(d=>link('invoice',d)).join('')+'</section><section class="card pur-card"><h3>Payments</h3>'+a.payments.map(d=>link('payment',d)).join('')+'</section></div></div>';
 }
 function purPOInvoicesHTML(p){return '<section class="card pur-card pur-receiving"><div class="pur-section-head"><h3>Supplier invoices</h3><button type="button" onclick="purInvoiceFromPO()">+ Invoice</button></div>'+purInvoicesForPO(p.id).map(d=>'<p><button type="button" class="fin-link" onclick="purMoneyEdit(\'invoice\','+purArg(d.id)+')">'+esc(purMoneyReference(d)+' · '+purInvoiceStatus(d)+' · '+(d.amount==null?'Unknown':docNum(d.amount,2))+' '+d.currency+(d.poIds.length>1?' · shared across '+d.poIds.length+' POs':''))+'</button></p>').join('')+'</section>';}
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(to=>tab==='purchasing'&&to!=='purchasing'&&!purMoneyLeave());
@@ -26884,7 +27079,10 @@ function salesListCleanPrefs(p){
  if(salesListScope()==='usersLog'&&p.createdRangeInitialized!==true&&!filters.when)filters.when=salesListCleanFilter('when',{preset:'last14'});
  if(salesListScope()==='customers'&&p.createdRangeInitialized!==true&&typeof custListDefaults==='function')Object.entries(custListDefaults()).forEach(([k,f])=>{const c=salesListCleanFilter(k,f);if(c&&salesListFilterActive(c))filters[k]=c;});
  if(salesListScope().startsWith('fin')&&p.createdRangeInitialized!==true&&typeof finListDefaults==='function')Object.entries(finListDefaults()).forEach(([k,f])=>{const c=salesListCleanFilter(k,f);if(c&&salesListFilterActive(c))filters[k]=c;});
- return {cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all'};
+ if(tab==='purchasing'&&p.purchasingDateInitialized!==true&&typeof purListDefaults==='function')Object.entries(purListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
+ const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all'};
+ if(tab==='purchasing')clean.purchasingDateInitialized=true;
+ return clean;
 }
 function salesListDefaultOp(col){return col.type==='number'?'gt':col.type==='date'?'between':'contains';}
 function salesListEmptyFilter(col){return {mode:'include',conds:col.type==='list'?[]:[{op:salesListDefaultOp(col),v:'',v2:'',join:'and'}],values:null,preset:''};}
@@ -27055,7 +27253,7 @@ function salesListBase(){
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
 function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
-function salesListDateColumn(){return salesListScope()==='usersLog'?'when':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
+function salesListDateColumn(){if(tab==='purchasing'&&typeof purListDateColumn==='function')return purListDateColumn();return salesListScope()==='usersLog'?'when':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos,skip){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(skip||[]).includes(k));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
@@ -27079,10 +27277,10 @@ function salesQuickTest(key,info){
  return !!o.onHold||(o.lines||[]).some(l=>l.onHold)||(!!due&&due<today);
 }
 function salesQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK.some(q=>q[0]===key)?key:'all';salesListSel=new Set();salesListSavePrefs();render();}
-function salesQuickHTML(rows,anyDate){
- const cur=salesListLoadPrefs().quick||'all';
- return `<div class="sl-quick" role="tablist" aria-label="Quick views">${SALES_QUICK.map(([k,label])=>{const n=(k==='all'?rows:anyDate).filter(r=>salesQuickTest(k,r)).length;
-  return `<button type="button" role="tab" class="sl-quick-pill${k===cur?' on':''}${k==='attention'&&n?' warn':''}" aria-selected="${k===cur}" data-quick="${k}" onclick="salesQuickSet('${k}')">${label}${k==='all'||n?`<b>${n}</b>`:''}</button>`;}).join('')}</div>`;
+function salesQuickHTML(rows,anyDate,options){
+ const cur=salesListLoadPrefs().quick||'all',test=options&&options.test||salesQuickTest,set=options&&options.set||'salesQuickSet';
+ return `<div class="sl-quick" role="tablist" aria-label="Quick views">${SALES_QUICK.map(([k,label])=>{const n=(k==='all'?rows:anyDate).filter(r=>test(k,r)).length;
+  return `<button type="button" role="tab" class="sl-quick-pill${k===cur?' on':''}${k==='attention'&&n?' warn':''}" aria-selected="${k===cur}" data-quick="${k}" onclick="${set}('${k}')">${label}${k==='all'||n?`<b>${n}</b>`:''}</button>`;}).join('')}</div>`;
 }
 /* В очереди флажок Glass — конкретное стекло из каталога, даже если оно
    встречается вместе с другими стёклами в Double/Triple или нескольких Makeup. */
@@ -27215,6 +27413,7 @@ function salesListMenuHTML(infos){
  const m=salesListMenu;if(!m||(m.scope&&m.scope!==salesListScope()))return '';
  const top=Math.max(8,Math.min(m.y,window.innerHeight-80)),style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-(m.w||300)-8))}px;top:${top}px;max-height:${Math.max(180,window.innerHeight-top-12)}px`;
  const back='<div class="sl-backdrop" onclick="salesListCloseMenu()" oncontextmenu="event.preventDefault();salesListCloseMenu()"></div>';
+ if(m.kind==='pur-sections')return back+purSectionsMenuHTML(style);
  if(m.kind==='show')return back+salesListShowMenuHTML(style);
  if(m.kind==='date')return back+salesListDateMenuHTML(m,style);
  if(m.kind==='context')return back+salesListContextHTML(m,style);
@@ -27461,6 +27660,13 @@ function salesListDateMenuHTML(m,style){
   ${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-date-actions"><button type="button" class="sl-text-button" data-range-today onclick="salesListDateToday()">Today</button><button type="button" class="sl-reset" data-range-reset title="Clear date range · show all dates" aria-label="Clear date range" onclick="salesListDateReset()">↺</button><span class="sp"></span><button type="button" class="pri" data-range-apply onclick="salesListDateApply()">Apply</button></div></div>`;
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesListMenu){e.preventDefault();salesListCloseMenu();}});
+
+/* Shared status disclosure: the business statuses come from each list. */
+function salesListStatusControlHTML(chips,selection,total,onSelect){
+ const p=salesListLoadPrefs(),selected=chips.find(c=>c.key===selection),label=selected?selected.label:'All',n=selected?selected.n:total;
+ const toggle=`<button type="button" class="sl-status-toggle" data-status-toggle aria-expanded="${p.statusExpanded}" title="${p.statusExpanded?'Hide status filters':'Show status filters'}" onclick="salesListToggleStatuses()">${esc(label)} <b>${n}</b><span class="sl-disclosure" aria-hidden="true">${p.statusExpanded?'▾':'▸'}</span></button>`;
+ return `<div class="sales-status-chips sl-status-compact">${toggle}${p.statusExpanded?`<div class="sl-status-options"><button type="button" data-status-all class="${selection?'':'on'}" onclick="${onSelect}('')">All <b>${total}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${esc(c.key)}" class="${selection===c.key?'on':''}" onclick="${onSelect}(${esc(JSON.stringify(c.key))})">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`:''}</div>`;
+}
 
 /* ==== src/erp/sales/line-hold.js ==== */
 /* Необязательное удержание позиции. Это не производственный замок:
