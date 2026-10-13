@@ -1,5 +1,7 @@
 /* Purchasing P2 · 13 October 2026.
-   A PO needs one line, not a supplier card, known price or delivery date.
+   Owner correction 13 October: new glass lines require catalogue glass
+   and a supplier card. Extras and legacy free lines remain editable.
+   Price or delivery date may remain unknown.
    Saved numbers are allocated inside storageCommand. Edits at any stage
    are allowed and logged. Delete keeps the document and its history.
    Quantities use the chosen purchasing unit; blocks have no fixed size.
@@ -11,8 +13,8 @@ function purOrderNumber(n){return 'PO-'+String(n).padStart(4,'0');}
 function purOrderStatus(p){return p.deletedAt?'Deleted':['closed','cancelled'].includes(p.state)?PUR_ORDER_STATES[p.state]:purReceiptState(p)||PUR_ORDER_STATES[p.state]||'Draft';}
 function purLineClean(x,i){
  x=x&&typeof x==='object'?x:{};
- const l={id:purText(x.id)||'line-'+(i+1),kind:['sheet','order','other'].includes(x.kind)?x.kind:'other'};
- ['description','unit','priceUnit','sourceCurrency','sheetId','productCode','orderId','lineId','componentKey','expectedDate','note'].forEach(k=>l[k]=purText(x[k]));
+ const l={id:purText(x.id)||'line-'+(i+1),kind:['glass','sheet','order','stock','other'].includes(x.kind)?x.kind:'other'};
+ ['description','unit','priceUnit','sourceCurrency','sheetId','productId','productCode','table','itemId','orderId','lineId','componentKey','expectedDate','note'].forEach(k=>l[k]=purText(x[k]));
  ['qty','price','widthIn','heightIn','sheetsPerBlock'].forEach(k=>l[k]=purNumber(x[k]));
  l.held=!!x.held;
  l.spec=x.spec&&typeof x.spec==='object'&&!Array.isArray(x.spec)?purClone(x.spec):null;
@@ -21,7 +23,7 @@ function purLineClean(x,i){
 function purOrderClean(x){
  const p={};
  ['id','number','supplierId','supplierName','date','expectedDate','currency','to','cc','note','createdAt','createdBy','createdById','updatedAt','updatedBy','updatedById','sentAt','deletedAt'].forEach(k=>p[k]=purText(x[k]));
- p.currency=p.currency.toUpperCase()||'USD';
+ p.currency=p.currency.toUpperCase()||'CAD';
  p.state=Object.prototype.hasOwnProperty.call(PUR_ORDER_STATES,x.state)?x.state:'draft';
  p.rev=Number.isSafeInteger(x.rev)&&x.rev>0?x.rev:1;
  p.supplier=x.supplier&&typeof x.supplier==='object'?purSupplierClean(x.supplier):null;
@@ -84,6 +86,8 @@ function purOrderSave(d){
   if(d.id&&!old)throw new Error('Purchase order no longer exists.');
   if(old&&(old.deletedAt||old.rev!==d.rev))throw new Error('Purchase order changed elsewhere. Reopen it to keep those changes.');
   const p=purOrderClean(d);
+  purResolveSupplier(p);
+  purValidateGlassLines(p,old);
   if(!p.lines.length)throw new Error('Add at least one line.');
   if(!CURRENCY_RE.test(p.currency))throw new Error('Currency: enter a three-letter code.');
   ['date','expectedDate'].forEach(k=>{if(p[k]&&!ISO_DATE_RE.test(p[k]))throw new Error('Date: use YYYY-MM-DD or leave empty.');});
@@ -120,5 +124,5 @@ function purOrderLog(id,what,changes){return purPersist(()=>{if(!purOrderFind(id
 function purSheetLine(id){
  const s=(DB.glassSheet||[]).find(s=>s.id===id);if(!s)return null;
  const g=glassProductByCode(s.productCode);
- return purLineClean({id:salesUid('PL'),kind:'sheet',sheetId:id,productCode:s.productCode,description:(g?g.name:s.productCode)+' · '+[s.sheetWIn,s.sheetHIn].join(' × ')+' in',unit:'sheet',priceUnit:s.purchaseUnit,sourceCurrency:s.currency,price:s.purchasePrice,qty:1,widthIn:s.sheetWIn,heightIn:s.sheetHIn},0);
+ return purLineClean({id:salesUid('PL'),kind:'sheet',sheetId:id,productId:g?g.id:'',productCode:s.productCode,description:(g?g.name:s.productCode)+' · '+[s.sheetWIn,s.sheetHIn].join(' × ')+' in',unit:'sheet',priceUnit:s.purchaseUnit,sourceCurrency:s.currency,price:s.purchasePrice,qty:1,widthIn:s.sheetWIn,heightIn:s.sheetHIn},0);
 }

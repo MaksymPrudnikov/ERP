@@ -48,7 +48,8 @@ module.exports=async function({page,eq}){
  });
  eq('a selected lite copies its own coating, heat, size and service details without changing shop or customer Finance',await t.p.evaluate(()=>{
   const o=salesRecord(poCustomerOrder),l=o.lines[0],c=glassBatchComponents(o,l)[1],before=JSON.stringify({o,scans:DB.stationScan,batches:DB.glassBatch,receipts:DB.receipt});
-  const row=purOrderComponentLine(o.id,l.id,c.key),p=poSave({supplierName:'External plant',expectedDate:'2026-10-20',lines:[row]}).value;
+  const supplier=purSupplierSave({name:'External plant'}).value;window.poExternalSupplier=supplier.id;
+  const row=purOrderComponentLine(o.id,l.id,c.key),p=poSave({supplierId:supplier.id,supplierName:'External plant',expectedDate:'2026-10-20',lines:[row]}).value;
   window.poLinked=p.id;window.poSnapshot=purClone(row.spec);
   const part=row.spec.parts[0];return {count:row.spec.parts.length,label:row.spec.part,glass:part.glass.includes('6SBN60')&&part.glass.includes('Tempered')&&part.glass.includes('#3'),size:part.finished,service:part.services.includes('ROUGH ARRIS'),same:before===JSON.stringify({o,scans:DB.stationScan,batches:DB.glassBatch,receipts:DB.receipt}),linked:purLinkedPurchases(o.id,l.id).map(x=>x.p.number)};
  }),{count:1,label:'Lite 2',glass:true,size:{w:37,h:71},service:true,same:true,linked:['PO-0004']});
@@ -67,11 +68,11 @@ module.exports=async function({page,eq}){
   const cs=glassBatchComponents(o,l),part=purOrderComponentLine(o.id,l.id,cs[1].key);
   m.panes[1].glassProductId='';m.panes[1].thicknessMm=6;
   const missing=purOrderComponentLine(o.id,l.id,glassBatchComponents(o,l)[2].key);missing.description='6mm COG from external manufacturer';
-  return {whole:whole.spec.parts.length,ply:part.spec.part,parts:part.spec.parts.length,missing:missing.spec.parts[0].missing,allowed:poSave({lines:[missing]}).ok};
+  return {whole:whole.spec.parts.length,ply:part.spec.part,parts:part.spec.parts.length,missing:missing.spec.parts[0].missing,allowed:poSave({supplierId:poExternalSupplier,lines:[missing]}).ok};
  }),{whole:2,ply:'Lite 1b · inner ply',parts:1,missing:true,allowed:true});
  eq('PO PDF carries the lite’s own shape, hole coordinates and sizes from the sticker geometry',await t.p.evaluate(()=>{
   salesOrderEdit(poCustomerOrder);const l=soDraft.lines[0];salesOpenLiteShape(l.id,1);sDraft.w='39';sDraft.h='73';sDraft.features.push(shapeNormalizeFeature({type:'hole',diameter:'1',x:'6',y:'6',minEdge:'1/2'}));saveShape();salesOrderSave();salesDraftDrop();
-  const o=salesRecord(poCustomerOrder),line=o.lines[0],c=glassBatchComponents(o,line).find(c=>c.index===1),r=purOrderComponentLine(o.id,line.id,c.key),p=poSave({lines:[r]}).value;
+  const o=salesRecord(poCustomerOrder),line=o.lines[0],c=glassBatchComponents(o,line).find(c=>c.index===1),r=purOrderComponentLine(o.id,line.id,c.key),p=poSave({supplierId:poExternalSupplier,lines:[r]}).value;
   const pages=purDocPages(p),items=pages.flatMap(p=>p.items),bytes=docPdfBytes(pages,{title:p.number});
   return {size:r.spec.parts[0].finished,holes:r.spec.parts[0].shape.holes.map(h=>[h.x,h.y,h.d]),drawing:items.filter(i=>i.t==='poly').length>=2,text:items.some(i=>i.t==='text'&&i.s.includes('Hole diameter 1 in')),pdf:String.fromCharCode(...bytes.slice(0,8))};
  }),{size:{w:39,h:73},holes:[[6,6,1]],drawing:true,text:true,pdf:'%PDF-1.4'});
@@ -106,7 +107,10 @@ module.exports=async function({page,eq}){
 
  await t.p.evaluate(()=>{purOrderDraft=null;purDoc=null;purView='orders';tab='purchasing';render();});
  await t.p.locator('[data-pur-po-new]').click();
+ await t.p.getByRole('button',{name:'Add supplier',exact:true}).click();
  await t.p.locator('#pur_po_supplierName').fill('One-time shop');
+ await t.p.getByRole('button',{name:'Add supplier',exact:true}).last().click();
+ await t.p.locator('[data-pur-add-line]').click();
  await t.p.locator('#pur_line_0_description').fill('Sealant from local store');
  await t.p.locator('#pur_line_0_qty').fill('2');await t.p.locator('#pur_line_0_price').fill('18.25');
  await t.p.locator('[data-pur-add-line]').click();
@@ -133,12 +137,13 @@ module.exports=async function({page,eq}){
   purOrderEdit('');purOrderDraft.date='2026-10-13';window.poSupplier=s.id;render();
  });
  await t.p.locator('#pur_po_card').selectOption(await t.p.evaluate(()=>poSupplier));
+ await t.p.locator('#pur_po_currency').selectOption('USD');
  await t.p.getByRole('button',{name:'From supply points',exact:true}).click();
  await t.p.getByRole('button',{name:'6CLEAR · Canadian warehouse · 144 × 102 in · CAD',exact:true}).click();
  eq('actual supply picker copies price/unit/size, supplier defaults and preserves a visible currency warning',await t.p.evaluate(()=>({
   supplier:purOrderDraft.supplierName,expected:purOrderDraft.expectedDate,currency:purOrderDraft.currency,
   line:purOrderDraft.lines.map(l=>[l.unit,l.price,l.priceUnit,l.widthIn,l.heightIn,l.sourceCurrency]),
-  warning:document.querySelector('[data-pur-line]').textContent.includes('Supply quote: CAD. Enter the agreed price in USD.')
+  warning:document.querySelector('.pur-glass-table').textContent.includes('Supply quote: CAD. Enter the agreed price in USD.')
  })),{supplier:'Supply demo',expected:'2026-10-17',currency:'USD',line:[['sheet',2.15,'sqft',144,102,'CAD']],warning:true});
  eq('purchase order pages have no JavaScript errors',t.errs,[]);
  await t.c.close();

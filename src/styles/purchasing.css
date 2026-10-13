@@ -1,5 +1,5 @@
 /* Purchasing: existing table/filter styles, responsive supplier cards. */
-.purchasing-workspace{max-width:1600px;margin:0 auto}
+.purchasing-workspace{min-width:0}
 .pur-toolbar{margin:0 0 14px;gap:12px;flex-wrap:wrap}
 .pur-toolbar h2{margin:0;font-size:20px}
 .pur-supplier-name{text-align:left;font-weight:600}
@@ -23,8 +23,6 @@
 .pur-event dl{margin:12px 0 0}
 .pur-event dl>div{display:grid;grid-template-columns:180px 1fr;gap:12px;padding:5px 0;font-size:12px}
 .pur-event dt{font-weight:600}.pur-event dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
-.pur-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
-.pur-tabs .on{background:var(--accent-soft);border-color:var(--accent)}
 .pur-po-edit{border:0;margin:0;padding:0;min-width:0}
 .pur-po-edit input:not([type=checkbox]),.pur-po-edit select,.pur-po-edit textarea{box-sizing:border-box;width:100%}
 .pur-po-edit .pur-card{margin-bottom:16px}
@@ -51,3 +49,29 @@
 
 .pur-invoice-links{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.pur-invoice-links>span{border:1px solid var(--line);border-radius:8px;padding:7px 10px}
 [data-pur-money-warnings]:empty{display:none}
+
+/* Purchasing uses Sales components; only column widths differ. */
+.purchasing-workspace.sales-order-editor{max-width:none;min-width:0}
+.pur-po-edit>.sales-block,.pur-po-edit>.sales-header-compact{margin-bottom:10px}
+.pur-select-add{display:flex;gap:5px;align-items:center}.pur-select-add select{min-width:0;flex:1}.pur-select-add button{flex:none}
+.pur-new-supplier{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}.pur-new-supplier label{width:100%}.pur-new-supplier input{flex:1;min-width:110px}
+.pur-glass-table,.pur-extra-table{width:100%;table-layout:fixed}
+.pur-glass-table th:first-child{width:28px}.pur-glass-table th:nth-child(2){width:180px}.pur-glass-table th:nth-child(3){width:56px}.pur-glass-table th:nth-child(11){width:44px}.pur-glass-table th:last-child,.pur-extra-table th:last-child{width:30px}
+.pur-glass-table td>div>label,.pur-extra-table td>label,.pur-extra-table td>div>label,.pur-cell-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.pur-glass-table input[type=checkbox]{width:auto;height:auto}
+.pur-glass-detail .pur-spec{margin:0}.pur-glass-detail td{padding-top:0}.pur-glass-detail summary{font-size:10px;color:var(--mut);text-align:left}
+.pur-glass-detail .sales-header-compact{margin-top:8px}
+.pur-extra-table th:first-child{width:30%}.pur-extra-table th:nth-child(6){width:20%}
+.purchasing-workspace .sales-block{min-width:0}.purchasing-workspace .sales-table-wrap{max-width:100%}
+.purchasing-workspace .mu-builder-actions{flex-wrap:wrap}.purchasing-workspace .mu-field-grid select{width:100%}
+.purchasing-workspace .pur-toolbar{margin-bottom:0}
+.pur-glass-table td,.pur-extra-table td{position:relative}
+.pur-pagination{display:flex;align-items:center;gap:6px;border-top:1px solid var(--line);padding-top:10px;margin-top:8px;font-size:12px;color:var(--text-2)}
+.purchasing-workspace .sales-list-card .sales-toolbar{flex-wrap:wrap}
+.purchasing-workspace .sales-list-card .sales-toolbar h2{font-size:15px;margin:0}
+.purchasing-workspace .sales-list-card .sales-toolbar>label{display:flex;gap:5px;align-items:center;font-size:11px;text-transform:none;margin:0}
+.purchasing-workspace .sales-list-card .sales-toolbar>label input{width:auto}
+.pur-receiving-row{grid-template-columns:repeat(4,minmax(0,1fr))}.pur-receiving-row>div:first-child{grid-column:1 / -1}
+@media(max-width:900px){.pur-receiving-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.pur-pagination{padding:10px 20px 14px}

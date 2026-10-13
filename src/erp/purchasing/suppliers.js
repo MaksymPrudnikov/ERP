@@ -1,7 +1,7 @@
 /* =====================================================================
    Purchasing · suppliers · 12 October 2026.
-   Supplier cards are optional for a purchase. A one-off shop stays text
-   on its PO; only Save as supplier creates a card (Purchasing P2).
+   Owner correction 13 October: new glass purchases select supplier cards.
+   Legacy free names stay historical; new cards start in CAD.
    The old glassSheet.supplier is a supply-point name used by cutting:
    migration and card edits must NEVER rewrite it, sizes, prices or stock.
    One company can have several supply points, each with its own currency.
@@ -17,7 +17,7 @@ const PUR_SUPPLIER_FIELDS=[
  {k:'contact',label:'Contact name',group:'Primary contact'},
  {k:'email',label:'Email for PO',group:'Primary contact'},
  {k:'phone',label:'Phone',group:'Primary contact'},
- {k:'currency',label:'Currency',group:'Purchasing',default:'USD'},
+ {k:'currency',label:'Currency',group:'Purchasing',default:'CAD'},
  {k:'paymentDays',label:'Payment terms · Net days',group:'Purchasing',type:'days'},
  {k:'leadTimeDays',label:'Lead time · days',group:'Purchasing',type:'days'},
  {k:'paymentMethod',label:'Payment method',group:'Purchasing',default:'Bank transfer'},
@@ -33,7 +33,7 @@ function purSupplierNamed(name){const k=purNameKey(name);return k?(DB.supplier||
 function purSupplierClean(raw){
  const s=raw&&typeof raw==='object'?raw:{},out={id:purText(s.id)};
  PUR_SUPPLIER_FIELDS.forEach(f=>{out[f.k]=f.type==='days'?purNumber(s[f.k]):purText(s[f.k]);});
- out.currency=out.currency.toUpperCase()||'USD';
+ out.currency=out.currency.toUpperCase()||'CAD';
  if(s.paymentMethod==null)out.paymentMethod='Bank transfer';
  out.active=s.active!==false;
  out.contacts=(Array.isArray(s.contacts)?s.contacts:[]).filter(c=>c&&typeof c==='object').map(c=>({
@@ -62,7 +62,7 @@ function purLinkSupplyRows(){
   if(!card){
    let id='SUP-'+sha256Hex(k).slice(0,20),n=1;
    while(ids.has(id))id='SUP-'+sha256Hex(k).slice(0,20)+'-'+n++;
-   card=purSupplierClean({id,name:row.supplier,currency:row.currency||'USD'});
+   card=purSupplierClean({id,name:row.supplier,currency:row.currency||'CAD'});
    DB.supplier.push(card);ids.set(id,card);names.set(k,card);
   }
   row.supplierId=card.id;
@@ -113,6 +113,7 @@ function purSupplierSave(d){
   if(old&&old.rev!==d.rev)throw new Error('Supplier changed elsewhere. Reopen the card to keep those changes.');
   const s=purSupplierClean(d);
   if(!s.name)throw new Error('Enter a supplier name.');
+  if(!old&&purSupplierNamed(s.name))throw new Error('Supplier already exists. Select its card.');
   if(!CURRENCY_RE.test(s.currency))throw new Error('Currency: enter a three-letter code.');
   PUR_SUPPLIER_FIELDS.filter(f=>f.type==='days').forEach(f=>{
    if(purText(d[f.k])!==''&&(s[f.k]==null||!Number.isInteger(s[f.k])||s[f.k]<0))throw new Error(f.label+': enter whole days, or leave empty.');

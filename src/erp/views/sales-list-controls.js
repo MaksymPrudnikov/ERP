@@ -54,3 +54,10 @@ function salesListDateMenuHTML(m,style){
   ${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-date-actions"><button type="button" class="sl-text-button" data-range-today onclick="salesListDateToday()">Today</button><button type="button" class="sl-reset" data-range-reset title="Clear date range · show all dates" aria-label="Clear date range" onclick="salesListDateReset()">↺</button><span class="sp"></span><button type="button" class="pri" data-range-apply onclick="salesListDateApply()">Apply</button></div></div>`;
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesListMenu){e.preventDefault();salesListCloseMenu();}});
+
+/* Shared status disclosure: the business statuses come from each list. */
+function salesListStatusControlHTML(chips,selection,total,onSelect){
+ const p=salesListLoadPrefs(),selected=chips.find(c=>c.key===selection),label=selected?selected.label:'All',n=selected?selected.n:total;
+ const toggle=`<button type="button" class="sl-status-toggle" data-status-toggle aria-expanded="${p.statusExpanded}" title="${p.statusExpanded?'Hide status filters':'Show status filters'}" onclick="salesListToggleStatuses()">${esc(label)} <b>${n}</b><span class="sl-disclosure" aria-hidden="true">${p.statusExpanded?'▾':'▸'}</span></button>`;
+ return `<div class="sales-status-chips sl-status-compact">${toggle}${p.statusExpanded?`<div class="sl-status-options"><button type="button" data-status-all class="${selection?'':'on'}" onclick="${onSelect}('')">All <b>${total}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${esc(c.key)}" class="${selection===c.key?'on':''}" onclick="${onSelect}(${esc(JSON.stringify(c.key))})">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`:''}</div>`;
+}

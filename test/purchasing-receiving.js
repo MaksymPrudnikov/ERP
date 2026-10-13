@@ -85,7 +85,7 @@ module.exports=async function({page,eq}){
   return {rejected:cases.map(purchaseReceipt=>{try{prepareImportedState({purchaseReceipt});return false;}catch(e){return true;}}),same:JSON.stringify(DB)===before};
  }),{rejected:[true,true,true],same:true});
  await t.p.evaluate(()=>{tab='purchasing';purFulfilEdit('receipt','');});
- await t.p.locator('#pur_delivery_supplierName').fill('Unplanned local shop');
+ await t.p.getByRole('button',{name:'Add supplier',exact:true}).click();await t.p.locator('#pur_delivery_supplierName').fill('Unplanned local shop');await t.p.getByRole('button',{name:'Add supplier',exact:true}).last().click();await t.p.getByRole('button',{name:'+ Other item',exact:true}).click();
  await t.p.locator('#pur_receive_0_description').fill('144 × 102 sheets from the truck');
  await t.p.locator('#pur_receive_0_qty').fill('3');await t.p.locator('#pur_receive_0_unit').fill('block');
  await t.p.locator('#pur_receive_0_widthIn').fill('144');await t.p.locator('#pur_receive_0_heightIn').fill('102');
