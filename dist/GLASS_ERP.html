@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 137 модулей, 20 стиля.
+  Состав сборки: 139 модулей, 21 стиля.
 -->
 <html lang="en">
 <head>
@@ -3141,6 +3141,35 @@ button.ch-stat.warn b{color:var(--warning)}
 .rep-screen-tabs{margin:0 0 14px}
 .rep-screen-period{margin:0 0 8px}
 
+/* ---- src/styles/purchasing.css ---- */
+/* Purchasing: existing table/filter styles, responsive supplier cards. */
+.purchasing-workspace{max-width:1600px;margin:0 auto}
+.pur-toolbar{margin:0 0 14px;gap:12px;flex-wrap:wrap}
+.pur-toolbar h2{margin:0;font-size:20px}
+.pur-supplier-name{text-align:left;font-weight:600}
+.pur-form{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pur-card{padding:20px;min-width:0;margin:0}
+.pur-card h3{margin:0 0 16px;font-size:14px}
+.pur-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.pur-fields>div{min-width:0}
+.pur-wide{grid-column:1 / -1}
+.pur-form input:not([type=checkbox]),.pur-form textarea{width:100%;box-sizing:border-box}
+.pur-form textarea{resize:vertical}
+.pur-section-head{display:flex;align-items:center;gap:16px;justify-content:space-between;margin-bottom:12px}
+.pur-section-head h3{margin:0}
+.pur-contact{display:grid;grid-template-columns:1fr 1fr 1.5fr 1fr auto;gap:12px;align-items:end;margin-top:12px}
+.pur-custom-row{display:grid;grid-template-columns:1fr 2fr auto;gap:12px;align-items:end;margin-top:12px}
+.pur-active{display:flex!important;align-items:center;gap:8px}
+.pur-card p{font-size:12px;margin:10px 0 0}
+.pur-event{padding:12px 0;border-top:1px solid var(--line)}
+.pur-event summary{cursor:pointer;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.pur-event summary span{font-size:12px;color:var(--mut)}
+.pur-event dl{margin:12px 0 0}
+.pur-event dl>div{display:grid;grid-template-columns:180px 1fr;gap:12px;padding:5px 0;font-size:12px}
+.pur-event dt{font-weight:600}.pur-event dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:900px){.pur-form{grid-template-columns:1fr}.pur-contact{grid-template-columns:1fr 1fr}.pur-contact>button{justify-self:start}}
+@media(max-width:520px){.pur-fields,.pur-custom-row{grid-template-columns:1fr}.pur-card{padding:14px}.pur-contact{grid-template-columns:1fr}.pur-toolbar{gap:8px}.pur-event dl>div{grid-template-columns:1fr;gap:4px}}
+
 </style>
 </head>
 <body>
@@ -3167,7 +3196,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='8079fbd5d3cd';
+var ERP_BUILD='5307e0aaee97';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -7649,7 +7678,7 @@ const MuntinModule={code:'MUNTIN',name:'Adaptive Muntin',version:'v4.5-port',com
      сами не трогают; про секреты экраны знают только «задан / не задан».
    Правило: файл не знает про заказы, цены и экраны.
    ===================================================================== */
-const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','reports','commissions','screens','masterdata','users','dashboard'];
+const USER_SECTIONS=['sales','optimization','production','shipping','finance','purchasing','customers','reports','commissions','screens','masterdata','users','dashboard'];
 /* Галочки, у которых нет своего пункта меню: Screens — ставить отчёты на
    экраны станций и людей (Reports → Edit → Show on; владелец, 11.10.2026). */
 const USER_ACCESS_LABELS={screens:'Screens'};
@@ -9726,7 +9755,7 @@ function normalizeGlassSheet(s){
  const cur=mdString(s.currency).toUpperCase();
  return {
   id:mdString(s.id)||glassSheetId(code,supplier,wIn,hIn),
-  productCode:code,supplier,
+  productCode:code,supplier,supplierId:mdString(s.supplierId),
   currency:CURRENCY_RE.test(cur)?cur:GLASS_DEFAULT_CURRENCY,
   sheetWIn:wIn,sheetHIn:hIn,
   purchaseUnit:mdUnitCode(s.purchaseUnit,GLASS_DEFAULT_UNIT),
@@ -10667,6 +10696,7 @@ function importGlassSheetsCsv(text){
   if(!inFile[glassSheetKey(s.productCode,s.supplier,s.sheetWIn,s.sheetHIn)])rep.missing.push(s.productCode+' · '+s.supplier);
  });
  normalizeMasterData();
+ if(typeof normalizePurchasing==='function')normalizePurchasing();
  return rep;
 }
 
@@ -13276,6 +13306,140 @@ function comSummary(ref,range){
   earned:sum(all,'com'),earnedHst:sum(all,'comHst'),paidOut,toPay:finMoney(sum(all,'com')-paidOut),toPayHst:finMoney(sum(all,'comHst')-paidOut)};
 }
 
+/* ==== src/erp/purchasing/suppliers.js ==== */
+/* =====================================================================
+   Purchasing · suppliers · 12 October 2026.
+   Supplier cards are optional for a purchase. A one-off shop stays text
+   on its PO; only Save as supplier creates a card (Purchasing P2).
+   The old glassSheet.supplier is a supply-point name used by cutting:
+   migration and card edits must NEVER rewrite it, sizes, prices or stock.
+   One company can have several supply points, each with its own currency.
+   The owner wants editable document fields: this catalogue is also the
+   source of supplier fields for the PO document constructor.
+   ===================================================================== */
+const PUR_SUPPLIER_FIELDS=[
+ {k:'name',label:'Supplier name',group:'Company'},
+ {k:'accountNumber',label:'Our account number',group:'Company'},
+ {k:'taxNumber',label:'Tax number',group:'Company'},
+ {k:'website',label:'Website',group:'Company'},
+ {k:'address',label:'Address',group:'Company',type:'area'},
+ {k:'contact',label:'Contact name',group:'Primary contact'},
+ {k:'email',label:'Email for PO',group:'Primary contact'},
+ {k:'phone',label:'Phone',group:'Primary contact'},
+ {k:'currency',label:'Currency',group:'Purchasing',default:'USD'},
+ {k:'paymentDays',label:'Payment terms · Net days',group:'Purchasing',type:'days'},
+ {k:'leadTimeDays',label:'Lead time · days',group:'Purchasing',type:'days'},
+ {k:'paymentMethod',label:'Payment method',group:'Purchasing',default:'Bank transfer'},
+ {k:'note',label:'Notes',group:'Purchasing',type:'area'}
+];
+DEFAULT.supplier=[];DEFAULT.purchasingEvent=[];
+function purText(v){return v==null?'':String(v).trim();}
+function purClone(v){return JSON.parse(JSON.stringify(v));}
+function purNumber(v){if(v==null||purText(v)==='')return null;const n=Number(v);return Number.isFinite(n)?n:null;}
+function purNameKey(v){return purText(v).replace(/\s+/g,' ').toLowerCase();}
+function purSupplierFind(id){return (DB.supplier||[]).find(s=>s.id===id)||null;}
+function purSupplierNamed(name){const k=purNameKey(name);return k?(DB.supplier||[]).find(s=>purNameKey(s.name)===k)||null:null;}
+function purSupplierClean(raw){
+ const s=raw&&typeof raw==='object'?raw:{},out={id:purText(s.id)};
+ PUR_SUPPLIER_FIELDS.forEach(f=>{out[f.k]=f.type==='days'?purNumber(s[f.k]):purText(s[f.k]);});
+ out.currency=out.currency.toUpperCase()||'USD';
+ if(s.paymentMethod==null)out.paymentMethod='Bank transfer';
+ out.active=s.active!==false;
+ out.contacts=(Array.isArray(s.contacts)?s.contacts:[]).filter(c=>c&&typeof c==='object').map(c=>({
+  name:purText(c.name),role:purText(c.role),email:purText(c.email),phone:purText(c.phone)
+ }));
+ out.customFields=(Array.isArray(s.customFields)?s.customFields:[]).filter(f=>f&&typeof f==='object').map((f,i)=>({
+  id:purText(f.id)||'field-'+(i+1),label:purText(f.label),value:purText(f.value)
+ }));
+ out.rev=Number.isSafeInteger(s.rev)&&s.rev>0?s.rev:1;
+ ['createdAt','updatedAt','createdBy','createdById','updatedBy','updatedById'].forEach(k=>{out[k]=purText(s[k]);});
+ return out;
+}
+/* Stable IDs also make repeated imports of the same old database agree.
+   Explicit links win over names (the company may have been renamed).
+   A currency taken from an old supply row is only the card's default. */
+function purLinkSupplyRows(){
+ const ids=new Map(DB.supplier.map(s=>[s.id,s])),names=new Map();
+ DB.supplier.forEach(s=>{const k=purNameKey(s.name);if(k&&!names.has(k))names.set(k,s);});
+ /* Supply-point aliases survive renaming a company. New CSV rows from
+    that same point must still attach to its existing card. */
+ (DB.glassSheet||[]).forEach(row=>{const s=ids.get(row.supplierId),k=purNameKey(row.supplier);if(s&&k&&!names.has(k))names.set(k,s);});
+ (DB.glassSheet||[]).forEach(row=>{
+  if(ids.has(row.supplierId))return;
+  const k=purNameKey(row.supplier);if(!k){row.supplierId='';return;}
+  let card=names.get(k);
+  if(!card){
+   let id='SUP-'+sha256Hex(k).slice(0,20),n=1;
+   while(ids.has(id))id='SUP-'+sha256Hex(k).slice(0,20)+'-'+n++;
+   card=purSupplierClean({id,name:row.supplier,currency:row.currency||'USD'});
+   DB.supplier.push(card);ids.set(id,card);names.set(k,card);
+  }
+  row.supplierId=card.id;
+ });
+}
+function normalizePurchasing(){
+ const seen=new Set();
+ DB.supplier=(Array.isArray(DB.supplier)?DB.supplier:[]).filter(s=>s&&typeof s==='object'&&purText(s.id)&&!seen.has(purText(s.id))&&(seen.add(purText(s.id)),true)).map(purSupplierClean);
+ DB.purchasingEvent=(Array.isArray(DB.purchasingEvent)?DB.purchasingEvent:[]).filter(e=>e&&typeof e==='object'&&e.id&&e.entityId&&e.what&&e.at).map(e=>({
+  id:purText(e.id),entity:purText(e.entity),entityId:purText(e.entityId),what:purText(e.what),at:purText(e.at),by:purText(e.by),byId:purText(e.byId),
+  changes:(Array.isArray(e.changes)?e.changes:[]).filter(c=>c&&typeof c==='object').map(c=>({field:purText(c.field),label:purText(c.label),before:c.before==null?null:purClone(c.before),after:c.after==null?null:purClone(c.after)}))
+ }));
+ purLinkSupplyRows();
+}
+function validatePurchasingPayload(src){
+ if(Array.isArray(src.purchasingEvent)){
+  const seen=new Set();
+  src.purchasingEvent.forEach((e,i)=>{
+   if(!e||typeof e!=='object'||Array.isArray(e)||!purText(e.id)||!purText(e.entity)||!purText(e.entityId)||!purText(e.what)||!purText(e.at)||!Array.isArray(e.changes)||e.changes.some(c=>!c||typeof c!=='object'||Array.isArray(c)))throw new Error('Purchasing history row '+(i+1)+': invalid event.');
+   if(seen.has(purText(e.id)))throw new Error('Purchasing history: duplicate id.');seen.add(purText(e.id));
+  });
+ }
+ if(!Array.isArray(src.supplier))return;
+ const ids=new Set();
+ src.supplier.forEach((s,i)=>{
+  if(!s||typeof s!=='object'||Array.isArray(s)||typeof s.id!=='string'||!s.id.trim())throw new Error('Supplier row '+(i+1)+': an id is required.');
+  if(ids.has(s.id.trim()))throw new Error('Suppliers: duplicate id.');ids.add(s.id.trim());
+  ['contacts','customFields'].forEach(k=>{
+   if(s[k]!=null&&(!Array.isArray(s[k])||s[k].some(x=>!x||typeof x!=='object'||Array.isArray(x))))throw new Error('Supplier row '+(i+1)+': '+k+' must be an array of records.');
+  });
+ });
+}
+function purPersist(fn){
+ if(!accessCan('purchasing'))return {ok:false,error:'Purchasing access is required.'};
+ return storageCommand(fn);
+}
+/* History is independent of the current document/card, so later removal
+   of a purchase does not erase who received, paid or undid an operation. */
+function purRecordEvent(entity,entityId,what,changes){
+ const e=Object.assign({id:salesUid('PE'),entity,entityId,what,at:new Date().toISOString(),changes:purClone(changes||[])},orderLogActor());
+ DB.purchasingEvent.push(e);return e;
+}
+function purHistory(entity,id){return (DB.purchasingEvent||[]).filter(e=>e.entity===entity&&e.entityId===id).slice().reverse();}
+function purSupplierSave(d){
+ return purPersist(()=>{
+  const old=d.id?purSupplierFind(d.id):null;
+  if(d.id&&!old)throw new Error('Supplier no longer exists. Reopen the list.');
+  if(old&&old.rev!==d.rev)throw new Error('Supplier changed elsewhere. Reopen the card to keep those changes.');
+  const s=purSupplierClean(d);
+  if(!s.name)throw new Error('Enter a supplier name.');
+  if(!CURRENCY_RE.test(s.currency))throw new Error('Currency: enter a three-letter code.');
+  PUR_SUPPLIER_FIELDS.filter(f=>f.type==='days').forEach(f=>{
+   if(purText(d[f.k])!==''&&(s[f.k]==null||!Number.isInteger(s[f.k])||s[f.k]<0))throw new Error(f.label+': enter whole days, or leave empty.');
+  });
+  const now=new Date().toISOString(),actor=orderLogActor();
+  s.id=old?old.id:salesUid('SUP');s.rev=old?old.rev+1:1;
+  s.createdAt=old?old.createdAt:now;s.createdBy=old?old.createdBy:actor.by;s.createdById=old?old.createdById:actor.byId;
+  s.updatedAt=now;s.updatedBy=actor.by;s.updatedById=actor.byId;
+  const fields=PUR_SUPPLIER_FIELDS.concat([{k:'active',label:'Active supplier'},{k:'contacts',label:'Other contacts'},{k:'customFields',label:'Custom fields'}]);
+  const changes=fields.filter(f=>JSON.stringify(old&&old[f.k])!==JSON.stringify(s[f.k])).map(f=>({field:f.k,label:f.label,before:old?old[f.k]:null,after:s[f.k]}));
+  if(old)DB.supplier[DB.supplier.indexOf(old)]=s;else DB.supplier.push(s);
+  if(changes.length)purRecordEvent('supplier',s.id,!old?'Created':old.active!==s.active?(s.active?'Restored':'Archived'):'Edited',changes);
+  /* Link any unlinked supply rows; a card edit does not rename old points. */
+  purLinkSupplyRows();
+  return s;
+ });
+}
+
 /* ==== src/erp/icons.js ==== */
 /* =====================================================================
    erp/icons  ·  erp-1.0
@@ -13352,6 +13516,7 @@ const NAV=[
  {k:'production', label:'Production', icon:'factory'},
  {k:'shipping', label:'Shipping', icon:'shipping'},
  {k:'finance', label:'Finance', icon:'finance'},
+ {k:'purchasing', label:'Purchasing', icon:'purchase'},
  {k:'customers', label:'Customers', icon:'users'},
  {k:'reports', label:'Reports', icon:'report'},
  {k:'commissions', label:'Agents', icon:'link'},
@@ -13450,6 +13615,7 @@ function render(){
   shipping:['Shipping','Readiness · pickup · delivery · closeout'],
   production:['Production','Stations · work positions · operations · terminals'],
   masterdata:['Master Data','Glass catalog · supply points · hardware · database overview'],finance:['Finance','Customer receipts · deposits on account · order balances'],
+  purchasing:['Purchasing','Suppliers · purchases'],
   /* Вкладка станции — «ARRIS · Glass Farm», а не «Glass Farm · Glass Farm». */
   station:[typeof stationCode==='string'&&stationCode?stationCode:'Station','Station screen']
  }[tab]||['Glass Farm','Production system'];
@@ -13457,7 +13623,7 @@ function render(){
  document.title=meta[0]+' · Glass Farm';
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
- const V={dashboard:viewDashboard,reports:typeof viewReports==='function'?viewReports:null,commissions:typeof viewCommissions==='function'?viewCommissions:null,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,station:typeof viewStation==='function'?viewStation:null}[tab];
+ const V={dashboard:viewDashboard,reports:typeof viewReports==='function'?viewReports:null,commissions:typeof viewCommissions==='function'?viewCommissions:null,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,purchasing:typeof viewPurchasing==='function'?viewPurchasing:null,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
  const focus=renderFocusKey();
@@ -23743,6 +23909,11 @@ function mdSheetPickSet(k,v){
 /* Точка поставки знает свою валюту: Vitro Barrie — CAD, Vitro USA — USD. */
 function mdSheetPoints(){const m=new Map();(DB.glassSheet||[]).forEach(s=>{if(s.supplier&&!m.has(s.supplier))m.set(s.supplier,s.currency||'');});return m;}
 function mdSheetPointPicked(v){const cur=mdSheetPoints().get(String(v||'').trim()),el=document.getElementById('md_sheetCurrency');if(cur&&el)el.value=cur;}
+/* Card links do not rename established supply points or reprice a sheet. */
+function mdSheetSupplierPicked(id){
+ const card=purSupplierFind(id),point=document.getElementById('md_sheetSupplier');
+ if(card&&point&&!point.value.trim()){point.value=card.name;document.getElementById('md_sheetCurrency').value=card.currency;}
+}
 function mdSheetForm(){
  const r=mdSheetDraft,isNew=mdSheetEdit==='new',p=r.productCode?glassProductByCode(r.productCode):null;
  if(!mdSheetPick.touched){mdSheetPick={mfr:p?p.manufacturer:'',thick:p?String(p.thicknessMm):'',q:'',touched:true};}
@@ -23755,6 +23926,7 @@ function mdSheetForm(){
    <div class="md-sheet-wide"><label>Product *</label><select id="md_sheetCode" size="8">${mdSheetProductOptions(r.productCode)}</select><div class="mut md-sheet-tiny"><span id="md_sheetCount">${mdSheetProducts().length} of ${DB.glassProduct.length}</span></div></div>
   </div></div>
   <div class="md-sheet-box"><h4>Supply</h4><div class="md-sheet-fields md-sheet-3">
+   <div class="md-sheet-wide"><label>Supplier card</label><select id="md_sheetSupplierId" onchange="mdSheetSupplierPicked(this.value)"><option value="">Match by supply point</option>${(DB.supplier||[]).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>`<option value="${esc(s.id)}" ${s.id===r.supplierId?'selected':''} data-raw>${esc(s.name)}${s.active?'':' · Archived'}</option>`).join('')}</select></div>
    <div><label>Supply point *</label><input id="md_sheetSupplier" list="md_sheetPoints" autocomplete="off" value="${esc(r.supplier)}" placeholder="Vitro Barrie" onchange="mdSheetPointPicked(this.value)"><datalist id="md_sheetPoints">${[...points.keys()].map(n=>`<option value="${esc(n)}"></option>`).join('')}</datalist></div>
    <div><label>Currency</label><input id="md_sheetCurrency" value="${esc(r.currency)}" maxlength="3" title="Filled from the supply point"></div>
    <div><label>Availability</label><select id="md_sheetAvail">${mdVocabOptions('availability',r.availability)}</select></div>
@@ -23781,7 +23953,7 @@ function mdSheetSave(){
  if(date&&!ISO_DATE_RE.test(date))return fail(e,'Price date: format YYYY-MM-DD');
  const next=normalizeGlassSheet({
   id:mdSheetEdit==='new'?'':mdSheetDraft.id,
-  productCode:code,supplier,currency:cur||GLASS_DEFAULT_CURRENCY,
+  productCode:code,supplier,supplierId:mdVal('md_sheetSupplierId'),currency:cur||GLASS_DEFAULT_CURRENCY,
   sheetWIn:w===''?null:+w,sheetHIn:h===''?null:+h,
   purchaseUnit:mdVal('md_sheetUnit'),
   purchasePrice:mdVal('md_sheetPrice')===''?null:+mdVal('md_sheetPrice'),
@@ -23793,9 +23965,13 @@ function mdSheetSave(){
  const clash=(DB.glassSheet||[]).some(s=>s.id!==mdSheetDraft.id&&
   glassSheetKey(s.productCode,s.supplier,s.sheetWIn,s.sheetHIn)===glassSheetKey(next.productCode,next.supplier,next.sheetWIn,next.sheetHIn));
  if(clash)return fail(e,'This supply point with this sheet is already there');
- if(mdSheetEdit==='new')DB.glassSheet.push(next);
- else{const at=DB.glassSheet.findIndex(s=>s.id===mdSheetDraft.id);if(at<0)return fail(e,'Row not found');DB.glassSheet[at]=next;}
- mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',q:''};normalizeMasterData();touch();render();
+ const result=storageCommand(()=>{
+  if(mdSheetEdit==='new')DB.glassSheet.push(next);
+  else{const at=DB.glassSheet.findIndex(s=>s.id===mdSheetDraft.id);if(at<0)throw new Error('Row not found.');DB.glassSheet[at]=next;}
+  normalizeMasterData();normalizePurchasing();
+ });
+ if(!result.ok)return fail(e,result.error);
+ mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',q:''};render();
 }
 function mdSheetDelete(id){
  if(!confirm('Delete this supply row?'))return;
@@ -25609,6 +25785,95 @@ function comPayPick(id,on){if(!comPayDraft)return;comPayDraft.orderIds=comPayDra
 function comPaySave(){const out=comPayoutAdd(comPayDraft);if(out.error){comNotice=out.error;render();return;}comNotice='';comPayDraft=null;render();}
 function comPayDelete(id){if(!confirm('Delete this payout? Its orders are due again.'))return;const out=comPayoutDelete(id);comNotice=out.error||'';render();}
 
+/* ==== src/erp/views/purchasing.js ==== */
+/* Purchasing P1: supplier cards. Column filters use the Sales list engine.
+   Edits stay in a draft until one storageCommand saves the whole card.
+   Additional contacts and custom fields are optional (owner, 12.10.2026).
+   No global search, no stock balances and no purchase in customer Finance. */
+let purSupplierDraft=null,purSupplierOriginal='',purNotice='';
+function purArg(v){return esc(JSON.stringify(String(v)));}
+function purListScope(){return 'purchaseSuppliers';}
+function purListColumns(){
+ const visible=['name','email','phone','currency','paymentDays','leadTimeDays'];
+ return PUR_SUPPLIER_FIELDS.map(f=>({k:f.k,label:f.label,type:f.type==='days'?'number':f.k==='currency'?'list':'text',def:visible.includes(f.k)}))
+  .concat([{k:'supplyCount',label:'Supply rows',type:'number',def:true},{k:'status',label:'Status',type:'list',def:true}]);
+}
+function purListDefaultSort(){return {k:'name',dir:'asc'};}
+function purSupplierInfos(){
+ const counts=new Map();(DB.glassSheet||[]).forEach(s=>counts.set(s.supplierId,(counts.get(s.supplierId)||0)+1));
+ return (DB.supplier||[]).map(s=>({o:{id:s.id},s,memo:Object.assign({},s,{supplyCount:counts.get(s.id)||0,status:s.active?'Active':'Archived'})}));
+}
+function purListHeader(c){
+ const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);
+ return `<th class="${c.type==='number'?'n':''}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;
+}
+function viewPurchasing(){
+ if(!accessCan('purchasing'))return '<div class="empty">Purchasing access is required.</div>';
+ if(purSupplierDraft)return purSupplierForm();
+ const infos=purSupplierInfos(),rows=salesListRows(infos),cols=salesListColumns();
+ const cell=(i,c)=>{
+  const v=salesListValue(i,c.k);
+  if(c.k==='name')return `<td><button type="button" class="fin-link pur-supplier-name" data-pur-open="${esc(i.s.id)}" onclick="purSupplierEdit(${purArg(i.s.id)})" data-raw>${esc(v)||'Unnamed supplier'}</button></td>`;
+  if(c.k==='status')return `<td><span class="pill ${i.s.active?'ok':''}">${esc(v)}</span></td>`;
+  return `<td class="${c.type==='number'?'n':''}" data-raw>${v==null||v===''?'<span class="mut">—</span>':esc(v)}</td>`;
+ };
+ return `<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><h2>Suppliers</h2><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new onclick="purSupplierEdit('')">+ Supplier</button></div>
+  ${purNotice?`<div class="ncr-error" role="alert">${esc(purNotice)}</div>`:''}
+  ${salesListFilterChips()}<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table" data-pur-suppliers><thead><tr><th><button type="button" class="gb-settings" title="Columns" aria-label="Columns" data-columns-button onclick="salesListOpenColumns(event)">${ico('settings')}</button></th>${cols.map(purListHeader).join('')}</tr></thead>
+  <tbody>${rows.map(i=>`<tr data-pur-supplier="${esc(i.s.id)}"><td></td>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No suppliers yet. Add a supplier when you need a reusable card.'}</td></tr>`}</tbody>
+  <tfoot><tr class="sl-foot"><td colspan="${cols.length+1}">${rows.length} of ${infos.length} suppliers</td></tr></tfoot></table></div></div>${salesListMenuHTML(infos)}</div>`;
+}
+function purSupplierEdit(id){
+ if(!accessCan('purchasing'))return;
+ const s=id?purSupplierFind(id):null;if(id&&!s)return;
+ purSupplierDraft=purClone(s||purSupplierClean({}));purSupplierOriginal=JSON.stringify(purSupplierDraft);purNotice='';salesListMenu=null;render();
+ if(!id)setTimeout(()=>document.getElementById('pur_supplier_name')?.focus(),0);
+}
+function purSupplierInput(f){
+ const d=purSupplierDraft,id='pur_supplier_'+f.k,v=d[f.k]==null?'':d[f.k];
+ const attrs=`id="${id}" data-pur-field="${f.k}" value="${esc(v)}" oninput="purSupplierDraft.${f.k}=this.value"`;
+ const input=f.type==='area'?`<textarea id="${id}" data-pur-field="${f.k}" rows="3" oninput="purSupplierDraft.${f.k}=this.value">${esc(v)}</textarea>`:
+  `<input ${attrs} ${f.type==='days'?'type="number" step="1" min="0"':f.k==='currency'?'list="pur_currencies" maxlength="3"':'type="text"'}>`;
+ return `<div class="${f.type==='area'?'pur-wide':''}"><label for="${id}">${esc(f.label)}${f.k==='name'?' *':''}</label>${input}</div>`;
+}
+function purSupplierForm(){
+ const d=purSupplierDraft,groups=[...new Set(PUR_SUPPLIER_FIELDS.map(f=>f.group))];
+ const extra=d.contacts.map((c,i)=>`<div class="pur-contact" data-pur-contact="${i}">
+  ${[['name','Name'],['role','Role / department'],['email','Email'],['phone','Phone']].map(([k,l])=>`<div><label for="pur_contact_${i}_${k}">${l}</label><input id="pur_contact_${i}_${k}" value="${esc(c[k])}" oninput="purSupplierDraft.contacts[${i}].${k}=this.value"></div>`).join('')}
+  <button type="button" class="sm dl" aria-label="Remove contact ${i+1}" onclick="purSupplierDraft.contacts.splice(${i},1);render()">×</button></div>`).join('');
+ const custom=d.customFields.map((f,i)=>`<div class="pur-custom-row" data-pur-custom="${i}"><div><label for="pur_custom_label_${i}">Label</label><input id="pur_custom_label_${i}" value="${esc(f.label)}" oninput="purSupplierDraft.customFields[${i}].label=this.value"></div><div><label for="pur_custom_value_${i}">Value</label><input id="pur_custom_value_${i}" value="${esc(f.value)}" oninput="purSupplierDraft.customFields[${i}].value=this.value"></div><button type="button" class="sm dl" aria-label="Remove custom field ${i+1}" onclick="purSupplierDraft.customFields.splice(${i},1);render()">×</button></div>`).join('');
+ const sheets=d.id?(DB.glassSheet||[]).filter(s=>s.supplierId===d.id):[];
+ return `<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><button type="button" class="sl-btn" onclick="purSupplierCancel()">← Suppliers</button><h2 data-raw>${d.id?esc(d.name)||'Supplier':'New supplier'}</h2><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-save onclick="purSupplierFormSave()">Save</button><button type="button" onclick="purSupplierCancel()">Cancel</button></div>
+  ${purNotice?`<div class="ncr-error" data-pur-error role="alert">${esc(purNotice)}</div>`:''}
+  <div class="pur-form form" data-pur-form><datalist id="pur_currencies"><option value="USD"></option><option value="CAD"></option></datalist>
+  ${groups.map(g=>`<section class="card pur-card"><h3>${g}</h3><div class="pur-fields">${PUR_SUPPLIER_FIELDS.filter(f=>f.group===g).map(purSupplierInput).join('')}</div></section>`).join('')}
+  <section class="card pur-card pur-wide"><div class="pur-section-head"><h3>Other contacts</h3><button type="button" class="sm" data-pur-add-contact onclick="purSupplierDraft.contacts.push({name:'',role:'',email:'',phone:''});render()">+ Contact</button></div>${extra||'<p class="mut">Add another person or department when needed.</p>'}</section>
+  <section class="card pur-card pur-wide"><div class="pur-section-head"><h3>Custom fields</h3><button type="button" class="sm" data-pur-add-field onclick="purSupplierDraft.customFields.push({id:salesUid('SF'),label:'',value:''});render()">+ Field</button></div>${custom||'<p class="mut">Your own labels and values.</p>'}</section>
+  ${sheets.length?`<section class="card pur-card pur-wide"><h3>Supply points · ${sheets.length}</h3><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Supply point</th><th>Glass</th><th>Sheet, in</th><th>Currency</th></tr></thead><tbody>${sheets.map(s=>`<tr><td data-raw>${esc(s.supplier)}</td><td data-raw>${esc(s.productCode)}</td><td>${s.sheetWIn==null?'—':esc(s.sheetWIn+' × '+s.sheetHIn)}</td><td>${esc(s.currency)}</td></tr>`).join('')}</tbody></table></div></section>`:''}
+  <section class="card pur-card pur-wide"><label class="pur-active"><input type="checkbox" data-pur-active ${d.active?'checked':''} onchange="purSupplierDraft.active=this.checked"> Active supplier</label><p class="mut">Archived cards keep their supply links and can be restored here.</p></section>
+  ${d.id?purHistoryHTML('supplier',d.id):''}
+  </div></div>`;
+}
+function purHistoryValue(value){
+ if(value==null||value==='')return '—';
+ if(typeof value==='boolean')return value?'Yes':'No';
+ if(Array.isArray(value))return value.map(x=>x&&typeof x==='object'?(x.label?x.label+': '+x.value:[x.name,x.role,x.email,x.phone].filter(Boolean).join(' · ')):String(x)).join('; ')||'—';
+ return typeof value==='object'?JSON.stringify(value):String(value);
+}
+function purHistoryHTML(entity,id){
+ const events=purHistory(entity,id);
+ return `<section class="card pur-card pur-wide" data-pur-history><h3>History</h3>${events.length?events.map(e=>`<details class="pur-event"><summary><b>${esc(e.what)}</b><span>${esc(new Date(e.at).toLocaleString())}</span><span data-raw>${esc(e.by)||'Setup'}</span></summary><dl>${e.changes.map(c=>`<div><dt data-raw>${esc(c.label||c.field)}</dt><dd data-raw>${esc(purHistoryValue(c.before))} → ${esc(purHistoryValue(c.after))}</dd></div>`).join('')}</dl></details>`).join(''):'<p class="mut">No recorded changes yet.</p>'}</section>`;
+}
+function purSupplierFormSave(){
+ if(!purSupplierDraft)return;const r=purSupplierSave(purSupplierDraft);
+ if(!r.ok){purNotice=r.error;render();return;}
+ purSupplierDraft=null;purNotice='';render();
+}
+function purSupplierCancel(){
+ if(purSupplierDraft&&JSON.stringify(purSupplierDraft)!==purSupplierOriginal&&!confirm('Discard changes and return to suppliers?'))return;
+ purSupplierDraft=null;purNotice='';render();
+}
+
 /* ==== src/erp/views/sales-list-ui.js ==== */
 /* =====================================================================
    views/sales-list-ui  ·  sales-list-1.0
@@ -25675,8 +25940,9 @@ let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAncho
 /* ------------------------------ Настройки ------------------------------ */
 /* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
 const salesQueuePrefs={optimization:null,shipping:null};
-function salesListScope(){if(tab==='shipping'&&typeof shippingListScope==='function'&&shippingListScope())return shippingListScope();if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListScope(){if(tab==='purchasing'&&typeof purListScope==='function')return purListScope();if(tab==='shipping'&&typeof shippingListScope==='function'&&shippingListScope())return shippingListScope();if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
 function salesListCatalog(){
+ if(tab==='purchasing'&&typeof purListColumns==='function')return purListColumns();
  if(salesListScope()==='shippingPS')return shippingListColumns();
  if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
  if(salesListScope().startsWith('prod')&&typeof prodListColumns==='function')return prodListColumns();
@@ -25890,7 +26156,7 @@ function salesListBase(){
  return {all:all.concat(ncrs.map(i=>i.o)),infos};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
-function salesListDefaultSort(){if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
+function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
 function salesListDateColumn(){return salesListScope()==='usersLog'?'when':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos,skip){
@@ -40297,6 +40563,7 @@ function validateImportedState(src){
  Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('The "'+k+'" field must be an array.');});
  if(typeof finValidatePayload==='function')finValidatePayload(src);
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
+ if(typeof validatePurchasingPayload==='function')validatePurchasingPayload(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
@@ -40388,6 +40655,7 @@ function normalizeDB(){
  normalizeUsers();
  normalizeSalesModules();
  if(typeof normalizeMasterData==='function')normalizeMasterData();
+ if(typeof normalizePurchasing==='function')normalizePurchasing();
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
