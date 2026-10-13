@@ -6,13 +6,13 @@ function purRequestPages(d,options){
   const source=p&&p.lines.find(x=>x.id===l.poLineId);
   return Object.assign({},source||{},l,{held:false,sheetsPerBlock:null});
  })}));
- return purDocPages(model,Object.assign({},purDocOptions(options),{currency:false,prices:false,totals:false,receiving:false,damage:false}),'DELIVERY REQUEST');
+ return purDocPages(model,Object.assign({},purDocOptions(options),{currency:false,prices:false,totals:false,receiving:false,damage:false,invoices:false,payments:false}),'DELIVERY REQUEST');
 }
 function purRequestPreviewOpen(){
  if(!purFulfilSaveForm())return;purFulfilPreview={opts:purDocOptions(DB.purchaseDocumentOptions),panel:false};render();
 }
 function purRequestPreviewHTML(){
- const d=purFulfilDraft.data,v=purFulfilPreview,fields=PUR_PO_FIELDS.filter(f=>!['currency','prices','totals','receiving','damage','held'].includes(f.k));
+ const d=purFulfilDraft.data,v=purFulfilPreview,fields=PUR_PO_FIELDS.filter(f=>!['currency','prices','totals','receiving','damage','held','invoices','payments'].includes(f.k));
  const panel='<aside class="doc-panel"><b>Customize · Delivery request</b>'+fields.map(f=>'<label class="doc-opt"><input type="checkbox" '+(v.opts[f.k]?'checked':'')+' onchange="purFulfilPreview.opts.'+f.k+'=this.checked;render()"><span>'+f.label+'</span></label>').join('')+'</aside>';
  return '<div class="doc-back"><div class="doc-window" role="dialog" aria-label="Delivery request preview"><div class="doc-bar"><b>'+esc(d.number)+'</b><span class="doc-spacer"></span><button type="button" onclick="purFulfilPreview.panel=!purFulfilPreview.panel;render()">✎ Customize</button><button type="button" onclick="purRequestDocAction(\'pdf\')">Download PDF</button><button type="button" onclick="purRequestDocAction(\'print\')">Print</button><button type="button" onclick="purRequestDocAction(\'email\')">Open Gmail + PDF</button><button type="button" onclick="purRequestSentForm()">Mark sent</button><button type="button" onclick="purFulfilPreview=false;render()">Close</button></div><div class="doc-status">'+esc(purNotice||'Attach the PDF yourself. Mark sent after sending.')+'</div><div class="doc-body'+(v.panel?' with-panel':'')+'"><div class="doc-pages">'+purRequestPages(d,v.opts).map(pg=>'<div class="doc-sheet">'+docPageSVG(pg)+'</div>').join('')+'</div>'+(v.panel?panel:'')+'</div></div></div>';
 }

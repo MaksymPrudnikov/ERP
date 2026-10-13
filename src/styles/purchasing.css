@@ -48,3 +48,6 @@
 .pur-receiving{margin:0 0 16px}.pur-receiving-row{grid-template-columns:2.5fr repeat(4,minmax(0,1fr))}
 [data-pur-delivery-warnings]:empty{display:none}
 @media(max-width:900px){.pur-receiving-row{grid-template-columns:repeat(2,minmax(0,1fr))}.pur-receiving-row>div:first-child{grid-column:1 / -1}}
+
+.pur-invoice-links{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.pur-invoice-links>span{border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+[data-pur-money-warnings]:empty{display:none}
