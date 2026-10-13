@@ -26,13 +26,34 @@ function purDocGmailURL(p){
  const body=['Hello,','','Please find the purchase order attached.',p.expectedDate?'Requested delivery: '+docDate(p.expectedDate)+'.':'',p.note,'','Thank you,',(DB.company||{}).legalName||''].filter(x=>x!==null&&x!==undefined).join('\n');
  return docGmailUrl(p.to,subject,body)+(p.cc?'&cc='+encodeURIComponent(p.cc):'');
 }
+/* Match the Sales document row: description on the left, sizes and
+   quantities to its right, then rate and amount. Columns that are hidden
+   in Customize give their space back to the description. */
+function purDocColumns(p,opt){
+ const cols=[{k:'n',label:'#',w:22}];
+ if(opt.description)cols.push({k:'description',label:'Description',w:0});
+ if((opt.sheetSize&&p.lines.some(l=>l.widthIn||l.heightIn))||(opt.size&&p.lines.some(l=>l.spec)))cols.push({k:'size',label:'Size, in',w:80,right:true});
+ if(opt.quantity)cols.push({k:'qty',label:'Quantity',w:62,right:true});
+ if(opt.prices)cols.push({k:'price',label:'Price',w:78,right:true},{k:'amount',label:'Amount',w:82,right:true});
+ const flex=cols.find(c=>c.k==='description')||cols[0];flex.w+=DOC_PAGE.right-DOC_PAGE.left-cols.reduce((n,c)=>n+c.w,0);
+ let x=DOC_PAGE.left;cols.forEach(c=>{c.x=x;x+=c.w;});return cols;
+}
+function purDocRowValues(p,l,i,opt){
+ let size=opt.sheetSize&&l.widthIn&&l.heightIn?l.widthIn+' × '+l.heightIn:'';
+ if(!size&&opt.size&&l.spec){const sizes=[...new Set(l.spec.parts.filter(c=>c.finished).map(c=>c.finished.w+' × '+c.finished.h))];size=sizes.length===1?sizes[0]:sizes.length?'See below':'';}
+ const amount=purLineTotal(l);
+ return {n:String(i+1),description:l.description||'Item',size,
+  qty:(l.qty==null?'Not set':l.qty)+(l.unit?' '+mdUnitName(l.unit):''),
+  price:l.price==null?'Not set':docNum(l.price,2)+(l.priceUnit||l.unit?' / '+mdUnitName(l.priceUnit||l.unit):''),amount:amount==null?'Not complete':docNum(amount,2)};
+}
 function purDocPages(p,raw){
- const opt=purDocOptions(raw),pages=[],W=DOC_PAGE,C=DOC_COLOR;let P,y;
+ const opt=purDocOptions(raw),pages=[],W=DOC_PAGE,C=DOC_COLOR,cols=purDocColumns(p,opt);let P,y,tableOn=false;
+ const tableHead=()=>{cols.forEach(c=>docLabel(P,c.right?c.x+c.w-6:c.x+6,y+8,c.label,{align:c.right?'right':'left'}));P.line(W.left,y+14,W.right,y+14,{stroke:C.navy,lw:1.3});y+=20;};
  const start=()=>{
   P=docPage();pages.push(P);y=W.top;
   P.text(W.left,y+12,'PURCHASE ORDER',{size:14,bold:true,color:C.navy});
   P.text(W.right,y+12,p.number||'Draft',{size:12,bold:true,align:'right'});y+=28;
-  P.line(W.left,y,W.right,y);y+=12;
+  P.line(W.left,y,W.right,y);y+=12;if(tableOn)tableHead();
  };
  const room=h=>{if(y+h>W.bottom)start();};
  const text=(s,size,bold,indent)=>{
@@ -56,13 +77,18 @@ function purDocPages(p,raw){
  if(opt.contact)[['Contact',s.contact],['Phone',s.phone],['Email',p.to],['CC',p.cc]].forEach(([k,v])=>field(k,v));
  if(opt.account)[['Our account',s.accountNumber],['Tax number',s.taxNumber],['Website',s.website]].forEach(([k,v])=>field(k,v));
  if(opt.terms){if(s.paymentDays!=null)field('Payment terms','Net '+s.paymentDays+' days');field('Payment method',s.paymentMethod);}
- gap();
+ gap();room(50);tableOn=true;tableHead();
  p.lines.forEach((l,i)=>{
-  room(48);P.rect(W.left,y,W.right-W.left,20,{fill:C.bar,r:3});P.text(W.left+8,y+13,'LINE '+(i+1),{size:8,bold:true});y+=27;
-  if(opt.description)text(l.description||'Item',9,true);
+  const values=purDocRowValues(p,l,i,opt),cells=cols.map(c=>({c,lines:docWrap(values[c.k],8,c.k==='amount',c.w-12)})),count=Math.max(...cells.map(c=>c.lines.length));
+  let pos=0;
+  while(pos<count){
+   room(24);const n=Math.min(count-pos,Math.max(1,Math.floor((W.bottom-y-10)/11))),height=n*11+10;
+   P.rect(W.left,y,W.right-W.left,height,{fill:C.bar,r:3});
+   cells.forEach(({c,lines})=>lines.slice(pos,pos+n).forEach((s,k)=>P.text(c.right?c.x+c.w-6:c.x+6,y+13+k*11,s,{size:8,bold:c.k==='amount'||c.k==='n',align:c.right?'right':'left'})));
+   y+=height+5;pos+=n;
+  }
   if(opt.productCode)field('Glass code',l.productCode);
-  if(opt.quantity)field('Quantity',(l.qty==null?'Not set':l.qty)+(l.unit?' '+mdUnitName(l.unit):''));
-  if(opt.sheetSize){if(l.widthIn&&l.heightIn)field('Sheet',l.widthIn+' × '+l.heightIn+' in');if(l.sheetsPerBlock!=null)field('Sheets per block',l.sheetsPerBlock);}
+  if(opt.sheetSize&&l.sheetsPerBlock!=null)field('Sheets per block',l.sheetsPerBlock);
   if(opt.lineDate)field('Expected',docDate(l.expectedDate));
   if(opt.held&&l.held)text('Held at supplier',8,true);
   purSpecTexts(l.spec,opt).forEach(t=>text(t));
@@ -77,7 +103,6 @@ function purDocPages(p,raw){
    y+=110;
    (shape.holes||[]).forEach(h=>text('Hole diameter '+h.d+' in · X '+h.x+' · Y '+h.y));
   });
-  if(opt.prices){field('Price',l.price==null?'Not set':docNum(l.price,2)+' '+p.currency+(l.priceUnit||l.unit?' / '+mdUnitName(l.priceUnit||l.unit):''));const total=purLineTotal(l);field('Line total',total==null?'Not complete':docNum(total,2)+' '+p.currency);}
   if(opt.notes&&l.note)field('Note',l.note);gap();
  });
  if(opt.totals){const t=purOrderTotals(p);text((t.complete?'TOTAL':'KNOWN SUBTOTAL')+': '+docNum(t.known,2)+' '+p.currency,11,true);if(t.missing)text(t.missing+' line(s) need price, quantity or conversion.');gap();}

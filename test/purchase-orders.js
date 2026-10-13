@@ -80,6 +80,13 @@ module.exports=async function({page,eq}){
   const pages=purDocPages(p),texts=pages.flatMap(pg=>pg.items.filter(i=>i.t==='text')),last=texts.some(i=>i.s.includes('LAST UNIQUE END NOTE'));
   return {many:pages.length>3,last,all:pages.every(pg=>pg.items.every(i=>i.t!=='text'||i.y>=DOC_PAGE.top&&i.y<=DOC_PAGE.footer)),end:purOrderTotals(p).known};
  }),{many:true,last:true,all:true,end:90});
+ eq('PO prints different sheet sizes with quantity and prices in aligned Sales-style columns',await t.p.evaluate(()=>{
+  const p=purOrderClean({currency:'USD',lines:[{description:'Large sheets',qty:2,unit:'block',widthIn:144,heightIn:102,sheetsPerBlock:13,price:2.15,priceUnit:'sqft'},{description:'Smaller sheets',qty:3,unit:'block',widthIn:130,heightIn:96,sheetsPerBlock:16,price:2.15,priceUnit:'sqft'}]});
+  const texts=purDocPages(p).flatMap(x=>x.items).filter(x=>x.t==='text'),at=s=>texts.find(x=>x.s===s);
+  const a=['Large sheets','144 × 102','2 block','2.15 / sq ft','5,701.80'].map(at),b=['Smaller sheets','130 × 96','3 block','8,944.00'].map(at);
+  const hidden=purDocPages(p,{sheetSize:false,prices:false}).flatMap(x=>x.items).filter(x=>x.t==='text').map(x=>x.s);
+  return {firstRow:a.every(Boolean)&&a.every(x=>x.y===a[0].y),secondRow:b.every(Boolean)&&b.every(x=>x.y===b[0].y),leftToRight:a.every((x,i)=>!i||x.x>a[i-1].x),total:purOrderTotals(p).known,hidden:!hidden.includes('144 × 102')&&!hidden.includes('PRICE')&&!hidden.includes('AMOUNT')};
+ }),{firstRow:true,secondRow:true,leftToRight:true,total:14645.8,hidden:true});
  eq('Customize options change preview only until Save as default, and survive Export / Import',await t.p.evaluate(()=>{
   purOrderEdit(poLinked);purDocOpen();purDocSet('prices',false);purDocSet('totals',false);
   const before=purDocOptions(DB.purchaseDocumentOptions).prices;
