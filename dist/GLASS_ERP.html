@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 144 модулей, 21 стиля.
+  Состав сборки: 147 модулей, 21 стиля.
 -->
 <html lang="en">
 <head>
@@ -3189,6 +3189,10 @@ button.ch-stat.warn b{color:var(--warning)}
 @media(max-width:520px){.pur-fields,.pur-custom-row{grid-template-columns:1fr}.pur-card{padding:14px}.pur-contact{grid-template-columns:1fr}.pur-toolbar{gap:8px}.pur-event dl>div{grid-template-columns:1fr;gap:4px}}
 @media(max-width:900px){.pur-line-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.pur-po-line .pur-section-head{flex-wrap:wrap}}
 
+.pur-receiving{margin:0 0 16px}.pur-receiving-row{grid-template-columns:2.5fr repeat(4,minmax(0,1fr))}
+[data-pur-delivery-warnings]:empty{display:none}
+@media(max-width:900px){.pur-receiving-row{grid-template-columns:repeat(2,minmax(0,1fr))}.pur-receiving-row>div:first-child{grid-column:1 / -1}}
+
 </style>
 </head>
 <body>
@@ -3215,7 +3219,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='aefbf574a068';
+var ERP_BUILD='c14677f2c0dc';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13470,7 +13474,7 @@ DEFAULT.purchaseOrder=[];DEFAULT.purchaseOrderSeq=0;
 const PUR_ORDER_STATES={draft:'Draft',sent:'Sent',closed:'Closed',cancelled:'Cancelled'};
 function purOrderFind(id){return (DB.purchaseOrder||[]).find(p=>p.id===id)||null;}
 function purOrderNumber(n){return 'PO-'+String(n).padStart(4,'0');}
-function purOrderStatus(p){return p.deletedAt?'Deleted':PUR_ORDER_STATES[p.state]||'Draft';}
+function purOrderStatus(p){return p.deletedAt?'Deleted':['closed','cancelled'].includes(p.state)?PUR_ORDER_STATES[p.state]:purReceiptState(p)||PUR_ORDER_STATES[p.state]||'Draft';}
 function purLineClean(x,i){
  x=x&&typeof x==='object'?x:{};
  const l={id:purText(x.id)||'line-'+(i+1),kind:['sheet','order','other'].includes(x.kind)?x.kind:'other'};
@@ -13585,6 +13589,109 @@ function purSheetLine(id){
  return purLineClean({id:salesUid('PL'),kind:'sheet',sheetId:id,productCode:s.productCode,description:(g?g.name:s.productCode)+' · '+[s.sheetWIn,s.sheetHIn].join(' × ')+' in',unit:'sheet',priceUnit:s.purchaseUnit,sourceCurrency:s.currency,price:s.purchasePrice,qty:1,widthIn:s.sheetWIn,heightIn:s.sheetHIn},0);
 }
 
+/* ==== src/erp/purchasing/receiving.js ==== */
+/* Purchasing P3 · receiving and supplier-held purchases.
+   Record what arrived, including excess, damage and a different sheet size.
+   Blocks, actual sheets and sheet dimensions belong to each delivery line;
+   never infer a fixed pack size and never write inventory or customer Finance.
+   Receipt quantities include damaged goods. Undo keeps the audit trail.
+   A delivery request reserves nothing; only receipts reduce the held balance. */
+DEFAULT.purchaseReceipt=[];DEFAULT.purchaseReceiptSeq=0;
+DEFAULT.purchaseDeliveryRequest=[];DEFAULT.purchaseDeliveryRequestSeq=0;
+const PUR_FULFIL={receipt:{key:'purchaseReceipt',seq:'purchaseReceiptSeq',prefix:'GR',label:'Receipt'},request:{key:'purchaseDeliveryRequest',seq:'purchaseDeliveryRequestSeq',prefix:'DR',label:'Delivery request'}};
+function purFulfilFind(kind,id){return (DB[PUR_FULFIL[kind].key]||[]).find(x=>x.id===id)||null;}
+function purFulfilLine(x,i){
+ x=x||{};const l={};
+ ['id','poLineId','requestLineId','description','unit','reason','resolution','note'].forEach(k=>l[k]=purText(x[k]));l.id=l.id||'line-'+(i+1);
+ ['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>l[k]=purNumber(x[k]));return l;
+}
+function purFulfilClean(x){
+ const d={};['id','number','poId','requestId','supplierId','supplierName','date','expectedDate','receivedBy','packingSlip','to','cc','note','createdAt','createdBy','createdById','updatedAt','updatedBy','updatedById','voidAt','sentAt'].forEach(k=>d[k]=purText(x[k]));
+ d.rev=Number.isSafeInteger(x.rev)&&x.rev>0?x.rev:1;d.lines=(Array.isArray(x.lines)?x.lines:[]).map(purFulfilLine);return d;
+}
+function normalizePurchaseReceiving(){
+ Object.values(PUR_FULFIL).forEach(c=>{const ids=new Set();DB[c.key]=(DB[c.key]||[]).filter(x=>x&&purText(x.id)&&!ids.has(purText(x.id))&&(ids.add(purText(x.id)),true)).map(purFulfilClean);DB[c.seq]=DB[c.key].reduce((n,x)=>Math.max(n,new RegExp('^'+c.prefix+'-\\d+$').test(x.number)?+x.number.slice(3):0),Number.isSafeInteger(DB[c.seq])&&DB[c.seq]>=0?DB[c.seq]:0);});
+}
+function validatePurchaseReceiving(src){
+ Object.values(PUR_FULFIL).forEach(c=>{if(!Array.isArray(src[c.key]))return;const ids=new Set(),numbers=new Set();
+  src[c.key].forEach(d=>{const bad=()=>{throw new Error(c.label+': invalid or duplicate record.');};
+   if(!d||typeof d!=='object'||Array.isArray(d)||!purText(d.id)||ids.has(purText(d.id))||!new RegExp('^'+c.prefix+'-\\d+$').test(d.number)||numbers.has(d.number)||!Array.isArray(d.lines))bad();ids.add(purText(d.id));numbers.add(d.number);
+   const ls=new Set();d.lines.forEach(l=>{if(!l||typeof l!=='object'||Array.isArray(l)||!purText(l.id)||ls.has(purText(l.id)))bad();ls.add(purText(l.id));['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>{if(l[k]!=null&&(typeof l[k]!=='number'||!Number.isFinite(l[k])||l[k]<0))bad();});});
+  });
+ });
+}
+function purReceiptRows(poId,lineId,exclude){
+ return (DB.purchaseReceipt||[]).filter(r=>!r.voidAt&&r.poId===poId&&r.id!==exclude).flatMap(r=>r.lines.filter(l=>l.poLineId===lineId).map(l=>({r,l})));
+}
+function purReceived(p,l,exclude){
+ const rows=purReceiptRows(p.id,l.id,exclude),match=rows.filter(x=>purUnit(x.l.unit)===purUnit(l.unit));
+ const received=match.reduce((n,x)=>n+(x.l.qty||0),0),ordered=purNumber(l.qty),unknown=rows.some(x=>x.l.qty==null||purUnit(x.l.unit)!==purUnit(l.unit));
+ return {received,ordered,remaining:ordered==null?null:ordered-received,unknown,damaged:match.reduce((n,x)=>n+(x.l.damaged||0),0),sheets:rows.reduce((n,x)=>n+(x.l.actualSheets||0),0),damagedSheets:rows.reduce((n,x)=>n+(x.l.damagedSheets||0),0),rows};
+}
+function purReceiptState(p){
+ if(!p.lines.length)return '';
+ const a=p.lines.map(l=>purReceived(p,l));
+ if(a.every(x=>x.ordered!=null&&!x.unknown&&x.received>=x.ordered)&&a.some(x=>x.received>0))return 'Received';
+ return a.some(x=>x.received>0||x.unknown)?'Partially received':'';
+}
+function purRequestReceived(d,l){
+ return (DB.purchaseReceipt||[]).filter(r=>!r.voidAt&&r.requestId===d.id).flatMap(r=>r.lines).filter(x=>x.requestLineId===l.id&&purUnit(x.unit)===purUnit(l.unit)).reduce((n,x)=>n+(x.qty||0),0);
+}
+function purFulfilStatus(kind,d){
+ if(!d.id)return 'Draft';
+ if(d.voidAt)return kind==='receipt'?'Undone':'Cancelled';if(kind==='receipt')return 'Received';
+ const a=d.lines.map(l=>({qty:l.qty,n:purRequestReceived(d,l)}));
+ if(a.length&&a.every(x=>x.qty!=null&&x.n>=x.qty)&&a.some(x=>x.n>0))return 'Received';
+ return a.some(x=>x.n>0)?'Partially received':d.sentAt?'Sent':'Draft';
+}
+function purFulfilSave(kind,raw){
+ return purPersist(()=>{
+  const c=PUR_FULFIL[kind],old=raw.id?purFulfilFind(kind,raw.id):null;
+  if(raw.id&&!old)throw new Error(c.label+' no longer exists.');
+  if(old&&(old.rev!==raw.rev||old.voidAt))throw new Error(c.label+' changed elsewhere. Reopen it.');
+  const d=purFulfilClean(raw);if(!d.lines.length)throw new Error('Add at least one line.');
+  ['date','expectedDate'].forEach(k=>{if(d[k]&&!ISO_DATE_RE.test(d[k]))throw new Error('Date: use YYYY-MM-DD or leave empty.');});
+  const ids=new Set();d.lines.forEach((l,i)=>{if(ids.has(l.id))throw new Error('Duplicate line.');ids.add(l.id);['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>{if(purText(raw.lines[i][k])!==''&&(l[k]==null||l[k]<0))throw new Error('Line '+(i+1)+': enter a non-negative number or leave empty.');});});
+  const now=new Date().toISOString(),actor=orderLogActor();d.id=old?old.id:salesUid(c.prefix);d.number=old?old.number:c.prefix+'-'+String(++DB[c.seq]).padStart(4,'0');
+  d.createdAt=old?old.createdAt:now;d.createdBy=old?old.createdBy:actor.by;d.createdById=old?old.createdById:actor.byId;d.updatedAt=now;d.updatedBy=actor.by;d.updatedById=actor.byId;d.rev=old?old.rev+1:1;d.voidAt='';d.sentAt=old?old.sentAt:'';
+  const changes=['poId','requestId','supplierId','supplierName','date','expectedDate','receivedBy','packingSlip','to','cc','note','lines'].filter(k=>JSON.stringify(old&&old[k])!==JSON.stringify(d[k])).map(k=>({field:k,label:stkHuman(k),before:old?old[k]:null,after:d[k]}));
+  if(old)DB[c.key][DB[c.key].indexOf(old)]=d;else DB[c.key].push(d);
+  if(changes.length){purRecordEvent(kind,d.id,old?'Edited':'Created',changes);[...new Set([old&&old.poId,d.poId].filter(Boolean))].forEach(id=>purRecordEvent('po',id,(old?'Edited ':'')+c.label+' '+d.number,[{field:kind,label:c.label,before:old?old.number:null,after:d.number}]));}
+  return d;
+ });
+}
+function purFulfilUndo(kind,id,rev,restore){
+ return purPersist(()=>{const d=purFulfilFind(kind,id);if(!d||d.rev!==rev)throw new Error('Document changed elsewhere. Reopen it.');d.voidAt=restore?'':new Date().toISOString();d.rev++;
+  const what=restore?'Restored':kind==='receipt'?'Undone':'Cancelled';purRecordEvent(kind,id,what,[]);if(d.poId)purRecordEvent('po',d.poId,what+' '+d.number,[]);return d;});
+}
+function purRequestMarkSent(id,rev){return purPersist(()=>{const d=purFulfilFind('request',id);if(!d||d.rev!==rev||d.voidAt)throw new Error('Delivery request changed elsewhere. Reopen it.');d.sentAt=new Date().toISOString();d.rev++;purRecordEvent('request',id,'Sent',[]);return d;});}
+function purFulfilWarnings(kind,d){
+ const a=[],p=purOrderFind(d.poId),request=purFulfilFind('request',d.requestId);
+ if(d.poId&&!p)a.push('The linked PO is missing.');
+ if(p&&(p.deletedAt||['closed','cancelled'].includes(p.state)))a.push('PO is '+purOrderStatus(p).toLowerCase()+'. You can still record this delivery.');
+ if(request&&(request.voidAt||request.poId!==d.poId))a.push('Review the delivery request link.');
+ d.lines.forEach((l,i)=>{const n='Line '+(i+1)+': ',pl=p&&p.lines.find(x=>x.id===l.poLineId);
+  if(l.poLineId&&!pl)a.push(n+'PO line no longer exists. The saved description remains.');
+  if(l.damaged>l.qty&&l.qty!=null)a.push(n+'damaged quantity exceeds the received quantity.');
+  if(l.damagedSheets>l.actualSheets&&l.actualSheets!=null)a.push(n+'damaged sheets exceed the received sheets.');
+  if(pl){const r=purReceived(p,pl,kind==='receipt'?d.id:null),same=purUnit(l.unit)===purUnit(pl.unit);
+   if(!same)a.push(n+'unit differs from the PO; quantities need review.');
+   const total=d.lines.filter(x=>x.poLineId===pl.id&&purUnit(x.unit)===purUnit(pl.unit)).reduce((sum,x)=>sum+(purNumber(x.qty)||0),0);
+   if(same&&r.remaining!=null&&total>r.remaining)a.push(n+(kind==='request'?'request exceeds the held balance.':'received more than ordered.'));
+   if((l.widthIn&&pl.widthIn&&+l.widthIn!==+pl.widthIn)||(l.heightIn&&pl.heightIn&&+l.heightIn!==+pl.heightIn))a.push(n+'sheet size differs from the PO; this quantity counts against the selected line.');
+   if(kind==='request'&&!pl.held)a.push(n+'PO line is not marked Held at supplier.');
+  }
+ });return a;
+}
+function purFulfilFromPO(kind,id,requestId){
+ const p=purOrderFind(id),r=requestId&&purFulfilFind('request',requestId);
+ const lines=r?r.lines.map(l=>Object.assign({},l,{id:salesUid('RL'),requestLineId:l.id,qty:l.qty==null?null:Math.max(0,l.qty-purRequestReceived(r,l))})):p?p.lines.filter(l=>kind==='receipt'||l.held).map(l=>{const n=purReceived(p,l).remaining;return {id:salesUid('RL'),poLineId:l.id,description:l.description,unit:l.unit,widthIn:l.widthIn,heightIn:l.heightIn,qty:kind==='request'||n==null?null:Math.max(0,n)};}):[];
+ return purFulfilClean({poId:id,requestId:requestId||'',date:finToday(),receivedBy:kind==='receipt'?orderLogActor().by:'',supplierId:p?p.supplierId:'',supplierName:p?p.supplierName:'',to:p?p.to:'',cc:p?p.cc:'',lines:lines.length?lines:[{id:salesUid('RL')}]});
+}
+function purWaitingRows(held){
+ return (DB.purchaseOrder||[]).filter(p=>!p.deletedAt&&!['closed','cancelled'].includes(p.state)).flatMap(p=>p.lines.filter(l=>!!l.held===held).map(l=>({p,l,b:purReceived(p,l)})).filter(x=>x.b.remaining==null||x.b.remaining!==0||x.b.unknown));
+}
+
 /* ==== src/erp/purchasing/specification.js ==== */
 /* PO specification snapshots use the same glass/geometry/service readers
    as stickers and work orders. Selecting an order never verifies, batches
@@ -13645,6 +13752,7 @@ const PUR_PO_FIELDS=[
  ['glass','Specification','Glass / thickness / treatment / coating',true],['size','Specification','Finished size',true],
  ['cutSize','Specification','Size before edgework',true],['services','Specification','Edgework and fabrication',true],
  ['drawing','Specification','Shape, holes and cutouts',true],
+ ['receiving','Receiving','Received and outstanding quantities',false],['damage','Receiving','Recorded damage',false],
  ['prices','Bottom','Line prices and totals',true],['totals','Bottom','PO total',true],
  ['notes','Bottom','PO / line / source notes',true],['companyTerms','Bottom','Company terms',false],['footer','Bottom','Company footer',false]
 ].map(([k,g,label,on])=>({k,g,label,on}));
@@ -13675,12 +13783,12 @@ function purDocRowValues(p,l,i,opt){
   qty:(l.qty==null?'Not set':l.qty)+(l.unit?' '+mdUnitName(l.unit):''),
   price:l.price==null?'Not set':docNum(l.price,2)+(l.priceUnit||l.unit?' / '+mdUnitName(l.priceUnit||l.unit):''),amount:amount==null?'Not complete':docNum(amount,2)};
 }
-function purDocPages(p,raw){
+function purDocPages(p,raw,title){
  const opt=purDocOptions(raw),pages=[],W=DOC_PAGE,C=DOC_COLOR,cols=purDocColumns(p,opt);let P,y,tableOn=false;
  const tableHead=()=>{cols.forEach(c=>docLabel(P,c.right?c.x+c.w-6:c.x+6,y+8,c.label,{align:c.right?'right':'left'}));P.line(W.left,y+14,W.right,y+14,{stroke:C.navy,lw:1.3});y+=20;};
  const start=()=>{
   P=docPage();pages.push(P);y=W.top;
-  P.text(W.left,y+12,'PURCHASE ORDER',{size:14,bold:true,color:C.navy});
+  P.text(W.left,y+12,title||'PURCHASE ORDER',{size:14,bold:true,color:C.navy});
   P.text(W.right,y+12,p.number||'Draft',{size:12,bold:true,align:'right'});y+=28;
   P.line(W.left,y,W.right,y);y+=12;if(tableOn)tableHead();
  };
@@ -13732,10 +13840,11 @@ function purDocPages(p,raw){
    y+=110;
    (shape.holes||[]).forEach(h=>text('Hole diameter '+h.d+' in · X '+h.x+' · Y '+h.y));
   });
+  if(opt.receiving||opt.damage){const b=purReceived(p,l);if(opt.receiving)field(l.held?'Held at supplier':'Delivery','Purchased '+(b.ordered??'Unknown')+' · received '+b.received+' · remaining '+(b.remaining??'Unknown')+' '+l.unit+(b.unknown?' · Review units / quantities':''));if(opt.damage)field('Recorded damage',b.damaged+' '+l.unit+' · '+b.damagedSheets+' sheets');}
   if(opt.notes&&l.note)field('Note',l.note);gap();
  });
  if(opt.totals){const t=purOrderTotals(p);text((t.complete?'TOTAL':'KNOWN SUBTOTAL')+': '+docNum(t.known,2)+' '+p.currency,11,true);if(t.missing)text(t.missing+' line(s) need price, quantity or conversion.');gap();}
- if(opt.notes&&p.note){text('PO notes',9,true);text(p.note);}
+ if(opt.notes&&p.note){text(title?'Notes':'PO notes',9,true);text(p.note);}
  if(opt.companyTerms&&(DB.company||{}).termsText){gap();text(DB.company.termsText);}
  if(opt.footer&&(DB.company||{}).footerText){gap();text(DB.company.footerText);}
  pages.forEach((page,i)=>{page.line(W.left,W.footer-9,W.right,W.footer-9);page.text(W.right,W.footer,p.number+' · Page '+(i+1)+' of '+pages.length,{size:7,align:'right',color:C.mut});});
@@ -26094,8 +26203,9 @@ function comPayDelete(id){if(!confirm('Delete this payout? Its orders are due ag
    No global search, no stock balances and no purchase in customer Finance. */
 let purSupplierDraft=null,purSupplierOriginal='',purNotice='';
 function purArg(v){return esc(JSON.stringify(String(v)));}
-function purListScope(){return purView==='suppliers'?'purchaseSuppliers':purView==='history'?'purchaseHistory':'purchaseOrders';}
+function purListScope(){if(['receipts','requests','backorders','held'].includes(purView))return 'purchasing-'+purView;return purView==='suppliers'?'purchaseSuppliers':purView==='history'?'purchaseHistory':'purchaseOrders';}
 function purListColumns(){
+ if(['receipts','requests','backorders','held'].includes(purView))return purReceivingColumns();
  if(purView!=='suppliers')return purOrderColumns();
  const visible=['name','email','phone','currency','paymentDays','leadTimeDays'];
  return PUR_SUPPLIER_FIELDS.map(f=>({k:f.k,label:f.label,type:f.type==='days'?'number':f.k==='currency'?'list':'text',def:visible.includes(f.k)}))
@@ -26112,8 +26222,10 @@ function purListHeader(c){
 }
 function viewPurchasing(){
  if(!accessCan('purchasing'))return '<div class="empty">Purchasing access is required.</div>';
+ if(purFulfilDraft)return purFulfilForm();
  if(purSupplierDraft)return purSupplierForm();
  if(purOrderDraft)return purOrderForm();
+ if(['receipts','requests','backorders','held'].includes(purView))return purReceivingList();
  if(purView!=='suppliers')return purOrderList();
  const infos=purSupplierInfos(),rows=salesListRows(infos),cols=salesListColumns();
  const cell=(i,c)=>{
@@ -26162,7 +26274,7 @@ function purSupplierForm(){
 function purHistoryValue(value){
  if(value==null||value==='')return '—';
  if(typeof value==='boolean')return value?'Yes':'No';
- if(Array.isArray(value)&&value.some(x=>x&&x.kind))return value.map((x,i)=>'Line '+(i+1)+': '+JSON.stringify(x)).join('\n');
+ if(Array.isArray(value)&&value.some(x=>x&&(x.kind||Object.prototype.hasOwnProperty.call(x,'description'))))return value.map((x,i)=>'Line '+(i+1)+': '+JSON.stringify(x)).join('\n');
  if(Array.isArray(value))return value.map(x=>x&&typeof x==='object'?(x.label?x.label+': '+x.value:[x.name,x.role,x.email,x.phone].filter(Boolean).join(' · ')):String(x)).join('; ')||'—';
  return typeof value==='object'?JSON.stringify(value):String(value);
 }
@@ -26186,9 +26298,9 @@ function purSupplierCancel(){
    Gmail only opens a compose window. Sending is confirmed manually. */
 let purView='orders',purOrderDraft=null,purOrderOriginal='',purShowDeleted=false,purPicker=null,purDoc=null;
 function purNav(){
- return '<div class="pur-tabs">'+[['orders','Purchase orders'],['suppliers','Suppliers'],['history','History']].map(([k,n])=>'<button type="button" class="'+(purView===k?'on':'')+'" onclick="purGo(\''+k+'\')">'+n+'</button>').join('')+'</div>';
+ return '<div class="pur-tabs">'+[['orders','Purchase orders'],['receipts','Receipts'],['backorders','Backorders'],['held','Held at supplier'],['requests','Delivery requests'],['suppliers','Suppliers'],['history','History']].map(([k,n])=>'<button type="button" class="'+(purView===k?'on':'')+'" onclick="purGo(\''+k+'\')">'+n+'</button>').join('')+'</div>';
 }
-function purGo(v){if(!purOrderLeave())return;purSupplierDraft=null;purView=v;purNotice='';salesListMenu=null;render();}
+function purGo(v){if(!purFulfilLeave()||!purOrderLeave())return;purSupplierDraft=null;purView=v;purNotice='';salesListMenu=null;render();}
 function purOrderLeave(){
  if(purOrderDraft&&JSON.stringify(purOrderDraft)!==purOrderOriginal&&!confirm('Discard unsaved purchase order changes?'))return false;
  purOrderDraft=null;purPicker=null;purDoc=null;return true;
@@ -26198,22 +26310,23 @@ function purOrderColumns(){
  return [['number','PO','text'],['supplierName','Supplier','text'],['date','Date','date'],['expectedDate','Expected','date'],['currency','Currency','list'],['amount','Amount','number'],['pricing','Pricing','list'],['status','Status','list'],['held','Held at supplier','number'],['createdBy','Created by','text']].map(([k,label,type])=>({k,label,type,def:true}));
 }
 function purOrderInfos(){
- if(purView==='history')return (DB.purchasingEvent||[]).map(e=>{const p=e.entity==='po'?purOrderFind(e.entityId):purSupplierFind(e.entityId);return {o:{id:e.id},e,memo:Object.assign({},e,{entity:e.entity==='po'?'PO':'Supplier',name:p?(p.number||p.name):e.entityId})};});
+ if(purView==='history')return (DB.purchasingEvent||[]).map(e=>{const p=e.entity==='po'?purOrderFind(e.entityId):PUR_FULFIL[e.entity]?purFulfilFind(e.entity,e.entityId):purSupplierFind(e.entityId);return {o:{id:e.id},e,memo:Object.assign({},e,{entity:e.entity==='po'?'PO':PUR_FULFIL[e.entity]?PUR_FULFIL[e.entity].label:'Supplier',name:p?(p.number||p.name):e.entityId})};});
  return (DB.purchaseOrder||[]).filter(p=>purShowDeleted||!p.deletedAt).map(p=>{const t=purOrderTotals(p);return {o:{id:p.id},p,memo:Object.assign({},p,{amount:t.complete?t.known:null,pricing:t.complete?'Complete':'Price / quantity needed',status:purOrderStatus(p),held:p.lines.filter(l=>l.held).length})};});
 }
 function purOrderList(){
  const infos=purOrderInfos(),rows=salesListRows(infos),cols=salesListColumns(),history=purView==='history';
  const cell=(i,c)=>{
   const v=salesListValue(i,c.k);
-  if(c.k==='number'||history&&c.k==='name')return '<td><button type="button" class="fin-link" data-pur-po="'+esc(i.p?i.p.id:i.e.entityId)+'" onclick="'+(i.p||i.e.entity==='po'?'purOrderEdit':'purSupplierEdit')+'('+purArg(i.p?i.p.id:i.e.entityId)+')">'+esc(v)+'</button></td>';
+  if(c.k==='number'||history&&c.k==='name')return '<td><button type="button" class="fin-link" data-pur-po="'+esc(i.p?i.p.id:i.e.entityId)+'" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purHistoryOpen('+purArg(i.e.entity)+','+purArg(i.e.entityId)+')')+'">'+esc(v)+'</button></td>';
   return '<td data-raw class="'+(c.type==='number'?'n':'')+'">'+(v==null||v===''?'—':c.k==='amount'?esc(docNum(v,2)):c.k==='at'?esc(new Date(v).toLocaleString()):esc(v))+'</td>';
  };
  return '<div class="purchasing-workspace">'+purNav()+'<div class="sales-toolbar pur-toolbar"><h2>'+(history?'Purchasing history':'Purchase orders')+'</h2><span class="sales-toolbar-sp"></span>'+(history?'':'<label><input type="checkbox" '+(purShowDeleted?'checked':'')+' onchange="purShowDeleted=this.checked;render()"> Include deleted</label><button type="button" class="pri" data-pur-po-new onclick="purOrderEdit(\'\')">+ PO</button>')+'</div>'+salesListFilterChips()+
   '<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="gb-settings" aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
   rows.map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody><tfoot><tr><td colspan="'+(cols.length+1)+'">'+rows.length+' records</td></tr></tfoot></table></div></div>'+salesListMenuHTML(infos)+'</div>';
 }
+function purHistoryOpen(entity,id){if(PUR_FULFIL[entity])purFulfilEdit(entity,id);else if(entity==='po')purOrderEdit(id);else purSupplierEdit(id);}
 function purOrderEdit(id){
- if(!accessCan('purchasing'))return;
+ if(!accessCan('purchasing')||!purFulfilLeave())return;
  const p=id?purOrderFind(id):null;if(id&&!p)return;
  purSupplierDraft=null;purView='orders';purPicker=null;purDoc=null;purNotice='';
  purOrderDraft=purClone(p||purOrderClean({date:finToday(),lines:[{id:salesUid('PL'),qty:1}]}));
@@ -26281,7 +26394,7 @@ function purOrderForm(){
   '<div class="pur-line-actions"><button type="button" data-pur-add-line onclick="purOrderAddLine()">+ Line</button><button type="button" onclick="purPicker={kind:\'sheet\'};render()">From supply points</button><button type="button" onclick="purPicker={kind:\'order\',orderId:\'\',lineId:\'\'};render()">From customer order</button></div>'+
   '<datalist id="pur_units">'+MD_UNITS.map(u=>'<option value="'+u.code+'">'+u.nameEn+'</option>').join('')+'<option value="block">block</option></datalist>'+
   d.lines.map(purOrderLineHTML).join('')+'</fieldset><div class="pur-total" data-pur-total><b>'+(t.complete?'Total':'Known subtotal')+': '+esc(docNum(t.known,2)+' '+d.currency)+'</b>'+(t.missing?' · '+t.missing+' line(s) need price, quantity or conversion':'')+'</div>'+
-  (d.id?purHistoryHTML('po',d.id):'')+purPickerHTML()+(purDoc?purDocHTML():'')+'</div>';
+  (d.id?purPOReceivingHTML(d)+purHistoryHTML('po',d.id):'')+purPickerHTML()+(purDoc?purDocHTML():'')+'</div>';
 }
 function purPickerHTML(){
  if(!purPicker)return '';const p=purPicker;
@@ -26349,6 +26462,137 @@ function purDocAction(action){
   }
  }catch(e){d.status='Document could not be prepared: '+e.message;docPrintCleanup();}
  render();
+}
+
+/* ==== src/erp/views/purchasing-receiving.js ==== */
+/* Receiving is entered by office / optimization staff from the shop's
+   count sheet. All values remain editable; warnings never prevent Save.
+   Each receipt line may carry its own size and actual sheet count. */
+let purFulfilDraft=null,purFulfilOriginal='',purFulfilPreview=false,purShowUndone=false;
+function purFulfilLeave(){
+ if(purFulfilDraft&&JSON.stringify(purFulfilDraft)!==purFulfilOriginal&&!confirm('Discard unsaved delivery changes?'))return false;
+ purFulfilDraft=null;purFulfilPreview=false;return true;
+}
+function purFulfilEdit(kind,id,poId,requestId){
+ if(!accessCan('purchasing')||!purFulfilLeave()||!purOrderLeave())return;
+ const d=id?purFulfilFind(kind,id):purFulfilFromPO(kind,poId||'',requestId);if(!d)return;
+ purSupplierDraft=null;purView=kind==='receipt'?'receipts':'requests';purFulfilDraft={kind,data:purClone(d)};purFulfilOriginal=JSON.stringify(purFulfilDraft);purNotice='';render();
+}
+function purReceiveFromOrder(kind){if(!purOrderSaveForm(true))return;const id=purOrderDraft.id;purFulfilEdit(kind,'',id);}
+function purReceiveRequest(){if(!purFulfilSaveForm())return;const d=purFulfilDraft.data;purFulfilEdit('receipt','',d.poId,d.id);}
+function purFulfilSaveForm(){
+ const f=purFulfilDraft,r=purFulfilSave(f.kind,f.data);if(!r.ok){purNotice=r.error;render();return false;}
+ f.data=purClone(r.value);purFulfilOriginal=JSON.stringify(f);purNotice='Saved.';render();return true;
+}
+function purFulfilUndoForm(restore){
+ const f=purFulfilDraft,d=f.data,verb=restore?'Restore':f.kind==='receipt'?'Undo':'Cancel';
+ if(!confirm(verb+' '+d.number+'? The document and its history remain. '+(f.kind==='receipt'?'Received totals are recalculated.':'Existing receipts stay recorded.')))return;
+ const r=purFulfilUndo(f.kind,d.id,d.rev,restore);if(!r.ok){purNotice=r.error;render();return;}
+ f.data=purClone(r.value);purFulfilOriginal=JSON.stringify(f);purNotice='';render();
+}
+function purFulfilField(k,label,type){
+ const d=purFulfilDraft.data;return '<div><label for="pur_delivery_'+k+'">'+label+'</label><input id="pur_delivery_'+k+'" type="'+(type||'text')+'" value="'+esc(d[k]??'')+'" oninput="purFulfilDraft.data.'+k+'=this.value"></div>';
+}
+function purFulfilInput(l,i,k,label,type){
+ return '<div><label for="pur_receive_'+i+'_'+k+'">'+label+'</label><input id="pur_receive_'+i+'_'+k+'" value="'+esc(l[k]??'')+'" '+(type==='number'?'type="number" min="0" step="any"':'type="text"')+(k==='reason'||k==='resolution'?' list="pur_'+k+'"':'')+' oninput="purFulfilDraft.data.lines['+i+'].'+k+'=this.value;purFulfilRefresh()"></div>';
+}
+function purFulfilRefresh(){const el=document.querySelector('[data-pur-delivery-warnings]');if(el)el.innerHTML=purFulfilWarnings(purFulfilDraft.kind,purFulfilDraft.data).map(s=>'<p>'+esc(s)+'</p>').join('');}
+function purFulfilSelectPO(id){
+ const d=purFulfilDraft.data,p=purOrderFind(id);d.poId=id;d.requestId='';d.lines.forEach(l=>{l.poLineId='';l.requestLineId='';});
+ if(p){d.supplierId=p.supplierId;d.supplierName=p.supplierName;d.to=p.to;d.cc=p.cc;}render();
+}
+function purFulfilLoadPO(){
+ const f=purFulfilDraft;if(!f.data.poId)return;
+ if(!confirm('Replace these draft lines with the selected PO lines?'))return;
+ f.data.lines=purFulfilFromPO(f.kind,f.data.poId).lines;f.data.requestId='';render();
+}
+function purFulfilLinkLine(i,id){
+ const d=purFulfilDraft.data,l=d.lines[i],p=purOrderFind(d.poId),pl=p&&p.lines.find(x=>x.id===id);l.poLineId=id;l.requestLineId='';
+ if(pl){['description','unit','widthIn','heightIn'].forEach(k=>{if(l[k]==null||l[k]==='')l[k]=pl[k];});}render();
+}
+function purFulfilLineHTML(l,i){
+ const f=purFulfilDraft,p=purOrderFind(f.data.poId),receipt=f.kind==='receipt',request=receipt&&purFulfilFind('request',f.data.requestId);
+ return '<section class="card pur-card"><div class="pur-section-head"><h3>Line '+(i+1)+'</h3><button type="button" onclick="purFulfilDraft.data.lines.splice('+i+',1);render()">Remove</button></div>'+
+  (p?'<label for="pur_receipt_link_'+i+'">PO line</label><select id="pur_receipt_link_'+i+'" onchange="purFulfilLinkLine('+i+',this.value)"><option value="">Unplanned / other item</option>'+p.lines.map((pl,j)=>'<option value="'+esc(pl.id)+'" '+(pl.id===l.poLineId?'selected':'')+'>'+esc((j+1)+'. '+pl.description)+'</option>').join('')+(l.poLineId&&!p.lines.some(pl=>pl.id===l.poLineId)?'<option selected value="'+esc(l.poLineId)+'">Removed PO line</option>':'')+'</select>':'')+
+  (request?'<label for="pur_request_line_'+i+'">Request line</label><select id="pur_request_line_'+i+'" onchange="purFulfilDraft.data.lines['+i+'].requestLineId=this.value;purFulfilRefresh()"><option value="">Outside this request</option>'+request.lines.map((rl,j)=>'<option value="'+esc(rl.id)+'" '+(rl.id===l.requestLineId?'selected':'')+'>'+esc((j+1)+'. '+rl.description)+'</option>').join('')+'</select>':'')+
+  '<div class="pur-line-fields pur-receiving-row">'+purFulfilInput(l,i,'description','Description')+purFulfilInput(l,i,'qty',receipt?'Quantity received':'Quantity requested','number')+purFulfilInput(l,i,'unit','Unit')+purFulfilInput(l,i,'widthIn',receipt?'Actual width, in':'Width, in','number')+purFulfilInput(l,i,'heightIn',receipt?'Actual height, in':'Height, in','number')+'</div>'+
+  (receipt?'<div class="pur-line-fields">'+purFulfilInput(l,i,'actualSheets','Actual sheets','number')+purFulfilInput(l,i,'damaged','Damaged · same unit','number')+purFulfilInput(l,i,'damagedSheets','Damaged sheets','number')+purFulfilInput(l,i,'reason','Damage reason')+purFulfilInput(l,i,'resolution','Resolution')+'</div>':'')+
+  purFulfilInput(l,i,'note','Line note')+'</section>';
+}
+function purFulfilForm(){
+ const f=purFulfilDraft,d=f.data,receipt=f.kind==='receipt',p=purOrderFind(d.poId),requests=(DB.purchaseDeliveryRequest||[]).filter(r=>r.poId===d.poId);
+ return '<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><button type="button" onclick="if(purFulfilLeave())render()">← '+(receipt?'Receipts':'Delivery requests')+'</button><h2>'+esc(d.number||'New '+(receipt?'receipt':'delivery request'))+'</h2><span class="pill">'+purFulfilStatus(f.kind,d)+'</span><span class="sales-toolbar-sp"></span>'+
+  (d.voidAt?'<button type="button" onclick="purFulfilUndoForm(true)">Restore</button>':'<button type="button" class="pri" data-pur-delivery-save onclick="purFulfilSaveForm()">Save</button>'+(receipt?'':'<button type="button" onclick="purRequestPreviewOpen()">Preview / PDF / Email</button>'+(d.id?'<button type="button" onclick="purReceiveRequest()">Receive</button>':''))+(d.id?'<button type="button" onclick="purFulfilUndoForm(false)">'+(receipt?'Undo receipt':'Cancel request')+'</button>':''))+'</div>'+
+  (purNotice?'<div role="status" class="pur-notice">'+esc(purNotice)+'</div>':'')+'<div class="pur-notice" data-pur-delivery-warnings>'+purFulfilWarnings(f.kind,d).map(s=>'<p>'+esc(s)+'</p>').join('')+'</div>'+
+  '<fieldset class="pur-po-edit form" '+(d.voidAt?'disabled':'')+'><section class="card pur-card"><div class="pur-fields"><div><label for="pur_delivery_po">Purchase order · optional</label><select id="pur_delivery_po" onchange="purFulfilSelectPO(this.value)"><option value="">Without PO</option>'+(DB.purchaseOrder||[]).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===d.poId?'selected':'')+'>'+esc(x.number+' · '+x.supplierName+' · '+purOrderStatus(x))+'</option>').join('')+(d.poId&&!p?'<option selected value="'+esc(d.poId)+'">Missing PO</option>':'')+'</select></div>'+
+  purFulfilField('supplierName','Supplier / shop name')+purFulfilField('date',receipt?'Received date':'Request date','date')+
+  (receipt?purFulfilField('receivedBy','Received by')+purFulfilField('packingSlip','Supplier packing slip')+'<div><label for="pur_delivery_request">Delivery request · optional</label><select id="pur_delivery_request" onchange="purFulfilDraft.data.requestId=this.value;purFulfilDraft.data.lines.forEach(l=>l.requestLineId=\'\');render()"><option value="">Without request</option>'+requests.map(r=>'<option value="'+esc(r.id)+'" '+(r.id===d.requestId?'selected':'')+'>'+esc(r.number+' · '+purFulfilStatus('request',r))+'</option>').join('')+'</select>'+(d.requestId?'<button type="button" onclick="purFulfilLoadRequest()">Load request lines</button>':'')+'</div>':purFulfilField('expectedDate','Requested delivery','date')+purFulfilField('to','Email to')+purFulfilField('cc','CC'))+'</div><p class="mut">'+(receipt?'Received quantities include damaged goods. Actual sheets are recorded separately from blocks.':'Request any quantity. Only actual receipts reduce the held balance.')+'</p><label for="pur_delivery_note">Notes</label><textarea id="pur_delivery_note" oninput="purFulfilDraft.data.note=this.value">'+esc(d.note)+'</textarea></section>'+
+  '<div class="pur-line-actions"><button type="button" onclick="purFulfilDraft.data.lines.push(purFulfilLine({id:salesUid(\'RL\')},0));render()">+ Line</button>'+(p?'<button type="button" onclick="purFulfilLoadPO()">Load PO lines</button>':'')+'</div>'+d.lines.map(purFulfilLineHTML).join('')+
+  '<datalist id="pur_reason"><option>In transit</option><option>Factory defect</option><option>Our breakage</option><option>Other</option></datalist><datalist id="pur_resolution"><option>Credit requested</option><option>Replacement</option><option>Written off</option><option>Other</option></datalist></fieldset>'+
+  (d.id?purHistoryHTML(f.kind,d.id):'')+(purFulfilPreview?purRequestPreviewHTML():'')+'</div>';
+}
+function purFulfilLoadRequest(){
+ const f=purFulfilDraft;if(!confirm('Replace these draft lines with the selected delivery request?'))return;
+ f.data.lines=purFulfilFromPO('receipt',f.data.poId,f.data.requestId).lines;render();
+}
+function purReceivingColumns(){
+ const waiting=['backorders','held'].includes(purView),cols=waiting?
+  [['number','PO','text'],['supplierName','Supplier','text'],['description','Description','text'],['size','Sheet size, in','text'],['ordered','Purchased','number'],['received','Received','number'],['remaining',purView==='held'?'At supplier':'Outstanding','number'],['unit','Unit','list'],['expectedDate','Expected','date'],['review','Review','text']]:
+  [['number',purView==='receipts'?'Receipt':'Request','text'],['po','PO','text'],['supplierName','Supplier','text'],['date','Date','date'],['expectedDate','Requested delivery','date'],['packingSlip','Packing slip','text'],['receivedBy','Received by','text'],['status','Status','list'],['createdBy','Recorded by','text']];
+ return cols.map(([k,label,type])=>({k,label,type,def:waiting||!(purView==='receipts'?['expectedDate']:['packingSlip','receivedBy']).includes(k)}));
+}
+function purReceivingInfos(){
+ if(['backorders','held'].includes(purView))return purWaitingRows(purView==='held').map(({p,l,b})=>({o:{id:p.id+'|'+l.id},p,l,memo:{number:p.number,supplierName:p.supplierName,description:l.description,size:l.widthIn&&l.heightIn?l.widthIn+' × '+l.heightIn:'',ordered:b.ordered,received:b.received,remaining:b.remaining,unit:l.unit,expectedDate:l.expectedDate||p.expectedDate,review:b.unknown?'Unknown quantity / unit changed':''}}));
+ const kind=purView==='receipts'?'receipt':'request';return (DB[PUR_FULFIL[kind].key]||[]).filter(d=>purShowUndone||!d.voidAt).map(d=>({o:{id:d.id},d,kind,memo:Object.assign({},d,{po:(purOrderFind(d.poId)||{}).number||'',status:purFulfilStatus(kind,d)})}));
+}
+function purReceivingList(){
+ const infos=purReceivingInfos(),rows=salesListRows(infos),cols=salesListColumns(),kind=purView==='receipts'?'receipt':'request',waiting=['backorders','held'].includes(purView),title=({receipts:'Receipts',requests:'Delivery requests',backorders:'Waiting from suppliers',held:'Held at supplier'})[purView];
+ const cell=(i,c)=>{const v=salesListValue(i,c.k);return '<td'+(c.type==='number'?' class="n"':'')+'>'+(c.k==='number'?'<button type="button" class="fin-link" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purFulfilEdit('+purArg(i.kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>':v==null||v===''?'—':esc(v))+'</td>';};
+ return '<div class="purchasing-workspace">'+purNav()+'<div class="sales-toolbar pur-toolbar"><h2>'+title+'</h2><span class="sales-toolbar-sp"></span>'+(waiting?'':'<label><input type="checkbox" '+(purShowUndone?'checked':'')+' onchange="purShowUndone=this.checked;render()"> Include undone / cancelled</label><button type="button" class="pri" onclick="purFulfilEdit(\''+kind+'\',\'\')">+ '+(kind==='receipt'?'Receipt':'Request')+'</button>')+'</div>'+salesListFilterChips()+
+  '<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+rows.map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div></div>'+salesListMenuHTML(infos)+'</div>';
+}
+function purPOReceivingHTML(p){
+ const receipts=(DB.purchaseReceipt||[]).filter(r=>r.poId===p.id),requests=(DB.purchaseDeliveryRequest||[]).filter(r=>r.poId===p.id);
+ const link=(kind,d)=>'<button type="button" class="fin-link" onclick="purFulfilEdit('+purArg(kind)+','+purArg(d.id)+')">'+esc(d.number)+' · '+esc(purFulfilStatus(kind,d))+'</button>';
+ return '<section class="card pur-card pur-receiving"><div class="pur-section-head"><h3>Deliveries</h3><div><button type="button" onclick="purReceiveFromOrder(\'receipt\')">Receive</button> <button type="button" onclick="purReceiveFromOrder(\'request\')">Request delivery</button></div></div>'+p.lines.map((l,i)=>{const b=purReceived(p,l);return '<p>'+esc('Line '+(i+1)+' · '+l.description+' · purchased '+(b.ordered??'Unknown')+' · received '+b.received+' · '+(l.held?'at supplier ':'outstanding ')+(b.remaining??'Unknown')+' '+l.unit)+(b.unknown?' · Review received units':'')+'</p>';}).join('')+'<p>'+receipts.map(r=>link('receipt',r)).join(' · ')+'</p><p>'+requests.map(r=>link('request',r)).join(' · ')+'</p><p class="mut">Deleting this PO keeps its receipts, requests and their history.</p></section>';
+}
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(to=>tab==='purchasing'&&to!=='purchasing'&&!purFulfilLeave());
+
+/* ==== src/erp/views/purchasing-delivery-documents.js ==== */
+/* Delivery requests reuse PO layout, with their own title/number and
+   requested quantities. Gmail remains a compose link plus manual PDF. */
+function purRequestPages(d,options){
+ const p=purOrderFind(d.poId),supplier=p?p.supplier:null;
+ const model=purOrderClean(Object.assign({},d,{supplier,currency:p?p.currency:'USD',note:[p?'For '+p.number:'',d.note].filter(Boolean).join('\n'),lines:d.lines.map(l=>{
+  const source=p&&p.lines.find(x=>x.id===l.poLineId);
+  return Object.assign({},source||{},l,{held:false,sheetsPerBlock:null});
+ })}));
+ return purDocPages(model,Object.assign({},purDocOptions(options),{currency:false,prices:false,totals:false,receiving:false,damage:false}),'DELIVERY REQUEST');
+}
+function purRequestPreviewOpen(){
+ if(!purFulfilSaveForm())return;purFulfilPreview={opts:purDocOptions(DB.purchaseDocumentOptions),panel:false};render();
+}
+function purRequestPreviewHTML(){
+ const d=purFulfilDraft.data,v=purFulfilPreview,fields=PUR_PO_FIELDS.filter(f=>!['currency','prices','totals','receiving','damage','held'].includes(f.k));
+ const panel='<aside class="doc-panel"><b>Customize · Delivery request</b>'+fields.map(f=>'<label class="doc-opt"><input type="checkbox" '+(v.opts[f.k]?'checked':'')+' onchange="purFulfilPreview.opts.'+f.k+'=this.checked;render()"><span>'+f.label+'</span></label>').join('')+'</aside>';
+ return '<div class="doc-back"><div class="doc-window" role="dialog" aria-label="Delivery request preview"><div class="doc-bar"><b>'+esc(d.number)+'</b><span class="doc-spacer"></span><button type="button" onclick="purFulfilPreview.panel=!purFulfilPreview.panel;render()">✎ Customize</button><button type="button" onclick="purRequestDocAction(\'pdf\')">Download PDF</button><button type="button" onclick="purRequestDocAction(\'print\')">Print</button><button type="button" onclick="purRequestDocAction(\'email\')">Open Gmail + PDF</button><button type="button" onclick="purRequestSentForm()">Mark sent</button><button type="button" onclick="purFulfilPreview=false;render()">Close</button></div><div class="doc-status">'+esc(purNotice||'Attach the PDF yourself. Mark sent after sending.')+'</div><div class="doc-body'+(v.panel?' with-panel':'')+'"><div class="doc-pages">'+purRequestPages(d,v.opts).map(pg=>'<div class="doc-sheet">'+docPageSVG(pg)+'</div>').join('')+'</div>'+(v.panel?panel:'')+'</div></div></div>';
+}
+function purRequestSentForm(){
+ const d=purFulfilDraft.data,r=purRequestMarkSent(d.id,d.rev);if(r.ok){purFulfilDraft.data=purClone(r.value);purFulfilOriginal=JSON.stringify(purFulfilDraft);}purNotice=r.ok?'Marked sent.':r.error;render();
+}
+function purRequestDocAction(action){
+ const d=purFulfilDraft.data;
+ try{
+  const pages=purRequestPages(d,purFulfilPreview.opts);
+  if(action==='print'){docPrintHost().innerHTML=pages.map(pg=>'<div class="doc-print-page">'+docPageSVG(pg)+'</div>').join('');document.body.classList.add('doc-printing');window.addEventListener('afterprint',docPrintCleanup,{once:true});setTimeout(docPrintCleanup,60000);window.print();}
+  else{docDownload(d.number+'.pdf',docPdfBytes(pages,{title:'Delivery request '+d.number}));if(action==='email')window.open(purRequestGmailURL(d),'_blank');}
+  const r=purPersist(()=>purRecordEvent('request',d.id,action==='email'?'Email prepared':action==='print'?'Print prepared':'PDF prepared',action==='email'?[{field:'to',label:'To',before:null,after:d.to},{field:'cc',label:'CC',before:null,after:d.cc}]:[]));
+  purNotice=r.ok?(action==='email'?'PDF downloaded. Attach it to Gmail, then mark the request sent.':'Document prepared.'):r.error;
+ }catch(e){purNotice='Document could not be prepared: '+e.message;docPrintCleanup();}render();
+}
+function purRequestGmailURL(d){
+ const p=purOrderFind(d.poId),body=['Hello,','','Please deliver the items in the attached request.',p?'Purchase order: '+p.number:'',d.expectedDate?'Requested delivery: '+docDate(d.expectedDate):'',d.note,'','Thank you,',(DB.company||{}).legalName||''].join('\n');
+ return docGmailUrl(d.to,'Delivery request '+d.number+(p?' · '+p.number:''),body)+(d.cc?'&cc='+encodeURIComponent(d.cc):'');
 }
 
 /* ==== src/erp/views/sales-list-ui.js ==== */
@@ -41042,6 +41286,7 @@ function validateImportedState(src){
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
  if(typeof validatePurchasingPayload==='function')validatePurchasingPayload(src);
  if(typeof validatePurchaseOrders==='function')validatePurchaseOrders(src);
+ if(typeof validatePurchaseReceiving==='function')validatePurchaseReceiving(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
@@ -41135,6 +41380,7 @@ function normalizeDB(){
  if(typeof normalizeMasterData==='function')normalizeMasterData();
  if(typeof normalizePurchasing==='function')normalizePurchasing();
  if(typeof normalizePurchaseOrders==='function')normalizePurchaseOrders();
+ if(typeof normalizePurchaseReceiving==='function')normalizePurchaseReceiving();
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
