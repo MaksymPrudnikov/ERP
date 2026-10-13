@@ -44,3 +44,7 @@
 @media(max-width:900px){.pur-form{grid-template-columns:1fr}.pur-contact{grid-template-columns:1fr 1fr}.pur-contact>button{justify-self:start}}
 @media(max-width:520px){.pur-fields,.pur-custom-row{grid-template-columns:1fr}.pur-card{padding:14px}.pur-contact{grid-template-columns:1fr}.pur-toolbar{gap:8px}.pur-event dl>div{grid-template-columns:1fr;gap:4px}}
 @media(max-width:900px){.pur-line-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.pur-po-line .pur-section-head{flex-wrap:wrap}}
+
+.pur-receiving{margin:0 0 16px}.pur-receiving-row{grid-template-columns:2.5fr repeat(4,minmax(0,1fr))}
+[data-pur-delivery-warnings]:empty{display:none}
+@media(max-width:900px){.pur-receiving-row{grid-template-columns:repeat(2,minmax(0,1fr))}.pur-receiving-row>div:first-child{grid-column:1 / -1}}

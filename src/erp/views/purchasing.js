@@ -4,8 +4,9 @@
    No global search, no stock balances and no purchase in customer Finance. */
 let purSupplierDraft=null,purSupplierOriginal='',purNotice='';
 function purArg(v){return esc(JSON.stringify(String(v)));}
-function purListScope(){return purView==='suppliers'?'purchaseSuppliers':purView==='history'?'purchaseHistory':'purchaseOrders';}
+function purListScope(){if(['receipts','requests','backorders','held'].includes(purView))return 'purchasing-'+purView;return purView==='suppliers'?'purchaseSuppliers':purView==='history'?'purchaseHistory':'purchaseOrders';}
 function purListColumns(){
+ if(['receipts','requests','backorders','held'].includes(purView))return purReceivingColumns();
  if(purView!=='suppliers')return purOrderColumns();
  const visible=['name','email','phone','currency','paymentDays','leadTimeDays'];
  return PUR_SUPPLIER_FIELDS.map(f=>({k:f.k,label:f.label,type:f.type==='days'?'number':f.k==='currency'?'list':'text',def:visible.includes(f.k)}))
@@ -22,8 +23,10 @@ function purListHeader(c){
 }
 function viewPurchasing(){
  if(!accessCan('purchasing'))return '<div class="empty">Purchasing access is required.</div>';
+ if(purFulfilDraft)return purFulfilForm();
  if(purSupplierDraft)return purSupplierForm();
  if(purOrderDraft)return purOrderForm();
+ if(['receipts','requests','backorders','held'].includes(purView))return purReceivingList();
  if(purView!=='suppliers')return purOrderList();
  const infos=purSupplierInfos(),rows=salesListRows(infos),cols=salesListColumns();
  const cell=(i,c)=>{
@@ -72,7 +75,7 @@ function purSupplierForm(){
 function purHistoryValue(value){
  if(value==null||value==='')return '—';
  if(typeof value==='boolean')return value?'Yes':'No';
- if(Array.isArray(value)&&value.some(x=>x&&x.kind))return value.map((x,i)=>'Line '+(i+1)+': '+JSON.stringify(x)).join('\n');
+ if(Array.isArray(value)&&value.some(x=>x&&(x.kind||Object.prototype.hasOwnProperty.call(x,'description'))))return value.map((x,i)=>'Line '+(i+1)+': '+JSON.stringify(x)).join('\n');
  if(Array.isArray(value))return value.map(x=>x&&typeof x==='object'?(x.label?x.label+': '+x.value:[x.name,x.role,x.email,x.phone].filter(Boolean).join(' · ')):String(x)).join('; ')||'—';
  return typeof value==='object'?JSON.stringify(value):String(value);
 }
