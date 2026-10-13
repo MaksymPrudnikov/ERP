@@ -40,11 +40,11 @@ function purPOGlassBuilder(entries){
  return '<section class="sales-block"><div class="sales-block-head"><div><b>GLASS / PURCHASE ITEMS</b></div></div><div class="mu-strip"><div class="mu-strip-scroll">'+tabs+'</div><button type="button" class="mu-add" data-pur-add-glass onclick="purOrderAddLine(\'glass\');purActiveGlass=purOrderDraft.lines.at(-1).id;render()">+ Glass</button></div><div class="mu-builder"><div class="mu-builder-head"><div><b>GLASS '+letter+'</b><span data-raw>'+esc(l.description||'Choose glass')+'</span></div><div class="mu-builder-actions"><button type="button" class="sm" onclick="purPicker={kind:\'sheet\'};render()">From supply points</button><button type="button" class="sm" onclick="purPicker={kind:\'order\',orderId:\'\',lineId:\'\'};render()">From customer order</button></div></div><details class="mu-section" open><summary><span class="mu-chevron">⌄</span><b>GLASS '+letter+'</b><span class="mu-summary" data-raw>'+esc(g?g.code:l.spec?l.spec.orderNumber:'')+'</span></summary><div class="mu-section-body">'+(l.kind==='order'?'<div data-raw>'+purSpecTexts(l.spec).map(x=>'<p>'+esc(x)+'</p>').join('')+'</div>':purGlassSelect(l,i,'po'))+'</div></details></div></section>';
 }
 function purPOGlassPicked(i,id){
- const d=purOrderDraft,l=d.lines[i],g=glassProductById(id);if(!g)return;
+ const d=purOrderDraft,l=d.lines[i],g=glassProductById(id);if(!g){purClearGlass(l);render();return;}
  Object.assign(l,{kind:'glass',productId:g.id,productCode:g.code,description:g.name,sheetId:'',sourceCurrency:'',price:null});render();
 }
 function purPOSupplyPicked(i,id){
- const l=purOrderDraft.lines[i],s=(DB.glassSheet||[]).find(s=>s.id===id);if(!s){l.sheetId='';render();return;}
+ const l=purOrderDraft.lines[i],s=(DB.glassSheet||[]).find(s=>s.id===id);if(!s){l.sheetId='';l.sourceCurrency='';render();return;}
  if(!purOrderDraft.supplierId&&s.supplierId)purPickSupplier(s.supplierId,false);
  if(s.supplierId!==purOrderDraft.supplierId){purNotice='Choose a supply point for the selected supplier.';render();return;}
  const row=purSheetLine(id);Object.assign(l,row,{id:l.id,qty:l.qty,unit:l.unit||row.unit,held:l.held,note:l.note,expectedDate:l.expectedDate,sheetsPerBlock:l.sheetsPerBlock});render();
@@ -63,7 +63,7 @@ function purPOLinesHTML(){
   (extra.length?'<section class="sales-block sales-extra-items"><div class="sales-block-head"><b>STOCK &amp; EXTRA ITEMS</b></div><div class="customer-table-wrap"><table class="sales-lines-table pur-extra-table"><thead><tr>'+['Item','Qty','Unit','Price','Price per','Note','Total',''].map(n=>'<th>'+n+'</th>').join('')+'</tr></thead><tbody>'+extra.map(({l,i})=>purOrderLineHTML(l,i)).join('')+'</tbody></table></div></section>':'')+
   '<div class="sales-extra-items-quiet"><button type="button" class="sm" onclick="purPicker={kind:\'stock\'};render()">+ Add Stock Item</button><button type="button" class="sm" data-pur-add-line onclick="purOrderAddLine(\'other\')">+ Other item</button></div>';
 }
-function purReceiptGlassPicked(i,id){const l=purFulfilDraft.data.lines[i],g=glassProductById(id);if(g){Object.assign(l,{kind:'glass',productId:g.id,productCode:g.code,description:g.name,sheetId:''});render();}}
+function purReceiptGlassPicked(i,id){const l=purFulfilDraft.data.lines[i],g=glassProductById(id);if(g)Object.assign(l,{kind:'glass',productId:g.id,productCode:g.code,description:g.name,sheetId:''});else purClearGlass(l);render();}
 
 function purFulfilAddLine(kind){const d=purFulfilDraft.data;if(kind==='other'&&d.lines.length===1&&!d.lines[0].description&&!d.lines[0].productCode)d.lines=[];d.lines.push(purFulfilLine({id:salesUid('RL'),kind,unit:kind==='glass'?'sheet':''},0));render();}
 
@@ -104,6 +104,8 @@ function purListDateColumn(){const columns=purListColumns();return ['date','at',
 function purGlassFilterChanged(i,target,field,value){
  const l=target==='po'?purOrderDraft.lines[i]:purFulfilDraft.data.lines[i],g=purGlassProduct(l),key=target+':'+l.id,f=purGlassFilter[key]||{manufacturer:g?g.manufacturer:'',mm:g?String(g.thicknessMm):''};
  f[field]=value;if(field==='manufacturer')f.mm='';purGlassFilter[key]=f;
- if(g&&((f.manufacturer&&g.manufacturer!==f.manufacturer)||(f.mm&&g.thicknessMm!==+f.mm)))Object.assign(l,{kind:'glass',productId:'',productCode:'',description:'',sheetId:'',sourceCurrency:'',price:null});
+ if(g&&((f.manufacturer&&g.manufacturer!==f.manufacturer)||(f.mm&&g.thicknessMm!==+f.mm)))purClearGlass(l);
  render();
 }
+
+function purClearGlass(l){Object.assign(l,{kind:'glass',productId:'',productCode:'',description:'',sheetId:'',sourceCurrency:'',price:null});}
