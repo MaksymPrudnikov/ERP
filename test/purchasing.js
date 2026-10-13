@@ -4,7 +4,7 @@ module.exports=async function({page,eq}){
  console.log('purchasing suppliers');const t=await page(undefined,{width:1440,height:1000});
  await t.p.waitForFunction(()=>storageWriter&&!storageStarting);
  await t.p.evaluate(()=>{
-  window.ppReset=()=>{DB.supplier=[];DB.purchasingEvent=[];DB.glassSheet=[];purSupplierDraft=null;purNotice='';salesListMenu=null;delete salesQueuePrefs.purchaseSuppliers;localStorage.removeItem('glass_erp_purchaseSuppliers_list_v1');tab='purchasing';};
+  window.ppReset=()=>{purView='suppliers';purOrderDraft=null;DB.supplier=[];DB.purchasingEvent=[];DB.glassSheet=[];purSupplierDraft=null;purNotice='';salesListMenu=null;delete salesQueuePrefs.purchaseSuppliers;localStorage.removeItem('glass_erp_purchaseSuppliers_list_v1');tab='purchasing';};
   window.ppSheet=(supplier,w,currency)=>normalizeGlassSheet({productCode:'6CLEAR',supplier,sheetWIn:w,sheetHIn:96,currency:currency||'USD',purchasePrice:2.15,purchaseUnit:'ft2',availability:'stock',leadTimeDays:5,note:'Keep this point'});
   ppReset();
  });
