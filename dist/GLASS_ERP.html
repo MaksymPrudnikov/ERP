@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 139 модулей, 21 стиля.
+  Состав сборки: 144 модулей, 21 стиля.
 -->
 <html lang="en">
 <head>
@@ -3167,8 +3167,27 @@ button.ch-stat.warn b{color:var(--warning)}
 .pur-event dl{margin:12px 0 0}
 .pur-event dl>div{display:grid;grid-template-columns:180px 1fr;gap:12px;padding:5px 0;font-size:12px}
 .pur-event dt{font-weight:600}.pur-event dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.pur-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.pur-tabs .on{background:var(--accent-soft);border-color:var(--accent)}
+.pur-po-edit{border:0;margin:0;padding:0;min-width:0}
+.pur-po-edit input:not([type=checkbox]),.pur-po-edit select,.pur-po-edit textarea{box-sizing:border-box;width:100%}
+.pur-po-edit .pur-card{margin-bottom:16px}
+.pur-po-edit textarea{resize:vertical}
+.pur-po-edit>section>label{margin-top:14px}
+.pur-line-actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}
+.pur-line-fields{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:14px 0}
+.pur-total{padding:16px 0;text-align:right}
+.pur-notice{padding:12px;border:1px solid var(--line);border-radius:9px;margin-bottom:12px}
+.pur-spec{margin-top:14px}.pur-spec summary{cursor:pointer;font-size:13px}
+.pur-picker{width:min(760px,calc(100vw - 28px));max-height:85vh;overflow:auto;padding:22px}
+.pur-picker select{width:100%;margin:8px 0 18px}
+.pur-picker-list{display:grid;gap:8px;margin-top:12px}
+.pur-picker-list button{text-align:left}
+.pur-sales-links td{font-size:11px;background:var(--surface-2);white-space:normal}
+.pur-sales-links span{display:inline-block;margin-right:10px}
 @media(max-width:900px){.pur-form{grid-template-columns:1fr}.pur-contact{grid-template-columns:1fr 1fr}.pur-contact>button{justify-self:start}}
 @media(max-width:520px){.pur-fields,.pur-custom-row{grid-template-columns:1fr}.pur-card{padding:14px}.pur-contact{grid-template-columns:1fr}.pur-toolbar{gap:8px}.pur-event dl>div{grid-template-columns:1fr;gap:4px}}
+@media(max-width:900px){.pur-line-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.pur-po-line .pur-section-head{flex-wrap:wrap}}
 
 </style>
 </head>
@@ -3196,7 +3215,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='5307e0aaee97';
+var ERP_BUILD='aefbf574a068';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13440,6 +13459,289 @@ function purSupplierSave(d){
  });
 }
 
+/* ==== src/erp/purchasing/orders.js ==== */
+/* Purchasing P2 · 13 October 2026.
+   A PO needs one line, not a supplier card, known price or delivery date.
+   Saved numbers are allocated inside storageCommand. Edits at any stage
+   are allowed and logged. Delete keeps the document and its history.
+   Quantities use the chosen purchasing unit; blocks have no fixed size.
+   No customer Finance writes, stock movements or production route changes. */
+DEFAULT.purchaseOrder=[];DEFAULT.purchaseOrderSeq=0;
+const PUR_ORDER_STATES={draft:'Draft',sent:'Sent',closed:'Closed',cancelled:'Cancelled'};
+function purOrderFind(id){return (DB.purchaseOrder||[]).find(p=>p.id===id)||null;}
+function purOrderNumber(n){return 'PO-'+String(n).padStart(4,'0');}
+function purOrderStatus(p){return p.deletedAt?'Deleted':PUR_ORDER_STATES[p.state]||'Draft';}
+function purLineClean(x,i){
+ x=x&&typeof x==='object'?x:{};
+ const l={id:purText(x.id)||'line-'+(i+1),kind:['sheet','order','other'].includes(x.kind)?x.kind:'other'};
+ ['description','unit','priceUnit','sourceCurrency','sheetId','productCode','orderId','lineId','componentKey','expectedDate','note'].forEach(k=>l[k]=purText(x[k]));
+ ['qty','price','widthIn','heightIn','sheetsPerBlock'].forEach(k=>l[k]=purNumber(x[k]));
+ l.held=!!x.held;
+ l.spec=x.spec&&typeof x.spec==='object'&&!Array.isArray(x.spec)?purClone(x.spec):null;
+ return l;
+}
+function purOrderClean(x){
+ const p={};
+ ['id','number','supplierId','supplierName','date','expectedDate','currency','to','cc','note','createdAt','createdBy','createdById','updatedAt','updatedBy','updatedById','sentAt','deletedAt'].forEach(k=>p[k]=purText(x[k]));
+ p.currency=p.currency.toUpperCase()||'USD';
+ p.state=Object.prototype.hasOwnProperty.call(PUR_ORDER_STATES,x.state)?x.state:'draft';
+ p.rev=Number.isSafeInteger(x.rev)&&x.rev>0?x.rev:1;
+ p.supplier=x.supplier&&typeof x.supplier==='object'?purSupplierClean(x.supplier):null;
+ p.lines=(Array.isArray(x.lines)?x.lines:[]).map(purLineClean);
+ return p;
+}
+function normalizePurchaseOrders(){
+ const ids=new Set();
+ DB.purchaseOrder=(Array.isArray(DB.purchaseOrder)?DB.purchaseOrder:[]).filter(p=>p&&purText(p.id)&&!ids.has(purText(p.id))&&(ids.add(purText(p.id)),true)).map(purOrderClean);
+ DB.purchaseOrderSeq=DB.purchaseOrder.reduce((n,p)=>Math.max(n,/^PO-\d+$/.test(p.number)?+p.number.slice(3):0),Number.isSafeInteger(DB.purchaseOrderSeq)&&DB.purchaseOrderSeq>=0?DB.purchaseOrderSeq:0);
+ DB.purchaseDocumentOptions=purDocOptions(DB.purchaseDocumentOptions);
+}
+function validatePurchaseOrders(src){
+ if(!Array.isArray(src.purchaseOrder))return;
+ const ids=new Set(),numbers=new Set();
+ src.purchaseOrder.forEach((p,i)=>{
+  const bad=()=>{throw new Error('Purchase order '+(i+1)+': invalid or duplicate record.');};
+  if(!p||typeof p!=='object'||Array.isArray(p)||!purText(p.id)||ids.has(purText(p.id))||!/^PO-\d+$/.test(p.number)||numbers.has(p.number)||!Array.isArray(p.lines))bad();
+  ids.add(purText(p.id));numbers.add(p.number);
+  const lines=new Set();
+  p.lines.forEach(l=>{
+   if(!l||typeof l!=='object'||Array.isArray(l)||!purText(l.id)||lines.has(purText(l.id)))bad();lines.add(purText(l.id));
+   if(l.spec!=null){
+    const record=x=>x&&typeof x==='object'&&!Array.isArray(x),points=a=>Array.isArray(a)&&a.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite));
+    if(!record(l.spec)||!Array.isArray(l.spec.parts)||!Array.isArray(l.spec.makeup))bad();
+    l.spec.parts.forEach(c=>{
+     if(!record(c)||!Array.isArray(c.services)||!c.services.every(s=>typeof s==='string'))bad();
+     if(c.shape!=null&&(!record(c.shape)||!points(c.shape.points)||!Array.isArray(c.shape.polys)||!c.shape.polys.every(points)||!Array.isArray(c.shape.holes)||!c.shape.holes.every(h=>record(h)&&[h.x,h.y,h.d].every(Number.isFinite))))bad();
+    });
+   }
+  });
+ });
+}
+function purUnit(v){return mdUnitCode(v)||purText(v).toLowerCase();}
+/* The supplier price may be per ft² while the order is in sheets/blocks.
+   Unknown sheets per block means an unknown total, never a guessed size. */
+function purLinePriceQty(l){
+ const qty=purNumber(l.qty);if(qty==null)return null;
+ const unit=purUnit(l.unit),priceUnit=purUnit(l.priceUnit)||unit;
+ if(unit===priceUnit||!unit)return qty;
+ const perBlock=purNumber(l.sheetsPerBlock);
+ let sheets=unit==='block'?(perBlock==null?null:qty*perBlock):['sheet','each','lite'].includes(unit)?qty:null;
+ if(sheets!=null){
+  if(['sheet','each','lite'].includes(priceUnit))return sheets;
+  if(['sqft','sqm'].includes(priceUnit)&&l.widthIn>0&&l.heightIn>0)return sheets*l.widthIn*l.heightIn/(priceUnit==='sqft'?144:1550.0031000062);
+ }
+ if(unit==='sqft'&&priceUnit==='sqm')return qty/10.76391041671;
+ if(unit==='sqm'&&priceUnit==='sqft')return qty*10.76391041671;
+ return null;
+}
+function purLineTotal(l){const q=purLinePriceQty(l),price=purNumber(l.price);return price==null||q==null?null:salesMoney(q*price);}
+function purOrderTotals(p){let known=0,missing=0;p.lines.forEach(l=>{const n=purLineTotal(l);if(n==null)missing++;else known=salesMoney(known+n);});return {known,missing,complete:!missing};}
+function purOrderChanges(a,b){
+ const fields=['supplierName','supplierId','date','expectedDate','currency','to','cc','note','state','lines'];
+ return fields.filter(k=>JSON.stringify(a&&a[k])!==JSON.stringify(b[k])).map(k=>({field:k,label:({supplierName:'Supplier',supplierId:'Supplier card',expectedDate:'Expected date',to:'To',cc:'CC',lines:'Lines',state:'Status'})[k]||stkHuman(k),before:a?a[k]:null,after:b[k]}));
+}
+function purOrderSave(d){
+ return purPersist(()=>{
+  const old=d.id?purOrderFind(d.id):null;
+  if(d.id&&!old)throw new Error('Purchase order no longer exists.');
+  if(old&&(old.deletedAt||old.rev!==d.rev))throw new Error('Purchase order changed elsewhere. Reopen it to keep those changes.');
+  const p=purOrderClean(d);
+  if(!p.lines.length)throw new Error('Add at least one line.');
+  if(!CURRENCY_RE.test(p.currency))throw new Error('Currency: enter a three-letter code.');
+  ['date','expectedDate'].forEach(k=>{if(p[k]&&!ISO_DATE_RE.test(p[k]))throw new Error('Date: use YYYY-MM-DD or leave empty.');});
+  const ids=new Set();
+  p.lines.forEach((l,i)=>{
+   if(ids.has(l.id))throw new Error('Duplicate line. Reopen the order.');ids.add(l.id);
+   ['qty','price','widthIn','heightIn','sheetsPerBlock'].forEach(k=>{if(purText(d.lines[i][k])!==''&&(l[k]==null||l[k]<0))throw new Error('Line '+(i+1)+': enter a non-negative number or leave empty.');});
+   if(l.expectedDate&&!ISO_DATE_RE.test(l.expectedDate))throw new Error('Line '+(i+1)+': use YYYY-MM-DD or leave empty.');
+  });
+  const actor=orderLogActor(),now=new Date().toISOString();
+  p.id=old?old.id:salesUid('PO');p.number=old?old.number:purOrderNumber(++DB.purchaseOrderSeq);
+  p.createdAt=old?old.createdAt:now;p.createdBy=old?old.createdBy:actor.by;p.createdById=old?old.createdById:actor.byId;
+  p.updatedAt=now;p.updatedBy=actor.by;p.updatedById=actor.byId;p.rev=old?old.rev+1:1;
+  p.sentAt=old?old.sentAt:'';p.deletedAt='';
+  if(p.state==='sent'&&!p.sentAt)p.sentAt=now;
+  const changes=purOrderChanges(old,p);
+  if(old)DB.purchaseOrder[DB.purchaseOrder.indexOf(old)]=p;else DB.purchaseOrder.push(p);
+  if(changes.length)purRecordEvent('po',p.id,!old?'Created':old.state!==p.state?PUR_ORDER_STATES[p.state]:'Edited',changes);
+  return p;
+ });
+}
+function purOrderDelete(id,rev){
+ return purPersist(()=>{
+  const p=purOrderFind(id);if(!p||p.deletedAt)throw new Error('Purchase order no longer exists.');
+  if(p.rev!==rev)throw new Error('Purchase order changed elsewhere. Reopen it.');
+  p.deletedAt=new Date().toISOString();p.rev++;
+  purRecordEvent('po',id,'Deleted',[{field:'number',label:'Purchase order retained in history',before:p.number,after:p.number}]);return p;
+ });
+}
+function purOrderRestore(id){
+ return purPersist(()=>{const p=purOrderFind(id);if(!p)throw new Error('Purchase order no longer exists.');if(!p.deletedAt)return p;p.deletedAt='';p.rev++;purRecordEvent('po',id,'Restored',[]);return p;});
+}
+function purOrderLog(id,what,changes){return purPersist(()=>{if(!purOrderFind(id))throw new Error('Purchase order no longer exists.');return purRecordEvent('po',id,what,changes);});}
+function purSheetLine(id){
+ const s=(DB.glassSheet||[]).find(s=>s.id===id);if(!s)return null;
+ const g=glassProductByCode(s.productCode);
+ return purLineClean({id:salesUid('PL'),kind:'sheet',sheetId:id,productCode:s.productCode,description:(g?g.name:s.productCode)+' · '+[s.sheetWIn,s.sheetHIn].join(' × ')+' in',unit:'sheet',priceUnit:s.purchaseUnit,sourceCurrency:s.currency,price:s.purchasePrice,qty:1,widthIn:s.sheetWIn,heightIn:s.sheetHIn},0);
+}
+
+/* ==== src/erp/purchasing/specification.js ==== */
+/* PO specification snapshots use the same glass/geometry/service readers
+   as stickers and work orders. Selecting an order never verifies, batches
+   or changes it. A missing catalogue glass can still be bought by text.
+   The office uses existing Skip after receiving external glass. */
+function purComponentLabel(c){return 'Lite '+c.lite+(c.ply?' · '+c.ply+' ply':'');}
+function purSpecComponent(o,l,c){
+ const d=stkGlassData('final',o,l,c,1),route=stkRoute(o,l,c),g=d.glass;
+ const glass=[g.code,g.name,g.mm?g.mm+' mm':'',g.heat,g.heatSoak?'Heat soak':'',g.surface?'Coating '+g.surface:'',...(g.paint||[])].filter(Boolean).join(' · ');
+ return {key:c.key,label:purComponentLabel(c),glass,finished:d.finished,cut:d.cut,shape:d.shape,
+  services:route.services.map(s=>s.text),missing:!g.code,raw:{pane:purClone(c.pane),spec:purClone(c.spec)}};
+}
+function purOrderComponentLine(orderId,lineId,key){
+ const o=salesRecord(orderId),l=o&&(o.lines||[]).find(l=>l.id===lineId);if(!o||!l)return null;
+ return finWithOrder(o,()=>{
+  const cs=glassBatchComponents(o,l),chosen=key?cs.filter(c=>c.key===key):cs;if(!chosen.length)return null;
+  const m=salesMakeupById(o,l.makeupId),parts=chosen.map(c=>purSpecComponent(o,l,c)),whole=!key;
+  const spec={orderNumber:o.businessNumber,lineNumber:o.lines.indexOf(l)+1,mark:l.mark||'',part:whole?'Whole unit':purComponentLabel(chosen[0]),
+   makeup:whole&&m?docMakeupFullLines(m):[],parts,note:l.notes||'',capturedAt:new Date().toISOString()};
+  return purLineClean({id:salesUid('PL'),kind:'order',orderId,lineId,componentKey:key||'',description:whole?(m?docMakeupShort(m):'Whole unit'):parts[0].glass,
+   unit:'each',priceUnit:'each',qty:l.qty,spec},0);
+ });
+}
+function purSpecTexts(spec,opts){
+ if(!spec)return [];
+ const out=[],on=k=>!opts||opts[k]!==false;
+ if(on('source'))out.push([spec.orderNumber,'Line '+spec.lineNumber,spec.mark,spec.part].filter(Boolean).join(' · '));
+ if(on('makeup'))out.push(...(spec.makeup||[]));
+ (spec.parts||[]).forEach(p=>{
+  if(on('glass'))out.push(p.label+': '+p.glass);
+  if(on('size')&&p.finished)out.push(p.label+' finished: '+p.finished.w+' × '+p.finished.h+' in');
+  if(on('cutSize')&&p.cut)out.push(p.label+' before edgework: '+p.cut.w+' × '+p.cut.h+' in');
+  if(on('services'))out.push(...p.services.map(s=>p.label+' · '+s));
+ });
+ if(on('notes')&&spec.note)out.push(spec.note);
+ return out;
+}
+function purLinkedPurchases(orderId,lineId){
+ return (DB.purchaseOrder||[]).filter(p=>!p.deletedAt&&p.state!=='cancelled').flatMap(p=>p.lines.filter(l=>l.orderId===orderId&&l.lineId===lineId).map(l=>({p,l})));
+}
+
+/* ==== src/erp/purchasing/documents.js ==== */
+/* PO preview, print and PDF share docPage / docPdfBytes.
+   Customize matches Sales: predefined fields, preview-only choices and
+   explicit Save as default. No user-defined PO fields or Gmail API (owner,
+   13 October 2026). Gmail compose is preparation, not evidence of sending. */
+DEFAULT.purchaseDocumentOptions={};
+const PUR_PO_FIELDS=[
+ ['company','Header','Company logo and details',true],
+ ['date','Header','Order date',true],['expected','Header','Expected date',true],
+ ['currency','Header','Currency',true],['createdBy','Header','Created by',false],
+ ['supplier','Supplier','Supplier name and address',true],['contact','Supplier','Contact details',true],
+ ['account','Supplier','Account / tax / website',false],['terms','Supplier','Payment terms and method',true],
+ ['description','Lines','Description',true],['productCode','Lines','Glass code',true],
+ ['quantity','Lines','Quantity and unit',true],['sheetSize','Lines','Sheet size and sheets per block',true],
+ ['lineDate','Lines','Line expected date',true],['held','Lines','Held at supplier',true],
+ ['source','Specification','Customer order and position',true],['makeup','Specification','Whole-unit makeup',true],
+ ['glass','Specification','Glass / thickness / treatment / coating',true],['size','Specification','Finished size',true],
+ ['cutSize','Specification','Size before edgework',true],['services','Specification','Edgework and fabrication',true],
+ ['drawing','Specification','Shape, holes and cutouts',true],
+ ['prices','Bottom','Line prices and totals',true],['totals','Bottom','PO total',true],
+ ['notes','Bottom','PO / line / source notes',true],['companyTerms','Bottom','Company terms',false],['footer','Bottom','Company footer',false]
+].map(([k,g,label,on])=>({k,g,label,on}));
+function purDocOptions(src){const out={};PUR_PO_FIELDS.forEach(f=>out[f.k]=src&&typeof src[f.k]==='boolean'?src[f.k]:f.on);return out;}
+function purDocFile(p){return (p.number||'PO-draft')+'.pdf';}
+function purDocGmailURL(p){
+ const subject=(p.number||'Purchase order')+' · '+((DB.company||{}).legalName||'');
+ const body=['Hello,','','Please find the purchase order attached.',p.expectedDate?'Requested delivery: '+docDate(p.expectedDate)+'.':'',p.note,'','Thank you,',(DB.company||{}).legalName||''].filter(x=>x!==null&&x!==undefined).join('\n');
+ return docGmailUrl(p.to,subject,body)+(p.cc?'&cc='+encodeURIComponent(p.cc):'');
+}
+/* Match the Sales document row: description on the left, sizes and
+   quantities to its right, then rate and amount. Columns that are hidden
+   in Customize give their space back to the description. */
+function purDocColumns(p,opt){
+ const cols=[{k:'n',label:'#',w:22}];
+ if(opt.description)cols.push({k:'description',label:'Description',w:0});
+ if((opt.sheetSize&&p.lines.some(l=>l.widthIn||l.heightIn))||(opt.size&&p.lines.some(l=>l.spec)))cols.push({k:'size',label:'Size, in',w:80,right:true});
+ if(opt.quantity)cols.push({k:'qty',label:'Quantity',w:62,right:true});
+ if(opt.prices)cols.push({k:'price',label:'Price',w:78,right:true},{k:'amount',label:'Amount',w:82,right:true});
+ const flex=cols.find(c=>c.k==='description')||cols[0];flex.w+=DOC_PAGE.right-DOC_PAGE.left-cols.reduce((n,c)=>n+c.w,0);
+ let x=DOC_PAGE.left;cols.forEach(c=>{c.x=x;x+=c.w;});return cols;
+}
+function purDocRowValues(p,l,i,opt){
+ let size=opt.sheetSize&&l.widthIn&&l.heightIn?l.widthIn+' × '+l.heightIn:'';
+ if(!size&&opt.size&&l.spec){const sizes=[...new Set(l.spec.parts.filter(c=>c.finished).map(c=>c.finished.w+' × '+c.finished.h))];size=sizes.length===1?sizes[0]:sizes.length?'See below':'';}
+ const amount=purLineTotal(l);
+ return {n:String(i+1),description:l.description||'Item',size,
+  qty:(l.qty==null?'Not set':l.qty)+(l.unit?' '+mdUnitName(l.unit):''),
+  price:l.price==null?'Not set':docNum(l.price,2)+(l.priceUnit||l.unit?' / '+mdUnitName(l.priceUnit||l.unit):''),amount:amount==null?'Not complete':docNum(amount,2)};
+}
+function purDocPages(p,raw){
+ const opt=purDocOptions(raw),pages=[],W=DOC_PAGE,C=DOC_COLOR,cols=purDocColumns(p,opt);let P,y,tableOn=false;
+ const tableHead=()=>{cols.forEach(c=>docLabel(P,c.right?c.x+c.w-6:c.x+6,y+8,c.label,{align:c.right?'right':'left'}));P.line(W.left,y+14,W.right,y+14,{stroke:C.navy,lw:1.3});y+=20;};
+ const start=()=>{
+  P=docPage();pages.push(P);y=W.top;
+  P.text(W.left,y+12,'PURCHASE ORDER',{size:14,bold:true,color:C.navy});
+  P.text(W.right,y+12,p.number||'Draft',{size:12,bold:true,align:'right'});y+=28;
+  P.line(W.left,y,W.right,y);y+=12;if(tableOn)tableHead();
+ };
+ const room=h=>{if(y+h>W.bottom)start();};
+ const text=(s,size,bold,indent)=>{
+  size=size||8;indent=indent||0;
+  docWrap(s,size,!!bold,W.right-W.left-indent).forEach(line=>{room(size+4);P.text(W.left+indent,y+size,line,{size,bold:!!bold});y+=size+4;});
+ };
+ const field=(label,value)=>{if(value!=null&&value!=='')text(label+': '+value);};
+ const gap=()=>{room(10);y+=10;};
+ start();
+ if(opt.company){
+  const c=docCompanyBlock(),logo=c.logo&&docJpegInfo(c.logo);
+  if(logo){P.img(W.left,y,100,36,c.logo);y+=42;}
+  text(c.name,11,true);c.lines.forEach(s=>text(s));gap();
+ }
+ if(opt.date)field('Date',docDate(p.date));
+ if(opt.expected)field('Expected',docDate(p.expectedDate));
+ if(opt.currency)field('Currency',p.currency);
+ if(opt.createdBy)field('Created by',p.createdBy);
+ const s=p.supplier||{};
+ if(opt.supplier){gap();field('Supplier',p.supplierName);if(s.address)text(s.address);}
+ if(opt.contact)[['Contact',s.contact],['Phone',s.phone],['Email',p.to],['CC',p.cc]].forEach(([k,v])=>field(k,v));
+ if(opt.account)[['Our account',s.accountNumber],['Tax number',s.taxNumber],['Website',s.website]].forEach(([k,v])=>field(k,v));
+ if(opt.terms){if(s.paymentDays!=null)field('Payment terms','Net '+s.paymentDays+' days');field('Payment method',s.paymentMethod);}
+ gap();room(50);tableOn=true;tableHead();
+ p.lines.forEach((l,i)=>{
+  const values=purDocRowValues(p,l,i,opt),cells=cols.map(c=>({c,lines:docWrap(values[c.k],8,c.k==='amount',c.w-12)})),count=Math.max(...cells.map(c=>c.lines.length));
+  let pos=0;
+  while(pos<count){
+   room(24);const n=Math.min(count-pos,Math.max(1,Math.floor((W.bottom-y-10)/11))),height=n*11+10;
+   P.rect(W.left,y,W.right-W.left,height,{fill:C.bar,r:3});
+   cells.forEach(({c,lines})=>lines.slice(pos,pos+n).forEach((s,k)=>P.text(c.right?c.x+c.w-6:c.x+6,y+13+k*11,s,{size:8,bold:c.k==='amount'||c.k==='n',align:c.right?'right':'left'})));
+   y+=height+5;pos+=n;
+  }
+  if(opt.productCode)field('Glass code',l.productCode);
+  if(opt.sheetSize&&l.sheetsPerBlock!=null)field('Sheets per block',l.sheetsPerBlock);
+  if(opt.lineDate)field('Expected',docDate(l.expectedDate));
+  if(opt.held&&l.held)text('Held at supplier',8,true);
+  purSpecTexts(l.spec,opt).forEach(t=>text(t));
+  if(opt.drawing&&l.spec)(l.spec.parts||[]).filter(p=>p.shape).forEach(part=>{
+   const shape=part.shape,pts=shape.points;if(!pts||pts.length<3)return;
+   room(135);text(part.label+' · finished shape',8,true);
+   const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+   const scale=Math.min(220/Math.max(maxX-minX,1),100/Math.max(maxY-minY,1)),map=q=>[W.left+20+(q[0]-minX)*scale,y+(maxY-q[1])*scale];
+   P.poly(pts.map(map),{stroke:C.navy,lw:.8});
+   (shape.polys||[]).forEach(ps=>P.poly(ps.map(map),{stroke:C.navy,lw:.6}));
+   (shape.holes||[]).forEach(h=>P.poly(Array.from({length:48},(_,i)=>map([h.x+Math.cos(i*Math.PI/24)*h.d/2,h.y+Math.sin(i*Math.PI/24)*h.d/2])),{stroke:C.navy,lw:.6}));
+   y+=110;
+   (shape.holes||[]).forEach(h=>text('Hole diameter '+h.d+' in · X '+h.x+' · Y '+h.y));
+  });
+  if(opt.notes&&l.note)field('Note',l.note);gap();
+ });
+ if(opt.totals){const t=purOrderTotals(p);text((t.complete?'TOTAL':'KNOWN SUBTOTAL')+': '+docNum(t.known,2)+' '+p.currency,11,true);if(t.missing)text(t.missing+' line(s) need price, quantity or conversion.');gap();}
+ if(opt.notes&&p.note){text('PO notes',9,true);text(p.note);}
+ if(opt.companyTerms&&(DB.company||{}).termsText){gap();text(DB.company.termsText);}
+ if(opt.footer&&(DB.company||{}).footerText){gap();text(DB.company.footerText);}
+ pages.forEach((page,i)=>{page.line(W.left,W.footer-9,W.right,W.footer-9);page.text(W.right,W.footer,p.number+' · Page '+(i+1)+' of '+pages.length,{size:7,align:'right',color:C.mut});});
+ return pages;
+}
+
 /* ==== src/erp/icons.js ==== */
 /* =====================================================================
    erp/icons  ·  erp-1.0
@@ -22685,7 +22987,7 @@ function salesOrderColumnCell(key,l,i,linked,st){
 }
 function salesOrderLines(){
   var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce(function(n,g){return n+g.lines;},0),hasServices=pricing.charges>0||commercial.length>0,columns=salesOrderScreenColumns();
-  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag and reorder columns in Columns</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
+  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag and reorder columns in Columns</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}${typeof purSalesLinksHTML==='function'?purSalesLinksHTML(soDraft.id,l,columns.length+3):''}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
 }
 
 /* ---------- Edgework Set editor ---------- */
@@ -25792,13 +26094,14 @@ function comPayDelete(id){if(!confirm('Delete this payout? Its orders are due ag
    No global search, no stock balances and no purchase in customer Finance. */
 let purSupplierDraft=null,purSupplierOriginal='',purNotice='';
 function purArg(v){return esc(JSON.stringify(String(v)));}
-function purListScope(){return 'purchaseSuppliers';}
+function purListScope(){return purView==='suppliers'?'purchaseSuppliers':purView==='history'?'purchaseHistory':'purchaseOrders';}
 function purListColumns(){
+ if(purView!=='suppliers')return purOrderColumns();
  const visible=['name','email','phone','currency','paymentDays','leadTimeDays'];
  return PUR_SUPPLIER_FIELDS.map(f=>({k:f.k,label:f.label,type:f.type==='days'?'number':f.k==='currency'?'list':'text',def:visible.includes(f.k)}))
   .concat([{k:'supplyCount',label:'Supply rows',type:'number',def:true},{k:'status',label:'Status',type:'list',def:true}]);
 }
-function purListDefaultSort(){return {k:'name',dir:'asc'};}
+function purListDefaultSort(){return purView==='suppliers'?{k:'name',dir:'asc'}:{k:purView==='history'?'at':'number',dir:'desc'};}
 function purSupplierInfos(){
  const counts=new Map();(DB.glassSheet||[]).forEach(s=>counts.set(s.supplierId,(counts.get(s.supplierId)||0)+1));
  return (DB.supplier||[]).map(s=>({o:{id:s.id},s,memo:Object.assign({},s,{supplyCount:counts.get(s.id)||0,status:s.active?'Active':'Archived'})}));
@@ -25810,6 +26113,8 @@ function purListHeader(c){
 function viewPurchasing(){
  if(!accessCan('purchasing'))return '<div class="empty">Purchasing access is required.</div>';
  if(purSupplierDraft)return purSupplierForm();
+ if(purOrderDraft)return purOrderForm();
+ if(purView!=='suppliers')return purOrderList();
  const infos=purSupplierInfos(),rows=salesListRows(infos),cols=salesListColumns();
  const cell=(i,c)=>{
   const v=salesListValue(i,c.k);
@@ -25817,7 +26122,7 @@ function viewPurchasing(){
   if(c.k==='status')return `<td><span class="pill ${i.s.active?'ok':''}">${esc(v)}</span></td>`;
   return `<td class="${c.type==='number'?'n':''}" data-raw>${v==null||v===''?'<span class="mut">—</span>':esc(v)}</td>`;
  };
- return `<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><h2>Suppliers</h2><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new onclick="purSupplierEdit('')">+ Supplier</button></div>
+ return `<div class="purchasing-workspace">${purNav()}<div class="sales-toolbar pur-toolbar"><h2>Suppliers</h2><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new onclick="purSupplierEdit('')">+ Supplier</button></div>
   ${purNotice?`<div class="ncr-error" role="alert">${esc(purNotice)}</div>`:''}
   ${salesListFilterChips()}<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table" data-pur-suppliers><thead><tr><th><button type="button" class="gb-settings" title="Columns" aria-label="Columns" data-columns-button onclick="salesListOpenColumns(event)">${ico('settings')}</button></th>${cols.map(purListHeader).join('')}</tr></thead>
   <tbody>${rows.map(i=>`<tr data-pur-supplier="${esc(i.s.id)}"><td></td>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No suppliers yet. Add a supplier when you need a reusable card.'}</td></tr>`}</tbody>
@@ -25825,7 +26130,7 @@ function viewPurchasing(){
 }
 function purSupplierEdit(id){
  if(!accessCan('purchasing'))return;
- const s=id?purSupplierFind(id):null;if(id&&!s)return;
+ const s=id?purSupplierFind(id):null;if(id&&!s)return;purView='suppliers';
  purSupplierDraft=purClone(s||purSupplierClean({}));purSupplierOriginal=JSON.stringify(purSupplierDraft);purNotice='';salesListMenu=null;render();
  if(!id)setTimeout(()=>document.getElementById('pur_supplier_name')?.focus(),0);
 }
@@ -25857,6 +26162,7 @@ function purSupplierForm(){
 function purHistoryValue(value){
  if(value==null||value==='')return '—';
  if(typeof value==='boolean')return value?'Yes':'No';
+ if(Array.isArray(value)&&value.some(x=>x&&x.kind))return value.map((x,i)=>'Line '+(i+1)+': '+JSON.stringify(x)).join('\n');
  if(Array.isArray(value))return value.map(x=>x&&typeof x==='object'?(x.label?x.label+': '+x.value:[x.name,x.role,x.email,x.phone].filter(Boolean).join(' · ')):String(x)).join('; ')||'—';
  return typeof value==='object'?JSON.stringify(value):String(value);
 }
@@ -25872,6 +26178,177 @@ function purSupplierFormSave(){
 function purSupplierCancel(){
  if(purSupplierDraft&&JSON.stringify(purSupplierDraft)!==purSupplierOriginal&&!confirm('Discard changes and return to suppliers?'))return;
  purSupplierDraft=null;purNotice='';render();
+}
+
+/* ==== src/erp/views/purchase-orders.js ==== */
+/* Purchasing P2: reusable Sales column filters and draft PO forms.
+   The owner enters one-off suppliers as text; a card is an explicit action.
+   Gmail only opens a compose window. Sending is confirmed manually. */
+let purView='orders',purOrderDraft=null,purOrderOriginal='',purShowDeleted=false,purPicker=null,purDoc=null;
+function purNav(){
+ return '<div class="pur-tabs">'+[['orders','Purchase orders'],['suppliers','Suppliers'],['history','History']].map(([k,n])=>'<button type="button" class="'+(purView===k?'on':'')+'" onclick="purGo(\''+k+'\')">'+n+'</button>').join('')+'</div>';
+}
+function purGo(v){if(!purOrderLeave())return;purSupplierDraft=null;purView=v;purNotice='';salesListMenu=null;render();}
+function purOrderLeave(){
+ if(purOrderDraft&&JSON.stringify(purOrderDraft)!==purOrderOriginal&&!confirm('Discard unsaved purchase order changes?'))return false;
+ purOrderDraft=null;purPicker=null;purDoc=null;return true;
+}
+function purOrderColumns(){
+ if(purView==='history')return [['at','When','date'],['entity','Document','text'],['name','Reference','text'],['what','Action','list'],['by','Who','text']].map(([k,label,type])=>({k,label,type,def:true}));
+ return [['number','PO','text'],['supplierName','Supplier','text'],['date','Date','date'],['expectedDate','Expected','date'],['currency','Currency','list'],['amount','Amount','number'],['pricing','Pricing','list'],['status','Status','list'],['held','Held at supplier','number'],['createdBy','Created by','text']].map(([k,label,type])=>({k,label,type,def:true}));
+}
+function purOrderInfos(){
+ if(purView==='history')return (DB.purchasingEvent||[]).map(e=>{const p=e.entity==='po'?purOrderFind(e.entityId):purSupplierFind(e.entityId);return {o:{id:e.id},e,memo:Object.assign({},e,{entity:e.entity==='po'?'PO':'Supplier',name:p?(p.number||p.name):e.entityId})};});
+ return (DB.purchaseOrder||[]).filter(p=>purShowDeleted||!p.deletedAt).map(p=>{const t=purOrderTotals(p);return {o:{id:p.id},p,memo:Object.assign({},p,{amount:t.complete?t.known:null,pricing:t.complete?'Complete':'Price / quantity needed',status:purOrderStatus(p),held:p.lines.filter(l=>l.held).length})};});
+}
+function purOrderList(){
+ const infos=purOrderInfos(),rows=salesListRows(infos),cols=salesListColumns(),history=purView==='history';
+ const cell=(i,c)=>{
+  const v=salesListValue(i,c.k);
+  if(c.k==='number'||history&&c.k==='name')return '<td><button type="button" class="fin-link" data-pur-po="'+esc(i.p?i.p.id:i.e.entityId)+'" onclick="'+(i.p||i.e.entity==='po'?'purOrderEdit':'purSupplierEdit')+'('+purArg(i.p?i.p.id:i.e.entityId)+')">'+esc(v)+'</button></td>';
+  return '<td data-raw class="'+(c.type==='number'?'n':'')+'">'+(v==null||v===''?'—':c.k==='amount'?esc(docNum(v,2)):c.k==='at'?esc(new Date(v).toLocaleString()):esc(v))+'</td>';
+ };
+ return '<div class="purchasing-workspace">'+purNav()+'<div class="sales-toolbar pur-toolbar"><h2>'+(history?'Purchasing history':'Purchase orders')+'</h2><span class="sales-toolbar-sp"></span>'+(history?'':'<label><input type="checkbox" '+(purShowDeleted?'checked':'')+' onchange="purShowDeleted=this.checked;render()"> Include deleted</label><button type="button" class="pri" data-pur-po-new onclick="purOrderEdit(\'\')">+ PO</button>')+'</div>'+salesListFilterChips()+
+  '<div class="card sales-list-card"><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="gb-settings" aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
+  rows.map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody><tfoot><tr><td colspan="'+(cols.length+1)+'">'+rows.length+' records</td></tr></tfoot></table></div></div>'+salesListMenuHTML(infos)+'</div>';
+}
+function purOrderEdit(id){
+ if(!accessCan('purchasing'))return;
+ const p=id?purOrderFind(id):null;if(id&&!p)return;
+ purSupplierDraft=null;purView='orders';purPicker=null;purDoc=null;purNotice='';
+ purOrderDraft=purClone(p||purOrderClean({date:finToday(),lines:[{id:salesUid('PL'),qty:1}]}));
+ purOrderOriginal=JSON.stringify(purOrderDraft);render();
+}
+function purOrderField(k,label,type){
+ const v=purOrderDraft[k]??'';
+ return '<div><label for="pur_po_'+k+'">'+label+'</label><input id="pur_po_'+k+'" type="'+(type||'text')+'" value="'+esc(v)+'" oninput="purOrderDraft.'+k+'=this.value"></div>';
+}
+function purPickSupplier(id){
+ const s=purSupplierFind(id),d=purOrderDraft;d.supplierId=id;d.supplier=s?purClone(s):null;
+ if(s){d.supplierName=s.name;d.to=s.email;d.currency=s.currency;if(s.leadTimeDays!=null&&d.date){const date=new Date(d.date+'T12:00:00');date.setDate(date.getDate()+s.leadTimeDays);d.expectedDate=finLocalDate(date);}}
+ render();
+}
+function purPOStoreSupplier(){
+ const d=purOrderDraft,r=purSupplierSave({name:d.supplierName,email:d.to,currency:d.currency});
+ if(!r.ok){purNotice=r.error;render();return;}d.supplierId=r.value.id;d.supplier=purClone(r.value);purNotice='';render();
+}
+function purOrderSaveForm(stay){
+ const old=purOrderDraft.id&&purOrderFind(purOrderDraft.id),sent=old&&!!old.sentAt,r=purOrderSave(purOrderDraft);
+ if(!r.ok){purNotice=r.error;render();return false;}
+ purOrderDraft=stay?purClone(r.value):null;purOrderOriginal=JSON.stringify(purOrderDraft);
+ purNotice=sent?'Changes saved. Send an updated PO if needed.':'';render();return true;
+}
+function purOrderState(state){purOrderDraft.state=state;purOrderSaveForm(true);}
+function purOrderRemove(){
+ const d=purOrderDraft;if(!confirm('Delete '+d.number+'? The PO and its history remain in Include deleted and can be restored.'))return;
+ const r=purOrderDelete(d.id,d.rev);if(!r.ok){purNotice=r.error;render();return;}purOrderDraft=null;purNotice='';render();
+}
+function purOrderRestoreForm(){const r=purOrderRestore(purOrderDraft.id);if(!r.ok){purNotice=r.error;render();return;}purOrderEdit(r.value.id);}
+function purOrderAddLine(){purOrderDraft.lines.push(purLineClean({id:salesUid('PL'),qty:1},0));render();}
+function purLineInput(l,i,k,label,type){
+ return '<div><label for="pur_line_'+i+'_'+k+'">'+label+'</label><input id="pur_line_'+i+'_'+k+'" value="'+esc(l[k]??'')+'" '+(type==='number'?'type="number" step="any" min="0"':type==='date'?'type="date"':'type="text"')+(k==='unit'||k==='priceUnit'?' list="pur_units"':'')+' oninput="purOrderDraft.lines['+i+'].'+k+'=this.value;purRefreshTotals()"></div>';
+}
+function purOrderLineHTML(l,i){
+ const total=purLineTotal(l),spec=purSpecTexts(l.spec),warn=l.spec&&l.spec.parts.some(p=>p.missing);
+ return '<section class="card pur-card pur-po-line" data-pur-line="'+i+'"><div class="pur-section-head"><h3>Line '+(i+1)+'</h3><button type="button" class="sm dl" aria-label="Remove line '+(i+1)+'" onclick="purOrderDraft.lines.splice('+i+',1);render()">Remove</button></div>'+
+  '<label for="pur_line_'+i+'_description">Description</label><textarea id="pur_line_'+i+'_description" rows="2" oninput="purOrderDraft.lines['+i+'].description=this.value">'+esc(l.description)+'</textarea>'+
+  '<div class="pur-line-fields">'+[['qty','Quantity','number'],['unit','Order unit'],['price','Price','number'],['priceUnit','Price per'],['expectedDate','Expected','date']].map(([k,n,t])=>purLineInput(l,i,k,n,t)).join('')+'</div>'+
+  (l.sourceCurrency&&l.sourceCurrency!==purOrderDraft.currency?'<p class="warn">Supply quote: '+esc(l.sourceCurrency)+'. Enter the agreed price in '+esc(purOrderDraft.currency)+'.</p>':'')+
+  ('<details class="pur-spec" '+(l.kind==='sheet'||purUnit(l.unit)==='block'?'open':'')+'><summary>Sheet / block details</summary><div class="pur-line-fields">'+[['widthIn','Sheet width, in'],['heightIn','Sheet height, in'],['sheetsPerBlock','Sheets per block']].map(([k,n])=>purLineInput(l,i,k,n,'number')).join('')+'</div></details>')+
+  '<div class="pur-section-head"><label class="pur-active"><input type="checkbox" '+(l.held?'checked':'')+' onchange="purOrderDraft.lines['+i+'].held=this.checked"> Held at supplier</label><b data-pur-line-total="'+i+'">Line total: '+(total==null?'Not complete':esc(docNum(total,2)+' '+purOrderDraft.currency))+'</b></div>'+
+  '<label for="pur_line_'+i+'_note">Line note</label><input id="pur_line_'+i+'_note" value="'+esc(l.note)+'" oninput="purOrderDraft.lines['+i+'].note=this.value">'+
+  (spec.length?'<details class="pur-spec"><summary>Source specification · '+esc(l.spec.part)+'</summary>'+(warn?'<p class="warn">Glass is missing from the catalogue. Review the description before ordering.</p>':'')+'<div data-raw>'+spec.map(s=>'<p>'+esc(s)+'</p>').join('')+'</div><p class="mut">Snapshot from the customer order. Receive external glass and use Skip in the shop.</p></details>':'')+'</section>';
+}
+/* Update figures in place: rerendering on blur can remove the next input
+   between focusing it and typing, silently losing its value. */
+function purRefreshTotals(){
+ if(!purOrderDraft)return;
+ purOrderDraft.lines.forEach((l,i)=>{const el=document.querySelector('[data-pur-line-total="'+i+'"]'),n=purLineTotal(l);if(el)el.textContent='Line total: '+(n==null?'Not complete':docNum(n,2)+' '+purOrderDraft.currency);});
+ const t=purOrderTotals(purOrderDraft),el=document.querySelector('[data-pur-total]');
+ if(el)el.textContent=(t.complete?'Total':'Known subtotal')+': '+docNum(t.known,2)+' '+purOrderDraft.currency+(t.missing?' · '+t.missing+' line(s) need price, quantity or conversion':'');
+}
+function purOrderForm(){
+ const d=purOrderDraft,t=purOrderTotals(d),deleted=!!d.deletedAt;
+ return '<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><button type="button" onclick="if(purOrderLeave())render()">← Purchase orders</button><h2>'+esc(d.number||'New purchase order')+'</h2><span class="pill">'+purOrderStatus(d)+'</span><span class="sales-toolbar-sp"></span>'+
+  (deleted?'<button type="button" onclick="purOrderRestoreForm()">Restore</button>':'<button type="button" onclick="purDocOpen()">Preview / PDF / Email</button><button type="button" class="pri" data-pur-po-save onclick="purOrderSaveForm(true)">Save</button>'+(d.id?'<button type="button" onclick="purOrderRemove()">Delete</button>':''))+'</div>'+
+  (purNotice?'<div role="status" data-pur-po-notice class="pur-notice">'+esc(purNotice)+'</div>':'')+
+  '<fieldset class="pur-po-edit form" '+(deleted?'disabled':'')+'><section class="card pur-card"><div class="pur-fields">'+
+  '<div><label for="pur_po_card">Supplier card · optional</label><select id="pur_po_card" onchange="purPickSupplier(this.value)"><option value="">One-off / free text</option>'+(DB.supplier||[]).map(s=>'<option value="'+esc(s.id)+'" '+(s.id===d.supplierId?'selected':'')+'>'+esc(s.name)+(s.active?'':' · Archived')+'</option>').join('')+'</select></div>'+
+  purOrderField('supplierName','Supplier / shop name')+purOrderField('date','Order date','date')+purOrderField('expectedDate','Expected date','date')+purOrderField('currency','Currency')+purOrderField('to','Email to')+purOrderField('cc','CC')+
+  '<div><label>Status</label><select aria-label="PO status" onchange="purOrderDraft.state=this.value">'+Object.entries(PUR_ORDER_STATES).map(([k,n])=>'<option value="'+k+'" '+(d.state===k?'selected':'')+'>'+n+'</option>').join('')+'</select></div></div>'+
+  (!d.supplierId?'<p><button type="button" onclick="purPOStoreSupplier()">Save as supplier</button></p>':'')+
+  '<label for="pur_po_note">PO notes</label><textarea id="pur_po_note" rows="2" oninput="purOrderDraft.note=this.value">'+esc(d.note)+'</textarea></section>'+
+  '<div class="pur-line-actions"><button type="button" data-pur-add-line onclick="purOrderAddLine()">+ Line</button><button type="button" onclick="purPicker={kind:\'sheet\'};render()">From supply points</button><button type="button" onclick="purPicker={kind:\'order\',orderId:\'\',lineId:\'\'};render()">From customer order</button></div>'+
+  '<datalist id="pur_units">'+MD_UNITS.map(u=>'<option value="'+u.code+'">'+u.nameEn+'</option>').join('')+'<option value="block">block</option></datalist>'+
+  d.lines.map(purOrderLineHTML).join('')+'</fieldset><div class="pur-total" data-pur-total><b>'+(t.complete?'Total':'Known subtotal')+': '+esc(docNum(t.known,2)+' '+d.currency)+'</b>'+(t.missing?' · '+t.missing+' line(s) need price, quantity or conversion':'')+'</div>'+
+  (d.id?purHistoryHTML('po',d.id):'')+purPickerHTML()+(purDoc?purDocHTML():'')+'</div>';
+}
+function purPickerHTML(){
+ if(!purPicker)return '';const p=purPicker;
+ let body='';
+ if(p.kind==='sheet'){
+  const rows=(DB.glassSheet||[]).filter(s=>!purOrderDraft.supplierId||s.supplierId===purOrderDraft.supplierId);
+  body='<p class="mut">Purchase prices keep their unit. All values can be changed in the PO.</p><label><input type="checkbox" onchange="purPicker.all=this.checked;render()" '+(p.all?'checked':'')+'> All suppliers</label>'+
+   '<div class="pur-picker-list">'+(p.all?DB.glassSheet:rows).map(s=>'<button type="button" onclick="purPickerAddSheet('+purArg(s.id)+')">'+esc([s.productCode,s.supplier,s.sheetWIn+' × '+s.sheetHIn+' in',s.currency].join(' · '))+'</button>').join('')+'</div>';
+ }else{
+  const orders=(DB.salesOrder||[]).filter(o=>!salesIsQuote(o)),o=salesRecord(p.orderId),l=o&&(o.lines||[]).find(l=>l.id===p.lineId);
+  body='<label for="pur_source_order">Customer order</label><select id="pur_source_order" onchange="purPicker.orderId=this.value;purPicker.lineId=\'\';render()"><option value="">Choose order</option>'+orders.map(o=>'<option value="'+esc(o.id)+'" '+(o.id===p.orderId?'selected':'')+'>'+esc([o.businessNumber,salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))+'</option>').join('')+'</select>'+
+   (o?'<label for="pur_source_line">Position</label><select id="pur_source_line" onchange="purPicker.lineId=this.value;render()"><option value="">Choose position</option>'+o.lines.map((l,i)=>'<option value="'+esc(l.id)+'" '+(l.id===p.lineId?'selected':'')+'>'+esc('Line '+(i+1)+' · '+(l.mark||'')+' · '+docSize(l)+' · Qty '+l.qty)+'</option>').join('')+'</select>':'')+
+   (l?'<div class="pur-picker-list"><button type="button" onclick="purPickerAddComponent(\'\')">Whole unit / laminate</button>'+glassBatchComponents(o,l).map(c=>'<button type="button" onclick="purPickerAddComponent('+purArg(c.key)+')">'+esc(purComponentLabel(c)+' · '+c.glass)+'</button>').join('')+'</div>':'');
+ }
+ return '<div class="doc-back"><section class="card pur-picker" role="dialog" aria-label="Add purchase line"><div class="pur-section-head"><h3>Add purchase line</h3><button type="button" onclick="purPicker=null;render()">Close</button></div>'+body+'</section></div>';
+}
+function purPickerPush(l){if(!l)return;const a=purOrderDraft.lines;if(a.length===1&&!a[0].description&&!a[0].spec&&!a[0].sheetId&&a[0].price==null)a.splice(0,1);a.push(l);purPicker=null;render();}
+function purPickerAddSheet(id){const l=purSheetLine(id);if(!l)return;const s=DB.glassSheet.find(s=>s.id===id);if(s.currency!==purOrderDraft.currency)purNotice='Supply price is in '+s.currency+'. Review the PO currency or enter the agreed price.';purPickerPush(l);}
+function purPickerAddComponent(key){purPickerPush(purOrderComponentLine(purPicker.orderId,purPicker.lineId,key));}
+function purSalesLinksHTML(orderId,l,colspan){
+ const links=purLinkedPurchases(orderId,l.id);if(!links.length)return '';
+ return '<tr class="pur-sales-links"><td colspan="'+colspan+'">'+links.map(({p,l})=>'<span>'+esc(l.spec?l.spec.part:'Glass')+' · ordered from '+esc(p.supplierName||'Supplier not set')+' · '+(accessCan('purchasing')?'<button type="button" class="fin-link" onclick="purOpenLinked('+purArg(p.id)+')">'+esc(p.number)+'</button>':esc(p.number))+esc((l.expectedDate||p.expectedDate)?' · expected '+docDate(l.expectedDate||p.expectedDate):'')+'</span>').join(' · ')+'</td></tr>';
+}
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push((to)=>tab==='purchasing'&&to!=='purchasing'&&!purOrderLeave());
+
+function purOpenLinked(id){
+ if(!accessCan('purchasing'))return;
+ const go=()=>{tab='purchasing';subtab=null;navMoreOpen=false;purOrderEdit(id);};
+ if((window.NAV_GUARDS||[]).some(g=>g('purchasing',go)))return;go();
+}
+
+/* ==== src/erp/views/purchase-documents.js ==== */
+/* Purchase document actions: PDF download and Gmail compose only.
+   Prepared messages are logged separately from the user's Mark sent. */
+function purDocOpen(){
+ if(!purOrderSaveForm(true))return;
+ purDoc={opts:purDocOptions(DB.purchaseDocumentOptions),panel:false,status:''};render();
+}
+function purDocSet(k,on){purDoc.opts[k]=!!on;render();}
+function purDocSaveDefault(){
+ const r=purPersist(()=>{DB.purchaseDocumentOptions=purDocOptions(purDoc.opts);});
+ purDoc.status=r.ok?'Saved as default.':r.error;render();
+}
+function purDocHTML(){
+ const d=purDoc,p=purOrderDraft,groups=[...new Set(PUR_PO_FIELDS.map(f=>f.g))];
+ let body;try{body=purDocPages(p,d.opts).map(pg=>'<div class="doc-sheet">'+docPageSVG(pg)+'</div>').join('');}catch(e){body='<div class="err" style="display:block">'+esc(e.message)+'</div>';}
+ const panel='<aside class="doc-panel"><b>Customize · Purchase order</b><p class="mut">Changes apply to this preview.</p>'+groups.map(g=>'<h4>'+g+'</h4>'+PUR_PO_FIELDS.filter(f=>f.g===g).map(f=>'<label class="doc-opt"><input type="checkbox" data-pur-doc-field="'+f.k+'" '+(d.opts[f.k]?'checked':'')+' onchange="purDocSet(\''+f.k+'\',this.checked)"><span>'+f.label+'</span></label>').join('')).join('')+'<div class="doc-panel-actions"><button type="button" onclick="purDoc.opts=purDocOptions();render()">Reset to base</button><button type="button" onclick="purDocSaveDefault()">Save as default</button></div></aside>';
+ return '<div class="doc-back"><div class="doc-window" role="dialog" aria-label="Purchase order preview"><div class="doc-bar"><b>'+esc(p.number)+'</b><span class="doc-spacer"></span><button type="button" onclick="purDoc.panel=!purDoc.panel;render()">✎ Customize</button><button type="button" data-pur-pdf onclick="purDocAction(\'pdf\')">Download PDF</button><button type="button" onclick="purDocAction(\'print\')">Print</button><button type="button" data-pur-gmail onclick="purDocAction(\'email\')">Open Gmail + PDF</button><button type="button" onclick="purOrderState(\'sent\')">Mark sent</button><button type="button" onclick="purDoc=null;render()">Close</button></div><div class="doc-status">'+esc(d.status||'Attach the downloaded PDF yourself. Mark sent after sending the message.')+'</div><div class="doc-body'+(d.panel?' with-panel':'')+'"><div class="doc-pages">'+body+'</div>'+(d.panel?panel:'')+'</div></div></div>';
+}
+function purDocAction(action){
+ const p=purOrderDraft,d=purDoc;if(!p||!d)return;
+ try{
+  const pages=purDocPages(p,d.opts);
+  if(action==='print'){
+   docPrintHost().innerHTML=pages.map(pg=>'<div class="doc-print-page">'+docPageSVG(pg)+'</div>').join('');
+   document.body.classList.add('doc-printing');window.addEventListener('afterprint',docPrintCleanup,{once:true});setTimeout(docPrintCleanup,60000);window.print();
+   const r=purOrderLog(p.id,'Print prepared',[]);d.status=r.ok?'Print prepared.':r.error;
+  }else{
+   docDownload(purDocFile(p),docPdfBytes(pages,{title:'Purchase order '+p.number}));
+   if(action==='email'){
+    const win=window.open(purDocGmailURL(p),'_blank');
+    const r=purOrderLog(p.id,'Email prepared',[{field:'to',label:'To',before:null,after:p.to},{field:'cc',label:'CC',before:null,after:p.cc}]);
+    d.status=r.ok?'PDF downloaded. Attach it to Gmail, then mark this PO sent.'+(win?'':' Gmail was blocked. Allow pop-ups and retry.'):r.error;
+   }else{const r=purOrderLog(p.id,'PDF prepared',[]);d.status=r.ok?'PDF downloaded.':r.error;}
+  }
+ }catch(e){d.status='Document could not be prepared: '+e.message;docPrintCleanup();}
+ render();
 }
 
 /* ==== src/erp/views/sales-list-ui.js ==== */
@@ -40564,6 +41041,7 @@ function validateImportedState(src){
  if(typeof finValidatePayload==='function')finValidatePayload(src);
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
  if(typeof validatePurchasingPayload==='function')validatePurchasingPayload(src);
+ if(typeof validatePurchaseOrders==='function')validatePurchaseOrders(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
@@ -40656,6 +41134,7 @@ function normalizeDB(){
  normalizeSalesModules();
  if(typeof normalizeMasterData==='function')normalizeMasterData();
  if(typeof normalizePurchasing==='function')normalizePurchasing();
+ if(typeof normalizePurchaseOrders==='function')normalizePurchaseOrders();
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
