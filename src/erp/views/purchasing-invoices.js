@@ -9,16 +9,25 @@ function purMoneyEdit(kind,id,invoiceId,poId){
  if(invoiceId)purMoneyPickInvoice(invoiceId,false);if(poId)purInvoiceAddPO(poId,false);purMoneyOriginal=JSON.stringify(purMoneyDraft);render();
 }
 function purMoneySetSupplier(id){
- const d=purMoneyDraft.data,s=purSupplierFind(id);d.supplierId=id;d.supplierName=s?s.name:'';if(s){d.paymentDays=s.paymentDays;if(purMoneyDraft.kind==='payment')d.method=s.paymentMethod;if(!d.dueDate)d.dueDate=purInvoiceDue(d.date,d.paymentDays);}render();
+ const d=purMoneyDraft.data,s=purSupplierFind(id);d.supplierId=id;d.supplierName=s?s.name:'';if(s){d.currency=s.currency||'CAD';d.paymentDays=s.paymentDays;if(purMoneyDraft.kind==='payment')d.method=s.paymentMethod;if(!d.dueDate)d.dueDate=purInvoiceDue(d.date,d.paymentDays);}render();
 }
 function purMoneyPickInvoice(id,draw){
  const d=purMoneyDraft.data,inv=purMoneyFind('invoice',id);d.invoiceId=id;
  if(inv&&!d.id){d.supplierId=inv.supplierId;d.supplierName=inv.supplierName;d.currency=inv.currency;const b=purInvoiceBalance(inv);d.amount=b.balance==null?null:Math.max(0,b.balance);const s=purSupplierFind(inv.supplierId);d.method=s?s.paymentMethod:'Bank transfer';}
  if(draw!==false)render();
 }
+/* A new invoice starts with the total of its linked POs while nobody has
+   typed an amount; the supplier's real total is entered over it. */
+function purInvoiceAutoAmount(){
+ const f=purMoneyDraft,d=f.data;if(d.id||f.kind!=='invoice'||(d.amount!=null&&d.amount!==''&&+d.amount!==f.autoAmount))return;
+ const t=d.poIds.map(id=>purOrderFind(id)).filter(Boolean).map(purOrderTotals);
+ f.autoAmount=t.length&&t.every(x=>x.complete)?salesMoney(t.reduce((n,x)=>n+x.known,0)):null;d.amount=f.autoAmount;
+}
+function purInvoiceRemovePO(id){const d=purMoneyDraft.data;d.poIds=d.poIds.filter(x=>x!==id);purInvoiceAutoAmount();render();}
 function purInvoiceAddPO(id,draw){
  const d=purMoneyDraft.data,p=purOrderFind(id);if(!p)return;if(!d.poIds.includes(id))d.poIds.push(id);
  if(d.poIds.length===1&&!d.supplierName&&!d.supplierId){d.supplierId=p.supplierId;d.supplierName=p.supplierName;d.currency=p.currency;const s=p.supplier||purSupplierFind(p.supplierId);d.paymentDays=s?s.paymentDays:null;if(!d.dueDate)d.dueDate=purInvoiceDue(d.date,d.paymentDays);}
+ purInvoiceAutoAmount();
  if(draw!==false)render();
 }
 function purInvoiceFromPO(){if(!purOrderSaveForm(true))return;const id=purOrderDraft.id;purMoneyEdit('invoice','',null,id);}
@@ -46,7 +55,7 @@ function purMoneyForm(){
   (!invoice?purMoneyField('method','Payment method')+purMoneyField('reference','Bank / cheque reference'):'')+'</div>'+
   (invoice?'<p><button type="button" onclick="purMoneyDraft.data.dueDate=purInvoiceDue(purMoneyDraft.data.date,purMoneyDraft.data.paymentDays);render()">Use payment terms</button></p>':'<p class="mut">Record a payment already made. Negative amounts record a refund.</p>')+
   '<label for="pur_money_note">Notes</label><textarea id="pur_money_note" oninput="purMoneyDraft.data.note=this.value">'+esc(d.note)+'</textarea></section>'+
-  (invoice?'<section class="card pur-card"><h3>Purchase orders</h3><label for="pur_invoice_add_po">Link a PO · optional</label><select id="pur_invoice_add_po" onchange="purInvoiceAddPO(this.value)"><option value="">Choose a purchase order</option>'+(DB.purchaseOrder||[]).filter(p=>!d.poIds.includes(p.id)).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.number+' · '+p.supplierName+(p.deletedAt?' · Deleted':''))+'</option>').join('')+'</select><div class="pur-invoice-links">'+d.poIds.map(id=>{const p=purOrderFind(id);return '<span>'+esc(p?p.number+' · '+p.supplierName:id+' · Missing PO')+' <button type="button" aria-label="Remove PO link '+esc(p?p.number:id)+'" onclick="purMoneyDraft.data.poIds=purMoneyDraft.data.poIds.filter(x=>x!=='+purArg(id)+');render()">×</button></span>';}).join('')+'</div><p class="mut">One invoice can cover several POs. Enter the full supplier invoice total once.</p></section>':'')+'</fieldset>'+
+  (invoice?'<section class="card pur-card"><h3>Purchase orders</h3><label for="pur_invoice_add_po">Link a PO · optional</label><select id="pur_invoice_add_po" onchange="purInvoiceAddPO(this.value)"><option value="">Choose a purchase order</option>'+(DB.purchaseOrder||[]).filter(p=>!d.poIds.includes(p.id)).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.number+' · '+p.supplierName+(p.deletedAt?' · Deleted':''))+'</option>').join('')+'</select><div class="pur-invoice-links">'+d.poIds.map(id=>{const p=purOrderFind(id);return '<span>'+esc(p?p.number+' · '+p.supplierName:id+' · Missing PO')+' <button type="button" aria-label="Remove PO link '+esc(p?p.number:id)+'" onclick="purInvoiceRemovePO('+purArg(id)+')">×</button></span>';}).join('')+'</div><p class="mut">One invoice can cover several POs. Enter the full supplier invoice total once.</p></section>':'')+'</fieldset>'+
   (b?'<section class="card pur-card"><h3>Payments</h3><p>'+esc('Paid: '+docNum(b.paid,2)+' '+d.currency+' · Balance: '+(b.balance==null?'Review amount / payments':docNum(b.balance,2)+' '+d.currency))+'</p>'+b.payments.map(p=>'<p><button type="button" class="fin-link" onclick="purMoneyEdit(\'payment\','+purArg(p.id)+')">'+esc(p.number+' · '+p.date+' · '+(p.amount==null?'Unknown':docNum(p.amount,2))+' '+p.currency+' · '+p.method)+'</button></p>').join('')+'</section>':'')+
   (d.id?purHistoryHTML(f.kind,d.id):'')+'</div>';
 }

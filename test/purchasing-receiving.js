@@ -53,7 +53,7 @@ module.exports=async function({page,eq}){
   return {warn,qty:r.lines[0].qty,remaining:purReceived(p,p.lines[0]).remaining};
  }),{warn:true,qty:null,remaining:null});
  eq('a fully delivered PO gets Received automatically; undo returns it to partial',await t.p.evaluate(()=>{
-  const d=purFulfilFromPO('receipt',prPO.id);d.lines=d.lines.filter(l=>l.poLineId==='held');const r=purFulfilSave('receipt',d).value,full=purOrderStatus(prPO);purFulfilUndo('receipt',r.id,r.rev,false);
+  const d=purFulfilFromPO('receipt',prPO.id);d.lines=d.lines.filter(l=>l.poLineId==='held').map(l=>Object.assign(l,{qty:purReceived(prPO,prPO.lines[1]).remaining}));const r=purFulfilSave('receipt',d).value,full=purOrderStatus(prPO);purFulfilUndo('receipt',r.id,r.rev,false);
   return {full,partial:purOrderStatus(prPO)};
  }),{full:'Received',partial:'Partially received'});
  eq('PO edits and removing a line after receipt preserve received facts and show the orphaned link',await t.p.evaluate(()=>{
@@ -89,7 +89,7 @@ module.exports=async function({page,eq}){
  await t.p.locator('#pur_receive_0_description').fill('144 × 102 sheets from the truck');
  await t.p.locator('#pur_receive_0_qty').fill('3');await t.p.locator('#pur_receive_0_unit').fill('block');
  await t.p.locator('#pur_receive_0_widthIn').fill('144');await t.p.locator('#pur_receive_0_heightIn').fill('102');
- await t.p.locator('#pur_receive_0_actualSheets').fill('41');await t.p.locator('#pur_receive_0_damagedSheets').fill('2');
+ await t.p.locator('#pur_receive_0_actualSheets').fill('41');await t.p.locator('#pur_receive_0_broken').fill('2');
  await t.p.locator('#pur_receive_0_reason').fill('Supplier loading damage');await t.p.locator('#pur_receive_0_resolution').fill('Discuss credit next week');
  await t.p.locator('[data-pur-delivery-save]').click();
  eq('real receipt form keeps editable units, different sizes, sheet count and free damage resolution',await t.p.evaluate(()=>{const d=purFulfilDraft.data,l=d.lines[0];return {saved:!!d.id,supplier:d.supplierName,qty:l.qty,unit:l.unit,size:[l.widthIn,l.heightIn],sheets:l.actualSheets,damaged:l.damagedSheets,resolution:l.resolution};}),{saved:true,supplier:'Unplanned local shop',qty:3,unit:'block',size:[144,102],sheets:41,damaged:2,resolution:'Discuss credit next week'});

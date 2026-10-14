@@ -3,7 +3,10 @@
    Blocks, actual sheets and sheet dimensions belong to each delivery line;
    never infer a fixed pack size and never write inventory or customer Finance.
    Receipt quantities include damaged goods. Undo keeps the audit trail.
-   A delivery request reserves nothing; only receipts reduce the held balance. */
+   A delivery request reserves nothing; only receipts reduce the held balance.
+   Audit 14.10.2026 (owner): broken glass is usually credited, not brought
+   again; resolution Replacement means the supplier must bring it, so it
+   waits as a backorder until a receipt row marked replacement arrives. */
 DEFAULT.purchaseReceipt=[];DEFAULT.purchaseReceiptSeq=0;
 DEFAULT.purchaseDeliveryRequest=[];DEFAULT.purchaseDeliveryRequestSeq=0;
 const PUR_FULFIL={receipt:{key:'purchaseReceipt',seq:'purchaseReceiptSeq',prefix:'GR',label:'Receipt'},request:{key:'purchaseDeliveryRequest',seq:'purchaseDeliveryRequestSeq',prefix:'DR',label:'Delivery request'}};
@@ -11,7 +14,7 @@ function purFulfilFind(kind,id){return (DB[PUR_FULFIL[kind].key]||[]).find(x=>x.
 function purFulfilLine(x,i){
  x=x||{};const l={};
  ['id','poLineId','requestLineId','kind','productId','productCode','sheetId','table','itemId','description','unit','reason','resolution','note'].forEach(k=>l[k]=purText(x[k]));l.id=l.id||'line-'+(i+1);
- ['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>l[k]=purNumber(x[k]));return l;
+ ['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>l[k]=purNumber(x[k]));l.replacement=!!x.replacement;return l;
 }
 function purFulfilClean(x){
  const d={};['id','number','poId','requestId','supplierId','supplierName','date','expectedDate','receivedBy','packingSlip','to','cc','note','createdAt','createdBy','createdById','updatedAt','updatedBy','updatedById','voidAt','sentAt'].forEach(k=>d[k]=purText(x[k]));
@@ -31,15 +34,21 @@ function validatePurchaseReceiving(src){
 function purReceiptRows(poId,lineId,exclude){
  return (DB.purchaseReceipt||[]).filter(r=>!r.voidAt&&r.poId===poId&&r.id!==exclude).flatMap(r=>r.lines.filter(l=>l.poLineId===lineId).map(l=>({r,l})));
 }
+/* A block line counts broken glass in sheets, any other line in its own unit. */
+function purReplaceUnit(l){return purUnit(l.unit)==='block'?'sheet':l.unit;}
+function purBroken(row,l){return purUnit(l.unit)==='block'?row.damagedSheets||0:row.damaged!=null?row.damaged:row.damagedSheets||0;}
+function purIsReplacement(row){return purNameKey(row.resolution)==='replacement';}
 function purReceived(p,l,exclude){
- const rows=purReceiptRows(p.id,l.id,exclude),match=rows.filter(x=>purUnit(x.l.unit)===purUnit(l.unit)&&purReceiptGlassMatches(x.l,l)&&purReceiptSupplierMatches(x.r,p));
+ const all=purReceiptRows(p.id,l.id,exclude),rows=all.filter(x=>!x.l.replacement),match=rows.filter(x=>purUnit(x.l.unit)===purUnit(l.unit)&&purReceiptGlassMatches(x.l,l)&&purReceiptSupplierMatches(x.r,p));
  const received=match.reduce((n,x)=>n+(x.l.qty||0),0),ordered=purNumber(l.qty),unknown=rows.some(x=>x.l.qty==null||purUnit(x.l.unit)!==purUnit(l.unit)||!purReceiptGlassMatches(x.l,l)||!purReceiptSupplierMatches(x.r,p));
- return {received,ordered,remaining:ordered==null?null:ordered-received,unknown,damaged:match.reduce((n,x)=>n+(x.l.damaged||0),0),sheets:rows.reduce((n,x)=>n+(x.l.actualSheets||0),0),damagedSheets:rows.reduce((n,x)=>n+(x.l.damagedSheets||0),0),rows};
+ const replaceDue=all.filter(x=>purIsReplacement(x.l)).reduce((n,x)=>n+purBroken(x.l,l),0),replaceArrived=all.filter(x=>x.l.replacement).reduce((n,x)=>n+(x.l.qty||0),0);
+ return {received,ordered,remaining:ordered==null?null:ordered-received,unknown,damaged:match.reduce((n,x)=>n+(x.l.damaged||0),0),sheets:all.reduce((n,x)=>n+(x.l.actualSheets||0),0),damagedSheets:all.reduce((n,x)=>n+(x.l.damagedSheets||0),0),
+  replaceDue,replaceArrived,replaceLeft:Math.max(0,replaceDue-replaceArrived),replaceUnit:purReplaceUnit(l),rows:all};
 }
 function purReceiptState(p){
  if(!p.lines.length)return '';
  const a=p.lines.map(l=>purReceived(p,l));
- if(a.every(x=>x.ordered!=null&&!x.unknown&&x.received>=x.ordered)&&a.some(x=>x.received>0))return 'Received';
+ if(a.every(x=>x.ordered!=null&&!x.unknown&&x.received>=x.ordered&&!x.replaceLeft)&&a.some(x=>x.received>0))return 'Received';
  return a.some(x=>x.received>0||x.unknown)?'Partially received':'';
 }
 function purRequestReceived(d,l){
@@ -81,24 +90,39 @@ function purFulfilWarnings(kind,d){
  if(request&&(request.voidAt||request.poId!==d.poId))a.push('Review the delivery request link.');
  if(p&&!purReceiptSupplierMatches(d,p))a.push('Supplier differs from the PO. Review the link; this receipt does not reduce its balance.');
  d.lines.forEach((l,i)=>{const n='Line '+(i+1)+': ',pl=p&&p.lines.find(x=>x.id===l.poLineId);
+  if(l.replacement){if(pl&&kind==='receipt'){const r=purReceived(p,pl,d.id);if((l.qty||0)>r.replaceLeft)a.push(n+'more replacement than broken glass waiting.');}return;}
   if(pl&&!purReceiptGlassMatches(l,pl))a.push(n+'Glass differs from the PO line. Review the link; it does not reduce the ordered glass balance.');
   if(l.poLineId&&!pl)a.push(n+'PO line no longer exists. The saved description remains.');
   if(l.damaged>l.qty&&l.qty!=null)a.push(n+'damaged quantity exceeds the received quantity.');
   if(l.damagedSheets>l.actualSheets&&l.actualSheets!=null)a.push(n+'damaged sheets exceed the received sheets.');
   if(pl){const r=purReceived(p,pl,kind==='receipt'?d.id:null),same=purUnit(l.unit)===purUnit(pl.unit);
    if(!same)a.push(n+'unit differs from the PO; quantities need review.');
-   const total=d.lines.filter(x=>x.poLineId===pl.id&&purUnit(x.unit)===purUnit(pl.unit)).reduce((sum,x)=>sum+(purNumber(x.qty)||0),0);
+   const total=d.lines.filter(x=>x.poLineId===pl.id&&!x.replacement&&purUnit(x.unit)===purUnit(pl.unit)).reduce((sum,x)=>sum+(purNumber(x.qty)||0),0);
    if(same&&r.remaining!=null&&total>r.remaining)a.push(n+(kind==='request'?'request exceeds the held balance.':'received more than ordered.'));
    if((l.widthIn&&pl.widthIn&&+l.widthIn!==+pl.widthIn)||(l.heightIn&&pl.heightIn&&+l.heightIn!==+pl.heightIn))a.push(n+'sheet size differs from the PO'+(purReceiptGlassMatches(l,pl)&&purReceiptSupplierMatches(d,p)?'; this quantity counts against the selected line.':'.'));
    if(kind==='request'&&!pl.held)a.push(n+'PO line is not marked Held at supplier.');
   }
  });return a;
 }
+/* Glass held at the supplier arrives only when it is brought: a plain
+   receipt lists those lines empty, a receipt from a delivery request fills
+   what was requested (audit 14.10.2026). Empty receipt rows are not saved. */
 function purFulfilFromPO(kind,id,requestId){
  const p=purOrderFind(id),r=requestId&&purFulfilFind('request',requestId);
- const lines=r?r.lines.map(l=>Object.assign({},l,{id:salesUid('RL'),requestLineId:l.id,qty:l.qty==null?null:Math.max(0,l.qty-purRequestReceived(r,l))})):p?p.lines.filter(l=>kind==='receipt'||l.held).map(l=>{const n=purReceived(p,l).remaining;return {id:salesUid('RL'),poLineId:l.id,...purGlassIdentity(l),description:l.description,unit:l.unit,widthIn:l.widthIn,heightIn:l.heightIn,qty:kind==='request'||n==null?null:Math.max(0,n)};}):[];
+ const row=(l,extra)=>Object.assign({id:salesUid('RL'),poLineId:l.id,...purGlassIdentity(l),description:l.description,unit:l.unit,widthIn:l.widthIn,heightIn:l.heightIn},extra);
+ const lines=r?r.lines.map(l=>Object.assign({},l,{id:salesUid('RL'),requestLineId:l.id,qty:l.qty==null?null:Math.max(0,l.qty-purRequestReceived(r,l))})):p?p.lines.filter(l=>kind==='receipt'||l.held).flatMap(l=>{
+  if(kind==='request')return [row(l,{qty:null})];
+  const b=purReceived(p,l),out=[row(l,{qty:l.held||b.remaining==null?null:Math.max(0,b.remaining)})];
+  if(b.replaceLeft)out.push(row(l,{replacement:true,unit:b.replaceUnit,qty:b.replaceLeft}));
+  return out;
+ }):[];
  return purFulfilClean({poId:id,requestId:requestId||'',date:finToday(),receivedBy:kind==='receipt'?orderLogActor().by:'',supplierId:p?p.supplierId:'',supplierName:p?p.supplierName:'',to:p?p.to:'',cc:p?p.cc:'',lines:lines.length?lines:[{id:salesUid('RL'),kind:'glass',unit:'sheet'}]});
 }
 function purWaitingRows(held){
- return (DB.purchaseOrder||[]).filter(p=>!p.deletedAt&&!['closed','cancelled'].includes(p.state)).flatMap(p=>p.lines.filter(l=>!!l.held===held).map(l=>({p,l,b:purReceived(p,l)})).filter(x=>x.b.remaining==null||x.b.remaining!==0||x.b.unknown));
+ return (DB.purchaseOrder||[]).filter(p=>!p.deletedAt&&!['closed','cancelled'].includes(p.state)).flatMap(p=>p.lines.flatMap(l=>{
+  const b=purReceived(p,l),out=[];
+  if(!!l.held===held&&(b.remaining==null||b.remaining!==0||b.unknown))out.push({p,l,b});
+  if(!held&&b.replaceLeft)out.push({p,l,b,replace:true});
+  return out;
+ }));
 }
