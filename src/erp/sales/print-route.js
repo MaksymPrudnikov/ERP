@@ -302,6 +302,10 @@ function salesPrintRoute(line,order,shape,result){
         var treatments=salesRouteSurfaceTreatments(pane,i,side);
         var st=salesRouteLiteStations(liteShape,liteResult,v.groups,ht,treatments,glass&&glass.heatSoak);
         var g=glass&&glassProductById(glass.glassProductId);
+        /* Покупное стекло (галочка «We cut it» снята) приходит готовым: до
+           сборки станций нет — резку, кромку и печь сделал поставщик
+           (владелец, 14.10.2026). Работы после склейки остаются. */
+        if(g&&g.cut===false)st.list=[];
         var row={label:(v.label||('Lite '+(i+1)))+(side?(side==='outer'?'a':'b'):''),
           glass:(g?(g.code||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after,
           /* Размер реза этого стекла — для проверки габарита станций; лист его не печатает. */

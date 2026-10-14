@@ -259,8 +259,8 @@ function stkCut(lite,fin){
    дописываются станции «always», которых нет в полосе (SHIPR, SHIP). */
 function stkRoute(o,l,c){
  const r=salesPrintRoute(l,o,salesLineGeometryShape(l),null),row=r.lites.find(x=>x.label==='Lite '+c.lite)||r.lites[c.index]||r.lites[0]||{stations:[]};
- const codes=row.stations.map(s=>s.code),tail=[];
- (DB.station||[]).filter(s=>s.always).sort((a,b)=>(+a.seq||0)-(+b.seq||0)).forEach(s=>{if(!codes.includes(s.code)){codes.push(s.code);tail.push(s.code);}});
+ const codes=row.stations.map(s=>s.code),tail=[],cut=salesRouteStationOf('cutting','CUT'),bought=typeof glassComponentCut==='function'&&!glassComponentCut(c);
+ (DB.station||[]).filter(s=>s.always&&!(bought&&s.code===cut)).sort((a,b)=>(+a.seq||0)-(+b.seq||0)).forEach(s=>{if(!codes.includes(s.code)){codes.push(s.code);tail.push(s.code);}});
  const services=[];
  row.stations.forEach((s,step)=>{if(s.code===salesRouteStationOf('cutting','CUT'))return;s.items.forEach(t=>{if(t===s.name)return;const text=String(t).toUpperCase();if(!services.some(x=>x.text===text&&x.step===step))services.push({station:s.code,text,step});});});
  return {codes,shipping:tail,services};

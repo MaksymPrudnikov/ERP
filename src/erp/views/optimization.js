@@ -14,7 +14,7 @@ function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TAB
 function optimizationMatches(o,key){
  if(!o||salesIsQuote(o))return false;
  const fresh=salesUnbatchedLines(o).length;
- return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?!salesStockOnly(o)&&(o.status==='verified'||(['batched','ready','shipping','done'].includes(o.status)&&fresh>0)):
+ return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?!salesStockOnly(o)&&(o.status==='verified'&&glassOrderNeedsCut(o)||(['batched','ready','shipping','done'].includes(o.status)&&fresh>0)):
   key==='production'?o.status==='batched':key==='awaiting'?['verified','batched'].includes(o.status)&&!salesStockOnly(o):key==='ready'?shippingAvailable(o).length>0||salesStockOnly(o)&&o.status==='ready':key==='done'?o.status==='done'&&!fresh:false;
 }
 function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:key==='stock'?(DB.stockOffcut||[]).filter(r=>r.status==='stock').length:key==='sheets'?sheetUsageRows().length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}

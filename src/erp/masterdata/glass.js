@@ -255,6 +255,9 @@ function normalizeGlassProduct(p){
   baseEdgework:GLASS_BASE_EDGEWORK.includes(p.baseEdgework)?p.baseEdgework:'',
   deposition:GLASS_DEPOSITIONS.includes(p.deposition)?p.deposition:'',
   stocked:p.stocked===true,
+  /* Галочка «режем сами», как в Спиле (владелец, 14.10.2026). Снята — стекло
+     покупное (COG): в раскрой и батчи не идёт, лайт едет сразу на сборку. */
+  cut:p.cut!==false,
   legacyCode:mdString(p.legacyCode),note:mdString(p.note),
   salePriceAnnealed:mdNonNeg(p.salePriceAnnealed),
   salePriceTempered:mdNonNeg(p.salePriceTempered),

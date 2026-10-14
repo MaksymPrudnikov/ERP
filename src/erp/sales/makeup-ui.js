@@ -89,6 +89,7 @@ function salesGlassMeta(g){
  const lead=glassLeadTimeDays(g.code);
  if(!g.stocked&&lead!=null)pills.push(`<span class="pill" data-raw>${esc(lead)} d</span>`);
  if(g.exposureRule!=='any')pills.push(`<span class="pill info">${esc(glassLabel('exposureRule',g.exposureRule))}</span>`);
+ if(g.cut===false)pills.push('<span class="pill" title="Goes straight to assembly">Bought · no cut</span>');
  return `<div class="mu-glass-meta"><span class="mut" data-raw>${esc(facts.join(' · '))}</span>${pills.join('')}</div>`;
 }
 /* Контейнер меты рендерится ВСЕГДА, даже пустой: иначе выбор стекла менял

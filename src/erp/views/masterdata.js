@@ -219,7 +219,7 @@ function mdGlassRow(p){
   <td>${mdGlassPriceInput(p,"salePriceAnnealed")}</td>
   <td>${mdGlassPriceInput(p,"salePriceTempered")}</td>
   <td>${p.allowedSurfaces.length?p.allowedSurfaces.map(n=>`<span class="pill" data-raw>#${n}</span>`).join(' '):`<span class="mut">${esc(glassLabel('exposureRule',p.exposureRule))}</span>`}</td>
-  <td>${p.stocked?`<span class="pill ok">${esc(glassLabel('stock','stocked'))}</span>`:`<span class="pill info">${esc(glassLabel('stock','preorder'))}</span>`}</td>
+  <td>${p.stocked?`<span class="pill ok">${esc(glassLabel('stock','stocked'))}</span>`:`<span class="pill info">${esc(glassLabel('stock','preorder'))}</span>`}${p.cut===false?' <span class="pill">No cut</span>':''}</td>
   <td>${sheets?`<span class="pill" data-raw>${sheets}</span>`:'<span class="mut">none</span>'}</td>
   <td style="white-space:nowrap"><button class="sm" onclick="mdGlassEdit('${esc(p.id)}')">Edit</button>
    <button class="sm" onclick="mdGlassToggle('${esc(p.id)}')">${p.active===false?'Restore':'Discontinue'}</button>
@@ -255,6 +255,7 @@ function mdGlassForm(){
   </div>
   <div class="row" style="margin-top:12px">
    <label class="chk"><input type="checkbox" id="md_stocked" ${r.stocked?'checked':''}> Kept in stock</label>
+   <label class="chk" title="Off — bought glass, no cutting"><input type="checkbox" id="md_cut" ${r.cut!==false?'checked':''}> We cut it</label>
    <label class="chk"><input type="checkbox" id="md_edge" ${r.edgeDeletion?'checked':''}> Edge deletion required</label>
    <label class="chk"><input type="checkbox" id="md_active" ${r.active!==false?'checked':''}> Item is in production</label>
   </div>
@@ -278,7 +279,7 @@ function mdGlassSave(){
   substrate:mdVal('md_substrate'),coatingFamily:mdVal('md_coating'),deposition:mdVal('md_deposition'),
   temperMode:mdVal('md_temper'),exposureRule:mdVal('md_exposure'),allowedSurfaces:surfaces,
   stockingUnit:mdVal('md_stockunit'),salesUnit:mdVal('md_salesunit'),legacyCode:mdVal('md_legacy'),
-  note:mdVal('md_note'),stocked:mdChecked('md_stocked'),edgeDeletion:mdChecked('md_edge'),baseEdgework:mdVal('md_baseedge'),active:mdChecked('md_active')
+  note:mdVal('md_note'),stocked:mdChecked('md_stocked'),cut:mdChecked('md_cut'),edgeDeletion:mdChecked('md_edge'),baseEdgework:mdVal('md_baseedge'),active:mdChecked('md_active')
  });
  if(mdEdit==='new'){
   next.id=glassProductId(code);
@@ -290,7 +291,8 @@ function mdGlassSave(){
   /* идентификатор НЕ пересчитывается по новому коду: на него ссылаются Makeup */
   DB.glassProduct[at]=normalizeGlassProduct(next);
  }
- mdEdit=null;mdDraft=null;normalizeMasterData();touch();render();
+ /* «We cut it» меняет маршрут станций — кэш маршрутов сбрасывается. */
+ mdEdit=null;mdDraft=null;normalizeMasterData();if(typeof stationRouteReset==='function')stationRouteReset();touch();render();
 }
 /* Снятие с производства — обратимая пометка, а не удаление: позиция исчезает
    из выбора, но остаётся видимой в старых заказах и в этой таблице. */
