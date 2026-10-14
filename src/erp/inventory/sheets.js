@@ -190,6 +190,14 @@ function invSheetRows(){
  }).sort((a,b)=>a.code.localeCompare(b.code)||b.w-a.w||b.h-a.h);
 }
 function invRowFind(key){return invSheetRows().find(r=>r.key===key)||null;}
+/* Подсказка раскроя (PR 3): сколько листов батч ещё возьмёт с пирамиды и
+   сколько свободно без него — «need 5 · free 2». Владелец, 14.10.2026:
+   Build при нехватке только предупреждает. Ключ — размер «ДЛИНАxШИРИНА». */
+function invBatchSheetHints(batch,glass){
+ const out=new Map(),code=String(glass||'').toUpperCase();
+ invSheetRows().forEach(r=>{if(r.code.toUpperCase()!==code||r.sizeMissing)return;const mine=r.batches.get(batch)||0;out.set(r.w+'x'+r.h,{need:mine,free:r.free+mine,counted:!!r.lastCount});});
+ return out;
+}
 
 /* ------------------------------ Журнал ------------------------------
    Все движения листов. rack — сколько листов прибавилось (+) или ушло (−)
