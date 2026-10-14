@@ -50,6 +50,12 @@ function glassBatchComponents(o,l){
    glassId:spec.glassProductId||'',glass:g?g.code:'Unknown glass',lite:String(index+1)+(ply==='outer'?'a':ply==='inner'?'b':''),pane:p,spec};
  }));
 }
+/* Стекло без галочки «We cut it» (COG, покупное) не режем: его нет в
+   очереди To batch и в счёте «порезано / осталось» (владелец, 14.10.2026).
+   Номер G и стикер у него есть, маршрут начинается со сборки. */
+function glassComponentCut(c){const g=c&&!c.missing&&glassProductById(c.glassId);return !g||g.cut!==false;}
+function glassCutKeys(o,l){return new Set(glassBatchComponents(o,l).filter(glassComponentCut).map(c=>c.key));}
+function glassOrderNeedsCut(o){return (o&&o.lines||[]).some(l=>glassCutKeys(o,l).size>0);}
 function glassBatchFind(number){return (DB.glassBatch||[]).find(b=>b.number===number);}
 /* Все записи заказа (и возвращённые) с их снимком. */
 function glassBatchEntries(orderId,lineId){
@@ -106,7 +112,7 @@ function glassCancelledSlots(o){
  return out;
 }
 function glassBatchRemaining(o,l,active,cancelled){
- const cs=glassBatchComponents(o,l),recut=glassRecutSlots(o.id,l.id);
+ const cs=glassBatchComponents(o,l).filter(glassComponentCut),keys=new Set(cs.map(c=>c.key)),recut=glassRecutSlots(o.id,l.id).filter(x=>keys.has(x.key));
  active=active||glassBatchActive(o.id);cancelled=cancelled||glassCancelledSlots(o);
  /* Порезано по скану без батча (из стока, Skip) — сделано: заказ не висит
     на «9/10» (владелец, 8.10.2026: «чтобы никогда нигде ничего не висело»). */
@@ -119,7 +125,7 @@ function glassBatchRemaining(o,l,active,cancelled){
 }
 function glassBatchProgress(o){
  const active=glassBatchActive(o.id);let total=0,left=0;
- (o.lines||[]).forEach(l=>{total+=l.qty*glassBatchComponents(o,l).length+glassRecutSlots(o.id,l.id).length;left+=glassBatchRemaining(o,l,active);});
+ (o.lines||[]).forEach(l=>{const keys=glassCutKeys(o,l);total+=l.qty*keys.size+glassRecutSlots(o.id,l.id).filter(x=>keys.has(x.key)).length;left+=glassBatchRemaining(o,l,active);});
  return {total,left,assigned:total-left};
 }
 /* Номера выдаются сохранённому заказу (не квоте): при сохранении, переходах
@@ -189,6 +195,7 @@ function glassBatchRows(orders){
    const plans=new Map(),planOf=unit=>{const geo=glassRecutLine(o,l,unit),k=geo===l?'':String(unit).split('.')[0];
     if(!plans.has(k)){let plan;try{plan=salesEffectiveCuttingPlan(geo,salesLineGeometryShape(geo),o);}catch(e){plan={valid:false,reason:'Check cutting geometry'};}plans.set(k,{geo,plan});}return plans.get(k);};
    glassBatchComponents(o,l).forEach(c=>{
+    if(!glassComponentCut(c))return;
     const rec=pieces.get(c.key),baseOf=unit=>{
      const {geo,plan}=planOf(unit),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index),own=c.missing?null:salesLineShapeForLite(geo,c.index);
      const hold=o.onHold?'Order on hold: '+(o.holdReason||''):l.onHold?'On Hold: '+(l.holdReason||''):

@@ -40,6 +40,7 @@ function cutEstScan(o){
   glassBatchComponents(o,l).forEach(c=>{
    const miss=reason=>skipped.push({order:o.businessNumber||'',line:li+1,lite:c.lite,qty:+l.qty||0,reason});
    if(c.missing||!glassProductById(c.glassId))return miss('Glass missing');
+   if(!glassComponentCut(c))return miss('Bought glass · no cut');
    if(!plan){try{plan=salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){plan={valid:false};}}
    const lite=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);
    if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return miss(plan.reason||'Check cutting geometry');

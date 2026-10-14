@@ -310,8 +310,8 @@ const DATA_FIXES=[
  [5,'edgeAllowance','ALW-CNCSHAPEPOLISH-LAMI-8-1000',{allowance:'1/8'},['allowance','note']]
 ];
 /* Номера правок кодом (не строкой таблицы): 4 — sfSplitEdgeFix, 6 —
-   приоритет раскроя (applyDataFixes). */
-const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),6);
+   приоритет раскроя, 7 — стекло COG (applyDataFixes). */
+const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),7);
 function applyDataFixes(){
  const have=Number.isInteger(+DB.dataFix)&&+DB.dataFix>0?+DB.dataFix:0;
  if(have>=DATA_FIX_VERSION)return false;
@@ -332,6 +332,12 @@ function applyDataFixes(){
     срочный (был 1). Старые значения владелец велел обнулить: «то, что в
     старых листах, удаляй, не переживай… всегда обнуляй». */
  if(have<6)(DB.cutPlan||[]).forEach(p=>{const set=p&&p.settings;if(set&&typeof set==='object')Object.values(set).forEach(o=>{if(o&&typeof o==='object'&&'priority' in o){delete o.priority;changed++;}});});
+ /* Номер 7 · 14 октября 2026. Стекло COG 3–19 мм (без резки) в сохранённый
+    каталог: только недостающие позиции — пересев каталога стёр бы правки
+    владельца, а позицию с тем же кодом он мог завести сам. */
+ if(have<7&&Array.isArray(DB.glassProduct)&&typeof glassCogProducts==='function')glassCogProducts().forEach(p=>{
+  if(!DB.glassProduct.some(x=>x&&(x.id===p.id||String(x.code).toUpperCase()===p.code.toUpperCase()))){DB.glassProduct.push(p);changed++;}
+ });
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;

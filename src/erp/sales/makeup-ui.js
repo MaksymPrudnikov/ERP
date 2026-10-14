@@ -84,7 +84,9 @@ function salesGlassMeta(g){
  const pills=[];
  if(glassNeedsFurnace(g))pills.push(`<span class="pill bad">${esc(glassLabel('temperMode','temper_required'))}</span>`);
  else if(glassBannedFromFurnace(g))pills.push(`<span class="pill warn">${esc(glassLabel('temperMode','annealed_only'))}</span>`);
- pills.push(g.stocked?`<span class="pill ok">${esc(glassLabel('stock','stocked'))}</span>`
+ /* Стекло без резки (COG) ни «на складе», ни «по предзаказу» — оно своё у клиента или покупное. */
+ if(g.cut===false)pills.push('<span class="pill" title="Not cut · route by services">No cut</span>');
+ else pills.push(g.stocked?`<span class="pill ok">${esc(glassLabel('stock','stocked'))}</span>`
   :`<span class="pill info">${esc(glassLabel('stock','preorder'))}</span>`);
  const lead=glassLeadTimeDays(g.code);
  if(!g.stocked&&lead!=null)pills.push(`<span class="pill" data-raw>${esc(lead)} d</span>`);

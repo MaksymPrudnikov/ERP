@@ -302,6 +302,11 @@ function salesPrintRoute(line,order,shape,result){
         var treatments=salesRouteSurfaceTreatments(pane,i,side);
         var st=salesRouteLiteStations(liteShape,liteResult,v.groups,ht,treatments,glass&&glass.heatSoak);
         var g=glass&&glassProductById(glass.glassProductId);
+        /* Покупное стекло или стекло клиента (галочка «We cut it» снята):
+           пропускается только резка, остальное — по сервисам лайта, в обычном
+           порядке станций: «если только CNC — только это» (владелец,
+           14.10.2026). Своей кромки по умолчанию у него нет (orders.js). */
+        if(g&&g.cut===false){var cutCode=salesRouteStationOf('cutting','CUT');st.list=st.list.filter(function(s){return s.code!==cutCode;});}
         var row={label:(v.label||('Lite '+(i+1)))+(side?(side==='outer'?'a':'b'):''),
           glass:(g?(g.code||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after,
           /* Размер реза этого стекла — для проверки габарита станций; лист его не печатает. */

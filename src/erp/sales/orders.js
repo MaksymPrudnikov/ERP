@@ -1548,6 +1548,10 @@ function salesPaneBaseEdgework(pane,unitType){
  /* Выбор на самом лайте сильнее всего: у пакета бывает, что одно стекло
     полируют, а второе только зачищают. */
  if(SALES_PANE_EDGEWORK.indexOf(pane.edgework)>0)return pane.edgework;
+ /* Стекло, которое не режем (COG, стекло клиента), своей кромки по умолчанию
+    не получает: только то, что выбрали на лайте или в сервисах. */
+ const own=pane.category!=='laminated'&&glassProductById(pane.glassProductId);
+ if(own&&own.cut===false)return '';
  /* Ламинат до выбора продажника — арис. Суммарные 13.52 мм у 6+6 раньше
     попадали под «от 10 mm полировка», и строка молча уезжала в производство с
     полировкой, которую никто не заказывал. */
