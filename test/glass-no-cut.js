@@ -1,5 +1,6 @@
-/* «We cut it» on a glass (owner, 14 October 2026, like Spil): bought glass
-   such as COG is never batched or cut; its lite goes straight to assembly. */
+/* «We cut it» on a glass (owner, 14 October 2026, like Spil): bought or
+   customer glass such as COG is never batched or cut. Only cutting is
+   skipped; the rest of its route follows the services on the lite. */
 module.exports=async function({page,eq}){
  console.log('glass no cut');const t=await page();
  await require('./optimization-fixture')(t.p);
@@ -8,15 +9,20 @@ module.exports=async function({page,eq}){
   const base=glassProductByCode('6CLEAR');
   DB.glassProduct.push(normalizeGlassProduct(Object.assign({},base,{id:glassProductId('6COG'),code:'6COG',name:'Clear 6mm COG',cut:false})));
   window.ncCOG=glassProductByCode('6COG');
-  window.ncOrder=(lites)=>{const id=oqOrder(ncC),o=salesRecord(id);lites.forEach(i=>{o.makeups[0].panes[i].glassProductId=ncCOG.id;});soDraft=null;soEdit=null;salesSetRecordStatus(id,'verified');return salesRecord(id);};
+  window.ncOrder=(lites)=>{const id=oqOrder(ncC),o=salesRecord(id);lites.forEach(i=>{Object.assign(o.makeups[0].panes[i],{glassProductId:ncCOG.id,heatTreatmentId:'HT-AN'});});soDraft=null;soEdit=null;salesSetRecordStatus(id,'verified');return salesRecord(id);};
   window.ncRoute=(o,lite)=>{const l=o.lines[0],c=glassBatchComponents(o,l).find(c=>c.lite===String(lite));return finWithOrder(o,()=>stkRoute(o,l,c)).codes;};
+  window.ncPane=(o,patch)=>{const p=JSON.parse(JSON.stringify(o));Object.assign(p.makeups[0].panes[1],patch);return ncRoute(p,2);};
  });
  eq('glass is cut by default; an unticked glass stays bought through save and JSON import',await t.p.evaluate(()=>({fresh:normalizeGlassProduct({code:'X'}).cut,cog:ncCOG.cut,base:glassProductByCode('6CLEAR').cut,imported:prepareImportedState(storageExportEnvelope()).glassProduct.find(g=>g.code==='6COG').cut})),{fresh:true,cog:false,base:true,imported:false});
  eq('in an IGU with a COG lite only our own lite waits in To batch',await t.p.evaluate(()=>{
   const o=ncOrder([1]),rows=glassBatchRows().filter(r=>r.orderId===o.id);window.ncMixed=o;
   return {rows:rows.length,lites:[...new Set(rows.map(r=>r.lite))],progress:glassBatchProgress(o),queued:optimizationMatches(o,'batch')};
  }),{rows:3,lites:['1'],progress:{total:3,left:3,assigned:0},queued:true});
- eq('the COG lite goes straight to IGU; our lite still starts at CUT',await t.p.evaluate(()=>({cog:ncRoute(ncMixed,2),own:ncRoute(ncMixed,1)[0],ownIgu:ncRoute(ncMixed,1).includes('IGU')})),{cog:['IGU','SHIPR','SHIP'],own:'CUT',ownIgu:true});
+ eq('a COG lite with nothing added goes straight to IGU, with no default edge; our lite still starts at CUT',await t.p.evaluate(()=>({cog:ncRoute(ncMixed,2),own:ncRoute(ncMixed,1)[0],ownIgu:ncRoute(ncMixed,1).includes('IGU'),edge:salesPaneBaseEdgework(ncMixed.makeups[0].panes[1],'double')})),{cog:['IGU','SHIPR','SHIP'],own:'CUT',ownIgu:true,edge:''});
+ eq('services added to COG glass lead it through their own stations, cutting stays skipped',await t.p.evaluate(()=>{
+  const heat=ncPane(ncMixed,{heatTreatmentId:'HT-FT'}),polish=ncPane(ncMixed,{edgework:'polish'}),both=ncPane(ncMixed,{edgework:'polish',heatTreatmentId:'HT-FT'});
+  return {heat,polish:polish.length===4&&polish[0]!=='CUT'&&polish[1]==='IGU',order:both.indexOf('HEAT')>both.indexOf(polish[0])&&both.indexOf('HEAT')<both.indexOf('IGU'),cut:[heat,polish,both].some(r=>r.includes('CUT'))};
+ }),{heat:['HEAT','IGU','SHIPR','SHIP'],polish:true,order:true,cut:false});
  eq('batching our lites leaves nothing to batch: the order is not stuck at 3/6',await t.p.evaluate(()=>{
   glassBatchAssign(glassBatchRows().filter(r=>r.orderId===ncMixed.id));const o=salesRecord(ncMixed.id);
   return {status:o.status,left:glassBatchProgress(o).left,unbatched:salesUnbatchedLines(o).length,queued:optimizationMatches(o,'batch')};
