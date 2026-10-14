@@ -457,9 +457,11 @@ function glassSeedProducts(){
 }
 /* COG — стекло, которое не режем: привёз клиент или купили (владелец,
    14.10.2026): «базово COG 3–19 мм и всё», один производитель, без вариантов
-   вроде «Vitro COG». Толщины — те же, что у каталога. «We cut it» снята. */
+   вроде «Vitro COG». Толщины — те же, что у каталога. «We cut it» снята.
+   Цена стекла 0: «базово 0, если нужно — введём руками» — за COG берут
+   сервисы, цену стекла при надобности вписывают на лайте. */
 const GLASS_COG_MM=[3,4,5,6,8,10,12,16,19];
-function glassCogProducts(){return GLASS_COG_MM.map(mm=>normalizeGlassProduct({id:glassProductId(mm+'COG'),code:mm+'COG',manufacturer:'COG',name:'COG '+mm+'mm',thicknessMm:mm,substrate:'clear',coatingFamily:'uncoated',cut:false}));}
+function glassCogProducts(){return GLASS_COG_MM.map(mm=>normalizeGlassProduct({id:glassProductId(mm+'COG'),code:mm+'COG',manufacturer:'COG',name:'COG '+mm+'mm',thicknessMm:mm,substrate:'clear',coatingFamily:'uncoated',cut:false,salePriceAnnealed:0,salePriceTempered:0}));}
 DEFAULT.glassProduct=glassSeedProducts().concat(glassCogProducts());
 /* Строки поставки заводскими НЕ бывают: точки поставки, размеры листа, цены и
    сроки пользователем ещё не подтверждены, а выдуманная цена в прайсе хуже

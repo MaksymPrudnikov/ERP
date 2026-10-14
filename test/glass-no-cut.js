@@ -38,6 +38,11 @@ module.exports=async function({page,eq}){
   const o=ncOrder([0,1]);return {rows:glassBatchRows().filter(r=>r.orderId===o.id).length,queued:optimizationMatches(o,'batch'),needs:glassOrderNeedsCut(o),route:ncRoute(o,1)};
  }),{rows:0,queued:false,needs:false,route:['IGU','SHIPR','SHIP']});
  eq('the Sales cut estimate leaves bought glass out with a reason',await t.p.evaluate(()=>{const s=cutEstScan(salesRecord(ncMixed.id));return {pieces:s.pieces.length,skipped:[...new Set(s.skipped.map(x=>x.reason))]};}),{pieces:3,skipped:['Bought glass · no cut']});
+ eq('COG glass costs 0 by default, so the order is priced; a price typed on the lite counts',await t.p.evaluate(()=>{
+  const o=JSON.parse(JSON.stringify(salesRecord(ncMixed.id))),p=o.makeups[0].panes[1];p.priceOverride=null;
+  const zero=salesPaneCatalogPrice(p),a=finWithOrder(o,()=>salesOrderCommercialTotals(o));p.priceOverride=2;const b=finWithOrder(o,()=>salesOrderCommercialTotals(o));
+  return {zero,missing:a.missing,complete:a.complete,more:b.subtotal>a.subtotal};
+ }),{zero:0,missing:0,complete:true,more:true});
  eq('Sales shows the glass as bought and Master Data has the tick',await t.p.evaluate(()=>{
   const meta=salesGlassMeta(ncCOG).includes('No cut')&&!salesGlassMeta(ncCOG).includes('pre-order');tab='masterdata';mdGlassEdit(ncCOG.id);render();const box=document.getElementById('md_cut');
   return {meta,box:!!box,checked:box&&box.checked};
