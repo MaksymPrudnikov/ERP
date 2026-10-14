@@ -131,6 +131,7 @@
   "src/erp/production/stock-offcuts.js",
   "src/erp/production/sheet-usage.js",
   "src/erp/inventory/sheets.js",
+  "src/erp/inventory/offcuts.js",
   "src/erp/views/glass-batches.js",
   "src/erp/quality/reasons.js",
   "src/erp/views/ncr-reasons-ui.js",

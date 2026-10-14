@@ -38,6 +38,9 @@
 DEFAULT.inventoryEvent=[];DEFAULT.inventoryMin={};
 const INV_BASE_SHEET={w:130,h:96};
 const INV_WRITE_OFF=['Broken on rack','Defect','Other'];
+/* Записи журнала склада: пересчёт и списание листов; кусок S- не найден
+   при пересчёте и найден снова (erp/inventory/offcuts). */
+const INV_EVENT_KINDS=['count','writeoff','offcut-lost','offcut-found'],INV_SHEET_KINDS=['count','writeoff'];
 const INV_STATUSES=['OK','Below minimum','Negative','Not counted','Size missing'];
 const INV_KEY_RE=/^[^|]+\|(\d+(\.\d+)?x\d+(\.\d+)?|\?)$/;
 
@@ -139,13 +142,14 @@ function invReservedSheets(cutIds){
  return out;
 }
 /* Лопнувший на столе лист. Отменённый (Undo в журнале склада) — не в счёт.
-   Лопнул кусок S- со стеллажа — это не лист (как в журнале листов). */
-function invBreaks(){
+   Лопнул кусок S- со стеллажа — это не лист (как в журнале листов): с
+   withStock такие записи приходят с номером куска (erp/inventory/offcuts). */
+function invBreaks(withStock){
  return (DB.sheetBreak||[]).map(x=>{
   const plan=cutPlanFor(x.batch),g=plan&&Array.isArray(plan.groups)&&plan.groups.find(y=>y.glass===x.glass),sh=g&&g.sheets.find(s=>s.no===x.sheet),z=sh&&(sh.size||g.sheet);
-  const own=z?invSize(z.w,z.h):null,size=invSize(x.w,x.h)||own,stock=!!(own&&size&&/^S-/.test(z.key||'')&&own.w===size.w&&own.h===size.h);
+  const own=z?invSize(z.w,z.h):null,size=invSize(x.w,x.h)||own,stock=own&&size&&/^S-/.test(z.key||'')&&own.w===size.w&&own.h===size.h?z.key:'';
   return {x,size,stock};
- }).filter(b=>!b.stock);
+ }).filter(b=>withStock||!b.stock);
 }
 /* Что ещё у поставщика (Held at supplier) и в пути по PO — в листах; блоки
    без числа листов в блоке остаются блоками. */
@@ -176,7 +180,7 @@ function invSheetRows(){
  cut.forEach(s=>{if(!s.stock&&invGlassCut(s.glass))row(s.glass,invSize(s.w,s.h)).cut++;});
  invReservedSheets(new Set(cut.keys())).forEach(s=>{const r=row(s.glass,s.size);r.reserved++;r.batches.set(s.batch,(r.batches.get(s.batch)||0)+1);});
  invBreaks().forEach(b=>{if(!b.x.undoneAt&&invGlassCut(b.x.glass))row(b.x.glass,b.size).broken++;});
- (DB.inventoryEvent||[]).forEach(e=>{const r=row(e.glass,invSize(e.w,e.h));r.adjust+=e.qty;if(e.kind==='count'&&(!r.lastCount||e.at>r.lastCount.at))r.lastCount=e;});
+ (DB.inventoryEvent||[]).filter(e=>INV_SHEET_KINDS.includes(e.kind)).forEach(e=>{const r=row(e.glass,invSize(e.w,e.h));r.adjust+=e.qty;if(e.kind==='count'&&(!r.lastCount||e.at>r.lastCount.at))r.lastCount=e;});
  Object.entries(DB.inventoryMin||{}).forEach(([key,n])=>{const [code,dim]=key.split('|'),[w,h]=dim.split('x');row(code,invSize(w,h)).min=n;});
  invPurchaseWaiting().forEach(x=>{const r=row(x.code,x.size);if(x.held){r.held+=x.sheets;r.heldBlocks+=x.blocks;}else{r.onOrder+=x.sheets;r.onOrderBlocks+=x.blocks;}});
  return [...rows.values()].map(r=>{
@@ -206,8 +210,9 @@ function invMoves(){
   add({id:'SB|'+x.id,kind:'Sheet broke',ref:x.batch+' · sheet '+x.sheet,batch:x.batch,breakId:x.id,undone:!!x.undoneAt,day:salesListIsoDay(x.at),at:x.at,rack:-1,by:x.by},x.glass,size);
   if(x.undoneAt)add({id:'SBU|'+x.id,kind:'Undo sheet broke',ref:x.batch+' · sheet '+x.sheet,batch:x.batch,day:salesListIsoDay(x.undoneAt),at:x.undoneAt,rack:1,by:x.undoneBy},x.glass,size);
  });
- (DB.inventoryEvent||[]).forEach(e=>add({id:e.id,kind:e.kind==='count'?'Count':'Write off',ref:'',day:salesListIsoDay(e.at),at:e.at,rack:e.qty,by:e.by,
+ (DB.inventoryEvent||[]).filter(e=>INV_SHEET_KINDS.includes(e.kind)).forEach(e=>add({id:e.id,kind:e.kind==='count'?'Count':'Write off',ref:'',day:salesListIsoDay(e.at),at:e.at,rack:e.qty,by:e.by,
   note:e.kind==='count'?'Was '+e.before+' → '+e.after:[e.reason,e.note].filter(Boolean).join(' · ')},e.glass,invSize(e.w,e.h)));
+ if(typeof invOffcutMoves==='function')invOffcutMoves().forEach(m=>out.push(m));
  return out.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
 }
 
@@ -263,9 +268,10 @@ function invBreakUndo(id){
 function invEventClean(e){
  const n=v=>v==null||v===''?null:Number(v);
  return {id:String(e.id),kind:e.kind,glass:String(e.glass).trim().toUpperCase(),w:cutRound(Math.max(+e.w,+e.h)),h:cutRound(Math.min(+e.w,+e.h)),qty:Number(e.qty),
-  before:e.kind==='count'?n(e.before):null,after:e.kind==='count'?n(e.after):null,reason:String(e.reason||'').slice(0,80),note:String(e.note||'').slice(0,200),at:String(e.at),by:String(e.by||'').slice(0,80),byId:String(e.byId||'').slice(0,80)};
+  before:e.kind==='count'?n(e.before):null,after:e.kind==='count'?n(e.after):null,reason:String(e.reason||'').slice(0,80),note:String(e.note||'').slice(0,200),at:String(e.at),by:String(e.by||'').slice(0,80),byId:String(e.byId||'').slice(0,80),
+  ...(INV_SHEET_KINDS.includes(e.kind)?{}:{offcut:e.offcut})};
 }
-function invEventValid(e){return !!(e&&typeof e==='object'&&!Array.isArray(e)&&typeof e.id==='string'&&e.id&&['count','writeoff'].includes(e.kind)&&typeof e.glass==='string'&&e.glass.trim()&&+e.w>0&&+e.h>0&&Number.isFinite(Number(e.qty))&&typeof e.at==='string'&&!Number.isNaN(Date.parse(e.at)));}
+function invEventValid(e){return !!(e&&typeof e==='object'&&!Array.isArray(e)&&typeof e.id==='string'&&e.id&&INV_EVENT_KINDS.includes(e.kind)&&(INV_SHEET_KINDS.includes(e.kind)||stockIdValid(e.offcut))&&typeof e.glass==='string'&&e.glass.trim()&&+e.w>0&&+e.h>0&&Number.isFinite(Number(e.qty))&&typeof e.at==='string'&&!Number.isNaN(Date.parse(e.at)));}
 function invMinValid(k,v){return INV_KEY_RE.test(k)&&!k.endsWith('|?')&&Number.isInteger(v)&&v>=0;}
 function normalizeInventory(){
  const ids=new Set();
