@@ -3268,7 +3268,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='58cea1d65fef';
+var ERP_BUILD='a8fd164dcd1c';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -8128,8 +8128,8 @@ const DATA_FIXES=[
  [5,'edgeAllowance','ALW-CNCSHAPEPOLISH-LAMI-8-1000',{allowance:'1/8'},['allowance','note']]
 ];
 /* Номера правок кодом (не строкой таблицы): 4 — sfSplitEdgeFix, 6 —
-   приоритет раскроя (applyDataFixes). */
-const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),6);
+   приоритет раскроя, 7 — стекло COG (applyDataFixes). */
+const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),7);
 function applyDataFixes(){
  const have=Number.isInteger(+DB.dataFix)&&+DB.dataFix>0?+DB.dataFix:0;
  if(have>=DATA_FIX_VERSION)return false;
@@ -8150,6 +8150,12 @@ function applyDataFixes(){
     срочный (был 1). Старые значения владелец велел обнулить: «то, что в
     старых листах, удаляй, не переживай… всегда обнуляй». */
  if(have<6)(DB.cutPlan||[]).forEach(p=>{const set=p&&p.settings;if(set&&typeof set==='object')Object.values(set).forEach(o=>{if(o&&typeof o==='object'&&'priority' in o){delete o.priority;changed++;}});});
+ /* Номер 7 · 14 октября 2026. Стекло COG 3–19 мм (без резки) в сохранённый
+    каталог: только недостающие позиции — пересев каталога стёр бы правки
+    владельца, а позицию с тем же кодом он мог завести сам. */
+ if(have<7&&Array.isArray(DB.glassProduct)&&typeof glassCogProducts==='function')glassCogProducts().forEach(p=>{
+  if(!DB.glassProduct.some(x=>x&&(x.id===p.id||String(x.code).toUpperCase()===p.code.toUpperCase()))){DB.glassProduct.push(p);changed++;}
+ });
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;
@@ -9782,6 +9788,9 @@ function normalizeGlassProduct(p){
   baseEdgework:GLASS_BASE_EDGEWORK.includes(p.baseEdgework)?p.baseEdgework:'',
   deposition:GLASS_DEPOSITIONS.includes(p.deposition)?p.deposition:'',
   stocked:p.stocked===true,
+  /* Галочка «режем сами», как в Спиле (владелец, 14.10.2026). Снята — стекло
+     покупное (COG): в раскрой и батчи не идёт, лайт едет сразу на сборку. */
+  cut:p.cut!==false,
   legacyCode:mdString(p.legacyCode),note:mdString(p.note),
   salePriceAnnealed:mdNonNeg(p.salePriceAnnealed),
   salePriceTempered:mdNonNeg(p.salePriceTempered),
@@ -9979,7 +9988,14 @@ function glassSeedProducts(){
    parsed.rep.rejected.map(x=>x.line+' '+x.code+': '+x.why).join('; '));
  return parsed.out.map(x=>normalizeGlassProduct(Object.assign({id:glassProductId(x.code)},x.fields)));
 }
-DEFAULT.glassProduct=glassSeedProducts();
+/* COG — стекло, которое не режем: привёз клиент или купили (владелец,
+   14.10.2026): «базово COG 3–19 мм и всё», один производитель, без вариантов
+   вроде «Vitro COG». Толщины — те же, что у каталога. «We cut it» снята.
+   Цена стекла 0: «базово 0, если нужно — введём руками» — за COG берут
+   сервисы, цену стекла при надобности вписывают на лайте. */
+const GLASS_COG_MM=[3,4,5,6,8,10,12,16,19];
+function glassCogProducts(){return GLASS_COG_MM.map(mm=>normalizeGlassProduct({id:glassProductId(mm+'COG'),code:mm+'COG',manufacturer:'COG',name:'COG '+mm+'mm',thicknessMm:mm,substrate:'clear',coatingFamily:'uncoated',cut:false,salePriceAnnealed:0,salePriceTempered:0}));}
+DEFAULT.glassProduct=glassSeedProducts().concat(glassCogProducts());
 /* Строки поставки заводскими НЕ бывают: точки поставки, размеры листа, цены и
    сроки пользователем ещё не подтверждены, а выдуманная цена в прайсе хуже
    отсутствующей. Таблица стартует пустой и заполняется экраном или CSV.
@@ -10553,7 +10569,7 @@ function glassProductByCode(code){const c=mdString(code).toUpperCase();return (D
    с того, что заказать можно и то, чего у него нет. */
 function activeGlassProducts(){return (DB.glassProduct||[]).filter(x=>x.active!==false);}
 function activeSimple(key){return (DB[key]||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
-function glassIsPreorder(g){return !!g&&g.stocked!==true;}
+function glassIsPreorder(g){return !!g&&g.stocked!==true&&g.cut!==false;}
 /* Два жёстких гейта. Названы функциями, а не сравнением по месту, потому что
    на них будет опираться проверка маршрута (этап 7·2), а не только показ. */
 function glassNeedsFurnace(g){return !!g&&g.temperMode==='temper_required';}
@@ -16577,6 +16593,10 @@ function salesPaneBaseEdgework(pane,unitType){
  /* Выбор на самом лайте сильнее всего: у пакета бывает, что одно стекло
     полируют, а второе только зачищают. */
  if(SALES_PANE_EDGEWORK.indexOf(pane.edgework)>0)return pane.edgework;
+ /* Стекло, которое не режем (COG, стекло клиента), своей кромки по умолчанию
+    не получает: только то, что выбрали на лайте или в сервисах. */
+ const own=pane.category!=='laminated'&&glassProductById(pane.glassProductId);
+ if(own&&own.cut===false)return '';
  /* Ламинат до выбора продажника — арис. Суммарные 13.52 мм у 6+6 раньше
     попадали под «от 10 mm полировка», и строка молча уезжала в производство с
     полировкой, которую никто не заказывал. */
@@ -17876,6 +17896,11 @@ function salesPrintRoute(line,order,shape,result){
         var treatments=salesRouteSurfaceTreatments(pane,i,side);
         var st=salesRouteLiteStations(liteShape,liteResult,v.groups,ht,treatments,glass&&glass.heatSoak);
         var g=glass&&glassProductById(glass.glassProductId);
+        /* Покупное стекло или стекло клиента (галочка «We cut it» снята):
+           пропускается только резка, остальное — по сервисам лайта, в обычном
+           порядке станций: «если только CNC — только это» (владелец,
+           14.10.2026). Своей кромки по умолчанию у него нет (orders.js). */
+        if(g&&g.cut===false){var cutCode=salesRouteStationOf('cutting','CUT');st.list=st.list.filter(function(s){return s.code!==cutCode;});}
         var row={label:(v.label||('Lite '+(i+1)))+(side?(side==='outer'?'a':'b'):''),
           glass:(g?(g.code||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after,
           /* Размер реза этого стекла — для проверки габарита станций; лист его не печатает. */
@@ -18581,7 +18606,9 @@ function salesGlassMeta(g){
  const pills=[];
  if(glassNeedsFurnace(g))pills.push(`<span class="pill bad">${esc(glassLabel('temperMode','temper_required'))}</span>`);
  else if(glassBannedFromFurnace(g))pills.push(`<span class="pill warn">${esc(glassLabel('temperMode','annealed_only'))}</span>`);
- pills.push(g.stocked?`<span class="pill ok">${esc(glassLabel('stock','stocked'))}</span>`
+ /* Стекло без резки (COG) ни «на складе», ни «по предзаказу» — оно своё у клиента или покупное. */
+ if(g.cut===false)pills.push('<span class="pill" title="Not cut · route by services">No cut</span>');
+ else pills.push(g.stocked?`<span class="pill ok">${esc(glassLabel('stock','stocked'))}</span>`
   :`<span class="pill info">${esc(glassLabel('stock','preorder'))}</span>`);
  const lead=glassLeadTimeDays(g.code);
  if(!g.stocked&&lead!=null)pills.push(`<span class="pill" data-raw>${esc(lead)} d</span>`);
@@ -23572,7 +23599,7 @@ function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TAB
 function optimizationMatches(o,key){
  if(!o||salesIsQuote(o))return false;
  const fresh=salesUnbatchedLines(o).length;
- return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?!salesStockOnly(o)&&(o.status==='verified'||(['batched','ready','shipping','done'].includes(o.status)&&fresh>0)):
+ return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?!salesStockOnly(o)&&(o.status==='verified'&&glassOrderNeedsCut(o)||(['batched','ready','shipping','done'].includes(o.status)&&fresh>0)):
   key==='production'?o.status==='batched':key==='awaiting'?['verified','batched'].includes(o.status)&&!salesStockOnly(o):key==='ready'?shippingAvailable(o).length>0||salesStockOnly(o)&&o.status==='ready':key==='done'?o.status==='done'&&!fresh:false;
 }
 function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:key==='stock'?(DB.stockOffcut||[]).filter(r=>r.status==='stock').length:key==='sheets'?sheetUsageRows().length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}
@@ -24404,7 +24431,7 @@ function mdGlassRow(p){
   <td>${mdGlassPriceInput(p,"salePriceAnnealed")}</td>
   <td>${mdGlassPriceInput(p,"salePriceTempered")}</td>
   <td>${p.allowedSurfaces.length?p.allowedSurfaces.map(n=>`<span class="pill" data-raw>#${n}</span>`).join(' '):`<span class="mut">${esc(glassLabel('exposureRule',p.exposureRule))}</span>`}</td>
-  <td>${p.stocked?`<span class="pill ok">${esc(glassLabel('stock','stocked'))}</span>`:`<span class="pill info">${esc(glassLabel('stock','preorder'))}</span>`}</td>
+  <td>${p.cut===false?'<span class="pill">No cut</span>':p.stocked?`<span class="pill ok">${esc(glassLabel('stock','stocked'))}</span>`:`<span class="pill info">${esc(glassLabel('stock','preorder'))}</span>`}</td>
   <td>${sheets?`<span class="pill" data-raw>${sheets}</span>`:'<span class="mut">none</span>'}</td>
   <td style="white-space:nowrap"><button class="sm" onclick="mdGlassEdit('${esc(p.id)}')">Edit</button>
    <button class="sm" onclick="mdGlassToggle('${esc(p.id)}')">${p.active===false?'Restore':'Discontinue'}</button>
@@ -24440,6 +24467,7 @@ function mdGlassForm(){
   </div>
   <div class="row" style="margin-top:12px">
    <label class="chk"><input type="checkbox" id="md_stocked" ${r.stocked?'checked':''}> Kept in stock</label>
+   <label class="chk" title="Off — bought glass, no cutting"><input type="checkbox" id="md_cut" ${r.cut!==false?'checked':''}> We cut it</label>
    <label class="chk"><input type="checkbox" id="md_edge" ${r.edgeDeletion?'checked':''}> Edge deletion required</label>
    <label class="chk"><input type="checkbox" id="md_active" ${r.active!==false?'checked':''}> Item is in production</label>
   </div>
@@ -24463,7 +24491,7 @@ function mdGlassSave(){
   substrate:mdVal('md_substrate'),coatingFamily:mdVal('md_coating'),deposition:mdVal('md_deposition'),
   temperMode:mdVal('md_temper'),exposureRule:mdVal('md_exposure'),allowedSurfaces:surfaces,
   stockingUnit:mdVal('md_stockunit'),salesUnit:mdVal('md_salesunit'),legacyCode:mdVal('md_legacy'),
-  note:mdVal('md_note'),stocked:mdChecked('md_stocked'),edgeDeletion:mdChecked('md_edge'),baseEdgework:mdVal('md_baseedge'),active:mdChecked('md_active')
+  note:mdVal('md_note'),stocked:mdChecked('md_stocked'),cut:mdChecked('md_cut'),edgeDeletion:mdChecked('md_edge'),baseEdgework:mdVal('md_baseedge'),active:mdChecked('md_active')
  });
  if(mdEdit==='new'){
   next.id=glassProductId(code);
@@ -24475,7 +24503,8 @@ function mdGlassSave(){
   /* идентификатор НЕ пересчитывается по новому коду: на него ссылаются Makeup */
   DB.glassProduct[at]=normalizeGlassProduct(next);
  }
- mdEdit=null;mdDraft=null;normalizeMasterData();touch();render();
+ /* «We cut it» меняет маршрут станций — кэш маршрутов сбрасывается. */
+ mdEdit=null;mdDraft=null;normalizeMasterData();if(typeof stationRouteReset==='function')stationRouteReset();touch();render();
 }
 /* Снятие с производства — обратимая пометка, а не удаление: позиция исчезает
    из выбора, но остаётся видимой в старых заказах и в этой таблице. */
@@ -28227,6 +28256,12 @@ function glassBatchComponents(o,l){
    glassId:spec.glassProductId||'',glass:g?g.code:'Unknown glass',lite:String(index+1)+(ply==='outer'?'a':ply==='inner'?'b':''),pane:p,spec};
  }));
 }
+/* Стекло без галочки «We cut it» (COG, покупное) не режем: его нет в
+   очереди To batch и в счёте «порезано / осталось» (владелец, 14.10.2026).
+   Номер G и стикер у него есть, маршрут начинается со сборки. */
+function glassComponentCut(c){const g=c&&!c.missing&&glassProductById(c.glassId);return !g||g.cut!==false;}
+function glassCutKeys(o,l){return new Set(glassBatchComponents(o,l).filter(glassComponentCut).map(c=>c.key));}
+function glassOrderNeedsCut(o){return (o&&o.lines||[]).some(l=>glassCutKeys(o,l).size>0);}
 function glassBatchFind(number){return (DB.glassBatch||[]).find(b=>b.number===number);}
 /* Все записи заказа (и возвращённые) с их снимком. */
 function glassBatchEntries(orderId,lineId){
@@ -28283,7 +28318,7 @@ function glassCancelledSlots(o){
  return out;
 }
 function glassBatchRemaining(o,l,active,cancelled){
- const cs=glassBatchComponents(o,l),recut=glassRecutSlots(o.id,l.id);
+ const cs=glassBatchComponents(o,l).filter(glassComponentCut),keys=new Set(cs.map(c=>c.key)),recut=glassRecutSlots(o.id,l.id).filter(x=>keys.has(x.key));
  active=active||glassBatchActive(o.id);cancelled=cancelled||glassCancelledSlots(o);
  /* Порезано по скану без батча (из стока, Skip) — сделано: заказ не висит
     на «9/10» (владелец, 8.10.2026: «чтобы никогда нигде ничего не висело»). */
@@ -28296,7 +28331,7 @@ function glassBatchRemaining(o,l,active,cancelled){
 }
 function glassBatchProgress(o){
  const active=glassBatchActive(o.id);let total=0,left=0;
- (o.lines||[]).forEach(l=>{total+=l.qty*glassBatchComponents(o,l).length+glassRecutSlots(o.id,l.id).length;left+=glassBatchRemaining(o,l,active);});
+ (o.lines||[]).forEach(l=>{const keys=glassCutKeys(o,l);total+=l.qty*keys.size+glassRecutSlots(o.id,l.id).filter(x=>keys.has(x.key)).length;left+=glassBatchRemaining(o,l,active);});
  return {total,left,assigned:total-left};
 }
 /* Номера выдаются сохранённому заказу (не квоте): при сохранении, переходах
@@ -28366,6 +28401,7 @@ function glassBatchRows(orders){
    const plans=new Map(),planOf=unit=>{const geo=glassRecutLine(o,l,unit),k=geo===l?'':String(unit).split('.')[0];
     if(!plans.has(k)){let plan;try{plan=salesEffectiveCuttingPlan(geo,salesLineGeometryShape(geo),o);}catch(e){plan={valid:false,reason:'Check cutting geometry'};}plans.set(k,{geo,plan});}return plans.get(k);};
    glassBatchComponents(o,l).forEach(c=>{
+    if(!glassComponentCut(c))return;
     const rec=pieces.get(c.key),baseOf=unit=>{
      const {geo,plan}=planOf(unit),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index),own=c.missing?null:salesLineShapeForLite(geo,c.index);
      const hold=o.onHold?'Order on hold: '+(o.holdReason||''):l.onHold?'On Hold: '+(l.holdReason||''):
@@ -29026,8 +29062,9 @@ function stkCut(lite,fin){
    дописываются станции «always», которых нет в полосе (SHIPR, SHIP). */
 function stkRoute(o,l,c){
  const r=salesPrintRoute(l,o,salesLineGeometryShape(l),null),row=r.lites.find(x=>x.label==='Lite '+c.lite)||r.lites[c.index]||r.lites[0]||{stations:[]};
- const codes=row.stations.map(s=>s.code),tail=[];
- (DB.station||[]).filter(s=>s.always).sort((a,b)=>(+a.seq||0)-(+b.seq||0)).forEach(s=>{if(!codes.includes(s.code)){codes.push(s.code);tail.push(s.code);}});
+ const codes=row.stations.map(s=>s.code),tail=[],cut=salesRouteStationOf('cutting','CUT'),bought=typeof glassComponentCut==='function'&&!glassComponentCut(c);
+ /* Резку стекла без «We cut it» не возвращаем и как станцию «always». */
+ (DB.station||[]).filter(s=>s.always&&!(bought&&s.code===cut)).sort((a,b)=>(+a.seq||0)-(+b.seq||0)).forEach(s=>{if(!codes.includes(s.code)){codes.push(s.code);tail.push(s.code);}});
  const services=[];
  row.stations.forEach((s,step)=>{if(s.code===salesRouteStationOf('cutting','CUT'))return;s.items.forEach(t=>{if(t===s.name)return;const text=String(t).toUpperCase();if(!services.some(x=>x.text===text&&x.step===step))services.push({station:s.code,text,step});});});
  return {codes,shipping:tail,services};
@@ -36082,6 +36119,7 @@ function cutEstScan(o){
   glassBatchComponents(o,l).forEach(c=>{
    const miss=reason=>skipped.push({order:o.businessNumber||'',line:li+1,lite:c.lite,qty:+l.qty||0,reason});
    if(c.missing||!glassProductById(c.glassId))return miss('Glass missing');
+   if(!glassComponentCut(c))return miss('Bought glass · no cut');
    if(!plan){try{plan=salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){plan={valid:false};}}
    const lite=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);
    if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return miss(plan.reason||'Check cutting geometry');
