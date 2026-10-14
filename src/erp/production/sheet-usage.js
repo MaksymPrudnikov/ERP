@@ -11,6 +11,7 @@
    листов будет списывать именно их. Цифры — те же, что в таблице размеров
    раскроя батча (cutSheetNumbers), своих формул здесь нет. Лопнувший лист —
    ещё один лист того же размера: он входит в ft² листов и целиком в отход.
+   Слом, отменённый в журнале склада (Undo Sheet broke), не в счёт.
    Батч без активных стёкол (Unbatched, Moved) в учёт не идёт: его раскрой
    резать уже нечего.
    ===================================================================== */
@@ -36,7 +37,7 @@ function sheetUsageRows(){
    });
    /* Размер лопнувшего листа записан в момент поломки; если лист с тем же
       номером и размером — кусок стока, ломается кусок, а не целый лист. */
-   (DB.sheetBreak||[]).filter(x=>x&&x.batch===plan.batch&&x.glass===g.glass&&+x.w>0&&+x.h>0).forEach(x=>{
+   (DB.sheetBreak||[]).filter(x=>x&&!x.undoneAt&&x.batch===plan.batch&&x.glass===g.glass&&+x.w>0&&+x.h>0).forEach(x=>{
     const size={w:Math.max(+x.w,+x.h),h:Math.min(+x.w,+x.h)},sh=g.sheets.find(s=>s.no===x.sheet),z=sh&&(sh.size||g.sheet);
     const same=z&&Math.abs(Math.max(+z.w,+z.h)-size.w)<1e-6&&Math.abs(Math.min(+z.w,+z.h)-size.h)<1e-6&&/^S-/.test(z.key||'');
     const r=rowFor(size,same?z.key:''),a=cutArea(size.w,size.h);

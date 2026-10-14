@@ -21,7 +21,8 @@
   "src/styles/theme.css",
   "src/styles/shipping.css",
   "src/styles/reports.css",
-  "src/styles/purchasing.css"
+  "src/styles/purchasing.css",
+  "src/styles/inventory.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -129,6 +130,7 @@
   "src/erp/production/cut-machine-trial.js",
   "src/erp/production/stock-offcuts.js",
   "src/erp/production/sheet-usage.js",
+  "src/erp/inventory/sheets.js",
   "src/erp/views/glass-batches.js",
   "src/erp/quality/reasons.js",
   "src/erp/views/ncr-reasons-ui.js",
@@ -141,6 +143,7 @@
   "src/erp/views/cut-layout-ui.js",
   "src/erp/views/stock-list.js",
   "src/erp/views/sheet-usage.js",
+  "src/erp/views/inventory.js",
   "src/erp/sales/cut-estimate.js",
   "src/erp/views/sales-cut-estimate.js",
   "src/erp/views/order-log-ui.js",

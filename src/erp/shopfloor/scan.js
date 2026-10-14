@@ -182,6 +182,9 @@ function stationRecordCommand(station,check,who,opts){
   const c=carrierFind(opts.on);if(c&&c.active)rec.on=c.code;
  }
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
+ /* Скан резки помнит лист раскладки: склад листов списывает его и после
+    Reset раскроя (erp/inventory/sheets). */
+ if(station===stationCutCode()&&check.g&&check.g.entry&&typeof invScanSheet==='function'){const sh=invScanSheet(check.g.entry,rec.piece);if(sh)rec.sheet=sh;}
  DB.stationScan.push(rec);
  if(check.g)stationAsmJoin(rec,check.g,station,opts.asm);
  /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
@@ -275,6 +278,7 @@ function normalizeStationScans(){
    ...(typeof s.confirmedAt==='string'&&SF_CODE_RE.test(sfCode(s.confirmedAt))?{confirmedAt:sfCode(s.confirmedAt)}:{}),
    ...(Number.isInteger(s.step)&&s.step>=0?{step:s.step}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.actionId))?{actionId:s.actionId}:{}),
+   ...(typeof invScanSheetClean==='function'&&invScanSheetClean(s.sheet)?{sheet:invScanSheetClean(s.sheet)}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.asm))?{asm:s.asm}:{}),
    ...(s.joined===true&&STATION_SCAN_ID_RE.test(String(s.asm))?{joined:true}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.asm))&&Number.isInteger(s.unit)&&s.unit>0&&s.unit<1e5?{unit:s.unit}:{}),
@@ -358,7 +362,8 @@ function stationBreakCommand(station,check,who,reasonId,opts){
  const allNew=(r.keys||[]).flatMap(k=>{const x=(DB.glassPiece||[]).find(p=>p.key===k);return x&&x.extra&&x.extra[ref]?x.extra[ref].filter(Boolean):[];});
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
  const by=String(who&&who.name||''),byId=String(who&&who.id||'');
- plan.pieces.forEach(id=>DB.stationScan.push({id:stationScanNextId(),at:now,piece:id,station,by,byId,manual:false,undoneAt:'',undoneBy:'',broken:true,recut:ref,reason:r.reason}));
+ const batches=station===stationCutCode()&&typeof invScanSheet==='function'?stationBatchIndex():null;
+ plan.pieces.forEach(id=>{const sh=batches&&invScanSheet(batches.get(id),id);DB.stationScan.push(Object.assign({id:stationScanNextId(),at:now,piece:id,station,by,byId,manual:false,undoneAt:'',undoneBy:'',broken:true,recut:ref,reason:r.reason},sh?{sheet:sh}:{}));});
  /* Вынутые из машины: скан IGU снимается (сборка открыта заново), запись
     park — «ждёт пару», дальше рабочий сканирует долли, на которую положил. */
  const parked=plan.out.map(id=>{
@@ -392,7 +397,9 @@ function normalizeSheetBreaks(){
  if(!Array.isArray(DB.sheetBreak))DB.sheetBreak=[];
  const ids=new Set();
  DB.sheetBreak=DB.sheetBreak.filter(x=>x&&typeof x==='object'&&/^SB-\d{5,}$/.test(String(x.id))&&!ids.has(x.id)&&(ids.add(x.id),true)&&typeof x.batch==='string')
-  .map(x=>({id:x.id,at:String(x.at||''),batch:x.batch,glass:String(x.glass||''),sheet:Math.max(1,Math.floor(+x.sheet)||1),w:+x.w||0,h:+x.h||0,by:String(x.by||'').slice(0,80)}));
+  .map(x=>Object.assign({id:x.id,at:String(x.at||''),batch:x.batch,glass:String(x.glass||''),sheet:Math.max(1,Math.floor(+x.sheet)||1),w:+x.w||0,h:+x.h||0,by:String(x.by||'').slice(0,80)},
+   /* Undo Sheet broke — из журнала склада (erp/inventory/sheets): запись остаётся, рядом кто и когда отменил. */
+   typeof x.undoneAt==='string'&&!Number.isNaN(Date.parse(x.undoneAt))?{undoneAt:x.undoneAt,undoneBy:String(x.undoneBy||'').slice(0,80),undoneById:String(x.undoneById||'').slice(0,80)}:{}));
 }
 
 /* ---------------------------------------------------------------------

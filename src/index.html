@@ -7,7 +7,7 @@
   Правишь код модуля — достаточно F5, пересобирать не нужно. Пересборка нужна
   только при смене состава модулей (build/manifest.json) или правке шапки
   (src/shell.html). Работает и с сервера, и при открытии с диска (file://).
-  Состав: 151 модулей, 21 стиля.
+  Состав: 153 модулей, 22 стиля.
 -->
 <html lang="en">
 <head>
@@ -35,6 +35,7 @@
 <link rel="stylesheet" href="styles/shipping.css">
 <link rel="stylesheet" href="styles/reports.css">
 <link rel="stylesheet" href="styles/purchasing.css">
+<link rel="stylesheet" href="styles/inventory.css">
 </head>
 <body>
 <div class="shell">
@@ -60,7 +61,7 @@
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='aa49c994e0ca';
+var ERP_BUILD='6ae55c37a455';
 </script>
 <script src="core/dim.js"></script>
 <script src="core/poly.js"></script>
@@ -167,6 +168,7 @@ var ERP_BUILD='aa49c994e0ca';
 <script src="erp/production/cut-machine-trial.js"></script>
 <script src="erp/production/stock-offcuts.js"></script>
 <script src="erp/production/sheet-usage.js"></script>
+<script src="erp/inventory/sheets.js"></script>
 <script src="erp/views/glass-batches.js"></script>
 <script src="erp/quality/reasons.js"></script>
 <script src="erp/views/ncr-reasons-ui.js"></script>
@@ -179,6 +181,7 @@ var ERP_BUILD='aa49c994e0ca';
 <script src="erp/views/cut-layout-ui.js"></script>
 <script src="erp/views/stock-list.js"></script>
 <script src="erp/views/sheet-usage.js"></script>
+<script src="erp/views/inventory.js"></script>
 <script src="erp/sales/cut-estimate.js"></script>
 <script src="erp/views/sales-cut-estimate.js"></script>
 <script src="erp/views/order-log-ui.js"></script>
