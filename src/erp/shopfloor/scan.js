@@ -138,7 +138,8 @@ function stationCheck(station,raw){
  const g=stationGlass(code);
  if(!g)return {kind:'unknown',code};
  const scans=stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station&&!s.park).pop()||null;
- const base={code,g,scans,place,here,stock:!g.entry,priority:g.o.priority||'normal',due:g.o.dueDate||''};
+ /* Без батча — «порезано из стока», но не стекло без резки (COG): его не режут вовсе. */
+ const base={code,g,scans,place,here,stock:!g.entry&&glassComponentCut(g.c),priority:g.o.priority||'normal',due:g.o.dueDate||''};
  if(g.o.status==='cancelled')return Object.assign(base,{kind:'cancelled'});
  /* Отменённый юнит (erp/sales/unit-cancel): стекло откладывают, а если его
     забирает клиент — оно едет с заказом. skid — скид, с которого его ещё не сняли. */
