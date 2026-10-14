@@ -89,3 +89,11 @@
 .pur-receive-table .pur-glass-detail .sales-header-compact{margin-top:8px}
 .pur-receive-table .pur-glass-detail details:not([open]) summary{opacity:.8}
 .doc-back>.pur-picker{align-self:flex-start;margin-top:8vh}
+
+/* Held at supplier board: what is left, coloured by when to order. */
+.pur-held-bar{display:inline-block;vertical-align:middle;width:64px;height:8px;margin-right:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.pur-held-bar i{display:block;height:100%;background:var(--text-2)}
+.pur-held-bar.ok i{background:var(--success)}.pur-held-bar.warn i{background:var(--warning)}.pur-held-bar.bad i{background:var(--danger)}
+.pill.warn{background:var(--warning-soft);color:var(--warning);border:1px solid var(--warning-line)}
+.pill.bad{background:var(--danger-soft);color:var(--danger);border:1px solid var(--danger-line)}
+.pur-held-note{margin:0 20px 6px;font-size:12px}
