@@ -13,7 +13,7 @@ function purListColumns(){
  return PUR_SUPPLIER_FIELDS.map(f=>({k:f.k,label:f.label,type:f.type==='days'?'number':f.k==='currency'?'list':'text',def:visible.includes(f.k)}))
   .concat([{k:'supplyCount',label:'Supply rows',type:'number',def:true},{k:'status',label:'Status',type:'list',def:true}]);
 }
-function purListDefaultSort(){if(purView==='payables')return {k:'supplierName',dir:'asc'};return purView==='suppliers'?{k:'name',dir:'asc'}:{k:purView==='history'?'at':'number',dir:'desc'};}
+function purListDefaultSort(){if(purView==='payables')return {k:'supplierName',dir:'asc'};if(purView==='held')return {k:'orderBy',dir:'asc'};return purView==='suppliers'?{k:'name',dir:'asc'}:{k:purView==='history'?'at':'number',dir:'desc'};}
 function purSupplierInfos(){
  const counts=new Map();(DB.glassSheet||[]).forEach(s=>counts.set(s.supplierId,(counts.get(s.supplierId)||0)+1));
  return (DB.supplier||[]).map(s=>({o:{id:s.id},s,memo:Object.assign({},s,{supplyCount:counts.get(s.id)||0,status:s.active?'Active':'Archived'})}));

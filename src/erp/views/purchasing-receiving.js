@@ -106,21 +106,34 @@ function purFulfilLoadRequest(){
  f.data.lines=purFulfilFromPO('receipt',f.data.poId,f.data.requestId).lines;render();
 }
 function purReceivingColumns(){
+ if(purView==='held')return [['item','Glass / item','text'],['size','Size, in','text'],['supplierName','Supplier','text'],['po','PO','text'],['ordered','Bought','number'],['received','Delivered','number'],['remaining','At supplier','number'],['unit','Unit','list'],['perMonth','Per month','number'],['runsOut','Runs out','date'],['leadTime','Lead, days','number'],['orderBy','Order by','date'],['status','Status','list']].map(([k,label,type])=>({k,label,type,def:!['received','unit'].includes(k)}));
  const waiting=['backorders','held'].includes(purView),cols=waiting?
   [['number','PO','text'],['supplierName','Supplier','text'],['description','Description','text'],['size','Sheet size, in','text'],['ordered','Purchased','number'],['received','Received','number'],['remaining',purView==='held'?'At supplier':'Outstanding','number'],['unit','Unit','list'],['expectedDate','Expected','date'],['review','Review','text']]:
   [['number',purView==='receipts'?'Receipt':'Request','text'],['po','PO','text'],['supplierName','Supplier','text'],['date','Date','date'],['expectedDate','Requested delivery','date'],['packingSlip','Packing slip','text'],['receivedBy','Received by','text'],['status','Status','list'],['createdBy','Recorded by','text']];
  return cols.map(([k,label,type])=>({k,label,type,def:waiting||!(purView==='receipts'?['expectedDate']:['packingSlip','receivedBy']).includes(k)}));
 }
 function purReceivingInfos(){
+ if(purView==='held')return purHeldGroups().map(a=>({o:{id:a.key},held:a,memo:Object.assign({},a,{po:a.pos.map(p=>p.number).join(', ')})}));
  if(['backorders','held'].includes(purView))return purWaitingRows(purView==='held').map(({p,l,b,replace})=>({o:{id:p.id+'|'+l.id+(replace?'|replacement':'')},p,l,memo:Object.assign({number:p.number,supplierName:purSupplierDisplay(p),description:l.description,size:l.widthIn&&l.heightIn?l.widthIn+' × '+l.heightIn:'',ordered:b.ordered,received:b.received,remaining:b.remaining,unit:l.unit,expectedDate:l.expectedDate||p.expectedDate,review:b.unknown?'Review quantity / unit / glass':''},
   replace?{description:'Replacement · '+l.description,ordered:b.replaceDue,received:b.replaceArrived,remaining:b.replaceLeft,unit:b.replaceUnit,review:''}:{})}));
  const kind=purView==='receipts'?'receipt':'request';return (DB[PUR_FULFIL[kind].key]||[]).filter(d=>purShowUndone||!d.voidAt).map(d=>({o:{id:d.id},d,kind,memo:Object.assign({},d,{supplierName:purSupplierDisplay(d)},{po:(purOrderFind(d.poId)||{}).number||'',status:purFulfilStatus(kind,d)})}));
 }
 function purReceivingList(){
  const infos=purReceivingInfos(),rows=salesListRows(infos),cols=salesListColumns(),kind=purView==='receipts'?'receipt':'request',waiting=['backorders','held'].includes(purView),title=({receipts:'Receipts',requests:'Delivery requests',backorders:'Waiting from suppliers',held:'Held at supplier'})[purView];
- const cell=(i,c)=>{const v=salesListValue(i,c.k);return '<td'+(c.type==='number'?' class="n"':'')+'>'+(c.k==='number'?'<button type="button" class="fin-link" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purFulfilEdit('+purArg(i.kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>':v==null||v===''?'—':esc(v))+'</td>';};
- return '<div class="purchasing-workspace">'+'<div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(waiting?'':'<label><input type="checkbox" '+(purShowUndone?'checked':'')+' onchange="purShowUndone=this.checked;render()"> Include undone / cancelled</label><button type="button" class="pri" onclick="purFulfilEdit(\''+kind+'\',\'\')">+ '+(kind==='receipt'?'Receipt':'Request')+'</button>')+'</div>'+purListFilters(infos)+
+ const cell=(i,c)=>{const v=salesListValue(i,c.k);if(i.held)return purHeldCell(i.held,c,v);return '<td'+(c.type==='number'?' class="n"':'')+'>'+(c.k==='number'?'<button type="button" class="fin-link" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purFulfilEdit('+purArg(i.kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>':v==null||v===''?'—':esc(v))+'</td>';};
+ return '<div class="purchasing-workspace">'+'<div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(waiting?'':'<label><input type="checkbox" '+(purShowUndone?'checked':'')+' onchange="purShowUndone=this.checked;render()"> Include undone / cancelled</label><button type="button" class="pri" onclick="purFulfilEdit(\''+kind+'\',\'\')">+ '+(kind==='receipt'?'Receipt':'Request')+'</button>')+'</div>'+(purView==='held'?'<p class="mut pur-held-note">Pace: last 90 days. Order by = runs out − lead time.</p>':'')+purListFilters(infos)+
   '<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
+}
+/* Held board cells: a bar of what is still at the supplier, coloured by
+   when to order, and links to every PO of the row. */
+const PUR_HELD_TONE={'Order now':'bad','Order soon':'warn','OK':'ok','No estimate':''};
+function purHeldCell(a,c,v){
+ const n=c.type==='number'?' class="n"':'';
+ if(c.k==='po')return '<td>'+a.pos.map(p=>'<button type="button" class="fin-link" onclick="purOrderEdit('+purArg(p.id)+')">'+esc(p.number)+'</button>').join(' ')+'</td>';
+ if(c.k==='remaining')return '<td class="n"><div class="pur-held-bar '+(PUR_HELD_TONE[a.status]||'')+'" title="'+esc(Math.round(a.share*100)+'% left')+'"><i style="width:'+Math.round(a.share*100)+'%"></i></div><b>'+esc(a.remaining)+'</b>'+(a.unknown?' <span class="mut">· review</span>':'')+'</td>';
+ if(c.k==='status')return '<td><span class="pill '+(PUR_HELD_TONE[a.status]||'')+'">'+esc(a.status)+'</span></td>';
+ if(c.k==='item')return '<td data-raw><b>'+esc(a.item||'—')+'</b>'+(a.code?' <span class="mut mono">'+esc(a.code)+'</span>':'')+'</td>';
+ return '<td'+n+'>'+(v==null||v===''?'—':esc(v))+'</td>';
 }
 function purPOReceivingHTML(p){
  const receipts=(DB.purchaseReceipt||[]).filter(r=>r.poId===p.id),requests=(DB.purchaseDeliveryRequest||[]).filter(r=>r.poId===p.id);

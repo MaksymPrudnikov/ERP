@@ -126,3 +126,29 @@ function purWaitingRows(held){
   return out;
  }));
 }
+/* Held at supplier as a board (owner, 14.10.2026): some glass comes from
+   China, so the office must see when the bought stock at the supplier runs
+   out and when to order again. One row per glass + sheet size + supplier.
+   The pace is what was brought over the last 90 days (at least 30 days,
+   never before the first purchase); nothing brought yet = No estimate.
+   Order by = runs out − the supplier card's lead time. */
+const PUR_HELD_WINDOW=90,PUR_HELD_SOON=30;
+function purDayDiff(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5);}
+function purDayAdd(d,n){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+Math.round(n));return finLocalDate(x);}
+function purHeldGroups(today){
+ today=today||finToday();const map=new Map();
+ purWaitingRows(true).forEach(({p,l,b})=>{
+  const g=purGlassProduct(l),key=[p.supplierId||purNameKey(purSupplierDisplay(p)),l.productId||(l.itemId?l.table+':'+l.itemId:'')||purNameKey(l.description),l.widthIn||'',l.heightIn||'',purUnit(l.unit)].join('|');
+  if(!map.has(key)){const s=purSupplierFind(p.supplierId);map.set(key,{key,item:g?g.name:l.description,code:g?g.code:'',size:l.widthIn&&l.heightIn?l.widthIn+' × '+l.heightIn:'',supplierId:p.supplierId,supplierName:purSupplierDisplay(p)||'Supplier not set',unit:l.unit,leadTime:s&&s.leadTimeDays!=null?s.leadTimeDays:null,pos:[],rows:[],ordered:0,received:0,remaining:0,first:'',unknown:false});}
+  const a=map.get(key);a.pos.push(p);a.ordered+=b.ordered||0;a.received+=b.received;a.remaining+=b.remaining||0;a.unknown=a.unknown||b.unknown||b.ordered==null;
+  const bought=p.date||finLocalDate(new Date(p.createdAt||Date.now()));if(!a.first||bought<a.first)a.first=bought;
+  a.rows=a.rows.concat(b.rows.filter(x=>!x.l.replacement&&purUnit(x.l.unit)===purUnit(l.unit)));
+ });
+ return [...map.values()].map(a=>{
+  const from=[purDayAdd(today,-PUR_HELD_WINDOW),a.first].sort().pop(),days=Math.max(PUR_HELD_SOON,purDayDiff(from,today));
+  const brought=a.rows.filter(x=>(x.r.date||'')>=from&&(x.r.date||'')<=today).reduce((n,x)=>n+(x.l.qty||0),0),perDay=brought/days;
+  const runsOut=perDay>0?purDayAdd(today,a.remaining/perDay):'',orderBy=runsOut?purDayAdd(runsOut,-(a.leadTime||0)):'';
+  const status=!runsOut?'No estimate':orderBy<=today?'Order now':purDayDiff(today,orderBy)<=PUR_HELD_SOON?'Order soon':'OK';
+  return Object.assign(a,{pos:[...new Set(a.pos)],perMonth:perDay>0?Math.round(perDay*30*10)/10:null,runsOut,orderBy,status,share:a.ordered>0?Math.max(0,Math.min(1,a.remaining/a.ordered)):0});
+ });
+}
