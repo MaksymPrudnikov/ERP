@@ -1,0 +1,26 @@
+/* Inventory: sheets on the rack. Lists reuse the Sales table styles. */
+.inventory-workspace{min-width:0}
+.inv-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;padding:14px 20px 4px}
+.inv-tile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);text-align:left;font:inherit;box-shadow:none}
+button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-strong);background:var(--surface-2)}
+.inv-tile b{font-size:22px;line-height:1;font-weight:700;letter-spacing:-.02em}
+.inv-tile span{font-size:12px;color:var(--text-2)}
+.inv-tile.bad b{color:var(--danger)}.inv-tile.warn b{color:var(--warning)}
+.inv-tile.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.inv-neg,.inv-neg b{color:var(--danger)}
+.inv-note{font-size:11px;color:var(--text-3);font-weight:500;white-space:nowrap}
+.inv-note.warn{color:var(--warning)}
+.inv-min{width:64px;text-align:right}
+.inv-count-cell{white-space:nowrap}
+.inv-count{width:72px;text-align:right}
+.inv-diff{display:inline-block;min-width:34px;margin:0 8px;font-size:12px;font-weight:600;color:var(--text-2)}
+.inv-hint{margin:12px 20px 0;font-size:12px}
+.inv-writeoff{margin:14px 20px 0;padding:14px 16px}
+.inv-writeoff h3{margin:0 0 10px;font-size:14px}
+.inv-wo-fields{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.inv-wo-fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--text-2)}
+.inv-wo-fields input[type=number]{width:90px}
+.inv-wo-note{flex:1;min-width:180px}.inv-wo-note input{width:100%;box-sizing:border-box}
+.inv-wo-actions{display:flex;gap:8px}
+@media (max-width:700px){.inv-tiles{padding:12px 12px 4px}.inv-hint,.inv-writeoff{margin-left:12px;margin-right:12px}}
+.inv-table input.inv-min,.inv-table input.inv-count{height:30px;min-height:0;padding:3px 8px;font-size:13px}

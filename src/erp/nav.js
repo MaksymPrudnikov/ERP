@@ -18,6 +18,7 @@ const NAV=[
  {k:'shipping', label:'Shipping', icon:'shipping'},
  {k:'finance', label:'Finance', icon:'finance'},
  {k:'purchasing', label:'Purchasing', icon:'purchase'},
+ {k:'inventory', label:'Inventory', icon:'inventory'},
  {k:'customers', label:'Customers', icon:'users'},
  {k:'reports', label:'Reports', icon:'report'},
  {k:'commissions', label:'Agents', icon:'link'},
@@ -117,6 +118,7 @@ function render(){
   production:['Production','Stations · work positions · operations · terminals'],
   masterdata:['Master Data','Glass catalog · supply points · hardware · database overview'],finance:['Finance','Customer receipts · deposits on account · order balances'],
   purchasing:['Purchasing','Suppliers · purchases'],
+  inventory:['Inventory','Glass sheets on the rack'],
   /* Вкладка станции — «ARRIS · Glass Farm», а не «Glass Farm · Glass Farm». */
   station:[typeof stationCode==='string'&&stationCode?stationCode:'Station','Station screen']
  }[tab]||['Glass Farm','Production system'];
@@ -124,7 +126,7 @@ function render(){
  document.title=meta[0]+' · Glass Farm';
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
- const V={dashboard:viewDashboard,reports:typeof viewReports==='function'?viewReports:null,commissions:typeof viewCommissions==='function'?viewCommissions:null,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,purchasing:typeof viewPurchasing==='function'?viewPurchasing:null,station:typeof viewStation==='function'?viewStation:null}[tab];
+ const V={dashboard:viewDashboard,reports:typeof viewReports==='function'?viewReports:null,commissions:typeof viewCommissions==='function'?viewCommissions:null,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,purchasing:typeof viewPurchasing==='function'?viewPurchasing:null,inventory:typeof viewInventory==='function'?viewInventory:null,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
  const focus=renderFocusKey();
