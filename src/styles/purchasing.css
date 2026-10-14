@@ -75,3 +75,17 @@
 @media(max-width:900px){.pur-receiving-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .pur-pagination{padding:10px 20px 14px}
+
+/* Receipt and delivery request: one table row per item (owner, 14.10.2026). */
+.pur-receive-table{width:100%;min-width:980px;table-layout:fixed}
+.pur-request-table{min-width:720px}
+.pur-receive-table th:first-child{width:28px}.pur-receive-table th:nth-child(2){width:auto}
+.pur-receive-table th:nth-child(n+3):nth-child(-n+9){width:76px}
+.pur-receive-table th:nth-child(10){width:120px}.pur-receive-table th:nth-child(11){width:130px}
+.pur-request-table th:nth-child(n+3):nth-child(-n+7){width:84px}
+.pur-receive-table th:last-child{width:34px}
+.pur-receive-table input{width:100%;box-sizing:border-box}
+.pur-receive-table .pur-item{display:block;overflow-wrap:anywhere;text-align:left}
+.pur-receive-table .pur-glass-detail .sales-header-compact{margin-top:8px}
+.pur-receive-table .pur-glass-detail details:not([open]) summary{opacity:.8}
+.doc-back>.pur-picker{align-self:flex-start;margin-top:8vh}

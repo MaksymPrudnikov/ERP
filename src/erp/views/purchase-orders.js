@@ -45,7 +45,9 @@ function purOrderField(k,label,type){
 }
 function purPickSupplier(id,draw){
  const s=purSupplierFind(id),d=purOrderDraft;d.supplierId=id;d.supplier=s?purClone(s):null;d.supplierName=s?s.name:'';
- if(s){d.to=s.email;if(s.leadTimeDays!=null&&d.date){const date=new Date(d.date+'T12:00:00');date.setDate(date.getDate()+s.leadTimeDays);d.expectedDate=finLocalDate(date);}}
+ /* Currency comes from the card: CAD by default, USD where the card says so;
+    it can still be changed on the PO (owner, 14.10.2026). */
+ if(s){d.to=s.email;d.currency=s.currency||'CAD';if(s.leadTimeDays!=null&&d.date){const date=new Date(d.date+'T12:00:00');date.setDate(date.getDate()+s.leadTimeDays);d.expectedDate=finLocalDate(date);}}
  d.lines.forEach(l=>{const row=(DB.glassSheet||[]).find(s=>s.id===l.sheetId);if(row&&row.supplierId!==id){l.sheetId='';l.sourceCurrency='';}});
  if(draw!==false)render();
 }
@@ -84,11 +86,19 @@ function purOrderForm(){
   (purNotice?'<div role="status" data-pur-po-notice class="pur-notice">'+esc(purNotice)+'</div>':'')+
   '<fieldset class="pur-po-edit form" '+(deleted?'disabled':'')+'><div class="sales-header-compact">'+
   purSupplierControl(d,'po')+purOrderField('date','Order date','date')+purOrderField('expectedDate','Expected date','date')+purCurrencyControl(d,'pur_po_currency','purOrderDraft.currency=this.value')+
-  '<div><label for="pur_po_state">Status</label><select id="pur_po_state" aria-label="PO status" onchange="purOrderDraft.state=this.value">'+Object.entries(PUR_ORDER_STATES).map(([k,n])=>salesOption(k,n,d.state,true)).join('')+'</select></div></div>'+
+  purOrderStateControl(d)+'</div>'+
   '<details class="sales-block pur-spec"><summary>Email / notes</summary><div class="sales-header-compact">'+purOrderField('to','Email to')+purOrderField('cc','CC')+'</div>'+
   '<label for="pur_po_note">PO notes</label><textarea id="pur_po_note" rows="2" oninput="purOrderDraft.note=this.value">'+esc(d.note)+'</textarea></details>'+
   '<datalist id="pur_units">'+MD_UNITS.map(u=>'<option value="'+u.code+'">'+u.nameEn+'</option>').join('')+'<option value="block">block</option></datalist>'+purPOLinesHTML()+'</fieldset><div class="pur-total" data-pur-total><b>'+(t.complete?'Total':'Known subtotal')+': '+esc(docNum(t.known,2)+' '+d.currency)+'</b>'+(t.missing?' · '+t.missing+' line(s) need price, quantity or conversion':'')+'</div>'+
   (d.id?purPOReceivingHTML(d)+purPOInvoicesHTML(d)+purHistoryHTML('po',d.id):'')+purPickerHTML()+(purDoc?purDocHTML():'')+'</div>';
+}
+/* One status on screen: deliveries decide Partially received / Received,
+   people set Draft, Sent, Closed or Cancelled (audit 14.10.2026). */
+function purOrderStateControl(d){
+ const shown=purOrderStatus(d),computed=['Partially received','Received'].includes(shown)?shown:'';
+ return '<div><label for="pur_po_state">Status</label><select id="pur_po_state" aria-label="PO status" onchange="purOrderDraft.state=this.value">'+
+  Object.entries(PUR_ORDER_STATES).map(([k,n])=>'<option value="'+k+'"'+(!computed&&k===d.state?' selected':'')+'>'+n+'</option>').join('')+
+  (computed?'<option value="" selected disabled>'+computed+'</option>':'')+'</select></div>';
 }
 function purPickerHTML(){
  if(!purPicker)return '';const p=purPicker;
@@ -98,7 +108,8 @@ function purPickerHTML(){
   body='<p class="mut">Purchase prices keep their unit. All values can be changed in the PO.</p><label><input type="checkbox" onchange="purPicker.all=this.checked;render()" '+(p.all?'checked':'')+'> All suppliers</label>'+
    '<div class="pur-picker-list">'+(p.all?DB.glassSheet:rows).map(s=>'<button type="button" onclick="purPickerAddSheet('+purArg(s.id)+')">'+esc([s.productCode,s.supplier,s.sheetWIn+' × '+s.sheetHIn+' in',s.currency].join(' · '))+'</button>').join('')+'</div>';
  }else if(p.kind==='stock'){
-  body='<div class="pur-picker-list">'+salesExtraItemCandidates().map(c=>'<button type="button" onclick="purPickerPush(purStockLine('+purArg(c.table)+','+purArg(c.id)+'))">'+esc(c.name+' · '+c.code)+'</button>').join('')+'</div>';
+  const groups=purMaterialGroups();
+  body=groups.length?'<label for="pur_material">Material</label><select id="pur_material" onchange="purPickerMaterial(this.value)"><option value="">Choose material</option>'+groups.map(g=>'<optgroup label="'+esc(g.label)+'">'+g.rows.map(r=>'<option value="'+esc(g.table+'|'+r.id)+'">'+esc(r.name+(r.code?' · '+r.code:''))+'</option>').join('')+'</optgroup>').join('')+'</select>':'<p class="mut">No materials in Master Data.</p>';
  }else{
   const orders=(DB.salesOrder||[]).filter(o=>!salesIsQuote(o)),o=salesRecord(p.orderId),l=o&&(o.lines||[]).find(l=>l.id===p.lineId);
   body='<label for="pur_source_order">Customer order</label><select id="pur_source_order" onchange="purPicker.orderId=this.value;purPicker.lineId=\'\';render()"><option value="">Choose order</option>'+orders.map(o=>'<option value="'+esc(o.id)+'" '+(o.id===p.orderId?'selected':'')+'>'+esc([o.businessNumber,salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))+'</option>').join('')+'</select>'+
@@ -106,6 +117,11 @@ function purPickerHTML(){
    (l?'<div class="pur-picker-list"><button type="button" onclick="purPickerAddComponent(\'\')">Whole unit / laminate</button>'+glassBatchComponents(o,l).map(c=>'<button type="button" onclick="purPickerAddComponent('+purArg(c.key)+')">'+esc(purComponentLabel(c)+' · '+c.glass)+'</button>').join('')+'</div>':'');
  }
  return '<div class="doc-back"><section class="card pur-picker" role="dialog" aria-label="Add purchase line"><div class="pur-section-head"><h3>Add purchase line</h3><button type="button" onclick="purPicker=null;render()">Close</button></div>'+body+'</section></div>';
+}
+function purPickerMaterial(v){
+ const i=String(v).indexOf('|'),l=i>0?purStockLine(v.slice(0,i),v.slice(i+1)):null;if(!l)return;
+ if(purPicker&&purPicker.target==='receipt'){purFulfilDraft.data.lines.push(purFulfilLine(Object.assign({},l,{id:salesUid('RL'),qty:null}),0));purPicker=null;render();return;}
+ purPickerPush(l);
 }
 function purPickerPush(l){if(!l)return;const a=purOrderDraft.lines;if(a.length===1&&!a[0].description&&!a[0].spec&&!a[0].sheetId&&a[0].price==null)a.splice(0,1);a.push(l);purPicker=null;render();}
 function purPickerAddSheet(id){

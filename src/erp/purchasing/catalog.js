@@ -19,9 +19,15 @@ function purValidateGlassLines(p,old){
  });
 }
 function purCatalogueLine(id){const g=glassProductById(id);return purLineClean({id:salesUid('PL'),kind:'glass',productId:g?g.id:'',productCode:g?g.code:'',description:g?g.name:'',qty:1,unit:'sheet',priceUnit:'sqft'},0);}
+/* Everything the shop buys from Master Data, not only what Sales sells as
+   its own line: spacer, sealants and gas are bought, rarely sold (audit
+   14.10.2026). The catalogue link is what inventory will count. */
+const PUR_MATERIAL_TABLES=[['spacerVariant','Spacers','Spacer '],['sealantProduct','Sealants',''],['gasProduct','Gas',''],['interlayerProduct','Interlayers',''],['fritProduct','Frit',''],['spandrelProduct','Spandrel',''],['spandrelColour','Spandrel colours',''],['stockItem','Stock items','']];
+function purMaterialRow(table,id){const t=PUR_MATERIAL_TABLES.find(x=>x[0]===table),r=t&&Array.isArray(DB[table])?DB[table].find(x=>x&&x.id===id):null;return r?{r,prefix:t[2]}:null;}
+function purMaterialGroups(){return PUR_MATERIAL_TABLES.map(([table,label])=>({table,label,rows:(DB[table]||[]).filter(x=>x&&x.id&&x.active!==false).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)))})).filter(g=>g.rows.length);}
 function purStockLine(table,id){
- const r=SALES_EXTRA_ITEM_TABLES.includes(table)&&salesExtraItemRow(table,id);if(!r)return null;
- return purLineClean({id:salesUid('PL'),kind:'stock',table,itemId:id,description:r.name,qty:1,unit:r.purchaseUnit||'each',priceUnit:r.purchaseUnit||'each',price:r.purchasePrice,sourceCurrency:r.currency},0);
+ const m=purMaterialRow(table,id);if(!m)return null;const r=m.r;
+ return purLineClean({id:salesUid('PL'),kind:'stock',table,itemId:id,description:m.prefix+r.name,qty:1,unit:r.purchaseUnit||'each',priceUnit:r.purchaseUnit||'each',price:r.purchasePrice,sourceCurrency:r.currency},0);
 }
 
 function purReceiptGlassMatches(a,b){
