@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 151 модулей, 21 стиля.
+  Состав сборки: 153 модулей, 22 стиля.
 -->
 <html lang="en">
 <head>
@@ -3242,6 +3242,34 @@ button.ch-stat.warn b{color:var(--warning)}
 .pill.bad{background:var(--danger-soft);color:var(--danger);border:1px solid var(--danger-line)}
 .pur-held-note{margin:0 20px 6px;font-size:12px}
 
+/* ---- src/styles/inventory.css ---- */
+/* Inventory: sheets on the rack. Lists reuse the Sales table styles. */
+.inventory-workspace{min-width:0}
+.inv-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;padding:14px 20px 4px}
+.inv-tile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);text-align:left;font:inherit;box-shadow:none}
+button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-strong);background:var(--surface-2)}
+.inv-tile b{font-size:22px;line-height:1;font-weight:700;letter-spacing:-.02em}
+.inv-tile span{font-size:12px;color:var(--text-2)}
+.inv-tile.bad b{color:var(--danger)}.inv-tile.warn b{color:var(--warning)}
+.inv-tile.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.inv-neg,.inv-neg b{color:var(--danger)}
+.inv-note{font-size:11px;color:var(--text-3);font-weight:500;white-space:nowrap}
+.inv-note.warn{color:var(--warning)}
+.inv-min{width:64px;text-align:right}
+.inv-count-cell{white-space:nowrap}
+.inv-count{width:72px;text-align:right}
+.inv-diff{display:inline-block;min-width:34px;margin:0 8px;font-size:12px;font-weight:600;color:var(--text-2)}
+.inv-hint{margin:12px 20px 0;font-size:12px}
+.inv-writeoff{margin:14px 20px 0;padding:14px 16px}
+.inv-writeoff h3{margin:0 0 10px;font-size:14px}
+.inv-wo-fields{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.inv-wo-fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--text-2)}
+.inv-wo-fields input[type=number]{width:90px}
+.inv-wo-note{flex:1;min-width:180px}.inv-wo-note input{width:100%;box-sizing:border-box}
+.inv-wo-actions{display:flex;gap:8px}
+@media (max-width:700px){.inv-tiles{padding:12px 12px 4px}.inv-hint,.inv-writeoff{margin-left:12px;margin-right:12px}}
+.inv-table input.inv-min,.inv-table input.inv-count{height:30px;min-height:0;padding:3px 8px;font-size:13px}
+
 </style>
 </head>
 <body>
@@ -3268,7 +3296,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='aa49c994e0ca';
+var ERP_BUILD='6ae55c37a455';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -7750,7 +7778,7 @@ const MuntinModule={code:'MUNTIN',name:'Adaptive Muntin',version:'v4.5-port',com
      сами не трогают; про секреты экраны знают только «задан / не задан».
    Правило: файл не знает про заказы, цены и экраны.
    ===================================================================== */
-const USER_SECTIONS=['sales','optimization','production','shipping','finance','purchasing','customers','reports','commissions','screens','masterdata','users','dashboard'];
+const USER_SECTIONS=['sales','optimization','production','shipping','finance','purchasing','inventory','customers','reports','commissions','screens','masterdata','users','dashboard'];
 /* Галочки, у которых нет своего пункта меню: Screens — ставить отчёты на
    экраны станций и людей (Reports → Edit → Show on; владелец, 11.10.2026). */
 const USER_ACCESS_LABELS={screens:'Screens'};
@@ -14188,6 +14216,7 @@ const NAV=[
  {k:'shipping', label:'Shipping', icon:'shipping'},
  {k:'finance', label:'Finance', icon:'finance'},
  {k:'purchasing', label:'Purchasing', icon:'purchase'},
+ {k:'inventory', label:'Inventory', icon:'inventory'},
  {k:'customers', label:'Customers', icon:'users'},
  {k:'reports', label:'Reports', icon:'report'},
  {k:'commissions', label:'Agents', icon:'link'},
@@ -14287,6 +14316,7 @@ function render(){
   production:['Production','Stations · work positions · operations · terminals'],
   masterdata:['Master Data','Glass catalog · supply points · hardware · database overview'],finance:['Finance','Customer receipts · deposits on account · order balances'],
   purchasing:['Purchasing','Suppliers · purchases'],
+  inventory:['Inventory','Glass sheets on the rack'],
   /* Вкладка станции — «ARRIS · Glass Farm», а не «Glass Farm · Glass Farm». */
   station:[typeof stationCode==='string'&&stationCode?stationCode:'Station','Station screen']
  }[tab]||['Glass Farm','Production system'];
@@ -14294,7 +14324,7 @@ function render(){
  document.title=meta[0]+' · Glass Farm';
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
- const V={dashboard:viewDashboard,reports:typeof viewReports==='function'?viewReports:null,commissions:typeof viewCommissions==='function'?viewCommissions:null,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,purchasing:typeof viewPurchasing==='function'?viewPurchasing:null,station:typeof viewStation==='function'?viewStation:null}[tab];
+ const V={dashboard:viewDashboard,reports:typeof viewReports==='function'?viewReports:null,commissions:typeof viewCommissions==='function'?viewCommissions:null,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,purchasing:typeof viewPurchasing==='function'?viewPurchasing:null,inventory:typeof viewInventory==='function'?viewInventory:null,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
  const focus=renderFocusKey();
@@ -27215,9 +27245,10 @@ let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAncho
 /* ------------------------------ Настройки ------------------------------ */
 /* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
 const salesQueuePrefs={optimization:null,shipping:null};
-function salesListScope(){if(tab==='purchasing'&&typeof purListScope==='function')return purListScope();if(tab==='shipping'&&typeof shippingListScope==='function'&&shippingListScope())return shippingListScope();if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListScope(){if(tab==='purchasing'&&typeof purListScope==='function')return purListScope();if(tab==='inventory'&&typeof invListScope==='function')return invListScope();if(tab==='shipping'&&typeof shippingListScope==='function'&&shippingListScope())return shippingListScope();if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
 function salesListCatalog(){
  if(tab==='purchasing'&&typeof purListColumns==='function')return purListColumns();
+ if(tab==='inventory'&&typeof invListColumns==='function')return invListColumns();
  if(salesListScope()==='shippingPS')return shippingListColumns();
  if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
  if(salesListScope().startsWith('prod')&&typeof prodListColumns==='function')return prodListColumns();
@@ -27264,7 +27295,9 @@ function salesListCleanPrefs(p){
  if(salesListScope().startsWith('fin')&&p.createdRangeInitialized!==true&&typeof finListDefaults==='function')Object.entries(finListDefaults()).forEach(([k,f])=>{const c=salesListCleanFilter(k,f);if(c&&salesListFilterActive(c))filters[k]=c;});
  if(tab==='purchasing'&&p.purchasingDateInitialized!==true&&typeof purListDefaults==='function')Object.entries(purListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
  const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all'};
+ if(tab==='inventory'&&p.inventoryDateInitialized!==true&&typeof invListDefaults==='function')Object.entries(invListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
  if(tab==='purchasing')clean.purchasingDateInitialized=true;
+ if(tab==='inventory')clean.inventoryDateInitialized=true;
  return clean;
 }
 function salesListDefaultOp(col){return col.type==='number'?'gt':col.type==='date'?'between':'contains';}
@@ -27434,9 +27467,9 @@ function salesListBase(){
  return {all:all.concat(ncrs.map(i=>i.o)),infos};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
-function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
+function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(tab==='inventory'&&typeof invListDefaultSort==='function')return invListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
-function salesListDateColumn(){if(tab==='purchasing'&&typeof purListDateColumn==='function')return purListDateColumn();return salesListScope()==='usersLog'?'when':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
+function salesListDateColumn(){if(tab==='purchasing'&&typeof purListDateColumn==='function')return purListDateColumn();if(tab==='inventory'&&typeof invListDateColumn==='function')return invListDateColumn();return salesListScope()==='usersLog'?'when':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos,skip){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(skip||[]).includes(k));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
@@ -27597,6 +27630,7 @@ function salesListMenuHTML(infos){
  const top=Math.max(8,Math.min(m.y,window.innerHeight-80)),style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-(m.w||300)-8))}px;top:${top}px;max-height:${Math.max(180,window.innerHeight-top-12)}px`;
  const back='<div class="sl-backdrop" onclick="salesListCloseMenu()" oncontextmenu="event.preventDefault();salesListCloseMenu()"></div>';
  if(m.kind==='pur-sections')return back+purSectionsMenuHTML(style);
+ if(m.kind==='inv-sections')return back+invSectionsMenuHTML(style);
  if(m.kind==='show')return back+salesListShowMenuHTML(style);
  if(m.kind==='date')return back+salesListDateMenuHTML(m,style);
  if(m.kind==='context')return back+salesListContextHTML(m,style);
@@ -32572,6 +32606,7 @@ function validateStockOffcutPayload(src){
    листов будет списывать именно их. Цифры — те же, что в таблице размеров
    раскроя батча (cutSheetNumbers), своих формул здесь нет. Лопнувший лист —
    ещё один лист того же размера: он входит в ft² листов и целиком в отход.
+   Слом, отменённый в журнале склада (Undo Sheet broke), не в счёт.
    Батч без активных стёкол (Unbatched, Moved) в учёт не идёт: его раскрой
    резать уже нечего.
    ===================================================================== */
@@ -32597,7 +32632,7 @@ function sheetUsageRows(){
    });
    /* Размер лопнувшего листа записан в момент поломки; если лист с тем же
       номером и размером — кусок стока, ломается кусок, а не целый лист. */
-   (DB.sheetBreak||[]).filter(x=>x&&x.batch===plan.batch&&x.glass===g.glass&&+x.w>0&&+x.h>0).forEach(x=>{
+   (DB.sheetBreak||[]).filter(x=>x&&!x.undoneAt&&x.batch===plan.batch&&x.glass===g.glass&&+x.w>0&&+x.h>0).forEach(x=>{
     const size={w:Math.max(+x.w,+x.h),h:Math.min(+x.w,+x.h)},sh=g.sheets.find(s=>s.no===x.sheet),z=sh&&(sh.size||g.sheet);
     const same=z&&Math.abs(Math.max(+z.w,+z.h)-size.w)<1e-6&&Math.abs(Math.min(+z.w,+z.h)-size.h)<1e-6&&/^S-/.test(z.key||'');
     const r=rowFor(size,same?z.key:''),a=cutArea(size.w,size.h);
@@ -32607,6 +32642,290 @@ function sheetUsageRows(){
   });
  });
  return out;
+}
+
+/* ==== src/erp/inventory/sheets.js ==== */
+/* =====================================================================
+   erp/inventory/sheets  ·  inventory-1.0
+   Склад листов стекла: сколько лежит на пирамиде и сколько свободно —
+   по каждому стеклу + размеру листа.
+   IN : приёмки Purchasing (DB.purchaseReceipt), раскрои батчей
+        (DB.cutPlan), сканы CUT (DB.stationScan — лист записан в скане),
+        лопнувшие листы (DB.sheetBreak), пересчёты и списания
+        (DB.inventoryEvent), минимумы (DB.inventoryMin)
+   OUT: invSheetRows() — строки склада, invMoves() — журнал движений;
+        команды invCountSave, invWriteOff, invSetMin, invBreakUndo
+
+   Владелец, 14 октября 2026 (docs/ЗАДАЧА_ИНВЕНТАРИЗАЦИЯ.md):
+   · On rack — физически на пирамиде: + приход, − порезанный лист (первый
+     скан CUT любого стекла с него), − лопнувший на столе;
+   · Free — свободно: On rack минус листы собранных раскроев, которые ещё
+     не резали («по Build»). Reserved = On rack − Free;
+   · приход — только реальные листы: в листах — пришло − бой; в блоках —
+     вписанные Sheets − бой, пока Sheets пустое — 0 и «Enter sheets»;
+   · пересчёт вводит офис, разница — запись «было → стало», кто и когда;
+     до первого пересчёта строка — Not counted;
+   · минимум — вручную, Free ниже минимума — красным;
+   · «всё флексибл и без кирпичей»: отрицательный остаток разрешён,
+     ошибка исправляется встречной записью, а не удалением;
+   · стекло без «We cut it» (COG) на склад не идёт.
+   Ответы владельца 14.10: пересчитывает оптимизатор с галочкой Inventory;
+   «каталог = то, что на складе» — в пересчёте все стёкла каталога сразу;
+   размер — из точек поставки Master Data, где его нет — базовый 130 × 96
+   («в будущем я поправлю все»).
+
+   Остаток не хранится числом — он считается из фактов, как балансы
+   Purchasing: отмена приёмки, Unbatch, Reset и пересборка раскроя сами
+   исправляют склад. Порезанный лист остаётся расходом и после Reset,
+   Unbatch и Delete заказа: скан CUT записывает лист раскладки, с которого
+   режут (invScanSheet), — Reset убирает листы из раскладки, а лист уже
+   порезан. Вернуть лист может только Undo самого скана (отсканировали по
+   ошибке — значит, не резали).
+   ===================================================================== */
+DEFAULT.inventoryEvent=[];DEFAULT.inventoryMin={};
+const INV_BASE_SHEET={w:130,h:96};
+const INV_WRITE_OFF=['Broken on rack','Defect','Other'];
+const INV_STATUSES=['OK','Below minimum','Negative','Not counted','Size missing'];
+const INV_KEY_RE=/^[^|]+\|(\d+(\.\d+)?x\d+(\.\d+)?|\?)$/;
+
+/* Размер листа лёжа: длинная × короткая, 1/16″ — как ключ размера в
+   журнале листов Optimization → Sheets (erp/production/sheet-usage). */
+function invSize(w,h){w=+w;h=+h;if(!(w>0&&h>0))return null;return {w:cutRound(Math.max(w,h)),h:cutRound(Math.min(w,h))};}
+function invKey(code,size){return String(code||'').trim().toUpperCase()+'|'+(size?size.w+'x'+size.h:'?');}
+function invSizeText(r){return r.w>0?frac16(r.w)+' × '+frac16(r.h):'Size missing';}
+/* COG и стекло клиента (галочка «We cut it» снята) на складе не лежат. */
+function invGlassCut(code){const g=glassProductByCode(code);return !(g&&g.cut===false);}
+function invPersist(fn){
+ if(!accessCan('inventory'))return {ok:false,error:'Inventory access is required.'};
+ return storageCommand(fn);
+}
+
+/* Размеры каталога: точки поставки стекла, без них — базовый 130 × 96. */
+function invCatalogSizes(code){
+ const seen=new Set(),out=[];
+ glassSheetsFor(code).filter(s=>s&&s.availability!=='inactive').forEach(s=>{const z=invSize(s.sheetWIn,s.sheetHIn);if(z&&!seen.has(z.w+'x'+z.h)){seen.add(z.w+'x'+z.h);out.push(z);}});
+ return out.length?out:[invSize(INV_BASE_SHEET.w,INV_BASE_SHEET.h)];
+}
+
+/* ---------------------------------------------------------------------
+   Лист раскладки, с которого режут стекло. Записывается в скан CUT в
+   момент скана (erp/shopfloor/scan): раскладка потом может смениться
+   (Reset, Build), а лист уже порезан. stock — кусок S- со стеллажа: это не
+   купленный лист, склад листов его не считает.
+   --------------------------------------------------------------------- */
+function invScanSheet(entry,piece){
+ const b=entry&&entry.batch,plan=b&&typeof cutPlanFor==='function'?cutPlanFor(b.number):null;
+ if(!plan||plan.reset||!Array.isArray(plan.groups))return null;
+ const hit=cutFind(plan,piece);if(!hit)return null;
+ const z=hit.sheet.size||hit.group.sheet||{};
+ return invScanSheetClean({batch:b.number,plan:plan.at||'',no:hit.sheet.no,glass:hit.group.glass,w:z.w,h:z.h,stock:/^S-/.test(z.key||'')?z.key:''});
+}
+function invScanSheetClean(x){
+ if(!x||typeof x!=='object'||Array.isArray(x)||typeof x.batch!=='string'||!x.batch||!(Number.isInteger(x.no)&&x.no>0)||typeof x.glass!=='string'||!x.glass||!(+x.w>0&&+x.h>0))return null;
+ return Object.assign({batch:x.batch,plan:typeof x.plan==='string'?x.plan:'',no:x.no,glass:x.glass,w:+x.w,h:+x.h},typeof x.stock==='string'&&/^S-/.test(x.stock)?{stock:x.stock}:{});
+}
+
+/* Строки приёмок, которые несут листы на склад. */
+function invReceiptLines(){
+ const out=[];
+ (DB.purchaseReceipt||[]).forEach(r=>{
+  if(r.voidAt)return;
+  r.lines.forEach(l=>{
+   if(!['glass','sheet'].includes(l.kind))return;
+   const g=purGlassProduct(l),code=g?g.code:l.productCode;if(!code||!invGlassCut(code))return;
+   const unit=purUnit(l.unit),size=invSize(l.widthIn,l.heightIn);
+   let qty=0,issue='';
+   if(unit==='block'){if(l.actualSheets==null)issue='Enter sheets';else qty=l.actualSheets-(l.damagedSheets||0);}
+   else if(unit==='sheet')qty=(l.qty||0)-purBroken(l,l);
+   else issue='Not in sheets';
+   out.push({r,l,code,size,qty,issue,day:r.date||salesListIsoDay(r.createdAt),at:r.createdAt||''});
+  });
+ });
+ return out;
+}
+
+/* Порезанные листы: лист раскладки, с которого отсканировали на CUT хоть
+   одно стекло. Скан, снятый Unbatch или Delete заказа, — всё равно рез:
+   стекло порезано, лист ушёл; Undo скана — нет. Скан без записанного листа
+   (до inventory-1.0) берёт лист из текущей раскладки. */
+function invCutSheets(){
+ const cut=stationCutCode(),unbatched=new Set();
+ (DB.productionUnbatch||[]).forEach(u=>(u.scanIds||[]).forEach(id=>unbatched.add(id)));
+ let index=null;
+ const fromPlan=piece=>{
+  if(!index){index=new Map();(DB.cutPlan||[]).forEach(plan=>{if(!plan||plan.reset||!Array.isArray(plan.groups))return;
+   plan.groups.forEach(g=>g.sheets.forEach(s=>{const z=s.size||g.sheet||{};s.pieces.forEach(p=>index.set(p.piece,invScanSheetClean({batch:plan.batch,plan:plan.at||'',no:s.no,glass:g.glass,w:z.w,h:z.h,stock:/^S-/.test(z.key||'')?z.key:''})));}));});}
+  return index.get(piece)||null;
+ };
+ const out=new Map();
+ (DB.stationScan||[]).forEach(s=>{
+  if(s.station!==cut||s.park||(s.undoneAt&&!unbatched.has(s.id)))return;
+  const sh=s.sheet||fromPlan(s.piece);if(!sh)return;
+  const id=sh.batch+'|'+sh.plan+'|'+sh.no,cur=out.get(id);
+  if(!cur||s.at<cur.at)out.set(id,Object.assign({},sh,{id,at:s.at,by:s.by}));
+ });
+ return out;
+}
+/* Листы собранных раскроев, которые ещё не резали: на листе есть живое
+   стекло батча без реза, и с листа ещё ничего не сканировали. Лист, на
+   котором всё стекло уже порезано раньше (раскрой собрали заново после
+   Reset), не резервируется: его листы уже ушли. */
+function invReservedSheets(cutIds){
+ const out=[];
+ (DB.cutPlan||[]).forEach(plan=>{
+  if(!plan||plan.reset||!Array.isArray(plan.groups))return;
+  const b=glassBatchFind(plan.batch);if(!b)return;
+  const live=new Map(glassBatchActiveItems(b).map(i=>[i.piece,i]));
+  plan.groups.forEach(g=>g.sheets.forEach(s=>{
+   const z=s.size||g.sheet||{},size=invSize(z.w,z.h);
+   if(!size||/^S-/.test(z.key||'')||cutIds.has(plan.batch+'|'+(plan.at||'')+'|'+s.no))return;
+   if(!s.pieces.some(p=>{const i=live.get(p.piece);return i&&!i.cutStartedAt;}))return;
+   out.push({batch:plan.batch,plan:plan.at||'',no:s.no,glass:g.glass,size});
+  }));
+ });
+ return out;
+}
+/* Лопнувший на столе лист. Отменённый (Undo в журнале склада) — не в счёт.
+   Лопнул кусок S- со стеллажа — это не лист (как в журнале листов). */
+function invBreaks(){
+ return (DB.sheetBreak||[]).map(x=>{
+  const plan=cutPlanFor(x.batch),g=plan&&Array.isArray(plan.groups)&&plan.groups.find(y=>y.glass===x.glass),sh=g&&g.sheets.find(s=>s.no===x.sheet),z=sh&&(sh.size||g.sheet);
+  const own=z?invSize(z.w,z.h):null,size=invSize(x.w,x.h)||own,stock=!!(own&&size&&/^S-/.test(z.key||'')&&own.w===size.w&&own.h===size.h);
+  return {x,size,stock};
+ }).filter(b=>!b.stock);
+}
+/* Что ещё у поставщика (Held at supplier) и в пути по PO — в листах; блоки
+   без числа листов в блоке остаются блоками. */
+function invPurchaseWaiting(){
+ const out=[];
+ [true,false].forEach(held=>purWaitingRows(held).forEach(({l,b,replace})=>{
+  if(!['glass','sheet'].includes(l.kind))return;
+  const g=purGlassProduct(l),code=g?g.code:l.productCode,size=invSize(l.widthIn,l.heightIn);if(!code||!size||!invGlassCut(code))return;
+  const qty=replace?b.replaceLeft:b.remaining,unit=purUnit(replace?b.replaceUnit:l.unit);if(qty==null||qty<=0)return;
+  const per=purNumber(l.sheetsPerBlock),sheets=unit==='sheet'?qty:unit==='block'&&per!=null?qty*per:null;
+  out.push({code,size,held,sheets:sheets||0,blocks:unit==='block'&&sheets==null?qty:0});
+ }));
+ return out;
+}
+
+/* ------------------------------ Строки ------------------------------ */
+function invSheetRows(){
+ const rows=new Map();
+ const row=(code,size)=>{
+  const key=invKey(code,size);
+  if(!rows.has(key)){const g=glassProductByCode(code);rows.set(key,{key,code:g?g.code:String(code).toUpperCase(),name:g?g.name:'',mm:g?g.thicknessMm:null,w:size?size.w:0,h:size?size.h:0,
+   received:0,cut:0,broken:0,adjust:0,reserved:0,batches:new Map(),enterSheets:0,held:0,heldBlocks:0,onOrder:0,onOrderBlocks:0,lastCount:null,min:null});}
+  return rows.get(key);
+ };
+ activeGlassProducts().filter(g=>g.cut!==false).forEach(g=>invCatalogSizes(g.code).forEach(z=>row(g.code,z)));
+ invReceiptLines().forEach(x=>{const r=row(x.code,x.size);r.received+=x.qty;if(x.issue==='Enter sheets')r.enterSheets++;});
+ const cut=invCutSheets();
+ cut.forEach(s=>{if(!s.stock&&invGlassCut(s.glass))row(s.glass,invSize(s.w,s.h)).cut++;});
+ invReservedSheets(new Set(cut.keys())).forEach(s=>{const r=row(s.glass,s.size);r.reserved++;r.batches.set(s.batch,(r.batches.get(s.batch)||0)+1);});
+ invBreaks().forEach(b=>{if(!b.x.undoneAt&&invGlassCut(b.x.glass))row(b.x.glass,b.size).broken++;});
+ (DB.inventoryEvent||[]).forEach(e=>{const r=row(e.glass,invSize(e.w,e.h));r.adjust+=e.qty;if(e.kind==='count'&&(!r.lastCount||e.at>r.lastCount.at))r.lastCount=e;});
+ Object.entries(DB.inventoryMin||{}).forEach(([key,n])=>{const [code,dim]=key.split('|'),[w,h]=dim.split('x');row(code,invSize(w,h)).min=n;});
+ invPurchaseWaiting().forEach(x=>{const r=row(x.code,x.size);if(x.held){r.held+=x.sheets;r.heldBlocks+=x.blocks;}else{r.onOrder+=x.sheets;r.onOrderBlocks+=x.blocks;}});
+ return [...rows.values()].map(r=>{
+  r.onRack=r.received-r.cut-r.broken+r.adjust;r.free=r.onRack-r.reserved;r.sizeMissing=!r.w;
+  r.status=r.sizeMissing?'Size missing':!r.lastCount?'Not counted':r.free<0?'Negative':r.min!=null&&r.free<r.min?'Below minimum':'OK';
+  return r;
+ }).sort((a,b)=>a.code.localeCompare(b.code)||b.w-a.w||b.h-a.h);
+}
+function invRowFind(key){return invSheetRows().find(r=>r.key===key)||null;}
+
+/* ------------------------------ Журнал ------------------------------
+   Все движения листов. rack — сколько листов прибавилось (+) или ушло (−)
+   с пирамиды; layout — листов в раскрое батча (Build ничего не снимает с
+   пирамиды, он занимает листы). */
+function invMoves(){
+ const out=[],add=(m,code,size)=>{const g=glassProductByCode(code);out.push(Object.assign({code:g?g.code:String(code).toUpperCase(),name:g?g.name:'',key:invKey(code,size),w:size?size.w:0,h:size?size.h:0,rack:null,layout:null,by:'',note:''},m));};
+ invReceiptLines().forEach(x=>add({id:'GR|'+x.r.id+'|'+x.l.id,kind:'Receipt',ref:x.r.number,receipt:x.r.id,day:x.day,at:x.at,rack:x.issue?0:x.qty,by:x.r.receivedBy||x.r.createdBy,note:x.issue||(x.l.replacement?'Replacement':'')},x.code,x.size));
+ (DB.cutPlan||[]).forEach(plan=>{
+  if(!plan||plan.reset||!Array.isArray(plan.groups)||!glassBatchFind(plan.batch))return;
+  plan.groups.forEach(g=>{if(!invGlassCut(g.glass))return;const by=new Map();
+   g.sheets.forEach(s=>{const z=s.size||g.sheet||{},size=invSize(z.w,z.h);if(!size||/^S-/.test(z.key||''))return;const k=size.w+'x'+size.h;if(!by.has(k))by.set(k,{size,n:0});by.get(k).n++;});
+   by.forEach(({size,n})=>add({id:'B|'+plan.batch+'|'+g.glass+'|'+size.w+'x'+size.h,kind:'Build',ref:plan.batch,batch:plan.batch,day:salesListIsoDay(plan.at),at:plan.at||'',layout:n,note:n+' sheet'+(n===1?'':'s')+' in layout'},g.glass,size));
+  });
+ });
+ invCutSheets().forEach(s=>{if(s.stock||!invGlassCut(s.glass))return;add({id:'C|'+s.id,kind:'Cut',ref:s.batch+' · sheet '+s.no,batch:s.batch,day:salesListIsoDay(s.at),at:s.at,rack:-1,by:s.by},s.glass,invSize(s.w,s.h));});
+ invBreaks().forEach(({x,size})=>{if(!invGlassCut(x.glass))return;
+  add({id:'SB|'+x.id,kind:'Sheet broke',ref:x.batch+' · sheet '+x.sheet,batch:x.batch,breakId:x.id,undone:!!x.undoneAt,day:salesListIsoDay(x.at),at:x.at,rack:-1,by:x.by},x.glass,size);
+  if(x.undoneAt)add({id:'SBU|'+x.id,kind:'Undo sheet broke',ref:x.batch+' · sheet '+x.sheet,batch:x.batch,day:salesListIsoDay(x.undoneAt),at:x.undoneAt,rack:1,by:x.undoneBy},x.glass,size);
+ });
+ (DB.inventoryEvent||[]).forEach(e=>add({id:e.id,kind:e.kind==='count'?'Count':'Write off',ref:'',day:salesListIsoDay(e.at),at:e.at,rack:e.qty,by:e.by,
+  note:e.kind==='count'?'Was '+e.before+' → '+e.after:[e.reason,e.note].filter(Boolean).join(' · ')},e.glass,invSize(e.w,e.h)));
+ return out.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+}
+
+/* ------------------------------ Команды ------------------------------ */
+function invWhole(v,label){
+ const s=String(v==null?'':v).trim(),n=Number(s);
+ if(!s||!Number.isInteger(n)||n<0)throw new Error(label+': enter a whole number, 0 or more.');
+ return n;
+}
+/* Пересчёт: counts — {ключ: сколько насчитали}. Одна команда на все
+   строки; разница с On rack в момент записи — встречная запись. */
+function invCountSave(counts){
+ return invPersist(()=>{
+  const rows=new Map(invSheetRows().map(r=>[r.key,r])),now=new Date().toISOString(),actor=orderLogActor(),out=[];
+  Object.entries(counts||{}).forEach(([key,v])=>{
+   const r=rows.get(key);if(!r||r.sizeMissing)throw new Error('Glass or sheet size not found. Reopen the count.');
+   const n=invWhole(v,r.code+' '+invSizeText(r));
+   const e={id:salesUid('IE'),kind:'count',glass:r.code,w:r.w,h:r.h,qty:n-r.onRack,before:r.onRack,after:n,reason:'',note:'',at:now,by:actor.by,byId:actor.byId};
+   DB.inventoryEvent.push(e);out.push(e);
+  });
+  if(!out.length)throw new Error('Enter at least one count.');
+  return out;
+ });
+}
+function invWriteOff(key,qty,reason,note){
+ return invPersist(()=>{
+  const r=invRowFind(key);if(!r||r.sizeMissing)throw new Error('Glass or sheet size not found.');
+  const n=invWhole(qty,'Sheets');if(!n)throw new Error('Sheets: enter 1 or more.');
+  if(!INV_WRITE_OFF.includes(reason))throw new Error('Choose a reason.');
+  const actor=orderLogActor(),e={id:salesUid('IE'),kind:'writeoff',glass:r.code,w:r.w,h:r.h,qty:-n,before:null,after:null,reason,note:String(note||'').trim().slice(0,200),at:new Date().toISOString(),by:actor.by,byId:actor.byId};
+  DB.inventoryEvent.push(e);return e;
+ });
+}
+function invSetMin(key,v){
+ return invPersist(()=>{
+  const r=invRowFind(key);if(!r||r.sizeMissing)throw new Error('Glass or sheet size not found.');
+  if(String(v==null?'':v).trim()===''){delete DB.inventoryMin[key];return null;}
+  const n=invWhole(v,'Minimum');DB.inventoryMin[key]=n;return n;
+ });
+}
+/* Undo Sheet broke: запись слома остаётся, рядом — кто и когда отменил;
+   лист вернулся на пирамиду (владелец откладывал отмену слома до склада,
+   02.10.2026). */
+function invBreakUndo(id){
+ return invPersist(()=>{
+  const x=(DB.sheetBreak||[]).find(b=>b.id===id);if(!x)throw new Error('Sheet break not found.');
+  if(x.undoneAt)throw new Error('Already undone.');
+  const actor=orderLogActor();x.undoneAt=new Date().toISOString();x.undoneBy=actor.by;x.undoneById=actor.byId;return x;
+ });
+}
+
+/* --------------------------- Хранение --------------------------- */
+function invEventClean(e){
+ const n=v=>v==null||v===''?null:Number(v);
+ return {id:String(e.id),kind:e.kind,glass:String(e.glass).trim().toUpperCase(),w:cutRound(Math.max(+e.w,+e.h)),h:cutRound(Math.min(+e.w,+e.h)),qty:Number(e.qty),
+  before:e.kind==='count'?n(e.before):null,after:e.kind==='count'?n(e.after):null,reason:String(e.reason||'').slice(0,80),note:String(e.note||'').slice(0,200),at:String(e.at),by:String(e.by||'').slice(0,80),byId:String(e.byId||'').slice(0,80)};
+}
+function invEventValid(e){return !!(e&&typeof e==='object'&&!Array.isArray(e)&&typeof e.id==='string'&&e.id&&['count','writeoff'].includes(e.kind)&&typeof e.glass==='string'&&e.glass.trim()&&+e.w>0&&+e.h>0&&Number.isFinite(Number(e.qty))&&typeof e.at==='string'&&!Number.isNaN(Date.parse(e.at)));}
+function invMinValid(k,v){return INV_KEY_RE.test(k)&&!k.endsWith('|?')&&Number.isInteger(v)&&v>=0;}
+function normalizeInventory(){
+ const ids=new Set();
+ DB.inventoryEvent=(Array.isArray(DB.inventoryEvent)?DB.inventoryEvent:[]).filter(e=>invEventValid(e)&&!ids.has(e.id)&&(ids.add(e.id),true)).map(invEventClean);
+ const src=DB.inventoryMin&&typeof DB.inventoryMin==='object'&&!Array.isArray(DB.inventoryMin)?DB.inventoryMin:{},min={};
+ Object.keys(src).forEach(k=>{if(invMinValid(k,src[k]))min[k]=src[k];});DB.inventoryMin=min;
+}
+function validateInventoryPayload(src){
+ if(Array.isArray(src.inventoryEvent)){const ids=new Set();src.inventoryEvent.forEach((e,i)=>{if(!invEventValid(e)||ids.has(e.id))throw new Error('Inventory journal row '+(i+1)+': invalid or duplicate record.');ids.add(e.id);});}
+ if(src.inventoryMin!=null){
+  if(typeof src.inventoryMin!=='object'||Array.isArray(src.inventoryMin))throw new Error('The "inventoryMin" field must be an object.');
+  Object.keys(src.inventoryMin).forEach(k=>{if(!invMinValid(k,src.inventoryMin[k]))throw new Error('Inventory minimum "'+k+'": invalid.');});
+ }
 }
 
 /* ==== src/erp/views/glass-batches.js ==== */
@@ -33425,6 +33744,9 @@ function stationRecordCommand(station,check,who,opts){
   const c=carrierFind(opts.on);if(c&&c.active)rec.on=c.code;
  }
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
+ /* Скан резки помнит лист раскладки: склад листов списывает его и после
+    Reset раскроя (erp/inventory/sheets). */
+ if(station===stationCutCode()&&check.g&&check.g.entry&&typeof invScanSheet==='function'){const sh=invScanSheet(check.g.entry,rec.piece);if(sh)rec.sheet=sh;}
  DB.stationScan.push(rec);
  if(check.g)stationAsmJoin(rec,check.g,station,opts.asm);
  /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
@@ -33518,6 +33840,7 @@ function normalizeStationScans(){
    ...(typeof s.confirmedAt==='string'&&SF_CODE_RE.test(sfCode(s.confirmedAt))?{confirmedAt:sfCode(s.confirmedAt)}:{}),
    ...(Number.isInteger(s.step)&&s.step>=0?{step:s.step}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.actionId))?{actionId:s.actionId}:{}),
+   ...(typeof invScanSheetClean==='function'&&invScanSheetClean(s.sheet)?{sheet:invScanSheetClean(s.sheet)}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.asm))?{asm:s.asm}:{}),
    ...(s.joined===true&&STATION_SCAN_ID_RE.test(String(s.asm))?{joined:true}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.asm))&&Number.isInteger(s.unit)&&s.unit>0&&s.unit<1e5?{unit:s.unit}:{}),
@@ -33601,7 +33924,8 @@ function stationBreakCommand(station,check,who,reasonId,opts){
  const allNew=(r.keys||[]).flatMap(k=>{const x=(DB.glassPiece||[]).find(p=>p.key===k);return x&&x.extra&&x.extra[ref]?x.extra[ref].filter(Boolean):[];});
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
  const by=String(who&&who.name||''),byId=String(who&&who.id||'');
- plan.pieces.forEach(id=>DB.stationScan.push({id:stationScanNextId(),at:now,piece:id,station,by,byId,manual:false,undoneAt:'',undoneBy:'',broken:true,recut:ref,reason:r.reason}));
+ const batches=station===stationCutCode()&&typeof invScanSheet==='function'?stationBatchIndex():null;
+ plan.pieces.forEach(id=>{const sh=batches&&invScanSheet(batches.get(id),id);DB.stationScan.push(Object.assign({id:stationScanNextId(),at:now,piece:id,station,by,byId,manual:false,undoneAt:'',undoneBy:'',broken:true,recut:ref,reason:r.reason},sh?{sheet:sh}:{}));});
  /* Вынутые из машины: скан IGU снимается (сборка открыта заново), запись
     park — «ждёт пару», дальше рабочий сканирует долли, на которую положил. */
  const parked=plan.out.map(id=>{
@@ -33635,7 +33959,9 @@ function normalizeSheetBreaks(){
  if(!Array.isArray(DB.sheetBreak))DB.sheetBreak=[];
  const ids=new Set();
  DB.sheetBreak=DB.sheetBreak.filter(x=>x&&typeof x==='object'&&/^SB-\d{5,}$/.test(String(x.id))&&!ids.has(x.id)&&(ids.add(x.id),true)&&typeof x.batch==='string')
-  .map(x=>({id:x.id,at:String(x.at||''),batch:x.batch,glass:String(x.glass||''),sheet:Math.max(1,Math.floor(+x.sheet)||1),w:+x.w||0,h:+x.h||0,by:String(x.by||'').slice(0,80)}));
+  .map(x=>Object.assign({id:x.id,at:String(x.at||''),batch:x.batch,glass:String(x.glass||''),sheet:Math.max(1,Math.floor(+x.sheet)||1),w:+x.w||0,h:+x.h||0,by:String(x.by||'').slice(0,80)},
+   /* Undo Sheet broke — из журнала склада (erp/inventory/sheets): запись остаётся, рядом кто и когда отменил. */
+   typeof x.undoneAt==='string'&&!Number.isNaN(Date.parse(x.undoneAt))?{undoneAt:x.undoneAt,undoneBy:String(x.undoneBy||'').slice(0,80),undoneById:String(x.undoneById||'').slice(0,80)}:{}));
 }
 
 /* ---------------------------------------------------------------------
@@ -36077,6 +36403,200 @@ function viewSheetUsage(){
   </div>${salesListMenuHTML(infos)}</section>`;
 }
 
+/* ==== src/erp/views/inventory.js ==== */
+/* =====================================================================
+   views/inventory  ·  inventory-1.0
+   Раздел Inventory: склад листов стекла.
+   IN : invSheetRows, invMoves и команды erp/inventory/sheets
+   OUT: Sheets — дашборд (плитки, таблица с минимумом в строке), Count —
+        пересчёт и списание, Journal — все движения, Undo Sheet broke
+
+   Владелец, 14 октября 2026: «нужен дашборд для инвентаризации, активный,
+   с фильтрами». Таблицы — движок Sales (колонки, фильтры колонок, чипы
+   статусов), как в Purchasing; меню разделов — одна кнопка, как purNav.
+   Пересчитывает оптимизатор с галочкой Inventory; в Count все стёкла
+   каталога сразу («каталог = то, что на складе»). Плитка статуса ставит
+   тот же фильтр, что чип. Строка дашборда открывает журнал этого стекла.
+   ===================================================================== */
+let invView='sheets',invCountDraft={},invJournalKey='',invWriteOffDraft=null,invNotice='',invPages={};
+const INV_VIEWS=[['sheets','Sheets'],['count','Count'],['journal','Journal']];
+const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'','Size missing':'warn'};
+function invArg(v){return esc(JSON.stringify(String(v)));}
+function invNav(){return '<button type="button" class="sl-quiet" data-inv-sections aria-haspopup="dialog" onclick="invSectionsOpen(event)">'+esc((INV_VIEWS.find(v=>v[0]===invView)||INV_VIEWS[0])[1])+'<span class="sl-disclosure">▾</span></button>';}
+function invSectionsOpen(e){salesListMenu=Object.assign({kind:'inv-sections',scope:salesListScope()},salesListAt(e,200));render();}
+function invSectionsMenuHTML(style){return '<div class="sl-menu sl-show-menu" style="'+style+'" role="dialog" aria-label="Inventory sections">'+INV_VIEWS.map(([k,n])=>'<label><input type="radio" name="inv-section" '+(k===invView?'checked':'')+' onchange="invGo(\''+k+'\')">'+n+'</label>').join('')+'</div>';}
+function invGo(v){if(!invCountLeave())return;invView=v;invNotice='';invWriteOffDraft=null;salesListMenu=null;render();}
+function invCountLeave(){
+ if(Object.keys(invCountDraft).length&&!confirm('Discard counts you have not saved?'))return false;
+ invCountDraft={};return true;
+}
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(to=>tab==='inventory'&&to!=='inventory'&&!invCountLeave());
+
+/* ----------------------- Движок списков Sales ----------------------- */
+function invListScope(){return 'inventory-'+invView;}
+function invListColumns(){
+ const col=([k,label,type,def])=>({k,label,type,def:def!==false});
+ if(invView==='journal')return [['day','When','date'],['glass','Glass','text'],['code','Code','list'],['size','Size','list'],['kind','What','list'],['ref','Reference','text'],['rack','On rack','number'],['by','Who','text'],['note','Note','text']].map(col);
+ if(invView==='count')return [['glass','Glass','text'],['code','Code','list'],['mm','mm','number'],['size','Size','list'],['onRack','On rack','number'],['lastCount','Last count','date']].map(col);
+ return [['glass','Glass','text'],['code','Code','list'],['mm','mm','number'],['size','Size','list'],['onRack','On rack','number'],['reserved','Reserved','number'],['free','Free','number'],['min','Minimum','number'],['held','At supplier','number'],['onOrder','On order','number'],['lastCount','Last count','date'],['status','Status','list']].map(col);
+}
+function invListDefaults(){return invView==='journal'?{day:{preset:'last30'}}:{};}
+function invListDefaultSort(){return invView==='journal'?{k:'day',dir:'desc'}:{k:'code',dir:'asc'};}
+function invListDateColumn(){return invView==='journal'?'day':'';}
+function invRowInfos(){
+ return invSheetRows().map(r=>({o:{id:r.key},r,memo:{glass:r.name||r.code,code:r.code,mm:r.mm,size:invSizeText(r),onRack:r.onRack,reserved:r.reserved,free:r.free,min:r.min,
+  held:r.held,onOrder:r.onOrder,lastCount:r.lastCount?salesListIsoDay(r.lastCount.at):'',status:r.status}}));
+}
+function invMoveInfos(){
+ return invMoves().filter(m=>!invJournalKey||m.key===invJournalKey).map(m=>({o:{id:m.id,createdAt:m.at},m,memo:{day:m.day,glass:m.name||m.code,code:m.code,size:invSizeText(m),kind:m.kind,ref:m.ref,rack:m.rack,by:m.by,note:m.note}}));
+}
+function invPageState(rows){
+ const scope=invListScope(),p=salesListLoadPrefs(),signature=JSON.stringify([p.filters,p.sort,invJournalKey]);
+ if(!invPages[scope]||invPages[scope].signature!==signature)invPages[scope]={signature,index:0};
+ const s=invPages[scope];s.index=Math.max(0,Math.min(s.index,Math.ceil(rows.length/50)-1));return s;
+}
+function invPageRows(rows){const p=invPageState(rows);return rows.slice(p.index*50,p.index*50+50);}
+function invPager(rows){
+ if(!rows.length)return '';const p=invPageState(rows),from=p.index*50+1,to=Math.min(rows.length,(p.index+1)*50);
+ const buttons=rows.length>50?'<button type="button" class="sl-quiet" aria-label="Previous page" '+(!p.index?'disabled':'')+' onclick="invPages[invListScope()].index--;render()">←</button><button type="button" class="sl-quiet" aria-label="Next page" '+(to>=rows.length?'disabled':'')+' onclick="invPages[invListScope()].index++;render()">→</button>':'';
+ return '<div class="pur-pagination"><span>'+from+'–'+to+' of '+rows.length+' rows</span><span class="sales-toolbar-sp"></span>'+buttons+'</div>';
+}
+function invListStatus(value){if(value)salesListSetFilter('status',{values:[value]});else salesListClearFilter('status');}
+function invListFilters(infos){
+ let status='';
+ if(invView==='sheets'){
+  const base=salesListRows(infos,['status']),f=salesListLoadPrefs().filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
+  status=salesListStatusControlHTML(INV_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,'invListStatus');
+ }
+ const date=invListDateColumn();
+ return '<div class="sl-view-controls">'+status+(date?salesListDateButton(date):'')+'</div>'+salesListFilterChips();
+}
+function invHeader(c){
+ const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);
+ return '<th class="'+(c.type==='number'?'n':'')+'"><span class="sl-th">'+esc(c.label)+'<button type="button" class="sl-fbtn'+(active?' on':'')+'" data-filter-col="'+c.k+'" aria-label="Filter and sort '+esc(c.label)+'" onclick="salesListOpenFilter(event,\''+c.k+'\')"></button></span></th>';
+}
+function invTable(cols,rows,cell,extraHead,extraCells,empty){
+ return '<div class="sales-table-wrap"><table class="sl-table inv-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(invHeader).join('')+(extraHead||'')+'</tr></thead><tbody>'+
+  (invPageRows(rows).map(i=>'<tr data-inv-row="'+esc(i.o.id)+'"><td></td>'+cols.map(c=>cell(i,c)).join('')+(extraCells?extraCells(i):'')+'</tr>').join('')||'<tr><td colspan="'+(cols.length+1+(extraHead?1:0))+'" class="empty" data-inv-empty>'+empty+'</td></tr>')+'</tbody></table></div>'+invPager(rows);
+}
+function invNum(v){return v==null||v===''?'<span class="mut">—</span>':esc(v);}
+function invLastCount(r){return r.lastCount?esc(salesListShortDay(salesListIsoDay(r.lastCount.at)))+(r.lastCount.by?' <span class="mut">· '+esc(r.lastCount.by)+'</span>':''):'<span class="mut">—</span>';}
+
+/* ------------------------------ Sheets ------------------------------ */
+function invTile(label,n,opts){
+ opts=opts||{};const tag=opts.click?'button type="button" onclick="'+opts.click+'"':'div';
+ return '<'+tag+' class="inv-tile'+(opts.tone?' '+opts.tone:'')+(opts.on?' on':'')+'" data-inv-tile="'+esc(label)+'"><b>'+esc(n)+'</b><span>'+esc(label)+'</span></'+(opts.click?'button':'div')+'>';
+}
+function invTiles(rows){
+ const by=s=>rows.filter(r=>r.status===s).length,sum=k=>rows.reduce((a,r)=>a+r[k],0),f=salesListLoadPrefs().filters.status,sel=f&&f.values&&f.values.length===1?f.values[0]:'';
+ const st=(s,tone)=>invTile(s,by(s),{click:'invListStatus('+invArg(sel===s?'':s)+')',tone:by(s)?tone:'',on:sel===s});
+ const enter=rows.reduce((a,r)=>a+r.enterSheets,0);
+ return '<div class="inv-tiles">'+invTile('Glass × size',rows.length)+invTile('On rack',sum('onRack'))+invTile('Free',sum('free'))+
+  st('Below minimum','bad')+st('Negative','bad')+st('Not counted','')+
+  invTile('Enter sheets',enter,{tone:enter?'warn':'',click:enter&&accessCan('purchasing')?'invOpenReceipts()':''})+'</div>';
+}
+function invOpenReceipts(){navGo('purchasing');if(tab==='purchasing')purGo('receipts');}
+function invSheetCell(i,c){
+ const r=i.r,v=salesListValue(i,c.k),n=c.type==='number'?' class="n"':'';
+ if(c.k==='glass')return '<td data-raw><button type="button" class="fin-link inv-glass" title="Journal" onclick="invOpenJournal('+invArg(r.key)+')">'+esc(v)+'</button></td>';
+ if(c.k==='size')return '<td class="nowrap"><b>'+esc(v)+'</b></td>';
+ if(c.k==='onRack')return '<td class="n'+(r.onRack<0?' inv-neg':'')+'">'+esc(v)+(r.enterSheets?'<div class="inv-note warn">Enter sheets</div>':'')+'</td>';
+ if(c.k==='reserved'){const b=[...r.batches.entries()];return '<td class="n">'+esc(v)+(b.length?'<div class="inv-note">'+esc(b.length>2?b.length+' batches':b.map(([n,k])=>n+(b.length>1?': '+k:'')).join(', '))+'</div>':'')+'</td>';}
+ if(c.k==='free')return '<td class="n'+(r.free<0||r.min!=null&&r.free<r.min?' inv-neg':'')+'"><b>'+esc(v)+'</b></td>';
+ if(c.k==='min')return '<td class="n">'+(r.sizeMissing?'<span class="mut">—</span>':'<input type="number" min="0" step="1" class="inv-min" data-inv-min="'+esc(r.key)+'" aria-label="Minimum" value="'+(r.min==null?'':r.min)+'" onchange="invMinChange('+invArg(r.key)+',this.value)">')+'</td>';
+ if(c.k==='held'||c.k==='onOrder'){const blocks=c.k==='held'?r.heldBlocks:r.onOrderBlocks;return '<td class="n">'+(v||blocks?esc(v||0)+(blocks?'<div class="inv-note">+ '+esc(blocks)+' block'+(blocks===1?'':'s')+'</div>':''):'<span class="mut">—</span>')+'</td>';}
+ if(c.k==='lastCount')return '<td class="nowrap">'+invLastCount(r)+'</td>';
+ if(c.k==='status')return '<td><span class="pill '+(INV_TONE[v]||'')+'">'+esc(v)+'</span></td>';
+ return '<td'+n+(c.k==='code'?' data-raw':'')+'>'+invNum(v)+'</td>';
+}
+function invMinChange(key,value){const r=invSetMin(key,value);invNotice=r.ok?'':r.error;render();}
+function invOpenJournal(key){invView='journal';invJournalKey=key;salesListMenu=null;const p=salesListLoadPrefs();delete p.filters.day;salesListSavePrefs();render();}
+function invSheetsView(infos){
+ const rows=salesListRows(infos),cols=salesListColumns();
+ return invTiles(infos.map(i=>i.r))+invListFilters(infos)+invTable(cols,rows,invSheetCell,'','',infos.length?'Nothing matches the filters.':'No glass in the catalogue yet.');
+}
+
+/* ------------------------------ Count ------------------------------ */
+function invCountInput(key,value,el){
+ if(String(value).trim()==='')delete invCountDraft[key];else invCountDraft[key]=value;
+ const r=el&&el.closest('tr'),d=r&&r.querySelector('[data-inv-diff]'),rack=el?+el.dataset.rack:0,n=Number(value);
+ if(d)d.textContent=String(value).trim()!==''&&Number.isFinite(n)&&n!==rack?(n>rack?'+':'−')+Math.abs(n-rack):'';
+ const s=document.querySelector('[data-inv-count-n]');if(s)s.textContent=Object.keys(invCountDraft).length;
+}
+function invCountSaveUi(){
+ const r=invCountSave(invCountDraft);
+ if(!r.ok){invNotice=r.error;render();return;}
+ invNotice='';invCountDraft={};render();
+}
+function invCountCell(i,c){
+ const r=i.r,v=salesListValue(i,c.k);
+ if(c.k==='size')return '<td class="nowrap"><b>'+esc(v)+'</b></td>';
+ if(c.k==='onRack')return '<td class="n'+(r.onRack<0?' inv-neg':'')+'">'+esc(v)+'</td>';
+ if(c.k==='lastCount')return '<td class="nowrap">'+(r.lastCount?invLastCount(r):'<span class="mut">Not counted</span>')+'</td>';
+ return '<td'+(c.type==='number'?' class="n"':'')+(c.k==='glass'||c.k==='code'?' data-raw':'')+'>'+invNum(v)+'</td>';
+}
+function invCountExtra(i){
+ const r=i.r;if(r.sizeMissing)return '<td class="mut">Size missing</td>';
+ const v=invCountDraft[r.key]==null?'':invCountDraft[r.key],n=Number(v),diff=v!==''&&Number.isFinite(n)&&n!==r.onRack?(n>r.onRack?'+':'−')+Math.abs(n-r.onRack):'';
+ return '<td class="inv-count-cell"><input type="number" min="0" step="1" class="inv-count" data-inv-count="'+esc(r.key)+'" data-rack="'+r.onRack+'" aria-label="Counted sheets" value="'+esc(v)+'" oninput="invCountInput('+invArg(r.key)+',this.value,this)"><span class="inv-diff" data-inv-diff>'+esc(diff)+'</span>'+
+  '<button type="button" class="sl-quiet sm" data-inv-writeoff onclick="invWriteOffOpen('+invArg(r.key)+')">Write off</button></td>';
+}
+function invWriteOffOpen(key){invWriteOffDraft={key,qty:'',reason:'',note:''};invNotice='';render();setTimeout(()=>document.getElementById('inv_wo_qty')?.focus(),0);}
+function invWriteOffSave(){
+ const d=invWriteOffDraft;if(!d)return;
+ const r=invWriteOff(d.key,d.qty,d.reason,d.note);
+ if(!r.ok){invNotice=r.error;render();return;}
+ invWriteOffDraft=null;invNotice='';render();
+}
+function invWriteOffHTML(){
+ const d=invWriteOffDraft,r=d&&invRowFind(d.key);if(!r)return '';
+ return '<section class="card inv-writeoff" data-inv-writeoff-form><h3>Write off · '+esc(r.code)+' '+esc(invSizeText(r))+' <span class="mut">· on rack '+esc(r.onRack)+'</span></h3><div class="inv-wo-fields">'+
+  '<label>Sheets<input id="inv_wo_qty" type="number" min="1" step="1" value="'+esc(d.qty)+'" oninput="invWriteOffDraft.qty=this.value"></label>'+
+  '<label>Reason<select id="inv_wo_reason" onchange="invWriteOffDraft.reason=this.value"><option value="">Choose…</option>'+INV_WRITE_OFF.map(x=>'<option'+(x===d.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></label>'+
+  '<label class="inv-wo-note">Note<input id="inv_wo_note" type="text" maxlength="200" value="'+esc(d.note)+'" oninput="invWriteOffDraft.note=this.value"></label>'+
+  '<div class="inv-wo-actions"><button type="button" onclick="invWriteOffDraft=null;invNotice=\'\';render()">Cancel</button><button type="button" class="pri" data-inv-writeoff-save onclick="invWriteOffSave()">Write off</button></div></div></section>';
+}
+function invCountView(infos){
+ const rows=salesListRows(infos),cols=salesListColumns();
+ return (invWriteOffDraft?invWriteOffHTML():'')+'<p class="mut inv-hint">Enter sheets on the rack. Only filled rows are saved.</p>'+invListFilters(infos)+
+  invTable(cols,rows,invCountCell,'<th class="inv-count-head">Counted</th>',invCountExtra,infos.length?'Nothing matches the filters.':'No glass in the catalogue yet.');
+}
+
+/* ------------------------------ Journal ------------------------------ */
+function invOpenBatch(n){navGo('optimization');if(tab!=='optimization')return;optimizationSetTab('production');glassBatchOpen(n);glassBatchDetailTab='optimization';render();}
+function invOpenReceipt(id){navGo('purchasing');if(tab==='purchasing')purFulfilEdit('receipt',id);}
+function invUndoBreak(id){
+ if(!confirm('Undo sheet broke? The sheet goes back on the rack.'))return;
+ const r=invBreakUndo(id);invNotice=r.ok?'':r.error;render();
+}
+function invMoveCell(i,c){
+ const m=i.m,v=salesListValue(i,c.k);
+ if(c.k==='day')return '<td class="nowrap">'+(v?esc(salesListShortDay(v)):'<span class="mut">—</span>')+'</td>';
+ if(c.k==='size')return '<td class="nowrap"><b>'+esc(v)+'</b></td>';
+ if(c.k==='kind')return '<td class="nowrap">'+esc(v)+(m.breakId&&!m.undone?' <button type="button" class="sl-quiet sm" data-inv-undo="'+esc(m.breakId)+'" onclick="invUndoBreak('+invArg(m.breakId)+')">Undo</button>':'')+(m.breakId&&m.undone?' <span class="mut">· undone</span>':'')+'</td>';
+ if(c.k==='ref'){
+  if(m.receipt&&accessCan('purchasing'))return '<td><button type="button" class="fin-link" onclick="invOpenReceipt('+invArg(m.receipt)+')">'+esc(v)+'</button></td>';
+  if(m.batch&&accessCan('optimization'))return '<td class="nowrap"><button type="button" class="fin-link" onclick="invOpenBatch('+invArg(m.batch)+')">'+esc(v)+'</button></td>';
+  return '<td>'+invNum(v)+'</td>';
+ }
+ if(c.k==='rack')return '<td class="n'+(m.rack<0?' inv-neg':'')+'">'+(m.rack==null?'<span class="mut">—</span>':esc((m.rack>0?'+':'')+m.rack))+'</td>';
+ return '<td'+(c.type==='number'?' class="n"':'')+(c.k==='glass'||c.k==='code'||c.k==='note'||c.k==='by'?' data-raw':'')+'>'+invNum(v)+'</td>';
+}
+function invJournalView(infos){
+ const rows=salesListRows(infos),cols=salesListColumns(),r=invJournalKey&&invRowFind(invJournalKey);
+ const key=invJournalKey?'<div class="sl-chips"><span class="sl-chips-label">Glass</span><span class="sl-chip" data-inv-journal-key>'+esc(r?r.code+' '+invSizeText(r):invJournalKey)+'<button type="button" aria-label="Show all glass" onclick="invJournalKey=\'\';render()">×</button></span></div>':'';
+ return key+invListFilters(infos)+invTable(cols,rows,invMoveCell,'','',infos.length?'Nothing matches the filters.':'No movements yet.');
+}
+
+function viewInventory(){
+ if(!accessCan('inventory'))return '<div class="empty">Inventory access is required.</div>';
+ const count=invView==='count',infos=invView==='journal'?invMoveInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):count?invCountView(infos):invSheetsView(infos);
+ const n=Object.keys(invCountDraft).length;
+ return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'<span class="sales-toolbar-sp"></span>'+
+  (count?'<button type="button" class="pri" data-inv-count-save onclick="invCountSaveUi()">Save count · <span data-inv-count-n>'+n+'</span></button>':'')+'</div>'+
+  (invNotice?'<div class="ncr-error" role="alert">'+esc(invNotice)+'</div>':'')+body+salesListMenuHTML(infos)+'</div></div>';
+}
+
 /* ==== src/erp/sales/cut-estimate.js ==== */
 /* =====================================================================
    erp/sales/cut-estimate  ·  cut-est-1.0
@@ -36720,7 +37240,7 @@ function stationSheetCard(){
  const tiles=group.sheets.map(s=>{const done=stationSheetDone(s,cut),k=s.pieces.filter(p=>cut.has(p.piece)).length;
   return '<button type="button" class="st-tile'+(done?' done':'')+(s===sheet?' now':'')+'" onclick="stationSheetPick(\''+esc(v.batch)+'\',\''+esc(group.glass)+'\','+s.no+')"><b>'+s.no+'</b><span>'+(done?'✓':k?k+'/'+s.pieces.length:s.pieces.length)+'</span></button>';}).join('');
  const menu=stationMenu&&sheet.pieces.some(p=>p.piece===stationMenu.piece)?stationMenuHTML():'';
- const breaks=(DB.sheetBreak||[]).filter(x=>x.batch===v.batch&&x.glass===group.glass&&x.sheet===sheet.no).length;
+ const breaks=(DB.sheetBreak||[]).filter(x=>!x.undoneAt&&x.batch===v.batch&&x.glass===group.glass&&x.sheet===sheet.no).length;
  return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+stationStaleHTML(stale)+'<div class="st-sec"><h3>Sheet '+sheet.no+' of '+group.sheets.length+'</h3><span class="pill" data-raw>'+esc(group.glass)+' · '+esc(frac16(size.w)+' × '+frac16(size.h))+'</span>'+(breaks?'<span class="pill bad" data-sheet-breaks>broke '+breaks+'×</span>':'')+'<span class="sp"></span><span class="pill '+(n===sheet.pieces.length?'ok':'')+'">'+n+' / '+sheet.pieces.length+' cut</span><button type="button" class="b sm st-sheetbrk" onclick="stationOpenSheetBreak()">Sheet broke</button></div>'+
   stationSheetSVG(group,sheet,pieces,cut,nowId,false,broken,stale&&stale.gone)+'<div class="st-tiles">'+tiles+'</div>'+menu+'</div>';
 }
@@ -41864,6 +42384,7 @@ function validateImportedState(src){
  if(typeof validatePurchaseOrders==='function')validatePurchaseOrders(src);
  if(typeof validatePurchaseReceiving==='function')validatePurchaseReceiving(src);
  if(typeof validatePurchaseInvoices==='function')validatePurchaseInvoices(src);
+ if(typeof validateInventoryPayload==='function')validateInventoryPayload(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
@@ -41959,6 +42480,7 @@ function normalizeDB(){
  if(typeof normalizePurchaseOrders==='function')normalizePurchaseOrders();
  if(typeof normalizePurchaseReceiving==='function')normalizePurchaseReceiving();
  if(typeof normalizePurchaseInvoices==='function')normalizePurchaseInvoices();
+ if(typeof normalizeInventory==='function')normalizeInventory();
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
