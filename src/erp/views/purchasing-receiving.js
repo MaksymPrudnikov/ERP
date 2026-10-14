@@ -47,7 +47,11 @@ function purFulfilMapBroken(l){
  const u=purUnit(l.unit),v=l.broken;
  if(u==='block'){l.damagedSheets=v;l.damaged=null;}else if(['sheet','lite'].includes(u)){l.damaged=v;l.damagedSheets=v;}else l.damaged=v;
 }
-function purFulfilRefresh(){const el=document.querySelector('[data-pur-delivery-warnings]');if(el)el.innerHTML=purFulfilWarnings(purFulfilDraft.kind,purFulfilDraft.data).map(s=>'<p>'+esc(s)+'</p>').join('');}
+function purFulfilRefresh(){const el=document.querySelector('[data-pur-delivery-warnings]');if(el)el.innerHTML=purFulfilWarnings(purFulfilDraft.kind,purFulfilDraft.data).map(s=>'<p>'+esc(s)+'</p>').join('');
+ document.querySelectorAll('[data-pur-enter-sheets]').forEach(x=>{x.hidden=!purEnterSheets(purFulfilDraft.data.lines[+x.dataset.purEnterSheets]);});}
+/* Блоки стекла без числа листов на склад не идут (Inventory, владелец
+   14.10.2026: «до этого ничего не меняется») — подсказка у поля Sheets. */
+function purEnterSheets(l){return !!l&&['glass','sheet'].includes(l.kind)&&purUnit(l.unit)==='block'&&purText(l.actualSheets)==='';}
 function purFulfilSelectPO(id){
  const d=purFulfilDraft.data,p=purOrderFind(id);d.poId=id;d.requestId='';d.lines.forEach(l=>{l.poLineId='';l.requestLineId='';});
  if(p){d.supplierId=p.supplierId;d.supplierName=p.supplierName;d.to=p.to;d.cc=p.cc;}render();
@@ -82,7 +86,7 @@ function purFulfilRowHTML(l,i){
   (request?'<div><label for="pur_request_line_'+i+'">Request line</label><select id="pur_request_line_'+i+'" onchange="purFulfilDraft.data.lines['+i+'].requestLineId=this.value;purFulfilRefresh()"><option value="">Outside this request</option>'+request.lines.map((rl,j)=>'<option value="'+esc(rl.id)+'" '+(rl.id===l.requestLineId?'selected':'')+'>'+esc((j+1)+'. '+rl.description)+'</option>').join('')+'</select></div>':'')+
   (l.kind!=='other'&&!glass?purFulfilInput(l,i,'description','Description'):'')+purFulfilInput(l,i,'note','Line note');
  return '<tr data-pur-receive-row="'+i+'"><td class="mono line-num">'+(i+1)+'</td><td>'+purFulfilItem(l,i)+'</td><td>'+purFulfilCell(l,i,'widthIn','number','Width')+'</td><td>'+purFulfilCell(l,i,'heightIn','number','Height')+'</td><td class="n mut" data-raw>'+esc(purFulfilExpected(l))+'</td><td>'+purFulfilCell(l,i,'qty','number',receipt?'Arrived':'Request')+'</td><td>'+purFulfilCell(l,i,'unit','text','Unit')+'</td>'+
-  (receipt?'<td>'+purFulfilCell(l,i,'actualSheets','number','Sheets')+'</td><td>'+broken+'</td><td>'+purFulfilCell(l,i,'reason','text','Reason')+'</td><td>'+purFulfilCell(l,i,'resolution','text','Resolution')+'</td>':'')+
+  (receipt?'<td>'+purFulfilCell(l,i,'actualSheets','number','Sheets')+'<div class="pur-enter-sheets" data-pur-enter-sheets="'+i+'"'+(purEnterSheets(l)?'':' hidden')+'>Enter sheets</div></td><td>'+broken+'</td><td>'+purFulfilCell(l,i,'reason','text','Reason')+'</td><td>'+purFulfilCell(l,i,'resolution','text','Resolution')+'</td>':'')+
   '<td><button type="button" class="sm dl line-delete" aria-label="Remove line '+(i+1)+'" onclick="purFulfilDraft.data.lines.splice('+i+',1);render()">×</button></td></tr>'+
   '<tr class="pur-glass-detail"><td></td><td colspan="'+(cols-1)+'"><details class="pur-spec"'+(open?' open':'')+'><summary>More</summary>'+(glass?purGlassSelect(l,i,'delivery'):'')+'<div class="sales-header-compact">'+more+'</div></details></td></tr>';
 }
@@ -120,7 +124,7 @@ function purReceivingInfos(){
 }
 function purReceivingList(){
  const infos=purReceivingInfos(),rows=salesListRows(infos),cols=salesListColumns(),kind=purView==='receipts'?'receipt':'request',waiting=['backorders','held'].includes(purView),title=({receipts:'Receipts',requests:'Delivery requests',backorders:'Waiting from suppliers',held:'Held at supplier'})[purView];
- const cell=(i,c)=>{const v=salesListValue(i,c.k);if(i.held)return purHeldCell(i.held,c,v);return '<td'+(c.type==='number'?' class="n"':'')+'>'+(c.k==='number'?'<button type="button" class="fin-link" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purFulfilEdit('+purArg(i.kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>':v==null||v===''?'—':esc(v))+'</td>';};
+ const cell=(i,c)=>{const v=salesListValue(i,c.k);if(i.held)return purHeldCell(i.held,c,v);return '<td'+(c.type==='number'?' class="n"':'')+'>'+(c.k==='number'?'<button type="button" class="fin-link" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purFulfilEdit('+purArg(i.kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>'+(i.kind==='receipt'&&!i.d.voidAt&&i.d.lines.some(purEnterSheets)?' <span class="pill warn" data-pur-enter-sheets-list>Enter sheets</span>':''):v==null||v===''?'—':esc(v))+'</td>';};
  return '<div class="purchasing-workspace">'+'<div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(waiting?'':'<label><input type="checkbox" '+(purShowUndone?'checked':'')+' onchange="purShowUndone=this.checked;render()"> Include undone / cancelled</label><button type="button" class="pri" onclick="purFulfilEdit(\''+kind+'\',\'\')">+ '+(kind==='receipt'?'Receipt':'Request')+'</button>')+'</div>'+(purView==='held'?'<p class="mut pur-held-note">Pace: last 90 days. Order by = runs out − lead time.</p>':'')+purListFilters(infos)+
   '<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
 }

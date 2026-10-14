@@ -1001,6 +1001,21 @@ function cutUiPatternRuns(group,pieces){
  }
  return out;
 }
+/* Склад листов в раскрое (Inventory PR 3, владелец 14.10.2026): у размера —
+   сколько свободно, после Build — «need 5 · free 2», красным при нехватке.
+   Только подсказка: Build, Qty и укладку не меняет. Стекло, которое ещё ни
+   разу не пересчитывали, — «not counted» серым: его число не правдивое. */
+function cutUiSheetHint(hints,x,built){
+ const z=invSize(x.w,x.h),h=z&&hints.get(z.w+'x'+z.h)||{need:0,free:0,counted:false},need=built&&h.need;
+ const text=(need?'need '+h.need+' · ':'')+(h.counted?'free '+h.free:'not counted'),short=h.counted&&(need?h.need>h.free:h.free<0);
+ return `<div class="cut-size-free${short?' short':''}${h.counted?'':' mut'}" data-cut-free="${esc(z?z.w+'x'+z.h:'')}">${esc(text)}</div>`;
+}
+/* Строка Short над листом — по всем стёклам собранного раскроя. */
+function cutUiShortHTML(number,plan){
+ if(typeof invBatchSheetHints!=='function'||!accessCan('inventory'))return '';
+ const rows=plan.groups.flatMap(g=>[...invBatchSheetHints(number,g.glass).entries()].filter(([k,h])=>h.counted&&h.need>h.free).map(([k,h])=>{const [w,hh]=k.split('x');return g.glass+' '+frac16(+w)+' × '+frac16(+hh)+' — need '+h.need+', free '+h.free;}));
+ return rows.length?`<div class="ncr-warning" data-cut-short>Short: ${esc(rows.join('; '))}</div>`:'';
+}
 function cutUiSizeQueue(group){
  if(!group||!group.sheets.length)return '';
  const sizes=new Map();group.sheets.forEach(s=>{const z=s.size||group.sheet,k=cutSizeId(z),row=sizes.get(k)||{key:k,size:z,nos:[]};row.nos.push(s.no);sizes.set(k,row);});
@@ -1069,6 +1084,7 @@ function viewCutLayout(b){
  const need=cutNeedSizes(b,plan,pieces),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
  const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button></div>`:'';
  const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale||changed?`<div class="ncr-warning${changed?' cut-stale-stop':''}" data-cut-stale>⚠ ${est?'Orders or quotes changed':'Batch changed'} after the layout${changed?' · '+esc(changed.text):''} — Reset, then Build.${changed?`<span class="gb-stale-list" data-cut-stale-list>${esc(glassBatchGoneRows(b,changed).slice(0,6).map(r=>r[0]).join('; ')+(changed.gone.size>6?'; +'+(changed.gone.size-6)+' more':''))}</span>`:''}</div>`:'')+info+cutWhatTable(b.number,busy);
+ const short=!est&&built?cutUiShortHTML(b.number,plan):'';
  if(!plan.groups.length)return `${notice}${need}<p class="mut cut-empty">${est?'Nothing to lay out: tick an order or quote with glass.':'Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.'}</p>`;
  const at=id=>cutFind(plan,id);
  const placed=new Set(),locations=new Map();plan.groups.forEach(g=>g.sheets.forEach(x=>x.pieces.forEach((p,i)=>{placed.add(p.piece);locations.set(p.piece,{group:g,sheet:x,piece:p,index:i});})));
@@ -1123,14 +1139,17 @@ function viewCutLayout(b){
  /* Куски со стеллажа — в конце таблицы, каждый штучный. Галочка — взять его
     в этот рез; укладчик возьмёт, только если так уйдёт меньше ft². */
  const fromStock=group&&!est?cutStockPieces(group.glass,group.mm,b.number):[];
+ const stockHints=group&&!est&&typeof invBatchSheetHints==='function'&&accessCan('inventory')?invBatchSheetHints(b.number,group.glass):null;
  const rowsAll=allSizes.map(x=>Object.assign({},x,{key:cutSheetKey(x)})).flatMap(x=>[x].concat(variants.filter(v=>v.base===x.key))).concat(fromStock);
  const stockRows=rowsAll.map(x=>{const key=x.key,row=stock.find(r=>r.key===key),on=!!row,mine=group.sheets.filter(sh=>cutSheetKey(sh.size||group.sheet)===key),used=mine.length;
   const pr=cutGroupParams(group,{key,w:x.w,h:x.h}),area=mine.reduce((a,sh)=>a+cutArea(x.w,x.h),0),u=mine.reduce((a,sh)=>a+sh.used,0),net=mine.reduce((a,sh)=>a+sh.net,0);
   const nums=used?`<b>${used}</b> · ${cutPct(u,area)}% used · ${cutPct(net,area)}% waste · ${cutFt2(net)} ft²`:'';
+  /* Склад листов (erp/inventory): свободно и сколько возьмёт этот раскрой. Не пересчитанное стекло — серым. */
+  const inv=stockHints&&!x.stock&&!x.base?cutUiSheetHint(stockHints,x,built):'';
   const edge=(f,label)=>`<td><input type="text" data-cut-edge-${f.toLowerCase()} value="${esc(frac16(pr[f]))}" ${dis} aria-label="${label} ${esc(key)}" onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','${f}',this.value)"></td>`;
   return `<tr class="cut-stock-row${on?'':' off'}" data-cut-stock="${esc(key)}">
    <td><label class="chk"><input type="checkbox" data-cut-use ${on?'checked':''} ${dis} onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','off',!this.checked)"> ${x.stock?`<span class="pill ok">${esc(x.id)}</span> `:''}${esc(frac16(x.w))} × ${esc(frac16(x.h))}″${x.base?' · '+esc(key.split('#')[1]):''}</label>
-    <div class="cut-size-nums" data-cut-size-nums="${esc(key)}">${nums}</div></td>
+    <div class="cut-size-nums" data-cut-size-nums="${esc(key)}">${nums}</div>${inv}</td>
    <td>${x.stock?'<span class="mut">1</span>':`<input type="number" min="0" step="1" data-cut-qty value="${row&&row.limit?row.limit:''}" placeholder="all" ${dis} aria-label="Sheets available ${esc(key)}" onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','limit',this.value)">`}</td>
    ${edge('trimX','Trim X')}${edge('trimY','Trim Y')}${edge('borderX','Border X')}${edge('borderY','Border Y')}${edge('minDist','Min dist')}
    <td class="cut-size-acts">${x.stock?'<span class="mut">from stock</span>':x.base?`<button type="button" class="gb-link dl" data-cut-same-remove="${esc(key)}" ${dis} aria-label="Remove ${esc(key)}" onclick="cutUiSameSizeRemove('${esc(group.glass)}','${esc(key)}')">×</button>`:`<button type="button" class="gb-link" data-cut-same="${esc(key)}" ${dis} title="Same size with its own Trim and Border" onclick="cutUiSameSize('${esc(group.glass)}','${esc(key)}')">+ same size</button>${x.shop&&!used&&!lock&&!est?`<button type="button" class="gb-link dl" data-cut-size-drop="${esc(key)}" ${dis} title="Delete this sheet size everywhere" aria-label="Delete ${esc(key)}" onclick="cutUiSizeDrop('${esc(key)}')">×</button>`:''}`}</td></tr>`;}).join('');
@@ -1173,7 +1192,7 @@ function viewCutLayout(b){
     со своей прокруткой, высотой с правую часть; справа — цифры, лист, лента
     листов и сразу под ней склад листов и параметры; внизу остатки. */
  if(document.body)document.body.classList.toggle('cut-full',cutFull);
- return `${notice}${need}${over}
+ return `${notice}${short}${need}${over}
  <div class="cut-grid${busy?' cut-busy':''}">
   <div class="cut-side" ondragover="event.preventDefault()" ondrop="cutUiDropList(event)"><div class="cut-side-scroll">
    <div data-cut-list-results>${cutListHTML(cutListCtx)}</div>
