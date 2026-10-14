@@ -4097,7 +4097,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       new Set(DB.glassProduct.map(p => p.id)).size,
       new Set(DB.glassProduct.map(p => p.code.toUpperCase())).size,
       DB.glassSheet.length
-    ]), [511, 511, 511, 0]);
+    ]), [520, 520, 520, 0]);  // 511 из шаблона + 9 COG 3–19 мм (14.10.2026)
 
     /* Два жёстких гейта. Q/VT обязано пройти печь, E без VT в печь пускать
        нельзя — на складе это два РАЗНЫХ товара, а не два написания одного. */
@@ -4149,7 +4149,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return [rep.accepted, rep.added, rep.updated, rep.rejected.length, rep.missing.length,
               DB.glassProduct.length, g.id, g.name, g.origin.igdbSource.slice(0, 4),
               glassNeedsFurnace(glassProductByCode('6TRU-CLR'))];
-    }), [2, 1, 1, 0, 510, 512, 'GL-6CLEAR', 'Clear 6mm цеховое имя', 'IGDB', true]);
+    }), [2, 1, 1, 0, 519, 521, 'GL-6CLEAR', 'Clear 6mm цеховое имя', 'IGDB', true]);
     await t.c.close();
 
     /* Отчёт объясняет каждую отклонённую строку номером и причиной: строка,
@@ -4241,7 +4241,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       mdSearch = ''; mdMfr = ''; mdThick = ''; mdCoating = ''; mdStatus = 'all';
       render();
       return [document.querySelectorAll('#app tbody tr').length, DB.glassProduct.length];
-    }), [60, 511]);
+    }), [60, 520]);
 
     /* Поиск идёт по подстроке: 6SBN60VT попадает и в цветные версии того же
        покрытия — ровно то поведение, которое нужно продавцу. */
@@ -4268,7 +4268,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       mdGlassSave();
       const p = glassProductByCode('6TRU-CLR');
       return [DB.glassProduct.length, mdEdit, p.id, p.thicknessMm, p.stockingUnit, p.stocked, glassNeedsFurnace(p)];
-    }), [512, null, 'GL-6TRU-CLR', 6, 'sheet', true, true]);
+    }), [521, null, 'GL-6TRU-CLR', 6, 'sheet', true, true]);
 
     eq('дубль кода, негодная толщина и поверхность вне 1–8 не сохраняются', await t.p.evaluate(() => {
       const set = (id, v) => { document.getElementById(id).value = v; };
@@ -4282,7 +4282,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       mdGlassSave(); const surf = [DB.glassProduct.length, err()];
       mdEdit = null; mdDraft = null; render();
       return [dup, thick, surf];
-    }), [[512, true], [512, true], [512, true]]);
+    }), [[521, true], [521, true], [521, true]]);
     await t.c.close();
 
     /* То, ради чего экран и нужен в первую очередь: девять позиций 6BIRDSMART

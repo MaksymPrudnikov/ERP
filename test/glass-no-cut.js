@@ -6,14 +6,17 @@ module.exports=async function({page,eq}){
  await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
   oqReset();window.ncC=oqCustomer();
-  const base=glassProductByCode('6CLEAR');
-  DB.glassProduct.push(normalizeGlassProduct(Object.assign({},base,{id:glassProductId('6COG'),code:'6COG',name:'Clear 6mm COG',cut:false})));
   window.ncCOG=glassProductByCode('6COG');
   window.ncOrder=(lites)=>{const id=oqOrder(ncC),o=salesRecord(id);lites.forEach(i=>{Object.assign(o.makeups[0].panes[i],{glassProductId:ncCOG.id,heatTreatmentId:'HT-AN'});});soDraft=null;soEdit=null;salesSetRecordStatus(id,'verified');return salesRecord(id);};
   window.ncRoute=(o,lite)=>{const l=o.lines[0],c=glassBatchComponents(o,l).find(c=>c.lite===String(lite));return finWithOrder(o,()=>stkRoute(o,l,c)).codes;};
   window.ncPane=(o,patch)=>{const p=JSON.parse(JSON.stringify(o));Object.assign(p.makeups[0].panes[1],patch);return ncRoute(p,2);};
  });
- eq('glass is cut by default; an unticked glass stays bought through save and JSON import',await t.p.evaluate(()=>({fresh:normalizeGlassProduct({code:'X'}).cut,cog:ncCOG.cut,base:glassProductByCode('6CLEAR').cut,imported:prepareImportedState(storageExportEnvelope()).glassProduct.find(g=>g.code==='6COG').cut})),{fresh:true,cog:false,base:true,imported:false});
+ eq('the catalogue has one manufacturer COG, 3–19 mm, not cut; other glass is cut',await t.p.evaluate(()=>{const cog=DB.glassProduct.filter(g=>g.manufacturer==='COG');return {mm:cog.map(g=>g.thicknessMm),names:cog[3].name,cut:cog.every(g=>g.cut===false),preorder:glassIsPreorder(ncCOG),fresh:normalizeGlassProduct({code:'X'}).cut,base:glassProductByCode('6CLEAR').cut,imported:prepareImportedState(storageExportEnvelope()).glassProduct.find(g=>g.code==='6COG').cut};}),
+  {mm:[3,4,5,6,8,10,12,16,19],names:'COG 6mm',cut:true,preorder:false,fresh:true,base:true,imported:false});
+ eq('a saved catalogue gets the missing COG glass once, without touching what the owner made',await t.p.evaluate(()=>{
+  const old=JSON.parse(JSON.stringify(storageExportEnvelope()));old.data.dataFix=6;old.data.glassProduct=old.data.glassProduct.filter(g=>g.manufacturer!=='COG'||g.code==='8COG');const own=old.data.glassProduct.find(g=>g.code==='8COG');own.name='Customer 8 mm';own.cut=true;
+  const d=prepareImportedState(old);const cog=d.glassProduct.filter(g=>g.manufacturer==='COG');return {n:cog.length,own:[d.glassProduct.find(g=>g.code==='8COG').name,d.glassProduct.find(g=>g.code==='8COG').cut],fix:d.dataFix};
+ }),{n:9,own:['Customer 8 mm',true],fix:7});
  eq('in an IGU with a COG lite only our own lite waits in To batch',await t.p.evaluate(()=>{
   const o=ncOrder([1]),rows=glassBatchRows().filter(r=>r.orderId===o.id);window.ncMixed=o;
   return {rows:rows.length,lites:[...new Set(rows.map(r=>r.lite))],progress:glassBatchProgress(o),queued:optimizationMatches(o,'batch')};
@@ -36,7 +39,7 @@ module.exports=async function({page,eq}){
  }),{rows:0,queued:false,needs:false,route:['IGU','SHIPR','SHIP']});
  eq('the Sales cut estimate leaves bought glass out with a reason',await t.p.evaluate(()=>{const s=cutEstScan(salesRecord(ncMixed.id));return {pieces:s.pieces.length,skipped:[...new Set(s.skipped.map(x=>x.reason))]};}),{pieces:3,skipped:['Bought glass · no cut']});
  eq('Sales shows the glass as bought and Master Data has the tick',await t.p.evaluate(()=>{
-  const meta=salesGlassMeta(ncCOG).includes('Bought · no cut');tab='masterdata';mdGlassEdit(ncCOG.id);render();const box=document.getElementById('md_cut');
+  const meta=salesGlassMeta(ncCOG).includes('No cut')&&!salesGlassMeta(ncCOG).includes('pre-order');tab='masterdata';mdGlassEdit(ncCOG.id);render();const box=document.getElementById('md_cut');
   return {meta,box:!!box,checked:box&&box.checked};
  }),{meta:true,box:true,checked:false});
  eq('glass no cut screens have no JavaScript errors',t.errs,[]);await t.c.close();
