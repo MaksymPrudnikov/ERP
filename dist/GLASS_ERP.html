@@ -3268,7 +3268,7 @@ button.ch-stat.warn b{color:var(--warning)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a8fd164dcd1c';
+var ERP_BUILD='aa49c994e0ca';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -26884,7 +26884,7 @@ function purDocAction(action){
 let purFulfilDraft=null,purFulfilOriginal='',purFulfilPreview=false,purShowUndone=false;
 function purFulfilLeave(){
  if(purFulfilDraft&&JSON.stringify(purFulfilDraft)!==purFulfilOriginal&&!confirm('Discard unsaved delivery changes?'))return false;
- purFulfilDraft=null;purFulfilPreview=false;return true;
+ purFulfilDraft=null;purFulfilPreview=false;purPicker=null;return true;
 }
 function purFulfilEdit(kind,id,poId,requestId){
  if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
@@ -33381,7 +33381,8 @@ function stationCheck(station,raw){
  const g=stationGlass(code);
  if(!g)return {kind:'unknown',code};
  const scans=stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station&&!s.park).pop()||null;
- const base={code,g,scans,place,here,stock:!g.entry,priority:g.o.priority||'normal',due:g.o.dueDate||''};
+ /* Без батча — «порезано из стока», но не стекло без резки (COG): его не режут вовсе. */
+ const base={code,g,scans,place,here,stock:!g.entry&&glassComponentCut(g.c),priority:g.o.priority||'normal',due:g.o.dueDate||''};
  if(g.o.status==='cancelled')return Object.assign(base,{kind:'cancelled'});
  /* Отменённый юнит (erp/sales/unit-cancel): стекло откладывают, а если его
     забирает клиент — оно едет с заказом. skid — скид, с которого его ещё не сняли. */
@@ -37442,7 +37443,7 @@ function stationPairsCard(){
   const g=stationGlass(x.id);if(!g)return '';
   const r=(DB.recut||[]).find(y=>y.orderId===g.o.id&&'R'+y.no===x.rec.recut),need=r?glassBatchComponents(g.o,g.l).filter(c=>(r.keys||[]).includes(c.key)):[];
   const fresh=r?(r.keys||[]).flatMap(k=>{const p=(DB.glassPiece||[]).find(q=>q.key===k);return p&&p.extra&&p.extra[x.rec.recut]?p.extra[x.rec.recut].filter(Boolean):[];}):[];
-  const f=fresh[0]?stationGlass(fresh[0]):null,fp=f?stationPlace(f):null,where=!f?'':!f.entry&&!stationScansFor(f.id).length?'To batch':fp&&fp.waiting?'at '+fp.waiting:'';
+  const f=fresh[0]?stationGlass(fresh[0]):null,fp=f?stationPlace(f):null,where=!f?'':!f.entry&&!stationScansFor(f.id).length&&glassComponentCut(f.c)?'To batch':fp&&fp.waiting?'at '+fp.waiting:'';
   return '<tr'+(stationUrgency(g.o)===2?' class="st-hot"':'')+'><td><b>'+esc(g.o.businessNumber||'')+'</b></td><td>Line '+((g.o.lines||[]).indexOf(g.l)+1)+' · <b>'+esc(frac16(stationGeo(g).width16/16)+' × '+frac16(stationGeo(g).height16/16))+'</b></td><td data-raw>Lite '+esc(g.c.lite)+' · '+esc(g.c.glass)+'</td><td>'+(x.rec.on?'<b class="st-on">'+esc(x.rec.on)+'</b>':'<span class="mut">—</span>')+'</td>'+
    '<td class="mut">'+(need.length?'needs '+need.map(c=>esc(c.glass)).join(', '):'')+(r?' · Recut '+r.no+(where?' '+esc(where):''):'')+'</td></tr>';
  }).join('');
@@ -38035,7 +38036,7 @@ function shippingLookupModel(o){
  ctx.index.forEach((h,piece)=>{
   if(h.orderId!==o.id||gone.has(piece))return;const g=stationGlass(piece,ctx.index,ctx.batches),scans=ctx.scans.get(piece)||[];if(!g)return;
   const p=stationPlace(g,scans);if(p.broken||p.shipped||!p.waiting||p.waiting===ship)return;
-  const k=g.o.onHold||g.l.onHold||unitPieceHold(g)?'On hold':!g.entry&&!scans.length?'To batch':p.waiting;shop.set(k,(shop.get(k)||0)+1);
+  const k=g.o.onHold||g.l.onHold||unitPieceHold(g)?'On hold':!g.entry&&!scans.length&&glassComponentCut(g.c)?'To batch':p.waiting;shop.set(k,(shop.get(k)||0)+1);
  });
  const seq=code=>{const s=(DB.station||[]).find(x=>x.code===code);return s?s.seq:-1;};
  return {q,free,where:[...where].sort((a,b)=>String(a[0]||'~').localeCompare(String(b[0]||'~'),undefined,{numeric:true})),shop:[...shop].sort((a,b)=>seq(a[0])-seq(b[0])),
@@ -38414,7 +38415,8 @@ function prodBoard(){
     const ids=rec.ids.map((id,i)=>[id,i+1]).concat(...Object.keys(rec.extra||{}).map(nr=>rec.extra[nr].map((id,k)=>[id,nr+'.'+(k+1)]))).filter(x=>x[0]),lc={queue:0},lr={},lon=new Set(),lonAt={};let ls=0,lb=0;
     ids.forEach(([id,unit])=>{
      const e=batches.get(id)||null,scans=scansBy.get(id)||[],g={id,o,l,c,unit,entry:e};total++;
-     const place=stationPlace(g,scans),queued=!e&&!scans.length;
+     /* В очереди батча — только то, что режем: стекло без резки (COG) ждёт на своей станции. */
+     const place=stationPlace(g,scans),queued=!e&&!scans.length&&glassComponentCut(c);
      /* Разбитое стекло не в производстве: вместо него едет стекло Recut. */
      if(place.broken){total--;lb++;return;}
      /* Клетка станции знает три вещи: сколько ждёт здесь, сколько уже
