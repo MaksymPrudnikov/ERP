@@ -11,15 +11,18 @@
    Пересчитывает оптимизатор с галочкой Inventory; в Count все стёкла
    каталога сразу («каталог = то, что на складе»). Плитка статуса ставит
    тот же фильтр, что чип. Строка дашборда открывает журнал этого стекла.
+   Offcuts (PR 2) — куски S-: где лежит, возраст, пересчёт Not found и
+   Found; ушедшие куски скрыты, пока не отмечено «Show used and written off».
    ===================================================================== */
-let invView='sheets',invCountDraft={},invJournalKey='',invWriteOffDraft=null,invNotice='',invPages={};
-const INV_VIEWS=[['sheets','Sheets'],['count','Count'],['journal','Journal']];
+let invView='sheets',invCountDraft={},invJournalKey='',invWriteOffDraft=null,invNotice='',invPages={},invOffcutLostDraft=new Set(),invOffcutAll=false;
+const INV_VIEWS=[['sheets','Sheets'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
+const INV_OFFCUT_TONE={'On rack':'ok','In batch':'info','Coming':'','Used':'','Broken':'bad','Written off':'warn','Back to waste':''};
 const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'','Size missing':'warn'};
 function invArg(v){return esc(JSON.stringify(String(v)));}
 function invNav(){return '<button type="button" class="sl-quiet" data-inv-sections aria-haspopup="dialog" onclick="invSectionsOpen(event)">'+esc((INV_VIEWS.find(v=>v[0]===invView)||INV_VIEWS[0])[1])+'<span class="sl-disclosure">▾</span></button>';}
 function invSectionsOpen(e){salesListMenu=Object.assign({kind:'inv-sections',scope:salesListScope()},salesListAt(e,200));render();}
 function invSectionsMenuHTML(style){return '<div class="sl-menu sl-show-menu" style="'+style+'" role="dialog" aria-label="Inventory sections">'+INV_VIEWS.map(([k,n])=>'<label><input type="radio" name="inv-section" '+(k===invView?'checked':'')+' onchange="invGo(\''+k+'\')">'+n+'</label>').join('')+'</div>';}
-function invGo(v){if(!invCountLeave())return;invView=v;invNotice='';invWriteOffDraft=null;salesListMenu=null;render();}
+function invGo(v){if(!invCountLeave())return;invView=v;invNotice='';invWriteOffDraft=null;invOffcutLostDraft.clear();salesListMenu=null;render();}
 function invCountLeave(){
  if(Object.keys(invCountDraft).length&&!confirm('Discard counts you have not saved?'))return false;
  invCountDraft={};return true;
@@ -31,11 +34,12 @@ function invListScope(){return 'inventory-'+invView;}
 function invListColumns(){
  const col=([k,label,type,def])=>({k,label,type,def:def!==false});
  if(invView==='journal')return [['day','When','date'],['glass','Glass','text'],['code','Code','list'],['size','Size','list'],['kind','What','list'],['ref','Reference','text'],['rack','On rack','number'],['by','Who','text'],['note','Note','text']].map(col);
+ if(invView==='offcuts')return [['id','Stock','text'],['code','Glass','list'],['mm','mm','number'],['size','Size','list'],['area','ft²','number'],['from','From','text'],['booked','Booked','date',false],['age','Age, days','number'],['status','Where','list']].map(col);
  if(invView==='count')return [['glass','Glass','text'],['code','Code','list'],['mm','mm','number'],['size','Size','list'],['onRack','On rack','number'],['lastCount','Last count','date']].map(col);
  return [['glass','Glass','text'],['code','Code','list'],['mm','mm','number'],['size','Size','list'],['onRack','On rack','number'],['reserved','Reserved','number'],['free','Free','number'],['min','Minimum','number'],['held','At supplier','number'],['onOrder','On order','number'],['lastCount','Last count','date'],['status','Status','list']].map(col);
 }
 function invListDefaults(){return invView==='journal'?{day:{preset:'last30'}}:{};}
-function invListDefaultSort(){return invView==='journal'?{k:'day',dir:'desc'}:{k:'code',dir:'asc'};}
+function invListDefaultSort(){return invView==='journal'?{k:'day',dir:'desc'}:invView==='offcuts'?{k:'age',dir:'desc'}:{k:'code',dir:'asc'};}
 function invListDateColumn(){return invView==='journal'?'day':'';}
 function invRowInfos(){
  return invSheetRows().map(r=>({o:{id:r.key},r,memo:{glass:r.name||r.code,code:r.code,mm:r.mm,size:invSizeText(r),onRack:r.onRack,reserved:r.reserved,free:r.free,min:r.min,
@@ -58,6 +62,10 @@ function invPager(rows){
 function invListStatus(value){if(value)salesListSetFilter('status',{values:[value]});else salesListClearFilter('status');}
 function invListFilters(infos){
  let status='';
+ if(invView==='offcuts'){
+  const base=salesListRows(infos,['status']),f=salesListLoadPrefs().filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
+  status=salesListStatusControlHTML(INV_OFFCUT_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,'invListStatus');
+ }
  if(invView==='sheets'){
   const base=salesListRows(infos,['status']),f=salesListLoadPrefs().filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
   status=salesListStatusControlHTML(INV_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,'invListStatus');
@@ -108,6 +116,50 @@ function invOpenJournal(key){invView='journal';invJournalKey=key;salesListMenu=n
 function invSheetsView(infos){
  const rows=salesListRows(infos),cols=salesListColumns();
  return invTiles(infos.map(i=>i.r))+invListFilters(infos)+invTable(cols,rows,invSheetCell,'','',infos.length?'Nothing matches the filters.':'No glass in the catalogue yet.');
+}
+
+/* ------------------------------ Offcuts ------------------------------ */
+function invOffcutInfos(){
+ return invOffcutRows().filter(o=>invOffcutAll||INV_OFFCUT_HERE.includes(o.status)||o.status==='Coming').map(o=>({o:{id:o.id,createdAt:o.booked},x:o,
+  memo:{id:o.id,code:o.glass,mm:o.mm||null,size:frac16(o.w)+' × '+frac16(o.h),area:o.area,from:o.batch+(o.sheet?' · sheet '+o.sheet:''),booked:salesListIsoDay(o.booked),age:o.age,status:o.status}}));
+}
+function invOffcutTiles(rows){
+ const here=rows.filter(o=>INV_OFFCUT_HERE.includes(o.status)),n=s=>rows.filter(o=>o.status===s).length,f=salesListLoadPrefs().filters.status,sel=f&&f.values&&f.values.length===1?f.values[0]:'';
+ const st=(label,s)=>invTile(label,n(s),{click:'invListStatus('+invArg(sel===s?'':s)+')',on:sel===s});
+ const ft=Math.round(here.reduce((a,o)=>a+o.area,0)*10)/10,old=here.reduce((a,o)=>Math.max(a,o.age||0),0);
+ return '<div class="inv-tiles">'+invTile('On rack, pcs',here.length)+invTile('On rack, ft²',cutNum(ft,1))+st('Coming','Coming')+st('In a batch','In batch')+invTile('Oldest, days',here.length?old:'—')+'</div>';
+}
+function invOffcutTick(id,on){if(on)invOffcutLostDraft.add(id);else invOffcutLostDraft.delete(id);const b=document.querySelector('[data-inv-lost-n]');if(b)b.textContent=invOffcutLostDraft.size;}
+function invOffcutLostUi(){
+ const ids=[...invOffcutLostDraft];if(!ids.length){invNotice='Tick the offcuts that are not on the rack.';render();return;}
+ if(!confirm('Write off '+ids.length+' offcut'+(ids.length===1?'':'s')+' as not found?'))return;
+ const r=invOffcutLost(ids);invNotice=r.ok?'':r.error;if(r.ok)invOffcutLostDraft.clear();render();
+}
+function invOffcutFoundUi(id){const r=invOffcutFound(id);invNotice=r.ok?'':r.error;render();}
+function invOffcutCell(i,c){
+ const o=i.x,v=salesListValue(i,c.k);
+ if(c.k==='id')return '<td><span class="pill '+(INV_OFFCUT_HERE.includes(o.status)?'ok':'')+'" data-raw>'+esc(v)+'</span></td>';
+ if(c.k==='size')return '<td class="nowrap"><b>'+esc(v)+'</b></td>';
+ if(c.k==='area')return '<td class="n">'+cutNum(v,2)+'</td>';
+ if(c.k==='from')return '<td class="nowrap">'+(o.batch&&accessCan('optimization')?'<button type="button" class="fin-link" onclick="invOpenBatch('+invArg(o.batch)+')">'+esc(v)+'</button>':invNum(v))+'</td>';
+ if(c.k==='booked')return '<td class="nowrap">'+(v?esc(salesListShortDay(v)):'<span class="mut">—</span>')+'</td>';
+ if(c.k==='status'){
+  const label=o.status==='In batch'?'In '+o.claim:o.status==='Coming'?'Coming · '+o.batch:o.status==='Used'?'Used · '+o.used.batch:v;
+  return '<td class="nowrap"><span class="pill '+(INV_OFFCUT_TONE[o.status]||'')+'" data-inv-offcut-status>'+esc(label)+'</span>'+(o.lost?' <span class="mut">'+esc(salesListShortDay(salesListIsoDay(o.lost.at))+(o.lost.by?' · '+o.lost.by:''))+'</span> <button type="button" class="sl-quiet sm" data-inv-found="'+esc(o.id)+'" onclick="invOffcutFoundUi('+invArg(o.id)+')">Found</button>':'')+'</td>';
+ }
+ return '<td'+(c.type==='number'?' class="n"':'')+(c.k==='code'?' data-raw':'')+'>'+invNum(v)+'</td>';
+}
+function invOffcutExtra(i){
+ const o=i.x;if(!INV_OFFCUT_HERE.includes(o.status))return '<td></td>';
+ return '<td class="inv-lost-cell"><input type="checkbox" data-inv-lost="'+esc(o.id)+'" aria-label="Not found" '+(invOffcutLostDraft.has(o.id)?'checked':'')+' onchange="invOffcutTick('+invArg(o.id)+',this.checked)"></td>';
+}
+function invOffcutFooter(rows){
+ const here=rows.filter(i=>INV_OFFCUT_HERE.includes(i.x.status));
+ return '<p class="mut inv-hint" data-inv-offcut-total>'+here.length+' on the rack shown · '+cutNum(here.reduce((a,i)=>a+i.x.area,0),1)+' ft²</p>';
+}
+function invOffcutsView(infos){
+ const rows=salesListRows(infos),cols=salesListColumns();
+ return invOffcutTiles(invOffcutRows())+invListFilters(infos)+invTable(cols,rows,invOffcutCell,'<th class="inv-lost-head">Not found</th>',invOffcutExtra,infos.length?'Nothing matches the filters.':'No offcuts on the rack.')+invOffcutFooter(rows);
 }
 
 /* ------------------------------ Count ------------------------------ */
@@ -170,7 +222,7 @@ function invMoveCell(i,c){
  if(c.k==='kind')return '<td class="nowrap">'+esc(v)+(m.breakId&&!m.undone?' <button type="button" class="sl-quiet sm" data-inv-undo="'+esc(m.breakId)+'" onclick="invUndoBreak('+invArg(m.breakId)+')">Undo</button>':'')+(m.breakId&&m.undone?' <span class="mut">· undone</span>':'')+'</td>';
  if(c.k==='ref'){
   if(m.receipt&&accessCan('purchasing'))return '<td><button type="button" class="fin-link" onclick="invOpenReceipt('+invArg(m.receipt)+')">'+esc(v)+'</button></td>';
-  if(m.batch&&accessCan('optimization'))return '<td class="nowrap"><button type="button" class="fin-link" onclick="invOpenBatch('+invArg(m.batch)+')">'+esc(v)+'</button></td>';
+  if(m.batch&&!m.offcut&&accessCan('optimization'))return '<td class="nowrap"><button type="button" class="fin-link" onclick="invOpenBatch('+invArg(m.batch)+')">'+esc(v)+'</button></td>';
   return '<td>'+invNum(v)+'</td>';
  }
  if(c.k==='rack')return '<td class="n'+(m.rack<0?' inv-neg':'')+'">'+(m.rack==null?'<span class="mut">—</span>':esc((m.rack>0?'+':'')+m.rack))+'</td>';
@@ -184,9 +236,10 @@ function invJournalView(infos){
 
 function viewInventory(){
  if(!accessCan('inventory'))return '<div class="empty">Inventory access is required.</div>';
- const count=invView==='count',infos=invView==='journal'?invMoveInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):count?invCountView(infos):invSheetsView(infos);
+ const count=invView==='count',off=invView==='offcuts',infos=invView==='journal'?invMoveInfos():off?invOffcutInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):off?invOffcutsView(infos):count?invCountView(infos):invSheetsView(infos);
  const n=Object.keys(invCountDraft).length;
  return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'<span class="sales-toolbar-sp"></span>'+
-  (count?'<button type="button" class="pri" data-inv-count-save onclick="invCountSaveUi()">Save count · <span data-inv-count-n>'+n+'</span></button>':'')+'</div>'+
+  (count?'<button type="button" class="pri" data-inv-count-save onclick="invCountSaveUi()">Save count · <span data-inv-count-n>'+n+'</span></button>':'')+
+  (off?'<label class="chk"><input type="checkbox" data-inv-offcut-all '+(invOffcutAll?'checked':'')+' onchange="invOffcutAll=this.checked;render()"> Show used and written off</label><button type="button" data-inv-lost-save onclick="invOffcutLostUi()">Write off <span data-inv-lost-n>'+invOffcutLostDraft.size+'</span> not found</button>':'')+'</div>'+
   (invNotice?'<div class="ncr-error" role="alert">'+esc(invNotice)+'</div>':'')+body+salesListMenuHTML(infos)+'</div></div>';
 }

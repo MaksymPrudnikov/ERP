@@ -24,3 +24,4 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 .inv-wo-actions{display:flex;gap:8px}
 @media (max-width:700px){.inv-tiles{padding:12px 12px 4px}.inv-hint,.inv-writeoff{margin-left:12px;margin-right:12px}}
 .inv-table input.inv-min,.inv-table input.inv-count{height:30px;min-height:0;padding:3px 8px;font-size:13px}
+.inv-lost-cell,.inv-lost-head{text-align:center}
