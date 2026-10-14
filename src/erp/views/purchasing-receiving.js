@@ -4,7 +4,7 @@
 let purFulfilDraft=null,purFulfilOriginal='',purFulfilPreview=false,purShowUndone=false;
 function purFulfilLeave(){
  if(purFulfilDraft&&JSON.stringify(purFulfilDraft)!==purFulfilOriginal&&!confirm('Discard unsaved delivery changes?'))return false;
- purFulfilDraft=null;purFulfilPreview=false;return true;
+ purFulfilDraft=null;purFulfilPreview=false;purPicker=null;return true;
 }
 function purFulfilEdit(kind,id,poId,requestId){
  if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;

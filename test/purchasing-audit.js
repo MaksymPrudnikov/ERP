@@ -51,6 +51,7 @@ module.exports=async function({page,eq}){
   const l=purFulfilDraft.data.lines.at(-1);l.qty=4;const r=purFulfilSave('receipt',Object.assign({},purFulfilDraft.data,{lines:[l]})).value;purFulfilDraft=null;
   return [r.lines[0].kind,r.lines[0].table,r.lines[0].itemId===g.id];
  }),['stock','sealantProduct',true]);
+ eq('a material picker opened on a receipt closes when the receipt is left',await t.p.evaluate(()=>{purFulfilEdit('receipt','');purPicker={kind:'stock',target:'receipt'};purFulfilLeave();purFulfilEdit('receipt','');const open=!!document.querySelector('.pur-picker');purFulfilDraft=null;return open;}),false);
  eq('the PO currency follows the supplier card, CAD by default',await t.p.evaluate(()=>{
   purOrderEdit('');purPickSupplier(paUSD.id);const usd=purOrderDraft.currency;purPickSupplier(paCAD.id);const cad=purOrderDraft.currency;purOrderDraft=null;
   purMoneyEdit('invoice','');purMoneySetSupplier(paUSD.id);const inv=purMoneyDraft.data.currency;purMoneyDraft=null;return {usd,cad,inv,card:paCAD.currency};

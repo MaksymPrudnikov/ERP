@@ -34,6 +34,11 @@ module.exports=async function({page,eq}){
   const o=salesRecord(ncMixed.id),c=glassBatchComponents(o,o.lines[0]).find(c=>c.lite==='2'),id=glassPieceMap(o.id).get(c.key).ids[0],g=stationGlass(id);
   return {waiting:stationPlace(g).waiting,cut:stationCheck('CUT',id).kind};
  }),{waiting:'IGU',cut:'route'});
+ eq('Production board, counter lookup and the IGU scan never call COG glass «To batch» or «stock cut»',await t.p.evaluate(()=>{
+  const o=salesRecord(ncMixed.id),c=glassBatchComponents(o,o.lines[0]).find(c=>c.lite==='2'),id=glassPieceMap(o.id).get(c.key).ids[0];
+  storageInvalidate();const b=prodBoard().find(x=>x.o.id===o.id),shop=Object.fromEntries(shippingLookupModel(o).shop);
+  return {queue:b.counts.queue,igu:b.counts.IGU,cut:b.counts.CUT,toBatch:shop['To batch']||0,shopIgu:shop.IGU,stock:stationCheck('IGU',id).stock};
+ }),{queue:0,igu:3,cut:3,toBatch:0,shopIgu:3,stock:false});
  eq('an order of bought units only never waits in To batch',await t.p.evaluate(()=>{
   const o=ncOrder([0,1]);return {rows:glassBatchRows().filter(r=>r.orderId===o.id).length,queued:optimizationMatches(o,'batch'),needs:glassOrderNeedsCut(o),route:ncRoute(o,1)};
  }),{rows:0,queued:false,needs:false,route:['IGU','SHIPR','SHIP']});

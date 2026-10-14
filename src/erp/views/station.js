@@ -1062,7 +1062,7 @@ function stationPairsCard(){
   const g=stationGlass(x.id);if(!g)return '';
   const r=(DB.recut||[]).find(y=>y.orderId===g.o.id&&'R'+y.no===x.rec.recut),need=r?glassBatchComponents(g.o,g.l).filter(c=>(r.keys||[]).includes(c.key)):[];
   const fresh=r?(r.keys||[]).flatMap(k=>{const p=(DB.glassPiece||[]).find(q=>q.key===k);return p&&p.extra&&p.extra[x.rec.recut]?p.extra[x.rec.recut].filter(Boolean):[];}):[];
-  const f=fresh[0]?stationGlass(fresh[0]):null,fp=f?stationPlace(f):null,where=!f?'':!f.entry&&!stationScansFor(f.id).length?'To batch':fp&&fp.waiting?'at '+fp.waiting:'';
+  const f=fresh[0]?stationGlass(fresh[0]):null,fp=f?stationPlace(f):null,where=!f?'':!f.entry&&!stationScansFor(f.id).length&&glassComponentCut(f.c)?'To batch':fp&&fp.waiting?'at '+fp.waiting:'';
   return '<tr'+(stationUrgency(g.o)===2?' class="st-hot"':'')+'><td><b>'+esc(g.o.businessNumber||'')+'</b></td><td>Line '+((g.o.lines||[]).indexOf(g.l)+1)+' · <b>'+esc(frac16(stationGeo(g).width16/16)+' × '+frac16(stationGeo(g).height16/16))+'</b></td><td data-raw>Lite '+esc(g.c.lite)+' · '+esc(g.c.glass)+'</td><td>'+(x.rec.on?'<b class="st-on">'+esc(x.rec.on)+'</b>':'<span class="mut">—</span>')+'</td>'+
    '<td class="mut">'+(need.length?'needs '+need.map(c=>esc(c.glass)).join(', '):'')+(r?' · Recut '+r.no+(where?' '+esc(where):''):'')+'</td></tr>';
  }).join('');
