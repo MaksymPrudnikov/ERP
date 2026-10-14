@@ -286,7 +286,7 @@ module.exports=async function({page,eq,ok}){
   /* Лист лёжа, ноль слева внизу, обрезка кромки — сплошной вектор (для станка), без пунктира. */
   const tl=document.querySelector('.cut-paper [data-cut-edge]'),vb=document.querySelector('.cut-paper svg').getAttribute('viewBox').split(' ').map(Number);
   const sheetView={landscape:vb[2]>vb[3],trim:!!tl&&!tl.hasAttribute('stroke-dasharray'),dashed:document.querySelectorAll('.cut-paper [stroke-dasharray]').length,zero:[...document.querySelectorAll('.cut-paper text')].some(x=>x.textContent==='0')&&/^X \d/.test([...document.querySelectorAll('.cut-paper text')].map(x=>x.textContent).find(x=>/^X /.test(x))||'')};
-  const edgeHeads=[...document.querySelectorAll('.cut-edge-head')],paramHeads=edgeHeads.length===5&&edgeHeads.every(x=>getComputedStyle(x).textAlign==='center'&&x.children.length===2);
+  const edgeHeads=[...document.querySelectorAll('.cut-edge-head')],paramHeads=edgeHeads.length===6&&edgeHeads.every(x=>getComputedStyle(x).textAlign==='center'&&x.children.length===2);
   const id=document.querySelector('[data-cut-list]').dataset.cutList;cutUiPick(id);
   const actions=!!document.querySelector('[data-cut-actions]'),highlighted=!!document.querySelector('[data-cut-list="'+id+'"].on')&&!!document.querySelector('[data-cut-piece="'+id+'"].sel');
   document.querySelector('[data-cut-take]').click();

@@ -314,3 +314,4 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 .cut-est-compare .cut-win{color:var(--success)}
 .cut-est-total td{border-top:1px solid var(--line-strong)}
 .sales-list-card .sl-est-btn svg{width:16px;height:16px;display:block}
+.cut-size-laid{font-size:11px;color:var(--text-2);margin-top:2px;font-weight:600}

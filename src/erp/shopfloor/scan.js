@@ -389,7 +389,7 @@ function stationSheetBreakCommand(batch,glass,sheetNo,who,opts){
  const plan=typeof cutPlanFor==='function'?cutPlanFor(batch):null,g=plan&&plan.groups.find(x=>x.glass===glass),sh=g&&g.sheets.find(s=>s.no===sheetNo);
  if(!sh)return {error:'Sheet not found.'};
  if(!Array.isArray(DB.sheetBreak))DB.sheetBreak=[];
- const size=sh.size||{},rec={id:'SB-'+String(DB.sheetBreak.reduce((n,x)=>Math.max(n,+String(x.id).slice(3)||0),0)+1).padStart(5,'0'),at:opts.now||new Date().toISOString(),batch,glass,sheet:sheetNo,w:+size.w||0,h:+size.h||0,by:String(who&&who.name||'')};
+ const size=sh.size||{},rec=Object.assign({id:'SB-'+String(DB.sheetBreak.reduce((n,x)=>Math.max(n,+String(x.id).slice(3)||0),0)+1).padStart(5,'0'),at:opts.now||new Date().toISOString(),batch,glass,sheet:sheetNo,w:+size.w||0,h:+size.h||0,by:String(who&&who.name||'')},+size.inset>0?{inset:+size.inset}:{});
  DB.sheetBreak.push(rec);if(!opts.deferTouch)touch();
  return {ok:true,rec};
 }
@@ -398,6 +398,8 @@ function normalizeSheetBreaks(){
  const ids=new Set();
  DB.sheetBreak=DB.sheetBreak.filter(x=>x&&typeof x==='object'&&/^SB-\d{5,}$/.test(String(x.id))&&!ids.has(x.id)&&(ids.add(x.id),true)&&typeof x.batch==='string')
   .map(x=>Object.assign({id:x.id,at:String(x.at||''),batch:x.batch,glass:String(x.glass||''),sheet:Math.max(1,Math.floor(+x.sheet)||1),w:+x.w||0,h:+x.h||0,by:String(x.by||'').slice(0,80)},
+   /* Offset листа (стол Maver): лист в раскрое меньше, склад считает настоящий размер. */
+   +x.inset>0&&+x.inset<=1?{inset:+x.inset}:{},
    /* Undo Sheet broke — из журнала склада (erp/inventory/sheets): запись остаётся, рядом кто и когда отменил. */
    typeof x.undoneAt==='string'&&!Number.isNaN(Date.parse(x.undoneAt))?{undoneAt:x.undoneAt,undoneBy:String(x.undoneBy||'').slice(0,80),undoneById:String(x.undoneById||'').slice(0,80)}:{}));
 }
