@@ -47,6 +47,10 @@ const INV_KEY_RE=/^[^|]+\|(\d+(\.\d+)?x\d+(\.\d+)?|\?)$/;
 /* Размер листа лёжа: длинная × короткая, 1/16″ — как ключ размера в
    журнале листов Optimization → Sheets (erp/production/sheet-usage). */
 function invSize(w,h){w=+w;h=+h;if(!(w>0&&h>0))return null;return {w:cutRound(Math.max(w,h)),h:cutRound(Math.min(w,h))};}
+/* Лист раскладки с Offset (стол Maver) меньше со всех краёв; на складе это
+   тот же лист настоящего размера (владелец, 14.10.2026: «в саму
+   инвентаризацию не повлияет»). */
+function invPlanSize(z){const i=z&&+z.inset>0?+z.inset:0;return z?invSize(+z.w+2*i,+z.h+2*i):null;}
 function invKey(code,size){return String(code||'').trim().toUpperCase()+'|'+(size?size.w+'x'+size.h:'?');}
 function invSizeText(r){return r.w>0?frac16(r.w)+' × '+frac16(r.h):'Size missing';}
 /* COG и стекло клиента (галочка «We cut it» снята) на складе не лежат. */
@@ -73,8 +77,8 @@ function invScanSheet(entry,piece){
  const b=entry&&entry.batch,plan=b&&typeof cutPlanFor==='function'?cutPlanFor(b.number):null;
  if(!plan||plan.reset||!Array.isArray(plan.groups))return null;
  const hit=cutFind(plan,piece);if(!hit)return null;
- const z=hit.sheet.size||hit.group.sheet||{};
- return invScanSheetClean({batch:b.number,plan:plan.at||'',no:hit.sheet.no,glass:hit.group.glass,w:z.w,h:z.h,stock:/^S-/.test(z.key||'')?z.key:''});
+ const z=hit.sheet.size||hit.group.sheet||{},n=invPlanSize(z)||{};
+ return invScanSheetClean({batch:b.number,plan:plan.at||'',no:hit.sheet.no,glass:hit.group.glass,w:n.w,h:n.h,stock:/^S-/.test(z.key||'')?z.key:''});
 }
 function invScanSheetClean(x){
  if(!x||typeof x!=='object'||Array.isArray(x)||typeof x.batch!=='string'||!x.batch||!(Number.isInteger(x.no)&&x.no>0)||typeof x.glass!=='string'||!x.glass||!(+x.w>0&&+x.h>0))return null;
@@ -110,7 +114,7 @@ function invCutSheets(){
  let index=null;
  const fromPlan=piece=>{
   if(!index){index=new Map();(DB.cutPlan||[]).forEach(plan=>{if(!plan||plan.reset||!Array.isArray(plan.groups))return;
-   plan.groups.forEach(g=>g.sheets.forEach(s=>{const z=s.size||g.sheet||{};s.pieces.forEach(p=>index.set(p.piece,invScanSheetClean({batch:plan.batch,plan:plan.at||'',no:s.no,glass:g.glass,w:z.w,h:z.h,stock:/^S-/.test(z.key||'')?z.key:''})));}));});}
+   plan.groups.forEach(g=>g.sheets.forEach(s=>{const z=s.size||g.sheet||{},n=invPlanSize(z)||{};s.pieces.forEach(p=>index.set(p.piece,invScanSheetClean({batch:plan.batch,plan:plan.at||'',no:s.no,glass:g.glass,w:n.w,h:n.h,stock:/^S-/.test(z.key||'')?z.key:''})));}));});}
   return index.get(piece)||null;
  };
  const out=new Map();
@@ -133,7 +137,7 @@ function invReservedSheets(cutIds){
   const b=glassBatchFind(plan.batch);if(!b)return;
   const live=new Map(glassBatchActiveItems(b).map(i=>[i.piece,i]));
   plan.groups.forEach(g=>g.sheets.forEach(s=>{
-   const z=s.size||g.sheet||{},size=invSize(z.w,z.h);
+   const z=s.size||g.sheet||{},size=invPlanSize(z);
    if(!size||/^S-/.test(z.key||'')||cutIds.has(plan.batch+'|'+(plan.at||'')+'|'+s.no))return;
    if(!s.pieces.some(p=>{const i=live.get(p.piece);return i&&!i.cutStartedAt;}))return;
    out.push({batch:plan.batch,plan:plan.at||'',no:s.no,glass:g.glass,size});
@@ -147,7 +151,7 @@ function invReservedSheets(cutIds){
 function invBreaks(withStock){
  return (DB.sheetBreak||[]).map(x=>{
   const plan=cutPlanFor(x.batch),g=plan&&Array.isArray(plan.groups)&&plan.groups.find(y=>y.glass===x.glass),sh=g&&g.sheets.find(s=>s.no===x.sheet),z=sh&&(sh.size||g.sheet);
-  const own=z?invSize(z.w,z.h):null,size=invSize(x.w,x.h)||own,stock=own&&size&&/^S-/.test(z.key||'')&&own.w===size.w&&own.h===size.h?z.key:'';
+  const own=z?invPlanSize(z):null,size=invPlanSize(x)||own,stock=own&&size&&/^S-/.test(z.key||'')&&own.w===size.w&&own.h===size.h?z.key:'';
   return {x,size,stock};
  }).filter(b=>withStock||!b.stock);
 }
@@ -209,7 +213,7 @@ function invMoves(){
  (DB.cutPlan||[]).forEach(plan=>{
   if(!plan||plan.reset||!Array.isArray(plan.groups)||!glassBatchFind(plan.batch))return;
   plan.groups.forEach(g=>{if(!invGlassCut(g.glass))return;const by=new Map();
-   g.sheets.forEach(s=>{const z=s.size||g.sheet||{},size=invSize(z.w,z.h);if(!size||/^S-/.test(z.key||''))return;const k=size.w+'x'+size.h;if(!by.has(k))by.set(k,{size,n:0});by.get(k).n++;});
+   g.sheets.forEach(s=>{const z=s.size||g.sheet||{},size=invPlanSize(z);if(!size||/^S-/.test(z.key||''))return;const k=size.w+'x'+size.h;if(!by.has(k))by.set(k,{size,n:0});by.get(k).n++;});
    by.forEach(({size,n})=>add({id:'B|'+plan.batch+'|'+g.glass+'|'+size.w+'x'+size.h,kind:'Build',ref:plan.batch,batch:plan.batch,day:salesListIsoDay(plan.at),at:plan.at||'',layout:n,note:n+' sheet'+(n===1?'':'s')+' in layout'},g.glass,size));
   });
  });

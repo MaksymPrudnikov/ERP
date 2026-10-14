@@ -185,7 +185,18 @@ function cutSheetOptions(glassCode){
    Border — «130x96#2»: «хочу добавить новый лист с теми же размерами, только
    уже без тримов и бордеров… специально для этого дела, потому что стекло
    овер» (владелец, 18 сентября 2026). */
-function cutSheetKey(size){return size?(size.key&&(String(size.key).indexOf('#')>0||/^S-/.test(size.key))?size.key:cutRound(size.w)+'x'+cutRound(size.h)):'';}
+function cutSheetKey(size){return size?(size.key&&(String(size.key).indexOf('#')>0||/^S-/.test(size.key)||+size.inset>0)?size.key:cutRound(size.w)+'x'+cutRound(size.h)):'';}
+/* Offset — отступ со всех четырёх краёв листа в строке размера (владелец,
+   14 октября 2026): «для стола Disai какой щит есть такой и есть, а для
+   Maver мы всегда уменьшаем на 1/16 по кругу — лезвие, когда начинает
+   тянуть от края, может толкнуть лист». По умолчанию 0. Лист в раскрое,
+   на станции и в файле станка — меньше (130 × 96 → 129 7/8 × 95 7/8), ключ
+   и склад — настоящего размера (erp/inventory: invPlanSize). */
+function cutInsetRow(row,set){
+ const inset=set&&+set.inset>0?+set.inset:0;
+ return inset?Object.assign(row,{w:cutRound(row.w-2*inset),h:cutRound(row.h-2*inset),inset}):row;
+}
+function cutSizeOf(row){return Object.assign({key:row.key,w:row.w,h:row.h,supplier:row.supplier},+row.inset>0?{inset:+row.inset}:{});}
 function cutBaseKey(key){return String(key||'').split('#')[0];}
 /* Параметры прогона: по толщине, а отступы от краёв — свои у каждого размера
    листа: «Trim X Y Border для каждого размера индивидуальные… лучше сделать
@@ -305,10 +316,10 @@ function cutStockFor(glassCode,pick,mm,batch){
  const own=pick&&Array.isArray(pick.sizes)?pick.sizes:null;
  const out=rows.map(r=>{
   const set=own&&own.find(x=>x&&x.key===cutSheetKey(r));
-  return {key:cutSheetKey(r),w:r.w,h:r.h,supplier:r.supplier,limit:set&&+set.limit>0?Math.floor(+set.limit):0,off:!!(set&&set.off)};
+  return cutInsetRow({key:cutSheetKey(r),w:r.w,h:r.h,supplier:r.supplier,limit:set&&+set.limit>0?Math.floor(+set.limit):0,off:!!(set&&set.off)},set);
  }).filter(r=>!r.off);
  /* Строки «+ same size» этого прогона. */
- (own||[]).filter(x=>x&&x.base&&+x.w>0&&+x.h>0&&!x.off).forEach(x=>out.push({key:x.key,w:+x.w,h:+x.h,supplier:'',limit:+x.limit>0?Math.floor(+x.limit):0,off:false,base:x.base}));
+ (own||[]).filter(x=>x&&x.base&&+x.w>0&&+x.h>0&&!x.off).forEach(x=>out.push(cutInsetRow({key:x.key,w:+x.w,h:+x.h,supplier:'',limit:+x.limit>0?Math.floor(+x.limit):0,off:false,base:x.base},x)));
  /* Отмеченные куски стока — штучные листы; площадь у них своя, поэтому
     укладчик берёт их, только если так уходит меньше квадратных футов. */
  (cutEstIs(batch)?[]:cutStockPieces(glassCode,mm,batch)).forEach(r=>{
@@ -360,7 +371,7 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
    if(row.limit&&(used.get(row.key)||0)>=row.limit)continue;
    if(!ways(p,row).length)continue;
    used.set(row.key,(used.get(row.key)||0)+1);
-   const s={no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,stock:[],pieces:[],strips:[]};
+   const s={no:sheets.length+1,size:cutSizeOf(row),locked:false,stock:[],pieces:[],strips:[]};
    sheets.push(s);return s;
   }
   return null;
@@ -706,7 +717,7 @@ function* cutPackFillSteps(list,stock,paramsFor,fixed,urgent,seed,mix,variants,s
   const {row,best,fit}=pick,other=rest.filter(p=>!fitsRow(p,row));
   if(!best.placed.length){unplaced.push({piece:fit[0].piece,reason:'Larger than the sheet'});rest=rest.filter(p=>p!==fit[0]);continue;}
   used.set(row.key,(used.get(row.key)||0)+1);
-  sheets.push({no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,stock:[],pieces:best.placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}))});
+  sheets.push({no:sheets.length+1,size:cutSizeOf(row),locked:false,stock:[],pieces:best.placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}))});
   rest=best.rest.concat(other);
   yield 1-rest.reduce((a,p)=>a+p.w*p.h,0)/total;
  }
@@ -736,7 +747,7 @@ function cutRightSize(packed,stock,paramsFor,src,miss){
    for(const v of CUT_FILL_VARIANTS){const r=cutFillSheet(list,u,pr,v,cache);if(!r.rest.length){fit=r;break;}}
    if(!fit){if(miss)miss.add(key);continue;}
    used.set(s.size.key,used.get(s.size.key)-1);used.set(row.key,(used.get(row.key)||0)+1);
-   s.size={key:row.key,w:row.w,h:row.h,supplier:row.supplier};
+   s.size=cutSizeOf(row);
    s.pieces=fit.placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}));
    break;
   }
@@ -809,7 +820,7 @@ function cutPackColumns(list,stock,paramsFor,fixed,opt){
    const quarter=w!==q.w?1:0;
    pieces.push({piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x:cutRound(u.x0+(T?y:x)),y:cutRound(u.y0+(T?x:y)),w,h,turn:quarter,rot:quarter===1,locked:false});
   }));
-  sheets.push({no:sheets.length+1,size:{key:b.row.key,w:b.row.w,h:b.row.h,supplier:b.row.supplier},locked:false,stock:[],pieces});
+  sheets.push({no:sheets.length+1,size:cutSizeOf(b.row),locked:false,stock:[],pieces});
  });
  return {sheets,unplaced};
 }
@@ -1724,10 +1735,11 @@ function cutSetStock(number,glass,key,field,value){
  const open=cutPlanEditable(number);if(open.error)return open;const plan=open.plan;
  let edge=null;
  /* Min dist — тоже у каждой строки размера, как на макете владельца. */
- const rowField=CUT_EDGES.includes(field)||field==='minDist';
+ const rowField=CUT_EDGES.includes(field)||field==='minDist'||field==='inset';
  if(rowField&&String(value==null?'':value).trim()!==''){
   edge=typeof cutIn==='function'?cutIn(value,null):+value;
   if(edge==null||!Number.isFinite(edge))return {error:'Enter a size like 3/4 or 1 1/2.'};
+  if(field==='inset'&&(edge<0||edge>1))return {error:'Offset: 0 to 1″, for example 1/16.'};
  }
  const pick=cutRunPick(plan,glass);
  if(!Array.isArray(pick.sizes))pick.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
