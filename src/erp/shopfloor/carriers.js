@@ -2,7 +2,7 @@
    erp/shopfloor/carriers  ·  carriers-1.0
    Долли и скиды: тара, на которой стекло едет между станциями.
    IN : DB.stationScan (поле on у скана)
-   OUT: DB.carrier {code, note, active}
+   OUT: DB.carrier {code, note, active} · DB.carrierCols {userId, cols} — колонки окна тары у человека
    Владелец, 29 сентября 2026:
    - «нужно L A shape dolly & skids… если мне нужно срочно найти, система
      скажет L-34, и я знаю, какой формы искать»; скиды тоже бывают L и A →
@@ -87,6 +87,29 @@ function carrierEmptyUndo(r){
  });
  return out.ok?out.value:{error:out.error};
 }
+/* Снять с тары выбранные стёкла (Production → Dollies & Skids, 15.10.2026):
+   как Empty, только не всё. Стекло остаётся на своей станции без тары
+   (владелец: «стёрли на IGU — стёкла на IGU, только без долли»). Снимается
+   только то, что лежит на этой таре сейчас; Undo — carrierEmptyUndo. */
+function carrierTakeOff(code,pieces,who){const out=storageCommand(()=>{
+ const c=carrierCode(code),want=new Set(pieces||[]),now=new Date().toISOString(),was=[];
+ (carrierContents().get(c)||[]).forEach(x=>{if(!want.has(x.id))return;was.push({id:x.scan.id,on:x.scan.on||'',moved:x.scan.moved||null});x.scan.moved={from:c,at:now,by:String(who&&who.name||'')};delete x.scan.on;});
+ if(!was.length)throw new Error('Nothing to take off.');
+ return {code:c,count:was.length,was,off:[]};
+});return out.ok?out.value:{error:out.error};}
+/* Колонки окна тары — у каждого человека свои (владелец, 15.10.2026:
+   «настройка колонок для каждого персонально»). В базе, а не в браузере:
+   тот же набор на любом компьютере. userId '' — пока вход не настроен. */
+DEFAULT.carrierCols=[];
+function carrierColsOf(userId){const r=(DB.carrierCols||[]).find(x=>x.userId===String(userId||''));return r?r.cols.map(c=>({k:c.k,on:c.on})):null;}
+function carrierColsSave(userId,cols){return storageCommand(()=>{
+ if(!Array.isArray(DB.carrierCols))DB.carrierCols=[];
+ const id=String(userId||''),clean=carrierColsClean(cols);let r=DB.carrierCols.find(x=>x.userId===id);
+ if(!r){r={userId:id,cols:[]};DB.carrierCols.push(r);}
+ if(clean.length)r.cols=clean;else DB.carrierCols=DB.carrierCols.filter(x=>x!==r);
+ return true;
+});}
+function carrierColsClean(cols){const seen=new Set();return (Array.isArray(cols)?cols:[]).filter(c=>c&&typeof c.k==='string'&&/^[a-z]{1,20}$/i.test(c.k)&&!seen.has(c.k)&&(seen.add(c.k),true)).slice(0,40).map(c=>({k:c.k,on:!!c.on}));}
 /* Перенос стёкол на другую тару — исправление ошибки рабочего (владелец,
    6 октября 2026: «он знает, что на долли №3 у него 30 стёкол этого батча,
    выбирает с 31 по 60 и говорит: это на №4»; «ошибку можно исправить»).
@@ -131,7 +154,12 @@ function normalizeCarriers(){
  const seen=new Set();
  DB.carrier=DB.carrier.filter(c=>c&&typeof c==='object'&&CARRIER_RE.test(carrierCode(c.code))&&!seen.has(carrierCode(c.code))&&(seen.add(carrierCode(c.code)),true))
   .map(c=>({code:carrierCode(c.code),note:String(c.note==null?'':c.note).slice(0,80),active:c.active!==false}));
+ if(!Array.isArray(DB.carrierCols))DB.carrierCols=[];
+ const users=new Set();
+ DB.carrierCols=DB.carrierCols.filter(r=>r&&typeof r==='object'&&!users.has(String(r.userId==null?'':r.userId))&&(users.add(String(r.userId==null?'':r.userId)),true))
+  .map(r=>({userId:String(r.userId==null?'':r.userId).slice(0,80),cols:carrierColsClean(r.cols)})).filter(r=>r.cols.length);
 }
 function validateCarrierPayload(src){
  if(src&&Object.prototype.hasOwnProperty.call(src,'carrier')&&!Array.isArray(src.carrier))throw new Error('The "carrier" field must be an array.');
+ if(src&&Object.prototype.hasOwnProperty.call(src,'carrierCols')&&!Array.isArray(src.carrierCols))throw new Error('The "carrierCols" field must be an array.');
 }

@@ -1,0 +1,122 @@
+/* Долли и скиды в офисе: Production → Dollies & Skids и окно «что на ней
+   лежит» (views/carriers-board). Цвета — токены темы. */
+
+/* Код тары — как этикетка: моноширинный, на серой плашке. */
+.cw-code{display:inline-flex;align-items:center;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:800;font-size:17px;letter-spacing:.02em;padding:3px 10px;border-radius:7px;background:var(--surface-3);color:var(--text);border:0}
+.cw-code.sm{font-size:12.5px;padding:2px 7px;border-radius:6px}
+button.cw-code{cursor:pointer}
+button.cw-code:hover{background:var(--line-strong)}
+.cw-code.none{background:var(--warning-soft);color:var(--warning)}
+
+/* Окно: слой ниже вопроса «Empty?» (sales-dialog), иначе вопрос был бы под ним. */
+.sales-service-modal-back.cw-back{z-index:65;align-items:flex-start}
+.sales-service-modal.cw{width:min(1500px,97vw);position:relative;padding:20px 22px 16px;display:flex;flex-direction:column;gap:10px}
+.cw-head{display:flex;align-items:center;gap:10px;position:relative}
+.cw-title{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+.cw-title h3{margin:0;font-size:20px}
+.cw-x{border:0;background:transparent;font-size:22px;line-height:1;padding:2px 8px;color:var(--text-2)}
+.cw-cols-btn{font-weight:600}
+.sl-menu.cw-cols{z-index:5}
+.cw-sub{color:var(--text-2);font-size:14px}
+.cw-sub b{color:var(--text)}
+.cw-out{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13.5px}
+.cw-done{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--success-soft);border:1px solid var(--success-line);border-radius:10px;padding:8px 12px;font-size:13.5px}
+.cw-err{background:var(--danger-soft);border:1px solid var(--danger-line);color:var(--danger);border-radius:10px;padding:8px 12px;font-size:13.5px}
+.cw-orders{display:flex;flex-wrap:wrap;gap:8px}
+.cw-chip{display:inline-flex !important;align-items:center;gap:6px;margin:0;padding:6px 12px;border:1px solid var(--line-strong);border-radius:10px;font-size:13.5px !important;font-weight:500 !important;text-transform:none !important;letter-spacing:0 !important;color:var(--text) !important;cursor:pointer;background:var(--surface)}
+.cw-chip input{width:auto !important;margin:0}
+.cw-chip.on{border-color:var(--accent);background:var(--accent-soft)}
+.cw-table-wrap{overflow:auto;max-height:56vh;border-top:1px solid var(--line)}
+.cw-table{width:100%}
+.cw-table th{position:sticky;top:0;background:var(--surface);z-index:1;white-space:nowrap}
+.cw-table td{white-space:nowrap}
+.cw-table tbody tr{cursor:pointer}
+.cw-table tbody tr.on td{background:var(--accent-soft)}
+.cw-table .cw-check{width:28px}
+.cw-table .cw-check input{width:auto;margin:0}
+.cw-table .cw-pos{color:var(--text-2)}
+.cw-table .cw-order .pill{margin-left:6px;font-size:10.5px;padding:1px 7px}
+.cw-note{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:var(--text-2)}
+.cw-note b{color:var(--text)}
+.cw-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:12px;padding:10px 14px}
+.cw-to{display:inline-flex !important;align-items:center;gap:8px;margin:0;font-size:13.5px !important;text-transform:none !important;letter-spacing:0 !important;color:var(--text) !important}
+.cw-to input{width:120px !important;margin:0}
+.cw-sp{flex:1}
+.cw-foot{display:flex;align-items:center;gap:8px;padding-top:4px}
+button.cw-danger{color:var(--danger);border-color:var(--danger-line)}
+button.cw-danger:hover{background:var(--danger-soft)}
+
+/* Вкладка: плитки, фильтры как в Sales, переключатель, карточки по станциям. */
+.cb-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:4px 0 12px}
+.cb-tile{border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px;background:var(--surface)}
+.cb-tile b{font-size:24px;line-height:1.15}
+.cb-tile span{font-size:13px;color:var(--text-2)}
+.cb-tile.warn{background:var(--warning-soft);border-color:var(--warning-line)}
+.cb-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.cb-filter{border-radius:20px;padding:5px 14px}
+.cb-filter.on{border-color:var(--accent);background:var(--accent-soft)}
+.cb-seg{display:inline-flex;gap:6px;margin-left:8px;flex-wrap:wrap}
+.cb-seg button{border-radius:20px;padding:5px 14px}
+.cb-seg button.on{background:var(--inverse);color:var(--on-solid);border-color:var(--inverse)}
+.cb-group{display:grid;grid-template-columns:160px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.cb-gh{display:flex;flex-direction:column;gap:2px}
+.cb-gh b{font-size:15px}
+.cb-gh span{font-size:12.5px;color:var(--text-2)}
+.cb-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.cb-card{font:inherit;text-align:left;display:flex;flex-direction:column;gap:4px;border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--surface);cursor:pointer;color:var(--text)}
+.cb-card:hover{border-color:var(--accent-line);box-shadow:var(--shadow)}
+.cb-card.loose{background:var(--warning-soft);border-color:var(--warning-line)}
+.cb-card.cb-more{align-items:center;justify-content:center;color:var(--text-2)}
+.cb-top{display:flex;align-items:center;gap:10px}
+.cb-top b{font-size:15px}
+.cb-l{font-size:13.5px}
+.cb-l .pill{font-size:10.5px;padding:1px 7px}
+.cb-s{font-size:12.5px;color:var(--text-2)}
+.cb-free-all{display:flex;flex-direction:column;gap:10px}
+.cb-free-h{font-size:13px;color:var(--text-2);margin-bottom:5px}
+.cb-free-l{display:flex;flex-wrap:wrap;gap:6px;border:1px dashed var(--line-strong);border-radius:10px;padding:8px 10px}
+.cb-more-l{border:0;background:transparent;color:var(--text-2);padding:2px 6px}
+.pb-on-open{cursor:pointer}
+.pb-on-open:hover b{text-decoration:underline}
+@media(max-width:900px){.cb-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.cb-group{grid-template-columns:1fr}}
+
+/* Лист «что на долли / скиде» (carrierPrint). Бумагу не задаём — как
+   чертёж: у @page carriersheet только поля, положение и размер — в окне
+   печати. Цвета — палитра документов, приходит переменными с листа. */
+#carrierPrintHost{display:none}
+@media print{
+  body.carrier-printing{background:transparent!important}
+  body.carrier-printing>*{display:none!important}
+  body.carrier-printing>#carrierPrintHost{display:block!important}
+}
+.cs-sheet{page:carriersheet;font:9pt/1.35 Helvetica,Arial,sans-serif;color:var(--cs-ink);background:var(--cs-paper);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cs-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:12px}
+.cs-co b{display:block;font-size:13pt;color:var(--cs-navy)}
+.cs-co div{font-size:7.6pt;color:var(--cs-mut)}
+.cs-code{text-align:right;display:flex;flex-direction:column;align-items:flex-end}
+.cs-code small{font-size:8pt;font-weight:700;letter-spacing:.06em;color:var(--cs-mut)}
+.cs-code b{font-size:34pt;line-height:1;margin:2px 0}
+.cs-code span{font-size:7.6pt;color:var(--cs-mut)}
+.cs-strip{display:flex;flex-wrap:wrap;gap:6px 26px;background:var(--cs-box);border-radius:5px;padding:7px 11px;margin-bottom:14px}
+.cs-strip small{display:block;font-size:6.5pt;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cs-mut)}
+.cs-strip b{font-size:9pt}
+.cs-cust{display:flex;justify-content:space-between;gap:16px;margin-bottom:12px;font-size:8.6pt}
+.cs-cust b{font-size:12pt}
+.cs-right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.cs-right b{font-size:11pt}
+.cs-mut{color:var(--cs-mut)}
+.cs-prio{font-size:7.6pt;font-weight:700;margin-left:6px}
+.cs-prio.bad{color:var(--cs-due)}
+.cs-prio.warn{color:var(--cs-warn)}
+.cs-table{width:100%;border-collapse:collapse}
+.cs-table thead{display:table-header-group}
+.cs-table th{background:var(--cs-bar);text-align:left;font-size:6.6pt;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--cs-mut);padding:5px 6px}
+.cs-table td{padding:4px 6px;border-bottom:.5pt solid var(--cs-line);vertical-align:top}
+.cs-table tbody tr{break-inside:avoid}
+.cs-table tbody tr:nth-child(even) td{background:var(--cs-box)}
+.cs-table .cs-nw{white-space:nowrap}
+.cs-table .cs-b{font-weight:700}
+.cs-table .cs-n{text-align:right}
+.cs-table tr.cs-group td{background:var(--cs-paper);font-size:9.6pt;padding-top:10px;border-bottom:1pt solid var(--cs-navy);break-after:avoid}
+.cs-count{float:right;font-weight:400;font-size:8.4pt;color:var(--cs-mut)}
+.cs-total{font-weight:700;font-size:9.4pt;margin-top:8px}

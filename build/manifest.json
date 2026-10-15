@@ -20,6 +20,7 @@
   "src/styles/station.css",
   "src/styles/theme.css",
   "src/styles/shipping.css",
+  "src/styles/carriers.css",
   "src/styles/reports.css",
   "src/styles/purchasing.css",
   "src/styles/inventory.css"
@@ -159,6 +160,7 @@
   "src/erp/views/station-queue.js",
   "src/erp/views/production-board.js",
   "src/erp/views/carriers-ui.js",
+  "src/erp/views/carriers-board.js",
   "src/erp/shipping/data.js",
   "src/erp/shipping/commands.js",
   "src/erp/shipping/loading.js",
