@@ -22,7 +22,10 @@
 const SF_TABS=[
  {k:'orders',    label:'In production'},
  {k:'stations',  label:'Stations'},
- {k:'terminals', label:'Terminals'}
+ {k:'terminals', label:'Terminals'},
+ /* Долли и скиды (15.10.2026): здесь, а не в Data — Data видит не каждый,
+    а отгрузка и оптимизатор видят Production (views/carriers-board). */
+ {k:'carriers',  label:'Dollies & Skids'}
 ];
 
 function viewProduction(){
@@ -31,7 +34,7 @@ function viewProduction(){
   ${subtab!=='stations'?'':`<div class="card sf-route-card">${sfRouteHTML()}</div>`}
   <div class="card">
    <div class="tabs">${SF_TABS.map(t=>`<button class="${subtab===t.k?'on':''}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')}</div>
-   ${({orders:viewProdOrders,stations:()=>viewSfStations(false),terminals:viewSfTerminals})[subtab]()}
+   ${({orders:viewProdOrders,stations:()=>viewSfStations(false),terminals:viewSfTerminals,carriers:viewProdCarriers})[subtab]()}
   </div>
   ${subtab==='stations'?sfImportCard():''}`;
 }

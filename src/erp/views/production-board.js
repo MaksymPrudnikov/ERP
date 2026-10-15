@@ -13,8 +13,9 @@
    не нужен (он же).
    ===================================================================== */
 let prodOpen=new Set();
-function prodListScope(){return subtab==='orders'?'prodOrders':'';}
+function prodListScope(){return subtab==='orders'?'prodOrders':subtab==='carriers'?'prodCarriers':'';}
 function prodListColumns(){
+ if(subtab==='carriers')return prodCarrierColumns();
  const st=(DB.station||[]).map(s=>({k:'st_'+s.code,label:s.code,type:'number',def:true,sum:true,station:s.code}));
  return [
   {k:'number',label:'Order',type:'text',def:true},
@@ -27,7 +28,7 @@ function prodListColumns(){
  ].concat(st,[{k:'on',label:'On',type:'text',tokens:true,def:false},{k:'rank',label:'Urgency',type:'number',def:false}]);
 }
 /* Сначала Critical, потом Rush, дальше по сроку — горящее всегда наверху. */
-function prodListDefaultSort(){return {k:'rank',dir:'asc'};}
+function prodListDefaultSort(){return subtab==='carriers'?{k:'',dir:'asc'}:{k:'rank',dir:'asc'};}
 
 /* Доска считается одним проходом по стёклам и кэшируется, пока не
    изменились сканы, батчи и заказы: движок таблицы спрашивает строки
@@ -91,6 +92,7 @@ function prodBoard(){
  return orders;
 }
 function prodListInfos(){
+ if(subtab==='carriers')return prodCarrierInfos();
  return prodBoard().map(x=>{
   const memo={number:x.o.businessNumber||'',customer:x.customer,priority:SALES_LIST_PRIORITY[x.o.priority]||'Normal',due:x.o.dueDate||'',glass:x.glass.join(', '),shipped:x.shipped,queue:x.counts.queue||0,on:x.on.join(', '),rank:x.rank};
   (DB.station||[]).forEach(s=>{memo['st_'+s.code]=x.counts[s.code]||0;});
@@ -114,7 +116,7 @@ function prodCount(n,code){return n?`<span class="pb-n${code===stationCutCode()?
    одно не на таре — только число. */
 function prodOnSplit(m){
  const keys=Object.keys(m||{}).filter(Boolean).sort((a,b)=>a.localeCompare(b,'en',{numeric:true}));if(!keys.length)return '';
- return '<span class="pb-split" data-prod-on>'+keys.map(k=>'<i><b>'+esc(k)+'</b> '+m[k]+'</i>').join('')+(m['']?'<i class="pb-loose" title="Not on a dolly">no dolly '+m['']+'</i>':'')+'</span>';
+ return '<span class="pb-split" data-prod-on>'+keys.map(k=>'<i class="pb-on-open" title="What is on '+esc(k)+'" onclick="event.stopPropagation();carrierWinOpen(\''+esc(k)+'\')"><b>'+esc(k)+'</b> '+m[k]+'</i>').join('')+(m['']?'<i class="pb-loose" title="Not on a dolly">no dolly '+m['']+'</i>':'')+'</span>';
 }
 /* Станция в маршруте: число — ждут здесь, ✓ — все прошли, · — ещё не
    дошли. Станции нет в маршруте — клетка пустая. */

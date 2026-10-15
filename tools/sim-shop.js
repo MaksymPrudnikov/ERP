@@ -976,6 +976,11 @@ function simPage() {
       }
       const c = salesFindCustomer(s.customerId), d = shippingMarkDelivered(s.id, person(), day); if (!d.ok) fail('pickup', d.error);
       shippingOrderIds(s).forEach(id => { touchOrder(id); billed(id, day); });
+      /* Скид, погруженный сканом скида, клиент увозит (erp/shipping/skids):
+         он у клиента и ждёт возврата, как после доставки. Свободным его
+         считать нельзя — в неделе 15.10 на SA-11, уехавший с TrueFrame,
+         положили стекло Kingsway. */
+      (salesShipmentFresh(s).skidsOut || []).forEach(code => { const x = SKID.get(code); if (x) Object.assign(x, { state: 'out', since: day, n: 0 }); SKID_BACK.push({ code, day: addWork(day, int(2, 12)) }); });
       cnt('pickup');
     }
   }
