@@ -78,11 +78,15 @@ function invScanSheet(entry,piece){
  if(!plan||plan.reset||!Array.isArray(plan.groups))return null;
  const hit=cutFind(plan,piece);if(!hit)return null;
  const z=hit.sheet.size||hit.group.sheet||{},n=invPlanSize(z)||{};
- return invScanSheetClean({batch:b.number,plan:plan.at||'',no:hit.sheet.no,glass:hit.group.glass,w:n.w,h:n.h,stock:/^S-/.test(z.key||'')?z.key:''});
+ return invScanSheetClean({batch:b.number,plan:plan.at||'',no:hit.sheet.no,anchor:invSheetAnchor(hit.sheet),glass:hit.group.glass,w:n.w,h:n.h,stock:/^S-/.test(z.key||'')?z.key:''});
 }
+/* Лист узнаём по его стёклам, а не по номеру: перенос листа в другой батч и
+   удаление листа перенумеровывают остальные (аудит 15.10.2026). anchor —
+   первое по номеру стекло листа. */
+function invSheetAnchor(sheet){return (sheet.pieces||[]).map(p=>p.piece).sort()[0]||'';}
 function invScanSheetClean(x){
  if(!x||typeof x!=='object'||Array.isArray(x)||typeof x.batch!=='string'||!x.batch||!(Number.isInteger(x.no)&&x.no>0)||typeof x.glass!=='string'||!x.glass||!(+x.w>0&&+x.h>0))return null;
- return Object.assign({batch:x.batch,plan:typeof x.plan==='string'?x.plan:'',no:x.no,glass:x.glass,w:+x.w,h:+x.h},typeof x.stock==='string'&&/^S-/.test(x.stock)?{stock:x.stock}:{});
+ return Object.assign({batch:x.batch,plan:typeof x.plan==='string'?x.plan:'',no:x.no,glass:x.glass,w:+x.w,h:+x.h},typeof x.anchor==='string'&&x.anchor?{anchor:x.anchor}:{},typeof x.stock==='string'&&/^S-/.test(x.stock)?{stock:x.stock}:{});
 }
 
 /* Строки приёмок, которые несут листы на склад. */
@@ -104,24 +108,40 @@ function invReceiptLines(){
  return out;
 }
 
-/* Порезанные листы: лист раскладки, с которого отсканировали на CUT хоть
-   одно стекло. Скан, снятый Unbatch или Delete заказа, — всё равно рез:
-   стекло порезано, лист ушёл; Undo скана — нет. Скан без записанного листа
-   (до inventory-1.0) берёт лист из текущей раскладки. */
-function invCutSheets(){
+/* Сканы CUT, которые считаются резом. Скан, снятый Unbatch или Delete
+   заказа, — всё равно рез: стекло порезано, лист ушёл; Undo скана — нет. */
+function invCutScans(){
  const cut=stationCutCode(),unbatched=new Set();
  (DB.productionUnbatch||[]).forEach(u=>(u.scanIds||[]).forEach(id=>unbatched.add(id)));
+ return (DB.stationScan||[]).filter(s=>s.station===cut&&!s.park&&(!s.undoneAt||unbatched.has(s.id)));
+}
+function invCutByPiece(scans){const m=new Map();scans.forEach(s=>{if(!m.has(s.piece))m.set(s.piece,[]);m.get(s.piece).push(s);});return m;}
+/* Первый рез с листа этой раскладки: скан его стекла, записанный при ней
+   (старый скан без записи листа — по стеклу). */
+function invSheetCutScan(plan,sheet,byPiece){
+ let first=null;
+ (sheet.pieces||[]).forEach(p=>(byPiece.get(p.piece)||[]).forEach(s=>{if(s.sheet&&(s.sheet.batch!==plan.batch||s.sheet.plan!==(plan.at||'')))return;if(!first||s.at<first.at)first=s;}));
+ return first;
+}
+/* Порезанные листы: лист раскладки, с которого отсканировали на CUT хоть
+   одно стекло, — один раз на лист (батч, сборка раскроя, первое стекло
+   листа). Скан без записанного листа (до inventory-1.0) или без anchor
+   берёт лист из текущей раскладки. */
+function invCutSheets(scans){
+ scans=scans||invCutScans();
  let index=null;
  const fromPlan=piece=>{
   if(!index){index=new Map();(DB.cutPlan||[]).forEach(plan=>{if(!plan||plan.reset||!Array.isArray(plan.groups))return;
-   plan.groups.forEach(g=>g.sheets.forEach(s=>{const z=s.size||g.sheet||{},n=invPlanSize(z)||{};s.pieces.forEach(p=>index.set(p.piece,invScanSheetClean({batch:plan.batch,plan:plan.at||'',no:s.no,glass:g.glass,w:n.w,h:n.h,stock:/^S-/.test(z.key||'')?z.key:''})));}));});}
+   plan.groups.forEach(g=>g.sheets.forEach(s=>{const z=s.size||g.sheet||{},n=invPlanSize(z)||{};s.pieces.forEach(p=>index.set(p.piece,invScanSheetClean({batch:plan.batch,plan:plan.at||'',no:s.no,anchor:invSheetAnchor(s),glass:g.glass,w:n.w,h:n.h,stock:/^S-/.test(z.key||'')?z.key:''})));}));});}
   return index.get(piece)||null;
  };
  const out=new Map();
- (DB.stationScan||[]).forEach(s=>{
-  if(s.station!==cut||s.park||(s.undoneAt&&!unbatched.has(s.id)))return;
-  const sh=s.sheet||fromPlan(s.piece);if(!sh)return;
-  const id=sh.batch+'|'+sh.plan+'|'+sh.no,cur=out.get(id);
+ scans.forEach(s=>{
+  let sh=s.sheet;
+  if(!sh)sh=fromPlan(s.piece);
+  else if(!sh.anchor){const f=fromPlan(s.piece);if(f&&f.batch===sh.batch&&f.plan===sh.plan)sh=Object.assign({},sh,{anchor:f.anchor});}
+  if(!sh)return;
+  const id=sh.batch+'|'+sh.plan+'|'+(sh.anchor||'#'+sh.no),cur=out.get(id);
   if(!cur||s.at<cur.at)out.set(id,Object.assign({},sh,{id,at:s.at,by:s.by}));
  });
  return out;
@@ -130,7 +150,7 @@ function invCutSheets(){
    стекло батча без реза, и с листа ещё ничего не сканировали. Лист, на
    котором всё стекло уже порезано раньше (раскрой собрали заново после
    Reset), не резервируется: его листы уже ушли. */
-function invReservedSheets(cutIds){
+function invReservedSheets(byPiece){
  const out=[];
  (DB.cutPlan||[]).forEach(plan=>{
   if(!plan||plan.reset||!Array.isArray(plan.groups))return;
@@ -138,7 +158,7 @@ function invReservedSheets(cutIds){
   const live=new Map(glassBatchActiveItems(b).map(i=>[i.piece,i]));
   plan.groups.forEach(g=>g.sheets.forEach(s=>{
    const z=s.size||g.sheet||{},size=invPlanSize(z);
-   if(!size||/^S-/.test(z.key||'')||cutIds.has(plan.batch+'|'+(plan.at||'')+'|'+s.no))return;
+   if(!size||/^S-/.test(z.key||'')||invSheetCutScan(plan,s,byPiece))return;
    if(!s.pieces.some(p=>{const i=live.get(p.piece);return i&&!i.cutStartedAt;}))return;
    out.push({batch:plan.batch,plan:plan.at||'',no:s.no,glass:g.glass,size});
   }));
@@ -180,9 +200,9 @@ function invSheetRows(){
  };
  activeGlassProducts().filter(g=>g.cut!==false).forEach(g=>invCatalogSizes(g.code).forEach(z=>row(g.code,z)));
  invReceiptLines().forEach(x=>{const r=row(x.code,x.size);r.received+=x.qty;if(x.issue==='Enter sheets')r.enterSheets++;});
- const cut=invCutSheets();
+ const scans=invCutScans(),cut=invCutSheets(scans);
  cut.forEach(s=>{if(!s.stock&&invGlassCut(s.glass))row(s.glass,invSize(s.w,s.h)).cut++;});
- invReservedSheets(new Set(cut.keys())).forEach(s=>{const r=row(s.glass,s.size);r.reserved++;r.batches.set(s.batch,(r.batches.get(s.batch)||0)+1);});
+ invReservedSheets(invCutByPiece(scans)).forEach(s=>{const r=row(s.glass,s.size);r.reserved++;r.batches.set(s.batch,(r.batches.get(s.batch)||0)+1);});
  invBreaks().forEach(b=>{if(!b.x.undoneAt&&invGlassCut(b.x.glass))row(b.x.glass,b.size).broken++;});
  (DB.inventoryEvent||[]).filter(e=>INV_SHEET_KINDS.includes(e.kind)).forEach(e=>{const r=row(e.glass,invSize(e.w,e.h));r.adjust+=e.qty;if(e.kind==='count'&&(!r.lastCount||e.at>r.lastCount.at))r.lastCount=e;});
  Object.entries(DB.inventoryMin||{}).forEach(([key,n])=>{const [code,dim]=key.split('|'),[w,h]=dim.split('x');row(code,invSize(w,h)).min=n;});
