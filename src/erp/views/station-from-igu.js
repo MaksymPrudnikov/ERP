@@ -183,7 +183,7 @@ function stationSkidHTML(){
   '<div class="mut">Tap a customer — all its units; tap a unit — one by one'+esc(since)+'</div>'+
   (items.length?'<table class="st-mv st-skid-t"><tbody>'+rows+'</tbody></table>':'<div class="empty">Nothing on it</div>')+
   (d.error?'<div class="st-pin-err" role="alert">'+esc(d.error)+'</div>':'')+
-  '<div class="st-drawer-foot">'+(n?'<span data-skid-sel><b>'+n+' selected</b> →</span>'+stationSkidTargets(d.code).map(c=>'<button type="button" class="b sm" data-skid-to="'+esc(c)+'" onclick="stationSkidMove(\''+esc(c)+'\')">'+esc(c)+'</button>').join('')+
+  '<div class="st-drawer-foot">'+(!n&&list.length&&typeof carrierPrintButton==='function'?carrierPrintButton(d.code):'')+(n?'<span data-skid-sel><b>'+n+' selected</b> →</span>'+stationSkidTargets(d.code).map(c=>'<button type="button" class="b sm" data-skid-to="'+esc(c)+'" onclick="stationSkidMove(\''+esc(c)+'\')">'+esc(c)+'</button>').join('')+
    '<input class="st-mv-to" data-station-keep data-skid-to-input placeholder="SL-5" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationSkidMove(this.value)}"><button type="button" class="b st-yes" data-skid-move onclick="stationSkidMove(document.querySelector(\'[data-skid-to-input]\').value)">Move</button>':
    '<span class="mut">Select to move</span>'+stationEmptyButton(d.code))+
   '<button type="button" class="b" onclick="stationCloseDrawer()">Close</button></div></div>';

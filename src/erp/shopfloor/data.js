@@ -237,7 +237,9 @@ function normalizeShopFloor(){
   const dim=v=>{const n=+v;return isFinite(n)&&n>0?n:null;};
   return {seq,code:sfCode(s.code),name:sfStr(s.name),nameEn:sfStr(s.nameEn),always:s.always===true,
    maxW:dim(s.maxW),maxL:dim(s.maxL),sizeMeasured:s.sizeMeasured===true,note:sfStr(s.note),
-   ...(SF_PUTS_ON.some(([k])=>k===s.putsOn)?{putsOn:s.putsOn}:{})};
+   ...(SF_PUTS_ON.some(([k])=>k===s.putsOn)?{putsOn:s.putsOn}:{}),
+   /* Колонки листа долли/скида станции (erp/shopfloor/carriers). */
+   ...(Array.isArray(s.sheetCols)&&typeof carrierColsClean==='function'&&carrierColsClean(s.sheetCols).length?{sheetCols:carrierColsClean(s.sheetCols)}:{})};
  }).sort((a,b)=>a.seq-b.seq);
 
  const tSeen=Object.create(null);

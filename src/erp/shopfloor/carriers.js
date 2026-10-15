@@ -109,6 +109,16 @@ function carrierColsSave(userId,cols){return storageCommand(()=>{
  if(clean.length)r.cols=clean;else DB.carrierCols=DB.carrierCols.filter(x=>x!==r);
  return true;
 });}
+/* Колонки листа «что на долли / скиде» у станции (владелец, 15.10.2026:
+   «чтобы была возможность настроить под каждую станцию»): поле sheetCols в
+   записи станции, Data → Stations. Пусто — все колонки. Печатает станция —
+   своим набором; окно в офисе открывается с набором станции, которая
+   положила стекло, если у человека нет своего (DB.carrierCols). */
+function carrierStationCols(code){const s=(DB.station||[]).find(x=>x.code===code);return s&&Array.isArray(s.sheetCols)&&s.sheetCols.length?s.sheetCols.map(c=>({k:c.k,on:c.on})):null;}
+function carrierStationColsSave(code,cols){return storageCommand(()=>{
+ const s=(DB.station||[]).find(x=>x.code===code);if(!s)throw new Error('Unknown station.');
+ const clean=carrierColsClean(cols);if(clean.length)s.sheetCols=clean;else delete s.sheetCols;return true;
+});}
 function carrierColsClean(cols){const seen=new Set();return (Array.isArray(cols)?cols:[]).filter(c=>c&&typeof c.k==='string'&&/^[a-z]{1,20}$/i.test(c.k)&&!seen.has(c.k)&&(seen.add(c.k),true)).slice(0,40).map(c=>({k:c.k,on:!!c.on}));}
 /* Перенос стёкол на другую тару — исправление ошибки рабочего (владелец,
    6 октября 2026: «он знает, что на долли №3 у него 30 стёкол этого батча,

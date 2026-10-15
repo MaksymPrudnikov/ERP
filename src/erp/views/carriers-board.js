@@ -92,12 +92,17 @@ const CARRIER_COLS=[
  {k:'weight',label:'Weight kg'},
  {k:'puton',label:'Put on'}
 ];
-function carrierColPrefs(){
+/* Набор колонок: известные по порядку, новые колонки — видны. */
+function carrierColsFill(list){
  const seen=new Set(),out=[];
- (carrierColsOf(carrierMe().id)||[]).forEach(c=>{if(CARRIER_COLS.some(x=>x.k===c.k)&&!seen.has(c.k)){seen.add(c.k);out.push(c);}});
+ (list||[]).forEach(c=>{if(CARRIER_COLS.some(x=>x.k===c.k)&&!seen.has(c.k)){seen.add(c.k);out.push({k:c.k,on:!!c.on});}});
  CARRIER_COLS.forEach(c=>{if(!seen.has(c.k))out.push({k:c.k,on:true});});
  return out;
 }
+function carrierColsOn(list){return carrierColsFill(list).filter(c=>c.on).map(c=>CARRIER_COLS.find(x=>x.k===c.k));}
+/* В окне: свой набор человека, иначе — набор станции, которая положила
+   стекло на тару (Data → Stations), иначе все. */
+function carrierColPrefs(){return carrierColsFill(carrierColsOf(carrierMe().id)||carrierStationCols(carrierWinLoader())||[]);}
 function carrierColsShown(){return carrierColPrefs().filter(c=>c.on).map(c=>CARRIER_COLS.find(x=>x.k===c.k));}
 function carrierColsStore(cols){const out=carrierColsSave(carrierMe().id,cols);if(!out.ok&&carrierWin)carrierWin.error=out.error;render();}
 function carrierColSet(k,on){const cols=carrierColPrefs(),c=cols.find(x=>x.k===k);if(!c)return;c.on=!!on;if(!cols.some(x=>x.on))c.on=true;carrierColsStore(cols);}
@@ -171,15 +176,18 @@ function carrierCell(it,c){
 /* ------------------------------ Окно ------------------------------- */
 function carrierWinOpen(code,station){carrierWin={code:carrierCode(code||''),station:station||'',sel:new Set(),to:'',error:'',done:null,menu:false};render();return true;}
 function carrierWinClose(){carrierWin=null;render();}
-function carrierWinModel(){
- const w=carrierWin;if(!w)return null;
- if(w.code){
-  const list=carrierContents().get(w.code)||[],out=typeof skidsOut==='function'?skidsOut().get(w.code)||null:null;
-  return {code:w.code,type:carrierType(w.code),list,items:carrierItems(list),out,gone:out&&!list.length?carrierShippedItems(out):[]};
+function carrierModelOf(code,station){
+ if(code){
+  const list=carrierContents().get(code)||[],out=typeof skidsOut==='function'?skidsOut().get(code)||null:null;
+  return {code,type:carrierType(code),list,items:carrierItems(list),out,gone:out&&!list.length?carrierShippedItems(out):[]};
  }
- const list=carrierLoose().get(w.station)||[];
- return {code:'',station:w.station,word:carrierLooseWord(list),list,items:carrierItems(list),out:null,gone:[]};
+ const list=carrierLoose().get(station)||[];
+ return {code:'',station,word:carrierLooseWord(list),list,items:carrierItems(list),out:null,gone:[]};
 }
+function carrierWinModel(){const w=carrierWin;return w?carrierModelOf(w.code,w.station):null;}
+/* Кто положил: станция последнего скана на эту тару. */
+function carrierLoaderOf(m){const top=m&&m.items.length?m.items[m.items.length-1]:null;return top&&top.scan&&top.scan.station||'';}
+function carrierWinLoader(){return carrierWin?carrierLoaderOf(carrierWinModel()):'';}
 function carrierWinPick(key){const w=carrierWin;if(!w)return;if(w.sel.has(key))w.sel.delete(key);else w.sel.add(key);w.error='';render();}
 function carrierWinPickOrder(id){
  const w=carrierWin,m=carrierWinModel();if(!w||!m)return;
@@ -273,8 +281,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&carrierWin&&!(typeo
 const CARRIER_NOWRAP=['pos','line','size','id','next','due','weight'];
 function carrierStamp(iso){return iso?docDate(finLocalDate(iso))+' · '+stationTime(iso):'—';}
 function carrierSheetKind(m){return m.code?(carrierWord(m.code)==='skid'?'Skid contents':'Dolly contents'):'Not on a '+(m.word==='No skid'?'skid':'dolly');}
-function carrierSheetHTML(m,cols){
- const C=DOC_COLOR,co=docCompanyBlock(),me=carrierMe(),loaded=m.items.length>0,rows=loaded?m.items:m.gone,orders=carrierOrders(rows),one=orders.length===1?orders[0].o:null;
+function carrierSheetHTML(m,cols,who){
+ const C=DOC_COLOR,co=docCompanyBlock(),me=who||carrierMe(),loaded=m.items.length>0,rows=loaded?m.items:m.gone,orders=carrierOrders(rows),one=orders.length===1?orders[0].o:null;
  const use=cols.filter(c=>!['order','customer','po'].includes(c.k));carrierWeightMemo=new Map();
  const kgs=rows.map(carrierKg),kg=kgs.reduce((n,w)=>n+(w?w.kg:0),0),kgExact=kgs.every(w=>w&&w.exact);
  const where=[...new Set(m.items.map(i=>i.place&&i.place.waiting).filter(Boolean))].join(', ')||(m.out?salesCustomerDisplay(m.out.customerId):'');
@@ -302,17 +310,31 @@ function carrierSheetHTML(m,cols){
 }
 /* Подвал страницы — полями @page: кто и когда напечатал, номер страницы. */
 function carrierPrintCleanup(){document.body.classList.remove('carrier-printing');}
-function carrierPrint(){
- const m=carrierWinModel();if(!m||!(m.items.length||m.gone.length))return false;
+/* Печать листа: m — что на таре, cols — колонки, who и where — кто и на
+   какой станции печатает (в подвале). */
+function carrierPrintSheet(m,cols,who,where){
+ if(!m||!(m.items.length||m.gone.length))return false;
  let host=document.getElementById('carrierPrintHost');if(!host){host=document.createElement('div');host.id='carrierPrintHost';document.body.appendChild(host);}
- host.innerHTML=carrierSheetHTML(m,carrierColsShown());
- const me=carrierMe(),q=t=>'"'+String(t).replace(/["\\]/g,'')+'"',foot='font:8px Helvetica,Arial,sans-serif;color:'+DOC_COLOR.mut;
+ who=who||carrierMe();host.innerHTML=carrierSheetHTML(m,cols,who);
+ const q=t=>'"'+String(t).replace(/["\\]/g,'')+'"',foot='font:8px Helvetica,Arial,sans-serif;color:'+DOC_COLOR.mut;
  let st=document.getElementById('carrierPageStyle');if(!st){st=document.createElement('style');st.id='carrierPageStyle';document.head.appendChild(st);}
- st.textContent='@page carriersheet{margin:10mm 10mm 12mm;@bottom-left{content:'+q('Printed '+carrierStamp(new Date().toISOString())+(me.name?' by '+me.name:''))+';'+foot+'}@bottom-right{content:'+q(carrierSheetKind(m)+' · '+(m.code||m.station)+' · ')+' counter(page) " / " counter(pages);'+foot+'}}@media print{html,body.carrier-printing{background:#ffffff!important}}';
+ st.textContent='@page carriersheet{margin:10mm 10mm 12mm;@bottom-left{content:'+q('Printed '+carrierStamp(new Date().toISOString())+(who.name?' by '+who.name:'')+(where?' at '+where:''))+';'+foot+'}@bottom-right{content:'+q(carrierSheetKind(m)+' · '+(m.code||m.station)+' · ')+' counter(page) " / " counter(pages);'+foot+'}}@media print{html,body.carrier-printing{background:#ffffff!important}}';
  document.body.classList.add('carrier-printing');
  window.addEventListener('afterprint',carrierPrintCleanup,{once:true});setTimeout(carrierPrintCleanup,60000);
  try{window.print();}catch(e){carrierPrintCleanup();return false;}
  return true;
+}
+function carrierPrint(){return carrierPrintSheet(carrierWinModel(),carrierColsShown());}
+/* Shipping → Skid sheet: тот же лист, что в окне (владелец: «лист скида
+   один везде»); колонки — свои у человека или станции, что положила. */
+function carrierPrintCode(code){const m=carrierModelOf(carrierCode(code));return carrierPrintSheet(m,carrierColsOn(carrierColsOf(carrierMe().id)||carrierStationCols(carrierLoaderOf(m))||[]));}
+/* Экран станции: «Print what is on SA-11» — набор колонок этой станции,
+   печатает вошедший на станции (на SHIPR: отсканировал скид, напечатал,
+   сверил с тем, что на скиде, замотал). */
+function carrierPrintButton(code){return code&&typeof stationCode==='string'&&stationCode?'<button type="button" class="b st-yes" data-station-print="'+esc(code)+'" onclick="carrierPrintAtStation(\''+esc(code)+'\')">Print what is on '+esc(code)+'</button>':'';}
+function carrierPrintAtStation(code){
+ const who=typeof stationWho==='function'?stationWho():null;
+ return carrierPrintSheet(carrierModelOf(carrierCode(code)),carrierColsOn(carrierStationCols(stationCode)||[]),who||{id:'',name:''},stationCode);
 }
 
 /* ------------------- Production → Dollies & Skids ------------------- */
@@ -391,4 +413,32 @@ function viewProdCarriers(){
   if(b.empty.length)groups.push(`<section class="cb-group" data-carrier-group="empty"><div class="cb-gh"><b>Empty — free</b><span>not at any station</span></div><div class="cb-free-all">${body}</div></section>`);
  }
  return `${tiles}${tools}${salesListFilterChips()}${groups.join('')||`<div class="empty">${infos.length?'Nothing matches the filters.':'No dollies or skids in use.'}</div>`}${salesListMenuHTML(infos)}`;
+}
+
+/* ------------- Data → Stations: колонки листа долли / скида ------------- */
+/* У каждой станции свой набор (владелец, 15.10.2026: «на скиде будут стёкла
+   и какие они, с тегами и прочим, поэтому чтобы была возможность настроить
+   под каждую станцию»). Пусто — все колонки. Справа — образец листа на
+   таре, которую эта станция загрузила последней. */
+let sfSheetEdit='',sfSheetDrag='';
+function carrierSheetCell(s,edit){
+ const own=carrierStationCols(s.code),text=own?carrierColsOn(own).length+' columns':'All columns';
+ if(!edit)return `<span class="mut" data-sf-sheet-cols="${esc(s.code)}">${text}</span>`;
+ return `<span data-sf-sheet-cols="${esc(s.code)}">${text}</span> <button class="sm" data-sf-sheet="${esc(s.code)}" onclick="sfSheetEdit=sfSheetEdit==='${esc(s.code)}'?'':'${esc(s.code)}';render()">${sfSheetEdit===s.code?'Done':'Edit'}</button>`;
+}
+function sfSheetStore(code,cols){const out=carrierStationColsSave(code,cols);if(!out.ok)alert(out.error);render();}
+function sfSheetSet(code,k,on){const cols=carrierColsFill(carrierStationCols(code)||[]),c=cols.find(x=>x.k===k);if(!c)return;c.on=!!on;if(!cols.some(x=>x.on))c.on=true;sfSheetStore(code,cols);}
+function sfSheetMove(code,k,delta){const cols=carrierColsFill(carrierStationCols(code)||[]),at=cols.findIndex(c=>c.k===k),to=at+delta;if(at<0||to<0||to>=cols.length)return;const [c]=cols.splice(at,1);cols.splice(to,0,c);sfSheetStore(code,cols);}
+function sfSheetDrop(code,k){const from=sfSheetDrag;sfSheetDrag='';if(!from||from===k)return;const cols=carrierColsFill(carrierStationCols(code)||[]),at=cols.findIndex(c=>c.k===from);if(at<0)return;const [c]=cols.splice(at,1);cols.splice(cols.findIndex(x=>x.k===k),0,c);sfSheetStore(code,cols);}
+/* Образец: тара, которую эта станция загрузила последней; нет — любая загруженная. */
+function sfSheetSample(code){
+ let any=null;
+ for(const c of carrierContents().keys()){const m=carrierModelOf(c);if(!m.items.length)continue;if(carrierLoaderOf(m)===code)return m;if(!any)any=m;}
+ return any;
+}
+function carrierSheetEditorHTML(code){
+ const cols=carrierColsFill(carrierStationCols(code)||[]),m=sfSheetSample(code);
+ const list=cols.map((c,i)=>{const col=CARRIER_COLS.find(x=>x.k===c.k);return `<div class="sl-cols-row" draggable="true" data-sf-sheet-col="${c.k}" ondragstart="sfSheetDrag='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();sfSheetDrop('${esc(code)}','${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-sf-sheet-toggle="${c.k}" ${c.on?'checked':''} onchange="sfSheetSet('${esc(code)}','${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="sfSheetMove('${esc(code)}','${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===cols.length-1?'disabled':''} onclick="sfSheetMove('${esc(code)}','${c.k}',1)">↓</button></div>`;}).join('');
+ return `<div class="sf-sheet" data-sf-sheet-editor="${esc(code)}"><div class="sf-sheet-cols"><h4>${esc(code)} — what is on a dolly or skid</h4><div class="mut small">Printed and shown — drag to reorder</div>${list}<div class="row" style="margin-top:8px"><button class="sm" data-sf-sheet-all onclick="sfSheetStore('${esc(code)}',[])">All columns</button></div></div>
+  <div class="sf-sheet-preview"><div class="mut small">Preview${m?' · '+esc(m.code||m.station):''}</div>${m?`<div class="sf-sheet-paper">${carrierSheetHTML(m,carrierColsOn(cols),{id:'',name:''})}</div>`:'<div class="empty">No dolly or skid in use to preview</div>'}</div></div>`;
 }
