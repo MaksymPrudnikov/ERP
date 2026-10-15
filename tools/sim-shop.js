@@ -41,6 +41,8 @@
           --inventory (склад: поставщики, закупки и приёмки блоками, пересчёт,
             минимумы, Held, Offset у Maver, куски S-, лопнувший лист — для
             прохода по складу; имя по умолчанию shop-inventory)
+          --guide (в конце заказы на каждом этапе и <name>-guide.md —
+            путеводитель «этап → заказ → клиент → где смотреть»)
    ===================================================================== */
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -49,13 +51,13 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const o = { start: '2025-08-04', end: '2026-10-10', seed: 20261011, scale: 1, name: '', out: path.join(os.homedir(), '.glass-erp-walk', 'sim'),
-  small: false, quickCut: false, check: false, inventory: false };
+  small: false, quickCut: false, check: false, inventory: false, guide: false, endHour: 0 };
 const argv = require.main === module ? process.argv.slice(2) : [];
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i], v = () => argv[++i];
   if (a === '--start') o.start = v(); else if (a === '--end') o.end = v(); else if (a === '--seed') o.seed = +v();
   else if (a === '--scale') o.scale = +v(); else if (a === '--name') o.name = v(); else if (a === '--out') o.out = v();
-  else if (a === '--small') o.small = true; else if (a === '--end-at') o.endAt = +v(); else if (a === '--quick-cut') o.quickCut = true; else if (a === '--check') o.check = true; else if (a === '--inventory') o.inventory = true;
+  else if (a === '--small') o.small = true; else if (a === '--end-at') o.endAt = +v(); else if (a === '--quick-cut') o.quickCut = true; else if (a === '--check') o.check = true; else if (a === '--inventory') o.inventory = true; else if (a === '--guide') o.guide = true;
   else if (a === '-h' || a === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('*/')[0]); process.exit(0); }
   else { console.error('Неизвестный ключ: ' + a); process.exit(2); }
 }
@@ -1098,6 +1100,7 @@ function simPage() {
      Закупает генератор по своему счёту листов: посреди прогона склад ERP
      читать нельзя — старое лежит в архиве. Пересчёт, списание и Not found /
      Found у кусков — в конце (SIM.invFinal), когда архив вернулся в базу.
+     Заказы на всех этапах — SIM.stagesFill и SIM.guide ниже.
      ===================================================================== */
   let INV = null;
   /* код и блоков на пирамиде 130 × 96 на старте; листов в блоке (владелец,
@@ -1208,8 +1211,7 @@ function simPage() {
   }
   /* Конец, архив уже в базе: пересчёт пяти стёкол (у одного листа не
      хватило), лист разбили на стеллаже, кусок S- не нашли, другой не нашли и
-     нашли; этапы, которых случайно не оказалось, — заказ ждёт Verify, ждёт
-     батча, On Hold. */
+     нашли, приёмка без Sheets. */
   SIM.invFinal = function (end) {
     if (!INV) return null;
     at(T(end, 9, 50)); asOffice(people['Sergiy Lysenko']);
@@ -1217,6 +1219,13 @@ function simPage() {
     rows.slice().sort((a, c) => c.onRack - a.onRack).slice(0, 5).forEach((r, i) => { counted[r.key] = String(r.onRack - (i === 1 ? 1 : 0)); });
     if (Object.keys(counted).length) { const r = invCountSave(counted); if (!r.ok) fail('final count', r.error); }
     const w = rows.find(r => r.onRack > 4 && !counted[r.key]); if (w) { const r = invWriteOff(w.key, '1', 'Broken on rack', 'Forklift'); if (!r.ok) fail('write off', r.error); }
+    /* Заказ стекла, который ещё в пути: придёт завтра. */
+    if (!(DB.purchaseOrder || []).some(p => !p.deletedAt && p.lines.every(l => !l.held) && ['Sent', 'Partially received'].includes(purOrderStatus(p)))) {
+      at(T(end, 9, 49)); const r = purOrderSave({ supplierId: INV.sup.coated.id, state: 'sent', date: end, expectedDate: addWork(end, 1), lines: [{ id: 'L1', kind: 'glass', productId: glassProductByCode('6E272').id, qty: 2, unit: 'block', sheetsPerBlock: 16, widthIn: 130, heightIn: 96 }] });
+      if (!r.ok) fail('po in transit', r.error);
+    }
+    /* Оптимизатор поднял минимум у ходового стекла — оно ниже минимума. */
+    const lowRow = invSheetRows().find(r => counted[r.key] && r.free > 0); if (lowRow) invSetMin(lowRow.key, String(lowRow.free + invPer(lowRow.code)));
     /* Приёмка, где листы ещё не вписали, — «Enter sheets» на виду. */
     if (!invReceiptLines().some(x => x.issue === 'Enter sheets')) {
       at(T(end, 9, 51)); const po = purOrderSave({ supplierId: INV.sup.clear.id, state: 'sent', date: end, lines: [{ id: 'L1', kind: 'glass', productId: glassProductByCode('6CLEAR').id, qty: 2, unit: 'block', sheetsPerBlock: 16, widthIn: 130, heightIn: 96 }] });
@@ -1225,14 +1234,97 @@ function simPage() {
     const here = invOffcutRows().filter(o => INV_OFFCUT_HERE.includes(o.status));
     if (here[0]) invOffcutLost([here[0].id]);
     if (here[1]) { invOffcutLost([here[1].id]); invOffcutFound(here[1].id); }
-    const live = DB.salesOrder.filter(o => !salesIsQuote(o)), has = f => live.some(f), made = [];
-    const fresh = () => { const c = pickCustomer(); const id = newOrder(c, end); if (id) cnt('order'); return id; };
-    if (!has(o => o.status === 'new' && !o.onHold)) { at(T(end, 9, 52)); if (fresh()) made.push('new'); }
-    if (!has(o => o.status === 'verified' && !o.onHold)) { at(T(end, 9, 54)); const id = fresh(); if (id) { asOffice(people['Sergiy Lysenko']); salesSetRecordStatus(id, 'verified'); made.push('verified'); } }
-    if (!has(o => o.onHold)) { at(T(end, 9, 56)); const o = live.filter(x => x.status === 'batched' && !x.onHold)[1], id = o ? o.id : fresh(); if (id) { asOffice(people['Kate Novak']); salesHoldApply([id], 'Waiting for site measure'); made.push('on hold'); } }
     logCapture();
     const st = {}; DB.salesOrder.forEach(o => { const k = salesIsQuote(o) ? 'quote ' + o.status : o.onHold ? 'on hold' : o.status; st[k] = (st[k] || 0) + 1; });
-    return { counted: Object.keys(counted).length, rows: invSheetRows().filter(r => r.lastCount).length, offcuts: invOffcutRows().length, made, statuses: st };
+    return { counted: Object.keys(counted).length, rows: invSheetRows().filter(r => r.lastCount).length, offcuts: invOffcutRows().length, statuses: st };
+  };
+
+  /* =====================================================================
+     Путеводитель (--guide). Владелец, 15.10.2026: «клиенты, заказы, где
+     заказ на каждом из этапов, условный процесс за 7 дней: кому-то
+     отправили, кто-то не заплатил, где-то стекло на скиде, а где-то на
+     долли, с отчётами». После прогона — пример каждого этапа: номер заказа,
+     клиент, где смотреть (SIM.guide). Этапы, которых случайно не оказалось
+     и которые можно сделать без цеха, досоздаются в конце (SIM.stagesFill):
+     черновик квоты, выигранная квота, заказ ждёт Verify, ждёт батча, On
+     Hold, отменён, батч с раскроем, который ещё не резали, и батч, который
+     начали резать.
+     ===================================================================== */
+  SIM.stagesFill = function (end, hour) {
+    const live = () => DB.salesOrder.filter(o => !salesIsQuote(o)), has = f => live().some(f), made = [];
+    let m = 0; const tick = () => at(T(end, hour - 0.5, m++));
+    const fresh = () => { const c = pickCustomer(); const id = newOrder(c, end); if (id) cnt('order'); return id; };
+    if (!DB.salesOrder.some(o => salesIsQuote(o) && o.status === 'open')) { tick(); const c = pickCustomer(); if (newOrder(c, end, { kind: 'quote' })) { cnt('quote'); made.push('quote draft'); } }
+    if (!has(o => o.status === 'new' && !o.onHold)) { tick(); if (fresh()) made.push('new'); }
+    if (!has(o => o.status === 'verified' && !o.onHold)) { tick(); const id = fresh(); if (id) { asOffice(people['Sergiy Lysenko']); salesSetRecordStatus(id, 'verified'); made.push('verified'); } }
+    if (!has(o => o.onHold)) { tick(); const o = live().filter(x => x.status === 'batched' && !x.onHold)[1], id = o ? o.id : fresh(); if (id) { asOffice(people['Kate Novak']); salesHoldApply([id], 'Waiting for site measure'); made.push('on hold'); } }
+    if (!has(o => o.status === 'cancelled')) { tick(); const id = fresh(); if (id) { asOffice(people[CUST.find(c => c.id === salesRecord(id).customerId).rep]); salesSetRecordStatus(id, 'cancelled'); made.push('cancelled'); } }
+    /* Квота, которую клиент принял: Convert, как у продажника днём. */
+    if (!DB.salesOrder.some(o => salesIsQuote(o) && o.status === 'won')) { tick(); const c = pickCustomer(), id = newOrder(c, end, { kind: 'quote' }); if (id) { winQuote({ id, rep: c.rep, created: end }, end); if (salesRecord(id).status === 'won') made.push('quote won'); } }
+    /* Батч с собранным раскроем, который ещё не резали: оптимизатор собрал его
+       только что; и батч, который начали резать: на CUT порезали одно стекло. */
+    const batchNow = () => {
+      const id = fresh(); if (!id) return null;
+      asOffice(people['Sergiy Lysenko']); salesSetRecordStatus(id, 'verified'); const o = salesRecord(id); glassPieceEnsure(o);
+      const rows = glassBatchRows([o]).filter(r => !r.reason && r.cut && r.piece), groups = new Map(); rows.forEach(r => { if (!groups.has(r.glassId)) groups.set(r.glassId, []); groups.get(r.glassId).push(r); });
+      const out = []; groups.forEach(g => { const b = glassBatchAssign(g, {}); if (!b) return; if (INV) invBeforeBuild(b); const r = QUICK ? cutDrain(cutPlanSteps(b.number, null, true)) : cutPlanRun(b.number); if (r && r.error) fail('stage batch', r.error); out.push(b); });
+      return salesRecord(id).status === 'batched' ? out : null;
+    };
+    const batchesOf = o => (DB.glassBatch || []).filter(b => b.parts.some(pt => pt.orderId === o.id)).map(b => glassBatchActiveItems(b));
+    const uncut = o => o.status === 'batched' && batchesOf(o).some(a => a.length && a.every(i => !i.cutStartedAt));
+    const partly = o => o.status === 'batched' && batchesOf(o).some(a => a.some(i => i.cutStartedAt) && a.some(i => !i.cutStartedAt));
+    if (!has(uncut)) { tick(); if (batchNow()) made.push('batched, not cut'); }
+    if (!has(partly)) {
+      tick(); const bs = batchNow(), w = (ROSTER.CUT || [])[0], it = bs && bs[0] && glassBatchActiveItems(bs[0])[0];
+      if (it && w) { asStation('CUT', w.p, ''); const before = DB.stationScan.length; stationSubmit(it.piece); if (DB.stationScan.length > before && glassBatchActiveItems(bs[0]).some(i => !i.cutStartedAt)) made.push('cutting started'); }
+    }
+    logCapture(); return made;
+  };
+  SIM.guide = function () {
+    const out = [], used = new Set(), cust = o => salesCustomerDisplay(o.customerId) || '', num = o => o.businessNumber || o.number || o.id;
+    const piecesOf = o => (DB.glassPiece || []).filter(r => String(r.key).startsWith(o.id + '|')).flatMap(r => (r.ids || []).concat(...Object.values(r.extra || {}))).filter(Boolean);
+    const glassInfo = id => { const g = stationGlass(id); if (!g) return null; const sc = stationScansFor(id).sort((a, b) => String(a.at).localeCompare(String(b.at))), last = sc[sc.length - 1], pl = stationPlace(g, sc); return { id, on: last && last.on || '', waiting: pl.waiting, assembling: !!pl.assembling, cut: !!(g.entry && g.entry.item.cutStartedAt) }; };
+    const orders = DB.salesOrder.map(o => { const q = salesIsQuote(o); return { o, q, hold: !!o.onHold, st: o.status, bal: !q && finOrderCounts(o) ? finOrderBalance(o) : null, glass: q ? [] : piecesOf(o).map(glassInfo).filter(Boolean), ships: q ? [] : shippingForOrder(o.id) }; });
+    const add = (stage, where, test, note) => {
+      const x = orders.find(c => !used.has(c.o.id) && test(c)) || orders.find(c => test(c));
+      if (!x) { out.push({ stage, order: '—', customer: '', where, note: 'нет в этой базе' }); return; }
+      used.add(x.o.id); out.push({ stage, order: num(x.o), customer: cust(x.o), where, note: note ? note(x) : '' });
+    };
+    const dolly = c => c.glass.find(g => /^D/.test(g.on) && g.waiting && !['SHIPR', 'SHIP'].includes(g.waiting));
+    add('Квота — черновик, не отправлена', 'Sales → Quotes', c => c.q && c.st === 'open');
+    add('Квота — отправлена клиенту', 'Sales → Quotes', c => c.q && c.st === 'sent');
+    add('Квота — выиграна, стала заказом', 'Sales → Quotes', c => c.q && c.st === 'won', c => { const w = salesRecord(c.o.wonOrderId); return w ? 'заказ ' + num(w) : ''; });
+    add('Заказ — новый, ждёт Verify', 'Sales; Optimization → New', c => !c.q && c.st === 'new' && !c.hold, c => { const ch = salesTransitionChecks(c.o, 'verified'); return ch.length ? ch[0].title : ''; });
+    add('Заказ — проверен, ждёт батча', 'Optimization → To batch', c => c.st === 'verified' && !c.hold);
+    add('Заказ — On Hold', 'Sales (фильтр On Hold)', c => !c.q && c.hold);
+    add('Заказ — отменён', 'Sales (Show: cancelled)', c => c.st === 'cancelled');
+    add('В батче, раскрой собран, резать не начали', 'Optimization → Batches', c => c.st === 'batched' && c.glass.length && c.glass.every(g => !g.cut));
+    add('Режут: часть стекла уже порезана', 'Optimization → Batches; станция CUT', c => c.st === 'batched' && c.glass.some(g => g.cut) && c.glass.some(g => !g.cut));
+    add('Стекло на долли, ждёт следующую станцию', 'Production; станция по маршруту', c => !c.hold && !!dolly(c), c => { const g = dolly(c); return g.id + ' на ' + g.on + ', ждёт ' + g.waiting; });
+    add('Стеклопакет собирают на IGU', 'Станция IGU', c => c.glass.some(g => g.assembling || g.waiting === 'IGU'));
+    add('Перерезка (Recut) после боя', 'Sales → заказ → Recut', c => (DB.recut || []).some(r => r.orderId === c.o.id), c => { const r = DB.recut.find(x => x.orderId === c.o.id); return r ? 'R' + r.no : ''; });
+    add('Готов — юниты на скиде', 'Shipping → Awaiting', c => c.st === 'ready' && c.glass.some(g => /^S/.test(g.on)), c => 'скид ' + c.glass.find(g => /^S/.test(g.on)).on);
+    add('Самовывоз — готов, ждёт клиента', 'Shipping', c => ['ready', 'shipping'].includes(c.st) && c.o.delivery === 'pickup');
+    add('Накладная на рейс — запланирована', 'Shipping → Delivery', c => c.ships.some(s => s.method === 'delivery' && s.status === 'planned'), c => c.ships.find(s => s.status === 'planned').number);
+    add('В машине — отгружено, ещё не доставлено', 'Shipping → Delivery', c => c.ships.some(s => s.status === 'shipped'), c => c.ships.find(s => s.status === 'shipped').number);
+    add('Отгружено частично', 'Shipping', c => c.st === 'shipping');
+    add('Выдано — не оплачено (долг)', 'Finance; Sales → Balance', c => c.st === 'done' && c.bal && c.bal.status === 'due', c => '$' + c.bal.balance.toFixed(2));
+    add('Оплачено и закрыто', 'Sales; Finance', c => c.st === 'closed');
+    /* Склад. */
+    const po = (DB.purchaseOrder || []).find(p => !p.deletedAt && p.lines.some(l => !l.held) && ['Draft', 'Sent', 'Partially received'].includes(purOrderStatus(p)));
+    out.push({ stage: 'Склад: закупка в пути (PO)', order: po ? po.number : '—', customer: po ? purSupplierDisplay(po) : '', where: 'Purchasing → Purchase orders; Inventory → On order', note: '' });
+    const rl = typeof invReceiptLines === 'function' ? invReceiptLines().find(x => x.issue === 'Enter sheets') : null;
+    out.push({ stage: 'Склад: приёмка без числа листов', order: rl ? rl.r.number : '—', customer: rl ? purSupplierDisplay(rl.r) : '', where: 'Purchasing → Receipts; Inventory (Enter sheets)', note: '' });
+    const held = (DB.purchaseOrder || []).find(p => p.lines.some(l => l.held)), req = (DB.purchaseDeliveryRequest || [])[0];
+    out.push({ stage: 'Склад: стекло у поставщика (Held) и заявка', order: held ? held.number : '—', customer: held ? purSupplierDisplay(held) : '', where: 'Purchasing → Held at supplier, Delivery requests', note: req ? req.number : '' });
+    const br = (DB.sheetBreak || []).find(x => !x.undoneAt), bu = (DB.sheetBreak || []).find(x => x.undoneAt);
+    out.push({ stage: 'Склад: лопнул лист на CUT', order: br ? br.batch : '—', customer: '', where: 'Inventory → Journal (Undo)', note: br ? 'sheet ' + br.sheet + (bu ? '; отменён слом: ' + bu.batch + ' · sheet ' + bu.sheet : '') : '' });
+    const offs = typeof invOffcutRows === 'function' ? invOffcutRows() : [], o1 = s2 => offs.find(o => o.status === s2);
+    out.push({ stage: 'Склад: куски S-', order: (o1('On rack') || {}).id || '—', customer: '', where: 'Inventory → Offcuts', note: ['Used', 'Coming', 'Written off'].map(s2 => o1(s2) ? s2 + ' ' + o1(s2).id : '').filter(Boolean).join('; ') });
+    const rows = typeof invSheetRows === 'function' ? invSheetRows() : [], neg = rows.find(r => r.status === 'Negative' || r.free < 0), low = rows.find(r => r.status === 'Below minimum');
+    out.push({ stage: 'Склад: ниже минимума / минус', order: (low || neg || {}).key || '—', customer: '', where: 'Inventory → Sheets (плитки)', note: neg && neg !== low ? 'минус: ' + neg.key : '' });
+    out.push({ stage: 'Отчёты', order: String((DB.report || []).length), customer: '', where: 'Reports', note: (DB.report || []).slice(0, 4).map(r => r.name).join('; ') });
+    return out;
   };
 
   const ARCH = { glassPiece: [], glassUnitId: [], stationScan: [], productionRoute: [], glassBatch: [], cutPlan: [], shipment: [], salesOrder: [], shapeDef: [], financeTerms: [], orderEvent: [] };
@@ -1600,9 +1692,13 @@ if (require.main === module) (async () => {
   }
   const gen = await p.evaluate(e => SIM.finish(e), o.end);
   console.log('finish', JSON.stringify(gen));
-  if (o.inventory) {
-    await p.evaluate(() => SIM.unarchive());
-    console.log('склад', JSON.stringify(await p.evaluate(e => SIM.invFinal(e), o.end)));
+  if (o.inventory || o.guide) await p.evaluate(() => SIM.unarchive());
+  if (o.inventory) console.log('склад', JSON.stringify(await p.evaluate(e => SIM.invFinal(e), o.end)));
+  if (o.guide) {
+    console.log('досоздано', JSON.stringify(await p.evaluate(([e, h]) => SIM.stagesFill(e, h), [o.end, o.endAt || 21])));
+    const g = await p.evaluate(() => SIM.guide()), cell = v => String(v == null ? '' : v).replace(/\|/g, '/');
+    fs.writeFileSync(path.join(o.out, o.name + '-guide.md'), '# Путеводитель по базе ' + o.name + '\n\nЦех ' + o.start + ' — ' + o.end + (o.endAt ? ' (до ' + o.endAt + ':00)' : '') + '. Import JSON заменяет базу в браузере целиком: сначала Export своей.\n\n| Этап | Заказ | Клиент | Где смотреть | Заметка |\n|---|---|---|---|---|\n' + g.map(r => '| ' + [r.stage, r.order, r.customer, r.where, r.note].map(cell).join(' | ') + ' |').join('\n') + '\n');
+    console.log('путеводитель', path.join(o.out, o.name + '-guide.md'), g.filter(r => r.order === '—').map(r => r.stage).join('; ') || 'все этапы есть');
   }
   const n = await p.evaluate(() => SIM.exportPlan());
   const file = path.join(o.out, o.name + '.json'), fd = fs.openSync(file, 'w');
