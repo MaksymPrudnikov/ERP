@@ -3301,7 +3301,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='92d6d398146c';
+var ERP_BUILD='440c73c487f2';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -42406,7 +42406,7 @@ let storageRecovery=false,storageBackupAt='',storageTakeover=null,storageHandoff
    It is kept for a week and dropped earlier when an ordinary save would
    otherwise fail for lack of space; a broken database keeps it untouched. */
 const STORAGE_BACKUP_DAYS=7;
-let storageBackupPresent=false,storageImporting=false;
+let storageBackupPresent=false,storageImporting=false,storageLastQuota=false;
 function storageBackupCheck(){
  const raw=storageRead(STORAGE_BACKUP_KEY);storageBackupPresent=raw!==null;
  if(!raw||!storageWriter||storageRecovery)return;
@@ -42452,9 +42452,12 @@ function touch(){
   storageLastError='Not saved. Your operation is still open; retry or export your changes.';
   if(storageBaseline&&!storageRecovery){DB=JSON.parse(storageBaseline);storageInvalidate();}
   console.error('localStorage write failed:',e);
+  /* Нет места при Import — об этом спрашивает сам Import (storageImportState). */
+  if(storageImporting&&storageQuotaError(e)){storageLastQuota=true;return false;}
   if(!storageWarningShown){storageWarningShown=true;alert(storageLastError);}return false;
  }
 }
+function storageQuotaError(e){return !!e&&(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED'||e.code===22||e.code===1014);}
 function storageRead(key){try{return localStorage.getItem(key);}catch(e){return null;}}
 function storageReadOnlyText(){return storageTakeover?'Switching editing to this tab — repeat the action in a moment.':'Glass Farm is busy in another tab. Click here to continue, or close the other tab.';}
 /* Footer: a calm status line. Problems that stop the work go to the alert
@@ -42588,13 +42591,34 @@ function storageImportState(raw){
  const backup=JSON.stringify({format:'glass-erp',schemaVersion:1,exportedAt:new Date().toISOString(),data:JSON.parse(old)});
  const recovering=storageRecovery;
  if(recovering){storageDownload('glazing_system_recovery.json',localStorage.getItem(STORAGE_KEY)||'');storageRecovery=false;}
- storageImporting=true;
+ storageImporting=true;storageLastQuota=false;
  const result=storageCommand(()=>{
-  localStorage.setItem(STORAGE_BACKUP_KEY,backup);storageBackupPresent=true;if(localStorage.getItem(STORAGE_BACKUP_KEY)!==backup)throw new Error('The recovery copy could not be verified.');
+  try{localStorage.setItem(STORAGE_BACKUP_KEY,backup);}catch(e){if(storageQuotaError(e))storageLastQuota=true;throw e;}
+  storageBackupPresent=true;if(localStorage.getItem(STORAGE_BACKUP_KEY)!==backup)throw new Error('The recovery copy could not be verified.');
   DB=next;return true;
  });
  storageImporting=false;storageBackupPresent=storageRead(STORAGE_BACKUP_KEY)!==null;
+ if(!result.ok&&storageLastQuota){storageLastQuota=false;return storageImportWithoutCopy(next,backup,recovering);}
  if(!result.ok){storageRecovery=recovering;alert(result.error);return false;}
+ storageInvalidate();render();return true;
+}
+/* Браузер держит около 5 МБ на сайт, а Import кладёт рядом копию текущей
+   базы и новую. Не помещаются вместе — не молчаливый откат «Not saved»
+   (владелец, 15.10.2026: база недели 4,3 МБ не загрузилась), а вопрос:
+   текущая база уходит файлом в загрузки, новая встаёт без копии. Не
+   помещается и одна — так и сказать. */
+function storageImportWithoutCopy(next,backup,recovering){
+ const mb=n=>(n/1048576).toFixed(1),size=JSON.stringify(next).length;
+ if(!confirm('This browser has no room for the new database ('+mb(size)+' MB) next to a recovery copy of the current one ('+mb(backup.length)+' MB).\n\nSave the current database as a file and replace it without a copy?')){storageRecovery=recovering;return false;}
+ const prior=storageRead(STORAGE_BACKUP_KEY);storageBackupDrop();
+ storageImporting=true;
+ const result=storageCommand(()=>{DB=next;return true;});
+ storageImporting=false;
+ /* Не встала и одна — копия возвращается на место: ничего не заменено. */
+ if(!result.ok&&prior!==null)try{localStorage.setItem(STORAGE_BACKUP_KEY,prior);}catch(e){}
+ storageBackupPresent=storageRead(STORAGE_BACKUP_KEY)!==null;
+ if(!result.ok){const quota=storageLastQuota;storageLastQuota=false;storageRecovery=recovering;alert(quota?'The file ('+mb(size)+' MB) is too big for this browser. Nothing was replaced.':result.error);return false;}
+ storageDownload('glazing_system_before_import.json',backup);
  storageInvalidate();render();return true;
 }
 function storageRestoreBackup(){
