@@ -3045,6 +3045,15 @@ button.cw-danger:hover{background:var(--danger-soft)}
 .cs-count{float:right;font-weight:400;font-size:8.4pt;color:var(--cs-mut)}
 .cs-total{font-weight:700;font-size:9.4pt;margin-top:8px}
 
+/* Data → Stations: колонки листа станции и образец. */
+.sf-sheet{display:grid;grid-template-columns:300px 1fr;gap:18px;padding:10px 4px}
+.sf-sheet h4{margin:0 0 2px;font-size:14px}
+.sf-sheet-cols .sl-cols-row{background:var(--surface)}
+.sf-sheet-preview{min-width:0}
+.sf-sheet-paper{zoom:.72;border:1px solid var(--line);border-radius:6px;margin-top:6px;max-height:820px;overflow:hidden}
+.sf-sheet-paper .cs-sheet{padding:28px 34px}
+@media(max-width:900px){.sf-sheet{grid-template-columns:1fr}}
+
 /* ---- src/styles/reports.css ---- */
 /* =====================================================================
    Графики, Board станции и отчёты (view/charts, view/station-board).
@@ -3425,7 +3434,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='e8e47e8d897a';
+var ERP_BUILD='aa7d5de7558b';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -8739,7 +8748,9 @@ function normalizeShopFloor(){
   const dim=v=>{const n=+v;return isFinite(n)&&n>0?n:null;};
   return {seq,code:sfCode(s.code),name:sfStr(s.name),nameEn:sfStr(s.nameEn),always:s.always===true,
    maxW:dim(s.maxW),maxL:dim(s.maxL),sizeMeasured:s.sizeMeasured===true,note:sfStr(s.note),
-   ...(SF_PUTS_ON.some(([k])=>k===s.putsOn)?{putsOn:s.putsOn}:{})};
+   ...(SF_PUTS_ON.some(([k])=>k===s.putsOn)?{putsOn:s.putsOn}:{}),
+   /* Колонки листа долли/скида станции (erp/shopfloor/carriers). */
+   ...(Array.isArray(s.sheetCols)&&typeof carrierColsClean==='function'&&carrierColsClean(s.sheetCols).length?{sheetCols:carrierColsClean(s.sheetCols)}:{})};
  }).sort((a,b)=>a.seq-b.seq);
 
  const tSeen=Object.create(null);
@@ -24036,7 +24047,7 @@ function shippingReadyHTML(){
  return customers.map(id=>{
   const os=orders.filter(o=>o.customerId===id),summaries=os.map(o=>({o,q:shippingSummary(o)})),units=os.flatMap(shippingUnits),free=units.filter(i=>i.ready&&!i.shipment);
   const c=salesFindCustomer(id),skids=[...new Set(units.filter(i=>i.ready&&i.skid).map(i=>i.skid))],loose=free.filter(i=>!i.skid).length;
-  const skidHTML=skids.map(code=>{const all=units.filter(i=>i.ready&&i.skid===code),a=all.filter(i=>!i.shipment),counts=new Map();all.forEach(i=>counts.set(i.orderId,(counts.get(i.orderId)||0)+1));return `<div class="shipping-skid"><label><input type="checkbox" ${a.length?'':'disabled'} ${a.length&&a.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectSkid('${esc(id)}','${code}',this.checked)"><b>${code}</b></label><span>${shippingCount(all.length,'unit')} · ${[...counts].map(([oid,n])=>esc(salesRecord(oid).businessNumber)+' ×'+n).join(', ')}${all.length>a.length?' · '+(all.length-a.length)+' on PS':''}</span><button class="sm" onclick="shippingPrintSkid('${esc(id)}','${code}')">Skid sheet</button></div>`;}).join('');
+  const skidHTML=skids.map(code=>{const all=units.filter(i=>i.ready&&i.skid===code),a=all.filter(i=>!i.shipment),counts=new Map();all.forEach(i=>counts.set(i.orderId,(counts.get(i.orderId)||0)+1));return `<div class="shipping-skid"><label><input type="checkbox" ${a.length?'':'disabled'} ${a.length&&a.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectSkid('${esc(id)}','${code}',this.checked)"><b>${code}</b></label><span>${shippingCount(all.length,'unit')} · ${[...counts].map(([oid,n])=>esc(salesRecord(oid).businessNumber)+' ×'+n).join(', ')}${all.length>a.length?' · '+(all.length-a.length)+' on PS':''}</span><button class="sm" data-skid-sheet="${code}" onclick="carrierPrintCode('${code}')">Skid sheet</button></div>`;}).join('');
   const rows=summaries.map(({o,q})=>{
    const keys=shippingOrderKeys(o),back=v=>q.shipped?v:'—';
    return `<tr class="shipping-order-row"><td colspan="3"><label><input type="checkbox" ${keys.length?'':'disabled'} ${keys.length&&keys.every(k=>shippingSelection.has(k))?'checked':''} onchange="shippingSelectOrder('${esc(o.id)}',this.checked)"><button class="sm" onclick="optimizationOpenOrder('${esc(o.id)}')">Order ${esc(o.businessNumber)}</button></label>${o.customerPo?' · PO '+esc(o.customerPo):''}</td><td>${q.ready}</td><td>${Math.max(0,q.glass-q.physicalReady-q.lines.reduce((n,l)=>n+l.shipped,0))}</td><td>${back(q.back)}</td><td></td><td></td></tr>`
@@ -24189,17 +24200,20 @@ function viewSfStations(edit){
    <td><span class="pill ${s.always?'ok':'info'}">${s.always?'always':'when required'}</span></td>
    <td class="mono">${sfDimText(s)}</td>
    <td>${sfPutsOnCell(s,edit)}</td>
+   <td style="white-space:nowrap">${typeof carrierSheetCell==='function'?carrierSheetCell(s,edit):''}</td>
    <td>${w.length?w.slice(0,6).map(o=>`<span class="pill info" data-raw>${esc(o.name||o.id)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>'}</td>
    <td class="mut" style="max-width:260px">${raw(s.note||'')}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>
    ${edit?`<button class="sm" onclick="stEdit=${i};render()">Edit</button>
-   <button class="sm dl" data-sf-del="${esc(s.code)}" onclick="delSfStation(${i})">×</button>`:''}</td></tr>`;
+   <button class="sm dl" data-sf-del="${esc(s.code)}" onclick="delSfStation(${i})">×</button>`:''}</td></tr>`+
+   /* Колонки листа долли/скида станции — под её строкой (views/carriers-board). */
+   (edit&&typeof sfSheetEdit!=='undefined'&&sfSheetEdit===s.code?`<tr class="sf-sheet-row"><td colspan="10">${carrierSheetEditorHTML(s.code)}</td></tr>`:'');
  }).join('');
  return `${edit&&stEdit!==null?sfStationForm():''}
   <div class="sub">${edit?'Glass goes through the steps in order. The same step number makes stations parallel — a glass visits only the ones its works need. Each work in <b>Works</b> names its station: that is the route, the sticker and the scan screen.':'Route steps in order. Stations are added, removed and ordered in Master Data → Stations.'}</div>
   ${edit?'':`<div class="row" style="margin:0 0 10px"><button class="sm" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`}
-  <div class="sales-table-wrap"><table><thead><tr><th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th title="What glass goes on after this station">Puts on</th><th>Works</th><th>Note</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="9" class="empty">empty</td></tr>'}</tbody></table></div>
+  <div class="sales-table-wrap"><table><thead><tr><th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th title="What glass goes on after this station">Puts on</th><th title="Columns of the printed dolly or skid sheet">Dolly / skid sheet</th><th>Works</th><th>Note</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="10" class="empty">empty</td></tr>'}</tbody></table></div>
   ${edit&&stEdit===null?'<div class="row"><button class="pri" data-sf-add onclick="stEdit=&quot;new&quot;;render()">Add station</button><button data-sf-tidy onclick="sfStationsTidy()" title="Renumber steps 1, 2, 3… keeping parallel stations together">Tidy step numbers</button></div>':''}`;
 }
 /* На что кладут стекло после станции — ставит владелец (6.10.2026). Без
@@ -34601,6 +34615,16 @@ function carrierColsSave(userId,cols){return storageCommand(()=>{
  if(clean.length)r.cols=clean;else DB.carrierCols=DB.carrierCols.filter(x=>x!==r);
  return true;
 });}
+/* Колонки листа «что на долли / скиде» у станции (владелец, 15.10.2026:
+   «чтобы была возможность настроить под каждую станцию»): поле sheetCols в
+   записи станции, Data → Stations. Пусто — все колонки. Печатает станция —
+   своим набором; окно в офисе открывается с набором станции, которая
+   положила стекло, если у человека нет своего (DB.carrierCols). */
+function carrierStationCols(code){const s=(DB.station||[]).find(x=>x.code===code);return s&&Array.isArray(s.sheetCols)&&s.sheetCols.length?s.sheetCols.map(c=>({k:c.k,on:c.on})):null;}
+function carrierStationColsSave(code,cols){return storageCommand(()=>{
+ const s=(DB.station||[]).find(x=>x.code===code);if(!s)throw new Error('Unknown station.');
+ const clean=carrierColsClean(cols);if(clean.length)s.sheetCols=clean;else delete s.sheetCols;return true;
+});}
 function carrierColsClean(cols){const seen=new Set();return (Array.isArray(cols)?cols:[]).filter(c=>c&&typeof c.k==='string'&&/^[a-z]{1,20}$/i.test(c.k)&&!seen.has(c.k)&&(seen.add(c.k),true)).slice(0,40).map(c=>({k:c.k,on:!!c.on}));}
 /* Перенос стёкол на другую тару — исправление ошибки рабочего (владелец,
    6 октября 2026: «он знает, что на долли №3 у него 30 стёкол этого батча,
@@ -38277,7 +38301,7 @@ function stationDollyHTML(){
   '<div class="mut">#1 went on first. Tap the first and the last glass to move.</div>'+
   (n?'<table class="st-mv"><thead><tr><th>#</th><th>Order</th><th>Line</th><th>Glass</th><th>Batch</th><th>Next</th><th>Scanned</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty">Nothing on it</div>')+
   (d.error?'<div class="st-pin-err" role="alert">'+esc(d.error)+'</div>':'')+
-  '<div class="st-drawer-foot">'+(count?'<span data-dolly-sel><b>'+count+' glass</b> #'+lo+(hi>lo?'–'+hi:'')+' →</span><input class="st-mv-to" data-station-keep data-dolly-to placeholder="DL-4" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationDollyMove(this.value)}"><button type="button" class="b st-yes" data-dolly-move onclick="stationDollyMove(document.querySelector(\'[data-dolly-to]\').value)">Move</button>':'<span class="mut">Select glass to move</span>')+
+  '<div class="st-drawer-foot">'+(d.code&&n&&!count&&typeof carrierPrintButton==='function'?carrierPrintButton(d.code):'')+(count?'<span data-dolly-sel><b>'+count+' glass</b> #'+lo+(hi>lo?'–'+hi:'')+' →</span><input class="st-mv-to" data-station-keep data-dolly-to placeholder="DL-4" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationDollyMove(this.value)}"><button type="button" class="b st-yes" data-dolly-move onclick="stationDollyMove(document.querySelector(\'[data-dolly-to]\').value)">Move</button>':'<span class="mut">Select glass to move</span>')+
   (d.code&&n&&!count?stationEmptyButton(d.code):'')+'<button type="button" class="b" onclick="stationCloseDrawer()">Close</button></div></div>';
 }
 
@@ -38910,7 +38934,7 @@ function stationSkidHTML(){
   '<div class="mut">Tap a customer — all its units; tap a unit — one by one'+esc(since)+'</div>'+
   (items.length?'<table class="st-mv st-skid-t"><tbody>'+rows+'</tbody></table>':'<div class="empty">Nothing on it</div>')+
   (d.error?'<div class="st-pin-err" role="alert">'+esc(d.error)+'</div>':'')+
-  '<div class="st-drawer-foot">'+(n?'<span data-skid-sel><b>'+n+' selected</b> →</span>'+stationSkidTargets(d.code).map(c=>'<button type="button" class="b sm" data-skid-to="'+esc(c)+'" onclick="stationSkidMove(\''+esc(c)+'\')">'+esc(c)+'</button>').join('')+
+  '<div class="st-drawer-foot">'+(!n&&list.length&&typeof carrierPrintButton==='function'?carrierPrintButton(d.code):'')+(n?'<span data-skid-sel><b>'+n+' selected</b> →</span>'+stationSkidTargets(d.code).map(c=>'<button type="button" class="b sm" data-skid-to="'+esc(c)+'" onclick="stationSkidMove(\''+esc(c)+'\')">'+esc(c)+'</button>').join('')+
    '<input class="st-mv-to" data-station-keep data-skid-to-input placeholder="SL-5" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationSkidMove(this.value)}"><button type="button" class="b st-yes" data-skid-move onclick="stationSkidMove(document.querySelector(\'[data-skid-to-input]\').value)">Move</button>':
    '<span class="mut">Select to move</span>'+stationEmptyButton(d.code))+
   '<button type="button" class="b" onclick="stationCloseDrawer()">Close</button></div></div>';
@@ -39638,12 +39662,17 @@ const CARRIER_COLS=[
  {k:'weight',label:'Weight kg'},
  {k:'puton',label:'Put on'}
 ];
-function carrierColPrefs(){
+/* Набор колонок: известные по порядку, новые колонки — видны. */
+function carrierColsFill(list){
  const seen=new Set(),out=[];
- (carrierColsOf(carrierMe().id)||[]).forEach(c=>{if(CARRIER_COLS.some(x=>x.k===c.k)&&!seen.has(c.k)){seen.add(c.k);out.push(c);}});
+ (list||[]).forEach(c=>{if(CARRIER_COLS.some(x=>x.k===c.k)&&!seen.has(c.k)){seen.add(c.k);out.push({k:c.k,on:!!c.on});}});
  CARRIER_COLS.forEach(c=>{if(!seen.has(c.k))out.push({k:c.k,on:true});});
  return out;
 }
+function carrierColsOn(list){return carrierColsFill(list).filter(c=>c.on).map(c=>CARRIER_COLS.find(x=>x.k===c.k));}
+/* В окне: свой набор человека, иначе — набор станции, которая положила
+   стекло на тару (Data → Stations), иначе все. */
+function carrierColPrefs(){return carrierColsFill(carrierColsOf(carrierMe().id)||carrierStationCols(carrierWinLoader())||[]);}
 function carrierColsShown(){return carrierColPrefs().filter(c=>c.on).map(c=>CARRIER_COLS.find(x=>x.k===c.k));}
 function carrierColsStore(cols){const out=carrierColsSave(carrierMe().id,cols);if(!out.ok&&carrierWin)carrierWin.error=out.error;render();}
 function carrierColSet(k,on){const cols=carrierColPrefs(),c=cols.find(x=>x.k===k);if(!c)return;c.on=!!on;if(!cols.some(x=>x.on))c.on=true;carrierColsStore(cols);}
@@ -39717,15 +39746,18 @@ function carrierCell(it,c){
 /* ------------------------------ Окно ------------------------------- */
 function carrierWinOpen(code,station){carrierWin={code:carrierCode(code||''),station:station||'',sel:new Set(),to:'',error:'',done:null,menu:false};render();return true;}
 function carrierWinClose(){carrierWin=null;render();}
-function carrierWinModel(){
- const w=carrierWin;if(!w)return null;
- if(w.code){
-  const list=carrierContents().get(w.code)||[],out=typeof skidsOut==='function'?skidsOut().get(w.code)||null:null;
-  return {code:w.code,type:carrierType(w.code),list,items:carrierItems(list),out,gone:out&&!list.length?carrierShippedItems(out):[]};
+function carrierModelOf(code,station){
+ if(code){
+  const list=carrierContents().get(code)||[],out=typeof skidsOut==='function'?skidsOut().get(code)||null:null;
+  return {code,type:carrierType(code),list,items:carrierItems(list),out,gone:out&&!list.length?carrierShippedItems(out):[]};
  }
- const list=carrierLoose().get(w.station)||[];
- return {code:'',station:w.station,word:carrierLooseWord(list),list,items:carrierItems(list),out:null,gone:[]};
+ const list=carrierLoose().get(station)||[];
+ return {code:'',station,word:carrierLooseWord(list),list,items:carrierItems(list),out:null,gone:[]};
 }
+function carrierWinModel(){const w=carrierWin;return w?carrierModelOf(w.code,w.station):null;}
+/* Кто положил: станция последнего скана на эту тару. */
+function carrierLoaderOf(m){const top=m&&m.items.length?m.items[m.items.length-1]:null;return top&&top.scan&&top.scan.station||'';}
+function carrierWinLoader(){return carrierWin?carrierLoaderOf(carrierWinModel()):'';}
 function carrierWinPick(key){const w=carrierWin;if(!w)return;if(w.sel.has(key))w.sel.delete(key);else w.sel.add(key);w.error='';render();}
 function carrierWinPickOrder(id){
  const w=carrierWin,m=carrierWinModel();if(!w||!m)return;
@@ -39819,8 +39851,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&carrierWin&&!(typeo
 const CARRIER_NOWRAP=['pos','line','size','id','next','due','weight'];
 function carrierStamp(iso){return iso?docDate(finLocalDate(iso))+' · '+stationTime(iso):'—';}
 function carrierSheetKind(m){return m.code?(carrierWord(m.code)==='skid'?'Skid contents':'Dolly contents'):'Not on a '+(m.word==='No skid'?'skid':'dolly');}
-function carrierSheetHTML(m,cols){
- const C=DOC_COLOR,co=docCompanyBlock(),me=carrierMe(),loaded=m.items.length>0,rows=loaded?m.items:m.gone,orders=carrierOrders(rows),one=orders.length===1?orders[0].o:null;
+function carrierSheetHTML(m,cols,who){
+ const C=DOC_COLOR,co=docCompanyBlock(),me=who||carrierMe(),loaded=m.items.length>0,rows=loaded?m.items:m.gone,orders=carrierOrders(rows),one=orders.length===1?orders[0].o:null;
  const use=cols.filter(c=>!['order','customer','po'].includes(c.k));carrierWeightMemo=new Map();
  const kgs=rows.map(carrierKg),kg=kgs.reduce((n,w)=>n+(w?w.kg:0),0),kgExact=kgs.every(w=>w&&w.exact);
  const where=[...new Set(m.items.map(i=>i.place&&i.place.waiting).filter(Boolean))].join(', ')||(m.out?salesCustomerDisplay(m.out.customerId):'');
@@ -39848,17 +39880,31 @@ function carrierSheetHTML(m,cols){
 }
 /* Подвал страницы — полями @page: кто и когда напечатал, номер страницы. */
 function carrierPrintCleanup(){document.body.classList.remove('carrier-printing');}
-function carrierPrint(){
- const m=carrierWinModel();if(!m||!(m.items.length||m.gone.length))return false;
+/* Печать листа: m — что на таре, cols — колонки, who и where — кто и на
+   какой станции печатает (в подвале). */
+function carrierPrintSheet(m,cols,who,where){
+ if(!m||!(m.items.length||m.gone.length))return false;
  let host=document.getElementById('carrierPrintHost');if(!host){host=document.createElement('div');host.id='carrierPrintHost';document.body.appendChild(host);}
- host.innerHTML=carrierSheetHTML(m,carrierColsShown());
- const me=carrierMe(),q=t=>'"'+String(t).replace(/["\\]/g,'')+'"',foot='font:8px Helvetica,Arial,sans-serif;color:'+DOC_COLOR.mut;
+ who=who||carrierMe();host.innerHTML=carrierSheetHTML(m,cols,who);
+ const q=t=>'"'+String(t).replace(/["\\]/g,'')+'"',foot='font:8px Helvetica,Arial,sans-serif;color:'+DOC_COLOR.mut;
  let st=document.getElementById('carrierPageStyle');if(!st){st=document.createElement('style');st.id='carrierPageStyle';document.head.appendChild(st);}
- st.textContent='@page carriersheet{margin:10mm 10mm 12mm;@bottom-left{content:'+q('Printed '+carrierStamp(new Date().toISOString())+(me.name?' by '+me.name:''))+';'+foot+'}@bottom-right{content:'+q(carrierSheetKind(m)+' · '+(m.code||m.station)+' · ')+' counter(page) " / " counter(pages);'+foot+'}}@media print{html,body.carrier-printing{background:#ffffff!important}}';
+ st.textContent='@page carriersheet{margin:10mm 10mm 12mm;@bottom-left{content:'+q('Printed '+carrierStamp(new Date().toISOString())+(who.name?' by '+who.name:'')+(where?' at '+where:''))+';'+foot+'}@bottom-right{content:'+q(carrierSheetKind(m)+' · '+(m.code||m.station)+' · ')+' counter(page) " / " counter(pages);'+foot+'}}@media print{html,body.carrier-printing{background:#ffffff!important}}';
  document.body.classList.add('carrier-printing');
  window.addEventListener('afterprint',carrierPrintCleanup,{once:true});setTimeout(carrierPrintCleanup,60000);
  try{window.print();}catch(e){carrierPrintCleanup();return false;}
  return true;
+}
+function carrierPrint(){return carrierPrintSheet(carrierWinModel(),carrierColsShown());}
+/* Shipping → Skid sheet: тот же лист, что в окне (владелец: «лист скида
+   один везде»); колонки — свои у человека или станции, что положила. */
+function carrierPrintCode(code){const m=carrierModelOf(carrierCode(code));return carrierPrintSheet(m,carrierColsOn(carrierColsOf(carrierMe().id)||carrierStationCols(carrierLoaderOf(m))||[]));}
+/* Экран станции: «Print what is on SA-11» — набор колонок этой станции,
+   печатает вошедший на станции (на SHIPR: отсканировал скид, напечатал,
+   сверил с тем, что на скиде, замотал). */
+function carrierPrintButton(code){return code&&typeof stationCode==='string'&&stationCode?'<button type="button" class="b st-yes" data-station-print="'+esc(code)+'" onclick="carrierPrintAtStation(\''+esc(code)+'\')">Print what is on '+esc(code)+'</button>':'';}
+function carrierPrintAtStation(code){
+ const who=typeof stationWho==='function'?stationWho():null;
+ return carrierPrintSheet(carrierModelOf(carrierCode(code)),carrierColsOn(carrierStationCols(stationCode)||[]),who||{id:'',name:''},stationCode);
 }
 
 /* ------------------- Production → Dollies & Skids ------------------- */
@@ -39937,6 +39983,34 @@ function viewProdCarriers(){
   if(b.empty.length)groups.push(`<section class="cb-group" data-carrier-group="empty"><div class="cb-gh"><b>Empty — free</b><span>not at any station</span></div><div class="cb-free-all">${body}</div></section>`);
  }
  return `${tiles}${tools}${salesListFilterChips()}${groups.join('')||`<div class="empty">${infos.length?'Nothing matches the filters.':'No dollies or skids in use.'}</div>`}${salesListMenuHTML(infos)}`;
+}
+
+/* ------------- Data → Stations: колонки листа долли / скида ------------- */
+/* У каждой станции свой набор (владелец, 15.10.2026: «на скиде будут стёкла
+   и какие они, с тегами и прочим, поэтому чтобы была возможность настроить
+   под каждую станцию»). Пусто — все колонки. Справа — образец листа на
+   таре, которую эта станция загрузила последней. */
+let sfSheetEdit='',sfSheetDrag='';
+function carrierSheetCell(s,edit){
+ const own=carrierStationCols(s.code),text=own?carrierColsOn(own).length+' columns':'All columns';
+ if(!edit)return `<span class="mut" data-sf-sheet-cols="${esc(s.code)}">${text}</span>`;
+ return `<span data-sf-sheet-cols="${esc(s.code)}">${text}</span> <button class="sm" data-sf-sheet="${esc(s.code)}" onclick="sfSheetEdit=sfSheetEdit==='${esc(s.code)}'?'':'${esc(s.code)}';render()">${sfSheetEdit===s.code?'Done':'Edit'}</button>`;
+}
+function sfSheetStore(code,cols){const out=carrierStationColsSave(code,cols);if(!out.ok)alert(out.error);render();}
+function sfSheetSet(code,k,on){const cols=carrierColsFill(carrierStationCols(code)||[]),c=cols.find(x=>x.k===k);if(!c)return;c.on=!!on;if(!cols.some(x=>x.on))c.on=true;sfSheetStore(code,cols);}
+function sfSheetMove(code,k,delta){const cols=carrierColsFill(carrierStationCols(code)||[]),at=cols.findIndex(c=>c.k===k),to=at+delta;if(at<0||to<0||to>=cols.length)return;const [c]=cols.splice(at,1);cols.splice(to,0,c);sfSheetStore(code,cols);}
+function sfSheetDrop(code,k){const from=sfSheetDrag;sfSheetDrag='';if(!from||from===k)return;const cols=carrierColsFill(carrierStationCols(code)||[]),at=cols.findIndex(c=>c.k===from);if(at<0)return;const [c]=cols.splice(at,1);cols.splice(cols.findIndex(x=>x.k===k),0,c);sfSheetStore(code,cols);}
+/* Образец: тара, которую эта станция загрузила последней; нет — любая загруженная. */
+function sfSheetSample(code){
+ let any=null;
+ for(const c of carrierContents().keys()){const m=carrierModelOf(c);if(!m.items.length)continue;if(carrierLoaderOf(m)===code)return m;if(!any)any=m;}
+ return any;
+}
+function carrierSheetEditorHTML(code){
+ const cols=carrierColsFill(carrierStationCols(code)||[]),m=sfSheetSample(code);
+ const list=cols.map((c,i)=>{const col=CARRIER_COLS.find(x=>x.k===c.k);return `<div class="sl-cols-row" draggable="true" data-sf-sheet-col="${c.k}" ondragstart="sfSheetDrag='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();sfSheetDrop('${esc(code)}','${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-sf-sheet-toggle="${c.k}" ${c.on?'checked':''} onchange="sfSheetSet('${esc(code)}','${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="sfSheetMove('${esc(code)}','${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===cols.length-1?'disabled':''} onclick="sfSheetMove('${esc(code)}','${c.k}',1)">↓</button></div>`;}).join('');
+ return `<div class="sf-sheet" data-sf-sheet-editor="${esc(code)}"><div class="sf-sheet-cols"><h4>${esc(code)} — what is on a dolly or skid</h4><div class="mut small">Printed and shown — drag to reorder</div>${list}<div class="row" style="margin-top:8px"><button class="sm" data-sf-sheet-all onclick="sfSheetStore('${esc(code)}',[])">All columns</button></div></div>
+  <div class="sf-sheet-preview"><div class="mut small">Preview${m?' · '+esc(m.code||m.station):''}</div>${m?`<div class="sf-sheet-paper">${carrierSheetHTML(m,carrierColsOn(cols),{id:'',name:''})}</div>`:'<div class="empty">No dolly or skid in use to preview</div>'}</div></div>`;
 }
 
 /* ==== src/erp/shipping/data.js ==== */
@@ -40790,12 +40864,8 @@ function shippingPrint(id,checked){
   render();shippingShowPrint(pages);
  });
 }
-function shippingPrintSkid(customerId,code){
- const items=(DB.salesOrder||[]).filter(o=>o.customerId===customerId).flatMap(shippingUnits).filter(i=>i.ready&&i.skid===code);
- const ps=[...new Set(items.map(i=>i.shipment&&i.shipment.id).filter(Boolean))],s=ps.length===1?shippingFind(ps[0]):null;
- const model=shippingDocument({number:s?s.number:'',customerId,method:s?s.method:'delivery',date:s?s.date:finToday(),shipTo:s?s.shipTo:shippingDefaultAddress(salesFindCustomer(customerId)),items,extras:[]});
- shippingShowPrint(shippingPages(model,code));
-}
+/* Лист одного скида — views/carriers-board (carrierPrintCode): один лист
+   скида везде — в окне тары, на станции и здесь (15.10.2026). */
 
 /* ==== src/erp/shopfloor/skip.js ==== */
 /* =====================================================================
