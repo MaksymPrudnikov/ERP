@@ -2306,6 +2306,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 .cut-est-compare .cut-win{color:var(--success)}
 .cut-est-total td{border-top:1px solid var(--line-strong)}
 .sales-list-card .sl-est-btn svg{width:16px;height:16px;display:block}
+.cut-size-laid{font-size:11px;color:var(--text-2);margin-top:2px;font-weight:600}
 
 /* ---- src/styles/station.css ---- */
 /* Экран станции (view/station): без меню и шапки ERP, крупно, под сканер
@@ -3300,7 +3301,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='bd8084cbd7a1';
+var ERP_BUILD='42ce56f65090';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -29743,7 +29744,18 @@ function cutSheetOptions(glassCode){
    Border — «130x96#2»: «хочу добавить новый лист с теми же размерами, только
    уже без тримов и бордеров… специально для этого дела, потому что стекло
    овер» (владелец, 18 сентября 2026). */
-function cutSheetKey(size){return size?(size.key&&(String(size.key).indexOf('#')>0||/^S-/.test(size.key))?size.key:cutRound(size.w)+'x'+cutRound(size.h)):'';}
+function cutSheetKey(size){return size?(size.key&&(String(size.key).indexOf('#')>0||/^S-/.test(size.key)||+size.inset>0)?size.key:cutRound(size.w)+'x'+cutRound(size.h)):'';}
+/* Offset — отступ со всех четырёх краёв листа в строке размера (владелец,
+   14 октября 2026): «для стола Disai какой щит есть такой и есть, а для
+   Maver мы всегда уменьшаем на 1/16 по кругу — лезвие, когда начинает
+   тянуть от края, может толкнуть лист». По умолчанию 0. Лист в раскрое,
+   на станции и в файле станка — меньше (130 × 96 → 129 7/8 × 95 7/8), ключ
+   и склад — настоящего размера (erp/inventory: invPlanSize). */
+function cutInsetRow(row,set){
+ const inset=set&&+set.inset>0?+set.inset:0;
+ return inset?Object.assign(row,{w:cutRound(row.w-2*inset),h:cutRound(row.h-2*inset),inset}):row;
+}
+function cutSizeOf(row){return Object.assign({key:row.key,w:row.w,h:row.h,supplier:row.supplier},+row.inset>0?{inset:+row.inset}:{});}
 function cutBaseKey(key){return String(key||'').split('#')[0];}
 /* Параметры прогона: по толщине, а отступы от краёв — свои у каждого размера
    листа: «Trim X Y Border для каждого размера индивидуальные… лучше сделать
@@ -29863,10 +29875,10 @@ function cutStockFor(glassCode,pick,mm,batch){
  const own=pick&&Array.isArray(pick.sizes)?pick.sizes:null;
  const out=rows.map(r=>{
   const set=own&&own.find(x=>x&&x.key===cutSheetKey(r));
-  return {key:cutSheetKey(r),w:r.w,h:r.h,supplier:r.supplier,limit:set&&+set.limit>0?Math.floor(+set.limit):0,off:!!(set&&set.off)};
+  return cutInsetRow({key:cutSheetKey(r),w:r.w,h:r.h,supplier:r.supplier,limit:set&&+set.limit>0?Math.floor(+set.limit):0,off:!!(set&&set.off)},set);
  }).filter(r=>!r.off);
  /* Строки «+ same size» этого прогона. */
- (own||[]).filter(x=>x&&x.base&&+x.w>0&&+x.h>0&&!x.off).forEach(x=>out.push({key:x.key,w:+x.w,h:+x.h,supplier:'',limit:+x.limit>0?Math.floor(+x.limit):0,off:false,base:x.base}));
+ (own||[]).filter(x=>x&&x.base&&+x.w>0&&+x.h>0&&!x.off).forEach(x=>out.push(cutInsetRow({key:x.key,w:+x.w,h:+x.h,supplier:'',limit:+x.limit>0?Math.floor(+x.limit):0,off:false,base:x.base},x)));
  /* Отмеченные куски стока — штучные листы; площадь у них своя, поэтому
     укладчик берёт их, только если так уходит меньше квадратных футов. */
  (cutEstIs(batch)?[]:cutStockPieces(glassCode,mm,batch)).forEach(r=>{
@@ -29918,7 +29930,7 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
    if(row.limit&&(used.get(row.key)||0)>=row.limit)continue;
    if(!ways(p,row).length)continue;
    used.set(row.key,(used.get(row.key)||0)+1);
-   const s={no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,stock:[],pieces:[],strips:[]};
+   const s={no:sheets.length+1,size:cutSizeOf(row),locked:false,stock:[],pieces:[],strips:[]};
    sheets.push(s);return s;
   }
   return null;
@@ -30264,7 +30276,7 @@ function* cutPackFillSteps(list,stock,paramsFor,fixed,urgent,seed,mix,variants,s
   const {row,best,fit}=pick,other=rest.filter(p=>!fitsRow(p,row));
   if(!best.placed.length){unplaced.push({piece:fit[0].piece,reason:'Larger than the sheet'});rest=rest.filter(p=>p!==fit[0]);continue;}
   used.set(row.key,(used.get(row.key)||0)+1);
-  sheets.push({no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,stock:[],pieces:best.placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}))});
+  sheets.push({no:sheets.length+1,size:cutSizeOf(row),locked:false,stock:[],pieces:best.placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}))});
   rest=best.rest.concat(other);
   yield 1-rest.reduce((a,p)=>a+p.w*p.h,0)/total;
  }
@@ -30294,7 +30306,7 @@ function cutRightSize(packed,stock,paramsFor,src,miss){
    for(const v of CUT_FILL_VARIANTS){const r=cutFillSheet(list,u,pr,v,cache);if(!r.rest.length){fit=r;break;}}
    if(!fit){if(miss)miss.add(key);continue;}
    used.set(s.size.key,used.get(s.size.key)-1);used.set(row.key,(used.get(row.key)||0)+1);
-   s.size={key:row.key,w:row.w,h:row.h,supplier:row.supplier};
+   s.size=cutSizeOf(row);
    s.pieces=fit.placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}));
    break;
   }
@@ -30367,7 +30379,7 @@ function cutPackColumns(list,stock,paramsFor,fixed,opt){
    const quarter=w!==q.w?1:0;
    pieces.push({piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x:cutRound(u.x0+(T?y:x)),y:cutRound(u.y0+(T?x:y)),w,h,turn:quarter,rot:quarter===1,locked:false});
   }));
-  sheets.push({no:sheets.length+1,size:{key:b.row.key,w:b.row.w,h:b.row.h,supplier:b.row.supplier},locked:false,stock:[],pieces});
+  sheets.push({no:sheets.length+1,size:cutSizeOf(b.row),locked:false,stock:[],pieces});
  });
  return {sheets,unplaced};
 }
@@ -31282,10 +31294,11 @@ function cutSetStock(number,glass,key,field,value){
  const open=cutPlanEditable(number);if(open.error)return open;const plan=open.plan;
  let edge=null;
  /* Min dist — тоже у каждой строки размера, как на макете владельца. */
- const rowField=CUT_EDGES.includes(field)||field==='minDist';
+ const rowField=CUT_EDGES.includes(field)||field==='minDist'||field==='inset';
  if(rowField&&String(value==null?'':value).trim()!==''){
   edge=typeof cutIn==='function'?cutIn(value,null):+value;
   if(edge==null||!Number.isFinite(edge))return {error:'Enter a size like 3/4 or 1 1/2.'};
+  if(field==='inset'&&(edge<0||edge>1))return {error:'Offset: 0 to 1″, for example 1/16.'};
  }
  const pick=cutRunPick(plan,glass);
  if(!Array.isArray(pick.sizes))pick.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
@@ -32702,6 +32715,10 @@ const INV_KEY_RE=/^[^|]+\|(\d+(\.\d+)?x\d+(\.\d+)?|\?)$/;
 /* Размер листа лёжа: длинная × короткая, 1/16″ — как ключ размера в
    журнале листов Optimization → Sheets (erp/production/sheet-usage). */
 function invSize(w,h){w=+w;h=+h;if(!(w>0&&h>0))return null;return {w:cutRound(Math.max(w,h)),h:cutRound(Math.min(w,h))};}
+/* Лист раскладки с Offset (стол Maver) меньше со всех краёв; на складе это
+   тот же лист настоящего размера (владелец, 14.10.2026: «в саму
+   инвентаризацию не повлияет»). */
+function invPlanSize(z){const i=z&&+z.inset>0?+z.inset:0;return z?invSize(+z.w+2*i,+z.h+2*i):null;}
 function invKey(code,size){return String(code||'').trim().toUpperCase()+'|'+(size?size.w+'x'+size.h:'?');}
 function invSizeText(r){return r.w>0?frac16(r.w)+' × '+frac16(r.h):'Size missing';}
 /* COG и стекло клиента (галочка «We cut it» снята) на складе не лежат. */
@@ -32728,8 +32745,8 @@ function invScanSheet(entry,piece){
  const b=entry&&entry.batch,plan=b&&typeof cutPlanFor==='function'?cutPlanFor(b.number):null;
  if(!plan||plan.reset||!Array.isArray(plan.groups))return null;
  const hit=cutFind(plan,piece);if(!hit)return null;
- const z=hit.sheet.size||hit.group.sheet||{};
- return invScanSheetClean({batch:b.number,plan:plan.at||'',no:hit.sheet.no,glass:hit.group.glass,w:z.w,h:z.h,stock:/^S-/.test(z.key||'')?z.key:''});
+ const z=hit.sheet.size||hit.group.sheet||{},n=invPlanSize(z)||{};
+ return invScanSheetClean({batch:b.number,plan:plan.at||'',no:hit.sheet.no,glass:hit.group.glass,w:n.w,h:n.h,stock:/^S-/.test(z.key||'')?z.key:''});
 }
 function invScanSheetClean(x){
  if(!x||typeof x!=='object'||Array.isArray(x)||typeof x.batch!=='string'||!x.batch||!(Number.isInteger(x.no)&&x.no>0)||typeof x.glass!=='string'||!x.glass||!(+x.w>0&&+x.h>0))return null;
@@ -32765,7 +32782,7 @@ function invCutSheets(){
  let index=null;
  const fromPlan=piece=>{
   if(!index){index=new Map();(DB.cutPlan||[]).forEach(plan=>{if(!plan||plan.reset||!Array.isArray(plan.groups))return;
-   plan.groups.forEach(g=>g.sheets.forEach(s=>{const z=s.size||g.sheet||{};s.pieces.forEach(p=>index.set(p.piece,invScanSheetClean({batch:plan.batch,plan:plan.at||'',no:s.no,glass:g.glass,w:z.w,h:z.h,stock:/^S-/.test(z.key||'')?z.key:''})));}));});}
+   plan.groups.forEach(g=>g.sheets.forEach(s=>{const z=s.size||g.sheet||{},n=invPlanSize(z)||{};s.pieces.forEach(p=>index.set(p.piece,invScanSheetClean({batch:plan.batch,plan:plan.at||'',no:s.no,glass:g.glass,w:n.w,h:n.h,stock:/^S-/.test(z.key||'')?z.key:''})));}));});}
   return index.get(piece)||null;
  };
  const out=new Map();
@@ -32788,7 +32805,7 @@ function invReservedSheets(cutIds){
   const b=glassBatchFind(plan.batch);if(!b)return;
   const live=new Map(glassBatchActiveItems(b).map(i=>[i.piece,i]));
   plan.groups.forEach(g=>g.sheets.forEach(s=>{
-   const z=s.size||g.sheet||{},size=invSize(z.w,z.h);
+   const z=s.size||g.sheet||{},size=invPlanSize(z);
    if(!size||/^S-/.test(z.key||'')||cutIds.has(plan.batch+'|'+(plan.at||'')+'|'+s.no))return;
    if(!s.pieces.some(p=>{const i=live.get(p.piece);return i&&!i.cutStartedAt;}))return;
    out.push({batch:plan.batch,plan:plan.at||'',no:s.no,glass:g.glass,size});
@@ -32802,7 +32819,7 @@ function invReservedSheets(cutIds){
 function invBreaks(withStock){
  return (DB.sheetBreak||[]).map(x=>{
   const plan=cutPlanFor(x.batch),g=plan&&Array.isArray(plan.groups)&&plan.groups.find(y=>y.glass===x.glass),sh=g&&g.sheets.find(s=>s.no===x.sheet),z=sh&&(sh.size||g.sheet);
-  const own=z?invSize(z.w,z.h):null,size=invSize(x.w,x.h)||own,stock=own&&size&&/^S-/.test(z.key||'')&&own.w===size.w&&own.h===size.h?z.key:'';
+  const own=z?invPlanSize(z):null,size=invPlanSize(x)||own,stock=own&&size&&/^S-/.test(z.key||'')&&own.w===size.w&&own.h===size.h?z.key:'';
   return {x,size,stock};
  }).filter(b=>withStock||!b.stock);
 }
@@ -32864,7 +32881,7 @@ function invMoves(){
  (DB.cutPlan||[]).forEach(plan=>{
   if(!plan||plan.reset||!Array.isArray(plan.groups)||!glassBatchFind(plan.batch))return;
   plan.groups.forEach(g=>{if(!invGlassCut(g.glass))return;const by=new Map();
-   g.sheets.forEach(s=>{const z=s.size||g.sheet||{},size=invSize(z.w,z.h);if(!size||/^S-/.test(z.key||''))return;const k=size.w+'x'+size.h;if(!by.has(k))by.set(k,{size,n:0});by.get(k).n++;});
+   g.sheets.forEach(s=>{const z=s.size||g.sheet||{},size=invPlanSize(z);if(!size||/^S-/.test(z.key||''))return;const k=size.w+'x'+size.h;if(!by.has(k))by.set(k,{size,n:0});by.get(k).n++;});
    by.forEach(({size,n})=>add({id:'B|'+plan.batch+'|'+g.glass+'|'+size.w+'x'+size.h,kind:'Build',ref:plan.batch,batch:plan.batch,day:salesListIsoDay(plan.at),at:plan.at||'',layout:n,note:n+' sheet'+(n===1?'':'s')+' in layout'},g.glass,size));
   });
  });
@@ -34079,7 +34096,7 @@ function stationSheetBreakCommand(batch,glass,sheetNo,who,opts){
  const plan=typeof cutPlanFor==='function'?cutPlanFor(batch):null,g=plan&&plan.groups.find(x=>x.glass===glass),sh=g&&g.sheets.find(s=>s.no===sheetNo);
  if(!sh)return {error:'Sheet not found.'};
  if(!Array.isArray(DB.sheetBreak))DB.sheetBreak=[];
- const size=sh.size||{},rec={id:'SB-'+String(DB.sheetBreak.reduce((n,x)=>Math.max(n,+String(x.id).slice(3)||0),0)+1).padStart(5,'0'),at:opts.now||new Date().toISOString(),batch,glass,sheet:sheetNo,w:+size.w||0,h:+size.h||0,by:String(who&&who.name||'')};
+ const size=sh.size||{},rec=Object.assign({id:'SB-'+String(DB.sheetBreak.reduce((n,x)=>Math.max(n,+String(x.id).slice(3)||0),0)+1).padStart(5,'0'),at:opts.now||new Date().toISOString(),batch,glass,sheet:sheetNo,w:+size.w||0,h:+size.h||0,by:String(who&&who.name||'')},+size.inset>0?{inset:+size.inset}:{});
  DB.sheetBreak.push(rec);if(!opts.deferTouch)touch();
  return {ok:true,rec};
 }
@@ -34088,6 +34105,8 @@ function normalizeSheetBreaks(){
  const ids=new Set();
  DB.sheetBreak=DB.sheetBreak.filter(x=>x&&typeof x==='object'&&/^SB-\d{5,}$/.test(String(x.id))&&!ids.has(x.id)&&(ids.add(x.id),true)&&typeof x.batch==='string')
   .map(x=>Object.assign({id:x.id,at:String(x.at||''),batch:x.batch,glass:String(x.glass||''),sheet:Math.max(1,Math.floor(+x.sheet)||1),w:+x.w||0,h:+x.h||0,by:String(x.by||'').slice(0,80)},
+   /* Offset листа (стол Maver): лист в раскрое меньше, склад считает настоящий размер. */
+   +x.inset>0&&+x.inset<=1?{inset:+x.inset}:{},
    /* Undo Sheet broke — из журнала склада (erp/inventory/sheets): запись остаётся, рядом кто и когда отменил. */
    typeof x.undoneAt==='string'&&!Number.isNaN(Date.parse(x.undoneAt))?{undoneAt:x.undoneAt,undoneBy:String(x.undoneBy||'').slice(0,80),undoneById:String(x.undoneById||'').slice(0,80)}:{}));
 }
@@ -36325,16 +36344,20 @@ function viewCutLayout(b){
   const nums=used?`<b>${used}</b> · ${cutPct(u,area)}% used · ${cutPct(net,area)}% waste · ${cutFt2(net)} ft²`:'';
   /* Склад листов (erp/inventory): свободно и сколько возьмёт этот раскрой. Не пересчитанное стекло — серым. */
   const inv=stockHints&&!x.stock&&!x.base?cutUiSheetHint(stockHints,x,built):'';
+  /* Offset: лист в раскрое меньше со всех краёв (стол Maver), склад — настоящий размер. */
+  const set=(pick.sizes||[]).find(r=>r&&r.key===key),inset=set&&+set.inset>0?+set.inset:0;
+  const laid=inset?`<div class="cut-size-laid" data-cut-laid="${esc(key)}">laid as ${esc(frac16(cutRound(x.w-2*inset)))} × ${esc(frac16(cutRound(x.h-2*inset)))}″</div>`:'';
   const edge=(f,label)=>`<td><input type="text" data-cut-edge-${f.toLowerCase()} value="${esc(frac16(pr[f]))}" ${dis} aria-label="${label} ${esc(key)}" onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','${f}',this.value)"></td>`;
   return `<tr class="cut-stock-row${on?'':' off'}" data-cut-stock="${esc(key)}">
    <td><label class="chk"><input type="checkbox" data-cut-use ${on?'checked':''} ${dis} onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','off',!this.checked)"> ${x.stock?`<span class="pill ok">${esc(x.id)}</span> `:''}${esc(frac16(x.w))} × ${esc(frac16(x.h))}″${x.base?' · '+esc(key.split('#')[1]):''}</label>
-    <div class="cut-size-nums" data-cut-size-nums="${esc(key)}">${nums}</div>${inv}</td>
+    ${laid}<div class="cut-size-nums" data-cut-size-nums="${esc(key)}">${nums}</div>${inv}</td>
    <td>${x.stock?'<span class="mut">1</span>':`<input type="number" min="0" step="1" data-cut-qty value="${row&&row.limit?row.limit:''}" placeholder="all" ${dis} aria-label="Sheets available ${esc(key)}" onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','limit',this.value)">`}</td>
+   <td>${x.stock?'':`<input type="text" data-cut-inset value="${inset?esc(frac16(inset)):''}" placeholder="0" ${dis} aria-label="Offset ${esc(key)}" onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','inset',this.value)">`}</td>
    ${edge('trimX','Trim X')}${edge('trimY','Trim Y')}${edge('borderX','Border X')}${edge('borderY','Border Y')}${edge('minDist','Min dist')}
    <td class="cut-size-acts">${x.stock?'<span class="mut">from stock</span>':x.base?`<button type="button" class="gb-link dl" data-cut-same-remove="${esc(key)}" ${dis} aria-label="Remove ${esc(key)}" onclick="cutUiSameSizeRemove('${esc(group.glass)}','${esc(key)}')">×</button>`:`<button type="button" class="gb-link" data-cut-same="${esc(key)}" ${dis} title="Same size with its own Trim and Border" onclick="cutUiSameSize('${esc(group.glass)}','${esc(key)}')">+ same size</button>${x.shop&&!used&&!lock&&!est?`<button type="button" class="gb-link dl" data-cut-size-drop="${esc(key)}" ${dis} title="Delete this sheet size everywhere" aria-label="Delete ${esc(key)}" onclick="cutUiSizeDrop('${esc(key)}')">×</button>`:''}`}</td></tr>`;}).join('');
  const params=group?`<div class="cut-params" data-cut-params>
-  <div class="cut-stock-wrap"><table class="cut-stock"><thead><tr><th>Sheets</th><th>Qty</th><th class="cut-edge-head"><span>Trim X</span><small>bottom</small></th><th class="cut-edge-head"><span>Trim Y</span><small>left</small></th><th class="cut-edge-head"><span>Border X</span><small>top</small></th><th class="cut-edge-head"><span>Border Y</span><small>right</small></th><th class="cut-edge-head"><span>Min</span><small>distance</small></th><th></th></tr></thead><tbody>${stockRows}
-   ${lock||est?'':`<tr class="cut-stock-add"><td colspan="8"><input type="text" id="cutRunSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="cutRunSizeH" placeholder="width" aria-label="Sheet width, in">
+  <div class="cut-stock-wrap"><table class="cut-stock"><thead><tr><th>Sheets</th><th>Qty</th><th class="cut-edge-head"><span>Offset</span><small>all sides</small></th><th class="cut-edge-head"><span>Trim X</span><small>bottom</small></th><th class="cut-edge-head"><span>Trim Y</span><small>left</small></th><th class="cut-edge-head"><span>Border X</span><small>top</small></th><th class="cut-edge-head"><span>Border Y</span><small>right</small></th><th class="cut-edge-head"><span>Min</span><small>distance</small></th><th></th></tr></thead><tbody>${stockRows}
+   ${lock||est?'':`<tr class="cut-stock-add"><td colspan="9"><input type="text" id="cutRunSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="cutRunSizeH" placeholder="width" aria-label="Sheet width, in">
     <button type="button" class="gb-link" data-cut-size-new onclick="cutUiAddSize('${esc(b.number)}','cutRunSizeW','cutRunSizeH')">+ Add sheet size</button></td></tr>`}</tbody></table></div>
   <div class="cut-knobs">
    ${num('Min offcut W','minOffcutW',frac16(group.params.minOffcutW))}${num('H','minOffcutH',frac16(group.params.minOffcutH))}${num('or ft²','minOffcutFt2',frac16(group.params.minOffcutFt2))}
