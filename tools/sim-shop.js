@@ -38,6 +38,9 @@
           --name --out --small --quick-cut (быстрый раскрой, для отладки)
           --end-at 10 (последний день — до этого часа, можно 7.5)
           --check (отчёты конструктора против truth, время отчётов)
+          --inventory (склад: поставщики, закупки и приёмки блоками, пересчёт,
+            минимумы, Held, Offset у Maver, куски S-, лопнувший лист — для
+            прохода по складу; имя по умолчанию shop-inventory)
    ===================================================================== */
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -46,13 +49,13 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const o = { start: '2025-08-04', end: '2026-10-10', seed: 20261011, scale: 1, name: '', out: path.join(os.homedir(), '.glass-erp-walk', 'sim'),
-  small: false, quickCut: false, check: false };
+  small: false, quickCut: false, check: false, inventory: false };
 const argv = require.main === module ? process.argv.slice(2) : [];
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i], v = () => argv[++i];
   if (a === '--start') o.start = v(); else if (a === '--end') o.end = v(); else if (a === '--seed') o.seed = +v();
   else if (a === '--scale') o.scale = +v(); else if (a === '--name') o.name = v(); else if (a === '--out') o.out = v();
-  else if (a === '--small') o.small = true; else if (a === '--end-at') o.endAt = +v(); else if (a === '--quick-cut') o.quickCut = true; else if (a === '--check') o.check = true;
+  else if (a === '--small') o.small = true; else if (a === '--end-at') o.endAt = +v(); else if (a === '--quick-cut') o.quickCut = true; else if (a === '--check') o.check = true; else if (a === '--inventory') o.inventory = true;
   else if (a === '-h' || a === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('*/')[0]); process.exit(0); }
   else { console.error('Неизвестный ключ: ' + a); process.exit(2); }
 }
@@ -61,7 +64,7 @@ const addDaysStr = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDat
    место для их работы — две недели при 12 % объёма; конец — пятница 10:00,
    чтобы стекло лежало на станциях, а PS на понедельник ещё не было. */
 if (o.small) { if (!argv.includes('--end')) o.end = '2026-10-09'; if (!argv.includes('--start')) o.start = addDaysStr(o.end, -11); if (!argv.includes('--scale')) o.scale = 0.12; if (!argv.includes('--end-at')) o.endAt = 10; }
-if (!o.name) o.name = o.small ? 'shop-small' : 'shop-' + o.start + '_' + o.end;
+if (!o.name) o.name = o.inventory ? 'shop-inventory' : o.small ? 'shop-small' : 'shop-' + o.start + '_' + o.end;
 
 /* ---------------- до загрузки страницы: часы, seed ---------------- */
 function initPage(seed) {
@@ -620,6 +623,7 @@ function simPage() {
   function doScan(station, x, it) {
     const p = x.p, info = pieceInfo(it.pieces[0]);
     if (BREAK[station] && chance(BREAK[station])) { asStation(station, p); if (breakHere(station, it, p)) return; }
+    if (INV && station === 'CUT' && chance(0.012)) invSheetBreak(it, p);
     let putOn;
     const puts = sfPutsOn(DB.station.find(s => s.code === station));
     const o = salesRecord(it.o);
@@ -795,7 +799,9 @@ function simPage() {
       cnt('batch'); g.forEach(r => touchOrder(r.orderId));
       let plan = null;
       const t0 = performance.now();
+      if (INV) invBeforeBuild(b);
       try { plan = QUICK ? cutDrain(cutPlanSteps(b.number, null, true)) : cutPlanRun(b.number); } catch (e) { fail('cut', e); }
+      if (INV && plan && !plan.error) invAfterBuild(b);
       SIM.cutMs = (SIM.cutMs || 0) + performance.now() - t0;
       if (plan && plan.error) fail('cut', plan.error);
       /* Порядок резки — лист за листом по раскрою. */
@@ -1081,6 +1087,154 @@ function simPage() {
   /* =====================================================================
      Архив: готовое старое уходит из DB, в конце возвращается.
      ===================================================================== */
+  /* =====================================================================
+     Склад (--inventory). Владелец, 14.10.2026: «сделай больше, чтобы можно
+     было поклацать»; 15.10: «заказы с разными этапами, долли, скиды,
+     батчи — полный производственный процесс». Поверх обычного цеха:
+     поставщики и точки поставки 130 × 96, пересчёт пирамид на старте и
+     минимумы, закупки и приёмки блоками (часть без Sheets, бой), стекло на
+     хранении у поставщика по заявкам, Offset 1/16 у прозрачного (стол
+     Maver), куски S- в сток и в раскрой, лопнувший лист и его Undo.
+     Закупает генератор по своему счёту листов: посреди прогона склад ERP
+     читать нельзя — старое лежит в архиве. Пересчёт, списание и Not found /
+     Found у кусков — в конце (SIM.invFinal), когда архив вернулся в базу.
+     ===================================================================== */
+  let INV = null;
+  /* код и блоков на пирамиде 130 × 96 на старте; листов в блоке (владелец,
+     14.10): 6 мм — 16, 10 мм — 9; 19 мм — 5. Крупное стекло, которое не
+     влезает в 130 × 96, раскрой кладёт на цеховой 144 × 102 — у 6 и 10 мм
+     есть и такая пирамида, блок на старте. */
+  const INV_GLASS = [['3CLEAR', 2], ['4CLEAR', 3], ['5CLEAR', 2], ['6CLEAR', 3], ['10CLEAR', 3], ['12CLEAR', 2], ['19CLEAR', 2], ['3E272', 1], ['4E272', 3], ['6E272', 2], ['6E366', 1], ['6Q272', 2], ['6Q366', 2], ['6SOLARGRAY', 1], ['6STARPHIRE', 1], ['6SBN60', 1], ['10STARPHIRE', 1]];
+  const INV_BIG = ['4CLEAR', '4E272', '6CLEAR', '6E272', '6Q272', '6Q366', '10CLEAR', '12CLEAR', '10STARPHIRE'];
+  const invPer = code => { const mm = +(String(code).match(/^\d+/) || [6])[0]; return mm >= 19 ? 5 : mm >= 10 ? 9 : 16; };
+  /* Прозрачное и без покрытия режет Maver, с покрытием — Disai (владелец, 25.09.2026). */
+  const invMaver = code => /CLEAR$|STARPHIRE$/.test(code);
+  const invCode = key => key.split('|')[0], invDim = key => key.split('|')[1].split('x').map(Number);
+  function invSupplier(code) { return code === '6Q366' ? INV.sup.china : invMaver(code) ? INV.sup.clear : INV.sup.coated; }
+  function invSetup() {
+    asOffice(people['Daniel Moroz']);
+    const sup = { clear: purSupplierSave({ name: 'Cardinal Glass', leadTimeDays: 3 }).value, coated: purSupplierSave({ name: 'Vitro Architectural', leadTimeDays: 5 }).value, china: purSupplierSave({ name: 'Guardian China', currency: 'USD', leadTimeDays: 75 }).value };
+    INV = { sup, est: {}, min: {}, keys: [], po: [], fill: [], breaks: [], used: new Set(), req: null, held: null };
+    INV_GLASS.forEach(([code, blocks]) => {
+      const g = glassProductByCode(code); if (!g) { fail('inventory', 'no glass ' + code); return; }
+      const s = invSupplier(g.code), per = invPer(g.code);
+      [[130, 96, blocks], ...(INV_BIG.includes(g.code) ? [[144, 102, 1]] : [])].forEach(([w, h, n]) => {
+        DB.glassSheet.push(normalizeGlassSheet({ productCode: g.code, supplier: s.name, supplierId: s.id, sheetWIn: w, sheetHIn: h, availability: 'stock', purchaseUnit: 'sqft', purchasePrice: invMaver(g.code) ? 1.9 : 3.4 }));
+        const key = g.code + '|' + w + 'x' + h; INV.keys.push(key); INV.est[key] = n * per; INV.min[key] = w === 130 ? per : Math.ceil(per / 2);
+      });
+    });
+    /* Пересчёт пирамид перед началом — «старт — первый пересчёт» — и минимумы. */
+    asOffice(people['Sergiy Lysenko']);
+    const counts = {}; INV.keys.forEach(k => { counts[k] = String(INV.est[k]); });
+    const out = invCountSave(counts); if (!out.ok) fail('inventory count', out.error);
+    INV.keys.forEach(k => invSetMin(k, String(INV.min[k])));
+    /* 6Q366 — из Китая: куплено 12 блоков, лежат у поставщика, привозят по заявке. */
+    const held = purOrderSave({ supplierId: sup.china.id, state: 'sent', date: addDays(dayOf(NOW), -40), lines: [{ id: 'HQ', kind: 'glass', productId: glassProductByCode('6Q366').id, qty: 12, unit: 'block', sheetsPerBlock: 16, widthIn: 130, heightIn: 96, held: true }] });
+    if (held.ok) INV.held = held.value; else fail('inventory held', held.error);
+  }
+  /* Понедельник и четверг: заказать то, что ниже минимума и блока сверху. */
+  function invBuy(day) {
+    asOffice(people['Sergiy Lysenko']);
+    const by = new Map();
+    INV.keys.forEach(key => {
+      const code = invCode(key); if (key === '6Q366|130x96' || INV.po.some(x => x.key === key && !x.done)) return;
+      const per = invPer(code); if (INV.est[key] >= INV.min[key] + per) return;
+      const s = invSupplier(code); if (!by.has(s.id)) by.set(s.id, { s, lines: [] });
+      by.get(s.id).lines.push({ key, blocks: INV.est[key] < INV.min[key] ? (invDim(key)[0] === 130 ? 3 : 2) : invDim(key)[0] === 130 ? 2 : 1 });
+    });
+    by.forEach(({ s, lines }) => {
+      const out = purOrderSave({ supplierId: s.id, state: 'sent', date: day, expectedDate: addWork(day, 1), lines: lines.map((x, i) => { const [w, h] = invDim(x.key); return { id: 'L' + (i + 1), kind: 'glass', productId: glassProductByCode(invCode(x.key)).id, qty: x.blocks, unit: 'block', sheetsPerBlock: invPer(invCode(x.key)), widthIn: w, heightIn: h }; }) });
+      if (!out.ok) { fail('inventory po', out.error); return; }
+      cnt('glass po'); lines.forEach(x => INV.po.push({ id: out.value.id, key: x.key, due: addWork(day, 1), done: false }));
+    });
+  }
+  /* Каждое утро: приёмка заказанного (иногда без Sheets — вписывают назавтра,
+     иногда лист разбит в дороге), привоз по заявке, Undo вчерашнего слома. */
+  function invReceive(day) {
+    asOffice(people['Sergiy Lysenko']);
+    INV.fill.filter(f => f.day <= day).forEach(f => {
+      const r = purFulfilFind('receipt', f.id); if (!r) return; const d = purClone(r), l = d.lines.find(x => x.id === f.line); if (!l) return;
+      l.actualSheets = f.sheets; const out = purFulfilSave('receipt', d);
+      if (out.ok) { INV.est[f.key] = (INV.est[f.key] || 0) + f.sheets; cnt('sheets entered'); } else fail('inventory sheets', out.error);
+    });
+    INV.fill = INV.fill.filter(f => f.day > day);
+    const receive = (d, after) => {
+      d.date = day; d.receivedBy = 'Sergiy Lysenko'; d.packingSlip = 'PS-' + int(10000, 99999); const blank = [];
+      d.lines.forEach(l => {
+        const g = purGlassProduct(l); if (!g || !(l.qty > 0)) return; const per = invPer(g.code), key = g.code + '|' + Math.max(l.widthIn, l.heightIn) + 'x' + Math.min(l.widthIn, l.heightIn);
+        if (chance(0.15)) { l.actualSheets = null; blank.push({ line: l.id, key, sheets: l.qty * per }); }
+        else { l.actualSheets = l.qty * per; if (chance(0.2)) { l.damagedSheets = 1; l.reason = 'In transit'; l.resolution = 'Credit requested'; } INV.est[key] = (INV.est[key] || 0) + l.actualSheets - (l.damagedSheets || 0); }
+      });
+      const out = purFulfilSave('receipt', d); if (!out.ok) { fail('inventory receipt', out.error); return false; }
+      cnt('glass receipt'); blank.forEach(b => INV.fill.push(Object.assign({ id: out.value.id, day: addWork(day, 1) }, b))); if (after) after(); return true;
+    };
+    [...new Set(INV.po.filter(x => !x.done && x.due <= day).map(x => x.id))].forEach(id => receive(purFulfilFromPO('receipt', id), () => INV.po.filter(x => x.id === id).forEach(x => { x.done = true; })));
+    if (INV.req && INV.req.due <= day && INV.held) receive(purFulfilFromPO('receipt', INV.held.id, INV.req.id), () => { INV.req = null; });
+    INV.breaks.filter(x => !x.done && x.day < day).forEach(x => {
+      x.done = true; if (!chance(0.3)) return;
+      const r = invBreakUndo(x.id); if (r.ok) { cnt('sheet broke undo'); INV.est[x.key] = (INV.est[x.key] || 0) + 1; } else fail('sheet broke undo', r.error);
+    });
+  }
+  /* Вторник: заявка поставщику на 2 блока 6Q366, если их мало. */
+  function invHeld(day) {
+    const key = '6Q366|130x96'; if (!INV.held || INV.req || INV.est[key] >= INV.min[key] + 16) return;
+    asOffice(people['Sergiy Lysenko']);
+    const d = purFulfilFromPO('request', INV.held.id); d.lines.forEach(l => { l.qty = 2; }); d.date = day; d.expectedDate = addWork(day, 2);
+    const out = purFulfilSave('request', d); if (!out.ok) { fail('inventory request', out.error); return; }
+    purRequestMarkSent(out.value.id, out.value.rev); INV.req = { id: out.value.id, due: addWork(day, 2) }; cnt('glass request');
+  }
+  /* До Build: Offset 1/16 у листов Maver; кусок S-, пролежавший день, — в раскрой. */
+  function invBeforeBuild(b) {
+    const piece = cutPieces(b, {})[0], code = piece && piece.glass; if (!code || !INV.keys.some(k => invCode(k) === code)) return;
+    if (invMaver(code)) INV.keys.filter(k => invCode(k) === code).forEach(k => { const r = cutSetStock(b.number, code, k.split('|')[1], 'inset', '1/16'); if (r && r.error) fail('offset', r.error); else cnt('offset 1/16'); });
+    const day = new Date(NOW - 864e5).toISOString(), old = (DB.stockOffcut || []).filter(r => r.status === 'stock' && r.glass === code && r.at < day && !INV.used.has(r.id));
+    if (old.length && chance(0.5)) { const r = old.sort((a, c) => c.w * c.h - a.w * a.h)[0]; INV.used.add(r.id); cutSetStock(b.number, code, r.id, 'off', false); cnt('offcut picked'); }
+  }
+  /* После Build: листы ушли со счёта генератора, крупный обрезок — в сток. */
+  function invAfterBuild(b) {
+    const p = cutPlanFor(b.number); if (!p || p.reset) return; let n = 0;
+    p.groups.forEach(g => g.sheets.forEach(s => { const z = s.size || g.sheet || {}; if (/^S-/.test(z.key || '')) return; const n2 = invPlanSize(z); if (!n2) return; const key = g.glass + '|' + n2.w + 'x' + n2.h; INV.est[key] = (INV.est[key] || 0) - 1; }));
+    p.groups.forEach(g => g.sheets.forEach(s => { if (n >= 2 || !(s.offcuts || []).length || !chance(0.3)) return; const out = cutStockTake(b.number, g.glass, s.no, 0); if (out && out.ok) { n++; cnt('to stock'); } }));
+  }
+  /* Лист лопнул на столе CUT: та же раскладка режется заново. */
+  function invSheetBreak(it, p) {
+    const g = stationGlass(it.pieces[0]), e = g && g.entry; if (!e) return;
+    const ix = cutPlanIndex(e.batch.number).get(it.pieces[0]); if (!ix) return;
+    asStation('CUT', p, '');
+    const out = stationSheetBreak(e.batch.number, ix.glass, ix.sheet, { id: p.id, name: p.name });
+    if (!out || out.error) { fail('sheet broke', out && out.error); return; }
+    const sh = cutPlanFor(e.batch.number).groups.find(x => x.glass === ix.glass).sheets.find(x => x.no === ix.sheet), z = invPlanSize(sh.size || {}), key = ix.glass + '|' + (z ? z.w + 'x' + z.h : '');
+    cnt('sheet broke'); INV.est[key] = (INV.est[key] || 0) - 1; INV.breaks.push({ id: out.rec.id, key, day: dayOf(NOW) });
+  }
+  /* Конец, архив уже в базе: пересчёт пяти стёкол (у одного листа не
+     хватило), лист разбили на стеллаже, кусок S- не нашли, другой не нашли и
+     нашли; этапы, которых случайно не оказалось, — заказ ждёт Verify, ждёт
+     батча, On Hold. */
+  SIM.invFinal = function (end) {
+    if (!INV) return null;
+    at(T(end, 9, 50)); asOffice(people['Sergiy Lysenko']);
+    const rows = invSheetRows().filter(r => INV.keys.includes(r.key) && r.onRack > 0), counted = {};
+    rows.slice().sort((a, c) => c.onRack - a.onRack).slice(0, 5).forEach((r, i) => { counted[r.key] = String(r.onRack - (i === 1 ? 1 : 0)); });
+    if (Object.keys(counted).length) { const r = invCountSave(counted); if (!r.ok) fail('final count', r.error); }
+    const w = rows.find(r => r.onRack > 4 && !counted[r.key]); if (w) { const r = invWriteOff(w.key, '1', 'Broken on rack', 'Forklift'); if (!r.ok) fail('write off', r.error); }
+    /* Приёмка, где листы ещё не вписали, — «Enter sheets» на виду. */
+    if (!invReceiptLines().some(x => x.issue === 'Enter sheets')) {
+      at(T(end, 9, 51)); const po = purOrderSave({ supplierId: INV.sup.clear.id, state: 'sent', date: end, lines: [{ id: 'L1', kind: 'glass', productId: glassProductByCode('6CLEAR').id, qty: 2, unit: 'block', sheetsPerBlock: 16, widthIn: 130, heightIn: 96 }] });
+      if (po.ok) { const d = purFulfilFromPO('receipt', po.value.id); d.date = end; d.receivedBy = 'Sergiy Lysenko'; d.lines.forEach(l => { l.actualSheets = null; }); const r = purFulfilSave('receipt', d); if (!r.ok) fail('enter sheets', r.error); }
+    }
+    const here = invOffcutRows().filter(o => INV_OFFCUT_HERE.includes(o.status));
+    if (here[0]) invOffcutLost([here[0].id]);
+    if (here[1]) { invOffcutLost([here[1].id]); invOffcutFound(here[1].id); }
+    const live = DB.salesOrder.filter(o => !salesIsQuote(o)), has = f => live.some(f), made = [];
+    const fresh = () => { const c = pickCustomer(); const id = newOrder(c, end); if (id) cnt('order'); return id; };
+    if (!has(o => o.status === 'new' && !o.onHold)) { at(T(end, 9, 52)); if (fresh()) made.push('new'); }
+    if (!has(o => o.status === 'verified' && !o.onHold)) { at(T(end, 9, 54)); const id = fresh(); if (id) { asOffice(people['Sergiy Lysenko']); salesSetRecordStatus(id, 'verified'); made.push('verified'); } }
+    if (!has(o => o.onHold)) { at(T(end, 9, 56)); const o = live.filter(x => x.status === 'batched' && !x.onHold)[1], id = o ? o.id : fresh(); if (id) { asOffice(people['Kate Novak']); salesHoldApply([id], 'Waiting for site measure'); made.push('on hold'); } }
+    logCapture();
+    const st = {}; DB.salesOrder.forEach(o => { const k = salesIsQuote(o) ? 'quote ' + o.status : o.onHold ? 'on hold' : o.status; st[k] = (st[k] || 0) + 1; });
+    return { counted: Object.keys(counted).length, rows: invSheetRows().filter(r => r.lastCount).length, offcuts: invOffcutRows().length, made, statuses: st };
+  };
+
   const ARCH = { glassPiece: [], glassUnitId: [], stationScan: [], productionRoute: [], glassBatch: [], cutPlan: [], shipment: [], salesOrder: [], shapeDef: [], financeTerms: [], orderEvent: [] };
   const ARCHIVED = new Set();
   function archive(day) {
@@ -1177,8 +1331,10 @@ function simPage() {
     normalizeCutting();
     carrierSetup();
     ['Truck 1 · Isuzu NPR', 'Truck 2 · Hino 195', 'Truck 3 · Ford F-550'].forEach(n => { const out = truckAdd(n); TRUCKS.push(out.value); });
+    if (opt.inventory) [0, 5].forEach(i => OFFICE_PEOPLE[i][2].push('purchasing', 'inventory'));
     await makePeople();
     makeCustomers(start);
+    if (opt.inventory) invSetup();
     Object.values(people).forEach(p => (p.jobs || []).forEach(j => (ROSTER[j.station] || (ROSTER[j.station] = [])).push({ p, shift: j.shift, rate: j.rate })));
     /* Nazar на SHIP — только самовывоз, SHIPR — до обеда, не IGU. */
     return { users: DB.user.length, customers: DB.customer.length };
@@ -1214,6 +1370,7 @@ function simPage() {
       ev.push([T(day, 6, 40), 'load'], [T(day, 7, 50), 'depart'], [T(day, 7, 40), 'optimizer'], [T(day, 13, 30), 'optimizer2'], [T(day, 10, 15), 'payments'], [T(day, 11, 0), 'office'], [T(day, 11, 30), 'quotes'],
         [T(day, 14, 30), 'shipPlan'], [T(day, 15, 30), 'delivered'], [T(day, 16, 5), 'skids'], [T(day, 8, 20), 'pickups'], [T(day, 15, 45), 'pickups'], [T(day, 15, 0), 'ncr']);
       if (wday(day) === 5) ev.push([T(day, 16, 20), 'close']);
+      if (INV) { ev.push([T(day, 10, 30), 'invReceive']); if ([1, 4].includes(wday(day))) ev.push([T(day, 9, 30), 'invBuy']); if (wday(day) === 2) ev.push([T(day, 9, 45), 'invHeld']); }
       salesDay(day).forEach(e => ev.push(e));
     }
     for (let m = 6 * 60; m < 27 * 60; m += 15) ev.push([T(day, 0, m), 'tick']);
@@ -1238,6 +1395,9 @@ function simPage() {
         else if (kind === 'skids') skidReturns(day);
         else if (kind === 'ncr') ncrDay(day);
         else if (kind === 'close') closePaid(day);
+        else if (kind === 'invBuy') invBuy(day);
+        else if (kind === 'invReceive') invReceive(day);
+        else if (kind === 'invHeld') invHeld(day);
       } catch (e) { fail(kind, e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e); soDraft = null; soEdit = null; }
       if (kind !== 'tick' || dirty.size > 40) logCapture();
       PROF[kind] = (PROF[kind] || 0) + performance.now() - pt;
@@ -1420,7 +1580,7 @@ if (require.main === module) (async () => {
   await p.goto('file://' + path.join(ROOT, 'src/index.html'));
   await p.waitForTimeout(400);
   await p.evaluate(`(${simPage.toString()})()`);
-  console.log('setup', JSON.stringify(await p.evaluate(x => SIM.setup(x), { seed: o.seed, scale: o.scale, quickCut: o.quickCut, start: o.start })));
+  console.log('setup', JSON.stringify(await p.evaluate(x => SIM.setup(x), { seed: o.seed, scale: o.scale, quickCut: o.quickCut, start: o.start, inventory: o.inventory })));
   const sizes = [];
   let day = o.start, month = o.start.slice(0, 7);
   while (day <= o.end) {
@@ -1440,6 +1600,10 @@ if (require.main === module) (async () => {
   }
   const gen = await p.evaluate(e => SIM.finish(e), o.end);
   console.log('finish', JSON.stringify(gen));
+  if (o.inventory) {
+    await p.evaluate(() => SIM.unarchive());
+    console.log('склад', JSON.stringify(await p.evaluate(e => SIM.invFinal(e), o.end)));
+  }
   const n = await p.evaluate(() => SIM.exportPlan());
   const file = path.join(o.out, o.name + '.json'), fd = fs.openSync(file, 'w');
   fs.writeSync(fd, '{"format":"glass-erp","schemaVersion":1,"exportedAt":' + JSON.stringify(new Date(o.end + 'T21:00:00-04:00').toISOString()) + ',"data":{');

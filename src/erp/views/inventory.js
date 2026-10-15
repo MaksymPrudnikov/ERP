@@ -22,7 +22,9 @@ function invArg(v){return esc(JSON.stringify(String(v)));}
 function invNav(){return '<button type="button" class="sl-quiet" data-inv-sections aria-haspopup="dialog" onclick="invSectionsOpen(event)">'+esc((INV_VIEWS.find(v=>v[0]===invView)||INV_VIEWS[0])[1])+'<span class="sl-disclosure">▾</span></button>';}
 function invSectionsOpen(e){salesListMenu=Object.assign({kind:'inv-sections',scope:salesListScope()},salesListAt(e,200));render();}
 function invSectionsMenuHTML(style){return '<div class="sl-menu sl-show-menu" style="'+style+'" role="dialog" aria-label="Inventory sections">'+INV_VIEWS.map(([k,n])=>'<label><input type="radio" name="inv-section" '+(k===invView?'checked':'')+' onchange="invGo(\''+k+'\')">'+n+'</label>').join('')+'</div>';}
-function invGo(v){if(!invCountLeave())return;invView=v;invNotice='';invWriteOffDraft=null;invOffcutLostDraft.clear();salesListMenu=null;render();}
+/* Раздел из меню — с чистого листа: фильтр журнала по стеклу ставит только
+   строка дашборда (аудит 15.10.2026: он оставался и при входе из меню). */
+function invGo(v){if(!invCountLeave())return;invView=v;invNotice='';invWriteOffDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
 function invCountLeave(){
  if(Object.keys(invCountDraft).length&&!confirm('Discard counts you have not saved?'))return false;
  invCountDraft={};return true;

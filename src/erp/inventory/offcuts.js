@@ -29,19 +29,22 @@ function invDays(from,to){const a=Date.parse(from),b=to?Date.parse(to):Date.now(
    текущей раскладки — смотрим, сканировали ли этот лист. В раскладке его
    нет — он остался в стоке после Reset, потому что лист уже порезали
    (v5.166), или раскроя нет совсем (старые данные): кусок на стеллаже. */
-function invOffcutSource(r,cut){
+function invOffcutSource(r,cut,byPiece){
  const plan=cutPlanFor(r.batch),groups=plan&&Array.isArray(plan.groups)?plan.groups:[];
  const sh=groups.flatMap(g=>g.sheets).find(s=>(s.stock||[]).some(x=>x.id===r.id));
- if(sh&&!plan.reset){const c=cut.get(r.batch+'|'+(plan.at||'')+'|'+sh.no);return {cut:!!c,at:c?c.at:'',by:c?c.by:''};}
+ if(sh&&!plan.reset){const c=invSheetCutScan(plan,sh,byPiece);return {cut:!!c,at:c?c.at:'',by:c?c.by:''};}
  const c=[...cut.values()].filter(x=>x.batch===r.batch&&x.no===(sh?sh.no:r.sheet)&&x.plan<=r.at).sort((a,b)=>String(a.at).localeCompare(String(b.at)))[0];
  return c?{cut:true,at:c.at,by:c.by}:{cut:!sh,at:'',by:''};
 }
-/* Куда кусок взят: лежит листом в раскрое батча или отмечен в его SHEETS. */
+/* Куда кусок взят: лежит листом в раскрое батча или отмечен в SHEETS ещё не
+   собранного раскроя. Отмечен, а собранный раскрой его не взял (укладчик
+   берёт кусок, только если так уходит меньше ft²) — кусок свободен на
+   стеллаже (аудит 15.10.2026: он навсегда значился «In B-…»). */
 function invOffcutClaims(){
  const out=new Map();
  (DB.cutPlan||[]).forEach(p=>{
   if(!p||!glassBatchFind(p.batch))return;
-  Object.keys(p.sheetPick||{}).forEach(glass=>((p.sheetPick[glass]||{}).sizes||[]).forEach(x=>{if(x&&/^S-/.test(x.key)&&x.off===false&&!out.has(x.key))out.set(x.key,p.batch);}));
+  if(p.reset)Object.keys(p.sheetPick||{}).forEach(glass=>((p.sheetPick[glass]||{}).sizes||[]).forEach(x=>{if(x&&/^S-/.test(x.key)&&x.off===false&&!out.has(x.key))out.set(x.key,p.batch);}));
   if(!p.reset)(p.groups||[]).forEach(g=>g.sheets.forEach(s=>{if(s.size&&/^S-/.test(s.size.key||''))out.set(s.size.key,p.batch);}));
  });
  return out;
@@ -52,11 +55,11 @@ function invOffcutEvents(){
  return m;
 }
 function invOffcutRows(){
- const cut=invCutSheets(),used=new Map(),broken=new Map(),claims=invOffcutClaims(),events=invOffcutEvents();
+ const scans=invCutScans(),cut=invCutSheets(scans),byPiece=invCutByPiece(scans),used=new Map(),broken=new Map(),claims=invOffcutClaims(),events=invOffcutEvents();
  cut.forEach(c=>{if(c.stock&&!used.has(c.stock))used.set(c.stock,c);});
  invBreaks(true).forEach(b=>{if(b.stock&&!b.x.undoneAt&&!broken.has(b.stock))broken.set(b.stock,b.x);});
  return (DB.stockOffcut||[]).map(r=>{
-  const src=invOffcutSource(r,cut),ev=events.get(r.id)||[],last=ev[ev.length-1],u=used.get(r.id),b=broken.get(r.id);
+  const src=invOffcutSource(r,cut,byPiece),ev=events.get(r.id)||[],last=ev[ev.length-1],u=used.get(r.id),b=broken.get(r.id);
   const status=r.status==='cancelled'?'Back to waste':u?'Used':b?'Broken':last&&last.kind==='offcut-lost'?'Written off':!src.cut?'Coming':claims.has(r.id)?'In batch':'On rack';
   const here=INV_OFFCUT_HERE.includes(status),since=src.at||r.at;
   return {id:r.id,r,glass:r.glass,mm:r.mm,w:Math.max(r.w,r.h),h:Math.min(r.w,r.h),area:Math.round(r.w*r.h/144*100)/100,batch:r.batch,sheet:r.sheet,booked:r.at,
