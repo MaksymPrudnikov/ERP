@@ -86,6 +86,18 @@ module.exports=async function({page,eq,ok}){
   return {rows,total,tile,card:card.startsWith('SL-2 Kingsway Renovations 0 days · PS-'),out:out.startsWith('At Kingsway Renovations since'),went,check,back:dsText('[data-carrier-done] b'),left:skidsOut().has('SL-2')};
  }),{rows:'G-,U-,U-,U-',total:'Total: 3 units · 1 glass · 2 orders',tile:'1 skid in the shop · 3 units · 1 glass',card:true,out:true,went:3,check:0,back:'SL-2 back from Kingsway Renovations · 0 days',left:false});
 
+ /* Владелец, 15.10.2026: «для одиночного стекла я не увидел вес». */
+ eq('вес: у одинарного стекла — вес юнита позиции, у лайта стеклопакета на долли — его стекло; у стеклопакета без норм рамки — известная часть со «~»',await t.p.evaluate(()=>{
+  dsReset();const a=dsOrder([[36,24,1]],'Granite City Glazing'),ga=dsIds(a);dsScan(ga,'DL-1');
+  const c=oqCustomer({legalName:'Royal Crest Windows'}),b=oqOrder(c);salesDraftDrop();oqThrough(b,'batched');const gb=[...glassPieceMap(b).values()].flatMap(r=>r.ids).slice(0,2);dsScan(gb,'DL-1');
+  dsOpenTab();carrierWinOpen('DL-1');const m=carrierWinModel(),w=id=>carrierText(m.items.find(i=>i.label===id),'weight');
+  const one=w(ga[0]),lite=w(gb[0]),line=finWithOrder(salesRecord(a),()=>salesLineWeight(salesRecord(a).lines[0],salesRecord(a))).kg;
+  const igu=salesRecord(b),l=igu.lines[0],full=finWithOrder(igu,()=>salesLineWeight(l,igu)),glassRows=full.rows.filter(r=>/^Lite 1 ·/.test(r.label)).reduce((n,r)=>n+r.kg,0);
+  carrierWinClose();const r=oqOrder(c);salesDraftDrop();oqThrough(r,'ready');shippingAvailable(salesRecord(r)).forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));
+  const save=window.salesWeightRate;window.salesWeightRate=()=>null;carrierWinOpen('SL-1');const unit=carrierText(carrierWinModel().items[0],'weight');window.salesWeightRate=save;carrierWinClose();
+  return {one:one===docNum(line,1),lite:lite===docNum(glassRows,1)&&+lite>0,litePart:+lite<full.kg,unit:/^~[0-9.]+$/.test(unit)};
+ }),{one:true,lite:true,litePart:true,unit:true});
+
  eq('колонки — у каждого свои и в базе: Тому без Customer и Size вторым, у Сергея — все; переживают нормализацию; Standard view; импорт без массива — ошибка',await t.p.evaluate(()=>{
   dsReset();const a=dsOrder([[36,24,1]],'Granite City Glazing');dsScan(dsIds(a),'DL-1');
   const real=window.carrierMe,who=dsAs;

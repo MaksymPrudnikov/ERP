@@ -116,12 +116,17 @@ function carrierSize(it,inch){const d=it.unit?stationIguGeometry(it.g,it.unit):s
 /* С какого времени лежит самое старое: сегодня — время, раньше — день. */
 function carrierSinceShort(list){const at=list.map(x=>x.scan.at).filter(Boolean).sort()[0]||'';return at?carrierWhen(at):'—';}
 function carrierWhen(iso){const d=finLocalDate(iso);return !d?'':d===finToday()?stationTime(iso):salesListShortDay(d)+' '+stationTime(iso);}
-/* Вес строки — вес юнита позиции: у стеклопакета и одинарного стекла он
-   известен, у отдельного лайта стеклопакета — нет. */
+/* Вес строки: у юнита и одинарного стекла — вес юнита позиции, у лайта
+   стеклопакета (едет на долли до IGU) — его стекло с покрытием (строки
+   «Lite N» расчёта веса). Нет нормы покрытия — известная часть, со «~»,
+   как в Shipping (владелец, 15.10.2026: «для одиночного стекла не увидел
+   вес»). */
 function carrierKg(it){
- if(!it.unit&&carrierLites(it)>1)return null;
- const k=it.o.id+'|'+it.l.id;if(!carrierWeightMemo.has(k)){const w=finWithOrder(it.o,()=>salesLineWeight(it.l,it.o));carrierWeightMemo.set(k,w&&w.kg!=null?w.kg:null);}
- return carrierWeightMemo.get(k);
+ const k=it.o.id+'|'+it.l.id;if(!carrierWeightMemo.has(k))carrierWeightMemo.set(k,finWithOrder(it.o,()=>salesLineWeight(it.l,it.o)));
+ const w=carrierWeightMemo.get(k);if(!w||!(w.rows||[]).length)return null;
+ if(it.unit||carrierLites(it)<=1)return w.kg!=null?{kg:w.kg,exact:true}:w.knownKg>0?{kg:w.knownKg,exact:false}:null;
+ const c=it.g.c,rows=c?w.rows.filter(r=>String(r.label).startsWith('Lite '+c.lite+' ·')):[];if(!rows.length)return null;
+ const kg=rows.reduce((n,r)=>n+(r.kg||0),0);return kg>0?{kg,exact:rows.every(r=>r.kg!=null)}:null;
 }
 function carrierText(it,k,print){
  const o=it.o,l=it.l;
@@ -142,7 +147,7 @@ function carrierText(it,k,print){
   case 'batch':return [...new Set(it.glass.map(g=>g.entry&&g.entry.batch.number).filter(Boolean))].join(', ');
   case 'next':return it.place&&it.place.waiting||'';
   case 'due':return o.dueDate?salesListShortDay(o.dueDate):'';
-  case 'weight':{const kg=carrierKg(it);return kg==null?'':docNum(kg,1);}
+  case 'weight':{const w=carrierKg(it);return w?(w.exact?'':'~')+docNum(w.kg,1):'';}
   case 'puton':{const s=it.scan||{},m=s.moved;if(m)return 'Moved '+carrierWhen(m.at)+(m.by?' · '+m.by:'');return s.station?s.station+' '+carrierWhen(s.at)+(s.by?' · '+s.by:''):'';}
  }
  return '';
@@ -282,7 +287,7 @@ function carrierSheetPages(m,cols){
  else{const extra=span-base,give=Math.min(extra,needSum),rest=extra-give;widths=word.map((w,i)=>w+(needSum?need[i]*give/needSum:0)+rest/use.length);}
  const cell=(t,c,i)=>{const l=docWrap(t,8.4,bold(c),widths[i]-9);return l.length>3?l.slice(0,2).concat(docFit(l.slice(2).join(' '),8.4,bold(c),widths[i]-9)):l;};
  const xs=[];widths.reduce((x,w)=>{xs.push(x);return x+w;},W.left);
- const kg=rows.reduce((n,it)=>{const v=carrierKg(it);return v==null?n:n+v;},0);
+ const kgs=rows.map(carrierKg),kg=kgs.reduce((n,w)=>n+(w?w.kg:0),0),kgExact=kgs.every(w=>w&&w.exact);
  const where=[...new Set(m.items.map(i=>i.place&&i.place.waiting).filter(Boolean))].join(', ')||(m.out?salesCustomerDisplay(m.out.customerId):'');
  const pages=[];let P,y;
  const page=first=>{
@@ -294,7 +299,7 @@ function carrierSheetPages(m,cols){
   P.text(W.right,y+44,code,{size:code.length>6?30:38,bold:true,align:'right'});
   if(m.type)P.text(W.right,y+56,m.type.label,{size:8,color:C.mut,align:'right'});
   y+=70;
-  const cells=[{label:'Station',value:where||'—'},{label:loaded?'Since':'Shipped',value:carrierStamp(loaded?m.list.map(x=>x.scan.at).filter(Boolean).sort()[0]:m.out&&m.out.since)},{label:'On it',value:carrierCountText(rows)+(orders.length>1?' · '+orders.length+' orders':'')},kg>0?{label:'Weight',value:docNum(kg,1)+' kg'}:null,{label:'Printed by',value:me.name||'—'}].filter(Boolean);
+  const cells=[{label:'Station',value:where||'—'},{label:loaded?'Since':'Shipped',value:carrierStamp(loaded?m.list.map(x=>x.scan.at).filter(Boolean).sort()[0]:m.out&&m.out.since)},{label:'On it',value:carrierCountText(rows)+(orders.length>1?' · '+orders.length+' orders':'')},kg>0?{label:'Weight',value:(kgExact?'':'~')+docNum(kg,1)+' kg'}:null,{label:'Printed by',value:me.name||'—'}].filter(Boolean);
   P.rect(W.left,y,span,30,{fill:C.box,r:4});
   let x=W.left+10;cells.forEach(c=>{docLabel(P,x,y+11,c.label);P.text(x,y+23,docFit(c.value,9,true,160),{size:9,bold:true});x+=Math.max(70,docTextWidth(c.value,9,true)+26);});
   y+=46;
