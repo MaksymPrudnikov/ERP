@@ -261,85 +261,58 @@ function carrierWinHTML(){
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&carrierWin&&!(typeof salesDialog!=='undefined'&&salesDialog)){if(carrierWin.menu)carrierWin.menu=false;else carrierWin=null;render();}});
 
 /* ------------------------------ Печать ----------------------------- */
-/* Лист Letter в стиле packing slip: шапка компании, крупный код, серая
-   полоса (где, с какого времени, сколько, кто печатает), у одного клиента —
-   клиент с адресом и заказ с PO, у нескольких — группы по заказам;
-   колонки — те же, что в окне (заказ, клиент и PO уходят в шапку группы). */
-function carrierSheetPages(m,cols){
- const W=DOC_PAGE,C=DOC_COLOR,co=docCompanyBlock(),me=carrierMe(),now=new Date().toISOString();
- const loaded=m.items.length>0,rows=loaded?m.items:m.gone,orders=carrierOrders(rows),one=orders.length===1?orders[0].o:null;
- const kind=m.code?(carrierWord(m.code)==='skid'?'SKID CONTENTS':'DOLLY CONTENTS'):'NOT ON A '+(m.word==='No skid'?'SKID':'DOLLY');
- const code=m.code||(m.station?m.station:''),use=cols.filter(c=>!['order','customer','po'].includes(c.k));
- carrierWeightMemo=new Map();
- /* Ширина колонок: короткие (#, Line, Size, ID, Batch, Due, вес…) — по
-    самому длинному значению целиком; длинный текст (клиент, состав, кто
-    положил) делит остаток и переносится на вторую-третью строку. */
- const WRAP=['customer','po','mark','glass','makeup','puton'],bold=c=>c.k==='size'||c.k==='id';
- const texts=rows.map(it=>use.map(c=>carrierText(it,c.k,true)));
- const headW=use.map(c=>docTextWidth(c.label.toUpperCase(),6.5,true,.5)+10);
- const nat=use.map((c,i)=>Math.max(headW[i],...texts.map(t=>docTextWidth(t[i],8.4,bold(c))+10)));
- const span=W.right-W.left,wrap=use.map(c=>WRAP.includes(c.k));
- /* Длинный текст не уже самого длинного своего слова: «6SBN60» не рвётся. */
- const word=use.map((c,i)=>wrap[i]?Math.max(headW[i],...texts.map(t=>Math.max(0,...String(t[i]).split(/\s+/).map(x=>docTextWidth(x,8.4,bold(c))))+10)):nat[i]);
- const need=use.map((c,i)=>wrap[i]?Math.max(0,Math.min(nat[i],220)-word[i]):0),base=word.reduce((a,b)=>a+b,0),needSum=need.reduce((a,b)=>a+b,0);
- let widths;
- if(base>=span)widths=word.map(w=>w*span/base);
- else{const extra=span-base,give=Math.min(extra,needSum),rest=extra-give;widths=word.map((w,i)=>w+(needSum?need[i]*give/needSum:0)+rest/use.length);}
- const cell=(t,c,i)=>{const l=docWrap(t,8.4,bold(c),widths[i]-9);return l.length>3?l.slice(0,2).concat(docFit(l.slice(2).join(' '),8.4,bold(c),widths[i]-9)):l;};
- const xs=[];widths.reduce((x,w)=>{xs.push(x);return x+w;},W.left);
+/* Лист в стиле packing slip: шапка компании, крупный код, полоса (станция,
+   с какого времени, сколько, вес, кто печатает), у одного заказа — клиент с
+   адресом, заказ и PO, у нескольких — группы по заказам; колонки — те же,
+   что в окне (заказ, клиент и PO уходят в шапку группы). Бумагу лист не
+   задаёт — как чертёж (владелец, 15.10.2026: «печать на любом варианте,
+   горизонтальный, вертикальный, просто отступы от краёв»): у страницы только
+   поля, положение и размер выбирают человек и принтер, таблица ложится по
+   ширине, шапка таблицы повторяется на каждой странице. Цвета — палитра
+   документов (DOC_COLOR), а не темы экрана: тёмная тема на бумагу не идёт. */
+const CARRIER_NOWRAP=['pos','line','size','id','next','due','weight'];
+function carrierStamp(iso){return iso?docDate(finLocalDate(iso))+' · '+stationTime(iso):'—';}
+function carrierSheetKind(m){return m.code?(carrierWord(m.code)==='skid'?'Skid contents':'Dolly contents'):'Not on a '+(m.word==='No skid'?'skid':'dolly');}
+function carrierSheetHTML(m,cols){
+ const C=DOC_COLOR,co=docCompanyBlock(),me=carrierMe(),loaded=m.items.length>0,rows=loaded?m.items:m.gone,orders=carrierOrders(rows),one=orders.length===1?orders[0].o:null;
+ const use=cols.filter(c=>!['order','customer','po'].includes(c.k));carrierWeightMemo=new Map();
  const kgs=rows.map(carrierKg),kg=kgs.reduce((n,w)=>n+(w?w.kg:0),0),kgExact=kgs.every(w=>w&&w.exact);
  const where=[...new Set(m.items.map(i=>i.place&&i.place.waiting).filter(Boolean))].join(', ')||(m.out?salesCustomerDisplay(m.out.customerId):'');
- const pages=[];let P,y;
- const page=first=>{
-  P=docPage();pages.push(P);y=W.top;
-  P.text(W.left,y+11,docFit(co.name||'',13,true,330),{size:13,bold:true,color:C.navy});
-  co.lines.slice(0,2).forEach((t,i)=>P.text(W.left,y+24+i*10,docFit(t,7.6,false,330),{size:7.6,color:C.mut}));
-  P.text(W.right,y+8,kind,{size:9,bold:true,color:C.mut,align:'right',ls:.4});
-  if(!first){P.text(W.right,y+26,code+' · continued',{size:13,bold:true,align:'right'});y+=44;return;}
-  P.text(W.right,y+44,code,{size:code.length>6?30:38,bold:true,align:'right'});
-  if(m.type)P.text(W.right,y+56,m.type.label,{size:8,color:C.mut,align:'right'});
-  y+=70;
-  const cells=[{label:'Station',value:where||'—'},{label:loaded?'Since':'Shipped',value:carrierStamp(loaded?m.list.map(x=>x.scan.at).filter(Boolean).sort()[0]:m.out&&m.out.since)},{label:'On it',value:carrierCountText(rows)+(orders.length>1?' · '+orders.length+' orders':'')},kg>0?{label:'Weight',value:(kgExact?'':'~')+docNum(kg,1)+' kg'}:null,{label:'Printed by',value:me.name||'—'}].filter(Boolean);
-  P.rect(W.left,y,span,30,{fill:C.box,r:4});
-  let x=W.left+10;cells.forEach(c=>{docLabel(P,x,y+11,c.label);P.text(x,y+23,docFit(c.value,9,true,160),{size:9,bold:true});x+=Math.max(70,docTextWidth(c.value,9,true)+26);});
-  y+=46;
-  if(one){
-   const c=salesFindCustomer(one.customerId)||{},a=typeof shippingDefaultAddress==='function'?shippingDefaultAddress(c):{};
-   P.text(W.left,y+10,docFit(salesCustomerDisplay(one.customerId),12,true,330),{size:12,bold:true});
-   [docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean).forEach((t,i)=>P.text(W.left,y+24+i*11,docFit(t,8.4,false,330),{size:8.4,color:i?C.mut:C.ink}));
-   P.text(W.right,y+10,'Order '+(one.businessNumber||''),{size:11,bold:true,align:'right'});
-   if(one.customerPo)P.text(W.right,y+24,'PO '+one.customerPo,{size:8.6,align:'right'});
-   if(one.priority==='critical'||one.priority==='rush')P.text(W.right,y+36,one.priority==='critical'?'Critical':'Rush',{size:8.6,bold:true,color:one.priority==='critical'?C.due:C.warn,align:'right'});
-   y+=50;
-  }
- };
- const head=()=>{P.rect(W.left,y,span,16,{fill:C.bar});use.forEach((c,i)=>docLabel(P,xs[i]+5,y+10.5,c.label,{size:6.5,ls:.5,align:'left'}));y+=21;};
- const ensure=h=>{if(y+h>W.bottom-24){page(false);head();}};
- page(true);head();
- orders.forEach(g=>{
-  if(!one){
-   ensure(34);const o=g.o,label=[o.businessNumber,salesCustomerDisplay(o.customerId),o.customerPo?'PO '+o.customerPo:''].filter(Boolean).join(' · ');
-   y+=4;P.text(W.left+5,y+8,docFit(label,9.6,true,360),{size:9.6,bold:true});
-   if(o.priority==='critical'||o.priority==='rush'){const t=o.priority==='critical'?'Critical':'Rush',x=W.left+5+Math.min(360,docTextWidth(label,9.6,true))+10;P.text(x,y+8,t,{size:7.6,bold:true,color:o.priority==='critical'?C.due:C.warn});}
-   P.text(W.right-5,y+8,carrierCountText(g.items),{size:8.4,color:C.mut,align:'right'});
-   y+=13;P.line(W.left,y,W.right,y,{stroke:C.navy,lw:1});y+=4;
-  }
-  g.items.slice().reverse().forEach((it,n)=>{
-   const cells=use.map((c,i)=>cell(carrierText(it,c.k,true),c,i)),h=Math.max(...cells.map(l=>l.length))*10+5;
-   ensure(h+1);if(n%2)P.rect(W.left,y-1,span,h,{fill:C.box});
-   cells.forEach((l,i)=>l.forEach((t,k)=>P.text(xs[i]+5,y+9.6+k*10,t,{size:8.4,bold:bold(use[i])})));
-   y+=h;P.line(W.left,y-1,W.right,y-1,{stroke:C.line,lw:.4});
-  });
- });
- ensure(20);y+=8;P.text(W.left,y+6,'Total: '+carrierCountText(rows)+' · '+stationPlural(orders.length,'order','orders')+(loaded&&rows.length>1?'  ·  #1 went on first':''),{size:9.4,bold:true});
- const stamp='Printed '+carrierStamp(now)+(me.name?' by '+me.name:'');
- pages.forEach((p,i)=>{p.line(W.left,W.bottom,W.right,W.bottom,{stroke:C.line,lw:.6});p.text(W.left,W.footer,stamp,{size:7.4,color:C.mut});p.text(W.right,W.footer,(kind.charAt(0)+kind.slice(1).toLowerCase())+' · '+code+' · '+(i+1)+' / '+pages.length,{size:7.4,color:C.mut,align:'right'});});
- return pages;
+ const prio=o=>o.priority==='critical'?'<span class="cs-prio bad">Critical</span>':o.priority==='rush'?'<span class="cs-prio warn">Rush</span>':'';
+ const cells=[['Station',where||'—'],[loaded?'Since':'Shipped',carrierStamp(loaded?m.list.map(x=>x.scan.at).filter(Boolean).sort()[0]:m.out&&m.out.since)],['On it',carrierCountText(rows)+(orders.length>1?' · '+orders.length+' orders':'')],kg>0?['Weight',(kgExact?'':'~')+docNum(kg,1)+' kg']:null,['Printed by',me.name||'—']].filter(Boolean);
+ let customer='';
+ if(one){
+  const c=salesFindCustomer(one.customerId)||{},a=typeof shippingDefaultAddress==='function'?shippingDefaultAddress(c):{};
+  customer=`<div class="cs-cust"><div><b data-raw>${esc(salesCustomerDisplay(one.customerId))}</b>${docAddressText(a)?`<div data-raw>${esc(docAddressText(a))}</div>`:''}${a.contact||a.phone?`<div class="cs-mut" data-raw>${esc([a.contact,a.phone].filter(Boolean).join(' · '))}</div>`:''}</div><div class="cs-right"><b>Order ${esc(one.businessNumber||'')}</b>${one.customerPo?`<div data-raw>PO ${esc(one.customerPo)}</div>`:''}${prio(one)}</div></div>`;
+ }
+ const body=orders.map(g=>{
+  const o=g.o,head=one?'':`<tr class="cs-group"><td colspan="${use.length}"><b data-raw>${esc([o.businessNumber,salesCustomerDisplay(o.customerId),o.customerPo?'PO '+o.customerPo:''].filter(Boolean).join(' · '))}</b> ${prio(o)}<span class="cs-count">${esc(carrierCountText(g.items))}</span></td></tr>`;
+  /* Номер батча не рвётся на дефисе: «B-0058, B-0059» переносится только между номерами. */
+  const cell=(it,c)=>{const t=carrierText(it,c.k,true);return c.k==='batch'?t.split(', ').map(x=>`<span class="cs-nw">${esc(x)}</span>`).join(', '):esc(t);};
+  return head+g.items.slice().reverse().map(it=>`<tr>${use.map(c=>`<td class="${CARRIER_NOWRAP.includes(c.k)?'cs-nw':''}${c.k==='size'||c.k==='id'?' cs-b':''}${c.k==='weight'?' cs-n':''}" data-raw>${cell(it,c)}</td>`).join('')}</tr>`).join('');
+ }).join('');
+ const style=`--cs-ink:${C.ink};--cs-mut:${C.mut};--cs-line:${C.line};--cs-bar:${C.bar};--cs-box:${C.box};--cs-navy:${C.navy};--cs-due:${C.due};--cs-warn:${C.warn};--cs-paper:#ffffff`;
+ return `<div class="cs-sheet" style="${style}" data-carrier-sheet="${esc(m.code||m.station)}">
+  <div class="cs-head"><div class="cs-co"><b data-raw>${esc(co.name||'')}</b>${co.lines.slice(0,2).map(t=>`<div data-raw>${esc(t)}</div>`).join('')}</div><div class="cs-code"><small>${esc(carrierSheetKind(m).toUpperCase())}</small><b>${esc(m.code||m.station)}</b>${m.type?`<span>${esc(m.type.label)}</span>`:''}</div></div>
+  <div class="cs-strip">${cells.map(([l,v])=>`<div><small>${esc(l)}</small><b data-raw>${esc(v)}</b></div>`).join('')}</div>
+  ${customer}
+  <table class="cs-table"><thead><tr>${use.map(c=>`<th${c.k==='weight'?' class="cs-n"':''}>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
+  <div class="cs-total">Total: ${esc(carrierCountText(rows))} · ${stationPlural(orders.length,'order','orders')}${loaded&&rows.length>1?' · #1 went on first':''}</div>
+ </div>`;
 }
-function carrierStamp(iso){return iso?docDate(finLocalDate(iso))+' · '+stationTime(iso):'—';}
+/* Подвал страницы — полями @page: кто и когда напечатал, номер страницы. */
+function carrierPrintCleanup(){document.body.classList.remove('carrier-printing');}
 function carrierPrint(){
  const m=carrierWinModel();if(!m||!(m.items.length||m.gone.length))return false;
- const pages=carrierSheetPages(m,carrierColsShown());shippingShowPrint(pages);return pages.length;
+ let host=document.getElementById('carrierPrintHost');if(!host){host=document.createElement('div');host.id='carrierPrintHost';document.body.appendChild(host);}
+ host.innerHTML=carrierSheetHTML(m,carrierColsShown());
+ const me=carrierMe(),q=t=>'"'+String(t).replace(/["\\]/g,'')+'"',foot='font:8px Helvetica,Arial,sans-serif;color:'+DOC_COLOR.mut;
+ let st=document.getElementById('carrierPageStyle');if(!st){st=document.createElement('style');st.id='carrierPageStyle';document.head.appendChild(st);}
+ st.textContent='@page carriersheet{margin:10mm 10mm 12mm;@bottom-left{content:'+q('Printed '+carrierStamp(new Date().toISOString())+(me.name?' by '+me.name:''))+';'+foot+'}@bottom-right{content:'+q(carrierSheetKind(m)+' · '+(m.code||m.station)+' · ')+' counter(page) " / " counter(pages);'+foot+'}}@media print{html,body.carrier-printing{background:#ffffff!important}}';
+ document.body.classList.add('carrier-printing');
+ window.addEventListener('afterprint',carrierPrintCleanup,{once:true});setTimeout(carrierPrintCleanup,60000);
+ try{window.print();}catch(e){carrierPrintCleanup();return false;}
+ return true;
 }
 
 /* ------------------- Production → Dollies & Skids ------------------- */

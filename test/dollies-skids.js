@@ -111,14 +111,16 @@ module.exports=async function({page,eq,ok}){
   return {menu,tom,sergiy,again,stored,err,std,left};
  }),{menu:true,tom:'#,Size,Order,Customer PO',sergiy:'#,Order,Customer,Customer PO',again:'#,Size,Order,Customer PO',stored:'view-tom',err:'The "carrierCols" field must be an array.',std:'#,Order,Customer,Customer PO',left:0});
 
- eq('Print: лист Letter — SKID CONTENTS, код, клиент с адресом и заказом; колонки как в окне, без Order и Customer; итог',await t.p.evaluate(()=>{
+ /* Владелец, 15.10.2026: «как с чертежом — печать на любом варианте, горизонтальный, вертикальный, просто отступы от краёв». */
+ eq('Print: лист сам ложится на бумагу — у @page только поля, без размера; SKID CONTENTS, код, клиент с адресом и заказом; колонки как в окне, без Order и Customer; итог; после печати лист убирается',await t.p.evaluate(()=>{
   dsReset();const c=oqCustomer({legalName:'Kingsway Renovations'}),id=oqOrder(c,{customerPo:'KR-4471'});salesDraftDrop();oqThrough(id,'ready');
   shippingAvailable(salesRecord(id)).forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));
   dsOpenTab();carrierWinOpen('SL-1');window.dsPrinted=0;document.querySelector('[data-carrier-print]').click();
-  const svg=document.querySelector('.doc-print-page svg'),txt=svg?[...svg.querySelectorAll('text')].map(x=>x.textContent).join(' | '):'';
-  return {printed:window.dsPrinted,pages:document.querySelectorAll('.doc-print-page').length,kind:txt.includes('SKID CONTENTS'),code:txt.includes('| SL-1 |'),customer:txt.includes('Kingsway Renovations'),order:txt.includes('Order '+salesRecord(id).businessNumber),po:txt.includes('PO KR-4471'),
-   cols:['ORDER','CUSTOMER','SIZE','MAKEUP','GLASS / UNIT ID'].map(h=>txt.includes('| '+h+' |')).join(),total:txt.includes('Total: 3 units · 1 order')};
- }),{printed:1,pages:1,kind:true,code:true,customer:true,order:true,po:true,cols:'false,false,true,true,true',total:true});
+  const host=document.getElementById('carrierPrintHost'),txt=host.innerText.replace(/\s+/g,' '),page=document.getElementById('carrierPageStyle').textContent,printing=document.body.classList.contains('carrier-printing');
+  const heads=[...host.querySelectorAll('thead th')].map(th=>th.textContent).join(',');window.dispatchEvent(new Event('afterprint'));
+  return {printed:window.dsPrinted,printing,margins:/@page carriersheet\{margin:/.test(page),size:/size:/.test(page),pages:/counter\(pages\)/.test(page),kind:host.querySelector('.cs-code small').textContent+' '+host.querySelector('.cs-code b').textContent==='SKID CONTENTS SL-1',customer:txt.includes('Kingsway Renovations'),order:txt.includes('Order '+salesRecord(id).businessNumber),po:txt.includes('PO KR-4471'),
+   heads,total:txt.includes('Total: 3 units · 1 order'),after:document.body.classList.contains('carrier-printing')};
+ }),{printed:1,printing:true,margins:true,size:false,pages:true,kind:true,customer:true,order:true,po:true,heads:'#,Line,Mark,Size,Glass,Makeup,Glass / unit ID,Batch,Next,Due,Weight kg,Put on',total:true,after:false});
 
  eq('In production: код долли под цифрой станции открывает окно, строка не раскрывается; Data → Dollies & Skids: Loaded / At customers / Empty / All и код — окно',await t.p.evaluate(()=>{
   dsReset();const a=dsOrder([[36,24,2]],'Granite City Glazing');dsScan(dsIds(a),'DL-1');
