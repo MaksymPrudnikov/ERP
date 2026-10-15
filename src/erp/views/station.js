@@ -973,7 +973,7 @@ function stationDollyHTML(){
   '<div class="mut">#1 went on first. Tap the first and the last glass to move.</div>'+
   (n?'<table class="st-mv"><thead><tr><th>#</th><th>Order</th><th>Line</th><th>Glass</th><th>Batch</th><th>Next</th><th>Scanned</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty">Nothing on it</div>')+
   (d.error?'<div class="st-pin-err" role="alert">'+esc(d.error)+'</div>':'')+
-  '<div class="st-drawer-foot">'+(count?'<span data-dolly-sel><b>'+count+' glass</b> #'+lo+(hi>lo?'–'+hi:'')+' →</span><input class="st-mv-to" data-station-keep data-dolly-to placeholder="DL-4" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationDollyMove(this.value)}"><button type="button" class="b st-yes" data-dolly-move onclick="stationDollyMove(document.querySelector(\'[data-dolly-to]\').value)">Move</button>':'<span class="mut">Select glass to move</span>')+
+  '<div class="st-drawer-foot">'+(d.code&&n&&!count&&typeof carrierPrintButton==='function'?carrierPrintButton(d.code):'')+(count?'<span data-dolly-sel><b>'+count+' glass</b> #'+lo+(hi>lo?'–'+hi:'')+' →</span><input class="st-mv-to" data-station-keep data-dolly-to placeholder="DL-4" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationDollyMove(this.value)}"><button type="button" class="b st-yes" data-dolly-move onclick="stationDollyMove(document.querySelector(\'[data-dolly-to]\').value)">Move</button>':'<span class="mut">Select glass to move</span>')+
   (d.code&&n&&!count?stationEmptyButton(d.code):'')+'<button type="button" class="b" onclick="stationCloseDrawer()">Close</button></div></div>';
 }
 

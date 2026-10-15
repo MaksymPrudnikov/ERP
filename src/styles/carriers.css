@@ -120,3 +120,12 @@ button.cw-danger:hover{background:var(--danger-soft)}
 .cs-table tr.cs-group td{background:var(--cs-paper);font-size:9.6pt;padding-top:10px;border-bottom:1pt solid var(--cs-navy);break-after:avoid}
 .cs-count{float:right;font-weight:400;font-size:8.4pt;color:var(--cs-mut)}
 .cs-total{font-weight:700;font-size:9.4pt;margin-top:8px}
+
+/* Data → Stations: колонки листа станции и образец. */
+.sf-sheet{display:grid;grid-template-columns:300px 1fr;gap:18px;padding:10px 4px}
+.sf-sheet h4{margin:0 0 2px;font-size:14px}
+.sf-sheet-cols .sl-cols-row{background:var(--surface)}
+.sf-sheet-preview{min-width:0}
+.sf-sheet-paper{zoom:.72;border:1px solid var(--line);border-radius:6px;margin-top:6px;max-height:820px;overflow:hidden}
+.sf-sheet-paper .cs-sheet{padding:28px 34px}
+@media(max-width:900px){.sf-sheet{grid-template-columns:1fr}}

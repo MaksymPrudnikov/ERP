@@ -120,9 +120,5 @@ function shippingPrint(id,checked){
   render();shippingShowPrint(pages);
  });
 }
-function shippingPrintSkid(customerId,code){
- const items=(DB.salesOrder||[]).filter(o=>o.customerId===customerId).flatMap(shippingUnits).filter(i=>i.ready&&i.skid===code);
- const ps=[...new Set(items.map(i=>i.shipment&&i.shipment.id).filter(Boolean))],s=ps.length===1?shippingFind(ps[0]):null;
- const model=shippingDocument({number:s?s.number:'',customerId,method:s?s.method:'delivery',date:s?s.date:finToday(),shipTo:s?s.shipTo:shippingDefaultAddress(salesFindCustomer(customerId)),items,extras:[]});
- shippingShowPrint(shippingPages(model,code));
-}
+/* Лист одного скида — views/carriers-board (carrierPrintCode): один лист
+   скида везде — в окне тары, на станции и здесь (15.10.2026). */
