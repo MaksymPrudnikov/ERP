@@ -7,9 +7,41 @@
 /* Рез только растёт, поэтому здесь отрицательные значения гасятся. Внутрь
    контур уводит shapeInsetVariable — она нужна ступенчатому пакету, где второе
    стекло меньше первого на заданный отступ. */
-function shapeOffsetVariable(points,distances){return shapeOffsetSigned(points,(distances||[]).map(function(d){return Math.max(0,+d||0);}));}
+function shapeOffsetVariable(points,distances){return shapeOffsetSigned(points,(distances||[]).map(function(d){return Math.max(0,+d||0);}),true);}
 function shapeInsetVariable(points,distances){return shapeOffsetSigned(points,(distances||[]).map(function(d){return -Math.max(0,+d||0);}));}
-function shapeOffsetSigned(points,distances){
+/* Петли отступа наружу. Дуга DXF разложена на сотни коротких отрезков; на
+   вогнутом стыке «ус» продлевает соседей дальше их длины, и отрезок
+   выворачивается назад — контур реза делает петлю. Так же выворачивается
+   вогнутое скругление меньше припуска и щель уже двух припусков. У
+   настоящего контура реза каждая точка не ближе своего припуска к готовому
+   контуру; у петли такие точки есть — её срезаем по точке пересечения. Так
+   выглядит настоящий отступ: вогнутый угол остаётся углом, узкая щель
+   закрывается. Если меньшая часть — настоящий контур (точки на месте),
+   это перекрытие, и ошибка остаётся. Микроскопическая петля (площадь меньше
+   1e-6 кв. дюйма) срезается всегда. Отрезки после срезки — части прежних,
+   поэтому поиск продолжается с той же точки. Прогон 1000 случайных фигур
+   DXF, 16.10.2026. */
+function shapeOffsetUnloop(P,src,dist){
+  var m=src.length,tooClose=function(q){for(var k=0;k<m;k++)if(fabPointSegDistance(q,src[k],src[(k+1)%m])<(+dist[k]||0)-1e-7)return true;return false;};
+  P=P.slice();
+  var i=0,guard=0;
+  while(i<P.length&&guard++<P.length*4){
+    var n=P.length,cut=false;
+    for(var j=i+2;j<n;j++){
+      if(i===0&&j===n-1)continue;
+      if(!fabSegCross(P[i],P[(i+1)%n],P[j],P[(j+1)%n]))continue;
+      var x=fabLineIntersection(P[i],P[(i+1)%n],P[j],P[(j+1)%n]);if(!x)continue;
+      var inner=P.slice(i+1,j+1),outer=P.slice(j+1).concat(P.slice(0,i+1)),small=inner.length<=outer.length?inner:outer;
+      if(!(Math.abs(fabSignedArea([x].concat(small)))<1e-6||small.some(tooClose)))return null;
+      P=small===inner?P.slice(0,i+1).concat([x]).concat(P.slice(j+1)):[x].concat(inner);
+      if(small!==inner)i=0;
+      cut=true;break;
+    }
+    if(!cut)i++;
+  }
+  return P.length>=3&&!fabPolySelfIntersects(P)?P:null;
+}
+function shapeOffsetSigned(points,distances,unloop){
   if(!points||points.length<3)return {valid:false,error:'Offset requires a closed contour.'};
   var n=points.length,orient=fabSignedArea(points),lines=[],i;
   for(i=0;i<n;i++){
@@ -24,7 +56,11 @@ function shapeOffsetSigned(points,distances){
     if(Math.hypot(hit[0]-v[0],hit[1]-v[1])>lim)return {valid:false,error:'Cutting offset creates an excessive miter at contour vertex '+(i+1)+'.'};
     out.push(hit);
   }
-  if(fabPolySelfIntersects(out))return {valid:false,error:'Cutting offset self-intersects. Change the contour or edge allowances.'};
+  if(fabPolySelfIntersects(out)){
+    var clean=unloop?shapeOffsetUnloop(out,points,distances):null;
+    if(!clean)return {valid:false,error:'Cutting offset self-intersects. Change the contour or edge allowances.'};
+    out=clean;
+  }
   if(Math.abs(fabSignedArea(out))<1e-6)return {valid:false,error:'Cutting offset encloses no area.'};
   return {valid:true,points:out};
 }

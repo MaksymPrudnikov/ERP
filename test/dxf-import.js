@@ -1,7 +1,9 @@
 /* Загрузка DXF (владелец, 16 октября 2026): файл из Fusion с дугами bulge
    раньше отклонялся целиком — принимался только один LWPOLYLINE из прямых.
    Теперь читается то, что даёт нормальный CAD; кромка — объект файла, а не
-   каждый маленький отрезок дуги; круги внутри стекла — отверстия. */
+   каждый маленький отрезок дуги; круги внутри стекла — отверстия. Фигура
+   идентична файлу (владелец, 16.10): что нельзя прочитать точно, не
+   читается вовсе. */
 module.exports=async function({page,eq}){
  console.log('dxf-import');const t=await page();
  await t.p.evaluate(()=>{
@@ -25,8 +27,8 @@ module.exports=async function({page,eq}){
   return {r,edges:edges.map(e=>[e.id,e.type,+e.length.toFixed(2)])};
  }),{r:{size:[40,30],edges:'llal',holes:[],notes:[]},edges:[['seg1','line',40],['seg2','line',10],['seg3','arc',62.83],['seg4','line',10]]});
  eq('separate lines and arcs in any order and direction close into one glass; a circle inside is a hole',await t.p.evaluate(()=>
-  dxRead(dxDoc(dxArc([20,10],20,0,180)+dxLine([0,0],[0,10])+dxLine([40,0],[0,0])+dxLine([40,0],[40,10])+dxCircle([10,5],0.5)+dxLw([[25,3],[30,3],[30,6],[25,6]])+dxLine([15,1],[18,1])))
- ),{size:[40,30],edges:'alll',holes:[[10,5,1]],notes:['1 inner cutout is not supported for DXF and was skipped.','1 open line was ignored.']});
+  dxRead(dxDoc(dxArc([20,10],20,0,180)+dxLine([0,0],[0,10])+dxLine([40,0],[0,0])+dxLine([40,0],[40,10])+dxCircle([10,5],0.5)+dxLine([15,1],[18,1])))
+ ),{size:[40,30],edges:'alll',holes:[[10,5,1]],notes:['1 open line was ignored.']});
  eq('units, blocks, mirrored arcs, splines, ellipses, old polylines',await t.p.evaluate(()=>{
   const g=dxG,blocks=g(0,'SECTION',2,'BLOCKS',0,'BLOCK',8,'0',2,'PANEL',70,0,10,0,20,0)+dxLw([[0,0],[10,0],[10,5],[0,5]])+g(0,'ENDBLK',8,'0',0,'ENDSEC');
   const layers=g(0,'SECTION',2,'TABLES',0,'TABLE',2,'LAYER',0,'LAYER',2,'HIDDEN',70,1,62,7,0,'ENDTAB',0,'ENDSEC');
@@ -48,13 +50,18 @@ module.exports=async function({page,eq}){
  eq('a file that is not one closed glass says what is wrong',await t.p.evaluate(()=>{
   const g=dxG;return {
    gap:dxRead(dxDoc(dxLine([0,0],[40,0])+dxLine([40,0],[40,30])+dxLine([40,30],[0,30])+dxLine([0,30],[0,0.12]))),
-   tinyGap:dxRead(dxDoc(dxLine([0,0],[40,0])+dxLine([40,0],[40,30])+dxLine([40,30],[0,30])+dxLine([0,30],[0,0.01]))).size,
+   smallGap:dxRead(dxDoc(dxLine([0,0],[40,0])+dxLine([40,0],[40,30])+dxLine([40,30],[0,30])+dxLine([0,30],[0,0.01]))),
+   numberNoise:dxRead(dxDoc(dxLine([0,0],[40,0])+dxLine([40,0],[40,30])+dxLine([40,30],[0,30])+dxLine([0,30],[0,0.0005]))).size,
+   cutout:dxRead(dxDoc(dxLw([[0,0],[40,0],[40,30],[0,30]])+dxLw([[25,3],[30,3],[30,6],[25,6]]))),
+   fitOnly:dxRead(dxDoc(g(0,'SPLINE',8,'0',70,8,71,3,74,4,11,0,21,0,11,10,21,20,11,30,21,20,11,40,21,0)+dxLine([0,0],[40,0]))),
    two:dxRead(dxDoc(dxLw([[0,0],[10,0],[10,10],[0,10]])+dxLw([[20,0],[30,0],[30,10],[20,10]]))),
    text:dxRead(dxDoc(g(0,'TEXT',8,'0',10,0,20,0,40,1,1,'NOTE'))),
    solid:dxRead(dxDoc(g(0,'3DSOLID',8,'0',1,'x'))),
    binary:dxRead('AutoCAD Binary DXF\r\n\x1a\x00'),
    units:dxRead(dxDoc(dxLw([[0,0],[1,0],[1,1],[0,1]]),3))};
- }),{gap:'DXF outline is not closed: gap of 0.12″ near X 0″, Y 0.12″.',tinyGap:[40,30],two:'DXF contains 2 separate outlines. Keep one glass per file.',
+ }),{gap:'DXF outline is not closed: gap of 0.12″ near X 0″, Y 0.12″.',smallGap:'DXF outline is not closed: gap of 0.01″ near X 0″, Y 0.01″.',numberNoise:[40,30],
+  cutout:'DXF has an inner cutout. Inner cutouts are not supported for DXF yet, so the file was not loaded.',
+  fitOnly:'DXF has a spline saved by fit points only. Save it with control points so the curve stays exact.',two:'DXF contains 2 separate outlines. Keep one glass per file.',
   text:'DXF has no lines, arcs or polylines to read.',solid:'DXF has no lines, arcs or polylines to read. It stores the shape as a solid or region; export the outline as lines and arcs.',
   binary:'Binary DXF is not supported. Save the file as ASCII DXF.',units:'DXF units are not supported (INSUNITS = 3). Export the file in inches.'});
  eq('complex closed shapes: fillets, concave arcs, S-curve, spline budget, bowtie',await t.p.evaluate(()=>{
@@ -108,6 +115,14 @@ module.exports=async function({page,eq}){
   const sel=[...document.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='__DXF__'));
   window.alert=was;const out={holes,label,said:first,again,failed:said[said.length-1],type:sel&&sel.value};sEdit=null;sDraft=null;render();return out;
  }),{holes:[['hole',10,5,'1/2'],['hole',30,5,'1/2']],label:'DXF file',said:['DXF loaded. 2 holes were added from the file.'],again:2,failed:'DXF outline is not closed: gap of 40″ near X 40″, Y 0″.',type:'rectangle'});
+ eq('holes from the file keep their exact centre and diameter, not the 1/16″ grid',await t.p.evaluate(async()=>{
+  const was=window.alert;window.alert=()=>{};tab='configurators';subtab='shape';render();openShapeNew('rectangle');
+  const text=dxDoc(dxLw([[0,0],[1016,0],[1016,762],[0,762]])+dxCircle([254.762,127.1],6),4),file=new File([text],'mm.dxf',{type:'application/dxf'});
+  shapeAttachDxf({files:[file],value:'x'});for(let i=0;i<50&&!(sDraft.source&&sDraft.source.kind==='dxf');i++)await new Promise(r=>setTimeout(r,10));
+  const h=shapeManufacturingItems()[0],again=normalizeShapeDef(JSON.parse(JSON.stringify(sDraft))).manufacturingItems[0];window.alert=was;
+  const out={x:+h.x.toFixed(6),y:+h.y.toFixed(6),d:h.diameter,stable:again.x===h.x&&again.y===h.y,manual:shapeNormalizeManufacturingItem({type:'hole',x:10.03,y:5.01}).x};
+  sEdit=null;sDraft=null;render();return out;
+ }),{x:10.03,y:5.003937,d:'0.472441',stable:true,manual:10});
  eq('dxf import has no browser errors',t.errs,[]);
  await t.c.close();
 };

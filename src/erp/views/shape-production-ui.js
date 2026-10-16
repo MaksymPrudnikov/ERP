@@ -210,11 +210,13 @@ shapeAttachDxf=function(input){
     sDraft.source={kind:'dxf',fileName:String(file.name),fileSize:Math.floor(file.size),uploadedAt:new Date().toISOString(),note:note,preview:parsed.preview};
     sDraft.w=frac64(parsed.preview.width16/16);sDraft.h=frac64(parsed.preview.height16/16);
     /* Круги внутри стекла — отверстия этой фигуры (владелец, 16.10): ставим
-       их как обычный Hole, без обработки и без условий. Тот же центр и
-       диаметр второй раз не добавляем. */
+       их как обычный Hole, без обработки и без условий, центр и диаметр —
+       точно из файла (дробь, только если диаметр ровно кратен 1/64″). Тот
+       же центр и диаметр второй раз не добавляем. */
     var items=shapeManufacturingItems(),added=0;
     (parsed.holes||[]).forEach(function(h){
-      var item=shapeNormalizeManufacturingItem({type:'hole',x:h.x,y:h.y,diameter:frac64(h.diameter)}),d=inch(item.diameter);
+      var n64=Math.round(h.diameter*64),dia=Math.abs(h.diameter*64-n64)<1e-6?frac64(n64/64):String(+h.diameter.toFixed(6));
+      var item=shapeNormalizeManufacturingItem({type:'hole',x:h.x,y:h.y,diameter:dia,fromFile:true}),d=inch(item.diameter);
       if(items.some(function(o){return o.type==='hole'&&shapeHoleCount(o)===1&&Math.abs(o.x-item.x)<1e-9&&Math.abs(o.y-item.y)<1e-9&&Math.abs(inch(o.diameter)-d)<1e-9;}))return;
       items.push(item);added++;
     });
