@@ -18,23 +18,76 @@ function salesFritDrawingSpecs(shape){
  });
  return out;
 }
-/* W/H are measured to the CENTRE of the first dot. For a shaped edge the
-   owner has not defined the reference rule, so do not substitute a bbox edge.
-   A separate lite contour is likewise not the shared contour on this sheet. */
+/* Где вертикаль x (или горизонталь y) пересекает контур: нижняя/верхняя,
+   левая/правая точка кромки. null — линия стекла не задевает. */
+function salesFritEdgeY(P,x,top){
+ var best=null;
+ for(var i=0;i<P.length;i++){
+  var a=P[i],b=P[(i+1)%P.length],y;
+  if((a[0]-x)*(b[0]-x)>0)continue;
+  if(a[0]===b[0])y=top?Math.max(a[1],b[1]):Math.min(a[1],b[1]);else y=a[1]+(x-a[0])*(b[1]-a[1])/(b[0]-a[0]);
+  if(best===null||(top?y>best:y<best))best=y;
+ }
+ return best;
+}
+function salesFritEdgeX(P,y,right){
+ var best=null;
+ for(var i=0;i<P.length;i++){
+  var a=P[i],b=P[(i+1)%P.length],x;
+  if((a[1]-y)*(b[1]-y)>0)continue;
+  if(a[1]===b[1])x=right?Math.max(a[0],b[0]):Math.min(a[0],b[0]);else x=a[0]+(y-a[1])*(b[0]-a[0])/(b[1]-a[1]);
+  if(best===null||(right?x>best:x<best))best=x;
+ }
+ return best;
+}
+/* W/H are measured to the CENTRE of the first dot, from the glass edges
+   (owner, 16.10.2026): H straight up/down from the edge under the dot, W
+   straight across from the edge at the dot's height. On a rectangle that is
+   the corner itself; on a raked side, an arc or a DXF contour the dot keeps
+   the same distances to the real edges. The dot is found along the corner
+   side: the first x where "edge + W" lands back on itself.
+   A separate lite contour is still not the shared contour on this sheet. */
+function salesFritSetoutPoint(P,right,top,w,h){
+ var b=fabEdgeBounds(P),step=function(x){
+  var ey=salesFritEdgeY(P,x,top);if(ey===null)return null;
+  var y=ey+(top?-h:h),ex=salesFritEdgeX(P,y,right);if(ex===null)return null;
+  return {x:ex+(right?-w:w),y:y,edgeX:ex,edgeY:ey};
+ };
+ var x=right?b.maxX-w:b.minX+w,s=step(x);
+ if(s&&s.x===x)return s;
+ var n=512,lo=right?b.maxX:b.minX,hi=right?b.minX:b.maxX,prev=null;
+ for(var i=0;i<=n;i++){
+  x=lo+(hi-lo)*i/n;s=step(x);if(!s){prev=null;continue;}
+  var f=(s.x-x)*(right?-1:1),cur={x:x,f:f};
+  if(Math.abs(f)<1e-9)return s;
+  if(prev&&prev.f>0&&f<0){
+   var a=prev.x,z=x;
+   for(var k=0;k<60;k++){var m=(a+z)/2,sm=step(m);if(!sm)break;if((sm.x-m)*(right?-1:1)>0)a=m;else z=m;}
+   s=step((a+z)/2);if(s&&Math.abs(s.x-(a+z)/2)<1e-6)return s;
+  }
+  prev=cur;
+ }
+ return null;
+}
+function salesFritOnGlass(p,P){
+ if(fabPointInPoly(p,P))return true;
+ for(var i=0;i<P.length;i++)if(fabPointSegDistance(p,P[i],P[(i+1)%P.length])<1e-6)return true;
+ return false;
+}
 function salesFritFirstDot(record,shape,result){
- var f=record.spec,P=result&&result.points||[],b=P.length?fabEdgeBounds(P):null;
- if(!b||P.length!==4||P.some(function(p,i){var q=P[(i+1)%P.length];return Math.abs(p[0]-q[0])>1e-6&&Math.abs(p[1]-q[1])>1e-6;}))
-  return {valid:false,note:'Setout: review shaped edges'};
+ var f=record.spec,P=result&&result.points||[];
+ if(P.length<3)return {valid:false,note:'Setout outside glass'};
  var line=salesSheetLineOf(shape),own=line&&salesLineLiteShape(line,record.paneIndex);
  if(shapeLiteMirrored(shape,record.paneIndex))return {valid:false,note:'Setout: review mirrored lite'};
  if(own&&own.id!==shape.id)return {valid:false,note:'Setout: see lite drawing'};
  var inset=shapeLiteSpec(shape,record.paneIndex);
  if(inset&&inset.inset&&Object.keys(inset.inset).some(function(k){return inch(inset.inset[k])>0;}))return {valid:false,note:'Setout: see lite drawing'};
  var right=String(f.marginFrom).indexOf('right')>=0,top=String(f.marginFrom).indexOf('Top')>=0;
- var w=+f.marginW16/16,h=+f.marginH16/16,edgeX=right?b.maxX:b.minX,edgeY=top?b.maxY:b.minY;
- var x=edgeX+(right?-w:w),y=edgeY+(top?-h:h);
- if(!isFinite(w)||!isFinite(h)||w<0||h<0||x<b.minX||x>b.maxX||y<b.minY||y>b.maxY)return {valid:false,note:'Setout outside glass'};
- return {valid:true,x:x,y:y,edgeX:edgeX,edgeY:edgeY,right:right,top:top,w:w,h:h};
+ var w=+f.marginW16/16,h=+f.marginH16/16;
+ if(!isFinite(w)||!isFinite(h)||w<0||h<0)return {valid:false,note:'Setout outside glass'};
+ var s=salesFritSetoutPoint(P,right,top,w,h);
+ if(!s||!salesFritOnGlass([s.x,s.y],P))return {valid:false,note:'Setout outside glass'};
+ return {valid:true,x:s.x,y:s.y,edgeX:s.edgeX,edgeY:s.edgeY,right:right,top:top,w:w,h:h};
 }
 function salesFritSvgText(x,y,text,size,anchor){
  return '<text x="'+x+'" y="'+y+'" font-family="Arial, sans-serif" font-size="'+(size||10)+'" text-anchor="'+(anchor||'start')+'" fill="#24313b">'+esc(text)+'</text>';
@@ -98,6 +151,6 @@ function salesFritDecorateSvg(svg,shape,result,T){
  });
  Object.keys(dots).forEach(function(k){extra+=salesFritSetoutSvg(dots[k].dot,T,dots[k].ids.join(', '));});
  var height=Math.max(T.vh,y+12),width=x+172;
- svg=svg.replace('<svg ','<svg data-frit-decorated="true" ').replace(/viewBox="[^"]+"/,'viewBox="0 0 '+width+' '+height+'"');
+ svg=svg.replace('<svg ','<svg data-frit-decorated="true" ').replace(/viewBox=("[^"]+"|'[^']+')/,'viewBox="0 0 '+width+' '+height+'"');
  return svg.replace('</svg>',extra+'</svg>');
 }
