@@ -1252,8 +1252,8 @@ function simPage() {
      клиент, где смотреть (SIM.guide). Этапы, которых случайно не оказалось
      и которые можно сделать без цеха, досоздаются в конце (SIM.stagesFill):
      черновик квоты, выигранная квота, заказ ждёт Verify, ждёт батча, On
-     Hold, отменён, батч с раскроем, который ещё не резали, и батч, который
-     начали резать.
+     Hold, отменён, батч с раскроем, который ещё не резали, батч, который
+     начали резать, и выданный заказ с просроченной оплатой.
      ===================================================================== */
   SIM.stagesFill = function (end, hour) {
     const live = () => DB.salesOrder.filter(o => !salesIsQuote(o)), has = f => live().some(f), made = [];
@@ -1283,13 +1283,25 @@ function simPage() {
       tick(); const bs = batchNow(), w = (ROSTER.CUT || [])[0], it = bs && bs[0] && glassBatchActiveItems(bs[0])[0];
       if (it && w) { asStation('CUT', w.p, ''); const before = DB.stationScan.length; stationSubmit(it.piece); if (DB.stationScan.length > before && glassBatchActiveItems(bs[0]).some(i => !i.cutStartedAt)) made.push('cutting started'); }
     }
+    /* Выдано, срок оплаты прошёл, денег нет. Net 30 за неделю не истекает —
+       самому раннему выданному и неоплаченному заказу офис ставит короткий
+       срок (Net 3, а если выдан позже — сколько успевает истечь). */
+    if (!has(o => o.status === 'done' && finOrderFinancial(o, end).overdue > 0)) {
+      const o = live().filter(x => x.status === 'done' && finOrderBalance(x).status === 'due' && finBillingDate(x) && finBillingDate(x) < end).sort((a, c) => finBillingDate(a).localeCompare(finBillingDate(c)))[0];
+      if (o) {
+        tick(); asOffice(people['Irina Petrova']);
+        const t = finTermsFor(o), days = Math.min(3, Math.round((Date.parse(end) - Date.parse(finBillingDate(o))) / 864e5) - 1);
+        const out = finPersist(() => finSaveTerms(o.id, { paymentMode: 'credit', depositPercent: t.depositPercent, creditDays: days, issuedOn: t.issuedOn, dueOn: '' }, 'Short terms agreed'));
+        if (!out.ok) fail('overdue terms', out.error); else if (finOrderFinancial(o, end).overdue > 0) made.push('overdue');
+      }
+    }
     logCapture(); return made;
   };
   SIM.guide = function () {
     const out = [], used = new Set(), cust = o => salesCustomerDisplay(o.customerId) || '', num = o => o.businessNumber || o.number || o.id;
     const piecesOf = o => (DB.glassPiece || []).filter(r => String(r.key).startsWith(o.id + '|')).flatMap(r => (r.ids || []).concat(...Object.values(r.extra || {}))).filter(Boolean);
     const glassInfo = id => { const g = stationGlass(id); if (!g) return null; const sc = stationScansFor(id).sort((a, b) => String(a.at).localeCompare(String(b.at))), last = sc[sc.length - 1], pl = stationPlace(g, sc); return { id, on: last && last.on || '', waiting: pl.waiting, assembling: !!pl.assembling, cut: !!(g.entry && g.entry.item.cutStartedAt) }; };
-    const orders = DB.salesOrder.map(o => { const q = salesIsQuote(o); return { o, q, hold: !!o.onHold, st: o.status, bal: !q && finOrderCounts(o) ? finOrderBalance(o) : null, glass: q ? [] : piecesOf(o).map(glassInfo).filter(Boolean), ships: q ? [] : shippingForOrder(o.id) }; });
+    const orders = DB.salesOrder.map(o => { const q = salesIsQuote(o); return { o, q, hold: !!o.onHold, st: o.status, bal: !q && finOrderCounts(o) ? finOrderBalance(o) : null, fin: !q && finOrderCounts(o) ? finOrderFinancial(o) : null, glass: q ? [] : piecesOf(o).map(glassInfo).filter(Boolean), ships: q ? [] : shippingForOrder(o.id) }; });
     const add = (stage, where, test, note) => {
       const x = orders.find(c => !used.has(c.o.id) && test(c)) || orders.find(c => test(c));
       if (!x) { out.push({ stage, order: '—', customer: '', where, note: 'нет в этой базе' }); return; }
@@ -1313,7 +1325,8 @@ function simPage() {
     add('Накладная на рейс — запланирована', 'Shipping → Delivery', c => c.ships.some(s => s.method === 'delivery' && s.status === 'planned'), c => c.ships.find(s => s.status === 'planned').number);
     add('В машине — отгружено, ещё не доставлено', 'Shipping → Delivery', c => c.ships.some(s => s.status === 'shipped'), c => c.ships.find(s => s.status === 'shipped').number);
     add('Отгружено частично', 'Shipping', c => c.st === 'shipping');
-    add('Выдано — не оплачено (долг)', 'Finance; Sales → Balance', c => c.st === 'done' && c.bal && c.bal.status === 'due', c => '$' + c.bal.balance.toFixed(2));
+    add('Выдано — не оплачено (долг)', 'Finance; Sales → Balance', c => c.st === 'done' && c.bal && c.bal.status === 'due' && !c.fin.overdue, c => '$' + c.bal.balance.toFixed(2));
+    add('Выдано — оплата просрочена', 'Finance → Due dates', c => c.st === 'done' && c.fin && c.fin.overdue > 0, c => '$' + c.fin.overdue.toFixed(2) + ', срок ' + c.fin.dueOn + ' (' + paymentTermsLabel(c.fin.terms) + ')');
     add('Оплачено и закрыто', 'Sales; Finance', c => c.st === 'closed');
     /* Склад. */
     const po = (DB.purchaseOrder || []).find(p => !p.deletedAt && p.lines.some(l => !l.held) && ['Draft', 'Sent', 'Partially received'].includes(purOrderStatus(p)));

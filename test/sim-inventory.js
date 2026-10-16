@@ -2,7 +2,8 @@
    четыре дня малого цеха функциями ERP — закупки и приёмки блоками,
    пересчёт на старте, Offset 1/16 у листов Maver, куски S-, сканы CUT с
    листом — без сбоев, и склад сходится с раскроями; в конце есть заказы,
-   которые ждут Verify и батча, On Hold и отменённый; путеводитель по этапам. */
+   которые ждут Verify и батча, On Hold и отменённый; путеводитель по этапам;
+   выданный заказ с просроченной оплатой. */
 module.exports=async function({page,eq}){
  console.log('sim inventory');const t=await page();
  const {initPage,simPage}=require('../tools/sim-shop.js');
@@ -26,4 +27,23 @@ module.exports=async function({page,eq}){
  eq('four days of the shop with inventory: no failures, stock agrees with the layouts, every stage to look at',out,
   {fails:{},counted:true,mins:true,receipts:true,pos:true,scans:true,sheets:true,lost:0,offset:true,noOdd:true,stages:true,final:true,guide:true});
  eq('sim inventory has no JavaScript errors',t.errs,[]);await t.c.close();
+ /* Выдано, срок оплаты прошёл, денег нет. Неделя до 13.10: выданный за
+    наличные долг клиент гасит — тогда добор ставит короткий срок (Net 3)
+    самому раннему выданному заказу; Finance → Due dates показывает его как
+    Overdue, путеводитель — с номером заказа. */
+ const t2=await page();
+ await t2.p.evaluate(`(${initPage.toString()})(13)`);
+ await t2.p.evaluate(`(${simPage.toString()})()`);
+ const late=await t2.p.evaluate(async()=>{
+  await SIM.setup({seed:13,scale:0.1,quickCut:true,start:'2026-10-05',inventory:true});
+  const end='2026-10-13';for(const d of ['2026-10-05','2026-10-06','2026-10-07','2026-10-08','2026-10-09','2026-10-10','2026-10-11','2026-10-12',end])await SIM.day(d,d===end?10:0);
+  SIM.finish(end);SIM.unarchive();SIM.invFinal(end);
+  DB.salesOrder.filter(o=>o.status==='done'&&finOrderFinancial(o,end).overdue>0).forEach(o=>{const b=finOrderBalance(o).balance;
+   finPersist(()=>finSaveReceiptRecord({customerId:o.customerId,date:end,method:'cheque',reference:'T-'+o.businessNumber,note:'',amount:b,allocations:[{orderId:o.id,amount:b}],currency:'CAD'},'','',true));});
+  const made=SIM.stagesFill(end,10),row=SIM.guide().find(r=>r.stage==='Выдано — оплата просрочена')||{},o=DB.salesOrder.find(x=>x.businessNumber===row.order),due=o&&finDueInfos().find(r=>r.o===o);
+  return {fails:SIM.fails,made:made.includes('overdue'),net:o&&finTermsFor(o).creditDays,where:row.where,due:due&&due.memo.status};
+ });
+ eq('a handed-over order with its payment past due: short terms, Overdue in Finance → Due dates, a row in the guide',late,
+  {fails:{},made:true,net:3,where:'Finance → Due dates',due:'Overdue'});
+ eq('overdue sim has no JavaScript errors',t2.errs,[]);await t2.c.close();
 };
