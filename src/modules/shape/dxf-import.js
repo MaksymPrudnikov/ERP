@@ -157,10 +157,19 @@ function shapeDxfSplinePoints(e){
   });
   if(P.length>p&&U.length===P.length+p+1){
     while(W.length<P.length)W.push(1);
-    var len=0;for(var i=1;i<P.length;i++)len+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);
-    var n=Math.max(16*(P.length-p),Math.min(2048,Math.ceil(len/0.05))),u0=U[p],u1=U[P.length],out=[];
-    for(i=0;i<=n;i++)out.push(shapeDxfNurbsPoint(p,U,P,W,u0+(u1-u0)*i/n));
-    out[0]=shapeDxfNurbsPoint(p,U,P,W,u0);
+    /* Точки — по кривизне: пролёт делится пополам, пока середина отходит от
+       хорды больше допуска. Равный шаг давал волне из 12 точек 2000 точек, и
+       два-три сплайна упирались в предел контура. */
+    var u0=U[p],u1=U[P.length],out=[shapeDxfNurbsPoint(p,U,P,W,u0)];
+    var split=function(a,b,pa,pb,depth){
+      var m=(a+b)/2,pm=shapeDxfNurbsPoint(p,U,P,W,m),dx=pb[0]-pa[0],dy=pb[1]-pa[1],L=Math.hypot(dx,dy);
+      var dev=L>1e-12?Math.abs((pm[0]-pa[0])*dy-(pm[1]-pa[1])*dx)/L:Math.hypot(pm[0]-pa[0],pm[1]-pa[1]);
+      if(depth<3||dev>SHAPE_DXF_SAG&&depth<16){split(a,m,pa,pm,depth+1);split(m,b,pm,pb,depth+1);}else out.push(pb);
+    };
+    for(var i=p;i<P.length;i++){
+      var a=Math.max(U[i],u0),b=Math.min(U[i+1],u1);
+      if(b>a)split(a,b,shapeDxfNurbsPoint(p,U,P,W,a),shapeDxfNurbsPoint(p,U,P,W,b),0);
+    }
     return out;
   }
   /* Сплайн только по точкам прохода: кривая Катмулла — Рома через них. */
@@ -304,7 +313,7 @@ function shapeParseFusionDxf(text){
   var segs=ctx.segs.filter(function(s){return s.pts.length>=2&&s.pts.some(function(p){return shapeDxfDist(p,s.pts[0])>1e-9;});});
   if(!segs.length)return shapeDxfFail('DXF has no lines, arcs or polylines to read.'+(ctx.solids?' It stores the shape as a solid or region; export the outline as lines and arcs.':''));
   if(segs.some(function(s){return s.pts.some(function(p){return !isFinite(p[0])||!isFinite(p[1]);});}))return shapeDxfFail('DXF contour contains an invalid coordinate.');
-  var ch=shapeDxfChains(segs),loops=ch.loops.map(function(l){var edges=shapeDxfLoopEdges(l),pts=shapeDxfEdgesPoints(edges);return {edges:edges,pts:pts,area:pts.length>=3?Math.abs(fabSignedArea(pts)):0};}).filter(function(l){return l.area>1e-8;});
+  var ch=shapeDxfChains(segs),loops=ch.loops.map(function(l){var edges=shapeDxfLoopEdges(l),pts=shapeDxfEdgesPoints(edges);return {edges:edges,pts:pts,area:pts.length>=3?Math.abs(fabSignedArea(pts)):0};});
   var size=function(P){var b=fabEdgeBounds(P);return Math.max(b.maxX-b.minX,b.maxY-b.minY);};
   var openBig=ch.open.map(function(c){var e=shapeDxfLoopEdges(c),P=[];e.forEach(function(x){P=P.concat(x.pts);});return {pts:P,head:shapeDxfStart(c[0]),tail:shapeDxfEnd(c[c.length-1])};}).sort(function(a,b){return size(b.pts)-size(a.pts);})[0];
   loops.sort(function(a,b){return b.area-a.area;});
@@ -314,8 +323,10 @@ function shapeParseFusionDxf(text){
     var g=openBig.tail;
     return shapeDxfFail('DXF outline is not closed: gap of '+shapeDxfLen(shapeDxfDist(openBig.head,openBig.tail))+' near X '+shapeDxfLen(g[0])+', Y '+shapeDxfLen(g[1])+'.');
   }
+  /* «Бабочка»: замкнута, но площади нет — она пересекает сама себя. */
+  if(!(outer.area>1e-8))return shapeDxfFail(outer.pts.length>=4&&fabPolySelfIntersects(outer.pts)?'DXF contour self-intersects.':'DXF contour encloses no area.');
   var holes=[],cutouts=0,separate=0;
-  loops.slice(1).forEach(function(l){
+  loops.slice(1).filter(function(l){return l.area>1e-8;}).forEach(function(l){
     if(!l.pts.every(function(p){return fabPointInPoly(p,outer.pts);})){separate++;return;}
     var c=shapeDxfLoopCircle(l.edges);
     if(c)holes.push(c);else cutouts++;

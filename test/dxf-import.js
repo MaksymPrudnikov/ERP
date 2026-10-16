@@ -57,6 +57,21 @@ module.exports=async function({page,eq}){
  }),{gap:'DXF outline is not closed: gap of 0.12″ near X 0″, Y 0.12″.',tinyGap:[40,30],two:'DXF contains 2 separate outlines. Keep one glass per file.',
   text:'DXF has no lines, arcs or polylines to read.',solid:'DXF has no lines, arcs or polylines to read. It stores the shape as a solid or region; export the outline as lines and arcs.',
   binary:'Binary DXF is not supported. Save the file as ASCII DXF.',units:'DXF units are not supported (INSUNITS = 3). Export the file in inches.'});
+ eq('complex closed shapes: fillets, concave arcs, S-curve, spline budget, bowtie',await t.p.evaluate(()=>{
+  const g=dxG,q=Math.tan(Math.PI/8),W=48,H=36,r=2,sum=text=>{const x=shapeParseFusionDxf(text);if(!x.ok)return x.error;
+   const d=newShapeDef('rectangle');d.id='cx';d.thickness='6';d.source={kind:'dxf',fileName:'c.dxf',fileSize:1,uploadedAt:'2026-10-16T12:00:00.000Z',note:'',preview:x.preview};const s=normalizeShapeDef(d);
+   ShapeModule.dxfEdges(s).forEach(e=>{s.edgeOps[e.id]=[shapeNormalizeOp({type:'Flat Polish'})];});const c=ShapeModule.dxfCuttingPlan(s),k=x.preview.segments.map(v=>v.kind);
+   return {edges:k.filter(v=>v==='line').length+'l+'+k.filter(v=>v==='arc').length+'a',cut:c.valid?[Math.round(c.width*64)/64,Math.round(c.height*64)/64]:c.error,points:x.preview.points.length<1000};};
+  const rounded=[dxLine([r,0],[W-r,0]),dxArc([W-r,r],r,270,360),dxLine([W,r],[W,H-r]),dxArc([W-r,H-r],r,0,90),dxLine([W-r,H],[r,H]),dxArc([r,H-r],r,90,180),dxLine([0,H-r],[0,r]),dxArc([r,r],r,180,270)];
+  const wave=[[0,20]];for(let i=1;i<=10;i++)wave.push([i*6,20+(i%2?6:-2)]);wave.push([66,20]);const U=[0,0,0,0];for(let i=1;i<wave.length-3;i++)U.push(i);for(let i=0;i<4;i++)U.push(wave.length-3);
+  return {
+   rounded:sum(dxDoc([3,0,6,1,7,4,2,5].map(i=>rounded[i]).join(''))),
+   lShape:sum(dxDoc(dxLw([[1,0],[39,0,q],[40,1],[40,14,q],[39,15],[18,15,-q],[15,18],[15,49,q],[14,50],[1,50,q],[0,49],[0,1,q]]))),
+   sCurve:sum(dxDoc(dxLw([[0,0],[60,0],[60,20,0.25],[45,30,-0.25],[30,30,0.25],[15,30,-0.25],[0,20]]))),
+   spline:sum(dxDoc(g(0,'SPLINE',8,'0',70,8,71,3,72,U.length,73,wave.length,...U.flatMap(u=>[40,u]),...wave.flatMap(p=>[10,p[0],20,p[1]]))+dxLine([66,20],[66,0])+dxLine([66,0],[0,0])+dxLine([0,0],[0,20]))),
+   bowtie:sum(dxDoc(dxLw([[0,0],[40,30],[40,0],[0,30]])))};
+ }),{rounded:{edges:'4l+4a',cut:[48.125,36.125],points:true},lShape:{edges:'6l+6a',cut:[40.125,50.125],points:true},sCurve:{edges:'3l+4a',cut:[60.125,32],points:true},
+  spline:{edges:'3l+1a',cut:[66.125,23.453125],points:true},bowtie:'DXF contour self-intersects.'});
  eq('an arc edge carries its allowance on every point; the tangent check sees the real join',await t.p.evaluate(()=>{
   const s=dxShape(dxArch()),n=s.source.preview.points.length,ids=ShapeModule.dxfPointEdgeIds(s);
   ['seg1','seg2','seg3','seg4'].forEach(id=>{s.edgeOps[id]=[shapeNormalizeOp({type:'Flat Polish'})];});
