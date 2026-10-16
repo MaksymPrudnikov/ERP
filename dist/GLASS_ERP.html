@@ -3434,7 +3434,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='aa7d5de7558b';
+var ERP_BUILD='cececd05bf62';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -18605,23 +18605,76 @@ function salesFritDrawingSpecs(shape){
  });
  return out;
 }
-/* W/H are measured to the CENTRE of the first dot. For a shaped edge the
-   owner has not defined the reference rule, so do not substitute a bbox edge.
-   A separate lite contour is likewise not the shared contour on this sheet. */
+/* Где вертикаль x (или горизонталь y) пересекает контур: нижняя/верхняя,
+   левая/правая точка кромки. null — линия стекла не задевает. */
+function salesFritEdgeY(P,x,top){
+ var best=null;
+ for(var i=0;i<P.length;i++){
+  var a=P[i],b=P[(i+1)%P.length],y;
+  if((a[0]-x)*(b[0]-x)>0)continue;
+  if(a[0]===b[0])y=top?Math.max(a[1],b[1]):Math.min(a[1],b[1]);else y=a[1]+(x-a[0])*(b[1]-a[1])/(b[0]-a[0]);
+  if(best===null||(top?y>best:y<best))best=y;
+ }
+ return best;
+}
+function salesFritEdgeX(P,y,right){
+ var best=null;
+ for(var i=0;i<P.length;i++){
+  var a=P[i],b=P[(i+1)%P.length],x;
+  if((a[1]-y)*(b[1]-y)>0)continue;
+  if(a[1]===b[1])x=right?Math.max(a[0],b[0]):Math.min(a[0],b[0]);else x=a[0]+(y-a[1])*(b[0]-a[0])/(b[1]-a[1]);
+  if(best===null||(right?x>best:x<best))best=x;
+ }
+ return best;
+}
+/* W/H are measured to the CENTRE of the first dot, from the glass edges
+   (owner, 16.10.2026): H straight up/down from the edge under the dot, W
+   straight across from the edge at the dot's height. On a rectangle that is
+   the corner itself; on a raked side, an arc or a DXF contour the dot keeps
+   the same distances to the real edges. The dot is found along the corner
+   side: the first x where "edge + W" lands back on itself.
+   A separate lite contour is still not the shared contour on this sheet. */
+function salesFritSetoutPoint(P,right,top,w,h){
+ var b=fabEdgeBounds(P),step=function(x){
+  var ey=salesFritEdgeY(P,x,top);if(ey===null)return null;
+  var y=ey+(top?-h:h),ex=salesFritEdgeX(P,y,right);if(ex===null)return null;
+  return {x:ex+(right?-w:w),y:y,edgeX:ex,edgeY:ey};
+ };
+ var x=right?b.maxX-w:b.minX+w,s=step(x);
+ if(s&&s.x===x)return s;
+ var n=512,lo=right?b.maxX:b.minX,hi=right?b.minX:b.maxX,prev=null;
+ for(var i=0;i<=n;i++){
+  x=lo+(hi-lo)*i/n;s=step(x);if(!s){prev=null;continue;}
+  var f=(s.x-x)*(right?-1:1),cur={x:x,f:f};
+  if(Math.abs(f)<1e-9)return s;
+  if(prev&&prev.f>0&&f<0){
+   var a=prev.x,z=x;
+   for(var k=0;k<60;k++){var m=(a+z)/2,sm=step(m);if(!sm)break;if((sm.x-m)*(right?-1:1)>0)a=m;else z=m;}
+   s=step((a+z)/2);if(s&&Math.abs(s.x-(a+z)/2)<1e-6)return s;
+  }
+  prev=cur;
+ }
+ return null;
+}
+function salesFritOnGlass(p,P){
+ if(fabPointInPoly(p,P))return true;
+ for(var i=0;i<P.length;i++)if(fabPointSegDistance(p,P[i],P[(i+1)%P.length])<1e-6)return true;
+ return false;
+}
 function salesFritFirstDot(record,shape,result){
- var f=record.spec,P=result&&result.points||[],b=P.length?fabEdgeBounds(P):null;
- if(!b||P.length!==4||P.some(function(p,i){var q=P[(i+1)%P.length];return Math.abs(p[0]-q[0])>1e-6&&Math.abs(p[1]-q[1])>1e-6;}))
-  return {valid:false,note:'Setout: review shaped edges'};
+ var f=record.spec,P=result&&result.points||[];
+ if(P.length<3)return {valid:false,note:'Setout outside glass'};
  var line=salesSheetLineOf(shape),own=line&&salesLineLiteShape(line,record.paneIndex);
  if(shapeLiteMirrored(shape,record.paneIndex))return {valid:false,note:'Setout: review mirrored lite'};
  if(own&&own.id!==shape.id)return {valid:false,note:'Setout: see lite drawing'};
  var inset=shapeLiteSpec(shape,record.paneIndex);
  if(inset&&inset.inset&&Object.keys(inset.inset).some(function(k){return inch(inset.inset[k])>0;}))return {valid:false,note:'Setout: see lite drawing'};
  var right=String(f.marginFrom).indexOf('right')>=0,top=String(f.marginFrom).indexOf('Top')>=0;
- var w=+f.marginW16/16,h=+f.marginH16/16,edgeX=right?b.maxX:b.minX,edgeY=top?b.maxY:b.minY;
- var x=edgeX+(right?-w:w),y=edgeY+(top?-h:h);
- if(!isFinite(w)||!isFinite(h)||w<0||h<0||x<b.minX||x>b.maxX||y<b.minY||y>b.maxY)return {valid:false,note:'Setout outside glass'};
- return {valid:true,x:x,y:y,edgeX:edgeX,edgeY:edgeY,right:right,top:top,w:w,h:h};
+ var w=+f.marginW16/16,h=+f.marginH16/16;
+ if(!isFinite(w)||!isFinite(h)||w<0||h<0)return {valid:false,note:'Setout outside glass'};
+ var s=salesFritSetoutPoint(P,right,top,w,h);
+ if(!s||!salesFritOnGlass([s.x,s.y],P))return {valid:false,note:'Setout outside glass'};
+ return {valid:true,x:s.x,y:s.y,edgeX:s.edgeX,edgeY:s.edgeY,right:right,top:top,w:w,h:h};
 }
 function salesFritSvgText(x,y,text,size,anchor){
  return '<text x="'+x+'" y="'+y+'" font-family="Arial, sans-serif" font-size="'+(size||10)+'" text-anchor="'+(anchor||'start')+'" fill="#24313b">'+esc(text)+'</text>';
@@ -18685,7 +18738,7 @@ function salesFritDecorateSvg(svg,shape,result,T){
  });
  Object.keys(dots).forEach(function(k){extra+=salesFritSetoutSvg(dots[k].dot,T,dots[k].ids.join(', '));});
  var height=Math.max(T.vh,y+12),width=x+172;
- svg=svg.replace('<svg ','<svg data-frit-decorated="true" ').replace(/viewBox="[^"]+"/,'viewBox="0 0 '+width+' '+height+'"');
+ svg=svg.replace('<svg ','<svg data-frit-decorated="true" ').replace(/viewBox=("[^"]+"|'[^']+')/,'viewBox="0 0 '+width+' '+height+'"');
  return svg.replace('</svg>',extra+'</svg>');
 }
 
@@ -22201,7 +22254,11 @@ function shapeFitPreview(){
    DXF; внутренних размеров нет — исходный файл ERP не хранит. */
 function shapeSheetOk(r){return !!r&&(r.valid||!!(r.externalFile&&r.sourceValid));}
 function shapeSheetSvg(r,cutting){
-  if(r.externalFile)return shapeDxfPreviewSvg((r.definition&&r.definition.source)||sDraft.source,!cutting,true);
+  if(r.externalFile){
+    /* Frit на печатном листе DXF — тот же образец и та же точка, что на экране. */
+    var src=(r.definition&&r.definition.source)||sDraft.source,svg=shapeDxfPreviewSvg(src,!cutting,true);
+    return cutting?svg:salesFritDecorateSvg(svg,sDraft,r,shapeDxfPreviewTransform(src));
+  }
   return cutting?ShapeModule.cuttingSvg(r):shapeDrawnProductionSvg(r,false,{sheet:true});
 }
 /* Печать активной вкладки чертежа. Setup показывает Production Drawing,
@@ -23347,7 +23404,7 @@ function shapeProdDxfProductionSvg(){
   var P=T.P,path=P.map(function(p,i){return (i?'L':'M')+T.X(p[0]).toFixed(2)+' '+T.Y(p[1]).toFixed(2);}).join(' ')+' Z',groups=shapeProdDxfGroups(),placing=sManufacturingPlace?' placing':'';
   var edges=groups.map(function(g){var selected=g.id===shapeProdSelectedEdgeId,processed=g.ops.length,m=[(g.p1[0]+g.p2[0])/2,(g.p1[1]+g.p2[1])/2];return `<line class='shape-prod-edge-line ${selected?'selected ':''}${processed?'processed':''}' x1='${T.X(g.p1[0])}' y1='${T.Y(g.p1[1])}' x2='${T.X(g.p2[0])}' y2='${T.Y(g.p2[1])}'/><line class='shape-prod-edge-hit' x1='${T.X(g.p1[0])}' y1='${T.Y(g.p1[1])}' x2='${T.X(g.p2[0])}' y2='${T.Y(g.p2[1])}' onclick='event.stopPropagation();shapeProdSetDxfEdge("${esc(g.id)}")'/><text class='shape-prod-edge-label' x='${T.X(m[0])}' y='${T.Y(m[1])-7}' text-anchor='middle'>${esc(g.id.toUpperCase())}</text>`;}).join('');
   var markers=shapeManufacturingMarkersSvg(sDraft.source,T)+shapeStampOverlaySvg(T),topY=Math.max(20,T.y0-24),leftX=Math.max(24,T.x0-26);
-  return `<div class='shape-prod-dxf-card'>${sManufacturingPlace?`<div class='shape-prod-place-note'><b>Placement mode:</b> click ${sManufacturingPlace.type==='hole'?'inside the finished contour':'near the required physical SEG'}.</div>`:''}<svg class='shape-dxf-svg shape-prod-dxf-svg${placing}' viewBox='0 0 ${T.vw} ${T.vh}' ${sManufacturingPlace?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}><defs><marker id='shapeProdArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs><path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>${markers}${edges}<line x1='${T.x0}' y1='${topY}' x2='${T.x0+T.dw}' y2='${topY}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><line x1='${T.x0}' y1='${topY-5}' x2='${T.x0}' y2='${topY+5}' class='shape-dxf-dim-line'/><line x1='${T.x0+T.dw}' y1='${topY-5}' x2='${T.x0+T.dw}' y2='${topY+5}' class='shape-dxf-dim-line'/><text x='${T.x0+T.dw/2}' y='${topY-9}' class='shape-dxf-dim-text' text-anchor='middle'>${esc(shapeDrawingDim(T.W))}</text><line x1='${leftX}' y1='${T.y0}' x2='${leftX}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><line x1='${leftX-5}' y1='${T.y0}' x2='${leftX+5}' y2='${T.y0}' class='shape-dxf-dim-line'/><line x1='${leftX-5}' y1='${T.y0+T.dh}' x2='${leftX+5}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line'/><text x='${leftX-10}' y='${T.y0+T.dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${T.y0+T.dh/2})'>${esc(shapeDrawingDim(T.H))}</text></svg><div class='shape-prod-dxf-help'><b>FINISHED contour</b><span>Edge processing derives Cutting. Manufacturing Items do not change the outer cutting contour.</span></div></div>`;
+  return salesFritDecorateSvg(`<div class='shape-prod-dxf-card'>${sManufacturingPlace?`<div class='shape-prod-place-note'><b>Placement mode:</b> click ${sManufacturingPlace.type==='hole'?'inside the finished contour':'near the required physical SEG'}.</div>`:''}<svg class='shape-dxf-svg shape-prod-dxf-svg${placing}' viewBox='0 0 ${T.vw} ${T.vh}' ${sManufacturingPlace?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}><defs><marker id='shapeProdArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs><path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>${markers}${edges}<line x1='${T.x0}' y1='${topY}' x2='${T.x0+T.dw}' y2='${topY}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><line x1='${T.x0}' y1='${topY-5}' x2='${T.x0}' y2='${topY+5}' class='shape-dxf-dim-line'/><line x1='${T.x0+T.dw}' y1='${topY-5}' x2='${T.x0+T.dw}' y2='${topY+5}' class='shape-dxf-dim-line'/><text x='${T.x0+T.dw/2}' y='${topY-9}' class='shape-dxf-dim-text' text-anchor='middle'>${esc(shapeDrawingDim(T.W))}</text><line x1='${leftX}' y1='${T.y0}' x2='${leftX}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><line x1='${leftX-5}' y1='${T.y0}' x2='${leftX+5}' y2='${T.y0}' class='shape-dxf-dim-line'/><line x1='${leftX-5}' y1='${T.y0+T.dh}' x2='${leftX+5}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line'/><text x='${leftX-10}' y='${T.y0+T.dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${T.y0+T.dh/2})'>${esc(shapeDrawingDim(T.H))}</text></svg><div class='shape-prod-dxf-help'><b>FINISHED contour</b><span>Edge processing derives Cutting. Manufacturing Items do not change the outer cutting contour.</span></div></div>`,sDraft,result,T);
 }
 function shapeProdDxfCuttingSvg(){
   var plan=ShapeModule.dxfCuttingPlan(sDraft);if(!plan.valid)return `<div class='shape-prod-cut-block'><b>CUTTING BLOCKED</b><span>${esc(plan.error||'Invalid cutting input.')}</span></div>`;
