@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 155 модулей, 23 стиля.
+  Состав сборки: 156 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -1216,7 +1216,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .shape-prod-allow{text-align:right}.shape-prod-allow b{display:block;font:700 10px ui-monospace,monospace;color:var(--warning)}.shape-prod-allow small{display:block;margin-top:2px;color:var(--mut);font-size:8px}.shape-prod-allow.bad b{color:var(--red)}
 
 /* ---------- Shape DXF drawing ---------- */
-.shape-prod-dxf-card,.shape-prod-machine-card{width:100%}.shape-prod-dxf-svg{max-height:560px;min-height:360px}.shape-prod-edge-line{stroke:var(--text-3);stroke-width:2}.shape-prod-edge-line.processed{stroke:var(--warning);stroke-width:2.5}.shape-prod-edge-line.selected{stroke:var(--warning);stroke-width:3}.shape-prod-edge-hit{stroke:transparent;stroke-width:14;cursor:pointer}.shape-prod-edge-label{fill:var(--accent);font:700 10px ui-monospace,monospace;paint-order:stroke;stroke:var(--line);stroke-width:3px}.shape-prod-place-note{margin-bottom:6px;padding:6px 8px;border:1px solid var(--accent-line);border-radius:7px;background:var(--accent-soft);color:var(--accent);font-size:9.5px}.shape-prod-dxf-help{display:flex;align-items:center;gap:8px;margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--surface-2);font-size:9px}.shape-prod-dxf-help span{color:var(--mut)}
+.shape-prod-dxf-card,.shape-prod-machine-card{width:100%}.shape-prod-dxf-svg{max-height:560px;min-height:360px}.shape-prod-edge-line{fill:none;stroke:var(--text-3);stroke-width:2}.shape-prod-edge-line.processed{stroke:var(--warning);stroke-width:2.5}.shape-prod-edge-line.selected{stroke:var(--warning);stroke-width:3}.shape-prod-edge-hit{fill:none;stroke:transparent;stroke-width:14;cursor:pointer}.shape-prod-edge-label{fill:var(--accent);font:700 10px ui-monospace,monospace;paint-order:stroke;stroke:var(--line);stroke-width:3px}.shape-prod-place-note{margin-bottom:6px;padding:6px 8px;border:1px solid var(--accent-line);border-radius:7px;background:var(--accent-soft);color:var(--accent);font-size:9.5px}.shape-prod-dxf-help{display:flex;align-items:center;gap:8px;margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--surface-2);font-size:9px}.shape-prod-dxf-help span{color:var(--mut)}
 .shape-prod-machine-card{padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}.shape-prod-machine-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}.shape-prod-machine-head b{font-size:10px;color:var(--warning)}.shape-prod-machine-head span{font-size:8.5px;color:var(--mut)}.shape-prod-machine-card svg{width:100%;max-height:520px;background:var(--surface)}.shape-prod-finished-ref{fill:none;stroke:var(--text-3);stroke-width:1.5;stroke-dasharray:7 5}.shape-prod-cutting-main{fill:var(--warning-soft);stroke:var(--warning);stroke-width:3}.shape-prod-machine-kpi{display:flex;justify-content:center;gap:22px;margin-top:5px;font-size:9px;color:var(--mut)}.shape-prod-machine-kpi b{font:700 10px ui-monospace,monospace;color:var(--warning)}.shape-prod-cut-block{display:flex;flex-direction:column;gap:5px;min-height:180px;align-items:center;justify-content:center;border:1px dashed var(--danger-line);border-radius:9px;background:var(--danger-soft);color:var(--danger)}.shape-prod-cut-block span{max-width:620px;text-align:center;font-size:10px}
 
 /* ---------- Sales Set table ---------- */
@@ -3434,7 +3434,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='cececd05bf62';
+var ERP_BUILD='e5d994e67ee7';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -4422,13 +4422,30 @@ function shapeNormalizePolygon(raw){
   var seen=Object.create(null);return raw.map(function(v,i){v=shapePlainObject(v);var id=shapeTextValue(v.id,'PV'+(i+1));if(seen[id])id='PV'+(i+1);seen[id]=true;return {id:id,x:shapeTextValue(v.x,'0'),y:shapeTextValue(v.y,'0')};});
 }
 function shapeDxfCoord(v){var n=+v;return isFinite(n)?Math.round(n*1000000)/1000000:NaN;}
+/* segments — где начинается каждая физическая кромка (линия, дуга, сплайн
+   файла): дуга разложена на много точек, но кромка у неё одна. Старый
+   импорт без segments — каждая точка своя кромка; ключ пишется только когда
+   он есть, иначе сдвинулись бы отпечатки всех сохранённых DXF. */
+const SHAPE_DXF_PREVIEW_MAX_POINTS=4096;
+function shapeNormalizeDxfSegments(raw,n){
+  if(!Array.isArray(raw)||!raw.length||!(n>=3))return null;
+  var out=[];
+  for(var i=0;i<raw.length;i++){
+    var s=shapePlainObject(raw[i]),at=Math.floor(+s.at);
+    if(!isFinite(at)||at<0||at>=n||(out.length?at<=out[out.length-1].at:at!==0))return null;
+    out.push({at:at,kind:s.kind==='arc'?'arc':'line'});
+  }
+  return out;
+}
 function shapeNormalizeDxfPreview(raw){
   raw=shapePlainObject(raw);var pts=Array.isArray(raw.points)?raw.points:[],clean=[];
-  if(pts.length>=3&&pts.length<=2048)for(var i=0;i<pts.length;i++){
+  if(pts.length>=3&&pts.length<=SHAPE_DXF_PREVIEW_MAX_POINTS)for(var i=0;i<pts.length;i++){
     var p=Array.isArray(pts[i])?pts[i]:[],x=shapeDxfCoord(p[0]),y=shapeDxfCoord(p[1]);if(!isFinite(x)||!isFinite(y)){clean=[];break;}clean.push([x,y]);
   }
   var width16=Math.max(0,Math.floor(+raw.width16||0)),height16=Math.max(0,Math.floor(+raw.height16||0));
-  return {units:raw.units==='in'?'in':'',points:clean,width16:width16,height16:height16};
+  var out={units:raw.units==='in'?'in':'',points:clean,width16:width16,height16:height16},segments=shapeNormalizeDxfSegments(raw.segments,clean.length);
+  if(segments)out.segments=segments;
+  return out;
 }
 function shapeNormalizeSource(raw){
   raw=shapePlainObject(raw);var kind=raw.kind==='dxf'?'dxf':'drawn',out={kind:kind,fileName:kind==='dxf'?shapeTextValue(raw.fileName,''):'',fileSize:kind==='dxf'?Math.max(0,Math.floor(+raw.fileSize||0)):0,uploadedAt:kind==='dxf'?shapeTextValue(raw.uploadedAt,''):'',note:shapeTextValue(raw.note,'')};
@@ -4581,59 +4598,6 @@ function shapeDimOffset(def,id,axis){return Math.round(+shapeDimRec(def,id,axis)
 function shapeDimRef(def,id,axis,fallback){var r=shapeDimRec(def,id,axis).ref;return r||fallback||'';}
 function shapeNormalizeManufacturingItems(raw){
   return (Array.isArray(raw)?raw:[]).map(shapeNormalizeManufacturingItem).slice(0,200);
-}
-function shapeDxfFail(message){return {ok:false,error:message};}
-function shapeParseFusionDxf(text){
-  text=String(text==null?'':text);if(!text.trim())return shapeDxfFail('DXF file is empty.');
-  var lines=text.replace(/\r/g,'').split('\n'),pairs=[];
-  for(var i=0;i+1<lines.length;i+=2){var code=String(lines[i]).trim();if(code==='')continue;pairs.push({code:code,value:String(lines[i+1]).trim()});}
-  if(!pairs.length)return shapeDxfFail('DXF file has no readable group codes.');
-  var units=null;
-  for(i=0;i<pairs.length;i++)if(pairs[i].code==='9'&&pairs[i].value==='$INSUNITS'){
-    for(var ui=i+1;ui<pairs.length&&ui<i+8;ui++){if(pairs[ui].code==='9'||(pairs[ui].code==='0'&&pairs[ui].value==='ENDSEC'))break;if(pairs[ui].code==='70'){units=+pairs[ui].value;break;}}
-    break;
-  }
-  if(units!==1)return shapeDxfFail('DXF units must be inches (INSUNITS = 1).');
-  var inEntities=false,entities=[],current=null;
-  for(i=0;i<pairs.length;i++){
-    var q=pairs[i];
-    if(q.code==='0'&&q.value==='SECTION'&&pairs[i+1]&&pairs[i+1].code==='2'&&pairs[i+1].value==='ENTITIES'){inEntities=true;i++;continue;}
-    if(inEntities&&q.code==='0'&&q.value==='ENDSEC'){if(current)entities.push(current);current=null;inEntities=false;continue;}
-    if(!inEntities)continue;
-    if(q.code==='0'){
-      if(current)entities.push(current);
-      current={type:q.value,groups:[]};
-    }else if(current)current.groups.push(q);
-  }
-  if(current)entities.push(current);
-  if(!entities.length)return shapeDxfFail('DXF ENTITIES section is empty.');
-  var unsupported=entities.filter(function(e){return e.type!=='LWPOLYLINE';});
-  if(unsupported.length)return shapeDxfFail('DXF contains unsupported entity type '+unsupported[0].type+'.');
-  if(entities.length!==1)return shapeDxfFail('DXF must contain exactly one closed LWPOLYLINE contour.');
-  var e=entities[0],flags=0,expected=0,points=[],pendingX=null,hasBulge=false;
-  e.groups.forEach(function(g){
-    if(g.code==='70')flags=+g.value||0;
-    else if(g.code==='90')expected=Math.max(0,Math.floor(+g.value||0));
-    else if(g.code==='10'){
-      if(pendingX!==null)points.push([pendingX,NaN]);
-      pendingX=+g.value;
-    }else if(g.code==='20'&&pendingX!==null){points.push([pendingX,+g.value]);pendingX=null;}
-    else if(g.code==='42'&&Math.abs(+g.value||0)>1e-12)hasBulge=true;
-  });
-  if(pendingX!==null)points.push([pendingX,NaN]);
-  if(!(flags&1))return shapeDxfFail('DXF contour must be closed.');
-  if(hasBulge)return shapeDxfFail('DXF contour must contain straight line segments only.');
-  if(points.length<3)return shapeDxfFail('DXF contour must contain at least three vertices.');
-  if(points.length>2048)return shapeDxfFail('DXF contour has too many vertices for the Production Shape preview.');
-  if(expected&&expected!==points.length)return shapeDxfFail('DXF vertex count does not match the LWPOLYLINE header.');
-  if(points.some(function(p){return !isFinite(p[0])||!isFinite(p[1]);}))return shapeDxfFail('DXF contour contains an invalid coordinate.');
-  for(i=0;i<points.length;i++)if(Math.hypot(points[(i+1)%points.length][0]-points[i][0],points[(i+1)%points.length][1]-points[i][1])<1e-8)return shapeDxfFail('DXF contour contains a zero-length edge.');
-  if(fabPolySelfIntersects(points))return shapeDxfFail('DXF contour self-intersects.');
-  if(Math.abs(fabSignedArea(points))<1e-8)return shapeDxfFail('DXF contour encloses no area.');
-  var b=fabEdgeBounds(points),w=b.maxX-b.minX,h=b.maxY-b.minY,width16=Math.round(w*16),height16=Math.round(h*16);
-  if(!(width16>0&&height16>0))return shapeDxfFail('DXF bounding Width and Height must be greater than zero.');
-  var normalized=points.map(function(p){return [shapeDxfCoord(p[0]-b.minX),shapeDxfCoord(p[1]-b.minY)];});
-  return {ok:true,preview:{units:'in',points:normalized,width16:width16,height16:height16},exactWidth:w,exactHeight:h};
 }
 /* Отступ лайта задаётся по кромкам той же строкой, что и Width/Height, и
    читается тем же строгим парсером. Обработка лайта перекрывает общую. */
@@ -7159,16 +7123,40 @@ function shapeStableHash(prefix,payload){
   return prefix+(h>>>0).toString(16).padStart(8,'0');
 }
 
+/* Физическая кромка DXF — объект файла: линия или целая дуга. points — её
+   точки по порядку обхода (у дуги их много), from/count — где они лежат в
+   общем контуре. Старый импорт без segments: каждая точка — своя кромка. */
 function shapeDxfPhysicalEdges(def){
   if(!shapeIsDxfSource(def))return [];
-  var preview=shapeNormalizeSource(def.source).preview,points=preview.points||[],out=[];
-  for(var i=0;i<points.length;i++){
-    var a=points[i],b=points[(i+1)%points.length],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);
+  var preview=shapeNormalizeSource(def.source).preview,points=preview.points||[],n=points.length,out=[];
+  var starts=preview.segments||points.map(function(_,i){return {at:i,kind:'line'};});
+  for(var k=0;k<starts.length;k++){
+    var from=starts[k].at,to=k+1<starts.length?starts[k+1].at:n,pts=[],L=0;
+    for(var i=from;i<=to;i++)pts.push(points[i%n].slice());
+    for(i=1;i<pts.length;i++)L+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);
     if(L<=1e-9)continue;
-    var id='seg'+(i+1);
-    out.push({id:id,segmentId:id,type:'line',p1:a.slice(),p2:b.slice(),length:L,parentEdges:[]});
+    var id='seg'+(k+1);
+    out.push({id:id,segmentId:id,type:starts[k].kind,p1:pts[0].slice(),p2:pts[pts.length-1].slice(),points:pts,from:from,count:to-from,length:L,parentEdges:[]});
   }
   return out;
+}
+/* id кромки для каждой точки контура — так припуск и бордер раскладываются
+   по точкам, как у дуг пресетов. */
+function shapeDxfPointEdgeIds(def){
+  var n=shapeIsDxfSource(def)?(shapeNormalizeSource(def.source).preview.points||[]).length:0,ids=[];
+  for(var i=0;i<n;i++)ids.push('seg'+(i+1));
+  shapeDxfPhysicalEdges(def).forEach(function(e){for(var c=0;c<e.count;c++)ids[(e.from+c)%n]=e.id;});
+  return ids;
+}
+/* Точка на кромке на расстоянии d от её начала — по точкам, а не по хорде. */
+function shapeDxfEdgePointAt(edge,d){
+  var pts=edge.points||[edge.p1,edge.p2];d=Math.max(0,Math.min(d,edge.length));
+  for(var i=1;i<pts.length;i++){
+    var a=pts[i-1],b=pts[i],L=Math.hypot(b[0]-a[0],b[1]-a[1]);
+    if(d<=L||i===pts.length-1){var t=L>0?Math.min(1,d/L):0;return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];}
+    d-=L;
+  }
+  return pts[0].slice();
 }
 
 /* Только физический контур. Обработка/толщина не инвалидируют side mapping. */
@@ -7178,8 +7166,9 @@ function shapeDxfTopologyFingerprint(defOrPreview){
   else if(defOrPreview&&shapeIsDxfSource(defOrPreview))preview=shapeNormalizeSource(defOrPreview.source).preview;
   else if(defOrPreview&&Array.isArray(defOrPreview.points))preview=defOrPreview;
   if(!preview)return '';
-  var points=(preview.points||[]).map(function(p){return [shapeDxfCoord(p[0]),shapeDxfCoord(p[1])];});
-  return points.length>=3?shapeStableHash('top-',{points:points}):'';
+  var points=(preview.points||[]).map(function(p){return [shapeDxfCoord(p[0]),shapeDxfCoord(p[1])];}),segments=shapeNormalizeDxfSegments(preview.segments,points.length),payload={points:points};
+  if(segments)payload.segments=segments.map(function(s){return [s.at,s.kind];});
+  return points.length>=3?shapeStableHash('top-',payload):'';
 }
 
 /* Две группы финишей кромки. Внутри группы — одна отделка, между группами —
@@ -7355,7 +7344,10 @@ function shapeDxfTangentAllowanceIssue(groups){
   for(var i=0;i<groups.length;i++){
     var before=groups[(i-1+groups.length)%groups.length],after=groups[i];
     if(before.allowance==null||after.allowance==null||Math.abs(before.allowance-after.allowance)<=eps)continue;
-    var u=[before.p2[0]-before.p1[0],before.p2[1]-before.p1[1]],v=[after.p2[0]-after.p1[0],after.p2[1]-after.p1[1]],lu=Math.hypot(u[0],u[1])||1,lv=Math.hypot(v[0],v[1])||1;
+    /* Направление на самом стыке: у дуги это последний и первый маленькие
+       отрезки, а не хорда. */
+    var bp=before.points||[before.p1,before.p2],ap=after.points||[after.p1,after.p2],b1=bp[bp.length-2],b2=bp[bp.length-1];
+    var u=[b2[0]-b1[0],b2[1]-b1[1]],v=[ap[1][0]-ap[0][0],ap[1][1]-ap[0][1]],lu=Math.hypot(u[0],u[1])||1,lv=Math.hypot(v[0],v[1])||1;
     var dot=(u[0]*v[0]+u[1]*v[1])/(lu*lv);
     if(dot>.995)return {before:before.id,after:after.id,reason:'Cutting allowance cannot change across tangent-continuous edges '+before.id+' and '+after.id+'.'};
   }
@@ -7382,8 +7374,8 @@ function shapeDxfManufacturingPoint(item,def){
   if(!item||item.type==='hole'||!item.edgeId)return null;
   var edge=shapeDxfPhysicalEdges(def).find(function(e){return e.id===item.edgeId;});
   if(!edge)return null;
-  var d=Math.max(0,+item.distance||0),t=edge.length?Math.max(0,Math.min(1,d/edge.length)):0;
-  return {edge:edge,distance:Math.min(d,edge.length),point:[edge.p1[0]+(edge.p2[0]-edge.p1[0])*t,edge.p1[1]+(edge.p2[1]-edge.p1[1])*t]};
+  var d=Math.max(0,+item.distance||0);
+  return {edge:edge,distance:Math.min(d,edge.length),point:shapeDxfEdgePointAt(edge,d)};
 }
 
 function shapeDxfRequirements(def){
@@ -7455,17 +7447,20 @@ function shapeDxfCuttingPlan(def){
   var sv=shapeValidateSource(def);if(sv.errors.length)return {valid:false,error:sv.errors[0],errors:sv.errors};
   var points=shapeNormalizeSource(def.source).preview.points.map(function(p){return p.slice();}),edges=shapeDxfPhysicalEdges(def),v=shapeValidateDxfProduction(def,edges),th=shapeThicknessMm(def);
   if(v.errors.length)return {valid:false,error:v.errors[0],errors:v.errors,warns:v.warns};
-  var groups=[],allowances=[];
+  /* Припуск задаётся на кромку, а контур реза считается по точкам: у дуги
+     все её точки получают припуск своей кромки. */
+  var groups=[],allowances=points.map(function(){return 0;});
   for(var i=0;i<edges.length;i++){
     var e=edges[i],ar=shapeProductionAllowanceForEdge(def,e.id,shapeEdgeOps(def,e.id),th,e.parentEdges);
     if(!ar.ok)return {valid:false,error:ar.reason,errors:[ar.reason]};
-    allowances.push(ar.value);groups.push(Object.assign({},e,{allowance:ar.value}));
+    for(var c=0;c<e.count;c++)allowances[(e.from+c)%points.length]=ar.value;
+    groups.push(Object.assign({},e,{allowance:ar.value}));
   }
   var tangent=shapeDxfTangentAllowanceIssue(groups);if(tangent)return {valid:false,error:tangent.reason,errors:[tangent.reason]};
   /* DXF — уже проверенный пользователем finished contour. Сохраняем его
      вогнутые участки в cutting contour; convex hull здесь меняет исходный
      файл. Отверстия и отдельные manufacturing items в файл резки не попадают. */
-  var srcIds=edges.map(function(e){return e.id;});
+  var srcIds=shapeDxfPointEdgeIds(def);
   var contour=shapePrepareCuttingContour(points,allowances,srcIds,true);
   var off=shapeOffsetVariable(contour.points,contour.dist);if(!off.valid)return {valid:false,error:off.error,errors:[off.error]};
   var b=fabEdgeBounds(off.points),warnings=[];
@@ -7543,6 +7538,8 @@ ShapeModule.compute=function(source){
 
 /* Внешний код использует эти helpers, не повторяя DXF topology/allowance math. */
 ShapeModule.dxfEdges=shapeDxfPhysicalEdges;
+ShapeModule.dxfPointEdgeIds=shapeDxfPointEdgeIds;
+ShapeModule.dxfEdgePointAt=shapeDxfEdgePointAt;
 ShapeModule.dxfTopologyFingerprint=shapeDxfTopologyFingerprint;
 ShapeModule.productionAllowanceRule=shapeProductionAllowanceRule;
 ShapeModule.setAllowanceTable=shapeSetAllowanceTable;
@@ -7555,6 +7552,363 @@ ShapeModule.validateProductionEdgework=shapeValidateProductionEdgework;
 ShapeModule.dxfCuttingPlan=shapeDxfCuttingPlan;
 ShapeModule.dxfProductionResult=shapeDxfProductionResult;
 ShapeModule.dxfManufacturingPoint=shapeDxfManufacturingPoint;
+
+/* ==== src/modules/shape/dxf-import.js ==== */
+/* =====================================================================
+   shape/dxf-import · DXF-файл → готовый контур Production Shape
+   Владелец, 16.10.2026: загрузка должна принимать то, что даёт нормальный
+   CAD, а не один LWPOLYLINE из прямых. Файл «U2 OF 2.dxf» из Fusion — дуги
+   bulge в LWPOLYLINE — раньше отклонялся целиком.
+
+   Что читается: LWPOLYLINE (с дугами bulge), старый POLYLINE с VERTEX, LINE,
+   ARC, CIRCLE, ELLIPSE, SPLINE, INSERT (блоки, вложенные до 4 уровней).
+   Надписи, размеры, точки и штриховка — не стекло, их пропускаем молча.
+   Paper space и слои, выключенные или замороженные в CAD, тоже пропускаем:
+   в CAD их не видно.
+
+   Как собирается стекло. Отдельные линии и дуги сшиваются концами, зазор
+   до 1/64″ закрывается сам (это меньше точности цеха). Самый большой
+   замкнутый контур — стекло. Круг внутри — отверстие (владелец: «если мы
+   целенаправленно загрузим фигуру с отверстиями, то отверстия нужно
+   принять»). Другую фигуру внутри DXF-стекло не умеет — пропускаем и
+   говорим об этом. Второй контур снаружи — второе стекло: файл на одно
+   стекло.
+
+   Единицы: цех готовит файлы в дюймах; файл без единиц читается в дюймах.
+   Явные мм/см/м/футы пересчитываются, и об этом сказано.
+
+   Кривые раскладываются на точки с прогибом хорды не больше 1/2048″ — та же
+   точность, что у круга и эллипса в пресетах; станочный экспорт сам
+   сворачивает такие точки обратно в дуги. Физическая кромка — объект файла
+   (линия, дуга, сплайн), а не каждый маленький отрезок: preview.segments
+   хранит, с какой точки начинается кромка.
+   ===================================================================== */
+const SHAPE_DXF_UNIT_INCHES={0:1,1:1,2:12,4:1/25.4,5:1/2.54,6:1000/25.4};
+const SHAPE_DXF_UNIT_NAMES={2:'feet',4:'mm',5:'cm',6:'m'};
+const SHAPE_DXF_SAG=1/2048,SHAPE_DXF_GAP=1/64;
+const SHAPE_DXF_SOLIDS=['3DSOLID','REGION','BODY','SURFACE','MESH'];
+
+function shapeDxfFail(message){return {ok:false,error:message};}
+function shapeDxfNum(v,d){var n=parseFloat(v);return isFinite(n)?n:(d==null?0:d);}
+function shapeDxfGet(e,code,d){for(var i=0;i<e.groups.length;i++)if(e.groups[i].code===code)return e.groups[i].value;return d;}
+function shapeDxfNumOf(e,code,d){return shapeDxfNum(shapeDxfGet(e,code,null),d);}
+
+/* Пары «код — значение» и разбивка на секции и объекты. */
+function shapeDxfReadPairs(text){
+  var lines=text.replace(/\r\n?/g,'\n').split('\n'),pairs=[];
+  for(var i=0;i+1<lines.length;i+=2){
+    var c=lines[i].trim();if(c==='')break;
+    var code=parseInt(c,10);if(!isFinite(code)||!/^-?\d+$/.test(c))return null;
+    pairs.push({code:code,value:lines[i+1].trim()});
+  }
+  return pairs;
+}
+function shapeDxfSections(pairs){
+  var out={},name=null,list=null;
+  for(var i=0;i<pairs.length;i++){
+    var q=pairs[i];
+    if(q.code===0&&q.value==='SECTION'){name=pairs[i+1]&&pairs[i+1].code===2?pairs[i+1].value:'';list=[];i++;continue;}
+    if(q.code===0&&q.value==='ENDSEC'){if(name!==null)out[name]=list;name=null;list=null;continue;}
+    if(list)list.push(q);
+  }
+  return out;
+}
+/* Объект = код 0 и всё до следующего кода 0. VERTEX/SEQEND старого POLYLINE
+   уходят внутрь своего POLYLINE, атрибуты INSERT — пропускаются. */
+function shapeDxfEntities(pairs){
+  var out=[],cur=null,poly=null,insert=false;
+  pairs.forEach(function(q){
+    if(q.code===0){
+      if(q.value==='VERTEX'&&poly){cur={type:'VERTEX',groups:[]};poly.vertices.push(cur);return;}
+      if(q.value==='ATTRIB'&&insert){cur={type:'ATTRIB',groups:[]};return;}
+      if(q.value==='SEQEND'){poly=null;insert=false;cur={type:'SEQEND',groups:[]};return;}
+      cur={type:q.value,groups:[]};out.push(cur);
+      poly=q.value==='POLYLINE'?cur:null;if(poly)poly.vertices=[];
+      insert=q.value==='INSERT';
+      return;
+    }
+    if(cur)cur.groups.push(q);
+  });
+  return out;
+}
+function shapeDxfHiddenLayers(sections){
+  var hidden=Object.create(null),t=sections.TABLES||[],layer=null;
+  shapeDxfEntities(t).forEach(function(e){
+    if(e.type!=='LAYER')return;
+    var name=String(shapeDxfGet(e,2,'')),flags=shapeDxfNumOf(e,70,0),color=shapeDxfNumOf(e,62,7);
+    if((flags&1)||color<0)hidden[name.toUpperCase()]=true;
+  });
+  return hidden;
+}
+function shapeDxfBlocks(sections){
+  var blocks=Object.create(null),cur=null;
+  shapeDxfEntities(sections.BLOCKS||[]).forEach(function(e){
+    if(e.type==='BLOCK'){cur={name:String(shapeDxfGet(e,2,'')).toUpperCase(),base:[shapeDxfNumOf(e,10,0),shapeDxfNumOf(e,20,0)],entities:[]};blocks[cur.name]=cur;return;}
+    if(e.type==='ENDBLK'){cur=null;return;}
+    if(cur)cur.entities.push(e);
+  });
+  return blocks;
+}
+
+/* ---------- кривые → точки ---------- */
+function shapeDxfArcSteps(r,sweep){
+  var step=r>SHAPE_DXF_SAG?2*Math.acos(Math.max(-1,1-SHAPE_DXF_SAG/r)):Math.PI/36;
+  step=Math.min(step,Math.PI/36);
+  return Math.max(1,Math.ceil(Math.abs(sweep)/step));
+}
+function shapeDxfArcPoints(cx,cy,r,a0,sweep){
+  var n=shapeDxfArcSteps(r,sweep),out=[];
+  for(var i=0;i<=n;i++){var a=a0+sweep*i/n;out.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);}
+  return out;
+}
+/* Дуга bulge между двумя вершинами полилинии: bulge = tg(угол/4), знак —
+   направление (плюс — против часовой). */
+function shapeDxfBulgeSeg(a,b,bulge){
+  var dx=b[0]-a[0],dy=b[1]-a[1],ch=Math.hypot(dx,dy);
+  if(!(Math.abs(bulge)>1e-12)||ch<1e-12)return {kind:'line',pts:[a,b]};
+  var sweep=4*Math.atan(bulge),r=ch/(2*Math.abs(Math.sin(sweep/2))),mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;
+  var d=Math.sqrt(Math.max(0,r*r-ch*ch/4)),ux=dx/ch,uy=dy/ch,s=(bulge>0?1:-1)*(Math.abs(sweep)<Math.PI?1:-1);
+  var cx=mx-uy*d*s,cy=my+ux*d*s,a0=Math.atan2(a[1]-cy,a[0]-cx),pts=shapeDxfArcPoints(cx,cy,r,a0,sweep);
+  pts[0]=a.slice();pts[pts.length-1]=b.slice();
+  return {kind:'arc',pts:pts,circle:{cx:cx,cy:cy,r:r}};
+}
+function shapeDxfPolylineSegs(V,closed){
+  var segs=[],n=V.length;
+  for(var i=0;i<(closed?n:n-1);i++){
+    var a=V[i],b=V[(i+1)%n];
+    if(Math.hypot(b.x-a.x,b.y-a.y)<1e-12)continue;
+    segs.push(shapeDxfBulgeSeg([a.x,a.y],[b.x,b.y],a.b));
+  }
+  return segs;
+}
+function shapeDxfEllipsePoints(cx,cy,mx,my,ratio,t0,t1,flip){
+  var a=Math.hypot(mx,my),b=a*ratio,vx=flip?my*ratio:-my*ratio,vy=flip?-mx*ratio:mx*ratio;
+  var sweep=t1-t0;while(sweep<=0)sweep+=Math.PI*2;if(sweep>Math.PI*2+1e-9)sweep=Math.PI*2;
+  var rho=Math.max(1e-6,Math.min(a,b)*Math.min(a,b)/Math.max(a,b,1e-9)),chord=Math.sqrt(8*rho*SHAPE_DXF_SAG);
+  var n=Math.max(32,Math.min(2048,Math.ceil(sweep*Math.max(a,b)/chord))),out=[];
+  for(var i=0;i<=n;i++){var t=t0+sweep*i/n;out.push([cx+mx*Math.cos(t)+vx*Math.sin(t),cy+my*Math.cos(t)+vy*Math.sin(t)]);}
+  return {pts:out,full:Math.abs(sweep-Math.PI*2)<1e-9};
+}
+/* NURBS по узлам, весам и контрольным точкам (алгоритм де Бора). */
+function shapeDxfNurbsPoint(p,U,P,W,u){
+  var n=P.length-1,k=p;
+  if(u>=U[n+1])k=n;else while(k<n&&!(u>=U[k]&&u<U[k+1]))k++;
+  var d=[];
+  for(var j=0;j<=p;j++){var i=k-p+j,w=W[i];d.push([P[i][0]*w,P[i][1]*w,w]);}
+  for(var r=1;r<=p;r++)for(j=p;j>=r;j--){
+    var ii=k-p+j,den=U[ii+p-r+1]-U[ii],al=den>0?(u-U[ii])/den:0;
+    d[j]=[(1-al)*d[j-1][0]+al*d[j][0],(1-al)*d[j-1][1]+al*d[j][1],(1-al)*d[j-1][2]+al*d[j][2]];
+  }
+  return [d[p][0]/d[p][2],d[p][1]/d[p][2]];
+}
+function shapeDxfSplinePoints(e){
+  var p=Math.max(1,Math.floor(shapeDxfNumOf(e,71,3))),U=[],P=[],W=[],F=[],x=null,fx=null;
+  e.groups.forEach(function(g){
+    if(g.code===40)U.push(shapeDxfNum(g.value));
+    else if(g.code===41)W.push(shapeDxfNum(g.value,1));
+    else if(g.code===10)x=shapeDxfNum(g.value);
+    else if(g.code===20&&x!==null){P.push([x,shapeDxfNum(g.value)]);x=null;}
+    else if(g.code===11)fx=shapeDxfNum(g.value);
+    else if(g.code===21&&fx!==null){F.push([fx,shapeDxfNum(g.value)]);fx=null;}
+  });
+  if(P.length>p&&U.length===P.length+p+1){
+    while(W.length<P.length)W.push(1);
+    /* Точки — по кривизне: пролёт делится пополам, пока середина отходит от
+       хорды больше допуска. Равный шаг давал волне из 12 точек 2000 точек, и
+       два-три сплайна упирались в предел контура. */
+    var u0=U[p],u1=U[P.length],out=[shapeDxfNurbsPoint(p,U,P,W,u0)];
+    var split=function(a,b,pa,pb,depth){
+      var m=(a+b)/2,pm=shapeDxfNurbsPoint(p,U,P,W,m),dx=pb[0]-pa[0],dy=pb[1]-pa[1],L=Math.hypot(dx,dy);
+      var dev=L>1e-12?Math.abs((pm[0]-pa[0])*dy-(pm[1]-pa[1])*dx)/L:Math.hypot(pm[0]-pa[0],pm[1]-pa[1]);
+      if(depth<3||dev>SHAPE_DXF_SAG&&depth<16){split(a,m,pa,pm,depth+1);split(m,b,pm,pb,depth+1);}else out.push(pb);
+    };
+    for(var i=p;i<P.length;i++){
+      var a=Math.max(U[i],u0),b=Math.min(U[i+1],u1);
+      if(b>a)split(a,b,shapeDxfNurbsPoint(p,U,P,W,a),shapeDxfNurbsPoint(p,U,P,W,b),0);
+    }
+    return out;
+  }
+  /* Сплайн только по точкам прохода: кривая Катмулла — Рома через них. */
+  if(F.length<2)return null;
+  var o=[F[0].slice()];
+  for(i=0;i<F.length-1;i++){
+    var a=F[Math.max(0,i-1)],b=F[i],c=F[i+1],d=F[Math.min(F.length-1,i+2)];
+    for(var s=1;s<=8;s++){var t=s/8,t2=t*t,t3=t2*t;
+      o.push([.5*(2*b[0]+(-a[0]+c[0])*t+(2*a[0]-5*b[0]+4*c[0]-d[0])*t2+(-a[0]+3*b[0]-3*c[0]+d[0])*t3),
+              .5*(2*b[1]+(-a[1]+c[1])*t+(2*a[1]-5*b[1]+4*c[1]-d[1])*t2+(-a[1]+3*b[1]-3*c[1]+d[1])*t3)]);}
+  }
+  return o;
+}
+
+/* Один объект → кромки в мировых координатах. M — матрица блока
+   [a,b,c,d,e,f]: x' = a·x + c·y + e, y' = b·x + d·y + f. */
+function shapeDxfApply(M,p){return [M[0]*p[0]+M[2]*p[1]+M[4],M[1]*p[0]+M[3]*p[1]+M[5]];}
+function shapeDxfMul(A,B){return [A[0]*B[0]+A[2]*B[1],A[1]*B[0]+A[3]*B[1],A[0]*B[2]+A[2]*B[3],A[1]*B[2]+A[3]*B[3],A[0]*B[4]+A[2]*B[5]+A[4],A[1]*B[4]+A[3]*B[5]+A[5]];}
+/* Объект, нарисованный «снизу» (ось выдавливания −Z), в мире зеркален по X. */
+function shapeDxfOcs(e){return shapeDxfNumOf(e,230,1)<0?[-1,0,0,1,0,0]:[1,0,0,1,0,0];}
+function shapeDxfCollect(entities,M,ctx,depth){
+  entities.forEach(function(e){
+    if(shapeDxfNumOf(e,67,0)===1)return;
+    if(ctx.hidden[String(shapeDxfGet(e,8,'0')).toUpperCase()])return;
+    var id=ctx.nextId++,segs=[],O=shapeDxfMul(M,shapeDxfOcs(e)),t=e.type;
+    if(t==='LINE'){
+      segs.push({kind:'line',pts:[[shapeDxfNumOf(e,10),shapeDxfNumOf(e,20)],[shapeDxfNumOf(e,11),shapeDxfNumOf(e,21)]]});
+      O=M;
+    }else if(t==='ARC'||t==='CIRCLE'){
+      var cx=shapeDxfNumOf(e,10),cy=shapeDxfNumOf(e,20),r=shapeDxfNumOf(e,40);if(!(r>0))return;
+      var a0=t==='ARC'?shapeDxfNumOf(e,50)*Math.PI/180:0,a1=t==='ARC'?shapeDxfNumOf(e,51)*Math.PI/180:Math.PI*2,sw=a1-a0;
+      while(sw<=0)sw+=Math.PI*2;if(t==='CIRCLE')sw=Math.PI*2;
+      segs.push({kind:'arc',pts:shapeDxfArcPoints(cx,cy,r,a0,sw),circle:{cx:cx,cy:cy,r:r},closedSelf:t==='CIRCLE'});
+    }else if(t==='LWPOLYLINE'){
+      var V=[],v=null;
+      e.groups.forEach(function(g){if(g.code===10){v={x:shapeDxfNum(g.value),y:0,b:0};V.push(v);}else if(v&&g.code===20)v.y=shapeDxfNum(g.value);else if(v&&g.code===42)v.b=shapeDxfNum(g.value);});
+      segs=shapeDxfPolylineSegs(V,(shapeDxfNumOf(e,70,0)&1)===1);
+    }else if(t==='POLYLINE'){
+      var pf=shapeDxfNumOf(e,70,0);if(pf&(16|64))return;
+      var PV=(e.vertices||[]).filter(function(x){return !(shapeDxfNumOf(x,70,0)&(16|128));}).map(function(x){return {x:shapeDxfNumOf(x,10),y:shapeDxfNumOf(x,20),b:shapeDxfNumOf(x,42,0)};});
+      segs=shapeDxfPolylineSegs(PV,(pf&1)===1);
+      if(pf&8)O=M;
+    }else if(t==='ELLIPSE'){
+      var el=shapeDxfEllipsePoints(shapeDxfNumOf(e,10),shapeDxfNumOf(e,20),shapeDxfNumOf(e,11),shapeDxfNumOf(e,21),shapeDxfNumOf(e,40,1),shapeDxfNumOf(e,41,0),shapeDxfNumOf(e,42,Math.PI*2),shapeDxfNumOf(e,230,1)<0);
+      segs.push({kind:'arc',pts:el.pts,closedSelf:el.full});O=M;
+    }else if(t==='SPLINE'){
+      var sp=shapeDxfSplinePoints(e);if(!sp||sp.length<2)return;
+      segs.push({kind:'arc',pts:sp});O=M;
+    }else if(t==='INSERT'){
+      var blk=ctx.blocks[String(shapeDxfGet(e,2,'')).toUpperCase()];if(!blk||depth>=4)return;
+      var sx=shapeDxfNumOf(e,41,1),sy=shapeDxfNumOf(e,42,1),rot=shapeDxfNumOf(e,50,0)*Math.PI/180,c=Math.cos(rot),s=Math.sin(rot);
+      var I=[c*sx,s*sx,-s*sy,c*sy,shapeDxfNumOf(e,10),shapeDxfNumOf(e,20)];
+      I=shapeDxfMul(I,[1,0,0,1,-blk.base[0],-blk.base[1]]);
+      shapeDxfCollect(blk.entities,shapeDxfMul(O,I),ctx,depth+1);
+      return;
+    }else{
+      if(SHAPE_DXF_SOLIDS.indexOf(t)>=0)ctx.solids++;
+      return;
+    }
+    /* Круг остаётся кругом только при равном масштабе по осям. */
+    var uniform=Math.abs(Math.abs(O[0]*O[3]-O[1]*O[2])-(O[0]*O[0]+O[1]*O[1]))<1e-9;
+    segs.forEach(function(sg,k){
+      var pts=sg.pts.map(function(p){return shapeDxfApply(O,p);});
+      var circle=sg.circle&&uniform?(function(){var c0=shapeDxfApply(O,[sg.circle.cx,sg.circle.cy]);return {cx:c0[0],cy:c0[1],r:sg.circle.r*Math.sqrt(Math.abs(O[0]*O[3]-O[1]*O[2]))};})():null;
+      ctx.segs.push({kind:sg.kind,pts:pts,circle:circle,closedSelf:!!sg.closedSelf,ent:id,idx:k});
+    });
+  });
+}
+
+/* ---------- сшивка концов в контуры ---------- */
+function shapeDxfDist(a,b){return Math.hypot(a[0]-b[0],a[1]-b[1]);}
+function shapeDxfStart(c){return c.rev?c.s.pts[c.s.pts.length-1]:c.s.pts[0];}
+function shapeDxfEnd(c){return c.rev?c.s.pts[0]:c.s.pts[c.s.pts.length-1];}
+function shapeDxfChains(segs){
+  var used=segs.map(function(){return false;}),loops=[],open=[];
+  function nearest(p,prefer){
+    var best=null;
+    for(var j=0;j<segs.length;j++){
+      if(used[j]||segs[j].closedSelf)continue;
+      var s=segs[j],d0=shapeDxfDist(p,s.pts[0]),d1=shapeDxfDist(p,s.pts[s.pts.length-1]),d=Math.min(d0,d1);
+      if(d>SHAPE_DXF_GAP)continue;
+      var same=prefer&&s.ent===prefer.ent?0:1;
+      if(!best||same<best.same||(same===best.same&&d<best.d))best={j:j,d:d,same:same,atStart:d0<=d1};
+    }
+    return best;
+  }
+  for(var i=0;i<segs.length;i++){
+    if(used[i])continue;used[i]=true;
+    var c=[{s:segs[i],rev:false}];
+    if(segs[i].closedSelf||shapeDxfDist(segs[i].pts[0],segs[i].pts[segs[i].pts.length-1])<=SHAPE_DXF_GAP&&segs[i].pts.length>3){loops.push(c);continue;}
+    for(;;){
+      var head=shapeDxfStart(c[0]),tail=shapeDxfEnd(c[c.length-1]);
+      if(c.length>1&&shapeDxfDist(head,tail)<=SHAPE_DXF_GAP){loops.push(c);break;}
+      var f=nearest(tail,c[c.length-1].s);
+      if(f){used[f.j]=true;c.push({s:segs[f.j],rev:!f.atStart});continue;}
+      var b=nearest(head,c[0].s);
+      if(b){used[b.j]=true;c.unshift({s:segs[b.j],rev:b.atStart});continue;}
+      open.push(c);break;
+    }
+  }
+  return {loops:loops,open:open};
+}
+/* Кромки контура по порядку обхода: точки каждой — от начала до конца. */
+function shapeDxfLoopEdges(loop){
+  return loop.map(function(c){var p=c.s.pts.map(function(q){return q.slice();});if(c.rev)p.reverse();return {kind:c.s.kind,pts:p,circle:c.s.circle};});
+}
+function shapeDxfEdgesPoints(edges){var out=[];edges.forEach(function(e){for(var i=0;i<e.pts.length-1;i++)out.push(e.pts[i]);});return out;}
+/* Подряд идущие прямые на одной линии — одна физическая кромка; дуга,
+   разрезанная на куски с тем же центром и радиусом, — тоже одна. */
+function shapeDxfMergeEdges(edges){
+  function dir(e,end){var p=e.pts,a=end?p[p.length-2]:p[0],b=end?p[p.length-1]:p[1],L=shapeDxfDist(a,b)||1;return [(b[0]-a[0])/L,(b[1]-a[1])/L];}
+  function turn(e){var p=e.pts,a=p[0],b=p[1],c=p[2]||p[1];return Math.sign((b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]));}
+  function same(a,b){
+    if(a.kind!==b.kind)return false;
+    if(a.kind==='line'){var u=dir(a,true),v=dir(b,false);return u[0]*v[0]+u[1]*v[1]>0&&Math.abs(u[0]*v[1]-u[1]*v[0])<1e-9;}
+    return !!(a.circle&&b.circle&&Math.hypot(a.circle.cx-b.circle.cx,a.circle.cy-b.circle.cy)<1e-6&&Math.abs(a.circle.r-b.circle.r)<1e-6&&turn(a)===turn(b));
+  }
+  function join(a,b){return {kind:a.kind,circle:a.circle,pts:a.kind==='line'?[a.pts[0],b.pts[b.pts.length-1]]:a.pts.concat(b.pts.slice(1))};}
+  var out=[];
+  edges.forEach(function(e){if(out.length&&same(out[out.length-1],e))out[out.length-1]=join(out[out.length-1],e);else out.push(e);});
+  while(out.length>1&&same(out[out.length-1],out[0]))out[0]=join(out.pop(),out[0]);
+  return out;
+}
+function shapeDxfLoopCircle(edges){
+  if(!edges.length||!edges.every(function(e){return e.kind==='arc'&&e.circle;}))return null;
+  var c=edges[0].circle;
+  return edges.every(function(e){return Math.hypot(e.circle.cx-c.cx,e.circle.cy-c.cy)<1e-4&&Math.abs(e.circle.r-c.r)<1e-4;})?c:null;
+}
+function shapeDxfLen(v){return (Math.round(v*1000)/1000)+'″';}
+
+function shapeParseFusionDxf(text){
+  text=String(text==null?'':text);if(!text.trim())return shapeDxfFail('DXF file is empty.');
+  if(/^AutoCAD Binary DXF/.test(text))return shapeDxfFail('Binary DXF is not supported. Save the file as ASCII DXF.');
+  var pairs=shapeDxfReadPairs(text);if(!pairs||!pairs.length)return shapeDxfFail('DXF file has no readable group codes.');
+  var sections=shapeDxfSections(pairs),units=0,header=sections.HEADER||[];
+  for(var i=0;i<header.length;i++)if(header[i].code===9&&header[i].value==='$INSUNITS'){var u=header[i+1];if(u&&u.code===70)units=Math.floor(shapeDxfNum(u.value));break;}
+  var k=SHAPE_DXF_UNIT_INCHES[units];
+  if(!k)return shapeDxfFail('DXF units are not supported (INSUNITS = '+units+'). Export the file in inches.');
+  var ctx={segs:[],blocks:shapeDxfBlocks(sections),hidden:shapeDxfHiddenLayers(sections),nextId:0,solids:0};
+  shapeDxfCollect(shapeDxfEntities(sections.ENTITIES||[]),[k,0,0,k,0,0],ctx,0);
+  var segs=ctx.segs.filter(function(s){return s.pts.length>=2&&s.pts.some(function(p){return shapeDxfDist(p,s.pts[0])>1e-9;});});
+  if(!segs.length)return shapeDxfFail('DXF has no lines, arcs or polylines to read.'+(ctx.solids?' It stores the shape as a solid or region; export the outline as lines and arcs.':''));
+  if(segs.some(function(s){return s.pts.some(function(p){return !isFinite(p[0])||!isFinite(p[1]);});}))return shapeDxfFail('DXF contour contains an invalid coordinate.');
+  var ch=shapeDxfChains(segs),loops=ch.loops.map(function(l){var edges=shapeDxfLoopEdges(l),pts=shapeDxfEdgesPoints(edges);return {edges:edges,pts:pts,area:pts.length>=3?Math.abs(fabSignedArea(pts)):0};});
+  var size=function(P){var b=fabEdgeBounds(P);return Math.max(b.maxX-b.minX,b.maxY-b.minY);};
+  var openBig=ch.open.map(function(c){var e=shapeDxfLoopEdges(c),P=[];e.forEach(function(x){P=P.concat(x.pts);});return {pts:P,head:shapeDxfStart(c[0]),tail:shapeDxfEnd(c[c.length-1])};}).sort(function(a,b){return size(b.pts)-size(a.pts);})[0];
+  loops.sort(function(a,b){return b.area-a.area;});
+  var outer=loops[0];
+  if(!outer||openBig&&size(openBig.pts)>size(outer.pts)){
+    if(!openBig)return shapeDxfFail('DXF contour encloses no area.');
+    var g=openBig.tail;
+    return shapeDxfFail('DXF outline is not closed: gap of '+shapeDxfLen(shapeDxfDist(openBig.head,openBig.tail))+' near X '+shapeDxfLen(g[0])+', Y '+shapeDxfLen(g[1])+'.');
+  }
+  /* «Бабочка»: замкнута, но площади нет — она пересекает сама себя. */
+  if(!(outer.area>1e-8))return shapeDxfFail(outer.pts.length>=4&&fabPolySelfIntersects(outer.pts)?'DXF contour self-intersects.':'DXF contour encloses no area.');
+  var holes=[],cutouts=0,separate=0;
+  loops.slice(1).filter(function(l){return l.area>1e-8;}).forEach(function(l){
+    if(!l.pts.every(function(p){return fabPointInPoly(p,outer.pts);})){separate++;return;}
+    var c=shapeDxfLoopCircle(l.edges);
+    if(c)holes.push(c);else cutouts++;
+  });
+  if(separate)return shapeDxfFail('DXF contains '+(separate+1)+' separate outlines. Keep one glass per file.');
+  var edges=shapeDxfMergeEdges(outer.edges),points=[],segments=[];
+  edges.forEach(function(e){segments.push({at:points.length,kind:e.kind});for(var j=0;j<e.pts.length-1;j++)points.push(e.pts[j]);});
+  if(points.length>SHAPE_DXF_PREVIEW_MAX_POINTS)return shapeDxfFail('DXF contour has too many points ('+points.length+'). Simplify the curves.');
+  var b=fabEdgeBounds(points),w=b.maxX-b.minX,h=b.maxY-b.minY,width16=Math.round(w*16),height16=Math.round(h*16);
+  if(!(width16>0&&height16>0))return shapeDxfFail('DXF bounding Width and Height must be greater than zero.');
+  var normalized=points.map(function(p){return [shapeDxfCoord(p[0]-b.minX),shapeDxfCoord(p[1]-b.minY)];});
+  /* Совпавшие после округления соседние точки убираем, сдвигая начала кромок. */
+  var keep=[],map=[];
+  normalized.forEach(function(p,j){var prev=keep.length?keep[keep.length-1]:null;map.push(keep.length);if(!prev||Math.hypot(p[0]-prev[0],p[1]-prev[1])>=1e-8)keep.push(p);else map[j]=keep.length-1;});
+  while(keep.length>1&&Math.hypot(keep[0][0]-keep[keep.length-1][0],keep[0][1]-keep[keep.length-1][1])<1e-8)keep.pop();
+  segments=segments.map(function(s){return {at:Math.min(map[s.at],keep.length-1),kind:s.kind};}).filter(function(s,j,a){return !j||s.at>a[j-1].at;});
+  if(keep.length<3)return shapeDxfFail('DXF contour must contain at least three vertices.');
+  if(fabPolySelfIntersects(keep))return shapeDxfFail('DXF contour self-intersects.');
+  if(Math.abs(fabSignedArea(keep))<1e-8)return shapeDxfFail('DXF contour encloses no area.');
+  var notes=[];
+  if(units>1)notes.push('Converted from '+SHAPE_DXF_UNIT_NAMES[units]+' to inches.');
+  if(cutouts)notes.push(cutouts+' inner cutout'+(cutouts>1?'s are':' is')+' not supported for DXF and '+(cutouts>1?'were':'was')+' skipped.');
+  if(ch.open.length)notes.push(ch.open.length+' open line'+(ch.open.length>1?'s were':' was')+' ignored.');
+  return {ok:true,preview:{units:'in',points:keep,width16:width16,height16:height16,segments:segments},exactWidth:w,exactHeight:h,
+    holes:holes.map(function(c){return {x:shapeDxfCoord(c.cx-b.minX),y:shapeDxfCoord(c.cy-b.minY),diameter:2*c.r};}),notes:notes};
+}
 
 /* ==== src/modules/muntin/catalog.js ==== */
 /* =====================================================================
@@ -17204,14 +17558,18 @@ function salesEffectiveLiteContour(line,shape,groups,mm,liteIndex,lite){
     return {valid:true,implicitRect:true,finishedPoints:rectFinished,cuttingPoints:rectCut,finishedW:w,finishedH:h,cutW:w+a+c,cutH:h+b+d,perimeter:2*(w+h),safetyBorder:rectB.border,footprint:rectB.footprint};
   }
   if(shapeIsDxfSource(shape)){
-    var points=shapeNormalizeSource(shape.source).preview.points.map(function(p){return p.slice();});
-    if(points.length<3||points.length!==groups.length)return {valid:false,reason:'DXF physical contour is unavailable.'};
-    var tangent=shapeDxfTangentAllowanceIssue(groups);if(tangent)return {valid:false,reason:tangent.reason,tangentAllowanceConflict:true};
-    var off=shapeOffsetVariable(points,groups.map(function(g){return g.allowance||0;}));
+    /* Припуск стоит на кромке, а контур — точки: у дуги их много, и все
+       получают припуск своей кромки. Точки берём из самого DXF, в снимке
+       строки их нет. */
+    var points=shapeNormalizeSource(shape.source).preview.points.map(function(p){return p.slice();}),pointIds=ShapeModule.dxfPointEdgeIds(shape),allowById={};
+    groups.forEach(function(g){allowById[g.id]=g.allowance||0;});
+    if(points.length<3||pointIds.length!==points.length||!groups.length)return {valid:false,reason:'DXF physical contour is unavailable.'};
+    var tangent=shapeDxfTangentAllowanceIssue(ShapeModule.dxfEdges(shape).map(function(e){return Object.assign({},e,{allowance:allowById[e.id]||0});}));if(tangent)return {valid:false,reason:tangent.reason,tangentAllowanceConflict:true};
+    var off=shapeOffsetVariable(points,pointIds.map(function(id){return allowById[id]||0;}));
     if(!off.valid)return {valid:false,reason:'Effective cutting offset failed: '+off.error};
     var fb=fabEdgeBounds(points),cb=fabEdgeBounds(off.points);
     var dxfTypes={};ShapeModule.dxfEdges(shape).forEach(function(e){if(e&&e.id!=null)dxfTypes[e.id]=e.type;});
-    var dxfB=salesEffectiveBorderPlan(shape,mm,points,groups.map(function(g){return g.id;}),dxfTypes,off.points);
+    var dxfB=salesEffectiveBorderPlan(shape,mm,points,pointIds,dxfTypes,off.points);
     return {valid:true,external:true,finishedPoints:points,cuttingPoints:off.points,finishedW:fb.maxX-fb.minX,finishedH:fb.maxY-fb.minY,cutW:cb.maxX-cb.minX,cutH:cb.maxY-cb.minY,perimeter:fabPolylineLength(points,true),safetyBorder:dxfB.border,footprint:dxfB.footprint};
   }
   var effective=normalizeShapeDef(salesServiceClone(shape));effective.thickness=String(mm);effective.edgeOps={};
@@ -23158,17 +23516,30 @@ shapeAttachDxf=function(input){
   if(!/\.dxf$/i.test(String(file.name||''))){alert('Choose a DXF file.');input.value='';return;}
   if(!(file.size>0)){alert('DXF file is empty.');input.value='';return;}
   var reader=new FileReader();
-  reader.onerror=function(){input.value='';alert('DXF file could not be read.');};
+  /* После отказа — render(): иначе выбор типа так и стоит на «DXF», а на
+     чертеже прежняя фигура. */
+  reader.onerror=function(){input.value='';alert('DXF file could not be read.');render();};
   reader.onload=function(){
     var parsed=shapeParseFusionDxf(String(reader.result||''));
-    if(!parsed.ok){input.value='';alert(parsed.error||'DXF file could not be parsed.');return;}
+    if(!parsed.ok){input.value='';alert(parsed.error||'DXF file could not be parsed.');render();return;}
     var oldTopology=shapeIsDxfSource(sDraft)?ShapeModule.dxfTopologyFingerprint(sDraft):'',newTopology=ShapeModule.dxfTopologyFingerprint(parsed.preview),geometryChanged=!oldTopology||oldTopology!==newTopology;
     if(geometryChanged&&shapeProdHasGeometryBoundData()&&!confirm('This DXF changes the physical contour. Existing edge processing, Manufacturing Items and geometry modifiers will be cleared. Continue?')){input.value='';render();return;}
     if(geometryChanged)shapeProdClearGeometryBoundData();
     var note=sDraft&&sDraft.source?String(sDraft.source.note||''):'';
     sDraft.source={kind:'dxf',fileName:String(file.name),fileSize:Math.floor(file.size),uploadedAt:new Date().toISOString(),note:note,preview:parsed.preview};
     sDraft.w=frac64(parsed.preview.width16/16);sDraft.h=frac64(parsed.preview.height16/16);
+    /* Круги внутри стекла — отверстия этой фигуры (владелец, 16.10): ставим
+       их как обычный Hole, без обработки и без условий. Тот же центр и
+       диаметр второй раз не добавляем. */
+    var items=shapeManufacturingItems(),added=0;
+    (parsed.holes||[]).forEach(function(h){
+      var item=shapeNormalizeManufacturingItem({type:'hole',x:h.x,y:h.y,diameter:frac64(h.diameter)}),d=inch(item.diameter);
+      if(items.some(function(o){return o.type==='hole'&&shapeHoleCount(o)===1&&Math.abs(o.x-item.x)<1e-9&&Math.abs(o.y-item.y)<1e-9&&Math.abs(inch(o.diameter)-d)<1e-9;}))return;
+      items.push(item);added++;
+    });
+    var notes=(added?[added+(added>1?' holes were':' hole was')+' added from the file.']:[]).concat(parsed.notes||[]);
     if(!sDraft.thickness)sDraft.thickness='6';sView='production';sSourceOpen=false;render();
+    if(notes.length)alert('DXF loaded. '+notes.join(' '));
   };
   reader.readAsText(file);
 };
@@ -23181,7 +23552,7 @@ removeShapeDxf=function(){
 /* ---------- Compact master/source ---------- */
 function shapeProdTypeOptions(){
   return shapePresetChoices(sDraft.type).map(function(p){return `<option value='${esc(p.id)}' ${!shapeIsDxfSource(sDraft)&&p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('')+
-    `<option value='__DXF__' ${shapeIsDxfSource(sDraft)?'selected':''}>DXF · Fusion 360</option>`;
+    `<option value='__DXF__' ${shapeIsDxfSource(sDraft)?'selected':''}>DXF file</option>`;
 }
 function shapeProdChooseType(value){
   if(value==='__DXF__'){
@@ -23308,7 +23679,8 @@ function shapeProdDxfEdgeProcessing(){
 /* ---------- Exact DXF Manufacturing Items ---------- */
 function shapeProdDxfEdgeById(id){return ShapeModule.dxfEdges(sDraft).find(function(e){return e.id===id;})||null;}
 function shapeProdNearestDxfEdge(x,y){
-  var best=null;ShapeModule.dxfEdges(sDraft).forEach(function(e){var dx=e.p2[0]-e.p1[0],dy=e.p2[1]-e.p1[1],L2=dx*dx+dy*dy;if(!(L2>1e-12))return;var t=((x-e.p1[0])*dx+(y-e.p1[1])*dy)/L2;t=Math.max(0,Math.min(1,t));var px=e.p1[0]+dx*t,py=e.p1[1]+dy*t,err=Math.hypot(x-px,y-py);if(!best||err<best.error)best={edgeId:e.id,distance:shapeSnapManufacturing16(t*e.length),error:err};});return best;
+  /* По точкам кромки: у дуги расстояние идёт вдоль неё, а не по хорде. */
+  var best=null;ShapeModule.dxfEdges(sDraft).forEach(function(e){var P=e.points||[e.p1,e.p2],run=0;for(var i=1;i<P.length;i++){var a=P[i-1],dx=P[i][0]-a[0],dy=P[i][1]-a[1],L2=dx*dx+dy*dy;if(!(L2>1e-12))continue;var t=((x-a[0])*dx+(y-a[1])*dy)/L2;t=Math.max(0,Math.min(1,t));var err=Math.hypot(x-(a[0]+dx*t),y-(a[1]+dy*t)),L=Math.sqrt(L2);if(!best||err<best.error)best={edgeId:e.id,distance:shapeSnapManufacturing16(Math.min(e.length,run+t*L)),error:err};run+=L;}});return best;
 }
 const __shapeProdManufacturingEdgePoint=shapeManufacturingEdgePoint;
 shapeManufacturingEdgePoint=function(item,g){
@@ -23402,7 +23774,8 @@ function shapeProdDxfFrame(){
 function shapeProdDxfProductionSvg(){
   var result=ShapeModule.compute(sDraft),T=shapeProdDxfFrame();if(!T)return `<div class='module-invalid'>DXF preview unavailable</div>`;
   var P=T.P,path=P.map(function(p,i){return (i?'L':'M')+T.X(p[0]).toFixed(2)+' '+T.Y(p[1]).toFixed(2);}).join(' ')+' Z',groups=shapeProdDxfGroups(),placing=sManufacturingPlace?' placing':'';
-  var edges=groups.map(function(g){var selected=g.id===shapeProdSelectedEdgeId,processed=g.ops.length,m=[(g.p1[0]+g.p2[0])/2,(g.p1[1]+g.p2[1])/2];return `<line class='shape-prod-edge-line ${selected?'selected ':''}${processed?'processed':''}' x1='${T.X(g.p1[0])}' y1='${T.Y(g.p1[1])}' x2='${T.X(g.p2[0])}' y2='${T.Y(g.p2[1])}'/><line class='shape-prod-edge-hit' x1='${T.X(g.p1[0])}' y1='${T.Y(g.p1[1])}' x2='${T.X(g.p2[0])}' y2='${T.Y(g.p2[1])}' onclick='event.stopPropagation();shapeProdSetDxfEdge("${esc(g.id)}")'/><text class='shape-prod-edge-label' x='${T.X(m[0])}' y='${T.Y(m[1])-7}' text-anchor='middle'>${esc(g.id.toUpperCase())}</text>`;}).join('');
+  /* Кромка рисуется по своим точкам: дуга — дугой, а не хордой. */
+  var edges=groups.map(function(g){var selected=g.id===shapeProdSelectedEdgeId,processed=g.ops.length,m=ShapeModule.dxfEdgePointAt(g,g.length/2),d=(g.points||[g.p1,g.p2]).map(function(p,i){return (i?'L':'M')+T.X(p[0]).toFixed(2)+' '+T.Y(p[1]).toFixed(2);}).join(' ');return `<path class='shape-prod-edge-line ${selected?'selected ':''}${processed?'processed':''}' d='${d}'/><path class='shape-prod-edge-hit' d='${d}' onclick='event.stopPropagation();shapeProdSetDxfEdge("${esc(g.id)}")'/><text class='shape-prod-edge-label' x='${T.X(m[0])}' y='${T.Y(m[1])-7}' text-anchor='middle'>${esc(g.id.toUpperCase())}</text>`;}).join('');
   var markers=shapeManufacturingMarkersSvg(sDraft.source,T)+shapeStampOverlaySvg(T),topY=Math.max(20,T.y0-24),leftX=Math.max(24,T.x0-26);
   return salesFritDecorateSvg(`<div class='shape-prod-dxf-card'>${sManufacturingPlace?`<div class='shape-prod-place-note'><b>Placement mode:</b> click ${sManufacturingPlace.type==='hole'?'inside the finished contour':'near the required physical SEG'}.</div>`:''}<svg class='shape-dxf-svg shape-prod-dxf-svg${placing}' viewBox='0 0 ${T.vw} ${T.vh}' ${sManufacturingPlace?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}><defs><marker id='shapeProdArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs><path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>${markers}${edges}<line x1='${T.x0}' y1='${topY}' x2='${T.x0+T.dw}' y2='${topY}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><line x1='${T.x0}' y1='${topY-5}' x2='${T.x0}' y2='${topY+5}' class='shape-dxf-dim-line'/><line x1='${T.x0+T.dw}' y1='${topY-5}' x2='${T.x0+T.dw}' y2='${topY+5}' class='shape-dxf-dim-line'/><text x='${T.x0+T.dw/2}' y='${topY-9}' class='shape-dxf-dim-text' text-anchor='middle'>${esc(shapeDrawingDim(T.W))}</text><line x1='${leftX}' y1='${T.y0}' x2='${leftX}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><line x1='${leftX-5}' y1='${T.y0}' x2='${leftX+5}' y2='${T.y0}' class='shape-dxf-dim-line'/><line x1='${leftX-5}' y1='${T.y0+T.dh}' x2='${leftX+5}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line'/><text x='${leftX-10}' y='${T.y0+T.dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${T.y0+T.dh/2})'>${esc(shapeDrawingDim(T.H))}</text></svg><div class='shape-prod-dxf-help'><b>FINISHED contour</b><span>Edge processing derives Cutting. Manufacturing Items do not change the outer cutting contour.</span></div></div>`,sDraft,result,T);
 }
