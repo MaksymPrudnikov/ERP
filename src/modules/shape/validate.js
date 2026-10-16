@@ -159,8 +159,12 @@ function shapeValidateSource(def){
     else{
       if(fabPolySelfIntersects(preview.points))errors.push('DXF preview contour self-intersects.');
       if(Math.abs(fabSignedArea(preview.points))<1e-8)errors.push('DXF preview contour encloses no area.');
-      var b=fabEdgeBounds(preview.points),w16=Math.round((b.maxX-b.minX)*16),h16=Math.round((b.maxY-b.minY)*16);
-      if(w16!==preview.width16||h16!==preview.height16)errors.push('DXF preview dimensions do not match its contour.');
+      /* Размер строки — контур, округлённый до 1/16″. На ровной середине шага
+         (клиент рисует в 1/32″) годится любое из двух округлений: уже
+         сохранённые фигуры округлены как придётся, и блокировать их рез из-за
+         последней цифры нельзя. Расхождение больше полушага — настоящее. */
+      var b=fabEdgeBounds(preview.points),dw=Math.abs((b.maxX-b.minX)*16-preview.width16),dh=Math.abs((b.maxY-b.minY)*16-preview.height16);
+      if(dw>0.5+1e-6||dh>0.5+1e-6)errors.push('DXF preview dimensions do not match its contour.');
     }
   }
   return {errors:Array.from(new Set(errors)),warns:warns};
