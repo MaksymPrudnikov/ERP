@@ -1773,7 +1773,11 @@ function shapeFitPreview(){
    DXF; внутренних размеров нет — исходный файл ERP не хранит. */
 function shapeSheetOk(r){return !!r&&(r.valid||!!(r.externalFile&&r.sourceValid));}
 function shapeSheetSvg(r,cutting){
-  if(r.externalFile)return shapeDxfPreviewSvg((r.definition&&r.definition.source)||sDraft.source,!cutting,true);
+  if(r.externalFile){
+    /* Frit на печатном листе DXF — тот же образец и та же точка, что на экране. */
+    var src=(r.definition&&r.definition.source)||sDraft.source,svg=shapeDxfPreviewSvg(src,!cutting,true);
+    return cutting?svg:salesFritDecorateSvg(svg,sDraft,r,shapeDxfPreviewTransform(src));
+  }
   return cutting?ShapeModule.cuttingSvg(r):shapeDrawnProductionSvg(r,false,{sheet:true});
 }
 /* Печать активной вкладки чертежа. Setup показывает Production Drawing,
