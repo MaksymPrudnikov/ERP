@@ -10,13 +10,20 @@
    Paper space и слои, выключенные или замороженные в CAD, тоже пропускаем:
    в CAD их не видно.
 
-   Как собирается стекло. Отдельные линии и дуги сшиваются концами, зазор
-   до 1/64″ закрывается сам (это меньше точности цеха). Самый большой
-   замкнутый контур — стекло. Круг внутри — отверстие (владелец: «если мы
+   Главное правило (владелец, 16.10.2026): «загрузка DXF должна быть
+   идентична тому, что есть на фигуре, ни при каких раскладах не влиять».
+   Что нельзя прочитать точно, не читается вовсе — с ответом, почему.
+
+   Как собирается стекло. Отдельные линии и дуги сшиваются концами; зазор
+   до 0.001″ — неточность записи чисел, он закрывается, больше — ошибка с
+   местом разрыва. Самый большой замкнутый контур — стекло. Круг внутри —
+   отверстие с центром и диаметром точно из файла (владелец: «если мы
    целенаправленно загрузим фигуру с отверстиями, то отверстия нужно
-   принять»). Другую фигуру внутри DXF-стекло не умеет — пропускаем и
-   говорим об этом. Второй контур снаружи — второе стекло: файл на одно
-   стекло.
+   принять»). Другую фигуру внутри DXF-стекло не умеет — такой файл не
+   принимается: стекло без выреза было бы уже не тем, что в файле. Второй
+   контур снаружи — второе стекло: файл на одно стекло. Сплайн только по
+   точкам прохода не принимается: CAD строит его по своему правилу, и наша
+   кривая через те же точки была бы другой.
 
    Единицы: цех готовит файлы в дюймах; файл без единиц читается в дюймах.
    Явные мм/см/м/футы пересчитываются, и об этом сказано.
@@ -29,7 +36,7 @@
    ===================================================================== */
 const SHAPE_DXF_UNIT_INCHES={0:1,1:1,2:12,4:1/25.4,5:1/2.54,6:1000/25.4};
 const SHAPE_DXF_UNIT_NAMES={2:'feet',4:'mm',5:'cm',6:'m'};
-const SHAPE_DXF_SAG=1/2048,SHAPE_DXF_GAP=1/64;
+const SHAPE_DXF_SAG=1/2048,SHAPE_DXF_GAP=0.001;
 const SHAPE_DXF_SOLIDS=['3DSOLID','REGION','BODY','SURFACE','MESH'];
 
 function shapeDxfFail(message){return {ok:false,error:message};}
@@ -100,10 +107,16 @@ function shapeDxfArcSteps(r,sweep){
   step=Math.min(step,Math.PI/36);
   return Math.max(1,Math.ceil(Math.abs(sweep)/step));
 }
+/* Крайние точки дуги (0°, 90°, 180°, 270°) всегда в раскладке: иначе вершина
+   арки ложится на хорду на 1/2048″ ниже, и габарит на границе 1/16″
+   округляется вниз (случайный прогон 16.10.2026: 825/16 вместо 826/16).
+   Обычная точка ближе четверти шага к крайней уступает ей место. */
 function shapeDxfArcPoints(cx,cy,r,a0,sweep){
-  var n=shapeDxfArcSteps(r,sweep),out=[];
-  for(var i=0;i<=n;i++){var a=a0+sweep*i/n;out.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);}
-  return out;
+  var n=shapeDxfArcSteps(r,sweep),step=Math.abs(sweep)/n,ts=[],lo=Math.min(a0,a0+sweep),hi=Math.max(a0,a0+sweep),q=Math.PI/2,k,i;
+  var extremes=[];for(k=Math.ceil(lo/q-1e-12);k*q<=hi+1e-12;k++){var d=Math.abs(k*q-a0);if(d>1e-9&&Math.abs(d-Math.abs(sweep))>1e-9)extremes.push(d);}
+  for(i=0;i<=n;i++){var u=step*i;if(i>0&&i<n&&extremes.some(function(e){return Math.abs(e-u)<step/4;}))continue;ts.push(u);}
+  ts=ts.concat(extremes).sort(function(a,b){return a-b;});
+  return ts.map(function(u){var a=a0+(sweep<0?-u:u);return [cx+r*Math.cos(a),cy+r*Math.sin(a)];});
 }
 /* Дуга bulge между двумя вершинами полилинии: bulge = tg(угол/4), знак —
    направление (плюс — против часовой). */
@@ -172,16 +185,8 @@ function shapeDxfSplinePoints(e){
     }
     return out;
   }
-  /* Сплайн только по точкам прохода: кривая Катмулла — Рома через них. */
-  if(F.length<2)return null;
-  var o=[F[0].slice()];
-  for(i=0;i<F.length-1;i++){
-    var a=F[Math.max(0,i-1)],b=F[i],c=F[i+1],d=F[Math.min(F.length-1,i+2)];
-    for(var s=1;s<=8;s++){var t=s/8,t2=t*t,t3=t2*t;
-      o.push([.5*(2*b[0]+(-a[0]+c[0])*t+(2*a[0]-5*b[0]+4*c[0]-d[0])*t2+(-a[0]+3*b[0]-3*c[0]+d[0])*t3),
-              .5*(2*b[1]+(-a[1]+c[1])*t+(2*a[1]-5*b[1]+4*c[1]-d[1])*t2+(-a[1]+3*b[1]-3*c[1]+d[1])*t3)]);}
-  }
-  return o;
+  /* Только точки прохода, без контрольных: точно повторить кривую CAD нельзя. */
+  return F.length>=2?'fit-only':null;
 }
 
 /* Один объект → кромки в мировых координатах. M — матрица блока
@@ -216,7 +221,7 @@ function shapeDxfCollect(entities,M,ctx,depth){
       var el=shapeDxfEllipsePoints(shapeDxfNumOf(e,10),shapeDxfNumOf(e,20),shapeDxfNumOf(e,11),shapeDxfNumOf(e,21),shapeDxfNumOf(e,40,1),shapeDxfNumOf(e,41,0),shapeDxfNumOf(e,42,Math.PI*2),shapeDxfNumOf(e,230,1)<0);
       segs.push({kind:'arc',pts:el.pts,closedSelf:el.full});O=M;
     }else if(t==='SPLINE'){
-      var sp=shapeDxfSplinePoints(e);if(!sp||sp.length<2)return;
+      var sp=shapeDxfSplinePoints(e);if(sp==='fit-only'){ctx.fitOnly++;return;}if(!sp||sp.length<2)return;
       segs.push({kind:'arc',pts:sp});O=M;
     }else if(t==='INSERT'){
       var blk=ctx.blocks[String(shapeDxfGet(e,2,'')).toUpperCase()];if(!blk||depth>=4)return;
@@ -259,7 +264,10 @@ function shapeDxfChains(segs){
   for(var i=0;i<segs.length;i++){
     if(used[i])continue;used[i]=true;
     var c=[{s:segs[i],rev:false}];
-    if(segs[i].closedSelf||shapeDxfDist(segs[i].pts[0],segs[i].pts[segs[i].pts.length-1])<=SHAPE_DXF_GAP&&segs[i].pts.length>3){loops.push(c);continue;}
+    /* Сама на себя замыкается только кривая с ТОЧНО совпавшими концами (круг,
+       замкнутый сплайн). Допуск на зазор здесь не годится: скругление R 1/16
+       с малым поворотом короче 1/64″ и выходило отдельным «контуром». */
+    if(segs[i].closedSelf||shapeDxfDist(segs[i].pts[0],segs[i].pts[segs[i].pts.length-1])<=1e-9&&segs[i].pts.length>3){loops.push(c);continue;}
     for(;;){
       var head=shapeDxfStart(c[0]),tail=shapeDxfEnd(c[c.length-1]);
       if(c.length>1&&shapeDxfDist(head,tail)<=SHAPE_DXF_GAP){loops.push(c);break;}
@@ -308,9 +316,10 @@ function shapeParseFusionDxf(text){
   for(var i=0;i<header.length;i++)if(header[i].code===9&&header[i].value==='$INSUNITS'){var u=header[i+1];if(u&&u.code===70)units=Math.floor(shapeDxfNum(u.value));break;}
   var k=SHAPE_DXF_UNIT_INCHES[units];
   if(!k)return shapeDxfFail('DXF units are not supported (INSUNITS = '+units+'). Export the file in inches.');
-  var ctx={segs:[],blocks:shapeDxfBlocks(sections),hidden:shapeDxfHiddenLayers(sections),nextId:0,solids:0};
+  var ctx={segs:[],blocks:shapeDxfBlocks(sections),hidden:shapeDxfHiddenLayers(sections),nextId:0,solids:0,fitOnly:0};
   shapeDxfCollect(shapeDxfEntities(sections.ENTITIES||[]),[k,0,0,k,0,0],ctx,0);
   var segs=ctx.segs.filter(function(s){return s.pts.length>=2&&s.pts.some(function(p){return shapeDxfDist(p,s.pts[0])>1e-9;});});
+  if(ctx.fitOnly)return shapeDxfFail('DXF has a spline saved by fit points only. Save it with control points so the curve stays exact.');
   if(!segs.length)return shapeDxfFail('DXF has no lines, arcs or polylines to read.'+(ctx.solids?' It stores the shape as a solid or region; export the outline as lines and arcs.':''));
   if(segs.some(function(s){return s.pts.some(function(p){return !isFinite(p[0])||!isFinite(p[1]);});}))return shapeDxfFail('DXF contour contains an invalid coordinate.');
   var ch=shapeDxfChains(segs),loops=ch.loops.map(function(l){var edges=shapeDxfLoopEdges(l),pts=shapeDxfEdgesPoints(edges);return {edges:edges,pts:pts,area:pts.length>=3?Math.abs(fabSignedArea(pts)):0};});
@@ -332,6 +341,7 @@ function shapeParseFusionDxf(text){
     if(c)holes.push(c);else cutouts++;
   });
   if(separate)return shapeDxfFail('DXF contains '+(separate+1)+' separate outlines. Keep one glass per file.');
+  if(cutouts)return shapeDxfFail('DXF has '+(cutouts>1?cutouts+' inner cutouts':'an inner cutout')+'. Inner cutouts are not supported for DXF yet, so the file was not loaded.');
   var edges=shapeDxfMergeEdges(outer.edges),points=[],segments=[];
   edges.forEach(function(e){segments.push({at:points.length,kind:e.kind});for(var j=0;j<e.pts.length-1;j++)points.push(e.pts[j]);});
   if(points.length>SHAPE_DXF_PREVIEW_MAX_POINTS)return shapeDxfFail('DXF contour has too many points ('+points.length+'). Simplify the curves.');
@@ -348,7 +358,6 @@ function shapeParseFusionDxf(text){
   if(Math.abs(fabSignedArea(keep))<1e-8)return shapeDxfFail('DXF contour encloses no area.');
   var notes=[];
   if(units>1)notes.push('Converted from '+SHAPE_DXF_UNIT_NAMES[units]+' to inches.');
-  if(cutouts)notes.push(cutouts+' inner cutout'+(cutouts>1?'s are':' is')+' not supported for DXF and '+(cutouts>1?'were':'was')+' skipped.');
   if(ch.open.length)notes.push(ch.open.length+' open line'+(ch.open.length>1?'s were':' was')+' ignored.');
   return {ok:true,preview:{units:'in',points:keep,width16:width16,height16:height16,segments:segments},exactWidth:w,exactHeight:h,
     holes:holes.map(function(c){return {x:shapeDxfCoord(c.cx-b.minX),y:shapeDxfCoord(c.cy-b.minY),diameter:2*c.r};}),notes:notes};
