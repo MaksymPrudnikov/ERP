@@ -116,13 +116,30 @@ function shapeNormalizePolygon(raw){
   var seen=Object.create(null);return raw.map(function(v,i){v=shapePlainObject(v);var id=shapeTextValue(v.id,'PV'+(i+1));if(seen[id])id='PV'+(i+1);seen[id]=true;return {id:id,x:shapeTextValue(v.x,'0'),y:shapeTextValue(v.y,'0')};});
 }
 function shapeDxfCoord(v){var n=+v;return isFinite(n)?Math.round(n*1000000)/1000000:NaN;}
+/* segments — где начинается каждая физическая кромка (линия, дуга, сплайн
+   файла): дуга разложена на много точек, но кромка у неё одна. Старый
+   импорт без segments — каждая точка своя кромка; ключ пишется только когда
+   он есть, иначе сдвинулись бы отпечатки всех сохранённых DXF. */
+const SHAPE_DXF_PREVIEW_MAX_POINTS=4096;
+function shapeNormalizeDxfSegments(raw,n){
+  if(!Array.isArray(raw)||!raw.length||!(n>=3))return null;
+  var out=[];
+  for(var i=0;i<raw.length;i++){
+    var s=shapePlainObject(raw[i]),at=Math.floor(+s.at);
+    if(!isFinite(at)||at<0||at>=n||(out.length?at<=out[out.length-1].at:at!==0))return null;
+    out.push({at:at,kind:s.kind==='arc'?'arc':'line'});
+  }
+  return out;
+}
 function shapeNormalizeDxfPreview(raw){
   raw=shapePlainObject(raw);var pts=Array.isArray(raw.points)?raw.points:[],clean=[];
-  if(pts.length>=3&&pts.length<=2048)for(var i=0;i<pts.length;i++){
+  if(pts.length>=3&&pts.length<=SHAPE_DXF_PREVIEW_MAX_POINTS)for(var i=0;i<pts.length;i++){
     var p=Array.isArray(pts[i])?pts[i]:[],x=shapeDxfCoord(p[0]),y=shapeDxfCoord(p[1]);if(!isFinite(x)||!isFinite(y)){clean=[];break;}clean.push([x,y]);
   }
   var width16=Math.max(0,Math.floor(+raw.width16||0)),height16=Math.max(0,Math.floor(+raw.height16||0));
-  return {units:raw.units==='in'?'in':'',points:clean,width16:width16,height16:height16};
+  var out={units:raw.units==='in'?'in':'',points:clean,width16:width16,height16:height16},segments=shapeNormalizeDxfSegments(raw.segments,clean.length);
+  if(segments)out.segments=segments;
+  return out;
 }
 function shapeNormalizeSource(raw){
   raw=shapePlainObject(raw);var kind=raw.kind==='dxf'?'dxf':'drawn',out={kind:kind,fileName:kind==='dxf'?shapeTextValue(raw.fileName,''):'',fileSize:kind==='dxf'?Math.max(0,Math.floor(+raw.fileSize||0)):0,uploadedAt:kind==='dxf'?shapeTextValue(raw.uploadedAt,''):'',note:shapeTextValue(raw.note,'')};
@@ -275,59 +292,6 @@ function shapeDimOffset(def,id,axis){return Math.round(+shapeDimRec(def,id,axis)
 function shapeDimRef(def,id,axis,fallback){var r=shapeDimRec(def,id,axis).ref;return r||fallback||'';}
 function shapeNormalizeManufacturingItems(raw){
   return (Array.isArray(raw)?raw:[]).map(shapeNormalizeManufacturingItem).slice(0,200);
-}
-function shapeDxfFail(message){return {ok:false,error:message};}
-function shapeParseFusionDxf(text){
-  text=String(text==null?'':text);if(!text.trim())return shapeDxfFail('DXF file is empty.');
-  var lines=text.replace(/\r/g,'').split('\n'),pairs=[];
-  for(var i=0;i+1<lines.length;i+=2){var code=String(lines[i]).trim();if(code==='')continue;pairs.push({code:code,value:String(lines[i+1]).trim()});}
-  if(!pairs.length)return shapeDxfFail('DXF file has no readable group codes.');
-  var units=null;
-  for(i=0;i<pairs.length;i++)if(pairs[i].code==='9'&&pairs[i].value==='$INSUNITS'){
-    for(var ui=i+1;ui<pairs.length&&ui<i+8;ui++){if(pairs[ui].code==='9'||(pairs[ui].code==='0'&&pairs[ui].value==='ENDSEC'))break;if(pairs[ui].code==='70'){units=+pairs[ui].value;break;}}
-    break;
-  }
-  if(units!==1)return shapeDxfFail('DXF units must be inches (INSUNITS = 1).');
-  var inEntities=false,entities=[],current=null;
-  for(i=0;i<pairs.length;i++){
-    var q=pairs[i];
-    if(q.code==='0'&&q.value==='SECTION'&&pairs[i+1]&&pairs[i+1].code==='2'&&pairs[i+1].value==='ENTITIES'){inEntities=true;i++;continue;}
-    if(inEntities&&q.code==='0'&&q.value==='ENDSEC'){if(current)entities.push(current);current=null;inEntities=false;continue;}
-    if(!inEntities)continue;
-    if(q.code==='0'){
-      if(current)entities.push(current);
-      current={type:q.value,groups:[]};
-    }else if(current)current.groups.push(q);
-  }
-  if(current)entities.push(current);
-  if(!entities.length)return shapeDxfFail('DXF ENTITIES section is empty.');
-  var unsupported=entities.filter(function(e){return e.type!=='LWPOLYLINE';});
-  if(unsupported.length)return shapeDxfFail('DXF contains unsupported entity type '+unsupported[0].type+'.');
-  if(entities.length!==1)return shapeDxfFail('DXF must contain exactly one closed LWPOLYLINE contour.');
-  var e=entities[0],flags=0,expected=0,points=[],pendingX=null,hasBulge=false;
-  e.groups.forEach(function(g){
-    if(g.code==='70')flags=+g.value||0;
-    else if(g.code==='90')expected=Math.max(0,Math.floor(+g.value||0));
-    else if(g.code==='10'){
-      if(pendingX!==null)points.push([pendingX,NaN]);
-      pendingX=+g.value;
-    }else if(g.code==='20'&&pendingX!==null){points.push([pendingX,+g.value]);pendingX=null;}
-    else if(g.code==='42'&&Math.abs(+g.value||0)>1e-12)hasBulge=true;
-  });
-  if(pendingX!==null)points.push([pendingX,NaN]);
-  if(!(flags&1))return shapeDxfFail('DXF contour must be closed.');
-  if(hasBulge)return shapeDxfFail('DXF contour must contain straight line segments only.');
-  if(points.length<3)return shapeDxfFail('DXF contour must contain at least three vertices.');
-  if(points.length>2048)return shapeDxfFail('DXF contour has too many vertices for the Production Shape preview.');
-  if(expected&&expected!==points.length)return shapeDxfFail('DXF vertex count does not match the LWPOLYLINE header.');
-  if(points.some(function(p){return !isFinite(p[0])||!isFinite(p[1]);}))return shapeDxfFail('DXF contour contains an invalid coordinate.');
-  for(i=0;i<points.length;i++)if(Math.hypot(points[(i+1)%points.length][0]-points[i][0],points[(i+1)%points.length][1]-points[i][1])<1e-8)return shapeDxfFail('DXF contour contains a zero-length edge.');
-  if(fabPolySelfIntersects(points))return shapeDxfFail('DXF contour self-intersects.');
-  if(Math.abs(fabSignedArea(points))<1e-8)return shapeDxfFail('DXF contour encloses no area.');
-  var b=fabEdgeBounds(points),w=b.maxX-b.minX,h=b.maxY-b.minY,width16=Math.round(w*16),height16=Math.round(h*16);
-  if(!(width16>0&&height16>0))return shapeDxfFail('DXF bounding Width and Height must be greater than zero.');
-  var normalized=points.map(function(p){return [shapeDxfCoord(p[0]-b.minX),shapeDxfCoord(p[1]-b.minY)];});
-  return {ok:true,preview:{units:'in',points:normalized,width16:width16,height16:height16},exactWidth:w,exactHeight:h};
 }
 /* Отступ лайта задаётся по кромкам той же строкой, что и Width/Height, и
    читается тем же строгим парсером. Обработка лайта перекрывает общую. */

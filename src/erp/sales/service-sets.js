@@ -341,14 +341,18 @@ function salesEffectiveLiteContour(line,shape,groups,mm,liteIndex,lite){
     return {valid:true,implicitRect:true,finishedPoints:rectFinished,cuttingPoints:rectCut,finishedW:w,finishedH:h,cutW:w+a+c,cutH:h+b+d,perimeter:2*(w+h),safetyBorder:rectB.border,footprint:rectB.footprint};
   }
   if(shapeIsDxfSource(shape)){
-    var points=shapeNormalizeSource(shape.source).preview.points.map(function(p){return p.slice();});
-    if(points.length<3||points.length!==groups.length)return {valid:false,reason:'DXF physical contour is unavailable.'};
-    var tangent=shapeDxfTangentAllowanceIssue(groups);if(tangent)return {valid:false,reason:tangent.reason,tangentAllowanceConflict:true};
-    var off=shapeOffsetVariable(points,groups.map(function(g){return g.allowance||0;}));
+    /* Припуск стоит на кромке, а контур — точки: у дуги их много, и все
+       получают припуск своей кромки. Точки берём из самого DXF, в снимке
+       строки их нет. */
+    var points=shapeNormalizeSource(shape.source).preview.points.map(function(p){return p.slice();}),pointIds=ShapeModule.dxfPointEdgeIds(shape),allowById={};
+    groups.forEach(function(g){allowById[g.id]=g.allowance||0;});
+    if(points.length<3||pointIds.length!==points.length||!groups.length)return {valid:false,reason:'DXF physical contour is unavailable.'};
+    var tangent=shapeDxfTangentAllowanceIssue(ShapeModule.dxfEdges(shape).map(function(e){return Object.assign({},e,{allowance:allowById[e.id]||0});}));if(tangent)return {valid:false,reason:tangent.reason,tangentAllowanceConflict:true};
+    var off=shapeOffsetVariable(points,pointIds.map(function(id){return allowById[id]||0;}));
     if(!off.valid)return {valid:false,reason:'Effective cutting offset failed: '+off.error};
     var fb=fabEdgeBounds(points),cb=fabEdgeBounds(off.points);
     var dxfTypes={};ShapeModule.dxfEdges(shape).forEach(function(e){if(e&&e.id!=null)dxfTypes[e.id]=e.type;});
-    var dxfB=salesEffectiveBorderPlan(shape,mm,points,groups.map(function(g){return g.id;}),dxfTypes,off.points);
+    var dxfB=salesEffectiveBorderPlan(shape,mm,points,pointIds,dxfTypes,off.points);
     return {valid:true,external:true,finishedPoints:points,cuttingPoints:off.points,finishedW:fb.maxX-fb.minX,finishedH:fb.maxY-fb.minY,cutW:cb.maxX-cb.minX,cutH:cb.maxY-cb.minY,perimeter:fabPolylineLength(points,true),safetyBorder:dxfB.border,footprint:dxfB.footprint};
   }
   var effective=normalizeShapeDef(salesServiceClone(shape));effective.thickness=String(mm);effective.edgeOps={};
