@@ -3434,7 +3434,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='9a269ad3cba1';
+var ERP_BUILD='c13b3f818746';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -5292,8 +5292,12 @@ function shapeValidateSource(def){
     else{
       if(fabPolySelfIntersects(preview.points))errors.push('DXF preview contour self-intersects.');
       if(Math.abs(fabSignedArea(preview.points))<1e-8)errors.push('DXF preview contour encloses no area.');
-      var b=fabEdgeBounds(preview.points),w16=Math.round((b.maxX-b.minX)*16),h16=Math.round((b.maxY-b.minY)*16);
-      if(w16!==preview.width16||h16!==preview.height16)errors.push('DXF preview dimensions do not match its contour.');
+      /* Размер строки — контур, округлённый до 1/16″. На ровной середине шага
+         (клиент рисует в 1/32″) годится любое из двух округлений: уже
+         сохранённые фигуры округлены как придётся, и блокировать их рез из-за
+         последней цифры нельзя. Расхождение больше полушага — настоящее. */
+      var b=fabEdgeBounds(preview.points),dw=Math.abs((b.maxX-b.minX)*16-preview.width16),dh=Math.abs((b.maxY-b.minY)*16-preview.height16);
+      if(dw>0.5+1e-6||dh>0.5+1e-6)errors.push('DXF preview dimensions do not match its contour.');
     }
   }
   return {errors:Array.from(new Set(errors)),warns:warns};
@@ -7916,6 +7920,17 @@ function shapeParseFusionDxf(text){
   var ctx={segs:[],blocks:shapeDxfBlocks(sections),hidden:shapeDxfHiddenLayers(sections),nextId:0,solids:0,fitOnly:0};
   shapeDxfCollect(shapeDxfEntities(sections.ENTITIES||[]),[k,0,0,k,0,0],ctx,0);
   var segs=ctx.segs.filter(function(s){return s.pts.length>=2&&s.pts.some(function(p){return shapeDxfDist(p,s.pts[0])>1e-9;});});
+  /* Линия, нарисованная дважды (в AutoCAD — частое дело), — та же кромка и
+     та же геометрия: читаем её один раз и говорим об этом. Иначе пара
+     «туда-обратно» замыкалась сама на себя, и стекло не грузилось (CREATIVE
+     RAILING, BERMAN STAIRS, E&B в архиве цеха, 16.10.2026). */
+  var seenSeg=Object.create(null),dupes=0;
+  segs=segs.filter(function(s){
+    var r=function(v){return Math.round(v*1e5);},a=s.pts[0],z=s.pts[s.pts.length-1],m=s.pts[Math.floor(s.pts.length/2)];
+    var key=s.kind+'|'+[r(a[0])+','+r(a[1]),r(z[0])+','+r(z[1])].sort().join(';')+'|'+(s.pts.length>2?r(m[0])+','+r(m[1]):'');
+    if(seenSeg[key]){dupes++;return false;}
+    seenSeg[key]=true;return true;
+  });
   if(ctx.fitOnly)return shapeDxfFail('DXF has a spline saved by fit points only. Save it with control points so the curve stays exact.');
   if(!segs.length)return shapeDxfFail('DXF has no lines, arcs or polylines to read.'+(ctx.solids?' It stores the shape as a solid or region; export the outline as lines and arcs.':''));
   if(segs.some(function(s){return s.pts.some(function(p){return !isFinite(p[0])||!isFinite(p[1]);});}))return shapeDxfFail('DXF contour contains an invalid coordinate.');
@@ -7942,8 +7957,7 @@ function shapeParseFusionDxf(text){
   var edges=shapeDxfMergeEdges(outer.edges),points=[],segments=[];
   edges.forEach(function(e){segments.push({at:points.length,kind:e.kind});for(var j=0;j<e.pts.length-1;j++)points.push(e.pts[j]);});
   if(points.length>SHAPE_DXF_PREVIEW_MAX_POINTS)return shapeDxfFail('DXF contour has too many points ('+points.length+'). Simplify the curves.');
-  var b=fabEdgeBounds(points),w=b.maxX-b.minX,h=b.maxY-b.minY,width16=Math.round(w*16),height16=Math.round(h*16);
-  if(!(width16>0&&height16>0))return shapeDxfFail('DXF bounding Width and Height must be greater than zero.');
+  var b=fabEdgeBounds(points),w=b.maxX-b.minX,h=b.maxY-b.minY;
   var normalized=points.map(function(p){return [shapeDxfCoord(p[0]-b.minX),shapeDxfCoord(p[1]-b.minY)];});
   /* Совпавшие после округления соседние точки убираем, сдвигая начала кромок. */
   var keep=[],map=[];
@@ -7951,10 +7965,20 @@ function shapeParseFusionDxf(text){
   while(keep.length>1&&Math.hypot(keep[0][0]-keep[keep.length-1][0],keep[0][1]-keep[keep.length-1][1])<1e-8)keep.pop();
   segments=segments.map(function(s){return {at:Math.min(map[s.at],keep.length-1),kind:s.kind};}).filter(function(s,j,a){return !j||s.at>a[j-1].at;});
   if(keep.length<3)return shapeDxfFail('DXF contour must contain at least three vertices.');
+  /* Размер строки — по сетке 1/16″ (владелец, 16.10: «принимать в точном
+     размере клиента, резать в точном, а продавать с округлением к 1/16» —
+     на стикере не должно быть 1/32). Считается по тем же сохранённым точкам,
+     что проверяет shapeValidateSource, и середина всегда вверх: клиент рисует
+     в 1/32″, и 27 25/32 стоит ровно между 27 3/4 и 27 13/16 — раньше загрузка
+     и проверка решали эту середину по-разному, и рез блокировался (52 файла
+     архива цеха). */
+  var kb=fabEdgeBounds(keep),width16=Math.floor((kb.maxX-kb.minX)*16+0.5+1e-7),height16=Math.floor((kb.maxY-kb.minY)*16+0.5+1e-7);
+  if(!(width16>0&&height16>0))return shapeDxfFail('DXF bounding Width and Height must be greater than zero.');
   if(fabPolySelfIntersects(keep))return shapeDxfFail('DXF contour self-intersects.');
   if(Math.abs(fabSignedArea(keep))<1e-8)return shapeDxfFail('DXF contour encloses no area.');
   var notes=[];
   if(units>1)notes.push('Converted from '+SHAPE_DXF_UNIT_NAMES[units]+' to inches.');
+  if(dupes)notes.push(dupes+' line'+(dupes>1?'s':'')+' drawn twice '+(dupes>1?'were':'was')+' read once.');
   if(ch.open.length)notes.push(ch.open.length+' open line'+(ch.open.length>1?'s were':' was')+' ignored.');
   return {ok:true,preview:{units:'in',points:keep,width16:width16,height16:height16,segments:segments},exactWidth:w,exactHeight:h,
     holes:holes.map(function(c){return {x:shapeDxfCoord(c.cx-b.minX),y:shapeDxfCoord(c.cy-b.minY),diameter:2*c.r};}),notes:notes};
