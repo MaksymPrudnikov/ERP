@@ -123,6 +123,19 @@ module.exports=async function({page,eq}){
   const out={x:+h.x.toFixed(6),y:+h.y.toFixed(6),d:h.diameter,stable:again.x===h.x&&again.y===h.y,manual:shapeNormalizeManufacturingItem({type:'hole',x:10.03,y:5.01}).x};
   sEdit=null;sDraft=null;render();return out;
  }),{x:10.03,y:5.003937,d:'0.472441',stable:true,manual:10});
+ eq('a line drawn twice is read once and the person is told',await t.p.evaluate(()=>({
+  bottom:dxRead(dxDoc(dxLine([0,0],[40,0])+dxLine([40,0],[0,0])+dxLine([40,0],[40,30])+dxLine([40,30],[0,30])+dxLine([0,30],[0,0]))),
+  outline:dxRead(dxDoc(dxLw([[0,0],[40,0],[40,30],[0,30]])+dxLw([[40,0],[40,30],[0,30],[0,0]]))),
+  hole:dxRead(dxDoc(dxLw([[0,0],[40,0],[40,30],[0,30]])+dxCircle([10,5],0.25)+dxCircle([10,5],0.25)))
+ })),{bottom:{size:[40,30],edges:'llll',holes:[],notes:['1 line drawn twice was read once.']},outline:{size:[40,30],edges:'llll',holes:[],notes:['4 lines drawn twice were read once.']},
+  hole:{size:[40,30],edges:'llll',holes:[[10,5,0.5]],notes:['1 line drawn twice was read once.']}});
+ eq('a client size in 1/32″ is cut exact, sold rounded up to 1/16″, and the cut is not blocked',await t.p.evaluate(()=>{
+  const s=dxShape(dxDoc(dxLw([[0,0],[27.78125,0],[27.78125,64.40625],[0,64.40625]]))),pv=s.source.preview,b=fabEdgeBounds(pv.points);
+  const other=normalizeShapeDef(JSON.parse(JSON.stringify(s)));other.source.preview.width16=444;other.source.preview.height16=1030;
+  const wrong=normalizeShapeDef(JSON.parse(JSON.stringify(s)));wrong.source.preview.width16=446;
+  return {exact:[b.maxX,b.maxY],sold:[pv.width16,pv.height16],line:[s.w,s.h],cut:ShapeModule.dxfProductionResult(s).valid,savedOtherWay:ShapeModule.dxfProductionResult(other).valid,
+   reallyWrong:ShapeModule.dxfProductionResult(wrong).reason};
+ }),{exact:[27.78125,64.40625],sold:[445,1031],line:['27 13/16','64 7/16'],cut:true,savedOtherWay:true,reallyWrong:'DXF preview dimensions do not match its contour.'});
  eq('dxf import has no browser errors',t.errs,[]);
  await t.c.close();
 };
