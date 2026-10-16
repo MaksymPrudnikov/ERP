@@ -197,17 +197,30 @@ shapeAttachDxf=function(input){
   if(!/\.dxf$/i.test(String(file.name||''))){alert('Choose a DXF file.');input.value='';return;}
   if(!(file.size>0)){alert('DXF file is empty.');input.value='';return;}
   var reader=new FileReader();
-  reader.onerror=function(){input.value='';alert('DXF file could not be read.');};
+  /* После отказа — render(): иначе выбор типа так и стоит на «DXF», а на
+     чертеже прежняя фигура. */
+  reader.onerror=function(){input.value='';alert('DXF file could not be read.');render();};
   reader.onload=function(){
     var parsed=shapeParseFusionDxf(String(reader.result||''));
-    if(!parsed.ok){input.value='';alert(parsed.error||'DXF file could not be parsed.');return;}
+    if(!parsed.ok){input.value='';alert(parsed.error||'DXF file could not be parsed.');render();return;}
     var oldTopology=shapeIsDxfSource(sDraft)?ShapeModule.dxfTopologyFingerprint(sDraft):'',newTopology=ShapeModule.dxfTopologyFingerprint(parsed.preview),geometryChanged=!oldTopology||oldTopology!==newTopology;
     if(geometryChanged&&shapeProdHasGeometryBoundData()&&!confirm('This DXF changes the physical contour. Existing edge processing, Manufacturing Items and geometry modifiers will be cleared. Continue?')){input.value='';render();return;}
     if(geometryChanged)shapeProdClearGeometryBoundData();
     var note=sDraft&&sDraft.source?String(sDraft.source.note||''):'';
     sDraft.source={kind:'dxf',fileName:String(file.name),fileSize:Math.floor(file.size),uploadedAt:new Date().toISOString(),note:note,preview:parsed.preview};
     sDraft.w=frac64(parsed.preview.width16/16);sDraft.h=frac64(parsed.preview.height16/16);
+    /* Круги внутри стекла — отверстия этой фигуры (владелец, 16.10): ставим
+       их как обычный Hole, без обработки и без условий. Тот же центр и
+       диаметр второй раз не добавляем. */
+    var items=shapeManufacturingItems(),added=0;
+    (parsed.holes||[]).forEach(function(h){
+      var item=shapeNormalizeManufacturingItem({type:'hole',x:h.x,y:h.y,diameter:frac64(h.diameter)}),d=inch(item.diameter);
+      if(items.some(function(o){return o.type==='hole'&&shapeHoleCount(o)===1&&Math.abs(o.x-item.x)<1e-9&&Math.abs(o.y-item.y)<1e-9&&Math.abs(inch(o.diameter)-d)<1e-9;}))return;
+      items.push(item);added++;
+    });
+    var notes=(added?[added+(added>1?' holes were':' hole was')+' added from the file.']:[]).concat(parsed.notes||[]);
     if(!sDraft.thickness)sDraft.thickness='6';sView='production';sSourceOpen=false;render();
+    if(notes.length)alert('DXF loaded. '+notes.join(' '));
   };
   reader.readAsText(file);
 };
@@ -220,7 +233,7 @@ removeShapeDxf=function(){
 /* ---------- Compact master/source ---------- */
 function shapeProdTypeOptions(){
   return shapePresetChoices(sDraft.type).map(function(p){return `<option value='${esc(p.id)}' ${!shapeIsDxfSource(sDraft)&&p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('')+
-    `<option value='__DXF__' ${shapeIsDxfSource(sDraft)?'selected':''}>DXF · Fusion 360</option>`;
+    `<option value='__DXF__' ${shapeIsDxfSource(sDraft)?'selected':''}>DXF file</option>`;
 }
 function shapeProdChooseType(value){
   if(value==='__DXF__'){
@@ -347,7 +360,8 @@ function shapeProdDxfEdgeProcessing(){
 /* ---------- Exact DXF Manufacturing Items ---------- */
 function shapeProdDxfEdgeById(id){return ShapeModule.dxfEdges(sDraft).find(function(e){return e.id===id;})||null;}
 function shapeProdNearestDxfEdge(x,y){
-  var best=null;ShapeModule.dxfEdges(sDraft).forEach(function(e){var dx=e.p2[0]-e.p1[0],dy=e.p2[1]-e.p1[1],L2=dx*dx+dy*dy;if(!(L2>1e-12))return;var t=((x-e.p1[0])*dx+(y-e.p1[1])*dy)/L2;t=Math.max(0,Math.min(1,t));var px=e.p1[0]+dx*t,py=e.p1[1]+dy*t,err=Math.hypot(x-px,y-py);if(!best||err<best.error)best={edgeId:e.id,distance:shapeSnapManufacturing16(t*e.length),error:err};});return best;
+  /* По точкам кромки: у дуги расстояние идёт вдоль неё, а не по хорде. */
+  var best=null;ShapeModule.dxfEdges(sDraft).forEach(function(e){var P=e.points||[e.p1,e.p2],run=0;for(var i=1;i<P.length;i++){var a=P[i-1],dx=P[i][0]-a[0],dy=P[i][1]-a[1],L2=dx*dx+dy*dy;if(!(L2>1e-12))continue;var t=((x-a[0])*dx+(y-a[1])*dy)/L2;t=Math.max(0,Math.min(1,t));var err=Math.hypot(x-(a[0]+dx*t),y-(a[1]+dy*t)),L=Math.sqrt(L2);if(!best||err<best.error)best={edgeId:e.id,distance:shapeSnapManufacturing16(Math.min(e.length,run+t*L)),error:err};run+=L;}});return best;
 }
 const __shapeProdManufacturingEdgePoint=shapeManufacturingEdgePoint;
 shapeManufacturingEdgePoint=function(item,g){
@@ -441,7 +455,8 @@ function shapeProdDxfFrame(){
 function shapeProdDxfProductionSvg(){
   var result=ShapeModule.compute(sDraft),T=shapeProdDxfFrame();if(!T)return `<div class='module-invalid'>DXF preview unavailable</div>`;
   var P=T.P,path=P.map(function(p,i){return (i?'L':'M')+T.X(p[0]).toFixed(2)+' '+T.Y(p[1]).toFixed(2);}).join(' ')+' Z',groups=shapeProdDxfGroups(),placing=sManufacturingPlace?' placing':'';
-  var edges=groups.map(function(g){var selected=g.id===shapeProdSelectedEdgeId,processed=g.ops.length,m=[(g.p1[0]+g.p2[0])/2,(g.p1[1]+g.p2[1])/2];return `<line class='shape-prod-edge-line ${selected?'selected ':''}${processed?'processed':''}' x1='${T.X(g.p1[0])}' y1='${T.Y(g.p1[1])}' x2='${T.X(g.p2[0])}' y2='${T.Y(g.p2[1])}'/><line class='shape-prod-edge-hit' x1='${T.X(g.p1[0])}' y1='${T.Y(g.p1[1])}' x2='${T.X(g.p2[0])}' y2='${T.Y(g.p2[1])}' onclick='event.stopPropagation();shapeProdSetDxfEdge("${esc(g.id)}")'/><text class='shape-prod-edge-label' x='${T.X(m[0])}' y='${T.Y(m[1])-7}' text-anchor='middle'>${esc(g.id.toUpperCase())}</text>`;}).join('');
+  /* Кромка рисуется по своим точкам: дуга — дугой, а не хордой. */
+  var edges=groups.map(function(g){var selected=g.id===shapeProdSelectedEdgeId,processed=g.ops.length,m=ShapeModule.dxfEdgePointAt(g,g.length/2),d=(g.points||[g.p1,g.p2]).map(function(p,i){return (i?'L':'M')+T.X(p[0]).toFixed(2)+' '+T.Y(p[1]).toFixed(2);}).join(' ');return `<path class='shape-prod-edge-line ${selected?'selected ':''}${processed?'processed':''}' d='${d}'/><path class='shape-prod-edge-hit' d='${d}' onclick='event.stopPropagation();shapeProdSetDxfEdge("${esc(g.id)}")'/><text class='shape-prod-edge-label' x='${T.X(m[0])}' y='${T.Y(m[1])-7}' text-anchor='middle'>${esc(g.id.toUpperCase())}</text>`;}).join('');
   var markers=shapeManufacturingMarkersSvg(sDraft.source,T)+shapeStampOverlaySvg(T),topY=Math.max(20,T.y0-24),leftX=Math.max(24,T.x0-26);
   return salesFritDecorateSvg(`<div class='shape-prod-dxf-card'>${sManufacturingPlace?`<div class='shape-prod-place-note'><b>Placement mode:</b> click ${sManufacturingPlace.type==='hole'?'inside the finished contour':'near the required physical SEG'}.</div>`:''}<svg class='shape-dxf-svg shape-prod-dxf-svg${placing}' viewBox='0 0 ${T.vw} ${T.vh}' ${sManufacturingPlace?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}><defs><marker id='shapeProdArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs><path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>${markers}${edges}<line x1='${T.x0}' y1='${topY}' x2='${T.x0+T.dw}' y2='${topY}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><line x1='${T.x0}' y1='${topY-5}' x2='${T.x0}' y2='${topY+5}' class='shape-dxf-dim-line'/><line x1='${T.x0+T.dw}' y1='${topY-5}' x2='${T.x0+T.dw}' y2='${topY+5}' class='shape-dxf-dim-line'/><text x='${T.x0+T.dw/2}' y='${topY-9}' class='shape-dxf-dim-text' text-anchor='middle'>${esc(shapeDrawingDim(T.W))}</text><line x1='${leftX}' y1='${T.y0}' x2='${leftX}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><line x1='${leftX-5}' y1='${T.y0}' x2='${leftX+5}' y2='${T.y0}' class='shape-dxf-dim-line'/><line x1='${leftX-5}' y1='${T.y0+T.dh}' x2='${leftX+5}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line'/><text x='${leftX-10}' y='${T.y0+T.dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${T.y0+T.dh/2})'>${esc(shapeDrawingDim(T.H))}</text></svg><div class='shape-prod-dxf-help'><b>FINISHED contour</b><span>Edge processing derives Cutting. Manufacturing Items do not change the outer cutting contour.</span></div></div>`,sDraft,result,T);
 }

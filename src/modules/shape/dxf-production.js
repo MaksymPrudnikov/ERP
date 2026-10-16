@@ -23,16 +23,40 @@ function shapeStableHash(prefix,payload){
   return prefix+(h>>>0).toString(16).padStart(8,'0');
 }
 
+/* Физическая кромка DXF — объект файла: линия или целая дуга. points — её
+   точки по порядку обхода (у дуги их много), from/count — где они лежат в
+   общем контуре. Старый импорт без segments: каждая точка — своя кромка. */
 function shapeDxfPhysicalEdges(def){
   if(!shapeIsDxfSource(def))return [];
-  var preview=shapeNormalizeSource(def.source).preview,points=preview.points||[],out=[];
-  for(var i=0;i<points.length;i++){
-    var a=points[i],b=points[(i+1)%points.length],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);
+  var preview=shapeNormalizeSource(def.source).preview,points=preview.points||[],n=points.length,out=[];
+  var starts=preview.segments||points.map(function(_,i){return {at:i,kind:'line'};});
+  for(var k=0;k<starts.length;k++){
+    var from=starts[k].at,to=k+1<starts.length?starts[k+1].at:n,pts=[],L=0;
+    for(var i=from;i<=to;i++)pts.push(points[i%n].slice());
+    for(i=1;i<pts.length;i++)L+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);
     if(L<=1e-9)continue;
-    var id='seg'+(i+1);
-    out.push({id:id,segmentId:id,type:'line',p1:a.slice(),p2:b.slice(),length:L,parentEdges:[]});
+    var id='seg'+(k+1);
+    out.push({id:id,segmentId:id,type:starts[k].kind,p1:pts[0].slice(),p2:pts[pts.length-1].slice(),points:pts,from:from,count:to-from,length:L,parentEdges:[]});
   }
   return out;
+}
+/* id кромки для каждой точки контура — так припуск и бордер раскладываются
+   по точкам, как у дуг пресетов. */
+function shapeDxfPointEdgeIds(def){
+  var n=shapeIsDxfSource(def)?(shapeNormalizeSource(def.source).preview.points||[]).length:0,ids=[];
+  for(var i=0;i<n;i++)ids.push('seg'+(i+1));
+  shapeDxfPhysicalEdges(def).forEach(function(e){for(var c=0;c<e.count;c++)ids[(e.from+c)%n]=e.id;});
+  return ids;
+}
+/* Точка на кромке на расстоянии d от её начала — по точкам, а не по хорде. */
+function shapeDxfEdgePointAt(edge,d){
+  var pts=edge.points||[edge.p1,edge.p2];d=Math.max(0,Math.min(d,edge.length));
+  for(var i=1;i<pts.length;i++){
+    var a=pts[i-1],b=pts[i],L=Math.hypot(b[0]-a[0],b[1]-a[1]);
+    if(d<=L||i===pts.length-1){var t=L>0?Math.min(1,d/L):0;return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];}
+    d-=L;
+  }
+  return pts[0].slice();
 }
 
 /* Только физический контур. Обработка/толщина не инвалидируют side mapping. */
@@ -42,8 +66,9 @@ function shapeDxfTopologyFingerprint(defOrPreview){
   else if(defOrPreview&&shapeIsDxfSource(defOrPreview))preview=shapeNormalizeSource(defOrPreview.source).preview;
   else if(defOrPreview&&Array.isArray(defOrPreview.points))preview=defOrPreview;
   if(!preview)return '';
-  var points=(preview.points||[]).map(function(p){return [shapeDxfCoord(p[0]),shapeDxfCoord(p[1])];});
-  return points.length>=3?shapeStableHash('top-',{points:points}):'';
+  var points=(preview.points||[]).map(function(p){return [shapeDxfCoord(p[0]),shapeDxfCoord(p[1])];}),segments=shapeNormalizeDxfSegments(preview.segments,points.length),payload={points:points};
+  if(segments)payload.segments=segments.map(function(s){return [s.at,s.kind];});
+  return points.length>=3?shapeStableHash('top-',payload):'';
 }
 
 /* Две группы финишей кромки. Внутри группы — одна отделка, между группами —
@@ -219,7 +244,10 @@ function shapeDxfTangentAllowanceIssue(groups){
   for(var i=0;i<groups.length;i++){
     var before=groups[(i-1+groups.length)%groups.length],after=groups[i];
     if(before.allowance==null||after.allowance==null||Math.abs(before.allowance-after.allowance)<=eps)continue;
-    var u=[before.p2[0]-before.p1[0],before.p2[1]-before.p1[1]],v=[after.p2[0]-after.p1[0],after.p2[1]-after.p1[1]],lu=Math.hypot(u[0],u[1])||1,lv=Math.hypot(v[0],v[1])||1;
+    /* Направление на самом стыке: у дуги это последний и первый маленькие
+       отрезки, а не хорда. */
+    var bp=before.points||[before.p1,before.p2],ap=after.points||[after.p1,after.p2],b1=bp[bp.length-2],b2=bp[bp.length-1];
+    var u=[b2[0]-b1[0],b2[1]-b1[1]],v=[ap[1][0]-ap[0][0],ap[1][1]-ap[0][1]],lu=Math.hypot(u[0],u[1])||1,lv=Math.hypot(v[0],v[1])||1;
     var dot=(u[0]*v[0]+u[1]*v[1])/(lu*lv);
     if(dot>.995)return {before:before.id,after:after.id,reason:'Cutting allowance cannot change across tangent-continuous edges '+before.id+' and '+after.id+'.'};
   }
@@ -246,8 +274,8 @@ function shapeDxfManufacturingPoint(item,def){
   if(!item||item.type==='hole'||!item.edgeId)return null;
   var edge=shapeDxfPhysicalEdges(def).find(function(e){return e.id===item.edgeId;});
   if(!edge)return null;
-  var d=Math.max(0,+item.distance||0),t=edge.length?Math.max(0,Math.min(1,d/edge.length)):0;
-  return {edge:edge,distance:Math.min(d,edge.length),point:[edge.p1[0]+(edge.p2[0]-edge.p1[0])*t,edge.p1[1]+(edge.p2[1]-edge.p1[1])*t]};
+  var d=Math.max(0,+item.distance||0);
+  return {edge:edge,distance:Math.min(d,edge.length),point:shapeDxfEdgePointAt(edge,d)};
 }
 
 function shapeDxfRequirements(def){
@@ -319,17 +347,20 @@ function shapeDxfCuttingPlan(def){
   var sv=shapeValidateSource(def);if(sv.errors.length)return {valid:false,error:sv.errors[0],errors:sv.errors};
   var points=shapeNormalizeSource(def.source).preview.points.map(function(p){return p.slice();}),edges=shapeDxfPhysicalEdges(def),v=shapeValidateDxfProduction(def,edges),th=shapeThicknessMm(def);
   if(v.errors.length)return {valid:false,error:v.errors[0],errors:v.errors,warns:v.warns};
-  var groups=[],allowances=[];
+  /* Припуск задаётся на кромку, а контур реза считается по точкам: у дуги
+     все её точки получают припуск своей кромки. */
+  var groups=[],allowances=points.map(function(){return 0;});
   for(var i=0;i<edges.length;i++){
     var e=edges[i],ar=shapeProductionAllowanceForEdge(def,e.id,shapeEdgeOps(def,e.id),th,e.parentEdges);
     if(!ar.ok)return {valid:false,error:ar.reason,errors:[ar.reason]};
-    allowances.push(ar.value);groups.push(Object.assign({},e,{allowance:ar.value}));
+    for(var c=0;c<e.count;c++)allowances[(e.from+c)%points.length]=ar.value;
+    groups.push(Object.assign({},e,{allowance:ar.value}));
   }
   var tangent=shapeDxfTangentAllowanceIssue(groups);if(tangent)return {valid:false,error:tangent.reason,errors:[tangent.reason]};
   /* DXF — уже проверенный пользователем finished contour. Сохраняем его
      вогнутые участки в cutting contour; convex hull здесь меняет исходный
      файл. Отверстия и отдельные manufacturing items в файл резки не попадают. */
-  var srcIds=edges.map(function(e){return e.id;});
+  var srcIds=shapeDxfPointEdgeIds(def);
   var contour=shapePrepareCuttingContour(points,allowances,srcIds,true);
   var off=shapeOffsetVariable(contour.points,contour.dist);if(!off.valid)return {valid:false,error:off.error,errors:[off.error]};
   var b=fabEdgeBounds(off.points),warnings=[];
@@ -407,6 +438,8 @@ ShapeModule.compute=function(source){
 
 /* Внешний код использует эти helpers, не повторяя DXF topology/allowance math. */
 ShapeModule.dxfEdges=shapeDxfPhysicalEdges;
+ShapeModule.dxfPointEdgeIds=shapeDxfPointEdgeIds;
+ShapeModule.dxfEdgePointAt=shapeDxfEdgePointAt;
 ShapeModule.dxfTopologyFingerprint=shapeDxfTopologyFingerprint;
 ShapeModule.productionAllowanceRule=shapeProductionAllowanceRule;
 ShapeModule.setAllowanceTable=shapeSetAllowanceTable;
