@@ -390,17 +390,40 @@ shapeSetManufacturingDistance=function(id,value){
   }
   return __shapeProdSetManufacturingDistance(id,value);
 };
+/* Отверстия DXF на чертеже (владелец, 18.10.2026). До 6 отверстий — как у
+   обычной фигуры: у каждого своя цепочка от кромки и высоты. Больше — цепочки
+   ложатся друг на друга («просто хлам»), а координаты линией тоже путают
+   («после 6 не показывай вообще размеры, чтобы никого не запутать»): только
+   кружки на своих местах и диаметр одной строкой на группу («Ø 3/8″ × 21»).
+   Точное место берут из DXF. */
+const SHAPE_DXF_HOLES_AS_SHAPE=6;
+function shapeProdDxfHolesSvg(holes,T){
+  if(!holes.length)return '';
+  var groups={},order=[],out='';
+  holes.forEach(function(item){
+    var d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,key=shapeDrawingDim(dia),px=shapeHoleCenters(item);
+    if(!groups[key]){groups[key]={n:0,dia:dia};order.push(key);}
+    groups[key].n+=px.length;
+    var r=Math.max(4,Math.min(14,dia*T.sc/2)),sel=item.id===sManufacturingSelected?' selected':'';
+    out+=`<g class='shape-mi-marker hole${sel}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>${px.map(function(c){return `<circle cx='${T.X(c[0])}' cy='${T.Y(c[1])}' r='${r}'/>`;}).join('')}</g>`;
+  });
+  /* Каждый диаметр — своей строкой, от меньшего к большему. */
+  order.sort(function(a,c){return groups[a].dia-groups[c].dia;});
+  return out+order.map(function(k,i){return `<text x='8' y='${16+i*14}' font-size='11' font-family='Arial, sans-serif' fill='#344054'>${esc('Ø '+k+'″ × '+groups[k].n)}</text>`;}).join('');
+}
 const __shapeProdManufacturingMarkers=shapeManufacturingMarkersSvg;
 shapeManufacturingMarkersSvg=function(source,T){
   if(!sDraft||!shapeIsDxfSource(sDraft))return __shapeProdManufacturingMarkers(source,T);
   var items=shapeManufacturingItems();if(!items.length)return'';
-  return shapeDimArrowDefs()+items.map(function(item,i){
+  /* До 6 отверстий — рисунок обычной фигуры (владелец, 18.10: «как в обычной
+     нашей фигуре с отверстиями»): прежняя функция по списку только из
+     отверстий, фурнитура DXF привязана к сегментам файла и рисуется ниже.
+     Больше — без размеров (shapeProdDxfHolesSvg). */
+  var holes=items.filter(function(item){return item.type==='hole';}),holesSvg='',centers=holes.reduce(function(n,item){return n+shapeHoleCenters(item).length;},0);
+  if(centers>SHAPE_DXF_HOLES_AS_SHAPE)holesSvg=shapeProdDxfHolesSvg(holes,T);
+  else if(holes.length){var all=sDraft.manufacturingItems;try{sDraft.manufacturingItems=holes;holesSvg=__shapeProdManufacturingMarkers(source,T);}finally{sDraft.manufacturingItems=all;}}
+  return shapeDimArrowDefs()+holesSvg+items.filter(function(item){return item.type!=='hole';}).map(function(item,i){
     var chosen=item.id===sManufacturingSelected,selected=chosen?' selected':'',label=shapeMarkDrawingLabel(item);
-    if(item.type==='hole'){
-      var centers=shapeHoleCenters(item),px=centers.map(function(c){return [T.X(c[0]),T.Y(c[1])];}),x=px[0][0],y=px[0][1],d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,r=Math.max(4,Math.min(14,dia*T.sc/2)),pos=shapeManufacturingHolePosition(item,{P:T.P,b:T.b})||{hRef:'left',vRef:'bottom'};
-      var pair=shapeHoleInternalDimsSvg(item,px,T,chosen,pos.hRef==='right',pos.vRef==='top',r);
-      return `<g class='shape-mi-marker hole${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>${px.map(function(c){return `<circle cx='${c[0]}' cy='${c[1]}' r='${r}'/>`;}).join('')}${pair}<text x='${x+r+8}' y='${y-8}'>${esc(label)} · ${px.length>1?px.length+' × ':''}Ø ${esc(shapeDrawingDim(dia))}</text></g>`;
-    }
     var pt=shapeManufacturingEdgePoint(item,{P:T.P,b:T.b});if(!pt)return'';var e=pt.edge,x=T.X(pt.x),y=T.Y(pt.y),ang=Math.atan2(T.Y(e.end[1])-T.Y(e.start[1]),T.X(e.end[0])-T.X(e.start[0]))*180/Math.PI,mark=item.type==='clamp'?`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-13' y='-13' width='26' height='26' rx='3'/><path d='M -5 -10 V 10 M 5 -10 V 10'/></g>`:`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-16' y='-10' width='32' height='20' rx='3'/><line x1='0' y1='-10' x2='0' y2='10'/></g>`;return `<g class='shape-mi-marker ${item.type}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";render()'>${mark}<text data-raw x='${x+20}' y='${y-16}'>${esc(label+' · '+item.edgeId+' @ '+shapeDrawingDim16(shapeMiShownDistance(item,pt.edge&&pt.edge.len)))}</text></g>`;
   }).join('');
 };
@@ -476,7 +499,7 @@ shapeDerivedHTML=function(r){
   var pr=ShapeModule.dxfProductionResult(sDraft);
   if(!pr.sourceValid){var errors=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid DXF source'];return `<div class='validation-box badbox'><b>Invalid DXF</b>${errors.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
   if(!pr.valid){var errs=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid production input'];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div></div><div class='validation-box badbox'><b>Cutting blocked</b>${errs.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
-  var req=pr.requirements||[],cutFields=sView==='cutting'?shapeProdBorderField()+shapeProdAllowanceField():'';return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn16(pr.cutting.width))} × ${esc(dimIn16(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn16(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn16(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${cutFields}<div class='shape-requirements ${req.length?'':'empty'}'><b>Production requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
+  var req=pr.requirements||[],cutFields=sView==='cutting'?shapeProdBorderField()+shapeProdAllowanceField():'';return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn16(pr.cutting.width))} × ${esc(dimIn16(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn16(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn16(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${cutFields}<div class='shape-requirements ${req.length?'':'empty'}'><b>Production requirements</b>${req.length?shapeRequirementRows(req).map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.label)}${q.n>1?' × '+q.n:''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
 };
 
 function shapeProdDownloadDxf(kind){

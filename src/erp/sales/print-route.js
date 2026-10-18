@@ -70,13 +70,17 @@ function salesRouteEdgeLetter(edge){return SALES_ROUTE_EDGE_LETTER[edge]||String
    чертеже размерной цепочкой, и второй её экземпляр в строке маршрута только
    удлинял строку — а расходился бы с чертежом при первой же ручной правке
    привязки размера. */
-function salesRouteMarkText(item){
+function salesRouteMarkBase(item){
   if(item.type==='hole'){
-    var d=fabParseDimStrict(item.diameter),count=shapeHoleCount(item);
-    return (count>1?count+' × ':'')+'HOLE Ø '+(d.ok?shapeFrac16(d.v):String(item.diameter||''));
+    var d=fabParseDimStrict(item.diameter);
+    return 'HOLE Ø '+(d.ok?shapeFrac16(d.v):String(item.diameter||''));
   }
   return String(shapeManufacturingItemTitle(item.type)||item.type).toUpperCase()+
     (item.model?' '+item.model:'');
+}
+function salesRouteMarkText(item){
+  var count=item.type==='hole'?shapeHoleCount(item):1;
+  return (count>1?count+' × ':'')+salesRouteMarkBase(item);
 }
 /* Станция отверстия зависит от диаметра: ручных свёрл крупнее 1 3/4" у цеха
    нет. Правило живёт в модуле формы (shapeHoleStationClass) — здесь только
@@ -140,11 +144,18 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
   var hardware=salesRouteStationOf('hinge','DRILL');
   var cncCutout=salesRouteStationOf('cutout','CNC');
   var cncRadius=salesRouteStationOf('radiusCorner','CNC');
+  /* Одинаковые метки — одной строкой с количеством. Раньше 21 отверстие
+     3/8″ из DXF сливалось в одну строку «HOLE Ø 3/8», и на стикере не было
+     видно, сколько их (владелец, 18.10.2026). */
+  var marks=[],markBy={};
   (shape&&shape.manufacturingItems||[]).forEach(function(item){
     var st=hardware,work=item.type;
     if(item.type==='hole'){var d=fabParseDimStrict(item.diameter);st=salesRouteHoleStation(d.ok?d.v:0);work=salesRouteHoleWork(d.ok?d.v:0);}
-    salesRoutePush(map,order,st,salesRouteMarkText(item),work);
+    var base=salesRouteMarkBase(item),key=st+'|'+base+'|'+work,n=item.type==='hole'?shapeHoleCount(item):1;
+    if(!markBy[key]){markBy[key]={st:st,base:base,work:work,n:0};marks.push(markBy[key]);}
+    markBy[key].n+=n;
   });
+  marks.forEach(function(m){salesRoutePush(map,order,m.st,(m.n>1?m.n+' × ':'')+m.base,m.work);});
   /* Нотч: способ выбирает владелец на каждом нотче, и от него зависит и цена,
      и станция. Здесь единственное место, где «руками или на станке» — решение
      продажи, а не цеха, поэтому строки две. */
@@ -152,9 +163,12 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
     var st=n.method==='cnc'?salesRouteStationOf('notchCnc','CNC'):salesRouteStationOf('notchHand','DRILL');
     salesRoutePush(map,order,st,ssNotchLabel(n.method).toUpperCase()+' · '+n.corner.toUpperCase(),n.method==='cnc'?'notchCnc':'notchHand');
   });
+  var featHoles=[],featBy={};
   (shape&&shape.features||[]).forEach(function(f){
-    if(f.type==='hole')salesRoutePush(map,order,salesRouteHoleStation(inch(f.diameter)),
-      'HOLE Ø '+dimIn16(inch(f.diameter)),salesRouteHoleWork(inch(f.diameter)));
+    if(f.type==='hole'){var fd=inch(f.diameter),fk='HOLE Ø '+dimIn16(fd);if(!featBy[fk]){featBy[fk]={d:fd,text:fk,n:0};featHoles.push(featBy[fk]);}featBy[fk].n++;}
+  });
+  featHoles.forEach(function(h){salesRoutePush(map,order,salesRouteHoleStation(h.d),(h.n>1?h.n+' × ':'')+h.text,salesRouteHoleWork(h.d));});
+  (shape&&shape.features||[]).forEach(function(f){
     if(f.type==='hardware')salesRoutePush(map,order,hardware,'HARDWARE '+String(f.name||''));
     if(f.type==='cutout')salesRoutePush(map,order,cncCutout,'INTERNAL CUTOUT','cutout');
     if(f.type==='radius'&&inch(f.radius)>0)salesRoutePush(map,order,cncRadius,'RADIUS CORNER','radiusCorner');

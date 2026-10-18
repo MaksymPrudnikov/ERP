@@ -1166,7 +1166,8 @@ function shapeStampDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStampFeatu
 function shapeAnnotationDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStampFeatures().concat(shapeSurfaceMarkFeatures()),T);}
 function shapeAnnotationOverlaySvg(T){var marker=shapeStampMarkerSvg(T)+shapeSandblastMarkerSvg(T),dims=shapeAnnotationDimsSvg(T);return marker+(dims?shapeDimArrowDefs()+dims:'');}
 function shapeStampOverlaySvg(T){return shapeAnnotationOverlaySvg(T);}
-function shapeHoleServiceBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
+/* Та же полоса, что в цене (salesPricingHoleBand): меньше 1/2″ — по 1/2″–1″. */
+function shapeHoleServiceBand(d){if(d>0&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
 function shapeServiceEntries(){return shapeManufacturingItems().map(function(item){return {id:item.id,type:item.type,diameter:item.diameter||'',count:shapeHoleCount(item)};});}
 function shapeDerivedServices(){
   var groups=Object.create(null),invalid=[];
@@ -1505,6 +1506,18 @@ function shapePreviewMarkup(r){
   if(sView==='cutting')return ShapeModule.cuttingSvg(r);
   return shapeDrawnProductionSvg(r,true);
 }
+/* Требования производства одной строкой на одинаковую работу: 21 отверстие
+   3/8″ — «Drill Hole Ø 3/8 × 21», а не 21 строка «Drill Hole» (владелец,
+   18.10: «заспамило»). И у конструктора, и у DXF. */
+function shapeRequirementRows(req){
+  var out=[];
+  req.forEach(function(q){
+    var p=q.params||{},dia=+p.diameter>0?' Ø '+shapeDrawingDim(+p.diameter):'',label=String(q.operation||'').replace(/ × \d+$/,'')+dia+(q.edgeIds?' · '+q.edgeIds.join(', '):''),n=+p.count>1?+p.count:1;
+    var g=out.find(function(x){return x.stationClass===q.stationClass&&x.label===label;});
+    if(g)g.n+=n;else out.push({stationClass:q.stationClass,label:label,n:n});
+  });
+  return out;
+}
 function shapeDerivedHTML(r){
   if(r&&r.externalFile){
     if(!r.sourceValid){var sourceErrors=(r.errors&&r.errors.length?r.errors:[r.reason||'Invalid DXF source']);return `<div class='validation-box badbox'><b>DXF file error</b>${sourceErrors.map(function(x){return '<div>'+esc(String(x||''))+'</div>';}).join('')}</div>`;}
@@ -1519,7 +1532,7 @@ function shapeDerivedHTML(r){
   return `<div class='smart-kpis'><div><span>Finished</span><b>${dimIn16(r.width)} × ${dimIn16(r.height)}</b></div><div><span>Net area</span><b>${(r.area/144).toFixed(2)} ft²</b></div><div><span>Perimeter</span><b>${dimIn16(r.perimeter)}</b></div><div><span>Cut size</span><b>${dimIn16(r.cutting.width)} × ${dimIn16(r.cutting.height)}</b></div>${r.cutting.safetyBorder&&r.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${r.cutting.safetyBorder.manualRequired?'not set':dimIn16(r.cutting.safetyBorder.value)+' · '+esc(r.cutting.safetyBorder.state)}</b></div><div><span>Billable footprint</span><b>${dimIn16(r.cutting.footprint.width)} × ${dimIn16(r.cutting.footprint.height)}</b></div>`:''}</div>
     ${sView==='cutting'&&typeof shapeProdBorderField==='function'?shapeProdBorderField():''}
     ${sView==='cutting'&&typeof shapeProdAllowanceField==='function'?shapeProdAllowanceField():''}
-    <div class='shape-requirements ${req.length?'':'empty'}'><b>Manufacturing requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div>
+    <div class='shape-requirements ${req.length?'':'empty'}'><b>Manufacturing requirements</b>${req.length?shapeRequirementRows(req).map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.label)}${q.n>1?' × '+q.n:''}</span>`;}).join(''):'<span>No additional operations</span>'}</div>
     ${warns.length?`<div class='validation-box warnbox'>${warns.map(function(w){return esc(String(w||''));}).join('<br>')}</div>`:`<div class='validation-box okbox'>Contour valid · Production Drawing and Cutting Geometry synchronized · ${esc(r.fingerprint)}</div>`}`;
 }
 function refreshShapeEditor(){

@@ -2359,6 +2359,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:320,height16:640,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
       const row=salesLineChargeRows(line).find(r=>r.key.indexOf('MI:hole:')===0);return {label:row.label,basis:row.basis,unit:row.unit,rate:row.catalogRate,total:row.basis*row.catalogRate};
     }), {label:'Hole 1/2″–1″',basis:2,unit:'pc',rate:6,total:12});
+    eq('отверстие меньше 1/2″ считается по полосе сверловки 1/2″–1″, а не «invalid diameter»', await dxfSales.p.evaluate(() => {
+      const sh=newShapeDef('rectangle');sh.id='qa-hole-small-price';sh.w='20';sh.h='40';sh.manufacturingItems=[shapeNormalizeManufacturingItem({id:'hs',type:'hole',x:4,y:8,diameter:'3/8'})];DB.shapeDef=[normalizeShapeDef(sh)];
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:320,height16:640,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
+      const row=salesLineChargeRows(line).find(r=>r.key.indexOf('MI:hole:')===0);return {label:row.label,basis:row.basis,rate:row.catalogRate,band:shapeHoleServiceBand(3/8).key,zero:shapeHoleServiceBand(0)};
+    }), {label:'Hole 1/2″–1″',basis:1,rate:6,band:'0.5-1',zero:null});
     eq('Hole Triple начисляется как три отверстия того же диаметра', await dxfSales.p.evaluate(() => {
       const sh=newShapeDef('rectangle');sh.id='qa-hole-triple-price';sh.w='20';sh.h='40';sh.manufacturingItems=[shapeNormalizeManufacturingItem({id:'ht',type:'hole',x:4,y:8,diameter:'3/4',count:3,verticalSpacing:'2',horizontalSpacing:'2',horizontalDirection:'right'})];DB.shapeDef=[normalizeShapeDef(sh)];
       soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;
