@@ -1506,6 +1506,18 @@ function shapePreviewMarkup(r){
   if(sView==='cutting')return ShapeModule.cuttingSvg(r);
   return shapeDrawnProductionSvg(r,true);
 }
+/* Требования производства одной строкой на одинаковую работу: 21 отверстие
+   3/8″ — «Drill Hole Ø 3/8 × 21», а не 21 строка «Drill Hole» (владелец,
+   18.10: «заспамило»). И у конструктора, и у DXF. */
+function shapeRequirementRows(req){
+  var out=[];
+  req.forEach(function(q){
+    var p=q.params||{},dia=+p.diameter>0?' Ø '+shapeDrawingDim(+p.diameter):'',label=String(q.operation||'').replace(/ × \d+$/,'')+dia+(q.edgeIds?' · '+q.edgeIds.join(', '):''),n=+p.count>1?+p.count:1;
+    var g=out.find(function(x){return x.stationClass===q.stationClass&&x.label===label;});
+    if(g)g.n+=n;else out.push({stationClass:q.stationClass,label:label,n:n});
+  });
+  return out;
+}
 function shapeDerivedHTML(r){
   if(r&&r.externalFile){
     if(!r.sourceValid){var sourceErrors=(r.errors&&r.errors.length?r.errors:[r.reason||'Invalid DXF source']);return `<div class='validation-box badbox'><b>DXF file error</b>${sourceErrors.map(function(x){return '<div>'+esc(String(x||''))+'</div>';}).join('')}</div>`;}
@@ -1520,7 +1532,7 @@ function shapeDerivedHTML(r){
   return `<div class='smart-kpis'><div><span>Finished</span><b>${dimIn16(r.width)} × ${dimIn16(r.height)}</b></div><div><span>Net area</span><b>${(r.area/144).toFixed(2)} ft²</b></div><div><span>Perimeter</span><b>${dimIn16(r.perimeter)}</b></div><div><span>Cut size</span><b>${dimIn16(r.cutting.width)} × ${dimIn16(r.cutting.height)}</b></div>${r.cutting.safetyBorder&&r.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${r.cutting.safetyBorder.manualRequired?'not set':dimIn16(r.cutting.safetyBorder.value)+' · '+esc(r.cutting.safetyBorder.state)}</b></div><div><span>Billable footprint</span><b>${dimIn16(r.cutting.footprint.width)} × ${dimIn16(r.cutting.footprint.height)}</b></div>`:''}</div>
     ${sView==='cutting'&&typeof shapeProdBorderField==='function'?shapeProdBorderField():''}
     ${sView==='cutting'&&typeof shapeProdAllowanceField==='function'?shapeProdAllowanceField():''}
-    <div class='shape-requirements ${req.length?'':'empty'}'><b>Manufacturing requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div>
+    <div class='shape-requirements ${req.length?'':'empty'}'><b>Manufacturing requirements</b>${req.length?shapeRequirementRows(req).map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.label)}${q.n>1?' × '+q.n:''}</span>`;}).join(''):'<span>No additional operations</span>'}</div>
     ${warns.length?`<div class='validation-box warnbox'>${warns.map(function(w){return esc(String(w||''));}).join('<br>')}</div>`:`<div class='validation-box okbox'>Contour valid · Production Drawing and Cutting Geometry synchronized · ${esc(r.fingerprint)}</div>`}`;
 }
 function refreshShapeEditor(){

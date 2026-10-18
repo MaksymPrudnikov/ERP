@@ -142,7 +142,7 @@ module.exports=async function({page,eq}){
    const text=dxDoc(dxLw([[0,0],[60,0],[60,30],[0,30]])+circles.map(c=>dxCircle(c,0.25)).join(''));shapeAttachDxf({files:[new File([text],'h.dxf',{type:'application/dxf'})],value:'x'});
    for(let i=0;i<50&&!(sDraft.source&&sDraft.source.kind==='dxf');i++)await new Promise(r=>setTimeout(r,10));
    const svg=shapeProdDxfProductionSvg(),doc=new DOMParser().parseFromString(svg,'text/html'),texts=[...doc.querySelectorAll('svg text')].map(x=>x.textContent);
-   const req=shapeProdRequirementRows(ShapeModule.dxfProductionResult(sDraft).requirements).map(q=>q.stationClass+' '+q.label+(q.n>1?' × '+q.n:''));
+   const req=shapeRequirementRows(ShapeModule.dxfProductionResult(sDraft).requirements).map(q=>q.stationClass+' '+q.label+(q.n>1?' × '+q.n:''));
    const route=salesRouteLiteStations(sDraft,null,[],null,[],false).list.map(st=>st.items.join(';')).join('|');
    const out={holes:shapeManufacturingItems().length,legend:texts.filter(x=>/^Ø .+ × \d+$/.test(x)),perHole:texts.filter(x=>x==='Ø 1/2').length,label:texts.some(x=>/Hole Single/.test(x)),req,route,dims:texts.filter(x=>/^(0|57 1\/8|57 1\/4|10|20|28)$/.test(x)).length};
    sEdit=null;sDraft=null;render();return out;};
@@ -150,6 +150,12 @@ module.exports=async function({page,eq}){
   window.alert=was;return {many,few};
  }),{many:{holes:8,legend:['Ø 1/2″ × 8'],perHole:0,label:false,req:['DRILLING Drill Hole Ø 1/2 × 8'],route:'8 × HOLE Ø 1/2',dims:0},
   few:{holes:3,legend:[],perHole:3,label:false,req:['DRILLING Drill Hole Ø 1/2 × 3'],route:'3 × HOLE Ø 1/2',dims:0}});
+ eq('constructor: 8 holes keep their dimensions, requirements are one line with the count',await t.p.evaluate(()=>{
+  tab='configurators';subtab='shape';render();openShapeNew('rectangle');sDraft.w='48';sDraft.h='30';sDraft.thickness='6';
+  [[3,3],[12,3],[24,3],[36,3],[45,3],[3,27],[24,27],[45,27]].forEach(p=>sDraft.manufacturingItems.push(shapeNormalizeManufacturingItem({type:'hole',x:p[0],y:p[1],diameter:'1/2'})));
+  render();const req=[...document.querySelectorAll('.shape-requirements span')].map(x=>x.textContent.trim()),dia=[...document.querySelectorAll('svg text')].filter(x=>x.textContent==='Ø 1/2').length;
+  sEdit=null;sDraft=null;render();return {req,dia};
+ }),{req:['DRILLING Drill Hole Ø 1/2 × 8'],dia:8});
  eq('dxf import has no browser errors',t.errs,[]);
  await t.c.close();
 };

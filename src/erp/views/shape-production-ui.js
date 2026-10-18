@@ -409,17 +409,6 @@ function shapeProdDxfHolesSvg(holes,T){
   });
   return out+`<text x='8' y='16' font-size='11' font-family='Arial, sans-serif' fill='#344054'>${esc(order.map(function(k){return 'Ø '+k+'″ × '+groups[k].n;}).join('   '))}</text>`;
 }
-/* Требования производства одной строкой на одинаковую работу: 21 отверстие
-   3/8″ — «Drill Hole Ø 3/8 × 21», а не 21 строка «Drill Hole». */
-function shapeProdRequirementRows(req){
-  var out=[];
-  req.forEach(function(q){
-    var p=q.params||{},dia=+p.diameter>0?' Ø '+shapeDrawingDim(+p.diameter):'',label=String(q.operation||'').replace(/ × \d+$/,'')+dia+(q.edgeIds?' · '+q.edgeIds.join(', '):''),n=+p.count>1?+p.count:1;
-    var g=out.find(function(x){return x.stationClass===q.stationClass&&x.label===label;});
-    if(g)g.n+=n;else out.push({stationClass:q.stationClass,label:label,n:n});
-  });
-  return out;
-}
 const __shapeProdManufacturingMarkers=shapeManufacturingMarkersSvg;
 shapeManufacturingMarkersSvg=function(source,T){
   if(!sDraft||!shapeIsDxfSource(sDraft))return __shapeProdManufacturingMarkers(source,T);
@@ -508,7 +497,7 @@ shapeDerivedHTML=function(r){
   var pr=ShapeModule.dxfProductionResult(sDraft);
   if(!pr.sourceValid){var errors=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid DXF source'];return `<div class='validation-box badbox'><b>Invalid DXF</b>${errors.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
   if(!pr.valid){var errs=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid production input'];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div></div><div class='validation-box badbox'><b>Cutting blocked</b>${errs.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
-  var req=pr.requirements||[],cutFields=sView==='cutting'?shapeProdBorderField()+shapeProdAllowanceField():'';return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn16(pr.cutting.width))} × ${esc(dimIn16(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn16(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn16(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${cutFields}<div class='shape-requirements ${req.length?'':'empty'}'><b>Production requirements</b>${req.length?shapeProdRequirementRows(req).map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.label)}${q.n>1?' × '+q.n:''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
+  var req=pr.requirements||[],cutFields=sView==='cutting'?shapeProdBorderField()+shapeProdAllowanceField():'';return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn16(pr.cutting.width))} × ${esc(dimIn16(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn16(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn16(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${cutFields}<div class='shape-requirements ${req.length?'':'empty'}'><b>Production requirements</b>${req.length?shapeRequirementRows(req).map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.label)}${q.n>1?' × '+q.n:''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
 };
 
 function shapeProdDownloadDxf(kind){
