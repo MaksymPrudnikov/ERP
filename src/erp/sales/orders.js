@@ -989,7 +989,10 @@ function salesThickestGlassCtx(line){
  if(!v.length)return salesPricingThickness(line);
  return salesPricingBandFor(v[v.length-1]);
 }
-function salesPricingHoleBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
+/* Отверстие меньше 1/2″ своей полосы в прайсе не имеет — считается по самой
+   маленькой полосе сверловки 1/2″–1″ (владелец, 18.10.2026: в DXF клиентов
+   бывают 3/8″, и без цены они висели «invalid diameter»). */
+function salesPricingHoleBand(d){if(d>0&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
 /* Ставка бывает единой на все толщины — тогда банд не нужен и не спрашивается.
    Проверка ctx.ok стояла первой строкой, и такая ставка всё равно терялась на
    склейке 10+10: 20.76 мм ни в один банд не попадает. */
