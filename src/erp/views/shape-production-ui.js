@@ -402,12 +402,14 @@ function shapeProdDxfHolesSvg(holes,T){
   var groups={},order=[],out='';
   holes.forEach(function(item){
     var d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,key=shapeDrawingDim(dia),px=shapeHoleCenters(item);
-    if(!groups[key]){groups[key]={n:0};order.push(key);}
+    if(!groups[key]){groups[key]={n:0,dia:dia};order.push(key);}
     groups[key].n+=px.length;
     var r=Math.max(4,Math.min(14,dia*T.sc/2)),sel=item.id===sManufacturingSelected?' selected':'';
     out+=`<g class='shape-mi-marker hole${sel}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>${px.map(function(c){return `<circle cx='${T.X(c[0])}' cy='${T.Y(c[1])}' r='${r}'/>`;}).join('')}</g>`;
   });
-  return out+`<text x='8' y='16' font-size='11' font-family='Arial, sans-serif' fill='#344054'>${esc(order.map(function(k){return 'Ø '+k+'″ × '+groups[k].n;}).join('   '))}</text>`;
+  /* Каждый диаметр — своей строкой, от меньшего к большему. */
+  order.sort(function(a,c){return groups[a].dia-groups[c].dia;});
+  return out+order.map(function(k,i){return `<text x='8' y='${16+i*14}' font-size='11' font-family='Arial, sans-serif' fill='#344054'>${esc('Ø '+k+'″ × '+groups[k].n)}</text>`;}).join('');
 }
 const __shapeProdManufacturingMarkers=shapeManufacturingMarkersSvg;
 shapeManufacturingMarkersSvg=function(source,T){
