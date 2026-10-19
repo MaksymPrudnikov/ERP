@@ -299,7 +299,7 @@ function cutTrialDisai(program){
  });
  out.push('','');
  return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain',
-  note:layout.sameAsScreen?'':'Disai cuts some waste in a different order than the screen (7-level limit).'};
+  note:layout.sameAsScreen?'':'Disai cuts some waste in a different order than the screen (9-level limit).'};
 }
 function cutTrialDisaiSum(program){
  const s=program.sheet,day=new Date(),date=day.getFullYear()+'-'+(day.getMonth()+1)+'-'+day.getDate();

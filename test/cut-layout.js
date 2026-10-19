@@ -1823,15 +1823,21 @@ module.exports=async function({page,eq,ok}){
    used:r.scheme.some(l=>/ IB2501$/.test(l))};
  }),{error:'',first:2501,second:2,used:true});
 
- eq('Disai отказывает, если лист не укладывается в семь уровней X…R',await t.p.evaluate(()=>{
+ /* «Спираль» как в тесте владельца 19.10.2026: каждое стекло отделяет один
+    сквозной рез, поэтому сколько стёкол, столько уровней. */
+ eq('Disai: девять уровней X…T, как пишет Perfect Cut; десятый — отказ',await t.p.evaluate(()=>{
   const size={w:100,h:100},params={trimX:0,trimY:0,borderX:0,borderY:0,minDist:.5};
-  const rects=[[0,0,10,100],[10,0,90,10],[10,10,10,90],[20,10,80,10],[20,20,10,80],[30,20,70,10],[30,30,10,70],[40,30,10,10]];
-  const sheet={pieces:rects.map(([x,y,w,h],i)=>({piece:'P'+i,x,y,w,h})),stock:[]},cuts=cutSheetCuts(sheet,size,params);
-  const r=cutTrialDisaiScheme({size,margins:{trimY:0,borderY:0},minDist:.5,
-   pieces:sheet.pieces.map(q=>({id:q.piece,turn:0,footprint:{x:q.x,y:q.y,w:q.w,h:q.h}})),
-   throughCuts:cuts.lines.map(cutMachineThroughCut)});
-  return {cuttable:cuts.ok,refused:!!r.error&&r.error.includes('more than 7 Disai levels')};
- }),{cuttable:true,refused:true});
+  const run=n=>{
+   const rects=[];let x=0,y=0;
+   for(let i=0;i<n;i++){rects.push(i%2?[x,y,100-x,10]:[x,y,10,100-y]);if(i%2)y+=10;else x+=10;}
+   const sheet={pieces:rects.map(([x,y,w,h],i)=>({piece:'P'+i,x,y,w,h})),stock:[]},cuts=cutSheetCuts(sheet,size,params);
+   const r=cutTrialDisaiScheme({size,margins:{trimY:0,borderY:0},minDist:.5,
+    pieces:sheet.pieces.map(q=>({id:q.piece,turn:0,footprint:{x:q.x,y:q.y,w:q.w,h:q.h}})),
+    throughCuts:cuts.lines.map(cutMachineThroughCut)});
+   return {cuttable:cuts.ok,levels:r.error?r.error:[...new Set(r.scheme.map(l=>l[0]))].join('')};
+  };
+  return [run(8),run(9),run(10)];
+ }),[{cuttable:true,levels:'XYZUVWRS'},{cuttable:true,levels:'XYZUVWRST'},{cuttable:true,levels:'This sheet needs more than 9 Disai levels (X/Y/Z/U/V/W/R/S/T).'}]);
 
  eq('раскрой без ошибок страницы',t.errs,[]);await t.c.close();
 };
