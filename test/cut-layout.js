@@ -1551,19 +1551,22 @@ module.exports=async function({page,eq,ok}){
     контура (17 5/16″ и 11″), и выгрузка отказывала. Теперь 17 3/8″ и
     11 1/16″; бордер 1″ у косых сторон — как раньше. Владелец 26.09.2026 выбрал округлять вверх
     — фигурное стекло доводит CNC. */
- eq('Shape: заготовка многоугольника и метрического DXF округляется вверх — выгрузка не отказывает',await t.p.evaluate(()=>{
-  const run=(w,h,setup)=>{
+ /* Многоугольник конструктора — заготовка вверх до 1/16″ (26.09.2026); DXF —
+    точно по файлу (владелец, 19.10.2026: «резать в точности к файлу»). */
+ eq('Shape: заготовка многоугольника — вверх до 1/16″, метрического DXF — точно по файлу; выгрузка не отказывает',await t.p.evaluate(()=>{
+  const run=(w,h,setup,exact)=>{
    oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[w,h,1]]);
    const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('custom');setup(shape);
    const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);
    const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],s=g.sheets[0],ds=cutTrialSheet(b.number,g.glass,s.no,'disai');
-   if(ds.error)return ds.error;const f=ds.sheet.pieces[0].footprint;return [f.w,f.h].map(v=>Math.round(v*16)).sort((a,b)=>a-b).join('x')+'/16';
+   if(ds.error)return ds.error;const f=ds.sheet.pieces[0].footprint;
+   return exact?[f.w,f.h].map(v=>v.toFixed(4)).sort().join('x'):[f.w,f.h].map(v=>Math.round(v*16)).sort((a,b)=>a-b).join('x')+'/16';
   };
   const hex=run(20,17.3125,s=>{s.type='polygon';s.params={sides:'6',sideLength:'10'};s.w='20';s.h='17.3125';});
   const P=[[0,0],[11.023622,0],[11.023622,5],[5.5,9.2],[0,5]];
-  const dxf=run(11,9.1875,s=>{s.source={kind:'dxf',fileName:'metric.dxf',fileSize:4000,uploadedAt:'2026-09-26',preview:{units:'in',points:P,width16:176,height16:147}};});
+  const dxf=run(11,9.1875,s=>{s.source={kind:'dxf',fileName:'metric.dxf',fileSize:4000,uploadedAt:'2026-09-26',preview:{units:'in',points:P,width16:176,height16:147}};},true);
   return {hex,dxf};
- }),{hex:'278x352/16',dxf:'164x177/16'});
+ }),{hex:'278x352/16',dxf:'10.2000x11.0236'});
 
  /* Maver: граница между колоннами — от нижнего трима, граница к широкому
     отходу — во всю высоту (все пять листов набора 25.09.2026 с колоннами). */
@@ -1883,6 +1886,25 @@ module.exports=async function({page,eq,ok}){
   };
   return {plain:run(''),bad:run('abc').replace(/G-\d+/,'G-#')};
  }),{plain:'',bad:'Piece G-# has a DXF hole without a valid diameter.'});
+
+ /* Владелец, 19.10.2026: «DXF резать в точности к файлу, даже если там
+    фракция к 1/256… даже прямоугольник». Заготовка DXF — точный размер; два
+    стекла разной точной высоты под одним резом не стоят (полоска между ними
+    не сломается), и рез Maver идёт ровно по краю каждого. */
+ eq('DXF режется точно по файлу: заготовки 30 × 10 17/128 и 30 × 10,05, разные высоты не под одним резом, Maver по краям',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[30,10,1],[30,10,1]]);
+  const o=salesRecord(id);
+  [10+17/128,10.05].forEach((h,i)=>{const l=o.lines[i],shape=newShapeDef('rectangle');shape.w='30';shape.h='10';
+   shape.source={kind:'dxf',fileName:'r'+i+'.dxf',fileSize:1,uploadedAt:'2026-10-19',preview:{units:'in',points:[[0,0],[30,0],[30,h],[0,h]],width16:480,height16:Math.round(h*16)}};
+   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);});
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],s=g.sheets[0];
+  const src=cutPieces(b,{}),sizes=src.map(p=>[p.w,p.h].sort((a,c)=>a-c)[0]).sort((a,c)=>a-c);
+  const shared=s.pieces.length===2&&(()=>{const [a,c]=s.pieces;return Math.abs(a.y+a.h-(c.y+c.h))<1e-6&&Math.abs(a.y-c.y)<1e-6&&a.h!==c.h||Math.abs(a.x+a.w-(c.x+c.w))<1e-6&&Math.abs(a.x-c.x)<1e-6&&a.w!==c.w;})();
+  const mv=cutTrialSheet(b.number,g.glass,s.no,'maver');if(mv.error)return {error:mv.error};
+  const mm=v=>Math.round(v*25400)/1000,edges=new Set();s.pieces.forEach(p=>[p.x,p.x+p.w,p.y,p.y+p.h].forEach(v=>edges.add(mm(v))));
+  const lines=mv.lines.map(c=>c.axis==='x'?mm(c.x0/25.4):mm(c.y0/25.4));
+  return {sizes:sizes.map(v=>v.toFixed(4)),sheets:g.sheets.length,ok:cutSheetCutsFor(g,s).ok,shared,onEdges:s.pieces.every(p=>[p.x+p.w,p.y+p.h].every(v=>lines.some(c=>Math.abs(c-mm(v))<0.002)||Math.abs(mm(v)-mm(cutUsable(s.size,cutGroupParams(g,s.size)).x1))<0.002))};
+ }),{sizes:['10.0500','10.1328'],sheets:1,ok:true,shared:false,onEdges:true});
 
  eq('раскрой без ошибок страницы',t.errs,[]);await t.c.close();
 };

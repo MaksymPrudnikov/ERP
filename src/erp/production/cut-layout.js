@@ -34,7 +34,15 @@ const CUT_STRATEGIES=[
  {k:'height', order:(a,b)=>b.h-a.h||b.w-a.w,                      prefer:'tall'},
  {k:'width',  order:(a,b)=>b.w-a.w||b.h-a.h,                      prefer:'wide'}
 ];
-function cutRound(v){return Math.round(v*16)/16;}
+/* Точность раскроя. Владелец, 19 октября 2026: «DXF резать в точности к
+   файлу, даже если там фракция к 1/256; файл мы не меняем от слова совсем;
+   сменить можем только размер под Sales». Поэтому раскрой считает в долях
+   1/16384″ (0,0016 мм): точный размер DXF складывается без потерь, а равные
+   размеры остаются равными (двоичные доли — без ошибок округления). Сетка
+   1/16″ (cutGrid16) осталась у обычного стекла и у правок руками. */
+const CUT_Q=16384;
+function cutRound(v){return Math.round(v*CUT_Q)/CUT_Q;}
+function cutGrid16(v){return Math.round(v*16)/16;}
 /* Четверть-обороты детали против часовой стрелки. Старые раскрои хранили
    только boolean `rot`: false → 0°, true → 90°. `rot` оставляем производным,
    чтобы прежние данные и код читались без потерь. */
@@ -56,7 +64,7 @@ function cutPct(part,whole){return whole>0?Math.round(part/whole*1000)/10:0;}
    меняется, поэтому ось берётся из готового контура).
    Габарит контура обязан совпасть с заготовкой: разошлись — контур не отдаём,
    и стекло рисуется прямоугольником, как раньше. Лист не должен врать. */
-function cutShapeGeom(lite){
+function cutShapeGeom(lite,exact){
  const raw=((lite&&lite.cuttingPoints)||[]).map(p=>[+p[0],+p[1]]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
  if(raw.length<3)return null;
  const xs=raw.map(p=>p[0]),ys=raw.map(p=>p[1]);
@@ -80,12 +88,13 @@ function cutShapeGeom(lite){
     округлении вниз правильный многоугольник или DXF не кратного 1/16″
     размера вылезал за заготовку до 0,8 мм — станочная выгрузка отказывала.
     Владелец, 26 сентября 2026: «делай б — такое стекло пойдёт на CNC, там
-    доведут до правильного размера»; лишнее — не больше 1/16″. */
- const up=v=>Math.ceil(v*16-1e-3)/16;
+    доведут до правильного размера»; лишнее — не больше 1/16″. У DXF
+    заготовка точная (exact): рез идёт ровно по файлу (владелец, 19.10). */
+ const up=exact?cutRound:v=>Math.ceil(v*16-1e-3)/16;
  const w=fp?up(x1-x0+L+R):up(x1-x0),h=fp?up(y1-y0+B+T):up(y1-y0);
  const mx=lite.mirrored?v=>x0+x1-v:v=>v,
   exactAt=(px,py)=>[mx(px)-x0+L,py-y0+B],
-  at=(px,py)=>exactAt(px,py).map(cutRound);
+  at=(px,py)=>exactAt(px,py).map(cutGrid16);
  const fg=(lite.result&&lite.result.featureGeometry)||{};
  const holes=(fg.holes||[]).map(o=>{const c=at(+o.center[0],+o.center[1]);return {x:c[0],y:c[1],d:+o.diameter||0};}).filter(o=>o.d>0&&Number.isFinite(o.x)&&Number.isFinite(o.y));
  const cutouts=[].concat(fg.cutouts||[],fg.hardware||[]).map(c=>(c.points||[]).map(q=>at(+q[0],+q[1]))).filter(q=>q.length>2);
@@ -96,7 +105,7 @@ function cutShapeGeom(lite){
     the source coordinates. Rounding a raked edge by 1/32″ can shift it by
     nearly 0.8 mm; keep that geometry separate and fail closed later if it
     does not fit inside the rounded footprint. */
- return {w,h,pad:grip,pts:raw.map(q=>[cutRound(q[0]-x0+L),cutRound(q[1]-y0+B)]),
+ return {w,h,pad:grip,pts:raw.map(q=>[cutGrid16(q[0]-x0+L),cutGrid16(q[1]-y0+B)]),
   /* cuttingPoints already include the mirror; only holes/cutouts use exactAt. */
   machinePts:raw.map(q=>[q[0]-x0+L,q[1]-y0+B]),holes,cutouts};
 }
@@ -107,7 +116,7 @@ function cutShapeGeom(lite){
    слева и снизу, как в cutShapeGeom. Отверстия конструктора не метятся:
    Perfect Cut их не видит. def — фигура, по которой считан план лайта. */
 function cutHoleMarks(lite,def,row){
- if(!def||!def.source||def.source.kind!=='dxf')return [];
+ if(!cutDxf(def))return [];
  const raw=(lite.cuttingPoints||[]).map(p=>[+p[0],+p[1]]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
  if(raw.length<3)return [];
  const fp=row.pts&&lite.footprint&&+lite.footprint.width>0&&+lite.footprint.height>0?lite.footprint.pad||{}:{};
@@ -122,6 +131,9 @@ function cutHoleMarks(lite,def,row){
  });
  return out;
 }
+/* Фигура, по которой считан план лайта: своя у лайта или общая строки. */
+function cutLiteDef(line,lite){return lite&&lite.ownShape?salesLineLiteShape(line,lite.index):salesLineGeometryShape(line);}
+function cutDxf(def){return !!(def&&def.source&&def.source.kind==='dxf');}
 /* Стёкла батча как прямоугольные заготовки. У Shape размер уже включает
    Safety border на стороне скоса; оптимизатор его повторно не прибавляет. */
 function cutPieces(batch,settings){
@@ -137,24 +149,28 @@ function cutPieces(batch,settings){
   /* Стекло из прошлого батча режется первым: приоритет 10, пока его не
      поменяли руками (владелец, 5 октября 2026: «дата выполнения ближе»). */
   let own=set[item.piece]||{};if(item.from&&own.priority==null)own=Object.assign({},own,{priority:10});
-  const row=cutPieceFrom(o,l,c,lite,item.piece,item.unit,own,nos.get(item.piece));
-  const marks=cutHoleMarks(lite,lite.ownShape?salesLineLiteShape(geo,lite.index):salesLineGeometryShape(geo),row);
+  const row=cutPieceFrom(o,l,c,lite,item.piece,item.unit,own,nos.get(item.piece),geo);
+  const marks=cutHoleMarks(lite,cutLiteDef(geo,lite),row);
   if(marks.length)row.marks=marks;
   out.push(row);
  });
  return out.sort((a,b)=>a.piece.localeCompare(b.piece));
 }
 /* Строка одного стекла для укладчика. Общая у батча и прикидки из Sales
-   (erp/sales/cut-estimate): у них разные только номера стёкол. */
-function cutPieceFrom(o,l,c,lite,piece,unit,own,no){
+   (erp/sales/cut-estimate): у них разные только номера стёкол. geo — строка,
+   по которой считан план (у Recut со своим чертежом — его), по умолчанию l.
+   Заготовка стекла из DXF — точный размер реза по файлу; у обычного стекла —
+   по сетке 1/16″, как всегда. */
+function cutPieceFrom(o,l,c,lite,piece,unit,own,no,geo){
  own=own||{};
  const g=glassProductById(c.glassId);
  const mm=+((g&&g.thicknessMm)||lite.thickness)||0;
  const shaped=!!(typeof stkShapeOf==='function'&&stkShapeOf(lite));
- const geom=shaped?cutShapeGeom(lite):null;
+ const exact=cutDxf(cutLiteDef(geo||l,lite)),size=exact?cutRound:cutGrid16;
+ const geom=shaped?cutShapeGeom(lite,exact):null;
  const row={piece,no:no||0,key:c.key,unit,orderId:o.id,order:o.businessNumber||'',customer:salesCustomerDisplay(o.customerId),
   line:o.lines.indexOf(l)+1,mark:l.mark||'',lite:c.lite,glass:c.glass,mm,
-  w:geom?geom.w:cutRound(+lite.cutW),h:geom?geom.h:cutRound(+lite.cutH),shape:shaped,
+  w:geom?geom.w:size(+lite.cutW),h:geom?geom.h:size(+lite.cutH),shape:shaped,
   off:!!own.off,priority:cutPriority(own.priority),norot:!!own.norot};
  /* Контур кладётся только формам, и только когда есть что класть: укладчик
     копирует стекло на каждый из сотен вариантов (`cutFillOrder`), и три
@@ -530,14 +546,15 @@ const CUT_FILL_VARIANTS=(()=>{const out=[];for(let s=0;s<CUT_FILL_SORTS.length;s
    бери». Поэтому это ещё один вариант листа: прогон выбирает его, только если
    так стекла на лист ложится больше.
    Полоса: высоту перебираем из высот стёкол и стопок по 2–3; столбики в
-   полосе подбираются рюкзаком по ширине (точно до 1/16″) — больше стекла в
+   полосе подбираются рюкзаком по ширине (шагами 1/16″: стекло вверх, полоса
+   вниз — рюкзак не переполнит полосу; точный остаток проверяется после) — больше стекла в
    полосе; пустое место над столбиком добирается стёклами поуже. Каждая
    полоска отхода — 0 или не тоньше Min distance. Из полос берётся самая
    плотная (m=1 — самая высокая среди почти таких же плотных). t — полосы
    стоя, оси переставлены. */
 const CUT_STACK_VARIANTS=[{stack:1,t:0,m:0},{stack:1,t:0,m:1},{stack:1,t:1,m:0},{stack:1,t:1,m:1}];
 function cutStackSheet(list,u,params,v){
- const T=!!v.t,E=1e-6,md=+params.minDist||0,ok=g=>cutSliverOk(g,params),q=x=>Math.round(x*16);
+ const T=!!v.t,E=1e-6,md=+params.minDist||0,ok=g=>cutSliverOk(g,params),q=x=>Math.ceil(x*16-E);
  const W=cutRound(T?u.y1-u.y0:u.x1-u.x0),H=cutRound(T?u.x1-u.x0:u.y1-u.y0),X0=T?u.y0:u.x0,Y0=T?u.x0:u.y0;
  /* Полоса у края листа отламывается вместе с Border: до края, не до линии. */
  const bR=+(T?params.borderX:params.borderY)||0,bT=+(T?params.borderY:params.borderX)||0;
@@ -566,7 +583,7 @@ function cutStackSheet(list,u,params,v){
      Кратные столбики — двоичным разложением. Оба поворота одного стекла
      делят одно количество: если рюкзак взял больше, чем есть, урезаем
      число таких столбиков и считаем заново. */
-  const Wq=q(W);
+  const Wq=Math.floor(W*16+E);
   let pick=null;
   for(let round=0;round<12;round++){
    const items=[];
@@ -574,10 +591,19 @@ function cutStackSheet(list,u,params,v){
    const dp=new Float64Array(Wq+1).fill(-1);dp[0]=0;
    const take=new Uint8Array(items.length*(Wq+1));
    items.forEach((it,i)=>{for(let c=Wq;c>=it.w;c--){const a=dp[c-it.w];if(a>=0&&a+it.area>dp[c]+1e-9){dp[c]=a+it.area;take[i*(Wq+1)+c]=1;}}});
-   let end=-1;for(let c=Wq;c>=0;c--){if(dp[c]<0||!ok(cutRound((Wq-c)/16+bR)))continue;if(end<0||dp[c]>dp[end]+1e-9)end=c;}
-   if(end<=0)return null;
-   pick=new Map();
-   for(let i=items.length-1,c=end;i>=0&&c>0;i--)if(take[i*(Wq+1)+c]){pick.set(items[i].c,(pick.get(items[i].c)||0)+items[i].n);c-=items[i].w;}
+   /* Концы — от самого плотного; у стекла DXF ширина не на сетке, поэтому
+      остаток полосы проверяем точной шириной взятых столбиков. У обычного
+      стекла первый же конец проходит — как раньше. */
+   const no=new Set();pick=null;
+   for(;;){
+    let end=-1;for(let c=Wq;c>=0;c--){if(dp[c]<0||no.has(c)||!ok(cutRound((Wq-c)/16+bR)))continue;if(end<0||dp[c]>dp[end]+1e-9)end=c;}
+    if(end<=0)return null;
+    const got=new Map();
+    for(let i=items.length-1,c=end;i>=0&&c>0;i--)if(take[i*(Wq+1)+c]){got.set(items[i].c,(got.get(items[i].c)||0)+items[i].n);c-=items[i].w;}
+    let width=0;got.forEach((n,c)=>{width+=n*c.o.w;});
+    if(ok(cutRound(W-width+bR))){pick=got;break;}
+    no.add(end);
+   }
    const need=new Map();pick.forEach((n,c)=>need.set(c.t,(need.get(c.t)||0)+n*c.k));
    const over=[...need.keys()].find(t=>need.get(t)>left.get(t));
    if(!over)break;

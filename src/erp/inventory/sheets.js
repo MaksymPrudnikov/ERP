@@ -46,7 +46,7 @@ const INV_KEY_RE=/^[^|]+\|(\d+(\.\d+)?x\d+(\.\d+)?|\?)$/;
 
 /* Размер листа лёжа: длинная × короткая, 1/16″ — как ключ размера в
    журнале листов Optimization → Sheets (erp/production/sheet-usage). */
-function invSize(w,h){w=+w;h=+h;if(!(w>0&&h>0))return null;return {w:cutRound(Math.max(w,h)),h:cutRound(Math.min(w,h))};}
+function invSize(w,h){w=+w;h=+h;if(!(w>0&&h>0))return null;return {w:cutGrid16(Math.max(w,h)),h:cutGrid16(Math.min(w,h))};}
 /* Лист раскладки с Offset (стол Maver) меньше со всех краёв; на складе это
    тот же лист настоящего размера (владелец, 14.10.2026: «в саму
    инвентаризацию не повлияет»). */
@@ -299,7 +299,7 @@ function invBreakUndo(id){
 /* --------------------------- Хранение --------------------------- */
 function invEventClean(e){
  const n=v=>v==null||v===''?null:Number(v);
- return {id:String(e.id),kind:e.kind,glass:String(e.glass).trim().toUpperCase(),w:cutRound(Math.max(+e.w,+e.h)),h:cutRound(Math.min(+e.w,+e.h)),qty:Number(e.qty),
+ return {id:String(e.id),kind:e.kind,glass:String(e.glass).trim().toUpperCase(),w:cutGrid16(Math.max(+e.w,+e.h)),h:cutGrid16(Math.min(+e.w,+e.h)),qty:Number(e.qty),
   before:e.kind==='count'?n(e.before):null,after:e.kind==='count'?n(e.after):null,reason:String(e.reason||'').slice(0,80),note:String(e.note||'').slice(0,200),at:String(e.at),by:String(e.by||'').slice(0,80),byId:String(e.byId||'').slice(0,80),
   ...(INV_SHEET_KINDS.includes(e.kind)?{}:{offcut:e.offcut})};
 }

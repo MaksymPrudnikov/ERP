@@ -456,12 +456,13 @@ function cutUiCtx(glass,no){
  const params=cutGroupParams(g,sheet.size);
  return {plan,g,sheet,params,u:cutUsable(sheet.size||g.sheet,params)};
 }
-/* Угол детали липнет к линиям листа и краям соседей ближе 1 1/2″. */
+/* Угол детали липнет к линиям листа и краям соседей ближе 1 1/2″ — точно,
+   у стекла из DXF край не на сетке; вдали от них — сетка 1/16″. */
 function cutUiSnap(ctx,id,x,y,w,h){
  const tol=1.5,xs=[ctx.u.x0,ctx.u.x1-w],ys=[ctx.u.y0,ctx.u.y1-h];
  ctx.sheet.pieces.forEach(q=>{if(q.piece!==id){xs.push(q.x+q.w,q.x-w,q.x);ys.push(q.y+q.h,q.y-h,q.y);}});
- const near=(v,list)=>{let best=v,d=tol;list.forEach(t=>{if(Math.abs(t-v)<=d){d=Math.abs(t-v);best=t;}});return best;};
- return {x:cutRound(near(x,xs)),y:cutRound(near(y,ys))};
+ const near=(v,list)=>{let best=null,d=tol;list.forEach(t=>{if(Math.abs(t-v)<=d){d=Math.abs(t-v);best=t;}});return best===null?cutGrid16(v):cutRound(best);};
+ return {x:near(x,xs),y:near(y,ys)};
 }
 function cutUiGhost(svg,box,ok){
  let r=svg&&svg.querySelector('[data-cut-ghost]');
