@@ -27,7 +27,7 @@ function sheetUsageRows(){
   plan.groups.forEach(g=>{
    const rows=new Map();
    const rowFor=(size,stock)=>{
-    const w=cutRound(Math.max(+size.w,+size.h)),h=cutRound(Math.min(+size.w,+size.h)),key=stock||w+'x'+h;
+    const w=cutGrid16(Math.max(+size.w,+size.h)),h=cutGrid16(Math.min(+size.w,+size.h)),key=stock||w+'x'+h;
     if(!rows.has(key))rows.set(key,{batch:plan.batch,built:plan.at||'',glass:g.glass,mm:g.mm,w,h,stock:stock||'',sheets:0,broken:0,area:0,used:0,net:0,keep:0,status});
     return rows.get(key);
    };
