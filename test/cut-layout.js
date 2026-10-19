@@ -1868,5 +1868,22 @@ module.exports=async function({page,eq,ok}){
   turned:{turn:1,marks:[[2667,133.35,180,true,2667,127]],shapeStage:true,scheme:['DB2501 IB2501'],db:['2667.000 127.000 6.350 D CO']},
   ctor:{turn:0,marks:[],shapeStage:false,scheme:['IB1'],db:[]}});
 
+ /* Аудит 19.10.2026: прямоугольник из DXF не кратного 1/16″ размера шёл на
+    стол по ближайшей 1/16″ — до 1/32″ меньше файла. Теперь вверх, как форма.
+    Отверстие DXF с нечитаемым диаметром не выпадает из меток молча. */
+ eq('DXF-прямоугольник 40,02 × 20,01 — заготовка вверх до 40 1/16 × 20 1/16; нечитаемый диаметр отверстия DXF — отказ выгрузки',await t.p.evaluate(()=>{
+  const run=dia=>{
+   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[40,20,1]]);
+   const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('rectangle');shape.w='40';shape.h='20';
+   shape.source={kind:'dxf',fileName:'r.dxf',fileSize:1,uploadedAt:'2026-10-19',preview:{units:'in',points:[[0,0],[40.02,0],[40.02,20.01],[0,20.01]],width16:640,height16:320}};
+   if(dia)shape.manufacturingItems=[shapeNormalizeManufacturingItem({type:'hole',x:5,y:5,diameter:dia,fromFile:true})];
+   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);
+   const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],s=g.sheets[0],src=cutPieces(b,{})[0];
+   const mv=cutTrialSheet(b.number,g.glass,s.no,'maver');
+   return {w:src&&src.w,h:src&&src.h,error:mv.error||''};
+  };
+  return {plain:run(''),bad:run('abc').error.replace(/G-\d+/,'G-#')};
+ }),{plain:{w:40.0625,h:20.0625,error:''},bad:'Piece G-# has a DXF hole without a valid diameter.'});
+
  eq('раскрой без ошибок страницы',t.errs,[]);await t.c.close();
 };

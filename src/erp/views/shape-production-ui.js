@@ -204,22 +204,26 @@ shapeAttachDxf=function(input){
     var parsed=shapeParseFusionDxf(String(reader.result||''));
     if(!parsed.ok){input.value='';alert(parsed.error||'DXF file could not be parsed.');render();return;}
     var oldTopology=shapeIsDxfSource(sDraft)?ShapeModule.dxfTopologyFingerprint(sDraft):'',newTopology=ShapeModule.dxfTopologyFingerprint(parsed.preview),geometryChanged=!oldTopology||oldTopology!==newTopology;
+    /* Круги внутри стекла — отверстия этой фигуры (владелец, 16.10): ставим
+       их как обычный Hole, без обработки и без условий, центр и диаметр —
+       точно из файла (дробь, только если диаметр ровно кратен 1/64″). Тот
+       же центр и диаметр второй раз не добавляем. Больше предела фигуры
+       (200) файл не грузим: лишние молча отрезались бы при сохранении. */
+    var keep=geometryChanged?[]:shapeManufacturingItems(),fresh=[];
+    (parsed.holes||[]).forEach(function(h){
+      var n64=Math.round(h.diameter*64),dia=Math.abs(h.diameter*64-n64)<1e-6?frac64(n64/64):String(+h.diameter.toFixed(6));
+      var item=shapeNormalizeManufacturingItem({type:'hole',x:h.x,y:h.y,diameter:dia,fromFile:true}),d=inch(item.diameter);
+      if(keep.concat(fresh).some(function(o){return o.type==='hole'&&shapeHoleCount(o)===1&&Math.abs(o.x-item.x)<1e-9&&Math.abs(o.y-item.y)<1e-9&&Math.abs(inch(o.diameter)-d)<1e-9;}))return;
+      fresh.push(item);
+    });
+    if(keep.length+fresh.length>SHAPE_MANUFACTURING_LIMIT){input.value='';alert('DXF has '+fresh.length+' holes. A shape keeps up to '+SHAPE_MANUFACTURING_LIMIT+' items, so the file was not loaded.');render();return;}
     if(geometryChanged&&shapeProdHasGeometryBoundData()&&!confirm('This DXF changes the physical contour. Existing edge processing, Manufacturing Items and geometry modifiers will be cleared. Continue?')){input.value='';render();return;}
     if(geometryChanged)shapeProdClearGeometryBoundData();
     var note=sDraft&&sDraft.source?String(sDraft.source.note||''):'';
     sDraft.source={kind:'dxf',fileName:String(file.name),fileSize:Math.floor(file.size),uploadedAt:new Date().toISOString(),note:note,preview:parsed.preview};
     sDraft.w=frac64(parsed.preview.width16/16);sDraft.h=frac64(parsed.preview.height16/16);
-    /* Круги внутри стекла — отверстия этой фигуры (владелец, 16.10): ставим
-       их как обычный Hole, без обработки и без условий, центр и диаметр —
-       точно из файла (дробь, только если диаметр ровно кратен 1/64″). Тот
-       же центр и диаметр второй раз не добавляем. */
-    var items=shapeManufacturingItems(),added=0;
-    (parsed.holes||[]).forEach(function(h){
-      var n64=Math.round(h.diameter*64),dia=Math.abs(h.diameter*64-n64)<1e-6?frac64(n64/64):String(+h.diameter.toFixed(6));
-      var item=shapeNormalizeManufacturingItem({type:'hole',x:h.x,y:h.y,diameter:dia,fromFile:true}),d=inch(item.diameter);
-      if(items.some(function(o){return o.type==='hole'&&shapeHoleCount(o)===1&&Math.abs(o.x-item.x)<1e-9&&Math.abs(o.y-item.y)<1e-9&&Math.abs(inch(o.diameter)-d)<1e-9;}))return;
-      items.push(item);added++;
-    });
+    var items=shapeManufacturingItems(),added=fresh.length;
+    fresh.forEach(function(item){items.push(item);});
     var notes=(added?[added+(added>1?' holes were':' hole was')+' added from the file.']:[]).concat(parsed.notes||[]);
     if(!sDraft.thickness)sDraft.thickness='6';sView='production';sSourceOpen=false;render();
     if(notes.length)alert('DXF loaded. '+notes.join(' '));

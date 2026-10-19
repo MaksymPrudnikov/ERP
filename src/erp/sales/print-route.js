@@ -78,10 +78,6 @@ function salesRouteMarkBase(item){
   return String(shapeManufacturingItemTitle(item.type)||item.type).toUpperCase()+
     (item.model?' '+item.model:'');
 }
-function salesRouteMarkText(item){
-  var count=item.type==='hole'?shapeHoleCount(item):1;
-  return (count>1?count+' × ':'')+salesRouteMarkBase(item);
-}
 /* Станция отверстия зависит от диаметра: ручных свёрл крупнее 1 3/4" у цеха
    нет. Правило живёт в модуле формы (shapeHoleStationClass) — здесь только
    перевод класса станка в код станции цеха. */

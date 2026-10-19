@@ -158,6 +158,17 @@ module.exports=async function({page,eq}){
   render();const req=[...document.querySelectorAll('.shape-requirements span')].map(x=>x.textContent.trim()),dia=[...document.querySelectorAll('svg text')].filter(x=>x.textContent==='Ø 1/2').length;
   sEdit=null;sDraft=null;render();return {req,dia};
  }),{req:['DRILLING Drill Hole Ø 1/2 × 8'],dia:8});
+ /* Аудит 19.10.2026: фигура держит до 200 элементов, лишние молча
+    отрезались при сохранении (узор bird-friendly — 3 279 кругов → 200). */
+ eq('DXF with more holes than a shape keeps is refused with a reason; 3 holes load',await t.p.evaluate(async()=>{
+  const said=[],was=window.alert;window.alert=m=>said.push(m);
+  const load=async n=>{tab='configurators';subtab='shape';render();openShapeNew('rectangle');sDraft.thickness='6';said.length=0;
+   const circles=Array.from({length:n},(_,i)=>dxCircle([1+(i%40)*1.4,1+Math.floor(i/40)*1.4],0.25)).join('');
+   shapeAttachDxf({files:[new File([dxDoc(dxLw([[0,0],[60,0],[60,30],[0,30]])+circles)],'h.dxf',{type:'application/dxf'})],value:'x'});
+   for(let i=0;i<50&&!said.length;i++)await new Promise(r=>setTimeout(r,10));
+   const out={dxf:!!(sDraft.source&&sDraft.source.kind==='dxf'),holes:shapeManufacturingItems().length,said:said[0]||''};sEdit=null;sDraft=null;render();return out;};
+  const many=await load(201),few=await load(3);window.alert=was;return {many,few};
+ }),{many:{dxf:false,holes:0,said:'DXF has 201 holes. A shape keeps up to 200 items, so the file was not loaded.'},few:{dxf:true,holes:3,said:'DXF loaded. 3 holes were added from the file.'}});
  eq('dxf import has no browser errors',t.errs,[]);
  await t.c.close();
 };
