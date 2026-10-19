@@ -41,10 +41,12 @@ function glassBatchInfos(){
  if(scope==='glassQueue')return glassBatchRows().map(glassBatchInfo);
  if(scope==='glassBatches'){const stops=glassStopMap();return (DB.glassBatch||[]).map(b=>{const a=glassBatchActiveItems(b);return {o:{createdAt:b.createdAt},b,stale:a.some(i=>!i.cutStartedAt)?glassBatchStale(b,stops):null,memo:{number:b.number,created:salesListIsoDay(b.createdAt),glass:[...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '),units:a.length,cut:a.filter(i=>i.cutStartedAt).length,queue:(glassBatchCutQueue().findIndex(x=>x===b)+1)||'',orders:new Set(a.map(i=>b.parts[i.part].orderId)).size,status:glassBatchStatus(b)}};});}
  const b=glassBatchFind(glassBatchOpenNumber);if(!b)return [];const stops=glassStopMap();
+ /* Стекло с полки раскроя вернули в To batch — заказ не трогали, это не Unbatch. */
+ const back=new Set(b.history.filter(h=>h.action==='Back to To batch').flatMap(h=>h.pieces||[]));
  return b.items.map((item,index)=>({item,index})).filter(x=>b.parts[x.item.part]).map(({item,index})=>{
   const part=b.parts[item.part],s=part.snapshot,o=salesRecord(part.orderId)||{},l=(o.lines||[]).find(l=>l.id===part.lineId);
   return {o:{createdAt:item.at},b,item,index,part,memo:{no:index+1,piece:item.piece,number:s.order,customer:s.customer,line:s.line,unit:typeof item.unit==='string'?recutUnitText(item.unit,s.of):item.unit+' of '+(s.of||(l?l.qty:'?')),lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:1,due:o.dueDate||'',created:salesListIsoDay(item.at),
-   status:(stop=>stop==='Cancelled'?'Cancelled':stop==='On hold'?'On Hold':item.releasedAt?(item.movedTo?'Moved to '+item.movedTo:'Unbatched'):item.cutStartedAt?'Cut':o.status==='cancelled'?'Order cancelled':'Batched')(item.cutStartedAt?'':stops.get(item.piece)),priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};
+   status:(stop=>stop==='Cancelled'?'Cancelled':stop==='On hold'?'On Hold':item.releasedAt?(item.movedTo?'Moved to '+item.movedTo:back.has(item.piece)?'Back to To batch':'Unbatched'):item.cutStartedAt?'Cut':o.status==='cancelled'?'Order cancelled':'Batched')(item.cutStartedAt?'':stops.get(item.piece)),priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};
  });
 }
 function glassBatchFiltered(){return salesListRows(glassBatchInfos());}
@@ -139,7 +141,7 @@ function glassBatchCell(i,c){
     29.09.2026: «в списке батчей»). */
  if(c.k==='queue'&&i.b&&!i.item)return `<td class="n gb-cutq" data-batch-queue="${esc(i.b.number)}">${v?`<b>${v}</b> <button type="button" class="sm" title="Cut earlier" onclick="event.stopPropagation();glassBatchCutMove('${esc(i.b.number)}',-1)&&render()">▲</button><button type="button" class="sm" title="Cut later" onclick="event.stopPropagation();glassBatchCutMove('${esc(i.b.number)}',1)&&render()">▼</button>`:'<span class="mut">—</span>'}</td>`;
  if(c.k==='cut'&&i.b&&!i.item)return `<td class="n" data-batch-cut>${v?`<b>${v}</b>`:'0'} / ${i.memo.units}</td>`;
- if(c.k==='status')return `<td><span class="gb-state ${text==='Cancelled'?'stop':text==='On Hold'||text==='Needs review'||text==='Order cancelled'?'held':text==='Unbatched'||text==='Moved'||/^Moved to /.test(text)?'released':text==='Cutting complete'||text==='Cut'?'done':''}" title="${esc(i.r?i.r.reason:'')}">${esc(text)}</span></td>`;
+ if(c.k==='status')return `<td><span class="gb-state ${text==='Cancelled'?'stop':text==='On Hold'||text==='Needs review'||text==='Order cancelled'?'held':text==='Unbatched'||text==='Back to To batch'||text==='Moved'||/^Moved to /.test(text)?'released':text==='Cutting complete'||text==='Cut'?'done':''}" title="${esc(i.r?i.r.reason:'')}">${esc(text)}</span></td>`;
  return `<td class="${c.type==='number'?'n':''}" title="${esc(text)}">${esc(text)}</td>`;
 }
 function viewGlassBatches(){
