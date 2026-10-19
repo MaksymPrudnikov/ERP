@@ -71,7 +71,8 @@ function cutMachineSnapshot(number,scope){
    /* DXF hole marks: the centre and the start (the hole's rightmost point)
       turn with the glass, as in Perfect Cut — on top when it is turned. */
    const marks=(src.marks||[]).map(m=>({c:cutMachinePoint(piece,[m.x,m.y]),s:cutMachinePoint(piece,[m.x+m.r,m.y]),r:m.r}));
-   if(marks.some(m=>![m.c[0],m.c[1],m.s[0],m.s[1],m.r].every(Number.isFinite)||m.c[0]-m.r<piece.x-1e-4||m.c[0]+m.r>piece.x+piece.w+1e-4||
+   if(marks.some(m=>!(m.r>0)))errors.push('Piece '+piece.piece+' has a DXF hole without a valid diameter.');
+   else if(marks.some(m=>![m.c[0],m.c[1],m.s[0],m.s[1]].every(Number.isFinite)||m.c[0]-m.r<piece.x-1e-4||m.c[0]+m.r>piece.x+piece.w+1e-4||
       m.c[1]-m.r<piece.y-1e-4||m.c[1]+m.r>piece.y+piece.h+1e-4))errors.push('Piece '+piece.piece+' has a hole mark outside its footprint.');
    occupants.push(footprint);
    if(!poByOrder.has(src.orderId)){

@@ -116,7 +116,8 @@ function cutHoleMarks(lite,def,row){
  const mx=lite.mirrored?v=>x0+x1-v:v=>v,out=[];
  (def.manufacturingItems||[]).forEach(item=>{
   if(!item||item.type!=='hole'||!item.fromFile)return;
-  const r=inch(item.diameter)/2;if(!(r>0))return;
+  /* Нечитаемый диаметр не выбрасываем: снимок листа откажет с причиной. */
+  const r=inch(item.diameter)/2;
   shapeHoleCenters(item).forEach(c=>out.push({x:mx(+c[0])-x0+L,y:+c[1]-y0+B,r}));
  });
  return out;

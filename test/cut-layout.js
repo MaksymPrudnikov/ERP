@@ -1868,5 +1868,21 @@ module.exports=async function({page,eq,ok}){
   turned:{turn:1,marks:[[2667,133.35,180,true,2667,127]],shapeStage:true,scheme:['DB2501 IB2501'],db:['2667.000 127.000 6.350 D CO']},
   ctor:{turn:0,marks:[],shapeStage:false,scheme:['IB1'],db:[]}});
 
+ /* Аудит 19.10.2026: отверстие DXF с нечитаемым диаметром не выпадает из
+    меток молча — выгрузка стола отказывает с причиной. */
+ eq('нечитаемый диаметр отверстия DXF — отказ выгрузки стола',await t.p.evaluate(()=>{
+  const run=dia=>{
+   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[40,20,1]]);
+   const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('rectangle');shape.w='40';shape.h='20';
+   shape.source={kind:'dxf',fileName:'r.dxf',fileSize:1,uploadedAt:'2026-10-19',preview:{units:'in',points:[[0,0],[40.02,0],[40.02,20.01],[0,20.01]],width16:640,height16:320}};
+   if(dia)shape.manufacturingItems=[shapeNormalizeManufacturingItem({type:'hole',x:5,y:5,diameter:dia,fromFile:true})];
+   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);
+   const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],s=g.sheets[0];
+   const mv=cutTrialSheet(b.number,g.glass,s.no,'maver');
+   return mv.error||'';
+  };
+  return {plain:run(''),bad:run('abc').replace(/G-\d+/,'G-#')};
+ }),{plain:'',bad:'Piece G-# has a DXF hole without a valid diameter.'});
+
  eq('раскрой без ошибок страницы',t.errs,[]);await t.c.close();
 };

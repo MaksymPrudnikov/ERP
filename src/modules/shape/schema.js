@@ -295,8 +295,9 @@ function shapeDimRec(def,id,axis){
 function shapeDimHidden(def,id,axis){return shapeDimRec(def,id,axis).hide===true;}
 function shapeDimOffset(def,id,axis){return Math.round(+shapeDimRec(def,id,axis).off||0);}
 function shapeDimRef(def,id,axis,fallback){var r=shapeDimRec(def,id,axis).ref;return r||fallback||'';}
+var SHAPE_MANUFACTURING_LIMIT=200;
 function shapeNormalizeManufacturingItems(raw){
-  return (Array.isArray(raw)?raw:[]).map(shapeNormalizeManufacturingItem).slice(0,200);
+  return (Array.isArray(raw)?raw:[]).map(shapeNormalizeManufacturingItem).slice(0,SHAPE_MANUFACTURING_LIMIT);
 }
 /* Отступ лайта задаётся по кромкам той же строкой, что и Width/Height, и
    читается тем же строгим парсером. Обработка лайта перекрывает общую. */
