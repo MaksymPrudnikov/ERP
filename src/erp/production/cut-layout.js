@@ -35,12 +35,6 @@ const CUT_STRATEGIES=[
  {k:'width',  order:(a,b)=>b.w-a.w||b.h-a.h,                      prefer:'wide'}
 ];
 function cutRound(v){return Math.round(v*16)/16;}
-/* Заготовка прямоугольника — вверх до сетки 1/16″, как у формы (cutShapeGeom):
-   DXF не кратного 1/16″ размера раньше округлялся к ближайшему и мог уйти на
-   стол до 1/32″ меньше файла с припуском (аудит архива 19.10.2026: 435 сторон
-   из 1 622 прямоугольников). Владелец, 26.09: лишнее — не больше 1/16″,
-   меньше — нельзя. Размер на сетке не меняется. */
-function cutUp(v){return Math.ceil(v*16-1e-3)/16;}
 /* Четверть-обороты детали против часовой стрелки. Старые раскрои хранили
    только boolean `rot`: false → 0°, true → 90°. `rot` оставляем производным,
    чтобы прежние данные и код читались без потерь. */
@@ -160,7 +154,7 @@ function cutPieceFrom(o,l,c,lite,piece,unit,own,no){
  const geom=shaped?cutShapeGeom(lite):null;
  const row={piece,no:no||0,key:c.key,unit,orderId:o.id,order:o.businessNumber||'',customer:salesCustomerDisplay(o.customerId),
   line:o.lines.indexOf(l)+1,mark:l.mark||'',lite:c.lite,glass:c.glass,mm,
-  w:geom?geom.w:cutUp(+lite.cutW),h:geom?geom.h:cutUp(+lite.cutH),shape:shaped,
+  w:geom?geom.w:cutRound(+lite.cutW),h:geom?geom.h:cutRound(+lite.cutH),shape:shaped,
   off:!!own.off,priority:cutPriority(own.priority),norot:!!own.norot};
  /* Контур кладётся только формам, и только когда есть что класть: укладчик
     копирует стекло на каждый из сотен вариантов (`cutFillOrder`), и три
