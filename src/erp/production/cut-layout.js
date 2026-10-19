@@ -100,6 +100,27 @@ function cutShapeGeom(lite){
   /* cuttingPoints already include the mirror; only holes/cutouts use exactAt. */
   machinePts:raw.map(q=>[q[0]-x0+L,q[1]-y0+B]),holes,cutouts};
 }
+/* Отверстия из DXF — метка на столе резки, не рез (владелец, 18.10.2026:
+   «на режущем столе это будет 100 процентов метка»; стол метит ровно то, что
+   в файле). Центр и радиус точно, без сетки 1/16″, в осях заготовки, как
+   machinePts: у формы со своим контуром (row.pts) — со сдвигом на бордер
+   слева и снизу, как в cutShapeGeom. Отверстия конструктора не метятся:
+   Perfect Cut их не видит. def — фигура, по которой считан план лайта. */
+function cutHoleMarks(lite,def,row){
+ if(!def||!def.source||def.source.kind!=='dxf')return [];
+ const raw=(lite.cuttingPoints||[]).map(p=>[+p[0],+p[1]]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
+ if(raw.length<3)return [];
+ const fp=row.pts&&lite.footprint&&+lite.footprint.width>0&&+lite.footprint.height>0?lite.footprint.pad||{}:{};
+ const L=Math.max(0,+fp.left||0),B=Math.max(0,+fp.bottom||0);
+ const xs=raw.map(p=>p[0]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...raw.map(p=>p[1]));
+ const mx=lite.mirrored?v=>x0+x1-v:v=>v,out=[];
+ (def.manufacturingItems||[]).forEach(item=>{
+  if(!item||item.type!=='hole'||!item.fromFile)return;
+  const r=inch(item.diameter)/2;if(!(r>0))return;
+  shapeHoleCenters(item).forEach(c=>out.push({x:mx(+c[0])-x0+L,y:+c[1]-y0+B,r}));
+ });
+ return out;
+}
 /* Стёкла батча как прямоугольные заготовки. У Shape размер уже включает
    Safety border на стороне скоса; оптимизатор его повторно не прибавляет. */
 function cutPieces(batch,settings){
@@ -115,7 +136,10 @@ function cutPieces(batch,settings){
   /* Стекло из прошлого батча режется первым: приоритет 10, пока его не
      поменяли руками (владелец, 5 октября 2026: «дата выполнения ближе»). */
   let own=set[item.piece]||{};if(item.from&&own.priority==null)own=Object.assign({},own,{priority:10});
-  out.push(cutPieceFrom(o,l,c,lite,item.piece,item.unit,own,nos.get(item.piece)));
+  const row=cutPieceFrom(o,l,c,lite,item.piece,item.unit,own,nos.get(item.piece));
+  const marks=cutHoleMarks(lite,lite.ownShape?salesLineLiteShape(geo,lite.index):salesLineGeometryShape(geo),row);
+  if(marks.length)row.marks=marks;
+  out.push(row);
  });
  return out.sort((a,b)=>a.piece.localeCompare(b.piece));
 }

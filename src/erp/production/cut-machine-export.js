@@ -68,14 +68,21 @@ function cutMachineSnapshot(number,scope){
    /* 0.0001″ (0.0025 mm): the footprint is rounded up with that slack. */
    if(contour.some(q=>!q.every(Number.isFinite)||q[0]<piece.x-1e-4||q[0]>piece.x+piece.w+1e-4||
       q[1]<piece.y-1e-4||q[1]>piece.y+piece.h+1e-4))errors.push('Piece '+piece.piece+' has a contour outside its footprint.');
+   /* DXF hole marks: the centre and the start (the hole's rightmost point)
+      turn with the glass, as in Perfect Cut — on top when it is turned. */
+   const marks=(src.marks||[]).map(m=>({c:cutMachinePoint(piece,[m.x,m.y]),s:cutMachinePoint(piece,[m.x+m.r,m.y]),r:m.r}));
+   if(marks.some(m=>![m.c[0],m.c[1],m.s[0],m.s[1],m.r].every(Number.isFinite)||m.c[0]-m.r<piece.x-1e-4||m.c[0]+m.r>piece.x+piece.w+1e-4||
+      m.c[1]-m.r<piece.y-1e-4||m.c[1]+m.r>piece.y+piece.h+1e-4))errors.push('Piece '+piece.piece+' has a hole mark outside its footprint.');
    occupants.push(footprint);
    if(!poByOrder.has(src.orderId)){
     const order=salesRecord(src.orderId);
     poByOrder.set(src.orderId,order&&order.customerPo||'');
    }
-   parts.push({id:piece.piece,order:src.order,orderId:src.orderId,customer:src.customer,line:src.line,
+   const part={id:piece.piece,order:src.order,orderId:src.orderId,customer:src.customer,line:src.line,
     po:poByOrder.get(src.orderId),unit:src.unit,mark:src.mark,glass:src.glass,mm:src.mm,shape:!!src.shape,turn,
-    footprint,contour});
+    footprint,contour};
+   if(marks.length)part.marks=marks;
+   parts.push(part);
   });
   const stock=(sheet.stock||[]).map(p=>({id:p.id,x:+p.x,y:+p.y,w:+p.w,h:+p.h}));
   stock.forEach(p=>occupants.push({x:p.x,y:p.y,w:p.w,h:p.h}));

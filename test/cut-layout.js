@@ -1839,5 +1839,34 @@ module.exports=async function({page,eq,ok}){
   return [run(8),run(9),run(10)];
  }),[{cuttable:true,levels:'XYZUVWRS'},{cuttable:true,levels:'XYZUVWRST'},{cuttable:true,levels:'This sheet needs more than 9 Disai levels (X/Y/Z/U/V/W/R/S/T).'}]);
 
+ /* Отверстие DXF на столе — метка, не рез (владелец, 18.10.2026), записанная
+    как у Perfect Cut (test1 владельца, 19.10.2026): у Maver после контура,
+    полный G3 с правой точки круга (у повёрнутого стекла — сверху, Z180), у
+    Disai `cx cy r D CO` в [DB] стекла и `DB` в SCHEME — и у прямоугольника.
+    Отверстия конструктора не метятся. */
+ eq('Отверстия DXF — метки как у Perfect Cut: Maver G3, Disai CO; повёрнутое стекло — старт сверху; конструктор — без меток',await t.p.evaluate(()=>{
+  const run=(w,h,holes,fromFile)=>{
+   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[w,h,1]]);
+   const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('rectangle');shape.w=String(w);shape.h=String(h);
+   if(fromFile)shape.source={kind:'dxf',fileName:'h.dxf',fileSize:1,uploadedAt:'2026-10-19',preview:{units:'in',points:[[0,0],[w,0],[w,h],[0,h]],width16:w*16,height16:h*16}};
+   shape.manufacturingItems=holes.map(([x,y,d])=>shapeNormalizeManufacturingItem({type:'hole',x,y,diameter:d,fromFile}));
+   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);
+   const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],s=g.sheets[0];
+   const mv=cutTrialSheet(b.number,g.glass,s.no,'maver'),ds=cutTrialSheet(b.number,g.glass,s.no,'disai');
+   if(mv.error||ds.error)return {error:mv.error||ds.error};
+   const iso=cutTrialMaver(mv).data,dst=cutTrialDisai(ds).data,f=ds.sheet.pieces[0].footprint,mm=v=>(Math.round(v*25400)/1000).toFixed(3);
+   /* Метка Maver в осях заготовки: старт и центр минус левый нижний угол.
+      Maver берёт ближнюю к головке метку, Disai пишет от угла заготовки. */
+   const marks=[...iso.matchAll(/G0X([\d.]+)Y([\d.]+)Z([\d.]+)\r\nM9\r\nG3X([\d.]+)Y([\d.]+)I([\d.]+)J([\d.]+)/g)].map(m=>{
+    const v=m.slice(1).map(Number);return [v[0]-+mm(f.x),v[1]-+mm(f.y),v[2],v[3]===v[0]&&v[4]===v[1],v[5]-+mm(f.x),v[6]-+mm(f.y)].map(n=>typeof n==='number'?+n.toFixed(3):n);});
+   return {turn:ds.sheet.pieces[0].turn,marks,shapeStage:iso.includes('\r\nG103P1000VQ0\r\n'),
+    scheme:dst.split('\r\n').filter(x=>/ IB\d+$/.test(x)).map(x=>x.replace(/^\w[\d.]+ /,'')),db:(dst.split(/\[DB\d+\]\r\n/)[1]||'').split('\r\n').filter(x=>/ (LS|CR|CO)$/.test(x))};
+  };
+  /* Лист 130 × 96: 110 × 20 не повернуть, 20 × 110 не положить без поворота. */
+  return {flat:run(110,20,[[25.03125,15,'3/8'],[5,5,'1/2']],true),turned:run(20,110,[[5,5,'1/2']],true),ctor:run(110,20,[[5,5,'1/2']],false)};
+ }),{flat:{turn:0,marks:[[640.556,381,90,true,635.794,381],[133.35,127,90,true,127,127]],shapeStage:true,scheme:['DB1 IB1'],db:['127.000 127.000 6.350 D CO','635.794 381.000 4.763 D CO']},
+  turned:{turn:1,marks:[[2667,133.35,180,true,2667,127]],shapeStage:true,scheme:['DB2501 IB2501'],db:['2667.000 127.000 6.350 D CO']},
+  ctor:{turn:0,marks:[],shapeStage:false,scheme:['IB1'],db:[]}});
+
  eq('раскрой без ошибок страницы',t.errs,[]);await t.c.close();
 };

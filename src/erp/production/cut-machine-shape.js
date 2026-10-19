@@ -308,27 +308,32 @@ function cutShapeScoreChains(part){
 function cutShapeMaverOrder(parts,order,start){
  const byId=new Map(parts.map(p=>[p.id,p])),out=[];let x=start[0],y=start[1];
  order.forEach(id=>{
-  const p=byId.get(id);if(!p||!p.scores||!p.scores.length)return;
-  const left=p.scores.map(c=>c.slice()),chains=[];
-  while(left.length){
-   let best=null;
-   left.forEach((c,i)=>{
-    const a=[c[0].x0,c[0].y0],b=[c[c.length-1].x1,c[c.length-1].y1];
-    if(c.length>1&&Math.hypot(a[0]-b[0],a[1]-b[1])<=10)c.forEach((g,j)=>{
-     const d=Math.hypot(g.x0-x,g.y0-y);if(!best||d<best.d-1e-9)best={d,i,rev:false,at:j};
+  const p=byId.get(id);if(!p)return;
+  /* The contour first, then the DXF hole marks: Perfect Cut goes to the
+     nearest mark only after the whole contour (owner's test1, 19.10.2026). */
+  const chains=[];
+  [p.scores,p.markChains].forEach(list=>{
+   const left=(list||[]).map(c=>c.slice());
+   while(left.length){
+    let best=null;
+    left.forEach((c,i)=>{
+     const a=[c[0].x0,c[0].y0],b=[c[c.length-1].x1,c[c.length-1].y1];
+     if(c.length>1&&Math.hypot(a[0]-b[0],a[1]-b[1])<=10)c.forEach((g,j)=>{
+      const d=Math.hypot(g.x0-x,g.y0-y);if(!best||d<best.d-1e-9)best={d,i,rev:false,at:j};
+     });
+     else{
+      const da=Math.hypot(a[0]-x,a[1]-y),db=Math.hypot(b[0]-x,b[1]-y);
+      if(!best||Math.min(da,db)<best.d-1e-9)best={d:Math.min(da,db),i,rev:db<da,at:0};
+     }
     });
-    else{
-     const da=Math.hypot(a[0]-x,a[1]-y),db=Math.hypot(b[0]-x,b[1]-y);
-     if(!best||Math.min(da,db)<best.d-1e-9)best={d:Math.min(da,db),i,rev:db<da,at:0};
-    }
-   });
-   /* A full circle keeps its counter-clockwise direction. */
-   const c=left.splice(best.i,1)[0],ring=best.at?c.slice(best.at).concat(c.slice(0,best.at)):c;
-   const run=best.rev&&!c.some(g=>Math.abs(g.sweep)>=359.99)?ring.slice().reverse().map(cutShapeReverse):ring;
-   chains.push(run);
-   const e=run[run.length-1];x=e.x1;y=e.y1;
-  }
-  out.push({id,name:p.shapeName,chains});
+    /* A full circle keeps its counter-clockwise direction. */
+    const c=left.splice(best.i,1)[0],ring=best.at?c.slice(best.at).concat(c.slice(0,best.at)):c;
+    const run=best.rev&&!c.some(g=>Math.abs(g.sweep)>=359.99)?ring.slice().reverse().map(cutShapeReverse):ring;
+    chains.push(run);
+    const e=run[run.length-1];x=e.x1;y=e.y1;
+   }
+  });
+  if(chains.length)out.push({id,name:p.shapeName,chains});
  });
  return out;
 }
