@@ -214,7 +214,7 @@ function cutTrialDisaiScheme(sheet,depth){
   while(last>=0&&!slices[last].piece&&!slices[last].kids)last--;
   for(let i=0;i<=last;i++){
    const s=slices[i],[a,b]=along(s.r,axis);
-   scheme.push(CUT_DISAI_LEVELS[L-1]+cutDisaiText(cutDisaiQ(b)-cutDisaiQ(a),3)+(s.piece?(s.piece.scores&&s.piece.scores.length?' DB'+index.get(s.piece.id):'')+' IB'+index.get(s.piece.id):''));
+   scheme.push(CUT_DISAI_LEVELS[L-1]+cutDisaiText(cutDisaiQ(b)-cutDisaiQ(a),3)+(s.piece?((s.piece.scores&&s.piece.scores.length)||(s.piece.markChains&&s.piece.markChains.length)?' DB'+index.get(s.piece.id):'')+' IB'+index.get(s.piece.id):''));
    if(s.kids)emit(s.kids,L+1);
   }
  };
