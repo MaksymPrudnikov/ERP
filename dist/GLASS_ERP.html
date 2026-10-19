@@ -3434,7 +3434,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='321106fe3acb';
+var ERP_BUILD='35f1b6845500';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -30359,6 +30359,27 @@ function cutShapeGeom(lite){
   /* cuttingPoints already include the mirror; only holes/cutouts use exactAt. */
   machinePts:raw.map(q=>[q[0]-x0+L,q[1]-y0+B]),holes,cutouts};
 }
+/* Отверстия из DXF — метка на столе резки, не рез (владелец, 18.10.2026:
+   «на режущем столе это будет 100 процентов метка»; стол метит ровно то, что
+   в файле). Центр и радиус точно, без сетки 1/16″, в осях заготовки, как
+   machinePts: у формы со своим контуром (row.pts) — со сдвигом на бордер
+   слева и снизу, как в cutShapeGeom. Отверстия конструктора не метятся:
+   Perfect Cut их не видит. def — фигура, по которой считан план лайта. */
+function cutHoleMarks(lite,def,row){
+ if(!def||!def.source||def.source.kind!=='dxf')return [];
+ const raw=(lite.cuttingPoints||[]).map(p=>[+p[0],+p[1]]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
+ if(raw.length<3)return [];
+ const fp=row.pts&&lite.footprint&&+lite.footprint.width>0&&+lite.footprint.height>0?lite.footprint.pad||{}:{};
+ const L=Math.max(0,+fp.left||0),B=Math.max(0,+fp.bottom||0);
+ const xs=raw.map(p=>p[0]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...raw.map(p=>p[1]));
+ const mx=lite.mirrored?v=>x0+x1-v:v=>v,out=[];
+ (def.manufacturingItems||[]).forEach(item=>{
+  if(!item||item.type!=='hole'||!item.fromFile)return;
+  const r=inch(item.diameter)/2;if(!(r>0))return;
+  shapeHoleCenters(item).forEach(c=>out.push({x:mx(+c[0])-x0+L,y:+c[1]-y0+B,r}));
+ });
+ return out;
+}
 /* Стёкла батча как прямоугольные заготовки. У Shape размер уже включает
    Safety border на стороне скоса; оптимизатор его повторно не прибавляет. */
 function cutPieces(batch,settings){
@@ -30374,7 +30395,10 @@ function cutPieces(batch,settings){
   /* Стекло из прошлого батча режется первым: приоритет 10, пока его не
      поменяли руками (владелец, 5 октября 2026: «дата выполнения ближе»). */
   let own=set[item.piece]||{};if(item.from&&own.priority==null)own=Object.assign({},own,{priority:10});
-  out.push(cutPieceFrom(o,l,c,lite,item.piece,item.unit,own,nos.get(item.piece)));
+  const row=cutPieceFrom(o,l,c,lite,item.piece,item.unit,own,nos.get(item.piece));
+  const marks=cutHoleMarks(lite,lite.ownShape?salesLineLiteShape(geo,lite.index):salesLineGeometryShape(geo),row);
+  if(marks.length)row.marks=marks;
+  out.push(row);
  });
  return out.sort((a,b)=>a.piece.localeCompare(b.piece));
 }
@@ -32283,14 +32307,21 @@ function cutMachineSnapshot(number,scope){
    /* 0.0001″ (0.0025 mm): the footprint is rounded up with that slack. */
    if(contour.some(q=>!q.every(Number.isFinite)||q[0]<piece.x-1e-4||q[0]>piece.x+piece.w+1e-4||
       q[1]<piece.y-1e-4||q[1]>piece.y+piece.h+1e-4))errors.push('Piece '+piece.piece+' has a contour outside its footprint.');
+   /* DXF hole marks: the centre and the start (the hole's rightmost point)
+      turn with the glass, as in Perfect Cut — on top when it is turned. */
+   const marks=(src.marks||[]).map(m=>({c:cutMachinePoint(piece,[m.x,m.y]),s:cutMachinePoint(piece,[m.x+m.r,m.y]),r:m.r}));
+   if(marks.some(m=>![m.c[0],m.c[1],m.s[0],m.s[1],m.r].every(Number.isFinite)||m.c[0]-m.r<piece.x-1e-4||m.c[0]+m.r>piece.x+piece.w+1e-4||
+      m.c[1]-m.r<piece.y-1e-4||m.c[1]+m.r>piece.y+piece.h+1e-4))errors.push('Piece '+piece.piece+' has a hole mark outside its footprint.');
    occupants.push(footprint);
    if(!poByOrder.has(src.orderId)){
     const order=salesRecord(src.orderId);
     poByOrder.set(src.orderId,order&&order.customerPo||'');
    }
-   parts.push({id:piece.piece,order:src.order,orderId:src.orderId,customer:src.customer,line:src.line,
+   const part={id:piece.piece,order:src.order,orderId:src.orderId,customer:src.customer,line:src.line,
     po:poByOrder.get(src.orderId),unit:src.unit,mark:src.mark,glass:src.glass,mm:src.mm,shape:!!src.shape,turn,
-    footprint,contour});
+    footprint,contour};
+   if(marks.length)part.marks=marks;
+   parts.push(part);
   });
   const stock=(sheet.stock||[]).map(p=>({id:p.id,x:+p.x,y:+p.y,w:+p.w,h:+p.h}));
   stock.forEach(p=>occupants.push({x:p.x,y:p.y,w:p.w,h:p.h}));
@@ -32542,7 +32573,7 @@ function cutTrialDisaiScheme(sheet,depth){
   while(last>=0&&!slices[last].piece&&!slices[last].kids)last--;
   for(let i=0;i<=last;i++){
    const s=slices[i],[a,b]=along(s.r,axis);
-   scheme.push(CUT_DISAI_LEVELS[L-1]+cutDisaiText(cutDisaiQ(b)-cutDisaiQ(a),3)+(s.piece?(s.piece.scores&&s.piece.scores.length?' DB'+index.get(s.piece.id):'')+' IB'+index.get(s.piece.id):''));
+   scheme.push(CUT_DISAI_LEVELS[L-1]+cutDisaiText(cutDisaiQ(b)-cutDisaiQ(a),3)+(s.piece?((s.piece.scores&&s.piece.scores.length)||(s.piece.markChains&&s.piece.markChains.length)?' DB'+index.get(s.piece.id):'')+' IB'+index.get(s.piece.id):''));
    if(s.kids)emit(s.kids,L+1);
   }
  };
@@ -32892,27 +32923,32 @@ function cutShapeScoreChains(part){
 function cutShapeMaverOrder(parts,order,start){
  const byId=new Map(parts.map(p=>[p.id,p])),out=[];let x=start[0],y=start[1];
  order.forEach(id=>{
-  const p=byId.get(id);if(!p||!p.scores||!p.scores.length)return;
-  const left=p.scores.map(c=>c.slice()),chains=[];
-  while(left.length){
-   let best=null;
-   left.forEach((c,i)=>{
-    const a=[c[0].x0,c[0].y0],b=[c[c.length-1].x1,c[c.length-1].y1];
-    if(c.length>1&&Math.hypot(a[0]-b[0],a[1]-b[1])<=10)c.forEach((g,j)=>{
-     const d=Math.hypot(g.x0-x,g.y0-y);if(!best||d<best.d-1e-9)best={d,i,rev:false,at:j};
+  const p=byId.get(id);if(!p)return;
+  /* The contour first, then the DXF hole marks: Perfect Cut goes to the
+     nearest mark only after the whole contour (owner's test1, 19.10.2026). */
+  const chains=[];
+  [p.scores,p.markChains].forEach(list=>{
+   const left=(list||[]).map(c=>c.slice());
+   while(left.length){
+    let best=null;
+    left.forEach((c,i)=>{
+     const a=[c[0].x0,c[0].y0],b=[c[c.length-1].x1,c[c.length-1].y1];
+     if(c.length>1&&Math.hypot(a[0]-b[0],a[1]-b[1])<=10)c.forEach((g,j)=>{
+      const d=Math.hypot(g.x0-x,g.y0-y);if(!best||d<best.d-1e-9)best={d,i,rev:false,at:j};
+     });
+     else{
+      const da=Math.hypot(a[0]-x,a[1]-y),db=Math.hypot(b[0]-x,b[1]-y);
+      if(!best||Math.min(da,db)<best.d-1e-9)best={d:Math.min(da,db),i,rev:db<da,at:0};
+     }
     });
-    else{
-     const da=Math.hypot(a[0]-x,a[1]-y),db=Math.hypot(b[0]-x,b[1]-y);
-     if(!best||Math.min(da,db)<best.d-1e-9)best={d:Math.min(da,db),i,rev:db<da,at:0};
-    }
-   });
-   /* A full circle keeps its counter-clockwise direction. */
-   const c=left.splice(best.i,1)[0],ring=best.at?c.slice(best.at).concat(c.slice(0,best.at)):c;
-   const run=best.rev&&!c.some(g=>Math.abs(g.sweep)>=359.99)?ring.slice().reverse().map(cutShapeReverse):ring;
-   chains.push(run);
-   const e=run[run.length-1];x=e.x1;y=e.y1;
-  }
-  out.push({id,name:p.shapeName,chains});
+    /* A full circle keeps its counter-clockwise direction. */
+    const c=left.splice(best.i,1)[0],ring=best.at?c.slice(best.at).concat(c.slice(0,best.at)):c;
+    const run=best.rev&&!c.some(g=>Math.abs(g.sweep)>=359.99)?ring.slice().reverse().map(cutShapeReverse):ring;
+    chains.push(run);
+    const e=run[run.length-1];x=e.x1;y=e.y1;
+   }
+  });
+  if(chains.length)out.push({id,name:p.shapeName,chains});
  });
  return out;
 }
@@ -33015,9 +33051,16 @@ function cutTrialSheet(number,glass,no,machine){
  /* Shape: its score lines and arcs, clipped as Perfect Cut does. */
  for(const p of sheet.pieces){
   p.shapeName=cutTrialText(p.mark||p.id).replace(/_/g,'-')||'SHAPE';
-  if(!p.shape)continue;
-  const s=cutShapeScoreChains(p);if(s.error)return s;
-  p.scores=s.chains;p.scoreBox=s.box;
+  if(p.shape){const s=cutShapeScoreChains(p);if(s.error)return s;p.scores=s.chains;p.scoreBox=s.box;}
+  /* A DXF hole is a mark, not a cut: a full counter-clockwise circle from
+     the hole's rightmost point (on top when the glass is turned), as Perfect
+     Cut writes it (owner's test1, 19.10.2026): Maver `G3` with the centre in
+     I J, Disai `cx cy r D CO`. */
+  if(p.marks&&p.marks.length){
+   const q=cutDisaiQ,f=p.footprint;
+   p.markChains=p.marks.map(m=>[{type:'arc',x0:q(m.s[0]),y0:q(m.s[1]),x1:q(m.s[0]),y1:q(m.s[1]),cx:q(m.c[0]),cy:q(m.c[1]),r:q(m.r),sweep:360}]);
+   if(!p.scoreBox)p.scoreBox={x:q(f.x),y:q(f.y)};
+  }
  }
  const thick=cutTrialThickness(sheet.mm,machine);
  if(!thick)return {error:'No verified sample for '+sheet.mm+' mm thickness.'};
@@ -33209,7 +33252,8 @@ function cutTrialDisai(program){
  });
  /* [DB] after all [IB], as Perfect Cut: SPEC = name_ID, R when turned. */
  sheet.pieces.forEach((p,i)=>{
-  if(!p.scores||!p.scores.length)return;
+  const marks=p.markChains||[];
+  if(!(p.scores&&p.scores.length)&&!marks.length)return;
   const ib=layout.index.get(p.id),box=p.scoreBox;
   out.push('','[DB'+ib+']','SID='+ib,'SPEC='+p.shapeName+'_'+(i+1)+(p.turn%2===1?'R':''));
   /* A line `x0 y0 x1 y1 F LS`, an arc `x0 y0 cx cy sweep r F CR`; F is C
@@ -33219,7 +33263,8 @@ function cutTrialDisai(program){
   const t=v=>cutDisaiText(Math.round(v),3);
   /* A closed loop runs counter-clockwise, as every closed Perfect Cut shape
      for Disai (GR03, GR04, GR05B, L55, L57); the ERP contour is clockwise. */
-  p.scores.map(c=>{
+  let at=[box.x,box.y];
+  (p.scores||[]).map(c=>{
    const a=c[0],b=c[c.length-1];
    return c.length>1&&Math.hypot(a.x0-b.x1,a.y0-b.y1)<=10?c.slice().reverse().map(cutShapeReverse):c;
   }).forEach(c=>c.forEach((s,k)=>{
@@ -33227,7 +33272,19 @@ function cutTrialDisai(program){
    out.push(s.type==='arc'&&Math.abs(s.sweep)>=359.99?[t(s.cx-box.x),t(s.cy-box.y),t(s.r),'D','CO'].join(' '):
     s.type==='arc'?[t(s.x0-box.x),t(s.y0-box.y),t(s.cx-box.x),t(s.cy-box.y),String(+s.sweep.toFixed(3)),t(s.r),flag,'CR'].join(' '):
     [t(s.x0-box.x),t(s.y0-box.y),t(s.x1-box.x),t(s.y1-box.y),flag,'LS'].join(' '));
+   at=[s.x1,s.y1];
   }));
+  /* Hole marks after the contour, each the nearest to where the last one
+     ended — the Maver order, as in Perfect Cut's [DB4] of test1. For glass
+     without a contour Perfect Cut starts from another mark; two samples do
+     not show its rule, so ERP starts at the footprint's bottom-left corner.
+     The circles are the same. */
+  const left=marks.map(c=>c[0]);
+  while(left.length){
+   let k=0;left.forEach((g,j)=>{if(Math.hypot(g.x0-at[0],g.y0-at[1])<Math.hypot(left[k].x0-at[0],left[k].y0-at[1])-1e-9)k=j;});
+   const g=left.splice(k,1)[0];
+   out.push([t(g.cx-box.x),t(g.cy-box.y),t(g.r),'D','CO'].join(' '));at=[g.x1,g.y1];
+  }
  });
  out.push('','');
  return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain',
