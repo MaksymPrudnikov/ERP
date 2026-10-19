@@ -3434,7 +3434,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='35f1b6845500';
+var ERP_BUILD='69028530e6f8';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -4601,8 +4601,9 @@ function shapeDimRec(def,id,axis){
 function shapeDimHidden(def,id,axis){return shapeDimRec(def,id,axis).hide===true;}
 function shapeDimOffset(def,id,axis){return Math.round(+shapeDimRec(def,id,axis).off||0);}
 function shapeDimRef(def,id,axis,fallback){var r=shapeDimRec(def,id,axis).ref;return r||fallback||'';}
+var SHAPE_MANUFACTURING_LIMIT=200;
 function shapeNormalizeManufacturingItems(raw){
-  return (Array.isArray(raw)?raw:[]).map(shapeNormalizeManufacturingItem).slice(0,200);
+  return (Array.isArray(raw)?raw:[]).map(shapeNormalizeManufacturingItem).slice(0,SHAPE_MANUFACTURING_LIMIT);
 }
 /* Отступ лайта задаётся по кромкам той же строкой, что и Width/Height, и
    читается тем же строгим парсером. Обработка лайта перекрывает общую. */
@@ -18277,10 +18278,6 @@ function salesRouteMarkBase(item){
   return String(shapeManufacturingItemTitle(item.type)||item.type).toUpperCase()+
     (item.model?' '+item.model:'');
 }
-function salesRouteMarkText(item){
-  var count=item.type==='hole'?shapeHoleCount(item):1;
-  return (count>1?count+' × ':'')+salesRouteMarkBase(item);
-}
 /* Станция отверстия зависит от диаметра: ручных свёрл крупнее 1 3/4" у цеха
    нет. Правило живёт в модуле формы (shapeHoleStationClass) — здесь только
    перевод класса станка в код станции цеха. */
@@ -23627,22 +23624,26 @@ shapeAttachDxf=function(input){
     var parsed=shapeParseFusionDxf(String(reader.result||''));
     if(!parsed.ok){input.value='';alert(parsed.error||'DXF file could not be parsed.');render();return;}
     var oldTopology=shapeIsDxfSource(sDraft)?ShapeModule.dxfTopologyFingerprint(sDraft):'',newTopology=ShapeModule.dxfTopologyFingerprint(parsed.preview),geometryChanged=!oldTopology||oldTopology!==newTopology;
+    /* Круги внутри стекла — отверстия этой фигуры (владелец, 16.10): ставим
+       их как обычный Hole, без обработки и без условий, центр и диаметр —
+       точно из файла (дробь, только если диаметр ровно кратен 1/64″). Тот
+       же центр и диаметр второй раз не добавляем. Больше предела фигуры
+       (200) файл не грузим: лишние молча отрезались бы при сохранении. */
+    var keep=geometryChanged?[]:shapeManufacturingItems(),fresh=[];
+    (parsed.holes||[]).forEach(function(h){
+      var n64=Math.round(h.diameter*64),dia=Math.abs(h.diameter*64-n64)<1e-6?frac64(n64/64):String(+h.diameter.toFixed(6));
+      var item=shapeNormalizeManufacturingItem({type:'hole',x:h.x,y:h.y,diameter:dia,fromFile:true}),d=inch(item.diameter);
+      if(keep.concat(fresh).some(function(o){return o.type==='hole'&&shapeHoleCount(o)===1&&Math.abs(o.x-item.x)<1e-9&&Math.abs(o.y-item.y)<1e-9&&Math.abs(inch(o.diameter)-d)<1e-9;}))return;
+      fresh.push(item);
+    });
+    if(keep.length+fresh.length>SHAPE_MANUFACTURING_LIMIT){input.value='';alert('DXF has '+fresh.length+' holes. A shape keeps up to '+SHAPE_MANUFACTURING_LIMIT+' items, so the file was not loaded.');render();return;}
     if(geometryChanged&&shapeProdHasGeometryBoundData()&&!confirm('This DXF changes the physical contour. Existing edge processing, Manufacturing Items and geometry modifiers will be cleared. Continue?')){input.value='';render();return;}
     if(geometryChanged)shapeProdClearGeometryBoundData();
     var note=sDraft&&sDraft.source?String(sDraft.source.note||''):'';
     sDraft.source={kind:'dxf',fileName:String(file.name),fileSize:Math.floor(file.size),uploadedAt:new Date().toISOString(),note:note,preview:parsed.preview};
     sDraft.w=frac64(parsed.preview.width16/16);sDraft.h=frac64(parsed.preview.height16/16);
-    /* Круги внутри стекла — отверстия этой фигуры (владелец, 16.10): ставим
-       их как обычный Hole, без обработки и без условий, центр и диаметр —
-       точно из файла (дробь, только если диаметр ровно кратен 1/64″). Тот
-       же центр и диаметр второй раз не добавляем. */
-    var items=shapeManufacturingItems(),added=0;
-    (parsed.holes||[]).forEach(function(h){
-      var n64=Math.round(h.diameter*64),dia=Math.abs(h.diameter*64-n64)<1e-6?frac64(n64/64):String(+h.diameter.toFixed(6));
-      var item=shapeNormalizeManufacturingItem({type:'hole',x:h.x,y:h.y,diameter:dia,fromFile:true}),d=inch(item.diameter);
-      if(items.some(function(o){return o.type==='hole'&&shapeHoleCount(o)===1&&Math.abs(o.x-item.x)<1e-9&&Math.abs(o.y-item.y)<1e-9&&Math.abs(inch(o.diameter)-d)<1e-9;}))return;
-      items.push(item);added++;
-    });
+    var items=shapeManufacturingItems(),added=fresh.length;
+    fresh.forEach(function(item){items.push(item);});
     var notes=(added?[added+(added>1?' holes were':' hole was')+' added from the file.']:[]).concat(parsed.notes||[]);
     if(!sDraft.thickness)sDraft.thickness='6';sView='production';sSourceOpen=false;render();
     if(notes.length)alert('DXF loaded. '+notes.join(' '));
@@ -30375,7 +30376,8 @@ function cutHoleMarks(lite,def,row){
  const mx=lite.mirrored?v=>x0+x1-v:v=>v,out=[];
  (def.manufacturingItems||[]).forEach(item=>{
   if(!item||item.type!=='hole'||!item.fromFile)return;
-  const r=inch(item.diameter)/2;if(!(r>0))return;
+  /* Нечитаемый диаметр не выбрасываем: снимок листа откажет с причиной. */
+  const r=inch(item.diameter)/2;
   shapeHoleCenters(item).forEach(c=>out.push({x:mx(+c[0])-x0+L,y:+c[1]-y0+B,r}));
  });
  return out;
@@ -32310,7 +32312,8 @@ function cutMachineSnapshot(number,scope){
    /* DXF hole marks: the centre and the start (the hole's rightmost point)
       turn with the glass, as in Perfect Cut — on top when it is turned. */
    const marks=(src.marks||[]).map(m=>({c:cutMachinePoint(piece,[m.x,m.y]),s:cutMachinePoint(piece,[m.x+m.r,m.y]),r:m.r}));
-   if(marks.some(m=>![m.c[0],m.c[1],m.s[0],m.s[1],m.r].every(Number.isFinite)||m.c[0]-m.r<piece.x-1e-4||m.c[0]+m.r>piece.x+piece.w+1e-4||
+   if(marks.some(m=>!(m.r>0)))errors.push('Piece '+piece.piece+' has a DXF hole without a valid diameter.');
+   else if(marks.some(m=>![m.c[0],m.c[1],m.s[0],m.s[1]].every(Number.isFinite)||m.c[0]-m.r<piece.x-1e-4||m.c[0]+m.r>piece.x+piece.w+1e-4||
       m.c[1]-m.r<piece.y-1e-4||m.c[1]+m.r>piece.y+piece.h+1e-4))errors.push('Piece '+piece.piece+' has a hole mark outside its footprint.');
    occupants.push(footprint);
    if(!poByOrder.has(src.orderId)){
