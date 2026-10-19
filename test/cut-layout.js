@@ -767,6 +767,55 @@ module.exports=async function({page,eq,ok}){
    waiting:/Not on a sheet · 2/.test(waiting)||new RegExp('Not on a sheet · '+ids.length).test(waiting),stock:hint?stockOffcutFind(hint).status:'cancelled'};
  }),{sheets:true,numbers:true,gone:true,waiting:true,stock:'cancelled'});
 
+ eq('полка «Not on a sheet»: правый клик по выделенным — Back to To batch, заказ остаётся Batched, батч закрывается по листам',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const oid=ctOrder([[46,60,5]]);const b=DB.glassBatch[0],o=salesRecord(oid);
+  cutPlanRun(b.number);const ids=cutPlanFor(b.number).groups[0].sheets[0].pieces.map(p=>p.piece);cutSheetDelete(b.number,'6CLEAR',1);
+  glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
+  ids.forEach(id=>cutPicks().add(id));
+  document.querySelector('tr[data-cut-list="'+ids[0]+'"]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:200,clientY:200}));
+  const head=(document.querySelector('#cutMenu [data-cut-menu-shelf]')||{}).textContent||'';
+  document.querySelector('#cutMenu [data-cut-menu="loose-back"]').click();
+  const info=(document.querySelector('[data-cut-info]')||{}).textContent||'',p=cutPlanFor(b.number);
+  const queue=glassBatchRows([o]).filter(r=>!r.reason).map(r=>r.piece);
+  /* Остальные листы порезаны — батч закрыт, «висящих» стёкол нет. */
+  b.items.filter(i=>!i.releasedAt).forEach(i=>{i.cutStartedAt=new Date().toISOString();});
+  const status=glassBatchStatus(b);glassBatchDetailTab='contents';render();
+  const rows=[...document.querySelectorAll('tr[data-glass-id]')].filter(r=>ids.includes(r.dataset.glassId)).map(r=>r.textContent.includes('Back to To batch'));
+  /* Следующий батч из To batch — те же Glass ID. */
+  b.items.forEach(i=>{i.cutStartedAt='';});
+  const nb=glassBatchAssign(glassBatchRows([o]).filter(r=>ids.includes(r.piece)),{});
+  return {head:new RegExp('^'+ids.length+' glass · not on a sheet$').test(head.trim()),info:new RegExp(ids.length+' glass → To batch').test(info),open:!!document.querySelector('[data-cut-open-batch]'),
+   released:b.items.filter(i=>ids.includes(i.piece)).every(i=>i.releasedAt&&!i.movedTo),order:o.status,queue:ids.every(id=>queue.includes(id)),stale:cutPlanStale(b.number),
+   history:b.history[b.history.length-1].action,picks:cutPicks().size,status,rows:rows.length===ids.length&&rows.every(Boolean),
+   again:!!nb&&nb.items.map(i=>i.piece).sort().join()===ids.slice().sort().join(),
+   valid:(()=>{try{validateImportedState(JSON.parse(JSON.stringify(DB)));return true;}catch(e){return e.message;}})()};
+ }),{head:true,info:true,open:false,released:true,order:'batched',queue:true,stale:false,history:'Back to To batch',picks:0,status:'Cutting complete',rows:true,again:true,valid:true});
+
+ eq('полка «Not on a sheet»: Move to batch — в открытый батч с тем же стеклом (там на полку, приоритет 10) или в новый; стекло на листе и порезанное — отказ',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,5]]);ctOrder([[28,38,3]]);
+  const [b1,b2]=DB.glassBatch;cutPlanRun(b1.number);cutPlanRun(b2.number);
+  const g=cutPlanFor(b1.number).groups[0],ids=g.sheets[0].pieces.map(p=>p.piece),onSheet=g.sheets[1].pieces[0].piece;cutSheetDelete(b1.number,'6CLEAR',1);
+  const sheets2=cutPlanFor(b2.number).groups[0].sheets.length;
+  glassBatchOpen(b1.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
+  ids.forEach(id=>cutPicks().add(id));
+  document.querySelector('tr[data-cut-list="'+ids[0]+'"]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:200,clientY:200}));
+  const targets=[...document.querySelectorAll('#cutMenu [data-cut-menu-loose]')].map(x=>x.dataset.cutMenuLoose);
+  document.querySelector('#cutMenu [data-cut-menu-loose="'+b2.number+'"]').click();
+  const info=(document.querySelector('[data-cut-info]')||{}).textContent||'',p2=cutPlanFor(b2.number);
+  const prio=cutPieces(b2,p2.settings||{}).filter(x=>ids.includes(x.piece)).map(x=>x.priority);
+  const out={targets,info:new RegExp(ids.length+' glass → '+b2.number).test(info),active:ids.every(id=>b2.items.some(i=>i.piece===id&&!i.releasedAt&&i.from===b1.number)),
+   shelf:ids.every(id=>!cutFind(p2,id)),sheets:p2.groups[0].sheets.length===sheets2,stale:[cutPlanStale(b1.number),cutPlanStale(b2.number)],prio:prio.every(x=>x===10),
+   history:[b1.history[b1.history.length-1].action,b2.history[b2.history.length-1].action]};
+  /* В новый батч — без раскроя, как свежий. */
+  const r=cutLooseMove(b2.number,ids,'');out.fresh=[r.number,!cutPlanFor(r.number),glassBatchActiveItems(glassBatchFind(r.number)).length===ids.length];
+  out.onSheet=cutLooseBack(b1.number,[onSheet]).error;out.wrong=cutLooseMove(b1.number,[onSheet],'').error;
+  cutSheetDelete(b1.number,'6CLEAR',1);const it=b1.items.find(i=>i.piece===onSheet);it.cutStartedAt=new Date().toISOString();
+  out.cut=cutLooseBack(b1.number,[onSheet]).error;out.none=cutLooseBack(b1.number,[]).error;it.cutStartedAt='';out.bad=cutLooseMove(b1.number,[onSheet],'B-0099').error;
+  out.valid=(()=>{try{validateImportedState(JSON.parse(JSON.stringify(DB)));return true;}catch(e){return e.message;}})();
+  return out;
+ }),{targets:['B-0002'],info:true,active:true,shelf:true,sheets:true,stale:[false,false],prio:true,history:['Moved to B-0002','Added from B-0001'],
+  fresh:['B-0003',true,true],onSheet:'Only glass not on a sheet.',wrong:'Only glass not on a sheet.',cut:'Cutting has started on this glass.',none:'Nothing selected.',bad:'Batch B-0099 cannot take this glass.',valid:true});
+
  eq('оверсайз: стекло больше поля между линиями — подсказка и «+ same size» без Trim и Border; у размера свои Used % и отход',await t.p.evaluate(async()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,3],[129.5,95.5,1]]);const b=DB.glassBatch[0];
   cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();

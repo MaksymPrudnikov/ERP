@@ -296,6 +296,19 @@ function cutUiMoveMenu(e,glass,no){
  const rows=[],act=cutMenuAct(rows);cutMoveItems(act,glass,no);
  const r=e.currentTarget.getBoundingClientRect();cutUiMenuShow(rows,r.left,r.bottom+4);
 }
+/* Стёкла с полки «Not on a sheet» — в To batch или в другой батч. */
+function cutUiLooseDone(r,text,batch){
+ cutNotice=r.error||'';cutInfo=r.ok?{text,batch}:null;
+ if(r.ok){cutPicks().clear();cutUi.sel='';}render();
+}
+function cutUiLooseBack(ids){
+ if(!confirm('Send '+ids.length+' glass back to To batch?'))return;
+ const r=cutLooseBack(cutUi.batch,ids);cutUiLooseDone(r,r.pieces+' glass → To batch','');
+}
+function cutUiLooseMove(ids,target){
+ if(!confirm('Move '+ids.length+' glass to '+(target||'a new batch')+'?'))return;
+ const r=cutLooseMove(cutUi.batch,ids,target);cutUiLooseDone(r,r.pieces+' glass → '+r.number,r.number);
+}
 function cutUiSheetDelete(glass,no){
  const at=cutSheetAt(cutUi.batch,glass,no);if(!at)return;
  const n=at.s.pieces.length,st=(at.s.stock||[]).map(x=>x.id);
@@ -637,6 +650,19 @@ function cutUiListMenu(e,pieceId){
  const all=[cutListCtx.waiting,cutListCtx.onSheet,cutListCtx.off].flat(),p=all.find(x=>x.piece===pieceId);if(!p)return;
  const lock=cutListCtx.lock,picks=cutPicks(),cust=x=>(salesRecord(x.orderId)||{}).customerId||x.customer;
  const rows=[],act=cutMenuAct(rows),keys=[];
+ /* Полка собранного раскроя: выделенные стёкла без листа — в To batch или в
+    другой батч (владелец, 19.10.2026). До Build без листа всё стекло — там
+    правый клик только про приоритет. */
+ const shelf=new Set(cutListCtx.waiting.map(x=>x.piece));
+ if(shelf.has(pieceId)&&lock&&!cutBusy){
+  const ids=(picks.size>1&&picks.has(pieceId)?[...picks]:[pieceId]).filter(id=>shelf.has(id));
+  const glass=[...new Set(cutListCtx.waiting.filter(x=>ids.includes(x.piece)).map(x=>x.glass))];
+  rows.push(`<div class="cut-menu-head" data-cut-menu-shelf>${ids.length} glass · not on a sheet</div>`);
+  act('Back to To batch','',()=>cutUiLooseBack(ids),'data-cut-menu="loose-back"');
+  rows.push('<div class="cut-menu-sub">Move to batch</div>');
+  act('New batch','',()=>cutUiLooseMove(ids,''),'data-cut-menu="loose-new"');
+  if(glass.length===1)cutMoveTargets(cutUi.batch,glass[0]).slice(0,8).forEach(t=>act(t.number+' · '+t.pieces+' glass','',()=>cutUiLooseMove(ids,t.number),'data-cut-menu-loose="'+esc(t.number)+'"'));
+ }
  rows.push(`<div class="cut-menu-head">${esc(p.piece)} · ${esc(p.order)} / ${p.line}</div>`);
  const group=(key,label,ids)=>{keys.push(key);
   rows.push(`<div class="cut-menu-sub">${esc(label)} · ${ids.length} glass</div><div class="cut-menu-split"><input type="text" inputmode="numeric" maxlength="2" id="cutPri-${key}" placeholder="1–10" aria-label="Priority, 10 is the most urgent" ${lock?'disabled':''} onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=pri-${key}]').click()">`);
@@ -1083,7 +1109,7 @@ function viewCutLayout(b){
  /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
     над ним повторяла бы то же самое. */
  const need=cutNeedSizes(b,plan,pieces),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
- const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button></div>`:'';
+ const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}${cutInfo.batch?`<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button>`:''}</div>`:'';
  const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale||changed?`<div class="ncr-warning${changed?' cut-stale-stop':''}" data-cut-stale>⚠ ${est?'Orders or quotes changed':'Batch changed'} after the layout${changed?' · '+esc(changed.text):''} — Reset, then Build.${changed?`<span class="gb-stale-list" data-cut-stale-list>${esc(glassBatchGoneRows(b,changed).slice(0,6).map(r=>r[0]).join('; ')+(changed.gone.size>6?'; +'+(changed.gone.size-6)+' more':''))}</span>`:''}</div>`:'')+info+cutWhatTable(b.number,busy);
  const short=!est&&built?cutUiShortHTML(b.number,plan):'';
  if(!plan.groups.length)return `${notice}${need}<p class="mut cut-empty">${est?'Nothing to lay out: tick an order or quote with glass.':'Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.'}</p>`;

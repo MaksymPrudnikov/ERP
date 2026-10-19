@@ -1720,6 +1720,50 @@ function cutMoveSheet(number,glass,sheetNo,target){
  cutPlanRefresh(plan);touch();
  return {ok:true,number:to,pieces:ids.length,sheet:sheet.no,added:!!target};
 }
+/* Полка «Not on a sheet»: стёкла батча, которых нет ни на одном листе
+   раскроя. Владелец, 19.10.2026: «они висят в пендинге, и если мне нужно, то
+   я их сам выделю и отправлю правым кликом в To batch или вообще в другой
+   батч». Ничего само не уходит — решает человек. */
+function cutLooseCheck(number,ids){
+ if(cutEstIs(number))return {error:'Preview only.'};
+ const b=glassBatchFind(number);if(!b)return {error:'Batch not found.'};
+ ids=[...new Set(ids||[])];if(!ids.length)return {error:'Nothing selected.'};
+ const plan=cutPlanFor(number),live=new Map(glassBatchActiveItems(b).map(i=>[i.piece,i]));
+ if(ids.some(id=>!live.has(id)))return {error:'Glass is not in '+number+'.'};
+ if(plan&&ids.some(id=>cutFind(plan,id)))return {error:'Only glass not on a sheet.'};
+ if(ids.some(id=>live.get(id).cutStartedAt))return {error:'Cutting has started on this glass.'};
+ return {b,plan,ids};
+}
+/* Раскрой батча после того, как стёкла ушли или пришли: если он не был
+   устаревшим, метка обновляется — полка изменилась, листы те же. */
+function cutLooseRestamp(number,wasStale){
+ const plan=cutPlanFor(number),b=glassBatchFind(number);if(!plan||!b)return;
+ if(!wasStale)plan.stamp=cutStamp(cutPieces(b,plan.settings||{}));
+ cutPlanRefresh(plan);
+}
+/* В To batch: стёкла уходят из батча с тем же Glass ID и ждут следующий батч
+   вместе с новыми заказами. Заказ не трогаем — это не Unbatch (тот
+   возвращает заказ в To verify). */
+function cutLooseBack(number,ids){
+ const c=cutLooseCheck(number,ids);if(c.error)return c;
+ const wasStale=c.plan?cutPlanStale(number):false;
+ glassBatchCancelPieces(c.ids,new Date().toISOString(),'Back to To batch');
+ cutLooseRestamp(number,wasStale);touch();
+ return {ok:true,pieces:c.ids.length};
+}
+/* В другой батч: новый или открытый с тем же стеклом, где рез не начат
+   (как Move sheet). Там стёкла ложатся на полку; приоритет 10 даёт пометка
+   from (cutPieces). Настройки стёкол прогона — с ними. */
+function cutLooseMove(number,ids,target){
+ const c=cutLooseCheck(number,ids);if(c.error)return c;
+ const pieces=cutPieces(c.b,c.plan&&c.plan.settings||{}).filter(p=>c.ids.includes(p.piece)),glass=[...new Set(pieces.map(p=>p.glass))];
+ if(target&&(glass.length!==1||!cutMoveTargets(number,glass[0]).some(x=>x.number===target)))return {error:'Batch '+target+' cannot take this glass.'};
+ const wasStale=c.plan?cutPlanStale(number):false,tplan=target?cutPlanFor(target):null,tStale=tplan?cutPlanStale(target):false;
+ const moved=glassBatchMove(number,c.ids,{deferTouch:true,to:target||''});if(moved.error)return moved;
+ if(tplan&&c.plan&&c.plan.settings){tplan.settings=tplan.settings||{};c.ids.forEach(id=>{if(c.plan.settings[id])tplan.settings[id]=Object.assign({},c.plan.settings[id]);});}
+ cutLooseRestamp(number,wasStale);cutLooseRestamp(moved.number,tStale);touch();
+ return {ok:true,number:moved.number,pieces:c.ids.length,added:!!target};
+}
 /* Снять со стока — обратно в отход. Номер остаётся за записью: стикер с ним
    мог уже уйти на стеллаж. */
 function cutStockCancel(number,id){
