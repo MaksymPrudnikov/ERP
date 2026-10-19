@@ -8,15 +8,18 @@
    guillotine tree; the cut direction alternates level by level:
      X — strips across the width, starting at TRIMLEFT;
      Y — rows inside a strip, from the bottom edge of the sheet;
-     Z — pieces inside a row, U — inside Z, V — inside U, W, R.
+     Z — pieces inside a row, U — inside Z, V — inside U, W, R, S, T.
    Each entry is a span in mm, `IBn` marks the glass. A leading gap is a
    span without IB, the trailing remainder is left implicit. Seven levels
-   X…R are seen in the owner's exports (4 mm, 24.09.2026); deeper letters
-   are not known, so a deeper sheet is refused. BREAKLN lists every score line of that tree: vertical lines
+   X…R are seen in the owner's exports (4 mm, 24.09.2026); S and T come
+   after R in the owner's own Perfect Cut test of 19.10.2026 (a spiral of
+   31 strips of 6″), and Perfect Cut stops writing SCHEME after T — the
+   other 23 glasses were left out. So nine levels X…T, a deeper sheet is
+   refused. BREAKLN lists every score line of that tree: vertical lines
    sorted by X, then horizontal by Y; touching collinear lines merged;
    both ends stop 1 mm short. The table itself cuts plain X/Y lines.
    ===================================================================== */
-const CUT_DISAI_LEVELS='XYZUVWR';
+const CUT_DISAI_LEVELS='XYZUVWRST';
 /* Positions in 0.001 mm integers. Every span is a difference of rounded
    absolute positions, so long rows do not accumulate rounding drift. */
 function cutDisaiQ(inches){return Math.round(inches*25400);}
@@ -26,7 +29,7 @@ function cutDisaiText(um,digits){return (um/1000).toFixed(digits);}
 function cutDisaiParse(scheme,frame){
  const T=2,root=Object.assign({level:0,children:[],cursor:frame.x0},frame),stack=[root],boxes=[];
  for(const line of scheme){
-  const m=/^([XYZUVWR])(\d+(?:\.\d+)?)((?:\s+(?:DB|IB)\d+)*)\s*$/.exec(String(line).trim());
+  const m=/^([XYZUVWRST])(\d+(?:\.\d+)?)((?:\s+(?:DB|IB)\d+)*)\s*$/.exec(String(line).trim());
   if(!m)return {error:'Unreadable Disai SCHEME line '+line+'.'};
   const level=CUT_DISAI_LEVELS.indexOf(m[1])+1,parent=stack[level-1];
   if(!parent)return {error:'Disai SCHEME line '+line+' has no parent level.'};
