@@ -3434,7 +3434,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a74ad0bdb06d';
+var ERP_BUILD='98f7268542fe';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -23628,12 +23628,18 @@ shapeAttachDxf=function(input){
        их как обычный Hole, без обработки и без условий, центр и диаметр —
        точно из файла (дробь, только если диаметр ровно кратен 1/64″). Тот
        же центр и диаметр второй раз не добавляем. Больше предела фигуры
-       (200) файл не грузим: лишние молча отрезались бы при сохранении. */
-    var keep=geometryChanged?[]:shapeManufacturingItems(),fresh=[];
+       (200) файл не грузим: лишние молча отрезались бы при сохранении.
+       Replace с тем же контуром: отверстия фигуры — ровно отверстия нового
+       файла (владелец, 19.10.2026: «при Replace фигура становится ровно
+       новым файлом, ручные отверстия убрать»). Прежние отверстия — и
+       прошлого файла, и поставленные руками — уходят; кромки и фурнитура
+       остаются, как раньше. */
+    var old=geometryChanged?[]:shapeManufacturingItems(),keep=old.filter(function(o){return o.type!=='hole';}),fresh=[];
+    var holeCount=function(list){return list.reduce(function(n,o){return n+(o.type==='hole'?shapeHoleCount(o):0);},0);};
     (parsed.holes||[]).forEach(function(h){
       var n64=Math.round(h.diameter*64),dia=Math.abs(h.diameter*64-n64)<1e-6?frac64(n64/64):String(+h.diameter.toFixed(6));
       var item=shapeNormalizeManufacturingItem({type:'hole',x:h.x,y:h.y,diameter:dia,fromFile:true}),d=inch(item.diameter);
-      if(keep.concat(fresh).some(function(o){return o.type==='hole'&&shapeHoleCount(o)===1&&Math.abs(o.x-item.x)<1e-9&&Math.abs(o.y-item.y)<1e-9&&Math.abs(inch(o.diameter)-d)<1e-9;}))return;
+      if(fresh.some(function(o){return Math.abs(o.x-item.x)<1e-9&&Math.abs(o.y-item.y)<1e-9&&Math.abs(inch(o.diameter)-d)<1e-9;}))return;
       fresh.push(item);
     });
     if(keep.length+fresh.length>SHAPE_MANUFACTURING_LIMIT){input.value='';alert('DXF has '+fresh.length+' holes. A shape keeps up to '+SHAPE_MANUFACTURING_LIMIT+' items, so the file was not loaded.');render();return;}
@@ -23642,11 +23648,19 @@ shapeAttachDxf=function(input){
     var note=sDraft&&sDraft.source?String(sDraft.source.note||''):'';
     sDraft.source={kind:'dxf',fileName:String(file.name),fileSize:Math.floor(file.size),uploadedAt:new Date().toISOString(),note:note,preview:parsed.preview};
     sDraft.w=frac64(parsed.preview.width16/16);sDraft.h=frac64(parsed.preview.height16/16);
-    var items=shapeManufacturingItems(),added=fresh.length;
+    var replaced=!geometryChanged,was=holeCount(old),added=fresh.length;
+    if(replaced){
+      sDraft.manufacturingItems=keep.slice();
+      if(sManufacturingSelected&&!keep.some(function(o){return o.id===sManufacturingSelected;}))sManufacturingSelected=null;
+      if(sManufacturingPlace&&sManufacturingPlace.moveId)sManufacturingPlace=null;
+    }
+    var items=shapeManufacturingItems();
     fresh.forEach(function(item){items.push(item);});
-    var notes=(added?[added+(added>1?' holes were':' hole was')+' added from the file.']:[]).concat(parsed.notes||[]);
+    /* Что стало с отверстиями — на виду: при Replace без сообщения старые
+       отверстия молча оставались (аудит 19.10.2026, F14). */
+    var notes=(replaced?(was||added?['Holes: '+was+' → '+added+'.']:[]):added?[added+(added>1?' holes were':' hole was')+' added from the file.']:[]).concat(parsed.notes||[]);
     if(!sDraft.thickness)sDraft.thickness='6';sView='production';sSourceOpen=false;render();
-    if(notes.length)alert('DXF loaded. '+notes.join(' '));
+    if(notes.length)alert((replaced?'DXF replaced. ':'DXF loaded. ')+notes.join(' '));
   };
   reader.readAsText(file);
 };
