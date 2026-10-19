@@ -169,6 +169,35 @@ module.exports=async function({page,eq}){
    const out={dxf:!!(sDraft.source&&sDraft.source.kind==='dxf'),holes:shapeManufacturingItems().length,said:said[0]||''};sEdit=null;sDraft=null;render();return out;};
   const many=await load(201),few=await load(3);window.alert=was;return {many,few};
  }),{many:{dxf:false,holes:0,said:'DXF has 201 holes. A shape keeps up to 200 items, so the file was not loaded.'},few:{dxf:true,holes:3,said:'DXF loaded. 3 holes were added from the file.'}});
+ /* Аудит 19.10.2026 (F14/F15): Replace с тем же контуром оставлял отверстия
+    прошлого файла — лишние на чертеже, в цене и в метках стола, — а
+    совпавшее с ручным отверстие файла не метилось. Владелец, 19.10: «при
+    Replace фигура становится ровно новым файлом, ручные отверстия убрать». */
+ await t.p.evaluate(()=>{
+  window.dxReplace=async(first,next,manual)=>{
+   const said=[],was=window.alert;window.alert=m=>said.push(m);
+   const pick=async(circles,name)=>{const n=said.length;shapeAttachDxf({files:[new File([dxDoc(dxLw([[0,0],[40,0],[40,20],[0,20]])+circles.map(c=>dxCircle(c,(c[2]||0.5)/2)).join(''))],name,{type:'application/dxf'})],value:'x'});
+    for(let i=0;i<50&&said.length===n;i++)await new Promise(r=>setTimeout(r,10));};
+   tab='configurators';subtab='shape';render();openShapeNew('rectangle');sDraft.thickness='6';
+   await pick(first,'v1.dxf');if(manual)manual.forEach(p=>shapeManufacturingItems().push(shapeNormalizeManufacturingItem({type:'hole',x:p[0],y:p[1],diameter:'1/2'})));
+   await pick(next,'v2.dxf');
+   const out={file:sDraft.source.fileName,holes:shapeManufacturingItems().filter(i=>i.type==='hole').map(i=>i.x+','+i.y+' Ø'+i.diameter+(i.fromFile?'':' hand')).sort(),said:said[said.length-1]||''};
+   window.alert=was;sEdit=null;sDraft=null;render();return out;};
+ });
+ eq('Replace DXF, same contour: holes are exactly the new file — removed, moved, new diameter, same file',await t.p.evaluate(async()=>({
+  removed:await dxReplace([[5,5],[10,10]],[[5,5]]),
+  moved:await dxReplace([[5,5],[10,10]],[[5,5],[12,10]]),
+  diameter:await dxReplace([[5,5],[10,10]],[[5,5],[10,10,1]]),
+  same:await dxReplace([[5,5],[10,10]],[[5,5],[10,10]])})),
+  {removed:{file:'v2.dxf',holes:['5,5 Ø1/2'],said:'DXF replaced. Holes: 2 → 1.'},
+   moved:{file:'v2.dxf',holes:['12,10 Ø1/2','5,5 Ø1/2'],said:'DXF replaced. Holes: 2 → 2.'},
+   diameter:{file:'v2.dxf',holes:['10,10 Ø1','5,5 Ø1/2'],said:'DXF replaced. Holes: 2 → 2.'},
+   same:{file:'v2.dxf',holes:['10,10 Ø1/2','5,5 Ø1/2'],said:'DXF replaced. Holes: 2 → 2.'}});
+ eq('Replace DXF: holes put by hand go; one at the place of a file hole is from the file',await t.p.evaluate(async()=>({
+  gone:await dxReplace([[5,5]],[[5,5]],[[20,10]]),
+  twin:await dxReplace([[5,5]],[[5,5],[10,10]],[[10,10]])})),
+  {gone:{file:'v2.dxf',holes:['5,5 Ø1/2'],said:'DXF replaced. Holes: 2 → 1.'},
+   twin:{file:'v2.dxf',holes:['10,10 Ø1/2','5,5 Ø1/2'],said:'DXF replaced. Holes: 2 → 2.'}});
  eq('dxf import has no browser errors',t.errs,[]);
  await t.c.close();
 };
