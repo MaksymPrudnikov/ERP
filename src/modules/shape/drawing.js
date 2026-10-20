@@ -427,26 +427,35 @@ function shapeStepOverlaySvg(result,F,L,step,ann,metricMode){
 }
 /* Размеры меньшего лайта на чертеже юнита (владелец, 20.10.2026: «вижу
    чёрточку маленького стекла, а какой размер по ширине, по высоте и по
-   диагонали — не понял»): размерная линия внутри стекла по каждому его ребру,
-   кроме совпавших с ребром юнита — их размер уже стоит снаружи. Длина — по
-   истинным точкам лайта: на чертеже Smart-Shape уклон усилен. */
+   диагонали — не понял»; «не делай дубликат размеров»): сплошная размерная
+   линия у каждого ребра лайта, кроме совпавших с ребром юнита (их размер уже
+   стоит снаружи) и повторов — у параллельного ребра той же длины размер один.
+   Линия — внутри лайта; если там она вылезла бы за контур юнита (острый
+   угол), а ступенька у ребра широкая (от 60 точек — иначе размер ляжет на
+   «STEP n»), — с другой стороны ребра, на ступеньке. Длина — по истинным точкам лайта: на чертеже Smart-Shape уклон
+   усилен. */
 function shapeStepLiteDimsSvg(F,P,Q,ids,l,pre,ann,kp,fmt,size,metricMode){
   var T=l.points&&l.points.length===Q.length?l.points:null;if(!T)return '';
-  var n=Q.length,same=function(a,b){return Math.abs(a[0]-b[0])<.5&&Math.abs(a[1]-b[1])<.5;},mark=metricMode?'shapeMetricArrow':'shpArr',out='';
+  var n=Q.length,same=function(a,b){return Math.abs(a[0]-b[0])<.5&&Math.abs(a[1]-b[1])<.5;},mark=metricMode?'shapeMetricArrow':'shpArr',out='',done=[],g=14;
   Q.forEach(function(a,k){
     var b=Q[(k+1)%n];
     if(P.length===n&&same(a,P[k])&&same(b,P[(k+1)%n]))return;
     var dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<24)return;
+    var ta=T[k],tb=T[(k+1)%n],tl=Math.hypot(tb[0]-ta[0],tb[1]-ta[1]),ux=(tb[0]-ta[0])/tl,uy=(tb[1]-ta[1])/tl;
+    if(done.some(function(d){return Math.abs(d.ux*uy-d.uy*ux)<.01&&Math.abs(d.len-tl)<1/32;}))return;
     var nx=-dy/len,ny=dx/len,mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;
     if(!fabPointInPoly([mx+nx*3,my+ny*3],Q)){nx=-nx;ny=-ny;}
-    var g=16,x1=a[0]+nx*g,y1=a[1]+ny*g,x2=b[0]+nx*g,y2=b[1]+ny*g,lx=mx+nx*(g+11),ly=my+ny*(g+11);
+    var fits=function(s){return fabPointInPoly([a[0]+nx*s*(g+4),a[1]+ny*s*(g+4)],P)&&fabPointInPoly([b[0]+nx*s*(g+4),b[1]+ny*s*(g+4)],P);};
+    if(!fits(1)&&fabPointInPoly([mx-nx*60,my-ny*60],P)&&fits(-1)){nx=-nx;ny=-ny;}
+    done.push({ux:ux,uy:uy,len:tl});
+    var x1=a[0]+nx*g,y1=a[1]+ny*g,x2=b[0]+nx*g,y2=b[1]+ny*g,lx=mx+nx*(g+11),ly=my+ny*(g+11);
     var ang=Math.atan2(dy,dx)*180/Math.PI;if(ang>90)ang-=180;if(ang<-90)ang+=180;
-    var ta=T[k],tb=T[(k+1)%n],id=ids.length===n?ids[k]:'',key=kp+'step:lite'+l.index+':'+(id&&ids.indexOf(id)===ids.lastIndexOf(id)?id:k);
+    var id=ids.length===n?ids[k]:'',key=kp+'step:lite'+l.index+':'+(id&&ids.indexOf(id)===ids.lastIndexOf(id)?id:k);
     var body='<g class="shape-step-dim" data-lite-index="'+l.index+'">'+
       '<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+(x1+nx*4)+'" y2="'+(y1+ny*4)+'" stroke="#101828" stroke-width=".7"/>'+
       '<line x1="'+b[0]+'" y1="'+b[1]+'" x2="'+(x2+nx*4)+'" y2="'+(y2+ny*4)+'" stroke="#101828" stroke-width=".7"/>'+
-      '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#101828" stroke-width="1" stroke-dasharray="6 3" marker-start="url(#'+mark+')" marker-end="url(#'+mark+')"/>'+
-      shapeAnnText(lx,ly+4,pre+fmt(Math.hypot(tb[0]-ta[0],tb[1]-ta[1])),{size:size,weight:700,rot:ang})+'</g>';
+      '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#'+mark+')" marker-end="url(#'+mark+')"/>'+
+      shapeAnnText(lx,ly+4,pre+fmt(tl),{size:size,weight:700,rot:ang})+'</g>';
     out+=shapeAnnItem(ann,key,body,lx,ly,{from:[mx,my],vw:F.vw});
   });
   return out;

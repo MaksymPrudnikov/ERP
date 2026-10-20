@@ -29,14 +29,14 @@ module.exports=async function({page,eq}){
   const check=l=>[salesLineStepInfo(l,soDraft).step,salesLineChargeRows(l).some(r=>r.key==='SURCHARGE:step-unit')];
   return [check(suOrder({'0':{inset:{A:'1'},edgeOps:{},mirror:false},'1':{inset:{A:'1'},edgeOps:{},mirror:false}})),check(suOrder(null))];
  }),[[false,false],[false,false]]);
- eq('чертёж юнита: у меньшего лайта свои размеры по рёбрам — высота, ширина, диагональ; ребро, совпавшее с юнитом, без второго размера; прямоугольник с отступом слева — три размера; у меньшего стекла свой лист',await t.p.evaluate(()=>{
+ eq('чертёж юнита: у меньшего лайта свои размеры по рёбрам — высота, ширина, диагональ; ребро, совпавшее с юнитом, без второго размера; прямоугольник с отступом слева — ширина и высота по разу, без дублей; у меньшего стекла свой лист',await t.p.evaluate(()=>{
   const line=suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}}),d=suDoc(salesLineDrawing(line).html);
   const ls=salesLineDrawing(line,null,0),ld=suDoc(ls.html);
   const dims=[...d.querySelectorAll('.shape-step-dim')].map(g=>g.querySelector('text').textContent).sort();
   const rd=suDoc(salesLineDrawing(suOrder({'0':{inset:{A:'2'},edgeOps:{},mirror:false}},'',true)).html);
   return {dims,lite:!!d.querySelector('.shape-step-lite'),rect:[...rd.querySelectorAll('.shape-step-dim')].length,
    sheet:[ls.lite,ld.querySelector('.sheet-lite').textContent,ld.querySelector('.sheet-size').textContent,!!ld.querySelector('.shape-step-lite')]};
- }),{dims:['15 1/8','20','25 1/16'],lite:true,rect:3,sheet:[0,'Glass: Lite 1 of 2','Finished 15 1/8″ × 20″',false]});
+ }),{dims:['15 1/8','20','25 1/16'],lite:true,rect:2,sheet:[0,'Glass: Lite 1 of 2','Finished 15 1/8″ × 20″',false]});
  eq('схема лайтов: меньший лайт и камера короче, у камеры «Step · Flat seal», отдельного разреза нет; Edge to edge — клин на ступеньке',await t.p.evaluate(()=>{
   const line=suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}}),d=suDoc(salesLineDrawing(line).html),sm=[...d.querySelectorAll('.mk-smaller')].map(x=>x.className.split(' ')[0]);
   const e=suDoc(salesLineDrawing(suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}},'edge')).html);
