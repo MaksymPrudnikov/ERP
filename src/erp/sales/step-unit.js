@@ -79,11 +79,13 @@ function salesShapeStepInfo(shape,line,order){
   return info;
 }
 function salesLineStepInfo(line,order){return salesShapeStepInfo(line&&salesLineGeometryShape(line),line,order);}
-/* Лайты строки, которым нужен свой лист: отличные от контура формы. Лайт
-   размером с форму и обычный юнит печатаются листом строки. */
+/* Лайты строки со своим листом: у ступенчатого юнита — каждое стекло
+   (владелец, 20.10.2026: «для производства каждому стеклу нужен
+   персональный чертёж» — «только для такого сложного варианта»). Обычный
+   юнит печатается одним листом строки. */
 function salesLineStepSheets(line,order){
   var info=salesLineStepInfo(line,order);
-  return info&&info.step?info.lites.filter(function(l){return !l.asShape;}).map(function(l){return l.index;}):[];
+  return info&&info.step?info.lites.map(function(l){return l.index;}):[];
 }
 /* Количество строки Step Unit — по единице строки прайса, чтобы владелец мог
    сменить её в Master Data без кода: pc — юнит, in — ступенька, ft² — площадь. */

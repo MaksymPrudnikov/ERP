@@ -1307,8 +1307,9 @@ function shapeDrawnProductionSvg(result,interactive,extra){
      чертёж рисуется без заголовка и в чёрно-белом варианте. */
   var metricOpts=Object.assign({},shapeMetricProductionOptions(result,interactive),extra||{});
   /* Ступенчатый юнит: меньший лайт пунктиром на чертеже юнита (sales/
-     step-unit). На вкладке одного лайта и на листе стекла — без пунктира. */
-  if(!metricOpts.lite&&sEdgeLite==null&&typeof salesShapeStepInfo==='function'){
+     step-unit). На вкладке одного лайта и на листе стекла (noStep — лист
+     стекла размером с форму) — без пунктира. */
+  if(!metricOpts.lite&&!metricOpts.noStep&&sEdgeLite==null&&typeof salesShapeStepInfo==='function'){
     var stepLine=shapeBridgeLine(),stepInfo=stepLine?salesShapeStepInfo(sDraft||result.definition,stepLine,soDraft):null;
     if(stepInfo&&stepInfo.step)metricOpts.step=salesStepDrawingData(stepInfo,shapeEdgeNames(result.geometry));
   }
@@ -1786,6 +1787,7 @@ function shapeSheetOk(r){return !!r&&(r.valid||!!(r.externalFile&&r.sourceValid)
 function shapeSheetSvg(r,cutting,extra){
   /* Лист одного стекла ступенчатого юнита — по его контуру, у DXF тоже. */
   if(!cutting&&extra&&extra.lite)return shapeDrawnProductionSvg(r,false,Object.assign({sheet:true},extra));
+  if(!cutting&&extra&&extra.noStep&&!r.externalFile)return shapeDrawnProductionSvg(r,false,{sheet:true,noStep:true});
   if(r.externalFile){
     /* Frit на печатном листе DXF — тот же образец и та же точка, что на экране. */
     var src=(r.definition&&r.definition.source)||sDraft.source,svg=shapeDxfPreviewSvg(src,!cutting,true);

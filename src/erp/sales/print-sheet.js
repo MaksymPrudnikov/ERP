@@ -390,8 +390,8 @@ function salesSheetFoot(html,text){
 /* recut — лист Recut со своим чертежом: «Recut n · Line m». */
 /* liteIndex — лист одного стекла ступенчатого юнита («у каждого стекла свой
    лист», владелец 20.10.2026): лайт со своей формой — её чертёж, лайт с
-   отступом — его контур (shapeLiteSheetSvg). Лайт размером с форму и обычный
-   юнит получают лист строки. */
+   отступом — его контур (shapeLiteSheetSvg), лайт размером с форму — чертёж
+   формы без пунктира меньшего лайта. Обычный юнит получает лист строки. */
 function salesLineDrawing(line,recut,liteIndex){
   var geo=recut&&typeof recutLine==='function'?recutLine(recut,line):line;
   var shape=geo&&salesShapeByRef(geo.shapeRef);if(!shape)return null;
@@ -403,8 +403,9 @@ function salesLineDrawing(line,recut,liteIndex){
     var r=ShapeModule.compute(sDraft);
     if(!shapeSheetOk(r))return {line:line,error:String((r.errors&&r.errors[0])||r.reason||'Invalid geometry')};
     var step=liteIndex!=null&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,geo,soDraft):null,sl=step&&step.step?step.lites[liteIndex]:null;
-    if(sl&&!sl.asShape){
+    if(sl){
       var opts={liteIndex:liteIndex,step:step};
+      if(sl.asShape)return {line:line,lite:liteIndex,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false,{noStep:true}),'PRODUCTION DRAWING',opts)};
       if(sl.own){
         sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(salesLineLiteShape(geo,liteIndex))));salesBridge=Object.assign({},salesBridge,{liteIndex:liteIndex});
         var ro=ShapeModule.compute(sDraft);

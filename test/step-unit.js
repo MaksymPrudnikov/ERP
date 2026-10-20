@@ -24,19 +24,20 @@ module.exports=async function({page,eq}){
   salesServiceRateRow('stepUnit').flat=5;const priced=suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}}),shown=docServiceRows(priced).find(r=>r.key==='SURCHARGE:step-unit');salesServiceRateRow('stepUnit').flat=0;
   return {step:info.step,sizes:info.lites.map(l=>dimIn16(l.w)+' × '+dimIn16(l.h)),big:info.big,edges:info.edges.map(e=>e.id+' '+e.step),sheets,
    row:[row.basis,row.unit,row.catalogRate],hidden,shown:shown&&shown.value,igu:route.lites.map(l=>l.stations.find(s=>s.code==='IGU').items.includes('Step unit · Flat seal'))};
- }),{step:true,sizes:['15 1/8″ × 20″','25 1/8″ × 33 1/4″'],big:1,edges:['A 10'],sheets:[0],row:[1,'pc',0],hidden:false,shown:5,igu:[true,true]});
+ }),{step:true,sizes:['15 1/8″ × 20″','25 1/8″ × 33 1/4″'],big:1,edges:['A 10'],sheets:[0,1],row:[1,'pc',0],hidden:false,shown:5,igu:[true,true]});
  eq('нет ступеньки: одинаковый отступ у обоих лайтов и обычный юнит — без Step Unit',await t.p.evaluate(()=>{
   const check=l=>[salesLineStepInfo(l,soDraft).step,salesLineChargeRows(l).some(r=>r.key==='SURCHARGE:step-unit')];
   return [check(suOrder({'0':{inset:{A:'1'},edgeOps:{},mirror:false},'1':{inset:{A:'1'},edgeOps:{},mirror:false}})),check(suOrder(null))];
  }),[[false,false],[false,false]]);
- eq('чертёж юнита: у меньшего лайта свои размеры по рёбрам — высота, ширина, диагональ; ребро, совпавшее с юнитом, без второго размера; прямоугольник с отступом слева — ширина и высота по разу, без дублей; у меньшего стекла свой лист',await t.p.evaluate(()=>{
+ eq('чертёж юнита: у меньшего лайта свои размеры по рёбрам — высота, ширина, диагональ; ребро, совпавшее с юнитом, без второго размера; прямоугольник с отступом слева — ширина и высота по разу, без дублей; свой лист у каждого стекла, у большего — без пунктира',await t.p.evaluate(()=>{
   const line=suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}}),d=suDoc(salesLineDrawing(line).html);
-  const ls=salesLineDrawing(line,null,0),ld=suDoc(ls.html);
+  const ls=salesLineDrawing(line,null,0),ld=suDoc(ls.html),bs=suDoc(salesLineDrawing(line,null,1).html);
   const dims=[...d.querySelectorAll('.shape-step-dim')].map(g=>g.querySelector('text').textContent).sort();
   const rd=suDoc(salesLineDrawing(suOrder({'0':{inset:{A:'2'},edgeOps:{},mirror:false}},'',true)).html);
   return {dims,lite:!!d.querySelector('.shape-step-lite'),rect:[...rd.querySelectorAll('.shape-step-dim')].length,
-   sheet:[ls.lite,ld.querySelector('.sheet-lite').textContent,ld.querySelector('.sheet-size').textContent,!!ld.querySelector('.shape-step-lite')]};
- }),{dims:['15 1/8','20','25 1/16'],lite:true,rect:2,sheet:[0,'Glass: Lite 1 of 2','Finished 15 1/8″ × 20″',false]});
+   sheet:[ls.lite,ld.querySelector('.sheet-lite').textContent,ld.querySelector('.sheet-size').textContent,!!ld.querySelector('.shape-step-lite')],
+   big:[bs.querySelector('.sheet-lite').textContent,bs.querySelector('.sheet-size').textContent,!!bs.querySelector('.shape-step-lite,.shape-step-dim')]};
+ }),{dims:['15 1/8','20','25 1/16'],lite:true,rect:2,sheet:[0,'Glass: Lite 1 of 2','Finished 15 1/8″ × 20″',false],big:['Glass: Lite 2 of 2','Finished 25 1/8″ × 33 1/4″',false]});
  eq('схема лайтов: меньший лайт и камера короче, у камеры «Step · Flat seal», отдельного разреза нет; Edge to edge — клин на ступеньке',await t.p.evaluate(()=>{
   const line=suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}}),d=suDoc(salesLineDrawing(line).html),sm=[...d.querySelectorAll('.mk-smaller')].map(x=>x.className.split(' ')[0]);
   const e=suDoc(salesLineDrawing(suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}},'edge')).html);
