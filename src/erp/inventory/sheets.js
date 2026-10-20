@@ -250,9 +250,14 @@ function invMoves(){
 }
 
 /* ------------------------------ Команды ------------------------------ */
+/* Больше 10 000 листов в одной строке не бывает: вся инвентаризация — до
+   10 000, обычно 1000–1700; приёмка — двух-, максимум трёхзначные (владелец,
+   20.10.2026). Лишние цифры — отказ, а не тихо изменённое число (аудит INV04). */
+const INV_SHEETS_MAX=10000;
 function invWhole(v,label){
  const s=String(v==null?'':v).trim(),n=Number(s);
  if(!s||!Number.isInteger(n)||n<0)throw new Error(label+': enter a whole number, 0 or more.');
+ if(n>INV_SHEETS_MAX)throw new Error(label+': up to 10,000.');
  return n;
 }
 /* Пересчёт: counts — {ключ: сколько насчитали}. Одна команда на все

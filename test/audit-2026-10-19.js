@@ -50,5 +50,49 @@ module.exports=async function({page,eq}){
   return {waiting:waiting>0,shown:+row.querySelector('.ch-grid-cell b').textContent===waiting,board:prodBoard().some(x=>x.o.id===id)};
  }),{waiting:true,shown:true,board:false});
 
+ /* Владелец 20.10: «1–3 исправляй». Старые формы Master Data и Agents из
+    другой вкладки — как карточка клиента; юниты и стёкла — только целые;
+    листов в строке — до 10 000. */
+ eq('Master Data: старая форма не пишет поверх свежей правки и не возвращает удалённое; переоткрыл — сохраняет',await t.p.evaluate(()=>{
+  tab='masterdata';const g=DB.glassProduct.find(p=>p.code==='6CLEAR');mdGlassEdit(g.id);render();
+  g.name=g.name+' (other tab)';document.getElementById('md_name').value='Mine';mdGlassSave();
+  const glass={err:(document.getElementById('e_mdGlass')||{}).textContent,kept:glassProductById(g.id).name.endsWith('(other tab)'),open:mdEdit===g.id};
+  mdEdit=null;mdDraft=null;mdGlassEdit(g.id);render();mdGlassSave();const again=mdEdit===null&&glassProductById(g.id).name.endsWith('(other tab)');
+  mdTab='materials';mdMatCategory='glass';mdMatView='glassSheet';
+  if(!DB.glassSheet.length){DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:130,sheetHIn:96,availability:'stock'}));normalizeMasterData();}
+  const s=DB.glassSheet[0];mdSheetEditRow(s.id);render();DB.glassSheet=DB.glassSheet.filter(x=>x.id!==s.id);mdSheetSave();
+  const sheet={err:(document.getElementById('e_mdSheet')||{}).textContent,back:DB.glassSheet.some(x=>x.id===s.id)};mdSheetEdit=null;mdSheetDraft=null;
+  mdSetTab('works');mdCatKind='serviceRate';mdCatEditRow('roughArris');render();const r=DB.serviceRate.find(x=>x.id==='roughArris');r.name=r.name+' (other tab)';mdCatSave();
+  const cat=(document.getElementById('e_mdCat')||{}).textContent;mdCatEdit=null;mdCatDraft=null;tab='dashboard';render();
+  return {glass,again,sheet,cat};
+ }),{glass:{err:'Changed elsewhere — reopen',kept:true,open:true},again:true,sheet:{err:'This item was deleted',back:false},cat:'Changed elsewhere — reopen'});
+
+ eq('Agents: старая форма не пишет поверх свежей правки и не возвращает удалённого; переоткрыл — сохраняет',await t.p.evaluate(()=>{
+  oqReset();DB.referrer=[];DB.referrerPayout=[];const c=oqCustomer({legalName:'Agent Client'}),r=comSave({name:'Ivan Petrenko',customers:[{customerId:c.id,pct:10}]}).value;tab='commissions';
+  comEditOpen(r.id);comFind(r.id).phone='416-555-0100';comDraft.note='mine';comFormSave();const stale={notice:comNotice,phone:comFind(r.id).phone,open:!!comDraft};
+  comEditOpen(r.id);comDraft.note='mine';comFormSave();const again={note:comFind(r.id).note,phone:comFind(r.id).phone,closed:!comDraft};
+  comEditOpen(r.id);DB.referrer=[];comFormSave();const gone={notice:comNotice,back:DB.referrer.length};comDraft=null;comNotice='';tab='dashboard';render();
+  return {stale,again,gone};
+ }),{stale:{notice:'Changed elsewhere — reopen',phone:'416-555-0100',open:true},again:{note:'mine',phone:'416-555-0100',closed:true},gone:{notice:'This person was deleted',back:0}});
+
+ eq('юниты только целые: Hold units и Cancel units — 1.5 не становится 1, а отказ «Whole units only.»; пусто — прежнее «Enter how many units.»',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer({legalName:'Units Co'}));salesDraftDrop();oqThrough(id,'batched');const l=salesRecord(id).lines[0];
+  return {hold:unitHold(id,l.id,'1.5','x').error,cancel:unitCancel(id,l.id,'2.5','x').error,empty:unitHold(id,l.id,'','x').error,held:(salesRecord(id).lines[0].heldUnits||[]).length};
+ }),{hold:'Whole units only.',cancel:'Whole units only.',empty:'Enter how many units.',held:0});
+
+ const qtyId=await t.p.evaluate(()=>{oqReset();const id=oqOrder(oqCustomer({legalName:'Typing Co'}));tab='sales';render();return id;});
+ await t.p.locator('.line-qty').first().fill('');await t.p.locator('.line-qty').first().type('1.5');
+ const typed=await t.p.locator('.line-qty').first().inputValue();
+ await t.p.evaluate(()=>{salesDraftDrop(true);tab='customers';customerNew();cTab='payment';cDraft.paymentMode='cash';render();});
+ await t.p.locator('input[oninput="cDraft.depositPercent=this.value"]').type('12.5');
+ eq('поля количества стёкол и юнитов: точку не набрать (1.5 → 15); проценты и деньги — как раньше (12.5)',{typed,deposit:await t.p.evaluate(()=>{const v=cDraft.depositPercent;cEdit=null;cDraft=null;tab='dashboard';render();return v;})},{typed:'15',deposit:'12.5'});
+
+ eq('листов в строке — до 10 000: пересчёт и приёмка стекла отказывают с причиной, 10 000 — можно',await t.p.evaluate(()=>{
+  const err=f=>{try{f();return 'ok';}catch(e){return e.message;}};
+  if(!window.a19Sup)window.a19Sup=purSupplierSave({name:'Limit Glass Co'}).value;
+  const rec=sheets=>{const r=purFulfilSave('receipt',{supplierId:a19Sup.id,date:'2026-10-20',lines:[{id:'L0',kind:'glass',productId:glassProductByCode('6CLEAR').id,unit:'block',qty:2,actualSheets:sheets,widthIn:130,heightIn:96}]});return r.ok?'ok':r.error;};
+  return {count:err(()=>invWhole('10001','6CLEAR 130×96')),max:invWhole('10000','x'),huge:err(()=>invWhole('9007199254740993','x')),receipt:rec(20000),receiptOk:rec(64)};
+ }),{count:'6CLEAR 130×96: up to 10,000.',max:10000,huge:'x: up to 10,000.',receipt:'Line 1: up to 10,000 sheets.',receiptOk:'ok'});
+
  eq('аудит 19.10: без ошибок страницы',t.errs,[]);await t.c.close();
 };

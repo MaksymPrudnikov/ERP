@@ -101,8 +101,8 @@ function unitLine(orderId,lineId){
 function unitLineNo(o,l){return 'line '+(o.lines.indexOf(l)+1);}
 function unitHoldable(o,l){return unitList(o,l);}
 function unitHold(orderId,lineId,count,reason){return storageCommand(()=>{
- const {o,l}=unitLine(orderId,lineId),n=Math.floor(+count),why=String(reason||'').trim().slice(0,200);
- unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason for the hold.');
+ const {o,l}=unitLine(orderId,lineId),n=+count,why=String(reason||'').trim().slice(0,200);
+ unitAssert(Number.isInteger(n)||!(n>0),'Whole units only.');unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason for the hold.');
  const free=unitHoldable(o,l);unitAssert(n<=free.length,free.length?'Only '+shippingCount(free.length,'unit')+' can be held.':'No units left to hold.');
  const now=new Date().toISOString(),picked=free.slice(0,n);l.heldUnits=(l.heldUnits||[]).concat(picked.map(u=>({id:salesUid('HU'),pieces:u.pieces.slice(),at:now,reason:why})));
  /* Непорезанное стекло уходит с батча, как при отмене: раскрой батча
@@ -135,8 +135,9 @@ function unitChargeOf(c){return c.chargeOverride!=null?c.chargeOverride:c.charge
 /* opts: glass — что делать со стеклом порезанных юнитов; chargeOverride —
    сумма продавца (обязательна, когда цена строки неполная). */
 function unitCancel(orderId,lineId,count,reason,opts){return storageCommand(()=>{
- opts=opts||{};const {o,l}=unitLine(orderId,lineId),n=Math.floor(+count),why=String(reason||'').trim().slice(0,200),now=new Date().toISOString();
- unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason.');
+ opts=opts||{};const {o,l}=unitLine(orderId,lineId),n=+count,why=String(reason||'').trim().slice(0,200),now=new Date().toISOString();
+ /* Юниты — только целые (владелец, 20.10.2026): 1.5 не становится молча 1. */
+ unitAssert(Number.isInteger(n)||!(n>0),'Whole units only.');unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason.');
  const plan=unitCancelPlan(o,l,n,now);unitAssert(n<=plan.max,plan.max?'Only '+shippingCount(plan.max,'unit')+' can be cancelled.':'No units left to cancel.');
  const glass=UNIT_GLASS.includes(opts.glass)?opts.glass:'scrap',heat=unitHeatStations();
  unitAssert(glass!=='stock'||!plan.units.some(u=>u.pieces.some(p=>stationScansFor(p).some(s=>heat.includes(s.station)))),'Tempered glass cannot go to stock.');

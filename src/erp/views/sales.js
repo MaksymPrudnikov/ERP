@@ -69,7 +69,7 @@ function salesExtraItemsSection(){
   const unit=salesExtraItemUnitPrice(x),total=salesExtraItemLineTotal(x);
   return `<tr>
    <td><b>${esc(salesExtraItemName(x))}</b></td>
-   <td><input type="number" min="1" step="1" value="${esc(x.qty)}" style="width:64px" onchange="salesExtraItemSetQty('${esc(x.id)}',this.value)"></td>
+   <td><input type="number" min="1" step="1" inputmode="numeric" value="${esc(x.qty)}" style="width:64px" onchange="salesExtraItemSetQty('${esc(x.id)}',this.value)"></td>
    <td><input type="number" min="0" step="0.01" value="${x.priceOverride!=null?x.priceOverride:''}" placeholder="${unit!=null?unit.toFixed(2):'—'}" style="width:88px" onchange="salesExtraItemSetPrice('${esc(x.id)}',this.value)"></td>
    <td class="mono">${total!=null?total.toFixed(2)+' '+esc(currency):'<span class="mut">Rate required</span>'}</td>
    <td><button class="sm dl" onclick="salesExtraItemRemove('${esc(x.id)}')">×</button></td>
@@ -99,7 +99,7 @@ function salesStockPickerModal(){
  const pills=subcats.length||hasOther
   ?`<div class="stock-picker-filters">${pill('','All')}${subcats.map(s=>pill(s,s)).join('')}${hasOther?pill('__other__','Other'):''}</div>`
   :'';
- const rows=candidates.map((c,i)=>`<tr class="stock-picker-row"><td><b>${esc(c.name)}</b>${c.subcategory?`<div class="mut">${esc(c.subcategory)}</div>`:''}</td><td class="mono">${esc(c.code||'—')}</td><td class="mono">${c.salePrice!=null?c.salePrice.toFixed(2)+' '+esc(currency):'—'}</td><td><input type="number" min="1" step="1" value="1" id="stockPickQty_${i}" style="width:56px"></td><td><button class="sm" onclick="salesStockPickerChoose('${esc(c.table)}','${esc(c.id)}',(document.getElementById('stockPickQty_${i}')||{}).value)">+ Add</button></td></tr>`).join('');
+ const rows=candidates.map((c,i)=>`<tr class="stock-picker-row"><td><b>${esc(c.name)}</b>${c.subcategory?`<div class="mut">${esc(c.subcategory)}</div>`:''}</td><td class="mono">${esc(c.code||'—')}</td><td class="mono">${c.salePrice!=null?c.salePrice.toFixed(2)+' '+esc(currency):'—'}</td><td><input type="number" min="1" step="1" inputmode="numeric" value="1" id="stockPickQty_${i}" style="width:56px"></td><td><button class="sm" onclick="salesStockPickerChoose('${esc(c.table)}','${esc(c.id)}',(document.getElementById('stockPickQty_${i}')||{}).value)">+ Add</button></td></tr>`).join('');
  return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesStockPickerClose()"><div class="sales-service-modal"><div class="sales-service-modal-head"><div><span>Stock &amp; Extra Items</span><h3>Add an item</h3><small>Sold as its own order line — no glass, no geometry, no route</small></div><button onclick="salesStockPickerClose()">×</button></div>
   ${pills}
   <div class="customer-table-wrap"><table><thead><tr><th>Item</th><th>Code</th><th>Price, ${esc(currency)}</th><th>Qty</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="empty">${all.length?'No items in this filter.':'No catalog items'}</td></tr>`}</tbody></table></div>
