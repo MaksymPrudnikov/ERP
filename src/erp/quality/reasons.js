@@ -65,14 +65,17 @@ function ncrReasonProblem(where,name,exceptId){
  const clash=(DB.ncrReason||[]).some(r=>r.id!==exceptId&&r.name.toLowerCase()===low&&(r.where===where||where!==NCR_OFFICE&&r.where!==NCR_OFFICE&&(r.where===NCR_ALL||where===NCR_ALL)));
  return clash?'Already exists':'';
 }
+/* Add, Rename, SetActive: '' — записано, иначе причина отказа, в том числе
+   «база не записалась» (аудит 19.10.2026, F11). */
+function ncrReasonSave(fn){const out=storageCommand(()=>{fn();return true;});return out.ok?'':out.error;}
 function ncrReasonAdd(where,name){
  if(where!==NCR_ALL&&!ncrWhereList().some(w=>w.code===where))return 'Choose where it happened.';
  const problem=ncrReasonProblem(where,name);if(problem)return problem;
- DB.ncrReason.push({id:salesUid('NR'),where,name:ncrName(name),active:true});touch();return '';
+ return ncrReasonSave(()=>DB.ncrReason.push({id:salesUid('NR'),where,name:ncrName(name),active:true}));
 }
 function ncrReasonRename(id,name){
  const r=(DB.ncrReason||[]).find(x=>x.id===id);if(!r)return 'Reason not found.';
  const problem=ncrReasonProblem(r.where,name,id);if(problem)return problem;
- r.name=ncrName(name);touch();return '';
+ return ncrReasonSave(()=>{r.name=ncrName(name);});
 }
-function ncrReasonSetActive(id,on){const r=(DB.ncrReason||[]).find(x=>x.id===id);if(!r)return false;r.active=!!on;touch();return true;}
+function ncrReasonSetActive(id,on){const r=(DB.ncrReason||[]).find(x=>x.id===id);if(!r)return 'Reason not found.';return ncrReasonSave(()=>{r.active=!!on;});}

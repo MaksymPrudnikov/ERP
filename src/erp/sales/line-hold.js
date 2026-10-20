@@ -41,21 +41,28 @@ function salesLineHoldEdit(){
  requestAnimationFrame(()=>{const e=document.querySelector('[data-line-hold-reason]');if(e)e.focus();});
 }
 function salesLineHoldReason(value){if(salesLineHoldMenu)salesLineHoldMenu.reason=value;}
+/* Ответ — {ok, error}. Сохранённый заказ пишется одной storageCommand: база
+   не записалась — Hold нет ни в базе, ни в открытом заказе, меню говорит
+   причину (аудит 19.10.2026, F09). */
 function salesLineHoldSet(orderId,ids,on,reason){
- const draft=soDraft&&soDraft.id===orderId?soDraft:null,saved=salesRecord(orderId),o=draft||saved;
- ids=[...new Set(ids||[])];if(!o||!ids.length||on&&!String(reason||'').trim())return false;
+ const draft=soDraft&&soDraft.id===orderId?soDraft:null,saved=salesRecord(orderId),o=draft||saved,no={ok:false,error:'These lines can no longer be changed.'};
+ ids=[...new Set(ids||[])];if(!o||!ids.length||on&&!String(reason||'').trim())return no;
  const lines=ids.map(id=>o.lines.find(l=>l.id===id));
- if(lines.some(l=>!salesLineHoldAllowed(o,l))||saved&&(salesOrderReadOnly(saved)||ids.some(id=>{const l=saved.lines.find(l=>l.id===id);return l&&!salesLineHoldAllowed(saved,l);})))return false;
+ if(lines.some(l=>!salesLineHoldAllowed(o,l))||saved&&(salesOrderReadOnly(saved)||ids.some(id=>{const l=saved.lines.find(l=>l.id===id);return l&&!salesLineHoldAllowed(saved,l);})))return no;
  const now=new Date().toISOString(),fields={onHold:!!on,holdReason:on?String(reason).trim().slice(0,200):'',holdAt:on?now:''};
- lines.forEach(l=>Object.assign(l,fields));
- if(saved&&saved!==draft)ids.forEach(id=>{const l=saved.lines.find(l=>l.id===id);if(l)Object.assign(l,fields);});
- o.updatedAt=now;if(saved){saved.updatedAt=now;touch();}return true;
+ const apply=()=>{
+  lines.forEach(l=>Object.assign(l,fields));
+  if(saved&&saved!==draft)ids.forEach(id=>{const l=saved.lines.find(l=>l.id===id);if(l)Object.assign(l,fields);});
+  o.updatedAt=now;if(saved)saved.updatedAt=now;return true;
+ };
+ if(!saved){apply();return {ok:true};}
+ const out=storageCommand(apply);return out.ok?{ok:true}:{ok:false,error:out.error};
 }
 function salesLineHoldApply(on){
  const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return;
  if(m.stamp!==salesLineHoldStamp(m.ids)){salesLineHoldMenu=null;salesDialogOpen({title:'Order changed',note:'Review the lines and open the menu again.',buttons:[{label:'Back'}]});return;}
  if(on&&!String(m.reason||'').trim()){m.error='Enter a reason for the hold.';render();return;}
- if(!salesLineHoldSet(m.orderId,m.ids,on,m.reason)){m.error='These lines can no longer be changed.';render();return;}
+ const out=salesLineHoldSet(m.orderId,m.ids,on,m.reason);if(!out.ok){m.error=out.error;render();return;}
  salesLineHoldMenu=null;render();
 }
 function salesLineQueueEdit(){
