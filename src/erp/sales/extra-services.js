@@ -30,7 +30,13 @@ function salesExtraServiceUnit(x){var r=salesExtraServiceRate(x);return (r&&r.un
    пропускает нормализация цен строки (normalizeSalesChargePricing). */
 function salesExtraServiceGroup(x){
   if(x.rateId)return 'EXTRA:'+String(x.rateId).replace(/[^A-Za-z0-9:._+\-]/g,'_');
-  return 'EXTRA:custom-'+String(x.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')+'-'+(SALES_EXTRA_UNITS.indexOf(x.unit)+1);
+  /* Имя без латиницы («Шлифовка», «Покраска») или из одних значков давало
+     пустую часть ключа: разные сервисы склеивались в один, и второй не
+     добавлялся («Already on this line»). Такому имени — короткий отпечаток
+     самого имени; латинские имена и их сохранённые цены не меняются. */
+  var name=String(x.name||'').trim().toLowerCase().replace(/\s+/g,' '),slug=name.replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''),h=0;
+  if(!slug||/[^\x00-\x7f]/.test(name)){for(var i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))>>>0;slug=(slug?slug+'-':'')+'u'+h.toString(36);}
+  return 'EXTRA:custom-'+slug+'-'+(SALES_EXTRA_UNITS.indexOf(x.unit)+1);
 }
 function salesExtraServiceKey(x){return salesExtraServiceGroup(x)+'|'+x.id;}
 /* Количество на юнит: введённое или, если пусто, по размеру юнита. */

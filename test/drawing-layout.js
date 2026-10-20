@@ -18,7 +18,9 @@ module.exports=async function({page,eq}){
   d.drawingLayout={[key]:{dy:20,dx:30,scale:2}};const moved=dlDoc(d),g=moved.querySelector('[data-layout-key="'+key+'"]');
   return {axis:line.getAttribute('data-layout-axis'),number:!!line.querySelector('.shape-layout-item'),transform:g.getAttribute('transform'),extensions:moved.querySelectorAll('.shape-layout-leader').length,
    menu:[...dlDoc(d,{annotation:{interactive:true,layoutSelected:key}}).querySelectorAll('.shape-layout-menu text')].map(x=>x.textContent)};
- }),{axis:'y',number:true,transform:'translate(30 20)',extensions:2,menu:['Hide','Reset','Chain −','Chain +']});
+ }),{axis:'y',number:true,transform:'translate(0 20)',extensions:2,menu:['Hide','Reset','Chain −','Chain +']});
+ /* Сдвиг вбок (dx у горизонтальной линии) не рисуется: раньше линия уезжала
+    с детали, а выносные стояли на месте (аудит 21.10.2026). */
  eq('one chain number moves alone; dimension lines stay put',await t.p.evaluate(()=>{
   const d=dlDef(),base=dlDoc(d),keys=[...base.querySelectorAll('.shape-layout-item[data-layout-key^="chain:bottom:"]:not([data-layout-key$="|line"])')].map(g=>g.getAttribute('data-layout-key'));
   d.drawingLayout={[keys[0]]:{dx:24,scale:1.5}};const moved=dlDoc(d),items=[...moved.querySelectorAll('.shape-layout-item[data-layout-key^="chain:bottom:"]:not([data-layout-key$="|line"])')];
@@ -101,6 +103,17 @@ module.exports=async function({page,eq}){
   return {angles:sheet.querySelectorAll('.shape-metric-angle').length,arcs:sheet.querySelectorAll('.shape-metric-angle-arc').length,ui:sheet.querySelectorAll('.shape-layout-ghost,.shape-layout-menu,[onpointerdown]').length,
    mm:(mm.match(/shapeLayoutShow/g)||[]).length,mmKey:mm.includes('mm:angle:B~A'),inch:(inch.match(/shapeLayoutShow/g)||[]).length,inchKey:inch.includes('op:A')};
  }),{angles:3,arcs:3,ui:0,mm:1,mmKey:true,inch:1,inchKey:true});
+ /* Меню числа лежит внутри его линии размера. Нажатие на A+ уходило линии и
+    выделяло её: в мм габарит 508 не увеличивался (владелец, 21.10.2026).
+    Настоящий клик мыши — синтетическое событие этого не ловит. */
+ await t.p.evaluate(()=>{window.dlKeep={d:sDraft,m:sMetricDetail,e:sEdit,t:tab,s:subtab};tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='90';sMetricDetail=true;render();shapeLayoutSelect('mm:overall:width');});
+ await t.p.locator('#shapeLivePreview .shape-layout-menu .shape-dim-btn',{hasText:'A+'}).first().click();
+ const dlScaled=await t.p.evaluate(()=>({scale:(sDraft.drawingLayout['mm:overall:width']||{}).scale,selected:sLayoutEdit&&sLayoutEdit.key}));
+ await t.p.evaluate(()=>shapeLayoutSelect('mm:overall:width|line'));
+ await t.p.keyboard.press('ArrowLeft');await t.p.keyboard.press('ArrowDown');
+ const dlKeys=await t.p.evaluate(()=>{const out=JSON.parse(JSON.stringify(sDraft.drawingLayout['mm:overall:width|line']||{}));sEdit=dlKeep.e;sDraft=dlKeep.d;sMetricDetail=dlKeep.m;tab=dlKeep.t;subtab=dlKeep.s;sLayoutEdit=null;render();return out;});
+ eq('mm: A+ in the menu of a number inside its line scales the number',dlScaled,{scale:1.1,selected:'mm:overall:width'});
+ eq('arrow keys move a dimension line only across itself',dlKeys,{dy:4});
  eq('drawing layout has no browser errors',t.errs,[]);
  await t.c.close();
 };

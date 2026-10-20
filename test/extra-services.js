@@ -57,6 +57,13 @@ module.exports=async function({page,eq}){
   const order=document.querySelector('[data-extra-open]').textContent;salesCloseServices();
   return {open,remove,order};
  }),{open:'+ Add service',remove:1,order:'+ Add service to all 2 lines'});
+ /* Имя без латиницы давало пустой ключ группы: «Шлифовка» и «Покраска»
+    склеивались, второй сервис не добавлялся (аудит 21.10.2026). Латинские
+    имена сохраняют прежний ключ — их сохранённые цены не сдвигаются. */
+ eq('свой сервис: имена без латиницы — разные группы, латинские — прежний ключ',await t.p.evaluate(()=>{
+  const o=exOrder(),l=o.lines[0],n=[exAdd('line:'+l.id,{name:'Шлифовка',unit:'pc'}),exAdd('line:'+l.id,{name:'Покраска',unit:'pc'}),exAdd('line:'+l.id,{name:'шлифовка',unit:'pc'})];
+  return {n,names:exRows(l).map(r=>r[0]),latin:salesExtraServiceGroup(normalizeSalesExtraService({name:'Touch-up paint',unit:'pc'}))};
+ }),{n:[1,1,0],names:['Шлифовка','Покраска'],latin:'EXTRA:custom-touch-up-paint-1'});
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
