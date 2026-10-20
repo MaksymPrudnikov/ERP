@@ -335,6 +335,8 @@ function salesPrintRoute(line,order,shape,result){
       var stepText='Step unit · '+salesStepSealLabel(shape);
       lites.forEach(function(l){var st=l.stations.find(function(s){return s.code===merge;});if(st&&st.items.indexOf(stepText)<0)st.items.push(stepText);});
     }
+    /* Работы Master Data, добавленные к строке руками (sales/extra-services). */
+    if(typeof salesExtraServiceRoute==='function')salesExtraServiceRoute(lites,line,merge);
   }
   /* Фигура из библиотеки заказа не имеет: маршрут строится по ней самой. */
   if(!lites.length){

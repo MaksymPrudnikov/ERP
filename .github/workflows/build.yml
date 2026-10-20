@@ -61,7 +61,8 @@ concurrency:                # если правок подряд несколь�
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 24.04, а не latest: на 26.04 Playwright 1.55.1 не ставит Chromium.
+    runs-on: ubuntu-24.04
     steps:
       # fetch-depth: 0 — нужна история, иначе не с чем сравнивать ветку.
       - uses: actions/checkout@v6

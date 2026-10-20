@@ -113,7 +113,10 @@ function salesStripPrices(x){
 function salesLockedLineSnapshot(order,line){
  const m=salesMakeupById(order,line.makeupId);
  return JSON.stringify({w:line.width16,h:line.height16,q:line.qty,m:m?salesStripPrices({unitType:m.unitType,panes:m.panes,cavities:m.cavities}):null,
-  shape:line.shapeRef&&line.shapeRef.id||'',lites:line.liteShapes||{},set:line.serviceSetId||'',overrides:line.serviceOverrides||null,sides:line.sideMap||null});
+  shape:line.shapeRef&&line.shapeRef.id||'',lites:line.liteShapes||{},set:line.serviceSetId||'',overrides:line.serviceOverrides||null,sides:line.sideMap||null,
+  /* Работа из прайса, добавленная руками, ставит станцию в маршрут — как и
+     обработка формы. Свой сервис — только деньги, как цена. */
+  extras:(line.extraServices||[]).filter(x=>x.rateId).map(x=>[x.rateId,x.qty])});
 }
 /* Строка в батче, стекло которой ещё не порезано: клиент сменил количество —
    его просто уменьшают, лишнюю строку убирают крестиком; лишнее стекло
