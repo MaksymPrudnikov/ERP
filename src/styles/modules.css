@@ -154,6 +154,12 @@
 .sales-extra-form [data-extra-pick]{max-width:300px}
 .sales-extra-form [data-extra-qty],.sales-extra-form [data-extra-rate]{width:90px}
 .sales-extra-error{flex-basis:100%;color:var(--danger);font-size:9px}
+.sales-extra-units{display:flex;flex-direction:column;gap:2px}
+.sales-extra-units>span:first-child{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.035em;color:var(--text-2)}
+.sales-extra-units>span:last-child{display:flex;gap:3px}
+.sales-extra-units button{height:29px;min-width:42px}
+.sales-extra-units button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.sales-extra-per{font-weight:700;color:var(--text)}
 .line-services-chips>span.commercial{background:var(--warning-soft);color:var(--warning)}.line-services-money small.commercial-total{color:var(--warning)}.sales-commercial-adjustments{margin:10px 12px 12px;border:1px solid var(--warning-line);border-radius:9px;overflow:hidden;background:var(--warning-soft)}.sales-commercial-head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--warning-line)}.sales-commercial-head>div{display:flex;align-items:baseline;gap:8px}.sales-commercial-head b{font-size:10px;color:var(--warning)}.sales-commercial-head span{font-size:8px;color:var(--warning)}.sales-commercial-table{display:flex;flex-direction:column}.sales-commercial-row{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(210px,1fr) 70px 115px;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--warning-line);font-size:9.5px}.sales-commercial-row:last-child{border-bottom:0}.sales-commercial-row.head{background:var(--warning-soft);color:var(--warning);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.035em}.sales-commercial-row>span:first-child{display:flex;flex-direction:column;gap:2px}.sales-commercial-row small{font-size:8px;color:var(--warning)}.sales-commercial-row>strong{font:750 10px ui-monospace,monospace;color:var(--warning);text-align:right}.sales-commercial-row.incomplete{background:var(--warning-soft)}.sales-commercial-adjustments.order{margin-top:12px}
 
 /* Safety Border — базовое значение плюс построчный ввод по кромкам.

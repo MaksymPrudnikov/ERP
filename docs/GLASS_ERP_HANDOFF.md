@@ -15,8 +15,10 @@ Data».
 - **Где «+».** Окно сервисов строки (Services / Processing) — «+ Add
   service»; Services & Pricing заказа — «+ Add service to all N lines» (или
   «to N selected», если строки выбраны); панель выбранных строк — «+ Service».
-  Форма: Service (Custom или работа Master Data), для своего — Name и Unit
-  (pc / ft² / in), Qty / unit, Rate. Строки, где такой сервис уже есть,
+  Форма: Service (Custom или работа Master Data), для своего — Name и
+  «Charged per» кнопками pc / ft² / in, Qty / unit, «Rate / <единица>». В
+  таблице строки у своего сервиса в колонке Catalog — «Custom · per ft²»:
+  видно, за что цена (владелец: «показывает каталог рейт, а не за что»). Строки, где такой сервис уже есть,
   пропускаются; если он есть везде — «Already on these lines.»
 - **Данные** — `line.extraServices` (`normalizeSalesExtraService` в
   `src/erp/sales/data.js`): `rateId` (работа прайса) или `name` + `unit`;

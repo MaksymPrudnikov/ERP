@@ -120,9 +120,9 @@ function salesExtraFormHTML(){
   var many=f.lines.length>1;
   return `<div class="sales-extra-form" data-extra-form>`+
     `<label><span>Service</span><select data-extra-pick onchange="salesExtraFormSet('rateId',this.value)"><option value="" ${f.rateId?'':'selected'}>Custom (this order only)</option>${cat.map(function(c){return `<option value="${esc(c.id)}" ${f.rateId===c.id?'selected':''}>${esc(c.name)} · ${esc(c.unit||'pc')}${c.station?' · '+esc(c.station):''}</option>`;}).join('')}</select></label>`+
-    (f.rateId?'':`<label><span>Name</span><input data-extra-name value="${esc(f.name)}" maxlength="80" oninput="soExtraForm.name=this.value"></label><label><span>Unit</span><select data-extra-unit onchange="salesExtraFormSet('unit',this.value);render()">${SALES_EXTRA_UNITS.map(function(u){return `<option ${f.unit===u?'selected':''}>${u}</option>`;}).join('')}</select></label>`)+
+    (f.rateId?'':`<label><span>Name</span><input data-extra-name value="${esc(f.name)}" maxlength="80" oninput="soExtraForm.name=this.value"></label><span class="sales-extra-units"><span>Charged per</span><span>${SALES_EXTRA_UNITS.map(function(u){return `<button type="button" class="sm${f.unit===u?' on':''}" data-extra-unit="${u}" onclick="salesExtraFormSet('unit','${u}');render()">${u}</button>`;}).join('')}</span></span>`)+
     `<label><span>Qty / unit</span><input data-extra-qty type="number" min="0" step="any" value="${esc(f.qty)}" placeholder="${unit==='ft²'?'area':unit==='in'?'perimeter':'1'}" oninput="soExtraForm.qty=this.value"></label>`+
-    `<label><span>Rate</span><input data-extra-rate type="number" min="0" step="0.01" value="${esc(f.rate)}" placeholder="${r?'catalog':'required'}" oninput="soExtraForm.rate=this.value"></label>`+
+    `<label><span>Rate / ${esc(unit)}</span><input data-extra-rate type="number" min="0" step="0.01" value="${esc(f.rate)}" placeholder="${r?'catalog':'required'}" oninput="soExtraForm.rate=this.value"></label>`+
     `<button class="sm pri" data-extra-add onclick="salesExtraAdd()">Add${many?' to '+f.lines.length+' lines':''}</button><button class="sm" onclick="salesExtraFormClose()">Cancel</button>`+
     (f.error?`<b class="sales-extra-error">${esc(f.error)}</b>`:'')+`</div>`;
 }
