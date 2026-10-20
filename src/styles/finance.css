@@ -92,5 +92,6 @@
 .com-form [data-com-customer]{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .com-form [data-com-customer] select{flex:0 1 360px;min-width:0}
 .com-form [data-com-customer] input[type=number]{flex:none;width:90px}
-.com-form [data-com-customer] .dl{flex:none;width:auto;margin-left:0}
+.com-form [data-com-customer] input[type=date]{flex:none;width:170px}.com-form [data-com-customer] .mut{flex:none}
+.com-form [data-com-customer] .dl{flex:none;width:auto;margin-left:auto}
 .com-form [data-com-add-customer]{margin-bottom:10px}
