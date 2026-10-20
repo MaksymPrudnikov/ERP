@@ -11,12 +11,13 @@ let sEdit=null,sDraft=null,sView='setup',sWorkspaceTab='designer',sEdgeworkOpen=
 let sManufacturingCustomId=null;
 /* Размер, у которого открыта панель управления прямо на чертеже. */
 let sDimEdit=null,sMetricDimEdit=null;
-/* Редко используемый метрический слой — только состояние экрана. Он не входит
-   в Shape definition и потому никогда не меняет ревизию или fingerprint. */
-var SHAPE_METRIC_STORAGE_KEY='glass_erp_shape_metric_detail',SHAPE_METRIC_OFFSETS_STORAGE_KEY='glass_erp_shape_metric_offsets_v1',SHAPE_METRIC_HIDDEN_STORAGE_KEY='glass_erp_shape_metric_hidden_v1',sMetricDetail=false,sMetricOffsets={},sMetricHidden={};
+/* Редко используемый метрический слой: включён ли он — состояние экрана, а
+   раскладка его подписей живёт в форме (drawingLayout, ключи mm:…), как у
+   дюймов. Старые сдвиги −/+ этого браузера (sMetricOffsets) читаются только
+   для дюймов — shapeLayoutAdoptLegacy переносит их в форму. */
+var SHAPE_METRIC_STORAGE_KEY='glass_erp_shape_metric_detail',SHAPE_METRIC_OFFSETS_STORAGE_KEY='glass_erp_shape_metric_offsets_v1',sMetricDetail=false,sMetricOffsets={};
 try{sMetricDetail=localStorage.getItem(SHAPE_METRIC_STORAGE_KEY)==='1';}catch(e){}
 try{var metricStored=JSON.parse(localStorage.getItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY)||'{}');if(metricStored&&typeof metricStored==='object')sMetricOffsets=metricStored;}catch(e){}
-try{var hiddenStored=JSON.parse(localStorage.getItem(SHAPE_METRIC_HIDDEN_STORAGE_KEY)||'{}');if(hiddenStored&&typeof hiddenStored==='object')sMetricHidden=hiddenStored;}catch(e){}
 function setShapeMetricDetail(value){
   sMetricDetail=!!value;sMetricDimEdit=null;
   try{localStorage.setItem(SHAPE_METRIC_STORAGE_KEY,sMetricDetail?'1':'0');}catch(e){}
@@ -38,48 +39,36 @@ function shapeMetricOffsetScope(result,selected,mode){
 }
 function shapeCurrentDrawingOffsetScope(result){return sMetricDetail?shapeMetricOffsetScope(result,shapeMetricSelectedLite()):shapeMetricOffsetScope(result,null,'inch');}
 function shapeMetricSaveOffsets(){try{localStorage.setItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY,JSON.stringify(sMetricOffsets));}catch(e){}}
-function shapeMetricSaveHidden(){try{localStorage.setItem(SHAPE_METRIC_HIDDEN_STORAGE_KEY,JSON.stringify(sMetricHidden));}catch(e){}}
 function shapeSelectMetricLabel(key){
   var r=shapeDraftResult(),scope=shapeCurrentDrawingOffsetScope(r),same=sMetricDimEdit&&sMetricDimEdit.scope===scope&&sMetricDimEdit.key===key;
   sDimEdit=null;sLayoutEdit=null;sMetricDimEdit=same?null:{scope:scope,key:key};refreshShapeEditor();
 }
+/* Кнопки −/+ сдвигают размер шагом; сдвиг лежит в форме — в дюймах и в мм
+   одинаково (у мм свои ключи mm:…). */
 function shapeNudgeMetricLabel(key,delta){
-  if(!sMetricDetail&&sDraft){
-    shapeLayoutAdoptLegacy();var rec=shapeLayoutEntry(key),step=Math.max(-4,Math.min(8,(+rec.off||0)+(delta<0?-1:1)));
-    if(step)rec.off=step;else delete rec.off;shapeLayoutPrune(key);
-    if(!sLayoutEdit)sMetricDimEdit={scope:shapeCurrentDrawingOffsetScope(shapeDraftResult()),key:key};refreshShapeEditor();return;
-  }
-  var r=shapeDraftResult(),scope=shapeCurrentDrawingOffsetScope(r),map=sMetricOffsets[scope]||(sMetricOffsets[scope]={});
-  var next=Math.max(-4,Math.min(8,(+map[key]||0)+(delta<0?-1:1)));
-  if(next)map[key]=next;else delete map[key];
-  if(!Object.keys(map).length)delete sMetricOffsets[scope];
-  sMetricDimEdit={scope:scope,key:key};shapeMetricSaveOffsets();refreshShapeEditor();
+  if(!sDraft)return;
+  shapeLayoutAdoptLegacy();var rec=shapeLayoutEntry(key),step=Math.max(-4,Math.min(8,(+rec.off||0)+(delta<0?-1:1)));
+  if(step)rec.off=step;else delete rec.off;shapeLayoutPrune(key);
+  if(!sLayoutEdit)sMetricDimEdit={scope:shapeCurrentDrawingOffsetScope(shapeDraftResult()),key:key};refreshShapeEditor();
 }
-function shapeToggleMetricLabelHide(key){
-  if(String(key).indexOf('angle:')!==0)return;
-  var r=shapeDraftResult(),scope=shapeCurrentDrawingOffsetScope(r),map=sMetricHidden[scope]||(sMetricHidden[scope]={});
-  if(map[key])delete map[key];else map[key]=true;
-  if(!Object.keys(map).length)delete sMetricHidden[scope];
-  sMetricDimEdit=null;shapeMetricSaveHidden();refreshShapeEditor();
-}
+/* Список скрытых подписей — свой у каждого режима: в мм только ключи mm:…,
+   в дюймах — без них. */
 function shapeMetricHiddenControlsHTML(result){
-  if(!sMetricDetail&&sView!=='cutting'&&!(result&&result.externalFile))return shapeLayoutHiddenHTML();
-  if(!sMetricDetail||sView==='cutting'||result&&result.externalFile)return '';
-  var scope=shapeCurrentDrawingOffsetScope(result),map=sMetricHidden[scope]||{},keys=Object.keys(map).filter(function(k){return map[k]&&k.indexOf('angle:')===0;});
-  if(!keys.length)return '';
-  return `<div class='shape-hidden-angles'><span>Hidden angles</span>${keys.map(function(key){var n=(+key.split(':')[1]||0)+1;return `<button type='button' onclick='shapeToggleMetricLabelHide("${esc(key)}")'>Show angle ${n}</button>`;}).join('')}</div>`;
+  if(sView==='cutting'||result&&result.externalFile)return '';
+  return shapeLayoutHiddenHTML(function(k){return (k.indexOf('mm:')===0)===!!sMetricDetail;});
 }
 function shapeMetricProductionOptions(result,interactive){
+  var layout=(result&&result.definition&&result.definition.drawingLayout)||(sDraft&&sDraft.drawingLayout)||{};
   if(!sMetricDetail){
     var inchScope=shapeMetricOffsetScope(result,null,'inch');
     return {annotation:{offsets:Object.assign({},sMetricOffsets[inchScope]||{}),interactive:!!interactive,selectedKey:interactive&&sMetricDimEdit&&sMetricDimEdit.scope===inchScope?sMetricDimEdit.key:null,
-      layout:(result&&result.definition&&result.definition.drawingLayout)||(sDraft&&sDraft.drawingLayout)||{},layoutSelected:interactive&&sLayoutEdit?sLayoutEdit.key:null}};
+      layout:layout,layoutSelected:interactive&&sLayoutEdit?sLayoutEdit.key:null}};
   }
   var metric={thicknessMm:shapeThicknessMm((result&&result.definition)||sDraft||{})};
   var selected=shapeMetricSelectedLite(),scope=shapeMetricOffsetScope(result,selected);
-  metric.offsets=Object.assign({},sMetricOffsets[scope]||{});
-  metric.hiddenKeys=Object.assign({},sMetricHidden[scope]||{});
+  metric.layout=layout;metric.keyPrefix='mm:';
   metric.interactive=!!interactive;
+  metric.layoutSelected=metric.interactive&&sLayoutEdit?sLayoutEdit.key:null;
   metric.selectedKey=metric.interactive&&sMetricDimEdit&&sMetricDimEdit.scope===scope?sMetricDimEdit.key:null;
   if(selected!=null){
     var lites=shapeEditorLites(),lite=lites.find(function(l){return l.index===selected;});
@@ -94,6 +83,8 @@ function shapeMetricProductionOptions(result,interactive){
         var line=shapeBridgeLine();
         var own=line?salesLineLiteShape(line,selected):null,source=own?ShapeModule.compute(own):result;
         metric.edgeIds=source&&source.geometry?(source.geometry.edges||[]).map(function(e){return e.id;}):[];
+        /* У контура лайта свои подписи: раскладка формы его не двигает. */
+        metric.keyPrefix='mm:lite'+selected+':';
       }
     }
   }
@@ -107,7 +98,7 @@ function shapeMetricProductionOptions(result,interactive){
    прилипает к исходной горизонтали и вертикали, шаг — 4 точки листа.
    Стрелки клавиатуры двигают выделенную подпись на 4, с Shift — на 16. */
 let sLayoutEdit=null,sLayoutDrag=null;
-var SHAPE_LAYOUT_GRID=4,SHAPE_LAYOUT_STICK=6,SHAPE_LAYOUT_MAX=400;
+var SHAPE_LAYOUT_GRID=4,SHAPE_LAYOUT_STICK=6,SHAPE_LAYOUT_MAX=1200;
 function shapeLayoutMap(){if(!sDraft.drawingLayout||typeof sDraft.drawingLayout!=='object'||Array.isArray(sDraft.drawingLayout))sDraft.drawingLayout={};return sDraft.drawingLayout;}
 function shapeLayoutEntry(key){var m=shapeLayoutMap();return m[key]||(m[key]={});}
 function shapeLayoutPrune(key){var m=shapeLayoutMap(),r=m[key];if(r&&!r.dx&&!r.dy&&(!r.scale||r.scale===1)&&r.hide!==true&&!r.off)delete m[key];}
@@ -134,9 +125,9 @@ function shapeLayoutKeyText(key){
   var t=typeof SHAPE_LAYOUT_TEXT!=='undefined'&&SHAPE_LAYOUT_TEXT[key];if(t)return t;
   var p=String(key).split(':');return p.slice(1).join(' ')||key;
 }
-function shapeLayoutHiddenHTML(){
+function shapeLayoutHiddenHTML(only){
   var m=sDraft&&sDraft.drawingLayout;if(!m)return '';
-  var keys=Object.keys(m).filter(function(k){return m[k]&&m[k].hide===true;});if(!keys.length)return '';
+  var keys=Object.keys(m).filter(function(k){return m[k]&&m[k].hide===true&&(!only||only(k));});if(!keys.length)return '';
   return `<div class='shape-hidden-angles shape-hidden-layout'><span>Hidden</span>${keys.map(function(k){return `<button type='button' onclick='shapeLayoutShow("${esc(k)}")'>Show ${esc(shapeLayoutKeyText(k))}</button>`;}).join('')}</div>`;
 }
 /* Магниты: линия размера ходит только поперёк себя (оси x/y), число размера —
@@ -915,7 +906,7 @@ let shapeDimUi=true;
 if(typeof document!=='undefined'&&document.addEventListener)document.addEventListener('click',function(ev){
   if(!sDimEdit&&!sMetricDimEdit&&!sLayoutEdit)return;
   var t=ev&&ev.target;
-  if(t&&t.closest&&t.closest('.shape-dim-menu,.shape-mi-prod-dims,.shape-dim-ghost,.shape-dim-controls,.shape-metric-movable,.shape-inch-primary-movable,.shape-layout-item,.shape-hidden-layout'))return;
+  if(t&&t.closest&&t.closest('.shape-dim-menu,.shape-mi-prod-dims,.shape-dim-ghost,.shape-dim-controls,.shape-inch-primary-movable,.shape-layout-item,.shape-hidden-layout'))return;
   sDimEdit=null;sMetricDimEdit=null;sLayoutEdit=null;render();
 });
 function shapeDimArrowDefs(){

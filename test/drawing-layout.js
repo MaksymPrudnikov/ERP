@@ -11,8 +11,8 @@ module.exports=async function({page,eq}){
   window.dlDoc=(d,opts)=>new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d),opts||{annotation:{interactive:true}}),'image/svg+xml');
   window.dlLines=doc=>[...doc.querySelectorAll('line[marker-start]')].map(l=>['x1','y1','x2','y2'].map(k=>l.getAttribute(k)).join()).join('|');
  });
- eq('layout values are cleaned and bounded',await t.p.evaluate(()=>shapeNormalizeDrawingLayout({'chain:bottom:B':{dx:999,dy:'4',scale:5,hide:'yes'},'bad key!':{dx:1},'op:A':{dx:0,scale:1},'radius:R:BL':{hide:true,scale:.1,off:20}})),
-  {'chain:bottom:B':{dx:400,dy:4,scale:2},'radius:R:BL':{scale:.6,hide:true,off:8}});
+ eq('layout values are cleaned and bounded',await t.p.evaluate(()=>shapeNormalizeDrawingLayout({'chain:bottom:B':{dx:9999,dy:'4',scale:5,hide:'yes'},'bad key!':{dx:1},'op:A':{dx:0,scale:1},'radius:R:BL':{hide:true,scale:.1,off:20}})),
+  {'chain:bottom:B':{dx:1200,dy:4,scale:2},'radius:R:BL':{scale:.6,hide:true,off:8}});
  eq('a dimension line moves with its number, across itself only, with extension lines',await t.p.evaluate(()=>{
   const d=dlDef(),base=dlDoc(d),line=base.querySelector('.shape-layout-item[data-layout-key^="chain:bottom:"][data-layout-key$="|line"]'),key=line.getAttribute('data-layout-key');
   d.drawingLayout={[key]:{dy:20,dx:30,scale:2}};const moved=dlDoc(d),g=moved.querySelector('[data-layout-key="'+key+'"]');
@@ -58,6 +58,49 @@ module.exports=async function({page,eq}){
   const g=document.querySelector('#shapeLivePreview [data-layout-key="feat:'+id+'"]'),out={item:!!g,moved:!!g&&(g.getAttribute('transform')||'').startsWith('translate(16 0)')};
   sEdit=null;sDraft=null;render();return out;
  }),{item:true,moved:true});
+ /* Чертёж в мм (владелец, 20.10.2026): «как в смарт шейпе — и линию тянуть,
+    и числа, и чтобы магнитилось». Фигура владельца: Smart 36 7/8 × 137 7/8,
+    левая кромка уходит на 16 1/4 — верх во всю ширину 53 1/8, низ короче. */
+ await t.p.evaluate(()=>{
+  window.dlOwner=()=>{const d=newShapeDef('smart');d.w='36 7/8';d.h='137 7/8';d.smart=ssNormalize({});d.smart.elbowsOn=false;d.smart.A.out='16 1/4';d.smart.A.dir='left';
+   const S={w:d.w,h:d.h,shape:{type:'smart',smart:d.smart}};ssSyncExtra(S);d.smart=S.shape.smart;return d;};
+  window.dlMm=(d,o)=>new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d),Object.assign({metric:Object.assign({interactive:true},o||{})})),'image/svg+xml');
+ });
+ eq('mm: overall width sits on the full-width side, extension lines start at the glass',await t.p.evaluate(()=>{
+  const doc=dlMm(dlOwner()),contour=doc.querySelector('.shape-metric-contour').getAttribute('d').replace(/[MLZ]/g,' ').trim().split(/\s+/).map(Number);
+  const pts=[];for(let i=0;i<contour.length;i+=2)pts.push([contour[i],contour[i+1]]);
+  const top=Math.min(...pts.map(p=>p[1])),left=Math.min(...pts.map(p=>p[0])),right=Math.max(...pts.map(p=>p[0]));
+  const w=doc.querySelector('[data-metric-role="width"]');
+  const feet=[...doc.querySelectorAll('.shape-dim-foot[data-foot-of="mm:overall:width"]')].map(l=>[+l.getAttribute('x1'),+l.getAttribute('y1')]);
+  const onGlass=f=>pts.some(p=>Math.abs(p[0]-f[0])<.01&&Math.abs(p[1]-f[1])<.01);
+  return {above:+w.getAttribute('y')<top,text:w.textContent,feet:feet.filter(onGlass).length,ends:feet.map(f=>f[0]).sort((a,b)=>a-b).map(x=>Math.round(x))[0]===Math.round(left)&&Math.round(feet.map(f=>f[0]).sort((a,b)=>b-a)[0])===Math.round(right)};
+ }),{above:true,text:'1349.38',feet:2,ends:true});
+ eq('mm: every label is a layout item with an mm key named by its edges',await t.p.evaluate(()=>{
+  const keys=[...dlMm(dlOwner()).querySelectorAll('.shape-layout-item')].map(g=>g.getAttribute('data-layout-key'));
+  return {all:keys.every(k=>k.indexOf('mm:')===0),edges:keys.filter(k=>/^mm:edge:/.test(k)&&!/\|line$/.test(k)).sort(),angles:keys.filter(k=>k.indexOf('mm:angle:')===0).sort(),lines:keys.filter(k=>/\|line$/.test(k)).sort()};
+ }),{all:true,edges:['mm:edge:A','mm:edge:B'],angles:['mm:angle:A~D','mm:angle:B~A','mm:angle:C~B','mm:angle:D~C'],lines:['mm:edge:B|line','mm:overall:height|line','mm:overall:width|line']});
+ eq('mm: the width line can be dragged to the far side; extensions follow it from the glass',await t.p.evaluate(()=>{
+  const d=dlOwner();d.drawingLayout={'mm:overall:width|line':{dy:900}};
+  const doc=dlMm(d),g=doc.querySelector('[data-layout-key="mm:overall:width|line"]'),line=g.querySelector('line[marker-start]');
+  const y=+line.getAttribute('y1')+900,feet=[...doc.querySelectorAll('.shape-dim-foot[data-foot-of="mm:overall:width"]')];
+  const bottom=Math.max(...doc.querySelector('.shape-metric-contour').getAttribute('d').replace(/[MLZ]/g,' ').trim().split(/\s+/).map(Number).filter((v,i)=>i%2));
+  return {transform:g.getAttribute('transform'),belowGlass:y>bottom,feet:feet.length,feetReach:feet.every(l=>Math.abs(+l.getAttribute('y2')-(y+8))<.01)};
+ }),{transform:'translate(0 900)',belowGlass:true,feet:2,feetReach:true});
+ eq('mm: labels keep their edge after a vertex is added; inch layout ignores mm keys',await t.p.evaluate(()=>{
+  const d=dlOwner();d.drawingLayout={'mm:edge:B':{dx:24},'mm:angle:B~A':{scale:1.5}};
+  const before=dlMm(d).querySelector('[data-layout-key="mm:edge:B"] .shape-metric-length').getAttribute('data-edge-id');
+  d.smart.corners.br='single';const S={w:d.w,h:d.h,shape:{type:'smart',smart:d.smart}};ssSyncExtra(S);d.smart=S.shape.smart;Object.keys(d.smart.extraEdges).forEach(k=>d.smart.extraEdges[k].len='4');
+  const doc=dlMm(d),g=doc.querySelector('[data-layout-key="mm:edge:B"]'),inch=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d),{annotation:{interactive:true,layout:d.drawingLayout}}),'image/svg+xml');
+  return {before,after:g&&g.querySelector('.shape-metric-length').getAttribute('data-edge-id'),moved:!!g&&(g.getAttribute('transform')||'').startsWith('translate(24 0)'),inchTouched:inch.querySelectorAll('[data-layout-key^="mm:"]').length};
+ }),{before:'B',after:'B',moved:true,inchTouched:0});
+ eq('mm: a hidden label leaves the sheet; the hidden list shows only its own mode',await t.p.evaluate(()=>{
+  const oldDraft=sDraft,oldDetail=sMetricDetail,d=dlOwner();d.drawingLayout={'mm:angle:B~A':{hide:true},'op:A':{hide:true}};
+  const sheet=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d),{metric:{},sheet:true}),'image/svg+xml');
+  sDraft=d;sMetricDetail=true;const mm=shapeMetricHiddenControlsHTML(ShapeModule.compute(d));sMetricDetail=false;const inch=shapeMetricHiddenControlsHTML(ShapeModule.compute(d));
+  sDraft=oldDraft;sMetricDetail=oldDetail;
+  return {angles:sheet.querySelectorAll('.shape-metric-angle').length,arcs:sheet.querySelectorAll('.shape-metric-angle-arc').length,ui:sheet.querySelectorAll('.shape-layout-ghost,.shape-layout-menu,[onpointerdown]').length,
+   mm:(mm.match(/shapeLayoutShow/g)||[]).length,mmKey:mm.includes('mm:angle:B~A'),inch:(inch.match(/shapeLayoutShow/g)||[]).length,inchKey:inch.includes('op:A')};
+ }),{angles:3,arcs:3,ui:0,mm:1,mmKey:true,inch:1,inchKey:true});
  eq('drawing layout has no browser errors',t.errs,[]);
  await t.c.close();
 };
