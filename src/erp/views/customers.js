@@ -1,7 +1,7 @@
 /* =====================================================================
    view/customers  ·  customers-2.0
    Клиенты: таблица на общем движке Sales, карточка из пяти вкладок,
-   заказы клиента, импорт / экспорт в меню «⋯», предупреждение о дубле.
+   заказы клиента, экспорт в меню «⋯», предупреждение о дубле.
    ===================================================================== */
 
 let cEdit=null,cDraft=null,cSeen='',cTab='general',cMenu=null,cDup=null;
@@ -49,9 +49,7 @@ function customerList(){
  const infos=custInfos(),rows=salesListRows(infos),cols=salesListColumns();
  const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
  return `<div class="card sales-list-card">
-  <div class="sales-toolbar">${salesListDateButton('created')}<span class="sales-toolbar-sp"></span><button class="pri" data-customer-new onclick="customerNew()">+ New customer</button><button type="button" class="cust-more" data-customer-more title="Import · Export" aria-label="Import and export" onclick="custMenuOpen(event,'more')">⋯</button></div>
-  <input id="customerImportMerge" type="file" accept=".csv,.json,text/csv,application/json" hidden onchange="importCustomersFile(this,'merge')">
-  <input id="customerImportReplace" type="file" accept=".csv,.json,text/csv,application/json" hidden onchange="importCustomersFile(this,'replace')">
+  <div class="sales-toolbar">${salesListDateButton('created')}<span class="sales-toolbar-sp"></span><button class="pri" data-customer-new onclick="customerNew()">+ New customer</button><button type="button" class="cust-more" data-customer-more title="Export" aria-label="Export" onclick="custMenuOpen(event,'more')">⋯</button></div>
   ${salesListFilterChips()}
   <div class="sales-table-wrap"><table class="sl-table cust-table"><thead><tr><th><span class="sl-header-tools">${settings}</span></th>${cols.map(custHeader).join('')}<th></th></tr></thead>
   <tbody>${rows.map(i=>`<tr data-customer-row="${esc(i.c.id)}" ondblclick="customerEdit('${esc(i.c.id)}')" oncontextmenu="custMenuOpen(event,'row','${esc(i.c.id)}')"><td></td>${cols.map(c=>custCell(i,c)).join('')}<td class="customer-row-actions"><button class="sm" onclick="customerEdit('${esc(i.c.id)}')">Open</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'No customers match the filters':'No customers yet'}</td></tr>`}</tbody></table></div>
@@ -59,7 +57,7 @@ function customerList(){
  </div>${salesListMenuHTML(infos)}`;
 }
 /* Меню: правая кнопка на строке — Open / Duplicate / Archive / Delete;
-   «⋯» в панели — импорт и экспорт (редкие действия, не на виду). */
+   «⋯» в панели — экспорт (редкое действие, не на виду). */
 function custMenuOpen(e,kind,id){
  if(e){e.preventDefault();e.stopPropagation();}
  const r=e&&e.currentTarget&&kind==='more'?e.currentTarget.getBoundingClientRect():null;
@@ -71,16 +69,14 @@ function custMenuHTML(){
  const style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-248))}px;top:${Math.max(8,Math.min(m.y,window.innerHeight-200))}px`;
  const item=(act,label,cls,dis,title)=>`<button type="button" role="menuitem" class="${cls||''}" data-cust-menu="${act}" ${dis?'disabled':''} ${title?`title="${esc(title)}"`:''} onclick="custMenuRun('${act}')">${label}</button>`;
  let body='';
- if(m.kind==='more')body=item('import','Import / update…')+item('replace','Import and replace…','dl')+'<hr>'+item('csv','Export CSV')+item('json','Export JSON');
+ if(m.kind==='more')body=item('csv','Export CSV')+item('json','Export JSON');
  else{const c=(DB.customer||[]).find(x=>x.id===m.id);if(!c)return '';const used=customerHasReferences(c.id);
   body=item('open','Open')+item('duplicate','Duplicate')+item('archive',c.status==='archived'?'Restore':'Archive')+'<hr>'+item('delete','Delete','dl',used,used?'Has orders — archive instead':'');}
  return `<div class="sl-backdrop" onclick="custMenuClose()" oncontextmenu="event.preventDefault();custMenuClose()"></div><div class="sl-ctx" style="${style}" role="menu" data-cust-menu-${m.kind}>${body}</div>`;
 }
 function custMenuRun(act){
  const m=cMenu;cMenu=null;if(!m){render();return;}
- if(act==='import')document.getElementById('customerImportMerge').click();
- else if(act==='replace')document.getElementById('customerImportReplace').click();
- else if(act==='csv')exportCustomersCSV();
+ if(act==='csv')exportCustomersCSV();
  else if(act==='json')exportCustomersJSON();
  else if(act==='open')return customerEdit(m.id);
  else if(act==='duplicate')return customerDuplicate(m.id);

@@ -31,13 +31,13 @@ module.exports=async function({page,eq}){
   return {last:cell('lastOrder'),balance:cell('balance')===finFmt(finCustomerMoney(c.id).balance),owes:finCustomerMoney(c.id).balance>0};
  }),{last:'Sep 20',balance:true,owes:true});
 
- eq('правая кнопка: Open / Duplicate / Archive / Delete; Delete выключен, если есть заказы; «⋯» — импорт и экспорт',await t.p.evaluate(()=>{
+ eq('правая кнопка: Open / Duplicate / Archive / Delete; Delete выключен, если есть заказы; «⋯» — только экспорт (импорт одних клиентов убран)',await t.p.evaluate(()=>{
   const c=DB.customer[0],free=oqCustomer({legalName:'Free Co'});render();
   const menu=id=>{document.querySelector(`[data-customer-row="${id}"]`).dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:200,clientY:200}));const r=[...document.querySelectorAll('[data-cust-menu]')].map(b=>b.textContent+(b.disabled?' ·off':''));custMenuClose();return r;};
   const used=menu(c.id),open=menu(free.id);
   document.querySelector('[data-customer-more]').click();const more=[...document.querySelectorAll('[data-cust-menu]')].map(b=>b.textContent);custMenuClose();
   return {used,open,more,rowButtons:[...document.querySelector(`[data-customer-row="${c.id}"] td:last-child`).querySelectorAll('button')].map(b=>b.textContent)};
- }),{used:['Open','Duplicate','Archive','Delete ·off'],open:['Open','Duplicate','Archive','Delete'],more:['Import / update…','Import and replace…','Export CSV','Export JSON'],rowButtons:['Open']});
+ }),{used:['Open','Duplicate','Archive','Delete ·off'],open:['Open','Duplicate','Archive','Delete'],more:['Export CSV','Export JSON'],rowButtons:['Open']});
 
  eq('карточка: General / Contacts / Addresses / Payment / Orders; Legacy IDs — только если заполнены; деньги — во вкладке Payment',await t.p.evaluate(()=>{
   const c=DB.customer.find(x=>x.legalName==='Money Co');customerEdit(c.id);
@@ -100,14 +100,11 @@ module.exports=async function({page,eq}){
  eq('две вкладки: удалённого клиента старая форма не возвращает; «This customer was deleted», набранное в форме',{stored:await stored(t.p,ids.b),form:await t.p.evaluate(()=>({open:cEdit,notes:cDraft&&cDraft.notes,err:(document.getElementById('e_customer')||{}).textContent||''}))},
   {stored:null,form:{open:ids.b,notes:'Call first',err:'This customer was deleted'}});
  await other.close();
- eq('без чужих правок Save сохраняет, и снова, и после Archive; импорт меняет updatedAt — открытая форма его видит',await t.p.evaluate(id=>{
+ eq('без чужих правок Save сохраняет, и снова, и после Archive',await t.p.evaluate(id=>{
   cEdit=null;cDraft=null;const save=v=>{customerEdit(id);cDraft.notes=v;saveCustomer();return cEdit===null&&DB.customer.find(c=>c.id===id).notes===v;};
-  const first=save('one'),second=save('two');customerToggleArchive(id);const afterArchive=save('three');
-  DB.customer.find(c=>c.id===id).updatedAt='2026-01-01T00:00:00.000Z';customerEdit(id);
-  applyCustomerImport([normalizeCustomer({code:DB.customer.find(c=>c.id===id).code,legalName:'Imported Name'})],'merge');render();saveCustomer();
-  const imported=(document.getElementById('e_customer')||{}).textContent||'';cEdit=null;cDraft=null;tab='dashboard';render();
-  return {first,second,afterArchive,imported};
- },ids.a),{first:true,second:true,afterArchive:true,imported:'Changed elsewhere — reopen'});
+  const first=save('one'),second=save('two');customerToggleArchive(id);const afterArchive=save('three');cEdit=null;cDraft=null;tab='dashboard';render();
+  return {first,second,afterArchive};
+ },ids.a),{first:true,second:true,afterArchive:true});
  eq('customers без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

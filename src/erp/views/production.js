@@ -40,7 +40,12 @@ function viewProduction(){
 }
 
 /* --- 1. Станции ------------------------------------------------------ */
-let stEdit=null;
+let stEdit=null,stSeen=null;
+/* Форма станции помнит станцию, какой её открыли (stSeen): старая форма из
+   другой вкладки не пишет поверх свежей правки и не попадает на соседнюю
+   станцию, если номера строк сдвинулись (как карточка клиента, F08;
+   владелец, 20.10.2026). */
+function stEditOpen(i){stEdit=i;stSeen={i,json:JSON.stringify(DB.station[i])};render();}
 /* Габарит без пометки о замере читается как факт. Пока его не подтвердили
    рулеткой, рядом обязана стоять оговорка — иначе деталь уедет на станцию,
    которая её не примет, а система будет утверждать, что всё влезает. */
@@ -99,7 +104,7 @@ function viewSfStations(edit){
    <td>${w.length?w.slice(0,6).map(o=>`<span class="pill info" data-raw>${esc(o.name||o.id)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>'}</td>
    <td class="mut" style="max-width:260px">${raw(s.note||'')}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>
-   ${edit?`<button class="sm" onclick="stEdit=${i};render()">Edit</button>
+   ${edit?`<button class="sm" onclick="stEditOpen(${i})">Edit</button>
    <button class="sm dl" data-sf-del="${esc(s.code)}" onclick="delSfStation(${i})">×</button>`:''}</td></tr>`+
    /* Колонки листа долли/скида станции — под её строкой (views/carriers-board). */
    (edit&&typeof sfSheetEdit!=='undefined'&&sfSheetEdit===s.code?`<tr class="sf-sheet-row"><td colspan="10">${carrierSheetEditorHTML(s.code)}</td></tr>`:'');
@@ -130,7 +135,8 @@ function sfStationsTidy(){
 }
 function sfStationForm(){
  const last=DB.station.filter(s=>!s.always).reduce((m,s)=>Math.max(m,s.seq),0);
- const r = stEdit==='new' ? {seq:last+1,code:'',name:'',nameEn:'',always:false,maxW:null,maxL:null,sizeMeasured:false,note:''} : DB.station[stEdit];
+ if(stEdit!=='new'&&(!stSeen||stSeen.i!==stEdit)&&DB.station[stEdit])stSeen={i:stEdit,json:JSON.stringify(DB.station[stEdit])};
+ const r = stEdit==='new' ? {seq:last+1,code:'',name:'',nameEn:'',always:false,maxW:null,maxL:null,sizeMeasured:false,note:''} : stSeen&&stSeen.i===stEdit ? JSON.parse(stSeen.json) : (DB.station[stEdit]||{});
  return `<div class="form"><h3>${stEdit==='new'?'New station':'Edit'}</h3>
   <div class="grid">
    <div><label>Step *</label><input id="sf_seq" type="number" min="1" step="1" value="${r.seq}"><div class="hint">Same number as another station — parallel.</div></div>
@@ -145,10 +151,10 @@ function sfStationForm(){
   </div>
   <div style="margin-top:12px"><label>Note</label><input id="sf_note" value="${esc(r.note||'')}"></div>
   <div class="err" id="e_sfStation"></div>
-  <div class="row"><button class="pri" data-sf-save onclick="saveSfStation()">Save</button><button onclick="stEdit=null;render()">Cancel</button></div></div>`;
+  <div class="row"><button class="pri" data-sf-save onclick="saveSfStation()">Save</button><button onclick="stEdit=null;stSeen=null;render()">Cancel</button></div></div>`;
 }
 function saveSfStation(){
- const oldEdit=stEdit,oldCode=stEdit==='new'?'':DB.station[stEdit].code,newCode=document.getElementById('sf_code').value.trim().toUpperCase();
+ const oldEdit=stEdit,oldCode=stEdit==='new'||!DB.station[stEdit]?'':DB.station[stEdit].code,newCode=document.getElementById('sf_code').value.trim().toUpperCase();
  const fields=[...document.querySelectorAll('[id^="sf_"]')].map(el=>({id:el.id,value:el.value,checked:el.checked}));
  const out=storageCommand(()=>{const result=saveSfStationCommand();if(result!==true)throw new Error(document.getElementById('e_sfStation').textContent||'The station was not saved.');return true;});
  if(!out.ok){stEdit=oldEdit;render();fields.forEach(f=>{const el=document.getElementById(f.id);if(el){el.value=f.value;el.checked=f.checked;}});const e=document.getElementById('e_sfStation');if(e)fail(e,out.error);return false;}
@@ -160,6 +166,7 @@ function saveSfStation(){
 }
 function saveSfStationCommand(){
  const e=document.getElementById('e_sfStation'); e.style.display='none';
+ if(stEdit!=='new'){const cur=DB.station[stEdit];if(!cur)return fail(e,'This station was deleted');if(!stSeen||stSeen.i!==stEdit||JSON.stringify(cur)!==stSeen.json)return fail(e,'Changed elsewhere — reopen');}
  const seq=+document.getElementById('sf_seq').value;
  const code=document.getElementById('sf_code').value.trim().toUpperCase();
  const nameEn=document.getElementById('sf_nameEn').value.trim();
@@ -189,7 +196,7 @@ function saveSfStationCommand(){
   note:document.getElementById('sf_note').value.trim()};
  if(stEdit==='new') DB.station.push(o); else Object.assign(DB.station[stEdit],o);
  DB.station.sort((a,b)=>a.seq-b.seq);
- stEdit=null; stationRouteReset(); touch(); render();return true;
+ stEdit=null; stSeen=null; stationRouteReset(); touch(); render();return true;
 }
 /* Станцию, на которую ссылаются работы, не удаляем: работа без станции —
    сирота, и увидит её только тот, кто откроет нужный экран. */
