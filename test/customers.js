@@ -76,6 +76,38 @@ module.exports=async function({page,eq}){
   customerEdit(c.id);cDraft.notes='changed';customerLeave(()=>{cEdit=null;cDraft=null;});const changed={asked:asked.length,open:cEdit===c.id};
   window.confirm=cf;cEdit=null;cDraft=null;tab='dashboard';render();return {unchanged,changed};
  }),{unchanged:{asked:0,closed:true},changed:{asked:1,open:true}});
+
+ /* Две вкладки (аудит 19.10.2026, F08): форма, открытая до чужой правки,
+    не пишет старое поверх нового и не возвращает удалённого клиента. */
+ const stored=(p,id)=>p.evaluate(id=>{const c=JSON.parse(localStorage.getItem(STORAGE_KEY)).customer.find(x=>x.id===id);return c?{name:c.legalName,credit:c.creditLimit}:null;},id);
+ const formState=p=>p.evaluate(()=>({open:cEdit,name:cDraft&&cDraft.legalName,err:(document.getElementById('e_customer')||{}).textContent||''}));
+ const ids=await t.p.evaluate(()=>{cuReset();const a=oqCustomer({legalName:'Two Tabs Glass',creditLimit:100}),b=oqCustomer({legalName:'Gone Glass'});touch();tab='customers';customerEdit(a.id);return {a:a.id,b:b.id};});
+ const other=await t.c.newPage();other.on('pageerror',e=>t.errs.push(e.message));other.on('dialog',d=>d.accept());
+ await other.goto(t.p.url());await other.waitForFunction(()=>typeof storageStarting!=='undefined'&&!storageStarting&&storageWriter,null,{timeout:5000});
+ await other.evaluate(id=>{tab='customers';customerEdit(id);cTab='payment';render();cDraft.creditLimit='250';saveCustomer();},ids.a);
+ const takeBack=async p=>{await p.dispatchEvent('body','pointerdown');await p.waitForFunction(()=>storageWriter,null,{timeout:5000});};
+ await takeBack(t.p);
+ await t.p.evaluate(()=>{cDraft.legalName='Two Tabs Glass Renamed';saveCustomer();});
+ eq('две вкладки: старая форма не возвращает лимит 250 → 100; «Changed elsewhere — reopen», набранное в форме',{stored:await stored(t.p,ids.a),form:await formState(t.p)},
+  {stored:{name:'Two Tabs Glass',credit:250},form:{open:ids.a,name:'Two Tabs Glass Renamed',err:'Changed elsewhere — reopen'}});
+ eq('переоткрыл — сохраняет поверх свежей карточки',await t.p.evaluate(id=>{cEdit=null;cDraft=null;customerEdit(id);cDraft.legalName='Two Tabs Glass Renamed';saveCustomer();
+  const c=JSON.parse(localStorage.getItem(STORAGE_KEY)).customer.find(x=>x.id===id);return {closed:cEdit===null,name:c.legalName,credit:c.creditLimit};},ids.a),{closed:true,name:'Two Tabs Glass Renamed',credit:250});
+ await t.p.evaluate(id=>customerEdit(id),ids.b);
+ await takeBack(other);
+ await other.evaluate(id=>{cEdit=null;cDraft=null;render();customerDelete(id);},ids.b);
+ await takeBack(t.p);
+ await t.p.evaluate(()=>{cDraft.notes='Call first';saveCustomer();});
+ eq('две вкладки: удалённого клиента старая форма не возвращает; «This customer was deleted», набранное в форме',{stored:await stored(t.p,ids.b),form:await t.p.evaluate(()=>({open:cEdit,notes:cDraft&&cDraft.notes,err:(document.getElementById('e_customer')||{}).textContent||''}))},
+  {stored:null,form:{open:ids.b,notes:'Call first',err:'This customer was deleted'}});
+ await other.close();
+ eq('без чужих правок Save сохраняет, и снова, и после Archive; импорт меняет updatedAt — открытая форма его видит',await t.p.evaluate(id=>{
+  cEdit=null;cDraft=null;const save=v=>{customerEdit(id);cDraft.notes=v;saveCustomer();return cEdit===null&&DB.customer.find(c=>c.id===id).notes===v;};
+  const first=save('one'),second=save('two');customerToggleArchive(id);const afterArchive=save('three');
+  DB.customer.find(c=>c.id===id).updatedAt='2026-01-01T00:00:00.000Z';customerEdit(id);
+  applyCustomerImport([normalizeCustomer({code:DB.customer.find(c=>c.id===id).code,legalName:'Imported Name'})],'merge');render();saveCustomer();
+  const imported=(document.getElementById('e_customer')||{}).textContent||'';cEdit=null;cDraft=null;tab='dashboard';render();
+  return {first,second,afterArchive,imported};
+ },ids.a),{first:true,second:true,afterArchive:true,imported:'Changed elsewhere — reopen'});
  eq('customers без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
