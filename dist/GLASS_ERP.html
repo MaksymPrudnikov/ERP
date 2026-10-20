@@ -3434,7 +3434,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='95493347fab0';
+var ERP_BUILD='ca31172e71ff';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -28663,21 +28663,28 @@ function salesLineHoldEdit(){
  requestAnimationFrame(()=>{const e=document.querySelector('[data-line-hold-reason]');if(e)e.focus();});
 }
 function salesLineHoldReason(value){if(salesLineHoldMenu)salesLineHoldMenu.reason=value;}
+/* Ответ — {ok, error}. Сохранённый заказ пишется одной storageCommand: база
+   не записалась — Hold нет ни в базе, ни в открытом заказе, меню говорит
+   причину (аудит 19.10.2026, F09). */
 function salesLineHoldSet(orderId,ids,on,reason){
- const draft=soDraft&&soDraft.id===orderId?soDraft:null,saved=salesRecord(orderId),o=draft||saved;
- ids=[...new Set(ids||[])];if(!o||!ids.length||on&&!String(reason||'').trim())return false;
+ const draft=soDraft&&soDraft.id===orderId?soDraft:null,saved=salesRecord(orderId),o=draft||saved,no={ok:false,error:'These lines can no longer be changed.'};
+ ids=[...new Set(ids||[])];if(!o||!ids.length||on&&!String(reason||'').trim())return no;
  const lines=ids.map(id=>o.lines.find(l=>l.id===id));
- if(lines.some(l=>!salesLineHoldAllowed(o,l))||saved&&(salesOrderReadOnly(saved)||ids.some(id=>{const l=saved.lines.find(l=>l.id===id);return l&&!salesLineHoldAllowed(saved,l);})))return false;
+ if(lines.some(l=>!salesLineHoldAllowed(o,l))||saved&&(salesOrderReadOnly(saved)||ids.some(id=>{const l=saved.lines.find(l=>l.id===id);return l&&!salesLineHoldAllowed(saved,l);})))return no;
  const now=new Date().toISOString(),fields={onHold:!!on,holdReason:on?String(reason).trim().slice(0,200):'',holdAt:on?now:''};
- lines.forEach(l=>Object.assign(l,fields));
- if(saved&&saved!==draft)ids.forEach(id=>{const l=saved.lines.find(l=>l.id===id);if(l)Object.assign(l,fields);});
- o.updatedAt=now;if(saved){saved.updatedAt=now;touch();}return true;
+ const apply=()=>{
+  lines.forEach(l=>Object.assign(l,fields));
+  if(saved&&saved!==draft)ids.forEach(id=>{const l=saved.lines.find(l=>l.id===id);if(l)Object.assign(l,fields);});
+  o.updatedAt=now;if(saved)saved.updatedAt=now;return true;
+ };
+ if(!saved){apply();return {ok:true};}
+ const out=storageCommand(apply);return out.ok?{ok:true}:{ok:false,error:out.error};
 }
 function salesLineHoldApply(on){
  const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return;
  if(m.stamp!==salesLineHoldStamp(m.ids)){salesLineHoldMenu=null;salesDialogOpen({title:'Order changed',note:'Review the lines and open the menu again.',buttons:[{label:'Back'}]});return;}
  if(on&&!String(m.reason||'').trim()){m.error='Enter a reason for the hold.';render();return;}
- if(!salesLineHoldSet(m.orderId,m.ids,on,m.reason)){m.error='These lines can no longer be changed.';render();return;}
+ const out=salesLineHoldSet(m.orderId,m.ids,on,m.reason);if(!out.ok){m.error=out.error;render();return;}
  salesLineHoldMenu=null;render();
 }
 function salesLineQueueEdit(){
@@ -34205,17 +34212,20 @@ function ncrReasonProblem(where,name,exceptId){
  const clash=(DB.ncrReason||[]).some(r=>r.id!==exceptId&&r.name.toLowerCase()===low&&(r.where===where||where!==NCR_OFFICE&&r.where!==NCR_OFFICE&&(r.where===NCR_ALL||where===NCR_ALL)));
  return clash?'Already exists':'';
 }
+/* Add, Rename, SetActive: '' — записано, иначе причина отказа, в том числе
+   «база не записалась» (аудит 19.10.2026, F11). */
+function ncrReasonSave(fn){const out=storageCommand(()=>{fn();return true;});return out.ok?'':out.error;}
 function ncrReasonAdd(where,name){
  if(where!==NCR_ALL&&!ncrWhereList().some(w=>w.code===where))return 'Choose where it happened.';
  const problem=ncrReasonProblem(where,name);if(problem)return problem;
- DB.ncrReason.push({id:salesUid('NR'),where,name:ncrName(name),active:true});touch();return '';
+ return ncrReasonSave(()=>DB.ncrReason.push({id:salesUid('NR'),where,name:ncrName(name),active:true}));
 }
 function ncrReasonRename(id,name){
  const r=(DB.ncrReason||[]).find(x=>x.id===id);if(!r)return 'Reason not found.';
  const problem=ncrReasonProblem(r.where,name,id);if(problem)return problem;
- r.name=ncrName(name);touch();return '';
+ return ncrReasonSave(()=>{r.name=ncrName(name);});
 }
-function ncrReasonSetActive(id,on){const r=(DB.ncrReason||[]).find(x=>x.id===id);if(!r)return false;r.active=!!on;touch();return true;}
+function ncrReasonSetActive(id,on){const r=(DB.ncrReason||[]).find(x=>x.id===id);if(!r)return 'Reason not found.';return ncrReasonSave(()=>{r.active=!!on;});}
 
 /* ==== src/erp/views/ncr-reasons-ui.js ==== */
 /* =====================================================================
@@ -34227,14 +34237,17 @@ function ncrReasonSetActive(id,on){const r=(DB.ncrReason||[]).find(x=>x.id===id)
    IN : DB.ncrReason, DB.station (erp/quality/reasons)
    OUT: HTML вкладки; запись через ncrReasonAdd / Rename / SetActive
    ===================================================================== */
-let ncrWhere='CUT',ncrError='';
-function ncrSelect(code){ncrWhere=code;ncrError='';render();}
+/* Набранное при отказе остаётся в поле (аудит 19.10.2026, F11): ncrNew —
+   новая причина, ncrTyped — {id, name} строки, которую не переименовали. */
+let ncrWhere='CUT',ncrError='',ncrNew='',ncrTyped=null;
+function ncrSelect(code){ncrWhere=code;ncrError='';ncrNew='';ncrTyped=null;render();}
 function ncrAddFromInput(){
- const el=document.querySelector('[data-ncr-new]');ncrError=ncrReasonAdd(ncrWhere,el?el.value:'');render();
+ const el=document.querySelector('[data-ncr-new]');ncrNew=el?el.value:'';ncrTyped=null;
+ ncrError=ncrReasonAdd(ncrWhere,ncrNew);if(!ncrError)ncrNew='';render();
  if(!ncrError){const next=document.querySelector('[data-ncr-new]');if(next)next.focus();}
 }
-function ncrRenameFromInput(id,el){ncrError=ncrReasonRename(id,el.value);render();}
-function ncrToggle(id,on){ncrReasonSetActive(id,on);ncrError='';render();}
+function ncrRenameFromInput(id,el){const name=el.value;ncrError=ncrReasonRename(id,name);ncrTyped=ncrError?{id,name}:null;render();}
+function ncrToggle(id,on){ncrError=ncrReasonSetActive(id,on);ncrTyped=null;render();}
 function viewMdNcr(){
  const places=ncrWhereList();
  if(ncrWhere!==NCR_ALL&&!places.some(w=>w.code===ncrWhere))ncrWhere=places.length>1?places[1].code:NCR_ALL;
@@ -34245,7 +34258,7 @@ function viewMdNcr(){
  const hint=ncrWhere===NCR_ALL?'Shown on every station':'';
  const row=r=>{
   const base=station&&r.where===NCR_ALL,scope=r.where===NCR_ALL?'All stations':(r.where===NCR_OFFICE?'Office':r.where)+' only';
-  return `<tr data-ncr-reason="${esc(r.id)}" class="${r.active?'':'ncr-off'}"><td>${base?`<span class="ncr-name">${esc(r.name)}</span>`:`<input class="ncr-name-input" data-ncr-name value="${esc(r.name)}" maxlength="80" aria-label="Reason name" onchange="ncrRenameFromInput('${esc(r.id)}',this)">`}</td>
+  return `<tr data-ncr-reason="${esc(r.id)}" class="${r.active?'':'ncr-off'}"><td>${base?`<span class="ncr-name">${esc(r.name)}</span>`:`<input class="ncr-name-input" data-ncr-name value="${esc(ncrTyped&&ncrTyped.id===r.id?ncrTyped.name:r.name)}" maxlength="80" aria-label="Reason name" onchange="ncrRenameFromInput('${esc(r.id)}',this)">`}</td>
    <td><span class="pill ${r.where===NCR_ALL?'ncr-scope-all':'ncr-scope-own'}">${esc(scope)}</span></td>
    <td class="ncr-active">${base?`<span class="mut" title="Change in All stations">${r.active?'On':'Off'}</span>`:`<label class="ncr-switch"><input type="checkbox" data-ncr-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="ncrToggle('${esc(r.id)}',this.checked)"><span></span></label>`}</td></tr>`;
  };
@@ -34256,7 +34269,7 @@ function viewMdNcr(){
   <div>
    <div class="card ncr-main">
     <div class="ncr-head"><div><div class="ncr-label">WHAT HAPPENED</div><h3>${esc(ncrWhere===NCR_ALL?'All stations':ncrWhere===NCR_OFFICE?'Office':ncrWhere+' · '+ncrWhereName(ncrWhere))}</h3>${hint?`<p>${esc(hint)}</p>`:''}</div>
-     <div class="ncr-add"><input data-ncr-new maxlength="80" placeholder="New reason" aria-label="New reason" onkeydown="if(event.key==='Enter')ncrAddFromInput()"><button type="button" class="pri" data-ncr-add onclick="ncrAddFromInput()">+ Add reason</button></div></div>
+     <div class="ncr-add"><input data-ncr-new maxlength="80" placeholder="New reason" aria-label="New reason" value="${esc(ncrNew)}" oninput="ncrNew=this.value" onkeydown="if(event.key==='Enter')ncrAddFromInput()"><button type="button" class="pri" data-ncr-add onclick="ncrAddFromInput()">+ Add reason</button></div></div>
     ${ncrError?`<div class="ncr-error" role="alert">${esc(ncrError)}</div>`:''}
     <table class="ncr-table"><thead><tr><th>Reason</th><th>Applies to</th><th>Active</th></tr></thead><tbody>${rows.map(row).join('')||'<tr><td colspan="3" class="empty">No reasons yet.</td></tr>'}</tbody></table>
    </div>
