@@ -168,21 +168,34 @@ function salesSheetMuntinInfo(shape){
 function salesSheetFaceNums(top,bottom){
   return '<em class="mk-faces"><i>'+(top?'#'+top:'')+'</i><i>'+(bottom?'#'+bottom:'')+'</i></em>';
 }
-function salesSheetMakeupHTML(makeup,shape){
+/* step — ступенчатый юнит (sales/step-unit): у лайта размер и «smaller /
+   larger», полоска меньшего короче; current — лист одного стекла. */
+function salesSheetMakeupHTML(makeup,shape,step,names,current){
   var panes=(makeup&&makeup.panes)||[];
+  var stepped=!!(step&&step.step),small=function(i){var l=stepped&&step.lites[i];return l&&l.area<step.lites[step.big].area-1e-6?' mk-smaller':'';};
+  var sizeOf=function(i){return stepped?'<small class="mk-size">'+esc(salesStepLiteText(step,i,names))+'</small>':'';};
+  var cur=function(i){return current===i?' mk-current':'';};
   /* Схема нужна там, где слоёв больше одного: пакет, ламинат, спандрел с его
      поверхностью. У простого одинарного стекла всё сказано в заголовке слева. */
   if(!salesSheetIsLayered(makeup))return '';
   var rows='',muntin=salesSheetMuntinInfo(shape),m=shape&&shape.muntin;
+  /* Строки схемы по счёту: первая и последняя строка каждого лайта — по ним
+     шов ступеньки знает, через сколько строк тянуться. */
+  var rn=0,top=[],bot=[],row=function(html){rows+=html;return rn++;};
   /* Double имеет единственную камеру. У Triple отсутствие выбора нельзя
      выдавать за наружную камеру или дублировать раскладку в обеих. */
   var cavityIndex=panes.length===2?0:(m&&(m.cavityIndex===0||m.cavityIndex===1)?m.cavityIndex:null);
   panes.forEach(function(p,i){
     if(i){
-      var bar=i-1===cavityIndex?muntin:null;
-      rows+='<div class="mk-row"><span>Cavity'+(panes.length>2?' '+i:'')+': '+esc(salesSheetCavityText(makeup,i))+
-        (bar?'<small class="mk-muntin-text">'+esc(bar.text)+'</small>':'')+'</span>'+
-        '<i class="mk-cav">'+(bar?bar.svg:'')+'</i><em></em></div>';
+      var bar=i-1===cavityIndex?muntin:null,stepCav=!!small(i-1)!==!!small(i);
+      /* У ступенчатого юнита строка фиксированной высоты: раскладка и шов —
+         одной подписью. */
+      var stepText=stepCav?['Step',SALES_STEP_SEALS[step.seal],salesSheetSealantName(makeup,i)].filter(Boolean).join(' · '):'';
+      row('<div class="mk-row"><span>Cavity'+(panes.length>2?' '+i:'')+': '+esc(salesSheetCavityText(makeup,i))+
+        (stepped?(bar||stepText?'<small class="mk-size">'+esc([bar&&bar.text,stepText].filter(Boolean).join(' · '))+'</small>':''):(bar?'<small class="mk-muntin-text">'+esc(bar.text)+'</small>':''))+'</span>'+
+        /* Распорка стоит по меньшему из двух стёкол камеры (владелец,
+           20.10.2026) — полоска камеры той же длины, что у меньшего. */
+        '<i class="mk-cav'+(small(i-1)||small(i)?' mk-smaller':'')+'">'+(bar?bar.svg:'')+'</i><em></em></div>');
     }
     var surf=salesPaneSurfaces(i),face=salesSheetTreatmentFaces(salesRouteSurfaceTreatments(p,i));
     /* Ламинат — не один слой: внутри свои стёкла и плёнки между ними, и по
@@ -191,22 +204,48 @@ function salesSheetMakeupHTML(makeup,shape){
     if(p.category==='laminated'){
       var lam=p.laminated||{},films=lam.interlayers||[];
       var outer=salesRouteSurfaceTreatments(p,i,'outer'),inner=salesRouteSurfaceTreatments(p,i,'inner');
-      rows+='<div class="mk-row"><span>Lite '+(i+1)+'a: '+esc([salesSheetPlyText(lam.outer),salesSheetTreatmentCode(outer)].filter(Boolean).join(' '))+'</span>'+
-        '<i class="mk-pane'+salesSheetTreatmentFaces(outer)+'"></i>'+salesSheetFaceNums(surf[0],'')+'</div>';
+      top[i]=row('<div class="mk-row'+cur(i)+'"><span>Lite '+(i+1)+'a: '+esc([salesSheetPlyText(lam.outer),salesSheetTreatmentCode(outer)].filter(Boolean).join(' '))+sizeOf(i)+'</span>'+
+        '<i class="mk-pane'+salesSheetTreatmentFaces(outer)+small(i)+'"><!--seal-top-'+i+'--></i>'+salesSheetFaceNums(surf[0],'')+'</div>');
       films.forEach(function(f){
-        rows+='<div class="mk-row"><span>film: '+esc(salesSheetFilmText(f))+'</span>'+
-          '<i class="mk-film"></i><em></em></div>';
+        row('<div class="mk-row"><span>film: '+esc(salesSheetFilmText(f))+'</span>'+
+          '<i class="mk-film'+small(i)+'"></i><em></em></div>');
       });
-      rows+='<div class="mk-row"><span>Lite '+(i+1)+'b: '+esc([salesSheetPlyText(lam.inner),salesSheetTreatmentCode(inner)].filter(Boolean).join(' '))+'</span>'+
-        '<i class="mk-pane'+salesSheetTreatmentFaces(inner)+'"></i>'+salesSheetFaceNums('',surf[1])+'</div>';
+      bot[i]=row('<div class="mk-row'+cur(i)+'"><span>Lite '+(i+1)+'b: '+esc([salesSheetPlyText(lam.inner),salesSheetTreatmentCode(inner)].filter(Boolean).join(' '))+'</span>'+
+        '<i class="mk-pane'+salesSheetTreatmentFaces(inner)+small(i)+'"><!--seal-bottom-'+i+'--></i>'+salesSheetFaceNums('',surf[1])+'</div>');
       return;
     }
-    rows+='<div class="mk-row"><span>Lite '+(i+1)+': '+esc(salesSheetPaneText(p,i))+'</span>'+
-      '<i class="mk-pane'+face+'"></i>'+salesSheetFaceNums(surf[0],surf[1])+'</div>';
+    top[i]=bot[i]=row('<div class="mk-row'+cur(i)+'"><span>Lite '+(i+1)+': '+esc(salesSheetPaneText(p,i))+sizeOf(i)+'</span>'+
+      '<i class="mk-pane'+face+small(i)+'"><!--seal-top-'+i+'--><!--seal-bottom-'+i+'--></i>'+salesSheetFaceNums(surf[0],surf[1])+'</div>');
+  });
+  /* Шов ступеньки — на грани большего стекла, обращённой к меньшим, и тянется
+     до наружной грани самого дальнего меньшего стекла подряд. */
+  rows=rows.replace(/<!--seal-(top|bottom)-(\d+)-->/g,function(x,side,k){
+    var i=+k,d=side==='top'?-1:1,j=i;
+    if(!stepped||small(i))return '';
+    while(j+d>=0&&j+d<panes.length&&small(j+d))j+=d;
+    return j===i?'':salesSheetStepSeal(step.seal,side,(side==='top'?top[i]-top[j]:bot[j]-bot[i])*SALES_SHEET_STEP_ROW+1);
   });
   if(muntin&&panes.length>2&&cavityIndex==null)
     rows+='<div class="mk-muntin-unassigned">'+esc(muntin.text)+' · Cavity not selected</div>';
-  return '<div class="sheet-mk-rows">'+rows+'</div>';
+  return '<div class="sheet-mk-rows'+(stepped?' mk-stepped':'')+'">'+rows+'</div>';
+}
+/* Шаг строки схемы ступенчатого юнита: высота 26px + зазор 4px
+   (.mk-stepped в modules.css). По нему шов знает свою высоту в пикселях. */
+var SALES_SHEET_STEP_ROW=30;
+/* Шов по ступеньке в схеме — по примерам владельца (PDF «TYPE SEAL»; «зачем
+   дублируешь, если можно сделать в лайтах»). Лежит на выступе большего
+   стекла, side — его грань к меньшим ('top' / 'bottom'), h — до наружной
+   грани дальнего меньшего стекла:
+   Flat — герметик заподлицо с меньшими стёклами, на выступе пусто;
+   Edge to edge — клин от края большего стекла до наружного края меньшего;
+   Flat + buttered fill — тонкий слой по торцам меньших стёкол и по выступу. */
+function salesSheetStepSeal(seal,side,h){
+  return seal==='edge'||seal==='buttered'?'<b class="mk-step-seal '+seal+' '+side+'" style="height:'+h+'px"></b>':'';
+}
+/* Герметик камеры — им же заливают ступеньку («доп. силикон по ступеньке»). */
+function salesSheetSealantName(makeup,i){
+  var c=(makeup.cavities||[])[i-1],s=c&&typeof mdById==='function'?mdById('sealantProduct',c.secondarySealantId):null;
+  return s&&s.name?String(s.name):'';
 }
 function salesSheetRouteHTML(route){
   if(!route||!route.lites.length)return '';
@@ -253,15 +292,27 @@ function salesSheetWeightText(w){
   if(!w)return '';
   return (w.exact?'':'~')+(w.kg>=10?Math.round(w.kg):w.kg.toFixed(1))+' kg';
 }
-function salesShapeSheetHTML(shape,result,svg,kind){
+/* opts.liteIndex — лист одного стекла ступенчатого юнита: размер, площадь,
+   вес и маршрут этого стекла, его строка в составе выделена. opts.step —
+   готовая ступенька строки (иначе считается здесь по форме листа). */
+function salesShapeSheetHTML(shape,result,svg,kind,opts){
+  opts=opts||{};
   var line=salesSheetLineOf(shape);
   var order=(typeof soDraft!=='undefined')?soDraft:null;
   var makeup=(line&&order&&typeof salesMakeupById==='function')?salesMakeupById(order,line.makeupId):null;
   var ok=typeof shapeSheetOk==='function'?shapeSheetOk(result):!!(result&&result.valid);
-  var areaFt2=ok?result.area/144:0;
+  /* Форма своего лайта, открытая из строки, — это лист того стекла. */
+  var ownLite=typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.kind==='shape'&&salesBridge.liteIndex!=null?salesBridge.liteIndex:null;
+  var liteIndex=opts.liteIndex!=null?opts.liteIndex:ownLite;
+  var step=opts.step||(line&&typeof salesShapeStepInfo==='function'?(liteIndex!=null?salesLineStepInfo(line,order):salesShapeStepInfo(shape,line,order)):null);
+  var stepLite=step&&step.step&&liteIndex!=null?step.lites[liteIndex]:null;
+  var names=result&&result.geometry&&typeof shapeEdgeNames==='function'?shapeEdgeNames(result.geometry):null;
+  if(step&&step.step&&liteIndex!=null&&line&&typeof salesLineGeometryShape==='function'){var mainR=ShapeModule.compute(salesLineGeometryShape(line));if(mainR&&mainR.geometry)names=shapeEdgeNames(mainR.geometry);}
+  var areaFt2=stepLite?stepLite.area/144:ok?result.area/144:0;
   var pane=makeup&&(makeup.panes||[])[0];
   var weight='';
-  if(makeup&&(makeup.panes||[]).length){
+  if(stepLite&&makeup)weight=salesSheetWeightText(salesSheetPaneWeightKg((makeup.panes||[])[liteIndex],areaFt2));
+  else if(makeup&&(makeup.panes||[]).length){
     var total=0,exact=true,ok=true;
     (makeup.panes||[]).forEach(function(p){
       var w=salesSheetPaneWeightKg(p,areaFt2);
@@ -271,11 +322,13 @@ function salesShapeSheetHTML(shape,result,svg,kind){
     if(ok&&total>0)weight=salesSheetWeightText({kg:total,exact:exact});
   }else if(pane)weight=salesSheetWeightText(salesSheetPaneWeightKg(pane,areaFt2));
 
-  var finished=ok?dimIn16(result.width)+' × '+dimIn16(result.height):'';
+  var finished=stepLite?dimIn16(stepLite.w)+' × '+dimIn16(stepLite.h):ok?dimIn16(result.width)+' × '+dimIn16(result.height):'';
   var size=finished?'Finished '+finished:'';
   var mass=[areaFt2?areaFt2.toFixed(2)+' sq ft':'',weight?weight:''].filter(Boolean).join(' · ');
   var lineText=salesSheetLineNumber(line);
-  var route=salesPrintRoute(line,order,shape,result);
+  var route=salesPrintRoute(line,order,stepLite&&line&&typeof salesLineGeometryShape==='function'?salesLineGeometryShape(line):shape,result);
+  /* Лист одного стекла — его маршрут, без соседних лайтов. */
+  if(stepLite&&route){var nm='Lite '+(liteIndex+1);route=Object.assign({},route,{lites:route.lites.filter(function(l){return l.label===nm||l.label===nm+'a'||l.label===nm+'b';})});}
 
   var layered=salesSheetIsLayered(makeup),t=salesSheetTitleLines(makeup,line);
   /* Одинарное стекло считают штуками, пакет и ламинат — юнитами: это разные
@@ -305,8 +358,9 @@ function salesShapeSheetHTML(shape,result,svg,kind){
           '<div class="sheet-title">'+esc(t.name)+'</div>'+
           (t.spec?'<div class="sheet-spec">'+esc(t.spec)+'</div>':'')+
           (qty?'<div class="sheet-qty">'+esc(qty)+'</div>':'')+
+          (stepLite?'<div class="sheet-lite">Glass: Lite '+(liteIndex+1)+' of '+step.lites.length+'</div>':'')+
         '</div>'+
-        (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup,shape)+'</div>':'')+
+        (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup,shape,step,names,stepLite?liteIndex:null)+'</div>':'')+
         '<div class="sheet-nums">'+
           (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
           (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+
@@ -334,7 +388,11 @@ function salesSheetFoot(html,text){
    salesBridge, поэтому на время отрисовки подставляем копию формы строки и
    всё возвращаем. Редактировать здесь нечего — строка в батче тоже рисуется. */
 /* recut — лист Recut со своим чертежом: «Recut n · Line m». */
-function salesLineDrawing(line,recut){
+/* liteIndex — лист одного стекла ступенчатого юнита («у каждого стекла свой
+   лист», владелец 20.10.2026): лайт со своей формой — её чертёж, лайт с
+   отступом — его контур (shapeLiteSheetSvg), лайт размером с форму — чертёж
+   формы без пунктира меньшего лайта. Обычный юнит получает лист строки. */
+function salesLineDrawing(line,recut,liteIndex){
   var geo=recut&&typeof recutLine==='function'?recutLine(recut,line):line;
   var shape=geo&&salesShapeByRef(geo.shapeRef);if(!shape)return null;
   var keep={draft:sDraft,bridge:salesBridge,view:sView,lite:typeof sEdgeLite==='undefined'?null:sEdgeLite,place:sManufacturingPlace};
@@ -344,9 +402,31 @@ function salesLineDrawing(line,recut){
     if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(geo,sDraft);
     var r=ShapeModule.compute(sDraft);
     if(!shapeSheetOk(r))return {line:line,error:String((r.errors&&r.errors[0])||r.reason||'Invalid geometry')};
+    var step=liteIndex!=null&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,geo,soDraft):null,sheet=salesStepLiteSheet(r,geo,liteIndex,step);
+    if(sheet)return Object.assign({line:line,lite:liteIndex},sheet);
     return {line:line,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false),'PRODUCTION DRAWING')};
   }catch(e){return {line:line,error:String(e&&e.message||e)};}
   finally{sDraft=keep.draft;salesBridge=keep.bridge;sView=keep.view;sEdgeLite=keep.lite;sManufacturingPlace=keep.place;}
+}
+/* Лист одного стекла ступенчатого юнита по текущей форме (sDraft, r) —
+   общий для окна Drawings, станции и печати из редактора формы. Лайт с
+   отступом — его контур, своя форма — её чертёж, размером с форму — чертёж
+   формы без пунктира. Не ступенчатый юнит — null. */
+function salesStepLiteSheet(r,geo,liteIndex,step){
+  var sl=step&&step.step&&liteIndex!=null?step.lites[liteIndex]:null;if(!sl)return null;
+  var opts={liteIndex:liteIndex,step:step};
+  if(sl.asShape)return {html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false,{noStep:true}),'PRODUCTION DRAWING',opts)};
+  if(sl.own){
+    var keep={draft:sDraft,bridge:salesBridge};
+    try{
+      sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(salesLineLiteShape(geo,liteIndex))));salesBridge=Object.assign({},salesBridge,{liteIndex:liteIndex});
+      var ro=ShapeModule.compute(sDraft);
+      if(!shapeSheetOk(ro))return {error:String((ro.errors&&ro.errors[0])||ro.reason||'Invalid geometry')};
+      return {html:salesShapeSheetHTML(sDraft,ro,shapeSheetSvg(ro,false),'PRODUCTION DRAWING',opts)};
+    }finally{sDraft=keep.draft;salesBridge=keep.bridge;}
+  }
+  var lite={index:liteIndex,label:'Lite '+(liteIndex+1),points:sl.points,edgeIds:step.ids,units:typeof sMetricDetail!=='undefined'&&sMetricDetail?'mm':'in'};
+  return {html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false,{lite:lite}),'PRODUCTION DRAWING',opts)};
 }
 /* Состав стоит СПРАВА от чертежа — так решил владелец, и это раскладка по
    умолчанию. Уступает она только там, где сама себе мешает: у лежачей фигуры

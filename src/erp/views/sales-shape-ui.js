@@ -846,7 +846,7 @@ function shapeDxfPreviewTransform(source){
 function shapeDrawnPreviewTransform(result,extra){
   if(!result||!result.valid||!(result.points||[]).length)return null;
   var F=shapeProductionDrawingFrame(result,Object.assign({},shapeMetricProductionOptions(result),extra||{}));
-  F.P=result.points;return F;
+  F.P=(extra&&extra.lite&&extra.lite.points)||result.points;F.lite=!!(extra&&extra.lite);return F;
 }
 function shapePlaceManufacturingFromEvent(ev,svg){
   if(!sManufacturingPlace)return;
@@ -1306,6 +1306,13 @@ function shapeDrawnProductionSvg(result,interactive,extra){
   /* extra — режим печатного листа: он несёт свою шапку и свою подпись, поэтому
      чертёж рисуется без заголовка и в чёрно-белом варианте. */
   var metricOpts=Object.assign({},shapeMetricProductionOptions(result,interactive),extra||{});
+  /* Ступенчатый юнит: меньший лайт пунктиром на чертеже юнита (sales/
+     step-unit). На вкладке одного лайта и на листе стекла (noStep — лист
+     стекла размером с форму) — без пунктира. */
+  if(!metricOpts.lite&&!metricOpts.noStep&&sEdgeLite==null&&typeof salesShapeStepInfo==='function'){
+    var stepLine=shapeBridgeLine(),stepInfo=stepLine?salesShapeStepInfo(sDraft||result.definition,stepLine,soDraft):null;
+    if(stepInfo&&stepInfo.step)metricOpts.step=salesStepDrawingData(stepInfo,shapeEdgeNames(result.geometry));
+  }
   var svg=ShapeModule.productionSvg(result,metricOpts),T=shapeDrawnPreviewTransform(result,extra);if(!T)return svg;
   /* The footer remains in downloaded/printed production files. In the live
      workspace it only consumed drawing area and repeated information already
@@ -1481,7 +1488,8 @@ function shapeDrawnProductionBody(svg,T,interactive){
   /* Стрелку размера объявляем один раз: метки объявляют её сами, а если меток
      нет — её объявляет блок выреза, иначе линии остались бы без наконечников. */
   var marks=shapeManufacturingMarkersSvg(null,T),cuts=shapeCutoutDimsSvg(T),annotations=shapeAnnotationDimsSvg(T),dims=cuts+annotations;
-  var extra=shapeMuntinBarsSvg(T)+marks+(dims?(marks?'':shapeDimArrowDefs())+dims:'');
+  /* Бары — в камере юнита: на листе одного стекла их нет. */
+  var extra=(T.lite?'':shapeMuntinBarsSvg(T))+marks+(dims?(marks?'':shapeDimArrowDefs())+dims:'');
   if(extra)svg=svg.replace('</svg>',extra+'</svg>');
   if(interactive)svg=svg.replace('<svg ','<svg class="shape-drawn-production-interactive'+(sManufacturingPlace?' placing':'')+'" onclick="shapePlaceManufacturingFromEvent(event,this)" ');
   return svg;
@@ -1776,7 +1784,10 @@ function shapeFitPreview(){
    его контур, габарит и отметки ERP, как на вкладке Production Drawing ·
    DXF; внутренних размеров нет — исходный файл ERP не хранит. */
 function shapeSheetOk(r){return !!r&&(r.valid||!!(r.externalFile&&r.sourceValid));}
-function shapeSheetSvg(r,cutting){
+function shapeSheetSvg(r,cutting,extra){
+  /* Лист одного стекла ступенчатого юнита — по его контуру, у DXF тоже. */
+  if(!cutting&&extra&&extra.lite)return shapeDrawnProductionSvg(r,false,Object.assign({sheet:true},extra));
+  if(!cutting&&extra&&extra.noStep&&!r.externalFile)return shapeDrawnProductionSvg(r,false,{sheet:true,noStep:true});
   if(r.externalFile){
     /* Frit на печатном листе DXF — тот же образец и та же точка, что на экране. */
     var src=(r.definition&&r.definition.source)||sDraft.source,svg=shapeDxfPreviewSvg(src,!cutting,true);
@@ -1785,14 +1796,34 @@ function shapeSheetSvg(r,cutting){
   return cutting?ShapeModule.cuttingSvg(r):shapeDrawnProductionSvg(r,false,{sheet:true});
 }
 /* Печать активной вкладки чертежа. Setup показывает Production Drawing,
-   поэтому печатается он же — печатаем ровно то, что человек видит. */
-function shapePrintDrawing(){
+   поэтому печатается он же — печатаем ровно то, что человек видит.
+   which — у ступенчатого юнита (есть оффсет лайта): 'unit', номер лайта или
+   'all' — лист юнита и листы всех стёкол (владелец, 20.10.2026: «только если
+   есть какой-то оффсет — вариант печати лайтов; если всё базовое — нет»). */
+var sPrintMenu=false;
+function shapeStepPrintLites(){
+  if(sView==='cutting'||typeof salesShapeStepInfo!=='function'||(typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.liteIndex!=null))return [];
+  var line=shapeBridgeLine(),info=line&&sDraft?salesShapeStepInfo(sDraft,line,soDraft):null;
+  return info&&info.step?info.lites.map(function(l){return l.index;}):[];
+}
+function shapePrintButtonHTML(){
+  var lites=shapeStepPrintLites();
+  if(!lites.length)return `<button class='shape-print-btn' onclick='shapePrintDrawing()' title='Print drawing or save as PDF'>Print / PDF</button>`;
+  return `<span class='doc-print-pick'><button class='shape-print-btn' data-shape-print-menu-btn onclick='sPrintMenu=!sPrintMenu;render()' title='Print drawing or save as PDF'>Print / PDF ▾</button>${sPrintMenu?`<span class='doc-print-menu' data-shape-print-menu><button type='button' onclick='shapePrintDrawing("unit")'>Unit</button>${lites.map(function(i){return `<button type='button' onclick='shapePrintDrawing(${i})'>Lite ${i+1}</button>`;}).join('')}<button type='button' onclick='shapePrintDrawing("all")'>All · ${lites.length+1}</button></span>`:''}</span>`;
+}
+function shapePrintDrawing(which){
   var r=shapeDraftResult(),e=document.getElementById('e_shape');
+  if(sPrintMenu){sPrintMenu=false;render();}
   if(e)e.style.display='none';
   if(!shapeSheetOk(r)){if(e)fail(e,'Invalid geometry cannot be printed: '+(r.errors&&r.errors[0]||r.reason||''));return;}
   var cutting=sView==='cutting';
   var kind=cutting?(r.externalFile?'CUTTING DXF':'CUTTING SHAPE'):'PRODUCTION DRAWING';
-  printSheet(salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,cutting),kind),'',salesSheetFitDrawing);
+  var unit=salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,cutting),kind);
+  if(which==null||which==='unit'||cutting){printSheet(unit,'',salesSheetFitDrawing);return;}
+  var line=shapeBridgeLine(),step=line?salesShapeStepInfo(sDraft,line,soDraft):null;
+  var idx=which==='all'?shapeStepPrintLites():[+which];
+  var sheets=idx.map(function(i){return salesStepLiteSheet(r,line,i,step);}).filter(function(x){return x&&x.html;}).map(function(x){return x.html;});
+  printSheet((which==='all'?[unit]:[]).concat(sheets),'',salesSheetFitDrawing);
 }
 /* Снятый угловой блок уносит с собой свои рёбра E/F/G…, но обработка кромки по
    ним оставалась в edgeOps и навсегда роняла форму в «Edge processing references
@@ -2164,8 +2195,13 @@ function shapeLiteSplitEditor(){
      правки в ней молча ни на что не влияют. Такое надо говорить вслух. */
   var orphan=line&&lites.length&&lites.every(function(l){return !!salesLineLiteShape(line,l.index);});
   var warn=orphan?`<div class='shape-lite-note own'>No lite lives on this Shape — each has its own. Changes here affect nothing until a lite is sent back with “Back to shared”.</div>`:'';
-  return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeLiteSplit()'><span><b>Lites of the unit</b><small>mirror · inset · own shape</small></span><span class='shape-accordion-state'>${changed?`<span data-raw>${changed}</span> differ`:'all on the shared shape'}<i>${sLiteSplitOpen?'−':'+'}</i></span></button>${sLiteSplitOpen?`<div class='shape-lite-cards'>${warn}${rows}</div>`:''}</div>`;
+  /* Вид шва ступенчатого юнита — выбор офиса; поле только при ступеньке, по
+     умолчанию Flat seal (владелец, 20.10.2026). */
+  var step=line&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,line,soDraft):null;
+  var seal=step&&step.step?`<label class='shape-lite-seal'><span>Step seal</span><select onchange='setShapeStepSeal(this.value)'>${Object.keys(SALES_STEP_SEALS).map(function(k){return `<option value='${k}' ${salesStepSealKey(sDraft)===k?'selected':''}>${esc(SALES_STEP_SEALS[k])}</option>`;}).join('')}</select></label>`:'';
+  return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeLiteSplit()'><span><b>Lites of the unit</b><small>mirror · inset · own shape</small></span><span class='shape-accordion-state'>${changed?`<span data-raw>${changed}</span> differ`:'all on the shared shape'}${step&&step.step?' · Step unit':''}<i>${sLiteSplitOpen?'−':'+'}</i></span></button>${sLiteSplitOpen?`<div class='shape-lite-cards'>${warn}${rows}${seal}</div>`:''}</div>`;
 }
+function setShapeStepSeal(v){if(!sDraft)return;if(v&&v!=='flat'&&Object.prototype.hasOwnProperty.call(SALES_STEP_SEALS,v))sDraft.stepSeal=v;else delete sDraft.stepSeal;render();}
 /* Отступ конкретного лайта: тот же ввод, что и в колонке кромок, но заданный
    явно для лайта — вкладку переключать не нужно. */
 function setShapeLiteInsetFor(liteIndex,groupIndex,value){
@@ -2448,7 +2484,7 @@ function shapeForm(){
   var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=shapePresetChoices(sDraft.type).map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   var master=external?`<div class='grid shape-master-fields'><div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div>${shapeMasterSizeFields()}</div>`;
   var controls=external?`<div class='validation-box infobox'>Configurator geometry is disabled for this revision: the contour and bounding dimensions were read from the external DXF.</div>${shapeCutoutEditor(geo)}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeCutoutEditor(geo)}${shapeEdgeworkEditor()}`;
-  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Print drawing or save as PDF'>Print / PDF</button></div>`;
+  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}${shapePrintButtonHTML()}</div>`:`<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}${shapePrintButtonHTML()}</div>`;
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'New Production Shape':'Edit shape'}</h3><p>${external?'Cutting comes from a Fusion 360 DXF; ERP stores only the derived 2D contour and dimensions, not the original file contents.':'All dimensions are finished sizes in inches. Invalid geometry cannot be saved or exported.'}</p></div></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
       ${master}${shapeSourceEditor()}${controls}
