@@ -8,19 +8,30 @@
    HST» — отдельными колонками. Раздел свой (галочка Commissions в Users):
    продажникам это знать не надо.
    IN : DB.receipt (оплаты на заказы), DB.salesOrder, DB.customer
-   OUT: DB.referrer {id, name, phone, email, note, customers[{customerId, pct}]},
+   OUT: DB.referrer {id, name, phone, email, note, customers[{customerId, pct,
+        from, was[{pct, from}]}]},
         DB.referrerPayout {id, referrerId, date, amount, note, orders[{orderId, amount}]}
    Правило: клиент — у одного человека. Выплата — по заказам: в неё входит
    только ещё не выплаченная комиссия каждого заказа, сумма считается сама
    (владелец: «чтобы я не заплатил дважды за один и тот же заказ»).
+   Процент действует с даты from ('' — всегда); прежние — в was. Оплата
+   считается по проценту на день оплаты: поменяли процент — прошлое не
+   пересчитывается (владелец, 19.10.2026, вариант Б; дату From выбирает он
+   сам, 20.10.2026; аудит COM04).
    ===================================================================== */
 DEFAULT.referrer=[];DEFAULT.referrerPayout=[];
 function comStr(v,n){return String(v==null?'':v).trim().slice(0,n||200);}
 function comPct(v){const n=+v;return Number.isFinite(n)&&n>0&&n<=100?Math.round(n*100)/100:0;}
+function comDay(v){return /^\d{4}-\d{2}-\d{2}$/.test(v||'')?v:'';}
+/* Процент клиента на день оплаты. */
+function comPctOn(c,day){if(!c.from||day>=c.from)return c.pct;let p=0;c.was.forEach(w=>{if(!w.from||day>=w.from)p=w.pct;});return p;}
+/* Новый процент с даты from: прежние, начатые до неё, уходят в was. */
+function comRate(old,pct,from){return {customerId:old.customerId,pct,from,was:old.was.concat({pct:old.pct,from:old.from}).filter(w=>w.from<from)};}
 function comClean(r){
  const seen=new Set();
  return {id:comStr(r.id,60),name:comStr(r.name,120),phone:comStr(r.phone,40),email:comStr(r.email,120),note:comStr(r.note,500),createdAt:comStr(r.createdAt,40),
-  customers:(Array.isArray(r.customers)?r.customers:[]).filter(c=>c&&comStr(c.customerId)&&!seen.has(c.customerId)&&(seen.add(c.customerId),true)).map(c=>({customerId:comStr(c.customerId,80),pct:comPct(c.pct)}))};
+  customers:(Array.isArray(r.customers)?r.customers:[]).filter(c=>c&&comStr(c.customerId)&&!seen.has(c.customerId)&&(seen.add(c.customerId),true)).map(c=>({customerId:comStr(c.customerId,80),pct:comPct(c.pct),from:comDay(c.from),
+   was:(Array.isArray(c.was)?c.was:[]).map(w=>({pct:comPct(w&&w.pct),from:comDay(w&&w.from)})).filter(w=>w.pct).sort((a,b)=>a.from.localeCompare(b.from))}))};
 }
 function comPayoutClean(p){
  const orders=(Array.isArray(p.orders)?p.orders:[]).filter(x=>x&&comStr(x.orderId)).map(x=>({orderId:comStr(x.orderId,80),amount:finMoney(x.amount)})).filter(x=>x.amount!==0);
@@ -39,7 +50,13 @@ function comOfCustomer(customerId){return (DB.referrer||[]).find(r=>r.customers.
 /* Запись: имя обязательно; клиент, которого забрали у другого, у того
    пропадает (клиент — у одного человека). */
 function comSave(d){
- const r=comClean(Object.assign({},d,{id:d.id||salesUid('RFR'),createdAt:d.createdAt||new Date().toISOString()}));
+ /* Другой процент у клиента, который уже был у человека, — с даты From
+    (по умолчанию сегодня); новый клиент — за всё время, как раньше. */
+ const old=d.id?comFind(d.id):null,customers=(Array.isArray(d.customers)?d.customers:[]).map(c=>{
+  const was=old&&c&&old.customers.find(x=>x.customerId===c.customerId),pct=comPct(c&&c.pct);
+  return !was?Object.assign({},c,{from:'',was:[]}):!pct?c:pct!==was.pct?comRate(was,pct,comDay(c.newFrom)||finToday()):was;
+ });
+ const r=comClean(Object.assign({},d,{customers,id:d.id||salesUid('RFR'),createdAt:d.createdAt||new Date().toISOString()}));
  if(!r.name)return {error:'Enter a name.'};
  if(r.customers.some(c=>!salesFindCustomer(c.customerId)))return {error:'Pick a customer.'};
  if(r.customers.some(c=>!c.pct))return {error:'Enter a percent from 0.01 to 100.'};
@@ -91,15 +108,18 @@ function comNoHstShare(t){return t&&t.grand>0?Math.max(0,(t.grand-t.hst)/t.grand
 function comOrders(ref,range){
  const key=ref.id+'|'+JSON.stringify(ref.customers)+'|'+(range?range.from+'|'+range.to:'all');
  if(comScope&&comScope.orders.has(key))return comScope.orders.get(key);
- const pct=new Map(ref.customers.map(c=>[c.customerId,c.pct])),by=new Map();
+ const pct=new Map(ref.customers.map(c=>[c.customerId,c])),by=new Map();
  finActiveReceipts().forEach(r=>{
   if(range&&(r.date<range.from||r.date>range.to))return;
   r.allocations.forEach(a=>{const o=salesRecord(a.orderId);if(!o||!pct.has(o.customerId))return;
-   const x=by.get(o.id)||{o,paid:0,payments:0};x.paid+=a.amount;x.payments++;by.set(o.id,x);});
+   const x=by.get(o.id)||{o,paid:0,payments:0,byPct:new Map()},p=comPctOn(pct.get(o.customerId),r.date);
+   x.paid+=a.amount;x.payments++;x.byPct.set(p,(x.byPct.get(p)||0)+a.amount);by.set(o.id,x);});
  });
  const out=[...by.values()].map(x=>{
-  const t=comTotals(x.o),p=pct.get(x.o.customerId),paid=finMoney(x.paid),base=finMoney(paid*comNoHstShare(t));
-  return {o:x.o,customerId:x.o.customerId,number:x.o.businessNumber,date:salesListIsoDay(x.o.createdAt),total:t&&t.complete?t.grand:null,paid,base,payments:x.payments,pct:p,com:finMoney(base*p/100),comHst:finMoney(paid*p/100)};
+  const t=comTotals(x.o),share=comNoHstShare(t),paid=finMoney(x.paid),base=finMoney(paid*share),ps=[...x.byPct.keys()].sort((a,b)=>a-b);
+  /* Каждая оплата — по своему проценту; один процент — как прежде. */
+  const com=finMoney([...x.byPct].reduce((n,[p,v])=>n+finMoney(finMoney(v)*share)*p/100,0)),comHst=finMoney([...x.byPct].reduce((n,[p,v])=>n+finMoney(v)*p/100,0));
+  return {o:x.o,customerId:x.o.customerId,number:x.o.businessNumber,date:salesListIsoDay(x.o.createdAt),total:t&&t.complete?t.grand:null,paid,base,payments:x.payments,pct:ps.join(' · '),com,comHst};
  }).sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.number).localeCompare(String(a.number)));
  if(comScope)comScope.orders.set(key,out);
  return out;
