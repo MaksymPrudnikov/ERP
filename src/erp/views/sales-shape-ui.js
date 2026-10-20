@@ -846,7 +846,7 @@ function shapeDxfPreviewTransform(source){
 function shapeDrawnPreviewTransform(result,extra){
   if(!result||!result.valid||!(result.points||[]).length)return null;
   var F=shapeProductionDrawingFrame(result,Object.assign({},shapeMetricProductionOptions(result),extra||{}));
-  F.P=result.points;return F;
+  F.P=(extra&&extra.lite&&extra.lite.points)||result.points;F.lite=!!(extra&&extra.lite);return F;
 }
 function shapePlaceManufacturingFromEvent(ev,svg){
   if(!sManufacturingPlace)return;
@@ -1306,6 +1306,12 @@ function shapeDrawnProductionSvg(result,interactive,extra){
   /* extra — режим печатного листа: он несёт свою шапку и свою подпись, поэтому
      чертёж рисуется без заголовка и в чёрно-белом варианте. */
   var metricOpts=Object.assign({},shapeMetricProductionOptions(result,interactive),extra||{});
+  /* Ступенчатый юнит: меньший лайт пунктиром на чертеже юнита (sales/
+     step-unit). На вкладке одного лайта и на листе стекла — без пунктира. */
+  if(!metricOpts.lite&&sEdgeLite==null&&typeof salesShapeStepInfo==='function'){
+    var stepLine=shapeBridgeLine(),stepInfo=stepLine?salesShapeStepInfo(sDraft||result.definition,stepLine,soDraft):null;
+    if(stepInfo&&stepInfo.step)metricOpts.step=salesStepDrawingData(stepInfo,shapeEdgeNames(result.geometry));
+  }
   var svg=ShapeModule.productionSvg(result,metricOpts),T=shapeDrawnPreviewTransform(result,extra);if(!T)return svg;
   /* The footer remains in downloaded/printed production files. In the live
      workspace it only consumed drawing area and repeated information already
@@ -1481,7 +1487,8 @@ function shapeDrawnProductionBody(svg,T,interactive){
   /* Стрелку размера объявляем один раз: метки объявляют её сами, а если меток
      нет — её объявляет блок выреза, иначе линии остались бы без наконечников. */
   var marks=shapeManufacturingMarkersSvg(null,T),cuts=shapeCutoutDimsSvg(T),annotations=shapeAnnotationDimsSvg(T),dims=cuts+annotations;
-  var extra=shapeMuntinBarsSvg(T)+marks+(dims?(marks?'':shapeDimArrowDefs())+dims:'');
+  /* Бары — в камере юнита: на листе одного стекла их нет. */
+  var extra=(T.lite?'':shapeMuntinBarsSvg(T))+marks+(dims?(marks?'':shapeDimArrowDefs())+dims:'');
   if(extra)svg=svg.replace('</svg>',extra+'</svg>');
   if(interactive)svg=svg.replace('<svg ','<svg class="shape-drawn-production-interactive'+(sManufacturingPlace?' placing':'')+'" onclick="shapePlaceManufacturingFromEvent(event,this)" ');
   return svg;
@@ -1776,7 +1783,9 @@ function shapeFitPreview(){
    его контур, габарит и отметки ERP, как на вкладке Production Drawing ·
    DXF; внутренних размеров нет — исходный файл ERP не хранит. */
 function shapeSheetOk(r){return !!r&&(r.valid||!!(r.externalFile&&r.sourceValid));}
-function shapeSheetSvg(r,cutting){
+function shapeSheetSvg(r,cutting,extra){
+  /* Лист одного стекла ступенчатого юнита — по его контуру, у DXF тоже. */
+  if(!cutting&&extra&&extra.lite)return shapeDrawnProductionSvg(r,false,Object.assign({sheet:true},extra));
   if(r.externalFile){
     /* Frit на печатном листе DXF — тот же образец и та же точка, что на экране. */
     var src=(r.definition&&r.definition.source)||sDraft.source,svg=shapeDxfPreviewSvg(src,!cutting,true);
@@ -2164,8 +2173,13 @@ function shapeLiteSplitEditor(){
      правки в ней молча ни на что не влияют. Такое надо говорить вслух. */
   var orphan=line&&lites.length&&lites.every(function(l){return !!salesLineLiteShape(line,l.index);});
   var warn=orphan?`<div class='shape-lite-note own'>No lite lives on this Shape — each has its own. Changes here affect nothing until a lite is sent back with “Back to shared”.</div>`:'';
-  return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeLiteSplit()'><span><b>Lites of the unit</b><small>mirror · inset · own shape</small></span><span class='shape-accordion-state'>${changed?`<span data-raw>${changed}</span> differ`:'all on the shared shape'}<i>${sLiteSplitOpen?'−':'+'}</i></span></button>${sLiteSplitOpen?`<div class='shape-lite-cards'>${warn}${rows}</div>`:''}</div>`;
+  /* Вид шва ступенчатого юнита — выбор офиса; поле только при ступеньке, по
+     умолчанию Flat seal (владелец, 20.10.2026). */
+  var step=line&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,line,soDraft):null;
+  var seal=step&&step.step?`<label class='shape-lite-seal'><span>Step seal</span><select onchange='setShapeStepSeal(this.value)'>${Object.keys(SALES_STEP_SEALS).map(function(k){return `<option value='${k}' ${salesStepSealKey(sDraft)===k?'selected':''}>${esc(SALES_STEP_SEALS[k])}</option>`;}).join('')}</select></label>`:'';
+  return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeLiteSplit()'><span><b>Lites of the unit</b><small>mirror · inset · own shape</small></span><span class='shape-accordion-state'>${changed?`<span data-raw>${changed}</span> differ`:'all on the shared shape'}${step&&step.step?' · Step unit':''}<i>${sLiteSplitOpen?'−':'+'}</i></span></button>${sLiteSplitOpen?`<div class='shape-lite-cards'>${warn}${rows}${seal}</div>`:''}</div>`;
 }
+function setShapeStepSeal(v){if(!sDraft)return;if(v&&v!=='flat'&&Object.prototype.hasOwnProperty.call(SALES_STEP_SEALS,v))sDraft.stepSeal=v;else delete sDraft.stepSeal;render();}
 /* Отступ конкретного лайта: тот же ввод, что и в колонке кромок, но заданный
    явно для лайта — вкладку переключать не нужно. */
 function setShapeLiteInsetFor(liteIndex,groupIndex,value){

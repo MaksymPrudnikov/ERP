@@ -103,10 +103,13 @@ function docModal(){
 function docDrawingItems(){
  const done=docState.drawings||(docState.drawings=new Map()),lines=soDraft.lines||[];
  const recuts=salesIsQuote(soDraft)||typeof recutForOrder!=='function'?[]:recutForOrder(soDraft.id).filter(recutHasShape);
- const all=lines.map((l,i)=>({key:l.id,i,l,r:null})).concat(recuts.map(r=>{const i=lines.findIndex(l=>l.id===r.lineId);return {key:r.id,i,l:lines[i],r};}).filter(x=>x.l));
- return all.map(x=>{if(!done.has(x.key))done.set(x.key,salesLineDrawing(x.l,x.r));const d=done.get(x.key);return d?Object.assign({i:x.i,key:x.key,recut:x.r},d):null;}).filter(Boolean);
+ /* За листом ступенчатого юнита — листы его стёкол «Line N · Lite k»
+    (владелец, 20.10.2026: «у каждого стекла свой лист»). */
+ const lites=l=>typeof salesLineStepSheets==='function'?salesLineStepSheets(l,soDraft):[];
+ const all=lines.flatMap((l,i)=>[{key:l.id,i,l,r:null}].concat(lites(l).map(k=>({key:l.id+'#L'+k,i,l,r:null,lite:k})))).concat(recuts.map(r=>{const i=lines.findIndex(l=>l.id===r.lineId);return {key:r.id,i,l:lines[i],r};}).filter(x=>x.l));
+ return all.map(x=>{if(!done.has(x.key))done.set(x.key,salesLineDrawing(x.l,x.r,x.lite));const d=done.get(x.key);return d?Object.assign({i:x.i,key:x.key,recut:x.r,lite:x.lite},d):null;}).filter(Boolean);
 }
-function docDrawingName(x){return (x.recut?'Recut '+x.recut.no+' · ':'')+'Line '+(x.i+1)+(x.line.mark?' · '+x.line.mark:'');}
+function docDrawingName(x){return (x.recut?'Recut '+x.recut.no+' · ':'')+'Line '+(x.i+1)+(x.lite!=null?' · Lite '+(x.lite+1):'')+(x.line.mark?' · '+x.line.mark:'');}
 function docDrawingNow(items){return items.find(x=>x.key===docState.current)||items[0]||null;}
 function docDrawingTools(items){
  const now=docDrawingNow(items);
@@ -126,7 +129,7 @@ function docDrawingsBody(items){
  const step=(d,label,sign,off)=>many?`<button type="button" class="doc-step" data-doc-${d} aria-label="${label}" title="${label} (${d==='prev'?'←':'→'})" ${off?'disabled':''} onclick="docDrawingStep(${sign})">${d==='prev'?'‹':'›'}</button>`:'';
  return `<div class="doc-drawings" data-doc-drawings>
   <div class="doc-stage">${step('prev','Previous drawing',-1,at<=0)}<figure class="doc-drawing" data-doc-drawing="${esc(now.key)}" style="zoom:${docDrawingZoom().toFixed(3)}">${docDrawingSheet(now)}</figure>${step('next','Next drawing',1,at>=items.length-1)}</div>
-  ${many?`<div class="doc-film" data-doc-film>${items.map(x=>`<button type="button" class="doc-thumb${x===now?' on':''}${x.recut?' doc-thumb-recut':''}" data-doc-thumb="${esc(x.key)}" title="${esc(docDrawingName(x))}" onclick="docDrawingGo('${esc(x.key)}')"><span class="doc-thumb-paper"><span class="doc-thumb-sheet">${x.html?docDrawingSheet(x):''}</span></span><b>${x.recut?'R'+x.recut.no+' · ':''}${x.i+1}</b></button>`).join('')}</div>`:''}
+  ${many?`<div class="doc-film" data-doc-film>${items.map(x=>`<button type="button" class="doc-thumb${x===now?' on':''}${x.recut?' doc-thumb-recut':''}" data-doc-thumb="${esc(x.key)}" title="${esc(docDrawingName(x))}" onclick="docDrawingGo('${esc(x.key)}')"><span class="doc-thumb-paper"><span class="doc-thumb-sheet">${x.html?docDrawingSheet(x):''}</span></span><b>${x.recut?'R'+x.recut.no+' · ':''}${x.i+1}${x.lite!=null?' · L'+(x.lite+1):''}</b></button>`).join('')}</div>`:''}
  </div>`;
 }
 function docDrawingsFit(){
@@ -163,7 +166,7 @@ function docDrawingPrintMenu(e){
  e.stopPropagation();
  const m=document.querySelector('[data-doc-print-menu]');if(!m)return;
  const items=docDrawingItems().filter(x=>x.html),now=docDrawingNow(docDrawingItems());
- m.innerHTML=(now&&now.html?`<button type="button" data-doc-print-one onclick="docDrawingsPrint('one')">This drawing · ${esc((now.recut?'Recut '+now.recut.no+' · ':'')+'Line '+(now.i+1))}</button>`:'')+`<button type="button" data-doc-print-all onclick="docDrawingsPrint('all')">All · ${items.length}</button>`;
+ m.innerHTML=(now&&now.html?`<button type="button" data-doc-print-one onclick="docDrawingsPrint('one')">This drawing · ${esc((now.recut?'Recut '+now.recut.no+' · ':'')+'Line '+(now.i+1)+(now.lite!=null?' · Lite '+(now.lite+1):''))}</button>`:'')+`<button type="button" data-doc-print-all onclick="docDrawingsPrint('all')">All · ${items.length}</button>`;
  m.hidden=!m.hidden;
  if(!m.hidden)setTimeout(()=>document.addEventListener('click',()=>{m.hidden=true;},{once:true}),0);
 }

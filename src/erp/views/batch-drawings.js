@@ -19,7 +19,9 @@ function batchDrawingPages(number,jobs){
  (jobs||[]).forEach(j=>{
   if(j.type!=='production'||!j.o||!j.l)return;
   /* Стекло Recut со своим чертежом — лист Recut (erp/quality/recut). */
-  const rc=stationDrawRecut(j.o,j.l,j.unit),k=j.o.id+'|'+j.l.id+'|'+(rc?rc.id:'');if(!seen.has(k))seen.set(k,stationDrawingOf(j.o,j.l,j.unit));
+  /* Стекло ступенчатого юнита — свой лист (у лайта размером с форму — лист
+     строки): «у каждого стекла свой лист», владелец 20.10.2026. */
+  const rc=stationDrawRecut(j.o,j.l,j.unit),lite=j.c&&j.c.index!=null?j.c.index:null,k=j.o.id+'|'+j.l.id+'|'+(rc?rc.id:'')+'|'+(lite==null?'':lite);if(!seen.has(k))seen.set(k,stationDrawingOf(j.o,j.l,j.unit,lite));
   const d=seen.get(k);
   if(d&&d.html)pages.push({j,html:salesSheetFoot(d.html,batchDrawingTag(number,j))});else bad.push(j.piece||'');
  });

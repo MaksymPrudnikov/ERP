@@ -84,6 +84,7 @@
   "src/erp/views/customers.js",
   "src/erp/sales/orders.js",
   "src/erp/sales/service-sets.js",
+  "src/erp/sales/step-unit.js",
   "src/erp/sales/line-metrics.js",
   "src/erp/sales/print-route.js",
   "src/erp/sales/station-size.js",

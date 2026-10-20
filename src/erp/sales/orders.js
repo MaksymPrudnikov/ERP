@@ -1170,6 +1170,13 @@ function salesUnitSurchargeRows(line,shape){
     const area=salesLineAreas(line,soDraft).billable;
     if(area>0)rows.push(salesChargeRow('SURCHARGE:shape-unit','Shape Unit',+area.toFixed(4),'ft²',salesCatalogRate('shapeUnit',{}),'Shape surcharge'));
   }
+  /* Step Unit — лайты юнита разного размера (sales/step-unit). Ставка из прайса
+     (сейчас 0), количество — по единице строки прайса. */
+  const step=shape&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(shape,line,soDraft):null;
+  if(step&&step.step){
+    const rate=salesServiceRateRow('stepUnit'),unit=(rate&&rate.unit)||'pc',qty=salesStepUnitQty(step,line,soDraft,unit);
+    if(qty>0)rows.push(salesChargeRow('SURCHARGE:step-unit','Step Unit',+qty.toFixed(4),unit,salesCatalogRate('stepUnit',{}),'Step unit · '+salesStepSealLabel(shape)));
+  }
   return rows;
 }
 /* МЁРТВАЯ ВЕТКА. Рабочая версия — в sales/service-sets.js: манифест грузит её
