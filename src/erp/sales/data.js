@@ -195,6 +195,27 @@ function salesDefaultPane(i){
    силикон дороже полисульфида, аргон добавляется сверху. Цены продажи стекла
    в каталоге пока нет — функция честно возвращает null, и поле остаётся
    пустым, пока прайс не заведён. */
+/* Цена из справочника — на день сохранения заказа (владелец, 20.10.2026:
+   «при сохранении цена фиксируется, но её руками можно будет изменить и
+   обновить заказ»; «деньги — всегда повод для споров»; «измерять результаты
+   корректно день за днём, год за годом»). Стекло, плёнка и складские позиции
+   читаются через salesBook: у сохранённого заказа — из его priceBook, у нового
+   — из Master Data. Save записывает в priceBook ровно те цены, по которым
+   посчитан заказ; ставки услуг фиксировались и раньше (chargePricing). Заказ
+   берётся из контекста расчёта (finWithOrder ставит его в soDraft). */
+let salesBookRec=null;
+function salesBook(key,live){
+ const b=typeof soDraft!=='undefined'&&soDraft&&soDraft.priceBook;
+ const v=b&&Object.prototype.hasOwnProperty.call(b,key)?b[key]:live();
+ if(salesBookRec)salesBookRec[key]=v==null?null:v;
+ return v;
+}
+/* Цены, по которым заказ посчитан сейчас: прежние — из его priceBook, новые
+   позиции — из Master Data. */
+function salesPriceBookOf(o){const keep=salesBookRec;salesBookRec={};try{finOrderTotals(o);return salesBookRec;}finally{salesBookRec=keep;}}
+function salesPriceBookClean(b){const out={};Object.keys(b).forEach(k=>{const v=b[k];if(v===null)out[k]=null;else if(typeof v==='number'&&Number.isFinite(v))out[k]=v;});return out;}
+function salesGlassSalePrice(g,tempered){const f=tempered?'salePriceTempered':'salePriceAnnealed';return salesBook('glass:'+g.id+':'+f,()=>g[f]==null?null:g[f]);}
+function salesInterlayerSalePrice(id){return salesBook('interlayer:'+id,()=>{const p=mdById('interlayerProduct',id);return p&&p.salePrice!=null?p.salePrice:null;});}
 const SALES_SURROUND_BASE={aluminum:2.40,warm_edge:2.85,stainless:2.85};
 const SALES_SURROUND_ARGON=0.25;
 const SALES_SURROUND_SILICONE=0.20;
@@ -222,7 +243,7 @@ function salesPlyCatalogPrice(ply){
  if(!g)return null;
  const ht=mdById('heatTreatment',ply.heatTreatmentId);
  const code=String((ht&&ht.code)||'').toUpperCase();
- const base=(code==='FT'||code==='HS')?g.salePriceTempered:g.salePriceAnnealed;
+ const base=salesGlassSalePrice(g,code==='FT'||code==='HS');
  return base==null?null:base;
 }
 function salesPlyPrice(ply){
@@ -233,7 +254,7 @@ function salesPlyPrice(ply){
  if(!g)return null;
  const ht=mdById('heatTreatment',ply.heatTreatmentId);
  const code=String((ht&&ht.code)||'').toUpperCase();
- const base=(code==='FT'||code==='HS')?g.salePriceTempered:g.salePriceAnnealed;
+ const base=salesGlassSalePrice(g,code==='FT'||code==='HS');
  if(base==null)return null;
  return base;
 }
@@ -243,9 +264,8 @@ function salesLaminatedPrice(p){
  if(a==null||b==null)return null;
  let total=a+b,known=true;
  (lam.interlayers||[]).forEach(function(x){
-  const prod=mdById('interlayerProduct',x.productId);
   const layers=salesInterlayerLayerCount(x.layers!=null?x.layers:2);
-  const rate=x.priceOverride!=null?x.priceOverride:(prod?prod.salePrice:null);
+  const rate=x.priceOverride!=null?x.priceOverride:salesInterlayerSalePrice(x.productId);
   if(rate==null){known=false;return;}
   total+=rate*layers;
  });
@@ -261,7 +281,7 @@ function salesPaneCatalogPrice(p){
  const ht=mdById('heatTreatment',p.heatTreatmentId);
  const code=String((ht&&ht.code)||'').toUpperCase();
  const tempered=code==='FT'||code==='HS';
- const base=tempered?g.salePriceTempered:g.salePriceAnnealed;
+ const base=salesGlassSalePrice(g,tempered);
  /* Стекло без цены в прайсе — прочерк, а не надбавка сама по себе:
     складывать надбавку с неизвестной базой значит выдать неполную цену за полную. */
  if(base==null)return null;
@@ -450,8 +470,7 @@ function normalizeSalesExtraItem(x){
    позиция без цены честно встаёт Rate required, а не нулём. */
 function salesExtraItemUnitPrice(x){
  if(x.priceOverride!=null)return x.priceOverride;
- const row=salesExtraItemRow(x.table,x.itemId);
- return row&&row.salePrice!=null?row.salePrice:null;
+ return salesBook('item:'+x.table+':'+x.itemId,()=>{const row=salesExtraItemRow(x.table,x.itemId);return row&&row.salePrice!=null?row.salePrice:null;});
 }
 function salesExtraItemLineTotal(x){const p=salesExtraItemUnitPrice(x);return p==null?null:salesMoney(p*salesPositiveInt(x.qty,1));}
 function salesExtraItemName(x){const row=salesExtraItemRow(x.table,x.itemId);return row?row.name:'(removed from catalogue)';}
@@ -462,7 +481,7 @@ function normalizeSalesOrder(o){
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
   remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
   ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines)),

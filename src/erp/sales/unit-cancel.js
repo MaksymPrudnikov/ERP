@@ -79,7 +79,7 @@ function unitCharge(o,l,u,at){return finWithOrder(o,()=>{
    if(plies.length>1&&plies.every(y=>y.scans.some(s=>s.station===lam&&s.joined))){if(glued.has(x.c.paneId))return;glued.add(x.c.paneId);const v=x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane);if(v==null)known=false;else glass+=v*area;return;}}
   const full=x.c.ply?salesPlyPrice(spec):(x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane));
   /* Цену продавца не превышаем: отожжённое по прайсу — не дороже цены лайта в заказе. */
-  const rate=x.tempered||full==null?money(full):money(g&&g.salePriceAnnealed!=null?Math.min(g.salePriceAnnealed,full):full);
+  const an=g?salesGlassSalePrice(g,false):null,rate=x.tempered||full==null?money(full):money(an!=null?Math.min(an,full):full);
   if(rate==null)known=false;else glass+=rate*area;
  });
  if(!known)return {stage,after,charge:null,glass:null,works:null};

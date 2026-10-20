@@ -12,10 +12,13 @@
 /* Цена стекла по прайсу — как Makeup берёт её без ручной правки
    (salesPaneCatalogPrice): каталог стекла, закалённое или нет. У плиты
    ламината — своё стекло и своя закалка. $ за ft². */
+/* Цена прайса — на день сохранения заказа (salesGlassSalePrice в контексте
+   заказа): поменяли прайс сегодня — вчерашние цифры не сдвигаются (владелец,
+   20.10.2026: «измерять результаты корректно день за днём, год за годом»). */
 function repGlassPrice(c){
  const spec=c&&c.spec||{},g=glassProductById(spec.glassProductId);if(!g)return null;
  const ht=mdById('heatTreatment',spec.heatTreatmentId),code=String(ht&&ht.code||'').toUpperCase();
- const v=code==='FT'||code==='HS'?g.salePriceTempered:g.salePriceAnnealed;
+ const v=salesGlassSalePrice(g,code==='FT'||code==='HS');
  return v==null||v===''||!Number.isFinite(+v)?null:+v;
 }
 function repCompMm(c){const mm=c&&c.pane?stkGlassInfo(c.pane,c.index,c.ply).mm:null;return mm||null;}
@@ -35,7 +38,7 @@ function repBreakFacts(){
   const k=g.o.id+'|'+s.recut;if(!byRef.has(k))byRef.set(k,[]);byRef.get(k).push({s,g});
  });
  const row=(kind,ref,src,o,l,c,qty,s)=>{
-  const at=s?s.at:src.createdAt,per=o&&l?finWithOrder(o,()=>{const a=salesLineAreas(l,o);return a&&a.valid?a.actual:0;}):0,area=qty*per,price=repGlassPrice(c);
+  const at=s?s.at:src.createdAt,per=o&&l?finWithOrder(o,()=>{const a=salesLineAreas(l,o);return a&&a.valid?a.actual:0;}):0,area=qty*per,price=o?finWithOrder(o,()=>repGlassPrice(c)):repGlassPrice(c);
   rows.push({...(o?repOrderInfo(o):{}),...(l?repLineInfo(l):{}),id:kind+'-'+ref+'-'+(s?s.piece:(c?c.key:'')),at,day:repDay(at),hour:repHour(at),kind,ref,station:src.where||'',reason:src.reason||'',
    personId:s?s.byId||s.by||'':'',person:s?s.by||'':'',orderId:o?o.id:'',order:o?o.businessNumber||'':'',customerId:o?o.customerId||'':'',
    glass:c?c.glass:'',mm:repCompMm(c),glassN:qty,area:area||null,usd:price==null||!area?null:area*price});
