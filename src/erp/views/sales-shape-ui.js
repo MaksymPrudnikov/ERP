@@ -1796,14 +1796,34 @@ function shapeSheetSvg(r,cutting,extra){
   return cutting?ShapeModule.cuttingSvg(r):shapeDrawnProductionSvg(r,false,{sheet:true});
 }
 /* Печать активной вкладки чертежа. Setup показывает Production Drawing,
-   поэтому печатается он же — печатаем ровно то, что человек видит. */
-function shapePrintDrawing(){
+   поэтому печатается он же — печатаем ровно то, что человек видит.
+   which — у ступенчатого юнита (есть оффсет лайта): 'unit', номер лайта или
+   'all' — лист юнита и листы всех стёкол (владелец, 20.10.2026: «только если
+   есть какой-то оффсет — вариант печати лайтов; если всё базовое — нет»). */
+var sPrintMenu=false;
+function shapeStepPrintLites(){
+  if(sView==='cutting'||typeof salesShapeStepInfo!=='function'||(typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.liteIndex!=null))return [];
+  var line=shapeBridgeLine(),info=line&&sDraft?salesShapeStepInfo(sDraft,line,soDraft):null;
+  return info&&info.step?info.lites.map(function(l){return l.index;}):[];
+}
+function shapePrintButtonHTML(){
+  var lites=shapeStepPrintLites();
+  if(!lites.length)return `<button class='shape-print-btn' onclick='shapePrintDrawing()' title='Print drawing or save as PDF'>Print / PDF</button>`;
+  return `<span class='doc-print-pick'><button class='shape-print-btn' data-shape-print-menu-btn onclick='sPrintMenu=!sPrintMenu;render()' title='Print drawing or save as PDF'>Print / PDF ▾</button>${sPrintMenu?`<span class='doc-print-menu' data-shape-print-menu><button type='button' onclick='shapePrintDrawing("unit")'>Unit</button>${lites.map(function(i){return `<button type='button' onclick='shapePrintDrawing(${i})'>Lite ${i+1}</button>`;}).join('')}<button type='button' onclick='shapePrintDrawing("all")'>All · ${lites.length+1}</button></span>`:''}</span>`;
+}
+function shapePrintDrawing(which){
   var r=shapeDraftResult(),e=document.getElementById('e_shape');
+  if(sPrintMenu){sPrintMenu=false;render();}
   if(e)e.style.display='none';
   if(!shapeSheetOk(r)){if(e)fail(e,'Invalid geometry cannot be printed: '+(r.errors&&r.errors[0]||r.reason||''));return;}
   var cutting=sView==='cutting';
   var kind=cutting?(r.externalFile?'CUTTING DXF':'CUTTING SHAPE'):'PRODUCTION DRAWING';
-  printSheet(salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,cutting),kind),'',salesSheetFitDrawing);
+  var unit=salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,cutting),kind);
+  if(which==null||which==='unit'||cutting){printSheet(unit,'',salesSheetFitDrawing);return;}
+  var line=shapeBridgeLine(),step=line?salesShapeStepInfo(sDraft,line,soDraft):null;
+  var idx=which==='all'?shapeStepPrintLites():[+which];
+  var sheets=idx.map(function(i){return salesStepLiteSheet(r,line,i,step);}).filter(function(x){return x&&x.html;}).map(function(x){return x.html;});
+  printSheet((which==='all'?[unit]:[]).concat(sheets),'',salesSheetFitDrawing);
 }
 /* Снятый угловой блок уносит с собой свои рёбра E/F/G…, но обработка кромки по
    ним оставалась в edgeOps и навсегда роняла форму в «Edge processing references
@@ -2464,7 +2484,7 @@ function shapeForm(){
   var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=shapePresetChoices(sDraft.type).map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   var master=external?`<div class='grid shape-master-fields'><div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div>${shapeMasterSizeFields()}</div>`;
   var controls=external?`<div class='validation-box infobox'>Configurator geometry is disabled for this revision: the contour and bounding dimensions were read from the external DXF.</div>${shapeCutoutEditor(geo)}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeCutoutEditor(geo)}${shapeEdgeworkEditor()}`;
-  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Print drawing or save as PDF'>Print / PDF</button></div>`;
+  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}${shapePrintButtonHTML()}</div>`:`<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}${shapePrintButtonHTML()}</div>`;
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'New Production Shape':'Edit shape'}</h3><p>${external?'Cutting comes from a Fusion 360 DXF; ERP stores only the derived 2D contour and dimensions, not the original file contents.':'All dimensions are finished sizes in inches. Invalid geometry cannot be saved or exported.'}</p></div></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
       ${master}${shapeSourceEditor()}${controls}

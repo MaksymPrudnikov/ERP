@@ -402,22 +402,31 @@ function salesLineDrawing(line,recut,liteIndex){
     if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(geo,sDraft);
     var r=ShapeModule.compute(sDraft);
     if(!shapeSheetOk(r))return {line:line,error:String((r.errors&&r.errors[0])||r.reason||'Invalid geometry')};
-    var step=liteIndex!=null&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,geo,soDraft):null,sl=step&&step.step?step.lites[liteIndex]:null;
-    if(sl){
-      var opts={liteIndex:liteIndex,step:step};
-      if(sl.asShape)return {line:line,lite:liteIndex,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false,{noStep:true}),'PRODUCTION DRAWING',opts)};
-      if(sl.own){
-        sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(salesLineLiteShape(geo,liteIndex))));salesBridge=Object.assign({},salesBridge,{liteIndex:liteIndex});
-        var ro=ShapeModule.compute(sDraft);
-        if(!shapeSheetOk(ro))return {line:line,lite:liteIndex,error:String((ro.errors&&ro.errors[0])||ro.reason||'Invalid geometry')};
-        return {line:line,lite:liteIndex,html:salesShapeSheetHTML(sDraft,ro,shapeSheetSvg(ro,false),'PRODUCTION DRAWING',opts)};
-      }
-      var lite={index:liteIndex,label:'Lite '+(liteIndex+1),points:sl.points,edgeIds:step.ids,units:typeof sMetricDetail!=='undefined'&&sMetricDetail?'mm':'in'};
-      return {line:line,lite:liteIndex,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false,{lite:lite}),'PRODUCTION DRAWING',opts)};
-    }
+    var step=liteIndex!=null&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,geo,soDraft):null,sheet=salesStepLiteSheet(r,geo,liteIndex,step);
+    if(sheet)return Object.assign({line:line,lite:liteIndex},sheet);
     return {line:line,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false),'PRODUCTION DRAWING')};
   }catch(e){return {line:line,error:String(e&&e.message||e)};}
   finally{sDraft=keep.draft;salesBridge=keep.bridge;sView=keep.view;sEdgeLite=keep.lite;sManufacturingPlace=keep.place;}
+}
+/* Лист одного стекла ступенчатого юнита по текущей форме (sDraft, r) —
+   общий для окна Drawings, станции и печати из редактора формы. Лайт с
+   отступом — его контур, своя форма — её чертёж, размером с форму — чертёж
+   формы без пунктира. Не ступенчатый юнит — null. */
+function salesStepLiteSheet(r,geo,liteIndex,step){
+  var sl=step&&step.step&&liteIndex!=null?step.lites[liteIndex]:null;if(!sl)return null;
+  var opts={liteIndex:liteIndex,step:step};
+  if(sl.asShape)return {html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false,{noStep:true}),'PRODUCTION DRAWING',opts)};
+  if(sl.own){
+    var keep={draft:sDraft,bridge:salesBridge};
+    try{
+      sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(salesLineLiteShape(geo,liteIndex))));salesBridge=Object.assign({},salesBridge,{liteIndex:liteIndex});
+      var ro=ShapeModule.compute(sDraft);
+      if(!shapeSheetOk(ro))return {error:String((ro.errors&&ro.errors[0])||ro.reason||'Invalid geometry')};
+      return {html:salesShapeSheetHTML(sDraft,ro,shapeSheetSvg(ro,false),'PRODUCTION DRAWING',opts)};
+    }finally{sDraft=keep.draft;salesBridge=keep.bridge;}
+  }
+  var lite={index:liteIndex,label:'Lite '+(liteIndex+1),points:sl.points,edgeIds:step.ids,units:typeof sMetricDetail!=='undefined'&&sMetricDetail?'mm':'in'};
+  return {html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false,{lite:lite}),'PRODUCTION DRAWING',opts)};
 }
 /* Состав стоит СПРАВА от чертежа — так решил владелец, и это раскладка по
    умолчанию. Уступает она только там, где сама себе мешает: у лежачей фигуры

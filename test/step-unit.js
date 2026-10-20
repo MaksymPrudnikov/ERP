@@ -44,6 +44,17 @@ module.exports=async function({page,eq}){
   return {sm,cav:d.querySelector('.mk-cav').parentElement.textContent.includes('Step · Flat seal'),section:!!d.querySelector('.sheet-step,.sheet-step-section'),
    flat:!!d.querySelector('.mk-step-seal'),edge:e.querySelector('.mk-step-seal').className,edgeText:e.textContent.includes('Step · Edge to edge seal')};
  }),{sm:['mk-pane','mk-cav'],cav:true,section:false,flat:false,edge:'mk-step-seal edge top',edgeText:true});
+ eq('редактор формы: у юнита с оффсетом Print / PDF ▾ — Unit, Lite 1, Lite 2, All · 3; печать лайта — лист этого стекла, All — юнит и все стёкла; у обычного юнита — одна кнопка',await t.p.evaluate(()=>{
+  const old=printSheet,got=[];printSheet=function(h){got.push([].concat(h));return true;};
+  const box=()=>{const d=document.createElement('div');d.innerHTML=shapePrintButtonHTML();return d;};
+  try{
+   suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}});salesOrderConfigureShape(0);sView='production';
+   const btn=box().querySelector('.shape-print-btn').textContent;sPrintMenu=true;const menu=[...box().querySelectorAll('[data-shape-print-menu] button')].map(b=>b.textContent);
+   shapePrintDrawing(0);shapePrintDrawing('all');const one=suDoc(got[0][0]).querySelector('.sheet-lite').textContent,all=got[1].map(h=>{const x=suDoc(h).querySelector('.sheet-lite');return x?x.textContent:'unit';});
+   suOrder(null);salesOrderConfigureShape(0);sView='production';const plain=box().querySelector('.shape-print-btn').textContent;
+   return {btn,menu,closed:sPrintMenu,one,all,plain};
+  }finally{printSheet=old;tab='sales';sEdit=null;sDraft=null;salesBridge=null;}
+ }),{btn:'Print / PDF ▾',menu:['Unit','Lite 1','Lite 2','All · 3'],closed:false,one:'Glass: Lite 1 of 2',all:['unit','Glass: Lite 1 of 2','Glass: Lite 2 of 2'],plain:'Print / PDF'});
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
