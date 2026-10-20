@@ -94,5 +94,30 @@ module.exports=async function({page,eq}){
   return {count:err(()=>invWhole('10001','6CLEAR 130×96')),max:invWhole('10000','x'),huge:err(()=>invWhole('9007199254740993','x')),receipt:rec(20000),receiptOk:rec(64)};
  }),{count:'6CLEAR 130×96: up to 10,000.',max:10000,huge:'x: up to 10,000.',receipt:'Line 1: up to 10,000 sheets.',receiptOk:'ok'});
 
+ /* Цена заказа — на день сохранения (владелец, 20.10.2026: «при сохранении
+    цена фиксируется, но её руками можно изменить и обновить заказ»; «деньги
+    — всегда повод для споров»; «измерять результаты корректно день за днём»). */
+ await t.p.evaluate(()=>{
+  window.a19Live=function(kind){const c=oqCustomer({legalName:'Price Book Co'}),id=oqOrder(c,kind?{kind}:undefined);salesOrderEdit(id);
+   soDraft.makeups.forEach(m=>{m.panes.forEach(p=>{p.priceOverride=null;});m.cavities.forEach(x=>{x.priceOverride=null;});});salesOrderSave();salesDraftDrop(true);return id;};
+  window.a19Set=v=>{const g=glassProductByCode('6CLEAR');g.salePriceTempered=v;g.salePriceAnnealed=v;};
+ });
+ eq('цена фиксируется при Save: правка прайса не меняет сохранённый заказ; новый заказ — по новому прайсу; Update без правок — прежняя сумма; ручная цена + Update — новая',await t.p.evaluate(()=>{
+  oqReset();a19Set(10);const id=a19Live(),t1=finOrderTotals(salesRecord(id)).grand,book=salesRecord(id).priceBook;
+  a19Set(20);const kept=finOrderTotals(salesRecord(id)).grand,fresh=finOrderTotals(salesRecord(a19Live())).grand;
+  salesOrderEdit(id);salesOrderSave();salesDraftDrop(true);const update=finOrderTotals(salesRecord(id)).grand;
+  salesOrderEdit(id);soDraft.makeups[0].panes.forEach(p=>{p.priceOverride=15;});salesOrderSave();salesDraftDrop(true);const manual=finOrderTotals(salesRecord(id)).grand;
+  return {book:(book||{})['glass:'+glassProductByCode('6CLEAR').id+':salePriceTempered'],kept:kept===t1,fresh:fresh>t1,update:update===t1,manual:manual>t1&&manual<fresh};
+ }),{book:10,kept:true,fresh:true,update:true,manual:true});
+
+ eq('старые заказы при загрузке получают цены, что в них видны сейчас (правка данных 8); отчёт стоимости работ и Convert квоты — по цене дня сохранения',await t.p.evaluate(()=>{
+  oqReset();a19Set(10);const id=a19Live(),o=salesRecord(id),before=finOrderTotals(o).grand;delete o.priceBook;DB.dataFix=7;applyDataFixes();
+  a19Set(20);const migrated={book:!!salesRecord(id).priceBook,same:finOrderTotals(salesRecord(id)).grand===before};
+  const report=finWithOrder(salesRecord(id),()=>repGlassPrice({spec:{glassProductId:glassProductByCode('6CLEAR').id,heatTreatmentId:'HT-FT'}}));
+  a19Set(10);const q=a19Live('quote'),qt=finOrderTotals(salesRecord(q)).grand;a19Set(20);salesConvertQuoteRecord(q,'PO-A19');
+  const won=DB.salesOrder.find(x=>x.fromQuoteId===q);a19Set(null);
+  return {migrated,report,converted:!!won&&finOrderTotals(won).grand===qt};
+ }),{migrated:{book:true,same:true},report:10,converted:true});
+
  eq('аудит 19.10: без ошибок страницы',t.errs,[]);await t.c.close();
 };

@@ -300,8 +300,7 @@ function salesInterlayerTypeOptions(family,current){
   .map(x=>salesOption(x.id,x.name,current,true)).join('');
 }
 function salesInterlayerPriceCell(index,slot,layer){
- const prod=mdById('interlayerProduct',layer.productId);
- const cat=prod&&prod.salePrice!=null?prod.salePrice:null;
+ const cat=salesInterlayerSalePrice(layer.productId);
  const has=layer.priceOverride!=null;
  const shown=has?layer.priceOverride:cat;
  return `<div class="mu-price-cell${has?' edited':''}">`

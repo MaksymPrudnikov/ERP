@@ -311,7 +311,7 @@ const DATA_FIXES=[
 ];
 /* Номера правок кодом (не строкой таблицы): 4 — sfSplitEdgeFix, 6 —
    приоритет раскроя, 7 — стекло COG (applyDataFixes). */
-const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),7);
+const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),8);
 function applyDataFixes(){
  const have=Number.isInteger(+DB.dataFix)&&+DB.dataFix>0?+DB.dataFix:0;
  if(have>=DATA_FIX_VERSION)return false;
@@ -338,6 +338,10 @@ function applyDataFixes(){
  if(have<7&&Array.isArray(DB.glassProduct)&&typeof glassCogProducts==='function')glassCogProducts().forEach(p=>{
   if(!DB.glassProduct.some(x=>x&&(x.id===p.id||String(x.code).toUpperCase()===p.code.toUpperCase()))){DB.glassProduct.push(p);changed++;}
  });
+ /* Номер 8 · 20 октября 2026. Цена заказа — на день сохранения (владелец:
+    «при сохранении цена фиксируется»). Заказам и квотам, сохранённым раньше,
+    — цены, которые в них видны сейчас: ни одна сумма не сдвигается. */
+ if(have<8&&typeof salesPriceBookOf==='function')(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&!o.priceBook){try{o.priceBook=salesPriceBookOf(o);changed++;}catch(e){console.warn('price book '+(o.businessNumber||o.id)+': '+e.message);}}});
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;

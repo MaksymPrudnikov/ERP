@@ -201,6 +201,9 @@ function salesOrderSaveCommand(opts){
  if(copyOf){const rev=salesQuoteNextRev(copyOf);soDraft.quoteGroupId=salesQuoteGroupId(copyOf);soDraft.quoteRev=rev;soDraft.businessNumber=salesQuoteBaseNumber(copyOf)+'-R'+rev;soDraft.status='open';soDraft.sentAt='';soDraft.statusDates={};if(soDraft.validUntil===copyOf.validUntil)soDraft.validUntil='';}
  if(!soDraft.businessNumber)soDraft.businessNumber=salesIsQuote(soDraft)?nextSalesQuoteNumber():nextSalesOrderNumber();
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;if(!soDraft.statusDates[soDraft.status])soDraft.statusDates[soDraft.status]=soDraft.updatedAt;
+ /* Цены справочников — на день сохранения (salesBook): прежние в заказе
+    остаются, новые позиции берут Master Data (владелец, 20.10.2026). */
+ soDraft.priceBook=salesPriceBookOf(soDraft);
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
  normalizeSalesData();if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
