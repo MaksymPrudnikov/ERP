@@ -8,7 +8,7 @@
    оценить: заказов может быть больше, а сумма меньше».
    IN : erp/finance/commissions
    ===================================================================== */
-let comOpen='',comDraft=null,comPayDraft=null,comPeriod='year',comHst=false,comNotice='';
+let comOpen='',comDraft=null,comSeen='',comPayDraft=null,comPeriod='year',comHst=false,comNotice='';
 const COM_PERIODS=[['year','This year'],['last','Last year'],['all','All time']];
 function comRange(){const y=+finToday().slice(0,4);return comPeriod==='all'?null:comPeriod==='last'?{from:(y-1)+'-01-01',to:(y-1)+'-12-31'}:{from:y+'-01-01',to:y+'-12-31'};}
 function comCustomerName(id){return finCustomerName(salesFindCustomer(id));}
@@ -60,8 +60,12 @@ function comFormHTML(){
   <div><label>Note</label><input value="${esc(d.note)}" oninput="comDraft.note=this.value"></div>
   <div class="sales-toolbar"><button type="button" class="pri" data-com-save onclick="comFormSave()">Save</button><button type="button" onclick="comDraft=null;render()">Cancel</button>${d.id?`<span class="sales-toolbar-sp"></span><button type="button" class="dl" onclick="comFormDelete()">Delete</button>`:''}</div></div>`;
 }
-function comEditOpen(id){const r=id?comFind(id):null;comNotice='';comPayDraft=null;comDraft=r?JSON.parse(JSON.stringify(r)):{id:'',name:'',phone:'',email:'',note:'',customers:[{customerId:'',pct:''}]};render();setTimeout(()=>{const el=document.getElementById('com_name');if(el&&!id)el.focus();},0);}
-function comFormSave(){const d=Object.assign({},comDraft,{customers:comDraft.customers.filter(c=>c.customerId||c.pct)});const out=comSave(d);if(out.error){comNotice=out.error;render();return;}comNotice='';comOpen=out.value.id;comDraft=null;render();}
+function comEditOpen(id){const r=id?comFind(id):null;comNotice='';comPayDraft=null;comDraft=r?JSON.parse(JSON.stringify(r)):{id:'',name:'',phone:'',email:'',note:'',customers:[{customerId:'',pct:''}]};comSeen=r?JSON.stringify(r):'';render();setTimeout(()=>{const el=document.getElementById('com_name');if(el&&!id)el.focus();},0);}
+/* Старая форма из другой вкладки не пишет поверх свежей правки и не
+   возвращает удалённого (как карточка клиента, F08; владелец 20.10.2026). */
+function comFormSave(){
+ if(comDraft.id){const cur=comFind(comDraft.id),stale=!cur?'This person was deleted':JSON.stringify(cur)!==comSeen?'Changed elsewhere — reopen':'';if(stale){comNotice=stale;render();return;}}
+ const d=Object.assign({},comDraft,{customers:comDraft.customers.filter(c=>c.customerId||c.pct)});const out=comSave(d);if(out.error){comNotice=out.error;render();return;}comNotice='';comOpen=out.value.id;comDraft=null;render();}
 function comFormDelete(){const d=comDraft;if(!d||!d.id||!confirm('Delete '+d.name+' and their payouts?'))return;const out=comDelete(d.id);comNotice=out.error||'';if(!out.error){comDraft=null;comOpen='';}render();}
 function comPayOpen(id){const r=comFind(id);if(!r)return;comOpen=id;comDraft=null;comNotice='';comPayDraft={referrerId:id,date:finToday(),note:'',orderIds:[...comDue(r).values()].filter(x=>x.due>0).map(x=>x.orderId)};render();}
 function comPayPick(id,on){if(!comPayDraft)return;comPayDraft.orderIds=comPayDraft.orderIds.filter(x=>x!==id);if(on)comPayDraft.orderIds.push(id);render();}

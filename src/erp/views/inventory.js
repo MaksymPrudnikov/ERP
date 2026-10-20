@@ -107,7 +107,7 @@ function invSheetCell(i,c){
  if(c.k==='onRack')return '<td class="n'+(r.onRack<0?' inv-neg':'')+'">'+esc(v)+(r.enterSheets?'<div class="inv-note warn">Enter sheets</div>':'')+'</td>';
  if(c.k==='reserved'){const b=[...r.batches.entries()];return '<td class="n">'+esc(v)+(b.length?'<div class="inv-note">'+esc(b.length>2?b.length+' batches':b.map(([n,k])=>n+(b.length>1?': '+k:'')).join(', '))+'</div>':'')+'</td>';}
  if(c.k==='free')return '<td class="n'+(r.free<0||r.min!=null&&r.free<r.min?' inv-neg':'')+'"><b>'+esc(v)+'</b></td>';
- if(c.k==='min')return '<td class="n">'+(r.sizeMissing?'<span class="mut">—</span>':'<input type="number" min="0" step="1" class="inv-min" data-inv-min="'+esc(r.key)+'" aria-label="Minimum" value="'+(r.min==null?'':r.min)+'" onchange="invMinChange('+invArg(r.key)+',this.value)">')+'</td>';
+ if(c.k==='min')return '<td class="n">'+(r.sizeMissing?'<span class="mut">—</span>':'<input type="number" min="0" step="1" inputmode="numeric" class="inv-min" data-inv-min="'+esc(r.key)+'" aria-label="Minimum" value="'+(r.min==null?'':r.min)+'" onchange="invMinChange('+invArg(r.key)+',this.value)">')+'</td>';
  if(c.k==='held'||c.k==='onOrder'){const blocks=c.k==='held'?r.heldBlocks:r.onOrderBlocks;return '<td class="n">'+(v||blocks?esc(v||0)+(blocks?'<div class="inv-note">+ '+esc(blocks)+' block'+(blocks===1?'':'s')+'</div>':''):'<span class="mut">—</span>')+'</td>';}
  if(c.k==='lastCount')return '<td class="nowrap">'+invLastCount(r)+'</td>';
  if(c.k==='status')return '<td><span class="pill '+(INV_TONE[v]||'')+'">'+esc(v)+'</span></td>';
@@ -186,7 +186,7 @@ function invCountCell(i,c){
 function invCountExtra(i){
  const r=i.r;if(r.sizeMissing)return '<td class="mut">Size missing</td>';
  const v=invCountDraft[r.key]==null?'':invCountDraft[r.key],n=Number(v),diff=v!==''&&Number.isFinite(n)&&n!==r.onRack?(n>r.onRack?'+':'−')+Math.abs(n-r.onRack):'';
- return '<td class="inv-count-cell"><input type="number" min="0" step="1" class="inv-count" data-inv-count="'+esc(r.key)+'" data-rack="'+r.onRack+'" aria-label="Counted sheets" value="'+esc(v)+'" oninput="invCountInput('+invArg(r.key)+',this.value,this)"><span class="inv-diff" data-inv-diff>'+esc(diff)+'</span>'+
+ return '<td class="inv-count-cell"><input type="number" min="0" step="1" inputmode="numeric" class="inv-count" data-inv-count="'+esc(r.key)+'" data-rack="'+r.onRack+'" aria-label="Counted sheets" value="'+esc(v)+'" oninput="invCountInput('+invArg(r.key)+',this.value,this)"><span class="inv-diff" data-inv-diff>'+esc(diff)+'</span>'+
   '<button type="button" class="sl-quiet sm" data-inv-writeoff onclick="invWriteOffOpen('+invArg(r.key)+')">Write off</button></td>';
 }
 function invWriteOffOpen(key){invWriteOffDraft={key,qty:'',reason:'',note:''};invNotice='';render();setTimeout(()=>document.getElementById('inv_wo_qty')?.focus(),0);}
@@ -199,7 +199,7 @@ function invWriteOffSave(){
 function invWriteOffHTML(){
  const d=invWriteOffDraft,r=d&&invRowFind(d.key);if(!r)return '';
  return '<section class="card inv-writeoff" data-inv-writeoff-form><h3>Write off · '+esc(r.code)+' '+esc(invSizeText(r))+' <span class="mut">· on rack '+esc(r.onRack)+'</span></h3><div class="inv-wo-fields">'+
-  '<label>Sheets<input id="inv_wo_qty" type="number" min="1" step="1" value="'+esc(d.qty)+'" oninput="invWriteOffDraft.qty=this.value"></label>'+
+  '<label>Sheets<input id="inv_wo_qty" type="number" min="1" step="1" inputmode="numeric" value="'+esc(d.qty)+'" oninput="invWriteOffDraft.qty=this.value"></label>'+
   '<label>Reason<select id="inv_wo_reason" onchange="invWriteOffDraft.reason=this.value"><option value="">Choose…</option>'+INV_WRITE_OFF.map(x=>'<option'+(x===d.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></label>'+
   '<label class="inv-wo-note">Note<input id="inv_wo_note" type="text" maxlength="200" value="'+esc(d.note)+'" oninput="invWriteOffDraft.note=this.value"></label>'+
   '<div class="inv-wo-actions"><button type="button" onclick="invWriteOffDraft=null;invNotice=\'\';render()">Cancel</button><button type="button" class="pri" data-inv-writeoff-save onclick="invWriteOffSave()">Write off</button></div></div></section>';

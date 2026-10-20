@@ -230,7 +230,12 @@ function mdGlassNew(){
  mdDraft=normalizeGlassProduct({id:'',code:'',name:'',manufacturer:'',thicknessMm:6,substrate:'clear',coatingFamily:'uncoated'});
  render();
 }
-function mdGlassEdit(id){const p=glassProductById(id);if(!p)return;mdEdit=id;mdDraft=JSON.parse(JSON.stringify(p));render();}
+/* Форма помнит запись, какой её открыли (mdSeen): старая форма из другой
+   вкладки не пишет поверх свежей правки и не возвращает удалённое — как
+   карточка клиента (аудит 19.10.2026, F08; владелец 20.10.2026). */
+const mdSeen={};
+function mdStale(form,cur){return !cur?'This item was deleted':JSON.stringify(cur)!==mdSeen[form]?'Changed elsewhere — reopen':'';}
+function mdGlassEdit(id){const p=glassProductById(id);if(!p)return;mdEdit=id;mdDraft=JSON.parse(JSON.stringify(p));mdSeen.glass=JSON.stringify(p);render();}
 function mdGlassForm(){
  const r=mdDraft,isNew=mdEdit==='new';
  const used=!isNew&&salesGlassProductHasReferences(r.id);
@@ -265,6 +270,7 @@ function mdGlassForm(){
 }
 function mdGlassSave(){
  const e=document.getElementById('e_mdGlass');e.style.display='none';
+ if(mdEdit!=='new'){const stale=mdStale('glass',glassProductById(mdDraft.id));if(stale)return fail(e,stale);}
  const code=mdVal('md_code'),name=mdVal('md_name'),thick=mdVal('md_thick');
  if(!code||!name)return fail(e,'Code and name are required');
  if(!GLASS_CODE_RE.test(code))return fail(e,'Code: letters, digits and + . _ - / only');
@@ -354,7 +360,7 @@ function mdSheetNew(){
 }
 function mdSheetEditRow(id){
  const s=(DB.glassSheet||[]).find(x=>x.id===id);if(!s)return;
- mdSheetEdit=id;mdSheetDraft=JSON.parse(JSON.stringify(s));mdSheetPick={mfr:'',thick:'',q:''};render();
+ mdSheetEdit=id;mdSheetDraft=JSON.parse(JSON.stringify(s));mdSeen.sheet=JSON.stringify(s);mdSheetPick={mfr:'',thick:'',q:''};render();
 }
 /* Форма из двух блоков (владелец, 2 октября 2026): Glass — производитель,
    толщина и поиск сужают список из 500+ стёкол; Supply — точка поставки из
@@ -416,6 +422,7 @@ function mdSheetForm(){
 }
 function mdSheetSave(){
  const e=document.getElementById('e_mdSheet');e.style.display='none';
+ if(mdSheetEdit!=='new'){const stale=mdStale('sheet',(DB.glassSheet||[]).find(x=>x.id===mdSheetDraft.id));if(stale)return fail(e,stale);}
  const code=mdVal('md_sheetCode'),supplier=mdVal('md_sheetSupplier'),cur=mdVal('md_sheetCurrency').toUpperCase();
  if(!code||!supplier)return fail(e,'Product and supply point are required');
  if(cur&&!CURRENCY_RE.test(cur))return fail(e,'Currency: a three-letter code, for example CAD');
@@ -533,7 +540,7 @@ function mdSpacerNew(){
 }
 function mdSpacerEditRow(id){
  const sp=(DB.spacerVariant||[]).find(x=>x.id===id);if(!sp)return;
- mdSpacerEdit=id;mdSpacerDraft=JSON.parse(JSON.stringify(sp));render();
+ mdSpacerEdit=id;mdSpacerDraft=JSON.parse(JSON.stringify(sp));mdSeen.spacer=JSON.stringify(sp);render();
 }
 function mdSpacerForm(){
  const r=mdSpacerDraft,isNew=mdSpacerEdit==='new';
@@ -552,6 +559,7 @@ function mdSpacerForm(){
 }
 function mdSpacerSave(){
  const e=document.getElementById('e_mdSpacer');e.style.display='none';
+ if(mdSpacerEdit!=='new'){const stale=mdStale('spacer',(DB.spacerVariant||[]).find(x=>x.id===mdSpacerEdit));if(stale)return fail(e,stale);}
  const system=mdVal('md_spSystem'),size=mdVal('md_spSize');
  if(!system||!size)return fail(e,'System and nominal size are required');
  const q=spacerSizeParts(size);
@@ -662,7 +670,7 @@ function viewMdHardware(){
   <div class="row"><button class="pri" onclick="mdHwModelNew()">+ New model</button></div>`;
 }
 function mdHwKindNew(){mdHwKindEdit='new';mdHwKindDraft={code:'',name:'',nameEn:'',short:'',active:true,note:''};render();}
-function mdHwKindEditRow(code){const k=hardwareKindRow(code);if(!k)return;mdHwKindEdit=code;mdHwKindDraft=JSON.parse(JSON.stringify(k));render();}
+function mdHwKindEditRow(code){const k=hardwareKindRow(code);if(!k)return;mdHwKindEdit=code;mdHwKindDraft=JSON.parse(JSON.stringify(k));mdSeen.hwKind=JSON.stringify(k);render();}
 function mdHwKindForm(){
  const r=mdHwKindDraft,isNew=mdHwKindEdit==='new';
  return `<div class="form"><h3>${isNew?'New hardware kind':'Edit kind'}</h3>
@@ -679,6 +687,7 @@ function mdHwKindForm(){
 }
 function mdHwKindSave(){
  const e=document.getElementById('e_mdHwKind');e.style.display='none';
+ if(mdHwKindEdit!=='new'){const stale=mdStale('hwKind',hardwareKindRow(mdHwKindEdit));if(stale)return fail(e,stale);}
  const isNew=mdHwKindEdit==='new',code=isNew?mdVal('md_hwKindCode').toLowerCase():mdHwKindDraft.code;
  if(!code)return fail(e,'The kind code is required');
  if(!HW_CODE_RE.test(code))return fail(e,'Kind code: latin letters, digits and a hyphen, starting with a letter');
@@ -699,7 +708,7 @@ function mdHwKindDelete(code){
  DB.hardwareKind=DB.hardwareKind.filter(k=>k.code!==code);touch();render();
 }
 function mdHwModelNew(){mdHwModelEdit='new';mdHwModelDraft={id:'',kind:mdHwFilter||((DB.hardwareKind[0]||{}).code||''),name:'',series:'',thickness:'',supplierCode:'',active:true,note:''};render();}
-function mdHwModelEditRow(id){const m=hardwareModelById(id);if(!m)return;mdHwModelEdit=id;mdHwModelDraft=JSON.parse(JSON.stringify(m));render();}
+function mdHwModelEditRow(id){const m=hardwareModelById(id);if(!m)return;mdHwModelEdit=id;mdHwModelDraft=JSON.parse(JSON.stringify(m));mdSeen.hwModel=JSON.stringify(m);render();}
 function mdHwModelForm(){
  const r=mdHwModelDraft,isNew=mdHwModelEdit==='new',kinds=DB.hardwareKind||[];
  return `<div class="form"><h3>${isNew?'New hardware model':'Edit model'}</h3>
@@ -718,6 +727,7 @@ function mdHwModelForm(){
 }
 function mdHwModelSave(){
  const e=document.getElementById('e_mdHwModel'),isNew=mdHwModelEdit==='new';e.style.display='none';
+ if(!isNew){const stale=mdStale('hwModel',hardwareModelById(mdHwModelEdit));if(stale)return fail(e,stale);}
  const kind=mdVal('md_hwModelKind'),name=mdVal('md_hwModelName');
  if(!kind)return fail(e,'Create a hardware kind first');
  if(!name)return fail(e,'The model name is required');
@@ -991,7 +1001,7 @@ function mdCatNew(){
 }
 function mdCatEditRow(id){
  const x=mdCatRows().find(r=>r.id===id);if(!x)return;
- mdCatEdit=id;mdCatDraft=JSON.parse(JSON.stringify(x));render();
+ mdCatEdit=id;mdCatDraft=JSON.parse(JSON.stringify(x));mdSeen.cat=JSON.stringify(x);render();
 }
 function mdCatForm(){
  const r=mdCatDraft,isNew=mdCatEdit==='new',colour=mdCatIsColour(),def=mdCatDef();
@@ -1059,6 +1069,7 @@ function mdCatIdFrom(prefix,code,name,taken){
 }
 function mdCatSave(){
  const e=document.getElementById('e_mdCat');if(e)e.style.display='none';
+ if(mdCatEdit!=='new'){const stale=mdStale('cat',mdCatRows().find(r=>r.id===mdCatEdit));if(stale)return fail(e,stale);}
  const colour=mdCatIsColour(),def=mdCatDef(),rows=mdCatRows();
  const name=mdVal('md_catName');
  if(!name)return fail(e,'Name is required');

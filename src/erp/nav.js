@@ -89,6 +89,10 @@ const raw=s=>{s=String(s??'');
     текстовым узлом и попадает в словарь целиком, а не куском чужой фразы */
  return SEED_TEXT.has(s)?`<span>${esc(s)}</span>`:`<span data-raw>${esc(s)}</span>`;};
 const fail=(el,m)=>{el.textContent=m;el.style.display='block';};
+/* Количество стёкол, юнитов и листов — только целое число (владелец,
+   20.10.2026): в полях inputmode="numeric" точку, запятую, минус и «e» не
+   набрать. Деньги, проценты и дни этого признака не имеют. */
+document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.matches&&t.matches('input[inputmode="numeric"]')&&['.',',','-','+','e','E'].includes(e.key))e.preventDefault();},true);
 
 function render(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);

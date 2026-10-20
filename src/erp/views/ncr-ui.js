@@ -58,7 +58,7 @@ function ncrFormHTML(){
   const x=f.lines[l.id]||{on:false,qty:'',which:'unit'},opts=ncrLiteOptions(o,l);
   return `<tr data-ncr-line="${esc(l.id)}" class="${x.on?'on':''}"><td><input type="checkbox" data-ncr-line-on ${x.on?'checked':''} aria-label="Line ${i+1} affected" onchange="ncrFormLine('${esc(l.id)}','on',this.checked,true)"></td>
    <td>Line ${i+1}${l.mark?' · '+esc(l.mark):''}</td><td class="nowrap">${esc(dimIn16(l.width16/16))} × ${esc(dimIn16(l.height16/16))}</td><td>${esc(glassCodes(l))}</td><td class="n">${l.qty}</td>
-   <td><input type="number" min="1" max="${l.qty}" step="1" data-ncr-line-qty value="${esc(x.qty)}" ${x.on?'':'disabled'} aria-label="Affected on line ${i+1}" oninput="ncrFormLine('${esc(l.id)}','qty',this.value)"></td>
+   <td><input type="number" min="1" max="${l.qty}" step="1" inputmode="numeric" data-ncr-line-qty value="${esc(x.qty)}" ${x.on?'':'disabled'} aria-label="Affected on line ${i+1}" oninput="ncrFormLine('${esc(l.id)}','qty',this.value)"></td>
    <td><select data-ncr-line-which ${x.on&&!remake&&opts.length>1?'':'disabled'} aria-label="Which glass on line ${i+1}" onchange="ncrFormLine('${esc(l.id)}','which',this.value,true)">${(remake?[opts[0]]:opts).map(v=>`<option value="${esc(v.value)}" ${String(x.which)===v.value?'selected':''}>${esc(v.label)}</option>`).join('')}</select></td></tr>`;
  }).join('');
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)ncrFormClose()"><div class="sales-service-modal sales-dialog ncr-modal" role="dialog" aria-modal="true" aria-label="${recut?'Recut':'New NCR'}">
