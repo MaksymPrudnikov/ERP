@@ -437,7 +437,16 @@ function normalizeSalesOrderLine(l){
  /* Hold units / Cancel units (erp/sales/unit-cancel) — поля только там, где они есть. */
  return normalizeUnitFields({id:salesEntityId(l.id,'SOL'),lineType:'physical',batchManaged:l.batchManaged===true,onHold:l.onHold===true,holdReason:l.onHold===true?salesString(l.holdReason).slice(0,200):'',holdAt:l.onHold===true?salesString(l.holdAt):'',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',...(Number.isSafeInteger(l.shipQueue)&&l.shipQueue>0&&l.shipQueue<1000?{shipQueue:l.shipQueue}:{}),weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)})),
   /* Цена руками (line-metrics, salesLineCommercialPrice) — только если задана. */
-  ...(salesNonNegOrNull(l.priceManual)!=null?{priceManual:salesNonNegOrNull(l.priceManual)}:{})},l);
+  ...(salesNonNegOrNull(l.priceManual)!=null?{priceManual:salesNonNegOrNull(l.priceManual)}:{}),
+  /* Сервисы, добавленные руками (sales/extra-services) — только если есть. */
+  ...(Array.isArray(l.extraServices)&&l.extraServices.length?{extraServices:l.extraServices.map(normalizeSalesExtraService).slice(0,50)}:{})},l);
+}
+/* Сервис, добавленный к строке руками: из прайса (rateId) или свой — имя и
+   единица. qty — на юнит строки; null у ft² и in — площадь и периметр юнита. */
+function normalizeSalesExtraService(x){
+ x=x&&typeof x==='object'?x:{};
+ const rateId=salesString(x.rateId).slice(0,80),q=x.qty==null||x.qty===''?null:+x.qty;
+ return {id:salesEntityId(x.id,'SX'),rateId,name:rateId?'':salesString(x.name).trim().slice(0,80),unit:rateId?'':(['pc','ft²','in'].includes(x.unit)?x.unit:'pc'),qty:Number.isFinite(q)&&q>0?q:null};
 }
 /* Строка-позиция каталога: изделие из стекла или готовая вещь — не одно и то
    же, и модель их не смешивает (раздел 6 схемы). Владелец: «там, где Single /

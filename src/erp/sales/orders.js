@@ -1202,7 +1202,10 @@ function salesLineChargeRows(line){
 function salesChargeGroupKey(row){
  const p=String(row&&row.key||'').split(':');if(p[0]==='MI'){if(p[1]==='hole')return 'MI:hole:'+(p[2]||'unpriced');return 'MI:'+(p[1]||'');}
  if(p[0]==='EDGE'){if(p[1]==='bevel')return 'EDGE:bevel:'+(p[2]||'');return 'EDGE:'+(p[1]||'');}
- if(p[0]==='FEATURE')return 'FEATURE:'+(p[1]||'');return String(row&&row.key||'');
+ if(p[0]==='FEATURE')return 'FEATURE:'+(p[1]||'');
+ /* Добавленный руками сервис (sales/extra-services): группа — до «|». */
+ if(p[0]==='EXTRA')return String(row.key).split('|')[0];
+ return String(row&&row.key||'');
 }
 function salesOrderChargePricingRecord(row){const map=soDraft&&soDraft.servicePricing&&typeof soDraft.servicePricing==='object'?soDraft.servicePricing:{},r=map[salesChargeGroupKey(row)]||null;return r&&r.orderRate!=null?r.orderRate:null;}
 function salesChargePricingState(line,row){
@@ -1237,9 +1240,9 @@ function salesOrderPricingSummary(){return (soDraft&&soDraft.lines||[]).reduce(f
 function salesLinePricingTotal(line){return salesLinePricingSummary(line).total;}
 function salesOrderPricingTotal(){return salesOrderPricingSummary().total;}
 function salesTogglePricingLine(id){soPricingLineId=soPricingLineId===id?null:id;render();}
-function salesOpenLineServices(id){soServiceLineId=id;soServiceOrderOpen=false;render();}
-function salesOpenOrderServices(){soServiceLineId=null;soServiceOrderOpen=true;render();}
-function salesCloseServices(){soServiceLineId=null;soServiceOrderOpen=false;render();}
+function salesOpenLineServices(id){soServiceLineId=id;soServiceOrderOpen=false;soExtraForm=null;render();}
+function salesOpenOrderServices(){soServiceLineId=null;soServiceOrderOpen=true;soExtraForm=null;render();}
+function salesCloseServices(){soServiceLineId=null;soServiceOrderOpen=false;soExtraForm=null;render();}
 function salesChargeShortLabel(row){
  /* Короткий код вида берётся из справочника по ключу строки: у добавленного
     владельцем вида имени в этом коде нет и быть не может. */

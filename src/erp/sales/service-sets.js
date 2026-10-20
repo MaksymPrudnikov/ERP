@@ -494,6 +494,9 @@ salesLineChargeRows=function(line){
   if(typeof salesMuntinChargeRows==='function')salesMuntinChargeRows(line).forEach(function(row){rows.push(row);});
   var saved=line&&line.shapeRef?salesShapeByRef(line.shapeRef):null;
   salesUnitSurchargeRows(line,saved).forEach(function(row){rows.push(row);});
+  /* Сервисы, добавленные руками (sales/extra-services), от контура не
+     зависят — до выхода по его отсутствию. */
+  if(typeof salesExtraServiceRows==='function')salesExtraServiceRows(line).forEach(function(row){rows.push(row);});
   var shape=salesLineGeometryShape(line),ctx=salesPricingThickness(line);if(!shape)return rows.filter(function(x){return x.basis>0;});
   var items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
   /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows.
