@@ -51,7 +51,9 @@ function shapeParallelogramOosSvg(result,F,L,opts,metricMode){
   }
   var box=L.box,sideways=q.direction==='left'||q.direction==='right';
   var label=metricMode?shapeMetricFormat(q.outOfSquare*SHAPE_MM_PER_INCH):shapeAnnDim(q.outOfSquare);
-  var units=metricMode?'mm':'in',ref='#98a2b3',out='';
+  /* В мм — та же раскладка, свои ключи (mm:…), чтобы мм и дюймы не двигали
+     друг друга. */
+  var units=metricMode?'mm':'in',ref='#98a2b3',out='',kp=metricMode?shapeMetricKeyPrefix(opts):'';
   function refV(x){return '<line class="shape-para-oos-reference" x1="'+x+'" y1="'+box.top+'" x2="'+x+'" y2="'+box.bottom+'" stroke="'+ref+'" stroke-width=".9" stroke-dasharray="7 5"/>';}
   function refH(y){return '<line class="shape-para-oos-reference" x1="'+box.left+'" y1="'+y+'" x2="'+box.right+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".9" stroke-dasharray="7 5"/>';}
   function dimH(x1,x2,fromY,y,pos,key,sign){
@@ -61,7 +63,7 @@ function shapeParallelogramOosSvg(result,F,L,opts,metricMode){
     y+=sign*shapeAnnUiShift(opts,key);y=Math.max(box.top,Math.min(box.bottom,y));var mid=(x1+x2)/2,span=Math.abs(x2-x1),dim='';
     if(span>=.5)dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y);
     else dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1"/>'+shapeAnnTickH(mid,y);
-    dim+=metricMode?shapeAnnText(mid,y-8,label,{size:SHAPE_DIM_FONT,weight:700}):shapeAnnItem(opts,key+':label',shapeAnnText(mid,y-8,label,{size:SHAPE_DIM_FONT,weight:700}),mid,y-14,{from:[mid,y],vw:F&&F.vw});
+    dim+=shapeAnnItem(opts,key+':label',shapeAnnText(mid,y-8,label,{size:SHAPE_DIM_FONT,weight:700}),mid,y-14,{from:[mid,y],vw:F&&F.vw});
     var body='<g class="shape-para-oos-dimension horizontal" data-oos-role="value" data-oos-position="'+pos+'" data-oos-value="'+shapeXml(q.outOfSquare)+'" data-units="'+units+'"><line x1="'+x1+'" y1="'+fromY+'" x2="'+x1+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+x2+'" y1="'+fromY+'" x2="'+x2+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+'</g>';
     return shapeAnnUiWrap(opts,key,body,mid,y-28,F);
   }
@@ -69,18 +71,18 @@ function shapeParallelogramOosSvg(result,F,L,opts,metricMode){
     x+=sign*shapeAnnUiShift(opts,key);x=Math.max(box.left,Math.min(box.right,x));var mid=(y1+y2)/2,span=Math.abs(y2-y1),dim='';
     if(span>=.5)dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickV(x,y1)+shapeAnnTickV(x,y2);
     else dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1"/>'+shapeAnnTickV(x,mid);
-    dim+=metricMode?shapeAnnText(x-10,mid,label,{size:SHAPE_DIM_FONT,weight:700,rot:-90}):shapeAnnItem(opts,key+':label',shapeAnnText(x-10,mid,label,{size:SHAPE_DIM_FONT,weight:700,rot:-90}),x-16,mid,{from:[x,mid],vw:F&&F.vw});
+    dim+=shapeAnnItem(opts,key+':label',shapeAnnText(x-10,mid,label,{size:SHAPE_DIM_FONT,weight:700,rot:-90}),x-16,mid,{from:[x,mid],vw:F&&F.vw});
     var body='<g class="shape-para-oos-dimension vertical" data-oos-role="value" data-oos-position="'+pos+'" data-oos-value="'+shapeXml(q.outOfSquare)+'" data-units="'+units+'"><line x1="'+fromX+'" y1="'+y1+'" x2="'+x+'" y2="'+y1+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+fromX+'" y1="'+y2+'" x2="'+x+'" y2="'+y2+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+'</g>';
     return shapeAnnUiWrap(opts,key,body,x-28,mid,F);
   }
   if(sideways){
     out+=refV(box.left)+refV(box.right);
-    if(q.direction==='right')out+=dimH(box.left,P[1][0],P[1][1],P[1][1],'top-left','inch:para:oos:top-left',1)+dimH(P[3][0],box.right,P[3][1],P[3][1],'bottom-right','inch:para:oos:bottom-right',-1);
-    else out+=dimH(P[2][0],box.right,P[2][1],P[2][1],'top-right','inch:para:oos:top-right',1)+dimH(box.left,P[0][0],P[0][1],P[0][1],'bottom-left','inch:para:oos:bottom-left',-1);
+    if(q.direction==='right')out+=dimH(box.left,P[1][0],P[1][1],P[1][1],'top-left',kp+'inch:para:oos:top-left',1)+dimH(P[3][0],box.right,P[3][1],P[3][1],'bottom-right',kp+'inch:para:oos:bottom-right',-1);
+    else out+=dimH(P[2][0],box.right,P[2][1],P[2][1],'top-right',kp+'inch:para:oos:top-right',1)+dimH(box.left,P[0][0],P[0][1],P[0][1],'bottom-left',kp+'inch:para:oos:bottom-left',-1);
   }else{
     out+=refH(box.top)+refH(box.bottom);
-    if(q.direction==='up')out+=dimV(box.top,P[1][1],P[1][0],P[1][0],'top-left','inch:para:oos:top-left',1)+dimV(P[3][1],box.bottom,P[3][0],P[3][0],'bottom-right','inch:para:oos:bottom-right',-1);
-    else out+=dimV(box.top,P[2][1],P[2][0],P[2][0],'top-right','inch:para:oos:top-right',-1)+dimV(P[0][1],box.bottom,P[0][0],P[0][0],'bottom-left','inch:para:oos:bottom-left',1);
+    if(q.direction==='up')out+=dimV(box.top,P[1][1],P[1][0],P[1][0],'top-left',kp+'inch:para:oos:top-left',1)+dimV(P[3][1],box.bottom,P[3][0],P[3][0],'bottom-right',kp+'inch:para:oos:bottom-right',-1);
+    else out+=dimV(box.top,P[2][1],P[2][0],P[2][0],'top-right',kp+'inch:para:oos:top-right',-1)+dimV(P[0][1],box.bottom,P[0][0],P[0][0],'bottom-left',kp+'inch:para:oos:bottom-left',1);
   }
   return '<g class="shape-para-oos-layer" aria-label="Out of square '+shapeXml(label)+' '+units+'">'+out+'</g>';
 }
@@ -109,15 +111,15 @@ function shapeRakedDifferenceSvg(result,F,L,opts,metricMode){
       longId=(plan[ends[0]][axis]-plan[ends[1]][axis])*far>0?ends[0]:ends[1],shortId=longId===ends[0]?ends[1]:ends[0],
       LP=byId[longId]||fallback[longId],SP=byId[shortId]||fallback[shortId];
   if(!LP||!SP)return '';
-  var box=L.box,units=metricMode?'mm':'in',key='inch:raked:difference',ref='#98a2b3',ink='#101828',lead=26,
+  var kp=metricMode?shapeMetricKeyPrefix(opts):'',box=L.box,units=metricMode?'mm':'in',key=kp+'inch:raked:difference',ref='#98a2b3',ink='#101828',lead=26,
       label=metricMode?shapeMetricFormat(delta*SHAPE_MM_PER_INCH):shapeAnnDim(delta),shift=shapeAnnUiShift(opts,key),
       head='<g class="shape-raked-difference '+(axis?'vertical':'horizontal')+'" data-raked-role="difference" data-raked-value="'+shapeXml(delta)+'" data-units="'+units+'">',
       datum=axis
         ?'<line class="shape-raked-datum" x1="'+LP[0]+'" y1="'+LP[1]+'" x2="'+SP[0]+'" y2="'+LP[1]+'" stroke="'+ref+'" stroke-width=".9" stroke-dasharray="7 5"/>'
         :'<line class="shape-raked-datum" x1="'+LP[0]+'" y1="'+LP[1]+'" x2="'+LP[0]+'" y2="'+SP[1]+'" stroke="'+ref+'" stroke-width=".9" stroke-dasharray="7 5"/>',
       body,dim,cx,cy;
-  function shapeRakedLabel(text,lx,ly,from){return metricMode?text:shapeAnnItem(opts,'raked:diff',text,lx,ly,{from:from,vw:F&&F.vw});}
-  if(!metricMode&&shapeLayoutHidden(opts,'raked:diff')){var gx=(LP[0]+SP[0])/2,gy=(LP[1]+SP[1])/2;return shapeAnnItem(opts,'raked:diff',shapeAnnText(gx,gy,label,{size:SHAPE_NOTE_FONT,weight:700}),gx,gy);}
+  function shapeRakedLabel(text,lx,ly,from){return shapeAnnItem(opts,kp+'raked:diff',text,lx,ly,{from:from,vw:F&&F.vw});}
+  if(shapeLayoutHidden(opts,kp+'raked:diff')){var gx=(LP[0]+SP[0])/2,gy=(LP[1]+SP[1])/2;return shapeAnnItem(opts,kp+'raked:diff',shapeAnnText(gx,gy,label,{size:SHAPE_NOTE_FONT,weight:700}),gx,gy);}
   if(axis){
     var inX=SP[0]<=(box.left+box.right)/2?1:-1,x=Math.max(box.left,Math.min(box.right,SP[0]+inX*shift)),
         y1=Math.min(LP[1],SP[1]),y2=Math.max(LP[1],SP[1]),mid=(y1+y2)/2;
@@ -148,13 +150,13 @@ function shapeTriangleOffsetSvg(result,F,L,opts,metricMode){
   vertices.forEach(function(v){byId[v.id]=L.DP([v.x,v.y]);});
   var apex=byId.APEX,bl=byId.BL;
   if(!apex||!bl)return '';
-  var box=L.box,units=metricMode?'mm':'in',key='inch:tri:offset',ref='#98a2b3',ink='#101828',
+  var kp=metricMode?shapeMetricKeyPrefix(opts):'',box=L.box,units=metricMode?'mm':'in',key=kp+'inch:tri:offset',ref='#98a2b3',ink='#101828',
       label=metricMode?shapeMetricFormat(q.topOffset*SHAPE_MM_PER_INCH):shapeAnnDim(q.topOffset),
       y=Math.max(box.top,Math.min(box.bottom,apex[1]+shapeAnnUiShift(opts,key))),
       x1=Math.min(bl[0],apex[0]),x2=Math.max(bl[0],apex[0]),mid=(x1+x2)/2,dim;
   if(x2-x1>=.5)dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y);
   else dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1"/>'+shapeAnnTickH(mid,y);
-  var body='<g class="shape-tri-offset" data-tri-role="offset" data-tri-value="'+shapeXml(q.topOffset)+'" data-units="'+units+'"><line x1="'+bl[0]+'" y1="'+bl[1]+'" x2="'+x1+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8" stroke-dasharray="6 4"/><line x1="'+apex[0]+'" y1="'+apex[1]+'" x2="'+apex[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+(metricMode?shapeAnnText(mid,y+15,label,{size:SHAPE_NOTE_FONT,weight:700}):shapeAnnItem(opts,'tri:offset',shapeAnnText(mid,y+15,label,{size:SHAPE_NOTE_FONT,weight:700}),mid,y+9,{from:[mid,y],vw:F&&F.vw}))+'</g>';
+  var body='<g class="shape-tri-offset" data-tri-role="offset" data-tri-value="'+shapeXml(q.topOffset)+'" data-units="'+units+'"><line x1="'+bl[0]+'" y1="'+bl[1]+'" x2="'+x1+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8" stroke-dasharray="6 4"/><line x1="'+apex[0]+'" y1="'+apex[1]+'" x2="'+apex[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnItem(opts,kp+'tri:offset',shapeAnnText(mid,y+15,label,{size:SHAPE_NOTE_FONT,weight:700}),mid,y+9,{from:[mid,y],vw:F&&F.vw})+'</g>';
   return '<g class="shape-tri-offset-layer" aria-label="Top offset '+shapeXml(label)+' '+units+'">'+shapeAnnUiWrap(opts,key,body,mid,y+28,F)+'</g>';
 }
 /* Фигуры, у которых свои размеры рёбер стоят в том же коридоре, что и
@@ -162,38 +164,47 @@ function shapeTriangleOffsetSvg(result,F,L,opts,metricMode){
    разведёнными интервалами, иначе внизу собирается каша из четырёх чисел.
    У прямоугольника и круга ребро равно габариту и второй подписи не рождает. */
 var SHAPE_METRIC_CLEAN_TYPES=['parallelogram','raked','triangle','polygon','custom'];
-function shapeMetricShift(opts,key){var n=opts&&opts.offsets?+(opts.offsets[key]||0):0;return Math.max(-4,Math.min(8,isFinite(n)?n:0))*8;}
-function shapeMetricHidden(opts,key){return !!(opts&&opts.hiddenKeys&&opts.hiddenKeys[key]);}
-function shapeMetricMenuSvg(opts,key,cx,cy,F){
-  if(!opts||!opts.interactive||opts.selectedKey!==key)return '';
-  var canHide=String(key).indexOf('angle:')===0,count=canHide?3:2,x=Math.max(46,Math.min((F&&F.vw||960)-46,cx)),w=28,h=20,x0=x-w*count/2;
-  var hide=canHide?'<g class="shape-dim-btn" onclick="event.stopPropagation();shapeToggleMetricLabelHide(\''+shapeXml(key)+'\')"><title>Hide</title><rect x="'+(x0+w*2)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w*2+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">Hide</text></g>':'';
-  return '<g class="shape-dim-menu shape-metric-menu" onclick="event.stopPropagation()"><rect x="'+(x0-4)+'" y="'+(cy-h/2-4)+'" width="'+(w*count+8)+'" height="'+(h+8)+'" rx="7"/><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',-1)"><rect x="'+x0+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">−</text></g><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',1)"><rect x="'+(x0+w)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">+</text></g>'+hide+'</g>';
+/* Подписи мм живут в той же ручной раскладке, что и дюймовые (владелец,
+   20.10.2026: «как в смарт шейпе — и линию тянуть, и числа, и чтобы
+   магнитилось», «увеличивать или уменьшать»): shapeAnnItem / shapeAnnLineItem,
+   те же магниты, A−/A+, Hide, Reset, раскладка в форме. Ключи с префиксом
+   opts.keyPrefix ('mm:', у выбранного лайта 'mm:lite<N>:'), чтобы мм и дюймы
+   не двигали друг друга. Ключ ребра — его id, а не номер: добавили вершину —
+   подписи остались у своих рёбер. */
+function shapeMetricKeyPrefix(opts){return (opts&&opts.keyPrefix)||'mm:';}
+function shapeMetricEdgeKeys(segments){
+  var seen={};
+  return segments.map(function(s){
+    var id=String(s.edgeId).replace(/[^A-Za-z0-9_:.-]/g,'_'),n=seen[id]=(seen[id]||0)+1;
+    return n>1?id+'.'+n:id;
+  });
 }
-function shapeMetricMovableSvg(opts,key,text,cx,cy,F){
-  if(!opts||!opts.interactive)return text;
-  return '<g class="shape-metric-movable'+(opts.selectedKey===key?' active':'')+'" data-metric-label-key="'+shapeXml(key)+'" onclick="event.stopPropagation();shapeSelectMetricLabel(\''+shapeXml(key)+'\')"><title>Move metric label · − / +</title>'+text+'</g>'+shapeMetricMenuSvg(opts,key,cx,cy,F);
+/* Серая дюймовая строка — часть мм-размера: стоит рядом с его числом и
+   двигается, растёт и прячется вместе с ним. */
+function shapeMetricInchText(x,y,label,size,cls,extra,rot){
+  return '<text class="shape-inch-reference '+cls+'"'+(extra||'')+' x="'+x+'" y="'+y+'" text-anchor="middle" font-size="'+size+'" font-weight="600" fill="#98a2b3" stroke="#fff" stroke-width="3" paint-order="stroke fill"'+(rot!=null?' transform="rotate('+rot+' '+x+' '+(y-3.5)+')"':'')+'>'+shapeXml(label)+'″</text>';
 }
-function shapeMetricDimH(x1,x2,edgeY,y,label,opts,F){
-  var c='#111827',key='overall:width',shift=shapeMetricShift(opts,key);y=Math.max(edgeY+24,y+shift);var mid=(x1+x2)/2;
-  var text='<text data-metric-role="width" x="'+mid+'" y="'+(y-9)+'" text-anchor="middle" font-size="16" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">'+shapeXml(label)+'</text>';
-  return '<line x1="'+x1+'" y1="'+edgeY+'" x2="'+x1+'" y2="'+(y+8)+'" stroke="'+c+'" stroke-width="1"/><line x1="'+x2+'" y1="'+edgeY+'" x2="'+x2+'" y2="'+(y+8)+'" stroke="'+c+'" stroke-width="1"/><line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>'+shapeMetricMovableSvg(opts,key,text,mid,y-34,F);
-}
-/* Габаритная высота стоит у той стороны детали, которая эту высоту держит:
-   аргумент right зеркалит выноски, стрелку подписи и кнопки −/+. */
-function shapeMetricDimV(x,edgeX,y1,y2,label,opts,F,right){
-  var c='#111827',key='overall:height',shift=shapeMetricShift(opts,key),s=right?-1:1;
-  x=right?Math.max(edgeX+28,x+shift):Math.min(edgeX-28,x-shift);var mid=(y1+y2)/2,tx=x-11*s;
-  var text='<text data-metric-role="height" x="'+tx+'" y="'+mid+'" text-anchor="middle" font-size="16" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate(-90 '+tx+' '+mid+')">'+shapeXml(label)+'</text>';
-  return '<line x1="'+edgeX+'" y1="'+y1+'" x2="'+(x-8*s)+'" y2="'+y1+'" stroke="'+c+'" stroke-width="1"/><line x1="'+edgeX+'" y1="'+y2+'" x2="'+(x-8*s)+'" y2="'+y2+'" stroke="'+c+'" stroke-width="1"/><line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>'+shapeMetricMovableSvg(opts,key,text,x-64*s,mid,F);
-}
-function shapeInchDimH(x1,x2,fromY,y,label){
-  var c='#98a2b3',mid=(x1+x2)/2;
-  return '<line x1="'+x1+'" y1="'+fromY+'" x2="'+x1+'" y2="'+(y+7)+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x2+'" y1="'+fromY+'" x2="'+x2+'" y2="'+(y+7)+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+c+'" stroke-width=".8" marker-start="url(#shapeInchArrow)" marker-end="url(#shapeInchArrow)"/><text class="shape-inch-reference" data-inch-role="width" x="'+mid+'" y="'+(y-8)+'" text-anchor="middle" font-size="12" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="3" paint-order="stroke fill">'+shapeXml(label)+'</text>';
-}
-function shapeInchDimV(x,fromX,y1,y2,label,right){
-  var c='#98a2b3',mid=(y1+y2)/2,s=right?-1:1;
-  return '<line x1="'+fromX+'" y1="'+y1+'" x2="'+(x-7*s)+'" y2="'+y1+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+fromX+'" y1="'+y2+'" x2="'+(x-7*s)+'" y2="'+y2+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+c+'" stroke-width=".8" marker-start="url(#shapeInchArrow)" marker-end="url(#shapeInchArrow)"/><text class="shape-inch-reference" data-inch-role="height" x="'+(x-10*s)+'" y="'+mid+'" text-anchor="middle" font-size="12" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate(-90 '+(x-9*s)+' '+mid+')">'+shapeXml(label)+'</text>';
+/* Габарит стоит у той стороны, которую держит; выносные идут от крайних
+   точек самого стекла (feet), а не от угла рамки: у косой детали в углу рамки
+   стекла нет, и выносная висела в воздухе. */
+function shapeMetricOverallSvg(mo,key,dir,a,b,pos,feet,mmText,inText,role,side){
+  var c='#111827',mid=(a+b)/2,label,cx,cy,line;
+  if(dir==='h'){
+    label='<text data-metric-role="'+role+'" x="'+mid+'" y="'+(pos-9)+'" text-anchor="middle" font-size="16" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">'+shapeXml(mmText)+'</text>'+
+      (inText?'<g class="shape-inch-reference-layer shape-inch-overall" data-units="in">'+shapeMetricInchText(mid,pos+15,inText,15,'shape-inch-compact',' data-inch-role="'+role+'"')+'</g>':'');
+    cx=mid;cy=pos+2;
+    line='<line x1="'+a+'" y1="'+pos+'" x2="'+b+'" y2="'+pos+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>';
+  }else{
+    var tx=pos-11*side,hx=pos+11*side;
+    label='<text data-metric-role="'+role+'" x="'+tx+'" y="'+mid+'" text-anchor="middle" font-size="16" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate(-90 '+tx+' '+mid+')">'+shapeXml(mmText)+'</text>'+
+      (inText?'<g class="shape-inch-reference-layer shape-inch-overall" data-units="in"><text class="shape-inch-reference shape-inch-compact" data-inch-role="'+role+'" x="'+hx+'" y="'+mid+'" text-anchor="middle" font-size="15" font-weight="600" fill="#98a2b3" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate(-90 '+hx+' '+mid+')">'+shapeXml(inText)+'″</text></g>':'');
+    cx=pos;cy=mid;
+    line='<line x1="'+pos+'" y1="'+a+'" x2="'+pos+'" y2="'+b+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>';
+  }
+  var hid=shapeAnnDimHidden(mo,key);
+  if(hid)return shapeAnnItem(mo,hid,label,cx,cy);
+  var num=shapeAnnItem(mo,key,label,cx,cy,{from:dir==='h'?[mid,pos]:[pos,mid],axis:'dim',vw:mo.vw});
+  return shapeAnnLineItem(mo,key,line+num,a,b,pos,dir,null,{pts:feet,over:8,color:c,width:1});
 }
 /* Ребро, стоящее по оси, подписывается настоящей размерной линией со
    стрелками и выносками — как габарит слева и снизу. У косого ребра линия под
@@ -229,8 +240,8 @@ function shapeMetricArcFit(pts){
   var ends=Math.hypot(pts[0][0]-pts[pts.length-1][0],pts[0][1]-pts[pts.length-1][1]);
   return {cx:cx,cy:cy,r:r,closed:ends<r*.1};
 }
-function shapeMetricCurvesSvg(metric,arcSeg,DP,c,opts,F){
-  var groups={},order=[],out='';
+function shapeMetricCurvesSvg(metric,arcSeg,DP,c,mo,F){
+  var groups={},order=[],out='',kp=shapeMetricKeyPrefix(mo),inUnits=mo&&mo.units==='in',fmt=function(mm){return inUnits?shapeDrawingDim(mm/SHAPE_MM_PER_INCH):shapeMetricFormat(mm);};
   metric.segments.forEach(function(seg,i){
     if(!arcSeg[i])return;
     if(!groups[seg.edgeId]){groups[seg.edgeId]=[];order.push(seg.edgeId);}
@@ -242,13 +253,15 @@ function shapeMetricCurvesSvg(metric,arcSeg,DP,c,opts,F){
     var fit=shapeMetricArcFit(pts);
     if(!fit)return;
     var C=DP([fit.cx,fit.cy]),rim=DP([fit.cx+fit.r,fit.cy]),rd=Math.hypot(rim[0]-C[0],rim[1]-C[1]);
-    var rMm=shapeMetricRound(fit.r*SHAPE_MM_PER_INCH);
+    var rMm=shapeMetricRound(fit.r*SHAPE_MM_PER_INCH),safe=String(id).replace(/[^A-Za-z0-9_:.-]/g,'_');
     if(fit.closed){
       /* Круг меряют диаметром через центр — так его и подписываем. */
-      out+='<g class="shape-metric-diameter" data-edge-id="'+shapeXml(id)+'" data-diameter-mm="'+shapeMetricFormat(rMm*2)+'"><line x1="'+(C[0]-rd)+'" y1="'+C[1]+'" x2="'+(C[0]+rd)+'" y2="'+C[1]+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/><text class="shape-metric-length" data-edge-id="'+shapeXml(id)+'" x="'+C[0]+'" y="'+(C[1]-9)+'" text-anchor="middle" font-size="15" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">\u00d8 '+shapeMetricFormat(rMm*2)+'</text></g>';
+      var dText='<text class="shape-metric-length" data-edge-id="'+shapeXml(id)+'" x="'+C[0]+'" y="'+(C[1]-9)+'" text-anchor="middle" font-size="15" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">Ø '+fmt(rMm*2)+'</text>';
+      out+='<g class="shape-metric-diameter" data-edge-id="'+shapeXml(id)+'" data-diameter-mm="'+shapeMetricFormat(rMm*2)+'"><line x1="'+(C[0]-rd)+'" y1="'+C[1]+'" x2="'+(C[0]+rd)+'" y2="'+C[1]+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>'+shapeAnnItem(mo,kp+'diameter:'+safe,dText,C[0],C[1]-14,{from:[C[0],C[1]],vw:F&&F.vw})+'</g>';
     }else{
       var mid=segs[Math.floor(segs.length/2)].p1,M=DP(mid),tx=(C[0]+M[0])/2,ty=(C[1]+M[1])/2;
-      out+='<g class="shape-metric-radius" data-edge-id="'+shapeXml(id)+'" data-radius-mm="'+shapeMetricFormat(rMm)+'"><line x1="'+C[0]+'" y1="'+C[1]+'" x2="'+M[0]+'" y2="'+M[1]+'" stroke="'+c+'" stroke-width="1.15" marker-end="url(#shapeMetricArrow)"/><text class="shape-metric-length" data-edge-id="'+shapeXml(id)+'" x="'+tx+'" y="'+(ty-8)+'" text-anchor="middle" font-size="14" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">R '+shapeMetricFormat(rMm)+'</text></g>';
+      var rText='<text class="shape-metric-length" data-edge-id="'+shapeXml(id)+'" x="'+tx+'" y="'+(ty-8)+'" text-anchor="middle" font-size="14" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">R '+fmt(rMm)+'</text>';
+      out+='<g class="shape-metric-radius" data-edge-id="'+shapeXml(id)+'" data-radius-mm="'+shapeMetricFormat(rMm)+'"><line x1="'+C[0]+'" y1="'+C[1]+'" x2="'+M[0]+'" y2="'+M[1]+'" stroke="'+c+'" stroke-width="1.15" marker-end="url(#shapeMetricArrow)"/>'+shapeAnnItem(mo,kp+'radius:'+safe,rText,tx,ty-13,{from:[tx,ty],vw:F&&F.vw})+'</g>';
     }
   });
   return out;
@@ -256,12 +269,15 @@ function shapeMetricCurvesSvg(metric,arcSeg,DP,c,opts,F){
 function shapeMetricLayerSvg(result,F,L,metric,opts){
   if(!metric||metric.vertices.length<3)return '';
   opts=opts||{};
-  /* Печатный лист сохраняет компактную метрическую раскладку, но больше не
-     теряет дюймовое эхо: на бумаге оно идёт ровно на один пункт меньше
-     соседнего размера в mm, без второй вынесенной цепочки, которая раньше
-     вылезала за поля. */
-  var cleanMetric=!!opts.cleanParallelogram,showInchEcho=true,compactInch=!!opts.sheet||cleanMetric,P=metric.vertices.map(function(v){return v.point;}),DP=opts.points?function(p){return [F.X(p[0]),F.Y(p[1])];}:L.DP;
-  var Q=P.map(DP),orient=fabSignedArea(Q)>=0?1:-1,c='#111827',ic='#98a2b3';
+  /* На экране — как на печати: дюймы компактной строкой у своего мм-числа.
+     Отдельная серая дюймовая цепочка на экране вставала в тот же коридор, что
+     габарит, и налезала на размер нижнего ребра (владелец, 20.10.2026). */
+  /* units 'in' — лист одного стекла ступенчатого юнита в дюймах (у лайта с
+     отступом формы нет, только контур): те же размеры, без мм и без эха. */
+  var cleanMetric=!!opts.cleanParallelogram,kp=shapeMetricKeyPrefix(opts),P=metric.vertices.map(function(v){return v.point;}),DP=opts.points?function(p){return [F.X(p[0]),F.Y(p[1])];}:L.DP;
+  var inUnits=opts.units==='in',fmt=function(mm){return inUnits?shapeDrawingDim(mm/SHAPE_MM_PER_INCH):shapeMetricFormat(mm);},echo=function(mm){return inUnits?null:shapeDrawingDim(mm/SHAPE_MM_PER_INCH);};
+  var Q=P.map(DP),orient=fabSignedArea(Q)>=0?1:-1,c='#111827',ek=shapeMetricEdgeKeys(metric.segments),n=Q.length;
+  var mo=Object.assign({},opts,{vw:opts.vw||F.vw});
   var path=Q.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
   var o='<g class="shape-metric-layer" data-units="mm"><defs><marker id="shapeMetricArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+c+'" stroke-width=".9"/></marker></defs>';
   o+='<path class="shape-metric-contour" d="'+path+'" fill="#f2f4f7" fill-opacity=".72" stroke="#344054" stroke-width="1.2"/>';
@@ -271,10 +287,9 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
   var arcCount={};
   metric.segments.forEach(function(seg){arcCount[seg.edgeId]=(arcCount[seg.edgeId]||0)+1;});
   var arcSeg=metric.segments.map(function(seg){return arcCount[seg.edgeId]>=8;});
-  var inchEdges='',inchDims='';
   metric.segments.forEach(function(seg,i){
     if(arcSeg[i])return;
-    var a=Q[i],b=Q[(i+1)%Q.length],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
+    var a=Q[i],b=Q[(i+1)%n],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
     /* Горизонтальное/вертикальное ребро, равное полному W/H, уже подписано
        габаритной цепочкой. Вторую такую же цифру возле кромки не рисуем. */
     var pdx=Math.abs(seg.p2[0]-seg.p1[0]),pdy=Math.abs(seg.p2[1]-seg.p1[1]);
@@ -287,35 +302,40 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     /* Ребро по оси получает размерную линию, и число отходит от неё дальше;
        у косого ребра число по-прежнему лежит вдоль самого ребра. */
     var axis=Math.abs(dx)<1e-7||Math.abs(dy)<1e-7;
-    var key='edge:'+i,base=axis?(cleanMetric?50:44):(cleanMetric?23:15),off=Math.max(6,base+shapeMetricShift(opts,key));
-    if(axis)o+=shapeMetricEdgeDimSvg(a,b,nx,ny,off,c,false);
-    var lead=axis?off+11:off,inchLead=axis?off+(compactInch?27:41):lead+(compactInch?16:21);
-    if(axis&&showInchEcho&&!compactInch)inchDims+=shapeMetricEdgeDimSvg(a,b,nx,ny,off+30,ic,true);
-    var x=mx+nx*lead,y=my+ny*lead,ang=Math.atan2(dy,dx)*180/Math.PI;
+    var key=kp+'edge:'+ek[i],off=axis?(cleanMetric?50:44):(cleanMetric?23:15);
+    var lead=axis?off+11:off,inchLead=axis?off+27:lead+16;
+    var x=mx+nx*lead,y=my+ny*lead,ix=mx+nx*inchLead,iy=my+ny*inchLead,ang=Math.atan2(dy,dx)*180/Math.PI;
     if(ang>90)ang-=180;if(ang<-90)ang+=180;
-    var metricText='<text class="shape-metric-length" data-edge-id="'+shapeXml(seg.edgeId)+'" data-length-mm="'+shapeMetricFormat(seg.lengthMm)+'" x="'+x+'" y="'+(y+4.5)+'" text-anchor="middle" font-size="14.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">('+shapeMetricFormat(seg.lengthMm)+')</text>';
-    o+=shapeMetricMovableSvg(opts,key,metricText,x,y+27,F);
-    var ix=mx+nx*inchLead,iy=my+ny*inchLead;
-    if(showInchEcho)inchEdges+='<text class="shape-inch-reference shape-inch-edge-reference'+(compactInch?' shape-inch-compact':'')+'" data-edge-id="'+shapeXml(seg.edgeId)+'" x="'+ix+'" y="'+(iy+3.5)+'" text-anchor="middle" font-size="'+(compactInch?'13.5':'12')+'" font-weight="600" fill="'+ic+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate('+ang+' '+ix+' '+iy+')">'+shapeXml(shapeDrawingDim(seg.lengthMm/SHAPE_MM_PER_INCH))+'″</text>';
+    var label='<text class="shape-metric-length" data-edge-id="'+shapeXml(seg.edgeId)+'" data-length-mm="'+shapeMetricFormat(seg.lengthMm)+'" x="'+x+'" y="'+(y+4.5)+'" text-anchor="middle" font-size="14.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+(inUnits?fmt(seg.lengthMm):'('+fmt(seg.lengthMm)+')')+'</text>'+
+      (inUnits?'':shapeMetricInchText(ix,iy+3.5,echo(seg.lengthMm),13.5,'shape-inch-edge-reference shape-inch-compact',' data-edge-id="'+shapeXml(seg.edgeId)+'"',ang));
+    var cx=(x+ix)/2,cy=(y+iy)/2;
+    if(!axis){o+=shapeAnnItem(mo,key,label,cx,cy,{from:[mx,my],vw:mo.vw});return;}
+    var hid=shapeAnnDimHidden(mo,key);
+    if(hid){o+=shapeAnnItem(mo,hid,label,cx,cy);return;}
+    var lx1=a[0]+nx*off,ly1=a[1]+ny*off,lx2=b[0]+nx*off,ly2=b[1]+ny*off,horiz=Math.abs(dy)<1e-7;
+    var line='<line x1="'+lx1+'" y1="'+ly1+'" x2="'+lx2+'" y2="'+ly2+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>';
+    var num=shapeAnnItem(mo,key,label,cx,cy,{from:[(lx1+lx2)/2,(ly1+ly2)/2],axis:'dim',vw:mo.vw});
+    o+=shapeAnnLineItem(mo,key,line+num,horiz?Math.min(lx1,lx2):Math.min(ly1,ly2),horiz?Math.max(lx1,lx2):Math.max(ly1,ly2),horiz?ly1:lx1,horiz?'h':'v',null,{pts:[a,b],over:5,color:c,width:1});
   });
-  if(showInchEcho&&(inchEdges||inchDims))o+='<g class="shape-inch-reference-layer'+(compactInch?' shape-inch-compact-layer':'')+'" data-units="in">'+inchDims+inchEdges+'</g>';
   metric.vertices.forEach(function(v,i){
     /* Точка внутри дуги — не угол, и касательный стык двух рёбер тоже: 180°
      подписывать нечем. */
     if(arcSeg[i]&&arcSeg[(i-1+arcSeg.length)%arcSeg.length])return;
-    if(Math.abs(v.angleDeg-180)<.5||shapeMetricHidden(opts,'angle:'+i))return;
-    var b=Q[i],prev=Q[(i-1+Q.length)%Q.length],next=Q[(i+1)%Q.length];
+    if(Math.abs(v.angleDeg-180)<.5)return;
+    var b=Q[i],prev=Q[(i-1+n)%n],next=Q[(i+1)%n];
     var a0=Math.atan2(next[1]-b[1],next[0]-b[0]),a1=Math.atan2(prev[1]-b[1],prev[0]-b[0]);
     var span=orient>0?shapeMetricPositiveAngle(a1-a0):shapeMetricPositiveAngle(a0-a1),delta=orient*span;
     var r=Math.max(12,Math.min(30,Math.min(Math.hypot(prev[0]-b[0],prev[1]-b[1]),Math.hypot(next[0]-b[0],next[1]-b[1]))*.24));
-    var steps=Math.max(5,Math.ceil(span/(Math.PI/12))),arc='';
-    for(var j=0;j<=steps;j++){var a=a0+delta*j/steps,x=b[0]+Math.cos(a)*r,y=b[1]+Math.sin(a)*r;arc+=(j?' L ':'M ')+x+' '+y;}
-    var mid=a0+delta/2,key='angle:'+i,lr=Math.max(r+5,r+15+(cleanMetric?10:0)+shapeMetricShift(opts,key)),lx=b[0]+Math.cos(mid)*lr,ly=b[1]+Math.sin(mid)*lr;
-    o+='<path class="shape-metric-angle-arc" data-vertex-index="'+i+'" d="'+arc+'" fill="none" stroke="'+c+'" stroke-width="1.15"/>';
+    var mid=a0+delta/2,key=kp+'angle:'+ek[(i-1+n)%n]+'~'+ek[i],lr=r+15+(cleanMetric?10:0),lx=b[0]+Math.cos(mid)*lr,ly=b[1]+Math.sin(mid)*lr;
     var angleText='<text class="shape-metric-angle" data-vertex-index="'+i+'" data-convex="'+(v.convex?'true':'false')+'" x="'+lx+'" y="'+(ly+4.5)+'" text-anchor="middle" font-size="13.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">('+shapeMetricFormat(v.angleDeg)+'°)</text>';
-    o+=shapeMetricMovableSvg(opts,key,angleText,lx,ly+27,F);
+    /* Скрытый угол уходит вместе с дугой: дуга без числа ничего не говорит. */
+    if(shapeLayoutHidden(mo,key)){o+=shapeAnnItem(mo,key,angleText,lx,ly);return;}
+    var steps=Math.max(5,Math.ceil(span/(Math.PI/12))),arc='';
+    for(var j=0;j<=steps;j++){var t=a0+delta*j/steps,ax=b[0]+Math.cos(t)*r,ay=b[1]+Math.sin(t)*r;arc+=(j?' L ':'M ')+ax+' '+ay;}
+    o+='<path class="shape-metric-angle-arc" data-vertex-index="'+i+'" d="'+arc+'" fill="none" stroke="'+c+'" stroke-width="1.15"/>';
+    o+=shapeAnnItem(mo,key,angleText,lx,ly,{from:[b[0],b[1]],vw:mo.vw});
   });
-  o+=shapeMetricCurvesSvg(metric,arcSeg,DP,c,opts,F);
+  o+=shapeMetricCurvesSvg(metric,arcSeg,DP,c,mo,F);
   var xs=Q.map(function(p){return p[0];}),ys=Q.map(function(p){return p[1];});
   var box={left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)};
   /* Габариты держим рядом с деталью: большой пустой коридор создавал ложное
@@ -323,40 +343,44 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
   /* Габаритную цепочку ставим у той стороны, которая габарит и держит. У
      smart-shape высокая сторона бывает справа — цепочка слева тогда наезжала
      на собственный размер короткой левой кромки. Если полной стороны нет ни
-     слева, ни справа (обе кромки косые), цепочку уносим за их ряд. */
-  var fullLeft=false,fullRight=false,fullBottom=false;
+     слева, ни справа (обе кромки косые), цепочку уносим за их ряд. Ширина —
+     так же: стекло во всю ширину сверху, а снизу короче — габарит сверху
+     (владелец, 20.10.2026: «она там должна быть базово»). */
+  var fullLeft=false,fullRight=false,fullBottom=false,fullTop=false;
   metric.segments.forEach(function(seg,i){
     var a=Q[i],pdx=Math.abs(seg.p2[0]-seg.p1[0]),pdy=Math.abs(seg.p2[1]-seg.p1[1]);
     if(pdx<1e-7&&Math.abs(seg.lengthMm-metric.bbox.heightMm)<.015){
       if(Math.abs(a[0]-box.left)<.5)fullLeft=true;else if(Math.abs(a[0]-box.right)<.5)fullRight=true;
     }
-    if(pdy<1e-7&&Math.abs(seg.lengthMm-metric.bbox.widthMm)<.015&&Math.abs(a[1]-box.bottom)<.5)fullBottom=true;
+    if(pdy<1e-7&&Math.abs(seg.lengthMm-metric.bbox.widthMm)<.015){
+      if(Math.abs(a[1]-box.bottom)<.5)fullBottom=true;else if(Math.abs(a[1]-box.top)<.5)fullTop=true;
+    }
   });
-  var heightRight=!fullLeft&&fullRight;
-  var widthGap=Math.max(24,44+shapeMetricShift(opts,'overall:width'));
-  var heightGap=Math.max(28,48+shapeMetricShift(opts,'overall:height'));
+  var heightRight=!fullLeft&&fullRight,widthTop=!fullBottom&&fullTop;
+  /* Крайние точки стекла с нужной стороны — все равные: выносная пойдёт от
+     той, что ближе к линии там, где линия стоит (shapeAnnLineItem). */
+  function extreme(axis,max){
+    var v=max?Math.max.apply(null,Q.map(function(p){return p[axis];})):Math.min.apply(null,Q.map(function(p){return p[axis];}));
+    return Q.filter(function(p){return Math.abs(p[axis]-v)<=.01;});
+  }
   /* On a parallelogram the physical bottom edge has its own 1219.20 mm
      dimension.  Put the overall bounding width (for example 1752.60 mm)
      on a clearly separate next row, so the two readings have an unambiguous
      order.  The compact print sheet keeps the shorter offset to stay in frame. */
   var wideRow=104;
-  var overallWidthGap=cleanMetric?wideRow:(fullBottom?44:wideRow);
-  var overallWidthY=box.bottom+overallWidthGap;
-  o+=shapeMetricDimH(box.left,box.right,box.bottom,overallWidthY,shapeMetricFormat(metric.bbox.widthMm),opts,F);
+  var overallWidthGap=cleanMetric?wideRow:((fullBottom||widthTop)?44:wideRow);
+  var overallWidthY=widthTop?box.top-overallWidthGap:box.bottom+overallWidthGap;
+  o+=shapeMetricOverallSvg(mo,kp+'overall:width','h',box.left,box.right,overallWidthY,[extreme(0,false),extreme(0,true)],
+    fmt(metric.bbox.widthMm),echo(metric.bbox.widthMm),'width',1);
   /* Up/Down puts the OOS dimension on a vertical end of the piece.  Keep the
      overall height beyond the edge-length dimension so labels never share the
      same side corridor. */
   var wideSide=104;
   var overallHeightGap=cleanMetric?wideSide:((fullLeft||fullRight)?48:wideSide);
-  var heightEdge=heightRight?box.right:box.left;
+  var heightEdge=heightRight?box.right:box.left,hSide=heightRight?-1:1;
   var overallHeightX=heightRight?heightEdge+overallHeightGap:heightEdge-overallHeightGap;
-  o+=shapeMetricDimV(overallHeightX,heightEdge,box.top,box.bottom,shapeMetricFormat(metric.bbox.heightMm),opts,F,heightRight);
-  if(showInchEcho){
-    if(compactInch){
-      var wm=(box.left+box.right)/2,hm=(box.top+box.bottom)/2,hs=heightRight?-1:1,hx=overallHeightX+11*hs;
-      o+='<g class="shape-inch-reference-layer shape-inch-overall shape-inch-compact-layer" data-units="in"><text class="shape-inch-reference shape-inch-compact" data-inch-role="width" x="'+wm+'" y="'+(overallWidthY+15)+'" text-anchor="middle" font-size="15" font-weight="600" fill="'+ic+'" stroke="#fff" stroke-width="3" paint-order="stroke fill">'+shapeXml(shapeDrawingDim(metric.bbox.widthMm/SHAPE_MM_PER_INCH))+'″</text><text class="shape-inch-reference shape-inch-compact" data-inch-role="height" x="'+hx+'" y="'+hm+'" text-anchor="middle" font-size="15" font-weight="600" fill="'+ic+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate(-90 '+hx+' '+hm+')">'+shapeXml(shapeDrawingDim(metric.bbox.heightMm/SHAPE_MM_PER_INCH))+'″</text></g>';
-    }else o+='<g class="shape-inch-reference-layer shape-inch-overall" data-units="in">'+shapeInchDimH(box.left,box.right,box.bottom+widthGap+8,box.bottom+widthGap+34,shapeDrawingDim(metric.bbox.widthMm/SHAPE_MM_PER_INCH)+'″')+shapeInchDimV(heightRight?heightEdge+heightGap+36:heightEdge-heightGap-36,heightRight?heightEdge+heightGap+8:heightEdge-heightGap-8,box.top,box.bottom,shapeDrawingDim(metric.bbox.heightMm/SHAPE_MM_PER_INCH)+'″',heightRight)+'</g>';
-  }
+  o+=shapeMetricOverallSvg(mo,kp+'overall:height','v',box.top,box.bottom,overallHeightX,[extreme(1,false),extreme(1,true)],
+    fmt(metric.bbox.heightMm),echo(metric.bbox.heightMm),'height',hSide);
   /* На печатном листе своя шапка: периметр и толщина там уже есть, а сводка
      садилась поверх чертежа вторым набором тех же чисел. */
   if(opts.sheet)return o+'</g>';
@@ -364,10 +388,94 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
   if(opts.liteLabel)summary.push(String(opts.liteLabel));
   /* W/H уже стоят на габаритных линиях; в сводке оставляем только то, чего
      больше нигде на листе нет. */
-  summary.push('Perimeter '+shapeMetricFormat(metric.perimeterMm)+' mm');
+  summary.push('Perimeter '+fmt(metric.perimeterMm)+(inUnits?'″':' mm'));
   summary.push('Thickness '+shapeMetricFormat(opts.thicknessMm==null?shapeThicknessMm(result.definition):opts.thicknessMm)+' mm');
   o+='<g class="shape-metric-summary" font-family="Arial,sans-serif" text-anchor="end" fill="'+c+'">'+summary.map(function(s,i){return '<text x="'+(F.vw-24)+'" y="'+(68+i*17)+'" font-size="'+(i===0&&opts.liteLabel?'13':'12')+'" font-weight="600">'+shapeXml(s)+'</text>';}).join('')+'</g>';
   return o+'</g>';
+}
+/* Ступенчатый юнит на листе юнита (владелец, 20.10.2026): меньший лайт
+   пунктиром внутри контура, его номер («Lite 1» — размеры стоят на его
+   линиях, второй раз их не пишем) и «STEP n» на каждой ступеньке.
+   Пунктир строится отступом от ОТОБРАЖАЕМОГО контура (L.points): у
+   Smart-Shape уклон на чертеже усилен, и точки лайта мимо него не совпали бы.
+   step — готовые данные заказа (sales/step-unit): отступы и точки лайта,
+   ступеньки по рёбрам. Подписи двигаются, как остальные. */
+function shapeStepOverlaySvg(result,F,L,step,ann,metricMode){
+  if(!step||!L||!L.points||(!step.lites.length&&!step.edges.length))return '';
+  var P=L.points,ids=((result.geometry&&result.geometry.edges)||[]).map(function(e){return e.id;}),out='',kp=metricMode?shapeMetricKeyPrefix(ann):'';
+  var fmt=function(v){return metricMode?shapeMetricFormat(v*SHAPE_MM_PER_INCH):shapeDrawingDim(v);},size=metricMode?13.5:SHAPE_NOTE_FONT;
+  step.lites.forEach(function(l){
+    if(!l.perPoint||l.perPoint.length!==P.length)return;
+    var inner=shapeInsetVariable(P,l.perPoint.map(function(v){return v*F.sc;}));if(!inner.valid)return;
+    var Q=inner.points,path=Q.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
+    out+='<path class="shape-step-lite" data-lite-index="'+l.index+'" d="'+path+'" fill="none" stroke="#101828" stroke-width="1.3" stroke-dasharray="8 5"/>';
+    var cx=Q.reduce(function(a,p){return a+p[0];},0)/Q.length,cy=Q.reduce(function(a,p){return a+p[1];},0)/Q.length;
+    out+=shapeAnnItem(ann,kp+'step:lite'+l.index,shapeAnnText(cx,cy+5,l.label,{size:size,weight:700}),cx,cy,{vw:F.vw});
+    out+=shapeStepLiteDimsSvg(F,P,Q,ids,l,step.lites.length>1?'L'+(l.index+1)+' ':'',ann,kp,fmt,size,metricMode);
+  });
+  var area=fabSignedArea(P);
+  step.edges.forEach(function(e){
+    var ks=[];ids.forEach(function(id,k){if(id===e.id)ks.push(k);});if(!ks.length)return;
+    var k=ks[Math.floor(ks.length/2)],a=P[k],b=P[(k+1)%P.length],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
+    var nx=area>0?-dy/len:dy/len,ny=area>0?dx/len:-dx/len,mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;
+    if(!fabPointInPoly([mx+nx*2,my+ny*2],P)){nx=-nx;ny=-ny;}
+    var d=((e.min||0)+e.step/2)*F.sc,x=mx+nx*d,y=my+ny*d,ang=Math.atan2(dy,dx)*180/Math.PI;if(ang>90)ang-=180;if(ang<-90)ang+=180;
+    var t='STEP '+fmt(e.step);
+    out+=shapeAnnItem(ann,kp+'step:'+String(e.id).replace(/[^A-Za-z0-9_:.-]/g,'_'),shapeAnnText(x,y+4,t,{size:size,weight:700,rot:ang}),x,y,{from:[mx,my],vw:F.vw});
+  });
+  return out?'<g class="shape-step-layer" aria-label="Step unit">'+out+'</g>':'';
+}
+/* Размеры меньшего лайта на чертеже юнита (владелец, 20.10.2026: «вижу
+   чёрточку маленького стекла, а какой размер по ширине, по высоте и по
+   диагонали — не понял»; «не делай дубликат размеров»): сплошная размерная
+   линия у каждого ребра лайта, кроме совпавших с ребром юнита (их размер уже
+   стоит снаружи) и повторов — у параллельного ребра той же длины размер один.
+   Линия — внутри лайта; если там она вылезла бы за контур юнита (острый
+   угол), а ступенька у ребра широкая (от 60 точек — иначе размер ляжет на
+   «STEP n»), — с другой стороны ребра, на ступеньке. Длина — по истинным точкам лайта: на чертеже Smart-Shape уклон
+   усилен. */
+function shapeStepLiteDimsSvg(F,P,Q,ids,l,pre,ann,kp,fmt,size,metricMode){
+  var T=l.points&&l.points.length===Q.length?l.points:null;if(!T)return '';
+  var n=Q.length,same=function(a,b){return Math.abs(a[0]-b[0])<.5&&Math.abs(a[1]-b[1])<.5;},mark=metricMode?'shapeMetricArrow':'shpArr',out='',done=[],g=14;
+  Q.forEach(function(a,k){
+    var b=Q[(k+1)%n];
+    if(P.length===n&&same(a,P[k])&&same(b,P[(k+1)%n]))return;
+    var dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<24)return;
+    var ta=T[k],tb=T[(k+1)%n],tl=Math.hypot(tb[0]-ta[0],tb[1]-ta[1]),ux=(tb[0]-ta[0])/tl,uy=(tb[1]-ta[1])/tl;
+    if(done.some(function(d){return Math.abs(d.ux*uy-d.uy*ux)<.01&&Math.abs(d.len-tl)<1/32;}))return;
+    var nx=-dy/len,ny=dx/len,mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;
+    if(!fabPointInPoly([mx+nx*3,my+ny*3],Q)){nx=-nx;ny=-ny;}
+    var fits=function(s){return fabPointInPoly([a[0]+nx*s*(g+4),a[1]+ny*s*(g+4)],P)&&fabPointInPoly([b[0]+nx*s*(g+4),b[1]+ny*s*(g+4)],P);};
+    if(!fits(1)&&fabPointInPoly([mx-nx*60,my-ny*60],P)&&fits(-1)){nx=-nx;ny=-ny;}
+    done.push({ux:ux,uy:uy,len:tl});
+    var x1=a[0]+nx*g,y1=a[1]+ny*g,x2=b[0]+nx*g,y2=b[1]+ny*g,lx=mx+nx*(g+11),ly=my+ny*(g+11);
+    var ang=Math.atan2(dy,dx)*180/Math.PI;if(ang>90)ang-=180;if(ang<-90)ang+=180;
+    var id=ids.length===n?ids[k]:'',key=kp+'step:lite'+l.index+':'+(id&&ids.indexOf(id)===ids.lastIndexOf(id)?id:k);
+    var body='<g class="shape-step-dim" data-lite-index="'+l.index+'">'+
+      '<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+(x1+nx*4)+'" y2="'+(y1+ny*4)+'" stroke="#101828" stroke-width=".7"/>'+
+      '<line x1="'+b[0]+'" y1="'+b[1]+'" x2="'+(x2+nx*4)+'" y2="'+(y2+ny*4)+'" stroke="#101828" stroke-width=".7"/>'+
+      '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#'+mark+')" marker-end="url(#'+mark+')"/>'+
+      shapeAnnText(lx,ly+4,pre+fmt(tl),{size:size,weight:700,rot:ang})+'</g>';
+    out+=shapeAnnItem(ann,key,body,lx,ly,{from:[mx,my],vw:F.vw});
+  });
+  return out;
+}
+/* Лист одного стекла ступенчатого юнита («у каждого стекла свой лист»). У
+   лайта с отступом формы нет — только контур, поэтому его рисует тот же
+   контурный слой, что и мм-чертёж: в дюймах, а с Metric detail — в мм.
+   Рамка — по контуру лайта, отверстия и прочее — в той же системе координат. */
+function shapeLiteSheetSvg(result,opts){
+  var lite=opts.lite,pts=lite.points,units=lite.units==='mm'?'mm':'in';
+  var F=shapeProductionDrawingFrame(result,{lite:lite});
+  var metric=shapeMetricAnnotations(result,{points:pts,edgeIds:lite.edgeIds});
+  var disp=pts.map(function(p){return [F.X(p[0]),F.Y(p[1])];}),path=disp.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
+  var xs=disp.map(function(p){return p[0];}),ys=disp.map(function(p){return p[1];});
+  var mo=Object.assign({},opts.metric||{},{keyPrefix:units+':lite'+lite.index+':',layout:(opts.metric&&opts.metric.layout)||(result.definition&&result.definition.drawingLayout)||{},vw:F.vw,sheet:!!opts.sheet,units:units,points:pts,cleanParallelogram:true});
+  var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(opts.sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING · '+(lite.label||''),F));
+  o+='<path class="shape-sheet-glass" d="'+path+'" fill="#fff" stroke="none"/>';
+  o+=shapeMetricLayerSvg(result,F,null,metric,mo)+shapeGlassHatchSvg({path:path,points:disp,box:{left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)}});
+  if(result.featureGeometry)o+=shapeProductionFeaturesSvg(result,F);
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }
 /* Архитектурное обозначение стекла: три параллельных диагональных штриха
    short / long / short. Clip-path гарантирует, что знак не выйдет за контур. */
@@ -475,7 +583,8 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext
     var body=(metricMode?'':shapeLabelBg(x,y,txt,SHAPE_DIM_FONT,'rotate('+ang+' '+x+' '+y+')'))+'<text class="shape-edge-label-outside" data-edge-id="'+shapeXml(g.id)+'" x="'+x+'" y="'+y+'" text-anchor="middle" font-size="'+(metricMode?9:SHAPE_DIM_FONT)+'" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+shapeXml(txt)+'</text>';
     /* Подпись ребра (FP, длина с обработкой) двигается мышью; старый сдвиг
        −/+ остаётся в расчёте места. */
-    out+=metricMode?body:shapeAnnItem(layoutOpts,(operationsOnly?'op:':'edge:')+g.id,body,x,y-SHAPE_DIM_FONT*.35,{from:[ax,ay],vw:F.vw});if(!metricMode)track(x,y-SHAPE_DIM_FONT*.35,txt,ang,SHAPE_DIM_FONT);
+    /* В мм подпись обработки двигается так же, своим ключом mm:op:… */
+    out+=metricMode?shapeAnnItem(layoutOpts,shapeMetricKeyPrefix(layoutOpts)+'op:'+g.id,body,x,y-3,{from:[ax,ay],vw:F.vw}):shapeAnnItem(layoutOpts,(operationsOnly?'op:':'edge:')+g.id,body,x,y-SHAPE_DIM_FONT*.35,{from:[ax,ay],vw:F.vw});if(!metricMode)track(x,y-SHAPE_DIM_FONT*.35,txt,ang,SHAPE_DIM_FONT);
   });return out;
 }
 function shapeProductionFeaturesSvg(result,F){
@@ -534,6 +643,8 @@ function shapeTitleBlock(result,kind,F){
    размеры остаются истинными. Раскрой (shapeCuttingSvg) усиления не использует. */
 function shapeProductionDrawingFrame(result,opts){
   opts=opts||{};
+  /* Лист одного стекла — рамка по его контуру (shapeLiteSheetSvg). */
+  if(opts.lite&&opts.lite.points&&opts.lite.points.length>=3)return shapeProductionDrawingFrame({points:opts.lite.points,definition:result&&result.definition},{});
   var metric=opts.metric?shapeMetricAnnotations(result,opts.metric):null;
   var framePoints=(result.points||[]).slice();
   if(metric)metric.vertices.forEach(function(v){framePoints.push(v.point);});
@@ -547,6 +658,8 @@ function shapeProductionDrawingFrame(result,opts){
   F.metric=metric;return F;
 }
 function shapeProductionSvg(result,opts){
+  /* Лист одного стекла рисуется по его контуру — у DXF-формы тоже. */
+  if(result&&opts&&opts.lite&&opts.lite.points&&opts.lite.points.length>=3)return shapeLiteSheetSvg(result,opts);
   if(!result||!result.valid)return '<svg viewBox="0 0 960 780"><text x="480" y="390" text-anchor="middle" fill="#b42318">Invalid Shape</text></svg>';
   opts=opts||{};
   /* Вид сверху получает отдельное верхнее поле; выбранный лайт тоже входит в
@@ -570,16 +683,20 @@ function shapeProductionSvg(result,opts){
      обозначения ниже остаются в исходных единицах согласно спецификации. */
   if(!F.metric)o+=L.annotations;
   var metricClean=SHAPE_METRIC_CLEAN_TYPES.indexOf(result.definition.type)>=0;
-  if(F.metric){var paraMetric=Object.assign({},opts.metric,{sheet:sheet,cleanParallelogram:metricClean});o+=shapeMetricLayerSvg(result,F,L,F.metric,paraMetric)+shapeGlassHatchSvg(L);}
-  o+=shapeParallelogramOosSvg(result,F,L,F.metric?(opts.metric||ann):ann,!!F.metric);
-  o+=shapeRakedDifferenceSvg(result,F,L,F.metric?(opts.metric||ann):ann,!!F.metric);
-  o+=shapeTriangleOffsetSvg(result,F,L,F.metric?(opts.metric||ann):ann,!!F.metric);
+  /* Опции мм-слоя: та же раскладка формы, что у дюймов, но свои ключи. */
+  var metricOpts=F.metric?Object.assign({keyPrefix:'mm:'},opts.metric,{sheet:sheet,cleanParallelogram:metricClean,vw:F.vw}):null;
+  if(metricOpts&&!metricOpts.layout)metricOpts.layout=ann.layout;
+  if(F.metric)o+=shapeMetricLayerSvg(result,F,L,F.metric,metricOpts)+shapeGlassHatchSvg(L);
+  o+=shapeStepOverlaySvg(result,F,L,opts.step,metricOpts||ann,!!F.metric);
+  o+=shapeParallelogramOosSvg(result,F,L,metricOpts||ann,!!F.metric);
+  o+=shapeRakedDifferenceSvg(result,F,L,metricOpts||ann,!!F.metric);
+  o+=shapeTriangleOffsetSvg(result,F,L,metricOpts||ann,!!F.metric);
   /* Габаритная пара нужна только там, где нет цепочек по сторонам. У Smart-Shape
      каждая сторона уже расписана по участкам, и общий размер вставал вторым
      числом рядом с той же цепочкой: снизу читалось «48» и тут же «48″», слева
      «1/4 + 36» и тут же «36 1/4″». Эталон общий габарит на чертеже не рисует
      вовсе — он читается из карточек Finished и Cut size под чертежом. */
-  var edgeExt={},edgeSvg=shapeEdgeLabelsSvg(result,F,L,!!F.metric,ann,metricClean,edgeExt);
+  var edgeExt={},edgeSvg=shapeEdgeLabelsSvg(result,F,L,!!F.metric,metricOpts||ann,metricClean,edgeExt);
   if(!L.smart&&result.definition.type!=='rectangle'&&!F.metric){
     var annOpts=ann,wKey='inch:overall:width',hKey='inch:overall:height';
     /* Габарит — сразу за подписями сторон этой стороны (подпись ширины стоит

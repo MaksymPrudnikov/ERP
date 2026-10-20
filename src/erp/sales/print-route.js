@@ -327,6 +327,14 @@ function salesPrintRoute(line,order,shape,result){
     });
     merge=salesRouteMerge(mk.unitType,mk.panes);
     salesRouteAppendMerge(lites,merge,merge?(mk.unitType&&mk.unitType!=='single'?'igu_assembly':'lamination'):'');
+    /* Ступенчатый юнит: доп. силикон по ступеньке — работа сборки (sales/
+       step-unit). Пункт кладётся в саму станцию сборки: отдельный шаг после
+       неё дал бы второй IGU в маршруте. */
+    var step=merge&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(shape,line,order):null;
+    if(step&&step.step){
+      var stepText='Step unit · '+salesStepSealLabel(shape);
+      lites.forEach(function(l){var st=l.stations.find(function(s){return s.code===merge;});if(st&&st.items.indexOf(stepText)<0)st.items.push(stepText);});
+    }
     /* Работы Master Data, добавленные к строке руками (sales/extra-services). */
     if(typeof salesExtraServiceRoute==='function')salesExtraServiceRoute(lites,line,merge);
   }

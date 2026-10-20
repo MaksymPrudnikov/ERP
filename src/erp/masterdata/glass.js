@@ -840,6 +840,10 @@ const SERVICE_RATE_SEED=[
     операции в цеху под неё нет. Владелец 11 сентября: «просто за то, что юнит
     фигурный и требует дополнительных работ». */
  ['shapeUnit',     'Shape Unit',           'ft²', '',     1.25, 'Surcharge for a shaped unit, by billable area'],
+ /* Ступенчатый юнит (step / offset). Владелец, 20.10.2026: цена 0, «в будущем
+    цена возможна — заложим загодя». Единицу можно сменить на экране: строка
+    заказа берёт количество по ней (sales/step-unit). */
+ ['stepUnit',      'Step Unit',            'pc',  'IGU',  0,    'Step / offset unit: extra sealant on the step',true],
  ['mirrorBacker',  'Mirror Safety Backer', 'ft²', 'SAND', 4,    ''],
  ['mirrorSealant', 'Mirror Edge Sealant',  'in',  'SAND', .07,  'By the finished contour perimeter, not by area']
 ].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],station:x[3],kind:'flat',flat:x[4],note:x[5],

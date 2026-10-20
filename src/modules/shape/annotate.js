@@ -187,11 +187,24 @@ function shapeAnnTickH(x,y){return '<line x1="'+x+'" y1="'+(y-5)+'" x2="'+x+'" y
 function shapeAnnTickV(x,y){return '<line x1="'+(x-5)+'" y1="'+y+'" x2="'+(x+5)+'" y2="'+y+'" stroke="#101828" stroke-width="1"/>';}
 /* Линия размера двигается целиком (с числом) и только поперёк себя: так её
    нельзя поставить криво. От старого места к новому идут тонкие выносные
-   линии — видно, что размер меряет. Ключ линии — ключ числа + '|line'. */
-function shapeAnnLineItem(opts,key,body,a,b,pos,dir,chainKey){
+   линии — видно, что размер меряет. Ключ линии — ключ числа + '|line'.
+   feet ({pts,over,color,width}) — точки стекла, которые размер меряет:
+   выносные тогда идут от них до линии там, где она стоит сейчас, и линию
+   можно увести на другую сторону детали (мм-чертёж, владелец 20.10.2026).
+   Вместо точки можно дать список равных кандидатов (правый верхний и правый
+   нижний угол): берётся ближний к линии, и выносная не тянется вдоль кромки. */
+function shapeAnnLineItem(opts,key,body,a,b,pos,dir,chainKey,feet){
   if(!key||!opts)return body;
   var lk=key+'|line',r=shapeLayoutRec(opts,lk),off=dir==='h'?(+r.dy||0):(+r.dx||0),ext='',hit='';
-  if(off){var ref='#98a2b3';ext=dir==='h'
+  if(feet)ext=feet.pts.map(function(f){
+    var to=pos+off,c=dir==='h'?1:0;
+    if(Array.isArray(f[0]))f=f.reduce(function(best,p){return Math.abs(p[c]-to)<Math.abs(best[c]-to)?p:best;});
+    var from=f[c],end=to+(to>=from?1:-1)*feet.over;
+    var tag='<line class="shape-dim-foot" data-foot-of="'+shapeXml(key)+'" ';
+    return dir==='h'?tag+'x1="'+f[0]+'" y1="'+from+'" x2="'+f[0]+'" y2="'+end+'" stroke="'+feet.color+'" stroke-width="'+feet.width+'"/>'
+      :tag+'x1="'+from+'" y1="'+f[1]+'" x2="'+end+'" y2="'+f[1]+'" stroke="'+feet.color+'" stroke-width="'+feet.width+'"/>';
+  }).join('');
+  else if(off){var ref='#98a2b3';ext=dir==='h'
     ?'<line class="shape-layout-leader" x1="'+a+'" y1="'+pos+'" x2="'+a+'" y2="'+(pos+off)+'" stroke="'+ref+'" stroke-width=".8"/><line class="shape-layout-leader" x1="'+b+'" y1="'+pos+'" x2="'+b+'" y2="'+(pos+off)+'" stroke="'+ref+'" stroke-width=".8"/>'
     :'<line class="shape-layout-leader" x1="'+pos+'" y1="'+a+'" x2="'+(pos+off)+'" y2="'+a+'" stroke="'+ref+'" stroke-width=".8"/><line class="shape-layout-leader" x1="'+pos+'" y1="'+b+'" x2="'+(pos+off)+'" y2="'+b+'" stroke="'+ref+'" stroke-width=".8"/>';}
   if(opts.interactive)hit=dir==='h'?'<line class="shape-layout-hit" x1="'+a+'" y1="'+pos+'" x2="'+b+'" y2="'+pos+'" stroke="transparent" stroke-width="10"/>':'<line class="shape-layout-hit" x1="'+pos+'" y1="'+a+'" x2="'+pos+'" y2="'+b+'" stroke="transparent" stroke-width="10"/>';

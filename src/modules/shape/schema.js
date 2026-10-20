@@ -273,7 +273,7 @@ function shapeNormalizeDims(raw){
    `radius:R:BL`, `feat:<id>`…), запись — {dx, dy, scale, hide, off}: dx/dy —
    сдвиг подписи в точках листа от автоматического места, scale — её размер,
    off — прежний шаг −/+ для целой цепочки. */
-const SHAPE_LAYOUT_OFF_MAX=400,SHAPE_LAYOUT_SCALE_MIN=.6,SHAPE_LAYOUT_SCALE_MAX=2,SHAPE_LAYOUT_KEY_RE=/^[A-Za-z0-9_:.~|-]{1,120}$/;
+const SHAPE_LAYOUT_OFF_MAX=1200,SHAPE_LAYOUT_SCALE_MIN=.6,SHAPE_LAYOUT_SCALE_MAX=2,SHAPE_LAYOUT_KEY_RE=/^[A-Za-z0-9_:.~|-]{1,120}$/;
 function shapeNormalizeDrawingLayout(raw){
   var out={},src=shapePlainObject(raw);
   Object.keys(src).slice(0,500).forEach(function(key){
@@ -326,6 +326,7 @@ function shapeNormalizeLiteSpecs(raw){
   });
   return out;
 }
+var SHAPE_STEP_SEALS=['flat','edge','buttered'];
 function shapeLiteSpec(def,liteIndex){var l=(def&&def.lites)||{};return l[String(liteIndex)]||{inset:{},edgeOps:{},mirror:false};}
 function shapeLiteMirrored(def,liteIndex){return !!shapeLiteSpec(def,liteIndex).mirror;}
 function shapeLiteInsetFor(def,liteIndex,edgeId){
@@ -406,6 +407,10 @@ function normalizeShapeDef(s){
     manufacturingItems:shapeNormalizeManufacturingItems(s.manufacturingItems),
     source:source,schemaVersion:2,revision:Math.max(0,Math.floor(+s.revision||0)),status:s.status==='released'?'released':'draft'
   };
+  /* Вид шва ступенчатого юнита (sales/step-unit). Выбор офиса; Flat seal —
+     по умолчанию и не хранится, поэтому старые формы не меняются. На рез не
+     влияет — в отпечаток не входит. */
+  if(SHAPE_STEP_SEALS.indexOf(s.stepSeal)>0)out.stepSeal=s.stepSeal;
   if(source.kind==='dxf'&&source.preview.width16>0&&source.preview.height16>0){out.w=frac64(source.preview.width16/16);out.h=frac64(source.preview.height16/16);}
   else if(type==='circle'&&s.h==null)out.h=out.w;
   if(type==='parallelogram'){
