@@ -238,6 +238,9 @@ table.excel-grid td.off{color:var(--text-3);background:var(--surface-2);padding:
 .shape-lite-card-head .sp{flex:1}
 .shape-lite-card-head button{padding:4px 9px;font-size:9px}
 .shape-lite-mirror{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;color:var(--text)}
+.shape-lite-seal{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--line2);border-radius:8px;font-size:9.5px}
+.shape-lite-seal>span{font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.shape-lite-seal select{padding:3px 6px;font-size:10px}
 .shape-lite-insets{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px;padding-top:7px;border-top:1px solid var(--line2)}
 .shape-lite-insets>span{font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
 .shape-lite-insets label{display:inline-flex;align-items:center;gap:4px;font-size:9.5px}
@@ -539,6 +542,14 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .mk-pane,.mk-cav,.mk-film{display:block;width:var(--mk-w,168px);height:10px;
   border:1px solid var(--text-3);background:var(--surface-3)}
 .mk-pane{height:18px}
+/* Ступенчатый юнит (sales/step-unit): у лайта размер и «smaller / larger»,
+   полоска меньшего короче — видно, какое стекло меньше. */
+.mk-size{display:block;font-size:9px;color:var(--text-2)}
+.mk-pane.mk-smaller,.mk-film.mk-smaller,.mk-cav.mk-smaller{width:calc(var(--mk-w,168px)*.8)}
+.mk-row.mk-current>span{font-weight:700}
+.sheet-lite{margin-top:2px;font-size:10.5px;font-weight:700;color:var(--text)}
+.sheet-step{margin:6px 0 2px}
+.sheet-step svg{display:block;max-width:100%;height:auto}
 /* Плёнка тоньше стекла и залита точками: в сечении её не спутать со стеклом. */
 .mk-film{height:5px;background:radial-gradient(var(--inverse) .6px,var(--surface) .6px);background-size:3px 3px}
 /* Полость белая, по краям распорка. Сплошной чёрный блок читается как дыра —

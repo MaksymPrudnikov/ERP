@@ -15,11 +15,12 @@
    (erp/quality/recut), старое стекло позиции — по чертежу позиции. */
 let stationDrawCache=new Map();
 function stationDrawRecut(o,l,unit){const r=typeof recutOfUnit==='function'?recutOfUnit(o.id,l.id,unit):null;return r&&recutHasShape(r)?r:null;}
-function stationDrawingOf(o,l,unit){
- const r=stationDrawRecut(o,l,unit),k=o.id+'|'+l.id+'|'+(r?r.id+JSON.stringify([r.shapeRef,r.liteShapes]):'')+'|'+(o.updatedAt||'');
+/* lite — стекло ступенчатого юнита: его свой лист (salesLineDrawing). */
+function stationDrawingOf(o,l,unit,lite){
+ const r=stationDrawRecut(o,l,unit),k=o.id+'|'+l.id+'|'+(r?r.id+JSON.stringify([r.shapeRef,r.liteShapes]):'')+'|'+(o.updatedAt||'')+'|'+(lite==null?'':lite);
  if(stationDrawCache.has(k))return stationDrawCache.get(k);
  let d=null;
- try{d=finWithOrder(o,()=>salesLineDrawing(l,r));}catch(e){d={line:l,error:String(e&&e.message||e)};}
+ try{d=finWithOrder(o,()=>salesLineDrawing(l,r,lite));}catch(e){d={line:l,error:String(e&&e.message||e)};}
  if(stationDrawCache.size>200)stationDrawCache=new Map();
  stationDrawCache.set(k,d);return d;
 }
@@ -28,12 +29,16 @@ function stationDrawLines(o){return (o&&o.lines||[]).filter(l=>l.shapeRef&&sales
    id — строки или Recut. */
 function stationDrawItems(o){
  const rc=typeof recutForOrder==='function'?recutForOrder(o.id).filter(recutHasShape).map(r=>({id:r.id,l:(o.lines||[]).find(x=>x.id===r.lineId),r})).filter(x=>x.l):[];
- return stationDrawLines(o).map(l=>({id:l.id,l,r:null})).concat(rc);
+ /* За листом ступенчатого юнита — листы его стёкол «Line N · Lite k». */
+ const lites=l=>typeof salesLineStepSheets==='function'?finWithOrder(o,()=>salesLineStepSheets(l,o)).map(k=>({id:l.id+'#L'+k,l,r:null,lite:k})):[];
+ return stationDrawLines(o).flatMap(l=>[{id:l.id,l,r:null}].concat(lites(l))).concat(rc);
 }
 /* unit — место стекла: стекло Recut со своим чертежом открывает лист Recut. */
-function stationDrawOpen(orderId,lineId,unit){
+/* lite — номер стекла в юните: скан стекла ступенчатого юнита открывает
+   его свой лист, если он есть. */
+function stationDrawOpen(orderId,lineId,unit,lite){
  const o=salesRecord(orderId);if(!o)return false;
- const items=stationDrawItems(o),l=(o.lines||[]).find(x=>x.id===lineId),r=l&&stationDrawRecut(o,l,unit),id=r?r.id:lineId;
+ const items=stationDrawItems(o),l=(o.lines||[]).find(x=>x.id===lineId),r=l&&stationDrawRecut(o,l,unit),own=!r&&lite!=null&&items.some(x=>x.id===lineId+'#L'+lite),id=r?r.id:own?lineId+'#L'+lite:lineId;
  stationMenu=null;stationDrawer={kind:'draw',orderId:o.id,lineId:items.length?(items.find(x=>x.id===id)||items[0]).id:'',error:''};render();return true;
 }
 /* Кнопка в шапке: без заказа — выбор заказа. */
@@ -42,7 +47,7 @@ function stationDrawPick(){stationMenu=null;stationDrawer={kind:'draw',orderId:'
 function stationDrawFind(raw){
  const v=String(raw==null?'':raw).trim();if(!v)return false;
  const code=stationCodeOf(v),g=glassPieceValid(code)?stationGlass(code):null;
- if(g)return stationDrawOpen(g.o.id,g.l.id,g.unit);
+ if(g)return stationDrawOpen(g.o.id,g.l.id,g.unit,g.c?g.c.index:null);
  const o=(DB.salesOrder||[]).find(x=>String(x.businessNumber||'').toUpperCase()===v.toUpperCase()&&!salesIsQuote(x));
  if(o)return stationDrawOpen(o.id,'');
  stationDrawer.error='Order '+v+' not found';render();return false;
@@ -83,16 +88,16 @@ function stationDrawHTML(){
  const li=(o.lines||[]).indexOf(l)+1,many=lines.length>1,geo=rc?recutLine(rc,l):l;
  const step=(sign,off)=>many?'<button type="button" class="doc-step" '+(off?'disabled':'')+' onclick="stationDrawStep('+sign+')">'+(sign<0?'‹':'›')+'</button>':'';
  return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw="'+esc(l.id)+'">'+head(title)+
-  '<div class="st-draw-stage">'+step(-1,at<=0)+'<figure class="doc-drawing" style="zoom:'+stationDrawZoom().toFixed(3)+'">'+stationDrawSheet(rc?stationDrawingOf(o,l,'R'+rc.no+'.1'):stationDrawingOf(o,l))+'</figure>'+step(1,at>=lines.length-1)+'</div>'+
-  (many?'<div class="st-draw-film">'+lines.map(y=>{const n=(o.lines||[]).indexOf(y.l)+1,g=y.r?recutLine(y.r,y.l):y.l;return '<button type="button" class="st-draw-chip'+(y===it?' on':'')+(y.r?' st-draw-recut':'')+'" data-station-draw-line="'+(y.r?'R'+y.r.no:n)+'" onclick="stationDrawer.lineId=\''+esc(y.id)+'\';render()"><b>'+(y.r?'Recut '+y.r.no+' · ':'')+'Line '+n+'</b><span>'+esc(frac16(g.width16/16)+' × '+frac16(g.height16/16))+(y.l.mark?' · '+esc(y.l.mark):'')+'</span></button>';}).join('')+'</div>':'')+
-  '<div class="st-draw-foot mut">'+(rc?'Recut '+rc.no+' · ':'')+'Line '+li+' · '+(at+1)+' of '+lines.length+(many?' · ← → to flip':'')+'</div></div>';
+  '<div class="st-draw-stage">'+step(-1,at<=0)+'<figure class="doc-drawing" style="zoom:'+stationDrawZoom().toFixed(3)+'">'+stationDrawSheet(rc?stationDrawingOf(o,l,'R'+rc.no+'.1'):stationDrawingOf(o,l,undefined,it.lite))+'</figure>'+step(1,at>=lines.length-1)+'</div>'+
+  (many?'<div class="st-draw-film">'+lines.map(y=>{const n=(o.lines||[]).indexOf(y.l)+1,g=y.r?recutLine(y.r,y.l):y.l;return '<button type="button" class="st-draw-chip'+(y===it?' on':'')+(y.r?' st-draw-recut':'')+'" data-station-draw-line="'+(y.r?'R'+y.r.no:n)+'" onclick="stationDrawer.lineId=\''+esc(y.id)+'\';render()"><b>'+(y.r?'Recut '+y.r.no+' · ':'')+'Line '+n+(y.lite!=null?' · Lite '+(y.lite+1):'')+'</b><span>'+esc(frac16(g.width16/16)+' × '+frac16(g.height16/16))+(y.l.mark?' · '+esc(y.l.mark):'')+'</span></button>';}).join('')+'</div>':'')+
+  '<div class="st-draw-foot mut">'+(rc?'Recut '+rc.no+' · ':'')+'Line '+li+(it.lite!=null?' · Lite '+(it.lite+1):'')+' · '+(at+1)+' of '+lines.length+(many?' · ← → to flip':'')+'</div></div>';
 }
 /* Мини-лист на карточке скана: у стекла форма, отверстия или вырезы. */
 function stationDrawThumb(g,d){
  if(!g||!d||!d.shape||!g.l.shapeRef&&!stationDrawRecut(g.o,g.l,g.unit))return '';
- const sheet=stationDrawingOf(g.o,g.l,g.unit);if(!sheet||!sheet.html)return '';
+ const lite=g.c&&g.c.index!=null?g.c.index:null,sheet=stationDrawingOf(g.o,g.l,g.unit,lite);if(!sheet||!sheet.html)return '';
  setTimeout(stationDrawFit,0);
- return '<button type="button" class="st-drawthumb" data-station-drawthumb onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\',\''+esc(String(g.unit))+'\')" title="Open the drawing"><span class="st-drawthumb-paper"><span class="st-drawthumb-sheet">'+stationDrawSheet(sheet)+'</span></span><span class="st-drawthumb-t">Drawing</span></button>';
+ return '<button type="button" class="st-drawthumb" data-station-drawthumb onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\',\''+esc(String(g.unit))+'\','+(lite==null?'null':lite)+')" title="Open the drawing"><span class="st-drawthumb-paper"><span class="st-drawthumb-sheet">'+stationDrawSheet(sheet)+'</span></span><span class="st-drawthumb-t">Drawing</span></button>';
 }
 /* Прямоугольник под плашкой NEXT (владелец, 1 октября 2026): у фигуры там
    миниатюра чертежа, у прямоугольника было пусто. Стекло в пропорциях, тем же
