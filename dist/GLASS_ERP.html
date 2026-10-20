@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 157 модулей, 23 стиля.
+  Состав сборки: 158 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -566,6 +566,21 @@ body.signin-mode main#app{padding:0}
 
 /* PR3 release guards: rate provenance and incomplete pricing are explicit. */
 .line-services-money,.sales-order-price-summary{display:flex;flex-direction:column;align-items:flex-end;gap:1px}.line-services-money small,.sales-order-price-summary small{font-size:7.5px;font-weight:800;color:var(--warning);white-space:nowrap}.line-services-btn.incomplete,.sales-services-order-btn.incomplete{border-color:var(--warning-line)!important;background:var(--warning-soft)!important}.sales-pricing-warning{display:flex;align-items:flex-start;gap:10px;margin:9px 12px;padding:8px 10px;border:1px solid var(--warning-line);border-radius:8px;background:var(--warning-soft);color:var(--warning);font-size:9px}.sales-pricing-warning b{white-space:nowrap}.sales-pricing-warning span{line-height:1.4}.sales-price-missing{color:var(--warning);font-weight:800}.sales-line-service-row.unpriced,.sales-order-service-row.unpriced{background:var(--warning-soft)}.sales-rate-origin{display:inline-flex!important;width:max-content;padding:2px 5px;border-radius:999px;font-weight:800!important;letter-spacing:.04em}.sales-rate-origin.catalog{background:var(--accent-soft);color:var(--accent)!important}.sales-rate-origin.order{background:var(--warning-soft);color:var(--warning)!important}.sales-rate-origin.line{background:var(--violet-soft);color:var(--violet)!important}.sales-rate-origin.missing{background:var(--danger-soft);color:var(--danger)!important}.sales-service-modal-total.incomplete{flex-wrap:wrap}.sales-service-modal-total.incomplete small{font-size:8px;font-weight:800;color:var(--warning)}
+/* «+ Add service» внизу окна сервисов (sales/extra-services). */
+.sales-extra-bar{margin:10px 12px 12px}
+.sales-extra-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin:10px 12px 12px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);font-size:9.5px}
+.sales-extra-form label{display:flex;flex-direction:column;gap:2px}
+.sales-extra-form label>span{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.035em;color:var(--text-2)}
+.sales-extra-form select,.sales-extra-form input{height:29px;padding:4px 6px;font-size:10px}
+.sales-extra-form [data-extra-pick]{max-width:300px}
+.sales-extra-form [data-extra-qty],.sales-extra-form [data-extra-rate]{width:90px}
+.sales-extra-error{flex-basis:100%;color:var(--danger);font-size:9px}
+.sales-extra-units{display:flex;flex-direction:column;gap:2px}
+.sales-extra-units>span:first-child{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.035em;color:var(--text-2)}
+.sales-extra-units>span:last-child{display:flex;gap:3px}
+.sales-extra-units button{height:29px;min-width:42px}
+.sales-extra-units button.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}
+.sales-extra-per{font-weight:700;color:var(--text)}
 .line-services-chips>span.commercial{background:var(--warning-soft);color:var(--warning)}.line-services-money small.commercial-total{color:var(--warning)}.sales-commercial-adjustments{margin:10px 12px 12px;border:1px solid var(--warning-line);border-radius:9px;overflow:hidden;background:var(--warning-soft)}.sales-commercial-head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--warning-line)}.sales-commercial-head>div{display:flex;align-items:baseline;gap:8px}.sales-commercial-head b{font-size:10px;color:var(--warning)}.sales-commercial-head span{font-size:8px;color:var(--warning)}.sales-commercial-table{display:flex;flex-direction:column}.sales-commercial-row{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(210px,1fr) 70px 115px;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--warning-line);font-size:9.5px}.sales-commercial-row:last-child{border-bottom:0}.sales-commercial-row.head{background:var(--warning-soft);color:var(--warning);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.035em}.sales-commercial-row>span:first-child{display:flex;flex-direction:column;gap:2px}.sales-commercial-row small{font-size:8px;color:var(--warning)}.sales-commercial-row>strong{font:750 10px ui-monospace,monospace;color:var(--warning);text-align:right}.sales-commercial-row.incomplete{background:var(--warning-soft)}.sales-commercial-adjustments.order{margin-top:12px}
 
 /* Safety Border — базовое значение плюс построчный ввод по кромкам.
@@ -3453,7 +3468,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='2cb47ea2332a';
+var ERP_BUILD='2765948ce52b';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12330,7 +12345,16 @@ function normalizeSalesOrderLine(l){
  /* Hold units / Cancel units (erp/sales/unit-cancel) — поля только там, где они есть. */
  return normalizeUnitFields({id:salesEntityId(l.id,'SOL'),lineType:'physical',batchManaged:l.batchManaged===true,onHold:l.onHold===true,holdReason:l.onHold===true?salesString(l.holdReason).slice(0,200):'',holdAt:l.onHold===true?salesString(l.holdAt):'',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',...(Number.isSafeInteger(l.shipQueue)&&l.shipQueue>0&&l.shipQueue<1000?{shipQueue:l.shipQueue}:{}),weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)})),
   /* Цена руками (line-metrics, salesLineCommercialPrice) — только если задана. */
-  ...(salesNonNegOrNull(l.priceManual)!=null?{priceManual:salesNonNegOrNull(l.priceManual)}:{})},l);
+  ...(salesNonNegOrNull(l.priceManual)!=null?{priceManual:salesNonNegOrNull(l.priceManual)}:{}),
+  /* Сервисы, добавленные руками (sales/extra-services) — только если есть. */
+  ...(Array.isArray(l.extraServices)&&l.extraServices.length?{extraServices:l.extraServices.map(normalizeSalesExtraService).slice(0,50)}:{})},l);
+}
+/* Сервис, добавленный к строке руками: из прайса (rateId) или свой — имя и
+   единица. qty — на юнит строки; null у ft² и in — площадь и периметр юнита. */
+function normalizeSalesExtraService(x){
+ x=x&&typeof x==='object'?x:{};
+ const rateId=salesString(x.rateId).slice(0,80),q=x.qty==null||x.qty===''?null:+x.qty;
+ return {id:salesEntityId(x.id,'SX'),rateId,name:rateId?'':salesString(x.name).trim().slice(0,80),unit:rateId?'':(['pc','ft²','in'].includes(x.unit)?x.unit:'pc'),qty:Number.isFinite(q)&&q>0?q:null};
 }
 /* Строка-позиция каталога: изделие из стекла или готовая вещь — не одно и то
    же, и модель их не смешивает (раздел 6 схемы). Владелец: «там, где Single /
@@ -12586,7 +12610,10 @@ function salesStripPrices(x){
 function salesLockedLineSnapshot(order,line){
  const m=salesMakeupById(order,line.makeupId);
  return JSON.stringify({w:line.width16,h:line.height16,q:line.qty,m:m?salesStripPrices({unitType:m.unitType,panes:m.panes,cavities:m.cavities}):null,
-  shape:line.shapeRef&&line.shapeRef.id||'',lites:line.liteShapes||{},set:line.serviceSetId||'',overrides:line.serviceOverrides||null,sides:line.sideMap||null});
+  shape:line.shapeRef&&line.shapeRef.id||'',lites:line.liteShapes||{},set:line.serviceSetId||'',overrides:line.serviceOverrides||null,sides:line.sideMap||null,
+  /* Работа из прайса, добавленная руками, ставит станцию в маршрут — как и
+     обработка формы. Свой сервис — только деньги, как цена. */
+  extras:(line.extraServices||[]).filter(x=>x.rateId).map(x=>[x.rateId,x.qty])});
 }
 /* Строка в батче, стекло которой ещё не порезано: клиент сменил количество —
    его просто уменьшают, лишнюю строку убирают крестиком; лишнее стекло
@@ -16976,7 +17003,10 @@ function salesLineChargeRows(line){
 function salesChargeGroupKey(row){
  const p=String(row&&row.key||'').split(':');if(p[0]==='MI'){if(p[1]==='hole')return 'MI:hole:'+(p[2]||'unpriced');return 'MI:'+(p[1]||'');}
  if(p[0]==='EDGE'){if(p[1]==='bevel')return 'EDGE:bevel:'+(p[2]||'');return 'EDGE:'+(p[1]||'');}
- if(p[0]==='FEATURE')return 'FEATURE:'+(p[1]||'');return String(row&&row.key||'');
+ if(p[0]==='FEATURE')return 'FEATURE:'+(p[1]||'');
+ /* Добавленный руками сервис (sales/extra-services): группа — до «|». */
+ if(p[0]==='EXTRA')return String(row.key).split('|')[0];
+ return String(row&&row.key||'');
 }
 function salesOrderChargePricingRecord(row){const map=soDraft&&soDraft.servicePricing&&typeof soDraft.servicePricing==='object'?soDraft.servicePricing:{},r=map[salesChargeGroupKey(row)]||null;return r&&r.orderRate!=null?r.orderRate:null;}
 function salesChargePricingState(line,row){
@@ -17011,9 +17041,9 @@ function salesOrderPricingSummary(){return (soDraft&&soDraft.lines||[]).reduce(f
 function salesLinePricingTotal(line){return salesLinePricingSummary(line).total;}
 function salesOrderPricingTotal(){return salesOrderPricingSummary().total;}
 function salesTogglePricingLine(id){soPricingLineId=soPricingLineId===id?null:id;render();}
-function salesOpenLineServices(id){soServiceLineId=id;soServiceOrderOpen=false;render();}
-function salesOpenOrderServices(){soServiceLineId=null;soServiceOrderOpen=true;render();}
-function salesCloseServices(){soServiceLineId=null;soServiceOrderOpen=false;render();}
+function salesOpenLineServices(id){soServiceLineId=id;soServiceOrderOpen=false;soExtraForm=null;render();}
+function salesOpenOrderServices(){soServiceLineId=null;soServiceOrderOpen=true;soExtraForm=null;render();}
+function salesCloseServices(){soServiceLineId=null;soServiceOrderOpen=false;soExtraForm=null;render();}
 function salesChargeShortLabel(row){
  /* Короткий код вида берётся из справочника по ключу строки: у добавленного
     владельцем вида имени в этом коде нет и быть не может. */
@@ -17929,6 +17959,9 @@ salesLineChargeRows=function(line){
   if(typeof salesMuntinChargeRows==='function')salesMuntinChargeRows(line).forEach(function(row){rows.push(row);});
   var saved=line&&line.shapeRef?salesShapeByRef(line.shapeRef):null;
   salesUnitSurchargeRows(line,saved).forEach(function(row){rows.push(row);});
+  /* Сервисы, добавленные руками (sales/extra-services), от контура не
+     зависят — до выхода по его отсутствию. */
+  if(typeof salesExtraServiceRows==='function')salesExtraServiceRows(line).forEach(function(row){rows.push(row);});
   var shape=salesLineGeometryShape(line),ctx=salesPricingThickness(line);if(!shape)return rows.filter(function(x){return x.basis>0;});
   var items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
   /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows.
@@ -18276,6 +18309,143 @@ function salesStepDrawingData(info,names){
   if(!info||!info.step)return null;
   return {seal:SALES_STEP_SEALS[info.seal],lites:info.lites.filter(function(l){return !l.own&&!l.asShape;}).map(function(l){return {index:l.index,label:'Lite '+(l.index+1),perPoint:l.perPoint,points:l.points};}),
     edges:info.edges.map(function(e){return {id:e.id,name:(names&&names[e.id])||e.id,step:e.step,min:Math.min.apply(null,info.lites.map(function(x){return x.insets[e.id]||0;}))};})};
+}
+
+/* ==== src/erp/sales/extra-services.js ==== */
+/* =====================================================================
+   sales/extra-services · extra-services-1.0
+   Сервисы, добавленные к строке руками — кнопкой «+» в окне сервисов строки
+   и в Services & prices заказа (владелец, 20.10.2026: «чтобы там был + … или
+   даже прописные выдуманные»).
+   Два вида:
+   - из Master Data (rateId) — ставка из прайса, станция работы встаёт в
+     маршрут;
+   - свой, разовый (rateId пустой) — живёт только в этом заказе, станции нет,
+     цену ставят в Line rate («станция нужна только тем, которые есть в
+     мастер дате»).
+   Количество — на юнит строки; пустое у ft² и in — площадь и периметр
+   юнита, считаются по текущему размеру.
+   IN : line.extraServices · DB.serviceRate
+   OUT: строки счёта EXTRA:… · пункты маршрута · команды добавить / убрать
+   ===================================================================== */
+var SALES_EXTRA_UNITS=['pc','ft²','in'];
+var soExtraForm=null;
+/* Работы Master Data, которые можно добавить руками: активные и с именем. */
+function salesExtraServiceCatalog(){
+  return (DB.serviceRate||[]).filter(function(r){return r&&r.id&&r.id!=='*'&&r.name&&r.active!==false;})
+    .slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+}
+function salesExtraServiceRate(x){return x&&x.rateId?salesServiceRateRow(x.rateId):null;}
+function salesExtraServiceName(x){var r=salesExtraServiceRate(x);return (r&&r.name)||x.name||'Service';}
+function salesExtraServiceUnit(x){var r=salesExtraServiceRate(x);return (r&&r.unit)||x.unit||'pc';}
+/* Ключ строки счёта: группа (работа прайса или своё имя с единицей) и id
+   записи после «|». Одинаковые добавленные сервисы разных строк — одна группа
+   в Services & prices, общую цену ставят разом. Символы — только те, что
+   пропускает нормализация цен строки (normalizeSalesChargePricing). */
+function salesExtraServiceGroup(x){
+  if(x.rateId)return 'EXTRA:'+String(x.rateId).replace(/[^A-Za-z0-9:._+\-]/g,'_');
+  return 'EXTRA:custom-'+String(x.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')+'-'+(SALES_EXTRA_UNITS.indexOf(x.unit)+1);
+}
+function salesExtraServiceKey(x){return salesExtraServiceGroup(x)+'|'+x.id;}
+/* Количество на юнит: введённое или, если пусто, по размеру юнита. */
+function salesExtraServiceBasis(line,x){
+  if(x.qty!=null)return x.qty;
+  var unit=salesExtraServiceUnit(x);
+  if(unit==='ft²'){var a=salesLineAreas(line,soDraft);return a.valid?a.billable:0;}
+  if(unit==='in'){
+    var s=salesLineGeometryShape(line),r=s?ShapeModule.compute(s):null;
+    if(r&&r.valid)return salesShapePerimeterIn(r);
+    return 2*((+line.width16||0)+(+line.height16||0))/16;
+  }
+  return 1;
+}
+function salesExtraServiceRows(line){
+  var ctx=null;
+  return (line&&line.extraServices||[]).map(function(x){
+    if(x.rateId&&!ctx)ctx=salesPricingThickness(line);
+    return salesChargeRow(salesExtraServiceKey(x),salesExtraServiceName(x),+(+salesExtraServiceBasis(line,x)).toFixed(4),salesExtraServiceUnit(x),
+      x.rateId?salesCatalogRate(x.rateId,ctx):null,x.rateId?'Added':'Custom');
+  });
+}
+/* Работа Master Data со станцией — пункт в маршруте: после склейки — на
+   станции склейки юнита, иначе — у каждого стекла на своей станции, в
+   порядке станций цеха. Свой сервис станции не имеет и в маршрут не идёт. */
+function salesExtraServiceRoute(lites,line,merge){
+  var seq=salesRouteStations().map(function(s){return s.code;});
+  (line&&line.extraServices||[]).forEach(function(x){
+    var w=salesExtraServiceRate(x);if(!w||!w.station)return;
+    var text=(x.qty>1&&salesExtraServiceUnit(x)==='pc'?x.qty+' × ':'')+salesExtraServiceName(x);
+    lites.forEach(function(l){
+      var list=l.stations,st=list.find(function(s){return s.code===(w.afterMerge&&merge?merge:w.station);});
+      if(!st){
+        st={code:w.station,name:salesRouteStationName(w.station),items:[],works:[]};
+        var at=seq.indexOf(w.station),i=list.findIndex(function(s){var k=seq.indexOf(s.code);return at>=0&&k>at;});
+        list.splice(i<0?list.length:i,0,st);
+      }
+      if(st.items.indexOf(text)<0)st.items.push(text);
+      if(st.works&&st.works.indexOf(x.rateId)<0)st.works.push(x.rateId);
+    });
+  });
+}
+/* ---- Команды окна ---- */
+/* Куда добавлять: 'line:<id>' — одна строка; 'order' — выбранные строки, а
+   если не выбрано ничего — все строки заказа. */
+function salesExtraTargetLines(target){
+  var lines=soDraft&&soDraft.lines||[];
+  if(String(target).indexOf('line:')===0){var id=String(target).slice(5);return lines.some(function(l){return l.id===id;})?[id]:[];}
+  var picked=lines.filter(function(l){return soSelectedLines&&soSelectedLines.has(l.id);});
+  return (picked.length?picked:lines).map(function(l){return l.id;});
+}
+function salesExtraFormOpen(target){soExtraForm={target:target,lines:salesExtraTargetLines(target),rateId:'',name:'',unit:'pc',qty:'',rate:'',error:''};render();}
+function salesExtraFormClose(){soExtraForm=null;render();}
+function salesExtraFormSet(k,v){if(!soExtraForm)return;soExtraForm[k]=v;if(k==='rateId'){var r=salesServiceRateRow(v);if(r)soExtraForm.unit=r.unit||'pc';render();}}
+/* Добавляет сервис во все строки формы, кроме тех, где такой уже есть.
+   Возвращает число строк, куда добавлен. */
+function salesExtraAdd(){
+  var f=soExtraForm;if(!f||!soDraft)return 0;
+  var custom=!f.rateId,name=String(f.name||'').trim().slice(0,80),qtyText=String(f.qty==null?'':f.qty).trim(),qty=qtyText===''?null:+qtyText;
+  var rateText=String(f.rate==null?'':f.rate).trim(),rate=rateText===''?null:+rateText;
+  var err=custom&&!name?'Enter a name.':qty!=null&&!(Number.isFinite(qty)&&qty>0)?'Enter a quantity above 0.':rate!=null&&!(Number.isFinite(rate)&&rate>=0)?'Enter a valid rate.':'';
+  if(err){f.error=err;render();return 0;}
+  var lines=(soDraft.lines||[]).filter(function(l){return f.lines.indexOf(l.id)>=0;}),n=0;
+  lines.forEach(function(line){
+    var x=normalizeSalesExtraService({rateId:f.rateId,name:custom?name:'',unit:custom?f.unit:'',qty:qty});
+    /* Уже есть такой же в строке — второй раз не добавляем. */
+    if((line.extraServices||[]).some(function(e){return salesExtraServiceGroup(e)===salesExtraServiceGroup(x);}))return;
+    (line.extraServices||(line.extraServices=[])).push(x);n++;
+    if(rate!=null){var row=salesExtraServiceRows(line).find(function(r){return r.key===salesExtraServiceKey(x);});if(row)salesEnsureChargePricing(line,row).orderRate=Math.round(rate*10000)/10000;}
+  });
+  if(!n){f.error=lines.length>1?'Already on these lines.':'Already on this line.';render();return 0;}
+  soExtraForm=null;render();return n;
+}
+function salesExtraRemove(lineId,id){
+  var line=(soDraft&&soDraft.lines||[]).find(function(l){return l.id===lineId;});if(!line)return;
+  var x=(line.extraServices||[]).find(function(e){return e.id===id;});if(!x)return;
+  if(line.chargePricing)delete line.chargePricing[salesExtraServiceKey(x)];
+  line.extraServices=line.extraServices.filter(function(e){return e.id!==id;});
+  if(!line.extraServices.length)delete line.extraServices;
+  render();
+}
+function salesExtraIdOfKey(key){var s=String(key||''),i=s.indexOf('|');return s.indexOf('EXTRA:')===0&&i>0?s.slice(i+1):'';}
+/* Форма «+ Add service»: из прайса или своя. */
+function salesExtraFormHTML(){
+  var f=soExtraForm;if(!f)return '';
+  var cat=salesExtraServiceCatalog(),r=f.rateId?salesServiceRateRow(f.rateId):null,unit=r?(r.unit||'pc'):f.unit;
+  var many=f.lines.length>1;
+  return `<div class="sales-extra-form" data-extra-form>`+
+    `<label><span>Service</span><select data-extra-pick onchange="salesExtraFormSet('rateId',this.value)"><option value="" ${f.rateId?'':'selected'}>Custom (this order only)</option>${cat.map(function(c){return `<option value="${esc(c.id)}" ${f.rateId===c.id?'selected':''}>${esc(c.name)} · ${esc(c.unit||'pc')}${c.station?' · '+esc(c.station):''}</option>`;}).join('')}</select></label>`+
+    (f.rateId?'':`<label><span>Name</span><input data-extra-name value="${esc(f.name)}" maxlength="80" oninput="soExtraForm.name=this.value"></label><span class="sales-extra-units"><span>Charged per</span><span>${SALES_EXTRA_UNITS.map(function(u){return `<button type="button" class="sm${f.unit===u?' on':''}" data-extra-unit="${u}" onclick="salesExtraFormSet('unit','${u}');render()">${u}</button>`;}).join('')}</span></span>`)+
+    `<label><span>Qty / unit</span><input data-extra-qty type="number" min="0" step="any" value="${esc(f.qty)}" placeholder="${unit==='ft²'?'area':unit==='in'?'perimeter':'1'}" oninput="soExtraForm.qty=this.value"></label>`+
+    `<label><span>Rate / ${esc(unit)}</span><input data-extra-rate type="number" min="0" step="0.01" value="${esc(f.rate)}" placeholder="${r?'catalog':'required'}" oninput="soExtraForm.rate=this.value"></label>`+
+    `<button class="sm pri" data-extra-add onclick="salesExtraAdd()">Add${many?' to '+f.lines.length+' lines':''}</button><button class="sm" onclick="salesExtraFormClose()">Cancel</button>`+
+    (f.error?`<b class="sales-extra-error">${esc(f.error)}</b>`:'')+`</div>`;
+}
+/* Кнопка «+ Add service» или открытая форма — внизу окна сервисов. */
+function salesExtraBarHTML(target){
+  if(soExtraForm&&soExtraForm.target===target)return salesExtraFormHTML();
+  var n=salesExtraTargetLines(target).length;if(!n)return '';
+  var picked=target==='order'&&soSelectedLines&&soSelectedLines.size;
+  return `<div class="sales-extra-bar"><button class="sm" data-extra-open onclick="salesExtraFormOpen('${esc(target)}')">+ Add service${target==='order'?(picked?' to '+n+' selected':' to all '+n+' lines'):''}</button></div>`;
 }
 
 /* ==== src/erp/sales/line-metrics.js ==== */
@@ -18790,6 +18960,8 @@ function salesPrintRoute(line,order,shape,result){
       var stepText='Step unit · '+salesStepSealLabel(shape);
       lites.forEach(function(l){var st=l.stations.find(function(s){return s.code===merge;});if(st&&st.items.indexOf(stepText)<0)st.items.push(stepText);});
     }
+    /* Работы Master Data, добавленные к строке руками (sales/extra-services). */
+    if(typeof salesExtraServiceRoute==='function')salesExtraServiceRoute(lites,line,merge);
   }
   /* Фигура из библиотеки заказа не имеет: маршрут строится по ней самой. */
   if(!lites.length){
@@ -21008,13 +21180,13 @@ function salesOrderCommercialAdjustmentsHtml(currency){
 }
 function salesLineServicesModal(line,index){
  const rows=salesLineChargeRows(line),currency=soDraft.currency||'CAD',s=salesShapeByRef(line.shapeRef),ctx=salesPricingThickness(line),thickness=ctx.ok?ctx.thickness+' mm':(ctx.thickness?ctx.thickness+' mm':'—'),summary=salesLinePricingSummary(line);
- return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal line-modal"><div class="sales-service-modal-head"><div><span><span>Line</span> ${index+1}</span><h3>Services / Processing</h3><small>${s?raw(s.name):'Production Shape'}${line.mark?' · '+raw(line.mark):''}</small></div><button onclick="salesCloseServices()">×</button></div>${rows.length||salesLineCommercialAdjustments(line,soDraft).length?`<div class="sales-service-context"><span>Makeup thickness <b>${esc(thickness)}</b></span><span>Line Qty <b>${esc(line.qty)}</b></span><span>Geometry / quantity <b>read-only</b></span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Price not set</b><span><b data-raw>${summary.unpriced}</b> <span>charges have no effective rate. They are not included in the monetary total until a rate is entered.</span></span></div>`:''}${rows.length?`<div class="sales-line-service-table"><div class="sales-line-service-row head"><span>Charge</span><span>Calculated basis</span><span>Catalog</span><span>Order-wide</span><span>Line rate</span><span>Final total</span><span></span></div>${rows.map(function(row){const st=salesChargePricingState(line,row),q=salesPositiveInt(line.qty,1),final=st.effectiveRate==null?null:row.basis*q*st.effectiveRate,lineValue=st.lineRate==null?'':String(st.lineRate),inherited=st.orderRate!=null?st.orderRate:st.catalogRate,origin=st.origin==='line'?'LINE':(st.origin==='order'?'ORDER':(st.origin==='catalog'?'CATALOG':'NO RATE'));return `<div class="sales-line-service-row${st.missing?' unpriced':''}"><span class="sales-price-charge"><b>${esc(row.label)}</b><small>${esc(row.source)}</small></span><span class="sales-price-basis">${esc(salesChargeBasisText(row,line))}</span><span>${st.catalogRate==null?'<span class="sales-price-missing">Not set</span>':esc(salesRateText(st.catalogRate,row.unit,currency))}</span><span>${esc(salesRateText(st.orderRate,row.unit,currency))}</span><span class="sales-line-rate"><input type="number" min="0" step="0.01" value="${esc(lineValue)}" placeholder="${inherited==null?'':esc(String(inherited))}" onchange="salesSetChargeOrderRate('${esc(line.id)}','${esc(row.key)}',this.value)"><small class="sales-rate-origin ${esc(st.origin)}">${esc(origin)}</small></span><strong>${final==null?'<span class="sales-price-missing">Rate required</span>':final.toFixed(2)+' '+esc(currency)}</strong><button class="sm" onclick="salesResetChargeRate('${esc(line.id)}','${esc(row.key)}')">Use Order / Catalog</button></div>`;}).join('')}</div><div class="sales-service-modal-total${summary.unpriced?' incomplete':''}"><span>Services / processing total for this line</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:''}</div>`:''}${salesLineCommercialAdjustmentsHtml(line,currency)}`:`<div class="empty compact sales-service-empty">This line has no services or processing charges yet.</div>`}</div></div>`;
+ return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal line-modal"><div class="sales-service-modal-head"><div><span><span>Line</span> ${index+1}</span><h3>Services / Processing</h3><small>${s?raw(s.name):'Production Shape'}${line.mark?' · '+raw(line.mark):''}</small></div><button onclick="salesCloseServices()">×</button></div>${rows.length||salesLineCommercialAdjustments(line,soDraft).length?`<div class="sales-service-context"><span>Makeup thickness <b>${esc(thickness)}</b></span><span>Line Qty <b>${esc(line.qty)}</b></span><span>Geometry / quantity <b>read-only</b></span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Price not set</b><span><b data-raw>${summary.unpriced}</b> <span>charges have no effective rate. They are not included in the monetary total until a rate is entered.</span></span></div>`:''}${rows.length?`<div class="sales-line-service-table"><div class="sales-line-service-row head"><span>Charge</span><span>Calculated basis</span><span>Catalog</span><span>Order-wide</span><span>Line rate</span><span>Final total</span><span></span></div>${rows.map(function(row){const st=salesChargePricingState(line,row),q=salesPositiveInt(line.qty,1),final=st.effectiveRate==null?null:row.basis*q*st.effectiveRate,lineValue=st.lineRate==null?'':String(st.lineRate),inherited=st.orderRate!=null?st.orderRate:st.catalogRate,origin=st.origin==='line'?'LINE':(st.origin==='order'?'ORDER':(st.origin==='catalog'?'CATALOG':'NO RATE'));return `<div class="sales-line-service-row${st.missing?' unpriced':''}"><span class="sales-price-charge"><b>${esc(row.label)}</b><small>${esc(row.source)}</small></span><span class="sales-price-basis">${esc(salesChargeBasisText(row,line))}</span><span>${row.source==='Custom'?`<span class="sales-extra-per">Custom · per ${esc(row.unit)}</span>`:st.catalogRate==null?'<span class="sales-price-missing">Not set</span>':esc(salesRateText(st.catalogRate,row.unit,currency))}</span><span>${esc(salesRateText(st.orderRate,row.unit,currency))}</span><span class="sales-line-rate"><input type="number" min="0" step="0.01" value="${esc(lineValue)}" placeholder="${inherited==null?'':esc(String(inherited))}" onchange="salesSetChargeOrderRate('${esc(line.id)}','${esc(row.key)}',this.value)"><small class="sales-rate-origin ${esc(st.origin)}">${esc(origin)}</small></span><strong>${final==null?'<span class="sales-price-missing">Rate required</span>':final.toFixed(2)+' '+esc(currency)}</strong>${salesExtraIdOfKey(row.key)?`<button class="sm" data-extra-remove onclick="salesExtraRemove('${esc(line.id)}','${esc(salesExtraIdOfKey(row.key))}')">Remove</button>`:`<button class="sm" onclick="salesResetChargeRate('${esc(line.id)}','${esc(row.key)}')">Use Order / Catalog</button>`}</div>`;}).join('')}</div><div class="sales-service-modal-total${summary.unpriced?' incomplete':''}"><span>Services / processing total for this line</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:''}</div>`:''}${salesLineCommercialAdjustmentsHtml(line,currency)}`:`<div class="empty compact sales-service-empty">This line has no services or processing charges yet.</div>`}${salesExtraBarHTML('line:'+line.id)}</div></div>`;
 }
 
 function salesOrderServicesModal(){
  const groups=salesOrderChargeGroups(),currency=soDraft.currency||'CAD',summary=salesOrderPricingSummary();
  const commercial=salesOrderCommercialAdjustmentsHtml(currency);
- return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal order-modal"><div class="sales-service-modal-head"><div><span>Sales Order</span><div class="sales-bulk-pricing-title"><h3>Services & Pricing</h3><span class="sales-bulk-pricing-badge">Bulk price edit</span></div><small>Applies to every line with this service.</small></div><button onclick="salesCloseServices()">×</button></div>${groups.length||commercial?`${groups.length?`<div class="sales-bulk-pricing-banner"><b>Bulk edit</b><span>Order rate applies to all matching services.</span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Pricing incomplete</b><span><b data-raw>${summary.unpriced}</b> <span>charges have no effective rate. They are excluded from the order monetary total until a rate is entered.</span></span></div>`:''}<div class="sales-order-service-table"><div class="sales-order-service-row head"><span>Service / Processing</span><span>Order basis</span><span>Catalog rate</span><span>Order rate</span><span>Final total</span><span></span></div>${groups.map(function(g){const orderValue=g.orderRate==null?'':String(g.orderRate),placeholder=g.catalogRates.length===1?String(g.catalogRates[0]):'';return `<div class="sales-order-service-row${g.unpriced?' unpriced':''}"><span class="sales-price-charge"><b>${esc(g.label)}</b><small><span>Lines:</span> ${g.entries.length}${g.lineOverrides?' · <span>Overrides:</span> '+g.lineOverrides:''}${g.unpriced?' · <span class="sales-price-missing"><span>Unpriced:</span> <span data-raw>'+g.unpriced+'</span></span>':''}</small></span><span class="sales-price-basis">${esc(salesOrderGroupBasisText(g))}</span><span>${g.catalogRates.length?esc(salesOrderGroupCatalogText(g,currency)):'<span class="sales-price-missing">Not set</span>'}</span><span class="sales-order-rate"><input type="number" min="0" step="0.01" value="${esc(orderValue)}" placeholder="${esc(placeholder)}" onchange="salesSetOrderGroupRate('${esc(g.key)}',this.value)"><small class="sales-rate-origin ${g.orderRate!=null?'order':'catalog'}">${g.orderRate!=null?'ORDER':'CATALOG'}</small></span><strong>${g.unpriced&&g.total===0?'<span class="sales-price-missing">Rate required</span>':g.total.toFixed(2)+' '+esc(currency)+(g.unpriced?' + ?':'')}</strong><button class="sm" onclick="salesResetOrderGroupRate('${esc(g.key)}')">Reset to Catalog</button></div>`;}).join('')}</div><div class="sales-service-order-note"><b>Mass edit rule</b><span>Order rate applies to all matching services.</span></div><div class="sales-service-modal-total grand${summary.unpriced?' incomplete':''}"><span>Services / processing total for the whole order</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:''}</div>`:''}${commercial}`:`<div class="empty compact sales-service-empty">No services or processing charges in this order yet.</div>`}</div></div>`;
+ return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal order-modal"><div class="sales-service-modal-head"><div><span>Sales Order</span><div class="sales-bulk-pricing-title"><h3>Services & Pricing</h3><span class="sales-bulk-pricing-badge">Bulk price edit</span></div><small>Applies to every line with this service.</small></div><button onclick="salesCloseServices()">×</button></div>${groups.length||commercial?`${groups.length?`<div class="sales-bulk-pricing-banner"><b>Bulk edit</b><span>Order rate applies to all matching services.</span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Pricing incomplete</b><span><b data-raw>${summary.unpriced}</b> <span>charges have no effective rate. They are excluded from the order monetary total until a rate is entered.</span></span></div>`:''}<div class="sales-order-service-table"><div class="sales-order-service-row head"><span>Service / Processing</span><span>Order basis</span><span>Catalog rate</span><span>Order rate</span><span>Final total</span><span></span></div>${groups.map(function(g){const orderValue=g.orderRate==null?'':String(g.orderRate),placeholder=g.catalogRates.length===1?String(g.catalogRates[0]):'';return `<div class="sales-order-service-row${g.unpriced?' unpriced':''}"><span class="sales-price-charge"><b>${esc(g.label)}</b><small><span>Lines:</span> ${g.entries.length}${g.lineOverrides?' · <span>Overrides:</span> '+g.lineOverrides:''}${g.unpriced?' · <span class="sales-price-missing"><span>Unpriced:</span> <span data-raw>'+g.unpriced+'</span></span>':''}</small></span><span class="sales-price-basis">${esc(salesOrderGroupBasisText(g))}</span><span>${g.catalogRates.length?esc(salesOrderGroupCatalogText(g,currency)):'<span class="sales-price-missing">Not set</span>'}</span><span class="sales-order-rate"><input type="number" min="0" step="0.01" value="${esc(orderValue)}" placeholder="${esc(placeholder)}" onchange="salesSetOrderGroupRate('${esc(g.key)}',this.value)"><small class="sales-rate-origin ${g.orderRate!=null?'order':'catalog'}">${g.orderRate!=null?'ORDER':'CATALOG'}</small></span><strong>${g.unpriced&&g.total===0?'<span class="sales-price-missing">Rate required</span>':g.total.toFixed(2)+' '+esc(currency)+(g.unpriced?' + ?':'')}</strong><button class="sm" onclick="salesResetOrderGroupRate('${esc(g.key)}')">Reset to Catalog</button></div>`;}).join('')}</div><div class="sales-service-order-note"><b>Mass edit rule</b><span>Order rate applies to all matching services.</span></div><div class="sales-service-modal-total grand${summary.unpriced?' incomplete':''}"><span>Services / processing total for the whole order</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:''}</div>`:''}${commercial}`:`<div class="empty compact sales-service-empty">No services or processing charges in this order yet.</div>`}${salesExtraBarHTML('order')}</div></div>`;
 }
 
 function salesServicesModal(){if(soServiceOrderOpen)return salesOrderServicesModal();if(soServiceLineId){const i=(soDraft.lines||[]).findIndex(function(l){return l.id===soServiceLineId;});if(i>=0)return salesLineServicesModal(soDraft.lines[i],i);}return '';}
@@ -24451,7 +24623,7 @@ function salesServiceBulkPreviewHtml(){
 }
 function salesBulkServiceControls(){
   var selected=salesServiceVisibleSelected();if(!selected.length)return '';
-  return `<div class='sales-bulk ss-bulk'><b id='salesBulkCount'>${selected.length} selected</b><span>Makeup</span><select onchange='salesAssignSelected(this.value)'><option value=''>—</option>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}'>${esc(m.code)}</option>`;}).join('')}</select><span>Bulk Set</span><select onchange='soBulkServiceSetId=this.value;soServiceBulkPreview=null;render()'><option value=''>—</option>${(soDraft.serviceSets||[]).map(function(s){return `<option value='${esc(s.id)}' ${soBulkServiceSetId===s.id?'selected':''}>${esc(s.code)} · ${esc(salesServiceSetFormula(s))}</option>`;}).join('')}</select><span>Policy</span><select onchange='soBulkServicePolicy=this.value;soServiceBulkPreview=null;render()'><option value='keep' ${soBulkServicePolicy==='keep'?'selected':''}>Keep overrides</option><option value='overwrite' ${soBulkServicePolicy==='overwrite'?'selected':''}>Overwrite overrides</option><option value='empty' ${soBulkServicePolicy==='empty'?'selected':''}>Only empty</option></select><button class='sm' onclick='salesPreviewServiceAssignment()'>Preview</button><button class='sm' onclick='soSelectedLines=new Set();soServiceBulkPreview=null;render()'>Clear</button></div>${salesServiceBulkPreviewHtml()}`;
+  return `<div class='sales-bulk ss-bulk'><b id='salesBulkCount'>${selected.length} selected</b><span>Makeup</span><select onchange='salesAssignSelected(this.value)'><option value=''>—</option>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}'>${esc(m.code)}</option>`;}).join('')}</select><span>Bulk Set</span><select onchange='soBulkServiceSetId=this.value;soServiceBulkPreview=null;render()'><option value=''>—</option>${(soDraft.serviceSets||[]).map(function(s){return `<option value='${esc(s.id)}' ${soBulkServiceSetId===s.id?'selected':''}>${esc(s.code)} · ${esc(salesServiceSetFormula(s))}</option>`;}).join('')}</select><span>Policy</span><select onchange='soBulkServicePolicy=this.value;soServiceBulkPreview=null;render()'><option value='keep' ${soBulkServicePolicy==='keep'?'selected':''}>Keep overrides</option><option value='overwrite' ${soBulkServicePolicy==='overwrite'?'selected':''}>Overwrite overrides</option><option value='empty' ${soBulkServicePolicy==='empty'?'selected':''}>Only empty</option></select><button class='sm' onclick='salesPreviewServiceAssignment()'>Preview</button><button class='sm' data-extra-bulk onclick='salesOpenOrderServices();salesExtraFormOpen("order")'>+ Service</button><button class='sm' onclick='soSelectedLines=new Set();soServiceBulkPreview=null;render()'>Clear</button></div>${salesServiceBulkPreviewHtml()}`;
 }
 
 /* Approved Sales line layout: Set column immediately after MU. */
