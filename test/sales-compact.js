@@ -46,6 +46,15 @@ module.exports=async function({page,eq,ok}){
  eq('ПКМ ставит Hold конкретной позиции, не сохраняет чужие правки черновика и экранирует причину',await t.p.evaluate(id=>{
   const o=salesRecord(id);return {held:o.lines.map(l=>l.onHold),draft:soDraft.lines[1].onHold,notes:o.notes,unsaved:soDraft.notes,rows:document.querySelectorAll('.sales-line-on-hold').length,editable:!document.querySelector('.sales-line-on-hold').hasAttribute('inert'),markup:document.querySelectorAll('.sales-line-on-hold img').length};
  },id),{held:[false,true],draft:true,notes:'',unsaved:'Unsaved commercial note',rows:1,editable:true,markup:0});
+ /* База не записалась (аудит 19.10.2026, F09): меню не закрывается и говорит
+    причину, Hold нет ни в базе, ни в открытом заказе; повтор — записывает. */
+ await t.p.locator('[data-metrics-line-id]').nth(0).click({button:'right'});await t.p.locator('[data-line-hold-action="hold"]').click();await t.p.locator('[data-line-hold-reason]').fill('Waiting for sizes');
+ await t.p.evaluate(()=>{window.scKeep=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw new DOMException('Test quota','QuotaExceededError');return scKeep.call(this,k,v);};});
+ await t.p.locator('[data-line-hold-confirm]').click();
+ const failed=await t.p.evaluate(id=>{Storage.prototype.setItem=scKeep;return {menu:!!document.querySelector('[data-line-hold-reason]'),reason:(document.querySelector('[data-line-hold-reason]')||{}).value,error:(document.querySelector('.sl-line-hold-menu [role="alert"]')||{}).textContent,saved:salesRecord(id).lines[0].onHold,draft:soDraft.lines[0].onHold,stored:JSON.parse(localStorage.getItem(STORAGE_KEY)).salesOrder.find(o=>o.id===id).lines[0].onHold};},id);
+ await t.p.locator('[data-line-hold-confirm]').click();
+ eq('Hold при отказе записи: меню открыто с причиной, Hold нет ни в базе, ни в заказе; повтор записывает',{failed,retry:await t.p.evaluate(id=>{const out={menu:!!salesLineHoldMenu,saved:salesRecord(id).lines[0].onHold,draft:soDraft.lines[0].onHold};salesLineHoldSet(id,[soDraft.lines[0].id],false);return out;},id)},
+  {failed:{menu:true,reason:'Waiting for sizes',error:'Not saved. Your operation is still open; retry or export your changes.',saved:false,draft:false,stored:false},retry:{menu:false,saved:true,draft:true}});
  eq('Verify разрешён; батч забирает только свободную позицию, Ready закрыт до остальных',await t.p.evaluate(id=>{
   soDraft=null;soEdit=null;const verified=salesSetRecordStatus(id,'verified'),batched=salesSetRecordStatus(id,'batched'),o=salesRecord(id);return {verified,batched,locks:o.lines.map(salesLineLocked),holds:o.lines.map(l=>l.onHold),batchable:salesBatchableLines(o).length,repeat:salesSetRecordStatus(id,'batched'),ready:salesSetRecordStatus(id,'ready'),partial:salesStatusPill(o).includes('4/6 pcs')};
  },id),{verified:true,batched:true,locks:[true,false],holds:[false,true],batchable:0,repeat:false,ready:false,partial:true});
@@ -58,7 +67,7 @@ module.exports=async function({page,eq,ok}){
  eq('Release делает только ожидающую позицию доступной; повторный батч не меняет старый замок',await t.p.evaluate(id=>{
   const old=salesRecord(id).lines[0].batchNo,held=salesRecord(id).lines[1].onHold,run=salesSetRecordStatus(id,'batched'),o=salesRecord(id);return {held,run,first:o.lines[0].batchNo===old,second:o.lines[1].batchNo!==old,all:o.lines.every(salesLineLocked)};
  },id),{held:false,run:true,first:true,second:true,all:true});
- eq('нельзя поставить Hold запущенной позиции или закрытого заказа',await t.p.evaluate(id=>{const o=salesRecord(id),first=salesLineHoldSet(id,[o.lines[0].id],true,'Wait');o.status='closed';soDraft.status='closed';return {first,closed:salesLineHoldSet(id,[o.lines[1].id],true,'Wait')};},id),{first:false,closed:false});
+ eq('нельзя поставить Hold запущенной позиции или закрытого заказа',await t.p.evaluate(id=>{const o=salesRecord(id),first=salesLineHoldSet(id,[o.lines[0].id],true,'Wait').ok;o.status='closed';soDraft.status='closed';return {first,closed:salesLineHoldSet(id,[o.lines[1].id],true,'Wait').ok};},id),{first:false,closed:false});
  await require('./optimization-fixture')(t.p);
  eq('восстановленный заказ со всеми прежними замками возвращается в Batched без повторной резки',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'batched');const batch=salesRecord(id).batchNo;salesSetRecordStatus(id,'cancelled');salesSetRecordStatus(id,'new',{restore:true});salesSetRecordStatus(id,'verified');const resumed=salesSetRecordStatus(id,'batched');return {resumed,same:salesRecord(id).batchNo===batch,history:salesRecord(id).batchHistory.length,locked:salesRecord(id).lines.every(salesLineLocked)};
