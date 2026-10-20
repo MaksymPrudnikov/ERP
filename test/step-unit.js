@@ -41,8 +41,8 @@ module.exports=async function({page,eq}){
   const line=suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}}),d=suDoc(salesLineDrawing(line).html),sm=[...d.querySelectorAll('.mk-smaller')].map(x=>x.className.split(' ')[0]);
   const e=suDoc(salesLineDrawing(suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}},'edge')).html);
   return {sm,cav:d.querySelector('.mk-cav').parentElement.textContent.includes('Step · Flat seal'),section:!!d.querySelector('.sheet-step,.sheet-step-section'),
-   flat:d.querySelector('.mk-step-seal').innerHTML,edge:!!e.querySelector('.mk-step-seal path'),edgeText:e.textContent.includes('Step · Edge to edge seal')};
- }),{sm:['mk-pane','mk-cav'],cav:true,section:false,flat:'',edge:true,edgeText:true});
+   flat:!!d.querySelector('.mk-step-seal'),edge:e.querySelector('.mk-step-seal').className,edgeText:e.textContent.includes('Step · Edge to edge seal')};
+ }),{sm:['mk-pane','mk-cav'],cav:true,section:false,flat:false,edge:'mk-step-seal edge top',edgeText:true});
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
