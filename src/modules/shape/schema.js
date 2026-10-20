@@ -273,7 +273,7 @@ function shapeNormalizeDims(raw){
    `radius:R:BL`, `feat:<id>`…), запись — {dx, dy, scale, hide, off}: dx/dy —
    сдвиг подписи в точках листа от автоматического места, scale — её размер,
    off — прежний шаг −/+ для целой цепочки. */
-const SHAPE_LAYOUT_OFF_MAX=400,SHAPE_LAYOUT_SCALE_MIN=.6,SHAPE_LAYOUT_SCALE_MAX=2,SHAPE_LAYOUT_KEY_RE=/^[A-Za-z0-9_:.~|-]{1,120}$/;
+const SHAPE_LAYOUT_OFF_MAX=1200,SHAPE_LAYOUT_SCALE_MIN=.6,SHAPE_LAYOUT_SCALE_MAX=2,SHAPE_LAYOUT_KEY_RE=/^[A-Za-z0-9_:.~|-]{1,120}$/;
 function shapeNormalizeDrawingLayout(raw){
   var out={},src=shapePlainObject(raw);
   Object.keys(src).slice(0,500).forEach(function(key){

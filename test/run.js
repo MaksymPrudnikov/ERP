@@ -1196,7 +1196,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
           frame:screen.querySelectorAll('rect[stroke-dasharray="7 6"]').length+sheet.querySelectorAll('rect[stroke-dasharray="7 6"]').length,
           inches:screen.querySelectorAll('.shape-inch-reference').length>=2&&sheet.querySelectorAll('.shape-inch-reference').length>=2};
       });
-      const c=parse=>parse.querySelector('.shape-inch-overall')?.textContent||'',customInches=c(new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(custom),{metric:{}}),'image/svg+xml'));
+      /* Дюймы габаритов стоят каждый у своего мм-числа (владелец, 20.10.2026). */
+      const c=parse=>[...parse.querySelectorAll('.shape-inch-overall')].map(x=>x.textContent).join(' '),customInches=c(new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(custom),{metric:{}}),'image/svg+xml'));
       return {all:rows.every(x=>x.valid&&!x.letters&&!x.frame&&x.inches),customInches:customInches.includes('40 13/16')&&customInches.includes('55 5/16')};
     }), {all:true,customInches:true});
     const paraUi = await p.evaluate(() => {
@@ -1528,7 +1529,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     const metricUi = await p.evaluate(() => {
       const oldTab=tab,oldSub=subtab;
-      localStorage.removeItem(SHAPE_METRIC_STORAGE_KEY);localStorage.removeItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY);sMetricDetail=false;sMetricOffsets={};sMetricDimEdit=null;
+      localStorage.removeItem(SHAPE_METRIC_STORAGE_KEY);localStorage.removeItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY);sMetricDetail=false;sMetricOffsets={};sMetricDimEdit=null;sLayoutEdit=null;
       tab='configurators';subtab='shape';openShapeNew('rectangle');
       sDraft.w='48';sDraft.h='36';sDraft.name='Metric UI';sView='production';
       sDraft.features=[shapeNormalizeFeature({id:'metric-hole',type:'hole',diameter:'1/2',x:'10',y:'10',minEdge:'1/2'}),shapeNormalizeFeature({id:'metric-hw',type:'hardware',name:'Clamp',edgeId:'A',distance:'10',inset:'0',prepWidth:'2',prepHeight:'2',holeDia:'1/2'})];
@@ -1538,32 +1539,34 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       toggleShapeMetricDetail();
       const button=document.querySelector('.shape-metric-toggle'),layer=document.querySelector('.shape-metric-layer');
       const inchRef=layer&&layer.querySelector('.shape-inch-reference');
-      const on={layers:document.querySelectorAll('.shape-metric-layer').length,pressed:button&&button.getAttribute('aria-pressed'),active:button&&button.classList.contains('on'),title:button&&button.getAttribute('title'),stored:localStorage.getItem(SHAPE_METRIC_STORAGE_KEY),lengths:layer&&layer.querySelectorAll('.shape-metric-length').length,angles:layer&&layer.querySelectorAll('.shape-metric-angle').length,featureLeak:layer&&/[Ø]|CUTOUT|Clamp/.test(layer.textContent),production:shapeDrawnProductionSvg(r,false).includes('shape-metric-layer'),cutting:cutting.includes('shape-metric-layer'),hierarchy:{imperialCount:document.querySelectorAll('.shape-imperial-layer').length,imperialEdgeLabels:document.querySelectorAll('.shape-edge-label-outside').length,inchLayers:layer&&layer.querySelectorAll('.shape-inch-reference-layer').length,inchLabels:layer&&layer.querySelectorAll('.shape-inch-reference').length,inchColor:inchRef&&inchRef.getAttribute('fill'),inchWeight:inchRef&&inchRef.getAttribute('font-weight'),summaryHasBox:/\d+\.\d{2}\s*×\s*\d/.test((layer&&layer.querySelector('.shape-metric-summary').textContent)||''),overallFont:layer&&layer.querySelector('[data-metric-role="width"]').getAttribute('font-size'),overallWeight:layer&&layer.querySelector('[data-metric-role="width"]').getAttribute('font-weight'),color:layer&&layer.querySelector('[data-metric-role="width"]').getAttribute('fill'),contourFill:layer&&layer.querySelector('.shape-metric-contour').getAttribute('fill'),movable:layer&&layer.querySelectorAll('.shape-metric-movable').length,hatches:document.querySelectorAll('.shape-glass-hatch').length,hatchLines:document.querySelectorAll('.shape-glass-hatch>g>line').length,cuttingHatch:cutting.includes('shape-glass-hatch')}};
-      const y0=+document.querySelector('[data-metric-role="width"]').getAttribute('y');
-      shapeSelectMetricLabel('overall:width');
-      const menuButtons=document.querySelectorAll('.shape-metric-menu .shape-dim-btn').length;
-      shapeNudgeMetricLabel('overall:width',1);
-      const y1=+document.querySelector('[data-metric-role="width"]').getAttribute('y'),saved=JSON.parse(localStorage.getItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY)||'{}');
-      const printSvg=shapeDrawnProductionSvg(r,false,{sheet:true}),printDoc=new DOMParser().parseFromString(printSvg,'image/svg+xml');
-      const move={delta:y1-y0,menuButtons:menuButtons,saved:Object.values(saved).some(function(m){return m&&m['overall:width']===1;}),printMatches:+printDoc.querySelector('[data-metric-role="width"]').getAttribute('y')===y1,printClean:!/(shape-metric-menu|shapeSelectMetricLabel)/.test(printSvg)};
-      shapeSelectMetricLabel('angle:0');
-      const angleMenuButtons=document.querySelectorAll('.shape-metric-menu .shape-dim-btn').length;
-      shapeToggleMetricLabelHide('angle:0');
-      const hiddenPrint=new DOMParser().parseFromString(shapeDrawnProductionSvg(r,false,{sheet:true}),'image/svg+xml');
-      const hidden={menuButtons:angleMenuButtons,screen:document.querySelectorAll('.shape-metric-angle').length,print:hiddenPrint.querySelectorAll('.shape-metric-angle').length,restore:document.querySelectorAll('.shape-hidden-angles button').length,stored:!!localStorage.getItem(SHAPE_METRIC_HIDDEN_STORAGE_KEY)};
-      shapeToggleMetricLabelHide('angle:0');
+      const on={layers:document.querySelectorAll('.shape-metric-layer').length,pressed:button&&button.getAttribute('aria-pressed'),active:button&&button.classList.contains('on'),title:button&&button.getAttribute('title'),stored:localStorage.getItem(SHAPE_METRIC_STORAGE_KEY),lengths:layer&&layer.querySelectorAll('.shape-metric-length').length,angles:layer&&layer.querySelectorAll('.shape-metric-angle').length,featureLeak:layer&&/[Ø]|CUTOUT|Clamp/.test(layer.textContent),production:shapeDrawnProductionSvg(r,false).includes('shape-metric-layer'),cutting:cutting.includes('shape-metric-layer'),hierarchy:{imperialCount:document.querySelectorAll('.shape-imperial-layer').length,imperialEdgeLabels:document.querySelectorAll('.shape-edge-label-outside').length,inchLayers:layer&&layer.querySelectorAll('.shape-inch-reference-layer').length,inchLabels:layer&&layer.querySelectorAll('.shape-inch-reference').length,inchColor:inchRef&&inchRef.getAttribute('fill'),inchWeight:inchRef&&inchRef.getAttribute('font-weight'),summaryHasBox:/\d+\.\d{2}\s*×\s*\d/.test((layer&&layer.querySelector('.shape-metric-summary').textContent)||''),overallFont:layer&&layer.querySelector('[data-metric-role="width"]').getAttribute('font-size'),overallWeight:layer&&layer.querySelector('[data-metric-role="width"]').getAttribute('font-weight'),color:layer&&layer.querySelector('[data-metric-role="width"]').getAttribute('fill'),contourFill:layer&&layer.querySelector('.shape-metric-contour').getAttribute('fill'),movable:layer&&layer.querySelectorAll('.shape-layout-item').length,hatches:document.querySelectorAll('.shape-glass-hatch').length,hatchLines:document.querySelectorAll('.shape-glass-hatch>g>line').length,cuttingHatch:cutting.includes('shape-glass-hatch')}};
+      /* Раскладка мм — та же, что у дюймов: линия габарита тянется поперёк
+         себя, лежит в самой форме (drawingLayout), печать её повторяет, но
+         без меню и обработчиков (владелец, 20.10.2026). */
+      const wKey='mm:overall:width',line=document.querySelector('.shape-metric-layer [data-layout-key="'+wKey+'|line"]');
+      shapeLayoutNudge(wKey+'|line',0,40);
+      const moved=document.querySelector('.shape-metric-layer [data-layout-key="'+wKey+'|line"]');
+      shapeLayoutSelect(wKey);const menu=[...document.querySelectorAll('.shape-layout-menu text')].map(x=>x.textContent);
+      const printSvg=shapeDrawnProductionSvg(shapeDraftResult(),false,{sheet:true}),printDoc=new DOMParser().parseFromString(printSvg,'image/svg+xml');
+      const move={axis:line&&line.getAttribute('data-layout-axis'),transform:moved&&moved.getAttribute('transform'),stored:JSON.parse(JSON.stringify(sDraft.drawingLayout[wKey+'|line']||{})),menu:menu,
+        printMatches:printDoc.querySelector('[data-layout-key="'+wKey+'|line"]').getAttribute('transform')==='translate(0 40)',printClean:!/(shape-layout-menu|onpointerdown)/.test(printSvg)};
+      const aKey=[...document.querySelectorAll('.shape-metric-layer .shape-layout-item')].map(g=>g.getAttribute('data-layout-key')).find(k=>k.indexOf('mm:angle:')===0);
+      shapeLayoutHide(aKey);
+      const hiddenPrint=new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(),false,{sheet:true}),'image/svg+xml');
+      const hidden={key:/^mm:angle:[A-Z]~[A-Z]$/.test(aKey),screen:document.querySelectorAll('.shape-metric-angle').length,ghosts:document.querySelectorAll('.shape-metric-layer .shape-layout-ghost').length,print:hiddenPrint.querySelectorAll('.shape-metric-angle').length,printArcs:hiddenPrint.querySelectorAll('.shape-metric-angle-arc').length,restore:document.querySelectorAll('.shape-hidden-layout button').length,stored:sDraft.drawingLayout[aKey]&&sDraft.drawingLayout[aKey].hide===true};
+      shapeLayoutShow(aKey);shapeLayoutReset(wKey+'|line');
       sDraft.lites={'1':{inset:{A:'1',B:'1',C:'1',D:'1'},edgeOps:{}}};sEdgeLite=1;render();
       const liteLayer=document.querySelector('.shape-metric-layer');
       const lite={width:liteLayer&&liteLayer.querySelector('[data-metric-role="width"]').textContent,label:liteLayer&&liteLayer.querySelector('.shape-metric-summary').textContent};
       const stable={fingerprint:shapeFingerprint(shapeDraftResult().definition)===fp,machine:JSON.stringify(ShapeModule.machinePayload(shapeDraftResult()))===machine,dxf:ShapeModule.genericDxf(shapeDraftResult())===dxf,cutting:ShapeModule.cuttingSvg(shapeDraftResult())===cutting};
-      setShapeMetricDetail(false);localStorage.removeItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY);localStorage.removeItem(SHAPE_METRIC_HIDDEN_STORAGE_KEY);sMetricOffsets={};sMetricHidden={};sMetricDimEdit=null;sEdgeLite=null;sEdit=null;sDraft=null;tab=oldTab;subtab=oldSub;render();
+      setShapeMetricDetail(false);localStorage.removeItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY);sMetricOffsets={};sMetricDimEdit=null;sLayoutEdit=null;sEdgeLite=null;sEdit=null;sDraft=null;tab=oldTab;subtab=oldSub;render();
       return {before,on,move,hidden,lite,stable};
     });
     eq('маленькая иконка выключена по умолчанию, включается и запоминается', {before:metricUi.before,on:{layers:metricUi.on.layers,pressed:metricUi.on.pressed,active:metricUi.on.active,title:metricUi.on.title,stored:metricUi.on.stored}}, {before:{state:false,stored:null,layers:0,hatches:0},on:{layers:1,pressed:'true',active:true,title:'Metric detail · mm and angles',stored:'1'}});
     eq('метрический SVG убирает повтор W/H, но сохраняет все углы', {lengths:metricUi.on.lengths,angles:metricUi.on.angles,featureLeak:metricUi.on.featureLeak,production:metricUi.on.production,cutting:metricUi.on.cutting}, {lengths:0,angles:4,featureLeak:false,production:true,cutting:false});
-    eq('дюймовые справочные размеры серые и отдельно, метрика SemiBold', metricUi.on.hierarchy, {imperialCount:0,imperialEdgeLabels:0,inchLayers:1,inchLabels:2,inchColor:'#98a2b3',inchWeight:'600',summaryHasBox:false,overallFont:'16',overallWeight:'600',color:'#111827',contourFill:'#f2f4f7',movable:6,hatches:1,hatchLines:3,cuttingHatch:false});
-    eq('кнопки −/+ двигают мм, сохраняют положение и не печатают своё меню', metricUi.move, {delta:8,menuButtons:2,saved:true,printMatches:true,printClean:true});
-    eq('Hide доступен только углу, убирает дугу и значение с экрана и печати', metricUi.hidden, {menuButtons:3,screen:3,print:3,restore:1,stored:true});
+    eq('дюймовые справочные размеры серые и отдельно, метрика SemiBold', metricUi.on.hierarchy, {imperialCount:0,imperialEdgeLabels:0,inchLayers:2,inchLabels:2,inchColor:'#98a2b3',inchWeight:'600',summaryHasBox:false,overallFont:'16',overallWeight:'600',color:'#111827',contourFill:'#f2f4f7',movable:8,hatches:1,hatchLines:3,cuttingHatch:false});
+    eq('мм-размер тянется как дюймовый, лежит в форме и печатается без меню', metricUi.move, {axis:'y',transform:'translate(0 40)',stored:{dy:40},menu:['A−','A+','Hide','Reset'],printMatches:true,printClean:true});
+    eq('Hide у мм-подписи: угол уходит с дугой с экрана и печати, ключ по рёбрам', metricUi.hidden, {key:true,screen:3,ghosts:1,print:3,printArcs:3,restore:1,stored:true});
     ok('выбранный лайт использует свой inset-контур и назван в сводке', metricUi.lite.width==='1168.40'&&metricUi.lite.label.includes('Lite 2'), metricUi.lite);
     eq('переключатель не меняет fingerprint и машинные файлы', metricUi.stable, {fingerprint:true,machine:true,dxf:true,cutting:true});
     await c.close();
