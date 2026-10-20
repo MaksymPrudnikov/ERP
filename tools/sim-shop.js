@@ -1712,6 +1712,22 @@ if (require.main === module) (async () => {
   console.log('finish', JSON.stringify(gen));
   if (o.inventory || o.guide) await p.evaluate(() => SIM.unarchive());
   if (o.inventory) console.log('склад', JSON.stringify(await p.evaluate(e => SIM.invFinal(e), o.end)));
+  /* Сверка отчётов с эталоном. С --guide — до досоздания заказов
+     путеводителя: их нет в эталоне (аудит 19.10.2026, F01). Есть ✗ —
+     код выхода 1 (F02). Картинки — как раньше, в конце. */
+  const compare = async () => {
+    console.log('архив обратно в базу…', JSON.stringify(await p.evaluate(() => SIM.unarchive())));
+    console.log('проверка отчётов…');
+    const res = await p.evaluate(([a, b]) => SIM.check(a, b), [o.start, o.end]);
+    fs.writeFileSync(path.join(o.out, o.name + '-check.json'), JSON.stringify(res, null, 1));
+    if (res.compare.some(x => x.mismatches)) process.exitCode = 1;
+    res.compare.forEach(x => console.log((x.mismatches ? '✗ ' : '✓ ') + x.name + ': truth ' + x.truth + ' / отчёт ' + x.report + ' ' + x.unit + (x.mismatches ? ' · расхождений ' + x.mismatches + ' из ' + x.keys : '')));
+    console.log('время, мс:', JSON.stringify(res.timing, null, 1));
+    console.log('стартовые отчёты, мс:', res.reports.map(r => r.name + ' ' + r.ms + (r.err ? ' ERR ' + r.err : '')).join('; '));
+  };
+  /* Сверка включает настоящий render (замеры экранов); досоздание идёт, как
+     весь симулятор, без перерисовки. */
+  if (o.check && o.guide) { await compare(); await p.evaluate(() => { window.render = function () {}; }); }
   if (o.guide) {
     console.log('досоздано', JSON.stringify(await p.evaluate(([e, h]) => SIM.stagesFill(e, h), [o.end, o.endAt || 21])));
     const g = await p.evaluate(() => SIM.guide()), cell = v => String(v == null ? '' : v).replace(/\|/g, '/');
@@ -1729,13 +1745,7 @@ if (require.main === module) (async () => {
   console.log('файл', file, (fs.statSync(file).size / 1048576).toFixed(1) + ' МБ', 'за', ((Date.now() - t0) / 60000).toFixed(1) + ' мин');
   console.log('сбои', JSON.stringify(truth.fails, null, 1));
   if (o.check) {
-    console.log('архив обратно в базу…', JSON.stringify(await p.evaluate(() => SIM.unarchive())));
-    console.log('проверка отчётов…');
-    const res = await p.evaluate(([a, b]) => SIM.check(a, b), [o.start, o.end]);
-    fs.writeFileSync(path.join(o.out, o.name + '-check.json'), JSON.stringify(res, null, 1));
-    res.compare.forEach(x => console.log((x.mismatches ? '✗ ' : '✓ ') + x.name + ': truth ' + x.truth + ' / отчёт ' + x.report + ' ' + x.unit + (x.mismatches ? ' · расхождений ' + x.mismatches + ' из ' + x.keys : '')));
-    console.log('время, мс:', JSON.stringify(res.timing, null, 1));
-    console.log('стартовые отчёты, мс:', res.reports.map(r => r.name + ' ' + r.ms + (r.err ? ' ERR ' + r.err : '')).join('; '));
+    if (!o.guide) await compare();
     const shots = [
       ['cut', { report: 'RP-start-cut', date: { preset: 'thisYear' } }],
       ['cut-lastyear', { report: 'RP-start-cut', date: { preset: 'lastYear' } }],
