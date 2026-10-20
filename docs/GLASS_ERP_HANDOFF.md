@@ -19,6 +19,10 @@ ERP не меняется — только то, чем её собирают и
   известной ему копии Playwright. Старый worktree на 1.55.1 после этого
   виснет на первой новой странице — в нём `npm ci` и
   `npx playwright install chromium`.
+- Хук при старте сессии Claude (`.claude/settings.json`) делал `npm ci`,
+  только когда `node_modules` нет. Теперь — и когда версия Playwright в
+  `node_modules` не та, что в `package.json`: старые worktree переходят на
+  1.64.1 сами.
 
 ## Ступенчатый юнит (step / offset) · 20 октября 2026 (v5.213)
 
