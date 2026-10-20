@@ -43,7 +43,7 @@ function prodBoardStamp(){
 }
 function prodBoard(){
  const stamp=prodBoardStamp();if(prodBoardCache.stamp===stamp&&prodBoardCache.data)return prodBoardCache.data;
- const batches=stationBatchIndex(),scansBy=new Map(),orders=[];
+ const batches=stationBatchIndex(),scansBy=new Map(),orders=[];let queue=0;
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!scansBy.has(s.piece))scansBy.set(s.piece,[]);scansBy.get(s.piece).push(s);});
  (DB.salesOrder||[]).forEach(o=>{
   if(!o||salesIsQuote(o)||['cancelled','closed'].includes(o.status))return;
@@ -84,13 +84,17 @@ function prodBoard(){
    });
    if(lites.length)lines.push({no:li+1,mark:l.mark||'',size:frac16(l.width16/16)+' × '+frac16(l.height16/16),units:l.qty,lites});
   });
+  /* Всё стекло, которое ждёт батча, и у заказов, ещё не начатых в цеху, —
+     для строки To batch на Overview (аудит 19.10.2026, F03). */
+  if(inProd||GLASS_WAITING_STATUSES.includes(o.status))queue+=counts.queue;
   if(!inProd)return;
   const urg=stationUrgency(o),t=Date.parse(o.dueDate||''),days=Number.isNaN(t)?99999:Math.floor(t/864e5);
   orders.push({o,customer:salesCustomerDisplay(o.customerId),glass:codes,counts,route,on:[...onAll].sort(),onAt,shipped,total,lines,rank:(2-urg)*1e6+days});
  });
- prodBoardCache={stamp,data:orders};
+ prodBoardCache={stamp,data:orders,queue};
  return orders;
 }
+function prodQueueAll(){prodBoard();return prodBoardCache.queue||0;}
 function prodListInfos(){
  if(subtab==='carriers')return prodCarrierInfos();
  return prodBoard().map(x=>{

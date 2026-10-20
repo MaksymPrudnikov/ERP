@@ -100,7 +100,9 @@ function render(){
  if(gate){document.getElementById('app').innerHTML=signinView();document.title='Sign in · Glass Farm';return;}
  if(typeof signinMarkOwner==='function'&&signinMarkOwner()===false)return;
  if(typeof authLogFlush==='function')authLogFlush();
- if(tab!=='station'&&!accessCan(tab)){const open=NAV.find(n=>accessCan(n.k));if(open){tab=open.k;subtab=null;}}
+ /* Ни одного своего раздела (снял с себя последний) — пустой Overview, как
+    при входе, а не прежний экран (аудит 19.10.2026, F12). */
+ if(tab!=='station'&&!accessCan(tab)){const open=NAV.find(n=>accessCan(n.k)),next=open?open.k:'dashboard';if(next!==tab){tab=next;subtab=null;}}
  /* Export / Import JSON — вся база целиком, это дело администратора (Users). */
  document.body.classList.toggle('no-admin',!accessCan(ACCESS_ADMIN));
  renderNav();
