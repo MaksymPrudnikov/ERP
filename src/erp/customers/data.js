@@ -214,6 +214,9 @@ function validateCustomerImportList(list){
 }
 function applyCustomerImport(list,mode){
  validateCustomerImportList(list);mode=mode==='replace'?'replace':'merge';
+ /* Импорт — тоже правка карточки: updatedAt — время импорта, иначе
+    открытая в другой вкладке форма не узнала бы о нём (F08). */
+ const now=new Date().toISOString();list=list.map(c=>Object.assign({},c,{updatedAt:now}));
  if(mode==='replace'){
   const referenced=DB.customer.filter(c=>customerHasReferences(c.id));if(referenced.length)throw new Error('The customer master cannot be replaced because some customers are referenced by orders.');
   DB.customer=[];list.forEach(c=>{const n=normalizeCustomer(c);if(!n.code)n.code=nextCustomerCode();DB.customer.push(n);});
