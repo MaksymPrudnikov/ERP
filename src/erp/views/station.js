@@ -457,7 +457,7 @@ function stationBatchChip(){
 function stationTop(who){
  const s=stationRow();
  const tabs=who?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button><button type="button" class="'+(stationTab==='board'?'on':'')+'" data-station-tab="board" onclick="stationTab=\'board\';stationMenu=null;render()">Board</button></div>'+
-  (stationTab==='queue'||stationTab==='board'?'<label class="st-topscan">'+ico('scan')+'<input data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
+  (stationTab==='queue'||stationTab==='board'?'<label class="st-topscan">'+ico('scan')+'<input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
  return '<div class="st-top"><div class="st-code">'+esc(stationCode)+'</div><div class="st-name">'+(s?sfLabel(s):'Unknown station')+'</div>'+tabs+'<span class="sp"></span>'+
   (who&&stationMergeCodes().includes(stationCode)?'<button type="button" class="st-chip st-autoprint'+(stationAutoPrintOn()?' on':'')+'" data-station-autoprint onclick="stationAutoPrintToggle()" title="Unit sticker when the last lite is scanned">Unit stickers <b>'+(stationAutoPrintOn()?'Auto':'By button')+'</b></button>':'')+
   (who&&stationQuestions.length?'<button type="button" class="st-chip st-ask-chip" data-station-questions onclick="stationShowQuestion()">'+stationQuestions.length+' to answer</button>':'')+
@@ -497,7 +497,7 @@ function viewStation(){
  /* Board (view/station-board) считается только здесь, когда вкладка открыта. */
  if(stationTab==='board')return stationTop(who)+stationBoardView(who)+drawer;
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
-  '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
+  '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+(stationIsShip()?stationShipJournal():stationJournal())+
   '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationLoadedCard():(stationIsShip()?stationTripsCard():'')+stationIguCard()+stationPairsCard()+stationHereCard()+stationLoadedCard())+'</div></div>'+drawer;
 }
@@ -611,7 +611,10 @@ function stationFocus(){
  if(el&&document.activeElement!==el)el.focus();
 }
 /* Сканер печатает, даже если фокус ушёл: нажатие вне полей ввода
-   отправляется в поле скана. */
+   отправляется в поле скана. У поля есть id: вкладка, забирающая запись,
+   перерисовывает экран посреди скана и сохраняет набранное только в полях с
+   id — без него первый скан после смены вкладки уходил обрывком «unknown»
+   (аудит U01, 20.10.2026). Enter ждёт права записи, как в поле. */
 document.addEventListener('keydown',function(e){
  if(tab!=='station')return;
  const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;
@@ -619,7 +622,7 @@ document.addEventListener('keydown',function(e){
  const el=document.querySelector('[data-station-scan]');if(!el||document.activeElement===el)return;
  if(e.ctrlKey||e.metaKey||e.altKey)return;
  if(e.key.length===1){stationMenu=null;el.focus();el.value+=e.key;e.preventDefault();}
- else if(e.key==='Enter'&&el.value.trim()){e.preventDefault();const v=el.value;el.value='';stationSubmit(v);}
+ else if(e.key==='Enter'&&el.value.trim()){e.preventDefault();const v=el.value;el.value='';(typeof storageWhenWriter==='function'?storageWhenWriter:f=>f())(()=>stationSubmit(v));}
 });
 document.addEventListener('focusout',function(){if(tab==='station')setTimeout(stationFocus,150);});
 

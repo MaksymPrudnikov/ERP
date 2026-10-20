@@ -1,7 +1,9 @@
 /* =====================================================================
    erp/customers/data  ·  customers-1.0
-   Customer master: schema, normalization, dedicated import/export.
-   IN : DB.customer / CSV / JSON
+   Customer master: schema, normalization, export CSV / JSON. Импорт одних
+   клиентов убран (владелец, аудит F07 / F10): клиенты приходят полным
+   импортом базы или заводятся в Customers.
+   IN : DB.customer
    OUT: normalized Customer entities
    Rule: no Sales Order / Work Order behavior here.
    ===================================================================== */
@@ -148,91 +150,3 @@ function customerCsvRows(){
  return [H].concat(rows);
 }
 function exportCustomersCSV(){customerDownload('glass_erp_customers.csv',customerCsvRows().map(r=>r.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');}
-
-/* ------------------------ customer-only import ----------------------- */
-function csvParse(text){
- text=String(text||'').replace(/^\uFEFF/,'');
- const first=(text.split(/\r?\n/)[0]||''),counts={',':(first.match(/,/g)||[]).length,';':(first.match(/;/g)||[]).length,'\t':(first.match(/\t/g)||[]).length};
- const delim=Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0]||',';
- const out=[],row=[];let cell='',q=false;
- for(let i=0;i<text.length;i++){
-  const ch=text[i];
-  if(q){if(ch==='"'&&text[i+1]==='"'){cell+='"';i++;}else if(ch==='"')q=false;else cell+=ch;continue;}
-  if(ch==='"'){q=true;continue;}if(ch===delim){row.push(cell);cell='';continue;}
-  if(ch==='\r'){continue;}if(ch==='\n'){row.push(cell);out.push(row.splice(0));cell='';continue;}cell+=ch;
- }
- row.push(cell);if(row.some(x=>x!==''))out.push(row);
- if(!out.length)return [];
- const headers=out.shift().map(customerColumnKey);
- return out.filter(r=>r.some(x=>customerString(x))).map(r=>{const o={};headers.forEach((h,i)=>{if(h)o[h]=r[i]==null?'':r[i];});return o;});
-}
-function customerColumnKey(v){return customerString(v).toLowerCase().replace(/[._\-\/\\]+/g,' ').replace(/\s+/g,' ').trim();}
-function rowPick(row){
- for(let i=1;i<arguments.length;i++){const k=customerColumnKey(arguments[i]);if(Object.prototype.hasOwnProperty.call(row,k)&&customerString(row[k])!=='')return row[k];}
- return '';
-}
-function customerJsonCell(v,fallback){try{const x=JSON.parse(v);return Array.isArray(x)?x:fallback;}catch(e){return fallback;}}
-function customerFromImportRow(row){
- if(!row||typeof row!=='object')return newCustomerDraft();
- /* Canonical JSON export can be normalized directly. */
- if(row.legalName!==undefined||row.contacts!==undefined||row.addresses!==undefined){return normalizeCustomer(row);}
- const R={};Object.keys(row).forEach(k=>R[customerColumnKey(k)]=row[k]);
- const print=customerBool(rowPick(R,'Print Statements')),emailStmt=customerBool(rowPick(R,'Email Statements'));
- let statementDelivery=print&&emailStmt?'both':print?'print':emailStmt?'email':'none';
- const primary={id:customerUid('CON'),name:rowPick(R,'Addressee'),role:'',phone:rowPick(R,'Telephone'),phone2:rowPick(R,'Telephone2'),mobile:rowPick(R,'Mobile'),fax:rowPick(R,'Fax1'),email:rowPick(R,'EMail','Email'),isPrimary:true,isInvoice:false,isShipping:false};
- const billing={id:customerUid('ADR'),type:'billing',label:'Billing',addressee:rowPick(R,'Addressee'),address1:rowPick(R,'Post Add1','PostAdd1'),address2:rowPick(R,'Post Add2','PostAdd2'),address3:[rowPick(R,'Post Add3','PostAdd3'),rowPick(R,'Post Add4','PostAdd4'),rowPick(R,'Post Add5','PostAdd5')].filter(Boolean).join(', '),city:'',province:'',postalCode:rowPick(R,'Post PC','PostPC'),country:'Canada',isDefault:true};
- const delivery={id:customerUid('ADR'),type:'delivery',label:'Delivery',addressee:rowPick(R,'Deliver To'),address1:rowPick(R,'Del Add1','DelAdd1'),address2:rowPick(R,'Del Add2','DelAdd2'),address3:[rowPick(R,'Del Add3','DelAdd3'),rowPick(R,'Del Add4','DelAdd4'),rowPick(R,'Del Add5','DelAdd5')].filter(Boolean).join(', '),city:'',province:'',postalCode:rowPick(R,'Del PC','DelPC'),country:'Canada',isDefault:true};
- let contacts=(primary.name||primary.phone||primary.phone2||primary.mobile||primary.fax||primary.email)?[primary]:[];
- let addresses=[];if(billing.address1||billing.address2||billing.address3||billing.postalCode)addresses.push(billing);if(delivery.address1||delivery.address2||delivery.address3||delivery.postalCode)addresses.push(delivery);
- const cj=rowPick(R,'Contacts JSON'),aj=rowPick(R,'Addresses JSON');if(cj)contacts=customerJsonCell(cj,contacts);if(aj)addresses=customerJsonCell(aj,addresses);
- const name=rowPick(R,'Name','Legal Name','Customer Name'),statusRaw=rowPick(R,'Status');
- return normalizeCustomer({
-  id:rowPick(R,'Customer ID','ID'),code:rowPick(R,'Account','Customer Code','Code'),legalName:name,displayName:rowPick(R,'Display Name')||name,status:statusRaw,
-  isProspect:rowPick(R,'IsProspect','Is Prospect'),customerType:rowPick(R,'CustomerType','Customer Type'),group:rowPick(R,'Group'),area:rowPick(R,'Area'),salesRep:rowPick(R,'SalesRep','Sales Rep'),
-  accountOpenedAt:rowPick(R,'AccountOpenDate','Account Open Date'),notes:rowPick(R,'Notes'),internalNotes:rowPick(R,'Internal Notes'),taxNumber:rowPick(R,'TAX Number','Tax Number'),registrationNumber:rowPick(R,'Registration'),
-  paymentTerms:rowPick(R,'PaymentTerms','Payment Terms'),paymentMode:String(rowPick(R,'Payment Mode')).trim().toLowerCase(),depositPercent:rowPick(R,'Deposit %'),creditDays:rowPick(R,'Credit Days'),currency:rowPick(R,'Currency')||'CAD',creditLimit:rowPick(R,'Credit Limit'),onHold:rowPick(R,'On Hold'),holdReason:rowPick(R,'Hold Reason'),
-  creditApplicationDate:rowPick(R,'CreditApplicationDate','Credit Application Date'),poRequired:rowPick(R,'PO Required'),checkTerms:rowPick(R,'Check Terms'),defaultDeliveryMethod:rowPick(R,'Delivery Method'),deliverTo:rowPick(R,'Deliver To'),
-  fuelLevyMode:rowPick(R,'Fuel Levy Mode')||'default',fuelLevyRate:rowPick(R,'Fuel Levy Rate'),statementDelivery,statementEmail:rowPick(R,'Statement Email'),invoiceEmail:rowPick(R,'Invoice Email'),contacts,addresses,
-  legacyRefs:{sourceSystem:'legacy-import',dcLink:rowPick(R,'DCLink'),flid:rowPick(R,'FLID'),iClassID:rowPick(R,'iClassID'),repID:rowPick(R,'RepID'),iAreasID:rowPick(R,'iAreasID'),uiARDeliveryMethod:rowPick(R,'uiARDeliveryMethod'),uiARCATID:rowPick(R,'uiARCATID'),accountStatusID:rowPick(R,'AccountStatusID'),iwg:rowPick(R,'I.W.G','IWG')}
- });
-}
-function parseCustomerImport(text,name){
- const ext=String(name||'').toLowerCase();
- if(ext.endsWith('.json')||/^\s*[\[{]/.test(text)){
-  const src=JSON.parse(text),list=Array.isArray(src)?src:(Array.isArray(src.customers)?src.customers:Array.isArray(src.customer)?src.customer:null);
-  if(!list)throw new Error('Customer JSON must contain a customers array.');
-  return list.map(customerFromImportRow);
- }
- return csvParse(text).map(customerFromImportRow);
-}
-function validateCustomerImportList(list){
- if(!Array.isArray(list)||!list.length)throw new Error('The file contains no customers.');
- const codes=new Set();list.forEach((c,i)=>{
-  if(!c.legalName)throw new Error('Customer row '+(i+1)+': Name is required.');
-  if(c.code){const key=c.code.toUpperCase();if(codes.has(key))throw new Error('The import file contains duplicate Account "'+c.code+'".');codes.add(key);}
- });
-}
-function applyCustomerImport(list,mode){
- validateCustomerImportList(list);mode=mode==='replace'?'replace':'merge';
- /* Импорт — тоже правка карточки: updatedAt — время импорта, иначе
-    открытая в другой вкладке форма не узнала бы о нём (F08). */
- const now=new Date().toISOString();list=list.map(c=>Object.assign({},c,{updatedAt:now}));
- if(mode==='replace'){
-  const referenced=DB.customer.filter(c=>customerHasReferences(c.id));if(referenced.length)throw new Error('The customer master cannot be replaced because some customers are referenced by orders.');
-  DB.customer=[];list.forEach(c=>{const n=normalizeCustomer(c);if(!n.code)n.code=nextCustomerCode();DB.customer.push(n);});
- }else{
-  list.forEach(incoming=>{
-   let current=null;if(incoming.id)current=DB.customer.find(c=>c.id===incoming.id)||null;
-   if(!current&&incoming.code)current=DB.customer.find(c=>String(c.code).toUpperCase()===String(incoming.code).toUpperCase())||null;
-   if(current){const keepId=current.id,created=current.createdAt;Object.assign(current,normalizeCustomer(Object.assign({},incoming,{id:keepId,createdAt:created||incoming.createdAt})));current.id=keepId;}
-   else{const c=normalizeCustomer(incoming);if(!c.code)c.code=nextCustomerCode();DB.customer.push(c);}
-  });
- }
- normalizeCustomers();touch();render();return list.length;
-}
-function importCustomersFile(inp,mode){
- const f=inp.files&&inp.files[0];if(!f)return;
- if(f.size>10*1024*1024){alert('Customer file exceeds 10 MB.');inp.value='';return;}
- if(mode==='replace'&&!confirm('Replace the entire customer master with data from the file? This cannot be undone without a backup export.')){inp.value='';return;}
- const r=new FileReader();r.onload=()=>{try{const list=parseCustomerImport(r.result,f.name);const n=applyCustomerImport(list,mode);alert('Customers imported: '+n);}catch(e){alert('Could not import customers: '+e.message);}finally{inp.value='';}};r.readAsText(f);
-}

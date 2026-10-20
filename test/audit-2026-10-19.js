@@ -119,5 +119,39 @@ module.exports=async function({page,eq}){
   return {migrated,report,converted:!!won&&finOrderTotals(won).grand===qt};
  }),{migrated:{book:true,same:true},report:10,converted:true});
 
+ /* U01 (не проверялся сканером): станция в одной вкладке, запись забрала
+    другая. Первый скан после возврата — код и Enter подряд, как сканер, — в
+    поле и мимо поля. Раньше перерисовка стирала полкода — «unknown». */
+ const u01=await t.p.evaluate(()=>{oqReset();DB.stationScan=[];DB.stationScanSeq=0;
+  const id=oqOrder(oqCustomer({legalName:'U01 Glass'}));salesOrderEdit(id);const m=soDraft.makeups[0];m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];
+  soDraft.lines=[normalizeSalesOrderLine({makeupId:m.id,width16:36*16,height16:24*16,qty:3,mark:'M1'})];salesEnsureLineShape(soDraft.lines[0]);
+  if(!salesOrderSave())throw new Error('save');soDraft=null;soEdit=null;oqThrough(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
+  DB.user=DB.user.filter(u=>u.name!=='Scan U01');DB.user.push({name:'Scan U01',role:'Shop',station:'',skills:[],pin:'4321'});normalizeUsers();touch();
+  stationCode='CUT';tab='station';render();stationLogin(DB.user.find(u=>u.name==='Scan U01').viewProfileId);render();
+  return [...glassPieceMap(id).values()].flatMap(r=>r.ids);});
+ const other=await t.c.newPage();other.on('pageerror',e=>t.errs.push(e.message));
+ await other.goto(t.p.url());await other.waitForFunction(()=>typeof storageStarting!=='undefined'&&!storageStarting&&storageWriter,null,{timeout:5000});
+ const scanBack=async(code,away)=>{await other.bringToFront();await other.dispatchEvent('body','pointerdown');await other.waitForFunction(()=>storageWriter,null,{timeout:5000});
+  await t.p.bringToFront();if(away)await t.p.evaluate(()=>document.activeElement&&document.activeElement.blur());
+  /* Вкладка, забирающая запись, перерисовывает экран, когда получит право, —
+     посреди скана или нет, как повезёт. Здесь — ровно посередине. */
+  const half=Math.ceil(code.length/2);await t.p.keyboard.type(code.slice(0,half),{delay:0});
+  const kept=await t.p.evaluate(()=>{storageRerender();return (document.querySelector('[data-station-scan]')||{}).value;})===code.slice(0,half);
+  await t.p.keyboard.type(code.slice(half),{delay:0});await t.p.keyboard.press('Enter');await t.p.waitForFunction(()=>storageWriter,null,{timeout:5000});await t.p.waitForTimeout(300);
+  return t.p.evaluate(kept=>({kept,stored:JSON.parse(localStorage.getItem(STORAGE_KEY)).stationScan.length,result:(document.querySelector('[data-station-result]')||{dataset:{}}).dataset.stationResult||''}),kept);};
+ eq('U01: перерисовка посреди скана не стирает набранное (иначе остаток кода — чужое стекло или «unknown»); первый скан после смены вкладки записывается — в поле и мимо поля',{inField:await scanBack(u01[0],false),away:await scanBack(u01[1],true)},
+  {inField:{kept:true,stored:1,result:'ok'},away:{kept:true,stored:2,result:'ok'}});
+ await other.close();await t.p.evaluate(()=>{stationSwitch&&stationSwitch();tab='dashboard';render();});
+
+ eq('форма станции: старая форма не пишет поверх чужой правки и не попадает на соседнюю станцию; переоткрыл — сохраняет',await t.p.evaluate(()=>{
+  tab='masterdata';mdTab='stations';const i=DB.station.findIndex(s=>s.code==='POLISH');stEditOpen(i);
+  DB.station[i].note='other tab';document.getElementById('sf_note').value='mine';const stale=saveSfStation(),err1=document.getElementById('e_sfStation').textContent,kept=DB.station[i].note;
+  stEdit=null;stSeen=null;const j=DB.station.findIndex(s=>s.code==='POLISH');stEditOpen(j);const removed=DB.station.splice(0,1)[0];
+  document.getElementById('sf_note').value='mine';saveSfStation();const err2=document.getElementById('e_sfStation').textContent,neighbour=DB.station[j]&&DB.station[j].note;
+  DB.station.unshift(removed);stEdit=null;stSeen=null;stEditOpen(DB.station.findIndex(s=>s.code==='POLISH'));document.getElementById('sf_note').value='mine';const ok=saveSfStation();
+  const note=DB.station.find(s=>s.code==='POLISH').note;tab='dashboard';render();
+  return {stale,err1,kept,err2,neighbourUntouched:neighbour!=='mine',ok,note};
+ }),{stale:false,err1:'Changed elsewhere — reopen',kept:'other tab',err2:'Changed elsewhere — reopen',neighbourUntouched:true,ok:true,note:'mine'});
+
  eq('аудит 19.10: без ошибок страницы',t.errs,[]);await t.c.close();
 };

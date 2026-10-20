@@ -2842,21 +2842,6 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
 
     t = await page();
-    eq('legacy CSV маппится в новую карточку клиента', await t.p.evaluate(() => {
-      const csv='Account,Name,Telephone,EMail,Post Add1,Post PC,Del Add1,Del PC,On Hold,SalesRep,TAX Number,Credit Limit,DCLink,FLID,IsProspect,PaymentTerms\nA100,Legacy Glass,416-555-0100,a@example.com,10 King St,M5V 1A1,20 Queen St,M5H 2N2,Yes,Max,TX-9,25000,77,88,1,45 Days Net';
-      const c=parseCustomerImport(csv,'legacy.csv')[0];return {code:c.code,name:c.legalName,phone:c.contacts[0].phone,email:c.contacts[0].email,bill:c.addresses.find(a=>a.type==='billing').address1,del:c.addresses.find(a=>a.type==='delivery').address1,hold:c.onHold,rep:c.salesRep,tax:c.taxNumber,limit:c.creditLimit,dc:c.legacyRefs.dcLink,flid:c.legacyRefs.flid,prospect:c.isProspect,terms:c.paymentTerms};
-    }), {code:'A100',name:'Legacy Glass',phone:'416-555-0100',email:'a@example.com',bill:'10 King St',del:'20 Queen St',hold:true,rep:'Max',tax:'TX-9',limit:25000,dc:'77',flid:'88',prospect:true,terms:'45 Days Net'});
-    await t.c.close();
-
-    t = await page();
-    eq('merge импорта обновляет клиента по Account без дубля', await t.p.evaluate(() => {
-      DB.customer=[normalizeCustomer({code:'A1',legalName:'Old'})];
-      applyCustomerImport([normalizeCustomer({code:'A1',legalName:'New',paymentTerms:'COD'})],'merge');
-      return {n:DB.customer.length,name:DB.customer[0].legalName,terms:DB.customer[0].paymentTerms};
-    }), {n:1,name:'New',terms:'COD'});
-    await t.c.close();
-
-    t = await page();
     eq('удаление customer с будущей ссылкой на Sales Order блокируется доменным guard', await t.p.evaluate(() => {
       const c=normalizeCustomer({code:'A1',legalName:'Ref'});DB.customer=[c];DB.salesOrder=[{customerId:c.id}];return customerHasReferences(c.id);
     }), true);
@@ -6030,15 +6015,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), {search:false,date:'Created: All time▾'});
     /* Ошибки импорта больше не переводятся на лету: они написаны по-английски
        в самом источнике. Словарь для них удалён вместе с ветками tx(). */
-    eq('ошибки импорта клиентов приходят уже по-английски', await t.p.evaluate(() => {
+    eq('ошибки импорта базы (клиенты) приходят уже по-английски', await t.p.evaluate(() => {
       const out={};
-      try{validateCustomerImportList([{legalName:''}]);}catch(e){out.missing=e.message;}
-      try{validateCustomerImportList([{legalName:'A',code:'A-100'},{legalName:'B',code:'A-100'}]);}catch(e){out.dup=e.message;}
       try{validateCustomersPayload({customer:[{contacts:1}]});}catch(e){out.contacts=e.message;}
       return out;
     }), {
-      missing:'Customer row 1: Name is required.',
-      dup:'The import file contains duplicate Account "A-100".',
       contacts:'Customer 1: contacts must be an array.'
     });
     eq('данные пользователя не переводятся', await t.p.evaluate(() => {
