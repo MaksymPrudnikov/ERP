@@ -3434,7 +3434,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='57424c31f1d0';
+var ERP_BUILD='95493347fab0';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11791,6 +11791,9 @@ function validateCustomerImportList(list){
 }
 function applyCustomerImport(list,mode){
  validateCustomerImportList(list);mode=mode==='replace'?'replace':'merge';
+ /* Импорт — тоже правка карточки: updatedAt — время импорта, иначе
+    открытая в другой вкладке форма не узнала бы о нём (F08). */
+ const now=new Date().toISOString();list=list.map(c=>Object.assign({},c,{updatedAt:now}));
  if(mode==='replace'){
   const referenced=DB.customer.filter(c=>customerHasReferences(c.id));if(referenced.length)throw new Error('The customer master cannot be replaced because some customers are referenced by orders.');
   DB.customer=[];list.forEach(c=>{const n=normalizeCustomer(c);if(!n.code)n.code=nextCustomerCode();DB.customer.push(n);});
@@ -15455,7 +15458,7 @@ function authLastSeen(u){
    заказы клиента, импорт / экспорт в меню «⋯», предупреждение о дубле.
    ===================================================================== */
 
-let cEdit=null,cDraft=null,cTab='general',cMenu=null,cDup=null;
+let cEdit=null,cDraft=null,cSeen='',cTab='general',cMenu=null,cDup=null;
 /* Список клиентов — на общем движке таблиц Sales (владелец, 3 октября 2026:
    «customer нужно поработать структурировано… этот супер поиск мне не
    нравится, пусть будет как везде, в Sales, Optimization, работать как
@@ -15541,7 +15544,9 @@ function custMenuRun(act){
 }
 document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(cDup){cDup=null;render();}else if(cMenu)custMenuClose();});
 function customerNew(){cMenu=null;cEdit='new';cDraft=newCustomerDraft();cTab='general';render();}
-function customerEdit(id){const c=DB.customer.find(x=>x.id===id);if(!c)return;cMenu=null;cEdit=id;cDraft=JSON.parse(JSON.stringify(c));cTab='general';render();}
+/* cSeen — updatedAt карточки, какой её открыли: по нему Save узнаёт чужую
+   правку из другой вкладки (аудит 19.10.2026, F08). */
+function customerEdit(id){const c=DB.customer.find(x=>x.id===id);if(!c)return;cMenu=null;cEdit=id;cDraft=JSON.parse(JSON.stringify(c));cSeen=c.updatedAt||'';cTab='general';render();}
 function customerDuplicate(id){const src=DB.customer.find(x=>x.id===id);if(!src)return;cEdit='new';cDraft=normalizeCustomer(JSON.parse(JSON.stringify(src)));cDraft.id=customerUid('CUS');cDraft.code='';cDraft.legalName+=(cDraft.legalName?' — copy':'');cDraft.displayName+=(cDraft.displayName?' — copy':'');cDraft.createdAt=new Date().toISOString();cDraft.updatedAt=cDraft.createdAt;cTab='general';render();}
 function customerToggleArchive(id){const c=DB.customer.find(x=>x.id===id);if(!c)return;if(c.status==='archived'){c.status='active';c.archivedAt='';}else{c.status='archived';c.archivedAt=new Date().toISOString();}c.updatedAt=new Date().toISOString();touch();render();}
 function customerDelete(id){const i=DB.customer.findIndex(x=>x.id===id);if(i<0)return;if(customerHasReferences(id)){alert('This customer is already used by orders. Deletion is blocked — archive the customer instead.');return;}if(!confirm('Delete this customer permanently?'))return;DB.customer.splice(i,1);touch();render();}
@@ -15627,6 +15632,11 @@ function customerAccountingForm(){const c=cDraft;return `<div class="form"><h3>A
 function customerLegacyForm(){const l=cDraft.legacyRefs||normalizeLegacyRefs({});cDraft.legacyRefs=l;return `<div class="note">Legacy IDs are preserved for migration and reconciliation with the old system. They are not business keys in the new ERP.</div><div class="form"><h3>Legacy / migration references</h3><div class="grid customer-grid-4"><div><label>Source System</label><input value="${esc(l.sourceSystem)}" oninput="cDraft.legacyRefs.sourceSystem=this.value"></div>${[['dcLink','DCLink'],['flid','FLID'],['iClassID','iClassID'],['repID','RepID'],['iAreasID','iAreasID'],['uiARDeliveryMethod','uiARDeliveryMethod'],['uiARCATID','uiARCATID'],['accountStatusID','AccountStatusID'],['iwg','I.W.G']].map(x=>`<div><label>${x[1]}</label><input value="${esc(l[x[0]])}" oninput="cDraft.legacyRefs.${x[0]}=this.value"></div>`).join('')}</div></div>`;}
 function saveCustomer(force){
  const e=document.getElementById('e_customer');e.style.display='none';
+ /* Старая форма не пишет поверх чужой правки и не возвращает удалённого;
+    набранное остаётся в форме. */
+ if(cEdit!=='new'){const cur=DB.customer.find(c=>c.id===cEdit);
+  if(!cur)return fail(e,'This customer was deleted');
+  if((cur.updatedAt||'')!==cSeen)return fail(e,'Changed elsewhere — reopen');}
  cDraft=normalizeCustomer(cDraft);cDraft.legalName=customerString(cDraft.legalName);cDraft.displayName=customerString(cDraft.displayName)||cDraft.legalName;
  if(!cDraft.legalName)return fail(e,'Enter Legal Name');
  if(!cDraft.code)cDraft.code=nextCustomerCode();
@@ -15636,7 +15646,7 @@ function saveCustomer(force){
  cDraft.updatedAt=new Date().toISOString();if(!cDraft.createdAt)cDraft.createdAt=cDraft.updatedAt;if(cDraft.status==='archived'&&!cDraft.archivedAt)cDraft.archivedAt=cDraft.updatedAt;if(cDraft.status!=='archived')cDraft.archivedAt='';
  /* Форма закрывается только после записи: при отказе правки остаются (аудит 05.10.2026). */
  const rec=JSON.parse(JSON.stringify(cDraft)),edit=cEdit;
- const out=storageCommand(()=>{if(edit==='new')DB.customer.push(rec);else{const i=DB.customer.findIndex(c=>c.id===edit);if(i>=0)DB.customer[i]=rec;else DB.customer.push(rec);}normalizeCustomers();return true;});
+ const out=storageCommand(()=>{if(edit==='new')DB.customer.push(rec);else DB.customer=DB.customer.map(c=>c.id===edit?rec:c);normalizeCustomers();return true;});
  if(!out.ok)return fail(e,out.error);
  cEdit=null;cDraft=null;render();
 }
