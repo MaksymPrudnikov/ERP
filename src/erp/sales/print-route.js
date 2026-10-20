@@ -327,6 +327,8 @@ function salesPrintRoute(line,order,shape,result){
     });
     merge=salesRouteMerge(mk.unitType,mk.panes);
     salesRouteAppendMerge(lites,merge,merge?(mk.unitType&&mk.unitType!=='single'?'igu_assembly':'lamination'):'');
+    /* Работы Master Data, добавленные к строке руками (sales/extra-services). */
+    if(typeof salesExtraServiceRoute==='function')salesExtraServiceRoute(lites,line,merge);
   }
   /* Фигура из библиотеки заказа не имеет: маршрут строится по ней самой. */
   if(!lites.length){
