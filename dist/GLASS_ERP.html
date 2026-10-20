@@ -3435,7 +3435,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='19a67fa79f9b';
+var ERP_BUILD='8158881fa0bc';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11582,8 +11582,10 @@ function cutParamsFor(mm){
 /* ==== src/erp/customers/data.js ==== */
 /* =====================================================================
    erp/customers/data  ·  customers-1.0
-   Customer master: schema, normalization, dedicated import/export.
-   IN : DB.customer / CSV / JSON
+   Customer master: schema, normalization, export CSV / JSON. Импорт одних
+   клиентов убран (владелец, аудит F07 / F10): клиенты приходят полным
+   импортом базы или заводятся в Customers.
+   IN : DB.customer
    OUT: normalized Customer entities
    Rule: no Sales Order / Work Order behavior here.
    ===================================================================== */
@@ -11730,94 +11732,6 @@ function customerCsvRows(){
  return [H].concat(rows);
 }
 function exportCustomersCSV(){customerDownload('glass_erp_customers.csv',customerCsvRows().map(r=>r.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');}
-
-/* ------------------------ customer-only import ----------------------- */
-function csvParse(text){
- text=String(text||'').replace(/^\uFEFF/,'');
- const first=(text.split(/\r?\n/)[0]||''),counts={',':(first.match(/,/g)||[]).length,';':(first.match(/;/g)||[]).length,'\t':(first.match(/\t/g)||[]).length};
- const delim=Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0]||',';
- const out=[],row=[];let cell='',q=false;
- for(let i=0;i<text.length;i++){
-  const ch=text[i];
-  if(q){if(ch==='"'&&text[i+1]==='"'){cell+='"';i++;}else if(ch==='"')q=false;else cell+=ch;continue;}
-  if(ch==='"'){q=true;continue;}if(ch===delim){row.push(cell);cell='';continue;}
-  if(ch==='\r'){continue;}if(ch==='\n'){row.push(cell);out.push(row.splice(0));cell='';continue;}cell+=ch;
- }
- row.push(cell);if(row.some(x=>x!==''))out.push(row);
- if(!out.length)return [];
- const headers=out.shift().map(customerColumnKey);
- return out.filter(r=>r.some(x=>customerString(x))).map(r=>{const o={};headers.forEach((h,i)=>{if(h)o[h]=r[i]==null?'':r[i];});return o;});
-}
-function customerColumnKey(v){return customerString(v).toLowerCase().replace(/[._\-\/\\]+/g,' ').replace(/\s+/g,' ').trim();}
-function rowPick(row){
- for(let i=1;i<arguments.length;i++){const k=customerColumnKey(arguments[i]);if(Object.prototype.hasOwnProperty.call(row,k)&&customerString(row[k])!=='')return row[k];}
- return '';
-}
-function customerJsonCell(v,fallback){try{const x=JSON.parse(v);return Array.isArray(x)?x:fallback;}catch(e){return fallback;}}
-function customerFromImportRow(row){
- if(!row||typeof row!=='object')return newCustomerDraft();
- /* Canonical JSON export can be normalized directly. */
- if(row.legalName!==undefined||row.contacts!==undefined||row.addresses!==undefined){return normalizeCustomer(row);}
- const R={};Object.keys(row).forEach(k=>R[customerColumnKey(k)]=row[k]);
- const print=customerBool(rowPick(R,'Print Statements')),emailStmt=customerBool(rowPick(R,'Email Statements'));
- let statementDelivery=print&&emailStmt?'both':print?'print':emailStmt?'email':'none';
- const primary={id:customerUid('CON'),name:rowPick(R,'Addressee'),role:'',phone:rowPick(R,'Telephone'),phone2:rowPick(R,'Telephone2'),mobile:rowPick(R,'Mobile'),fax:rowPick(R,'Fax1'),email:rowPick(R,'EMail','Email'),isPrimary:true,isInvoice:false,isShipping:false};
- const billing={id:customerUid('ADR'),type:'billing',label:'Billing',addressee:rowPick(R,'Addressee'),address1:rowPick(R,'Post Add1','PostAdd1'),address2:rowPick(R,'Post Add2','PostAdd2'),address3:[rowPick(R,'Post Add3','PostAdd3'),rowPick(R,'Post Add4','PostAdd4'),rowPick(R,'Post Add5','PostAdd5')].filter(Boolean).join(', '),city:'',province:'',postalCode:rowPick(R,'Post PC','PostPC'),country:'Canada',isDefault:true};
- const delivery={id:customerUid('ADR'),type:'delivery',label:'Delivery',addressee:rowPick(R,'Deliver To'),address1:rowPick(R,'Del Add1','DelAdd1'),address2:rowPick(R,'Del Add2','DelAdd2'),address3:[rowPick(R,'Del Add3','DelAdd3'),rowPick(R,'Del Add4','DelAdd4'),rowPick(R,'Del Add5','DelAdd5')].filter(Boolean).join(', '),city:'',province:'',postalCode:rowPick(R,'Del PC','DelPC'),country:'Canada',isDefault:true};
- let contacts=(primary.name||primary.phone||primary.phone2||primary.mobile||primary.fax||primary.email)?[primary]:[];
- let addresses=[];if(billing.address1||billing.address2||billing.address3||billing.postalCode)addresses.push(billing);if(delivery.address1||delivery.address2||delivery.address3||delivery.postalCode)addresses.push(delivery);
- const cj=rowPick(R,'Contacts JSON'),aj=rowPick(R,'Addresses JSON');if(cj)contacts=customerJsonCell(cj,contacts);if(aj)addresses=customerJsonCell(aj,addresses);
- const name=rowPick(R,'Name','Legal Name','Customer Name'),statusRaw=rowPick(R,'Status');
- return normalizeCustomer({
-  id:rowPick(R,'Customer ID','ID'),code:rowPick(R,'Account','Customer Code','Code'),legalName:name,displayName:rowPick(R,'Display Name')||name,status:statusRaw,
-  isProspect:rowPick(R,'IsProspect','Is Prospect'),customerType:rowPick(R,'CustomerType','Customer Type'),group:rowPick(R,'Group'),area:rowPick(R,'Area'),salesRep:rowPick(R,'SalesRep','Sales Rep'),
-  accountOpenedAt:rowPick(R,'AccountOpenDate','Account Open Date'),notes:rowPick(R,'Notes'),internalNotes:rowPick(R,'Internal Notes'),taxNumber:rowPick(R,'TAX Number','Tax Number'),registrationNumber:rowPick(R,'Registration'),
-  paymentTerms:rowPick(R,'PaymentTerms','Payment Terms'),paymentMode:String(rowPick(R,'Payment Mode')).trim().toLowerCase(),depositPercent:rowPick(R,'Deposit %'),creditDays:rowPick(R,'Credit Days'),currency:rowPick(R,'Currency')||'CAD',creditLimit:rowPick(R,'Credit Limit'),onHold:rowPick(R,'On Hold'),holdReason:rowPick(R,'Hold Reason'),
-  creditApplicationDate:rowPick(R,'CreditApplicationDate','Credit Application Date'),poRequired:rowPick(R,'PO Required'),checkTerms:rowPick(R,'Check Terms'),defaultDeliveryMethod:rowPick(R,'Delivery Method'),deliverTo:rowPick(R,'Deliver To'),
-  fuelLevyMode:rowPick(R,'Fuel Levy Mode')||'default',fuelLevyRate:rowPick(R,'Fuel Levy Rate'),statementDelivery,statementEmail:rowPick(R,'Statement Email'),invoiceEmail:rowPick(R,'Invoice Email'),contacts,addresses,
-  legacyRefs:{sourceSystem:'legacy-import',dcLink:rowPick(R,'DCLink'),flid:rowPick(R,'FLID'),iClassID:rowPick(R,'iClassID'),repID:rowPick(R,'RepID'),iAreasID:rowPick(R,'iAreasID'),uiARDeliveryMethod:rowPick(R,'uiARDeliveryMethod'),uiARCATID:rowPick(R,'uiARCATID'),accountStatusID:rowPick(R,'AccountStatusID'),iwg:rowPick(R,'I.W.G','IWG')}
- });
-}
-function parseCustomerImport(text,name){
- const ext=String(name||'').toLowerCase();
- if(ext.endsWith('.json')||/^\s*[\[{]/.test(text)){
-  const src=JSON.parse(text),list=Array.isArray(src)?src:(Array.isArray(src.customers)?src.customers:Array.isArray(src.customer)?src.customer:null);
-  if(!list)throw new Error('Customer JSON must contain a customers array.');
-  return list.map(customerFromImportRow);
- }
- return csvParse(text).map(customerFromImportRow);
-}
-function validateCustomerImportList(list){
- if(!Array.isArray(list)||!list.length)throw new Error('The file contains no customers.');
- const codes=new Set();list.forEach((c,i)=>{
-  if(!c.legalName)throw new Error('Customer row '+(i+1)+': Name is required.');
-  if(c.code){const key=c.code.toUpperCase();if(codes.has(key))throw new Error('The import file contains duplicate Account "'+c.code+'".');codes.add(key);}
- });
-}
-function applyCustomerImport(list,mode){
- validateCustomerImportList(list);mode=mode==='replace'?'replace':'merge';
- /* Импорт — тоже правка карточки: updatedAt — время импорта, иначе
-    открытая в другой вкладке форма не узнала бы о нём (F08). */
- const now=new Date().toISOString();list=list.map(c=>Object.assign({},c,{updatedAt:now}));
- if(mode==='replace'){
-  const referenced=DB.customer.filter(c=>customerHasReferences(c.id));if(referenced.length)throw new Error('The customer master cannot be replaced because some customers are referenced by orders.');
-  DB.customer=[];list.forEach(c=>{const n=normalizeCustomer(c);if(!n.code)n.code=nextCustomerCode();DB.customer.push(n);});
- }else{
-  list.forEach(incoming=>{
-   let current=null;if(incoming.id)current=DB.customer.find(c=>c.id===incoming.id)||null;
-   if(!current&&incoming.code)current=DB.customer.find(c=>String(c.code).toUpperCase()===String(incoming.code).toUpperCase())||null;
-   if(current){const keepId=current.id,created=current.createdAt;Object.assign(current,normalizeCustomer(Object.assign({},incoming,{id:keepId,createdAt:created||incoming.createdAt})));current.id=keepId;}
-   else{const c=normalizeCustomer(incoming);if(!c.code)c.code=nextCustomerCode();DB.customer.push(c);}
-  });
- }
- normalizeCustomers();touch();render();return list.length;
-}
-function importCustomersFile(inp,mode){
- const f=inp.files&&inp.files[0];if(!f)return;
- if(f.size>10*1024*1024){alert('Customer file exceeds 10 MB.');inp.value='';return;}
- if(mode==='replace'&&!confirm('Replace the entire customer master with data from the file? This cannot be undone without a backup export.')){inp.value='';return;}
- const r=new FileReader();r.onload=()=>{try{const list=parseCustomerImport(r.result,f.name);const n=applyCustomerImport(list,mode);alert('Customers imported: '+n);}catch(e){alert('Could not import customers: '+e.message);}finally{inp.value='';}};r.readAsText(f);
-}
 
 /* ==== src/erp/sales/data.js ==== */
 /* =====================================================================
@@ -15508,7 +15422,7 @@ function authLastSeen(u){
 /* =====================================================================
    view/customers  ·  customers-2.0
    Клиенты: таблица на общем движке Sales, карточка из пяти вкладок,
-   заказы клиента, импорт / экспорт в меню «⋯», предупреждение о дубле.
+   заказы клиента, экспорт в меню «⋯», предупреждение о дубле.
    ===================================================================== */
 
 let cEdit=null,cDraft=null,cSeen='',cTab='general',cMenu=null,cDup=null;
@@ -15556,9 +15470,7 @@ function customerList(){
  const infos=custInfos(),rows=salesListRows(infos),cols=salesListColumns();
  const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
  return `<div class="card sales-list-card">
-  <div class="sales-toolbar">${salesListDateButton('created')}<span class="sales-toolbar-sp"></span><button class="pri" data-customer-new onclick="customerNew()">+ New customer</button><button type="button" class="cust-more" data-customer-more title="Import · Export" aria-label="Import and export" onclick="custMenuOpen(event,'more')">⋯</button></div>
-  <input id="customerImportMerge" type="file" accept=".csv,.json,text/csv,application/json" hidden onchange="importCustomersFile(this,'merge')">
-  <input id="customerImportReplace" type="file" accept=".csv,.json,text/csv,application/json" hidden onchange="importCustomersFile(this,'replace')">
+  <div class="sales-toolbar">${salesListDateButton('created')}<span class="sales-toolbar-sp"></span><button class="pri" data-customer-new onclick="customerNew()">+ New customer</button><button type="button" class="cust-more" data-customer-more title="Export" aria-label="Export" onclick="custMenuOpen(event,'more')">⋯</button></div>
   ${salesListFilterChips()}
   <div class="sales-table-wrap"><table class="sl-table cust-table"><thead><tr><th><span class="sl-header-tools">${settings}</span></th>${cols.map(custHeader).join('')}<th></th></tr></thead>
   <tbody>${rows.map(i=>`<tr data-customer-row="${esc(i.c.id)}" ondblclick="customerEdit('${esc(i.c.id)}')" oncontextmenu="custMenuOpen(event,'row','${esc(i.c.id)}')"><td></td>${cols.map(c=>custCell(i,c)).join('')}<td class="customer-row-actions"><button class="sm" onclick="customerEdit('${esc(i.c.id)}')">Open</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'No customers match the filters':'No customers yet'}</td></tr>`}</tbody></table></div>
@@ -15566,7 +15478,7 @@ function customerList(){
  </div>${salesListMenuHTML(infos)}`;
 }
 /* Меню: правая кнопка на строке — Open / Duplicate / Archive / Delete;
-   «⋯» в панели — импорт и экспорт (редкие действия, не на виду). */
+   «⋯» в панели — экспорт (редкое действие, не на виду). */
 function custMenuOpen(e,kind,id){
  if(e){e.preventDefault();e.stopPropagation();}
  const r=e&&e.currentTarget&&kind==='more'?e.currentTarget.getBoundingClientRect():null;
@@ -15578,16 +15490,14 @@ function custMenuHTML(){
  const style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-248))}px;top:${Math.max(8,Math.min(m.y,window.innerHeight-200))}px`;
  const item=(act,label,cls,dis,title)=>`<button type="button" role="menuitem" class="${cls||''}" data-cust-menu="${act}" ${dis?'disabled':''} ${title?`title="${esc(title)}"`:''} onclick="custMenuRun('${act}')">${label}</button>`;
  let body='';
- if(m.kind==='more')body=item('import','Import / update…')+item('replace','Import and replace…','dl')+'<hr>'+item('csv','Export CSV')+item('json','Export JSON');
+ if(m.kind==='more')body=item('csv','Export CSV')+item('json','Export JSON');
  else{const c=(DB.customer||[]).find(x=>x.id===m.id);if(!c)return '';const used=customerHasReferences(c.id);
   body=item('open','Open')+item('duplicate','Duplicate')+item('archive',c.status==='archived'?'Restore':'Archive')+'<hr>'+item('delete','Delete','dl',used,used?'Has orders — archive instead':'');}
  return `<div class="sl-backdrop" onclick="custMenuClose()" oncontextmenu="event.preventDefault();custMenuClose()"></div><div class="sl-ctx" style="${style}" role="menu" data-cust-menu-${m.kind}>${body}</div>`;
 }
 function custMenuRun(act){
  const m=cMenu;cMenu=null;if(!m){render();return;}
- if(act==='import')document.getElementById('customerImportMerge').click();
- else if(act==='replace')document.getElementById('customerImportReplace').click();
- else if(act==='csv')exportCustomersCSV();
+ if(act==='csv')exportCustomersCSV();
  else if(act==='json')exportCustomersJSON();
  else if(act==='open')return customerEdit(m.id);
  else if(act==='duplicate')return customerDuplicate(m.id);
@@ -24789,7 +24699,12 @@ function viewProduction(){
 }
 
 /* --- 1. Станции ------------------------------------------------------ */
-let stEdit=null;
+let stEdit=null,stSeen=null;
+/* Форма станции помнит станцию, какой её открыли (stSeen): старая форма из
+   другой вкладки не пишет поверх свежей правки и не попадает на соседнюю
+   станцию, если номера строк сдвинулись (как карточка клиента, F08;
+   владелец, 20.10.2026). */
+function stEditOpen(i){stEdit=i;stSeen={i,json:JSON.stringify(DB.station[i])};render();}
 /* Габарит без пометки о замере читается как факт. Пока его не подтвердили
    рулеткой, рядом обязана стоять оговорка — иначе деталь уедет на станцию,
    которая её не примет, а система будет утверждать, что всё влезает. */
@@ -24848,7 +24763,7 @@ function viewSfStations(edit){
    <td>${w.length?w.slice(0,6).map(o=>`<span class="pill info" data-raw>${esc(o.name||o.id)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>'}</td>
    <td class="mut" style="max-width:260px">${raw(s.note||'')}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>
-   ${edit?`<button class="sm" onclick="stEdit=${i};render()">Edit</button>
+   ${edit?`<button class="sm" onclick="stEditOpen(${i})">Edit</button>
    <button class="sm dl" data-sf-del="${esc(s.code)}" onclick="delSfStation(${i})">×</button>`:''}</td></tr>`+
    /* Колонки листа долли/скида станции — под её строкой (views/carriers-board). */
    (edit&&typeof sfSheetEdit!=='undefined'&&sfSheetEdit===s.code?`<tr class="sf-sheet-row"><td colspan="10">${carrierSheetEditorHTML(s.code)}</td></tr>`:'');
@@ -24879,7 +24794,8 @@ function sfStationsTidy(){
 }
 function sfStationForm(){
  const last=DB.station.filter(s=>!s.always).reduce((m,s)=>Math.max(m,s.seq),0);
- const r = stEdit==='new' ? {seq:last+1,code:'',name:'',nameEn:'',always:false,maxW:null,maxL:null,sizeMeasured:false,note:''} : DB.station[stEdit];
+ if(stEdit!=='new'&&(!stSeen||stSeen.i!==stEdit)&&DB.station[stEdit])stSeen={i:stEdit,json:JSON.stringify(DB.station[stEdit])};
+ const r = stEdit==='new' ? {seq:last+1,code:'',name:'',nameEn:'',always:false,maxW:null,maxL:null,sizeMeasured:false,note:''} : stSeen&&stSeen.i===stEdit ? JSON.parse(stSeen.json) : (DB.station[stEdit]||{});
  return `<div class="form"><h3>${stEdit==='new'?'New station':'Edit'}</h3>
   <div class="grid">
    <div><label>Step *</label><input id="sf_seq" type="number" min="1" step="1" value="${r.seq}"><div class="hint">Same number as another station — parallel.</div></div>
@@ -24894,10 +24810,10 @@ function sfStationForm(){
   </div>
   <div style="margin-top:12px"><label>Note</label><input id="sf_note" value="${esc(r.note||'')}"></div>
   <div class="err" id="e_sfStation"></div>
-  <div class="row"><button class="pri" data-sf-save onclick="saveSfStation()">Save</button><button onclick="stEdit=null;render()">Cancel</button></div></div>`;
+  <div class="row"><button class="pri" data-sf-save onclick="saveSfStation()">Save</button><button onclick="stEdit=null;stSeen=null;render()">Cancel</button></div></div>`;
 }
 function saveSfStation(){
- const oldEdit=stEdit,oldCode=stEdit==='new'?'':DB.station[stEdit].code,newCode=document.getElementById('sf_code').value.trim().toUpperCase();
+ const oldEdit=stEdit,oldCode=stEdit==='new'||!DB.station[stEdit]?'':DB.station[stEdit].code,newCode=document.getElementById('sf_code').value.trim().toUpperCase();
  const fields=[...document.querySelectorAll('[id^="sf_"]')].map(el=>({id:el.id,value:el.value,checked:el.checked}));
  const out=storageCommand(()=>{const result=saveSfStationCommand();if(result!==true)throw new Error(document.getElementById('e_sfStation').textContent||'The station was not saved.');return true;});
  if(!out.ok){stEdit=oldEdit;render();fields.forEach(f=>{const el=document.getElementById(f.id);if(el){el.value=f.value;el.checked=f.checked;}});const e=document.getElementById('e_sfStation');if(e)fail(e,out.error);return false;}
@@ -24909,6 +24825,7 @@ function saveSfStation(){
 }
 function saveSfStationCommand(){
  const e=document.getElementById('e_sfStation'); e.style.display='none';
+ if(stEdit!=='new'){const cur=DB.station[stEdit];if(!cur)return fail(e,'This station was deleted');if(!stSeen||stSeen.i!==stEdit||JSON.stringify(cur)!==stSeen.json)return fail(e,'Changed elsewhere — reopen');}
  const seq=+document.getElementById('sf_seq').value;
  const code=document.getElementById('sf_code').value.trim().toUpperCase();
  const nameEn=document.getElementById('sf_nameEn').value.trim();
@@ -24938,7 +24855,7 @@ function saveSfStationCommand(){
   note:document.getElementById('sf_note').value.trim()};
  if(stEdit==='new') DB.station.push(o); else Object.assign(DB.station[stEdit],o);
  DB.station.sort((a,b)=>a.seq-b.seq);
- stEdit=null; stationRouteReset(); touch(); render();return true;
+ stEdit=null; stSeen=null; stationRouteReset(); touch(); render();return true;
 }
 /* Станцию, на которую ссылаются работы, не удаляем: работа без станции —
    сирота, и увидит её только тот, кто откроет нужный экран. */
@@ -38629,7 +38546,7 @@ function stationBatchChip(){
 function stationTop(who){
  const s=stationRow();
  const tabs=who?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button><button type="button" class="'+(stationTab==='board'?'on':'')+'" data-station-tab="board" onclick="stationTab=\'board\';stationMenu=null;render()">Board</button></div>'+
-  (stationTab==='queue'||stationTab==='board'?'<label class="st-topscan">'+ico('scan')+'<input data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
+  (stationTab==='queue'||stationTab==='board'?'<label class="st-topscan">'+ico('scan')+'<input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
  return '<div class="st-top"><div class="st-code">'+esc(stationCode)+'</div><div class="st-name">'+(s?sfLabel(s):'Unknown station')+'</div>'+tabs+'<span class="sp"></span>'+
   (who&&stationMergeCodes().includes(stationCode)?'<button type="button" class="st-chip st-autoprint'+(stationAutoPrintOn()?' on':'')+'" data-station-autoprint onclick="stationAutoPrintToggle()" title="Unit sticker when the last lite is scanned">Unit stickers <b>'+(stationAutoPrintOn()?'Auto':'By button')+'</b></button>':'')+
   (who&&stationQuestions.length?'<button type="button" class="st-chip st-ask-chip" data-station-questions onclick="stationShowQuestion()">'+stationQuestions.length+' to answer</button>':'')+
@@ -38669,7 +38586,7 @@ function viewStation(){
  /* Board (view/station-board) считается только здесь, когда вкладка открыта. */
  if(stationTab==='board')return stationTop(who)+stationBoardView(who)+drawer;
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
-  '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
+  '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+(stationIsShip()?stationShipJournal():stationJournal())+
   '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationLoadedCard():(stationIsShip()?stationTripsCard():'')+stationIguCard()+stationPairsCard()+stationHereCard()+stationLoadedCard())+'</div></div>'+drawer;
 }
@@ -38783,7 +38700,10 @@ function stationFocus(){
  if(el&&document.activeElement!==el)el.focus();
 }
 /* Сканер печатает, даже если фокус ушёл: нажатие вне полей ввода
-   отправляется в поле скана. */
+   отправляется в поле скана. У поля есть id: вкладка, забирающая запись,
+   перерисовывает экран посреди скана и сохраняет набранное только в полях с
+   id — без него первый скан после смены вкладки уходил обрывком «unknown»
+   (аудит U01, 20.10.2026). Enter ждёт права записи, как в поле. */
 document.addEventListener('keydown',function(e){
  if(tab!=='station')return;
  const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;
@@ -38791,7 +38711,7 @@ document.addEventListener('keydown',function(e){
  const el=document.querySelector('[data-station-scan]');if(!el||document.activeElement===el)return;
  if(e.ctrlKey||e.metaKey||e.altKey)return;
  if(e.key.length===1){stationMenu=null;el.focus();el.value+=e.key;e.preventDefault();}
- else if(e.key==='Enter'&&el.value.trim()){e.preventDefault();const v=el.value;el.value='';stationSubmit(v);}
+ else if(e.key==='Enter'&&el.value.trim()){e.preventDefault();const v=el.value;el.value='';(typeof storageWhenWriter==='function'?storageWhenWriter:f=>f())(()=>stationSubmit(v));}
 });
 document.addEventListener('focusout',function(){if(tab==='station')setTimeout(stationFocus,150);});
 
