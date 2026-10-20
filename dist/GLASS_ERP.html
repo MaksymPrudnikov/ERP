@@ -3435,7 +3435,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='e7c9e85999aa';
+var ERP_BUILD='be3cd0388028';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -14399,7 +14399,10 @@ function purFulfilSave(kind,raw){
   const d=purFulfilClean(raw);
   purResolveSupplier(d);purValidateReceiptGlass(d,old);if(!d.lines.length)throw new Error('Add at least one line.');
   ['date','expectedDate'].forEach(k=>{if(d[k]&&!ISO_DATE_RE.test(d[k]))throw new Error('Date: use YYYY-MM-DD or leave empty.');});
-  const ids=new Set();d.lines.forEach((l,i)=>{if(ids.has(l.id))throw new Error('Duplicate line.');ids.add(l.id);['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>{if(purText(raw.lines[i][k])!==''&&(l[k]==null||l[k]<0))throw new Error('Line '+(i+1)+': enter a non-negative number or leave empty.');});});
+  const ids=new Set();d.lines.forEach((l,i)=>{if(ids.has(l.id))throw new Error('Duplicate line.');ids.add(l.id);['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>{if(purText(raw.lines[i][k])!==''&&(l[k]==null||l[k]<0))throw new Error('Line '+(i+1)+': enter a non-negative number or leave empty.');});
+   /* Листы стекла — до 10 000 в строке (INV_SHEETS_MAX, erp/inventory). */
+   const sheets=['glass','sheet'].includes(l.kind)?['actualSheets','damagedSheets'].concat(['sheet','block'].includes(purUnit(l.unit))?['qty','damaged']:[]):[];
+   if(sheets.some(k=>l[k]>INV_SHEETS_MAX))throw new Error('Line '+(i+1)+': up to 10,000 sheets.');});
   const now=new Date().toISOString(),actor=orderLogActor();d.id=old?old.id:salesUid(c.prefix);d.number=old?old.number:c.prefix+'-'+String(++DB[c.seq]).padStart(4,'0');
   d.createdAt=old?old.createdAt:now;d.createdBy=old?old.createdBy:actor.by;d.createdById=old?old.createdById:actor.byId;d.updatedAt=now;d.updatedBy=actor.by;d.updatedById=actor.byId;d.rev=old?old.rev+1:1;d.voidAt='';d.sentAt=old?old.sentAt:'';
   const changes=['poId','requestId','supplierId','supplierName','date','expectedDate','receivedBy','packingSlip','to','cc','note','lines'].filter(k=>JSON.stringify(old&&old[k])!==JSON.stringify(d[k])).map(k=>({field:k,label:stkHuman(k),before:old?old[k]:null,after:d[k]}));
@@ -14880,6 +14883,10 @@ const raw=s=>{s=String(s??'');
     текстовым узлом и попадает в словарь целиком, а не куском чужой фразы */
  return SEED_TEXT.has(s)?`<span>${esc(s)}</span>`:`<span data-raw>${esc(s)}</span>`;};
 const fail=(el,m)=>{el.textContent=m;el.style.display='block';};
+/* Количество стёкол, юнитов и листов — только целое число (владелец,
+   20.10.2026): в полях inputmode="numeric" точку, запятую, минус и «e» не
+   набрать. Деньги, проценты и дни этого признака не имеют. */
+document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.matches&&t.matches('input[inputmode="numeric"]')&&['.',',','-','+','e','E'].includes(e.key))e.preventDefault();},true);
 
 function render(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);
@@ -20640,7 +20647,7 @@ function salesExtraItemsSection(){
   const unit=salesExtraItemUnitPrice(x),total=salesExtraItemLineTotal(x);
   return `<tr>
    <td><b>${esc(salesExtraItemName(x))}</b></td>
-   <td><input type="number" min="1" step="1" value="${esc(x.qty)}" style="width:64px" onchange="salesExtraItemSetQty('${esc(x.id)}',this.value)"></td>
+   <td><input type="number" min="1" step="1" inputmode="numeric" value="${esc(x.qty)}" style="width:64px" onchange="salesExtraItemSetQty('${esc(x.id)}',this.value)"></td>
    <td><input type="number" min="0" step="0.01" value="${x.priceOverride!=null?x.priceOverride:''}" placeholder="${unit!=null?unit.toFixed(2):'—'}" style="width:88px" onchange="salesExtraItemSetPrice('${esc(x.id)}',this.value)"></td>
    <td class="mono">${total!=null?total.toFixed(2)+' '+esc(currency):'<span class="mut">Rate required</span>'}</td>
    <td><button class="sm dl" onclick="salesExtraItemRemove('${esc(x.id)}')">×</button></td>
@@ -20670,7 +20677,7 @@ function salesStockPickerModal(){
  const pills=subcats.length||hasOther
   ?`<div class="stock-picker-filters">${pill('','All')}${subcats.map(s=>pill(s,s)).join('')}${hasOther?pill('__other__','Other'):''}</div>`
   :'';
- const rows=candidates.map((c,i)=>`<tr class="stock-picker-row"><td><b>${esc(c.name)}</b>${c.subcategory?`<div class="mut">${esc(c.subcategory)}</div>`:''}</td><td class="mono">${esc(c.code||'—')}</td><td class="mono">${c.salePrice!=null?c.salePrice.toFixed(2)+' '+esc(currency):'—'}</td><td><input type="number" min="1" step="1" value="1" id="stockPickQty_${i}" style="width:56px"></td><td><button class="sm" onclick="salesStockPickerChoose('${esc(c.table)}','${esc(c.id)}',(document.getElementById('stockPickQty_${i}')||{}).value)">+ Add</button></td></tr>`).join('');
+ const rows=candidates.map((c,i)=>`<tr class="stock-picker-row"><td><b>${esc(c.name)}</b>${c.subcategory?`<div class="mut">${esc(c.subcategory)}</div>`:''}</td><td class="mono">${esc(c.code||'—')}</td><td class="mono">${c.salePrice!=null?c.salePrice.toFixed(2)+' '+esc(currency):'—'}</td><td><input type="number" min="1" step="1" inputmode="numeric" value="1" id="stockPickQty_${i}" style="width:56px"></td><td><button class="sm" onclick="salesStockPickerChoose('${esc(c.table)}','${esc(c.id)}',(document.getElementById('stockPickQty_${i}')||{}).value)">+ Add</button></td></tr>`).join('');
  return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesStockPickerClose()"><div class="sales-service-modal"><div class="sales-service-modal-head"><div><span>Stock &amp; Extra Items</span><h3>Add an item</h3><small>Sold as its own order line — no glass, no geometry, no route</small></div><button onclick="salesStockPickerClose()">×</button></div>
   ${pills}
   <div class="customer-table-wrap"><table><thead><tr><th>Item</th><th>Code</th><th>Price, ${esc(currency)}</th><th>Qty</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="empty">${all.length?'No items in this filter.':'No catalog items'}</td></tr>`}</tbody></table></div>
@@ -24132,7 +24139,7 @@ function salesOrderColumnCell(key,l,i,linked,st){
   if(key==='qty'){
    /* Строка в батче, стекло не порезано: количество только вниз (salesLineShrinkable). */
    var max=salesLineLocked(l)&&salesLineShrinkableInDraft(l)?((salesRecord(soDraft.id).lines||[]).find(function(x){return x.id===l.id;})||{}).qty:0;
-   return `<td><input class='line-qty' type='number' min='1' step='1'${max?` max='${max}' title='Not cut yet — fewer units only'`:''} value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=${max?`Math.min(${max},salesPositiveInt(this.value,1))`:'salesPositiveInt(this.value,1)'}' onchange='salesLineQtyChange(${i})'></td>`;
+   return `<td><input class='line-qty' type='number' min='1' step='1' inputmode='numeric'${max?` max='${max}' title='Not cut yet — fewer units only'`:''} value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=${max?`Math.min(${max},salesPositiveInt(this.value,1))`:'salesPositiveInt(this.value,1)'}' onchange='salesLineQtyChange(${i})'></td>`;
   }
   if(key==='width')return `<td><input data-so-width class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.width16))}' placeholder='34 13/16' onchange='salesLineDimChange(${i},"width",this)'></td>`;
   if(key==='height')return `<td><input class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.height16))}' placeholder='15 5/16' onchange='salesLineDimChange(${i},"height",this)'></td>`;
@@ -24700,7 +24707,7 @@ function shippingDraftHTML(){
  const d=shippingDraft;if(!d)return '';const c=salesFindCustomer(d.customerId),os=shippingOrders().filter(o=>o.customerId===d.customerId);
  const field=(key,label)=>`<label>${label}<input value="${esc(d.shipTo[key])}" oninput="shippingDraft.shipTo.${key}=this.value"></label>`;
  const rows=os.map(o=>{
-  const a=shippingAvailable(o,d.id),q=shippingSummary(o);return `<h4>Order ${esc(o.businessNumber)}${o.customerPo?' · PO '+esc(o.customerPo):''}</h4>`+(o.lines||[]).map((l,n)=>{const max=a.filter(i=>i.lineId===l.id).length,qty=d.items.filter(i=>i.orderId===o.id&&i.lineId===l.id).length;if(!max&&!qty)return '';return `<label class="shipping-pick"><span>Line ${n+1} · ${esc(docSize(l))} · ${esc(l.mark)}<small>${esc(salesMakeupSummary(salesMakeupById(o,l.makeupId)))}</small></span><input type="number" aria-label="PS quantity line ${n+1}" min="0" max="${max}" value="${qty}" onchange="shippingDraftQty('${esc(o.id)}','${esc(l.id)}',this.value)"><span>of ${max} ready</span></label>`;}).join('')+q.extras.filter(()=>o.status!=='new'&&!o.onHold).map(r=>{const current=d.extras.find(i=>i.extraId===r.x.id),original=d.id&&shippingFind(d.id).extras.find(i=>i.extraId===r.x.id),max=r.ready+(original?original.qty:0);return `<label class="shipping-pick"><span>From stock · ${esc(salesExtraItemName(r.x))}</span><input type="number" min="0" max="${max}" value="${current?current.qty:0}" onchange="shippingDraftExtra('${esc(o.id)}','${esc(r.x.id)}',this.value)"><span>of ${max}</span></label>`;}).join('');
+  const a=shippingAvailable(o,d.id),q=shippingSummary(o);return `<h4>Order ${esc(o.businessNumber)}${o.customerPo?' · PO '+esc(o.customerPo):''}</h4>`+(o.lines||[]).map((l,n)=>{const max=a.filter(i=>i.lineId===l.id).length,qty=d.items.filter(i=>i.orderId===o.id&&i.lineId===l.id).length;if(!max&&!qty)return '';return `<label class="shipping-pick"><span>Line ${n+1} · ${esc(docSize(l))} · ${esc(l.mark)}<small>${esc(salesMakeupSummary(salesMakeupById(o,l.makeupId)))}</small></span><input type="number" aria-label="PS quantity line ${n+1}" min="0" max="${max}" step="1" inputmode="numeric" value="${qty}" onchange="shippingDraftQty('${esc(o.id)}','${esc(l.id)}',this.value)"><span>of ${max} ready</span></label>`;}).join('')+q.extras.filter(()=>o.status!=='new'&&!o.onHold).map(r=>{const current=d.extras.find(i=>i.extraId===r.x.id),original=d.id&&shippingFind(d.id).extras.find(i=>i.extraId===r.x.id),max=r.ready+(original?original.qty:0);return `<label class="shipping-pick"><span>From stock · ${esc(salesExtraItemName(r.x))}</span><input type="number" min="0" max="${max}" step="1" inputmode="numeric" value="${current?current.qty:0}" onchange="shippingDraftExtra('${esc(o.id)}','${esc(r.x.id)}',this.value)"><span>of ${max}</span></label>`;}).join('');
  }).join('');
  return `<div class="sales-service-modal-back"><div class="sales-service-modal shipping-modal" role="dialog" aria-modal="true" aria-label="Packing slip"><div class="sales-service-modal-head"><h3>${d.id?'Edit '+esc(d.number):'Create packing slip'} · ${esc(salesCustomerDisplay(d.customerId))}</h3><button aria-label="Close" onclick="shippingDraft=null;render()">×</button></div><div class="shipping-form"><div class="shipping-form-fields"><label>Method<select aria-label="Method" onchange="shippingDraft.method=this.value;render()"><option value="delivery" ${d.method==='delivery'?'selected':''}>Delivery</option><option value="pickup" ${d.method==='pickup'?'selected':''}>Pickup</option></select></label><label>Date<input type="date" value="${d.date}" onchange="shippingDraft.date=this.value"></label></div>${d.method==='delivery'?`<label>Delivery address<select onchange="shippingDraftAddress(this.value)"><option value="">Job site / custom address</option>${(c.addresses||[]).filter(a=>a.type==='delivery').map(a=>`<option value="${esc(a.id)}" ${a.address1===d.shipTo.address1?'selected':''}>${esc(a.label||docAddressText(a))}</option>`).join('')}</select></label><div class="shipping-form-fields">${field('addressee','Ship to')}${field('address1','Address')}${field('address2','Address line 2')}${field('address3','Address line 3')}${field('city','City')}${field('province','Province')}${field('postalCode','Postal code')}${field('contact','Contact')}${field('phone','Phone')}</div>`:''}${rows}${(d.takes||[]).map(salesRecord).filter(Boolean).map(o=>unitTakes(o).map(x=>`<div class="shipping-pick" data-draft-takes><span>Order ${esc(o.businessNumber)} · cancelled · customer takes · line ${x.line} · ${esc(docSize(x.l))}</span><span>${x.pieces} glass</span></div>`).join('')).join('')}<label>Note<textarea oninput="shippingDraft.note=this.value">${esc(d.note)}</textarea></label>${d.error?'<p class="err" role="alert" style="display:block">'+esc(d.error)+'</p>':''}</div><div class="sales-dialog-actions"><button onclick="shippingDraft=null;render()">Back</button><button class="pri" data-save-ps onclick="shippingSave()">${d.id?'Save':'Create packing slip'}</button></div></div></div>`;
 }
@@ -25230,7 +25237,12 @@ function mdGlassNew(){
  mdDraft=normalizeGlassProduct({id:'',code:'',name:'',manufacturer:'',thicknessMm:6,substrate:'clear',coatingFamily:'uncoated'});
  render();
 }
-function mdGlassEdit(id){const p=glassProductById(id);if(!p)return;mdEdit=id;mdDraft=JSON.parse(JSON.stringify(p));render();}
+/* Форма помнит запись, какой её открыли (mdSeen): старая форма из другой
+   вкладки не пишет поверх свежей правки и не возвращает удалённое — как
+   карточка клиента (аудит 19.10.2026, F08; владелец 20.10.2026). */
+const mdSeen={};
+function mdStale(form,cur){return !cur?'This item was deleted':JSON.stringify(cur)!==mdSeen[form]?'Changed elsewhere — reopen':'';}
+function mdGlassEdit(id){const p=glassProductById(id);if(!p)return;mdEdit=id;mdDraft=JSON.parse(JSON.stringify(p));mdSeen.glass=JSON.stringify(p);render();}
 function mdGlassForm(){
  const r=mdDraft,isNew=mdEdit==='new';
  const used=!isNew&&salesGlassProductHasReferences(r.id);
@@ -25265,6 +25277,7 @@ function mdGlassForm(){
 }
 function mdGlassSave(){
  const e=document.getElementById('e_mdGlass');e.style.display='none';
+ if(mdEdit!=='new'){const stale=mdStale('glass',glassProductById(mdDraft.id));if(stale)return fail(e,stale);}
  const code=mdVal('md_code'),name=mdVal('md_name'),thick=mdVal('md_thick');
  if(!code||!name)return fail(e,'Code and name are required');
  if(!GLASS_CODE_RE.test(code))return fail(e,'Code: letters, digits and + . _ - / only');
@@ -25354,7 +25367,7 @@ function mdSheetNew(){
 }
 function mdSheetEditRow(id){
  const s=(DB.glassSheet||[]).find(x=>x.id===id);if(!s)return;
- mdSheetEdit=id;mdSheetDraft=JSON.parse(JSON.stringify(s));mdSheetPick={mfr:'',thick:'',q:''};render();
+ mdSheetEdit=id;mdSheetDraft=JSON.parse(JSON.stringify(s));mdSeen.sheet=JSON.stringify(s);mdSheetPick={mfr:'',thick:'',q:''};render();
 }
 /* Форма из двух блоков (владелец, 2 октября 2026): Glass — производитель,
    толщина и поиск сужают список из 500+ стёкол; Supply — точка поставки из
@@ -25416,6 +25429,7 @@ function mdSheetForm(){
 }
 function mdSheetSave(){
  const e=document.getElementById('e_mdSheet');e.style.display='none';
+ if(mdSheetEdit!=='new'){const stale=mdStale('sheet',(DB.glassSheet||[]).find(x=>x.id===mdSheetDraft.id));if(stale)return fail(e,stale);}
  const code=mdVal('md_sheetCode'),supplier=mdVal('md_sheetSupplier'),cur=mdVal('md_sheetCurrency').toUpperCase();
  if(!code||!supplier)return fail(e,'Product and supply point are required');
  if(cur&&!CURRENCY_RE.test(cur))return fail(e,'Currency: a three-letter code, for example CAD');
@@ -25533,7 +25547,7 @@ function mdSpacerNew(){
 }
 function mdSpacerEditRow(id){
  const sp=(DB.spacerVariant||[]).find(x=>x.id===id);if(!sp)return;
- mdSpacerEdit=id;mdSpacerDraft=JSON.parse(JSON.stringify(sp));render();
+ mdSpacerEdit=id;mdSpacerDraft=JSON.parse(JSON.stringify(sp));mdSeen.spacer=JSON.stringify(sp);render();
 }
 function mdSpacerForm(){
  const r=mdSpacerDraft,isNew=mdSpacerEdit==='new';
@@ -25552,6 +25566,7 @@ function mdSpacerForm(){
 }
 function mdSpacerSave(){
  const e=document.getElementById('e_mdSpacer');e.style.display='none';
+ if(mdSpacerEdit!=='new'){const stale=mdStale('spacer',(DB.spacerVariant||[]).find(x=>x.id===mdSpacerEdit));if(stale)return fail(e,stale);}
  const system=mdVal('md_spSystem'),size=mdVal('md_spSize');
  if(!system||!size)return fail(e,'System and nominal size are required');
  const q=spacerSizeParts(size);
@@ -25662,7 +25677,7 @@ function viewMdHardware(){
   <div class="row"><button class="pri" onclick="mdHwModelNew()">+ New model</button></div>`;
 }
 function mdHwKindNew(){mdHwKindEdit='new';mdHwKindDraft={code:'',name:'',nameEn:'',short:'',active:true,note:''};render();}
-function mdHwKindEditRow(code){const k=hardwareKindRow(code);if(!k)return;mdHwKindEdit=code;mdHwKindDraft=JSON.parse(JSON.stringify(k));render();}
+function mdHwKindEditRow(code){const k=hardwareKindRow(code);if(!k)return;mdHwKindEdit=code;mdHwKindDraft=JSON.parse(JSON.stringify(k));mdSeen.hwKind=JSON.stringify(k);render();}
 function mdHwKindForm(){
  const r=mdHwKindDraft,isNew=mdHwKindEdit==='new';
  return `<div class="form"><h3>${isNew?'New hardware kind':'Edit kind'}</h3>
@@ -25679,6 +25694,7 @@ function mdHwKindForm(){
 }
 function mdHwKindSave(){
  const e=document.getElementById('e_mdHwKind');e.style.display='none';
+ if(mdHwKindEdit!=='new'){const stale=mdStale('hwKind',hardwareKindRow(mdHwKindEdit));if(stale)return fail(e,stale);}
  const isNew=mdHwKindEdit==='new',code=isNew?mdVal('md_hwKindCode').toLowerCase():mdHwKindDraft.code;
  if(!code)return fail(e,'The kind code is required');
  if(!HW_CODE_RE.test(code))return fail(e,'Kind code: latin letters, digits and a hyphen, starting with a letter');
@@ -25699,7 +25715,7 @@ function mdHwKindDelete(code){
  DB.hardwareKind=DB.hardwareKind.filter(k=>k.code!==code);touch();render();
 }
 function mdHwModelNew(){mdHwModelEdit='new';mdHwModelDraft={id:'',kind:mdHwFilter||((DB.hardwareKind[0]||{}).code||''),name:'',series:'',thickness:'',supplierCode:'',active:true,note:''};render();}
-function mdHwModelEditRow(id){const m=hardwareModelById(id);if(!m)return;mdHwModelEdit=id;mdHwModelDraft=JSON.parse(JSON.stringify(m));render();}
+function mdHwModelEditRow(id){const m=hardwareModelById(id);if(!m)return;mdHwModelEdit=id;mdHwModelDraft=JSON.parse(JSON.stringify(m));mdSeen.hwModel=JSON.stringify(m);render();}
 function mdHwModelForm(){
  const r=mdHwModelDraft,isNew=mdHwModelEdit==='new',kinds=DB.hardwareKind||[];
  return `<div class="form"><h3>${isNew?'New hardware model':'Edit model'}</h3>
@@ -25718,6 +25734,7 @@ function mdHwModelForm(){
 }
 function mdHwModelSave(){
  const e=document.getElementById('e_mdHwModel'),isNew=mdHwModelEdit==='new';e.style.display='none';
+ if(!isNew){const stale=mdStale('hwModel',hardwareModelById(mdHwModelEdit));if(stale)return fail(e,stale);}
  const kind=mdVal('md_hwModelKind'),name=mdVal('md_hwModelName');
  if(!kind)return fail(e,'Create a hardware kind first');
  if(!name)return fail(e,'The model name is required');
@@ -25991,7 +26008,7 @@ function mdCatNew(){
 }
 function mdCatEditRow(id){
  const x=mdCatRows().find(r=>r.id===id);if(!x)return;
- mdCatEdit=id;mdCatDraft=JSON.parse(JSON.stringify(x));render();
+ mdCatEdit=id;mdCatDraft=JSON.parse(JSON.stringify(x));mdSeen.cat=JSON.stringify(x);render();
 }
 function mdCatForm(){
  const r=mdCatDraft,isNew=mdCatEdit==='new',colour=mdCatIsColour(),def=mdCatDef();
@@ -26059,6 +26076,7 @@ function mdCatIdFrom(prefix,code,name,taken){
 }
 function mdCatSave(){
  const e=document.getElementById('e_mdCat');if(e)e.style.display='none';
+ if(mdCatEdit!=='new'){const stale=mdStale('cat',mdCatRows().find(r=>r.id===mdCatEdit));if(stale)return fail(e,stale);}
  const colour=mdCatIsColour(),def=mdCatDef(),rows=mdCatRows();
  const name=mdVal('md_catName');
  if(!name)return fail(e,'Name is required');
@@ -27200,7 +27218,7 @@ function finExportCsv(){
    оценить: заказов может быть больше, а сумма меньше».
    IN : erp/finance/commissions
    ===================================================================== */
-let comOpen='',comDraft=null,comPayDraft=null,comPeriod='year',comHst=false,comNotice='';
+let comOpen='',comDraft=null,comSeen='',comPayDraft=null,comPeriod='year',comHst=false,comNotice='';
 const COM_PERIODS=[['year','This year'],['last','Last year'],['all','All time']];
 function comRange(){const y=+finToday().slice(0,4);return comPeriod==='all'?null:comPeriod==='last'?{from:(y-1)+'-01-01',to:(y-1)+'-12-31'}:{from:y+'-01-01',to:y+'-12-31'};}
 function comCustomerName(id){return finCustomerName(salesFindCustomer(id));}
@@ -27252,8 +27270,12 @@ function comFormHTML(){
   <div><label>Note</label><input value="${esc(d.note)}" oninput="comDraft.note=this.value"></div>
   <div class="sales-toolbar"><button type="button" class="pri" data-com-save onclick="comFormSave()">Save</button><button type="button" onclick="comDraft=null;render()">Cancel</button>${d.id?`<span class="sales-toolbar-sp"></span><button type="button" class="dl" onclick="comFormDelete()">Delete</button>`:''}</div></div>`;
 }
-function comEditOpen(id){const r=id?comFind(id):null;comNotice='';comPayDraft=null;comDraft=r?JSON.parse(JSON.stringify(r)):{id:'',name:'',phone:'',email:'',note:'',customers:[{customerId:'',pct:''}]};render();setTimeout(()=>{const el=document.getElementById('com_name');if(el&&!id)el.focus();},0);}
-function comFormSave(){const d=Object.assign({},comDraft,{customers:comDraft.customers.filter(c=>c.customerId||c.pct)});const out=comSave(d);if(out.error){comNotice=out.error;render();return;}comNotice='';comOpen=out.value.id;comDraft=null;render();}
+function comEditOpen(id){const r=id?comFind(id):null;comNotice='';comPayDraft=null;comDraft=r?JSON.parse(JSON.stringify(r)):{id:'',name:'',phone:'',email:'',note:'',customers:[{customerId:'',pct:''}]};comSeen=r?JSON.stringify(r):'';render();setTimeout(()=>{const el=document.getElementById('com_name');if(el&&!id)el.focus();},0);}
+/* Старая форма из другой вкладки не пишет поверх свежей правки и не
+   возвращает удалённого (как карточка клиента, F08; владелец 20.10.2026). */
+function comFormSave(){
+ if(comDraft.id){const cur=comFind(comDraft.id),stale=!cur?'This person was deleted':JSON.stringify(cur)!==comSeen?'Changed elsewhere — reopen':'';if(stale){comNotice=stale;render();return;}}
+ const d=Object.assign({},comDraft,{customers:comDraft.customers.filter(c=>c.customerId||c.pct)});const out=comSave(d);if(out.error){comNotice=out.error;render();return;}comNotice='';comOpen=out.value.id;comDraft=null;render();}
 function comFormDelete(){const d=comDraft;if(!d||!d.id||!confirm('Delete '+d.name+' and their payouts?'))return;const out=comDelete(d.id);comNotice=out.error||'';if(!out.error){comDraft=null;comOpen='';}render();}
 function comPayOpen(id){const r=comFind(id);if(!r)return;comOpen=id;comDraft=null;comNotice='';comPayDraft={referrerId:id,date:finToday(),note:'',orderIds:[...comDue(r).values()].filter(x=>x.due>0).map(x=>x.orderId)};render();}
 function comPayPick(id,on){if(!comPayDraft)return;comPayDraft.orderIds=comPayDraft.orderIds.filter(x=>x!==id);if(on)comPayDraft.orderIds.push(id);render();}
@@ -28764,7 +28786,7 @@ function salesLineUnitsRow(l,span){
 function salesLineUnitsMenuHTML(m,l,label){
  const saved=salesRecord(m.orderId),count=Math.max(0,Math.floor(+m.count)||0),error=m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:'';
  const dialog=(title,body,confirm)=>`<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)salesLineHoldClose()"><div class="sales-service-modal sales-dialog line-units-dialog" role="dialog" aria-modal="true" aria-label="${title}"><div class="sales-service-modal-head"><h3>${esc(label)} · ${title}</h3><button type="button" aria-label="Close" onclick="salesLineHoldClose()">×</button></div><div class="sales-dialog-body">${body}${error}</div><div class="sales-dialog-actions"><button type="button" onclick="salesLineHoldClose()">Back</button><button type="button" class="pri" data-units-confirm onclick="salesLineUnitsApply()">${confirm}</button></div></div></div>`;
- const fields=max=>`<div class="line-units-fields"><label>Units<input type="number" min="1" max="${max}" data-units-count value="${esc(m.count)}" onchange="salesLineHoldMenu.count=this.value;render()"></label><span class="mut">of ${max}</span><label class="line-units-reason">Reason<input type="text" maxlength="200" data-units-reason value="${esc(m.reason)}" oninput="salesLineHoldMenu.reason=this.value"></label></div>`;
+ const fields=max=>`<div class="line-units-fields"><label>Units<input type="number" min="1" max="${max}" step="1" inputmode="numeric" data-units-count value="${esc(m.count)}" onchange="salesLineHoldMenu.count=this.value;render()"></label><span class="mut">of ${max}</span><label class="line-units-reason">Reason<input type="text" maxlength="200" data-units-reason value="${esc(m.reason)}" oninput="salesLineHoldMenu.reason=this.value"></label></div>`;
  if(m.kind==='units-hold'){
   const max=unitHoldable(saved,l).length;
   return dialog('Hold units',fields(max)+'<p class="mut">Least advanced units first.</p>','Put on hold');
@@ -28908,8 +28930,8 @@ function unitLine(orderId,lineId){
 function unitLineNo(o,l){return 'line '+(o.lines.indexOf(l)+1);}
 function unitHoldable(o,l){return unitList(o,l);}
 function unitHold(orderId,lineId,count,reason){return storageCommand(()=>{
- const {o,l}=unitLine(orderId,lineId),n=Math.floor(+count),why=String(reason||'').trim().slice(0,200);
- unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason for the hold.');
+ const {o,l}=unitLine(orderId,lineId),n=+count,why=String(reason||'').trim().slice(0,200);
+ unitAssert(Number.isInteger(n)||!(n>0),'Whole units only.');unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason for the hold.');
  const free=unitHoldable(o,l);unitAssert(n<=free.length,free.length?'Only '+shippingCount(free.length,'unit')+' can be held.':'No units left to hold.');
  const now=new Date().toISOString(),picked=free.slice(0,n);l.heldUnits=(l.heldUnits||[]).concat(picked.map(u=>({id:salesUid('HU'),pieces:u.pieces.slice(),at:now,reason:why})));
  /* Непорезанное стекло уходит с батча, как при отмене: раскрой батча
@@ -28942,8 +28964,9 @@ function unitChargeOf(c){return c.chargeOverride!=null?c.chargeOverride:c.charge
 /* opts: glass — что делать со стеклом порезанных юнитов; chargeOverride —
    сумма продавца (обязательна, когда цена строки неполная). */
 function unitCancel(orderId,lineId,count,reason,opts){return storageCommand(()=>{
- opts=opts||{};const {o,l}=unitLine(orderId,lineId),n=Math.floor(+count),why=String(reason||'').trim().slice(0,200),now=new Date().toISOString();
- unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason.');
+ opts=opts||{};const {o,l}=unitLine(orderId,lineId),n=+count,why=String(reason||'').trim().slice(0,200),now=new Date().toISOString();
+ /* Юниты — только целые (владелец, 20.10.2026): 1.5 не становится молча 1. */
+ unitAssert(Number.isInteger(n)||!(n>0),'Whole units only.');unitAssert(Number.isSafeInteger(n)&&n>0,'Enter how many units.');unitAssert(why,'Enter a reason.');
  const plan=unitCancelPlan(o,l,n,now);unitAssert(n<=plan.max,plan.max?'Only '+shippingCount(plan.max,'unit')+' can be cancelled.':'No units left to cancel.');
  const glass=UNIT_GLASS.includes(opts.glass)?opts.glass:'scrap',heat=unitHeatStations();
  unitAssert(glass!=='stock'||!plan.units.some(u=>u.pieces.some(p=>stationScansFor(p).some(s=>heat.includes(s.station)))),'Tempered glass cannot go to stock.');
@@ -33814,9 +33837,14 @@ function invMoves(){
 }
 
 /* ------------------------------ Команды ------------------------------ */
+/* Больше 10 000 листов в одной строке не бывает: вся инвентаризация — до
+   10 000, обычно 1000–1700; приёмка — двух-, максимум трёхзначные (владелец,
+   20.10.2026). Лишние цифры — отказ, а не тихо изменённое число (аудит INV04). */
+const INV_SHEETS_MAX=10000;
 function invWhole(v,label){
  const s=String(v==null?'':v).trim(),n=Number(s);
  if(!s||!Number.isInteger(n)||n<0)throw new Error(label+': enter a whole number, 0 or more.');
+ if(n>INV_SHEETS_MAX)throw new Error(label+': up to 10,000.');
  return n;
 }
 /* Пересчёт: counts — {ключ: сколько насчитали}. Одна команда на все
@@ -35505,7 +35533,7 @@ function ncrFormHTML(){
   const x=f.lines[l.id]||{on:false,qty:'',which:'unit'},opts=ncrLiteOptions(o,l);
   return `<tr data-ncr-line="${esc(l.id)}" class="${x.on?'on':''}"><td><input type="checkbox" data-ncr-line-on ${x.on?'checked':''} aria-label="Line ${i+1} affected" onchange="ncrFormLine('${esc(l.id)}','on',this.checked,true)"></td>
    <td>Line ${i+1}${l.mark?' · '+esc(l.mark):''}</td><td class="nowrap">${esc(dimIn16(l.width16/16))} × ${esc(dimIn16(l.height16/16))}</td><td>${esc(glassCodes(l))}</td><td class="n">${l.qty}</td>
-   <td><input type="number" min="1" max="${l.qty}" step="1" data-ncr-line-qty value="${esc(x.qty)}" ${x.on?'':'disabled'} aria-label="Affected on line ${i+1}" oninput="ncrFormLine('${esc(l.id)}','qty',this.value)"></td>
+   <td><input type="number" min="1" max="${l.qty}" step="1" inputmode="numeric" data-ncr-line-qty value="${esc(x.qty)}" ${x.on?'':'disabled'} aria-label="Affected on line ${i+1}" oninput="ncrFormLine('${esc(l.id)}','qty',this.value)"></td>
    <td><select data-ncr-line-which ${x.on&&!remake&&opts.length>1?'':'disabled'} aria-label="Which glass on line ${i+1}" onchange="ncrFormLine('${esc(l.id)}','which',this.value,true)">${(remake?[opts[0]]:opts).map(v=>`<option value="${esc(v.value)}" ${String(x.which)===v.value?'selected':''}>${esc(v.label)}</option>`).join('')}</select></td></tr>`;
  }).join('');
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)ncrFormClose()"><div class="sales-service-modal sales-dialog ncr-modal" role="dialog" aria-modal="true" aria-label="${recut?'Recut':'New NCR'}">
@@ -37676,7 +37704,7 @@ function invSheetCell(i,c){
  if(c.k==='onRack')return '<td class="n'+(r.onRack<0?' inv-neg':'')+'">'+esc(v)+(r.enterSheets?'<div class="inv-note warn">Enter sheets</div>':'')+'</td>';
  if(c.k==='reserved'){const b=[...r.batches.entries()];return '<td class="n">'+esc(v)+(b.length?'<div class="inv-note">'+esc(b.length>2?b.length+' batches':b.map(([n,k])=>n+(b.length>1?': '+k:'')).join(', '))+'</div>':'')+'</td>';}
  if(c.k==='free')return '<td class="n'+(r.free<0||r.min!=null&&r.free<r.min?' inv-neg':'')+'"><b>'+esc(v)+'</b></td>';
- if(c.k==='min')return '<td class="n">'+(r.sizeMissing?'<span class="mut">—</span>':'<input type="number" min="0" step="1" class="inv-min" data-inv-min="'+esc(r.key)+'" aria-label="Minimum" value="'+(r.min==null?'':r.min)+'" onchange="invMinChange('+invArg(r.key)+',this.value)">')+'</td>';
+ if(c.k==='min')return '<td class="n">'+(r.sizeMissing?'<span class="mut">—</span>':'<input type="number" min="0" step="1" inputmode="numeric" class="inv-min" data-inv-min="'+esc(r.key)+'" aria-label="Minimum" value="'+(r.min==null?'':r.min)+'" onchange="invMinChange('+invArg(r.key)+',this.value)">')+'</td>';
  if(c.k==='held'||c.k==='onOrder'){const blocks=c.k==='held'?r.heldBlocks:r.onOrderBlocks;return '<td class="n">'+(v||blocks?esc(v||0)+(blocks?'<div class="inv-note">+ '+esc(blocks)+' block'+(blocks===1?'':'s')+'</div>':''):'<span class="mut">—</span>')+'</td>';}
  if(c.k==='lastCount')return '<td class="nowrap">'+invLastCount(r)+'</td>';
  if(c.k==='status')return '<td><span class="pill '+(INV_TONE[v]||'')+'">'+esc(v)+'</span></td>';
@@ -37755,7 +37783,7 @@ function invCountCell(i,c){
 function invCountExtra(i){
  const r=i.r;if(r.sizeMissing)return '<td class="mut">Size missing</td>';
  const v=invCountDraft[r.key]==null?'':invCountDraft[r.key],n=Number(v),diff=v!==''&&Number.isFinite(n)&&n!==r.onRack?(n>r.onRack?'+':'−')+Math.abs(n-r.onRack):'';
- return '<td class="inv-count-cell"><input type="number" min="0" step="1" class="inv-count" data-inv-count="'+esc(r.key)+'" data-rack="'+r.onRack+'" aria-label="Counted sheets" value="'+esc(v)+'" oninput="invCountInput('+invArg(r.key)+',this.value,this)"><span class="inv-diff" data-inv-diff>'+esc(diff)+'</span>'+
+ return '<td class="inv-count-cell"><input type="number" min="0" step="1" inputmode="numeric" class="inv-count" data-inv-count="'+esc(r.key)+'" data-rack="'+r.onRack+'" aria-label="Counted sheets" value="'+esc(v)+'" oninput="invCountInput('+invArg(r.key)+',this.value,this)"><span class="inv-diff" data-inv-diff>'+esc(diff)+'</span>'+
   '<button type="button" class="sl-quiet sm" data-inv-writeoff onclick="invWriteOffOpen('+invArg(r.key)+')">Write off</button></td>';
 }
 function invWriteOffOpen(key){invWriteOffDraft={key,qty:'',reason:'',note:''};invNotice='';render();setTimeout(()=>document.getElementById('inv_wo_qty')?.focus(),0);}
@@ -37768,7 +37796,7 @@ function invWriteOffSave(){
 function invWriteOffHTML(){
  const d=invWriteOffDraft,r=d&&invRowFind(d.key);if(!r)return '';
  return '<section class="card inv-writeoff" data-inv-writeoff-form><h3>Write off · '+esc(r.code)+' '+esc(invSizeText(r))+' <span class="mut">· on rack '+esc(r.onRack)+'</span></h3><div class="inv-wo-fields">'+
-  '<label>Sheets<input id="inv_wo_qty" type="number" min="1" step="1" value="'+esc(d.qty)+'" oninput="invWriteOffDraft.qty=this.value"></label>'+
+  '<label>Sheets<input id="inv_wo_qty" type="number" min="1" step="1" inputmode="numeric" value="'+esc(d.qty)+'" oninput="invWriteOffDraft.qty=this.value"></label>'+
   '<label>Reason<select id="inv_wo_reason" onchange="invWriteOffDraft.reason=this.value"><option value="">Choose…</option>'+INV_WRITE_OFF.map(x=>'<option'+(x===d.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></label>'+
   '<label class="inv-wo-note">Note<input id="inv_wo_note" type="text" maxlength="200" value="'+esc(d.note)+'" oninput="invWriteOffDraft.note=this.value"></label>'+
   '<div class="inv-wo-actions"><button type="button" onclick="invWriteOffDraft=null;invNotice=\'\';render()">Cancel</button><button type="button" class="pri" data-inv-writeoff-save onclick="invWriteOffSave()">Write off</button></div></div></section>';
@@ -41972,9 +42000,9 @@ function skipDialogHTML(){
  const pickup=d.to===SKIP_PICKUP,delivered=d.to===SKIP_DELIVERED,dispatch=pickup||delivered||d.to===shippingStations().ship,delivery=delivered||d.to===shippingStations().ship&&o.delivery==='delivery';
  const rows=(o.lines||[]).map((l,i)=>{const v=d.lines[l.id]==null?'':d.lines[l.id],left=d.left[l.id]||0;
   return `<tr data-skip-line="${esc(l.id)}" class="${v?'on':''}"><td>Line ${i+1}${l.mark?' · '+esc(l.mark):''}</td><td class="nowrap">${esc(dimIn16(l.width16/16))} × ${esc(dimIn16(l.height16/16))}</td><td>${esc(glassCodes(l))}</td><td class="n">${l.qty}</td><td class="n">${left}</td>
-   <td><input type="number" min="0" max="${left}" step="1" data-skip-qty value="${v==='all'?left:esc(v)}" ${left?'':'disabled'} aria-label="Line ${i+1} units" oninput="skipSetLine('${esc(l.id)}',this.value)"></td></tr>`;}).join('');
+   <td><input type="number" min="0" max="${left}" step="1" inputmode="numeric" data-skip-qty value="${v==='all'?left:esc(v)}" ${left?'':'disabled'} aria-label="Line ${i+1} units" oninput="skipSetLine('${esc(l.id)}',this.value)"></td></tr>`;}).join('');
  const extras=(o.extraItems||[]).map(x=>{const left=skipExtraLeft(o,x),v=d.extras[x.id]||'';
-  return `<tr data-skip-extra="${esc(x.id)}"><td colspan="3">${esc(salesExtraItemName(x))}</td><td class="n">${x.qty}</td><td class="n">${left}</td><td><input type="number" min="0" max="${left}" step="1" data-skip-extra-qty value="${esc(v)}" ${left&&dispatch?'':'disabled'} aria-label="Stock item units" oninput="skipSetExtra('${esc(x.id)}',this.value)"></td></tr>`;}).join('');
+  return `<tr data-skip-extra="${esc(x.id)}"><td colspan="3">${esc(salesExtraItemName(x))}</td><td class="n">${x.qty}</td><td class="n">${left}</td><td><input type="number" min="0" max="${left}" step="1" inputmode="numeric" data-skip-extra-qty value="${esc(v)}" ${left&&dispatch?'':'disabled'} aria-label="Stock item units" oninput="skipSetExtra('${esc(x.id)}',this.value)"></td></tr>`;}).join('');
  const stations=DB.station||[];
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)skipClose()"><div class="sales-service-modal sales-dialog ncr-modal skip-dialog" role="dialog" aria-modal="true" aria-label="Skip" data-skip-dialog>
   <div class="sales-service-modal-head"><h3>Skip · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" onclick="skipClose()">×</button></div>
@@ -42222,7 +42250,7 @@ function productionUnbatchDialogHTML(){
  const d=productionUnbatchDialog;if(!d)return '';
  const o=salesRecord(d.orderId);if(!productionUnbatchAllowed()||!productionUnbatchCanOpen(o)){productionUnbatchDialog=null;return '';}
  const p=productionUnbatchPreview(productionUnbatchRequest()),catalog=p.catalog||productionUnbatchUnits(o),targets=p.targets||productionUnbatchTargets([]);
- const rows=o.lines.map((l,n)=>{const count=catalog.filter(u=>u.lineId===l.id).length,v=d.lines[l.id]??'';return `<tr data-unbatch-line="${esc(l.id)}"><td>Line ${n+1}${l.mark?' · '+esc(l.mark):''}</td><td>${esc(docSize(l))}</td><td class="n">${count}</td><td><input type="number" data-unbatch-qty aria-label="Line ${n+1} units" min="0" max="${count}" step="1" value="${v==='all'?count:esc(v)}" ${count?'':'disabled'} onchange="productionUnbatchSetLine('${esc(l.id)}',this.value)"></td></tr>`;}).join('');
+ const rows=o.lines.map((l,n)=>{const count=catalog.filter(u=>u.lineId===l.id).length,v=d.lines[l.id]??'';return `<tr data-unbatch-line="${esc(l.id)}"><td>Line ${n+1}${l.mark?' · '+esc(l.mark):''}</td><td>${esc(docSize(l))}</td><td class="n">${count}</td><td><input type="number" inputmode="numeric" data-unbatch-qty aria-label="Line ${n+1} units" min="0" max="${count}" step="1" value="${v==='all'?count:esc(v)}" ${count?'':'disabled'} onchange="productionUnbatchSetLine('${esc(l.id)}',this.value)"></td></tr>`;}).join('');
  const summary=p.error?`<p class="mut">${esc(p.error)}</p>`:`<div data-unbatch-summary><p><b>${shippingCount(p.units.length,'unit')} · ${shippingCount(p.pieces.length,'glass piece')}</b> → ${esc(productionUnbatchTargetLabel(d.target))}</p><p class="mut">Assemblies: ${p.asmIds.length} · Batches: ${esc(p.batchNumbers.join(', ')||'None')} · Packing slips: ${esc(p.shipments.map(s=>s.number+' ('+s.qty+')').join(', ')||'None')}</p><p class="mut">${esc(p.units.map(u=>u.label+' · '+shippingCount(u.pieces.length,'glass piece')).join(', '))}</p>${p.unchanged.length?`<p class="mut" data-unbatch-unchanged>No return needed: ${esc(p.unchanged.join(', '))}</p>`:''}</div>`;
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)productionUnbatchClose()"><div class="sales-service-modal sales-dialog ncr-modal skip-dialog" role="dialog" aria-modal="true" aria-label="Unbatch order" data-production-unbatch-dialog>
   <div class="sales-service-modal-head"><h3>Unbatch · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" onclick="productionUnbatchClose()">×</button></div>
