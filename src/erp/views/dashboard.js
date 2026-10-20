@@ -57,7 +57,7 @@ function dashShopRows(d){
   Object.keys(x.onAt||{}).forEach(k=>Object.keys(x.onAt[k]).forEach(c=>{if(c)(tare[k]||(tare[k]=new Set())).add(c);}));
  });
  d.facts.forEach(f=>{done[f.station]=(done[f.station]||0)+1;});
- return [{label:'To batch',cells:{w:d.orders.reduce((n,x)=>n+(x.counts.queue||0),0),d:null},notes:{w:'in queue'}}].concat((DB.station||[]).map(s=>{
+ return [{label:'To batch',cells:{w:prodQueueAll(),d:null},notes:{w:'in queue'}}].concat((DB.station||[]).map(s=>{
   const t=tare[s.code],n=t?t.size:0,word=t&&[...t].every(c=>/^S/.test(c))?(n===1?'skid':'skids'):(n===1?'dolly':'dollies'),go=`dashStation('${esc(s.code)}')`;
   return {label:s.code,labelHTML:`<b>${esc(s.code)}</b>`,attrs:` data-board-station="${esc(s.code)}" role="button" tabindex="0" onclick="${go}" onkeydown="if(event.key==='Enter')${go}"`,
    cells:{w:waiting[s.code]||0,d:done[s.code]||0},notes:{w:s.code===cut&&waiting[s.code]?'in batches':n?n+' '+word:''}};

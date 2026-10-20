@@ -99,7 +99,8 @@ function invReceiptLines(){
    const g=purGlassProduct(l),code=g?g.code:l.productCode;if(!code||!invGlassCut(code))return;
    const unit=purUnit(l.unit),size=invSize(l.widthIn,l.heightIn);
    let qty=0,issue='';
-   if(unit==='block'){if(l.actualSheets==null)issue='Enter sheets';else qty=l.actualSheets-(l.damagedSheets||0);}
+   /* 0 блоков — листов не ждём (аудит 19.10.2026, F05). */
+   if(unit==='block'){if(l.actualSheets==null&&l.qty!==0)issue='Enter sheets';else qty=(l.actualSheets||0)-(l.damagedSheets||0);}
    else if(unit==='sheet')qty=(l.qty||0)-purBroken(l,l);
    else issue='Not in sheets';
    out.push({r,l,code,size,qty,issue,day:r.date||salesListIsoDay(r.createdAt),at:r.createdAt||''});

@@ -100,6 +100,21 @@ module.exports=async function({page,eq,ok}){
   comPayDraft=null;comHst=false;tab='dashboard';render();return {calls:n};
  }),{calls:3});
 
+ /* Новый процент — с даты From; прошлые оплаты по прежнему (владелец,
+    19–20.10.2026, вариант Б; аудит COM04). */
+ const rate=await t.p.evaluate(()=>{const {sky,a}=cmSeed();cmPay(a,100,'2026-10-15');const r=comSave({name:'Ivan Rate',customers:[{customerId:sky.id,pct:10}]}).value;
+  tab='commissions';comOpen=r.id;comEditOpen(r.id);return {id:r.id,a,sky:sky.id};});
+ await t.p.locator('[data-com-customer="0"] input[aria-label="Percent"]').fill('12');await t.p.locator('[data-com-customer="0"] input[aria-label="Percent"]').press('Tab');
+ const fromDefault=await t.p.locator('[data-com-from]').inputValue();
+ await t.p.locator('[data-com-from]').fill('2026-10-20');await t.p.locator('[data-com-save]').click();
+ eq('процент с From: оплата до даты — по 10 %, после — по 12 %; прежний процент хранится; повторный Save историю не трогает; пустой процент — ошибка',await t.p.evaluate(x=>{
+  cmPay(x.a,100,'2026-10-25');const r=comFind(x.id),c=r.customers[0],k=comNoHstShare(finOrderTotals(salesRecord(x.a))),row=comSummary(r,null).rows[0];
+  const again=comSave(JSON.parse(JSON.stringify(r))).value.customers[0],empty=comSave(Object.assign(JSON.parse(JSON.stringify(r)),{customers:[{customerId:x.sky,pct:''}]})).error;
+  render();const label=document.querySelector('[data-com-row]').textContent.includes('12%');comOpen='';tab='dashboard';render();
+  return {stored:{pct:c.pct,from:c.from,was:c.was},com:row.com===finMoney(finMoney(100*k)*0.1+finMoney(100*k)*0.12),pct:row.pct,again:{from:again.from,was:again.was.length},empty,label};
+ },rate),{stored:{pct:12,from:'2026-10-20',was:[{pct:10,from:''}]},com:true,pct:'10 · 12',again:{from:'2026-10-20',was:1},empty:'Enter a percent from 0.01 to 100.',label:true});
+ eq('From по умолчанию — сегодня',fromDefault,await t.p.evaluate(()=>finToday()));
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

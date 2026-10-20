@@ -7,14 +7,17 @@
    IN : DB.ncrReason, DB.station (erp/quality/reasons)
    OUT: HTML вкладки; запись через ncrReasonAdd / Rename / SetActive
    ===================================================================== */
-let ncrWhere='CUT',ncrError='';
-function ncrSelect(code){ncrWhere=code;ncrError='';render();}
+/* Набранное при отказе остаётся в поле (аудит 19.10.2026, F11): ncrNew —
+   новая причина, ncrTyped — {id, name} строки, которую не переименовали. */
+let ncrWhere='CUT',ncrError='',ncrNew='',ncrTyped=null;
+function ncrSelect(code){ncrWhere=code;ncrError='';ncrNew='';ncrTyped=null;render();}
 function ncrAddFromInput(){
- const el=document.querySelector('[data-ncr-new]');ncrError=ncrReasonAdd(ncrWhere,el?el.value:'');render();
+ const el=document.querySelector('[data-ncr-new]');ncrNew=el?el.value:'';ncrTyped=null;
+ ncrError=ncrReasonAdd(ncrWhere,ncrNew);if(!ncrError)ncrNew='';render();
  if(!ncrError){const next=document.querySelector('[data-ncr-new]');if(next)next.focus();}
 }
-function ncrRenameFromInput(id,el){ncrError=ncrReasonRename(id,el.value);render();}
-function ncrToggle(id,on){ncrReasonSetActive(id,on);ncrError='';render();}
+function ncrRenameFromInput(id,el){const name=el.value;ncrError=ncrReasonRename(id,name);ncrTyped=ncrError?{id,name}:null;render();}
+function ncrToggle(id,on){ncrError=ncrReasonSetActive(id,on);ncrTyped=null;render();}
 function viewMdNcr(){
  const places=ncrWhereList();
  if(ncrWhere!==NCR_ALL&&!places.some(w=>w.code===ncrWhere))ncrWhere=places.length>1?places[1].code:NCR_ALL;
@@ -25,7 +28,7 @@ function viewMdNcr(){
  const hint=ncrWhere===NCR_ALL?'Shown on every station':'';
  const row=r=>{
   const base=station&&r.where===NCR_ALL,scope=r.where===NCR_ALL?'All stations':(r.where===NCR_OFFICE?'Office':r.where)+' only';
-  return `<tr data-ncr-reason="${esc(r.id)}" class="${r.active?'':'ncr-off'}"><td>${base?`<span class="ncr-name">${esc(r.name)}</span>`:`<input class="ncr-name-input" data-ncr-name value="${esc(r.name)}" maxlength="80" aria-label="Reason name" onchange="ncrRenameFromInput('${esc(r.id)}',this)">`}</td>
+  return `<tr data-ncr-reason="${esc(r.id)}" class="${r.active?'':'ncr-off'}"><td>${base?`<span class="ncr-name">${esc(r.name)}</span>`:`<input class="ncr-name-input" data-ncr-name value="${esc(ncrTyped&&ncrTyped.id===r.id?ncrTyped.name:r.name)}" maxlength="80" aria-label="Reason name" onchange="ncrRenameFromInput('${esc(r.id)}',this)">`}</td>
    <td><span class="pill ${r.where===NCR_ALL?'ncr-scope-all':'ncr-scope-own'}">${esc(scope)}</span></td>
    <td class="ncr-active">${base?`<span class="mut" title="Change in All stations">${r.active?'On':'Off'}</span>`:`<label class="ncr-switch"><input type="checkbox" data-ncr-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="ncrToggle('${esc(r.id)}',this.checked)"><span></span></label>`}</td></tr>`;
  };
@@ -36,7 +39,7 @@ function viewMdNcr(){
   <div>
    <div class="card ncr-main">
     <div class="ncr-head"><div><div class="ncr-label">WHAT HAPPENED</div><h3>${esc(ncrWhere===NCR_ALL?'All stations':ncrWhere===NCR_OFFICE?'Office':ncrWhere+' · '+ncrWhereName(ncrWhere))}</h3>${hint?`<p>${esc(hint)}</p>`:''}</div>
-     <div class="ncr-add"><input data-ncr-new maxlength="80" placeholder="New reason" aria-label="New reason" onkeydown="if(event.key==='Enter')ncrAddFromInput()"><button type="button" class="pri" data-ncr-add onclick="ncrAddFromInput()">+ Add reason</button></div></div>
+     <div class="ncr-add"><input data-ncr-new maxlength="80" placeholder="New reason" aria-label="New reason" value="${esc(ncrNew)}" oninput="ncrNew=this.value" onkeydown="if(event.key==='Enter')ncrAddFromInput()"><button type="button" class="pri" data-ncr-add onclick="ncrAddFromInput()">+ Add reason</button></div></div>
     ${ncrError?`<div class="ncr-error" role="alert">${esc(ncrError)}</div>`:''}
     <table class="ncr-table"><thead><tr><th>Reason</th><th>Applies to</th><th>Active</th></tr></thead><tbody>${rows.map(row).join('')||'<tr><td colspan="3" class="empty">No reasons yet.</td></tr>'}</tbody></table>
    </div>

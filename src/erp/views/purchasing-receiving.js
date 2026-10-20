@@ -50,8 +50,9 @@ function purFulfilMapBroken(l){
 function purFulfilRefresh(){const el=document.querySelector('[data-pur-delivery-warnings]');if(el)el.innerHTML=purFulfilWarnings(purFulfilDraft.kind,purFulfilDraft.data).map(s=>'<p>'+esc(s)+'</p>').join('');
  document.querySelectorAll('[data-pur-enter-sheets]').forEach(x=>{x.hidden=!purEnterSheets(purFulfilDraft.data.lines[+x.dataset.purEnterSheets]);});}
 /* Блоки стекла без числа листов на склад не идут (Inventory, владелец
-   14.10.2026: «до этого ничего не меняется») — подсказка у поля Sheets. */
-function purEnterSheets(l){return !!l&&['glass','sheet'].includes(l.kind)&&purUnit(l.unit)==='block'&&purText(l.actualSheets)==='';}
+   14.10.2026: «до этого ничего не меняется») — подсказка у поля Sheets.
+   0 блоков — листов не ждём (аудит 19.10.2026, F05). */
+function purEnterSheets(l){return !!l&&['glass','sheet'].includes(l.kind)&&purUnit(l.unit)==='block'&&purText(l.actualSheets)===''&&!(purText(l.qty)!==''&&+l.qty===0);}
 function purFulfilSelectPO(id){
  const d=purFulfilDraft.data,p=purOrderFind(id);d.poId=id;d.requestId='';d.lines.forEach(l=>{l.poLineId='';l.requestLineId='';});
  if(p){d.supplierId=p.supplierId;d.supplierName=p.supplierName;d.to=p.to;d.cc=p.cc;}render();
