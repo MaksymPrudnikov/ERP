@@ -118,23 +118,24 @@ function storageBaseTexts(tbl){
  if(!m.has('*')){const out=new Map();m.forEach((x,id)=>out.set(id,x.t));return out;}
  return new Map(storageBaseRows(tbl).filter(r=>r&&r.id).map(r=>[String(r.id),JSON.stringify(r)]));
 }
-/* Записи → объект базы, как прежде JSON.parse всего localStorage. */
-function storageJoin(records){
- const state={},tables=new Map();
+/* Записи → объект базы, как прежде JSON.parse всего localStorage. parsed —
+   data уже объект (строки файла Export v2), а не текст JSON. */
+function storageJoin(records,parsed){
+ const state={},tables=new Map(),value=r=>parsed?r.data:JSON.parse(r.data);
  records.forEach(r=>{
-  if(!r||typeof r.tbl!=='string'||typeof r.id!=='string'||typeof r.data!=='string'||!Number.isFinite(r.seq))throw new Error('A stored record is damaged.');
-  if(r.tbl==='_meta'){state[r.id]=JSON.parse(r.data);return;}
+  if(!r||typeof r.tbl!=='string'||typeof r.id!=='string'||(!parsed&&typeof r.data!=='string')||!Number.isFinite(r.seq))throw new Error('A stored record is damaged.');
+  if(r.tbl==='_meta'){state[r.id]=value(r);return;}
   let list=tables.get(r.tbl);if(!list)tables.set(r.tbl,list=[]);list.push(r);
  });
  tables.forEach((list,tbl)=>{
   if(Object.prototype.hasOwnProperty.call(state,tbl))throw new Error('Table '+tbl+' is stored twice.');
   const whole=list.find(r=>r.id==='*');
   if(whole){
-   const rows=JSON.parse(whole.data);
+   const rows=value(whole);
    if(list.length>1||!Array.isArray(rows))throw new Error('Table '+tbl+' is stored twice.');
    state[tbl]=rows;return;
   }
-  state[tbl]=list.sort((a,b)=>a.seq-b.seq).map(r=>JSON.parse(r.data));
+  state[tbl]=list.sort((a,b)=>a.seq-b.seq).map(value);
  });
  return state;
 }
@@ -190,7 +191,8 @@ function storageMerge(a,b){
 }
 
 /* ---- IndexedDB: record — записи; meta — rev (номер последней записи),
-   build (версия, что писала последней), copyAt; copy — копия до импорта. */
+   build (версия, что писала последней), copyAt, test (метка TEST); copy —
+   копия до импорта. */
 function storageIdbOpen(){
  return new Promise((resolve,reject)=>{
   let q;try{q=indexedDB.open(STORAGE_IDB_NAME,1);}catch(e){reject(e);return;}
@@ -211,9 +213,9 @@ function storageIdbTx(stores,mode,fill){
 }
 function storageIdbReadAll(){
  return storageIdbTx(['record','meta'],'readonly',tx=>{
-  const out={records:[],rev:0,build:'',copyAt:''},ms=tx.objectStore('meta');
+  const out={records:[],rev:0,build:'',copyAt:'',test:false},ms=tx.objectStore('meta');
   tx.objectStore('record').getAll().onsuccess=e=>{out.records=e.target.result||[];};
-  ['rev','build','copyAt'].forEach(k=>{ms.get(k).onsuccess=e=>{if(e.target.result!=null)out[k]=e.target.result;};});
+  ['rev','build','copyAt','test'].forEach(k=>{ms.get(k).onsuccess=e=>{if(e.target.result!=null)out[k]=e.target.result;};});
   return out;
  });
 }

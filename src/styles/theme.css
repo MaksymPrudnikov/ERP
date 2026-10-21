@@ -143,6 +143,11 @@ body.cut-full:has([data-cut-full]) .app-foot{display:none}
 .app-alert{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 26px;
  background:var(--warning-soft);color:var(--warning);border-bottom:1px solid var(--warning-line);font-size:14px;font-weight:500}
 .app-alert[hidden]{display:none}
+/* База симулятора: чип TEST DATA на любом экране — офис, станция, вход,
+   планшет. Не ловит клики: под ним кнопки остаются кнопками. */
+.test-chip{position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:60;pointer-events:none;padding:2px 10px;border-radius:999px;
+ background:var(--warning-soft);color:var(--warning);border:1px solid var(--warning-line);font-size:11px;font-weight:700;letter-spacing:.06em}
+.test-chip[hidden]{display:none}
 .app-alert button{background:var(--surface);color:var(--text);border-color:var(--warning-line);font-weight:600}
 body.station-mode .app-alert{position:static;font-size:17px;padding:14px 22px}
 body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:16px}
