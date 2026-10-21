@@ -3468,7 +3468,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='2765948ce52b';
+var ERP_BUILD='6c5e44d2c4d3';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -5834,7 +5834,16 @@ function shapeLayoutMenuSvg(key,cx,cy,vw,o){
 }
 /* label — SVG подписи; (ax, ay) — её центр; o.from — точка линии, к которой
    подпись относится (для выноски); o.axis 'dim' — число размера: мышь ведёт
-   его только вдоль или поперёк линии. */
+   его только вдоль или поперёк линии. Линия размера ходит только поперёк
+   себя: o.axis 'x' / 'y' — по оси, 'n' — по нормали (o.nx, o.ny) косой
+   линии. Сдвиг вбок от оси не рисуется, откуда бы он ни пришёл: от
+   стрелок клавиатуры линия съезжала с детали, а выносные оставались. */
+function shapeAnnAxisShift(o,dx,dy){
+  if(o.axis==='x')return [dx,0];
+  if(o.axis==='y')return [0,dy];
+  if(o.axis==='n'){var t=dx*o.nx+dy*o.ny;return [Math.round(t*o.nx*10)/10,Math.round(t*o.ny*10)/10];}
+  return [dx,dy];
+}
 function shapeAnnItem(opts,key,label,ax,ay,o){
   o=o||{};if(!label)return '';
   if(!key||!opts)return label;
@@ -5845,11 +5854,11 @@ function shapeAnnItem(opts,key,label,ax,ay,o){
     if(!ui)return '';
     return '<g class="shape-dim-ghost shape-layout-ghost" data-layout-key="'+k+'" onclick="event.stopPropagation();shapeLayoutShow(\''+k+'\')"><title>Show '+shapeXml(SHAPE_LAYOUT_TEXT[key])+'</title><circle cx="'+ax+'" cy="'+ay+'" r="7"/><text x="'+ax+'" y="'+(ay+3.5)+'" text-anchor="middle">+</text></g>';
   }
-  var dx=+rec.dx||0,dy=+rec.dy||0,sc=o.noScale?1:(+rec.scale||1),tf=shapeLayoutTransform(dx,dy,sc,ax,ay),out='';
+  var sh=shapeAnnAxisShift(o,+rec.dx||0,+rec.dy||0),dx=sh[0],dy=sh[1],sc=o.noScale?1:(+rec.scale||1),tf=shapeLayoutTransform(dx,dy,sc,ax,ay),out='';
   if(o.from&&Math.hypot(dx,dy)>12)out+='<line class="shape-layout-leader" x1="'+o.from[0]+'" y1="'+o.from[1]+'" x2="'+(ax+dx)+'" y2="'+(ay+dy)+'" stroke="#98a2b3" stroke-width=".8"/>';
   var sel=ui&&opts.layoutSelected===key;
   var attrs='class="shape-layout-item'+(sel?' active':'')+'" data-layout-key="'+k+'"'+(tf?' transform="'+tf+'"':'')+
-    (ui?' data-layout-ax="'+ax+'" data-layout-ay="'+ay+'" data-layout-dx="'+dx+'" data-layout-dy="'+dy+'" data-layout-s="'+sc+'" data-layout-axis="'+(o.axis||'free')+'" onpointerdown="shapeLayoutPointerDown(event,this)" onclick="event.stopPropagation()"':'');
+    (ui?' data-layout-ax="'+ax+'" data-layout-ay="'+ay+'" data-layout-dx="'+dx+'" data-layout-dy="'+dy+'" data-layout-s="'+sc+'" data-layout-axis="'+(o.axis||'free')+'"'+(o.axis==='n'?' data-layout-nx="'+o.nx+'" data-layout-ny="'+o.ny+'"':'')+' onpointerdown="shapeLayoutPointerDown(event,this)" onclick="event.stopPropagation()"':'');
   /* Одиночная подпись без своего transform и class получает атрибуты прямо на
      <text>: так подпись фурнитуры остаётся прямым потомком метки, и её стили
      (кегль отверстия) не меняются. */
@@ -6940,17 +6949,28 @@ function shapeStepLiteDimsSvg(F,P,Q,ids,l,pre,ann,kp,fmt,size,metricMode){
     var fits=function(s){return fabPointInPoly([a[0]+nx*s*(g+4),a[1]+ny*s*(g+4)],P)&&fabPointInPoly([b[0]+nx*s*(g+4),b[1]+ny*s*(g+4)],P);};
     if(!fits(1)&&fabPointInPoly([mx-nx*60,my-ny*60],P)&&fits(-1)){nx=-nx;ny=-ny;}
     done.push({ux:ux,uy:uy,len:tl});
-    var x1=a[0]+nx*g,y1=a[1]+ny*g,x2=b[0]+nx*g,y2=b[1]+ny*g,lx=mx+nx*(g+11),ly=my+ny*(g+11);
+    var lx=mx+nx*(g+11),ly=my+ny*(g+11);
     var ang=Math.atan2(dy,dx)*180/Math.PI;if(ang>90)ang-=180;if(ang<-90)ang+=180;
     var id=ids.length===n?ids[k]:'',key=kp+'step:lite'+l.index+':'+(id&&ids.indexOf(id)===ids.lastIndexOf(id)?id:k);
-    var body='<g class="shape-step-dim" data-lite-index="'+l.index+'">'+
-      '<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+(x1+nx*4)+'" y2="'+(y1+ny*4)+'" stroke="#101828" stroke-width=".7"/>'+
-      '<line x1="'+b[0]+'" y1="'+b[1]+'" x2="'+(x2+nx*4)+'" y2="'+(y2+ny*4)+'" stroke="#101828" stroke-width=".7"/>'+
-      '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#'+mark+')" marker-end="url(#'+mark+')"/>'+
-      shapeAnnText(lx,ly+4,pre+fmt(tl),{size:size,weight:700,rot:ang})+'</g>';
-    out+=shapeAnnItem(ann,key,body,lx,ly,{from:[mx,my],vw:F.vw});
+    out+='<g class="shape-step-dim" data-lite-index="'+l.index+'">'+shapeStepDimSvg(ann,key,a,b,nx,ny,g,shapeAnnText(lx,ly+4,pre+fmt(tl),{size:size,weight:700,rot:ang}),lx,ly,mark,F)+'</g>';
   });
   return out;
+}
+/* Размер меньшего лайта двигается как внешний (владелец, 21.10.2026: «у
+   внутренней линии при увеличении увеличивается линия и размер, и её можно
+   сдвинуть не по траектории»): линия — только поперёк себя и не растёт
+   (ключ +'|line'), число — само по себе, A−/A+ меняют только его. Выносные
+   идут от точек лайта до того места, где линия стоит сейчас. */
+function shapeStepDimSvg(ann,key,a,b,nx,ny,g,text,lx,ly,mark,F){
+  var hid=shapeAnnDimHidden(ann,key);if(hid)return shapeAnnItem(ann,hid,text,lx,ly);
+  var lo={axis:Math.abs(nx)<1e-9?'y':Math.abs(ny)<1e-9?'x':'n',nx:Math.round(nx*1e4)/1e4,ny:Math.round(ny*1e4)/1e4,noScale:true,menuGap:Math.abs(nx)<1e-9?26:0,vw:F.vw};
+  var r=shapeLayoutRec(ann,key+'|line'),sh=shapeAnnAxisShift(lo,+r.dx||0,+r.dy||0),e=g+sh[0]*nx+sh[1]*ny,over=e>=0?4:-4;
+  var x1=a[0]+nx*g,y1=a[1]+ny*g,x2=b[0]+nx*g,y2=b[1]+ny*g;
+  var ext='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+(a[0]+nx*(e+over))+'" y2="'+(a[1]+ny*(e+over))+'" stroke="#101828" stroke-width=".7"/>'+
+    '<line x1="'+b[0]+'" y1="'+b[1]+'" x2="'+(b[0]+nx*(e+over))+'" y2="'+(b[1]+ny*(e+over))+'" stroke="#101828" stroke-width=".7"/>';
+  var hit=ann&&ann.interactive?'<line class="shape-layout-hit" x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="transparent" stroke-width="10"/>':'';
+  var num=shapeAnnItem(ann,key,text,lx,ly,{from:[(x1+x2)/2,(y1+y2)/2],axis:'dim',vw:F.vw});
+  return ext+shapeAnnItem(ann,key+'|line',hit+'<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#'+mark+')" marker-end="url(#'+mark+')"/>'+num,(x1+x2)/2,(y1+y2)/2,lo);
 }
 /* Лист одного стекла ступенчатого юнита («у каждого стекла свой лист»). У
    лайта с отступом формы нет — только контур, поэтому его рисует тот же
@@ -18344,7 +18364,13 @@ function salesExtraServiceUnit(x){var r=salesExtraServiceRate(x);return (r&&r.un
    пропускает нормализация цен строки (normalizeSalesChargePricing). */
 function salesExtraServiceGroup(x){
   if(x.rateId)return 'EXTRA:'+String(x.rateId).replace(/[^A-Za-z0-9:._+\-]/g,'_');
-  return 'EXTRA:custom-'+String(x.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')+'-'+(SALES_EXTRA_UNITS.indexOf(x.unit)+1);
+  /* Имя без латиницы («Шлифовка», «Покраска») или из одних значков давало
+     пустую часть ключа: разные сервисы склеивались в один, и второй не
+     добавлялся («Already on this line»). Такому имени — короткий отпечаток
+     самого имени; латинские имена и их сохранённые цены не меняются. */
+  var name=String(x.name||'').trim().toLowerCase().replace(/\s+/g,' '),slug=name.replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''),h=0;
+  if(!slug||/[^\x00-\x7f]/.test(name)){for(var i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))>>>0;slug=(slug?slug+'-':'')+'u'+h.toString(36);}
+  return 'EXTRA:custom-'+slug+'-'+(SALES_EXTRA_UNITS.indexOf(x.unit)+1);
 }
 function salesExtraServiceKey(x){return salesExtraServiceGroup(x)+'|'+x.id;}
 /* Количество на юнит: введённое или, если пусто, по размеру юнита. */
@@ -21563,7 +21589,18 @@ function shapeLayoutScale(key,step){
 function shapeLayoutHide(key){if(!sDraft)return;shapeLayoutAdoptLegacy();shapeLayoutEntry(key).hide=true;sLayoutEdit=null;refreshShapeEditor();}
 function shapeLayoutShow(key){if(!sDraft)return;var rec=shapeLayoutEntry(key);delete rec.hide;shapeLayoutPrune(key);sLayoutEdit={key:key};refreshShapeEditor();}
 function shapeLayoutReset(key){if(!sDraft)return;var rec=shapeLayoutEntry(key);delete rec.dx;delete rec.dy;delete rec.scale;delete rec.hide;shapeLayoutPrune(key);sLayoutEdit={key:key};refreshShapeEditor();}
-function shapeLayoutNudge(key,dx,dy){if(!sDraft)return;shapeLayoutAdoptLegacy();var rec=shapeLayoutEntry(key);shapeLayoutSet(key,(+rec.dx||0)+dx,(+rec.dy||0)+dy);sLayoutEdit={key:key};refreshShapeEditor();}
+/* Стрелки клавиатуры ведут подпись по той же оси, что и мышь: линия размера
+   — только поперёк себя. */
+function shapeLayoutAxisOf(key){
+  var el=typeof document!=='undefined'&&document.querySelector('#shapeLivePreview [data-layout-key="'+key+'"]');
+  return el?{axis:el.getAttribute('data-layout-axis')||'free',nx:+el.getAttribute('data-layout-nx')||0,ny:+el.getAttribute('data-layout-ny')||0}:{axis:'free'};
+}
+function shapeLayoutAxisMove(a,dx,dy){
+  if(a.axis==='x')return [dx,0];if(a.axis==='y')return [0,dy];
+  if(a.axis==='n'){var t=dx*a.nx+dy*a.ny;return [t*a.nx,t*a.ny];}
+  return [dx,dy];
+}
+function shapeLayoutNudge(key,dx,dy){if(!sDraft)return;shapeLayoutAdoptLegacy();var rec=shapeLayoutEntry(key),m=shapeLayoutAxisMove(shapeLayoutAxisOf(key),dx,dy);shapeLayoutSet(key,(+rec.dx||0)+m[0],(+rec.dy||0)+m[1]);sLayoutEdit={key:key};refreshShapeEditor();}
 /* Понятное имя скрытой подписи — её собственный текст с последнего чертежа. */
 function shapeLayoutKeyText(key){
   var t=typeof SHAPE_LAYOUT_TEXT!=='undefined'&&SHAPE_LAYOUT_TEXT[key];if(t)return t;
@@ -21579,16 +21616,23 @@ function shapeLayoutHiddenHTML(only){
    линиям, всё ложится на сетку. Shift — строго по одной оси и для свободной
    подписи. */
 function shapeLayoutSnap(d,dx,dy,shift){
+  /* Косая линия размера — по нормали: магнит и сетка по самому сдвигу. */
+  if(d.axis==='n'){var t=dx*d.nx+dy*d.ny;if(Math.abs(t)<SHAPE_LAYOUT_STICK)t=0;t=Math.round(t/SHAPE_LAYOUT_GRID)*SHAPE_LAYOUT_GRID;return [shapeLayoutClamp(t*d.nx),shapeLayoutClamp(t*d.ny)];}
   if(d.axis==='y')dx=d.dx0;else if(d.axis==='x')dy=d.dy0;
   else if(d.axis==='dim'||shift){if(Math.abs(dx-d.dx0)>=Math.abs(dy-d.dy0))dy=d.dy0;else dx=d.dx0;}
   if(Math.abs(dx)<SHAPE_LAYOUT_STICK)dx=0;if(Math.abs(dy)<SHAPE_LAYOUT_STICK)dy=0;
   return [shapeLayoutClamp(Math.round(dx/SHAPE_LAYOUT_GRID)*SHAPE_LAYOUT_GRID),shapeLayoutClamp(Math.round(dy/SHAPE_LAYOUT_GRID)*SHAPE_LAYOUT_GRID)];
 }
 function shapeLayoutPointerDown(ev,el){
-  if(!sDraft||ev.button>0)return;ev.stopPropagation();
+  if(!sDraft||ev.button>0)return;
+  /* Меню числа лежит внутри его линии размера: нажатие на A− / A+ / Hide /
+     Reset линию не берёт, иначе клик уходил линии и выделял её — в мм число
+     габарита не увеличивалось. */
+  if(ev.target&&ev.target.closest&&ev.target.closest('.shape-dim-menu'))return;
+  ev.stopPropagation();
   var svg=el.ownerSVGElement,m=svg&&svg.getScreenCTM&&svg.getScreenCTM();if(!m)return;
   var inv=m.inverse(),at=function(e){var p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(inv);},start=at(ev),num=function(k){var v=+el.getAttribute('data-layout-'+k);return isFinite(v)?v:0;};
-  sLayoutDrag={key:el.getAttribute('data-layout-key'),el:el,at:at,start:start,dx0:num('dx'),dy0:num('dy'),dx:num('dx'),dy:num('dy'),s:num('s')||1,ax:num('ax'),ay:num('ay'),axis:el.getAttribute('data-layout-axis')||'free',moved:false};
+  sLayoutDrag={key:el.getAttribute('data-layout-key'),el:el,at:at,start:start,dx0:num('dx'),dy0:num('dy'),dx:num('dx'),dy:num('dy'),s:num('s')||1,ax:num('ax'),ay:num('ay'),axis:el.getAttribute('data-layout-axis')||'free',nx:num('nx'),ny:num('ny'),moved:false};
   try{el.setPointerCapture(ev.pointerId);}catch(e){}
   el.addEventListener('pointermove',shapeLayoutPointerMove);el.addEventListener('pointerup',shapeLayoutPointerUp);el.addEventListener('pointercancel',shapeLayoutPointerUp);
   ev.preventDefault();
