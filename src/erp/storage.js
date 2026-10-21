@@ -91,6 +91,8 @@ function touch(){
   /* Счётчик номеров стёкол — раньше базы (erp/production/glass-batches). */
   if(typeof glassIdMarkSave==='function')glassIdMarkSave();
   const changes=storageDiff(DB);
+  /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
+  if(!changes.length){storageLastError=storageFailed?storageLastError:'';return true;}
   storageWrite(changes);storageBaseApply(changes);
   storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
  }catch(e){
@@ -129,7 +131,7 @@ function storageWriteFailed(changes,e){
   return;
  }
  storageFailed=storageQueued?storageMerge(changes,storageQueued):changes;storageQueued=null;storageBusy=false;
- storageLastError='Not saved. Your changes are still here: retry the save or export them.';
+ storageLastError='Not saved. Retry or export your changes.';
  console.error('Database write failed:',e);
  storageFlushWaiters.splice(0).forEach(r=>r(false));
  if(!storageWarningShown){storageWarningShown=true;alert(storageLastError);}
