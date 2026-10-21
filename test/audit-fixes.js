@@ -110,7 +110,8 @@ module.exports=async function({page,eq,ok}){
  // takes over again and reloads the latest database before the first edit.
  const shared=await t.p.evaluate(()=>{tab='sales';const id=oqOrder(oqCustomer());salesDraftDrop();touch();return id;});
  const follower=await t.c.newPage();follower.on('pageerror',e=>t.errs.push(e.message));follower.on('dialog',d=>d.accept());await follower.goto(t.p.url());await follower.waitForFunction(()=>typeof storageStarting!=='undefined'&&!storageStarting);
- ok('a tab you open becomes the writer',await follower.evaluate(()=>storageWriter));
+ /* Передача записи ждёт базу (IndexedDB): на медленной машине CI — дольше. */
+ ok('a tab you open becomes the writer',await follower.waitForFunction(()=>storageWriter,null,{timeout:5000}).then(()=>true,()=>false));
  eq('the tab left behind cannot overwrite the database',await t.p.evaluate(()=>{const before=testStoredText(),n=DB.customer.length,out=storageCommand(()=>DB.customer.push({id:'af-lost'}));return {writer:storageWriter,ok:out.ok,same:before===testStoredText(),count:DB.customer.length===n};}),{writer:false,ok:false,same:true,count:true});
  await follower.evaluate(id=>{tab='sales';salesOrderEdit(id);soDraft.notes='Local note';},shared);
  await t.p.evaluate(()=>storageTakeControl());
