@@ -75,8 +75,12 @@ Clear database.
   ПК цеха. Export JSON — полная незашифрованная копия.
 
 **Для разработчиков**
-- `window.storageReady` — Promise старта, его ждут тесты и `tools/shot.js`
-  (вместо паузы 250 мс). `storageFlush()` — дождаться записи.
+- `window.storageReady` — Promise старта, его ждут тесты, `tools/shot.js`,
+  `tools/sim-shop.js`, `tools/e2e-cases.js`, `tools/e2e-exceptions.js` и
+  `tools/cut-bench.js` (вместо паузы 250 мс). `storageFlush()` — дождаться
+  записи. Кто открывает ERP и сразу работает без этого ожидания, теряет
+  данные посреди сценария: старт в фоне подменяет `DB`. Так 21.10 упал CI
+  main после слияния #302 (пилотные заказы e2e на собранном файле).
 - `storageSeed(obj)` — засев для тестов и инструментов: записи как есть, без
   нормализации, затем F5. `tools/shot.js` засевает так новую сборку, а main —
   по-старому через localStorage.

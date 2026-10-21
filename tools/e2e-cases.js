@@ -10,6 +10,8 @@ async function run() {
  page.on('pageerror', e => errors.push(e.message));
  page.on('dialog', d => d.accept());
  await page.goto('file://' + path.resolve(__dirname, process.env.TARGET==='dist'?'../dist/GLASS_ERP.html':'../src/index.html'));
+ /* База стартует в фоне (IndexedDB): без ожидания старт подменяет DB посреди сценария. */
+ await page.evaluate(() => window.storageReady);
  await require('../test/optimization-fixture')(page);
  const result = await page.evaluate(() => {
   const cases = [

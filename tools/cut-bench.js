@@ -58,6 +58,7 @@ function benchFile() {
   const p = await c.newPage();
   p.on('dialog', d => d.accept());
   await p.goto('file://' + target);
+  await p.evaluate(() => window.storageReady);
   await p.waitForTimeout(300);
   await require(path.join(ROOT, 'test/optimization-fixture'))(p);
 
