@@ -55,6 +55,22 @@ module.exports=async function({page,eq}){
    return {btn,menu,closed:sPrintMenu,one,all,plain};
   }finally{printSheet=old;tab='sales';sEdit=null;sDraft=null;salesBridge=null;}
  }),{btn:'Print / PDF ▾',menu:['Unit','Lite 1','Lite 2','All · 3'],closed:false,one:'Glass: Lite 1 of 2',all:['unit','Glass: Lite 1 of 2','Glass: Lite 2 of 2'],plain:'Print / PDF'});
+ /* Размер меньшего лайта двигается как внешний (владелец, 21.10.2026: «при
+    увеличении увеличивается линия и размер, и её можно сдвинуть не по
+    траектории»): A+ — только число, линия — только поперёк себя, выносные
+    тянутся за ней. В дюймах и в мм одинаково. */
+ eq('размер меньшего лайта: A+ — только число, линия ходит поперёк себя, выносные за ней; дюймы и мм',await t.p.evaluate(()=>{
+  const line=suOrder({'0':{inset:{A:'2'},edgeOps:{},mirror:false}},'',true),S=salesLineGeometryShape(line),res=ShapeModule.compute(S);
+  const step=salesStepDrawingData(salesLineStepInfo(line,soDraft),shapeEdgeNames(res.geometry));
+  const doc=(mm,layout)=>{const d=normalizeShapeDef(Object.assign(JSON.parse(JSON.stringify(S)),{drawingLayout:layout||{}}));
+   return new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d),mm?{metric:{interactive:true},step}:{annotation:{interactive:true},step}),'image/svg+xml');};
+  return [false,true].map(mm=>{
+   const g=[...doc(mm).querySelectorAll('.shape-step-dim [data-layout-key$="|line"]')].find(x=>x.getAttribute('data-layout-axis')==='x'),key=g.getAttribute('data-layout-key').replace(/\|line$/,'');
+   const d=doc(mm,{[key]:{scale:2},[key+'|line']:{dx:30,dy:40}}),ln=d.querySelector('[data-layout-key="'+key+'|line"]'),num=d.querySelector('[data-layout-key="'+key+'"]');
+   const at=+ln.querySelector('line[marker-start]').getAttribute('x1')+30,ext=[...ln.parentNode.querySelectorAll(':scope > line')].map(l=>+l.getAttribute('x2'));
+   return {line:ln.getAttribute('transform'),num:/scale\(2\)/.test(num.getAttribute('transform')||''),ext:ext.length===2&&ext.every(x=>Math.abs(Math.abs(x-at)-4)<.01)};
+  });
+ }),[{line:'translate(30 0)',num:true,ext:true},{line:'translate(30 0)',num:true,ext:true}]);
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
