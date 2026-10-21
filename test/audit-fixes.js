@@ -13,13 +13,17 @@ module.exports=async function({page,eq,ok}){
    const o=salesRecord(id),line=o.lines[0],cs=glassBatchComponents(o,line),pm=glassPieceMap(id);window.af={id,o,l:line,ids:cs.map(c=>pm.get(c.key).ids[0]),who:{id:'af',name:'Audit operator'}};return af.ids;
   };
   window.afScan=(s,id)=>{const c=stationCheck(s,id);return STATION_RECORDED.includes(c.kind)?stationMove(s,c,af.who):{kind:c.kind};};
-  window.afFailWrite=fn=>{const keep=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw new DOMException('Test quota','QuotaExceededError');return keep.call(this,k,v);};try{return fn();}finally{Storage.prototype.setItem=keep;}};
+  window.afFailWrite=fn=>testFailWrite(fn);
  });
- eq('late storage events never replace the latest saved database',await t.p.evaluate(()=>{
-  afOrder();const stale=localStorage.getItem(STORAGE_KEY);storageCommand(()=>{DB.customer[0].legalName='Newest saved value';});window.dispatchEvent(new StorageEvent('storage',{key:STORAGE_KEY,newValue:stale}));return {name:DB.customer[0].legalName,baseline:storageBaseline===localStorage.getItem(STORAGE_KEY)};
+ /* Сообщение «записано» от другой вкладки опоздало: старый номер записи не перематывает базу. */
+ eq('late storage events never replace the latest saved database',await t.p.evaluate(async()=>{
+  afOrder();await storageFlush();const stale=storageRev;storageCommand(()=>{DB.customer[0].legalName='Newest saved value';});await storageFlush();
+  const w=storageWriter;storageWriter=false;await storageApplySaved({type:'saved',build:storageBuildId(),rev:stale,keys:[['customer',DB.customer[0].id]]});storageWriter=w;
+  const back=await storageIdbGet([['customer',DB.customer[0].id]]);
+  return {name:DB.customer[0].legalName,baseline:JSON.parse(back.records[0].data).legalName===DB.customer[0].legalName};
  }),{name:'Newest saved value',baseline:true});
  eq('failed scan restores durable state, route and batch cut flag',await t.p.evaluate(()=>{
-  afOrder();const before=localStorage.getItem(STORAGE_KEY),out=afFailWrite(()=>afScan('CUT',af.ids[0]));return {ok:out.ok,waiting:stationPlace(stationGlass(af.ids[0])).waiting,scans:DB.stationScan.length,frozen:DB.productionRoute.length,cut:!!stationGlass(af.ids[0]).entry.item.cutStartedAt,same:before===localStorage.getItem(STORAGE_KEY)};
+  afOrder();const before=testStoredText(),out=afFailWrite(()=>afScan('CUT',af.ids[0]));return {ok:out.ok,waiting:stationPlace(stationGlass(af.ids[0])).waiting,scans:DB.stationScan.length,frozen:DB.productionRoute.length,cut:!!stationGlass(af.ids[0]).entry.item.cutStartedAt,same:before===testStoredText()};
  }),{ok:false,waiting:'CUT',scans:0,frozen:0,cut:false,same:true});
  eq('failed batch assignment leaves glass free and order status unchanged',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();salesSetRecordStatus(id,'verified');const before=JSON.stringify(DB.glassBatch);const out=afFailWrite(()=>glassBatchAssign(glassBatchRows([salesRecord(id)]),{}));return {assigned:!!out,same:JSON.stringify(DB.glassBatch)===before,status:salesRecord(id).status,locked:salesRecord(id).lines.some(salesLineLocked)};
@@ -75,23 +79,28 @@ module.exports=async function({page,eq,ok}){
  eq('empty, unrelated and unknown-version imports are rejected without replacing DB',await t.p.evaluate(()=>{
   const before=JSON.stringify(DB),values=[{}, {unrelated:[]},{format:'glass-erp',schemaVersion:999,data:DB},{productionRoute:[{key:'invalid',route:{codes:['CNC'],services:[{station:'CNC',text:'Polish',step:2}]}}]}];return {rejected:values.map(x=>{try{prepareImportedState(x);return false;}catch(e){return true;}}),same:before===JSON.stringify(DB)};
  }),{rejected:[true,true,true,true],same:true});
- eq('import keeps a verified pre-import copy, Restore brings the old database back',await t.p.evaluate(()=>{
+ eq('import keeps a verified pre-import copy, Restore brings the old database back',await t.p.evaluate(async()=>{
   const before=DB.customer.map(x=>x.id).join(),raw=storageExportEnvelope();raw.data=JSON.parse(JSON.stringify(raw.data));raw.data.customer=[];raw.data.salesOrder=[];raw.data.receipt=[];raw.data.refund=[];raw.data.financeExport=[];raw.data.financeEvent=[];raw.data.glassPiece=[];raw.data.glassBatch=[];raw.data.recut=[];
-  const imported=storageImportState(raw),backup=JSON.parse(localStorage.getItem(STORAGE_BACKUP_KEY)),restored=storageRestoreBackup();return {imported,backed:backup.data.customer.map(x=>x.id).join()===before,restored,same:DB.customer.map(x=>x.id).join()===before};
+  const imported=await storageImportState(raw),backup=JSON.parse(await storageIdbCopyGet()),restored=await storageRestoreBackup();return {imported,backed:backup.data.customer.map(x=>x.id).join()===before,restored,same:DB.customer.map(x=>x.id).join()===before};
  }),{imported:true,backed:true,restored:true,same:true});
- eq('failed import keeps both current database and usable pre-import backup',await t.p.evaluate(()=>{
-  const before=JSON.stringify(DB),stored=localStorage.getItem(STORAGE_KEY),raw=storageExportEnvelope();raw.data=JSON.parse(before);raw.data.customer[0].legalName='Imported change';const imported=afFailWrite(()=>storageImportState(raw));return {imported,same:before===JSON.stringify(DB),stored:stored===localStorage.getItem(STORAGE_KEY),backup:JSON.stringify(JSON.parse(localStorage.getItem(STORAGE_BACKUP_KEY)).data)===before};
+ eq('failed import keeps both current database and usable pre-import backup',await t.p.evaluate(async()=>{
+  const before=JSON.stringify(DB),stored=testStoredText(),raw=storageExportEnvelope();raw.data=JSON.parse(before);raw.data.customer[0].legalName='Imported change';
+  testWriteBreak();let imported;try{imported=await storageImportState(raw);}finally{testWriteHeal();}
+  return {imported,same:before===JSON.stringify(DB),stored:stored===testStoredText(),backup:JSON.stringify(JSON.parse(await storageIdbCopyGet()).data)===before};
  }),{imported:false,same:true,stored:true,backup:true});
- eq('pre-import copy expires after a week and gives way when storage is full',await t.p.evaluate(()=>{
-  const env=days=>JSON.stringify({format:'glass-erp',schemaVersion:1,exportedAt:new Date(Date.now()-days*864e5).toISOString(),data:{}});
-  localStorage.setItem(STORAGE_BACKUP_KEY,env(2));storageBackupCheck();const fresh=storageBackupPresent&&localStorage.getItem(STORAGE_BACKUP_KEY)!==null;
-  localStorage.setItem(STORAGE_BACKUP_KEY,env(8));storageBackupCheck();const expired=!storageBackupPresent&&localStorage.getItem(STORAGE_BACKUP_KEY)===null;
-  localStorage.setItem(STORAGE_BACKUP_KEY,env(1));storageBackupCheck();
-  const keep=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY&&localStorage.getItem(STORAGE_BACKUP_KEY)!==null)throw new DOMException('Test quota','QuotaExceededError');return keep.call(this,k,v);};
-  let out;try{out=storageCommand(()=>{DB.customer[0].legalName='Saved after cleanup';});}finally{Storage.prototype.setItem=keep;}
-  return {fresh,expired,saved:out.ok&&JSON.parse(localStorage.getItem(STORAGE_KEY)).customer[0].legalName==='Saved after cleanup',dropped:localStorage.getItem(STORAGE_BACKUP_KEY)===null&&!storageBackupPresent,button:!storageStatusHTML().includes('Restore pre-import')};
+ eq('pre-import copy expires after a week and gives way when storage is full',await t.p.evaluate(async()=>{
+  const put=async days=>{const at=new Date(Date.now()-days*864e5).toISOString();await storageIdbCopyPut(JSON.stringify({format:'glass-erp',schemaVersion:1,exportedAt:at,data:{}}),at);storageCopyAt=at;storageBackupPresent=true;};
+  const present=async()=>(await storageIdbCopyGet())!==null;
+  await put(2);await storageBackupCheck();const fresh=storageBackupPresent&&await present();
+  await put(8);await storageBackupCheck();const expired=!storageBackupPresent&&!await present();
+  await put(1);await storageBackupCheck();
+  /* Диск полон, пока лежит копия: запись сначала убирает копию и повторяет. */
+  const real=storageIdbWrite;storageIdbWrite=(...a)=>storageBackupPresent?Promise.reject(new DOMException('Test quota','QuotaExceededError')):real(...a);
+  let out,saved;try{out=storageCommand(()=>{DB.customer[0].legalName='Saved after cleanup';});saved=await storageFlush();}finally{storageIdbWrite=real;}
+  const back=await storageIdbGet([['customer',DB.customer[0].id]]);
+  return {fresh,expired,saved:out.ok&&saved&&JSON.parse(back.records[0].data).legalName==='Saved after cleanup',dropped:!await present()&&!storageBackupPresent,button:!storageStatusHTML().includes('Restore pre-import')};
  }),{fresh:true,expired:true,saved:true,dropped:true,button:true});
- eq('partial UI import is rejected before confirmation or replacement',await t.p.evaluate(()=>{const before=JSON.stringify(DB);try{storageImportState({customer:[]});return false;}catch(e){return JSON.stringify(DB)===before&&e.message.includes('complete');}}),true);
+ eq('partial UI import is rejected before confirmation or replacement',await t.p.evaluate(async()=>{const before=JSON.stringify(DB);try{await storageImportState({customer:[]});return false;}catch(e){return JSON.stringify(DB)===before&&e.message.includes('complete');}}),true);
  eq('production exceptions and station dimensions are visible without horizontal tile scrolling',await t.p.evaluate(()=>{
   tab='production';subtab='orders';render();const attention=!!document.querySelector('[data-prod-exceptions]'),wrap=getComputedStyle(document.querySelector('.pb-tiles')).flexWrap;
   DB.user.push({name:'CNC audit',role:'Shop',station:'CNC',skills:[],pin:'0000'});normalizeUsers();stationCode='CNC';tab='station';stationLogin(DB.user.at(-1).viewProfileId);stationPeek(af.ids[0]);const text=document.getElementById('app').textContent;return {attention,wrap,dimensions:text.includes('Finished size'),keyboardNav:[...document.querySelectorAll('.nav-item:not(.soon)')].every(el=>el.tagName==='BUTTON')};
@@ -101,8 +110,9 @@ module.exports=async function({page,eq,ok}){
  // takes over again and reloads the latest database before the first edit.
  const shared=await t.p.evaluate(()=>{tab='sales';const id=oqOrder(oqCustomer());salesDraftDrop();touch();return id;});
  const follower=await t.c.newPage();follower.on('pageerror',e=>t.errs.push(e.message));follower.on('dialog',d=>d.accept());await follower.goto(t.p.url());await follower.waitForFunction(()=>typeof storageStarting!=='undefined'&&!storageStarting);
- ok('a tab you open becomes the writer',await follower.evaluate(()=>storageWriter));
- eq('the tab left behind cannot overwrite the database',await t.p.evaluate(()=>{const before=localStorage.getItem(STORAGE_KEY),n=DB.customer.length,out=storageCommand(()=>DB.customer.push({id:'af-lost'}));return {writer:storageWriter,ok:out.ok,same:before===localStorage.getItem(STORAGE_KEY),count:DB.customer.length===n};}),{writer:false,ok:false,same:true,count:true});
+ /* Передача записи ждёт базу (IndexedDB): на медленной машине CI — дольше. */
+ ok('a tab you open becomes the writer',await follower.waitForFunction(()=>storageWriter,null,{timeout:5000}).then(()=>true,()=>false));
+ eq('the tab left behind cannot overwrite the database',await t.p.evaluate(()=>{const before=testStoredText(),n=DB.customer.length,out=storageCommand(()=>DB.customer.push({id:'af-lost'}));return {writer:storageWriter,ok:out.ok,same:before===testStoredText(),count:DB.customer.length===n};}),{writer:false,ok:false,same:true,count:true});
  await follower.evaluate(id=>{tab='sales';salesOrderEdit(id);soDraft.notes='Local note';},shared);
  await t.p.evaluate(()=>storageTakeControl());
  await t.p.evaluate(id=>{salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});storageCommand(()=>{DB.customer[0].legalName='Latest tab value';});},shared);
@@ -111,7 +121,7 @@ module.exports=async function({page,eq,ok}){
  eq('old writer loses editing after handoff',await t.p.evaluate(()=>({writer:storageWriter,ok:storageCommand(()=>DB.customer.push({id:'af-old-writer'})).ok})),{writer:false,ok:false});
  eq('stale order notes do not rewind batching or lose assigned glass',await follower.evaluate(id=>{const saved=salesOrderSave(),o=salesRecord(id);return {saved,status:o.status,notes:o.notes,assigned:DB.glassBatch.some(b=>b.items.some(i=>!i.releasedAt&&b.parts[i.part].orderId===id))};},shared),{saved:true,status:'batched',notes:'Local note',assigned:true});
  eq('conflicting edits are rejected and retain the local draft',await follower.evaluate(id=>{salesOrderEdit(id);soDraft.notes='Unsaved local';const o=salesRecord(id);o.notes='External edit';const saved=salesOrderSave();return {saved,notes:salesRecord(id).notes,draft:soDraft.notes};},shared),{saved:false,notes:'External edit',draft:'Unsaved local'});
- eq('quota failure keeps the sales draft and previous saved order',await follower.evaluate(id=>{salesOrderEdit(id);soDraft.notes='Retry note';const old=salesRecord(id).notes,keep=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw new DOMException('Test quota','QuotaExceededError');};let saved;try{saved=salesOrderSave();}finally{Storage.prototype.setItem=keep;}return {saved,notes:salesRecord(id).notes===old,draft:soDraft.notes};},shared),{saved:false,notes:true,draft:'Retry note'});
+ eq('quota failure keeps the sales draft and previous saved order',await follower.evaluate(id=>{salesOrderEdit(id);soDraft.notes='Retry note';const old=salesRecord(id).notes,saved=testFailWrite(()=>salesOrderSave());return {saved,notes:salesRecord(id).notes===old,draft:soDraft.notes};},shared),{saved:false,notes:true,draft:'Retry note'});
  eq('handoff never discards unsaved work in the tab that gives way',await t.p.evaluate(async()=>({granted:await storageTakeControl(),writer:storageWriter})),{granted:true,writer:true});
  eq('the unsaved draft waits in its tab and is still there on return',await follower.evaluate(async()=>{const left=!storageWriter&&soDraft.notes;const back=await storageTakeControl();return {left,back,notes:soDraft.notes};}),{left:'Retry note',back:true,notes:'Retry note'});
  await follower.evaluate(()=>salesDraftDrop(true));await t.p.evaluate(()=>storageTakeControl());
@@ -139,7 +149,7 @@ module.exports=async function({page,eq,ok}){
  eq('walk-in: the big order waited in its tab untouched',await A.evaluate(()=>({writer:storageWriter,lines:soDraft&&soDraft.lines.length})),{writer:false,lines:12});
  await A.dispatchEvent('body','pointerdown');await A.waitForFunction(()=>storageWriter,null,{timeout:5000});
  eq('walk-in: back in the big order, Update keeps everything from both tabs',await A.evaluate(([id,shape])=>{
-  soDraft.lines.push(...afLines(1,50,50,'X'));const saved=salesOrderSave(),db=JSON.parse(localStorage.getItem(STORAGE_KEY)),nums=db.salesOrder.map(o=>o.businessNumber);
+  soDraft.lines.push(...afLines(1,50,50,'X'));const saved=salesOrderSave(),db=testStoredState(),nums=db.salesOrder.map(o=>o.businessNumber);
   const big=db.salesOrder.find(o=>o.lines.length===13),small=db.salesOrder.find(o=>o.lines.length===2&&o.lines[0].mark==='S1');
   return {saved,orders:db.salesOrder.length,unique:new Set(nums).size===nums.length,small:!!small,pickedUp:db.salesOrder.find(o=>o.id===id).status,
    shapes:!!big&&big.lines.every(l=>db.shapeDef.some(s=>s.id===l.shapeRef.id)),custom:(db.shapeDef.find(s=>s.id===shape)||{}).name};},[ready,bigShape]),
@@ -147,7 +157,7 @@ module.exports=async function({page,eq,ok}){
  eq('a scan typed into the tab left behind waits for the handoff and is saved',await B.evaluate(async()=>{
   const left=!storageWriter;let done=null;storageWhenWriter(()=>{done=storageCommand(()=>{DB.customer[0].legalName='Saved from the scan tab';}).ok;});
   for(let i=0;i<50&&done===null;i++)await new Promise(r=>setTimeout(r,50));
-  return {left,done,writer:storageWriter,stored:JSON.parse(localStorage.getItem(STORAGE_KEY)).customer[0].legalName};}),{left:true,done:true,writer:true,stored:'Saved from the scan tab'});
+  return {left,done,writer:storageWriter,stored:testStoredState().customer[0].legalName};}),{left:true,done:true,writer:true,stored:'Saved from the scan tab'});
  /* A tab that does not answer (an old version still open): the alert bar
     explains it on the office screen, the station and a tablet. */
  await B.evaluate(()=>{storageYield=()=>{};});
@@ -161,9 +171,11 @@ module.exports=async function({page,eq,ok}){
  const closing=await page();await require('./optimization-fixture')(closing.p);
  eq('closing an unsaved order restores saved shapes before releasing the writer',await closing.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer()),o=salesRecord(id),shapeId=o.lines[0].shapeRef.id,old=DB.shapeDef.find(s=>s.id===shapeId).name;salesOrderEdit(id);DB.shapeDef.find(s=>s.id===shapeId).name='Uncommitted shape';soDraft.notes='Unsaved note';touch();window.dispatchEvent(new PageTransitionEvent('pagehide'));
-  return {restored:JSON.parse(localStorage.getItem(STORAGE_KEY)).shapeDef.find(s=>s.id===shapeId).name===old,writer:storageWriter};
+  return {restored:testStoredState().shapeDef.find(s=>s.id===shapeId).name===old,writer:storageWriter};
  }),{restored:true,writer:false});await closing.c.close();
- const corrupt=await page('{unreadable');
- eq('corrupt storage is preserved, screen explains recovery',await corrupt.p.evaluate(()=>({original:localStorage.getItem(STORAGE_KEY),recovery:storageRecovery,blocked:!storageCommand(()=>DB.customer.push({id:'unsafe'})).ok,text:document.getElementById('storageStatus').textContent.includes('recovery')})),{original:'{unreadable',recovery:true,blocked:true,text:true});
+ const corrupt=await page();
+ await corrupt.p.evaluate(async()=>{await storageSeed({});await storageIdbTx(['record'],'readwrite',tx=>{tx.objectStore('record').put({tbl:'customer',id:'*',seq:0,data:'{unreadable'});});});
+ await corrupt.p.reload();await corrupt.p.evaluate(()=>window.storageReady);
+ eq('corrupt storage is preserved, screen explains recovery',await corrupt.p.evaluate(async()=>({original:(await storageIdbGet([['customer','*']])).records[0].data,recovery:storageRecovery,blocked:!storageCommand(()=>DB.customer.push({id:'unsafe'})).ok,text:document.getElementById('storageStatus').textContent.includes('recovery')})),{original:'{unreadable',recovery:true,blocked:true,text:true});
  eq('audit scenarios have no browser errors',t.errs.concat(twoErrs,closing.errs,corrupt.errs),[]);await corrupt.c.close();
 };

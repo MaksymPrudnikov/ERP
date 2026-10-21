@@ -72,8 +72,8 @@ module.exports=async function({page,eq}){
   return {before,after:b.received,review:b.unknown,warning:purFulfilWarnings('receipt',d).some(x=>x.includes('unit differs')),status:purOrderStatus(p)};
  }),{before:15,after:15,review:true,warning:true,status:'Partially received'});
  eq('failed receiving storage rolls back quantity, history and sequence, and stale edits are refused',await t.p.evaluate(()=>{
-  const before=JSON.stringify(DB),set=Storage.prototype.setItem;let r;
-  Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw new Error('Quota test');return set.call(this,k,v);};try{r=purFulfilSave('receipt',{lines:[{id:'fail',qty:1}]});}finally{Storage.prototype.setItem=set;}
+  const before=JSON.stringify(DB);let r;
+  testWriteBreak(new Error('Quota test'));try{r=purFulfilSave('receipt',{lines:[{id:'fail',qty:1}]});}finally{testWriteHeal();}
   const same=JSON.stringify(DB)===before,d=purClone(purFulfilFind('receipt',prReceipt));purFulfilSave('receipt',Object.assign({},d,{note:'Updated'}));const stale=purFulfilSave('receipt',Object.assign({},d,{note:'Old'}));
   return {refused:!r.ok,same,stale:!stale.ok,kept:purFulfilFind('receipt',prReceipt).note};
  }),{refused:true,same:true,stale:true,kept:'Updated'});

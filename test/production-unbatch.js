@@ -68,9 +68,9 @@ module.exports=async function({page,eq}){
   return {stale:!!stale.error,route:!!route.error,denied:denied.error,menu,same:JSON.stringify(DB)===before};
  }),{stale:true,route:true,denied:'Only Users or Finance can unbatch.',menu:false,same:true});
  eq('failed write keeps dialog/selection and rolls back scans, PS, order and history together',await t.p.evaluate(()=>{
-  puReset();const id=puOrder('single',1);oqThrough(id,'ready');puShip([id]);productionUnbatchOpen(id);productionUnbatchSetAll(true);const before=JSON.stringify(DB),saved=localStorage.getItem(STORAGE_KEY),old=Storage.prototype.setItem;
-  Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw Error('Full');return old.call(this,k,v);};let result;try{result=productionUnbatchConfirm();}finally{Storage.prototype.setItem=old;}
-  return {result,same:JSON.stringify(DB)===before,saved:localStorage.getItem(STORAGE_KEY)===saved,open:!!productionUnbatchDialog,selected:productionUnbatchDialog.all,error:!!productionUnbatchDialog.error};
+  puReset();const id=puOrder('single',1);oqThrough(id,'ready');puShip([id]);productionUnbatchOpen(id);productionUnbatchSetAll(true);const before=JSON.stringify(DB),saved=testStoredText();
+  testWriteBreak(Error('Full'));let result;try{result=productionUnbatchConfirm();}finally{testWriteHeal();}
+  return {result,same:JSON.stringify(DB)===before,saved:testStoredText()===saved,open:!!productionUnbatchDialog,selected:productionUnbatchDialog.all,error:!!productionUnbatchDialog.error};
  }),{result:false,same:true,saved:true,open:true,selected:true,error:true});
  eq('JSON roundtrip keeps corrections, shipment exclusion and pending verification; malformed references fail',await t.p.evaluate(()=>{
   puReset();const id=puOrder('single',2);oqThrough(id,'ready');puShip([id]);puRun({orderId:id,codes:[puIds(id)[0]],target:'uncut'});
@@ -127,8 +127,8 @@ module.exports=async function({page,eq}){
  }),{blocked:true,exists:true,deleted:true,other:'done',issued:2,ps:'delivered',items:2,imported:true,print:true});
  eq('Failed Delete save after Unbatch retains order, payments and historical references',await t.p.evaluate(()=>{
   puReset();const id=puOrder('single',1),l=salesRecord(id).lines[0];oqPay(id);skipRun({orderId:id,lines:{[l.id]:'all'},to:'pickup',date:finToday()});puRun({orderId:id,lines:{[l.id]:'all'},target:'uncut'});
-  const before=JSON.stringify(DB),saved=localStorage.getItem(STORAGE_KEY),old=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw Error('Full');return old.call(this,k,v);};let deleted;try{deleted=salesOrderDelete(id);}finally{Storage.prototype.setItem=old;}
-  return {deleted,same:JSON.stringify(DB)===before,saved:localStorage.getItem(STORAGE_KEY)===saved,exists:!!salesRecord(id),retry:salesOrderDelete(id)};
+  const before=JSON.stringify(DB),saved=testStoredText();testWriteBreak(Error('Full'));let deleted;try{deleted=salesOrderDelete(id);}finally{testWriteHeal();}
+  return {deleted,same:JSON.stringify(DB)===before,saved:testStoredText()===saved,exists:!!salesRecord(id),retry:salesOrderDelete(id)};
  }),{deleted:false,same:true,saved:true,exists:true,retry:true});
  eq('production Unbatch has no page errors',t.errs,[]);await t.c.close();
 };

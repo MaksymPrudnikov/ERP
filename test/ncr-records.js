@@ -78,7 +78,7 @@ module.exports=async function({page,eq,ok}){
  }),{menu:['orders','quotes','ncr'],rows:2,first:true,types:2,label:'Orders + NCR▾',foot:true,same:true,done:1,onlyNcr:'0/2',stays:true,opened:true});
 
  const saved=await t.p.evaluate(()=>JSON.stringify([DB.ncr,DB.glassPiece]));
- await t.p.reload();
+ await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  eq('после перезагрузки NCR и выбор Show те же',await t.p.evaluate(saved=>({same:JSON.stringify([DB.ncr,DB.glassPiece])===saved,show:salesShow.ncr}),saved),{same:true,show:true});
  await helpers();
 

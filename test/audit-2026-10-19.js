@@ -138,7 +138,7 @@ module.exports=async function({page,eq}){
   const half=Math.ceil(code.length/2);await t.p.keyboard.type(code.slice(0,half),{delay:0});
   const kept=await t.p.evaluate(()=>{storageRerender();return (document.querySelector('[data-station-scan]')||{}).value;})===code.slice(0,half);
   await t.p.keyboard.type(code.slice(half),{delay:0});await t.p.keyboard.press('Enter');await t.p.waitForFunction(()=>storageWriter,null,{timeout:5000});await t.p.waitForTimeout(300);
-  return t.p.evaluate(kept=>({kept,stored:JSON.parse(localStorage.getItem(STORAGE_KEY)).stationScan.length,result:(document.querySelector('[data-station-result]')||{dataset:{}}).dataset.stationResult||''}),kept);};
+  return t.p.evaluate(kept=>({kept,stored:testStoredState().stationScan.length,result:(document.querySelector('[data-station-result]')||{dataset:{}}).dataset.stationResult||''}),kept);};
  eq('U01: перерисовка посреди скана не стирает набранное (иначе остаток кода — чужое стекло или «unknown»); первый скан после смены вкладки записывается — в поле и мимо поля',{inField:await scanBack(u01[0],false),away:await scanBack(u01[1],true)},
   {inField:{kept:true,stored:1,result:'ok'},away:{kept:true,stored:2,result:'ok'}});
  await other.close();await t.p.evaluate(()=>{stationSwitch&&stationSwitch();tab='dashboard';render();});

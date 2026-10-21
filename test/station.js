@@ -199,11 +199,15 @@ module.exports=async function({page,eq,ok}){
 
  eq('живые данные из другой вкладки: база перечитывается, экран не прыгает, пока человек печатает',await t.p.evaluate(async()=>{
   stReset();const id=stOrder([[36,24,1]]);stBatch(id);const [a]=stIds(id);touch();
-  const other=JSON.parse(localStorage.getItem('glazing_system_v1'));other.stationScan=[{id:'SC-0000001',at:'2026-09-29T10:00:00Z',piece:a,station:'CUT',by:'Ivan P.',byId:'',manual:false,undoneAt:'',undoneBy:''}];
+  /* Другая вкладка отсканировала CUT: её записи — скан и начатый рез батча. */
+  const other=testStoredState();other.stationScan=[{id:'SC-0000001',at:'2026-09-29T10:00:00Z',piece:a,station:'CUT',by:'Ivan P.',byId:'',manual:false,undoneAt:'',undoneBy:''}];other.glassBatch[0].items[0].cutStartedAt='2026-09-29T10:00:00Z';
   tab='production';subtab='where';render();const inp=document.createElement('input');document.body.appendChild(inp);inp.focus();const before=document.getElementById('app').innerHTML;
-  storageLiveReload(JSON.stringify(other));const typing=document.getElementById('app').innerHTML===before;inp.remove();
+  await testOtherTab(other);const typing=document.getElementById('app').innerHTML===before;inp.remove();
   const scans=DB.stationScan.length,cut=!!DB.glassBatch[0].items[0].cutStartedAt;
-  storageLiveReload('{broken');tab='dashboard';render();
+  /* Испорченная запись другой вкладки не трогает базу этой. */
+  await storageIdbTx(['record'],'readwrite',tx=>{tx.objectStore('record').put({tbl:'stationScan',id:'SC-BROKEN',seq:9e9,data:'{broken'});});
+  const w=storageWriter;storageWriter=false;await storageApplySaved({type:'saved',build:storageBuildId(),rev:storageRev+1,keys:[['stationScan','SC-BROKEN']]}).catch(()=>{});storageWriter=w;
+  await storageIdbTx(['record'],'readwrite',tx=>{tx.objectStore('record').delete(['stationScan','SC-BROKEN']);});tab='dashboard';render();
   return {scans,cut,typing,kept:DB.stationScan.length};
  }),{scans:1,cut:true,typing:true,kept:1});
 

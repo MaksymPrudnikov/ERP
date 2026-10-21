@@ -404,33 +404,6 @@ function normalizeSheetBreaks(){
    typeof x.undoneAt==='string'&&!Number.isNaN(Date.parse(x.undoneAt))?{undoneAt:x.undoneAt,undoneBy:String(x.undoneBy||'').slice(0,80),undoneById:String(x.undoneById||'').slice(0,80)}:{}));
 }
 
-/* ---------------------------------------------------------------------
-   Живые данные между окнами. Станция и офис открыты в двух вкладках одного
-   браузера: вкладка держит базу в памяти и при сохранении пишет её ЦЕЛИКОМ.
-   Без этого офис, сохранив что угодно, стёр бы сканы станции, сделанные
-   после его загрузки. Браузер сообщает о чужой записи событием storage —
-   перечитываем базу. Экран перерисовываем, только если никто не печатает:
-   иначе курсор выпрыгивал бы из поля на каждом скане станции.
-   --------------------------------------------------------------------- */
-function storageLiveReload(text){
- let next;
- try{next=prepareImportedState(JSON.parse(text));}catch(e){console.warn('live reload skipped:',e.message);return false;}
- /* Несохранённый заказ этой вкладки едет поверх свежей базы со своими
-    формами строк (владелец, 2 октября 2026: большой заказ в одной вкладке,
-    клиент у стойки — в другой). */
- if(typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(DB,next);
- DB=next;storageBaseline=text;storageInvalidate();
- const a=document.activeElement,typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!(a.dataset&&a.dataset.stationScan!==undefined&&!a.value);
- if(!typing)(typeof storageRerender==='function'?storageRerender:render)();
- return true;
-}
-window.addEventListener('storage',function(e){
- if(e.key!=='glazing_system_v1'||typeof e.newValue!=='string')return;
- // An old event can arrive after this tab has saved a newer value during handoff.
- // Read the current durable value instead of replaying the queued event payload.
- const current=storageRead('glazing_system_v1');
- if(current&&current!==storageBaseline)storageLiveReload(current);
-});
 /* «Не на эту долли» — стекло понесли в руках (Critical: отложить или отнести
    сразу). Скан остаётся, пропадает только тара — у всего юнита, который
    переехал одним сканом (общий actionId; аудит 05.10.2026: половина

@@ -6,32 +6,32 @@ module.exports=async function({page,eq,ok}){
  console.log('audit-2026-10-05');const t=await page();await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
   /* Другая вкладка сохранила ширину первой строки: строка и её форма. */
-  window.a5OtherTabWidth=(id,inches)=>{
-   const other=JSON.parse(localStorage.getItem(STORAGE_KEY)),o=other.salesOrder.find(x=>x.id===id),l=o.lines[0],s=other.shapeDef.find(x=>x.id===l.shapeRef.id);
+  window.a5OtherTabWidth=async(id,inches)=>{
+   const other=testStoredState(),o=other.salesOrder.find(x=>x.id===id),l=o.lines[0],s=other.shapeDef.find(x=>x.id===l.shapeRef.id);
    s.w=String(inches);s.revision=(+s.revision||0)+1;l.width16=inches*16;l.shapeRef.revision=s.revision;
-   const text=JSON.stringify(other);localStorage.setItem(STORAGE_KEY,text);storageLiveReload(text);
+   await testOtherTab(other);
   };
-  window.a5FailWrite=fn=>{const keep=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw new DOMException('Test quota','QuotaExceededError');return keep.call(this,k,v);};try{return fn();}finally{Storage.prototype.setItem=keep;storageLastError='';storageWarningShown=false;}};
+  window.a5FailWrite=fn=>{try{return testFailWrite(fn);}finally{storageLastError='';storageWarningShown=false;}};
   window.a5Shape=id=>{const o=salesRecord(id);return DB.shapeDef.find(x=>x.id===o.lines[0].shapeRef.id);};
  });
 
- eq('Notes из другой вкладки не возвращают старую форму: строка 50″ и форма 50″',await t.p.evaluate(()=>{
+ eq('Notes из другой вкладки не возвращают старую форму: строка 50″ и форма 50″',await t.p.evaluate(async()=>{
   oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();salesOrderEdit(id);
-  a5OtherTabWidth(id,50);soDraft.notes='Call before delivery';const saved=salesOrderSave();const o=salesRecord(id),s=a5Shape(id);
+  await a5OtherTabWidth(id,50);soDraft.notes='Call before delivery';const saved=salesOrderSave();const o=salesRecord(id),s=a5Shape(id);
   const r={saved,width:o.lines[0].width16/16,shape:s.w,revision:s.revision===o.lines[0].shapeRef.revision,notes:o.notes};salesDraftDrop();return r;
  }),{saved:true,width:50,shape:'50',revision:true,notes:'Call before delivery'});
 
- eq('Don\'t update после чужого сохранения оставляет форму другой вкладки',await t.p.evaluate(()=>{
+ eq('Don\'t update после чужого сохранения оставляет форму другой вкладки',await t.p.evaluate(async()=>{
   oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();salesOrderEdit(id);
-  a5OtherTabWidth(id,50);soDraft.notes='Not saved';salesDraftDrop(true);return {shape:a5Shape(id).w,width:salesRecord(id).lines[0].width16/16};
+  await a5OtherTabWidth(id,50);soDraft.notes='Not saved';salesDraftDrop(true);return {shape:a5Shape(id).w,width:salesRecord(id).lines[0].width16/16};
  }),{shape:'50',width:50});
 
- eq('свою правку формы черновик сохраняет; ту же форму поменяли обе вкладки — Update отказывает',await t.p.evaluate(()=>{
+ eq('свою правку формы черновик сохраняет; ту же форму поменяли обе вкладки — Update отказывает',await t.p.evaluate(async()=>{
   oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();salesOrderEdit(id);
   const second=soDraft.lines[1],mine=DB.shapeDef.find(x=>x.id===second.shapeRef.id);mine.note='edited here';
-  a5OtherTabWidth(id,50);const kept=DB.shapeDef.find(x=>x.id===second.shapeRef.id).note;
-  const first=soDraft.lines[0],both=DB.shapeDef.find(x=>x.id===first.shapeRef.id);both.h='30';const text=localStorage.getItem(STORAGE_KEY);
-  const other=JSON.parse(text);other.shapeDef.find(x=>x.id===first.shapeRef.id).h='35';const next=JSON.stringify(other);localStorage.setItem(STORAGE_KEY,next);storageLiveReload(next);
+  await a5OtherTabWidth(id,50);const kept=DB.shapeDef.find(x=>x.id===second.shapeRef.id).note;
+  const first=soDraft.lines[0],both=DB.shapeDef.find(x=>x.id===first.shapeRef.id);both.h='30';const text=testStoredText();
+  const other=JSON.parse(text);other.shapeDef.find(x=>x.id===first.shapeRef.id).h='35';await testOtherTab(other);
   const saved=salesOrderSave(),error=(document.getElementById('e_sales_order')||{}).textContent||'';salesDraftDrop(true);
   return {kept,saved,error:/shape of line 1 changed elsewhere/.test(error)};
  }),{kept:'edited here',saved:false,error:true});
@@ -76,7 +76,7 @@ module.exports=async function({page,eq,ok}){
  eq('отказ записи Recut: форма открыта с ошибкой, повтор создаёт один Recut',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();oqThrough(id,'verified');salesOrderEdit(id);ncrOpenForm('recut');
   const reason=ncrReasonsFor('HEAT',{activeOnly:true})[0];ncrFormSet('where','HEAT');ncrFormSet('reasonId',reason.id);ncrFormLine(salesRecord(id).lines[0].id,'on',true,true);ncrForm.note='Exploded';
-  a5FailWrite(()=>ncrFormCreate());const failed={open:!!ncrForm,error:/Not saved/.test(ncrForm&&ncrForm.error||''),recuts:DB.recut.length,stored:JSON.parse(localStorage.getItem(STORAGE_KEY)).recut.length};
+  a5FailWrite(()=>ncrFormCreate());const failed={open:!!ncrForm,error:/Not saved/.test(ncrForm&&ncrForm.error||''),recuts:DB.recut.length,stored:testStoredState().recut.length};
   ncrFormCreate();const r=Object.assign(failed,{closed:!ncrForm,after:DB.recut.length});salesDraftDrop();return r;
  }),{open:true,error:true,recuts:0,stored:0,closed:true,after:1});
 

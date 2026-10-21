@@ -79,16 +79,54 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
   /* Вход в офис по PIN (erp/signin) проверяет test/order-log.js; остальным
      тестам экран «Who is working?» не нужен. */
+  /* База — записи в IndexedDB (erp/storage-records), запись идёт в фоне.
+     Тесты смотрят на то, что ушло в базу (опорное состояние storageBase), и
+     ломают запись подменой storageWrite — она отказывает синхронно, как
+     прежде localStorage.setItem. */
+  const storageHelpers = () => {
+    window.testStoredState = () => {
+      const out = {};
+      storageBase.forEach((m, tbl) => { if (tbl === '_meta') m.forEach((x, k) => { out[k] = JSON.parse(x.t); }); else out[tbl] = storageBaseRows(tbl); });
+      Object.keys(DEFAULT).forEach(k => { if (Array.isArray(DEFAULT[k]) && !(k in out)) out[k] = []; });
+      return Object.keys(out).sort().reduce((o, k) => (o[k] = out[k], o), {});
+    };
+    window.testStoredText = () => JSON.stringify(testStoredState());
+    window.testFailWrite = (fn, error) => {
+      const keep = window.storageWrite;
+      window.storageWrite = () => { throw error || new DOMException('Test quota', 'QuotaExceededError'); };
+      try { return fn(); } finally { window.storageWrite = keep; }
+    };
+    window.testWriteBreak = (error, onTry) => {
+      if (!window.testWriteKeep) window.testWriteKeep = window.storageWrite;
+      window.storageWrite = () => { if (onTry) onTry(); throw error || new DOMException('Test quota', 'QuotaExceededError'); };
+    };
+    window.testWriteHeal = () => { if (window.testWriteKeep) { window.storageWrite = window.testWriteKeep; window.testWriteKeep = null; } };
+    /* Другая вкладка записала next: её записи — в базу, этой — сообщение. */
+    window.testOtherTab = async next => {
+      await storageFlush();
+      const changes = storageDiff(next), rev = storageRev + 1;
+      await storageIdbWrite(changes, rev, storageBuildId());
+      const writer = storageWriter; storageWriter = false;
+      try { await storageApplySaved({ type: 'saved', build: storageBuildId(), rev, keys: changes.map(c => [c.tbl, c.id]) }); } finally { storageWriter = writer; }
+    };
+  };
+  /* Засев — записями как есть, затем F5 (тот же старт, что у живой базы). */
+  async function seedDb(p, text) {
+    await p.evaluate(v => storageSeed(JSON.parse(v)), text);
+    await p.reload();
+    await p.evaluate(() => window.storageReady);
+  }
   async function page(seedLS, viewport, opts) {
     const c = await b.newContext(viewport ? { viewport } : {});
     if (!(opts && opts.signin)) await c.addInitScript(() => { window.GF_NO_SIGNIN = true; });
+    await c.addInitScript(storageHelpers);
     const p = await c.newPage();
     const errs = [];
     p.on('pageerror', e => errs.push(e.message));
     p.on('dialog', d => d.accept());
     await p.goto(TARGET);
-    if (seedLS !== undefined) { await p.evaluate(v => localStorage.setItem('glazing_system_v1', v), seedLS); await p.reload(); }
-    await p.waitForTimeout(250);
+    await p.evaluate(() => window.storageReady);
+    if (seedLS !== undefined) await seedDb(p, seedLS);
     return { p, c, errs };
   }
 
@@ -1715,11 +1753,21 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     console.log('оболочка / хранилище');
     let t = await page(JSON.stringify({ user: null, station: null, operation: null, workPosition: null, terminal: null }));
     const len = await t.p.evaluate(() => document.getElementById('app').innerHTML.length);
-    ok('битый localStorage не даёт белый экран', len > 200, 'app length=' + len + ' errs=' + JSON.stringify(t.errs));
+    ok('битая база не даёт белый экран', len > 200, 'app length=' + len + ' errs=' + JSON.stringify(t.errs));
     await t.c.close();
 
-    t = await page('{не json');
-    ok('нечитаемый localStorage не роняет старт', (await t.p.evaluate(() => document.getElementById('app').innerHTML.length)) > 200);
+    /* Запись, которую не разобрать: старт не падает, база уходит в Recovery,
+       а сама запись остаётся нетронутой. */
+    t = await page();
+    await t.p.evaluate(async () => {
+      await storageSeed({});
+      await storageIdbTx(['record'], 'readwrite', tx => { tx.objectStore('record').put({ tbl: 'customer', id: '*', seq: 0, data: '{не json' }); });
+    });
+    await t.p.reload(); await t.p.evaluate(() => window.storageReady);
+    eq('нечитаемая запись не роняет старт', await t.p.evaluate(async () => {
+      const kept = await storageIdbGet([['customer', '*']]);
+      return [document.getElementById('app').innerHTML.length > 200, storageRecovery, kept.records[0].data];
+    }), [true, true, '{не json']);
     await t.c.close();
 
     /* --- справочники цеха: четыре РАЗНЫЕ сущности (порция 5·2) ---------
@@ -1903,7 +1951,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
           spacersNotReseeded: ['SP-OWN-1616'], silicone: ['Opaci-Coat · Silicone Spandrel', 'ICD'] });
     /* Правка разовая. Вернул владелец полосу — после перезагрузки она осталась. */
     await t.p.evaluate(() => { DB.serviceRate.find(r => r.id === 'hole:1-2').active = true; touch(); });
-    await t.p.reload();
+    await t.p.reload();await t.p.evaluate(()=>window.storageReady);
     await t.p.waitForTimeout(250);
     eq('выполненная правка не повторяется после перезагрузки', await t.p.evaluate(() =>
       [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 8]);
@@ -2176,7 +2224,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     /* Засев обязан быть одноразовым: иначе удалённые демо-записи возвращались бы
        после каждого обновления страницы, и удалить их было бы невозможно. */
     await t.p.evaluate(() => { DB.user=[]; touch(); });
-    await t.p.reload();
+    await t.p.reload();await t.p.evaluate(()=>window.storageReady);
     await t.p.waitForTimeout(200);
     eq('удалённые демо-пользователи не возвращаются после F5', await t.p.evaluate(() => DB.user.length), 0);
     await t.c.close();
@@ -2217,7 +2265,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     t = await page();
     await t.p.evaluate(() => {DB.shapeDef=[];touch();});
-    await t.p.reload();await t.p.waitForTimeout(200);
+    await t.p.reload();await t.p.evaluate(()=>window.storageReady);await t.p.waitForTimeout(200);
     eq('пустые Shape сохраняются без повторного seed', await t.p.evaluate(() => DB.shapeDef.length), 0);
     await t.c.close();
   }
@@ -2979,15 +3027,15 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const out=prepareImportedState(src),line=out.salesOrder[0].lines[0];
       return {oldTable:'muntinDef' in out,oldRef:'muntinRef' in line,oldId:'muntinId' in line,shape:line.shapeRef.id===shape.id,bars:out.shapeDef[0].muntin.verticalBars,price:out.glassProduct[0].salePriceAnnealed};
     }), {oldTable:false,oldRef:false,oldId:false,shape:true,bars:2,price:987.65});
-    const legacyBoot = await t.p.evaluate(() => {
+    const legacyBoot = await t.p.evaluate(async () => {
       const src=JSON.parse(JSON.stringify(DB));src.refVersion=REFERENCE_VERSION;
       const o=newSalesOrderDraft();o.lines=[normalizeSalesOrderLine({makeupId:o.makeups[0].id,width:'48',height:'36',mark:'Keep me'})];
       o.lines[0].muntinRef={id:'M-OLD'};src.salesOrder=[o];src.muntinDef=[{id:'M-OLD',shapeId:'missing'}];
-      src.glassProduct[0].salePriceAnnealed=987.65;localStorage.setItem('glazing_system_v1',JSON.stringify(src));return o.id;
+      src.glassProduct[0].salePriceAnnealed=987.65;await storageSeed(src);return o.id;
     });
-    await t.p.reload();
+    await t.p.reload();await t.p.evaluate(() => window.storageReady);
     eq('загрузка старой базы сохраняет заказ и удаляет старую раскладку из следующего экспорта', await t.p.evaluate(id => {
-      touch();const out=JSON.parse(localStorage.getItem('glazing_system_v1')),o=out.salesOrder.find(x=>x.id===id);
+      touch();const out=testStoredState(),o=out.salesOrder.find(x=>x.id===id);
       return {oldTable:'muntinDef' in out,oldRef:'muntinRef' in o.lines[0],mark:o.lines[0].mark,price:out.glassProduct[0].salePriceAnnealed};
     },legacyBoot), {oldTable:false,oldRef:false,mark:'Keep me',price:987.65});
     await t.c.close();
@@ -6053,7 +6101,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
   }
 
-  await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./invoice.js')({page,eq,ok}); await require('./review-polish.js')({page,eq,ok}); await require('./station-polish.js')({page,eq,ok}); await require('./supply-points.js')({page,eq,ok}); await require('./customers.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./finance-ledger.js')({page,eq,ok}); await require('./commissions.js')({page,eq,ok}); await require('./purchasing.js')({page,eq,ok}); await require('./purchase-orders.js')({page,eq,ok}); await require('./purchasing-receiving.js')({page,eq,ok}); await require('./purchasing-invoices.js')({page,eq,ok}); await require('./purchasing-catalog.js')({page,eq,ok}); await require('./purchasing-audit.js')({page,eq,ok}); await require('./purchasing-held.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./shipping.js')({page,eq,ok}); await require('./shipping-loading.js')({page,eq,ok}); await require('./shipping-walk-fixes.js')({page,eq,ok}); await require('./shipping-lookup.js')({page,eq,ok}); await require('./shipping-delivery.js')({page,eq,ok}); await require('./shipping-skids.js')({page,eq,ok}); await require('./shipping-restack.js')({page,eq,ok}); await require('./unit-cancel.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./glass-no-cut.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./money.js')({page,eq,ok}); await require('./skip.js')({page,eq,ok}); await require('./production-unbatch.js')({page,eq,ok}); await require('./order-delete.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./sticker-free-layout.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok}); await require('./sheet-usage.js')({page,eq,ok}); await require('./inventory.js')({page,eq,ok}); await require('./inventory-offcuts.js')({page,eq,ok}); await require('./inventory-hints.js')({page,eq,ok}); await require('./cut-offset.js')({page,eq,ok}); await require('./inventory-audit.js')({page,eq,ok}); await require('./sim-inventory.js')({page,eq,ok}); await require('./storage-import-space.js')({page,eq,ok}); await require('./sales-cut-estimate.js')({page,eq,ok}); await require('./docs.js')({eq,ok}); await require('./station.js')({page,eq,ok}); await require('./carriers.js')({page,eq,ok}); await require('./dollies-skids.js')({page,eq,ok}); await require('./carrier-sheet.js')({page,eq,ok}); await require('./station-wrong-way.js')({page,eq,ok}); await require('./igu-ready.js')({page,eq,ok}); await require('./units.js')({page,eq,ok}); await require('./cut-batch.js')({page,eq,ok}); await require('./station-drawings.js')({page,eq,ok}); await require('./station-queue.js')({page,eq,ok}); await require('./reports.js')({page,eq,ok}); await require('./report-engine.js')({page,eq,ok}); await require('./report-builder.js')({page,eq,ok}); await require('./md-stations.js')({page,eq,ok}); await require('./route-repeat.js')({page,eq,ok}); await require('./lami-edges.js')({page,eq,ok}); await require('./lami-ply-recut.js')({page,eq,ok}); await require('./audit-fixes.js')({page,eq,ok}); await require('./audit-2026-10-05.js')({page,eq,ok}); await require('./audit-2026-10-19.js')({page,eq,ok}); await require('./order-log.js')({page,eq,ok}); await require('./office-walk-fixes.js')({page,eq,ok}); await require('./users-commands.js')({page,eq,ok}); await require('./drawing-layout.js')({page,eq,ok}); await require('./step-unit.js')({page,eq,ok}); await require('./extra-services.js')({page,eq,ok}); await require('./frit-setout.js')({page,eq,ok}); await require('./dxf-import.js')({page,eq,ok}); await require('./design-tokens.js')({page,eq,ok}); await require('./shipping-audit.js')({page,eq,ok}); await require('./batched-line-qty.js')({page,eq,ok}); await require('./screen-fixes.js')({page,eq,ok}); await require('./sim-walk-fixes.js')({page,eq,ok}); await require('./pilot-orders.js')({eq});
+  await require('./storage-records.js')({page,eq,ok}); await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./invoice.js')({page,eq,ok}); await require('./review-polish.js')({page,eq,ok}); await require('./station-polish.js')({page,eq,ok}); await require('./supply-points.js')({page,eq,ok}); await require('./customers.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./finance-ledger.js')({page,eq,ok}); await require('./commissions.js')({page,eq,ok}); await require('./purchasing.js')({page,eq,ok}); await require('./purchase-orders.js')({page,eq,ok}); await require('./purchasing-receiving.js')({page,eq,ok}); await require('./purchasing-invoices.js')({page,eq,ok}); await require('./purchasing-catalog.js')({page,eq,ok}); await require('./purchasing-audit.js')({page,eq,ok}); await require('./purchasing-held.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./shipping.js')({page,eq,ok}); await require('./shipping-loading.js')({page,eq,ok}); await require('./shipping-walk-fixes.js')({page,eq,ok}); await require('./shipping-lookup.js')({page,eq,ok}); await require('./shipping-delivery.js')({page,eq,ok}); await require('./shipping-skids.js')({page,eq,ok}); await require('./shipping-restack.js')({page,eq,ok}); await require('./unit-cancel.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./glass-no-cut.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./money.js')({page,eq,ok}); await require('./skip.js')({page,eq,ok}); await require('./production-unbatch.js')({page,eq,ok}); await require('./order-delete.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./sticker-free-layout.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok}); await require('./sheet-usage.js')({page,eq,ok}); await require('./inventory.js')({page,eq,ok}); await require('./inventory-offcuts.js')({page,eq,ok}); await require('./inventory-hints.js')({page,eq,ok}); await require('./cut-offset.js')({page,eq,ok}); await require('./inventory-audit.js')({page,eq,ok}); await require('./sim-inventory.js')({page,eq,ok}); await require('./sales-cut-estimate.js')({page,eq,ok}); await require('./docs.js')({eq,ok}); await require('./station.js')({page,eq,ok}); await require('./carriers.js')({page,eq,ok}); await require('./dollies-skids.js')({page,eq,ok}); await require('./carrier-sheet.js')({page,eq,ok}); await require('./station-wrong-way.js')({page,eq,ok}); await require('./igu-ready.js')({page,eq,ok}); await require('./units.js')({page,eq,ok}); await require('./cut-batch.js')({page,eq,ok}); await require('./station-drawings.js')({page,eq,ok}); await require('./station-queue.js')({page,eq,ok}); await require('./reports.js')({page,eq,ok}); await require('./report-engine.js')({page,eq,ok}); await require('./report-builder.js')({page,eq,ok}); await require('./md-stations.js')({page,eq,ok}); await require('./route-repeat.js')({page,eq,ok}); await require('./lami-edges.js')({page,eq,ok}); await require('./lami-ply-recut.js')({page,eq,ok}); await require('./audit-fixes.js')({page,eq,ok}); await require('./audit-2026-10-05.js')({page,eq,ok}); await require('./audit-2026-10-19.js')({page,eq,ok}); await require('./order-log.js')({page,eq,ok}); await require('./office-walk-fixes.js')({page,eq,ok}); await require('./users-commands.js')({page,eq,ok}); await require('./drawing-layout.js')({page,eq,ok}); await require('./step-unit.js')({page,eq,ok}); await require('./extra-services.js')({page,eq,ok}); await require('./frit-setout.js')({page,eq,ok}); await require('./dxf-import.js')({page,eq,ok}); await require('./design-tokens.js')({page,eq,ok}); await require('./shipping-audit.js')({page,eq,ok}); await require('./batched-line-qty.js')({page,eq,ok}); await require('./screen-fixes.js')({page,eq,ok}); await require('./sim-walk-fixes.js')({page,eq,ok}); await require('./pilot-orders.js')({eq});
   await b.close();
   /* Счёт проверок в README — настоящий: его знает только этот прогон.
      «провер», а не «проверк»: в тексте бывает и «проверки», и «проверок». */

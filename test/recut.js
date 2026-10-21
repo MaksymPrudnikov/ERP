@@ -61,7 +61,7 @@ module.exports=async function({page,eq,ok}){
  }),{recuts:[[true,1,'Lite 1 · 6CLEAR',2,'Exploded in furnace']],ncr:0,extra:'{"R1":["G-0000901","G-0000902"]}',unit:'R1.1',snap:'R1',queue:['R1.2:G-0000902']});
 
  const saved=await t.p.evaluate(()=>{oqReset();const id=rcOrder('ready');rcFill(id,{where:'SHIPR',reason:'Damaged in rack',lines:[[0,1,1]]});ncrFormCreate();return JSON.stringify([DB.recut,DB.glassPiece]);});
- await t.p.reload();
+ await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  eq('после перезагрузки Recut и его номера стёкол те же',await t.p.evaluate(saved=>JSON.stringify([DB.recut,DB.glassPiece])===saved,saved),true);
  await helpers();
 
@@ -103,11 +103,11 @@ module.exports=async function({page,eq,ok}){
  });
 
  eq('строка Recut: размер и Shape; редактор — несохранённая копия с полосой RECUT и Was; Cancel ничего не пишет',await t.p.evaluate(()=>{
-  rdOrder();window.rdDocsBefore=rdDocs();const row=document.querySelector('[data-recut-row]'),btn=row.querySelector('[data-recut-shape]'),before=localStorage.getItem(STORAGE_KEY);
+  rdOrder();window.rdDocsBefore=rdDocs();const row=document.querySelector('[data-recut-row]'),btn=row.querySelector('[data-recut-shape]'),before=testStoredText();
   btn.click();
   const open={tab,isNew:sEdit==='new',band:(document.querySelector('[data-shape-recut-band]')||{}).textContent,title:document.querySelector('.shape-workspace-identity b').textContent,inDb:DB.shapeDef.some(s=>s.id===sDraft.id),name:sDraft.name};
   sDraft.w='36';cancelShapeEdit();
-  return {size:[...row.querySelectorAll('[data-recut-size] input')].map(i=>i.value).join(' × '),own:btn.classList.contains('own'),open,back:tab,same:localStorage.getItem(STORAGE_KEY)===before,recut:JSON.stringify(DB.recut[0]).includes('shapeRef')};
+  return {size:[...row.querySelectorAll('[data-recut-size] input')].map(i=>i.value).join(' × '),own:btn.classList.contains('own'),open,back:tab,same:testStoredText()===before,recut:JSON.stringify(DB.recut[0]).includes('shapeRef')};
  }),{size:'37 × 71',own:false,open:{tab:'configurators',isNew:true,band:'RECUT 1 · Line 1 · Office · Drawing wrong · Was 37″ × 71″',title:'Recut drawing',inDb:false,name:'Recut 1 · Line 1'},back:'sales',same:true,recut:false});
 
  eq('Save revision: чертёж у Recut, строка и её цена как заказано, документы клиента без Recut и без перемен; очередь, раскрой, стикер и лист Recut — по чертежу Recut',await t.p.evaluate(()=>{

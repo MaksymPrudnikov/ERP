@@ -113,10 +113,15 @@ function afterFile() {
   return { file, label: 'AFTER · ' + branch + dirty };
 }
 
-const ready = page => page.waitForFunction(() => {
-  const app = document.getElementById('app');
-  return !!app && app.innerHTML.length > 200;
-}, null, { timeout: 20000 });
+/* storageReady — старт базы в IndexedDB (с этапа «База» 1); у прежних сборок
+   его нет, и ждать нечего. */
+const ready = async page => {
+  await page.evaluate(() => window.storageReady);
+  await page.waitForFunction(() => {
+    const app = document.getElementById('app');
+    return !!app && app.innerHTML.length > 200;
+  }, null, { timeout: 20000 });
+};
 
 async function shoot(browser, side, json) {
   const ctx = await browser.newContext({ viewport: { width: o.width, height: o.height },
@@ -130,9 +135,14 @@ async function shoot(browser, side, json) {
   await page.goto(pathToFileURL(side.file).href);
   await ready(page);
   if (json || o.dark) {
-    await page.evaluate(([text, dark]) => {
-      /* Тот же путь, что у кнопки Import, только без вопроса «заменить базу?». */
-      if (text) localStorage.setItem('glazing_system_v1', JSON.stringify(prepareImportedState(JSON.parse(text))));
+    await page.evaluate(async ([text, dark]) => {
+      /* Тот же путь, что у кнопки Import, только без вопроса «заменить базу?».
+         Сборка до этапа «База» 1 держит базу в localStorage. */
+      if (text) {
+        const state = prepareImportedState(JSON.parse(text));
+        if (typeof storageSeed === 'function') await storageSeed(state);
+        else localStorage.setItem('glazing_system_v1', JSON.stringify(state));
+      }
       if (dark) localStorage.setItem('glass_farm_theme', 'dark');
     }, [json, o.dark]);
     await page.reload();

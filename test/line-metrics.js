@@ -151,7 +151,7 @@ module.exports=async function({page,eq,ok}){
  await t.p.locator('.metric-profile select').selectOption('browser');
  eq('each profile has its own choices',await t.p.evaluate(()=>salesMetricColumnsFor('screen').some(c=>c.key==='lineWeight')),false);
  await t.p.locator('.metric-profile select').selectOption(profile);
- await t.p.evaluate(()=>{soDraft=null;soEdit=null;});await t.p.reload();
+ await t.p.evaluate(()=>{soDraft=null;soEdit=null;});await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  eq('profile, choices and reordered base/metric columns persist after reload',await t.p.evaluate(()=>[salesLoadViewPrefs().active,salesMetricColumnsFor('screen').some(c=>c.key==='lineWeight'),salesMetricOrder().indexOf('lineTotal')<salesMetricOrder().indexOf('unitPrice'),salesOrderScreenColumns().indexOf('notes')<salesOrderScreenColumns().indexOf('unitPrice')]),[profile,true,true,true]);
  await t.p.evaluate(()=>{tab='sales';salesOrderNew();salesSetUnitType('single');const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');g.actualThicknessMm=6;m.panes.forEach(p=>{p.glassProductId=g.id;p.thicknessMm=6;p.priceOverride=5;p.heatTreatmentId='HT-AN';});const l=normalizeSalesOrderLine({makeupId:m.id,width16:47*16,height16:73.5*16,qty:2});soDraft.lines=[l];salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>salesEnsureChargePricing(l,r).orderRate=0);render();salesOpenMetrics('columns');salesResetMetricColumns('screen');});
  eq('reset restores only the selected context',await t.p.evaluate(()=>salesMetricColumnsFor('screen').map(c=>c.key)),['materials','actual','rounded','unitPrice','lineTotal']);
@@ -162,7 +162,7 @@ module.exports=async function({page,eq,ok}){
  await t.p.evaluate(()=>{salesOpenMetrics('rules');});
  await t.p.locator('input[name="triplePercent"]').fill('40');
  await t.p.getByRole('button',{name:'Apply to this and new orders'}).click();
- eq('pricing settings update this order and persisted defaults',await t.p.evaluate(()=>[soDraft.metricRules.triplePercent,JSON.parse(localStorage.getItem('glazing_system_v1')).salesMetricRules.triplePercent]),[40,40]);
+ eq('pricing settings update this order and persisted defaults',await t.p.evaluate(()=>[soDraft.metricRules.triplePercent,testStoredState().salesMetricRules.triplePercent]),[40,40]);
  await t.p.evaluate(()=>salesOpenMetrics('columns'));
  await t.p.setViewportSize({width:390,height:844});
  eq('column chooser fits a 390 px screen',await t.p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);

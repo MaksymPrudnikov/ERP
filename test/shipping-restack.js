@@ -15,7 +15,7 @@ module.exports=async function({page,eq,ok}){
   window.rsUnits=function(id){return shippingUnits(salesRecord(id)).map(u=>u.label+'@'+(u.skid||'-')+(u.ready?'':'!'));};
   window.rsOn=function(){const m={};[...carrierContents()].sort((x,y)=>x[0].localeCompare(y[0])).forEach(([code,list])=>{m[code]=list.length;});return m;};
   window.rsText=function(sel){const e=document.querySelector(sel);return e?e.textContent.replace(/\s+/g,' ').trim():null;};
-  window.rsFail=function(fn){const proto=Storage.prototype,old=proto.setItem;proto.setItem=function(k,v){if(k===STORAGE_KEY)throw new Error('Disk full');return old.call(this,k,v);};let r;try{r=fn();}finally{proto.setItem=old;}return r;};
+  window.rsFail=fn=>testFailWrite(fn,new Error('Disk full'));
  });
  eq('A ready unit scanned again with a skid chosen moves to that skid with all its glass; it stays ready',await t.p.evaluate(()=>{
   const [a]=rsSeed('A'),o=salesRecord(a),u=shippingAvailable(o)[0],scans=DB.stationScan.length;

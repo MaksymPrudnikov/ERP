@@ -13,9 +13,9 @@ module.exports=async function({page,eq}){
   return {saved:a.ok&&b.ok,numbers:[a.value.number,b.value.number],unknown:purOrderTotals(a.value),supplierCards:DB.supplier.length,oneLine:!bad.ok,seq:DB.purchaseOrderSeq};
  }),{saved:true,numbers:['PO-0001','PO-0002'],unknown:{known:0,missing:1,complete:false},supplierCards:0,oneLine:true,seq:2});
  eq('failed PO storage rolls back the number and history; retry takes the same next number',await t.p.evaluate(()=>{
-  const before=JSON.stringify(DB),set=Storage.prototype.setItem;let r;
-  Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw new Error('Test quota');return set.call(this,k,v);};
-  try{r=poSave({supplierName:'Retry shop'});}finally{Storage.prototype.setItem=set;}
+  const before=JSON.stringify(DB);let r;
+  testWriteBreak(new Error('Test quota'));
+  try{r=poSave({supplierName:'Retry shop'});}finally{testWriteHeal();}
   const same=JSON.stringify(DB)===before,next=poSave({supplierName:'Retry shop'});
   return {refused:!r.ok,same,next:next.value.number,events:purHistory('po',next.value.id).map(e=>e.what)};
  }),{refused:true,same:true,next:'PO-0003',events:['Created']});
