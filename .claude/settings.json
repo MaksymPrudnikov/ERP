@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\" && if [ ! -d node_modules/playwright ]; then npm ci --no-audit --no-fund --silent >/dev/null 2>&1 && echo 'GLASS ERP: npm ci done, node_modules ready'; fi; exit 0",
+            "command": "cd \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\" && W=$(node -p \"require('./package.json').devDependencies.playwright\" 2>/dev/null); H=$(node -p \"require('./node_modules/playwright/package.json').version\" 2>/dev/null); if [ \"$W\" != \"$H\" ]; then npm ci --no-audit --no-fund --silent >/dev/null 2>&1 && echo \"GLASS ERP: npm ci done, playwright $W\"; fi; exit 0",
             "timeout": 180
           }
         ]

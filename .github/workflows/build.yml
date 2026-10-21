@@ -61,11 +61,13 @@ concurrency:                # если правок подряд несколь�
 
 jobs:
   build:
-    # 24.04, а не latest: на 26.04 Playwright 1.55.1 не ставит Chromium.
-    runs-on: ubuntu-24.04
+    # Система указана точно, не latest: 20.10.2026 GitHub сам сменил latest
+    # на 26.04, и старый Playwright не поставил Chromium. Новую Ubuntu —
+    # только вместе с Playwright, который её знает.
+    runs-on: ubuntu-26.04
     steps:
       # fetch-depth: 0 — нужна история, иначе не с чем сравнивать ветку.
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -94,9 +96,9 @@ jobs:
           echo "    git commit -m 'dist убран из ветки: его пересобирает CI'"
           exit 1
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '26'
 
       - name: Установить зависимости
         run: npm ci --no-audit --no-fund

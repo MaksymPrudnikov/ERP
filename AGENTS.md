@@ -41,8 +41,9 @@
    `git fetch origin && git checkout -b <имя> --no-track origin/main`.
    Без `--no-track` upstream ветки — `origin/main`, и пуш из
    `tools/prepush.js` отказывает.
-2. `npm ci` в каждом новом worktree: `node_modules` не общий. У Claude это
-   делает хук при старте сессии (`.claude/settings.json`).
+2. `npm ci` в каждом новом worktree и после смены версии Playwright в
+   `package.json`: `node_modules` не общий. У Claude это делает хук при старте
+   сессии (`.claude/settings.json`).
 3. Новый файл модуля — в `build/manifest.json`. После любой правки в `src/`
    — `npm run build:web` и закоммитить `src/index.html`: в нём метка сборки,
    она меняется вместе с модулями.
