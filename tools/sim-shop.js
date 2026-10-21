@@ -1738,7 +1738,9 @@ if (require.main === module) (async () => {
   }
   const n = await p.evaluate(() => SIM.exportPlan());
   const file = path.join(o.out, o.name + '.json'), fd = fs.openSync(file, 'w');
-  fs.writeSync(fd, '{"format":"glass-erp","schemaVersion":1,"exportedAt":' + JSON.stringify(new Date(o.end + 'T21:00:00-04:00').toISOString()) + ',"data":{');
+  /* test: true — метка TEST: Import этой базы помечает браузер, в шапке чип TEST DATA,
+     настоящую базу поверх тестовой ERP не импортирует (задание «База»). */
+  fs.writeSync(fd, '{"format":"glass-erp","schemaVersion":1,"test":true,"exportedAt":' + JSON.stringify(new Date(o.end + 'T21:00:00-04:00').toISOString()) + ',"data":{');
   for (let i = 0; i < n; i++) fs.writeSync(fd, await p.evaluate(k => SIM.exportPart(k), i));
   fs.writeSync(fd, '}}'); fs.closeSync(fd);
   const truth = await p.evaluate(() => SIM.truth);

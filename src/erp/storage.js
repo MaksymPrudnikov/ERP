@@ -30,6 +30,9 @@ let storageRev=0,storageBusy=false,storageQueued=null,storageFailed=null,storage
    из-за которой вкладка устарела. */
 let storageStale='',storageBuildAtLoad='',storageApplying=Promise.resolve(),storageReadyResolve=null;
 let storageUsage=null,storageUsageAt=0;
+/* Метка TEST: база симулятора (владелец, 20.10.2026). Пока она есть — чип
+   TEST DATA на любом экране, настоящую базу поверх не импортировать. */
+let storageTest=false;
 /* The pre-import copy takes as much space as the database itself. It is
    kept for a week and dropped earlier when an ordinary save would otherwise
    fail for lack of space; a broken database keeps it untouched. */
@@ -179,6 +182,7 @@ function storageAlertHTML(){
 function afterRender(){
  const host=document.getElementById('storageStatus');if(host)host.innerHTML=storageStatusHTML();
  const alertBar=document.getElementById('storageAlert');if(alertBar){const h=storageAlertHTML();alertBar.innerHTML=h;alertBar.hidden=!h;}
+ const chip=document.getElementById('testChip');if(chip)chip.hidden=!storageTest;
  /* Forms remain available for reading. A tab that can take over keeps its
     buttons: the click itself makes it the writer. Without coordination, with
     a broken database or in an older version, persisting controls are off. */
@@ -229,6 +233,8 @@ function storageMarkStale(by){
 function storageOnMessage(d){
  if(!d||typeof d!=='object')return;
  if(d.type==='release-writer'){if(storageWriter)storageYield();return;}
+ /* Другая вкладка стёрла базу (Clear database) — эта начинает с пустой. */
+ if(d.type==='cleared'){if(storageIdb){storageIdb.close();storageIdb=null;}storageStale='cleared';location.reload();return;}
  if((d.type==='hello'||d.type==='saved')&&d.build&&d.build!==storageBuildId()){storageMarkStale(d.build);return;}
  if(d.type==='saved'&&Array.isArray(d.keys))storageApplying=storageApplying.then(()=>storageApplySaved(d)).catch(e=>console.warn('Live update skipped:',e.message));
 }
@@ -343,12 +349,27 @@ window.addEventListener('pagehide',function(){
 /* Discard the order draft while the writer is still held, then release it. */
 window.addEventListener('pagehide',()=>{storageWriter=false;if(storageRelease)storageRelease();});
 function storageExportEnvelope(){return {format:'glass-erp',schemaVersion:1,exportedAt:new Date().toISOString(),data:DB};}
-function storageDownload(name,text){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function storageDownload(name,parts,type){const a=document.createElement('a'),url=URL.createObjectURL(new Blob(Array.isArray(parts)?parts:[parts],{type:type||'application/json'}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+/* Export v2 — построчно (NDJSON): строка заголовка, затем по строке на
+   запись — та же запись, что лежит в базе. Файл собирается Blob из частей:
+   одной огромной строки нет. Этот же формат — для будущего переноса
+   старых данных и обмена с сервером. Пишется то, что в памяти, — и
+   то, что ещё не дошло до базы (запись не удалась). */
+function storageExportParts(){
+ const keep=storageBase;let recs;
+ storageBase=new Map();
+ try{recs=storageDiff(DB);}finally{storageBase=keep;}
+ const head={format:'glass-erp',schemaVersion:2,exportedAt:new Date().toISOString(),build:storageBuildId(),records:recs.length};
+ if(storageTest)head.test=true;
+ const parts=[JSON.stringify(head)+'\n'];
+ for(let i=0;i<recs.length;i+=1000)parts.push(recs.slice(i,i+1000).map(c=>'{"tbl":'+JSON.stringify(c.tbl)+',"id":'+JSON.stringify(c.id)+',"seq":'+c.seq+',"data":'+c.data+'}\n').join(''));
+ return parts;
+}
 /* Вся база целиком — дело администратора (раздел Users, erp/access): Import
    заменяет и людей с их правами, Export отдаёт и Finance. */
 function doExport(){
  if(!accessCan(ACCESS_ADMIN))return;
- storageDownload('glazing_system_data.json',JSON.stringify(storageExportEnvelope(),null,2));
+ storageDownload('glazing_system_data.ndjson',storageExportParts(),'application/x-ndjson');
  storageBackupAt=new Date().toISOString();dirty=false;render();
 }
 /* Записи как они лежат, без нормализации, — то, что не прочиталось. */
@@ -361,16 +382,22 @@ function storageImportSummary(next){return ['customer','salesOrder','receipt','g
 /* Заменить базу — дело администратора (раздел Users, erp/access), чем бы
    ни вызвали: Import, Restore pre-import backup, восстановление (аудит
    3 октября 2026). Проверка здесь, а не только на кнопке, и уже после
-   чтения файла. Ответ — Promise: true, когда новая база дошла до диска. */
-async function storageImportState(raw){
+   чтения файла. Ответ — Promise: true, когда новая база дошла до диска.
+   opts.test — файл помечен TEST (база симулятора); настоящую базу поверх
+   тестовой не кладём (владелец, 20.10.2026: «не путать тестовое и базу с
+   проектами прошлых лет»). opts.restore — Restore pre-import backup: копия
+   возвращается с той меткой, какая у неё была. */
+async function storageImportState(raw,opts){
+ opts=opts||{};
  if(!accessCan(ACCESS_ADMIN)){alert('Users access needed to replace the database.');return false;}
  const payload=raw&&raw.format==='glass-erp'?raw.data:raw;
  if(!payload||!Array.isArray(payload.customer)||!Array.isArray(payload.salesOrder)||!Array.isArray(payload.station))throw new Error('Choose a complete GLASS ERP backup. A partial data file cannot replace this database.');
+ if(storageTest&&!opts.test&&!opts.restore){alert('Test data here. Clear database first.');return false;}
  const next=prepareImportedState(raw);
  if(!confirm('Replace this browser database?\n\n'+storageImportSummary(next)+'\n\nA recovery copy will be kept before replacement.'))return false;
  const recovering=storageRecovery;
  /* The copy is written and checked before the database is touched. */
- const at=new Date().toISOString(),backup=JSON.stringify({format:'glass-erp',schemaVersion:1,exportedAt:at,data:DB});
+ const at=new Date().toISOString(),backup=JSON.stringify(Object.assign({format:'glass-erp',schemaVersion:1,exportedAt:at},storageTest?{test:true}:{},{data:DB}));
  try{await storageIdbCopyPut(backup,at);if(await storageIdbCopyGet()!==backup)throw new Error('The recovery copy could not be verified.');}
  catch(e){alert('Nothing was replaced: '+e.message);return false;}
  storageBackupPresent=true;storageCopyAt=at;
@@ -380,6 +407,7 @@ async function storageImportState(raw){
  storageImporting=false;
  if(!result.ok){storageRecovery=recovering;alert(result.error);return false;}
  const saved=await storageFlush();
+ if(saved){storageTest=!!opts.test;await storageIdbMetaPut('test',storageTest).catch(e=>console.warn('Test mark was not written:',e.message));}
  storageInvalidate();render();return saved;
 }
 /* Засев для тестов и инструментов (test/run.js, tools/shot.js): объект базы
@@ -399,17 +427,61 @@ async function storageSeed(src){
  });
 }
 function storageRestoreBackup(){
- return storageIdbCopyGet().then(raw=>{if(!raw){alert('No pre-import recovery copy is available.');return false;}return storageImportState(JSON.parse(raw));},
+ return storageIdbCopyGet().then(raw=>{if(!raw){alert('No pre-import recovery copy is available.');return false;}const copy=JSON.parse(raw);return storageImportState(copy,{restore:true,test:copy.test===true});},
   e=>{alert('No pre-import recovery copy is available.');return false;});
 }
-/* Предела размера больше нет: база в IndexedDB, а не в 5 МБ localStorage. */
+/* Import v2 — потоком: файл читается кусками и делится на строки, строка —
+   одна запись. JSON.parse всего файла нет, предела размера нет. */
+async function storageReadRecords(file){
+ const reader=file.stream().pipeThrough(new TextDecoderStream()).getReader(),records=[];
+ let buf='',head=null,line=0;
+ const take=text=>{
+  if(!text.trim())return;line++;
+  let o;try{o=JSON.parse(text);}catch(e){throw new Error('line '+line+' is not readable.');}
+  if(!head){if(!o||o.format!=='glass-erp'||o.schemaVersion!==2)throw new Error('Unsupported GLASS ERP backup format or version.');head=o;return;}
+  if(!o||typeof o.tbl!=='string'||typeof o.id!=='string'||!Number.isFinite(o.seq)||o.data===undefined)throw new Error('line '+line+' is not a record.');
+  records.push(o);
+ };
+ for(;;){
+  const r=await reader.read();if(r.done)break;
+  buf+=r.value;let i;while((i=buf.indexOf('\n'))>=0){take(buf.slice(0,i));buf=buf.slice(i+1);}
+ }
+ take(buf);
+ if(!head)throw new Error('the file is empty.');
+ if(Number.isInteger(head.records)&&head.records!==records.length)throw new Error('the file is incomplete: '+records.length+' of '+head.records+' records.');
+ return {head,state:storageJoin(records,true)};
+}
+/* Файл Import: v2 (строка заголовка с schemaVersion 2) или прежний JSON (v1).
+   Метка TEST — в заголовке v2 или в конверте v1 (tools/sim-shop.js). */
+async function storageImportFile(file){
+ let first=null;try{first=JSON.parse((await file.slice(0,65536).text()).split('\n')[0]);}catch(e){}
+ if(first&&first.format==='glass-erp'&&first.schemaVersion===2){
+  const got=await storageReadRecords(file);return storageImportState(got.state,{test:got.head.test===true});
+ }
+ const raw=JSON.parse(await file.text());
+ return storageImportState(raw,{test:!!raw&&raw.test===true});
+}
 function doImport(inp){
  const f=inp.files[0];if(!f)return;
  if(!accessCan(ACCESS_ADMIN)){inp.value='';return;}
- const r=new FileReader();r.onload=()=>{let raw;try{raw=JSON.parse(r.result);}catch(e){alert('File not readable: '+e.message);return;}
-  storageImportState(raw).catch(e=>alert('File not readable: '+e.message));};
- r.onerror=()=>alert('File not readable: '+(r.error&&r.error.message||'the file could not be opened.'));
- r.readAsText(f);inp.value='';
+ storageImportFile(f).catch(e=>alert('File not readable: '+e.message));inp.value='';
+}
+/* Clear database — только администратор. Стирает всё в этом браузере:
+   записи, копию до импорта, метку TEST и счётчик номеров стёкол (иначе
+   настоящие G- / U- продолжились бы после тестовых). После — ERP как новая
+   установка: демо-людей нет (засев один раз на браузер), первого человека
+   заводит администратор. Нужна и между прогонами испытаний. */
+async function storageClear(){
+ if(!accessCan(ACCESS_ADMIN))return false;
+ const n=k=>(DB[k]||[]).length;
+ if(!confirm('Delete the whole database in this browser?\n\n'+n('salesOrder')+' orders, '+n('customer')+' customers, '+n('stationScan')+' scans, '+n('user')+' people.\n\nExport first to keep a copy. This cannot be undone.'))return false;
+ await storageFlush();
+ storageWriter=false;if(storageRelease)storageRelease();storageRelease=null;
+ if(storageChannel)try{storageChannel.postMessage({type:'cleared'});}catch(e){}
+ if(storageIdb){storageIdb.close();storageIdb=null;}
+ await new Promise((resolve,reject)=>{const q=indexedDB.deleteDatabase(STORAGE_IDB_NAME);q.onsuccess=()=>resolve();q.onerror=()=>reject(q.error||new Error('The database could not be deleted.'));});
+ try{localStorage.removeItem(GLASS_ID_MARK_KEY);}catch(e){}
+ location.reload();return true;
 }
 /* ИСПРАВЛЕНО (авг 2026). Раньше здесь был Object.assign(DB, JSON.parse(s)) —
    в DB попадало ЛЮБОЕ содержимое ключа, включая null вместо массива, и
@@ -569,7 +641,7 @@ async function boot(){
  try{
   await storageIdbOpen();
   const got=await storageIdbReadAll();
-  storageBaseFrom(got.records);storageRev=got.rev;storageBuildAtLoad=got.build;storageCopyAt=got.copyAt||'';storageBackupPresent=!!got.copyAt;
+  storageBaseFrom(got.records);storageRev=got.rev;storageBuildAtLoad=got.build;storageCopyAt=got.copyAt||'';storageBackupPresent=!!got.copyAt;storageTest=got.test===true;
   if(got.records.length){
    hadSavedState=true;const parsed=storageJoin(got.records);
    if(!Object.keys(parsed).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a database object.');

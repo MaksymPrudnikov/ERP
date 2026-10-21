@@ -126,6 +126,50 @@ module.exports=async function({page,eq,ok}){
   tab='sales';salesOrderNew();salesOrderAddLine();render();await storageFlush();storageYield();await storageIdbMetaPut('build','other-build');const took=await storageTakeControl();return {took,stale:storageStale,writer:storageWriter};
  }),{took:false,stale:'other-build',writer:false});
  eq('вкладки одной сборки друг друга не останавливают',await r.c.newPage().then(async p=>{await p.goto(r.p.url());await p.evaluate(()=>window.storageReady);const s=await p.evaluate(()=>storageStale);await p.close();return s;}),'');
- eq('хранилище без ошибок страницы',t.errs.concat(q.errs,r.errs),[]);
- await q.c.close();await r.c.close();
+ /* Export v2 / Import v2, метка TEST и Clear database (этап 1, PR B). */
+ const v=await page();await require('./optimization-fixture')(v.p);
+ await v.p.evaluate(()=>{window.srAlerts=[];window.alert=m=>srAlerts.push(m);oqReset();oqOrder(oqCustomer());salesDraftDrop();touch();});
+ eq('Export v2: строка заголовка и по строке на запись, файл из частей',await v.p.evaluate(()=>{
+  const parts=storageExportParts(),lines=parts.join('').split('\n').filter(Boolean),head=JSON.parse(lines[0]),recs=lines.slice(1).map(l=>JSON.parse(l));
+  return {format:head.format,version:head.schemaVersion,count:head.records===recs.length,parts:parts.length>1,
+   orders:recs.filter(r=>r.tbl==='salesOrder').length===DB.salesOrder.length,test:'test' in head};
+ }),{format:'glass-erp',version:2,count:true,parts:true,orders:true,test:false});
+ eq('Export v2 → Import v2 — та же база',await v.p.evaluate(async()=>{
+  const before=JSON.stringify(DB),file=new File(storageExportParts(),'glazing_system_data.ndjson'),ok=await storageImportFile(file);
+  return {ok,same:JSON.stringify(DB)===JSON.stringify(prepareImportedState(JSON.parse(before))),test:storageTest};
+ }),{ok:true,same:true,test:false});
+ eq('Import v2 больше 10 МБ — потоком, без потолка',await v.p.evaluate(async()=>{
+  const note='x'.repeat(2000);storageCommand(()=>{for(let i=0;i<6000;i++)DB.customer.push(normalizeCustomer({legalName:'Stream '+i,code:'ST'+i,notes:note}));});
+  const parts=storageExportParts(),size=parts.reduce((n,p)=>n+p.length,0);storageCommand(()=>{DB.customer=DB.customer.filter(c=>!/^Stream /.test(c.legalName));});
+  const ok=await storageImportFile(new File(parts,'big.ndjson'));return {size:size>10*1048576,ok,count:DB.customer.filter(c=>/^Stream /.test(c.legalName)).length};
+ }),{size:true,ok:true,count:6000});
+ eq('обрезанный файл v2 не заменяет базу',await v.p.evaluate(async()=>{
+  const n=DB.customer.length,text=storageExportParts().join(''),cut=text.slice(0,text.lastIndexOf('\n',text.length-2)+1);let error='';
+  try{await storageImportFile(new File([cut],'cut.ndjson'));}catch(e){error=e.message;}return {error:/incomplete/.test(error),same:DB.customer.length===n};
+ }),{error:true,same:true});
+ eq('Import базы симулятора (test: true): метка и чип TEST DATA, они же после F5',await v.p.evaluate(async()=>{
+  const env=JSON.parse(JSON.stringify(storageExportEnvelope()));env.test=true;env.data.customer=env.data.customer.slice(0,3);
+  const ok=await storageImportFile(new File([JSON.stringify(env)],'sim.json')),chip=document.getElementById('testChip');
+  return {ok,test:storageTest,chip:!!chip&&!chip.hidden&&chip.textContent==='TEST DATA'};
+ }),{ok:true,test:true,chip:true});
+ await v.p.reload();await v.p.evaluate(()=>window.storageReady);
+ await v.p.evaluate(()=>{window.srAlerts=[];window.alert=m=>srAlerts.push(m);});
+ eq('метка TEST переживает F5, Export её несёт',await v.p.evaluate(()=>({test:storageTest,chip:!document.getElementById('testChip').hidden,head:JSON.parse(storageExportParts()[0]).test})),{test:true,chip:true,head:true});
+ eq('настоящую базу поверх тестовой — отказ «Clear database first.»',await v.p.evaluate(async()=>{
+  const n=DB.customer.length,env=JSON.parse(JSON.stringify(storageExportEnvelope()));env.data.customer.push(normalizeCustomer({legalName:'Real one',code:'R1'}));
+  const ok=await storageImportState(env);return {ok,alert:srAlerts.pop(),same:DB.customer.length===n,test:storageTest};
+ }),{ok:false,alert:'Test data here. Clear database first.',same:true,test:true});
+ eq('Clear database — только администратор, со сводкой перед удалением',await v.p.evaluate(()=>{
+  let asked='';window.confirm=m=>{asked=m;return false;};const kept=storageClear();
+  return {summary:/Delete the whole database in this browser\?/.test(asked)&&/orders/.test(asked)&&/scans/.test(asked),admin:document.querySelector('.app-foot button[onclick="storageClear()"]').hasAttribute('data-admin')};
+ }),{summary:true,admin:true});
+ /* Clear сам перезагружает вкладку. */
+ await Promise.all([v.p.waitForEvent('load'),v.p.evaluate(()=>{glassPieceNextId();touch();window.confirm=()=>true;storageClear();})]);
+ await v.p.evaluate(()=>window.storageReady);
+ eq('после Clear: база пустая, ни метки, ни счётчика G-, демо-люди не вернулись',await v.p.evaluate(async()=>({
+  orders:DB.salesOrder.length,customers:DB.customer.length,users:DB.user.length,test:storageTest,chip:document.getElementById('testChip').hidden,
+  mark:localStorage.getItem(GLASS_ID_MARK_KEY),copy:storageBackupPresent,seq:DB.glassPieceSeq})),
+  {orders:0,customers:0,users:0,test:false,chip:true,mark:null,copy:false,seq:0});
+ eq('хранилище без ошибок страницы',t.errs.concat(q.errs,r.errs,v.errs),[]);
+ await q.c.close();await r.c.close();await v.c.close();
 };

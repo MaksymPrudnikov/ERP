@@ -61,14 +61,15 @@ module.exports=async function({page,eq,ok}){
  eq('Export / Import JSON — только у администратора (Users): кнопок нет, вызов ничего не делает',await t.p.evaluate(async()=>{
   const shown=[...document.querySelectorAll('[data-admin]')].filter(b=>getComputedStyle(b).display!=='none').length;
   const keep=storageDownload;let saved=0;storageDownload=()=>{saved++;};doExport();storageDownload=keep;
-  return {shown,saved};
- }),{shown:0,saved:0});
+  const ask=window.confirm;let asked=0;window.confirm=()=>{asked++;return true;};const cleared=await storageClear();window.confirm=ask;
+  return {shown,saved,cleared,asked};
+ }),{shown:0,saved:0,cleared:false,asked:0});
  eq('добавили раздел Users — меню показывает его сразу',await t.p.evaluate(async()=>{
   const me=signinUser();me.access=USER_SECTIONS.filter(k=>k==='users'||me.access.includes(k));touch();navGo('users');
   return {tab,nav:!![...document.querySelectorAll('#side .nav-item>span')].find(x=>x.textContent==='Users')};
  }),{tab:'users',nav:true});
 
- eq('с разделом Users — Export / Import снова видны',await t.p.evaluate(()=>[...document.querySelectorAll('.app-foot button[data-admin]')].filter(b=>getComputedStyle(b).display!=='none').map(b=>b.textContent)),['Export JSON','Import JSON']);
+ eq('с разделом Users — Export / Import и Clear database снова видны',await t.p.evaluate(()=>[...document.querySelectorAll('.app-foot button[data-admin]')].filter(b=>getComputedStyle(b).display!=='none').map(b=>b.textContent)),['Export JSON','Import JSON','Clear database']);
  eq('Users: две вкладки — Office и Production; мастер цеха с обоими входами в обеих',await t.p.evaluate(async()=>{
   DB.user.push({name:'Shift Lead',access:['production'],pin:'1357'});normalizeUsers();
   const names=side=>{subtab=side;render();return [...document.querySelectorAll('[data-user-row] b')].map(b=>b.textContent);};

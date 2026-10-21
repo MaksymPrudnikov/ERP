@@ -1,4 +1,5 @@
 <body>
+<span class="test-chip" id="testChip" hidden>TEST DATA</span>
 <div class="shell">
 <nav class="side" id="side"></nav>
 <div class="main">
@@ -15,7 +16,8 @@
   <span class="sp"></span>
   <button class="gh" data-admin onclick="doExport()">Export JSON</button>
   <button class="gh" data-admin onclick="document.getElementById('imp').click()">Import JSON</button>
-  <input type="file" id="imp" accept=".json" style="display:none" onchange="doImport(this)">
+  <input type="file" id="imp" accept=".json,.ndjson" style="display:none" onchange="doImport(this)">
+  <button class="gh" data-admin onclick="storageClear()">Clear database</button>
 </footer>
 </div>
 </div>

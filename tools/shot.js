@@ -20,7 +20,7 @@
      node tools/shot.js --data ~/Downloads/x.json --eval "openSalesOrder('SO-1001')" --print --pdf
 
    Данные:   --data <файл.json>   выгрузка Export JSON
-             --data latest        самая свежая ~/Downloads/glazing_system_data*.json
+             --data latest        самая свежая ~/Downloads/glazing_system_data*.json / .ndjson
    Шаги:     --tab <раздел>       sales, optimization, production, shipping, finance,
                                   customers, masterdata, users, dashboard
              --click <селектор>   CSS или Playwright: "text=Save", "button:has-text('Cut')"
@@ -86,13 +86,31 @@ function dataText() {
   let file = o.data.replace(/^~(?=\/|$)/, os.homedir());
   if (o.data === 'latest') {
     const dir = path.join(os.homedir(), 'Downloads');
-    const found = fs.readdirSync(dir).filter(f => /^glazing_system_data.*\.json$/.test(f))
+    const found = fs.readdirSync(dir).filter(f => /^glazing_system_data.*\.(json|ndjson)$/.test(f))
       .map(f => path.join(dir, f)).sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
-    if (!found.length) { console.error('В ~/Downloads нет glazing_system_data*.json'); process.exit(1); }
+    if (!found.length) { console.error('В ~/Downloads нет glazing_system_data*.json / .ndjson'); process.exit(1); }
     file = found[0];
   }
   console.log('Данные: ' + file);
-  return fs.readFileSync(file, 'utf8');
+  return v1Text(fs.readFileSync(file, 'utf8'));
+}
+/* Export v2 (строка на запись) — в прежний JSON: его понимают обе стороны,
+   и main до этапа «База», и ветка. */
+function v1Text(text) {
+  const nl = text.indexOf('\n');
+  let head = null; try { head = JSON.parse(nl < 0 ? text : text.slice(0, nl)); } catch (e) {}
+  if (!head || head.schemaVersion !== 2) return text;
+  const data = {}, tables = {};
+  text.slice(nl + 1).split('\n').forEach(line => {
+    if (!line.trim()) return;
+    const r = JSON.parse(line);
+    if (r.tbl === '_meta') data[r.id] = r.data; else (tables[r.tbl] = tables[r.tbl] || []).push(r);
+  });
+  Object.keys(tables).forEach(t => {
+    const list = tables[t], whole = list.find(r => r.id === '*');
+    data[t] = whole ? whole.data : list.sort((a, b) => a.seq - b.seq).map(r => r.data);
+  });
+  return JSON.stringify({ format: 'glass-erp', schemaVersion: 1, exportedAt: head.exportedAt, data });
 }
 
 function beforeFile() {
