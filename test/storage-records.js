@@ -120,7 +120,9 @@ module.exports=async function({page,eq,ok}){
  const q=await page();
  await q.p.evaluate(()=>{window.srMark=1;});
  await q.p.evaluate(()=>storageOnMessage({type:'hello',build:'newer-build'}));
- await q.p.waitForFunction(()=>!window.srMark,null,{timeout:5000}).catch(()=>{});
+ /* Новая страница — не значит, что ERP уже загрузилась: на медленной машине CI
+    ждём, пока появится сам старт (window.storageReady). */
+ await q.p.waitForFunction(()=>!window.srMark&&!!window.storageReady,null,{timeout:10000}).catch(()=>{});
  await q.p.evaluate(()=>window.storageReady);
  eq('без начатого: перезагрузка сама, отметка — один раз на сборку',await q.p.evaluate(()=>({reloaded:!window.srMark,once:sessionStorage.getItem(STORAGE_RELOAD_KEY)})),{reloaded:true,once:'newer-build'});
  eq('второй раз для той же сборки — только полоса, без перезагрузки',await q.p.evaluate(()=>{window.srMark=2;storageOnMessage({type:'hello',build:'newer-build'});return {mark:window.srMark,stale:storageStale};}),{mark:2,stale:'newer-build'});
