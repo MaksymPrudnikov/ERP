@@ -37,6 +37,7 @@ on:
       - 'src/**'
       - 'build/**'
       - 'test/**'
+      - 'tools/**'            # e2e-cases, e2e-exceptions и др. гоняет test/run.js
       - 'dist/**'
       - 'package.json'
       - 'package-lock.json'
@@ -46,6 +47,7 @@ on:
       - 'src/**'
       - 'build/**'
       - 'test/**'
+      - 'tools/**'            # e2e-cases, e2e-exceptions и др. гоняет test/run.js
       - 'dist/**'
       - 'package.json'
       - 'package-lock.json'
