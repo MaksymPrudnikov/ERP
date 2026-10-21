@@ -105,7 +105,7 @@ module.exports=async function({page,eq,ok}){
   salesListSetColumn('priority',false);salesListSetColumn('glass',false);salesListSetColumn('weight',true);salesListMoveColumn('total',-1);
   return slHeads();
  }),MOVED);
- await t.p.reload();await t.p.waitForTimeout(300);await init();
+ await t.p.reload();await t.p.evaluate(()=>window.storageReady);await t.p.waitForTimeout(300);await init();
  eq('колонки запоминаются в браузере после перезагрузки; Standard view возвращает как было',await t.p.evaluate(()=>{
   tab='sales';soEdit=null;soDraft=null;salesShow={orders:true,quotes:true};render();
   const after=slHeads();salesListStandardView();

@@ -19,7 +19,7 @@ module.exports=async function({page,eq,ok}){
   window.skOut=function(){return skidsByCustomer().map(g=>salesCustomerDisplay(g.customerId)+': '+g.list.map(x=>x.code+' '+skidDays(x.since)+'d '+x.ps).join(', '));};
   window.skLogin=function(station){DB.user=DB.user.filter(u=>u.name!=='Loader');DB.user.push({name:'Loader',role:'Shop',station,skills:[],pin:'0000'});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode=station;tab='station';stationIncoming='';stationLast=null;stationLogin(DB.user[DB.user.length-1].viewProfileId);render();};
   window.skText=function(sel){const e=document.querySelector(sel);return e?e.textContent.replace(/\s+/g,' ').trim():null;};
-  window.skFail=function(fn){const proto=Storage.prototype,old=proto.setItem;proto.setItem=function(k,v){if(k===STORAGE_KEY)throw new Error('Disk full');return old.call(this,k,v);};let r;try{r=fn();}finally{proto.setItem=old;}return r;};
+  window.skFail=fn=>testFailWrite(fn,new Error('Disk full'));
  });
  eq('A skid is at the customer after a delivery PS leaves: by customer, oldest first, with days and the PS; pickup keeps the skid',await t.p.evaluate(()=>{
   const [a,a2,b,c]=skSeed('A A B C');const before=skidsOut().size;skShip(a,2);skShip(a2,5);skShip(b,1);skShip(c,3,{method:'pickup'});

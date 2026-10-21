@@ -167,7 +167,7 @@ module.exports=async function({page,eq,ok}){
 
  const keep=await t.p.evaluate(()=>{oqReset();const id=gbMixed(oqCustomer(),'6Q240');gbQueue();gbPick('6CLEAR');document.querySelector('[data-glass-action="create"]').click();return id;});
  const saved=await t.p.evaluate(()=>JSON.stringify([DB.glassBatch,DB.glassPiece,DB.glassPieceSeq]));
- await t.p.reload();
+ await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  eq('после перезагрузки: состав, номера, история, остаток и замки те же',await t.p.evaluate(([saved,keep])=>{
   const o=salesRecord(keep);return {same:JSON.stringify([DB.glassBatch,DB.glassPiece,DB.glassPieceSeq])===saved,managed:o.lines.map(l=>l.batchManaged),queue:glassBatchRows().map(r=>r.glass+' '+r.piece),status:o.status,locked:o.lines.every(salesLineLocked)};
  },[saved,keep]),{same:true,managed:[true,true],queue:['6Q240 G-0000003','6Q240 G-0000004','6Q240 G-0000006'],status:'batched',locked:true});
@@ -257,18 +257,18 @@ module.exports=async function({page,eq,ok}){
  await t.p.setViewportSize({width:1280,height:800});
  /* Владелец, 5 октября 2026: номера должны оставаться уникальными годами.
     Старая выгрузка откатывает базу, но не высший выданный номер. */
- const back=await t.p.evaluate(()=>{
+ const back=await t.p.evaluate(async()=>{
   oqReset();oqOrder(oqCustomer());soDraft=null;soEdit=null;touch();
   const backup=JSON.parse(JSON.stringify(DB)),old=[backup.glassPieceSeq,backup.glassUnitIdSeq];
   oqOrder(oqCustomer());soDraft=null;soEdit=null;touch();
   const high=[DB.glassPieceSeq,DB.glassUnitIdSeq],printed=gbIds().concat(DB.glassUnitId.flatMap(r=>r.ids));
   const next=prepareImportedState(JSON.parse(JSON.stringify(backup)));DB=next;const fresh=[glassPieceNextId(),unitIdNext()];
-  localStorage.setItem('glazing_system_v1',JSON.stringify(backup));
+  await storageSeed(backup);
   return {grew:high[0]>old[0]&&high[1]>old[1],seq:next.glassPieceSeq>=high[0]+1&&next.glassUnitIdSeq>=high[1]+1,fresh:fresh.every(id=>!printed.includes(id)),
    mark:JSON.parse(localStorage.getItem('glazing_system_v1-id-mark')).g>=high[0],high,printed};
  });
  eq('старая выгрузка не выдаёт напечатанные номера повторно: G и U продолжаются с высшего выданного',{grew:back.grew,seq:back.seq,fresh:back.fresh,mark:back.mark},{grew:true,seq:true,fresh:true,mark:true});
- await t.p.reload();await t.p.waitForTimeout(250);
+ await t.p.reload();await t.p.evaluate(()=>window.storageReady);await t.p.waitForTimeout(250);
  eq('старая база в браузере после перезагрузки тоже продолжает с высшего номера',await t.p.evaluate(([high,printed])=>{
   return {seq:DB.glassPieceSeq>=high[0]&&DB.glassUnitIdSeq>=high[1],fresh:![glassPieceNextId(),unitIdNext()].some(id=>printed.includes(id))};
  },[back.high,back.printed]),{seq:true,fresh:true});

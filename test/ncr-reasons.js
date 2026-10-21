@@ -58,21 +58,21 @@ module.exports=async function({page,eq,ok}){
     причину, набранное остаётся в поле, в справочнике ничего не меняется. */
  await open('HEAT');
  const roller=await rowOf('Roller marks'),bow=await rowOf('Bow / warp');
- await t.p.evaluate(()=>{window.nrKeep=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw new DOMException('Test quota','QuotaExceededError');return nrKeep.call(this,k,v);};});
+ await t.p.evaluate(()=>{testWriteBreak(new DOMException('Test quota','QuotaExceededError'));});
  await t.p.locator('[data-ncr-new]').fill('Stuck on rollers');await t.p.locator('[data-ncr-add]').click();
  const add=await t.p.evaluate(()=>({field:document.querySelector('[data-ncr-new]').value,error:(document.querySelector('.ncr-error')||{}).textContent,db:DB.ncrReason.some(r=>r.name==='Stuck on rollers')}));
  await t.p.locator(`[data-ncr-reason="${roller}"] [data-ncr-name]`).fill('Roller marks heavy');await t.p.locator(`[data-ncr-reason="${roller}"] [data-ncr-name]`).press('Enter');
  const rename=await t.p.evaluate(id=>({field:document.querySelector(`[data-ncr-reason="${id}"] [data-ncr-name]`).value,error:!!document.querySelector('.ncr-error'),db:DB.ncrReason.find(r=>r.id===id).name}),roller);
  await t.p.locator(`[data-ncr-reason="${bow}"] .ncr-switch span`).click();
  const active=await t.p.evaluate(id=>({box:document.querySelector(`[data-ncr-reason="${id}"] [data-ncr-active]`).checked,error:!!document.querySelector('.ncr-error'),db:DB.ncrReason.find(r=>r.id===id).active}),bow);
- await t.p.evaluate(()=>{Storage.prototype.setItem=nrKeep;});
+ await t.p.evaluate(()=>{testWriteHeal();});
  await t.p.locator('[data-ncr-add]').click();
  eq('причины NCR при отказе записи: ошибка у поля, набранное остаётся, справочник прежний; повтор Add записывает',
   {add,rename,active,retry:await t.p.evaluate(()=>({field:document.querySelector('[data-ncr-new]').value,error:!!document.querySelector('.ncr-error'),db:ncrReasonsFor('HEAT').some(r=>r.name==='Stuck on rollers')}))},
   {add:{field:'Stuck on rollers',error:'Not saved. Your operation is still open; retry or export your changes.',db:false},rename:{field:'Roller marks heavy',error:true,db:'Roller marks'},active:{box:true,error:true,db:true},retry:{field:'',error:false,db:true}});
 
  const saved=await t.p.evaluate(()=>JSON.stringify(DB.ncrReason));
- await t.p.reload();
+ await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  eq('после перезагрузки справочник тот же',await t.p.evaluate(saved=>JSON.stringify(DB.ncrReason)===saved,saved),true);
 
  eq('JSON: справочник переживает экспорт и импорт; старый файл без NCR получает стартовый набор; испорченное поле не импортируется',await t.p.evaluate(()=>{

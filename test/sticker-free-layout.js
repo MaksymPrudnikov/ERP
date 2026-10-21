@@ -114,7 +114,7 @@ module.exports=async function({page,eq,ok}){
   return {auto,free:stkTemplate('production','4x6').layout,frame:restored.frame,align:restored.align,valign:restored.valign,fonts:restored.fonts};
  }),{auto:'auto',free:'free',frame:{x:140.25,y:101.5,w:130.75,h:260},align:'center',valign:'middle',fonts:{dims:18.5,label:11}});
 
- await t.p.evaluate(()=>localStorage.setItem('glazing_system_v1',JSON.stringify(DB)));await t.p.reload();
+ await t.p.evaluate(()=>storageSeed(JSON.parse(JSON.stringify(DB))));await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  eq('saved free template survives a real browser reload',await t.p.evaluate(()=>{
   const tpl=stkTemplate('production','4x6'),b=tpl.blocks.find(x=>x.k==='shape');
   return {mode:tpl.layout,frame:b.frame,fonts:b.fonts,valign:b.valign};

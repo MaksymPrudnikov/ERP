@@ -27,7 +27,7 @@ module.exports=async function({page,eq,ok}){
   window.ldPS=function(customerOf,ids,extra){return shippingCreate(Object.assign({customerId:salesRecord(customerOf).customerId,method:'delivery',shipTo:{address1:'1 Main St'},date:finToday(),items:(ids||[]).flatMap(id=>shippingAvailable(salesRecord(id))).map(shippingItem),extras:[]},extra)).value;};
   window.ldShip=function(){return DB.stationScan.filter(s=>!s.undoneAt&&s.station===shippingStations().ship).length;};
   window.ldLoad=function(code,trip){const r=shippingLoad(code,trip||'',ldWho);return {kind:r.kind,ps:r.ps,units:r.units,added:r.added,opened:r.opened,take:r.take,balance:r.balance};};
-  window.ldFail=function(fn){const proto=Storage.prototype,old=proto.setItem;proto.setItem=function(k,v){if(k===STORAGE_KEY)throw new Error('Disk full');return old.call(this,k,v);};let r;try{r=fn();}finally{proto.setItem=old;}return r;};
+  window.ldFail=fn=>testFailWrite(fn,new Error('Disk full'));
   window.ldLogin=function(station){DB.user=DB.user.filter(u=>u.name!=='Loader');DB.user.push({name:'Loader',role:'Shop',station,skills:[],pin:'0000'});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode=station;tab='station';stationIncoming='';stationLast=null;stationLogin(DB.user[DB.user.length-1].viewProfileId);render();};
   window.ldText=function(sel){const e=document.querySelector(sel);return e?e.textContent.replace(/\s+/g,' ').trim():null;};
  });

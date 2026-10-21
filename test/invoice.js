@@ -119,7 +119,7 @@ module.exports=async function({page,eq,ok}){
   try{finValidatePayload(payload);}catch(e){invalid=e.message==='Invalid saved invoice export.';}
   return {id,ok:out.ok,saved,invalid};
  });
- await t.p.reload();await t.p.waitForFunction(()=>typeof storageWriter!=='undefined'&&storageWriter);
+ await t.p.reload();await t.p.evaluate(()=>window.storageReady);await t.p.waitForFunction(()=>typeof storageWriter!=='undefined'&&storageWriter);
  eq('QuickBooks: отметка Invoice и строка переживают настоящую перезагрузку; повторной выгрузки нет, повреждённый снимок отклонён',await t.p.evaluate(r=>({ok:r.ok,invalid:r.invalid,kept:JSON.stringify(finExportRecord(r.id))===JSON.stringify(r.saved),pending:finExportPending().filter(x=>x.kind==='invoice'&&x.x.id===r.id).length,recovery:storageRecovery}),reload),{ok:true,invalid:true,kept:true,pending:0,recovery:false});
 
  eq('без ошибок страницы',t.errs,[]);

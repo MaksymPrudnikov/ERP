@@ -66,7 +66,7 @@ module.exports=async function({page,eq}){
   const o=Object.assign({},DB.salesOrder[0],{noCharge:true});return {parts:[t.subtotal,t.energy,t.hst,t.card,t.delivery,t.grand],free:salesOrderCommercialTotals(o).grand};
  }),{parts:[-100,-9.75,-14.27,-2.9,10,-116.92],free:0});
 
- await t.p.reload();
+ await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  eq('сохранённый отрицательный заказ после reload сохраняет знак и Review',await t.p.evaluate(()=>{const o=DB.salesOrder[0];tab='sales';salesOrderEdit(o.id);return [finOrderTotals(o).grand,finOrderBalance(o).status,!!document.querySelector('[data-order-review]')];}),[-100,'review',true]);
  eq('окна цены и поправок без русского',await t.p.evaluate(()=>{const id=DB.salesOrder[0].id;salesOrderEdit(id);salesOpenMetrics('price',soDraft.lines[0].id);const a=document.querySelector('.metric-modal').innerText;salesOpenMetrics('orderCharges');const b=document.querySelector('.metric-modal').innerText;salesCloseMetrics();return /[А-яЁё]/.test(a+b);}),false);
  eq('деньги руками без ошибок страницы',t.errs,[]);await t.c.close();

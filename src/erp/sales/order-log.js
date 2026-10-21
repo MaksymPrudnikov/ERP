@@ -20,7 +20,6 @@ if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];
 const ORDER_LOG_HEAD=[['customerId','customer'],['customerPo','PO'],['dueDate','due date'],['priority','priority'],['delivery','delivery'],['paymentTerms','terms'],['currency','currency'],['branch','branch'],['notes','notes'],['orderCharges','charges'],['makeups','makeups'],['extraItems','items'],['noCharge','no charge'],['validUntil','valid until']];
 /* Поля строки, которые ведёт цех (батч, Hold строки) — у них свои записи. */
 const ORDER_LOG_LINE_OWN=['priceManual','batchManaged','batchedAt','cutStartedAt','batchNo','onHold','holdReason','holdAt','shipQueue','heldUnits','cancelledUnits'];
-let orderLogBase={text:null,map:null},orderLogPending=null;
 
 function normalizeOrderLog(){
  if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];
@@ -87,25 +86,15 @@ function orderLogCreatedNote(o){
  if(salesIsQuote(o)&&o.quoteRev>1)return 'revision '+o.quoteRev;
  return salesIsQuote(o)?'quote':'';
 }
-/* Заказы того, что лежит в базе сейчас (storageBaseline): разбираем текст
-   один раз и дальше держим копию после каждой своей записи. */
-function orderLogBaseMap(){
- if(typeof storageBaseline!=='string'||!storageBaseline)return null;
- if(orderLogBase.text!==storageBaseline){
-  let orders;try{const d=JSON.parse(storageBaseline);orders=Array.isArray(d&&d.salesOrder)?d.salesOrder:[];}catch(e){return null;}
-  orderLogBase={text:storageBaseline,map:new Map(orders.filter(o=>o&&o.id).map(o=>[o.id,JSON.stringify(o)]))};
- }
- return orderLogBase.map;
-}
+/* Заказы того, что лежит в базе сейчас: id → текст записи (erp/storage-records). */
+function orderLogBaseMap(){return typeof storageBaseTexts==='function'?storageBaseTexts('salesOrder'):null;}
 /* touch(): перед записью — события по разнице с базой. */
 function orderLogCapture(){
- orderLogPending=null;
  if(!Array.isArray(DB.salesOrder))return;
- const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,JSON.stringify(o)]));
- orderLogPending=now;
  /* Импорт JSON заменяет базу целиком — это не правка заказов. */
  if(typeof storageImporting!=='undefined'&&storageImporting)return;
  const base=orderLogBaseMap();if(!base)return;
+ const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,JSON.stringify(o)]));
  now.forEach((text,id)=>{
   const o=DB.salesOrder.find(x=>x.id===id);
   if(!base.has(id)){orderLogPush(o,'Created',orderLogCreatedNote(o));return;}
@@ -115,7 +104,6 @@ function orderLogCapture(){
  });
  base.forEach((text,id)=>{if(now.has(id))return;let o;try{o=JSON.parse(text);}catch(e){return;}orderLogPush(o,'Deleted');});
 }
-function orderLogCommitted(text){if(orderLogPending)orderLogBase={text,map:orderLogPending};orderLogPending=null;}
 
 /* Кто создал заказ — вошедший в офис, когда заказ записали (владелец,
    11.10.2026: «кто залогинен и создал заказ — тот создал»). Видно в Sales

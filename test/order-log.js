@@ -28,7 +28,7 @@ module.exports=async function({page,eq,ok}){
 
  await t.p.click('[data-signin-user]:has-text("Demo Sales")');
  const passErr=async a=>{await t.p.fill('#signinPass',a);await t.p.click('[data-signin-form] button[type=submit]');return t.p.evaluate(()=>({err:(document.querySelector('.signin-err')||{}).textContent,user:signinUser()&&signinUser().name}));};
- eq('пароль хранится отпечатком с солью, самого пароля в базе нет',await t.p.evaluate(async()=>{const u=DB.user.find(x=>x.name==='Demo Sales'),text=localStorage.getItem('glazing_system_v1');
+ eq('пароль хранится отпечатком с солью, самого пароля в базе нет',await t.p.evaluate(async()=>{const u=DB.user.find(x=>x.name==='Demo Sales');await storageFlush();const text=(await storageIdbReadAll()).records.map(r=>r.data).join('\n');
   return {hash:/^[0-9a-f]{64}$/.test(u.password.hash),salt:/^[0-9a-f]{32}$/.test(u.password.salt)&&u.password.algo==='sha256-salt',plain:text.includes('glass-farm-1'),check:userPasswordCheck(u,'glass-farm-1'),wrong:userPasswordCheck(u,'glass-farm-2')};}),
   {hash:true,salt:true,plain:false,check:true,wrong:false});
  eq('неверный пароль — «Wrong password», лимита нет; верный — вход',{form:await t.p.evaluate(()=>document.querySelector('[data-signin-form]').dataset.signinForm),wrong1:await passErr('nope-nope'),wrong2:await passErr('still-wrong'),ok:await passErr('glass-farm-1')},
@@ -175,7 +175,7 @@ module.exports=async function({page,eq,ok}){
  eq('заказ до журнала — строка Created без имени; импорт базы не пишет событий',await t.p.evaluate(async()=>{
   oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();DB.orderEvent=[];touch();
   const old=orderLogFor(id).map(r=>[r.what,r.by,r.note]);
-  const n=DB.orderEvent.length;storageImportState(JSON.parse(JSON.stringify(storageExportEnvelope())));
+  const n=DB.orderEvent.length;await storageImportState(JSON.parse(JSON.stringify(storageExportEnvelope())));
   return {old,added:DB.orderEvent.length-n};
  }),{old:[['Created','','before the log']],added:0});
 
@@ -185,7 +185,7 @@ module.exports=async function({page,eq,ok}){
   return a.by;
  }),'Demo Owner · CUT');
 
- await t.p.reload();await started(t.p);
+ await t.p.reload();await t.p.evaluate(()=>window.storageReady);await started(t.p);
  eq('F5 не выходит',await t.p.evaluate(()=>signinUser()&&signinUser().name),'Demo Sales');
  const p2=await t.c.newPage();await p2.goto(t.p.url());await started(p2);
  eq('новая вкладка при открытой — уже со входом',await p2.evaluate(()=>signinUser()&&signinUser().name),'Demo Sales');
@@ -213,7 +213,7 @@ module.exports=async function({page,eq,ok}){
  }),{names:0,nopin:'No PIN yet — ask the office',wrong:'Wrong number or PIN',who:'Shop Worker',unique:true});
  await p3.click('.st-exit');await p3.waitForFunction(()=>tab!=='station');
  eq('кнопка ERP на станции без офисного входа — снова выбор, браузер помнит Production',await p3.evaluate(()=>({gate:!!document.querySelector('.signin'),side:(document.querySelector('.signin-side .on')||{}).textContent})),{gate:true,side:'Production'});
- await p3.goto(t.p.url().split('#')[0]+'#station=CUT');await p3.reload();await started(p3);
+ await p3.goto(t.p.url().split('#')[0]+'#station=CUT');await p3.reload();await p3.evaluate(()=>window.storageReady);await started(p3);
  eq('экран станции офисного входа не просит',await p3.evaluate(()=>({tab,gate:!!document.querySelector('.signin')})),{tab:'station',gate:false});
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();

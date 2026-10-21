@@ -28,13 +28,13 @@ module.exports=async function({page,eq}){
  /* 1. Восстановление базы — только администратор. */
  eq('Restore pre-import backup без Users: кнопки нет, замена отказывает и база прежняя',await t.p.evaluate(async()=>{
   const env=storageExportEnvelope(),copy=JSON.parse(JSON.stringify(env));copy.data.user.forEach(u=>{u.access=USER_SECTIONS.slice();});
-  localStorage.setItem(STORAGE_BACKUP_KEY,JSON.stringify(copy));storageBackupPresent=true;
+  const at=new Date().toISOString();await storageIdbCopyPut(JSON.stringify(copy),at);storageCopyAt=at;storageBackupPresent=true;
   const admin=storageStatusHTML().includes('Restore pre-import backup');
   ucAs('Demo Sales');
   const before=JSON.stringify(DB),msgs=[],al=window.alert;window.alert=m=>msgs.push(m);
-  const button=storageStatusHTML().includes('Restore pre-import backup'),restored=storageRestoreBackup(),imported=storageImportState(copy);window.alert=al;
+  const button=storageStatusHTML().includes('Restore pre-import backup'),restored=await storageRestoreBackup(),imported=await storageImportState(copy);window.alert=al;
   const out={admin,button,restored,imported,same:JSON.stringify(DB)===before,alert:msgs[0],can:accessCan('users')};
-  localStorage.removeItem(STORAGE_BACKUP_KEY);storageBackupPresent=false;ucAs('Demo Owner');return out;
+  await storageIdbCopyDrop();storageBackupPresent=false;ucAs('Demo Owner');return out;
  }),{admin:true,button:false,restored:false,imported:false,same:true,alert:'Users access needed to replace the database.',can:false});
 
  /* 2. Вход не выключается сам: последний с Users и паролем остаётся. */
@@ -57,9 +57,9 @@ module.exports=async function({page,eq}){
  /* 6. Ошибка записи не стирает форму. */
  eq('запись не прошла — форма Users остаётся с правками, ошибка рядом с Save',await t.p.evaluate(async()=>{
   tab='users';subtab='office';userEditOpen(DB.user.findIndex(u=>u.name==='Demo Sales'));uDraft.name='Sales Renamed';
-  const set=Storage.prototype.setItem,al=window.alert;window.alert=()=>{};
-  Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw new DOMException('full','QuotaExceededError');return set.call(this,k,v);};
-  await saveUser();Storage.prototype.setItem=set;window.alert=al;storageLastError='';storageWarningShown=false;
+  const al=window.alert;window.alert=()=>{};
+  testWriteBreak(new DOMException('full','QuotaExceededError'));
+  await saveUser();testWriteHeal();window.alert=al;storageLastError='';storageWarningShown=false;
   const out={err:document.getElementById('e_user').textContent,open:uEdit!==null,name:uDraft&&uDraft.name,db:DB.user.find(u=>u.viewProfileId===uDraft.id).name};
   await saveUser();out.retry=DB.user.some(u=>u.name==='Sales Renamed')&&uEdit===null;
   await ucSave('Sales Renamed',{name:'Demo Sales'});tab='dashboard';render();return out;

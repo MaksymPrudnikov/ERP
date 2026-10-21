@@ -52,9 +52,9 @@ module.exports=async function({page,eq}){
 
  eq('a failed browser write rolls the card back and keeps the draft available to retry',await t.p.evaluate(()=>{
   const s=DB.supplier[0];purSupplierEdit(s.id);purSupplierDraft.phone='retry-value';
-  const before=JSON.stringify(DB),original=Storage.prototype.setItem;let prevented=false;
-  Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY){prevented=true;throw new Error('Test quota');}return original.call(this,k,v);};
-  try{purSupplierFormSave();}finally{Storage.prototype.setItem=original;}
+  const before=JSON.stringify(DB);let prevented=false;
+  testWriteBreak(new Error('Test quota'),()=>{prevented=true;});
+  try{purSupplierFormSave();}finally{testWriteHeal();}
   const out={prevented,unchanged:JSON.stringify(DB)===before,draft:purSupplierDraft.phone,error:!!document.querySelector('[data-pur-error]')};
   purSupplierFormSave();out.retry=purSupplierFind(s.id).phone==='retry-value'&&purSupplierDraft===null;return out;
  }),{prevented:true,unchanged:true,draft:'retry-value',error:true,retry:true});

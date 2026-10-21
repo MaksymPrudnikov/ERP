@@ -213,7 +213,7 @@ module.exports=async function({page,eq}){
   const r=DB.receipt[0],refund=DB.refund[0];finOpenAccount('CUS-FIN');const account=document.getElementById('app').textContent,journal=document.querySelector('.fin-history-box').textContent;
   return {amount:r.amount,refund:refund.amount,free:finReceiptOnAccount(r),account:account.includes('175.00'),journal:journal.includes('Money refunded')&&journal.includes('Payment received')};
  }),{amount:200,refund:25,free:175,account:true,journal:true});
- await t.p.reload();
+ await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  eq('reload preserves payments, refunds and journal sequence',await t.p.evaluate(()=>({payments:DB.receipt.length,refunds:DB.refund.length,events:DB.financeEvent.map(e=>e.kind),deposit:finCustomerDeposit('CUS-FIN')})),{payments:1,refunds:1,events:['received','refunded'],deposit:175});
  eq('finance workspace has no browser errors',t.errs,[]);await t.c.close();
 };

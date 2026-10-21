@@ -83,9 +83,9 @@ module.exports=async function({page,eq}){
 
  eq('сбой записи: заказ, накладная, батч и сканы остаются как были; повтор удаляет',await t.p.evaluate(()=>{
   odReset();const id=odOrder('single',2);oqThrough(id,'ready');odPs([id]);
-  const before=JSON.stringify(DB),saved=localStorage.getItem(STORAGE_KEY),old=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw Error('Full');return old.call(this,k,v);};
-  let deleted;try{deleted=odDelete(id);}finally{Storage.prototype.setItem=old;}
-  return {deleted,same:JSON.stringify(DB)===before,saved:localStorage.getItem(STORAGE_KEY)===saved,retry:odDelete(id),gone:!salesRecord(id)};
+  const before=JSON.stringify(DB),saved=testStoredText();testWriteBreak(Error('Full'));
+  let deleted;try{deleted=odDelete(id);}finally{testWriteHeal();}
+  return {deleted,same:JSON.stringify(DB)===before,saved:testStoredText()===saved,retry:odDelete(id),gone:!salesRecord(id)};
  }),{deleted:false,same:true,saved:true,retry:true,gone:true});
 
  eq('Optimization: Delete рядом с Cancel order — для одного выбранного заказа',await t.p.evaluate(()=>{

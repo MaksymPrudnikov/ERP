@@ -6,7 +6,7 @@ module.exports=async function({page,eq,ok}){
   window.shSeed=function(n){oqReset();DB.carrier=[];carrierAdd('SL',2);const c=oqCustomer(),ids=[];for(let k=0;k<(n||1);k++){const id=oqOrder(c);salesDraftDrop();oqThrough(id,'ready');ids.push(id);}return ids;};
   /* method 'delivery' — там, где проверяется скид на бумаге: у стойки (pickup) клиенту выдают юниты, а не скид. */
   window.shCreate=function(ids,count,method){const os=ids.map(salesRecord),all=os.flatMap(shippingAvailable);return shippingCreate({customerId:os[0].customerId,method:method||'pickup',shipTo:method==='delivery'?{address1:'1 Main St'}:{},date:finToday(),items:(count==null?all:all.slice(0,count)).map(shippingItem),extras:[]});};
-  window.shFail=function(fn){const proto=Storage.prototype,old=proto.setItem;proto.setItem=function(k,v){if(k===STORAGE_KEY)throw new Error('Disk full');return old.call(this,k,v);};let r;try{r=fn();}finally{proto.setItem=old;}return r;};
+  window.shFail=fn=>testFailWrite(fn,new Error('Disk full'));
   window.print=()=>{window.shPrints=(window.shPrints||0)+1;};
  });
  eq('Ready is derived from all assembled glass; undo moves the entire unit back atomically',await t.p.evaluate(()=>{

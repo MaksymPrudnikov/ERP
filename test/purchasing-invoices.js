@@ -60,7 +60,7 @@ module.exports=async function({page,eq}){
  }),{warn:true,allowed:true,noCard:true,po:[]});
  eq('supplier invoices and payments have not changed customer Finance, QuickBooks or inventory data',await t.p.evaluate(()=>piClient===JSON.stringify({receipt:DB.receipt,salesOrder:DB.salesOrder,credit:DB.creditNote,qb:DB.qbExport,glassSheet:DB.glassSheet})),true);
  eq('failed money storage rolls back amounts, events and numbering; stale forms cannot overwrite a payment',await t.p.evaluate(()=>{
-  const before=JSON.stringify(DB),seq=DB.purchaseInvoiceSeq,set=Storage.prototype.setItem;let r;Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw new Error('Quota test');return set.call(this,k,v);};try{r=piSave({amount:12});}finally{Storage.prototype.setItem=set;}
+  const before=JSON.stringify(DB),seq=DB.purchaseInvoiceSeq;let r;testWriteBreak(new Error('Quota test'));try{r=piSave({amount:12});}finally{testWriteHeal();}
   const same=JSON.stringify(DB)===before,retry=piSave({amount:12}),p=purClone(purMoneyFind('payment',piPayment1.id));purMoneySave('payment',Object.assign({},p,{note:'Fresh'}));const stale=purMoneySave('payment',Object.assign({},p,{note:'Old'}));
   return {refused:!r.ok,same,next:retry.value.number==='PI-'+String(seq+1).padStart(4,'0'),stale:!stale.ok,note:purMoneyFind('payment',p.id).note};
  }),{refused:true,same:true,next:true,stale:true,note:'Fresh'});

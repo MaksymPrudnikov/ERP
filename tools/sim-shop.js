@@ -13,9 +13,10 @@
    Как устроено.
    · Страница — src/index.html в Playwright. Часы страницы подменены: Date
      показывает время симуляции; Math.random и crypto.randomUUID — от seed.
-   · Запись в localStorage на время генерации выключена: 14 месяцев в
-     хранилище браузера не влезают (потолок ~5 МБ), база живёт в памяти.
-     storageCommand без снимка всей базы, render — пустой (экранов нет).
+   · Запись в базу браузера на время генерации выключена: каждое действие
+     ERP сравнивает всю базу с записанной, и на 14 месяцах это секунды.
+     База живёт в памяти, storageCommand без сравнения, render — пустой
+     (экранов нет).
    · Готовое старое (заказ отгружен неделю назад) уходит из DB в архив
      страницы: функции ERP перебирают журналы целиком, и на 14 месяцах
      каждый скан стоил бы секунды. В конце архив возвращается в DB.
@@ -1688,6 +1689,7 @@ if (require.main === module) (async () => {
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   p.on('dialog', d => d.accept());
   await p.goto('file://' + path.join(ROOT, 'src/index.html'));
+  await p.evaluate(() => window.storageReady);
   await p.waitForTimeout(400);
   await p.evaluate(`(${simPage.toString()})()`);
   console.log('setup', JSON.stringify(await p.evaluate(x => SIM.setup(x), { seed: o.seed, scale: o.scale, quickCut: o.quickCut, start: o.start, inventory: o.inventory })));

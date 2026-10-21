@@ -76,11 +76,11 @@ function salesShapeSnapshotRestore(){
    берётся свежей из базы (аудит 05.10.2026: другая вкладка меняла ширину
    50″, а эта при сохранении Notes возвращала форму 37″). Ту же форму поменяли
    обе вкладки — Update отказывает, как при конфликте полей заказа. */
-function salesDraftParkText(){
+function salesDraftParked(){
  if(!soDraft||soShapeSnapshot==null||!salesDraftHasWork())return null;
- const parked=JSON.parse(JSON.stringify(DB));
- JSON.parse(soShapeSnapshot).forEach(s=>{const i=parked.shapeDef.findIndex(x=>x&&x.id===s.id);if(i<0)parked.shapeDef.push(s);else parked.shapeDef[i]=s;});
- return JSON.stringify(parked);
+ const shapes=(DB.shapeDef||[]).slice();
+ JSON.parse(soShapeSnapshot).forEach(s=>{const i=shapes.findIndex(x=>x&&x.id===s.id);if(i<0)shapes.push(s);else shapes[i]=s;});
+ return Object.assign({},DB,{shapeDef:shapes});
 }
 function salesDraftKeepShapes(from,to){
  if(!soDraft||!from||!to||!Array.isArray(from.shapeDef)||!Array.isArray(to.shapeDef))return 0;
