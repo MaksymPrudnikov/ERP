@@ -28,6 +28,9 @@
      <name>-truth.json  «правильные ответы» — счёт самого генератора
      <name>-people.json люди: номер и PIN станции, пароль офиса (не в git!)
      <name>-sizes.json  размер базы по месяцам
+     <name>.ndjson      с --ndjson — Export v2 (строка на запись), для баз
+                        больше 512 МБ: такой JSON браузер одним куском не прочтёт
+     <name>-<N>m.ndjson с --snap 3,6,12 — та же база после N месяцев (Export v2)
 
    Примеры:
      node tools/sim-shop.js                                  14 месяцев
@@ -44,6 +47,8 @@
             прохода по складу; имя по умолчанию shop-inventory)
           --guide (в конце заказы на каждом этапе и <name>-guide.md —
             путеводитель «этап → заказ → клиент → где смотреть»)
+          --ndjson (итог — Export v2 вместо JSON), --snap 3,6,12 (снимки
+            базы после 3, 6 и 12 месяцев — для tools/perf-year.js)
    ===================================================================== */
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -52,13 +57,14 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const o = { start: '2025-08-04', end: '2026-10-10', seed: 20261011, scale: 1, name: '', out: path.join(os.homedir(), '.glass-erp-walk', 'sim'),
-  small: false, quickCut: false, check: false, inventory: false, guide: false, endHour: 0 };
+  small: false, quickCut: false, check: false, inventory: false, guide: false, endHour: 0, ndjson: false, snap: [] };
 const argv = require.main === module ? process.argv.slice(2) : [];
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i], v = () => argv[++i];
   if (a === '--start') o.start = v(); else if (a === '--end') o.end = v(); else if (a === '--seed') o.seed = +v();
   else if (a === '--scale') o.scale = +v(); else if (a === '--name') o.name = v(); else if (a === '--out') o.out = v();
   else if (a === '--small') o.small = true; else if (a === '--end-at') o.endAt = +v(); else if (a === '--quick-cut') o.quickCut = true; else if (a === '--check') o.check = true; else if (a === '--inventory') o.inventory = true; else if (a === '--guide') o.guide = true;
+  else if (a === '--ndjson') o.ndjson = true; else if (a === '--snap') o.snap = v().split(',').map(Number).filter(n => n > 0);
   else if (a === '-h' || a === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('*/')[0]); process.exit(0); }
   else { console.error('Неизвестный ключ: ' + a); process.exit(2); }
 }
@@ -1671,6 +1677,33 @@ function simPage() {
     if (p.arch) return (p.comma ? ',' : '') + ARCH[p.arch][p.n];
     return (p.comma ? ',' : '') + DB[p.k].slice(p.from, p.to).map(x => JSON.stringify(x)).join(',');
   };
+  /* Export v2 частями: строка на запись {tbl, id, seq, data}, как пишет ERP
+     (erp/storage-records). Сначала архив страницы, потом живые строки —
+     тот же порядок, что у Export JSON выше. Ключа у строки нет или он
+     повторился — id по номеру строки: Import его примет, ERP перепишет. */
+  SIM.exportPlanV2 = function () {
+    const parts = [];
+    Object.keys(DB).forEach(k => {
+      const v = DB[k];
+      if (!Array.isArray(v)) { parts.push({ meta: k }); return; }
+      parts.push({ start: k });
+      (ARCH[k] || []).forEach((chunk, n) => parts.push({ arch: k, n }));
+      for (let a = 0; a < v.length; a += 2000) parts.push({ k, from: a, to: Math.min(v.length, a + 2000) });
+    });
+    SIM.parts2 = parts; SIM.v2 = { seq: 0, seen: new Set(), records: 0 }; return parts.length;
+  };
+  SIM.exportPartV2 = function (i) {
+    const p = SIM.parts2[i], st = SIM.v2;
+    if (p.meta) { if (DB[p.meta] === undefined) return ''; st.records++; return '{"tbl":"_meta","id":' + JSON.stringify(p.meta) + ',"seq":0,"data":' + JSON.stringify(DB[p.meta]) + '}\n'; }
+    if (p.start) { st.seq = 0; st.seen = new Set(); return ''; }
+    const tbl = p.arch || p.k, rows = p.arch ? JSON.parse('[' + ARCH[p.arch][p.n] + ']') : DB[p.k].slice(p.from, p.to);
+    return rows.map(r => {
+      const seq = st.seq++; let id = storageRowKey(tbl, r);
+      if (!id || id === '*' || st.seen.has(id)) id = '#' + seq;
+      st.seen.add(id); st.records++;
+      return '{"tbl":' + JSON.stringify(tbl) + ',"id":' + JSON.stringify(id) + ',"seq":' + seq + ',"data":' + JSON.stringify(r) + '}\n';
+    }).join('');
+  };
   /* Для --check: архив обратно в DB (объектами). */
   SIM.unarchive = function () { unarchive(); return { scans: DB.stationScan.length, orders: DB.salesOrder.length, heapMB: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : 0 }; };
 }
@@ -1694,6 +1727,17 @@ if (require.main === module) (async () => {
   await p.evaluate(`(${simPage.toString()})()`);
   console.log('setup', JSON.stringify(await p.evaluate(x => SIM.setup(x), { seed: o.seed, scale: o.scale, quickCut: o.quickCut, start: o.start, inventory: o.inventory })));
   const sizes = [];
+  /* Export v2 в файл: заголовок с числом записей пишется в конце на место
+     заготовки той же длины — файл не держится в памяти целиком. */
+  const writeNdjson = async (file, exportedAt) => {
+    const n = await p.evaluate(() => SIM.exportPlanV2()), fd = fs.openSync(file, 'w');
+    const head = records => { const s = JSON.stringify({ format: 'glass-erp', schemaVersion: 2, test: true, exportedAt, records }); return s + ' '.repeat(Math.max(0, 200 - s.length)) + '\n'; };
+    fs.writeSync(fd, head(0));
+    for (let i = 0; i < n; i++) { const t = await p.evaluate(k => SIM.exportPartV2(k), i); if (t) fs.writeSync(fd, t); }
+    fs.writeSync(fd, head(await p.evaluate(() => SIM.v2.records)), 0); fs.closeSync(fd);
+    console.log('файл', file, (fs.statSync(file).size / 1048576).toFixed(1) + ' МБ');
+  };
+  let months = 0;
   let day = o.start, month = o.start.slice(0, 7);
   while (day <= o.end) {
     const r = await p.evaluate(([d, until]) => SIM.day(d, until), [day, day === o.end ? o.endAt || 0 : 0]);
@@ -1707,6 +1751,8 @@ if (require.main === module) (async () => {
       console.log('== ' + month + ': база ' + (s.total / 1048576).toFixed(1) + ' МБ', JSON.stringify(sizes[sizes.length - 1].by));
       month = next.slice(0, 7);
       fs.writeFileSync(path.join(o.out, o.name + '-sizes.json'), JSON.stringify(sizes, null, 1));
+      months++;
+      if (o.snap.includes(months) && next <= o.end) await writeNdjson(path.join(o.out, o.name + '-' + months + 'm.ndjson'), new Date(day + 'T21:00:00-04:00').toISOString());
     }
     day = next;
   }
@@ -1736,13 +1782,16 @@ if (require.main === module) (async () => {
     fs.writeFileSync(path.join(o.out, o.name + '-guide.md'), '# Путеводитель по базе ' + o.name + '\n\nЦех ' + o.start + ' — ' + o.end + (o.endAt ? ' (до ' + o.endAt + ':00)' : '') + '. Import JSON заменяет базу в браузере целиком: сначала Export своей.\n\n| Этап | Заказ | Клиент | Где смотреть | Заметка |\n|---|---|---|---|---|\n' + g.map(r => '| ' + [r.stage, r.order, r.customer, r.where, r.note].map(cell).join(' | ') + ' |').join('\n') + '\n');
     console.log('путеводитель', path.join(o.out, o.name + '-guide.md'), g.filter(r => r.order === '—').map(r => r.stage).join('; ') || 'все этапы есть');
   }
-  const n = await p.evaluate(() => SIM.exportPlan());
-  const file = path.join(o.out, o.name + '.json'), fd = fs.openSync(file, 'w');
   /* test: true — метка TEST: Import этой базы помечает браузер, в шапке чип TEST DATA,
      настоящую базу поверх тестовой ERP не импортирует (задание «База»). */
-  fs.writeSync(fd, '{"format":"glass-erp","schemaVersion":1,"test":true,"exportedAt":' + JSON.stringify(new Date(o.end + 'T21:00:00-04:00').toISOString()) + ',"data":{');
-  for (let i = 0; i < n; i++) fs.writeSync(fd, await p.evaluate(k => SIM.exportPart(k), i));
-  fs.writeSync(fd, '}}'); fs.closeSync(fd);
+  const file = path.join(o.out, o.name + (o.ndjson ? '.ndjson' : '.json'));
+  if (o.ndjson) await writeNdjson(file, new Date(o.end + 'T21:00:00-04:00').toISOString());
+  else {
+    const n = await p.evaluate(() => SIM.exportPlan()), fd = fs.openSync(file, 'w');
+    fs.writeSync(fd, '{"format":"glass-erp","schemaVersion":1,"test":true,"exportedAt":' + JSON.stringify(new Date(o.end + 'T21:00:00-04:00').toISOString()) + ',"data":{');
+    for (let i = 0; i < n; i++) fs.writeSync(fd, await p.evaluate(k => SIM.exportPart(k), i));
+    fs.writeSync(fd, '}}'); fs.closeSync(fd);
+  }
   const truth = await p.evaluate(() => SIM.truth);
   fs.writeFileSync(path.join(o.out, o.name + '-truth.json'), JSON.stringify(truth, null, 1));
   fs.writeFileSync(path.join(o.out, o.name + '-people.json'), JSON.stringify({ note: 'Test logins of the simulated shop. Do not commit.', people: await p.evaluate(() => SIM.people()), customers: await p.evaluate(() => SIM.customers()) }, null, 1));

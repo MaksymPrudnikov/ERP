@@ -89,6 +89,10 @@ module.exports=async function({page,eq,ok}){
   return {flushed,shown,next,memory,retried,stored:JSON.parse(back.records[0].data).legalName,cleared:document.getElementById('storageAlert').hidden};
  }),{flushed:false,shown:true,next:false,memory:'Needs retry',retried:true,stored:'Needs retry',cleared:true});
 
+ eq('Last action у администратора: от клика до готового экрана',await t.p.evaluate(()=>{
+  storageLastAction=null;tab='sales';render();document.querySelector('#side .nav-item').click();
+  const m=document.getElementById('storageStatus').textContent.match(/Last action (\d+) ms/);return !!m&&+m[1]>=0&&+m[1]<30000;
+ }),true);
  eq('место: размер базы у администратора, полоса при 80 %',await t.p.evaluate(()=>{
   storageUsage={usage:92*1048576,quota:1000*1048576};afterRender();const footer=document.getElementById('storageStatus').textContent.includes('DB 92 MB');
   storageUsage={usage:850,quota:1000};afterRender();const bar=document.getElementById('storageAlert'),full=!bar.hidden&&bar.textContent.includes('Storage almost full. Export and tell admin.');
@@ -116,7 +120,9 @@ module.exports=async function({page,eq,ok}){
  const q=await page();
  await q.p.evaluate(()=>{window.srMark=1;});
  await q.p.evaluate(()=>storageOnMessage({type:'hello',build:'newer-build'}));
- await q.p.waitForFunction(()=>!window.srMark,null,{timeout:5000}).catch(()=>{});
+ /* Новая страница — не значит, что ERP уже загрузилась: на медленной машине CI
+    ждём, пока появится сам старт (window.storageReady). */
+ await q.p.waitForFunction(()=>!window.srMark&&!!window.storageReady,null,{timeout:10000}).catch(()=>{});
  await q.p.evaluate(()=>window.storageReady);
  eq('без начатого: перезагрузка сама, отметка — один раз на сборку',await q.p.evaluate(()=>({reloaded:!window.srMark,once:sessionStorage.getItem(STORAGE_RELOAD_KEY)})),{reloaded:true,once:'newer-build'});
  eq('второй раз для той же сборки — только полоса, без перезагрузки',await q.p.evaluate(()=>{window.srMark=2;storageOnMessage({type:'hello',build:'newer-build'});return {mark:window.srMark,stale:storageStale};}),{mark:2,stale:'newer-build'});
