@@ -89,6 +89,10 @@ module.exports=async function({page,eq,ok}){
   return {flushed,shown,next,memory,retried,stored:JSON.parse(back.records[0].data).legalName,cleared:document.getElementById('storageAlert').hidden};
  }),{flushed:false,shown:true,next:false,memory:'Needs retry',retried:true,stored:'Needs retry',cleared:true});
 
+ eq('Last action у администратора: от клика до готового экрана',await t.p.evaluate(()=>{
+  storageLastAction=null;tab='sales';render();document.querySelector('#side .nav-item').click();
+  const m=document.getElementById('storageStatus').textContent.match(/Last action (\d+) ms/);return !!m&&+m[1]>=0&&+m[1]<30000;
+ }),true);
  eq('место: размер базы у администратора, полоса при 80 %',await t.p.evaluate(()=>{
   storageUsage={usage:92*1048576,quota:1000*1048576};afterRender();const footer=document.getElementById('storageStatus').textContent.includes('DB 92 MB');
   storageUsage={usage:850,quota:1000};afterRender();const bar=document.getElementById('storageAlert'),full=!bar.hidden&&bar.textContent.includes('Storage almost full. Export and tell admin.');
