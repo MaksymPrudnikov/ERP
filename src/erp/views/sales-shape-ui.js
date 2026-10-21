@@ -119,7 +119,18 @@ function shapeLayoutScale(key,step){
 function shapeLayoutHide(key){if(!sDraft)return;shapeLayoutAdoptLegacy();shapeLayoutEntry(key).hide=true;sLayoutEdit=null;refreshShapeEditor();}
 function shapeLayoutShow(key){if(!sDraft)return;var rec=shapeLayoutEntry(key);delete rec.hide;shapeLayoutPrune(key);sLayoutEdit={key:key};refreshShapeEditor();}
 function shapeLayoutReset(key){if(!sDraft)return;var rec=shapeLayoutEntry(key);delete rec.dx;delete rec.dy;delete rec.scale;delete rec.hide;shapeLayoutPrune(key);sLayoutEdit={key:key};refreshShapeEditor();}
-function shapeLayoutNudge(key,dx,dy){if(!sDraft)return;shapeLayoutAdoptLegacy();var rec=shapeLayoutEntry(key);shapeLayoutSet(key,(+rec.dx||0)+dx,(+rec.dy||0)+dy);sLayoutEdit={key:key};refreshShapeEditor();}
+/* Стрелки клавиатуры ведут подпись по той же оси, что и мышь: линия размера
+   — только поперёк себя. */
+function shapeLayoutAxisOf(key){
+  var el=typeof document!=='undefined'&&document.querySelector('#shapeLivePreview [data-layout-key="'+key+'"]');
+  return el?{axis:el.getAttribute('data-layout-axis')||'free',nx:+el.getAttribute('data-layout-nx')||0,ny:+el.getAttribute('data-layout-ny')||0}:{axis:'free'};
+}
+function shapeLayoutAxisMove(a,dx,dy){
+  if(a.axis==='x')return [dx,0];if(a.axis==='y')return [0,dy];
+  if(a.axis==='n'){var t=dx*a.nx+dy*a.ny;return [t*a.nx,t*a.ny];}
+  return [dx,dy];
+}
+function shapeLayoutNudge(key,dx,dy){if(!sDraft)return;shapeLayoutAdoptLegacy();var rec=shapeLayoutEntry(key),m=shapeLayoutAxisMove(shapeLayoutAxisOf(key),dx,dy);shapeLayoutSet(key,(+rec.dx||0)+m[0],(+rec.dy||0)+m[1]);sLayoutEdit={key:key};refreshShapeEditor();}
 /* Понятное имя скрытой подписи — её собственный текст с последнего чертежа. */
 function shapeLayoutKeyText(key){
   var t=typeof SHAPE_LAYOUT_TEXT!=='undefined'&&SHAPE_LAYOUT_TEXT[key];if(t)return t;
@@ -135,16 +146,23 @@ function shapeLayoutHiddenHTML(only){
    линиям, всё ложится на сетку. Shift — строго по одной оси и для свободной
    подписи. */
 function shapeLayoutSnap(d,dx,dy,shift){
+  /* Косая линия размера — по нормали: магнит и сетка по самому сдвигу. */
+  if(d.axis==='n'){var t=dx*d.nx+dy*d.ny;if(Math.abs(t)<SHAPE_LAYOUT_STICK)t=0;t=Math.round(t/SHAPE_LAYOUT_GRID)*SHAPE_LAYOUT_GRID;return [shapeLayoutClamp(t*d.nx),shapeLayoutClamp(t*d.ny)];}
   if(d.axis==='y')dx=d.dx0;else if(d.axis==='x')dy=d.dy0;
   else if(d.axis==='dim'||shift){if(Math.abs(dx-d.dx0)>=Math.abs(dy-d.dy0))dy=d.dy0;else dx=d.dx0;}
   if(Math.abs(dx)<SHAPE_LAYOUT_STICK)dx=0;if(Math.abs(dy)<SHAPE_LAYOUT_STICK)dy=0;
   return [shapeLayoutClamp(Math.round(dx/SHAPE_LAYOUT_GRID)*SHAPE_LAYOUT_GRID),shapeLayoutClamp(Math.round(dy/SHAPE_LAYOUT_GRID)*SHAPE_LAYOUT_GRID)];
 }
 function shapeLayoutPointerDown(ev,el){
-  if(!sDraft||ev.button>0)return;ev.stopPropagation();
+  if(!sDraft||ev.button>0)return;
+  /* Меню числа лежит внутри его линии размера: нажатие на A− / A+ / Hide /
+     Reset линию не берёт, иначе клик уходил линии и выделял её — в мм число
+     габарита не увеличивалось. */
+  if(ev.target&&ev.target.closest&&ev.target.closest('.shape-dim-menu'))return;
+  ev.stopPropagation();
   var svg=el.ownerSVGElement,m=svg&&svg.getScreenCTM&&svg.getScreenCTM();if(!m)return;
   var inv=m.inverse(),at=function(e){var p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(inv);},start=at(ev),num=function(k){var v=+el.getAttribute('data-layout-'+k);return isFinite(v)?v:0;};
-  sLayoutDrag={key:el.getAttribute('data-layout-key'),el:el,at:at,start:start,dx0:num('dx'),dy0:num('dy'),dx:num('dx'),dy:num('dy'),s:num('s')||1,ax:num('ax'),ay:num('ay'),axis:el.getAttribute('data-layout-axis')||'free',moved:false};
+  sLayoutDrag={key:el.getAttribute('data-layout-key'),el:el,at:at,start:start,dx0:num('dx'),dy0:num('dy'),dx:num('dx'),dy:num('dy'),s:num('s')||1,ax:num('ax'),ay:num('ay'),axis:el.getAttribute('data-layout-axis')||'free',nx:num('nx'),ny:num('ny'),moved:false};
   try{el.setPointerCapture(ev.pointerId);}catch(e){}
   el.addEventListener('pointermove',shapeLayoutPointerMove);el.addEventListener('pointerup',shapeLayoutPointerUp);el.addEventListener('pointercancel',shapeLayoutPointerUp);
   ev.preventDefault();

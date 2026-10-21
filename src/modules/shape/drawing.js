@@ -448,17 +448,28 @@ function shapeStepLiteDimsSvg(F,P,Q,ids,l,pre,ann,kp,fmt,size,metricMode){
     var fits=function(s){return fabPointInPoly([a[0]+nx*s*(g+4),a[1]+ny*s*(g+4)],P)&&fabPointInPoly([b[0]+nx*s*(g+4),b[1]+ny*s*(g+4)],P);};
     if(!fits(1)&&fabPointInPoly([mx-nx*60,my-ny*60],P)&&fits(-1)){nx=-nx;ny=-ny;}
     done.push({ux:ux,uy:uy,len:tl});
-    var x1=a[0]+nx*g,y1=a[1]+ny*g,x2=b[0]+nx*g,y2=b[1]+ny*g,lx=mx+nx*(g+11),ly=my+ny*(g+11);
+    var lx=mx+nx*(g+11),ly=my+ny*(g+11);
     var ang=Math.atan2(dy,dx)*180/Math.PI;if(ang>90)ang-=180;if(ang<-90)ang+=180;
     var id=ids.length===n?ids[k]:'',key=kp+'step:lite'+l.index+':'+(id&&ids.indexOf(id)===ids.lastIndexOf(id)?id:k);
-    var body='<g class="shape-step-dim" data-lite-index="'+l.index+'">'+
-      '<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+(x1+nx*4)+'" y2="'+(y1+ny*4)+'" stroke="#101828" stroke-width=".7"/>'+
-      '<line x1="'+b[0]+'" y1="'+b[1]+'" x2="'+(x2+nx*4)+'" y2="'+(y2+ny*4)+'" stroke="#101828" stroke-width=".7"/>'+
-      '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#'+mark+')" marker-end="url(#'+mark+')"/>'+
-      shapeAnnText(lx,ly+4,pre+fmt(tl),{size:size,weight:700,rot:ang})+'</g>';
-    out+=shapeAnnItem(ann,key,body,lx,ly,{from:[mx,my],vw:F.vw});
+    out+='<g class="shape-step-dim" data-lite-index="'+l.index+'">'+shapeStepDimSvg(ann,key,a,b,nx,ny,g,shapeAnnText(lx,ly+4,pre+fmt(tl),{size:size,weight:700,rot:ang}),lx,ly,mark,F)+'</g>';
   });
   return out;
+}
+/* Размер меньшего лайта двигается как внешний (владелец, 21.10.2026: «у
+   внутренней линии при увеличении увеличивается линия и размер, и её можно
+   сдвинуть не по траектории»): линия — только поперёк себя и не растёт
+   (ключ +'|line'), число — само по себе, A−/A+ меняют только его. Выносные
+   идут от точек лайта до того места, где линия стоит сейчас. */
+function shapeStepDimSvg(ann,key,a,b,nx,ny,g,text,lx,ly,mark,F){
+  var hid=shapeAnnDimHidden(ann,key);if(hid)return shapeAnnItem(ann,hid,text,lx,ly);
+  var lo={axis:Math.abs(nx)<1e-9?'y':Math.abs(ny)<1e-9?'x':'n',nx:Math.round(nx*1e4)/1e4,ny:Math.round(ny*1e4)/1e4,noScale:true,menuGap:Math.abs(nx)<1e-9?26:0,vw:F.vw};
+  var r=shapeLayoutRec(ann,key+'|line'),sh=shapeAnnAxisShift(lo,+r.dx||0,+r.dy||0),e=g+sh[0]*nx+sh[1]*ny,over=e>=0?4:-4;
+  var x1=a[0]+nx*g,y1=a[1]+ny*g,x2=b[0]+nx*g,y2=b[1]+ny*g;
+  var ext='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+(a[0]+nx*(e+over))+'" y2="'+(a[1]+ny*(e+over))+'" stroke="#101828" stroke-width=".7"/>'+
+    '<line x1="'+b[0]+'" y1="'+b[1]+'" x2="'+(b[0]+nx*(e+over))+'" y2="'+(b[1]+ny*(e+over))+'" stroke="#101828" stroke-width=".7"/>';
+  var hit=ann&&ann.interactive?'<line class="shape-layout-hit" x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="transparent" stroke-width="10"/>':'';
+  var num=shapeAnnItem(ann,key,text,lx,ly,{from:[(x1+x2)/2,(y1+y2)/2],axis:'dim',vw:F.vw});
+  return ext+shapeAnnItem(ann,key+'|line',hit+'<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#'+mark+')" marker-end="url(#'+mark+')"/>'+num,(x1+x2)/2,(y1+y2)/2,lo);
 }
 /* Лист одного стекла ступенчатого юнита («у каждого стекла свой лист»). У
    лайта с отступом формы нет — только контур, поэтому его рисует тот же

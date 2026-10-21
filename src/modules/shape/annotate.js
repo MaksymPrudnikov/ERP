@@ -84,7 +84,16 @@ function shapeLayoutMenuSvg(key,cx,cy,vw,o){
 }
 /* label — SVG подписи; (ax, ay) — её центр; o.from — точка линии, к которой
    подпись относится (для выноски); o.axis 'dim' — число размера: мышь ведёт
-   его только вдоль или поперёк линии. */
+   его только вдоль или поперёк линии. Линия размера ходит только поперёк
+   себя: o.axis 'x' / 'y' — по оси, 'n' — по нормали (o.nx, o.ny) косой
+   линии. Сдвиг вбок от оси не рисуется, откуда бы он ни пришёл: от
+   стрелок клавиатуры линия съезжала с детали, а выносные оставались. */
+function shapeAnnAxisShift(o,dx,dy){
+  if(o.axis==='x')return [dx,0];
+  if(o.axis==='y')return [0,dy];
+  if(o.axis==='n'){var t=dx*o.nx+dy*o.ny;return [Math.round(t*o.nx*10)/10,Math.round(t*o.ny*10)/10];}
+  return [dx,dy];
+}
 function shapeAnnItem(opts,key,label,ax,ay,o){
   o=o||{};if(!label)return '';
   if(!key||!opts)return label;
@@ -95,11 +104,11 @@ function shapeAnnItem(opts,key,label,ax,ay,o){
     if(!ui)return '';
     return '<g class="shape-dim-ghost shape-layout-ghost" data-layout-key="'+k+'" onclick="event.stopPropagation();shapeLayoutShow(\''+k+'\')"><title>Show '+shapeXml(SHAPE_LAYOUT_TEXT[key])+'</title><circle cx="'+ax+'" cy="'+ay+'" r="7"/><text x="'+ax+'" y="'+(ay+3.5)+'" text-anchor="middle">+</text></g>';
   }
-  var dx=+rec.dx||0,dy=+rec.dy||0,sc=o.noScale?1:(+rec.scale||1),tf=shapeLayoutTransform(dx,dy,sc,ax,ay),out='';
+  var sh=shapeAnnAxisShift(o,+rec.dx||0,+rec.dy||0),dx=sh[0],dy=sh[1],sc=o.noScale?1:(+rec.scale||1),tf=shapeLayoutTransform(dx,dy,sc,ax,ay),out='';
   if(o.from&&Math.hypot(dx,dy)>12)out+='<line class="shape-layout-leader" x1="'+o.from[0]+'" y1="'+o.from[1]+'" x2="'+(ax+dx)+'" y2="'+(ay+dy)+'" stroke="#98a2b3" stroke-width=".8"/>';
   var sel=ui&&opts.layoutSelected===key;
   var attrs='class="shape-layout-item'+(sel?' active':'')+'" data-layout-key="'+k+'"'+(tf?' transform="'+tf+'"':'')+
-    (ui?' data-layout-ax="'+ax+'" data-layout-ay="'+ay+'" data-layout-dx="'+dx+'" data-layout-dy="'+dy+'" data-layout-s="'+sc+'" data-layout-axis="'+(o.axis||'free')+'" onpointerdown="shapeLayoutPointerDown(event,this)" onclick="event.stopPropagation()"':'');
+    (ui?' data-layout-ax="'+ax+'" data-layout-ay="'+ay+'" data-layout-dx="'+dx+'" data-layout-dy="'+dy+'" data-layout-s="'+sc+'" data-layout-axis="'+(o.axis||'free')+'"'+(o.axis==='n'?' data-layout-nx="'+o.nx+'" data-layout-ny="'+o.ny+'"':'')+' onpointerdown="shapeLayoutPointerDown(event,this)" onclick="event.stopPropagation()"':'');
   /* Одиночная подпись без своего transform и class получает атрибуты прямо на
      <text>: так подпись фурнитуры остаётся прямым потомком метки, и её стили
      (кегль отверстия) не меняются. */
