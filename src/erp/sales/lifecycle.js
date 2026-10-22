@@ -46,7 +46,7 @@ function salesLifecycleFields(o){
   onHold:!q&&o.onHold===true,holdReason:!q&&o.onHold===true?salesString(o.holdReason).slice(0,200):'',holdAt:!q&&o.onHold===true?salesString(o.holdAt):''};
 }
 function nextSalesQuoteNumber(){
- let max=10000;
+ let max=Math.max(10000,typeof archiveFloor==='function'?archiveFloor('quote'):0);
  (DB.salesOrder||[]).forEach(o=>{const m=/^Q-(\d+)(?:-R\d+)?$/.exec(String(o&&o.businessNumber||''));if(m)max=Math.max(max,+m[1]);});
  return 'Q-'+(max+1);
 }
@@ -282,7 +282,7 @@ function salesRunChecks(checks,done,takePayment){
    процесса; его прочие несохранённые правки не записываются и не теряются. */
 function salesBatchNumber(v){return typeof v==='string'&&/^B-\d{4,9}$/.test(v)?v:'';}
 function salesNextBatchNumber(){
- let n=0;(DB.glassBatch||[]).forEach(b=>{if(salesBatchNumber(b.number))n=Math.max(n,+b.number.slice(2));});
+ let n=typeof archiveFloor==='function'?archiveFloor('batch'):0;(DB.glassBatch||[]).forEach(b=>{if(salesBatchNumber(b.number))n=Math.max(n,+b.number.slice(2));});
  (DB.salesOrder||[]).forEach(o=>[o.batchNo].concat(o.batchHistory||[],(o.lines||[]).map(l=>l.batchNo)).forEach(v=>{if(salesBatchNumber(v))n=Math.max(n,+v.slice(2));}));
  return 'B-'+String(n+1).padStart(4,'0');
 }

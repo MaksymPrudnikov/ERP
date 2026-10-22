@@ -543,7 +543,7 @@ function validateSalesReferences(){
  /* Свой чертёж Recut (erp/quality/recut) — те же формы в DB.shapeDef. */
  (DB.recut||[]).forEach(r=>{if(r&&r.shapeRef&&[r.shapeRef].concat(Object.values(r.liteShapes||{})).some(x=>x&&x.id&&!shapeIds.has(x.id)))throw new Error('Recut '+r.no+' references a missing Shape.');});
 }
-function nextSalesOrderNumber(){let max=76001;DB.salesOrder.forEach(o=>{if(o.kind==='quote'||/^Q-/i.test(String(o.businessNumber||'')))return;const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
+function nextSalesOrderNumber(){let max=Math.max(76001,typeof archiveFloor==='function'?archiveFloor('order'):0);DB.salesOrder.forEach(o=>{if(o.kind==='quote'||/^Q-/i.test(String(o.businessNumber||'')))return;const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
 function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:SALES_ORDER_CHARGE_DEFAULTS,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
 function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
 function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}

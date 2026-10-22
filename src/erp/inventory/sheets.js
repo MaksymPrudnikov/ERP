@@ -208,6 +208,8 @@ function invSheetRows(){
  (DB.inventoryEvent||[]).filter(e=>INV_SHEET_KINDS.includes(e.kind)).forEach(e=>{const r=row(e.glass,invSize(e.w,e.h));r.adjust+=e.qty;if(e.kind==='count'&&(!r.lastCount||e.at>r.lastCount.at))r.lastCount=e;});
  Object.entries(DB.inventoryMin||{}).forEach(([key,n])=>{const [code,dim]=key.split('|'),[w,h]=dim.split('x');row(code,invSize(w,h)).min=n;});
  invPurchaseWaiting().forEach(x=>{const r=row(x.code,x.size);if(x.held){r.held+=x.sheets;r.heldBlocks+=x.blocks;}else{r.onOrder+=x.sheets;r.onOrderBlocks+=x.blocks;}});
+ /* Ушедшее в архив (erp/archive): порезано и лопнуло — разницей на день ухода. */
+ Object.entries(DB.inventoryArchived&&DB.inventoryArchived.sheets||{}).forEach(([key,x])=>{const [code,dim]=key.split('|'),[w,h]=String(dim).split('x');const r=row(code,dim==='?'?null:invSize(w,h));r.cut+=x.cut||0;r.broken+=x.broken||0;});
  return [...rows.values()].map(r=>{
   r.onRack=r.received-r.cut-r.broken+r.adjust;r.free=r.onRack-r.reserved;r.sizeMissing=!r.w;
   r.status=r.sizeMissing?'Size missing':!r.lastCount?'Not counted':r.free<0?'Negative':r.min!=null&&r.free<r.min?'Below minimum':'OK';

@@ -49,7 +49,7 @@ function normalizeReceipt(r){
   createdAt:String(r.createdAt||''),updatedAt:String(r.updatedAt||'')};
 }
 function finNextReceiptNumber(){
- let max=0;(DB.receipt||[]).forEach(r=>{const m=String(r&&r.number||'').match(/^R-(\d+)$/);if(m)max=Math.max(max,+m[1]);});
+ let max=typeof archiveFloor==='function'?archiveFloor('receipt'):0;(DB.receipt||[]).forEach(r=>{const m=String(r&&r.number||'').match(/^R-(\d+)$/);if(m)max=Math.max(max,+m[1]);});
  return 'R-'+String(max+1).padStart(4,'0');
 }
 function normalizeReceipts(){

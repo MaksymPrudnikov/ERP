@@ -184,6 +184,7 @@
   "src/erp/views/charts.js",
   "src/erp/views/station-board.js",
   "src/erp/views/reports.js",
+  "src/erp/archive.js",
   "src/erp/storage-records.js",
   "src/erp/storage.js"
  ]

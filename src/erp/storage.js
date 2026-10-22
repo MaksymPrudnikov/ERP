@@ -94,14 +94,37 @@ function storageRollback(before){
    для сравнения базы выглядит удалённой — touch() превращает такое
    «удалено» в перенос в склад cold той же записью. storageColdImport —
    архив из файла Import (заменяет весь архив). */
-let storageColdPending=new Map(),storageColdImport=null,storageColdWarm=new Set();
+let storageColdPending=new Map(),storageColdImport=null,storageColdWarm=new Set(),storageArchivePending=new Map();
+/* Указатель архива (erp/archive): строка Sales ушедшего заказа; null —
+   строка снимается (заказ вернулся в работу). Пишется той же записью. */
+function storageArchiveIndex(id,row){storageArchivePending.set(id,row);}
 function storageColdMove(tbl,row,owners,month){
  const list=DB[tbl],i=Array.isArray(list)?list.indexOf(row):-1,id=storageRowKey(tbl,row);
  if(i<0||!id||!storageTableIds(tbl,list))throw new Error('This record cannot go to the archive.');
  storageColdPending.set(tbl+'\u0000'+id,{tbl,id,owners:owners||[],month:month||'',data:JSON.stringify(row)});list.splice(i,1);
 }
+/* Много строк одной таблицы — одним проходом (archiveRun). Таблица без
+   надёжного ключа хранится целиком — её строки остаются в работе. */
+function storageColdMoveAll(tbl,list){
+ const rows=DB[tbl];if(!Array.isArray(rows)||!list.length)return;
+ if(!storageTableIds(tbl,rows)){console.warn('Archive skipped table '+tbl+': it has no row keys.');return;}
+ const set=new Set(list.map(x=>x.row));
+ list.forEach(x=>{const id=storageRowKey(tbl,x.row);storageColdPending.set(tbl+'\u0000'+id,{tbl,id,owners:x.owners||[],month:x.month||'',data:JSON.stringify(x.row)});});
+ DB[tbl]=rows.filter(r=>!set.has(r));
+}
+/* Строка, которая сейчас уходит в архив или возвращается из него: журнал
+   заказа не пишет её «Deleted» или «Created» (erp/sales/order-log). */
+function storageColdMoving(tbl,id){const k=tbl+'\u0000'+id;return storageColdPending.has(k)||storageColdWarm.has(k);}
+/* Одна запись из архива — на своё место по seq (внутри действия). */
+function storageColdPut(r){
+ if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];const rows=DB[r.tbl],base=storageBase.get(r.tbl)||new Map(),seqOf=x=>{const b=base.get(storageRowKey(r.tbl,x));return b?b.s:Infinity;};
+ let lo=0,hi=rows.length;while(lo<hi){const mid=(lo+hi)>>1;if(seqOf(rows[mid])<r.seq)lo=mid+1;else hi=mid;}
+ rows.splice(lo,0,JSON.parse(r.data));storageColdWarm.add(r.tbl+'\u0000'+r.id);
+}
 function storageColdApply(changes){
- if(storageColdImport){changes.unshift({tbl:'',id:'',coldClear:true});storageColdImport.forEach(r=>changes.push({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,owners:r.owners||[],month:r.month||''}));storageColdImport=null;}
+ if(storageColdImport){changes.unshift({tbl:'',id:'',coldClear:true});storageColdImport.cold.forEach(r=>changes.push({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,owners:r.owners||[],month:r.month||''}));
+  storageColdImport.archive.forEach(a=>changes.push({tbl:'_archive',id:a.id,seq:0,data:JSON.stringify(a.row)}));storageColdImport=null;}
+ storageArchivePending.forEach((row,id)=>changes.push(row?{tbl:'_archive',id,seq:0,data:JSON.stringify(row)}:{tbl:'_archive',id,del:true}));storageArchivePending.clear();
  if(storageColdWarm.size){changes.forEach(c=>{if(!c.del&&!c.cold&&storageColdWarm.has(c.tbl+'\u0000'+c.id))c.warm=true;});storageColdWarm.clear();}
  if(!storageColdPending.size)return changes;
  changes.forEach(c=>{const p=c.del&&storageColdPending.get(c.tbl+'\u0000'+c.id);if(!p)return;const b=storageBase.get(c.tbl),was=b&&b.get(c.id);
@@ -115,14 +138,7 @@ function storageColdApply(changes){
 async function storageColdBring(owner){
  await storageFlush();
  const got=await storageIdbColdOf(owner);if(!got.length)return {ok:true,value:0};
- return storageCommand(()=>{
-  got.forEach(r=>{
-   if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];const rows=DB[r.tbl],base=storageBase.get(r.tbl)||new Map(),seqOf=x=>{const b=base.get(storageRowKey(r.tbl,x));return b?b.s:Infinity;};
-   let lo=0,hi=rows.length;while(lo<hi){const mid=(lo+hi)>>1;if(seqOf(rows[mid])<r.seq)lo=mid+1;else hi=mid;}
-   rows.splice(lo,0,JSON.parse(r.data));storageColdWarm.add(r.tbl+'\u0000'+r.id);
-  });
-  return got.length;
- });
+ return storageCommand(()=>{got.forEach(storageColdPut);return got.length;});
 }
 function storageCommand(fn){
  if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}
@@ -136,7 +152,7 @@ function storageCommand(fn){
   storageDepth--;storageCommanding=true;const saved=touch();storageCommanding=false;
   if(saved===false)throw new Error(storageLastError||'Not saved. Retry the operation.');
   return {ok:true,value};
- }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
+ }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
 }
 function touch(){
  if(storageDepth)return true;
@@ -154,7 +170,7 @@ function touch(){
   const changes=storageColdApply(storageDiff(DB));
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';return true;}
-  storageWrite(changes);storageBaseApply(changes);
+  storageWrite(changes);storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
   storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
  }catch(e){
   storageLastError=storageStale?storageReadOnlyText():'Not saved. Your operation is still open; retry or export your changes.';
@@ -321,13 +337,15 @@ function storageOnMessage(d){
    стойки — в другой). */
 async function storageApplySaved(d){
  if(storageWriter||storageRecovery||!(d.rev>storageRev))return;
- const got=await storageIdbGet(d.keys);
+ const keys=d.keys.filter(k=>k[0]!=='_archive'&&k[0]!==''),arch=d.keys.filter(k=>k[0]==='_archive').map(k=>k[1]);
+ const got=await storageIdbGet(keys),rows=arch.length?await storageIdbArchiveGet(arch):[];
  if(storageWriter)return;
- const list=d.keys.map((k,i)=>{const r=got.records[i];return r?{tbl:r.tbl,id:r.id,seq:r.seq,data:r.data}:{tbl:k[0],id:k[1],del:true};});
+ const list=keys.map((k,i)=>{const r=got.records[i];return r?{tbl:r.tbl,id:r.id,seq:r.seq,data:r.data}:{tbl:k[0],id:k[1],del:true};});
  /* Испорченная запись — до того, как что-то вставлено: база этой вкладки цела. */
  list.forEach(c=>{if(!c.del&&(typeof c.data!=='string'||!Number.isFinite(c.seq)))throw new Error('A stored record is damaged.');if(!c.del)JSON.parse(c.data);});
  const shapes=typeof soDraft!=='undefined'&&soDraft&&Array.isArray(DB.shapeDef)?{shapeDef:DB.shapeDef.slice()}:null;
  storageApplyRecords(list);storageRev=d.rev;if(typeof d.test==='boolean')storageTest=d.test;
+ if(arch.length&&typeof archiveIndexApply==='function')archiveIndexApply(arch.map((id,i)=>[id,rows[i]?rows[i].row:null]),d.keys.some(k=>k[0]===''));
  if(shapes&&typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(shapes,DB);
  storageInvalidate();storageRerenderQuiet();
  const chip=document.getElementById('testChip');if(chip)chip.hidden=!storageTest;
@@ -336,7 +354,7 @@ async function storageApplySaved(d){
 async function storageReloadAll(){
  const got=await storageIdbReadAll(),next=prepareImportedState(storageJoin(got.records));
  if(typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(DB,next);
- storageBaseFrom(got.records);DB=next;storageRev=got.rev;storageTest=got.test===true;storageInvalidate();
+ storageBaseFrom(got.records);DB=next;storageRev=got.rev;storageTest=got.test===true;if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);storageInvalidate();
 }
 /* Перед тем как писать: другая сборка писала после того, как эта вкладка
    открылась, — вкладка устарела; пропущены записи — дочитать. Метка TEST —
@@ -457,29 +475,31 @@ function storageHotRecords(){
  Object.keys(DB).forEach(k=>{if(Array.isArray(DB[k])&&!DB[k].length)recs.push({tbl:k,id:'*',seq:0,data:'[]'});});
  return recs;
 }
-/* cold — записи архива (storageIdbColdAll): строкой с "cold":1, owners и month. */
-function storageExportParts(cold){
- const recs=storageHotRecords();cold=cold||[];
- const head={format:'glass-erp',schemaVersion:2,exportedAt:new Date().toISOString(),build:storageBuildId(),records:recs.length+cold.length};
- if(cold.length)head.cold=cold.length;
+/* cold — записи архива (storageIdbColdAll): строкой с "cold":1, owners и
+   month; archive — строки указателя архива (tbl `_archive`). */
+function storageExportParts(cold,archive){
+ const recs=storageHotRecords();cold=cold||[];archive=archive||[];
+ const head={format:'glass-erp',schemaVersion:2,exportedAt:new Date().toISOString(),build:storageBuildId(),records:recs.length+cold.length+archive.length};
+ if(cold.length)head.cold=cold.length;if(archive.length)head.archive=archive.length;
  if(storageTest)head.test=true;
  const parts=[JSON.stringify(head)+'\n'];
  for(let i=0;i<recs.length;i+=1000)parts.push(recs.slice(i,i+1000).map(c=>'{"tbl":'+JSON.stringify(c.tbl)+',"id":'+JSON.stringify(c.id)+',"seq":'+c.seq+',"data":'+c.data+'}\n').join(''));
  for(let i=0;i<cold.length;i+=1000)parts.push(cold.slice(i,i+1000).map(c=>'{"tbl":'+JSON.stringify(c.tbl)+',"id":'+JSON.stringify(c.id)+',"seq":'+c.seq+',"cold":1,"owners":'+JSON.stringify(c.owners||[])+',"month":'+JSON.stringify(c.month||'')+',"data":'+c.data+'}\n').join(''));
+ for(let i=0;i<archive.length;i+=1000)parts.push(archive.slice(i,i+1000).map(a=>'{"tbl":"_archive","id":'+JSON.stringify(a.id)+',"seq":0,"data":'+JSON.stringify(a.row)+'}\n').join(''));
  return parts;
 }
 /* Вся база целиком — дело администратора (раздел Users, erp/access): Import
    заменяет и людей с их правами, Export отдаёт и Finance. */
 async function doExport(){
  if(!accessCan(ACCESS_ADMIN))return;
- await storageFlush();const cold=storageIdb?await storageIdbColdAll().catch(()=>[]):[];
- storageDownload('glazing_system_data.ndjson',storageExportParts(cold),'application/x-ndjson');
+ await storageFlush();const cold=storageIdb?await storageIdbColdAll().catch(()=>[]):[],archive=storageIdb?await storageIdbArchiveAll().catch(()=>[]):[];
+ storageDownload('glazing_system_data.ndjson',storageExportParts(cold,archive),'application/x-ndjson');
  storageBackupAt=new Date().toISOString();dirty=false;if(storageFailed)storageFailedExported=true;render();
 }
 /* Записи как они лежат, без нормализации, — то, что не прочиталось. */
 function storageExportRecovery(){
- const read=storageIdb?storageIdbTx(['record','cold'],'readonly',tx=>{const out={records:[],cold:[]};tx.objectStore('record').getAll().onsuccess=e=>{out.records=e.target.result||[];};tx.objectStore('cold').getAll().onsuccess=e=>{out.cold=e.target.result||[];};return out;}):Promise.resolve({records:[],cold:[]});
- return read.then(o=>storageDownload('glazing_system_recovery.json',JSON.stringify({format:'glass-erp-records',exportedAt:new Date().toISOString(),records:o.records,cold:o.cold})),
+ const read=storageIdb?storageIdbTx(['record','cold','archive'],'readonly',tx=>{const out={records:[],cold:[],archive:[]};tx.objectStore('record').getAll().onsuccess=e=>{out.records=e.target.result||[];};tx.objectStore('cold').getAll().onsuccess=e=>{out.cold=e.target.result||[];};tx.objectStore('archive').getAll().onsuccess=e=>{out.archive=e.target.result||[];};return out;}):Promise.resolve({records:[],cold:[],archive:[]});
+ return read.then(o=>storageDownload('glazing_system_recovery.json',JSON.stringify({format:'glass-erp-records',exportedAt:new Date().toISOString(),records:o.records,cold:o.cold,archive:o.archive})),
   e=>alert('The stored records could not be read: '+e.message));
 }
 function storageImportSummary(next){return ['customer','salesOrder','receipt','glassBatch','stationScan'].map(k=>k+': '+(DB[k]||[]).length+' → '+(next[k]||[]).length).join('\n');}
@@ -505,14 +525,14 @@ async function storageImportState(raw,opts){
     записям — то, что в памяти, и архив; одной огромной строки нет. */
  const at=new Date().toISOString();
  try{
-  await storageFlush();const hot=storageHotRecords(),cold=recovering?[]:await storageIdbColdAll();
-  await storageIdbCopyPutRecords(hot,cold,at,storageTest);const back=await storageIdbCopyRead();
-  if(!back||!back.head||back.hot.length!==hot.length||back.cold.length!==cold.length)throw new Error('The recovery copy could not be verified.');
+  await storageFlush();const hot=storageHotRecords(),cold=recovering?[]:await storageIdbColdAll(),archive=recovering?[]:await storageIdbArchiveAll();
+  await storageIdbCopyPutRecords(hot,cold,at,storageTest,archive);const back=await storageIdbCopyRead();
+  if(!back||!back.head||back.hot.length!==hot.length||back.cold.length!==cold.length||back.archive.length!==archive.length)throw new Error('The recovery copy could not be verified.');
  }catch(e){alert('Nothing was replaced: '+e.message);return false;}
  storageBackupPresent=true;storageCopyAt=at;
  if(recovering){await storageExportRecovery();storageRecovery=false;}
  /* Метка уходит той же записью, что и новая база (storageWriteNext). */
- storageImporting=true;const testWas=storageTest;storageTest=!!opts.test;storageColdImport=(opts.cold||[]).slice();
+ storageImporting=true;const testWas=storageTest;storageTest=!!opts.test;storageColdImport={cold:(opts.cold||[]).slice(),archive:(opts.archive||[]).slice()};
  const result=storageCommand(()=>{DB=next;return true;});
  storageImporting=false;
  if(!result.ok){storageTest=testWas;storageRecovery=recovering;alert(result.error);return false;}
@@ -529,8 +549,8 @@ async function storageSeed(src){
  storageBase=new Map();
  try{changes=storageDiff(src&&typeof src==='object'&&!Array.isArray(src)?src:{});}finally{storageBase=keep;}
  storageWriter=false;if(storageRelease)storageRelease();storageRelease=null;
- await storageIdbTx(['record','cold','meta'],'readwrite',tx=>{
-  const rs=tx.objectStore('record');rs.clear();tx.objectStore('cold').clear();
+ await storageIdbTx(['record','cold','archive','meta'],'readwrite',tx=>{
+  const rs=tx.objectStore('record');rs.clear();tx.objectStore('cold').clear();tx.objectStore('archive').clear();
   changes.forEach(c=>rs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data}));
   tx.objectStore('meta').put(storageRev+1,'rev');
  });
@@ -539,20 +559,21 @@ function storageRestoreBackup(){
  return storageIdbCopyRead().then(got=>{
   if(!got){alert('No pre-import recovery copy is available.');return false;}
   if(got.text!=null){const copy=JSON.parse(got.text);return storageImportState(copy,{restore:true,test:copy.test===true});}
-  return storageImportState(storageJoin(got.hot),{restore:true,test:got.head.test===true,cold:got.cold});
+  return storageImportState(storageJoin(got.hot),{restore:true,test:got.head.test===true,cold:got.cold,archive:got.archive});
  },e=>{alert('No pre-import recovery copy is available.');return false;});
 }
 /* Import v2 — потоком: файл читается кусками и делится на строки, строка —
    одна запись. JSON.parse всего файла нет, предела размера нет. */
 async function storageReadRecords(file){
- const reader=file.stream().pipeThrough(new TextDecoderStream()).getReader(),records=[],cold=[];
+ const reader=file.stream().pipeThrough(new TextDecoderStream()).getReader(),records=[],cold=[],archive=[];
  let buf='',head=null,line=0;
  const take=text=>{
   if(!text.trim())return;line++;
   let o;try{o=JSON.parse(text);}catch(e){throw new Error('line '+line+' is not readable.');}
   if(!head){if(!o||o.format!=='glass-erp'||o.schemaVersion!==2)throw new Error('Unsupported GLASS ERP backup format or version.');head=o;return;}
   if(!o||typeof o.tbl!=='string'||typeof o.id!=='string'||!Number.isFinite(o.seq)||o.data===undefined)throw new Error('line '+line+' is not a record.');
-  if(o.cold)cold.push({tbl:o.tbl,id:o.id,seq:o.seq,data:JSON.stringify(o.data),owners:Array.isArray(o.owners)?o.owners.map(String):[],month:typeof o.month==='string'?o.month:''});
+  if(o.tbl==='_archive')archive.push({id:o.id,row:o.data});
+  else if(o.cold)cold.push({tbl:o.tbl,id:o.id,seq:o.seq,data:JSON.stringify(o.data),owners:Array.isArray(o.owners)?o.owners.map(String):[],month:typeof o.month==='string'?o.month:''});
   else records.push(o);
  };
  for(;;){
@@ -561,8 +582,9 @@ async function storageReadRecords(file){
  }
  take(buf);
  if(!head)throw new Error('the file is empty.');
- if(Number.isInteger(head.records)&&head.records!==records.length+cold.length)throw new Error('the file is incomplete: '+(records.length+cold.length)+' of '+head.records+' records.');
- return {head,state:storageJoin(records,true),cold};
+ const n=records.length+cold.length+archive.length;
+ if(Number.isInteger(head.records)&&head.records!==n)throw new Error('the file is incomplete: '+n+' of '+head.records+' records.');
+ return {head,state:storageJoin(records,true),cold,archive};
 }
 /* Файл Import: v2 (строка заголовка с schemaVersion 2) или прежний JSON (v1).
    Метка TEST — в заголовке v2 или в конверте v1 (tools/sim-shop.js). Пустые
@@ -570,7 +592,7 @@ async function storageReadRecords(file){
 async function storageImportFile(file){
  let first=null;try{first=JSON.parse((await file.slice(0,65536).text()).replace(/^\s+/,'').split('\n')[0]);}catch(e){}
  if(first&&first.format==='glass-erp'&&first.schemaVersion===2){
-  const got=await storageReadRecords(file);return storageImportState(got.state,{test:got.head.test===true,cold:got.cold});
+  const got=await storageReadRecords(file);return storageImportState(got.state,{test:got.head.test===true,cold:got.cold,archive:got.archive});
  }
  const raw=JSON.parse(await file.text());
  return storageImportState(raw,{test:!!raw&&raw.test===true});
@@ -759,7 +781,7 @@ async function boot(){
  try{
   await storageIdbOpen();
   const got=await storageIdbReadAll();ms.read=T()-t0;
-  storageBaseFrom(got.records);storageRev=got.rev;storageBuildAtLoad=got.build;storageCopyAt=got.copyAt||'';storageBackupPresent=!!got.copyAt;storageTest=got.test===true;
+  storageBaseFrom(got.records);if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);storageRev=got.rev;storageBuildAtLoad=got.build;storageCopyAt=got.copyAt||'';storageBackupPresent=!!got.copyAt;storageTest=got.test===true;
   if(got.records.length){
    hadSavedState=true;const parsed=storageJoin(got.records);ms.join=T()-t0-ms.read;
    if(!Object.keys(parsed).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a database object.');

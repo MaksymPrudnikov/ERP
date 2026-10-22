@@ -23,7 +23,9 @@
    с `owners` (заказы, которым запись принадлежит) и `month`. При F5 он не
    читается, сравнение базы его не видит. Запись либо в работе, либо в
    архиве: перенос — изменение `cold` в той же транзакции, возврат —
-   запись с `warm`, она же удаляет копию из архива.
+   запись с `warm`, она же удаляет копию из архива. Указатель архива —
+   склад `archive`: короткая строка Sales ушедшего заказа (`tbl` `_archive`
+   в наборе изменений); при старте читается целиком, в сравнение не входит.
    ===================================================================== */
 
 const STORAGE_IDB_NAME='glass-erp';
@@ -104,7 +106,7 @@ function storageDiff(db){
 function storageBaseApply(changes){
  changes.forEach(c=>{
   let m=storageBase.get(c.tbl);
-  if(c.coldClear)return;
+  if(c.coldClear||c.tbl==='_archive')return;
   if(!m){if(c.del||c.cold)return;m=new Map();storageBase.set(c.tbl,m);}
   if(c.del||c.cold)m.delete(c.id);else m.set(c.id,{t:c.data,s:c.seq});
   if(!m.size)storageBase.delete(c.tbl);
@@ -204,13 +206,15 @@ function storageMerge(a,b){
 
 /* ---- IndexedDB: record — записи; meta — rev (номер последней записи),
    build (версия, что писала последней), copyAt, test (метка TEST); copy —
-   копия до импорта; cold — архив (указатель owners — по заказу). */
+   копия до импорта; cold — архив (указатель owners — по заказу); archive —
+   указатель архива (строка Sales ушедшего заказа). */
 function storageIdbOpen(){
  return new Promise((resolve,reject)=>{
-  let q;try{q=indexedDB.open(STORAGE_IDB_NAME,2);}catch(e){reject(e);return;}
+  let q;try{q=indexedDB.open(STORAGE_IDB_NAME,3);}catch(e){reject(e);return;}
   q.onupgradeneeded=()=>{const d=q.result,has=n=>d.objectStoreNames.contains(n);
    if(!has('record'))d.createObjectStore('record',{keyPath:['tbl','id']});if(!has('meta'))d.createObjectStore('meta');if(!has('copy'))d.createObjectStore('copy');
-   if(!has('cold'))d.createObjectStore('cold',{keyPath:['tbl','id']}).createIndex('owners','owners',{multiEntry:true});};
+   if(!has('cold'))d.createObjectStore('cold',{keyPath:['tbl','id']}).createIndex('owners','owners',{multiEntry:true});
+   if(!has('archive'))d.createObjectStore('archive',{keyPath:'id'});};
   q.onsuccess=()=>{storageIdb=q.result;storageIdb.onversionchange=()=>{storageIdb.close();storageIdb=null;};resolve(storageIdb);};
   q.onerror=()=>reject(q.error||new Error('The database could not be opened.'));
  });
@@ -226,9 +230,10 @@ function storageIdbTx(stores,mode,fill){
  });
 }
 function storageIdbReadAll(){
- return storageIdbTx(['record','meta'],'readonly',tx=>{
-  const out={records:[],rev:0,build:'',copyAt:'',test:false},ms=tx.objectStore('meta');
+ return storageIdbTx(['record','meta','archive'],'readonly',tx=>{
+  const out={records:[],rev:0,build:'',copyAt:'',test:false,archive:[]},ms=tx.objectStore('meta');
   tx.objectStore('record').getAll().onsuccess=e=>{out.records=e.target.result||[];};
+  tx.objectStore('archive').getAll().onsuccess=e=>{out.archive=e.target.result||[];};
   ['rev','build','copyAt','test'].forEach(k=>{ms.get(k).onsuccess=e=>{if(e.target.result!=null)out[k]=e.target.result;};});
   return out;
  });
@@ -251,13 +256,15 @@ function storageIdbGet(keys){
 /* Набор изменений — одной транзакцией вместе с номером записи, версией и
    меткой TEST (test не передан — метка не трогается). cold — запись уходит
    в архив; warm — запись вернулась из архива (её копия там удаляется);
-   coldClear — архив очищается (Import заменяет базу целиком). Остальные
-   записи склад архива не трогают: старт новой установки пишет всё сразу. */
+   coldClear — архив и его указатель очищаются (Import заменяет базу
+   целиком); `_archive` — строка указателя архива. Остальные записи склад
+   архива не трогают: старт новой установки пишет всё сразу. */
 function storageIdbWrite(changes,rev,build,test){
- return storageIdbTx(['record','cold','meta'],'readwrite',tx=>{
-  const rs=tx.objectStore('record'),cs=tx.objectStore('cold'),ms=tx.objectStore('meta');
+ return storageIdbTx(['record','cold','archive','meta'],'readwrite',tx=>{
+  const rs=tx.objectStore('record'),cs=tx.objectStore('cold'),as=tx.objectStore('archive'),ms=tx.objectStore('meta');
   changes.forEach(c=>{
-   if(c.coldClear){cs.clear();return;}
+   if(c.coldClear){cs.clear();as.clear();return;}
+   if(c.tbl==='_archive'){if(c.del)as.delete(c.id);else as.put({id:c.id,row:JSON.parse(c.data)});return;}
    const k=[c.tbl,c.id];
    if(c.cold){rs.delete(k);cs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data,owners:c.owners||[],month:c.month||''});}
    else if(c.del)rs.delete(k);else{rs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data});if(c.warm)cs.delete(k);}
@@ -268,26 +275,30 @@ function storageIdbWrite(changes,rev,build,test){
 function storageIdbMetaPut(key,value){return storageIdbTx(['meta'],'readwrite',tx=>{tx.objectStore('meta').put(value,key);});}
 /* Архив заказа (все записи, где он среди owners) и весь архив (Export). */
 function storageIdbColdOf(owner){return storageIdbTx(['cold'],'readonly',tx=>{const out={records:[]};tx.objectStore('cold').index('owners').getAll(owner).onsuccess=e=>{out.records=e.target.result||[];};return out;}).then(o=>o.records);}
+function storageIdbArchiveGet(ids){return storageIdbTx(['archive'],'readonly',tx=>{const st=tx.objectStore('archive'),out={rows:new Array(ids.length)};ids.forEach((id,i)=>{st.get(id).onsuccess=e=>{out.rows[i]=e.target.result||null;};});return out;}).then(o=>o.rows);}
+function storageIdbArchiveAll(){return storageIdbTx(['archive'],'readonly',tx=>{const out={rows:[]};tx.objectStore('archive').getAll().onsuccess=e=>{out.rows=e.target.result||[];};return out;}).then(o=>o.rows);}
 function storageIdbColdAll(){return storageIdbTx(['cold'],'readonly',tx=>{const out={records:[]};tx.objectStore('cold').getAll().onsuccess=e=>{out.records=e.target.result||[];};return out;}).then(o=>o.records);}
 function storageIdbMetaPut(key,value){return storageIdbTx(['meta'],'readwrite',tx=>{tx.objectStore('meta').put(value,key);});}
 /* Копия до импорта — по записям, частями по 1000 (в работе и архив): одной
    огромной строки нет (проверка Codex 22.10.2026, находка 6). Прежняя копия
    одной строкой ('before-import') ещё читается. */
 function storageIdbCopyPut(text,at){return storageIdbTx(['copy','meta'],'readwrite',tx=>{tx.objectStore('copy').put(text,'before-import');tx.objectStore('meta').put(at,'copyAt');});}
-function storageIdbCopyPutRecords(hot,cold,at,test){
+function storageIdbCopyPutRecords(hot,cold,at,test,archive){
+ archive=archive||[];
  return storageIdbTx(['copy','meta'],'readwrite',tx=>{
   const cp=tx.objectStore('copy');cp.clear();
   for(let i=0;i<hot.length;i+=1000)cp.put(hot.slice(i,i+1000),['h',i/1000]);
   for(let i=0;i<cold.length;i+=1000)cp.put(cold.slice(i,i+1000),['c',i/1000]);
-  cp.put({at,test:!!test,hot:hot.length,cold:cold.length},'head');tx.objectStore('meta').put(at,'copyAt');
+  for(let i=0;i<archive.length;i+=1000)cp.put(archive.slice(i,i+1000),['a',i/1000]);
+  cp.put({at,test:!!test,hot:hot.length,cold:cold.length,archive:archive.length},'head');tx.objectStore('meta').put(at,'copyAt');
  });
 }
 /* {text} — прежняя копия одной строкой; {head, hot, cold} — по записям; null — копии нет. */
 function storageIdbCopyRead(){
  return storageIdbTx(['copy'],'readonly',tx=>{
-  const out={text:null,head:null,hot:[],cold:[]};
+  const out={text:null,head:null,hot:[],cold:[],archive:[]};
   tx.objectStore('copy').openCursor().onsuccess=e=>{const c=e.target.result;if(!c)return;const k=c.key;
-   if(k==='before-import')out.text=c.value;else if(k==='head')out.head=c.value;else if(Array.isArray(k))(k[0]==='h'?out.hot:out.cold).push(...c.value);c.continue();};
+   if(k==='before-import')out.text=c.value;else if(k==='head')out.head=c.value;else if(Array.isArray(k))(k[0]==='h'?out.hot:k[0]==='a'?out.archive:out.cold).push(...c.value);c.continue();};
   return out;
  }).then(o=>o.head?o:o.text!=null?{text:o.text}:null);
 }
