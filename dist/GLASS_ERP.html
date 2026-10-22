@@ -3480,7 +3480,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='e95624e7b03c';
+var ERP_BUILD='282167a5606c';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10839,7 +10839,10 @@ function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};
     смыслом не заводим — разойдутся. */
  const sub=type==='stock'?(mdString(p.subcategory)||'consumable')
   :(type==='interlayer'?mdString(p.family):(SIMPLE_MATERIAL_SUBCATEGORY[type]||''));
- return Object.assign(materialHeader(p,cat,sub),{id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),salesUnit:mdString(p.salesUnit),...mdSaleRulesOf(p),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),stockingUnit:mdString(p.stockingUnit),note:mdString(p.note),sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false},type==='gas'?{densityKgM3:mdNonNeg(p.densityKgM3)}:{});}
+ return Object.assign(materialHeader(p,cat,sub),{id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),salesUnit:mdString(p.salesUnit),...mdSaleRulesOf(p),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),stockingUnit:mdString(p.stockingUnit),note:mdString(p.note),sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false},type==='gas'?{densityKgM3:mdNonNeg(p.densityKgM3)}:{},
+ /* Фрит и спандрел — работы (этап 4): карточка называет работу Works, а
+    станцию и место в маршруте даёт она. Пусто — работа не назначена. */
+ type==='frit'||type==='spandrel'?{workId:mdString(p.workId)}:{});}
 const SIMPLE_MATERIAL_CATEGORY={gas:'igu',sealant:'igu',iguPart:'igu',interlayer:'lamination',frit:'surface',spandrel:'surface',stock:'stock'};
 const SIMPLE_MATERIAL_SUBCATEGORY={gas:'gas',sealant:'sealant',iguPart:'part',frit:'frit',spandrel:'spandrel'};
 /* Готовые изделия и расходка: покупаем целиком, перепродаём целиком, без
@@ -10964,8 +10967,8 @@ DEFAULT.fritProduct=[
  /* 5.00 — цена владельца от 10 сентября 2026 на весь фрит. Прежние 3.10 были
     выдуманы: «я указал с головы». Цифровая печать заведена ВЫКЛЮЧЕННОЙ —
     «пока не работает», — чтобы её нельзя было выбрать в заказ по ошибке. */
- {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER',salePrice:5.00},
- {id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG',salePrice:5.00,active:false}
+ {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER',salePrice:5.00,workId:'ceramic_frit'},
+ {id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG',salePrice:5.00,active:false,workId:'digital_print'}
 ].map(x=>normalizeSimpleMaterial(x,'frit'));
 /* Покраска — это спандрел, а не отдельная услуга. Решение владельца
    10 сентября 2026: «Backpainting и Opaci Coat — это всё спандрел,
@@ -10978,8 +10981,8 @@ DEFAULT.fritProduct=[
    Различие между ними — не тип панели, а строка палитры. Тип отвечает, ЧЕМ
    красят: силикон ICD или керамика. */
 DEFAULT.spandrelProduct=[
- {id:'SPAN-CERAMIC', name:'Ceramic Spandrel',            code:'SPAN-CER',salePrice:5.00},
- {id:'SPAN-SILICONE',name:'Opaci-Coat · Silicone Spandrel',code:'SPAN-SIL',supplier:'ICD',salePrice:5.00}
+ {id:'SPAN-CERAMIC', name:'Ceramic Spandrel',            code:'SPAN-CER',salePrice:5.00,workId:'painting'},
+ {id:'SPAN-SILICONE',name:'Opaci-Coat · Silicone Spandrel',code:'SPAN-SIL',supplier:'ICD',salePrice:5.00,workId:'painting'}
 ].map(x=>normalizeSimpleMaterial(x,'spandrel'));
 /* Пять типов свели к двум решением владельца (раздел 5·7): «не нужно разбивать
    на 5 типов; кастомный цвет должен жить в цветах, это всё ещё Opaci, просто
@@ -11108,9 +11111,42 @@ function normalizeServiceRate(r){
      станция. Норма времени пустая означает «не замерено», как у фактической
      толщины рамки: выдуманная минута тише и опаснее пустой. */
   maxW:num(r.maxW),maxL:num(r.maxL),
+  /* Округление количества вверх до шага (1 — до целого дюйма) и минимальная
+     сумма за юнит. Пусто — без округления и без минимума. */
+  roundTo:num(r.roundTo)||null,minCharge:num(r.minCharge),
+  rule:normalizeServiceRule(r.rule),
   minutesPerUnit:num(r.minutesPerUnit),setupMinutes:num(r.setupMinutes),
   note:mdString(r.note),active:r.active!==false
  };
+}
+/* Надбавка (этап 4, часть 2): работа, которая не начисляется строкой за
+   операцию, а меняет цену юнита. Числа — цена работы (строка таблицы, прайс
+   клиента может дать свою): процент или минимальная площадь. Когда
+   применяется — условия ниже; пустое условие не ограничивает.
+     kind      'percent' — процент к базовой цене юнита (материалы + работы);
+               'minArea' — площадь к оплате не меньше, ft²;
+     unitTypes single / double / triple / laminated, пусто — любой юнит;
+     areaOver / areaUnder — площадь к оплате одного юнита строго больше /
+               меньше, ft²;
+     onTop     процент считается от цены с предыдущими надбавками, а не от
+               базовой;
+     priority  порядок применения, меньше — раньше. */
+const SERVICE_RULE_UNIT_TYPES=['single','double','triple','laminated'];
+function normalizeServiceRule(x){
+ if(!x||typeof x!=='object'||!['percent','minArea'].includes(x.kind))return null;
+ const num=v=>{if(v==null||v==='')return null;const n=+v;return isFinite(n)&&n>=0?n:null;};
+ return {kind:x.kind,unitTypes:(Array.isArray(x.unitTypes)?x.unitTypes:[]).filter(t=>SERVICE_RULE_UNIT_TYPES.includes(t)),
+  areaOver:num(x.areaOver),areaUnder:num(x.areaUnder),onTop:x.onTop===true,priority:+x.priority||0};
+}
+/* Когда применяется надбавка — коротко, для списка Works и счёта. */
+function serviceRuleText(rule){
+ if(!rule)return '';
+ const out=[];
+ out.push(rule.unitTypes&&rule.unitTypes.length?rule.unitTypes.map(t=>t[0].toUpperCase()+t.slice(1)).join(' / ')+' units':'Any unit');
+ if(rule.areaOver!=null)out.push('area > '+rule.areaOver+' ft²');
+ if(rule.areaUnder!=null)out.push('area < '+rule.areaUnder+' ft²');
+ if(rule.kind==='percent'&&rule.onTop)out.push('on top');
+ return out.join(', ');
 }
 /* Таблица цен работы «от – до мм → цена» (план Master Data, этап 4). Строк
    сколько угодно, границы включительно, пустая граница — без предела. Одна
@@ -11276,6 +11312,13 @@ const SERVICE_RATE_SEED=[
  ['lamination',         'Lamination',         'LAM',  'post_temper'],
  ['igu_assembly',       'IGU Assembly',       'IGU',  'post_temper']
 ].map(x=>normalizeServiceRate({id:x[0],name:x[1],station:x[2],stage:x[3],tiers:[{id:'flat',price:x[4]!=null?x[4]:null}],unit:x[5]||'pc'})));
+/* Надбавки — работы с правилом (этап 4, часть 2). До этого — константы
+   кода SALES_METRIC_RULE_DEFAULTS: минимум 4 ft², Triple +50 %, больше
+   60 ft² +50 %, обе от базовой цены юнита. */
+SERVICE_RATE_SEED.push(
+ normalizeServiceRate({id:'minArea',name:'Minimum area',unit:'ft²',station:'',tiers:[{id:'flat',price:4}],rule:{kind:'minArea'},note:'Each unit is billed at least this area'}),
+ normalizeServiceRate({id:'triple',name:'Triple unit',unit:'%',station:'',tiers:[{id:'flat',price:50}],rule:{kind:'percent',unitTypes:['triple'],priority:1}}),
+ normalizeServiceRate({id:'largeUnit',name:'Large unit',unit:'%',station:'',tiers:[{id:'flat',price:50}],rule:{kind:'percent',areaOver:60,priority:2}}));
 DEFAULT.serviceRate=SERVICE_RATE_SEED;
 /* Перенос сохранённого прайса на этап 4: три строки фацета с диапазоном
    толщины становятся одной работой `bevel` с таблицей (цены владельца
@@ -11289,6 +11332,16 @@ function serviceRateStage4Migrate(){
   DB.serviceRate=DB.serviceRate.filter(r=>old.indexOf(r)<0);
  }
  DB.serviceRate.forEach(r=>{const h=r&&SERVICE_HOLE_SEED[r.id];if(h&&!r.appliesBy)Object.assign(r,{family:'hole',appliesBy:'diameter',appliesFrom:h[0],appliesTo:h[1]});});
+ /* Правила цены из настройки Pricing rules переезжают в надбавки со своими
+    числами владельца — один раз, пока надбавок ещё нет. */
+ const mr=DB.salesMetricRules;
+ if(mr&&typeof mr==='object'&&!DB.serviceRate.some(r=>r&&r.id==='triple')){
+  const n=(v,d)=>Number.isFinite(+v)&&+v>=0&&v!==''&&v!=null?+v:d,onTop=mr.combination==='compound';
+  DB.serviceRate.push(Object.assign({},SERVICE_RATE_SEED.find(r=>r.id==='minArea'),{tiers:[{id:'flat',price:n(mr.minimumAreaFt2,4)}]}),
+   Object.assign({},SERVICE_RATE_SEED.find(r=>r.id==='triple'),{tiers:[{id:'flat',price:n(mr.triplePercent,50)}],rule:{kind:'percent',unitTypes:['triple'],priority:1,onTop}}),
+   Object.assign({},SERVICE_RATE_SEED.find(r=>r.id==='largeUnit'),{tiers:[{id:'flat',price:n(mr.largePercent,50)}],rule:{kind:'percent',areaOver:n(mr.largeThresholdFt2,60),priority:2,onTop}}));
+ }
+ delete DB.salesMetricRules;
 }
 /* Цвета, доступные выбранному продукту: свои плюс общие (без продукта). */
 function spandrelColoursFor(productId){
@@ -11391,7 +11444,11 @@ function normalizeMasterData(){
   mdRebuildTable(k,{
    dropLegacy:k==='interlayerProduct'?(x=>interlayerProductMigration(x.id)):null,
    topUp:k==='interlayerProduct'||k==='spandrelProduct'||k==='fritProduct',
-   migrate:k==='spandrelProduct'?(x=>{if(spandrelProductMigration(x.id))x.active=false;}):null,
+   /* Фрит и спандрел получают работу по прежнему правилу кода маршрута
+      (цифровая печать — digital_print, остальной фрит — ceramic_frit,
+      спандрел — painting), один раз: пустую работу владелец мог выбрать сам. */
+   migrate:k==='spandrelProduct'?(x=>{if(spandrelProductMigration(x.id))x.active=false;if(x.workId===undefined)x.workId='painting';})
+    :k==='fritProduct'?(x=>{if(x.workId===undefined)x.workId=x.id==='FRIT-DIGITAL'?'digital_print':'ceramic_frit';}):null,
    normalize:x=>normalizeSimpleMaterial(x,type),
    valid:x=>x.id&&x.name
   });
@@ -12725,7 +12782,7 @@ function normalizeSalesOrder(o){
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
   remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
   ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines)),
@@ -13978,7 +14035,7 @@ const MD_LOG_TABLES={
  priceList:'Price lists',itemGroup:'Item groups',
  spacerSystem:'Spacer systems',surroundRecipe:'Surround recipes',iguPart:'IGU parts'
 };
-const MD_LOG_SETTINGS={cutting:'Cutting',company:'Company',stickerTemplate:'Stickers',salesMetricRules:'Pricing rules'};
+const MD_LOG_SETTINGS={cutting:'Cutting',company:'Company',stickerTemplate:'Stickers'};
 const MD_LOG_TEXT=120;
 
 function normalizeMdLog(){
@@ -16856,7 +16913,6 @@ function salesOrderSaveCommand(opts){
  opts=opts||{};
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
  if(soQuoteCopyOf&&!salesDraftHasWork()){render();return true;}
- soDraft.metricRules=salesMetricRules(soDraft);
  salesSnapshotAllChargePricing();
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
@@ -17842,7 +17898,7 @@ function salesGlazingChargeRows(line,areaFt2){
    (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' glass layers':''),
    +(area*g.qty).toFixed(4),'ft²',
    lp?lp.price:(prod&&prod.salePrice!=null)?prod.salePrice:null,
-   'Makeup',lp?lp.listId:''));
+   'Makeup',lp?lp.listId:'',prod&&prod.workId||''));
  });
  return rows;
 }
@@ -17884,7 +17940,7 @@ function salesUnitSurchargeRows(line,shape){
    лайты и плиты, поэтому правки счёта идут ТОЛЬКО туда. Удаление вынесено
    отдельной задачей: тронуть её здесь — значит смешать два несвязанных
    изменения в одном коммите. */
-function salesLineChargeRows(line){
+function salesLineChargeRowsRaw(line){
  const rows=[];
  salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
  const s=salesShapeByRef(line&&line.shapeRef);if(!s)return rows.filter(x=>x.basis>0);const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
@@ -17899,6 +17955,23 @@ function salesLineChargeRows(line){
  }
  return rows.filter(x=>x.basis>0);
 }
+/* Округление количества и минимальная сумма — из карточки работы (этап 4,
+   часть 2), на юнит. Замораживаются в заказе на Save, как ставка. */
+function salesLineChargeRows(line){
+ return salesLineChargeRowsRaw(line).map(row=>{
+  if(!row.svc)return row;
+  const w=salesServiceRateRow(row.svc);
+  const step=salesBook('svcRound:'+row.svc,()=>w&&w.roundTo||null),min=salesBook('svcMin:'+row.svc,()=>w&&w.minCharge||null);
+  if(!(step>0)&&!(min>0))return row;
+  const out=Object.assign({},row);
+  if(step>0)out.basis=+(Math.ceil(row.basis/step-1e-9)*step).toFixed(4);
+  if(min>0)out.minCharge=min;
+  return out;
+ });
+}
+/* Сумма строки начисления за один юнит: количество × ставка, не меньше
+   минимальной суммы работы. */
+function salesChargeUnitAmount(row,rate){return rate==null?null:Math.max(row.basis*rate,row.minCharge||0);}
 function salesChargeGroupKey(row){
  const p=String(row&&row.key||'').split(':');if(p[0]==='MI'){if(p[1]==='hole')return 'MI:hole:'+(p[2]||'unpriced');return 'MI:'+(p[1]||'');}
  if(p[0]==='EDGE'){if(p[1]==='bevel')return 'EDGE:bevel:'+(p[2]||'');return 'EDGE:'+(p[1]||'');}
@@ -17933,9 +18006,9 @@ function salesChargeUnitValue(value,unit){
   if(unit==='ft²')return Number(value||0).toFixed(2)+' ft²';
   return dimIn(value);
 }
-function salesChargeBasisText(row,line){const q=salesPositiveInt(line.qty,1),total=row.basis*q,one=salesChargeUnitValue(row.basis,row.unit);return one+(q>1?' × '+q+' = '+salesChargeUnitValue(total,row.unit):'');}
+function salesChargeBasisText(row,line){const q=salesPositiveInt(line.qty,1),total=row.basis*q,one=salesChargeUnitValue(row.basis,row.unit);return one+(q>1?' × '+q+' = '+salesChargeUnitValue(total,row.unit):'')+(row.minCharge?' · min '+row.minCharge.toFixed(2)+' / unit':'');}
 function salesRateText(v,unit,currency){return v==null?'—':Number(v).toFixed(2)+' '+currency+'/'+(unit==='pc'?'pc':unit==='ft²'?'ft²':'in');}
-function salesLinePricingSummary(line){const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row);if(st.effectiveRate==null)unpriced++;else total+=row.basis*q*st.effectiveRate;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0};}
+function salesLinePricingSummary(line){const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row);if(st.effectiveRate==null)unpriced++;else total+=salesChargeUnitAmount(row,st.effectiveRate)*q;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0};}
 function salesOrderPricingSummary(){return (soDraft&&soDraft.lines||[]).reduce(function(a,l){const s=salesLinePricingSummary(l);a.total+=s.total;a.unpriced+=s.unpriced;a.charges+=s.charges;return a;},{total:0,unpriced:0,charges:0});}
 function salesLinePricingTotal(line){return salesLinePricingSummary(line).total;}
 function salesOrderPricingTotal(){return salesOrderPricingSummary().total;}
@@ -17952,12 +18025,12 @@ function salesChargeShortLabel(row){
 function salesLineServicesSummary(line){
  const rows=salesLineChargeRows(line),adjustments=salesLineCommercialAdjustments(line,soDraft),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';
  if(!rows.length&&!adjustments.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Services</small></button>`;
- const summary=salesLinePricingSummary(line),items=rows.map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${esc(salesChargeUnitValue(n,r.unit))}</span>`;}).concat(adjustments.map(function(a){return `<span class="commercial">${a.key==='triple'?'TRI':'>60'} +${esc(a.percent)}%</span>`;})),chips=items.slice(0,3).join(''),more=items.length>3?`<i>+${items.length-3}</i>`:'',adjustmentTotal=adjustments.every(a=>a.complete)?salesMoney(adjustments.reduce((n,a)=>n+a.lineAmount,0)):null;
+ const summary=salesLinePricingSummary(line),items=rows.map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${esc(salesChargeUnitValue(n,r.unit))}</span>`;}).concat(adjustments.map(function(a){return `<span class="commercial">${esc(a.label)} +${esc(a.percent)}%</span>`;})),chips=items.slice(0,3).join(''),more=items.length>3?`<i>+${items.length-3}</i>`:'',adjustmentTotal=adjustments.every(a=>a.complete)?salesMoney(adjustments.reduce((n,a)=>n+a.lineAmount,0)):null;
  return `<button type='button' class='line-services-btn${summary.unpriced||adjustments.some(a=>!a.complete)?' incomplete':''}' onclick='salesOpenLineServices("${esc(line.id)}")'><span class='line-services-chips'>${chips}${more}</span><span class='line-services-money'><b>${summary.total.toFixed(2)} ${esc(currency)}</b>${adjustments.length?`<small class="commercial-total">${adjustmentTotal==null?'surcharge —':'+'+adjustmentTotal.toFixed(2)+' surcharge'}</small>`:(summary.unpriced?`<small><span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:'')}</span></button>`;
 }
 function salesOrderChargeGroups(){
- const groups=Object.create(null);(soDraft.lines||[]).forEach(function(line,lineIndex){salesLineChargeRows(line).forEach(function(row){const gk=salesChargeGroupKey(row),q=salesPositiveInt(line.qty,1);if(!groups[gk])groups[gk]={key:gk,label:row.label,unit:row.unit,entries:[],basis:0,catalogRates:[]};const g=groups[gk],st=salesChargePricingState(line,row),basis=row.basis*q;g.entries.push({line:line,lineIndex:lineIndex,row:row,state:st,basis:basis});g.basis+=basis;if(st.catalogRate!=null&&!g.catalogRates.includes(st.catalogRate))g.catalogRates.push(st.catalogRate);});});
- return Object.keys(groups).map(function(k){const g=groups[k];g.catalogRates.sort(function(a,b){return a-b;});g.orderRate=(soDraft.servicePricing&&soDraft.servicePricing[k]&&soDraft.servicePricing[k].orderRate!=null)?soDraft.servicePricing[k].orderRate:null;g.lineOverrides=g.entries.filter(function(e){return e.state.lineRate!=null;}).length;g.unpriced=g.entries.filter(function(e){return e.state.effectiveRate==null;}).length;g.total=g.entries.reduce(function(n,e){return n+(e.state.effectiveRate==null?0:e.basis*e.state.effectiveRate);},0);return g;});
+ const groups=Object.create(null);(soDraft.lines||[]).forEach(function(line,lineIndex){salesLineChargeRows(line).forEach(function(row){const gk=salesChargeGroupKey(row),q=salesPositiveInt(line.qty,1);if(!groups[gk])groups[gk]={key:gk,label:row.label,unit:row.unit,entries:[],basis:0,catalogRates:[]};const g=groups[gk],st=salesChargePricingState(line,row),basis=row.basis*q;g.entries.push({line:line,lineIndex:lineIndex,row:row,state:st,basis:basis,q:q});g.basis+=basis;if(st.catalogRate!=null&&!g.catalogRates.includes(st.catalogRate))g.catalogRates.push(st.catalogRate);});});
+ return Object.keys(groups).map(function(k){const g=groups[k];g.catalogRates.sort(function(a,b){return a-b;});g.orderRate=(soDraft.servicePricing&&soDraft.servicePricing[k]&&soDraft.servicePricing[k].orderRate!=null)?soDraft.servicePricing[k].orderRate:null;g.lineOverrides=g.entries.filter(function(e){return e.state.lineRate!=null;}).length;g.unpriced=g.entries.filter(function(e){return e.state.effectiveRate==null;}).length;g.total=g.entries.reduce(function(n,e){return n+(e.state.effectiveRate==null?0:salesChargeUnitAmount(e.row,e.state.effectiveRate)*e.q);},0);return g;});
 }
 function salesOrderGroupBasisText(g){return salesChargeUnitValue(g.basis,g.unit);}
 function salesOrderGroupCatalogText(g,currency){if(!g.catalogRates.length)return '—';if(g.catalogRates.length===1)return salesRateText(g.catalogRates[0],g.unit,currency);return g.catalogRates.map(function(x){return Number(x).toFixed(2);}).join(' / ')+' '+currency+'/'+(g.unit==='pc'?'pc':g.unit==='ft²'?'ft²':'in');}
@@ -18852,8 +18925,9 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
   return {id:id,label:label,rate:rate,from:salesRateFrom?salesRateFrom.list||'':'',svc:svc,bandKey:salesRateBandKey(svc||id,ctx)};
 }
 
-/* Billing and Cutting read the SAME effective snapshot. */
-salesLineChargeRows=function(line){
+/* Billing and Cutting read the SAME effective snapshot. Округление и
+   минимум работы накладывает salesLineChargeRows (sales/orders). */
+salesLineChargeRowsRaw=function(line){
   var rows=[];
   /* Остекление (фрит, спандрел) приходит из makeup, а не из геометрии, и
      считается до выхода по отсутствию контура: наносят его и на прямоугольник. */
@@ -19237,7 +19311,7 @@ var SALES_EXTRA_UNITS=['pc','ft²','in'];
 var soExtraForm=null;
 /* Работы Master Data, которые можно добавить руками: активные и с именем. */
 function salesExtraServiceCatalog(){
-  return (DB.serviceRate||[]).filter(function(r){return r&&r.id&&r.id!=='*'&&r.name&&r.active!==false;})
+  return (DB.serviceRate||[]).filter(function(r){return r&&r.id&&r.id!=='*'&&r.name&&r.active!==false&&!r.rule;})
     .slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
 }
 function salesExtraServiceRate(x){return x&&x.rateId?salesServiceRateRow(x.rateId):null;}
@@ -19338,6 +19412,12 @@ function salesExtraRemove(lineId,id){
   render();
 }
 function salesExtraIdOfKey(key){var s=String(key||''),i=s.indexOf('|');return s.indexOf('EXTRA:')===0&&i>0?s.slice(i+1):'';}
+/* Выбранная работа уже начислена строке сама (по форме, кромке, отверстию):
+   добавленная руками — второй раз за то же. Только предупреждение. */
+function salesExtraAutoDup(f){
+  if(!f||!f.rateId)return false;
+  return (soDraft&&soDraft.lines||[]).some(function(l){return f.lines.indexOf(l.id)>=0&&salesLineChargeRows(l).some(function(r){return r.svc===f.rateId&&!salesExtraIdOfKey(r.key);});});
+}
 /* Форма «+ Add service»: из прайса или своя. */
 function salesExtraFormHTML(){
   var f=soExtraForm;if(!f)return '';
@@ -19349,7 +19429,8 @@ function salesExtraFormHTML(){
     `<label><span>Qty / unit</span><input data-extra-qty type="number" min="0" step="any" value="${esc(f.qty)}" placeholder="${unit==='ft²'?'area':unit==='in'?'perimeter':'1'}" oninput="soExtraForm.qty=this.value"></label>`+
     `<label><span>Rate / ${esc(unit)}</span><input data-extra-rate type="number" min="0" step="0.01" value="${esc(f.rate)}" placeholder="${r?'catalog':'required'}" oninput="soExtraForm.rate=this.value"></label>`+
     `<button class="sm pri" data-extra-add onclick="salesExtraAdd()">Add${many?' to '+f.lines.length+' lines':''}</button><button class="sm" onclick="salesExtraFormClose()">Cancel</button>`+
-    (f.error?`<b class="sales-extra-error">${esc(f.error)}</b>`:'')+`</div>`;
+    (f.error?`<b class="sales-extra-error">${esc(f.error)}</b>`:'')+
+    (salesExtraAutoDup(f)?`<b class="sales-extra-error" data-extra-dup>Already charged automatically</b>`:'')+`</div>`;
 }
 /* Кнопка «+ Add service» или открытая форма — внизу окна сервисов. */
 function salesExtraBarHTML(target){
@@ -19362,28 +19443,49 @@ function salesExtraBarHTML(target){
 /* ==== src/erp/sales/line-metrics.js ==== */
 /* Commercial line metrics. Geometry stays in Shape; visibility never changes
    the calculation. Monetary amounts here are before energy, tax and delivery. */
-const SALES_METRIC_RULE_DEFAULTS={minimumAreaFt2:4,triplePercent:50,largePercent:50,largeThresholdFt2:60,combination:'additive'};
-DEFAULT.salesMetricRules=Object.assign({},SALES_METRIC_RULE_DEFAULTS);
 /* Нормы веса, которых ещё нет в карточках (плёнка, фрит, спандрел,
    шпросы), — строки Weight norms; обвязка — в карточках и рецепте
    (erp/masterdata/surround). */
 DEFAULT.materialWeightRates=[];
-DB.salesMetricRules=Object.assign({},SALES_METRIC_RULE_DEFAULTS);
 if(!Array.isArray(DB.materialWeightRates))DB.materialWeightRates=[];
-function salesNormalizeMetricRules(value){
- const v=value&&typeof value==='object'?value:{},out={};
- ['minimumAreaFt2','triplePercent','largePercent','largeThresholdFt2'].forEach(k=>{
-  const n=v[k]===null||v[k]===''?NaN:Number(v[k]);
-  out[k]=Number.isFinite(n)&&n>=0?n:SALES_METRIC_RULE_DEFAULTS[k];
- });
- out.combination=['additive','compound'].includes(v.combination)?v.combination:SALES_METRIC_RULE_DEFAULTS.combination;
- return out;
+/* Надбавки — работы Works с правилом (этап 4, часть 2 плана Master Data):
+   минимальная площадь, Triple, большой юнит и любые, что заведёт владелец.
+   Число — цена работы с учётом прайса клиента. Заказ замораживает набор на
+   Save целиком (snap:surcharges): новая надбавка или новое число в Data не
+   меняют сохранённый заказ. */
+let salesSurchargeParsed={src:null,v:[]};
+function salesSurcharges(order){
+ const k='snap:surcharges',b=order&&order.priceBook;let v;
+ /* Площадь юнита спрашивают на каждой отрисовке: разбор снимка — один раз. */
+ if(b&&Object.prototype.hasOwnProperty.call(b,k)){
+  if(salesSurchargeParsed.src!==b[k]){let p=[];try{p=JSON.parse(b[k])||[];}catch(e){}salesSurchargeParsed={src:b[k],v:Array.isArray(p)?p:[]};}
+  v=salesSurchargeParsed.v;
+ }else{
+  const cid=order&&order.customerId||'';
+  v=(DB.serviceRate||[]).filter(r=>r&&r.rule&&r.active!==false).map(r=>{
+   const tier=serviceRateTierFor(r,null),lp=salesPriceListFor('service:'+r.id,tier?tier.id:'',cid);
+   const value=lp?lp.price:tier&&tier.price!=null?tier.price:null;
+   return Object.assign({id:r.id,name:r.name,rule:r.rule,value},lp?{from:lp.listId}:{});
+  }).filter(x=>x.value!=null&&x.value>0);
+ }
+ if(salesBookRec)salesBookRec[k]=JSON.stringify(v);
+ return v;
 }
-function salesMetricRules(order){return salesNormalizeMetricRules((order&&order.metricRules)||DB.salesMetricRules);}
+/* Подходит ли надбавка юниту: виды юнита (single/double/triple, плюс
+   laminated, если в нём есть ламинат) и площадь к оплате одного юнита. */
+function salesSurchargeFits(rule,kinds,area){
+ if(rule.unitTypes.length&&!rule.unitTypes.some(t=>kinds.includes(t)))return false;
+ if(rule.areaOver!=null&&!(area>rule.areaOver))return false;
+ if(rule.areaUnder!=null&&!(area<rule.areaUnder))return false;
+ return true;
+}
+function salesUnitKinds(m){
+ if(!m)return [];
+ const out=[m.unitType];if((m.panes||[]).some(p=>p&&p.category==='laminated'))out.push('laminated');return out;
+}
 function salesNormalizeWeightRates(){
  const seen=new Set();
  DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
- DB.salesMetricRules=salesNormalizeMetricRules(DB.salesMetricRules);
 }
 function salesLineAreas(line,order){
  const lineW=(+(line&&line.width16)||0)/16,lineH=(+(line&&line.height16)||0)/16;
@@ -19397,7 +19499,12 @@ function salesLineAreas(line,order){
  /* Периметр для продажи за погонную длину — вверх до целого дюйма, как в
     Spiel (владелец, 22.10.2026); у фигуры — её контур. */
  const perimeterIn=valid?Math.ceil((shapeValid&&+r.perimeter>0?+r.perimeter:2*(Math.ceil(w)+Math.ceil(h)))-1e-9):null;
- return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,salesMetricRules(order).minimumAreaFt2):null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
+ /* Минимальная площадь — самая большая из подходящих надбавок minArea. Вид
+    юнита нужен только при условии по видам: без макапа условие не сходится. */
+ let min=0,minBy=null;
+ if(valid){const kinds=salesUnitKinds(salesMakeupById(order||soDraft,line&&line.makeupId));
+  salesSurcharges(order||soDraft).forEach(x=>{if(x.rule.kind==='minArea'&&x.value>min&&salesSurchargeFits(x.rule,kinds,rounded)){min=x.value;minBy=x;}});}
+ return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,min):null,minArea:valid&&min>rounded?{id:minBy.id,name:minBy.name,value:min}:null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
 }
 function salesMoney(value){return Math.round((value+Number.EPSILON)*100)/100;}
 function salesApplyOrderCharges(subtotal,raw){
@@ -19515,15 +19622,16 @@ function salesLineCommercialPrice(line,order){
  order=order||soDraft;
  const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),q=salesPositiveInt(line.qty,1),live=Math.max(0,q-unitCancelled(line));
  const rate=salesLineMaterials(m,areas,order),services=salesLinePricingSummary(line),materials=areas.valid?rate.amount:0;
- const base=salesMoney(materials+services.total/q),rules=salesMetricRules(order),adjustments=[];
+ const base=salesMoney(materials+services.total/q);
  const unsupportedCurrency=!!(order.currency&&order.currency!=='CAD');
- let incomplete=!areas.valid||!m||!rate.known||services.unpriced>0||unsupportedCurrency;
- if(m&&m.unitType==='triple'&&rules.triplePercent>0)adjustments.push({key:'triple',label:'Triple units',percent:rules.triplePercent});
- if(areas.valid&&areas.billable>rules.largeThresholdFt2&&rules.largePercent>0)adjustments.push({key:'large',label:'Large units > '+rules.largeThresholdFt2+' ft²',percent:rules.largePercent});
- if(adjustments.length>1&&rules.combination==='pending')incomplete=true;
+ const incomplete=!areas.valid||!m||!rate.known||services.unpriced>0||unsupportedCurrency;
+ /* Процентные надбавки — по приоритету; onTop — от цены с предыдущими. */
+ const kinds=salesUnitKinds(m);
+ const adjustments=areas.valid?salesSurcharges(order).filter(x=>x.rule.kind==='percent'&&salesSurchargeFits(x.rule,kinds,areas.billable))
+  .sort((a,b)=>a.rule.priority-b.rule.priority).map(x=>({key:'svc:'+x.id,svc:x.id,label:x.name,percent:x.value,onTop:x.rule.onTop,rule:x.rule})):[];
  let running=base;
- adjustments.forEach(a=>{a.base=rules.combination==='compound'?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
- const out={areas:areas,materialRate:rate.total,materialRows:rate.rows,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:live,ordered:q,cancelled:q-live};
+ adjustments.forEach(a=>{a.base=a.onTop?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
+ const out={areas:areas,materialRate:rate.total,materialRows:rate.rows,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,qty:live,ordered:q,cancelled:q-live};
  /* Цена руками: итоговая цена юнита, наценки к ней не прибавляются; расчёт
     остаётся для справки (computedUnit). */
  if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,line:salesMoney(v*live),complete:true,unsupportedCurrency:false});}
@@ -19531,13 +19639,13 @@ function salesLineCommercialPrice(line,order){
 }
 function salesLineCommercialAdjustments(line,order){
  const price=salesLineCommercialPrice(line,order);
- return price.adjustments.map(a=>({key:a.key,label:a.label,percent:a.percent,base:price.complete?a.base:null,unitAmount:price.complete?a.amount:null,qty:price.qty,lineAmount:price.complete?salesMoney(a.amount*price.qty):null,complete:price.complete}));
+ return price.adjustments.map(a=>({key:a.key,label:a.label,percent:a.percent,rule:a.rule,base:price.complete?a.base:null,unitAmount:price.complete?a.amount:null,qty:price.qty,lineAmount:price.complete?salesMoney(a.amount*price.qty):null,complete:price.complete}));
 }
 function salesOrderCommercialAdjustments(order){
  order=order||soDraft;
  const groups=Object.create(null);
  (order&&order.lines||[]).forEach((line,lineIndex)=>salesLineCommercialAdjustments(line,order).forEach(a=>{
-  if(!groups[a.key])groups[a.key]={key:a.key,label:a.label,percent:a.percent,lines:0,qty:0,total:0,incomplete:0,entries:[]};
+  if(!groups[a.key])groups[a.key]={key:a.key,label:a.label,percent:a.percent,rule:a.rule,lines:0,qty:0,total:0,incomplete:0,entries:[]};
   const g=groups[a.key];g.lines++;g.qty+=a.qty;g.entries.push({line:line,lineIndex:lineIndex,adjustment:a});
   if(a.complete)g.total=salesMoney(g.total+a.lineAmount);else g.incomplete++;
  }));
@@ -19788,11 +19896,12 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
   });
 
   /* Makeup несёт работы по поверхности независимо от геометрии и цены.
-     Фрит наносится до печи, спандрел — после (контракт владельца). */
+     Фрит наносится до печи, спандрел — после (контракт владельца). Работа —
+     поле Work карточки фрита и спандрела (этап 4, часть 2). */
   (treatments||[]).forEach(function(t){
-    var fritWork=t.spec.productId==='FRIT-DIGITAL'?'digital_print':'ceramic_frit';
-    if(t.kind==='frit')salesRoutePush(map,order,salesRouteStationOf(fritWork,'CERP'),'Frit · '+t.where,fritWork);
-    if(t.kind==='spandrel')salesRoutePush(postMap,postOrder,salesRouteStationOf('painting','PAINT'),t.text,'painting');
+    var prod=mdById(t.kind==='frit'?'fritProduct':'spandrelProduct',t.spec.productId),work=prod&&prod.workId||'';
+    if(t.kind==='frit')salesRoutePush(map,order,salesRouteStationOf(work,'CERP'),'Frit · '+t.where,work);
+    if(t.kind==='spandrel')salesRoutePush(postMap,postOrder,salesRouteStationOf(work,'PAINT'),t.text,work);
   });
   /* Печь и то, что она ставит. */
   var heatWork=heatTreatment==='HS'?'heat_strengthening':'tempering',heatStation=salesRouteStationOf(heatWork,'HEAT');
@@ -21138,7 +21247,7 @@ function docIncompleteReason(p){
 /* Step Unit клиент не видит, пока его ставка 0 (владелец, 20.10.2026): в ERP,
    на станции и на чертеже он виден всегда, с ценой появится в документах сам. */
 function docServiceRows(line){
- return salesLineChargeRows(line).map(row=>{const st=salesChargePricingState(line,row);return {key:row.key,label:row.label,basis:row.basis,unit:row.unit,rate:st.effectiveRate,value:st.effectiveRate==null?null:salesMoney(row.basis*st.effectiveRate)};})
+ return salesLineChargeRows(line).map(row=>{const st=salesChargePricingState(line,row);return {key:row.key,label:row.label,basis:row.basis,unit:row.unit,rate:st.effectiveRate,value:st.effectiveRate==null?null:salesMoney(salesChargeUnitAmount(row,st.effectiveRate))};})
   .filter(r=>!(r.key==='SURCHARGE:step-unit'&&r.rate===0));
 }
 function docLineRoute(line,order){
@@ -22169,15 +22278,15 @@ function salesLineShapeCell(l,i){
 }
 function salesLineCommercialAdjustmentsHtml(line,currency){
  const rows=salesLineCommercialAdjustments(line,soDraft);if(!rows.length)return '';
- return `<section class="sales-commercial-adjustments"><div class="sales-commercial-head"><div><b>Commercial adjustments</b><span>Already included once in Unit Price</span></div></div><div class="sales-commercial-table"><div class="sales-commercial-row head"><span>Rule</span><span>Calculation per unit</span><span>Qty</span><span>Line total</span></div>${rows.map(a=>`<div class="sales-commercial-row${a.complete?'':' incomplete'}"><span><b>${esc(a.label)}</b><small>${a.key==='triple'?'Triple IGU':'Billable Area above the limit'}</small></span><span>${a.complete?`${a.base.toFixed(2)} × ${a.percent}% = <b>${a.unitAmount.toFixed(2)} ${esc(currency)}</b>`:'Price incomplete'}</span><span>${a.qty}</span><strong>${a.complete?a.lineAmount.toFixed(2)+' '+esc(currency):'—'}</strong></div>`).join('')}</div></section>`;
+ return `<section class="sales-commercial-adjustments"><div class="sales-commercial-head"><div><b>Commercial adjustments</b><span>Already included once in Unit Price</span></div></div><div class="sales-commercial-table"><div class="sales-commercial-row head"><span>Rule</span><span>Calculation per unit</span><span>Qty</span><span>Line total</span></div>${rows.map(a=>`<div class="sales-commercial-row${a.complete?'':' incomplete'}"><span><b>${esc(a.label)}</b><small>${esc(serviceRuleText(a.rule))}</small></span><span>${a.complete?`${a.base.toFixed(2)} × ${a.percent}% = <b>${a.unitAmount.toFixed(2)} ${esc(currency)}</b>`:'Price incomplete'}</span><span>${a.qty}</span><strong>${a.complete?a.lineAmount.toFixed(2)+' '+esc(currency):'—'}</strong></div>`).join('')}</div></section>`;
 }
 function salesOrderCommercialAdjustmentsHtml(currency){
  const groups=salesOrderCommercialAdjustments(soDraft);if(!groups.length)return '';
- return `<section class="sales-commercial-adjustments order"><div class="sales-commercial-head"><div><b>Commercial adjustments</b><span>Applied automatically from Makeup type and Billable Area; already included in Unit / Line Price</span></div></div><div class="sales-commercial-table"><div class="sales-commercial-row head"><span>Rule</span><span>Lines / units</span><span>Rate</span><span>Order total</span></div>${groups.map(g=>`<div class="sales-commercial-row${g.incomplete?' incomplete':''}"><span><b>${esc(g.label)}</b><small>${g.key==='triple'?'Triple IGU':'Billable Area above '+salesMetricRules(soDraft).largeThresholdFt2+' ft²'}</small></span><span>${g.lines} / ${g.qty}</span><span>+${g.percent}% of the base unit price</span><strong>${g.incomplete?'—':g.total.toFixed(2)+' '+esc(currency)}</strong></div>`).join('')}</div></section>`;
+ return `<section class="sales-commercial-adjustments order"><div class="sales-commercial-head"><div><b>Commercial adjustments</b><span>Applied automatically from Makeup type and Billable Area; already included in Unit / Line Price</span></div></div><div class="sales-commercial-table"><div class="sales-commercial-row head"><span>Rule</span><span>Lines / units</span><span>Rate</span><span>Order total</span></div>${groups.map(g=>`<div class="sales-commercial-row${g.incomplete?' incomplete':''}"><span><b>${esc(g.label)}</b><small>${esc(serviceRuleText(g.rule))}</small></span><span>${g.lines} / ${g.qty}</span><span>+${g.percent}% of ${g.rule&&g.rule.onTop?'the running':'the base'} unit price</span><strong>${g.incomplete?'—':g.total.toFixed(2)+' '+esc(currency)}</strong></div>`).join('')}</div></section>`;
 }
 function salesLineServicesModal(line,index){
  const rows=salesLineChargeRows(line),currency=soDraft.currency||'CAD',s=salesShapeByRef(line.shapeRef),ctx=salesPricingThickness(line),thickness=ctx.ok?ctx.thickness+' mm':(ctx.thickness?ctx.thickness+' mm':'—'),summary=salesLinePricingSummary(line);
- return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal line-modal"><div class="sales-service-modal-head"><div><span><span>Line</span> ${index+1}</span><h3>Services / Processing</h3><small>${s?raw(s.name):'Production Shape'}${line.mark?' · '+raw(line.mark):''}</small></div><button onclick="salesCloseServices()">×</button></div>${rows.length||salesLineCommercialAdjustments(line,soDraft).length?`<div class="sales-service-context"><span>Makeup thickness <b>${esc(thickness)}</b></span><span>Line Qty <b>${esc(line.qty)}</b></span><span>Geometry / quantity <b>read-only</b></span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Price not set</b><span><b data-raw>${summary.unpriced}</b> <span>charges have no effective rate. They are not included in the monetary total until a rate is entered.</span></span></div>`:''}${rows.length?`<div class="sales-line-service-table"><div class="sales-line-service-row head"><span>Charge</span><span>Calculated basis</span><span>Catalog</span><span>Order-wide</span><span>Line rate</span><span>Final total</span><span></span></div>${rows.map(function(row){const st=salesChargePricingState(line,row),q=salesPositiveInt(line.qty,1),final=st.effectiveRate==null?null:row.basis*q*st.effectiveRate,lineValue=st.lineRate==null?'':String(st.lineRate),inherited=st.orderRate!=null?st.orderRate:st.catalogRate,origin=st.origin==='line'?'LINE':(st.origin==='order'?'ORDER':(st.origin==='catalog'?'CATALOG':st.origin==='list'?priceListName(st.from).toUpperCase():'NO RATE'));return `<div class="sales-line-service-row${st.missing?' unpriced':''}"><span class="sales-price-charge"><b>${esc(row.label)}</b><small>${esc(row.source)}</small></span><span class="sales-price-basis">${esc(salesChargeBasisText(row,line))}</span><span>${row.source==='Custom'?`<span class="sales-extra-per">Custom · per ${esc(row.unit)}</span>`:st.catalogRate==null?'<span class="sales-price-missing">Not set</span>':esc(salesRateText(st.catalogRate,row.unit,currency))}</span><span>${esc(salesRateText(st.orderRate,row.unit,currency))}</span><span class="sales-line-rate"><input type="number" min="0" step="0.01" value="${esc(lineValue)}" placeholder="${inherited==null?'':esc(String(inherited))}" onchange="salesSetChargeOrderRate('${esc(line.id)}','${esc(row.key)}',this.value)"><small class="sales-rate-origin ${esc(st.origin)}">${esc(origin)}</small></span><strong>${final==null?'<span class="sales-price-missing">Rate required</span>':final.toFixed(2)+' '+esc(currency)}</strong>${salesExtraIdOfKey(row.key)?`<button class="sm" data-extra-remove onclick="salesExtraRemove('${esc(line.id)}','${esc(salesExtraIdOfKey(row.key))}')">Remove</button>`:`<button class="sm" onclick="salesResetChargeRate('${esc(line.id)}','${esc(row.key)}')">Use Order / Catalog</button>`}</div>`;}).join('')}</div><div class="sales-service-modal-total${summary.unpriced?' incomplete':''}"><span>Services / processing total for this line</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:''}</div>`:''}${salesLineCommercialAdjustmentsHtml(line,currency)}`:`<div class="empty compact sales-service-empty">This line has no services or processing charges yet.</div>`}${salesExtraBarHTML('line:'+line.id)}</div></div>`;
+ return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal line-modal"><div class="sales-service-modal-head"><div><span><span>Line</span> ${index+1}</span><h3>Services / Processing</h3><small>${s?raw(s.name):'Production Shape'}${line.mark?' · '+raw(line.mark):''}</small></div><button onclick="salesCloseServices()">×</button></div>${rows.length||salesLineCommercialAdjustments(line,soDraft).length?`<div class="sales-service-context"><span>Makeup thickness <b>${esc(thickness)}</b></span><span>Line Qty <b>${esc(line.qty)}</b></span><span>Geometry / quantity <b>read-only</b></span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Price not set</b><span><b data-raw>${summary.unpriced}</b> <span>charges have no effective rate. They are not included in the monetary total until a rate is entered.</span></span></div>`:''}${rows.length?`<div class="sales-line-service-table"><div class="sales-line-service-row head"><span>Charge</span><span>Calculated basis</span><span>Catalog</span><span>Order-wide</span><span>Line rate</span><span>Final total</span><span></span></div>${rows.map(function(row){const st=salesChargePricingState(line,row),q=salesPositiveInt(line.qty,1),final=st.effectiveRate==null?null:salesChargeUnitAmount(row,st.effectiveRate)*q,lineValue=st.lineRate==null?'':String(st.lineRate),inherited=st.orderRate!=null?st.orderRate:st.catalogRate,origin=st.origin==='line'?'LINE':(st.origin==='order'?'ORDER':(st.origin==='catalog'?'CATALOG':st.origin==='list'?priceListName(st.from).toUpperCase():'NO RATE'));return `<div class="sales-line-service-row${st.missing?' unpriced':''}"><span class="sales-price-charge"><b>${esc(row.label)}</b><small>${esc(row.source)}</small></span><span class="sales-price-basis">${esc(salesChargeBasisText(row,line))}</span><span>${row.source==='Custom'?`<span class="sales-extra-per">Custom · per ${esc(row.unit)}</span>`:st.catalogRate==null?'<span class="sales-price-missing">Not set</span>':esc(salesRateText(st.catalogRate,row.unit,currency))}</span><span>${esc(salesRateText(st.orderRate,row.unit,currency))}</span><span class="sales-line-rate"><input type="number" min="0" step="0.01" value="${esc(lineValue)}" placeholder="${inherited==null?'':esc(String(inherited))}" onchange="salesSetChargeOrderRate('${esc(line.id)}','${esc(row.key)}',this.value)"><small class="sales-rate-origin ${esc(st.origin)}">${esc(origin)}</small></span><strong>${final==null?'<span class="sales-price-missing">Rate required</span>':final.toFixed(2)+' '+esc(currency)}</strong>${salesExtraIdOfKey(row.key)?`<button class="sm" data-extra-remove onclick="salesExtraRemove('${esc(line.id)}','${esc(salesExtraIdOfKey(row.key))}')">Remove</button>`:`<button class="sm" onclick="salesResetChargeRate('${esc(line.id)}','${esc(row.key)}')">Use Order / Catalog</button>`}</div>`;}).join('')}</div><div class="sales-service-modal-total${summary.unpriced?' incomplete':''}"><span>Services / processing total for this line</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:''}</div>`:''}${salesLineCommercialAdjustmentsHtml(line,currency)}`:`<div class="empty compact sales-service-empty">This line has no services or processing charges yet.</div>`}${salesExtraBarHTML('line:'+line.id)}</div></div>`;
 }
 
 function salesOrderServicesModal(){
@@ -22283,7 +22392,7 @@ function salesResetMetricColumns(context){
 }
 function salesOpenMetrics(panel,id){salesMetricsPanel=panel;salesMetricsLineId=id||null;salesMetricsEditWeights=false;render();}
 function salesCloseMetrics(){salesMetricsPanel=null;render();}
-function salesMetricsTools(){return `<button type="button" onclick="salesOpenMetrics('columns')">${'Columns'}</button><button type="button" onclick="salesOpenMetrics('rules')">${'Pricing rules'}</button>`;}
+function salesMetricsTools(){return `<button type="button" onclick="salesOpenMetrics('columns')">${'Columns'}</button><button type="button" onclick="salesOpenMetrics('rules')">${'Surcharges'}</button>`;}
 function salesMetricHeaders(context){return salesMetricColumnsFor(context).map(c=>`<th class="line-metric" data-metric="${c.key}"><span data-raw>${c.label}</span></th>`).join('');}
 function salesMetricCells(line,context){
  const columns=salesMetricColumnsFor(context),price=salesLineCommercialPrice(line,soDraft),a=price.areas;
@@ -22360,7 +22469,7 @@ function salesColumnsPanel(){
 }
 function salesAreaPanel(line){
  const a=salesLineAreas(line,soDraft);
- return `<div class="metric-explanation"><p>${'Areas are per unit. Qty does not change a single unit’s area.'}</p><dl><dt>Actual Area</dt><dd>${a.valid?a.actual.toFixed(4):'—'} ft²</dd><dt>Rounded Area</dt><dd>${a.valid?`${a.roundedWidth} × ${a.roundedHeight}″ ÷ 144 → ${a.rounded.toFixed(1)} ft²`:'—'}</dd><dt>Billable Area</dt><dd>${a.valid?a.billable.toFixed(1):'—'} ft²</dd></dl><p>${'Actual Area is the finished contour area. Rounded Area uses bounding dimensions, each rounded up to a whole inch, then rounds the area to one decimal place. Billable Area applies the billing minimum.'}</p><p>${'Materials and Shape Unit use Billable Area. Edges use length, per-piece work uses quantity, and surface treatments retain their processing area. Weight uses actual geometry.'}</p></div>`;
+ return `<div class="metric-explanation"><p>${'Areas are per unit. Qty does not change a single unit’s area.'}</p><dl><dt>Actual Area</dt><dd>${a.valid?a.actual.toFixed(4):'—'} ft²</dd><dt>Rounded Area</dt><dd>${a.valid?`${a.roundedWidth} × ${a.roundedHeight}″ ÷ 144 → ${a.rounded.toFixed(1)} ft²`:'—'}</dd><dt>Billable Area</dt><dd>${a.valid?a.billable.toFixed(1):'—'} ft²${a.minArea?' · '+esc(a.minArea.name):''}</dd></dl><p>${'Actual Area is the finished contour area. Rounded Area uses bounding dimensions, each rounded up to a whole inch, then rounds the area to one decimal place. Billable Area applies the billing minimum.'}</p><p>${'Materials and Shape Unit use Billable Area. Edges use length, per-piece work uses quantity, and surface treatments retain their processing area. Weight uses actual geometry.'}</p></div>`;
 }
 /* Цена руками: своя цена юнита вместо расчёта, в любой строке, даже в батче
    и после выдачи. Clear возвращает расчёт. */
@@ -22382,16 +22491,13 @@ function salesMaterialRowsHTML(p){
 }
 function salesPricePanel(line){
  const p=salesLineCommercialPrice(line,soDraft),cur=esc(soDraft.currency),row=(label,value)=>`<div class="metric-price-row"><span>${label}</span><b data-raw>${value==null?'—':value.toFixed(2)+' '+cur}</b></div>`;
- return salesPriceManualHTML(line,p,cur)+`<p class="mut">${'Calculation for one finished unit'}</p>${row('Materials'+((p.materialRows||[]).some(r=>r.special||r.cavity!=null)?'':` · ${p.materialRate.toFixed(2)} × ${p.areas.billable==null?'—':p.areas.billable.toFixed(1)} ft²`),p.missingMaterials||p.unsupportedCurrency?null:p.materials)}${salesMaterialRowsHTML(p)}${row('Services and processing',p.missingServices||p.unsupportedCurrency?null:p.services)}${row('Base unit price',p.missingMaterials||p.missingServices||p.unsupportedCurrency?null:p.base)}${p.adjustments.map(a=>row(`${esc(a.label)} · +${a.percent}% × ${a.base.toFixed(2)}`,p.complete?a.amount:null)).join('')}${row('Unit Price',p.unit)}${row('Line Total · Qty '+p.qty,p.line)}${p.unsupportedCurrency?`<p class="metric-incomplete">${'Catalog prices are in CAD. USD totals require a defined currency conversion; CAD amounts are not relabelled as USD.'}</p>`:''}${!p.complete?`<p class="metric-incomplete">${'Calculation incomplete: check dimensions and material / service prices.'}</p>`:''}<p class="mut">${'Triple and Large unit each apply to the base unit price including services. Before energy surcharge, tax and delivery.'}</p><button type="button" onclick="salesMetricsPanel=null;salesOpenLineServices('${esc(line.id)}')">${'Open services'}</button>`;
+ return salesPriceManualHTML(line,p,cur)+`<p class="mut">${'Calculation for one finished unit'}</p>${row('Materials'+((p.materialRows||[]).some(r=>r.special||r.cavity!=null)?'':` · ${p.materialRate.toFixed(2)} × ${p.areas.billable==null?'—':p.areas.billable.toFixed(1)} ft²`),p.missingMaterials||p.unsupportedCurrency?null:p.materials)}${salesMaterialRowsHTML(p)}${row('Services and processing',p.missingServices||p.unsupportedCurrency?null:p.services)}${row('Base unit price',p.missingMaterials||p.missingServices||p.unsupportedCurrency?null:p.base)}${p.adjustments.map(a=>row(`${esc(a.label)} · +${a.percent}% × ${a.base.toFixed(2)}`,p.complete?a.amount:null)).join('')}${row('Unit Price',p.unit)}${row('Line Total · Qty '+p.qty,p.line)}${p.unsupportedCurrency?`<p class="metric-incomplete">${'Catalog prices are in CAD. USD totals require a defined currency conversion; CAD amounts are not relabelled as USD.'}</p>`:''}${!p.complete?`<p class="metric-incomplete">${'Calculation incomplete: check dimensions and material / service prices.'}</p>`:''}<p class="mut">${'Surcharges from Data → Works. Before energy surcharge, tax and delivery.'}</p><button type="button" onclick="salesMetricsPanel=null;salesOpenLineServices('${esc(line.id)}')">${'Open services'}</button>`;
 }
+/* Надбавки — работы Data → Works с правилом; здесь только то, что в силе
+   у этого заказа (сохранённый заказ — по снимку на Save). */
 function salesRulePanel(){
- const r=salesMetricRules(soDraft),labels={triplePercent:'Triple units, %',largePercent:'Large units, %',largeThresholdFt2:'Large units: area strictly above, ft²',minimumAreaFt2:'Minimum billable area, ft²'};
- return `<form class="metric-rule-form" onsubmit="event.preventDefault();salesSaveMetricRules(this)">${Object.keys(labels).map(k=>`<label>${labels[k]}<input name="${k}" type="number" min="0" step="0.1" required value="${r[k]}"></label>`).join('')}<p>${'Both surcharges use the base unit price including services. Two 50% surcharges: 100 → 200. The threshold uses one unit’s Billable Area, before Qty.'}</p><p class="mut">${'Saved orders retain their rules. Changes here apply to this order and become defaults for new orders.'}</p><button class="pri" type="submit">${'Apply to this and new orders'}</button></form>`;
-}
-function salesSaveMetricRules(form){
- const rules={combination:'additive'};
- for(const key of ['triplePercent','largePercent','largeThresholdFt2','minimumAreaFt2']){const n=Number(form.elements[key].value);if(!Number.isFinite(n)||n<0)return;rules[key]=n;}
- DB.salesMetricRules=salesNormalizeMetricRules(rules);soDraft.metricRules=Object.assign({},DB.salesMetricRules);touch();salesCloseMetrics();
+ const rows=salesSurcharges(soDraft);
+ return `<div class="metric-explanation" data-surcharge-list>${rows.length?`<dl>${rows.map(x=>`<dt>${esc(x.name)}</dt><dd>${x.rule.kind==='minArea'?'min '+x.value+' ft²':'+'+x.value+'%'} · ${esc(serviceRuleText(x.rule))}${x.from?' · '+esc(priceListName(x.from)):''}</dd>`).join('')}</dl>`:`<p class="mut">No surcharges</p>`}<p class="mut">${'Edit in Data → Works. Saved orders keep theirs.'}</p></div>`;
 }
 function salesWeightNormDisplay(row){
  if(row.rate==null)return {value:'',unit:row.unit||'',factor:1};
@@ -22429,7 +22535,7 @@ function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtr
 function salesSetWeightExtra(i,key,value){const l=salesMetricsLine(),x=l&&l.weightExtras[i];if(!x)return;if(key==='label')x.label=value;else{x.kg=mdNonNeg(value);render();}}
 function salesMetricsModal(){
  if(!salesMetricsPanel||!soDraft)return '';
- const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Pricing rules',orderCharges:'Order charges',area:'Unit area',weight:'Unit weight',price:'Unit price'};
+ const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Surcharges',orderCharges:'Order charges',area:'Unit area',weight:'Unit weight',price:'Unit price'};
  if(!titles[panel]||!line&&['area','weight','price'].includes(panel))return '';
  const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):salesPricePanel(line);
  return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
@@ -26598,16 +26704,16 @@ const MD_MATERIAL_VIEWS={
              {k:'sealantProduct',   label:'Sealants'},
              {k:'iguPart',          label:'IGU parts'}],
  lamination:[{k:'interlayerProduct',label:'Interlayers'}],
- surface:   [{k:'fritProduct',      label:'Frit'},
-             {k:'spandrelProduct',  label:'Spandrel'},
-             {k:'spandrelColour',   label:'Spandrel colours'}],
  stock:     [{k:'stockItem',        label:'Stock items'}]
 };
-const MD_MATERIAL_CATEGORY_LABELS={glass:'Glass',igu:'IGU assembly',lamination:'Lamination',surface:'Surface',stock:'Stock & consumables'};
+const MD_MATERIAL_CATEGORY_LABELS={glass:'Glass',igu:'IGU assembly',lamination:'Lamination',stock:'Stock & consumables'};
 /* Тепловая обработка материалом не является — её нет в разделе 7 и у неё нет
    ни закупки, ни хранения. Это режим цеха, поэтому живёт рядом с работами, а
    не среди материалов. */
-const MD_WORK_CATALOGUES=['serviceRate','heatTreatment'];
+/* Фрит и спандрел — работы по поверхности (этап 4, часть 2 плана Master
+   Data): карточка говорит, какая работа Works их делает. */
+const MD_WORK_CATALOGUES=['serviceRate','heatTreatment','fritProduct','spandrelProduct','spandrelColour'];
+const MD_CAT_WORK=['fritProduct','spandrelProduct'];
 /* Каталог длиннее любого экрана: показываем страницу и честно говорим, сколько
    осталось за краем. Молчаливая обрезка списка читается как «это всё». */
 const MD_PAGE=60;
@@ -27590,12 +27696,15 @@ function mdWorkRangeText(r){
 /* Таблица цен строкой списка: «≤7: 5.00 · 8–11: 8.00». */
 function mdWorkTiersText(r){
  const tiers=r&&r.tiers||[];
+ if(r&&r.rule){const t=tiers[0],v=t&&t.price!=null?t.price:null;
+  return (v==null?'—':r.rule.kind==='percent'?'+'+v+'%':'min '+v+' ft²')+' · '+serviceRuleText(r.rule);}
  if(!tiers.length)return '—';
  return tiers.map(t=>(tiers.length===1&&t.from==null&&t.to==null?'':serviceRateTierShort(t)+': ')+(t.price==null?'—':Number(t.price).toFixed(2))).join(' · ');
 }
 /* Предупреждения карточки работы: таблица цен и нахлёст диапазона диаметра
    с другой работой той же семьи. Только предупреждают. */
 function mdWorkWarnings(r){
+ if(r&&r.rule)return (r.tiers||[]).length===1&&r.tiers[0].price!=null?[]:['Surcharge needs one value'];
  const out=serviceRateTierWarnings(r);
  if(r&&r.appliesBy&&r.active!==false){
   const lo=r.appliesFrom==null?-Infinity:r.appliesFrom,hi=r.appliesTo==null?Infinity:r.appliesTo;
@@ -27630,7 +27739,7 @@ function mdCatRowHTML(x){
   <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button></td></tr>`;}
  const scope=colour?(x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'any'):'';
  return `<tr>
-  <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}${x.subcategory?' · '+esc(x.subcategory):''}</div>${x.sellsAsOwnLine?'<span class="pill info">own order line</span>':''}</td>
+  <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}${x.subcategory?' · '+esc(x.subcategory):''}</div>${x.sellsAsOwnLine?'<span class="pill info">own order line</span>':''}${MD_CAT_WORK.includes(mdCatKind)?`<div class="mut">Work: ${x.workId?esc((salesServiceRateRow(x.workId)||{}).name||x.workId):'—'}</div>`:''}</td>
   <td class="mono">${x.code?raw(x.code):'<span class="mut">—</span>'}</td>
   ${colour?`<td>${x.family?raw(x.family):'<span class="mut">—</span>'}</td><td class="mut">${raw(scope)}</td>`
           :`<td>${x.supplier?raw(x.supplier):'<span class="mut">—</span>'}</td>
@@ -27665,20 +27774,33 @@ function mdCatForm(){
    <div class="sub mono">${isNew?'the id appears after saving':esc(r.id)}</div>
    <div class="grid">
     <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
-    <div><label>Unit</label><select id="md_catUnit">${['pc','in','ft²'].map(u=>`<option value="${esc(u)}" ${u===r.unit?'selected':''}>${esc(u)}</option>`).join('')}</select><div class="hint">Label of the price</div></div>
-    <div><label>Station</label><select id="md_catStation"><option value="">— no station —</option>${stations.map(st=>`<option value="${esc(st.code)}" ${st.code===(r.station||'')?'selected':''}>${esc(st.code)} · ${esc(st.nameEn||st.name)}</option>`).join('')}</select><div class="hint">Empty: price only</div></div>
+    <div><label>Unit</label><select id="md_catUnit">${(r.rule?[r.unit]:['pc','in','ft²']).map(u=>`<option value="${esc(u)}" ${u===r.unit?'selected':''}>${esc(u)}</option>`).join('')}</select><div class="hint">Label of the price</div></div>
+    ${r.rule?'':`<div><label>Station</label><select id="md_catStation"><option value="">— no station —</option>${stations.map(st=>`<option value="${esc(st.code)}" ${st.code===(r.station||'')?'selected':''}>${esc(st.code)} · ${esc(st.nameEn||st.name)}</option>`).join('')}</select><div class="hint">Empty: price only</div></div>`}
    </div>
    <div class="grid">
-    <div><label>Applies by</label><select id="md_catAppliesBy" onchange="mdWorkDraftRead(true);render()"><option value="" ${r.appliesBy?'':'selected'}>always</option><option value="diameter" ${r.appliesBy==='diameter'?'selected':''}>hole diameter, inches</option></select></div>
+    ${r.rule?'':`<div><label>Applies by</label><select id="md_catAppliesBy" onchange="mdWorkDraftRead(true);render()"><option value="" ${r.appliesBy?'':'selected'}>always</option><option value="diameter" ${r.appliesBy==='diameter'?'selected':''}>hole diameter, inches</option></select></div>
     ${r.appliesBy?`<div><label>Family</label><input id="md_catFamily" value="${esc(r.family||'')}"><div class="hint">Shared by all hole rows</div></div>
     <div><label>Diameter from</label><input id="md_catFrom" type="number" step="any" min="0" value="${v(r.appliesFrom)}" placeholder="no limit"></div>
-    <div><label>Diameter to</label><input id="md_catTo" type="number" step="any" min="0" value="${v(r.appliesTo)}" placeholder="no limit"></div>`:''}
+    <div><label>Diameter to</label><input id="md_catTo" type="number" step="any" min="0" value="${v(r.appliesTo)}" placeholder="no limit"></div>`:''}`}
    </div>
-   <label>Price by glass thickness</label>
+   <div class="grid" data-md-rule>
+    <div><label>Surcharge</label><select id="md_ruleKind" onchange="mdWorkDraftRead(true);render()">${[['','no — a work'],['percent','percent of unit price'],['minArea','minimum billed area']].map(([k,t])=>`<option value="${k}" ${(r.rule?r.rule.kind:'')===k?'selected':''}>${t}</option>`).join('')}</select><div class="hint">Changes the unit price</div></div>
+    ${r.rule?`<div><label>${r.rule.kind==='percent'?'Percent':'Minimum, ft²'}</label><input id="md_tierPrice0" type="number" step="any" min="0" value="${v(r.tiers&&r.tiers[0]?r.tiers[0].price:null)}" placeholder="no value"></div>
+    <div><label>Unit types</label><div>${SERVICE_RULE_UNIT_TYPES.map(t=>`<label class="chk"><input type="checkbox" id="md_ruleT_${t}" ${r.rule.unitTypes.includes(t)?'checked':''}> ${t}</label>`).join(' ')}</div><div class="hint">None: any unit</div></div>
+    <div><label>Unit area over, ft²</label><input id="md_ruleOver" type="number" step="any" min="0" value="${v(r.rule.areaOver)}" placeholder="no limit"></div>
+    <div><label>Unit area under, ft²</label><input id="md_ruleUnder" type="number" step="any" min="0" value="${v(r.rule.areaUnder)}" placeholder="no limit"></div>
+    ${r.rule.kind==='percent'?`<div><label>Order</label><input id="md_rulePriority" type="number" step="1" value="${v(r.rule.priority)}"><div class="hint">Smaller first</div></div>
+    <div><label class="chk"><input type="checkbox" id="md_ruleOnTop" ${r.rule.onTop?'checked':''}> On top of earlier surcharges</label></div>`:''}`:''}
+   </div>
+   ${r.rule?'':`<label>Price by glass thickness</label>
    <table class="md-work-tiers" data-md-tiers><thead><tr><th>From, mm</th><th>To, mm</th><th>Price, CAD</th><th></th></tr></thead><tbody>
     ${(r.tiers||[]).map((t,i)=>`<tr data-md-tier="${esc(t.id)}"><td><input id="md_tierFrom${i}" type="number" step="any" min="0" value="${v(t.from)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierTo${i}" type="number" step="any" min="0" value="${v(t.to)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierPrice${i}" type="number" step="0.01" min="0" value="${v(t.price)}" placeholder="no price" style="width:90px"></td><td><button class="sm dl" title="Remove row" onclick="mdWorkTierRemove(${i})">×</button></td></tr>`).join('')}
    </tbody></table>
    <div class="row"><button class="sm" data-md-tier-add onclick="mdWorkTierAdd()">+ Row</button><span class="hint">From and to included. Empty: no limit.</span></div>
+   <div class="grid">
+    <div><label>Round quantity up to</label><input id="md_catRoundTo" type="number" step="any" min="0" value="${v(r.roundTo)}" placeholder="no rounding"><div class="hint">In the work's unit</div></div>
+    <div><label>Min charge, CAD</label><input id="md_catMinCharge" type="number" step="0.01" min="0" value="${v(r.minCharge)}" placeholder="no minimum"><div class="hint">Per unit</div></div>
+   </div>`}
    ${warn.length?`<div class="sales-pricing-warning" data-md-work-warn><b>Check</b><span>${warn.map(esc).join('<br>')}</span></div>`:''}
    <div class="grid">
     <div><label>Note</label><input id="md_catNote" value="${esc(r.note||'')}"></div>
@@ -27697,6 +27819,7 @@ function mdCatForm(){
     :`<div><label>Supplier</label><input id="md_catSupplier" value="${esc(r.supplier||'')}"></div>
       <div><label>Price, CAD</label><input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}"><div class="hint">Surcharge per ft², if the catalogue uses one — or the sale price, for a stock item. Empty — no price, and the row honestly enters the invoice as Rate required, not a zero.</div></div>
       ${MD_CAT_SALE_UNIT.includes(mdCatKind)?`<div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select></div>${mdSaleRulesFields(r)}`:''}
+      ${MD_CAT_WORK.includes(mdCatKind)?`<div><label>Work</label><select id="md_catWork"><option value="">— no work —</option>${(DB.serviceRate||[]).filter(w=>w&&!w.rule).map(w=>`<option value="${esc(w.id)}" ${w.id===r.workId?'selected':''}>${esc(w.name)}${w.station?' · '+esc(w.station):''}</option>`).join('')}</select><div class="hint">Station in the route</div></div>`:''}
       ${mdCatKind==='gasProduct'?`<div><label>Density, kg/m³</label><input id="md_catDensity" type="number" step="any" min="0" value="${r.densityKgM3==null?'':r.densityKgM3}" placeholder="unknown"><div class="hint">Gas weight = density × cavity volume.</div></div>`:''}
       ${mdCatKind==='stockItem'?`<div><label>Subcategory</label><input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(s=>`<option value="${esc(s)}">`).join('')}</datalist><div class="hint">Groups stock items in the order-line picker. Type your own — the list above is only a hint; empty becomes "consumable".</div></div>`:''}
       <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="md_catOwnLine" ${r.sellsAsOwnLine?'checked':''}> Sells as its own order line</label>
@@ -27718,11 +27841,27 @@ function mdWorkDraftRead(keep){
   return {id:t.id,from:f===undefined?t.from:f,to:to===undefined?t.to:to,price:p===undefined?t.price:p};});
  const appliesEl=document.getElementById('md_catAppliesBy'),appliesBy=appliesEl?appliesEl.value:r.appliesBy;
  const from=num('md_catFrom'),to=num('md_catTo');
- const next=Object.assign({},r,{name:mdVal('md_catName'),unit:mdVal('md_catUnit')||r.unit,station:mdVal('md_catStation'),tiers,
+ /* Надбавка: вид правила с экрана; число — одна строка таблицы без границ. */
+ const kindEl=document.getElementById('md_ruleKind'),kind=kindEl?kindEl.value:(r.rule?r.rule.kind:'');
+ let rule=null,unit=mdVal('md_catUnit')||r.unit,useTiers=tiers;
+ if(kind){
+  const was=r.rule&&r.rule.kind===kind?r.rule:{unitTypes:[],areaOver:null,areaUnder:null,onTop:false,priority:0};
+  const chk=id=>{const el=document.getElementById(id);return el?el.checked:undefined;};
+  const types=SERVICE_RULE_UNIT_TYPES.filter(t=>{const c=chk('md_ruleT_'+t);return c===undefined?was.unitTypes.includes(t):c;});
+  const over=num('md_ruleOver'),under=num('md_ruleUnder'),prio=num('md_rulePriority'),onTop=chk('md_ruleOnTop');
+  rule={kind,unitTypes:types,areaOver:over===undefined?was.areaOver:over,areaUnder:under===undefined?was.areaUnder:under,
+   onTop:onTop===undefined?was.onTop:onTop,priority:prio===undefined||prio===null?was.priority:prio};
+  const first=tiers[0]||{},p0=num('md_tierPrice0');
+  useTiers=[{id:'flat',from:null,to:null,price:r.rule?(p0===undefined?first.price:p0):null}];
+  unit=kind==='percent'?'%':'ft²';
+ }else if(r.rule)useTiers=[{id:'flat',from:null,to:null,price:null}];
+ const roundTo=num('md_catRoundTo'),minCharge=num('md_catMinCharge');
+ const next=Object.assign({},r,{name:mdVal('md_catName'),unit:unit,station:mdVal('md_catStation'),tiers:useTiers,rule,
+  roundTo:rule?null:roundTo===undefined?r.roundTo:roundTo,minCharge:rule?null:minCharge===undefined?r.minCharge:minCharge,
   appliesBy:appliesBy,family:appliesBy?(document.getElementById('md_catFamily')?mdVal('md_catFamily'):r.family||'hole'):'',
   appliesFrom:appliesBy?(from===undefined?r.appliesFrom:from):null,appliesTo:appliesBy?(to===undefined?r.appliesTo:to):null,
   note:mdVal('md_catNote'),active:mdVal('md_catActive')!=='0'});
- if(tiers.some(t=>bad(t.from)||bad(t.to)||bad(t.price))||[next.appliesFrom,next.appliesTo].some(bad))next.bad='Numbers must be 0 or more, or empty';
+ if(useTiers.some(t=>bad(t.from)||bad(t.to)||bad(t.price))||[next.appliesFrom,next.appliesTo,next.roundTo,next.minCharge].some(bad)||rule&&[rule.areaOver,rule.areaUnder].some(bad))next.bad='Numbers must be 0 or more, or empty';
  if(keep){mdCatDraft=Object.assign({},next);delete mdCatDraft.bad;}
  return next;
 }
@@ -27773,7 +27912,7 @@ function mdCatSave(){
   const ownLineEl=document.getElementById('md_catOwnLine'),subcatEl=document.getElementById('md_catSubcategory');
   const density=mdVal('md_catDensity');
   if(mdCatKind==='gasProduct'&&density!==''&&(!isFinite(+density)||+density<0))return fail(e,'Density must be a non-negative number or empty');
-  next=Object.assign({},prev,MD_CAT_SALE_UNIT.includes(mdCatKind)?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},mdCatKind==='gasProduct'?{densityKgM3:density===''?null:+density}:{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
+  next=Object.assign({},prev,MD_CAT_SALE_UNIT.includes(mdCatKind)?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},mdCatKind==='gasProduct'?{densityKgM3:density===''?null:+density}:{},MD_CAT_WORK.includes(mdCatKind)?{workId:mdVal('md_catWork')}:{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
    sellsAsOwnLine:ownLineEl?ownLineEl.checked:!!prev.sellsAsOwnLine,
    subcategory:subcatEl?subcatEl.value:(prev.subcategory||''),active:active});
  }
@@ -30922,10 +31061,10 @@ function unitCharge(o,l,u,at){return finWithOrder(o,()=>{
  salesLineChargeRows(l).forEach(row=>{
   const rate=salesChargePricingState(l,row).effectiveRate;if(rate==null)return;
   const station=unitRowStation(row),share=station?seen.filter(x=>x.scans.some(s=>s.station===station)).length/seen.length:allTempered?1:0;
-  works+=row.basis*rate*share;
+  works+=salesChargeUnitAmount(row,rate)*share;
  });
- const rules=salesMetricRules(o),base=salesMoney(glass+works);let running=base;
- p.adjustments.forEach(a=>{running=salesMoney(running+salesMoney((rules.combination==='compound'?running:base)*a.percent/100));});
+ const base=salesMoney(glass+works);let running=base;
+ p.adjustments.forEach(a=>{running=salesMoney(running+salesMoney((a.onTop?running:base)*a.percent/100));});
  return {stage,after,charge:running,glass:salesMoney(glass),works:salesMoney(works)};
 });}
 function unitLine(orderId,lineId){
@@ -44380,7 +44519,7 @@ function repChargeStation(row){
  }
  if(p[0]==='HEATSOAK')return repWorkStation('heat_soak');
  if(p[0]==='MUNTIN')return repWorkStation('muntinSection');
- if(p[0]==='GLAZE')return p[1]==='frit'?repWorkStation('ceramic_frit'):'';
+ if(p[0]==='GLAZE')return row.svc?repWorkStation(row.svc):'';
  return '';
 }
 /* Строка таблицы цен у строки начислений — последний кусок ключа
