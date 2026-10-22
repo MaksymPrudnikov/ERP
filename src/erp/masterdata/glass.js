@@ -1032,7 +1032,11 @@ function materialSubcategories(category){
  materialEntries(category).forEach(e=>{const s=mdString(e.row.subcategory);if(s&&seen.indexOf(s)<0)seen.push(s);});
  return seen;
 }
-function mdById(key,id){return (DB[key]||[]).find(x=>x.id===id)||null;}
+/* Запись каталога по id — в отрисовке по указателю (erp/read-scope, П4 «Базы»). */
+function mdById(key,id){
+ if(readOn())return readMemo('mdById:'+key,[DB[key]],()=>{const m=new Map();(DB[key]||[]).forEach(x=>{if(x&&!m.has(x.id))m.set(x.id,x);});return m;}).get(id)||null;
+ return (DB[key]||[]).find(x=>x.id===id)||null;
+}
 function glassProductById(id){return mdById('glassProduct',id);}
 function glassProductByCode(code){const c=mdString(code).toUpperCase();return (DB.glassProduct||[]).find(x=>x.code.toUpperCase()===c)||null;}
 /* Из выбора выпадает только снятое с производства. Отсутствие на складе —
