@@ -96,8 +96,37 @@ function viewMasterData(){
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
-/* Станции — шаги маршрута; работы в Works ссылаются на них. */
-function viewMdStations(){return '<div class="pipeline" style="margin-bottom:14px">'+sfPipelineHTML()+'</div>'+viewSfStations(true);}
+/* Станции — шаги маршрута; работы в Works ссылаются на них. Сверху — дерево
+   (этап 4, часть 3 плана Master Data): шаги по порядку, у станции всё, что
+   на неё назначено. Только вид: станцию ставят в карточках. */
+function viewMdStations(){return mdStationTreeHTML()+viewSfStations(true);}
+/* Материалы приходят на станцию через работу, на которой их тратят: плёнка —
+   склейка, части пакета — сборка. Своего поля станции у айтема нет: иначе
+   маршрут и сканы спорили бы с работой о том, где склеивают. */
+const MD_STATION_VIA=[['lamination',[['interlayerProduct','Interlayers']]],
+ ['igu_assembly',[['spacerVariant','Spacers'],['gasProduct','Gas'],['sealantProduct','Sealants'],['iguPart','IGU parts']]]];
+function mdStationAssigned(code){
+ const works=(DB.serviceRate||[]).filter(w=>w&&w.station===code&&!w.rule),ids=new Set(works.map(w=>w.id)),items=[];
+ [['fritProduct','Frit'],['spandrelProduct','Spandrel']].forEach(([t,k])=>(DB[t]||[]).forEach(x=>{
+  if(x&&x.active!==false&&x.workId&&ids.has(x.workId))items.push({text:k+' · '+(x.name||x.id),n:1});}));
+ MD_STATION_VIA.forEach(([w,tables])=>{if(!ids.has(w))return;
+  tables.forEach(([t,label])=>{const n=(DB[t]||[]).filter(x=>x&&x.active!==false).length;if(n)items.push({text:label,n});});});
+ return {works,items};
+}
+/* Станция материала в его карточке — та, что у работы, где его тратят. */
+function mdStationViaHTML(table){
+ const hit=MD_STATION_VIA.find(([,tables])=>tables.some(([t])=>t===table));if(!hit)return '';
+ const w=salesServiceRateRow(hit[0]);
+ return `<div data-md-station-via><label>Station</label><div class="mono">${w&&w.station?esc(w.station):'—'}</div><div class="hint">From work ${esc(w?w.name:hit[0])}</div></div>`;
+}
+function mdStationTreeHTML(){
+ const pill=(t,cls)=>`<span class="pill ${cls}" data-raw>${esc(t)}</span>`;
+ const steps=sfSteps().map(([seq,list])=>`<li class="md-st-step"><span class="md-st-seq">${seq}</span><ul>${list.map(s=>{
+  const a=mdStationAssigned(s.code),n=a.works.length+a.items.reduce((m,x)=>m+x.n,0);
+  return `<li class="md-st-node" data-md-st="${esc(s.code)}"><div><b class="mono">${raw(s.code)}</b> ${sfLabel(s)}${s.always?' '+pill('always','ok'):''} <span class="mut">${n?n+' assigned':'nothing assigned'}</span></div>
+   ${n?`<div class="md-st-kids">${a.works.map(w=>pill(w.name||w.id,'info')).join(' ')}${a.items.map(x=>' '+pill(x.text+(x.n>1?' · '+x.n:''),'')).join('')}</div>`:''}</li>`;}).join('')}</ul></li>`).join('');
+ return `<div class="md-st-tree" data-md-station-tree><div class="sub">Each step in order; the same step — parallel stations. Works name their station; frit, spandrel and materials follow their work.</div><ol>${steps}</ol></div>`;
+}
 function mdSetTab(k){mdTab=k;if(typeof stEdit!=='undefined')stEdit=null;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
  /* Работы и материалы делят одну машинку Catalogues, поэтому при переходе
     между вкладками открытая таблица обязана соответствовать вкладке —
@@ -1164,6 +1193,7 @@ function mdCatForm(){
     :`<div><label>Supplier</label><input id="md_catSupplier" value="${esc(r.supplier||'')}"></div>
       <div><label>Price, CAD</label><input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}"><div class="hint">Surcharge per ft², if the catalogue uses one — or the sale price, for a stock item. Empty — no price, and the row honestly enters the invoice as Rate required, not a zero.</div></div>
       ${MD_CAT_SALE_UNIT.includes(mdCatKind)?`<div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select></div>${mdSaleRulesFields(r)}`:''}
+      ${mdStationViaHTML(mdCatKind)}
       ${MD_CAT_WORK.includes(mdCatKind)?`<div><label>Work</label><select id="md_catWork"><option value="">— no work —</option>${(DB.serviceRate||[]).filter(w=>w&&!w.rule).map(w=>`<option value="${esc(w.id)}" ${w.id===r.workId?'selected':''}>${esc(w.name)}${w.station?' · '+esc(w.station):''}</option>`).join('')}</select><div class="hint">Station in the route</div></div>`:''}
       ${mdCatKind==='gasProduct'?`<div><label>Density, kg/m³</label><input id="md_catDensity" type="number" step="any" min="0" value="${r.densityKgM3==null?'':r.densityKgM3}" placeholder="unknown"><div class="hint">Gas weight = density × cavity volume.</div></div>`:''}
       ${mdCatKind==='stockItem'?`<div><label>Subcategory</label><input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(s=>`<option value="${esc(s)}">`).join('')}</datalist><div class="hint">Groups stock items in the order-line picker. Type your own — the list above is only a hint; empty becomes "consumable".</div></div>`:''}

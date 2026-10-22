@@ -18,7 +18,7 @@ module.exports=async function({page,eq,ok}){
   document.getElementById('sf_seq').value=String(edgeStep);document.getElementById('sf_code').value='seam';document.getElementById('sf_nameEn').value='Seaming';
   document.querySelector('[data-sf-save]').click();
   const arris=DB.station.find(s=>s.code==='SEAM'),parallel=[...document.querySelectorAll('[data-sf-station]')].filter(tr=>tr.textContent.includes('parallel')).map(tr=>tr.dataset.sfStation).join();
-  const step=[...document.querySelectorAll('.pipeline .stage-step')].find(x=>x.textContent.includes('SEAM')).querySelectorAll('.stage').length;
+  const step=document.querySelector('[data-md-st="SEAM"]').closest('.md-st-step').querySelectorAll('[data-md-st]').length;
   mdSetTab('works');mdCatKind='serviceRate';mdCatEditRow('roughArris');render();document.getElementById('md_catStation').value='SEAM';mdCatSave();
   const after=stationRouteOf(stationGlass(g)).codes.join('>'),sticker=finWithOrder(salesRecord(id),()=>{const o=salesRecord(id),l=o.lines[0];return stkRoute(o,l,glassBatchComponents(o,l)[0]).codes.join('>');});
   mdSetTab('stations');const inp=document.querySelector('[data-sf-step="SEAM"]');inp.value='40';inp.dispatchEvent(new Event('change'));

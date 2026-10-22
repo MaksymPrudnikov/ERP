@@ -38,10 +38,9 @@ function salesRouteStationOf(code,fallback){
 const SALES_ROUTE_EDGE_OP={'Rough Arris':'roughArris','Flat Polish':'flatPolish',
   'CNC Shape Polish':'cncShapePolish','Mitering':'miter225','Beveling':'bevel',
   'Lami Polish':'lamiPolish','CNC Lami Polish':'cncLamiPolish'};
-/* Станция по умолчанию, если работы нет в справочнике: EDGE разделена
-   29.09.2026 по станкам — аррис, полировка, фацет, майтер, CNC. */
-const SALES_ROUTE_EDGE_HOME={'Rough Arris':'ARRIS','Flat Polish':'POLISH','CNC Shape Polish':'CNC','Mitering':'MITER','Beveling':'BEVEL',
-  'Lami Polish':'POLISH','CNC Lami Polish':'CNC'};
+/* Запасного словаря станций у операций больше нет (этап 4, часть 3 плана
+   Master Data): станцию даёт только карточка работы. Нет станции — операция
+   не теряется молча, а встаёт в маршрут как «Not assigned» (salesRoutePush). */
 /* Признак «только после склейки» — свойство работы; справочник операций снова
    запасной. Заведёт владелец ещё одну работу по склеенной кромке — маршрут
    узнает сам, списка кодов здесь нет. */
@@ -56,7 +55,8 @@ const SALES_ROUTE_EDGE_LETTER={left:'A',bottom:'B',right:'C',top:'D'};
    станции (фацет 70 × 100 на EDGE). Второго списка «какие работы на какой
    станции» не заводим — он разошёлся бы с маршрутом. */
 function salesRoutePush(map,order,code,text,work){
-  if(!code||!text)return;
+  if(!text)return;
+  if(!code){(map.__none||(map.__none=[])).push(text);return;}
   if(!map[code]){map[code]={code:code,name:salesRouteStationName(code),items:[],works:[]};order.push(code);}
   if(map[code].items.indexOf(text)<0)map[code].items.push(text);
   if(work&&map[code].works.indexOf(work)<0)map[code].works.push(work);
@@ -78,17 +78,14 @@ function salesRouteMarkBase(item){
   return String(shapeManufacturingItemTitle(item.type)||item.type).toUpperCase()+
     (item.model?' '+item.model:'');
 }
-/* Станция отверстия зависит от диаметра: ручных свёрл крупнее 1 3/4" у цеха
-   нет. Правило живёт в модуле формы (shapeHoleStationClass) — здесь только
-   перевод класса станка в код станции цеха. */
+/* Станция отверстия — у работы его диапазона диаметра (Data → Works). Порог
+   «ручным сверлом до 1 3/4″» теперь граница диапазонов в карточках. */
 function salesRouteHoleWork(diameter){
   var band=typeof salesPricingHoleBand==='function'?salesPricingHoleBand(diameter):null;
   return band?band.key:'';
 }
 function salesRouteHoleStation(diameter){
-  return shapeHoleStationClass(diameter)==='CNC'
-    ? salesRouteStationOf('hole:4+','CNC')
-    : salesRouteStationOf('hole:0.5-1','DRILL');
+  return salesRouteStationOf(salesRouteHoleWork(diameter),'');
 }
 
 /* Один лайт: что с ним делают и на какой станции. */
@@ -119,7 +116,7 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
        одна сторона отличается, список остаётся и прямо показывает разницу. */
     var allEdges=contourEdges.length>0&&group.edges.length===contourEdges.length&&
       contourEdges.every(function(id){return group.edges.indexOf(id)>=0;});
-    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,SALES_ROUTE_EDGE_HOME[t]||'POLISH'),text=(allEdges?'':group.edges.join(', ')+' · ')+t;
+    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,''),text=(allEdges?'':group.edges.join(', ')+' · ')+t;
     if(op.angle)text+=' '+op.angle+'°';
     if(op.width)text+=' · Width '+dimIn16(inch(op.width));
     if(op.side)text+=' · '+(op.side==='back'?'Back':'Front');
@@ -137,9 +134,9 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
      участка, и цеху нужно видеть, на чём деталь делают. Зонтичная станция FAB
      упразднена 11 сентября 2026, станция каждой работы записана в справочнике
      операций прямо, а не выводится из списка станков. */
-  var hardware=salesRouteStationOf('hinge','DRILL');
-  var cncCutout=salesRouteStationOf('cutout','CNC');
-  var cncRadius=salesRouteStationOf('radiusCorner','CNC');
+  var hardware=salesRouteStationOf('hinge','');
+  var cncCutout=salesRouteStationOf('cutout','');
+  var cncRadius=salesRouteStationOf('radiusCorner','');
   /* Одинаковые метки — одной строкой с количеством. Раньше 21 отверстие
      3/8″ из DXF сливалось в одну строку «HOLE Ø 3/8», и на стикере не было
      видно, сколько их (владелец, 18.10.2026). */
@@ -156,7 +153,7 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
      и станция. Здесь единственное место, где «руками или на станке» — решение
      продажи, а не цеха, поэтому строки две. */
   if(typeof ssNotchList==='function')ssNotchList(shape).forEach(function(n){
-    var st=n.method==='cnc'?salesRouteStationOf('notchCnc','CNC'):salesRouteStationOf('notchHand','DRILL');
+    var st=n.method==='cnc'?salesRouteStationOf('notchCnc',''):salesRouteStationOf('notchHand','');
     salesRoutePush(map,order,st,ssNotchLabel(n.method).toUpperCase()+' · '+n.corner.toUpperCase(),n.method==='cnc'?'notchCnc':'notchHand');
   });
   var featHoles=[],featBy={};
@@ -175,8 +172,8 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
      поле Work карточки фрита и спандрела (этап 4, часть 2). */
   (treatments||[]).forEach(function(t){
     var prod=mdById(t.kind==='frit'?'fritProduct':'spandrelProduct',t.spec.productId),work=prod&&prod.workId||'';
-    if(t.kind==='frit')salesRoutePush(map,order,salesRouteStationOf(work,'CERP'),'Frit · '+t.where,work);
-    if(t.kind==='spandrel')salesRoutePush(postMap,postOrder,salesRouteStationOf(work,'PAINT'),t.text,work);
+    if(t.kind==='frit')salesRoutePush(map,order,salesRouteStationOf(work,''),'Frit · '+t.where,work);
+    if(t.kind==='spandrel')salesRoutePush(postMap,postOrder,salesRouteStationOf(work,''),t.text,work);
   });
   /* Печь и то, что она ставит. */
   var heatWork=heatTreatment==='HS'?'heat_strengthening':'tempering',heatStation=salesRouteStationOf(heatWork,'HEAT');
@@ -189,7 +186,7 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
       salesRoutePush(heatMap,heatOrder,heatStation,String(shapeStampText(f)).toUpperCase(),heatWork);
     /* Зеркальные позиции идут на тот же участок, что и пескоструй: это работа
        по поверхности после закалки. Отдельной станции у цеха под них нет. */
-    if(shapeIsPointMark(f)&&f.type!=='stamp')salesRoutePush(postMap,postOrder,salesRouteStationOf('sandblasting','SAND'),
+    if(shapeIsPointMark(f)&&f.type!=='stamp')salesRoutePush(postMap,postOrder,salesRouteStationOf('sandblasting',''),
       String(shapeSurfaceMarkLabel(f)).toUpperCase(),'sandblasting');
   });
 
@@ -200,7 +197,8 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
       .map(function(c){return m[c];});
   }
   var out=sorted(map,order).concat(sorted(heatMap,heatOrder),heatSoak&&heatTreatment==='FT'?[{code:salesRouteStationOf('heat_soak','HEAT'),name:salesRouteStationName(salesRouteStationOf('heat_soak','HEAT')),operation:'heat_soak',items:['HEAT SOAK'],works:['heat_soak']}]:[],sorted(postMap,postOrder));
-  return {list:out,after:afterOrder.map(function(c){return afterMap[c];})};
+  return {list:out,after:afterOrder.map(function(c){return afterMap[c];}),
+    unassigned:[].concat(map.__none||[],heatMap.__none||[],postMap.__none||[],afterMap.__none||[])};
 }
 
 function salesRouteHeatOf(pane){
@@ -319,7 +317,7 @@ function salesPrintRoute(line,order,shape,result){
            14.10.2026). Своей кромки по умолчанию у него нет (orders.js). */
         if(g&&g.cut===false){var cutCode=salesRouteStationOf('cutting','CUT');st.list=st.list.filter(function(s){return s.code!==cutCode;});}
         var row={label:(v.label||('Lite '+(i+1)))+(side?(side==='outer'?'a':'b'):''),
-          glass:(g?(g.code||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after,
+          glass:(g?(g.code||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after,unassigned:st.unassigned,
           /* Размер реза этого стекла — для проверки габарита станций; лист его не печатает. */
           cut:cut?{width:cut.cutW,height:cut.cutH}:null};
         if(lam)salesRouteAppendMerge([row],salesRouteStationOf('lamination','LAM'),'lamination');
@@ -346,9 +344,29 @@ function salesPrintRoute(line,order,shape,result){
         ops:(typeof shapeEdgeOps==='function'?shapeEdgeOps(shape,g.id):[])};
     });
     var st0=salesRouteLiteStations(shape,result,groups,'');
-    lites=[{label:'',glass:'',stations:st0.list,afterMerge:st0.after}];
+    lites=[{label:'',glass:'',stations:st0.list,afterMerge:st0.after,unassigned:st0.unassigned}];
     /* Даже без слияния хвост обязан доехать: иначе строка молча потеряется. */
     salesRouteAppendMerge(lites,'');
   }
   return {lites:lites,merge:merge,mergeName:merge?salesRouteStationName(merge):''};
+}
+
+/* Операции строки без станции: работа без станции в карточке или её нет в
+   Works. Маршрут их не теряет молча — заказ предупреждает на Save, лист
+   печатает NO STATION. */
+function salesRouteUnassigned(line,order){
+  var shape=line&&typeof salesLineGeometryShape==='function'?salesLineGeometryShape(line):null,out=[];
+  if(!shape)return out;
+  salesPrintRoute(line,order,shape,ShapeModule.compute(shape)).lites.forEach(function(l){
+    (l.unassigned||[]).forEach(function(t){if(out.indexOf(t)<0)out.push(t);});
+  });
+  return out;
+}
+function salesRouteUnassignedWarnings(order){
+  var out=[];
+  (order&&order.lines||[]).forEach(function(line,i){
+    var t=salesRouteUnassigned(line,order);
+    if(t.length)out.push('Line '+(i+1)+(line.mark?' ('+line.mark+')':'')+' · no station: '+t.join(', '));
+  });
+  return out;
 }

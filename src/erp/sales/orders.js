@@ -205,6 +205,9 @@ function salesOrderSaveCommand(opts){
     на пути законных заказов. */
  const sizeWarnings=typeof salesStationSizeWarnings==='function'?salesStationSizeWarnings(soDraft):[];
  if(sizeWarnings.length&&!confirm('Station size warning:\n\n- '+sizeWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
+ /* Операция без станции (этап 4, часть 3): станцию даёт только карточка работы. */
+ const noStation=salesRouteUnassignedWarnings(soDraft);
+ if(noStation.length&&!confirm('Route warning:\n\n- '+noStation.join('\n- ')+'\n\nSet the station in Data → Works. Save this order anyway?'))return;
  /* Мин. и макс. размер из карточки айтема — так же: предупредить, решает менеджер. */
  const itemSize=salesItemSizeWarnings(soDraft);
  if(itemSize.length&&!confirm('Item size warning:\n\n- '+itemSize.join('\n- ')+'\n\nSave this order anyway?'))return;
