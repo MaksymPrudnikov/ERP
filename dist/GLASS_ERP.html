@@ -1699,6 +1699,9 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sl-table tr.sl-row-done td{background:var(--success-soft)}
 .sl-table tr.sl-row-done .st-done{background:var(--success-soft);color:var(--success);border-color:var(--success-line)}
 .sl-table tr.sl-row-closed td{background:var(--surface-3);color:var(--text-2)}
+/* Заказ в архиве (erp/archive): серая строка и метка Archived. */
+.sl-table tr.sl-row-archived td{color:var(--text-2)}
+.pill.archived{background:var(--surface-3);color:var(--text-3);border:1px solid var(--line)}
 .sl-table tr.sl-row-sel td{box-shadow:inset 0 1px var(--accent-line),inset 0 -1px var(--accent-line)}
 .sl-table tr.sl-row-hold td{background:var(--danger-soft)}
 .sl-table tr.sl-row-hold td:first-child{box-shadow:inset 4px 0 0 var(--danger)}
@@ -3475,7 +3478,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='ce04a47324da';
+var ERP_BUILD='2e73af6a2c7e';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12628,7 +12631,7 @@ function salesOrderTitle(o){
    убрать (salesLineShrinkable, владелец 6.10.2026). */
 function salesLineLocked(line){return !!(line&&(line.batchedAt||line.cutStartedAt));}
 function salesMakeupLocked(order,makeupId){return !!(order&&(order.lines||[]).some(l=>l.makeupId===makeupId&&salesLineLocked(l)));}
-function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled');}
+function salesOrderReadOnly(o){return !!o&&(typeof archiveViewing==='function'&&archiveViewing(o)||(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled'));}
 function salesLockedLineGuard(line){
  if(!salesLineLocked(line)){
   if(!soDraft||soEdit==='new'||typeof glassLineScanned!=='function'||!glassLineScanned(soDraft.id,line))return false;
@@ -13002,6 +13005,8 @@ function salesSaveStateRefresh(){
 }
 ['input','change'].forEach(t=>document.addEventListener(t,()=>{if(soDraft&&tab==='sales')salesSaveStateRefresh();}));
 function salesHeaderActions(o){
+ /* Заказ из архива — только просмотр, печать, Repeat и NCR (erp/archive). */
+ if(typeof archiveViewing==='function'&&archiveViewing(o))return archiveHeaderActions(o);
  const st=salesSaveState(o);
  const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesOrderClose()">Close</button>'];
  if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
@@ -13093,7 +13098,7 @@ function salesQuoteMembers(o){
 function salesQuoteWonMember(o){return salesQuoteMembers(o).find(m=>m.status==='won')||null;}
 function salesQuoteRepresentative(o){const ms=salesQuoteMembers(o);return ms.find(m=>m.status==='won')||ms[ms.length-1]||o;}
 function salesQuoteGroupStatus(o){const ms=salesQuoteMembers(o);return ms.some(m=>m.status==='won')?'won':ms.some(m=>m.status==='sent')?'sent':'open';}
-function salesListStatus(o){return salesIsQuote(o)?salesQuoteGroupStatus(o):o.status;}
+function salesListStatus(o){return o.archived?o.status:salesIsQuote(o)?salesQuoteGroupStatus(o):o.status;}
 function salesQuoteBaseNumber(o){
  const base=salesQuoteMembers(o).find(m=>!m.quoteRev);
  return base&&base.businessNumber?base.businessNumber:String(o&&o.businessNumber||'').replace(/-R\d+$/,'');
@@ -13104,7 +13109,8 @@ function salesQuoteCurrentId(){return soQuoteCopyOf||(soEdit&&soEdit!=='new'?soE
 function salesQuoteCopySource(){return soQuoteCopyOf?(DB.salesOrder||[]).find(x=>x.id===soQuoteCopyOf)||null:null;}
 function salesQuoteShown(o){if(o&&o===soDraft){const s=salesQuoteCopySource();if(s)return s;}return o;}
 function salesQuoteNextRevName(){const s=salesQuoteCopySource();return s?'R'+salesQuoteNextRev(s):'';}
-function salesQuoteOpensAsCopy(o){return salesIsQuote(o)&&o.status==='sent'&&!salesQuoteWonMember(o);}
+/* Квота из архива на просмотре открывается как есть, без рабочей копии (erp/archive). */
+function salesQuoteOpensAsCopy(o){return salesIsQuote(o)&&o.status==='sent'&&!salesQuoteWonMember(o)&&!(typeof archiveVisit!=='undefined'&&archiveVisit&&archiveVisit.ids.has(o.id));}
 
 /* ---------------------------- Срок цен ---------------------------------- */
 function salesQuoteValidDays(){const d=DB.company&&DB.company.quoteValidDays;return Number.isFinite(+d)&&+d>0?+d:180;}
@@ -15815,21 +15821,24 @@ function customerChanged(){
  return cEdit==='new'?!!(cDraft.legalName||cDraft.displayName||cDraft.code||(cDraft.contacts||[]).length):!!saved&&JSON.stringify(normalizeCustomer(JSON.parse(JSON.stringify(cDraft))))!==JSON.stringify(saved);
 }
 function customerLeave(go){if(!customerChanged()||confirm('Discard unsaved customer changes?'))go();}
-/* Заказы клиента: те же номер, статус и суммы, что в списке Sales. */
+/* Заказы клиента: те же номер, статус и суммы, что в списке Sales; ушедшие
+   в архив — тут же, с серой меткой Archived (erp/archive). */
 function customerOrdersTab(){
- const id=cEdit,list=(DB.salesOrder||[]).filter(o=>o.customerId===id&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id))
-  .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
- const row=o=>{const i=salesListInfo(o),v=k=>salesListValue(i,k),total=v('total'),bal=v('balance');
-  return `<tr data-customer-order="${esc(o.id)}" onclick="customerOpenOrder('${esc(o.id)}')"><td class="mono"><b>${esc(v('number')||'—')}</b></td><td>${esc(v('type'))}</td><td>${esc(v('status')||'')}</td><td>${esc(salesListShortDay(v('created'))||'—')}</td><td>${v('due')?esc(salesListShortDay(v('due'))):'<span class="mut">—</span>'}</td><td class="n">${total==null?'<span class="mut">—</span>':esc(finFmt(total))}</td><td class="n">${bal==null?'<span class="mut">—</span>':`<span class="${bal>0?'fin-due':''}">${esc(finFmt(bal))}</span>`}</td></tr>`;};
+ const id=cEdit,old=typeof archiveListInfos==='function'?archiveListInfos(a=>a.customerId===id):[];
+ const list=(DB.salesOrder||[]).filter(o=>o.customerId===id&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)).map(salesListInfo).concat(old)
+  .sort((a,b)=>String(b.o.createdAt||'').localeCompare(String(a.o.createdAt||'')));
+ const row=i=>{const o=i.o,v=k=>salesListValue(i,k),total=v('total'),bal=v('balance');
+  return `<tr data-customer-order="${esc(o.id)}"${i.a?' class="sl-row-archived"':''} onclick="${i.a?'customerOpenArchived':'customerOpenOrder'}('${esc(o.id)}')"><td class="mono"><b>${esc(v('number')||'—')}</b></td><td>${esc(v('type'))}</td><td>${esc(v('status')||'')}${i.a?' <span class="pill archived" data-archived>Archived</span>':''}</td><td>${esc(salesListShortDay(v('created'))||'—')}</td><td>${v('due')?esc(salesListShortDay(v('due'))):'<span class="mut">—</span>'}</td><td class="n">${total==null?'<span class="mut">—</span>':esc(finFmt(total))}</td><td class="n">${bal==null?'<span class="mut">—</span>':`<span class="${bal>0?'fin-due':''}">${esc(finFmt(bal))}</span>`}</td></tr>`;};
  return `<div class="section-title"><div><h3>Orders</h3><div class="sub">${list.length?customerOrdersCount(list)+' · newest first':'No quotes or orders yet'}</div></div><div class="row"><button class="pri" data-customer-new-order onclick="customerNewOrder('order')">+ New order</button><button data-customer-new-quote onclick="customerNewOrder('quote')">+ New quote</button></div></div>
   ${list.length?`<div class="sales-table-wrap"><table class="sl-table cust-orders"><thead><tr><th>Number</th><th>Type</th><th>Status</th><th>Created</th><th>Due</th><th class="n">Total</th><th class="n">Balance</th></tr></thead><tbody>${list.map(row).join('')}</tbody></table></div>`:''}`;
 }
-function customerOrdersCount(list){const q=list.filter(salesIsQuote).length,o=list.length-q,n=(k,w)=>k+' '+w+(k===1?'':'s');return [o?n(o,'order'):'',q?n(q,'quote'):''].filter(Boolean).join(' · ');}
+function customerOrdersCount(list){const q=list.filter(i=>i.q).length,o=list.length-q,n=(k,w)=>k+' '+w+(k===1?'':'s');return [o?n(o,'order'):'',q?n(q,'quote'):''].filter(Boolean).join(' · ');}
 function customerToSales(go){
  customerLeave(()=>{cEdit=null;cDraft=null;cMenu=null;tab='sales';subtab=null;
   if(typeof soDraft!=='undefined'&&soDraft&&typeof salesLeaveDraft==='function')salesLeaveDraft(go);else go();});
 }
 function customerOpenOrder(id){customerToSales(()=>salesOrderEdit(id));}
+function customerOpenArchived(id){customerToSales(()=>{archiveOpen(id);});}
 function customerNewOrder(kind){const id=cEdit;customerToSales(()=>{salesOrderNew(kind==='quote'?'quote':'order');salesApplyCustomerDefaults(id);render();});}
 
 /* Дубль при создании (владелец, 3 октября 2026): похожее название (без
@@ -15933,6 +15942,8 @@ function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesD
    без стекла бывает — владелец, 05.10.2026). */
 function salesDraftHasWork(){
  if(!soDraft)return false;
+ /* Заказ из архива на просмотре — сохранять нечего (erp/archive). */
+ if(typeof archiveViewing==='function'&&archiveViewing(soDraft))return false;
  if(soQuoteCopyOf){const src=DB.salesOrder.find(x=>x.id===soQuoteCopyOf);return !src||salesQuoteContentKey(soDraft)!==salesQuoteContentKey(src);}
  if(soEdit==='new')return soDraft.lines.length>1||soDraft.lines.some(l=>!salesOrderLineIsBlank(l))||!!(soDraft.extraItems||[]).length||!!salesString(soDraft.customerPo)||!!salesString(soDraft.notes);
  const saved=DB.salesOrder.find(x=>x.id===soEdit);
@@ -15996,6 +16007,8 @@ function salesDraftDrop(discard){
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
  salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
  if(salesPruneOrphanShapes()||restored)touch();
+ /* Заказ из архива на просмотре — его записи уходят из DB (erp/archive). */
+ if(typeof archiveVisitEnd==='function')archiveVisitEnd();
 }
 /* Уход из заказа (владелец, 27.09.2026). Новый не сохранён — «сохранить?»:
    Don't save — заказа нет. Сохранённый изменён — «обновить?»: Don't update —
@@ -21175,9 +21188,11 @@ function salesOrdersPane(){return soEdit!==null?salesOrderEditor():salesOrderLis
 function salesOrderList(){return salesListView();}
 function salesCustomerOptions(){const rows=(DB.customer||[]).filter(c=>c.status!=='archived');return `<option value="">— select Customer —</option>`+rows.map(c=>`<option data-raw value="${esc(c.id)}" ${soDraft.customerId===c.id?'selected':''}>${esc(c.code||'')} · ${esc(c.displayName||c.legalName)}</option>`).join('');}
 function salesOrderEditor(){
- const o=soDraft,c=salesFindCustomer(o.customerId),title=salesOrderTitle(o),ro=salesOrderReadOnly(o),q=salesIsQuote(o),fromQuote=o.fromQuoteId?((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber:'',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
- return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(q?salesQuoteShown(o):o)}${!q&&o.onHold?'<span class="pill hold" data-hold-pill>On Hold</span>':''}${customerFlags}</div><div class="mut mono">${esc(q?salesQuoteShown(o).id:o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}${(e=>e&&e.by?`<span data-created-by> · Created by ${esc(e.by)} · ${esc(salesListShortDay(salesListIsoDay(e.at)))}</span>`:'')(orderCreatedBy(q?salesQuoteShown(o).id:o.id))}</div></div>${q?'':salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
- ${salesHoldBar(o)}${shippingOrderStrip(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro?'<div class="sales-readonly" inert>':''}
+ /* Заказ из архива (erp/archive): закрыто всё, кроме кнопок шапки — его
+    записи на экране только на время просмотра. */
+ const o=soDraft,c=salesFindCustomer(o.customerId),title=salesOrderTitle(o),ro=salesOrderReadOnly(o),av=typeof archiveViewing==='function'&&archiveViewing(o),q=salesIsQuote(o),fromQuote=o.fromQuoteId?((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber:'',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
+ return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(q?salesQuoteShown(o):o)}${!q&&o.onHold?'<span class="pill hold" data-hold-pill>On Hold</span>':''}${customerFlags}</div><div class="mut mono">${esc(q?salesQuoteShown(o).id:o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}${(e=>e&&e.by?`<span data-created-by> · Created by ${esc(e.by)} · ${esc(salesListShortDay(salesListIsoDay(e.at)))}</span>`:'')(orderCreatedBy(q?salesQuoteShown(o).id:o.id))}</div></div>${q?'':av?`<div inert>${salesPaymentStrip(o)}</div>`:salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
+ ${av?'<div class="sales-readonly" inert>':''}${salesHoldBar(o)}${shippingOrderStrip(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro&&!av?'<div class="sales-readonly" inert>':''}
  <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" onchange="soDraft.validUntil=this.value;render()"></div>`:''}</div>
  ${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
  ${salesGlassSectionHTML()}
@@ -28799,6 +28814,8 @@ function salesListGlass(o){
 function salesListInfo(o){return {o,q:salesIsQuote(o),c:salesFindCustomer(o.customerId)||{},memo:{}};}
 function salesListValue(info,k){
  if(Object.prototype.hasOwnProperty.call(info.memo,k))return info.memo[k];
+ /* Заказ в архиве — значения из строки, снятой в день ухода (erp/archive). */
+ if(info.a)return archiveListValue(info,k);
  const o=info.o,q=info.q,c=info.c,lines=o.lines||[];let v=null;
  switch(k){
   case 'readyQty':{const r=shippingSummary(o);v=r.physicalReady+' / '+r.glass;break;}
@@ -28830,7 +28847,8 @@ function salesListValue(info,k){
   case 'shapes':v=lines.filter(salesListShapedLine).length;break;
   case 'validUntil':v=q?(o.validUntil||''):'';break;
   case 'revisions':v=q?salesQuoteMembers(o).length:null;break;
-  case 'fromQuote':v=o.fromQuoteId?(((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber||''):'';break;
+  /* Квота ушла в архив вместе с заказом — номер из указателя архива. */
+  case 'fromQuote':{const f=o.fromQuoteId?(DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId):null,a=o.fromQuoteId&&!f&&typeof archiveKnown==='function'?archiveKnown(o.fromQuoteId):null;v=f?f.businessNumber||'':a?a.number||'':'';break;}
   case 'updated':v=salesListIsoDay(o.updatedAt);break;
  }
  info.memo[k]=v;return v;
@@ -28905,9 +28923,12 @@ function salesListBase(){
  if(salesListScope().startsWith('prod')&&typeof prodListInfos==='function'){const infos=prodListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope()!=='sales'){const infos=optimizationBase();return {all:infos.map(i=>i.o),infos};}
  const all=salesListVisible(),ncrs=salesShow.ncr&&typeof ncrListInfos==='function'?ncrListInfos():[];
+ /* Ушедшие в архив — вместе с живыми: за любой период, в фильтрах и итогах. */
+ const old=typeof archiveListInfos==='function'?archiveListInfos(a=>salesShow[a.kind==='quote'?'quotes':'orders']):[];
  const infos=all.filter(o=>!salesStatusFilter||salesStatusFilter===salesKindOf(o)+':'+salesListStatus(o)).map(salesListInfo)
+  .concat(old.filter(i=>!salesStatusFilter||salesStatusFilter===i.o.kind+':'+i.o.status))
   .concat(ncrs.filter(i=>!salesStatusFilter||salesStatusFilter==='ncr:'+i.o.ncrStatus.toLowerCase()));
- return {all:all.concat(ncrs.map(i=>i.o)),infos};
+ return {all:all.concat(old.map(i=>i.o),ncrs.map(i=>i.o)),infos};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
 function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(tab==='inventory'&&typeof invListDefaultSort==='function')return invListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
@@ -29013,7 +29034,7 @@ function salesListCell(info,col){
 function salesListFooter(rows,cols){
  const orders=rows.filter(r=>!r.q&&!r.n),quotes=rows.filter(r=>r.q),ncrs=rows.filter(r=>r.n);
  const tally=(list,fn)=>{const m={};list.forEach(r=>{const s=fn(r);m[s]=(m[s]||0)+1;});return Object.keys(m).map(k=>k+' '+m[k]).join(' · ');};
- const detail=[tally(orders,r=>salesStatusLabel(r.o)),quotes.length?'Quotes: '+tally(quotes,r=>salesStatusLabel(r.o,salesListStatus(r.o))):'',ncrs.length?'NCR: '+tally(ncrs,r=>r.memo.status):''].filter(Boolean).join(' · ');
+ const detail=[tally(orders,r=>r.a?salesListValue(r,'status'):salesStatusLabel(r.o)),quotes.length?'Quotes: '+tally(quotes,r=>salesStatusLabel(r.o,salesListStatus(r.o))):'',ncrs.length?'NCR: '+tally(ncrs,r=>r.memo.status):''].filter(Boolean).join(' · ');
  /* В очередях (Optimization, Shipping) квот не бывает — квоты считают и
     мешают в Sales (владелец, 7.10.2026): только «N orders». */
  const queue=salesListScope()!=='sales';
@@ -29039,10 +29060,11 @@ function salesListView(){
     (views/sales-cut-estimate). */
  const estN=typeof salesCutEstimateIds==='function'?salesCutEstimateIds().length:0;
  const estBtn=typeof salesCutEstimateOpen==='function'?`<button type="button" class="sl-quiet sl-est-btn" data-cut-est-open title="Cut preview${estN?' · '+estN+' selected':': select orders or quotes'}" aria-label="Cut preview" ${estN?'':'disabled'} onclick="salesCutEstimateOpen(salesCutEstimateIds())">${ico('cut')}${estN?`<b>${estN}</b>`:''}</button>`:'';
- const rowIds=rows.filter(r=>!r.n).map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
+ const rowIds=rows.filter(r=>!r.n&&!r.a).map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${c.label}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
  const body=rows.map(r=>{
   if(r.n)return ncrListRow(r,cols);
+  if(r.a)return archiveListRow(r,cols);
   const o=r.o,sel=salesListSel.has(o.id),cls=[!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
@@ -44551,10 +44573,14 @@ function viewReports(){
    Сам уход пока выключен (ARCHIVE_ON): archiveRun вызывают проверки и
    инструменты. Включится, когда Sales, отчёты и Agents видят архив (А5),
    иначе экран молча показывал бы меньше, чем есть.
+   Sales и вкладка Orders клиента (А3) показывают ушедшие строки вместе с
+   живыми; клик — заказ с диска на том же экране, только просмотр и печать;
+   Repeat — новый заказ из него; NCR — возврат в работу.
    IN : DB, salesListValue, finOrderBalance, shippingHistoryOrderIds,
-        invSheetRows, invOffcutRows
+        invSheetRows, invOffcutRows, storageIdbColdOf, storageVisit
    OUT: archiveIndex, archiveDue(day), archiveCollect(ids), archiveRun(day),
-        archiveReturn(orderId), archiveIndexLoad / archiveIndexApply
+        archiveReturn(orderId), archiveIndexLoad / archiveIndexApply,
+        archiveListInfos, archiveOpen(id), archiveViewing(o), archiveRepeat
    ===================================================================== */
 const ARCHIVE_ON=false,ARCHIVE_MONTHS=3;
 DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};
@@ -44671,11 +44697,112 @@ function archiveCollect(ids){
 }
 
 /* Строка Sales на день ухода — все колонки списка (SALES_LIST_COLUMNS);
-   клиент — номером, имя Sales берёт живое. */
+   клиент — номером, имя Sales берёт живое. status — код (кнопки статусов
+   над списком), rep — квота, которая стоит в списке за свою группу, pay —
+   как Sales показывает Balance (Paid). */
 function archiveRowOf(o,day,now){
  const info=salesListInfo(o),row={};
  (typeof SALES_LIST_COLUMNS!=='undefined'?SALES_LIST_COLUMNS:[]).forEach(c=>{try{row[c.k]=salesListValue(info,c.k);}catch(e){row[c.k]=null;}});
- return {kind:salesIsQuote(o)?'quote':'order',customerId:o.customerId||'',currency:o.currency||'',number:o.businessNumber||'',createdAt:o.createdAt||'',groupId:salesIsQuote(o)?salesQuoteGroupId(o):'',day,archivedAt:now,row};
+ const q=salesIsQuote(o),b=info.memo.balanceInfo;
+ return {kind:q?'quote':'order',status:salesListStatus(o),customerId:o.customerId||'',currency:o.currency||'',number:o.businessNumber||'',createdAt:o.createdAt||'',groupId:q?salesQuoteGroupId(o):'',rep:!q||salesQuoteRepresentative(o).id===o.id,
+  pay:b?{status:b.status,balance:b.balance}:null,day,archivedAt:now,row};
+}
+
+/* ------------------------- Sales и клиент ------------------------------ */
+/* Ушедшие строки для списка Sales и вкладки Orders клиента: те же info, что
+   у живых (salesListInfo), значения — из снятой строки (archiveListValue).
+   Квота — одной строкой за группу, как в работе. Заказ на просмотре сейчас
+   в DB — его строку список берёт оттуда. */
+function archiveListInfos(test){
+ const out=[];
+ archiveIndex.forEach((a,id)=>{if(!a.rep||archiveVisit&&archiveVisit.ids.has(id)||!test(a))return;
+  out.push({o:{id,kind:a.kind,status:a.status||'',customerId:a.customerId,createdAt:a.createdAt,businessNumber:a.number,archived:true},q:a.kind==='quote',a,c:null,memo:{}});});
+ return out;
+}
+function archiveListValue(info,k){
+ const a=info.a;let v=Object.prototype.hasOwnProperty.call(a.row,k)?a.row[k]:null;
+ if(k==='customer'||k==='rep'){const c=readMemo('archiveCustomers',[DB.customer],()=>new Map((DB.customer||[]).map(x=>[x.id,x]))).get(a.customerId);if(c)v=k==='customer'?c.displayName||c.legalName||'':c.salesRep||'';}
+ if(k==='balance'&&a.pay)info.memo.balanceInfo=a.pay;
+ info.memo[k]=v;return v;
+}
+/* Ячейка ушедшей строки: статус — как был, с серой меткой Archived. */
+function archiveListCell(info,col){
+ if(col.k==='status')return `<td><span class="pill st-${esc(info.a.status||'')}">${esc(salesListValue(info,'status')||'')}</span> <span class="pill archived" data-archived>Archived</span></td>`;
+ if(col.k==='number'){const v=salesListValue(info,'number'),from=info.q?'':salesListValue(info,'fromQuote');return `<td><b class="mono">${raw(v||'—')}</b>${from?` <span class="mut small">from ${raw(from)}</span>`:''}</td>`;}
+ return salesListCell(info,col);
+}
+function archiveListRow(r,cols){
+ const id=esc(r.o.id);
+ return `<tr data-archived-row="${id}" class="sl-row-archived" ondblclick="archiveOpen('${id}')"><td class="sl-check"></td>${cols.map(c=>archiveListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="archiveOpen('${id}')">Open</button></td></tr>`;
+}
+
+/* ------------------------- Просмотр с диска --------------------------- */
+/* Заказ из архива на экране — только просмотр и печать (владелец,
+   22.10.2026: «тот же экран»). Его записи читаются с диска и встают в DB,
+   пока он открыт; сравнение базы их не видит (storageVisit) — в базу они не
+   пишутся. Закрыли заказ (salesDraftDrop) — записи убираются по ключам. */
+let archiveVisit=null;
+async function archiveOpen(id){
+ const a=archiveIndex.get(id);if(!a)return false;
+ if(typeof soDraft!=='undefined'&&soDraft){salesLeaveDraft(()=>archiveOpen(id));return false;}
+ const ids=a.kind==='quote'?[...archiveIndex].filter(([,x])=>x.kind==='quote'&&x.groupId===a.groupId).map(([k])=>k):[id];
+ const seen=new Set(),recs=[];
+ for(const owner of ids)(await storageIdbColdOf(owner)).forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}});
+ if(!recs.some(r=>r.tbl==='salesOrder'&&r.id===id)){alert('This archived order could not be read.');return false;}
+ archiveVisitEnd();
+ const tables=new Map();
+ recs.forEach(r=>{if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];DB[r.tbl].push(JSON.parse(r.data));let t=tables.get(r.tbl);if(!t)tables.set(r.tbl,t=new Map());t.set(r.id,r.data);});
+ tables.forEach((t,tbl)=>storageVisit.set(tbl,new Set(t.keys())));
+ archiveVisit={id,ids:new Set(ids),tables,arrays:new Map([...tables.keys()].map(t=>[t,DB[t]]))};
+ storageInvalidate();
+ salesOrderEdit(id);return true;
+}
+/* Просмотр закрыт — строки уходят из DB по ключам (объект строки мог
+   смениться: правка формы на экране, откат). */
+function archiveVisitEnd(){
+ const v=archiveVisit;if(!v)return;archiveVisit=null;
+ v.tables.forEach((t,tbl)=>{const a=DB[tbl];if(!Array.isArray(a))return;let n=0;for(let i=0;i<a.length;i++)if(!t.has(storageRowKey(tbl,a[i])))a[n++]=a[i];a.length=n;});
+ storageVisit.clear();storageInvalidate();
+}
+/* Таблицу собрали заново из базы (откат, чужая запись) — строки просмотра
+   возвращаются туда же. */
+function archiveVisitKeep(){
+ const v=archiveVisit;if(!v)return;
+ v.tables.forEach((t,tbl)=>{const a=DB[tbl];if(!Array.isArray(a)||v.arrays.get(tbl)===a)return;
+  const have=new Set(a.map(r=>storageRowKey(tbl,r)));t.forEach((data,id)=>{if(!have.has(id))a.push(JSON.parse(data));});v.arrays.set(tbl,a);});
+}
+function archiveViewing(o){return !!archiveVisit&&!!o&&(archiveVisit.ids.has(o.id)||typeof soDraft!=='undefined'&&o===soDraft);}
+function archiveHeaderActions(o){
+ const a=archiveIndex.get(archiveVisit.id);
+ return `<span class="sales-save-state" data-order-state>Archived${a&&a.archivedAt?' · '+esc(salesShortDate(a.archivedAt)):''}</span><button onclick="salesOrderClose()">Close</button><button onclick="docOpen()">Documents</button><button data-archive-repeat onclick="archiveRepeat()">Repeat</button>${salesIsQuote(o)?'':'<button class="ncr-btn" data-archive-ncr title="Returns the order to work" onclick="archiveNcr()">NCR</button>'}`;
+}
+/* Repeat (владелец, 22.10.2026: «возможность воссоздать заказ»): новый
+   заказ того же клиента с теми же стёклами, размерами и фигурами. Цены —
+   сегодняшние из Master Data (снимок цен старого заказа не берётся), цены
+   руками — как были. PO, срок и производство — пустые. */
+function archiveRepeat(){
+ const src=archiveVisit&&(DB.salesOrder||[]).find(o=>o.id===archiveVisit.id);if(!src)return;
+ const now=new Date().toISOString(),q=salesIsQuote(src);
+ const copy=salesCopySalesRecord(src,{businessNumber:'',status:q?'open':'new',statusDates:{},batchNo:'',batchHistory:[],unbatchHistory:[],productionUnbatchVerify:false,fulfilledVia:'',fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
+  customerPo:'',dueDate:'',onHold:false,holdReason:'',holdAt:'',remakeNcrId:'',noCharge:false,cancellations:[],adjustments:[],createdAt:now,updatedAt:now});
+ delete copy.priceBook;
+ copy.lines.forEach(l=>{Object.assign(l,{onHold:false,holdReason:'',holdAt:'',cutStartedAt:'',batchNo:''});});
+ const draft=normalizeSalesOrder(copy);
+ /* Копии фигур уже в DB (salesCopySalesRecord): просмотр закрывается без
+    salesDraftDrop — та убрала бы их как ничьи до нового черновика. */
+ archiveVisitEnd();
+ salesOrderNew(q?'quote':'order');soDraft=draft;salesEnsureAllLineShapes();
+ soMakeupId=(soDraft.makeups[0]||{}).id||null;soGlassOpen=soDraft.lines.length>0;render();
+}
+/* NCR по архивному заказу возвращает его в работу (владелец, 22.10.2026),
+   и форма NCR открывается на нём. */
+async function archiveNcr(){
+ const id=archiveVisit&&archiveVisit.id;if(!id)return;
+ salesDraftDrop(false);
+ const out=await archiveReturn(id);
+ if(!out.ok){alert(out.error);render();return;}
+ salesOrderEdit(id);
+ if(typeof ncrCanOpen==='function'&&ncrCanOpen(salesRecord(id)))ncrOpenForm('ncr');
 }
 
 /* Склад листов и обрезки — что они показывают, без журнала движений. */
@@ -44701,6 +44828,8 @@ function archiveInvKeep(before,after,offcuts){
    целиком. limit — сколько заказов за раз (экран не замирает надолго). */
 function archiveRun(day,opts){
  opts=opts||{};day=String(day||new Date().toISOString()).slice(0,10);
+ /* Открыт заказ из архива — его записи сейчас в DB; уход подождёт. */
+ if(archiveVisit)return {ok:false,error:'An archived order is open.'};
  const now=new Date().toISOString();
  return storageCommand(()=>{
   let due=[...archiveDue(day)];if(opts.limit)due=due.slice(0,opts.limit);
@@ -44734,6 +44863,9 @@ async function archiveReturn(orderId){
  return storageCommand(()=>{
   const before=archiveInvState();
   got.forEach(r=>storageColdPut(r));
+  /* Заказ ушёл при прежней версии программы — в работу он встаёт в
+     нынешнем виде, как после F5 (normalizeDB). */
+  got.forEach(r=>{if(r.tbl==='salesOrder')normalizeSalesOrderIn(r.id);});
   archiveInvKeep(before,archiveInvState(),false);
   if(DB.inventoryArchived&&DB.inventoryArchived.offcuts)(DB.stockOffcut||[]).forEach(o=>{if(got.some(r=>r.tbl==='glassBatch'&&JSON.parse(r.data).number===o.batch))delete DB.inventoryArchived.offcuts[o.id];});
   (DB.salesOrder||[]).forEach(o=>{if(owners.has(o.id)&&archiveIndex.has(o.id))storageArchiveIndex(o.id,null);});
@@ -44782,6 +44914,10 @@ const STORAGE_ROW_KEY={glassBatch:'number',cutPlan:'batch',productionRoute:'key'
    tbl → Map id → {t: текст JSON, s: seq}. */
 let storageBase=new Map();
 let storageIdb=null;
+/* Строки на просмотре из архива (erp/archive, archiveOpen): tbl → Set id.
+   Они в DB, пока заказ открыт, но сравнение базы их не видит — в базу не
+   пишутся и «удалёнными» не считаются. */
+let storageVisit=new Map();
 
 function storageRowKey(tbl,row){
  if(!row||typeof row!=='object')return '';
@@ -44822,7 +44958,7 @@ function storageDiff(db){
  storageBase.forEach((m,tbl)=>{if(tbl!=='_meta')keys.add(tbl);});
  meta.forEach((x,k)=>keys.add(k));
  keys.forEach(k=>{
-  const v=db[k],base=storageBase.get(k);
+  const vis=storageVisit.size?storageVisit.get(k):null,v=vis&&Array.isArray(db[k])?db[k].filter(r=>!vis.has(storageRowKey(k,r))):db[k],base=storageBase.get(k);
   if(Array.isArray(v)){
    if(meta.has(k))out.push({tbl:'_meta',id:k,del:true});
    const was=base||new Map(),ids=storageTableIds(k,v);
@@ -45128,6 +45264,8 @@ function storageInvalidate(){
  if(typeof stkSheetCache!=='undefined')stkSheetCache={batch:'',map:null};
  if(typeof orderLogCreators!=='undefined')orderLogCreators={ref:null,n:-1,map:null};
  if(typeof readMemoReset==='function')readMemoReset();
+ /* Пересборка таблицы (откат, чужая запись) — строки просмотра из архива на место. */
+ if(typeof archiveVisitKeep==='function')archiveVisitKeep();
 }
 /* Откат — из опорного состояния (то, что лежит в базе): возвращаются только
    таблицы, которые изменились. before — несохранённое до команды
@@ -45164,9 +45302,10 @@ function storageColdMoveAll(tbl,list){
  list.forEach(x=>{const id=storageRowKey(tbl,x.row);storageColdPending.set(tbl+'\u0000'+id,{tbl,id,owners:x.owners||[],month:x.month||'',data:JSON.stringify(x.row)});});
  DB[tbl]=rows.filter(r=>!set.has(r));
 }
-/* Строка, которая сейчас уходит в архив или возвращается из него: журнал
-   заказа не пишет её «Deleted» или «Created» (erp/sales/order-log). */
-function storageColdMoving(tbl,id){const k=tbl+'\u0000'+id;return storageColdPending.has(k)||storageColdWarm.has(k);}
+/* Строка, которая сейчас уходит в архив или возвращается из него (или
+   открыта из архива на просмотр): журнал заказа не пишет её «Deleted» или
+   «Created» (erp/sales/order-log). */
+function storageColdMoving(tbl,id){const k=tbl+'\u0000'+id,v=storageVisit.get(tbl);return storageColdPending.has(k)||storageColdWarm.has(k)||!!v&&v.has(id);}
 /* Одна запись из архива — на своё место по seq (внутри действия). */
 function storageColdPut(r){
  if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];const rows=DB[r.tbl],base=storageBase.get(r.tbl)||new Map(),seqOf=x=>{const b=base.get(storageRowKey(r.tbl,x));return b?b.s:Infinity;};
