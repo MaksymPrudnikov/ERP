@@ -500,7 +500,10 @@ function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};
     смыслом не заводим — разойдутся. */
  const sub=type==='stock'?(mdString(p.subcategory)||'consumable')
   :(type==='interlayer'?mdString(p.family):(SIMPLE_MATERIAL_SUBCATEGORY[type]||''));
- return Object.assign(materialHeader(p,cat,sub),{id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),salesUnit:mdString(p.salesUnit),...mdSaleRulesOf(p),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),stockingUnit:mdString(p.stockingUnit),note:mdString(p.note),sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false},type==='gas'?{densityKgM3:mdNonNeg(p.densityKgM3)}:{});}
+ return Object.assign(materialHeader(p,cat,sub),{id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),salesUnit:mdString(p.salesUnit),...mdSaleRulesOf(p),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),stockingUnit:mdString(p.stockingUnit),note:mdString(p.note),sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false},type==='gas'?{densityKgM3:mdNonNeg(p.densityKgM3)}:{},
+ /* Фрит и спандрел — работы (этап 4): карточка называет работу Works, а
+    станцию и место в маршруте даёт она. Пусто — работа не назначена. */
+ type==='frit'||type==='spandrel'?{workId:mdString(p.workId)}:{});}
 const SIMPLE_MATERIAL_CATEGORY={gas:'igu',sealant:'igu',iguPart:'igu',interlayer:'lamination',frit:'surface',spandrel:'surface',stock:'stock'};
 const SIMPLE_MATERIAL_SUBCATEGORY={gas:'gas',sealant:'sealant',iguPart:'part',frit:'frit',spandrel:'spandrel'};
 /* Готовые изделия и расходка: покупаем целиком, перепродаём целиком, без
@@ -625,8 +628,8 @@ DEFAULT.fritProduct=[
  /* 5.00 — цена владельца от 10 сентября 2026 на весь фрит. Прежние 3.10 были
     выдуманы: «я указал с головы». Цифровая печать заведена ВЫКЛЮЧЕННОЙ —
     «пока не работает», — чтобы её нельзя было выбрать в заказ по ошибке. */
- {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER',salePrice:5.00},
- {id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG',salePrice:5.00,active:false}
+ {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER',salePrice:5.00,workId:'ceramic_frit'},
+ {id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG',salePrice:5.00,active:false,workId:'digital_print'}
 ].map(x=>normalizeSimpleMaterial(x,'frit'));
 /* Покраска — это спандрел, а не отдельная услуга. Решение владельца
    10 сентября 2026: «Backpainting и Opaci Coat — это всё спандрел,
@@ -639,8 +642,8 @@ DEFAULT.fritProduct=[
    Различие между ними — не тип панели, а строка палитры. Тип отвечает, ЧЕМ
    красят: силикон ICD или керамика. */
 DEFAULT.spandrelProduct=[
- {id:'SPAN-CERAMIC', name:'Ceramic Spandrel',            code:'SPAN-CER',salePrice:5.00},
- {id:'SPAN-SILICONE',name:'Opaci-Coat · Silicone Spandrel',code:'SPAN-SIL',supplier:'ICD',salePrice:5.00}
+ {id:'SPAN-CERAMIC', name:'Ceramic Spandrel',            code:'SPAN-CER',salePrice:5.00,workId:'painting'},
+ {id:'SPAN-SILICONE',name:'Opaci-Coat · Silicone Spandrel',code:'SPAN-SIL',supplier:'ICD',salePrice:5.00,workId:'painting'}
 ].map(x=>normalizeSimpleMaterial(x,'spandrel'));
 /* Пять типов свели к двум решением владельца (раздел 5·7): «не нужно разбивать
    на 5 типов; кастомный цвет должен жить в цветах, это всё ещё Opaci, просто
@@ -769,9 +772,42 @@ function normalizeServiceRate(r){
      станция. Норма времени пустая означает «не замерено», как у фактической
      толщины рамки: выдуманная минута тише и опаснее пустой. */
   maxW:num(r.maxW),maxL:num(r.maxL),
+  /* Округление количества вверх до шага (1 — до целого дюйма) и минимальная
+     сумма за юнит. Пусто — без округления и без минимума. */
+  roundTo:num(r.roundTo)||null,minCharge:num(r.minCharge),
+  rule:normalizeServiceRule(r.rule),
   minutesPerUnit:num(r.minutesPerUnit),setupMinutes:num(r.setupMinutes),
   note:mdString(r.note),active:r.active!==false
  };
+}
+/* Надбавка (этап 4, часть 2): работа, которая не начисляется строкой за
+   операцию, а меняет цену юнита. Числа — цена работы (строка таблицы, прайс
+   клиента может дать свою): процент или минимальная площадь. Когда
+   применяется — условия ниже; пустое условие не ограничивает.
+     kind      'percent' — процент к базовой цене юнита (материалы + работы);
+               'minArea' — площадь к оплате не меньше, ft²;
+     unitTypes single / double / triple / laminated, пусто — любой юнит;
+     areaOver / areaUnder — площадь к оплате одного юнита строго больше /
+               меньше, ft²;
+     onTop     процент считается от цены с предыдущими надбавками, а не от
+               базовой;
+     priority  порядок применения, меньше — раньше. */
+const SERVICE_RULE_UNIT_TYPES=['single','double','triple','laminated'];
+function normalizeServiceRule(x){
+ if(!x||typeof x!=='object'||!['percent','minArea'].includes(x.kind))return null;
+ const num=v=>{if(v==null||v==='')return null;const n=+v;return isFinite(n)&&n>=0?n:null;};
+ return {kind:x.kind,unitTypes:(Array.isArray(x.unitTypes)?x.unitTypes:[]).filter(t=>SERVICE_RULE_UNIT_TYPES.includes(t)),
+  areaOver:num(x.areaOver),areaUnder:num(x.areaUnder),onTop:x.onTop===true,priority:+x.priority||0};
+}
+/* Когда применяется надбавка — коротко, для списка Works и счёта. */
+function serviceRuleText(rule){
+ if(!rule)return '';
+ const out=[];
+ out.push(rule.unitTypes&&rule.unitTypes.length?rule.unitTypes.map(t=>t[0].toUpperCase()+t.slice(1)).join(' / ')+' units':'Any unit');
+ if(rule.areaOver!=null)out.push('area > '+rule.areaOver+' ft²');
+ if(rule.areaUnder!=null)out.push('area < '+rule.areaUnder+' ft²');
+ if(rule.kind==='percent'&&rule.onTop)out.push('on top');
+ return out.join(', ');
 }
 /* Таблица цен работы «от – до мм → цена» (план Master Data, этап 4). Строк
    сколько угодно, границы включительно, пустая граница — без предела. Одна
@@ -937,6 +973,13 @@ const SERVICE_RATE_SEED=[
  ['lamination',         'Lamination',         'LAM',  'post_temper'],
  ['igu_assembly',       'IGU Assembly',       'IGU',  'post_temper']
 ].map(x=>normalizeServiceRate({id:x[0],name:x[1],station:x[2],stage:x[3],tiers:[{id:'flat',price:x[4]!=null?x[4]:null}],unit:x[5]||'pc'})));
+/* Надбавки — работы с правилом (этап 4, часть 2). До этого — константы
+   кода SALES_METRIC_RULE_DEFAULTS: минимум 4 ft², Triple +50 %, больше
+   60 ft² +50 %, обе от базовой цены юнита. */
+SERVICE_RATE_SEED.push(
+ normalizeServiceRate({id:'minArea',name:'Minimum area',unit:'ft²',station:'',tiers:[{id:'flat',price:4}],rule:{kind:'minArea'},note:'Each unit is billed at least this area'}),
+ normalizeServiceRate({id:'triple',name:'Triple unit',unit:'%',station:'',tiers:[{id:'flat',price:50}],rule:{kind:'percent',unitTypes:['triple'],priority:1}}),
+ normalizeServiceRate({id:'largeUnit',name:'Large unit',unit:'%',station:'',tiers:[{id:'flat',price:50}],rule:{kind:'percent',areaOver:60,priority:2}}));
 DEFAULT.serviceRate=SERVICE_RATE_SEED;
 /* Перенос сохранённого прайса на этап 4: три строки фацета с диапазоном
    толщины становятся одной работой `bevel` с таблицей (цены владельца
@@ -950,6 +993,16 @@ function serviceRateStage4Migrate(){
   DB.serviceRate=DB.serviceRate.filter(r=>old.indexOf(r)<0);
  }
  DB.serviceRate.forEach(r=>{const h=r&&SERVICE_HOLE_SEED[r.id];if(h&&!r.appliesBy)Object.assign(r,{family:'hole',appliesBy:'diameter',appliesFrom:h[0],appliesTo:h[1]});});
+ /* Правила цены из настройки Pricing rules переезжают в надбавки со своими
+    числами владельца — один раз, пока надбавок ещё нет. */
+ const mr=DB.salesMetricRules;
+ if(mr&&typeof mr==='object'&&!DB.serviceRate.some(r=>r&&r.id==='triple')){
+  const n=(v,d)=>Number.isFinite(+v)&&+v>=0&&v!==''&&v!=null?+v:d,onTop=mr.combination==='compound';
+  DB.serviceRate.push(Object.assign({},SERVICE_RATE_SEED.find(r=>r.id==='minArea'),{tiers:[{id:'flat',price:n(mr.minimumAreaFt2,4)}]}),
+   Object.assign({},SERVICE_RATE_SEED.find(r=>r.id==='triple'),{tiers:[{id:'flat',price:n(mr.triplePercent,50)}],rule:{kind:'percent',unitTypes:['triple'],priority:1,onTop}}),
+   Object.assign({},SERVICE_RATE_SEED.find(r=>r.id==='largeUnit'),{tiers:[{id:'flat',price:n(mr.largePercent,50)}],rule:{kind:'percent',areaOver:n(mr.largeThresholdFt2,60),priority:2,onTop}}));
+ }
+ delete DB.salesMetricRules;
 }
 /* Цвета, доступные выбранному продукту: свои плюс общие (без продукта). */
 function spandrelColoursFor(productId){
@@ -1052,7 +1105,11 @@ function normalizeMasterData(){
   mdRebuildTable(k,{
    dropLegacy:k==='interlayerProduct'?(x=>interlayerProductMigration(x.id)):null,
    topUp:k==='interlayerProduct'||k==='spandrelProduct'||k==='fritProduct',
-   migrate:k==='spandrelProduct'?(x=>{if(spandrelProductMigration(x.id))x.active=false;}):null,
+   /* Фрит и спандрел получают работу по прежнему правилу кода маршрута
+      (цифровая печать — digital_print, остальной фрит — ceramic_frit,
+      спандрел — painting), один раз: пустую работу владелец мог выбрать сам. */
+   migrate:k==='spandrelProduct'?(x=>{if(spandrelProductMigration(x.id))x.active=false;if(x.workId===undefined)x.workId='painting';})
+    :k==='fritProduct'?(x=>{if(x.workId===undefined)x.workId=x.id==='FRIT-DIGITAL'?'digital_print':'ceramic_frit';}):null,
    normalize:x=>normalizeSimpleMaterial(x,type),
    valid:x=>x.id&&x.name
   });

@@ -1,27 +1,48 @@
 /* Commercial line metrics. Geometry stays in Shape; visibility never changes
    the calculation. Monetary amounts here are before energy, tax and delivery. */
-const SALES_METRIC_RULE_DEFAULTS={minimumAreaFt2:4,triplePercent:50,largePercent:50,largeThresholdFt2:60,combination:'additive'};
-DEFAULT.salesMetricRules=Object.assign({},SALES_METRIC_RULE_DEFAULTS);
 /* Нормы веса, которых ещё нет в карточках (плёнка, фрит, спандрел,
    шпросы), — строки Weight norms; обвязка — в карточках и рецепте
    (erp/masterdata/surround). */
 DEFAULT.materialWeightRates=[];
-DB.salesMetricRules=Object.assign({},SALES_METRIC_RULE_DEFAULTS);
 if(!Array.isArray(DB.materialWeightRates))DB.materialWeightRates=[];
-function salesNormalizeMetricRules(value){
- const v=value&&typeof value==='object'?value:{},out={};
- ['minimumAreaFt2','triplePercent','largePercent','largeThresholdFt2'].forEach(k=>{
-  const n=v[k]===null||v[k]===''?NaN:Number(v[k]);
-  out[k]=Number.isFinite(n)&&n>=0?n:SALES_METRIC_RULE_DEFAULTS[k];
- });
- out.combination=['additive','compound'].includes(v.combination)?v.combination:SALES_METRIC_RULE_DEFAULTS.combination;
- return out;
+/* Надбавки — работы Works с правилом (этап 4, часть 2 плана Master Data):
+   минимальная площадь, Triple, большой юнит и любые, что заведёт владелец.
+   Число — цена работы с учётом прайса клиента. Заказ замораживает набор на
+   Save целиком (snap:surcharges): новая надбавка или новое число в Data не
+   меняют сохранённый заказ. */
+let salesSurchargeParsed={src:null,v:[]};
+function salesSurcharges(order){
+ const k='snap:surcharges',b=order&&order.priceBook;let v;
+ /* Площадь юнита спрашивают на каждой отрисовке: разбор снимка — один раз. */
+ if(b&&Object.prototype.hasOwnProperty.call(b,k)){
+  if(salesSurchargeParsed.src!==b[k]){let p=[];try{p=JSON.parse(b[k])||[];}catch(e){}salesSurchargeParsed={src:b[k],v:Array.isArray(p)?p:[]};}
+  v=salesSurchargeParsed.v;
+ }else{
+  const cid=order&&order.customerId||'';
+  v=(DB.serviceRate||[]).filter(r=>r&&r.rule&&r.active!==false).map(r=>{
+   const tier=serviceRateTierFor(r,null),lp=salesPriceListFor('service:'+r.id,tier?tier.id:'',cid);
+   const value=lp?lp.price:tier&&tier.price!=null?tier.price:null;
+   return Object.assign({id:r.id,name:r.name,rule:r.rule,value},lp?{from:lp.listId}:{});
+  }).filter(x=>x.value!=null&&x.value>0);
+ }
+ if(salesBookRec)salesBookRec[k]=JSON.stringify(v);
+ return v;
 }
-function salesMetricRules(order){return salesNormalizeMetricRules((order&&order.metricRules)||DB.salesMetricRules);}
+/* Подходит ли надбавка юниту: виды юнита (single/double/triple, плюс
+   laminated, если в нём есть ламинат) и площадь к оплате одного юнита. */
+function salesSurchargeFits(rule,kinds,area){
+ if(rule.unitTypes.length&&!rule.unitTypes.some(t=>kinds.includes(t)))return false;
+ if(rule.areaOver!=null&&!(area>rule.areaOver))return false;
+ if(rule.areaUnder!=null&&!(area<rule.areaUnder))return false;
+ return true;
+}
+function salesUnitKinds(m){
+ if(!m)return [];
+ const out=[m.unitType];if((m.panes||[]).some(p=>p&&p.category==='laminated'))out.push('laminated');return out;
+}
 function salesNormalizeWeightRates(){
  const seen=new Set();
  DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
- DB.salesMetricRules=salesNormalizeMetricRules(DB.salesMetricRules);
 }
 function salesLineAreas(line,order){
  const lineW=(+(line&&line.width16)||0)/16,lineH=(+(line&&line.height16)||0)/16;
@@ -35,7 +56,12 @@ function salesLineAreas(line,order){
  /* Периметр для продажи за погонную длину — вверх до целого дюйма, как в
     Spiel (владелец, 22.10.2026); у фигуры — её контур. */
  const perimeterIn=valid?Math.ceil((shapeValid&&+r.perimeter>0?+r.perimeter:2*(Math.ceil(w)+Math.ceil(h)))-1e-9):null;
- return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,salesMetricRules(order).minimumAreaFt2):null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
+ /* Минимальная площадь — самая большая из подходящих надбавок minArea. Вид
+    юнита нужен только при условии по видам: без макапа условие не сходится. */
+ let min=0,minBy=null;
+ if(valid){const kinds=salesUnitKinds(salesMakeupById(order||soDraft,line&&line.makeupId));
+  salesSurcharges(order||soDraft).forEach(x=>{if(x.rule.kind==='minArea'&&x.value>min&&salesSurchargeFits(x.rule,kinds,rounded)){min=x.value;minBy=x;}});}
+ return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,min):null,minArea:valid&&min>rounded?{id:minBy.id,name:minBy.name,value:min}:null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
 }
 function salesMoney(value){return Math.round((value+Number.EPSILON)*100)/100;}
 function salesApplyOrderCharges(subtotal,raw){
@@ -153,15 +179,16 @@ function salesLineCommercialPrice(line,order){
  order=order||soDraft;
  const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),q=salesPositiveInt(line.qty,1),live=Math.max(0,q-unitCancelled(line));
  const rate=salesLineMaterials(m,areas,order),services=salesLinePricingSummary(line),materials=areas.valid?rate.amount:0;
- const base=salesMoney(materials+services.total/q),rules=salesMetricRules(order),adjustments=[];
+ const base=salesMoney(materials+services.total/q);
  const unsupportedCurrency=!!(order.currency&&order.currency!=='CAD');
- let incomplete=!areas.valid||!m||!rate.known||services.unpriced>0||unsupportedCurrency;
- if(m&&m.unitType==='triple'&&rules.triplePercent>0)adjustments.push({key:'triple',label:'Triple units',percent:rules.triplePercent});
- if(areas.valid&&areas.billable>rules.largeThresholdFt2&&rules.largePercent>0)adjustments.push({key:'large',label:'Large units > '+rules.largeThresholdFt2+' ft²',percent:rules.largePercent});
- if(adjustments.length>1&&rules.combination==='pending')incomplete=true;
+ const incomplete=!areas.valid||!m||!rate.known||services.unpriced>0||unsupportedCurrency;
+ /* Процентные надбавки — по приоритету; onTop — от цены с предыдущими. */
+ const kinds=salesUnitKinds(m);
+ const adjustments=areas.valid?salesSurcharges(order).filter(x=>x.rule.kind==='percent'&&salesSurchargeFits(x.rule,kinds,areas.billable))
+  .sort((a,b)=>a.rule.priority-b.rule.priority).map(x=>({key:'svc:'+x.id,svc:x.id,label:x.name,percent:x.value,onTop:x.rule.onTop,rule:x.rule})):[];
  let running=base;
- adjustments.forEach(a=>{a.base=rules.combination==='compound'?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
- const out={areas:areas,materialRate:rate.total,materialRows:rate.rows,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:live,ordered:q,cancelled:q-live};
+ adjustments.forEach(a=>{a.base=a.onTop?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
+ const out={areas:areas,materialRate:rate.total,materialRows:rate.rows,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,qty:live,ordered:q,cancelled:q-live};
  /* Цена руками: итоговая цена юнита, наценки к ней не прибавляются; расчёт
     остаётся для справки (computedUnit). */
  if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,line:salesMoney(v*live),complete:true,unsupportedCurrency:false});}
@@ -169,13 +196,13 @@ function salesLineCommercialPrice(line,order){
 }
 function salesLineCommercialAdjustments(line,order){
  const price=salesLineCommercialPrice(line,order);
- return price.adjustments.map(a=>({key:a.key,label:a.label,percent:a.percent,base:price.complete?a.base:null,unitAmount:price.complete?a.amount:null,qty:price.qty,lineAmount:price.complete?salesMoney(a.amount*price.qty):null,complete:price.complete}));
+ return price.adjustments.map(a=>({key:a.key,label:a.label,percent:a.percent,rule:a.rule,base:price.complete?a.base:null,unitAmount:price.complete?a.amount:null,qty:price.qty,lineAmount:price.complete?salesMoney(a.amount*price.qty):null,complete:price.complete}));
 }
 function salesOrderCommercialAdjustments(order){
  order=order||soDraft;
  const groups=Object.create(null);
  (order&&order.lines||[]).forEach((line,lineIndex)=>salesLineCommercialAdjustments(line,order).forEach(a=>{
-  if(!groups[a.key])groups[a.key]={key:a.key,label:a.label,percent:a.percent,lines:0,qty:0,total:0,incomplete:0,entries:[]};
+  if(!groups[a.key])groups[a.key]={key:a.key,label:a.label,percent:a.percent,rule:a.rule,lines:0,qty:0,total:0,incomplete:0,entries:[]};
   const g=groups[a.key];g.lines++;g.qty+=a.qty;g.entries.push({line:line,lineIndex:lineIndex,adjustment:a});
   if(a.complete)g.total=salesMoney(g.total+a.lineAmount);else g.incomplete++;
  }));

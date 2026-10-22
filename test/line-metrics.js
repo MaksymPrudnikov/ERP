@@ -56,11 +56,11 @@ module.exports=async function({page,eq,ok}){
   const cell=document.querySelector('.line-services-cell').textContent.replace(/\s+/g,' ').trim();salesOpenLineServices(l.id);
   const lineDialog=document.querySelector('.sales-service-modal').textContent.replace(/\s+/g,' ').trim();salesCloseServices();salesOpenOrderServices();
   const orderDialog=document.querySelector('.sales-service-modal').textContent.replace(/\s+/g,' ').trim();
-  return {cell:[cell.includes('TRI +50%'),cell.includes('>60 +50%')],line:[lineDialog.includes('Triple units'),lineDialog.includes('Large units > 60 ft²')],order:[orderDialog.includes('Triple units'),orderDialog.includes('Large units > 60 ft²')],cyrillic:Array.from(new Set((lineDialog+orderDialog).match(/[^ ]*[А-Яа-яЁё][^ ]*/g)||[])),serviceTotal:serviceTotal,unit:price.unit};
+  return {cell:[cell.includes('Triple unit +50%'),cell.includes('Large unit +50%')],line:[lineDialog.includes('Triple units'),lineDialog.includes('area > 60 ft²')],order:[orderDialog.includes('Triple units'),orderDialog.includes('area > 60 ft²')],cyrillic:Array.from(new Set((lineDialog+orderDialog).match(/[^ ]*[А-Яа-яЁё][^ ]*/g)||[])),serviceTotal:serviceTotal,unit:price.unit};
  }),{cell:[true,true],line:[true,true],order:[true,true],cyrillic:[],serviceTotal:0,unit:3500});
  eq('60 ft² is not oversized, even when Qty is 100',await t.p.evaluate(()=>{
-  const {l}=metricFixture('triple',120,72,100),html=salesLineServicesSummary(l);return [salesLineCommercialPrice(l,soDraft).adjustments.map(a=>a.key),html.includes('&gt;60')||html.includes('>60')];
- }),[['triple'],false]);
+  const {l}=metricFixture('triple',120,72,100),html=salesLineServicesSummary(l);return [salesLineCommercialPrice(l,soDraft).adjustments.map(a=>a.key),html.includes('Large unit')];
+ }),[['svc:triple'],false]);
  eq('surcharges include service charges in their common base',await t.p.evaluate(()=>{
   const {l}=metricFixture('triple',12,12,1);const row=salesLineChargeRows(l)[0];salesEnsureChargePricing(l,row).orderRate=10/row.basis;
   const p=salesLineCommercialPrice(l,soDraft);return [p.base,p.adjustments[0].amount,p.unit];
@@ -71,12 +71,24 @@ module.exports=async function({page,eq,ok}){
   const r=salesLineChargeRows(l)[0];l.chargePricing[r.key]={catalogRate:null,orderRate:null};const b=salesLineCommercialPrice(l,soDraft).unit;
   l.chargePricing[r.key].orderRate=0;soDraft.currency='USD';return [a,b,salesLineCommercialPrice(l,soDraft).unit];
  }),[null,null,null]);
- eq('saved order rules survive normalization and changes to defaults',await t.p.evaluate(()=>{
-  const {l}=metricFixture('triple',12,12,1);soDraft.metricRules=salesMetricRules(soDraft);
-  DB.salesMetricRules.triplePercent=80;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(soDraft)));
-  const p=salesLineCommercialPrice(soDraft.lines[0],soDraft);DB.salesMetricRules.triplePercent=50;
-  return [soDraft.metricRules.triplePercent,p.unit];
- }),[50,150]);
+ eq('saved order keeps its surcharges when the Works card changes later',await t.p.evaluate(()=>{
+  const {l}=metricFixture('triple',12,12,1);soDraft.priceBook=salesPriceBookOf(soDraft);
+  const w=DB.serviceRate.find(r=>r.id==='triple');w.tiers[0].price=80;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(soDraft)));
+  const p=salesLineCommercialPrice(soDraft.lines[0],soDraft);w.tiers[0].price=50;delete soDraft.priceBook;
+  return [p.adjustments.map(a=>a.percent),p.unit];
+ }),[[50],150]);
+ eq('surcharge rules from Works: unit types, area over/under, on top and priority',await t.p.evaluate(()=>{
+  const keep=JSON.stringify(DB.serviceRate);
+  try{
+   const {l}=metricFixture('double',120,84,1);
+   const a=salesLineCommercialPrice(l,soDraft).adjustments.map(x=>x.key);
+   DB.serviceRate.push(normalizeServiceRate({id:'smallDouble',name:'Small double',unit:'%',tiers:[{id:'flat',price:10}],rule:{kind:'percent',unitTypes:['double'],areaUnder:100,priority:3,onTop:true}}));
+   const p=salesLineCommercialPrice(l,soDraft),b=p.adjustments.map(x=>[x.key,x.base]);
+   DB.serviceRate.find(r=>r.id==='minArea').rule.unitTypes=['triple'];
+   const {l:s}=metricFixture('double',12,12,1),min=salesLineAreas(s,soDraft).billable;
+   return [a,b,p.base,min];
+  }finally{DB.serviceRate=JSON.parse(keep);}
+ }),[['svc:largeUnit'],[['svc:largeUnit',1050],['svc:smallDouble',1575]],1050,1]);
  /* Нормы обвязки — в карточках и рецепте (этап 3 плана Master Data);
     lmSurround меняет их на время проверки и возвращает назад. */
  await t.p.evaluate(()=>{window.lmSurround=function(fn){const keep=JSON.stringify({sp:DB.spacerVariant,rec:DB.surroundRecipe,gas:DB.gasProduct});
@@ -182,9 +194,7 @@ module.exports=async function({page,eq,ok}){
  eq('seed norms are the pre-phase-3 numbers; gas uses nominal cavity volume',await t.p.evaluate(()=>{salesOrderNew();salesSetUnitType('double');const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');g.actualThicknessMm=6;m.panes.forEach(p=>{p.glassProductId=g.id;p.thicknessMm=6;});const l=normalizeSalesOrderLine({makeupId:m.id,width16:192,height16:192,qty:1});soDraft.lines=[l];salesEnsureLineShape(l);const w=salesLineWeight(l,soDraft),r=surroundRecipeById('REC-BWE-1732'),amt=p=>r.rows.find(x=>x.part===p).amount,gas=w.rows.find(x=>/^Argon/.test(x.label)),connectors=w.rows.find(x=>/^Spacer connectors/.test(x.label));return [mdById('spacerVariant','SP-BWE-1732').weightG,amt('iguPart:IGU-DESICCANT'),amt('primary'),amt('secondary'),amt('iguPart:IGU-CONNECTORS'),mdById('gasProduct','GAS-ARGON').densityKgM3,gas.kg>0,connectors.kg,r.pibPerSideMm];}),[30,33,5,127,40,1.784,true,.04,.4]);
  eq('Documents and saved-order Update live in the order header; row Status is folded into Set',await t.p.evaluate(()=>{soEdit='saved-order';render();const l=soDraft.lines[0],top=document.querySelector('.sales-editor-actions').textContent,head=document.querySelector('.sales-lines-table thead').textContent;salesDropLineOwnedShape(l);l.shapeRef=normalizeShapeRef({});l.width16=null;l.height16=null;render();const badge=document.querySelector('.ss-badge');return [top.includes('Documents'),top.includes('Update'),head.includes('Status'),badge.classList.contains('issue'),badge.textContent.trim()];}),[true,true,false,true,'!']);
  await t.p.evaluate(()=>{salesOpenMetrics('rules');});
- await t.p.locator('input[name="triplePercent"]').fill('40');
- await t.p.getByRole('button',{name:'Apply to this and new orders'}).click();
- eq('pricing settings update this order and persisted defaults',await t.p.evaluate(()=>[soDraft.metricRules.triplePercent,testStoredState().salesMetricRules.triplePercent]),[40,40]);
+ eq('Surcharges panel lists the Works surcharges in force',await t.p.evaluate(()=>{const t=document.querySelector('[data-surcharge-list]').textContent;return [t.includes('Triple unit'),t.includes('+50%'),t.includes('min 4 ft²'),t.includes('Data → Works')];}),[true,true,true,true]);
  await t.p.evaluate(()=>salesOpenMetrics('columns'));
  await t.p.setViewportSize({width:390,height:844});
  eq('column chooser fits a 390 px screen',await t.p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);

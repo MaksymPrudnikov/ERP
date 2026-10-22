@@ -482,8 +482,9 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
   return {id:id,label:label,rate:rate,from:salesRateFrom?salesRateFrom.list||'':'',svc:svc,bandKey:salesRateBandKey(svc||id,ctx)};
 }
 
-/* Billing and Cutting read the SAME effective snapshot. */
-salesLineChargeRows=function(line){
+/* Billing and Cutting read the SAME effective snapshot. Округление и
+   минимум работы накладывает salesLineChargeRows (sales/orders). */
+salesLineChargeRowsRaw=function(line){
   var rows=[];
   /* Остекление (фрит, спандрел) приходит из makeup, а не из геометрии, и
      считается до выхода по отсутствию контура: наносят его и на прямоугольник. */
