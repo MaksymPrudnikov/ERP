@@ -221,6 +221,7 @@ const MATERIAL_TABLE_MAP={
  spacerVariant:    {category:'igu'},
  gasProduct:       {category:'igu'},
  sealantProduct:   {category:'igu'},
+ iguPart:          {category:'igu'},
  interlayerProduct:{category:'lamination'},
  fritProduct:      {category:'surface'},
  spandrelProduct:  {category:'surface'},
@@ -499,9 +500,9 @@ function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};
     смыслом не заводим — разойдутся. */
  const sub=type==='stock'?(mdString(p.subcategory)||'consumable')
   :(type==='interlayer'?mdString(p.family):(SIMPLE_MATERIAL_SUBCATEGORY[type]||''));
- return Object.assign(materialHeader(p,cat,sub),{id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),salesUnit:mdString(p.salesUnit),...mdSaleRulesOf(p),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),stockingUnit:mdString(p.stockingUnit),note:mdString(p.note),sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false});}
-const SIMPLE_MATERIAL_CATEGORY={gas:'igu',sealant:'igu',interlayer:'lamination',frit:'surface',spandrel:'surface',stock:'stock'};
-const SIMPLE_MATERIAL_SUBCATEGORY={gas:'gas',sealant:'sealant',frit:'frit',spandrel:'spandrel'};
+ return Object.assign(materialHeader(p,cat,sub),{id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),salesUnit:mdString(p.salesUnit),...mdSaleRulesOf(p),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),stockingUnit:mdString(p.stockingUnit),note:mdString(p.note),sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false},type==='gas'?{densityKgM3:mdNonNeg(p.densityKgM3)}:{});}
+const SIMPLE_MATERIAL_CATEGORY={gas:'igu',sealant:'igu',iguPart:'igu',interlayer:'lamination',frit:'surface',spandrel:'surface',stock:'stock'};
+const SIMPLE_MATERIAL_SUBCATEGORY={gas:'gas',sealant:'sealant',iguPart:'part',frit:'frit',spandrel:'spandrel'};
 /* Готовые изделия и расходка: покупаем целиком, перепродаём целиком, без
    геометрии и без маршрута. Раздел 3·2 схемы — «сейчас такого нет вообще».
    Сценарий владельца: заказ из левой фиксированной панели, правой панели и
@@ -514,29 +515,26 @@ DEFAULT.stockItem=[];
 DEFAULT.heatTreatment=[
  {id:'HT-AN',name:'Annealed',code:'AN'},{id:'HT-HS',name:'Heat Strengthened',code:'HS'},{id:'HT-FT',name:'Tempered',code:'FT'}
 ].map(x=>normalizeSimpleMaterial(x,'heatTreatment'));
-/* Дистанционная рамка отвечает на ТРИ разных вопроса, и ответы у неё расходятся:
-
-     семейство   определяет ЦЕНУ           Aluminum · Warm Edge · Stainless
-     номинал     определяет ВЫБОР          дробь, по ней рамку и называют
-     факт, мм    определяет РАСЧЁТ пакета  7/16 у Aluminum 11.1, у Black Warm Edge 11.5
-
-   Держать одно число на все три значит однажды собрать пакет не той толщины.
+/* Дистанционная рамка: номинал (дробь) — по нему её выбирают и называют;
+   факт, мм — по нему считается толщина пакета (7/16 у Aluminum 11.1, у Black
+   Warm Edge 11.5). Цена, вес и рецепт обвязки — в карточке рамки (этап 3
+   плана Master Data), не в семействе.
 
    thicknessMm заводскими данными НЕ заполняется намеренно. Пустое поле честно
    говорит «фактическая толщина не подтверждена», и расчёт показывает номинал
-   с пометкой. Заполненное значение введено руками и переживает пересев
-   справочников — см. reseedReferenceTables в erp/data. */
+   с пометкой.
+
+   SPACER_SYSTEMS — только засев справочника систем (DB.spacerSystem) и рамок;
+   системы ведёт владелец в Data. */
 const SPACER_SYSTEMS=[
- {code:'AL',  family:'aluminum',  system:'Aluminum'},
- {code:'BL',  family:'aluminum',  system:'Black Aluminum'},
- {code:'WWE', family:'warm_edge', system:'White Warm Edge'},
- {code:'LGWE',family:'warm_edge', system:'Light Grey Warm Edge'},
- {code:'BWE', family:'warm_edge', system:'Black Warm Edge'},
- {code:'SS',  family:'stainless', system:'Stainless Steel'},
- {code:'BSS', family:'stainless', system:'Black Stainless Steel'}
+ {code:'AL',  family:'Aluminum',  system:'Aluminum',             price:2.40},
+ {code:'BL',  family:'Aluminum',  system:'Black Aluminum',       price:2.40},
+ {code:'WWE', family:'Warm Edge', system:'White Warm Edge',      price:2.85},
+ {code:'LGWE',family:'Warm Edge', system:'Light Grey Warm Edge', price:2.85},
+ {code:'BWE', family:'Warm Edge', system:'Black Warm Edge',      price:2.85},
+ {code:'SS',  family:'Stainless', system:'Stainless Steel',      price:2.85},
+ {code:'BSS', family:'Stainless', system:'Black Stainless Steel',price:2.85}
 ];
-const SPACER_FAMILIES=['aluminum','warm_edge','stainless'];
-const SPACER_FAMILY_LABELS={aluminum:'Aluminum',warm_edge:'Warm Edge',stainless:'Stainless Steel'};
 /* Наличие по типам: таблица склада, сентябрь 2026. У Aluminum весь ряд,
    у Stainless три позиции — размеры семейств не совпадают. */
 const SPACER_STOCK={
@@ -567,29 +565,21 @@ function spacerThicknessMm(sp){
  const actual=mdNum(sp.thicknessMm);
  return actual!=null&&actual>0?actual:spacerNominalMm(sp.size);
 }
-/* Семейство у старых записей не хранилось — выводим его из кода id, а если и он
-   чужой, то из названия системы. Цена висит на семействе, пустым оно быть не может. */
-function spacerFamilyOf(sp){
- const f=mdString(sp&&sp.family);
- if(SPACER_FAMILIES.indexOf(f)>=0)return f;
- const parts=String((sp&&sp.id)||'').split('-');
- const known=parts.length>2&&parts[0]==='SP'?SPACER_SYSTEMS.find(x=>x.code===parts[1].toUpperCase()):null;
- if(known)return known.family;
- const sys=String((sp&&sp.system)||'').toLowerCase();
- if(sys.indexOf('stainless')>=0)return 'stainless';
- if(sys.indexOf('warm')>=0)return 'warm_edge';
- return 'aluminum';
-}
+/* Засев рамок (этап 3 плана Master Data): цена — та, что до этапа 3 висела
+   на семействе; вес — оценка 30 g/ft² для 17/32 Black Warm Edge, пересчитанная
+   по толщине, «не замерено». Это стартовые данные, их правят в карточке. */
 DEFAULT.spacerVariant=SPACER_SYSTEMS.reduce(function(out,s){
+ const refMm=spacerNominalMm('17/32');
  return out.concat((SPACER_STOCK[s.code]||[]).map(function(size){
-  const id='SP-'+s.code+'-'+spacerSizeKey(size);
-  return {id:id,family:s.family,system:s.system,size:size,thicknessMm:null,name:s.system+' '+size+'″',code:id,availability:'stock',supplier:'',leadTimeDays:null,active:true};
+  const id='SP-'+s.code+'-'+spacerSizeKey(size),mm=spacerNominalMm(size);
+  return {id:id,system:s.system,size:size,thicknessMm:null,name:s.system+' '+size+'″',code:id,availability:'stock',supplier:'',leadTimeDays:null,active:true,
+   salePrice:s.price,recipeId:id==='SP-BWE-1732'?'REC-BWE-1732':'REC-STD',weightG:Math.round(30*mm/refMm*1000)/1000,weightPer:'ft2',weightMeasured:false};
  }));
 },[]);
-DEFAULT.gasProduct=[{id:'GAS-AIR',name:'Air',code:'AIR'},{id:'GAS-ARGON',name:'Argon',code:'ARG'}].map(x=>normalizeSimpleMaterial(x,'gas'));
+DEFAULT.gasProduct=[{id:'GAS-AIR',name:'Air',code:'AIR',salePrice:0,densityKgM3:1.225},{id:'GAS-ARGON',name:'Argon',code:'ARG',salePrice:.25,densityKgM3:1.784}].map(x=>normalizeSimpleMaterial(x,'gas'));
 /* Полисульфид — базовый вторичный герметик прайса, силикон дороже и идёт
    опцией. Без него самый ходовой вариант в систему не заносился вообще. */
-DEFAULT.sealantProduct=[{id:'SEAL-PIB',name:'PIB',code:'PIB'},{id:'SEAL-PS',name:'Polysulphide',code:'PS'},{id:'SEAL-SIL',name:'Silicone',code:'SIL'},{id:'SEAL-HM',name:'Hot Melt',code:'HM'}].map(x=>normalizeSimpleMaterial(x,'sealant'));
+DEFAULT.sealantProduct=[{id:'SEAL-PIB',name:'PIB',code:'PIB',salePrice:0},{id:'SEAL-PS',name:'Polysulphide',code:'PS',salePrice:0},{id:'SEAL-SIL',name:'Silicone',code:'SIL',salePrice:.20},{id:'SEAL-HM',name:'Hot Melt',code:'HM',salePrice:0}].map(x=>normalizeSimpleMaterial(x,'sealant'));
 /* Interlayer Product answers only WHAT film is used. Thickness is not part of
    the product: the Laminated builder stores the independently selected number
    of 0.38 mm layers. Old ids encoded .030 / .060 / .035 in the product itself;
@@ -952,7 +942,7 @@ function mdRebuildTable(key,opts){
 }
 /* Материалы, которые нормализуются общей `normalizeSimpleMaterial`: таблица и
    её тип. Новый простой справочник добавляется строкой сюда и больше нигде. */
-const MD_SIMPLE_MATERIALS=[['heatTreatment','heatTreatment'],['gasProduct','gas'],['sealantProduct','sealant'],
+const MD_SIMPLE_MATERIALS=[['heatTreatment','heatTreatment'],['gasProduct','gas'],['sealantProduct','sealant'],['iguPart','iguPart'],
  ['interlayerProduct','interlayer'],['fritProduct','frit'],['spandrelProduct','spandrel'],['stockItem','stock']];
 
 function normalizeMasterData(){
@@ -1001,8 +991,12 @@ function normalizeMasterData(){
  mdRebuildTable('spandrelColour',{topUp:true,normalize:normalizeSpandrelColour,valid:c=>c.id&&c.name,dedupe:true});
  /* У спейсера долива нет намеренно: номиналы ведёт владелец, и заводской
     список не должен возвращаться к нему после того, как он его подчистил. */
+ /* Рецепты, системы рамок и перенос норм в карточки — до нормализации
+    рамки: перенос читает старые поля строки. */
+ normalizeSurround();
  mdRebuildTable('spacerVariant',{
-  normalize:x=>Object.assign(materialHeader(x,'igu','spacer'),{id:mdString(x.id),family:spacerFamilyOf(x),system:mdString(x.system),size:mdString(x.size),thicknessMm:mdNum(x.thicknessMm),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),salePrice:mdNonNeg(x.salePrice),salesUnit:mdString(x.salesUnit),stockingUnit:mdString(x.stockingUnit),note:mdString(x.note),sellsAsOwnLine:x.sellsAsOwnLine===true,active:x.active!==false}),
+  normalize:x=>Object.assign(materialHeader(x,'igu','spacer'),{id:mdString(x.id),system:mdString(x.system),size:mdString(x.size),thicknessMm:mdNum(x.thicknessMm),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),salePrice:mdNonNeg(x.salePrice),salesUnit:mdString(x.salesUnit),...mdSaleRulesOf(x),stockingUnit:mdString(x.stockingUnit),note:mdString(x.note),sellsAsOwnLine:x.sellsAsOwnLine===true,active:x.active!==false,
+   recipeId:mdString(x.recipeId),weightG:mdNonNeg(x.weightG),weightPer:SPACER_WEIGHT_PER[x.weightPer]?x.weightPer:'ft2',weightMeasured:x.weightMeasured===true}),
   valid:x=>x.id&&x.system&&x.size
  });
 }

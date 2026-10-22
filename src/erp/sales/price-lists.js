@@ -101,8 +101,10 @@ function salesPriceTargetOfKey(key){
 
 /* Всё, чему прайс может дать цену: стекло (отожжённое и закалённое), плёнки,
    фрит, спандрел, складские позиции на продажу, работы из Works. */
+/* Части обвязки (рамка, герметики, газ, осушитель) — айтемы со своей
+   ценой с этапа 3 плана Master Data, поэтому в прайсе всегда. */
 const PRICE_ITEM_TABLES=[['interlayerProduct','Interlayer',true],['fritProduct','Frit',true],['spandrelProduct','Spandrel',true],
- ['stockItem','Stock',false],['sealantProduct','Sealant',false],['gasProduct','Gas',false]];
+ ['stockItem','Stock',false],['spacerVariant','Spacer',true],['sealantProduct','Sealant',true],['gasProduct','Gas',true],['iguPart','IGU part',true]];
 /* Единица цены — Sales unit карточки (этап 2, часть 3); sq ft пишется ft². */
 function salesPriceUnitLabel(code){const u=mdUnit(code);return !u||u.code==='sqft'?'ft²':u.nameEn;}
 function salesPriceTargets(){
@@ -111,7 +113,7 @@ function salesPriceTargets(){
   out.push({key:'glass:'+g.id+':salePriceAnnealed',kind:'Glass',label:n+' · Annealed',unit:salesPriceUnitLabel(g.salesUnit),base:g.salePriceAnnealed==null?null:g.salePriceAnnealed});
   out.push({key:'glass:'+g.id+':salePriceTempered',kind:'Glass',label:n+' · Tempered',unit:salesPriceUnitLabel(g.salesUnit),base:g.salePriceTempered==null?null:g.salePriceTempered});});
  PRICE_ITEM_TABLES.forEach(([table,kind,all])=>(DB[table]||[]).forEach(x=>{if(!x||x.active===false||!all&&x.sellsAsOwnLine!==true)return;
-  out.push({key:'item:'+table+':'+x.id,kind,label:x.name||x.code||x.id,unit:table==='interlayerProduct'?salesPriceUnitLabel(x.salesUnit):all?'ft²':'pc',base:x.salePrice==null?null:x.salePrice});}));
+  out.push({key:'item:'+table+':'+x.id,kind,label:x.name||x.code||x.id,unit:all?salesPriceUnitLabel(x.salesUnit):'pc',base:x.salePrice==null?null:x.salePrice});}));
  (DB.serviceRate||[]).forEach(r=>{if(!r||!r.id)return;
   out.push({key:'service:'+r.id,kind:'Service',label:r.name||r.id,unit:r.unit||'pc',base:r.kind==='flat'?r.flat:null,bands:r.kind==='flat'?null:r.bands});});
  return out;

@@ -163,15 +163,16 @@ function salesPriceManualHTML(line,p,cur){
  const on=line.priceManual!=null,calc=p.manual?p.computedUnit:p.unit;
  return `<div class="metric-manual${on?' on':''}" data-price-manual><label>Price by hand<input type="number" min="0" step="0.01" data-price-manual-input value="${on?esc(line.priceManual):''}" placeholder="${calc==null?'':calc.toFixed(2)}" onchange="salesSetLinePriceManual('${esc(line.id)}',this.value)"><span>${cur} / unit</span></label>${on?`<button type="button" class="sm" data-price-manual-clear onclick="salesSetLinePriceManual('${esc(line.id)}','')">Clear</button>`:''}<small>${on?'Calculated '+(calc==null?'—':calc.toFixed(2)+' '+cur):'Empty — calculated price'}</small></div>`;
 }
-/* Части материалов, когда у айтема своя единица продажи или минимум. */
+/* Части материалов, когда у айтема своя единица продажи или минимум, и
+   всегда — части обвязки по рецепту (этап 3 плана Master Data). */
 function salesMaterialRowsHTML(p){
- if(!(p.materialRows||[]).some(r=>r.special))return '';
+ if(!(p.materialRows||[]).some(r=>r.special||r.cavity!=null))return '';
  const unit=u=>{const x=mdUnit(u);return x?x.nameEn:u;},num=v=>v==null?'—':(Math.round(v*1000)/1000).toString();
  return `<div class="metric-material-rows mut" data-material-rows>${p.materialRows.map(r=>`<div class="metric-price-row"><span>${esc(r.label)} · ${r.price==null?'no price':esc(r.price.toFixed(2))+' / '+esc(unit(r.unit))+' × '+esc(num(r.qty))}${r.note?` <span class="pill warn">${esc(r.note)}</span>`:''}</span><b data-raw>${r.amount==null?'—':r.amount.toFixed(2)}</b></div>`).join('')}</div>`;
 }
 function salesPricePanel(line){
  const p=salesLineCommercialPrice(line,soDraft),cur=esc(soDraft.currency),row=(label,value)=>`<div class="metric-price-row"><span>${label}</span><b data-raw>${value==null?'—':value.toFixed(2)+' '+cur}</b></div>`;
- return salesPriceManualHTML(line,p,cur)+`<p class="mut">${'Calculation for one finished unit'}</p>${row('Materials'+((p.materialRows||[]).some(r=>r.special)?'':` · ${p.materialRate.toFixed(2)} × ${p.areas.billable==null?'—':p.areas.billable.toFixed(1)} ft²`),p.missingMaterials||p.unsupportedCurrency?null:p.materials)}${salesMaterialRowsHTML(p)}${row('Services and processing',p.missingServices||p.unsupportedCurrency?null:p.services)}${row('Base unit price',p.missingMaterials||p.missingServices||p.unsupportedCurrency?null:p.base)}${p.adjustments.map(a=>row(`${esc(a.label)} · +${a.percent}% × ${a.base.toFixed(2)}`,p.complete?a.amount:null)).join('')}${row('Unit Price',p.unit)}${row('Line Total · Qty '+p.qty,p.line)}${p.unsupportedCurrency?`<p class="metric-incomplete">${'Catalog prices are in CAD. USD totals require a defined currency conversion; CAD amounts are not relabelled as USD.'}</p>`:''}${!p.complete?`<p class="metric-incomplete">${'Calculation incomplete: check dimensions and material / service prices.'}</p>`:''}<p class="mut">${'Triple and Large unit each apply to the base unit price including services. Before energy surcharge, tax and delivery.'}</p><button type="button" onclick="salesMetricsPanel=null;salesOpenLineServices('${esc(line.id)}')">${'Open services'}</button>`;
+ return salesPriceManualHTML(line,p,cur)+`<p class="mut">${'Calculation for one finished unit'}</p>${row('Materials'+((p.materialRows||[]).some(r=>r.special||r.cavity!=null)?'':` · ${p.materialRate.toFixed(2)} × ${p.areas.billable==null?'—':p.areas.billable.toFixed(1)} ft²`),p.missingMaterials||p.unsupportedCurrency?null:p.materials)}${salesMaterialRowsHTML(p)}${row('Services and processing',p.missingServices||p.unsupportedCurrency?null:p.services)}${row('Base unit price',p.missingMaterials||p.missingServices||p.unsupportedCurrency?null:p.base)}${p.adjustments.map(a=>row(`${esc(a.label)} · +${a.percent}% × ${a.base.toFixed(2)}`,p.complete?a.amount:null)).join('')}${row('Unit Price',p.unit)}${row('Line Total · Qty '+p.qty,p.line)}${p.unsupportedCurrency?`<p class="metric-incomplete">${'Catalog prices are in CAD. USD totals require a defined currency conversion; CAD amounts are not relabelled as USD.'}</p>`:''}${!p.complete?`<p class="metric-incomplete">${'Calculation incomplete: check dimensions and material / service prices.'}</p>`:''}<p class="mut">${'Triple and Large unit each apply to the base unit price including services. Before energy surcharge, tax and delivery.'}</p><button type="button" onclick="salesMetricsPanel=null;salesOpenLineServices('${esc(line.id)}')">${'Open services'}</button>`;
 }
 function salesRulePanel(){
  const r=salesMetricRules(soDraft),labels={triplePercent:'Triple units, %',largePercent:'Large units, %',largeThresholdFt2:'Large units: area strictly above, ft²',minimumAreaFt2:'Minimum billable area, ft²'};
@@ -189,6 +190,7 @@ function salesWeightNormDisplay(row){
  return {value:String(Math.round(row.rate*1000000)/1000000),unit:row.unit||'',factor:1};
 }
 function salesWeightBasisDisplay(row){
+ if(row.basisText)return row.basisText;
  if(!row.key||row.basis==null)return '—';
  const unit={'kg/ft²':'ft²','kg/unit':'unit','kg/m³':'m³','kg/m':'m','kg/m²':'m²'}[row.unit]||'';
  const digits=row.unit==='kg/m³'?5:row.unit==='kg/unit'?0:3;

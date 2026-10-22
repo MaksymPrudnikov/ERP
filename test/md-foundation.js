@@ -12,24 +12,23 @@ module.exports=async function({page,eq,ok}){
   window.mdfWeight=id=>{const o=salesRecord(id);return finWithOrder(o,()=>salesLineWeight(o.lines[0],o).knownKg);};
  });
 
- eq('Save замораживает обвязку и нормы веса: правка Master Data не меняет сохранённый заказ, новый заказ — по новым числам',await t.p.evaluate(()=>{
-  oqReset();const id=mdfOrder(),o=salesRecord(id),c=o.makeups[0].cavities[0];
+ eq('Save замораживает обвязку и нормы веса: правка карточки рамки не меняет сохранённый заказ, новый заказ — по новым числам',await t.p.evaluate(()=>{
+  oqReset();const id=mdfOrder(),o=salesRecord(id),c=o.makeups[0].cavities[0],sp=mdById('spacerVariant',c.spacerVariantId),rec=surroundRecipeById(sp.recipeId);
   const total=finOrderTotals(o).grand,kg=mdfWeight(id),keys=Object.keys(o.priceBook||{});
   const surround=finWithOrder(o,()=>salesCavityCatalogPrice(c));
-  const rate=DB.materialWeightRates.find(r=>r.key==='spacer:'+c.spacerVariantId),was=rate&&rate.rate;
-  SALES_SURROUND_BASE.warm_edge+=1;SALES_SURROUND_BASE.aluminum+=1;SALES_SURROUND_BASE.stainless+=1;if(rate){rate.rate*=2;rate.derived=false;}
+  const was={p:sp.salePrice,w:sp.weightG,pib:rec.pibPerSideMm};
+  sp.salePrice+=1;sp.weightG*=2;rec.pibPerSideMm=1;
   const kept={total:finOrderTotals(salesRecord(id)).grand===total,kg:mdfWeight(id)===kg};
   const fresh=mdfOrder(),moved={total:finOrderTotals(salesRecord(fresh)).grand>total,kg:mdfWeight(fresh)>kg};
-  SALES_SURROUND_BASE.warm_edge-=1;SALES_SURROUND_BASE.aluminum-=1;SALES_SURROUND_BASE.stainless-=1;if(rate)rate.rate=was;
-  return {surroundKey:keys.some(k=>k.startsWith('surround:')),weightKey:keys.some(k=>k==='weight:spacer:'+c.spacerVariantId),surround:surround>0,kept,moved};
- }),{surroundKey:true,weightKey:true,surround:true,kept:{total:true,kg:true},moved:{total:true,kg:true}});
+  sp.salePrice=was.p;sp.weightG=was.w;rec.pibPerSideMm=was.pib;
+  return {priceKey:keys.includes('item:spacerVariant:'+sp.id),cardKey:keys.includes('snap:spacer:'+sp.id),recipeKey:keys.includes('snap:recipe:'+rec.id),surround:surround>0,kept,moved};
+ }),{priceKey:true,cardKey:true,recipeKey:true,surround:true,kept:{total:true,kg:true},moved:{total:true,kg:true}});
 
- eq('норма веса, исправленная из окна веса заказа, меняется и в самом заказе',await t.p.evaluate(()=>{
-  oqReset();const id=mdfOrder();salesOrderEdit(id);const l=soDraft.lines[0];salesMetricsLineId=l.id;
-  const rows=salesLineWeight(l,soDraft).rows,i=rows.findIndex(r=>r.key&&r.key.startsWith('spacer:'));
-  salesSaveWeightNorm(i,'99',1);const inOrder=soDraft.priceBook['weight:'+rows[i].key],global=salesWeightRate(rows[i].key);salesDraftDrop(true);
-  return {inOrder,global};
- }),{inOrder:99,global:99});
+ eq('окно веса заказа: части обвязки — из карточки и рецепта, норма не правится в заказе, «не замерено» видно',await t.p.evaluate(()=>{
+  oqReset();const id=mdfOrder();salesOrderEdit(id);const l=soDraft.lines[0];
+  const rows=salesLineWeight(l,soDraft).rows,sp=rows.find(r=>/Cavity 1/.test(r.label)&&/not measured/.test(r.note));salesDraftDrop(true);
+  return {spacer:!!sp,key:sp&&sp.key===undefined,basis:!!(sp&&/perimeter .* m · area/.test(sp.basisText))};
+ }),{spacer:true,key:true,basis:true});
 
  eq('журнал Master Data: правка поля — было → стало, новая строка — Created, удалённая — Deleted, настройки — по полю; пустая заметка вместо её отсутствия — не правка',await t.p.evaluate(()=>{
   const n=DB.masterDataEvent.length,g=glassProductByCode('6CLEAR'),was=g.salePriceAnnealed;

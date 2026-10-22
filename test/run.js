@@ -2936,15 +2936,15 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Laminated overall thickness включает фактические плиты и interlayer', await t.p.evaluate(() => {
       const o=newSalesOrderDraft(),m=o.makeups[0];m.unitType='single';m.panes=[normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0)];m.cavities=[];return salesMakeupThicknessMm(m).toFixed(3);
     }), '12.088');
-    eq('толщина пакета берёт фактическое стекло, fallback nominal и 0.8 mm PIB на камеру', await t.p.evaluate(() => {
+    eq('толщина пакета берёт фактическое стекло, fallback nominal и PIB из рецепта рамки (0.4 mm на сторону)', await t.p.evaluate(() => {
       const glass=DB.glassProduct,spacers=DB.spacerVariant;
       try{
         DB.glassProduct=[{id:'G-A',thicknessMm:6,actualThicknessMm:5.7},{id:'G-B',thicknessMm:6,actualThicknessMm:6.76}];
-        DB.spacerVariant=[{id:'SP-X',size:'1/2',thicknessMm:12.5,system:'Test'}];
+        DB.spacerVariant=[{id:'SP-X',size:'1/2',thicknessMm:12.5,system:'Test',recipeId:'REC-BWE-1732'}];
         const m={panes:[{category:'vision',glassProductId:'G-A'},{category:'vision',glassProductId:'G-B'}],cavities:[{spacerVariantId:'SP-X'}]};
         const actual=salesMakeupThicknessMm(m).toFixed(2);
         DB.glassProduct[1].actualThicknessMm=null;
-        return {actual:actual,fallback:salesMakeupThicknessMm(m).toFixed(2),pib:SALES_PIB_PER_CAVITY_MM};
+        return {actual:actual,fallback:salesMakeupThicknessMm(m).toFixed(2),pib:surroundPibMm(DB.spacerVariant[0],null)};
       }finally{DB.glassProduct=glass;DB.spacerVariant=spacers;}
     }), {actual:'25.76',fallback:'25.00',pib:.8});
     eq('подпись стекла сохраняет вторую толщину составного ламината', await t.p.evaluate(() => ({

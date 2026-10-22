@@ -27,8 +27,6 @@ const SALES_ORDER_CHARGE_DEFAULTS={
  delivery:{enabled:false,amount:0},
  skidDeposit:{enabled:false,amount:0}
 };
-/* PIB физически добавляет по 0.4 mm с каждой стороны дистанционной рамки. */
-const SALES_PIB_PER_CAVITY_MM=.8;
 
 function salesUid(prefix){
  prefix=prefix||'SO';
@@ -234,7 +232,7 @@ function salesPriceBookOf(o){
  }finally{salesBookRec=keep;salesFromRec=keepFrom;}
 }
 function salesPriceFromClean(f){const out={};if(f&&typeof f==='object'&&!Array.isArray(f))Object.keys(f).forEach(k=>{if(typeof f[k]==='string'&&f[k])out[k]=f[k];});return out;}
-function salesPriceBookClean(b){const out={};Object.keys(b).forEach(k=>{const v=b[k];if(v===null)out[k]=null;else if(typeof v==='number'&&Number.isFinite(v))out[k]=v;else if(typeof v==='string'&&k.indexOf('unit:')===0)out[k]=v;});return out;}
+function salesPriceBookClean(b){const out={};Object.keys(b).forEach(k=>{const v=b[k];if(v===null)out[k]=null;else if(typeof v==='number'&&Number.isFinite(v))out[k]=v;else if(typeof v==='string'&&(k.indexOf('unit:')===0||k.indexOf('snap:')===0))out[k]=v;});return out;}
 function salesGlassSalePrice(g,tempered){const f=tempered?'salePriceTempered':'salePriceAnnealed';return salesBook('glass:'+g.id+':'+f,()=>g[f]==null?null:g[f]);}
 /* Прайс, давший цену листа (лайт или слой ламината) — для «откуда цена». */
 function salesGlassPriceFrom(x){
@@ -243,26 +241,29 @@ function salesGlassPriceFrom(x){
  return salesPriceFromOf('glass:'+g.id+':'+(code==='FT'||code==='HS'?'salePriceTempered':'salePriceAnnealed'));
 }
 function salesInterlayerSalePrice(id){return salesBook('interlayer:'+id,()=>{const p=mdById('interlayerProduct',id);return p&&p.salePrice!=null?p.salePrice:null;});}
-const SALES_SURROUND_BASE={aluminum:2.40,warm_edge:2.85,stainless:2.85};
-const SALES_SURROUND_ARGON=0.25;
-const SALES_SURROUND_SILICONE=0.20;
-/* Цена обвязки замораживается в заказе, как стекло: ключ — рамка, второй
-   герметик и газ камеры (план Master Data, этап 1, 22.10.2026). */
+/* Обвязка — рецепт из айтемов (этап 3 плана Master Data,
+   erp/masterdata/surround): у каждой части своя цена и единица продажи в
+   карточке, цена ищется по прайсам клиента, как у любого айтема. */
+function salesSurroundPartPrice(part){
+ if(!part||!part.item)return null;
+ return salesBook('item:'+part.table+':'+part.item.id,()=>part.item.salePrice==null?null:part.item.salePrice);
+}
+/* Ставка обвязки за ft² юнита: сумма частей, продаваемых за ft² без своих
+   минимумов. Части с другой единицей (погонный дюйм, штука, вес) считаются
+   в строке заказа по геометрии — salesCavityOtherUnits говорит, что они есть. */
 function salesCavityCatalogPrice(c){
  if(!c)return null;
- return salesBook('surround:'+[c.spacerVariantId,c.secondarySealantId,c.gasProductId].map(x=>x||'').join(':'),()=>salesCavitySurroundLive(c));
-}
-function salesCavitySurroundLive(c){
- const sp=mdById('spacerVariant',c.spacerVariantId);
- if(!sp)return null;
- let p=SALES_SURROUND_BASE[spacerFamilyOf(sp)];
- if(p==null)return null;
- const seal=mdById('sealantProduct',c.secondarySealantId);
- if(seal&&/sil/i.test(seal.code||seal.name||''))p+=SALES_SURROUND_SILICONE;
- const gas=mdById('gasProduct',c.gasProductId);
- if(gas&&gas.code!=='AIR')p+=SALES_SURROUND_ARGON;
+ const parts=surroundCavityParts(c,null,typeof soDraft!=='undefined'?soDraft:null).parts;
+ if(!parts.length)return null;
+ let p=0;
+ for(const x of parts){
+  const v=salesSurroundPartPrice(x);if(v==null)return null;
+  if(salesSurroundPartIsPlain(x))p+=v;
+ }
  return Math.round(p*100)/100;
 }
+function salesSurroundPartIsPlain(x){const r=salesItemSaleRules(x.table,x.item);return r.unit==='sqft'&&r.minArea==null&&r.minCharge==null;}
+function salesCavityOtherUnits(c){return !!c&&c.priceOverride==null&&surroundCavityParts(c,null,typeof soDraft!=='undefined'?soDraft:null).parts.some(x=>x.item&&!salesSurroundPartIsPlain(x));}
 /* Цена лайта = стекло из прайса + надбавка за то, что на нём делают.
    Spandrel и Frit продаются поверх стекла своей ставкой из справочника, а не
    вместо него: покрасить лист дешевле, чем купить другой лист. */
@@ -434,7 +435,7 @@ function normalizeSalesPane(p,index){
 /* PIB — обязательный первичный герметик стеклопакета. Он остаётся в данных и
    спецификации, но не является выбором оператора в Cavity. Нормализация также
    исправляет старые черновики, где первичный герметик могли сменить вручную. */
-function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),priceOverride:salesNonNegOrNull(c.priceOverride),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId};}
+function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),priceOverride:salesNonNegOrNull(c.priceOverride),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId,...(c.contour==='a'||c.contour==='b'?{contour:c.contour}:{})};}
 function normalizeOrderMakeup(m,index){
  m=m&&typeof m==='object'?m:{};const unitType=SALES_UNIT_TYPES.includes(m.unitType)?m.unitType:'double',count=salesPaneCount(unitType);
  const panes=(Array.isArray(m.panes)?m.panes:[]).slice(0,count);while(panes.length<count)panes.push(salesDefaultPane(panes.length));
@@ -611,7 +612,7 @@ function salesMakeupSummary(m){
    пакет с Black Warm Edge 7/16 получался на 0.4 мм тоньше, чем собранный. */
 function salesMakeupThicknessMm(m){
  function productMm(g){const q=typeof glassEffectiveThicknessMm==='function'?glassEffectiveThicknessMm(g):null;return q&&q.mm>0?q.mm:null;}
- let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const a=glassProductById(p.laminated.outer&&p.laminated.outer.glassProductId),b=glassProductById(p.laminated.inner&&p.laminated.inner.glassProductId),am=productMm(a),bm=productMm(b),films=p.laminated.interlayers||[];if(am!=null&&bm!=null&&films.length&&films.every(x=>Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0))total+=am+bm+films.reduce((n,x)=>n+(+x.thicknessMm||0),0);else known=false;}else{const mm=productMm(glassProductById(p.glassProductId));if(mm!=null)total+=mm;else known=false;}});m.cavities.forEach(c=>{const mm=spacerThicknessMm(mdById('spacerVariant',c.spacerVariantId));if(mm!=null)total+=mm+SALES_PIB_PER_CAVITY_MM;else known=false;});return known?total:null;
+ let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const a=glassProductById(p.laminated.outer&&p.laminated.outer.glassProductId),b=glassProductById(p.laminated.inner&&p.laminated.inner.glassProductId),am=productMm(a),bm=productMm(b),films=p.laminated.interlayers||[];if(am!=null&&bm!=null&&films.length&&films.every(x=>Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0))total+=am+bm+films.reduce((n,x)=>n+(+x.thicknessMm||0),0);else known=false;}else{const mm=productMm(glassProductById(p.glassProductId));if(mm!=null)total+=mm;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),mm=spacerThicknessMm(sp),pib=surroundPibMm(sp,typeof soDraft!=='undefined'?soDraft:null);if(mm!=null&&pib!=null)total+=mm+pib;else known=false;});return known?total:null;
 }
 
 /* Catalog temperMode remains a hard production fact, but exceptional orders
