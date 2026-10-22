@@ -22,6 +22,8 @@ function repViewSet(id,fn){const all=repViewAll(),v=all[id]&&typeof all[id]==='o
 function repOpenReport(){if(repDraft&&repDraft.id===repOpenId)return repDraft;const r=repFind(repOpenId);return r&&repVisible(r)?r:null;}
 /* Черновик правки: новый (ещё не в базе) — всегда несохранён. */
 function repDirty(){return !!repDraft&&(!repFind(repDraft.id)||JSON.stringify(repDraft)!==repDraftBase);}
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(repDirty);
 function repCanLeave(){return !repDirty()||confirm('Leave without saving the report?');}
 function repDropDraft(){repDraft=null;repDraftBase='';repEditOn=false;repSelW='';repMenu=null;}
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){if(tab!=='reports'||k==='reports')return false;if(!repCanLeave())return true;repDropDraft();return false;});

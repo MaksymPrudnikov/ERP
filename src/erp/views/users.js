@@ -13,6 +13,8 @@
 /* uEdit — 'new' или viewProfileId, а не номер строки: × на другой строке,
    пока форма открыта, сдвигает список, и Save писал бы не в того человека. */
 let uEdit=null, uDraft=null;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!uDraft);
 function userSectionNav(k){return NAV.find(n=>n.k===k)||{k,label:USER_ACCESS_LABELS[k]||k,icon:'report'};}
 function userAccessHTML(u){
  if(!userOffice(u))return '<span class="mut">—</span>';

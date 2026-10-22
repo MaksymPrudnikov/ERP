@@ -241,15 +241,25 @@ function storageRerenderQuiet(){
  const a=document.activeElement,typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!(a.dataset&&a.dataset.stationScan!==undefined&&!a.value);
  if(!typing)storageRerender();
 }
+/* Есть ли что терять: черновик заказа, формы разделов (их проверки — в
+   window.STORAGE_UNSAVED, по одной на форму) и набранное в полях. Форма
+   держит ввод в своём черновике, а у её полей нет id, — по одним полям
+   набранного клиента не было видно (проверка Codex 22.10.2026). */
+function storageHasWork(){
+ if(typeof salesDraftHasWork==='function'&&salesDraftHasWork())return true;
+ if((window.STORAGE_UNSAVED||[]).some(f=>{try{return !!f();}catch(e){return false;}}))return true;
+ return storageTypedFields().length>0;
+}
 /* Вкладка устарела: открыта другая сборка. Ничего не начато — вкладка сама
    перезагружается, один раз на сборку (две вкладки разных версий не гоняют
-   друг друга по кругу). Начато — полоса «Reload», запись отказывает. */
+   друг друга по кругу). Начато — полоса «Reload», запись отказывает. Что
+   начато — до того, как вкладка отдаст запись и перерисуется. */
 function storageMarkStale(by){
  if(storageStale||!by)return;
+ const unsaved=storageHasWork()||!!storageFailed;
  storageStale=by;storageLastError=storageReadOnlyText();
  if(storageWriter)storageYield();
  let done='';try{done=sessionStorage.getItem(STORAGE_RELOAD_KEY)||'';}catch(e){}
- const unsaved=(typeof salesDraftHasWork==='function'&&salesDraftHasWork())||!!storageFailed||storageTypedFields().length>0;
  if(done!==by&&!unsaved){
   try{sessionStorage.setItem(STORAGE_RELOAD_KEY,by);}catch(e){}
   storageFlush().then(()=>location.reload());return;
@@ -403,6 +413,9 @@ function storageExportParts(){
  const keep=storageBase;let recs;
  storageBase=new Map();
  try{recs=storageDiff(DB);}finally{storageBase=keep;}
+ /* Пустая таблица — строкой «таблица пуста» (id `*`, data []): без неё
+    файл новой установки без клиентов или заказов не возвращался Import'ом. */
+ Object.keys(DB).forEach(k=>{if(Array.isArray(DB[k])&&!DB[k].length)recs.push({tbl:k,id:'*',seq:0,data:'[]'});});
  const head={format:'glass-erp',schemaVersion:2,exportedAt:new Date().toISOString(),build:storageBuildId(),records:recs.length};
  if(storageTest)head.test=true;
  const parts=[JSON.stringify(head)+'\n'];
@@ -441,7 +454,11 @@ async function storageImportState(raw,opts){
  if(!confirm('Replace this browser database?\n\n'+storageImportSummary(next)+'\n\nA recovery copy will be kept before replacement.'))return false;
  const recovering=storageRecovery;
  /* The copy is written and checked before the database is touched. */
- const at=new Date().toISOString(),backup=JSON.stringify(Object.assign({format:'glass-erp',schemaVersion:1,exportedAt:at},storageTest?{test:true}:{},{data:DB}));
+ /* Копия — одной строкой; у браузера предел строки около 512 МБ, это база
+    примерно за год. Больше — понятный отказ вместо «Invalid string length». */
+ const at=new Date().toISOString();let backup;
+ try{backup=JSON.stringify(Object.assign({format:'glass-erp',schemaVersion:1,exportedAt:at},storageTest?{test:true}:{},{data:DB}));}
+ catch(e){alert('Nothing was replaced. Too big for a recovery copy: Export, Clear database, then Import.');return false;}
  try{await storageIdbCopyPut(backup,at);if(await storageIdbCopyGet()!==backup)throw new Error('The recovery copy could not be verified.');}
  catch(e){alert('Nothing was replaced: '+e.message);return false;}
  storageBackupPresent=true;storageCopyAt=at;
@@ -496,9 +513,10 @@ async function storageReadRecords(file){
  return {head,state:storageJoin(records,true)};
 }
 /* Файл Import: v2 (строка заголовка с schemaVersion 2) или прежний JSON (v1).
-   Метка TEST — в заголовке v2 или в конверте v1 (tools/sim-shop.js). */
+   Метка TEST — в заголовке v2 или в конверте v1 (tools/sim-shop.js). Пустые
+   строки до заголовка не мешают. */
 async function storageImportFile(file){
- let first=null;try{first=JSON.parse((await file.slice(0,65536).text()).split('\n')[0]);}catch(e){}
+ let first=null;try{first=JSON.parse((await file.slice(0,65536).text()).replace(/^\s+/,'').split('\n')[0]);}catch(e){}
  if(first&&first.format==='glass-erp'&&first.schemaVersion===2){
   const got=await storageReadRecords(file);return storageImportState(got.state,{test:got.head.test===true});
  }

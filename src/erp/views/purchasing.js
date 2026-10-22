@@ -3,6 +3,8 @@
    Additional contacts and custom fields are optional (owner, 12.10.2026).
    No global search, no stock balances and no purchase in customer Finance. */
 let purSupplierDraft=null,purSupplierOriginal='',purNotice='';
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purSupplierDraft&&JSON.stringify(purSupplierDraft)!==purSupplierOriginal);
 function purArg(v){return esc(JSON.stringify(String(v)));}
 function purListScope(){if(['invoices','payments','payables'].includes(purView))return 'purchasing-'+purView;if(['receipts','requests','backorders','held'].includes(purView))return 'purchasing-'+purView;return purView==='suppliers'?'purchaseSuppliers':purView==='history'?'purchaseHistory':'purchaseOrders';}
 function purListColumns(){

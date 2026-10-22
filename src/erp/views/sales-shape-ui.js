@@ -5,6 +5,8 @@
    ===================================================================== */
 
 let sEdit=null,sDraft=null,sView='setup',sWorkspaceTab='designer',sEdgeworkOpen=false,sFeaturesOpen=false,sFeatureExpandedId=null,sSourceOpen=false,sManufacturingOpen=false,sManufacturingPlace=null,sManufacturingSelected=null;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>sEdit!==null);
 /* Карточка, у которой открыт ввод своей модели. Состояние экрана, а не
    данных: пока имя не вписано, «своя модель» и «модель не выбрана» выглядят
    в записи одинаково — у обеих пустые id и имя. */

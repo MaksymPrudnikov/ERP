@@ -249,6 +249,38 @@ module.exports=async function({page,eq,ok}){
   return {warm,now:stkSheetOf('B-STK','G-1').sheet};
  }),{warm:1,now:2});
  await w.c.close();await x.c.close();
- eq('хранилище без ошибок страницы',t.errs.concat(q.errs,r.errs,v.errs,w.errs,x.errs),[]);
+ /* Р2: файлы и формы (проверка Codex, находки 2, 5, 6, 11). */
+ const y=await page();
+ await y.p.evaluate(()=>{window.srMark=1;navGo('customers');customerNew();});
+ await y.p.locator('input[oninput^="cDraft.legalName"]').fill('Typed customer');
+ await y.p.evaluate(()=>storageOnMessage({type:'hello',build:'newer-build-2'}));await y.p.waitForTimeout(500);
+ eq('новая версия ERP: набранный клиент остаётся, вкладка не перезагружается сама',await y.p.evaluate(()=>{afterRender();const bar=document.getElementById('storageAlert');
+  return {kept:!!window.srMark,name:cDraft&&cDraft.legalName,bar:!bar.hidden&&/A newer version is open/.test(bar.textContent)};}),{kept:true,name:'Typed customer',bar:true});
+ eq('начатая форма любого раздела — есть что терять',await y.p.evaluate(()=>{
+  cEdit=null;cDraft=null;const none=storageHasWork(),forms={
+   purchasing:()=>{purSupplierDraft={name:'x'};},purchaseOrder:()=>{purOrderDraft={id:'x'};},receiving:()=>{purFulfilDraft={id:'x'};},supplierMoney:()=>{purMoneyDraft={id:'x'};},
+   finance:()=>{finDraft={amount:1};},reports:()=>{repDraft={id:'not-saved'};},users:()=>{uDraft={};},masterData:()=>{mdCatDraft={};},agents:()=>{comDraft={};},
+   shape:()=>{sEdit='new';},shipping:()=>{shippingDraft={};},serviceSet:()=>{soServiceSetDraft={};},inventory:()=>{invCountDraft={k:1};}};
+  const reset=()=>{purSupplierDraft=purOrderDraft=purFulfilDraft=purMoneyDraft=finDraft=repDraft=uDraft=mdCatDraft=comDraft=shippingDraft=soServiceSetDraft=null;sEdit=null;invCountDraft={};};
+  const out={none};Object.keys(forms).forEach(k=>{reset();forms[k]();out[k]=storageHasWork();});reset();return out;
+ }),{none:false,purchasing:true,purchaseOrder:true,receiving:true,supplierMoney:true,finance:true,reports:true,users:true,masterData:true,agents:true,shape:true,shipping:true,serviceSet:true,inventory:true});
+ const z=await page();await z.p.evaluate(()=>{window.srAlerts=[];window.alert=m=>srAlerts.push(m);});
+ eq('Export новой установки без клиентов и заказов — Import его же принимает',await z.p.evaluate(async()=>{
+  const empty=DB.customer.length===0&&DB.salesOrder.length===0,ok=await storageImportFile(new File(storageExportParts(),'empty.ndjson'));
+  storageCommand(()=>{DB.customer.push(normalizeCustomer({legalName:'First customer',code:'C-00001'}));});
+  const withCustomer=await storageImportFile(new File(storageExportParts(),'one.ndjson'));
+  return {empty,ok,withCustomer,customers:DB.customer.length,orders:DB.salesOrder.length};
+ }),{empty:true,ok:true,withCustomer:true,customers:1,orders:0});
+ eq('пустые строки и CRLF перед заголовком v2 не мешают Import',await z.p.evaluate(async()=>{
+  const text=storageExportParts().join('');return [await storageImportFile(new File(['\n'+text],'a.ndjson')),await storageImportFile(new File(['\r\n\r\n'+text.replace(/\n/g,'\r\n')],'b.ndjson'))];
+ }),[true,true]);
+ eq('база больше копии до импорта — понятный отказ, ничего не заменено',await z.p.evaluate(async()=>{
+  const before=JSON.stringify(DB),real=JSON.stringify,env=JSON.parse(before);env.customer.push(normalizeCustomer({legalName:'Other',code:'C-00002'}));
+  JSON.stringify=function(v,...a){if(v&&v.format==='glass-erp'&&v.data===DB)throw new RangeError('Invalid string length');return real.call(this,v,...a);};
+  let ok;try{ok=await storageImportState(env);}finally{JSON.stringify=real;}
+  return {ok,alert:srAlerts.pop(),same:JSON.stringify(DB)===before};
+ }),{ok:false,alert:'Nothing was replaced. Too big for a recovery copy: Export, Clear database, then Import.',same:true});
+ await y.c.close();await z.c.close();
+ eq('хранилище без ошибок страницы',t.errs.concat(q.errs,r.errs,v.errs,w.errs,x.errs,y.errs,z.errs),[]);
  await q.c.close();await r.c.close();await v.c.close();
 };
