@@ -3475,7 +3475,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a4494f9ef2a3';
+var ERP_BUILD='fe6794d3b4ca';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -44698,11 +44698,14 @@ let storageUsage=null,storageUsageAt=0;
 let storageTest=false;
 /* «Last action 230 ms» у администратора внизу: от клика или Enter (сканер
    тоже шлёт Enter) до готового экрана. Для сверки настоящего ПК цеха с
-   замером tools/perf-year.js (задание «База», этап 2). Клик без перерисовки
-   не в счёт: дальше 30 с ответ не ждём. */
-let storageActionAt=0,storageLastAction=null;
-document.addEventListener('click',()=>{storageActionAt=performance.now();},true);
-document.addEventListener('keydown',e=>{if(e.key==='Enter')storageActionAt=performance.now();},true);
+   замером tools/perf-year.js (задание «База», этап 2). Перерисовка в том же
+   шаге, что и клик, — его ответ, сколько бы ни шла (Overview на слабом ПК —
+   минута). Позже клика — ждём до 30 с; дольше — цифры нет, а не прежняя
+   (проверка Codex 22.10.2026). */
+let storageActionAt=0,storageLastAction=null,storageActionNow=false;
+function storageActionStart(){storageActionAt=performance.now();storageActionNow=true;setTimeout(()=>{storageActionNow=false;},0);}
+document.addEventListener('click',storageActionStart,true);
+document.addEventListener('keydown',e=>{if(e.key==='Enter')storageActionStart();},true);
 /* The pre-import copy takes as much space as the database itself. It is
    kept for a week and dropped earlier when an ordinary save would otherwise
    fail for lack of space; a broken database keeps it untouched. */
@@ -44860,7 +44863,7 @@ function storageAlertHTML(){
   (storageRecovery&&storageBackupPresent?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'');
 }
 function afterRender(){
- if(storageActionAt){const ms=performance.now()-storageActionAt;storageActionAt=0;if(ms<30000)storageLastAction=Math.round(ms);}
+ if(storageActionAt){const ms=performance.now()-storageActionAt;storageActionAt=0;storageLastAction=storageActionNow||ms<30000?Math.round(ms):null;}
  const host=document.getElementById('storageStatus');if(host)host.innerHTML=storageStatusHTML();
  const alertBar=document.getElementById('storageAlert');if(alertBar){const h=storageAlertHTML();alertBar.innerHTML=h;alertBar.hidden=!h;}
  const chip=document.getElementById('testChip');if(chip)chip.hidden=!storageTest;
