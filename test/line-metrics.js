@@ -77,25 +77,47 @@ module.exports=async function({page,eq,ok}){
   const p=salesLineCommercialPrice(soDraft.lines[0],soDraft);DB.salesMetricRules.triplePercent=50;
   return [soDraft.metricRules.triplePercent,p.unit];
  }),[50,150]);
- eq('missing component weights stay incomplete rather than becoming zero',await t.p.evaluate(()=>{
-  const {l}=metricFixture('double',40,40,2);DB.materialWeightRates=[];
+ /* Нормы обвязки — в карточках и рецепте (этап 3 плана Master Data);
+    lmSurround меняет их на время проверки и возвращает назад. */
+ await t.p.evaluate(()=>{window.lmSurround=function(fn){const keep=JSON.stringify({sp:DB.spacerVariant,rec:DB.surroundRecipe,gas:DB.gasProduct});
+  try{return fn();}finally{const k=JSON.parse(keep);DB.spacerVariant=k.sp;DB.surroundRecipe=k.rec;DB.gasProduct=k.gas;}};});
+ eq('missing component weights stay incomplete rather than becoming zero',await t.p.evaluate(()=>lmSurround(()=>{
+  const {l,m}=metricFixture('double',40,40,2);const sp=mdById('spacerVariant',m.cavities[0].spacerVariantId);sp.weightG=null;
+  surroundRecipeById(sp.recipeId).rows.forEach(r=>{r.amount=null;});mdById('gasProduct',m.cavities[0].gasProductId).densityKgM3=null;
   const w=salesLineWeight(l,soDraft);return [w.complete,w.kg,w.lineKg,w.missing,w.knownKg>0];
- }),[false,null,null,6,true]);
- eq('unmeasured spacer sizes derive an editable estimate from the 17/32 average and thickness',await t.p.evaluate(()=>{
-  DB.materialWeightRates=JSON.parse(JSON.stringify(SALES_WEIGHT_RATE_DEFAULTS));salesNormalizeWeightRates();
-  const ref=mdById('spacerVariant','SP-BWE-1732'),target=mdById('spacerVariant','SP-BL-916'),key='spacer:'+target.id,originalMm=target.thicknessMm;
-  const expected=.03*spacerThicknessMm(target)/spacerThicknessMm(ref);target.thicknessMm=20;salesNormalizeWeightRates();let row=DB.materialWeightRates.find(r=>r.key===key),recalculated=row.rate;mdWeightSet(key,'50',1000);target.thicknessMm=25;salesNormalizeWeightRates();row=DB.materialWeightRates.find(r=>r.key===key);target.thicknessMm=originalMm;
-  return {grams:+(expected*1000).toFixed(3),recalculated:+(recalculated*1000).toFixed(3),manual:+(row.rate*1000).toFixed(3),derived:row.derived,note:row.note,editable:row.unit};
- }),{grams:31.778,recalculated:44.444,manual:50,derived:false,note:'Calculated estimate · 17/32 average × thickness ratio',editable:'kg/ft²'});
- eq('Triple mass includes three glasses and both complete cavity assemblies',await t.p.evaluate(()=>{
- const {l,m}=metricFixture('triple',40,40,2);DB.materialWeightRates=[];
-  m.cavities.forEach(c=>mdById('spacerVariant',c.spacerVariantId).thicknessMm=12);
-  const rates={spacer:.1,desiccant:.02,connectors:.03,seal:.04,gas:1.8};
-  salesLineWeight(l,soDraft).rows.filter(r=>r.key).forEach(r=>{if(!DB.materialWeightRates.some(x=>x.key===r.key))DB.materialWeightRates.push({key:r.key,rate:rates[r.key.split(':')[0]]});});
+ })),[false,null,null,6,true]);
+ eq('pre-phase-3 data migrates into cards: spacer weight not measured, recipe norms and gas density from old weight norms; old rows go',await t.p.evaluate(()=>lmSurround(()=>{
+  const keepRates=DB.materialWeightRates;
+  DB.surroundRecipe=undefined;DB.spacerVariant.forEach(sp=>{delete sp.recipeId;sp.salePrice=null;});
+  DB.materialWeightRates=[{key:'spacer:SP-BL-916',rate:.0321},{key:'seal:SEAL-PS:SP-BWE-1732',rate:.13},{key:'gas:GAS-ARGON',rate:1.8},{key:'film:X',rate:1070}];
+  normalizeMasterData();
+  const bl=mdById('spacerVariant','SP-BL-916'),al=mdById('spacerVariant','SP-AL-012'),bwe=surroundRecipeById('REC-BWE-1732');
+  const out={bl:[bl.weightG,bl.weightPer,bl.weightMeasured,bl.recipeId,bl.salePrice],al:[al.salePrice,al.recipeId],ps:bwe.rows.find(r=>r.part==='secondary').amount,
+   argon:mdById('gasProduct','GAS-ARGON').densityKgM3,left:DB.materialWeightRates.map(r=>r.key)};
+  DB.materialWeightRates=keepRates;return out;
+ })),{bl:[32.1,'ft2',false,'REC-STD',2.4],al:[2.4,'REC-STD'],ps:130,argon:1.8,left:['film:X']});
+ eq('Triple mass includes three glasses and both complete cavity assemblies',await t.p.evaluate(()=>lmSurround(()=>{
+  const {l,m}=metricFixture('triple',40,40,2);
+  m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId);sp.thicknessMm=12;sp.weightG=100;sp.weightPer='ft2';mdById('gasProduct',c.gasProductId).densityKgM3=1.8;
+   surroundRecipeById(sp.recipeId).rows.forEach(r=>{if(r.part==='iguPart:IGU-DESICCANT')r.amount=20;if(r.part==='primary'||r.part==='secondary')r.amount=40;if(r.part==='iguPart:IGU-CONNECTORS')r.amount=30;});});
   const w=salesLineWeight(l,soDraft),a=(40*.0254)**2,ft2=40*40/144;
   const expected=3*a*.006*2500+2*(ft2*(.1+.02+.04+.04)+.03+a*.012*1.8);
   return [w.complete,Math.abs(w.kg-expected)<1e-8,Math.abs(w.lineKg-2*expected)<1e-8,w.rows.length];
- }),[true,true,true,15]);
+ })),[true,true,true,15]);
+ eq('waste raises consumption, not the unit weight; a part sold by weight is billed on consumption',await t.p.evaluate(()=>lmSurround(()=>{
+  const {l,m}=metricFixture('double',40,40,1),c=m.cavities[0],sp=mdById('spacerVariant',c.spacerVariantId),rec=surroundRecipeById(sp.recipeId),row=rec.rows.find(r=>r.part==='primary');
+  const kg0=salesLineWeight(l,soDraft).kg;row.wastePct=10;const w=salesLineWeight(l,soDraft),pib=w.rows.find(r=>/^PIB/.test(r.label));
+  c.priceOverride=null;const pibItem=mdById('sealantProduct',c.primarySealantId);pibItem.salePrice=20;pibItem.salesUnit='kg';
+  const p=salesLineCommercialPrice(l,soDraft),bill=p.materialRows.find(r=>/PIB/.test(r.label));pibItem.salePrice=0;pibItem.salesUnit='';
+  return {same:Math.abs(w.kg-kg0)<1e-9,used:Math.abs(pib.usedKg-pib.kg*1.1)<1e-12,billed:Math.abs(bill.amount-20*pib.usedKg)<1e-9,note:/10% waste/.test(pib.note)};
+ })),{same:true,used:true,billed:true,note:true});
+ eq('spacer sold per inch of perimeter: own row in the price, PIB per metre of perimeter in the weight',await t.p.evaluate(()=>lmSurround(()=>{
+  const {l,m}=metricFixture('double',40,40,1),c=m.cavities[0],sp=mdById('spacerVariant',c.spacerVariantId),rec=surroundRecipeById(sp.recipeId);
+  c.priceOverride=null;sp.salesUnit='inch';sp.salePrice=.09;rec.rows.find(r=>r.part==='primary').amount=5.5;rec.rows.find(r=>r.part==='primary').per='m';
+  const p=salesLineCommercialPrice(l,soDraft),a=salesLineAreas(l,soDraft),row=p.materialRows.find(r=>r.label.indexOf(sp.name)>=0);
+  const w=salesLineWeight(l,soDraft),pib=w.rows.find(r=>/^PIB/.test(r.label)),perM=160*.0254;
+  return {qty:row.qty===a.perimeterIn,amount:Math.abs(row.amount-.09*a.perimeterIn)<1e-9,other:salesCavityOtherUnits(c),pib:Math.abs(pib.kg-5.5*perM/1000)<1e-6};
+ })),{qty:true,amount:true,other:true,pib:true});
  eq('laminated mass counts both plies and the exact film stack; extra mass persists',await t.p.evaluate(()=>{
   const {l,m,g}=metricFixture('single',40,40,3);const p=m.panes[0];p.category='laminated';
   [p.laminated.outer,p.laminated.inner].forEach(ply=>{ply.glassProductId=g.id;ply.thicknessMm=6;});
@@ -156,8 +178,8 @@ module.exports=async function({page,eq,ok}){
  await t.p.evaluate(()=>{tab='sales';salesOrderNew();salesSetUnitType('single');const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');g.actualThicknessMm=6;m.panes.forEach(p=>{p.glassProductId=g.id;p.thicknessMm=6;p.priceOverride=5;p.heatTreatmentId='HT-AN';});const l=normalizeSalesOrderLine({makeupId:m.id,width16:47*16,height16:73.5*16,qty:2});soDraft.lines=[l];salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>salesEnsureChargePricing(l,r).orderRate=0);render();salesOpenMetrics('columns');salesResetMetricColumns('screen');});
  eq('reset restores only the selected context',await t.p.evaluate(()=>salesMetricColumnsFor('screen').map(c=>c.key)),['materials','actual','rounded','unitPrice','lineTotal']);
  eq('Materials is visible beside Services and opens the existing unit-price breakdown',await t.p.evaluate(()=>{const cols=salesOrderScreenColumns(),line=soDraft.lines[0],holder=document.createElement('tr');holder.innerHTML=salesMetricCell(line,SALES_METRIC_COLUMNS.find(c=>c.key==='materials'),'screen');document.body.append(holder);const cell=holder.querySelector('button'),value=cell.textContent.trim();cell.click();holder.remove();return {afterServices:cols.indexOf('materials')===cols.indexOf('services')+1,value:value,panel:salesMetricsPanel};}),{afterServices:true,value:'121.00',panel:'price'});
- eq('provided shop weight norms are editable Master Data in grams',await t.p.evaluate(()=>{salesNormalizeWeightRates();mdTab='weight';const r=DB.materialWeightRates.find(x=>x.key==='spacer:SP-BWE-1732');mdWeightSet(r.key,'31',1000);return [r.rate,viewMdWeight().includes('Polysulphide + catalyst')];}),[.031,true]);
- eq('legacy placeholder ones migrate to shop norms; gas uses nominal cavity volume',await t.p.evaluate(()=>{DB.materialWeightRates=SALES_WEIGHT_RATE_DEFAULTS.map(d=>({key:d.key,rate:1,note:''}));salesNormalizeWeightRates();salesOrderNew();salesSetUnitType('double');const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');g.actualThicknessMm=6;m.panes.forEach(p=>{p.glassProductId=g.id;p.thicknessMm=6;});const l=normalizeSalesOrderLine({makeupId:m.id,width16:192,height16:192,qty:1});soDraft.lines=[l];salesEnsureLineShape(l);const w=salesLineWeight(l,soDraft),rate=k=>DB.materialWeightRates.find(r=>r.key===k).rate,gas=w.rows.find(r=>r.key==='gas:GAS-ARGON'),connectors=w.rows.find(r=>r.key==='connectors:SP-BWE-1732'),master=mdWeightDisplay(DB.materialWeightRates.find(r=>r.key==='connectors:SP-BWE-1732'));return [rate('spacer:SP-BWE-1732'),rate('desiccant:SP-BWE-1732'),rate('seal:SEAL-PIB:SP-BWE-1732'),rate('seal:SEAL-PS:SP-BWE-1732'),rate('connectors:SP-BWE-1732'),rate('gas:GAS-ARGON'),gas.basis>0,connectors.kg,salesWeightNormDisplay(connectors),master];}),[.03,.033,.005,.127,.04,1.784,true,.04,{value:'40',unit:'g/unit',factor:1000},{value:40,unit:'g/unit',factor:1000}]);
+ eq('surround norms are editable Master Data in grams: recipe row and spacer card',await t.p.evaluate(()=>{const r=surroundRecipeById('REC-BWE-1732'),i=r.rows.findIndex(x=>x.part==='secondary'),was=r.rows[i].amount;mdRecipeRowSet(r.id,i,'amount','131');const html=viewMdRecipes(),got=r.rows[i].amount;mdRecipeRowSet(r.id,i,'amount',String(was));return [got,html.includes('Secondary sealant of the cavity'),html.includes('Weight from the spacer card')];}),[131,true,true]);
+ eq('seed norms are the pre-phase-3 numbers; gas uses nominal cavity volume',await t.p.evaluate(()=>{salesOrderNew();salesSetUnitType('double');const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');g.actualThicknessMm=6;m.panes.forEach(p=>{p.glassProductId=g.id;p.thicknessMm=6;});const l=normalizeSalesOrderLine({makeupId:m.id,width16:192,height16:192,qty:1});soDraft.lines=[l];salesEnsureLineShape(l);const w=salesLineWeight(l,soDraft),r=surroundRecipeById('REC-BWE-1732'),amt=p=>r.rows.find(x=>x.part===p).amount,gas=w.rows.find(x=>/^Argon/.test(x.label)),connectors=w.rows.find(x=>/^Spacer connectors/.test(x.label));return [mdById('spacerVariant','SP-BWE-1732').weightG,amt('iguPart:IGU-DESICCANT'),amt('primary'),amt('secondary'),amt('iguPart:IGU-CONNECTORS'),mdById('gasProduct','GAS-ARGON').densityKgM3,gas.kg>0,connectors.kg,r.pibPerSideMm];}),[30,33,5,127,40,1.784,true,.04,.4]);
  eq('Documents and saved-order Update live in the order header; row Status is folded into Set',await t.p.evaluate(()=>{soEdit='saved-order';render();const l=soDraft.lines[0],top=document.querySelector('.sales-editor-actions').textContent,head=document.querySelector('.sales-lines-table thead').textContent;salesDropLineOwnedShape(l);l.shapeRef=normalizeShapeRef({});l.width16=null;l.height16=null;render();const badge=document.querySelector('.ss-badge');return [top.includes('Documents'),top.includes('Update'),head.includes('Status'),badge.classList.contains('issue'),badge.textContent.trim()];}),[true,true,false,true,'!']);
  await t.p.evaluate(()=>{salesOpenMetrics('rules');});
  await t.p.locator('input[name="triplePercent"]').fill('40');

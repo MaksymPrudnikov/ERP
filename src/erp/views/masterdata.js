@@ -44,8 +44,10 @@ const MD_MATERIAL_VIEWS={
  glass:     [{k:'glassProduct',     label:'Glass catalogue', view:'glass'},
              {k:'glassSheet',       label:'Supply points',   view:'supply'}],
  igu:       [{k:'spacerVariant',    label:'Spacers',         view:'spacer'},
+             {k:'surroundRecipe',   label:'Surround recipes', view:'recipe'},
              {k:'gasProduct',       label:'Gas'},
-             {k:'sealantProduct',   label:'Sealants'}],
+             {k:'sealantProduct',   label:'Sealants'},
+             {k:'iguPart',          label:'IGU parts'}],
  lamination:[{k:'interlayerProduct',label:'Interlayers'}],
  surface:   [{k:'fritProduct',      label:'Frit'},
              {k:'spandrelProduct',  label:'Spandrel'},
@@ -132,7 +134,7 @@ function viewMdMaterials(){
  const list=MD_MATERIAL_VIEWS[mdMatCategory],hit=list.find(v=>v.k===mdMatView)||list[0];
  const cats=Object.keys(MD_MATERIAL_VIEWS).map(c=>`<button class="sm ${c===mdMatCategory?'on':''}" onclick="mdSetMatCategory('${c}')">${esc(MD_MATERIAL_CATEGORY_LABELS[c])} <span class="mut">${materialEntries(c).length}</span></button>`).join('');
  const subs=list.length>1?`<div class="md-mat-subs">${list.map(v=>`<button class="sm ${v.k===mdMatView?'on':''}" onclick="mdSetMatView('${v.k}')">${esc(v.label)}</button>`).join('')}</div>`:'';
- const body=hit.view?({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer})[hit.view]():viewMdCatalogues();
+ const body=hit.view?({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,recipe:viewMdRecipes})[hit.view]():viewMdCatalogues();
  return `<div class="md-mat-cats">${cats}</div>${subs}${body}`;
 }
 /* Работы и припуск на рез — один вид данных: и то и другое про то, что цех
@@ -508,38 +510,41 @@ function mdSurchargeSet(kind,id,v){
  if(!isFinite(n)||n<0){render();return;}
  row.salePrice=Math.round(n*100)/100;touch();render();
 }
+/* Карточка рамки (этап 3 плана Master Data): цена и единица продажи, вес
+   с отметкой «замерено», рецепт обвязки. Счётчики сверху только
+   предупреждают — заказ всё равно считается и сохраняется. */
 function viewMdSpacer(){
  if(mdSpacerEdit!==null)return mdSpacerForm();
- const all=(DB.spacerVariant||[]).slice();
+ const all=(DB.spacerVariant||[]).slice(),fam=sp=>{const x=spacerSystemByName(sp.system);return x?x.family:'';};
  all.sort((a,b)=>{
-  const fa=SPACER_FAMILIES.indexOf(spacerFamilyOf(a)),fb=SPACER_FAMILIES.indexOf(spacerFamilyOf(b));
-  if(fa!==fb)return fa-fb;
+  const fa=fam(a),fb=fam(b);if(fa!==fb)return String(fa).localeCompare(String(fb));
   if(a.system!==b.system)return String(a.system).localeCompare(String(b.system));
   const qa=spacerSizeParts(a.size),qb=spacerSizeParts(b.size);
   return (qa?qa.value:0)-(qb?qb.value:0);
  });
- return `<div class="sub">A spacer answers three different questions. <b>Family</b> drives the IGU surround price, <b>nominal size</b> is how the spacer is picked and named, <b>actual thickness</b> feeds the overall unit thickness. They do not always match: 7/16 is 11.1 mm in Aluminum and 11.5 mm in Black Warm Edge. Until an actual value is entered, the unit is calculated from the nominal size.</div>
-  <div class="customer-table-wrap"><table><thead><tr><th>System</th><th>Family</th><th>Nominal</th><th>Nominal, mm</th><th>Actual, mm</th><th>Difference</th><th>Availability</th><th></th></tr></thead>
+ const live=all.filter(x=>x.active!==false),n=f=>live.filter(f).length;
+ const warn=[['No price',n(x=>x.salePrice==null)],['No weight',n(x=>x.weightG==null)],['Not measured',n(x=>x.weightG!=null&&!x.weightMeasured)],['No recipe',n(x=>!surroundRecipeById(x.recipeId))]];
+ return `<div class="sub">Each spacer is its own card: price and sales unit, weight, and the surround recipe it is built with. Nominal size picks the spacer; actual thickness feeds the unit thickness.</div>
+  <div class="row" data-spacer-health>${warn.map(w=>`<span class="pill ${w[1]?'warn':'ok'}">${esc(w[0])} ${w[1]}</span>`).join('')}</div>
+  <div class="customer-table-wrap"><table><thead><tr><th>System</th><th>Nominal</th><th>Actual, mm</th><th>Price</th><th>Weight</th><th>Recipe</th><th>Availability</th><th></th></tr></thead>
   <tbody>${all.map(mdSpacerRow).join('')||'<tr><td colspan="8" class="empty">no spacers</td></tr>'}</tbody></table></div>
   <div class="row"><button class="pri" onclick="mdSpacerNew()">+ New spacer</button></div>
+  ${mdSpacerSystemsTable()}
   ${mdSurchargeTable()}`;
 }
 function mdSpacerRow(sp){
- const nominal=spacerNominalMm(sp.size),fact=mdNum(sp.thicknessMm);
- const diff=fact!=null&&nominal!=null?Math.round((fact-nominal)*10)/10:null;
- return `<tr>
-  <td><b>${raw(sp.system)}</b><div class="mut mono">${raw(sp.id)}</div></td>
-  <td>${esc(SPACER_FAMILY_LABELS[spacerFamilyOf(sp)]||spacerFamilyOf(sp))}</td>
-  <td class="mono"><b>${raw(sp.size)}″</b></td>
-  <td class="mono mut">${nominal==null?'—':esc(nominal.toFixed(1))}</td>
+ const nominal=spacerNominalMm(sp.size),fact=mdNum(sp.thicknessMm),rec=surroundRecipeById(sp.recipeId),sys=spacerSystemByName(sp.system);
+ return `<tr data-spacer="${esc(sp.id)}">
+  <td><b>${raw(sp.system)}</b>${sys?'':' <span class="pill warn">no system</span>'}<div class="mut mono">${raw(sp.id)}${sys&&sys.family?' · '+esc(sys.family):''}</div></td>
+  <td class="mono"><b>${raw(sp.size)}″</b><div class="mut">${nominal==null?'—':esc(nominal.toFixed(1))} mm</div></td>
   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:88px" value="${fact==null?'':fact}" placeholder="${nominal==null?'':esc(nominal.toFixed(1))}" onchange="mdSpacerSetThickness('${esc(sp.id)}',this.value)"></td>
-  <td class="mono">${diff==null?'<span class="mut">—</span>':(diff===0?'<span class="mut">same</span>':'<b>'+esc((diff>0?'+':'')+diff.toFixed(1))+'</b>')}</td>
+  <td class="mono">${sp.salePrice==null?'<span class="pill warn">no price</span>':esc(Number(sp.salePrice).toFixed(2))+' <span class="mut">/ '+esc(salesPriceUnitLabel(sp.salesUnit))+'</span>'}</td>
+  <td class="mono">${sp.weightG==null?'<span class="pill warn">no weight</span>':esc(String(sp.weightG))+' <span class="mut">'+esc(SPACER_WEIGHT_PER[sp.weightPer])+'</span>'+(sp.weightMeasured?'':' <span class="pill info">not measured</span>')}</td>
+  <td>${rec?raw(rec.name):'<span class="pill warn">no recipe</span>'}</td>
   <td><span class="pill ${sp.availability==='stock'?'ok':sp.availability==='inactive'?'warn':'info'}">${esc(glassLabel('availability',sp.availability))}</span></td>
   <td style="white-space:nowrap"><button class="sm" onclick="mdSpacerEditRow('${esc(sp.id)}')">Edit</button>
    <button class="sm dl" onclick="mdSpacerDelete('${esc(sp.id)}')">×</button></td></tr>`;
 }
-/* Пустое поле возвращает рамку к номиналу — это законный ответ «факт неизвестен»,
-   а не ошибка ввода. Ноль и мусор не принимаются: рамки 0 мм не бывает. */
 function mdSpacerSetThickness(id,v){
  const sp=(DB.spacerVariant||[]).find(x=>x.id===id);if(!sp)return;
  const typed=String(v==null?'':v).trim();
@@ -550,7 +555,8 @@ function mdSpacerSetThickness(id,v){
 }
 function mdSpacerNew(){
  mdSpacerEdit='new';
- mdSpacerDraft={id:'',family:'warm_edge',system:'Black Warm Edge',size:'',thicknessMm:null,availability:'stock',supplier:'',leadTimeDays:null,active:true};
+ const sys=(DB.spacerSystem||[])[0];
+ mdSpacerDraft={id:'',system:sys?sys.name:'',size:'',thicknessMm:null,availability:'stock',supplier:'',leadTimeDays:null,active:true,salePrice:null,salesUnit:'',recipeId:'',weightG:null,weightPer:'ft',weightMeasured:false};
  render();
 }
 function mdSpacerEditRow(id){
@@ -559,12 +565,28 @@ function mdSpacerEditRow(id){
 }
 function mdSpacerForm(){
  const r=mdSpacerDraft,isNew=mdSpacerEdit==='new';
- const nominal=spacerNominalMm(r.size);
- return `<div class="form"><h3>${isNew?'New spacer':'Edit spacer'}</h3>
+ const nominal=spacerNominalMm(r.size),systems=DB.spacerSystem||[];
+ const sysOpts=systems.map(x=>`<option data-raw value="${esc(x.name)}" ${x.name===r.system?'selected':''}>${esc(x.name)}${x.family?' · '+esc(x.family):''}</option>`).join('')+(r.system&&!spacerSystemByName(r.system)?`<option data-raw value="${esc(r.system)}" selected>${esc(r.system)} · not in the list</option>`:'');
+ return `<div class="form" data-spacer-card><h3>${isNew?'New spacer':'Spacer · '+esc(r.name||r.id)}</h3>
   <div class="grid">
-   <div><label>System *</label><select id="md_spSystem">${SPACER_SYSTEMS.map(x=>`<option data-raw value="${esc(x.system)}" ${x.system===r.system?'selected':''}>${esc(x.system)} · ${esc(SPACER_FAMILY_LABELS[x.family])}</option>`).join('')}</select><div class="hint">Family comes with the system — the surround price hangs on it.</div></div>
-   <div><label>Nominal size *</label><input id="md_spSize" value="${esc(r.size)}" placeholder="17/32"><div class="hint">As a fraction, the way it is printed on the box. Nominal from it: ${nominal==null?'—':esc(nominal.toFixed(1)+' mm')}</div></div>
-   <div><label>Actual thickness, mm</label><input id="md_spMm" type="number" step="0.1" min="0" value="${r.thicknessMm==null?'':r.thicknessMm}" placeholder="${nominal==null?'':esc(nominal.toFixed(1))}"><div class="hint">Empty — unit thickness is calculated from the nominal size.</div></div>
+   <div><label>System *</label><select id="md_spSystem">${sysOpts}</select><div class="hint">Systems are edited below the spacer list.</div></div>
+   <div><label>Nominal size *</label><input id="md_spSize" value="${esc(r.size)}" placeholder="17/32"><div class="hint">Fraction, as on the box. Nominal: ${nominal==null?'—':esc(nominal.toFixed(1)+' mm')}</div></div>
+   <div><label>Actual thickness, mm</label><input id="md_spMm" type="number" step="0.1" min="0" value="${r.thicknessMm==null?'':r.thicknessMm}" placeholder="${nominal==null?'':esc(nominal.toFixed(1))}"><div class="hint">Empty — nominal is used.</div></div>
+  </div>
+  <h4>Sale</h4>
+  <div class="grid">
+   <div><label>Price, CAD</label><input id="md_spPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}" placeholder="—"><div class="hint">Empty — no price, the surround stays unpriced.</div></div>
+   <div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select><div class="hint">sq ft of unit, inch of perimeter, piece per cavity or weight.</div></div>
+   ${mdSaleRulesFields(r)}
+  </div>
+  <h4>Weight & surround</h4>
+  <div class="grid">
+   <div><label>Weight, g</label><input id="md_spWeight" type="number" step="any" min="0" value="${r.weightG==null?'':r.weightG}" placeholder="unknown"></div>
+   <div><label>Per</label><select id="md_spWeightPer">${Object.keys(SPACER_WEIGHT_PER).map(k=>`<option value="${k}" ${k===r.weightPer?'selected':''}>${esc(SPACER_WEIGHT_PER[k])}</option>`).join('')}</select><div class="hint">Length runs along the spacer contour.</div></div>
+   <div><label class="chk"><input type="checkbox" id="md_spMeasured" ${r.weightMeasured?'checked':''}> Measured</label><div class="hint">Off — an estimate.</div></div>
+   <div><label>Surround recipe</label><select id="md_spRecipe"><option value="">— no recipe —</option>${(DB.surroundRecipe||[]).map(x=>`<option value="${esc(x.id)}" ${x.id===r.recipeId?'selected':''}>${esc(x.name||x.id)}</option>`).join('')}</select><div class="hint">Parts and norms of the surround.</div></div>
+  </div>
+  <div class="grid">
    <div><label>Availability</label><select id="md_spAvail">${mdVocabOptions('availability',r.availability)}</select></div>
    <div><label>Supplier</label><input id="md_spSupplier" value="${esc(r.supplier)}"></div>
    <div><label>Lead time, days</label><input id="md_spLead" type="number" step="1" min="0" value="${r.leadTimeDays==null?'':r.leadTimeDays}"></div>
@@ -579,19 +601,20 @@ function mdSpacerSave(){
  if(!system||!size)return fail(e,'System and nominal size are required');
  const q=spacerSizeParts(size);
  if(!q)return fail(e,'Nominal size is a fraction, for example 17/32');
- const known=SPACER_SYSTEMS.find(x=>x.system===system);
- const id=mdSpacerEdit==='new'?'SP-'+(known?known.code:'X')+'-'+spacerSizeKey(size):mdSpacerDraft.id;
+ const sys=spacerSystemByName(system);
+ const id=mdSpacerEdit==='new'?'SP-'+(sys&&sys.code?sys.code:'X')+'-'+spacerSizeKey(size):mdSpacerDraft.id;
  if(mdSpacerEdit==='new'&&(DB.spacerVariant||[]).some(x=>x.id===id))return fail(e,'This spacer already exists: '+id);
- const mmTyped=mdVal('md_spMm'),leadTyped=mdVal('md_spLead');
- const mm=mmTyped===''?null:+mmTyped;
+ const num=k=>{const t=mdVal(k);return t===''?null:+t;},bad=v=>v!=null&&(!isFinite(v)||v<0);
+ const mm=num('md_spMm'),price=num('md_spPrice'),weight=num('md_spWeight'),lead=num('md_spLead');
  if(mm!=null&&(!isFinite(mm)||mm<=0))return fail(e,'Actual thickness: a positive number of millimetres');
- const next={
-  id:id,family:known?known.family:'aluminum',system:system,size:size,
-  thicknessMm:mm,
-  name:system+' '+size+'″',code:id,
-  availability:mdVal('md_spAvail'),supplier:mdVal('md_spSupplier'),
-  leadTimeDays:leadTyped===''?null:+leadTyped,active:mdSpacerDraft.active!==false
- };
+ if([price,weight,lead].some(bad))return fail(e,'Price, weight and lead time: a non-negative number or empty');
+ const next=Object.assign({},mdSpacerDraft,mdSaleRulesRead(),{
+  id:id,system:system,size:size,thicknessMm:mm,
+  name:system+' '+size+'″',code:mdSpacerEdit==='new'?id:(mdSpacerDraft.code||id),
+  salePrice:price,salesUnit:mdVal('md_salesunit'),
+  weightG:weight,weightPer:mdVal('md_spWeightPer'),weightMeasured:mdChecked('md_spMeasured'),recipeId:mdVal('md_spRecipe'),
+  availability:mdVal('md_spAvail'),supplier:mdVal('md_spSupplier'),leadTimeDays:lead,active:mdSpacerDraft.active!==false
+ });
  if(mdSpacerEdit==='new')DB.spacerVariant.push(next);
  else{const at=DB.spacerVariant.findIndex(x=>x.id===mdSpacerDraft.id);if(at<0)return fail(e,'Spacer not found');DB.spacerVariant[at]=next;}
  mdSpacerEdit=null;mdSpacerDraft=null;normalizeMasterData();touch();render();
@@ -771,7 +794,10 @@ const MD_COLLECTIONS=[
  {key:'hardwareKind',   label:'Hardware kinds',      what:'hinge, clamp, patch and whatever is added next'},
  {key:'hardwareModel',  label:'Hardware models',    what:'the shop picks its template by the model name'},
  {key:'heatTreatment',  label:'Heat treatment',      what:'annealed · heat strengthened · tempered'},
- {key:'spacerVariant',  label:'Spacers', what:'family sets the price, nominal picks the spacer, actual drives the calculation'},
+ {key:'spacerVariant',  label:'Spacers', what:'price, weight and surround recipe per spacer; nominal picks it, actual drives the calculation'},
+ {key:'spacerSystem',   label:'Spacer systems',      what:'Swiss Spacer, Thermix and the rest: name, code, family'},
+ {key:'surroundRecipe', label:'Surround recipes',    what:'parts of the IGU surround, norms and waste'},
+ {key:'iguPart',        label:'IGU parts',           what:'desiccant, connectors'},
  {key:'gasProduct',     label:'Gas',                 what:'cavity fill'},
  {key:'sealantProduct', label:'Sealants',           what:'primary and secondary seal'},
  {key:'interlayerProduct',label:'Interlayers',  what:'EVA and SGP by grade, price per ply'},
@@ -983,6 +1009,7 @@ const MD_CATALOGUES=[
  {k:'heatTreatment',     label:'Heat treatment',   prefix:'HT',   what:'annealed · heat strengthened · tempered'},
  {k:'gasProduct',        label:'Gas',              prefix:'GAS',  what:'cavity fill'},
  {k:'sealantProduct',    label:'Sealants',         prefix:'SEAL', what:'primary and secondary seal'},
+ {k:'iguPart',           label:'IGU parts',        prefix:'IGU',  what:'desiccant, connectors and other surround parts'},
  {k:'interlayerProduct', label:'Interlayers',      prefix:'ILR',  what:'lamination films, price per ply'},
  {k:'fritProduct',       label:'Frit',             prefix:'FRIT', what:'silkscreen, surcharge per ft²'},
  {k:'spandrelProduct',   label:'Spandrel',         prefix:'SPAN', what:'opaque panels, surcharge per ft²'},
@@ -990,6 +1017,9 @@ const MD_CATALOGUES=[
  {k:'spandrelColour',    label:'Spandrel colours', prefix:'SPC',  what:'palette with manufacturer codes'},
  {k:'serviceRate',       label:'Works',            prefix:'SVC',  what:'shop work: station, price and application range'}
 ];
+/* Свою единицу продажи держат плёнка и части обвязки (этап 3 плана Master
+   Data): газ, герметики, осушитель продаются за ft², дюйм периметра, вес. */
+const MD_CAT_SALE_UNIT=['interlayerProduct','gasProduct','sealantProduct','iguPart'];
 function mdCatDef(){return MD_CATALOGUES.find(c=>c.k===mdCatKind)||MD_CATALOGUES[0];}
 function mdCatRows(){return Array.isArray(DB[mdCatKind])?DB[mdCatKind]:[];}
 function mdCatIsColour(){return mdCatKind==='spandrelColour';}
@@ -1111,7 +1141,8 @@ function mdCatForm(){
       <div><label>Spandrel</label><select id="md_catProduct"><option value="" ${r.productId?'':'selected'}>— any spandrel —</option>${(DB.spandrelProduct||[]).map(p=>`<option value="${esc(p.id)}" ${p.id===r.productId?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="hint">Empty — the colour is available to any spandrel type. Pick one when a product has its own palette.</div></div>`
     :`<div><label>Supplier</label><input id="md_catSupplier" value="${esc(r.supplier||'')}"></div>
       <div><label>Price, CAD</label><input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}"><div class="hint">Surcharge per ft², if the catalogue uses one — or the sale price, for a stock item. Empty — no price, and the row honestly enters the invoice as Rate required, not a zero.</div></div>
-      ${mdCatKind==='interlayerProduct'?`<div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select></div>${mdSaleRulesFields(r)}`:''}
+      ${MD_CAT_SALE_UNIT.includes(mdCatKind)?`<div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select></div>${mdSaleRulesFields(r)}`:''}
+      ${mdCatKind==='gasProduct'?`<div><label>Density, kg/m³</label><input id="md_catDensity" type="number" step="any" min="0" value="${r.densityKgM3==null?'':r.densityKgM3}" placeholder="unknown"><div class="hint">Gas weight = density × cavity volume.</div></div>`:''}
       ${mdCatKind==='stockItem'?`<div><label>Subcategory</label><input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(s=>`<option value="${esc(s)}">`).join('')}</datalist><div class="hint">Groups stock items in the order-line picker. Type your own — the list above is only a hint; empty becomes "consumable".</div></div>`:''}
       <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="md_catOwnLine" ${r.sellsAsOwnLine?'checked':''}> Sells as its own order line</label>
        <div class="hint">Shows up in the order-line picker next to Single / Double / Triple: no geometry, no route, just this item, a quantity and a price. Turn this on for anything you sell as-is — a stock door, a kit, or your own roll of interlayer film.</div></div>`}
@@ -1189,7 +1220,9 @@ function mdCatSave(){
      толщина. Иначе редактирование имени стирало бы их молча. */
   const prev=mdCatEdit==='new'?{}:mdCatDraft;
   const ownLineEl=document.getElementById('md_catOwnLine'),subcatEl=document.getElementById('md_catSubcategory');
-  next=Object.assign({},prev,mdCatKind==='interlayerProduct'?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
+  const density=mdVal('md_catDensity');
+  if(mdCatKind==='gasProduct'&&density!==''&&(!isFinite(+density)||+density<0))return fail(e,'Density must be a non-negative number or empty');
+  next=Object.assign({},prev,MD_CAT_SALE_UNIT.includes(mdCatKind)?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},mdCatKind==='gasProduct'?{densityKgM3:density===''?null:+density}:{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
    sellsAsOwnLine:ownLineEl?ownLineEl.checked:!!prev.sellsAsOwnLine,
    subcategory:subcatEl?subcatEl.value:(prev.subcategory||''),active:active});
  }

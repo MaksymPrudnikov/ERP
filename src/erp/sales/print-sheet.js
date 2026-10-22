@@ -120,12 +120,7 @@ function salesSheetPaneText(pane,index){
   return bits.filter(Boolean).join(' ');
 }
 function salesSheetSpacerCode(sp){
-  if(!sp)return '';
-  var systems=typeof SPACER_SYSTEMS!=='undefined'?SPACER_SYSTEMS:[];
-  var known=systems.find(function(s){return s.system===sp.system;});
-  if(known)return known.code;
-  var id=String(sp.id||''),match=id.match(/^SP-([^-]+)-/i);
-  return match?match[1].toUpperCase():String(sp.system||sp.code||'').trim();
+  return spacerSystemCode(sp);
 }
 function salesSheetCavityText(makeup,i){
   var c=(makeup.cavities||[])[i-1];

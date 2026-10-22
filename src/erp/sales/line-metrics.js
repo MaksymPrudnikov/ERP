@@ -2,19 +2,12 @@
    the calculation. Monetary amounts here are before energy, tax and delivery. */
 const SALES_METRIC_RULE_DEFAULTS={minimumAreaFt2:4,triplePercent:50,largePercent:50,largeThresholdFt2:60,combination:'additive'};
 DEFAULT.salesMetricRules=Object.assign({},SALES_METRIC_RULE_DEFAULTS);
-const SALES_WEIGHT_RATE_DEFAULTS=[
- {key:'spacer:SP-BWE-1732',label:'17/32 Black Warm Edge spacer',rate:.030,unit:'kg/ft²',note:'Temporary shop estimate · 30 g/ft²'},
- {key:'desiccant:SP-BWE-1732',label:'17/32 Black Warm Edge desiccant',rate:.033,unit:'kg/ft²',note:'Shop norm · 33 g/ft²'},
- {key:'seal:SEAL-PIB:SP-BWE-1732',label:'17/32 Black Warm Edge · PIB',rate:.005,unit:'kg/ft²',note:'Shop norm · 5 g/ft²'},
- {key:'seal:SEAL-PS:SP-BWE-1732',label:'17/32 Black Warm Edge · Polysulphide + catalyst',rate:.127,unit:'kg/ft²',note:'Shop norm · 127 g/ft²'},
- {key:'connectors:SP-BWE-1732',label:'17/32 Black Warm Edge · connectors / corners',rate:.040,unit:'kg/unit',note:'Temporary allowance · 40 g per cavity'},
- {key:'gas:GAS-AIR',label:'Air',rate:1.225,unit:'kg/m³',note:'Reference density; editable for shop conditions'},
- {key:'gas:GAS-ARGON',label:'Argon',rate:1.784,unit:'kg/m³',note:'Reference density; editable for shop conditions'}
-];
-const SALES_SPACER_WEIGHT_REFERENCE={variantId:'SP-BWE-1732',rate:.030};
-DEFAULT.materialWeightRates=JSON.parse(JSON.stringify(SALES_WEIGHT_RATE_DEFAULTS));
+/* Нормы веса, которых ещё нет в карточках (плёнка, фрит, спандрел,
+   шпросы), — строки Weight norms; обвязка — в карточках и рецепте
+   (erp/masterdata/surround). */
+DEFAULT.materialWeightRates=[];
 DB.salesMetricRules=Object.assign({},SALES_METRIC_RULE_DEFAULTS);
-DB.materialWeightRates=JSON.parse(JSON.stringify(SALES_WEIGHT_RATE_DEFAULTS));
+if(!Array.isArray(DB.materialWeightRates))DB.materialWeightRates=[];
 function salesNormalizeMetricRules(value){
  const v=value&&typeof value==='object'?value:{},out={};
  ['minimumAreaFt2','triplePercent','largePercent','largeThresholdFt2'].forEach(k=>{
@@ -27,20 +20,7 @@ function salesNormalizeMetricRules(value){
 function salesMetricRules(order){return salesNormalizeMetricRules((order&&order.metricRules)||DB.salesMetricRules);}
 function salesNormalizeWeightRates(){
  const seen=new Set();
- DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note),derived:r.derived===true}));
- SALES_WEIGHT_RATE_DEFAULTS.forEach(d=>{const r=DB.materialWeightRates.find(x=>x.key===d.key);if(!r){DB.materialWeightRates.push(Object.assign({},d));seen.add(d.key);return;}const placeholder=!r.label&&!r.unit&&!r.note;if(placeholder)r.rate=d.rate;if(!r.label)r.label=d.label;if(!r.unit)r.unit=d.unit;if(!r.note)r.note=d.note;});
- /* Until a shop measurement overrides a row, every spacer profile uses the
-    confirmed average for 17/32 and scales it by its physical thickness.  The
-    generated rows are ordinary editable master data, so a measured value wins
-    permanently over the estimate. */
- const ref=mdById('spacerVariant',SALES_SPACER_WEIGHT_REFERENCE.variantId),refMm=spacerThicknessMm(ref);
- (DB.spacerVariant||[]).forEach(sp=>{
-  const key='spacer:'+sp.id,row=DB.materialWeightRates.find(r=>r.key===key);
-  const mm=spacerThicknessMm(sp),rate=refMm>0&&mm>0?SALES_SPACER_WEIGHT_REFERENCE.rate*mm/refMm:null;
-  if(row&&!row.derived)return;
-  const estimate={key:key,label:(sp.name||sp.id)+' spacer',rate:rate,unit:'kg/ft²',note:'Calculated estimate · 17/32 average × thickness ratio',derived:true};
-  if(row)Object.assign(row,estimate);else DB.materialWeightRates.push(estimate);seen.add(key);
- });
+ DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
  DB.salesMetricRules=salesNormalizeMetricRules(DB.salesMetricRules);
 }
 function salesLineAreas(line,order){
@@ -142,7 +122,15 @@ function salesLineMaterials(m,areas,order){
    add(label+(g?' · '+g.code:''),p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p),'glassProduct',g,glassKg(p,g));
   }
  });
- (m.cavities||[]).forEach((c,i)=>add('Surround · cavity '+(i+1),c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c),'','',null,'sqft'));
+ /* Обвязка — по частям рецепта; ручная ставка камеры — одна строка за ft². */
+ const geo={areaFt2:areas.actual,perimeterM:areas.perimeterIn*.0254};
+ (m.cavities||[]).forEach((c,i)=>{
+  const at=out.rows.length;
+  if(c.priceOverride!=null)add('Surround · cavity '+(i+1),c.priceOverride,'','',null,'sqft');
+  else{const parts=surroundCavityParts(c,geo,order).parts;if(!parts.length)add('Surround · cavity '+(i+1),null);
+   parts.forEach(x=>add('Cavity '+(i+1)+' · '+x.label,salesSurroundPartPrice(x),x.table,x.item,()=>x.usedKg));}
+  for(let k=at;k<out.rows.length;k++)out.rows[k].cavity=i;
+ });
  plain=Math.round(plain*100)/100;out.amount+=plain*areas.billable;
  out.total=out.rows.some(r=>r.special)&&areas.billable>0?Math.round(out.amount/areas.billable*100)/100:plain;
  return out;
@@ -155,6 +143,7 @@ function salesItemSizeProblems(line,order){
   if(x.maxWidthIn!=null&&W>x.maxWidthIn||x.maxHeightIn!=null&&H>x.maxHeightIn)out.push(name+': over max '+(x.maxWidthIn==null?'—':x.maxWidthIn)+' × '+(x.maxHeightIn==null?'—':x.maxHeightIn)+'″');
   if(x.minWidthIn!=null&&W<x.minWidthIn||x.minHeightIn!=null&&H<x.minHeightIn)out.push(name+': under min '+(x.minWidthIn==null?'—':x.minWidthIn)+' × '+(x.minHeightIn==null?'—':x.minHeightIn)+'″');};
  (m.panes||[]).forEach(p=>{if(p.category==='laminated'){const l=p.laminated||{};[l.outer,l.inner].forEach(x=>check(x&&glassProductById(x.glassProductId)));(l.interlayers||[]).forEach(f=>check(mdById('interlayerProduct',f.productId)));}else check(glassProductById(p.glassProductId));});
+ (m.cavities||[]).forEach(c=>check(mdById('spacerVariant',c.spacerVariantId)));
  return [...new Set(out)];
 }
 function salesItemSizeWarnings(order){
@@ -239,16 +228,18 @@ function salesLineWeight(line,order,productionPlan){
    });
   }else{glass(p,label,g);surface(p,label,g);}
  });
+ /* Обвязка по рецепту рамки: рамка идёт по контуру камеры. У ступенчатого
+    пакета контуры лайтов разные — контур выбирают в камере (Contour). */
  (m.cavities||[]).forEach((c,i)=>{
   const a=geometry(i),b=geometry(i+1),same=plan&&plan.valid&&plan.lites[i]&&plan.lites[i+1]&&JSON.stringify(plan.lites[i].finishedPoints)===JSON.stringify(plan.lites[i+1].finishedPoints);
-  const perimeter=same?a.perimeter:null,area=same?a.area:null,sp=mdById('spacerVariant',c.spacerVariantId),suffix=' · Cavity '+(i+1);
-  norm('spacer:'+c.spacerVariantId,(sp?sp.name:'Spacer')+suffix,area,'kg/ft²','Shop norm per finished unit area; exclude separately listed desiccant');
-  norm('desiccant:'+c.spacerVariantId,'Desiccant'+suffix,area,'kg/ft²','Use 0 if included in spacer weight');
-  norm('connectors:'+c.spacerVariantId,'Spacer connectors'+suffix,1,'kg/unit','Total connectors per cavity');
-  [c.primarySealantId,c.secondarySealantId].forEach(id=>{const p=mdById('sealantProduct',id);norm('seal:'+id+':'+c.spacerVariantId,(p?p.name:'Sealant')+suffix,area,'kg/ft²','Shop norm per finished unit area for this spacer size');});
-  const gas=mdById('gasProduct',c.gasProductId),mm=spacerThicknessMm(sp);
-  norm('gas:'+c.gasProductId,(gas?gas.name:'Gas')+suffix,area!=null&&mm>0?area*GLASS_M2_PER_FT2*mm/1000:null,'kg/m³','Fill-mixture density; nominal cavity volume');
-  if(!same)add('Cavity '+(i+1)+' · stepped / differing contours',null,'Spacer path and cavity volume require confirmation');
+  const pick=same?a:c.contour==='a'?a:c.contour==='b'?b:null,suffix=' · Cavity '+(i+1);
+  const geo=pick&&pick.area!=null?{areaFt2:pick.area,perimeterM:pick.perimeter}:null;
+  const got=surroundCavityParts(c,geo,order);
+  if(!mdById('spacerVariant',c.spacerVariantId))add('Spacer'+suffix,null,'Spacer not found');
+  else if(!got.recipe)add('Surround'+suffix,null,'No recipe in the spacer card');
+  const basis=geo?'perimeter '+geo.perimeterM.toFixed(2)+' m · area '+geo.areaFt2.toFixed(2)+' ft²':'';
+  got.parts.forEach(x=>rows.push({label:x.label+suffix,kg:x.kg,usedKg:x.usedKg,wastePct:x.wastePct,basisText:basis,note:x.note+(x.wastePct?' · used with '+x.wastePct+'% waste: '+(x.usedKg==null?'—':x.usedKg.toFixed(3)+' kg'):'')}));
+  if(!same&&!geo)add('Cavity '+(i+1)+' · stepped / differing contours',null,'Choose the spacer contour in the cavity');
  });
  const muntin=shape&&shape.muntin;
  if(muntin&&muntin.enabled&&(m.cavities||[]).length){
