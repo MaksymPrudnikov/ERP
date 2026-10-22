@@ -121,21 +121,24 @@ function customerChanged(){
  return cEdit==='new'?!!(cDraft.legalName||cDraft.displayName||cDraft.code||(cDraft.contacts||[]).length):!!saved&&JSON.stringify(normalizeCustomer(JSON.parse(JSON.stringify(cDraft))))!==JSON.stringify(saved);
 }
 function customerLeave(go){if(!customerChanged()||confirm('Discard unsaved customer changes?'))go();}
-/* Заказы клиента: те же номер, статус и суммы, что в списке Sales. */
+/* Заказы клиента: те же номер, статус и суммы, что в списке Sales; ушедшие
+   в архив — тут же, с серой меткой Archived (erp/archive). */
 function customerOrdersTab(){
- const id=cEdit,list=(DB.salesOrder||[]).filter(o=>o.customerId===id&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id))
-  .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
- const row=o=>{const i=salesListInfo(o),v=k=>salesListValue(i,k),total=v('total'),bal=v('balance');
-  return `<tr data-customer-order="${esc(o.id)}" onclick="customerOpenOrder('${esc(o.id)}')"><td class="mono"><b>${esc(v('number')||'—')}</b></td><td>${esc(v('type'))}</td><td>${esc(v('status')||'')}</td><td>${esc(salesListShortDay(v('created'))||'—')}</td><td>${v('due')?esc(salesListShortDay(v('due'))):'<span class="mut">—</span>'}</td><td class="n">${total==null?'<span class="mut">—</span>':esc(finFmt(total))}</td><td class="n">${bal==null?'<span class="mut">—</span>':`<span class="${bal>0?'fin-due':''}">${esc(finFmt(bal))}</span>`}</td></tr>`;};
+ const id=cEdit,old=typeof archiveListInfos==='function'?archiveListInfos(a=>a.customerId===id):[];
+ const list=(DB.salesOrder||[]).filter(o=>o.customerId===id&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)).map(salesListInfo).concat(old)
+  .sort((a,b)=>String(b.o.createdAt||'').localeCompare(String(a.o.createdAt||'')));
+ const row=i=>{const o=i.o,v=k=>salesListValue(i,k),total=v('total'),bal=v('balance');
+  return `<tr data-customer-order="${esc(o.id)}"${i.a?' class="sl-row-archived"':''} onclick="${i.a?'customerOpenArchived':'customerOpenOrder'}('${esc(o.id)}')"><td class="mono"><b>${esc(v('number')||'—')}</b></td><td>${esc(v('type'))}</td><td>${esc(v('status')||'')}${i.a?' <span class="pill archived" data-archived>Archived</span>':''}</td><td>${esc(salesListShortDay(v('created'))||'—')}</td><td>${v('due')?esc(salesListShortDay(v('due'))):'<span class="mut">—</span>'}</td><td class="n">${total==null?'<span class="mut">—</span>':esc(finFmt(total))}</td><td class="n">${bal==null?'<span class="mut">—</span>':`<span class="${bal>0?'fin-due':''}">${esc(finFmt(bal))}</span>`}</td></tr>`;};
  return `<div class="section-title"><div><h3>Orders</h3><div class="sub">${list.length?customerOrdersCount(list)+' · newest first':'No quotes or orders yet'}</div></div><div class="row"><button class="pri" data-customer-new-order onclick="customerNewOrder('order')">+ New order</button><button data-customer-new-quote onclick="customerNewOrder('quote')">+ New quote</button></div></div>
   ${list.length?`<div class="sales-table-wrap"><table class="sl-table cust-orders"><thead><tr><th>Number</th><th>Type</th><th>Status</th><th>Created</th><th>Due</th><th class="n">Total</th><th class="n">Balance</th></tr></thead><tbody>${list.map(row).join('')}</tbody></table></div>`:''}`;
 }
-function customerOrdersCount(list){const q=list.filter(salesIsQuote).length,o=list.length-q,n=(k,w)=>k+' '+w+(k===1?'':'s');return [o?n(o,'order'):'',q?n(q,'quote'):''].filter(Boolean).join(' · ');}
+function customerOrdersCount(list){const q=list.filter(i=>i.q).length,o=list.length-q,n=(k,w)=>k+' '+w+(k===1?'':'s');return [o?n(o,'order'):'',q?n(q,'quote'):''].filter(Boolean).join(' · ');}
 function customerToSales(go){
  customerLeave(()=>{cEdit=null;cDraft=null;cMenu=null;tab='sales';subtab=null;
   if(typeof soDraft!=='undefined'&&soDraft&&typeof salesLeaveDraft==='function')salesLeaveDraft(go);else go();});
 }
 function customerOpenOrder(id){customerToSales(()=>salesOrderEdit(id));}
+function customerOpenArchived(id){customerToSales(()=>{archiveOpen(id);});}
 function customerNewOrder(kind){const id=cEdit;customerToSales(()=>{salesOrderNew(kind==='quote'?'quote':'order');salesApplyCustomerDefaults(id);render();});}
 
 /* Дубль при создании (владелец, 3 октября 2026): похожее название (без

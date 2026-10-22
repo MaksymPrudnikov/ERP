@@ -38,6 +38,10 @@ const STORAGE_ROW_KEY={glassBatch:'number',cutPlan:'batch',productionRoute:'key'
    tbl → Map id → {t: текст JSON, s: seq}. */
 let storageBase=new Map();
 let storageIdb=null;
+/* Строки на просмотре из архива (erp/archive, archiveOpen): tbl → Set id.
+   Они в DB, пока заказ открыт, но сравнение базы их не видит — в базу не
+   пишутся и «удалёнными» не считаются. */
+let storageVisit=new Map();
 
 function storageRowKey(tbl,row){
  if(!row||typeof row!=='object')return '';
@@ -78,7 +82,7 @@ function storageDiff(db){
  storageBase.forEach((m,tbl)=>{if(tbl!=='_meta')keys.add(tbl);});
  meta.forEach((x,k)=>keys.add(k));
  keys.forEach(k=>{
-  const v=db[k],base=storageBase.get(k);
+  const vis=storageVisit.size?storageVisit.get(k):null,v=vis&&Array.isArray(db[k])?db[k].filter(r=>!vis.has(storageRowKey(k,r))):db[k],base=storageBase.get(k);
   if(Array.isArray(v)){
    if(meta.has(k))out.push({tbl:'_meta',id:k,del:true});
    const was=base||new Map(),ids=storageTableIds(k,v);

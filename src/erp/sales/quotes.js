@@ -26,7 +26,7 @@ function salesQuoteMembers(o){
 function salesQuoteWonMember(o){return salesQuoteMembers(o).find(m=>m.status==='won')||null;}
 function salesQuoteRepresentative(o){const ms=salesQuoteMembers(o);return ms.find(m=>m.status==='won')||ms[ms.length-1]||o;}
 function salesQuoteGroupStatus(o){const ms=salesQuoteMembers(o);return ms.some(m=>m.status==='won')?'won':ms.some(m=>m.status==='sent')?'sent':'open';}
-function salesListStatus(o){return salesIsQuote(o)?salesQuoteGroupStatus(o):o.status;}
+function salesListStatus(o){return o.archived?o.status:salesIsQuote(o)?salesQuoteGroupStatus(o):o.status;}
 function salesQuoteBaseNumber(o){
  const base=salesQuoteMembers(o).find(m=>!m.quoteRev);
  return base&&base.businessNumber?base.businessNumber:String(o&&o.businessNumber||'').replace(/-R\d+$/,'');
@@ -37,7 +37,8 @@ function salesQuoteCurrentId(){return soQuoteCopyOf||(soEdit&&soEdit!=='new'?soE
 function salesQuoteCopySource(){return soQuoteCopyOf?(DB.salesOrder||[]).find(x=>x.id===soQuoteCopyOf)||null:null;}
 function salesQuoteShown(o){if(o&&o===soDraft){const s=salesQuoteCopySource();if(s)return s;}return o;}
 function salesQuoteNextRevName(){const s=salesQuoteCopySource();return s?'R'+salesQuoteNextRev(s):'';}
-function salesQuoteOpensAsCopy(o){return salesIsQuote(o)&&o.status==='sent'&&!salesQuoteWonMember(o);}
+/* Квота из архива на просмотре открывается как есть, без рабочей копии (erp/archive). */
+function salesQuoteOpensAsCopy(o){return salesIsQuote(o)&&o.status==='sent'&&!salesQuoteWonMember(o)&&!(typeof archiveVisit!=='undefined'&&archiveVisit&&archiveVisit.ids.has(o.id));}
 
 /* ---------------------------- Срок цен ---------------------------------- */
 function salesQuoteValidDays(){const d=DB.company&&DB.company.quoteValidDays;return Number.isFinite(+d)&&+d>0?+d:180;}

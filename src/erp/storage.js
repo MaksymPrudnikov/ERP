@@ -76,6 +76,8 @@ function storageInvalidate(){
  if(typeof stkSheetCache!=='undefined')stkSheetCache={batch:'',map:null};
  if(typeof orderLogCreators!=='undefined')orderLogCreators={ref:null,n:-1,map:null};
  if(typeof readMemoReset==='function')readMemoReset();
+ /* Пересборка таблицы (откат, чужая запись) — строки просмотра из архива на место. */
+ if(typeof archiveVisitKeep==='function')archiveVisitKeep();
 }
 /* Откат — из опорного состояния (то, что лежит в базе): возвращаются только
    таблицы, которые изменились. before — несохранённое до команды
@@ -112,9 +114,10 @@ function storageColdMoveAll(tbl,list){
  list.forEach(x=>{const id=storageRowKey(tbl,x.row);storageColdPending.set(tbl+'\u0000'+id,{tbl,id,owners:x.owners||[],month:x.month||'',data:JSON.stringify(x.row)});});
  DB[tbl]=rows.filter(r=>!set.has(r));
 }
-/* Строка, которая сейчас уходит в архив или возвращается из него: журнал
-   заказа не пишет её «Deleted» или «Created» (erp/sales/order-log). */
-function storageColdMoving(tbl,id){const k=tbl+'\u0000'+id;return storageColdPending.has(k)||storageColdWarm.has(k);}
+/* Строка, которая сейчас уходит в архив или возвращается из него (или
+   открыта из архива на просмотр): журнал заказа не пишет её «Deleted» или
+   «Created» (erp/sales/order-log). */
+function storageColdMoving(tbl,id){const k=tbl+'\u0000'+id,v=storageVisit.get(tbl);return storageColdPending.has(k)||storageColdWarm.has(k)||!!v&&v.has(id);}
 /* Одна запись из архива — на своё место по seq (внутри действия). */
 function storageColdPut(r){
  if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];const rows=DB[r.tbl],base=storageBase.get(r.tbl)||new Map(),seqOf=x=>{const b=base.get(storageRowKey(r.tbl,x));return b?b.s:Infinity;};
