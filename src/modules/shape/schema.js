@@ -84,9 +84,13 @@ function shapeNewEntityId(prefix){
 }
 function shapePlainObject(x){return x&&typeof x==='object'&&!Array.isArray(x)?x:{};}
 function shapeTextValue(v,d){return String(v==null?(d==null?'':d):v);}
+/* Номер элемента: свой — как есть, новый — только когда его нет. Раньше
+   новый создавался на каждой нормализации и выбрасывался: Finance на базе
+   3 мес. тратил на это треть экрана (задание «База», П2). */
+function shapeIdValue(v,prefix){return v==null?shapeNewEntityId(prefix):String(v);}
 function shapeNormalizeOp(op){
   op=shapePlainObject(op);var type=SHAPE_EDGE_OPS.indexOf(op.type)>=0?op.type:null;if(!type)return null;
-  var out={id:shapeTextValue(op.id,shapeNewEntityId('eo-')),type:type};
+  var out={id:shapeIdValue(op.id,'eo-'),type:type};
   /* Сторона обработки — производственный параметр, а не оформление:
      Front Mitre оставляет длинной ЛИЦЕВУЮ грань и подрезает тыльную,
      Back Mitre — наоборот. От неё зависит вид сверху и тип машинной линии. */
@@ -96,7 +100,7 @@ function shapeNormalizeOp(op){
 }
 function shapeNormalizeFeature(f){
   f=shapePlainObject(f);var type=SHAPE_FEATURE_TYPES.indexOf(f.type)>=0?f.type:'hole';
-  var out={id:shapeTextValue(f.id,shapeNewEntityId('sf-')),type:type};
+  var out={id:shapeIdValue(f.id,'sf-'),type:type};
   if(type==='hole')Object.assign(out,{diameter:shapeTextValue(f.diameter,'1/2'),x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'3'),minEdge:shapeTextValue(f.minEdge,'1/2')});
   if(type==='cutout')Object.assign(out,{width:shapeTextValue(f.width,'4'),height:shapeTextValue(f.height,'4'),x:shapeTextValue(f.x,'8'),y:shapeTextValue(f.y,'8'),cornerRadius:shapeTextValue(f.cornerRadius,'0')});
   if(type==='radius')Object.assign(out,{vertexId:shapeTextValue(f.vertexId,''),radius:shapeTextValue(f.radius,'1/2')});
@@ -202,7 +206,7 @@ function shapeHoleRequirementParams(item,diameter){
 function shapeMiIsEdgeBound(item){return !!item&&shapeManufacturingItemType(item.type)!=='hole';}
 function shapeNormalizeManufacturingItem(raw){
   raw=shapePlainObject(raw);var type=shapeManufacturingItemType(raw.type);
-  var out={id:shapeTextValue(raw.id,shapeNewEntityId('mi-')),type:type,note:shapeTextValue(raw.note,'')};
+  var out={id:shapeIdValue(raw.id,'mi-'),type:type,note:shapeTextValue(raw.note,'')};
   if(type==='hole'){
     var x=shapeDxfCoord(raw.x),y=shapeDxfCoord(raw.y);if(!isFinite(x))x=0;if(!isFinite(y))y=0;
     /* Отверстие из DXF стоит ТОЧНО там, где в файле (владелец, 16.10:
@@ -382,7 +386,7 @@ function normalizeShapeDef(s){
   Object.keys(defaults).forEach(function(k){if(params[k]==null)params[k]=defaults[k];else params[k]=shapeTextValue(params[k]);});
   Object.keys(edgeOps).forEach(function(id){var list=Array.isArray(edgeOps[id])?edgeOps[id]:[],clean=list.map(shapeNormalizeOp).filter(Boolean);if(clean.length)ops[id]=clean;});
   var source=shapeNormalizeSource(s.source),out={
-    id:shapeTextValue(s.id,shapeNewEntityId('s')),name:shapeTextValue(s.name,''),type:type,
+    id:shapeIdValue(s.id,'s'),name:shapeTextValue(s.name,''),type:type,
     w:normalizedW,h:normalizedH,
     thickness:shapeTextValue(s.thickness,'6'),params:params,polygon:shapeNormalizePolygon(s.polygon),
     /* Safety Border: базовое значение (пусто = AUTO по толщине) плюс ручной

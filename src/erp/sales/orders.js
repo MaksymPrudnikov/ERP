@@ -1262,7 +1262,13 @@ function salesOrderChargeGroups(){
 function salesOrderGroupBasisText(g){return salesChargeUnitValue(g.basis,g.unit);}
 function salesOrderGroupCatalogText(g,currency){if(!g.catalogRates.length)return '—';if(g.catalogRates.length===1)return salesRateText(g.catalogRates[0],g.unit,currency);return g.catalogRates.map(function(x){return Number(x).toFixed(2);}).join(' / ')+' '+currency+'/'+(g.unit==='pc'?'pc':g.unit==='ft²'?'ft²':'in');}
 
-function salesShapeByRef(ref){return ref&&ref.id?DB.shapeDef.find(s=>s.id===ref.id)||null:null;}
+/* Фигура строки — на отрисовку один указатель «номер → фигура» (erp/read-scope):
+   Finance спрашивает её для каждой строки каждого заказа (задание «База», П2). */
+function salesShapeByRef(ref){
+ if(!ref||!ref.id)return null;
+ if(readOn())return readMemo('shapeById',[DB.shapeDef],()=>{const m=new Map();DB.shapeDef.forEach(s=>{if(s&&!m.has(s.id))m.set(s.id,s);});return m;}).get(ref.id)||null;
+ return DB.shapeDef.find(s=>s.id===ref.id)||null;
+}
 /* Деления этой строки: раскладка живёт в её форме, поэтому соседние строки с
    тем же makeup остаются без бара и без цены. */
 function salesMuntinSections(line){return salesMuntinSectionsOf(salesLineMuntin(line));}
