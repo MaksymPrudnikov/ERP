@@ -3480,7 +3480,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='48fcb12c7e0e';
+var ERP_BUILD='1c3c25c2e15e';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13363,7 +13363,7 @@ function salesSyncRecordLifecycle(o){
 }
 function salesSetRecordStatus(orderId,next,opts){
  if(storageDepth||opts&&opts.deferTouch)return salesSetRecordStatusCommand(orderId,next,opts);
- const out=storageCommand(()=>salesSetRecordStatusCommand(orderId,next,opts));return out.ok&&out.value;
+ const out=storageCommand(()=>salesSetRecordStatusCommand(orderId,next,opts),Object.assign(salesOrderScope(orderId),{glassBatch:glassBatchEntries(orderId).map(x=>x.batch.number).concat(glassBatchScope([{orderId}],opts).glassBatch)}));return out.ok&&out.value;
 }
 function salesSetRecordStatusCommand(orderId,next,opts){
  opts=opts||{};const o=salesRecord(orderId);
@@ -13798,18 +13798,21 @@ function orderLogCreatedNote(o){
 }
 /* Заказы того, что лежит в базе сейчас: id → текст записи (erp/storage-records). */
 function orderLogBaseMap(){return typeof storageBaseTexts==='function'?storageBaseTexts('salesOrder'):null;}
-/* touch(): перед записью — события по разнице с базой. */
-function orderLogCapture(){
+/* touch(): перед записью — события по разнице с базой. ids — область
+   записи команды (storageCommand): из записанных заказов смотрятся только
+   эти. */
+function orderLogCapture(ids){
  if(!Array.isArray(DB.salesOrder))return;
  /* Импорт JSON заменяет базу целиком — это не правка заказов. */
  if(typeof storageImporting!=='undefined'&&storageImporting)return;
  const base=orderLogBaseMap();if(!base)return;
  /* Заказ рядом со своим текстом: искать каждый по всему списку — N² на
     каждом действии, и на скане тоже (проверка Codex 22.10.2026). */
- const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,{o,text:JSON.stringify(o)}]));
+ const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,!ids||ids.has(String(o.id))||!base.has(o.id)?{o,text:JSON.stringify(o)}:null]));
  /* Уход в архив и возврат из него — не правка заказа (erp/archive). */
  const moving=id=>typeof storageColdMoving==='function'&&storageColdMoving('salesOrder',id);
- now.forEach(({o,text},id)=>{
+ now.forEach((x,id)=>{
+  if(!x)return;const {o,text}=x;
   if(!base.has(id)){if(moving(id))return;orderLogPush(o,'Created',orderLogCreatedNote(o));return;}
   if(base.get(id)===text)return;
   let a,b;try{a=normalizeSalesOrder(JSON.parse(base.get(id)));b=normalizeSalesOrder(JSON.parse(text));}catch(e){return;}
@@ -14406,7 +14409,10 @@ function normalizeFinanceLedger(){
 }
 /* Commit money and its history together. A failed write leaves the UI draft
    available, and restores the previous in-memory balances. */
-function finPersist(fn){return storageCommand(fn);}
+function finPersist(fn,scope){return storageCommand(fn,scope);}
+/* Область записи оплаты (storageCommand): оплата, история денег, заказы, на
+   которые она легла. */
+function finReceiptScope(d,id){return {receipt:id?[id]:[],financeEvent:[],salesOrder:(d&&d.allocations||[]).map(a=>a.orderId)};}
 function finReceiptDuplicates(d,id){
  const ref=String(d.reference||'').trim().toLowerCase();if(!ref||d.method==='cash')return [];
  return (DB.receipt||[]).filter(r=>!r.voided&&r.id!==id&&r.customerId===d.customerId&&r.method===d.method&&r.reference.trim().toLowerCase()===ref);
@@ -16729,12 +16735,18 @@ function salesRebaseDraft(current){
  if(conflicts.length)return 'The order changed elsewhere: '+conflicts.join(', ')+'. Reopen it before updating; your draft is still available.';
  soSavedBaseline=JSON.stringify(current);return true;
 }
+/* Область записи Save (storageCommand): заказ, его условия оплаты, стёкла и
+   батчи (меньше Qty — стекло снимается с батча). */
+function salesOrderScope(id){
+ const own=id&&id!=='new'?[id]:[];
+ return {salesOrder:own,financeTerms:own,glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true,glassBatch:own.length?glassBatchEntries(id).map(x=>x.batch.number):[]};
+}
 function salesOrderSave(opts){
  const editor={draft:soDraft?JSON.parse(JSON.stringify(soDraft)):null,edit:soEdit,quote:soQuoteCopyOf,shapes:soShapeSnapshot,baseline:soSavedBaseline};
  const out=storageCommand(()=>{
   const rebased=salesRebaseDraft(DB.salesOrder.find(x=>x.id===soEdit));if(rebased!==true)throw new Error(rebased);
   const result=salesOrderSaveCommand(opts);if(result!==true){const e=document.getElementById('e_sales_order');throw new Error(e&&e.textContent||'The order was not saved.');}return true;
- });
+ },salesOrderScope(soEdit));
  if(!out.ok){soDraft=editor.draft;soEdit=editor.edit;soQuoteCopyOf=editor.quote;soShapeSnapshot=editor.shapes;soSavedBaseline=editor.baseline;render();fail(document.getElementById('e_sales_order'),out.error);return false;}
  soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));render();return true;
 }
@@ -28517,7 +28529,7 @@ function finSaveReceipt(){
  const e=document.getElementById('e_fin');if(e)e.style.display='none';if(!finDraft)return;
  if(finEdit!=='new'&&finRecordBaselineId===finEdit&&JSON.stringify((DB.receipt||[]).find(r=>r.id===finEdit))!==finRecordBaseline){fail(e,'This payment changed elsewhere. Reopen it before correcting it; your draft is still available.');return false;}
  const d=Object.assign({},finDraft,{allocations:Object.entries(finDraft.apply).map(([orderId,amount])=>({orderId,amount:amount===''?0:amount}))});
- const out=finPersist(()=>finSaveReceiptRecord(d,finEdit==='new'?null:finEdit,d.reason,d.duplicate));
+ const out=finPersist(()=>finSaveReceiptRecord(d,finEdit==='new'?null:finEdit,d.reason,d.duplicate),finReceiptScope(d,finEdit==='new'?null:finEdit));
  if(!out.ok){if(/reference already exists/.test(out.error)){render();}return fail(document.getElementById('e_fin'),out.error);}
  finCloseReceipt(true,out.value);
 }
@@ -31206,7 +31218,14 @@ function glassBatchPartSnapshot(r){
    создаются все вместе или ни один. */
 function glassBatchAssign(rows,opts){
  if(storageDepth||opts&&(opts.deferTouch||opts.dryRun))return glassBatchAssignCommand(rows,opts);
- const out=storageCommand(()=>{const value=glassBatchAssignCommand(rows,opts);if(value==null)throw new Error('Nothing could be assigned to this batch.');return value;});return out.ok?out.value:null;
+ const out=storageCommand(()=>{const value=glassBatchAssignCommand(rows,opts);if(value==null)throw new Error('Nothing could be assigned to this batch.');return value;},
+  glassBatchScope(rows,opts));return out.ok?out.value:null;
+}
+/* Область записи батча (storageCommand): батч, заказы его стёкол; срочное
+   встаёт первым — тогда и очередь резки (glassBatchRushFirst). */
+function glassBatchScope(rows,opts){
+ const orders=[...new Set((rows||[]).map(r=>r.orderId))],rush=orders.some(id=>typeof stationUrgency==='function'&&stationUrgency(salesRecord(id))>0);
+ return {glassBatch:(opts&&opts.batchNo?[salesBatchNumber(opts.batchNo)]:[]).concat(rush?glassBatchCutQueue().map(b=>b.number):[]),salesOrder:orders};
 }
 function glassBatchAssignCommand(rows,opts){
  opts=opts||{};if(!rows||!rows.length)return null;
@@ -36779,8 +36798,18 @@ function stationCheck(station,raw){
 /* who: {id, name} — рабочий, вошедший на станцию. */
 function stationRecord(station,check,who,opts){
  if(storageDepth||opts&&opts.deferTouch)return stationRecordCommand(station,check,who,opts);
- const out=storageCommand(()=>stationRecordCommand(station,check,who,opts));
+ const out=storageCommand(()=>stationRecordCommand(station,check,who,opts),stationScope(station,check));
  return out.ok?out.value:null;
+}
+/* Область записи скана (storageCommand): новые сканы и маршруты, заказ и
+   батч отсканированного стекла и его пар, сканы стёкол их позиций (сборка
+   на станции слияния метит и прежние сканы). */
+function stationScope(station,check){
+ const orders=[],batches=[],lines=new Set(),pieces=new Set(),scans=[];
+ [check].concat((check&&check.mates||[]).map(id=>stationCheck(station,id))).forEach(c=>{const g=c&&c.g;if(!g)return;if(g.o)orders.push(g.o.id);if(g.entry)batches.push(g.entry.batch.number);if(g.o&&g.l)lines.add(g.o.id+'|'+g.l.id);});
+ if(lines.size)(DB.glassPiece||[]).forEach(r=>{const [o,l]=String(r.key).split('|');if(!lines.has(o+'|'+l))return;r.ids.forEach(id=>{if(id)pieces.add(id);});Object.values(r.extra||{}).forEach(x=>x.forEach(id=>{if(id)pieces.add(id);}));});
+ if(pieces.size)(DB.stationScan||[]).forEach(x=>{if(pieces.has(x.piece))scans.push(x.id);});
+ return {stationScan:scans,stationScanSeq:true,productionRoute:[],salesOrder:orders,glassBatch:batches};
 }
 function stationRecordCommand(station,check,who,opts){
  opts=opts||{};
@@ -36816,7 +36845,7 @@ function stationMove(station,check,who,opts){
   if(!rec)throw new Error('Nothing was recorded.');
   const mates=stationRecordMates(station,check,who,opts);
   return {rec,mates};
- });
+ },stationScope(station,check));
 }
 /* Undo — только последний скан стекла: отменить CUT, когда стекло уже
    прошло EDGE, значило бы оставить его «на EDGE без реза». */
@@ -43022,7 +43051,7 @@ function shippingCreate(d){return storageCommand(()=>{
  const s={id:salesUid('PS'),number:'PS-'+String(DB.shipmentSeq).padStart(4,'0'),customerId:d.customerId,method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,status:'planned',...picked,
   createdAt:now,createdBy:shippingActor(),shippedAt:'',shippedBy:'',deliveredAt:'',receivedBy:'',note:String(d.note||'').slice(0,1000),scanIds:[]};
  DB.shipment.push(s);shippingOrderIds(s).forEach(id=>orderLogPush(salesRecord(id),'Packing slip created',s.number));return s;
-});}
+},{shipment:[],shipmentSeq:true});}
 function shippingUpdate(id,d){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can change.');
  shippingAssert(s.customerId===d.customerId,'The packing slip customer cannot change.');
@@ -43076,7 +43105,7 @@ function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
  /* Стекло отменённых юнитов, которое клиент забирает, уехало с этим PS. */
  shippingOrderIds(s).forEach(oid=>unitTakesShipped(salesRecord(oid),s.id));
  shippingSyncOrders(before.concat(shippingOrderIds(s)),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
-});}
+},shippingFind(id)&&{shipment:[id],salesOrder:shippingOrderIds(shippingFind(id)),stationScan:[],stationScanSeq:true,productionRoute:[],carrier:true});}
 function shippingMarkDelivered(id,receivedBy,receivedOn){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s,'Packing slip not found.');if(s.status==='delivered')return s;
  shippingAssert(s.status==='shipped','Mark this packing slip Loaded first.');
@@ -46329,8 +46358,11 @@ function storageDiff(db,only){
  storageBase.forEach((m,tbl)=>{if(tbl!=='_meta')keys.add(tbl);});
  meta.forEach((x,k)=>keys.add(k));
  keys.forEach(k=>{
-  /* only — сравнить только эти таблицы (storageCommand: до команды). */
+  /* only — сравнить только эти таблицы (storageCommand: до команды). Map
+     таблица → Set ключей: из строк на месте — только эти (область записи
+     команды); новые, удалённые и сдвинутые видны всегда. */
   if(only&&!only.has(k))return;
+  const rows=only instanceof Map?only.get(k):null;
   const vis=storageVisit.size?storageVisit.get(k):null,v=vis&&Array.isArray(db[k])?db[k].filter(r=>!vis.has(storageRowKey(k,r))):db[k],base=storageBase.get(k);
   if(Array.isArray(v)){
    if(meta.has(k))out.push({tbl:'_meta',id:k,del:true});
@@ -46343,6 +46375,7 @@ function storageDiff(db,only){
    }
    const seq=storageSeqs(ids,was),now=new Set(ids);
    for(let i=0;i<v.length;i++){
+    if(rows){const x=was.get(ids[i]);if(x&&x.s===seq[i]&&!rows.has(ids[i]))continue;}
     const t=JSON.stringify(v[i]),b=was.get(ids[i]);
     if(!b||b.t!==t||b.s!==seq[i])out.push({tbl:k,id:ids[i],seq:seq[i],data:t});
    }
@@ -46708,7 +46741,39 @@ async function storageColdBring(owner){
  return storageCommand(()=>{got.forEach(storageColdPut);return got.length;});
 }
 const STORAGE_UNSAVED_TABLES=new Set(['shapeDef']);
-function storageCommand(fn){
+/* Область записи (задание «База», после П5). Горячая команда называет, что
+   меняет: {таблица: true} — всю, {таблица: [ключи]} — эти строки (новые,
+   удалённые и сдвинутые видны всегда). touch() сравнивает только это: на
+   годе цеха полное сравнение стоило секунды на каждом действии. Тесты
+   (GF_SCOPE_CHECK) сравнивают всю базу до и после и ловят правку вне
+   области; в программе пропущенное дозапишет полное сравнение в простое
+   (storageSweepLater). Журналы заказа и Master Data — новые строки всегда. */
+const STORAGE_SCOPE_ALWAYS={shapeDef:true,orderEvent:[],masterDataEvent:[]};
+let storageScope=null,storageSweepTimer=null;
+function storageScopeMap(scope){
+ const m=new Map();
+ [STORAGE_SCOPE_ALWAYS,scope].forEach(s=>Object.keys(s).forEach(k=>{
+  const v=s[k],had=m.get(k);if(v===true||had===null){m.set(k,null);return;}
+  const set=had||new Set();[...v].forEach(id=>{if(id!=null&&id!=='')set.add(String(id));});m.set(k,set);
+ }));
+ return m;
+}
+function storageScopeSig(){return new Map(storageDiff(DB).map(c=>[c.tbl+'\u0000'+c.id,c.del?'-':c.seq+'\u0000'+c.data]));}
+function storageScopeCheck(before){
+ const out=[];storageScopeSig().forEach((v,k)=>{if(before.get(k)!==v)out.push(k.replace('\u0000',':'));});
+ if(out.length)console.error('Outside scope: '+out.slice(0,6).join(', ')+' · '+String(new Error().stack).split('\n').slice(3,5).map(x=>x.trim().split(' ')[1]).join(' < '));
+}
+/* Полное сравнение — когда полминуты не трогают клавиши и мышь (как уход в
+   архив): пропущенное областью записи не потеряется. */
+function storageSweepLater(){
+ if(storageSweepTimer||typeof window!=='undefined'&&window.GF_NO_ARCHIVE)return;
+ storageSweepTimer=setTimeout(storageSweep,30e3);
+}
+function storageSweep(){
+ if(storageDepth||typeof archiveInputAt!=='undefined'&&Date.now()-archiveInputAt<30e3){storageSweepTimer=setTimeout(storageSweep,30e3);return;}
+ storageSweepTimer=null;if(storageWriter&&!storageRecovery&&!storageStale)touch();
+}
+function storageCommand(fn,scope){
  if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}
  if(!storageWriter||storageRecovery||storageStale)return {ok:false,error:storageRecovery?'Restore or export the unreadable database before editing.':storageReadOnlyText()};
  const wasDirty=dirty,draftBefore=typeof soDraft==='undefined'?null:JSON.stringify(soDraft);
@@ -46717,11 +46782,15 @@ function storageCommand(fn){
     до Update) — второе сравнение всей базы на каждом действии стоило
     столько же, сколько первое (задание «База», П5). */
  let before;try{before=storageDiff(DB,STORAGE_UNSAVED_TABLES);}catch(e){before=[];}
+ let scopeBefore=null;if(scope&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{scopeBefore=storageScopeSig();}catch(e){}
  storageDepth++;
  try{
   const value=fn();if(value===false||value&&value.error)throw new Error(value&&value.error||'The operation could not be completed.');
-  storageDepth--;storageCommanding=true;const saved=touch();storageCommanding=false;
+  storageDepth--;storageCommanding=true;storageScope=scope?storageScopeMap(scope):null;
+  let saved;try{saved=touch();}finally{storageCommanding=false;storageScope=null;}
   if(saved===false)throw new Error(storageLastError||'Not saved. Retry the operation.');
+  if(scopeBefore)storageScopeCheck(scopeBefore);
+  if(scope)storageSweepLater();
   return {ok:true,value};
  }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
 }
@@ -46735,12 +46804,13 @@ function touch(){
  }
  try{
   /* Журнал заказа: события по разнице с тем, что лежит в базе (erp/sales/order-log). */
-  if(typeof orderLogCapture==='function')orderLogCapture();
+  const only=storageScope;
+  if(typeof orderLogCapture==='function'&&(!only||only.has('salesOrder')))orderLogCapture(only&&only.get('salesOrder'));
   /* Счётчик номеров стёкол — раньше базы (erp/production/glass-batches). */
   if(typeof glassIdMarkSave==='function')glassIdMarkSave();
   /* Журнал Master Data — по тому же набору изменений (erp/masterdata/md-log):
      пополнился — набор собирается заново, чтобы записи журнала ушли с правкой. */
-  let diff=storageDiff(DB);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB);
+  let diff=storageDiff(DB,only);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB,only);
   const changes=storageColdApply(diff);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';return true;}
