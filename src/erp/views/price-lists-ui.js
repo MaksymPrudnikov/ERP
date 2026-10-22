@@ -9,7 +9,7 @@ let plView='groups',plGroupId='',plItemGroupId='',plAddKind='',plBulk=null,plFil
 
 function plNow(){return new Date().toISOString();}
 function plMoney(v){return v==null?'—':(+v).toFixed(2);}
-function plRowText(r){return [r.price==null?'':plMoney(r.price)].concat(r.bands?['6','8-10','12-19'].filter(k=>r.bands[k]!=null).map(k=>k+': '+plMoney(r.bands[k])):[]).filter(Boolean).join(' · ')||'—';}
+function plRowText(r){return priceListRowText(r,plMoney)||'—';}
 /* Цели строк прайса для выбора: группы айтемов первыми, потом по видам. */
 function plTargetOptions(targets,withGroups,selected){
  const kinds=[...new Set(targets.map(t=>t.kind))];
@@ -18,19 +18,19 @@ function plTargetOptions(targets,withGroups,selected){
 }
 function plBaseText(t){
  if(!t)return '—';
- if(t.bands)return ['6','8-10','12-19'].map(k=>t.bands[k]==null?'—':plMoney(t.bands[k])).join(' / ');
+ if(t.tiers)return t.tiers.map(x=>plMoney(x.price)).join(' / ');
  return plMoney(t.base);
 }
 /* Таблица строк одного прайса — общая для группы клиента и личного. */
 function plListTable(list){
  const targets=salesPriceTargets(),byKey=new Map(targets.map(t=>[t.key,t]));
- const num=(row,field,band,v)=>`<input type="number" min="0" step="0.01" value="${v==null?'':esc(v)}" placeholder="—" style="width:84px" onchange="plSetPrice('${esc(list.id)}','${esc(row.id)}',${band?`'${band}'`:'null'},this.value)" aria-label="${esc(field)}">`;
+ const num=(row,field,band,v)=>`<input type="number" min="0" step="0.01" value="${v==null?'':esc(v)}" placeholder="—" style="width:84px" onchange="plSetPrice('${esc(list.id)}','${esc(row.id)}',${band?`'${esc(band)}'`:'null'},this.value)" aria-label="${esc(field)}">`;
  const body=list.rows.map(r=>{
-  const t=byKey.get(r.target),bands=t&&t.bands;
-  const price=bands?`<div class="row" style="gap:4px;flex-wrap:nowrap">${num(r,'All thicknesses',null,r.price)}${['6','8-10','12-19'].map(k=>`<label class="mut" style="display:flex;align-items:center;gap:3px">${k}${num(r,k+' mm',k,r.bands?r.bands[k]:null)}</label>`).join('')}</div>`:num(r,'Price',null,r.price);
+  const t=byKey.get(r.target),tiers=t&&t.tiers;
+  const price=tiers?`<div class="row" style="gap:4px;flex-wrap:wrap">${num(r,'All thicknesses',null,r.price)}${tiers.map(x=>`<label class="mut" style="display:flex;align-items:center;gap:3px">${esc(serviceRateTierShort(x))}${num(r,serviceRateTierLabel(x),x.id,r.bands?r.bands[x.id]:null)}</label>`).join('')}</div>`:num(r,'Price',null,r.price);
   return `<tr data-pl-row><td>${esc(salesPriceTargetLabel(r.target,targets))}</td><td class="mono mut">${t?esc(plBaseText(t))+(t.unit?' / '+esc(t.unit):''):'—'}</td><td>${price}</td><td><button class="sm dl" title="Remove" onclick="plRemoveRow('${esc(list.id)}','${esc(r.id)}')">×</button></td></tr>`;
  }).join('');
- return `<table data-pl-list="${esc(list.id)}"><thead><tr><th>Item</th><th>Base</th><th>Price${list.rows.some(r=>(byKey.get(r.target)||{}).bands)?' · all / by mm':''}</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="4" class="mut">No prices yet — base prices apply.</td></tr>'}</tbody></table>
+ return `<table data-pl-list="${esc(list.id)}"><thead><tr><th>Item</th><th>Base</th><th>Price${list.rows.some(r=>(byKey.get(r.target)||{}).tiers)?' · all / by mm':''}</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="4" class="mut">No prices yet — base prices apply.</td></tr>'}</tbody></table>
   <div class="row" style="gap:8px;margin-top:8px"><select aria-label="Add price" style="max-width:360px" onchange="plAddRow('${esc(list.id)}',this.value)">${plTargetOptions(targets,true,'')}</select><span class="mut">Empty price — next list decides. 0 is a price.</span></div>`;
 }
 function plList(id){return priceListById(id);}
@@ -43,7 +43,7 @@ function plSetPrice(listId,rowId,band,v){
  const txt=String(v==null?'':v).trim(),n=txt===''?null:Number(txt);
  if(n!=null&&(!Number.isFinite(n)||n<0)){alert('Enter a price of 0 or more.');render();return;}
  plCommand(()=>{const r=(plList(listId)||{rows:[]}).rows.find(x=>x.id===rowId);if(!r)return;
-  if(band){r.bands=Object.assign({'6':null,'8-10':null,'12-19':null},r.bands||{});r.bands[band]=n;}else r.price=n;r.at=plNow();});
+  if(band){r.bands=Object.assign({},r.bands||{});r.bands[band]=n;}else r.price=n;r.at=plNow();});
 }
 function plRemoveRow(listId,rowId){plCommand(()=>{const l=plList(listId);if(l)l.rows=l.rows.filter(r=>r.id!==rowId);});}
 
@@ -117,15 +117,15 @@ function plItemGroupDelete(id){
 /* Одна цена сразу нескольким клиентам (владелец: массовая правка —
    фиксированной ценой, не процентом). Пишется в личные прайсы. */
 function plBulkView(){
- const b=plBulk=plBulk||{target:'',price:'',bands:{'6':'','8-10':'','12-19':''},ids:[],q:''};
+ const b=plBulk=plBulk||{target:'',price:'',bands:{},ids:[],q:''};
  const targets=salesPriceTargets(),t=targets.find(x=>x.key===b.target),q=b.q.trim().toLowerCase();
  const customers=(DB.customer||[]).filter(c=>c.status!=='archived'&&(!q||[c.displayName,c.legalName,c.code,customerGroupName(c)].some(x=>String(x||'').toLowerCase().includes(q))));
  const field=(label,v,set)=>`<label class="mut" style="display:flex;align-items:center;gap:4px">${label}<input type="number" min="0" step="0.01" value="${esc(v)}" style="width:84px" oninput="${set}=this.value"></label>`;
  return `<div class="sub">One fixed price into the personal price list of every ticked customer. Their other prices stay.</div>
   <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
-   <select aria-label="Item" style="max-width:360px" onchange="plBulk.target=this.value;render()">${plTargetOptions(targets,true,b.target)}</select>
-   ${field(t&&t.bands?'All mm':'Price',b.price,'plBulk.price')}
-   ${t&&t.bands?['6','8-10','12-19'].map(k=>field(k,b.bands[k],`plBulk.bands['${k}']`)).join(''):''}
+   <select aria-label="Item" style="max-width:360px" onchange="plBulk.target=this.value;plBulk.bands={};render()">${plTargetOptions(targets,true,b.target)}</select>
+   ${field(t&&t.tiers?'All mm':'Price',b.price,'plBulk.price')}
+   ${t&&t.tiers?t.tiers.map(x=>field(esc(serviceRateTierShort(x)),b.bands[x.id]==null?'':b.bands[x.id],`plBulk.bands['${esc(x.id)}']`)).join(''):''}
    <button class="pri" data-pl-bulk-apply onclick="plBulkApply()">Set for ${b.ids.length} customer${b.ids.length===1?'':'s'}</button>
   </div>
   <div class="row" style="gap:8px;margin-bottom:8px"><input aria-label="Find customers" placeholder="Find customer or group" value="${esc(b.q)}" oninput="plBulk.q=this.value;render()" style="max-width:260px">
@@ -137,9 +137,9 @@ function plBulkApply(){
  const b=plBulk;if(!b||!b.target)return alert('Pick an item, service or group.');
  if(!b.ids.length)return alert('Tick at least one customer.');
  const num=v=>{const s=String(v==null?'':v).trim();if(s==='')return null;const n=Number(s);return Number.isFinite(n)&&n>=0?n:NaN;};
- const price=num(b.price),bands={'6':num(b.bands['6']),'8-10':num(b.bands['8-10']),'12-19':num(b.bands['12-19'])};
+ const t=salesPriceTargets().find(x=>x.key===b.target),price=num(b.price),bands=Object.fromEntries(((t&&t.tiers)||[]).map(x=>[x.id,num(b.bands[x.id])]));
  if([price,...Object.values(bands)].some(v=>Number.isNaN(v)))return alert('Enter prices of 0 or more.');
- const t=salesPriceTargets().find(x=>x.key===b.target),useBands=!!(t&&t.bands)&&Object.values(bands).some(v=>v!=null);
+ const useBands=Object.values(bands).some(v=>v!=null);
  if(price==null&&!useBands)return alert('Enter a price.');
  plCommand(()=>{const at=plNow();b.ids.forEach(id=>{
   let l=priceListOfCustomer(id);if(!l){l={id:salesUid('PL'),kind:'customer',name:'',customerId:id,rows:[]};DB.priceList.push(l);}

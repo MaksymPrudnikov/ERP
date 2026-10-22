@@ -21,7 +21,7 @@ module.exports=async function({page,eq}){
   const row=salesLineChargeRows(line).find(r=>r.key==='SURCHARGE:step-unit');
   const route=salesPrintRoute(line,soDraft,salesLineGeometryShape(line),ShapeModule.compute(salesLineGeometryShape(line)));
   const sheets=salesLineStepSheets(line,soDraft),hidden=docServiceRows(line).some(r=>r.key==='SURCHARGE:step-unit');
-  salesServiceRateRow('stepUnit').flat=5;const priced=suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}}),shown=docServiceRows(priced).find(r=>r.key==='SURCHARGE:step-unit');salesServiceRateRow('stepUnit').flat=0;
+  salesServiceRateRow('stepUnit').tiers[0].price=5;const priced=suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}}),shown=docServiceRows(priced).find(r=>r.key==='SURCHARGE:step-unit');salesServiceRateRow('stepUnit').tiers[0].price=0;
   return {step:info.step,sizes:info.lites.map(l=>dimIn16(l.w)+' × '+dimIn16(l.h)),big:info.big,edges:info.edges.map(e=>e.id+' '+e.step),sheets,
    row:[row.basis,row.unit,row.catalogRate],hidden,shown:shown&&shown.value,igu:route.lites.map(l=>l.stations.find(s=>s.code==='IGU').items.includes('Step unit · Flat seal'))};
  }),{step:true,sizes:['15 1/8″ × 20″','25 1/8″ × 33 1/4″'],big:1,edges:['A 10'],sheets:[0,1],row:[1,'pc',0],hidden:false,shown:5,igu:[true,true]});

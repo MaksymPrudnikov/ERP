@@ -36,7 +36,7 @@ function salesRouteStationOf(code,fallback){
 /* Кромочные операции названы ключами ПРАЙСА, а не кодами цеха: по этому же
    ключу считается цена, и станция обязана приезжать из той же строки. */
 const SALES_ROUTE_EDGE_OP={'Rough Arris':'roughArris','Flat Polish':'flatPolish',
-  'CNC Shape Polish':'cncShapePolish','Mitering':'miter225','Beveling':'bevel:9-15',
+  'CNC Shape Polish':'cncShapePolish','Mitering':'miter225','Beveling':'bevel',
   'Lami Polish':'lamiPolish','CNC Lami Polish':'cncLamiPolish'};
 /* Станция по умолчанию, если работы нет в справочнике: EDGE разделена
    29.09.2026 по станкам — аррис, полировка, фацет, майтер, CNC. */
@@ -83,7 +83,7 @@ function salesRouteMarkBase(item){
    перевод класса станка в код станции цеха. */
 function salesRouteHoleWork(diameter){
   var band=typeof salesPricingHoleBand==='function'?salesPricingHoleBand(diameter):null;
-  return band?'hole:'+band.key:'';
+  return band?band.key:'';
 }
 function salesRouteHoleStation(diameter){
   return shapeHoleStationClass(diameter)==='CNC'

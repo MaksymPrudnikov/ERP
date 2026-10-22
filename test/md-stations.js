@@ -50,7 +50,7 @@ module.exports=async function({page,eq,ok}){
   old.station=old.station.filter(x=>!['ARRIS','POLISH','BEVEL','MITER'].includes(x.code));
   old.station.push({seq:2,code:'EDGE',name:'Edge work',nameEn:'Edge work',always:false,maxW:130,maxL:200,sizeMeasured:true,note:''});
   old.station.find(x=>x.code==='CNC').seq=4;
-  ['roughArris','flatPolish','cncShapePolish','miter225','miter45','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19'].forEach(k=>{old.serviceRate.find(w=>w.id===k).station='EDGE';});
+  ['roughArris','flatPolish','cncShapePolish','miter225','miter45','cncLamiPolish','bevel'].forEach(k=>{old.serviceRate.find(w=>w.id===k).station='EDGE';});
   old.serviceRate.find(w=>w.id==='lamiPolish').station='LAM';
   old.ncrReason=old.ncrReason.filter(r=>!['ARRIS','POLISH','BEVEL','MITER'].includes(r.where)).concat(['Wrong edgework','Bevel width wrong','Miter angle wrong','Polish burn'].map((name,i)=>({id:'NR-EDGE-0'+(i+1),where:'EDGE',name,active:true})));
   old.terminal=[{code:'T1',name:'Edge PC',nameEn:'',stations:['EDGE','CUT'],note:''}];
@@ -58,7 +58,7 @@ module.exports=async function({page,eq,ok}){
   const next=prepareImportedState(old);
   const keep=DB;DB=next;stationRouteReset();
   const out={stations:DB.station.filter(x=>x.seq===2).map(x=>x.code).join(),edge:DB.station.some(x=>x.code==='EDGE'),size:[DB.station.find(x=>x.code==='ARRIS').maxW,DB.station.find(x=>x.code==='POLISH').sizeMeasured].join(),
-   works:['roughArris','flatPolish','cncShapePolish','miter45','bevel:9-15','cncLamiPolish','lamiPolish'].map(k=>DB.serviceRate.find(w=>w.id===k).station).join(),
+   works:['roughArris','flatPolish','cncShapePolish','miter45','bevel','cncLamiPolish','lamiPolish'].map(k=>DB.serviceRate.find(w=>w.id===k).station).join(),
    reasons:['Wrong edgework','Bevel width wrong','Miter angle wrong','Polish burn'].map(n=>DB.ncrReason.filter(r=>r.name===n).map(r=>r.where).sort().join('+')).join('|'),
    terminal:DB.terminal[0].stations.join(),scans:DB.stationScan.map(x=>x.station).join(),waiting:stationPlace(stationGlass(g)).waiting,fix:DB.dataFix};
   const again=JSON.stringify(prepareImportedState(JSON.parse(JSON.stringify(DB))).station)===JSON.stringify(DB.station);

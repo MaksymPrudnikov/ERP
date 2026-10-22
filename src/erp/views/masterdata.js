@@ -1029,20 +1029,32 @@ function mdCatIsColour(){return mdCatKind==='spandrelColour';}
    Поэтому здесь можно править цену, единицу, вид и выключать строку, но нельзя
    добавлять и удалять: это была бы кнопка, которая делает вид, что работает. */
 function mdCatIsRate(){return mdCatKind==='serviceRate';}
-/* Диапазон применения человеку: «9–15 mm», «from 2 1/16″», «up to 1 3/4″». */
+/* Диапазон диаметра человеку: «from 2 1/16″», «up to 1″». */
 function mdWorkRangeText(r){
  if(!r||!r.appliesBy)return '';
- const u=r.appliesBy==='thickness'?' mm':'″';
  const f=r.appliesFrom,t=r.appliesTo;
- if(f!=null&&t!=null)return f+'–'+t+u;
- if(f!=null)return 'from '+f+u;
- if(t!=null)return 'up to '+t+u;
+ if(f!=null&&t!=null)return f+'–'+t+'″';
+ if(f!=null)return 'from '+f+'″';
+ if(t!=null)return 'up to '+t+'″';
  return '';
 }
-function mdRateBandText(r,band){
-  if(r.kind==='flat')return band==='6'?(r.flat==null?'—':Number(r.flat).toFixed(2)):'';
-  var v=r.bands?r.bands[band]:null;
-  return v==null?'—':Number(v).toFixed(2);
+/* Таблица цен строкой списка: «≤7: 5.00 · 8–11: 8.00». */
+function mdWorkTiersText(r){
+ const tiers=r&&r.tiers||[];
+ if(!tiers.length)return '—';
+ return tiers.map(t=>(tiers.length===1&&t.from==null&&t.to==null?'':serviceRateTierShort(t)+': ')+(t.price==null?'—':Number(t.price).toFixed(2))).join(' · ');
+}
+/* Предупреждения карточки работы: таблица цен и нахлёст диапазона диаметра
+   с другой работой той же семьи. Только предупреждают. */
+function mdWorkWarnings(r){
+ const out=serviceRateTierWarnings(r);
+ if(r&&r.appliesBy&&r.active!==false){
+  const lo=r.appliesFrom==null?-Infinity:r.appliesFrom,hi=r.appliesTo==null?Infinity:r.appliesTo;
+  if(lo>hi)out.push('Diameter: from is above to');
+  (DB.serviceRate||[]).forEach(x=>{if(x&&x.id!==r.id&&x.active!==false&&x.family===r.family&&x.appliesBy===r.appliesBy&&
+   (x.appliesFrom==null?-Infinity:x.appliesFrom)<=hi&&(x.appliesTo==null?Infinity:x.appliesTo)>=lo)out.push('Diameter overlaps "'+x.name+'": no rate there');});
+ }
+ return out;
 }
 function mdSetCatKind(k){if(!MD_CATALOGUES.some(c=>c.k===k))return;mdCatKind=k;mdCatEdit=null;mdCatDraft=null;render();}
 
@@ -1050,25 +1062,23 @@ function viewMdCatalogues(){
  if(!MD_CATALOGUES.some(c=>c.k===mdCatKind))mdCatKind=MD_CATALOGUES[0].k;
  if(mdCatEdit!==null)return mdCatForm();
  const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour(),rate=mdCatIsRate();
- const cols=rate?8:colour?5:6;
+ const cols=rate?6:colour?5:6;
  return `<div class="sub">The owner keeps these catalogues. Rows added here <b>survive system updates</b>: factory content is filled in by id, anything typed by hand is left untouched. A position an order already references is safer to switch off than to delete — otherwise the old order would no longer know what it was.</div>
   <div class="row"><b>${esc(def.label)}</b><span class="mut">${esc(def.what)}</span></div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Station</th><th>Unit</th><th>up to 7 mm</th><th>8–11 mm</th><th>12–19 mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
+  <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Station</th><th>Unit</th><th>Price by thickness, mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
   <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">empty</td></tr>`}</tbody></table></div>
   <div class="row"><button class="pri" onclick="mdCatNew()">+ New</button></div>
-  ${rate?'<div class="sub">You can add a work yourself: name it, pick a station, a unit and a rate. If its bands don\'t match the standard ones, set an application range and the work will be found by it. Rows are never deleted, only <b>switched off</b>: an old order still points at a switched-off row and it must keep its name there. A switched-off row enters the invoice as <b>Rate required</b> and stays out of the monetary total — an honest "the work exists, the price doesn\'t", not a zero.</div>':''}`;
+  ${rate?'<div class="sub">Each work has its own price table by glass thickness. Switched-off works stay in old orders and bill as <b>Rate required</b>.</div>':''}`;
 }
 function mdCatRowHTML(x){
  const colour=mdCatIsColour();
- if(mdCatIsRate())return `<tr>
+ if(mdCatIsRate()){const warn=mdWorkWarnings(x);return `<tr data-md-work="${esc(x.id)}">
   <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}</div>${x.note?`<div class="mut">${raw(x.note)}</div>`:''}</td>
-  <td class="mono">${x.station?esc(x.station):'<span class="mut">—</span>'}${x.appliesBy?`<div class="mut">${esc(mdWorkRangeText(x))}</div>`:''}</td>
+  <td class="mono">${x.station?esc(x.station):'<span class="mut">—</span>'}${x.appliesBy?`<div class="mut">Ø ${esc(mdWorkRangeText(x))}</div>`:''}</td>
   <td class="mono">${esc(x.unit)}</td>
-  <td class="mono">${esc(mdRateBandText(x,'6'))}${x.kind==='flat'?'<div class="mut">flat rate</div>':''}</td>
-  <td class="mono">${esc(mdRateBandText(x,'8-10'))}</td>
-  <td class="mono">${esc(mdRateBandText(x,'12-19'))}</td>
+  <td class="mono">${esc(mdWorkTiersText(x))}${warn.length?` <span class="pill warn" title="${esc(warn.join('; '))}">${warn.length} warning${warn.length===1?'':'s'}</span>`:''}</td>
   <td><span class="pill ${x.active===false?'warn':'ok'}">${x.active===false?'no rate':'active'}</span></td>
-  <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button></td></tr>`;
+  <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button></td></tr>`;}
  const scope=colour?(x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'any'):'';
  return `<tr>
   <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}${x.subcategory?' · '+esc(x.subcategory):''}</div>${x.sellsAsOwnLine?'<span class="pill info">own order line</span>':''}</td>
@@ -1084,7 +1094,7 @@ function mdCatNew(){
  mdCatDraft=mdCatIsColour()
   ?{id:'',name:'',code:'',family:'Gray',productId:'',active:true}
   :mdCatIsRate()
-  ?{id:'',name:'',unit:'pc',station:'',kind:'band',flat:null,bands:{},
+  ?{id:'',name:'',unit:'pc',station:'',tiers:[{id:'t1',from:null,to:null,price:null}],
     family:'',appliesBy:'',appliesFrom:null,appliesTo:null,note:'',active:true}
   :{id:'',name:'',code:'',supplier:'',salePrice:null,subcategory:'consumable',sellsAsOwnLine:mdCatKind==='stockItem',active:true};
  render();
@@ -1100,31 +1110,27 @@ function mdCatForm(){
  const familyHints=Array.from(new Set(SPANDREL_COLOUR_FAMILIES.concat((DB.spandrelColour||[]).map(c=>c.family).filter(Boolean))));
  const subcatHints=Array.from(new Set(SALES_STOCK_SUBCATEGORIES.concat((DB.stockItem||[]).map(x=>x.subcategory).filter(Boolean))));
  if(mdCatIsRate()){
-  const band=b=>r.bands&&r.bands[b]!=null?r.bands[b]:'';
   const stations=(DB.station||[]).slice().sort((a,b)=>(+a.seq||0)-(+b.seq||0));
-  return `<div class="form"><h3>${isNew?'New work':'Edit · '+esc(r.name)}</h3>
+  const v=x=>x==null?'':esc(x),warn=mdWorkWarnings(mdWorkDraftRead(false)||r);
+  return `<div class="form" data-md-work-form><h3>${isNew?'New work':'Edit · '+esc(r.name)}</h3>
    <div class="sub mono">${isNew?'the id appears after saving':esc(r.id)}</div>
    <div class="grid">
     <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
-    <div><label>Unit</label><select id="md_catUnit">${['pc','in','ft²'].map(u=>`<option value="${esc(u)}" ${u===r.unit?'selected':''}>${esc(u)}</option>`).join('')}</select><div class="hint">Per piece, per calculated edge inch, or per area. The billing basis doesn't change with this — that's set by the calculation; the unit only labels the number.</div></div>
-    <div><label>Rate shape</label><select id="md_catRateKind" onchange="mdCatDraft.kind=this.value;render()"><option value="band" ${r.kind!=='flat'?'selected':''}>By glass thickness</option><option value="flat" ${r.kind==='flat'?'selected':''}>One rate for any thickness</option></select></div>
+    <div><label>Unit</label><select id="md_catUnit">${['pc','in','ft²'].map(u=>`<option value="${esc(u)}" ${u===r.unit?'selected':''}>${esc(u)}</option>`).join('')}</select><div class="hint">Label of the price</div></div>
+    <div><label>Station</label><select id="md_catStation"><option value="">— no station —</option>${stations.map(st=>`<option value="${esc(st.code)}" ${st.code===(r.station||'')?'selected':''}>${esc(st.code)} · ${esc(st.nameEn||st.name)}</option>`).join('')}</select><div class="hint">Empty: price only</div></div>
    </div>
    <div class="grid">
-    <div><label>Station</label><select id="md_catStation"><option value="">— no station —</option>${stations.map(st=>`<option value="${esc(st.code)}" ${st.code===(r.station||'')?'selected':''}>${esc(st.code)} · ${esc(st.nameEn||st.name)}</option>`).join('')}</select><div class="hint">Where the work is done. The route learns from this which area the part goes to. Empty means there is no shop work at all — it's a pure price uplift.</div></div>
-    <div><label>Applies by</label><select id="md_catAppliesBy" onchange="mdCatDraft.appliesBy=this.value;render()"><option value="" ${r.appliesBy?'':'selected'}>always</option><option value="thickness" ${r.appliesBy==='thickness'?'selected':''}>by thickness, mm</option><option value="diameter" ${r.appliesBy==='diameter'?'selected':''}>by diameter, inches</option></select><div class="hint">A range is needed when the work's bands don't match the standard ones — as with beveling.</div></div>
+    <div><label>Applies by</label><select id="md_catAppliesBy" onchange="mdWorkDraftRead(true);render()"><option value="" ${r.appliesBy?'':'selected'}>always</option><option value="diameter" ${r.appliesBy==='diameter'?'selected':''}>hole diameter, inches</option></select></div>
+    ${r.appliesBy?`<div><label>Family</label><input id="md_catFamily" value="${esc(r.family||'')}"><div class="hint">Shared by all hole rows</div></div>
+    <div><label>Diameter from</label><input id="md_catFrom" type="number" step="any" min="0" value="${v(r.appliesFrom)}" placeholder="no limit"></div>
+    <div><label>Diameter to</label><input id="md_catTo" type="number" step="any" min="0" value="${v(r.appliesTo)}" placeholder="no limit"></div>`:''}
    </div>
-   ${r.appliesBy?`<div class="grid">
-    <div><label>Family</label><input id="md_catFamily" value="${esc(r.family||'')}"><div class="hint">A shared name for rows of one work with different ranges. For beveling it's <b>bevel</b> across all three bands.</div></div>
-    <div><label>From</label><input id="md_catFrom" type="number" step="0.01" min="0" value="${r.appliesFrom==null?'':r.appliesFrom}"><div class="hint">Empty — no lower bound</div></div>
-    <div><label>To</label><input id="md_catTo" type="number" step="0.01" min="0" value="${r.appliesTo==null?'':r.appliesTo}"><div class="hint">Empty — no upper bound</div></div>
-   </div><div class="hint">Ranges within one family must not overlap: on an overlap the system won't pick a row silently — it honestly leaves the work without a rate.</div>`:''}
-   ${r.kind==='flat'
-    ?`<div class="grid"><div><label>Rate, CAD</label><input id="md_catFlat" type="number" step="0.01" min="0" value="${r.flat==null?'':r.flat}"><div class="hint">Empty — no price: the row enters the invoice as Rate required.</div></div></div>`
-    :`<div class="grid">
-      <div><label>up to 7 mm</label><input id="md_catB6" type="number" step="0.01" min="0" value="${esc(band('6'))}"></div>
-      <div><label>8–11 mm</label><input id="md_catB810" type="number" step="0.01" min="0" value="${esc(band('8-10'))}"></div>
-      <div><label>12–19 mm</label><input id="md_catB1219" type="number" step="0.01" min="0" value="${esc(band('12-19'))}"></div>
-     </div><div class="hint">An empty cell means there is no price for that thickness. The bands meet end to end and cover everything from 0 to 19 mm: purchased laminate 6.38 falls into the first, 11.52 into the second.</div>`}
+   <label>Price by glass thickness</label>
+   <table class="md-work-tiers" data-md-tiers><thead><tr><th>From, mm</th><th>To, mm</th><th>Price, CAD</th><th></th></tr></thead><tbody>
+    ${(r.tiers||[]).map((t,i)=>`<tr data-md-tier="${esc(t.id)}"><td><input id="md_tierFrom${i}" type="number" step="any" min="0" value="${v(t.from)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierTo${i}" type="number" step="any" min="0" value="${v(t.to)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierPrice${i}" type="number" step="0.01" min="0" value="${v(t.price)}" placeholder="no price" style="width:90px"></td><td><button class="sm dl" title="Remove row" onclick="mdWorkTierRemove(${i})">×</button></td></tr>`).join('')}
+   </tbody></table>
+   <div class="row"><button class="sm" data-md-tier-add onclick="mdWorkTierAdd()">+ Row</button><span class="hint">From and to included. Empty: no limit.</span></div>
+   ${warn.length?`<div class="sales-pricing-warning" data-md-work-warn><b>Check</b><span>${warn.map(esc).join('<br>')}</span></div>`:''}
    <div class="grid">
     <div><label>Note</label><input id="md_catNote" value="${esc(r.note||'')}"></div>
     <div><label>Status</label><select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>no rate</option></select></div>
@@ -1151,6 +1157,32 @@ function mdCatForm(){
   <div class="err" id="e_mdCat"></div>
   <div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div></div>`;
 }
+/* Форма работы → запись. Поля читаются с экрана: строка таблицы
+   добавляется и убирается перерисовкой, и введённое не должно пропасть.
+   keep — записать прочитанное в черновик. Нахлёст и пропуск строк таблицы не
+   запрещаются: карточка о них предупреждает. */
+function mdWorkDraftRead(keep){
+ const r=mdCatDraft;if(!r||!document.getElementById('md_catName'))return null;
+ const num=id=>{const el=document.getElementById(id);if(!el)return undefined;const t=el.value.trim();return t===''?null:+t;};
+ const bad=v=>v!=null&&v!==undefined&&(!isFinite(v)||v<0);
+ const tiers=(r.tiers||[]).map((t,i)=>{const f=num('md_tierFrom'+i),to=num('md_tierTo'+i),p=num('md_tierPrice'+i);
+  return {id:t.id,from:f===undefined?t.from:f,to:to===undefined?t.to:to,price:p===undefined?t.price:p};});
+ const appliesEl=document.getElementById('md_catAppliesBy'),appliesBy=appliesEl?appliesEl.value:r.appliesBy;
+ const from=num('md_catFrom'),to=num('md_catTo');
+ const next=Object.assign({},r,{name:mdVal('md_catName'),unit:mdVal('md_catUnit')||r.unit,station:mdVal('md_catStation'),tiers,
+  appliesBy:appliesBy,family:appliesBy?(document.getElementById('md_catFamily')?mdVal('md_catFamily'):r.family||'hole'):'',
+  appliesFrom:appliesBy?(from===undefined?r.appliesFrom:from):null,appliesTo:appliesBy?(to===undefined?r.appliesTo:to):null,
+  note:mdVal('md_catNote'),active:mdVal('md_catActive')!=='0'});
+ if(tiers.some(t=>bad(t.from)||bad(t.to)||bad(t.price))||[next.appliesFrom,next.appliesTo].some(bad))next.bad='Numbers must be 0 or more, or empty';
+ if(keep){mdCatDraft=Object.assign({},next);delete mdCatDraft.bad;}
+ return next;
+}
+function mdWorkTierAdd(){
+ mdWorkDraftRead(true);const r=mdCatDraft;if(!r)return;
+ let n=(r.tiers||[]).length+1;while((r.tiers||[]).some(t=>t.id==='t'+n))n++;
+ r.tiers=(r.tiers||[]).concat([{id:'t'+n,from:null,to:null,price:null}]);render();
+}
+function mdWorkTierRemove(i){mdWorkDraftRead(true);const r=mdCatDraft;if(!r)return;r.tiers=(r.tiers||[]).filter((t,k)=>k!==i);render();}
 /* Идентификатор выводится из кода, а при его отсутствии из названия. Совпадения
    разводятся суффиксом, а не молча перезаписывают чужую строку. */
 function mdCatIdFrom(prefix,code,name,taken){
@@ -1166,44 +1198,14 @@ function mdCatSave(){
  const name=mdVal('md_catName');
  if(!name)return fail(e,'Name is required');
  if(mdCatIsRate()){
-  const kindPicked=mdVal('md_catRateKind')==='flat'?'flat':'band';
-  const num=id=>{const v=mdVal(id);return v===''?null:+v;};
-  const bad=v=>v!=null&&(!isFinite(v)||v<0);
-  const flat=kindPicked==='flat'?num('md_catFlat'):mdCatDraft.flat;
-  const b6=kindPicked==='band'?num('md_catB6'):(mdCatDraft.bands||{})['6'];
-  const b810=kindPicked==='band'?num('md_catB810'):(mdCatDraft.bands||{})['8-10'];
-  const b1219=kindPicked==='band'?num('md_catB1219'):(mdCatDraft.bands||{})['12-19'];
-  if([flat,b6,b810,b1219].some(bad))return fail(e,'Rate must be a non-negative number or empty');
-  const appliesBy=mdVal('md_catAppliesBy');
-  const from=appliesBy?num('md_catFrom'):null,to=appliesBy?num('md_catTo'):null;
-  if([from,to].some(bad))return fail(e,'Range bound must be a non-negative number or empty');
-  if(from!=null&&to!=null&&from>to)return fail(e,'The lower bound of the range is above the upper one');
-  const family=appliesBy?mdVal('md_catFamily'):'';
-  if(appliesBy&&!family)return fail(e,'A work with a range needs a family: the system uses it to find the matching row');
+  const next=mdWorkDraftRead(false);
+  if(next.bad)return fail(e,next.bad);
+  if(next.appliesBy&&!next.family)return fail(e,'A work with a diameter range needs a family');
   const isNewRow=mdCatEdit==='new';
-  const id=isNewRow?mdCatIdFrom(def.prefix,'',name,rows):mdCatDraft.id;
-  const next=normalizeServiceRate(Object.assign({},mdCatDraft,{
-   id:id,name:name,unit:mdVal('md_catUnit'),station:mdVal('md_catStation'),
-   kind:kindPicked,flat:flat,bands:{'6':b6,'8-10':b810,'12-19':b1219},
-   family:family,appliesBy:appliesBy,appliesFrom:from,appliesTo:to,
-   note:mdVal('md_catNote'),active:mdVal('md_catActive')!=='0'
-  }));
-  /* Пересечение диапазонов внутри одной family — ошибка данных: система не
-     должна выбирать строку молча, иначе цена зависит от порядка в справочнике.
-     Ловим на сохранении, чтобы владелец увидел это сразу, а не через месяц на
-     заказе, где работа вдруг осталась без ставки. */
-  if(next.appliesBy&&next.active!==false){
-    const lo=next.appliesFrom==null?-Infinity:next.appliesFrom;
-    const hi=next.appliesTo==null?Infinity:next.appliesTo;
-    const clash=rows.find(x=>x&&x.id!==next.id&&x.active!==false&&x.family===next.family&&
-      x.appliesBy===next.appliesBy&&
-      (x.appliesFrom==null?-Infinity:x.appliesFrom)<=hi&&
-      (x.appliesTo==null?Infinity:x.appliesTo)>=lo);
-    if(clash)return fail(e,'The range overlaps row "'+clash.name+'". Separate the bounds: on an overlap the work stays without a rate.');
-  }
-  const at=rows.findIndex(x=>x.id===next.id);
+  next.id=isNewRow?mdCatIdFrom(def.prefix,'',name,rows):mdCatDraft.id;
+  const row=normalizeServiceRate(next),at=rows.findIndex(x=>x.id===row.id);
   if(!Array.isArray(DB.serviceRate))DB.serviceRate=[];
-  if(at<0)DB.serviceRate.push(next);else DB.serviceRate[at]=next;
+  if(at<0)DB.serviceRate.push(row);else DB.serviceRate[at]=row;
   mdCatEdit=null;mdCatDraft=null;normalizeMasterData();if(typeof stationRouteReset==='function')stationRouteReset();touch();render();
   return;
  }

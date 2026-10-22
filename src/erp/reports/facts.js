@@ -21,7 +21,6 @@
    стеклу достаётся доля среди стёкол юнита, которые идут через эту станцию
    и имеют ту же толщину прайса. Станцию работе даёт то же правило, что
    маршруту стикера (sales/print-route). */
-const REP_BANDS=['6','8-10','12-19'];
 const REP_EDGE_TYPE={roughArris:'Rough Arris',flatPolish:'Flat Polish',cncShapePolish:'CNC Shape Polish',lamiPolish:'Lami Polish',cncLamiPolish:'CNC Lami Polish',bevel:'Beveling'};
 const REP_FEATURE_WORK={radius:'radiusCorner',cutout:'cutout','notch-cnc':'notchCnc','notch-hand':'notchHand','mirror-sealant':'mirrorSealant'};
 function repWorkStation(id){const w=salesRouteWork(id);return w&&w.station||'';}
@@ -31,7 +30,7 @@ function repChargeStation(row){
   const t=REP_EDGE_TYPE[p[1]]||(/^miter/.test(p[1])?'Mitering':'');
   return t?salesRouteStationOf(SALES_ROUTE_EDGE_OP[t],SALES_ROUTE_EDGE_HOME[t]||'POLISH'):'';
  }
- if(p[0]==='MI')return p[1]==='hole'?repWorkStation('hole:'+p[2]):salesRouteStationOf('hinge','DRILL');
+ if(p[0]==='MI'){const w=row.svc&&salesServiceRateRow(row.svc);return w&&w.family==='hole'?w.station||'':p[1]==='hole'?repWorkStation('hole:'+p[2]):salesRouteStationOf('hinge','DRILL');}
  if(p[0]==='FEATURE'){
   const f=p[1]||'',id=REP_FEATURE_WORK[f]||(/^mirror-backer/.test(f)?'mirrorBacker':/^sandblast-pattern/.test(f)?'sandblastPattern':/^sandblast-/.test(f)?'sandblastFull':'');
   return id?repWorkStation(id):'';
@@ -41,16 +40,25 @@ function repChargeStation(row){
  if(p[0]==='GLAZE')return p[1]==='frit'?repWorkStation('ceramic_frit'):'';
  return '';
 }
-/* Толщина прайса у строки — последний кусок ключа (EDGE:flatPolish:6,
-   MI:hole:1-2:6). Нет её — строка общая для всех стёкол юнита. */
-function repRowBand(row){const p=String(row&&row.key||'').split(':'),b=p[p.length-1];return p[0]!=='HEATSOAK'&&REP_BANDS.includes(b)?b:'';}
+/* Строка таблицы цен у строки начислений — последний кусок ключа
+   (EDGE:flatPolish:6, MI:hole:1-2:6), работа — row.svc. Стекло подходит,
+   если его толщина попадает в ту же строку таблицы этой работы. Хвост не
+   строка таблицы (одна цена на все, работа без таблицы) — строка общая для
+   всех стёкол юнита. */
+function repRowTier(row){
+ const p=String(row&&row.key||'').split(':'),tail=p[p.length-1],w=p[0]!=='HEATSOAK'&&row.svc?salesServiceRateRow(row.svc):null;
+ if(!w||!w.tiers.some(t=>t.id===tail)||(w.tiers.length===1&&w.tiers[0].from==null&&w.tiers[0].to==null))return null;
+ return {work:w,tail};
+}
 /* Подходит ли стекло юнита к строке начислений: толщина, плёнка, пакет.
-   c — стекло позиции с его толщиной прайса (repLineWork). */
+   c — стекло позиции с его толщиной (repLineWork). */
 function repRowFits(row,c){
- const p=String(row.key||'').split(':'),band=repRowBand(row);
+ const p=String(row.key||'').split(':');
  if(p[0]==='HEATSOAK')return c.paneId===p[1]&&(!c.ply||(p[2]==='1'?'inner':'outer')===c.ply);
  if(p[0]==='EDGE'&&(p[1]==='lamiPolish'||p[1]==='cncLamiPolish'))return !!c.ply;
- return !band||c.band===band;
+ const t=repRowTier(row);if(!t)return true;
+ const hit=serviceRateTierFor(t.work,c.mm);
+ return !!hit&&hit.id===t.tail;
 }
 
 /* Расчёт строки заказа тяжёлый (форма, план резки) — одна позиция считается
@@ -60,7 +68,7 @@ let repLineMemo={stamp:'',map:new Map()};
 /* Отпечаток прайса — один раз на отрисовку (erp/read-scope): его спрашивает
    каждая строка каждого скана, на старте 3 мес. — 3 с (задание «База», П4). */
 function repCatalogStamp(){return readMemo('repCatalogStamp',[DB.serviceRate],repCatalogStampBuild);}
-function repCatalogStampBuild(){let h=0;(DB.serviceRate||[]).forEach(r=>{const s=r?r.id+'|'+r.station+'|'+r.flat+'|'+JSON.stringify(r.bands||{}):'';for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;});return (DB.serviceRate||[]).length+':'+h;}
+function repCatalogStampBuild(){let h=0;(DB.serviceRate||[]).forEach(r=>{const s=r?r.id+'|'+r.station+'|'+JSON.stringify(r.tiers||[]):'';for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;});return (DB.serviceRate||[]).length+':'+h;}
 function repLineWork(o,l,geo,tag){
  const stamp=repCatalogStamp();if(repLineMemo.stamp!==stamp)repLineMemo={stamp,map:new Map()};
  const key=[o.id,o.updatedAt||'',l.id,tag].join('|');
@@ -69,7 +77,7 @@ function repLineWork(o,l,geo,tag){
  try{out=finWithOrder(o,()=>({
   rows:salesLineChargeRows(geo).map(row=>({row,station:repChargeStation(row),rate:salesChargePricingState(geo,row).catalogRate})).filter(x=>x.station),
   plan:stkPlan(o,geo),
-  comps:glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const info=stkGlassInfo(c.pane,c.index,c.ply),mm=info.mm;return Object.assign({},c,{mm:mm||null,band:mm?salesPricingBandFor(mm).band:'',heat:info.heat||'Annealed'});}),
+  comps:glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const info=stkGlassInfo(c.pane,c.index,c.ply),mm=info.mm;return Object.assign({},c,{mm:mm||null,heat:info.heat||'Annealed'});}),
   unitType:(()=>{const m=salesMakeupById(o,l.makeupId);return m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';})(),
   /* Маршрут каждого стекла со своими работами по шагам — тот же, что на стикере. */
   visits:(()=>{const r=salesPrintRoute(geo,o,salesLineGeometryShape(geo),null),m=new Map();

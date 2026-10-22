@@ -49,7 +49,7 @@ function mdLogRowName(row,id,tbl){
 }
 /* Строки прайса — по строке: «айтем: было → стало», а не весь список JSON. */
 function mdLogPriceRows(a,b){
- const price=r=>!r?'':[r.price==null?'':String(r.price)].concat(r.bands?['6','8-10','12-19'].map(k=>r.bands[k]==null?'':k+': '+r.bands[k]).filter(Boolean):[]).filter(Boolean).join(' · ');
+ const price=r=>priceListRowText(r);
  const was=new Map(((a&&a.rows)||[]).map(r=>[r.id,r])),now=new Map(((b&&b.rows)||[]).map(r=>[r.id,r])),out=[],targets=salesPriceTargets();
  now.forEach((r,id)=>{const x=was.get(id),p=price(r),q=price(x);if(!x||p!==q||x.target!==r.target)out.push([salesPriceTargetLabel(r.target,targets),x?q:'',p]);});
  was.forEach((r,id)=>{if(!now.has(id))out.push([salesPriceTargetLabel(r.target,targets),price(r),'removed']);});

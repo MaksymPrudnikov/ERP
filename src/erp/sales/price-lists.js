@@ -38,8 +38,9 @@ function normalizePriceLists(){
   const kind=l.kind==='customer'?'customer':'group',rowIds=new Set();
   const rows=(Array.isArray(l.rows)?l.rows:[]).filter(r=>r&&typeof r==='object'&&s(r.target)).map(r=>{
    let rid=s(r.id)||salesUid('PLR');while(rowIds.has(rid))rid=salesUid('PLR');rowIds.add(rid);
+   /* bands — цена на строку таблицы работы, по id строки (этап 4). */
    const b=r.bands&&typeof r.bands==='object'?r.bands:null;
-   return Object.assign({id:rid,target:s(r.target),price:price(r.price),at:s(r.at)},b?{bands:{'6':price(b['6']),'8-10':price(b['8-10']),'12-19':price(b['12-19'])}}:{});
+   return Object.assign({id:rid,target:s(r.target),price:price(r.price),at:s(r.at)},b?{bands:Object.fromEntries(Object.keys(b).map(k=>[k,price(b[k])]))}:{});
   });
   return {id,kind,name:kind==='group'?s(l.name):'',customerId:kind==='customer'?s(l.customerId):'',rows};
  /* У клиента один личный прайс: повтор — ошибка импорта, первый остаётся. */
@@ -57,6 +58,18 @@ function itemGroupById(id){return id?(DB.itemGroup||[]).find(g=>g.id===id)||null
 /* Имя прайса для «откуда цена»: группа — её имя, личный — Personal. */
 function priceListName(id){const l=priceListById(id);return !l?'Deleted list':l.kind==='customer'?'Personal':(l.name||'Unnamed group');}
 
+/* Таблица цен работы-цели (null — одна цена на все толщины или не работа):
+   по ней прайс клиента даёт цену на каждую строку таблицы. */
+function priceTargetTiers(target){
+ const w=String(target||'').indexOf('service:')===0?(DB.serviceRate||[]).find(r=>r&&r.id===target.slice(8)):null;
+ return w&&!serviceRateTierFor(w,null)?w.tiers:null;
+}
+/* Цены строки прайса текстом: «5.00 · ≤7 mm: 6.00 · 8–11 mm: 7.00». */
+function priceListRowText(r,money){
+ if(!r)return '';
+ const m=money||(v=>String(v)),tiers=priceTargetTiers(r.target)||[];
+ return [r.price==null?'':m(r.price)].concat(Object.keys(r.bands||{}).filter(k=>r.bands[k]!=null).map(k=>{const t=tiers.find(x=>x.id===k);return (t?serviceRateTierShort(t):k)+' mm: '+m(r.bands[k]);})).filter(Boolean).join(' · ');
+}
 /* Цена строки: полоса толщины, если у строки она есть, иначе общая. */
 function priceListRowPrice(r,band){const b=band&&r.bands?r.bands[band]:null;return b!=null?b:r.price;}
 /* Группа клиента — поле Group карточки (владелец, 22.10.2026: «это спец
@@ -115,7 +128,8 @@ function salesPriceTargets(){
  PRICE_ITEM_TABLES.forEach(([table,kind,all])=>(DB[table]||[]).forEach(x=>{if(!x||x.active===false||!all&&x.sellsAsOwnLine!==true)return;
   out.push({key:'item:'+table+':'+x.id,kind,label:x.name||x.code||x.id,unit:all?salesPriceUnitLabel(x.salesUnit):'pc',base:x.salePrice==null?null:x.salePrice});}));
  (DB.serviceRate||[]).forEach(r=>{if(!r||!r.id)return;
-  out.push({key:'service:'+r.id,kind:'Service',label:r.name||r.id,unit:r.unit||'pc',base:r.kind==='flat'?r.flat:null,bands:r.kind==='flat'?null:r.bands});});
+  const one=serviceRateTierFor(r,null);
+  out.push({key:'service:'+r.id,kind:'Service',label:r.name||r.id,unit:r.unit||'pc',base:one?one.price:null,tiers:one?null:r.tiers});});
  return out;
 }
 function salesPriceTargetLabel(key,targets){
