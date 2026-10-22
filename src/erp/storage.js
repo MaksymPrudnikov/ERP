@@ -143,12 +143,18 @@ async function storageColdBring(owner){
  const got=await storageIdbColdOf(owner);if(!got.length)return {ok:true,value:0};
  return storageCommand(()=>{got.forEach(storageColdPut);return got.length;});
 }
+const STORAGE_UNSAVED_TABLES=new Set(['shapeDef']);
 function storageCommand(fn){
  if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}
  if(!storageWriter||storageRecovery||storageStale)return {ok:false,error:storageRecovery?'Restore or export the unreadable database before editing.':storageReadOnlyText()};
  const wasDirty=dirty,draftBefore=typeof soDraft==='undefined'?null:JSON.stringify(soDraft);
- /* Что в памяти ещё не записано до команды: при отказе вернётся и оно. */
- let before;try{before=storageDiff(DB);}catch(e){before=[];}
+ /* Что в памяти ещё не записано до команды: при отказе вернётся и оно.
+    Не записаны бывают только фигуры открытого заказа (DB.shapeDef меняется
+    до Update) — второе сравнение всей базы на каждом действии стоило
+    столько же, сколько первое (задание «База», П5). Тесты проверяют, что
+    вне фигур несохранённого перед действием нет (GF_DIFF_CHECK). */
+ let before;try{before=storageDiff(DB,STORAGE_UNSAVED_TABLES);}catch(e){before=[];}
+ if(typeof window!=='undefined'&&window.GF_DIFF_CHECK)try{const other=storageDiff(DB).filter(c=>!STORAGE_UNSAVED_TABLES.has(c.tbl==='_meta'?c.id:c.tbl));if(other.length)console.error('Unsaved before command: '+other.slice(0,5).map(c=>c.tbl+':'+c.id).join(', '));}catch(e){}
  storageDepth++;
  try{
   const value=fn();if(value===false||value&&value.error)throw new Error(value&&value.error||'The operation could not be completed.');
