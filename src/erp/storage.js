@@ -352,9 +352,9 @@ async function storageApplySaved(d){
 }
 /* Записи пропущены (вкладка спала, сообщение не дошло) — база целиком. */
 async function storageReloadAll(){
- const got=await storageIdbReadAll(),next=prepareImportedState(storageJoin(got.records));
+ const got=await storageIdbReadAll();if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);const next=prepareImportedState(storageJoin(got.records));
  if(typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(DB,next);
- storageBaseFrom(got.records);DB=next;storageRev=got.rev;storageTest=got.test===true;if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);storageInvalidate();
+ storageBaseFrom(got.records);DB=next;storageRev=got.rev;storageTest=got.test===true;storageInvalidate();
 }
 /* Перед тем как писать: другая сборка писала после того, как эта вкладка
    открылась, — вкладка устарела; пропущены записи — дочитать. Метка TEST —
@@ -518,7 +518,11 @@ async function storageImportState(raw,opts){
  const payload=raw&&raw.format==='glass-erp'?raw.data:raw;
  if(!payload||!Array.isArray(payload.customer)||!Array.isArray(payload.salesOrder)||!Array.isArray(payload.station))throw new Error('Choose a complete GLASS ERP backup. A partial data file cannot replace this database.');
  if(storageTest&&!opts.test&&!opts.restore){alert('Test data here. Clear database first.');return false;}
- const next=prepareImportedState(raw);
+ /* Проверка и нормализация файла знают его архив (erp/archive): записи в
+    работе, ссылающиеся на ушедший заказ, не битые. */
+ let next;
+ try{if(typeof archiveIncoming!=='undefined')archiveIncoming=new Map((opts.archive||[]).map(a=>[a.id,a.row]));next=prepareImportedState(raw);}
+ finally{if(typeof archiveIncoming!=='undefined')archiveIncoming=null;}
  if(!confirm('Replace this browser database?\n\n'+storageImportSummary(next)+'\n\nA recovery copy will be kept before replacement.'))return false;
  const recovering=storageRecovery;
  /* The copy is written and checked before the database is touched: по

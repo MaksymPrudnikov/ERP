@@ -537,6 +537,8 @@ function validateGlassBatchesPayload(src){
    if(!i||!glassPieceValid(i.piece)||!Number.isSafeInteger(i.part)||!b.parts[i.part]||!glassUnitValid(i.unit)||i.unit===0||typeof i.at!=='string'||!i.at||typeof i.releasedAt!=='string'||typeof i.cutStartedAt!=='string')throw new Error('Invalid glass batch item.');
    if(i.releasedAt)return;
    const p=b.parts[i.part],slot=p.key+'|'+i.unit,l=lineOf(p.orderId,p.lineId);
+   /* Заказ в архиве (erp/archive): батч в работе ради другого заказа. */
+   if(!l&&typeof archiveKnown==='function'&&archiveKnown(p.orderId)){slots.add(slot);active.add(i.piece);return;}
    if(!l||typeof i.unit==='number'&&i.unit>Number(l.qty)||slots.has(slot)||active.has(i.piece)||slotPiece.has(slot)&&slotPiece.get(slot)!==i.piece)throw new Error('Glass batch quantity or order reference is invalid.');
    slots.add(slot);active.add(i.piece);
   });

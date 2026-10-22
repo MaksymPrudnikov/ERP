@@ -17,7 +17,12 @@
    ===================================================================== */
 const ARCHIVE_ON=false,ARCHIVE_MONTHS=3;
 DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};
-let archiveIndex=new Map();
+let archiveIndex=new Map(),archiveIncoming=null;
+/* Заказ в архиве: строка указателя (клиент, вид). Пока идёт Import —
+   указатель из файла (archiveIncoming; у прежнего JSON его нет). Записи в
+   работе, которые ссылаются на ушедший заказ (оплата на два заказа, батч,
+   накладная), нормализация и проверка Import не считают битыми. */
+function archiveKnown(id){const m=archiveIncoming||archiveIndex;return id&&m.get(id)||null;}
 function archiveIndexLoad(rows){archiveIndex=new Map((rows||[]).map(r=>[r.id,r.row]));}
 function archiveIndexApply(pairs,clear){if(clear)archiveIndex=new Map();(pairs||[]).forEach(([id,row])=>{if(row)archiveIndex.set(id,row);else archiveIndex.delete(id);});}
 
@@ -118,6 +123,9 @@ function archiveCollect(ids){
   add('financeEvent',e,orders.length?orders:[entity]);
  });
  (DB.referrerPayout||[]).forEach(p=>{const orders=(p.orders||[]).map(x=>x.orderId);if(orders.length&&orders.some(id=>ids.has(id))&&!orders.some(id=>live.has(id)))add('referrerPayout',p,orders);});
+ /* Журнал выгрузок QuickBooks — вместе со своей оплатой или заказом. */
+ const exported=new Map();out.forEach(x=>{if(['salesOrder','receipt','refund'].includes(x.tbl))exported.set(x.row.id,x.owners);});
+ (DB.financeExport||[]).forEach(e=>{if(e&&exported.has(e.entityId))add('financeExport',e,exported.get(e.entityId));});
  return out;
 }
 
