@@ -3475,7 +3475,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='0afcef0924fd';
+var ERP_BUILD='a4494f9ef2a3';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -15227,6 +15227,8 @@ function viewDashboardNow(){
 /* uEdit — 'new' или viewProfileId, а не номер строки: × на другой строке,
    пока форма открыта, сдвигает список, и Save писал бы не в того человека. */
 let uEdit=null, uDraft=null;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!uDraft);
 function userSectionNav(k){return NAV.find(n=>n.k===k)||{k,label:USER_ACCESS_LABELS[k]||k,icon:'report'};}
 function userAccessHTML(u){
  if(!userOffice(u))return '<span class="mut">—</span>';
@@ -15625,6 +15627,8 @@ function authLastSeen(u){
    ===================================================================== */
 
 let cEdit=null,cDraft=null,cSeen='',cTab='general',cMenu=null,cDup=null;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>customerChanged());
 /* Список клиентов — на общем движке таблиц Sales (владелец, 3 октября 2026:
    «customer нужно поработать структурировано… этот супер поиск мне не
    нравится, пусть будет как везде, в Sales, Optimization, работать как
@@ -21470,6 +21474,8 @@ function salesRefreshLineMetrics(line){
    ===================================================================== */
 
 let sEdit=null,sDraft=null,sView='setup',sWorkspaceTab='designer',sEdgeworkOpen=false,sFeaturesOpen=false,sFeatureExpandedId=null,sSourceOpen=false,sManufacturingOpen=false,sManufacturingPlace=null,sManufacturingSelected=null;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>sEdit!==null);
 /* Карточка, у которой открыт ввод своей модели. Состояние экрана, а не
    данных: пока имя не вписано, «своя модель» и «модель не выбрана» выглядят
    в записи одинаково — у обеих пустые id и имя. */
@@ -24586,6 +24592,8 @@ function viewConfigurators(){
    ===================================================================== */
 
 let soServiceSetOpen=false,soServiceSetEditingId=null,soServiceSetDraft=null;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!soServiceSetDraft);
 let soEdgeworkLineId=null,soServiceFilter='all',soBulkServiceSetId='',soBulkServicePolicy='keep',soServiceBulkPreview=null;
 
 /* Ярлык берётся из общей карты: это была третья копия перечисления, и на
@@ -25048,6 +25056,8 @@ function viewOrderQueue(shipping){
    No truck UI here. */
 const SHIPPING_TABS=[['awaiting','Awaiting readiness'],['ready','Ready'],['shipments','Shipments'],['backorders','Backorders'],['done','Done']];
 let shippingTab='ready',shippingNotice=null,shippingDraft=null,shippingOpenId='',shippingPreview=false;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!shippingDraft);
 let shippingSelection=new Set(),shippingCustomer='',shippingReceivedBy='',shippingReceivedOn='';
 function shippingSetTab(key){shippingTab=key;shippingNotice=null;skidsNotice=null;salesListMenu=null;render();}
 /* Счётчики на вкладках — как были у очереди Shipping: заказы, у Shipments —
@@ -25626,6 +25636,8 @@ let mdSpacerEdit=null,mdSpacerDraft=null;
 let mdHwKindEdit=null,mdHwKindDraft=null,mdHwModelEdit=null,mdHwModelDraft=null,mdHwFilter='';
 let mdWeightFilter='';
 let mdCatKind='spandrelColour',mdCatEdit=null,mdCatDraft=null;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!(mdDraft||mdSheetDraft||mdSpacerDraft||mdHwKindDraft||mdHwModelDraft||mdCatDraft));
 let mdImportReport=null;
 
 /* --- Общее ------------------------------------------------------------ */
@@ -27299,6 +27311,8 @@ function salesListBalanceCells(o){
 let finCustomerFilter='',finOrderFilter='',finAccountId='',finAccountPaid=false,finDraftBaseline='',finAction=null,finActionBaseline='',finPreview=null,finStatements=null;
 function finHasWork(){return !!(finDraft&&JSON.stringify(finDraft)!==finDraftBaseline||finAction&&JSON.stringify(finAction)!==finActionBaseline);}
 function finCanLeave(){return !finHasWork()||confirm('Discard unsaved finance changes?');}
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(finHasWork);
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){
  if(tab!=='finance')return false;if(!finCanLeave())return true;
  finDraft=null;finEdit=null;finAction=null;finApply=null;finPreview=null;finStatements=null;finRangeMenu=null;return false;
@@ -27772,6 +27786,8 @@ function finExportCsv(){
    IN : erp/finance/commissions
    ===================================================================== */
 let comOpen='',comDraft=null,comSeen='',comPayDraft=null,comPeriod='year',comHst=false,comNotice='';
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!(comDraft||comPayDraft));
 const COM_PERIODS=[['year','This year'],['last','Last year'],['all','All time']];
 function comRange(){const y=+finToday().slice(0,4);return comPeriod==='all'?null:comPeriod==='last'?{from:(y-1)+'-01-01',to:(y-1)+'-12-31'}:{from:y+'-01-01',to:y+'-12-31'};}
 function comCustomerName(id){return finCustomerName(salesFindCustomer(id));}
@@ -27841,6 +27857,8 @@ function comPayDelete(id){if(!confirm('Delete this payout? Its orders are due ag
    Additional contacts and custom fields are optional (owner, 12.10.2026).
    No global search, no stock balances and no purchase in customer Finance. */
 let purSupplierDraft=null,purSupplierOriginal='',purNotice='';
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purSupplierDraft&&JSON.stringify(purSupplierDraft)!==purSupplierOriginal);
 function purArg(v){return esc(JSON.stringify(String(v)));}
 function purListScope(){if(['invoices','payments','payables'].includes(purView))return 'purchasing-'+purView;if(['receipts','requests','backorders','held'].includes(purView))return 'purchasing-'+purView;return purView==='suppliers'?'purchaseSuppliers':purView==='history'?'purchaseHistory':'purchaseOrders';}
 function purListColumns(){
@@ -27940,6 +27958,8 @@ function purSupplierCancel(){
    the default purchase is glass, extras are a separate Sales-style block.
    Gmail only opens a compose window. Sending is confirmed manually. */
 let purView='orders',purOrderDraft=null,purOrderOriginal='',purShowDeleted=false,purPicker=null,purDoc=null;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purOrderDraft&&JSON.stringify(purOrderDraft)!==purOrderOriginal);
 const PUR_VIEWS=[['orders','Purchase orders'],['receipts','Receipts'],['backorders','Backorders'],['held','Held at supplier'],['requests','Delivery requests'],['invoices','Invoices'],['payments','Payments'],['payables','We owe'],['suppliers','Suppliers'],['history','History']];
 function purNav(){return '<button type="button" class="sl-quiet" data-pur-sections aria-haspopup="dialog" onclick="purSectionsOpen(event)">'+esc((PUR_VIEWS.find(v=>v[0]===purView)||PUR_VIEWS[0])[1])+'<span class="sl-disclosure">▾</span></button>';}
 function purSectionsOpen(e){salesListMenu=Object.assign({kind:'pur-sections',scope:salesListScope()},salesListAt(e,240));render();}
@@ -28248,6 +28268,8 @@ function purDocAction(action){
    count sheet. All values remain editable; warnings never prevent Save.
    Each receipt line may carry its own size and actual sheet count. */
 let purFulfilDraft=null,purFulfilOriginal='',purFulfilPreview=false,purShowUndone=false;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purFulfilDraft&&JSON.stringify(purFulfilDraft)!==purFulfilOriginal);
 function purFulfilLeave(){
  if(purFulfilDraft&&JSON.stringify(purFulfilDraft)!==purFulfilOriginal&&!confirm('Discard unsaved delivery changes?'))return false;
  purFulfilDraft=null;purFulfilPreview=false;purPicker=null;return true;
@@ -28434,6 +28456,8 @@ function purRequestGmailURL(d){
 /* Supplier ledger UI. Payments record bank/card/check facts; this screen
    does not initiate transfers. Every list uses the existing Sales filters. */
 let purMoneyDraft=null,purMoneyOriginal='',purMoneyShowUndone=false,purAccountKey='';
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purMoneyDraft&&JSON.stringify(purMoneyDraft)!==purMoneyOriginal);
 function purMoneyLeave(){if(purMoneyDraft&&JSON.stringify(purMoneyDraft)!==purMoneyOriginal&&!confirm('Discard unsaved invoice or payment changes?'))return false;purMoneyDraft=null;purAccountKey='';return true;}
 function purMoneyEdit(kind,id,invoiceId,poId){
  if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
@@ -38138,6 +38162,8 @@ function viewSheetUsage(){
    Found; ушедшие куски скрыты, пока не отмечено «Show used and written off».
    ===================================================================== */
 let invView='sheets',invCountDraft={},invJournalKey='',invWriteOffDraft=null,invNotice='',invPages={},invOffcutLostDraft=new Set(),invOffcutAll=false;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>Object.keys(invCountDraft).length>0||!!invWriteOffDraft||invOffcutLostDraft.size>0);
 const INV_VIEWS=[['sheets','Sheets'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
 const INV_OFFCUT_TONE={'On rack':'ok','In batch':'info','Coming':'','Used':'','Broken':'bad','Written off':'warn','Back to waste':''};
 const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'','Size missing':'warn'};
@@ -44057,6 +44083,8 @@ function repViewSet(id,fn){const all=repViewAll(),v=all[id]&&typeof all[id]==='o
 function repOpenReport(){if(repDraft&&repDraft.id===repOpenId)return repDraft;const r=repFind(repOpenId);return r&&repVisible(r)?r:null;}
 /* Черновик правки: новый (ещё не в базе) — всегда несохранён. */
 function repDirty(){return !!repDraft&&(!repFind(repDraft.id)||JSON.stringify(repDraft)!==repDraftBase);}
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(repDirty);
 function repCanLeave(){return !repDirty()||confirm('Leave without saving the report?');}
 function repDropDraft(){repDraft=null;repDraftBase='';repEditOn=false;repSelW='';repMenu=null;}
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){if(tab!=='reports'||k==='reports')return false;if(!repCanLeave())return true;repDropDraft();return false;});
@@ -44868,15 +44896,25 @@ function storageRerenderQuiet(){
  const a=document.activeElement,typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!(a.dataset&&a.dataset.stationScan!==undefined&&!a.value);
  if(!typing)storageRerender();
 }
+/* Есть ли что терять: черновик заказа, формы разделов (их проверки — в
+   window.STORAGE_UNSAVED, по одной на форму) и набранное в полях. Форма
+   держит ввод в своём черновике, а у её полей нет id, — по одним полям
+   набранного клиента не было видно (проверка Codex 22.10.2026). */
+function storageHasWork(){
+ if(typeof salesDraftHasWork==='function'&&salesDraftHasWork())return true;
+ if((window.STORAGE_UNSAVED||[]).some(f=>{try{return !!f();}catch(e){return false;}}))return true;
+ return storageTypedFields().length>0;
+}
 /* Вкладка устарела: открыта другая сборка. Ничего не начато — вкладка сама
    перезагружается, один раз на сборку (две вкладки разных версий не гоняют
-   друг друга по кругу). Начато — полоса «Reload», запись отказывает. */
+   друг друга по кругу). Начато — полоса «Reload», запись отказывает. Что
+   начато — до того, как вкладка отдаст запись и перерисуется. */
 function storageMarkStale(by){
  if(storageStale||!by)return;
+ const unsaved=storageHasWork()||!!storageFailed;
  storageStale=by;storageLastError=storageReadOnlyText();
  if(storageWriter)storageYield();
  let done='';try{done=sessionStorage.getItem(STORAGE_RELOAD_KEY)||'';}catch(e){}
- const unsaved=(typeof salesDraftHasWork==='function'&&salesDraftHasWork())||!!storageFailed||storageTypedFields().length>0;
  if(done!==by&&!unsaved){
   try{sessionStorage.setItem(STORAGE_RELOAD_KEY,by);}catch(e){}
   storageFlush().then(()=>location.reload());return;
@@ -45030,6 +45068,9 @@ function storageExportParts(){
  const keep=storageBase;let recs;
  storageBase=new Map();
  try{recs=storageDiff(DB);}finally{storageBase=keep;}
+ /* Пустая таблица — строкой «таблица пуста» (id `*`, data []): без неё
+    файл новой установки без клиентов или заказов не возвращался Import'ом. */
+ Object.keys(DB).forEach(k=>{if(Array.isArray(DB[k])&&!DB[k].length)recs.push({tbl:k,id:'*',seq:0,data:'[]'});});
  const head={format:'glass-erp',schemaVersion:2,exportedAt:new Date().toISOString(),build:storageBuildId(),records:recs.length};
  if(storageTest)head.test=true;
  const parts=[JSON.stringify(head)+'\n'];
@@ -45068,7 +45109,11 @@ async function storageImportState(raw,opts){
  if(!confirm('Replace this browser database?\n\n'+storageImportSummary(next)+'\n\nA recovery copy will be kept before replacement.'))return false;
  const recovering=storageRecovery;
  /* The copy is written and checked before the database is touched. */
- const at=new Date().toISOString(),backup=JSON.stringify(Object.assign({format:'glass-erp',schemaVersion:1,exportedAt:at},storageTest?{test:true}:{},{data:DB}));
+ /* Копия — одной строкой; у браузера предел строки около 512 МБ, это база
+    примерно за год. Больше — понятный отказ вместо «Invalid string length». */
+ const at=new Date().toISOString();let backup;
+ try{backup=JSON.stringify(Object.assign({format:'glass-erp',schemaVersion:1,exportedAt:at},storageTest?{test:true}:{},{data:DB}));}
+ catch(e){alert('Nothing was replaced. Too big for a recovery copy: Export, Clear database, then Import.');return false;}
  try{await storageIdbCopyPut(backup,at);if(await storageIdbCopyGet()!==backup)throw new Error('The recovery copy could not be verified.');}
  catch(e){alert('Nothing was replaced: '+e.message);return false;}
  storageBackupPresent=true;storageCopyAt=at;
@@ -45123,9 +45168,10 @@ async function storageReadRecords(file){
  return {head,state:storageJoin(records,true)};
 }
 /* Файл Import: v2 (строка заголовка с schemaVersion 2) или прежний JSON (v1).
-   Метка TEST — в заголовке v2 или в конверте v1 (tools/sim-shop.js). */
+   Метка TEST — в заголовке v2 или в конверте v1 (tools/sim-shop.js). Пустые
+   строки до заголовка не мешают. */
 async function storageImportFile(file){
- let first=null;try{first=JSON.parse((await file.slice(0,65536).text()).split('\n')[0]);}catch(e){}
+ let first=null;try{first=JSON.parse((await file.slice(0,65536).text()).replace(/^\s+/,'').split('\n')[0]);}catch(e){}
  if(first&&first.format==='glass-erp'&&first.schemaVersion===2){
   const got=await storageReadRecords(file);return storageImportState(got.state,{test:got.head.test===true});
  }
