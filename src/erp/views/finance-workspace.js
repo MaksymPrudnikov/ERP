@@ -107,12 +107,18 @@ function finPeriodError(p){return p.from&&!finDateValid(p.from)||p.to&&!finDateV
 function finPreviewPages(){
  const p=finPreview;if(!p)return [];
  if(p.kind==='receipt')return finReceiptDoc(p.id);
- if(p.kind==='statement')return finPeriodError(p)?[]:finStatementDoc(p.id,p.from,p.to);
+ if(p.kind==='statement'){
+  if(finPeriodError(p))return [];
+  const pages=finStatementDoc(p.id,p.from,p.to);if(!p.invoices)return pages;
+  const key=p.id+'|'+p.from+'|'+p.to;if(p.invoiceKey!==key){p.invoiceKey=key;p.invoicePages=null;setTimeout(()=>finStatementInvoiceBuild(p,key),0);}
+  /* Пока счета собираются, Print и Email PDF ждут — иначе ушла бы одна выписка. */
+  return p.invoicePages?pages.concat(p.invoicePages):[];
+ }
  if(p.kind==='balances')return finBalancesDoc(finAccountsList(),[finAccountAll?'All customers':'Open accounts',finListDescription()].filter(Boolean).join(' · '));
  return finScheduleDoc(finDueFiltered(),finListDescription()||'All unpaid');
 }
-function finStatementMail(id,from,to){
- const d=finStatementData(id,from,to),lines=['Please find attached your statement for '+finPeriodText(from,to)+'.',''];
+function finStatementMail(id,from,to,invoices){
+ const d=finStatementData(id,from,to),lines=['Please find attached your statement for '+finPeriodText(from,to)+(invoices?' and '+invoices+' invoice'+(invoices===1?'':'s')+' for the period':'')+'.',''];
  lines.push('Orders billed: '+docMoney(d.billed)+'.','Payments received: '+docMoney(d.paid)+'.');
  lines.push(d.closing>=0?'Balance due: '+docMoney(d.closing)+'.':'Credit balance: '+docMoney(-d.closing)+'.');
  if(d.overdue>0)lines.push('Overdue now: '+docMoney(d.overdue)+'.');
@@ -123,14 +129,26 @@ function finPreviewInfo(){
  if(p.kind==='receipt'){const r=DB.receipt.find(x=>x.id===p.id)||{},c=salesFindCustomer(r.customerId);return {title:'Receipt '+(r.number||''),c,file:'Receipt_'+(r.number||''),subject:['Payment receipt '+(r.number||''),company].filter(Boolean).join(' · '),
   body:'Thank you for your payment of '+docMoney(r.amount)+' received on '+docDate(r.date)+'. Receipt '+r.number+' is attached.'};}
  if(p.kind==='statement'){const c=salesFindCustomer(p.id);return {title:'Statement · '+finCustomerName(c),c,mail:'statement',file:'Statement_'+((c&&c.code)||'account')+'_'+(p.from||'start')+'_'+(p.to||finToday()),subject:['Statement '+finPeriodText(p.from,p.to),company].filter(Boolean).join(' · '),
-  body:finStatementMail(p.id,p.from,p.to)};}
+  body:finStatementMail(p.id,p.from,p.to,p.invoices&&p.invoicePages?p.invoiceCount:0)};}
  if(p.kind==='balances')return {title:'Customer balances',c:null,file:'Customer_balances_'+finToday()};
  return {title:'Payments due',c:null,file:'Payments_due_'+finToday()};
 }
 function finStatementControls(p){
  const err=finPeriodError(p),skipped=err?[]:finStatementData(p.id,p.from,p.to).skipped;
- return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>
- ${err?`<p role="alert" class="fin-due fin-preview-note">${esc(err)}</p>`:''}${skipped.length?`<p class="fin-hint fin-preview-note">Not priced, left out: ${esc(skipped.map(o=>o.businessNumber).join(', '))}</p>`:''}`;
+ return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<label class="chk fin-statement-invoices" title="Invoices for the period after the statement"><input type="checkbox" data-statement-invoices ${p.invoices?'checked':''} onchange="finStatementInvoices(this.checked)"> Invoices</label><span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>
+ ${err?`<p role="alert" class="fin-due fin-preview-note">${esc(err)}</p>`:''}${skipped.length?`<p class="fin-hint fin-preview-note">Not priced, left out: ${esc(skipped.map(o=>o.businessNumber).join(', '))}</p>`:''}${p.invoices&&!err?`<p class="fin-hint fin-preview-note" data-statement-invoices-note>${p.invoicePages?p.invoiceCount?p.invoiceCount+' invoice'+(p.invoiceCount===1?'':'s')+' after the statement':'No invoices in this period':'Preparing invoices…'}</p>`:''}`;
+}
+/* Счета за период к выписке (владелец, 22.10.2026: «выслать клиенту все
+   инвойсы, информацию за год»): Invoice каждого заказа, выданного в
+   периоде, — после выписки, одним PDF. Ушедшие в архив читаются с диска на
+   время сборки (archiveWith). */
+function finStatementInvoices(on){const p=finPreview;if(!p)return;p.invoices=!!on;p.status='';render();}
+async function finStatementInvoiceBuild(p,key){
+ const inPeriod=d=>!!d&&(!p.from||d>=p.from)&&(!p.to||d<=p.to),list=finStatementOrders(p.id,p.from,p.to).filter(x=>inPeriod(x.billed)),old=list.filter(x=>x.archived).map(x=>x.o.id);
+ const build=()=>list.flatMap(x=>{const o=salesRecord(x.o.id);return o?finWithOrder(o,()=>docLayout(docBuildModel('invoice',o,docDefaultOptions('invoice')))):[];});
+ let pages=[];try{pages=old.length&&typeof archiveWith==='function'?await archiveWith(old,build):build();}catch(e){if(finPreview===p)p.status='Invoices could not be prepared: '+(e&&e.message||e);}
+ if(finPreview!==p||p.invoiceKey!==key)return;
+ p.invoicePages=pages;p.invoiceCount=list.length;render();
 }
 function finStatementExport(){const p=finPreview;if(!p||finPeriodError(p))return;const c=salesFindCustomer(p.id);customerDownload('Statement_'+((c&&c.code)||'account').replace(/[^A-Za-z0-9-]+/g,'_')+'_'+(p.from||'start')+'_'+(p.to||finToday())+'.csv',finStatementCSV(p.id,p.from,p.to),'text/csv;charset=utf-8');}
 function finPreviewHTML(){
@@ -196,7 +214,7 @@ function finStatementsHTML(){
 /* Выписке нужен закрытый период, поэтому быстрые кнопки — месяцы; вид и
    поведение — как блок Created в Sales. */
 let finRangeMenu=null;
-const FIN_STATEMENT_RANGE=[['lastMonth','Last month'],['thisMonth','This month'],['thisYear','This year']];
+const FIN_STATEMENT_RANGE=[['lastMonth','Last month'],['thisMonth','This month'],['thisYear','This year'],['lastYear','Last year']];
 function finRangeState(target){return target==='statements'?finStatements:finPreview;}
 function finRangeLabel(s){const k=FIN_STATEMENT_RANGE.find(x=>{const r=salesListPresetRange(x[0]);return r&&r[0]===s.from&&r[1]===s.to;});return k?k[1]:s.from&&s.to?salesListShortDay(s.from)+' – '+salesListShortDay(s.to):'Choose dates';}
 function finRangeButton(target){const s=finRangeState(target);return s?`<button type="button" class="sl-quiet sl-date-toggle" data-period="${target}" aria-haspopup="dialog" onclick="finRangeOpen(event,'${target}')">Period: ${esc(finRangeLabel(s))}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`:'';}

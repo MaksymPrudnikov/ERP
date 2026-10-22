@@ -3478,7 +3478,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='2e73af6a2c7e';
+var ERP_BUILD='a31749e8865d';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13706,7 +13706,8 @@ function finVoidReceipt(id,reason){
 /* Ячейка CSV: текст, начинающийся с = + @ -, Excel считает формулой — ему
    ставится апостроф. Число (и отрицательная сумма возврата) остаётся числом. */
 function finCsvCell(v){let s=String(v==null?'':v);if(!/^-?\d+(\.\d+)?$/.test(s)&&(/^[\s]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s)))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
-function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id);return o?(o.businessNumber||o.id):'deleted order';}
+/* Заказ ушёл в архив — номер из указателя архива (erp/archive). */
+function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id),a=!o&&typeof archiveKnown==='function'?archiveKnown(id):null;return o?(o.businessNumber||o.id):a?a.number:'deleted order';}
 
 /* ==== src/erp/finance/ledger.js ==== */
 /* Finance commands and history. No DOM; balances keep using the order pricing
@@ -13915,16 +13916,30 @@ function finAllMoney(today){
    у нас (депозит, предоплата по заказам в работе). */
 function finStatementLines(customerId){
  const lines=[],skipped=[];
- (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)&&finCurrency(o)==='CAD').forEach(o=>{
-  const billed=finBillingDate(o);if(!billed)return;
-  const f=finOrderFinancial(o);if(f.b.total==null){skipped.push(o);return;}
-  lines.push({date:billed,sort:0,doc:o.businessNumber,kind:'order',text:'Order'+(o.customerPo?' · '+(/^po/i.test(o.customerPo)?'':'PO ')+o.customerPo:'')+(f.dueOn?' · due '+finShortDate(f.dueOn,'0000'):''),charge:f.b.total,payment:0,overdue:f.overdue>0});
- });
- finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)==='CAD').forEach(r=>lines.push({date:r.date,sort:1,doc:r.number,kind:'payment',
-  text:'Payment · '+finMethodLabel(r.method)+(r.reference?' '+r.reference:'')+(r.allocations.length?' · '+r.allocations.map(a=>finOrderNumber(a.orderId)).join(', '):''),charge:0,payment:r.amount}));
- (DB.refund||[]).filter(x=>x.customerId===customerId&&!x.voided&&x.currency==='CAD').forEach(x=>lines.push({date:x.date,sort:2,doc:x.number,kind:'refund',text:'Refund · '+finMethodLabel(x.method),charge:x.amount,payment:0}));
+ (DB.salesOrder||[]).forEach(o=>{if(o.customerId!==customerId)return;const l=finStatementOrderLine(o);if(l&&l.skipped)skipped.push(o);else if(l)lines.push(l);});
+ (DB.receipt||[]).forEach(r=>{if(r.customerId!==customerId)return;const l=finStatementPaymentLine(r);if(l)lines.push(l);});
+ (DB.refund||[]).forEach(x=>{if(x.customerId!==customerId)return;const l=finStatementRefundLine(x);if(l)lines.push(l);});
+ /* Ушедшие в архив — строки, снятые в день ухода (erp/archive). */
+ if(typeof archiveLedgerFor==='function')archiveLedgerFor(customerId).forEach(e=>{if(e.line)lines.push(e.line);else if(e.skipped)skipped.push({businessNumber:e.skipped});});
  lines.sort((a,b)=>a.date.localeCompare(b.date)||a.sort-b.sort||String(a.doc).localeCompare(String(b.doc)));
  return {lines,skipped};
+}
+/* Строка выписки по одной записи: заказ — начисление в день выдачи, оплата,
+   возврат. Та же строка снимается в указатель архива, когда запись уходит
+   (erp/archive). null — в выписку не входит; заказ без цены — skipped. */
+function finStatementOrderLine(o){
+ if(!finOrderCounts(o)||finCurrency(o)!=='CAD')return null;
+ const billed=finBillingDate(o);if(!billed)return null;
+ const f=finOrderFinancial(o);if(f.b.total==null)return {skipped:true};
+ return {date:billed,sort:0,doc:o.businessNumber,kind:'order',text:'Order'+(o.customerPo?' · '+(/^po/i.test(o.customerPo)?'':'PO ')+o.customerPo:'')+(f.dueOn?' · due '+finShortDate(f.dueOn,'0000'):''),charge:f.b.total,payment:0,overdue:f.overdue>0};
+}
+function finStatementPaymentLine(r){
+ if(r.voided||finCurrency(r)!=='CAD')return null;
+ return {date:r.date,sort:1,doc:r.number,kind:'payment',text:'Payment · '+finMethodLabel(r.method)+(r.reference?' '+r.reference:'')+(r.allocations.length?' · '+r.allocations.map(a=>finOrderNumber(a.orderId)).join(', '):''),charge:0,payment:r.amount};
+}
+function finStatementRefundLine(x){
+ if(x.voided||x.currency!=='CAD')return null;
+ return {date:x.date,sort:2,doc:x.number,kind:'refund',text:'Refund · '+finMethodLabel(x.method),charge:x.amount,payment:0};
 }
 function finStatementData(customerId,from,to){
  const {lines,skipped}=finStatementLines(customerId);
@@ -14159,14 +14174,20 @@ function comOrders(ref,range){
  const key=ref.id+'|'+JSON.stringify(ref.customers)+'|'+(range?range.from+'|'+range.to:'all');
  if(comScope&&comScope.orders.has(key))return comScope.orders.get(key);
  const pct=new Map(ref.customers.map(c=>[c.customerId,c])),by=new Map();
- finActiveReceipts().forEach(r=>{
+ /* Ушедшие в архив (erp/archive): их оплаты и заказы — строками указателя
+    архива; комиссия агента заказ в работе не держит (владелец, 22.10.2026). */
+ const old=new Map(),pays=finActiveReceipts().slice();
+ if(typeof archiveLedgerFor==='function')ref.customers.forEach(c=>archiveLedgerFor(c.customerId).forEach(e=>{
+  if(e.com)old.set(e.id,{id:e.id,businessNumber:e.com.number,customerId:e.customerId,createdAt:e.com.created,archived:true,t:e.com.t});
+  else if(e.alloc)pays.push({date:e.date,allocations:e.alloc});}));
+ pays.forEach(r=>{
   if(range&&(r.date<range.from||r.date>range.to))return;
-  r.allocations.forEach(a=>{const o=salesRecord(a.orderId);if(!o||!pct.has(o.customerId))return;
+  r.allocations.forEach(a=>{const o=salesRecord(a.orderId)||old.get(a.orderId);if(!o||!pct.has(o.customerId))return;
    const x=by.get(o.id)||{o,paid:0,payments:0,byPct:new Map()},p=comPctOn(pct.get(o.customerId),r.date);
    x.paid+=a.amount;x.payments++;x.byPct.set(p,(x.byPct.get(p)||0)+a.amount);by.set(o.id,x);});
  });
  const out=[...by.values()].map(x=>{
-  const t=comTotals(x.o),share=comNoHstShare(t),paid=finMoney(x.paid),base=finMoney(paid*share),ps=[...x.byPct.keys()].sort((a,b)=>a-b);
+  const t=x.o.archived?x.o.t:comTotals(x.o),share=comNoHstShare(t),paid=finMoney(x.paid),base=finMoney(paid*share),ps=[...x.byPct.keys()].sort((a,b)=>a-b);
   /* Каждая оплата — по своему проценту; один процент — как прежде. */
   const com=finMoney([...x.byPct].reduce((n,[p,v])=>n+finMoney(finMoney(v)*share)*p/100,0)),comHst=finMoney([...x.byPct].reduce((n,[p,v])=>n+finMoney(v)*p/100,0));
   return {o:x.o,customerId:x.o.customerId,number:x.o.businessNumber,date:salesListIsoDay(x.o.createdAt),total:t&&t.complete?t.grand:null,paid,base,payments:x.payments,pct:ps.join(' · '),com,comHst};
@@ -14180,7 +14201,7 @@ function comOrders(ref,range){
 function comDue(ref){
  const paid=new Map();(DB.referrerPayout||[]).filter(p=>p.referrerId===ref.id).forEach(p=>p.orders.forEach(x=>paid.set(x.orderId,finMoney((paid.get(x.orderId)||0)+x.amount))));
  const m=new Map(comOrders(ref,null).map(x=>[x.o.id,{orderId:x.o.id,o:x.o,number:x.number,customerId:x.customerId,com:x.com,paidOut:paid.get(x.o.id)||0}]));
- paid.forEach((v,id)=>{if(!m.has(id)){const o=salesRecord(id);m.set(id,{orderId:id,o,number:o?o.businessNumber:'Deleted order',customerId:o?o.customerId:'',com:0,paidOut:v});}});
+ paid.forEach((v,id)=>{if(!m.has(id)){const o=salesRecord(id),a=!o&&typeof archiveKnown==='function'?archiveKnown(id):null;m.set(id,{orderId:id,o:o||(a?{id,businessNumber:a.number,customerId:a.customerId,archived:true}:null),number:o?o.businessNumber:a?a.number:'Deleted order',customerId:o?o.customerId:a?a.customerId:'',com:0,paidOut:v});}});
  m.forEach(x=>{x.due=finMoney(x.com-x.paidOut);});
  return m;
 }
@@ -21105,8 +21126,12 @@ function finPeriodText(from,to){
 function finStatementOrders(customerId,from,to,today){
  const inPeriod=d=>!!d&&(!from||d>=from)&&(!to||d<=to);
  const paidIn=new Set(finActiveReceipts().filter(r=>r.customerId===customerId&&inPeriod(r.date)).flatMap(r=>r.allocations.map(a=>a.orderId)));
+ /* Ушедшие в архив (erp/archive) — оплачены целиком: в выписке, если выданы
+    или оплачены в этом периоде. */
+ const old=typeof archiveLedgerFor==='function'?archiveLedgerFor(customerId).filter(e=>e.order&&(inPeriod(e.order.billed)||paidIn.has(e.id)||e.order.paidOn.some(inPeriod)))
+  .map(e=>({o:{id:e.id,businessNumber:e.order.number,customerPo:e.order.po},f:e.order.f,billed:e.order.billed,archived:true})):[];
  return (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)&&finCurrency(o)==='CAD').map(o=>({o,f:finOrderFinancial(o,today),billed:finBillingDate(o)}))
-  .filter(x=>x.f.b.total!=null&&(x.f.b.status==='review'||x.f.b.balance>0||paidIn.has(x.o.id)||inPeriod(x.billed)||!x.billed&&x.f.b.paid>0))
+  .filter(x=>x.f.b.total!=null&&(x.f.b.status==='review'||x.f.b.balance>0||paidIn.has(x.o.id)||inPeriod(x.billed)||!x.billed&&x.f.b.paid>0)).concat(old)
   .sort((a,b)=>(a.billed||'9999').localeCompare(b.billed||'9999')||String(a.o.businessNumber).localeCompare(String(b.o.businessNumber)));
 }
 /* Выписка за период — клиенту раз в месяц для его учёта: какие заказы и на
@@ -27501,12 +27526,18 @@ function finPeriodError(p){return p.from&&!finDateValid(p.from)||p.to&&!finDateV
 function finPreviewPages(){
  const p=finPreview;if(!p)return [];
  if(p.kind==='receipt')return finReceiptDoc(p.id);
- if(p.kind==='statement')return finPeriodError(p)?[]:finStatementDoc(p.id,p.from,p.to);
+ if(p.kind==='statement'){
+  if(finPeriodError(p))return [];
+  const pages=finStatementDoc(p.id,p.from,p.to);if(!p.invoices)return pages;
+  const key=p.id+'|'+p.from+'|'+p.to;if(p.invoiceKey!==key){p.invoiceKey=key;p.invoicePages=null;setTimeout(()=>finStatementInvoiceBuild(p,key),0);}
+  /* Пока счета собираются, Print и Email PDF ждут — иначе ушла бы одна выписка. */
+  return p.invoicePages?pages.concat(p.invoicePages):[];
+ }
  if(p.kind==='balances')return finBalancesDoc(finAccountsList(),[finAccountAll?'All customers':'Open accounts',finListDescription()].filter(Boolean).join(' · '));
  return finScheduleDoc(finDueFiltered(),finListDescription()||'All unpaid');
 }
-function finStatementMail(id,from,to){
- const d=finStatementData(id,from,to),lines=['Please find attached your statement for '+finPeriodText(from,to)+'.',''];
+function finStatementMail(id,from,to,invoices){
+ const d=finStatementData(id,from,to),lines=['Please find attached your statement for '+finPeriodText(from,to)+(invoices?' and '+invoices+' invoice'+(invoices===1?'':'s')+' for the period':'')+'.',''];
  lines.push('Orders billed: '+docMoney(d.billed)+'.','Payments received: '+docMoney(d.paid)+'.');
  lines.push(d.closing>=0?'Balance due: '+docMoney(d.closing)+'.':'Credit balance: '+docMoney(-d.closing)+'.');
  if(d.overdue>0)lines.push('Overdue now: '+docMoney(d.overdue)+'.');
@@ -27517,14 +27548,26 @@ function finPreviewInfo(){
  if(p.kind==='receipt'){const r=DB.receipt.find(x=>x.id===p.id)||{},c=salesFindCustomer(r.customerId);return {title:'Receipt '+(r.number||''),c,file:'Receipt_'+(r.number||''),subject:['Payment receipt '+(r.number||''),company].filter(Boolean).join(' · '),
   body:'Thank you for your payment of '+docMoney(r.amount)+' received on '+docDate(r.date)+'. Receipt '+r.number+' is attached.'};}
  if(p.kind==='statement'){const c=salesFindCustomer(p.id);return {title:'Statement · '+finCustomerName(c),c,mail:'statement',file:'Statement_'+((c&&c.code)||'account')+'_'+(p.from||'start')+'_'+(p.to||finToday()),subject:['Statement '+finPeriodText(p.from,p.to),company].filter(Boolean).join(' · '),
-  body:finStatementMail(p.id,p.from,p.to)};}
+  body:finStatementMail(p.id,p.from,p.to,p.invoices&&p.invoicePages?p.invoiceCount:0)};}
  if(p.kind==='balances')return {title:'Customer balances',c:null,file:'Customer_balances_'+finToday()};
  return {title:'Payments due',c:null,file:'Payments_due_'+finToday()};
 }
 function finStatementControls(p){
  const err=finPeriodError(p),skipped=err?[]:finStatementData(p.id,p.from,p.to).skipped;
- return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>
- ${err?`<p role="alert" class="fin-due fin-preview-note">${esc(err)}</p>`:''}${skipped.length?`<p class="fin-hint fin-preview-note">Not priced, left out: ${esc(skipped.map(o=>o.businessNumber).join(', '))}</p>`:''}`;
+ return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<label class="chk fin-statement-invoices" title="Invoices for the period after the statement"><input type="checkbox" data-statement-invoices ${p.invoices?'checked':''} onchange="finStatementInvoices(this.checked)"> Invoices</label><span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>
+ ${err?`<p role="alert" class="fin-due fin-preview-note">${esc(err)}</p>`:''}${skipped.length?`<p class="fin-hint fin-preview-note">Not priced, left out: ${esc(skipped.map(o=>o.businessNumber).join(', '))}</p>`:''}${p.invoices&&!err?`<p class="fin-hint fin-preview-note" data-statement-invoices-note>${p.invoicePages?p.invoiceCount?p.invoiceCount+' invoice'+(p.invoiceCount===1?'':'s')+' after the statement':'No invoices in this period':'Preparing invoices…'}</p>`:''}`;
+}
+/* Счета за период к выписке (владелец, 22.10.2026: «выслать клиенту все
+   инвойсы, информацию за год»): Invoice каждого заказа, выданного в
+   периоде, — после выписки, одним PDF. Ушедшие в архив читаются с диска на
+   время сборки (archiveWith). */
+function finStatementInvoices(on){const p=finPreview;if(!p)return;p.invoices=!!on;p.status='';render();}
+async function finStatementInvoiceBuild(p,key){
+ const inPeriod=d=>!!d&&(!p.from||d>=p.from)&&(!p.to||d<=p.to),list=finStatementOrders(p.id,p.from,p.to).filter(x=>inPeriod(x.billed)),old=list.filter(x=>x.archived).map(x=>x.o.id);
+ const build=()=>list.flatMap(x=>{const o=salesRecord(x.o.id);return o?finWithOrder(o,()=>docLayout(docBuildModel('invoice',o,docDefaultOptions('invoice')))):[];});
+ let pages=[];try{pages=old.length&&typeof archiveWith==='function'?await archiveWith(old,build):build();}catch(e){if(finPreview===p)p.status='Invoices could not be prepared: '+(e&&e.message||e);}
+ if(finPreview!==p||p.invoiceKey!==key)return;
+ p.invoicePages=pages;p.invoiceCount=list.length;render();
 }
 function finStatementExport(){const p=finPreview;if(!p||finPeriodError(p))return;const c=salesFindCustomer(p.id);customerDownload('Statement_'+((c&&c.code)||'account').replace(/[^A-Za-z0-9-]+/g,'_')+'_'+(p.from||'start')+'_'+(p.to||finToday())+'.csv',finStatementCSV(p.id,p.from,p.to),'text/csv;charset=utf-8');}
 function finPreviewHTML(){
@@ -27590,7 +27633,7 @@ function finStatementsHTML(){
 /* Выписке нужен закрытый период, поэтому быстрые кнопки — месяцы; вид и
    поведение — как блок Created в Sales. */
 let finRangeMenu=null;
-const FIN_STATEMENT_RANGE=[['lastMonth','Last month'],['thisMonth','This month'],['thisYear','This year']];
+const FIN_STATEMENT_RANGE=[['lastMonth','Last month'],['thisMonth','This month'],['thisYear','This year'],['lastYear','Last year']];
 function finRangeState(target){return target==='statements'?finStatements:finPreview;}
 function finRangeLabel(s){const k=FIN_STATEMENT_RANGE.find(x=>{const r=salesListPresetRange(x[0]);return r&&r[0]===s.from&&r[1]===s.to;});return k?k[1]:s.from&&s.to?salesListShortDay(s.from)+' – '+salesListShortDay(s.to):'Choose dates';}
 function finRangeButton(target){const s=finRangeState(target);return s?`<button type="button" class="sl-quiet sl-date-toggle" data-period="${target}" aria-haspopup="dialog" onclick="finRangeOpen(event,'${target}')">Period: ${esc(finRangeLabel(s))}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`:'';}
@@ -27902,7 +27945,7 @@ function viewCommissionsIn(){
 /* Заказы человека: начислено за период; «Paid out» и «Due» — за всё время
    по заказу. Выплата — галочками по заказам с долгом, сумма считается сама. */
 function comDetailHTML(r,range){
- const s=comSummary(r,range),due=comDue(r),money=v=>v?finFmt(v):'<span class="mut">—</span>',open=o=>!o?'<span class="mut">Deleted order</span>':`<button type="button" class="fin-link mono" onclick="event.stopPropagation();salesLeaveDraft(()=>{tab='sales';salesOrderEdit('${esc(o.id)}')})">${esc(o.businessNumber)}</button>`;
+ const s=comSummary(r,range),due=comDue(r),money=v=>v?finFmt(v):'<span class="mut">—</span>',open=o=>!o?'<span class="mut">Deleted order</span>':`<button type="button" class="fin-link mono" onclick="event.stopPropagation();salesLeaveDraft(()=>{tab='sales';${o.archived?'archiveOpen':'salesOrderEdit'}('${esc(o.id)}')})">${esc(o.businessNumber)}</button>${o.archived?' <span class="pill archived" data-archived>Archived</span>':''}`;
  const dueCell=id=>{const d=due.get(id);return `<td class="n">${money(d&&d.paidOut)}</td><td class="n"><b class="${d&&d.due>0?'fin-due':''}" data-com-due>${d?finFmt(d.due):'—'}</b></td>`;};
  const rows=s.rows.map(x=>`<tr data-com-order="${esc(x.number)}"><td>${open(x.o)}</td><td data-raw>${esc(comCustomerName(x.customerId))}</td><td>${esc(salesListShortDay(x.date))}</td><td class="n">${money(x.total)}</td><td class="n">${money(x.base)}</td><td class="n">${x.pct}%</td><td class="n"><b>${money(x.com)}</b></td>${comHst?`<td class="n">${money(x.paid)}</td><td class="n">${money(x.comHst)}</td>`:''}${dueCell(x.o.id)}</tr>`).join('');
  const pays=(DB.referrerPayout||[]).filter(p=>p.referrerId===r.id).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt));
@@ -27917,7 +27960,7 @@ function comDetailHTML(r,range){
   <div class="fin-strip"><div><small>Orders</small><b>${s.orders}</b></div><div><small>Paid · no HST</small><b>${finFmt(s.base)}</b></div><div><small>Commission</small><b>${finFmt(s.com)}</b></div><div><small>Paid out · all time</small><b>${finFmt(s.paidOut)}</b></div><div><small>To pay</small><b class="${s.toPay>0?'fin-due':''}" data-com-topay>${finFmt(s.toPay)}</b></div></div>
   ${payForm}
   <div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Order</th><th>Customer</th><th>Date</th><th class="n">Order total</th><th class="n">Paid · no HST</th><th class="n">%</th><th class="n">Commission</th>${comHst?'<th class="n">Paid with HST</th><th class="n">Commission with HST</th>':''}<th class="n" title="All time">Paid out</th><th class="n" title="All time: commission − paid out">Due</th></tr></thead><tbody>${rows||`<tr><td colspan="${comHst?11:9}" class="empty">No payments in this period.</td></tr>`}</tbody></table></div>
-  ${pays.length?`<h4>Payouts</h4><div class="sales-table-wrap"><table class="sl-table" data-com-payouts><thead><tr><th>Date</th><th class="n">Amount</th><th>Orders</th><th>Note</th><th></th></tr></thead><tbody>${pays.map(p=>`<tr><td>${esc(salesListShortDay(p.date))}</td><td class="n">${finFmt(p.amount)}</td><td class="mono">${esc(p.orders.map(x=>{const o=salesRecord(x.orderId);return (o?o.businessNumber:'?')+' '+finFmt(x.amount);}).join(' · '))}</td><td data-raw>${esc(p.note)}</td><td class="sales-row-actions"><button type="button" class="sm dl" title="Delete payout — its orders are due again" onclick="comPayDelete('${esc(p.id)}')">×</button></td></tr>`).join('')}</tbody></table></div>`:''}</div>`;
+  ${pays.length?`<h4>Payouts</h4><div class="sales-table-wrap"><table class="sl-table" data-com-payouts><thead><tr><th>Date</th><th class="n">Amount</th><th>Orders</th><th>Note</th><th></th></tr></thead><tbody>${pays.map(p=>`<tr><td>${esc(salesListShortDay(p.date))}</td><td class="n">${finFmt(p.amount)}</td><td class="mono">${esc(p.orders.map(x=>{const o=salesRecord(x.orderId)||(typeof archiveKnown==='function'?{businessNumber:(archiveKnown(x.orderId)||{}).number}:null);return (o&&o.businessNumber?o.businessNumber:'?')+' '+finFmt(x.amount);}).join(' · '))}</td><td data-raw>${esc(p.note)}</td><td class="sales-row-actions"><button type="button" class="sm dl" title="Delete payout — its orders are due again" onclick="comPayDelete('${esc(p.id)}')">×</button></td></tr>`).join('')}</tbody></table></div>`:''}</div>`;
 }
 function comFormHTML(){
  const d=comDraft,taken=new Map((DB.referrer||[]).filter(r=>r.id!==d.id).flatMap(r=>r.customers.map(c=>[c.customerId,r.name])));
@@ -28795,6 +28838,7 @@ function salesListPresetRange(key){
   case 'thisMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth(),1)),salesListDay(new Date(d.getFullYear(),d.getMonth()+1,0))];
   case 'lastMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth()-1,1)),salesListDay(new Date(d.getFullYear(),d.getMonth(),0))];
   case 'thisYear':return [d.getFullYear()+'-01-01',d.getFullYear()+'-12-31'];
+  case 'lastYear':return [(d.getFullYear()-1)+'-01-01',(d.getFullYear()-1)+'-12-31'];
   /* Без нижней границы: пустое From в блоке дат, а сравнение строк '' <= любой дате. */
   case 'overdue':return ['',salesListDay(add(d,-1))];
   case 'next7':case 'next30':return [salesListDay(d),salesListDay(add(d,Number(key.slice(4))))];
@@ -43523,12 +43567,13 @@ Object.assign(REP_SRC,{
    REP_F.num('amount','Amount',{money:true}),REP_F.num('applied','Applied to orders',{money:true}),REP_F.num('onAccount','On account',{money:true}),REP_F.num('orders','Orders paid')],
   metrics:[{k:'amount',label:'Amount',agg:'sum',f:'amount',money:true},{k:'count',label:'Receipts',agg:'count'},{k:'applied',label:'Applied to orders',agg:'sum',f:'applied',money:true},
    {k:'onAccount',label:'On account',agg:'sum',f:'onAccount',money:true},{k:'customers',label:'Customers',agg:'distinct',f:'customer'}]},
- balances:{label:'Balances & overdue',group:'Finance',access:'finance',hint:'What customers owe and how late',rows:()=>repBalanceFacts(),date:['due','billed'],
+ /* now — то, что есть сейчас, а не события: архив (erp/archive) им не нужен. */
+ balances:{label:'Balances & overdue',group:'Finance',access:'finance',now:true,hint:'What customers owe and how late',rows:()=>repBalanceFacts(),date:['due','billed'],
   fields:()=>[REP_F.date('due','Payment due'),REP_F.date('billed','Billed'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('status','Status')]
    .concat(repOrderFields(),[REP_F.num('total','Order total',{money:true}),REP_F.num('paid','Paid',{money:true}),REP_F.num('balance','Balance',{money:true}),REP_F.num('overdue','Overdue',{money:true}),REP_F.num('daysOverdue','Days overdue')]),
   metrics:[{k:'balance',label:'Balance',agg:'sum',f:'balance',money:true},{k:'overdue',label:'Overdue',agg:'sum',f:'overdue',money:true},{k:'overdueN',label:'Overdue orders',agg:'sum',f:'overdueN'},
    {k:'count',label:'Orders',agg:'count'},{k:'paid',label:'Paid',agg:'sum',f:'paid',money:true},{k:'total',label:'Order total',agg:'sum',f:'total',money:true}]},
- offcuts:{label:'Offcuts in stock',group:'Production',hint:'Sheet offcuts kept, used, removed',rows:()=>repOffcutFacts(),date:['at'],
+ offcuts:{label:'Offcuts in stock',group:'Production',now:true,hint:'Sheet offcuts kept, used, removed',rows:()=>repOffcutFacts(),date:['at'],
   fields:()=>[REP_F.date('at','Booked'),REP_F.text('offcut','Offcut'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('maker','Manufacturer',r=>r.maker||'—'),
    REP_F.dim('size','Size'),REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.dim('status','Status'),REP_F.num('area','Area ft²',{digits:1})],
   metrics:[{k:'count',label:'Offcuts',agg:'count'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1}]}
@@ -44538,6 +44583,16 @@ function repScreenHTML(r,ctx){
 /* Вкладки экрана: «Now» — встроенный экран, дальше — назначенные отчёты. */
 function repScreenTabs(reps,cur,setter){return `<div class="rep-screen-tabs tabs" data-rep-screen-tabs>${[['','Now']].concat(reps.map(r=>[r.id,r.name])).map(([id,n])=>`<button type="button" class="${id===cur?'on':''}" data-rep-screen-tab="${esc(id)}" onclick="${setter}(this.dataset.repScreenTab)">${esc(n)}</button>`).join('')}</div>`;}
 
+/* Период страницы для архива (erp/archive): от самого раннего до самого
+   позднего дня её графиков, со сравнением; «всё время» — без границы. */
+function repArchiveRange(r,p){
+ let from=null,to=null;
+ /* '' — без границы: шире любой даты. */
+ const widen=x=>{const a=x[0]||'',b=x[1]||'';from=from===null?a:from===''||a===''?'':a<from?a:from;to=to===null?b:to===''||b===''?'':b>to?b:to;};
+ p.widgets.forEach(w=>{const q=repWidgetQuery(r,w),S=REP_SRC[q.source];if(!S||S.now||!repDates(S).length)return;
+  const range=repRange(q.date)||['',''];widen(range);const c=repCompareRange(range,q.compare);if(c)widen(c);});
+ return from===null?null:[from,to];
+}
 /* ------------------------------ Экран ------------------------------ */
 function repMain(r){
  if(!r)return `<div class="card rep-empty" data-rep-empty><h3>Pick a report</h3><p class="mut">Choose one on the left, or start a new one. Every chart can be changed: data, type, dimensions, metrics, filters, period.</p><button type="button" class="pri" onclick="repNew()">+ New report</button></div>`;
@@ -44550,7 +44605,11 @@ function repMain(r){
   :`${repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-edit onclick="repEditToggle()">Edit</button>`:''}<button type="button" class="sm" data-rep-copy onclick="repCopyOpen()">Copy</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>`;
  const tabs=`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-page="${esc(x.id)}" onclick="repPageId=this.dataset.repPage;repSelW='';render()">${esc(x.name)}</button>`).join('')}${repEditOn?`<button type="button" onclick="repAddPage()">+ Page</button>`:''}</div>
   ${repEditOn?`<div class="rep-page-edit"><input type="text" value="${esc(p.name)}" aria-label="Page name" onchange="repRenamePage(this.value)"><button type="button" class="sm" title="Move page left" onclick="repMovePage(-1)">←</button><button type="button" class="sm" title="Move page right" onclick="repMovePage(1)">→</button>${r.pages.length>1?`<button type="button" class="sm dl" onclick="repDelPage()">Delete page</button>`:''}</div>`:''}`;
- const body=p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
+ /* Период захватывает ушедшие в архив заказы — сначала их записи с диска. */
+ const range=repArchiveRange(r,p),arch=range&&typeof archiveScopeFor==='function'?archiveScopeFor(range):'none';
+ if(!range&&typeof archiveScopeDrop==='function')archiveScopeDrop();
+ const wait=arch==='loading'?`Reading ${archiveScopeCount(range)} archived orders…`:arch==='big'?`This period reaches ${archiveScopeCount(range)} archived orders — too many at once. Pick a shorter period.`:'';
+ const body=wait?`<div class="card mut" data-rep-archive-wait>${esc(wait)}</div>`:p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
  return `<div class="card rep-head"><div class="rep-head-row">${head}<span class="sales-toolbar-sp"></span>${acts}</div>${!can&&!repEditOn?`<div class="mut small">${r.ownerId?'Shared with you':'Starter report'} · Copy to change it</div>`:''}${tabs}${repControls(r)}</div><div class="rep-ws">${body}</div>`;
 }
 function viewReports(){
@@ -44580,7 +44639,8 @@ function viewReports(){
         invSheetRows, invOffcutRows, storageIdbColdOf, storageVisit
    OUT: archiveIndex, archiveDue(day), archiveCollect(ids), archiveRun(day),
         archiveReturn(orderId), archiveIndexLoad / archiveIndexApply,
-        archiveListInfos, archiveOpen(id), archiveViewing(o), archiveRepeat
+        archiveListInfos, archiveOpen(id), archiveViewing(o), archiveRepeat,
+        archiveLedgerFor(customerId), archiveWith(owners,fn), archiveScopeFor(range)
    ===================================================================== */
 const ARCHIVE_ON=false,ARCHIVE_MONTHS=3;
 DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};
@@ -44590,8 +44650,41 @@ let archiveIndex=new Map(),archiveIncoming=null;
    работе, которые ссылаются на ушедший заказ (оплата на два заказа, батч,
    накладная), нормализация и проверка Import не считают битыми. */
 function archiveKnown(id){const m=archiveIncoming||archiveIndex;return id&&m.get(id)||null;}
-function archiveIndexLoad(rows){archiveIndex=new Map((rows||[]).map(r=>[r.id,r.row]));}
-function archiveIndexApply(pairs,clear){if(clear)archiveIndex=new Map();(pairs||[]).forEach(([id,row])=>{if(row)archiveIndex.set(id,row);else archiveIndex.delete(id);});}
+/* В том же складе archive — строки выписки ушедших записей (ключ
+   `L:<таблица>:<id>`): выписка клиента за любой период берёт их отсюда
+   (finStatementLines). В памяти — по клиенту. */
+let archiveLedgerBy=new Map(),archiveLedgerKeys=new Map();
+function archiveIndexLoad(rows){archiveIndex=new Map();archiveLedgerBy=new Map();archiveLedgerKeys=new Map();archiveIndexApply((rows||[]).map(r=>[r.id,r.row]));}
+function archiveIndexApply(pairs,clear){
+ if(clear){archiveIndex=new Map();archiveLedgerBy=new Map();archiveLedgerKeys=new Map();}
+ (pairs||[]).forEach(([id,row])=>{
+  if(!String(id).startsWith('L:')){if(row)archiveIndex.set(id,row);else archiveIndex.delete(id);return;}
+  const was=archiveLedgerKeys.get(id);if(was!=null){const m=archiveLedgerBy.get(was);if(m){m.delete(id);if(!m.size)archiveLedgerBy.delete(was);}archiveLedgerKeys.delete(id);}
+  if(!row)return;let m=archiveLedgerBy.get(row.customerId);if(!m)archiveLedgerBy.set(row.customerId,m=new Map());m.set(id,row);archiveLedgerKeys.set(id,row.customerId);
+ });
+}
+function archiveLedgerFor(customerId){const m=archiveLedgerBy.get(customerId);return m?[...m.values()]:[];}
+/* Строки записей, которые сейчас уходят, — как в день ухода. Заказ: для
+   Agents — номер, дата, сумма и HST (com); для выписки — начисление и
+   строка раздела Orders (оплачен целиком). Оплата: для Agents — дата и
+   разнесения (alloc); для выписки — строка. Возврат — строка выписки. */
+function archiveLedgerOf(set){
+ const out=[],paidOn=new Map();
+ finActiveReceipts().forEach(r=>(r.allocations||[]).forEach(a=>{let d=paidOn.get(a.orderId);if(!d)paidOn.set(a.orderId,d=[]);d.push(r.date);}));
+ set.forEach(x=>{
+  const r=x.row,key='L:'+x.tbl+':'+r.id;
+  if(x.tbl==='salesOrder'&&!salesIsQuote(r)){
+   const t=finOrderTotals(r),e={id:r.id,customerId:r.customerId,com:{number:r.businessNumber||'',created:r.createdAt||'',t:{grand:t.grand,hst:t.hst,complete:!!t.complete}}},l=finStatementOrderLine(r);
+   if(l&&l.skipped)e.skipped=r.businessNumber||'';
+   else if(l){const f=finOrderFinancial(r);e.line=l;e.order={number:r.businessNumber||'',po:r.customerPo||'',billed:l.date,paidOn:paidOn.get(r.id)||[],
+    f:{b:{total:f.b.total,paid:f.b.paid,balance:f.b.balance,status:f.b.status},overdue:0,dueOn:f.dueOn||'',terms:{paymentMode:f.terms.paymentMode,creditDays:f.terms.creditDays},handover:f.handover}};}
+   out.push([key,e]);
+  }
+  if(x.tbl==='receipt'&&!r.voided){const e={id:r.id,customerId:r.customerId,date:r.date,alloc:(r.allocations||[]).map(a=>({orderId:a.orderId,amount:a.amount}))},l=finStatementPaymentLine(r);if(l)e.line=l;out.push([key,e]);}
+  if(x.tbl==='refund'){const l=finStatementRefundLine(r);if(l)out.push([key,{id:r.id,customerId:r.customerId,line:l}]);}
+ });
+ return out;
+}
 
 /* Хранимые счётчики: наибольший номер, ушедший в архив, — номера «максимум
    + 1» не начнутся заново, когда старые заказы уйдут из работы. */
@@ -44689,7 +44782,8 @@ function archiveCollect(ids){
   const mine=ids.has(entity)||receipts.has(entity)||refunds.has(entity);if(!mine||orders.some(id=>live.has(id)))return;
   add('financeEvent',e,orders.length?orders:[entity]);
  });
- (DB.referrerPayout||[]).forEach(p=>{const orders=(p.orders||[]).map(x=>x.orderId);if(orders.length&&orders.some(id=>ids.has(id))&&!orders.some(id=>live.has(id)))add('referrerPayout',p,orders);});
+ /* Выплаты агентам остаются в работе: их мало, а «к выплате» считается по
+    ним за всё время (Agents, finance/commissions). */
  /* Журнал выгрузок QuickBooks — вместе со своей оплатой или заказом. */
  const exported=new Map();out.forEach(x=>{if(['salesOrder','receipt','refund'].includes(x.tbl))exported.set(x.row.id,x.owners);});
  (DB.financeExport||[]).forEach(e=>{if(e&&exported.has(e.entityId))add('financeExport',e,exported.get(e.entityId));});
@@ -44744,25 +44838,90 @@ function archiveListRow(r,cols){
 let archiveVisit=null;
 async function archiveOpen(id){
  const a=archiveIndex.get(id);if(!a)return false;
+ archiveScopeDrop();
  if(typeof soDraft!=='undefined'&&soDraft){salesLeaveDraft(()=>archiveOpen(id));return false;}
  const ids=a.kind==='quote'?[...archiveIndex].filter(([,x])=>x.kind==='quote'&&x.groupId===a.groupId).map(([k])=>k):[id];
- const seen=new Set(),recs=[];
- for(const owner of ids)(await storageIdbColdOf(owner)).forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}});
+ const recs=await archiveRead(ids);
  if(!recs.some(r=>r.tbl==='salesOrder'&&r.id===id)){alert('This archived order could not be read.');return false;}
  archiveVisitEnd();
- const tables=new Map();
- recs.forEach(r=>{if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];DB[r.tbl].push(JSON.parse(r.data));let t=tables.get(r.tbl);if(!t)tables.set(r.tbl,t=new Map());t.set(r.id,r.data);});
- tables.forEach((t,tbl)=>storageVisit.set(tbl,new Set(t.keys())));
+ const tables=archiveRowsPut(recs,true);
  archiveVisit={id,ids:new Set(ids),tables,arrays:new Map([...tables.keys()].map(t=>[t,DB[t]]))};
- storageInvalidate();
  salesOrderEdit(id);return true;
 }
-/* Просмотр закрыт — строки уходят из DB по ключам (объект строки мог
-   смениться: правка формы на экране, откат). */
-function archiveVisitEnd(){
- const v=archiveVisit;if(!v)return;archiveVisit=null;
- v.tables.forEach((t,tbl)=>{const a=DB[tbl];if(!Array.isArray(a))return;let n=0;for(let i=0;i<a.length;i++)if(!t.has(storageRowKey(tbl,a[i])))a[n++]=a[i];a.length=n;});
- storageVisit.clear();storageInvalidate();
+/* Просмотр закрыт — строки уходят из DB. */
+function archiveVisitEnd(){const v=archiveVisit;if(!v)return;archiveVisit=null;archiveRowsDrop(v.tables);}
+/* Записи ушедших заказов owners с диска (общая запись — один раз). */
+async function archiveRead(owners){
+ const seen=new Set(),recs=[];
+ for(const owner of owners)(await storageIdbColdOf(owner)).forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}});
+ return recs;
+}
+/* Записи архива — в DB на время просмотра или расчёта; сравнение базы их не
+   видит (storageVisit). Уже стоящие (открытый заказ) не дублируются. Встают
+   на прежнее место по seq — порядок строк тот же, что до ухода, и отчёты
+   складывают в том же порядке. Возвращает поставленное: tbl → Map id → текст
+   записи (keep — для просмотра, который возвращает строки после пересборки
+   таблицы; отчёту и расчёту текст не нужен — меньше памяти). */
+function archiveRowsPut(recs,keep){
+ const put=new Map(),byTbl=new Map();
+ recs.forEach(r=>{const v=storageVisit.get(r.tbl);if(v&&v.has(r.id))return;let a=byTbl.get(r.tbl);if(!a)byTbl.set(r.tbl,a=[]);a.push(r);});
+ byTbl.forEach((list,tbl)=>{
+  if(!Array.isArray(DB[tbl]))DB[tbl]=[];
+  const rows=DB[tbl],base=storageBase.get(tbl)||new Map(),out=[],t=new Map();let v=storageVisit.get(tbl),i=0;
+  if(!v)storageVisit.set(tbl,v=new Set());put.set(tbl,t);
+  list.sort((a,b)=>a.seq-b.seq);
+  /* Строка в работе без seq (ещё не записана) — в конце, как и была. */
+  rows.forEach(row=>{const b=base.get(storageRowKey(tbl,row)),seq=b?b.s:Infinity;for(;i<list.length&&list[i].seq<seq;i++)out.push(JSON.parse(list[i].data));out.push(row);});
+  for(;i<list.length;i++)out.push(JSON.parse(list[i].data));
+  /* Массив тот же: на него держат ссылки. */
+  rows.length=0;out.forEach(x=>rows.push(x));
+  list.forEach(r=>{v.add(r.id);t.set(r.id,keep?r.data:'');});
+ });
+ storageInvalidate();return put;
+}
+/* Убрать поставленное — по ключам (объект строки мог смениться: правка формы
+   на экране, откат). */
+function archiveRowsDrop(put){
+ put.forEach((t,tbl)=>{const a=DB[tbl],v=storageVisit.get(tbl);
+  if(Array.isArray(a)){let n=0;for(let i=0;i<a.length;i++)if(!t.has(storageRowKey(tbl,a[i])))a[n++]=a[i];a.length=n;}
+  if(v){t.forEach((x,id)=>v.delete(id));if(!v.size)storageVisit.delete(tbl);}});
+ storageInvalidate();
+}
+/* ------------------------- Отчёты за прошлые месяцы -------------------- */
+/* Отчёт, чей период захватывает ушедшие заказы (Reports): записи заказов,
+   чья жизнь «создан … день ухода» пересекает период, читаются с диска и
+   стоят в DB, пока отчёт открыт с этим периодом (задание: «детали — по
+   запросу с индикатором»). range — [from, to] днями, '' — без границы.
+   Ответ: 'none' (архив не нужен), 'loading' (читается), 'ready', 'big' —
+   заказов больше ARCHIVE_SCOPE_MAX: столько разом память не вместит, нужен
+   период короче (предел — проверить на базе за 7 лет, А5). */
+const ARCHIVE_SCOPE_MAX=3000;
+let archiveScope=null;
+function archiveScopeFor(range){
+ const from=range&&range[0]||'',to=range&&range[1]||'',owners=[];
+  archiveIndex.forEach((a,id)=>{if(archiveSpanIn(a,from,to))owners.push(id);});
+ if(!owners.length){archiveScopeDrop();return 'none';}
+ if(owners.length>ARCHIVE_SCOPE_MAX){archiveScopeDrop();return 'big';}
+ const key=from+'|'+to+'|'+owners.length+'|'+owners[0]+'|'+owners[owners.length-1];
+ if(archiveScope&&archiveScope.key===key)return archiveScope.put?'ready':'loading';
+ archiveScopeDrop();const st=archiveScope={key,put:null,orders:owners.length};
+ archiveRead(owners).then(recs=>{if(archiveScope!==st)return;st.put=archiveRowsPut(recs,false);render();}).catch(e=>{if(archiveScope===st)archiveScope=null;console.warn('Archive was not read:',e.message);});
+ return 'loading';
+}
+function archiveScopeDrop(){const st=archiveScope;archiveScope=null;if(st&&st.put)archiveRowsDrop(st.put);}
+/* Жизнь заказа пересекает период — от самой ранней до самой поздней из его
+   дат: создан, срок (Due), «действительна до» у квоты, день ухода. */
+function archiveSpanIn(a,from,to){const span=[String(a.createdAt||'').slice(0,10),a.day,a.row&&a.row.due,a.row&&a.row.validUntil].filter(Boolean).map(String).sort();return !!span.length&&(!to||span[0]<=to)&&(!from||span[span.length-1]>=from);}
+/* Сколько ушедших заказов в периоде — для надписи на экране. */
+function archiveScopeCount(range){const from=range&&range[0]||'',to=range&&range[1]||'';let n=0;archiveIndex.forEach(a=>{if(archiveSpanIn(a,from,to))n++;});return n;}
+/* Ушли из отчётов — записи архива уходят из памяти. */
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k){if(archiveScope&&k!=='reports')archiveScopeDrop();return false;});
+
+/* Записи ушедших заказов на время одного расчёта (счета за период к
+   выписке): встают в DB, fn строит из них — и сразу уходят. */
+async function archiveWith(owners,fn){
+ const put=archiveRowsPut(await archiveRead(owners),false);
+ try{return fn();}finally{archiveRowsDrop(put);}
 }
 /* Таблицу собрали заново из базы (откат, чужая запись) — строки просмотра
    возвращаются туда же. */
@@ -44829,7 +44988,7 @@ function archiveInvKeep(before,after,offcuts){
 function archiveRun(day,opts){
  opts=opts||{};day=String(day||new Date().toISOString()).slice(0,10);
  /* Открыт заказ из архива — его записи сейчас в DB; уход подождёт. */
- if(archiveVisit)return {ok:false,error:'An archived order is open.'};
+ if(archiveVisit||archiveScope)return {ok:false,error:'Archived orders are open.'};
  const now=new Date().toISOString();
  return storageCommand(()=>{
   let due=[...archiveDue(day)];if(opts.limit)due=due.slice(0,opts.limit);
@@ -44845,11 +45004,12 @@ function archiveRun(day,opts){
    if(x.tbl==='receipt')archiveFloorRaise('receipt',num(x.row.number,/^R-(\d+)$/));
    if(x.tbl==='financeEvent')archiveFloorRaise('financeEvent',+x.row.seq||0);
   });
-  const before=archiveInvState();
+  const before=archiveInvState(),ledger=archiveLedgerOf(set);
   const byTbl=new Map();set.forEach(x=>{let a=byTbl.get(x.tbl);if(!a)byTbl.set(x.tbl,a=[]);a.push(x);});
   byTbl.forEach((list,tbl)=>storageColdMoveAll(tbl,list));
   archiveInvKeep(before,archiveInvState(),true);
   rows.forEach(([id,row])=>storageArchiveIndex(id,row));
+  ledger.forEach(([key,e])=>storageArchiveIndex(key,e));
   return {orders:ids.size,records:set.length};
  });
 }
@@ -44869,6 +45029,8 @@ async function archiveReturn(orderId){
   archiveInvKeep(before,archiveInvState(),false);
   if(DB.inventoryArchived&&DB.inventoryArchived.offcuts)(DB.stockOffcut||[]).forEach(o=>{if(got.some(r=>r.tbl==='glassBatch'&&JSON.parse(r.data).number===o.batch))delete DB.inventoryArchived.offcuts[o.id];});
   (DB.salesOrder||[]).forEach(o=>{if(owners.has(o.id)&&archiveIndex.has(o.id))storageArchiveIndex(o.id,null);});
+  /* Записи снова в работе — их строки выписки считаются из них самих. */
+  got.forEach(r=>{const key='L:'+r.tbl+':'+r.id;if(archiveLedgerKeys.has(key))storageArchiveIndex(key,null);});
   return got.length;
  });
 }
