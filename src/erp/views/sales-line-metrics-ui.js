@@ -202,7 +202,9 @@ function salesSaveWeightNorm(index,value,factor){
  const row=salesLineWeight(line,soDraft).rows[index];if(!row||!row.key)return;
  const shown=mdNonNeg(value),rate=shown==null?null:shown/(factor||1);if(value.trim()!==''&&shown==null){alert('Enter a non-negative weight norm.');render();return;}
  const old=(DB.materialWeightRates||[]).find(r=>r.key===row.key);
- if(old){old.rate=rate;old.derived=false;}else DB.materialWeightRates.push({key:row.key,rate:rate,note:'',derived:false});touch();render();
+ if(old){old.rate=rate;old.derived=false;}else DB.materialWeightRates.push({key:row.key,rate:rate,note:'',derived:false});
+ /* Норма, замороженная в этом заказе, меняется вместе с общей — как правила цены. */
+ if(soDraft.priceBook&&Object.prototype.hasOwnProperty.call(soDraft.priceBook,'weight:'+row.key))soDraft.priceBook['weight:'+row.key]=rate;touch();render();
 }
 function salesAddWeightExtra(){const l=salesMetricsLine();if(!l)return;if(!l.weightExtras)l.weightExtras=[];l.weightExtras.push({label:'',kg:null});render();}
 function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtras.splice(i,1);render();}}
