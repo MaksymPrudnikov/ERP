@@ -54,7 +54,7 @@ function benchFile() {
 
   const br = await chromium.launch();
   const c = await br.newContext();
-  await c.addInitScript(() => { window.GF_NO_SIGNIN = true; });
+  await c.addInitScript(() => { window.GF_NO_SIGNIN = true; window.GF_NO_ARCHIVE = true; });
   const p = await c.newPage();
   p.on('dialog', d => d.accept());
   await p.goto('file://' + target);

@@ -78,6 +78,8 @@ if (!o.name) o.name = o.inventory ? 'shop-inventory' : o.small ? 'shop-small' : 
 /* ---------------- до загрузки страницы: часы, seed ---------------- */
 function initPage(seed) {
   window.GF_NO_SIGNIN = true;
+  /* Уход в архив сам (erp/archive) — не посреди симуляции: дни у неё свои. */
+  window.GF_NO_ARCHIVE = true;
   let a = (seed >>> 0) || 1;
   const rnd = () => { a = a + 0x6D2B79F5 >>> 0; let t = a; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   Math.random = rnd;
