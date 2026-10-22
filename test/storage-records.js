@@ -215,7 +215,7 @@ module.exports=async function({page,eq,ok}){
   storageCommand(()=>{DB.customer.find(c=>c.id==='HOLD-1').legalName='Late A';});return true;
  }).then(()=>W2.evaluate(()=>storageTakeControl())).then(async took=>({took,writer:await w.p.evaluate(()=>storageWriter),failed:await w.p.evaluate(()=>!!storageFailed)})),{took:false,writer:true,failed:true});
  /* Export — незаписанное в файле: вкладка отдаёт запись и берёт из базы то, что там лежит. */
- await w.p.evaluate(()=>{window.srSaved=0;storageDownload=()=>{srSaved++;};doExport();});
+ await w.p.evaluate(async()=>{window.srSaved=0;storageDownload=()=>{srSaved++;};await doExport();});
  eq('после Export вкладка отдаёт запись и показывает то, что в базе',await W2.evaluate(()=>storageTakeControl()).then(async took=>{
   await w.p.waitForFunction(()=>!storageFailed&&DB.customer.find(c=>c.id==='HOLD-1').legalName==='Edit B',null,{timeout:5000}).catch(()=>{});
   return {took,exported:await w.p.evaluate(()=>srSaved),writer:await w.p.evaluate(()=>storageWriter),failed:await w.p.evaluate(()=>!!storageFailed),first:await holdName(w.p),disk:await holdDisk(w.p)};
@@ -281,12 +281,15 @@ module.exports=async function({page,eq,ok}){
  eq('пустые строки и CRLF перед заголовком v2 не мешают Import',await z.p.evaluate(async()=>{
   const text=storageExportParts().join('');return [await storageImportFile(new File(['\n'+text],'a.ndjson')),await storageImportFile(new File(['\r\n\r\n'+text.replace(/\n/g,'\r\n')],'b.ndjson'))];
  }),[true,true]);
- eq('база больше копии до импорта — понятный отказ, ничего не заменено',await z.p.evaluate(async()=>{
+ /* Копия до импорта — по записям, частями (находка 6): вся база одной
+    строкой больше не собирается, предела строки браузера нет. */
+ eq('копия до импорта — по записям: вся база одной строкой не собирается, Restore возвращает её',await z.p.evaluate(async()=>{
   const before=JSON.stringify(DB),real=JSON.stringify,env=JSON.parse(before);env.customer.push(normalizeCustomer({legalName:'Other',code:'C-00002'}));
-  JSON.stringify=function(v,...a){if(v&&v.format==='glass-erp'&&v.data===DB)throw new RangeError('Invalid string length');return real.call(this,v,...a);};
+  JSON.stringify=function(v,...a){if(v===DB||v&&v.data===DB)throw new RangeError('Invalid string length');return real.call(this,v,...a);};
   let ok;try{ok=await storageImportState(env);}finally{JSON.stringify=real;}
-  return {ok,alert:srAlerts.pop(),same:JSON.stringify(DB)===before};
- }),{ok:false,alert:'Nothing was replaced. Too big for a recovery copy: Export, Clear database, then Import.',same:true});
+  const replaced=DB.customer.length,restored=await storageRestoreBackup();
+  return {ok,replaced,restored,same:JSON.stringify(DB)===JSON.stringify(prepareImportedState(JSON.parse(before)))};
+ }),{ok:true,replaced:2,restored:true,same:true});
  await y.c.close();await z.c.close();
  eq('хранилище без ошибок страницы',t.errs.concat(q.errs,r.errs,v.errs,w.errs,x.errs,y.errs,z.errs),[]);
  await q.c.close();await r.c.close();await v.c.close();
