@@ -589,7 +589,9 @@ function salesGlassProductHasReferences(id){
  const inMakeups=ms=>(Array.isArray(ms)?ms:[]).some(m=>(m&&m.panes||[]).some(p=>
   p.glassProductId===id||(p.laminated&&((p.laminated.outer&&p.laminated.outer.glassProductId===id)||(p.laminated.inner&&p.laminated.inner.glassProductId===id)))));
  return (DB.salesOrder||[]).some(o=>inMakeups(o.makeups))||
-  (typeof soDraft!=='undefined'&&!!soDraft&&inMakeups(soDraft.makeups));
+  (typeof soDraft!=='undefined'&&!!soDraft&&inMakeups(soDraft.makeups))||
+  /* Заказ в архиве (erp/archive) — тоже ссылка: на его просмотре стекло было бы «?». */
+  typeof archiveGlassUsed==='function'&&archiveGlassUsed(id);
 }
 function salesShapeHasReferences(id){return (DB.salesOrder||[]).some(o=>o.lines.some(l=>l.shapeRef&&l.shapeRef.id===id))||(typeof soDraft!=='undefined'&&soDraft&&soDraft.lines.some(l=>l.shapeRef&&l.shapeRef.id===id));}
 

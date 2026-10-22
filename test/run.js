@@ -119,6 +119,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
   async function page(seedLS, viewport, opts) {
     const c = await b.newContext(viewport ? { viewport } : {});
     if (!(opts && opts.signin)) await c.addInitScript(() => { window.GF_NO_SIGNIN = true; });
+    /* Уход в архив сам (erp/archive) — не посреди проверки: test/archive зовёт archiveRun сам. */
+    await c.addInitScript(() => { window.GF_NO_ARCHIVE = true; });
     await c.addInitScript(storageHelpers);
     const p = await c.newPage();
     const errs = [];

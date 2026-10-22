@@ -4,7 +4,7 @@ const path = require('path');
 async function run() {
  const browser = await chromium.launch(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {});
  const context = await browser.newContext();
- await context.addInitScript(() => { window.GF_NO_SIGNIN = true; });
+ await context.addInitScript(() => { window.GF_NO_SIGNIN = true; window.GF_NO_ARCHIVE = true; });
  const page = await context.newPage();
  const errors = [];
  page.on('pageerror', e => errors.push(e.message));
