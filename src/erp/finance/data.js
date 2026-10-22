@@ -96,10 +96,20 @@ const FIN_TOTALS_NEUTRAL=new Set(['stationScan','stationScanSeq','productionRout
  'skidReturn','sheetBreak','stockOffcut','stockOffcutSeq','inventoryEvent','purchasingEvent','purchaseOrder','purchaseOrderSeq','purchaseReceipt','purchaseReceiptSeq',
  'report','archiveRunDay','terminal','skip','productionUnbatch']);
 let finTotalsKeep=new Map();
+/* Фигура строки (ownerLineId) — забыть её заказ; новая фигура — ничего (от
+   неё не зависел ни один посчитанный заказ); фигура библиотеки — все. */
 function finTotalsForget(changes){
  if(!finTotalsKeep.size)return;
+ let lines=null;
  for(const c of changes){
   if(c.tbl==='salesOrder'||c.tbl==='financeTerms')finTotalsKeep.delete(String(c.id));
+  else if(c.tbl==='shapeDef'){
+   const was=storageBase.get('shapeDef'),old=was&&was.get(c.id);if(!old)continue;
+   const owners=[old.t,c.del?null:c.data].filter(Boolean).map(t=>{try{return JSON.parse(t).ownerLineId||'';}catch(e){return '';}});
+   if(owners.some(x=>!x)){finTotalsKeep=new Map();return;}
+   if(!lines){lines=new Map();finTotalsKeep.forEach((k,id)=>(k.order.lines||[]).forEach(l=>lines.set(l.id,id)));}
+   owners.forEach(x=>{if(lines.has(x))finTotalsKeep.delete(lines.get(x));});
+  }
   else if(!FIN_TOTALS_NEUTRAL.has(c.tbl==='_meta'?c.id:c.tbl)&&c.tbl!=='_archive'){finTotalsKeep=new Map();return;}
  }
 }

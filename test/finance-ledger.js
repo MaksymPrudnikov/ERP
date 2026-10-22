@@ -228,5 +228,15 @@ module.exports=async function({page,eq}){
    return {first,again,paid,balance,order:order>0,price:price>0};
   }finally{window.salesOrderCommercialTotals=f;window.GF_SCOPE_CHECK=was;}
  }),{first:true,again:0,paid:0,balance:10,order:true,price:true});
+ eq('a Shape change forgets only the order of its line; a new Shape — nothing; a library Shape — all',await t.p.evaluate(()=>{
+  const keep=storageBase.get('shapeDef'),saved=finTotalsKeep;
+  try{
+   finTotalsKeep=new Map([['A',{order:{lines:[{id:'L1'}]}}],['B',{order:{lines:[{id:'L2'}]}}]]);
+   storageBase.set('shapeDef',new Map([['S1',{t:'{"id":"S1","ownerLineId":"L1"}',s:1}],['S2',{t:'{"id":"S2"}',s:2}]]));
+   finTotalsForget([{tbl:'shapeDef',id:'S1',seq:1,data:'{"id":"S1","ownerLineId":"L1","w":2}'},{tbl:'shapeDef',id:'S9',seq:3,data:'{"id":"S9"}'}]);const one=[...finTotalsKeep.keys()];
+   finTotalsForget([{tbl:'shapeDef',id:'S2',seq:2,data:'{"id":"S2","w":1}'}]);
+   return {one,library:finTotalsKeep.size};
+  }finally{if(keep)storageBase.set('shapeDef',keep);else storageBase.delete('shapeDef');finTotalsKeep=saved;}
+ }),{one:['B'],library:0});
  eq('finance workspace has no browser errors',t.errs,[]);await t.c.close();
 };
