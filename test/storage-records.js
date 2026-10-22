@@ -47,9 +47,11 @@ module.exports=async function({page,eq,ok}){
  eq('после F5 база та же байт в байт, порядок строк тот же',await t.p.evaluate(b=>JSON.stringify(Object.keys(DB).sort().map(k=>[k,DB[k]]))===b,before),true);
  await setup();
 
- eq('отказ записи: в памяти ровно прежнее, включая несохранённое до команды',await t.p.evaluate(async()=>{
-  await storageFlush();DB.customer[0].notes='Typed, not saved';const before=JSON.stringify(DB),stored=testStoredText();
-  const out=testFailWrite(()=>storageCommand(()=>{DB.customer[1].notes='Lost';DB.customer.push({id:'SR-LOST'});}));
+ /* Несохранёнными до команды бывают только фигуры открытого заказа (П5). */
+ eq('отказ записи: в памяти ровно прежнее, включая несохранённые фигуры открытого заказа',await t.p.evaluate(async()=>{
+  await storageFlush();DB.shapeDef.push({id:'SR-SHAPE',name:'Typed, not saved'});const before=JSON.stringify(DB),stored=testStoredText(),keep=window.storageWrite;
+  window.storageWrite=()=>{throw new DOMException('Test quota','QuotaExceededError');};
+  let out;try{out=storageCommand(()=>{DB.customer[1].notes='Lost';DB.customer.push({id:'SR-LOST'});});}finally{window.storageWrite=keep;}
   return {ok:out.ok,same:JSON.stringify(DB)===before,stored:testStoredText()===stored};
  }),{ok:false,same:true,stored:true});
 

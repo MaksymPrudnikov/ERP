@@ -74,7 +74,7 @@ module.exports=async function({page,eq,ok}){
   return {arrived,card,putOn,stays,kept,own,first,becameMix,again};
  }),{arrived:'carrier',card:'carrierIn',putOn:'SL-1',stays:true,kept:['SL-1'],own:false,first:false,becameMix:['Customer B'],again:false});
  eq('Swap: their skid gets a new code, our oldest skid at that customer is written off, the count goes down',await t.p.evaluate(()=>{
-  const [a,a2]=skSeed('A A'),c=salesRecord(a).customerId;skShip(a,2);skShip(a2,6);
+  const [a,a2]=skSeed('A A'),c=salesRecord(a).customerId;skShip(a,2);skShip(a2,6);touch();
   const bad=skidSwap(c,'DL'),out=skidSwap(c,'SA'),old=carrierFind('SL-2'),made=carrierFind('SA-1'),rec=DB.skidReturn[0];
   const none=skidSwap(oqCustomer({legalName:'Customer Z'}).id,'SL');
   return {bad:bad.error,ok:out.ok,value:out.value,old:[old.active,old.note],made:[made.active,made.note],rec:[rec.kind,rec.code,rec.newCode],left:skOut(),none:none.error};

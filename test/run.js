@@ -91,12 +91,17 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return Object.keys(out).sort().reduce((o, k) => (o[k] = out[k], o), {});
     };
     window.testStoredText = () => JSON.stringify(testStoredState());
+    /* Отказ записи — после записанной подготовки: заготовки проверок кладут
+       строки прямо в DB, а в программе перед действием несохранённого нет
+       (storageCommand сравнивает до команды только фигуры, П5). */
     window.testFailWrite = (fn, error) => {
+      touch();
       const keep = window.storageWrite;
       window.storageWrite = () => { throw error || new DOMException('Test quota', 'QuotaExceededError'); };
       try { return fn(); } finally { window.storageWrite = keep; }
     };
     window.testWriteBreak = (error, onTry) => {
+      if (!window.testWriteKeep) touch();
       if (!window.testWriteKeep) window.testWriteKeep = window.storageWrite;
       window.storageWrite = () => { if (onTry) onTry(); throw error || new DOMException('Test quota', 'QuotaExceededError'); };
     };
@@ -3054,7 +3059,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), {emptyAsks:false,withLineAsks:true});
     eq('строка без размеров не даёт сохранить заказ', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();
-      DB.customer.push({id:'CUS-T',code:'C-1',legalName:'T',displayName:'T',status:'active',contacts:[],addresses:[]});
+      DB.customer.push({id:'CUS-T',code:'C-1',legalName:'T',displayName:'T',status:'active',contacts:[],addresses:[]});touch();
       soDraft.customerId='CUS-T';
       salesOrderSave();
       const blocked=DB.salesOrder.length===0;
@@ -3062,7 +3067,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {blocked,savedAfterSize:DB.salesOrder.length===1};
     }), {blocked:true,savedAfterSize:true});
     eq('несовместимая закалка предупреждает, но разрешает явное сохранение', await t.p.evaluate(() => {
-      DB.salesOrder=[];DB.customer=[{id:'CUS-WARN',code:'CW',legalName:'Warning test',displayName:'Warning test',status:'active',contacts:[],addresses:[]}];
+      DB.salesOrder=[];DB.customer=[{id:'CUS-WARN',code:'CW',legalName:'Warning test',displayName:'Warning test',status:'active',contacts:[],addresses:[]}];touch();
       tab='sales';render();salesOrderNew();soDraft.customerId='CUS-WARN';soDraft.lines[0].width16=160;soDraft.lines[0].height16=160;
       const banned=activeGlassProducts().find(glassBannedFromFurnace),required=activeGlassProducts().find(glassNeedsFurnace),m=soDraft.makeups[0];
       const pane=(g,heat,index)=>normalizeSalesPane({category:'vision',manufacturer:g.manufacturer,thicknessMm:g.thicknessMm,visionType:g.coatingFamily,glassProductId:g.id,heatTreatmentId:heat},index);
@@ -3096,7 +3101,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        припусками, стекло на станке можно повернуть, реакция — предупреждение
        при сохранении, а не запрет (габариты пока засеяны 144 × 100″). */
     eq('деталь крупнее станции маршрута подсвечена и предупреждает при сохранении', await t.p.evaluate(() => {
-      DB.salesOrder=[];DB.customer=[{id:'CUS-SIZE',code:'CS',legalName:'Size test',displayName:'Size test',status:'active',contacts:[],addresses:[]}];
+      DB.salesOrder=[];DB.customer=[{id:'CUS-SIZE',code:'CS',legalName:'Size test',displayName:'Size test',status:'active',contacts:[],addresses:[]}];touch();
       tab='sales';render();salesOrderNew();soDraft.customerId='CUS-SIZE';soDraft.lines=[];
       salesExcelPasteText('1\t150\t80\tBIG',0);salesExcelApply();render();
       const line=soDraft.lines[0],status=salesLineServiceStatus(line);

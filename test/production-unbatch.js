@@ -63,7 +63,7 @@ module.exports=async function({page,eq}){
   return {unchanged:p.unchanged.length,pieces:p.pieces.length,error:!!r.error,same:JSON.stringify(DB)===before,where:ids.map(id=>stationPlace(stationGlass(id)).waiting)};
  }),{unchanged:2,pieces:0,error:true,same:true,where:['ARRIS','CUT']});
  eq('stale preview and invalid route are atomic errors; permission is checked on the command',await t.p.evaluate(()=>{
-  puReset();const id=puOrder('single',1);oqThrough(id,'ready');const d={orderId:id,codes:puIds(id),target:'ARRIS@1',stamp:productionUnbatchStamp()};salesRecord(id).notes='Changed';const before=JSON.stringify(DB),stale=productionUnbatchRun(d),route=puRun({...d,target:'IGU@1'});
+  puReset();const id=puOrder('single',1);oqThrough(id,'ready');const d={orderId:id,codes:puIds(id),target:'ARRIS@1',stamp:productionUnbatchStamp()};salesRecord(id).notes='Changed';touch();const before=JSON.stringify(DB),stale=productionUnbatchRun(d),route=puRun({...d,target:'IGU@1'});
   const old=window.GF_NO_SIGNIN,who=window.signinUser,on=window.signinOn;window.GF_NO_SIGNIN=false;window.signinOn=()=>true;window.signinUser=()=>({name:'Sales',access:['sales']});const denied=puRun(d),menu=salesListContextHTML({id},'').includes('data-menu="unbatch"');window.GF_NO_SIGNIN=old;window.signinUser=who;window.signinOn=on;
   return {stale:!!stale.error,route:!!route.error,denied:denied.error,menu,same:JSON.stringify(DB)===before};
  }),{stale:true,route:true,denied:'Only Users or Finance can unbatch.',menu:false,same:true});
