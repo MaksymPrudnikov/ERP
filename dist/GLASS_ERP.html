@@ -510,6 +510,7 @@ body.signin-mode main#app{padding:0}
 .sales-extra-items-quiet{display:flex;align-items:center;gap:7px;padding:2px 2px;font-size:10.5px;color:var(--mut)}.sales-extra-items-quiet select{height:26px;font-size:10.5px;padding:2px 6px}.sales-extra-items-quiet button{padding:3px 8px;font-size:10.5px}
 .stock-picker-row:hover{background:var(--surface-2)}.stock-picker-row td{padding:8px}
 .md-mat-cats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.md-mat-cats button{padding:6px 11px;font-size:11px}.md-mat-cats button.on{background:var(--blue2);border-color:var(--accent-line);color:var(--accent);font-weight:700}.md-mat-cats button .mut{margin-left:5px;font:9.5px ui-monospace,monospace}
+.md-st-tree{margin-bottom:14px}.md-st-tree ol,.md-st-tree ul{list-style:none;margin:0;padding:0}.md-st-step{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line2)}.md-st-step:last-child{border-bottom:0}.md-st-step>ul{flex:1;display:flex;flex-direction:column;gap:6px}.md-st-seq{flex:none;width:24px;height:24px;border-radius:7px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:11px}.md-st-node{padding-left:10px;border-left:2px solid var(--line)}.md-st-kids{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
 .md-mat-subs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px solid var(--line2)}.md-mat-subs button{padding:4px 9px;font-size:10px}.md-mat-subs button.on{background:var(--blue);border-color:var(--blue);color:var(--on-solid)}
 .stock-picker-filters{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 10px}.stock-picker-filters button{padding:4px 9px;font-size:9.5px}.stock-picker-filters button.on{background:var(--blue2);border-color:var(--accent-line);color:var(--accent);font-weight:700}
 .sales-notes{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}.sales-notes textarea{font-size:11px;padding:6px 8px;border-radius:6px}.sales-modal-back{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:80;align-items:center;justify-content:center;padding:18px}.sales-modal-back.show{display:flex}.sales-modal{width:min(720px,96vw);background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;padding:12px;box-shadow:0 18px 60px rgba(16,24,40,.19)}.sales-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}.sales-modal-head h3{margin:0;font-size:14px}.sales-modal-head span{font-size:10px;color:var(--mut)}.sales-modal textarea{font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.sales-modal-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
@@ -3480,7 +3481,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='282167a5606c';
+var ERP_BUILD='78d5b9cabcdc';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11229,7 +11230,10 @@ function salesWorkForValue(family,value){
 /* Диаметр отверстий, дюймы, включительно. Меньше 1/2″ своей полосы в прайсе
    нет — идёт по 1/2″–1″ (владелец, 18.10.2026: в DXF клиентов бывают 3/8″),
    поэтому у первой строки нижней границы нет. */
-const SERVICE_HOLE_SEED={'hole:0.5-1':[null,1],'hole:1-2':[1.0625,2],'hole:2-3':[2.0625,3],'hole:3-4':[3.0625,4],'hole:4+':[4.0625,null]};
+/* Порог ручного сверла 1 3/4″ — граница строк 1-1/16″–1-3/4″ (DRILL) и
+   1-13/16″–2″ (CNC): станцию отверстия даёт строка его диапазона (этап 4,
+   часть 3 плана Master Data), в коде порога больше нет. */
+const SERVICE_HOLE_SEED={'hole:0.5-1':[null,1],'hole:1-2':[1.0625,1.75],'hole:1.75-2':[1.8125,2],'hole:2-3':[2.0625,3],'hole:3-4':[3.0625,4],'hole:4+':[4.0625,null]};
 const SERVICE_RATE_SEED=[
  /* Четвёртое поле — СТАНЦИЯ. С 11 сентября 2026 работа несёт и станцию, и цену
     одной строкой: пока станция лежала отдельной таблицей цеха, маршрут и счёт
@@ -11242,9 +11246,11 @@ const SERVICE_RATE_SEED=[
  ['patch',            'Patch',                 'pc',  'DRILL', [10,15,20]],
  /* Отверстия до 1 3/4" делают ручным сверлом, крупнее — на ЧПУ: свёрл такого
     размера у цеха нет. Полоса 1-1/16"-2" пересекала этот порог и выключена
-    владельцем 11 сентября — он заведёт её заново сам, разделив по станку. */
+    владельцем 11 сентября; с 22.10.2026 она разделена по станку, обе части
+    без цены, пока её не введёт владелец. */
  ['hole:0.5-1',       'Hole 1/2″–1″',          'pc',  'DRILL', [5,6,7]],
- ['hole:1-2',         'Hole 1-1/16″–2″',       'pc',  'DRILL', [6,7,8],  false],
+ ['hole:1-2',         'Hole 1-1/16″–1-3/4″',   'pc',  'DRILL', [6,7,8],  false],
+ ['hole:1.75-2',      'Hole 1-13/16″–2″',      'pc',  'CNC',   [6,7,8],  false],
  ['hole:2-3',         'Hole 2-1/16″–3″',       'pc',  'CNC',   [7,8,9]],
  ['hole:3-4',         'Hole 3-1/16″–4″',       'pc',  'CNC',   [8,12,15]],
  ['hole:4+',          'Hole over 4″',          'pc',  'CNC',   [10,15,25]],
@@ -11330,6 +11336,14 @@ function serviceRateStage4Migrate(){
   if(!DB.serviceRate.some(r=>r&&r.id==='bevel'))DB.serviceRate.push(Object.assign({},old[0],{id:'bevel',name:'Beveling',family:'',appliesBy:'',appliesFrom:null,appliesTo:null,kind:undefined,flat:undefined,
    tiers:old.map(r=>({id:r.id.slice(6),from:r.appliesFrom||null,to:r.appliesTo,price:r.flat}))}));
   DB.serviceRate=DB.serviceRate.filter(r=>old.indexOf(r)<0);
+ }
+ /* Строка 1-1/16″–2″ делится по порогу ручного сверла один раз; цены и
+    включённость владельца переезжают в обе части. */
+ const h12=DB.serviceRate.find(r=>r&&r.id==='hole:1-2');
+ if(h12&&h12.appliesBy==='diameter'&&+h12.appliesTo===2&&!DB.serviceRate.some(r=>r&&r.id==='hole:1.75-2')){
+  if(h12.name==='Hole 1-1/16″–2″')h12.name='Hole 1-1/16″–1-3/4″';
+  DB.serviceRate.push(Object.assign(JSON.parse(JSON.stringify(h12)),{id:'hole:1.75-2',name:'Hole 1-13/16″–2″',station:'CNC',appliesFrom:1.8125,appliesTo:2}));
+  h12.appliesTo=1.75;
  }
  DB.serviceRate.forEach(r=>{const h=r&&SERVICE_HOLE_SEED[r.id];if(h&&!r.appliesBy)Object.assign(r,{family:'hole',appliesBy:'diameter',appliesFrom:h[0],appliesTo:h[1]});});
  /* Правила цены из настройки Pricing rules переезжают в надбавки со своими
@@ -16950,6 +16964,9 @@ function salesOrderSaveCommand(opts){
     на пути законных заказов. */
  const sizeWarnings=typeof salesStationSizeWarnings==='function'?salesStationSizeWarnings(soDraft):[];
  if(sizeWarnings.length&&!confirm('Station size warning:\n\n- '+sizeWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
+ /* Операция без станции (этап 4, часть 3): станцию даёт только карточка работы. */
+ const noStation=salesRouteUnassignedWarnings(soDraft);
+ if(noStation.length&&!confirm('Route warning:\n\n- '+noStation.join('\n- ')+'\n\nSet the station in Data → Works. Save this order anyway?'))return;
  /* Мин. и макс. размер из карточки айтема — так же: предупредить, решает менеджер. */
  const itemSize=salesItemSizeWarnings(soDraft);
  if(itemSize.length&&!confirm('Item size warning:\n\n- '+itemSize.join('\n- ')+'\n\nSave this order anyway?'))return;
@@ -19763,10 +19780,9 @@ function salesRouteStationOf(code,fallback){
 const SALES_ROUTE_EDGE_OP={'Rough Arris':'roughArris','Flat Polish':'flatPolish',
   'CNC Shape Polish':'cncShapePolish','Mitering':'miter225','Beveling':'bevel',
   'Lami Polish':'lamiPolish','CNC Lami Polish':'cncLamiPolish'};
-/* Станция по умолчанию, если работы нет в справочнике: EDGE разделена
-   29.09.2026 по станкам — аррис, полировка, фацет, майтер, CNC. */
-const SALES_ROUTE_EDGE_HOME={'Rough Arris':'ARRIS','Flat Polish':'POLISH','CNC Shape Polish':'CNC','Mitering':'MITER','Beveling':'BEVEL',
-  'Lami Polish':'POLISH','CNC Lami Polish':'CNC'};
+/* Запасного словаря станций у операций больше нет (этап 4, часть 3 плана
+   Master Data): станцию даёт только карточка работы. Нет станции — операция
+   не теряется молча, а встаёт в маршрут как «Not assigned» (salesRoutePush). */
 /* Признак «только после склейки» — свойство работы; справочник операций снова
    запасной. Заведёт владелец ещё одну работу по склеенной кромке — маршрут
    узнает сам, списка кодов здесь нет. */
@@ -19781,7 +19797,8 @@ const SALES_ROUTE_EDGE_LETTER={left:'A',bottom:'B',right:'C',top:'D'};
    станции (фацет 70 × 100 на EDGE). Второго списка «какие работы на какой
    станции» не заводим — он разошёлся бы с маршрутом. */
 function salesRoutePush(map,order,code,text,work){
-  if(!code||!text)return;
+  if(!text)return;
+  if(!code){(map.__none||(map.__none=[])).push(text);return;}
   if(!map[code]){map[code]={code:code,name:salesRouteStationName(code),items:[],works:[]};order.push(code);}
   if(map[code].items.indexOf(text)<0)map[code].items.push(text);
   if(work&&map[code].works.indexOf(work)<0)map[code].works.push(work);
@@ -19803,17 +19820,14 @@ function salesRouteMarkBase(item){
   return String(shapeManufacturingItemTitle(item.type)||item.type).toUpperCase()+
     (item.model?' '+item.model:'');
 }
-/* Станция отверстия зависит от диаметра: ручных свёрл крупнее 1 3/4" у цеха
-   нет. Правило живёт в модуле формы (shapeHoleStationClass) — здесь только
-   перевод класса станка в код станции цеха. */
+/* Станция отверстия — у работы его диапазона диаметра (Data → Works). Порог
+   «ручным сверлом до 1 3/4″» теперь граница диапазонов в карточках. */
 function salesRouteHoleWork(diameter){
   var band=typeof salesPricingHoleBand==='function'?salesPricingHoleBand(diameter):null;
   return band?band.key:'';
 }
 function salesRouteHoleStation(diameter){
-  return shapeHoleStationClass(diameter)==='CNC'
-    ? salesRouteStationOf('hole:4+','CNC')
-    : salesRouteStationOf('hole:0.5-1','DRILL');
+  return salesRouteStationOf(salesRouteHoleWork(diameter),'');
 }
 
 /* Один лайт: что с ним делают и на какой станции. */
@@ -19844,7 +19858,7 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
        одна сторона отличается, список остаётся и прямо показывает разницу. */
     var allEdges=contourEdges.length>0&&group.edges.length===contourEdges.length&&
       contourEdges.every(function(id){return group.edges.indexOf(id)>=0;});
-    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,SALES_ROUTE_EDGE_HOME[t]||'POLISH'),text=(allEdges?'':group.edges.join(', ')+' · ')+t;
+    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,''),text=(allEdges?'':group.edges.join(', ')+' · ')+t;
     if(op.angle)text+=' '+op.angle+'°';
     if(op.width)text+=' · Width '+dimIn16(inch(op.width));
     if(op.side)text+=' · '+(op.side==='back'?'Back':'Front');
@@ -19862,9 +19876,9 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
      участка, и цеху нужно видеть, на чём деталь делают. Зонтичная станция FAB
      упразднена 11 сентября 2026, станция каждой работы записана в справочнике
      операций прямо, а не выводится из списка станков. */
-  var hardware=salesRouteStationOf('hinge','DRILL');
-  var cncCutout=salesRouteStationOf('cutout','CNC');
-  var cncRadius=salesRouteStationOf('radiusCorner','CNC');
+  var hardware=salesRouteStationOf('hinge','');
+  var cncCutout=salesRouteStationOf('cutout','');
+  var cncRadius=salesRouteStationOf('radiusCorner','');
   /* Одинаковые метки — одной строкой с количеством. Раньше 21 отверстие
      3/8″ из DXF сливалось в одну строку «HOLE Ø 3/8», и на стикере не было
      видно, сколько их (владелец, 18.10.2026). */
@@ -19881,7 +19895,7 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
      и станция. Здесь единственное место, где «руками или на станке» — решение
      продажи, а не цеха, поэтому строки две. */
   if(typeof ssNotchList==='function')ssNotchList(shape).forEach(function(n){
-    var st=n.method==='cnc'?salesRouteStationOf('notchCnc','CNC'):salesRouteStationOf('notchHand','DRILL');
+    var st=n.method==='cnc'?salesRouteStationOf('notchCnc',''):salesRouteStationOf('notchHand','');
     salesRoutePush(map,order,st,ssNotchLabel(n.method).toUpperCase()+' · '+n.corner.toUpperCase(),n.method==='cnc'?'notchCnc':'notchHand');
   });
   var featHoles=[],featBy={};
@@ -19900,8 +19914,8 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
      поле Work карточки фрита и спандрела (этап 4, часть 2). */
   (treatments||[]).forEach(function(t){
     var prod=mdById(t.kind==='frit'?'fritProduct':'spandrelProduct',t.spec.productId),work=prod&&prod.workId||'';
-    if(t.kind==='frit')salesRoutePush(map,order,salesRouteStationOf(work,'CERP'),'Frit · '+t.where,work);
-    if(t.kind==='spandrel')salesRoutePush(postMap,postOrder,salesRouteStationOf(work,'PAINT'),t.text,work);
+    if(t.kind==='frit')salesRoutePush(map,order,salesRouteStationOf(work,''),'Frit · '+t.where,work);
+    if(t.kind==='spandrel')salesRoutePush(postMap,postOrder,salesRouteStationOf(work,''),t.text,work);
   });
   /* Печь и то, что она ставит. */
   var heatWork=heatTreatment==='HS'?'heat_strengthening':'tempering',heatStation=salesRouteStationOf(heatWork,'HEAT');
@@ -19914,7 +19928,7 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
       salesRoutePush(heatMap,heatOrder,heatStation,String(shapeStampText(f)).toUpperCase(),heatWork);
     /* Зеркальные позиции идут на тот же участок, что и пескоструй: это работа
        по поверхности после закалки. Отдельной станции у цеха под них нет. */
-    if(shapeIsPointMark(f)&&f.type!=='stamp')salesRoutePush(postMap,postOrder,salesRouteStationOf('sandblasting','SAND'),
+    if(shapeIsPointMark(f)&&f.type!=='stamp')salesRoutePush(postMap,postOrder,salesRouteStationOf('sandblasting',''),
       String(shapeSurfaceMarkLabel(f)).toUpperCase(),'sandblasting');
   });
 
@@ -19925,7 +19939,8 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
       .map(function(c){return m[c];});
   }
   var out=sorted(map,order).concat(sorted(heatMap,heatOrder),heatSoak&&heatTreatment==='FT'?[{code:salesRouteStationOf('heat_soak','HEAT'),name:salesRouteStationName(salesRouteStationOf('heat_soak','HEAT')),operation:'heat_soak',items:['HEAT SOAK'],works:['heat_soak']}]:[],sorted(postMap,postOrder));
-  return {list:out,after:afterOrder.map(function(c){return afterMap[c];})};
+  return {list:out,after:afterOrder.map(function(c){return afterMap[c];}),
+    unassigned:[].concat(map.__none||[],heatMap.__none||[],postMap.__none||[],afterMap.__none||[])};
 }
 
 function salesRouteHeatOf(pane){
@@ -20044,7 +20059,7 @@ function salesPrintRoute(line,order,shape,result){
            14.10.2026). Своей кромки по умолчанию у него нет (orders.js). */
         if(g&&g.cut===false){var cutCode=salesRouteStationOf('cutting','CUT');st.list=st.list.filter(function(s){return s.code!==cutCode;});}
         var row={label:(v.label||('Lite '+(i+1)))+(side?(side==='outer'?'a':'b'):''),
-          glass:(g?(g.code||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after,
+          glass:(g?(g.code||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after,unassigned:st.unassigned,
           /* Размер реза этого стекла — для проверки габарита станций; лист его не печатает. */
           cut:cut?{width:cut.cutW,height:cut.cutH}:null};
         if(lam)salesRouteAppendMerge([row],salesRouteStationOf('lamination','LAM'),'lamination');
@@ -20071,11 +20086,31 @@ function salesPrintRoute(line,order,shape,result){
         ops:(typeof shapeEdgeOps==='function'?shapeEdgeOps(shape,g.id):[])};
     });
     var st0=salesRouteLiteStations(shape,result,groups,'');
-    lites=[{label:'',glass:'',stations:st0.list,afterMerge:st0.after}];
+    lites=[{label:'',glass:'',stations:st0.list,afterMerge:st0.after,unassigned:st0.unassigned}];
     /* Даже без слияния хвост обязан доехать: иначе строка молча потеряется. */
     salesRouteAppendMerge(lites,'');
   }
   return {lites:lites,merge:merge,mergeName:merge?salesRouteStationName(merge):''};
+}
+
+/* Операции строки без станции: работа без станции в карточке или её нет в
+   Works. Маршрут их не теряет молча — заказ предупреждает на Save, лист
+   печатает NO STATION. */
+function salesRouteUnassigned(line,order){
+  var shape=line&&typeof salesLineGeometryShape==='function'?salesLineGeometryShape(line):null,out=[];
+  if(!shape)return out;
+  salesPrintRoute(line,order,shape,ShapeModule.compute(shape)).lites.forEach(function(l){
+    (l.unassigned||[]).forEach(function(t){if(out.indexOf(t)<0)out.push(t);});
+  });
+  return out;
+}
+function salesRouteUnassignedWarnings(order){
+  var out=[];
+  (order&&order.lines||[]).forEach(function(line,i){
+    var t=salesRouteUnassigned(line,order);
+    if(t.length)out.push('Line '+(i+1)+(line.mark?' ('+line.mark+')':'')+' · no station: '+t.join(', '));
+  });
+  return out;
 }
 
 /* ==== src/erp/sales/station-size.js ==== */
@@ -20435,6 +20470,7 @@ function salesSheetRouteHTML(route){
     var chain=l.stations.map(function(s){
       return '<b>'+esc(s.code)+'</b> '+s.items.map(function(t){return esc(t);}).join(' · ');
     }).join('<i>&rsaquo;</i>');
+    if((l.unassigned||[]).length)chain+=(chain?'<i>&rsaquo;</i>':'')+'<b>NO STATION</b> '+l.unassigned.map(function(t){return esc(t);}).join(' · ');
     /* Подписан и одинарный лайт: без подписи слева оставалась пустая колонка,
        и строка маршрута начиналась с провала. */
     var name=[l.label,l.glass].filter(Boolean).join(' · ');
@@ -26751,8 +26787,37 @@ function viewMasterData(){
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
-/* Станции — шаги маршрута; работы в Works ссылаются на них. */
-function viewMdStations(){return '<div class="pipeline" style="margin-bottom:14px">'+sfPipelineHTML()+'</div>'+viewSfStations(true);}
+/* Станции — шаги маршрута; работы в Works ссылаются на них. Сверху — дерево
+   (этап 4, часть 3 плана Master Data): шаги по порядку, у станции всё, что
+   на неё назначено. Только вид: станцию ставят в карточках. */
+function viewMdStations(){return mdStationTreeHTML()+viewSfStations(true);}
+/* Материалы приходят на станцию через работу, на которой их тратят: плёнка —
+   склейка, части пакета — сборка. Своего поля станции у айтема нет: иначе
+   маршрут и сканы спорили бы с работой о том, где склеивают. */
+const MD_STATION_VIA=[['lamination',[['interlayerProduct','Interlayers']]],
+ ['igu_assembly',[['spacerVariant','Spacers'],['gasProduct','Gas'],['sealantProduct','Sealants'],['iguPart','IGU parts']]]];
+function mdStationAssigned(code){
+ const works=(DB.serviceRate||[]).filter(w=>w&&w.station===code&&!w.rule),ids=new Set(works.map(w=>w.id)),items=[];
+ [['fritProduct','Frit'],['spandrelProduct','Spandrel']].forEach(([t,k])=>(DB[t]||[]).forEach(x=>{
+  if(x&&x.active!==false&&x.workId&&ids.has(x.workId))items.push({text:k+' · '+(x.name||x.id),n:1});}));
+ MD_STATION_VIA.forEach(([w,tables])=>{if(!ids.has(w))return;
+  tables.forEach(([t,label])=>{const n=(DB[t]||[]).filter(x=>x&&x.active!==false).length;if(n)items.push({text:label,n});});});
+ return {works,items};
+}
+/* Станция материала в его карточке — та, что у работы, где его тратят. */
+function mdStationViaHTML(table){
+ const hit=MD_STATION_VIA.find(([,tables])=>tables.some(([t])=>t===table));if(!hit)return '';
+ const w=salesServiceRateRow(hit[0]);
+ return `<div data-md-station-via><label>Station</label><div class="mono">${w&&w.station?esc(w.station):'—'}</div><div class="hint">From work ${esc(w?w.name:hit[0])}</div></div>`;
+}
+function mdStationTreeHTML(){
+ const pill=(t,cls)=>`<span class="pill ${cls}" data-raw>${esc(t)}</span>`;
+ const steps=sfSteps().map(([seq,list])=>`<li class="md-st-step"><span class="md-st-seq">${seq}</span><ul>${list.map(s=>{
+  const a=mdStationAssigned(s.code),n=a.works.length+a.items.reduce((m,x)=>m+x.n,0);
+  return `<li class="md-st-node" data-md-st="${esc(s.code)}"><div><b class="mono">${raw(s.code)}</b> ${sfLabel(s)}${s.always?' '+pill('always','ok'):''} <span class="mut">${n?n+' assigned':'nothing assigned'}</span></div>
+   ${n?`<div class="md-st-kids">${a.works.map(w=>pill(w.name||w.id,'info')).join(' ')}${a.items.map(x=>' '+pill(x.text+(x.n>1?' · '+x.n:''),'')).join('')}</div>`:''}</li>`;}).join('')}</ul></li>`).join('');
+ return `<div class="md-st-tree" data-md-station-tree><div class="sub">Each step in order; the same step — parallel stations. Works name their station; frit, spandrel and materials follow their work.</div><ol>${steps}</ol></div>`;
+}
 function mdSetTab(k){mdTab=k;if(typeof stEdit!=='undefined')stEdit=null;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
  /* Работы и материалы делят одну машинку Catalogues, поэтому при переходе
     между вкладками открытая таблица обязана соответствовать вкладке —
@@ -27819,6 +27884,7 @@ function mdCatForm(){
     :`<div><label>Supplier</label><input id="md_catSupplier" value="${esc(r.supplier||'')}"></div>
       <div><label>Price, CAD</label><input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}"><div class="hint">Surcharge per ft², if the catalogue uses one — or the sale price, for a stock item. Empty — no price, and the row honestly enters the invoice as Rate required, not a zero.</div></div>
       ${MD_CAT_SALE_UNIT.includes(mdCatKind)?`<div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select></div>${mdSaleRulesFields(r)}`:''}
+      ${mdStationViaHTML(mdCatKind)}
       ${MD_CAT_WORK.includes(mdCatKind)?`<div><label>Work</label><select id="md_catWork"><option value="">— no work —</option>${(DB.serviceRate||[]).filter(w=>w&&!w.rule).map(w=>`<option value="${esc(w.id)}" ${w.id===r.workId?'selected':''}>${esc(w.name)}${w.station?' · '+esc(w.station):''}</option>`).join('')}</select><div class="hint">Station in the route</div></div>`:''}
       ${mdCatKind==='gasProduct'?`<div><label>Density, kg/m³</label><input id="md_catDensity" type="number" step="any" min="0" value="${r.densityKgM3==null?'':r.densityKgM3}" placeholder="unknown"><div class="hint">Gas weight = density × cavity volume.</div></div>`:''}
       ${mdCatKind==='stockItem'?`<div><label>Subcategory</label><input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(s=>`<option value="${esc(s)}">`).join('')}</datalist><div class="hint">Groups stock items in the order-line picker. Type your own — the list above is only a hint; empty becomes "consumable".</div></div>`:''}
@@ -31027,7 +31093,7 @@ function unitList(o,l){
    работу считаем только у закалённого или собранного стекла (в пользу клиента). */
 function unitRowStation(row){
  const p=String(row&&row.key||'').split(':');
- if(p[0]==='EDGE')return salesRouteStationOf(p[1]==='bevel'?'bevel:'+p[2]:p[1],'');
+ if(p[0]==='EDGE')return salesRouteStationOf(p[1],'');
  if(p[0]==='MI')return p[1]==='hole'?salesRouteStationOf('hole:'+p[2],''):salesRouteStationOf(p[1],salesRouteStationOf('hinge',''));
  if(p[0]==='FEATURE'){const k=String(p[1]||'');return k==='radius'?salesRouteStationOf('radiusCorner',''):k==='cutout'?salesRouteStationOf('cutout',''):k==='notch-cnc'?salesRouteStationOf('notchCnc',''):k==='notch-hand'?salesRouteStationOf('notchHand',''):k.indexOf('sandblast')===0?salesRouteStationOf('sandblasting',''):'';}
  if(p[0]==='HEATSOAK')return salesRouteStationOf('heat_soak','');
@@ -44510,9 +44576,9 @@ function repChargeStation(row){
  const p=String(row&&row.key||'').split(':');
  if(p[0]==='EDGE'){
   const t=REP_EDGE_TYPE[p[1]]||(/^miter/.test(p[1])?'Mitering':'');
-  return t?salesRouteStationOf(SALES_ROUTE_EDGE_OP[t],SALES_ROUTE_EDGE_HOME[t]||'POLISH'):'';
+  return t?salesRouteStationOf(SALES_ROUTE_EDGE_OP[t],''):'';
  }
- if(p[0]==='MI'){const w=row.svc&&salesServiceRateRow(row.svc);return w&&w.family==='hole'?w.station||'':p[1]==='hole'?repWorkStation('hole:'+p[2]):salesRouteStationOf('hinge','DRILL');}
+ if(p[0]==='MI'){const w=row.svc&&salesServiceRateRow(row.svc);return w&&w.family==='hole'?w.station||'':p[1]==='hole'?repWorkStation('hole:'+p[2]):salesRouteStationOf('hinge','');}
  if(p[0]==='FEATURE'){
   const f=p[1]||'',id=REP_FEATURE_WORK[f]||(/^mirror-backer/.test(f)?'mirrorBacker':/^sandblast-pattern/.test(f)?'sandblastPattern':/^sandblast-/.test(f)?'sandblastFull':'');
   return id?repWorkStation(id):'';
