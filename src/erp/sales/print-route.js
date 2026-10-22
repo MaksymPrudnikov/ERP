@@ -171,11 +171,12 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
   });
 
   /* Makeup несёт работы по поверхности независимо от геометрии и цены.
-     Фрит наносится до печи, спандрел — после (контракт владельца). */
+     Фрит наносится до печи, спандрел — после (контракт владельца). Работа —
+     поле Work карточки фрита и спандрела (этап 4, часть 2). */
   (treatments||[]).forEach(function(t){
-    var fritWork=t.spec.productId==='FRIT-DIGITAL'?'digital_print':'ceramic_frit';
-    if(t.kind==='frit')salesRoutePush(map,order,salesRouteStationOf(fritWork,'CERP'),'Frit · '+t.where,fritWork);
-    if(t.kind==='spandrel')salesRoutePush(postMap,postOrder,salesRouteStationOf('painting','PAINT'),t.text,'painting');
+    var prod=mdById(t.kind==='frit'?'fritProduct':'spandrelProduct',t.spec.productId),work=prod&&prod.workId||'';
+    if(t.kind==='frit')salesRoutePush(map,order,salesRouteStationOf(work,'CERP'),'Frit · '+t.where,work);
+    if(t.kind==='spandrel')salesRoutePush(postMap,postOrder,salesRouteStationOf(work,'PAINT'),t.text,work);
   });
   /* Печь и то, что она ставит. */
   var heatWork=heatTreatment==='HS'?'heat_strengthening':'tempering',heatStation=salesRouteStationOf(heatWork,'HEAT');

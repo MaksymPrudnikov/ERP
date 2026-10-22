@@ -18,7 +18,7 @@ var SALES_EXTRA_UNITS=['pc','ft²','in'];
 var soExtraForm=null;
 /* Работы Master Data, которые можно добавить руками: активные и с именем. */
 function salesExtraServiceCatalog(){
-  return (DB.serviceRate||[]).filter(function(r){return r&&r.id&&r.id!=='*'&&r.name&&r.active!==false;})
+  return (DB.serviceRate||[]).filter(function(r){return r&&r.id&&r.id!=='*'&&r.name&&r.active!==false&&!r.rule;})
     .slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
 }
 function salesExtraServiceRate(x){return x&&x.rateId?salesServiceRateRow(x.rateId):null;}
@@ -119,6 +119,12 @@ function salesExtraRemove(lineId,id){
   render();
 }
 function salesExtraIdOfKey(key){var s=String(key||''),i=s.indexOf('|');return s.indexOf('EXTRA:')===0&&i>0?s.slice(i+1):'';}
+/* Выбранная работа уже начислена строке сама (по форме, кромке, отверстию):
+   добавленная руками — второй раз за то же. Только предупреждение. */
+function salesExtraAutoDup(f){
+  if(!f||!f.rateId)return false;
+  return (soDraft&&soDraft.lines||[]).some(function(l){return f.lines.indexOf(l.id)>=0&&salesLineChargeRows(l).some(function(r){return r.svc===f.rateId&&!salesExtraIdOfKey(r.key);});});
+}
 /* Форма «+ Add service»: из прайса или своя. */
 function salesExtraFormHTML(){
   var f=soExtraForm;if(!f)return '';
@@ -130,7 +136,8 @@ function salesExtraFormHTML(){
     `<label><span>Qty / unit</span><input data-extra-qty type="number" min="0" step="any" value="${esc(f.qty)}" placeholder="${unit==='ft²'?'area':unit==='in'?'perimeter':'1'}" oninput="soExtraForm.qty=this.value"></label>`+
     `<label><span>Rate / ${esc(unit)}</span><input data-extra-rate type="number" min="0" step="0.01" value="${esc(f.rate)}" placeholder="${r?'catalog':'required'}" oninput="soExtraForm.rate=this.value"></label>`+
     `<button class="sm pri" data-extra-add onclick="salesExtraAdd()">Add${many?' to '+f.lines.length+' lines':''}</button><button class="sm" onclick="salesExtraFormClose()">Cancel</button>`+
-    (f.error?`<b class="sales-extra-error">${esc(f.error)}</b>`:'')+`</div>`;
+    (f.error?`<b class="sales-extra-error">${esc(f.error)}</b>`:'')+
+    (salesExtraAutoDup(f)?`<b class="sales-extra-error" data-extra-dup>Already charged automatically</b>`:'')+`</div>`;
 }
 /* Кнопка «+ Add service» или открытая форма — внизу окна сервисов. */
 function salesExtraBarHTML(target){

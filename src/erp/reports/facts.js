@@ -37,7 +37,7 @@ function repChargeStation(row){
  }
  if(p[0]==='HEATSOAK')return repWorkStation('heat_soak');
  if(p[0]==='MUNTIN')return repWorkStation('muntinSection');
- if(p[0]==='GLAZE')return p[1]==='frit'?repWorkStation('ceramic_frit'):'';
+ if(p[0]==='GLAZE')return row.svc?repWorkStation(row.svc):'';
  return '';
 }
 /* Строка таблицы цен у строки начислений — последний кусок ключа

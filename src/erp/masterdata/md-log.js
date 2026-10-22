@@ -28,7 +28,7 @@ const MD_LOG_TABLES={
  priceList:'Price lists',itemGroup:'Item groups',
  spacerSystem:'Spacer systems',surroundRecipe:'Surround recipes',iguPart:'IGU parts'
 };
-const MD_LOG_SETTINGS={cutting:'Cutting',company:'Company',stickerTemplate:'Stickers',salesMetricRules:'Pricing rules'};
+const MD_LOG_SETTINGS={cutting:'Cutting',company:'Company',stickerTemplate:'Stickers'};
 const MD_LOG_TEXT=120;
 
 function normalizeMdLog(){

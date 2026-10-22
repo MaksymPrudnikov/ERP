@@ -49,16 +49,16 @@ const MD_MATERIAL_VIEWS={
              {k:'sealantProduct',   label:'Sealants'},
              {k:'iguPart',          label:'IGU parts'}],
  lamination:[{k:'interlayerProduct',label:'Interlayers'}],
- surface:   [{k:'fritProduct',      label:'Frit'},
-             {k:'spandrelProduct',  label:'Spandrel'},
-             {k:'spandrelColour',   label:'Spandrel colours'}],
  stock:     [{k:'stockItem',        label:'Stock items'}]
 };
-const MD_MATERIAL_CATEGORY_LABELS={glass:'Glass',igu:'IGU assembly',lamination:'Lamination',surface:'Surface',stock:'Stock & consumables'};
+const MD_MATERIAL_CATEGORY_LABELS={glass:'Glass',igu:'IGU assembly',lamination:'Lamination',stock:'Stock & consumables'};
 /* Тепловая обработка материалом не является — её нет в разделе 7 и у неё нет
    ни закупки, ни хранения. Это режим цеха, поэтому живёт рядом с работами, а
    не среди материалов. */
-const MD_WORK_CATALOGUES=['serviceRate','heatTreatment'];
+/* Фрит и спандрел — работы по поверхности (этап 4, часть 2 плана Master
+   Data): карточка говорит, какая работа Works их делает. */
+const MD_WORK_CATALOGUES=['serviceRate','heatTreatment','fritProduct','spandrelProduct','spandrelColour'];
+const MD_CAT_WORK=['fritProduct','spandrelProduct'];
 /* Каталог длиннее любого экрана: показываем страницу и честно говорим, сколько
    осталось за краем. Молчаливая обрезка списка читается как «это всё». */
 const MD_PAGE=60;
@@ -1041,12 +1041,15 @@ function mdWorkRangeText(r){
 /* Таблица цен строкой списка: «≤7: 5.00 · 8–11: 8.00». */
 function mdWorkTiersText(r){
  const tiers=r&&r.tiers||[];
+ if(r&&r.rule){const t=tiers[0],v=t&&t.price!=null?t.price:null;
+  return (v==null?'—':r.rule.kind==='percent'?'+'+v+'%':'min '+v+' ft²')+' · '+serviceRuleText(r.rule);}
  if(!tiers.length)return '—';
  return tiers.map(t=>(tiers.length===1&&t.from==null&&t.to==null?'':serviceRateTierShort(t)+': ')+(t.price==null?'—':Number(t.price).toFixed(2))).join(' · ');
 }
 /* Предупреждения карточки работы: таблица цен и нахлёст диапазона диаметра
    с другой работой той же семьи. Только предупреждают. */
 function mdWorkWarnings(r){
+ if(r&&r.rule)return (r.tiers||[]).length===1&&r.tiers[0].price!=null?[]:['Surcharge needs one value'];
  const out=serviceRateTierWarnings(r);
  if(r&&r.appliesBy&&r.active!==false){
   const lo=r.appliesFrom==null?-Infinity:r.appliesFrom,hi=r.appliesTo==null?Infinity:r.appliesTo;
@@ -1081,7 +1084,7 @@ function mdCatRowHTML(x){
   <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button></td></tr>`;}
  const scope=colour?(x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'any'):'';
  return `<tr>
-  <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}${x.subcategory?' · '+esc(x.subcategory):''}</div>${x.sellsAsOwnLine?'<span class="pill info">own order line</span>':''}</td>
+  <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}${x.subcategory?' · '+esc(x.subcategory):''}</div>${x.sellsAsOwnLine?'<span class="pill info">own order line</span>':''}${MD_CAT_WORK.includes(mdCatKind)?`<div class="mut">Work: ${x.workId?esc((salesServiceRateRow(x.workId)||{}).name||x.workId):'—'}</div>`:''}</td>
   <td class="mono">${x.code?raw(x.code):'<span class="mut">—</span>'}</td>
   ${colour?`<td>${x.family?raw(x.family):'<span class="mut">—</span>'}</td><td class="mut">${raw(scope)}</td>`
           :`<td>${x.supplier?raw(x.supplier):'<span class="mut">—</span>'}</td>
@@ -1116,20 +1119,33 @@ function mdCatForm(){
    <div class="sub mono">${isNew?'the id appears after saving':esc(r.id)}</div>
    <div class="grid">
     <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
-    <div><label>Unit</label><select id="md_catUnit">${['pc','in','ft²'].map(u=>`<option value="${esc(u)}" ${u===r.unit?'selected':''}>${esc(u)}</option>`).join('')}</select><div class="hint">Label of the price</div></div>
-    <div><label>Station</label><select id="md_catStation"><option value="">— no station —</option>${stations.map(st=>`<option value="${esc(st.code)}" ${st.code===(r.station||'')?'selected':''}>${esc(st.code)} · ${esc(st.nameEn||st.name)}</option>`).join('')}</select><div class="hint">Empty: price only</div></div>
+    <div><label>Unit</label><select id="md_catUnit">${(r.rule?[r.unit]:['pc','in','ft²']).map(u=>`<option value="${esc(u)}" ${u===r.unit?'selected':''}>${esc(u)}</option>`).join('')}</select><div class="hint">Label of the price</div></div>
+    ${r.rule?'':`<div><label>Station</label><select id="md_catStation"><option value="">— no station —</option>${stations.map(st=>`<option value="${esc(st.code)}" ${st.code===(r.station||'')?'selected':''}>${esc(st.code)} · ${esc(st.nameEn||st.name)}</option>`).join('')}</select><div class="hint">Empty: price only</div></div>`}
    </div>
    <div class="grid">
-    <div><label>Applies by</label><select id="md_catAppliesBy" onchange="mdWorkDraftRead(true);render()"><option value="" ${r.appliesBy?'':'selected'}>always</option><option value="diameter" ${r.appliesBy==='diameter'?'selected':''}>hole diameter, inches</option></select></div>
+    ${r.rule?'':`<div><label>Applies by</label><select id="md_catAppliesBy" onchange="mdWorkDraftRead(true);render()"><option value="" ${r.appliesBy?'':'selected'}>always</option><option value="diameter" ${r.appliesBy==='diameter'?'selected':''}>hole diameter, inches</option></select></div>
     ${r.appliesBy?`<div><label>Family</label><input id="md_catFamily" value="${esc(r.family||'')}"><div class="hint">Shared by all hole rows</div></div>
     <div><label>Diameter from</label><input id="md_catFrom" type="number" step="any" min="0" value="${v(r.appliesFrom)}" placeholder="no limit"></div>
-    <div><label>Diameter to</label><input id="md_catTo" type="number" step="any" min="0" value="${v(r.appliesTo)}" placeholder="no limit"></div>`:''}
+    <div><label>Diameter to</label><input id="md_catTo" type="number" step="any" min="0" value="${v(r.appliesTo)}" placeholder="no limit"></div>`:''}`}
    </div>
-   <label>Price by glass thickness</label>
+   <div class="grid" data-md-rule>
+    <div><label>Surcharge</label><select id="md_ruleKind" onchange="mdWorkDraftRead(true);render()">${[['','no — a work'],['percent','percent of unit price'],['minArea','minimum billed area']].map(([k,t])=>`<option value="${k}" ${(r.rule?r.rule.kind:'')===k?'selected':''}>${t}</option>`).join('')}</select><div class="hint">Changes the unit price</div></div>
+    ${r.rule?`<div><label>${r.rule.kind==='percent'?'Percent':'Minimum, ft²'}</label><input id="md_tierPrice0" type="number" step="any" min="0" value="${v(r.tiers&&r.tiers[0]?r.tiers[0].price:null)}" placeholder="no value"></div>
+    <div><label>Unit types</label><div>${SERVICE_RULE_UNIT_TYPES.map(t=>`<label class="chk"><input type="checkbox" id="md_ruleT_${t}" ${r.rule.unitTypes.includes(t)?'checked':''}> ${t}</label>`).join(' ')}</div><div class="hint">None: any unit</div></div>
+    <div><label>Unit area over, ft²</label><input id="md_ruleOver" type="number" step="any" min="0" value="${v(r.rule.areaOver)}" placeholder="no limit"></div>
+    <div><label>Unit area under, ft²</label><input id="md_ruleUnder" type="number" step="any" min="0" value="${v(r.rule.areaUnder)}" placeholder="no limit"></div>
+    ${r.rule.kind==='percent'?`<div><label>Order</label><input id="md_rulePriority" type="number" step="1" value="${v(r.rule.priority)}"><div class="hint">Smaller first</div></div>
+    <div><label class="chk"><input type="checkbox" id="md_ruleOnTop" ${r.rule.onTop?'checked':''}> On top of earlier surcharges</label></div>`:''}`:''}
+   </div>
+   ${r.rule?'':`<label>Price by glass thickness</label>
    <table class="md-work-tiers" data-md-tiers><thead><tr><th>From, mm</th><th>To, mm</th><th>Price, CAD</th><th></th></tr></thead><tbody>
     ${(r.tiers||[]).map((t,i)=>`<tr data-md-tier="${esc(t.id)}"><td><input id="md_tierFrom${i}" type="number" step="any" min="0" value="${v(t.from)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierTo${i}" type="number" step="any" min="0" value="${v(t.to)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierPrice${i}" type="number" step="0.01" min="0" value="${v(t.price)}" placeholder="no price" style="width:90px"></td><td><button class="sm dl" title="Remove row" onclick="mdWorkTierRemove(${i})">×</button></td></tr>`).join('')}
    </tbody></table>
    <div class="row"><button class="sm" data-md-tier-add onclick="mdWorkTierAdd()">+ Row</button><span class="hint">From and to included. Empty: no limit.</span></div>
+   <div class="grid">
+    <div><label>Round quantity up to</label><input id="md_catRoundTo" type="number" step="any" min="0" value="${v(r.roundTo)}" placeholder="no rounding"><div class="hint">In the work's unit</div></div>
+    <div><label>Min charge, CAD</label><input id="md_catMinCharge" type="number" step="0.01" min="0" value="${v(r.minCharge)}" placeholder="no minimum"><div class="hint">Per unit</div></div>
+   </div>`}
    ${warn.length?`<div class="sales-pricing-warning" data-md-work-warn><b>Check</b><span>${warn.map(esc).join('<br>')}</span></div>`:''}
    <div class="grid">
     <div><label>Note</label><input id="md_catNote" value="${esc(r.note||'')}"></div>
@@ -1148,6 +1164,7 @@ function mdCatForm(){
     :`<div><label>Supplier</label><input id="md_catSupplier" value="${esc(r.supplier||'')}"></div>
       <div><label>Price, CAD</label><input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}"><div class="hint">Surcharge per ft², if the catalogue uses one — or the sale price, for a stock item. Empty — no price, and the row honestly enters the invoice as Rate required, not a zero.</div></div>
       ${MD_CAT_SALE_UNIT.includes(mdCatKind)?`<div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select></div>${mdSaleRulesFields(r)}`:''}
+      ${MD_CAT_WORK.includes(mdCatKind)?`<div><label>Work</label><select id="md_catWork"><option value="">— no work —</option>${(DB.serviceRate||[]).filter(w=>w&&!w.rule).map(w=>`<option value="${esc(w.id)}" ${w.id===r.workId?'selected':''}>${esc(w.name)}${w.station?' · '+esc(w.station):''}</option>`).join('')}</select><div class="hint">Station in the route</div></div>`:''}
       ${mdCatKind==='gasProduct'?`<div><label>Density, kg/m³</label><input id="md_catDensity" type="number" step="any" min="0" value="${r.densityKgM3==null?'':r.densityKgM3}" placeholder="unknown"><div class="hint">Gas weight = density × cavity volume.</div></div>`:''}
       ${mdCatKind==='stockItem'?`<div><label>Subcategory</label><input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(s=>`<option value="${esc(s)}">`).join('')}</datalist><div class="hint">Groups stock items in the order-line picker. Type your own — the list above is only a hint; empty becomes "consumable".</div></div>`:''}
       <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="md_catOwnLine" ${r.sellsAsOwnLine?'checked':''}> Sells as its own order line</label>
@@ -1169,11 +1186,27 @@ function mdWorkDraftRead(keep){
   return {id:t.id,from:f===undefined?t.from:f,to:to===undefined?t.to:to,price:p===undefined?t.price:p};});
  const appliesEl=document.getElementById('md_catAppliesBy'),appliesBy=appliesEl?appliesEl.value:r.appliesBy;
  const from=num('md_catFrom'),to=num('md_catTo');
- const next=Object.assign({},r,{name:mdVal('md_catName'),unit:mdVal('md_catUnit')||r.unit,station:mdVal('md_catStation'),tiers,
+ /* Надбавка: вид правила с экрана; число — одна строка таблицы без границ. */
+ const kindEl=document.getElementById('md_ruleKind'),kind=kindEl?kindEl.value:(r.rule?r.rule.kind:'');
+ let rule=null,unit=mdVal('md_catUnit')||r.unit,useTiers=tiers;
+ if(kind){
+  const was=r.rule&&r.rule.kind===kind?r.rule:{unitTypes:[],areaOver:null,areaUnder:null,onTop:false,priority:0};
+  const chk=id=>{const el=document.getElementById(id);return el?el.checked:undefined;};
+  const types=SERVICE_RULE_UNIT_TYPES.filter(t=>{const c=chk('md_ruleT_'+t);return c===undefined?was.unitTypes.includes(t):c;});
+  const over=num('md_ruleOver'),under=num('md_ruleUnder'),prio=num('md_rulePriority'),onTop=chk('md_ruleOnTop');
+  rule={kind,unitTypes:types,areaOver:over===undefined?was.areaOver:over,areaUnder:under===undefined?was.areaUnder:under,
+   onTop:onTop===undefined?was.onTop:onTop,priority:prio===undefined||prio===null?was.priority:prio};
+  const first=tiers[0]||{},p0=num('md_tierPrice0');
+  useTiers=[{id:'flat',from:null,to:null,price:r.rule?(p0===undefined?first.price:p0):null}];
+  unit=kind==='percent'?'%':'ft²';
+ }else if(r.rule)useTiers=[{id:'flat',from:null,to:null,price:null}];
+ const roundTo=num('md_catRoundTo'),minCharge=num('md_catMinCharge');
+ const next=Object.assign({},r,{name:mdVal('md_catName'),unit:unit,station:mdVal('md_catStation'),tiers:useTiers,rule,
+  roundTo:rule?null:roundTo===undefined?r.roundTo:roundTo,minCharge:rule?null:minCharge===undefined?r.minCharge:minCharge,
   appliesBy:appliesBy,family:appliesBy?(document.getElementById('md_catFamily')?mdVal('md_catFamily'):r.family||'hole'):'',
   appliesFrom:appliesBy?(from===undefined?r.appliesFrom:from):null,appliesTo:appliesBy?(to===undefined?r.appliesTo:to):null,
   note:mdVal('md_catNote'),active:mdVal('md_catActive')!=='0'});
- if(tiers.some(t=>bad(t.from)||bad(t.to)||bad(t.price))||[next.appliesFrom,next.appliesTo].some(bad))next.bad='Numbers must be 0 or more, or empty';
+ if(useTiers.some(t=>bad(t.from)||bad(t.to)||bad(t.price))||[next.appliesFrom,next.appliesTo,next.roundTo,next.minCharge].some(bad)||rule&&[rule.areaOver,rule.areaUnder].some(bad))next.bad='Numbers must be 0 or more, or empty';
  if(keep){mdCatDraft=Object.assign({},next);delete mdCatDraft.bad;}
  return next;
 }
@@ -1224,7 +1257,7 @@ function mdCatSave(){
   const ownLineEl=document.getElementById('md_catOwnLine'),subcatEl=document.getElementById('md_catSubcategory');
   const density=mdVal('md_catDensity');
   if(mdCatKind==='gasProduct'&&density!==''&&(!isFinite(+density)||+density<0))return fail(e,'Density must be a non-negative number or empty');
-  next=Object.assign({},prev,MD_CAT_SALE_UNIT.includes(mdCatKind)?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},mdCatKind==='gasProduct'?{densityKgM3:density===''?null:+density}:{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
+  next=Object.assign({},prev,MD_CAT_SALE_UNIT.includes(mdCatKind)?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},mdCatKind==='gasProduct'?{densityKgM3:density===''?null:+density}:{},MD_CAT_WORK.includes(mdCatKind)?{workId:mdVal('md_catWork')}:{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
    sellsAsOwnLine:ownLineEl?ownLineEl.checked:!!prev.sellsAsOwnLine,
    subcategory:subcatEl?subcatEl.value:(prev.subcategory||''),active:active});
  }
