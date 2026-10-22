@@ -32,7 +32,11 @@ function stationScanNextId(){
 /* Станция резки — та, что стоит у работы «cutting». Её скан и есть «резка
    началась» у стекла: поле cutStartedAt ждало этого события с PR #84. */
 function stationCutCode(){return typeof salesRouteStationOf==='function'?salesRouteStationOf('cutting','CUT'):'CUT';}
-function stationScansFor(piece){return (DB.stationScan||[]).filter(s=>s.piece===piece&&!s.undoneAt);}
+/* Сканы стекла — на отрисовку один указатель «стекло → сканы» (erp/read-scope). */
+function stationScansFor(piece){
+ if(readOn())return (readMemo('stationScansByPiece',[DB.stationScan],()=>{const m=new Map();(DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;let a=m.get(s.piece);if(!a)m.set(s.piece,a=[]);a.push(s);});return m;}).get(piece)||[]).slice();
+ return (DB.stationScan||[]).filter(s=>s.piece===piece&&!s.undoneAt);
+}
 /* Номер с клавиатуры: хватает цифр — «1234» это G-0001234. Повреждённый
    стикер не читается, а набирать весь номер у стола никто не будет. */
 function stationCodeOf(raw){
@@ -44,7 +48,8 @@ function stationCodeOf(raw){
 }
 /* Номер стекла → заказ, позиция, стекло Makeup и активная запись батча.
    index — готовая карта номеров, когда стёкол много (экран офиса). */
-function stationPieceIndex(){
+function stationPieceIndex(){return readMemo('stationPieceIndex',[DB.glassPiece],stationPieceIndexBuild);}
+function stationPieceIndexBuild(){
  const m=new Map();
  (DB.glassPiece||[]).forEach(r=>{
   const [orderId,lineId]=r.key.split('|');
@@ -53,7 +58,8 @@ function stationPieceIndex(){
  });
  return m;
 }
-function stationBatchIndex(){
+function stationBatchIndex(){return readMemo('stationBatchIndex',[DB.glassBatch],stationBatchIndexBuild);}
+function stationBatchIndexBuild(){
  const m=new Map();
  (DB.glassBatch||[]).forEach(batch=>batch.items.forEach(item=>{if(!item.releasedAt&&item.piece)m.set(item.piece,{batch,item,part:batch.parts[item.part]});}));
  return m;

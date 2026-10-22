@@ -94,9 +94,10 @@ function orderLogCapture(){
  /* Импорт JSON заменяет базу целиком — это не правка заказов. */
  if(typeof storageImporting!=='undefined'&&storageImporting)return;
  const base=orderLogBaseMap();if(!base)return;
- const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,JSON.stringify(o)]));
- now.forEach((text,id)=>{
-  const o=DB.salesOrder.find(x=>x.id===id);
+ /* Заказ рядом со своим текстом: искать каждый по всему списку — N² на
+    каждом действии, и на скане тоже (проверка Codex 22.10.2026). */
+ const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,{o,text:JSON.stringify(o)}]));
+ now.forEach(({o,text},id)=>{
   if(!base.has(id)){orderLogPush(o,'Created',orderLogCreatedNote(o));return;}
   if(base.get(id)===text)return;
   let a,b;try{a=normalizeSalesOrder(JSON.parse(base.get(id)));b=normalizeSalesOrder(JSON.parse(text));}catch(e){return;}

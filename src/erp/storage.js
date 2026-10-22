@@ -75,6 +75,7 @@ function storageInvalidate(){
  if(typeof stationFrozenIndex!=='undefined')stationFrozenIndex={list:null,size:-1,map:null};
  if(typeof stkSheetCache!=='undefined')stkSheetCache={batch:'',map:null};
  if(typeof orderLogCreators!=='undefined')orderLogCreators={ref:null,n:-1,map:null};
+ if(typeof readMemoReset==='function')readMemoReset();
 }
 /* Откат — из опорного состояния (то, что лежит в базе): возвращаются только
    таблицы, которые изменились. before — несохранённое до команды

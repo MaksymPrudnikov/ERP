@@ -13,7 +13,11 @@ function shippingFind(id){return (DB.shipment||[]).find(s=>s.id===id||s.number==
    юнитов этого заказа на нём нет (аудит Shipping, Д2). */
 function shippingOrderIds(s){return [...new Set((s.items||[]).concat(s.extras||[]).map(i=>i.orderId).concat(s.takes||[]))];}
 function shippingHistoryOrderIds(s){return [...new Set(shippingOrderIds(s).concat((s.unbatchedItems||[]).map(i=>i.orderId)))];}
-function shippingForOrder(id){return (DB.shipment||[]).filter(s=>shippingHistoryOrderIds(s).includes(id));}
+/* Накладные заказа — на отрисовку один указатель «заказ → накладные» (erp/read-scope). */
+function shippingForOrder(id){
+ if(readOn())return (readMemo('shippingByOrder',[DB.shipment],()=>{const m=new Map();(DB.shipment||[]).forEach(s=>shippingHistoryOrderIds(s).forEach(o=>{let a=m.get(o);if(!a)m.set(o,a=[]);a.push(s);}));return m;}).get(id)||[]).slice();
+ return (DB.shipment||[]).filter(s=>shippingHistoryOrderIds(s).includes(id));
+}
 /* PS везёт юниты или товар заказа, а не только его отменённое стекло: дата
    выдачи заказа и начало Net — только по таким (аудит проделанной работы). */
 function shippingCarries(s,id){return (s.items||[]).concat(s.extras||[]).some(i=>i.orderId===id);}
@@ -38,6 +42,9 @@ function shippingDateValid(v){return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.
 let shippingCtxNow=null;
 function shippingCtx(){
  if(shippingCtxNow)return shippingCtxNow;
+ return readMemo('shippingCtx',[DB.stationScan,DB.glassPiece,DB.glassBatch],shippingCtxBuild);
+}
+function shippingCtxBuild(){
  const index=stationPieceIndex(),scans=new Map(),asm=new Map(),broken=new Set();
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt)return;

@@ -57,13 +57,24 @@ function glassComponentCut(c){const g=c&&!c.missing&&glassProductById(c.glassId)
 function glassCutKeys(o,l){return new Set(glassBatchComponents(o,l).filter(glassComponentCut).map(c=>c.key));}
 function glassOrderNeedsCut(o){return (o&&o.lines||[]).some(l=>glassCutKeys(o,l).size>0);}
 function glassBatchFind(number){return (DB.glassBatch||[]).find(b=>b.number===number);}
+/* Записи батчей по заказу — один проход по всем батчам на отрисовку
+   (erp/read-scope, П1 «Базы»): экраны спрашивают это для каждого заказа. */
+function glassBatchByOrder(){
+ return readMemo('glassBatchByOrder',[DB.glassBatch],()=>{
+  const m=new Map();
+  (DB.glassBatch||[]).forEach(batch=>batch.items.forEach((item,index)=>{const part=batch.parts[item.part];if(!part)return;let a=m.get(part.orderId);if(!a)m.set(part.orderId,a=[]);a.push({batch,item,index,part});}));
+  return m;
+ });
+}
 /* Все записи заказа (и возвращённые) с их снимком. */
 function glassBatchEntries(orderId,lineId){
+ if(readOn()){const all=glassBatchByOrder().get(orderId)||[];return lineId?all.filter(x=>x.part.lineId===lineId):all.slice();}
  return (DB.glassBatch||[]).flatMap(batch=>batch.items.map((item,index)=>({batch,item,index,part:batch.parts[item.part]})).filter(x=>x.part&&x.part.orderId===orderId&&(!lineId||x.part.lineId===lineId)));
 }
 /* Активные места: «ключ стекла|номер изделия» → запись батча. */
 function glassBatchActive(orderId){
  const m=new Map();
+ if(orderId&&readOn()){(glassBatchByOrder().get(orderId)||[]).forEach(x=>{if(!x.item.releasedAt)m.set(x.part.key+'|'+x.item.unit,x);});return m;}
  (DB.glassBatch||[]).forEach(batch=>batch.items.forEach((item,index)=>{
   const part=batch.parts[item.part];
   if(!item.releasedAt&&part&&(!orderId||part.orderId===orderId))m.set(part.key+'|'+item.unit,{batch,item,index,part});
@@ -79,7 +90,10 @@ function glassLineScanned(orderId,line){
  (DB.glassPiece||[]).forEach(r=>{if(!r||!String(r.key).startsWith(pre))return;(r.ids||[]).forEach(id=>ids.add(id));Object.values(r.extra||{}).forEach(a=>(a||[]).forEach(id=>ids.add(id)));});
  return ids.size>0&&(DB.stationScan||[]).some(s=>s&&!s.undoneAt&&ids.has(s.piece));
 }
-function glassPieceMap(orderId){const m=new Map();(DB.glassPiece||[]).forEach(r=>{if(!orderId||r.key.startsWith(orderId+'|'))m.set(r.key,r);});return m;}
+function glassPieceMap(orderId){
+ if(orderId&&readOn())return new Map((readMemo('glassPieceByOrder',[DB.glassPiece],()=>{const m=new Map();(DB.glassPiece||[]).forEach(r=>{const id=r.key.split('|')[0];let a=m.get(id);if(!a)m.set(id,a=[]);a.push(r);});return m;}).get(orderId)||[]).map(r=>[r.key,r]));
+ const m=new Map();(DB.glassPiece||[]).forEach(r=>{if(!orderId||r.key.startsWith(orderId+'|'))m.set(r.key,r);});return m;
+}
 /* Места Recut заказа: «ключ стекла|R1.1» (erp/quality/recut). */
 function glassRecutSlots(orderId,lineId){return typeof recutSlotsFor==='function'?recutSlotsFor(orderId,lineId):[];}
 /* Геометрия стекла: у места Recut со своим чертежом — вид строки с чертежом

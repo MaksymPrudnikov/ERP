@@ -94,7 +94,10 @@ const fail=(el,m)=>{el.textContent=m;el.style.display='block';};
    набрать. Деньги, проценты и дни этого признака не имеют. */
 document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.matches&&t.matches('input[inputmode="numeric"]')&&['.',',','-','+','e','E'].includes(e.key))e.preventDefault();},true);
 
-function render(){
+/* Отрисовка — одна область указателей (erp/read-scope): экран строит «где
+   стёкла заказа» и подобное один раз, а не на каждый заказ. */
+function render(){return readScope(renderScreen);}
+function renderScreen(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);
  /* Экран станции — без меню и шапки ERP (view/station). */
  document.body.classList.toggle('station-mode',tab==='station');
