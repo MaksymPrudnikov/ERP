@@ -508,6 +508,20 @@ function normalizeSalesData(){
  if(!Array.isArray(DB.salesOrder))DB.salesOrder=[];const ids=new Set(),numbers=new Set(),lineIds=new Set();
  DB.salesOrder=DB.salesOrder.filter(x=>x&&typeof x==='object').map(x=>{const o=normalizeSalesOrder(x);while(ids.has(o.id))o.id=salesUid('SO');ids.add(o.id);if(o.businessNumber){if(numbers.has(o.businessNumber))o.businessNumber='';else numbers.add(o.businessNumber);}o.lines.forEach(l=>{while(lineIds.has(l.id))l.id=salesUid('SOL');lineIds.add(l.id);});return o;});
 }
+/* Один заказ — Save, Convert, копия квоты, переделка NCR меняют только его;
+   остальные заказы уже приведены в порядок (старт, импорт). Раньше на каждый
+   Save нормализовались все заказы — на базе 3 мес. это 0,7 с из 1,4 с
+   (задание «База», П3). Повтор номера заказа, его строк или businessNumber с
+   другим заказом — как в normalizeSalesData: новый номер, пустой номер. */
+function normalizeSalesOrderIn(id){
+ const i=DB.salesOrder.findIndex(x=>x&&x.id===id);if(i<0)return null;
+ const o=normalizeSalesOrder(DB.salesOrder[i]),ids=new Set(),numbers=new Set(),lineIds=new Set();
+ DB.salesOrder.forEach((x,k)=>{if(k===i||!x)return;ids.add(x.id);if(x.businessNumber)numbers.add(x.businessNumber);(x.lines||[]).forEach(l=>lineIds.add(l.id));});
+ while(ids.has(o.id))o.id=salesUid('SO');
+ if(o.businessNumber&&numbers.has(o.businessNumber))o.businessNumber='';
+ o.lines.forEach(l=>{while(lineIds.has(l.id))l.id=salesUid('SOL');lineIds.add(l.id);});
+ DB.salesOrder[i]=o;return o;
+}
 function validateSalesPayload(src){
  if(!src||typeof src!=='object')return;if(Object.prototype.hasOwnProperty.call(src,'salesOrder')&&!Array.isArray(src.salesOrder))throw new Error('The "salesOrder" field must be an array.');
  const ids=new Set(),numbers=new Set(),lineIds=new Set(),entityId=/^[A-Za-z0-9_-]{1,96}$/;(src.salesOrder||[]).forEach((o,i)=>{

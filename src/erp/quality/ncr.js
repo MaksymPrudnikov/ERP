@@ -94,7 +94,7 @@ function ncrCreate(d){
    const used=new Set(src.lines.map(l=>l.makeupId));src.makeups=src.makeups.filter(m=>used.has(m.id));src.extraItems=[];
    const copy=salesCopySalesRecord(src,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
     batchNo:'',batchHistory:[],unbatchHistory:[],onHold:false,holdReason:'',holdAt:'',fulfilledVia:'',dueDate:'',notes:'Remake for '+n.number+' · order '+o.businessNumber,noCharge:true,remakeNcrId:n.id,createdAt:now,updatedAt:now});
-   DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesData();
+   DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesOrderIn(copy.id);
    n.remakeOrderId=copy.id;glassPieceEnsure(salesRecord(copy.id));
   }
   return true;
