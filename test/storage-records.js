@@ -9,7 +9,7 @@ module.exports=async function({page,eq,ok}){
   await require('./optimization-fixture')(t.p);
   await t.p.evaluate(()=>{
    window.srWritten=[];const real=storageIdbWrite;
-   storageIdbWrite=(changes,rev,build)=>{srWritten.push(changes.map(c=>c.tbl+(c.del?' -':'')));return real(changes,rev,build);};
+   storageIdbWrite=(changes,...a)=>{srWritten.push(changes.map(c=>c.tbl+(c.del?' -':'')));return real(changes,...a);};
    window.srOrder=()=>{oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});return id;};
    window.srCount=async()=>(await storageIdbReadAll()).records.length;
   });
@@ -176,6 +176,79 @@ module.exports=async function({page,eq,ok}){
   orders:DB.salesOrder.length,customers:DB.customer.length,users:DB.user.length,test:storageTest,chip:document.getElementById('testChip').hidden,
   mark:localStorage.getItem(GLASS_ID_MARK_KEY),copy:storageBackupPresent,seq:DB.glassPieceSeq})),
   {orders:0,customers:0,users:0,test:false,chip:true,mark:null,copy:false,seq:0});
- eq('хранилище без ошибок страницы',t.errs.concat(q.errs,r.errs,v.errs),[]);
+ /* Ремонт по проверке Codex 22.10.2026 (задание «База», Р1). */
+ const w=await page(),W2=await w.c.newPage();W2.on('pageerror',e=>w.errs.push(e.message));W2.on('dialog',d=>d.accept());
+ await W2.goto(w.p.url());await W2.evaluate(()=>window.storageReady);
+ /* Открытая вкладка сама забирает запись — дождаться, потом вернуть её первой. */
+ await W2.evaluate(async()=>{if(storageTakeover)await storageTakeover;});await w.p.evaluate(()=>storageTakeControl());
+ const holdName=p=>p.evaluate(()=>(DB.customer.find(c=>c.id==='HOLD-1')||{}).legalName);
+ const holdDisk=p=>p.evaluate(async()=>JSON.parse((await storageIdbGet([['customer','HOLD-1']])).records[0].data).legalName);
+ await w.p.evaluate(async()=>{
+  storageCommand(()=>{DB.customer.push({id:'HOLD-1',legalName:'Original'});});await storageFlush();
+  window.srReal=storageIdbWrite;storageIdbWrite=()=>Promise.reject(new Error('Disk broke'));
+  storageCommand(()=>{DB.customer.find(c=>c.id==='HOLD-1').legalName='Edit A';});await storageFlush();
+ });
+ /* Владелец, 22.10.2026, вариант 1: незаписанное держит запись, пока в этой
+    вкладке не нажмут Retry save или Export. Иначе Retry потом клал старое
+    поверх того, что сохранила другая вкладка (проверка Codex, находка 1). */
+ eq('запись не прошла: другая вкладка не забирает запись, полоса говорит почему',await W2.evaluate(async()=>{
+  const took=await storageTakeControl();afterRender();const bar=document.getElementById('storageAlert');
+  return {took,writer:storageWriter,bar:!bar.hidden&&bar.textContent.includes('Not saved in another tab')};
+ }),{took:false,writer:false,bar:true});
+ eq('вкладка с незаписанным остаётся писателем',await w.p.evaluate(()=>({writer:storageWriter,failed:!!storageFailed})),{writer:true,failed:true});
+ await w.p.evaluate(async()=>{storageIdbWrite=srReal;storageRetry();await storageFlush();});
+ eq('Retry save записал; теперь другая вкладка забирает запись и видит правку',await W2.evaluate(async()=>({took:await storageTakeControl(),name:(DB.customer.find(c=>c.id==='HOLD-1')||{}).legalName})),{took:true,name:'Edit A'});
+ await W2.evaluate(async()=>{storageCommand(()=>{DB.customer.find(c=>c.id==='HOLD-1').legalName='Edit B';});await storageFlush();});
+ await w.p.waitForFunction(()=>DB.customer.find(c=>c.id==='HOLD-1').legalName==='Edit B',null,{timeout:5000}).catch(()=>{});
+ eq('правка второй вкладки на диске и в первой',{disk:await holdDisk(w.p),first:await holdName(w.p)},{disk:'Edit B',first:'Edit B'});
+ /* Запись отказала, когда вкладка уже отдавала запись: она её не отдаёт. */
+ await w.p.evaluate(()=>storageTakeControl());
+ eq('запись отказала во время передачи — вкладка держит запись',await w.p.evaluate(async()=>{
+  storageIdbWrite=()=>new Promise((res,rej)=>setTimeout(()=>rej(new Error('Late failure')),300));
+  storageCommand(()=>{DB.customer.find(c=>c.id==='HOLD-1').legalName='Late A';});return true;
+ }).then(()=>W2.evaluate(()=>storageTakeControl())).then(async took=>({took,writer:await w.p.evaluate(()=>storageWriter),failed:await w.p.evaluate(()=>!!storageFailed)})),{took:false,writer:true,failed:true});
+ /* Export — незаписанное в файле: вкладка отдаёт запись и берёт из базы то, что там лежит. */
+ await w.p.evaluate(()=>{window.srSaved=0;storageDownload=()=>{srSaved++;};doExport();});
+ eq('после Export вкладка отдаёт запись и показывает то, что в базе',await W2.evaluate(()=>storageTakeControl()).then(async took=>{
+  await w.p.waitForFunction(()=>!storageFailed&&DB.customer.find(c=>c.id==='HOLD-1').legalName==='Edit B',null,{timeout:5000}).catch(()=>{});
+  return {took,exported:await w.p.evaluate(()=>srSaved),writer:await w.p.evaluate(()=>storageWriter),failed:await w.p.evaluate(()=>!!storageFailed),first:await holdName(w.p),disk:await holdDisk(w.p)};
+ }),{took:true,exported:1,writer:false,failed:false,first:'Edit B',disk:'Edit B'});
+ await w.p.evaluate(()=>{storageIdbWrite=srReal;});
+ /* Метка TEST — часть базы: другая вкладка видит её сразу и при захвате записи. */
+ await w.p.evaluate(()=>storageTakeControl());
+ await w.p.evaluate(async()=>{const env=JSON.parse(JSON.stringify(storageExportEnvelope()));env.test=true;await storageImportFile(new File([JSON.stringify(env)],'sim.json'));});
+ await W2.waitForFunction(()=>storageTest,null,{timeout:5000}).catch(()=>{});
+ eq('Import тестовой базы: вторая вкладка видит TEST DATA, Export из неё с меткой',await W2.evaluate(()=>{afterRender();return {test:storageTest,chip:!document.getElementById('testChip').hidden,head:JSON.parse(storageExportParts()[0]).test===true};}),{test:true,chip:true,head:true});
+ eq('вкладка без метки в памяти: при захвате записи берёт её из базы и не пускает настоящую базу',await W2.evaluate(async()=>{
+  window.alert=m=>{window.srAlert=m;};storageTest=false;const took=await storageTakeControl(),test=storageTest;
+  const env=JSON.parse(JSON.stringify(storageExportEnvelope()));delete env.test;const ok=await storageImportState(env);
+  return {took,test,ok,alert:window.srAlert};
+ }),{took:true,test:true,ok:false,alert:'Test data here. Clear database first.'});
+ await W2.close();
+ const x=await page();await x.p.evaluate(()=>storageTakeControl());
+ /* Чужая запись в несколько строк: строки встают в порядке писателя, и
+    следующая запись этой вкладки его не портит (проверка Codex, находка 3). */
+ eq('чужая перестановка строк: порядок как у писателя, своя запись его не меняет',await x.p.evaluate(async()=>{
+  storageCommand(()=>{['A','B','C'].forEach(n=>DB.customer.push({id:'ORD-'+n,legalName:n}));});await storageFlush();
+  const ids=a=>a.map(c=>c.id).filter(id=>/^ORD-/.test(id)),move=async order=>{
+   const next=JSON.parse(JSON.stringify(DB)),q=id=>next.customer.find(c=>c.id===id)||{id,legalName:id};
+   next.customer=next.customer.filter(c=>!/^ORD-/.test(c.id)).concat(order.map(q));await testOtherTab(next);
+   return {memory:ids(DB.customer),stored:ids(storageBaseRows('customer')),rewrite:storageDiff(DB).filter(c=>c.tbl==='customer').length};
+  };
+  return [await move(['ORD-C','ORD-X','ORD-A','ORD-B']),await move(['ORD-B','ORD-Y','ORD-C'])];
+ }),[{memory:['ORD-C','ORD-X','ORD-A','ORD-B'],stored:['ORD-C','ORD-X','ORD-A','ORD-B'],rewrite:0},{memory:['ORD-B','ORD-Y','ORD-C'],stored:['ORD-B','ORD-Y','ORD-C'],rewrite:0}]);
+ eq('чужая замена маршрута того же ключа видна сразу, без F5',await x.p.evaluate(async()=>{
+  storageCommand(()=>{DB.productionRoute.push({key:'RT-1',at:'2026-10-22',route:{codes:['CUT','HEAT'],shipping:[],services:[]}});});await storageFlush();
+  const warm=stationFrozenRoute('RT-1').codes.join('>'),next=JSON.parse(JSON.stringify(DB));next.productionRoute.find(r=>r.key==='RT-1').route.codes=['CUT','POLISH','HEAT'];
+  await testOtherTab(next);return {warm,now:stationFrozenRoute('RT-1').codes.join('>')};
+ }),{warm:'CUT>HEAT',now:'CUT>POLISH>HEAT'});
+ eq('Reset раскроя того же батча: лист на стикере — из нового раскроя',await x.p.evaluate(()=>{
+  const plan=(a,b)=>({batch:'B-STK',groups:[{glass:'CL6',sheets:[{no:1,pieces:[{piece:a}]},{no:2,pieces:[{piece:b}]}]}]});
+  storageCommand(()=>{DB.cutPlan.push(plan('G-1','G-2'));});const warm=stkSheetOf('B-STK','G-1').sheet;
+  storageCommand(()=>{DB.cutPlan=DB.cutPlan.filter(p=>p.batch!=='B-STK').concat([plan('G-2','G-1')]);});
+  return {warm,now:stkSheetOf('B-STK','G-1').sheet};
+ }),{warm:1,now:2});
+ await w.c.close();await x.c.close();
+ eq('хранилище без ошибок страницы',t.errs.concat(q.errs,r.errs,v.errs,w.errs,x.errs),[]);
  await q.c.close();await r.c.close();await v.c.close();
 };
