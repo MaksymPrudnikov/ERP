@@ -90,6 +90,40 @@ function storageRollback(before){
  if(!moved.size)return;
  storageRestore(changes.filter(c=>moved.has(part(c))),(before||[]).filter(c=>moved.has(part(c))));storageInvalidate();
 }
+/* Архив (задание «База», этап 3). Строка, которую команда уносит в архив,
+   для сравнения базы выглядит удалённой — touch() превращает такое
+   «удалено» в перенос в склад cold той же записью. storageColdImport —
+   архив из файла Import (заменяет весь архив). */
+let storageColdPending=new Map(),storageColdImport=null,storageColdWarm=new Set();
+function storageColdMove(tbl,row,owners,month){
+ const list=DB[tbl],i=Array.isArray(list)?list.indexOf(row):-1,id=storageRowKey(tbl,row);
+ if(i<0||!id||!storageTableIds(tbl,list))throw new Error('This record cannot go to the archive.');
+ storageColdPending.set(tbl+'\u0000'+id,{tbl,id,owners:owners||[],month:month||'',data:JSON.stringify(row)});list.splice(i,1);
+}
+function storageColdApply(changes){
+ if(storageColdImport){changes.unshift({tbl:'',id:'',coldClear:true});storageColdImport.forEach(r=>changes.push({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,owners:r.owners||[],month:r.month||''}));storageColdImport=null;}
+ if(storageColdWarm.size){changes.forEach(c=>{if(!c.del&&!c.cold&&storageColdWarm.has(c.tbl+'\u0000'+c.id))c.warm=true;});storageColdWarm.clear();}
+ if(!storageColdPending.size)return changes;
+ changes.forEach(c=>{const p=c.del&&storageColdPending.get(c.tbl+'\u0000'+c.id);if(!p)return;const b=storageBase.get(c.tbl),was=b&&b.get(c.id);
+  Object.assign(c,{cold:true,seq:was?was.s:0,data:p.data,owners:p.owners,month:p.month});delete c.del;storageColdPending.delete(c.tbl+'\u0000'+c.id);});
+ /* Строка, ещё не записанная в базу, уходит в архив как есть. */
+ storageColdPending.forEach(p=>changes.push({tbl:p.tbl,id:p.id,seq:0,data:p.data,cold:true,owners:p.owners,month:p.month}));
+ storageColdPending.clear();return changes;
+}
+/* Вернуть из архива записи заказа (NCR, поздняя оплата): строки встают в
+   DB на своё место по seq, их запись забирает их из склада cold. */
+async function storageColdBring(owner){
+ await storageFlush();
+ const got=await storageIdbColdOf(owner);if(!got.length)return {ok:true,value:0};
+ return storageCommand(()=>{
+  got.forEach(r=>{
+   if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];const rows=DB[r.tbl],base=storageBase.get(r.tbl)||new Map(),seqOf=x=>{const b=base.get(storageRowKey(r.tbl,x));return b?b.s:Infinity;};
+   let lo=0,hi=rows.length;while(lo<hi){const mid=(lo+hi)>>1;if(seqOf(rows[mid])<r.seq)lo=mid+1;else hi=mid;}
+   rows.splice(lo,0,JSON.parse(r.data));storageColdWarm.add(r.tbl+'\u0000'+r.id);
+  });
+  return got.length;
+ });
+}
 function storageCommand(fn){
  if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}
  if(!storageWriter||storageRecovery||storageStale)return {ok:false,error:storageRecovery?'Restore or export the unreadable database before editing.':storageReadOnlyText()};
@@ -102,7 +136,7 @@ function storageCommand(fn){
   storageDepth--;storageCommanding=true;const saved=touch();storageCommanding=false;
   if(saved===false)throw new Error(storageLastError||'Not saved. Retry the operation.');
   return {ok:true,value};
- }catch(e){storageDepth=0;storageCommanding=false;storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
+ }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
 }
 function touch(){
  if(storageDepth)return true;
@@ -117,7 +151,7 @@ function touch(){
   if(typeof orderLogCapture==='function')orderLogCapture();
   /* Счётчик номеров стёкол — раньше базы (erp/production/glass-batches). */
   if(typeof glassIdMarkSave==='function')glassIdMarkSave();
-  const changes=storageDiff(DB);
+  const changes=storageColdApply(storageDiff(DB));
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';return true;}
   storageWrite(changes);storageBaseApply(changes);
@@ -413,30 +447,39 @@ function storageDownload(name,parts,type){const a=document.createElement('a'),ur
    одной огромной строки нет. Этот же формат — для будущего переноса
    старых данных и обмена с сервером. Пишется то, что в памяти, — и
    то, что ещё не дошло до базы (запись не удалась). */
-function storageExportParts(){
+/* Записи того, что в памяти (и не дошло до базы), — для Export и копии до
+   импорта. Пустая таблица — строкой «таблица пуста» (id `*`, data []): без
+   неё файл новой установки без клиентов или заказов не возвращался Import'ом. */
+function storageHotRecords(){
  const keep=storageBase;let recs;
  storageBase=new Map();
  try{recs=storageDiff(DB);}finally{storageBase=keep;}
- /* Пустая таблица — строкой «таблица пуста» (id `*`, data []): без неё
-    файл новой установки без клиентов или заказов не возвращался Import'ом. */
  Object.keys(DB).forEach(k=>{if(Array.isArray(DB[k])&&!DB[k].length)recs.push({tbl:k,id:'*',seq:0,data:'[]'});});
- const head={format:'glass-erp',schemaVersion:2,exportedAt:new Date().toISOString(),build:storageBuildId(),records:recs.length};
+ return recs;
+}
+/* cold — записи архива (storageIdbColdAll): строкой с "cold":1, owners и month. */
+function storageExportParts(cold){
+ const recs=storageHotRecords();cold=cold||[];
+ const head={format:'glass-erp',schemaVersion:2,exportedAt:new Date().toISOString(),build:storageBuildId(),records:recs.length+cold.length};
+ if(cold.length)head.cold=cold.length;
  if(storageTest)head.test=true;
  const parts=[JSON.stringify(head)+'\n'];
  for(let i=0;i<recs.length;i+=1000)parts.push(recs.slice(i,i+1000).map(c=>'{"tbl":'+JSON.stringify(c.tbl)+',"id":'+JSON.stringify(c.id)+',"seq":'+c.seq+',"data":'+c.data+'}\n').join(''));
+ for(let i=0;i<cold.length;i+=1000)parts.push(cold.slice(i,i+1000).map(c=>'{"tbl":'+JSON.stringify(c.tbl)+',"id":'+JSON.stringify(c.id)+',"seq":'+c.seq+',"cold":1,"owners":'+JSON.stringify(c.owners||[])+',"month":'+JSON.stringify(c.month||'')+',"data":'+c.data+'}\n').join(''));
  return parts;
 }
 /* Вся база целиком — дело администратора (раздел Users, erp/access): Import
    заменяет и людей с их правами, Export отдаёт и Finance. */
-function doExport(){
+async function doExport(){
  if(!accessCan(ACCESS_ADMIN))return;
- storageDownload('glazing_system_data.ndjson',storageExportParts(),'application/x-ndjson');
+ await storageFlush();const cold=storageIdb?await storageIdbColdAll().catch(()=>[]):[];
+ storageDownload('glazing_system_data.ndjson',storageExportParts(cold),'application/x-ndjson');
  storageBackupAt=new Date().toISOString();dirty=false;if(storageFailed)storageFailedExported=true;render();
 }
 /* Записи как они лежат, без нормализации, — то, что не прочиталось. */
 function storageExportRecovery(){
- const read=storageIdb?storageIdbTx(['record'],'readonly',tx=>{const out={records:[]};tx.objectStore('record').getAll().onsuccess=e=>{out.records=e.target.result||[];};return out;}):Promise.resolve({records:[]});
- return read.then(o=>storageDownload('glazing_system_recovery.json',JSON.stringify({format:'glass-erp-records',exportedAt:new Date().toISOString(),records:o.records})),
+ const read=storageIdb?storageIdbTx(['record','cold'],'readonly',tx=>{const out={records:[],cold:[]};tx.objectStore('record').getAll().onsuccess=e=>{out.records=e.target.result||[];};tx.objectStore('cold').getAll().onsuccess=e=>{out.cold=e.target.result||[];};return out;}):Promise.resolve({records:[],cold:[]});
+ return read.then(o=>storageDownload('glazing_system_recovery.json',JSON.stringify({format:'glass-erp-records',exportedAt:new Date().toISOString(),records:o.records,cold:o.cold})),
   e=>alert('The stored records could not be read: '+e.message));
 }
 function storageImportSummary(next){return ['customer','salesOrder','receipt','glassBatch','stationScan'].map(k=>k+': '+(DB[k]||[]).length+' → '+(next[k]||[]).length).join('\n');}
@@ -447,7 +490,8 @@ function storageImportSummary(next){return ['customer','salesOrder','receipt','g
    opts.test — файл помечен TEST (база симулятора); настоящую базу поверх
    тестовой не кладём (владелец, 20.10.2026: «не путать тестовое и базу с
    проектами прошлых лет»). opts.restore — Restore pre-import backup: копия
-   возвращается с той меткой, какая у неё была. */
+   возвращается с той меткой, какая у неё была. opts.cold — архив из файла;
+   Import заменяет и архив (нет в файле — архив пустой). */
 async function storageImportState(raw,opts){
  opts=opts||{};
  if(!accessCan(ACCESS_ADMIN)){alert('Users access needed to replace the database.');return false;}
@@ -457,18 +501,18 @@ async function storageImportState(raw,opts){
  const next=prepareImportedState(raw);
  if(!confirm('Replace this browser database?\n\n'+storageImportSummary(next)+'\n\nA recovery copy will be kept before replacement.'))return false;
  const recovering=storageRecovery;
- /* The copy is written and checked before the database is touched. */
- /* Копия — одной строкой; у браузера предел строки около 512 МБ, это база
-    примерно за год. Больше — понятный отказ вместо «Invalid string length». */
- const at=new Date().toISOString();let backup;
- try{backup=JSON.stringify(Object.assign({format:'glass-erp',schemaVersion:1,exportedAt:at},storageTest?{test:true}:{},{data:DB}));}
- catch(e){alert('Nothing was replaced. Too big for a recovery copy: Export, Clear database, then Import.');return false;}
- try{await storageIdbCopyPut(backup,at);if(await storageIdbCopyGet()!==backup)throw new Error('The recovery copy could not be verified.');}
- catch(e){alert('Nothing was replaced: '+e.message);return false;}
+ /* The copy is written and checked before the database is touched: по
+    записям — то, что в памяти, и архив; одной огромной строки нет. */
+ const at=new Date().toISOString();
+ try{
+  await storageFlush();const hot=storageHotRecords(),cold=recovering?[]:await storageIdbColdAll();
+  await storageIdbCopyPutRecords(hot,cold,at,storageTest);const back=await storageIdbCopyRead();
+  if(!back||!back.head||back.hot.length!==hot.length||back.cold.length!==cold.length)throw new Error('The recovery copy could not be verified.');
+ }catch(e){alert('Nothing was replaced: '+e.message);return false;}
  storageBackupPresent=true;storageCopyAt=at;
  if(recovering){await storageExportRecovery();storageRecovery=false;}
  /* Метка уходит той же записью, что и новая база (storageWriteNext). */
- storageImporting=true;const testWas=storageTest;storageTest=!!opts.test;
+ storageImporting=true;const testWas=storageTest;storageTest=!!opts.test;storageColdImport=(opts.cold||[]).slice();
  const result=storageCommand(()=>{DB=next;return true;});
  storageImporting=false;
  if(!result.ok){storageTest=testWas;storageRecovery=recovering;alert(result.error);return false;}
@@ -485,27 +529,31 @@ async function storageSeed(src){
  storageBase=new Map();
  try{changes=storageDiff(src&&typeof src==='object'&&!Array.isArray(src)?src:{});}finally{storageBase=keep;}
  storageWriter=false;if(storageRelease)storageRelease();storageRelease=null;
- await storageIdbTx(['record','meta'],'readwrite',tx=>{
-  const rs=tx.objectStore('record');rs.clear();
+ await storageIdbTx(['record','cold','meta'],'readwrite',tx=>{
+  const rs=tx.objectStore('record');rs.clear();tx.objectStore('cold').clear();
   changes.forEach(c=>rs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data}));
   tx.objectStore('meta').put(storageRev+1,'rev');
  });
 }
 function storageRestoreBackup(){
- return storageIdbCopyGet().then(raw=>{if(!raw){alert('No pre-import recovery copy is available.');return false;}const copy=JSON.parse(raw);return storageImportState(copy,{restore:true,test:copy.test===true});},
-  e=>{alert('No pre-import recovery copy is available.');return false;});
+ return storageIdbCopyRead().then(got=>{
+  if(!got){alert('No pre-import recovery copy is available.');return false;}
+  if(got.text!=null){const copy=JSON.parse(got.text);return storageImportState(copy,{restore:true,test:copy.test===true});}
+  return storageImportState(storageJoin(got.hot),{restore:true,test:got.head.test===true,cold:got.cold});
+ },e=>{alert('No pre-import recovery copy is available.');return false;});
 }
 /* Import v2 — потоком: файл читается кусками и делится на строки, строка —
    одна запись. JSON.parse всего файла нет, предела размера нет. */
 async function storageReadRecords(file){
- const reader=file.stream().pipeThrough(new TextDecoderStream()).getReader(),records=[];
+ const reader=file.stream().pipeThrough(new TextDecoderStream()).getReader(),records=[],cold=[];
  let buf='',head=null,line=0;
  const take=text=>{
   if(!text.trim())return;line++;
   let o;try{o=JSON.parse(text);}catch(e){throw new Error('line '+line+' is not readable.');}
   if(!head){if(!o||o.format!=='glass-erp'||o.schemaVersion!==2)throw new Error('Unsupported GLASS ERP backup format or version.');head=o;return;}
   if(!o||typeof o.tbl!=='string'||typeof o.id!=='string'||!Number.isFinite(o.seq)||o.data===undefined)throw new Error('line '+line+' is not a record.');
-  records.push(o);
+  if(o.cold)cold.push({tbl:o.tbl,id:o.id,seq:o.seq,data:JSON.stringify(o.data),owners:Array.isArray(o.owners)?o.owners.map(String):[],month:typeof o.month==='string'?o.month:''});
+  else records.push(o);
  };
  for(;;){
   const r=await reader.read();if(r.done)break;
@@ -513,8 +561,8 @@ async function storageReadRecords(file){
  }
  take(buf);
  if(!head)throw new Error('the file is empty.');
- if(Number.isInteger(head.records)&&head.records!==records.length)throw new Error('the file is incomplete: '+records.length+' of '+head.records+' records.');
- return {head,state:storageJoin(records,true)};
+ if(Number.isInteger(head.records)&&head.records!==records.length+cold.length)throw new Error('the file is incomplete: '+(records.length+cold.length)+' of '+head.records+' records.');
+ return {head,state:storageJoin(records,true),cold};
 }
 /* Файл Import: v2 (строка заголовка с schemaVersion 2) или прежний JSON (v1).
    Метка TEST — в заголовке v2 или в конверте v1 (tools/sim-shop.js). Пустые
@@ -522,7 +570,7 @@ async function storageReadRecords(file){
 async function storageImportFile(file){
  let first=null;try{first=JSON.parse((await file.slice(0,65536).text()).replace(/^\s+/,'').split('\n')[0]);}catch(e){}
  if(first&&first.format==='glass-erp'&&first.schemaVersion===2){
-  const got=await storageReadRecords(file);return storageImportState(got.state,{test:got.head.test===true});
+  const got=await storageReadRecords(file);return storageImportState(got.state,{test:got.head.test===true,cold:got.cold});
  }
  const raw=JSON.parse(await file.text());
  return storageImportState(raw,{test:!!raw&&raw.test===true});

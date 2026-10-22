@@ -60,7 +60,7 @@ module.exports=async function({page,eq,ok}){
  }),{nav:['Sales','Optimize','Production','Shipping','Customers','Overview'],go:'dashboard',forced:'sales',blocks:['orders','shop','ship','quality']});
  eq('Export / Import JSON — только у администратора (Users): кнопок нет, вызов ничего не делает',await t.p.evaluate(async()=>{
   const shown=[...document.querySelectorAll('[data-admin]')].filter(b=>getComputedStyle(b).display!=='none').length;
-  const keep=storageDownload;let saved=0;storageDownload=()=>{saved++;};doExport();storageDownload=keep;
+  const keep=storageDownload;let saved=0;storageDownload=()=>{saved++;};await doExport();storageDownload=keep;
   const ask=window.confirm;let asked=0;window.confirm=()=>{asked++;return true;};const cleared=await storageClear();window.confirm=ask;
   return {shown,saved,cleared,asked};
  }),{shown:0,saved:0,cleared:false,asked:0});

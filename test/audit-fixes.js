@@ -81,12 +81,13 @@ module.exports=async function({page,eq,ok}){
  }),{rejected:[true,true,true,true],same:true});
  eq('import keeps a verified pre-import copy, Restore brings the old database back',await t.p.evaluate(async()=>{
   const before=DB.customer.map(x=>x.id).join(),raw=storageExportEnvelope();raw.data=JSON.parse(JSON.stringify(raw.data));raw.data.customer=[];raw.data.salesOrder=[];raw.data.receipt=[];raw.data.refund=[];raw.data.financeExport=[];raw.data.financeEvent=[];raw.data.glassPiece=[];raw.data.glassBatch=[];raw.data.recut=[];
-  const imported=await storageImportState(raw),backup=JSON.parse(await storageIdbCopyGet()),restored=await storageRestoreBackup();return {imported,backed:backup.data.customer.map(x=>x.id).join()===before,restored,same:DB.customer.map(x=>x.id).join()===before};
+  const imported=await storageImportState(raw),backup=storageJoin((await storageIdbCopyRead()).hot),restored=await storageRestoreBackup();return {imported,backed:backup.customer.map(x=>x.id).join()===before,restored,same:DB.customer.map(x=>x.id).join()===before};
  }),{imported:true,backed:true,restored:true,same:true});
  eq('failed import keeps both current database and usable pre-import backup',await t.p.evaluate(async()=>{
   const before=JSON.stringify(DB),stored=testStoredText(),raw=storageExportEnvelope();raw.data=JSON.parse(before);raw.data.customer[0].legalName='Imported change';
   testWriteBreak();let imported;try{imported=await storageImportState(raw);}finally{testWriteHeal();}
-  return {imported,same:before===JSON.stringify(DB),stored:stored===testStoredText(),backup:JSON.stringify(JSON.parse(await storageIdbCopyGet()).data)===before};
+  const canon=o=>JSON.stringify(Object.keys(o).sort().map(k=>[k,o[k]]));
+  return {imported,same:before===JSON.stringify(DB),stored:stored===testStoredText(),backup:canon(storageJoin((await storageIdbCopyRead()).hot))===canon(JSON.parse(before))};
  }),{imported:false,same:true,stored:true,backup:true});
  eq('pre-import copy expires after a week and gives way when storage is full',await t.p.evaluate(async()=>{
   const put=async days=>{const at=new Date(Date.now()-days*864e5).toISOString();await storageIdbCopyPut(JSON.stringify({format:'glass-erp',schemaVersion:1,exportedAt:at,data:{}}),at);storageCopyAt=at;storageBackupPresent=true;};
