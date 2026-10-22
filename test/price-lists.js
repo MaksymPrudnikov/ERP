@@ -45,12 +45,12 @@ module.exports=async function({page,eq,ok}){
   const grp=plfGroup('Contractors',[{target:'service:flatPolish',price:0.09}]);c.priceGroupId=grp.id;
   plfPersonal(c,[{target:'service:flatPolish',price:null,bands:{'6':0.05,'8-10':null,'12-19':null}}]);
   plfDraft(c);
-  const r6=salesCatalogRate('flatPolish',{ok:true,band:'6'}),r10=salesCatalogRate('flatPolish',{ok:true,band:'8-10'});
-  c.priceGroupId='';const base=salesCatalogRate('flatPolish',{ok:true,band:'8-10'});
-  salesCatalogRate('flatPolish',{ok:true,band:'6'});const row=salesChargeRow('EDGE:flatPolish:6','Flat Polish',10,'in',0.05,'Edge');
+  const r6=salesCatalogRate('flatPolish',salesPricingBandFor(6)),r10=salesCatalogRate('flatPolish',salesPricingBandFor(10));
+  c.priceGroupId='';const base=salesCatalogRate('flatPolish',salesPricingBandFor(10));
+  salesCatalogRate('flatPolish',salesPricingBandFor(6));const row=salesChargeRow('EDGE:flatPolish:6','Flat Polish',10,'in',0.05,'Edge');
   const plain=salesChargeRow('EDGE:x:6','X',1,'in',0.05,'Edge');
   salesDraftDrop(true);
-  return {r6,r10,base:base===fp.bands['8-10'],from:priceListName(row.from),plain:plain.from===undefined};
+  return {r6,r10,base:base===fp.tiers.find(x=>x.id==='8-10').price,from:priceListName(row.from),plain:plain.from===undefined};
  }),{r6:0.05,r10:0.09,base:true,from:'Personal',plain:true});
 
  eq('Save замораживает цену прайса и откуда она; правка прайса не меняет заказ; Update prices пересчитывает, ручная остаётся',await t.p.evaluate(()=>{
@@ -77,7 +77,7 @@ module.exports=async function({page,eq,ok}){
  eq('одна цена сразу нескольким клиентам: в личные прайсы, повтор не плодит строки; журнал пишет айтем «было → стало»',await t.p.evaluate(()=>{
   plfReset();const a=oqCustomer({legalName:'Bulk A'}),b=oqCustomer({legalName:'Bulk B'}),k=plfKey();touch();
   const n=DB.masterDataEvent.length;
-  plBulk={target:k,price:'10',bands:{'6':'','8-10':'','12-19':''},ids:[a.id,b.id],q:''};plBulkApply();
+  plBulk={target:k,price:'10',bands:{},ids:[a.id,b.id],q:''};plBulkApply();
   plBulk.price='0';plBulkApply();
   const rows=[a,b].map(c=>priceListOfCustomer(c.id).rows.map(r=>r.price));
   const ev=DB.masterDataEvent.slice(n).filter(e=>e.tbl==='priceList'&&e.field.includes('6CLEAR')||e.tbl==='priceList'&&e.what==='Edited').map(e=>[e.row,e.was,e.now]);
@@ -93,12 +93,12 @@ module.exports=async function({page,eq,ok}){
  eq('Excel прайса: шаблон с настоящими клиентами и айтемами; загрузка — «было → станет» и ошибки, запись только по кнопке',await t.p.evaluate(()=>{
   plfReset();const c=oqCustomer({legalName:'File Co',code:'FILE1'}),k=plfKey();plfPersonal(c,[{target:k,price:9}]);touch();
   const tpl=parseCsv(priceFileExport('customer:'+c.id)),all=parseCsv(priceFileExport('all'));
-  const out={head:tpl.header.join('|'),every:tpl.rows.length===salesPriceTargets().length,mine:tpl.rows.find(r=>r.Key===k).Price,all:all.rows.length};
-  const svc=tpl.rows.find(r=>r.Key==='service:flatPolish');
-  const csv=r=>[r['List type'],r.List,r['Customer code'],r['Item type'],r.Item,'','',r.Price,r['6 mm'],r['8-10 mm'],r['12-19 mm'],r.Key].map(csvCell).join(',');
-  const text=[tpl.header.join(','),csv(Object.assign({},tpl.rows.find(r=>r.Key===k),{Price:'0'})),csv(Object.assign({},svc,{Price:'',['6 mm']:'0,05'})),
+  const out={head:tpl.header.join('|'),every:tpl.rows.filter(r=>!r.Tier).length===salesPriceTargets().length,tiers:tpl.rows.filter(r=>r.Key==='service:flatPolish').map(r=>r['Thickness mm']+'='+r.Base).join(' '),mine:tpl.rows.find(r=>r.Key===k).Price,all:all.rows.length};
+  const svc=tpl.rows.find(r=>r.Key==='service:flatPolish'&&!r.Tier),svc6=tpl.rows.find(r=>r.Key==='service:flatPolish'&&r.Tier==='6');
+  const csv=r=>[r['List type'],r.List,r['Customer code'],r['Item type'],r.Item,'',r['Thickness mm'],'',r.Price,r.Key,r.Tier].map(csvCell).join(',');
+  const text=[tpl.header.join(','),csv(Object.assign({},tpl.rows.find(r=>r.Key===k),{Price:'0'})),csv(Object.assign({},svc6,{Price:'0,05'})),
    csv({'List type':'Customer group',List:'New Dealers','Item type':'Glass',Item:salesPriceTargets().find(t=>t.key===k).label,Price:'$7.5'}),
-   csv({'List type':'Personal',List:'Nobody',Price:'1',Key:k}),csv(Object.assign({},svc,{Price:'abc'})),csv({'List type':'Customer group',List:'New Dealers',Item:'Glass x',Price:'1',['6 mm']:'2',Key:k})].join('\r\n');
+   csv({'List type':'Personal',List:'Nobody',Price:'1',Key:k}),csv(Object.assign({},svc,{Price:'abc'})),csv({'List type':'Customer group',List:'New Dealers',Item:'Glass x',Price:'2',Tier:'6',Key:k})].join('\r\n');
   const n=DB.masterDataEvent.length,plan=priceFilePlan(text);
   out.plan=plan.changes.map(ch=>[ch.listName,priceFileText(ch.was),priceFileText(ch.next)]);out.errors=plan.errors.map(e=>e.line);out.newGroups=plan.newGroups;
   out.untouched=priceListOfCustomer(c.id).rows[0].price;
@@ -108,9 +108,9 @@ module.exports=async function({page,eq,ok}){
   plView='file';plFile={name:'p.csv',text,plan:priceFilePlan(priceFileExport('all').replace(/,0,/,',1,'))};tab='masterdata';mdTab='prices';render();
   out.screen=[document.querySelectorAll('[data-pl-file-change]').length,!!document.querySelector('[data-pl-file-write]')];plFile=null;plView='groups';
   return out;
- }),{head:'List type|List|Customer code|Item type|Item|Unit|Base|Price|6 mm|8-10 mm|12-19 mm|Key',every:true,mine:'9',all:1,
-  plan:[['File Co','9.00','0.00'],['File Co','—','6: 0.05'],['New Dealers','—','7.50']],errors:[5,6,7],newGroups:['New Dealers'],untouched:9,
-  written:3,now:['0.00','6: 0.05'],group:[7.5],again:0,log:true,screen:[1,true]});
+ }),{head:'List type|List|Customer code|Item type|Item|Unit|Thickness mm|Base|Price|Key|Tier',every:true,tiers:'= ≤7=0.07 8–11=0.1 12–19=0.13',mine:'9',all:1,
+  plan:[['File Co','9.00','0.00'],['File Co','—','≤7 mm: 0.05'],['New Dealers','—','7.50']],errors:[5,6,7],newGroups:['New Dealers'],untouched:9,
+  written:3,now:['0.00','≤7 mm: 0.05'],group:[7.5],again:0,log:true,screen:[1,true]});
 
  eq('экраны: Data → Prices, Group в карточке клиента — выбор группы, вкладка Prices, полоса цен заказа с Update prices',await t.p.evaluate(()=>{
   plfReset();const c=oqCustomer({legalName:'Screen Co',group:'Spil text'}),k=plfKey(),g=plfGroup('Dealers',[{target:k,price:8}]);touch();

@@ -1177,12 +1177,12 @@ function shapeStampDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStampFeatu
 function shapeAnnotationDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStampFeatures().concat(shapeSurfaceMarkFeatures()),T);}
 function shapeAnnotationOverlaySvg(T){var marker=shapeStampMarkerSvg(T)+shapeSandblastMarkerSvg(T),dims=shapeAnnotationDimsSvg(T);return marker+(dims?shapeDimArrowDefs()+dims:'');}
 function shapeStampOverlaySvg(T){return shapeAnnotationOverlaySvg(T);}
-/* Та же полоса, что в цене (salesPricingHoleBand): меньше 1/2″ — по 1/2″–1″. */
-function shapeHoleServiceBand(d){if(d>0&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
+/* Та же работа, что в цене (salesPricingHoleBand): диапазон диаметра в карточке отверстия. */
+function shapeHoleServiceBand(d){return salesPricingHoleBand(d);}
 function shapeServiceEntries(){return shapeManufacturingItems().map(function(item){return {id:item.id,type:item.type,diameter:item.diameter||'',count:shapeHoleCount(item)};});}
 function shapeDerivedServices(){
   var groups=Object.create(null),invalid=[];
-  shapeServiceEntries().forEach(function(item){var key=item.type,label=shapeManufacturingItemTitle(item.type),qty=1;if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),hb=d.ok?shapeHoleServiceBand(d.v):null;qty=item.count;if(!hb){invalid.push(item.id);key='hole-invalid-'+item.id;label='Hole · invalid diameter';}else{key='hole:'+hb.key;label='Hole '+hb.label;}}if(!groups[key])groups[key]={label:label,qty:0};groups[key].qty+=qty;});
+  shapeServiceEntries().forEach(function(item){var key=item.type,label=shapeManufacturingItemTitle(item.type),qty=1;if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),hb=d.ok?shapeHoleServiceBand(d.v):null;qty=item.count;if(!hb){invalid.push(item.id);key='hole-invalid-'+item.id;label='Hole · invalid diameter';}else{key=hb.key;label=hb.label;}}if(!groups[key])groups[key]={label:label,qty:0};groups[key].qty+=qty;});
   /* Геометрия из той же категории тоже становится начислением, поэтому и в
      сводке она рядом: категория одна — итог по ней тоже один. У внешнего DXF
      своей геометрии в ERP нет, там этот блок пуст. */

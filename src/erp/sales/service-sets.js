@@ -475,12 +475,11 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
      подписи и в ключе начисления: по нему сохранённый заказ находит свою
      ручную правку ставки. */
   else if(op.type==='Beveling'){
-    id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');
-    var bevelWork=ctx&&ctx.ok?salesWorkForValue('bevel',ctx.thickness):null;
-    rate=bevelWork?bevelWork.flat:null;
+    id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=salesCatalogRate('bevel',ctx);
   }
   else return null;
-  return {id:id,label:label,rate:rate,from:salesRateFrom?salesRateFrom.list:'',bandKey:salesRateBandKey(id,ctx)};
+  var svc=salesRateFrom?salesRateFrom.svc||'':'';
+  return {id:id,label:label,rate:rate,from:salesRateFrom?salesRateFrom.list||'':'',svc:svc,bandKey:salesRateBandKey(svc||id,ctx)};
 }
 
 /* Billing and Cutting read the SAME effective snapshot. */
@@ -531,7 +530,7 @@ salesLineChargeRows=function(line){
           var meta=salesEdgeChargeMetaForServiceSet(op,tCtx);
           if(!meta)return;
           var key=meta.id+':'+meta.bandKey;
-          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,from:meta.from,length:0};order.push(key);}
+          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,from:meta.from,svc:meta.svc,length:0};order.push(key);}
           acc[key].length+=group.length*(target.count||1);
         });
       });});
@@ -542,16 +541,16 @@ salesLineChargeRows=function(line){
     var manyThickness=new Set(order.map(function(k){return acc[k].mm;})).size>1;
     order.forEach(function(key){
       var x=acc[key];
-      rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),x.length,'in',x.rate,'Effective Edge Processing',x.from));
+      rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),x.length,'in',x.rate,'Effective Edge Processing',x.from,x.svc));
     });
   }
   if(saved&&!shapeIsDxfSource(saved)){
     /* Радиус, вырез и нотч меняют форму КАЖДОГО стекла юнита, поэтому считаются
        по стёклам — так же, как отверстия и фурнитура. */
     var radius=(saved.features||[]).filter(function(f){return f.type==='radius'&&inch(f.radius)>0;}).length;
-    if(radius)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:radius:'+c.band,'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
+    if(radius)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:radius:'+salesRateBandKey('radiusCorner',c),'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
     var cutout=(saved.features||[]).filter(function(f){return f.type==='cutout';}).length;
-    if(cutout)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:cutout:'+c.band,'Cutout',cutout,'pc',salesCatalogRate('cutout',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
+    if(cutout)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:cutout:'+salesRateBandKey('cutout',c),'Cutout',cutout,'pc',salesCatalogRate('cutout',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
     salesPerGlassRows(line,function(c){return salesNotchChargeRows(saved,c);}).forEach(function(row){rows.push(row);});
   }
   return rows.filter(function(row){return row.basis>0;});

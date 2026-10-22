@@ -917,30 +917,13 @@ function salesExcelApply(){
    Здесь он был константой, и чтобы поправить цену нотча, нужен был
    разработчик. Заводские значения перенесены строка в строку, ключи начислений
    не менялись: по ним сохранённый заказ находит свою строку. */
-/* Полоса прайса по конкретной толщине стекла. Начисления за кромку считаются
-   ПО ЛАЙТАМ, поэтому банд нужен на каждое стекло отдельно: у пакета 10 + 6 два
-   разных стекла и две разные ставки. */
-/* Границы полос: до 7 · 8-11 · 12-19. Прежние `до 6` и `8-10` оставляли два
-   провала — между 6 и 8 и между 10 и 12, — и попадал в них ПОКУПНОЙ ламинат:
-   6.38 (3+3) и 11.52 (5+5) не получали ставки вовсе. Собранный у себя ламинат
-   не страдал: там плиты 3 и 5 мм идут каждая в свою полосу.
-
-   Владелец 11 сентября 2026: «стёкол 7 и 11 мм нет, бывают только лакированные
-   покупные; давай раздвинем банды до 7 / 8-11 / 12-19».
-
-   КЛЮЧИ полос ('6', '8-10', '12-19') НЕ меняются, хотя границы разъехались:
-   ключ входит в идентификатор начисления, по которому сохранённый заказ
-   находит свою ручную правку ставки. Переименуй ключ — и правки во всех старых
-   заказах молча отвяжутся. Названия полос человеку показываются отдельно.
-
-   Низ первой полосы остаётся ОТКРЫТЫМ: у ламината плиты бывают 3-5 мм, и
-   жёсткое «от 3» выбросило бы стекло 2.5 мм без ставки. */
+/* Толщина стекла для прайса работ. Полос в коде больше нет (план Master
+   Data, этап 4): у каждой работы своя таблица «от – до мм → цена», и строка
+   таблицы ищется по толщине у самой работы (serviceRateTierFor). До этапа 4
+   здесь были зашиты границы до 7 · 8-11 · 12-19. */
 function salesPricingBandFor(mm){
  const t=+mm;
- if(t>0&&t<=7)return {ok:true,thickness:t,band:'6'};
- if(t>=8&&t<=11)return {ok:true,thickness:t,band:'8-10'};
- if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};
- return {ok:false,thickness:Number.isFinite(t)?t:'',band:''};
+ return t>0&&Number.isFinite(t)?{ok:true,thickness:t}:{ok:false,thickness:Number.isFinite(t)?t:''};
 }
 /* Полоса строки заказа — тот же расчёт, что и у отдельного стекла. Раньше он
    стоял здесь вторым списком условий и при смене границ разошёлся бы с первым. */
@@ -971,7 +954,7 @@ function salesLineThicknessGroups(line){
  (m.panes||[]).forEach(p=>{
   salesPanePlies(p).forEach(ply=>{
    const ctx=salesPricingBandFor(ply.mm);
-   const key=ctx.ok?ctx.band:'na:'+String(ctx.thickness);
+   const key=String(ctx.thickness);
    if(!index[key]){index[key]={ctx:ctx,count:0};out.push(index[key]);}
    index[key].count++;
   });
@@ -983,13 +966,17 @@ function salesLineThicknessGroups(line){
    толщины, поэтому две группы дают две разные строки счёта и не схлопываются в
    одну. Стёкла одной толщины лежат в одной группе, поэтому пакет 6 + 6 остаётся
    одной строкой на две штуки, а не двумя строками по одной. */
+/* Группы — по толщине, а строка счёта — по строке таблицы работы: 5 и 6 мм
+   в одной строке таблицы дают одну строку счёта, их количество складывается. */
 function salesPerGlassRows(line,build){
  const groups=salesLineThicknessGroups(line);
  if(!groups.length)return build(salesPricingThickness(line));
- const rows=[];
+ const rows=[],byKey=Object.create(null);
  groups.forEach(g=>{
   build(g.ctx).forEach(r=>{
-   rows.push(g.count===1?r:Object.assign({},r,{basis:+(r.basis*g.count).toFixed(4)}));
+   const basis=+(r.basis*g.count).toFixed(4);
+   if(byKey[r.key]){byKey[r.key].basis=+(byKey[r.key].basis+basis).toFixed(4);return;}
+   byKey[r.key]=Object.assign({},r,{basis:basis});rows.push(byKey[r.key]);
   });
  });
  return rows;
@@ -1005,52 +992,52 @@ function salesThickestGlassCtx(line){
  if(!v.length)return salesPricingThickness(line);
  return salesPricingBandFor(v[v.length-1]);
 }
-/* Отверстие меньше 1/2″ своей полосы в прайсе не имеет — считается по самой
-   маленькой полосе сверловки 1/2″–1″ (владелец, 18.10.2026: в DXF клиентов
-   бывают 3/8″, и без цены они висели «invalid diameter»). */
-function salesPricingHoleBand(d){if(d>0&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
+/* Работа отверстия по диаметру: полосы диаметра — в карточках отверстий
+   (family 'hole', диапазон диаметра), не в коде. */
+function salesPricingHoleBand(d){const w=d>0?salesWorkForValue('hole',d):null;return w?{key:w.id,label:w.name}:null;}
 /* Ставка бывает единой на все толщины — тогда банд не нужен и не спрашивается.
    Проверка ctx.ok стояла первой строкой, и такая ставка всё равно терялась на
    склейке 10+10: 20.76 мм ни в один банд не попадает. */
 /* Строка прайса. Отверстия разложены по диаметру отдельными строками, поэтому
    подключ приклеивается к идентификатору: `hole` + `0.5-1` = `hole:0.5-1`. */
 function salesServiceRateRow(id){return (DB.serviceRate||[]).find(r=>r&&r.id===id)||null;}
-/* Прайс клиента (erp/sales/price-lists) даёт работе одну цену на все
-   толщины. Откуда ставка, salesChargeRow забирает из salesRateFrom. */
+/* Прайс клиента (erp/sales/price-lists) даёт работе цену на каждую строку
+   её таблицы или одну на все. Откуда ставка и какая работа, salesChargeRow
+   забирает из salesRateFrom. */
 let salesRateFrom=null;
 function salesCatalogRate(tableKey,ctx,subKey){
  salesRateFrom=null;
  const row=salesServiceRateRow(subKey?tableKey+':'+subKey:tableKey);
- const lp=row?salesPriceListFor('service:'+row.id,row.kind!=='flat'&&ctx&&ctx.ok?ctx.band:''):null;
- if(lp){salesRateFrom={price:lp.price,list:lp.listId};return lp.price;}
+ if(!row)return null;
+ const tier=serviceRateTierFor(row,ctx&&ctx.ok?ctx.thickness:null);
+ const lp=salesPriceListFor('service:'+row.id,tier?tier.id:'');
+ if(lp){salesRateFrom={price:lp.price,list:lp.listId,svc:row.id};return lp.price;}
+ salesRateFrom={svc:row.id};
  /* Выключенная строка прайса — это «услуга есть, цены нет», а не ноль. Строка
     встанет в счёт как Rate required и в денежный итог не войдёт: молчаливый
     ноль означал бы, что работу сделали и не выставили. */
- if(!row||row.active===false)return null;
- if(row.kind==='flat')return row.flat==null?null:row.flat;
- if(!ctx||!ctx.ok)return null;
- const v=row.bands?row.bands[ctx.band]:null;
- return v==null?null:v;
+ if(row.active===false||!tier)return null;
+ return tier.price==null?null:tier.price;
 }
-/* Хвост ключа строки начисления. У банданой ставки это прежний банд — ключи
-   сохранённых заказов обязаны остаться прежними до символа. У единой ставки
-   'flat', и в день появления бандов лами-строки перейдут на банд сами. Толщина
-   без банда даёт СВОЙ хвост: иначе 4 мм и 10.76 мм схлопнулись бы в один ключ
-   и сложились в одну строку счёта. */
+/* Хвост ключа строки начисления — id строки таблицы работы. Толщина без
+   строки таблицы даёт СВОЙ хвост: иначе 4 мм и 10.76 мм схлопнулись бы в
+   один ключ и сложились в одну строку счёта. */
 function salesRateBandKey(tableKey,ctx){
- /* Вид строки читается ДАЖЕ у выключенной: ключ начисления обязан оставаться
-    прежним, иначе сохранённый заказ потеряет свою ручную ставку. */
- const row=salesServiceRateRow(tableKey);
- if(row&&row.kind==='flat')return 'flat';
- if(ctx&&ctx.ok)return ctx.band;
+ /* Таблица читается ДАЖЕ у выключенной работы: ключ начисления обязан
+    оставаться прежним, иначе сохранённый заказ потеряет свою ручную ставку. */
+ const tier=serviceRateTierFor(salesServiceRateRow(tableKey),ctx&&ctx.ok?ctx.thickness:null);
+ if(tier)return tier.id;
  const n=+((ctx&&ctx.thickness)||NaN);
  return Number.isFinite(n)?'t'+String(n).replace('.','_'):'na';
 }
 /* from — прайс клиента, давший ставку. Не передан — ставка этой строки
    только что пришла из salesCatalogRate, и прайс берётся оттуда. */
-function salesChargeRow(key,label,basis,unit,rate,source,from){
- const f=from!==undefined?from:(salesRateFrom&&rate!=null&&+rate===salesRateFrom.price?salesRateFrom.list:'');salesRateFrom=null;
- return Object.assign({key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'},f?{from:f}:{});
+/* svc — работа, чья таблица дала хвост ключа: по ней отчёты находят, к
+   какому стеклу юнита относится строка (repRowFits). */
+function salesChargeRow(key,label,basis,unit,rate,source,from,svc){
+ const f=from!==undefined?from:(salesRateFrom&&rate!=null&&+rate===salesRateFrom.price?salesRateFrom.list:'');
+ const w=svc!==undefined?svc:(salesRateFrom&&salesRateFrom.svc)||'';salesRateFrom=null;
+ return Object.assign({key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'},f?{from:f}:{},w?{svc:w}:{});
 }
 /* Начисления по меткам (Hole и фурнитура) считаются в ОДНОМ месте. У строки
    заказа две ветки расчёта — обычная и через Service Set, — и в каждой лежала
@@ -1068,12 +1055,12 @@ function salesChargeRow(key,label,basis,unit,rate,source,from){
 function salesManufacturingChargeRows(items,ctx){
  const rows=[],groups=Object.create(null),order=[];
  (Array.isArray(items)?items:[]).forEach(function(item){
-  if(item.type==='hole'){const d=fabParseDimStrict(item.diameter),hb=d.ok?salesPricingHoleBand(d.v):null,key=hb?'hole:'+hb.key:'hole:unpriced';if(!groups[key]){groups[key]={qty:0,holeBand:hb};order.push(key);}groups[key].qty+=shapeHoleCount(item);return;}
+  if(item.type==='hole'){const d=fabParseDimStrict(item.diameter),hb=d.ok?salesPricingHoleBand(d.v):null,key=hb?hb.key:'hole:unpriced';if(!groups[key]){groups[key]={qty:0,holeBand:hb};order.push(key);}groups[key].qty+=shapeHoleCount(item);return;}
   const key=item.type;if(!groups[key]){groups[key]={qty:0,kind:item.type};order.push(key);}groups[key].qty++;
  });
  order.forEach(function(k){const g=groups[k];
-  if(g.kind)rows.push(salesChargeRow('MI:'+k+':'+ctx.band,shapeMiOperationName(g.kind),g.qty,'pc',salesCatalogRate(k,ctx),'Manufacturing item'));
-  else rows.push(salesChargeRow('MI:'+k+':'+ctx.band,'Hole '+(g.holeBand?g.holeBand.label:'—'),g.qty,'pc',g.holeBand?salesCatalogRate('hole',ctx,g.holeBand.key):null,'Manufacturing item'));
+  if(g.kind)rows.push(salesChargeRow('MI:'+k+':'+salesRateBandKey(k,ctx),shapeMiOperationName(g.kind),g.qty,'pc',salesCatalogRate(k,ctx),'Manufacturing item'));
+  else rows.push(salesChargeRow('MI:'+k+':'+salesRateBandKey(k,ctx),g.holeBand?g.holeBand.label:'Hole —',g.qty,'pc',g.holeBand?salesCatalogRate(k,ctx):null,'Manufacturing item'));
  });
  return rows;
 }
@@ -1111,17 +1098,18 @@ function salesSurfaceMarkChargeRows(features,ctx,areaFt2,perimeterIn){
   if(f.type==='mirrorbacker')
    return salesChargeRow('FEATURE:mirror-backer-'+shapeMirrorSide(f)+':'+salesRateBandKey('mirrorBacker',ctx),label,
     +(area*g.qty).toFixed(4),'ft²',salesCatalogRate('mirrorBacker',ctx),'Shape feature');
-  const coverage=shapeSandblastCoverage(f),side=shapeSandblastSide(f);
-  return salesChargeRow('FEATURE:sandblast-'+coverage+'-'+side+':'+ctx.band,label,
-   +(area*g.qty).toFixed(4),'ft²',salesCatalogRate(coverage==='pattern'?'sandblastPattern':'sandblastFull',ctx),'Shape feature');
+  const coverage=shapeSandblastCoverage(f),side=shapeSandblastSide(f),work=coverage==='pattern'?'sandblastPattern':'sandblastFull';
+  return salesChargeRow('FEATURE:sandblast-'+coverage+'-'+side+':'+salesRateBandKey(work,ctx),label,
+   +(area*g.qty).toFixed(4),'ft²',salesCatalogRate(work,ctx),'Shape feature');
  });
 }
 function salesNotchChargeRows(def,ctx){
   var groups={},order=[];
   ssNotchList(def).forEach(function(n){if(!groups[n.method]){groups[n.method]=0;order.push(n.method);}groups[n.method]+=n.pieces;});
   return order.map(function(method){
-    return salesChargeRow('FEATURE:notch-'+method+':'+ctx.band,ssNotchLabel(method),groups[method],'pc',
-      salesCatalogRate(method==='cnc'?'notchCnc':'notchHand',ctx),'Shape feature');
+    var work=method==='cnc'?'notchCnc':'notchHand';
+    return salesChargeRow('FEATURE:notch-'+method+':'+salesRateBandKey(work,ctx),ssNotchLabel(method),groups[method],'pc',
+      salesCatalogRate(work,ctx),'Shape feature');
   });
 }
 /* Фрит и спандрел — РАБОТА, а не свойство листа: керамику наносят и запекают.
@@ -1214,9 +1202,9 @@ function salesLineChargeRows(line){
  const s=salesShapeByRef(line&&line.shapeRef);if(!s)return rows.filter(x=>x.basis>0);const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
  salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
  salesSurfaceMarkChargeRows(s.features,ctx,r&&r.valid?r.area/144:0,r&&r.valid?salesShapePerimeterIn(r):0).forEach(function(row){rows.push(row);});
- if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+ctx.band,found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
-  const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
-  const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutoutCount,'pc',null,'Shape feature'));
+ if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+salesRateBandKey(SALES_ROUTE_EDGE_OP[op.type]||id,ctx),found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
+  const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+salesRateBandKey('radiusCorner',ctx),'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
+  const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+salesRateBandKey('cutout',ctx),'Cutout',cutoutCount,'pc',null,'Shape feature'));
   /* Нотч — работа, а не геометрия: контур раскроя от него не меняется, но угол
      кто-то должен вырезать и обработать. Ставка за штуку. */
   salesNotchChargeRows(s,ctx).forEach(function(row){rows.push(row);});

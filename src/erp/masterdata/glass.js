@@ -737,40 +737,32 @@ const SPANDREL_COLOUR_FAMILIES=['Black','Gray','Blue','Brown','White'];
    цену нотча, нужен был разработчик. Владелец: «сделай мне мастер-дату
    максимально от тебя не зависящую».
 
-   `kind` хранится ЯВНО, а не выводится из того, заполнено ли поле. От него
-   зависит хвост ключа начисления (`flat` против банда толщины), а ключ — это
-   то, по чему сохранённый заказ находит свою строку. Выведи мы kind из
-   наличия значения — стёртая владельцем цена молча переписала бы ключи всех
-   старых заказов, и их ручные правки ставок отвязались бы.
+   Цена работы — таблица «от – до мм → цена» (serviceRateTiersOf). Ключ
+   начисления кончается id строки таблицы: по нему сохранённый заказ находит
+   свою ручную ставку, поэтому id строки не меняется при правке границ.
 
-   Толщинные банды: `6` — до 6 мм включительно, `8-10`, `12-19`. Отверстия
-   разложены по диаметру отдельными строками (`hole:0.5-1` и так далее):
-   вложенная таблица не редактируется одним экраном, а цена у них своя. */
+   Отверстия разложены по диаметру отдельными строками (`hole:0.5-1` и так
+   далее): у каждой свой диапазон диаметра и своя таблица по толщине. */
 /* Строка прайса — это РАБОТА, а не только цена. Станция, момент маршрута и
    габаритное ограничение живут здесь же: пока станция лежала в отдельной
    таблице цеха, маршрут и счёт читали разные источники и расходились. Правило
    владельца 10 сентября 2026 — сводим в одну строку.
 
-   `family` + `appliesBy` / `appliesFrom` / `appliesTo` — диапазон применения.
-   Он нужен работам, чьи полосы не совпадают со стандартными: у фацета это
-   3-8 / 9-15 / 16-19, ни одна не ложится на банды 6 / 8-10 / 12-19. Пустой
-   диапазон означает «применяется всегда» — так живут полировка и нотч. */
+   `family` + `appliesBy` / `appliesFrom` / `appliesTo` — диапазон диаметра у
+   отверстий (family 'hole'). Пустой диапазон — «применяется всегда». */
 function normalizeServiceRate(r){
  r=r&&typeof r==='object'?r:{};
  const num=v=>{if(v==null||v==='')return null;const n=+v;return isFinite(n)&&n>=0?n:null;};
- const src=r.bands&&typeof r.bands==='object'?r.bands:{};
- const appliesBy=['thickness','diameter'].includes(r.appliesBy)?r.appliesBy:'';
+ const appliesBy=r.appliesBy==='diameter'?'diameter':'';
  return {
   id:mdString(r.id),name:mdString(r.name),unit:mdString(r.unit)||'pc',
-  kind:r.kind==='flat'?'flat':'band',
-  flat:num(r.flat),
-  bands:{'6':num(src['6']),'8-10':num(src['8-10']),'12-19':num(src['12-19'])},
+  tiers:serviceRateTiersOf(r),
   /* Станция пустая — законное состояние: у надбавки за фигурную единицу
      операции в цеху нет вовсе, она чистая цена. */
   station:mdString(r.station),
   stage:['pre_temper','heat','post_temper','any'].includes(r.stage)?r.stage:'pre_temper',
   afterMerge:r.afterMerge===true,
-  family:mdString(r.family),appliesBy:appliesBy,
+  family:appliesBy?mdString(r.family):'',appliesBy:appliesBy,
   appliesFrom:appliesBy?num(r.appliesFrom):null,
   appliesTo:appliesBy?num(r.appliesTo):null,
   /* Габарит: своё ограничение работы, если оно жёстче станции. Пусто — берётся
@@ -781,16 +773,88 @@ function normalizeServiceRate(r){
   note:mdString(r.note),active:r.active!==false
  };
 }
-/* Работа, чей диапазон покрывает значение. Пересечение диапазонов — ошибка
-   данных, и разрешать её здесь нельзя: молча выбранная «первая подходящая»
-   строка означала бы, что цена зависит от порядка в справочнике. Поэтому при
-   пересечении возвращаем null и строка встаёт в счёт как Rate required. */
-function salesWorkForValue(family,value){
- const v=+value;if(!isFinite(v))return null;
- const hit=(DB.serviceRate||[]).filter(r=>r&&r.active!==false&&r.family===family&&
-  (r.appliesFrom==null||v>=r.appliesFrom)&&(r.appliesTo==null||v<=r.appliesTo));
+/* Таблица цен работы «от – до мм → цена» (план Master Data, этап 4). Строк
+   сколько угодно, границы включительно, пустая граница — без предела. Одна
+   строка без границ — одна цена на любую толщину. До этапа 4 у работы было
+   ровно три полосы с границами в коде (salesPricingBandFor) или одна цена
+   `flat`: такие записи читаются здесь, id строк те же ('6', '8-10', '12-19',
+   'flat') — по ним сохранённый заказ и прайс клиента находят свою цену. */
+function serviceRateTiersOf(r){
+ const num=v=>{if(v==null||v==='')return null;const n=+v;return isFinite(n)&&n>=0?n:null;};
+ let src=Array.isArray(r.tiers)?r.tiers:null;
+ if(!src){
+  const b=r.bands&&typeof r.bands==='object'?r.bands:{};
+  src=r.kind==='flat'?[{id:'flat',price:r.flat}]
+   :[{id:'6',to:7,price:b['6']},{id:'8-10',from:8,to:11,price:b['8-10']},{id:'12-19',from:12,to:19,price:b['12-19']}];
+ }
+ const seen=new Set();
+ return src.filter(t=>t&&typeof t==='object').map((t,i)=>{
+  let id=mdString(t.id)||'t'+(i+1);while(seen.has(id))id+='+';seen.add(id);
+  return {id,from:num(t.from),to:num(t.to),price:num(t.price)};
+ });
+}
+/* Строка таблицы для толщины. Нахлёст строк — ошибка данных: молча выбранная
+   первая означала бы, что цена зависит от порядка строк, поэтому и нахлёст, и
+   пропуск дают null — работа встаёт в счёт как Rate required, а карточка
+   предупреждает (serviceRateTierWarnings). */
+function serviceRateTierFor(row,mm){
+ const tiers=row&&row.tiers||[];
+ if(tiers.length===1&&tiers[0].from==null&&tiers[0].to==null)return tiers[0];
+ const t=+mm;if(!(mm!=null&&mm!==''&&isFinite(t)))return null;
+ const hit=tiers.filter(x=>(x.from==null||t>=x.from)&&(x.to==null||t<=x.to));
  return hit.length===1?hit[0]:null;
 }
+function serviceRateTierLabel(t){
+ if(!t)return '';
+ if(t.from==null&&t.to==null)return 'any mm';
+ if(t.from==null)return 'up to '+t.to+' mm';
+ if(t.to==null)return t.from+' mm and up';
+ return t.from===t.to?t.from+' mm':t.from+'–'+t.to+' mm';
+}
+/* Коротко для прайса клиента и журнала: ≤7, 8–11, ≥20, all. */
+function serviceRateTierShort(t){
+ if(!t)return '';
+ if(t.from==null&&t.to==null)return 'all';
+ if(t.from==null)return '≤'+t.to;
+ if(t.to==null)return '≥'+t.from;
+ return t.from===t.to?String(t.from):t.from+'–'+t.to;
+}
+/* Предупреждения таблицы, не запреты (владелец: «предупреждать, а не
+   запрещать»). Пропуск ищется по толщинам стёкол каталога: своих чисел у кода
+   нет, а «7.5 мм без цены» при отсутствии такого стекла — шум. */
+function serviceRateTierWarnings(row){
+ const tiers=row&&row.tiers||[],out=[];
+ tiers.forEach((a,i)=>tiers.slice(i+1).forEach(b=>{
+  const lo=Math.max(a.from==null?-Infinity:a.from,b.from==null?-Infinity:b.from),hi=Math.min(a.to==null?Infinity:a.to,b.to==null?Infinity:b.to);
+  if(lo<=hi)out.push('Rows '+serviceRateTierLabel(a)+' and '+serviceRateTierLabel(b)+' overlap');
+ }));
+ tiers.forEach(t=>{if(t.from!=null&&t.to!=null&&t.from>t.to)out.push('Row '+t.from+'–'+t.to+' mm: from is above to');});
+ if(tiers.length&&!(tiers.length===1&&tiers[0].from==null&&tiers[0].to==null)){
+  const mm=new Set();
+  (DB.glassProduct||[]).forEach(g=>{if(g&&g.active!==false&&+g.thicknessMm>0)mm.add(+g.thicknessMm);});
+  const gaps=[...mm].sort((a,b)=>a-b).filter(t=>!tiers.some(x=>(x.from==null||t>=x.from)&&(x.to==null||t<=x.to)));
+  if(gaps.length)out.push('No row for catalog glass '+gaps.join(', ')+' mm');
+ }
+ if(!tiers.length)out.push('No price rows');
+ return out;
+}
+/* Работа по значению: отверстия ищутся по диаметру — своя строка у каждой
+   полосы диаметра, границы в карточке (до этапа 4 — в коде,
+   salesPricingHoleBand). Нахлёст — null, как и в таблице цен. Выключенная
+   строка находится, только если включённой нет: тогда отверстие встанет в счёт
+   с её именем и без цены. */
+function salesWorkForValue(family,value){
+ const v=+value;if(!isFinite(v))return null;
+ const fits=r=>r&&r.family===family&&(r.appliesFrom==null||v>=r.appliesFrom)&&(r.appliesTo==null||v<=r.appliesTo);
+ const rows=DB.serviceRate||[],on=rows.filter(r=>fits(r)&&r.active!==false);
+ if(on.length)return on.length===1?on[0]:null;
+ const off=rows.filter(fits);
+ return off.length===1?off[0]:null;
+}
+/* Диаметр отверстий, дюймы, включительно. Меньше 1/2″ своей полосы в прайсе
+   нет — идёт по 1/2″–1″ (владелец, 18.10.2026: в DXF клиентов бывают 3/8″),
+   поэтому у первой строки нижней границы нет. */
+const SERVICE_HOLE_SEED={'hole:0.5-1':[null,1],'hole:1-2':[1.0625,2],'hole:2-3':[2.0625,3],'hole:3-4':[3.0625,4],'hole:4+':[4.0625,null]};
 const SERVICE_RATE_SEED=[
  /* Четвёртое поле — СТАНЦИЯ. С 11 сентября 2026 работа несёт и станцию, и цену
     одной строкой: пока станция лежала отдельной таблицей цеха, маршрут и счёт
@@ -823,8 +887,9 @@ const SERVICE_RATE_SEED=[
  ['cutout',           'Cutout',                'pc',  'CNC',   [15,20,25]],
  ['sandblastFull',    'Simple Sandblasting',   'ft²', 'SAND',  [4,4,4]],
  ['sandblastPattern', 'Pattern Sandblasting',  'ft²', 'SAND',  [6,6,6]]
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],station:x[3],kind:'band',
-  bands:{'6':x[4][0],'8-10':x[4][1],'12-19':x[4][2]},active:x[5]!==false}))
+].map(x=>normalizeServiceRate(Object.assign({id:x[0],name:x[1],unit:x[2],station:x[3],
+  tiers:[{id:'6',to:7,price:x[4][0]},{id:'8-10',from:8,to:11,price:x[4][1]},{id:'12-19',from:12,to:19,price:x[4][2]}],active:x[5]!==false},
+  SERVICE_HOLE_SEED[x[0]]?{family:'hole',appliesBy:'diameter',appliesFrom:SERVICE_HOLE_SEED[x[0]][0],appliesTo:SERVICE_HOLE_SEED[x[0]][1]}:{})))
 /* Ставки, у которых цена одна на любую толщину. Разводить три одинаковые
    цифры значило бы придумать различие, которого у цеха нет; а появятся банды —
    владелец переключит вид строки на экране, кода это не потребует. */
@@ -842,19 +907,15 @@ const SERVICE_RATE_SEED=[
  ['stepUnit',      'Step Unit',            'pc',  'IGU',  0,    'Step / offset unit: extra sealant on the step',true],
  ['mirrorBacker',  'Mirror Safety Backer', 'ft²', 'SAND', 4,    ''],
  ['mirrorSealant', 'Mirror Edge Sealant',  'in',  'SAND', .07,  'By the finished contour perimeter, not by area']
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],station:x[3],kind:'flat',flat:x[4],note:x[5],
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],station:x[3],tiers:[{id:'flat',price:x[4]}],note:x[5],
   afterMerge:x[6]===true,stage:x[6]===true?'post_temper':'pre_temper'})))
-/* Фацет. Полосы у него СВОИ и не совпадают ни с чьими: прайс владельца даёт
-   3-8 / 10-15 / 13-19, то есть 9 мм не попадало никуда, а 13, 14 и 15 стоили
-   одновременно 0.65 и 1.20. Владелец 11 сентября развёл: «до 15 — 0.65, с 16 —
-   1.20», девятка уходит в верхнюю полосу. Три отдельные строки со своим
-   диапазоном, потому что банды 6 / 8-10 / 12-19 сюда не ложатся. */
-.concat([
- ['bevel:3-8',  'Beveling 3–8 mm',   0,  8,  .45],
- ['bevel:9-15', 'Beveling 9–15 mm',  9,  15, .65],
- ['bevel:16-19','Beveling 16–19 mm', 16, 19, 1.20]
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:'in',station:'BEVEL',kind:'flat',flat:x[4],
-  family:'bevel',appliesBy:'thickness',appliesFrom:x[2],appliesTo:x[3]})))
+/* Фацет. Полосы у него СВОИ: прайс владельца давал 3-8 / 10-15 / 13-19, то
+   есть 9 мм не попадало никуда, а 13, 14 и 15 стоили одновременно 0.65 и 1.20.
+   Владелец 11 сентября развёл: «до 15 — 0.65, с 16 — 1.20», девятка уходит в
+   верхнюю полосу. До этапа 4 это были три строки работы с диапазоном толщины;
+   теперь одна работа со своей таблицей. */
+.concat([normalizeServiceRate({id:'bevel',name:'Beveling',unit:'in',station:'BEVEL',
+  tiers:[{id:'3-8',to:8,price:.45},{id:'9-15',from:9,to:15,price:.65},{id:'16-19',from:16,to:19,price:1.20}]})])
 /* Шаги маршрута, которые не выставляются отдельной строкой в счёт: резка
    заложена в цену стекла, печь — в термообработку, склейка и сборка пакета — в
    цену изделия. Работами они всё равно являются: у них есть станция и момент
@@ -875,8 +936,21 @@ const SERVICE_RATE_SEED=[
  ['painting',           'Painting',           'PAINT','any'],
  ['lamination',         'Lamination',         'LAM',  'post_temper'],
  ['igu_assembly',       'IGU Assembly',       'IGU',  'post_temper']
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],station:x[2],stage:x[3],kind:'flat',flat:x[4]!=null?x[4]:null,unit:x[5]||'pc'})));
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],station:x[2],stage:x[3],tiers:[{id:'flat',price:x[4]!=null?x[4]:null}],unit:x[5]||'pc'})));
 DEFAULT.serviceRate=SERVICE_RATE_SEED;
+/* Перенос сохранённого прайса на этап 4: три строки фацета с диапазоном
+   толщины становятся одной работой `bevel` с таблицей (цены владельца
+   переезжают), у отверстий диапазон диаметра встаёт из заводского. */
+function serviceRateStage4Migrate(){
+ if(!Array.isArray(DB.serviceRate))return;
+ const old=DB.serviceRate.filter(r=>r&&/^bevel:/.test(r.id)&&r.appliesBy==='thickness');
+ if(old.length){
+  if(!DB.serviceRate.some(r=>r&&r.id==='bevel'))DB.serviceRate.push(Object.assign({},old[0],{id:'bevel',name:'Beveling',family:'',appliesBy:'',appliesFrom:null,appliesTo:null,kind:undefined,flat:undefined,
+   tiers:old.map(r=>({id:r.id.slice(6),from:r.appliesFrom||null,to:r.appliesTo,price:r.flat}))}));
+  DB.serviceRate=DB.serviceRate.filter(r=>old.indexOf(r)<0);
+ }
+ DB.serviceRate.forEach(r=>{const h=r&&SERVICE_HOLE_SEED[r.id];if(h&&!r.appliesBy)Object.assign(r,{family:'hole',appliesBy:'diameter',appliesFrom:h[0],appliesTo:h[1]});});
+}
 /* Цвета, доступные выбранному продукту: свои плюс общие (без продукта). */
 function spandrelColoursFor(productId){
  return (DB.spandrelColour||[]).filter(c=>c.active!==false&&(!c.productId||c.productId===productId));
@@ -985,6 +1059,7 @@ function normalizeMasterData(){
  });
  /* Ставки услуг доливаются по той же причине: прайс ведёт владелец, и пересев
     стёр бы его цены. */
+ serviceRateStage4Migrate();
  mdRebuildTable('serviceRate',{topUp:true,normalize:normalizeServiceRate,valid:r=>r.id&&r.name,dedupe:true});
  /* Палитра спандрела: заводские цвета доливаются по id, пользовательские не
     трогаются. Пустая таблица — не «нет цветов», а «ещё не заводили». */

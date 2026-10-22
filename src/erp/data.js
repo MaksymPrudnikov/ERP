@@ -246,7 +246,7 @@ const DATA_FIXES=[
  /* \u0420\u0430\u0431\u043e\u0442\u0430 \u043d\u0435\u0441\u0451\u0442 \u0441\u0442\u0430\u043d\u0446\u0438\u044e \u0441 11 \u0441\u0435\u043d\u0442\u044f\u0431\u0440\u044f. \u0423 \u0441\u0442\u0440\u043e\u043a, \u0437\u0430\u0432\u0435\u0434\u0451\u043d\u043d\u044b\u0445 \u0440\u0430\u043d\u044c\u0448\u0435, \u0435\u0451 \u043d\u0435\u0442. */
  [1,'serviceRate','*',{station:''},['station']],
  /* \u041f\u043e\u043b\u043e\u0441\u0443 \u0432\u044b\u043a\u043b\u044e\u0447\u0438\u043b \u0432\u043b\u0430\u0434\u0435\u043b\u0435\u0446 11 \u0441\u0435\u043d\u0442\u044f\u0431\u0440\u044f. \u041f\u0440\u0430\u0432\u043b\u0435\u043d\u0443\u044e \u0438\u043c \u0446\u0435\u043d\u0443 \u043d\u0435 \u0442\u0440\u043e\u0433\u0430\u0435\u043c. */
- [1,'serviceRate','hole:1-2',{active:true,bands:{'6':6,'8-10':7,'12-19':8}},['active']],
+ [1,'serviceRate','hole:1-2',{active:true,tiers:[{id:'6',from:null,to:7,price:6},{id:'8-10',from:8,to:11,price:7},{id:'12-19',from:12,to:19,price:8}]},['active']],
  /* \u0411\u0440\u0435\u043d\u0434 ICD \u043d\u0430 \u0441\u0438\u043b\u0438\u043a\u043e\u043d\u043e\u0432\u043e\u043c \u0441\u043f\u0430\u043d\u0434\u0440\u0435\u043b\u0435 \u2014 \u0441\u043c. \u0431\u043b\u043e\u043a `have<8` \u0432\u044b\u0448\u0435. */
  [1,'spandrelProduct','SPAN-SILICONE',{name:'Silicone Spandrel'},['name']],
  [1,'spandrelProduct','SPAN-SILICONE',{supplier:''},['supplier']],
@@ -296,12 +296,12 @@ const DATA_FIXES=[
  /* Номер 3 · 14 сентября 2026. Ставка Heat Soak была пустой, и счёт не брал
     её из прайса вовсе. Владелец: $5 за ft² на любую толщину. Только если цена
     ещё пустая — свою владелец мог уже вписать. */
- [3,'serviceRate','heat_soak',{flat:null,unit:'pc'},['flat','unit']],
+ [3,'serviceRate','heat_soak',{tiers:[{id:'flat',from:null,to:null,price:null}],unit:'pc'},['tiers','unit']],
  /* Номер 4 · 29 сентября 2026. EDGE разделена по станкам цеха (владелец:
     «полировки 3, аррисинга 2», бевелинг, майтер, CNC Shape Polish — на CNC).
     Работа переезжает, только если стоит на EDGE, — свою станцию владелец мог
     уже выбрать. Станции, причины брака и сканы — sfSplitEdgeFix. */
- ...['roughArris','flatPolish','cncShapePolish','miter225','miter45','lamiPolish','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19']
+ ...['roughArris','flatPolish','cncShapePolish','miter225','miter45','lamiPolish','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19','bevel']
   .map(id=>[4,'serviceRate',id,{station:'EDGE'},['station']]),
  /* Номер 5 · 29 сентября 2026. Припуск CNC Shape Polish по плите ламината —
     1/4″, как у одинарного стекла (владелец). Только если стоит заводское

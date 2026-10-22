@@ -496,10 +496,12 @@ function simPage() {
      ===================================================================== */
   const TR = { cut: {}, cutBy: {}, edge: {}, temper: {}, igu: {}, iguBy: {}, ship: {}, trips: {}, breaks: {}, orders: {}, quotes: {}, receipts: {}, station: {}, lam: {} };
   const add = (o, k, v) => { o[k] = (o[k] || 0) + v; };
-  /* Полосы — как salesPricingBandFor (erp/sales/orders): до 7 · 8–11 · 12–19 мм. */
-  const band = mm => mm <= 7 ? '6' : mm <= 11 ? '8-10' : '12-19';
+  /* Ставка — по таблице цен работы «от – до мм» (этап 4 плана Master Data):
+     строка таблицы, в которую попадает толщина, границы включительно. */
   const RATE = {};
-  function rateOf(id, mm) { const k = id + '|' + band(mm); if (!(k in RATE)) { const r = (DB.serviceRate || []).find(x => x.id === id); RATE[k] = r ? (r.flat != null ? r.flat : r.bands && r.bands[band(mm)]) : null; } return RATE[k]; }
+  function rateOf(id, mm) { const k = id + '|' + mm; if (!(k in RATE)) { const r = (DB.serviceRate || []).find(x => x.id === id), ts = r && r.tiers || [];
+    const hit = ts.length === 1 && ts[0].from == null && ts[0].to == null ? ts : ts.filter(t => (t.from == null || mm >= t.from) && (t.to == null || mm <= t.to));
+    RATE[k] = hit.length === 1 ? hit[0].price : null; } return RATE[k]; }
   function truthScan(station, ids, who, day) {
     const m = monthOf(day);
     ids.forEach(id => {
@@ -510,7 +512,7 @@ function simPage() {
       if (station === 'HEAT') { const k = m + '|' + p.mm; TR.temper[k] = TR.temper[k] || { n: 0, ft2: 0 }; TR.temper[k].n++; TR.temper[k].ft2 += p.area; }
       const op = station === 'POLISH' ? (p.lamiPolish && p.polished ? 'Lami Polish' : 'Flat Polish') : station === 'ARRIS' ? 'Rough Arris' : station === 'BEVEL' ? 'Beveling 1' : station === 'MITER' ? 'Mitering 45°' : station === 'CNC' && p.edge === 'cnc' ? 'CNC Shape Polish' : '';
       if (op) {
-        const rid = op === 'Flat Polish' ? 'flatPolish' : op === 'Rough Arris' ? 'roughArris' : op === 'Lami Polish' ? 'lamiPolish' : op === 'CNC Shape Polish' ? 'cncShapePolish' : op === 'Mitering 45°' ? 'miter45' : 'bevel:' + (p.mm <= 8 ? '3-8' : p.mm <= 15 ? '9-15' : '16-19');
+        const rid = op === 'Flat Polish' ? 'flatPolish' : op === 'Rough Arris' ? 'roughArris' : op === 'Lami Polish' ? 'lamiPolish' : op === 'CNC Shape Polish' ? 'cncShapePolish' : op === 'Mitering 45°' ? 'miter45' : 'bevel';
         const inch = op === 'Lami Polish' ? p.perim / 2 : p.perim, rate = rateOf(rid, p.mm), k = who + '|' + op + '|' + p.mm + '|' + m + '|' + (p.ply ? 'lam' : '');
         TR.edge[k] = TR.edge[k] || { in: 0, usd: 0, n: 0 }; TR.edge[k].in += inch; TR.edge[k].usd += rate == null ? 0 : inch * rate; TR.edge[k].n++;
         if (station === 'POLISH') p.polished = true;
