@@ -57,7 +57,10 @@ function repRowFits(row,c){
    один раз, сколько бы её стёкол ни отсканировали. Прайс правят в Master
    Data — тогда память сбрасывается целиком. */
 let repLineMemo={stamp:'',map:new Map()};
-function repCatalogStamp(){let h=0;(DB.serviceRate||[]).forEach(r=>{const s=r?r.id+'|'+r.station+'|'+r.flat+'|'+JSON.stringify(r.bands||{}):'';for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;});return (DB.serviceRate||[]).length+':'+h;}
+/* Отпечаток прайса — один раз на отрисовку (erp/read-scope): его спрашивает
+   каждая строка каждого скана, на старте 3 мес. — 3 с (задание «База», П4). */
+function repCatalogStamp(){return readMemo('repCatalogStamp',[DB.serviceRate],repCatalogStampBuild);}
+function repCatalogStampBuild(){let h=0;(DB.serviceRate||[]).forEach(r=>{const s=r?r.id+'|'+r.station+'|'+r.flat+'|'+JSON.stringify(r.bands||{}):'';for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;});return (DB.serviceRate||[]).length+':'+h;}
 function repLineWork(o,l,geo,tag){
  const stamp=repCatalogStamp();if(repLineMemo.stamp!==stamp)repLineMemo={stamp,map:new Map()};
  const key=[o.id,o.updatedAt||'',l.id,tag].join('|');
