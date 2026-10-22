@@ -29,6 +29,7 @@ module.exports=async function({page,eq}){
   inv:invSheetRows().map(r=>[r.key,r.onRack,r.free,r.cut]),deposit:DB.customer.map(c=>finCustomerDeposit(c.id)),
   next:[nextSalesOrderNumber(),salesNextBatchNumber(),finNextReceiptNumber()],
   statements:DB.customer.map(c=>JSON.stringify([finStatementData(c.id,'',''),finStatementData(c.id,'2026-01-01','2026-01-31'),finStatementOrders(c.id,'','').map(x=>[x.o.businessNumber,x.billed,x.f.b.total,x.f.b.paid])])),
+  reports:JSON.stringify(['glass','cutting','orders','payments','sheets'].map(src=>{const S=REP_SRC[src],r=repQuery({source:src,date:{from:'2025-12-01',to:'2026-01-31'},dims:[],metrics:S.metrics.map(m=>m.k),filters:[]});return [src,r.count,r.total];})),
   agents:comWithScope(()=>{const r=comFind('RFR-T');return JSON.stringify([null,{from:'2026-01-01',to:'2026-01-31'}].map(g=>{const x=comSummary(r,g);return [x.orders,x.base,x.paid,x.com,x.earned,x.paidOut,x.toPay,x.rows.map(y=>[y.number,y.date,y.total,y.paid,y.base,y.pct,y.com])];})
    .concat([[...comDue(r).values()].map(y=>[y.number,y.com,y.paidOut,y.due]).sort()]));})})));
  const before=await snap();
@@ -47,6 +48,12 @@ module.exports=async function({page,eq}){
   deposit:JSON.stringify(after.deposit)===JSON.stringify(before.deposit),next:JSON.stringify(after.next)===JSON.stringify(before.next)},
   {index:true,rows:true,inv:true,deposit:true,next:true});
  eq('выписки клиентов (всё время, январь, раздел Orders) — те же после ухода: строки ушедших — из указателя архива',after.statements.map((x,i)=>x===before.statements[i]),before.statements.map(()=>true));
+ eq('отчёт за декабрь–январь: ушедшие заказы читаются с диска на время показа — те же числа; закрыли — в памяти пусто',await t.p.evaluate(async b=>{
+  const range=['2025-12-01','2026-01-31'],first=archiveScopeFor(range);for(let i=0;i<100&&archiveScopeFor(range)!=='ready';i++)await new Promise(r=>setTimeout(r,20));
+  const rows=readScope(()=>JSON.stringify(['glass','cutting','orders','payments','sheets'].map(src=>{const S=REP_SRC[src],r=repQuery({source:src,date:{from:'2025-12-01',to:'2026-01-31'},dims:[],metrics:S.metrics.map(m=>m.k),filters:[]});return [src,r.count,r.total];})));
+  const loaded=storageVisit.size>0,diff=storageDiff(DB).length;archiveScopeDrop();
+  return {first,same:rows===b.reports,loaded,diff,after:storageVisit.size,hot:DB.salesOrder.length,none:archiveScopeFor(['2025-01-01','2025-01-31'])};
+ },before),{first:'loading',same:true,loaded:true,diff:0,after:0,hot:2,none:'none'});
  eq('Agents: комиссия, выплачено и к выплате — те же после ухода; выплата агенту осталась в работе',{same:after.agents===before.agents,due:JSON.parse(after.agents)[2].map(x=>x[3]),payout:await t.p.evaluate(()=>DB.referrerPayout.length)},{same:true,due:[0,JSON.parse(before.agents)[2].find(x=>x[3]>0)[3]],payout:1});
  await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  const f5=await snap();

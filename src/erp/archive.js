@@ -18,7 +18,7 @@
    OUT: archiveIndex, archiveDue(day), archiveCollect(ids), archiveRun(day),
         archiveReturn(orderId), archiveIndexLoad / archiveIndexApply,
         archiveListInfos, archiveOpen(id), archiveViewing(o), archiveRepeat,
-        archiveLedgerFor(customerId), archiveWith(owners,fn)
+        archiveLedgerFor(customerId), archiveWith(owners,fn), archiveScopeFor(range)
    ===================================================================== */
 const ARCHIVE_ON=false,ARCHIVE_MONTHS=3;
 DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};
@@ -216,12 +216,13 @@ function archiveListRow(r,cols){
 let archiveVisit=null;
 async function archiveOpen(id){
  const a=archiveIndex.get(id);if(!a)return false;
+ archiveScopeDrop();
  if(typeof soDraft!=='undefined'&&soDraft){salesLeaveDraft(()=>archiveOpen(id));return false;}
  const ids=a.kind==='quote'?[...archiveIndex].filter(([,x])=>x.kind==='quote'&&x.groupId===a.groupId).map(([k])=>k):[id];
  const recs=await archiveRead(ids);
  if(!recs.some(r=>r.tbl==='salesOrder'&&r.id===id)){alert('This archived order could not be read.');return false;}
  archiveVisitEnd();
- const tables=archiveRowsPut(recs);
+ const tables=archiveRowsPut(recs,true);
  archiveVisit={id,ids:new Set(ids),tables,arrays:new Map([...tables.keys()].map(t=>[t,DB[t]]))};
  salesOrderEdit(id);return true;
 }
@@ -234,12 +235,26 @@ async function archiveRead(owners){
  return recs;
 }
 /* Записи архива — в DB на время просмотра или расчёта; сравнение базы их не
-   видит (storageVisit). Уже стоящие (открытый заказ) не дублируются.
-   Возвращает поставленное: tbl → Map id → текст записи. */
-function archiveRowsPut(recs){
- const put=new Map();
- recs.forEach(r=>{let v=storageVisit.get(r.tbl);if(v&&v.has(r.id))return;if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];DB[r.tbl].push(JSON.parse(r.data));
-  if(!v)storageVisit.set(r.tbl,v=new Set());v.add(r.id);let t=put.get(r.tbl);if(!t)put.set(r.tbl,t=new Map());t.set(r.id,r.data);});
+   видит (storageVisit). Уже стоящие (открытый заказ) не дублируются. Встают
+   на прежнее место по seq — порядок строк тот же, что до ухода, и отчёты
+   складывают в том же порядке. Возвращает поставленное: tbl → Map id → текст
+   записи (keep — для просмотра, который возвращает строки после пересборки
+   таблицы; отчёту и расчёту текст не нужен — меньше памяти). */
+function archiveRowsPut(recs,keep){
+ const put=new Map(),byTbl=new Map();
+ recs.forEach(r=>{const v=storageVisit.get(r.tbl);if(v&&v.has(r.id))return;let a=byTbl.get(r.tbl);if(!a)byTbl.set(r.tbl,a=[]);a.push(r);});
+ byTbl.forEach((list,tbl)=>{
+  if(!Array.isArray(DB[tbl]))DB[tbl]=[];
+  const rows=DB[tbl],base=storageBase.get(tbl)||new Map(),out=[],t=new Map();let v=storageVisit.get(tbl),i=0;
+  if(!v)storageVisit.set(tbl,v=new Set());put.set(tbl,t);
+  list.sort((a,b)=>a.seq-b.seq);
+  /* Строка в работе без seq (ещё не записана) — в конце, как и была. */
+  rows.forEach(row=>{const b=base.get(storageRowKey(tbl,row)),seq=b?b.s:Infinity;for(;i<list.length&&list[i].seq<seq;i++)out.push(JSON.parse(list[i].data));out.push(row);});
+  for(;i<list.length;i++)out.push(JSON.parse(list[i].data));
+  /* Массив тот же: на него держат ссылки. */
+  rows.length=0;out.forEach(x=>rows.push(x));
+  list.forEach(r=>{v.add(r.id);t.set(r.id,keep?r.data:'');});
+ });
  storageInvalidate();return put;
 }
 /* Убрать поставленное — по ключам (объект строки мог смениться: правка формы
@@ -250,10 +265,40 @@ function archiveRowsDrop(put){
   if(v){t.forEach((x,id)=>v.delete(id));if(!v.size)storageVisit.delete(tbl);}});
  storageInvalidate();
 }
+/* ------------------------- Отчёты за прошлые месяцы -------------------- */
+/* Отчёт, чей период захватывает ушедшие заказы (Reports): записи заказов,
+   чья жизнь «создан … день ухода» пересекает период, читаются с диска и
+   стоят в DB, пока отчёт открыт с этим периодом (задание: «детали — по
+   запросу с индикатором»). range — [from, to] днями, '' — без границы.
+   Ответ: 'none' (архив не нужен), 'loading' (читается), 'ready', 'big' —
+   заказов больше ARCHIVE_SCOPE_MAX: столько разом память не вместит, нужен
+   период короче (предел — проверить на базе за 7 лет, А5). */
+const ARCHIVE_SCOPE_MAX=3000;
+let archiveScope=null;
+function archiveScopeFor(range){
+ const from=range&&range[0]||'',to=range&&range[1]||'',owners=[];
+  archiveIndex.forEach((a,id)=>{if(archiveSpanIn(a,from,to))owners.push(id);});
+ if(!owners.length){archiveScopeDrop();return 'none';}
+ if(owners.length>ARCHIVE_SCOPE_MAX){archiveScopeDrop();return 'big';}
+ const key=from+'|'+to+'|'+owners.length+'|'+owners[0]+'|'+owners[owners.length-1];
+ if(archiveScope&&archiveScope.key===key)return archiveScope.put?'ready':'loading';
+ archiveScopeDrop();const st=archiveScope={key,put:null,orders:owners.length};
+ archiveRead(owners).then(recs=>{if(archiveScope!==st)return;st.put=archiveRowsPut(recs,false);render();}).catch(e=>{if(archiveScope===st)archiveScope=null;console.warn('Archive was not read:',e.message);});
+ return 'loading';
+}
+function archiveScopeDrop(){const st=archiveScope;archiveScope=null;if(st&&st.put)archiveRowsDrop(st.put);}
+/* Жизнь заказа пересекает период — от самой ранней до самой поздней из его
+   дат: создан, срок (Due), «действительна до» у квоты, день ухода. */
+function archiveSpanIn(a,from,to){const span=[String(a.createdAt||'').slice(0,10),a.day,a.row&&a.row.due,a.row&&a.row.validUntil].filter(Boolean).map(String).sort();return !!span.length&&(!to||span[0]<=to)&&(!from||span[span.length-1]>=from);}
+/* Сколько ушедших заказов в периоде — для надписи на экране. */
+function archiveScopeCount(range){const from=range&&range[0]||'',to=range&&range[1]||'';let n=0;archiveIndex.forEach(a=>{if(archiveSpanIn(a,from,to))n++;});return n;}
+/* Ушли из отчётов — записи архива уходят из памяти. */
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k){if(archiveScope&&k!=='reports')archiveScopeDrop();return false;});
+
 /* Записи ушедших заказов на время одного расчёта (счета за период к
    выписке): встают в DB, fn строит из них — и сразу уходят. */
 async function archiveWith(owners,fn){
- const put=archiveRowsPut(await archiveRead(owners));
+ const put=archiveRowsPut(await archiveRead(owners),false);
  try{return fn();}finally{archiveRowsDrop(put);}
 }
 /* Таблицу собрали заново из базы (откат, чужая запись) — строки просмотра
@@ -321,7 +366,7 @@ function archiveInvKeep(before,after,offcuts){
 function archiveRun(day,opts){
  opts=opts||{};day=String(day||new Date().toISOString()).slice(0,10);
  /* Открыт заказ из архива — его записи сейчас в DB; уход подождёт. */
- if(archiveVisit)return {ok:false,error:'An archived order is open.'};
+ if(archiveVisit||archiveScope)return {ok:false,error:'Archived orders are open.'};
  const now=new Date().toISOString();
  return storageCommand(()=>{
   let due=[...archiveDue(day)];if(opts.limit)due=due.slice(0,opts.limit);
