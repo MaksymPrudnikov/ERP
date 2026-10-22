@@ -3475,7 +3475,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='e8ff576de40e';
+var ERP_BUILD='4afd22e6171e';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12447,6 +12447,20 @@ function normalizeSalesData(){
  if(!Array.isArray(DB.salesOrder))DB.salesOrder=[];const ids=new Set(),numbers=new Set(),lineIds=new Set();
  DB.salesOrder=DB.salesOrder.filter(x=>x&&typeof x==='object').map(x=>{const o=normalizeSalesOrder(x);while(ids.has(o.id))o.id=salesUid('SO');ids.add(o.id);if(o.businessNumber){if(numbers.has(o.businessNumber))o.businessNumber='';else numbers.add(o.businessNumber);}o.lines.forEach(l=>{while(lineIds.has(l.id))l.id=salesUid('SOL');lineIds.add(l.id);});return o;});
 }
+/* Один заказ — Save, Convert, копия квоты, переделка NCR меняют только его;
+   остальные заказы уже приведены в порядок (старт, импорт). Раньше на каждый
+   Save нормализовались все заказы — на базе 3 мес. это 0,7 с из 1,4 с
+   (задание «База», П3). Повтор номера заказа, его строк или businessNumber с
+   другим заказом — как в normalizeSalesData: новый номер, пустой номер. */
+function normalizeSalesOrderIn(id){
+ const i=DB.salesOrder.findIndex(x=>x&&x.id===id);if(i<0)return null;
+ const o=normalizeSalesOrder(DB.salesOrder[i]),ids=new Set(),numbers=new Set(),lineIds=new Set();
+ DB.salesOrder.forEach((x,k)=>{if(k===i||!x)return;ids.add(x.id);if(x.businessNumber)numbers.add(x.businessNumber);(x.lines||[]).forEach(l=>lineIds.add(l.id));});
+ while(ids.has(o.id))o.id=salesUid('SO');
+ if(o.businessNumber&&numbers.has(o.businessNumber))o.businessNumber='';
+ o.lines.forEach(l=>{while(lineIds.has(l.id))l.id=salesUid('SOL');lineIds.add(l.id);});
+ DB.salesOrder[i]=o;return o;
+}
 function validateSalesPayload(src){
  if(!src||typeof src!=='object')return;if(Object.prototype.hasOwnProperty.call(src,'salesOrder')&&!Array.isArray(src.salesOrder))throw new Error('The "salesOrder" field must be an array.');
  const ids=new Set(),numbers=new Set(),lineIds=new Set(),entityId=/^[A-Za-z0-9_-]{1,96}$/;(src.salesOrder||[]).forEach((o,i)=>{
@@ -12957,7 +12971,7 @@ function salesConvertQuoteRecord(id,po){
  const order=normalizeSalesOrder(copy);DB.salesOrder.push(order);
  if(typeof finCaptureTerms==='function')finCaptureTerms(order);
  quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
- normalizeSalesData();touch();
+ normalizeSalesOrderIn(copy.id);normalizeSalesOrderIn(quote.id);touch();
  salesOrderEdit(copy.id);
 }
 
@@ -13142,7 +13156,7 @@ function salesQuoteNewRevision(){
  const now=new Date().toISOString(),rev=salesQuoteNextRev(src);
  const copy=salesCopySalesRecord(src,{businessNumber:salesQuoteBaseNumber(src)+'-R'+rev,status:'open',sentAt:'',validUntil:'',statusDates:{open:now},
   quoteGroupId:salesQuoteGroupId(src),quoteRev:rev,wonOrderId:'',fromQuoteId:'',createdAt:now,updatedAt:now});
- DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesData();touch();
+ DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesOrderIn(copy.id);touch();
  salesOrderEdit(copy.id);
 }
 function salesQuoteMarkSent(ids){
@@ -16074,7 +16088,7 @@ function salesOrderSaveCommand(opts){
  soDraft.priceBook=salesPriceBookOf(soDraft);
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
- normalizeSalesData();if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
+ normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
 /* Delete на любом этапе (владелец, 9 октября 2026): тронутый заказ сначала
    возвращает всё стекло (erp/shopfloor/production-unbatch), накладная только
@@ -35081,7 +35095,7 @@ function ncrCreate(d){
    const used=new Set(src.lines.map(l=>l.makeupId));src.makeups=src.makeups.filter(m=>used.has(m.id));src.extraItems=[];
    const copy=salesCopySalesRecord(src,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
     batchNo:'',batchHistory:[],unbatchHistory:[],onHold:false,holdReason:'',holdAt:'',fulfilledVia:'',dueDate:'',notes:'Remake for '+n.number+' · order '+o.businessNumber,noCharge:true,remakeNcrId:n.id,createdAt:now,updatedAt:now});
-   DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesData();
+   DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesOrderIn(copy.id);
    n.remakeOrderId=copy.id;glassPieceEnsure(salesRecord(copy.id));
   }
   return true;
