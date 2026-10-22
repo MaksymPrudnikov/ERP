@@ -3480,7 +3480,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='f219f0e95f25';
+var ERP_BUILD='e95624e7b03c';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -8864,7 +8864,7 @@ const DATA_FIXES=[
  /* \u0420\u0430\u0431\u043e\u0442\u0430 \u043d\u0435\u0441\u0451\u0442 \u0441\u0442\u0430\u043d\u0446\u0438\u044e \u0441 11 \u0441\u0435\u043d\u0442\u044f\u0431\u0440\u044f. \u0423 \u0441\u0442\u0440\u043e\u043a, \u0437\u0430\u0432\u0435\u0434\u0451\u043d\u043d\u044b\u0445 \u0440\u0430\u043d\u044c\u0448\u0435, \u0435\u0451 \u043d\u0435\u0442. */
  [1,'serviceRate','*',{station:''},['station']],
  /* \u041f\u043e\u043b\u043e\u0441\u0443 \u0432\u044b\u043a\u043b\u044e\u0447\u0438\u043b \u0432\u043b\u0430\u0434\u0435\u043b\u0435\u0446 11 \u0441\u0435\u043d\u0442\u044f\u0431\u0440\u044f. \u041f\u0440\u0430\u0432\u043b\u0435\u043d\u0443\u044e \u0438\u043c \u0446\u0435\u043d\u0443 \u043d\u0435 \u0442\u0440\u043e\u0433\u0430\u0435\u043c. */
- [1,'serviceRate','hole:1-2',{active:true,bands:{'6':6,'8-10':7,'12-19':8}},['active']],
+ [1,'serviceRate','hole:1-2',{active:true,tiers:[{id:'6',from:null,to:7,price:6},{id:'8-10',from:8,to:11,price:7},{id:'12-19',from:12,to:19,price:8}]},['active']],
  /* \u0411\u0440\u0435\u043d\u0434 ICD \u043d\u0430 \u0441\u0438\u043b\u0438\u043a\u043e\u043d\u043e\u0432\u043e\u043c \u0441\u043f\u0430\u043d\u0434\u0440\u0435\u043b\u0435 \u2014 \u0441\u043c. \u0431\u043b\u043e\u043a `have<8` \u0432\u044b\u0448\u0435. */
  [1,'spandrelProduct','SPAN-SILICONE',{name:'Silicone Spandrel'},['name']],
  [1,'spandrelProduct','SPAN-SILICONE',{supplier:''},['supplier']],
@@ -8914,12 +8914,12 @@ const DATA_FIXES=[
  /* Номер 3 · 14 сентября 2026. Ставка Heat Soak была пустой, и счёт не брал
     её из прайса вовсе. Владелец: $5 за ft² на любую толщину. Только если цена
     ещё пустая — свою владелец мог уже вписать. */
- [3,'serviceRate','heat_soak',{flat:null,unit:'pc'},['flat','unit']],
+ [3,'serviceRate','heat_soak',{tiers:[{id:'flat',from:null,to:null,price:null}],unit:'pc'},['tiers','unit']],
  /* Номер 4 · 29 сентября 2026. EDGE разделена по станкам цеха (владелец:
     «полировки 3, аррисинга 2», бевелинг, майтер, CNC Shape Polish — на CNC).
     Работа переезжает, только если стоит на EDGE, — свою станцию владелец мог
     уже выбрать. Станции, причины брака и сканы — sfSplitEdgeFix. */
- ...['roughArris','flatPolish','cncShapePolish','miter225','miter45','lamiPolish','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19']
+ ...['roughArris','flatPolish','cncShapePolish','miter225','miter45','lamiPolish','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19','bevel']
   .map(id=>[4,'serviceRate',id,{station:'EDGE'},['station']]),
  /* Номер 5 · 29 сентября 2026. Припуск CNC Shape Polish по плите ламината —
     1/4″, как у одинарного стекла (владелец). Только если стоит заводское
@@ -11076,40 +11076,32 @@ const SPANDREL_COLOUR_FAMILIES=['Black','Gray','Blue','Brown','White'];
    цену нотча, нужен был разработчик. Владелец: «сделай мне мастер-дату
    максимально от тебя не зависящую».
 
-   `kind` хранится ЯВНО, а не выводится из того, заполнено ли поле. От него
-   зависит хвост ключа начисления (`flat` против банда толщины), а ключ — это
-   то, по чему сохранённый заказ находит свою строку. Выведи мы kind из
-   наличия значения — стёртая владельцем цена молча переписала бы ключи всех
-   старых заказов, и их ручные правки ставок отвязались бы.
+   Цена работы — таблица «от – до мм → цена» (serviceRateTiersOf). Ключ
+   начисления кончается id строки таблицы: по нему сохранённый заказ находит
+   свою ручную ставку, поэтому id строки не меняется при правке границ.
 
-   Толщинные банды: `6` — до 6 мм включительно, `8-10`, `12-19`. Отверстия
-   разложены по диаметру отдельными строками (`hole:0.5-1` и так далее):
-   вложенная таблица не редактируется одним экраном, а цена у них своя. */
+   Отверстия разложены по диаметру отдельными строками (`hole:0.5-1` и так
+   далее): у каждой свой диапазон диаметра и своя таблица по толщине. */
 /* Строка прайса — это РАБОТА, а не только цена. Станция, момент маршрута и
    габаритное ограничение живут здесь же: пока станция лежала в отдельной
    таблице цеха, маршрут и счёт читали разные источники и расходились. Правило
    владельца 10 сентября 2026 — сводим в одну строку.
 
-   `family` + `appliesBy` / `appliesFrom` / `appliesTo` — диапазон применения.
-   Он нужен работам, чьи полосы не совпадают со стандартными: у фацета это
-   3-8 / 9-15 / 16-19, ни одна не ложится на банды 6 / 8-10 / 12-19. Пустой
-   диапазон означает «применяется всегда» — так живут полировка и нотч. */
+   `family` + `appliesBy` / `appliesFrom` / `appliesTo` — диапазон диаметра у
+   отверстий (family 'hole'). Пустой диапазон — «применяется всегда». */
 function normalizeServiceRate(r){
  r=r&&typeof r==='object'?r:{};
  const num=v=>{if(v==null||v==='')return null;const n=+v;return isFinite(n)&&n>=0?n:null;};
- const src=r.bands&&typeof r.bands==='object'?r.bands:{};
- const appliesBy=['thickness','diameter'].includes(r.appliesBy)?r.appliesBy:'';
+ const appliesBy=r.appliesBy==='diameter'?'diameter':'';
  return {
   id:mdString(r.id),name:mdString(r.name),unit:mdString(r.unit)||'pc',
-  kind:r.kind==='flat'?'flat':'band',
-  flat:num(r.flat),
-  bands:{'6':num(src['6']),'8-10':num(src['8-10']),'12-19':num(src['12-19'])},
+  tiers:serviceRateTiersOf(r),
   /* Станция пустая — законное состояние: у надбавки за фигурную единицу
      операции в цеху нет вовсе, она чистая цена. */
   station:mdString(r.station),
   stage:['pre_temper','heat','post_temper','any'].includes(r.stage)?r.stage:'pre_temper',
   afterMerge:r.afterMerge===true,
-  family:mdString(r.family),appliesBy:appliesBy,
+  family:appliesBy?mdString(r.family):'',appliesBy:appliesBy,
   appliesFrom:appliesBy?num(r.appliesFrom):null,
   appliesTo:appliesBy?num(r.appliesTo):null,
   /* Габарит: своё ограничение работы, если оно жёстче станции. Пусто — берётся
@@ -11120,16 +11112,88 @@ function normalizeServiceRate(r){
   note:mdString(r.note),active:r.active!==false
  };
 }
-/* Работа, чей диапазон покрывает значение. Пересечение диапазонов — ошибка
-   данных, и разрешать её здесь нельзя: молча выбранная «первая подходящая»
-   строка означала бы, что цена зависит от порядка в справочнике. Поэтому при
-   пересечении возвращаем null и строка встаёт в счёт как Rate required. */
-function salesWorkForValue(family,value){
- const v=+value;if(!isFinite(v))return null;
- const hit=(DB.serviceRate||[]).filter(r=>r&&r.active!==false&&r.family===family&&
-  (r.appliesFrom==null||v>=r.appliesFrom)&&(r.appliesTo==null||v<=r.appliesTo));
+/* Таблица цен работы «от – до мм → цена» (план Master Data, этап 4). Строк
+   сколько угодно, границы включительно, пустая граница — без предела. Одна
+   строка без границ — одна цена на любую толщину. До этапа 4 у работы было
+   ровно три полосы с границами в коде (salesPricingBandFor) или одна цена
+   `flat`: такие записи читаются здесь, id строк те же ('6', '8-10', '12-19',
+   'flat') — по ним сохранённый заказ и прайс клиента находят свою цену. */
+function serviceRateTiersOf(r){
+ const num=v=>{if(v==null||v==='')return null;const n=+v;return isFinite(n)&&n>=0?n:null;};
+ let src=Array.isArray(r.tiers)?r.tiers:null;
+ if(!src){
+  const b=r.bands&&typeof r.bands==='object'?r.bands:{};
+  src=r.kind==='flat'?[{id:'flat',price:r.flat}]
+   :[{id:'6',to:7,price:b['6']},{id:'8-10',from:8,to:11,price:b['8-10']},{id:'12-19',from:12,to:19,price:b['12-19']}];
+ }
+ const seen=new Set();
+ return src.filter(t=>t&&typeof t==='object').map((t,i)=>{
+  let id=mdString(t.id)||'t'+(i+1);while(seen.has(id))id+='+';seen.add(id);
+  return {id,from:num(t.from),to:num(t.to),price:num(t.price)};
+ });
+}
+/* Строка таблицы для толщины. Нахлёст строк — ошибка данных: молча выбранная
+   первая означала бы, что цена зависит от порядка строк, поэтому и нахлёст, и
+   пропуск дают null — работа встаёт в счёт как Rate required, а карточка
+   предупреждает (serviceRateTierWarnings). */
+function serviceRateTierFor(row,mm){
+ const tiers=row&&row.tiers||[];
+ if(tiers.length===1&&tiers[0].from==null&&tiers[0].to==null)return tiers[0];
+ const t=+mm;if(!(mm!=null&&mm!==''&&isFinite(t)))return null;
+ const hit=tiers.filter(x=>(x.from==null||t>=x.from)&&(x.to==null||t<=x.to));
  return hit.length===1?hit[0]:null;
 }
+function serviceRateTierLabel(t){
+ if(!t)return '';
+ if(t.from==null&&t.to==null)return 'any mm';
+ if(t.from==null)return 'up to '+t.to+' mm';
+ if(t.to==null)return t.from+' mm and up';
+ return t.from===t.to?t.from+' mm':t.from+'–'+t.to+' mm';
+}
+/* Коротко для прайса клиента и журнала: ≤7, 8–11, ≥20, all. */
+function serviceRateTierShort(t){
+ if(!t)return '';
+ if(t.from==null&&t.to==null)return 'all';
+ if(t.from==null)return '≤'+t.to;
+ if(t.to==null)return '≥'+t.from;
+ return t.from===t.to?String(t.from):t.from+'–'+t.to;
+}
+/* Предупреждения таблицы, не запреты (владелец: «предупреждать, а не
+   запрещать»). Пропуск ищется по толщинам стёкол каталога: своих чисел у кода
+   нет, а «7.5 мм без цены» при отсутствии такого стекла — шум. */
+function serviceRateTierWarnings(row){
+ const tiers=row&&row.tiers||[],out=[];
+ tiers.forEach((a,i)=>tiers.slice(i+1).forEach(b=>{
+  const lo=Math.max(a.from==null?-Infinity:a.from,b.from==null?-Infinity:b.from),hi=Math.min(a.to==null?Infinity:a.to,b.to==null?Infinity:b.to);
+  if(lo<=hi)out.push('Rows '+serviceRateTierLabel(a)+' and '+serviceRateTierLabel(b)+' overlap');
+ }));
+ tiers.forEach(t=>{if(t.from!=null&&t.to!=null&&t.from>t.to)out.push('Row '+t.from+'–'+t.to+' mm: from is above to');});
+ if(tiers.length&&!(tiers.length===1&&tiers[0].from==null&&tiers[0].to==null)){
+  const mm=new Set();
+  (DB.glassProduct||[]).forEach(g=>{if(g&&g.active!==false&&+g.thicknessMm>0)mm.add(+g.thicknessMm);});
+  const gaps=[...mm].sort((a,b)=>a-b).filter(t=>!tiers.some(x=>(x.from==null||t>=x.from)&&(x.to==null||t<=x.to)));
+  if(gaps.length)out.push('No row for catalog glass '+gaps.join(', ')+' mm');
+ }
+ if(!tiers.length)out.push('No price rows');
+ return out;
+}
+/* Работа по значению: отверстия ищутся по диаметру — своя строка у каждой
+   полосы диаметра, границы в карточке (до этапа 4 — в коде,
+   salesPricingHoleBand). Нахлёст — null, как и в таблице цен. Выключенная
+   строка находится, только если включённой нет: тогда отверстие встанет в счёт
+   с её именем и без цены. */
+function salesWorkForValue(family,value){
+ const v=+value;if(!isFinite(v))return null;
+ const fits=r=>r&&r.family===family&&(r.appliesFrom==null||v>=r.appliesFrom)&&(r.appliesTo==null||v<=r.appliesTo);
+ const rows=DB.serviceRate||[],on=rows.filter(r=>fits(r)&&r.active!==false);
+ if(on.length)return on.length===1?on[0]:null;
+ const off=rows.filter(fits);
+ return off.length===1?off[0]:null;
+}
+/* Диаметр отверстий, дюймы, включительно. Меньше 1/2″ своей полосы в прайсе
+   нет — идёт по 1/2″–1″ (владелец, 18.10.2026: в DXF клиентов бывают 3/8″),
+   поэтому у первой строки нижней границы нет. */
+const SERVICE_HOLE_SEED={'hole:0.5-1':[null,1],'hole:1-2':[1.0625,2],'hole:2-3':[2.0625,3],'hole:3-4':[3.0625,4],'hole:4+':[4.0625,null]};
 const SERVICE_RATE_SEED=[
  /* Четвёртое поле — СТАНЦИЯ. С 11 сентября 2026 работа несёт и станцию, и цену
     одной строкой: пока станция лежала отдельной таблицей цеха, маршрут и счёт
@@ -11162,8 +11226,9 @@ const SERVICE_RATE_SEED=[
  ['cutout',           'Cutout',                'pc',  'CNC',   [15,20,25]],
  ['sandblastFull',    'Simple Sandblasting',   'ft²', 'SAND',  [4,4,4]],
  ['sandblastPattern', 'Pattern Sandblasting',  'ft²', 'SAND',  [6,6,6]]
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],station:x[3],kind:'band',
-  bands:{'6':x[4][0],'8-10':x[4][1],'12-19':x[4][2]},active:x[5]!==false}))
+].map(x=>normalizeServiceRate(Object.assign({id:x[0],name:x[1],unit:x[2],station:x[3],
+  tiers:[{id:'6',to:7,price:x[4][0]},{id:'8-10',from:8,to:11,price:x[4][1]},{id:'12-19',from:12,to:19,price:x[4][2]}],active:x[5]!==false},
+  SERVICE_HOLE_SEED[x[0]]?{family:'hole',appliesBy:'diameter',appliesFrom:SERVICE_HOLE_SEED[x[0]][0],appliesTo:SERVICE_HOLE_SEED[x[0]][1]}:{})))
 /* Ставки, у которых цена одна на любую толщину. Разводить три одинаковые
    цифры значило бы придумать различие, которого у цеха нет; а появятся банды —
    владелец переключит вид строки на экране, кода это не потребует. */
@@ -11181,19 +11246,15 @@ const SERVICE_RATE_SEED=[
  ['stepUnit',      'Step Unit',            'pc',  'IGU',  0,    'Step / offset unit: extra sealant on the step',true],
  ['mirrorBacker',  'Mirror Safety Backer', 'ft²', 'SAND', 4,    ''],
  ['mirrorSealant', 'Mirror Edge Sealant',  'in',  'SAND', .07,  'By the finished contour perimeter, not by area']
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],station:x[3],kind:'flat',flat:x[4],note:x[5],
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],station:x[3],tiers:[{id:'flat',price:x[4]}],note:x[5],
   afterMerge:x[6]===true,stage:x[6]===true?'post_temper':'pre_temper'})))
-/* Фацет. Полосы у него СВОИ и не совпадают ни с чьими: прайс владельца даёт
-   3-8 / 10-15 / 13-19, то есть 9 мм не попадало никуда, а 13, 14 и 15 стоили
-   одновременно 0.65 и 1.20. Владелец 11 сентября развёл: «до 15 — 0.65, с 16 —
-   1.20», девятка уходит в верхнюю полосу. Три отдельные строки со своим
-   диапазоном, потому что банды 6 / 8-10 / 12-19 сюда не ложатся. */
-.concat([
- ['bevel:3-8',  'Beveling 3–8 mm',   0,  8,  .45],
- ['bevel:9-15', 'Beveling 9–15 mm',  9,  15, .65],
- ['bevel:16-19','Beveling 16–19 mm', 16, 19, 1.20]
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:'in',station:'BEVEL',kind:'flat',flat:x[4],
-  family:'bevel',appliesBy:'thickness',appliesFrom:x[2],appliesTo:x[3]})))
+/* Фацет. Полосы у него СВОИ: прайс владельца давал 3-8 / 10-15 / 13-19, то
+   есть 9 мм не попадало никуда, а 13, 14 и 15 стоили одновременно 0.65 и 1.20.
+   Владелец 11 сентября развёл: «до 15 — 0.65, с 16 — 1.20», девятка уходит в
+   верхнюю полосу. До этапа 4 это были три строки работы с диапазоном толщины;
+   теперь одна работа со своей таблицей. */
+.concat([normalizeServiceRate({id:'bevel',name:'Beveling',unit:'in',station:'BEVEL',
+  tiers:[{id:'3-8',to:8,price:.45},{id:'9-15',from:9,to:15,price:.65},{id:'16-19',from:16,to:19,price:1.20}]})])
 /* Шаги маршрута, которые не выставляются отдельной строкой в счёт: резка
    заложена в цену стекла, печь — в термообработку, склейка и сборка пакета — в
    цену изделия. Работами они всё равно являются: у них есть станция и момент
@@ -11214,8 +11275,21 @@ const SERVICE_RATE_SEED=[
  ['painting',           'Painting',           'PAINT','any'],
  ['lamination',         'Lamination',         'LAM',  'post_temper'],
  ['igu_assembly',       'IGU Assembly',       'IGU',  'post_temper']
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],station:x[2],stage:x[3],kind:'flat',flat:x[4]!=null?x[4]:null,unit:x[5]||'pc'})));
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],station:x[2],stage:x[3],tiers:[{id:'flat',price:x[4]!=null?x[4]:null}],unit:x[5]||'pc'})));
 DEFAULT.serviceRate=SERVICE_RATE_SEED;
+/* Перенос сохранённого прайса на этап 4: три строки фацета с диапазоном
+   толщины становятся одной работой `bevel` с таблицей (цены владельца
+   переезжают), у отверстий диапазон диаметра встаёт из заводского. */
+function serviceRateStage4Migrate(){
+ if(!Array.isArray(DB.serviceRate))return;
+ const old=DB.serviceRate.filter(r=>r&&/^bevel:/.test(r.id)&&r.appliesBy==='thickness');
+ if(old.length){
+  if(!DB.serviceRate.some(r=>r&&r.id==='bevel'))DB.serviceRate.push(Object.assign({},old[0],{id:'bevel',name:'Beveling',family:'',appliesBy:'',appliesFrom:null,appliesTo:null,kind:undefined,flat:undefined,
+   tiers:old.map(r=>({id:r.id.slice(6),from:r.appliesFrom||null,to:r.appliesTo,price:r.flat}))}));
+  DB.serviceRate=DB.serviceRate.filter(r=>old.indexOf(r)<0);
+ }
+ DB.serviceRate.forEach(r=>{const h=r&&SERVICE_HOLE_SEED[r.id];if(h&&!r.appliesBy)Object.assign(r,{family:'hole',appliesBy:'diameter',appliesFrom:h[0],appliesTo:h[1]});});
+}
 /* Цвета, доступные выбранному продукту: свои плюс общие (без продукта). */
 function spandrelColoursFor(productId){
  return (DB.spandrelColour||[]).filter(c=>c.active!==false&&(!c.productId||c.productId===productId));
@@ -11324,6 +11398,7 @@ function normalizeMasterData(){
  });
  /* Ставки услуг доливаются по той же причине: прайс ведёт владелец, и пересев
     стёр бы его цены. */
+ serviceRateStage4Migrate();
  mdRebuildTable('serviceRate',{topUp:true,normalize:normalizeServiceRate,valid:r=>r.id&&r.name,dedupe:true});
  /* Палитра спандрела: заводские цвета доливаются по id, пользовательские не
     трогаются. Пустая таблица — не «нет цветов», а «ещё не заводили». */
@@ -12803,8 +12878,9 @@ function normalizePriceLists(){
   const kind=l.kind==='customer'?'customer':'group',rowIds=new Set();
   const rows=(Array.isArray(l.rows)?l.rows:[]).filter(r=>r&&typeof r==='object'&&s(r.target)).map(r=>{
    let rid=s(r.id)||salesUid('PLR');while(rowIds.has(rid))rid=salesUid('PLR');rowIds.add(rid);
+   /* bands — цена на строку таблицы работы, по id строки (этап 4). */
    const b=r.bands&&typeof r.bands==='object'?r.bands:null;
-   return Object.assign({id:rid,target:s(r.target),price:price(r.price),at:s(r.at)},b?{bands:{'6':price(b['6']),'8-10':price(b['8-10']),'12-19':price(b['12-19'])}}:{});
+   return Object.assign({id:rid,target:s(r.target),price:price(r.price),at:s(r.at)},b?{bands:Object.fromEntries(Object.keys(b).map(k=>[k,price(b[k])]))}:{});
   });
   return {id,kind,name:kind==='group'?s(l.name):'',customerId:kind==='customer'?s(l.customerId):'',rows};
  /* У клиента один личный прайс: повтор — ошибка импорта, первый остаётся. */
@@ -12822,6 +12898,18 @@ function itemGroupById(id){return id?(DB.itemGroup||[]).find(g=>g.id===id)||null
 /* Имя прайса для «откуда цена»: группа — её имя, личный — Personal. */
 function priceListName(id){const l=priceListById(id);return !l?'Deleted list':l.kind==='customer'?'Personal':(l.name||'Unnamed group');}
 
+/* Таблица цен работы-цели (null — одна цена на все толщины или не работа):
+   по ней прайс клиента даёт цену на каждую строку таблицы. */
+function priceTargetTiers(target){
+ const w=String(target||'').indexOf('service:')===0?(DB.serviceRate||[]).find(r=>r&&r.id===target.slice(8)):null;
+ return w&&!serviceRateTierFor(w,null)?w.tiers:null;
+}
+/* Цены строки прайса текстом: «5.00 · ≤7 mm: 6.00 · 8–11 mm: 7.00». */
+function priceListRowText(r,money){
+ if(!r)return '';
+ const m=money||(v=>String(v)),tiers=priceTargetTiers(r.target)||[];
+ return [r.price==null?'':m(r.price)].concat(Object.keys(r.bands||{}).filter(k=>r.bands[k]!=null).map(k=>{const t=tiers.find(x=>x.id===k);return (t?serviceRateTierShort(t):k)+' mm: '+m(r.bands[k]);})).filter(Boolean).join(' · ');
+}
 /* Цена строки: полоса толщины, если у строки она есть, иначе общая. */
 function priceListRowPrice(r,band){const b=band&&r.bands?r.bands[band]:null;return b!=null?b:r.price;}
 /* Группа клиента — поле Group карточки (владелец, 22.10.2026: «это спец
@@ -12880,7 +12968,8 @@ function salesPriceTargets(){
  PRICE_ITEM_TABLES.forEach(([table,kind,all])=>(DB[table]||[]).forEach(x=>{if(!x||x.active===false||!all&&x.sellsAsOwnLine!==true)return;
   out.push({key:'item:'+table+':'+x.id,kind,label:x.name||x.code||x.id,unit:all?salesPriceUnitLabel(x.salesUnit):'pc',base:x.salePrice==null?null:x.salePrice});}));
  (DB.serviceRate||[]).forEach(r=>{if(!r||!r.id)return;
-  out.push({key:'service:'+r.id,kind:'Service',label:r.name||r.id,unit:r.unit||'pc',base:r.kind==='flat'?r.flat:null,bands:r.kind==='flat'?null:r.bands});});
+  const one=serviceRateTierFor(r,null);
+  out.push({key:'service:'+r.id,kind:'Service',label:r.name||r.id,unit:r.unit||'pc',base:one?one.price:null,tiers:one?null:r.tiers});});
  return out;
 }
 function salesPriceTargetLabel(key,targets){
@@ -12921,8 +13010,11 @@ function salesUpdatePrices(){
    группа клиентов — новая группа (видно в предпросмотре), неизвестный
    клиент или айтем — ошибка строки.
    ===================================================================== */
-const PRICE_FILE_BANDS=[['6','6 mm'],['8-10','8-10 mm'],['12-19','12-19 mm']];
-const PRICE_FILE_HEAD=['List type','List','Customer code','Item type','Item','Unit','Base','Price'].concat(PRICE_FILE_BANDS.map(b=>b[1]),['Key']);
+/* Цена работы по толщине — отдельная строка файла на каждую строку таблицы
+   цен этой работы (этап 4: строк в таблице сколько угодно, своих колонок
+   под них не напасёшься). Колонка Thickness — подпись строки таблицы, Tier —
+   её id; строка без Tier — цена на все толщины. */
+const PRICE_FILE_HEAD=['List type','List','Customer code','Item type','Item','Unit','Thickness mm','Base','Price','Key','Tier'];
 
 function priceFileNum(v){return v==null?'':String(+(+v).toFixed(4));}
 function priceFileCustomerName(c){return c?(c.displayName||c.legalName||c.code||c.id):'';}
@@ -12934,13 +13026,14 @@ function priceFileRows(list,customer,targets,every){
  const byKey=new Map(targets.map(t=>[t.key,t])),rows=list?list.rows.slice():[];
  if(every){const have=new Set(rows.map(r=>r.target));
   (DB.itemGroup||[]).map(g=>'group:'+g.id).concat(targets.map(t=>t.key)).forEach(k=>{if(!have.has(k))rows.push({target:k,price:null});});}
- return rows.map(r=>{
+ const out=[];
+ rows.forEach(r=>{
   const t=byKey.get(r.target),g=String(r.target).indexOf('group:')===0?itemGroupById(r.target.slice(6)):null;
-  const kind=g?'Item group':t?t.kind:'Removed',label=g?g.name||'Unnamed':t?t.label:r.target;
-  const base=t?t.bands?'':priceFileNum(t.base):'';
-  return [type,name,code,kind,label,t?t.unit||'':'',base,priceFileNum(r.price)]
-   .concat(PRICE_FILE_BANDS.map(([b])=>r.bands&&r.bands[b]!=null?priceFileNum(r.bands[b]):''),[r.target]);
+  const kind=g?'Item group':t?t.kind:'Removed',label=g?g.name||'Unnamed':t?t.label:r.target,unit=t?t.unit||'':'';
+  out.push([type,name,code,kind,label,unit,'',t&&!t.tiers?priceFileNum(t.base):'',priceFileNum(r.price),r.target,'']);
+  ((t&&t.tiers)||[]).forEach(x=>out.push([type,name,code,kind,label,unit,serviceRateTierShort(x),priceFileNum(x.price),r.bands&&r.bands[x.id]!=null?priceFileNum(r.bands[x.id]):'',r.target,x.id]));
  });
+ return out;
 }
 /* scope: 'all' — все прайсы с ценами; 'list:<id>' — шаблон прайса группы;
    'customer:<id>' — шаблон личного прайса клиента (есть он или нет). */
@@ -12964,14 +13057,14 @@ function priceFileMoney(v){const s=(+v).toFixed(4).replace(/0{1,2}$/,'');return 
 function priceFileSame(a,b){return a===b||(a==null&&b==null);}
 function priceFileText(p){
  if(!p)return '—';
- const parts=[p.price==null?'':priceFileMoney(p.price)].concat(p.bands?PRICE_FILE_BANDS.filter(([b])=>p.bands[b]!=null).map(([b])=>b+': '+priceFileMoney(p.bands[b])):[]).filter(Boolean);
- return parts.join(' · ')||'—';
+ return priceListRowText({target:p.target,price:p.price,bands:p.bands},priceFileMoney)||'—';
 }
-/* Разбор файла против текущей базы. Ничего не пишет. */
+/* Разбор файла против текущей базы. Ничего не пишет. Строки одной цели в
+   одном прайсе (общая цена и цены по толщине) собираются в одно изменение. */
 function priceFilePlan(text){
  const parsed=parseCsv(text),plan={changes:[],same:0,errors:[],newGroups:[]};
  if(!parsed.header.includes('Price')||!parsed.header.includes('List')){plan.errors.push({line:1,why:'Not a price file: no List or Price column.'});return plan;}
- const targets=salesPriceTargets(),byKey=new Map(targets.map(t=>[t.key,t])),seen=new Set();
+ const targets=salesPriceTargets(),byKey=new Map(targets.map(t=>[t.key,t])),seen=new Set(),groups=new Map();
  const low=v=>String(v||'').trim().toLowerCase();
  const customers=(DB.customer||[]).filter(c=>c&&c.status!=='archived');
  parsed.rows.forEach((r,i)=>{
@@ -13000,23 +13093,32 @@ function priceFilePlan(text){
    if(hits.length!==1)return err(hits.length?'Two items "'+r.Item+'"; keep the Key column.':'No item "'+(r.Item||'')+'".');
    target=hits[0];
   }
-  const dup=(customerId?'c:'+customerId:'g:'+low(name))+'|'+target;
+  /* Строка таблицы цен работы: по Tier, иначе по подписи толщины */
+  const t=byKey.get(target),mmText=String(r['Thickness mm']||'').trim();let tier=String(r.Tier||'').trim();
+  if(!tier&&mmText){const hit=((t&&t.tiers)||[]).find(x=>serviceRateTierShort(x)===mmText);if(!hit)return err('No thickness row "'+mmText+'" in this service.');tier=hit.id;}
+  if(tier&&!((t&&t.tiers)||[]).some(x=>x.id===tier))return err('Prices by mm only for services priced by thickness.');
+  const listKey=customerId?'c:'+customerId:'g:'+low(name),dup=listKey+'|'+target+'|'+tier;
   if(seen.has(dup))return err('Same list and item twice; first row kept.');seen.add(dup);
-  /* Цены */
-  const t=byKey.get(target),price=priceFileParseNum(r.Price);
-  const bandVals=PRICE_FILE_BANDS.map(([b,h])=>[b,priceFileParseNum(r[h])]);
-  if(Number.isNaN(price)||bandVals.some(([,v])=>Number.isNaN(v)))return err('Price must be a number, 0 or more.');
-  const hasBands=bandVals.some(([,v])=>v!=null);
-  if(hasBands&&!(t&&t.bands))return err('Prices by mm only for services priced by thickness.');
-  const next={price,bands:hasBands?Object.fromEntries(bandVals):null};
-  const list=priceListById(listId),old=list?list.rows.find(x=>x.target===target):null;
-  const was=old?{price:old.price,bands:old.bands||null}:null;
-  const empty=next.price==null&&!hasBands;
-  if(!was&&empty)return;
-  const oldBands=was&&was.bands||{},nextBands=next.bands||{};
-  if(was&&priceFileSame(was.price,next.price)&&PRICE_FILE_BANDS.every(([b])=>priceFileSame(oldBands[b]==null?null:oldBands[b],nextBands[b]==null?null:nextBands[b]))){plan.same++;return;}
-  plan.changes.push({line,personal,listId,customerId,listName,target,label:salesPriceTargetLabel(target,targets),was,next:empty?null:next});
+  const price=priceFileParseNum(r.Price);
+  if(Number.isNaN(price))return err('Price must be a number, 0 or more.');
+  const gk=listKey+'|'+target;
+  if(!groups.has(gk))groups.set(gk,{line,personal,listId,customerId,listName,target,cells:[]});
+  groups.get(gk).cells.push([tier,price]);
  });
+ groups.forEach(g=>{
+  const list=priceListById(g.listId),old=list?list.rows.find(x=>x.target===g.target):null;
+  const was=old?{target:g.target,price:old.price,bands:old.bands||null}:null;
+  const next={target:g.target,price:was?was.price:null,bands:was&&was.bands?Object.assign({},was.bands):{}};
+  g.cells.forEach(([tier,v])=>{if(tier)next.bands[tier]=v;else next.price=v;});
+  Object.keys(next.bands).forEach(k=>{if(next.bands[k]==null)delete next.bands[k];});
+  const empty=next.price==null&&!Object.keys(next.bands).length;
+  if(!Object.keys(next.bands).length)next.bands=null;
+  if(!was&&empty)return;
+  const ob=was&&was.bands||{},nb=next.bands||{};
+  if(was&&priceFileSame(was.price,next.price)&&[...new Set(Object.keys(ob).concat(Object.keys(nb)))].every(k=>priceFileSame(ob[k]==null?null:ob[k],nb[k]==null?null:nb[k]))){plan.same++;return;}
+  plan.changes.push({line:g.line,personal:g.personal,listId:g.listId,customerId:g.customerId,listName:g.listName,target:g.target,label:salesPriceTargetLabel(g.target,targets),was,next:empty?null:next});
+ });
+ plan.changes.sort((a,b)=>a.line-b.line);
  return plan;
 }
 /* Запись: план строится заново по свежей базе, чтобы между просмотром и
@@ -13897,7 +13999,7 @@ function mdLogRowName(row,id,tbl){
 }
 /* Строки прайса — по строке: «айтем: было → стало», а не весь список JSON. */
 function mdLogPriceRows(a,b){
- const price=r=>!r?'':[r.price==null?'':String(r.price)].concat(r.bands?['6','8-10','12-19'].map(k=>r.bands[k]==null?'':k+': '+r.bands[k]).filter(Boolean):[]).filter(Boolean).join(' · ');
+ const price=r=>priceListRowText(r);
  const was=new Map(((a&&a.rows)||[]).map(r=>[r.id,r])),now=new Map(((b&&b.rows)||[]).map(r=>[r.id,r])),out=[],targets=salesPriceTargets();
  now.forEach((r,id)=>{const x=was.get(id),p=price(r),q=price(x);if(!x||p!==q||x.target!==r.target)out.push([salesPriceTargetLabel(r.target,targets),x?q:'',p]);});
  was.forEach((r,id)=>{if(!now.has(id))out.push([salesPriceTargetLabel(r.target,targets),price(r),'removed']);});
@@ -17503,30 +17605,13 @@ function salesExcelApply(){
    Здесь он был константой, и чтобы поправить цену нотча, нужен был
    разработчик. Заводские значения перенесены строка в строку, ключи начислений
    не менялись: по ним сохранённый заказ находит свою строку. */
-/* Полоса прайса по конкретной толщине стекла. Начисления за кромку считаются
-   ПО ЛАЙТАМ, поэтому банд нужен на каждое стекло отдельно: у пакета 10 + 6 два
-   разных стекла и две разные ставки. */
-/* Границы полос: до 7 · 8-11 · 12-19. Прежние `до 6` и `8-10` оставляли два
-   провала — между 6 и 8 и между 10 и 12, — и попадал в них ПОКУПНОЙ ламинат:
-   6.38 (3+3) и 11.52 (5+5) не получали ставки вовсе. Собранный у себя ламинат
-   не страдал: там плиты 3 и 5 мм идут каждая в свою полосу.
-
-   Владелец 11 сентября 2026: «стёкол 7 и 11 мм нет, бывают только лакированные
-   покупные; давай раздвинем банды до 7 / 8-11 / 12-19».
-
-   КЛЮЧИ полос ('6', '8-10', '12-19') НЕ меняются, хотя границы разъехались:
-   ключ входит в идентификатор начисления, по которому сохранённый заказ
-   находит свою ручную правку ставки. Переименуй ключ — и правки во всех старых
-   заказах молча отвяжутся. Названия полос человеку показываются отдельно.
-
-   Низ первой полосы остаётся ОТКРЫТЫМ: у ламината плиты бывают 3-5 мм, и
-   жёсткое «от 3» выбросило бы стекло 2.5 мм без ставки. */
+/* Толщина стекла для прайса работ. Полос в коде больше нет (план Master
+   Data, этап 4): у каждой работы своя таблица «от – до мм → цена», и строка
+   таблицы ищется по толщине у самой работы (serviceRateTierFor). До этапа 4
+   здесь были зашиты границы до 7 · 8-11 · 12-19. */
 function salesPricingBandFor(mm){
  const t=+mm;
- if(t>0&&t<=7)return {ok:true,thickness:t,band:'6'};
- if(t>=8&&t<=11)return {ok:true,thickness:t,band:'8-10'};
- if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};
- return {ok:false,thickness:Number.isFinite(t)?t:'',band:''};
+ return t>0&&Number.isFinite(t)?{ok:true,thickness:t}:{ok:false,thickness:Number.isFinite(t)?t:''};
 }
 /* Полоса строки заказа — тот же расчёт, что и у отдельного стекла. Раньше он
    стоял здесь вторым списком условий и при смене границ разошёлся бы с первым. */
@@ -17557,7 +17642,7 @@ function salesLineThicknessGroups(line){
  (m.panes||[]).forEach(p=>{
   salesPanePlies(p).forEach(ply=>{
    const ctx=salesPricingBandFor(ply.mm);
-   const key=ctx.ok?ctx.band:'na:'+String(ctx.thickness);
+   const key=String(ctx.thickness);
    if(!index[key]){index[key]={ctx:ctx,count:0};out.push(index[key]);}
    index[key].count++;
   });
@@ -17569,13 +17654,17 @@ function salesLineThicknessGroups(line){
    толщины, поэтому две группы дают две разные строки счёта и не схлопываются в
    одну. Стёкла одной толщины лежат в одной группе, поэтому пакет 6 + 6 остаётся
    одной строкой на две штуки, а не двумя строками по одной. */
+/* Группы — по толщине, а строка счёта — по строке таблицы работы: 5 и 6 мм
+   в одной строке таблицы дают одну строку счёта, их количество складывается. */
 function salesPerGlassRows(line,build){
  const groups=salesLineThicknessGroups(line);
  if(!groups.length)return build(salesPricingThickness(line));
- const rows=[];
+ const rows=[],byKey=Object.create(null);
  groups.forEach(g=>{
   build(g.ctx).forEach(r=>{
-   rows.push(g.count===1?r:Object.assign({},r,{basis:+(r.basis*g.count).toFixed(4)}));
+   const basis=+(r.basis*g.count).toFixed(4);
+   if(byKey[r.key]){byKey[r.key].basis=+(byKey[r.key].basis+basis).toFixed(4);return;}
+   byKey[r.key]=Object.assign({},r,{basis:basis});rows.push(byKey[r.key]);
   });
  });
  return rows;
@@ -17591,52 +17680,52 @@ function salesThickestGlassCtx(line){
  if(!v.length)return salesPricingThickness(line);
  return salesPricingBandFor(v[v.length-1]);
 }
-/* Отверстие меньше 1/2″ своей полосы в прайсе не имеет — считается по самой
-   маленькой полосе сверловки 1/2″–1″ (владелец, 18.10.2026: в DXF клиентов
-   бывают 3/8″, и без цены они висели «invalid diameter»). */
-function salesPricingHoleBand(d){if(d>0&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
+/* Работа отверстия по диаметру: полосы диаметра — в карточках отверстий
+   (family 'hole', диапазон диаметра), не в коде. */
+function salesPricingHoleBand(d){const w=d>0?salesWorkForValue('hole',d):null;return w?{key:w.id,label:w.name}:null;}
 /* Ставка бывает единой на все толщины — тогда банд не нужен и не спрашивается.
    Проверка ctx.ok стояла первой строкой, и такая ставка всё равно терялась на
    склейке 10+10: 20.76 мм ни в один банд не попадает. */
 /* Строка прайса. Отверстия разложены по диаметру отдельными строками, поэтому
    подключ приклеивается к идентификатору: `hole` + `0.5-1` = `hole:0.5-1`. */
 function salesServiceRateRow(id){return (DB.serviceRate||[]).find(r=>r&&r.id===id)||null;}
-/* Прайс клиента (erp/sales/price-lists) даёт работе одну цену на все
-   толщины. Откуда ставка, salesChargeRow забирает из salesRateFrom. */
+/* Прайс клиента (erp/sales/price-lists) даёт работе цену на каждую строку
+   её таблицы или одну на все. Откуда ставка и какая работа, salesChargeRow
+   забирает из salesRateFrom. */
 let salesRateFrom=null;
 function salesCatalogRate(tableKey,ctx,subKey){
  salesRateFrom=null;
  const row=salesServiceRateRow(subKey?tableKey+':'+subKey:tableKey);
- const lp=row?salesPriceListFor('service:'+row.id,row.kind!=='flat'&&ctx&&ctx.ok?ctx.band:''):null;
- if(lp){salesRateFrom={price:lp.price,list:lp.listId};return lp.price;}
+ if(!row)return null;
+ const tier=serviceRateTierFor(row,ctx&&ctx.ok?ctx.thickness:null);
+ const lp=salesPriceListFor('service:'+row.id,tier?tier.id:'');
+ if(lp){salesRateFrom={price:lp.price,list:lp.listId,svc:row.id};return lp.price;}
+ salesRateFrom={svc:row.id};
  /* Выключенная строка прайса — это «услуга есть, цены нет», а не ноль. Строка
     встанет в счёт как Rate required и в денежный итог не войдёт: молчаливый
     ноль означал бы, что работу сделали и не выставили. */
- if(!row||row.active===false)return null;
- if(row.kind==='flat')return row.flat==null?null:row.flat;
- if(!ctx||!ctx.ok)return null;
- const v=row.bands?row.bands[ctx.band]:null;
- return v==null?null:v;
+ if(row.active===false||!tier)return null;
+ return tier.price==null?null:tier.price;
 }
-/* Хвост ключа строки начисления. У банданой ставки это прежний банд — ключи
-   сохранённых заказов обязаны остаться прежними до символа. У единой ставки
-   'flat', и в день появления бандов лами-строки перейдут на банд сами. Толщина
-   без банда даёт СВОЙ хвост: иначе 4 мм и 10.76 мм схлопнулись бы в один ключ
-   и сложились в одну строку счёта. */
+/* Хвост ключа строки начисления — id строки таблицы работы. Толщина без
+   строки таблицы даёт СВОЙ хвост: иначе 4 мм и 10.76 мм схлопнулись бы в
+   один ключ и сложились в одну строку счёта. */
 function salesRateBandKey(tableKey,ctx){
- /* Вид строки читается ДАЖЕ у выключенной: ключ начисления обязан оставаться
-    прежним, иначе сохранённый заказ потеряет свою ручную ставку. */
- const row=salesServiceRateRow(tableKey);
- if(row&&row.kind==='flat')return 'flat';
- if(ctx&&ctx.ok)return ctx.band;
+ /* Таблица читается ДАЖЕ у выключенной работы: ключ начисления обязан
+    оставаться прежним, иначе сохранённый заказ потеряет свою ручную ставку. */
+ const tier=serviceRateTierFor(salesServiceRateRow(tableKey),ctx&&ctx.ok?ctx.thickness:null);
+ if(tier)return tier.id;
  const n=+((ctx&&ctx.thickness)||NaN);
  return Number.isFinite(n)?'t'+String(n).replace('.','_'):'na';
 }
 /* from — прайс клиента, давший ставку. Не передан — ставка этой строки
    только что пришла из salesCatalogRate, и прайс берётся оттуда. */
-function salesChargeRow(key,label,basis,unit,rate,source,from){
- const f=from!==undefined?from:(salesRateFrom&&rate!=null&&+rate===salesRateFrom.price?salesRateFrom.list:'');salesRateFrom=null;
- return Object.assign({key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'},f?{from:f}:{});
+/* svc — работа, чья таблица дала хвост ключа: по ней отчёты находят, к
+   какому стеклу юнита относится строка (repRowFits). */
+function salesChargeRow(key,label,basis,unit,rate,source,from,svc){
+ const f=from!==undefined?from:(salesRateFrom&&rate!=null&&+rate===salesRateFrom.price?salesRateFrom.list:'');
+ const w=svc!==undefined?svc:(salesRateFrom&&salesRateFrom.svc)||'';salesRateFrom=null;
+ return Object.assign({key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'},f?{from:f}:{},w?{svc:w}:{});
 }
 /* Начисления по меткам (Hole и фурнитура) считаются в ОДНОМ месте. У строки
    заказа две ветки расчёта — обычная и через Service Set, — и в каждой лежала
@@ -17654,12 +17743,12 @@ function salesChargeRow(key,label,basis,unit,rate,source,from){
 function salesManufacturingChargeRows(items,ctx){
  const rows=[],groups=Object.create(null),order=[];
  (Array.isArray(items)?items:[]).forEach(function(item){
-  if(item.type==='hole'){const d=fabParseDimStrict(item.diameter),hb=d.ok?salesPricingHoleBand(d.v):null,key=hb?'hole:'+hb.key:'hole:unpriced';if(!groups[key]){groups[key]={qty:0,holeBand:hb};order.push(key);}groups[key].qty+=shapeHoleCount(item);return;}
+  if(item.type==='hole'){const d=fabParseDimStrict(item.diameter),hb=d.ok?salesPricingHoleBand(d.v):null,key=hb?hb.key:'hole:unpriced';if(!groups[key]){groups[key]={qty:0,holeBand:hb};order.push(key);}groups[key].qty+=shapeHoleCount(item);return;}
   const key=item.type;if(!groups[key]){groups[key]={qty:0,kind:item.type};order.push(key);}groups[key].qty++;
  });
  order.forEach(function(k){const g=groups[k];
-  if(g.kind)rows.push(salesChargeRow('MI:'+k+':'+ctx.band,shapeMiOperationName(g.kind),g.qty,'pc',salesCatalogRate(k,ctx),'Manufacturing item'));
-  else rows.push(salesChargeRow('MI:'+k+':'+ctx.band,'Hole '+(g.holeBand?g.holeBand.label:'—'),g.qty,'pc',g.holeBand?salesCatalogRate('hole',ctx,g.holeBand.key):null,'Manufacturing item'));
+  if(g.kind)rows.push(salesChargeRow('MI:'+k+':'+salesRateBandKey(k,ctx),shapeMiOperationName(g.kind),g.qty,'pc',salesCatalogRate(k,ctx),'Manufacturing item'));
+  else rows.push(salesChargeRow('MI:'+k+':'+salesRateBandKey(k,ctx),g.holeBand?g.holeBand.label:'Hole —',g.qty,'pc',g.holeBand?salesCatalogRate(k,ctx):null,'Manufacturing item'));
  });
  return rows;
 }
@@ -17697,17 +17786,18 @@ function salesSurfaceMarkChargeRows(features,ctx,areaFt2,perimeterIn){
   if(f.type==='mirrorbacker')
    return salesChargeRow('FEATURE:mirror-backer-'+shapeMirrorSide(f)+':'+salesRateBandKey('mirrorBacker',ctx),label,
     +(area*g.qty).toFixed(4),'ft²',salesCatalogRate('mirrorBacker',ctx),'Shape feature');
-  const coverage=shapeSandblastCoverage(f),side=shapeSandblastSide(f);
-  return salesChargeRow('FEATURE:sandblast-'+coverage+'-'+side+':'+ctx.band,label,
-   +(area*g.qty).toFixed(4),'ft²',salesCatalogRate(coverage==='pattern'?'sandblastPattern':'sandblastFull',ctx),'Shape feature');
+  const coverage=shapeSandblastCoverage(f),side=shapeSandblastSide(f),work=coverage==='pattern'?'sandblastPattern':'sandblastFull';
+  return salesChargeRow('FEATURE:sandblast-'+coverage+'-'+side+':'+salesRateBandKey(work,ctx),label,
+   +(area*g.qty).toFixed(4),'ft²',salesCatalogRate(work,ctx),'Shape feature');
  });
 }
 function salesNotchChargeRows(def,ctx){
   var groups={},order=[];
   ssNotchList(def).forEach(function(n){if(!groups[n.method]){groups[n.method]=0;order.push(n.method);}groups[n.method]+=n.pieces;});
   return order.map(function(method){
-    return salesChargeRow('FEATURE:notch-'+method+':'+ctx.band,ssNotchLabel(method),groups[method],'pc',
-      salesCatalogRate(method==='cnc'?'notchCnc':'notchHand',ctx),'Shape feature');
+    var work=method==='cnc'?'notchCnc':'notchHand';
+    return salesChargeRow('FEATURE:notch-'+method+':'+salesRateBandKey(work,ctx),ssNotchLabel(method),groups[method],'pc',
+      salesCatalogRate(work,ctx),'Shape feature');
   });
 }
 /* Фрит и спандрел — РАБОТА, а не свойство листа: керамику наносят и запекают.
@@ -17800,9 +17890,9 @@ function salesLineChargeRows(line){
  const s=salesShapeByRef(line&&line.shapeRef);if(!s)return rows.filter(x=>x.basis>0);const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
  salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
  salesSurfaceMarkChargeRows(s.features,ctx,r&&r.valid?r.area/144:0,r&&r.valid?salesShapePerimeterIn(r):0).forEach(function(row){rows.push(row);});
- if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+ctx.band,found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
-  const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
-  const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutoutCount,'pc',null,'Shape feature'));
+ if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+salesRateBandKey(SALES_ROUTE_EDGE_OP[op.type]||id,ctx),found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
+  const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+salesRateBandKey('radiusCorner',ctx),'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
+  const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+salesRateBandKey('cutout',ctx),'Cutout',cutoutCount,'pc',null,'Shape feature'));
   /* Нотч — работа, а не геометрия: контур раскроя от него не меняется, но угол
      кто-то должен вырезать и обработать. Ставка за штуку. */
   salesNotchChargeRows(s,ctx).forEach(function(row){rows.push(row);});
@@ -18755,12 +18845,11 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
      подписи и в ключе начисления: по нему сохранённый заказ находит свою
      ручную правку ставки. */
   else if(op.type==='Beveling'){
-    id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');
-    var bevelWork=ctx&&ctx.ok?salesWorkForValue('bevel',ctx.thickness):null;
-    rate=bevelWork?bevelWork.flat:null;
+    id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=salesCatalogRate('bevel',ctx);
   }
   else return null;
-  return {id:id,label:label,rate:rate,from:salesRateFrom?salesRateFrom.list:'',bandKey:salesRateBandKey(id,ctx)};
+  var svc=salesRateFrom?salesRateFrom.svc||'':'';
+  return {id:id,label:label,rate:rate,from:salesRateFrom?salesRateFrom.list||'':'',svc:svc,bandKey:salesRateBandKey(svc||id,ctx)};
 }
 
 /* Billing and Cutting read the SAME effective snapshot. */
@@ -18811,7 +18900,7 @@ salesLineChargeRows=function(line){
           var meta=salesEdgeChargeMetaForServiceSet(op,tCtx);
           if(!meta)return;
           var key=meta.id+':'+meta.bandKey;
-          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,from:meta.from,length:0};order.push(key);}
+          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,from:meta.from,svc:meta.svc,length:0};order.push(key);}
           acc[key].length+=group.length*(target.count||1);
         });
       });});
@@ -18822,16 +18911,16 @@ salesLineChargeRows=function(line){
     var manyThickness=new Set(order.map(function(k){return acc[k].mm;})).size>1;
     order.forEach(function(key){
       var x=acc[key];
-      rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),x.length,'in',x.rate,'Effective Edge Processing',x.from));
+      rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),x.length,'in',x.rate,'Effective Edge Processing',x.from,x.svc));
     });
   }
   if(saved&&!shapeIsDxfSource(saved)){
     /* Радиус, вырез и нотч меняют форму КАЖДОГО стекла юнита, поэтому считаются
        по стёклам — так же, как отверстия и фурнитура. */
     var radius=(saved.features||[]).filter(function(f){return f.type==='radius'&&inch(f.radius)>0;}).length;
-    if(radius)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:radius:'+c.band,'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
+    if(radius)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:radius:'+salesRateBandKey('radiusCorner',c),'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
     var cutout=(saved.features||[]).filter(function(f){return f.type==='cutout';}).length;
-    if(cutout)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:cutout:'+c.band,'Cutout',cutout,'pc',salesCatalogRate('cutout',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
+    if(cutout)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:cutout:'+salesRateBandKey('cutout',c),'Cutout',cutout,'pc',salesCatalogRate('cutout',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
     salesPerGlassRows(line,function(c){return salesNotchChargeRows(saved,c);}).forEach(function(row){rows.push(row);});
   }
   return rows.filter(function(row){return row.basis>0;});
@@ -19564,7 +19653,7 @@ function salesRouteStationOf(code,fallback){
 /* Кромочные операции названы ключами ПРАЙСА, а не кодами цеха: по этому же
    ключу считается цена, и станция обязана приезжать из той же строки. */
 const SALES_ROUTE_EDGE_OP={'Rough Arris':'roughArris','Flat Polish':'flatPolish',
-  'CNC Shape Polish':'cncShapePolish','Mitering':'miter225','Beveling':'bevel:9-15',
+  'CNC Shape Polish':'cncShapePolish','Mitering':'miter225','Beveling':'bevel',
   'Lami Polish':'lamiPolish','CNC Lami Polish':'cncLamiPolish'};
 /* Станция по умолчанию, если работы нет в справочнике: EDGE разделена
    29.09.2026 по станкам — аррис, полировка, фацет, майтер, CNC. */
@@ -19611,7 +19700,7 @@ function salesRouteMarkBase(item){
    перевод класса станка в код станции цеха. */
 function salesRouteHoleWork(diameter){
   var band=typeof salesPricingHoleBand==='function'?salesPricingHoleBand(diameter):null;
-  return band?'hole:'+band.key:'';
+  return band?band.key:'';
 }
 function salesRouteHoleStation(diameter){
   return shapeHoleStationClass(diameter)==='CNC'
@@ -23539,12 +23628,12 @@ function shapeStampDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStampFeatu
 function shapeAnnotationDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStampFeatures().concat(shapeSurfaceMarkFeatures()),T);}
 function shapeAnnotationOverlaySvg(T){var marker=shapeStampMarkerSvg(T)+shapeSandblastMarkerSvg(T),dims=shapeAnnotationDimsSvg(T);return marker+(dims?shapeDimArrowDefs()+dims:'');}
 function shapeStampOverlaySvg(T){return shapeAnnotationOverlaySvg(T);}
-/* Та же полоса, что в цене (salesPricingHoleBand): меньше 1/2″ — по 1/2″–1″. */
-function shapeHoleServiceBand(d){if(d>0&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
+/* Та же работа, что в цене (salesPricingHoleBand): диапазон диаметра в карточке отверстия. */
+function shapeHoleServiceBand(d){return salesPricingHoleBand(d);}
 function shapeServiceEntries(){return shapeManufacturingItems().map(function(item){return {id:item.id,type:item.type,diameter:item.diameter||'',count:shapeHoleCount(item)};});}
 function shapeDerivedServices(){
   var groups=Object.create(null),invalid=[];
-  shapeServiceEntries().forEach(function(item){var key=item.type,label=shapeManufacturingItemTitle(item.type),qty=1;if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),hb=d.ok?shapeHoleServiceBand(d.v):null;qty=item.count;if(!hb){invalid.push(item.id);key='hole-invalid-'+item.id;label='Hole · invalid diameter';}else{key='hole:'+hb.key;label='Hole '+hb.label;}}if(!groups[key])groups[key]={label:label,qty:0};groups[key].qty+=qty;});
+  shapeServiceEntries().forEach(function(item){var key=item.type,label=shapeManufacturingItemTitle(item.type),qty=1;if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),hb=d.ok?shapeHoleServiceBand(d.v):null;qty=item.count;if(!hb){invalid.push(item.id);key='hole-invalid-'+item.id;label='Hole · invalid diameter';}else{key=hb.key;label=hb.label;}}if(!groups[key])groups[key]={label:label,qty:0};groups[key].qty+=qty;});
   /* Геометрия из той же категории тоже становится начислением, поэтому и в
      сводке она рядом: категория одна — итог по ней тоже один. У внешнего DXF
      своей геометрии в ERP нет, там этот блок пуст. */
@@ -27489,20 +27578,32 @@ function mdCatIsColour(){return mdCatKind==='spandrelColour';}
    Поэтому здесь можно править цену, единицу, вид и выключать строку, но нельзя
    добавлять и удалять: это была бы кнопка, которая делает вид, что работает. */
 function mdCatIsRate(){return mdCatKind==='serviceRate';}
-/* Диапазон применения человеку: «9–15 mm», «from 2 1/16″», «up to 1 3/4″». */
+/* Диапазон диаметра человеку: «from 2 1/16″», «up to 1″». */
 function mdWorkRangeText(r){
  if(!r||!r.appliesBy)return '';
- const u=r.appliesBy==='thickness'?' mm':'″';
  const f=r.appliesFrom,t=r.appliesTo;
- if(f!=null&&t!=null)return f+'–'+t+u;
- if(f!=null)return 'from '+f+u;
- if(t!=null)return 'up to '+t+u;
+ if(f!=null&&t!=null)return f+'–'+t+'″';
+ if(f!=null)return 'from '+f+'″';
+ if(t!=null)return 'up to '+t+'″';
  return '';
 }
-function mdRateBandText(r,band){
-  if(r.kind==='flat')return band==='6'?(r.flat==null?'—':Number(r.flat).toFixed(2)):'';
-  var v=r.bands?r.bands[band]:null;
-  return v==null?'—':Number(v).toFixed(2);
+/* Таблица цен строкой списка: «≤7: 5.00 · 8–11: 8.00». */
+function mdWorkTiersText(r){
+ const tiers=r&&r.tiers||[];
+ if(!tiers.length)return '—';
+ return tiers.map(t=>(tiers.length===1&&t.from==null&&t.to==null?'':serviceRateTierShort(t)+': ')+(t.price==null?'—':Number(t.price).toFixed(2))).join(' · ');
+}
+/* Предупреждения карточки работы: таблица цен и нахлёст диапазона диаметра
+   с другой работой той же семьи. Только предупреждают. */
+function mdWorkWarnings(r){
+ const out=serviceRateTierWarnings(r);
+ if(r&&r.appliesBy&&r.active!==false){
+  const lo=r.appliesFrom==null?-Infinity:r.appliesFrom,hi=r.appliesTo==null?Infinity:r.appliesTo;
+  if(lo>hi)out.push('Diameter: from is above to');
+  (DB.serviceRate||[]).forEach(x=>{if(x&&x.id!==r.id&&x.active!==false&&x.family===r.family&&x.appliesBy===r.appliesBy&&
+   (x.appliesFrom==null?-Infinity:x.appliesFrom)<=hi&&(x.appliesTo==null?Infinity:x.appliesTo)>=lo)out.push('Diameter overlaps "'+x.name+'": no rate there');});
+ }
+ return out;
 }
 function mdSetCatKind(k){if(!MD_CATALOGUES.some(c=>c.k===k))return;mdCatKind=k;mdCatEdit=null;mdCatDraft=null;render();}
 
@@ -27510,25 +27611,23 @@ function viewMdCatalogues(){
  if(!MD_CATALOGUES.some(c=>c.k===mdCatKind))mdCatKind=MD_CATALOGUES[0].k;
  if(mdCatEdit!==null)return mdCatForm();
  const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour(),rate=mdCatIsRate();
- const cols=rate?8:colour?5:6;
+ const cols=rate?6:colour?5:6;
  return `<div class="sub">The owner keeps these catalogues. Rows added here <b>survive system updates</b>: factory content is filled in by id, anything typed by hand is left untouched. A position an order already references is safer to switch off than to delete — otherwise the old order would no longer know what it was.</div>
   <div class="row"><b>${esc(def.label)}</b><span class="mut">${esc(def.what)}</span></div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Station</th><th>Unit</th><th>up to 7 mm</th><th>8–11 mm</th><th>12–19 mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
+  <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Station</th><th>Unit</th><th>Price by thickness, mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
   <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">empty</td></tr>`}</tbody></table></div>
   <div class="row"><button class="pri" onclick="mdCatNew()">+ New</button></div>
-  ${rate?'<div class="sub">You can add a work yourself: name it, pick a station, a unit and a rate. If its bands don\'t match the standard ones, set an application range and the work will be found by it. Rows are never deleted, only <b>switched off</b>: an old order still points at a switched-off row and it must keep its name there. A switched-off row enters the invoice as <b>Rate required</b> and stays out of the monetary total — an honest "the work exists, the price doesn\'t", not a zero.</div>':''}`;
+  ${rate?'<div class="sub">Each work has its own price table by glass thickness. Switched-off works stay in old orders and bill as <b>Rate required</b>.</div>':''}`;
 }
 function mdCatRowHTML(x){
  const colour=mdCatIsColour();
- if(mdCatIsRate())return `<tr>
+ if(mdCatIsRate()){const warn=mdWorkWarnings(x);return `<tr data-md-work="${esc(x.id)}">
   <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}</div>${x.note?`<div class="mut">${raw(x.note)}</div>`:''}</td>
-  <td class="mono">${x.station?esc(x.station):'<span class="mut">—</span>'}${x.appliesBy?`<div class="mut">${esc(mdWorkRangeText(x))}</div>`:''}</td>
+  <td class="mono">${x.station?esc(x.station):'<span class="mut">—</span>'}${x.appliesBy?`<div class="mut">Ø ${esc(mdWorkRangeText(x))}</div>`:''}</td>
   <td class="mono">${esc(x.unit)}</td>
-  <td class="mono">${esc(mdRateBandText(x,'6'))}${x.kind==='flat'?'<div class="mut">flat rate</div>':''}</td>
-  <td class="mono">${esc(mdRateBandText(x,'8-10'))}</td>
-  <td class="mono">${esc(mdRateBandText(x,'12-19'))}</td>
+  <td class="mono">${esc(mdWorkTiersText(x))}${warn.length?` <span class="pill warn" title="${esc(warn.join('; '))}">${warn.length} warning${warn.length===1?'':'s'}</span>`:''}</td>
   <td><span class="pill ${x.active===false?'warn':'ok'}">${x.active===false?'no rate':'active'}</span></td>
-  <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button></td></tr>`;
+  <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button></td></tr>`;}
  const scope=colour?(x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'any'):'';
  return `<tr>
   <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}${x.subcategory?' · '+esc(x.subcategory):''}</div>${x.sellsAsOwnLine?'<span class="pill info">own order line</span>':''}</td>
@@ -27544,7 +27643,7 @@ function mdCatNew(){
  mdCatDraft=mdCatIsColour()
   ?{id:'',name:'',code:'',family:'Gray',productId:'',active:true}
   :mdCatIsRate()
-  ?{id:'',name:'',unit:'pc',station:'',kind:'band',flat:null,bands:{},
+  ?{id:'',name:'',unit:'pc',station:'',tiers:[{id:'t1',from:null,to:null,price:null}],
     family:'',appliesBy:'',appliesFrom:null,appliesTo:null,note:'',active:true}
   :{id:'',name:'',code:'',supplier:'',salePrice:null,subcategory:'consumable',sellsAsOwnLine:mdCatKind==='stockItem',active:true};
  render();
@@ -27560,31 +27659,27 @@ function mdCatForm(){
  const familyHints=Array.from(new Set(SPANDREL_COLOUR_FAMILIES.concat((DB.spandrelColour||[]).map(c=>c.family).filter(Boolean))));
  const subcatHints=Array.from(new Set(SALES_STOCK_SUBCATEGORIES.concat((DB.stockItem||[]).map(x=>x.subcategory).filter(Boolean))));
  if(mdCatIsRate()){
-  const band=b=>r.bands&&r.bands[b]!=null?r.bands[b]:'';
   const stations=(DB.station||[]).slice().sort((a,b)=>(+a.seq||0)-(+b.seq||0));
-  return `<div class="form"><h3>${isNew?'New work':'Edit · '+esc(r.name)}</h3>
+  const v=x=>x==null?'':esc(x),warn=mdWorkWarnings(mdWorkDraftRead(false)||r);
+  return `<div class="form" data-md-work-form><h3>${isNew?'New work':'Edit · '+esc(r.name)}</h3>
    <div class="sub mono">${isNew?'the id appears after saving':esc(r.id)}</div>
    <div class="grid">
     <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
-    <div><label>Unit</label><select id="md_catUnit">${['pc','in','ft²'].map(u=>`<option value="${esc(u)}" ${u===r.unit?'selected':''}>${esc(u)}</option>`).join('')}</select><div class="hint">Per piece, per calculated edge inch, or per area. The billing basis doesn't change with this — that's set by the calculation; the unit only labels the number.</div></div>
-    <div><label>Rate shape</label><select id="md_catRateKind" onchange="mdCatDraft.kind=this.value;render()"><option value="band" ${r.kind!=='flat'?'selected':''}>By glass thickness</option><option value="flat" ${r.kind==='flat'?'selected':''}>One rate for any thickness</option></select></div>
+    <div><label>Unit</label><select id="md_catUnit">${['pc','in','ft²'].map(u=>`<option value="${esc(u)}" ${u===r.unit?'selected':''}>${esc(u)}</option>`).join('')}</select><div class="hint">Label of the price</div></div>
+    <div><label>Station</label><select id="md_catStation"><option value="">— no station —</option>${stations.map(st=>`<option value="${esc(st.code)}" ${st.code===(r.station||'')?'selected':''}>${esc(st.code)} · ${esc(st.nameEn||st.name)}</option>`).join('')}</select><div class="hint">Empty: price only</div></div>
    </div>
    <div class="grid">
-    <div><label>Station</label><select id="md_catStation"><option value="">— no station —</option>${stations.map(st=>`<option value="${esc(st.code)}" ${st.code===(r.station||'')?'selected':''}>${esc(st.code)} · ${esc(st.nameEn||st.name)}</option>`).join('')}</select><div class="hint">Where the work is done. The route learns from this which area the part goes to. Empty means there is no shop work at all — it's a pure price uplift.</div></div>
-    <div><label>Applies by</label><select id="md_catAppliesBy" onchange="mdCatDraft.appliesBy=this.value;render()"><option value="" ${r.appliesBy?'':'selected'}>always</option><option value="thickness" ${r.appliesBy==='thickness'?'selected':''}>by thickness, mm</option><option value="diameter" ${r.appliesBy==='diameter'?'selected':''}>by diameter, inches</option></select><div class="hint">A range is needed when the work's bands don't match the standard ones — as with beveling.</div></div>
+    <div><label>Applies by</label><select id="md_catAppliesBy" onchange="mdWorkDraftRead(true);render()"><option value="" ${r.appliesBy?'':'selected'}>always</option><option value="diameter" ${r.appliesBy==='diameter'?'selected':''}>hole diameter, inches</option></select></div>
+    ${r.appliesBy?`<div><label>Family</label><input id="md_catFamily" value="${esc(r.family||'')}"><div class="hint">Shared by all hole rows</div></div>
+    <div><label>Diameter from</label><input id="md_catFrom" type="number" step="any" min="0" value="${v(r.appliesFrom)}" placeholder="no limit"></div>
+    <div><label>Diameter to</label><input id="md_catTo" type="number" step="any" min="0" value="${v(r.appliesTo)}" placeholder="no limit"></div>`:''}
    </div>
-   ${r.appliesBy?`<div class="grid">
-    <div><label>Family</label><input id="md_catFamily" value="${esc(r.family||'')}"><div class="hint">A shared name for rows of one work with different ranges. For beveling it's <b>bevel</b> across all three bands.</div></div>
-    <div><label>From</label><input id="md_catFrom" type="number" step="0.01" min="0" value="${r.appliesFrom==null?'':r.appliesFrom}"><div class="hint">Empty — no lower bound</div></div>
-    <div><label>To</label><input id="md_catTo" type="number" step="0.01" min="0" value="${r.appliesTo==null?'':r.appliesTo}"><div class="hint">Empty — no upper bound</div></div>
-   </div><div class="hint">Ranges within one family must not overlap: on an overlap the system won't pick a row silently — it honestly leaves the work without a rate.</div>`:''}
-   ${r.kind==='flat'
-    ?`<div class="grid"><div><label>Rate, CAD</label><input id="md_catFlat" type="number" step="0.01" min="0" value="${r.flat==null?'':r.flat}"><div class="hint">Empty — no price: the row enters the invoice as Rate required.</div></div></div>`
-    :`<div class="grid">
-      <div><label>up to 7 mm</label><input id="md_catB6" type="number" step="0.01" min="0" value="${esc(band('6'))}"></div>
-      <div><label>8–11 mm</label><input id="md_catB810" type="number" step="0.01" min="0" value="${esc(band('8-10'))}"></div>
-      <div><label>12–19 mm</label><input id="md_catB1219" type="number" step="0.01" min="0" value="${esc(band('12-19'))}"></div>
-     </div><div class="hint">An empty cell means there is no price for that thickness. The bands meet end to end and cover everything from 0 to 19 mm: purchased laminate 6.38 falls into the first, 11.52 into the second.</div>`}
+   <label>Price by glass thickness</label>
+   <table class="md-work-tiers" data-md-tiers><thead><tr><th>From, mm</th><th>To, mm</th><th>Price, CAD</th><th></th></tr></thead><tbody>
+    ${(r.tiers||[]).map((t,i)=>`<tr data-md-tier="${esc(t.id)}"><td><input id="md_tierFrom${i}" type="number" step="any" min="0" value="${v(t.from)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierTo${i}" type="number" step="any" min="0" value="${v(t.to)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierPrice${i}" type="number" step="0.01" min="0" value="${v(t.price)}" placeholder="no price" style="width:90px"></td><td><button class="sm dl" title="Remove row" onclick="mdWorkTierRemove(${i})">×</button></td></tr>`).join('')}
+   </tbody></table>
+   <div class="row"><button class="sm" data-md-tier-add onclick="mdWorkTierAdd()">+ Row</button><span class="hint">From and to included. Empty: no limit.</span></div>
+   ${warn.length?`<div class="sales-pricing-warning" data-md-work-warn><b>Check</b><span>${warn.map(esc).join('<br>')}</span></div>`:''}
    <div class="grid">
     <div><label>Note</label><input id="md_catNote" value="${esc(r.note||'')}"></div>
     <div><label>Status</label><select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>no rate</option></select></div>
@@ -27611,6 +27706,32 @@ function mdCatForm(){
   <div class="err" id="e_mdCat"></div>
   <div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div></div>`;
 }
+/* Форма работы → запись. Поля читаются с экрана: строка таблицы
+   добавляется и убирается перерисовкой, и введённое не должно пропасть.
+   keep — записать прочитанное в черновик. Нахлёст и пропуск строк таблицы не
+   запрещаются: карточка о них предупреждает. */
+function mdWorkDraftRead(keep){
+ const r=mdCatDraft;if(!r||!document.getElementById('md_catName'))return null;
+ const num=id=>{const el=document.getElementById(id);if(!el)return undefined;const t=el.value.trim();return t===''?null:+t;};
+ const bad=v=>v!=null&&v!==undefined&&(!isFinite(v)||v<0);
+ const tiers=(r.tiers||[]).map((t,i)=>{const f=num('md_tierFrom'+i),to=num('md_tierTo'+i),p=num('md_tierPrice'+i);
+  return {id:t.id,from:f===undefined?t.from:f,to:to===undefined?t.to:to,price:p===undefined?t.price:p};});
+ const appliesEl=document.getElementById('md_catAppliesBy'),appliesBy=appliesEl?appliesEl.value:r.appliesBy;
+ const from=num('md_catFrom'),to=num('md_catTo');
+ const next=Object.assign({},r,{name:mdVal('md_catName'),unit:mdVal('md_catUnit')||r.unit,station:mdVal('md_catStation'),tiers,
+  appliesBy:appliesBy,family:appliesBy?(document.getElementById('md_catFamily')?mdVal('md_catFamily'):r.family||'hole'):'',
+  appliesFrom:appliesBy?(from===undefined?r.appliesFrom:from):null,appliesTo:appliesBy?(to===undefined?r.appliesTo:to):null,
+  note:mdVal('md_catNote'),active:mdVal('md_catActive')!=='0'});
+ if(tiers.some(t=>bad(t.from)||bad(t.to)||bad(t.price))||[next.appliesFrom,next.appliesTo].some(bad))next.bad='Numbers must be 0 or more, or empty';
+ if(keep){mdCatDraft=Object.assign({},next);delete mdCatDraft.bad;}
+ return next;
+}
+function mdWorkTierAdd(){
+ mdWorkDraftRead(true);const r=mdCatDraft;if(!r)return;
+ let n=(r.tiers||[]).length+1;while((r.tiers||[]).some(t=>t.id==='t'+n))n++;
+ r.tiers=(r.tiers||[]).concat([{id:'t'+n,from:null,to:null,price:null}]);render();
+}
+function mdWorkTierRemove(i){mdWorkDraftRead(true);const r=mdCatDraft;if(!r)return;r.tiers=(r.tiers||[]).filter((t,k)=>k!==i);render();}
 /* Идентификатор выводится из кода, а при его отсутствии из названия. Совпадения
    разводятся суффиксом, а не молча перезаписывают чужую строку. */
 function mdCatIdFrom(prefix,code,name,taken){
@@ -27626,44 +27747,14 @@ function mdCatSave(){
  const name=mdVal('md_catName');
  if(!name)return fail(e,'Name is required');
  if(mdCatIsRate()){
-  const kindPicked=mdVal('md_catRateKind')==='flat'?'flat':'band';
-  const num=id=>{const v=mdVal(id);return v===''?null:+v;};
-  const bad=v=>v!=null&&(!isFinite(v)||v<0);
-  const flat=kindPicked==='flat'?num('md_catFlat'):mdCatDraft.flat;
-  const b6=kindPicked==='band'?num('md_catB6'):(mdCatDraft.bands||{})['6'];
-  const b810=kindPicked==='band'?num('md_catB810'):(mdCatDraft.bands||{})['8-10'];
-  const b1219=kindPicked==='band'?num('md_catB1219'):(mdCatDraft.bands||{})['12-19'];
-  if([flat,b6,b810,b1219].some(bad))return fail(e,'Rate must be a non-negative number or empty');
-  const appliesBy=mdVal('md_catAppliesBy');
-  const from=appliesBy?num('md_catFrom'):null,to=appliesBy?num('md_catTo'):null;
-  if([from,to].some(bad))return fail(e,'Range bound must be a non-negative number or empty');
-  if(from!=null&&to!=null&&from>to)return fail(e,'The lower bound of the range is above the upper one');
-  const family=appliesBy?mdVal('md_catFamily'):'';
-  if(appliesBy&&!family)return fail(e,'A work with a range needs a family: the system uses it to find the matching row');
+  const next=mdWorkDraftRead(false);
+  if(next.bad)return fail(e,next.bad);
+  if(next.appliesBy&&!next.family)return fail(e,'A work with a diameter range needs a family');
   const isNewRow=mdCatEdit==='new';
-  const id=isNewRow?mdCatIdFrom(def.prefix,'',name,rows):mdCatDraft.id;
-  const next=normalizeServiceRate(Object.assign({},mdCatDraft,{
-   id:id,name:name,unit:mdVal('md_catUnit'),station:mdVal('md_catStation'),
-   kind:kindPicked,flat:flat,bands:{'6':b6,'8-10':b810,'12-19':b1219},
-   family:family,appliesBy:appliesBy,appliesFrom:from,appliesTo:to,
-   note:mdVal('md_catNote'),active:mdVal('md_catActive')!=='0'
-  }));
-  /* Пересечение диапазонов внутри одной family — ошибка данных: система не
-     должна выбирать строку молча, иначе цена зависит от порядка в справочнике.
-     Ловим на сохранении, чтобы владелец увидел это сразу, а не через месяц на
-     заказе, где работа вдруг осталась без ставки. */
-  if(next.appliesBy&&next.active!==false){
-    const lo=next.appliesFrom==null?-Infinity:next.appliesFrom;
-    const hi=next.appliesTo==null?Infinity:next.appliesTo;
-    const clash=rows.find(x=>x&&x.id!==next.id&&x.active!==false&&x.family===next.family&&
-      x.appliesBy===next.appliesBy&&
-      (x.appliesFrom==null?-Infinity:x.appliesFrom)<=hi&&
-      (x.appliesTo==null?Infinity:x.appliesTo)>=lo);
-    if(clash)return fail(e,'The range overlaps row "'+clash.name+'". Separate the bounds: on an overlap the work stays without a rate.');
-  }
-  const at=rows.findIndex(x=>x.id===next.id);
+  next.id=isNewRow?mdCatIdFrom(def.prefix,'',name,rows):mdCatDraft.id;
+  const row=normalizeServiceRate(next),at=rows.findIndex(x=>x.id===row.id);
   if(!Array.isArray(DB.serviceRate))DB.serviceRate=[];
-  if(at<0)DB.serviceRate.push(next);else DB.serviceRate[at]=next;
+  if(at<0)DB.serviceRate.push(row);else DB.serviceRate[at]=row;
   mdCatEdit=null;mdCatDraft=null;normalizeMasterData();if(typeof stationRouteReset==='function')stationRouteReset();touch();render();
   return;
  }
@@ -27838,7 +27929,7 @@ let plView='groups',plGroupId='',plItemGroupId='',plAddKind='',plBulk=null,plFil
 
 function plNow(){return new Date().toISOString();}
 function plMoney(v){return v==null?'—':(+v).toFixed(2);}
-function plRowText(r){return [r.price==null?'':plMoney(r.price)].concat(r.bands?['6','8-10','12-19'].filter(k=>r.bands[k]!=null).map(k=>k+': '+plMoney(r.bands[k])):[]).filter(Boolean).join(' · ')||'—';}
+function plRowText(r){return priceListRowText(r,plMoney)||'—';}
 /* Цели строк прайса для выбора: группы айтемов первыми, потом по видам. */
 function plTargetOptions(targets,withGroups,selected){
  const kinds=[...new Set(targets.map(t=>t.kind))];
@@ -27847,19 +27938,19 @@ function plTargetOptions(targets,withGroups,selected){
 }
 function plBaseText(t){
  if(!t)return '—';
- if(t.bands)return ['6','8-10','12-19'].map(k=>t.bands[k]==null?'—':plMoney(t.bands[k])).join(' / ');
+ if(t.tiers)return t.tiers.map(x=>plMoney(x.price)).join(' / ');
  return plMoney(t.base);
 }
 /* Таблица строк одного прайса — общая для группы клиента и личного. */
 function plListTable(list){
  const targets=salesPriceTargets(),byKey=new Map(targets.map(t=>[t.key,t]));
- const num=(row,field,band,v)=>`<input type="number" min="0" step="0.01" value="${v==null?'':esc(v)}" placeholder="—" style="width:84px" onchange="plSetPrice('${esc(list.id)}','${esc(row.id)}',${band?`'${band}'`:'null'},this.value)" aria-label="${esc(field)}">`;
+ const num=(row,field,band,v)=>`<input type="number" min="0" step="0.01" value="${v==null?'':esc(v)}" placeholder="—" style="width:84px" onchange="plSetPrice('${esc(list.id)}','${esc(row.id)}',${band?`'${esc(band)}'`:'null'},this.value)" aria-label="${esc(field)}">`;
  const body=list.rows.map(r=>{
-  const t=byKey.get(r.target),bands=t&&t.bands;
-  const price=bands?`<div class="row" style="gap:4px;flex-wrap:nowrap">${num(r,'All thicknesses',null,r.price)}${['6','8-10','12-19'].map(k=>`<label class="mut" style="display:flex;align-items:center;gap:3px">${k}${num(r,k+' mm',k,r.bands?r.bands[k]:null)}</label>`).join('')}</div>`:num(r,'Price',null,r.price);
+  const t=byKey.get(r.target),tiers=t&&t.tiers;
+  const price=tiers?`<div class="row" style="gap:4px;flex-wrap:wrap">${num(r,'All thicknesses',null,r.price)}${tiers.map(x=>`<label class="mut" style="display:flex;align-items:center;gap:3px">${esc(serviceRateTierShort(x))}${num(r,serviceRateTierLabel(x),x.id,r.bands?r.bands[x.id]:null)}</label>`).join('')}</div>`:num(r,'Price',null,r.price);
   return `<tr data-pl-row><td>${esc(salesPriceTargetLabel(r.target,targets))}</td><td class="mono mut">${t?esc(plBaseText(t))+(t.unit?' / '+esc(t.unit):''):'—'}</td><td>${price}</td><td><button class="sm dl" title="Remove" onclick="plRemoveRow('${esc(list.id)}','${esc(r.id)}')">×</button></td></tr>`;
  }).join('');
- return `<table data-pl-list="${esc(list.id)}"><thead><tr><th>Item</th><th>Base</th><th>Price${list.rows.some(r=>(byKey.get(r.target)||{}).bands)?' · all / by mm':''}</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="4" class="mut">No prices yet — base prices apply.</td></tr>'}</tbody></table>
+ return `<table data-pl-list="${esc(list.id)}"><thead><tr><th>Item</th><th>Base</th><th>Price${list.rows.some(r=>(byKey.get(r.target)||{}).tiers)?' · all / by mm':''}</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="4" class="mut">No prices yet — base prices apply.</td></tr>'}</tbody></table>
   <div class="row" style="gap:8px;margin-top:8px"><select aria-label="Add price" style="max-width:360px" onchange="plAddRow('${esc(list.id)}',this.value)">${plTargetOptions(targets,true,'')}</select><span class="mut">Empty price — next list decides. 0 is a price.</span></div>`;
 }
 function plList(id){return priceListById(id);}
@@ -27872,7 +27963,7 @@ function plSetPrice(listId,rowId,band,v){
  const txt=String(v==null?'':v).trim(),n=txt===''?null:Number(txt);
  if(n!=null&&(!Number.isFinite(n)||n<0)){alert('Enter a price of 0 or more.');render();return;}
  plCommand(()=>{const r=(plList(listId)||{rows:[]}).rows.find(x=>x.id===rowId);if(!r)return;
-  if(band){r.bands=Object.assign({'6':null,'8-10':null,'12-19':null},r.bands||{});r.bands[band]=n;}else r.price=n;r.at=plNow();});
+  if(band){r.bands=Object.assign({},r.bands||{});r.bands[band]=n;}else r.price=n;r.at=plNow();});
 }
 function plRemoveRow(listId,rowId){plCommand(()=>{const l=plList(listId);if(l)l.rows=l.rows.filter(r=>r.id!==rowId);});}
 
@@ -27946,15 +28037,15 @@ function plItemGroupDelete(id){
 /* Одна цена сразу нескольким клиентам (владелец: массовая правка —
    фиксированной ценой, не процентом). Пишется в личные прайсы. */
 function plBulkView(){
- const b=plBulk=plBulk||{target:'',price:'',bands:{'6':'','8-10':'','12-19':''},ids:[],q:''};
+ const b=plBulk=plBulk||{target:'',price:'',bands:{},ids:[],q:''};
  const targets=salesPriceTargets(),t=targets.find(x=>x.key===b.target),q=b.q.trim().toLowerCase();
  const customers=(DB.customer||[]).filter(c=>c.status!=='archived'&&(!q||[c.displayName,c.legalName,c.code,customerGroupName(c)].some(x=>String(x||'').toLowerCase().includes(q))));
  const field=(label,v,set)=>`<label class="mut" style="display:flex;align-items:center;gap:4px">${label}<input type="number" min="0" step="0.01" value="${esc(v)}" style="width:84px" oninput="${set}=this.value"></label>`;
  return `<div class="sub">One fixed price into the personal price list of every ticked customer. Their other prices stay.</div>
   <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
-   <select aria-label="Item" style="max-width:360px" onchange="plBulk.target=this.value;render()">${plTargetOptions(targets,true,b.target)}</select>
-   ${field(t&&t.bands?'All mm':'Price',b.price,'plBulk.price')}
-   ${t&&t.bands?['6','8-10','12-19'].map(k=>field(k,b.bands[k],`plBulk.bands['${k}']`)).join(''):''}
+   <select aria-label="Item" style="max-width:360px" onchange="plBulk.target=this.value;plBulk.bands={};render()">${plTargetOptions(targets,true,b.target)}</select>
+   ${field(t&&t.tiers?'All mm':'Price',b.price,'plBulk.price')}
+   ${t&&t.tiers?t.tiers.map(x=>field(esc(serviceRateTierShort(x)),b.bands[x.id]==null?'':b.bands[x.id],`plBulk.bands['${esc(x.id)}']`)).join(''):''}
    <button class="pri" data-pl-bulk-apply onclick="plBulkApply()">Set for ${b.ids.length} customer${b.ids.length===1?'':'s'}</button>
   </div>
   <div class="row" style="gap:8px;margin-bottom:8px"><input aria-label="Find customers" placeholder="Find customer or group" value="${esc(b.q)}" oninput="plBulk.q=this.value;render()" style="max-width:260px">
@@ -27966,9 +28057,9 @@ function plBulkApply(){
  const b=plBulk;if(!b||!b.target)return alert('Pick an item, service or group.');
  if(!b.ids.length)return alert('Tick at least one customer.');
  const num=v=>{const s=String(v==null?'':v).trim();if(s==='')return null;const n=Number(s);return Number.isFinite(n)&&n>=0?n:NaN;};
- const price=num(b.price),bands={'6':num(b.bands['6']),'8-10':num(b.bands['8-10']),'12-19':num(b.bands['12-19'])};
+ const t=salesPriceTargets().find(x=>x.key===b.target),price=num(b.price),bands=Object.fromEntries(((t&&t.tiers)||[]).map(x=>[x.id,num(b.bands[x.id])]));
  if([price,...Object.values(bands)].some(v=>Number.isNaN(v)))return alert('Enter prices of 0 or more.');
- const t=salesPriceTargets().find(x=>x.key===b.target),useBands=!!(t&&t.bands)&&Object.values(bands).some(v=>v!=null);
+ const useBands=Object.values(bands).some(v=>v!=null);
  if(price==null&&!useBands)return alert('Enter a price.');
  plCommand(()=>{const at=plNow();b.ids.forEach(id=>{
   let l=priceListOfCustomer(id);if(!l){l={id:salesUid('PL'),kind:'customer',name:'',customerId:id,rows:[]};DB.priceList.push(l);}
@@ -44273,7 +44364,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&productionUnbatchDi
    стеклу достаётся доля среди стёкол юнита, которые идут через эту станцию
    и имеют ту же толщину прайса. Станцию работе даёт то же правило, что
    маршруту стикера (sales/print-route). */
-const REP_BANDS=['6','8-10','12-19'];
 const REP_EDGE_TYPE={roughArris:'Rough Arris',flatPolish:'Flat Polish',cncShapePolish:'CNC Shape Polish',lamiPolish:'Lami Polish',cncLamiPolish:'CNC Lami Polish',bevel:'Beveling'};
 const REP_FEATURE_WORK={radius:'radiusCorner',cutout:'cutout','notch-cnc':'notchCnc','notch-hand':'notchHand','mirror-sealant':'mirrorSealant'};
 function repWorkStation(id){const w=salesRouteWork(id);return w&&w.station||'';}
@@ -44283,7 +44373,7 @@ function repChargeStation(row){
   const t=REP_EDGE_TYPE[p[1]]||(/^miter/.test(p[1])?'Mitering':'');
   return t?salesRouteStationOf(SALES_ROUTE_EDGE_OP[t],SALES_ROUTE_EDGE_HOME[t]||'POLISH'):'';
  }
- if(p[0]==='MI')return p[1]==='hole'?repWorkStation('hole:'+p[2]):salesRouteStationOf('hinge','DRILL');
+ if(p[0]==='MI'){const w=row.svc&&salesServiceRateRow(row.svc);return w&&w.family==='hole'?w.station||'':p[1]==='hole'?repWorkStation('hole:'+p[2]):salesRouteStationOf('hinge','DRILL');}
  if(p[0]==='FEATURE'){
   const f=p[1]||'',id=REP_FEATURE_WORK[f]||(/^mirror-backer/.test(f)?'mirrorBacker':/^sandblast-pattern/.test(f)?'sandblastPattern':/^sandblast-/.test(f)?'sandblastFull':'');
   return id?repWorkStation(id):'';
@@ -44293,16 +44383,25 @@ function repChargeStation(row){
  if(p[0]==='GLAZE')return p[1]==='frit'?repWorkStation('ceramic_frit'):'';
  return '';
 }
-/* Толщина прайса у строки — последний кусок ключа (EDGE:flatPolish:6,
-   MI:hole:1-2:6). Нет её — строка общая для всех стёкол юнита. */
-function repRowBand(row){const p=String(row&&row.key||'').split(':'),b=p[p.length-1];return p[0]!=='HEATSOAK'&&REP_BANDS.includes(b)?b:'';}
+/* Строка таблицы цен у строки начислений — последний кусок ключа
+   (EDGE:flatPolish:6, MI:hole:1-2:6), работа — row.svc. Стекло подходит,
+   если его толщина попадает в ту же строку таблицы этой работы. Хвост не
+   строка таблицы (одна цена на все, работа без таблицы) — строка общая для
+   всех стёкол юнита. */
+function repRowTier(row){
+ const p=String(row&&row.key||'').split(':'),tail=p[p.length-1],w=p[0]!=='HEATSOAK'&&row.svc?salesServiceRateRow(row.svc):null;
+ if(!w||!w.tiers.some(t=>t.id===tail)||(w.tiers.length===1&&w.tiers[0].from==null&&w.tiers[0].to==null))return null;
+ return {work:w,tail};
+}
 /* Подходит ли стекло юнита к строке начислений: толщина, плёнка, пакет.
-   c — стекло позиции с его толщиной прайса (repLineWork). */
+   c — стекло позиции с его толщиной (repLineWork). */
 function repRowFits(row,c){
- const p=String(row.key||'').split(':'),band=repRowBand(row);
+ const p=String(row.key||'').split(':');
  if(p[0]==='HEATSOAK')return c.paneId===p[1]&&(!c.ply||(p[2]==='1'?'inner':'outer')===c.ply);
  if(p[0]==='EDGE'&&(p[1]==='lamiPolish'||p[1]==='cncLamiPolish'))return !!c.ply;
- return !band||c.band===band;
+ const t=repRowTier(row);if(!t)return true;
+ const hit=serviceRateTierFor(t.work,c.mm);
+ return !!hit&&hit.id===t.tail;
 }
 
 /* Расчёт строки заказа тяжёлый (форма, план резки) — одна позиция считается
@@ -44312,7 +44411,7 @@ let repLineMemo={stamp:'',map:new Map()};
 /* Отпечаток прайса — один раз на отрисовку (erp/read-scope): его спрашивает
    каждая строка каждого скана, на старте 3 мес. — 3 с (задание «База», П4). */
 function repCatalogStamp(){return readMemo('repCatalogStamp',[DB.serviceRate],repCatalogStampBuild);}
-function repCatalogStampBuild(){let h=0;(DB.serviceRate||[]).forEach(r=>{const s=r?r.id+'|'+r.station+'|'+r.flat+'|'+JSON.stringify(r.bands||{}):'';for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;});return (DB.serviceRate||[]).length+':'+h;}
+function repCatalogStampBuild(){let h=0;(DB.serviceRate||[]).forEach(r=>{const s=r?r.id+'|'+r.station+'|'+JSON.stringify(r.tiers||[]):'';for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;});return (DB.serviceRate||[]).length+':'+h;}
 function repLineWork(o,l,geo,tag){
  const stamp=repCatalogStamp();if(repLineMemo.stamp!==stamp)repLineMemo={stamp,map:new Map()};
  const key=[o.id,o.updatedAt||'',l.id,tag].join('|');
@@ -44321,7 +44420,7 @@ function repLineWork(o,l,geo,tag){
  try{out=finWithOrder(o,()=>({
   rows:salesLineChargeRows(geo).map(row=>({row,station:repChargeStation(row),rate:salesChargePricingState(geo,row).catalogRate})).filter(x=>x.station),
   plan:stkPlan(o,geo),
-  comps:glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const info=stkGlassInfo(c.pane,c.index,c.ply),mm=info.mm;return Object.assign({},c,{mm:mm||null,band:mm?salesPricingBandFor(mm).band:'',heat:info.heat||'Annealed'});}),
+  comps:glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const info=stkGlassInfo(c.pane,c.index,c.ply),mm=info.mm;return Object.assign({},c,{mm:mm||null,heat:info.heat||'Annealed'});}),
   unitType:(()=>{const m=salesMakeupById(o,l.makeupId);return m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';})(),
   /* Маршрут каждого стекла со своими работами по шагам — тот же, что на стикере. */
   visits:(()=>{const r=salesPrintRoute(geo,o,salesLineGeometryShape(geo),null),m=new Map();
