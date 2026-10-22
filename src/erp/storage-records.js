@@ -280,6 +280,9 @@ function storageIdbWrite(changes,rev,build,test){
 }
 function storageIdbMetaPut(key,value){return storageIdbTx(['meta'],'readwrite',tx=>{tx.objectStore('meta').put(value,key);});}
 /* Архив заказа (все записи, где он среди owners) и весь архив (Export). */
+/* Записи многих заказов одним чтением (отчёт, выписка): запросы по
+   указателю owners в одной транзакции — по одному они шли ~5 мс каждый. */
+function storageIdbColdOfMany(owners){return storageIdbTx(['cold'],'readonly',tx=>{const ix=tx.objectStore('cold').index('owners'),out={lists:new Array(owners.length)};owners.forEach((o,i)=>{ix.getAll(o).onsuccess=e=>{out.lists[i]=e.target.result||[];};});return out;}).then(o=>o.lists);}
 function storageIdbColdOf(owner){return storageIdbTx(['cold'],'readonly',tx=>{const out={records:[]};tx.objectStore('cold').index('owners').getAll(owner).onsuccess=e=>{out.records=e.target.result||[];};return out;}).then(o=>o.records);}
 function storageIdbArchiveGet(ids){return storageIdbTx(['archive'],'readonly',tx=>{const st=tx.objectStore('archive'),out={rows:new Array(ids.length)};ids.forEach((id,i)=>{st.get(id).onsuccess=e=>{out.rows[i]=e.target.result||null;};});return out;}).then(o=>o.rows);}
 function storageIdbArchiveAll(){return storageIdbTx(['archive'],'readonly',tx=>{const out={rows:[]};tx.objectStore('archive').getAll().onsuccess=e=>{out.rows=e.target.result||[];};return out;}).then(o=>o.rows);}

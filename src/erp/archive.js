@@ -7,9 +7,9 @@
    заказа и его комиссия»). Склад — cold (erp/storage-records): перенос —
    storageColdMove внутри действия, возврат — storageColdBring; строка
    Sales — указатель архива (склад archive, archiveIndex в памяти).
-   Сам уход пока выключен (ARCHIVE_ON): archiveRun вызывают проверки и
-   инструменты. Включится, когда Sales, отчёты и Agents видят архив (А5),
-   иначе экран молча показывал бы меньше, чем есть.
+   Уход включён (А5, ARCHIVE_ON): пишущая вкладка сама, раз в день,
+   пачками (archiveAuto) — после того как Sales, выписка, Agents и отчёты
+   научились видеть архив (А3–А4).
    Sales и вкладка Orders клиента (А3) показывают ушедшие строки вместе с
    живыми; клик — заказ с диска на том же экране, только просмотр и печать;
    Repeat — новый заказ из него; NCR — возврат в работу.
@@ -20,7 +20,7 @@
         archiveListInfos, archiveOpen(id), archiveViewing(o), archiveRepeat,
         archiveLedgerFor(customerId), archiveWith(owners,fn), archiveScopeFor(range)
    ===================================================================== */
-const ARCHIVE_ON=false,ARCHIVE_MONTHS=3;
+const ARCHIVE_ON=true,ARCHIVE_MONTHS=3;
 DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};DEFAULT.archiveRunDay='';
 let archiveIndex=new Map(),archiveIncoming=null;
 /* Заказ в архиве: строка указателя (клиент, вид). Пока идёт Import —
@@ -237,7 +237,7 @@ function archiveVisitEnd(){const v=archiveVisit;if(!v)return;archiveVisit=null;a
 /* Записи ушедших заказов owners с диска (общая запись — один раз). */
 async function archiveRead(owners){
  const seen=new Set(),recs=[];
- for(const owner of owners)(await storageIdbColdOf(owner)).forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}});
+ (await storageIdbColdOfMany(owners)).forEach(list=>list.forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}}));
  return recs;
 }
 /* Записи архива — в DB на время просмотра или расчёта; сравнение базы их не
@@ -404,10 +404,14 @@ function archiveRun(day,opts){
    заказ, просмотр архива или отчёт с архивом — попробует позже. Тесты и
    инструменты выключают его (window.GF_NO_ARCHIVE) и зовут archiveRun сами. */
 const ARCHIVE_BATCH=300;
-let archiveTimer=null;
+let archiveTimer=null,archiveInputAt=Date.now();
+/* Уход ждёт минуту без клавиш и мыши: пачка на большой базе держит экран
+   секунды, и посреди скана или ввода заказа это мешало бы. */
+if(typeof document!=='undefined')['keydown','pointerdown'].forEach(e=>document.addEventListener(e,()=>{archiveInputAt=Date.now();},true));
 function archiveAuto(){
  if(!ARCHIVE_ON||archiveTimer||typeof window!=='undefined'&&window.GF_NO_ARCHIVE)return;
  const next=ms=>{archiveTimer=setTimeout(()=>{archiveTimer=null;archiveAuto();},ms);},today=salesListDay(new Date());
+ if(Date.now()-archiveInputAt<60e3){next(60e3);return;}
  if(!storageWriter||storageRecovery||storageStale||storageStarting||typeof soDraft!=='undefined'&&soDraft||archiveVisit||archiveScope){next(10*60e3);return;}
  if(DB.archiveRunDay===today){next(60*60e3);return;}
  const r=archiveRun(today,{limit:ARCHIVE_BATCH,mark:true});

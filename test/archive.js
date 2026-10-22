@@ -1,7 +1,8 @@
 /* Архив (задание «База», этап 3, А2–А3, erp/archive): кто уходит, что
    уходит вместе, что остаётся (строка Sales, счётчики, склад листов), F5,
    Sales и клиент видят ушедшее, просмотр с диска, Repeat, NCR и возврат.
-   Уход выключен (ARCHIVE_ON) — здесь archiveRun вызывается сам. */
+   Сам уход (archiveAuto) в тестах выключен (GF_NO_ARCHIVE) — здесь
+   archiveRun вызывается сам. */
 module.exports=async function({page,eq}){
  console.log('archive');
  const t=await page();await require('./optimization-fixture')(t.p);
