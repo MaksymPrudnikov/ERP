@@ -1,0 +1,69 @@
+/* Master Data как конструктор, этап 1 (владелец, 22.10.2026): заказ
+   замораживает на Save и обвязку, и нормы веса; журнал Master Data «было →
+   стало»; Export / Import только Master Data — повтор файла не плодит
+   дубли, нет поля — значение остаётся. */
+module.exports=async function({page,eq,ok}){
+ console.log('master data · foundation');
+ const t=await page();
+ await require('./optimization-fixture')(t.p);
+ await t.p.evaluate(()=>{
+  window.mdfOrder=function(){const c=oqCustomer({legalName:'Freeze Co'}),id=oqOrder(c);salesOrderEdit(id);
+   soDraft.makeups.forEach(m=>m.cavities.forEach(x=>{x.priceOverride=null;}));salesOrderSave();salesDraftDrop(true);return id;};
+  window.mdfWeight=id=>{const o=salesRecord(id);return finWithOrder(o,()=>salesLineWeight(o.lines[0],o).knownKg);};
+ });
+
+ eq('Save замораживает обвязку и нормы веса: правка Master Data не меняет сохранённый заказ, новый заказ — по новым числам',await t.p.evaluate(()=>{
+  oqReset();const id=mdfOrder(),o=salesRecord(id),c=o.makeups[0].cavities[0];
+  const total=finOrderTotals(o).grand,kg=mdfWeight(id),keys=Object.keys(o.priceBook||{});
+  const surround=finWithOrder(o,()=>salesCavityCatalogPrice(c));
+  const rate=DB.materialWeightRates.find(r=>r.key==='spacer:'+c.spacerVariantId),was=rate&&rate.rate;
+  SALES_SURROUND_BASE.warm_edge+=1;SALES_SURROUND_BASE.aluminum+=1;SALES_SURROUND_BASE.stainless+=1;if(rate){rate.rate*=2;rate.derived=false;}
+  const kept={total:finOrderTotals(salesRecord(id)).grand===total,kg:mdfWeight(id)===kg};
+  const fresh=mdfOrder(),moved={total:finOrderTotals(salesRecord(fresh)).grand>total,kg:mdfWeight(fresh)>kg};
+  SALES_SURROUND_BASE.warm_edge-=1;SALES_SURROUND_BASE.aluminum-=1;SALES_SURROUND_BASE.stainless-=1;if(rate)rate.rate=was;
+  return {surroundKey:keys.some(k=>k.startsWith('surround:')),weightKey:keys.some(k=>k==='weight:spacer:'+c.spacerVariantId),surround:surround>0,kept,moved};
+ }),{surroundKey:true,weightKey:true,surround:true,kept:{total:true,kg:true},moved:{total:true,kg:true}});
+
+ eq('норма веса, исправленная из окна веса заказа, меняется и в самом заказе',await t.p.evaluate(()=>{
+  oqReset();const id=mdfOrder();salesOrderEdit(id);const l=soDraft.lines[0];salesMetricsLineId=l.id;
+  const rows=salesLineWeight(l,soDraft).rows,i=rows.findIndex(r=>r.key&&r.key.startsWith('spacer:'));
+  salesSaveWeightNorm(i,'99',1);const inOrder=soDraft.priceBook['weight:'+rows[i].key],global=salesWeightRate(rows[i].key);salesDraftDrop(true);
+  return {inOrder,global};
+ }),{inOrder:99,global:99});
+
+ eq('журнал Master Data: правка поля — было → стало, новая строка — Created, удалённая — Deleted, настройки — по полю; пустая заметка вместо её отсутствия — не правка',await t.p.evaluate(()=>{
+  const n=DB.masterDataEvent.length,g=glassProductByCode('6CLEAR'),was=g.salePriceAnnealed;
+  g.salePriceAnnealed=7.25;touch();
+  DB.gasProduct.push({id:'GAS-KR-T',code:'KR',name:'Krypton'});touch();
+  DB.gasProduct=DB.gasProduct.filter(x=>x.id!=='GAS-KR-T');touch();
+  DB.salesMetricRules.minimumAreaFt2=5;touch();
+  const sp=DB.spacerVariant[0],note=sp.note;sp.note=note||'';touch();
+  const ev=DB.masterDataEvent.slice(n,n+4).map(e=>[e.tbl,e.row,e.what,e.field,e.was,e.now]),tail=DB.masterDataEvent.length-n;
+  g.salePriceAnnealed=was;DB.salesMetricRules.minimumAreaFt2=4;touch();
+  return {ev,tail,glass:ev[0][1]===(g.name||g.code)&&ev[0][4]===String(was??'')};
+ }),{ev:[['glassProduct',await t.p.evaluate(()=>{const g=glassProductByCode('6CLEAR');return g.name||g.code;}),'Edited','salePriceAnnealed',await t.p.evaluate(()=>String(glassProductByCode('6CLEAR').salePriceAnnealed??'')),'7.25'],
+  ['gasProduct','Krypton','Created','','',''],['gasProduct','Krypton','Deleted','','',''],['salesMetricRules','Pricing rules','Edited','minimumAreaFt2','4','5']],tail:4,glass:true});
+
+ eq('журнал виден в Data overview → Change log: поиск и раздел',await t.p.evaluate(()=>{
+  tab='masterdata';mdTab='overview';mdOverviewView='log';mdLogQuery='';mdLogFilter='';render();
+  const all=document.querySelectorAll('[data-md-log-row]').length;
+  mdLogFilter='gasProduct';render();const gas=document.querySelectorAll('[data-md-log-row]').length;
+  mdLogFilter='';mdLogQuery='minimumAreaFt2';render();const q=document.querySelectorAll('[data-md-log-row]').length;
+  mdLogQuery='';mdOverviewView='collections';render();
+  return {all:all>=6,gas,q};
+ }),{all:true,gas:2,q:2});
+
+ eq('Export / Import только Master Data: план «новые / изменённые / без изменений», повтор файла не плодит дубли, нет поля — остаётся, null — очищает, заказы не тронуты',await t.p.evaluate(()=>{
+  const orders=DB.salesOrder.length,file=mdExportData();
+  const gas=file.tables.gasProduct,air=gas.find(x=>x.code==='AIR');
+  air.note='from file';delete air.name;gas.push({id:'GAS-XE-T',code:'XE',name:'Xenon'});
+  const plan=mdImportPlan(file).tables.find(x=>x.tbl==='gasProduct');
+  const first=mdImportApply(file).ok,second=mdImportApply(file).ok;
+  const a=DB.gasProduct.find(x=>x.code==='AIR');
+  const clear=JSON.parse(JSON.stringify(file));clear.tables.gasProduct.find(x=>x.code==='AIR').note=null;mdImportApply(clear);
+  const bad=(()=>{try{mdImportPlan({kind:'other'});return 'ok';}catch(e){return e.message;}})();
+  const out={plan:[plan.added,plan.changed,plan.rejected],first,second,xenon:DB.gasProduct.filter(x=>x.id==='GAS-XE-T').length,name:a.name,cleared:DB.gasProduct.find(x=>x.code==='AIR').note,orders:DB.salesOrder.length===orders,bad,logged:DB.masterDataEvent.some(e=>e.row==='Xenon'&&e.what==='Created')};
+  DB.gasProduct=DB.gasProduct.filter(x=>x.id!=='GAS-XE-T');touch();return out;
+ }),{plan:[1,1,0],first:true,second:true,xenon:1,name:'Air',cleared:'',orders:true,bad:'This is not a Master Data file.',logged:true});
+ await t.p.close();
+};

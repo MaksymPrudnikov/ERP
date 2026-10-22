@@ -65,6 +65,7 @@
   "src/erp/sales/lifecycle.js",
   "src/erp/sales/quotes.js",
   "src/erp/sales/order-log.js",
+  "src/erp/masterdata/md-log.js",
   "src/erp/documents/company.js",
   "src/erp/finance/data.js",
   "src/erp/finance/ledger.js",
