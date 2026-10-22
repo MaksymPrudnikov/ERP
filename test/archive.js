@@ -19,13 +19,18 @@ module.exports=async function({page,eq}){
   const b=oqOrder(oqCustomer({legalName:'Second customer'})),h=oqOrder(oqCustomer({legalName:'Hold customer'})),open=oqOrder(oqCustomer({legalName:'Open customer'}));salesDraftDrop();
   storageCommand(()=>{[a,b,h].forEach(id=>{const x=salesRecord(id);x.status='done';x.statusDates=Object.assign({},x.statusDates,{done:'2026-01-10T12:00:00.000Z'});});salesRecord(h).onHold=true;});
   [a,b].forEach(id=>{const x=salesRecord(id),total=finOrderTotals(x).grand;finPersist(()=>finSaveReceiptRecord({customerId:x.customerId,date:'2026-01-15',method:'cash',reference:'',note:'',amount:total,allocations:[{orderId:id,amount:total}],currency:'CAD'},'','',true));});
+  /* Агент: 10% с клиента первого заказа, 5% со второго; комиссия первого выплачена. */
+  storageCommand(()=>{DB.referrer=[{id:'RFR-T',name:'Agent Test',customers:[{customerId:salesRecord(a).customerId,pct:10},{customerId:salesRecord(b).customerId,pct:5}]}];normalizeCommissions();});
+  const pay=comPayoutAdd({referrerId:'RFR-T',date:'2026-01-20',note:'',orderIds:[a]});if(pay.error)throw new Error(pay.error);
   await storageFlush();return {a,b,h,open};
  });
  const snap=()=>t.p.evaluate(()=>readScope(()=>({
   rows:Object.fromEntries(DB.salesOrder.map(o=>{const i=salesListInfo(o);return [o.id,SALES_LIST_COLUMNS.map(c=>salesListValue(i,c.k))];})),
   inv:invSheetRows().map(r=>[r.key,r.onRack,r.free,r.cut]),deposit:DB.customer.map(c=>finCustomerDeposit(c.id)),
   next:[nextSalesOrderNumber(),salesNextBatchNumber(),finNextReceiptNumber()],
-  statements:DB.customer.map(c=>JSON.stringify([finStatementData(c.id,'',''),finStatementData(c.id,'2026-01-01','2026-01-31'),finStatementOrders(c.id,'','').map(x=>[x.o.businessNumber,x.billed,x.f.b.total,x.f.b.paid])]))})));
+  statements:DB.customer.map(c=>JSON.stringify([finStatementData(c.id,'',''),finStatementData(c.id,'2026-01-01','2026-01-31'),finStatementOrders(c.id,'','').map(x=>[x.o.businessNumber,x.billed,x.f.b.total,x.f.b.paid])])),
+  agents:comWithScope(()=>{const r=comFind('RFR-T');return JSON.stringify([null,{from:'2026-01-01',to:'2026-01-31'}].map(g=>{const x=comSummary(r,g);return [x.orders,x.base,x.paid,x.com,x.earned,x.paidOut,x.toPay,x.rows.map(y=>[y.number,y.date,y.total,y.paid,y.base,y.pct,y.com])];})
+   .concat([[...comDue(r).values()].map(y=>[y.number,y.com,y.paidOut,y.due]).sort()]));})})));
  const before=await snap();
  eq('кому пора: отгружен и оплачен 3 месяца назад — да; Hold, не отгружен и рано — нет',await t.p.evaluate(x=>{
   const due=d=>{const s=archiveDue(d);return [x.a,x.b,x.h,x.open].map(id=>s.has(id));};return {june:due('2026-06-01'),march:due('2026-03-20')};
@@ -42,11 +47,12 @@ module.exports=async function({page,eq}){
   deposit:JSON.stringify(after.deposit)===JSON.stringify(before.deposit),next:JSON.stringify(after.next)===JSON.stringify(before.next)},
   {index:true,rows:true,inv:true,deposit:true,next:true});
  eq('выписки клиентов (всё время, январь, раздел Orders) — те же после ухода: строки ушедших — из указателя архива',after.statements.map((x,i)=>x===before.statements[i]),before.statements.map(()=>true));
+ eq('Agents: комиссия, выплачено и к выплате — те же после ухода; выплата агенту осталась в работе',{same:after.agents===before.agents,due:JSON.parse(after.agents)[2].map(x=>x[3]),payout:await t.p.evaluate(()=>DB.referrerPayout.length)},{same:true,due:[0,JSON.parse(before.agents)[2].find(x=>x[3]>0)[3]],payout:1});
  await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  const f5=await snap();
  eq('после F5: архив не загружен, указатель на месте, склад и номера те же',{
   hot:await t.p.evaluate(x=>[x.a,x.b].some(id=>!!salesRecord(id)),ids),index:await t.p.evaluate(()=>archiveIndex.size),
-  inv:JSON.stringify(f5.inv)===JSON.stringify(before.inv),next:JSON.stringify(f5.next)===JSON.stringify(before.next),statements:JSON.stringify(f5.statements)===JSON.stringify(before.statements)},{hot:false,index:2,inv:true,next:true,statements:true});
+  inv:JSON.stringify(f5.inv)===JSON.stringify(before.inv),next:JSON.stringify(f5.next)===JSON.stringify(before.next),statements:JSON.stringify(f5.statements)===JSON.stringify(before.statements),agents:f5.agents===before.agents},{hot:false,index:2,inv:true,next:true,statements:true,agents:true});
  /* А3: Sales и вкладка клиента показывают ушедшие строки; открыть — с диска,
     только просмотр; в базу ничего не пишется; Repeat; NCR возвращает в работу. */
  eq('Sales: ушедшие строки вместе с живыми, с меткой Archived, Open; те же значения и итоги',await t.p.evaluate(([x,b])=>{

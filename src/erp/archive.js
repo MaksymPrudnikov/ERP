@@ -42,21 +42,23 @@ function archiveIndexApply(pairs,clear){
  });
 }
 function archiveLedgerFor(customerId){const m=archiveLedgerBy.get(customerId);return m?[...m.values()]:[];}
-/* Строки выписки записей, которые сейчас уходят: заказ (начисление и строка
-   раздела Orders, оплачен целиком), оплата, возврат — как в день ухода. */
+/* Строки записей, которые сейчас уходят, — как в день ухода. Заказ: для
+   Agents — номер, дата, сумма и HST (com); для выписки — начисление и
+   строка раздела Orders (оплачен целиком). Оплата: для Agents — дата и
+   разнесения (alloc); для выписки — строка. Возврат — строка выписки. */
 function archiveLedgerOf(set){
  const out=[],paidOn=new Map();
  finActiveReceipts().forEach(r=>(r.allocations||[]).forEach(a=>{let d=paidOn.get(a.orderId);if(!d)paidOn.set(a.orderId,d=[]);d.push(r.date);}));
  set.forEach(x=>{
   const r=x.row,key='L:'+x.tbl+':'+r.id;
   if(x.tbl==='salesOrder'&&!salesIsQuote(r)){
-   const l=finStatementOrderLine(r);if(!l)return;
-   if(l.skipped){out.push([key,{id:r.id,customerId:r.customerId,skipped:r.businessNumber||''}]);return;}
-   const f=finOrderFinancial(r);
-   out.push([key,{id:r.id,customerId:r.customerId,line:l,order:{number:r.businessNumber||'',po:r.customerPo||'',billed:l.date,paidOn:paidOn.get(r.id)||[],
-    f:{b:{total:f.b.total,paid:f.b.paid,balance:f.b.balance,status:f.b.status},overdue:0,dueOn:f.dueOn||'',terms:{paymentMode:f.terms.paymentMode,creditDays:f.terms.creditDays},handover:f.handover}}}]);
+   const t=finOrderTotals(r),e={id:r.id,customerId:r.customerId,com:{number:r.businessNumber||'',created:r.createdAt||'',t:{grand:t.grand,hst:t.hst,complete:!!t.complete}}},l=finStatementOrderLine(r);
+   if(l&&l.skipped)e.skipped=r.businessNumber||'';
+   else if(l){const f=finOrderFinancial(r);e.line=l;e.order={number:r.businessNumber||'',po:r.customerPo||'',billed:l.date,paidOn:paidOn.get(r.id)||[],
+    f:{b:{total:f.b.total,paid:f.b.paid,balance:f.b.balance,status:f.b.status},overdue:0,dueOn:f.dueOn||'',terms:{paymentMode:f.terms.paymentMode,creditDays:f.terms.creditDays},handover:f.handover}};}
+   out.push([key,e]);
   }
-  if(x.tbl==='receipt'){const l=finStatementPaymentLine(r);if(l)out.push([key,{id:r.id,customerId:r.customerId,line:l}]);}
+  if(x.tbl==='receipt'&&!r.voided){const e={id:r.id,customerId:r.customerId,date:r.date,alloc:(r.allocations||[]).map(a=>({orderId:a.orderId,amount:a.amount}))},l=finStatementPaymentLine(r);if(l)e.line=l;out.push([key,e]);}
   if(x.tbl==='refund'){const l=finStatementRefundLine(r);if(l)out.push([key,{id:r.id,customerId:r.customerId,line:l}]);}
  });
  return out;
@@ -158,7 +160,8 @@ function archiveCollect(ids){
   const mine=ids.has(entity)||receipts.has(entity)||refunds.has(entity);if(!mine||orders.some(id=>live.has(id)))return;
   add('financeEvent',e,orders.length?orders:[entity]);
  });
- (DB.referrerPayout||[]).forEach(p=>{const orders=(p.orders||[]).map(x=>x.orderId);if(orders.length&&orders.some(id=>ids.has(id))&&!orders.some(id=>live.has(id)))add('referrerPayout',p,orders);});
+ /* Выплаты агентам остаются в работе: их мало, а «к выплате» считается по
+    ним за всё время (Agents, finance/commissions). */
  /* Журнал выгрузок QuickBooks — вместе со своей оплатой или заказом. */
  const exported=new Map();out.forEach(x=>{if(['salesOrder','receipt','refund'].includes(x.tbl))exported.set(x.row.id,x.owners);});
  (DB.financeExport||[]).forEach(e=>{if(e&&exported.has(e.entityId))add('financeExport',e,exported.get(e.entityId));});
