@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 162 модулей, 23 стиля.
+  Состав сборки: 164 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -565,7 +565,9 @@ body.signin-mode main#app{padding:0}
 .sales-bulk-pricing-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.sales-bulk-pricing-title h3{margin:0}.sales-bulk-pricing-badge{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;background:var(--warning-soft);border:1px solid var(--warning-line);color:var(--warning);font-size:8px!important;font-weight:800;letter-spacing:.04em;text-transform:uppercase}.sales-bulk-pricing-banner{display:flex;align-items:center;gap:8px;margin:10px 12px 8px;padding:8px 10px;border-radius:8px;background:var(--warning-soft);border:1px solid var(--warning-line);color:var(--warning);font-size:9px}.sales-bulk-pricing-banner b{white-space:nowrap}.sales-bulk-pricing-banner span{line-height:1.35}.sales-order-service-row:not(.head) .sales-order-rate{padding:4px;border-radius:6px;background:var(--warning-soft);box-shadow:inset 0 0 0 1px var(--warning-line)}
 
 /* PR3 release guards: rate provenance and incomplete pricing are explicit. */
-.line-services-money,.sales-order-price-summary{display:flex;flex-direction:column;align-items:flex-end;gap:1px}.line-services-money small,.sales-order-price-summary small{font-size:7.5px;font-weight:800;color:var(--warning);white-space:nowrap}.line-services-btn.incomplete,.sales-services-order-btn.incomplete{border-color:var(--warning-line)!important;background:var(--warning-soft)!important}.sales-pricing-warning{display:flex;align-items:flex-start;gap:10px;margin:9px 12px;padding:8px 10px;border:1px solid var(--warning-line);border-radius:8px;background:var(--warning-soft);color:var(--warning);font-size:9px}.sales-pricing-warning b{white-space:nowrap}.sales-pricing-warning span{line-height:1.4}.sales-price-missing{color:var(--warning);font-weight:800}.sales-line-service-row.unpriced,.sales-order-service-row.unpriced{background:var(--warning-soft)}.sales-rate-origin{display:inline-flex!important;width:max-content;padding:2px 5px;border-radius:999px;font-weight:800!important;letter-spacing:.04em}.sales-rate-origin.catalog{background:var(--accent-soft);color:var(--accent)!important}.sales-rate-origin.order{background:var(--warning-soft);color:var(--warning)!important}.sales-rate-origin.line{background:var(--violet-soft);color:var(--violet)!important}.sales-rate-origin.missing{background:var(--danger-soft);color:var(--danger)!important}.sales-service-modal-total.incomplete{flex-wrap:wrap}.sales-service-modal-total.incomplete small{font-size:8px;font-weight:800;color:var(--warning)}
+.line-services-money,.sales-order-price-summary{display:flex;flex-direction:column;align-items:flex-end;gap:1px}.line-services-money small,.sales-order-price-summary small{font-size:7.5px;font-weight:800;color:var(--warning);white-space:nowrap}.line-services-btn.incomplete,.sales-services-order-btn.incomplete{border-color:var(--warning-line)!important;background:var(--warning-soft)!important}.sales-pricing-warning{display:flex;align-items:flex-start;gap:10px;margin:9px 12px;padding:8px 10px;border:1px solid var(--warning-line);border-radius:8px;background:var(--warning-soft);color:var(--warning);font-size:9px}.sales-pricing-warning b{white-space:nowrap}.sales-pricing-warning span{line-height:1.4}.sales-price-missing{color:var(--warning);font-weight:800}.sales-line-service-row.unpriced,.sales-order-service-row.unpriced{background:var(--warning-soft)}.sales-rate-origin{display:inline-flex!important;width:max-content;padding:2px 5px;border-radius:999px;font-weight:800!important;letter-spacing:.04em}.sales-rate-origin.catalog{background:var(--accent-soft);color:var(--accent)!important}.sales-rate-origin.order{background:var(--warning-soft);color:var(--warning)!important}.sales-rate-origin.line{background:var(--violet-soft);color:var(--violet)!important}.sales-rate-origin.missing{background:var(--danger-soft);color:var(--danger)!important}
+.sales-rate-origin.list{background:var(--success-soft);color:var(--success)!important}
+.mu-price-from{font-size:9px;font-weight:800;letter-spacing:.04em;color:var(--success);white-space:nowrap}.sales-service-modal-total.incomplete{flex-wrap:wrap}.sales-service-modal-total.incomplete small{font-size:8px;font-weight:800;color:var(--warning)}
 /* «+ Add service» внизу окна сервисов (sales/extra-services). */
 .sales-extra-bar{margin:10px 12px 12px}
 .sales-extra-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin:10px 12px 12px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);font-size:9.5px}
@@ -3478,7 +3480,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='613b91171c20';
+var ERP_BUILD='3504ee95912b';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11873,7 +11875,7 @@ function normalizeCustomer(c,i){
  const fuelMode=CUSTOMER_FUEL_MODES.includes(c.fuelLevyMode)?c.fuelLevyMode:'default';
  return {
   id:customerString(c.id)||customerUid('CUS'),code:customerString(c.code),legalName:customerString(c.legalName||c.name),displayName:customerString(c.displayName||c.legalName||c.name),
-  status,isProspect:customerBool(c.isProspect),customerType:customerString(c.customerType),group:customerString(c.group),area:customerString(c.area),salesRep:customerString(c.salesRep),
+  status,isProspect:customerBool(c.isProspect),customerType:customerString(c.customerType),group:customerString(c.group),priceGroupId:customerString(c.priceGroupId),area:customerString(c.area),salesRep:customerString(c.salesRep),
   accountOpenedAt:customerString(c.accountOpenedAt),notes:customerString(c.notes),internalNotes:customerString(c.internalNotes),
   taxNumber:customerString(c.taxNumber),registrationNumber:customerString(c.registrationNumber),taxExempt:customerBool(c.taxExempt),taxExemptionNumber:customerString(c.taxExemptionNumber),
   paymentTerms:customerString(c.paymentTerms),...paymentTermsFrom(c),currency:CUSTOMER_CURRENCIES.includes(c.currency)?c.currency:'CAD',creditLimit:customerNumber(c.creditLimit),
@@ -11936,7 +11938,7 @@ function customerCsvRows(){
  const rows=DB.customer.map(c=>{
   const p=customerPrimaryContact(c),b=customerAddressByType(c,'billing'),d=customerAddressByType(c,'delivery'),lr=c.legacyRefs||{};
   const print=['print','both'].includes(c.statementDelivery),email=['email','both'].includes(c.statementDelivery);
-  const vals=[c.id,c.code,c.legalName,c.displayName,c.status,c.isProspect,c.customerType,c.group,c.area,c.salesRep,p.phone,p.phone2,p.mobile,p.fax,p.email,p.name,b.address1,b.address2,b.address3,'','',b.postalCode,d.address1,d.address2,d.address3,'','',d.postalCode,c.deliverTo,c.onHold,c.holdReason,lr.iwg,print,email,c.checkTerms,c.taxNumber,c.registrationNumber,c.creditLimit==null?'':c.creditLimit,c.defaultDeliveryMethod,c.fuelLevyRate==null?'':c.fuelLevyRate,c.fuelLevyMode,c.currency,c.accountOpenedAt,c.creditApplicationDate,c.paymentTerms,c.poRequired,c.statementEmail,c.invoiceEmail,c.notes,c.internalNotes,JSON.stringify(c.contacts),JSON.stringify(c.addresses),lr.dcLink,lr.flid,lr.iClassID,lr.repID,lr.iAreasID,lr.uiARDeliveryMethod,lr.uiARCATID,lr.accountStatusID,c.paymentMode,c.depositPercent==null?'':c.depositPercent,c.creditDays==null?'':c.creditDays];
+  const vals=[c.id,c.code,c.legalName,c.displayName,c.status,c.isProspect,c.customerType,customerGroupName(c),c.area,c.salesRep,p.phone,p.phone2,p.mobile,p.fax,p.email,p.name,b.address1,b.address2,b.address3,'','',b.postalCode,d.address1,d.address2,d.address3,'','',d.postalCode,c.deliverTo,c.onHold,c.holdReason,lr.iwg,print,email,c.checkTerms,c.taxNumber,c.registrationNumber,c.creditLimit==null?'':c.creditLimit,c.defaultDeliveryMethod,c.fuelLevyRate==null?'':c.fuelLevyRate,c.fuelLevyMode,c.currency,c.accountOpenedAt,c.creditApplicationDate,c.paymentTerms,c.poRequired,c.statementEmail,c.invoiceEmail,c.notes,c.internalNotes,JSON.stringify(c.contacts),JSON.stringify(c.addresses),lr.dcLink,lr.flid,lr.iClassID,lr.repID,lr.iAreasID,lr.uiARDeliveryMethod,lr.uiARCATID,lr.accountStatusID,c.paymentMode,c.depositPercent==null?'':c.depositPercent,c.creditDays==null?'':c.creditDays];
   return vals;
  });
  return [H].concat(rows);
@@ -12149,25 +12151,45 @@ function salesDefaultPane(i){
    — из Master Data. Save записывает в priceBook ровно те цены, по которым
    посчитан заказ; ставки услуг фиксировались и раньше (chargePricing). Заказ
    берётся из контекста расчёта (finWithOrder ставит его в soDraft). */
-let salesBookRec=null;
+/* Новая цена сначала ищется в прайсах клиента (erp/sales/price-lists), потом
+   в Master Data. Откуда она пришла, заказ помнит в priceFrom: ключ цены →
+   прайс. */
+let salesBookRec=null,salesFromRec=null;
 function salesBook(key,live){
- const b=typeof soDraft!=='undefined'&&soDraft&&soDraft.priceBook;
- const v=b&&Object.prototype.hasOwnProperty.call(b,key)?b[key]:live();
+ const o=typeof soDraft!=='undefined'&&soDraft,b=o&&o.priceBook;
+ let v;
+ if(b&&Object.prototype.hasOwnProperty.call(b,key)){v=b[key];if(salesFromRec&&o.priceFrom&&o.priceFrom[key])salesFromRec[key]=o.priceFrom[key];}
+ else{const lp=salesPriceListFor(salesPriceTargetOfKey(key));v=lp?lp.price:live();if(salesFromRec&&lp)salesFromRec[key]=lp.listId;}
  if(salesBookRec)salesBookRec[key]=v==null?null:v;
  return v;
+}
+/* Откуда цена по ключу priceBook: прайс заказа или живой поиск. '' — общая. */
+function salesPriceFromOf(key){
+ const o=typeof soDraft!=='undefined'&&soDraft;if(!o)return '';
+ if(o.priceBook&&Object.prototype.hasOwnProperty.call(o.priceBook,key))return (o.priceFrom&&o.priceFrom[key])||'';
+ const lp=salesPriceListFor(salesPriceTargetOfKey(key));return lp?lp.listId:'';
 }
 /* Цены и нормы веса, по которым заказ посчитан сейчас: прежние — из его
    priceBook, новые позиции — из Master Data. */
 function salesPriceBookOf(o){
- const keep=salesBookRec;salesBookRec={};
+ const keep=salesBookRec,keepFrom=salesFromRec;salesBookRec={};salesFromRec={};
  try{
   finOrderTotals(o);
   if(typeof salesLineWeight==='function')finWithOrder(o,()=>(o.lines||[]).forEach(l=>{try{salesLineWeight(l,o);}catch(e){console.warn('weight book '+(o.businessNumber||o.id)+': '+e.message);}}));
+  /* Откуда цены — рядом с самими ценами, тем же снимком. */
+  if(Object.keys(salesFromRec).length)o.priceFrom=salesFromRec;else delete o.priceFrom;
   return salesBookRec;
- }finally{salesBookRec=keep;}
+ }finally{salesBookRec=keep;salesFromRec=keepFrom;}
 }
+function salesPriceFromClean(f){const out={};if(f&&typeof f==='object'&&!Array.isArray(f))Object.keys(f).forEach(k=>{if(typeof f[k]==='string'&&f[k])out[k]=f[k];});return out;}
 function salesPriceBookClean(b){const out={};Object.keys(b).forEach(k=>{const v=b[k];if(v===null)out[k]=null;else if(typeof v==='number'&&Number.isFinite(v))out[k]=v;});return out;}
 function salesGlassSalePrice(g,tempered){const f=tempered?'salePriceTempered':'salePriceAnnealed';return salesBook('glass:'+g.id+':'+f,()=>g[f]==null?null:g[f]);}
+/* Прайс, давший цену листа (лайт или слой ламината) — для «откуда цена». */
+function salesGlassPriceFrom(x){
+ const g=x&&glassProductById(x.glassProductId);if(!g)return '';
+ const ht=mdById('heatTreatment',x.heatTreatmentId),code=String((ht&&ht.code)||'').toUpperCase();
+ return salesPriceFromOf('glass:'+g.id+':'+(code==='FT'||code==='HS'?'salePriceTempered':'salePriceAnnealed'));
+}
 function salesInterlayerSalePrice(id){return salesBook('interlayer:'+id,()=>{const p=mdById('interlayerProduct',id);return p&&p.salePrice!=null?p.salePrice:null;});}
 const SALES_SURROUND_BASE={aluminum:2.40,warm_edge:2.85,stainless:2.85};
 const SALES_SURROUND_ARGON=0.25;
@@ -12373,7 +12395,7 @@ function normalizeSalesChargePricing(raw){
  Object.keys(raw).forEach(function(key){
   if(!/^[A-Za-z0-9:._|+\-]{1,180}$/.test(key))return;const r=raw[key]&&typeof raw[key]==='object'?raw[key]:{};
   const catalog=r.catalogRate==null||r.catalogRate===''?NaN:Number(r.catalogRate),order=r.orderRate==null||r.orderRate===''?NaN:Number(r.orderRate);
-  out[key]={catalogRate:Number.isFinite(catalog)&&catalog>=0?catalog:null,orderRate:Number.isFinite(order)&&order>=0?order:null};
+  out[key]={catalogRate:Number.isFinite(catalog)&&catalog>=0?catalog:null,orderRate:Number.isFinite(order)&&order>=0?order:null,...(typeof r.from==='string'&&r.from?{from:r.from}:{})};
  });
  return out;
 }
@@ -12448,7 +12470,7 @@ function normalizeSalesOrder(o){
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
   remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
   ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines)),
@@ -12558,6 +12580,143 @@ function salesTemperCompatibilityWarnings(order){
   });
  }));
  return out;
+}
+
+/* ==== src/erp/sales/price-lists.js ==== */
+/* =====================================================================
+   erp/sales/price-lists  ·  price-lists-1.0
+   Прайсы клиентов (план Master Data как конструктора, этап 2; владелец,
+   22.10.2026). Порядок поиска цены: ручная в заказе → личный прайс клиента
+   → прайс группы клиента → общая цена. Внутри одного прайса айтем важнее
+   группы айтемов; айтем в двух группах — берётся группа, заданная последней.
+   0 — это цена: на нём поиск заканчивается. У работы своя цена на каждую
+   полосу толщины, как в Works («чем детальней и глубже, тем лучше»); пустая
+   полоса — прайс молчит, ищем дальше.
+   IN : DB.priceList, DB.itemGroup, customer.priceGroupId; заказ — soDraft
+        (finWithOrder ставит в него считаемый заказ)
+   OUT: salesPriceListFor(target) — {price, listId, rowId} или null;
+        salesPriceTargets() — всё, чему прайс может дать цену;
+        salesBook и salesCatalogRate (erp/sales) спрашивают прайсы первыми
+
+   Строка прайса — «цель» и цена. Цель — то же имя цены, что в priceBook
+   заказа: glass:<id>:salePriceAnnealed, item:<таблица>:<id>, service:<id
+   работы>, group:<id группы айтемов>. Группа клиента — это её прайс
+   (kind 'group'), личный прайс — kind 'customer' с customerId.
+   ===================================================================== */
+DEFAULT.priceList=[];DEFAULT.itemGroup=[];
+if(!Array.isArray(DB.priceList))DB.priceList=[];
+if(!Array.isArray(DB.itemGroup))DB.itemGroup=[];
+
+function normalizePriceLists(){
+ const s=v=>typeof v==='string'?v.trim():'';
+ const price=v=>{if(v==null||v==='')return null;const n=+v;return Number.isFinite(n)&&n>=0?Math.round(n*10000)/10000:null;};
+ if(!Array.isArray(DB.itemGroup))DB.itemGroup=[];
+ const groups=new Set();
+ DB.itemGroup=DB.itemGroup.filter(g=>g&&typeof g==='object').map(g=>{
+  let id=s(g.id)||salesUid('IG');while(groups.has(id))id=salesUid('IG');groups.add(id);
+  return {id,name:s(g.name),members:[...new Set((Array.isArray(g.members)?g.members:[]).map(s).filter(Boolean))]};
+ });
+ if(!Array.isArray(DB.priceList))DB.priceList=[];
+ const ids=new Set(),personal=new Set();
+ DB.priceList=DB.priceList.filter(l=>l&&typeof l==='object').map(l=>{
+  let id=s(l.id)||salesUid('PL');while(ids.has(id))id=salesUid('PL');ids.add(id);
+  const kind=l.kind==='customer'?'customer':'group',rowIds=new Set();
+  const rows=(Array.isArray(l.rows)?l.rows:[]).filter(r=>r&&typeof r==='object'&&s(r.target)).map(r=>{
+   let rid=s(r.id)||salesUid('PLR');while(rowIds.has(rid))rid=salesUid('PLR');rowIds.add(rid);
+   const b=r.bands&&typeof r.bands==='object'?r.bands:null;
+   return Object.assign({id:rid,target:s(r.target),price:price(r.price),at:s(r.at)},b?{bands:{'6':price(b['6']),'8-10':price(b['8-10']),'12-19':price(b['12-19'])}}:{});
+  });
+  return {id,kind,name:kind==='group'?s(l.name):'',customerId:kind==='customer'?s(l.customerId):'',rows};
+ /* У клиента один личный прайс: повтор — ошибка импорта, первый остаётся. */
+ }).filter(l=>l.kind==='group'||(l.customerId&&!personal.has(l.customerId)&&personal.add(l.customerId)));
+ /* Group из Spil — та же группа спец-цен: текст, совпавший с именем группы,
+    ставит клиента в неё. Выбор группы руками текст стирает. */
+ const byName=new Map(DB.priceList.filter(l=>l.kind==='group'&&l.name).map(l=>[l.name.toLowerCase(),l.id]));
+ (DB.customer||[]).forEach(c=>{if(c&&!c.priceGroupId&&c.group){const id=byName.get(String(c.group).trim().toLowerCase());if(id)c.priceGroupId=id;}});
+}
+
+function priceListById(id){return id?(DB.priceList||[]).find(l=>l.id===id)||null:null;}
+function priceListGroups(){return (DB.priceList||[]).filter(l=>l.kind==='group');}
+function priceListOfCustomer(customerId){return customerId?(DB.priceList||[]).find(l=>l.kind==='customer'&&l.customerId===customerId)||null:null;}
+function itemGroupById(id){return id?(DB.itemGroup||[]).find(g=>g.id===id)||null:null;}
+/* Имя прайса для «откуда цена»: группа — её имя, личный — Personal. */
+function priceListName(id){const l=priceListById(id);return !l?'Deleted list':l.kind==='customer'?'Personal':(l.name||'Unnamed group');}
+
+/* Цена строки: полоса толщины, если у строки она есть, иначе общая. */
+function priceListRowPrice(r,band){const b=band&&r.bands?r.bands[band]:null;return b!=null?b:r.price;}
+/* Группа клиента — поле Group карточки (владелец, 22.10.2026: «это спец
+   цены для клиентов»). Старый текст из Spil виден, пока группа не выбрана. */
+function customerGroupName(c){const l=c&&priceListById(c.priceGroupId);return l&&l.kind==='group'?(l.name||'Unnamed group'):(c&&c.group)||'';}
+function customerGroupSelect(c){
+ const old=!c.priceGroupId&&c.group?`<option value="" selected>${esc(c.group)} · not a price group</option>`:'';
+ return `<select data-customer-group onchange="cDraft.priceGroupId=this.value;cDraft.group=''">${old}<option value="" ${!old&&!c.priceGroupId?'selected':''}>— None —</option>${priceListGroups().map(l=>`<option value="${esc(l.id)}" ${c.priceGroupId===l.id?'selected':''}>${esc(l.name||'Unnamed group')}</option>`).join('')}</select>`;
+}
+/* Строка прайса для цели: сама цель, иначе группа айтемов, заданная
+   последней. Строка без цены — ещё не заполнена, её пропускаем. */
+function priceListRowFor(list,target,band){
+ if(!list)return null;
+ const direct=list.rows.find(r=>r.target===target&&priceListRowPrice(r,band)!=null);if(direct)return direct;
+ let best=null;
+ list.rows.forEach(r=>{
+  if(priceListRowPrice(r,band)==null||r.target.indexOf('group:')!==0)return;
+  const g=itemGroupById(r.target.slice(6));
+  if(g&&g.members.includes(target)&&(!best||String(r.at)>=String(best.at)))best=r;
+ });
+ return best;
+}
+/* Цена из прайсов клиента заказа: личный, затем группа. null — прайсы
+   молчат, идёт общая цена. */
+function salesPriceListFor(target,band,customerId){
+ if(customerId===undefined)customerId=typeof soDraft!=='undefined'&&soDraft?soDraft.customerId:'';
+ if(!target||!customerId)return null;
+ const c=(DB.customer||[]).find(x=>x.id===customerId);
+ const lists=[priceListOfCustomer(customerId),c&&c.priceGroupId?priceListById(c.priceGroupId):null];
+ for(const l of lists){const r=priceListRowFor(l,target,band);if(r)return {price:priceListRowPrice(r,band),listId:l.id,rowId:r.id};}
+ return null;
+}
+/* Имя цены в priceBook → цель прайса. Плёнка в ламинате — та же строка
+   interlayerProduct, что и плёнка отдельной позицией. Обвязка — пока не цель:
+   она станет рецептом из айтемов на этапе 3. */
+function salesPriceTargetOfKey(key){
+ key=String(key||'');
+ if(key.indexOf('glass:')===0||key.indexOf('item:')===0)return key;
+ if(key.indexOf('interlayer:')===0)return 'item:interlayerProduct:'+key.slice(11);
+ return '';
+}
+
+/* Всё, чему прайс может дать цену: стекло (отожжённое и закалённое), плёнки,
+   фрит, спандрел, складские позиции на продажу, работы из Works. */
+const PRICE_ITEM_TABLES=[['interlayerProduct','Interlayer',true],['fritProduct','Frit',true],['spandrelProduct','Spandrel',true],
+ ['stockItem','Stock',false],['sealantProduct','Sealant',false],['gasProduct','Gas',false]];
+function salesPriceTargets(){
+ const out=[];
+ (DB.glassProduct||[]).forEach(g=>{if(!g||g.active===false)return;const n=g.name||g.code||g.id;
+  out.push({key:'glass:'+g.id+':salePriceAnnealed',kind:'Glass',label:n+' · Annealed',unit:'ft²',base:g.salePriceAnnealed==null?null:g.salePriceAnnealed});
+  out.push({key:'glass:'+g.id+':salePriceTempered',kind:'Glass',label:n+' · Tempered',unit:'ft²',base:g.salePriceTempered==null?null:g.salePriceTempered});});
+ PRICE_ITEM_TABLES.forEach(([table,kind,all])=>(DB[table]||[]).forEach(x=>{if(!x||x.active===false||!all&&x.sellsAsOwnLine!==true)return;
+  out.push({key:'item:'+table+':'+x.id,kind,label:x.name||x.code||x.id,unit:all?'ft²':'pc',base:x.salePrice==null?null:x.salePrice});}));
+ (DB.serviceRate||[]).forEach(r=>{if(!r||!r.id)return;
+  out.push({key:'service:'+r.id,kind:'Service',label:r.name||r.id,unit:r.unit||'pc',base:r.kind==='flat'?r.flat:null,bands:r.kind==='flat'?null:r.bands});});
+ return out;
+}
+function salesPriceTargetLabel(key,targets){
+ if(String(key).indexOf('group:')===0){const g=itemGroupById(key.slice(6));return g?'Item group · '+(g.name||'Unnamed'):'Deleted item group';}
+ const t=(targets||salesPriceTargets()).find(x=>x.key===key);return t?t.kind+' · '+t.label:'Removed · '+key;
+}
+
+/* Update prices в сохранённом заказе (владелец, 22.10.2026: при смене
+   клиента ручные цены остаются; кнопка пересчитывает по прайсам на сегодня).
+   Сбрасываются только снимки цен; нормы веса (weight:) и ручные цены —
+   priceOverride, ставка строки и заказа — не трогаются. */
+function salesUpdatePrices(){
+ if(!soDraft)return;
+ const b=soDraft.priceBook||{},keep={};
+ Object.keys(b).forEach(k=>{if(k.indexOf('weight:')===0)keep[k]=b[k];});
+ soDraft.priceBook=keep;delete soDraft.priceFrom;
+ (soDraft.lines||[]).forEach(line=>{
+  const map=line.chargePricing||{};
+  salesLineChargeRows(line).forEach(row=>{const rec=map[row.key];if(!rec)return;rec.catalogRate=row.catalogRate==null?null:row.catalogRate;if(row.from)rec.from=row.from;else delete rec.from;});
+ });
 }
 
 /* ==== src/erp/sales/lifecycle.js ==== */
@@ -13392,7 +13551,8 @@ const MD_LOG_TABLES={
  spacerVariant:'Spacers',gasProduct:'Gas',sealantProduct:'Sealants',interlayerProduct:'Interlayers',
  fritProduct:'Frit',spandrelProduct:'Spandrel',spandrelColour:'Spandrel colours',serviceRate:'Works',
  hardwareKind:'Hardware kinds',hardwareModel:'Hardware models',materialWeightRates:'Weight norms',
- edgeAllowance:'Cutting allowance',station:'Stations',ncrReason:'NCR reasons',carrier:'Dollies & Skids',truck:'Trucks'
+ edgeAllowance:'Cutting allowance',station:'Stations',ncrReason:'NCR reasons',carrier:'Dollies & Skids',truck:'Trucks',
+ priceList:'Price lists',itemGroup:'Item groups'
 };
 const MD_LOG_SETTINGS={cutting:'Cutting',company:'Company',stickerTemplate:'Stickers',salesMetricRules:'Pricing rules'};
 const MD_LOG_TEXT=120;
@@ -13408,7 +13568,19 @@ function mdLogValue(v){
  const t=typeof v==='object'?JSON.stringify(v):String(v);
  return t.length>MD_LOG_TEXT?t.slice(0,MD_LOG_TEXT-1)+'…':t;
 }
-function mdLogRowName(row,id){return mdLogValue(row&&(row.name||row.label||row.code||row.key))||id;}
+function mdLogRowName(row,id,tbl){
+ /* Личный прайс без имени — по клиенту (erp/sales/price-lists). */
+ if(tbl==='priceList'&&row&&row.kind==='customer')return 'Personal · '+(salesCustomerDisplay(row.customerId)||row.customerId);
+ return mdLogValue(row&&(row.name||row.label||row.code||row.key))||id;
+}
+/* Строки прайса — по строке: «айтем: было → стало», а не весь список JSON. */
+function mdLogPriceRows(a,b){
+ const price=r=>!r?'':[r.price==null?'':String(r.price)].concat(r.bands?['6','8-10','12-19'].map(k=>r.bands[k]==null?'':k+': '+r.bands[k]).filter(Boolean):[]).filter(Boolean).join(' · ');
+ const was=new Map(((a&&a.rows)||[]).map(r=>[r.id,r])),now=new Map(((b&&b.rows)||[]).map(r=>[r.id,r])),out=[],targets=salesPriceTargets();
+ now.forEach((r,id)=>{const x=was.get(id),p=price(r),q=price(x);if(!x||p!==q||x.target!==r.target)out.push([salesPriceTargetLabel(r.target,targets),x?q:'',p]);});
+ was.forEach((r,id)=>{if(!now.has(id))out.push([salesPriceTargetLabel(r.target,targets),price(r),'removed']);});
+ return out;
+}
 /* Поля строки «было → стало»: только те, что поменялись. */
 function mdLogFields(a,b){
  const out=[],keys=new Set(Object.keys(a||{}).concat(Object.keys(b||{})));
@@ -13449,9 +13621,10 @@ function mdLogCapture(changes){
   /* Таблицы, которой в базе ещё нет, — засев, а не правка. */
   if(!MD_LOG_TABLES[c.tbl]||!storageBase.has(c.tbl))return;
   mdLogPairs(c).forEach(([id,a,b])=>{
-   if(!a&&b){push(c.tbl,id,mdLogRowName(b,id),'Created');n++;return;}
-   if(a&&!b){push(c.tbl,id,mdLogRowName(a,id),'Deleted');n++;return;}
-   if(a&&b)mdLogFields(a,b).forEach(([k,x,y])=>{push(c.tbl,id,mdLogRowName(b,id),'Edited',k,x,y);n++;});
+   if(!a&&b){push(c.tbl,id,mdLogRowName(b,id,c.tbl),'Created');n++;}
+   else if(a&&!b){push(c.tbl,id,mdLogRowName(a,id,c.tbl),'Deleted');n++;return;}
+   else if(a&&b)mdLogFields(a,b).forEach(([k,x,y])=>{if(c.tbl==='priceList'&&k==='rows')return;push(c.tbl,id,mdLogRowName(b,id,c.tbl),'Edited',k,x,y);n++;});
+   if(c.tbl==='priceList'&&b)mdLogPriceRows(a,b).forEach(([k,x,y])=>{push(c.tbl,id,mdLogRowName(b,id,c.tbl),'Edited',k,x,y);n++;});
   });
  });
  return n>0;
@@ -15918,7 +16091,7 @@ function custInfos(){
  return (DB.customer||[]).map(c=>{const p=customerPrimaryContact(c),money=typeof finCustomerMoney==='function'?finCustomerMoney(c.id):null;
   return {o:{createdAt:c.createdAt||''},c,memo:{code:c.code,name:c.displayName||c.legalName,contact:p.name||'',phone:p.phone||p.mobile||'',email:p.email||'',
    terms:paymentTermsLabel(c),credit:c.creditLimit,balance:money?money.balance:null,lastOrder:custLastOrder(c.id),status:custStatusText(c),
-   created:c.createdAt?salesListIsoDay(c.createdAt):'',type:c.customerType||'',group:c.group||'',area:c.area||'',rep:c.salesRep||''}};});
+   created:c.createdAt?salesListIsoDay(c.createdAt):'',type:c.customerType||'',group:customerGroupName(c),area:c.area||'',rep:c.salesRep||''}};});
 }
 function custHeader(c){const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
 function custCell(i,c){
@@ -15990,11 +16163,11 @@ function customerHasLegacy(c){return Object.values((c&&c.legacyRefs)||{}).some(v
 function customerForm(){
  const c=cDraft,old=cEdit!=='new',legacy=customerHasLegacy(c);
  if(cTab==='credit'||cTab==='accounting')cTab='payment';
- if(cTab==='orders'&&!old||cTab==='legacy'&&!legacy)cTab='general';
+ if((cTab==='orders'||cTab==='prices')&&!old||cTab==='legacy'&&!legacy)cTab='general';
  return `<div class="card customer-editor">
   <div class="section-title"><div><h3>${old?raw(c.displayName||c.legalName||'Customer'):'New customer'}</h3><div class="sub">${old?`Account <span class="mono" data-raw>${esc(c.code||'—')}</span>`:'Code is given on save'}</div></div><div class="row customer-editor-actions"><button class="pri" onclick="saveCustomer()">Save</button><button onclick="customerLeave(()=>{cEdit=null;cDraft=null;render();})">Cancel</button></div></div>
-  <div class="tabs customer-tabs">${customerTabButton('general','General')}${customerTabButton('contacts','Contacts')}${customerTabButton('addresses','Addresses')}${customerTabButton('payment','Payment')}${old?customerTabButton('orders','Orders'):''}${legacy?customerTabButton('legacy','Legacy IDs'):''}</div>
-  ${cTab==='general'?customerGeneralForm():cTab==='contacts'?customerContactsForm():cTab==='addresses'?customerAddressesForm():cTab==='payment'?customerPaymentForm():cTab==='orders'?customerOrdersTab():customerLegacyForm()}
+  <div class="tabs customer-tabs">${customerTabButton('general','General')}${customerTabButton('contacts','Contacts')}${customerTabButton('addresses','Addresses')}${customerTabButton('payment','Payment')}${old?customerTabButton('prices','Prices'):''}${old?customerTabButton('orders','Orders'):''}${legacy?customerTabButton('legacy','Legacy IDs'):''}</div>
+  ${cTab==='general'?customerGeneralForm():cTab==='contacts'?customerContactsForm():cTab==='addresses'?customerAddressesForm():cTab==='payment'?customerPaymentForm():cTab==='orders'?customerOrdersTab():cTab==='prices'?customerPricesTab():customerLegacyForm()}
   <div class="err" id="e_customer"></div>
  </div>`;
 }
@@ -16054,7 +16227,7 @@ function customerGeneralForm(){const c=cDraft;return `<div class="form"><h3>Gene
  <div><label>Legal Name *</label><input value="${esc(c.legalName)}" oninput="cDraft.legalName=this.value;if(!cDraft.displayName)cDraft.displayName=this.value"></div>
  <div><label>Display Name</label><input value="${esc(c.displayName)}" oninput="cDraft.displayName=this.value"></div>
  <div><label>Status</label><select onchange="cDraft.status=this.value"><option value="active" ${c.status==='active'?'selected':''}>Active</option><option value="inactive" ${c.status==='inactive'?'selected':''}>Inactive</option><option value="archived" ${c.status==='archived'?'selected':''}>Archived</option></select></div>
- <div><label>Customer Type</label><input value="${esc(c.customerType)}" oninput="cDraft.customerType=this.value"></div><div><label>Group</label><input value="${esc(c.group)}" oninput="cDraft.group=this.value"></div><div><label>Area / Territory</label><input value="${esc(c.area)}" oninput="cDraft.area=this.value"></div><div><label>Sales Rep</label><input value="${esc(c.salesRep)}" oninput="cDraft.salesRep=this.value"></div>
+ <div><label>Customer Type</label><input value="${esc(c.customerType)}" oninput="cDraft.customerType=this.value"></div><div><label>Group</label>${customerGroupSelect(c)}</div><div><label>Area / Territory</label><input value="${esc(c.area)}" oninput="cDraft.area=this.value"></div><div><label>Sales Rep</label><input value="${esc(c.salesRep)}" oninput="cDraft.salesRep=this.value"></div>
  <div><label>Account Open Date</label><input type="date" value="${esc(c.accountOpenedAt)}" onchange="cDraft.accountOpenedAt=this.value"></div><div><label>TAX Number</label><input value="${esc(c.taxNumber)}" oninput="cDraft.taxNumber=this.value"></div><div><label>Registration</label><input value="${esc(c.registrationNumber)}" oninput="cDraft.registrationNumber=this.value"></div><div class="customer-checks"><label class="chk"><input type="checkbox" ${c.isProspect?'checked':''} onchange="cDraft.isProspect=this.checked"> Prospect</label><label class="chk"><input type="checkbox" ${c.poRequired?'checked':''} onchange="cDraft.poRequired=this.checked"> PO required</label></div>
  </div><div class="grid" style="margin-top:12px"><div><label>Notes</label><textarea rows="3" oninput="cDraft.notes=this.value">${esc(c.notes)}</textarea></div><div><label>Internal Notes</label><textarea rows="3" oninput="cDraft.internalNotes=this.value">${esc(c.internalNotes)}</textarea></div></div></div>`;}
 function customerContactsForm(){const c=cDraft;return `<div class="section-title"><div><h3>Contacts</h3><div class="sub">Multiple people per customer: purchasing, accounting, receiving, project manager, etc.</div></div><button class="pri" onclick="customerAddContact()">+ Contact</button></div>${c.contacts.map((x,i)=>`<div class="form customer-subrecord"><div class="customer-subrecord-head"><b>Contact ${i+1}</b><button class="sm dl" onclick="customerRemoveContact(${i})">Delete</button></div><div class="grid customer-grid-4"><div><label>Name</label><input value="${esc(x.name)}" oninput="cDraft.contacts[${i}].name=this.value"></div><div><label>Role / title</label><input value="${esc(x.role)}" oninput="cDraft.contacts[${i}].role=this.value"></div><div><label>Phone</label><input value="${esc(x.phone)}" oninput="cDraft.contacts[${i}].phone=this.value"></div><div><label>Phone 2</label><input value="${esc(x.phone2)}" oninput="cDraft.contacts[${i}].phone2=this.value"></div><div><label>Mobile</label><input value="${esc(x.mobile)}" oninput="cDraft.contacts[${i}].mobile=this.value"></div><div><label>Fax</label><input value="${esc(x.fax)}" oninput="cDraft.contacts[${i}].fax=this.value"></div><div><label>Email</label><input type="email" value="${esc(x.email)}" oninput="cDraft.contacts[${i}].email=this.value"></div><div class="customer-checks"><label class="chk"><input type="checkbox" ${x.isPrimary?'checked':''} onchange="customerContactFlag(${i},'isPrimary',this.checked)"> Primary</label><label class="chk"><input type="checkbox" ${x.isInvoice?'checked':''} onchange="customerContactFlag(${i},'isInvoice',this.checked)"> Invoice</label><label class="chk"><input type="checkbox" ${x.isShipping?'checked':''} onchange="customerContactFlag(${i},'isShipping',this.checked)"> Shipping</label></div></div></div>`).join('')||'<div class="empty">No contacts yet</div>'}`;}
@@ -17094,8 +17267,14 @@ function salesPricingHoleBand(d){if(d>0&&d<=1)return {key:'0.5-1',label:'1/2″�
 /* Строка прайса. Отверстия разложены по диаметру отдельными строками, поэтому
    подключ приклеивается к идентификатору: `hole` + `0.5-1` = `hole:0.5-1`. */
 function salesServiceRateRow(id){return (DB.serviceRate||[]).find(r=>r&&r.id===id)||null;}
+/* Прайс клиента (erp/sales/price-lists) даёт работе одну цену на все
+   толщины. Откуда ставка, salesChargeRow забирает из salesRateFrom. */
+let salesRateFrom=null;
 function salesCatalogRate(tableKey,ctx,subKey){
+ salesRateFrom=null;
  const row=salesServiceRateRow(subKey?tableKey+':'+subKey:tableKey);
+ const lp=row?salesPriceListFor('service:'+row.id,row.kind!=='flat'&&ctx&&ctx.ok?ctx.band:''):null;
+ if(lp){salesRateFrom={price:lp.price,list:lp.listId};return lp.price;}
  /* Выключенная строка прайса — это «услуга есть, цены нет», а не ноль. Строка
     встанет в счёт как Rate required и в денежный итог не войдёт: молчаливый
     ноль означал бы, что работу сделали и не выставили. */
@@ -17119,7 +17298,12 @@ function salesRateBandKey(tableKey,ctx){
  const n=+((ctx&&ctx.thickness)||NaN);
  return Number.isFinite(n)?'t'+String(n).replace('.','_'):'na';
 }
-function salesChargeRow(key,label,basis,unit,rate,source){return {key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'};}
+/* from — прайс клиента, давший ставку. Не передан — ставка этой строки
+   только что пришла из salesCatalogRate, и прайс берётся оттуда. */
+function salesChargeRow(key,label,basis,unit,rate,source,from){
+ const f=from!==undefined?from:(salesRateFrom&&rate!=null&&+rate===salesRateFrom.price?salesRateFrom.list:'');salesRateFrom=null;
+ return Object.assign({key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'},f?{from:f}:{});
+}
 /* Начисления по меткам (Hole и фурнитура) считаются в ОДНОМ месте. У строки
    заказа две ветки расчёта — обычная и через Service Set, — и в каждой лежала
    своя копия этого разбора. Копия и есть болезнь: добавленный владельцем вид
@@ -17228,13 +17412,13 @@ function salesGlazingChargeRows(line,areaFt2){
  order.forEach(function(k){
   const isFrit=k.indexOf('frit:')===0;
   const g=isFrit?frit[k]:spandrel[k];
-  const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id);
+  const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id),lp=prod?salesPriceListFor('item:'+(isFrit?'fritProduct':'spandrelProduct')+':'+prod.id):null;
   rows.push(salesChargeRow(
    'GLAZE:'+k,
    (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' glass layers':''),
    +(area*g.qty).toFixed(4),'ft²',
-   (prod&&prod.salePrice!=null)?prod.salePrice:null,
-   'Makeup'));
+   lp?lp.price:(prod&&prod.salePrice!=null)?prod.salePrice:null,
+   'Makeup',lp?lp.listId:''));
  });
  return rows;
 }
@@ -17304,11 +17488,11 @@ function salesChargePricingState(line,row){
  const map=line.chargePricing&&typeof line.chargePricing==='object'?line.chargePricing:{},saved=Object.prototype.hasOwnProperty.call(map,row.key)?map[row.key]:null;
  /* Once an order is saved, even a missing catalog rate is a snapshot. Do not let
     a future catalog edit silently reprice an old order. */
- const catalog=saved?saved.catalogRate:row.catalogRate,lineRate=saved&&saved.orderRate!=null?saved.orderRate:null,orderRate=salesOrderChargePricingRecord(row);
- const effective=lineRate!=null?lineRate:(orderRate!=null?orderRate:catalog),origin=lineRate!=null?'line':(orderRate!=null?'order':(catalog!=null?'catalog':'missing'));
- return {catalogRate:catalog,orderRate:orderRate,lineRate:lineRate,effectiveRate:effective,manual:lineRate!=null,origin:origin,missing:effective==null};
+ const catalog=saved?saved.catalogRate:row.catalogRate,from=saved?saved.from||'':row.from||'',lineRate=saved&&saved.orderRate!=null?saved.orderRate:null,orderRate=salesOrderChargePricingRecord(row);
+ const effective=lineRate!=null?lineRate:(orderRate!=null?orderRate:catalog),origin=lineRate!=null?'line':(orderRate!=null?'order':(catalog!=null?(from?'list':'catalog'):'missing'));
+ return {catalogRate:catalog,orderRate:orderRate,lineRate:lineRate,effectiveRate:effective,manual:lineRate!=null,origin:origin,from:from,missing:effective==null};
 }
-function salesEnsureChargePricing(line,row){if(!line.chargePricing||typeof line.chargePricing!=='object')line.chargePricing={};if(!line.chargePricing[row.key])line.chargePricing[row.key]={catalogRate:row.catalogRate==null?null:row.catalogRate,orderRate:null};return line.chargePricing[row.key];}
+function salesEnsureChargePricing(line,row){if(!line.chargePricing||typeof line.chargePricing!=='object')line.chargePricing={};if(!line.chargePricing[row.key])line.chargePricing[row.key]=Object.assign({catalogRate:row.catalogRate==null?null:row.catalogRate,orderRate:null},row.from?{from:row.from}:{});return line.chargePricing[row.key];}
 function salesEnsureOrderServicePricing(){if(!soDraft.servicePricing||typeof soDraft.servicePricing!=='object')soDraft.servicePricing={};return soDraft.servicePricing;}
 function salesSnapshotAllChargePricing(){if(!soDraft)return;(soDraft.lines||[]).forEach(function(line){salesLineChargeRows(line).forEach(function(row){salesEnsureChargePricing(line,row);});});}
 function salesSetChargeOrderRate(lineId,key,v){const line=(soDraft.lines||[]).find(x=>x.id===lineId);if(!line)return;const row=salesLineChargeRows(line).find(x=>x.key===key);if(!row)return;const rec=salesEnsureChargePricing(line,row),txt=String(v==null?'':v).trim();if(txt===''){rec.orderRate=null;render();return;}const n=Number(txt);if(!Number.isFinite(n)||n<0){alert('Enter a valid non-negative line rate.');render();return;}rec.orderRate=Math.round(n*10000)/10000;render();}
@@ -18221,7 +18405,7 @@ function salesEdgeOpThicknessTargets(lite,op){
   return out;
 }
 function salesEdgeChargeMetaForServiceSet(op,ctx){
-  var id='',label=op.type,rate=null;
+  var id='',label=op.type,rate=null;salesRateFrom=null;
   if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}
@@ -18242,7 +18426,7 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
     rate=bevelWork?bevelWork.flat:null;
   }
   else return null;
-  return {id:id,label:label,rate:rate,bandKey:salesRateBandKey(id,ctx)};
+  return {id:id,label:label,rate:rate,from:salesRateFrom?salesRateFrom.list:'',bandKey:salesRateBandKey(id,ctx)};
 }
 
 /* Billing and Cutting read the SAME effective snapshot. */
@@ -18293,7 +18477,7 @@ salesLineChargeRows=function(line){
           var meta=salesEdgeChargeMetaForServiceSet(op,tCtx);
           if(!meta)return;
           var key=meta.id+':'+meta.bandKey;
-          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,length:0};order.push(key);}
+          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,from:meta.from,length:0};order.push(key);}
           acc[key].length+=group.length*(target.count||1);
         });
       });});
@@ -18304,7 +18488,7 @@ salesLineChargeRows=function(line){
     var manyThickness=new Set(order.map(function(k){return acc[k].mm;})).size>1;
     order.forEach(function(key){
       var x=acc[key];
-      rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),x.length,'in',x.rate,'Effective Edge Processing'));
+      rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),x.length,'in',x.rate,'Effective Edge Processing',x.from));
     });
   }
   if(saved&&!shapeIsDxfSource(saved)){
@@ -20211,19 +20395,20 @@ function salesCoatingSurfaceSelector(p,index){
 /* Цена стоит в той же строке, что и остальные поля: она такое же свойство
    позиции, как толщина, и отдельного блока под неё не нужно. Каталожная
    ставка показывается подсказкой ↺ и появляется только когда цену правили. */
-function salesPriceCell(kind,index,cat,over){
+function salesPriceCell(kind,index,cat,over,from){
  const has=over!=null,shown=has?over:cat;
  const val=shown==null?'':(+shown).toFixed(2);
  const ph=cat==null?'—':(+cat).toFixed(2);
  return `<div class="mu-price-cell${has?' edited':''}">`
   +`<input type="number" step="0.01" min="0" value="${esc(val)}" placeholder="${esc(ph)}" onchange="sales${kind}SetPrice(${index},this.value)" aria-label="Price per sq ft">`
   +(has?`<button type="button" class="mu-price-reset" title="Reset to catalog ${esc(ph)}" onclick="sales${kind}SetPrice(${index},'')">↺</button>`:'')
+  +(!has&&from?`<span class="mu-price-from" data-price-from title="From price list">${esc(priceListName(from))}</span>`:'')
   +`</div>`;
 }
 /* Каталожной цены продажи у стекла пока нет — она появится вместе с прайсом.
    До тех пор поле пустое: показывать выдуманное число хуже, чем прочерк. */
 function salesLitePriceField(p,index){
- return `<div><label>Price · sq ft</label>${salesPriceCell('Pane',index,salesPaneCatalogPrice(p),p.priceOverride)}</div>`;
+ return `<div><label>Price · sq ft</label>${salesPriceCell('Pane',index,salesPaneCatalogPrice(p),p.priceOverride,p.category==='laminated'?'':salesGlassPriceFrom(p))}</div>`;
 }
 function salesCavityPriceField(c,index){
  return `<div><label>Price · sq ft</label>${salesPriceCell('Cavity',index,salesCavityCatalogPrice(c),c.priceOverride)}</div>`;
@@ -20291,7 +20476,7 @@ function salesLaminatedPlyFields(p,index,side,label){
    <div class="mu-lam-glass"><label>${coated?'On Glass':'Glass'}</label><select onchange="salesPaneSetLamPlyProduct(${index},'${side}',this.value)">${glassSelect}</select>${salesGlassMetaFor(ply.glassProductId)}</div>
    <div><label>Type</label>${typeSelect}</div>
    <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesHeatOptions(ply)}</select></div>
-   <div><label>Price · sq ft</label>${salesPriceCell('LamPly'+(side==='outer'?'Outer':'Inner'),index,salesPlyCatalogPrice(ply),ply.priceOverride)}</div>
+   <div><label>Price · sq ft</label>${salesPriceCell('LamPly'+(side==='outer'?'Outer':'Inner'),index,salesPlyCatalogPrice(ply),ply.priceOverride,salesGlassPriceFrom(ply))}</div>
   </div>
   ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div>${salesLamCoatingSurfaceSelector(ply,index,side)}</div>`:''}
   ${salesLaminatedFritFields(p,index,side)}</div>`;
@@ -21393,7 +21578,7 @@ function salesOrderEditor(){
  return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(q?salesQuoteShown(o):o)}${!q&&o.onHold?'<span class="pill hold" data-hold-pill>On Hold</span>':''}${customerFlags}</div><div class="mut mono">${esc(q?salesQuoteShown(o).id:o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}${(e=>e&&e.by?`<span data-created-by> · Created by ${esc(e.by)} · ${esc(salesListShortDay(salesListIsoDay(e.at)))}</span>`:'')(orderCreatedBy(q?salesQuoteShown(o).id:o.id))}</div></div>${q?'':av?`<div inert>${salesPaymentStrip(o)}</div>`:salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
  ${av?'<div class="sales-readonly" inert>':''}${salesHoldBar(o)}${shippingOrderStrip(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro&&!av?'<div class="sales-readonly" inert>':''}
  <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" onchange="soDraft.validUntil=this.value;render()"></div>`:''}</div>
- ${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
+ ${salesPriceListStrip(o)}${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
  ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
  ${typeof recutOrderSection==='function'?recutOrderSection(o):''}<div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${typeof ncrModalHTML==='function'?ncrModalHTML():''}${salesLineHoldMenuHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
@@ -21497,7 +21682,7 @@ function salesOrderCommercialAdjustmentsHtml(currency){
 }
 function salesLineServicesModal(line,index){
  const rows=salesLineChargeRows(line),currency=soDraft.currency||'CAD',s=salesShapeByRef(line.shapeRef),ctx=salesPricingThickness(line),thickness=ctx.ok?ctx.thickness+' mm':(ctx.thickness?ctx.thickness+' mm':'—'),summary=salesLinePricingSummary(line);
- return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal line-modal"><div class="sales-service-modal-head"><div><span><span>Line</span> ${index+1}</span><h3>Services / Processing</h3><small>${s?raw(s.name):'Production Shape'}${line.mark?' · '+raw(line.mark):''}</small></div><button onclick="salesCloseServices()">×</button></div>${rows.length||salesLineCommercialAdjustments(line,soDraft).length?`<div class="sales-service-context"><span>Makeup thickness <b>${esc(thickness)}</b></span><span>Line Qty <b>${esc(line.qty)}</b></span><span>Geometry / quantity <b>read-only</b></span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Price not set</b><span><b data-raw>${summary.unpriced}</b> <span>charges have no effective rate. They are not included in the monetary total until a rate is entered.</span></span></div>`:''}${rows.length?`<div class="sales-line-service-table"><div class="sales-line-service-row head"><span>Charge</span><span>Calculated basis</span><span>Catalog</span><span>Order-wide</span><span>Line rate</span><span>Final total</span><span></span></div>${rows.map(function(row){const st=salesChargePricingState(line,row),q=salesPositiveInt(line.qty,1),final=st.effectiveRate==null?null:row.basis*q*st.effectiveRate,lineValue=st.lineRate==null?'':String(st.lineRate),inherited=st.orderRate!=null?st.orderRate:st.catalogRate,origin=st.origin==='line'?'LINE':(st.origin==='order'?'ORDER':(st.origin==='catalog'?'CATALOG':'NO RATE'));return `<div class="sales-line-service-row${st.missing?' unpriced':''}"><span class="sales-price-charge"><b>${esc(row.label)}</b><small>${esc(row.source)}</small></span><span class="sales-price-basis">${esc(salesChargeBasisText(row,line))}</span><span>${row.source==='Custom'?`<span class="sales-extra-per">Custom · per ${esc(row.unit)}</span>`:st.catalogRate==null?'<span class="sales-price-missing">Not set</span>':esc(salesRateText(st.catalogRate,row.unit,currency))}</span><span>${esc(salesRateText(st.orderRate,row.unit,currency))}</span><span class="sales-line-rate"><input type="number" min="0" step="0.01" value="${esc(lineValue)}" placeholder="${inherited==null?'':esc(String(inherited))}" onchange="salesSetChargeOrderRate('${esc(line.id)}','${esc(row.key)}',this.value)"><small class="sales-rate-origin ${esc(st.origin)}">${esc(origin)}</small></span><strong>${final==null?'<span class="sales-price-missing">Rate required</span>':final.toFixed(2)+' '+esc(currency)}</strong>${salesExtraIdOfKey(row.key)?`<button class="sm" data-extra-remove onclick="salesExtraRemove('${esc(line.id)}','${esc(salesExtraIdOfKey(row.key))}')">Remove</button>`:`<button class="sm" onclick="salesResetChargeRate('${esc(line.id)}','${esc(row.key)}')">Use Order / Catalog</button>`}</div>`;}).join('')}</div><div class="sales-service-modal-total${summary.unpriced?' incomplete':''}"><span>Services / processing total for this line</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:''}</div>`:''}${salesLineCommercialAdjustmentsHtml(line,currency)}`:`<div class="empty compact sales-service-empty">This line has no services or processing charges yet.</div>`}${salesExtraBarHTML('line:'+line.id)}</div></div>`;
+ return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal line-modal"><div class="sales-service-modal-head"><div><span><span>Line</span> ${index+1}</span><h3>Services / Processing</h3><small>${s?raw(s.name):'Production Shape'}${line.mark?' · '+raw(line.mark):''}</small></div><button onclick="salesCloseServices()">×</button></div>${rows.length||salesLineCommercialAdjustments(line,soDraft).length?`<div class="sales-service-context"><span>Makeup thickness <b>${esc(thickness)}</b></span><span>Line Qty <b>${esc(line.qty)}</b></span><span>Geometry / quantity <b>read-only</b></span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Price not set</b><span><b data-raw>${summary.unpriced}</b> <span>charges have no effective rate. They are not included in the monetary total until a rate is entered.</span></span></div>`:''}${rows.length?`<div class="sales-line-service-table"><div class="sales-line-service-row head"><span>Charge</span><span>Calculated basis</span><span>Catalog</span><span>Order-wide</span><span>Line rate</span><span>Final total</span><span></span></div>${rows.map(function(row){const st=salesChargePricingState(line,row),q=salesPositiveInt(line.qty,1),final=st.effectiveRate==null?null:row.basis*q*st.effectiveRate,lineValue=st.lineRate==null?'':String(st.lineRate),inherited=st.orderRate!=null?st.orderRate:st.catalogRate,origin=st.origin==='line'?'LINE':(st.origin==='order'?'ORDER':(st.origin==='catalog'?'CATALOG':st.origin==='list'?priceListName(st.from).toUpperCase():'NO RATE'));return `<div class="sales-line-service-row${st.missing?' unpriced':''}"><span class="sales-price-charge"><b>${esc(row.label)}</b><small>${esc(row.source)}</small></span><span class="sales-price-basis">${esc(salesChargeBasisText(row,line))}</span><span>${row.source==='Custom'?`<span class="sales-extra-per">Custom · per ${esc(row.unit)}</span>`:st.catalogRate==null?'<span class="sales-price-missing">Not set</span>':esc(salesRateText(st.catalogRate,row.unit,currency))}</span><span>${esc(salesRateText(st.orderRate,row.unit,currency))}</span><span class="sales-line-rate"><input type="number" min="0" step="0.01" value="${esc(lineValue)}" placeholder="${inherited==null?'':esc(String(inherited))}" onchange="salesSetChargeOrderRate('${esc(line.id)}','${esc(row.key)}',this.value)"><small class="sales-rate-origin ${esc(st.origin)}">${esc(origin)}</small></span><strong>${final==null?'<span class="sales-price-missing">Rate required</span>':final.toFixed(2)+' '+esc(currency)}</strong>${salesExtraIdOfKey(row.key)?`<button class="sm" data-extra-remove onclick="salesExtraRemove('${esc(line.id)}','${esc(salesExtraIdOfKey(row.key))}')">Remove</button>`:`<button class="sm" onclick="salesResetChargeRate('${esc(line.id)}','${esc(row.key)}')">Use Order / Catalog</button>`}</div>`;}).join('')}</div><div class="sales-service-modal-total${summary.unpriced?' incomplete':''}"><span>Services / processing total for this line</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:''}</div>`:''}${salesLineCommercialAdjustmentsHtml(line,currency)}`:`<div class="empty compact sales-service-empty">This line has no services or processing charges yet.</div>`}${salesExtraBarHTML('line:'+line.id)}</div></div>`;
 }
 
 function salesOrderServicesModal(){
@@ -25885,6 +26070,7 @@ function sfImportCsv(inp){
 const MD_TABS=[
  {k:'materials', label:'Materials'},
  {k:'works',     label:'Works'},
+ {k:'prices',    label:'Prices'},
  {k:'stations',  label:'Stations'},
  {k:'hardware',  label:'Hardware'},
  {k:'weight',    label:'Weight norms'},
@@ -25950,7 +26136,7 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,stations:viewMdStations,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,prices:viewMdPrices,stations:viewMdStations,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
@@ -27063,6 +27249,174 @@ function mdCatDelete(id){
  if(!Array.isArray(DB[mdCatKind]))return;
  DB[mdCatKind]=DB[mdCatKind].filter(x=>x.id!==id);
  mdCatEdit=null;mdCatDraft=null;touch();render();
+}
+
+/* ==== src/erp/views/price-lists-ui.js ==== */
+/* =====================================================================
+   erp/views/price-lists-ui  ·  price-lists-ui-1.0
+   Экраны прайсов (erp/sales/price-lists): Data → Prices — группы клиентов,
+   группы айтемов, одна цена сразу нескольким клиентам; вкладка Prices в
+   карточке клиента — его личный прайс. Правка прайса пишется сразу, как в
+   Works: журнал Master Data видит каждую цену «было → стало».
+   ===================================================================== */
+let plView='groups',plGroupId='',plItemGroupId='',plAddKind='',plBulk=null;
+
+function plNow(){return new Date().toISOString();}
+function plMoney(v){return v==null?'—':(+v).toFixed(2);}
+function plRowText(r){return [r.price==null?'':plMoney(r.price)].concat(r.bands?['6','8-10','12-19'].filter(k=>r.bands[k]!=null).map(k=>k+': '+plMoney(r.bands[k])):[]).filter(Boolean).join(' · ')||'—';}
+/* Цели строк прайса для выбора: группы айтемов первыми, потом по видам. */
+function plTargetOptions(targets,withGroups,selected){
+ const kinds=[...new Set(targets.map(t=>t.kind))];
+ const g=withGroups?`<optgroup label="Item groups">${(DB.itemGroup||[]).map(x=>`<option value="group:${esc(x.id)}"${selected==='group:'+x.id?' selected':''}>${esc(x.name||'Unnamed')}</option>`).join('')}</optgroup>`:'';
+ return `<option value="">— Item, service or group —</option>${g}${kinds.map(k=>`<optgroup label="${esc(k)}">${targets.filter(t=>t.kind===k).map(t=>`<option value="${esc(t.key)}"${selected===t.key?' selected':''}>${esc(t.label)}</option>`).join('')}</optgroup>`).join('')}`;
+}
+function plBaseText(t){
+ if(!t)return '—';
+ if(t.bands)return ['6','8-10','12-19'].map(k=>t.bands[k]==null?'—':plMoney(t.bands[k])).join(' / ');
+ return plMoney(t.base);
+}
+/* Таблица строк одного прайса — общая для группы клиента и личного. */
+function plListTable(list){
+ const targets=salesPriceTargets(),byKey=new Map(targets.map(t=>[t.key,t]));
+ const num=(row,field,band,v)=>`<input type="number" min="0" step="0.01" value="${v==null?'':esc(v)}" placeholder="—" style="width:84px" onchange="plSetPrice('${esc(list.id)}','${esc(row.id)}',${band?`'${band}'`:'null'},this.value)" aria-label="${esc(field)}">`;
+ const body=list.rows.map(r=>{
+  const t=byKey.get(r.target),bands=t&&t.bands;
+  const price=bands?`<div class="row" style="gap:4px;flex-wrap:nowrap">${num(r,'All thicknesses',null,r.price)}${['6','8-10','12-19'].map(k=>`<label class="mut" style="display:flex;align-items:center;gap:3px">${k}${num(r,k+' mm',k,r.bands?r.bands[k]:null)}</label>`).join('')}</div>`:num(r,'Price',null,r.price);
+  return `<tr data-pl-row><td>${esc(salesPriceTargetLabel(r.target,targets))}</td><td class="mono mut">${t?esc(plBaseText(t))+(t.unit?' / '+esc(t.unit):''):'—'}</td><td>${price}</td><td><button class="sm dl" title="Remove" onclick="plRemoveRow('${esc(list.id)}','${esc(r.id)}')">×</button></td></tr>`;
+ }).join('');
+ return `<table data-pl-list="${esc(list.id)}"><thead><tr><th>Item</th><th>Base</th><th>Price${list.rows.some(r=>(byKey.get(r.target)||{}).bands)?' · all / by mm':''}</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="4" class="mut">No prices yet — base prices apply.</td></tr>'}</tbody></table>
+  <div class="row" style="gap:8px;margin-top:8px"><select aria-label="Add price" style="max-width:360px" onchange="plAddRow('${esc(list.id)}',this.value)">${plTargetOptions(targets,true,'')}</select><span class="mut">Empty price — next list decides. 0 is a price.</span></div>`;
+}
+function plList(id){return priceListById(id);}
+function plCommand(fn){const out=storageCommand(()=>{fn();normalizePriceLists();return true;});if(!out.ok)alert(out.error);render();}
+function plAddRow(listId,target){
+ if(!target)return;
+ plCommand(()=>{const l=plList(listId);if(!l)return;if(l.rows.some(r=>r.target===target))return;l.rows.push({id:salesUid('PLR'),target,price:null,at:plNow()});});
+}
+function plSetPrice(listId,rowId,band,v){
+ const txt=String(v==null?'':v).trim(),n=txt===''?null:Number(txt);
+ if(n!=null&&(!Number.isFinite(n)||n<0)){alert('Enter a price of 0 or more.');render();return;}
+ plCommand(()=>{const r=(plList(listId)||{rows:[]}).rows.find(x=>x.id===rowId);if(!r)return;
+  if(band){r.bands=Object.assign({'6':null,'8-10':null,'12-19':null},r.bands||{});r.bands[band]=n;}else r.price=n;r.at=plNow();});
+}
+function plRemoveRow(listId,rowId){plCommand(()=>{const l=plList(listId);if(l)l.rows=l.rows.filter(r=>r.id!==rowId);});}
+
+/* --- Data → Prices ------------------------------------------------------ */
+function viewMdPrices(){
+ const views=[['groups','Customer groups'],['items','Item groups'],['bulk','Set for customers']];
+ const subs=`<div class="md-mat-subs" data-pl-subs>${views.map(([k,label])=>`<button class="sm ${k===plView?'on':''}" onclick="plView='${k}';render()">${label}</button>`).join('')}</div>`;
+ return subs+(plView==='items'?plItemGroupsView():plView==='bulk'?plBulkView():plGroupsView());
+}
+function plGroupCustomers(id){return (DB.customer||[]).filter(c=>c.priceGroupId===id&&c.status!=='archived');}
+function plGroupsView(){
+ const groups=priceListGroups();if(plGroupId&&!groups.some(g=>g.id===plGroupId))plGroupId='';
+ const g=priceListById(plGroupId);
+ const list=groups.map(x=>`<tr data-pl-group class="${x.id===plGroupId?'sel':''}" style="cursor:pointer" onclick="plGroupId='${esc(x.id)}';render()"><td><b>${esc(x.name||'Unnamed group')}</b></td><td class="mono">${plGroupCustomers(x.id).length}</td><td class="mono">${x.rows.length}</td></tr>`).join('');
+ return `<div class="sub">Customer group = special prices for its customers. A customer's personal prices beat the group; what neither has comes from base prices.</div>
+  <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
+   <div style="flex:0 0 300px"><table><thead><tr><th>Group</th><th>Customers</th><th>Prices</th></tr></thead><tbody>${list||'<tr><td colspan="3" class="mut">No groups yet.</td></tr>'}</tbody></table>
+    <button class="pri" style="margin-top:8px" onclick="plNewGroup()">+ Customer group</button></div>
+   <div style="flex:1 1 480px;min-width:0">${g?plGroupEditor(g):'<div class="mut">Pick a group.</div>'}</div>
+  </div>`;
+}
+function plGroupEditor(g){
+ const members=plGroupCustomers(g.id),others=(DB.customer||[]).filter(c=>c.status!=='archived'&&c.priceGroupId!==g.id);
+ return `<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Group name" value="${esc(g.name)}" onchange="plRenameGroup('${esc(g.id)}',this.value)" style="max-width:260px"><button class="sm dl" onclick="plDeleteGroup('${esc(g.id)}')">Delete group</button></div>
+  <h4>Customers · ${members.length}</h4>
+  <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px" data-pl-members>${members.map(c=>`<span class="pill info">${esc(c.displayName||c.legalName)} <button class="sm" title="Remove from group" onclick="plSetCustomerGroup('${esc(c.id)}','')">×</button></span>`).join('')||'<span class="mut">No customers.</span>'}</div>
+  <select aria-label="Add customer" style="max-width:320px;margin-bottom:14px" onchange="plSetCustomerGroup(this.value,'${esc(g.id)}')"><option value="">+ Add customer</option>${others.map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}${c.priceGroupId?' · now '+esc(customerGroupName(c)):''}</option>`).join('')}</select>
+  <h4>Prices</h4>${plListTable(g)}`;
+}
+function plNewGroup(){
+ const name=prompt('Customer group name');if(name==null||!name.trim())return;
+ const id=salesUid('PL');plCommand(()=>{DB.priceList.push({id,kind:'group',name:name.trim(),customerId:'',rows:[]});});plGroupId=id;render();
+}
+function plRenameGroup(id,name){plCommand(()=>{const g=plList(id);if(g)g.name=String(name||'').trim();});}
+function plDeleteGroup(id){
+ const n=plGroupCustomers(id).length;
+ if(!confirm(n?n+' customer'+(n>1?'s':'')+' leave this group and get base prices. Delete the group?':'Delete this group?'))return;
+ plCommand(()=>{DB.priceList=DB.priceList.filter(l=>l.id!==id);(DB.customer||[]).forEach(c=>{if(c.priceGroupId===id){c.priceGroupId='';c.group='';c.updatedAt=plNow();}});});
+}
+/* Клиент в группе один: добавить в другую — значит перевести. */
+function plSetCustomerGroup(customerId,groupId){
+ if(!customerId)return;
+ plCommand(()=>{const c=(DB.customer||[]).find(x=>x.id===customerId);if(c){c.priceGroupId=groupId||'';c.group='';c.updatedAt=plNow();}});
+}
+
+function plItemGroupsView(){
+ const groups=DB.itemGroup||[];if(plItemGroupId&&!groups.some(g=>g.id===plItemGroupId))plItemGroupId='';
+ const g=itemGroupById(plItemGroupId),targets=salesPriceTargets();
+ const list=groups.map(x=>`<tr data-pl-item-group class="${x.id===plItemGroupId?'sel':''}" style="cursor:pointer" onclick="plItemGroupId='${esc(x.id)}';render()"><td><b>${esc(x.name||'Unnamed')}</b></td><td class="mono">${x.members.length}</td></tr>`).join('');
+ const editor=g?`<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Item group name" value="${esc(g.name)}" onchange="plItemGroupSet('${esc(g.id)}',x=>{x.name=String(${'this.value'}).trim();})" style="max-width:260px"><button class="sm dl" onclick="plItemGroupDelete('${esc(g.id)}')">Delete group</button></div>
+   <table><thead><tr><th>Item</th><th></th></tr></thead><tbody>${g.members.map(k=>`<tr data-pl-member><td>${esc(salesPriceTargetLabel(k,targets))}</td><td><button class="sm dl" title="Remove" onclick="plItemGroupSet('${esc(g.id)}',x=>{x.members=x.members.filter(m=>m!=='${esc(k)}');})">×</button></td></tr>`).join('')||'<tr><td colspan="2" class="mut">No items yet.</td></tr>'}</tbody></table>
+   <select aria-label="Add item" style="max-width:360px;margin-top:8px" onchange="if(this.value)plItemGroupSet('${esc(g.id)}',x=>{x.members.push(this.value);})">${plTargetOptions(targets.filter(t=>!g.members.includes(t.key)),false,'')}</select>`:'<div class="mut">Pick a group.</div>';
+ return `<div class="sub">Item group = one price line for many items, e.g. "Edge work". Inside a price list, an item's own price beats its group; an item in two groups takes the group priced last.</div>
+  <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
+   <div style="flex:0 0 300px"><table><thead><tr><th>Item group</th><th>Items</th></tr></thead><tbody>${list||'<tr><td colspan="2" class="mut">No item groups yet.</td></tr>'}</tbody></table>
+    <button class="pri" style="margin-top:8px" onclick="plNewItemGroup()">+ Item group</button></div>
+   <div style="flex:1 1 480px;min-width:0">${editor}</div>
+  </div>`;
+}
+function plNewItemGroup(){
+ const name=prompt('Item group name');if(name==null||!name.trim())return;
+ const id=salesUid('IG');plCommand(()=>{DB.itemGroup.push({id,name:name.trim(),members:[]});});plItemGroupId=id;render();
+}
+function plItemGroupSet(id,fn){plCommand(()=>{const g=itemGroupById(id);if(g)fn(g);});}
+function plItemGroupDelete(id){
+ const used=(DB.priceList||[]).filter(l=>l.rows.some(r=>r.target==='group:'+id)).length;
+ if(!confirm(used?'Used in '+used+' price list'+(used>1?'s':'')+'; those lines stop working. Delete the item group?':'Delete this item group?'))return;
+ plCommand(()=>{DB.itemGroup=DB.itemGroup.filter(g=>g.id!==id);});
+}
+
+/* Одна цена сразу нескольким клиентам (владелец: массовая правка —
+   фиксированной ценой, не процентом). Пишется в личные прайсы. */
+function plBulkView(){
+ const b=plBulk=plBulk||{target:'',price:'',bands:{'6':'','8-10':'','12-19':''},ids:[],q:''};
+ const targets=salesPriceTargets(),t=targets.find(x=>x.key===b.target),q=b.q.trim().toLowerCase();
+ const customers=(DB.customer||[]).filter(c=>c.status!=='archived'&&(!q||[c.displayName,c.legalName,c.code,customerGroupName(c)].some(x=>String(x||'').toLowerCase().includes(q))));
+ const field=(label,v,set)=>`<label class="mut" style="display:flex;align-items:center;gap:4px">${label}<input type="number" min="0" step="0.01" value="${esc(v)}" style="width:84px" oninput="${set}=this.value"></label>`;
+ return `<div class="sub">One fixed price into the personal price list of every ticked customer. Their other prices stay.</div>
+  <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
+   <select aria-label="Item" style="max-width:360px" onchange="plBulk.target=this.value;render()">${plTargetOptions(targets,true,b.target)}</select>
+   ${field(t&&t.bands?'All mm':'Price',b.price,'plBulk.price')}
+   ${t&&t.bands?['6','8-10','12-19'].map(k=>field(k,b.bands[k],`plBulk.bands['${k}']`)).join(''):''}
+   <button class="pri" data-pl-bulk-apply onclick="plBulkApply()">Set for ${b.ids.length} customer${b.ids.length===1?'':'s'}</button>
+  </div>
+  <div class="row" style="gap:8px;margin-bottom:8px"><input aria-label="Find customers" placeholder="Find customer or group" value="${esc(b.q)}" oninput="plBulk.q=this.value;render()" style="max-width:260px">
+   <button class="sm" onclick="plBulk.ids=[...new Set(plBulk.ids.concat(${esc(JSON.stringify(customers.map(c=>c.id)))}))];render()">Tick shown</button><button class="sm" onclick="plBulk.ids=[];render()">Clear</button></div>
+  <table><thead><tr><th></th><th>Customer</th><th>Group</th><th>Now</th></tr></thead><tbody>${customers.map(c=>{const r=b.target?(priceListOfCustomer(c.id)||{rows:[]}).rows.find(x=>x.target===b.target):null;
+   return `<tr data-pl-bulk-row><td><input type="checkbox" ${b.ids.includes(c.id)?'checked':''} onchange="plBulk.ids=this.checked?plBulk.ids.concat('${esc(c.id)}'):plBulk.ids.filter(x=>x!=='${esc(c.id)}');render()"></td><td>${esc(c.displayName||c.legalName)}</td><td>${esc(customerGroupName(c)||'—')}</td><td class="mono">${r?esc(plRowText(r)):'—'}</td></tr>`;}).join('')||'<tr><td colspan="4" class="mut">No customers.</td></tr>'}</tbody></table>`;
+}
+function plBulkApply(){
+ const b=plBulk;if(!b||!b.target)return alert('Pick an item, service or group.');
+ if(!b.ids.length)return alert('Tick at least one customer.');
+ const num=v=>{const s=String(v==null?'':v).trim();if(s==='')return null;const n=Number(s);return Number.isFinite(n)&&n>=0?n:NaN;};
+ const price=num(b.price),bands={'6':num(b.bands['6']),'8-10':num(b.bands['8-10']),'12-19':num(b.bands['12-19'])};
+ if([price,...Object.values(bands)].some(v=>Number.isNaN(v)))return alert('Enter prices of 0 or more.');
+ const t=salesPriceTargets().find(x=>x.key===b.target),useBands=!!(t&&t.bands)&&Object.values(bands).some(v=>v!=null);
+ if(price==null&&!useBands)return alert('Enter a price.');
+ plCommand(()=>{const at=plNow();b.ids.forEach(id=>{
+  let l=priceListOfCustomer(id);if(!l){l={id:salesUid('PL'),kind:'customer',name:'',customerId:id,rows:[]};DB.priceList.push(l);}
+  let r=l.rows.find(x=>x.target===b.target);if(!r){r={id:salesUid('PLR'),target:b.target};l.rows.push(r);}
+  r.price=price;if(useBands)r.bands=Object.assign({},bands);else delete r.bands;r.at=at;});});
+}
+
+/* --- Карточка клиента → Prices ----------------------------------------- */
+function customerPricesTab(){
+ const c=cDraft;if(cEdit==='new')return '<div class="mut">Save the customer first.</div>';
+ const l=priceListOfCustomer(c.id),g=priceListById(c.priceGroupId);
+ return `<div class="sub">Personal prices beat the group <b>${esc(g?g.name||'Unnamed group':'— none —')}</b>; what neither has comes from base prices. Changes save at once.</div>
+  ${l?plListTable(l):`<button class="pri" data-pl-personal-new onclick="plNewPersonal('${esc(c.id)}')">+ Personal prices</button>`}`;
+}
+function plNewPersonal(customerId){plCommand(()=>{if(!priceListOfCustomer(customerId))DB.priceList.push({id:salesUid('PL'),kind:'customer',name:'',customerId,rows:[]});});}
+
+/* --- Заказ: откуда цены и Update prices ---------------------------------- */
+function salesPriceListStrip(o){
+ const c=salesFindCustomer(o.customerId);if(!c)return '';
+ const mine=priceListOfCustomer(c.id),g=priceListById(c.priceGroupId),saved=!!o.priceBook;
+ const from=new Set(Object.values(o.priceFrom||{}));(o.lines||[]).forEach(l=>Object.values(l.chargePricing||{}).forEach(r=>{if(r&&r.from)from.add(r.from);}));
+ const chain=[mine&&mine.rows.length?'Personal ('+mine.rows.length+')':'',g?(g.name||'Unnamed group')+' ('+g.rows.length+')':'','Base'].filter(Boolean).join(' → ');
+ return `<div class="sales-price-lists mut" data-price-strip style="display:flex;gap:10px;align-items:center;margin:6px 0;font-size:12px">Prices: ${esc(chain)}${from.size?` · <span data-raw>used: ${esc([...from].map(priceListName).join(', '))}</span>`:''}${saved?`<button class="sm" data-update-prices onclick="if(confirm('Update prices from today\\'s price lists? Prices typed by hand stay.')){salesUpdatePrices();render();}">Update prices</button>`:''}</div>`;
 }
 
 /* ==== src/erp/views/documents-ui.js ==== */
@@ -46380,6 +46734,7 @@ function normalizeDB(){
  if(typeof normalizeCommissions==='function')normalizeCommissions();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
  if(typeof normalizeMdLog==='function')normalizeMdLog();
+ if(typeof normalizePriceLists==='function')normalizePriceLists();
  if(typeof normalizeAuthLog==='function')normalizeAuthLog();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
