@@ -196,9 +196,11 @@ function validateShipmentPayload(src){
   });
   const extra=new Set();s.extras.forEach(i=>{const k=i.orderId+'|'+i.extraId;if(!salesRefId(i.orderId)||!salesRefId(i.extraId)||!Number.isSafeInteger(i.qty)||i.qty<1||extra.has(k))throw new Error('Invalid shipment stock quantity.');extra.add(k);if(shippingActive(s))extraTotals.set(k,(extraTotals.get(k)||0)+i.qty);});
   if(Array.isArray(src.salesOrder)&&shippingActive(s)){
-   const checkOrder=i=>{const o=src.salesOrder.find(o=>o.id===i.orderId);if(!o||o.customerId!==s.customerId)throw new Error('Shipment customer does not match its order.');return o;};
-   s.items.forEach(i=>{const o=checkOrder(i),l=(o.lines||[]).find(l=>l.id===i.lineId);if(!l||i.unit>l.qty)throw new Error('Shipment line or unit no longer exists.');});
-   s.extras.forEach(i=>{const o=checkOrder(i),x=(o.extraItems||[]).find(x=>x.id===i.extraId);if(!x||(extraTotals.get(i.orderId+'|'+i.extraId)||0)>x.qty)throw new Error('Shipment stock quantity exceeds the order.');});
+   /* Заказ в архиве (erp/archive): накладная с ним остаётся в работе ради другого заказа. */
+   const checkOrder=i=>{const o=src.salesOrder.find(o=>o.id===i.orderId)||(typeof archiveKnown==='function'?archiveKnown(i.orderId):null);if(!o||o.customerId!==s.customerId)throw new Error('Shipment customer does not match its order.');return o;};
+   const live=id=>src.salesOrder.some(o=>o.id===id);
+   s.items.forEach(i=>{const o=checkOrder(i);if(!live(i.orderId))return;const l=(o.lines||[]).find(l=>l.id===i.lineId);if(!l||i.unit>l.qty)throw new Error('Shipment line or unit no longer exists.');});
+   s.extras.forEach(i=>{const o=checkOrder(i);if(!live(i.orderId))return;const x=(o.extraItems||[]).find(x=>x.id===i.extraId);if(!x||(extraTotals.get(i.orderId+'|'+i.extraId)||0)>x.qty)throw new Error('Shipment stock quantity exceeds the order.');});
    (s.takes||[]).forEach(id=>checkOrder({orderId:id}));
   }
  });

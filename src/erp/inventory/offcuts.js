@@ -58,8 +58,14 @@ function invOffcutRows(){
  const scans=invCutScans(),cut=invCutSheets(scans),byPiece=invCutByPiece(scans),used=new Map(),broken=new Map(),claims=invOffcutClaims(),events=invOffcutEvents();
  cut.forEach(c=>{if(c.stock&&!used.has(c.stock))used.set(c.stock,c);});
  invBreaks(true).forEach(b=>{if(b.stock&&!b.x.undoneAt&&!broken.has(b.stock))broken.set(b.stock,b.x);});
+ /* Факты из записей, ушедших в архив (erp/archive): из двух — раньше
+    случившийся (лист-источник резали стёкла разных заказов: ранний скан мог
+    уйти в архив, поздний остаться в работе). */
+ const arch=DB.inventoryArchived&&DB.inventoryArchived.offcuts||{};
  return (DB.stockOffcut||[]).map(r=>{
-  const src=invOffcutSource(r,cut,byPiece),ev=events.get(r.id)||[],last=ev[ev.length-1],u=used.get(r.id),b=broken.get(r.id);
+  const a=arch[r.id]||{},early=(x,y)=>!x?y:!y?x:String(y.at)<String(x.at)?y:x,ev=events.get(r.id)||[],last=ev[ev.length-1];
+  const u=early(used.get(r.id),a.used)||undefined,b=early(broken.get(r.id),a.broken)||undefined;
+  let src=invOffcutSource(r,cut,byPiece);if(a.onRackAt&&(!src.cut||!src.at||a.onRackAt<src.at))src={cut:true,at:a.onRackAt,by:a.onRackBy||''};
   const status=r.status==='cancelled'?'Back to waste':u?'Used':b?'Broken':last&&last.kind==='offcut-lost'?'Written off':!src.cut?'Coming':claims.has(r.id)?'In batch':'On rack';
   const here=INV_OFFCUT_HERE.includes(status),since=src.at||r.at;
   return {id:r.id,r,glass:r.glass,mm:r.mm,w:Math.max(r.w,r.h),h:Math.min(r.w,r.h),area:Math.round(r.w*r.h/144*100)/100,batch:r.batch,sheet:r.sheet,booked:r.at,

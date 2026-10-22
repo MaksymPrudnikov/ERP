@@ -97,13 +97,15 @@ function orderLogCapture(){
  /* Заказ рядом со своим текстом: искать каждый по всему списку — N² на
     каждом действии, и на скане тоже (проверка Codex 22.10.2026). */
  const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,{o,text:JSON.stringify(o)}]));
+ /* Уход в архив и возврат из него — не правка заказа (erp/archive). */
+ const moving=id=>typeof storageColdMoving==='function'&&storageColdMoving('salesOrder',id);
  now.forEach(({o,text},id)=>{
-  if(!base.has(id)){orderLogPush(o,'Created',orderLogCreatedNote(o));return;}
+  if(!base.has(id)){if(moving(id))return;orderLogPush(o,'Created',orderLogCreatedNote(o));return;}
   if(base.get(id)===text)return;
   let a,b;try{a=normalizeSalesOrder(JSON.parse(base.get(id)));b=normalizeSalesOrder(JSON.parse(text));}catch(e){return;}
   orderLogDiff(a,b).forEach(([what,note])=>orderLogPush(o,what,note));
  });
- base.forEach((text,id)=>{if(now.has(id))return;let o;try{o=JSON.parse(text);}catch(e){return;}orderLogPush(o,'Deleted');});
+ base.forEach((text,id)=>{if(now.has(id)||moving(id))return;let o;try{o=JSON.parse(text);}catch(e){return;}orderLogPush(o,'Deleted');});
 }
 
 /* Кто создал заказ — вошедший в офис, когда заказ записали (владелец,

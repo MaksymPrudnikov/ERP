@@ -14,7 +14,7 @@
    ===================================================================== */
 DEFAULT.ncr=[];
 const NCR_REMAKE='Remake order';
-function ncrNextNumber(){let n=1000;(DB.ncr||[]).forEach(r=>{const m=/^NCR(\d+)$/.exec(r&&r.number||'');if(m)n=Math.max(n,+m[1]);});return 'NCR'+(n+1);}
+function ncrNextNumber(){let n=Math.max(1000,typeof archiveFloor==='function'?archiveFloor('ncr'):0);(DB.ncr||[]).forEach(r=>{const m=/^NCR(\d+)$/.exec(r&&r.number||'');if(m)n=Math.max(n,+m[1]);});return 'NCR'+(n+1);}
 function ncrForOrder(orderId){return (DB.ncr||[]).filter(n=>n.orderId===orderId);}
 function ncrFind(id){return (DB.ncr||[]).find(n=>n.id===id)||null;}
 function ncrPaneCode(p){

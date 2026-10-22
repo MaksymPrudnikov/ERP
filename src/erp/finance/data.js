@@ -49,18 +49,18 @@ function normalizeReceipt(r){
   createdAt:String(r.createdAt||''),updatedAt:String(r.updatedAt||'')};
 }
 function finNextReceiptNumber(){
- let max=0;(DB.receipt||[]).forEach(r=>{const m=String(r&&r.number||'').match(/^R-(\d+)$/);if(m)max=Math.max(max,+m[1]);});
+ let max=typeof archiveFloor==='function'?archiveFloor('receipt'):0;(DB.receipt||[]).forEach(r=>{const m=String(r&&r.number||'').match(/^R-(\d+)$/);if(m)max=Math.max(max,+m[1]);});
  return 'R-'+String(max+1).padStart(4,'0');
 }
 function normalizeReceipts(){
  if(!Array.isArray(DB.receipt))DB.receipt=[];
- const orders=new Map((DB.salesOrder||[]).map(o=>[o.id,o])),ids=new Set(),numbers=new Set();
+ const orders=new Map((DB.salesOrder||[]).map(o=>[o.id,o])),ids=new Set(),numbers=new Set(),known=id=>orders.get(id)||(typeof archiveKnown==='function'?archiveKnown(id):null);
  DB.receipt=DB.receipt.filter(x=>x&&typeof x==='object'&&!Array.isArray(x)).map(x=>{
   const r=normalizeReceipt(x);
   while(ids.has(r.id))r.id=finUid();ids.add(r.id);
   /* Разнесение живёт только на заказах того же клиента. Удалённый или чужой
      заказ возвращает деньги на депозит клиента — сумма квитанции не теряется. */
-  r.allocations=r.allocations.filter(a=>{const o=orders.get(a.orderId);return !!o&&o.customerId===r.customerId&&o.kind!=='quote';});
+  r.allocations=r.allocations.filter(a=>{const o=known(a.orderId);return !!o&&o.customerId===r.customerId&&o.kind!=='quote';});
   if(r.number&&numbers.has(r.number))r.number='';
   if(r.number)numbers.add(r.number);
   return r;
