@@ -286,7 +286,11 @@ function salesNextBatchNumber(){
  (DB.salesOrder||[]).forEach(o=>[o.batchNo].concat(o.batchHistory||[],(o.lines||[]).map(l=>l.batchNo)).forEach(v=>{if(salesBatchNumber(v))n=Math.max(n,+v.slice(2));}));
  return 'B-'+String(n+1).padStart(4,'0');
 }
-function salesRecord(id){return (DB.salesOrder||[]).find(o=>o.id===id);}
+/* Заказ по номеру — в отрисовке по указателю (erp/read-scope, П4 «Базы»). */
+function salesRecord(id){
+ if(readOn())return readMemo('salesById',[DB.salesOrder],()=>{const m=new Map();(DB.salesOrder||[]).forEach(o=>{if(o&&!m.has(o.id))m.set(o.id,o);});return m;}).get(id);
+ return (DB.salesOrder||[]).find(o=>o.id===id);
+}
 /* Строка, всё стекло которой порезано по скану без батча (Skip, сток), — не
    «без батча»: иначе заказ не закрыть (владелец, 8.10.2026). */
 function salesUnbatchedLines(o){return (o&&o.lines||[]).filter(l=>l.batchManaged?glassBatchRemaining(o,l)>0:!salesLineLocked(l)&&!(l.qty>0&&glassBatchComponents(o,l).length&&glassBatchRemaining(o,l)===0));}
