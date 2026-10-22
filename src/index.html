@@ -7,7 +7,7 @@
   Правишь код модуля — достаточно F5, пересобирать не нужно. Пересборка нужна
   только при смене состава модулей (build/manifest.json) или правке шапки
   (src/shell.html). Работает и с сервера, и при открытии с диска (file://).
-  Состав: 162 модулей, 23 стиля.
+  Состав: 164 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -64,7 +64,7 @@
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='0d50f739f984';
+var ERP_BUILD='2bb69fceccfd';
 </script>
 <script src="core/dim.js"></script>
 <script src="core/poly.js"></script>
@@ -102,6 +102,7 @@ var ERP_BUILD='0d50f739f984';
 <script src="erp/masterdata/cutting.js"></script>
 <script src="erp/customers/data.js"></script>
 <script src="erp/sales/data.js"></script>
+<script src="erp/sales/price-lists.js"></script>
 <script src="erp/sales/lifecycle.js"></script>
 <script src="erp/sales/quotes.js"></script>
 <script src="erp/sales/order-log.js"></script>
@@ -148,6 +149,7 @@ var ERP_BUILD='0d50f739f984';
 <script src="erp/views/shipping.js"></script>
 <script src="erp/views/production.js"></script>
 <script src="erp/views/masterdata.js"></script>
+<script src="erp/views/price-lists-ui.js"></script>
 <script src="erp/views/documents-ui.js"></script>
 <script src="erp/views/finance.js"></script>
 <script src="erp/views/finance-workspace.js"></script>

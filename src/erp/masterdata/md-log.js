@@ -24,7 +24,8 @@ const MD_LOG_TABLES={
  spacerVariant:'Spacers',gasProduct:'Gas',sealantProduct:'Sealants',interlayerProduct:'Interlayers',
  fritProduct:'Frit',spandrelProduct:'Spandrel',spandrelColour:'Spandrel colours',serviceRate:'Works',
  hardwareKind:'Hardware kinds',hardwareModel:'Hardware models',materialWeightRates:'Weight norms',
- edgeAllowance:'Cutting allowance',station:'Stations',ncrReason:'NCR reasons',carrier:'Dollies & Skids',truck:'Trucks'
+ edgeAllowance:'Cutting allowance',station:'Stations',ncrReason:'NCR reasons',carrier:'Dollies & Skids',truck:'Trucks',
+ priceList:'Price lists',itemGroup:'Item groups'
 };
 const MD_LOG_SETTINGS={cutting:'Cutting',company:'Company',stickerTemplate:'Stickers',salesMetricRules:'Pricing rules'};
 const MD_LOG_TEXT=120;
@@ -40,7 +41,19 @@ function mdLogValue(v){
  const t=typeof v==='object'?JSON.stringify(v):String(v);
  return t.length>MD_LOG_TEXT?t.slice(0,MD_LOG_TEXT-1)+'…':t;
 }
-function mdLogRowName(row,id){return mdLogValue(row&&(row.name||row.label||row.code||row.key))||id;}
+function mdLogRowName(row,id,tbl){
+ /* Личный прайс без имени — по клиенту (erp/sales/price-lists). */
+ if(tbl==='priceList'&&row&&row.kind==='customer')return 'Personal · '+(salesCustomerDisplay(row.customerId)||row.customerId);
+ return mdLogValue(row&&(row.name||row.label||row.code||row.key))||id;
+}
+/* Строки прайса — по строке: «айтем: было → стало», а не весь список JSON. */
+function mdLogPriceRows(a,b){
+ const price=r=>!r?'':[r.price==null?'':String(r.price)].concat(r.bands?['6','8-10','12-19'].map(k=>r.bands[k]==null?'':k+': '+r.bands[k]).filter(Boolean):[]).filter(Boolean).join(' · ');
+ const was=new Map(((a&&a.rows)||[]).map(r=>[r.id,r])),now=new Map(((b&&b.rows)||[]).map(r=>[r.id,r])),out=[],targets=salesPriceTargets();
+ now.forEach((r,id)=>{const x=was.get(id),p=price(r),q=price(x);if(!x||p!==q||x.target!==r.target)out.push([salesPriceTargetLabel(r.target,targets),x?q:'',p]);});
+ was.forEach((r,id)=>{if(!now.has(id))out.push([salesPriceTargetLabel(r.target,targets),price(r),'removed']);});
+ return out;
+}
 /* Поля строки «было → стало»: только те, что поменялись. */
 function mdLogFields(a,b){
  const out=[],keys=new Set(Object.keys(a||{}).concat(Object.keys(b||{})));
@@ -81,9 +94,10 @@ function mdLogCapture(changes){
   /* Таблицы, которой в базе ещё нет, — засев, а не правка. */
   if(!MD_LOG_TABLES[c.tbl]||!storageBase.has(c.tbl))return;
   mdLogPairs(c).forEach(([id,a,b])=>{
-   if(!a&&b){push(c.tbl,id,mdLogRowName(b,id),'Created');n++;return;}
-   if(a&&!b){push(c.tbl,id,mdLogRowName(a,id),'Deleted');n++;return;}
-   if(a&&b)mdLogFields(a,b).forEach(([k,x,y])=>{push(c.tbl,id,mdLogRowName(b,id),'Edited',k,x,y);n++;});
+   if(!a&&b){push(c.tbl,id,mdLogRowName(b,id,c.tbl),'Created');n++;}
+   else if(a&&!b){push(c.tbl,id,mdLogRowName(a,id,c.tbl),'Deleted');n++;return;}
+   else if(a&&b)mdLogFields(a,b).forEach(([k,x,y])=>{if(c.tbl==='priceList'&&k==='rows')return;push(c.tbl,id,mdLogRowName(b,id,c.tbl),'Edited',k,x,y);n++;});
+   if(c.tbl==='priceList'&&b)mdLogPriceRows(a,b).forEach(([k,x,y])=>{push(c.tbl,id,mdLogRowName(b,id,c.tbl),'Edited',k,x,y);n++;});
   });
  });
  return n>0;

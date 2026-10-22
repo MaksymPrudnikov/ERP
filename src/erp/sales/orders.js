@@ -1006,8 +1006,14 @@ function salesPricingHoleBand(d){if(d>0&&d<=1)return {key:'0.5-1',label:'1/2″�
 /* Строка прайса. Отверстия разложены по диаметру отдельными строками, поэтому
    подключ приклеивается к идентификатору: `hole` + `0.5-1` = `hole:0.5-1`. */
 function salesServiceRateRow(id){return (DB.serviceRate||[]).find(r=>r&&r.id===id)||null;}
+/* Прайс клиента (erp/sales/price-lists) даёт работе одну цену на все
+   толщины. Откуда ставка, salesChargeRow забирает из salesRateFrom. */
+let salesRateFrom=null;
 function salesCatalogRate(tableKey,ctx,subKey){
+ salesRateFrom=null;
  const row=salesServiceRateRow(subKey?tableKey+':'+subKey:tableKey);
+ const lp=row?salesPriceListFor('service:'+row.id,row.kind!=='flat'&&ctx&&ctx.ok?ctx.band:''):null;
+ if(lp){salesRateFrom={price:lp.price,list:lp.listId};return lp.price;}
  /* Выключенная строка прайса — это «услуга есть, цены нет», а не ноль. Строка
     встанет в счёт как Rate required и в денежный итог не войдёт: молчаливый
     ноль означал бы, что работу сделали и не выставили. */
@@ -1031,7 +1037,12 @@ function salesRateBandKey(tableKey,ctx){
  const n=+((ctx&&ctx.thickness)||NaN);
  return Number.isFinite(n)?'t'+String(n).replace('.','_'):'na';
 }
-function salesChargeRow(key,label,basis,unit,rate,source){return {key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'};}
+/* from — прайс клиента, давший ставку. Не передан — ставка этой строки
+   только что пришла из salesCatalogRate, и прайс берётся оттуда. */
+function salesChargeRow(key,label,basis,unit,rate,source,from){
+ const f=from!==undefined?from:(salesRateFrom&&rate!=null&&+rate===salesRateFrom.price?salesRateFrom.list:'');salesRateFrom=null;
+ return Object.assign({key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'},f?{from:f}:{});
+}
 /* Начисления по меткам (Hole и фурнитура) считаются в ОДНОМ месте. У строки
    заказа две ветки расчёта — обычная и через Service Set, — и в каждой лежала
    своя копия этого разбора. Копия и есть болезнь: добавленный владельцем вид
@@ -1140,13 +1151,13 @@ function salesGlazingChargeRows(line,areaFt2){
  order.forEach(function(k){
   const isFrit=k.indexOf('frit:')===0;
   const g=isFrit?frit[k]:spandrel[k];
-  const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id);
+  const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id),lp=prod?salesPriceListFor('item:'+(isFrit?'fritProduct':'spandrelProduct')+':'+prod.id):null;
   rows.push(salesChargeRow(
    'GLAZE:'+k,
    (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' glass layers':''),
    +(area*g.qty).toFixed(4),'ft²',
-   (prod&&prod.salePrice!=null)?prod.salePrice:null,
-   'Makeup'));
+   lp?lp.price:(prod&&prod.salePrice!=null)?prod.salePrice:null,
+   'Makeup',lp?lp.listId:''));
  });
  return rows;
 }
@@ -1216,11 +1227,11 @@ function salesChargePricingState(line,row){
  const map=line.chargePricing&&typeof line.chargePricing==='object'?line.chargePricing:{},saved=Object.prototype.hasOwnProperty.call(map,row.key)?map[row.key]:null;
  /* Once an order is saved, even a missing catalog rate is a snapshot. Do not let
     a future catalog edit silently reprice an old order. */
- const catalog=saved?saved.catalogRate:row.catalogRate,lineRate=saved&&saved.orderRate!=null?saved.orderRate:null,orderRate=salesOrderChargePricingRecord(row);
- const effective=lineRate!=null?lineRate:(orderRate!=null?orderRate:catalog),origin=lineRate!=null?'line':(orderRate!=null?'order':(catalog!=null?'catalog':'missing'));
- return {catalogRate:catalog,orderRate:orderRate,lineRate:lineRate,effectiveRate:effective,manual:lineRate!=null,origin:origin,missing:effective==null};
+ const catalog=saved?saved.catalogRate:row.catalogRate,from=saved?saved.from||'':row.from||'',lineRate=saved&&saved.orderRate!=null?saved.orderRate:null,orderRate=salesOrderChargePricingRecord(row);
+ const effective=lineRate!=null?lineRate:(orderRate!=null?orderRate:catalog),origin=lineRate!=null?'line':(orderRate!=null?'order':(catalog!=null?(from?'list':'catalog'):'missing'));
+ return {catalogRate:catalog,orderRate:orderRate,lineRate:lineRate,effectiveRate:effective,manual:lineRate!=null,origin:origin,from:from,missing:effective==null};
 }
-function salesEnsureChargePricing(line,row){if(!line.chargePricing||typeof line.chargePricing!=='object')line.chargePricing={};if(!line.chargePricing[row.key])line.chargePricing[row.key]={catalogRate:row.catalogRate==null?null:row.catalogRate,orderRate:null};return line.chargePricing[row.key];}
+function salesEnsureChargePricing(line,row){if(!line.chargePricing||typeof line.chargePricing!=='object')line.chargePricing={};if(!line.chargePricing[row.key])line.chargePricing[row.key]=Object.assign({catalogRate:row.catalogRate==null?null:row.catalogRate,orderRate:null},row.from?{from:row.from}:{});return line.chargePricing[row.key];}
 function salesEnsureOrderServicePricing(){if(!soDraft.servicePricing||typeof soDraft.servicePricing!=='object')soDraft.servicePricing={};return soDraft.servicePricing;}
 function salesSnapshotAllChargePricing(){if(!soDraft)return;(soDraft.lines||[]).forEach(function(line){salesLineChargeRows(line).forEach(function(row){salesEnsureChargePricing(line,row);});});}
 function salesSetChargeOrderRate(lineId,key,v){const line=(soDraft.lines||[]).find(x=>x.id===lineId);if(!line)return;const row=salesLineChargeRows(line).find(x=>x.key===key);if(!row)return;const rec=salesEnsureChargePricing(line,row),txt=String(v==null?'':v).trim();if(txt===''){rec.orderRate=null;render();return;}const n=Number(txt);if(!Number.isFinite(n)||n<0){alert('Enter a valid non-negative line rate.');render();return;}rec.orderRate=Math.round(n*10000)/10000;render();}
