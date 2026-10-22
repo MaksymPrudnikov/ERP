@@ -75,7 +75,7 @@ module.exports=async function({page,eq}){
   return {id:r.id===id,number:r.number,created:r.createdAt===created,kind:DB.financeEvent[1].kind};
  }),{id:true,number:'R-0001',created:true,kind:'corrected'});
  eq('failed refund persistence rolls back both refund and history',await t.p.evaluate(()=>{
-  financeSeed();const r=financePayment(100,0),old=touch;touch=()=>false;
+  financeSeed();const r=financePayment(100,0);touch();const old=touch;touch=()=>false;
   const out=finPersist(()=>finCreateRefund({receiptId:r.id,amount:20,date:'2026-09-02',method:'cash',reason:'Return'}));touch=old;
   return {ok:out.ok,refunds:DB.refund.length,events:DB.financeEvent.length,available:finReceiptOnAccount(DB.receipt[0])};
  }),{ok:false,refunds:0,events:1,available:100});
