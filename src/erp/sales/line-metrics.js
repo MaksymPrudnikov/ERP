@@ -52,7 +52,10 @@ function salesLineAreas(line,order){
  /* Коммерческая площадь всегда идёт к следующей десятой. Обычный round
     занижал 33 × 80 с 18.3333 до 18.3 вместо подтверждённых 18.4 ft². */
  const rounded=valid?Math.ceil((Math.ceil(w)*Math.ceil(h)/144-1e-10)*10)/10:null;
- return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,salesMetricRules(order).minimumAreaFt2):null,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
+ /* Периметр для продажи за погонную длину — вверх до целого дюйма, как в
+    Spiel (владелец, 22.10.2026); у фигуры — её контур. */
+ const perimeterIn=valid?Math.ceil((shapeValid&&+r.perimeter>0?+r.perimeter:2*(Math.ceil(w)+Math.ceil(h)))-1e-9):null;
+ return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,salesMetricRules(order).minimumAreaFt2):null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
 }
 function salesMoney(value){return Math.round((value+Number.EPSILON)*100)/100;}
 function salesApplyOrderCharges(subtotal,raw){
@@ -78,10 +81,89 @@ function salesOrderCommercialTotals(order){
  (order&&order.adjustments||[]).forEach(function(a){if(Number.isFinite(+a.amount))subtotal=salesMoney(subtotal+(+a.amount));});
  const out=salesApplyOrderCharges(subtotal,order&&order.orderCharges);out.complete=!missing;out.missing=missing;out.qty=qty;return out;
 }
+/* Единица продажи айтема (план Master Data, этап 2, часть 3; владелец,
+   22.10.2026): поле Sales unit карточки говорит, за что цена — площадь
+   (sq ft, sq m), длина периметра (inch, ft, m), вес (kg, lb) или штука.
+   Свой минимум площади и суммы айтема поднимает счёт (выбор владельца
+   22.10.2026), с пометкой в строке; ручная цена юнита всё равно главнее.
+   Единица и минимумы замораживаются в заказе на Save, как цены. */
+function salesItemSaleRules(table,x,fallbackUnit){
+ if(!x)return {unit:fallbackUnit||'sqft',minArea:null,minCharge:null};
+ const k=table+':'+x.id;
+ return {unit:salesBook('unit:'+k,()=>mdUnitCode(x.salesUnit,fallbackUnit||'sqft'))||fallbackUnit||'sqft',
+  minArea:salesBook('minArea:'+k,()=>x.minAreaFt2==null?null:x.minAreaFt2),
+  minCharge:salesBook('minCharge:'+k,()=>x.minCharge==null?null:x.minCharge)};
+}
+const SALES_KG_PER_LB=0.45359237;
+/* Количество одного лайта в единице продажи. kg — вес этого айтема в лайте. */
+function salesSaleQty(rules,areas,kg){
+ const u=rules.unit,unit=mdUnit(u),calc=unit?unit.calc:'area';
+ if(u==='kg')return kg;
+ if(u==='lb')return kg==null?null:kg/SALES_KG_PER_LB;
+ if(calc==='area'){const ft2=Math.max(areas.billable,rules.minArea||0);return u==='sqm'?ft2*GLASS_M2_PER_FT2:ft2;}
+ if(calc==='linear')return u==='ft'?areas.perimeterIn/12:u==='m'?areas.perimeterIn*.0254:areas.perimeterIn;
+ return 1;
+}
+/* Материалы одного юнита по частям. Части за sq ft без своего минимума
+   считаются как раньше: сумма цен × Billable Area — числа старых заказов не
+   меняются. Остальные — цена × своё количество, со своими минимумами. */
+function salesLineMaterials(m,areas,order){
+ const out={total:0,amount:0,known:true,rows:[]};
+ if(!m||!areas.valid)return Object.assign(out,salesMakeupUnitPrice(m),{amount:0});
+ let plain=0;
+ const add=(label,price,table,item,kg,fixedUnit)=>{
+  if(price==null){out.known=false;out.rows.push({label,price:null});return;}
+  const rules=fixedUnit?{unit:fixedUnit,minArea:null,minCharge:null}:salesItemSaleRules(table,item);
+  if(rules.unit==='sqft'&&rules.minArea==null&&rules.minCharge==null){plain+=price;out.rows.push({label,price,unit:'sqft',qty:areas.billable,amount:price*areas.billable});return;}
+  const needKg=rules.unit==='kg'||rules.unit==='lb',qty=salesSaleQty(rules,areas,needKg?kg():null);
+  if(qty==null){out.known=false;out.rows.push({label,price,unit:rules.unit,qty:null,note:'No weight'});return;}
+  const notes=[];let amount=price*qty;
+  if(rules.minArea!=null&&mdUnit(rules.unit)&&mdUnit(rules.unit).calc==='area'&&rules.minArea>areas.billable)notes.push('min '+rules.minArea+' ft²');
+  if(rules.minCharge!=null&&amount<rules.minCharge){amount=rules.minCharge;notes.push('min charge '+rules.minCharge.toFixed(2));}
+  out.rows.push({label,price,unit:rules.unit,qty,amount,note:notes.join(' · '),special:true});out.amount+=amount;
+ };
+ const glassKg=(ply,g)=>()=>{const t=glassEffectiveThicknessMm(g),mm=t.mm||+(ply&&ply.thicknessMm)||0;return mm>0&&areas.actual!=null?glassLayerWeightKg(mm,GLASS_DENSITY_KG_M3,areas.actual):null;};
+ (m.panes||[]).forEach((p,i)=>{
+  const label='Lite '+(i+1);
+  if(p.category==='laminated'){
+   if(p.priceOverride!=null)return add(label+' · laminated',p.priceOverride,'','',null,'sqft');
+   const lam=p.laminated||{};
+   [lam.outer,lam.inner].forEach((ply,j)=>{const g=ply&&glassProductById(ply.glassProductId);add(label+(j?'b':'a')+(g?' · '+g.code:''),salesPlyPrice(ply),'glassProduct',g,glassKg(ply,g));});
+   (lam.interlayers||[]).forEach(f=>{
+    const prod=mdById('interlayerProduct',f.productId),layers=salesInterlayerLayerCount(f.layers!=null?f.layers:2);
+    const price=f.priceOverride!=null?f.priceOverride:salesInterlayerSalePrice(f.productId);
+    const rules=salesItemSaleRules('interlayerProduct',prod),byWeight=rules.unit==='kg'||rules.unit==='lb';
+    const kg=()=>{const d=salesWeightRate('film:'+f.productId,order);return d!=null&&areas.actual!=null&&+f.thicknessMm>0?d*areas.actual*GLASS_M2_PER_FT2*f.thicknessMm/1000:null;};
+    /* Плёнка за вес — вес всей плёнки; иначе цена × число слоёв, как раньше. */
+    add(label+' · '+(prod?prod.name:'Interlayer')+(byWeight||layers===1?'':' × '+layers),price==null?null:byWeight?price:price*layers,'interlayerProduct',prod,kg);
+   });
+  }else{
+   const g=glassProductById(p.glassProductId);
+   add(label+(g?' · '+g.code:''),p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p),'glassProduct',g,glassKg(p,g));
+  }
+ });
+ (m.cavities||[]).forEach((c,i)=>add('Surround · cavity '+(i+1),c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c),'','',null,'sqft'));
+ plain=Math.round(plain*100)/100;out.amount+=plain*areas.billable;
+ out.total=out.rows.some(r=>r.special)&&areas.billable>0?Math.round(out.amount/areas.billable*100)/100:plain;
+ return out;
+}
+/* Мин. и макс. размер айтема — только предупреждение (владелец, 22.10.2026). */
+function salesItemSizeProblems(line,order){
+ const m=salesMakeupById(order,line.makeupId),a=salesLineAreas(line,order),out=[];
+ if(!m||!a.valid)return out;
+ const check=x=>{if(!x)return;const name=x.code||x.name||x.id,W=a.width,H=a.height;
+  if(x.maxWidthIn!=null&&W>x.maxWidthIn||x.maxHeightIn!=null&&H>x.maxHeightIn)out.push(name+': over max '+(x.maxWidthIn==null?'—':x.maxWidthIn)+' × '+(x.maxHeightIn==null?'—':x.maxHeightIn)+'″');
+  if(x.minWidthIn!=null&&W<x.minWidthIn||x.minHeightIn!=null&&H<x.minHeightIn)out.push(name+': under min '+(x.minWidthIn==null?'—':x.minWidthIn)+' × '+(x.minHeightIn==null?'—':x.minHeightIn)+'″');};
+ (m.panes||[]).forEach(p=>{if(p.category==='laminated'){const l=p.laminated||{};[l.outer,l.inner].forEach(x=>check(x&&glassProductById(x.glassProductId)));(l.interlayers||[]).forEach(f=>check(mdById('interlayerProduct',f.productId)));}else check(glassProductById(p.glassProductId));});
+ return [...new Set(out)];
+}
+function salesItemSizeWarnings(order){
+ const out=[];(order&&order.lines||[]).forEach((line,i)=>salesItemSizeProblems(line,order).forEach(t=>out.push('Line '+(i+1)+(line.mark?' ('+line.mark+')':'')+' · '+t)));return out;
+}
 function salesLineCommercialPrice(line,order){
  order=order||soDraft;
- const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),rate=salesMakeupUnitPrice(m),q=salesPositiveInt(line.qty,1),live=Math.max(0,q-unitCancelled(line));
- const services=salesLinePricingSummary(line),materials=areas.valid?rate.total*areas.billable:0;
+ const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),q=salesPositiveInt(line.qty,1),live=Math.max(0,q-unitCancelled(line));
+ const rate=salesLineMaterials(m,areas,order),services=salesLinePricingSummary(line),materials=areas.valid?rate.amount:0;
  const base=salesMoney(materials+services.total/q),rules=salesMetricRules(order),adjustments=[];
  const unsupportedCurrency=!!(order.currency&&order.currency!=='CAD');
  let incomplete=!areas.valid||!m||!rate.known||services.unpriced>0||unsupportedCurrency;
@@ -90,7 +172,7 @@ function salesLineCommercialPrice(line,order){
  if(adjustments.length>1&&rules.combination==='pending')incomplete=true;
  let running=base;
  adjustments.forEach(a=>{a.base=rules.combination==='compound'?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
- const out={areas:areas,materialRate:rate.total,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:live,ordered:q,cancelled:q-live};
+ const out={areas:areas,materialRate:rate.total,materialRows:rate.rows,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:live,ordered:q,cancelled:q-live};
  /* Цена руками: итоговая цена юнита, наценки к ней не прибавляются; расчёт
     остаётся для справки (computedUnit). */
  if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,line:salesMoney(v*live),complete:true,unsupportedCurrency:false});}

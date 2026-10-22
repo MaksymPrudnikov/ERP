@@ -234,7 +234,7 @@ function salesPriceBookOf(o){
  }finally{salesBookRec=keep;salesFromRec=keepFrom;}
 }
 function salesPriceFromClean(f){const out={};if(f&&typeof f==='object'&&!Array.isArray(f))Object.keys(f).forEach(k=>{if(typeof f[k]==='string'&&f[k])out[k]=f[k];});return out;}
-function salesPriceBookClean(b){const out={};Object.keys(b).forEach(k=>{const v=b[k];if(v===null)out[k]=null;else if(typeof v==='number'&&Number.isFinite(v))out[k]=v;});return out;}
+function salesPriceBookClean(b){const out={};Object.keys(b).forEach(k=>{const v=b[k];if(v===null)out[k]=null;else if(typeof v==='number'&&Number.isFinite(v))out[k]=v;else if(typeof v==='string'&&k.indexOf('unit:')===0)out[k]=v;});return out;}
 function salesGlassSalePrice(g,tempered){const f=tempered?'salePriceTempered':'salePriceAnnealed';return salesBook('glass:'+g.id+':'+f,()=>g[f]==null?null:g[f]);}
 /* Прайс, давший цену листа (лайт или слой ламината) — для «откуда цена». */
 function salesGlassPriceFrom(x){

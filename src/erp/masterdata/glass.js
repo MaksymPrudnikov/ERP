@@ -91,6 +91,11 @@ const GLASS_DEFAULT_UNIT='sqft';
 function mdString(v){return String(v==null?'':v).trim();}
 function mdNum(v){if(v==null||v==='')return null;const n=+v;return Number.isFinite(n)?n:null;}
 function mdNonNeg(v){const n=mdNum(v);return n!=null&&n>=0?n:null;}
+/* Правила продажи из карточки (план Master Data, этап 2, часть 3): свой
+   минимум площади и суммы поднимает счёт, мин./макс. размер Ш × В в дюймах
+   только предупреждает (владелец, 22.10.2026). Пусто — правила нет. */
+const MD_SALE_RULE_FIELDS=['minAreaFt2','minCharge','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'];
+function mdSaleRulesOf(p){const out={};MD_SALE_RULE_FIELDS.forEach(k=>{out[k]=mdNonNeg(p&&p[k]);});return out;}
 function mdInt(v){const n=mdNum(v);return n!=null&&Number.isInteger(n)&&n>=0?n:null;}
 function mdAvailability(v){return MATERIAL_AVAILABILITY.includes(v)?v:'order';}
 /* Дата цены — только ISO. Прайс без даты бесполезен не тем, что он пуст, а
@@ -263,6 +268,7 @@ function normalizeGlassProduct(p){
   salePriceTempered:mdNonNeg(p.salePriceTempered),
   stockingUnit:mdUnitCode(p.stockingUnit,GLASS_DEFAULT_UNIT),
   salesUnit:mdUnitCode(p.salesUnit,GLASS_DEFAULT_UNIT),
+  ...mdSaleRulesOf(p),
   optics:normalizeGlassOptics(p.optics),
   origin:normalizeGlassOrigin(p.origin),
   /* У стекла закупка не одно число — она живёт точками поставки
@@ -493,7 +499,7 @@ function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};
     смыслом не заводим — разойдутся. */
  const sub=type==='stock'?(mdString(p.subcategory)||'consumable')
   :(type==='interlayer'?mdString(p.family):(SIMPLE_MATERIAL_SUBCATEGORY[type]||''));
- return Object.assign(materialHeader(p,cat,sub),{id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),salesUnit:mdString(p.salesUnit),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),stockingUnit:mdString(p.stockingUnit),note:mdString(p.note),sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false});}
+ return Object.assign(materialHeader(p,cat,sub),{id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),salesUnit:mdString(p.salesUnit),...mdSaleRulesOf(p),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),stockingUnit:mdString(p.stockingUnit),note:mdString(p.note),sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false});}
 const SIMPLE_MATERIAL_CATEGORY={gas:'igu',sealant:'igu',interlayer:'lamination',frit:'surface',spandrel:'surface',stock:'stock'};
 const SIMPLE_MATERIAL_SUBCATEGORY={gas:'gas',sealant:'sealant',frit:'frit',spandrel:'spandrel'};
 /* Готовые изделия и расходка: покупаем целиком, перепродаём целиком, без
