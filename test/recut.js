@@ -60,7 +60,7 @@ module.exports=async function({page,eq,ok}){
   return {recuts:DB.recut.map(r=>[r.orderId===id,r.no,r.lite,r.qty,r.reason]),ncr:DB.ncr.length,extra:JSON.stringify(rec.extra),unit:item.unit,snap:b2.parts[item.part].snapshot.recut,queue:glassBatchRows([salesRecord(id)]).map(r=>r.unit+':'+r.piece)};
  }),{recuts:[[true,1,'Lite 1 · 6CLEAR',2,'Exploded in furnace']],ncr:0,extra:'{"R1":["G-0000901","G-0000902"]}',unit:'R1.1',snap:'R1',queue:['R1.2:G-0000902']});
 
- const saved=await t.p.evaluate(()=>{oqReset();const id=rcOrder('ready');rcFill(id,{where:'SHIPR',reason:'Damaged in rack',lines:[[0,1,1]]});ncrFormCreate();return JSON.stringify([DB.recut,DB.glassPiece]);});
+ const saved=await t.p.evaluate(async()=>{oqReset();const id=rcOrder('ready');rcFill(id,{where:'SHIPR',reason:'Damaged in rack',lines:[[0,1,1]]});ncrFormCreate();await storageFlush();return JSON.stringify([DB.recut,DB.glassPiece]);});
  await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  eq('после перезагрузки Recut и его номера стёкол те же',await t.p.evaluate(saved=>JSON.stringify([DB.recut,DB.glassPiece])===saved,saved),true);
  await helpers();
