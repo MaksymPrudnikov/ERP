@@ -81,7 +81,7 @@ function normalizeCustomer(c,i){
  const fuelMode=CUSTOMER_FUEL_MODES.includes(c.fuelLevyMode)?c.fuelLevyMode:'default';
  return {
   id:customerString(c.id)||customerUid('CUS'),code:customerString(c.code),legalName:customerString(c.legalName||c.name),displayName:customerString(c.displayName||c.legalName||c.name),
-  status,isProspect:customerBool(c.isProspect),customerType:customerString(c.customerType),group:customerString(c.group),area:customerString(c.area),salesRep:customerString(c.salesRep),
+  status,isProspect:customerBool(c.isProspect),customerType:customerString(c.customerType),group:customerString(c.group),priceGroupId:customerString(c.priceGroupId),area:customerString(c.area),salesRep:customerString(c.salesRep),
   accountOpenedAt:customerString(c.accountOpenedAt),notes:customerString(c.notes),internalNotes:customerString(c.internalNotes),
   taxNumber:customerString(c.taxNumber),registrationNumber:customerString(c.registrationNumber),taxExempt:customerBool(c.taxExempt),taxExemptionNumber:customerString(c.taxExemptionNumber),
   paymentTerms:customerString(c.paymentTerms),...paymentTermsFrom(c),currency:CUSTOMER_CURRENCIES.includes(c.currency)?c.currency:'CAD',creditLimit:customerNumber(c.creditLimit),
@@ -144,7 +144,7 @@ function customerCsvRows(){
  const rows=DB.customer.map(c=>{
   const p=customerPrimaryContact(c),b=customerAddressByType(c,'billing'),d=customerAddressByType(c,'delivery'),lr=c.legacyRefs||{};
   const print=['print','both'].includes(c.statementDelivery),email=['email','both'].includes(c.statementDelivery);
-  const vals=[c.id,c.code,c.legalName,c.displayName,c.status,c.isProspect,c.customerType,c.group,c.area,c.salesRep,p.phone,p.phone2,p.mobile,p.fax,p.email,p.name,b.address1,b.address2,b.address3,'','',b.postalCode,d.address1,d.address2,d.address3,'','',d.postalCode,c.deliverTo,c.onHold,c.holdReason,lr.iwg,print,email,c.checkTerms,c.taxNumber,c.registrationNumber,c.creditLimit==null?'':c.creditLimit,c.defaultDeliveryMethod,c.fuelLevyRate==null?'':c.fuelLevyRate,c.fuelLevyMode,c.currency,c.accountOpenedAt,c.creditApplicationDate,c.paymentTerms,c.poRequired,c.statementEmail,c.invoiceEmail,c.notes,c.internalNotes,JSON.stringify(c.contacts),JSON.stringify(c.addresses),lr.dcLink,lr.flid,lr.iClassID,lr.repID,lr.iAreasID,lr.uiARDeliveryMethod,lr.uiARCATID,lr.accountStatusID,c.paymentMode,c.depositPercent==null?'':c.depositPercent,c.creditDays==null?'':c.creditDays];
+  const vals=[c.id,c.code,c.legalName,c.displayName,c.status,c.isProspect,c.customerType,customerGroupName(c),c.area,c.salesRep,p.phone,p.phone2,p.mobile,p.fax,p.email,p.name,b.address1,b.address2,b.address3,'','',b.postalCode,d.address1,d.address2,d.address3,'','',d.postalCode,c.deliverTo,c.onHold,c.holdReason,lr.iwg,print,email,c.checkTerms,c.taxNumber,c.registrationNumber,c.creditLimit==null?'':c.creditLimit,c.defaultDeliveryMethod,c.fuelLevyRate==null?'':c.fuelLevyRate,c.fuelLevyMode,c.currency,c.accountOpenedAt,c.creditApplicationDate,c.paymentTerms,c.poRequired,c.statementEmail,c.invoiceEmail,c.notes,c.internalNotes,JSON.stringify(c.contacts),JSON.stringify(c.addresses),lr.dcLink,lr.flid,lr.iClassID,lr.repID,lr.iAreasID,lr.uiARDeliveryMethod,lr.uiARCATID,lr.accountStatusID,c.paymentMode,c.depositPercent==null?'':c.depositPercent,c.creditDays==null?'':c.creditDays];
   return vals;
  });
  return [H].concat(rows);

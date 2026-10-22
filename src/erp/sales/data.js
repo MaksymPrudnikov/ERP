@@ -203,25 +203,45 @@ function salesDefaultPane(i){
    — из Master Data. Save записывает в priceBook ровно те цены, по которым
    посчитан заказ; ставки услуг фиксировались и раньше (chargePricing). Заказ
    берётся из контекста расчёта (finWithOrder ставит его в soDraft). */
-let salesBookRec=null;
+/* Новая цена сначала ищется в прайсах клиента (erp/sales/price-lists), потом
+   в Master Data. Откуда она пришла, заказ помнит в priceFrom: ключ цены →
+   прайс. */
+let salesBookRec=null,salesFromRec=null;
 function salesBook(key,live){
- const b=typeof soDraft!=='undefined'&&soDraft&&soDraft.priceBook;
- const v=b&&Object.prototype.hasOwnProperty.call(b,key)?b[key]:live();
+ const o=typeof soDraft!=='undefined'&&soDraft,b=o&&o.priceBook;
+ let v;
+ if(b&&Object.prototype.hasOwnProperty.call(b,key)){v=b[key];if(salesFromRec&&o.priceFrom&&o.priceFrom[key])salesFromRec[key]=o.priceFrom[key];}
+ else{const lp=salesPriceListFor(salesPriceTargetOfKey(key));v=lp?lp.price:live();if(salesFromRec&&lp)salesFromRec[key]=lp.listId;}
  if(salesBookRec)salesBookRec[key]=v==null?null:v;
  return v;
+}
+/* Откуда цена по ключу priceBook: прайс заказа или живой поиск. '' — общая. */
+function salesPriceFromOf(key){
+ const o=typeof soDraft!=='undefined'&&soDraft;if(!o)return '';
+ if(o.priceBook&&Object.prototype.hasOwnProperty.call(o.priceBook,key))return (o.priceFrom&&o.priceFrom[key])||'';
+ const lp=salesPriceListFor(salesPriceTargetOfKey(key));return lp?lp.listId:'';
 }
 /* Цены и нормы веса, по которым заказ посчитан сейчас: прежние — из его
    priceBook, новые позиции — из Master Data. */
 function salesPriceBookOf(o){
- const keep=salesBookRec;salesBookRec={};
+ const keep=salesBookRec,keepFrom=salesFromRec;salesBookRec={};salesFromRec={};
  try{
   finOrderTotals(o);
   if(typeof salesLineWeight==='function')finWithOrder(o,()=>(o.lines||[]).forEach(l=>{try{salesLineWeight(l,o);}catch(e){console.warn('weight book '+(o.businessNumber||o.id)+': '+e.message);}}));
+  /* Откуда цены — рядом с самими ценами, тем же снимком. */
+  if(Object.keys(salesFromRec).length)o.priceFrom=salesFromRec;else delete o.priceFrom;
   return salesBookRec;
- }finally{salesBookRec=keep;}
+ }finally{salesBookRec=keep;salesFromRec=keepFrom;}
 }
+function salesPriceFromClean(f){const out={};if(f&&typeof f==='object'&&!Array.isArray(f))Object.keys(f).forEach(k=>{if(typeof f[k]==='string'&&f[k])out[k]=f[k];});return out;}
 function salesPriceBookClean(b){const out={};Object.keys(b).forEach(k=>{const v=b[k];if(v===null)out[k]=null;else if(typeof v==='number'&&Number.isFinite(v))out[k]=v;});return out;}
 function salesGlassSalePrice(g,tempered){const f=tempered?'salePriceTempered':'salePriceAnnealed';return salesBook('glass:'+g.id+':'+f,()=>g[f]==null?null:g[f]);}
+/* Прайс, давший цену листа (лайт или слой ламината) — для «откуда цена». */
+function salesGlassPriceFrom(x){
+ const g=x&&glassProductById(x.glassProductId);if(!g)return '';
+ const ht=mdById('heatTreatment',x.heatTreatmentId),code=String((ht&&ht.code)||'').toUpperCase();
+ return salesPriceFromOf('glass:'+g.id+':'+(code==='FT'||code==='HS'?'salePriceTempered':'salePriceAnnealed'));
+}
 function salesInterlayerSalePrice(id){return salesBook('interlayer:'+id,()=>{const p=mdById('interlayerProduct',id);return p&&p.salePrice!=null?p.salePrice:null;});}
 const SALES_SURROUND_BASE={aluminum:2.40,warm_edge:2.85,stainless:2.85};
 const SALES_SURROUND_ARGON=0.25;
@@ -427,7 +447,7 @@ function normalizeSalesChargePricing(raw){
  Object.keys(raw).forEach(function(key){
   if(!/^[A-Za-z0-9:._|+\-]{1,180}$/.test(key))return;const r=raw[key]&&typeof raw[key]==='object'?raw[key]:{};
   const catalog=r.catalogRate==null||r.catalogRate===''?NaN:Number(r.catalogRate),order=r.orderRate==null||r.orderRate===''?NaN:Number(r.orderRate);
-  out[key]={catalogRate:Number.isFinite(catalog)&&catalog>=0?catalog:null,orderRate:Number.isFinite(order)&&order>=0?order:null};
+  out[key]={catalogRate:Number.isFinite(catalog)&&catalog>=0?catalog:null,orderRate:Number.isFinite(order)&&order>=0?order:null,...(typeof r.from==='string'&&r.from?{from:r.from}:{})};
  });
  return out;
 }
@@ -502,7 +522,7 @@ function normalizeSalesOrder(o){
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
   remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
   ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines)),
