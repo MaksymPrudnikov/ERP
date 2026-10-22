@@ -30,6 +30,16 @@
      батчи, площадь, сумма, оплачено, баланс, кто создал. --compare <папка
      прошлого прогона> сверяет их: ускорение принимается, только если
      ответы те же (расхождение — ✗ «answers»).
+   · --years N (вместе с --archive): архив размножается на N−1 прошлых
+     лет — копии записей склада cold и строк указателя со сдвигом дат на k
+     лет и своими ключами (суффикс ~k у ключей записей, заказов, номеров
+     стёкол, батчей, оплат и прочих номеров); клиенты, справочники и год в
+     работе — те же. Так получается база за N лет без Import N лет.
+   · --archive <день> (задание «База», А5): после Import заказы, которым
+     к этому дню пора в архив, уходят (archiveRun) — время и сколько ушло;
+     замеры идут уже с архивом. Ответы «после» сверяются с «до»: заказ в
+     работе — вся строка, ушедший — колонки списка Sales из указателя
+     архива (✗ «archive answers», если что-то не так).
 
    Выход: ~/.glass-erp-walk/perf/<дата>-<имя>/ — report.md, report.json,
    PNG медленных экранов. В Git не класть: это рабочие и тестовые данные.
@@ -41,18 +51,22 @@
    Ключи: --name --out --cpu 1,4 --timeout 120 (с) --dist (собранный файл)
           --required (пороги обязательны: ✗ — код выхода 1)
           --compare <папка или report.json прошлого прогона> (контрольные ответы)
+          --archive <YYYY-MM-DD> (уход в архив после Import, сверка ответов)
+          --years N (с --archive: архив за N лет)
    ===================================================================== */
 const { chromium } = require('playwright');
 const fs = require('fs'), os = require('os'), path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const o = { base: '', name: '', out: path.join(os.homedir(), '.glass-erp-walk', 'perf'), cpu: [1, 4], timeout: 120, dist: false, required: false, compare: '' };
+const o = { base: '', name: '', out: path.join(os.homedir(), '.glass-erp-walk', 'perf'), cpu: [1, 4], timeout: 120, dist: false, required: false, compare: '', archive: '', years: 1 };
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i], v = () => argv[++i];
   if (a === '--name') o.name = v(); else if (a === '--out') o.out = v(); else if (a === '--cpu') o.cpu = v().split(',').map(Number);
   else if (a === '--timeout') o.timeout = +v(); else if (a === '--dist') o.dist = true; else if (a === '--required') o.required = true;
   else if (a === '--compare') o.compare = v().replace(/^~(?=\/|$)/, os.homedir());
+  else if (a === '--years') o.years = Math.max(1, Math.floor(+v() || 1));
+  else if (a === '--archive') { o.archive = v(); if (!/^\d{4}-\d{2}-\d{2}$/.test(o.archive)) { console.error('--archive: день YYYY-MM-DD'); process.exit(2); } }
   else if (a === '-h' || a === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('*/')[0]); process.exit(0); }
   else if (!o.base && !a.startsWith('--')) o.base = a.replace(/^~(?=\/|$)/, os.homedir());
   else { console.error('Неизвестный ключ: ' + a); process.exit(2); }
@@ -105,7 +119,7 @@ function pageSetup() {
         if ((salesRecord(ord.id) || {}).notes !== note) r.error = 'order not saved'; return flush(r);
       }
       if (name === 'Convert quote') {
-        const q = pick(DB.salesOrder, x => salesIsQuote(x) && !x.wonOrderId && !['lost', 'expired', 'cancelled'].includes(x.status)); if (!q) return { skip: 'no open quote' };
+        const q = pick(DB.salesOrder, x => salesIsQuote(x) && !x.wonOrderId && !salesQuoteWonMember(x) && !['lost', 'expired', 'cancelled'].includes(x.status)); if (!q) return { skip: 'no open quote' };
         const n = DB.salesOrder.length, r = run(() => salesConvertQuoteRecord(q.id)); r.note = q.businessNumber; delete r.out; if (DB.salesOrder.length === n) r.error = 'quote not converted'; return flush(r);
       }
       if (name === 'Batch + cut') {
@@ -152,6 +166,27 @@ function pageSetup() {
       const all = () => (DB.salesOrder || []).map(o => { const i = salesListInfo(o); return [o.id].concat(keys.map(k => { try { const v = salesListValue(i, k); return v == null ? null : v; } catch (e) { return 'error: ' + e.message; } })); });
       return { keys, rows: typeof readScope === 'function' ? readScope(all) : all() };
     },
+    /* Уход в архив на день (--archive) и строки ушедших из указателя. */
+    archive(day) { storageTakeControl(); const t = performance.now(), r = archiveRun(day); return { ms: Math.round(performance.now() - t), ok: r.ok, error: r.error || '', orders: r.value && r.value.orders, records: r.value && r.value.records }; },
+    /* --years: копии архива на прошлые годы. Ключи — суффикс ~k у строк из
+       набора (ключи записей cold, заказы, номера); даты — минус k лет.
+       Читается частями по ключу — память не растёт с размером архива. */
+    async years(n) {
+      const t = performance.now(), ids = new Set(), num = /^(?:G-\d{5,}|B-\d+|R-\d+|RF-\d+|NCR\d+|PS-\d+|Q-\d+(?:-R\d+)?|\d{5,6})$/;
+      const chunk = (store, after) => storageIdbTx([store], 'readonly', tx => { const out = { rows: [] }; tx.objectStore(store).getAll(after ? IDBKeyRange.lowerBound(after, true) : null, 4000).onsuccess = e => { out.rows = e.target.result || []; }; return out; }).then(x => x.rows);
+      const each = async (store, fn) => { let after = null; for (;;) { const rows = await chunk(store, after); if (!rows.length) return; await fn(rows); const r = rows[rows.length - 1]; after = store === 'cold' ? [r.tbl, r.id] : r.id; } };
+      await each('cold', rows => { rows.forEach(r => { ids.add(r.id); (r.owners || []).forEach(x => ids.add(x)); }); });
+      await each('archive', rows => { rows.forEach(r => { if (!String(r.id).startsWith('L:')) ids.add(r.id); }); });
+      const day = (y, m, d, k) => { const yy = +y - k; return yy + '-' + m + '-' + (m === '02' && d === '29' ? '28' : d); };
+      const T = (text, k) => text.replace(/"((?:[^"\\]|\\.)*)"/g, (q, v) => ids.has(v) || num.test(v) ? '"' + v + '~' + k + '"' : q.replace(/(\d{4})-(\d{2})-(\d{2})/g, (x, y, m, d) => day(y, m, d, k)));
+      let cold = 0, rows = 0;
+      for (let k = 1; k < n; k++) {
+        await each('cold', list => storageIdbTx(['cold'], 'readwrite', tx => { const st = tx.objectStore('cold'); list.forEach(r => { st.put({ tbl: r.tbl, id: JSON.parse(T(JSON.stringify(r.id), k)), seq: r.seq, data: T(r.data, k), owners: (r.owners || []).map(x => JSON.parse(T(JSON.stringify(x), k))), month: r.month ? day(r.month.slice(0, 4), r.month.slice(5, 7), '01', k).slice(0, 7) : '' }); cold++; }); }));
+        await each('archive', list => storageIdbTx(['archive'], 'readwrite', tx => { const st = tx.objectStore('archive'); list.forEach(r => { if (String(r.id).indexOf('~') >= 0) return; const id = String(r.id).startsWith('L:') ? String(r.id).replace(/^(L:[^:]+:)(.*)$/, (x, p, v) => p + JSON.parse(T(JSON.stringify(v), k))) : JSON.parse(T(JSON.stringify(r.id), k)); st.put({ id, row: JSON.parse(T(JSON.stringify(r.row), k)) }); rows++; }); }));
+      }
+      return { ms: Math.round(performance.now() - t), cold, rows };
+    },
+    answersArchived(keys) { return [...archiveIndex].map(([id, a]) => [id].concat(keys.map(k => Object.prototype.hasOwnProperty.call(a.row, k) ? a.row[k] : '∅'))); },
     f5parts() { const m = typeof storageBootMs !== 'undefined' && storageBootMs || {}; return Object.fromEntries(Object.entries(m).map(([k, v]) => [k, Math.round(v)])); },
     size() {
       const by = {}; let total = 0;
@@ -168,7 +203,7 @@ const errors = [];
 const within = (ms, p) => { let timer; return Promise.race([p.then(v => ({ v }), e => ({ error: String(e.message).split('\n')[0] })), new Promise(r => { timer = setTimeout(() => r({ timeout: true }), ms); })]).finally(() => clearTimeout(timer)); };
 async function open() {
   ctx = await chromium.launchPersistentContext(profile, { viewport: { width: 1440, height: 900 }, timezoneId: 'America/Toronto', locale: 'en-CA' });
-  await ctx.addInitScript(() => { window.GF_NO_SIGNIN = true; });
+  await ctx.addInitScript(() => { window.GF_NO_SIGNIN = true; window.GF_NO_ARCHIVE = true; });
   page = ctx.pages()[0] || await ctx.newPage();
   page.on('pageerror', e => errors.push(e.message)); page.on('dialog', d => d.accept().catch(() => {}));
   cdp = await ctx.newCDPSession(page); await cdp.send('Performance.enable');
@@ -202,6 +237,21 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
   report.import = { ms: Date.now() - ti, result: imp.v === true ? 'ok' : imp.timeout ? 'timeout' : String(imp.v || imp.error) };
   console.log('Import', fmt(report.import.ms), report.import.result);
   if (report.import.result !== 'ok') { fs.writeFileSync(path.join(dir, 'report.json'), JSON.stringify(report, null, 1)); console.error('Import не прошёл'); await ctx.close(); process.exit(1); }
+  /* --archive: ответы «до» — по базе как после Import; уход — одним действием. */
+  if (o.archive) {
+    await boot(true);
+    const a = await within(30 * 60000, page.evaluate(() => PERF.answers()));
+    report.answers = a.v || { error: a.timeout ? 'timeout' : a.error };
+    const ar = await within(60 * 60000, page.evaluate(d => PERF.archive(d), o.archive));
+    await page.evaluate(() => storageFlush());
+    report.archive = ar.v || { error: ar.timeout ? 'timeout' : ar.error };
+    console.log('архив на', o.archive, ar.v ? fmt(ar.v.ms) + ' · ушло заказов ' + ar.v.orders + ', записей ' + ar.v.records : report.archive.error);
+    if (o.years > 1) {
+      const y = await within(6 * 3600000, page.evaluate(n => PERF.years(n), o.years));
+      report.years = y.v ? Object.assign({ n: o.years }, y.v) : { n: o.years, error: y.timeout ? 'timeout' : y.error };
+      console.log('архив за', o.years, 'лет:', y.v ? fmt(y.v.ms) + ' · копий записей ' + y.v.cold + ', строк указателя ' + y.v.rows : report.years.error);
+    }
+  }
   report.size = await page.evaluate(() => PERF.size());
   report.size.disk = await page.evaluate(async () => navigator.storage && navigator.storage.estimate ? (await navigator.storage.estimate()) : null);
 
@@ -216,6 +266,19 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
       report.answers = a.v || { error: a.timeout ? 'timeout' : a.error };
       if (a.timeout) await restart();
       console.log('контрольные ответы', a.v ? a.v.rows.length + ' заказов' : report.answers.error);
+    }
+    /* Ответы после ухода: в работе — вся строка, ушедший — колонки Sales из указателя. */
+    if (o.archive && report.answers && report.answers.rows && !report.archiveCheck) {
+      const keys = report.answers.keys, hot = await page.evaluate(() => PERF.answers()), arch = await page.evaluate(k => PERF.answersArchived(k), keys);
+      const now = new Map(hot.rows.map(r => [r[0], r])), old = new Map(arch.map(r => [r[0], r])), diffs = [];
+      report.answers.rows.forEach(r => {
+        const h = now.get(r[0]), a = old.get(r[0]);
+        if (h) { if (JSON.stringify(h) !== JSON.stringify(r)) diffs.push(r[1] + ' в работе: ' + JSON.stringify(r) + ' → ' + JSON.stringify(h)); return; }
+        if (!a) { diffs.push(r[1] + ' пропал'); return; }
+        keys.forEach((k, i) => { if (a[i + 1] !== '∅' && JSON.stringify(a[i + 1]) !== JSON.stringify(r[i + 1])) diffs.push(r[1] + ' в архиве: ' + k + ' ' + JSON.stringify(r[i + 1]) + ' → ' + JSON.stringify(a[i + 1])); });
+      });
+      report.archiveCheck = { hot: hot.rows.length, archived: arch.length, same: !diffs.length, diffs: diffs.slice(0, 20) };
+      console.log('ответы после архива:', hot.rows.length, 'в работе,', arch.length, 'в архиве,', diffs.length ? '✗ ' + diffs.length + ' расхождений' : 'все те же');
     }
     for (const [label, key] of SCREENS) {
       const r = await within(o.timeout * 1000, page.evaluate(k => PERF.screen(k), key));
@@ -283,6 +346,7 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
   report.fail = slow ? [...slow.screens, ...slow.actions].filter(r => !r.ok).map(r => r.name).concat(slow.f5.ok ? [] : ['F5']).concat(slow.heapOk ? [] : ['memory'])
     .concat(slow.secondTab.timeout || slow.secondTab.error ? ['second tab'] : []) : [];
   if (o.compare) { report.compare = compareAnswers(report.answers, o.compare); if (!report.compare.same) report.fail.push('answers'); }
+  if (report.archiveCheck && !report.archiveCheck.same || report.archive && report.archive.error) report.fail.push('archive answers');
   report.errors = errors; report.minutes = +((Date.now() - t0) / 60000).toFixed(1);
   fs.writeFileSync(path.join(dir, 'report.json'), JSON.stringify(report, null, 1));
   fs.writeFileSync(path.join(dir, 'report.md'), reportMd(report));
@@ -298,6 +362,12 @@ function reportMd(r) {
     'Сборка ' + r.build + ' · ' + r.machine + ' · ' + r.date.slice(0, 16).replace('T', ' ') + ' · прогон ' + r.minutes + ' мин.', '',
     'Пороги (проход ×' + Math.max(...o.cpu) + ', слабый ПК): скан ≤ 0,3 с · Save и клик ≤ 0,5 с · экран ≤ 1 с · F5 ≤ 5 с · память ≤ 1 ГБ.', '',
     '**Красное:** ' + (r.fail.join(', ') || 'нет') + '.', '', 'Import: ' + fmt(r.import.ms) + ' (×1).', '');
+  if (r.years) L.push('Архив за ' + r.years.n + ' лет: ' + (r.years.error ? 'ошибка: ' + r.years.error : 'копии на прошлые годы — ' + r.years.cold + ' записей, ' + r.years.rows + ' строк указателя, ' + fmt(r.years.ms)) + '.', '');
+  if (r.archive) {
+    const a = r.archive, c = r.archiveCheck;
+    L.push('Архив на ' + o.archive + ': ' + (a.error ? 'ошибка: ' + a.error : fmt(a.ms) + ' (×1) · ушло заказов ' + a.orders + ', записей ' + a.records) + '.',
+      c ? '- Ответы после ухода: ' + c.hot + ' в работе, ' + c.archived + ' в архиве — ' + (c.same ? 'все те же.' : '**расходятся** (' + c.diffs.length + '):') : '', ...(c && c.diffs || []).map(d => '  - ' + d), '');
+  }
   const passes = r.passes;
   L.push('| | ' + passes.map(p => '×' + p.cpu).join(' | ') + ' |', '|---|' + passes.map(() => '---').join('|') + '|');
   L.push('| F5 | ' + passes.map(p => fmt(p.f5.ms) + ' ' + mark(p.f5.ok)).join(' | ') + ' |');

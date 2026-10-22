@@ -21,7 +21,7 @@
         archiveLedgerFor(customerId), archiveWith(owners,fn), archiveScopeFor(range)
    ===================================================================== */
 const ARCHIVE_ON=false,ARCHIVE_MONTHS=3;
-DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};
+DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};DEFAULT.archiveRunDay='';
 let archiveIndex=new Map(),archiveIncoming=null;
 /* Заказ в архиве: строка указателя (клиент, вид). Пока идёт Import —
    указатель из файла (archiveIncoming; у прежнего JSON его нет). Записи в
@@ -32,8 +32,9 @@ function archiveKnown(id){const m=archiveIncoming||archiveIndex;return id&&m.get
    `L:<таблица>:<id>`): выписка клиента за любой период берёт их отсюда
    (finStatementLines). В памяти — по клиенту. */
 let archiveLedgerBy=new Map(),archiveLedgerKeys=new Map();
-function archiveIndexLoad(rows){archiveIndex=new Map();archiveLedgerBy=new Map();archiveLedgerKeys=new Map();archiveIndexApply((rows||[]).map(r=>[r.id,r.row]));}
+function archiveIndexLoad(rows){archiveGlassSet=null;archiveIndex=new Map();archiveLedgerBy=new Map();archiveLedgerKeys=new Map();archiveIndexApply((rows||[]).map(r=>[r.id,r.row]));}
 function archiveIndexApply(pairs,clear){
+ archiveGlassSet=null;
  if(clear){archiveIndex=new Map();archiveLedgerBy=new Map();archiveLedgerKeys=new Map();}
  (pairs||[]).forEach(([id,row])=>{
   if(!String(id).startsWith('L:')){if(row)archiveIndex.set(id,row);else archiveIndex.delete(id);return;}
@@ -175,10 +176,15 @@ function archiveCollect(ids){
 function archiveRowOf(o,day,now){
  const info=salesListInfo(o),row={};
  (typeof SALES_LIST_COLUMNS!=='undefined'?SALES_LIST_COLUMNS:[]).forEach(c=>{try{row[c.k]=salesListValue(info,c.k);}catch(e){row[c.k]=null;}});
- const q=salesIsQuote(o),b=info.memo.balanceInfo;
+ const q=salesIsQuote(o),b=info.memo.balanceInfo,glass=new Set();
+ /* Стёкла каталога в Makeup: Master Data не даст удалить их, пока заказ в архиве. */
+ (o.makeups||[]).forEach(m=>(m.panes||[]).forEach(p=>[p.glassProductId,p.laminated&&p.laminated.outer&&p.laminated.outer.glassProductId,p.laminated&&p.laminated.inner&&p.laminated.inner.glassProductId].forEach(id=>{if(id)glass.add(id);})));
  return {kind:q?'quote':'order',status:salesListStatus(o),customerId:o.customerId||'',currency:o.currency||'',number:o.businessNumber||'',createdAt:o.createdAt||'',groupId:q?salesQuoteGroupId(o):'',rep:!q||salesQuoteRepresentative(o).id===o.id,
-  pay:b?{status:b.status,balance:b.balance}:null,day,archivedAt:now,row};
+  pay:b?{status:b.status,balance:b.balance}:null,glass:[...glass],day,archivedAt:now,row};
 }
+/* Стекло каталога, которое есть в Makeup ушедшего заказа (salesGlassProductHasReferences). */
+let archiveGlassSet=null;
+function archiveGlassUsed(id){if(!archiveGlassSet){archiveGlassSet=new Set();archiveIndex.forEach(a=>(a.glass||[]).forEach(g=>archiveGlassSet.add(g)));}return archiveGlassSet.has(id);}
 
 /* ------------------------- Sales и клиент ------------------------------ */
 /* Ушедшие строки для списка Sales и вкладки Orders клиента: те же info, что
@@ -370,6 +376,8 @@ function archiveRun(day,opts){
  const now=new Date().toISOString();
  return storageCommand(()=>{
   let due=[...archiveDue(day)];if(opts.limit)due=due.slice(0,opts.limit);
+  /* Последняя пачка дня — день отмечен: следующий уход завтра. */
+  if(opts.mark&&due.length<(opts.limit||Infinity))DB.archiveRunDay=day;
   const ids=new Set(due);if(!ids.size)return {orders:0,records:0};
   const set=archiveCollect(ids),ctx=archiveContext();
   const rows=readScope(()=>(DB.salesOrder||[]).filter(o=>ids.has(o.id)).map(o=>[o.id,archiveRowOf(o,archiveDayOf(o,ctx),now)]));
@@ -391,6 +399,22 @@ function archiveRun(day,opts){
   return {orders:ids.size,records:set.length};
  });
 }
+/* Уход сам (А5): пишущая вкладка через минуту после старта и раз в день,
+   пачками по ARCHIVE_BATCH заказов — между пачками экран свободен. Открыт
+   заказ, просмотр архива или отчёт с архивом — попробует позже. Тесты и
+   инструменты выключают его (window.GF_NO_ARCHIVE) и зовут archiveRun сами. */
+const ARCHIVE_BATCH=300;
+let archiveTimer=null;
+function archiveAuto(){
+ if(!ARCHIVE_ON||archiveTimer||typeof window!=='undefined'&&window.GF_NO_ARCHIVE)return;
+ const next=ms=>{archiveTimer=setTimeout(()=>{archiveTimer=null;archiveAuto();},ms);},today=salesListDay(new Date());
+ if(!storageWriter||storageRecovery||storageStale||storageStarting||typeof soDraft!=='undefined'&&soDraft||archiveVisit||archiveScope){next(10*60e3);return;}
+ if(DB.archiveRunDay===today){next(60*60e3);return;}
+ const r=archiveRun(today,{limit:ARCHIVE_BATCH,mark:true});
+ next(!r.ok?10*60e3:r.value.orders>=ARCHIVE_BATCH?2000:60*60e3);
+}
+if(typeof window!=='undefined')setTimeout(archiveAuto,60e3);
+
 /* Вернуть заказ в работу (NCR, поздняя оплата, возврат денег): весь его
    набор — и общие записи с другими заказами — встаёт на место; строка
    указателя снимается; склад — разница обратно. */
