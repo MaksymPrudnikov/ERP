@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 160 модулей, 23 стиля.
+  Состав сборки: 161 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -3475,7 +3475,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='714d34b820f6';
+var ERP_BUILD='ce04a47324da';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12486,7 +12486,7 @@ function validateSalesReferences(){
  /* Свой чертёж Recut (erp/quality/recut) — те же формы в DB.shapeDef. */
  (DB.recut||[]).forEach(r=>{if(r&&r.shapeRef&&[r.shapeRef].concat(Object.values(r.liteShapes||{})).some(x=>x&&x.id&&!shapeIds.has(x.id)))throw new Error('Recut '+r.no+' references a missing Shape.');});
 }
-function nextSalesOrderNumber(){let max=76001;DB.salesOrder.forEach(o=>{if(o.kind==='quote'||/^Q-/i.test(String(o.businessNumber||'')))return;const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
+function nextSalesOrderNumber(){let max=Math.max(76001,typeof archiveFloor==='function'?archiveFloor('order'):0);DB.salesOrder.forEach(o=>{if(o.kind==='quote'||/^Q-/i.test(String(o.businessNumber||'')))return;const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
 function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:SALES_ORDER_CHARGE_DEFAULTS,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
 function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
 function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}
@@ -12592,7 +12592,7 @@ function salesLifecycleFields(o){
   onHold:!q&&o.onHold===true,holdReason:!q&&o.onHold===true?salesString(o.holdReason).slice(0,200):'',holdAt:!q&&o.onHold===true?salesString(o.holdAt):''};
 }
 function nextSalesQuoteNumber(){
- let max=10000;
+ let max=Math.max(10000,typeof archiveFloor==='function'?archiveFloor('quote'):0);
  (DB.salesOrder||[]).forEach(o=>{const m=/^Q-(\d+)(?:-R\d+)?$/.exec(String(o&&o.businessNumber||''));if(m)max=Math.max(max,+m[1]);});
  return 'Q-'+(max+1);
 }
@@ -12828,7 +12828,7 @@ function salesRunChecks(checks,done,takePayment){
    процесса; его прочие несохранённые правки не записываются и не теряются. */
 function salesBatchNumber(v){return typeof v==='string'&&/^B-\d{4,9}$/.test(v)?v:'';}
 function salesNextBatchNumber(){
- let n=0;(DB.glassBatch||[]).forEach(b=>{if(salesBatchNumber(b.number))n=Math.max(n,+b.number.slice(2));});
+ let n=typeof archiveFloor==='function'?archiveFloor('batch'):0;(DB.glassBatch||[]).forEach(b=>{if(salesBatchNumber(b.number))n=Math.max(n,+b.number.slice(2));});
  (DB.salesOrder||[]).forEach(o=>[o.batchNo].concat(o.batchHistory||[],(o.lines||[]).map(l=>l.batchNo)).forEach(v=>{if(salesBatchNumber(v))n=Math.max(n,+v.slice(2));}));
  return 'B-'+String(n+1).padStart(4,'0');
 }
@@ -13310,13 +13310,15 @@ function orderLogCapture(){
  /* Заказ рядом со своим текстом: искать каждый по всему списку — N² на
     каждом действии, и на скане тоже (проверка Codex 22.10.2026). */
  const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,{o,text:JSON.stringify(o)}]));
+ /* Уход в архив и возврат из него — не правка заказа (erp/archive). */
+ const moving=id=>typeof storageColdMoving==='function'&&storageColdMoving('salesOrder',id);
  now.forEach(({o,text},id)=>{
-  if(!base.has(id)){orderLogPush(o,'Created',orderLogCreatedNote(o));return;}
+  if(!base.has(id)){if(moving(id))return;orderLogPush(o,'Created',orderLogCreatedNote(o));return;}
   if(base.get(id)===text)return;
   let a,b;try{a=normalizeSalesOrder(JSON.parse(base.get(id)));b=normalizeSalesOrder(JSON.parse(text));}catch(e){return;}
   orderLogDiff(a,b).forEach(([what,note])=>orderLogPush(o,what,note));
  });
- base.forEach((text,id)=>{if(now.has(id))return;let o;try{o=JSON.parse(text);}catch(e){return;}orderLogPush(o,'Deleted');});
+ base.forEach((text,id)=>{if(now.has(id)||moving(id))return;let o;try{o=JSON.parse(text);}catch(e){return;}orderLogPush(o,'Deleted');});
 }
 
 /* Кто создал заказ — вошедший в офис, когда заказ записали (владелец,
@@ -13568,18 +13570,18 @@ function normalizeReceipt(r){
   createdAt:String(r.createdAt||''),updatedAt:String(r.updatedAt||'')};
 }
 function finNextReceiptNumber(){
- let max=0;(DB.receipt||[]).forEach(r=>{const m=String(r&&r.number||'').match(/^R-(\d+)$/);if(m)max=Math.max(max,+m[1]);});
+ let max=typeof archiveFloor==='function'?archiveFloor('receipt'):0;(DB.receipt||[]).forEach(r=>{const m=String(r&&r.number||'').match(/^R-(\d+)$/);if(m)max=Math.max(max,+m[1]);});
  return 'R-'+String(max+1).padStart(4,'0');
 }
 function normalizeReceipts(){
  if(!Array.isArray(DB.receipt))DB.receipt=[];
- const orders=new Map((DB.salesOrder||[]).map(o=>[o.id,o])),ids=new Set(),numbers=new Set();
+ const orders=new Map((DB.salesOrder||[]).map(o=>[o.id,o])),ids=new Set(),numbers=new Set(),known=id=>orders.get(id)||(typeof archiveKnown==='function'?archiveKnown(id):null);
  DB.receipt=DB.receipt.filter(x=>x&&typeof x==='object'&&!Array.isArray(x)).map(x=>{
   const r=normalizeReceipt(x);
   while(ids.has(r.id))r.id=finUid();ids.add(r.id);
   /* Разнесение живёт только на заказах того же клиента. Удалённый или чужой
      заказ возвращает деньги на депозит клиента — сумма квитанции не теряется. */
-  r.allocations=r.allocations.filter(a=>{const o=orders.get(a.orderId);return !!o&&o.customerId===r.customerId&&o.kind!=='quote';});
+  r.allocations=r.allocations.filter(a=>{const o=known(a.orderId);return !!o&&o.customerId===r.customerId&&o.kind!=='quote';});
   if(r.number&&numbers.has(r.number))r.number='';
   if(r.number)numbers.add(r.number);
   return r;
@@ -13721,7 +13723,7 @@ function finHistoryFor(id){return (DB.financeEvent||[]).filter(e=>e.entityId===i
 function finEvent(kind,before,after,reason,entity){
  const r=after||before,customer=(DB.customer||[]).find(c=>c.id===r.customerId);
  const number=r.number||finOrderNumber(r.orderId),snapshot=x=>x?finCopy(x):null;
- const seq=(DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),0)+1;
+ const seq=(DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),typeof archiveFloor==='function'?archiveFloor('financeEvent'):0)+1;
  const e={id:'FE-'+finUid(),seq,at:new Date().toISOString(),date:r.date||finToday(),kind,entity:entity||'receipt',entityId:r.id||r.orderId,
   customerId:r.customerId,customerName:customer?(customer.displayName||customer.legalName):'',number,currency:finCurrency(r),
   actor:(typeof signinUser==='function'&&signinUser()||{}).name||finActor||'Not specified',reason:String(reason||'').trim(),before:snapshot(before),after:snapshot(after)};
@@ -14019,7 +14021,7 @@ function finValidatePayload(src){
   finAssert(!r.number||!numbers.has(r.number),'Duplicate payment number.');if(r.number)numbers.add(r.number);
   finAssert(!r.allocations||Array.isArray(r.allocations),'Payment allocations must be an array.');
   const seen=new Set();let applied=0;
-  (r.allocations||[]).forEach(a=>{const o=a&&orders.get(a.orderId);finAssert(a&&money(a.amount)&&a.amount>0&&!seen.has(a.orderId),'Invalid or duplicate payment allocation.');seen.add(a.orderId);applied+=a.amount;
+  (r.allocations||[]).forEach(a=>{const o=a&&(orders.get(a.orderId)||(typeof archiveKnown==='function'?archiveKnown(a.orderId):null));finAssert(a&&money(a.amount)&&a.amount>0&&!seen.has(a.orderId),'Invalid or duplicate payment allocation.');seen.add(a.orderId);applied+=a.amount;
    finAssert(o&&o.customerId===r.customerId&&finCurrency(o)===finCurrency(r)&&o.kind!=='quote','Payment allocation must match the customer, order and currency.');});
   finAssert(finMoney(applied)<=r.amount,'Applied amounts exceed the payment.');
  });
@@ -30226,6 +30228,8 @@ function validateGlassBatchesPayload(src){
    if(!i||!glassPieceValid(i.piece)||!Number.isSafeInteger(i.part)||!b.parts[i.part]||!glassUnitValid(i.unit)||i.unit===0||typeof i.at!=='string'||!i.at||typeof i.releasedAt!=='string'||typeof i.cutStartedAt!=='string')throw new Error('Invalid glass batch item.');
    if(i.releasedAt)return;
    const p=b.parts[i.part],slot=p.key+'|'+i.unit,l=lineOf(p.orderId,p.lineId);
+   /* Заказ в архиве (erp/archive): батч в работе ради другого заказа. */
+   if(!l&&typeof archiveKnown==='function'&&archiveKnown(p.orderId)){slots.add(slot);active.add(i.piece);return;}
    if(!l||typeof i.unit==='number'&&i.unit>Number(l.qty)||slots.has(slot)||active.has(i.piece)||slotPiece.has(slot)&&slotPiece.get(slot)!==i.piece)throw new Error('Glass batch quantity or order reference is invalid.');
    slots.add(slot);active.add(i.piece);
   });
@@ -34482,6 +34486,8 @@ function invSheetRows(){
  (DB.inventoryEvent||[]).filter(e=>INV_SHEET_KINDS.includes(e.kind)).forEach(e=>{const r=row(e.glass,invSize(e.w,e.h));r.adjust+=e.qty;if(e.kind==='count'&&(!r.lastCount||e.at>r.lastCount.at))r.lastCount=e;});
  Object.entries(DB.inventoryMin||{}).forEach(([key,n])=>{const [code,dim]=key.split('|'),[w,h]=dim.split('x');row(code,invSize(w,h)).min=n;});
  invPurchaseWaiting().forEach(x=>{const r=row(x.code,x.size);if(x.held){r.held+=x.sheets;r.heldBlocks+=x.blocks;}else{r.onOrder+=x.sheets;r.onOrderBlocks+=x.blocks;}});
+ /* Ушедшее в архив (erp/archive): порезано и лопнуло — разницей на день ухода. */
+ Object.entries(DB.inventoryArchived&&DB.inventoryArchived.sheets||{}).forEach(([key,x])=>{const [code,dim]=key.split('|'),[w,h]=String(dim).split('x');const r=row(code,dim==='?'?null:invSize(w,h));r.cut+=x.cut||0;r.broken+=x.broken||0;});
  return [...rows.values()].map(r=>{
   r.onRack=r.received-r.cut-r.broken+r.adjust;r.free=r.onRack-r.reserved;r.sizeMissing=!r.w;
   r.status=r.sizeMissing?'Size missing':!r.lastCount?'Not counted':r.free<0?'Negative':r.min!=null&&r.free<r.min?'Below minimum':'OK';
@@ -34660,8 +34666,14 @@ function invOffcutRows(){
  const scans=invCutScans(),cut=invCutSheets(scans),byPiece=invCutByPiece(scans),used=new Map(),broken=new Map(),claims=invOffcutClaims(),events=invOffcutEvents();
  cut.forEach(c=>{if(c.stock&&!used.has(c.stock))used.set(c.stock,c);});
  invBreaks(true).forEach(b=>{if(b.stock&&!b.x.undoneAt&&!broken.has(b.stock))broken.set(b.stock,b.x);});
+ /* Факты из записей, ушедших в архив (erp/archive): из двух — раньше
+    случившийся (лист-источник резали стёкла разных заказов: ранний скан мог
+    уйти в архив, поздний остаться в работе). */
+ const arch=DB.inventoryArchived&&DB.inventoryArchived.offcuts||{};
  return (DB.stockOffcut||[]).map(r=>{
-  const src=invOffcutSource(r,cut,byPiece),ev=events.get(r.id)||[],last=ev[ev.length-1],u=used.get(r.id),b=broken.get(r.id);
+  const a=arch[r.id]||{},early=(x,y)=>!x?y:!y?x:String(y.at)<String(x.at)?y:x,ev=events.get(r.id)||[],last=ev[ev.length-1];
+  const u=early(used.get(r.id),a.used)||undefined,b=early(broken.get(r.id),a.broken)||undefined;
+  let src=invOffcutSource(r,cut,byPiece);if(a.onRackAt&&(!src.cut||!src.at||a.onRackAt<src.at))src={cut:true,at:a.onRackAt,by:a.onRackBy||''};
   const status=r.status==='cancelled'?'Back to waste':u?'Used':b?'Broken':last&&last.kind==='offcut-lost'?'Written off':!src.cut?'Coming':claims.has(r.id)?'In batch':'On rack';
   const here=INV_OFFCUT_HERE.includes(status),since=src.at||r.at;
   return {id:r.id,r,glass:r.glass,mm:r.mm,w:Math.max(r.w,r.h),h:Math.min(r.w,r.h),area:Math.round(r.w*r.h/144*100)/100,batch:r.batch,sheet:r.sheet,booked:r.at,
@@ -35043,7 +35055,7 @@ function viewMdNcr(){
    ===================================================================== */
 DEFAULT.ncr=[];
 const NCR_REMAKE='Remake order';
-function ncrNextNumber(){let n=1000;(DB.ncr||[]).forEach(r=>{const m=/^NCR(\d+)$/.exec(r&&r.number||'');if(m)n=Math.max(n,+m[1]);});return 'NCR'+(n+1);}
+function ncrNextNumber(){let n=Math.max(1000,typeof archiveFloor==='function'?archiveFloor('ncr'):0);(DB.ncr||[]).forEach(r=>{const m=/^NCR(\d+)$/.exec(r&&r.number||'');if(m)n=Math.max(n,+m[1]);});return 'NCR'+(n+1);}
 function ncrForOrder(orderId){return (DB.ncr||[]).filter(n=>n.orderId===orderId);}
 function ncrFind(id){return (DB.ncr||[]).find(n=>n.id===id)||null;}
 function ncrPaneCode(p){
@@ -41713,9 +41725,11 @@ function validateShipmentPayload(src){
   });
   const extra=new Set();s.extras.forEach(i=>{const k=i.orderId+'|'+i.extraId;if(!salesRefId(i.orderId)||!salesRefId(i.extraId)||!Number.isSafeInteger(i.qty)||i.qty<1||extra.has(k))throw new Error('Invalid shipment stock quantity.');extra.add(k);if(shippingActive(s))extraTotals.set(k,(extraTotals.get(k)||0)+i.qty);});
   if(Array.isArray(src.salesOrder)&&shippingActive(s)){
-   const checkOrder=i=>{const o=src.salesOrder.find(o=>o.id===i.orderId);if(!o||o.customerId!==s.customerId)throw new Error('Shipment customer does not match its order.');return o;};
-   s.items.forEach(i=>{const o=checkOrder(i),l=(o.lines||[]).find(l=>l.id===i.lineId);if(!l||i.unit>l.qty)throw new Error('Shipment line or unit no longer exists.');});
-   s.extras.forEach(i=>{const o=checkOrder(i),x=(o.extraItems||[]).find(x=>x.id===i.extraId);if(!x||(extraTotals.get(i.orderId+'|'+i.extraId)||0)>x.qty)throw new Error('Shipment stock quantity exceeds the order.');});
+   /* Заказ в архиве (erp/archive): накладная с ним остаётся в работе ради другого заказа. */
+   const checkOrder=i=>{const o=src.salesOrder.find(o=>o.id===i.orderId)||(typeof archiveKnown==='function'?archiveKnown(i.orderId):null);if(!o||o.customerId!==s.customerId)throw new Error('Shipment customer does not match its order.');return o;};
+   const live=id=>src.salesOrder.some(o=>o.id===id);
+   s.items.forEach(i=>{const o=checkOrder(i);if(!live(i.orderId))return;const l=(o.lines||[]).find(l=>l.id===i.lineId);if(!l||i.unit>l.qty)throw new Error('Shipment line or unit no longer exists.');});
+   s.extras.forEach(i=>{const o=checkOrder(i);if(!live(i.orderId))return;const x=(o.extraItems||[]).find(x=>x.id===i.extraId);if(!x||(extraTotals.get(i.orderId+'|'+i.extraId)||0)>x.qty)throw new Error('Shipment stock quantity exceeds the order.');});
    (s.takes||[]).forEach(id=>checkOrder({orderId:id}));
   }
  });
@@ -42893,13 +42907,13 @@ function validateProductionUnbatchPayload(src){
   if(!r||!salesRefId(r.id)||ids.has(r.id)||!salesRefId(r.orderId)||!iso(r.at)||typeof r.target!=='string'||!(r.target===PRODUCTION_UNBATCH_UNCUT||/^.+@\d+$/.test(r.target))||typeof r.by!=='string'||typeof r.byId!=='string'||typeof r.reason!=='string'||!Array.isArray(r.pieces)||!r.pieces.length||!r.pieces.every(glassPieceValid)||new Set(r.pieces).size!==r.pieces.length||!Array.isArray(r.scanIds)||!r.scanIds.every(s=>STATION_SCAN_ID_RE.test(s))||!Array.isArray(r.batchNumbers)||!r.batchNumbers.every(s=>salesBatchNumber(s)===s)||!Array.isArray(r.shipments)||!r.shipments.every(s=>s&&salesRefId(s.id)&&typeof s.number==='string'&&Number.isSafeInteger(s.qty)&&s.qty>0)||!Array.isArray(r.skipIds)||!r.skipIds.every(salesRefId))throw new Error('Invalid production unbatch record.');
   /* Fully returned orders may be deleted; their existing Deleted event keeps
      the order identity while the PS and Unbatch journal remain historical. */
-  if(Array.isArray(src.salesOrder)&&!src.salesOrder.some(o=>o.id===r.orderId)&&!(src.orderEvent||[]).some(e=>e&&e.orderId===r.orderId&&e.what==='Deleted'&&iso(e.at)&&e.at>=r.at))throw new Error('Unbatch order not found.');
+  if(Array.isArray(src.salesOrder)&&!src.salesOrder.some(o=>o.id===r.orderId)&&!(typeof archiveKnown==='function'&&archiveKnown(r.orderId))&&!(src.orderEvent||[]).some(e=>e&&e.orderId===r.orderId&&e.what==='Deleted'&&iso(e.at)&&e.at>=r.at))throw new Error('Unbatch order not found.');
   if(r.scanIds.some(id=>{const s=scans.get(id);return !s||!s.undoneAt||!r.pieces.includes(s.piece);} ))throw new Error('Unbatch scan not found.');
   ids.add(r.id);records.set(r.id,r);
  });
  (src.shipment||[]).forEach(s=>{
   if(s.unbatchedItems!=null&&!Array.isArray(s.unbatchedItems))throw new Error('Invalid unbatched shipment items.');
-  (s.unbatchedItems||[]).forEach(i=>{const r=i&&records.get(i.unbatchId);if(!r||!Array.isArray(i.pieces)||!i.pieces.length||!i.pieces.every(p=>r.pieces.includes(p))||!r.shipments.some(p=>p.id===s.id)||i.orderId!==r.orderId||!salesRefId(i.lineId)||!Number.isSafeInteger(i.unit)||i.unit<1||!glassPieceValid(i.label)&&!unitIdValid(i.label))throw new Error('Invalid unbatched shipment item.');});
+  (s.unbatchedItems||[]).forEach(i=>{const r=i&&records.get(i.unbatchId);if(!r&&i&&typeof archiveKnown==='function'&&archiveKnown(i.orderId))return;if(!r||!Array.isArray(i.pieces)||!i.pieces.length||!i.pieces.every(p=>r.pieces.includes(p))||!r.shipments.some(p=>p.id===s.id)||i.orderId!==r.orderId||!salesRefId(i.lineId)||!Number.isSafeInteger(i.unit)||i.unit<1||!glassPieceValid(i.label)&&!unitIdValid(i.label))throw new Error('Invalid unbatched shipment item.');});
  });
 }
 
@@ -44524,6 +44538,209 @@ function viewReports(){
  return `<div class="rep-app${setup?' editing':''}">${repCatalog()}<div class="rep-main">${repMain(r)}</div>${setup}</div>${repMenuHTML(r)}`;
 }
 
+/* ==== src/erp/archive.js ==== */
+/* =====================================================================
+   erp/archive  ·  erp-1.0
+   Архив (задание «База», этап 3, А2): какие заказы уходят из работы, что
+   уходит вместе с ними, что они оставляют после себя и как возвращаются.
+   Владелец, 22.10.2026: через 3 месяца после отгрузки и полной оплаты;
+   Hold не уходит; комиссия агенту заказ не держит («в агента падает номер
+   заказа и его комиссия»). Склад — cold (erp/storage-records): перенос —
+   storageColdMove внутри действия, возврат — storageColdBring; строка
+   Sales — указатель архива (склад archive, archiveIndex в памяти).
+   Сам уход пока выключен (ARCHIVE_ON): archiveRun вызывают проверки и
+   инструменты. Включится, когда Sales, отчёты и Agents видят архив (А5),
+   иначе экран молча показывал бы меньше, чем есть.
+   IN : DB, salesListValue, finOrderBalance, shippingHistoryOrderIds,
+        invSheetRows, invOffcutRows
+   OUT: archiveIndex, archiveDue(day), archiveCollect(ids), archiveRun(day),
+        archiveReturn(orderId), archiveIndexLoad / archiveIndexApply
+   ===================================================================== */
+const ARCHIVE_ON=false,ARCHIVE_MONTHS=3;
+DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};
+let archiveIndex=new Map(),archiveIncoming=null;
+/* Заказ в архиве: строка указателя (клиент, вид). Пока идёт Import —
+   указатель из файла (archiveIncoming; у прежнего JSON его нет). Записи в
+   работе, которые ссылаются на ушедший заказ (оплата на два заказа, батч,
+   накладная), нормализация и проверка Import не считают битыми. */
+function archiveKnown(id){const m=archiveIncoming||archiveIndex;return id&&m.get(id)||null;}
+function archiveIndexLoad(rows){archiveIndex=new Map((rows||[]).map(r=>[r.id,r.row]));}
+function archiveIndexApply(pairs,clear){if(clear)archiveIndex=new Map();(pairs||[]).forEach(([id,row])=>{if(row)archiveIndex.set(id,row);else archiveIndex.delete(id);});}
+
+/* Хранимые счётчики: наибольший номер, ушедший в архив, — номера «максимум
+   + 1» не начнутся заново, когда старые заказы уйдут из работы. */
+function archiveFloor(name){const f=DB.archiveFloor;return f&&Number.isFinite(+f[name])?+f[name]:0;}
+function archiveFloorRaise(name,n){if(!(n>archiveFloor(name)))return;if(!DB.archiveFloor||typeof DB.archiveFloor!=='object')DB.archiveFloor={};DB.archiveFloor[name]=n;}
+
+/* День, с которого считаются 3 месяца, — позже всего из: отгрузка, приём,
+   полная оплата, закрытие, отмена. */
+function archiveCutoff(day){const d=new Date(String(day).slice(0,10)+'T12:00:00');d.setMonth(d.getMonth()-ARCHIVE_MONTHS);return d.toISOString().slice(0,10);}
+function archiveContext(){
+ const ships=new Map(),pays=new Map(),add=(m,k,v)=>{let a=m.get(k);if(!a)m.set(k,a=[]);a.push(v);};
+ (DB.shipment||[]).forEach(s=>shippingHistoryOrderIds(s).forEach(id=>add(ships,id,s)));
+ (DB.receipt||[]).forEach(r=>{if(r.voided)return;(r.allocations||[]).forEach(a=>add(pays,a.orderId,r));});
+ return {ships,pays,hot:new Set((DB.salesOrder||[]).map(o=>o.id))};
+}
+function archiveDayOf(o,ctx){
+ const d=o.statusDates||{},days=['done','closed','cancelled'].map(k=>d[k]);
+ (ctx.ships.get(o.id)||[]).forEach(s=>days.push(s.shippedAt,s.deliveredAt));
+ (ctx.pays.get(o.id)||[]).forEach(r=>days.push(r.date));
+ return days.filter(Boolean).map(x=>String(x).slice(0,10)).sort().pop()||String(o.updatedAt||o.createdAt||'').slice(0,10);
+}
+/* Заказ закрыт: отгружен целиком (или закрыт офисом) и оплачен без долга и
+   переплаты, или отменён без денег на нём; накладной в пути нет; не Hold. */
+function archiveOrderClosed(o,ctx){
+ if(!o||salesIsQuote(o)||o.onHold)return false;
+ if(o.status==='cancelled'){if((ctx.pays.get(o.id)||[]).length)return false;}
+ else if(!['done','closed'].includes(o.status))return false;
+ else if(!['paid','empty'].includes(finOrderBalance(o).status))return false;
+ return !(ctx.ships.get(o.id)||[]).some(s=>s.status==='planned'||s.status==='shipped'&&s.method==='delivery');
+}
+/* Кому пора в архив на день day: заказы и группы квот. Переделка NCR и её
+   исходный заказ уходят только вместе; квота без ответа — через 3 месяца
+   после последней ревизии; выигравшая квота — вместе со своим заказом. */
+function archiveDue(day){
+ const ctx=archiveContext(),cut=archiveCutoff(day),due=new Set();
+ (DB.salesOrder||[]).forEach(o=>{if(!salesIsQuote(o)&&archiveOrderClosed(o,ctx)&&archiveDayOf(o,ctx)<=cut)due.add(o.id);});
+ const links=(DB.ncr||[]).filter(n=>n.remakeOrderId).map(n=>[n.orderId,n.remakeOrderId]);
+ for(let changed=true;changed;){changed=false;links.forEach(([a,b])=>{if(due.has(a)!==due.has(b)&&(due.has(a)?ctx.hot.has(b):ctx.hot.has(a))){due.delete(a);due.delete(b);changed=true;}});}
+ const seen=new Set();
+ (DB.salesOrder||[]).forEach(o=>{
+  if(!salesIsQuote(o))return;const g=salesQuoteGroupId(o);if(seen.has(g))return;seen.add(g);
+  const ms=salesQuoteMembers(o),won=ms.find(m=>m.status==='won'),last=ms.map(m=>String(m.createdAt||'').slice(0,10)).sort().pop()||'';
+  const ready=won?!!won.wonOrderId&&(due.has(won.wonOrderId)||!ctx.hot.has(won.wonOrderId)):!ms.some(m=>m.wonOrderId&&ctx.hot.has(m.wonOrderId))&&last<=cut;
+  if(ready)ms.forEach(m=>due.add(m.id));
+ });
+ return due;
+}
+
+/* Записи, которые уходят вместе с заказами ids: [{tbl,row,owners,month}].
+   Общая запись (батч, накладная, оплата) уходит, только когда ни один её
+   заказ не остаётся в работе. */
+function archiveCollect(ids){
+ const out=[],live=new Set((DB.salesOrder||[]).map(o=>o.id).filter(id=>!ids.has(id))),gone=id=>!live.has(id);
+ const ctx=archiveContext(),month=new Map();
+ (DB.salesOrder||[]).forEach(o=>{if(ids.has(o.id))month.set(o.id,archiveDayOf(o,ctx).slice(0,7));});
+ const add=(tbl,row,owners)=>{const o=[...new Set(owners.filter(Boolean))];out.push({tbl,row,owners:o,month:o.map(x=>month.get(x)||'').sort().pop()||''});};
+ const own=(tbl,field)=>(DB[tbl]||[]).forEach(r=>{if(r&&ids.has(r[field]))add(tbl,r,[r[field]]);});
+ const lines=new Set(),pieces=new Set(),shapeOwner=new Map(),liveShapes=new Set();
+ const refs=(o,l)=>[l.shapeRef&&l.shapeRef.id].concat(Object.values(l.liteShapes||{}).map(x=>x&&x.id));
+ (DB.salesOrder||[]).forEach(o=>(o.lines||[]).forEach(l=>refs(o,l).forEach(id=>{if(!id)return;if(ids.has(o.id))shapeOwner.set(id,o.id);else liveShapes.add(id);})));
+ (DB.recut||[]).forEach(r=>[r.shapeRef&&r.shapeRef.id].concat(Object.values(r.liteShapes||{}).map(x=>x&&x.id)).forEach(id=>{if(!id)return;if(ids.has(r.orderId))shapeOwner.set(id,r.orderId);else liveShapes.add(id);}));
+ (DB.salesOrder||[]).forEach(o=>{if(ids.has(o.id)){add('salesOrder',o,[o.id]);(o.lines||[]).forEach(l=>lines.add(l.id));}});
+ (DB.shapeDef||[]).forEach(s=>{if(!s||liveShapes.has(s.id))return;const by=shapeOwner.get(s.id)||(s.ownerLineId&&lines.has(s.ownerLineId)?[...ids].find(id=>(salesRecord(id)||{lines:[]}).lines.some(l=>l.id===s.ownerLineId)):'');if(by)add('shapeDef',s,[by]);});
+ ['financeTerms','orderEvent','recut','ncr','skip','productionUnbatch'].forEach(t=>own(t,'orderId'));
+ const keyed=tbl=>(DB[tbl]||[]).forEach(r=>{const id=r&&String(r.key||'').split('|')[0];if(ids.has(id))add(tbl,r,[id]);});
+ ['glassPiece','glassUnitId','productionRoute'].forEach(keyed);
+ (DB.glassPiece||[]).forEach(r=>{if(r&&ids.has(String(r.key).split('|')[0]))r.ids.concat(...Object.values(r.extra||{})).forEach(id=>id&&pieces.add(id));});
+ (DB.glassUnitId||[]).forEach(r=>{if(r&&ids.has(String(r.key).split('|')[0]))(r.ids||[]).forEach(id=>id&&pieces.add(id));});
+ const pieceOwner=new Map();(DB.glassPiece||[]).concat(DB.glassUnitId||[]).forEach(r=>{const id=r&&String(r.key).split('|')[0];if(ids.has(id))(r.ids||[]).concat(...Object.values(r.extra||{})).forEach(p=>p&&pieceOwner.set(p,id));});
+ (DB.stationScan||[]).forEach(s=>{if(s&&pieces.has(s.piece))add('stationScan',s,[pieceOwner.get(s.piece)]);});
+ const batches=new Set();
+ (DB.glassBatch||[]).forEach(b=>{
+  const orders=[...new Set(b.parts.map(p=>p.orderId))];if(!orders.some(id=>ids.has(id)))return;
+  if(b.parts.some((p,i)=>live.has(p.orderId)&&b.items.some(x=>x.part===i&&!x.releasedAt)))return;
+  batches.add(b.number);add('glassBatch',b,orders.filter(gone));
+ });
+ (DB.cutPlan||[]).forEach(p=>{if(p&&batches.has(p.batch))add('cutPlan',p,(DB.glassBatch||[]).find(b=>b.number===p.batch).parts.map(x=>x.orderId).filter(gone));});
+ (DB.sheetBreak||[]).forEach(x=>{if(x&&batches.has(x.batch)){const b=(DB.glassBatch||[]).find(y=>y.number===x.batch);add('sheetBreak',x,b.parts.map(p=>p.orderId).filter(gone));}});
+ const out_=typeof skidsOut==='function'?skidsOut():new Map();
+ (DB.shipment||[]).forEach(s=>{
+  const orders=shippingHistoryOrderIds(s);if(!orders.some(id=>ids.has(id))||orders.some(id=>live.has(id)))return;
+  if(s.status==='planned'||s.status==='shipped'&&s.method==='delivery')return;
+  if((s.skidsOut||[]).some(c=>out_.has&&out_.has(c)))return;
+  add('shipment',s,orders);
+ });
+ const receipts=new Set();
+ (DB.receipt||[]).forEach(r=>{
+  const orders=[...new Set((r.allocations||[]).map(a=>a.orderId))];if(!orders.length||!orders.some(id=>ids.has(id))||orders.some(id=>live.has(id)))return;
+  if(!r.voided&&finReceiptOnAccount(r)!==0)return;
+  receipts.add(r.id);add('receipt',r,orders);
+ });
+ const refunds=new Set();(DB.refund||[]).forEach(f=>{if(f&&receipts.has(f.receiptId)){refunds.add(f.id);const r=(DB.receipt||[]).find(x=>x.id===f.receiptId);add('refund',f,[...new Set(r.allocations.map(a=>a.orderId))]);}});
+ (DB.financeEvent||[]).forEach(e=>{
+  if(!e)return;const orders=(e.orders||[]).map(x=>x&&x.id||x).filter(Boolean),entity=e.entityId;
+  const mine=ids.has(entity)||receipts.has(entity)||refunds.has(entity);if(!mine||orders.some(id=>live.has(id)))return;
+  add('financeEvent',e,orders.length?orders:[entity]);
+ });
+ (DB.referrerPayout||[]).forEach(p=>{const orders=(p.orders||[]).map(x=>x.orderId);if(orders.length&&orders.some(id=>ids.has(id))&&!orders.some(id=>live.has(id)))add('referrerPayout',p,orders);});
+ /* Журнал выгрузок QuickBooks — вместе со своей оплатой или заказом. */
+ const exported=new Map();out.forEach(x=>{if(['salesOrder','receipt','refund'].includes(x.tbl))exported.set(x.row.id,x.owners);});
+ (DB.financeExport||[]).forEach(e=>{if(e&&exported.has(e.entityId))add('financeExport',e,exported.get(e.entityId));});
+ return out;
+}
+
+/* Строка Sales на день ухода — все колонки списка (SALES_LIST_COLUMNS);
+   клиент — номером, имя Sales берёт живое. */
+function archiveRowOf(o,day,now){
+ const info=salesListInfo(o),row={};
+ (typeof SALES_LIST_COLUMNS!=='undefined'?SALES_LIST_COLUMNS:[]).forEach(c=>{try{row[c.k]=salesListValue(info,c.k);}catch(e){row[c.k]=null;}});
+ return {kind:salesIsQuote(o)?'quote':'order',customerId:o.customerId||'',currency:o.currency||'',number:o.businessNumber||'',createdAt:o.createdAt||'',groupId:salesIsQuote(o)?salesQuoteGroupId(o):'',day,archivedAt:now,row};
+}
+
+/* Склад листов и обрезки — что они показывают, без журнала движений. */
+function archiveInvState(){
+ const sheets=new Map(),offcuts=new Map();
+ if(typeof invSheetRows==='function')invSheetRows().forEach(r=>sheets.set(r.key,{cut:r.cut,broken:r.broken}));
+ if(typeof invOffcutRows==='function')invOffcutRows().forEach(o=>offcuts.set(o.id,{status:o.status,used:o.used,broken:o.broken,onRackAt:o.onRackAt,onRackBy:o.onRackBy}));
+ return {sheets,offcuts};
+}
+/* Разница «до − после» по складу ложится в inventoryArchived: склад
+   прибавляет её, и он показывает то же, что до действия, — при уходе и при
+   возврате одинаково. offcuts — запомнить факты обрезков (уход). */
+function archiveInvKeep(before,after,offcuts){
+ const A=DB.inventoryArchived&&typeof DB.inventoryArchived==='object'?DB.inventoryArchived:(DB.inventoryArchived={});
+ A.sheets=A.sheets||{};A.offcuts=A.offcuts||{};
+ before.sheets.forEach((b,key)=>{const a=after.sheets.get(key)||{cut:0,broken:0},x=A.sheets[key]||{cut:0,broken:0};
+  x.cut+=b.cut-a.cut;x.broken+=b.broken-a.broken;if(x.cut||x.broken)A.sheets[key]=x;else delete A.sheets[key];});
+ if(offcuts)before.offcuts.forEach((b,id)=>{const a=after.offcuts.get(id);if(a&&JSON.stringify(a)===JSON.stringify(b))return;
+  const slim=x=>x?{at:x.at||'',by:x.by||'',batch:x.batch||'',sheet:x.sheet||''}:null;A.offcuts[id]={used:slim(b.used),broken:slim(b.broken),onRackAt:b.onRackAt||'',onRackBy:b.onRackBy||''};});
+}
+
+/* Уход в архив на день day (по умолчанию сегодня): одной командой — откат
+   целиком. limit — сколько заказов за раз (экран не замирает надолго). */
+function archiveRun(day,opts){
+ opts=opts||{};day=String(day||new Date().toISOString()).slice(0,10);
+ const now=new Date().toISOString();
+ return storageCommand(()=>{
+  let due=[...archiveDue(day)];if(opts.limit)due=due.slice(0,opts.limit);
+  const ids=new Set(due);if(!ids.size)return {orders:0,records:0};
+  const set=archiveCollect(ids),ctx=archiveContext();
+  const rows=readScope(()=>(DB.salesOrder||[]).filter(o=>ids.has(o.id)).map(o=>[o.id,archiveRowOf(o,archiveDayOf(o,ctx),now)]));
+  const num=(v,re)=>{const m=re.exec(String(v||''));return m?+m[1]:0;};
+  set.forEach(x=>{
+   if(x.tbl==='salesOrder'){if(salesIsQuote(x.row))archiveFloorRaise('quote',num(x.row.businessNumber,/^Q-(\d+)/));else archiveFloorRaise('order',+String(x.row.businessNumber||'').replace(/\D/g,'')||0);
+    [x.row.batchNo].concat(x.row.batchHistory||[],(x.row.lines||[]).map(l=>l.batchNo)).forEach(v=>archiveFloorRaise('batch',num(v,/^B-(\d+)$/)));}
+   if(x.tbl==='glassBatch')archiveFloorRaise('batch',num(x.row.number,/^B-(\d+)$/));
+   if(x.tbl==='ncr')archiveFloorRaise('ncr',num(x.row.number,/^NCR(\d+)$/));
+   if(x.tbl==='receipt')archiveFloorRaise('receipt',num(x.row.number,/^R-(\d+)$/));
+   if(x.tbl==='financeEvent')archiveFloorRaise('financeEvent',+x.row.seq||0);
+  });
+  const before=archiveInvState();
+  const byTbl=new Map();set.forEach(x=>{let a=byTbl.get(x.tbl);if(!a)byTbl.set(x.tbl,a=[]);a.push(x);});
+  byTbl.forEach((list,tbl)=>storageColdMoveAll(tbl,list));
+  archiveInvKeep(before,archiveInvState(),true);
+  rows.forEach(([id,row])=>storageArchiveIndex(id,row));
+  return {orders:ids.size,records:set.length};
+ });
+}
+/* Вернуть заказ в работу (NCR, поздняя оплата, возврат денег): весь его
+   набор — и общие записи с другими заказами — встаёт на место; строка
+   указателя снимается; склад — разница обратно. */
+async function archiveReturn(orderId){
+ await storageFlush();
+ const got=await storageIdbColdOf(orderId);if(!got.length)return {ok:true,value:0};
+ const owners=new Set();got.forEach(r=>(r.owners||[]).forEach(o=>owners.add(o)));
+ return storageCommand(()=>{
+  const before=archiveInvState();
+  got.forEach(r=>storageColdPut(r));
+  archiveInvKeep(before,archiveInvState(),false);
+  if(DB.inventoryArchived&&DB.inventoryArchived.offcuts)(DB.stockOffcut||[]).forEach(o=>{if(got.some(r=>r.tbl==='glassBatch'&&JSON.parse(r.data).number===o.batch))delete DB.inventoryArchived.offcuts[o.id];});
+  (DB.salesOrder||[]).forEach(o=>{if(owners.has(o.id)&&archiveIndex.has(o.id))storageArchiveIndex(o.id,null);});
+  return got.length;
+ });
+}
+
 /* ==== src/erp/storage-records.js ==== */
 /* =====================================================================
    erp/storage-records  ·  erp-1.0
@@ -44534,7 +44751,7 @@ function viewReports(){
    IN : DB, DEFAULT
    OUT: storageBase (что лежит в базе), storageDiff, storageBaseApply,
         storageJoin, storageApplyRecords, storageIdb* (открыть, прочитать,
-        записать, мета, копия до импорта)
+        записать, мета, копия до импорта, архив)
 
    Запись — {tbl, id, seq, data}:
    - tbl — ключ таблицы в DB (salesOrder, stationScan…); `_meta` — всё, что
@@ -44545,6 +44762,14 @@ function viewReports(){
      сортировки по номеру);
    - data — строка JSON, как раньше весь localStorage: после F5 база та же
      байт в байт.
+
+   Архив (задание «База», этап 3) — те же записи в отдельном складе `cold`
+   с `owners` (заказы, которым запись принадлежит) и `month`. При F5 он не
+   читается, сравнение базы его не видит. Запись либо в работе, либо в
+   архиве: перенос — изменение `cold` в той же транзакции, возврат —
+   запись с `warm`, она же удаляет копию из архива. Указатель архива —
+   склад `archive`: короткая строка Sales ушедшего заказа (`tbl` `_archive`
+   в наборе изменений); при старте читается целиком, в сравнение не входит.
    ===================================================================== */
 
 const STORAGE_IDB_NAME='glass-erp';
@@ -44625,8 +44850,9 @@ function storageDiff(db){
 function storageBaseApply(changes){
  changes.forEach(c=>{
   let m=storageBase.get(c.tbl);
-  if(!m){if(c.del)return;m=new Map();storageBase.set(c.tbl,m);}
-  if(c.del)m.delete(c.id);else m.set(c.id,{t:c.data,s:c.seq});
+  if(c.coldClear||c.tbl==='_archive')return;
+  if(!m){if(c.del||c.cold)return;m=new Map();storageBase.set(c.tbl,m);}
+  if(c.del||c.cold)m.delete(c.id);else m.set(c.id,{t:c.data,s:c.seq});
   if(!m.size)storageBase.delete(c.tbl);
  });
 }
@@ -44716,17 +44942,23 @@ function storageRestore(changes,overlay){
 }
 /* Наборы изменений, ждущие записи, — по ключу записи, последнее побеждает. */
 function storageMerge(a,b){
- const m=new Map();[a,b].forEach(list=>(list||[]).forEach(c=>m.set(c.tbl+'\u0000'+c.id,c)));
+ /* Возврат из архива, перекрытый следующей правкой той же строки, остаётся
+    возвратом: иначе копия в архиве пережила бы её. */
+ const m=new Map();[a,b].forEach(list=>(list||[]).forEach(c=>{const k=c.tbl+'\u0000'+c.id,p=m.get(k);m.set(k,p&&p.warm&&!c.del&&!c.cold&&!c.warm?Object.assign({},c,{warm:true}):c);}));
  return [...m.values()];
 }
 
 /* ---- IndexedDB: record — записи; meta — rev (номер последней записи),
    build (версия, что писала последней), copyAt, test (метка TEST); copy —
-   копия до импорта. */
+   копия до импорта; cold — архив (указатель owners — по заказу); archive —
+   указатель архива (строка Sales ушедшего заказа). */
 function storageIdbOpen(){
  return new Promise((resolve,reject)=>{
-  let q;try{q=indexedDB.open(STORAGE_IDB_NAME,1);}catch(e){reject(e);return;}
-  q.onupgradeneeded=()=>{const d=q.result;d.createObjectStore('record',{keyPath:['tbl','id']});d.createObjectStore('meta');d.createObjectStore('copy');};
+  let q;try{q=indexedDB.open(STORAGE_IDB_NAME,3);}catch(e){reject(e);return;}
+  q.onupgradeneeded=()=>{const d=q.result,has=n=>d.objectStoreNames.contains(n);
+   if(!has('record'))d.createObjectStore('record',{keyPath:['tbl','id']});if(!has('meta'))d.createObjectStore('meta');if(!has('copy'))d.createObjectStore('copy');
+   if(!has('cold'))d.createObjectStore('cold',{keyPath:['tbl','id']}).createIndex('owners','owners',{multiEntry:true});
+   if(!has('archive'))d.createObjectStore('archive',{keyPath:'id'});};
   q.onsuccess=()=>{storageIdb=q.result;storageIdb.onversionchange=()=>{storageIdb.close();storageIdb=null;};resolve(storageIdb);};
   q.onerror=()=>reject(q.error||new Error('The database could not be opened.'));
  });
@@ -44742,9 +44974,10 @@ function storageIdbTx(stores,mode,fill){
  });
 }
 function storageIdbReadAll(){
- return storageIdbTx(['record','meta'],'readonly',tx=>{
-  const out={records:[],rev:0,build:'',copyAt:'',test:false},ms=tx.objectStore('meta');
+ return storageIdbTx(['record','meta','archive'],'readonly',tx=>{
+  const out={records:[],rev:0,build:'',copyAt:'',test:false,archive:[]},ms=tx.objectStore('meta');
   tx.objectStore('record').getAll().onsuccess=e=>{out.records=e.target.result||[];};
+  tx.objectStore('archive').getAll().onsuccess=e=>{out.archive=e.target.result||[];};
   ['rev','build','copyAt','test'].forEach(k=>{ms.get(k).onsuccess=e=>{if(e.target.result!=null)out[k]=e.target.result;};});
   return out;
  });
@@ -44765,18 +44998,56 @@ function storageIdbGet(keys){
  });
 }
 /* Набор изменений — одной транзакцией вместе с номером записи, версией и
-   меткой TEST (test не передан — метка не трогается). */
+   меткой TEST (test не передан — метка не трогается). cold — запись уходит
+   в архив; warm — запись вернулась из архива (её копия там удаляется);
+   coldClear — архив и его указатель очищаются (Import заменяет базу
+   целиком); `_archive` — строка указателя архива. Остальные записи склад
+   архива не трогают: старт новой установки пишет всё сразу. */
 function storageIdbWrite(changes,rev,build,test){
- return storageIdbTx(['record','meta'],'readwrite',tx=>{
-  const rs=tx.objectStore('record'),ms=tx.objectStore('meta');
-  changes.forEach(c=>{if(c.del)rs.delete([c.tbl,c.id]);else rs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data});});
+ return storageIdbTx(['record','cold','archive','meta'],'readwrite',tx=>{
+  const rs=tx.objectStore('record'),cs=tx.objectStore('cold'),as=tx.objectStore('archive'),ms=tx.objectStore('meta');
+  changes.forEach(c=>{
+   if(c.coldClear){cs.clear();as.clear();return;}
+   if(c.tbl==='_archive'){if(c.del)as.delete(c.id);else as.put({id:c.id,row:JSON.parse(c.data)});return;}
+   const k=[c.tbl,c.id];
+   if(c.cold){rs.delete(k);cs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data,owners:c.owners||[],month:c.month||''});}
+   else if(c.del)rs.delete(k);else{rs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data});if(c.warm)cs.delete(k);}
+  });
   ms.put(rev,'rev');ms.put(build,'build');if(test!==undefined)ms.put(test===true,'test');
  });
 }
 function storageIdbMetaPut(key,value){return storageIdbTx(['meta'],'readwrite',tx=>{tx.objectStore('meta').put(value,key);});}
+/* Архив заказа (все записи, где он среди owners) и весь архив (Export). */
+function storageIdbColdOf(owner){return storageIdbTx(['cold'],'readonly',tx=>{const out={records:[]};tx.objectStore('cold').index('owners').getAll(owner).onsuccess=e=>{out.records=e.target.result||[];};return out;}).then(o=>o.records);}
+function storageIdbArchiveGet(ids){return storageIdbTx(['archive'],'readonly',tx=>{const st=tx.objectStore('archive'),out={rows:new Array(ids.length)};ids.forEach((id,i)=>{st.get(id).onsuccess=e=>{out.rows[i]=e.target.result||null;};});return out;}).then(o=>o.rows);}
+function storageIdbArchiveAll(){return storageIdbTx(['archive'],'readonly',tx=>{const out={rows:[]};tx.objectStore('archive').getAll().onsuccess=e=>{out.rows=e.target.result||[];};return out;}).then(o=>o.rows);}
+function storageIdbColdAll(){return storageIdbTx(['cold'],'readonly',tx=>{const out={records:[]};tx.objectStore('cold').getAll().onsuccess=e=>{out.records=e.target.result||[];};return out;}).then(o=>o.records);}
+function storageIdbMetaPut(key,value){return storageIdbTx(['meta'],'readwrite',tx=>{tx.objectStore('meta').put(value,key);});}
+/* Копия до импорта — по записям, частями по 1000 (в работе и архив): одной
+   огромной строки нет (проверка Codex 22.10.2026, находка 6). Прежняя копия
+   одной строкой ('before-import') ещё читается. */
 function storageIdbCopyPut(text,at){return storageIdbTx(['copy','meta'],'readwrite',tx=>{tx.objectStore('copy').put(text,'before-import');tx.objectStore('meta').put(at,'copyAt');});}
-function storageIdbCopyGet(){return storageIdbTx(['copy'],'readonly',tx=>{const out={text:null};tx.objectStore('copy').get('before-import').onsuccess=e=>{out.text=e.target.result==null?null:e.target.result;};return out;}).then(o=>o.text);}
-function storageIdbCopyDrop(){return storageIdbTx(['copy','meta'],'readwrite',tx=>{tx.objectStore('copy').delete('before-import');tx.objectStore('meta').delete('copyAt');});}
+function storageIdbCopyPutRecords(hot,cold,at,test,archive){
+ archive=archive||[];
+ return storageIdbTx(['copy','meta'],'readwrite',tx=>{
+  const cp=tx.objectStore('copy');cp.clear();
+  for(let i=0;i<hot.length;i+=1000)cp.put(hot.slice(i,i+1000),['h',i/1000]);
+  for(let i=0;i<cold.length;i+=1000)cp.put(cold.slice(i,i+1000),['c',i/1000]);
+  for(let i=0;i<archive.length;i+=1000)cp.put(archive.slice(i,i+1000),['a',i/1000]);
+  cp.put({at,test:!!test,hot:hot.length,cold:cold.length,archive:archive.length},'head');tx.objectStore('meta').put(at,'copyAt');
+ });
+}
+/* {text} — прежняя копия одной строкой; {head, hot, cold} — по записям; null — копии нет. */
+function storageIdbCopyRead(){
+ return storageIdbTx(['copy'],'readonly',tx=>{
+  const out={text:null,head:null,hot:[],cold:[],archive:[]};
+  tx.objectStore('copy').openCursor().onsuccess=e=>{const c=e.target.result;if(!c)return;const k=c.key;
+   if(k==='before-import')out.text=c.value;else if(k==='head')out.head=c.value;else if(Array.isArray(k))(k[0]==='h'?out.hot:k[0]==='a'?out.archive:out.cold).push(...c.value);c.continue();};
+  return out;
+ }).then(o=>o.head?o:o.text!=null?{text:o.text}:null);
+}
+function storageIdbCopyGet(){return storageIdbCopyRead().then(o=>o&&o.text!=null?o.text:null);}
+function storageIdbCopyDrop(){return storageIdbTx(['copy','meta'],'readwrite',tx=>{tx.objectStore('copy').clear();tx.objectStore('meta').delete('copyAt');});}
 
 /* ==== src/erp/storage.js ==== */
 /* =====================================================================
@@ -44871,6 +45142,56 @@ function storageRollback(before){
  if(!moved.size)return;
  storageRestore(changes.filter(c=>moved.has(part(c))),(before||[]).filter(c=>moved.has(part(c))));storageInvalidate();
 }
+/* Архив (задание «База», этап 3). Строка, которую команда уносит в архив,
+   для сравнения базы выглядит удалённой — touch() превращает такое
+   «удалено» в перенос в склад cold той же записью. storageColdImport —
+   архив из файла Import (заменяет весь архив). */
+let storageColdPending=new Map(),storageColdImport=null,storageColdWarm=new Set(),storageArchivePending=new Map();
+/* Указатель архива (erp/archive): строка Sales ушедшего заказа; null —
+   строка снимается (заказ вернулся в работу). Пишется той же записью. */
+function storageArchiveIndex(id,row){storageArchivePending.set(id,row);}
+function storageColdMove(tbl,row,owners,month){
+ const list=DB[tbl],i=Array.isArray(list)?list.indexOf(row):-1,id=storageRowKey(tbl,row);
+ if(i<0||!id||!storageTableIds(tbl,list))throw new Error('This record cannot go to the archive.');
+ storageColdPending.set(tbl+'\u0000'+id,{tbl,id,owners:owners||[],month:month||'',data:JSON.stringify(row)});list.splice(i,1);
+}
+/* Много строк одной таблицы — одним проходом (archiveRun). Таблица без
+   надёжного ключа хранится целиком — её строки остаются в работе. */
+function storageColdMoveAll(tbl,list){
+ const rows=DB[tbl];if(!Array.isArray(rows)||!list.length)return;
+ if(!storageTableIds(tbl,rows)){console.warn('Archive skipped table '+tbl+': it has no row keys.');return;}
+ const set=new Set(list.map(x=>x.row));
+ list.forEach(x=>{const id=storageRowKey(tbl,x.row);storageColdPending.set(tbl+'\u0000'+id,{tbl,id,owners:x.owners||[],month:x.month||'',data:JSON.stringify(x.row)});});
+ DB[tbl]=rows.filter(r=>!set.has(r));
+}
+/* Строка, которая сейчас уходит в архив или возвращается из него: журнал
+   заказа не пишет её «Deleted» или «Created» (erp/sales/order-log). */
+function storageColdMoving(tbl,id){const k=tbl+'\u0000'+id;return storageColdPending.has(k)||storageColdWarm.has(k);}
+/* Одна запись из архива — на своё место по seq (внутри действия). */
+function storageColdPut(r){
+ if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];const rows=DB[r.tbl],base=storageBase.get(r.tbl)||new Map(),seqOf=x=>{const b=base.get(storageRowKey(r.tbl,x));return b?b.s:Infinity;};
+ let lo=0,hi=rows.length;while(lo<hi){const mid=(lo+hi)>>1;if(seqOf(rows[mid])<r.seq)lo=mid+1;else hi=mid;}
+ rows.splice(lo,0,JSON.parse(r.data));storageColdWarm.add(r.tbl+'\u0000'+r.id);
+}
+function storageColdApply(changes){
+ if(storageColdImport){changes.unshift({tbl:'',id:'',coldClear:true});storageColdImport.cold.forEach(r=>changes.push({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,owners:r.owners||[],month:r.month||''}));
+  storageColdImport.archive.forEach(a=>changes.push({tbl:'_archive',id:a.id,seq:0,data:JSON.stringify(a.row)}));storageColdImport=null;}
+ storageArchivePending.forEach((row,id)=>changes.push(row?{tbl:'_archive',id,seq:0,data:JSON.stringify(row)}:{tbl:'_archive',id,del:true}));storageArchivePending.clear();
+ if(storageColdWarm.size){changes.forEach(c=>{if(!c.del&&!c.cold&&storageColdWarm.has(c.tbl+'\u0000'+c.id))c.warm=true;});storageColdWarm.clear();}
+ if(!storageColdPending.size)return changes;
+ changes.forEach(c=>{const p=c.del&&storageColdPending.get(c.tbl+'\u0000'+c.id);if(!p)return;const b=storageBase.get(c.tbl),was=b&&b.get(c.id);
+  Object.assign(c,{cold:true,seq:was?was.s:0,data:p.data,owners:p.owners,month:p.month});delete c.del;storageColdPending.delete(c.tbl+'\u0000'+c.id);});
+ /* Строка, ещё не записанная в базу, уходит в архив как есть. */
+ storageColdPending.forEach(p=>changes.push({tbl:p.tbl,id:p.id,seq:0,data:p.data,cold:true,owners:p.owners,month:p.month}));
+ storageColdPending.clear();return changes;
+}
+/* Вернуть из архива записи заказа (NCR, поздняя оплата): строки встают в
+   DB на своё место по seq, их запись забирает их из склада cold. */
+async function storageColdBring(owner){
+ await storageFlush();
+ const got=await storageIdbColdOf(owner);if(!got.length)return {ok:true,value:0};
+ return storageCommand(()=>{got.forEach(storageColdPut);return got.length;});
+}
 function storageCommand(fn){
  if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}
  if(!storageWriter||storageRecovery||storageStale)return {ok:false,error:storageRecovery?'Restore or export the unreadable database before editing.':storageReadOnlyText()};
@@ -44883,7 +45204,7 @@ function storageCommand(fn){
   storageDepth--;storageCommanding=true;const saved=touch();storageCommanding=false;
   if(saved===false)throw new Error(storageLastError||'Not saved. Retry the operation.');
   return {ok:true,value};
- }catch(e){storageDepth=0;storageCommanding=false;storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
+ }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
 }
 function touch(){
  if(storageDepth)return true;
@@ -44898,10 +45219,10 @@ function touch(){
   if(typeof orderLogCapture==='function')orderLogCapture();
   /* Счётчик номеров стёкол — раньше базы (erp/production/glass-batches). */
   if(typeof glassIdMarkSave==='function')glassIdMarkSave();
-  const changes=storageDiff(DB);
+  const changes=storageColdApply(storageDiff(DB));
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';return true;}
-  storageWrite(changes);storageBaseApply(changes);
+  storageWrite(changes);storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
   storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
  }catch(e){
   storageLastError=storageStale?storageReadOnlyText():'Not saved. Your operation is still open; retry or export your changes.';
@@ -45068,20 +45389,22 @@ function storageOnMessage(d){
    стойки — в другой). */
 async function storageApplySaved(d){
  if(storageWriter||storageRecovery||!(d.rev>storageRev))return;
- const got=await storageIdbGet(d.keys);
+ const keys=d.keys.filter(k=>k[0]!=='_archive'&&k[0]!==''),arch=d.keys.filter(k=>k[0]==='_archive').map(k=>k[1]);
+ const got=await storageIdbGet(keys),rows=arch.length?await storageIdbArchiveGet(arch):[];
  if(storageWriter)return;
- const list=d.keys.map((k,i)=>{const r=got.records[i];return r?{tbl:r.tbl,id:r.id,seq:r.seq,data:r.data}:{tbl:k[0],id:k[1],del:true};});
+ const list=keys.map((k,i)=>{const r=got.records[i];return r?{tbl:r.tbl,id:r.id,seq:r.seq,data:r.data}:{tbl:k[0],id:k[1],del:true};});
  /* Испорченная запись — до того, как что-то вставлено: база этой вкладки цела. */
  list.forEach(c=>{if(!c.del&&(typeof c.data!=='string'||!Number.isFinite(c.seq)))throw new Error('A stored record is damaged.');if(!c.del)JSON.parse(c.data);});
  const shapes=typeof soDraft!=='undefined'&&soDraft&&Array.isArray(DB.shapeDef)?{shapeDef:DB.shapeDef.slice()}:null;
  storageApplyRecords(list);storageRev=d.rev;if(typeof d.test==='boolean')storageTest=d.test;
+ if(arch.length&&typeof archiveIndexApply==='function')archiveIndexApply(arch.map((id,i)=>[id,rows[i]?rows[i].row:null]),d.keys.some(k=>k[0]===''));
  if(shapes&&typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(shapes,DB);
  storageInvalidate();storageRerenderQuiet();
  const chip=document.getElementById('testChip');if(chip)chip.hidden=!storageTest;
 }
 /* Записи пропущены (вкладка спала, сообщение не дошло) — база целиком. */
 async function storageReloadAll(){
- const got=await storageIdbReadAll(),next=prepareImportedState(storageJoin(got.records));
+ const got=await storageIdbReadAll();if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);const next=prepareImportedState(storageJoin(got.records));
  if(typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(DB,next);
  storageBaseFrom(got.records);DB=next;storageRev=got.rev;storageTest=got.test===true;storageInvalidate();
 }
@@ -45194,30 +45517,41 @@ function storageDownload(name,parts,type){const a=document.createElement('a'),ur
    одной огромной строки нет. Этот же формат — для будущего переноса
    старых данных и обмена с сервером. Пишется то, что в памяти, — и
    то, что ещё не дошло до базы (запись не удалась). */
-function storageExportParts(){
+/* Записи того, что в памяти (и не дошло до базы), — для Export и копии до
+   импорта. Пустая таблица — строкой «таблица пуста» (id `*`, data []): без
+   неё файл новой установки без клиентов или заказов не возвращался Import'ом. */
+function storageHotRecords(){
  const keep=storageBase;let recs;
  storageBase=new Map();
  try{recs=storageDiff(DB);}finally{storageBase=keep;}
- /* Пустая таблица — строкой «таблица пуста» (id `*`, data []): без неё
-    файл новой установки без клиентов или заказов не возвращался Import'ом. */
  Object.keys(DB).forEach(k=>{if(Array.isArray(DB[k])&&!DB[k].length)recs.push({tbl:k,id:'*',seq:0,data:'[]'});});
- const head={format:'glass-erp',schemaVersion:2,exportedAt:new Date().toISOString(),build:storageBuildId(),records:recs.length};
+ return recs;
+}
+/* cold — записи архива (storageIdbColdAll): строкой с "cold":1, owners и
+   month; archive — строки указателя архива (tbl `_archive`). */
+function storageExportParts(cold,archive){
+ const recs=storageHotRecords();cold=cold||[];archive=archive||[];
+ const head={format:'glass-erp',schemaVersion:2,exportedAt:new Date().toISOString(),build:storageBuildId(),records:recs.length+cold.length+archive.length};
+ if(cold.length)head.cold=cold.length;if(archive.length)head.archive=archive.length;
  if(storageTest)head.test=true;
  const parts=[JSON.stringify(head)+'\n'];
  for(let i=0;i<recs.length;i+=1000)parts.push(recs.slice(i,i+1000).map(c=>'{"tbl":'+JSON.stringify(c.tbl)+',"id":'+JSON.stringify(c.id)+',"seq":'+c.seq+',"data":'+c.data+'}\n').join(''));
+ for(let i=0;i<cold.length;i+=1000)parts.push(cold.slice(i,i+1000).map(c=>'{"tbl":'+JSON.stringify(c.tbl)+',"id":'+JSON.stringify(c.id)+',"seq":'+c.seq+',"cold":1,"owners":'+JSON.stringify(c.owners||[])+',"month":'+JSON.stringify(c.month||'')+',"data":'+c.data+'}\n').join(''));
+ for(let i=0;i<archive.length;i+=1000)parts.push(archive.slice(i,i+1000).map(a=>'{"tbl":"_archive","id":'+JSON.stringify(a.id)+',"seq":0,"data":'+JSON.stringify(a.row)+'}\n').join(''));
  return parts;
 }
 /* Вся база целиком — дело администратора (раздел Users, erp/access): Import
    заменяет и людей с их правами, Export отдаёт и Finance. */
-function doExport(){
+async function doExport(){
  if(!accessCan(ACCESS_ADMIN))return;
- storageDownload('glazing_system_data.ndjson',storageExportParts(),'application/x-ndjson');
+ await storageFlush();const cold=storageIdb?await storageIdbColdAll().catch(()=>[]):[],archive=storageIdb?await storageIdbArchiveAll().catch(()=>[]):[];
+ storageDownload('glazing_system_data.ndjson',storageExportParts(cold,archive),'application/x-ndjson');
  storageBackupAt=new Date().toISOString();dirty=false;if(storageFailed)storageFailedExported=true;render();
 }
 /* Записи как они лежат, без нормализации, — то, что не прочиталось. */
 function storageExportRecovery(){
- const read=storageIdb?storageIdbTx(['record'],'readonly',tx=>{const out={records:[]};tx.objectStore('record').getAll().onsuccess=e=>{out.records=e.target.result||[];};return out;}):Promise.resolve({records:[]});
- return read.then(o=>storageDownload('glazing_system_recovery.json',JSON.stringify({format:'glass-erp-records',exportedAt:new Date().toISOString(),records:o.records})),
+ const read=storageIdb?storageIdbTx(['record','cold','archive'],'readonly',tx=>{const out={records:[],cold:[],archive:[]};tx.objectStore('record').getAll().onsuccess=e=>{out.records=e.target.result||[];};tx.objectStore('cold').getAll().onsuccess=e=>{out.cold=e.target.result||[];};tx.objectStore('archive').getAll().onsuccess=e=>{out.archive=e.target.result||[];};return out;}):Promise.resolve({records:[],cold:[],archive:[]});
+ return read.then(o=>storageDownload('glazing_system_recovery.json',JSON.stringify({format:'glass-erp-records',exportedAt:new Date().toISOString(),records:o.records,cold:o.cold,archive:o.archive})),
   e=>alert('The stored records could not be read: '+e.message));
 }
 function storageImportSummary(next){return ['customer','salesOrder','receipt','glassBatch','stationScan'].map(k=>k+': '+(DB[k]||[]).length+' → '+(next[k]||[]).length).join('\n');}
@@ -45228,28 +45562,33 @@ function storageImportSummary(next){return ['customer','salesOrder','receipt','g
    opts.test — файл помечен TEST (база симулятора); настоящую базу поверх
    тестовой не кладём (владелец, 20.10.2026: «не путать тестовое и базу с
    проектами прошлых лет»). opts.restore — Restore pre-import backup: копия
-   возвращается с той меткой, какая у неё была. */
+   возвращается с той меткой, какая у неё была. opts.cold — архив из файла;
+   Import заменяет и архив (нет в файле — архив пустой). */
 async function storageImportState(raw,opts){
  opts=opts||{};
  if(!accessCan(ACCESS_ADMIN)){alert('Users access needed to replace the database.');return false;}
  const payload=raw&&raw.format==='glass-erp'?raw.data:raw;
  if(!payload||!Array.isArray(payload.customer)||!Array.isArray(payload.salesOrder)||!Array.isArray(payload.station))throw new Error('Choose a complete GLASS ERP backup. A partial data file cannot replace this database.');
  if(storageTest&&!opts.test&&!opts.restore){alert('Test data here. Clear database first.');return false;}
- const next=prepareImportedState(raw);
+ /* Проверка и нормализация файла знают его архив (erp/archive): записи в
+    работе, ссылающиеся на ушедший заказ, не битые. */
+ let next;
+ try{if(typeof archiveIncoming!=='undefined')archiveIncoming=new Map((opts.archive||[]).map(a=>[a.id,a.row]));next=prepareImportedState(raw);}
+ finally{if(typeof archiveIncoming!=='undefined')archiveIncoming=null;}
  if(!confirm('Replace this browser database?\n\n'+storageImportSummary(next)+'\n\nA recovery copy will be kept before replacement.'))return false;
  const recovering=storageRecovery;
- /* The copy is written and checked before the database is touched. */
- /* Копия — одной строкой; у браузера предел строки около 512 МБ, это база
-    примерно за год. Больше — понятный отказ вместо «Invalid string length». */
- const at=new Date().toISOString();let backup;
- try{backup=JSON.stringify(Object.assign({format:'glass-erp',schemaVersion:1,exportedAt:at},storageTest?{test:true}:{},{data:DB}));}
- catch(e){alert('Nothing was replaced. Too big for a recovery copy: Export, Clear database, then Import.');return false;}
- try{await storageIdbCopyPut(backup,at);if(await storageIdbCopyGet()!==backup)throw new Error('The recovery copy could not be verified.');}
- catch(e){alert('Nothing was replaced: '+e.message);return false;}
+ /* The copy is written and checked before the database is touched: по
+    записям — то, что в памяти, и архив; одной огромной строки нет. */
+ const at=new Date().toISOString();
+ try{
+  await storageFlush();const hot=storageHotRecords(),cold=recovering?[]:await storageIdbColdAll(),archive=recovering?[]:await storageIdbArchiveAll();
+  await storageIdbCopyPutRecords(hot,cold,at,storageTest,archive);const back=await storageIdbCopyRead();
+  if(!back||!back.head||back.hot.length!==hot.length||back.cold.length!==cold.length||back.archive.length!==archive.length)throw new Error('The recovery copy could not be verified.');
+ }catch(e){alert('Nothing was replaced: '+e.message);return false;}
  storageBackupPresent=true;storageCopyAt=at;
  if(recovering){await storageExportRecovery();storageRecovery=false;}
  /* Метка уходит той же записью, что и новая база (storageWriteNext). */
- storageImporting=true;const testWas=storageTest;storageTest=!!opts.test;
+ storageImporting=true;const testWas=storageTest;storageTest=!!opts.test;storageColdImport={cold:(opts.cold||[]).slice(),archive:(opts.archive||[]).slice()};
  const result=storageCommand(()=>{DB=next;return true;});
  storageImporting=false;
  if(!result.ok){storageTest=testWas;storageRecovery=recovering;alert(result.error);return false;}
@@ -45266,27 +45605,32 @@ async function storageSeed(src){
  storageBase=new Map();
  try{changes=storageDiff(src&&typeof src==='object'&&!Array.isArray(src)?src:{});}finally{storageBase=keep;}
  storageWriter=false;if(storageRelease)storageRelease();storageRelease=null;
- await storageIdbTx(['record','meta'],'readwrite',tx=>{
-  const rs=tx.objectStore('record');rs.clear();
+ await storageIdbTx(['record','cold','archive','meta'],'readwrite',tx=>{
+  const rs=tx.objectStore('record');rs.clear();tx.objectStore('cold').clear();tx.objectStore('archive').clear();
   changes.forEach(c=>rs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data}));
   tx.objectStore('meta').put(storageRev+1,'rev');
  });
 }
 function storageRestoreBackup(){
- return storageIdbCopyGet().then(raw=>{if(!raw){alert('No pre-import recovery copy is available.');return false;}const copy=JSON.parse(raw);return storageImportState(copy,{restore:true,test:copy.test===true});},
-  e=>{alert('No pre-import recovery copy is available.');return false;});
+ return storageIdbCopyRead().then(got=>{
+  if(!got){alert('No pre-import recovery copy is available.');return false;}
+  if(got.text!=null){const copy=JSON.parse(got.text);return storageImportState(copy,{restore:true,test:copy.test===true});}
+  return storageImportState(storageJoin(got.hot),{restore:true,test:got.head.test===true,cold:got.cold,archive:got.archive});
+ },e=>{alert('No pre-import recovery copy is available.');return false;});
 }
 /* Import v2 — потоком: файл читается кусками и делится на строки, строка —
    одна запись. JSON.parse всего файла нет, предела размера нет. */
 async function storageReadRecords(file){
- const reader=file.stream().pipeThrough(new TextDecoderStream()).getReader(),records=[];
+ const reader=file.stream().pipeThrough(new TextDecoderStream()).getReader(),records=[],cold=[],archive=[];
  let buf='',head=null,line=0;
  const take=text=>{
   if(!text.trim())return;line++;
   let o;try{o=JSON.parse(text);}catch(e){throw new Error('line '+line+' is not readable.');}
   if(!head){if(!o||o.format!=='glass-erp'||o.schemaVersion!==2)throw new Error('Unsupported GLASS ERP backup format or version.');head=o;return;}
   if(!o||typeof o.tbl!=='string'||typeof o.id!=='string'||!Number.isFinite(o.seq)||o.data===undefined)throw new Error('line '+line+' is not a record.');
-  records.push(o);
+  if(o.tbl==='_archive')archive.push({id:o.id,row:o.data});
+  else if(o.cold)cold.push({tbl:o.tbl,id:o.id,seq:o.seq,data:JSON.stringify(o.data),owners:Array.isArray(o.owners)?o.owners.map(String):[],month:typeof o.month==='string'?o.month:''});
+  else records.push(o);
  };
  for(;;){
   const r=await reader.read();if(r.done)break;
@@ -45294,8 +45638,9 @@ async function storageReadRecords(file){
  }
  take(buf);
  if(!head)throw new Error('the file is empty.');
- if(Number.isInteger(head.records)&&head.records!==records.length)throw new Error('the file is incomplete: '+records.length+' of '+head.records+' records.');
- return {head,state:storageJoin(records,true)};
+ const n=records.length+cold.length+archive.length;
+ if(Number.isInteger(head.records)&&head.records!==n)throw new Error('the file is incomplete: '+n+' of '+head.records+' records.');
+ return {head,state:storageJoin(records,true),cold,archive};
 }
 /* Файл Import: v2 (строка заголовка с schemaVersion 2) или прежний JSON (v1).
    Метка TEST — в заголовке v2 или в конверте v1 (tools/sim-shop.js). Пустые
@@ -45303,7 +45648,7 @@ async function storageReadRecords(file){
 async function storageImportFile(file){
  let first=null;try{first=JSON.parse((await file.slice(0,65536).text()).replace(/^\s+/,'').split('\n')[0]);}catch(e){}
  if(first&&first.format==='glass-erp'&&first.schemaVersion===2){
-  const got=await storageReadRecords(file);return storageImportState(got.state,{test:got.head.test===true});
+  const got=await storageReadRecords(file);return storageImportState(got.state,{test:got.head.test===true,cold:got.cold,archive:got.archive});
  }
  const raw=JSON.parse(await file.text());
  return storageImportState(raw,{test:!!raw&&raw.test===true});
@@ -45492,7 +45837,7 @@ async function boot(){
  try{
   await storageIdbOpen();
   const got=await storageIdbReadAll();ms.read=T()-t0;
-  storageBaseFrom(got.records);storageRev=got.rev;storageBuildAtLoad=got.build;storageCopyAt=got.copyAt||'';storageBackupPresent=!!got.copyAt;storageTest=got.test===true;
+  storageBaseFrom(got.records);if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);storageRev=got.rev;storageBuildAtLoad=got.build;storageCopyAt=got.copyAt||'';storageBackupPresent=!!got.copyAt;storageTest=got.test===true;
   if(got.records.length){
    hadSavedState=true;const parsed=storageJoin(got.records);ms.join=T()-t0-ms.read;
    if(!Object.keys(parsed).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a database object.');
