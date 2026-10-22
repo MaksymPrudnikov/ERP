@@ -3475,7 +3475,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='94c5e69e971a';
+var ERP_BUILD='e8ff576de40e';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -4431,9 +4431,13 @@ function shapeNewEntityId(prefix){
 }
 function shapePlainObject(x){return x&&typeof x==='object'&&!Array.isArray(x)?x:{};}
 function shapeTextValue(v,d){return String(v==null?(d==null?'':d):v);}
+/* Номер элемента: свой — как есть, новый — только когда его нет. Раньше
+   новый создавался на каждой нормализации и выбрасывался: Finance на базе
+   3 мес. тратил на это треть экрана (задание «База», П2). */
+function shapeIdValue(v,prefix){return v==null?shapeNewEntityId(prefix):String(v);}
 function shapeNormalizeOp(op){
   op=shapePlainObject(op);var type=SHAPE_EDGE_OPS.indexOf(op.type)>=0?op.type:null;if(!type)return null;
-  var out={id:shapeTextValue(op.id,shapeNewEntityId('eo-')),type:type};
+  var out={id:shapeIdValue(op.id,'eo-'),type:type};
   /* Сторона обработки — производственный параметр, а не оформление:
      Front Mitre оставляет длинной ЛИЦЕВУЮ грань и подрезает тыльную,
      Back Mitre — наоборот. От неё зависит вид сверху и тип машинной линии. */
@@ -4443,7 +4447,7 @@ function shapeNormalizeOp(op){
 }
 function shapeNormalizeFeature(f){
   f=shapePlainObject(f);var type=SHAPE_FEATURE_TYPES.indexOf(f.type)>=0?f.type:'hole';
-  var out={id:shapeTextValue(f.id,shapeNewEntityId('sf-')),type:type};
+  var out={id:shapeIdValue(f.id,'sf-'),type:type};
   if(type==='hole')Object.assign(out,{diameter:shapeTextValue(f.diameter,'1/2'),x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'3'),minEdge:shapeTextValue(f.minEdge,'1/2')});
   if(type==='cutout')Object.assign(out,{width:shapeTextValue(f.width,'4'),height:shapeTextValue(f.height,'4'),x:shapeTextValue(f.x,'8'),y:shapeTextValue(f.y,'8'),cornerRadius:shapeTextValue(f.cornerRadius,'0')});
   if(type==='radius')Object.assign(out,{vertexId:shapeTextValue(f.vertexId,''),radius:shapeTextValue(f.radius,'1/2')});
@@ -4549,7 +4553,7 @@ function shapeHoleRequirementParams(item,diameter){
 function shapeMiIsEdgeBound(item){return !!item&&shapeManufacturingItemType(item.type)!=='hole';}
 function shapeNormalizeManufacturingItem(raw){
   raw=shapePlainObject(raw);var type=shapeManufacturingItemType(raw.type);
-  var out={id:shapeTextValue(raw.id,shapeNewEntityId('mi-')),type:type,note:shapeTextValue(raw.note,'')};
+  var out={id:shapeIdValue(raw.id,'mi-'),type:type,note:shapeTextValue(raw.note,'')};
   if(type==='hole'){
     var x=shapeDxfCoord(raw.x),y=shapeDxfCoord(raw.y);if(!isFinite(x))x=0;if(!isFinite(y))y=0;
     /* Отверстие из DXF стоит ТОЧНО там, где в файле (владелец, 16.10:
@@ -4729,7 +4733,7 @@ function normalizeShapeDef(s){
   Object.keys(defaults).forEach(function(k){if(params[k]==null)params[k]=defaults[k];else params[k]=shapeTextValue(params[k]);});
   Object.keys(edgeOps).forEach(function(id){var list=Array.isArray(edgeOps[id])?edgeOps[id]:[],clean=list.map(shapeNormalizeOp).filter(Boolean);if(clean.length)ops[id]=clean;});
   var source=shapeNormalizeSource(s.source),out={
-    id:shapeTextValue(s.id,shapeNewEntityId('s')),name:shapeTextValue(s.name,''),type:type,
+    id:shapeIdValue(s.id,'s'),name:shapeTextValue(s.name,''),type:type,
     w:normalizedW,h:normalizedH,
     thickness:shapeTextValue(s.thickness,'6'),params:params,polygon:shapeNormalizePolygon(s.polygon),
     /* Safety Border: базовое значение (пусто = AUTO по толщине) плюс ручной
@@ -13575,7 +13579,15 @@ function finWithOrder(order,fn){
  const keep=soDraft;
  try{soDraft=order;return fn();}finally{soDraft=keep;}
 }
-function finOrderTotals(order){return finWithOrder(order,()=>salesOrderCommercialTotals(order));}
+/* Итоги заказа — один раз на отрисовку (erp/read-scope): Finance спрашивал их
+   почти трижды на заказ (задание «База», П2). Пока пишется прайс заказа
+   (salesPriceBookOf ловит его по ходу расчёта) — считать по-настоящему. */
+function finOrderTotals(order){
+ if(!order||!readOn()||salesBookRec)return finWithOrder(order,()=>salesOrderCommercialTotals(order));
+ const m=readMemo('finOrderTotals',[],()=>new WeakMap());let t=m.get(order);
+ if(!t){t=finWithOrder(order,()=>salesOrderCommercialTotals(order));m.set(order,t);}
+ return t;
+}
 function finOrderPaid(orderId){
  let paid=0,receipts=0;
  const order=(DB.salesOrder||[]).find(o=>o.id===orderId);
@@ -17118,7 +17130,13 @@ function salesOrderChargeGroups(){
 function salesOrderGroupBasisText(g){return salesChargeUnitValue(g.basis,g.unit);}
 function salesOrderGroupCatalogText(g,currency){if(!g.catalogRates.length)return '—';if(g.catalogRates.length===1)return salesRateText(g.catalogRates[0],g.unit,currency);return g.catalogRates.map(function(x){return Number(x).toFixed(2);}).join(' / ')+' '+currency+'/'+(g.unit==='pc'?'pc':g.unit==='ft²'?'ft²':'in');}
 
-function salesShapeByRef(ref){return ref&&ref.id?DB.shapeDef.find(s=>s.id===ref.id)||null:null;}
+/* Фигура строки — на отрисовку один указатель «номер → фигура» (erp/read-scope):
+   Finance спрашивает её для каждой строки каждого заказа (задание «База», П2). */
+function salesShapeByRef(ref){
+ if(!ref||!ref.id)return null;
+ if(readOn())return readMemo('shapeById',[DB.shapeDef],()=>{const m=new Map();DB.shapeDef.forEach(s=>{if(s&&!m.has(s.id))m.set(s.id,s);});return m;}).get(ref.id)||null;
+ return DB.shapeDef.find(s=>s.id===ref.id)||null;
+}
 /* Деления этой строки: раскладка живёт в её форме, поэтому соседние строки с
    тем же makeup остаются без бара и без цены. */
 function salesMuntinSections(line){return salesMuntinSectionsOf(salesLineMuntin(line));}
