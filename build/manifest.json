@@ -62,6 +62,7 @@
   "src/erp/masterdata/surround.js",
   "src/erp/masterdata/cutting.js",
   "src/erp/customers/data.js",
+  "src/erp/sales/order-setup.js",
   "src/erp/sales/data.js",
   "src/erp/sales/price-lists.js",
   "src/erp/sales/price-lists-file.js",

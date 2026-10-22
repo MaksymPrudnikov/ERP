@@ -31,8 +31,8 @@ module.exports=async function({page,eq,ok}){
   return {x:[x.subtotal,x.energy,x.hstBase,x.hst,x.cardBase,x.card,x.delivery,x.skidDeposit,x.grand],deliveryOnly:deliveryOnly.grand};
  }),{x:[13000,1267.5,14267.5,1854.78,16122.28,377.26,500,750,17749.54],deliveryOnly:13500});
  eq('new order snapshots ES 9.75 and HST 13 while card, delivery and skid deposit are optional',await t.p.evaluate(()=>{
-  const o=newSalesOrderDraft(),c=o.orderCharges;return [c.energy.enabled,c.energy.rate,c.hst.enabled,c.hst.rate,c.card.enabled,c.card.network,c.card.rate,c.delivery.enabled,c.delivery.amount,c.skidDeposit.enabled,c.skidDeposit.amount];
- }),[true,9.75,true,13,false,'visa',2.34,false,0,false,0]);
+  const o=newSalesOrderDraft(),c=o.orderCharges;return [c.energy.enabled,c.energy.rate,c.hst.enabled,c.hst.rate,c.card.enabled,c.card.network,c.card.rate,c.hst.base,c.card.base,c.delivery.enabled,c.delivery.amount,c.skidDeposit.enabled,c.skidDeposit.amount];
+ }),[true,9.75,true,13,false,'visa',2.34,['energy'],['energy','hst'],false,0,false,0]);
  eq('Service + opens editable charges and packs enabled totals without gaps',await t.p.evaluate(()=>{
   metricFixture('single',47,73.5,2);render();
   const compactLayout=summary=>{const line=summary.querySelector('.metric-order-charge-lines'),items=[...line.querySelectorAll('.metric-order-charge-item')].filter(x=>getComputedStyle(x).display!=='none'),rects=items.map(x=>x.getBoundingClientRect()),labels=items.map(x=>x.querySelector('.metric-order-charge-label').textContent.replace(/\s+/g,' ').trim());return {labels,contiguous:rects.slice(1).every((r,i)=>Math.abs(rects[i].right-r.left)<.1),totalAnchored:Math.abs(rects[rects.length-1].right-line.getBoundingClientRect().right)<.1};};

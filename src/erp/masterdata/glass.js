@@ -676,11 +676,8 @@ const FRIT_PATTERNS=['2 x 2 square','4 x 4 square','2 x 4 diamond','Custom — s
    иначе трафарет ляжет зеркально. Это производственный параметр, а не
    оформление. На рабочих листах стоит Top right. */
 const FRIT_MARGIN_CORNERS=['Top left','Top right','Bottom left','Bottom right'];
-const FRIT_DEFAULT_CORNER='Top right';
-const FRIT_DEFAULT_DOT_MM=5;
-/* 1″ в канонических 1/16″. Это ПРЕДЗАПОЛНЕНИЕ, а не правило: пользователь
-   подтвердил, что отступ 0 законен, поэтому минимум не проверяем. */
-const FRIT_DEFAULT_MARGIN16=16;
+/* Угол, точка и отступ по умолчанию — в Data → Setup (erp/sales/order-setup).
+   Отступ — ПРЕДЗАПОЛНЕНИЕ, а не правило: 0 законен (пользователь). */
 /* Цвета спандрела — СПРАВОЧНИК, а не список в коде. Прежние пять слов
    ('Black', 'White', 'Gray', 'Bronze', 'Custom') были выдумкой: настоящая
    палитра принадлежит производителю и имеет коды, по которым цех и заказывает.

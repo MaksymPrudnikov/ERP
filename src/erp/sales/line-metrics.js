@@ -64,14 +64,17 @@ function salesLineAreas(line,order){
  return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,min):null,minArea:valid&&min>rounded?{id:minBy.id,name:minBy.name,value:min}:null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
 }
 function salesMoney(value){return Math.round((value+Number.EPSILON)*100)/100;}
+/* Порядок один: Energy → HST → Card fee, доставка и депозит в конце; что
+   входит в базу HST и карты — снимок заказа (erp/sales/order-setup). */
 function salesApplyOrderCharges(subtotal,raw){
  const c=normalizeSalesOrderCharges(raw),base=salesMoney(+subtotal||0);
  const energy=c.energy.enabled?salesMoney(base*c.energy.rate/100):0;
- const hstBase=salesMoney(base+energy),hst=c.hst.enabled?salesMoney(hstBase*c.hst.rate/100):0;
- const cardBase=salesMoney(hstBase+hst),card=c.card.enabled?salesMoney(cardBase*c.card.rate/100):0;
  const delivery=c.delivery.enabled?salesMoney(c.delivery.amount):0;
  const skidDeposit=c.skidDeposit.enabled?salesMoney(c.skidDeposit.amount):0;
- return {charges:c,subtotal:base,energy:energy,hstBase:hstBase,hst:hst,cardBase:cardBase,card:card,delivery:delivery,skidDeposit:skidDeposit,grand:salesMoney(cardBase+card+delivery+skidDeposit)};
+ const part={energy,delivery},sum=(list,more)=>salesMoney(list.reduce((n,p)=>n+(more[p]||0),base));
+ const hstBase=sum(c.hst.base,part),hst=c.hst.enabled?salesMoney(hstBase*c.hst.rate/100):0;
+ const cardBase=sum(c.card.base,Object.assign({hst},part)),card=c.card.enabled?salesMoney(cardBase*c.card.rate/100):0;
+ return {charges:c,subtotal:base,energy:energy,hstBase:hstBase,hst:hst,cardBase:cardBase,card:card,delivery:delivery,skidDeposit:skidDeposit,grand:salesMoney(base+energy+hst+card+delivery+skidDeposit)};
 }
 function salesOrderCommercialTotals(order){
  order=order||soDraft;let subtotal=0,missing=0,qty=0;
