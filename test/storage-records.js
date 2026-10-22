@@ -93,6 +93,13 @@ module.exports=async function({page,eq,ok}){
   storageLastAction=null;tab='sales';render();document.querySelector('#side .nav-item').click();
   const m=document.getElementById('storageStatus').textContent.match(/Last action (\d+) ms/);return !!m&&+m[1]>=0&&+m[1]<30000;
  }),true);
+ /* Перерисовка в том же шаге, что и клик, — засчитана, сколько бы ни шла;
+    позже клика и дольше 30 с — цифры нет, а не прежняя (проверка Codex). */
+ eq('Last action: долгий экран от клика — его время; позже 30 с — без старой цифры',await t.p.evaluate(()=>{
+  storageLastAction=123;storageActionAt=performance.now()-31000;storageActionNow=true;afterRender();const same=storageLastAction;
+  storageLastAction=123;storageActionAt=performance.now()-31000;storageActionNow=false;afterRender();
+  return {same:same>=31000,later:storageLastAction,shown:/Last action/.test(document.getElementById('storageStatus').textContent)};
+ }),{same:true,later:null,shown:false});
  eq('место: размер базы у администратора, полоса при 80 %',await t.p.evaluate(()=>{
   storageUsage={usage:92*1048576,quota:1000*1048576};afterRender();const footer=document.getElementById('storageStatus').textContent.includes('DB 92 MB');
   storageUsage={usage:850,quota:1000};afterRender();const bar=document.getElementById('storageAlert'),full=!bar.hidden&&bar.textContent.includes('Storage almost full. Export and tell admin.');

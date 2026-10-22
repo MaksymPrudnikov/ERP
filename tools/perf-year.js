@@ -20,25 +20,39 @@
      перезапускается (база в профиле на диске остаётся) — иначе прогон шёл бы
      сутки.
 
+   · Честно (проверка Codex 22.10.2026): действие засчитано, только если
+     сделало своё (заказ сохранён, квота стала заказом, батч с раскроем,
+     накладная отгружена, оплата записана) и дошло до базы; время — вместе
+     с перерисовкой экрана. «Нет данных» и тайм-аут — ✗, не ✓; вторая
+     вкладка без ответа — тоже ✗.
+   · Контрольные ответы: до замеров (проход ×1, база как после Import) —
+     строка каждого заказа из списка Sales: статус, готово/всего, стекло,
+     батчи, площадь, сумма, оплачено, баланс, кто создал. --compare <папка
+     прошлого прогона> сверяет их: ускорение принимается, только если
+     ответы те же (расхождение — ✗ «answers»).
+
    Выход: ~/.glass-erp-walk/perf/<дата>-<имя>/ — report.md, report.json,
    PNG медленных экранов. В Git не класть: это рабочие и тестовые данные.
 
    Примеры:
      node tools/perf-year.js ~/.glass-erp-walk/sim/year2-12m.ndjson --name year --required
      node tools/perf-year.js ~/Downloads/glazing_system_data.ndjson --cpu 1
+     node tools/perf-year.js ~/.glass-erp-walk/sim/year2-3m.ndjson --name 3m-after --compare ~/.glass-erp-walk/perf/2026-10-22-3m-before
    Ключи: --name --out --cpu 1,4 --timeout 120 (с) --dist (собранный файл)
           --required (пороги обязательны: ✗ — код выхода 1)
+          --compare <папка или report.json прошлого прогона> (контрольные ответы)
    ===================================================================== */
 const { chromium } = require('playwright');
 const fs = require('fs'), os = require('os'), path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const o = { base: '', name: '', out: path.join(os.homedir(), '.glass-erp-walk', 'perf'), cpu: [1, 4], timeout: 120, dist: false, required: false };
+const o = { base: '', name: '', out: path.join(os.homedir(), '.glass-erp-walk', 'perf'), cpu: [1, 4], timeout: 120, dist: false, required: false, compare: '' };
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i], v = () => argv[++i];
   if (a === '--name') o.name = v(); else if (a === '--out') o.out = v(); else if (a === '--cpu') o.cpu = v().split(',').map(Number);
   else if (a === '--timeout') o.timeout = +v(); else if (a === '--dist') o.dist = true; else if (a === '--required') o.required = true;
+  else if (a === '--compare') o.compare = v().replace(/^~(?=\/|$)/, os.homedir());
   else if (a === '-h' || a === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('*/')[0]); process.exit(0); }
   else if (!o.base && !a.startsWith('--')) o.base = a.replace(/^~(?=\/|$)/, os.homedir());
   else { console.error('Неизвестный ключ: ' + a); process.exit(2); }
@@ -78,19 +92,21 @@ function pageSetup() {
       layout(); return { ms: T() - t };
     },
     async action(name) {
-      const run = fn => { const pr = parts(), t = T(); let out; try { out = fn(); } finally { pr.undo(); } return { ms: T() - t, parts: pr.p, out }; };
-      const flush = async r => { const t = T(); await storageFlush(); r.idb = T() - t; if (r.parts) Object.keys(r.parts).forEach(k => { r.parts[k] = Math.round(r.parts[k]); }); return r; };
+      /* Перерисовка входит в действие, как у клика: команда без своей — рисуем экран. */
+      const run = fn => { const pr = parts(), t = T(); let out; try { out = fn(); if (!pr.p.render) render(); } finally { pr.undo(); } return { ms: T() - t, parts: pr.p, out }; };
+      const flush = async r => { const t = T(); if (!await storageFlush() && !r.error) r.error = 'not saved to the database'; r.idb = T() - t; if (r.parts) Object.keys(r.parts).forEach(k => { r.parts[k] = Math.round(r.parts[k]); }); return r; };
       /* Действие — на своём экране: его перерисовка входит в замер, как у человека. */
       tab = { 'Save order': 'sales', 'Convert quote': 'sales', 'Batch + cut': 'optimization', 'PS + Shipped': 'shipping', Payment: 'finance' }[name] || 'sales';
       await storageFlush();
       if (name === 'Save order') {
         const ord = pick(DB.salesOrder, x => !salesIsQuote(x) && ['new', 'verified', 'batched'].includes(x.status)); if (!ord) return { skip: 'no open order' };
-        salesOrderEdit(ord.id); soDraft.notes = 'perf ' + Date.now();
-        const r = run(() => salesOrderSave()); salesDraftDrop(); r.note = ord.businessNumber; return flush(r);
+        const note = 'perf ' + Date.now(); salesOrderEdit(ord.id); soDraft.notes = note;
+        const r = run(() => salesOrderSave()); salesDraftDrop(); r.note = ord.businessNumber; delete r.out;
+        if ((salesRecord(ord.id) || {}).notes !== note) r.error = 'order not saved'; return flush(r);
       }
       if (name === 'Convert quote') {
         const q = pick(DB.salesOrder, x => salesIsQuote(x) && !x.wonOrderId && !['lost', 'expired', 'cancelled'].includes(x.status)); if (!q) return { skip: 'no open quote' };
-        const n = DB.salesOrder.length, r = run(() => salesConvertQuoteRecord(q.id)); r.note = q.businessNumber; if (DB.salesOrder.length === n) r.note += ' · not converted'; return flush(r);
+        const n = DB.salesOrder.length, r = run(() => salesConvertQuoteRecord(q.id)); r.note = q.businessNumber; delete r.out; if (DB.salesOrder.length === n) r.error = 'quote not converted'; return flush(r);
       }
       if (name === 'Batch + cut') {
         let rows = [];
@@ -100,19 +116,21 @@ function pageSetup() {
         }
         if (!rows.length) return { skip: 'no verified order to batch' };
         const g = rows.filter(r => r.glassId === rows[0].glassId);
-        const r = run(() => { const b = glassBatchAssign(g, {}); if (b) cutPlanRun(b.number); return b; }); r.note = (r.out && r.out.number || 'not batched') + ' · ' + g.length + ' glass'; delete r.out; return flush(r);
+        const r = run(() => { const b = glassBatchAssign(g, {}); if (b) cutPlanRun(b.number); return b; }), b = r.out; r.note = (b && b.number || '—') + ' · ' + g.length + ' glass'; delete r.out;
+        if (!b || !b.number || !cutPlanFor(b.number)) r.error = 'not batched or not cut'; return flush(r);
       }
       if (name === 'PS + Shipped') {
         const ord = pick(DB.salesOrder, x => !x.onHold && !['cancelled', 'closed', 'done'].includes(x.status) && shippingAvailable(x).length);
         if (!ord) return { skip: 'no ready glass' };
-        const r = run(() => { const made = shippingCreate({ customerId: ord.customerId, method: 'pickup', shipTo: {}, date: new Date().toISOString().slice(0, 10), items: shippingAvailable(ord).map(shippingItem), extras: [], note: '' });
-          return made.ok ? shippingMarkShipped(made.value.id) : made; });
-        r.note = ord.businessNumber + (r.out && r.out.ok === false ? ' · ' + r.out.error : ''); delete r.out; return flush(r);
+        let id = ''; const r = run(() => { const made = shippingCreate({ customerId: ord.customerId, method: 'pickup', shipTo: {}, date: new Date().toISOString().slice(0, 10), items: shippingAvailable(ord).map(shippingItem), extras: [], note: '' });
+          if (!made.ok) return made; id = made.value.id; return shippingMarkShipped(id); });
+        r.note = ord.businessNumber; const s = (DB.shipment || []).find(x => x.id === id);
+        if (!s || s.status !== 'shipped') r.error = r.out && r.out.error || 'packing slip not shipped'; delete r.out; return flush(r);
       }
       if (name === 'Payment') {
         const c = (DB.customer || [])[0]; if (!c) return { skip: 'no customer' };
-        const r = run(() => finPersist(() => finSaveReceiptRecord({ customerId: c.id, date: new Date().toISOString().slice(0, 10), method: 'cash', reference: '', note: 'perf', amount: 1, allocations: [], currency: 'CAD' }, '', '', true)));
-        r.note = r.out && r.out.ok === false ? r.out.error : ''; delete r.out; return flush(r);
+        const n = (DB.receipt || []).length, r = run(() => finPersist(() => finSaveReceiptRecord({ customerId: c.id, date: new Date().toISOString().slice(0, 10), method: 'cash', reference: '', note: 'perf', amount: 1, allocations: [], currency: 'CAD' }, '', '', true)));
+        if ((DB.receipt || []).length !== n + 1) r.error = r.out && r.out.error || 'payment not recorded'; delete r.out; return flush(r);
       }
       return { skip: 'unknown action' };
     },
@@ -125,6 +143,11 @@ function pageSetup() {
         }
       }
       return null;
+    },
+    /* Контрольные ответы: строка каждого заказа из списка Sales. */
+    answers() {
+      const keys = ['number', 'status', 'readyQty', 'glass', 'batch', 'newLines', 'pcs', 'area', 'total', 'receipts', 'balance', 'createdBy'];
+      return { keys, rows: (DB.salesOrder || []).map(o => { const i = salesListInfo(o); return [o.id].concat(keys.map(k => { try { const v = salesListValue(i, k); return v == null ? null : v; } catch (e) { return 'error: ' + e.message; } })); }) };
     },
     f5parts() { const m = typeof storageBootMs !== 'undefined' && storageBootMs || {}; return Object.fromEntries(Object.entries(m).map(([k, v]) => [k, Math.round(v)])); },
     size() {
@@ -184,11 +207,18 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
     const pass = { cpu, screens: [], actions: [] }; console.log('\n== процессор ×' + cpu);
     pass.f5 = { ms: await boot(true) }; pass.f5.parts = await page.evaluate(() => PERF.f5parts());
     console.log('F5', fmt(pass.f5.ms), JSON.stringify(pass.f5.parts));
+    /* Ответы — один раз, до действий: база как после Import. */
+    if (!report.answers) {
+      const a = await within(30 * 60000, page.evaluate(() => PERF.answers()));
+      report.answers = a.v || { error: a.timeout ? 'timeout' : a.error };
+      if (a.timeout) await restart();
+      console.log('контрольные ответы', a.v ? a.v.rows.length + ' заказов' : report.answers.error);
+    }
     for (const [label, key] of SCREENS) {
       const r = await within(o.timeout * 1000, page.evaluate(k => PERF.screen(k), key));
       const row = { name: label, ms: r.v && r.v.ms, skip: r.v && r.v.skip, error: r.error, timeout: !!r.timeout };
       if (r.timeout) { row.ms = null; await restart(); }
-      row.ok = !row.timeout && !row.error && (row.skip || row.ms <= TH.screen);
+      row.ok = !row.timeout && !row.error && !row.skip && row.ms <= TH.screen;
       if (!row.ok && !row.timeout && cpu === Math.max(...o.cpu)) await page.screenshot({ path: path.join(dir, 'slow-' + label.toLowerCase().replace(/\W+/g, '-') + '.png') }).catch(() => {});
       pass.screens.push(row); console.log((row.ok ? '✓ ' : '✗ ') + label.padEnd(14), row.timeout ? '> ' + o.timeout + ' s' : row.skip || row.error || fmt(row.ms));
     }
@@ -208,13 +238,13 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
       if (sc.timeout) await restart();
       row.ok = !row.timeout && !row.error && row.ms <= TH.scan; pass.actions.push(row);
       console.log((row.ok ? '✓ ' : '✗ ') + row.name.padEnd(14), row.timeout ? '> ' + o.timeout + ' s' : row.error || fmt(row.ms));
-    } else pass.actions.push({ name: 'Scan', skip: target.timeout ? 'timeout looking for glass' : 'no glass waiting at a station', ok: true });
+    } else pass.actions.push({ name: 'Scan', skip: target.timeout ? 'timeout looking for glass' : 'no glass waiting at a station', ok: false });
     for (const name of ACTIONS) {
       await page.evaluate(() => storageTakeControl());
       const r = await within(o.timeout * 1000, page.evaluate(n => PERF.action(n), name));
-      const row = Object.assign({ name, limit: TH.action }, r.v || {}, { timeout: !!r.timeout, error: r.error });
+      const row = Object.assign({ name, limit: TH.action }, r.v || {}, { timeout: !!r.timeout, error: r.error || r.v && r.v.error });
       if (r.timeout) { row.ms = null; await restart(); }
-      row.ok = !row.timeout && !row.error && (row.skip || row.ms <= TH.action); pass.actions.push(row);
+      row.ok = !row.timeout && !row.error && !row.skip && row.ms <= TH.action; pass.actions.push(row);
       console.log((row.ok ? '✓ ' : '✗ ') + name.padEnd(14), row.timeout ? '> ' + o.timeout + ' s' : row.skip || row.error || fmt(row.ms) + ' ' + JSON.stringify(row.parts || {}) + ' · IndexedDB ' + fmt(row.idb) + (row.note ? ' · ' + row.note : ''));
     }
     /* Вторая вкладка: правка в первой — когда её видит вторая. */
@@ -247,7 +277,9 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
   report.forecast = { mb: +mb.toFixed(1), perMonth: perMonth && +perMonth.toFixed(1), supabaseYears: perMonth ? +((500 - mb) / perMonth / 12).toFixed(1) : null,
     browserYears: perMonth && report.size.disk && report.size.disk.quota ? +(((report.size.disk.quota * 0.8) / 1048576 - mb) / perMonth / 12).toFixed(1) : null };
   const slow = report.passes.find(p => p.cpu === Math.max(...o.cpu));
-  report.fail = slow ? [...slow.screens, ...slow.actions].filter(r => !r.ok).map(r => r.name).concat(slow.f5.ok ? [] : ['F5']).concat(slow.heapOk ? [] : ['memory']) : [];
+  report.fail = slow ? [...slow.screens, ...slow.actions].filter(r => !r.ok).map(r => r.name).concat(slow.f5.ok ? [] : ['F5']).concat(slow.heapOk ? [] : ['memory'])
+    .concat(slow.secondTab.timeout || slow.secondTab.error ? ['second tab'] : []) : [];
+  if (o.compare) { report.compare = compareAnswers(report.answers, o.compare); if (!report.compare.same) report.fail.push('answers'); }
   report.errors = errors; report.minutes = +((Date.now() - t0) / 60000).toFixed(1);
   fs.writeFileSync(path.join(dir, 'report.json'), JSON.stringify(report, null, 1));
   fs.writeFileSync(path.join(dir, 'report.md'), reportMd(report));
@@ -274,9 +306,29 @@ function reportMd(r) {
   const last = passes[passes.length - 1];
   if (last.f5.parts) L.push('- F5: чтение записей ' + fmt(last.f5.parts.read) + ', сборка ' + fmt(last.f5.parts.join) + ', нормализация ' + fmt(last.f5.parts.normalize) + ', запись дописанного ' + fmt(last.f5.parts.write) + ', первая отрисовка ' + fmt(last.f5.parts.render) + '.');
   last.actions.filter(a => a.parts).forEach(a => L.push('- ' + a.name + ': сравнение с базой ' + fmt(a.parts.compare) + ', нормализация ' + fmt(a.parts.normalize) + ', отрисовка ' + fmt(a.parts.render) + ', запись в IndexedDB в фоне ' + fmt(a.idb) + (a.note ? ' · ' + a.note : '') + '.'));
+  if (r.compare) {
+    const c = r.compare;
+    L.push('', '## Контрольные ответы', '', c.error ? '- Сравнение не сделано: ' + c.error + '.' : c.same ? '- Совпали с `' + c.with + '`: ' + c.orders + ' заказов, каждый столбец ✓.'
+      : '- **Расходятся** с `' + c.with + '` — ' + c.diffs.length + ' (первые 30):', ...(c.diffs || []).slice(0, 30).map(d => '  - ' + d));
+  } else if (r.answers && r.answers.rows) L.push('', '## Контрольные ответы', '', '- Записаны: ' + r.answers.rows.length + ' заказов (сверка — `--compare` в следующем прогоне).');
   L.push('', '## Место', '', '- База: ' + r.forecast.mb + ' МБ' + (s.disk ? ', на диске браузера ' + Math.round(s.disk.usage / 1048576) + ' МБ' : '') + '.');
   if (r.forecast.perMonth) L.push('- Рост: ' + r.forecast.perMonth + ' МБ в месяц. Supabase Free (500 МБ): ' + (r.forecast.supabaseYears > 0 ? 'хватит на ' + r.forecast.supabaseYears + ' г.' : 'уже не помещается') + '.' + (r.forecast.browserYears != null ? ' Браузер этого прогона (квота ' + Math.round(s.disk.quota / 1073741824) + ' ГБ): на ' + r.forecast.browserYears + ' г.' : ''));
   L.push('- Самые тяжёлые таблицы: ' + s.top.map(([t, n]) => t + ' ' + (n / 1048576).toFixed(1) + ' МБ').join(', ') + '.');
   if (r.errors.length) L.push('', '## Ошибки страницы', '', ...r.errors.slice(0, 20).map(e => '- ' + e));
   return L.join('\n') + '\n';
+}
+
+/* Сверить контрольные ответы с прошлым прогоном: та же база — те же ответы. */
+function compareAnswers(now, ref) {
+  let old;
+  try { old = JSON.parse(fs.readFileSync(fs.statSync(ref).isDirectory() ? path.join(ref, 'report.json') : ref, 'utf8')).answers; } catch (e) { return { same: false, with: ref, error: e.message }; }
+  if (!old || !old.rows || !now || !now.rows) return { same: false, with: ref, error: 'no answers in one of the runs' };
+  const was = new Map(old.rows.map(r => [r[0], r])), diffs = [];
+  now.rows.forEach(r => {
+    const w = was.get(r[0]); if (!w) { diffs.push((r[1] || r[0]) + ': нет в прошлом прогоне'); return; }
+    now.keys.forEach((k, i) => { if (JSON.stringify(r[i + 1]) !== JSON.stringify(w[old.keys.indexOf(k) + 1])) diffs.push((r[1] || r[0]) + ' · ' + k + ': ' + JSON.stringify(w[old.keys.indexOf(k) + 1]) + ' → ' + JSON.stringify(r[i + 1])); });
+    was.delete(r[0]);
+  });
+  was.forEach(w => diffs.push((w[1] || w[0]) + ': пропал'));
+  return { same: !diffs.length, with: path.basename(ref.replace(/\/report\.json$/, '')), orders: now.rows.length, diffs };
 }
