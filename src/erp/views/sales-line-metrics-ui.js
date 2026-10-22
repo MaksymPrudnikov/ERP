@@ -73,7 +73,7 @@ function salesResetMetricColumns(context){
 }
 function salesOpenMetrics(panel,id){salesMetricsPanel=panel;salesMetricsLineId=id||null;salesMetricsEditWeights=false;render();}
 function salesCloseMetrics(){salesMetricsPanel=null;render();}
-function salesMetricsTools(){return `<button type="button" onclick="salesOpenMetrics('columns')">${'Columns'}</button><button type="button" onclick="salesOpenMetrics('rules')">${'Pricing rules'}</button>`;}
+function salesMetricsTools(){return `<button type="button" onclick="salesOpenMetrics('columns')">${'Columns'}</button><button type="button" onclick="salesOpenMetrics('rules')">${'Surcharges'}</button>`;}
 function salesMetricHeaders(context){return salesMetricColumnsFor(context).map(c=>`<th class="line-metric" data-metric="${c.key}"><span data-raw>${c.label}</span></th>`).join('');}
 function salesMetricCells(line,context){
  const columns=salesMetricColumnsFor(context),price=salesLineCommercialPrice(line,soDraft),a=price.areas;
@@ -150,7 +150,7 @@ function salesColumnsPanel(){
 }
 function salesAreaPanel(line){
  const a=salesLineAreas(line,soDraft);
- return `<div class="metric-explanation"><p>${'Areas are per unit. Qty does not change a single unit’s area.'}</p><dl><dt>Actual Area</dt><dd>${a.valid?a.actual.toFixed(4):'—'} ft²</dd><dt>Rounded Area</dt><dd>${a.valid?`${a.roundedWidth} × ${a.roundedHeight}″ ÷ 144 → ${a.rounded.toFixed(1)} ft²`:'—'}</dd><dt>Billable Area</dt><dd>${a.valid?a.billable.toFixed(1):'—'} ft²</dd></dl><p>${'Actual Area is the finished contour area. Rounded Area uses bounding dimensions, each rounded up to a whole inch, then rounds the area to one decimal place. Billable Area applies the billing minimum.'}</p><p>${'Materials and Shape Unit use Billable Area. Edges use length, per-piece work uses quantity, and surface treatments retain their processing area. Weight uses actual geometry.'}</p></div>`;
+ return `<div class="metric-explanation"><p>${'Areas are per unit. Qty does not change a single unit’s area.'}</p><dl><dt>Actual Area</dt><dd>${a.valid?a.actual.toFixed(4):'—'} ft²</dd><dt>Rounded Area</dt><dd>${a.valid?`${a.roundedWidth} × ${a.roundedHeight}″ ÷ 144 → ${a.rounded.toFixed(1)} ft²`:'—'}</dd><dt>Billable Area</dt><dd>${a.valid?a.billable.toFixed(1):'—'} ft²${a.minArea?' · '+esc(a.minArea.name):''}</dd></dl><p>${'Actual Area is the finished contour area. Rounded Area uses bounding dimensions, each rounded up to a whole inch, then rounds the area to one decimal place. Billable Area applies the billing minimum.'}</p><p>${'Materials and Shape Unit use Billable Area. Edges use length, per-piece work uses quantity, and surface treatments retain their processing area. Weight uses actual geometry.'}</p></div>`;
 }
 /* Цена руками: своя цена юнита вместо расчёта, в любой строке, даже в батче
    и после выдачи. Clear возвращает расчёт. */
@@ -172,16 +172,13 @@ function salesMaterialRowsHTML(p){
 }
 function salesPricePanel(line){
  const p=salesLineCommercialPrice(line,soDraft),cur=esc(soDraft.currency),row=(label,value)=>`<div class="metric-price-row"><span>${label}</span><b data-raw>${value==null?'—':value.toFixed(2)+' '+cur}</b></div>`;
- return salesPriceManualHTML(line,p,cur)+`<p class="mut">${'Calculation for one finished unit'}</p>${row('Materials'+((p.materialRows||[]).some(r=>r.special||r.cavity!=null)?'':` · ${p.materialRate.toFixed(2)} × ${p.areas.billable==null?'—':p.areas.billable.toFixed(1)} ft²`),p.missingMaterials||p.unsupportedCurrency?null:p.materials)}${salesMaterialRowsHTML(p)}${row('Services and processing',p.missingServices||p.unsupportedCurrency?null:p.services)}${row('Base unit price',p.missingMaterials||p.missingServices||p.unsupportedCurrency?null:p.base)}${p.adjustments.map(a=>row(`${esc(a.label)} · +${a.percent}% × ${a.base.toFixed(2)}`,p.complete?a.amount:null)).join('')}${row('Unit Price',p.unit)}${row('Line Total · Qty '+p.qty,p.line)}${p.unsupportedCurrency?`<p class="metric-incomplete">${'Catalog prices are in CAD. USD totals require a defined currency conversion; CAD amounts are not relabelled as USD.'}</p>`:''}${!p.complete?`<p class="metric-incomplete">${'Calculation incomplete: check dimensions and material / service prices.'}</p>`:''}<p class="mut">${'Triple and Large unit each apply to the base unit price including services. Before energy surcharge, tax and delivery.'}</p><button type="button" onclick="salesMetricsPanel=null;salesOpenLineServices('${esc(line.id)}')">${'Open services'}</button>`;
+ return salesPriceManualHTML(line,p,cur)+`<p class="mut">${'Calculation for one finished unit'}</p>${row('Materials'+((p.materialRows||[]).some(r=>r.special||r.cavity!=null)?'':` · ${p.materialRate.toFixed(2)} × ${p.areas.billable==null?'—':p.areas.billable.toFixed(1)} ft²`),p.missingMaterials||p.unsupportedCurrency?null:p.materials)}${salesMaterialRowsHTML(p)}${row('Services and processing',p.missingServices||p.unsupportedCurrency?null:p.services)}${row('Base unit price',p.missingMaterials||p.missingServices||p.unsupportedCurrency?null:p.base)}${p.adjustments.map(a=>row(`${esc(a.label)} · +${a.percent}% × ${a.base.toFixed(2)}`,p.complete?a.amount:null)).join('')}${row('Unit Price',p.unit)}${row('Line Total · Qty '+p.qty,p.line)}${p.unsupportedCurrency?`<p class="metric-incomplete">${'Catalog prices are in CAD. USD totals require a defined currency conversion; CAD amounts are not relabelled as USD.'}</p>`:''}${!p.complete?`<p class="metric-incomplete">${'Calculation incomplete: check dimensions and material / service prices.'}</p>`:''}<p class="mut">${'Surcharges from Data → Works. Before energy surcharge, tax and delivery.'}</p><button type="button" onclick="salesMetricsPanel=null;salesOpenLineServices('${esc(line.id)}')">${'Open services'}</button>`;
 }
+/* Надбавки — работы Data → Works с правилом; здесь только то, что в силе
+   у этого заказа (сохранённый заказ — по снимку на Save). */
 function salesRulePanel(){
- const r=salesMetricRules(soDraft),labels={triplePercent:'Triple units, %',largePercent:'Large units, %',largeThresholdFt2:'Large units: area strictly above, ft²',minimumAreaFt2:'Minimum billable area, ft²'};
- return `<form class="metric-rule-form" onsubmit="event.preventDefault();salesSaveMetricRules(this)">${Object.keys(labels).map(k=>`<label>${labels[k]}<input name="${k}" type="number" min="0" step="0.1" required value="${r[k]}"></label>`).join('')}<p>${'Both surcharges use the base unit price including services. Two 50% surcharges: 100 → 200. The threshold uses one unit’s Billable Area, before Qty.'}</p><p class="mut">${'Saved orders retain their rules. Changes here apply to this order and become defaults for new orders.'}</p><button class="pri" type="submit">${'Apply to this and new orders'}</button></form>`;
-}
-function salesSaveMetricRules(form){
- const rules={combination:'additive'};
- for(const key of ['triplePercent','largePercent','largeThresholdFt2','minimumAreaFt2']){const n=Number(form.elements[key].value);if(!Number.isFinite(n)||n<0)return;rules[key]=n;}
- DB.salesMetricRules=salesNormalizeMetricRules(rules);soDraft.metricRules=Object.assign({},DB.salesMetricRules);touch();salesCloseMetrics();
+ const rows=salesSurcharges(soDraft);
+ return `<div class="metric-explanation" data-surcharge-list>${rows.length?`<dl>${rows.map(x=>`<dt>${esc(x.name)}</dt><dd>${x.rule.kind==='minArea'?'min '+x.value+' ft²':'+'+x.value+'%'} · ${esc(serviceRuleText(x.rule))}${x.from?' · '+esc(priceListName(x.from)):''}</dd>`).join('')}</dl>`:`<p class="mut">No surcharges</p>`}<p class="mut">${'Edit in Data → Works. Saved orders keep theirs.'}</p></div>`;
 }
 function salesWeightNormDisplay(row){
  if(row.rate==null)return {value:'',unit:row.unit||'',factor:1};
@@ -219,7 +216,7 @@ function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtr
 function salesSetWeightExtra(i,key,value){const l=salesMetricsLine(),x=l&&l.weightExtras[i];if(!x)return;if(key==='label')x.label=value;else{x.kg=mdNonNeg(value);render();}}
 function salesMetricsModal(){
  if(!salesMetricsPanel||!soDraft)return '';
- const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Pricing rules',orderCharges:'Order charges',area:'Unit area',weight:'Unit weight',price:'Unit price'};
+ const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Surcharges',orderCharges:'Order charges',area:'Unit area',weight:'Unit weight',price:'Unit price'};
  if(!titles[panel]||!line&&['area','weight','price'].includes(panel))return '';
  const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):salesPricePanel(line);
  return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;

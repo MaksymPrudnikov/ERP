@@ -88,10 +88,10 @@ function unitCharge(o,l,u,at){return finWithOrder(o,()=>{
  salesLineChargeRows(l).forEach(row=>{
   const rate=salesChargePricingState(l,row).effectiveRate;if(rate==null)return;
   const station=unitRowStation(row),share=station?seen.filter(x=>x.scans.some(s=>s.station===station)).length/seen.length:allTempered?1:0;
-  works+=row.basis*rate*share;
+  works+=salesChargeUnitAmount(row,rate)*share;
  });
- const rules=salesMetricRules(o),base=salesMoney(glass+works);let running=base;
- p.adjustments.forEach(a=>{running=salesMoney(running+salesMoney((rules.combination==='compound'?running:base)*a.percent/100));});
+ const base=salesMoney(glass+works);let running=base;
+ p.adjustments.forEach(a=>{running=salesMoney(running+salesMoney((a.onTop?running:base)*a.percent/100));});
  return {stage,after,charge:running,glass:salesMoney(glass),works:salesMoney(works)};
 });}
 function unitLine(orderId,lineId){

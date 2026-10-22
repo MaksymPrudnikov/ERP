@@ -168,7 +168,6 @@ function salesOrderSaveCommand(opts){
  opts=opts||{};
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
  if(soQuoteCopyOf&&!salesDraftHasWork()){render();return true;}
- soDraft.metricRules=salesMetricRules(soDraft);
  salesSnapshotAllChargePricing();
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
@@ -1154,7 +1153,7 @@ function salesGlazingChargeRows(line,areaFt2){
    (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' glass layers':''),
    +(area*g.qty).toFixed(4),'ft²',
    lp?lp.price:(prod&&prod.salePrice!=null)?prod.salePrice:null,
-   'Makeup',lp?lp.listId:''));
+   'Makeup',lp?lp.listId:'',prod&&prod.workId||''));
  });
  return rows;
 }
@@ -1196,7 +1195,7 @@ function salesUnitSurchargeRows(line,shape){
    лайты и плиты, поэтому правки счёта идут ТОЛЬКО туда. Удаление вынесено
    отдельной задачей: тронуть её здесь — значит смешать два несвязанных
    изменения в одном коммите. */
-function salesLineChargeRows(line){
+function salesLineChargeRowsRaw(line){
  const rows=[];
  salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
  const s=salesShapeByRef(line&&line.shapeRef);if(!s)return rows.filter(x=>x.basis>0);const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
@@ -1211,6 +1210,23 @@ function salesLineChargeRows(line){
  }
  return rows.filter(x=>x.basis>0);
 }
+/* Округление количества и минимальная сумма — из карточки работы (этап 4,
+   часть 2), на юнит. Замораживаются в заказе на Save, как ставка. */
+function salesLineChargeRows(line){
+ return salesLineChargeRowsRaw(line).map(row=>{
+  if(!row.svc)return row;
+  const w=salesServiceRateRow(row.svc);
+  const step=salesBook('svcRound:'+row.svc,()=>w&&w.roundTo||null),min=salesBook('svcMin:'+row.svc,()=>w&&w.minCharge||null);
+  if(!(step>0)&&!(min>0))return row;
+  const out=Object.assign({},row);
+  if(step>0)out.basis=+(Math.ceil(row.basis/step-1e-9)*step).toFixed(4);
+  if(min>0)out.minCharge=min;
+  return out;
+ });
+}
+/* Сумма строки начисления за один юнит: количество × ставка, не меньше
+   минимальной суммы работы. */
+function salesChargeUnitAmount(row,rate){return rate==null?null:Math.max(row.basis*rate,row.minCharge||0);}
 function salesChargeGroupKey(row){
  const p=String(row&&row.key||'').split(':');if(p[0]==='MI'){if(p[1]==='hole')return 'MI:hole:'+(p[2]||'unpriced');return 'MI:'+(p[1]||'');}
  if(p[0]==='EDGE'){if(p[1]==='bevel')return 'EDGE:bevel:'+(p[2]||'');return 'EDGE:'+(p[1]||'');}
@@ -1245,9 +1261,9 @@ function salesChargeUnitValue(value,unit){
   if(unit==='ft²')return Number(value||0).toFixed(2)+' ft²';
   return dimIn(value);
 }
-function salesChargeBasisText(row,line){const q=salesPositiveInt(line.qty,1),total=row.basis*q,one=salesChargeUnitValue(row.basis,row.unit);return one+(q>1?' × '+q+' = '+salesChargeUnitValue(total,row.unit):'');}
+function salesChargeBasisText(row,line){const q=salesPositiveInt(line.qty,1),total=row.basis*q,one=salesChargeUnitValue(row.basis,row.unit);return one+(q>1?' × '+q+' = '+salesChargeUnitValue(total,row.unit):'')+(row.minCharge?' · min '+row.minCharge.toFixed(2)+' / unit':'');}
 function salesRateText(v,unit,currency){return v==null?'—':Number(v).toFixed(2)+' '+currency+'/'+(unit==='pc'?'pc':unit==='ft²'?'ft²':'in');}
-function salesLinePricingSummary(line){const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row);if(st.effectiveRate==null)unpriced++;else total+=row.basis*q*st.effectiveRate;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0};}
+function salesLinePricingSummary(line){const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row);if(st.effectiveRate==null)unpriced++;else total+=salesChargeUnitAmount(row,st.effectiveRate)*q;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0};}
 function salesOrderPricingSummary(){return (soDraft&&soDraft.lines||[]).reduce(function(a,l){const s=salesLinePricingSummary(l);a.total+=s.total;a.unpriced+=s.unpriced;a.charges+=s.charges;return a;},{total:0,unpriced:0,charges:0});}
 function salesLinePricingTotal(line){return salesLinePricingSummary(line).total;}
 function salesOrderPricingTotal(){return salesOrderPricingSummary().total;}
@@ -1264,12 +1280,12 @@ function salesChargeShortLabel(row){
 function salesLineServicesSummary(line){
  const rows=salesLineChargeRows(line),adjustments=salesLineCommercialAdjustments(line,soDraft),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';
  if(!rows.length&&!adjustments.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Services</small></button>`;
- const summary=salesLinePricingSummary(line),items=rows.map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${esc(salesChargeUnitValue(n,r.unit))}</span>`;}).concat(adjustments.map(function(a){return `<span class="commercial">${a.key==='triple'?'TRI':'>60'} +${esc(a.percent)}%</span>`;})),chips=items.slice(0,3).join(''),more=items.length>3?`<i>+${items.length-3}</i>`:'',adjustmentTotal=adjustments.every(a=>a.complete)?salesMoney(adjustments.reduce((n,a)=>n+a.lineAmount,0)):null;
+ const summary=salesLinePricingSummary(line),items=rows.map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${esc(salesChargeUnitValue(n,r.unit))}</span>`;}).concat(adjustments.map(function(a){return `<span class="commercial">${esc(a.label)} +${esc(a.percent)}%</span>`;})),chips=items.slice(0,3).join(''),more=items.length>3?`<i>+${items.length-3}</i>`:'',adjustmentTotal=adjustments.every(a=>a.complete)?salesMoney(adjustments.reduce((n,a)=>n+a.lineAmount,0)):null;
  return `<button type='button' class='line-services-btn${summary.unpriced||adjustments.some(a=>!a.complete)?' incomplete':''}' onclick='salesOpenLineServices("${esc(line.id)}")'><span class='line-services-chips'>${chips}${more}</span><span class='line-services-money'><b>${summary.total.toFixed(2)} ${esc(currency)}</b>${adjustments.length?`<small class="commercial-total">${adjustmentTotal==null?'surcharge —':'+'+adjustmentTotal.toFixed(2)+' surcharge'}</small>`:(summary.unpriced?`<small><span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:'')}</span></button>`;
 }
 function salesOrderChargeGroups(){
- const groups=Object.create(null);(soDraft.lines||[]).forEach(function(line,lineIndex){salesLineChargeRows(line).forEach(function(row){const gk=salesChargeGroupKey(row),q=salesPositiveInt(line.qty,1);if(!groups[gk])groups[gk]={key:gk,label:row.label,unit:row.unit,entries:[],basis:0,catalogRates:[]};const g=groups[gk],st=salesChargePricingState(line,row),basis=row.basis*q;g.entries.push({line:line,lineIndex:lineIndex,row:row,state:st,basis:basis});g.basis+=basis;if(st.catalogRate!=null&&!g.catalogRates.includes(st.catalogRate))g.catalogRates.push(st.catalogRate);});});
- return Object.keys(groups).map(function(k){const g=groups[k];g.catalogRates.sort(function(a,b){return a-b;});g.orderRate=(soDraft.servicePricing&&soDraft.servicePricing[k]&&soDraft.servicePricing[k].orderRate!=null)?soDraft.servicePricing[k].orderRate:null;g.lineOverrides=g.entries.filter(function(e){return e.state.lineRate!=null;}).length;g.unpriced=g.entries.filter(function(e){return e.state.effectiveRate==null;}).length;g.total=g.entries.reduce(function(n,e){return n+(e.state.effectiveRate==null?0:e.basis*e.state.effectiveRate);},0);return g;});
+ const groups=Object.create(null);(soDraft.lines||[]).forEach(function(line,lineIndex){salesLineChargeRows(line).forEach(function(row){const gk=salesChargeGroupKey(row),q=salesPositiveInt(line.qty,1);if(!groups[gk])groups[gk]={key:gk,label:row.label,unit:row.unit,entries:[],basis:0,catalogRates:[]};const g=groups[gk],st=salesChargePricingState(line,row),basis=row.basis*q;g.entries.push({line:line,lineIndex:lineIndex,row:row,state:st,basis:basis,q:q});g.basis+=basis;if(st.catalogRate!=null&&!g.catalogRates.includes(st.catalogRate))g.catalogRates.push(st.catalogRate);});});
+ return Object.keys(groups).map(function(k){const g=groups[k];g.catalogRates.sort(function(a,b){return a-b;});g.orderRate=(soDraft.servicePricing&&soDraft.servicePricing[k]&&soDraft.servicePricing[k].orderRate!=null)?soDraft.servicePricing[k].orderRate:null;g.lineOverrides=g.entries.filter(function(e){return e.state.lineRate!=null;}).length;g.unpriced=g.entries.filter(function(e){return e.state.effectiveRate==null;}).length;g.total=g.entries.reduce(function(n,e){return n+(e.state.effectiveRate==null?0:salesChargeUnitAmount(e.row,e.state.effectiveRate)*e.q);},0);return g;});
 }
 function salesOrderGroupBasisText(g){return salesChargeUnitValue(g.basis,g.unit);}
 function salesOrderGroupCatalogText(g,currency){if(!g.catalogRates.length)return '—';if(g.catalogRates.length===1)return salesRateText(g.catalogRates[0],g.unit,currency);return g.catalogRates.map(function(x){return Number(x).toFixed(2);}).join(' / ')+' '+currency+'/'+(g.unit==='pc'?'pc':g.unit==='ft²'?'ft²':'in');}

@@ -35,19 +35,19 @@ module.exports=async function({page,eq,ok}){
   g.salePriceAnnealed=7.25;touch();
   DB.gasProduct.push({id:'GAS-KR-T',code:'KR',name:'Krypton'});touch();
   DB.gasProduct=DB.gasProduct.filter(x=>x.id!=='GAS-KR-T');touch();
-  DB.salesMetricRules.minimumAreaFt2=5;touch();
+  const ma=DB.serviceRate.find(r=>r.id==='minArea'),maNote=ma.note;ma.note='Min 5';touch();
   const sp=DB.spacerVariant[0],note=sp.note;sp.note=note||'';touch();
   const ev=DB.masterDataEvent.slice(n,n+4).map(e=>[e.tbl,e.row,e.what,e.field,e.was,e.now]),tail=DB.masterDataEvent.length-n;
-  g.salePriceAnnealed=was;DB.salesMetricRules.minimumAreaFt2=4;touch();
+  g.salePriceAnnealed=was;ma.note=maNote;touch();
   return {ev,tail,glass:ev[0][1]===(g.name||g.code)&&ev[0][4]===String(was??'')};
  }),{ev:[['glassProduct',await t.p.evaluate(()=>{const g=glassProductByCode('6CLEAR');return g.name||g.code;}),'Edited','salePriceAnnealed',await t.p.evaluate(()=>String(glassProductByCode('6CLEAR').salePriceAnnealed??'')),'7.25'],
-  ['gasProduct','Krypton','Created','','',''],['gasProduct','Krypton','Deleted','','',''],['salesMetricRules','Pricing rules','Edited','minimumAreaFt2','4','5']],tail:4,glass:true});
+  ['gasProduct','Krypton','Created','','',''],['gasProduct','Krypton','Deleted','','',''],['serviceRate','Minimum area','Edited','note','Each unit is billed at least this area','Min 5']],tail:4,glass:true});
 
  eq('журнал виден в Data overview → Change log: поиск и раздел',await t.p.evaluate(()=>{
   tab='masterdata';mdTab='overview';mdOverviewView='log';mdLogQuery='';mdLogFilter='';render();
   const all=document.querySelectorAll('[data-md-log-row]').length;
   mdLogFilter='gasProduct';render();const gas=document.querySelectorAll('[data-md-log-row]').length;
-  mdLogFilter='';mdLogQuery='minimumAreaFt2';render();const q=document.querySelectorAll('[data-md-log-row]').length;
+  mdLogFilter='';mdLogQuery='Min 5';render();const q=document.querySelectorAll('[data-md-log-row]').length;
   mdLogQuery='';mdOverviewView='collections';render();
   return {all:all>=6,gas,q};
  }),{all:true,gas:2,q:2});
