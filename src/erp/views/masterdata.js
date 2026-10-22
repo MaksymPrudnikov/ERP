@@ -258,6 +258,7 @@ function mdGlassForm(){
    <div><label>Allowed surfaces</label><input id="md_surfaces" value="${esc(r.allowedSurfaces.join(','))}" placeholder="2,3"><div class="hint">Numbers separated by commas. Empty means any surface.</div></div>
    <div><label>Stocking unit</label><select id="md_stockunit">${mdUnitOptions(r.stockingUnit)}</select></div>
    <div><label>Sales unit</label><select id="md_salesunit">${mdUnitOptions(r.salesUnit)}</select></div>
+   ${mdSaleRulesFields(r)}
    <div><label>Base edgework</label><select id="md_baseedge"><option value="" ${!r.baseEdgework?'selected':''}>Auto by thickness · ${esc(glassBaseEdgeworkLabel(glassAutoBaseEdgework(r.thicknessMm)))}</option><option value="arris" ${r.baseEdgework==='arris'?'selected':''}>Rough Arris</option><option value="polish" ${r.baseEdgework==='polish'?'selected':''}>Flat Polish</option></select><div class="hint">Arris up to 8 mm, polish from 10 mm. Pick by hand for exceptions — 5/6 mm mirrors, for example, get polish.</div></div>
    <div><label>Legacy code</label><input id="md_legacy" value="${esc(r.legacyCode)}"><div class="hint">The code of the same item in Spil — old orders are matched by it.</div></div>
   </div>
@@ -270,6 +271,16 @@ function mdGlassForm(){
   <div style="margin-top:12px"><label>Note</label><input id="md_note" value="${esc(r.note)}"></div>
   <div class="err" id="e_mdGlass"></div>
   <div class="row"><button class="pri" onclick="mdGlassSave()">Save</button><button onclick="mdEdit=null;mdDraft=null;render()">Cancel</button></div></div>`;
+}
+/* Минимумы и размеры продажи в карточке (erp/masterdata/glass mdSaleRulesOf). */
+function mdSaleRulesFields(r){
+ const f=(id,k,label,hint)=>`<div><label>${label}</label><input id="${id}" type="number" min="0" step="0.01" value="${r[k]==null?'':esc(r[k])}" placeholder="—">${hint?`<div class="hint">${hint}</div>`:''}</div>`;
+ return f('md_minArea','minAreaFt2','Min area, ft²','Bills at least this area.')+f('md_minCharge','minCharge','Min charge, CAD','Bills at least this per lite.')
+  +f('md_minW','minWidthIn','Min width, in','Warning only.')+f('md_minH','minHeightIn','Min height, in','')+f('md_maxW','maxWidthIn','Max width, in','Warning only.')+f('md_maxH','maxHeightIn','Max height, in','');
+}
+function mdSaleRulesRead(){
+ const v=id=>{const el=document.getElementById(id);return el?el.value:'';};
+ return mdSaleRulesOf({minAreaFt2:v('md_minArea'),minCharge:v('md_minCharge'),minWidthIn:v('md_minW'),minHeightIn:v('md_minH'),maxWidthIn:v('md_maxW'),maxHeightIn:v('md_maxH')});
 }
 function mdGlassSave(){
  const e=document.getElementById('e_mdGlass');e.style.display='none';
@@ -288,6 +299,7 @@ function mdGlassSave(){
   substrate:mdVal('md_substrate'),coatingFamily:mdVal('md_coating'),deposition:mdVal('md_deposition'),
   temperMode:mdVal('md_temper'),exposureRule:mdVal('md_exposure'),allowedSurfaces:surfaces,
   stockingUnit:mdVal('md_stockunit'),salesUnit:mdVal('md_salesunit'),legacyCode:mdVal('md_legacy'),
+  ...mdSaleRulesRead(),
   note:mdVal('md_note'),stocked:mdChecked('md_stocked'),cut:mdChecked('md_cut'),edgeDeletion:mdChecked('md_edge'),baseEdgework:mdVal('md_baseedge'),active:mdChecked('md_active')
  });
  if(mdEdit==='new'){
@@ -1099,6 +1111,7 @@ function mdCatForm(){
       <div><label>Spandrel</label><select id="md_catProduct"><option value="" ${r.productId?'':'selected'}>— any spandrel —</option>${(DB.spandrelProduct||[]).map(p=>`<option value="${esc(p.id)}" ${p.id===r.productId?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="hint">Empty — the colour is available to any spandrel type. Pick one when a product has its own palette.</div></div>`
     :`<div><label>Supplier</label><input id="md_catSupplier" value="${esc(r.supplier||'')}"></div>
       <div><label>Price, CAD</label><input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}"><div class="hint">Surcharge per ft², if the catalogue uses one — or the sale price, for a stock item. Empty — no price, and the row honestly enters the invoice as Rate required, not a zero.</div></div>
+      ${mdCatKind==='interlayerProduct'?`<div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select></div>${mdSaleRulesFields(r)}`:''}
       ${mdCatKind==='stockItem'?`<div><label>Subcategory</label><input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(s=>`<option value="${esc(s)}">`).join('')}</datalist><div class="hint">Groups stock items in the order-line picker. Type your own — the list above is only a hint; empty becomes "consumable".</div></div>`:''}
       <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="md_catOwnLine" ${r.sellsAsOwnLine?'checked':''}> Sells as its own order line</label>
        <div class="hint">Shows up in the order-line picker next to Single / Double / Triple: no geometry, no route, just this item, a quantity and a price. Turn this on for anything you sell as-is — a stock door, a kit, or your own roll of interlayer film.</div></div>`}
@@ -1176,7 +1189,7 @@ function mdCatSave(){
      толщина. Иначе редактирование имени стирало бы их молча. */
   const prev=mdCatEdit==='new'?{}:mdCatDraft;
   const ownLineEl=document.getElementById('md_catOwnLine'),subcatEl=document.getElementById('md_catSubcategory');
-  next=Object.assign({},prev,{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
+  next=Object.assign({},prev,mdCatKind==='interlayerProduct'?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
    sellsAsOwnLine:ownLineEl?ownLineEl.checked:!!prev.sellsAsOwnLine,
    subcategory:subcatEl?subcatEl.value:(prev.subcategory||''),active:active});
  }

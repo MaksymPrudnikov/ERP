@@ -678,6 +678,7 @@ function salesLineServiceStatus(line){
   /* Габарит станции — предупреждение, не блок реза: пока габариты засеяны, а не
      замерены, строка остаётся рабочей, но подсвечена (sales/station-size). */
   var big=typeof salesStationSizeProblems==='function'?salesStationSizeProblems(line,soDraft):[];if(big.length)return {key:'size',label:salesStationSizeLabel(big),cls:'warn'};
+  var itemSize=salesItemSizeProblems(line,soDraft);if(itemSize.length)return {key:'itemsize',label:'Item size · '+itemSize[0].split(':')[0],cls:'warn'};
   if(salesHasLineEdgeOverrides(line))return {key:'override',label:'Line override',cls:'info'};
   if(line.serviceSetId)return {key:'ready',label:'Set applied',cls:'ok'};
   if(snap.groups.some(function(g){return g.shapeOps.length>0;}))return {key:'shape',label:'Ready · custom edge',cls:'ok'};
