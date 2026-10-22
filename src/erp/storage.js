@@ -170,7 +170,10 @@ function touch(){
   if(typeof orderLogCapture==='function')orderLogCapture();
   /* Счётчик номеров стёкол — раньше базы (erp/production/glass-batches). */
   if(typeof glassIdMarkSave==='function')glassIdMarkSave();
-  const changes=storageColdApply(storageDiff(DB));
+  /* Журнал Master Data — по тому же набору изменений (erp/masterdata/md-log):
+     пополнился — набор собирается заново, чтобы записи журнала ушли с правкой. */
+  let diff=storageDiff(DB);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB);
+  const changes=storageColdApply(diff);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';return true;}
   storageWrite(changes);storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
@@ -774,6 +777,7 @@ function normalizeDB(){
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  if(typeof normalizeCommissions==='function')normalizeCommissions();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
+ if(typeof normalizeMdLog==='function')normalizeMdLog();
  if(typeof normalizeAuthLog==='function')normalizeAuthLog();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */

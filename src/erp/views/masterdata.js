@@ -863,7 +863,15 @@ function mdAllowanceRemove(id){
  DB.edgeAllowance=(DB.edgeAllowance||[]).filter(x=>x&&x.id!==id);
  normalizeEdgeAllowance();touch();render();
 }
+/* Data overview: коллекции, журнал правок и файл Master Data — одним местом
+   «проверка и журнал» (план Master Data, раздел Setup → Check & log). */
+let mdOverviewView='collections';
 function viewMdOverview(){
+ const views=[['collections','Collections'],['log','Change log'],['file','Master Data file']];
+ const subs=`<div class="md-mat-subs" data-md-overview-subs>${views.map(([k,label])=>`<button class="sm ${k===mdOverviewView?'on':''}" onclick="mdOverviewView='${k}';render()">${label}</button>`).join('')}</div>`;
+ return subs+(mdOverviewView==='log'?viewMdLog():mdOverviewView==='file'?mdTransferCard():viewMdCollections());
+}
+function viewMdCollections(){
  const rows=MD_COLLECTIONS.map(c=>{
   const n=Array.isArray(DB[c.key])?DB[c.key].length:0;
   return `<tr><td><b>${c.label}</b><div class="mut">${c.what}</div></td>
@@ -874,6 +882,42 @@ function viewMdOverview(){
  return `<div class="sub">Every collection in the system in one list. It answers the question of what the database actually holds — and shows what is still missing.</div>
   <table><thead><tr><th>Collection</th><th>Data key</th><th>Records</th><th></th></tr></thead><tbody>${rows}</tbody></table>
   <div class="hint">When the meaning of a reference table changes, the version goes up and factory data replaces the old rows — supply prices entered by hand are left alone. Reference version: <b data-raw>${DB.refVersion}</b></div>`;
+}
+
+/* --- Журнал и перенос Master Data (erp/masterdata/md-log) ------------- */
+let mdLogFilter='',mdLogQuery='',mdLogShown=200,mdTransfer=null;
+function viewMdLog(){
+ const rows=mdLogRows(mdLogFilter,mdLogQuery),places=[...new Set((DB.masterDataEvent||[]).map(e=>e.tbl))].sort((a,b)=>mdLogWhere(a).localeCompare(mdLogWhere(b)));
+ const when=t=>esc(String(t||'').slice(0,16).replace('T',' '));
+ const body=rows.slice(0,mdLogShown).map(e=>`<tr data-md-log-row><td class="mono">${when(e.at)}</td><td>${esc(e.by||'—')}</td><td>${esc(mdLogWhere(e.tbl))}</td><td><b data-raw>${esc(e.row)}</b></td><td>${esc(e.what)}${e.field?' · <span class="mono" data-raw>'+esc(e.field)+'</span>':''}</td><td class="mono" data-raw>${esc(e.was)}</td><td class="mono" data-raw>${esc(e.now)}</td></tr>`).join('');
+ return `<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Search the log" placeholder="Search" value="${esc(mdLogQuery)}" oninput="mdLogQuery=this.value;mdLogShown=200;render()" style="max-width:260px">
+  <select aria-label="Section" onchange="mdLogFilter=this.value;mdLogShown=200;render()"><option value="">All sections</option>${places.map(k=>`<option value="${esc(k)}"${k===mdLogFilter?' selected':''}>${esc(mdLogWhere(k))}</option>`).join('')}</select>
+  <span class="mut" data-md-log-count>${rows.length} changes</span></div>
+  <table><thead><tr><th>When</th><th>Who</th><th>Section</th><th>Item</th><th>Change</th><th>Was</th><th>Now</th></tr></thead><tbody>${body||'<tr><td colspan="7" class="mut">No changes yet.</td></tr>'}</tbody></table>
+  ${rows.length>mdLogShown?`<button type="button" onclick="mdLogShown+=200;render()">Show ${Math.min(200,rows.length-mdLogShown)} more</button>`:''}`;
+}
+function mdTransferCard(){
+ const p=mdTransfer;
+ const plan=p&&p.plan?`<table data-md-import-plan><thead><tr><th>Section</th><th>New</th><th>Changed</th><th>Same</th><th>Rejected</th></tr></thead><tbody>${p.plan.tables.map(t=>`<tr><td>${esc(t.label)}</td><td class="mono">${t.added}</td><td class="mono">${t.changed}</td><td class="mono">${t.same}</td><td class="mono">${t.rejected}</td></tr>`).join('')}${p.plan.settings.map(x=>`<tr><td>${esc(x.label)}</td><td class="mono">—</td><td class="mono">${x.changed?'yes':'—'}</td><td class="mono">—</td><td class="mono">—</td></tr>`).join('')}</tbody></table>
+  ${p.plan.errors.length?`<div class="hint" data-md-import-errors>${p.plan.errors.slice(0,20).map(esc).join('<br>')}</div>`:''}
+  <div class="row" style="gap:8px"><button class="pri" type="button" onclick="mdTransferApply()">Import ${esc(p.name)}</button><button type="button" onclick="mdTransfer=null;render()">Cancel</button></div>`:'';
+ return `<div data-md-transfer>
+  <div class="sub">Only Master Data: catalogs, works, norms, stations and settings. Orders, customers and the archive are not touched.</div>
+  <div class="row" style="gap:8px"><button type="button" onclick="mdTransferExport()">Export Master Data</button><button type="button" onclick="document.getElementById('mdTransferFile').click()">Import Master Data</button>
+  <input type="file" id="mdTransferFile" accept=".json,application/json" style="display:none" onchange="mdTransferPick(this)"></div>
+  ${p&&p.error?`<div class="hint" data-md-import-error>${esc(p.error)}</div>`:''}${p&&p.done?`<div class="hint" data-md-import-done>Imported.</div>`:''}${plan}</div>`;
+}
+function mdTransferExport(){storageDownload('master-data-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(mdExportData(),null,1));}
+function mdTransferPick(inp){
+ const f=inp.files[0];inp.value='';if(!f)return;
+ const r=new FileReader();
+ r.onload=()=>{try{const file=JSON.parse(r.result);mdTransfer={name:f.name,file,plan:mdImportPlan(file)};}catch(e){mdTransfer={error:'File not readable: '+e.message};}render();};
+ r.readAsText(f);
+}
+function mdTransferApply(){
+ if(!mdTransfer||!mdTransfer.file)return;
+ const out=mdImportApply(mdTransfer.file);
+ mdTransfer=out.ok?{done:true}:{error:out.error};render();
 }
 
 /* --- 5. Импорт -------------------------------------------------------- */

@@ -113,7 +113,15 @@ function salesOrderCommercialAdjustments(order){
 
 /* Coefficients are measured product norms. Empty is unknown, explicit zero is
    allowed (e.g. consumables already included in a filled-spacer norm). */
-function salesWeightRate(key){const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;}
+/* Нормы веса замораживаются в заказе на Save, как цены (priceBook, ключ
+   weight:…): новая норма в Master Data не меняет вес сохранённого заказа.
+   Заказ — свой, не soDraft: наклейки и отгрузка считают вес чужого заказа. */
+function salesWeightRate(key,order){
+ const k='weight:'+key,b=order&&order.priceBook;
+ const v=b&&Object.prototype.hasOwnProperty.call(b,k)?b[k]:(()=>{const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;})();
+ if(salesBookRec)salesBookRec[k]=v==null?null:v;
+ return v;
+}
 /* productionPlan — фактические лайты собранного юнита (частичный Recut).
    Без него коммерческие документы по-прежнему считают геометрию заказа. */
 function salesLineWeight(line,order,productionPlan){
@@ -121,7 +129,7 @@ function salesLineWeight(line,order,productionPlan){
  const rows=[],m=salesMakeupById(order,line.makeupId),shape=salesLineGeometryShape(line),areas=salesLineAreas(line,order);
  const plan=productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
  const add=(label,kg,note)=>rows.push({label:label,kg:Number.isFinite(kg)&&kg>=0?kg:null,note:note||''});
- const norm=(key,label,basis,unit,note)=>{const rate=salesWeightRate(key);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||''});};
+ const norm=(key,label,basis,unit,note)=>{const rate=salesWeightRate(key,order);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||''});};
  if(!m||!areas.valid)return {rows:[],kg:null,lineKg:null,knownKg:0,complete:false,missing:1};
  const geometry=(i)=>{
   const lite=plan&&plan.valid&&(plan.lites||[]).find(l=>l.index===i);

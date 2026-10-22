@@ -494,7 +494,8 @@ function simPage() {
      ===================================================================== */
   const TR = { cut: {}, cutBy: {}, edge: {}, temper: {}, igu: {}, iguBy: {}, ship: {}, trips: {}, breaks: {}, orders: {}, quotes: {}, receipts: {}, station: {}, lam: {} };
   const add = (o, k, v) => { o[k] = (o[k] || 0) + v; };
-  const band = mm => mm <= 6 ? '6' : mm <= 10 ? '8-10' : '12-19';
+  /* Полосы — как salesPricingBandFor (erp/sales/orders): до 7 · 8–11 · 12–19 мм. */
+  const band = mm => mm <= 7 ? '6' : mm <= 11 ? '8-10' : '12-19';
   const RATE = {};
   function rateOf(id, mm) { const k = id + '|' + band(mm); if (!(k in RATE)) { const r = (DB.serviceRate || []).find(x => x.id === id); RATE[k] = r ? (r.flat != null ? r.flat : r.bands && r.bands[band(mm)]) : null; } return RATE[k]; }
   function truthScan(station, ids, who, day) {

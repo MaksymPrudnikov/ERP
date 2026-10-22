@@ -210,17 +210,29 @@ function salesBook(key,live){
  if(salesBookRec)salesBookRec[key]=v==null?null:v;
  return v;
 }
-/* Цены, по которым заказ посчитан сейчас: прежние — из его priceBook, новые
-   позиции — из Master Data. */
-function salesPriceBookOf(o){const keep=salesBookRec;salesBookRec={};try{finOrderTotals(o);return salesBookRec;}finally{salesBookRec=keep;}}
+/* Цены и нормы веса, по которым заказ посчитан сейчас: прежние — из его
+   priceBook, новые позиции — из Master Data. */
+function salesPriceBookOf(o){
+ const keep=salesBookRec;salesBookRec={};
+ try{
+  finOrderTotals(o);
+  if(typeof salesLineWeight==='function')finWithOrder(o,()=>(o.lines||[]).forEach(l=>{try{salesLineWeight(l,o);}catch(e){console.warn('weight book '+(o.businessNumber||o.id)+': '+e.message);}}));
+  return salesBookRec;
+ }finally{salesBookRec=keep;}
+}
 function salesPriceBookClean(b){const out={};Object.keys(b).forEach(k=>{const v=b[k];if(v===null)out[k]=null;else if(typeof v==='number'&&Number.isFinite(v))out[k]=v;});return out;}
 function salesGlassSalePrice(g,tempered){const f=tempered?'salePriceTempered':'salePriceAnnealed';return salesBook('glass:'+g.id+':'+f,()=>g[f]==null?null:g[f]);}
 function salesInterlayerSalePrice(id){return salesBook('interlayer:'+id,()=>{const p=mdById('interlayerProduct',id);return p&&p.salePrice!=null?p.salePrice:null;});}
 const SALES_SURROUND_BASE={aluminum:2.40,warm_edge:2.85,stainless:2.85};
 const SALES_SURROUND_ARGON=0.25;
 const SALES_SURROUND_SILICONE=0.20;
+/* Цена обвязки замораживается в заказе, как стекло: ключ — рамка, второй
+   герметик и газ камеры (план Master Data, этап 1, 22.10.2026). */
 function salesCavityCatalogPrice(c){
  if(!c)return null;
+ return salesBook('surround:'+[c.spacerVariantId,c.secondarySealantId,c.gasProductId].map(x=>x||'').join(':'),()=>salesCavitySurroundLive(c));
+}
+function salesCavitySurroundLive(c){
  const sp=mdById('spacerVariant',c.spacerVariantId);
  if(!sp)return null;
  let p=SALES_SURROUND_BASE[spacerFamilyOf(sp)];
