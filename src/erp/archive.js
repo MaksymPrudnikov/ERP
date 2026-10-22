@@ -10,10 +10,14 @@
    Сам уход пока выключен (ARCHIVE_ON): archiveRun вызывают проверки и
    инструменты. Включится, когда Sales, отчёты и Agents видят архив (А5),
    иначе экран молча показывал бы меньше, чем есть.
+   Sales и вкладка Orders клиента (А3) показывают ушедшие строки вместе с
+   живыми; клик — заказ с диска на том же экране, только просмотр и печать;
+   Repeat — новый заказ из него; NCR — возврат в работу.
    IN : DB, salesListValue, finOrderBalance, shippingHistoryOrderIds,
-        invSheetRows, invOffcutRows
+        invSheetRows, invOffcutRows, storageIdbColdOf, storageVisit
    OUT: archiveIndex, archiveDue(day), archiveCollect(ids), archiveRun(day),
-        archiveReturn(orderId), archiveIndexLoad / archiveIndexApply
+        archiveReturn(orderId), archiveIndexLoad / archiveIndexApply,
+        archiveListInfos, archiveOpen(id), archiveViewing(o), archiveRepeat
    ===================================================================== */
 const ARCHIVE_ON=false,ARCHIVE_MONTHS=3;
 DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};
@@ -130,11 +134,112 @@ function archiveCollect(ids){
 }
 
 /* Строка Sales на день ухода — все колонки списка (SALES_LIST_COLUMNS);
-   клиент — номером, имя Sales берёт живое. */
+   клиент — номером, имя Sales берёт живое. status — код (кнопки статусов
+   над списком), rep — квота, которая стоит в списке за свою группу, pay —
+   как Sales показывает Balance (Paid). */
 function archiveRowOf(o,day,now){
  const info=salesListInfo(o),row={};
  (typeof SALES_LIST_COLUMNS!=='undefined'?SALES_LIST_COLUMNS:[]).forEach(c=>{try{row[c.k]=salesListValue(info,c.k);}catch(e){row[c.k]=null;}});
- return {kind:salesIsQuote(o)?'quote':'order',customerId:o.customerId||'',currency:o.currency||'',number:o.businessNumber||'',createdAt:o.createdAt||'',groupId:salesIsQuote(o)?salesQuoteGroupId(o):'',day,archivedAt:now,row};
+ const q=salesIsQuote(o),b=info.memo.balanceInfo;
+ return {kind:q?'quote':'order',status:salesListStatus(o),customerId:o.customerId||'',currency:o.currency||'',number:o.businessNumber||'',createdAt:o.createdAt||'',groupId:q?salesQuoteGroupId(o):'',rep:!q||salesQuoteRepresentative(o).id===o.id,
+  pay:b?{status:b.status,balance:b.balance}:null,day,archivedAt:now,row};
+}
+
+/* ------------------------- Sales и клиент ------------------------------ */
+/* Ушедшие строки для списка Sales и вкладки Orders клиента: те же info, что
+   у живых (salesListInfo), значения — из снятой строки (archiveListValue).
+   Квота — одной строкой за группу, как в работе. Заказ на просмотре сейчас
+   в DB — его строку список берёт оттуда. */
+function archiveListInfos(test){
+ const out=[];
+ archiveIndex.forEach((a,id)=>{if(!a.rep||archiveVisit&&archiveVisit.ids.has(id)||!test(a))return;
+  out.push({o:{id,kind:a.kind,status:a.status||'',customerId:a.customerId,createdAt:a.createdAt,businessNumber:a.number,archived:true},q:a.kind==='quote',a,c:null,memo:{}});});
+ return out;
+}
+function archiveListValue(info,k){
+ const a=info.a;let v=Object.prototype.hasOwnProperty.call(a.row,k)?a.row[k]:null;
+ if(k==='customer'||k==='rep'){const c=readMemo('archiveCustomers',[DB.customer],()=>new Map((DB.customer||[]).map(x=>[x.id,x]))).get(a.customerId);if(c)v=k==='customer'?c.displayName||c.legalName||'':c.salesRep||'';}
+ if(k==='balance'&&a.pay)info.memo.balanceInfo=a.pay;
+ info.memo[k]=v;return v;
+}
+/* Ячейка ушедшей строки: статус — как был, с серой меткой Archived. */
+function archiveListCell(info,col){
+ if(col.k==='status')return `<td><span class="pill st-${esc(info.a.status||'')}">${esc(salesListValue(info,'status')||'')}</span> <span class="pill archived" data-archived>Archived</span></td>`;
+ if(col.k==='number'){const v=salesListValue(info,'number'),from=info.q?'':salesListValue(info,'fromQuote');return `<td><b class="mono">${raw(v||'—')}</b>${from?` <span class="mut small">from ${raw(from)}</span>`:''}</td>`;}
+ return salesListCell(info,col);
+}
+function archiveListRow(r,cols){
+ const id=esc(r.o.id);
+ return `<tr data-archived-row="${id}" class="sl-row-archived" ondblclick="archiveOpen('${id}')"><td class="sl-check"></td>${cols.map(c=>archiveListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="archiveOpen('${id}')">Open</button></td></tr>`;
+}
+
+/* ------------------------- Просмотр с диска --------------------------- */
+/* Заказ из архива на экране — только просмотр и печать (владелец,
+   22.10.2026: «тот же экран»). Его записи читаются с диска и встают в DB,
+   пока он открыт; сравнение базы их не видит (storageVisit) — в базу они не
+   пишутся. Закрыли заказ (salesDraftDrop) — записи убираются по ключам. */
+let archiveVisit=null;
+async function archiveOpen(id){
+ const a=archiveIndex.get(id);if(!a)return false;
+ if(typeof soDraft!=='undefined'&&soDraft){salesLeaveDraft(()=>archiveOpen(id));return false;}
+ const ids=a.kind==='quote'?[...archiveIndex].filter(([,x])=>x.kind==='quote'&&x.groupId===a.groupId).map(([k])=>k):[id];
+ const seen=new Set(),recs=[];
+ for(const owner of ids)(await storageIdbColdOf(owner)).forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}});
+ if(!recs.some(r=>r.tbl==='salesOrder'&&r.id===id)){alert('This archived order could not be read.');return false;}
+ archiveVisitEnd();
+ const tables=new Map();
+ recs.forEach(r=>{if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];DB[r.tbl].push(JSON.parse(r.data));let t=tables.get(r.tbl);if(!t)tables.set(r.tbl,t=new Map());t.set(r.id,r.data);});
+ tables.forEach((t,tbl)=>storageVisit.set(tbl,new Set(t.keys())));
+ archiveVisit={id,ids:new Set(ids),tables,arrays:new Map([...tables.keys()].map(t=>[t,DB[t]]))};
+ storageInvalidate();
+ salesOrderEdit(id);return true;
+}
+/* Просмотр закрыт — строки уходят из DB по ключам (объект строки мог
+   смениться: правка формы на экране, откат). */
+function archiveVisitEnd(){
+ const v=archiveVisit;if(!v)return;archiveVisit=null;
+ v.tables.forEach((t,tbl)=>{const a=DB[tbl];if(!Array.isArray(a))return;let n=0;for(let i=0;i<a.length;i++)if(!t.has(storageRowKey(tbl,a[i])))a[n++]=a[i];a.length=n;});
+ storageVisit.clear();storageInvalidate();
+}
+/* Таблицу собрали заново из базы (откат, чужая запись) — строки просмотра
+   возвращаются туда же. */
+function archiveVisitKeep(){
+ const v=archiveVisit;if(!v)return;
+ v.tables.forEach((t,tbl)=>{const a=DB[tbl];if(!Array.isArray(a)||v.arrays.get(tbl)===a)return;
+  const have=new Set(a.map(r=>storageRowKey(tbl,r)));t.forEach((data,id)=>{if(!have.has(id))a.push(JSON.parse(data));});v.arrays.set(tbl,a);});
+}
+function archiveViewing(o){return !!archiveVisit&&!!o&&(archiveVisit.ids.has(o.id)||typeof soDraft!=='undefined'&&o===soDraft);}
+function archiveHeaderActions(o){
+ const a=archiveIndex.get(archiveVisit.id);
+ return `<span class="sales-save-state" data-order-state>Archived${a&&a.archivedAt?' · '+esc(salesShortDate(a.archivedAt)):''}</span><button onclick="salesOrderClose()">Close</button><button onclick="docOpen()">Documents</button><button data-archive-repeat onclick="archiveRepeat()">Repeat</button>${salesIsQuote(o)?'':'<button class="ncr-btn" data-archive-ncr title="Returns the order to work" onclick="archiveNcr()">NCR</button>'}`;
+}
+/* Repeat (владелец, 22.10.2026: «возможность воссоздать заказ»): новый
+   заказ того же клиента с теми же стёклами, размерами и фигурами. Цены —
+   сегодняшние из Master Data (снимок цен старого заказа не берётся), цены
+   руками — как были. PO, срок и производство — пустые. */
+function archiveRepeat(){
+ const src=archiveVisit&&(DB.salesOrder||[]).find(o=>o.id===archiveVisit.id);if(!src)return;
+ const now=new Date().toISOString(),q=salesIsQuote(src);
+ const copy=salesCopySalesRecord(src,{businessNumber:'',status:q?'open':'new',statusDates:{},batchNo:'',batchHistory:[],unbatchHistory:[],productionUnbatchVerify:false,fulfilledVia:'',fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
+  customerPo:'',dueDate:'',onHold:false,holdReason:'',holdAt:'',remakeNcrId:'',noCharge:false,cancellations:[],adjustments:[],createdAt:now,updatedAt:now});
+ delete copy.priceBook;
+ copy.lines.forEach(l=>{Object.assign(l,{onHold:false,holdReason:'',holdAt:'',cutStartedAt:'',batchNo:''});});
+ const draft=normalizeSalesOrder(copy);
+ /* Копии фигур уже в DB (salesCopySalesRecord): просмотр закрывается без
+    salesDraftDrop — та убрала бы их как ничьи до нового черновика. */
+ archiveVisitEnd();
+ salesOrderNew(q?'quote':'order');soDraft=draft;salesEnsureAllLineShapes();
+ soMakeupId=(soDraft.makeups[0]||{}).id||null;soGlassOpen=soDraft.lines.length>0;render();
+}
+/* NCR по архивному заказу возвращает его в работу (владелец, 22.10.2026),
+   и форма NCR открывается на нём. */
+async function archiveNcr(){
+ const id=archiveVisit&&archiveVisit.id;if(!id)return;
+ salesDraftDrop(false);
+ const out=await archiveReturn(id);
+ if(!out.ok){alert(out.error);render();return;}
+ salesOrderEdit(id);
+ if(typeof ncrCanOpen==='function'&&ncrCanOpen(salesRecord(id)))ncrOpenForm('ncr');
 }
 
 /* Склад листов и обрезки — что они показывают, без журнала движений. */
@@ -160,6 +265,8 @@ function archiveInvKeep(before,after,offcuts){
    целиком. limit — сколько заказов за раз (экран не замирает надолго). */
 function archiveRun(day,opts){
  opts=opts||{};day=String(day||new Date().toISOString()).slice(0,10);
+ /* Открыт заказ из архива — его записи сейчас в DB; уход подождёт. */
+ if(archiveVisit)return {ok:false,error:'An archived order is open.'};
  const now=new Date().toISOString();
  return storageCommand(()=>{
   let due=[...archiveDue(day)];if(opts.limit)due=due.slice(0,opts.limit);
@@ -193,6 +300,9 @@ async function archiveReturn(orderId){
  return storageCommand(()=>{
   const before=archiveInvState();
   got.forEach(r=>storageColdPut(r));
+  /* Заказ ушёл при прежней версии программы — в работу он встаёт в
+     нынешнем виде, как после F5 (normalizeDB). */
+  got.forEach(r=>{if(r.tbl==='salesOrder')normalizeSalesOrderIn(r.id);});
   archiveInvKeep(before,archiveInvState(),false);
   if(DB.inventoryArchived&&DB.inventoryArchived.offcuts)(DB.stockOffcut||[]).forEach(o=>{if(got.some(r=>r.tbl==='glassBatch'&&JSON.parse(r.data).number===o.batch))delete DB.inventoryArchived.offcuts[o.id];});
   (DB.salesOrder||[]).forEach(o=>{if(owners.has(o.id)&&archiveIndex.has(o.id))storageArchiveIndex(o.id,null);});

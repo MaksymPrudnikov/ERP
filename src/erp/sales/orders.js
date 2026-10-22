@@ -41,6 +41,8 @@ function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesD
    без стекла бывает — владелец, 05.10.2026). */
 function salesDraftHasWork(){
  if(!soDraft)return false;
+ /* Заказ из архива на просмотре — сохранять нечего (erp/archive). */
+ if(typeof archiveViewing==='function'&&archiveViewing(soDraft))return false;
  if(soQuoteCopyOf){const src=DB.salesOrder.find(x=>x.id===soQuoteCopyOf);return !src||salesQuoteContentKey(soDraft)!==salesQuoteContentKey(src);}
  if(soEdit==='new')return soDraft.lines.length>1||soDraft.lines.some(l=>!salesOrderLineIsBlank(l))||!!(soDraft.extraItems||[]).length||!!salesString(soDraft.customerPo)||!!salesString(soDraft.notes);
  const saved=DB.salesOrder.find(x=>x.id===soEdit);
@@ -104,6 +106,8 @@ function salesDraftDrop(discard){
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
  salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
  if(salesPruneOrphanShapes()||restored)touch();
+ /* Заказ из архива на просмотре — его записи уходят из DB (erp/archive). */
+ if(typeof archiveVisitEnd==='function')archiveVisitEnd();
 }
 /* Уход из заказа (владелец, 27.09.2026). Новый не сохранён — «сохранить?»:
    Don't save — заказа нет. Сохранённый изменён — «обновить?»: Don't update —

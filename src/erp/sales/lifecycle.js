@@ -82,7 +82,7 @@ function salesOrderTitle(o){
    убрать (salesLineShrinkable, владелец 6.10.2026). */
 function salesLineLocked(line){return !!(line&&(line.batchedAt||line.cutStartedAt));}
 function salesMakeupLocked(order,makeupId){return !!(order&&(order.lines||[]).some(l=>l.makeupId===makeupId&&salesLineLocked(l)));}
-function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled');}
+function salesOrderReadOnly(o){return !!o&&(typeof archiveViewing==='function'&&archiveViewing(o)||(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled'));}
 function salesLockedLineGuard(line){
  if(!salesLineLocked(line)){
   if(!soDraft||soEdit==='new'||typeof glassLineScanned!=='function'||!glassLineScanned(soDraft.id,line))return false;
@@ -456,6 +456,8 @@ function salesSaveStateRefresh(){
 }
 ['input','change'].forEach(t=>document.addEventListener(t,()=>{if(soDraft&&tab==='sales')salesSaveStateRefresh();}));
 function salesHeaderActions(o){
+ /* Заказ из архива — только просмотр, печать, Repeat и NCR (erp/archive). */
+ if(typeof archiveViewing==='function'&&archiveViewing(o))return archiveHeaderActions(o);
  const st=salesSaveState(o);
  const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesOrderClose()">Close</button>'];
  if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);

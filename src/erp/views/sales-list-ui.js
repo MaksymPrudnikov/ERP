@@ -174,6 +174,8 @@ function salesListGlass(o){
 function salesListInfo(o){return {o,q:salesIsQuote(o),c:salesFindCustomer(o.customerId)||{},memo:{}};}
 function salesListValue(info,k){
  if(Object.prototype.hasOwnProperty.call(info.memo,k))return info.memo[k];
+ /* Заказ в архиве — значения из строки, снятой в день ухода (erp/archive). */
+ if(info.a)return archiveListValue(info,k);
  const o=info.o,q=info.q,c=info.c,lines=o.lines||[];let v=null;
  switch(k){
   case 'readyQty':{const r=shippingSummary(o);v=r.physicalReady+' / '+r.glass;break;}
@@ -205,7 +207,8 @@ function salesListValue(info,k){
   case 'shapes':v=lines.filter(salesListShapedLine).length;break;
   case 'validUntil':v=q?(o.validUntil||''):'';break;
   case 'revisions':v=q?salesQuoteMembers(o).length:null;break;
-  case 'fromQuote':v=o.fromQuoteId?(((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber||''):'';break;
+  /* Квота ушла в архив вместе с заказом — номер из указателя архива. */
+  case 'fromQuote':{const f=o.fromQuoteId?(DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId):null,a=o.fromQuoteId&&!f&&typeof archiveKnown==='function'?archiveKnown(o.fromQuoteId):null;v=f?f.businessNumber||'':a?a.number||'':'';break;}
   case 'updated':v=salesListIsoDay(o.updatedAt);break;
  }
  info.memo[k]=v;return v;
@@ -280,9 +283,12 @@ function salesListBase(){
  if(salesListScope().startsWith('prod')&&typeof prodListInfos==='function'){const infos=prodListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope()!=='sales'){const infos=optimizationBase();return {all:infos.map(i=>i.o),infos};}
  const all=salesListVisible(),ncrs=salesShow.ncr&&typeof ncrListInfos==='function'?ncrListInfos():[];
+ /* Ушедшие в архив — вместе с живыми: за любой период, в фильтрах и итогах. */
+ const old=typeof archiveListInfos==='function'?archiveListInfos(a=>salesShow[a.kind==='quote'?'quotes':'orders']):[];
  const infos=all.filter(o=>!salesStatusFilter||salesStatusFilter===salesKindOf(o)+':'+salesListStatus(o)).map(salesListInfo)
+  .concat(old.filter(i=>!salesStatusFilter||salesStatusFilter===i.o.kind+':'+i.o.status))
   .concat(ncrs.filter(i=>!salesStatusFilter||salesStatusFilter==='ncr:'+i.o.ncrStatus.toLowerCase()));
- return {all:all.concat(ncrs.map(i=>i.o)),infos};
+ return {all:all.concat(old.map(i=>i.o),ncrs.map(i=>i.o)),infos};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
 function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(tab==='inventory'&&typeof invListDefaultSort==='function')return invListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
@@ -388,7 +394,7 @@ function salesListCell(info,col){
 function salesListFooter(rows,cols){
  const orders=rows.filter(r=>!r.q&&!r.n),quotes=rows.filter(r=>r.q),ncrs=rows.filter(r=>r.n);
  const tally=(list,fn)=>{const m={};list.forEach(r=>{const s=fn(r);m[s]=(m[s]||0)+1;});return Object.keys(m).map(k=>k+' '+m[k]).join(' · ');};
- const detail=[tally(orders,r=>salesStatusLabel(r.o)),quotes.length?'Quotes: '+tally(quotes,r=>salesStatusLabel(r.o,salesListStatus(r.o))):'',ncrs.length?'NCR: '+tally(ncrs,r=>r.memo.status):''].filter(Boolean).join(' · ');
+ const detail=[tally(orders,r=>r.a?salesListValue(r,'status'):salesStatusLabel(r.o)),quotes.length?'Quotes: '+tally(quotes,r=>salesStatusLabel(r.o,salesListStatus(r.o))):'',ncrs.length?'NCR: '+tally(ncrs,r=>r.memo.status):''].filter(Boolean).join(' · ');
  /* В очередях (Optimization, Shipping) квот не бывает — квоты считают и
     мешают в Sales (владелец, 7.10.2026): только «N orders». */
  const queue=salesListScope()!=='sales';
@@ -414,10 +420,11 @@ function salesListView(){
     (views/sales-cut-estimate). */
  const estN=typeof salesCutEstimateIds==='function'?salesCutEstimateIds().length:0;
  const estBtn=typeof salesCutEstimateOpen==='function'?`<button type="button" class="sl-quiet sl-est-btn" data-cut-est-open title="Cut preview${estN?' · '+estN+' selected':': select orders or quotes'}" aria-label="Cut preview" ${estN?'':'disabled'} onclick="salesCutEstimateOpen(salesCutEstimateIds())">${ico('cut')}${estN?`<b>${estN}</b>`:''}</button>`:'';
- const rowIds=rows.filter(r=>!r.n).map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
+ const rowIds=rows.filter(r=>!r.n&&!r.a).map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${c.label}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
  const body=rows.map(r=>{
   if(r.n)return ncrListRow(r,cols);
+  if(r.a)return archiveListRow(r,cols);
   const o=r.o,sel=salesListSel.has(o.id),cls=[!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
