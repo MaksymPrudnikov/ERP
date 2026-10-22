@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 161 модулей, 23 стиля.
+  Состав сборки: 162 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -3478,7 +3478,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a31749e8865d';
+var ERP_BUILD='49afbec4c089';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12156,17 +12156,29 @@ function salesBook(key,live){
  if(salesBookRec)salesBookRec[key]=v==null?null:v;
  return v;
 }
-/* Цены, по которым заказ посчитан сейчас: прежние — из его priceBook, новые
-   позиции — из Master Data. */
-function salesPriceBookOf(o){const keep=salesBookRec;salesBookRec={};try{finOrderTotals(o);return salesBookRec;}finally{salesBookRec=keep;}}
+/* Цены и нормы веса, по которым заказ посчитан сейчас: прежние — из его
+   priceBook, новые позиции — из Master Data. */
+function salesPriceBookOf(o){
+ const keep=salesBookRec;salesBookRec={};
+ try{
+  finOrderTotals(o);
+  if(typeof salesLineWeight==='function')finWithOrder(o,()=>(o.lines||[]).forEach(l=>{try{salesLineWeight(l,o);}catch(e){console.warn('weight book '+(o.businessNumber||o.id)+': '+e.message);}}));
+  return salesBookRec;
+ }finally{salesBookRec=keep;}
+}
 function salesPriceBookClean(b){const out={};Object.keys(b).forEach(k=>{const v=b[k];if(v===null)out[k]=null;else if(typeof v==='number'&&Number.isFinite(v))out[k]=v;});return out;}
 function salesGlassSalePrice(g,tempered){const f=tempered?'salePriceTempered':'salePriceAnnealed';return salesBook('glass:'+g.id+':'+f,()=>g[f]==null?null:g[f]);}
 function salesInterlayerSalePrice(id){return salesBook('interlayer:'+id,()=>{const p=mdById('interlayerProduct',id);return p&&p.salePrice!=null?p.salePrice:null;});}
 const SALES_SURROUND_BASE={aluminum:2.40,warm_edge:2.85,stainless:2.85};
 const SALES_SURROUND_ARGON=0.25;
 const SALES_SURROUND_SILICONE=0.20;
+/* Цена обвязки замораживается в заказе, как стекло: ключ — рамка, второй
+   герметик и газ камеры (план Master Data, этап 1, 22.10.2026). */
 function salesCavityCatalogPrice(c){
  if(!c)return null;
+ return salesBook('surround:'+[c.spacerVariantId,c.secondarySealantId,c.gasProductId].map(x=>x||'').join(':'),()=>salesCavitySurroundLive(c));
+}
+function salesCavitySurroundLive(c){
  const sp=mdById('spacerVariant',c.spacerVariantId);
  if(!sp)return null;
  let p=SALES_SURROUND_BASE[spacerFamilyOf(sp)];
@@ -13349,6 +13361,158 @@ function orderLogFor(orderId){
  });
  if(o&&!rows.some(r=>r.what==='Created'))rows.push({at:o.createdAt||'',by:'',what:'Created',note:'before the log'});
  return rows.sort((x,y)=>String(x.at).localeCompare(String(y.at)));
+}
+
+/* ==== src/erp/masterdata/md-log.js ==== */
+/* =====================================================================
+   erp/masterdata/md-log  ·  md-log-1.0
+   Журнал Master Data «было → стало» и перенос только Master Data (план
+   Master Data как конструктора, этап 1; владелец, 22.10.2026: «журнал
+   нужен» — кто, когда, что было и что стало по каждой правке карточек,
+   цен и норм).
+   IN : набор изменений базы (storageDiff) перед записью — touch в
+        erp/storage; кто — orderLogActor (erp/sales/order-log)
+   OUT: DB.masterDataEvent {id, at, by, byId, tbl, rowId, row, what, field,
+        was, now}; mdLogRows — строки вкладки Change log;
+        mdExportData / mdImportPlan / mdImportApply — Export / Import только
+        Master Data
+
+   Как журнал заказа, правки не размечаются по коду: журнал сравнивает строку
+   с тем, что лежит в базе, поэтому ловит правку из любого экрана (Data, окно
+   веса в заказе, импорт CSV). Таблица, которой в базе ещё нет, — это засев,
+   не правка. Общий Import JSON заменяет базу целиком и в журнал не идёт.
+   ===================================================================== */
+DEFAULT.masterDataEvent=[];
+if(!Array.isArray(DB.masterDataEvent))DB.masterDataEvent=[];
+/* Что считается Master Data: таблицы строк и настройки одним объектом. */
+const MD_LOG_TABLES={
+ glassProduct:'Glass',glassSheet:'Supply points',stockItem:'Stock items',heatTreatment:'Heat treatment',
+ spacerVariant:'Spacers',gasProduct:'Gas',sealantProduct:'Sealants',interlayerProduct:'Interlayers',
+ fritProduct:'Frit',spandrelProduct:'Spandrel',spandrelColour:'Spandrel colours',serviceRate:'Works',
+ hardwareKind:'Hardware kinds',hardwareModel:'Hardware models',materialWeightRates:'Weight norms',
+ edgeAllowance:'Cutting allowance',station:'Stations',ncrReason:'NCR reasons',carrier:'Dollies & Skids',truck:'Trucks'
+};
+const MD_LOG_SETTINGS={cutting:'Cutting',company:'Company',stickerTemplate:'Stickers',salesMetricRules:'Pricing rules'};
+const MD_LOG_TEXT=120;
+
+function normalizeMdLog(){
+ if(!Array.isArray(DB.masterDataEvent))DB.masterDataEvent=[];
+ const s=v=>typeof v==='string'?v:'';
+ DB.masterDataEvent=DB.masterDataEvent.filter(e=>e&&typeof e==='object'&&typeof e.tbl==='string'&&typeof e.at==='string'&&typeof e.what==='string')
+  .map(e=>({id:s(e.id)||salesUid('MDE'),at:e.at,by:s(e.by),byId:s(e.byId),tbl:e.tbl,rowId:s(e.rowId),row:s(e.row),what:e.what,field:s(e.field),was:s(e.was),now:s(e.now)}));
+}
+function mdLogValue(v){
+ if(v===undefined||v===null||v==='')return '';
+ const t=typeof v==='object'?JSON.stringify(v):String(v);
+ return t.length>MD_LOG_TEXT?t.slice(0,MD_LOG_TEXT-1)+'…':t;
+}
+function mdLogRowName(row,id){return mdLogValue(row&&(row.name||row.label||row.code||row.key))||id;}
+/* Поля строки «было → стало»: только те, что поменялись. */
+function mdLogFields(a,b){
+ const out=[],keys=new Set(Object.keys(a||{}).concat(Object.keys(b||{})));
+ /* Пусто, null и нет поля — одно и то же «пусто»: нормализатор, дописавший
+    пустую заметку, — не правка. */
+ const same=v=>v===undefined||v===null||v===''?null:v;
+ keys.forEach(k=>{const x=a?a[k]:undefined,y=b?b[k]:undefined;if(JSON.stringify(same(x))!==JSON.stringify(same(y)))out.push([k,mdLogValue(x),mdLogValue(y)]);});
+ return out;
+}
+function mdLogPairs(c){
+ /* Таблица без ключей строк хранится одной записью «*»: сравниваем по строкам. */
+ const base=storageBase.get(c.tbl),parse=t=>{try{return JSON.parse(t);}catch(e){return null;}};
+ if(c.id==='*'){
+  const was=new Map((parse(base&&base.get('*')&&base.get('*').t)||[]).map((r,i)=>[storageRowKey(c.tbl,r)||'#'+(i+1),r]));
+  const now=new Map((c.del?[]:parse(c.data)||[]).map((r,i)=>[storageRowKey(c.tbl,r)||'#'+(i+1),r]));
+  const out=[];now.forEach((r,id)=>out.push([id,was.get(id),r]));was.forEach((r,id)=>{if(!now.has(id))out.push([id,r,undefined]);});return out;
+ }
+ const b=base&&base.get(c.id);
+ if(b&&!c.del&&b.t===c.data)return [];
+ return [[c.id,b?parse(b.t):undefined,c.del?undefined:parse(c.data)]];
+}
+/* touch(): события по набору изменений до записи. true — журнал пополнился,
+   набор нужно собрать заново. */
+function mdLogCapture(changes){
+ if(typeof storageImporting!=='undefined'&&storageImporting)return false;
+ if(typeof storageStarting!=='undefined'&&storageStarting)return false;
+ const at=new Date().toISOString(),who=typeof orderLogActor==='function'?orderLogActor():{by:'',byId:''};
+ const push=(tbl,rowId,row,what,field,was,now)=>DB.masterDataEvent.push(Object.assign({id:salesUid('MDE'),at,tbl,rowId:String(rowId),row,what,field:field||'',was:was||'',now:now||''},who));
+ const meta=storageBase.get('_meta');let n=0;
+ if(!Array.isArray(DB.masterDataEvent))DB.masterDataEvent=[];
+ changes.forEach(c=>{
+  if(c.tbl==='_meta'){
+   if(!MD_LOG_SETTINGS[c.id]||!meta||!meta.has(c.id)||c.del)return;
+   let a,b;try{a=JSON.parse(meta.get(c.id).t);b=JSON.parse(c.data);}catch(e){return;}
+   mdLogFields(a,b).forEach(([k,x,y])=>{push(c.id,c.id,MD_LOG_SETTINGS[c.id],'Edited',k,x,y);n++;});
+   return;
+  }
+  /* Таблицы, которой в базе ещё нет, — засев, а не правка. */
+  if(!MD_LOG_TABLES[c.tbl]||!storageBase.has(c.tbl))return;
+  mdLogPairs(c).forEach(([id,a,b])=>{
+   if(!a&&b){push(c.tbl,id,mdLogRowName(b,id),'Created');n++;return;}
+   if(a&&!b){push(c.tbl,id,mdLogRowName(a,id),'Deleted');n++;return;}
+   if(a&&b)mdLogFields(a,b).forEach(([k,x,y])=>{push(c.tbl,id,mdLogRowName(b,id),'Edited',k,x,y);n++;});
+  });
+ });
+ return n>0;
+}
+function mdLogWhere(tbl){return MD_LOG_TABLES[tbl]||MD_LOG_SETTINGS[tbl]||tbl;}
+/* Строки вкладки Change log: новые сверху, фильтр по месту и поиск. */
+function mdLogRows(where,q){
+ q=String(q||'').trim().toLowerCase();
+ return (DB.masterDataEvent||[]).filter(e=>(!where||e.tbl===where)&&(!q||[e.row,e.field,e.was,e.now,e.by,mdLogWhere(e.tbl)].some(x=>String(x).toLowerCase().includes(q)))).slice().reverse();
+}
+
+/* ---------------- Export / Import только Master Data ----------------
+   Общий Import заменяет всю базу и архив; этот переносит только справочники:
+   строка узнаётся по ключу, повтор файла не плодит дубли. В строке файла
+   нет поля — значение остаётся; null — поле очищается; 0 — это ноль.
+   Строки базы, которых нет в файле, остаются: удаляют в Data. */
+const MD_FILE_KIND='glass-erp-master-data';
+function mdExportData(){
+ const tables={},settings={};
+ Object.keys(MD_LOG_TABLES).forEach(k=>{if(Array.isArray(DB[k]))tables[k]=JSON.parse(JSON.stringify(DB[k]));});
+ Object.keys(MD_LOG_SETTINGS).forEach(k=>{if(DB[k]&&typeof DB[k]==='object')settings[k]=JSON.parse(JSON.stringify(DB[k]));});
+ return {kind:MD_FILE_KIND,version:1,exportedAt:new Date().toISOString(),tables,settings};
+}
+/* Что сделает файл: по таблицам — новые, изменённые, без изменений, отказы. */
+function mdImportPlan(file){
+ if(!file||typeof file!=='object'||file.kind!==MD_FILE_KIND)throw new Error('This is not a Master Data file.');
+ const out={tables:[],settings:[],errors:[]};
+ Object.keys(file.tables||{}).forEach(tbl=>{
+  if(!MD_LOG_TABLES[tbl]){out.errors.push(tbl+': unknown table');return;}
+  const rows=file.tables[tbl];if(!Array.isArray(rows)){out.errors.push(tbl+': not a list');return;}
+  const have=new Map((DB[tbl]||[]).map(r=>[storageRowKey(tbl,r),r])),seen=new Set(),t={tbl,label:MD_LOG_TABLES[tbl],added:0,changed:0,same:0,rejected:0};
+  rows.forEach((r,i)=>{
+   const id=storageRowKey(tbl,r);
+   if(!id||seen.has(id)){t.rejected++;out.errors.push(MD_LOG_TABLES[tbl]+' row '+(i+1)+': '+(id?'repeats '+id:'no key'));return;}
+   seen.add(id);const was=have.get(id);
+   if(!was)t.added++;else if(mdLogFields(was,Object.assign({},was,r)).length)t.changed++;else t.same++;
+  });
+  out.tables.push(t);
+ });
+ Object.keys(file.settings||{}).forEach(k=>{
+  const v=file.settings[k];
+  if(!MD_LOG_SETTINGS[k]||!v||typeof v!=='object'||Array.isArray(v)){out.errors.push(k+': unknown settings');return;}
+  out.settings.push({key:k,label:MD_LOG_SETTINGS[k],changed:mdLogFields(DB[k]||{},Object.assign({},DB[k]||{},v)).length});
+ });
+ return out;
+}
+/* Пишет файл в базу одной командой: всё или ничего. */
+function mdImportApply(file){
+ const plan=mdImportPlan(file);
+ return storageCommand(()=>{
+  plan.tables.forEach(t=>{
+   if(!Array.isArray(DB[t.tbl]))DB[t.tbl]=[];
+   const list=DB[t.tbl],at=new Map(list.map((r,i)=>[storageRowKey(t.tbl,r),i])),seen=new Set();
+   file.tables[t.tbl].forEach(r=>{
+    const id=storageRowKey(t.tbl,r);if(!id||seen.has(id))return;seen.add(id);
+    const i=at.get(id),copy=JSON.parse(JSON.stringify(r));
+    if(i==null)list.push(copy);else Object.assign(list[i],copy);
+   });
+  });
+  plan.settings.forEach(s=>{DB[s.key]=Object.assign({},DB[s.key]||{},JSON.parse(JSON.stringify(file.settings[s.key])));});
+  normalizeDB();
+  return true;
+ });
 }
 
 /* ==== src/erp/documents/company.js ==== */
@@ -18701,7 +18865,15 @@ function salesOrderCommercialAdjustments(order){
 
 /* Coefficients are measured product norms. Empty is unknown, explicit zero is
    allowed (e.g. consumables already included in a filled-spacer norm). */
-function salesWeightRate(key){const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;}
+/* Нормы веса замораживаются в заказе на Save, как цены (priceBook, ключ
+   weight:…): новая норма в Master Data не меняет вес сохранённого заказа.
+   Заказ — свой, не soDraft: наклейки и отгрузка считают вес чужого заказа. */
+function salesWeightRate(key,order){
+ const k='weight:'+key,b=order&&order.priceBook;
+ const v=b&&Object.prototype.hasOwnProperty.call(b,k)?b[k]:(()=>{const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;})();
+ if(salesBookRec)salesBookRec[k]=v==null?null:v;
+ return v;
+}
 /* productionPlan — фактические лайты собранного юнита (частичный Recut).
    Без него коммерческие документы по-прежнему считают геометрию заказа. */
 function salesLineWeight(line,order,productionPlan){
@@ -18709,7 +18881,7 @@ function salesLineWeight(line,order,productionPlan){
  const rows=[],m=salesMakeupById(order,line.makeupId),shape=salesLineGeometryShape(line),areas=salesLineAreas(line,order);
  const plan=productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
  const add=(label,kg,note)=>rows.push({label:label,kg:Number.isFinite(kg)&&kg>=0?kg:null,note:note||''});
- const norm=(key,label,basis,unit,note)=>{const rate=salesWeightRate(key);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||''});};
+ const norm=(key,label,basis,unit,note)=>{const rate=salesWeightRate(key,order);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||''});};
  if(!m||!areas.valid)return {rows:[],kg:null,lineKg:null,knownKg:0,complete:false,missing:1};
  const geometry=(i)=>{
   const lite=plan&&plan.valid&&(plan.lites||[]).find(l=>l.index===i);
@@ -21558,7 +21730,9 @@ function salesSaveWeightNorm(index,value,factor){
  const row=salesLineWeight(line,soDraft).rows[index];if(!row||!row.key)return;
  const shown=mdNonNeg(value),rate=shown==null?null:shown/(factor||1);if(value.trim()!==''&&shown==null){alert('Enter a non-negative weight norm.');render();return;}
  const old=(DB.materialWeightRates||[]).find(r=>r.key===row.key);
- if(old){old.rate=rate;old.derived=false;}else DB.materialWeightRates.push({key:row.key,rate:rate,note:'',derived:false});touch();render();
+ if(old){old.rate=rate;old.derived=false;}else DB.materialWeightRates.push({key:row.key,rate:rate,note:'',derived:false});
+ /* Норма, замороженная в этом заказе, меняется вместе с общей — как правила цены. */
+ if(soDraft.priceBook&&Object.prototype.hasOwnProperty.call(soDraft.priceBook,'weight:'+row.key))soDraft.priceBook['weight:'+row.key]=rate;touch();render();
 }
 function salesAddWeightExtra(){const l=salesMetricsLine();if(!l)return;if(!l.weightExtras)l.weightExtras=[];l.weightExtras.push({label:'',kg:null});render();}
 function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtras.splice(i,1);render();}}
@@ -26548,7 +26722,15 @@ function mdAllowanceRemove(id){
  DB.edgeAllowance=(DB.edgeAllowance||[]).filter(x=>x&&x.id!==id);
  normalizeEdgeAllowance();touch();render();
 }
+/* Data overview: коллекции, журнал правок и файл Master Data — одним местом
+   «проверка и журнал» (план Master Data, раздел Setup → Check & log). */
+let mdOverviewView='collections';
 function viewMdOverview(){
+ const views=[['collections','Collections'],['log','Change log'],['file','Master Data file']];
+ const subs=`<div class="md-mat-subs" data-md-overview-subs>${views.map(([k,label])=>`<button class="sm ${k===mdOverviewView?'on':''}" onclick="mdOverviewView='${k}';render()">${label}</button>`).join('')}</div>`;
+ return subs+(mdOverviewView==='log'?viewMdLog():mdOverviewView==='file'?mdTransferCard():viewMdCollections());
+}
+function viewMdCollections(){
  const rows=MD_COLLECTIONS.map(c=>{
   const n=Array.isArray(DB[c.key])?DB[c.key].length:0;
   return `<tr><td><b>${c.label}</b><div class="mut">${c.what}</div></td>
@@ -26559,6 +26741,43 @@ function viewMdOverview(){
  return `<div class="sub">Every collection in the system in one list. It answers the question of what the database actually holds — and shows what is still missing.</div>
   <table><thead><tr><th>Collection</th><th>Data key</th><th>Records</th><th></th></tr></thead><tbody>${rows}</tbody></table>
   <div class="hint">When the meaning of a reference table changes, the version goes up and factory data replaces the old rows — supply prices entered by hand are left alone. Reference version: <b data-raw>${DB.refVersion}</b></div>`;
+}
+
+/* --- Журнал и перенос Master Data (erp/masterdata/md-log) ------------- */
+let mdLogFilter='',mdLogQuery='',mdLogShown=200,mdTransfer=null;
+function viewMdLog(){
+ const rows=mdLogRows(mdLogFilter,mdLogQuery),places=[...new Set((DB.masterDataEvent||[]).map(e=>e.tbl))].sort((a,b)=>mdLogWhere(a).localeCompare(mdLogWhere(b)));
+ const when=t=>esc(String(t||'').slice(0,16).replace('T',' '));
+ const body=rows.slice(0,mdLogShown).map(e=>`<tr data-md-log-row><td class="mono">${when(e.at)}</td><td>${esc(e.by||'—')}</td><td>${esc(mdLogWhere(e.tbl))}</td><td><b data-raw>${esc(e.row)}</b></td><td>${esc(e.what)}${e.field?' · <span class="mono" data-raw>'+esc(e.field)+'</span>':''}</td><td class="mono" data-raw>${esc(e.was)}</td><td class="mono" data-raw>${esc(e.now)}</td></tr>`).join('');
+ return `<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Search the log" placeholder="Search" value="${esc(mdLogQuery)}" oninput="mdLogQuery=this.value;mdLogShown=200;render()" style="max-width:260px">
+  <select aria-label="Section" style="max-width:220px" onchange="mdLogFilter=this.value;mdLogShown=200;render()"><option value="">All sections</option>${places.map(k=>`<option value="${esc(k)}"${k===mdLogFilter?' selected':''}>${esc(mdLogWhere(k))}</option>`).join('')}</select>
+  <span class="mut" data-md-log-count>${rows.length} changes</span></div>
+  <table><thead><tr><th>When</th><th>Who</th><th>Section</th><th>Item</th><th>Change</th><th>Was</th><th>Now</th></tr></thead><tbody>${body||'<tr><td colspan="7" class="mut">No changes yet.</td></tr>'}</tbody></table>
+  ${rows.length>mdLogShown?`<button type="button" onclick="mdLogShown+=200;render()">Show ${Math.min(200,rows.length-mdLogShown)} more</button>`:''}`;
+}
+function mdTransferCard(){
+ const p=mdTransfer;
+ const plan=p&&p.plan?`<table data-md-import-plan><thead><tr><th>Section</th><th>New</th><th>Changed</th><th>Same</th><th>Rejected</th></tr></thead><tbody>${p.plan.tables.filter(t=>t.added||t.changed||t.rejected).map(t=>`<tr><td>${esc(t.label)}</td><td class="mono">${t.added}</td><td class="mono">${t.changed}</td><td class="mono">${t.same}</td><td class="mono">${t.rejected}</td></tr>`).join('')}${p.plan.settings.filter(x=>x.changed).map(x=>`<tr><td>${esc(x.label)}</td><td class="mono">—</td><td class="mono">${x.changed?'yes':'—'}</td><td class="mono">—</td><td class="mono">—</td></tr>`).join('')}</tbody></table>
+  <div class="mut">${p.plan.tables.filter(t=>!t.added&&!t.changed&&!t.rejected).length+p.plan.settings.filter(x=>!x.changed).length} sections without changes</div>
+  ${p.plan.errors.length?`<div class="hint" data-md-import-errors>${p.plan.errors.slice(0,20).map(esc).join('<br>')}</div>`:''}
+  <div class="row" style="gap:8px"><button class="pri" type="button" onclick="mdTransferApply()">Import ${esc(p.name)}</button><button type="button" onclick="mdTransfer=null;render()">Cancel</button></div>`:'';
+ return `<div data-md-transfer>
+  <div class="sub">Only Master Data: catalogs, works, norms, stations and settings. Orders, customers and the archive are not touched.</div>
+  <div class="row" style="gap:8px"><button type="button" onclick="mdTransferExport()">Export Master Data</button><button type="button" onclick="document.getElementById('mdTransferFile').click()">Import Master Data</button>
+  <input type="file" id="mdTransferFile" accept=".json,application/json" style="display:none" onchange="mdTransferPick(this)"></div>
+  ${p&&p.error?`<div class="hint" data-md-import-error>${esc(p.error)}</div>`:''}${p&&p.done?`<div class="hint" data-md-import-done>Imported.</div>`:''}${plan}</div>`;
+}
+function mdTransferExport(){storageDownload('master-data-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(mdExportData(),null,1));}
+function mdTransferPick(inp){
+ const f=inp.files[0];inp.value='';if(!f)return;
+ const r=new FileReader();
+ r.onload=()=>{try{const file=JSON.parse(r.result);mdTransfer={name:f.name,file,plan:mdImportPlan(file)};}catch(e){mdTransfer={error:'File not readable: '+e.message};}render();};
+ r.readAsText(f);
+}
+function mdTransferApply(){
+ if(!mdTransfer||!mdTransfer.file)return;
+ const out=mdImportApply(mdTransfer.file);
+ mdTransfer=out.ok?{done:true}:{error:out.error};render();
 }
 
 /* --- 5. Импорт -------------------------------------------------------- */
@@ -45520,7 +45739,10 @@ function touch(){
   if(typeof orderLogCapture==='function')orderLogCapture();
   /* Счётчик номеров стёкол — раньше базы (erp/production/glass-batches). */
   if(typeof glassIdMarkSave==='function')glassIdMarkSave();
-  const changes=storageColdApply(storageDiff(DB));
+  /* Журнал Master Data — по тому же набору изменений (erp/masterdata/md-log):
+     пополнился — набор собирается заново, чтобы записи журнала ушли с правкой. */
+  let diff=storageDiff(DB);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB);
+  const changes=storageColdApply(diff);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';return true;}
   storageWrite(changes);storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
@@ -46124,6 +46346,7 @@ function normalizeDB(){
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  if(typeof normalizeCommissions==='function')normalizeCommissions();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
+ if(typeof normalizeMdLog==='function')normalizeMdLog();
  if(typeof normalizeAuthLog==='function')normalizeAuthLog();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
