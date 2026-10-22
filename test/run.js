@@ -1950,7 +1950,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), { version: [9, 8], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
           spacersNotReseeded: ['SP-OWN-1616'], silicone: ['Opaci-Coat · Silicone Spandrel', 'ICD'] });
     /* Правка разовая. Вернул владелец полосу — после перезагрузки она осталась. */
-    await t.p.evaluate(() => { DB.serviceRate.find(r => r.id === 'hole:1-2').active = true; touch(); });
+    /* Запись идёт в фоне за записью старта: без storageFlush перезагрузка
+       иногда успевала раньше неё (гонка теста, на main тоже). */
+    await t.p.evaluate(async () => { DB.serviceRate.find(r => r.id === 'hole:1-2').active = true; touch(); await storageFlush(); });
     await t.p.reload();await t.p.evaluate(()=>window.storageReady);
     await t.p.waitForTimeout(250);
     eq('выполненная правка не повторяется после перезагрузки', await t.p.evaluate(() =>

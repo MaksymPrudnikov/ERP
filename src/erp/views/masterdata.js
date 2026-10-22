@@ -891,14 +891,15 @@ function viewMdLog(){
  const when=t=>esc(String(t||'').slice(0,16).replace('T',' '));
  const body=rows.slice(0,mdLogShown).map(e=>`<tr data-md-log-row><td class="mono">${when(e.at)}</td><td>${esc(e.by||'—')}</td><td>${esc(mdLogWhere(e.tbl))}</td><td><b data-raw>${esc(e.row)}</b></td><td>${esc(e.what)}${e.field?' · <span class="mono" data-raw>'+esc(e.field)+'</span>':''}</td><td class="mono" data-raw>${esc(e.was)}</td><td class="mono" data-raw>${esc(e.now)}</td></tr>`).join('');
  return `<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Search the log" placeholder="Search" value="${esc(mdLogQuery)}" oninput="mdLogQuery=this.value;mdLogShown=200;render()" style="max-width:260px">
-  <select aria-label="Section" onchange="mdLogFilter=this.value;mdLogShown=200;render()"><option value="">All sections</option>${places.map(k=>`<option value="${esc(k)}"${k===mdLogFilter?' selected':''}>${esc(mdLogWhere(k))}</option>`).join('')}</select>
+  <select aria-label="Section" style="max-width:220px" onchange="mdLogFilter=this.value;mdLogShown=200;render()"><option value="">All sections</option>${places.map(k=>`<option value="${esc(k)}"${k===mdLogFilter?' selected':''}>${esc(mdLogWhere(k))}</option>`).join('')}</select>
   <span class="mut" data-md-log-count>${rows.length} changes</span></div>
   <table><thead><tr><th>When</th><th>Who</th><th>Section</th><th>Item</th><th>Change</th><th>Was</th><th>Now</th></tr></thead><tbody>${body||'<tr><td colspan="7" class="mut">No changes yet.</td></tr>'}</tbody></table>
   ${rows.length>mdLogShown?`<button type="button" onclick="mdLogShown+=200;render()">Show ${Math.min(200,rows.length-mdLogShown)} more</button>`:''}`;
 }
 function mdTransferCard(){
  const p=mdTransfer;
- const plan=p&&p.plan?`<table data-md-import-plan><thead><tr><th>Section</th><th>New</th><th>Changed</th><th>Same</th><th>Rejected</th></tr></thead><tbody>${p.plan.tables.map(t=>`<tr><td>${esc(t.label)}</td><td class="mono">${t.added}</td><td class="mono">${t.changed}</td><td class="mono">${t.same}</td><td class="mono">${t.rejected}</td></tr>`).join('')}${p.plan.settings.map(x=>`<tr><td>${esc(x.label)}</td><td class="mono">—</td><td class="mono">${x.changed?'yes':'—'}</td><td class="mono">—</td><td class="mono">—</td></tr>`).join('')}</tbody></table>
+ const plan=p&&p.plan?`<table data-md-import-plan><thead><tr><th>Section</th><th>New</th><th>Changed</th><th>Same</th><th>Rejected</th></tr></thead><tbody>${p.plan.tables.filter(t=>t.added||t.changed||t.rejected).map(t=>`<tr><td>${esc(t.label)}</td><td class="mono">${t.added}</td><td class="mono">${t.changed}</td><td class="mono">${t.same}</td><td class="mono">${t.rejected}</td></tr>`).join('')}${p.plan.settings.filter(x=>x.changed).map(x=>`<tr><td>${esc(x.label)}</td><td class="mono">—</td><td class="mono">${x.changed?'yes':'—'}</td><td class="mono">—</td><td class="mono">—</td></tr>`).join('')}</tbody></table>
+  <div class="mut">${p.plan.tables.filter(t=>!t.added&&!t.changed&&!t.rejected).length+p.plan.settings.filter(x=>!x.changed).length} sections without changes</div>
   ${p.plan.errors.length?`<div class="hint" data-md-import-errors>${p.plan.errors.slice(0,20).map(esc).join('<br>')}</div>`:''}
   <div class="row" style="gap:8px"><button class="pri" type="button" onclick="mdTransferApply()">Import ${esc(p.name)}</button><button type="button" onclick="mdTransfer=null;render()">Cancel</button></div>`:'';
  return `<div data-md-transfer>
