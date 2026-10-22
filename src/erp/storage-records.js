@@ -114,6 +114,7 @@ function storageDiff(db,only){
  return out;
 }
 function storageBaseApply(changes){
+ if(typeof finTotalsForget==='function')finTotalsForget(changes);
  changes.forEach(c=>{
   let m=storageBase.get(c.tbl);
   if(c.coldClear||c.tbl==='_archive')return;

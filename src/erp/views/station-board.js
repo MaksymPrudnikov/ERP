@@ -25,7 +25,7 @@ function stationBoardDay(offset){const d=new Date(),p=v=>String(v).padStart(2,'0
 function stationBoardData(){
  stationBoardBuilds++;
  const today=finToday();
- return {today,orders:prodBoard(),facts:repWorkFacts().filter(f=>f.day===today)};
+ return {today,orders:prodBoard(),facts:repWorkFacts(today)};
 }
 function stationBoardHours(list,label){
  const now=new Date().getHours();

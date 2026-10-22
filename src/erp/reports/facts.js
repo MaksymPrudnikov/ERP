@@ -141,14 +141,18 @@ function repOrderInfo(o){
 function repSizeBand(ft2){return !(ft2>0)?'':ft2<10?'Under 10 ft²':ft2<30?'10–30 ft²':ft2<60?'30–60 ft²':'60 ft² and up';}
 function repMaker(glassId){const g=glassId&&glassProductById(glassId);return g&&g.manufacturer||'';}
 function repLineInfo(l){return {mark:l.mark||'',size:frac16((+l.width16||0)/16)+' × '+frac16((+l.height16||0)/16),shape:typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle'};}
-let repWorkCache={stamp:'',rows:null};
+let repWorkCache={stamp:'',rows:null},repWorkDayCache={stamp:'',day:'',rows:null};
 let repWorkBuilds=0;
 function repWorkStamp(){
  const scans=DB.stationScan||[];let undone=0;scans.forEach(s=>{if(s.undoneAt)undone++;});
  return [scans.length,undone,DB.stationScanSeq,repCatalogStamp(),(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')).join(',')].join('|');
 }
-function repWorkFacts(){
- const stamp=repWorkStamp();if(repWorkCache.stamp===stamp&&repWorkCache.rows)return repWorkCache.rows;
+/* day — только сканы этого дня (Overview и доска станции показывают
+   сегодня): на старте не считать работу по всей истории сканов (задание
+   «База», F5). Номер захода стекла на станцию считается по всем сканам. */
+function repWorkFacts(day){
+ const stamp=repWorkStamp();if(repWorkCache.stamp===stamp&&repWorkCache.rows)return day?repWorkCache.rows.filter(f=>f.day===day):repWorkCache.rows;
+ if(day&&repWorkDayCache.stamp===stamp&&repWorkDayCache.day===day)return repWorkDayCache.rows;
  repWorkBuilds++;
  const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[],orders=new Map(),lines=new Map(),visits=new Map();
  /* Юнит после сборки — сама сборка (стеклопакет на IGU, склейка на LAM), а
@@ -161,6 +165,7 @@ function repWorkFacts(){
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||s.broken||s.park)return;
   const vk=s.piece+'|'+s.station,nth=(visits.get(vk)||0)+1;visits.set(vk,nth);
+  if(day&&repDay(s.at)!==day)return;
   const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station,Number.isInteger(s.step)?s.step:-nth):{area:null,mm:null,heat:'',unitType:'',works:[]};
   const b=built.get(s.piece),unitKey=!g?'':b&&b.at<=s.at?'A:'+b.asm:g.o.id+'|'+g.l.id+'|'+g.unit;
   const sum=u=>w.works.filter(x=>x.unit===u).reduce((n,x)=>n+x.qty,0);
@@ -173,6 +178,6 @@ function repWorkFacts(){
    asm:s.asm||'',unitDone:!!(s.unit||s.joined),asmDone:(s.unit||s.joined)&&s.asm?s.asm:'',manual:!!s.manual,confirmedAt:s.confirmedAt||'',
    on:s.on||'',recut:g&&typeof g.unit==='string'?'Recut':'Original',sizeBand:repSizeBand(w.area),maker:w.maker||'',...(g?oInfo(g.o):{}),...(g?lInfo(g.l):{})});
  });
- repWorkCache={stamp,rows};
+ if(day)repWorkDayCache={stamp,day,rows};else repWorkCache={stamp,rows};
  return rows;
 }
