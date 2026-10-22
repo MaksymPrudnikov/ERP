@@ -429,7 +429,7 @@ function salesConvertQuoteRecord(id,po){
  const order=normalizeSalesOrder(copy);DB.salesOrder.push(order);
  if(typeof finCaptureTerms==='function')finCaptureTerms(order);
  quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
- normalizeSalesData();touch();
+ normalizeSalesOrderIn(copy.id);normalizeSalesOrderIn(quote.id);touch();
  salesOrderEdit(copy.id);
 }
 

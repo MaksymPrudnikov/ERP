@@ -97,7 +97,7 @@ function salesQuoteNewRevision(){
  const now=new Date().toISOString(),rev=salesQuoteNextRev(src);
  const copy=salesCopySalesRecord(src,{businessNumber:salesQuoteBaseNumber(src)+'-R'+rev,status:'open',sentAt:'',validUntil:'',statusDates:{open:now},
   quoteGroupId:salesQuoteGroupId(src),quoteRev:rev,wonOrderId:'',fromQuoteId:'',createdAt:now,updatedAt:now});
- DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesData();touch();
+ DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesOrderIn(copy.id);touch();
  salesOrderEdit(copy.id);
 }
 function salesQuoteMarkSent(ids){
