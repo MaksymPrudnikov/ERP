@@ -63,6 +63,7 @@
   "src/erp/customers/data.js",
   "src/erp/sales/data.js",
   "src/erp/sales/price-lists.js",
+  "src/erp/sales/price-lists-file.js",
   "src/erp/sales/lifecycle.js",
   "src/erp/sales/quotes.js",
   "src/erp/sales/order-log.js",
