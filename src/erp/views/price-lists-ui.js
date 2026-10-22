@@ -5,7 +5,7 @@
    карточке клиента — его личный прайс. Правка прайса пишется сразу, как в
    Works: журнал Master Data видит каждую цену «было → стало».
    ===================================================================== */
-let plView='groups',plGroupId='',plItemGroupId='',plAddKind='',plBulk=null;
+let plView='groups',plGroupId='',plItemGroupId='',plAddKind='',plBulk=null,plFile=null;
 
 function plNow(){return new Date().toISOString();}
 function plMoney(v){return v==null?'—':(+v).toFixed(2);}
@@ -49,9 +49,9 @@ function plRemoveRow(listId,rowId){plCommand(()=>{const l=plList(listId);if(l)l.
 
 /* --- Data → Prices ------------------------------------------------------ */
 function viewMdPrices(){
- const views=[['groups','Customer groups'],['items','Item groups'],['bulk','Set for customers']];
+ const views=[['groups','Customer groups'],['items','Item groups'],['bulk','Set for customers'],['file','Excel']];
  const subs=`<div class="md-mat-subs" data-pl-subs>${views.map(([k,label])=>`<button class="sm ${k===plView?'on':''}" onclick="plView='${k}';render()">${label}</button>`).join('')}</div>`;
- return subs+(plView==='items'?plItemGroupsView():plView==='bulk'?plBulkView():plGroupsView());
+ return subs+(plView==='items'?plItemGroupsView():plView==='bulk'?plBulkView():plView==='file'?plFileView():plGroupsView());
 }
 function plGroupCustomers(id){return (DB.customer||[]).filter(c=>c.priceGroupId===id&&c.status!=='archived');}
 function plGroupsView(){
@@ -163,4 +163,47 @@ function salesPriceListStrip(o){
  const from=new Set(Object.values(o.priceFrom||{}));(o.lines||[]).forEach(l=>Object.values(l.chargePricing||{}).forEach(r=>{if(r&&r.from)from.add(r.from);}));
  const chain=[mine&&mine.rows.length?'Personal ('+mine.rows.length+')':'',g?(g.name||'Unnamed group')+' ('+g.rows.length+')':'','Base'].filter(Boolean).join(' → ');
  return `<div class="sales-price-lists mut" data-price-strip style="display:flex;gap:10px;align-items:center;margin:6px 0;font-size:12px">Prices: ${esc(chain)}${from.size?` · <span data-raw>used: ${esc([...from].map(priceListName).join(', '))}</span>`:''}${saved?`<button class="sm" data-update-prices onclick="if(confirm('Update prices from today\\'s price lists? Prices typed by hand stay.')){salesUpdatePrices();render();}">Update prices</button>`:''}</div>`;
+}
+
+/* --- Data → Prices → Excel: выгрузка и загрузка «было / станет» --------- */
+let plFileScope='all';
+function plFileView(){
+ const f=plFile,groups=priceListGroups(),customers=(DB.customer||[]).filter(c=>c.status!=='archived');
+ const opt=(v,label)=>`<option value="${esc(v)}"${plFileScope===v?' selected':''}>${esc(label)}</option>`;
+ const scopes=opt('all','All price lists · priced rows')
+  +(groups.length?`<optgroup label="Customer group · every item">${groups.map(g=>opt('list:'+g.id,g.name||'Unnamed group')).join('')}</optgroup>`:'')
+  +(customers.length?`<optgroup label="Customer · every item">${customers.map(c=>opt('customer:'+c.id,priceFileCustomerName(c))).join('')}</optgroup>`:'');
+ let body='';
+ if(f&&f.plan){
+  const p=f.plan,rows=p.changes.map(ch=>`<tr data-pl-file-change><td>${esc(ch.personal?'Personal · '+ch.listName:ch.listName)}${!ch.listId?' <span class="pill warn">new</span>':''}</td><td>${esc(ch.label)}</td><td class="mono mut">${esc(priceFileText(ch.was))}</td><td class="mono"><b>${esc(priceFileText(ch.next))}</b></td></tr>`).join('');
+  body=`<h4>${esc(f.name)} · ${p.changes.length} change${p.changes.length===1?'':'s'} · ${p.same} same · ${p.errors.length} error${p.errors.length===1?'':'s'}</h4>
+   ${p.newGroups.length?`<div class="sub">New customer groups: <b>${esc(p.newGroups.join(', '))}</b></div>`:''}
+   <table data-pl-file-preview><thead><tr><th>List</th><th>Item</th><th>Was</th><th>Will be</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="mut">Nothing to change.</td></tr>'}</tbody></table>
+   ${p.errors.length?`<h4 style="margin-top:12px">Skipped rows</h4><table data-pl-file-errors><thead><tr><th>Row</th><th>Why</th></tr></thead><tbody>${p.errors.map(e=>`<tr><td class="mono">${e.line}</td><td>${esc(e.why)}</td></tr>`).join('')}</tbody></table>`:''}
+   <div class="row" style="gap:8px;margin-top:10px"><button class="pri" data-pl-file-write ${p.changes.length?'':'disabled'} onclick="plFileWrite()">Write ${p.changes.length} change${p.changes.length===1?'':'s'}</button><button onclick="plFile=null;render()">Cancel</button></div>`;
+ }else if(f&&f.done)body=`<div class="sub" data-pl-file-done>${esc(f.name)}: ${f.done.written} price${f.done.written===1?'':'s'} written${f.done.errors?', '+f.done.errors+' rows skipped':''}.</div>`;
+ return `<div class="sub">Export, edit prices in Excel, load the file back. Nothing is written until you check "Was → Will be". Rows not in the file stay as they are; an empty price removes it.</div>
+  <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:12px">
+   <select aria-label="Export what" style="max-width:360px" onchange="plFileScope=this.value">${scopes}</select>
+   <button onclick="plFileExport()">Export</button>
+   <button onclick="document.getElementById('plCsv').click()">Load file</button>
+   <input type="file" id="plCsv" accept=".csv,.txt" style="display:none" onchange="plFileLoad(this)">
+  </div>${body}`;
+}
+function plFileExport(){
+ const s=plFileScope,c=s.indexOf('customer:')===0?salesFindCustomer(s.slice(9)):null,g=s.indexOf('list:')===0?priceListById(s.slice(5)):null;
+ const part=c?(c.code||priceFileCustomerName(c)):g?(g.name||'group'):'all';
+ customerDownload('prices_'+String(part).replace(/[^A-Za-z0-9-]+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.csv',priceFileExport(s),'text/csv;charset=utf-8');
+}
+function plFileLoad(inp){
+ const f=inp.files[0];inp.value='';if(!f)return;
+ if(f.size>4*1024*1024){alert('File not readable: CSV exceeds 4 MB.');return;}
+ const r=new FileReader();
+ r.onload=()=>{try{plFile={name:f.name,text:r.result,plan:priceFilePlan(r.result)};}catch(e){alert('File not readable: '+e.message);}render();};
+ r.readAsText(f);
+}
+function plFileWrite(){
+ if(!plFile||!plFile.text)return;
+ const out=priceFileApply(plFile.text);if(!out.ok){alert(out.error);return;}
+ plFile={name:plFile.name,done:out};render();
 }

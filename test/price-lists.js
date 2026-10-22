@@ -90,6 +90,28 @@ module.exports=async function({page,eq,ok}){
   return {joined,after:salesFindCustomer(c.id).priceGroupId,text:salesFindCustomer(c.id).group};
  }),{joined:true,after:'',text:''});
 
+ eq('Excel прайса: шаблон с настоящими клиентами и айтемами; загрузка — «было → станет» и ошибки, запись только по кнопке',await t.p.evaluate(()=>{
+  plfReset();const c=oqCustomer({legalName:'File Co',code:'FILE1'}),k=plfKey();plfPersonal(c,[{target:k,price:9}]);touch();
+  const tpl=parseCsv(priceFileExport('customer:'+c.id)),all=parseCsv(priceFileExport('all'));
+  const out={head:tpl.header.join('|'),every:tpl.rows.length===salesPriceTargets().length,mine:tpl.rows.find(r=>r.Key===k).Price,all:all.rows.length};
+  const svc=tpl.rows.find(r=>r.Key==='service:flatPolish');
+  const csv=r=>[r['List type'],r.List,r['Customer code'],r['Item type'],r.Item,'','',r.Price,r['6 mm'],r['8-10 mm'],r['12-19 mm'],r.Key].map(csvCell).join(',');
+  const text=[tpl.header.join(','),csv(Object.assign({},tpl.rows.find(r=>r.Key===k),{Price:'0'})),csv(Object.assign({},svc,{Price:'',['6 mm']:'0,05'})),
+   csv({'List type':'Customer group',List:'New Dealers','Item type':'Glass',Item:salesPriceTargets().find(t=>t.key===k).label,Price:'$7.5'}),
+   csv({'List type':'Personal',List:'Nobody',Price:'1',Key:k}),csv(Object.assign({},svc,{Price:'abc'})),csv({'List type':'Customer group',List:'New Dealers',Item:'Glass x',Price:'1',['6 mm']:'2',Key:k})].join('\r\n');
+  const n=DB.masterDataEvent.length,plan=priceFilePlan(text);
+  out.plan=plan.changes.map(ch=>[ch.listName,priceFileText(ch.was),priceFileText(ch.next)]);out.errors=plan.errors.map(e=>e.line);out.newGroups=plan.newGroups;
+  out.untouched=priceListOfCustomer(c.id).rows[0].price;
+  const w=priceFileApply(text);out.written=w.written;out.now=priceListOfCustomer(c.id).rows.map(r=>priceFileText(r));
+  const g=priceListGroups().find(x=>x.name==='New Dealers');out.group=g&&g.rows.map(r=>r.price);
+  out.again=priceFilePlan(text).changes.length;out.log=DB.masterDataEvent.length>n;
+  plView='file';plFile={name:'p.csv',text,plan:priceFilePlan(priceFileExport('all').replace(/,0,/,',1,'))};tab='masterdata';mdTab='prices';render();
+  out.screen=[document.querySelectorAll('[data-pl-file-change]').length,!!document.querySelector('[data-pl-file-write]')];plFile=null;plView='groups';
+  return out;
+ }),{head:'List type|List|Customer code|Item type|Item|Unit|Base|Price|6 mm|8-10 mm|12-19 mm|Key',every:true,mine:'9',all:1,
+  plan:[['File Co','9.00','0.00'],['File Co','—','6: 0.05'],['New Dealers','—','7.50']],errors:[5,6,7],newGroups:['New Dealers'],untouched:9,
+  written:3,now:['0.00','6: 0.05'],group:[7.5],again:0,log:true,screen:[1,true]});
+
  eq('экраны: Data → Prices, Group в карточке клиента — выбор группы, вкладка Prices, полоса цен заказа с Update prices',await t.p.evaluate(()=>{
   plfReset();const c=oqCustomer({legalName:'Screen Co',group:'Spil text'}),k=plfKey(),g=plfGroup('Dealers',[{target:k,price:8}]);touch();
   tab='masterdata';mdTab='prices';plView='groups';plGroupId=g.id;render();
