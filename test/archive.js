@@ -1,7 +1,8 @@
 /* Архив (задание «База», этап 3, А2–А3, erp/archive): кто уходит, что
    уходит вместе, что остаётся (строка Sales, счётчики, склад листов), F5,
    Sales и клиент видят ушедшее, просмотр с диска, Repeat, NCR и возврат.
-   Уход выключен (ARCHIVE_ON) — здесь archiveRun вызывается сам. */
+   Сам уход (archiveAuto) в тестах выключен (GF_NO_ARCHIVE) — здесь
+   archiveRun вызывается сам. */
 module.exports=async function({page,eq}){
  console.log('archive');
  const t=await page();await require('./optimization-fixture')(t.p);
@@ -36,8 +37,10 @@ module.exports=async function({page,eq}){
  eq('кому пора: отгружен и оплачен 3 месяца назад — да; Hold, не отгружен и рано — нет',await t.p.evaluate(x=>{
   const due=d=>{const s=archiveDue(d);return [x.a,x.b,x.h,x.open].map(id=>s.has(id));};return {june:due('2026-06-01'),march:due('2026-03-20')};
  },ids),{june:[true,true,false,false],march:[false,false,false,false]});
- const run=await t.p.evaluate(async()=>{const r=archiveRun('2026-06-01');await storageFlush();return r;});
- eq('уход в архив: оба заказа и их записи ушли одной командой',{ok:run.ok,orders:run.value.orders,records:run.value.records>10},{ok:true,orders:2,records:true});
+ /* Пачками, как уходит сам (archiveAuto): по одному заказу; день отмечен, когда пачка неполная. */
+ const run=await t.p.evaluate(async()=>{const a=archiveRun('2026-06-01',{limit:1,mark:true}),day1=DB.archiveRunDay||'',b=archiveRun('2026-06-01',{limit:1,mark:true}),c=archiveRun('2026-06-01',{limit:1,mark:true});await storageFlush();
+  return {ok:a.ok&&b.ok&&c.ok,batches:[a.value.orders,b.value.orders,c.value.orders],records:a.value.records+b.value.records>10,day1,day2:DB.archiveRunDay};});
+ eq('уход в архив пачками: по заказу за раз, их записи ушли; день отмечен последней, неполной пачкой',run,{ok:true,batches:[1,1,0],records:true,day1:'',day2:'2026-06-01'});
  const mid=await t.p.evaluate(x=>({hot:[x.a,x.b,x.h,x.open].map(id=>!!salesRecord(id)),index:[...archiveIndex.keys()].sort().join()===[x.a,x.b].sort().join(),
   scans:DB.stationScan.some(s=>s.by==='Archive test'),receipts:DB.receipt.some(r=>r.allocations.some(a=>a.orderId===x.a)),deleted:DB.orderEvent.some(e=>e.what==='Deleted'),sheetsKept:Object.values(DB.inventoryArchived.sheets||{}).reduce((n,x)=>n+x.cut,0)}),ids);
  eq('…в работе их нет, их скан и оплата ушли, в журнале заказа нет «Deleted», порезанный лист — в разнице склада',mid,{hot:[false,false,true,true],index:true,scans:false,receipts:false,deleted:false,sheetsKept:1});

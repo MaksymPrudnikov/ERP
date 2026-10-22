@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 
 async function run(){
- const browser=await chromium.launch(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {}),context=await browser.newContext();await context.addInitScript(()=>{window.GF_NO_SIGNIN=true;});const page=await context.newPage(),errors=[];
+ const browser=await chromium.launch(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {}),context=await browser.newContext();await context.addInitScript(()=>{window.GF_NO_SIGNIN=true;window.GF_NO_ARCHIVE=true;});const page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  await page.goto('file://'+path.resolve(__dirname,process.env.TARGET==='dist'?'../dist/GLASS_ERP.html':'../src/index.html'));
  /* База стартует в фоне (IndexedDB): без ожидания старт подменяет DB посреди сценария. */
