@@ -1699,6 +1699,9 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sl-table tr.sl-row-done td{background:var(--success-soft)}
 .sl-table tr.sl-row-done .st-done{background:var(--success-soft);color:var(--success);border-color:var(--success-line)}
 .sl-table tr.sl-row-closed td{background:var(--surface-3);color:var(--text-2)}
+/* Заказ в архиве (erp/archive): серая строка и метка Archived. */
+.sl-table tr.sl-row-archived td{color:var(--text-2)}
+.pill.archived{background:var(--surface-3);color:var(--text-3);border:1px solid var(--line)}
 .sl-table tr.sl-row-sel td{box-shadow:inset 0 1px var(--accent-line),inset 0 -1px var(--accent-line)}
 .sl-table tr.sl-row-hold td{background:var(--danger-soft)}
 .sl-table tr.sl-row-hold td:first-child{box-shadow:inset 4px 0 0 var(--danger)}
@@ -3475,7 +3478,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='ce04a47324da';
+var ERP_BUILD='a31749e8865d';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12628,7 +12631,7 @@ function salesOrderTitle(o){
    убрать (salesLineShrinkable, владелец 6.10.2026). */
 function salesLineLocked(line){return !!(line&&(line.batchedAt||line.cutStartedAt));}
 function salesMakeupLocked(order,makeupId){return !!(order&&(order.lines||[]).some(l=>l.makeupId===makeupId&&salesLineLocked(l)));}
-function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled');}
+function salesOrderReadOnly(o){return !!o&&(typeof archiveViewing==='function'&&archiveViewing(o)||(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled'));}
 function salesLockedLineGuard(line){
  if(!salesLineLocked(line)){
   if(!soDraft||soEdit==='new'||typeof glassLineScanned!=='function'||!glassLineScanned(soDraft.id,line))return false;
@@ -13002,6 +13005,8 @@ function salesSaveStateRefresh(){
 }
 ['input','change'].forEach(t=>document.addEventListener(t,()=>{if(soDraft&&tab==='sales')salesSaveStateRefresh();}));
 function salesHeaderActions(o){
+ /* Заказ из архива — только просмотр, печать, Repeat и NCR (erp/archive). */
+ if(typeof archiveViewing==='function'&&archiveViewing(o))return archiveHeaderActions(o);
  const st=salesSaveState(o);
  const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesOrderClose()">Close</button>'];
  if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
@@ -13093,7 +13098,7 @@ function salesQuoteMembers(o){
 function salesQuoteWonMember(o){return salesQuoteMembers(o).find(m=>m.status==='won')||null;}
 function salesQuoteRepresentative(o){const ms=salesQuoteMembers(o);return ms.find(m=>m.status==='won')||ms[ms.length-1]||o;}
 function salesQuoteGroupStatus(o){const ms=salesQuoteMembers(o);return ms.some(m=>m.status==='won')?'won':ms.some(m=>m.status==='sent')?'sent':'open';}
-function salesListStatus(o){return salesIsQuote(o)?salesQuoteGroupStatus(o):o.status;}
+function salesListStatus(o){return o.archived?o.status:salesIsQuote(o)?salesQuoteGroupStatus(o):o.status;}
 function salesQuoteBaseNumber(o){
  const base=salesQuoteMembers(o).find(m=>!m.quoteRev);
  return base&&base.businessNumber?base.businessNumber:String(o&&o.businessNumber||'').replace(/-R\d+$/,'');
@@ -13104,7 +13109,8 @@ function salesQuoteCurrentId(){return soQuoteCopyOf||(soEdit&&soEdit!=='new'?soE
 function salesQuoteCopySource(){return soQuoteCopyOf?(DB.salesOrder||[]).find(x=>x.id===soQuoteCopyOf)||null:null;}
 function salesQuoteShown(o){if(o&&o===soDraft){const s=salesQuoteCopySource();if(s)return s;}return o;}
 function salesQuoteNextRevName(){const s=salesQuoteCopySource();return s?'R'+salesQuoteNextRev(s):'';}
-function salesQuoteOpensAsCopy(o){return salesIsQuote(o)&&o.status==='sent'&&!salesQuoteWonMember(o);}
+/* Квота из архива на просмотре открывается как есть, без рабочей копии (erp/archive). */
+function salesQuoteOpensAsCopy(o){return salesIsQuote(o)&&o.status==='sent'&&!salesQuoteWonMember(o)&&!(typeof archiveVisit!=='undefined'&&archiveVisit&&archiveVisit.ids.has(o.id));}
 
 /* ---------------------------- Срок цен ---------------------------------- */
 function salesQuoteValidDays(){const d=DB.company&&DB.company.quoteValidDays;return Number.isFinite(+d)&&+d>0?+d:180;}
@@ -13700,7 +13706,8 @@ function finVoidReceipt(id,reason){
 /* Ячейка CSV: текст, начинающийся с = + @ -, Excel считает формулой — ему
    ставится апостроф. Число (и отрицательная сумма возврата) остаётся числом. */
 function finCsvCell(v){let s=String(v==null?'':v);if(!/^-?\d+(\.\d+)?$/.test(s)&&(/^[\s]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s)))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
-function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id);return o?(o.businessNumber||o.id):'deleted order';}
+/* Заказ ушёл в архив — номер из указателя архива (erp/archive). */
+function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id),a=!o&&typeof archiveKnown==='function'?archiveKnown(id):null;return o?(o.businessNumber||o.id):a?a.number:'deleted order';}
 
 /* ==== src/erp/finance/ledger.js ==== */
 /* Finance commands and history. No DOM; balances keep using the order pricing
@@ -13909,16 +13916,30 @@ function finAllMoney(today){
    у нас (депозит, предоплата по заказам в работе). */
 function finStatementLines(customerId){
  const lines=[],skipped=[];
- (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)&&finCurrency(o)==='CAD').forEach(o=>{
-  const billed=finBillingDate(o);if(!billed)return;
-  const f=finOrderFinancial(o);if(f.b.total==null){skipped.push(o);return;}
-  lines.push({date:billed,sort:0,doc:o.businessNumber,kind:'order',text:'Order'+(o.customerPo?' · '+(/^po/i.test(o.customerPo)?'':'PO ')+o.customerPo:'')+(f.dueOn?' · due '+finShortDate(f.dueOn,'0000'):''),charge:f.b.total,payment:0,overdue:f.overdue>0});
- });
- finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)==='CAD').forEach(r=>lines.push({date:r.date,sort:1,doc:r.number,kind:'payment',
-  text:'Payment · '+finMethodLabel(r.method)+(r.reference?' '+r.reference:'')+(r.allocations.length?' · '+r.allocations.map(a=>finOrderNumber(a.orderId)).join(', '):''),charge:0,payment:r.amount}));
- (DB.refund||[]).filter(x=>x.customerId===customerId&&!x.voided&&x.currency==='CAD').forEach(x=>lines.push({date:x.date,sort:2,doc:x.number,kind:'refund',text:'Refund · '+finMethodLabel(x.method),charge:x.amount,payment:0}));
+ (DB.salesOrder||[]).forEach(o=>{if(o.customerId!==customerId)return;const l=finStatementOrderLine(o);if(l&&l.skipped)skipped.push(o);else if(l)lines.push(l);});
+ (DB.receipt||[]).forEach(r=>{if(r.customerId!==customerId)return;const l=finStatementPaymentLine(r);if(l)lines.push(l);});
+ (DB.refund||[]).forEach(x=>{if(x.customerId!==customerId)return;const l=finStatementRefundLine(x);if(l)lines.push(l);});
+ /* Ушедшие в архив — строки, снятые в день ухода (erp/archive). */
+ if(typeof archiveLedgerFor==='function')archiveLedgerFor(customerId).forEach(e=>{if(e.line)lines.push(e.line);else if(e.skipped)skipped.push({businessNumber:e.skipped});});
  lines.sort((a,b)=>a.date.localeCompare(b.date)||a.sort-b.sort||String(a.doc).localeCompare(String(b.doc)));
  return {lines,skipped};
+}
+/* Строка выписки по одной записи: заказ — начисление в день выдачи, оплата,
+   возврат. Та же строка снимается в указатель архива, когда запись уходит
+   (erp/archive). null — в выписку не входит; заказ без цены — skipped. */
+function finStatementOrderLine(o){
+ if(!finOrderCounts(o)||finCurrency(o)!=='CAD')return null;
+ const billed=finBillingDate(o);if(!billed)return null;
+ const f=finOrderFinancial(o);if(f.b.total==null)return {skipped:true};
+ return {date:billed,sort:0,doc:o.businessNumber,kind:'order',text:'Order'+(o.customerPo?' · '+(/^po/i.test(o.customerPo)?'':'PO ')+o.customerPo:'')+(f.dueOn?' · due '+finShortDate(f.dueOn,'0000'):''),charge:f.b.total,payment:0,overdue:f.overdue>0};
+}
+function finStatementPaymentLine(r){
+ if(r.voided||finCurrency(r)!=='CAD')return null;
+ return {date:r.date,sort:1,doc:r.number,kind:'payment',text:'Payment · '+finMethodLabel(r.method)+(r.reference?' '+r.reference:'')+(r.allocations.length?' · '+r.allocations.map(a=>finOrderNumber(a.orderId)).join(', '):''),charge:0,payment:r.amount};
+}
+function finStatementRefundLine(x){
+ if(x.voided||x.currency!=='CAD')return null;
+ return {date:x.date,sort:2,doc:x.number,kind:'refund',text:'Refund · '+finMethodLabel(x.method),charge:x.amount,payment:0};
 }
 function finStatementData(customerId,from,to){
  const {lines,skipped}=finStatementLines(customerId);
@@ -14153,14 +14174,20 @@ function comOrders(ref,range){
  const key=ref.id+'|'+JSON.stringify(ref.customers)+'|'+(range?range.from+'|'+range.to:'all');
  if(comScope&&comScope.orders.has(key))return comScope.orders.get(key);
  const pct=new Map(ref.customers.map(c=>[c.customerId,c])),by=new Map();
- finActiveReceipts().forEach(r=>{
+ /* Ушедшие в архив (erp/archive): их оплаты и заказы — строками указателя
+    архива; комиссия агента заказ в работе не держит (владелец, 22.10.2026). */
+ const old=new Map(),pays=finActiveReceipts().slice();
+ if(typeof archiveLedgerFor==='function')ref.customers.forEach(c=>archiveLedgerFor(c.customerId).forEach(e=>{
+  if(e.com)old.set(e.id,{id:e.id,businessNumber:e.com.number,customerId:e.customerId,createdAt:e.com.created,archived:true,t:e.com.t});
+  else if(e.alloc)pays.push({date:e.date,allocations:e.alloc});}));
+ pays.forEach(r=>{
   if(range&&(r.date<range.from||r.date>range.to))return;
-  r.allocations.forEach(a=>{const o=salesRecord(a.orderId);if(!o||!pct.has(o.customerId))return;
+  r.allocations.forEach(a=>{const o=salesRecord(a.orderId)||old.get(a.orderId);if(!o||!pct.has(o.customerId))return;
    const x=by.get(o.id)||{o,paid:0,payments:0,byPct:new Map()},p=comPctOn(pct.get(o.customerId),r.date);
    x.paid+=a.amount;x.payments++;x.byPct.set(p,(x.byPct.get(p)||0)+a.amount);by.set(o.id,x);});
  });
  const out=[...by.values()].map(x=>{
-  const t=comTotals(x.o),share=comNoHstShare(t),paid=finMoney(x.paid),base=finMoney(paid*share),ps=[...x.byPct.keys()].sort((a,b)=>a-b);
+  const t=x.o.archived?x.o.t:comTotals(x.o),share=comNoHstShare(t),paid=finMoney(x.paid),base=finMoney(paid*share),ps=[...x.byPct.keys()].sort((a,b)=>a-b);
   /* Каждая оплата — по своему проценту; один процент — как прежде. */
   const com=finMoney([...x.byPct].reduce((n,[p,v])=>n+finMoney(finMoney(v)*share)*p/100,0)),comHst=finMoney([...x.byPct].reduce((n,[p,v])=>n+finMoney(v)*p/100,0));
   return {o:x.o,customerId:x.o.customerId,number:x.o.businessNumber,date:salesListIsoDay(x.o.createdAt),total:t&&t.complete?t.grand:null,paid,base,payments:x.payments,pct:ps.join(' · '),com,comHst};
@@ -14174,7 +14201,7 @@ function comOrders(ref,range){
 function comDue(ref){
  const paid=new Map();(DB.referrerPayout||[]).filter(p=>p.referrerId===ref.id).forEach(p=>p.orders.forEach(x=>paid.set(x.orderId,finMoney((paid.get(x.orderId)||0)+x.amount))));
  const m=new Map(comOrders(ref,null).map(x=>[x.o.id,{orderId:x.o.id,o:x.o,number:x.number,customerId:x.customerId,com:x.com,paidOut:paid.get(x.o.id)||0}]));
- paid.forEach((v,id)=>{if(!m.has(id)){const o=salesRecord(id);m.set(id,{orderId:id,o,number:o?o.businessNumber:'Deleted order',customerId:o?o.customerId:'',com:0,paidOut:v});}});
+ paid.forEach((v,id)=>{if(!m.has(id)){const o=salesRecord(id),a=!o&&typeof archiveKnown==='function'?archiveKnown(id):null;m.set(id,{orderId:id,o:o||(a?{id,businessNumber:a.number,customerId:a.customerId,archived:true}:null),number:o?o.businessNumber:a?a.number:'Deleted order',customerId:o?o.customerId:a?a.customerId:'',com:0,paidOut:v});}});
  m.forEach(x=>{x.due=finMoney(x.com-x.paidOut);});
  return m;
 }
@@ -15815,21 +15842,24 @@ function customerChanged(){
  return cEdit==='new'?!!(cDraft.legalName||cDraft.displayName||cDraft.code||(cDraft.contacts||[]).length):!!saved&&JSON.stringify(normalizeCustomer(JSON.parse(JSON.stringify(cDraft))))!==JSON.stringify(saved);
 }
 function customerLeave(go){if(!customerChanged()||confirm('Discard unsaved customer changes?'))go();}
-/* Заказы клиента: те же номер, статус и суммы, что в списке Sales. */
+/* Заказы клиента: те же номер, статус и суммы, что в списке Sales; ушедшие
+   в архив — тут же, с серой меткой Archived (erp/archive). */
 function customerOrdersTab(){
- const id=cEdit,list=(DB.salesOrder||[]).filter(o=>o.customerId===id&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id))
-  .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
- const row=o=>{const i=salesListInfo(o),v=k=>salesListValue(i,k),total=v('total'),bal=v('balance');
-  return `<tr data-customer-order="${esc(o.id)}" onclick="customerOpenOrder('${esc(o.id)}')"><td class="mono"><b>${esc(v('number')||'—')}</b></td><td>${esc(v('type'))}</td><td>${esc(v('status')||'')}</td><td>${esc(salesListShortDay(v('created'))||'—')}</td><td>${v('due')?esc(salesListShortDay(v('due'))):'<span class="mut">—</span>'}</td><td class="n">${total==null?'<span class="mut">—</span>':esc(finFmt(total))}</td><td class="n">${bal==null?'<span class="mut">—</span>':`<span class="${bal>0?'fin-due':''}">${esc(finFmt(bal))}</span>`}</td></tr>`;};
+ const id=cEdit,old=typeof archiveListInfos==='function'?archiveListInfos(a=>a.customerId===id):[];
+ const list=(DB.salesOrder||[]).filter(o=>o.customerId===id&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)).map(salesListInfo).concat(old)
+  .sort((a,b)=>String(b.o.createdAt||'').localeCompare(String(a.o.createdAt||'')));
+ const row=i=>{const o=i.o,v=k=>salesListValue(i,k),total=v('total'),bal=v('balance');
+  return `<tr data-customer-order="${esc(o.id)}"${i.a?' class="sl-row-archived"':''} onclick="${i.a?'customerOpenArchived':'customerOpenOrder'}('${esc(o.id)}')"><td class="mono"><b>${esc(v('number')||'—')}</b></td><td>${esc(v('type'))}</td><td>${esc(v('status')||'')}${i.a?' <span class="pill archived" data-archived>Archived</span>':''}</td><td>${esc(salesListShortDay(v('created'))||'—')}</td><td>${v('due')?esc(salesListShortDay(v('due'))):'<span class="mut">—</span>'}</td><td class="n">${total==null?'<span class="mut">—</span>':esc(finFmt(total))}</td><td class="n">${bal==null?'<span class="mut">—</span>':`<span class="${bal>0?'fin-due':''}">${esc(finFmt(bal))}</span>`}</td></tr>`;};
  return `<div class="section-title"><div><h3>Orders</h3><div class="sub">${list.length?customerOrdersCount(list)+' · newest first':'No quotes or orders yet'}</div></div><div class="row"><button class="pri" data-customer-new-order onclick="customerNewOrder('order')">+ New order</button><button data-customer-new-quote onclick="customerNewOrder('quote')">+ New quote</button></div></div>
   ${list.length?`<div class="sales-table-wrap"><table class="sl-table cust-orders"><thead><tr><th>Number</th><th>Type</th><th>Status</th><th>Created</th><th>Due</th><th class="n">Total</th><th class="n">Balance</th></tr></thead><tbody>${list.map(row).join('')}</tbody></table></div>`:''}`;
 }
-function customerOrdersCount(list){const q=list.filter(salesIsQuote).length,o=list.length-q,n=(k,w)=>k+' '+w+(k===1?'':'s');return [o?n(o,'order'):'',q?n(q,'quote'):''].filter(Boolean).join(' · ');}
+function customerOrdersCount(list){const q=list.filter(i=>i.q).length,o=list.length-q,n=(k,w)=>k+' '+w+(k===1?'':'s');return [o?n(o,'order'):'',q?n(q,'quote'):''].filter(Boolean).join(' · ');}
 function customerToSales(go){
  customerLeave(()=>{cEdit=null;cDraft=null;cMenu=null;tab='sales';subtab=null;
   if(typeof soDraft!=='undefined'&&soDraft&&typeof salesLeaveDraft==='function')salesLeaveDraft(go);else go();});
 }
 function customerOpenOrder(id){customerToSales(()=>salesOrderEdit(id));}
+function customerOpenArchived(id){customerToSales(()=>{archiveOpen(id);});}
 function customerNewOrder(kind){const id=cEdit;customerToSales(()=>{salesOrderNew(kind==='quote'?'quote':'order');salesApplyCustomerDefaults(id);render();});}
 
 /* Дубль при создании (владелец, 3 октября 2026): похожее название (без
@@ -15933,6 +15963,8 @@ function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesD
    без стекла бывает — владелец, 05.10.2026). */
 function salesDraftHasWork(){
  if(!soDraft)return false;
+ /* Заказ из архива на просмотре — сохранять нечего (erp/archive). */
+ if(typeof archiveViewing==='function'&&archiveViewing(soDraft))return false;
  if(soQuoteCopyOf){const src=DB.salesOrder.find(x=>x.id===soQuoteCopyOf);return !src||salesQuoteContentKey(soDraft)!==salesQuoteContentKey(src);}
  if(soEdit==='new')return soDraft.lines.length>1||soDraft.lines.some(l=>!salesOrderLineIsBlank(l))||!!(soDraft.extraItems||[]).length||!!salesString(soDraft.customerPo)||!!salesString(soDraft.notes);
  const saved=DB.salesOrder.find(x=>x.id===soEdit);
@@ -15996,6 +16028,8 @@ function salesDraftDrop(discard){
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
  salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
  if(salesPruneOrphanShapes()||restored)touch();
+ /* Заказ из архива на просмотре — его записи уходят из DB (erp/archive). */
+ if(typeof archiveVisitEnd==='function')archiveVisitEnd();
 }
 /* Уход из заказа (владелец, 27.09.2026). Новый не сохранён — «сохранить?»:
    Don't save — заказа нет. Сохранённый изменён — «обновить?»: Don't update —
@@ -21092,8 +21126,12 @@ function finPeriodText(from,to){
 function finStatementOrders(customerId,from,to,today){
  const inPeriod=d=>!!d&&(!from||d>=from)&&(!to||d<=to);
  const paidIn=new Set(finActiveReceipts().filter(r=>r.customerId===customerId&&inPeriod(r.date)).flatMap(r=>r.allocations.map(a=>a.orderId)));
+ /* Ушедшие в архив (erp/archive) — оплачены целиком: в выписке, если выданы
+    или оплачены в этом периоде. */
+ const old=typeof archiveLedgerFor==='function'?archiveLedgerFor(customerId).filter(e=>e.order&&(inPeriod(e.order.billed)||paidIn.has(e.id)||e.order.paidOn.some(inPeriod)))
+  .map(e=>({o:{id:e.id,businessNumber:e.order.number,customerPo:e.order.po},f:e.order.f,billed:e.order.billed,archived:true})):[];
  return (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)&&finCurrency(o)==='CAD').map(o=>({o,f:finOrderFinancial(o,today),billed:finBillingDate(o)}))
-  .filter(x=>x.f.b.total!=null&&(x.f.b.status==='review'||x.f.b.balance>0||paidIn.has(x.o.id)||inPeriod(x.billed)||!x.billed&&x.f.b.paid>0))
+  .filter(x=>x.f.b.total!=null&&(x.f.b.status==='review'||x.f.b.balance>0||paidIn.has(x.o.id)||inPeriod(x.billed)||!x.billed&&x.f.b.paid>0)).concat(old)
   .sort((a,b)=>(a.billed||'9999').localeCompare(b.billed||'9999')||String(a.o.businessNumber).localeCompare(String(b.o.businessNumber)));
 }
 /* Выписка за период — клиенту раз в месяц для его учёта: какие заказы и на
@@ -21175,9 +21213,11 @@ function salesOrdersPane(){return soEdit!==null?salesOrderEditor():salesOrderLis
 function salesOrderList(){return salesListView();}
 function salesCustomerOptions(){const rows=(DB.customer||[]).filter(c=>c.status!=='archived');return `<option value="">— select Customer —</option>`+rows.map(c=>`<option data-raw value="${esc(c.id)}" ${soDraft.customerId===c.id?'selected':''}>${esc(c.code||'')} · ${esc(c.displayName||c.legalName)}</option>`).join('');}
 function salesOrderEditor(){
- const o=soDraft,c=salesFindCustomer(o.customerId),title=salesOrderTitle(o),ro=salesOrderReadOnly(o),q=salesIsQuote(o),fromQuote=o.fromQuoteId?((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber:'',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
- return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(q?salesQuoteShown(o):o)}${!q&&o.onHold?'<span class="pill hold" data-hold-pill>On Hold</span>':''}${customerFlags}</div><div class="mut mono">${esc(q?salesQuoteShown(o).id:o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}${(e=>e&&e.by?`<span data-created-by> · Created by ${esc(e.by)} · ${esc(salesListShortDay(salesListIsoDay(e.at)))}</span>`:'')(orderCreatedBy(q?salesQuoteShown(o).id:o.id))}</div></div>${q?'':salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
- ${salesHoldBar(o)}${shippingOrderStrip(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro?'<div class="sales-readonly" inert>':''}
+ /* Заказ из архива (erp/archive): закрыто всё, кроме кнопок шапки — его
+    записи на экране только на время просмотра. */
+ const o=soDraft,c=salesFindCustomer(o.customerId),title=salesOrderTitle(o),ro=salesOrderReadOnly(o),av=typeof archiveViewing==='function'&&archiveViewing(o),q=salesIsQuote(o),fromQuote=o.fromQuoteId?((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber:'',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
+ return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(q?salesQuoteShown(o):o)}${!q&&o.onHold?'<span class="pill hold" data-hold-pill>On Hold</span>':''}${customerFlags}</div><div class="mut mono">${esc(q?salesQuoteShown(o).id:o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}${(e=>e&&e.by?`<span data-created-by> · Created by ${esc(e.by)} · ${esc(salesListShortDay(salesListIsoDay(e.at)))}</span>`:'')(orderCreatedBy(q?salesQuoteShown(o).id:o.id))}</div></div>${q?'':av?`<div inert>${salesPaymentStrip(o)}</div>`:salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
+ ${av?'<div class="sales-readonly" inert>':''}${salesHoldBar(o)}${shippingOrderStrip(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro&&!av?'<div class="sales-readonly" inert>':''}
  <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" onchange="soDraft.validUntil=this.value;render()"></div>`:''}</div>
  ${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
  ${salesGlassSectionHTML()}
@@ -27486,12 +27526,18 @@ function finPeriodError(p){return p.from&&!finDateValid(p.from)||p.to&&!finDateV
 function finPreviewPages(){
  const p=finPreview;if(!p)return [];
  if(p.kind==='receipt')return finReceiptDoc(p.id);
- if(p.kind==='statement')return finPeriodError(p)?[]:finStatementDoc(p.id,p.from,p.to);
+ if(p.kind==='statement'){
+  if(finPeriodError(p))return [];
+  const pages=finStatementDoc(p.id,p.from,p.to);if(!p.invoices)return pages;
+  const key=p.id+'|'+p.from+'|'+p.to;if(p.invoiceKey!==key){p.invoiceKey=key;p.invoicePages=null;setTimeout(()=>finStatementInvoiceBuild(p,key),0);}
+  /* Пока счета собираются, Print и Email PDF ждут — иначе ушла бы одна выписка. */
+  return p.invoicePages?pages.concat(p.invoicePages):[];
+ }
  if(p.kind==='balances')return finBalancesDoc(finAccountsList(),[finAccountAll?'All customers':'Open accounts',finListDescription()].filter(Boolean).join(' · '));
  return finScheduleDoc(finDueFiltered(),finListDescription()||'All unpaid');
 }
-function finStatementMail(id,from,to){
- const d=finStatementData(id,from,to),lines=['Please find attached your statement for '+finPeriodText(from,to)+'.',''];
+function finStatementMail(id,from,to,invoices){
+ const d=finStatementData(id,from,to),lines=['Please find attached your statement for '+finPeriodText(from,to)+(invoices?' and '+invoices+' invoice'+(invoices===1?'':'s')+' for the period':'')+'.',''];
  lines.push('Orders billed: '+docMoney(d.billed)+'.','Payments received: '+docMoney(d.paid)+'.');
  lines.push(d.closing>=0?'Balance due: '+docMoney(d.closing)+'.':'Credit balance: '+docMoney(-d.closing)+'.');
  if(d.overdue>0)lines.push('Overdue now: '+docMoney(d.overdue)+'.');
@@ -27502,14 +27548,26 @@ function finPreviewInfo(){
  if(p.kind==='receipt'){const r=DB.receipt.find(x=>x.id===p.id)||{},c=salesFindCustomer(r.customerId);return {title:'Receipt '+(r.number||''),c,file:'Receipt_'+(r.number||''),subject:['Payment receipt '+(r.number||''),company].filter(Boolean).join(' · '),
   body:'Thank you for your payment of '+docMoney(r.amount)+' received on '+docDate(r.date)+'. Receipt '+r.number+' is attached.'};}
  if(p.kind==='statement'){const c=salesFindCustomer(p.id);return {title:'Statement · '+finCustomerName(c),c,mail:'statement',file:'Statement_'+((c&&c.code)||'account')+'_'+(p.from||'start')+'_'+(p.to||finToday()),subject:['Statement '+finPeriodText(p.from,p.to),company].filter(Boolean).join(' · '),
-  body:finStatementMail(p.id,p.from,p.to)};}
+  body:finStatementMail(p.id,p.from,p.to,p.invoices&&p.invoicePages?p.invoiceCount:0)};}
  if(p.kind==='balances')return {title:'Customer balances',c:null,file:'Customer_balances_'+finToday()};
  return {title:'Payments due',c:null,file:'Payments_due_'+finToday()};
 }
 function finStatementControls(p){
  const err=finPeriodError(p),skipped=err?[]:finStatementData(p.id,p.from,p.to).skipped;
- return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>
- ${err?`<p role="alert" class="fin-due fin-preview-note">${esc(err)}</p>`:''}${skipped.length?`<p class="fin-hint fin-preview-note">Not priced, left out: ${esc(skipped.map(o=>o.businessNumber).join(', '))}</p>`:''}`;
+ return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<label class="chk fin-statement-invoices" title="Invoices for the period after the statement"><input type="checkbox" data-statement-invoices ${p.invoices?'checked':''} onchange="finStatementInvoices(this.checked)"> Invoices</label><span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>
+ ${err?`<p role="alert" class="fin-due fin-preview-note">${esc(err)}</p>`:''}${skipped.length?`<p class="fin-hint fin-preview-note">Not priced, left out: ${esc(skipped.map(o=>o.businessNumber).join(', '))}</p>`:''}${p.invoices&&!err?`<p class="fin-hint fin-preview-note" data-statement-invoices-note>${p.invoicePages?p.invoiceCount?p.invoiceCount+' invoice'+(p.invoiceCount===1?'':'s')+' after the statement':'No invoices in this period':'Preparing invoices…'}</p>`:''}`;
+}
+/* Счета за период к выписке (владелец, 22.10.2026: «выслать клиенту все
+   инвойсы, информацию за год»): Invoice каждого заказа, выданного в
+   периоде, — после выписки, одним PDF. Ушедшие в архив читаются с диска на
+   время сборки (archiveWith). */
+function finStatementInvoices(on){const p=finPreview;if(!p)return;p.invoices=!!on;p.status='';render();}
+async function finStatementInvoiceBuild(p,key){
+ const inPeriod=d=>!!d&&(!p.from||d>=p.from)&&(!p.to||d<=p.to),list=finStatementOrders(p.id,p.from,p.to).filter(x=>inPeriod(x.billed)),old=list.filter(x=>x.archived).map(x=>x.o.id);
+ const build=()=>list.flatMap(x=>{const o=salesRecord(x.o.id);return o?finWithOrder(o,()=>docLayout(docBuildModel('invoice',o,docDefaultOptions('invoice')))):[];});
+ let pages=[];try{pages=old.length&&typeof archiveWith==='function'?await archiveWith(old,build):build();}catch(e){if(finPreview===p)p.status='Invoices could not be prepared: '+(e&&e.message||e);}
+ if(finPreview!==p||p.invoiceKey!==key)return;
+ p.invoicePages=pages;p.invoiceCount=list.length;render();
 }
 function finStatementExport(){const p=finPreview;if(!p||finPeriodError(p))return;const c=salesFindCustomer(p.id);customerDownload('Statement_'+((c&&c.code)||'account').replace(/[^A-Za-z0-9-]+/g,'_')+'_'+(p.from||'start')+'_'+(p.to||finToday())+'.csv',finStatementCSV(p.id,p.from,p.to),'text/csv;charset=utf-8');}
 function finPreviewHTML(){
@@ -27575,7 +27633,7 @@ function finStatementsHTML(){
 /* Выписке нужен закрытый период, поэтому быстрые кнопки — месяцы; вид и
    поведение — как блок Created в Sales. */
 let finRangeMenu=null;
-const FIN_STATEMENT_RANGE=[['lastMonth','Last month'],['thisMonth','This month'],['thisYear','This year']];
+const FIN_STATEMENT_RANGE=[['lastMonth','Last month'],['thisMonth','This month'],['thisYear','This year'],['lastYear','Last year']];
 function finRangeState(target){return target==='statements'?finStatements:finPreview;}
 function finRangeLabel(s){const k=FIN_STATEMENT_RANGE.find(x=>{const r=salesListPresetRange(x[0]);return r&&r[0]===s.from&&r[1]===s.to;});return k?k[1]:s.from&&s.to?salesListShortDay(s.from)+' – '+salesListShortDay(s.to):'Choose dates';}
 function finRangeButton(target){const s=finRangeState(target);return s?`<button type="button" class="sl-quiet sl-date-toggle" data-period="${target}" aria-haspopup="dialog" onclick="finRangeOpen(event,'${target}')">Period: ${esc(finRangeLabel(s))}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`:'';}
@@ -27887,7 +27945,7 @@ function viewCommissionsIn(){
 /* Заказы человека: начислено за период; «Paid out» и «Due» — за всё время
    по заказу. Выплата — галочками по заказам с долгом, сумма считается сама. */
 function comDetailHTML(r,range){
- const s=comSummary(r,range),due=comDue(r),money=v=>v?finFmt(v):'<span class="mut">—</span>',open=o=>!o?'<span class="mut">Deleted order</span>':`<button type="button" class="fin-link mono" onclick="event.stopPropagation();salesLeaveDraft(()=>{tab='sales';salesOrderEdit('${esc(o.id)}')})">${esc(o.businessNumber)}</button>`;
+ const s=comSummary(r,range),due=comDue(r),money=v=>v?finFmt(v):'<span class="mut">—</span>',open=o=>!o?'<span class="mut">Deleted order</span>':`<button type="button" class="fin-link mono" onclick="event.stopPropagation();salesLeaveDraft(()=>{tab='sales';${o.archived?'archiveOpen':'salesOrderEdit'}('${esc(o.id)}')})">${esc(o.businessNumber)}</button>${o.archived?' <span class="pill archived" data-archived>Archived</span>':''}`;
  const dueCell=id=>{const d=due.get(id);return `<td class="n">${money(d&&d.paidOut)}</td><td class="n"><b class="${d&&d.due>0?'fin-due':''}" data-com-due>${d?finFmt(d.due):'—'}</b></td>`;};
  const rows=s.rows.map(x=>`<tr data-com-order="${esc(x.number)}"><td>${open(x.o)}</td><td data-raw>${esc(comCustomerName(x.customerId))}</td><td>${esc(salesListShortDay(x.date))}</td><td class="n">${money(x.total)}</td><td class="n">${money(x.base)}</td><td class="n">${x.pct}%</td><td class="n"><b>${money(x.com)}</b></td>${comHst?`<td class="n">${money(x.paid)}</td><td class="n">${money(x.comHst)}</td>`:''}${dueCell(x.o.id)}</tr>`).join('');
  const pays=(DB.referrerPayout||[]).filter(p=>p.referrerId===r.id).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt));
@@ -27902,7 +27960,7 @@ function comDetailHTML(r,range){
   <div class="fin-strip"><div><small>Orders</small><b>${s.orders}</b></div><div><small>Paid · no HST</small><b>${finFmt(s.base)}</b></div><div><small>Commission</small><b>${finFmt(s.com)}</b></div><div><small>Paid out · all time</small><b>${finFmt(s.paidOut)}</b></div><div><small>To pay</small><b class="${s.toPay>0?'fin-due':''}" data-com-topay>${finFmt(s.toPay)}</b></div></div>
   ${payForm}
   <div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Order</th><th>Customer</th><th>Date</th><th class="n">Order total</th><th class="n">Paid · no HST</th><th class="n">%</th><th class="n">Commission</th>${comHst?'<th class="n">Paid with HST</th><th class="n">Commission with HST</th>':''}<th class="n" title="All time">Paid out</th><th class="n" title="All time: commission − paid out">Due</th></tr></thead><tbody>${rows||`<tr><td colspan="${comHst?11:9}" class="empty">No payments in this period.</td></tr>`}</tbody></table></div>
-  ${pays.length?`<h4>Payouts</h4><div class="sales-table-wrap"><table class="sl-table" data-com-payouts><thead><tr><th>Date</th><th class="n">Amount</th><th>Orders</th><th>Note</th><th></th></tr></thead><tbody>${pays.map(p=>`<tr><td>${esc(salesListShortDay(p.date))}</td><td class="n">${finFmt(p.amount)}</td><td class="mono">${esc(p.orders.map(x=>{const o=salesRecord(x.orderId);return (o?o.businessNumber:'?')+' '+finFmt(x.amount);}).join(' · '))}</td><td data-raw>${esc(p.note)}</td><td class="sales-row-actions"><button type="button" class="sm dl" title="Delete payout — its orders are due again" onclick="comPayDelete('${esc(p.id)}')">×</button></td></tr>`).join('')}</tbody></table></div>`:''}</div>`;
+  ${pays.length?`<h4>Payouts</h4><div class="sales-table-wrap"><table class="sl-table" data-com-payouts><thead><tr><th>Date</th><th class="n">Amount</th><th>Orders</th><th>Note</th><th></th></tr></thead><tbody>${pays.map(p=>`<tr><td>${esc(salesListShortDay(p.date))}</td><td class="n">${finFmt(p.amount)}</td><td class="mono">${esc(p.orders.map(x=>{const o=salesRecord(x.orderId)||(typeof archiveKnown==='function'?{businessNumber:(archiveKnown(x.orderId)||{}).number}:null);return (o&&o.businessNumber?o.businessNumber:'?')+' '+finFmt(x.amount);}).join(' · '))}</td><td data-raw>${esc(p.note)}</td><td class="sales-row-actions"><button type="button" class="sm dl" title="Delete payout — its orders are due again" onclick="comPayDelete('${esc(p.id)}')">×</button></td></tr>`).join('')}</tbody></table></div>`:''}</div>`;
 }
 function comFormHTML(){
  const d=comDraft,taken=new Map((DB.referrer||[]).filter(r=>r.id!==d.id).flatMap(r=>r.customers.map(c=>[c.customerId,r.name])));
@@ -28780,6 +28838,7 @@ function salesListPresetRange(key){
   case 'thisMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth(),1)),salesListDay(new Date(d.getFullYear(),d.getMonth()+1,0))];
   case 'lastMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth()-1,1)),salesListDay(new Date(d.getFullYear(),d.getMonth(),0))];
   case 'thisYear':return [d.getFullYear()+'-01-01',d.getFullYear()+'-12-31'];
+  case 'lastYear':return [(d.getFullYear()-1)+'-01-01',(d.getFullYear()-1)+'-12-31'];
   /* Без нижней границы: пустое From в блоке дат, а сравнение строк '' <= любой дате. */
   case 'overdue':return ['',salesListDay(add(d,-1))];
   case 'next7':case 'next30':return [salesListDay(d),salesListDay(add(d,Number(key.slice(4))))];
@@ -28799,6 +28858,8 @@ function salesListGlass(o){
 function salesListInfo(o){return {o,q:salesIsQuote(o),c:salesFindCustomer(o.customerId)||{},memo:{}};}
 function salesListValue(info,k){
  if(Object.prototype.hasOwnProperty.call(info.memo,k))return info.memo[k];
+ /* Заказ в архиве — значения из строки, снятой в день ухода (erp/archive). */
+ if(info.a)return archiveListValue(info,k);
  const o=info.o,q=info.q,c=info.c,lines=o.lines||[];let v=null;
  switch(k){
   case 'readyQty':{const r=shippingSummary(o);v=r.physicalReady+' / '+r.glass;break;}
@@ -28830,7 +28891,8 @@ function salesListValue(info,k){
   case 'shapes':v=lines.filter(salesListShapedLine).length;break;
   case 'validUntil':v=q?(o.validUntil||''):'';break;
   case 'revisions':v=q?salesQuoteMembers(o).length:null;break;
-  case 'fromQuote':v=o.fromQuoteId?(((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber||''):'';break;
+  /* Квота ушла в архив вместе с заказом — номер из указателя архива. */
+  case 'fromQuote':{const f=o.fromQuoteId?(DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId):null,a=o.fromQuoteId&&!f&&typeof archiveKnown==='function'?archiveKnown(o.fromQuoteId):null;v=f?f.businessNumber||'':a?a.number||'':'';break;}
   case 'updated':v=salesListIsoDay(o.updatedAt);break;
  }
  info.memo[k]=v;return v;
@@ -28905,9 +28967,12 @@ function salesListBase(){
  if(salesListScope().startsWith('prod')&&typeof prodListInfos==='function'){const infos=prodListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope()!=='sales'){const infos=optimizationBase();return {all:infos.map(i=>i.o),infos};}
  const all=salesListVisible(),ncrs=salesShow.ncr&&typeof ncrListInfos==='function'?ncrListInfos():[];
+ /* Ушедшие в архив — вместе с живыми: за любой период, в фильтрах и итогах. */
+ const old=typeof archiveListInfos==='function'?archiveListInfos(a=>salesShow[a.kind==='quote'?'quotes':'orders']):[];
  const infos=all.filter(o=>!salesStatusFilter||salesStatusFilter===salesKindOf(o)+':'+salesListStatus(o)).map(salesListInfo)
+  .concat(old.filter(i=>!salesStatusFilter||salesStatusFilter===i.o.kind+':'+i.o.status))
   .concat(ncrs.filter(i=>!salesStatusFilter||salesStatusFilter==='ncr:'+i.o.ncrStatus.toLowerCase()));
- return {all:all.concat(ncrs.map(i=>i.o)),infos};
+ return {all:all.concat(old.map(i=>i.o),ncrs.map(i=>i.o)),infos};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
 function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(tab==='inventory'&&typeof invListDefaultSort==='function')return invListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
@@ -29013,7 +29078,7 @@ function salesListCell(info,col){
 function salesListFooter(rows,cols){
  const orders=rows.filter(r=>!r.q&&!r.n),quotes=rows.filter(r=>r.q),ncrs=rows.filter(r=>r.n);
  const tally=(list,fn)=>{const m={};list.forEach(r=>{const s=fn(r);m[s]=(m[s]||0)+1;});return Object.keys(m).map(k=>k+' '+m[k]).join(' · ');};
- const detail=[tally(orders,r=>salesStatusLabel(r.o)),quotes.length?'Quotes: '+tally(quotes,r=>salesStatusLabel(r.o,salesListStatus(r.o))):'',ncrs.length?'NCR: '+tally(ncrs,r=>r.memo.status):''].filter(Boolean).join(' · ');
+ const detail=[tally(orders,r=>r.a?salesListValue(r,'status'):salesStatusLabel(r.o)),quotes.length?'Quotes: '+tally(quotes,r=>salesStatusLabel(r.o,salesListStatus(r.o))):'',ncrs.length?'NCR: '+tally(ncrs,r=>r.memo.status):''].filter(Boolean).join(' · ');
  /* В очередях (Optimization, Shipping) квот не бывает — квоты считают и
     мешают в Sales (владелец, 7.10.2026): только «N orders». */
  const queue=salesListScope()!=='sales';
@@ -29039,10 +29104,11 @@ function salesListView(){
     (views/sales-cut-estimate). */
  const estN=typeof salesCutEstimateIds==='function'?salesCutEstimateIds().length:0;
  const estBtn=typeof salesCutEstimateOpen==='function'?`<button type="button" class="sl-quiet sl-est-btn" data-cut-est-open title="Cut preview${estN?' · '+estN+' selected':': select orders or quotes'}" aria-label="Cut preview" ${estN?'':'disabled'} onclick="salesCutEstimateOpen(salesCutEstimateIds())">${ico('cut')}${estN?`<b>${estN}</b>`:''}</button>`:'';
- const rowIds=rows.filter(r=>!r.n).map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
+ const rowIds=rows.filter(r=>!r.n&&!r.a).map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${c.label}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
  const body=rows.map(r=>{
   if(r.n)return ncrListRow(r,cols);
+  if(r.a)return archiveListRow(r,cols);
   const o=r.o,sel=salesListSel.has(o.id),cls=[!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
@@ -43501,12 +43567,13 @@ Object.assign(REP_SRC,{
    REP_F.num('amount','Amount',{money:true}),REP_F.num('applied','Applied to orders',{money:true}),REP_F.num('onAccount','On account',{money:true}),REP_F.num('orders','Orders paid')],
   metrics:[{k:'amount',label:'Amount',agg:'sum',f:'amount',money:true},{k:'count',label:'Receipts',agg:'count'},{k:'applied',label:'Applied to orders',agg:'sum',f:'applied',money:true},
    {k:'onAccount',label:'On account',agg:'sum',f:'onAccount',money:true},{k:'customers',label:'Customers',agg:'distinct',f:'customer'}]},
- balances:{label:'Balances & overdue',group:'Finance',access:'finance',hint:'What customers owe and how late',rows:()=>repBalanceFacts(),date:['due','billed'],
+ /* now — то, что есть сейчас, а не события: архив (erp/archive) им не нужен. */
+ balances:{label:'Balances & overdue',group:'Finance',access:'finance',now:true,hint:'What customers owe and how late',rows:()=>repBalanceFacts(),date:['due','billed'],
   fields:()=>[REP_F.date('due','Payment due'),REP_F.date('billed','Billed'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('status','Status')]
    .concat(repOrderFields(),[REP_F.num('total','Order total',{money:true}),REP_F.num('paid','Paid',{money:true}),REP_F.num('balance','Balance',{money:true}),REP_F.num('overdue','Overdue',{money:true}),REP_F.num('daysOverdue','Days overdue')]),
   metrics:[{k:'balance',label:'Balance',agg:'sum',f:'balance',money:true},{k:'overdue',label:'Overdue',agg:'sum',f:'overdue',money:true},{k:'overdueN',label:'Overdue orders',agg:'sum',f:'overdueN'},
    {k:'count',label:'Orders',agg:'count'},{k:'paid',label:'Paid',agg:'sum',f:'paid',money:true},{k:'total',label:'Order total',agg:'sum',f:'total',money:true}]},
- offcuts:{label:'Offcuts in stock',group:'Production',hint:'Sheet offcuts kept, used, removed',rows:()=>repOffcutFacts(),date:['at'],
+ offcuts:{label:'Offcuts in stock',group:'Production',now:true,hint:'Sheet offcuts kept, used, removed',rows:()=>repOffcutFacts(),date:['at'],
   fields:()=>[REP_F.date('at','Booked'),REP_F.text('offcut','Offcut'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('maker','Manufacturer',r=>r.maker||'—'),
    REP_F.dim('size','Size'),REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.dim('status','Status'),REP_F.num('area','Area ft²',{digits:1})],
   metrics:[{k:'count',label:'Offcuts',agg:'count'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1}]}
@@ -44516,6 +44583,16 @@ function repScreenHTML(r,ctx){
 /* Вкладки экрана: «Now» — встроенный экран, дальше — назначенные отчёты. */
 function repScreenTabs(reps,cur,setter){return `<div class="rep-screen-tabs tabs" data-rep-screen-tabs>${[['','Now']].concat(reps.map(r=>[r.id,r.name])).map(([id,n])=>`<button type="button" class="${id===cur?'on':''}" data-rep-screen-tab="${esc(id)}" onclick="${setter}(this.dataset.repScreenTab)">${esc(n)}</button>`).join('')}</div>`;}
 
+/* Период страницы для архива (erp/archive): от самого раннего до самого
+   позднего дня её графиков, со сравнением; «всё время» — без границы. */
+function repArchiveRange(r,p){
+ let from=null,to=null;
+ /* '' — без границы: шире любой даты. */
+ const widen=x=>{const a=x[0]||'',b=x[1]||'';from=from===null?a:from===''||a===''?'':a<from?a:from;to=to===null?b:to===''||b===''?'':b>to?b:to;};
+ p.widgets.forEach(w=>{const q=repWidgetQuery(r,w),S=REP_SRC[q.source];if(!S||S.now||!repDates(S).length)return;
+  const range=repRange(q.date)||['',''];widen(range);const c=repCompareRange(range,q.compare);if(c)widen(c);});
+ return from===null?null:[from,to];
+}
 /* ------------------------------ Экран ------------------------------ */
 function repMain(r){
  if(!r)return `<div class="card rep-empty" data-rep-empty><h3>Pick a report</h3><p class="mut">Choose one on the left, or start a new one. Every chart can be changed: data, type, dimensions, metrics, filters, period.</p><button type="button" class="pri" onclick="repNew()">+ New report</button></div>`;
@@ -44528,7 +44605,11 @@ function repMain(r){
   :`${repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-edit onclick="repEditToggle()">Edit</button>`:''}<button type="button" class="sm" data-rep-copy onclick="repCopyOpen()">Copy</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>`;
  const tabs=`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-page="${esc(x.id)}" onclick="repPageId=this.dataset.repPage;repSelW='';render()">${esc(x.name)}</button>`).join('')}${repEditOn?`<button type="button" onclick="repAddPage()">+ Page</button>`:''}</div>
   ${repEditOn?`<div class="rep-page-edit"><input type="text" value="${esc(p.name)}" aria-label="Page name" onchange="repRenamePage(this.value)"><button type="button" class="sm" title="Move page left" onclick="repMovePage(-1)">←</button><button type="button" class="sm" title="Move page right" onclick="repMovePage(1)">→</button>${r.pages.length>1?`<button type="button" class="sm dl" onclick="repDelPage()">Delete page</button>`:''}</div>`:''}`;
- const body=p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
+ /* Период захватывает ушедшие в архив заказы — сначала их записи с диска. */
+ const range=repArchiveRange(r,p),arch=range&&typeof archiveScopeFor==='function'?archiveScopeFor(range):'none';
+ if(!range&&typeof archiveScopeDrop==='function')archiveScopeDrop();
+ const wait=arch==='loading'?`Reading ${archiveScopeCount(range)} archived orders…`:arch==='big'?`This period reaches ${archiveScopeCount(range)} archived orders — too many at once. Pick a shorter period.`:'';
+ const body=wait?`<div class="card mut" data-rep-archive-wait>${esc(wait)}</div>`:p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
  return `<div class="card rep-head"><div class="rep-head-row">${head}<span class="sales-toolbar-sp"></span>${acts}</div>${!can&&!repEditOn?`<div class="mut small">${r.ownerId?'Shared with you':'Starter report'} · Copy to change it</div>`:''}${tabs}${repControls(r)}</div><div class="rep-ws">${body}</div>`;
 }
 function viewReports(){
@@ -44551,10 +44632,15 @@ function viewReports(){
    Сам уход пока выключен (ARCHIVE_ON): archiveRun вызывают проверки и
    инструменты. Включится, когда Sales, отчёты и Agents видят архив (А5),
    иначе экран молча показывал бы меньше, чем есть.
+   Sales и вкладка Orders клиента (А3) показывают ушедшие строки вместе с
+   живыми; клик — заказ с диска на том же экране, только просмотр и печать;
+   Repeat — новый заказ из него; NCR — возврат в работу.
    IN : DB, salesListValue, finOrderBalance, shippingHistoryOrderIds,
-        invSheetRows, invOffcutRows
+        invSheetRows, invOffcutRows, storageIdbColdOf, storageVisit
    OUT: archiveIndex, archiveDue(day), archiveCollect(ids), archiveRun(day),
-        archiveReturn(orderId), archiveIndexLoad / archiveIndexApply
+        archiveReturn(orderId), archiveIndexLoad / archiveIndexApply,
+        archiveListInfos, archiveOpen(id), archiveViewing(o), archiveRepeat,
+        archiveLedgerFor(customerId), archiveWith(owners,fn), archiveScopeFor(range)
    ===================================================================== */
 const ARCHIVE_ON=false,ARCHIVE_MONTHS=3;
 DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};
@@ -44564,8 +44650,41 @@ let archiveIndex=new Map(),archiveIncoming=null;
    работе, которые ссылаются на ушедший заказ (оплата на два заказа, батч,
    накладная), нормализация и проверка Import не считают битыми. */
 function archiveKnown(id){const m=archiveIncoming||archiveIndex;return id&&m.get(id)||null;}
-function archiveIndexLoad(rows){archiveIndex=new Map((rows||[]).map(r=>[r.id,r.row]));}
-function archiveIndexApply(pairs,clear){if(clear)archiveIndex=new Map();(pairs||[]).forEach(([id,row])=>{if(row)archiveIndex.set(id,row);else archiveIndex.delete(id);});}
+/* В том же складе archive — строки выписки ушедших записей (ключ
+   `L:<таблица>:<id>`): выписка клиента за любой период берёт их отсюда
+   (finStatementLines). В памяти — по клиенту. */
+let archiveLedgerBy=new Map(),archiveLedgerKeys=new Map();
+function archiveIndexLoad(rows){archiveIndex=new Map();archiveLedgerBy=new Map();archiveLedgerKeys=new Map();archiveIndexApply((rows||[]).map(r=>[r.id,r.row]));}
+function archiveIndexApply(pairs,clear){
+ if(clear){archiveIndex=new Map();archiveLedgerBy=new Map();archiveLedgerKeys=new Map();}
+ (pairs||[]).forEach(([id,row])=>{
+  if(!String(id).startsWith('L:')){if(row)archiveIndex.set(id,row);else archiveIndex.delete(id);return;}
+  const was=archiveLedgerKeys.get(id);if(was!=null){const m=archiveLedgerBy.get(was);if(m){m.delete(id);if(!m.size)archiveLedgerBy.delete(was);}archiveLedgerKeys.delete(id);}
+  if(!row)return;let m=archiveLedgerBy.get(row.customerId);if(!m)archiveLedgerBy.set(row.customerId,m=new Map());m.set(id,row);archiveLedgerKeys.set(id,row.customerId);
+ });
+}
+function archiveLedgerFor(customerId){const m=archiveLedgerBy.get(customerId);return m?[...m.values()]:[];}
+/* Строки записей, которые сейчас уходят, — как в день ухода. Заказ: для
+   Agents — номер, дата, сумма и HST (com); для выписки — начисление и
+   строка раздела Orders (оплачен целиком). Оплата: для Agents — дата и
+   разнесения (alloc); для выписки — строка. Возврат — строка выписки. */
+function archiveLedgerOf(set){
+ const out=[],paidOn=new Map();
+ finActiveReceipts().forEach(r=>(r.allocations||[]).forEach(a=>{let d=paidOn.get(a.orderId);if(!d)paidOn.set(a.orderId,d=[]);d.push(r.date);}));
+ set.forEach(x=>{
+  const r=x.row,key='L:'+x.tbl+':'+r.id;
+  if(x.tbl==='salesOrder'&&!salesIsQuote(r)){
+   const t=finOrderTotals(r),e={id:r.id,customerId:r.customerId,com:{number:r.businessNumber||'',created:r.createdAt||'',t:{grand:t.grand,hst:t.hst,complete:!!t.complete}}},l=finStatementOrderLine(r);
+   if(l&&l.skipped)e.skipped=r.businessNumber||'';
+   else if(l){const f=finOrderFinancial(r);e.line=l;e.order={number:r.businessNumber||'',po:r.customerPo||'',billed:l.date,paidOn:paidOn.get(r.id)||[],
+    f:{b:{total:f.b.total,paid:f.b.paid,balance:f.b.balance,status:f.b.status},overdue:0,dueOn:f.dueOn||'',terms:{paymentMode:f.terms.paymentMode,creditDays:f.terms.creditDays},handover:f.handover}};}
+   out.push([key,e]);
+  }
+  if(x.tbl==='receipt'&&!r.voided){const e={id:r.id,customerId:r.customerId,date:r.date,alloc:(r.allocations||[]).map(a=>({orderId:a.orderId,amount:a.amount}))},l=finStatementPaymentLine(r);if(l)e.line=l;out.push([key,e]);}
+  if(x.tbl==='refund'){const l=finStatementRefundLine(r);if(l)out.push([key,{id:r.id,customerId:r.customerId,line:l}]);}
+ });
+ return out;
+}
 
 /* Хранимые счётчики: наибольший номер, ушедший в архив, — номера «максимум
    + 1» не начнутся заново, когда старые заказы уйдут из работы. */
@@ -44663,7 +44782,8 @@ function archiveCollect(ids){
   const mine=ids.has(entity)||receipts.has(entity)||refunds.has(entity);if(!mine||orders.some(id=>live.has(id)))return;
   add('financeEvent',e,orders.length?orders:[entity]);
  });
- (DB.referrerPayout||[]).forEach(p=>{const orders=(p.orders||[]).map(x=>x.orderId);if(orders.length&&orders.some(id=>ids.has(id))&&!orders.some(id=>live.has(id)))add('referrerPayout',p,orders);});
+ /* Выплаты агентам остаются в работе: их мало, а «к выплате» считается по
+    ним за всё время (Agents, finance/commissions). */
  /* Журнал выгрузок QuickBooks — вместе со своей оплатой или заказом. */
  const exported=new Map();out.forEach(x=>{if(['salesOrder','receipt','refund'].includes(x.tbl))exported.set(x.row.id,x.owners);});
  (DB.financeExport||[]).forEach(e=>{if(e&&exported.has(e.entityId))add('financeExport',e,exported.get(e.entityId));});
@@ -44671,11 +44791,177 @@ function archiveCollect(ids){
 }
 
 /* Строка Sales на день ухода — все колонки списка (SALES_LIST_COLUMNS);
-   клиент — номером, имя Sales берёт живое. */
+   клиент — номером, имя Sales берёт живое. status — код (кнопки статусов
+   над списком), rep — квота, которая стоит в списке за свою группу, pay —
+   как Sales показывает Balance (Paid). */
 function archiveRowOf(o,day,now){
  const info=salesListInfo(o),row={};
  (typeof SALES_LIST_COLUMNS!=='undefined'?SALES_LIST_COLUMNS:[]).forEach(c=>{try{row[c.k]=salesListValue(info,c.k);}catch(e){row[c.k]=null;}});
- return {kind:salesIsQuote(o)?'quote':'order',customerId:o.customerId||'',currency:o.currency||'',number:o.businessNumber||'',createdAt:o.createdAt||'',groupId:salesIsQuote(o)?salesQuoteGroupId(o):'',day,archivedAt:now,row};
+ const q=salesIsQuote(o),b=info.memo.balanceInfo;
+ return {kind:q?'quote':'order',status:salesListStatus(o),customerId:o.customerId||'',currency:o.currency||'',number:o.businessNumber||'',createdAt:o.createdAt||'',groupId:q?salesQuoteGroupId(o):'',rep:!q||salesQuoteRepresentative(o).id===o.id,
+  pay:b?{status:b.status,balance:b.balance}:null,day,archivedAt:now,row};
+}
+
+/* ------------------------- Sales и клиент ------------------------------ */
+/* Ушедшие строки для списка Sales и вкладки Orders клиента: те же info, что
+   у живых (salesListInfo), значения — из снятой строки (archiveListValue).
+   Квота — одной строкой за группу, как в работе. Заказ на просмотре сейчас
+   в DB — его строку список берёт оттуда. */
+function archiveListInfos(test){
+ const out=[];
+ archiveIndex.forEach((a,id)=>{if(!a.rep||archiveVisit&&archiveVisit.ids.has(id)||!test(a))return;
+  out.push({o:{id,kind:a.kind,status:a.status||'',customerId:a.customerId,createdAt:a.createdAt,businessNumber:a.number,archived:true},q:a.kind==='quote',a,c:null,memo:{}});});
+ return out;
+}
+function archiveListValue(info,k){
+ const a=info.a;let v=Object.prototype.hasOwnProperty.call(a.row,k)?a.row[k]:null;
+ if(k==='customer'||k==='rep'){const c=readMemo('archiveCustomers',[DB.customer],()=>new Map((DB.customer||[]).map(x=>[x.id,x]))).get(a.customerId);if(c)v=k==='customer'?c.displayName||c.legalName||'':c.salesRep||'';}
+ if(k==='balance'&&a.pay)info.memo.balanceInfo=a.pay;
+ info.memo[k]=v;return v;
+}
+/* Ячейка ушедшей строки: статус — как был, с серой меткой Archived. */
+function archiveListCell(info,col){
+ if(col.k==='status')return `<td><span class="pill st-${esc(info.a.status||'')}">${esc(salesListValue(info,'status')||'')}</span> <span class="pill archived" data-archived>Archived</span></td>`;
+ if(col.k==='number'){const v=salesListValue(info,'number'),from=info.q?'':salesListValue(info,'fromQuote');return `<td><b class="mono">${raw(v||'—')}</b>${from?` <span class="mut small">from ${raw(from)}</span>`:''}</td>`;}
+ return salesListCell(info,col);
+}
+function archiveListRow(r,cols){
+ const id=esc(r.o.id);
+ return `<tr data-archived-row="${id}" class="sl-row-archived" ondblclick="archiveOpen('${id}')"><td class="sl-check"></td>${cols.map(c=>archiveListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="archiveOpen('${id}')">Open</button></td></tr>`;
+}
+
+/* ------------------------- Просмотр с диска --------------------------- */
+/* Заказ из архива на экране — только просмотр и печать (владелец,
+   22.10.2026: «тот же экран»). Его записи читаются с диска и встают в DB,
+   пока он открыт; сравнение базы их не видит (storageVisit) — в базу они не
+   пишутся. Закрыли заказ (salesDraftDrop) — записи убираются по ключам. */
+let archiveVisit=null;
+async function archiveOpen(id){
+ const a=archiveIndex.get(id);if(!a)return false;
+ archiveScopeDrop();
+ if(typeof soDraft!=='undefined'&&soDraft){salesLeaveDraft(()=>archiveOpen(id));return false;}
+ const ids=a.kind==='quote'?[...archiveIndex].filter(([,x])=>x.kind==='quote'&&x.groupId===a.groupId).map(([k])=>k):[id];
+ const recs=await archiveRead(ids);
+ if(!recs.some(r=>r.tbl==='salesOrder'&&r.id===id)){alert('This archived order could not be read.');return false;}
+ archiveVisitEnd();
+ const tables=archiveRowsPut(recs,true);
+ archiveVisit={id,ids:new Set(ids),tables,arrays:new Map([...tables.keys()].map(t=>[t,DB[t]]))};
+ salesOrderEdit(id);return true;
+}
+/* Просмотр закрыт — строки уходят из DB. */
+function archiveVisitEnd(){const v=archiveVisit;if(!v)return;archiveVisit=null;archiveRowsDrop(v.tables);}
+/* Записи ушедших заказов owners с диска (общая запись — один раз). */
+async function archiveRead(owners){
+ const seen=new Set(),recs=[];
+ for(const owner of owners)(await storageIdbColdOf(owner)).forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}});
+ return recs;
+}
+/* Записи архива — в DB на время просмотра или расчёта; сравнение базы их не
+   видит (storageVisit). Уже стоящие (открытый заказ) не дублируются. Встают
+   на прежнее место по seq — порядок строк тот же, что до ухода, и отчёты
+   складывают в том же порядке. Возвращает поставленное: tbl → Map id → текст
+   записи (keep — для просмотра, который возвращает строки после пересборки
+   таблицы; отчёту и расчёту текст не нужен — меньше памяти). */
+function archiveRowsPut(recs,keep){
+ const put=new Map(),byTbl=new Map();
+ recs.forEach(r=>{const v=storageVisit.get(r.tbl);if(v&&v.has(r.id))return;let a=byTbl.get(r.tbl);if(!a)byTbl.set(r.tbl,a=[]);a.push(r);});
+ byTbl.forEach((list,tbl)=>{
+  if(!Array.isArray(DB[tbl]))DB[tbl]=[];
+  const rows=DB[tbl],base=storageBase.get(tbl)||new Map(),out=[],t=new Map();let v=storageVisit.get(tbl),i=0;
+  if(!v)storageVisit.set(tbl,v=new Set());put.set(tbl,t);
+  list.sort((a,b)=>a.seq-b.seq);
+  /* Строка в работе без seq (ещё не записана) — в конце, как и была. */
+  rows.forEach(row=>{const b=base.get(storageRowKey(tbl,row)),seq=b?b.s:Infinity;for(;i<list.length&&list[i].seq<seq;i++)out.push(JSON.parse(list[i].data));out.push(row);});
+  for(;i<list.length;i++)out.push(JSON.parse(list[i].data));
+  /* Массив тот же: на него держат ссылки. */
+  rows.length=0;out.forEach(x=>rows.push(x));
+  list.forEach(r=>{v.add(r.id);t.set(r.id,keep?r.data:'');});
+ });
+ storageInvalidate();return put;
+}
+/* Убрать поставленное — по ключам (объект строки мог смениться: правка формы
+   на экране, откат). */
+function archiveRowsDrop(put){
+ put.forEach((t,tbl)=>{const a=DB[tbl],v=storageVisit.get(tbl);
+  if(Array.isArray(a)){let n=0;for(let i=0;i<a.length;i++)if(!t.has(storageRowKey(tbl,a[i])))a[n++]=a[i];a.length=n;}
+  if(v){t.forEach((x,id)=>v.delete(id));if(!v.size)storageVisit.delete(tbl);}});
+ storageInvalidate();
+}
+/* ------------------------- Отчёты за прошлые месяцы -------------------- */
+/* Отчёт, чей период захватывает ушедшие заказы (Reports): записи заказов,
+   чья жизнь «создан … день ухода» пересекает период, читаются с диска и
+   стоят в DB, пока отчёт открыт с этим периодом (задание: «детали — по
+   запросу с индикатором»). range — [from, to] днями, '' — без границы.
+   Ответ: 'none' (архив не нужен), 'loading' (читается), 'ready', 'big' —
+   заказов больше ARCHIVE_SCOPE_MAX: столько разом память не вместит, нужен
+   период короче (предел — проверить на базе за 7 лет, А5). */
+const ARCHIVE_SCOPE_MAX=3000;
+let archiveScope=null;
+function archiveScopeFor(range){
+ const from=range&&range[0]||'',to=range&&range[1]||'',owners=[];
+  archiveIndex.forEach((a,id)=>{if(archiveSpanIn(a,from,to))owners.push(id);});
+ if(!owners.length){archiveScopeDrop();return 'none';}
+ if(owners.length>ARCHIVE_SCOPE_MAX){archiveScopeDrop();return 'big';}
+ const key=from+'|'+to+'|'+owners.length+'|'+owners[0]+'|'+owners[owners.length-1];
+ if(archiveScope&&archiveScope.key===key)return archiveScope.put?'ready':'loading';
+ archiveScopeDrop();const st=archiveScope={key,put:null,orders:owners.length};
+ archiveRead(owners).then(recs=>{if(archiveScope!==st)return;st.put=archiveRowsPut(recs,false);render();}).catch(e=>{if(archiveScope===st)archiveScope=null;console.warn('Archive was not read:',e.message);});
+ return 'loading';
+}
+function archiveScopeDrop(){const st=archiveScope;archiveScope=null;if(st&&st.put)archiveRowsDrop(st.put);}
+/* Жизнь заказа пересекает период — от самой ранней до самой поздней из его
+   дат: создан, срок (Due), «действительна до» у квоты, день ухода. */
+function archiveSpanIn(a,from,to){const span=[String(a.createdAt||'').slice(0,10),a.day,a.row&&a.row.due,a.row&&a.row.validUntil].filter(Boolean).map(String).sort();return !!span.length&&(!to||span[0]<=to)&&(!from||span[span.length-1]>=from);}
+/* Сколько ушедших заказов в периоде — для надписи на экране. */
+function archiveScopeCount(range){const from=range&&range[0]||'',to=range&&range[1]||'';let n=0;archiveIndex.forEach(a=>{if(archiveSpanIn(a,from,to))n++;});return n;}
+/* Ушли из отчётов — записи архива уходят из памяти. */
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k){if(archiveScope&&k!=='reports')archiveScopeDrop();return false;});
+
+/* Записи ушедших заказов на время одного расчёта (счета за период к
+   выписке): встают в DB, fn строит из них — и сразу уходят. */
+async function archiveWith(owners,fn){
+ const put=archiveRowsPut(await archiveRead(owners),false);
+ try{return fn();}finally{archiveRowsDrop(put);}
+}
+/* Таблицу собрали заново из базы (откат, чужая запись) — строки просмотра
+   возвращаются туда же. */
+function archiveVisitKeep(){
+ const v=archiveVisit;if(!v)return;
+ v.tables.forEach((t,tbl)=>{const a=DB[tbl];if(!Array.isArray(a)||v.arrays.get(tbl)===a)return;
+  const have=new Set(a.map(r=>storageRowKey(tbl,r)));t.forEach((data,id)=>{if(!have.has(id))a.push(JSON.parse(data));});v.arrays.set(tbl,a);});
+}
+function archiveViewing(o){return !!archiveVisit&&!!o&&(archiveVisit.ids.has(o.id)||typeof soDraft!=='undefined'&&o===soDraft);}
+function archiveHeaderActions(o){
+ const a=archiveIndex.get(archiveVisit.id);
+ return `<span class="sales-save-state" data-order-state>Archived${a&&a.archivedAt?' · '+esc(salesShortDate(a.archivedAt)):''}</span><button onclick="salesOrderClose()">Close</button><button onclick="docOpen()">Documents</button><button data-archive-repeat onclick="archiveRepeat()">Repeat</button>${salesIsQuote(o)?'':'<button class="ncr-btn" data-archive-ncr title="Returns the order to work" onclick="archiveNcr()">NCR</button>'}`;
+}
+/* Repeat (владелец, 22.10.2026: «возможность воссоздать заказ»): новый
+   заказ того же клиента с теми же стёклами, размерами и фигурами. Цены —
+   сегодняшние из Master Data (снимок цен старого заказа не берётся), цены
+   руками — как были. PO, срок и производство — пустые. */
+function archiveRepeat(){
+ const src=archiveVisit&&(DB.salesOrder||[]).find(o=>o.id===archiveVisit.id);if(!src)return;
+ const now=new Date().toISOString(),q=salesIsQuote(src);
+ const copy=salesCopySalesRecord(src,{businessNumber:'',status:q?'open':'new',statusDates:{},batchNo:'',batchHistory:[],unbatchHistory:[],productionUnbatchVerify:false,fulfilledVia:'',fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
+  customerPo:'',dueDate:'',onHold:false,holdReason:'',holdAt:'',remakeNcrId:'',noCharge:false,cancellations:[],adjustments:[],createdAt:now,updatedAt:now});
+ delete copy.priceBook;
+ copy.lines.forEach(l=>{Object.assign(l,{onHold:false,holdReason:'',holdAt:'',cutStartedAt:'',batchNo:''});});
+ const draft=normalizeSalesOrder(copy);
+ /* Копии фигур уже в DB (salesCopySalesRecord): просмотр закрывается без
+    salesDraftDrop — та убрала бы их как ничьи до нового черновика. */
+ archiveVisitEnd();
+ salesOrderNew(q?'quote':'order');soDraft=draft;salesEnsureAllLineShapes();
+ soMakeupId=(soDraft.makeups[0]||{}).id||null;soGlassOpen=soDraft.lines.length>0;render();
+}
+/* NCR по архивному заказу возвращает его в работу (владелец, 22.10.2026),
+   и форма NCR открывается на нём. */
+async function archiveNcr(){
+ const id=archiveVisit&&archiveVisit.id;if(!id)return;
+ salesDraftDrop(false);
+ const out=await archiveReturn(id);
+ if(!out.ok){alert(out.error);render();return;}
+ salesOrderEdit(id);
+ if(typeof ncrCanOpen==='function'&&ncrCanOpen(salesRecord(id)))ncrOpenForm('ncr');
 }
 
 /* Склад листов и обрезки — что они показывают, без журнала движений. */
@@ -44701,6 +44987,8 @@ function archiveInvKeep(before,after,offcuts){
    целиком. limit — сколько заказов за раз (экран не замирает надолго). */
 function archiveRun(day,opts){
  opts=opts||{};day=String(day||new Date().toISOString()).slice(0,10);
+ /* Открыт заказ из архива — его записи сейчас в DB; уход подождёт. */
+ if(archiveVisit||archiveScope)return {ok:false,error:'Archived orders are open.'};
  const now=new Date().toISOString();
  return storageCommand(()=>{
   let due=[...archiveDue(day)];if(opts.limit)due=due.slice(0,opts.limit);
@@ -44716,11 +45004,12 @@ function archiveRun(day,opts){
    if(x.tbl==='receipt')archiveFloorRaise('receipt',num(x.row.number,/^R-(\d+)$/));
    if(x.tbl==='financeEvent')archiveFloorRaise('financeEvent',+x.row.seq||0);
   });
-  const before=archiveInvState();
+  const before=archiveInvState(),ledger=archiveLedgerOf(set);
   const byTbl=new Map();set.forEach(x=>{let a=byTbl.get(x.tbl);if(!a)byTbl.set(x.tbl,a=[]);a.push(x);});
   byTbl.forEach((list,tbl)=>storageColdMoveAll(tbl,list));
   archiveInvKeep(before,archiveInvState(),true);
   rows.forEach(([id,row])=>storageArchiveIndex(id,row));
+  ledger.forEach(([key,e])=>storageArchiveIndex(key,e));
   return {orders:ids.size,records:set.length};
  });
 }
@@ -44734,9 +45023,14 @@ async function archiveReturn(orderId){
  return storageCommand(()=>{
   const before=archiveInvState();
   got.forEach(r=>storageColdPut(r));
+  /* Заказ ушёл при прежней версии программы — в работу он встаёт в
+     нынешнем виде, как после F5 (normalizeDB). */
+  got.forEach(r=>{if(r.tbl==='salesOrder')normalizeSalesOrderIn(r.id);});
   archiveInvKeep(before,archiveInvState(),false);
   if(DB.inventoryArchived&&DB.inventoryArchived.offcuts)(DB.stockOffcut||[]).forEach(o=>{if(got.some(r=>r.tbl==='glassBatch'&&JSON.parse(r.data).number===o.batch))delete DB.inventoryArchived.offcuts[o.id];});
   (DB.salesOrder||[]).forEach(o=>{if(owners.has(o.id)&&archiveIndex.has(o.id))storageArchiveIndex(o.id,null);});
+  /* Записи снова в работе — их строки выписки считаются из них самих. */
+  got.forEach(r=>{const key='L:'+r.tbl+':'+r.id;if(archiveLedgerKeys.has(key))storageArchiveIndex(key,null);});
   return got.length;
  });
 }
@@ -44782,6 +45076,10 @@ const STORAGE_ROW_KEY={glassBatch:'number',cutPlan:'batch',productionRoute:'key'
    tbl → Map id → {t: текст JSON, s: seq}. */
 let storageBase=new Map();
 let storageIdb=null;
+/* Строки на просмотре из архива (erp/archive, archiveOpen): tbl → Set id.
+   Они в DB, пока заказ открыт, но сравнение базы их не видит — в базу не
+   пишутся и «удалёнными» не считаются. */
+let storageVisit=new Map();
 
 function storageRowKey(tbl,row){
  if(!row||typeof row!=='object')return '';
@@ -44822,7 +45120,7 @@ function storageDiff(db){
  storageBase.forEach((m,tbl)=>{if(tbl!=='_meta')keys.add(tbl);});
  meta.forEach((x,k)=>keys.add(k));
  keys.forEach(k=>{
-  const v=db[k],base=storageBase.get(k);
+  const vis=storageVisit.size?storageVisit.get(k):null,v=vis&&Array.isArray(db[k])?db[k].filter(r=>!vis.has(storageRowKey(k,r))):db[k],base=storageBase.get(k);
   if(Array.isArray(v)){
    if(meta.has(k))out.push({tbl:'_meta',id:k,del:true});
    const was=base||new Map(),ids=storageTableIds(k,v);
@@ -45128,6 +45426,8 @@ function storageInvalidate(){
  if(typeof stkSheetCache!=='undefined')stkSheetCache={batch:'',map:null};
  if(typeof orderLogCreators!=='undefined')orderLogCreators={ref:null,n:-1,map:null};
  if(typeof readMemoReset==='function')readMemoReset();
+ /* Пересборка таблицы (откат, чужая запись) — строки просмотра из архива на место. */
+ if(typeof archiveVisitKeep==='function')archiveVisitKeep();
 }
 /* Откат — из опорного состояния (то, что лежит в базе): возвращаются только
    таблицы, которые изменились. before — несохранённое до команды
@@ -45164,9 +45464,10 @@ function storageColdMoveAll(tbl,list){
  list.forEach(x=>{const id=storageRowKey(tbl,x.row);storageColdPending.set(tbl+'\u0000'+id,{tbl,id,owners:x.owners||[],month:x.month||'',data:JSON.stringify(x.row)});});
  DB[tbl]=rows.filter(r=>!set.has(r));
 }
-/* Строка, которая сейчас уходит в архив или возвращается из него: журнал
-   заказа не пишет её «Deleted» или «Created» (erp/sales/order-log). */
-function storageColdMoving(tbl,id){const k=tbl+'\u0000'+id;return storageColdPending.has(k)||storageColdWarm.has(k);}
+/* Строка, которая сейчас уходит в архив или возвращается из него (или
+   открыта из архива на просмотр): журнал заказа не пишет её «Deleted» или
+   «Created» (erp/sales/order-log). */
+function storageColdMoving(tbl,id){const k=tbl+'\u0000'+id,v=storageVisit.get(tbl);return storageColdPending.has(k)||storageColdWarm.has(k)||!!v&&v.has(id);}
 /* Одна запись из архива — на своё место по seq (внутри действия). */
 function storageColdPut(r){
  if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];const rows=DB[r.tbl],base=storageBase.get(r.tbl)||new Map(),seqOf=x=>{const b=base.get(storageRowKey(r.tbl,x));return b?b.s:Infinity;};
