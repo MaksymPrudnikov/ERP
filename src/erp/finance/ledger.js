@@ -204,16 +204,30 @@ function finAllMoney(today){
    у нас (депозит, предоплата по заказам в работе). */
 function finStatementLines(customerId){
  const lines=[],skipped=[];
- (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)&&finCurrency(o)==='CAD').forEach(o=>{
-  const billed=finBillingDate(o);if(!billed)return;
-  const f=finOrderFinancial(o);if(f.b.total==null){skipped.push(o);return;}
-  lines.push({date:billed,sort:0,doc:o.businessNumber,kind:'order',text:'Order'+(o.customerPo?' · '+(/^po/i.test(o.customerPo)?'':'PO ')+o.customerPo:'')+(f.dueOn?' · due '+finShortDate(f.dueOn,'0000'):''),charge:f.b.total,payment:0,overdue:f.overdue>0});
- });
- finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)==='CAD').forEach(r=>lines.push({date:r.date,sort:1,doc:r.number,kind:'payment',
-  text:'Payment · '+finMethodLabel(r.method)+(r.reference?' '+r.reference:'')+(r.allocations.length?' · '+r.allocations.map(a=>finOrderNumber(a.orderId)).join(', '):''),charge:0,payment:r.amount}));
- (DB.refund||[]).filter(x=>x.customerId===customerId&&!x.voided&&x.currency==='CAD').forEach(x=>lines.push({date:x.date,sort:2,doc:x.number,kind:'refund',text:'Refund · '+finMethodLabel(x.method),charge:x.amount,payment:0}));
+ (DB.salesOrder||[]).forEach(o=>{if(o.customerId!==customerId)return;const l=finStatementOrderLine(o);if(l&&l.skipped)skipped.push(o);else if(l)lines.push(l);});
+ (DB.receipt||[]).forEach(r=>{if(r.customerId!==customerId)return;const l=finStatementPaymentLine(r);if(l)lines.push(l);});
+ (DB.refund||[]).forEach(x=>{if(x.customerId!==customerId)return;const l=finStatementRefundLine(x);if(l)lines.push(l);});
+ /* Ушедшие в архив — строки, снятые в день ухода (erp/archive). */
+ if(typeof archiveLedgerFor==='function')archiveLedgerFor(customerId).forEach(e=>{if(e.line)lines.push(e.line);else if(e.skipped)skipped.push({businessNumber:e.skipped});});
  lines.sort((a,b)=>a.date.localeCompare(b.date)||a.sort-b.sort||String(a.doc).localeCompare(String(b.doc)));
  return {lines,skipped};
+}
+/* Строка выписки по одной записи: заказ — начисление в день выдачи, оплата,
+   возврат. Та же строка снимается в указатель архива, когда запись уходит
+   (erp/archive). null — в выписку не входит; заказ без цены — skipped. */
+function finStatementOrderLine(o){
+ if(!finOrderCounts(o)||finCurrency(o)!=='CAD')return null;
+ const billed=finBillingDate(o);if(!billed)return null;
+ const f=finOrderFinancial(o);if(f.b.total==null)return {skipped:true};
+ return {date:billed,sort:0,doc:o.businessNumber,kind:'order',text:'Order'+(o.customerPo?' · '+(/^po/i.test(o.customerPo)?'':'PO ')+o.customerPo:'')+(f.dueOn?' · due '+finShortDate(f.dueOn,'0000'):''),charge:f.b.total,payment:0,overdue:f.overdue>0};
+}
+function finStatementPaymentLine(r){
+ if(r.voided||finCurrency(r)!=='CAD')return null;
+ return {date:r.date,sort:1,doc:r.number,kind:'payment',text:'Payment · '+finMethodLabel(r.method)+(r.reference?' '+r.reference:'')+(r.allocations.length?' · '+r.allocations.map(a=>finOrderNumber(a.orderId)).join(', '):''),charge:0,payment:r.amount};
+}
+function finStatementRefundLine(x){
+ if(x.voided||x.currency!=='CAD')return null;
+ return {date:x.date,sort:2,doc:x.number,kind:'refund',text:'Refund · '+finMethodLabel(x.method),charge:x.amount,payment:0};
 }
 function finStatementData(customerId,from,to){
  const {lines,skipped}=finStatementLines(customerId);

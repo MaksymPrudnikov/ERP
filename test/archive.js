@@ -24,7 +24,8 @@ module.exports=async function({page,eq}){
  const snap=()=>t.p.evaluate(()=>readScope(()=>({
   rows:Object.fromEntries(DB.salesOrder.map(o=>{const i=salesListInfo(o);return [o.id,SALES_LIST_COLUMNS.map(c=>salesListValue(i,c.k))];})),
   inv:invSheetRows().map(r=>[r.key,r.onRack,r.free,r.cut]),deposit:DB.customer.map(c=>finCustomerDeposit(c.id)),
-  next:[nextSalesOrderNumber(),salesNextBatchNumber(),finNextReceiptNumber()]})));
+  next:[nextSalesOrderNumber(),salesNextBatchNumber(),finNextReceiptNumber()],
+  statements:DB.customer.map(c=>JSON.stringify([finStatementData(c.id,'',''),finStatementData(c.id,'2026-01-01','2026-01-31'),finStatementOrders(c.id,'','').map(x=>[x.o.businessNumber,x.billed,x.f.b.total,x.f.b.paid])]))})));
  const before=await snap();
  eq('кому пора: отгружен и оплачен 3 месяца назад — да; Hold, не отгружен и рано — нет',await t.p.evaluate(x=>{
   const due=d=>{const s=archiveDue(d);return [x.a,x.b,x.h,x.open].map(id=>s.has(id));};return {june:due('2026-06-01'),march:due('2026-03-20')};
@@ -40,11 +41,12 @@ module.exports=async function({page,eq}){
   rows:[ids.h,ids.open].every(id=>JSON.stringify(after.rows[id])===JSON.stringify(before.rows[id])),inv:JSON.stringify(after.inv)===JSON.stringify(before.inv),
   deposit:JSON.stringify(after.deposit)===JSON.stringify(before.deposit),next:JSON.stringify(after.next)===JSON.stringify(before.next)},
   {index:true,rows:true,inv:true,deposit:true,next:true});
+ eq('выписки клиентов (всё время, январь, раздел Orders) — те же после ухода: строки ушедших — из указателя архива',after.statements.map((x,i)=>x===before.statements[i]),before.statements.map(()=>true));
  await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  const f5=await snap();
  eq('после F5: архив не загружен, указатель на месте, склад и номера те же',{
   hot:await t.p.evaluate(x=>[x.a,x.b].some(id=>!!salesRecord(id)),ids),index:await t.p.evaluate(()=>archiveIndex.size),
-  inv:JSON.stringify(f5.inv)===JSON.stringify(before.inv),next:JSON.stringify(f5.next)===JSON.stringify(before.next)},{hot:false,index:2,inv:true,next:true});
+  inv:JSON.stringify(f5.inv)===JSON.stringify(before.inv),next:JSON.stringify(f5.next)===JSON.stringify(before.next),statements:JSON.stringify(f5.statements)===JSON.stringify(before.statements)},{hot:false,index:2,inv:true,next:true,statements:true});
  /* А3: Sales и вкладка клиента показывают ушедшие строки; открыть — с диска,
     только просмотр; в базу ничего не пишется; Repeat; NCR возвращает в работу. */
  eq('Sales: ушедшие строки вместе с живыми, с меткой Archived, Open; те же значения и итоги',await t.p.evaluate(([x,b])=>{
@@ -74,6 +76,12 @@ module.exports=async function({page,eq}){
   return Object.assign(r,{saved,number:salesRecord(soEdit).businessNumber===n,still:archiveIndex.has(x.b)});
  },ids),{edit:'new',customer:true,lines:true,fresh:true,visit:0,src:true,saved:true,number:true,still:true});
  await t.p.evaluate(()=>{salesDraftDrop(false);});
+ eq('выписка за январь с галочкой Invoices: счёт ушедшего заказа читается с диска на время сборки и после выписки в том же PDF',await t.p.evaluate(async x=>{
+  const cid=archiveIndex.get(x.a).customerId;finOpenStatement(cid,{from:'2026-01-01',to:'2026-01-31'});const plain=finPreviewPages().length;finStatementInvoices(true);
+  const waiting=finPreviewPages().length;for(let i=0;i<100&&!finPreview.invoicePages;i++)await new Promise(r=>setTimeout(r,20));
+  const pages=finPreviewPages(),info=finPreviewInfo(),r={plain:plain>0,waiting,more:pages.length>plain,count:finPreview.invoiceCount,mail:/and 1 invoice for the period/.test(info.body),visit:storageVisit.size,diff:storageDiff(DB).length,hot:!!salesRecord(x.a)};
+  finClosePreview();return r;
+ },ids),{plain:true,waiting:0,more:true,count:1,mail:true,visit:0,diff:0,hot:false});
  eq('возврат в работу: заказ, его скан и оплата на месте, строки указателя нет, склад тот же',await t.p.evaluate(async x=>{
   storageTakeControl();const out=await archiveReturn(x.a);await storageFlush();
   return {ok:out.ok,back:!!salesRecord(x.a),scan:DB.stationScan.some(s=>s.by==='Archive test'),paid:finOrderBalance(salesRecord(x.a)).status,index:archiveIndex.has(x.a),created:DB.orderEvent.filter(e=>e.orderId===x.a&&e.what==='Created').length};

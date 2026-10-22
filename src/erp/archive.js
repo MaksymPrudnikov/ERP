@@ -17,7 +17,8 @@
         invSheetRows, invOffcutRows, storageIdbColdOf, storageVisit
    OUT: archiveIndex, archiveDue(day), archiveCollect(ids), archiveRun(day),
         archiveReturn(orderId), archiveIndexLoad / archiveIndexApply,
-        archiveListInfos, archiveOpen(id), archiveViewing(o), archiveRepeat
+        archiveListInfos, archiveOpen(id), archiveViewing(o), archiveRepeat,
+        archiveLedgerFor(customerId), archiveWith(owners,fn)
    ===================================================================== */
 const ARCHIVE_ON=false,ARCHIVE_MONTHS=3;
 DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};
@@ -27,8 +28,39 @@ let archiveIndex=new Map(),archiveIncoming=null;
    работе, которые ссылаются на ушедший заказ (оплата на два заказа, батч,
    накладная), нормализация и проверка Import не считают битыми. */
 function archiveKnown(id){const m=archiveIncoming||archiveIndex;return id&&m.get(id)||null;}
-function archiveIndexLoad(rows){archiveIndex=new Map((rows||[]).map(r=>[r.id,r.row]));}
-function archiveIndexApply(pairs,clear){if(clear)archiveIndex=new Map();(pairs||[]).forEach(([id,row])=>{if(row)archiveIndex.set(id,row);else archiveIndex.delete(id);});}
+/* В том же складе archive — строки выписки ушедших записей (ключ
+   `L:<таблица>:<id>`): выписка клиента за любой период берёт их отсюда
+   (finStatementLines). В памяти — по клиенту. */
+let archiveLedgerBy=new Map(),archiveLedgerKeys=new Map();
+function archiveIndexLoad(rows){archiveIndex=new Map();archiveLedgerBy=new Map();archiveLedgerKeys=new Map();archiveIndexApply((rows||[]).map(r=>[r.id,r.row]));}
+function archiveIndexApply(pairs,clear){
+ if(clear){archiveIndex=new Map();archiveLedgerBy=new Map();archiveLedgerKeys=new Map();}
+ (pairs||[]).forEach(([id,row])=>{
+  if(!String(id).startsWith('L:')){if(row)archiveIndex.set(id,row);else archiveIndex.delete(id);return;}
+  const was=archiveLedgerKeys.get(id);if(was!=null){const m=archiveLedgerBy.get(was);if(m){m.delete(id);if(!m.size)archiveLedgerBy.delete(was);}archiveLedgerKeys.delete(id);}
+  if(!row)return;let m=archiveLedgerBy.get(row.customerId);if(!m)archiveLedgerBy.set(row.customerId,m=new Map());m.set(id,row);archiveLedgerKeys.set(id,row.customerId);
+ });
+}
+function archiveLedgerFor(customerId){const m=archiveLedgerBy.get(customerId);return m?[...m.values()]:[];}
+/* Строки выписки записей, которые сейчас уходят: заказ (начисление и строка
+   раздела Orders, оплачен целиком), оплата, возврат — как в день ухода. */
+function archiveLedgerOf(set){
+ const out=[],paidOn=new Map();
+ finActiveReceipts().forEach(r=>(r.allocations||[]).forEach(a=>{let d=paidOn.get(a.orderId);if(!d)paidOn.set(a.orderId,d=[]);d.push(r.date);}));
+ set.forEach(x=>{
+  const r=x.row,key='L:'+x.tbl+':'+r.id;
+  if(x.tbl==='salesOrder'&&!salesIsQuote(r)){
+   const l=finStatementOrderLine(r);if(!l)return;
+   if(l.skipped){out.push([key,{id:r.id,customerId:r.customerId,skipped:r.businessNumber||''}]);return;}
+   const f=finOrderFinancial(r);
+   out.push([key,{id:r.id,customerId:r.customerId,line:l,order:{number:r.businessNumber||'',po:r.customerPo||'',billed:l.date,paidOn:paidOn.get(r.id)||[],
+    f:{b:{total:f.b.total,paid:f.b.paid,balance:f.b.balance,status:f.b.status},overdue:0,dueOn:f.dueOn||'',terms:{paymentMode:f.terms.paymentMode,creditDays:f.terms.creditDays},handover:f.handover}}}]);
+  }
+  if(x.tbl==='receipt'){const l=finStatementPaymentLine(r);if(l)out.push([key,{id:r.id,customerId:r.customerId,line:l}]);}
+  if(x.tbl==='refund'){const l=finStatementRefundLine(r);if(l)out.push([key,{id:r.id,customerId:r.customerId,line:l}]);}
+ });
+ return out;
+}
 
 /* Хранимые счётчики: наибольший номер, ушедший в архив, — номера «максимум
    + 1» не начнутся заново, когда старые заказы уйдут из работы. */
@@ -183,23 +215,43 @@ async function archiveOpen(id){
  const a=archiveIndex.get(id);if(!a)return false;
  if(typeof soDraft!=='undefined'&&soDraft){salesLeaveDraft(()=>archiveOpen(id));return false;}
  const ids=a.kind==='quote'?[...archiveIndex].filter(([,x])=>x.kind==='quote'&&x.groupId===a.groupId).map(([k])=>k):[id];
- const seen=new Set(),recs=[];
- for(const owner of ids)(await storageIdbColdOf(owner)).forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}});
+ const recs=await archiveRead(ids);
  if(!recs.some(r=>r.tbl==='salesOrder'&&r.id===id)){alert('This archived order could not be read.');return false;}
  archiveVisitEnd();
- const tables=new Map();
- recs.forEach(r=>{if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];DB[r.tbl].push(JSON.parse(r.data));let t=tables.get(r.tbl);if(!t)tables.set(r.tbl,t=new Map());t.set(r.id,r.data);});
- tables.forEach((t,tbl)=>storageVisit.set(tbl,new Set(t.keys())));
+ const tables=archiveRowsPut(recs);
  archiveVisit={id,ids:new Set(ids),tables,arrays:new Map([...tables.keys()].map(t=>[t,DB[t]]))};
- storageInvalidate();
  salesOrderEdit(id);return true;
 }
-/* Просмотр закрыт — строки уходят из DB по ключам (объект строки мог
-   смениться: правка формы на экране, откат). */
-function archiveVisitEnd(){
- const v=archiveVisit;if(!v)return;archiveVisit=null;
- v.tables.forEach((t,tbl)=>{const a=DB[tbl];if(!Array.isArray(a))return;let n=0;for(let i=0;i<a.length;i++)if(!t.has(storageRowKey(tbl,a[i])))a[n++]=a[i];a.length=n;});
- storageVisit.clear();storageInvalidate();
+/* Просмотр закрыт — строки уходят из DB. */
+function archiveVisitEnd(){const v=archiveVisit;if(!v)return;archiveVisit=null;archiveRowsDrop(v.tables);}
+/* Записи ушедших заказов owners с диска (общая запись — один раз). */
+async function archiveRead(owners){
+ const seen=new Set(),recs=[];
+ for(const owner of owners)(await storageIdbColdOf(owner)).forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}});
+ return recs;
+}
+/* Записи архива — в DB на время просмотра или расчёта; сравнение базы их не
+   видит (storageVisit). Уже стоящие (открытый заказ) не дублируются.
+   Возвращает поставленное: tbl → Map id → текст записи. */
+function archiveRowsPut(recs){
+ const put=new Map();
+ recs.forEach(r=>{let v=storageVisit.get(r.tbl);if(v&&v.has(r.id))return;if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];DB[r.tbl].push(JSON.parse(r.data));
+  if(!v)storageVisit.set(r.tbl,v=new Set());v.add(r.id);let t=put.get(r.tbl);if(!t)put.set(r.tbl,t=new Map());t.set(r.id,r.data);});
+ storageInvalidate();return put;
+}
+/* Убрать поставленное — по ключам (объект строки мог смениться: правка формы
+   на экране, откат). */
+function archiveRowsDrop(put){
+ put.forEach((t,tbl)=>{const a=DB[tbl],v=storageVisit.get(tbl);
+  if(Array.isArray(a)){let n=0;for(let i=0;i<a.length;i++)if(!t.has(storageRowKey(tbl,a[i])))a[n++]=a[i];a.length=n;}
+  if(v){t.forEach((x,id)=>v.delete(id));if(!v.size)storageVisit.delete(tbl);}});
+ storageInvalidate();
+}
+/* Записи ушедших заказов на время одного расчёта (счета за период к
+   выписке): встают в DB, fn строит из них — и сразу уходят. */
+async function archiveWith(owners,fn){
+ const put=archiveRowsPut(await archiveRead(owners));
+ try{return fn();}finally{archiveRowsDrop(put);}
 }
 /* Таблицу собрали заново из базы (откат, чужая запись) — строки просмотра
    возвращаются туда же. */
@@ -282,11 +334,12 @@ function archiveRun(day,opts){
    if(x.tbl==='receipt')archiveFloorRaise('receipt',num(x.row.number,/^R-(\d+)$/));
    if(x.tbl==='financeEvent')archiveFloorRaise('financeEvent',+x.row.seq||0);
   });
-  const before=archiveInvState();
+  const before=archiveInvState(),ledger=archiveLedgerOf(set);
   const byTbl=new Map();set.forEach(x=>{let a=byTbl.get(x.tbl);if(!a)byTbl.set(x.tbl,a=[]);a.push(x);});
   byTbl.forEach((list,tbl)=>storageColdMoveAll(tbl,list));
   archiveInvKeep(before,archiveInvState(),true);
   rows.forEach(([id,row])=>storageArchiveIndex(id,row));
+  ledger.forEach(([key,e])=>storageArchiveIndex(key,e));
   return {orders:ids.size,records:set.length};
  });
 }
@@ -306,6 +359,8 @@ async function archiveReturn(orderId){
   archiveInvKeep(before,archiveInvState(),false);
   if(DB.inventoryArchived&&DB.inventoryArchived.offcuts)(DB.stockOffcut||[]).forEach(o=>{if(got.some(r=>r.tbl==='glassBatch'&&JSON.parse(r.data).number===o.batch))delete DB.inventoryArchived.offcuts[o.id];});
   (DB.salesOrder||[]).forEach(o=>{if(owners.has(o.id)&&archiveIndex.has(o.id))storageArchiveIndex(o.id,null);});
+  /* Записи снова в работе — их строки выписки считаются из них самих. */
+  got.forEach(r=>{const key='L:'+r.tbl+':'+r.id;if(archiveLedgerKeys.has(key))storageArchiveIndex(key,null);});
   return got.length;
  });
 }
