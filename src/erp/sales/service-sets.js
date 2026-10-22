@@ -459,7 +459,7 @@ function salesEdgeOpThicknessTargets(lite,op){
   return out;
 }
 function salesEdgeChargeMetaForServiceSet(op,ctx){
-  var id='',label=op.type,rate=null;
+  var id='',label=op.type,rate=null;salesRateFrom=null;
   if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}
@@ -480,7 +480,7 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
     rate=bevelWork?bevelWork.flat:null;
   }
   else return null;
-  return {id:id,label:label,rate:rate,bandKey:salesRateBandKey(id,ctx)};
+  return {id:id,label:label,rate:rate,from:salesRateFrom?salesRateFrom.list:'',bandKey:salesRateBandKey(id,ctx)};
 }
 
 /* Billing and Cutting read the SAME effective snapshot. */
@@ -531,7 +531,7 @@ salesLineChargeRows=function(line){
           var meta=salesEdgeChargeMetaForServiceSet(op,tCtx);
           if(!meta)return;
           var key=meta.id+':'+meta.bandKey;
-          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,length:0};order.push(key);}
+          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,from:meta.from,length:0};order.push(key);}
           acc[key].length+=group.length*(target.count||1);
         });
       });});
@@ -542,7 +542,7 @@ salesLineChargeRows=function(line){
     var manyThickness=new Set(order.map(function(k){return acc[k].mm;})).size>1;
     order.forEach(function(key){
       var x=acc[key];
-      rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),x.length,'in',x.rate,'Effective Edge Processing'));
+      rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),x.length,'in',x.rate,'Effective Edge Processing',x.from));
     });
   }
   if(saved&&!shapeIsDxfSource(saved)){

@@ -39,14 +39,14 @@ module.exports=async function({page,eq}){
   return {used,open,more,rowButtons:[...document.querySelector(`[data-customer-row="${c.id}"] td:last-child`).querySelectorAll('button')].map(b=>b.textContent)};
  }),{used:['Open','Duplicate','Archive','Delete ·off'],open:['Open','Duplicate','Archive','Delete'],more:['Export CSV','Export JSON'],rowButtons:['Open']});
 
- eq('карточка: General / Contacts / Addresses / Payment / Orders; Legacy IDs — только если заполнены; деньги — во вкладке Payment',await t.p.evaluate(()=>{
+ eq('карточка: General / Contacts / Addresses / Payment / Prices / Orders; Legacy IDs — только если заполнены; деньги — во вкладке Payment',await t.p.evaluate(()=>{
   const c=DB.customer.find(x=>x.legalName==='Money Co');customerEdit(c.id);
   const tabs=()=>[...document.querySelectorAll('.customer-tabs button')].map(b=>b.textContent);const plain=tabs();
   cTab='credit';render();const payment={tab:cTab,strip:!!document.querySelector('.fin-customer-strip'),credit:[...document.querySelectorAll('label')].some(l=>l.textContent.trim()==='Credit Days'),statements:[...document.querySelectorAll('label')].some(l=>/Statement Delivery/.test(l.textContent))};
   cDraft.legacyRefs.dcLink='7781';render();const withLegacy=tabs();cEdit=null;cDraft=null;render();
   customerNew();const fresh=tabs();cEdit=null;cDraft=null;render();
   return {plain,payment,withLegacy:withLegacy.includes('Legacy IDs'),fresh};
- }),{plain:['General','Contacts','Addresses','Payment','Orders'],payment:{tab:'payment',strip:true,credit:true,statements:true},withLegacy:true,fresh:['General','Contacts','Addresses','Payment']});
+ }),{plain:['General','Contacts','Addresses','Payment','Prices','Orders'],payment:{tab:'payment',strip:true,credit:true,statements:true},withLegacy:true,fresh:['General','Contacts','Addresses','Payment']});
 
  eq('Orders в карточке: квоты и заказы клиента, новые сверху; строка открывает заказ в Sales; New order — с этим клиентом',await t.p.evaluate(()=>{
   const c=DB.customer.find(x=>x.legalName==='Money Co');tab='customers';customerEdit(c.id);cTab='orders';render();

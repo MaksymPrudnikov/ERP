@@ -194,19 +194,20 @@ function salesCoatingSurfaceSelector(p,index){
 /* Цена стоит в той же строке, что и остальные поля: она такое же свойство
    позиции, как толщина, и отдельного блока под неё не нужно. Каталожная
    ставка показывается подсказкой ↺ и появляется только когда цену правили. */
-function salesPriceCell(kind,index,cat,over){
+function salesPriceCell(kind,index,cat,over,from){
  const has=over!=null,shown=has?over:cat;
  const val=shown==null?'':(+shown).toFixed(2);
  const ph=cat==null?'—':(+cat).toFixed(2);
  return `<div class="mu-price-cell${has?' edited':''}">`
   +`<input type="number" step="0.01" min="0" value="${esc(val)}" placeholder="${esc(ph)}" onchange="sales${kind}SetPrice(${index},this.value)" aria-label="Price per sq ft">`
   +(has?`<button type="button" class="mu-price-reset" title="Reset to catalog ${esc(ph)}" onclick="sales${kind}SetPrice(${index},'')">↺</button>`:'')
+  +(!has&&from?`<span class="mu-price-from" data-price-from title="From price list">${esc(priceListName(from))}</span>`:'')
   +`</div>`;
 }
 /* Каталожной цены продажи у стекла пока нет — она появится вместе с прайсом.
    До тех пор поле пустое: показывать выдуманное число хуже, чем прочерк. */
 function salesLitePriceField(p,index){
- return `<div><label>Price · sq ft</label>${salesPriceCell('Pane',index,salesPaneCatalogPrice(p),p.priceOverride)}</div>`;
+ return `<div><label>Price · sq ft</label>${salesPriceCell('Pane',index,salesPaneCatalogPrice(p),p.priceOverride,p.category==='laminated'?'':salesGlassPriceFrom(p))}</div>`;
 }
 function salesCavityPriceField(c,index){
  return `<div><label>Price · sq ft</label>${salesPriceCell('Cavity',index,salesCavityCatalogPrice(c),c.priceOverride)}</div>`;
@@ -274,7 +275,7 @@ function salesLaminatedPlyFields(p,index,side,label){
    <div class="mu-lam-glass"><label>${coated?'On Glass':'Glass'}</label><select onchange="salesPaneSetLamPlyProduct(${index},'${side}',this.value)">${glassSelect}</select>${salesGlassMetaFor(ply.glassProductId)}</div>
    <div><label>Type</label>${typeSelect}</div>
    <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesHeatOptions(ply)}</select></div>
-   <div><label>Price · sq ft</label>${salesPriceCell('LamPly'+(side==='outer'?'Outer':'Inner'),index,salesPlyCatalogPrice(ply),ply.priceOverride)}</div>
+   <div><label>Price · sq ft</label>${salesPriceCell('LamPly'+(side==='outer'?'Outer':'Inner'),index,salesPlyCatalogPrice(ply),ply.priceOverride,salesGlassPriceFrom(ply))}</div>
   </div>
   ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div>${salesLamCoatingSurfaceSelector(ply,index,side)}</div>`:''}
   ${salesLaminatedFritFields(p,index,side)}</div>`;

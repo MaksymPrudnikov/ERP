@@ -778,6 +778,7 @@ function normalizeDB(){
  if(typeof normalizeCommissions==='function')normalizeCommissions();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
  if(typeof normalizeMdLog==='function')normalizeMdLog();
+ if(typeof normalizePriceLists==='function')normalizePriceLists();
  if(typeof normalizeAuthLog==='function')normalizeAuthLog();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
