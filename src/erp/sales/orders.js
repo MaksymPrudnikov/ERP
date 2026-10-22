@@ -149,12 +149,18 @@ function salesRebaseDraft(current){
  if(conflicts.length)return 'The order changed elsewhere: '+conflicts.join(', ')+'. Reopen it before updating; your draft is still available.';
  soSavedBaseline=JSON.stringify(current);return true;
 }
+/* Область записи Save (storageCommand): заказ, его условия оплаты, стёкла и
+   батчи (меньше Qty — стекло снимается с батча). */
+function salesOrderScope(id){
+ const own=id&&id!=='new'?[id]:[];
+ return {salesOrder:own,financeTerms:own,glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true,glassBatch:own.length?glassBatchEntries(id).map(x=>x.batch.number):[]};
+}
 function salesOrderSave(opts){
  const editor={draft:soDraft?JSON.parse(JSON.stringify(soDraft)):null,edit:soEdit,quote:soQuoteCopyOf,shapes:soShapeSnapshot,baseline:soSavedBaseline};
  const out=storageCommand(()=>{
   const rebased=salesRebaseDraft(DB.salesOrder.find(x=>x.id===soEdit));if(rebased!==true)throw new Error(rebased);
   const result=salesOrderSaveCommand(opts);if(result!==true){const e=document.getElementById('e_sales_order');throw new Error(e&&e.textContent||'The order was not saved.');}return true;
- });
+ },salesOrderScope(soEdit));
  if(!out.ok){soDraft=editor.draft;soEdit=editor.edit;soQuoteCopyOf=editor.quote;soShapeSnapshot=editor.shapes;soSavedBaseline=editor.baseline;render();fail(document.getElementById('e_sales_order'),out.error);return false;}
  soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));render();return true;
 }

@@ -23,7 +23,7 @@ module.exports=async function({page,eq,ok}){
     if(!moved)break;}
   };
   /* Готовые юниты заказа (или одной его строки) лежат на скиде. */
-  window.ldPut=function(id,skid,lineNo){const o=salesRecord(id);return shippingAvailable(o).filter(u=>!lineNo||o.lines.findIndex(l=>l.id===u.lineId)===lineNo-1).map(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on=skid;})).length;};
+  window.ldPut=function(id,skid,lineNo){const o=salesRecord(id);return shippingAvailable(o).filter(u=>!lineNo||o.lines.findIndex(l=>l.id===u.lineId)===lineNo-1).map(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on=skid;})).length+(touch(),0);};
   window.ldPS=function(customerOf,ids,extra){return shippingCreate(Object.assign({customerId:salesRecord(customerOf).customerId,method:'delivery',shipTo:{address1:'1 Main St'},date:finToday(),items:(ids||[]).flatMap(id=>shippingAvailable(salesRecord(id))).map(shippingItem),extras:[]},extra)).value;};
   window.ldShip=function(){return DB.stationScan.filter(s=>!s.undoneAt&&s.station===shippingStations().ship).length;};
   window.ldLoad=function(code,trip){const r=shippingLoad(code,trip||'',ldWho);return {kind:r.kind,ps:r.ps,units:r.units,added:r.added,opened:r.opened,take:r.take,balance:r.balance};};

@@ -36,7 +36,10 @@ function normalizeFinanceLedger(){
 }
 /* Commit money and its history together. A failed write leaves the UI draft
    available, and restores the previous in-memory balances. */
-function finPersist(fn){return storageCommand(fn);}
+function finPersist(fn,scope){return storageCommand(fn,scope);}
+/* Область записи оплаты (storageCommand): оплата, история денег, заказы, на
+   которые она легла. */
+function finReceiptScope(d,id){return {receipt:id?[id]:[],financeEvent:[],salesOrder:(d&&d.allocations||[]).map(a=>a.orderId)};}
 function finReceiptDuplicates(d,id){
  const ref=String(d.reference||'').trim().toLowerCase();if(!ref||d.method==='cash')return [];
  return (DB.receipt||[]).filter(r=>!r.voided&&r.id!==id&&r.customerId===d.customerId&&r.method===d.method&&r.reference.trim().toLowerCase()===ref);
