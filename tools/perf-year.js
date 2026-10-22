@@ -143,7 +143,9 @@ function pageSetup() {
       }
       if (name === 'Payment') {
         const c = (DB.customer || [])[0]; if (!c) return { skip: 'no customer' };
-        const n = (DB.receipt || []).length, r = run(() => finPersist(() => finSaveReceiptRecord({ customerId: c.id, date: new Date().toISOString().slice(0, 10), method: 'cash', reference: '', note: 'perf', amount: 1, allocations: [], currency: 'CAD' }, '', '', true)));
+        const n = (DB.receipt || []).length, d = { customerId: c.id, date: new Date().toISOString().slice(0, 10), method: 'cash', reference: '', note: 'perf', amount: 1, allocations: [], currency: 'CAD' };
+        /* Как кнопка Save receipt: с областью записи, если она есть (задание «База»). */
+        const r = run(() => finPersist(() => finSaveReceiptRecord(d, '', '', true), typeof finReceiptScope === 'function' ? finReceiptScope(d, '') : undefined));
         if ((DB.receipt || []).length !== n + 1) r.error = r.out && r.out.error || 'payment not recorded'; delete r.out; return flush(r);
       }
       return { skip: 'unknown action' };

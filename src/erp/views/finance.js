@@ -131,7 +131,7 @@ function finSaveReceipt(){
  const e=document.getElementById('e_fin');if(e)e.style.display='none';if(!finDraft)return;
  if(finEdit!=='new'&&finRecordBaselineId===finEdit&&JSON.stringify((DB.receipt||[]).find(r=>r.id===finEdit))!==finRecordBaseline){fail(e,'This payment changed elsewhere. Reopen it before correcting it; your draft is still available.');return false;}
  const d=Object.assign({},finDraft,{allocations:Object.entries(finDraft.apply).map(([orderId,amount])=>({orderId,amount:amount===''?0:amount}))});
- const out=finPersist(()=>finSaveReceiptRecord(d,finEdit==='new'?null:finEdit,d.reason,d.duplicate));
+ const out=finPersist(()=>finSaveReceiptRecord(d,finEdit==='new'?null:finEdit,d.reason,d.duplicate),finReceiptScope(d,finEdit==='new'?null:finEdit));
  if(!out.ok){if(/reference already exists/.test(out.error)){render();}return fail(document.getElementById('e_fin'),out.error);}
  finCloseReceipt(true,out.value);
 }

@@ -82,8 +82,11 @@ function storageDiff(db,only){
  storageBase.forEach((m,tbl)=>{if(tbl!=='_meta')keys.add(tbl);});
  meta.forEach((x,k)=>keys.add(k));
  keys.forEach(k=>{
-  /* only — сравнить только эти таблицы (storageCommand: до команды). */
+  /* only — сравнить только эти таблицы (storageCommand: до команды). Map
+     таблица → Set ключей: из строк на месте — только эти (область записи
+     команды); новые, удалённые и сдвинутые видны всегда. */
   if(only&&!only.has(k))return;
+  const rows=only instanceof Map?only.get(k):null;
   const vis=storageVisit.size?storageVisit.get(k):null,v=vis&&Array.isArray(db[k])?db[k].filter(r=>!vis.has(storageRowKey(k,r))):db[k],base=storageBase.get(k);
   if(Array.isArray(v)){
    if(meta.has(k))out.push({tbl:'_meta',id:k,del:true});
@@ -96,6 +99,7 @@ function storageDiff(db,only){
    }
    const seq=storageSeqs(ids,was),now=new Set(ids);
    for(let i=0;i<v.length;i++){
+    if(rows){const x=was.get(ids[i]);if(x&&x.s===seq[i]&&!rows.has(ids[i]))continue;}
     const t=JSON.stringify(v[i]),b=was.get(ids[i]);
     if(!b||b.t!==t||b.s!==seq[i])out.push({tbl:k,id:ids[i],seq:seq[i],data:t});
    }

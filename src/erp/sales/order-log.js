@@ -88,18 +88,21 @@ function orderLogCreatedNote(o){
 }
 /* Заказы того, что лежит в базе сейчас: id → текст записи (erp/storage-records). */
 function orderLogBaseMap(){return typeof storageBaseTexts==='function'?storageBaseTexts('salesOrder'):null;}
-/* touch(): перед записью — события по разнице с базой. */
-function orderLogCapture(){
+/* touch(): перед записью — события по разнице с базой. ids — область
+   записи команды (storageCommand): из записанных заказов смотрятся только
+   эти. */
+function orderLogCapture(ids){
  if(!Array.isArray(DB.salesOrder))return;
  /* Импорт JSON заменяет базу целиком — это не правка заказов. */
  if(typeof storageImporting!=='undefined'&&storageImporting)return;
  const base=orderLogBaseMap();if(!base)return;
  /* Заказ рядом со своим текстом: искать каждый по всему списку — N² на
     каждом действии, и на скане тоже (проверка Codex 22.10.2026). */
- const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,{o,text:JSON.stringify(o)}]));
+ const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,!ids||ids.has(String(o.id))||!base.has(o.id)?{o,text:JSON.stringify(o)}:null]));
  /* Уход в архив и возврат из него — не правка заказа (erp/archive). */
  const moving=id=>typeof storageColdMoving==='function'&&storageColdMoving('salesOrder',id);
- now.forEach(({o,text},id)=>{
+ now.forEach((x,id)=>{
+  if(!x)return;const {o,text}=x;
   if(!base.has(id)){if(moving(id))return;orderLogPush(o,'Created',orderLogCreatedNote(o));return;}
   if(base.get(id)===text)return;
   let a,b;try{a=normalizeSalesOrder(JSON.parse(base.get(id)));b=normalizeSalesOrder(JSON.parse(text));}catch(e){return;}

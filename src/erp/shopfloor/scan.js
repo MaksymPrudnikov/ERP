@@ -170,8 +170,18 @@ function stationCheck(station,raw){
 /* who: {id, name} — рабочий, вошедший на станцию. */
 function stationRecord(station,check,who,opts){
  if(storageDepth||opts&&opts.deferTouch)return stationRecordCommand(station,check,who,opts);
- const out=storageCommand(()=>stationRecordCommand(station,check,who,opts));
+ const out=storageCommand(()=>stationRecordCommand(station,check,who,opts),stationScope(station,check));
  return out.ok?out.value:null;
+}
+/* Область записи скана (storageCommand): новые сканы и маршруты, заказ и
+   батч отсканированного стекла и его пар, сканы стёкол их позиций (сборка
+   на станции слияния метит и прежние сканы). */
+function stationScope(station,check){
+ const orders=[],batches=[],lines=new Set(),pieces=new Set(),scans=[];
+ [check].concat((check&&check.mates||[]).map(id=>stationCheck(station,id))).forEach(c=>{const g=c&&c.g;if(!g)return;if(g.o)orders.push(g.o.id);if(g.entry)batches.push(g.entry.batch.number);if(g.o&&g.l)lines.add(g.o.id+'|'+g.l.id);});
+ if(lines.size)(DB.glassPiece||[]).forEach(r=>{const [o,l]=String(r.key).split('|');if(!lines.has(o+'|'+l))return;r.ids.forEach(id=>{if(id)pieces.add(id);});Object.values(r.extra||{}).forEach(x=>x.forEach(id=>{if(id)pieces.add(id);}));});
+ if(pieces.size)(DB.stationScan||[]).forEach(x=>{if(pieces.has(x.piece))scans.push(x.id);});
+ return {stationScan:scans,stationScanSeq:true,productionRoute:[],salesOrder:orders,glassBatch:batches};
 }
 function stationRecordCommand(station,check,who,opts){
  opts=opts||{};
@@ -207,7 +217,7 @@ function stationMove(station,check,who,opts){
   if(!rec)throw new Error('Nothing was recorded.');
   const mates=stationRecordMates(station,check,who,opts);
   return {rec,mates};
- });
+ },stationScope(station,check));
 }
 /* Undo — только последний скан стекла: отменить CUT, когда стекло уже
    прошло EDGE, значило бы оставить его «на EDGE без реза». */

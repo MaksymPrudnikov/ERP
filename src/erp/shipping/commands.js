@@ -37,7 +37,7 @@ function shippingCreate(d){return storageCommand(()=>{
  const s={id:salesUid('PS'),number:'PS-'+String(DB.shipmentSeq).padStart(4,'0'),customerId:d.customerId,method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,status:'planned',...picked,
   createdAt:now,createdBy:shippingActor(),shippedAt:'',shippedBy:'',deliveredAt:'',receivedBy:'',note:String(d.note||'').slice(0,1000),scanIds:[]};
  DB.shipment.push(s);shippingOrderIds(s).forEach(id=>orderLogPush(salesRecord(id),'Packing slip created',s.number));return s;
-});}
+},{shipment:[],shipmentSeq:true});}
 function shippingUpdate(id,d){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can change.');
  shippingAssert(s.customerId===d.customerId,'The packing slip customer cannot change.');
@@ -91,7 +91,7 @@ function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
  /* Стекло отменённых юнитов, которое клиент забирает, уехало с этим PS. */
  shippingOrderIds(s).forEach(oid=>unitTakesShipped(salesRecord(oid),s.id));
  shippingSyncOrders(before.concat(shippingOrderIds(s)),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
-});}
+},shippingFind(id)&&{shipment:[id],salesOrder:shippingOrderIds(shippingFind(id)),stationScan:[],stationScanSeq:true,productionRoute:[],carrier:true});}
 function shippingMarkDelivered(id,receivedBy,receivedOn){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s,'Packing slip not found.');if(s.status==='delivered')return s;
  shippingAssert(s.status==='shipped','Mark this packing slip Loaded first.');
