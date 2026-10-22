@@ -2,6 +2,8 @@
    count sheet. All values remain editable; warnings never prevent Save.
    Each receipt line may carry its own size and actual sheet count. */
 let purFulfilDraft=null,purFulfilOriginal='',purFulfilPreview=false,purShowUndone=false;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purFulfilDraft&&JSON.stringify(purFulfilDraft)!==purFulfilOriginal);
 function purFulfilLeave(){
  if(purFulfilDraft&&JSON.stringify(purFulfilDraft)!==purFulfilOriginal&&!confirm('Discard unsaved delivery changes?'))return false;
  purFulfilDraft=null;purFulfilPreview=false;purPicker=null;return true;

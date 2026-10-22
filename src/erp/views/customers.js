@@ -5,6 +5,8 @@
    ===================================================================== */
 
 let cEdit=null,cDraft=null,cSeen='',cTab='general',cMenu=null,cDup=null;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>customerChanged());
 /* Список клиентов — на общем движке таблиц Sales (владелец, 3 октября 2026:
    «customer нужно поработать структурировано… этот супер поиск мне не
    нравится, пусть будет как везде, в Sales, Optimization, работать как

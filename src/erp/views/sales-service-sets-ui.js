@@ -5,6 +5,8 @@
    ===================================================================== */
 
 let soServiceSetOpen=false,soServiceSetEditingId=null,soServiceSetDraft=null;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!soServiceSetDraft);
 let soEdgeworkLineId=null,soServiceFilter='all',soBulkServiceSetId='',soBulkServicePolicy='keep',soServiceBulkPreview=null;
 
 /* Ярлык берётся из общей карты: это была третья копия перечисления, и на

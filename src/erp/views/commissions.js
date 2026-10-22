@@ -9,6 +9,8 @@
    IN : erp/finance/commissions
    ===================================================================== */
 let comOpen='',comDraft=null,comSeen='',comPayDraft=null,comPeriod='year',comHst=false,comNotice='';
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!(comDraft||comPayDraft));
 const COM_PERIODS=[['year','This year'],['last','Last year'],['all','All time']];
 function comRange(){const y=+finToday().slice(0,4);return comPeriod==='all'?null:comPeriod==='last'?{from:(y-1)+'-01-01',to:(y-1)+'-12-31'}:{from:y+'-01-01',to:y+'-12-31'};}
 function comCustomerName(id){return finCustomerName(salesFindCustomer(id));}

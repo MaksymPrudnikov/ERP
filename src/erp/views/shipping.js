@@ -5,6 +5,8 @@
    No truck UI here. */
 const SHIPPING_TABS=[['awaiting','Awaiting readiness'],['ready','Ready'],['shipments','Shipments'],['backorders','Backorders'],['done','Done']];
 let shippingTab='ready',shippingNotice=null,shippingDraft=null,shippingOpenId='',shippingPreview=false;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!shippingDraft);
 let shippingSelection=new Set(),shippingCustomer='',shippingReceivedBy='',shippingReceivedOn='';
 function shippingSetTab(key){shippingTab=key;shippingNotice=null;skidsNotice=null;salesListMenu=null;render();}
 /* Счётчики на вкладках — как были у очереди Shipping: заказы, у Shipments —

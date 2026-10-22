@@ -69,6 +69,8 @@ let mdSpacerEdit=null,mdSpacerDraft=null;
 let mdHwKindEdit=null,mdHwKindDraft=null,mdHwModelEdit=null,mdHwModelDraft=null,mdHwFilter='';
 let mdWeightFilter='';
 let mdCatKind='spandrelColour',mdCatEdit=null,mdCatDraft=null;
+/* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!(mdDraft||mdSheetDraft||mdSpacerDraft||mdHwKindDraft||mdHwModelDraft||mdCatDraft));
 let mdImportReport=null;
 
 /* --- Общее ------------------------------------------------------------ */
