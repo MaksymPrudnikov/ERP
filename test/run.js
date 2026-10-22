@@ -121,15 +121,18 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await p.reload();
     await p.evaluate(() => window.storageReady);
   }
+  /* Область записи команды (storageCommand): вне неё команда ничего не меняет. */
+  const outsideScope = [];
   async function page(seedLS, viewport, opts) {
     const c = await b.newContext(viewport ? { viewport } : {});
     if (!(opts && opts.signin)) await c.addInitScript(() => { window.GF_NO_SIGNIN = true; });
     /* Уход в архив сам (erp/archive) — не посреди проверки: test/archive зовёт archiveRun сам. */
-    await c.addInitScript(() => { window.GF_NO_ARCHIVE = true; });
+    await c.addInitScript(() => { window.GF_NO_ARCHIVE = true; window.GF_SCOPE_CHECK = true; });
     await c.addInitScript(storageHelpers);
     const p = await c.newPage();
     const errs = [];
     p.on('pageerror', e => errs.push(e.message));
+    p.on('console', m => { if (m.type() === 'error' && m.text().startsWith('Outside scope')) outsideScope.push(m.text()); });
     p.on('dialog', d => d.accept());
     await p.goto(TARGET);
     await p.evaluate(() => window.storageReady);
@@ -2670,7 +2673,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         stockFoundInRightTable:!!foundStock&&foundStock.table==='stockItem',
         stockHasDoor:stockSubcats.indexOf('door')>=0,surfaceTables,
         unknownId:materialById('NOPE-404')};
-    }), {iguTables:['gasProduct','sealantProduct','spacerVariant'],glassCount:true,allCount:true,
+    }), {iguTables:['gasProduct','iguPart','sealantProduct','spacerVariant'],glassCount:true,allCount:true,
       glassFoundInRightTable:true,stockFoundInRightTable:true,stockHasDoor:true,
       surfaceTables:['fritProduct','spandrelColour','spandrelProduct'],unknownId:null});
 
@@ -2936,15 +2939,15 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Laminated overall thickness включает фактические плиты и interlayer', await t.p.evaluate(() => {
       const o=newSalesOrderDraft(),m=o.makeups[0];m.unitType='single';m.panes=[normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0)];m.cavities=[];return salesMakeupThicknessMm(m).toFixed(3);
     }), '12.088');
-    eq('толщина пакета берёт фактическое стекло, fallback nominal и 0.8 mm PIB на камеру', await t.p.evaluate(() => {
+    eq('толщина пакета берёт фактическое стекло, fallback nominal и PIB из рецепта рамки (0.4 mm на сторону)', await t.p.evaluate(() => {
       const glass=DB.glassProduct,spacers=DB.spacerVariant;
       try{
         DB.glassProduct=[{id:'G-A',thicknessMm:6,actualThicknessMm:5.7},{id:'G-B',thicknessMm:6,actualThicknessMm:6.76}];
-        DB.spacerVariant=[{id:'SP-X',size:'1/2',thicknessMm:12.5,system:'Test'}];
+        DB.spacerVariant=[{id:'SP-X',size:'1/2',thicknessMm:12.5,system:'Test',recipeId:'REC-BWE-1732'}];
         const m={panes:[{category:'vision',glassProductId:'G-A'},{category:'vision',glassProductId:'G-B'}],cavities:[{spacerVariantId:'SP-X'}]};
         const actual=salesMakeupThicknessMm(m).toFixed(2);
         DB.glassProduct[1].actualThicknessMm=null;
-        return {actual:actual,fallback:salesMakeupThicknessMm(m).toFixed(2),pib:SALES_PIB_PER_CAVITY_MM};
+        return {actual:actual,fallback:salesMakeupThicknessMm(m).toFixed(2),pib:surroundPibMm(DB.spacerVariant[0],null)};
       }finally{DB.glassProduct=glass;DB.spacerVariant=spacers;}
     }), {actual:'25.76',fallback:'25.00',pib:.8});
     eq('подпись стекла сохраняет вторую толщину составного ламината', await t.p.evaluate(() => ({
@@ -2991,7 +2994,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const c=normalizeSalesCavity({spacerVariantId:'SP-BWE-012',primarySealantId:'SEAL-HM'},0),host=document.createElement('div');
       host.innerHTML=salesCavitySection(c,0);const selects=[...host.querySelectorAll('.mu-cavity-grid select')];
       return {labels:[...host.querySelectorAll('.mu-cavity-grid label')].map(x=>x.textContent),widths:[...selects[1].options].map(x=>x.textContent),spacers:[...selects[0].options].map(x=>x.textContent),primary:c.primarySealantId,summary:salesCavitySummary(c)};
-    }), {labels:['Spacer','Width','Gas','Sealant','Price · sq ft'],widths:['3/16″','7/32″','1/4″','5/16″','3/8″','13/32″','7/16″','15/32″','1/2″','17/32″','9/16″','5/8″','11/16″','3/4″','27/32″','15/16″'],spacers:['AL — Aluminum','BL — Black Aluminum','WWE — White Warm Edge','LGWE — Light Grey Warm Edge','BWE — Black Warm Edge','SS — Stainless Steel'],primary:'SEAL-PIB',summary:'Black Warm Edge 1/2″ · Argon · PS'});
+    }), {labels:['Spacer','Width','Gas','Sealant','Stepped contour','Price · sq ft'],widths:['3/16″','7/32″','1/4″','5/16″','3/8″','13/32″','7/16″','15/32″','1/2″','17/32″','9/16″','5/8″','11/16″','3/4″','27/32″','15/16″'],spacers:['AL — Aluminum','BL — Black Aluminum','WWE — White Warm Edge','LGWE — Light Grey Warm Edge','BWE — Black Warm Edge','SS — Stainless Steel'],primary:'SEAL-PIB',summary:'Black Warm Edge 1/2″ · Argon · PS'});
     eq('смена Width сохраняет spacer-систему и фильтрует недоступные размеры', await t.p.evaluate(() => {
       salesOrderNew();const c=salesCurrentMakeup().cavities[0];c.spacerVariantId='SP-AL-012';salesCavitySetWidth(0,'5/8');const same=c.spacerVariantId;c.spacerVariantId='SP-SS-012';salesCavitySetWidth(0,'3/8');return {same,fallback:c.spacerVariantId};
     }), {same:'SP-AL-058',fallback:'SP-AL-038'});
@@ -6112,6 +6115,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
   await require('./storage-records.js')({page,eq,ok}); await require('./storage-cold.js')({page,eq,ok}); await require('./archive.js')({page,eq,ok}); await require('./read-scope.js')({page,eq,ok}); await require('./sales-save-one.js')({page,eq,ok}); await require('./base-start.js')({page,eq,ok}); await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./invoice.js')({page,eq,ok}); await require('./review-polish.js')({page,eq,ok}); await require('./station-polish.js')({page,eq,ok}); await require('./supply-points.js')({page,eq,ok}); await require('./customers.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./finance-ledger.js')({page,eq,ok}); await require('./commissions.js')({page,eq,ok}); await require('./purchasing.js')({page,eq,ok}); await require('./purchase-orders.js')({page,eq,ok}); await require('./purchasing-receiving.js')({page,eq,ok}); await require('./purchasing-invoices.js')({page,eq,ok}); await require('./purchasing-catalog.js')({page,eq,ok}); await require('./purchasing-audit.js')({page,eq,ok}); await require('./purchasing-held.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./shipping.js')({page,eq,ok}); await require('./shipping-loading.js')({page,eq,ok}); await require('./shipping-walk-fixes.js')({page,eq,ok}); await require('./shipping-lookup.js')({page,eq,ok}); await require('./shipping-delivery.js')({page,eq,ok}); await require('./shipping-skids.js')({page,eq,ok}); await require('./shipping-restack.js')({page,eq,ok}); await require('./unit-cancel.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./glass-no-cut.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./money.js')({page,eq,ok}); await require('./skip.js')({page,eq,ok}); await require('./production-unbatch.js')({page,eq,ok}); await require('./order-delete.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./sticker-free-layout.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok}); await require('./sheet-usage.js')({page,eq,ok}); await require('./inventory.js')({page,eq,ok}); await require('./inventory-offcuts.js')({page,eq,ok}); await require('./inventory-hints.js')({page,eq,ok}); await require('./cut-offset.js')({page,eq,ok}); await require('./inventory-audit.js')({page,eq,ok}); await require('./sim-inventory.js')({page,eq,ok}); await require('./sales-cut-estimate.js')({page,eq,ok}); await require('./docs.js')({eq,ok}); await require('./station.js')({page,eq,ok}); await require('./carriers.js')({page,eq,ok}); await require('./dollies-skids.js')({page,eq,ok}); await require('./carrier-sheet.js')({page,eq,ok}); await require('./station-wrong-way.js')({page,eq,ok}); await require('./igu-ready.js')({page,eq,ok}); await require('./units.js')({page,eq,ok}); await require('./cut-batch.js')({page,eq,ok}); await require('./station-drawings.js')({page,eq,ok}); await require('./station-queue.js')({page,eq,ok}); await require('./reports.js')({page,eq,ok}); await require('./report-engine.js')({page,eq,ok}); await require('./report-builder.js')({page,eq,ok}); await require('./md-stations.js')({page,eq,ok}); await require('./route-repeat.js')({page,eq,ok}); await require('./lami-edges.js')({page,eq,ok}); await require('./lami-ply-recut.js')({page,eq,ok}); await require('./audit-fixes.js')({page,eq,ok}); await require('./audit-2026-10-05.js')({page,eq,ok}); await require('./audit-2026-10-19.js')({page,eq,ok}); await require('./order-log.js')({page,eq,ok}); await require('./md-foundation.js')({page,eq,ok}); await require('./price-lists.js')({page,eq,ok}); await require('./sale-units.js')({page,eq,ok}); await require('./office-walk-fixes.js')({page,eq,ok}); await require('./users-commands.js')({page,eq,ok}); await require('./drawing-layout.js')({page,eq,ok}); await require('./step-unit.js')({page,eq,ok}); await require('./extra-services.js')({page,eq,ok}); await require('./frit-setout.js')({page,eq,ok}); await require('./dxf-import.js')({page,eq,ok}); await require('./design-tokens.js')({page,eq,ok}); await require('./shipping-audit.js')({page,eq,ok}); await require('./batched-line-qty.js')({page,eq,ok}); await require('./screen-fixes.js')({page,eq,ok}); await require('./sim-walk-fixes.js')({page,eq,ok}); await require('./pilot-orders.js')({eq});
   await b.close();
+  eq('команды с областью записи ничего не меняют вне неё', outsideScope.slice(0, 8), []);
   /* Счёт проверок в README — настоящий: его знает только этот прогон.
      «провер», а не «проверк»: в тексте бывает и «проверки», и «проверок». */
   try{

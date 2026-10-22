@@ -57,6 +57,15 @@ module.exports=async function({page,eq,ok}){
 
  await t.p.evaluate(()=>{storageCommand(()=>{DB.customer[0].legalName='Before F5';});});await reload();
  eq('запись, начатая перед F5, доходит до базы',await t.p.evaluate(()=>DB.customer[0].legalName),'Before F5');
+ /* Область записи (storageCommand): пишется названное; пропущенное дописывает
+    полное сравнение в простое (storageSweep). */
+ eq('область записи: команда пишет названное, новые строки видны всегда; пропущенное дописывает полное сравнение в простое',await t.p.evaluate(async()=>{
+  await storageFlush();const keep=window.GF_SCOPE_CHECK;window.GF_SCOPE_CHECK=false;const a=DB.customer[0],b=DB.customer[1];
+  const out=storageCommand(()=>{a.notes='Scoped';b.notes='Missed';DB.customer.push({id:'SR-NEW',legalName:'New'});},{customer:[a.id]});window.GF_SCOPE_CHECK=keep;
+  const stored=()=>{const c=testStoredState().customer;return [c.find(x=>x.id===a.id).notes,c.find(x=>x.id===b.id).notes,c.some(x=>x.id==='SR-NEW')];};
+  const first=stored();archiveInputAt=0;storageSweep();
+  return {ok:out.ok,scoped:first[0],missed:first[1]==='Missed',added:first[2],after:stored()};
+ }),{ok:true,scoped:'Scoped',missed:false,added:true,after:['Scoped','Missed',true]});
 
  /* Вторая вкладка: запись одной — сразу в памяти другой. */
  const p2=await t.c.newPage();p2.on('pageerror',e=>t.errs.push(e.message));p2.on('dialog',d=>d.accept());

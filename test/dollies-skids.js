@@ -94,7 +94,7 @@ module.exports=async function({page,eq,ok}){
   const one=w(ga[0]),lite=w(gb[0]),line=finWithOrder(salesRecord(a),()=>salesLineWeight(salesRecord(a).lines[0],salesRecord(a))).kg;
   const igu=salesRecord(b),l=igu.lines[0],full=finWithOrder(igu,()=>salesLineWeight(l,igu)),glassRows=full.rows.filter(r=>/^Lite 1 ·/.test(r.label)).reduce((n,r)=>n+r.kg,0);
   carrierWinClose();const r=oqOrder(c);salesDraftDrop();oqThrough(r,'ready');shippingAvailable(salesRecord(r)).forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));
-  const save=window.salesWeightRate;window.salesWeightRate=()=>null;carrierWinOpen('SL-1');const unit=carrierText(carrierWinModel().items[0],'weight');window.salesWeightRate=save;carrierWinClose();
+  const save=window.salesWeightRate,card=window.surroundSpacerCard;window.salesWeightRate=()=>null;window.surroundSpacerCard=()=>({recipeId:'',weightG:null,weightPer:'ft2'});carrierWinOpen('SL-1');const unit=carrierText(carrierWinModel().items[0],'weight');window.salesWeightRate=save;window.surroundSpacerCard=card;carrierWinClose();
   return {one:one===docNum(line,1),lite:lite===docNum(glassRows,1)&&+lite>0,litePart:+lite<full.kg,unit:/^~[0-9.]+$/.test(unit)};
  }),{one:true,lite:true,litePart:true,unit:true});
 

@@ -268,7 +268,14 @@ function glassBatchPartSnapshot(r){
    создаются все вместе или ни один. */
 function glassBatchAssign(rows,opts){
  if(storageDepth||opts&&(opts.deferTouch||opts.dryRun))return glassBatchAssignCommand(rows,opts);
- const out=storageCommand(()=>{const value=glassBatchAssignCommand(rows,opts);if(value==null)throw new Error('Nothing could be assigned to this batch.');return value;});return out.ok?out.value:null;
+ const out=storageCommand(()=>{const value=glassBatchAssignCommand(rows,opts);if(value==null)throw new Error('Nothing could be assigned to this batch.');return value;},
+  glassBatchScope(rows,opts));return out.ok?out.value:null;
+}
+/* Область записи батча (storageCommand): батч, заказы его стёкол; срочное
+   встаёт первым — тогда и очередь резки (glassBatchRushFirst). */
+function glassBatchScope(rows,opts){
+ const orders=[...new Set((rows||[]).map(r=>r.orderId))],rush=orders.some(id=>typeof stationUrgency==='function'&&stationUrgency(salesRecord(id))>0);
+ return {glassBatch:(opts&&opts.batchNo?[salesBatchNumber(opts.batchNo)]:[]).concat(rush?glassBatchCutQueue().map(b=>b.number):[]),salesOrder:orders};
 }
 function glassBatchAssignCommand(rows,opts){
  opts=opts||{};if(!rows||!rows.length)return null;

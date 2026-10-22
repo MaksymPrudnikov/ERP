@@ -323,7 +323,7 @@ function salesSyncRecordLifecycle(o){
 }
 function salesSetRecordStatus(orderId,next,opts){
  if(storageDepth||opts&&opts.deferTouch)return salesSetRecordStatusCommand(orderId,next,opts);
- const out=storageCommand(()=>salesSetRecordStatusCommand(orderId,next,opts));return out.ok&&out.value;
+ const out=storageCommand(()=>salesSetRecordStatusCommand(orderId,next,opts),Object.assign(salesOrderScope(orderId),{glassBatch:glassBatchEntries(orderId).map(x=>x.batch.number).concat(glassBatchScope([{orderId}],opts).glassBatch)}));return out.ok&&out.value;
 }
 function salesSetRecordStatusCommand(orderId,next,opts){
  opts=opts||{};const o=salesRecord(orderId);

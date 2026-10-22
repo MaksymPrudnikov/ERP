@@ -144,7 +144,39 @@ async function storageColdBring(owner){
  return storageCommand(()=>{got.forEach(storageColdPut);return got.length;});
 }
 const STORAGE_UNSAVED_TABLES=new Set(['shapeDef']);
-function storageCommand(fn){
+/* Область записи (задание «База», после П5). Горячая команда называет, что
+   меняет: {таблица: true} — всю, {таблица: [ключи]} — эти строки (новые,
+   удалённые и сдвинутые видны всегда). touch() сравнивает только это: на
+   годе цеха полное сравнение стоило секунды на каждом действии. Тесты
+   (GF_SCOPE_CHECK) сравнивают всю базу до и после и ловят правку вне
+   области; в программе пропущенное дозапишет полное сравнение в простое
+   (storageSweepLater). Журналы заказа и Master Data — новые строки всегда. */
+const STORAGE_SCOPE_ALWAYS={shapeDef:true,orderEvent:[],masterDataEvent:[]};
+let storageScope=null,storageSweepTimer=null;
+function storageScopeMap(scope){
+ const m=new Map();
+ [STORAGE_SCOPE_ALWAYS,scope].forEach(s=>Object.keys(s).forEach(k=>{
+  const v=s[k],had=m.get(k);if(v===true||had===null){m.set(k,null);return;}
+  const set=had||new Set();[...v].forEach(id=>{if(id!=null&&id!=='')set.add(String(id));});m.set(k,set);
+ }));
+ return m;
+}
+function storageScopeSig(){return new Map(storageDiff(DB).map(c=>[c.tbl+'\u0000'+c.id,c.del?'-':c.seq+'\u0000'+c.data]));}
+function storageScopeCheck(before){
+ const out=[];storageScopeSig().forEach((v,k)=>{if(before.get(k)!==v)out.push(k.replace('\u0000',':'));});
+ if(out.length)console.error('Outside scope: '+out.slice(0,6).join(', ')+' · '+String(new Error().stack).split('\n').slice(3,5).map(x=>x.trim().split(' ')[1]).join(' < '));
+}
+/* Полное сравнение — когда полминуты не трогают клавиши и мышь (как уход в
+   архив): пропущенное областью записи не потеряется. */
+function storageSweepLater(){
+ if(storageSweepTimer||typeof window!=='undefined'&&window.GF_NO_ARCHIVE)return;
+ storageSweepTimer=setTimeout(storageSweep,30e3);
+}
+function storageSweep(){
+ if(storageDepth||typeof archiveInputAt!=='undefined'&&Date.now()-archiveInputAt<30e3){storageSweepTimer=setTimeout(storageSweep,30e3);return;}
+ storageSweepTimer=null;if(storageWriter&&!storageRecovery&&!storageStale)touch();
+}
+function storageCommand(fn,scope){
  if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}
  if(!storageWriter||storageRecovery||storageStale)return {ok:false,error:storageRecovery?'Restore or export the unreadable database before editing.':storageReadOnlyText()};
  const wasDirty=dirty,draftBefore=typeof soDraft==='undefined'?null:JSON.stringify(soDraft);
@@ -153,11 +185,15 @@ function storageCommand(fn){
     до Update) — второе сравнение всей базы на каждом действии стоило
     столько же, сколько первое (задание «База», П5). */
  let before;try{before=storageDiff(DB,STORAGE_UNSAVED_TABLES);}catch(e){before=[];}
+ let scopeBefore=null;if(scope&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{scopeBefore=storageScopeSig();}catch(e){}
  storageDepth++;
  try{
   const value=fn();if(value===false||value&&value.error)throw new Error(value&&value.error||'The operation could not be completed.');
-  storageDepth--;storageCommanding=true;const saved=touch();storageCommanding=false;
+  storageDepth--;storageCommanding=true;storageScope=scope?storageScopeMap(scope):null;
+  let saved;try{saved=touch();}finally{storageCommanding=false;storageScope=null;}
   if(saved===false)throw new Error(storageLastError||'Not saved. Retry the operation.');
+  if(scopeBefore)storageScopeCheck(scopeBefore);
+  if(scope)storageSweepLater();
   return {ok:true,value};
  }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
 }
@@ -171,12 +207,13 @@ function touch(){
  }
  try{
   /* Журнал заказа: события по разнице с тем, что лежит в базе (erp/sales/order-log). */
-  if(typeof orderLogCapture==='function')orderLogCapture();
+  const only=storageScope;
+  if(typeof orderLogCapture==='function'&&(!only||only.has('salesOrder')))orderLogCapture(only&&only.get('salesOrder'));
   /* Счётчик номеров стёкол — раньше базы (erp/production/glass-batches). */
   if(typeof glassIdMarkSave==='function')glassIdMarkSave();
   /* Журнал Master Data — по тому же набору изменений (erp/masterdata/md-log):
      пополнился — набор собирается заново, чтобы записи журнала ушли с правкой. */
-  let diff=storageDiff(DB);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB);
+  let diff=storageDiff(DB,only);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB,only);
   const changes=storageColdApply(diff);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';return true;}

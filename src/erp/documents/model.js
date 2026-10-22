@@ -62,8 +62,8 @@ function docPaneName(p){
 }
 function docCavityCode(c){
  const sp=mdById('spacerVariant',c.spacerVariantId),gas=mdById('gasProduct',c.gasProductId);
- const sys=sp&&typeof SPACER_SYSTEMS!=='undefined'?SPACER_SYSTEMS.find(x=>x.system===sp.system):null;
- return (sp?[sp.size,sys?sys.code:sp.system].filter(Boolean).join(' '):'Cavity')+(gas&&gas.code&&gas.code!=='AIR'?' '+gas.code:'');
+ const sys=sp&&spacerSystemByName(sp.system);
+ return (sp?[sp.size,sys&&sys.code?sys.code:sp.system].filter(Boolean).join(' '):'Cavity')+(gas&&gas.code&&gas.code!=='AIR'?' '+gas.code:'');
 }
 function docCavityText(c){
  const sp=mdById('spacerVariant',c.spacerVariantId),gas=mdById('gasProduct',c.gasProductId);
@@ -182,8 +182,11 @@ function docSaleItem(model,line,index,order){
    mat.push({desc:'Lite '+(i+1)+' · '+docPaneName(pn)+(heat?' · '+heat:''),basis:a.valid?docNum(a.billable,1)+' ft²':'',rate:rate==null?'':docMoney(rate),value:rate==null||!a.valid?null:salesMoney(rate*a.billable),required:rate==null});
   });
   (m?m.cavities:[]).forEach((c,i)=>{
-   const rate=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c);
-   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:a.valid?docNum(a.billable,1)+' ft²':'',rate:rate==null?'':docMoney(rate),value:rate==null||!a.valid?null:salesMoney(rate*a.billable),required:rate==null});
+   /* Обвязка по частям рецепта: сумма частей этой камеры, в том числе за
+      дюйм периметра или штуку (erp/masterdata/surround). */
+   const rate=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c),parts=(p.materialRows||[]).filter(r=>r.cavity===i);
+   const value=!a.valid||parts.some(r=>r.amount==null)?null:salesMoney(parts.reduce((n,r)=>n+r.amount,0));
+   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:a.valid?docNum(a.billable,1)+' ft²':'',rate:rate==null?'':docMoney(rate)+(salesCavityOtherUnits(c)?' +':''),value:value,required:value==null});
   });
   services.forEach(s=>svc.push({desc:s.label,basis:docBasis(s.basis,s.unit),rate:s.rate==null?'':docMoney(s.rate),value:s.value,required:s.rate==null}));
   if(p.complete){docReconcile(mat,p.materials);docReconcile(svc,salesMoney(p.base-p.materials));}
