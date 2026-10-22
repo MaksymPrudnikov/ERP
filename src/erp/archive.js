@@ -145,13 +145,14 @@ function archiveInvState(){
  return {sheets,offcuts};
 }
 /* Разница «до − после» по складу ложится в inventoryArchived: склад
-   прибавляет её, остаток не меняется ни на лист. sign −1 — возврат. */
-function archiveInvKeep(before,after,sign){
+   прибавляет её, и он показывает то же, что до действия, — при уходе и при
+   возврате одинаково. offcuts — запомнить факты обрезков (уход). */
+function archiveInvKeep(before,after,offcuts){
  const A=DB.inventoryArchived&&typeof DB.inventoryArchived==='object'?DB.inventoryArchived:(DB.inventoryArchived={});
  A.sheets=A.sheets||{};A.offcuts=A.offcuts||{};
  before.sheets.forEach((b,key)=>{const a=after.sheets.get(key)||{cut:0,broken:0},x=A.sheets[key]||{cut:0,broken:0};
-  x.cut+=(b.cut-a.cut)*sign;x.broken+=(b.broken-a.broken)*sign;if(x.cut||x.broken)A.sheets[key]=x;else delete A.sheets[key];});
- if(sign>0)before.offcuts.forEach((b,id)=>{const a=after.offcuts.get(id);if(a&&JSON.stringify(a)===JSON.stringify(b))return;
+  x.cut+=b.cut-a.cut;x.broken+=b.broken-a.broken;if(x.cut||x.broken)A.sheets[key]=x;else delete A.sheets[key];});
+ if(offcuts)before.offcuts.forEach((b,id)=>{const a=after.offcuts.get(id);if(a&&JSON.stringify(a)===JSON.stringify(b))return;
   const slim=x=>x?{at:x.at||'',by:x.by||'',batch:x.batch||'',sheet:x.sheet||''}:null;A.offcuts[id]={used:slim(b.used),broken:slim(b.broken),onRackAt:b.onRackAt||'',onRackBy:b.onRackBy||''};});
 }
 
@@ -177,7 +178,7 @@ function archiveRun(day,opts){
   const before=archiveInvState();
   const byTbl=new Map();set.forEach(x=>{let a=byTbl.get(x.tbl);if(!a)byTbl.set(x.tbl,a=[]);a.push(x);});
   byTbl.forEach((list,tbl)=>storageColdMoveAll(tbl,list));
-  archiveInvKeep(before,archiveInvState(),1);
+  archiveInvKeep(before,archiveInvState(),true);
   rows.forEach(([id,row])=>storageArchiveIndex(id,row));
   return {orders:ids.size,records:set.length};
  });
@@ -192,7 +193,7 @@ async function archiveReturn(orderId){
  return storageCommand(()=>{
   const before=archiveInvState();
   got.forEach(r=>storageColdPut(r));
-  archiveInvKeep(before,archiveInvState(),-1);
+  archiveInvKeep(before,archiveInvState(),false);
   if(DB.inventoryArchived&&DB.inventoryArchived.offcuts)(DB.stockOffcut||[]).forEach(o=>{if(got.some(r=>r.tbl==='glassBatch'&&JSON.parse(r.data).number===o.batch))delete DB.inventoryArchived.offcuts[o.id];});
   (DB.salesOrder||[]).forEach(o=>{if(owners.has(o.id)&&archiveIndex.has(o.id))storageArchiveIndex(o.id,null);});
   return got.length;
