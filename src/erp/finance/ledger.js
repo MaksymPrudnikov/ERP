@@ -316,7 +316,7 @@ function finValidatePayload(src){
   finAssert(!r.number||!numbers.has(r.number),'Duplicate payment number.');if(r.number)numbers.add(r.number);
   finAssert(!r.allocations||Array.isArray(r.allocations),'Payment allocations must be an array.');
   const seen=new Set();let applied=0;
-  (r.allocations||[]).forEach(a=>{const o=a&&orders.get(a.orderId);finAssert(a&&money(a.amount)&&a.amount>0&&!seen.has(a.orderId),'Invalid or duplicate payment allocation.');seen.add(a.orderId);applied+=a.amount;
+  (r.allocations||[]).forEach(a=>{const o=a&&(orders.get(a.orderId)||(typeof archiveKnown==='function'?archiveKnown(a.orderId):null));finAssert(a&&money(a.amount)&&a.amount>0&&!seen.has(a.orderId),'Invalid or duplicate payment allocation.');seen.add(a.orderId);applied+=a.amount;
    finAssert(o&&o.customerId===r.customerId&&finCurrency(o)===finCurrency(r)&&o.kind!=='quote','Payment allocation must match the customer, order and currency.');});
   finAssert(finMoney(applied)<=r.amount,'Applied amounts exceed the payment.');
  });

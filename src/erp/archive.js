@@ -134,7 +134,7 @@ function archiveCollect(ids){
 function archiveRowOf(o,day,now){
  const info=salesListInfo(o),row={};
  (typeof SALES_LIST_COLUMNS!=='undefined'?SALES_LIST_COLUMNS:[]).forEach(c=>{try{row[c.k]=salesListValue(info,c.k);}catch(e){row[c.k]=null;}});
- return {kind:salesIsQuote(o)?'quote':'order',customerId:o.customerId||'',number:o.businessNumber||'',createdAt:o.createdAt||'',groupId:salesIsQuote(o)?salesQuoteGroupId(o):'',day,archivedAt:now,row};
+ return {kind:salesIsQuote(o)?'quote':'order',customerId:o.customerId||'',currency:o.currency||'',number:o.businessNumber||'',createdAt:o.createdAt||'',groupId:salesIsQuote(o)?salesQuoteGroupId(o):'',day,archivedAt:now,row};
 }
 
 /* Склад листов и обрезки — что они показывают, без журнала движений. */
