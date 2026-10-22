@@ -144,10 +144,13 @@ function pageSetup() {
       }
       return null;
     },
-    /* Контрольные ответы: строка каждого заказа из списка Sales. */
+    /* Контрольные ответы: строка каждого заказа из списка Sales — в области
+       отрисовки (erp/read-scope), как на экране: сверка проверяет тот путь,
+       которым экран отвечает. */
     answers() {
       const keys = ['number', 'status', 'readyQty', 'glass', 'batch', 'newLines', 'pcs', 'area', 'total', 'receipts', 'balance', 'createdBy'];
-      return { keys, rows: (DB.salesOrder || []).map(o => { const i = salesListInfo(o); return [o.id].concat(keys.map(k => { try { const v = salesListValue(i, k); return v == null ? null : v; } catch (e) { return 'error: ' + e.message; } })); }) };
+      const all = () => (DB.salesOrder || []).map(o => { const i = salesListInfo(o); return [o.id].concat(keys.map(k => { try { const v = salesListValue(i, k); return v == null ? null : v; } catch (e) { return 'error: ' + e.message; } })); });
+      return { keys, rows: typeof readScope === 'function' ? readScope(all) : all() };
     },
     f5parts() { const m = typeof storageBootMs !== 'undefined' && storageBootMs || {}; return Object.fromEntries(Object.entries(m).map(([k, v]) => [k, Math.round(v)])); },
     size() {
