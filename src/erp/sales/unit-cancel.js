@@ -54,7 +54,7 @@ function unitList(o,l){
    работу считаем только у закалённого или собранного стекла (в пользу клиента). */
 function unitRowStation(row){
  const p=String(row&&row.key||'').split(':');
- if(p[0]==='EDGE')return salesRouteStationOf(p[1]==='bevel'?'bevel:'+p[2]:p[1],'');
+ if(p[0]==='EDGE')return salesRouteStationOf(p[1],'');
  if(p[0]==='MI')return p[1]==='hole'?salesRouteStationOf('hole:'+p[2],''):salesRouteStationOf(p[1],salesRouteStationOf('hinge',''));
  if(p[0]==='FEATURE'){const k=String(p[1]||'');return k==='radius'?salesRouteStationOf('radiusCorner',''):k==='cutout'?salesRouteStationOf('cutout',''):k==='notch-cnc'?salesRouteStationOf('notchCnc',''):k==='notch-hand'?salesRouteStationOf('notchHand',''):k.indexOf('sandblast')===0?salesRouteStationOf('sandblasting',''):'';}
  if(p[0]==='HEATSOAK')return salesRouteStationOf('heat_soak','');

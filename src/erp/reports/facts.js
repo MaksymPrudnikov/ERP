@@ -28,9 +28,9 @@ function repChargeStation(row){
  const p=String(row&&row.key||'').split(':');
  if(p[0]==='EDGE'){
   const t=REP_EDGE_TYPE[p[1]]||(/^miter/.test(p[1])?'Mitering':'');
-  return t?salesRouteStationOf(SALES_ROUTE_EDGE_OP[t],SALES_ROUTE_EDGE_HOME[t]||'POLISH'):'';
+  return t?salesRouteStationOf(SALES_ROUTE_EDGE_OP[t],''):'';
  }
- if(p[0]==='MI'){const w=row.svc&&salesServiceRateRow(row.svc);return w&&w.family==='hole'?w.station||'':p[1]==='hole'?repWorkStation('hole:'+p[2]):salesRouteStationOf('hinge','DRILL');}
+ if(p[0]==='MI'){const w=row.svc&&salesServiceRateRow(row.svc);return w&&w.family==='hole'?w.station||'':p[1]==='hole'?repWorkStation('hole:'+p[2]):salesRouteStationOf('hinge','');}
  if(p[0]==='FEATURE'){
   const f=p[1]||'',id=REP_FEATURE_WORK[f]||(/^mirror-backer/.test(f)?'mirrorBacker':/^sandblast-pattern/.test(f)?'sandblastPattern':/^sandblast-/.test(f)?'sandblastFull':'');
   return id?repWorkStation(id):'';

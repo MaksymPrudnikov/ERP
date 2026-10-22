@@ -55,5 +55,27 @@ module.exports=async function({page,eq}){
   mdById('fritProduct','FRIT-DIGITAL').workId='sandblastFull';const b=route();
   return [a===salesServiceRateRow('digital_print').station,glaze&&glaze.svc,b];
  })),[true,'digital_print','SAND']);
+ /* Часть 3: станция — только из карточки работы; дерево станций. */
+ eq('кромка без станции в карточке — «no station» в маршруте, на листе и в предупреждении Save; запасного словаря нет',await t.p.evaluate(()=>mwKeep(()=>{
+  const o=mwOrder(),l=o.lines[0];DB.serviceRate.find(r=>r.id==='roughArris').station='';
+  const s=salesLineGeometryShape(l),r=salesPrintRoute(l,o,s,ShapeModule.compute(s)),codes=r.lites[0].stations.map(x=>x.code);
+  return [codes.includes('ARRIS'),salesRouteUnassigned(l,o),salesRouteUnassignedWarnings(o)[0],salesSheetRouteHTML(r).includes('<b>NO STATION</b> Rough Arris'),typeof SALES_ROUTE_EDGE_HOME];
+ })),[false,['Rough Arris'],'Line 1 (Kitchen) · no station: Rough Arris',true,'undefined']);
+ eq('станция отверстия — у строки его диаметра: до 1 3/4″ DRILL, 1 13/16–2″ CNC; старая строка 1-1/16–2″ делится один раз с ценами',await t.p.evaluate(()=>mwKeep(()=>{
+  const now=[1,1.5,1.75,1.8125,2,2.5].map(salesRouteHoleStation);
+  const h=DB.serviceRate.find(r=>r.id==='hole:1-2');h.appliesTo=2;h.name='Hole 1-1/16″–2″';h.tiers[0].price=9;
+  DB.serviceRate=DB.serviceRate.filter(r=>r.id!=='hole:1.75-2');normalizeMasterData();
+  const a=DB.serviceRate.find(r=>r.id==='hole:1-2'),b=DB.serviceRate.find(r=>r.id==='hole:1.75-2');
+  return [now,[a.name,a.appliesTo],[b.name,b.appliesFrom,b.appliesTo,b.station,b.tiers[0].price,b.active]];
+ })),[['DRILL','DRILL','DRILL','CNC','CNC','CNC'],['Hole 1-1/16″–1-3/4″',1.75],['Hole 1-13/16″–2″',1.8125,2,'CNC',9,false]]);
+ eq('Data → Stations: дерево шагов; у станции её работы, фрит через работу, материалы через склейку и сборку; карточка плёнки показывает станцию',await t.p.evaluate(()=>{
+  tab='masterdata';mdSetTab('stations');
+  const node=c=>{const el=document.querySelector(`[data-md-st="${c}"]`);return el?el.textContent.replace(/\s+/g,' '):'';};
+  const polish=node('POLISH'),cerp=node('CERP'),lam=node('LAM'),igu=node('IGU');
+  const par=document.querySelector('[data-md-st="ARRIS"]').closest('.md-st-step').querySelectorAll('[data-md-st]').length;
+  mdSetTab('materials');mdMatSwitch('lamination','interlayerProduct');mdCatEditRow(DB.interlayerProduct[0].id);render();
+  const via=document.querySelector('[data-md-station-via]').textContent.replace(/\s+/g,' ').trim();mdCatEdit=null;mdCatDraft=null;tab='dashboard';render();
+  return [polish.includes('Flat Polish'),cerp.includes('Frit · '),lam.includes('Interlayers'),igu.includes('Spacers')&&igu.includes('Gas'),par>1,via];
+ }),[true,true,true,true,true,'StationLAMFrom work Lamination']);
  await t.c.close();
 };

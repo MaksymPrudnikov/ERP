@@ -250,6 +250,7 @@ function salesSheetRouteHTML(route){
     var chain=l.stations.map(function(s){
       return '<b>'+esc(s.code)+'</b> '+s.items.map(function(t){return esc(t);}).join(' · ');
     }).join('<i>&rsaquo;</i>');
+    if((l.unassigned||[]).length)chain+=(chain?'<i>&rsaquo;</i>':'')+'<b>NO STATION</b> '+l.unassigned.map(function(t){return esc(t);}).join(' · ');
     /* Подписан и одинарный лайт: без подписи слева оставалась пустая колонка,
        и строка маршрута начиналась с провала. */
     var name=[l.label,l.glass].filter(Boolean).join(' · ');
