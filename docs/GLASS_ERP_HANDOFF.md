@@ -1,6 +1,38 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.241 · 22 октября 2026 — Master Data, этап 4, часть 3: станции деревом, станция только из карточки работы.
+Версия 5.242 · 22 октября 2026 — Master Data, этап 5, часть 1: Data → Setup — сборы заказа и умолчания фрита.
+
+## Master Data как конструктор — этап 5, часть 1: Data → Setup · 22 октября 2026 (v5.242)
+
+- **Сборы заказа — настройка, а не код.** `SALES_CARD_FEE_RATES`,
+  `SALES_ORDER_CHARGE_DEFAULTS` и запасные 9.75 / 13 в
+  `normalizeSalesOrderCharges` удалены. Новый модуль
+  `erp/sales/order-setup.js` (до `sales/data.js` в манифесте) держит
+  `DB.orderSetup`: Energy и HST (вкл. по умолчанию, ставка), комиссия карты
+  (вкл., список карт `cardNetworks` — имя на заказе и ставка, первая — по
+  умолчанию), доставка и депозит за скид (вкл., сумма), умолчания фрита
+  (`fritDotMm`, `fritMargin16`, `fritCorner`). Засев — прежние числа.
+  Экран — Data → Setup; настройка пишется в журнал Master Data
+  (`MD_LOG_SETTINGS.orderSetup`) и ездит в Export / Import Master Data.
+- **База сборов настраивается, порядок один.** Subtotal → Energy → HST →
+  Card fee, доставка и депозит в конце. В Setup галочки: в базу HST — ES,
+  Delivery; в базу карты — ES, HST, Delivery. Депозит ни в одну базу не
+  входит. `salesApplyOrderCharges` считает базы из `hst.base` и `card.base`
+  снимка; итог = Subtotal + все сборы.
+- **Снимок в заказе.** `newSalesOrderDraft` берёт `salesOrderChargeDefaults()`:
+  ставки, карту (`network`, `name`, `rate`) и базы. Сохранённый заказ живёт
+  по своему снимку: правка Setup его не меняет, карта, удалённая из списка,
+  в нём остаётся со своим именем и ставкой. Заказ без `base` — прежнее
+  правило (HST на Subtotal + ES, карта на Subtotal + ES + HST).
+- **Фрит.** `FRIT_DEFAULT_DOT_MM`, `FRIT_DEFAULT_MARGIN16`,
+  `FRIT_DEFAULT_CORNER` удалены; новый лайт и фрит ламината берут
+  `orderSetupFrit()`. Отступ 0 законен, как и раньше.
+- **Окно сборов в заказе** показывает базу HST и карты («Base: Subtotal +
+  ES»), список карт — из Setup.
+- Тесты: `test/md-works.js` (+2), язык Data → Setup, ширина экрана Setup;
+  `test/line-metrics.js` проверяет базы в снимке.
+- Осталось в коде (не в этом PR): цвета и узоры фрита (`FRIT_COLORS`,
+  `FRIT_PATTERNS` — узоры рисует `frit-drawing.js`), углы отступа.
 
 ## Master Data как конструктор — этап 4, часть 3: станции и маршрут · 22 октября 2026 (v5.241)
 
