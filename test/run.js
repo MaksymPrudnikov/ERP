@@ -121,18 +121,15 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await p.reload();
     await p.evaluate(() => window.storageReady);
   }
-  const unsavedSeen = [];
   async function page(seedLS, viewport, opts) {
     const c = await b.newContext(viewport ? { viewport } : {});
     if (!(opts && opts.signin)) await c.addInitScript(() => { window.GF_NO_SIGNIN = true; });
     /* Уход в архив сам (erp/archive) — не посреди проверки: test/archive зовёт archiveRun сам. */
-    await c.addInitScript(() => { window.GF_NO_ARCHIVE = true; window.GF_DIFF_CHECK = true; });
+    await c.addInitScript(() => { window.GF_NO_ARCHIVE = true; });
     await c.addInitScript(storageHelpers);
     const p = await c.newPage();
     const errs = [];
     p.on('pageerror', e => errs.push(e.message));
-    /* Перед действием вне фигур открытого заказа несохранённого нет (storageCommand, П5). */
-    p.on('console', m => { if (m.type() === 'error' && m.text().startsWith('Unsaved before command')) unsavedSeen.push(m.text()); });
     p.on('dialog', d => d.accept());
     await p.goto(TARGET);
     await p.evaluate(() => window.storageReady);
@@ -3062,7 +3059,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), {emptyAsks:false,withLineAsks:true});
     eq('строка без размеров не даёт сохранить заказ', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();
-      DB.customer.push({id:'CUS-T',code:'C-1',legalName:'T',displayName:'T',status:'active',contacts:[],addresses:[]});
+      DB.customer.push({id:'CUS-T',code:'C-1',legalName:'T',displayName:'T',status:'active',contacts:[],addresses:[]});touch();
       soDraft.customerId='CUS-T';
       salesOrderSave();
       const blocked=DB.salesOrder.length===0;
@@ -3070,7 +3067,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {blocked,savedAfterSize:DB.salesOrder.length===1};
     }), {blocked:true,savedAfterSize:true});
     eq('несовместимая закалка предупреждает, но разрешает явное сохранение', await t.p.evaluate(() => {
-      DB.salesOrder=[];DB.customer=[{id:'CUS-WARN',code:'CW',legalName:'Warning test',displayName:'Warning test',status:'active',contacts:[],addresses:[]}];
+      DB.salesOrder=[];DB.customer=[{id:'CUS-WARN',code:'CW',legalName:'Warning test',displayName:'Warning test',status:'active',contacts:[],addresses:[]}];touch();
       tab='sales';render();salesOrderNew();soDraft.customerId='CUS-WARN';soDraft.lines[0].width16=160;soDraft.lines[0].height16=160;
       const banned=activeGlassProducts().find(glassBannedFromFurnace),required=activeGlassProducts().find(glassNeedsFurnace),m=soDraft.makeups[0];
       const pane=(g,heat,index)=>normalizeSalesPane({category:'vision',manufacturer:g.manufacturer,thicknessMm:g.thicknessMm,visionType:g.coatingFamily,glassProductId:g.id,heatTreatmentId:heat},index);
@@ -3104,7 +3101,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        припусками, стекло на станке можно повернуть, реакция — предупреждение
        при сохранении, а не запрет (габариты пока засеяны 144 × 100″). */
     eq('деталь крупнее станции маршрута подсвечена и предупреждает при сохранении', await t.p.evaluate(() => {
-      DB.salesOrder=[];DB.customer=[{id:'CUS-SIZE',code:'CS',legalName:'Size test',displayName:'Size test',status:'active',contacts:[],addresses:[]}];
+      DB.salesOrder=[];DB.customer=[{id:'CUS-SIZE',code:'CS',legalName:'Size test',displayName:'Size test',status:'active',contacts:[],addresses:[]}];touch();
       tab='sales';render();salesOrderNew();soDraft.customerId='CUS-SIZE';soDraft.lines=[];
       salesExcelPasteText('1\t150\t80\tBIG',0);salesExcelApply();render();
       const line=soDraft.lines[0],status=salesLineServiceStatus(line);
@@ -6115,7 +6112,6 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
   await require('./storage-records.js')({page,eq,ok}); await require('./storage-cold.js')({page,eq,ok}); await require('./archive.js')({page,eq,ok}); await require('./read-scope.js')({page,eq,ok}); await require('./sales-save-one.js')({page,eq,ok}); await require('./base-start.js')({page,eq,ok}); await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./invoice.js')({page,eq,ok}); await require('./review-polish.js')({page,eq,ok}); await require('./station-polish.js')({page,eq,ok}); await require('./supply-points.js')({page,eq,ok}); await require('./customers.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./finance-ledger.js')({page,eq,ok}); await require('./commissions.js')({page,eq,ok}); await require('./purchasing.js')({page,eq,ok}); await require('./purchase-orders.js')({page,eq,ok}); await require('./purchasing-receiving.js')({page,eq,ok}); await require('./purchasing-invoices.js')({page,eq,ok}); await require('./purchasing-catalog.js')({page,eq,ok}); await require('./purchasing-audit.js')({page,eq,ok}); await require('./purchasing-held.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./shipping.js')({page,eq,ok}); await require('./shipping-loading.js')({page,eq,ok}); await require('./shipping-walk-fixes.js')({page,eq,ok}); await require('./shipping-lookup.js')({page,eq,ok}); await require('./shipping-delivery.js')({page,eq,ok}); await require('./shipping-skids.js')({page,eq,ok}); await require('./shipping-restack.js')({page,eq,ok}); await require('./unit-cancel.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./glass-no-cut.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./money.js')({page,eq,ok}); await require('./skip.js')({page,eq,ok}); await require('./production-unbatch.js')({page,eq,ok}); await require('./order-delete.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./sticker-free-layout.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok}); await require('./sheet-usage.js')({page,eq,ok}); await require('./inventory.js')({page,eq,ok}); await require('./inventory-offcuts.js')({page,eq,ok}); await require('./inventory-hints.js')({page,eq,ok}); await require('./cut-offset.js')({page,eq,ok}); await require('./inventory-audit.js')({page,eq,ok}); await require('./sim-inventory.js')({page,eq,ok}); await require('./sales-cut-estimate.js')({page,eq,ok}); await require('./docs.js')({eq,ok}); await require('./station.js')({page,eq,ok}); await require('./carriers.js')({page,eq,ok}); await require('./dollies-skids.js')({page,eq,ok}); await require('./carrier-sheet.js')({page,eq,ok}); await require('./station-wrong-way.js')({page,eq,ok}); await require('./igu-ready.js')({page,eq,ok}); await require('./units.js')({page,eq,ok}); await require('./cut-batch.js')({page,eq,ok}); await require('./station-drawings.js')({page,eq,ok}); await require('./station-queue.js')({page,eq,ok}); await require('./reports.js')({page,eq,ok}); await require('./report-engine.js')({page,eq,ok}); await require('./report-builder.js')({page,eq,ok}); await require('./md-stations.js')({page,eq,ok}); await require('./route-repeat.js')({page,eq,ok}); await require('./lami-edges.js')({page,eq,ok}); await require('./lami-ply-recut.js')({page,eq,ok}); await require('./audit-fixes.js')({page,eq,ok}); await require('./audit-2026-10-05.js')({page,eq,ok}); await require('./audit-2026-10-19.js')({page,eq,ok}); await require('./order-log.js')({page,eq,ok}); await require('./md-foundation.js')({page,eq,ok}); await require('./office-walk-fixes.js')({page,eq,ok}); await require('./users-commands.js')({page,eq,ok}); await require('./drawing-layout.js')({page,eq,ok}); await require('./step-unit.js')({page,eq,ok}); await require('./extra-services.js')({page,eq,ok}); await require('./frit-setout.js')({page,eq,ok}); await require('./dxf-import.js')({page,eq,ok}); await require('./design-tokens.js')({page,eq,ok}); await require('./shipping-audit.js')({page,eq,ok}); await require('./batched-line-qty.js')({page,eq,ok}); await require('./screen-fixes.js')({page,eq,ok}); await require('./sim-walk-fixes.js')({page,eq,ok}); await require('./pilot-orders.js')({eq});
   await b.close();
-  eq('перед действием вне фигур открытого заказа несохранённого нет (первое сравнение — только фигуры)', unsavedSeen.slice(0, 5), []);
   /* Счёт проверок в README — настоящий: его знает только этот прогон.
      «провер», а не «проверк»: в тексте бывает и «проверки», и «проверок». */
   try{

@@ -145,8 +145,8 @@ module.exports=async function({page,eq}){
 
  eq('форма станции: старая форма не пишет поверх чужой правки и не попадает на соседнюю станцию; переоткрыл — сохраняет',await t.p.evaluate(()=>{
   tab='masterdata';mdTab='stations';const i=DB.station.findIndex(s=>s.code==='POLISH');stEditOpen(i);
-  DB.station[i].note='other tab';document.getElementById('sf_note').value='mine';const stale=saveSfStation(),err1=document.getElementById('e_sfStation').textContent,kept=DB.station[i].note;
-  stEdit=null;stSeen=null;const j=DB.station.findIndex(s=>s.code==='POLISH');stEditOpen(j);const removed=DB.station.splice(0,1)[0];
+  DB.station[i].note='other tab';touch();document.getElementById('sf_note').value='mine';const stale=saveSfStation(),err1=document.getElementById('e_sfStation').textContent,kept=DB.station[i].note;
+  stEdit=null;stSeen=null;const j=DB.station.findIndex(s=>s.code==='POLISH');stEditOpen(j);const removed=DB.station.splice(0,1)[0];touch();
   document.getElementById('sf_note').value='mine';saveSfStation();const err2=document.getElementById('e_sfStation').textContent,neighbour=DB.station[j]&&DB.station[j].note;
   DB.station.unshift(removed);stEdit=null;stSeen=null;stEditOpen(DB.station.findIndex(s=>s.code==='POLISH'));document.getElementById('sf_note').value='mine';const ok=saveSfStation();
   const note=DB.station.find(s=>s.code==='POLISH').note;tab='dashboard';render();

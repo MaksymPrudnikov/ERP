@@ -182,7 +182,7 @@ module.exports=async function({page,eq}){
   const next=prepareImportedState(shippingClone(DB)),undo=skipUndo(r.id);return {before,imported:next.skip[0].to==='delivery'&&next.shipment[0].method==='delivery',undo:!undo.error,issued:shippingSummary(salesRecord(id)).delivered,ps:ps.status};
  }),{before:{ok:true,method:'delivery',status:'delivered',address:'42 Test Road',receiver:'Receiver',day:true,issued:2,back:8,hold:[true,true],money:true},imported:true,undo:true,issued:0,ps:'cancelled'});
  eq('SHIP Skip creates a dispatched PS; address failure is atomic and receipt remains separate',await t.p.evaluate(()=>{
-  const id=skSingle(),o=salesRecord(id),l=o.lines[0];o.delivery='delivery';const d={orderId:id,lines:{[l.id]:'all'},to:'SHIP',date:skDay},before=JSON.stringify(DB),bad=skipRun(d),same=JSON.stringify(DB)===before;
+  const id=skSingle(),o=salesRecord(id),l=o.lines[0];o.delivery='delivery';touch();const d={orderId:id,lines:{[l.id]:'all'},to:'SHIP',date:skDay},before=JSON.stringify(DB),bad=skipRun(d),same=JSON.stringify(DB)===before;
   const r=skipRun({...d,shipTo:{address1:'42 Test Road'}}),ps=shippingForOrder(id)[0],sent={ok:!r.error,method:ps.method,ps:ps.status,status:salesRecord(id).status,shipped:shippingSummary(salesRecord(id)).shipped,received:shippingSummary(salesRecord(id)).delivered};
   const got=shippingMarkDelivered(ps.id,'Receiver',skDay),done=salesRecord(id).status,undo=skipUndo(r.id);return {bad:!!bad.error,same,sent,got:got.ok,done,undo:!undo.error,live:DB.stationScan.filter(s=>!s.undoneAt).length};
  }),{bad:true,same:true,sent:{ok:true,method:'delivery',ps:'shipped',status:'shipping',shipped:10,received:0},got:true,done:'done',undo:true,live:0});

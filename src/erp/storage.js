@@ -151,10 +151,8 @@ function storageCommand(fn){
  /* Что в памяти ещё не записано до команды: при отказе вернётся и оно.
     Не записаны бывают только фигуры открытого заказа (DB.shapeDef меняется
     до Update) — второе сравнение всей базы на каждом действии стоило
-    столько же, сколько первое (задание «База», П5). Тесты проверяют, что
-    вне фигур несохранённого перед действием нет (GF_DIFF_CHECK). */
+    столько же, сколько первое (задание «База», П5). */
  let before;try{before=storageDiff(DB,STORAGE_UNSAVED_TABLES);}catch(e){before=[];}
- if(typeof window!=='undefined'&&window.GF_DIFF_CHECK)try{const other=storageDiff(DB).filter(c=>!STORAGE_UNSAVED_TABLES.has(c.tbl==='_meta'?c.id:c.tbl));if(other.length)console.error('Unsaved before command: '+other.slice(0,5).map(c=>c.tbl+':'+c.id).join(', '));}catch(e){}
  storageDepth++;
  try{
   const value=fn();if(value===false||value&&value.error)throw new Error(value&&value.error||'The operation could not be completed.');

@@ -129,7 +129,7 @@ module.exports=async function({page,eq}){
   finSaveReceiptRecord({...a,note:'Changed'},a.id,'Note only');const noteOnly=finExportPending().length;
   finSaveReceiptRecord({...a,allocations:[{orderId:'SO-FIN',amount:30}]},a.id,'Reallocated');finVoidReceipt(b.id,'Bounced');const refund=finCreateRefund({receiptId:a.id,amount:10,date:'2026-09-04',method:'cash',reason:'Back'});
   const second=finExportPending().map(x=>(x.x.number)+':'+x.state).sort();
-  const keep=touch;touch=()=>false;finExportQuickBooks();touch=keep;const rolled=finExportPending().length;
+  touch();const keep=touch;touch=()=>false;finExportQuickBooks();touch=keep;const rolled=finExportPending().length;
   finExportQuickBooks();customerDownload=old;
   return {first,afterFirst,noteOnly,second,rolled,last:finExportPending().length,labels:file.includes(',Corrected')&&file.includes(',Voided')&&file.includes(refund.number),batches:finExportLastBatch()};
  }),{first:['R-0001:new','R-0002:new'],afterFirst:0,noteOnly:1,second:['R-0001:changed','R-0002:voided','RF-0001:new'],rolled:3,last:0,labels:true,batches:2});
