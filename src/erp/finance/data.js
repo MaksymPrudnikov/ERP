@@ -82,7 +82,15 @@ function finWithOrder(order,fn){
  const keep=soDraft;
  try{soDraft=order;return fn();}finally{soDraft=keep;}
 }
-function finOrderTotals(order){return finWithOrder(order,()=>salesOrderCommercialTotals(order));}
+/* Итоги заказа — один раз на отрисовку (erp/read-scope): Finance спрашивал их
+   почти трижды на заказ (задание «База», П2). Пока пишется прайс заказа
+   (salesPriceBookOf ловит его по ходу расчёта) — считать по-настоящему. */
+function finOrderTotals(order){
+ if(!order||!readOn()||salesBookRec)return finWithOrder(order,()=>salesOrderCommercialTotals(order));
+ const m=readMemo('finOrderTotals',[],()=>new WeakMap());let t=m.get(order);
+ if(!t){t=finWithOrder(order,()=>salesOrderCommercialTotals(order));m.set(order,t);}
+ return t;
+}
 function finOrderPaid(orderId){
  let paid=0,receipts=0;
  const order=(DB.salesOrder||[]).find(o=>o.id===orderId);

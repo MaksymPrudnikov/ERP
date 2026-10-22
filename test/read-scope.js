@@ -23,6 +23,22 @@ module.exports=async function({page,eq}){
   const r=DB.glassPiece[0],warm=stationPieceIndex().has('G-9999999');storageCommand(()=>{r.ids[0]='G-9999999';});
   return {inside:inside===before-1,after:glassBatchActive(id).size===before-1,warm,piece:stationPieceIndex().has('G-9999999')};
  })),{inside:true,after:true,warm:false,piece:true});
+ /* П2: Finance — номера фигур не создаются зря, итоги заказа и фигура строки
+    один раз на отрисовку, прайс заказа пишется по-настоящему. */
+ eq('нормализация фигуры: свой номер — как есть, новый — только когда его нет',await t.p.evaluate(()=>{
+  const keep=shapeNewEntityId;let made=0;shapeNewEntityId=p=>{made++;return keep(p);};
+  try{
+   const s=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef.find(x=>(x.features||[]).length)||DB.shapeDef[0])));made=0;
+   const again=normalizeShapeDef(JSON.parse(JSON.stringify(s))),second=made,fresh=normalizeShapeDef({type:'rectangle',w:'20',h:'30'});
+   return {same:JSON.stringify(again)===JSON.stringify(s),noNewIds:second===0,freshId:!!fresh.id&&made>second};
+  }finally{shapeNewEntityId=keep;}
+ }),{same:true,noNewIds:true,freshId:true});
+ eq('итоги заказа, прайс заказа и фигура строки — те же с указателями и без',await t.p.evaluate(()=>{
+  const sig=()=>JSON.stringify(DB.salesOrder.map(o=>[finOrderTotals(o),finOrderBalance(o),(o.lines||[]).map(l=>(salesShapeByRef(l.shapeRef)||{}).id||'')]));
+  const id=oqOrder(oqCustomer({legalName:'Price Book Co'}));salesOrderEdit(id);soDraft.makeups.forEach(m=>{m.panes.forEach(p=>{p.priceOverride=null;});m.cavities.forEach(x=>{x.priceOverride=null;});});
+  salesOrderSave();salesDraftDrop(true);const book=o=>JSON.stringify(salesPriceBookOf(o)),o=salesRecord(id);
+  return {totals:sig()===readScope(sig),book:book(o)===readScope(()=>{finOrderTotals(o);return book(o);}),bookFull:Object.keys(salesPriceBookOf(o)).length>0};
+ }),{totals:true,book:true,bookFull:true});
  eq('указатели без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
