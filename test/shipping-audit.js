@@ -43,7 +43,7 @@ module.exports=async function({page,eq,ok}){
 
  /* ---------------- F3: Hold — на любой станции, без «сделано?» ---------------- */
  eq('F3: uncut glass of an order on hold at SHIPR / SHIP is HOLD (not "CUT done?"); "Yes, done" cannot write CUT…IGU; its next station still writes HOLD',await t.p.evaluate(()=>{
-  const o=saOrder(2,false);o.onHold=true;o.holdReason='Credit hold';const g=saGlass(o)[0],ready=shippingStations().ready,ship=shippingStations().ship;
+  const o=saOrder(2,false);o.onHold=true;o.holdReason='Credit hold';touch();const g=saGlass(o)[0],ready=shippingStations().ready,ship=shippingStations().ship;
   const at=stationCheck(ready,g),confirm=stationConfirmSkipped(ready,g,saWho);stationCode=ready;const shipConfirm=stationShipConfirm(g,saWho);
   return {ready:[at.kind,at.reason,at.unit],ship:stationCheck(ship,g).kind,cut:stationCheck('CUT',g).kind,confirm:confirm.error,shipConfirm:shipConfirm.error,scans:stationScansFor(g).length};
  }),{ready:['held','Credit hold',false],ship:'held',cut:'hold',confirm:'Nothing to confirm.',shipConfirm:'Nothing to confirm.',scans:0});

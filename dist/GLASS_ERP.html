@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 164 модулей, 23 стиля.
+  Состав сборки: 165 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -3480,7 +3480,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='3504ee95912b';
+var ERP_BUILD='d30e7fd2d5db';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12717,6 +12717,140 @@ function salesUpdatePrices(){
   const map=line.chargePricing||{};
   salesLineChargeRows(line).forEach(row=>{const rec=map[row.key];if(!rec)return;rec.catalogRate=row.catalogRate==null?null:row.catalogRate;if(row.from)rec.from=row.from;else delete rec.from;});
  });
+}
+
+/* ==== src/erp/sales/price-lists-file.js ==== */
+/* =====================================================================
+   erp/sales/price-lists-file  ·  price-lists-file-1.0
+   Прайсы в Excel «было / станет» (план Master Data, этап 2, часть 2;
+   владелец, 22.10.2026). Выгрузка — CSV, который открывает Excel: все
+   прайсы или шаблон одного прайса со всеми айтемами, уже с настоящими
+   клиентами и айтемами. Загрузка ничего не пишет сама: сначала список
+   «было → станет» и ошибки по строкам, запись — отдельной кнопкой.
+   IN : DB.priceList, DB.itemGroup, DB.customer; salesPriceTargets()
+   OUT: priceFileExport(scope) — текст CSV; priceFilePlan(text) — {changes,
+        same, errors}; priceFileApply(text) — пишет план заново по свежей базе
+
+   Строки файла, которых нет, не трогаются: файл может быть частью прайса.
+   Пустая цена в строке, где цена была, — цену убрать (дальше решает
+   следующий прайс). Пустая строка шаблона без цены — пропуск. Неизвестная
+   группа клиентов — новая группа (видно в предпросмотре), неизвестный
+   клиент или айтем — ошибка строки.
+   ===================================================================== */
+const PRICE_FILE_BANDS=[['6','6 mm'],['8-10','8-10 mm'],['12-19','12-19 mm']];
+const PRICE_FILE_HEAD=['List type','List','Customer code','Item type','Item','Unit','Base','Price'].concat(PRICE_FILE_BANDS.map(b=>b[1]),['Key']);
+
+function priceFileNum(v){return v==null?'':String(+(+v).toFixed(4));}
+function priceFileCustomerName(c){return c?(c.displayName||c.legalName||c.code||c.id):'';}
+/* Строки выгрузки одного прайса: его цены, а для шаблона — ещё все айтемы
+   и группы айтемов без цены. */
+function priceFileRows(list,customer,targets,every){
+ const type=list?list.kind==='customer'?'Personal':'Customer group':customer?'Personal':'Customer group';
+ const name=customer?priceFileCustomerName(customer):list.name,code=customer?customer.code||'':'';
+ const byKey=new Map(targets.map(t=>[t.key,t])),rows=list?list.rows.slice():[];
+ if(every){const have=new Set(rows.map(r=>r.target));
+  (DB.itemGroup||[]).map(g=>'group:'+g.id).concat(targets.map(t=>t.key)).forEach(k=>{if(!have.has(k))rows.push({target:k,price:null});});}
+ return rows.map(r=>{
+  const t=byKey.get(r.target),g=String(r.target).indexOf('group:')===0?itemGroupById(r.target.slice(6)):null;
+  const kind=g?'Item group':t?t.kind:'Removed',label=g?g.name||'Unnamed':t?t.label:r.target;
+  const base=t?t.bands?'':priceFileNum(t.base):'';
+  return [type,name,code,kind,label,t?t.unit||'':'',base,priceFileNum(r.price)]
+   .concat(PRICE_FILE_BANDS.map(([b])=>r.bands&&r.bands[b]!=null?priceFileNum(r.bands[b]):''),[r.target]);
+ });
+}
+/* scope: 'all' — все прайсы с ценами; 'list:<id>' — шаблон прайса группы;
+   'customer:<id>' — шаблон личного прайса клиента (есть он или нет). */
+function priceFileExport(scope){
+ const targets=salesPriceTargets(),out=[PRICE_FILE_HEAD];
+ const cust=l=>l.kind==='customer'?(DB.customer||[]).find(c=>c.id===l.customerId)||null:null;
+ if(scope==='all')(DB.priceList||[]).forEach(l=>out.push(...priceFileRows(l,cust(l),targets,false)));
+ else if(String(scope).indexOf('list:')===0){const l=priceListById(scope.slice(5));if(l)out.push(...priceFileRows(l,cust(l),targets,true));}
+ else if(String(scope).indexOf('customer:')===0){const c=(DB.customer||[]).find(x=>x.id===scope.slice(9));if(c)out.push(...priceFileRows(priceListOfCustomer(c.id),c,targets,true));}
+ return '﻿'+out.map(r=>r.map(csvCell).join(',')).join('\r\n');
+}
+
+/* Число из Excel: «$1,234.50», «2,5» (запятая вместо точки), пусто. */
+function priceFileParseNum(v){
+ let s=String(v==null?'':v).replace(/[\s$]/g,'');if(s==='')return null;
+ if(s.includes(',')&&!s.includes('.')&&/^\d*,\d+$/.test(s))s=s.replace(',','.');else s=s.replace(/,/g,'');
+ const n=Number(s);return Number.isFinite(n)&&n>=0?Math.round(n*10000)/10000:NaN;
+}
+/* На экране: не меньше двух знаков (0 → 0.00, как в счёте), до четырёх. */
+function priceFileMoney(v){const s=(+v).toFixed(4).replace(/0{1,2}$/,'');return s;}
+function priceFileSame(a,b){return a===b||(a==null&&b==null);}
+function priceFileText(p){
+ if(!p)return '—';
+ const parts=[p.price==null?'':priceFileMoney(p.price)].concat(p.bands?PRICE_FILE_BANDS.filter(([b])=>p.bands[b]!=null).map(([b])=>b+': '+priceFileMoney(p.bands[b])):[]).filter(Boolean);
+ return parts.join(' · ')||'—';
+}
+/* Разбор файла против текущей базы. Ничего не пишет. */
+function priceFilePlan(text){
+ const parsed=parseCsv(text),plan={changes:[],same:0,errors:[],newGroups:[]};
+ if(!parsed.header.includes('Price')||!parsed.header.includes('List')){plan.errors.push({line:1,why:'Not a price file: no List or Price column.'});return plan;}
+ const targets=salesPriceTargets(),byKey=new Map(targets.map(t=>[t.key,t])),seen=new Set();
+ const low=v=>String(v||'').trim().toLowerCase();
+ const customers=(DB.customer||[]).filter(c=>c&&c.status!=='archived');
+ parsed.rows.forEach((r,i)=>{
+  const line=i+2,err=why=>plan.errors.push({line,why});
+  const type=low(r['List type']),code=String(r['Customer code']||'').trim(),name=String(r.List||'').trim();
+  const personal=type?type.startsWith('personal')||type==='customer':!!code;
+  /* Прайс */
+  let listId='',customerId='',listName=name;
+  if(personal){
+   const byCode=code?customers.filter(c=>low(c.code)===low(code)):[];
+   const found=byCode.length?byCode:customers.filter(c=>name&&[c.displayName,c.legalName].some(x=>low(x)===low(name)));
+   if(found.length!==1)return err(found.length?'Two customers named "'+name+'"; add the customer code.':'No customer "'+(code||name)+'".');
+   customerId=found[0].id;listName=priceFileCustomerName(found[0]);const l=priceListOfCustomer(customerId);listId=l?l.id:'';
+  }else{
+   if(!name)return err('No list name.');
+   const l=priceListGroups().find(g=>low(g.name)===low(name));listId=l?l.id:'';
+   if(!l&&!plan.newGroups.some(g=>low(g)===low(name)))plan.newGroups.push(name);
+  }
+  /* Айтем: по Key, иначе по типу и имени */
+  let target=String(r.Key||'').trim();
+  if(target){
+   if(target.indexOf('group:')===0?!itemGroupById(target.slice(6)):!byKey.has(target))return err('Unknown item key '+target+'.');
+  }else{
+   const kind=low(r['Item type']),item=low(r.Item);
+   const hits=kind==='item group'?(DB.itemGroup||[]).filter(g=>low(g.name)===item).map(g=>'group:'+g.id):targets.filter(t=>low(t.kind)===kind&&low(t.label)===item).map(t=>t.key);
+   if(hits.length!==1)return err(hits.length?'Two items "'+r.Item+'"; keep the Key column.':'No item "'+(r.Item||'')+'".');
+   target=hits[0];
+  }
+  const dup=(customerId?'c:'+customerId:'g:'+low(name))+'|'+target;
+  if(seen.has(dup))return err('Same list and item twice; first row kept.');seen.add(dup);
+  /* Цены */
+  const t=byKey.get(target),price=priceFileParseNum(r.Price);
+  const bandVals=PRICE_FILE_BANDS.map(([b,h])=>[b,priceFileParseNum(r[h])]);
+  if(Number.isNaN(price)||bandVals.some(([,v])=>Number.isNaN(v)))return err('Price must be a number, 0 or more.');
+  const hasBands=bandVals.some(([,v])=>v!=null);
+  if(hasBands&&!(t&&t.bands))return err('Prices by mm only for services priced by thickness.');
+  const next={price,bands:hasBands?Object.fromEntries(bandVals):null};
+  const list=priceListById(listId),old=list?list.rows.find(x=>x.target===target):null;
+  const was=old?{price:old.price,bands:old.bands||null}:null;
+  const empty=next.price==null&&!hasBands;
+  if(!was&&empty)return;
+  const oldBands=was&&was.bands||{},nextBands=next.bands||{};
+  if(was&&priceFileSame(was.price,next.price)&&PRICE_FILE_BANDS.every(([b])=>priceFileSame(oldBands[b]==null?null:oldBands[b],nextBands[b]==null?null:nextBands[b]))){plan.same++;return;}
+  plan.changes.push({line,personal,listId,customerId,listName,target,label:salesPriceTargetLabel(target,targets),was,next:empty?null:next});
+ });
+ return plan;
+}
+/* Запись: план строится заново по свежей базе, чтобы между просмотром и
+   кнопкой ничего не потерялось. */
+function priceFileApply(text){
+ const plan=priceFilePlan(text),at=new Date().toISOString();let n=0;
+ const out=storageCommand(()=>{
+  plan.changes.forEach(ch=>{
+   let l=ch.personal?priceListOfCustomer(ch.customerId):priceListById(ch.listId)||priceListGroups().find(g=>g.name.toLowerCase()===ch.listName.toLowerCase());
+   if(!l){l=ch.personal?{id:salesUid('PL'),kind:'customer',name:'',customerId:ch.customerId,rows:[]}:{id:salesUid('PL'),kind:'group',name:ch.listName,customerId:'',rows:[]};DB.priceList.push(l);}
+   let r=l.rows.find(x=>x.target===ch.target);
+   if(!ch.next){if(r)l.rows=l.rows.filter(x=>x!==r);n++;return;}
+   if(!r){r={id:salesUid('PLR'),target:ch.target};l.rows.push(r);}
+   r.price=ch.next.price;if(ch.next.bands)r.bands=Object.assign({},ch.next.bands);else delete r.bands;r.at=at;n++;
+  });
+  normalizePriceLists();return true;
+ });
+ return {ok:out.ok,error:out.error,written:n,errors:plan.errors.length};
 }
 
 /* ==== src/erp/sales/lifecycle.js ==== */
@@ -27259,7 +27393,7 @@ function mdCatDelete(id){
    карточке клиента — его личный прайс. Правка прайса пишется сразу, как в
    Works: журнал Master Data видит каждую цену «было → стало».
    ===================================================================== */
-let plView='groups',plGroupId='',plItemGroupId='',plAddKind='',plBulk=null;
+let plView='groups',plGroupId='',plItemGroupId='',plAddKind='',plBulk=null,plFile=null;
 
 function plNow(){return new Date().toISOString();}
 function plMoney(v){return v==null?'—':(+v).toFixed(2);}
@@ -27303,9 +27437,9 @@ function plRemoveRow(listId,rowId){plCommand(()=>{const l=plList(listId);if(l)l.
 
 /* --- Data → Prices ------------------------------------------------------ */
 function viewMdPrices(){
- const views=[['groups','Customer groups'],['items','Item groups'],['bulk','Set for customers']];
+ const views=[['groups','Customer groups'],['items','Item groups'],['bulk','Set for customers'],['file','Excel']];
  const subs=`<div class="md-mat-subs" data-pl-subs>${views.map(([k,label])=>`<button class="sm ${k===plView?'on':''}" onclick="plView='${k}';render()">${label}</button>`).join('')}</div>`;
- return subs+(plView==='items'?plItemGroupsView():plView==='bulk'?plBulkView():plGroupsView());
+ return subs+(plView==='items'?plItemGroupsView():plView==='bulk'?plBulkView():plView==='file'?plFileView():plGroupsView());
 }
 function plGroupCustomers(id){return (DB.customer||[]).filter(c=>c.priceGroupId===id&&c.status!=='archived');}
 function plGroupsView(){
@@ -27417,6 +27551,49 @@ function salesPriceListStrip(o){
  const from=new Set(Object.values(o.priceFrom||{}));(o.lines||[]).forEach(l=>Object.values(l.chargePricing||{}).forEach(r=>{if(r&&r.from)from.add(r.from);}));
  const chain=[mine&&mine.rows.length?'Personal ('+mine.rows.length+')':'',g?(g.name||'Unnamed group')+' ('+g.rows.length+')':'','Base'].filter(Boolean).join(' → ');
  return `<div class="sales-price-lists mut" data-price-strip style="display:flex;gap:10px;align-items:center;margin:6px 0;font-size:12px">Prices: ${esc(chain)}${from.size?` · <span data-raw>used: ${esc([...from].map(priceListName).join(', '))}</span>`:''}${saved?`<button class="sm" data-update-prices onclick="if(confirm('Update prices from today\\'s price lists? Prices typed by hand stay.')){salesUpdatePrices();render();}">Update prices</button>`:''}</div>`;
+}
+
+/* --- Data → Prices → Excel: выгрузка и загрузка «было / станет» --------- */
+let plFileScope='all';
+function plFileView(){
+ const f=plFile,groups=priceListGroups(),customers=(DB.customer||[]).filter(c=>c.status!=='archived');
+ const opt=(v,label)=>`<option value="${esc(v)}"${plFileScope===v?' selected':''}>${esc(label)}</option>`;
+ const scopes=opt('all','All price lists · priced rows')
+  +(groups.length?`<optgroup label="Customer group · every item">${groups.map(g=>opt('list:'+g.id,g.name||'Unnamed group')).join('')}</optgroup>`:'')
+  +(customers.length?`<optgroup label="Customer · every item">${customers.map(c=>opt('customer:'+c.id,priceFileCustomerName(c))).join('')}</optgroup>`:'');
+ let body='';
+ if(f&&f.plan){
+  const p=f.plan,rows=p.changes.map(ch=>`<tr data-pl-file-change><td>${esc(ch.personal?'Personal · '+ch.listName:ch.listName)}${!ch.listId?' <span class="pill warn">new</span>':''}</td><td>${esc(ch.label)}</td><td class="mono mut">${esc(priceFileText(ch.was))}</td><td class="mono"><b>${esc(priceFileText(ch.next))}</b></td></tr>`).join('');
+  body=`<h4>${esc(f.name)} · ${p.changes.length} change${p.changes.length===1?'':'s'} · ${p.same} same · ${p.errors.length} error${p.errors.length===1?'':'s'}</h4>
+   ${p.newGroups.length?`<div class="sub">New customer groups: <b>${esc(p.newGroups.join(', '))}</b></div>`:''}
+   <table data-pl-file-preview><thead><tr><th>List</th><th>Item</th><th>Was</th><th>Will be</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="mut">Nothing to change.</td></tr>'}</tbody></table>
+   ${p.errors.length?`<h4 style="margin-top:12px">Skipped rows</h4><table data-pl-file-errors><thead><tr><th>Row</th><th>Why</th></tr></thead><tbody>${p.errors.map(e=>`<tr><td class="mono">${e.line}</td><td>${esc(e.why)}</td></tr>`).join('')}</tbody></table>`:''}
+   <div class="row" style="gap:8px;margin-top:10px"><button class="pri" data-pl-file-write ${p.changes.length?'':'disabled'} onclick="plFileWrite()">Write ${p.changes.length} change${p.changes.length===1?'':'s'}</button><button onclick="plFile=null;render()">Cancel</button></div>`;
+ }else if(f&&f.done)body=`<div class="sub" data-pl-file-done>${esc(f.name)}: ${f.done.written} price${f.done.written===1?'':'s'} written${f.done.errors?', '+f.done.errors+' rows skipped':''}.</div>`;
+ return `<div class="sub">Export, edit prices in Excel, load the file back. Nothing is written until you check "Was → Will be". Rows not in the file stay as they are; an empty price removes it.</div>
+  <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:12px">
+   <select aria-label="Export what" style="max-width:360px" onchange="plFileScope=this.value">${scopes}</select>
+   <button onclick="plFileExport()">Export</button>
+   <button onclick="document.getElementById('plCsv').click()">Load file</button>
+   <input type="file" id="plCsv" accept=".csv,.txt" style="display:none" onchange="plFileLoad(this)">
+  </div>${body}`;
+}
+function plFileExport(){
+ const s=plFileScope,c=s.indexOf('customer:')===0?salesFindCustomer(s.slice(9)):null,g=s.indexOf('list:')===0?priceListById(s.slice(5)):null;
+ const part=c?(c.code||priceFileCustomerName(c)):g?(g.name||'group'):'all';
+ customerDownload('prices_'+String(part).replace(/[^A-Za-z0-9-]+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.csv',priceFileExport(s),'text/csv;charset=utf-8');
+}
+function plFileLoad(inp){
+ const f=inp.files[0];inp.value='';if(!f)return;
+ if(f.size>4*1024*1024){alert('File not readable: CSV exceeds 4 MB.');return;}
+ const r=new FileReader();
+ r.onload=()=>{try{plFile={name:f.name,text:r.result,plan:priceFilePlan(r.result)};}catch(e){alert('File not readable: '+e.message);}render();};
+ r.readAsText(f);
+}
+function plFileWrite(){
+ if(!plFile||!plFile.text)return;
+ const out=priceFileApply(plFile.text);if(!out.ok){alert(out.error);return;}
+ plFile={name:plFile.name,done:out};render();
 }
 
 /* ==== src/erp/views/documents-ui.js ==== */

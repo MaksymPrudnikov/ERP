@@ -77,11 +77,13 @@ function storageSeqs(ids,base){
  return seq;
 }
 /* Что изменилось в db против опорного состояния: записи для put и delete. */
-function storageDiff(db){
+function storageDiff(db,only){
  const out=[],meta=storageBase.get('_meta')||new Map(),keys=new Set(Object.keys(db));
  storageBase.forEach((m,tbl)=>{if(tbl!=='_meta')keys.add(tbl);});
  meta.forEach((x,k)=>keys.add(k));
  keys.forEach(k=>{
+  /* only — сравнить только эти таблицы (storageCommand: до команды). */
+  if(only&&!only.has(k))return;
   const vis=storageVisit.size?storageVisit.get(k):null,v=vis&&Array.isArray(db[k])?db[k].filter(r=>!vis.has(storageRowKey(k,r))):db[k],base=storageBase.get(k);
   if(Array.isArray(v)){
    if(meta.has(k))out.push({tbl:'_meta',id:k,del:true});
