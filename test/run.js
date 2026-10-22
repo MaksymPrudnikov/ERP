@@ -91,12 +91,17 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return Object.keys(out).sort().reduce((o, k) => (o[k] = out[k], o), {});
     };
     window.testStoredText = () => JSON.stringify(testStoredState());
+    /* Отказ записи — после записанной подготовки: заготовки проверок кладут
+       строки прямо в DB, а в программе перед действием несохранённого нет
+       (storageCommand сравнивает до команды только фигуры, П5). */
     window.testFailWrite = (fn, error) => {
+      touch();
       const keep = window.storageWrite;
       window.storageWrite = () => { throw error || new DOMException('Test quota', 'QuotaExceededError'); };
       try { return fn(); } finally { window.storageWrite = keep; }
     };
     window.testWriteBreak = (error, onTry) => {
+      if (!window.testWriteKeep) touch();
       if (!window.testWriteKeep) window.testWriteKeep = window.storageWrite;
       window.storageWrite = () => { if (onTry) onTry(); throw error || new DOMException('Test quota', 'QuotaExceededError'); };
     };
