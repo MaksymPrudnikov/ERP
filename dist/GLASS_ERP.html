@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 159 модулей, 23 стиля.
+  Состав сборки: 160 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -3475,7 +3475,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='fe6794d3b4ca';
+var ERP_BUILD='94c5e69e971a';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13281,9 +13281,10 @@ function orderLogCapture(){
  /* Импорт JSON заменяет базу целиком — это не правка заказов. */
  if(typeof storageImporting!=='undefined'&&storageImporting)return;
  const base=orderLogBaseMap();if(!base)return;
- const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,JSON.stringify(o)]));
- now.forEach((text,id)=>{
-  const o=DB.salesOrder.find(x=>x.id===id);
+ /* Заказ рядом со своим текстом: искать каждый по всему списку — N² на
+    каждом действии, и на скане тоже (проверка Codex 22.10.2026). */
+ const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,{o,text:JSON.stringify(o)}]));
+ now.forEach(({o,text},id)=>{
   if(!base.has(id)){orderLogPush(o,'Created',orderLogCreatedNote(o));return;}
   if(base.get(id)===text)return;
   let a,b;try{a=normalizeSalesOrder(JSON.parse(base.get(id)));b=normalizeSalesOrder(JSON.parse(text));}catch(e){return;}
@@ -14927,6 +14928,38 @@ function ico(name, cls=''){
  return `<span class="${cls}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg></span>`;
 }
 
+/* ==== src/erp/read-scope.js ==== */
+/* =====================================================================
+   erp/read-scope  ·  erp-1.0
+   Указатели на время одной отрисовки (задание «База», П1). Экран спрашивает
+   «где стёкла заказа», «сканы стекла», «накладные заказа» для каждого
+   заказа подряд — и каждый вопрос проходил всю историю цеха. Теперь
+   указатель строится один раз на отрисовку экрана.
+   Вне отрисовки (действие, печать) — как раньше, заново на каждый вопрос:
+   действие меняет базу, а указатель, построенный до перемены, соврал бы
+   (проверка Codex 22.10.2026). Запись посреди отрисовки (touch) и
+   действие внутри неё указатели тоже не используют.
+   IN : DB, storageDepth
+   OUT: readScope(fn), readOn(), readMemo(key,sources,build), readMemoReset()
+   ===================================================================== */
+let readDepth=0,readMemos=null;
+function readScope(fn){
+ if(!readDepth++)readMemos=new Map();
+ try{return fn();}finally{if(!--readDepth)readMemos=null;}
+}
+/* sources — таблицы, из которых строится указатель: другая ссылка или
+   длина (отрисовка дописала строку) — строится заново. */
+function readMemo(key,sources,build){
+ if(!readOn())return build();
+ const hit=readMemos.get(key);
+ if(hit&&hit.src.length===sources.length&&hit.src.every((a,i)=>a===sources[i]&&hit.n[i]===(a?a.length:-1)))return hit.value;
+ const value=build();readMemos.set(key,{src:sources,n:sources.map(a=>a?a.length:-1),value});return value;
+}
+/* Отрисовка идёт и действие не начато — указатели можно брать. */
+function readOn(){return !!readMemos&&!(typeof storageDepth!=='undefined'&&storageDepth);}
+/* Запись (storageInvalidate) — указатели этой отрисовки больше не верны. */
+function readMemoReset(){if(readMemos)readMemos=new Map();}
+
 /* ==== src/erp/nav.js ==== */
 /* =====================================================================
    erp/nav  ·  erp-1.0
@@ -15024,7 +15057,10 @@ const fail=(el,m)=>{el.textContent=m;el.style.display='block';};
    набрать. Деньги, проценты и дни этого признака не имеют. */
 document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.matches&&t.matches('input[inputmode="numeric"]')&&['.',',','-','+','e','E'].includes(e.key))e.preventDefault();},true);
 
-function render(){
+/* Отрисовка — одна область указателей (erp/read-scope): экран строит «где
+   стёкла заказа» и подобное один раз, а не на каждый заказ. */
+function render(){return readScope(renderScreen);}
+function renderScreen(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);
  /* Экран станции — без меню и шапки ERP (view/station). */
  document.body.classList.toggle('station-mode',tab==='station');
@@ -29670,13 +29706,24 @@ function glassComponentCut(c){const g=c&&!c.missing&&glassProductById(c.glassId)
 function glassCutKeys(o,l){return new Set(glassBatchComponents(o,l).filter(glassComponentCut).map(c=>c.key));}
 function glassOrderNeedsCut(o){return (o&&o.lines||[]).some(l=>glassCutKeys(o,l).size>0);}
 function glassBatchFind(number){return (DB.glassBatch||[]).find(b=>b.number===number);}
+/* Записи батчей по заказу — один проход по всем батчам на отрисовку
+   (erp/read-scope, П1 «Базы»): экраны спрашивают это для каждого заказа. */
+function glassBatchByOrder(){
+ return readMemo('glassBatchByOrder',[DB.glassBatch],()=>{
+  const m=new Map();
+  (DB.glassBatch||[]).forEach(batch=>batch.items.forEach((item,index)=>{const part=batch.parts[item.part];if(!part)return;let a=m.get(part.orderId);if(!a)m.set(part.orderId,a=[]);a.push({batch,item,index,part});}));
+  return m;
+ });
+}
 /* Все записи заказа (и возвращённые) с их снимком. */
 function glassBatchEntries(orderId,lineId){
+ if(readOn()){const all=glassBatchByOrder().get(orderId)||[];return lineId?all.filter(x=>x.part.lineId===lineId):all.slice();}
  return (DB.glassBatch||[]).flatMap(batch=>batch.items.map((item,index)=>({batch,item,index,part:batch.parts[item.part]})).filter(x=>x.part&&x.part.orderId===orderId&&(!lineId||x.part.lineId===lineId)));
 }
 /* Активные места: «ключ стекла|номер изделия» → запись батча. */
 function glassBatchActive(orderId){
  const m=new Map();
+ if(orderId&&readOn()){(glassBatchByOrder().get(orderId)||[]).forEach(x=>{if(!x.item.releasedAt)m.set(x.part.key+'|'+x.item.unit,x);});return m;}
  (DB.glassBatch||[]).forEach(batch=>batch.items.forEach((item,index)=>{
   const part=batch.parts[item.part];
   if(!item.releasedAt&&part&&(!orderId||part.orderId===orderId))m.set(part.key+'|'+item.unit,{batch,item,index,part});
@@ -29692,7 +29739,10 @@ function glassLineScanned(orderId,line){
  (DB.glassPiece||[]).forEach(r=>{if(!r||!String(r.key).startsWith(pre))return;(r.ids||[]).forEach(id=>ids.add(id));Object.values(r.extra||{}).forEach(a=>(a||[]).forEach(id=>ids.add(id)));});
  return ids.size>0&&(DB.stationScan||[]).some(s=>s&&!s.undoneAt&&ids.has(s.piece));
 }
-function glassPieceMap(orderId){const m=new Map();(DB.glassPiece||[]).forEach(r=>{if(!orderId||r.key.startsWith(orderId+'|'))m.set(r.key,r);});return m;}
+function glassPieceMap(orderId){
+ if(orderId&&readOn())return new Map((readMemo('glassPieceByOrder',[DB.glassPiece],()=>{const m=new Map();(DB.glassPiece||[]).forEach(r=>{const id=r.key.split('|')[0];let a=m.get(id);if(!a)m.set(id,a=[]);a.push(r);});return m;}).get(orderId)||[]).map(r=>[r.key,r]));
+ const m=new Map();(DB.glassPiece||[]).forEach(r=>{if(!orderId||r.key.startsWith(orderId+'|'))m.set(r.key,r);});return m;
+}
 /* Места Recut заказа: «ключ стекла|R1.1» (erp/quality/recut). */
 function glassRecutSlots(orderId,lineId){return typeof recutSlotsFor==='function'?recutSlotsFor(orderId,lineId):[];}
 /* Геометрия стекла: у места Recut со своим чертежом — вид строки с чертежом
@@ -35272,7 +35322,11 @@ function stationScanNextId(){
 /* Станция резки — та, что стоит у работы «cutting». Её скан и есть «резка
    началась» у стекла: поле cutStartedAt ждало этого события с PR #84. */
 function stationCutCode(){return typeof salesRouteStationOf==='function'?salesRouteStationOf('cutting','CUT'):'CUT';}
-function stationScansFor(piece){return (DB.stationScan||[]).filter(s=>s.piece===piece&&!s.undoneAt);}
+/* Сканы стекла — на отрисовку один указатель «стекло → сканы» (erp/read-scope). */
+function stationScansFor(piece){
+ if(readOn())return (readMemo('stationScansByPiece',[DB.stationScan],()=>{const m=new Map();(DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;let a=m.get(s.piece);if(!a)m.set(s.piece,a=[]);a.push(s);});return m;}).get(piece)||[]).slice();
+ return (DB.stationScan||[]).filter(s=>s.piece===piece&&!s.undoneAt);
+}
 /* Номер с клавиатуры: хватает цифр — «1234» это G-0001234. Повреждённый
    стикер не читается, а набирать весь номер у стола никто не будет. */
 function stationCodeOf(raw){
@@ -35284,7 +35338,8 @@ function stationCodeOf(raw){
 }
 /* Номер стекла → заказ, позиция, стекло Makeup и активная запись батча.
    index — готовая карта номеров, когда стёкол много (экран офиса). */
-function stationPieceIndex(){
+function stationPieceIndex(){return readMemo('stationPieceIndex',[DB.glassPiece],stationPieceIndexBuild);}
+function stationPieceIndexBuild(){
  const m=new Map();
  (DB.glassPiece||[]).forEach(r=>{
   const [orderId,lineId]=r.key.split('|');
@@ -35293,7 +35348,8 @@ function stationPieceIndex(){
  });
  return m;
 }
-function stationBatchIndex(){
+function stationBatchIndex(){return readMemo('stationBatchIndex',[DB.glassBatch],stationBatchIndexBuild);}
+function stationBatchIndexBuild(){
  const m=new Map();
  (DB.glassBatch||[]).forEach(batch=>batch.items.forEach(item=>{if(!item.releasedAt&&item.piece)m.set(item.piece,{batch,item,part:batch.parts[item.part]});}));
  return m;
@@ -41414,7 +41470,11 @@ function shippingFind(id){return (DB.shipment||[]).find(s=>s.id===id||s.number==
    юнитов этого заказа на нём нет (аудит Shipping, Д2). */
 function shippingOrderIds(s){return [...new Set((s.items||[]).concat(s.extras||[]).map(i=>i.orderId).concat(s.takes||[]))];}
 function shippingHistoryOrderIds(s){return [...new Set(shippingOrderIds(s).concat((s.unbatchedItems||[]).map(i=>i.orderId)))];}
-function shippingForOrder(id){return (DB.shipment||[]).filter(s=>shippingHistoryOrderIds(s).includes(id));}
+/* Накладные заказа — на отрисовку один указатель «заказ → накладные» (erp/read-scope). */
+function shippingForOrder(id){
+ if(readOn())return (readMemo('shippingByOrder',[DB.shipment],()=>{const m=new Map();(DB.shipment||[]).forEach(s=>shippingHistoryOrderIds(s).forEach(o=>{let a=m.get(o);if(!a)m.set(o,a=[]);a.push(s);}));return m;}).get(id)||[]).slice();
+ return (DB.shipment||[]).filter(s=>shippingHistoryOrderIds(s).includes(id));
+}
 /* PS везёт юниты или товар заказа, а не только его отменённое стекло: дата
    выдачи заказа и начало Net — только по таким (аудит проделанной работы). */
 function shippingCarries(s,id){return (s.items||[]).concat(s.extras||[]).some(i=>i.orderId===id);}
@@ -41439,6 +41499,9 @@ function shippingDateValid(v){return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.
 let shippingCtxNow=null;
 function shippingCtx(){
  if(shippingCtxNow)return shippingCtxNow;
+ return readMemo('shippingCtx',[DB.stationScan,DB.glassPiece,DB.glassBatch],shippingCtxBuild);
+}
+function shippingCtxBuild(){
  const index=stationPieceIndex(),scans=new Map(),asm=new Map(),broken=new Set();
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt)return;
@@ -44730,6 +44793,7 @@ function storageInvalidate(){
  if(typeof stationFrozenIndex!=='undefined')stationFrozenIndex={list:null,size:-1,map:null};
  if(typeof stkSheetCache!=='undefined')stkSheetCache={batch:'',map:null};
  if(typeof orderLogCreators!=='undefined')orderLogCreators={ref:null,n:-1,map:null};
+ if(typeof readMemoReset==='function')readMemoReset();
 }
 /* Откат — из опорного состояния (то, что лежит в базе): возвращаются только
    таблицы, которые изменились. before — несохранённое до команды
