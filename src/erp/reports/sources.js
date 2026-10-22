@@ -128,12 +128,13 @@ Object.assign(REP_SRC,{
    REP_F.num('amount','Amount',{money:true}),REP_F.num('applied','Applied to orders',{money:true}),REP_F.num('onAccount','On account',{money:true}),REP_F.num('orders','Orders paid')],
   metrics:[{k:'amount',label:'Amount',agg:'sum',f:'amount',money:true},{k:'count',label:'Receipts',agg:'count'},{k:'applied',label:'Applied to orders',agg:'sum',f:'applied',money:true},
    {k:'onAccount',label:'On account',agg:'sum',f:'onAccount',money:true},{k:'customers',label:'Customers',agg:'distinct',f:'customer'}]},
- balances:{label:'Balances & overdue',group:'Finance',access:'finance',hint:'What customers owe and how late',rows:()=>repBalanceFacts(),date:['due','billed'],
+ /* now — то, что есть сейчас, а не события: архив (erp/archive) им не нужен. */
+ balances:{label:'Balances & overdue',group:'Finance',access:'finance',now:true,hint:'What customers owe and how late',rows:()=>repBalanceFacts(),date:['due','billed'],
   fields:()=>[REP_F.date('due','Payment due'),REP_F.date('billed','Billed'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('status','Status')]
    .concat(repOrderFields(),[REP_F.num('total','Order total',{money:true}),REP_F.num('paid','Paid',{money:true}),REP_F.num('balance','Balance',{money:true}),REP_F.num('overdue','Overdue',{money:true}),REP_F.num('daysOverdue','Days overdue')]),
   metrics:[{k:'balance',label:'Balance',agg:'sum',f:'balance',money:true},{k:'overdue',label:'Overdue',agg:'sum',f:'overdue',money:true},{k:'overdueN',label:'Overdue orders',agg:'sum',f:'overdueN'},
    {k:'count',label:'Orders',agg:'count'},{k:'paid',label:'Paid',agg:'sum',f:'paid',money:true},{k:'total',label:'Order total',agg:'sum',f:'total',money:true}]},
- offcuts:{label:'Offcuts in stock',group:'Production',hint:'Sheet offcuts kept, used, removed',rows:()=>repOffcutFacts(),date:['at'],
+ offcuts:{label:'Offcuts in stock',group:'Production',now:true,hint:'Sheet offcuts kept, used, removed',rows:()=>repOffcutFacts(),date:['at'],
   fields:()=>[REP_F.date('at','Booked'),REP_F.text('offcut','Offcut'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('maker','Manufacturer',r=>r.maker||'—'),
    REP_F.dim('size','Size'),REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.dim('status','Status'),REP_F.num('area','Area ft²',{digits:1})],
   metrics:[{k:'count',label:'Offcuts',agg:'count'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1}]}

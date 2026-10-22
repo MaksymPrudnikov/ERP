@@ -109,14 +109,20 @@ function comOrders(ref,range){
  const key=ref.id+'|'+JSON.stringify(ref.customers)+'|'+(range?range.from+'|'+range.to:'all');
  if(comScope&&comScope.orders.has(key))return comScope.orders.get(key);
  const pct=new Map(ref.customers.map(c=>[c.customerId,c])),by=new Map();
- finActiveReceipts().forEach(r=>{
+ /* Ушедшие в архив (erp/archive): их оплаты и заказы — строками указателя
+    архива; комиссия агента заказ в работе не держит (владелец, 22.10.2026). */
+ const old=new Map(),pays=finActiveReceipts().slice();
+ if(typeof archiveLedgerFor==='function')ref.customers.forEach(c=>archiveLedgerFor(c.customerId).forEach(e=>{
+  if(e.com)old.set(e.id,{id:e.id,businessNumber:e.com.number,customerId:e.customerId,createdAt:e.com.created,archived:true,t:e.com.t});
+  else if(e.alloc)pays.push({date:e.date,allocations:e.alloc});}));
+ pays.forEach(r=>{
   if(range&&(r.date<range.from||r.date>range.to))return;
-  r.allocations.forEach(a=>{const o=salesRecord(a.orderId);if(!o||!pct.has(o.customerId))return;
+  r.allocations.forEach(a=>{const o=salesRecord(a.orderId)||old.get(a.orderId);if(!o||!pct.has(o.customerId))return;
    const x=by.get(o.id)||{o,paid:0,payments:0,byPct:new Map()},p=comPctOn(pct.get(o.customerId),r.date);
    x.paid+=a.amount;x.payments++;x.byPct.set(p,(x.byPct.get(p)||0)+a.amount);by.set(o.id,x);});
  });
  const out=[...by.values()].map(x=>{
-  const t=comTotals(x.o),share=comNoHstShare(t),paid=finMoney(x.paid),base=finMoney(paid*share),ps=[...x.byPct.keys()].sort((a,b)=>a-b);
+  const t=x.o.archived?x.o.t:comTotals(x.o),share=comNoHstShare(t),paid=finMoney(x.paid),base=finMoney(paid*share),ps=[...x.byPct.keys()].sort((a,b)=>a-b);
   /* Каждая оплата — по своему проценту; один процент — как прежде. */
   const com=finMoney([...x.byPct].reduce((n,[p,v])=>n+finMoney(finMoney(v)*share)*p/100,0)),comHst=finMoney([...x.byPct].reduce((n,[p,v])=>n+finMoney(v)*p/100,0));
   return {o:x.o,customerId:x.o.customerId,number:x.o.businessNumber,date:salesListIsoDay(x.o.createdAt),total:t&&t.complete?t.grand:null,paid,base,payments:x.payments,pct:ps.join(' · '),com,comHst};
@@ -130,7 +136,7 @@ function comOrders(ref,range){
 function comDue(ref){
  const paid=new Map();(DB.referrerPayout||[]).filter(p=>p.referrerId===ref.id).forEach(p=>p.orders.forEach(x=>paid.set(x.orderId,finMoney((paid.get(x.orderId)||0)+x.amount))));
  const m=new Map(comOrders(ref,null).map(x=>[x.o.id,{orderId:x.o.id,o:x.o,number:x.number,customerId:x.customerId,com:x.com,paidOut:paid.get(x.o.id)||0}]));
- paid.forEach((v,id)=>{if(!m.has(id)){const o=salesRecord(id);m.set(id,{orderId:id,o,number:o?o.businessNumber:'Deleted order',customerId:o?o.customerId:'',com:0,paidOut:v});}});
+ paid.forEach((v,id)=>{if(!m.has(id)){const o=salesRecord(id),a=!o&&typeof archiveKnown==='function'?archiveKnown(id):null;m.set(id,{orderId:id,o:o||(a?{id,businessNumber:a.number,customerId:a.customerId,archived:true}:null),number:o?o.businessNumber:a?a.number:'Deleted order',customerId:o?o.customerId:a?a.customerId:'',com:0,paidOut:v});}});
  m.forEach(x=>{x.due=finMoney(x.com-x.paidOut);});
  return m;
 }

@@ -89,8 +89,12 @@ function finPeriodText(from,to){
 function finStatementOrders(customerId,from,to,today){
  const inPeriod=d=>!!d&&(!from||d>=from)&&(!to||d<=to);
  const paidIn=new Set(finActiveReceipts().filter(r=>r.customerId===customerId&&inPeriod(r.date)).flatMap(r=>r.allocations.map(a=>a.orderId)));
+ /* Ушедшие в архив (erp/archive) — оплачены целиком: в выписке, если выданы
+    или оплачены в этом периоде. */
+ const old=typeof archiveLedgerFor==='function'?archiveLedgerFor(customerId).filter(e=>e.order&&(inPeriod(e.order.billed)||paidIn.has(e.id)||e.order.paidOn.some(inPeriod)))
+  .map(e=>({o:{id:e.id,businessNumber:e.order.number,customerPo:e.order.po},f:e.order.f,billed:e.order.billed,archived:true})):[];
  return (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)&&finCurrency(o)==='CAD').map(o=>({o,f:finOrderFinancial(o,today),billed:finBillingDate(o)}))
-  .filter(x=>x.f.b.total!=null&&(x.f.b.status==='review'||x.f.b.balance>0||paidIn.has(x.o.id)||inPeriod(x.billed)||!x.billed&&x.f.b.paid>0))
+  .filter(x=>x.f.b.total!=null&&(x.f.b.status==='review'||x.f.b.balance>0||paidIn.has(x.o.id)||inPeriod(x.billed)||!x.billed&&x.f.b.paid>0)).concat(old)
   .sort((a,b)=>(a.billed||'9999').localeCompare(b.billed||'9999')||String(a.o.businessNumber).localeCompare(String(b.o.businessNumber)));
 }
 /* Выписка за период — клиенту раз в месяц для его учёта: какие заказы и на

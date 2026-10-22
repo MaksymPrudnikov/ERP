@@ -179,4 +179,5 @@ function finVoidReceipt(id,reason){
 /* Ячейка CSV: текст, начинающийся с = + @ -, Excel считает формулой — ему
    ставится апостроф. Число (и отрицательная сумма возврата) остаётся числом. */
 function finCsvCell(v){let s=String(v==null?'':v);if(!/^-?\d+(\.\d+)?$/.test(s)&&(/^[\s]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s)))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
-function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id);return o?(o.businessNumber||o.id):'deleted order';}
+/* Заказ ушёл в архив — номер из указателя архива (erp/archive). */
+function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id),a=!o&&typeof archiveKnown==='function'?archiveKnown(id):null;return o?(o.businessNumber||o.id):a?a.number:'deleted order';}
