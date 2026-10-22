@@ -156,10 +156,13 @@ function storageApplyRecords(list){
   const before=storageBase.get(tbl),wasWhole=!!before&&before.has('*'),rows=Array.isArray(DB[tbl])?DB[tbl]:null;
   storageBaseApply(cs);
   if(!rows||cs.length>50||cs.some(c=>c.id==='*')||wasWhole){DB[tbl]=storageBaseRows(tbl);return;}
-  const base=storageBase.get(tbl)||new Map(),seqOf=r=>{const b=base.get(storageRowKey(tbl,r));return b?b.s:Infinity;};
-  cs.forEach(c=>{
-   const i=rows.findIndex(r=>storageRowKey(tbl,r)===c.id);if(i>=0)rows.splice(i,1);
-   if(c.del)return;
+  /* Сначала убрать все тронутые строки, потом вставлять по порядку seq:
+     у оставшихся seq прежние, и они стоят по нему — поиск места верен.
+     По одной (убрал-вставил) чужая перестановка ложилась не в том порядке
+     (проверка Codex 22.10.2026). Массив тот же: на него держат ссылки. */
+  const base=storageBase.get(tbl)||new Map(),seqOf=r=>{const b=base.get(storageRowKey(tbl,r));return b?b.s:Infinity;},touched=new Set(cs.map(c=>c.id));
+  let n=0;for(let i=0;i<rows.length;i++)if(!touched.has(storageRowKey(tbl,rows[i])))rows[n++]=rows[i];rows.length=n;
+  cs.filter(c=>!c.del).sort((a,b)=>a.seq-b.seq).forEach(c=>{
    let lo=0,hi=rows.length;while(lo<hi){const mid=(lo+hi)>>1;if(seqOf(rows[mid])<c.seq)lo=mid+1;else hi=mid;}
    rows.splice(lo,0,JSON.parse(c.data));
   });
@@ -221,8 +224,8 @@ function storageIdbReadAll(){
 }
 function storageIdbMeta(){
  return storageIdbTx(['meta'],'readonly',tx=>{
-  const out={rev:0,build:''},ms=tx.objectStore('meta');
-  ['rev','build'].forEach(k=>{ms.get(k).onsuccess=e=>{if(e.target.result!=null)out[k]=e.target.result;};});
+  const out={rev:0,build:'',test:false},ms=tx.objectStore('meta');
+  ['rev','build','test'].forEach(k=>{ms.get(k).onsuccess=e=>{if(e.target.result!=null)out[k]=e.target.result;};});
   return out;
  });
 }
@@ -234,12 +237,13 @@ function storageIdbGet(keys){
   return out;
  });
 }
-/* Набор изменений — одной транзакцией вместе с номером записи и версией. */
-function storageIdbWrite(changes,rev,build){
+/* Набор изменений — одной транзакцией вместе с номером записи, версией и
+   меткой TEST (test не передан — метка не трогается). */
+function storageIdbWrite(changes,rev,build,test){
  return storageIdbTx(['record','meta'],'readwrite',tx=>{
   const rs=tx.objectStore('record'),ms=tx.objectStore('meta');
   changes.forEach(c=>{if(c.del)rs.delete([c.tbl,c.id]);else rs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data});});
-  ms.put(rev,'rev');ms.put(build,'build');
+  ms.put(rev,'rev');ms.put(build,'build');if(test!==undefined)ms.put(test===true,'test');
  });
 }
 function storageIdbMetaPut(key,value){return storageIdbTx(['meta'],'readwrite',tx=>{tx.objectStore('meta').put(value,key);});}
