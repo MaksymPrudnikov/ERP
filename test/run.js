@@ -2991,7 +2991,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       salesPaneSetLamInterlayerLayers(0,0,1);salesPaneSetLamInterlayerLayers(0,1,4);
       const host=document.createElement('div');host.innerHTML=salesLaminatedInterlayers(p,0);const layerSelect=host.querySelectorAll('.mu-lam-film select')[2];
       return {map:[1,2,3,4,5,6].map(salesInterlayerThicknessForLayers),clamped:salesInterlayerLayerCount(7),films:p.laminated.interlayers.map(x=>[x.productId,x.layers,x.thicknessMm]),options:[...layerSelect.options].map(x=>x.textContent),overall:salesMakeupThicknessMm(m).toFixed(2),production:salesPaneGlassThicknessMm(p).toFixed(2)};
-    }), {map:[.38,.76,1.14,1.52,1.9,2.28],clamped:6,films:[['INT-EVA-UC',1,.38],['INT-EVA-MW',4,1.52]],options:['1 layer · 0.38 mm','2 layers · 0.76 mm','3 layers · 1.14 mm','4 layers · 1.52 mm','5 layers · 1.90 mm','6 layers · 2.28 mm'],overall:'13.23',production:'13.90'});
+    }), {map:[.38,.76,1.14,1.52,1.9,2.28],clamped:7,films:[['INT-EVA-UC',1,.38],['INT-EVA-MW',4,1.52]],options:['1 layer · 0.38 mm','2 layers · 0.76 mm','3 layers · 1.14 mm','4 layers · 1.52 mm','5 layers · 1.90 mm','6 layers · 2.28 mm'],overall:'13.23',production:'13.90'});
     eq('Makeup accordion начинает с Lite 1 и при переходе сворачивает его', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();salesSetUnitType('triple');const d=[...document.querySelectorAll('.mu-section')],initial=d.filter(x=>x.open).length,first=d.find(x=>x.open)&&d.find(x=>x.open).dataset.muSection;d[1].open=true;salesAccordionToggle(d[1],d[1].dataset.muSection);return {initial,first,open:d.filter(x=>x.open).length,key:soOpenSectionKey,lite1:d[0].open};
     }), {initial:1,first:'lite-0',open:1,key:'cavity-0',lite1:false});
@@ -5730,6 +5730,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       pane.laminated.outer.glassProductId='G6';pane.laminated.outer.thicknessMm=6;
       pane.laminated.inner.glassProductId='G6';pane.laminated.inner.thicknessMm=6;
       m.panes=[pane];
+      /* Плотность плёнки — норма веса, не число в коде (этап 5, часть 3). */
+      const fid=pane.laminated.interlayers[0].productId;DB.materialWeightRates=(DB.materialWeightRates||[]).filter(r=>r.key!=='film:'+fid).concat([{key:'film:'+fid,label:'Film',rate:1070,unit:'kg/m³',note:''}]);
       const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:800,height16:1280});
       soDraft.lines=[line];
       tab='configurators';subtab='shape';openShapeNew('rectangle');
