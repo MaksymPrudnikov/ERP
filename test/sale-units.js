@@ -20,7 +20,7 @@ module.exports=async function({page,eq}){
   out.sqft=suMat(l)===salesMoney((base*2+3)*a.billable);
   g.salesUnit='inch';out.inch=suMat(l)===salesMoney(base*180*2+3*a.billable);
   g.salesUnit='each';out.each=suMat(l)===salesMoney(base*2+3*a.billable);
-  g.salesUnit='kg';const kg=glassLayerWeightKg(glassEffectiveThicknessMm(g).mm,GLASS_DENSITY_KG_M3,a.actual);out.kg=suMat(l)===salesMoney(base*kg*2+3*a.billable);
+  g.salesUnit='kg';const kg=glassLayerWeightKg(glassEffectiveThicknessMm(g).mm,glassDensityKgM3(),a.actual);out.kg=suMat(l)===salesMoney(base*kg*2+3*a.billable);
   out.rows=salesLineCommercialPrice(l,soDraft).materialRows.map(r=>r.unit);
   salesDraftDrop(true);return out;
  }),{per:180,area:13.9,sqft:true,inch:true,each:true,kg:true,rows:['kg','kg','sqft']});

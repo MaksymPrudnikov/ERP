@@ -101,13 +101,13 @@ module.exports=async function({page,eq,ok}){
  eq('pre-phase-3 data migrates into cards: spacer weight not measured, recipe norms and gas density from old weight norms; old rows go',await t.p.evaluate(()=>lmSurround(()=>{
   const keepRates=DB.materialWeightRates;
   DB.surroundRecipe=undefined;DB.spacerVariant.forEach(sp=>{delete sp.recipeId;sp.salePrice=null;});
-  DB.materialWeightRates=[{key:'spacer:SP-BL-916',rate:.0321},{key:'seal:SEAL-PS:SP-BWE-1732',rate:.13},{key:'gas:GAS-ARGON',rate:1.8},{key:'film:X',rate:1070}];
+  DB.materialWeightRates=[{key:'glass',rate:2500},{key:'spacer:SP-BL-916',rate:.0321},{key:'seal:SEAL-PS:SP-BWE-1732',rate:.13},{key:'gas:GAS-ARGON',rate:1.8},{key:'film:X',rate:1070}];
   normalizeMasterData();
   const bl=mdById('spacerVariant','SP-BL-916'),al=mdById('spacerVariant','SP-AL-012'),bwe=surroundRecipeById('REC-BWE-1732');
   const out={bl:[bl.weightG,bl.weightPer,bl.weightMeasured,bl.recipeId,bl.salePrice],al:[al.salePrice,al.recipeId],ps:bwe.rows.find(r=>r.part==='secondary').amount,
    argon:mdById('gasProduct','GAS-ARGON').densityKgM3,left:DB.materialWeightRates.map(r=>r.key)};
   DB.materialWeightRates=keepRates;return out;
- })),{bl:[32.1,'ft2',false,'REC-STD',2.4],al:[2.4,'REC-STD'],ps:130,argon:1.8,left:['film:X']});
+ })),{bl:[32.1,'ft2',false,'REC-STD',2.4],al:[2.4,'REC-STD'],ps:130,argon:1.8,left:['glass','film:X']});
  eq('Triple mass includes three glasses and both complete cavity assemblies',await t.p.evaluate(()=>lmSurround(()=>{
   const {l,m}=metricFixture('triple',40,40,2);
   m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId);sp.thicknessMm=12;sp.weightG=100;sp.weightPer='ft2';mdById('gasProduct',c.gasProductId).densityKgM3=1.8;
@@ -134,7 +134,7 @@ module.exports=async function({page,eq,ok}){
   const {l,m,g}=metricFixture('single',40,40,3);const p=m.panes[0];p.category='laminated';
   [p.laminated.outer,p.laminated.inner].forEach(ply=>{ply.glassProductId=g.id;ply.thicknessMm=6;});
   p.laminated.interlayers=[normalizeSalesInterlayer({productId:INTERLAYER_DEFAULT_ID,layers:3})];
-  DB.materialWeightRates=[{key:'film:'+INTERLAYER_DEFAULT_ID,rate:1070}];l.weightExtras=[{label:'Supplied bracket',kg:.5}];
+  DB.materialWeightRates=[{key:'glass',rate:2500},{key:'film:'+INTERLAYER_DEFAULT_ID,rate:1070}];l.weightExtras=[{label:'Supplied bracket',kg:.5}];
   soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(soDraft)));
   const w=salesLineWeight(soDraft.lines[0],soDraft),a=(40*.0254)**2,expected=a*(.012*2500+.00114*1070)+.5;
   return [w.complete,Math.abs(w.kg-expected)<1e-8,Math.abs(w.lineKg-3*expected)<1e-8,soDraft.lines[0].weightExtras[0].label];

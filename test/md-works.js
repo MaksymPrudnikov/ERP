@@ -109,5 +109,36 @@ module.exports=async function({page,eq}){
    return [c.network,c.name,c.rate,[p.frit.dotMm,p.frit.marginW16,p.frit.marginFrom],[lam.dotMm,lam.marginH16]];
   }finally{DB.orderSetup=JSON.parse(keep);normalizeOrderSetup();tab='dashboard';render();}
  }),['amex','American Express fee',3.15,[3,0,'Bottom left'],[3,0]]);
+
+ /* Этап 5, часть 3: плёнка — слой, толщины и поставка в карточке; плотность стекла — норма веса; Hardware деревом. */
+ eq('плёнка: толщины из карточки в заказе; сохранённый заказ держит свою толщину; строки поставки в карточке',await t.p.evaluate(()=>mwKeep(()=>{
+  const keep=JSON.stringify(DB.interlayerProduct);
+  try{
+   tab='masterdata';mdSetTab('materials');mdMatSwitch('lamination','interlayerProduct');mdCatEditRow('INT-EVA-UC');render();
+   document.getElementById('md_filmThick').value='0.76, 1.52';
+   document.querySelector('[data-md-film-supplies] button').click();
+   const tr=document.querySelector('[data-md-film-supply]');tr.querySelector('[data-k=supplier]').value='Kuraray';tr.querySelector('[data-k=widthIn]').value='63';tr.querySelector('[data-k=thicknessMm]').value='0.76';tr.querySelector('[data-k=price]').value='120';
+   mdCatSave();const card=mdById('interlayerProduct','INT-EVA-UC');
+   const f=normalizeSalesInterlayer({productId:'INT-EVA-UC',layers:1,thicknessMm:0.38});
+   salesInterlayerFit(f);
+   const old=normalizeSalesInterlayer({productId:'INT-EVA-CL',layers:2,thicknessMm:0.76});mdById('interlayerProduct','INT-EVA-CL').plyMm=0.5;const kept=normalizeSalesInterlayer(old).thicknessMm;
+   return [card.thicknessesMm,card.supply.map(x=>[x.supplier,x.widthIn,x.thicknessMm,x.price]),[f.layers,f.thicknessMm],kept,typeof SALES_INTERLAYER_LAYER_MM];
+  }finally{DB.interlayerProduct=JSON.parse(keep);mdCatEdit=null;mdCatDraft=null;tab='dashboard';render();}
+ })),[[0.76,1.52],[['Kuraray',63,0.76,120]],[2,0.76],0.76,'undefined']);
+ eq('плотность стекла — норма «glass»: её правка меняет вес нового расчёта; без нормы веса нет',await t.p.evaluate(()=>{
+  const keep=JSON.stringify(DB.materialWeightRates);
+  try{
+   const g=DB.glassProduct.find(x=>x.thicknessMm===6),a=glassWeightKg(g,10).kg;
+   DB.materialWeightRates.find(r=>r.key==='glass').rate=2600;const b=glassWeightKg(g,10).kg;
+   DB.materialWeightRates=DB.materialWeightRates.filter(r=>r.key!=='glass');const c=glassWeightKg(g,10);
+   return [+(b/a).toFixed(3),c,typeof GLASS_DENSITY_KG_M3];
+  }finally{DB.materialWeightRates=JSON.parse(keep);}
+ }),[1.04,null,'undefined']);
+ eq('Hardware деревом: вид → серия → модели, модель открывается',await t.p.evaluate(()=>{
+  tab='masterdata';mdSetTab('hardware');render();
+  const k=DB.hardwareKind[0],node=document.querySelector(`[data-md-hw-kind="${k.code}"]`),n=hardwareModelsFor(k.code,true).length;
+  const btn=node&&node.querySelector('button');if(btn)btn.click();const open=mdHwModelEdit!==null;mdHwModelEdit=null;tab='dashboard';render();
+  return [!!node,node.textContent.includes(n+' models'),open];
+ }),[true,true,true]);
  await t.c.close();
 };

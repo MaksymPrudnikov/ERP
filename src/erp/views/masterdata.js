@@ -745,6 +745,15 @@ function mdHwKindUsage(code){
 function mdHwModelUsage(id){
  return (DB.shapeDef||[]).reduce((n,s)=>n+((s.manufacturingItems||[]).filter(i=>i.modelId===id).length),0);
 }
+/* Hardware деревом (этап 5 плана Master Data): вид → серия → модели;
+   модель открывается по клику. Только вид: правят в карточках ниже. */
+function mdHwTreeHTML(){
+ const kinds=DB.hardwareKind||[],models=DB.hardwareModel||[];
+ const node=k=>{const list=models.filter(m=>m.kind===k.code),series=[...new Set(list.map(m=>m.series||''))].sort();
+  return `<li class="md-st-node" data-md-hw-kind="${esc(k.code)}"><div><b data-raw>${esc(hardwareKindName(k.code))}</b> <span class="mono" data-raw>${esc(k.code)}</span> <span class="mut">${list.length} models</span>${k.active===false?' <span class="pill warn">inactive</span>':''}</div>
+   ${series.map(sr=>`<div class="md-st-kids"><span class="mut">${sr?esc(sr):'No series'} ·</span> ${list.filter(m=>(m.series||'')===sr).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(m=>`<button type="button" class="pill${m.active===false?' warn':''}" data-raw onclick="mdHwModelEditRow('${esc(m.id)}')">${esc(m.name)}</button>`).join(' ')}</div>`).join('')}</li>`;};
+ return `<div class="md-st-tree" data-md-hw-tree><ol><li class="md-st-step"><ul>${kinds.map(node).join('')||'<li class="mut">No kinds</li>'}</ul></li></ol></div>`;
+}
 function viewMdHardware(){
  if(mdHwKindEdit!==null)return mdHwKindForm();
  if(mdHwModelEdit!==null)return mdHwModelForm();
@@ -753,6 +762,7 @@ function viewMdHardware(){
  const sorted=shown.slice().sort((a,b)=>String(a.kind).localeCompare(String(b.kind))||String(a.series||'').localeCompare(String(b.series||''))||String(a.name).localeCompare(String(b.name)));
  const orphans=models.filter(m=>!hardwareKindRow(m.kind)).length;
  return `<div class="sub">The shop works by name: a person sees “Vienna 180” on the drawing and picks that template. So the catalog keeps the model name, not the seat dimensions — the template knows them. Kinds are created here as well: a pivot, or anything else, needs no code change.</div>
+  ${mdHwTreeHTML()}
   ${orphans?`<div class="note">Models without a kind: <b>${orphans}</b>. That happens after a kind is deleted — the model itself is not lost, but it needs its kind back.</div>`:''}
   <div class="section-title"><h3>Kinds</h3><span class="pill info">the kind code goes into the drawing mark</span></div>
   <div class="sales-table-wrap"><table><thead><tr><th>Kind</th><th>Code</th><th>On the drawing</th><th>Models</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
@@ -1243,6 +1253,7 @@ function mdCatForm(){
       ${MD_CAT_SALE_UNIT.includes(mdCatKind)?`<div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select></div>${mdSaleRulesFields(r)}`:''}
       ${mdStationViaHTML(mdCatKind)}
       ${MD_CAT_WORK.includes(mdCatKind)?`<div><label>Work</label><select id="md_catWork"><option value="">— no work —</option>${(DB.serviceRate||[]).filter(w=>w&&!w.rule).map(w=>`<option value="${esc(w.id)}" ${w.id===r.workId?'selected':''}>${esc(w.name)}${w.station?' · '+esc(w.station):''}</option>`).join('')}</select><div class="hint">Station in the route</div></div>`:''}
+      ${mdCatKind==='interlayerProduct'?mdFilmFields(r):''}
       ${mdCatKind==='gasProduct'?`<div><label>Density, kg/m³</label><input id="md_catDensity" type="number" step="any" min="0" value="${r.densityKgM3==null?'':r.densityKgM3}" placeholder="unknown"><div class="hint">Gas weight = density × cavity volume.</div></div>`:''}
       ${mdCatKind==='stockItem'?`<div><label>Subcategory</label><input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(s=>`<option value="${esc(s)}">`).join('')}</datalist><div class="hint">Groups stock items in the order-line picker. Type your own — the list above is only a hint; empty becomes "consumable".</div></div>`:''}
       <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="md_catOwnLine" ${r.sellsAsOwnLine?'checked':''}> Sells as its own order line</label>
@@ -1251,6 +1262,24 @@ function mdCatForm(){
   </div>
   <div class="err" id="e_mdCat"></div>
   <div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div></div>`;
+}
+/* Плёнка (этап 5): слой, разрешённые толщины и строки поставки. Строки
+   поставки добавляются и убираются без перерисовки — введённое в форме не
+   пропадает; Save читает их с экрана. */
+function mdFilmSupplyRow(x){x=x||{};const v=k=>x[k]==null?'':esc(x[k]);
+ return `<tr data-md-film-supply><td><input data-k="supplier" value="${v('supplier')}"></td><td><input data-k="widthIn" type="number" min="0" step="any" value="${v('widthIn')}"></td><td><input data-k="thicknessMm" type="number" min="0" step="any" value="${v('thicknessMm')}"></td><td><input data-k="price" type="number" min="0" step="any" value="${v('price')}"></td><td><input data-k="per" value="${v('per')}" placeholder="roll"></td><td><button type="button" class="sm dl" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
+function mdFilmFields(r){
+ return `<div><label>Ply, mm</label><input id="md_filmPly" type="number" min="0" step="any" value="${r.plyMm==null?'':r.plyMm}"><div class="hint">One layer; price is per layer</div></div>
+  <div><label>Thicknesses, mm</label><input id="md_filmThick" value="${esc((r.thicknessesMm||[]).join(', '))}"><div class="hint">Offered in the order</div></div>
+  <div style="grid-column:1/-1" data-md-film-supplies><label>Supply</label><div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Supplier</th><th>Roll width, in</th><th>Thickness, mm</th><th>Price, CAD</th><th>Per</th><th></th></tr></thead><tbody>${(r.supply||[]).map(mdFilmSupplyRow).join('')}</tbody></table></div>
+   <button type="button" onclick="this.previousElementSibling.querySelector('tbody').insertAdjacentHTML('beforeend',mdFilmSupplyRow())">+ Supply row</button></div>`;
+}
+function mdFilmRead(){
+ const ply=mdVal('md_filmPly');if(!(+ply>0))return {error:'Ply must be a positive number'};
+ const list=mdVal('md_filmThick').split(/[,;\s]+/).filter(Boolean);
+ if(list.some(v=>!(+v>0)))return {error:'Thicknesses must be positive numbers'};
+ const supply=[...document.querySelectorAll('[data-md-film-supply]')].map(tr=>{const o={};tr.querySelectorAll('[data-k]').forEach(i=>{o[i.dataset.k]=i.value;});return o;});
+ return {plyMm:+ply,thicknessesMm:list.map(Number),supply};
 }
 /* Форма работы → запись. Поля читаются с экрана: строка таблицы
    добавляется и убирается перерисовкой, и введённое не должно пропасть.
@@ -1333,9 +1362,11 @@ function mdCatSave(){
      толщина. Иначе редактирование имени стирало бы их молча. */
   const prev=mdCatEdit==='new'?{}:mdCatDraft;
   const ownLineEl=document.getElementById('md_catOwnLine'),subcatEl=document.getElementById('md_catSubcategory');
+  const film=mdCatKind==='interlayerProduct'?mdFilmRead():null;
+  if(film&&film.error)return fail(e,film.error);
   const density=mdVal('md_catDensity');
   if(mdCatKind==='gasProduct'&&density!==''&&(!isFinite(+density)||+density<0))return fail(e,'Density must be a non-negative number or empty');
-  next=Object.assign({},prev,MD_CAT_SALE_UNIT.includes(mdCatKind)?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},mdCatKind==='gasProduct'?{densityKgM3:density===''?null:+density}:{},MD_CAT_WORK.includes(mdCatKind)?{workId:mdVal('md_catWork')}:{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
+  next=Object.assign({},prev,MD_CAT_SALE_UNIT.includes(mdCatKind)?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},mdCatKind==='gasProduct'?{densityKgM3:density===''?null:+density}:{},film||{},MD_CAT_WORK.includes(mdCatKind)?{workId:mdVal('md_catWork')}:{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
    sellsAsOwnLine:ownLineEl?ownLineEl.checked:!!prev.sellsAsOwnLine,
    subcategory:subcatEl?subcatEl.value:(prev.subcategory||''),active:active});
  }

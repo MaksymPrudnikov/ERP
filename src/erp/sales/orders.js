@@ -391,8 +391,15 @@ function salesPaneSetLamInterlayerPrice(i,slot,v){
  layer.priceOverride=salesNonNegOrNull(v);
  render();
 }
-function salesPaneSetLamInterlayer(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.productId=v;layer.layers=salesInterlayerLayerCount(layer.layers);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
-function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.layers=salesInterlayerLayerCount(v);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
+function salesPaneSetLamInterlayer(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.productId=v;salesInterlayerFit(layer);render();}
+function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.layers=salesInterlayerLayerCount(v);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers,layer.productId);render();}
+/* Другая плёнка: толщина остаётся, если она есть у новой; иначе — первая
+   разрешённая толщина её карточки. */
+function salesInterlayerFit(layer){
+ const prod=mdById('interlayerProduct',layer.productId),list=prod&&prod.thicknessesMm||[],t=salesInterlayerThicknessForLayers(layer.layers,layer.productId);
+ const mm=!list.length||list.includes(t)?t:list[0];
+ layer.layers=salesInterlayerLayersFromThickness(mm,layer.productId);layer.thicknessMm=mm;
+}
 function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID));render();}
 function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length<=1)return;rows.splice(slot,1);render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
@@ -1589,7 +1596,7 @@ function salesPaneGlassThicknessMm(pane){
    /* thicknessMm is already the total derived from the selected layer count.
       Multiplying it by layers again made production see four 0.38 mm layers
       as 6.08 mm instead of 1.52 mm. */
-   const v=salesInterlayerThicknessForLayers(film&&film.layers);
+   const v=film&&+film.thicknessMm>0?+film.thicknessMm:salesInterlayerThicknessForLayers(film&&film.layers,film&&film.productId);
    if(Number.isFinite(v)&&v>0)total+=v;else known=false;
   });
   return known?total:NaN;

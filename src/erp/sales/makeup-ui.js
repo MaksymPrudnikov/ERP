@@ -311,9 +311,11 @@ function salesInterlayerPriceCell(index,slot,layer){
 }
 function salesLaminatedInterlayers(p,index){
  const rows=p.laminated.interlayers||[],canAdd=rows.length<SALES_MAX_INTERLAYERS;
- return `<div class="mu-lam-films"><div class="mu-lam-films-head"><div><b>INTERLAYER STACK</b><span>Mix film types · up to ${SALES_MAX_INTERLAYER_LAYERS} layers each</span></div><button type="button" ${canAdd?'':'disabled'} onclick="salesPaneAddLamInterlayer(${index})">+ Add Film</button></div>${rows.map((layer,slot)=>{
-  const selected=String(salesInterlayerLayerCount(layer.layers));
-  const layerOptions=Array.from({length:SALES_MAX_INTERLAYER_LAYERS},(_,i)=>{const n=i+1,mm=salesInterlayerThicknessForLayers(n);return salesOption(String(n),n+' '+(n===1?'layer':'layers')+' · '+mm.toFixed(2)+' mm',selected,true);}).join('');
+ return `<div class="mu-lam-films"><div class="mu-lam-films-head"><div><b>INTERLAYER STACK</b><span>Mix film types · thicknesses from the film card</span></div><button type="button" ${canAdd?'':'disabled'} onclick="salesPaneAddLamInterlayer(${index})">+ Add Film</button></div>${rows.map((layer,slot)=>{
+  const selected=String(salesInterlayerLayerCount(layer.layers)),prod=mdById('interlayerProduct',layer.productId);
+  /* Толщины — из карточки плёнки; толщина заказа, которой там нет, остаётся в списке. */
+  const plies=[...new Set((prod&&prod.thicknessesMm||[]).map(mm=>salesInterlayerLayersFromThickness(mm,layer.productId)).concat([+selected]))].sort((a,b)=>a-b);
+  const layerOptions=plies.map(n=>{const mm=salesInterlayerThicknessForLayers(n,layer.productId);return salesOption(String(n),n+' '+(n===1?'layer':'layers')+' · '+mm.toFixed(2)+' mm',selected,true);}).join('');
   const family=interlayerFamilyOf(layer.productId);
   return `<div class="mu-lam-film"><span class="mu-lam-film-num">${slot+1}</span><div><label>Film</label><select onchange="salesPaneSetLamInterlayerFamily(${index},${slot},this.value)">${salesInterlayerFamilyOptions(family)}</select></div><div><label>Type</label><select onchange="salesPaneSetLamInterlayer(${index},${slot},this.value)">${salesInterlayerTypeOptions(family,layer.productId)}</select></div><div><label>Layers / actual thickness</label><select onchange="salesPaneSetLamInterlayerLayers(${index},${slot},this.value)">${layerOptions}</select></div><div><label>Price / layer</label>${salesInterlayerPriceCell(index,slot,layer)}</div><button type="button" class="mu-lam-film-del" ${rows.length>1?'':'disabled'} onclick="salesPaneRemoveLamInterlayer(${index},${slot})" title="Remove film">×</button></div>`;
  }).join('')}</div>`;

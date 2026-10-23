@@ -503,7 +503,20 @@ function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};
  return Object.assign(materialHeader(p,cat,sub),{id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),salesUnit:mdString(p.salesUnit),...mdSaleRulesOf(p),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),stockingUnit:mdString(p.stockingUnit),note:mdString(p.note),sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false},type==='gas'?{densityKgM3:mdNonNeg(p.densityKgM3)}:{},
  /* Фрит и спандрел — работы (этап 4): карточка называет работу Works, а
     станцию и место в маршруте даёт она. Пусто — работа не назначена. */
- type==='frit'||type==='spandrel'?{workId:mdString(p.workId)}:{});}
+ type==='frit'||type==='spandrel'?{workId:mdString(p.workId)}:{},
+ type==='interlayer'?interlayerCardFields(p):{});}
+/* Плёнка (план Master Data, этап 5): толщина слоя и разрешённые толщины —
+   карточка, а не код (Ultra Clear: 0.76 и 1.52, без 0.38); строки
+   поставки — поставщик, ширина рулона, толщина, цена. Пусто у старой строки —
+   засев: слой 0.38, толщины 1–6 слоёв. */
+const INTERLAYER_SEED_PLY_MM=0.38,INTERLAYER_SEED_PLIES=6;
+function interlayerCardFields(p){
+ const ply=mdNonNeg(p.plyMm)>0?mdNonNeg(p.plyMm):INTERLAYER_SEED_PLY_MM;
+ const list=Array.isArray(p.thicknessesMm)?p.thicknessesMm:Array.from({length:INTERLAYER_SEED_PLIES},(_,i)=>(i+1)*ply);
+ const thicknessesMm=[...new Set(list.map(v=>mdNonNeg(v)).filter(v=>v>0).map(v=>+v.toFixed(2)))].sort((a,b)=>a-b);
+ const supply=(Array.isArray(p.supply)?p.supply:[]).filter(x=>x&&typeof x==='object').map(x=>({supplier:mdString(x.supplier),widthIn:mdNonNeg(x.widthIn),thicknessMm:mdNonNeg(x.thicknessMm),price:mdNonNeg(x.price),per:mdString(x.per)})).filter(x=>x.supplier||x.widthIn!=null||x.thicknessMm!=null||x.price!=null);
+ return {plyMm:ply,thicknessesMm,supply};
+}
 const SIMPLE_MATERIAL_CATEGORY={gas:'igu',sealant:'igu',iguPart:'igu',interlayer:'lamination',frit:'surface',spandrel:'surface',stock:'stock'};
 const SIMPLE_MATERIAL_SUBCATEGORY={gas:'gas',sealant:'sealant',iguPart:'part',frit:'frit',spandrel:'spandrel'};
 /* Готовые изделия и расходка: покупаем целиком, перепродаём целиком, без
@@ -1409,9 +1422,10 @@ function importGlassSheetsCsv(text){
    Считается от ФАКТИЧЕСКОЙ толщины: «10 mm» стекло на деле 9.7 mm, и на
    больших листах разница уже видна в накладной. Номинал берётся только когда
    фактического значения в каталоге нет — тогда вес помечается приблизительным.
-   Плотность натрий-кальциевого стекла — именованная константа, а не число
-   внутри выражения: её меняют один раз и в одном месте. */
-const GLASS_DENSITY_KG_M3=2500;
+   Плотность стекла — норма веса «glass» в Data → Weight norms (план Master
+   Data, этап 5); засев 2500 кг/м³. Нормы нет — веса нет, без выдумки. */
+const GLASS_DENSITY_SEED_KG_M3=2500;
+function glassDensityKgM3(order){const v=salesWeightRate('glass',order);return v>0?v:null;}
 const GLASS_M2_PER_FT2=0.09290304;
 function glassEffectiveThicknessMm(product){
   var a=product&&+product.actualThicknessMm;
@@ -1419,9 +1433,6 @@ function glassEffectiveThicknessMm(product){
   var n=product&&+product.thicknessMm;
   return isFinite(n)&&n>0?{mm:n,exact:false}:{mm:0,exact:false};
 }
-/* Плёнка легче стекла. Одна цифра на все интерлееры: PVB ~ 1070, EVA ~ 950,
-   а доля плёнки в весе юнита около процента — точнее делить смысла нет. */
-const GLASS_INTERLAYER_DENSITY_KG_M3=1070;
 /* Вес слоя известной толщины. Ламинат — это стёкла И плёнка между ними, и
    каждый слой считается своей плотностью. */
 function glassLayerWeightKg(mm,density,areaFt2){
@@ -1431,9 +1442,9 @@ function glassLayerWeightKg(mm,density,areaFt2){
 }
 /* areaFt2 — площадь ОДНОГО стекла. Возвращает {kg, exact} либо null. */
 function glassWeightKg(product,areaFt2){
-  var t=glassEffectiveThicknessMm(product),a=+areaFt2;
-  if(!(t.mm>0)||!isFinite(a)||a<=0)return null;
-  return {kg:glassLayerWeightKg(t.mm,GLASS_DENSITY_KG_M3,areaFt2),exact:t.exact};
+  var t=glassEffectiveThicknessMm(product),a=+areaFt2,d=glassDensityKgM3();
+  if(!(t.mm>0)||!isFinite(a)||a<=0||!d)return null;
+  return {kg:glassLayerWeightKg(t.mm,d,areaFt2),exact:t.exact};
 }
 function glassWeightText(product,areaFt2){
   var w=glassWeightKg(product,areaFt2);
