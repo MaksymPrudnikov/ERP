@@ -366,13 +366,13 @@ function mdGlassForm(){
   </div>`;
  const measure=`<div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`;
  const sheets=isNew?[]:glassSheetsFor(r.code);
- const purchase=sheets.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th><th class="n">Price</th><th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td><td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td><td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table></div><p class="mut">Edited in Supply points.</p>`:'<p class="mut" data-md-glass-supply>No supply rows. Add in Supply points.</p>';
+ const purchase=sheets.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th><th class="n">Price</th><th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td><td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td><td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table></div><p class="mut">Edited in Supply points.</p>`:`<p class="mut" data-md-glass-supply>No supply rows.</p>${isNew?'':`<button type="button" class="sm" data-md-glass-supply-add onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`;
  const price=(id,k,label)=>mdField(label,`<input id="${id}" type="number" step="0.01" min="0" value="${r[k]==null?'':r[k]}" placeholder="—">`,'Empty — no price.');
  const prices=`<div class="grid">${price('md_priceAN','salePriceAnnealed','Price annealed, CAD')}${price('md_priceFT','salePriceTempered','Price tempered, CAD')}${mdSaleRulesFields(r,['minCharge'])}</div>
   ${isNew?'':mdPriceListsHTML('glass:'+r.id+':salePriceAnnealed').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · annealed</h4>')+mdPriceListsHTML('glass:'+r.id+':salePriceTempered').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · tempered</h4>')}`;
  const racks=isNew||r.cut===false?[]:invSheetRows().filter(x=>x.code.toUpperCase()===String(r.code).toUpperCase());
  const stock=`<div class="row"><label class="chk"><input type="checkbox" id="md_stocked" ${r.stocked?'checked':''}> Kept in stock</label></div>
-  ${racks.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-stock><thead><tr><th>Sheet</th><th class="n">On rack</th><th class="n">Reserved</th><th class="n">Free</th><th class="n">Min</th><th>Status</th></tr></thead><tbody>${racks.map(x=>`<tr><td class="mono">${esc(invSizeText(x))}</td><td class="n mono">${x.onRack}</td><td class="n mono">${x.reserved}</td><td class="n mono">${x.free}</td><td class="n mono">${x.min==null?'—':x.min}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table></div><p class="mut">Sizes and counts: Inventory.</p>`:'<p class="mut">No sheet sizes. Add in Inventory → Sheet sizes.</p>'}`;
+  ${racks.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-stock><thead><tr><th>Sheet</th><th class="n">On rack</th><th class="n">Reserved</th><th class="n">Free</th><th class="n">Min</th><th>Status</th></tr></thead><tbody>${racks.map(x=>`<tr><td class="mono">${esc(invSizeText(x))}</td><td class="n mono">${x.onRack}</td><td class="n mono">${x.reserved}</td><td class="n mono">${x.free}</td><td class="n mono">${x.min==null?'—':x.min}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table></div><p class="mut">Sizes and counts: Inventory.</p>`:`<p class="mut">No sheet size. Add a supply row.</p>${isNew?'':`<button type="button" class="sm" onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`}`;
  return mdCardHTML({form:'glass',crumb:['Materials','Glass'].concat(r.manufacturer?[r.manufacturer]:[]),
   title:isNew?'New catalog item':raw(r.name||r.code),status:isNew?null:r.active===false?['discontinued','warn']:r.stocked?[glassLabel('stock','stocked'),'ok']:[glassLabel('stock','preorder'),'info'],code:isNew?'':r.code,
   tabs:[{k:'general',label:'General',html:general},{k:'production',label:'Production',html:prod},{k:'units',label:'Units',html:units},{k:'measure',label:'Measurements',html:measure},
@@ -481,35 +481,48 @@ function viewMdSupply(){
   <div class="mut md-supply-foot">${rows.length} of ${infos.length} rows</div>${salesListMenuHTML(infos)}`;
 }
 function mdSheetNew(){
- mdSheetEdit='new';mdSheetPick={mfr:'',thick:'',q:''};
+ mdSheetEdit='new';mdSheetPick={mfr:'',thick:'',coat:''};
  mdSheetDraft=normalizeGlassSheet({productCode:'',supplier:'',currency:GLASS_DEFAULT_CURRENCY,purchaseUnit:GLASS_DEFAULT_UNIT,availability:'order'});
  render();
 }
+/* Строка поставки из карточки стекла: стекло уже выбрано. */
+function mdSheetNewFor(code){mdSetTab('materials');mdMatSwitch('glass','glassSheet');mdSheetNew();mdSheetDraft.productCode=code;mdSheetPick={mfr:'',thick:'',coat:''};render();}
 function mdSheetEditRow(id){
  const s=(DB.glassSheet||[]).find(x=>x.id===id);if(!s)return;
- mdSheetEdit=id;mdSheetDraft=JSON.parse(JSON.stringify(s));mdSeen.sheet=JSON.stringify(s);mdSheetPick={mfr:'',thick:'',q:''};render();
+ mdSheetEdit=id;mdSheetDraft=JSON.parse(JSON.stringify(s));mdSeen.sheet=JSON.stringify(s);mdSheetPick={mfr:'',thick:'',coat:''};render();
 }
-/* Форма из двух блоков (владелец, 2 октября 2026): Glass — производитель,
-   толщина и поиск сужают список из 500+ стёкол; Supply — точка поставки из
-   уже заведённых (валюта подставляется от неё), лист, цена, дата календарём.
-   Фильтры перестраивают только список стёкол: набранное в Supply не теряется. */
-let mdSheetPick={mfr:'',thick:'',q:''};
-function mdSheetProducts(){
- const q=mdSheetPick.q.trim().toLowerCase();
- return DB.glassProduct.filter(p=>(!mdSheetPick.mfr||p.manufacturer===mdSheetPick.mfr)&&(!mdSheetPick.thick||String(p.thicknessMm)===mdSheetPick.thick)&&(!q||(p.code+' '+p.name).toLowerCase().includes(q))).sort((a,b)=>a.code.localeCompare(b.code));
+/* Форма из двух блоков (владелец, 2 октября 2026): Glass — стекло, Supply —
+   точка поставки из уже заведённых (валюта подставляется от неё), лист,
+   цена, дата календарём. Стекло выбирается как в Sales (владелец,
+   23.10.2026: «почему он не как сейл удобный»): производитель → толщина →
+   покрытие → на каком стекле, под выбором — что выбрано. Фильтры
+   перестраивают только списки стёкол: набранное в Supply не теряется. */
+let mdSheetPick={mfr:'',thick:'',coat:''};
+function mdSheetProducts(coat){
+ return DB.glassProduct.filter(p=>(!mdSheetPick.mfr||p.manufacturer===mdSheetPick.mfr)&&(!mdSheetPick.thick||String(p.thicknessMm)===mdSheetPick.thick)&&(!coat||!mdSheetPick.coat||glassCoatingName(p)===mdSheetPick.coat)).sort((a,b)=>a.code.localeCompare(b.code));
+}
+function mdSheetCoatOptions(){
+ const c=[...new Set(mdSheetProducts(false).map(glassCoatingName).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+ return '<option value="">Any coating</option>'+c.map(n=>`<option data-raw value="${esc(n)}" ${n===mdSheetPick.coat?'selected':''}>${esc(n)}</option>`).join('');
 }
 function mdSheetProductOptions(code){
- const list=mdSheetProducts(),chosen=code&&!list.some(p=>p.code===code)?glassProductByCode(code):null;
- return (chosen?[chosen]:[]).concat(list).map(p=>`<option data-raw value="${esc(p.code)}" ${p.code===code?'selected':''}>${esc(p.code)} · ${esc(p.name)}</option>`).join('');
+ const list=mdSheetProducts(true),chosen=code&&!list.some(p=>p.code===code)?glassProductByCode(code):null;
+ return '<option value="">— select —</option>'+(chosen?[chosen]:[]).concat(list).map(p=>`<option data-raw value="${esc(p.code)}" ${p.code===code?'selected':''}>${esc(mdSheetPick.coat?glassBaseName(p):p.name)} · ${esc(p.code)}</option>`).join('');
 }
 function mdSheetThickOptions(){
  const t=[...new Set(DB.glassProduct.filter(p=>!mdSheetPick.mfr||p.manufacturer===mdSheetPick.mfr).map(p=>+p.thicknessMm).filter(n=>n>0))].sort((a,b)=>a-b);
  return '<option value="">Any thickness</option>'+t.map(n=>`<option value="${n}" ${String(n)===mdSheetPick.thick?'selected':''}>${n} mm</option>`).join('');
 }
 function mdSheetPickSet(k,v){
- mdSheetPick[k]=String(v==null?'':v);if(k==='mfr'){const t=document.getElementById('md_sheetThick');mdSheetPick.thick='';if(t)t.innerHTML=mdSheetThickOptions();}
+ mdSheetPick[k]=String(v==null?'':v);
+ if(k==='mfr'){mdSheetPick.thick='';const t=document.getElementById('md_sheetThick');if(t)t.innerHTML=mdSheetThickOptions();}
+ if(k!=='coat'){mdSheetPick.coat='';const c=document.getElementById('md_sheetCoat');if(c)c.innerHTML=mdSheetCoatOptions();}
  const sel=document.getElementById('md_sheetCode'),cur=sel?sel.value:'';if(sel)sel.innerHTML=mdSheetProductOptions(cur);
- const n=document.getElementById('md_sheetCount');if(n)n.textContent=mdSheetProducts().length+' of '+DB.glassProduct.length;
+ mdSheetGlassPicked();
+}
+function mdSheetGlassPicked(){
+ const sel=document.getElementById('md_sheetCode'),m=document.getElementById('md_sheetMeta');
+ if(m)m.innerHTML=salesGlassMetaFor((glassProductByCode(sel?sel.value:'')||{}).id);
 }
 /* Точка поставки знает свою валюту: Vitro Barrie — CAD, Vitro USA — USD. */
 function mdSheetPoints(){const m=new Map();(DB.glassSheet||[]).forEach(s=>{if(s.supplier&&!m.has(s.supplier))m.set(s.supplier,s.currency||'');});return m;}
@@ -521,14 +534,14 @@ function mdSheetSupplierPicked(id){
 }
 function mdSheetForm(){
  const r=mdSheetDraft,isNew=mdSheetEdit==='new',p=r.productCode?glassProductByCode(r.productCode):null;
- if(!mdSheetPick.touched){mdSheetPick={mfr:p?p.manufacturer:'',thick:p?String(p.thicknessMm):'',q:'',touched:true};}
+ if(!mdSheetPick.touched){mdSheetPick={mfr:p?p.manufacturer:'',thick:p?String(p.thicknessMm):'',coat:p?glassCoatingName(p):'',touched:true};}
  const mfrs=[...new Set(DB.glassProduct.map(x=>x.manufacturer).filter(Boolean))].sort(),points=mdSheetPoints();
  return `<div class="form md-sheet-form"><h3>${isNew?'New supply row':'Edit supply row'}</h3><div class="md-sheet-grid">
   <div class="md-sheet-box"><h4>Glass</h4><div class="md-sheet-fields">
    <div><label>Manufacturer</label><select id="md_sheetMfr" onchange="mdSheetPickSet('mfr',this.value)"><option value="">All manufacturers</option>${mfrs.map(m=>`<option data-raw value="${esc(m)}" ${m===mdSheetPick.mfr?'selected':''}>${esc(m)}</option>`).join('')}</select></div>
    <div><label>Thickness</label><select id="md_sheetThick" onchange="mdSheetPickSet('thick',this.value)">${mdSheetThickOptions()}</select></div>
-   <div class="md-sheet-wide"><label>Find glass</label><input id="md_sheetFind" type="search" autocomplete="off" placeholder="Code or name — 6CLEAR, Solarban" value="${esc(mdSheetPick.q)}" oninput="mdSheetPickSet('q',this.value)"></div>
-   <div class="md-sheet-wide"><label>Product *</label><select id="md_sheetCode" size="8">${mdSheetProductOptions(r.productCode)}</select><div class="mut md-sheet-tiny"><span id="md_sheetCount">${mdSheetProducts().length} of ${DB.glassProduct.length}</span></div></div>
+   <div class="md-sheet-wide"><label>Coating</label><select id="md_sheetCoat" onchange="mdSheetPickSet('coat',this.value)">${mdSheetCoatOptions()}</select></div>
+   <div class="md-sheet-wide"><label>Glass *</label><select id="md_sheetCode" onchange="mdSheetGlassPicked()">${mdSheetProductOptions(r.productCode)}</select><div id="md_sheetMeta">${salesGlassMetaFor(p&&p.id)}</div></div>
   </div></div>
   <div class="md-sheet-box"><h4>Supply</h4><div class="md-sheet-fields md-sheet-3">
    <div class="md-sheet-wide"><label>Supplier card</label><select id="md_sheetSupplierId" onchange="mdSheetSupplierPicked(this.value)"><option value="">Match by supply point</option>${(DB.supplier||[]).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>`<option value="${esc(s.id)}" ${s.id===r.supplierId?'selected':''} data-raw>${esc(s.name)}${s.active?'':' · Archived'}</option>`).join('')}</select></div>
@@ -545,7 +558,7 @@ function mdSheetForm(){
   </div><div class="mut md-sheet-tiny">Purchase prices.</div></div>
  </div>
   <div class="err" id="e_mdSheet"></div>
-  <div class="row"><button class="pri" onclick="mdSheetSave()">Save</button><button onclick="mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',q:''};render()">Cancel</button></div></div>`;
+  <div class="row"><button class="pri" onclick="mdSheetSave()">Save</button><button onclick="mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',coat:''};render()">Cancel</button></div></div>`;
 }
 function mdSheetSave(){
  const e=document.getElementById('e_mdSheet');e.style.display='none';
@@ -577,7 +590,7 @@ function mdSheetSave(){
   normalizeMasterData();normalizePurchasing();
  });
  if(!result.ok)return fail(e,result.error);
- mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',q:''};render();
+ mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',coat:''};render();
 }
 function mdSheetDelete(id){
  if(!confirm('Delete this supply row?'))return;

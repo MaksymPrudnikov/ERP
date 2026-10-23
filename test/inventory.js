@@ -12,7 +12,7 @@ module.exports=async function({page,eq}){
    ['purchaseOrder','purchaseReceipt','purchaseDeliveryRequest','purchasingEvent'].forEach(k=>DB[k]=[]);DB.purchaseOrderSeq=0;DB.purchaseReceiptSeq=0;
    DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock'}));
    if(!window.ivSup)window.ivSup=purSupplierSave({name:'Inventory Glass Co'}).value;
-   invView='sheets';invCountDraft={};invJournalKey='';invWriteOffDraft=null;invNotice='';
+   invView='sheets';invCountDraft={};invJournalKey='';invMoveDraft=null;invNotice='';
    ['inventory-sheets','inventory-count','inventory-journal'].forEach(k=>{salesQueuePrefs[k]=null;localStorage.removeItem('glass_erp_'+k+'_list_v1');});
   };
   window.ivKey='6CLEAR|144x96';
@@ -33,13 +33,14 @@ module.exports=async function({page,eq}){
   window.ivCut=piece=>{const c=stationCheck(stationCutCode(),piece);const r=stationRecord(stationCutCode(),c,ivWho);if(!r)throw new Error('scan failed: '+c.kind);return r;};
  });
 
- eq('catalogue rows: supply sizes, else shop sizes, else Size missing; COG glass is not on the rack; nothing counted yet',await t.p.evaluate(()=>{
+ eq('catalogue rows: supply sizes, else shop sizes, else Size missing; COG glass is not on the rack; Pre-order only with a movement; nothing counted yet',await t.p.evaluate(()=>{
   ivReset();const other=activeGlassProducts().find(g=>g.code!=='6CLEAR'&&g.cut!==false),cog=activeGlassProducts().find(g=>g.code!==other.code&&g.code!=='6CLEAR');cog.cut=false;
   const rows=invSheetRows(),keys=rows.filter(r=>r.code==='6CLEAR').map(r=>r.key);
-  const out={clear:keys,other:rows.filter(r=>r.code===other.code).map(r=>r.w+'x'+r.h),cog:rows.some(r=>r.code===cog.code),status:ivRow(),catalogue:rows.length===activeGlassProducts().filter(g=>g.cut!==false).length};
+  const out={clear:keys,other:rows.filter(r=>r.code===other.code).map(r=>r.w+'x'+r.h),cog:rows.some(r=>r.code===cog.code),status:ivRow(),catalogue:rows.length===activeGlassProducts().filter(g=>g.cut!==false&&g.stocked).length};
+  const pre=activeGlassProducts().find(g=>!g.stocked&&g.cut!==false&&g.code!==cog.code);out.pre=[rows.some(r=>r.code===pre.code)];ivRec([{code:pre.code,qty:2,unit:'sheet',widthIn:130,heightIn:96}]);out.pre.push(invSheetRows().some(r=>r.code===pre.code));
   out.otherMissing=rows.filter(r=>r.code===other.code).map(r=>r.status);cutShopSizeAdd('130','96');out.other=invSheetRows().filter(r=>r.code===other.code).map(r=>r.w+'x'+r.h);
   ivRec([{code:cog.code,qty:10,unit:'sheet',widthIn:130,heightIn:96}]);out.cogAfter=invSheetRows().some(r=>r.code===cog.code);delete cog.cut;return out;
- }),{clear:['6CLEAR|144x96'],other:['130x96'],cog:false,status:{onRack:0,reserved:0,free:0,status:'Not counted'},catalogue:true,otherMissing:['Size missing'],cogAfter:false});
+ }),{clear:['6CLEAR|144x96'],other:['130x96'],cog:false,status:{onRack:0,reserved:0,free:0,status:'Not counted'},catalogue:true,pre:[false,true],otherMissing:['Size missing'],cogAfter:false});
 
  eq('receipts: sheets minus broken; blocks only with Sheets entered; no size — Size missing; undo receipt gives the sheets back',await t.p.evaluate(()=>{
   ivReset();const out=[];
@@ -127,18 +128,18 @@ module.exports=async function({page,eq}){
   return {after:NAV[i-1].k,section:USER_SECTIONS.indexOf('inventory')===USER_SECTIONS.indexOf('purchasing')+1,nav:!!document.querySelector('#side .nav-item[onclick*="inventory"]')};
  }),{after:'purchasing',section:true,nav:true});
 
- eq('dashboard: tiles, status chip from a tile, minimum in the row, row opens the journal of this glass',await t.p.evaluate(()=>{
+ eq('dashboard: tiles follow column filters, status chip from a tile, minimum in the row, row opens the journal of this glass',await t.p.evaluate(()=>{
   ivReset();ivRec([{qty:10,unit:'sheet',widthIn:144,heightIn:96},{qty:2,unit:'block',widthIn:144,heightIn:96}]);invCountSave({[ivKey]:'10'});ivBatch();
   navGo('inventory');const tile=k=>document.querySelector('[data-inv-tile="'+k+'"] b').textContent;
   const tiles={rack:tile('On rack'),free:tile('Free'),enter:tile('Enter sheets'),notCounted:+tile('Not counted')>0,missing:+tile('Size missing')>0};
   document.querySelector('[data-inv-tile="Not counted"]').click();const filtered=document.querySelectorAll('[data-inv-row]').length===Math.min(50,invSheetRows().filter(r=>r.status==='Not counted').length)&&!document.querySelector('[data-inv-row="'+ivKey+'"]');
-  invListStatus('');salesListSetFilter('code',{values:['6CLEAR']});const row=document.querySelector('[data-inv-row="'+ivKey+'"]'),cells=[...row.querySelectorAll('td')].map(td=>td.textContent.trim());
+  invListStatus('');salesListSetFilter('code',{values:['6CLEAR']});const follows=tile('Glass × size')===String(document.querySelectorAll('[data-inv-row]').length);const row=document.querySelector('[data-inv-row="'+ivKey+'"]'),cells=[...row.querySelectorAll('td')].map(td=>td.textContent.trim());
   const min=row.querySelector('[data-inv-min]');min.value='9';min.dispatchEvent(new Event('change'));
   const below=document.querySelector('[data-inv-row="'+ivKey+'"]').textContent.includes('Below minimum');
   document.querySelector('[data-inv-row="'+ivKey+'"] .inv-glass').click();
-  return {tiles,filtered,size:cells.includes('144 × 96'),reserved:cells.some(c=>c==='3B-0001'),below,view:invView,key:!!document.querySelector('[data-inv-journal-key]'),
+  return {tiles,filtered,follows,size:cells.includes('144 × 96'),reserved:cells.some(c=>c==='3B-0001'),below,view:invView,key:!!document.querySelector('[data-inv-journal-key]'),
    kinds:[...document.querySelectorAll('[data-inv-row] td:nth-child(6)')].map(td=>td.textContent.trim().replace(/\s+/g,' '))};
- }),{tiles:{rack:'10',free:'7',enter:'1',notCounted:false,missing:true},filtered:true,size:true,reserved:true,below:true,view:'journal',key:true,kinds:['Build','Count','Receipt','Receipt']});
+ }),{tiles:{rack:'10',free:'7',enter:'1',notCounted:false,missing:true},filtered:true,follows:true,size:true,reserved:true,below:true,view:'journal',key:true,kinds:['Build','Count','Receipt','Receipt']});
 
  eq('Count screen: type counts, see the difference, Save writes only filled rows in one go; Write off form; Journal Undo',await t.p.evaluate(()=>{
   ivReset();ivRec([{qty:10,unit:'sheet',widthIn:144,heightIn:96}]);const x=ivBatch();stationSheetBreak(x.n,'6CLEAR',1,ivWho);
@@ -154,6 +155,21 @@ module.exports=async function({page,eq}){
   const russian=/[А-яЁё]/.test(document.querySelector('.inventory-workspace').innerText);
   return {diff,n,saved,wo,undone:!!DB.sheetBreak[0].undoneAt,rack:ivRow().onRack,russian};
  }),{diff:'−2',n:'1',saved:[['6CLEAR',9,7]],wo:[6,true],undone:true,rack:7,russian:false});
+
+ eq('Sheets row: + adds with a reason, − removes, Count sets the number; Glass on rack brings a Pre-order glass with its supply sheet; sections are buttons',await t.p.evaluate(()=>{
+  ivReset();ivRec([{qty:10,unit:'sheet',widthIn:144,heightIn:96}]);navGo('inventory');invGo('count');invGo('sheets');salesListSetFilter('code',{values:['6CLEAR']});
+  const act=(sel,qty,reason)=>{document.querySelector('[data-inv-row="'+ivKey+'"] '+sel).click();const q=document.getElementById('inv_wo_qty');q.value=qty;q.dispatchEvent(new Event('input'));
+   const r=document.getElementById('inv_wo_reason');if(r){r.value=reason;r.dispatchEvent(new Event('change'));}document.querySelector('[data-inv-writeoff-save]').click();return ivRow().onRack;};
+  const noReason=(()=>{document.querySelector('[data-inv-row="'+ivKey+'"] [data-inv-add]').click();const q=document.getElementById('inv_wo_qty');q.value='2';q.dispatchEvent(new Event('input'));document.querySelector('[data-inv-writeoff-save]').click();const e=invNotice;invMoveDraft=null;invNotice='';render();return e;})();
+  const racks=[act('[data-inv-add]','3','Found'),act('[data-inv-remove]','1','Broken on rack'),act('[data-inv-count-one]','9')];
+  const pre=activeGlassProducts().find(g=>!g.stocked&&g.cut!==false&&g.code!=='6CLEAR');DB.glassSheet.push(normalizeGlassSheet({productCode:pre.code,supplier:'Vitro',sheetWIn:120,sheetHIn:84,availability:'order'}));
+  document.querySelector('[data-inv-glass-on-rack]').click();invMovePick('code',pre.code);
+  const size=[document.getElementById('inv_mv_w').value,document.getElementById('inv_mv_h').value];
+  const q=document.getElementById('inv_wo_qty');q.value='5';q.dispatchEvent(new Event('input'));document.querySelector('[data-inv-writeoff-save]').click();
+  const added=invSheetRows().find(r=>r.code===pre.code);
+  invGo('journal');const kinds=invMoves().filter(m=>m.code==='6CLEAR'||m.code===pre.code).map(m=>m.kind).sort();
+  return {noReason,racks,size,added:added&&[added.key===pre.code+'|120x84',added.onRack],kinds,tabs:document.querySelectorAll('[data-inv-sections] [data-inv-section]').length};
+ }),{noReason:'Choose a reason.',racks:[13,12,9],size:['120','84'],added:[true,5],kinds:['Add','Add','Count','Receipt','Write off'],tabs:6});
 
  eq('inventory has no JavaScript errors',t.errs,[]);await t.c.close();
 };
