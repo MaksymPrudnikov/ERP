@@ -30,6 +30,11 @@ module.exports=async function({page,eq,ok}){
    otherStations:(DB.station||[]).filter(s=>s.code!=='CUT'&&new RegExp('\\b'+s.code+'\\b').test(board)).map(s=>s.code),onlyMine:!app.innerHTML.includes('Vasyl'),noMoney:!/\$/.test(app.innerHTML),shipping:!!app.querySelector('[data-board-shipping]')};
  }),{days:[false,true,true,true],waiting:'1',done:'2',mine:['Glass 1','Glass ft² 18.2'],hour0:'0:00 · 1 glass',otherStations:[],onlyMine:true,noMoney:true,shipping:false});
 
+ eq('факты дня (Overview, доска станции) собираются только по сканам дня — те же, что срез всех фактов',await t.p.evaluate(()=>{
+  repWorkCache={stamp:'',rows:null};repWorkDayCache={stamp:'',day:'',rows:null};const day=finToday(),one=JSON.stringify(repWorkFacts(day));
+  return {fromDay:!repWorkCache.rows,same:one===JSON.stringify(repWorkFacts().filter(f=>f.day===day)),n:JSON.parse(one).length};
+ }),{fromDay:true,same:true,n:3});
+
  eq('Board не считается на Scan и Queue; открыт — считается; скан с Board засчитан и возвращает на Scan',await t.p.evaluate(()=>{
   const ids=rbIds(DB.salesOrder[0].id),n0=stationBoardBuilds;
   stationTab='scan';render();render();document.querySelector('[data-station-tab="queue"]').click();render();

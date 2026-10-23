@@ -1,7 +1,7 @@
 /* Money conservation, corrections, migration and actual UI workflows. */
 module.exports=async function({page,eq}){
  console.log('finance ledger');const t=await page();
- await t.p.evaluate(()=>{
+ const helpers=()=>{
   window.financeSeed=function(){
    DB.receipt=[];DB.refund=[];DB.financeEvent=[];DB.financeTerms=[];DB.financeExport=[];DB.financeExportBatch=[];DB.salesOrder=[];DB.customer=[];soDraft=null;soEdit=null;finDraft=null;finEdit=null;finAction=null;finCustomerFilter='';finOrderFilter='';finActor='QA Operator';
    const c=normalizeCustomer({id:'CUS-FIN',code:'FIN',legalName:'Finance Test',paymentMode:'credit',creditDays:30});DB.customer.push(c);
@@ -9,7 +9,8 @@ module.exports=async function({page,eq}){
    finCaptureTerms(o);tab='finance';finTab='accounts';finAccountId='';render();return {c,o};
   };
   window.financePayment=function(amount,applied){return finSaveReceiptRecord({customerId:'CUS-FIN',currency:'CAD',date:'2026-09-01',method:'etransfer',reference:'REF-1',amount,note:'Test',allocations:applied?[{orderId:'SO-FIN',amount:applied}]:[]});};
- });
+ };
+ await t.p.evaluate(helpers);
  eq('record → allocate → refund → void refund preserves money and append-only snapshots',await t.p.evaluate(()=>{
   financeSeed();const r=financePayment(150,40);finApplyDeposit('CUS-FIN','SO-FIN',20);
   const refund=finCreateRefund({receiptId:r.id,amount:30,date:'2026-09-02',method:'etransfer',reason:'Customer requested excess back'});
@@ -215,5 +216,27 @@ module.exports=async function({page,eq}){
  }),{amount:200,refund:25,free:175,account:true,journal:true});
  await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  eq('reload preserves payments, refunds and journal sequence',await t.p.evaluate(()=>({payments:DB.receipt.length,refunds:DB.refund.length,events:DB.financeEvent.map(e=>e.kind),deposit:finCustomerDeposit('CUS-FIN')})),{payments:1,refunds:1,events:['received','refunded'],deposit:175});
+ await t.p.evaluate(helpers);
+ eq('Finance keeps order totals between renders: a payment recalculates nothing, an order change — its order, a price change — all',await t.p.evaluate(()=>{
+  financeSeed();let n=0;const f=window.salesOrderCommercialTotals;window.salesOrderCommercialTotals=function(){n++;return f.apply(this,arguments);};
+  const was=window.GF_SCOPE_CHECK;window.GF_SCOPE_CHECK=false;
+  try{
+   finTotalsKeep=new Map();render();const first=n>0;n=0;render();const again=n;
+   const before=finOrderBalance(salesRecord('SO-FIN')).paid;financePayment(10,10);n=0;render();const paid=n,balance=finOrderBalance(salesRecord('SO-FIN')).paid-before;
+   storageCommand(()=>{salesRecord('SO-FIN').customerPo='PO-1';});n=0;render();const order=n;
+   const r=DB.serviceRate[0];storageCommand(()=>{r.note=(r.note||'')+' ';});n=0;render();const price=n;
+   return {first,again,paid,balance,order:order>0,price:price>0};
+  }finally{window.salesOrderCommercialTotals=f;window.GF_SCOPE_CHECK=was;}
+ }),{first:true,again:0,paid:0,balance:10,order:true,price:true});
+ eq('a Shape change forgets only the order of its line; a new Shape — nothing; a library Shape — all',await t.p.evaluate(()=>{
+  const keep=storageBase.get('shapeDef'),saved=finTotalsKeep;
+  try{
+   finTotalsKeep=new Map([['A',{order:{lines:[{id:'L1'}]}}],['B',{order:{lines:[{id:'L2'}]}}]]);
+   storageBase.set('shapeDef',new Map([['S1',{t:'{"id":"S1","ownerLineId":"L1"}',s:1}],['S2',{t:'{"id":"S2"}',s:2}]]));
+   finTotalsForget([{tbl:'shapeDef',id:'S1',seq:1,data:'{"id":"S1","ownerLineId":"L1","w":2}'},{tbl:'shapeDef',id:'S9',seq:3,data:'{"id":"S9"}'}]);const one=[...finTotalsKeep.keys()];
+   finTotalsForget([{tbl:'shapeDef',id:'S2',seq:2,data:'{"id":"S2","w":1}'}]);
+   return {one,library:finTotalsKeep.size};
+  }finally{if(keep)storageBase.set('shapeDef',keep);else storageBase.delete('shapeDef');finTotalsKeep=saved;}
+ }),{one:['B'],library:0});
  eq('finance workspace has no browser errors',t.errs,[]);await t.c.close();
 };
