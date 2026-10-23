@@ -78,7 +78,7 @@ module.exports=async function({page,eq,ok}){
   storageWriter=false;salesCutEstimateOpen([a,b]);await ceWait();
   const built=!!cutEst.plan&&!cutEst.plan.reset,same=JSON.stringify(DB)===before,errSame=storageLastError===err;
   storageWriter=true;window.alert=oa;
-  salesRecord(b).lines[0].qty=2;render();const stale=!!document.querySelector('[data-cut-stale]');salesCutEstimateClose();
+  salesRecord(b).lines[0].qty=2;touch();render();const stale=!!document.querySelector('[data-cut-stale]');salesCutEstimateClose();
   return {built,alerts,same,errSame,stale};
  }),{built:true,alerts:0,same:true,errSame:true,stale:true});
 

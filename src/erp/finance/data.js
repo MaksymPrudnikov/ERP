@@ -85,12 +85,46 @@ function finWithOrder(order,fn){
 /* Итоги заказа — один раз на отрисовку (erp/read-scope): Finance спрашивал их
    почти трижды на заказ (задание «База», П2). Пока пишется прайс заказа
    (salesPriceBookOf ловит его по ходу расчёта) — считать по-настоящему. */
+/* Итоги заказа живут и между отрисовками: Finance после оплаты пересчитывал
+   цены всех заказов с формами — на годе это и есть 26 с на слабом ПК
+   (задание «База»). Запись в базу (storageBaseApply) забывает итоги своих
+   заказов; правка таблицы, от которой зависит цена (прайс, клиенты,
+   фигуры, настройки), — все. Таблицы ниже на цену заказа не влияют. В тестах
+   (GF_SCOPE_CHECK) каждый ответ из памяти сверяется с расчётом заново. */
+const FIN_TOTALS_NEUTRAL=new Set(['stationScan','stationScanSeq','productionRoute','glassBatch','cutPlan','glassPiece','glassPieceSeq','glassUnitId','glassUnitIdSeq',
+ 'orderEvent','masterDataEvent','authEvent','receipt','refund','financeEvent','financeExport','financeExportBatch','shipment','shipmentSeq','carrier','truck','tripKm',
+ 'skidReturn','sheetBreak','stockOffcut','stockOffcutSeq','inventoryEvent','purchasingEvent','purchaseOrder','purchaseOrderSeq','purchaseReceipt','purchaseReceiptSeq',
+ 'report','archiveRunDay','terminal','skip','productionUnbatch']);
+let finTotalsKeep=new Map();
+/* Фигура строки (ownerLineId) — забыть её заказ; новая фигура — ничего (от
+   неё не зависел ни один посчитанный заказ); фигура библиотеки — все. */
+function finTotalsForget(changes){
+ if(!finTotalsKeep.size)return;
+ let lines=null;
+ for(const c of changes){
+  if(c.tbl==='salesOrder'||c.tbl==='financeTerms')finTotalsKeep.delete(String(c.id));
+  else if(c.tbl==='shapeDef'){
+   const was=storageBase.get('shapeDef'),old=was&&was.get(c.id);if(!old)continue;
+   const owners=[old.t,c.del?null:c.data].filter(Boolean).map(t=>{try{return JSON.parse(t).ownerLineId||'';}catch(e){return '';}});
+   if(owners.some(x=>!x)){finTotalsKeep=new Map();return;}
+   if(!lines){lines=new Map();finTotalsKeep.forEach((k,id)=>(k.order.lines||[]).forEach(l=>lines.set(l.id,id)));}
+   owners.forEach(x=>{if(lines.has(x))finTotalsKeep.delete(lines.get(x));});
+  }
+  else if(!FIN_TOTALS_NEUTRAL.has(c.tbl==='_meta'?c.id:c.tbl)&&c.tbl!=='_archive'){finTotalsKeep=new Map();return;}
+ }
+}
 function finOrderTotals(order){
  if(!order||!readOn()||salesBookRec)return finWithOrder(order,()=>salesOrderCommercialTotals(order));
  const m=readMemo('finOrderTotals',[],()=>new WeakMap());let t=m.get(order);
- if(!t){t=finWithOrder(order,()=>salesOrderCommercialTotals(order));m.set(order,t);}
+ if(!t){
+  const db=readMemo('finDbOrders',[DB.salesOrder],()=>new Set(DB.salesOrder||[])).has(order),k=db?finTotalsKeep.get(String(order.id)):null;
+  if(k&&k.order===order){t=k.totals;if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)finTotalsCheck(order,t);}
+  else{t=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(db&&order.id)finTotalsKeep.set(String(order.id),{order,totals:t});}
+  m.set(order,t);
+ }
  return t;
 }
+function finTotalsCheck(order,t){const now=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(JSON.stringify(now)!==JSON.stringify(t))console.error('Stale totals: '+order.id+' · '+String(new Error().stack).split('\n').slice(3,6).map(x=>x.trim().split(' ')[1]).join(' < '));}
 function finOrderPaid(orderId){
  let paid=0,receipts=0;
  const order=(DB.salesOrder||[]).find(o=>o.id===orderId);
