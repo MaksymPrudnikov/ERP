@@ -242,14 +242,15 @@ function storageMerge(a,b){
 /* ---- IndexedDB: record — записи; meta — rev (номер последней записи),
    build (версия, что писала последней), copyAt, test (метка TEST); copy —
    копия до импорта; cold — архив (указатель owners — по заказу); archive —
-   указатель архива (строка Sales ушедшего заказа). */
+   указатель архива (строка Sales ушедшего заказа); cloud — синхронизация с
+   сервером (erp/cloud-sync.js): версии строк, очередь на отправку, курсор. */
 function storageIdbOpen(){
  return new Promise((resolve,reject)=>{
-  let q;try{q=indexedDB.open(STORAGE_IDB_NAME,3);}catch(e){reject(e);return;}
+  let q;try{q=indexedDB.open(STORAGE_IDB_NAME,4);}catch(e){reject(e);return;}
   q.onupgradeneeded=()=>{const d=q.result,has=n=>d.objectStoreNames.contains(n);
    if(!has('record'))d.createObjectStore('record',{keyPath:['tbl','id']});if(!has('meta'))d.createObjectStore('meta');if(!has('copy'))d.createObjectStore('copy');
    if(!has('cold'))d.createObjectStore('cold',{keyPath:['tbl','id']}).createIndex('owners','owners',{multiEntry:true});
-   if(!has('archive'))d.createObjectStore('archive',{keyPath:'id'});};
+   if(!has('archive'))d.createObjectStore('archive',{keyPath:'id'});if(!has('cloud'))d.createObjectStore('cloud');};
   q.onsuccess=()=>{storageIdb=q.result;storageIdb.onversionchange=()=>{storageIdb.close();storageIdb=null;};resolve(storageIdb);};
   q.onerror=()=>reject(q.error||new Error('The database could not be opened.'));
  });
@@ -293,9 +294,11 @@ function storageIdbGet(keys){
    в архив; warm — запись вернулась из архива (её копия там удаляется);
    coldClear — архив и его указатель очищаются (Import заменяет базу
    целиком); `_archive` — строка указателя архива. Остальные записи склад
-   архива не трогают: старт новой установки пишет всё сразу. */
-function storageIdbWrite(changes,rev,build,test){
- return storageIdbTx(['record','cold','archive','meta'],'readwrite',tx=>{
+   архива не трогают: старт новой установки пишет всё сразу. cloud — пары
+   [ключ, значение] склада cloud той же транзакцией (null — удалить): строка
+   и её отправка на сервер не расходятся. */
+function storageIdbWrite(changes,rev,build,test,cloud){
+ return storageIdbTx(cloud&&cloud.length?['record','cold','archive','meta','cloud']:['record','cold','archive','meta'],'readwrite',tx=>{
   const rs=tx.objectStore('record'),cs=tx.objectStore('cold'),as=tx.objectStore('archive'),ms=tx.objectStore('meta');
   changes.forEach(c=>{
    if(c.coldClear){cs.clear();as.clear();return;}
@@ -305,6 +308,14 @@ function storageIdbWrite(changes,rev,build,test){
    else if(c.del)rs.delete(k);else{rs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data});if(c.warm)cs.delete(k);}
   });
   ms.put(rev,'rev');ms.put(build,'build');if(test!==undefined)ms.put(test===true,'test');
+  if(cloud&&cloud.length){const st=tx.objectStore('cloud');cloud.forEach(([k,v])=>{if(v==null)st.delete(k);else st.put(v,k);});}
+ });
+}
+function storageIdbCloudAll(){
+ return storageIdbTx(['cloud'],'readonly',tx=>{
+  const st=tx.objectStore('cloud'),out={keys:[],values:[]};
+  st.getAllKeys().onsuccess=e=>{out.keys=e.target.result||[];};st.getAll().onsuccess=e=>{out.values=e.target.result||[];};
+  return out;
  });
 }
 function storageIdbMetaPut(key,value){return storageIdbTx(['meta'],'readwrite',tx=>{tx.objectStore('meta').put(value,key);});}

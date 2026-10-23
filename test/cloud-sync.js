@@ -1,0 +1,94 @@
+/* Синхронизация с сервером (этап 4 «Базы», erp/cloud-sync.js): два
+   компьютера — два контекста браузера со своими базами — и один поддельный
+   сервер с правилами schema.sql: версии строк, команда целиком, повтор
+   команды, раздел Finance, курсор изменений. */
+module.exports=async function({page,eq}){
+ console.log('cloud sync');
+ const srv={rev:0,rec:new Map(),log:[],cmd:new Map(),down:false,
+  members:{'admin@glass-erp.test':{name:'Admin',admin:true,sections:[]},'office@glass-erp.test':{name:'Office',admin:false,sections:['sales']}}};
+ const rule={receipt:'finance'};
+ const can=(m,t)=>m.admin||!rule[t]||m.sections.includes(rule[t]);
+ const row=r=>({tbl:r.tbl,id:r.id,ver:r.ver,seq:r.seq,deleted:r.deleted,cold:false,data:r.deleted?null:r.data});
+ const rpc={
+  erp_whoami:m=>({name:m.name,admin:m.admin,sections:m.sections}),
+  erp_apply:(m,a)=>{
+   if(srv.cmd.has(a.command_id))return srv.cmd.get(a.command_id);
+   let res;const denied=[...new Set(a.changes.filter(c=>!can(m,c.tbl)).map(c=>c.tbl))];
+   const conflict=a.expect.filter(e=>{const r=srv.rec.get(e.tbl+'|'+e.id);return (r&&!r.deleted?r.ver:0)!==(e.ver||0);});
+   if(denied.length)res={ok:false,denied};
+   else if(conflict.length)res={ok:false,conflict};
+   else{const vers={};a.changes.forEach(c=>{const k=c.tbl+'|'+c.id,ver=++srv.rev;srv.log.push({rev:ver,k});
+     srv.rec.set(k,{tbl:c.tbl,id:c.id,ver,seq:c.seq||0,deleted:c.data===null,data:c.data});vers[k]=ver;});
+    res={ok:true,rev:srv.rev,vers,numbers:{}};}
+   srv.cmd.set(a.command_id,res);return res;
+  },
+  erp_changes:(m,a)=>{
+   const part=srv.log.filter(l=>l.rev>(a.since||0)).slice(0,a.lim||2000),keys=new Map();
+   part.forEach(l=>keys.set(l.k,l.rev));
+   const rows=[...keys.keys()].map(k=>srv.rec.get(k)).filter(r=>can(m,r.tbl)).map(row);
+   return {rows,last:part.length?part[part.length-1].rev:(a.since||0)};
+  },
+  erp_get:(m,a)=>a.keys.map(k=>srv.rec.get(k.tbl+'|'+k.id)).filter(r=>r&&can(m,r.tbl)).map(row),
+ };
+ const route=async route=>{
+  if(srv.down)return route.abort();
+  const req=route.request(),u=new URL(req.url()),body=JSON.parse(req.postData()||'{}'),h=req.headers();
+  const json=(status,o)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(o)});
+  if(u.pathname==='/auth/v1/token')return json(200,{access_token:'T:'+body.email,refresh_token:'R:'+body.email,expires_in:3600,user:{email:body.email}});
+  const m=srv.members[String(h.authorization||'').replace('Bearer T:','')],fn=rpc[u.pathname.replace('/rest/v1/rpc/','')];
+  if(!m)return json(401,{message:'Not a member of this ERP.'});
+  return fn?json(200,fn(m,body)):json(404,{message:'Not found'});
+ };
+ const pc=async email=>{
+  const t=await page();await t.c.route('https://shop.supabase.co/**',route);
+  await t.c.addInitScript(()=>{window.GF_CLOUD_MANUAL=true;});await t.p.evaluate(()=>{window.GF_CLOUD_MANUAL=true;});
+  await t.p.evaluate(async e=>{await cloudConnect('https://shop.supabase.co','sb_publishable_test',e,'pw');},email);
+  return t;
+ };
+ /* Шаг синхронизации сейчас, а не через 5 секунд. */
+ const sync=t=>t.p.evaluate(async()=>{while(cloudSync.running)await new Promise(r=>setTimeout(r,20));await cloudSyncTick();return cloudSyncText();});
+ const name=(t,id)=>t.p.evaluate(id=>{const c=DB.customer.find(x=>x.id===id);return c?c.legalName:null;},id);
+ const edit=(t,id,v,field)=>t.p.evaluate(([id,v,f])=>storageCommand(()=>{DB.customer.find(x=>x.id===id)[f||'legalName']=v;}).ok,[id,v,field]);
+
+ const A=await pc('admin@glass-erp.test');
+ await A.p.evaluate(()=>storageCommand(()=>{DB.customer.push({id:'C-CLOUD',legalName:'Cloud Co'});}));
+ await A.p.evaluate(()=>{tab='users';subtab='cloud';render();});
+ eq('Users → Cloud: после входа — «Not synced», Upload и Download',await A.p.evaluate(()=>({sync:document.querySelector('[data-cloud-sync]').dataset.cloudSync,up:!!document.querySelector('[data-cloud-upload]'),down:!!document.querySelector('[data-cloud-download]')})),{sync:'off',up:true,down:true});
+ const up=await A.p.evaluate(()=>cloudUpload());
+ eq('Upload: база A на сервере, A — «Synced»',{up,has:!!srv.rec.get('customer|C-CLOUD'),text:await sync(A)},{up:true,has:true,text:'Synced'});
+ eq('Upload второй раз — отказ: на сервере уже есть данные',await A.p.evaluate(async()=>{await cloudSaveAll('',0,null);await cloudUpload();const e=cloudSync.error;cloudSync.error='';return e;}),'The server already has data. Use Download.');
+ await A.p.evaluate(async()=>{await cloudDownload();});
+
+ const B=await pc('office@glass-erp.test');
+ const down=await B.p.evaluate(()=>cloudDownload());
+ eq('Download: у B клиент A и связь с сервером',{down,name:await name(B,'C-CLOUD'),text:await sync(B)},{down:true,name:'Cloud Co',text:'Synced'});
+
+ await edit(A,'C-CLOUD','Cloud Co Ltd');await sync(A);
+ eq('правка A уходит на сервер и приходит к B опросом',(await sync(B),await name(B,'C-CLOUD')),'Cloud Co Ltd');
+ eq('после F5 у B та же база и связь (курсор и версии в базе браузера)',await (async()=>{await B.p.reload();await B.p.evaluate(()=>window.storageReady);return {name:await name(B,'C-CLOUD'),text:await sync(B)};})(),{name:'Cloud Co Ltd',text:'Synced'});
+
+ await edit(A,'C-CLOUD','From A');await edit(B,'C-CLOUD','From B');
+ await sync(A);await sync(B);
+ eq('одна строка на двух компьютерах: первый записанный остаётся, у второго — серверная копия и предупреждение',
+  {a:await name(A,'C-CLOUD'),b:await name(B,'C-CLOUD'),warn:await B.p.evaluate(()=>cloudSync.warn),server:JSON.parse(srv.rec.get('customer|C-CLOUD').data).legalName},
+  {a:'From A',b:'From A',warn:'Changed on another computer: C-CLOUD. Server copy shown.',server:'From A'});
+
+ srv.down=true;
+ await edit(B,'C-CLOUD','Offline 1','notes');await edit(B,'C-CLOUD','Offline 2','notes');
+ eq('без сети: правки ждут в очереди — «Offline · 2 waiting»',await sync(B),'Offline · 2 waiting');
+ eq('…и переживают F5',await (async()=>{await B.p.reload();await B.p.evaluate(()=>window.storageReady);return sync(B);})(),'Offline · 2 waiting');
+ srv.down=false;
+ eq('сеть вернулась: обе правки подряд уходят (вторая не спорит с первой), A их видит',
+  {b:await sync(B),a:(await sync(A),await A.p.evaluate(()=>DB.customer.find(x=>x.id==='C-CLOUD').notes))},{b:'Synced',a:'Offline 2'});
+
+ await B.p.evaluate(()=>storageCommand(()=>{DB.receipt.push({id:'RCPT-CLOUD',orderId:'',amount:5});}));
+ await sync(B);
+ eq('без раздела Finance оплата не пишется: строки нет ни на сервере, ни у B; предупреждение',
+  {server:srv.rec.has('receipt|RCPT-CLOUD'),b:await B.p.evaluate(()=>DB.receipt.some(r=>r.id==='RCPT-CLOUD')),warn:await B.p.evaluate(()=>cloudSync.warn)},
+  {server:false,b:false,warn:'No access on server: receipt. Server copy shown.'});
+
+ await B.p.evaluate(()=>{tab='users';subtab='cloud';render();});
+ eq('Stop sync: связь снята, база остаётся',await B.p.evaluate(async()=>{await cloudSyncStop();return {sync:document.querySelector('[data-cloud-sync]').dataset.cloudSync,name:DB.customer.find(x=>x.id==='C-CLOUD').legalName};}),{sync:'off',name:'From A'});
+ eq('синхронизация без ошибок страницы',[A.errs,B.errs],[[],[]]);
+ await A.c.close();await B.c.close();
+};

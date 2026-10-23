@@ -21,6 +21,8 @@ create table if not exists public.erp_record (
   primary key (tbl, id)
 );
 create index if not exists erp_record_cold on public.erp_record (cold, tbl);
+-- Порядок строки в таблице ERP (seq): строки встают на своё место у всех.
+alter table public.erp_record add column if not exists seq bigint not null default 0;
 
 -- Курсор изменений: каждая запись строки — новая строка журнала по порядку.
 create table if not exists public.erp_log (
@@ -163,13 +165,18 @@ begin
         insert into public.erp_counter as k (name, next) values (c->'number'->>'name', 2)
           on conflict (name) do update set next = k.next + 1
           returning next - 1 into n;
-        d := jsonb_set(d, array(select jsonb_array_elements_text(c->'number'->'path')), to_jsonb(n), true);
+        -- Строка приходит текстом JSON (порядок ключей как у ERP) или объектом.
+        if jsonb_typeof(d) = 'string' then
+          d := to_jsonb(jsonb_set((d #>> '{}')::jsonb, array(select jsonb_array_elements_text(c->'number'->'path')), to_jsonb(n), true)::text);
+        else
+          d := jsonb_set(d, array(select jsonb_array_elements_text(c->'number'->'path')), to_jsonb(n), true);
+        end if;
         nums := nums || jsonb_build_object((c->>'tbl') || '|' || (c->>'id'), n);
       end if;
       insert into public.erp_log (tbl, id) values (c->>'tbl', c->>'id') returning rev into r;
-      insert into public.erp_record as x (tbl, id, data, cold, month, ver, deleted, updated_at, updated_by)
-        values (c->>'tbl', c->>'id', d, coalesce((c->>'cold')::boolean, false), coalesce(c->>'month', ''), r, d is null, now(), me.user_id)
-        on conflict (tbl, id) do update set data = excluded.data, cold = excluded.cold, month = excluded.month,
+      insert into public.erp_record as x (tbl, id, data, cold, month, ver, seq, deleted, updated_at, updated_by)
+        values (c->>'tbl', c->>'id', d, coalesce((c->>'cold')::boolean, false), coalesce(c->>'month', ''), r, coalesce((c->>'seq')::bigint, 0), d is null, now(), me.user_id)
+        on conflict (tbl, id) do update set data = excluded.data, cold = excluded.cold, month = excluded.month, seq = excluded.seq,
           ver = excluded.ver, deleted = excluded.deleted, updated_at = excluded.updated_at, updated_by = excluded.updated_by;
       vers := vers || jsonb_build_object((c->>'tbl') || '|' || (c->>'id'), r);
     end loop;
@@ -207,7 +214,7 @@ begin
     ) s group by tbl, id
   )
   -- Строки чужого раздела не приходят, но курсор last идёт дальше.
-  select coalesce(jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'deleted', r.deleted,
+  select coalesce(jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'seq', r.seq, 'deleted', r.deleted,
            'cold', r.cold, 'data', case when r.cold then null else r.data end) order by l.rev)
            filter (where public.erp_can_read(me, r.tbl)), '[]'::jsonb),
          max(l.rev)
@@ -224,6 +231,19 @@ begin
   return coalesce((select jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'month', r.month, 'data', r.data))
     from jsonb_array_elements(coalesce(keys, '[]')) k
     join public.erp_record r on r.tbl = k->>'tbl' and r.id = k->>'id' and r.cold and not r.deleted
+    where public.erp_can_read(me, r.tbl)), '[]'::jsonb);
+end $$;
+
+-- Строки, как они на сервере сейчас: после отказа (конфликт, нет раздела)
+-- устройство возвращает свои строки к серверным. Нет строки — пустой ответ.
+create or replace function public.erp_get(keys jsonb)
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare me public.erp_member := public.erp_me();
+begin
+  return coalesce((select jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'seq', r.seq, 'deleted', r.deleted,
+      'cold', r.cold, 'data', case when r.cold then null else r.data end))
+    from jsonb_array_elements(coalesce(keys, '[]')) k
+    join public.erp_record r on r.tbl = k->>'tbl' and r.id = k->>'id'
     where public.erp_can_read(me, r.tbl)), '[]'::jsonb);
 end $$;
 
@@ -262,13 +282,13 @@ begin
 end $$;
 
 revoke all on function public.erp_me(), public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int),
-  public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_size(), public.erp_whoami(),
+  public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
   public.erp_member_set(text, text, boolean, boolean, text[]) from public, anon;
 revoke all on function public.erp_me() from authenticated;
 revoke all on function public.erp_can(public.erp_member, text), public.erp_can_read(public.erp_member, text),
   public.erp_can_write(public.erp_member, text) from public, anon, authenticated;
 grant execute on function public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int),
-  public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_size(), public.erp_whoami(),
+  public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
   public.erp_member_set(text, text, boolean, boolean, text[]) to authenticated;
 
 -- Первый администратор — вход admin@glass-erp.test (тестовый проект). Для

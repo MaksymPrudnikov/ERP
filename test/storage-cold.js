@@ -64,7 +64,7 @@ module.exports=async function({page,eq}){
    q.onerror=()=>rej(q.error);});
  });
  await t.p.reload();await t.p.evaluate(()=>window.storageReady);
- eq('база прежней версии открывается: записи на месте, склады архива и его указателя появились',await t.p.evaluate(()=>({kept:DB.customer.some(c=>c.id==='OLD-V1'),cold:storageIdb.objectStoreNames.contains('cold'),index:storageIdb.objectStoreNames.contains('archive'),version:storageIdb.version})),{kept:true,cold:true,index:true,version:3});
+ eq('база прежней версии открывается: записи на месте, склады архива, его указателя и сервера появились',await t.p.evaluate(()=>({kept:DB.customer.some(c=>c.id==='OLD-V1'),cold:storageIdb.objectStoreNames.contains('cold'),index:storageIdb.objectStoreNames.contains('archive'),cloud:storageIdb.objectStoreNames.contains('cloud'),version:storageIdb.version})),{kept:true,cold:true,index:true,cloud:true,version:4});
  eq('архив без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

@@ -105,6 +105,30 @@ do $$ begin
   assert exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' = 'receipt'), 'с Finance оплата не видна';
 end $$;
 
+-- Порядок строки (seq) хранится и приходит; erp_get — строки как сейчас.
+do $$
+declare r jsonb; g jsonb;
+begin
+  r := public.erp_apply('off-4', 'b1', 'pc2', '[]', '[{"tbl":"customer","id":"C-1","seq":7,"data":{"id":"C-1"}}]');
+  assert (r->>'ok')::boolean, 'клиент не записан: ' || r;
+  assert exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'id' = 'C-1' and (x->>'seq')::int = 7), 'seq не пришёл';
+  g := public.erp_get('[{"tbl":"customer","id":"C-1"},{"tbl":"customer","id":"C-404"},{"tbl":"salesOrder","id":"SO-2"}]');
+  assert jsonb_array_length(g) = 2, 'erp_get: ' || g;
+  assert g @> '[{"id":"C-1","seq":7,"deleted":false,"data":{"id":"C-1"}}]' and g @> '[{"id":"SO-2","deleted":true}]', 'erp_get: ' || g;
+  -- Строка текстом JSON (так шлёт ERP): номер встаёт в текст, текст остаётся текстом.
+  r := public.erp_apply('off-5', 'b1', 'pc2', '[]', '[{"tbl":"salesOrder","id":"SO-3","data":"{\"id\":\"SO-3\",\"no\":null}","number":{"name":"order","path":["no"]}}]');
+  g := public.erp_get('[{"tbl":"salesOrder","id":"SO-3"}]');
+  assert jsonb_typeof(g->0->'data') = 'string' and ((g->0->>'data')::jsonb->>'no')::int = (r->'numbers'->>'salesOrder|SO-3')::int, 'номер в тексте: ' || g;
+end $$;
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select public.erp_member_set('office@glass-erp.test', 'Office', false, true, '{sales}');
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  assert public.erp_get('[{"tbl":"receipt","id":"R-1"}]') = '[]', 'erp_get отдаёт оплату без Finance';
+end $$;
+
 -- Отключённый человек больше ничего не может.
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
@@ -112,5 +136,6 @@ select public.erp_member_set('office@glass-erp.test', 'Office', false, false);
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
 do $$ begin assert pg_temp.fails('select public.erp_changes(0)', 'Not a member%'), 'отключённый читает'; end $$;
+do $$ begin assert pg_temp.fails('select public.erp_get(''[]'')', 'Not a member%'), 'отключённый читает строки'; end $$;
 reset role;
 select 'schema check: ok' as result;

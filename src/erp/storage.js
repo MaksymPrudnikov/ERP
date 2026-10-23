@@ -24,8 +24,9 @@ let storageWarningShown=false,storageLastError='',storageLastSaved='',storageDep
 let storageRecovery=false,storageBackupAt='',storageTakeover=null,storageHandoffFailed=false,storageCopyAt='';
 /* Запись идёт в фоне: действие не ждёт диска. storageBusy — запись в пути,
    storageQueued — изменения, которые уйдут следующей транзакцией,
-   storageFailed — не записанное (полоса «Not saved» и Retry save). */
-let storageRev=0,storageBusy=false,storageQueued=null,storageFailed=null,storageFlushWaiters=[];
+   storageFailed — не записанное (полоса «Not saved» и Retry save),
+   storageCloudQueued — правки склада cloud, что уйдут той же транзакцией. */
+let storageRev=0,storageBusy=false,storageQueued=null,storageFailed=null,storageFlushWaiters=[],storageCloudQueued=[];
 /* Незаписанное держит запись (владелец, 22.10.2026): вкладка не отдаёт её
    другой, пока здесь не нажмут Retry save или Export. Иначе Retry потом
    клал старое поверх того, что сохранила другая вкладка (проверка Codex).
@@ -222,7 +223,9 @@ function touch(){
   const changes=storageColdApply(diff);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';return true;}
-  storageWrite(changes);storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
+  /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
+  const out=typeof cloudOutbox==='function'?cloudOutbox(changes):null;
+  storageWrite(changes,out&&out.ops);if(out)out.done();storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
   storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
  }catch(e){
   storageLastError=storageStale?storageReadOnlyText():'Not saved. Your operation is still open; retry or export your changes.';
@@ -234,25 +237,26 @@ function touch(){
 /* Начать запись набора изменений. Синхронно отказывает, если прошлая запись
    не удалась (сначала Retry save) или вкладка устарела, — тогда действие
    откатывается. Сама запись идёт одной транзакцией в фоне; тесты подменяют
-   эту функцию, чтобы проверить отказ. */
-function storageWrite(changes){
+   эту функцию, чтобы проверить отказ. cloud — правки склада cloud. */
+function storageWrite(changes,cloud){
  if(storageStale)throw new Error(storageReadOnlyText());
  if(storageFailed)throw new Error('Not saved. Retry the save first.');
- if(!changes.length)return;
+ if(cloud&&cloud.length)storageCloudQueued.push(...cloud);
+ if(!changes.length&&!storageCloudQueued.length)return;
  storageQueued=storageQueued?storageMerge(storageQueued,changes):changes.slice();
  if(!storageBusy)storageWriteNext();
 }
 function storageWriteNext(){
- const changes=storageQueued;storageQueued=null;
- if(!changes||!changes.length){storageBusy=false;storageFlushWaiters.splice(0).forEach(r=>r(!storageFailed));return;}
+ const changes=storageQueued,cloud=storageCloudQueued;storageQueued=null;storageCloudQueued=[];
+ if(!changes||!changes.length&&!cloud.length){storageBusy=false;storageFlushWaiters.splice(0).forEach(r=>r(!storageFailed));return;}
  storageBusy=true;
  /* Метка TEST — часть базы: пишется той же транзакцией, едет другим вкладкам. */
  const rev=storageRev+1,build=storageBuildId(),test=storageTest;
- storageIdbWrite(changes,rev,build,test).then(()=>{
+ storageIdbWrite(changes,rev,build,test,cloud).then(()=>{
   storageRev=rev;
   if(storageChannel)try{storageChannel.postMessage({type:'saved',build,rev,test,keys:changes.map(c=>[c.tbl,c.id])});}catch(e){}
   storageUsageCheck();storageWriteNext();
- },e=>storageWriteFailed(changes,e));
+ },e=>{storageCloudQueued=cloud.concat(storageCloudQueued);storageWriteFailed(changes,e);});
 }
 function storageWriteFailed(changes,e){
  /* Нет места: сначала уходит копия до импорта, затем один повтор. */
@@ -296,6 +300,7 @@ function storageStatusHTML(){
  const admin=accessCan(ACCESS_ADMIN);
  return '<div class="storage-status'+(storageLastError||storageRecovery||storageStale?' bad':'')+'" role="status"><span>'+esc(text)+'</span>'+
   (storageLastSaved&&!storageLastError?'<small>Saved '+esc(new Date(storageLastSaved).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</small>':'')+
+  (typeof cloudSyncText==='function'&&cloudSyncText()?'<small data-cloud-sync-foot>Server: '+esc(cloudSyncText())+'</small>':'')+
   (admin&&storageUsage?'<small>DB '+esc(String(Math.max(1,Math.round(storageUsage.usage/1048576))))+' MB</small>':'')+
   (admin&&storageLastAction!=null?'<small>Last action '+storageLastAction+' ms</small>':'')+
   (storageBackupPresent&&admin?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';
@@ -480,7 +485,7 @@ function storageStart(){
  const ready=()=>{storageStarting=false;storageBackupCheck();const tr=performance.now();render();if(storageBootMs)storageBootMs.render=performance.now()-tr;
   /* Другие вкладки узнают, что открыта эта сборка. */
   if(storageChannel&&!storageRecovery)try{storageChannel.postMessage({type:'hello',build:storageBuildId()});}catch(e){}
-  storageUsageCheck();finTotalsWarm();storageReadyResolve();};
+  storageUsageCheck();finTotalsWarm();if(typeof cloudSyncStart==='function')cloudSyncStart();storageReadyResolve();};
  if(!navigator.locks){storageLastError='This browser cannot coordinate editing safely.';boot().then(ready);return;}
  navigator.locks.request(STORAGE_LOCK,{ifAvailable:true},async lock=>{
   storageWriter=!!lock;await boot();ready();
