@@ -19,14 +19,6 @@ const SALES_MAX_INTERLAYERS=4;
 const SALES_INTERLAYER_LAYER_MM=.38;
 const SALES_MAX_INTERLAYER_LAYERS=6;
 const SALES_PRIMARY_SEALANT_ID='SEAL-PIB';
-const SALES_CARD_FEE_RATES={visa:2.34,mastercard:2.39,amex:3.15};
-const SALES_ORDER_CHARGE_DEFAULTS={
- energy:{enabled:true,rate:9.75},
- hst:{enabled:true,rate:13},
- card:{enabled:false,network:'visa',rate:2.34},
- delivery:{enabled:false,amount:0},
- skidDeposit:{enabled:false,amount:0}
-};
 
 function salesUid(prefix){
  prefix=prefix||'SO';
@@ -54,13 +46,19 @@ function salesDimTo16(v){
 }
 function salesStoredDim16(v){const n=+v;return Number.isInteger(n)&&n>0?n:null;}
 function salesOrderChargeNumber(v,fallback){const n=Number(v);return Number.isFinite(n)&&n>=0?n:fallback;}
+/* Сборы заказа — снимок Setup на момент создания (erp/sales/order-setup).
+   Карта хранит своё имя и ставку: удалённая из Setup карта в старом заказе
+   остаётся. Нет базы сбора — прежнее правило: HST на Subtotal + Energy,
+   карта на Subtotal + Energy + HST. */
+function salesOrderChargeBase(v,kind,legacy){return Array.isArray(v)?ORDER_CHARGE_BASE_PARTS[kind].filter(p=>v.includes(p)):legacy;}
 function normalizeSalesOrderCharges(raw){
  raw=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
- const network=Object.prototype.hasOwnProperty.call(SALES_CARD_FEE_RATES,raw.card&&raw.card.network)?raw.card.network:'visa';
+ const s=orderSetup(),rc=raw.card&&typeof raw.card==='object'?raw.card:{};
+ const network=salesRefId(rc.network)||((s.cardNetworks[0]?s.cardNetworks[0].id:'')),known=orderSetupNetwork(network);
  return {
-  energy:{enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:true,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,9.75)},
-  hst:{enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:true,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,13)},
-  card:{enabled:!!(raw.card&&raw.card.enabled),network:network,rate:salesOrderChargeNumber(raw.card&&raw.card.rate,SALES_CARD_FEE_RATES[network])},
+  energy:{enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:s.energyOn,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,s.energyRate)},
+  hst:{enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:s.hstOn,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,s.hstRate),base:salesOrderChargeBase(raw.hst&&raw.hst.base,'hst',['energy'])},
+  card:{enabled:!!rc.enabled,network:network,name:salesString(rc.name).slice(0,60)||(known&&known.name)||'Card fee',rate:salesOrderChargeNumber(rc.rate,known?known.rate:0),base:salesOrderChargeBase(rc.base,'card',['energy','hst'])},
   delivery:{enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)},
   skidDeposit:{enabled:!!(raw.skidDeposit&&raw.skidDeposit.enabled),amount:salesOrderChargeNumber(raw.skidDeposit&&raw.skidDeposit.amount,0)}
  };
@@ -113,7 +111,7 @@ function salesFirstGlass(family,manufacturer,thickness){
  const preferBaseClear=family==='lowe'||family==='reflective';
  return (preferBaseClear?salesSortCoatedGlass(rows):salesSortGlass(rows,false))[0]||salesSortGlass(activeGlassProducts(),false)[0]||null;
 }
-function salesDefaultLaminatedFrit(){return {enabled:false,position:'outside',productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:''};}
+function salesDefaultLaminatedFrit(){const fd=orderSetupFrit();return {enabled:false,position:'outside',productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:fd.dotMm,marginFrom:fd.marginFrom,marginW16:fd.margin16,marginH16:fd.margin16,marking:''};}
 function normalizeSalesLaminatedFrit(raw,d){
  raw=raw&&typeof raw==='object'?raw:{};d=d||salesDefaultLaminatedFrit();
  const position=SALES_LAMINATED_FRIT_POSITIONS.includes(raw.position)?raw.position:d.position,color=salesString(raw.color),pattern=salesString(raw.pattern),corner=salesString(raw.marginFrom);
@@ -174,11 +172,11 @@ function normalizeSalesInterlayers(lam,d){
 }
 function salesDefaultPane(i){
  const g=salesFirstGlass('uncoated','Vitro',6)||salesFirstGlass();
- const ply=salesDefaultLaminatedPly(g);
+ const ply=salesDefaultLaminatedPly(g),fd=orderSetupFrit();
  return {
   id:salesUid('LITE'),category:'vision',manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:salesRecommendedHeat(g)||'HT-AN',heatSoak:false,
   coatingSurface:null,
-  frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
+  frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:fd.dotMm,marginFrom:fd.marginFrom,marginW16:fd.margin16,marginH16:fd.margin16,marking:'',surface:null},
   /* Цвет по умолчанию — строка палитры, а не слово: иначе новый лайт сразу
      получал бы значение, которого в справочнике нет. Чёрный сохранён как
      прежнее поведение. Тип по умолчанию — силикон ICD, потому что Black
@@ -577,7 +575,7 @@ function validateSalesReferences(){
  (DB.recut||[]).forEach(r=>{if(r&&r.shapeRef&&[r.shapeRef].concat(Object.values(r.liteShapes||{})).some(x=>x&&x.id&&!shapeIds.has(x.id)))throw new Error('Recut '+r.no+' references a missing Shape.');});
 }
 function nextSalesOrderNumber(){let max=Math.max(76001,typeof archiveFloor==='function'?archiveFloor('order'):0);DB.salesOrder.forEach(o=>{if(o.kind==='quote'||/^Q-/i.test(String(o.businessNumber||'')))return;const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
-function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:SALES_ORDER_CHARGE_DEFAULTS,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
+function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:salesOrderChargeDefaults(),createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
 function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
 function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}
 /* Позицию каталога, на которую ссылается хоть один Makeup, удалять нельзя:

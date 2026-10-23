@@ -77,5 +77,37 @@ module.exports=async function({page,eq}){
   const via=document.querySelector('[data-md-station-via]').textContent.replace(/\s+/g,' ').trim();mdCatEdit=null;mdCatDraft=null;tab='dashboard';render();
   return [polish.includes('Flat Polish'),cerp.includes('Frit · '),lam.includes('Interlayers'),igu.includes('Spacers')&&igu.includes('Gas'),par>1,via];
  }),[true,true,true,true,true,'StationLAMFrom work Lamination']);
+
+ /* Этап 5, часть 1: Data → Setup — сборы заказа и умолчания фрита. */
+ eq('Setup: ставки, карта и база сборов — снимок нового заказа; старый заказ держит свой; журнал пишет правку',await t.p.evaluate(()=>{
+  const keep=JSON.stringify(DB.orderSetup);
+  try{
+   const old=newSalesOrderDraft();
+   tab='masterdata';mdSetTab('setup');render();
+   const set=(k,v)=>{const el=document.querySelector(`[data-setup="${k}"]`);if(el.type==='checkbox')el.checked=v;else el.value=v;el.dispatchEvent(new Event('change'));};
+   set('energyRate','10');set('hstRate','5');set('hstOnEnergy',false);set('hstOnDelivery',true);set('cardOnHst',false);set('cardOn',true);
+   const before=DB.masterDataEvent.length;touch();
+   orderSetupCardAdd();orderSetupCardSet(3,'name','Debit fee');orderSetupCardSet(3,'rate','1');
+   DB.orderSetup.cardNetworks.unshift(DB.orderSetup.cardNetworks.pop());normalizeOrderSetup();touch();
+   const logged=DB.masterDataEvent.slice(before).some(e=>e.tbl==='orderSetup'&&e.field==='cardNetworks');
+   const o=newSalesOrderDraft(),c=o.orderCharges;c.delivery.enabled=true;c.delivery.amount=100;
+   const x=salesApplyOrderCharges(1000,c),y=salesApplyOrderCharges(1000,old.orderCharges);
+   const card=[...document.querySelectorAll('[data-setup-cards] input[type=text]')].some(i=>i.value==='Debit fee');
+   return [c.energy.rate,c.hst.rate,c.hst.base,c.card.enabled,c.card.name,c.card.rate,c.card.base,[x.hstBase,x.hst,x.cardBase,x.card,x.grand],[y.energy,y.hst],card,logged];
+  }finally{DB.orderSetup=JSON.parse(keep);normalizeOrderSetup();tab='dashboard';render();}
+ }),[10,5,['delivery'],true,'Debit fee',1,['energy'],[1100,55,1100,11,1266],[97.5,142.68],true,true]);
+ eq('Setup: карта, удалённая из списка, остаётся в старом заказе со своей ставкой; точка и отступ фрита — для нового лайта',await t.p.evaluate(()=>{
+  const keep=JSON.stringify(DB.orderSetup);
+  try{
+   const o=newSalesOrderDraft();o.orderCharges.card=Object.assign(o.orderCharges.card,{network:'amex',name:'American Express fee',rate:3.15,enabled:true});
+   DB.orderSetup.cardNetworks=DB.orderSetup.cardNetworks.filter(n=>n.id!=='amex');normalizeOrderSetup();
+   const c=normalizeSalesOrderCharges(o.orderCharges).card;
+   tab='masterdata';mdSetTab('setup');render();
+   const set=(k,v)=>{const el=document.querySelector(`[data-setup="${k}"]`);el.value=v;el.dispatchEvent(new Event('change'));};
+   set('fritDotMm','3');set('fritMargin16','0');set('fritCorner','Bottom left');
+   const p=salesDefaultPane(0),lam=salesDefaultLaminatedFrit();
+   return [c.network,c.name,c.rate,[p.frit.dotMm,p.frit.marginW16,p.frit.marginFrom],[lam.dotMm,lam.marginH16]];
+  }finally{DB.orderSetup=JSON.parse(keep);normalizeOrderSetup();tab='dashboard';render();}
+ }),['amex','American Express fee',3.15,[3,0,'Bottom left'],[3,0]]);
  await t.c.close();
 };

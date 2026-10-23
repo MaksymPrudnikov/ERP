@@ -31,7 +31,7 @@ module.exports=async function({page,eq,ok}){
   await t.p.setViewportSize({width,height:900});
   wide.push(await t.p.evaluate(()=>{
    const bad=[];
-   [['masterdata',['materials','stations','hardware','weight','trucks','ncr','overview']],['production',['orders','stations']]].forEach(([k,list])=>list.forEach(s=>{tab=k;if(k==='masterdata')mdTab=s;else subtab=s;render();if(document.documentElement.scrollWidth>innerWidth+1)bad.push(k+'/'+s);}));
+   [['masterdata',['materials','stations','hardware','weight','trucks','ncr','setup','overview']],['production',['orders','stations']]].forEach(([k,list])=>list.forEach(s=>{tab=k;if(k==='masterdata')mdTab=s;else subtab=s;render();if(document.documentElement.scrollWidth>innerWidth+1)bad.push(k+'/'+s);}));
    tab='dashboard';render();return bad;
   }));
  }

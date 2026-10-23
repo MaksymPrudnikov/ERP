@@ -96,7 +96,7 @@ function salesCommercialOrderSummary(interactive){
  const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2):'—';
  const item=(key,label,rate,value,shown)=>`<span class="metric-order-charge-item charge-${key}${shown?'':' is-empty'}"><span class="metric-order-charge-label">${label}${rate!=null?` <small data-raw>${rate}%</small>`:''}</span><b data-raw>${shown?money(value):''}</b></span>`;
  const adj=(soDraft.adjustments||[]).reduce((n,a)=>salesMoney(n+(+a.amount||0)),0);
- const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(salesCardNetworkLabel(c.card.network)),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
+ const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(c.card.name),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
  rows.push(`<span class="metric-order-charge-item charge-total metric-grand-total"><span class="metric-order-charge-label">Total</span><b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${'lines need pricing'}</small>`:''}</span>`);
  const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" onclick="salesOpenMetrics('orderCharges')">Service +</button>`;
  return salesOrderReviewHTML(soDraft,t)+`<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · <span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`;
@@ -105,7 +105,6 @@ function salesOrderReviewHTML(o,t){
  t=t||finOrderTotals(o);if(!t.complete||t.grand>=0)return '';
  return `<div class="sales-pricing-warning" role="alert" data-order-review><b>Negative order total · Review required</b><span>Order ${esc(o.businessNumber)} · ${esc(salesCustomerDisplay(o.customerId))} · ${esc(t.grand.toFixed(2))} ${esc(o.currency||'CAD')} · Resolve with the customer</span></div>`;
 }
-function salesCardNetworkLabel(value){return ({visa:'Visa card fee',mastercard:'Mastercard fee',amex:'American Express fee'})[value]||'Card fee';}
 function salesSetOrderChargeEnabled(key,enabled){
  if(!['energy','hst','card','delivery','skidDeposit'].includes(key))return;
  soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges[key].enabled=!!enabled;touch();render();
@@ -115,10 +114,14 @@ function salesSetOrderChargeValue(key,field,value){
  const n=Number(value);if(!Number.isFinite(n)||n<0){alert('Enter a value of zero or greater.');render();return;}
  soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges[key][field]=n;touch();render();
 }
+/* Карты — список Data → Setup; карта старого заказа, которой в списке уже
+   нет, остаётся со своим именем и ставкой. */
 function salesSetCardNetwork(network){
- if(!Object.prototype.hasOwnProperty.call(SALES_CARD_FEE_RATES,network))return;
- soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges.card.network=network;soDraft.orderCharges.card.rate=SALES_CARD_FEE_RATES[network];touch();render();
+ const n=orderSetupNetwork(network);if(!soDraft||!n)return;
+ soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);Object.assign(soDraft.orderCharges.card,{network:n.id,name:n.name||'Card fee',rate:n.rate});touch();render();
 }
+const SALES_CHARGE_PART_LABELS={energy:'ES',hst:'HST',delivery:'Delivery'};
+function salesChargeBaseText(base){return 'Base: '+['Subtotal'].concat(base.map(p=>SALES_CHARGE_PART_LABELS[p])).join(' + ');}
 /* Поправки на заказ руками (normalizeSalesAdjustments): текст и сумма. */
 function salesAddAdjustment(){if(!soDraft)return;soDraft.adjustments=(soDraft.adjustments||[]).concat([{id:salesUid('ADJ'),label:'',amount:0}]);render();}
 function salesRemoveAdjustment(i){if(!soDraft||!soDraft.adjustments)return;soDraft.adjustments.splice(i,1);if(!soDraft.adjustments.length)delete soDraft.adjustments;touch();render();}
@@ -135,11 +138,11 @@ function salesAdjustmentsHTML(){
 function salesOrderChargesPanel(){
  const c=normalizeSalesOrderCharges(soDraft.orderCharges),toggle=(key,label,body)=>`<div class="metric-order-charge-row ${c[key].enabled?'on':''}"><label><input type="checkbox" ${c[key].enabled?'checked':''} onchange="salesSetOrderChargeEnabled('${key}',this.checked)"><b>${label}</b></label>${body}</div>`;
  const pct=(key)=>`<label>${'Rate'}<input type="number" min="0" step="0.01" value="${c[key].rate}" onchange="salesSetOrderChargeValue('${key}','rate',this.value)"><span>%</span></label>`;
- return `<p class="mut">${'Charges apply from top to bottom. A disabled row keeps its rate and can be enabled again.'}</p><div class="metric-order-charge-editor">
+ return `<p class="mut">${'Charges apply from top to bottom. A disabled row keeps its rate and can be enabled again. Defaults: Data → Setup.'}</p><div class="metric-order-charge-editor">
   ${toggle('energy','Energy Surcharge',pct('energy'))}
-  ${toggle('hst','HST',pct('hst')+`<small>${'Payment method does not disable tax automatically.'}</small>`)}
-   ${toggle('card','Card fee',`<label>${'Card'}<select onchange="salesSetCardNetwork(this.value)">${Object.keys(SALES_CARD_FEE_RATES).map(k=>`<option value="${k}" ${c.card.network===k?'selected':''}>${esc(salesCardNetworkLabel(k))}</option>`).join('')}</select></label>${pct('card')}`)}
-   ${toggle('delivery','Delivery',`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${c.delivery.amount}" onchange="salesSetOrderChargeValue('delivery','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${'Excluded from the ES, HST and Card fee bases.'}</small>`)}
+  ${toggle('hst','HST',pct('hst')+`<small>${salesChargeBaseText(c.hst.base)}. ${'Payment method does not disable tax automatically.'}</small>`)}
+   ${toggle('card','Card fee',`<label>${'Card'}<select onchange="salesSetCardNetwork(this.value)">${(()=>{const list=orderSetup().cardNetworks.slice();if(c.card.network&&!list.some(n=>n.id===c.card.network))list.push({id:c.card.network,name:c.card.name});return list.map(n=>`<option value="${esc(n.id)}" ${c.card.network===n.id?'selected':''}>${esc(n.name||n.id)}</option>`).join('');})()}</select></label>${pct('card')}<small>${salesChargeBaseText(c.card.base)}</small>`)}
+   ${toggle('delivery','Delivery',`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${c.delivery.amount}" onchange="salesSetOrderChargeValue('delivery','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${(b=>b.length?'In the '+b.join(' and ')+' base.':'Excluded from the ES, HST and Card fee bases.')([['hst','HST'],['card','Card fee']].filter(([k])=>c[k].base.includes('delivery')).map(x=>x[1]))}</small>`)}
    ${toggle('skidDeposit','Skid Deposit',`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${c.skidDeposit.amount}" onchange="salesSetOrderChargeValue('skidDeposit','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${'Customer skid deposit; excluded from all fee bases.'}</small>`)}
  </div>${salesAdjustmentsHTML()}<div class="metric-order-charge-preview">${salesCommercialOrderSummary()}</div>`;
 }
