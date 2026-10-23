@@ -124,6 +124,23 @@ function finOrderTotals(order){
  }
  return t;
 }
+/* После F5 итоги заказов считаются понемногу в простое (30 мс за шаг), и
+   первый вход в Finance берёт готовое. Не на станции, не без Finance и не
+   во время ввода: скан и набор заказа важнее. */
+let finTotalsWarmTimer=null;
+function finTotalsWarm(delay){
+ if(finTotalsWarmTimer||typeof window==='undefined'||window.GF_NO_ARCHIVE)return;
+ let i=0;
+ const step=()=>{
+  finTotalsWarmTimer=null;
+  if(tab==='station'||!accessCan('finance'))return;
+  if(storageDepth||Date.now()-archiveInputAt<2000){finTotalsWarmTimer=setTimeout(step,2000);return;}
+  const list=DB.salesOrder||[],t=performance.now();
+  readScope(()=>{while(i<list.length&&performance.now()-t<30)finOrderTotals(list[i++]);});
+  if(i<list.length&&list===DB.salesOrder)finTotalsWarmTimer=setTimeout(step,0);
+ };
+ finTotalsWarmTimer=setTimeout(step,delay==null?3000:delay);
+}
 function finTotalsCheck(order,t){const now=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(JSON.stringify(now)!==JSON.stringify(t))console.error('Stale totals: '+order.id+' · '+String(new Error().stack).split('\n').slice(3,6).map(x=>x.trim().split(' ')[1]).join(' < '));}
 function finOrderPaid(orderId){
  let paid=0,receipts=0;

@@ -480,7 +480,7 @@ function storageStart(){
  const ready=()=>{storageStarting=false;storageBackupCheck();const tr=performance.now();render();if(storageBootMs)storageBootMs.render=performance.now()-tr;
   /* Другие вкладки узнают, что открыта эта сборка. */
   if(storageChannel&&!storageRecovery)try{storageChannel.postMessage({type:'hello',build:storageBuildId()});}catch(e){}
-  storageUsageCheck();storageReadyResolve();};
+  storageUsageCheck();finTotalsWarm();storageReadyResolve();};
  if(!navigator.locks){storageLastError='This browser cannot coordinate editing safely.';boot().then(ready);return;}
  navigator.locks.request(STORAGE_LOCK,{ifAvailable:true},async lock=>{
   storageWriter=!!lock;await boot();ready();
