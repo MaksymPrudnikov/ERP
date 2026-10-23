@@ -59,9 +59,15 @@ module.exports=async function({page,eq}){
  eq('Upload второй раз — отказ: на сервере уже есть данные',await A.p.evaluate(async()=>{await cloudSaveAll('',0,null);await cloudUpload();const e=cloudSync.error;cloudSync.error='';return e;}),'The server already has data. Use Download.');
  await A.p.evaluate(async()=>{await cloudDownload();});
 
+ /* Фигура после Upload: пустая таблица не лежит на сервере целиком рядом
+    с ней. Сервер со старой «*» (Upload до v5.257) — Download всё равно цел. */
+ await A.p.evaluate(()=>storageCommand(()=>{DB.shapeDef.push({id:'SH-CLOUD',name:'Cloud shape'});}));await sync(A);
+ eq('Upload: пустой таблицы целиком («*») на сервере нет, фигура — строкой',{star:srv.rec.has('shapeDef|*'),row:srv.rec.has('shapeDef|SH-CLOUD')},{star:false,row:true});
+ srv.rec.set('shapeDef|*',{tbl:'shapeDef',id:'*',ver:++srv.rev,seq:0,deleted:false,data:'[]'});srv.log.push({rev:srv.rev,k:'shapeDef|*'});
+ srv.rec.delete('customer|*');
  const B=await pc('office@glass-erp.test');
  const down=await B.p.evaluate(()=>cloudDownload());
- eq('Download: у B клиент A и связь с сервером',{down,name:await name(B,'C-CLOUD'),text:await sync(B)},{down:true,name:'Cloud Co',text:'Synced'});
+ eq('Download: у B клиент A и связь с сервером (старая «*» фигур рядом со строкой не мешает)',{down,name:await name(B,'C-CLOUD'),error:await B.p.evaluate(()=>cloudSync.error),text:await sync(B)},{down:true,name:'Cloud Co',error:'',text:'Synced'});
 
  await edit(A,'C-CLOUD','Cloud Co Ltd');await sync(A);
  eq('правка A уходит на сервер и приходит к B опросом',(await sync(B),await name(B,'C-CLOUD')),'Cloud Co Ltd');

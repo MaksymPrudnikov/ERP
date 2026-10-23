@@ -186,6 +186,13 @@ async function cloudRun(label,fn){
  catch(e){s.error=e.message;return false;}
  finally{s.busy='';render();}
 }
+/* Строки базы, как они лежат в ней. storageHotRecords добавляет пустой
+   таблице строку «*» — в базе её нет, и следующая строка этой таблицы
+   легла бы на сервер рядом с ней («Table shapeDef is stored twice» при
+   Download, 23.10.2026). */
+function cloudRecords(){
+ return storageHotRecords().filter(r=>r.tbl!=='_archive'&&!(r.id==='*'&&r.data==='[]'&&!(storageBase.get(r.tbl)||new Map()).has('*')));
+}
 function cloudUpload(){
  return cloudRun('Uploading…',async()=>{
   const me=await cloudRpc('erp_whoami');
@@ -194,7 +201,7 @@ function cloudUpload(){
   if(first&&(+first.last>0))throw new Error('The server already has data. Use Download.');
   if(!confirm('Send this database to the server?\n\nOther computers will download it from there.'))return false;
   await storageFlush();
-  const s=cloudSync,recs=storageHotRecords().filter(r=>r.tbl!=='_archive'),vers=new Map(),url=cloudConfig().url;
+  const s=cloudSync,recs=cloudRecords(),vers=new Map(),url=cloudConfig().url;
   s.uploading=true;s.dirty=new Set();
   let last=0;
   try{
@@ -211,7 +218,7 @@ function cloudUpload(){
   }finally{s.uploading=false;}
   /* Правки во время отправки — следом обычной командой. */
   const dirty=s.dirty;s.dirty=null;
-  if(dirty&&dirty.size){const again=storageHotRecords().filter(r=>dirty.has(cloudKey(r.tbl,r.id)));
+  if(dirty&&dirty.size){const again=cloudRecords().filter(r=>dirty.has(cloudKey(r.tbl,r.id)));
    const gone=[...dirty].filter(k=>!again.some(r=>cloudKey(r.tbl,r.id)===k)).map(k=>{const i=k.indexOf('\u0000');return {tbl:k.slice(0,i),id:k.slice(i+1),del:true};});
    const out=cloudOutbox(again.concat(gone));if(out){storageWrite([],out.ops);out.done();}}
   cloudSoon();return true;
@@ -230,7 +237,11 @@ function cloudDownload(){
   }
   const rows=[...got.values()].filter(x=>!x.deleted&&!x.cold),vers=new Map(rows.map(x=>[cloudKey(x.tbl,x.id),x.ver]));
   if(!rows.length)throw new Error('The server is empty. Upload a database first.');
-  const state=storageJoin(rows.map(x=>({tbl:x.tbl,id:x.id,seq:+x.seq||0,data:cloudText(x.data)})));
+  /* Пустая таблица целиком («*») рядом со строками — осталась от Upload до
+     v5.257: строки главнее. Пустые таблицы — как в новой базе. */
+  const byRows=new Set(rows.filter(x=>x.id!=='*').map(x=>x.tbl));
+  const state=storageJoin(rows.filter(x=>!(x.id==='*'&&byRows.has(x.tbl))).map(x=>({tbl:x.tbl,id:x.id,seq:+x.seq||0,data:cloudText(x.data)})));
+  Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&!Object.prototype.hasOwnProperty.call(state,k))state[k]=[];});
   /* Связь снимается до замены: замена сама на сервер не уходит. */
   await cloudSaveAll('',0,null);
   const ok=await storageImportState(state,{test:storageTest});

@@ -42,8 +42,15 @@ async function cloudToken(){
  return cloudConfig().session.access;
 }
 async function cloudRpc(fn,args){return cloudFetch('/rest/v1/rpc/'+fn,args||{},await cloudToken());}
+/* Уже вошли тем же входом и пароль не введён — Connect только проверяет
+   связь (раньше стирал вход: «нажал Connect ещё раз — выкинуло»). Вход
+   меняется только удачным входом; другой сервер или ключ — старый вход
+   снят. */
 async function cloudConnect(url,key,email,password){
- const c=cloudConfig();c.url=cloudUrl(url);c.key=String(key||'').trim();delete c.session;cloudConfigSave(c);
+ const c=cloudConfig(),u=cloudUrl(url),k=String(key||'').trim(),em=String(email||'').trim();
+ const same=!!c.session&&c.url===u&&c.key===k&&(!em||em===c.session.email);
+ if(same&&!password){await cloudCheck();return !cloudState.error;}
+ c.url=u;c.key=k;if(!same)delete c.session;cloudConfigSave(c);
  cloudState={busy:true,error:'',me:null};render();
  try{
   if(!email||!password)throw new Error('Email and password are required.');

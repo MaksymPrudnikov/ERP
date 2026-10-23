@@ -37,6 +37,8 @@ module.exports=async function({page,eq}){
   ['/rest/v1/rpc/erp_whoami','sb_publishable_test','Bearer A1',false]]);
  eq('пароль нигде не сохранён: ни в localStorage, ни в базе ERP',await t.p.evaluate(()=>{const ls=Object.keys(localStorage).map(k=>localStorage.getItem(k)).join('|');return {ls:ls.includes('right-pass'),db:JSON.stringify(DB).includes('right-pass'),db2:JSON.stringify(DB).includes('sb_publishable_test')};}),{ls:false,db:false,db2:false});
 
+ eq('Connect ещё раз без пароля — вход остаётся, только проверка связи',await (async()=>{await t.p.fill('#cl_pass','');await t.p.click('[data-cloud-connect]');await t.p.waitForFunction(()=>!cloudState.busy);
+  return t.p.evaluate(()=>({status:document.querySelector('[data-cloud-status]').textContent,session:!!cloudConfig().session}));})(),{status:'Connected · Admin · admin',session:true});
  calls.length=0;
  eq('токен истёк: Check берёт новый по refresh и проверяет связь',await t.p.evaluate(async()=>{const c=cloudConfig();c.session.exp=Date.now()-1;cloudConfigSave(c);await cloudCheck();return {me:cloudState.me&&cloudState.me.name,access:cloudConfig().session.access};}),{me:'Admin',access:'A2'});
  eq('…запросы: refresh, затем whoami с новым токеном',calls.map(c=>[c.path,c.auth]),[['/auth/v1/token?grant_type=refresh_token','Bearer sb_publishable_test'],['/rest/v1/rpc/erp_whoami','Bearer A2']]);
