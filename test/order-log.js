@@ -76,7 +76,7 @@ module.exports=async function({page,eq,ok}){
   const tabs=[...document.querySelectorAll('[data-users-side]')].map(b=>b.textContent.replace(/\s+/g,' ').trim());
   const out={office:names('office'),production:names('production'),tabs:(subtab='office',render(),[...document.querySelectorAll('[data-users-side]')].map(b=>b.textContent.replace(/\s+/g,' ').trim()))};
   return out;
- }),{office:['Demo Sales','Demo Accounting','Demo Owner','Shift Lead'],production:['Shop Worker','Shift Lead'],tabs:['Office 4','Production 2','Sign-in log 1']});
+ }),{office:['Demo Sales','Demo Accounting','Demo Owner','Shift Lead'],production:['Shop Worker','Shift Lead'],tabs:['Office 4','Production 2','Sign-in log 1','Cloud']});
  eq('Add user на вкладке — с её входом; Office без галочек и пароль короче 8 не сохраняются',await t.p.evaluate(async()=>{
   subtab='production';userEditOpen('new');const prod=[uDraft.onOffice,uDraft.onStation];uEdit=null;
   subtab='office';userEditOpen('new');const office=[uDraft.onOffice,uDraft.onStation];
