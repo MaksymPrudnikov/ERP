@@ -26,4 +26,14 @@ module.exports=async function({page,eq}){
   document.getElementById('md_filmDensity').value='1070';mdCatSave();
   return {glass,film:(DB.materialWeightRates.find(r=>r.key==='film:'+f.id)||{}).rate,weightTab:MD_TABS.some(x=>x.k==='weight')};
  }),{glass:2600,film:1070,weightTab:false});
+ eq('glass card without supply: + Supply row opens a row for this glass; Inventory size code opens its supply row',await t.p.evaluate(()=>{
+  DB.glassSheet=[normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock'})];
+  const sh=DB.glassSheet[0],g=DB.glassProduct.find(p=>p.code!==sh.productCode&&!glassSheetsFor(p.code).length);
+  tab='masterdata';mdCatalogGo('glassProduct');mdGlassEdit(g.id);
+  document.querySelector('[data-md-glass-supply-add]').click();
+  const draft=[mdSheetEdit,mdSheetDraft.productCode===g.code,document.getElementById('md_sheetCode').value===g.code];
+  mdSheetEdit=null;tab='inventory';invView='sizes';render();
+  document.querySelector('[data-inv-size="'+cutSheetTrimKey(sh.sheetWIn,sh.sheetHIn)+'"] [data-inv-size-supply="'+sh.productCode+'"]').click();
+  return {draft,tab,open:DB.glassSheet.find(x=>x.id===mdSheetEdit).productCode===sh.productCode};
+ }),{draft:['new',true,true],tab:'masterdata',open:true});
 };

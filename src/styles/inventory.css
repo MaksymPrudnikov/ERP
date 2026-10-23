@@ -28,3 +28,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 .cut-size-free{font-size:11px;font-weight:600;color:var(--text-2);margin-top:2px}
 .cut-size-free.short{color:var(--danger)}.cut-size-free.mut{font-weight:500;color:var(--text-3)}
 .pur-enter-sheets{font-size:11px;font-weight:600;color:var(--warning);margin-top:3px}
+.inv-acts{white-space:nowrap;padding-left:0}.inv-acts button{margin-right:2px}
+.inv-mv-row{margin-top:10px}.inv-mv-size{display:flex;align-items:center;gap:6px}.inv-mv-size input{width:80px}
+.inv-tabs{margin:0;flex-wrap:wrap}
+.inv-acts [data-inv-add],.inv-acts [data-inv-remove]{min-width:30px;font-size:16px;font-weight:600}
