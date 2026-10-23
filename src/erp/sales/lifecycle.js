@@ -281,11 +281,13 @@ function salesRunChecks(checks,done,takePayment){
 /* Переходы пишут только сохранённую запись. Редактор получает те же поля
    процесса; его прочие несохранённые правки не записываются и не теряются. */
 function salesBatchNumber(v){return typeof v==='string'&&/^B-\d{4,9}$/.test(v)?v:'';}
-function salesNextBatchNumber(){
+function salesBatchTop(){
  let n=typeof archiveFloor==='function'?archiveFloor('batch'):0;(DB.glassBatch||[]).forEach(b=>{if(salesBatchNumber(b.number))n=Math.max(n,+b.number.slice(2));});
  (DB.salesOrder||[]).forEach(o=>[o.batchNo].concat(o.batchHistory||[],(o.lines||[]).map(l=>l.batchNo)).forEach(v=>{if(salesBatchNumber(v))n=Math.max(n,+v.slice(2));}));
- return 'B-'+String(n+1).padStart(4,'0');
+ return n;
 }
+/* Со связью с сервером — из блока этого компьютера (erp/cloud-sync). */
+function salesNextBatchNumber(){return 'B-'+String(cloudSeq('batch',salesBatchTop()+1)).padStart(4,'0');}
 /* Заказ по номеру — в отрисовке по указателю (erp/read-scope, П4 «Базы»). */
 function salesRecord(id){
  if(readOn())return readMemo('salesById',[DB.salesOrder],()=>{const m=new Map();(DB.salesOrder||[]).forEach(o=>{if(o&&!m.has(o.id))m.set(o.id,o);});return m;}).get(id);

@@ -18,8 +18,9 @@ function stockIdValid(id){return typeof id==='string'&&/^S-\d{7,}$/.test(id);}
 function stockIdNumber(id){return stockIdValid(id)?+id.slice(2):0;}
 function stockIdNext(){
  const top=(DB.stockOffcut||[]).reduce((m,r)=>Math.max(m,stockIdNumber(r&&r.id)),0);
- DB.stockOffcutSeq=Math.max(Number.isSafeInteger(DB.stockOffcutSeq)&&DB.stockOffcutSeq>0?DB.stockOffcutSeq:0,top)+1;
- return 'S-'+String(DB.stockOffcutSeq).padStart(7,'0');
+ const was=Math.max(Number.isSafeInteger(DB.stockOffcutSeq)&&DB.stockOffcutSeq>0?DB.stockOffcutSeq:0,top),n=cloudSeq('offcut',was+1);
+ DB.stockOffcutSeq=Math.max(was,n);
+ return 'S-'+String(n).padStart(7,'0');
 }
 function stockOffcutFind(id){return (DB.stockOffcut||[]).find(r=>r.id===id)||null;}
 function stockOffcutClean(r){

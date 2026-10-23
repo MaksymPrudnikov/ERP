@@ -40,28 +40,31 @@ do $$
 declare a jsonb; b jsonb; c jsonb; d jsonb; ch jsonb;
 begin
   a := public.erp_apply('cmd-1', 'b1', 'pc1', '[{"tbl":"salesOrder","id":"SO-1","ver":0}]',
-        '[{"tbl":"salesOrder","id":"SO-1","data":{"id":"SO-1","no":null},"number":{"name":"order","path":["no"]}}]');
+        '[{"tbl":"salesOrder","id":"SO-1","data":{"id":"SO-1","no":"76002"},"number":{"name":"order","value":"76002"}}]');
   assert (a->>'ok')::boolean, 'запись не прошла: ' || a;
-  assert (a->'numbers'->>'salesOrder|SO-1')::int = 1, 'номер заказа не 1: ' || a;
+  assert a->'numbers'->>'salesOrder|SO-1' = '76002', 'первый номер — с компьютера: ' || a;
   b := public.erp_apply('cmd-1', 'b1', 'pc1', '[]', '[{"tbl":"salesOrder","id":"SO-1","data":{"id":"SO-1","x":1}}]');
   assert b = a, 'повтор команды записал снова';
   c := public.erp_apply('cmd-2', 'b1', 'pc2', '[{"tbl":"salesOrder","id":"SO-1","ver":0}]', '[{"tbl":"salesOrder","id":"SO-1","data":{"id":"SO-1"}}]');
   assert not (c->>'ok')::boolean and c->'conflict'->0->>'id' = 'SO-1', 'конфликт не пойман: ' || c;
   d := public.erp_apply('cmd-3', 'b1', 'pc1', '[]',
-        '[{"tbl":"salesOrder","id":"SO-2","data":{"id":"SO-2"},"number":{"name":"order","path":["no"]}}]');
-  assert (d->'numbers'->>'salesOrder|SO-2')::int = 2, 'второй номер не 2: ' || d;
+        '[{"tbl":"salesOrder","id":"SO-2","data":{"id":"SO-2","no":"76002"},"number":{"name":"order","value":"76002"}},{"tbl":"orderEvent","id":"E-1","data":{"id":"E-1","detail":"76002","note":"x76002"}}]');
+  assert d->'numbers'->>'salesOrder|SO-2' = '76003', 'занятый номер не сдвинут: ' || d;
   ch := public.erp_changes(0);
-  assert jsonb_array_length(ch->'rows') = 2, 'изменений не 2: ' || ch;
-  assert ch->'rows'->0->'data'->>'no' = '1', 'номер не в данных: ' || ch;
+  assert jsonb_array_length(ch->'rows') = 3, 'изменений не 3: ' || ch;
+  assert ch->'rows'->0->'data'->>'no' = '76002' and ch->'rows'->1->'data'->>'no' = '76003', 'номер не в данных: ' || ch;
+  assert ch->'rows'->2->'data' = '{"id":"E-1","detail":"76003","note":"x76002"}', 'ссылка на номер в команде: ' || ch;
+  assert pg_temp.fails($q$select public.erp_apply('cmd-bad', 'b1', 'pc1', '[]', '[{"tbl":"salesOrder","id":"R-9","data":{},"number":{"name":"receipt","value":"X-1","prefix":"R-"}}]')$q$, 'Bad document number%'), 'чужой номер';
   -- Удаление приходит пометкой; повтор чтения с last — пусто.
-  d := public.erp_apply('cmd-4', 'b1', 'pc1', format('[{"tbl":"salesOrder","id":"SO-2","ver":%s}]', d->'vers'->>'salesOrder|SO-2')::jsonb,
-        '[{"tbl":"salesOrder","id":"SO-2","data":null}]');
+  d := public.erp_apply('cmd-4', 'b1', 'pc1', format('[{"tbl":"salesOrder","id":"SO-2","ver":%s},{"tbl":"orderEvent","id":"E-1","ver":%s}]', d->'vers'->>'salesOrder|SO-2', d->'vers'->>'orderEvent|E-1')::jsonb,
+        '[{"tbl":"salesOrder","id":"SO-2","data":null},{"tbl":"orderEvent","id":"E-1","data":null}]');
   assert (d->>'ok')::boolean, 'удаление не прошло: ' || d;
   ch := public.erp_changes((ch->>'last')::bigint);
-  assert jsonb_array_length(ch->'rows') = 1 and (ch->'rows'->0->>'deleted')::boolean, 'удаление не пришло: ' || ch;
+  assert jsonb_array_length(ch->'rows') = 2 and (ch->'rows'->0->>'deleted')::boolean, 'удаление не пришло: ' || ch;
   assert jsonb_array_length(public.erp_changes((ch->>'last')::bigint)->'rows') = 0, 'после last не пусто';
   -- Блоки номеров не пересекаются.
   assert public.erp_take('glass', 100) = 1 and public.erp_take('glass', 100) = 101, 'блоки номеров';
+  assert public.erp_take('scan', 10, 500) = 500 and public.erp_take('scan', 10, 3) = 510, 'блок — после уже выданных';
   -- Архив по запросу.
   perform public.erp_apply('cmd-5', 'b1', 'pc1', '[]', '[{"tbl":"stationScan","id":"S-1","data":{"id":"S-1"},"cold":true,"month":"2025-01"}]');
   assert (public.erp_changes(0)->'rows'->-1->'data') = 'null', 'архив пришёл с данными в горячем';
@@ -110,15 +113,20 @@ do $$
 declare r jsonb; g jsonb;
 begin
   r := public.erp_apply('off-4', 'b1', 'pc2', '[]', '[{"tbl":"customer","id":"C-1","seq":7,"data":{"id":"C-1"}}]');
+  r := public.erp_apply('off-4b', 'b1', 'pc2', '[]', '[{"tbl":"customer","id":"C-2","seq":7.5,"data":{"id":"C-2"}}]');
+  assert (r->>'ok')::boolean and exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'id' = 'C-2' and (x->>'seq')::float8 = 7.5), 'дробный seq: ' || r;
   assert (r->>'ok')::boolean, 'клиент не записан: ' || r;
   assert exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'id' = 'C-1' and (x->>'seq')::int = 7), 'seq не пришёл';
   g := public.erp_get('[{"tbl":"customer","id":"C-1"},{"tbl":"customer","id":"C-404"},{"tbl":"salesOrder","id":"SO-2"}]');
   assert jsonb_array_length(g) = 2, 'erp_get: ' || g;
   assert g @> '[{"id":"C-1","seq":7,"deleted":false,"data":{"id":"C-1"}}]' and g @> '[{"id":"SO-2","deleted":true}]', 'erp_get: ' || g;
   -- Строка текстом JSON (так шлёт ERP): номер встаёт в текст, текст остаётся текстом.
-  r := public.erp_apply('off-5', 'b1', 'pc2', '[]', '[{"tbl":"salesOrder","id":"SO-3","data":"{\"id\":\"SO-3\",\"no\":null}","number":{"name":"order","path":["no"]}}]');
-  g := public.erp_get('[{"tbl":"salesOrder","id":"SO-3"}]');
-  assert jsonb_typeof(g->0->'data') = 'string' and ((g->0->>'data')::jsonb->>'no')::int = (r->'numbers'->>'salesOrder|SO-3')::int, 'номер в тексте: ' || g;
+  r := public.erp_apply('off-5', 'b1', 'pc2', '[]', '[{"tbl":"salesOrder","id":"SO-3","data":"{\"id\":\"SO-3\",\"no\":\"R-0001\",\"ref\":\"R-0001\"}","number":{"name":"receipt","value":"R-0001","prefix":"R-","pad":4}}]');
+  r := public.erp_apply('off-6', 'b1', 'pc2', '[]', '[{"tbl":"salesOrder","id":"SO-4","data":"{\"id\":\"SO-4\",\"no\":\"R-0001\"}","number":{"name":"receipt","value":"R-0001","prefix":"R-","pad":4}}]');
+  g := public.erp_get('[{"tbl":"salesOrder","id":"SO-3"},{"tbl":"salesOrder","id":"SO-4"}]');
+  assert jsonb_typeof(g->0->'data') = 'string' and g->0->>'data' = '{"id":"SO-3","no":"R-0001","ref":"R-0001"}', 'номер в тексте: ' || g;
+  -- Тот же номер с другого компьютера — следующий, с нулями.
+  assert g->1->>'data' = '{"id":"SO-4","no":"R-0002"}' and r->'numbers'->>'salesOrder|SO-4' = 'R-0002', 'второй в команде: ' || r || g;
 end $$;
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');

@@ -62,15 +62,21 @@ function storageTableIds(tbl,rows){
    тогда её не нужно переписывать: новая в конце, правка на месте, удаление
    пишут только себя. Вставка между строками берёт середину промежутка;
    промежуток кончился — таблица нумеруется заново. */
+/* Новые строки. Со связью с сервером у каждого компьютера своя дробная
+   часть t: два компьютера вставили по строке в одно место — seq разные,
+   порядок у обоих один, и ни один не переписывает чужую строку
+   (erp/cloud-sync, 23.10.2026). Без связи t = 0 — как раньше. */
+function storageSeqTie(){return typeof cloudSeqTie==='function'?cloudSeqTie():0;}
+function storageSeqNext(lo){const t=storageSeqTie();return t?Math.floor(lo)+1+t:lo+1;}
 function storageSeqs(ids,base){
- const n=ids.length,seq=new Array(n),keep=new Array(n);
+ const n=ids.length,seq=new Array(n),keep=new Array(n),t=storageSeqTie();
  let last=-Infinity;
  for(let i=0;i<n;i++){const b=base.get(ids[i]);keep[i]=!!b&&b.s>last;if(keep[i]){seq[i]=b.s;last=b.s;}}
  for(let i=0;i<n;){
   if(keep[i]){i++;continue;}
   let j=i;while(j<n&&!keep[j])j++;
   const lo=i>0?seq[i-1]:null,hi=j<n?seq[j]:null,k=j-i;
-  for(let m=0;m<k;m++)seq[i+m]=lo==null&&hi==null?m:lo==null?hi-(k-m):hi==null?lo+m+1:lo+(hi-lo)*(m+1)/(k+1);
+  for(let m=0;m<k;m++)seq[i+m]=lo==null&&hi==null?m+t:lo==null?(t?Math.ceil(hi)-1-t:hi-1)-(k-1-m):hi==null?storageSeqNext(lo)+m:lo+(hi-lo)*(t?m+0.5+t:m+1)/(k+1);
   for(let m=i;m<j;m++)if((m>0&&!(seq[m]>seq[m-1]))||(hi!=null&&!(seq[m]<hi)))return ids.map((x,q)=>q);
   i=j;
  }
@@ -95,7 +101,7 @@ function storageDiffTail(k,v,was,rows,out){
  for(let i=n;i<v.length;i++){const id=storageRowKey(k,v[i]);if(!id||id==='*'||s.at.has(id)||was.has(id)||add.some(x=>x.id===id))return false;add.push({id,row:v[i]});}
  rows.forEach(id=>{const i=s.at.get(id);if(i==null)return;const t=JSON.stringify(v[i]),b=was.get(id);if(b.t!==t)out.push({tbl:k,id,seq:s.seq[i],data:t});});
  let last=n?s.seq[n-1]:-1;
- add.forEach(x=>{last++;const i=s.rows.length;s.rows.push(x.row);s.ids.push(x.id);s.seq.push(last);s.at.set(x.id,i);out.push({tbl:k,id:x.id,seq:last,data:JSON.stringify(x.row)});});
+ add.forEach(x=>{last=storageSeqNext(last);const i=s.rows.length;s.rows.push(x.row);s.ids.push(x.id);s.seq.push(last);s.at.set(x.id,i);out.push({tbl:k,id:x.id,seq:last,data:JSON.stringify(x.row)});});
  return true;
 }
 /* Что изменилось в db против опорного состояния: записи для put и delete. */

@@ -4,7 +4,7 @@
    команды, раздел Finance, курсор изменений. */
 module.exports=async function({page,eq}){
  console.log('cloud sync');
- const srv={rev:0,rec:new Map(),log:[],cmd:new Map(),down:false,
+ const srv={rev:0,rec:new Map(),log:[],cmd:new Map(),counter:{},down:false,
   members:{'admin@glass-erp.test':{name:'Admin',admin:true,sections:[]},'office@glass-erp.test':{name:'Office',admin:false,sections:['sales']}}};
  const rule={receipt:'finance'};
  const can=(m,t)=>m.admin||!rule[t]||m.sections.includes(rule[t]);
@@ -15,13 +15,21 @@ module.exports=async function({page,eq}){
    if(srv.cmd.has(a.command_id))return srv.cmd.get(a.command_id);
    let res;const denied=[...new Set(a.changes.filter(c=>!can(m,c.tbl)).map(c=>c.tbl))];
    const conflict=a.expect.filter(e=>{const r=srv.rec.get(e.tbl+'|'+e.id);return (r&&!r.deleted?r.ver:0)!==(e.ver||0);});
+   if(srv.spy)srv.spy(a);
    if(denied.length)res={ok:false,denied};
    else if(conflict.length)res={ok:false,conflict};
-   else{const vers={};a.changes.forEach(c=>{const k=c.tbl+'|'+c.id,ver=++srv.rev;srv.log.push({rev:ver,k});
-     srv.rec.set(k,{tbl:c.tbl,id:c.id,ver,seq:c.seq||0,deleted:c.data===null,data:c.data});vers[k]=ver;});
-    res={ok:true,rev:srv.rev,vers,numbers:{}};}
+   else{const vers={},numbers={},swap=[];
+    /* Номер документа — как erp_apply в schema.sql. */
+    a.changes.forEach(c=>{if(!c.number||c.data===null)return;const x=c.number,f=+x.value.slice(x.prefix.length);
+     const n=Math.max(srv.counter[x.name]||0,f);srv.counter[x.name]=n+1;
+     const t=x.prefix+String(n).padStart(x.pad||0,'0');numbers[c.tbl+'|'+c.id]=t;if(t!==x.value)swap.push([x.value,t]);});
+    a.changes.forEach(c=>{const k=c.tbl+'|'+c.id,ver=++srv.rev;srv.log.push({rev:ver,k});
+     let d=c.data;if(d!==null&&swap.length){swap.forEach(([o],i)=>{d=d.split('"'+o+'"').join('"#'+i+'#"');});swap.forEach(([,t],i)=>{d=d.split('"#'+i+'#"').join('"'+t+'"');});}
+     srv.rec.set(k,{tbl:c.tbl,id:c.id,ver,seq:c.seq||0,deleted:d===null,data:d});vers[k]=ver;});
+    res={ok:true,rev:srv.rev,vers,numbers};}
    srv.cmd.set(a.command_id,res);return res;
   },
+  erp_take:(m,a)=>{const first=Math.max(srv.counter[a.counter]||1,a.from_n||0);srv.counter[a.counter]=first+a.n;return first;},
   erp_changes:(m,a)=>{
    const part=srv.log.filter(l=>l.rev>(a.since||0)).slice(0,a.lim||2000),keys=new Map();
    part.forEach(l=>keys.set(l.k,l.rev));
@@ -93,6 +101,35 @@ module.exports=async function({page,eq}){
   {server:srv.rec.has('receipt|RCPT-CLOUD'),b:await B.p.evaluate(()=>DB.receipt.some(r=>r.id==='RCPT-CLOUD')),warn:await B.p.evaluate(()=>cloudSync.warn)},
   {server:false,b:false,warn:'No access on server: receipt. Server copy shown.'});
 
+ /* Номера (владелец, 23.10.2026: на двух ПК открыли заказ — номер один). */
+ const order=t=>t.p.evaluate(()=>{const o=newSalesOrderDraft('order');o.customerId='C-CLOUD';o.businessNumber=nextSalesOrderNumber();
+  storageCommand(()=>{DB.salesOrder.push(o);normalizeSalesOrderIn(o.id);});return {id:o.id,no:o.businessNumber};});
+ /* Строка чужого компьютера уходит назад только с правкой: дописанные
+    рядом строки получают разные seq (storageSeqNext). */
+ const idle=[];srv.spy=a=>a.changes.forEach(c=>{const r=srv.rec.get(c.tbl+'|'+c.id);if(r&&!r.deleted&&r.data===c.data&&r.seq===c.seq)idle.push(c.tbl);else if(r&&!r.deleted&&r.data===c.data)idle.push(c.tbl+' seq '+r.seq+'→'+c.seq);});
+ await B.p.evaluate(()=>{cloudSync.warn='';});
+ const upRev=srv.rev,oa=await order(A),ob=await order(B);
+ await sync(A);await sync(B);await sync(A);
+ const no=(t,id)=>t.p.evaluate(id=>DB.salesOrder.find(o=>o.id===id).businessNumber,id);
+ eq('два ПК сохранили заказ с одним номером: первый его держит, второй получает следующий — и у себя, и у первого',
+  {same:oa.no===ob.no,a:await no(A,oa.id),b:await no(B,ob.id),bOnA:await no(A,ob.id),warn:await B.p.evaluate(()=>cloudSync.warn)},
+  {same:true,a:oa.no,b:String(+oa.no+1),bOnA:String(+oa.no+1),warn:''});
+ eq('следующий заказ на любом ПК — после обоих',await (async()=>{const x=await order(B);await sync(B);return no(B,x.id);})(),String(+oa.no+2));
+ await sync(A);srv.down=true;const oc=await order(B);
+ await B.p.evaluate(id=>storageCommand(()=>{DB.salesOrder.find(o=>o.id===id).customerPo='PO-OFF';}),oc.id);
+ srv.down=false;const od=await order(A);await sync(A);await sync(B);
+ eq('без сети: тот же номер уже занят другим ПК — после связи следующий, и вторая правка его не затирает',
+  {same:oc.no===od.no,b:await no(B,oc.id),server:JSON.parse(srv.rec.get('salesOrder|'+oc.id).data).businessNumber,po:JSON.parse(srv.rec.get('salesOrder|'+oc.id).data).customerPo},
+  {same:true,b:String(+od.no+1),server:String(+od.no+1),po:'PO-OFF'});
+ const ids=t=>t.p.evaluate(()=>{let g;storageCommand(()=>{g=[glassPieceNextId(),glassPieceNextId(),stationScanNextId()];});return g;});
+ const ga=await ids(A),gb=await ids(B);
+ /* Блок A — 1001–2000: первый ушёл с прежней связью (Download её сменил). */
+ eq('стёкла и сканы — из блоков сервера: на двух ПК не совпадают, счётчики базы на сервер не ходят',{a:ga,b:gb,meta:[...srv.rec.keys()].filter(k=>/^_meta\|.*Seq$/.test(k)&&srv.rec.get(k).ver>upRev)},
+  {a:['G-0001001','G-0001002','SC-0001001'],b:['G-0002001','G-0002002','SC-0002001'],meta:[]});
+ const num=id=>+id.slice(id.indexOf('-')+1);
+ eq('после F5 — дальше по своему блоку, номер не повторяется',await (async()=>{await A.p.reload();await A.p.evaluate(()=>window.storageReady);
+  const g=await ids(A);return {glass:num(g[0])>1002&&num(g[1])===num(g[0])+1&&num(g[1])<=2000,scan:g[2]};})(),{glass:true,scan:'SC-0001002'});
+ eq('ни один ПК не отправил назад чужую строку без правки',idle,[]);
  await B.p.evaluate(()=>{tab='users';subtab='cloud';render();});
  eq('Stop sync: связь снята, база остаётся',await B.p.evaluate(async()=>{await cloudSyncStop();return {sync:document.querySelector('[data-cloud-sync]').dataset.cloudSync,name:DB.customer.find(x=>x.id==='C-CLOUD').legalName};}),{sync:'off',name:'From A'});
  eq('синхронизация без ошибок страницы',[A.errs,B.errs],[[],[]]);
