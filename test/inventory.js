@@ -33,12 +33,13 @@ module.exports=async function({page,eq}){
   window.ivCut=piece=>{const c=stationCheck(stationCutCode(),piece);const r=stationRecord(stationCutCode(),c,ivWho);if(!r)throw new Error('scan failed: '+c.kind);return r;};
  });
 
- eq('catalogue rows: supply sizes, else the base 130 × 96; COG glass is not on the rack; nothing counted yet',await t.p.evaluate(()=>{
+ eq('catalogue rows: supply sizes, else shop sizes, else Size missing; COG glass is not on the rack; nothing counted yet',await t.p.evaluate(()=>{
   ivReset();const other=activeGlassProducts().find(g=>g.code!=='6CLEAR'&&g.cut!==false),cog=activeGlassProducts().find(g=>g.code!==other.code&&g.code!=='6CLEAR');cog.cut=false;
   const rows=invSheetRows(),keys=rows.filter(r=>r.code==='6CLEAR').map(r=>r.key);
   const out={clear:keys,other:rows.filter(r=>r.code===other.code).map(r=>r.w+'x'+r.h),cog:rows.some(r=>r.code===cog.code),status:ivRow(),catalogue:rows.length===activeGlassProducts().filter(g=>g.cut!==false).length};
+  out.otherMissing=rows.filter(r=>r.code===other.code).map(r=>r.status);cutShopSizeAdd('130','96');out.other=invSheetRows().filter(r=>r.code===other.code).map(r=>r.w+'x'+r.h);
   ivRec([{code:cog.code,qty:10,unit:'sheet',widthIn:130,heightIn:96}]);out.cogAfter=invSheetRows().some(r=>r.code===cog.code);delete cog.cut;return out;
- }),{clear:['6CLEAR|144x96'],other:['130x96'],cog:false,status:{onRack:0,reserved:0,free:0,status:'Not counted'},catalogue:true,cogAfter:false});
+ }),{clear:['6CLEAR|144x96'],other:['130x96'],cog:false,status:{onRack:0,reserved:0,free:0,status:'Not counted'},catalogue:true,otherMissing:['Size missing'],cogAfter:false});
 
  eq('receipts: sheets minus broken; blocks only with Sheets entered; no size — Size missing; undo receipt gives the sheets back',await t.p.evaluate(()=>{
   ivReset();const out=[];
@@ -129,7 +130,7 @@ module.exports=async function({page,eq}){
  eq('dashboard: tiles, status chip from a tile, minimum in the row, row opens the journal of this glass',await t.p.evaluate(()=>{
   ivReset();ivRec([{qty:10,unit:'sheet',widthIn:144,heightIn:96},{qty:2,unit:'block',widthIn:144,heightIn:96}]);invCountSave({[ivKey]:'10'});ivBatch();
   navGo('inventory');const tile=k=>document.querySelector('[data-inv-tile="'+k+'"] b').textContent;
-  const tiles={rack:tile('On rack'),free:tile('Free'),enter:tile('Enter sheets'),notCounted:+tile('Not counted')>0};
+  const tiles={rack:tile('On rack'),free:tile('Free'),enter:tile('Enter sheets'),notCounted:+tile('Not counted')>0,missing:+tile('Size missing')>0};
   document.querySelector('[data-inv-tile="Not counted"]').click();const filtered=document.querySelectorAll('[data-inv-row]').length===Math.min(50,invSheetRows().filter(r=>r.status==='Not counted').length)&&!document.querySelector('[data-inv-row="'+ivKey+'"]');
   invListStatus('');salesListSetFilter('code',{values:['6CLEAR']});const row=document.querySelector('[data-inv-row="'+ivKey+'"]'),cells=[...row.querySelectorAll('td')].map(td=>td.textContent.trim());
   const min=row.querySelector('[data-inv-min]');min.value='9';min.dispatchEvent(new Event('change'));
@@ -137,7 +138,7 @@ module.exports=async function({page,eq}){
   document.querySelector('[data-inv-row="'+ivKey+'"] .inv-glass').click();
   return {tiles,filtered,size:cells.includes('144 × 96'),reserved:cells.some(c=>c==='3B-0001'),below,view:invView,key:!!document.querySelector('[data-inv-journal-key]'),
    kinds:[...document.querySelectorAll('[data-inv-row] td:nth-child(6)')].map(td=>td.textContent.trim().replace(/\s+/g,' '))};
- }),{tiles:{rack:'10',free:'7',enter:'1',notCounted:true},filtered:true,size:true,reserved:true,below:true,view:'journal',key:true,kinds:['Build','Count','Receipt','Receipt']});
+ }),{tiles:{rack:'10',free:'7',enter:'1',notCounted:false,missing:true},filtered:true,size:true,reserved:true,below:true,view:'journal',key:true,kinds:['Build','Count','Receipt','Receipt']});
 
  eq('Count screen: type counts, see the difference, Save writes only filled rows in one go; Write off form; Journal Undo',await t.p.evaluate(()=>{
   ivReset();ivRec([{qty:10,unit:'sheet',widthIn:144,heightIn:96}]);const x=ivBatch();stationSheetBreak(x.n,'6CLEAR',1,ivWho);

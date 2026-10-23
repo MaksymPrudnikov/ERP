@@ -17,7 +17,7 @@
 let invView='sheets',invCountDraft={},invJournalKey='',invWriteOffDraft=null,invNotice='',invPages={},invOffcutLostDraft=new Set(),invOffcutAll=false;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>Object.keys(invCountDraft).length>0||!!invWriteOffDraft||invOffcutLostDraft.size>0);
-const INV_VIEWS=[['sheets','Sheets'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
+const INV_VIEWS=[['sheets','Sheets'],['sizes','Sheet sizes'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
 const INV_OFFCUT_TONE={'On rack':'ok','In batch':'info','Coming':'','Used':'','Broken':'bad','Written off':'warn','Back to waste':''};
 const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'','Size missing':'warn'};
 function invArg(v){return esc(JSON.stringify(String(v)));}
@@ -26,7 +26,7 @@ function invSectionsOpen(e){salesListMenu=Object.assign({kind:'inv-sections',sco
 function invSectionsMenuHTML(style){return '<div class="sl-menu sl-show-menu" style="'+style+'" role="dialog" aria-label="Inventory sections">'+INV_VIEWS.map(([k,n])=>'<label><input type="radio" name="inv-section" '+(k===invView?'checked':'')+' onchange="invGo(\''+k+'\')">'+n+'</label>').join('')+'</div>';}
 /* Раздел из меню — с чистого листа: фильтр журнала по стеклу ставит только
    строка дашборда (аудит 15.10.2026: он оставался и при входе из меню). */
-function invGo(v){if(!invCountLeave())return;invView=v;invNotice='';invWriteOffDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
+function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';invNotice='';invWriteOffDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
 function invCountLeave(){
  if(Object.keys(invCountDraft).length&&!confirm('Discard counts you have not saved?'))return false;
  invCountDraft={};return true;
@@ -98,7 +98,7 @@ function invTiles(rows){
  const st=(s,tone)=>invTile(s,by(s),{click:'invListStatus('+invArg(sel===s?'':s)+')',tone:by(s)?tone:'',on:sel===s});
  const enter=rows.reduce((a,r)=>a+r.enterSheets,0);
  return '<div class="inv-tiles">'+invTile('Glass × size',rows.length)+invTile('On rack',sum('onRack'))+invTile('Free',sum('free'))+
-  st('Below minimum','bad')+st('Negative','bad')+st('Not counted','')+
+  st('Below minimum','bad')+st('Negative','bad')+st('Not counted','')+st('Size missing','warn')+
   invTile('Enter sheets',enter,{tone:enter?'warn':'',click:enter&&accessCan('purchasing')?'invOpenReceipts()':''})+'</div>';
 }
 function invOpenReceipts(){navGo('purchasing');if(tab==='purchasing')purGo('receipts');}
@@ -238,8 +238,26 @@ function invJournalView(infos){
  return key+invListFilters(infos)+invTable(cols,rows,invMoveCell,'','',infos.length?'Nothing matches the filters.':'No movements yet.');
 }
 
+/* Размеры листов (план Master Data, этап 5): размеры цеха заводят здесь,
+   склад и раскрой берут их отсюда; размеры из поставок — только для
+   чтения, их правят в точках поставки. Отступы листа — Data → Cutting. */
+let invSizeNotice='';
+function invSizesView(){
+ const sizes=cutSheetSizes(),whose=x=>[x.shop?'All glass':'',x.codes.slice(0,4).join(', ')+(x.codes.length>4?' +'+(x.codes.length-4):'')].filter(Boolean).join(' · ');
+ return '<p class="mut">Supply sizes of a glass go first; shop sizes work for any glass. Trim and border — Data → Cutting.</p>'+
+  '<div class="sales-table-wrap"><table class="ncr-table" data-inv-sizes><thead><tr><th>Sheet</th><th>Glass</th><th>From</th><th></th></tr></thead><tbody>'+
+  (sizes.map(x=>'<tr data-inv-size="'+esc(x.key)+'"><td><b>'+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″</b></td><td class="mut">'+esc(whose(x))+'</td><td>'+(x.codes.length?'Supply'+(x.shop?' · Shop':''):'Shop')+'</td><td>'+
+   (x.shop?'<button type="button" class="sm dl" data-inv-size-remove="'+esc(x.key)+'" aria-label="Remove '+esc(x.key)+'" onclick="invSizeRemoveUi('+invArg(x.key)+')">×</button>':'')+'</td></tr>').join('')||
+   '<tr><td colspan="4" class="mut" data-inv-sizes-empty>No sheet sizes yet — glass shows Size missing.</td></tr>')+'</tbody></table></div>'+
+  '<div class="cut-size-add" data-inv-size-add><input type="text" id="invSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="invSizeH" placeholder="width" aria-label="Sheet width, in"> <button type="button" onclick="invSizeAddUi()">+ Add sheet size</button>'+
+  (invSizeNotice?'<span class="cut-md-error" role="alert" data-inv-size-error>'+esc(invSizeNotice)+'</span>':'')+'</div>';
+}
+function invSizeAddUi(){const r=cutShopSizeAdd(mdVal('invSizeW'),mdVal('invSizeH'));invSizeNotice=r.error||'';render();}
+function invSizeRemoveUi(key){if(!confirm('Remove this sheet size?'))return;const r=cutShopSizeRemove(key);invSizeNotice=r.error||'';render();}
+
 function viewInventory(){
  if(!accessCan('inventory'))return '<div class="empty">Inventory access is required.</div>';
+ if(invView==='sizes')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'</div>'+invSizesView()+salesListMenuHTML([])+'</div></div>';
  const count=invView==='count',off=invView==='offcuts',infos=invView==='journal'?invMoveInfos():off?invOffcutInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):off?invOffcutsView(infos):count?invCountView(infos):invSheetsView(infos);
  const n=Object.keys(invCountDraft).length;
  return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'<span class="sales-toolbar-sp"></span>'+
