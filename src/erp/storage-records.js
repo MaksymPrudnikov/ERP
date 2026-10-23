@@ -76,6 +76,28 @@ function storageSeqs(ids,base){
  }
  return seq;
 }
+/* Строки таблицы, какими их видело прошлое сравнение (задание «База», скан
+   подряд): tbl → {rows, ids, seq}. Команда с областью из ключей
+   (storageDiffTail) не перебирает 100 тысяч сканов: те же объекты на тех
+   же местах при той же базе — не тронуты (правка на месте вне
+   области — её дело, как и раньше); сравниваются названные строки и
+   дописанные в конец. Иначе — полный проход. */
+let storageSeen=new Map();
+function storageDiffTail(k,v,was,rows,out){
+ const s=storageSeen.get(k),n=s?s.rows.length:0;
+ if(!s||v.length<n||was.size!==n)return false;
+ for(let i=0;i<n;i++)if(v[i]!==s.rows[i])return false;
+ /* База та же, что видело сравнение: тот же размер и тот же seq у первой и
+    последней строки (перенумерация меняет все). */
+ for(const i of n?[0,n-1]:[]){const b=was.get(s.ids[i]);if(!b||b.s!==s.seq[i])return false;}
+ if(!s.at){s.at=new Map();s.ids.forEach((id,i)=>s.at.set(id,i));}
+ const add=[];
+ for(let i=n;i<v.length;i++){const id=storageRowKey(k,v[i]);if(!id||id==='*'||s.at.has(id)||was.has(id)||add.some(x=>x.id===id))return false;add.push({id,row:v[i]});}
+ rows.forEach(id=>{const i=s.at.get(id);if(i==null)return;const t=JSON.stringify(v[i]),b=was.get(id);if(b.t!==t)out.push({tbl:k,id,seq:s.seq[i],data:t});});
+ let last=n?s.seq[n-1]:-1;
+ add.forEach(x=>{last++;const i=s.rows.length;s.rows.push(x.row);s.ids.push(x.id);s.seq.push(last);s.at.set(x.id,i);out.push({tbl:k,id:x.id,seq:last,data:JSON.stringify(x.row)});});
+ return true;
+}
 /* Что изменилось в db против опорного состояния: записи для put и delete. */
 function storageDiff(db,only){
  const out=[],meta=storageBase.get('_meta')||new Map(),keys=new Set(Object.keys(db));
@@ -90,14 +112,16 @@ function storageDiff(db,only){
   const vis=storageVisit.size?storageVisit.get(k):null,v=vis&&Array.isArray(db[k])?db[k].filter(r=>!vis.has(storageRowKey(k,r))):db[k],base=storageBase.get(k);
   if(Array.isArray(v)){
    if(meta.has(k))out.push({tbl:'_meta',id:k,del:true});
-   const was=base||new Map(),ids=storageTableIds(k,v);
+   const was=base||new Map();
+   if(rows&&storageDiffTail(k,v,was,rows,out))return;
+   const ids=storageTableIds(k,v);
    if(!ids){
     const t=JSON.stringify(v),b=was.get('*');
     if(!b||b.t!==t)out.push({tbl:k,id:'*',seq:0,data:t});
     was.forEach((x,id)=>{if(id!=='*')out.push({tbl:k,id,del:true});});
     return;
    }
-   const seq=storageSeqs(ids,was),now=new Set(ids);
+   const seq=storageSeqs(ids,was),now=new Set(ids);storageSeen.set(k,{rows:v.slice(),ids,seq,at:null});
    for(let i=0;i<v.length;i++){
     if(rows){const x=was.get(ids[i]);if(x&&x.s===seq[i]&&!rows.has(ids[i]))continue;}
     const t=JSON.stringify(v[i]),b=was.get(ids[i]);
