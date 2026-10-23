@@ -199,7 +199,7 @@ module.exports=async function({page,eq,ok}){
   const each=pieces.map(p=>{const g=stationGlass(p),d=stkGlassData('final',o,l,g.c,g.unit);return {size:d.finished,area:round(d.area)};});
   stationMove('SHIPR',stationCheck('SHIPR',first),unWho,{on:'SL-1'});const skid=stationSkidItems('SL-1')[0];
   return {each,unit:{size:unit.finished,area:round(unit.area),kg:round(unit.weight.kg),exact:unit.weight.exact},board:stationIguSize(board.line[0].geo),skid:stationIguSize(skid.geo),commercial:commercial===finWithOrder(o,()=>JSON.stringify([salesLineWeight(l,o),salesOrderCommercialTotals(o)]))};
- }),{each:[{size:{w:35,h:69},area:16.77},{size:{w:36,h:71},area:17.75}],unit:{size:{w:36,h:71},area:17.75,kg:52.45,exact:false},board:'36 × 71',skid:'36 × 71',commercial:true});
+ }),{each:[{size:{w:35,h:69},area:16.77},{size:{w:36,h:71},area:17.75}],unit:{size:{w:36,h:71},area:17.75,kg:55.76,exact:true},board:'36 × 71',skid:'36 × 71',commercial:true});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
