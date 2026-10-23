@@ -69,6 +69,42 @@ begin
   assert pg_temp.fails('select public.erp_take(''glass'', 0)', 'Block size%'), 'пустой блок';
 end $$;
 
+-- Права по разделам: офис с Sales не пишет и не читает оплаты, пишет журнал
+-- входов, но не читает его, людей не меняет; с Finance — читает оплаты.
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select public.erp_member_set('office@glass-erp.test', 'Office', false, true, '{sales}');
+do $$
+declare r jsonb;
+begin
+  r := public.erp_apply('adm-1', 'b1', 'pc1', '[]', '[{"tbl":"receipt","id":"R-1","data":{"id":"R-1","amount":100}}]');
+  assert (r->>'ok')::boolean, 'админ не записал оплату: ' || r;
+end $$;
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+do $$
+declare r jsonb; ch jsonb;
+begin
+  assert public.erp_whoami()->'sections' = '["sales"]', 'whoami без разделов';
+  r := public.erp_apply('off-1', 'b1', 'pc2', '[]', '[{"tbl":"salesOrder","id":"SO-9","data":{"id":"SO-9"}},{"tbl":"receipt","id":"R-2","data":{"id":"R-2"}}]');
+  assert not (r->>'ok')::boolean and r->'denied' = '["receipt"]', 'оплата без Finance: ' || r;
+  assert public.erp_apply('off-1', 'b1', 'pc2', '[]', '[]') = r, 'повтор отказа — другой ответ';
+  assert not exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' in ('receipt') or x->>'id' = 'SO-9'), 'отказ записал заказ или видна оплата';
+  r := public.erp_apply('off-2', 'b1', 'pc2', '[]', '[{"tbl":"authEvent","id":"A-1","data":{"id":"A-1"}}]');
+  assert (r->>'ok')::boolean, 'журнал входов не пишется: ' || r;
+  assert not exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' = 'authEvent'), 'журнал входов виден без Users';
+  r := public.erp_apply('off-3', 'b1', 'pc2', '[]', '[{"tbl":"user","id":"U-1","data":{"id":"U-1"}}]');
+  assert r->'denied' = '["user"]', 'люди без Users: ' || r;
+end $$;
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select public.erp_member_set('office@glass-erp.test', 'Office', false, true, '{sales,finance}');
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  assert exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' = 'receipt'), 'с Finance оплата не видна';
+end $$;
+
 -- Отключённый человек больше ничего не может.
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
