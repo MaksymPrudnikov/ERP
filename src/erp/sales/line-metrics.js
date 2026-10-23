@@ -265,17 +265,17 @@ function salesLineWeight(line,order,productionPlan){
   }else{glass(p,label,g);surface(p,label,g);}
  });
  /* Обвязка по рецепту рамки: рамка идёт по контуру камеры. У ступенчатого
-    пакета контуры лайтов разные — контур выбирают в камере (Contour). */
+    пакета — всегда по меньшему лайту, иначе юнит не загерметизировать
+    (владелец, 23.10.2026); размеры лайтов — из Shape designer. */
  (m.cavities||[]).forEach((c,i)=>{
   const a=geometry(i),b=geometry(i+1),same=plan&&plan.valid&&plan.lites[i]&&plan.lites[i+1]&&JSON.stringify(plan.lites[i].finishedPoints)===JSON.stringify(plan.lites[i+1].finishedPoints);
-  const pick=same?a:c.contour==='a'?a:c.contour==='b'?b:null,suffix=' · Cavity '+(i+1);
+  const pick=same?a:a.area!=null&&b.area!=null?(b.area<a.area?b:a):null,suffix=' · Cavity '+(i+1);
   const geo=pick&&pick.area!=null?{areaFt2:pick.area,perimeterM:pick.perimeter}:null;
   const got=surroundCavityParts(c,geo,order);
   if(!mdById('spacerVariant',c.spacerVariantId))add('Spacer'+suffix,null,'Spacer not found');
   else if(!got.recipe)add('Surround'+suffix,null,'No recipe in the spacer card');
   const basis=geo?'perimeter '+geo.perimeterM.toFixed(2)+' m · area '+geo.areaFt2.toFixed(2)+' ft²':'';
   got.parts.forEach(x=>rows.push({label:x.label+suffix,kg:x.kg,usedKg:x.usedKg,wastePct:x.wastePct,basisText:basis,table:x.table,itemId:x.item?x.item.id:'',perimeterM:geo?geo.perimeterM:null,note:x.note+(x.wastePct?' · used with '+x.wastePct+'% waste: '+(x.usedKg==null?'—':x.usedKg.toFixed(3)+' kg'):'')}));
-  if(!same&&!geo)add('Cavity '+(i+1)+' · stepped / differing contours',null,'Choose the spacer contour in the cavity');
  });
  const muntin=shape&&shape.muntin;
  if(muntin&&muntin.enabled&&(m.cavities||[]).length){

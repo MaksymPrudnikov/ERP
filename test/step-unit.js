@@ -71,6 +71,11 @@ module.exports=async function({page,eq}){
    return {line:ln.getAttribute('transform'),num:/scale\(2\)/.test(num.getAttribute('transform')||''),ext:ext.length===2&&ext.every(x=>Math.abs(Math.abs(x-at)-4)<.01)};
   });
  }),[{line:'translate(30 0)',num:true,ext:true},{line:'translate(30 0)',num:true,ext:true}]);
+ eq('рамка ступенчатого юнита — всегда по меньшему лайту (владелец, 23.10.2026): периметр обвязки из Shape designer, поля выбора в камере нет',await t.p.evaluate(()=>{
+  const line=suOrder({'0':{inset:{A:'10'},edgeOps:{},mirror:false}}),info=salesLineStepInfo(line,soDraft),small=info.lites[1-info.big];
+  const w=salesLineWeight(line,soDraft),rows=w.rows.filter(r=>/Cavity 1/.test(r.label)&&r.perimeterM!=null);
+  return {rows:rows.length>0,small:rows.every(r=>Math.abs(r.perimeterM-small.perimeter*.0254)<1e-9),missing:w.rows.some(r=>/stepped/.test(r.label)),field:salesCavitySection(salesMakeupById(soDraft,line.makeupId).cavities[0],0).indexOf('contour')>=0};
+ }),{rows:true,small:true,missing:false,field:false});
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

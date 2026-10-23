@@ -2995,14 +2995,19 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Makeup accordion начинает с Lite 1 и при переходе сворачивает его', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();salesSetUnitType('triple');const d=[...document.querySelectorAll('.mu-section')],initial=d.filter(x=>x.open).length,first=d.find(x=>x.open)&&d.find(x=>x.open).dataset.muSection;d[1].open=true;salesAccordionToggle(d[1],d[1].dataset.muSection);return {initial,first,open:d.filter(x=>x.open).length,key:soOpenSectionKey,lite1:d[0].open};
     }), {initial:1,first:'lite-0',open:1,key:'cavity-0',lite1:false});
-    eq('Cavity выбирается в порядке Spacer → Width → Gas → Sealant → Price', await t.p.evaluate(() => {
+    eq('Cavity выбирается в порядке Spacer → Width → Gas → Sealant → Price; в Width — только ширины выбранной рамки', await t.p.evaluate(() => {
       const c=normalizeSalesCavity({spacerVariantId:'SP-BWE-012',primarySealantId:'SEAL-HM'},0),host=document.createElement('div');
       host.innerHTML=salesCavitySection(c,0);const selects=[...host.querySelectorAll('.mu-cavity-grid select')];
       return {labels:[...host.querySelectorAll('.mu-cavity-grid label')].map(x=>x.textContent),widths:[...selects[1].options].map(x=>x.textContent),spacers:[...selects[0].options].map(x=>x.textContent),primary:c.primarySealantId,summary:salesCavitySummary(c)};
-    }), {labels:['Spacer','Width','Gas','Sealant','Stepped contour','Price · sq ft'],widths:['3/16″','7/32″','1/4″','5/16″','3/8″','13/32″','7/16″','15/32″','1/2″','17/32″','9/16″','5/8″','11/16″','3/4″','27/32″','15/16″'],spacers:['AL — Aluminum','BL — Black Aluminum','WWE — White Warm Edge','LGWE — Light Grey Warm Edge','BWE — Black Warm Edge','SS — Stainless Steel'],primary:'SEAL-PIB',summary:'Black Warm Edge 1/2″ · Argon · PS'});
+    }), {labels:['Spacer','Width','Gas','Sealant','Price · sq ft'],widths:['5/16″','3/8″','7/16″','1/2″','17/32″','9/16″','5/8″','11/16″','27/32″'],spacers:['AL — Aluminum','BL — Black Aluminum','WWE — White Warm Edge','LGWE — Light Grey Warm Edge','BWE — Black Warm Edge','SS — Stainless Steel','BSS — Black Stainless Steel'],primary:'SEAL-PIB',summary:'Black Warm Edge 1/2″ · Argon · PS'});
     eq('смена Width сохраняет spacer-систему и фильтрует недоступные размеры', await t.p.evaluate(() => {
       salesOrderNew();const c=salesCurrentMakeup().cavities[0];c.spacerVariantId='SP-AL-012';salesCavitySetWidth(0,'5/8');const same=c.spacerVariantId;c.spacerVariantId='SP-SS-012';salesCavitySetWidth(0,'3/8');return {same,fallback:c.spacerVariantId};
     }), {same:'SP-AL-058',fallback:'SP-AL-038'});
+    eq('Spacer: видны все системы; у системы без текущей ширины — ближайшая её ширина, Width — только её ширины', await t.p.evaluate(() => {
+      const c=normalizeSalesCavity({spacerVariantId:'SP-BWE-1732'},0),host=document.createElement('div');host.innerHTML=salesCavitySection(c,0);
+      const ss=[...host.querySelectorAll('.mu-cavity-grid select')[0].options].find(o=>/^SS/.test(o.textContent));c.spacerVariantId=ss.value;host.innerHTML=salesCavitySection(c,0);
+      return {ss:ss.value,widths:[...host.querySelectorAll('.mu-cavity-grid select')[1].options].map(x=>x.textContent)};
+    }), {ss:'SP-SS-012',widths:['7/16″','1/2″','5/8″']});
     eq('Frit и Spandrel имеют независимые surface', await t.p.evaluate(() => {
       const p=normalizeSalesPane({visionType:'frit',frit:{surface:2},spandrel:{surface:1}},0);return {frit:p.frit.surface,spandrel:p.spandrel.surface,coating:p.coatingSurface};
     }), {frit:2,spandrel:1,coating:null});
