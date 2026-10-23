@@ -3482,7 +3482,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a7b5624db367';
+var ERP_BUILD='314426167178';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10844,7 +10844,20 @@ function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};
  return Object.assign(materialHeader(p,cat,sub),{id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),salesUnit:mdString(p.salesUnit),...mdSaleRulesOf(p),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),stockingUnit:mdString(p.stockingUnit),note:mdString(p.note),sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false},type==='gas'?{densityKgM3:mdNonNeg(p.densityKgM3)}:{},
  /* Фрит и спандрел — работы (этап 4): карточка называет работу Works, а
     станцию и место в маршруте даёт она. Пусто — работа не назначена. */
- type==='frit'||type==='spandrel'?{workId:mdString(p.workId)}:{});}
+ type==='frit'||type==='spandrel'?{workId:mdString(p.workId)}:{},
+ type==='interlayer'?interlayerCardFields(p):{});}
+/* Плёнка (план Master Data, этап 5): толщина слоя и разрешённые толщины —
+   карточка, а не код (Ultra Clear: 0.76 и 1.52, без 0.38); строки
+   поставки — поставщик, ширина рулона, толщина, цена. Пусто у старой строки —
+   засев: слой 0.38, толщины 1–6 слоёв. */
+const INTERLAYER_SEED_PLY_MM=0.38,INTERLAYER_SEED_PLIES=6;
+function interlayerCardFields(p){
+ const ply=mdNonNeg(p.plyMm)>0?mdNonNeg(p.plyMm):INTERLAYER_SEED_PLY_MM;
+ const list=Array.isArray(p.thicknessesMm)?p.thicknessesMm:Array.from({length:INTERLAYER_SEED_PLIES},(_,i)=>(i+1)*ply);
+ const thicknessesMm=[...new Set(list.map(v=>mdNonNeg(v)).filter(v=>v>0).map(v=>+v.toFixed(2)))].sort((a,b)=>a-b);
+ const supply=(Array.isArray(p.supply)?p.supply:[]).filter(x=>x&&typeof x==='object').map(x=>({supplier:mdString(x.supplier),widthIn:mdNonNeg(x.widthIn),thicknessMm:mdNonNeg(x.thicknessMm),price:mdNonNeg(x.price),per:mdString(x.per)})).filter(x=>x.supplier||x.widthIn!=null||x.thicknessMm!=null||x.price!=null);
+ return {plyMm:ply,thicknessesMm,supply};
+}
 const SIMPLE_MATERIAL_CATEGORY={gas:'igu',sealant:'igu',iguPart:'igu',interlayer:'lamination',frit:'surface',spandrel:'surface',stock:'stock'};
 const SIMPLE_MATERIAL_SUBCATEGORY={gas:'gas',sealant:'sealant',iguPart:'part',frit:'frit',spandrel:'spandrel'};
 /* Готовые изделия и расходка: покупаем целиком, перепродаём целиком, без
@@ -11750,9 +11763,10 @@ function importGlassSheetsCsv(text){
    Считается от ФАКТИЧЕСКОЙ толщины: «10 mm» стекло на деле 9.7 mm, и на
    больших листах разница уже видна в накладной. Номинал берётся только когда
    фактического значения в каталоге нет — тогда вес помечается приблизительным.
-   Плотность натрий-кальциевого стекла — именованная константа, а не число
-   внутри выражения: её меняют один раз и в одном месте. */
-const GLASS_DENSITY_KG_M3=2500;
+   Плотность стекла — норма веса «glass» в Data → Weight norms (план Master
+   Data, этап 5); засев 2500 кг/м³. Нормы нет — веса нет, без выдумки. */
+const GLASS_DENSITY_SEED_KG_M3=2500;
+function glassDensityKgM3(order){const v=salesWeightRate('glass',order);return v>0?v:null;}
 const GLASS_M2_PER_FT2=0.09290304;
 function glassEffectiveThicknessMm(product){
   var a=product&&+product.actualThicknessMm;
@@ -11760,9 +11774,6 @@ function glassEffectiveThicknessMm(product){
   var n=product&&+product.thicknessMm;
   return isFinite(n)&&n>0?{mm:n,exact:false}:{mm:0,exact:false};
 }
-/* Плёнка легче стекла. Одна цифра на все интерлееры: PVB ~ 1070, EVA ~ 950,
-   а доля плёнки в весе юнита около процента — точнее делить смысла нет. */
-const GLASS_INTERLAYER_DENSITY_KG_M3=1070;
 /* Вес слоя известной толщины. Ламинат — это стёкла И плёнка между ними, и
    каждый слой считается своей плотностью. */
 function glassLayerWeightKg(mm,density,areaFt2){
@@ -11772,9 +11783,9 @@ function glassLayerWeightKg(mm,density,areaFt2){
 }
 /* areaFt2 — площадь ОДНОГО стекла. Возвращает {kg, exact} либо null. */
 function glassWeightKg(product,areaFt2){
-  var t=glassEffectiveThicknessMm(product),a=+areaFt2;
-  if(!(t.mm>0)||!isFinite(a)||a<=0)return null;
-  return {kg:glassLayerWeightKg(t.mm,GLASS_DENSITY_KG_M3,areaFt2),exact:t.exact};
+  var t=glassEffectiveThicknessMm(product),a=+areaFt2,d=glassDensityKgM3();
+  if(!(t.mm>0)||!isFinite(a)||a<=0||!d)return null;
+  return {kg:glassLayerWeightKg(t.mm,d,areaFt2),exact:t.exact};
 }
 function glassWeightText(product,areaFt2){
   var w=glassWeightKg(product,areaFt2);
@@ -12356,8 +12367,6 @@ const SALES_VISION_TYPES=['lowe','reflective','frit','uncoated'];
 const SALES_LAMINATED_GLASS_TYPES=['lowe','reflective','uncoated'];
 const SALES_LAMINATED_FRIT_POSITIONS=['outside','in_film'];
 const SALES_MAX_INTERLAYERS=4;
-const SALES_INTERLAYER_LAYER_MM=.38;
-const SALES_MAX_INTERLAYER_LAYERS=6;
 const SALES_PRIMARY_SEALANT_ID='SEAL-PIB';
 
 function salesUid(prefix){
@@ -12497,17 +12506,22 @@ function normalizeSalesLaminatedPly(raw,legacyProductId,legacyHeatTreatmentId,d)
  const rows=salesLaminatedPlyCandidates(out);if(!rows.some(g=>g.id===out.glassProductId))out.glassProductId=(rows[0]||{}).id||'';
  return out;
 }
-function salesInterlayerLayerCount(v,def){const n=Math.round(+v);return Number.isFinite(n)?Math.max(1,Math.min(SALES_MAX_INTERLAYER_LAYERS,n)):(def==null?1:def);}
-function salesInterlayerThicknessForLayers(layers){return +(salesInterlayerLayerCount(layers)*SALES_INTERLAYER_LAYER_MM).toFixed(2);}
-function salesInterlayerLayersFromThickness(v){const n=+v;if(!Number.isFinite(n)||n<=0)return 1;return Math.max(1,Math.min(SALES_MAX_INTERLAYER_LAYERS,Math.round(n/SALES_INTERLAYER_LAYER_MM)));}
+/* Слой плёнки и разрешённые толщины — в её карточке (erp/masterdata/glass,
+   interlayerCardFields). Число слоёв — толщина / слой. */
+function salesInterlayerPlyMm(productId){const p=mdById('interlayerProduct',productId);return p&&p.plyMm>0?p.plyMm:INTERLAYER_SEED_PLY_MM;}
+function salesInterlayerLayerCount(v,def){const n=Math.round(+v);return Number.isFinite(n)&&n>=1?n:(def==null?1:def);}
+function salesInterlayerThicknessForLayers(layers,productId){return +(salesInterlayerLayerCount(layers)*salesInterlayerPlyMm(productId)).toFixed(2);}
+function salesInterlayerLayersFromThickness(v,productId){const n=+v;if(!Number.isFinite(n)||n<=0)return 1;return Math.max(1,Math.round(n/salesInterlayerPlyMm(productId)));}
 function normalizeSalesInterlayer(layer,defaultProductId){
  layer=typeof layer==='string'?{productId:layer}:(layer&&typeof layer==='object'?layer:{});
  const sourceProductId=salesString(layer.productId)||defaultProductId,migration=interlayerProductMigration(sourceProductId);
  const productId=interlayerCanonicalProductId(sourceProductId)||interlayerCanonicalProductId(defaultProductId)||INTERLAYER_DEFAULT_ID;
  const explicit=layer.layers!=null&&layer.layers!==''?layer.layers:layer.layerCount,oldThickness=layer.thicknessMm;
  const layers=explicit!=null&&explicit!==''?salesInterlayerLayerCount(explicit)
-  :(oldThickness!=null&&oldThickness!==''?salesInterlayerLayersFromThickness(oldThickness):(migration?migration.layers:1));
- return {productId,layers,thicknessMm:salesInterlayerThicknessForLayers(layers),priceOverride:salesNonNegOrNull(layer.priceOverride)};
+  :(oldThickness!=null&&oldThickness!==''?salesInterlayerLayersFromThickness(oldThickness,productId):(migration?migration.layers:1));
+ /* Толщина заказа хранится: смена слоя в карточке сохранённый заказ не меняет. */
+ const kept=+oldThickness>0&&explicit!=null&&explicit!==''?+(+oldThickness).toFixed(2):null;
+ return {productId,layers,thicknessMm:kept!=null?kept:salesInterlayerThicknessForLayers(layers,productId),priceOverride:salesNonNegOrNull(layer.priceOverride)};
 }
 function normalizeSalesInterlayers(lam,d){
  let rows=Array.isArray(lam.interlayers)?lam.interlayers:(Array.isArray(lam.interlayerProductIds)?lam.interlayerProductIds:(lam.interlayerProductId?[lam.interlayerProductId]:d.interlayers));
@@ -17270,8 +17284,15 @@ function salesPaneSetLamInterlayerPrice(i,slot,v){
  layer.priceOverride=salesNonNegOrNull(v);
  render();
 }
-function salesPaneSetLamInterlayer(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.productId=v;layer.layers=salesInterlayerLayerCount(layer.layers);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
-function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.layers=salesInterlayerLayerCount(v);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
+function salesPaneSetLamInterlayer(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.productId=v;salesInterlayerFit(layer);render();}
+function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.layers=salesInterlayerLayerCount(v);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers,layer.productId);render();}
+/* Другая плёнка: толщина остаётся, если она есть у новой; иначе — первая
+   разрешённая толщина её карточки. */
+function salesInterlayerFit(layer){
+ const prod=mdById('interlayerProduct',layer.productId),list=prod&&prod.thicknessesMm||[],t=salesInterlayerThicknessForLayers(layer.layers,layer.productId);
+ const mm=!list.length||list.includes(t)?t:list[0];
+ layer.layers=salesInterlayerLayersFromThickness(mm,layer.productId);layer.thicknessMm=mm;
+}
 function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID));render();}
 function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length<=1)return;rows.splice(slot,1);render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
@@ -18468,7 +18489,7 @@ function salesPaneGlassThicknessMm(pane){
    /* thicknessMm is already the total derived from the selected layer count.
       Multiplying it by layers again made production see four 0.38 mm layers
       as 6.08 mm instead of 1.52 mm. */
-   const v=salesInterlayerThicknessForLayers(film&&film.layers);
+   const v=film&&+film.thicknessMm>0?+film.thicknessMm:salesInterlayerThicknessForLayers(film&&film.layers,film&&film.productId);
    if(Number.isFinite(v)&&v>0)total+=v;else known=false;
   });
   return known?total:NaN;
@@ -19583,7 +19604,7 @@ function salesExtraBarHTML(target){
 /* Нормы веса, которых ещё нет в карточках (плёнка, фрит, спандрел,
    шпросы), — строки Weight norms; обвязка — в карточках и рецепте
    (erp/masterdata/surround). */
-DEFAULT.materialWeightRates=[];
+DEFAULT.materialWeightRates=[{key:'glass',label:'Glass density',rate:GLASS_DENSITY_SEED_KG_M3,unit:'kg/m³',note:''}];
 if(!Array.isArray(DB.materialWeightRates))DB.materialWeightRates=[];
 /* Надбавки — работы Works с правилом (этап 4, часть 2 плана Master Data):
    минимальная площадь, Triple, большой юнит и любые, что заведёт владелец.
@@ -19622,6 +19643,8 @@ function salesUnitKinds(m){
 }
 function salesNormalizeWeightRates(){
  const seen=new Set();
+ /* Плотность стекла — засев нормы (этап 5 плана Master Data). */
+ if(Array.isArray(DB.materialWeightRates)&&!DB.materialWeightRates.some(r=>r&&r.key==='glass'))DB.materialWeightRates.push({key:'glass',label:'Glass density',rate:GLASS_DENSITY_SEED_KG_M3,unit:'kg/m³',note:''});
  DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
 }
 function salesLineAreas(line,order){
@@ -19711,7 +19734,7 @@ function salesLineMaterials(m,areas,order){
   if(rules.minCharge!=null&&amount<rules.minCharge){amount=rules.minCharge;notes.push('min charge '+rules.minCharge.toFixed(2));}
   out.rows.push({label,price,unit:rules.unit,qty,amount,note:notes.join(' · '),special:true});out.amount+=amount;
  };
- const glassKg=(ply,g)=>()=>{const t=glassEffectiveThicknessMm(g),mm=t.mm||+(ply&&ply.thicknessMm)||0;return mm>0&&areas.actual!=null?glassLayerWeightKg(mm,GLASS_DENSITY_KG_M3,areas.actual):null;};
+ const glassKg=(ply,g)=>()=>{const t=glassEffectiveThicknessMm(g),mm=t.mm||+(ply&&ply.thicknessMm)||0;const d=glassDensityKgM3(order);return mm>0&&d&&areas.actual!=null?glassLayerWeightKg(mm,d,areas.actual):null;};
  (m.panes||[]).forEach((p,i)=>{
   const label='Lite '+(i+1);
   if(p.category==='laminated'){
@@ -19821,7 +19844,8 @@ function salesLineWeight(line,order,productionPlan){
  const glass=(ply,label,geo)=>{
   const product=glassProductById(ply&&ply.glassProductId),t=glassEffectiveThicknessMm(product);
   const mm=t.mm||+(ply&&ply.thicknessMm)||0;
-  add(label+(product?' · '+product.code:''),geo.area!=null&&mm>0?glassLayerWeightKg(mm,GLASS_DENSITY_KG_M3,geo.area):null,t.exact?'':'Nominal thickness estimate');
+  const d=glassDensityKgM3(order);
+  add(label+(product?' · '+product.code:''),geo.area!=null&&mm>0&&d?glassLayerWeightKg(mm,d,geo.area):null,!d?'No glass density in Weight norms':t.exact?'':'Nominal thickness estimate');
  };
  const surface=(ply,label,geo)=>{
   if(ply.category==='spandrel')norm('spandrel:'+ply.spandrel.productId,label+' · Spandrel',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied coating norm per finished area');
@@ -20618,12 +20642,15 @@ function salesSheetPaneWeightKg(pane,areaFt2){
     if(!w){
       var mm=+ply.thicknessMm;
       if(!(mm>0))return;
-      w={kg:glassLayerWeightKg(mm,GLASS_DENSITY_KG_M3,areaFt2),exact:false};
+      var d=glassDensityKgM3();if(!d)return;
+      w={kg:glassLayerWeightKg(mm,d,areaFt2),exact:false};
     }
     total+=w.kg;if(!w.exact)exact=false;got=true;
   });
   (lam.interlayers||[]).forEach(function(f){
-    total+=glassLayerWeightKg(f&&f.thicknessMm,GLASS_INTERLAYER_DENSITY_KG_M3,areaFt2);
+    /* Плотность плёнки — её норма веса; нормы нет — вес приблизительный. */
+    var d=f?salesWeightRate('film:'+f.productId):null;
+    if(d>0)total+=glassLayerWeightKg(f.thicknessMm,d,areaFt2);else exact=false;
   });
   return got&&total>0?{kg:total,exact:exact}:null;
 }
@@ -21272,9 +21299,11 @@ function salesInterlayerPriceCell(index,slot,layer){
 }
 function salesLaminatedInterlayers(p,index){
  const rows=p.laminated.interlayers||[],canAdd=rows.length<SALES_MAX_INTERLAYERS;
- return `<div class="mu-lam-films"><div class="mu-lam-films-head"><div><b>INTERLAYER STACK</b><span>Mix film types · up to ${SALES_MAX_INTERLAYER_LAYERS} layers each</span></div><button type="button" ${canAdd?'':'disabled'} onclick="salesPaneAddLamInterlayer(${index})">+ Add Film</button></div>${rows.map((layer,slot)=>{
-  const selected=String(salesInterlayerLayerCount(layer.layers));
-  const layerOptions=Array.from({length:SALES_MAX_INTERLAYER_LAYERS},(_,i)=>{const n=i+1,mm=salesInterlayerThicknessForLayers(n);return salesOption(String(n),n+' '+(n===1?'layer':'layers')+' · '+mm.toFixed(2)+' mm',selected,true);}).join('');
+ return `<div class="mu-lam-films"><div class="mu-lam-films-head"><div><b>INTERLAYER STACK</b><span>Mix film types · thicknesses from the film card</span></div><button type="button" ${canAdd?'':'disabled'} onclick="salesPaneAddLamInterlayer(${index})">+ Add Film</button></div>${rows.map((layer,slot)=>{
+  const selected=String(salesInterlayerLayerCount(layer.layers)),prod=mdById('interlayerProduct',layer.productId);
+  /* Толщины — из карточки плёнки; толщина заказа, которой там нет, остаётся в списке. */
+  const plies=[...new Set((prod&&prod.thicknessesMm||[]).map(mm=>salesInterlayerLayersFromThickness(mm,layer.productId)).concat([+selected]))].sort((a,b)=>a-b);
+  const layerOptions=plies.map(n=>{const mm=salesInterlayerThicknessForLayers(n,layer.productId);return salesOption(String(n),n+' '+(n===1?'layer':'layers')+' · '+mm.toFixed(2)+' mm',selected,true);}).join('');
   const family=interlayerFamilyOf(layer.productId);
   return `<div class="mu-lam-film"><span class="mu-lam-film-num">${slot+1}</span><div><label>Film</label><select onchange="salesPaneSetLamInterlayerFamily(${index},${slot},this.value)">${salesInterlayerFamilyOptions(family)}</select></div><div><label>Type</label><select onchange="salesPaneSetLamInterlayer(${index},${slot},this.value)">${salesInterlayerTypeOptions(family,layer.productId)}</select></div><div><label>Layers / actual thickness</label><select onchange="salesPaneSetLamInterlayerLayers(${index},${slot},this.value)">${layerOptions}</select></div><div><label>Price / layer</label>${salesInterlayerPriceCell(index,slot,layer)}</div><button type="button" class="mu-lam-film-del" ${rows.length>1?'':'disabled'} onclick="salesPaneRemoveLamInterlayer(${index},${slot})" title="Remove film">×</button></div>`;
  }).join('')}</div>`;
@@ -27562,6 +27591,15 @@ function mdHwKindUsage(code){
 function mdHwModelUsage(id){
  return (DB.shapeDef||[]).reduce((n,s)=>n+((s.manufacturingItems||[]).filter(i=>i.modelId===id).length),0);
 }
+/* Hardware деревом (этап 5 плана Master Data): вид → серия → модели;
+   модель открывается по клику. Только вид: правят в карточках ниже. */
+function mdHwTreeHTML(){
+ const kinds=DB.hardwareKind||[],models=DB.hardwareModel||[];
+ const node=k=>{const list=models.filter(m=>m.kind===k.code),series=[...new Set(list.map(m=>m.series||''))].sort();
+  return `<li class="md-st-node" data-md-hw-kind="${esc(k.code)}"><div><b data-raw>${esc(hardwareKindName(k.code))}</b> <span class="mono" data-raw>${esc(k.code)}</span> <span class="mut">${list.length} models</span>${k.active===false?' <span class="pill warn">inactive</span>':''}</div>
+   ${series.map(sr=>`<div class="md-st-kids"><span class="mut">${sr?esc(sr):'No series'} ·</span> ${list.filter(m=>(m.series||'')===sr).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(m=>`<button type="button" class="pill${m.active===false?' warn':''}" data-raw onclick="mdHwModelEditRow('${esc(m.id)}')">${esc(m.name)}</button>`).join(' ')}</div>`).join('')}</li>`;};
+ return `<div class="md-st-tree" data-md-hw-tree><ol><li class="md-st-step"><ul>${kinds.map(node).join('')||'<li class="mut">No kinds</li>'}</ul></li></ol></div>`;
+}
 function viewMdHardware(){
  if(mdHwKindEdit!==null)return mdHwKindForm();
  if(mdHwModelEdit!==null)return mdHwModelForm();
@@ -27570,6 +27608,7 @@ function viewMdHardware(){
  const sorted=shown.slice().sort((a,b)=>String(a.kind).localeCompare(String(b.kind))||String(a.series||'').localeCompare(String(b.series||''))||String(a.name).localeCompare(String(b.name)));
  const orphans=models.filter(m=>!hardwareKindRow(m.kind)).length;
  return `<div class="sub">The shop works by name: a person sees “Vienna 180” on the drawing and picks that template. So the catalog keeps the model name, not the seat dimensions — the template knows them. Kinds are created here as well: a pivot, or anything else, needs no code change.</div>
+  ${mdHwTreeHTML()}
   ${orphans?`<div class="note">Models without a kind: <b>${orphans}</b>. That happens after a kind is deleted — the model itself is not lost, but it needs its kind back.</div>`:''}
   <div class="section-title"><h3>Kinds</h3><span class="pill info">the kind code goes into the drawing mark</span></div>
   <div class="sales-table-wrap"><table><thead><tr><th>Kind</th><th>Code</th><th>On the drawing</th><th>Models</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
@@ -28060,6 +28099,7 @@ function mdCatForm(){
       ${MD_CAT_SALE_UNIT.includes(mdCatKind)?`<div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select></div>${mdSaleRulesFields(r)}`:''}
       ${mdStationViaHTML(mdCatKind)}
       ${MD_CAT_WORK.includes(mdCatKind)?`<div><label>Work</label><select id="md_catWork"><option value="">— no work —</option>${(DB.serviceRate||[]).filter(w=>w&&!w.rule).map(w=>`<option value="${esc(w.id)}" ${w.id===r.workId?'selected':''}>${esc(w.name)}${w.station?' · '+esc(w.station):''}</option>`).join('')}</select><div class="hint">Station in the route</div></div>`:''}
+      ${mdCatKind==='interlayerProduct'?mdFilmFields(r):''}
       ${mdCatKind==='gasProduct'?`<div><label>Density, kg/m³</label><input id="md_catDensity" type="number" step="any" min="0" value="${r.densityKgM3==null?'':r.densityKgM3}" placeholder="unknown"><div class="hint">Gas weight = density × cavity volume.</div></div>`:''}
       ${mdCatKind==='stockItem'?`<div><label>Subcategory</label><input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(s=>`<option value="${esc(s)}">`).join('')}</datalist><div class="hint">Groups stock items in the order-line picker. Type your own — the list above is only a hint; empty becomes "consumable".</div></div>`:''}
       <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="md_catOwnLine" ${r.sellsAsOwnLine?'checked':''}> Sells as its own order line</label>
@@ -28068,6 +28108,24 @@ function mdCatForm(){
   </div>
   <div class="err" id="e_mdCat"></div>
   <div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div></div>`;
+}
+/* Плёнка (этап 5): слой, разрешённые толщины и строки поставки. Строки
+   поставки добавляются и убираются без перерисовки — введённое в форме не
+   пропадает; Save читает их с экрана. */
+function mdFilmSupplyRow(x){x=x||{};const v=k=>x[k]==null?'':esc(x[k]);
+ return `<tr data-md-film-supply><td><input data-k="supplier" value="${v('supplier')}"></td><td><input data-k="widthIn" type="number" min="0" step="any" value="${v('widthIn')}"></td><td><input data-k="thicknessMm" type="number" min="0" step="any" value="${v('thicknessMm')}"></td><td><input data-k="price" type="number" min="0" step="any" value="${v('price')}"></td><td><input data-k="per" value="${v('per')}" placeholder="roll"></td><td><button type="button" class="sm dl" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
+function mdFilmFields(r){
+ return `<div><label>Ply, mm</label><input id="md_filmPly" type="number" min="0" step="any" value="${r.plyMm==null?'':r.plyMm}"><div class="hint">One layer; price is per layer</div></div>
+  <div><label>Thicknesses, mm</label><input id="md_filmThick" value="${esc((r.thicknessesMm||[]).join(', '))}"><div class="hint">Offered in the order</div></div>
+  <div style="grid-column:1/-1" data-md-film-supplies><label>Supply</label><div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Supplier</th><th>Roll width, in</th><th>Thickness, mm</th><th>Price, CAD</th><th>Per</th><th></th></tr></thead><tbody>${(r.supply||[]).map(mdFilmSupplyRow).join('')}</tbody></table></div>
+   <button type="button" onclick="this.previousElementSibling.querySelector('tbody').insertAdjacentHTML('beforeend',mdFilmSupplyRow())">+ Supply row</button></div>`;
+}
+function mdFilmRead(){
+ const ply=mdVal('md_filmPly');if(!(+ply>0))return {error:'Ply must be a positive number'};
+ const list=mdVal('md_filmThick').split(/[,;\s]+/).filter(Boolean);
+ if(list.some(v=>!(+v>0)))return {error:'Thicknesses must be positive numbers'};
+ const supply=[...document.querySelectorAll('[data-md-film-supply]')].map(tr=>{const o={};tr.querySelectorAll('[data-k]').forEach(i=>{o[i.dataset.k]=i.value;});return o;});
+ return {plyMm:+ply,thicknessesMm:list.map(Number),supply};
 }
 /* Форма работы → запись. Поля читаются с экрана: строка таблицы
    добавляется и убирается перерисовкой, и введённое не должно пропасть.
@@ -28150,9 +28208,11 @@ function mdCatSave(){
      толщина. Иначе редактирование имени стирало бы их молча. */
   const prev=mdCatEdit==='new'?{}:mdCatDraft;
   const ownLineEl=document.getElementById('md_catOwnLine'),subcatEl=document.getElementById('md_catSubcategory');
+  const film=mdCatKind==='interlayerProduct'?mdFilmRead():null;
+  if(film&&film.error)return fail(e,film.error);
   const density=mdVal('md_catDensity');
   if(mdCatKind==='gasProduct'&&density!==''&&(!isFinite(+density)||+density<0))return fail(e,'Density must be a non-negative number or empty');
-  next=Object.assign({},prev,MD_CAT_SALE_UNIT.includes(mdCatKind)?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},mdCatKind==='gasProduct'?{densityKgM3:density===''?null:+density}:{},MD_CAT_WORK.includes(mdCatKind)?{workId:mdVal('md_catWork')}:{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
+  next=Object.assign({},prev,MD_CAT_SALE_UNIT.includes(mdCatKind)?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},mdCatKind==='gasProduct'?{densityKgM3:density===''?null:+density}:{},film||{},MD_CAT_WORK.includes(mdCatKind)?{workId:mdVal('md_catWork')}:{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
    sellsAsOwnLine:ownLineEl?ownLineEl.checked:!!prev.sellsAsOwnLine,
    subcategory:subcatEl?subcatEl.value:(prev.subcategory||''),active:active});
  }
