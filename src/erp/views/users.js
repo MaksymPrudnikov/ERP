@@ -25,7 +25,7 @@ function userAccessHTML(u){
    офис и производство»). Office — у кого отмечены разделы, Production — у
    кого есть PIN станции или нет офиса (рабочий, которому PIN ещё не дали).
    Мастер цеха с обоими входами — в обеих. */
-function usersSide(){return subtab==='production'?'production':subtab==='log'?'log':'office';}
+function usersSide(){return subtab==='production'?'production':subtab==='log'?'log':subtab==='cloud'?'cloud':'office';}
 function usersOn(u,side){return side==='production'?userHasPin(u)||!userOffice(u):userOffice(u);}
 /* Зелёная точка — человек сейчас в системе на этом компьютере (офис или
    станция); серая — нет, рядом последний вход или выход из журнала
@@ -37,9 +37,9 @@ function userNowHTML(u){
  return `<span class="user-now" data-user-now="off"><i></i>${last?esc(salesListShortDay(salesListIsoDay(last))+' · '+new Date(last).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false})):'—'}</span>`;
 }
 function viewUsers(){
- const side=usersSide(),prod=side==='production',log=side==='log';
- const list=log?[]:DB.user.map((u,i)=>({u,i})).filter(x=>usersOn(x.u,side));
- const count=k=>k==='log'?(DB.authEvent||[]).length:DB.user.filter(u=>usersOn(u,k)).length;
+ const side=usersSide(),prod=side==='production',log=side==='log',cloud=side==='cloud';
+ const list=log||cloud?[]:DB.user.map((u,i)=>({u,i})).filter(x=>usersOn(x.u,side));
+ const count=k=>k==='cloud'?'':k==='log'?(DB.authEvent||[]).length:DB.user.filter(u=>usersOn(u,k)).length;
  const rows=list.map(({u,i})=>{
   const actions=`<td style="white-space:nowrap"><button class="sm" onclick="userEditOpen(${i})">Edit</button>
    <button class="sm dl" title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${i},'${side}')">×</button></td>`;
@@ -53,15 +53,38 @@ function viewUsers(){
   :'<th>Name</th><th title="Signed in now on this computer">Now</th><th>Sections</th><th>Password</th><th></th>';
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
- const tabs=`<div class="tabs">${[['office','Office'],['production','Production'],['log','Sign-in log']].map(([k,l])=>`<button class="${side===k?'on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;render()">${l} <span class="mut">${count(k)}</span></button>`).join('')}</div>`;
- return `<div class="page-head"><div><h2>Users</h2><p>${log?'Sign-ins and sign-outs on this computer.':prod?'Number and PIN · any station.':'Password and sections.'}</p></div>${off}
-  ${uEdit!==null||log?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>
-  ${log?`<div class="card sales-list-card users-log-card"><div class="users-log-tabs">${tabs}</div>${authLogTable()}</div>`:`<div class="card">${tabs}
+ const tabs=`<div class="tabs">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button class="${side===k?'on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;render()">${l} <span class="mut">${count(k)}</span></button>`).join('')}</div>`;
+ return `<div class="page-head"><div><h2>Users</h2><p>${cloud?'Server for all computers.':log?'Sign-ins and sign-outs on this computer.':prod?'Number and PIN · any station.':'Password and sections.'}</p></div>${off}
+  ${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>
+  ${cloud?`<div class="card">${tabs}${usersCloudHTML()}</div>`:log?`<div class="card sales-list-card users-log-card"><div class="users-log-tabs">${tabs}</div>${authLogTable()}</div>`:`<div class="card">${tabs}
   ${uEdit!==null?userForm():''}
   <table><thead><tr>${head}</tr></thead>
   <tbody>${rows||`<tr><td colspan="5" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody></table>
   </div>`}`;
 }
+/* Cloud — сервер (erp/cloud.js). Адрес и ключ — этого устройства; пароль
+   не сохраняется. Записи на сервер пока не уходят — так и сказано. */
+function usersCloudHTML(){
+ const c=cloudConfig(),st=cloudState,s=c.session;
+ const status=st.busy?'<span class="pill" data-cloud-status="busy">Connecting…</span>'
+  :st.error?`<span class="pill warn" data-cloud-status="error">${esc(st.error)}</span>`
+  :st.me?`<span class="pill ok" data-cloud-status="ok">Connected · ${esc(st.me.name||s&&s.email||'')}${st.me.admin?' · admin':''}</span>`
+  :s?`<span class="pill" data-cloud-status="signed">Signed in · ${esc(s.email||'')}</span>`:'<span class="mut" data-cloud-status="off">Not connected</span>';
+ return `<div class="form user-form" data-cloud>
+  <div class="grid">
+   <div><label>Server</label><input id="cl_url" autocomplete="off" placeholder="https://xxxx.supabase.co" value="${esc(c.url||'')}"></div>
+   <div><label>Publishable key</label><input id="cl_key" autocomplete="off" placeholder="sb_publishable_…" value="${esc(c.key||'')}"></div>
+  </div>
+  <div class="grid">
+   <div><label>Email</label><input id="cl_email" autocomplete="username" value="${esc(s&&s.email||'')}"></div>
+   <div><label>Password</label>${pwInput('id="cl_pass" autocomplete="current-password"')}</div>
+  </div>
+  <div class="hint">Data still stays on this computer.</div>
+  <div class="row">${status}
+   <button class="pri" data-cloud-connect ${st.busy?'disabled':''} onclick="usersCloudConnect()">Connect</button>
+   ${s?`<button data-cloud-check onclick="cloudCheck()">Check</button><button data-cloud-out onclick="cloudSignOut()">Sign out</button>`:''}</div></div>`;
+}
+function usersCloudConnect(){const v=id=>(document.getElementById(id)||{}).value||'';return cloudConnect(v('cl_url'),v('cl_key'),v('cl_email'),v('cl_pass'));}
 /* Журнал входов — таблица как в Sales: период When, воронки Who / What /
    Where. Своя область usersLog в общем движке (sales-list-ui). */
 function usersListScope(){return tab==='users'&&usersSide()==='log'?'usersLog':'';}
