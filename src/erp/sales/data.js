@@ -358,11 +358,19 @@ function salesPriceValue(cat,over){return over!=null?over:cat;}
 function salesNonNegOrNull(v){const n=+v;return v===``||v==null||!isFinite(n)||n<0?null:Math.round(n*100)/100;}
 function salesActiveSpacerVariants(){return (DB.spacerVariant||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
 function salesCavitySpacer(c){return mdById('spacerVariant',c&&c.spacerVariantId)||salesActiveSpacerVariants()[0]||null;}
+/* Рамка системы для камеры: той же ширины, а если такой у системы нет —
+   ближайшей. В Spacer видны все системы, Width подстраивается под выбранную
+   (владелец, 23.10.2026). */
+function salesSpacerForSystem(system,size){
+ const rows=salesActiveSpacerVariants().filter(x=>x.system===system),v=x=>{const q=spacerSizeParts(x);return q?q.value:0;};
+ return rows.find(x=>x.size===size)||rows.slice().sort((a,b)=>Math.abs(v(a.size)-v(size))-Math.abs(v(b.size)-v(size)))[0]||null;
+}
 /* Размеры в выпадающем списке — по возрастанию, а не в порядке заведения:
    шестнадцать дробей вперемешку читать невозможно. Сортируем по значению
-   дроби, потому что как текст 1/2 встаёт раньше 3/16. */
-function salesSpacerWidths(){
- const seen=[...new Set(salesActiveSpacerVariants().map(x=>x.size).filter(Boolean))];
+   дроби, потому что как текст 1/2 встаёт раньше 3/16. С системой — только
+   её ширины: несуществующую не предлагаем (владелец, 23.10.2026). */
+function salesSpacerWidths(system){
+ const seen=[...new Set(salesActiveSpacerVariants().filter(x=>!system||x.system===system).map(x=>x.size).filter(Boolean))];
  return seen.sort((a,b)=>{
   const qa=spacerSizeParts(a),qb=spacerSizeParts(b);
   if(qa&&qb)return qa.value-qb.value;
@@ -440,7 +448,7 @@ function normalizeSalesPane(p,index){
 /* PIB — обязательный первичный герметик стеклопакета. Он остаётся в данных и
    спецификации, но не является выбором оператора в Cavity. Нормализация также
    исправляет старые черновики, где первичный герметик могли сменить вручную. */
-function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),priceOverride:salesNonNegOrNull(c.priceOverride),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId,...(c.contour==='a'||c.contour==='b'?{contour:c.contour}:{})};}
+function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),priceOverride:salesNonNegOrNull(c.priceOverride),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId};}
 function normalizeOrderMakeup(m,index){
  m=m&&typeof m==='object'?m:{};const unitType=SALES_UNIT_TYPES.includes(m.unitType)?m.unitType:'double',count=salesPaneCount(unitType);
  const panes=(Array.isArray(m.panes)?m.panes:[]).slice(0,count);while(panes.length<count)panes.push(salesDefaultPane(panes.length));
