@@ -17,7 +17,7 @@ function mdRecipePartOptions(value){
 }
 function viewMdRecipes(){
  const recipes=DB.surroundRecipe||[];
- return `<div class="sub">A surround recipe lists the parts of one cavity and how much of each goes in: grams per ft² of the unit, per metre or foot of perimeter, or per cavity. Spacer weight comes from the spacer card, gas weight from its density. Waste raises consumption, not the shipping weight. Empty norm — unknown.</div>
+ return `<div class="sub">Parts per cavity. Empty norm — unknown.</div>
   ${recipes.map(mdRecipeCard).join('')||'<div class="empty">No recipes yet</div>'}
   <div class="row"><button class="pri" onclick="mdRecipeNew()">+ New recipe</button></div>`;
 }

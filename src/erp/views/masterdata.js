@@ -84,7 +84,7 @@ function viewMasterData(){
  const total=DB.glassProduct.length,stocked=DB.glassProduct.filter(p=>p.stocked).length;
  const inactive=DB.glassProduct.filter(p=>p.active===false).length;
  const sheets=DB.glassSheet.length,orphans=glassOrphanSheets().length;
- return `<div class="page-head"><div><h2>Master Data</h2><p>One shape for every material: each row carries the same header — code, category, purchase, sale, stocking — and the category adds its own fields on top. A new catalogue no longer creates a tab; it becomes a subcategory.</p></div><span class="pill info">Master Data · v2</span></div>
+ return `<div class="page-head"><div><h2>Master Data</h2><p>Items, works, prices and settings.</p></div><span class="pill info">Master Data · v2</span></div>
   <div class="kpi-grid">
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('layers')}</div></div><div class="kpi-num">${total}</div><div class="kpi-label">catalog items</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('inventory')}</div></div><div class="kpi-num">${stocked}</div><div class="kpi-label">kept in stock</div></div>
@@ -126,7 +126,7 @@ function mdStationTreeHTML(){
   const a=mdStationAssigned(s.code),n=a.works.length+a.items.reduce((m,x)=>m+x.n,0);
   return `<li class="md-st-node" data-md-st="${esc(s.code)}"><div><b class="mono">${raw(s.code)}</b> ${sfLabel(s)}${s.always?' '+pill('always','ok'):''} <span class="mut">${n?n+' assigned':'nothing assigned'}</span></div>
    ${n?`<div class="md-st-kids">${a.works.map(w=>pill(w.name||w.id,'info')).join(' ')}${a.items.map(x=>' '+pill(x.text+(x.n>1?' · '+x.n:''),'')).join('')}</div>`:''}</li>`;}).join('')}</ul></li>`).join('');
- return `<div class="md-st-tree" data-md-station-tree><div class="sub">Each step in order; the same step — parallel stations. Works name their station; frit, spandrel and materials follow their work.</div><ol>${steps}</ol></div>`;
+ return `<div class="md-st-tree" data-md-station-tree><div class="sub">Steps in order; same step — parallel.</div><ol>${steps}</ol></div>`;
 }
 /* Setup (этап 5 плана Master Data): сборы и умолчания нового заказа —
    erp/sales/order-setup. Сохранённые заказы держат свой снимок. */
@@ -138,7 +138,7 @@ function viewMdSetup(){
  const row=(label,onKey,value,base)=>`<tr><td><b>${label}</b></td><td class="n">${on(onKey)}</td><td>${value}</td><td>${base}</td></tr>`;
  const cards=s.cardNetworks.map((n,i)=>`<tr data-setup-card="${esc(n.id)}"><td><input type="text" maxlength="60" value="${esc(n.name)}" onchange="orderSetupCardSet(${i},'name',this.value)"></td><td><input type="number" min="0" step="0.01" value="${n.rate}" onchange="orderSetupCardSet(${i},'rate',this.value)"> <span class="mut">%</span></td><td><button type="button" onclick="orderSetupCardRemove(${i})">Remove</button></td></tr>`).join('');
  return `<div class="md-setup" data-md-setup>
-  <h3>Order charges</h3><p class="mut">Defaults for new orders. Saved orders keep theirs. Order: Subtotal → ES → HST → Card fee; delivery and skid deposit last.</p>
+  <h3>Order charges</h3><p class="mut">Defaults for new orders.</p>
   <div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Charge</th><th class="n">On</th><th>Value</th><th>Base besides Subtotal</th></tr></thead><tbody>
    ${row('Energy surcharge (ES)','energyOn',num('energyRate','%'),'<span class="mut">—</span>')}
    ${row('HST','hstOn',num('hstRate','%'),inBase('hstOnEnergy','ES')+inBase('hstOnDelivery','Delivery'))}
@@ -272,7 +272,7 @@ function viewMdGlass(){
   </div>
   <div class="customer-table-wrap"><table><thead><tr><th>Code</th><th>Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
   <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="10" class="empty">no items found</td></tr>'}</tbody></table></div>
-  ${rows.length>shown.length?`<div class="hint">Narrow the search or filter to see the remaining items: <b data-raw>${rows.length-shown.length}</b></div>`:''}`;
+  ${rows.length>shown.length?`<div class="hint">More items: <b data-raw>${rows.length-shown.length}</b></div>`:''}`;
 }
 /* Цена продажи правится прямо в строке каталога: заполнять её придётся по многим
    позициям, и форма на каждую превратила бы это в работу на день. Пустое поле
@@ -322,24 +322,24 @@ function mdGlassForm(){
  const r=mdDraft,isNew=mdEdit==='new';
  const used=!isNew&&salesGlassProductHasReferences(r.id);
  return `<div class="form"><h3>${isNew?'New catalog item':'Edit item'}</h3>
-  ${used?'<div class="note">This item is already used in a Makeup. The code can still be changed — references are held by the internal id and survive renaming; the item itself cannot be deleted.</div>':''}
+  ${used?'<div class="note">Used in a Makeup: rename only, no delete.</div>':''}
   <div class="grid">
-   <div><label>Code *</label><input id="md_code" value="${esc(r.code)}"><div class="hint">The shop code of the item. It is what gets printed on the sticker and what a loaded CSV is merged by.</div></div>
+   <div><label>Code *</label><input id="md_code" value="${esc(r.code)}"><div class="hint">Printed on stickers.</div></div>
    <div><label>Name *</label><input id="md_name" value="${esc(r.name)}"></div>
    <div><label>Manufacturer</label><input id="md_mfr" value="${esc(r.manufacturer)}"></div>
    <div><label>Thickness, mm *</label><input id="md_thick" type="number" step="0.1" min="${GLASS_MIN_MM}" max="${GLASS_MAX_MM}" value="${r.thicknessMm==null?'':r.thicknessMm}"></div>
-   <div><label>Actual thickness, mm</label><input id="md_actual" type="number" step="0.01" value="${r.actualThicknessMm==null?'':r.actualThicknessMm}"><div class="hint">A measurement, not a guarantee: tolerances spread the value and the supplier gives no exact number.</div></div>
+   <div><label>Actual thickness, mm</label><input id="md_actual" type="number" step="0.01" value="${r.actualThicknessMm==null?'':r.actualThicknessMm}"><div class="hint">Measured, not exact.</div></div>
    <div><label>Substrate</label><select id="md_substrate">${mdVocabOptions('substrate',r.substrate)}</select></div>
    <div><label>Coverage</label><select id="md_coating">${mdVocabOptions('coatingFamily',r.coatingFamily)}</select></div>
-   <div><label>Deposition</label><select id="md_deposition"><option value="">not set</option>${mdVocabOptions('deposition',r.deposition)}</select><div class="hint">Pyrolytic coatings are durable, sputtered ones are soft — that is where the surface rule comes from.</div></div>
-   <div><label>Tempering</label><select id="md_temper">${mdVocabOptions('temperMode',r.temperMode)}</select><div class="hint">“Temper required” means never ship it unfired: the colour only reaches its final shade after the furnace. “No tempering” means the furnace destroys the product.</div></div>
+   <div><label>Deposition</label><select id="md_deposition"><option value="">not set</option>${mdVocabOptions('deposition',r.deposition)}</select><div class="hint">Sputtered is soft.</div></div>
+   <div><label>Tempering</label><select id="md_temper">${mdVocabOptions('temperMode',r.temperMode)}</select><div class="hint">Furnace rule.</div></div>
    <div><label>Surface rule</label><select id="md_exposure">${mdVocabOptions('exposureRule',r.exposureRule)}</select></div>
-   <div><label>Allowed surfaces</label><input id="md_surfaces" value="${esc(r.allowedSurfaces.join(','))}" placeholder="2,3"><div class="hint">Numbers separated by commas. Empty means any surface.</div></div>
+   <div><label>Allowed surfaces</label><input id="md_surfaces" value="${esc(r.allowedSurfaces.join(','))}" placeholder="2,3"><div class="hint">Comma list; empty — any.</div></div>
    <div><label>Stocking unit</label><select id="md_stockunit">${mdUnitOptions(r.stockingUnit)}</select></div>
    <div><label>Sales unit</label><select id="md_salesunit">${mdUnitOptions(r.salesUnit)}</select></div>
    ${mdSaleRulesFields(r)}
-   <div><label>Base edgework</label><select id="md_baseedge"><option value="" ${!r.baseEdgework?'selected':''}>Auto by thickness · ${esc(glassBaseEdgeworkLabel(glassAutoBaseEdgework(r.thicknessMm)))}</option><option value="arris" ${r.baseEdgework==='arris'?'selected':''}>Rough Arris</option><option value="polish" ${r.baseEdgework==='polish'?'selected':''}>Flat Polish</option></select><div class="hint">Arris up to 8 mm, polish from 10 mm. Pick by hand for exceptions — 5/6 mm mirrors, for example, get polish.</div></div>
-   <div><label>Legacy code</label><input id="md_legacy" value="${esc(r.legacyCode)}"><div class="hint">The code of the same item in Spil — old orders are matched by it.</div></div>
+   <div><label>Base edgework</label><select id="md_baseedge"><option value="" ${!r.baseEdgework?'selected':''}>Auto by thickness · ${esc(glassBaseEdgeworkLabel(glassAutoBaseEdgework(r.thicknessMm)))}</option><option value="arris" ${r.baseEdgework==='arris'?'selected':''}>Rough Arris</option><option value="polish" ${r.baseEdgework==='polish'?'selected':''}>Flat Polish</option></select><div class="hint">Default edge.</div></div>
+   <div><label>Legacy code</label><input id="md_legacy" value="${esc(r.legacyCode)}"><div class="hint">Code in Spil.</div></div>
   </div>
   <div class="row" style="margin-top:12px">
    <label class="chk"><input type="checkbox" id="md_stocked" ${r.stocked?'checked':''}> Kept in stock</label>
@@ -440,7 +440,7 @@ function viewMdSupply(){
  if(mdSheetEdit!==null)return mdSheetForm();
  const infos=mdSupplyInfos(),rows=salesListRows(infos),cols=salesListColumns(),orphans=glassOrphanSheets().length;
  const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
- return `<div class="md-supply-head"><span class="mut">One row — one glass at one supply point in one sheet size.</span><span class="sp"></span><button class="pri" onclick="mdSheetNew()">+ New supply row</button></div>
+ return `<div class="md-supply-head"><span class="mut">Glass · supplier · sheet size.</span><span class="sp"></span><button class="pri" onclick="mdSheetNew()">+ New supply row</button></div>
   ${orphans?`<div class="note">Supply rows without a product: <b>${orphans}</b> — give them a product back.</div>`:''}
   ${salesListFilterChips()}
   <div class="sales-table-wrap"><table class="sl-table md-supply-table"><thead><tr><th><span class="sl-header-tools">${settings}</span></th>${cols.map(mdSupplyHeader).join('')}<th></th></tr></thead>
@@ -509,7 +509,7 @@ function mdSheetForm(){
    <div><label>Freight, %</label><input id="md_sheetFreight" type="number" step="0.1" min="0" value="${r.freightPct==null?'':r.freightPct}"></div>
    <div><label>Lead time, days</label><input id="md_sheetLead" type="number" step="1" min="0" value="${r.leadTimeDays==null?'':r.leadTimeDays}"></div>
    <div class="md-sheet-wide"><label>Note</label><input id="md_sheetNote" value="${esc(r.note)}"></div>
-  </div><div class="mut md-sheet-tiny">Purchase side only — the sale price lives in the Glass catalogue.</div></div>
+  </div><div class="mut md-sheet-tiny">Purchase prices.</div></div>
  </div>
   <div class="err" id="e_mdSheet"></div>
   <div class="row"><button class="pri" onclick="mdSheetSave()">Save</button><button onclick="mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',q:''};render()">Cancel</button></div></div>`;
@@ -570,7 +570,7 @@ function mdSurchargeTable(){
   .concat((DB.fritProduct||[]).map(x=>({x:x,kind:'fritProduct',group:'Frit'})))
   .concat((DB.spandrelProduct||[]).map(x=>({x:x,kind:'spandrelProduct',group:'Spandrel'})));
  if(!rows.length)return '';
- return `<div class="sub" style="margin-top:22px">Surcharges are added on top of the glass price, per sq ft. Frit and spandrel keep the glass they are applied to — painting a lite is cheaper than buying a different one.</div>
+ return `<div class="sub" style="margin-top:22px">Added per sq ft of glass.</div>
   <div class="customer-table-wrap"><table><thead><tr><th>Product</th><th>Kind</th><th>Surcharge, sq ft</th><th></th></tr></thead>
   <tbody>${rows.map(r=>`<tr>
    <td><b>${raw(r.x.name)}</b><div class="mut mono">${raw(r.x.code||r.x.id)}</div></td>
@@ -601,7 +601,7 @@ function viewMdSpacer(){
  });
  const live=all.filter(x=>x.active!==false),n=f=>live.filter(f).length;
  const warn=[['No price',n(x=>x.salePrice==null)],['No weight',n(x=>x.weightG==null)],['Not measured',n(x=>x.weightG!=null&&!x.weightMeasured)],['No recipe',n(x=>!surroundRecipeById(x.recipeId))]];
- return `<div class="sub">Each spacer is its own card: price and sales unit, weight, and the surround recipe it is built with. Nominal size picks the spacer; actual thickness feeds the unit thickness.</div>
+ return `<div class="sub">Price, weight and recipe per spacer.</div>
   <div class="row" data-spacer-health>${warn.map(w=>`<span class="pill ${w[1]?'warn':'ok'}">${esc(w[0])} ${w[1]}</span>`).join('')}</div>
   <div class="customer-table-wrap"><table><thead><tr><th>System</th><th>Nominal</th><th>Actual, mm</th><th>Price</th><th>Weight</th><th>Recipe</th><th>Availability</th><th></th></tr></thead>
   <tbody>${all.map(mdSpacerRow).join('')||'<tr><td colspan="8" class="empty">no spacers</td></tr>'}</tbody></table></div>
@@ -652,8 +652,8 @@ function mdSpacerForm(){
   </div>
   <h4>Sale</h4>
   <div class="grid">
-   <div><label>Price, CAD</label><input id="md_spPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}" placeholder="—"><div class="hint">Empty — no price, the surround stays unpriced.</div></div>
-   <div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select><div class="hint">sq ft of unit, inch of perimeter, piece per cavity or weight.</div></div>
+   <div><label>Price, CAD</label><input id="md_spPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}" placeholder="—"><div class="hint">Empty — no price.</div></div>
+   <div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select><div class="hint">How it is sold.</div></div>
    ${mdSaleRulesFields(r)}
   </div>
   <h4>Weight & surround</h4>
@@ -711,7 +711,7 @@ function mdWeightDisplay(row){if(row.unit==='kg/ft²')return {value:row.rate==nu
 function mdWeightSearchChange(el){mdWeightFilter=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('mdWeightSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
 function viewMdWeight(){
  const q=mdWeightFilter.trim().toLowerCase(),rows=(DB.materialWeightRates||[]).filter(r=>!q||[r.label,r.key,r.note,r.unit].join(' ').toLowerCase().includes(q));
- return `<div class="sub">Weight norms are shared by every order. Glass uses geometry × thickness × density; the rows below supply measured material consumption. Empty means unknown and keeps Line Weight visibly incomplete.</div>
+ return `<div class="sub">Empty — weight unknown.</div>
   <div class="filters"><input id="mdWeightSearch" value="${esc(mdWeightFilter)}" placeholder="Search component" oninput="mdWeightSearchChange(this)"></div>
   <div class="customer-table-wrap"><table><thead><tr><th>Component</th><th>Norm</th><th>Unit</th><th>Note</th></tr></thead><tbody>${rows.map(r=>{const d=mdWeightDisplay(r);return `<tr><td><b>${raw(r.label||r.key)}</b><div class="mut mono">${raw(r.key)}</div></td><td><input type="number" min="0" step="any" style="width:110px" value="${d.value}" placeholder="unknown" onchange="mdWeightSet('${esc(r.key)}',this.value,${d.factor})"></td><td>${esc(d.unit)}</td><td>${raw(r.note||'')}</td></tr>`;}).join('')||'<tr><td colspan="4" class="empty">No matching norms</td></tr>'}</tbody></table></div>`;
 }
@@ -761,10 +761,10 @@ function viewMdHardware(){
  const shown=mdHwFilter?models.filter(m=>m.kind===mdHwFilter):models;
  const sorted=shown.slice().sort((a,b)=>String(a.kind).localeCompare(String(b.kind))||String(a.series||'').localeCompare(String(b.series||''))||String(a.name).localeCompare(String(b.name)));
  const orphans=models.filter(m=>!hardwareKindRow(m.kind)).length;
- return `<div class="sub">The shop works by name: a person sees “Vienna 180” on the drawing and picks that template. So the catalog keeps the model name, not the seat dimensions — the template knows them. Kinds are created here as well: a pivot, or anything else, needs no code change.</div>
+ return `<div class="sub">Kind → series → models.</div>
   ${mdHwTreeHTML()}
-  ${orphans?`<div class="note">Models without a kind: <b>${orphans}</b>. That happens after a kind is deleted — the model itself is not lost, but it needs its kind back.</div>`:''}
-  <div class="section-title"><h3>Kinds</h3><span class="pill info">the kind code goes into the drawing mark</span></div>
+  ${orphans?`<div class="note">Models without a kind: <b>${orphans}</b>. Give them a kind.</div>`:''}
+  <div class="section-title"><h3>Kinds</h3><span class="pill info">code goes on the drawing</span></div>
   <div class="sales-table-wrap"><table><thead><tr><th>Kind</th><th>Code</th><th>On the drawing</th><th>Models</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
   <tbody>${kinds.map(k=>{
    const used=mdHwKindUsage(k.code);
@@ -777,7 +777,7 @@ function viewMdHardware(){
     <td style="white-space:nowrap"><button class="sm" onclick="mdHwKindEditRow('${esc(k.code)}')">Edit</button><button class="sm dl" onclick="mdHwKindDelete('${esc(k.code)}')">×</button></td></tr>`;
   }).join('')||'<tr><td colspan="7" class="empty">no kinds</td></tr>'}</tbody></table></div>
   <div class="row"><button onclick="mdHwKindNew()">+ New kind</button></div>
-  <div class="section-title"><h3>Models</h3><span class="pill info">the name exactly as it reads on the shop template</span></div>
+  <div class="section-title"><h3>Models</h3><span class="pill info">as on the shop template</span></div>
   <div class="row"><label>Kind</label><select onchange="mdHwFilter=this.value;render()"><option value="">— all —</option>${kinds.map(k=>`<option value="${esc(k.code)}" ${mdHwFilter===k.code?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select></div>
   <div class="sales-table-wrap"><table><thead><tr><th>Model</th><th>Kind</th><th>Series</th><th>On the drawing</th><th>Glass thickness</th><th>Supplier code</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
   <tbody>${sorted.map(m=>{
@@ -800,11 +800,11 @@ function mdHwKindForm(){
  const r=mdHwKindDraft,isNew=mdHwKindEdit==='new';
  return `<div class="form"><h3>${isNew?'New hardware kind':'Edit kind'}</h3>
   <div class="grid">
-   <div><label>Code *</label><input id="md_hwKindCode" value="${esc(r.code)}" placeholder="pivot" ${isNew?'':'readonly class="ro"'}><div class="hint">Latin letters, no spaces. The code goes into the drawing mark and into the pricing key, so it never changes once the kind exists.</div></div>
+   <div><label>Code *</label><input id="md_hwKindCode" value="${esc(r.code)}" placeholder="pivot" ${isNew?'':'readonly class="ro"'}><div class="hint">Latin, no spaces; fixed once set.</div></div>
    <div><label>Name *</label><input id="md_hwKindName" value="${esc(r.name)}" placeholder="Pivot"></div>
-   <div><label>Name (EN) *</label><input id="md_hwKindNameEn" value="${esc(r.nameEn)}" placeholder="Pivot"><div class="hint">Both columns are filled in here: the interface language picks one of them instead of translating the database.</div></div>
-   <div><label>Drawing code</label><input id="md_hwKindShort" value="${esc(r.short)}" placeholder="PVT" maxlength="6"><div class="hint">Short label next to the mark. Empty — taken from the kind code.</div></div>
-   <div><label>Status</label><select id="md_hwKindActive"><option value="1" ${r.active===false?'':'selected'}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select><div class="hint">An inactive kind gets no button in the editor, but old drawings still read.</div></div>
+   <div><label>Name (EN) *</label><input id="md_hwKindNameEn" value="${esc(r.nameEn)}" placeholder="Pivot"><div class="hint">Name in each language.</div></div>
+   <div><label>Drawing code</label><input id="md_hwKindShort" value="${esc(r.short)}" placeholder="PVT" maxlength="6"><div class="hint">Empty — from the code.</div></div>
+   <div><label>Status</label><select id="md_hwKindActive"><option value="1" ${r.active===false?'':'selected'}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select><div class="hint">Inactive — hidden in new drawings.</div></div>
   </div>
   <div style="margin-top:12px"><label>Note</label><input id="md_hwKindNote" value="${esc(r.note||'')}"></div>
   <div class="err" id="e_mdHwKind"></div>
@@ -839,12 +839,12 @@ function mdHwModelForm(){
  return `<div class="form"><h3>${isNew?'New hardware model':'Edit model'}</h3>
   <div class="grid">
    <div><label>Kind *</label><select id="md_hwModelKind">${kinds.map(k=>`<option value="${esc(k.code)}" ${k.code===r.kind?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select></div>
-   <div><label>Name *</label><input id="md_hwModelName" value="${esc(r.name)}" placeholder="Vienna 180"><div class="hint">Exactly the name the shop uses to find its template. Do not tidy it up.</div></div>
-   <div><label>Series</label><input id="md_hwModelSeries" value="${esc(r.series||'')}" placeholder="Vienna"><div class="hint">Only for the order of the list: Vienna 90 · 135 · 180 end up next to each other.</div></div>
-   <div><label>On the drawing</label><input id="md_hwModelShort" value="${esc(r.short||'')}" placeholder="${esc(hwDeriveModelShort(r.name,r.series)||'GEN37')}" maxlength="10"><div class="hint">Short name next to the mark: Geneva 37 does not fit, GEN37 does. Empty — derived from the name.</div></div>
-   <div><label>Glass thickness</label><input id="md_hwModelThickness" value="${esc(r.thickness||'')}" placeholder="3/8″ · 1/2″"><div class="hint">A note for the salesperson. Not used in calculations: a line listing several sizes has nothing to compute.</div></div>
+   <div><label>Name *</label><input id="md_hwModelName" value="${esc(r.name)}" placeholder="Vienna 180"><div class="hint">As on the shop template.</div></div>
+   <div><label>Series</label><input id="md_hwModelSeries" value="${esc(r.series||'')}" placeholder="Vienna"><div class="hint">List order only.</div></div>
+   <div><label>On the drawing</label><input id="md_hwModelShort" value="${esc(r.short||'')}" placeholder="${esc(hwDeriveModelShort(r.name,r.series)||'GEN37')}" maxlength="10"><div class="hint">Empty — from the name.</div></div>
+   <div><label>Glass thickness</label><input id="md_hwModelThickness" value="${esc(r.thickness||'')}" placeholder="3/8″ · 1/2″"><div class="hint">Note, not calculated.</div></div>
    <div><label>Supplier code</label><input id="md_hwModelCode" value="${esc(r.supplierCode||'')}"></div>
-   <div><label>Status</label><select id="md_hwModelActive"><option value="1" ${r.active===false?'':'selected'}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select><div class="hint">An inactive model is not offered in new orders but stays visible in the old ones.</div></div>
+   <div><label>Status</label><select id="md_hwModelActive"><option value="1" ${r.active===false?'':'selected'}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select><div class="hint">Inactive — hidden in new orders.</div></div>
   </div>
   <div style="margin-top:12px"><label>Note</label><input id="md_hwModelNote" value="${esc(r.note||'')}"></div>
   <div class="err" id="e_mdHwModel"></div>
@@ -936,7 +936,7 @@ function mdAllowanceShow(v){
 }
 function viewMdAllowance(){
  const rows=mdAllowanceSorted();
- return `<div class="sub" style="margin-top:6px">Stock removal per side: how much larger the sheet must be so the part comes out to size after edge work. A thickness appearing twice is not a mistake: monolithic glass is measured by the glass itself, laminated by the PLY of the make-up, because at cutting every sheet is a separate panel. Of the matching rows the narrowest wins, so a wide row sets the default and a narrow one is the exception inside it.</div>
+ return `<div class="sub" style="margin-top:6px">Stock removal per side. Narrowest row wins.</div>
   <div class="customer-table-wrap"><table><thead><tr><th>Operation</th><th>Measured by</th><th>From, mm</th><th>To, mm</th><th>Allowance</th><th>Preview</th><th></th></tr></thead>
   <tbody>${rows.map(r=>`<tr>
    <td><select onchange="mdAllowanceSet('${esc(r.id)}','op',this.value)">${SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===r.op?'selected':''}>${esc(o)}</option>`).join('')}</select></td>
@@ -1005,9 +1005,9 @@ function viewMdCollections(){
    <td class="mono"><b>${n}</b></td>
    <td>${n?'<span class="pill ok">filled</span>':'<span class="pill info">empty</span>'}</td></tr>`;
  }).join('');
- return `<div class="sub">Every collection in the system in one list. It answers the question of what the database actually holds — and shows what is still missing.</div>
+ return `<div class="sub">All collections.</div>
   <table><thead><tr><th>Collection</th><th>Data key</th><th>Records</th><th></th></tr></thead><tbody>${rows}</tbody></table>
-  <div class="hint">When the meaning of a reference table changes, the version goes up and factory data replaces the old rows — supply prices entered by hand are left alone. Reference version: <b data-raw>${DB.refVersion}</b></div>`;
+  <div class="hint">Reference version: <b data-raw>${DB.refVersion}</b></div>`;
 }
 
 /* --- Журнал и перенос Master Data (erp/masterdata/md-log) ------------- */
@@ -1029,7 +1029,7 @@ function mdTransferCard(){
   ${p.plan.errors.length?`<div class="hint" data-md-import-errors>${p.plan.errors.slice(0,20).map(esc).join('<br>')}</div>`:''}
   <div class="row" style="gap:8px"><button class="pri" type="button" onclick="mdTransferApply()">Import ${esc(p.name)}</button><button type="button" onclick="mdTransfer=null;render()">Cancel</button></div>`:'';
  return `<div data-md-transfer>
-  <div class="sub">Only Master Data: catalogs, works, norms, stations and settings. Orders, customers and the archive are not touched.</div>
+  <div class="sub">Master Data only; orders untouched.</div>
   <div class="row" style="gap:8px"><button type="button" onclick="mdTransferExport()">Export Master Data</button><button type="button" onclick="document.getElementById('mdTransferFile').click()">Import Master Data</button>
   <input type="file" id="mdTransferFile" accept=".json,application/json" style="display:none" onchange="mdTransferPick(this)"></div>
   ${p&&p.error?`<div class="hint" data-md-import-error>${esc(p.error)}</div>`:''}${p&&p.done?`<div class="hint" data-md-import-done>Imported.</div>`:''}${plan}</div>`;
@@ -1058,8 +1058,8 @@ function mdImportCard(){
  return `<div class="card">
   <div class="section-title"><h3>Load ${which}</h3><span class="pill info">merged by code</span></div>
   <div class="sub">${isGlass
-   ?'The file updates items with the same codes and adds new ones. Columns missing from the file header are left untouched — a file that came back from Excel without five columns will not wipe the optics of the rest of the catalog.'
-   :'A row is identified by product · supply point · sheet size. A row whose code is not in the catalog is rejected: a price with no product would quietly land in the cost.'}</div>
+   ?'Same code — updated; new — added.'
+   :'Unknown codes are rejected.'}</div>
   <div class="row"><button onclick="document.getElementById('mdCsv').click()">Choose file</button>
    <input type="file" id="mdCsv" accept=".csv,.txt" style="display:none" onchange="mdImportCsv(this,'${kind}')"></div>
   ${mdImportReport&&mdImportReport.which===kind?sfReportHTML(mdImportReport.rep):''}</div>`;
@@ -1153,12 +1153,12 @@ function viewMdCatalogues(){
  if(mdCatEdit!==null)return mdCatForm();
  const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour(),rate=mdCatIsRate();
  const cols=rate?6:colour?5:6;
- return `<div class="sub">The owner keeps these catalogues. Rows added here <b>survive system updates</b>: factory content is filled in by id, anything typed by hand is left untouched. A position an order already references is safer to switch off than to delete — otherwise the old order would no longer know what it was.</div>
+ return `<div class="sub">Used rows: switch off, don't delete.</div>
   <div class="row"><b>${esc(def.label)}</b><span class="mut">${esc(def.what)}</span></div>
   <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Station</th><th>Unit</th><th>Price by thickness, mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
   <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">empty</td></tr>`}</tbody></table></div>
   <div class="row"><button class="pri" onclick="mdCatNew()">+ New</button></div>
-  ${rate?'<div class="sub">Each work has its own price table by glass thickness. Switched-off works stay in old orders and bill as <b>Rate required</b>.</div>':''}`;
+  ${rate?'<div class="sub">Price by glass thickness.</div>':''}`;
 }
 function mdCatRowHTML(x){
  const colour=mdCatIsColour();
@@ -1244,20 +1244,20 @@ function mdCatForm(){
  return `<div class="form"><h3>${isNew?'New':'Edit'} · ${esc(def.label)}</h3>
   <div class="grid">
    <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
-   <div><label>Code</label><input id="md_catCode" value="${esc(r.code)}"><div class="hint">The manufacturer's code, as written in their table. It's the same code that goes to the shop.</div></div>
+   <div><label>Code</label><input id="md_catCode" value="${esc(r.code)}"><div class="hint">Manufacturer's code.</div></div>
    ${colour
-    ?`<div><label>Family</label><input id="md_catFamily" list="md_catFamilyList" value="${esc(r.family||'')}"><datalist id="md_catFamilyList">${familyHints.map(f=>`<option value="${esc(f)}">`).join('')}</datalist><div class="hint">Empty — a colour without a family. Type your own name; the list above is only a hint.</div></div>
-      <div><label>Spandrel</label><select id="md_catProduct"><option value="" ${r.productId?'':'selected'}>— any spandrel —</option>${(DB.spandrelProduct||[]).map(p=>`<option value="${esc(p.id)}" ${p.id===r.productId?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="hint">Empty — the colour is available to any spandrel type. Pick one when a product has its own palette.</div></div>`
+    ?`<div><label>Family</label><input id="md_catFamily" list="md_catFamilyList" value="${esc(r.family||'')}"><datalist id="md_catFamilyList">${familyHints.map(f=>`<option value="${esc(f)}">`).join('')}</datalist><div class="hint">Empty — no family.</div></div>
+      <div><label>Spandrel</label><select id="md_catProduct"><option value="" ${r.productId?'':'selected'}>— any spandrel —</option>${(DB.spandrelProduct||[]).map(p=>`<option value="${esc(p.id)}" ${p.id===r.productId?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="hint">Empty — any spandrel.</div></div>`
     :`<div><label>Supplier</label><input id="md_catSupplier" value="${esc(r.supplier||'')}"></div>
-      <div><label>Price, CAD</label><input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}"><div class="hint">Surcharge per ft², if the catalogue uses one — or the sale price, for a stock item. Empty — no price, and the row honestly enters the invoice as Rate required, not a zero.</div></div>
+      <div><label>Price, CAD</label><input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}"><div class="hint">Empty — Rate required.</div></div>
       ${MD_CAT_SALE_UNIT.includes(mdCatKind)?`<div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select></div>${mdSaleRulesFields(r)}`:''}
       ${mdStationViaHTML(mdCatKind)}
       ${MD_CAT_WORK.includes(mdCatKind)?`<div><label>Work</label><select id="md_catWork"><option value="">— no work —</option>${(DB.serviceRate||[]).filter(w=>w&&!w.rule).map(w=>`<option value="${esc(w.id)}" ${w.id===r.workId?'selected':''}>${esc(w.name)}${w.station?' · '+esc(w.station):''}</option>`).join('')}</select><div class="hint">Station in the route</div></div>`:''}
       ${mdCatKind==='interlayerProduct'?mdFilmFields(r):''}
       ${mdCatKind==='gasProduct'?`<div><label>Density, kg/m³</label><input id="md_catDensity" type="number" step="any" min="0" value="${r.densityKgM3==null?'':r.densityKgM3}" placeholder="unknown"><div class="hint">Gas weight = density × cavity volume.</div></div>`:''}
-      ${mdCatKind==='stockItem'?`<div><label>Subcategory</label><input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(s=>`<option value="${esc(s)}">`).join('')}</datalist><div class="hint">Groups stock items in the order-line picker. Type your own — the list above is only a hint; empty becomes "consumable".</div></div>`:''}
+      ${mdCatKind==='stockItem'?`<div><label>Subcategory</label><input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(s=>`<option value="${esc(s)}">`).join('')}</datalist><div class="hint">Group in the order picker.</div></div>`:''}
       <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="md_catOwnLine" ${r.sellsAsOwnLine?'checked':''}> Sells as its own order line</label>
-       <div class="hint">Shows up in the order-line picker next to Single / Double / Triple: no geometry, no route, just this item, a quantity and a price. Turn this on for anything you sell as-is — a stock door, a kit, or your own roll of interlayer film.</div></div>`}
+       <div class="hint">Sold as-is: quantity and price.</div></div>`}
    <div><label>Status</label><select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select></div>
   </div>
   <div class="err" id="e_mdCat"></div>

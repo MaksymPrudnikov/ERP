@@ -110,7 +110,7 @@ function viewSfStations(edit){
    (edit&&typeof sfSheetEdit!=='undefined'&&sfSheetEdit===s.code?`<tr class="sf-sheet-row"><td colspan="10">${carrierSheetEditorHTML(s.code)}</td></tr>`:'');
  }).join('');
  return `${edit&&stEdit!==null?sfStationForm():''}
-  <div class="sub">${edit?'Glass goes through the steps in order. The same step number makes stations parallel — a glass visits only the ones its works need. Each work in <b>Works</b> names its station: that is the route, the sticker and the scan screen.':'Route steps in order. Stations are added, removed and ordered in Master Data → Stations.'}</div>
+  <div class="sub">${edit?'Same step — parallel stations.':'Route steps in order. Stations are added, removed and ordered in Master Data → Stations.'}</div>
   ${edit?'':`<div class="row" style="margin:0 0 10px"><button class="sm" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`}
   <div class="sales-table-wrap"><table><thead><tr><th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th title="What glass goes on after this station">Puts on</th><th title="Columns of the printed dolly or skid sheet">Dolly / skid sheet</th><th>Works</th><th>Note</th><th></th></tr></thead>
   <tbody>${rows||'<tr><td colspan="10" class="empty">empty</td></tr>'}</tbody></table></div>
@@ -145,9 +145,9 @@ function sfStationForm(){
    <div><label>Size W, inches</label><input id="sf_maxW" type="number" step="0.1" min="0" value="${r.maxW==null?'':r.maxW}"></div>
    <div><label>Size L, inches</label><input id="sf_maxL" type="number" step="0.1" min="0" value="${r.maxL==null?'':r.maxL}"></div>
    <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="sf_measured" ${r.sizeMeasured?'checked':''}> Size measured in the shop</label>
-    <div class="hint">Without the checkbox the value counts as a seed and carries the note “not verified in the shop”.</div></div>
+    <div class="hint">Unchecked — “not verified”.</div></div>
    <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="sf_always" ${r.always?'checked':''}> Always in the route</label>
-    <div class="hint">"Always" means the station is in every part's route: cutting, shipping ready, shipping.</div></div>
+    <div class="hint">"Always" — in every route.</div></div>
   </div>
   <div style="margin-top:12px"><label>Note</label><input id="sf_note" value="${esc(r.note||'')}"></div>
   <div class="err" id="e_sfStation"></div>
