@@ -3489,7 +3489,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='079c1b390293';
+var ERP_BUILD='a3bb431c2ee3';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12719,11 +12719,19 @@ function salesPriceValue(cat,over){return over!=null?over:cat;}
 function salesNonNegOrNull(v){const n=+v;return v===``||v==null||!isFinite(n)||n<0?null:Math.round(n*100)/100;}
 function salesActiveSpacerVariants(){return (DB.spacerVariant||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
 function salesCavitySpacer(c){return mdById('spacerVariant',c&&c.spacerVariantId)||salesActiveSpacerVariants()[0]||null;}
+/* Рамка системы для камеры: той же ширины, а если такой у системы нет —
+   ближайшей. В Spacer видны все системы, Width подстраивается под выбранную
+   (владелец, 23.10.2026). */
+function salesSpacerForSystem(system,size){
+ const rows=salesActiveSpacerVariants().filter(x=>x.system===system),v=x=>{const q=spacerSizeParts(x);return q?q.value:0;};
+ return rows.find(x=>x.size===size)||rows.slice().sort((a,b)=>Math.abs(v(a.size)-v(size))-Math.abs(v(b.size)-v(size)))[0]||null;
+}
 /* Размеры в выпадающем списке — по возрастанию, а не в порядке заведения:
    шестнадцать дробей вперемешку читать невозможно. Сортируем по значению
-   дроби, потому что как текст 1/2 встаёт раньше 3/16. */
-function salesSpacerWidths(){
- const seen=[...new Set(salesActiveSpacerVariants().map(x=>x.size).filter(Boolean))];
+   дроби, потому что как текст 1/2 встаёт раньше 3/16. С системой — только
+   её ширины: несуществующую не предлагаем (владелец, 23.10.2026). */
+function salesSpacerWidths(system){
+ const seen=[...new Set(salesActiveSpacerVariants().filter(x=>!system||x.system===system).map(x=>x.size).filter(Boolean))];
  return seen.sort((a,b)=>{
   const qa=spacerSizeParts(a),qb=spacerSizeParts(b);
   if(qa&&qb)return qa.value-qb.value;
@@ -12801,7 +12809,7 @@ function normalizeSalesPane(p,index){
 /* PIB — обязательный первичный герметик стеклопакета. Он остаётся в данных и
    спецификации, но не является выбором оператора в Cavity. Нормализация также
    исправляет старые черновики, где первичный герметик могли сменить вручную. */
-function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),priceOverride:salesNonNegOrNull(c.priceOverride),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId,...(c.contour==='a'||c.contour==='b'?{contour:c.contour}:{})};}
+function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),priceOverride:salesNonNegOrNull(c.priceOverride),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId};}
 function normalizeOrderMakeup(m,index){
  m=m&&typeof m==='object'?m:{};const unitType=SALES_UNIT_TYPES.includes(m.unitType)?m.unitType:'double',count=salesPaneCount(unitType);
  const panes=(Array.isArray(m.panes)?m.panes:[]).slice(0,count);while(panes.length<count)panes.push(salesDefaultPane(panes.length));
@@ -19963,17 +19971,17 @@ function salesLineWeight(line,order,productionPlan){
   }else{glass(p,label,g);surface(p,label,g);}
  });
  /* Обвязка по рецепту рамки: рамка идёт по контуру камеры. У ступенчатого
-    пакета контуры лайтов разные — контур выбирают в камере (Contour). */
+    пакета — всегда по меньшему лайту, иначе юнит не загерметизировать
+    (владелец, 23.10.2026); размеры лайтов — из Shape designer. */
  (m.cavities||[]).forEach((c,i)=>{
   const a=geometry(i),b=geometry(i+1),same=plan&&plan.valid&&plan.lites[i]&&plan.lites[i+1]&&JSON.stringify(plan.lites[i].finishedPoints)===JSON.stringify(plan.lites[i+1].finishedPoints);
-  const pick=same?a:c.contour==='a'?a:c.contour==='b'?b:null,suffix=' · Cavity '+(i+1);
+  const pick=same?a:a.area!=null&&b.area!=null?(b.area<a.area?b:a):null,suffix=' · Cavity '+(i+1);
   const geo=pick&&pick.area!=null?{areaFt2:pick.area,perimeterM:pick.perimeter}:null;
   const got=surroundCavityParts(c,geo,order);
   if(!mdById('spacerVariant',c.spacerVariantId))add('Spacer'+suffix,null,'Spacer not found');
   else if(!got.recipe)add('Surround'+suffix,null,'No recipe in the spacer card');
   const basis=geo?'perimeter '+geo.perimeterM.toFixed(2)+' m · area '+geo.areaFt2.toFixed(2)+' ft²':'';
   got.parts.forEach(x=>rows.push({label:x.label+suffix,kg:x.kg,usedKg:x.usedKg,wastePct:x.wastePct,basisText:basis,table:x.table,itemId:x.item?x.item.id:'',perimeterM:geo?geo.perimeterM:null,note:x.note+(x.wastePct?' · used with '+x.wastePct+'% waste: '+(x.usedKg==null?'—':x.usedKg.toFixed(3)+' kg'):'')}));
-  if(!same&&!geo)add('Cavity '+(i+1)+' · stepped / differing contours',null,'Choose the spacer contour in the cavity');
  });
  const muntin=shape&&shape.muntin;
  if(muntin&&muntin.enabled&&(m.cavities||[]).length){
@@ -21413,9 +21421,9 @@ function salesLaminatedInterlayers(p,index){
 function salesLaminatedFields(p,index){return `<div class="mu-lam-stack">${salesLaminatedPlyFields(p,index,'outer','OUTER PLY')}${salesLaminatedInterlayers(p,index)}${salesLaminatedPlyFields(p,index,'inner','INNER PLY')}</div>`;}
 function salesLiteSection(p,index,total){const side=index===0?'OUTSIDE':index===total-1?'INSIDE':'MIDDLE',surfaces=salesPaneSurfaces(index),key='lite-'+index,isOpen=soExpandAll||soOpenSectionKey===key;return `<details class="mu-section mu-lite" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>LITE ${index+1} · ${side}</b><span class="mu-surface-tags">#${surfaces[0]} &nbsp; #${surfaces[1]}</span><span class="mu-summary">${esc(salesPaneProductSummary(p,index))}</span>${salesPanePriceBadge(p)}</summary><div class="mu-section-body"><div class="mu-lite-top">${salesLiteCategoryTabs(p,index)}</div>${p.category==='vision'?salesVisionFieldsSafe(p,index):p.category==='spandrel'?salesSpandrelFields(p,index):salesLaminatedFields(p,index)}</div></details>`;}
 function salesCavitySection(c,index){
- const key='cavity-'+index,isOpen=soExpandAll||soOpenSectionKey===key,sp=salesCavitySpacer(c),size=sp?sp.size:'',widths=salesSpacerWidths();
- const spacers=salesActiveSpacerVariants().filter(x=>!size||x.size===size);
- return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span>${salesCavityPriceBadge(c)}</summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${spacers.map(x=>salesOption(x.id,salesSpacerSystemLabel(x),c.spacerVariantId,true)).join('')}</select></div><div><label>Width</label><select onchange="salesCavitySetWidth(${index},this.value)">${widths.map(x=>salesOption(x,x+'″',size,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Sealant</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSecondarySealantOptions(c.secondarySealantId)}</select></div><div><label>Stepped contour</label><select onchange="salesCavitySet(${index},'contour',this.value)">${salesOption('','Same lites',c.contour||'',true)}${salesOption('a','Lite '+(index+1),c.contour||'',true)}${salesOption('b','Lite '+(index+2),c.contour||'',true)}</select></div>${salesCavityPriceField(c,index)}</div></div></details>`;
+ const key='cavity-'+index,isOpen=soExpandAll||soOpenSectionKey===key,sp=salesCavitySpacer(c),size=sp?sp.size:'',widths=salesSpacerWidths(sp&&sp.system);
+ const spacers=[...new Set(salesActiveSpacerVariants().map(x=>x.system))].map(x=>salesSpacerForSystem(x,size));
+ return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span>${salesCavityPriceBadge(c)}</summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${spacers.map(x=>salesOption(x.id,salesSpacerSystemLabel(x),sp&&x.system===sp.system?x.id:'',true)).join('')}</select></div><div><label>Width</label><select onchange="salesCavitySetWidth(${index},this.value)">${widths.map(x=>salesOption(x,x+'″',size,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Sealant</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSecondarySealantOptions(c.secondarySealantId)}</select></div>${salesCavityPriceField(c,index)}</div></div></details>`;
 }
 function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesToggleExpandAll()" title="${esc('Keep every section expanded')}">${soExpandAll?`Collapse all`:`Expand all`}</button><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesMakeupLocked(soDraft,m.id)?'<div class="mu-lock-note">🔒 Used by batched lines · Duplicate to change</div><div class="mu-locked" inert>':'<div>'}${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div></div>`;}
 
