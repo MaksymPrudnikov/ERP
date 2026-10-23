@@ -27,7 +27,6 @@ const MD_TABS=[
  {k:'prices',    label:'Prices'},
  {k:'stations',  label:'Stations'},
  {k:'hardware',  label:'Hardware'},
- {k:'weight',    label:'Weight norms'},
  {k:'company',   label:'Company'},
  {k:'stickers',  label:'Stickers'},
  {k:'cutting',   label:'Cutting'},
@@ -36,6 +35,17 @@ const MD_TABS=[
  {k:'ncr',       label:'NCR'},
  {k:'setup',     label:'Setup'},
  {k:'overview',  label:'Data overview'}
+];
+/* Шесть разделов вместо вкладок в ряд (план Master Data, «Структура»;
+   владелец 23.10.2026): раздел — по вопросу, с которым пришли. Вкладка
+   внутри раздела — прежний mdTab; Catalog — дерево (view/md-catalog). */
+const MD_SECTIONS=[
+ {k:'catalog',   label:'Catalog',         tabs:['materials','works','hardware']},
+ {k:'prices',    label:'Prices',          tabs:['prices']},
+ {k:'production',label:'Production',      tabs:['stations','cutting','carriers','ncr']},
+ {k:'shipping',  label:'Shipping',        tabs:['trucks']},
+ {k:'print',     label:'Company & print', tabs:['company','stickers']},
+ {k:'setup',     label:'Setup',           tabs:['setup','overview']}
 ];
 /* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
    свои фильтры, импорт CSV и точки поставки), остальные категории рисуются
@@ -71,7 +81,6 @@ let mdEdit=null,mdDraft=null;
 let mdSheetEdit=null,mdSheetDraft=null;
 let mdSpacerEdit=null,mdSpacerDraft=null;
 let mdHwKindEdit=null,mdHwKindDraft=null,mdHwModelEdit=null,mdHwModelDraft=null,mdHwFilter='';
-let mdWeightFilter='';
 let mdCatKind='spandrelColour',mdCatEdit=null,mdCatDraft=null;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!(mdDraft||mdSheetDraft||mdSpacerDraft||mdHwKindDraft||mdHwModelDraft||mdCatDraft));
@@ -81,6 +90,7 @@ let mdImportReport=null;
 
 function viewMasterData(){
  if(!MD_TABS.some(t=>t.k===mdTab))mdTab='materials';
+ const sec=MD_SECTIONS.find(s=>s.tabs.includes(mdTab))||MD_SECTIONS[0];
  const total=DB.glassProduct.length,stocked=DB.glassProduct.filter(p=>p.stocked).length;
  const inactive=DB.glassProduct.filter(p=>p.active===false).length;
  const sheets=DB.glassSheet.length,orphans=glassOrphanSheets().length;
@@ -92,8 +102,9 @@ function viewMasterData(){
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico(orphans||inactive?'alert':'check')}</div></div><div class="kpi-num">${orphans}</div><div class="kpi-label">supply rows without a product</div></div>
   </div>
   <div class="card">
-   <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
+   <div class="tabs" data-md-sections>${MD_SECTIONS.map(s=>`<button class="${s.tabs.includes(mdTab)?'on':''}" data-md-section="${s.k}" onclick="mdSetTab('${s.tabs[0]}')">${s.label}</button>`).join('')}</div>
+   ${sec.k!=='catalog'&&sec.tabs.length>1?`<div class="md-mat-subs" data-md-subtabs>${sec.tabs.map(k=>`<button class="sm ${mdTab===k?'on':''}" onclick="mdSetTab('${k}')">${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div>`:''}
+   ${sec.k==='catalog'?viewMdCatalog():({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
@@ -149,6 +160,8 @@ function viewMdSetup(){
   <h4>Cards</h4><p class="mut">The first card is the default.</p>
   <div class="sales-table-wrap"><table class="ncr-table" data-setup-cards><thead><tr><th>Name on order</th><th>Rate</th><th></th></tr></thead><tbody>${cards||'<tr><td colspan="3" class="mut">No cards</td></tr>'}</tbody></table></div>
   <button type="button" data-setup-card-add onclick="orderSetupCardAdd()">+ Card</button>
+  <h3>Weights</h3><p class="mut">Unit weight on orders and stickers.</p>
+  <div class="grid">${(()=>{const g=(DB.materialWeightRates||[]).find(r=>r.key==='glass');return `<div><label>Glass density, kg/m³</label><input type="number" min="0" step="any" data-setup-density value="${g&&g.rate!=null?g.rate:''}" placeholder="unknown" onchange="mdWeightSet('glass',this.value,1)"></div>`;})()}</div>
   <h3>Frit</h3><p class="mut">Prefilled on a new frit lite.</p>
   <div class="grid">
    <div><label>Dot, mm</label><input type="number" min="0.1" step="0.1" data-setup="fritDotMm" value="${s.fritDotMm}" onchange="orderSetupSet('fritDotMm',this.value)"></div>
@@ -292,7 +305,7 @@ function mdGlassSetPrice(id,field,v){
 function mdGlassRow(p){
  const sheets=glassSheetsFor(p.code).length;
  const temper=p.temperMode==='temper_required'?'bad':p.temperMode==='annealed_only'?'warn':'info';
- return `<tr class="${p.active===false?'md-row-off':''}"><td class="mono"><b>${raw(p.code)}</b>${p.active===false?' <span class="pill warn">discontinued</span>':''}</td>
+ return `<tr class="${p.active===false?'md-row-off':''}" data-md-row="glassProduct:${esc(p.id)}"><td class="mono"><b>${raw(p.code)}</b>${p.active===false?' <span class="pill warn">discontinued</span>':''}</td>
   <td><b>${raw(p.name)}</b><div class="mut">${raw(p.manufacturer)}</div></td>
   <td class="mono">${p.thicknessMm==null?'—':p.thicknessMm+' mm'}</td>
   <td>${esc(glassLabel('substrate',p.substrate))}</td>
@@ -631,7 +644,7 @@ function viewMdSpacer(){
 }
 function mdSpacerRow(sp){
  const nominal=spacerNominalMm(sp.size),fact=mdNum(sp.thicknessMm),rec=surroundRecipeById(sp.recipeId),sys=spacerSystemByName(sp.system);
- return `<tr data-spacer="${esc(sp.id)}">
+ return `<tr data-spacer="${esc(sp.id)}" data-md-row="spacerVariant:${esc(sp.id)}">
   <td><b>${raw(sp.system)}</b>${sys?'':' <span class="pill warn">no system</span>'}<div class="mut mono">${raw(sp.id)}${sys&&sys.family?' · '+esc(sys.family):''}</div></td>
   <td class="mono"><b>${raw(sp.size)}″</b><div class="mut">${nominal==null?'—':esc(nominal.toFixed(1))} mm</div></td>
   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:88px" value="${fact==null?'':fact}" placeholder="${nominal==null?'':esc(nominal.toFixed(1))}" onchange="mdSpacerSetThickness('${esc(sp.id)}',this.value)"></td>
@@ -749,13 +762,6 @@ function mdSpacerDelete(id){
    shown in grams because that is how they are measured, while calculation
    stores kg in one canonical unit. */
 function mdWeightDisplay(row){if(row.unit==='kg/ft²')return {value:row.rate==null?'':row.rate*1000,unit:'g/ft²',factor:1000};if(row.unit==='kg/unit')return {value:row.rate==null?'':row.rate*1000,unit:'g/unit',factor:1000};return {value:row.rate==null?'':row.rate,unit:row.unit||'kg/unit',factor:1};}
-function mdWeightSearchChange(el){mdWeightFilter=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('mdWeightSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
-function viewMdWeight(){
- const q=mdWeightFilter.trim().toLowerCase(),rows=(DB.materialWeightRates||[]).filter(r=>!q||[r.label,r.key,r.note,r.unit].join(' ').toLowerCase().includes(q));
- return `<div class="sub">Empty — weight unknown.</div>
-  <div class="filters"><input id="mdWeightSearch" value="${esc(mdWeightFilter)}" placeholder="Search component" oninput="mdWeightSearchChange(this)"></div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Component</th><th>Norm</th><th>Unit</th><th>Note</th></tr></thead><tbody>${rows.map(r=>{const d=mdWeightDisplay(r);return `<tr><td><b>${raw(r.label||r.key)}</b><div class="mut mono">${raw(r.key)}</div></td><td><input type="number" min="0" step="any" style="width:110px" value="${d.value}" placeholder="unknown" onchange="mdWeightSet('${esc(r.key)}',this.value,${d.factor})"></td><td>${esc(d.unit)}</td><td>${raw(r.note||'')}</td></tr>`;}).join('')||'<tr><td colspan="4" class="empty">No matching norms</td></tr>'}</tbody></table></div>`;
-}
 function mdWeightSet(key,value,factor){
  const row=(DB.materialWeightRates||[]).find(r=>r.key===key);if(!row)return;
  const typed=String(value==null?'':value).trim();
@@ -1203,7 +1209,7 @@ function viewMdCatalogues(){
 }
 function mdCatRowHTML(x){
  const colour=mdCatIsColour();
- if(mdCatIsRate()){const warn=mdWorkWarnings(x);return `<tr data-md-work="${esc(x.id)}">
+ if(mdCatIsRate()){const warn=mdWorkWarnings(x);return `<tr data-md-work="${esc(x.id)}" data-md-row="serviceRate:${esc(x.id)}">
   <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}</div>${x.note?`<div class="mut">${raw(x.note)}</div>`:''}</td>
   <td class="mono">${x.station?esc(x.station):'<span class="mut">—</span>'}${x.appliesBy?`<div class="mut">Ø ${esc(mdWorkRangeText(x))}</div>`:''}</td>
   <td class="mono">${esc(x.unit)}</td>
@@ -1211,7 +1217,7 @@ function mdCatRowHTML(x){
   <td><span class="pill ${x.active===false?'warn':'ok'}">${x.active===false?'no rate':'active'}</span></td>
   <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button></td></tr>`;}
  const scope=colour?(x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'any'):'';
- return `<tr>
+ return `<tr data-md-row="${esc(mdCatKind)}:${esc(x.id)}">
   <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}${x.subcategory?' · '+esc(x.subcategory):''}</div>${x.sellsAsOwnLine?'<span class="pill info">own order line</span>':''}${MD_CAT_WORK.includes(mdCatKind)?`<div class="mut">Work: ${x.workId?esc((salesServiceRateRow(x.workId)||{}).name||x.workId):'—'}</div>`:''}</td>
   <td class="mono">${x.code?raw(x.code):'<span class="mut">—</span>'}</td>
   ${colour?`<td>${x.family?raw(x.family):'<span class="mut">—</span>'}</td><td class="mut">${raw(scope)}</td>`
@@ -1301,11 +1307,13 @@ function mdCatForm(){
  f.unit=MD_CAT_SALE_UNIT.includes(mdCatKind)?mdField('Sales unit',`<select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select>`):'';
  f.ownLine=`<div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="md_catOwnLine" ${r.sellsAsOwnLine?'checked':''}> Sells as its own order line</label><div class="hint">Sold as-is: quantity and price.</div></div>`;
  f.work=MD_CAT_WORK.includes(mdCatKind)?mdField('Work',`<select id="md_catWork"><option value="">— no work —</option>${(DB.serviceRate||[]).filter(w=>w&&!w.rule).map(w=>`<option value="${esc(w.id)}" ${w.id===r.workId?'selected':''}>${esc(w.name)}${w.station?' · '+esc(w.station):''}</option>`).join('')}</select>`,'Station in the route'):'';
- /* Плёнка — большая карточка: вкладки как у рамки. */
+ /* Плёнка — большая карточка: вкладки как у рамки. Плотность — норма
+    film:<id> (раньше вкладка Weight norms). */
+ const filmRate=(DB.materialWeightRates||[]).find(x=>x.key==='film:'+r.id),filmDensity=filmRate?filmRate.rate:null;
  if(mdCatKind==='interlayerProduct')return card([
   {k:'general',label:'General',html:`<div class="grid">${f.name}${f.code}${mdStationViaHTML(mdCatKind)}${f.status}${f.ownLine}</div>`},
   {k:'units',label:'Units',html:`<div class="grid">${f.unit}</div>`},
-  {k:'measure',label:'Measurements',html:`<div class="grid">${mdFilmFields(r)}</div><h4>Size limits</h4><div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`,missing:!(r.plyMm>0)},
+  {k:'measure',label:'Measurements',html:`<div class="grid">${mdFilmFields(r)}${mdField('Density, kg/m³',`<input id="md_filmDensity" type="number" step="any" min="0" value="${filmDensity==null?'':filmDensity}" placeholder="unknown">`,'Film weight.')}</div><h4>Size limits</h4><div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`,missing:!(r.plyMm>0)||filmDensity==null},
   {k:'purchase',label:'Purchase',html:`<div class="grid">${f.supplier}</div>${mdFilmSupplyHTML(r)}`,missing:!isNew&&!(r.supply||[]).length},
   {k:'prices',label:'Prices',html:`<div class="grid">${f.price}${mdSaleRulesFields(r,['minCharge'])}</div>${isNew?'':mdPriceListsHTML('item:interlayerProduct:'+r.id)}`,missing:r.salePrice==null}]);
  f.density=mdCatKind==='gasProduct'?mdField('Density, kg/m³',`<input id="md_catDensity" type="number" step="any" min="0" value="${r.densityKgM3==null?'':r.densityKgM3}" placeholder="unknown">`,'Gas weight = density × cavity volume.'):'';
@@ -1411,7 +1419,7 @@ function mdCatSave(){
  const code=mdVal('md_catCode');
  const id=mdCatEdit==='new'?mdCatIdFrom(def.prefix,code,name,rows):mdCatDraft.id;
  const active=mdVal('md_catActive')!=='0';
- let next;
+ let next,filmD=null;
  if(colour){
   next={id:id,name:name,code:code,family:mdVal('md_catFamily'),productId:mdVal('md_catProduct'),active:active};
  }else{
@@ -1423,6 +1431,8 @@ function mdCatSave(){
   const ownLineEl=document.getElementById('md_catOwnLine'),subcatEl=document.getElementById('md_catSubcategory');
   const film=mdCatKind==='interlayerProduct'?mdFilmRead():null;
   if(film&&film.error)return fail(e,film.error);
+  if(film)filmD=mdVal('md_filmDensity');
+  if(film&&filmD!==''&&!(+filmD>=0))return fail(e,'Density must be a non-negative number or empty');
   const density=mdVal('md_catDensity');
   if(mdCatKind==='gasProduct'&&density!==''&&(!isFinite(+density)||+density<0))return fail(e,'Density must be a non-negative number or empty');
   next=Object.assign({},prev,MD_CAT_SALE_UNIT.includes(mdCatKind)?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},mdCatKind==='gasProduct'?{densityKgM3:density===''?null:+density}:{},film||{},MD_CAT_WORK.includes(mdCatKind)?{workId:mdVal('md_catWork')}:{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
@@ -1436,6 +1446,8 @@ function mdCatSave(){
   if(at<0)return fail(e,'Row not found');
   DB[mdCatKind][at]=next;
  }
+ if(filmD!=null){const key='film:'+id,row=(DB.materialWeightRates||[]).find(x=>x.key===key),rate=filmD===''?null:+filmD;
+  if(row)row.rate=rate;else if(rate!=null)DB.materialWeightRates.push({key,label:'Interlayer density · '+name,rate,unit:'kg/m³',note:''});}
  mdCatEdit=null;mdCatDraft=null;normalizeMasterData();touch();render();
 }
 /* Ссылку ищем грубо — по идентификатору в тексте сохранённого заказа. Точный
