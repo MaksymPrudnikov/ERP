@@ -153,9 +153,12 @@ const STORAGE_UNSAVED_TABLES=new Set(['shapeDef']);
    (storageSweepLater). Журналы заказа и Master Data — новые строки всегда. */
 const STORAGE_SCOPE_ALWAYS={shapeDef:true,orderEvent:[],masterDataEvent:[]};
 let storageScope=null,storageSweepTimer=null;
+/* Фигуры правят на месте только в открытом заказе (soDraft); без него —
+   только новые, удалённые и сдвинутые: скан не сравнивает каждую фигуру
+   базы (задание «База», скан подряд). */
 function storageScopeMap(scope){
- const m=new Map();
- [STORAGE_SCOPE_ALWAYS,scope].forEach(s=>Object.keys(s).forEach(k=>{
+ const m=new Map(),always=typeof soDraft!=='undefined'&&soDraft?STORAGE_SCOPE_ALWAYS:Object.assign({},STORAGE_SCOPE_ALWAYS,{shapeDef:[]});
+ [always,scope].forEach(s=>Object.keys(s).forEach(k=>{
   const v=s[k],had=m.get(k);if(v===true||had===null){m.set(k,null);return;}
   const set=had||new Set();[...v].forEach(id=>{if(id!=null&&id!=='')set.add(String(id));});m.set(k,set);
  }));
@@ -184,7 +187,9 @@ function storageCommand(fn,scope){
     Не записаны бывают только фигуры открытого заказа (DB.shapeDef меняется
     до Update) — второе сравнение всей базы на каждом действии стоило
     столько же, сколько первое (задание «База», П5). */
- let before;try{before=storageDiff(DB,STORAGE_UNSAVED_TABLES);}catch(e){before=[];}
+ /* Без открытого заказа фигуры на месте не правят — только новые и
+    удалённые, без JSON каждой фигуры (задание «База», скан подряд). */
+ let before;try{before=storageDiff(DB,typeof soDraft!=='undefined'&&soDraft?STORAGE_UNSAVED_TABLES:new Map([...STORAGE_UNSAVED_TABLES].map(k=>[k,new Set()])));}catch(e){before=[];}
  let scopeBefore=null;if(scope&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{scopeBefore=storageScopeSig();}catch(e){}
  storageDepth++;
  try{
