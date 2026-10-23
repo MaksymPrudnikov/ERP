@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 168 модулей, 23 стиля.
+  Состав сборки: 169 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -3482,7 +3482,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='314426167178';
+var ERP_BUILD='e0a72c8d5771';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10581,7 +10581,10 @@ function materialHeader(p,category,subcategory){
   purchaseUnit:mdString(p.purchaseUnit),
   currency:mdString(p.currency)||'CAD',
   priceDate:mdString(p.priceDate),
-  stockQty:mdNum(p.stockQty)
+  stockQty:mdNum(p.stockQty),
+  /* Сколько единиц хранения в одной единице закупки (1 box = 1880 ft) —
+     склад расходников (erp/inventory/consumables). */
+  packQty:mdNonNeg(p.packQty)
  };
 }
 function normalizeGlassProduct(p){
@@ -14537,7 +14540,7 @@ function finWithOrder(order,fn){
    (GF_SCOPE_CHECK) каждый ответ из памяти сверяется с расчётом заново. */
 const FIN_TOTALS_NEUTRAL=new Set(['stationScan','stationScanSeq','productionRoute','glassBatch','cutPlan','glassPiece','glassPieceSeq','glassUnitId','glassUnitIdSeq',
  'orderEvent','masterDataEvent','authEvent','receipt','refund','financeEvent','financeExport','financeExportBatch','shipment','shipmentSeq','carrier','truck','tripKm',
- 'skidReturn','sheetBreak','stockOffcut','stockOffcutSeq','inventoryEvent','purchasingEvent','purchaseOrder','purchaseOrderSeq','purchaseReceipt','purchaseReceiptSeq',
+ 'skidReturn','sheetBreak','stockOffcut','stockOffcutSeq','inventoryEvent','consumableEvent','purchasingEvent','purchaseOrder','purchaseOrderSeq','purchaseReceipt','purchaseReceiptSeq',
  'report','archiveRunDay','terminal','skip','productionUnbatch']);
 let finTotalsKeep=new Map();
 /* Фигура строки (ownerLineId) — забыть её заказ; новая фигура — ничего (от
@@ -19872,7 +19875,7 @@ function salesLineWeight(line,order,productionPlan){
   if(!mdById('spacerVariant',c.spacerVariantId))add('Spacer'+suffix,null,'Spacer not found');
   else if(!got.recipe)add('Surround'+suffix,null,'No recipe in the spacer card');
   const basis=geo?'perimeter '+geo.perimeterM.toFixed(2)+' m · area '+geo.areaFt2.toFixed(2)+' ft²':'';
-  got.parts.forEach(x=>rows.push({label:x.label+suffix,kg:x.kg,usedKg:x.usedKg,wastePct:x.wastePct,basisText:basis,note:x.note+(x.wastePct?' · used with '+x.wastePct+'% waste: '+(x.usedKg==null?'—':x.usedKg.toFixed(3)+' kg'):'')}));
+  got.parts.forEach(x=>rows.push({label:x.label+suffix,kg:x.kg,usedKg:x.usedKg,wastePct:x.wastePct,basisText:basis,table:x.table,itemId:x.item?x.item.id:'',perimeterM:geo?geo.perimeterM:null,note:x.note+(x.wastePct?' · used with '+x.wastePct+'% waste: '+(x.usedKg==null?'—':x.usedKg.toFixed(3)+' kg'):'')}));
   if(!same&&!geo)add('Cavity '+(i+1)+' · stepped / differing contours',null,'Choose the spacer contour in the cavity');
  });
  const muntin=shape&&shape.muntin;
@@ -36526,6 +36529,114 @@ function invOffcutFound(id){
  });
 }
 
+/* ==== src/erp/inventory/consumables.js ==== */
+/* =====================================================================
+   erp/inventory/consumables  ·  consumables-1.0
+   Склад расходников обвязки (план Master Data, задача 6): рамка, герметики,
+   газ, части пакета.
+   IN : приёмки Purchasing (строки Stock: таблица + айтем), сохранённые
+        заказы, сканы сборки IGU (DB.stationScan: asm + unit), пересчёты
+        (DB.consumableEvent)
+   OUT: consRows() — строки склада; consCountSave, consSetPack
+
+   Владелец, 23.10.2026: заказ резервирует материал на Save, со склада он
+   уходит на скане сборки IGU. Остаток не хранится числом — он считается из
+   фактов, как склад листов: повторный Save ничего не списывает дважды,
+   Undo скана возвращает материал. Расход юнита — рецепт обвязки с отходом
+   (salesLineWeight → строки обвязки); рамка — в футах по периметру камеры,
+   остальное — в кг. Пересчёт пишет разницу «было → стало» — отход по факту.
+   ===================================================================== */
+DEFAULT.consumableEvent=[];
+if(!Array.isArray(DB.consumableEvent))DB.consumableEvent=[];
+const CONS_TABLES=[['spacerVariant','Spacers','ft'],['sealantProduct','Sealants','kg'],['gasProduct','Gas','kg'],['iguPart','IGU parts','kg']];
+const CONS_RESERVE_STATES=['new','verified','batched'];
+const CONS_FT_PER_M=1/0.3048;
+function consUnitOf(table){const t=CONS_TABLES.find(x=>x[0]===table);return t?t[2]:'';}
+function consKey(table,id){return table+':'+id;}
+/* Расход одного юнита позиции: ключ айтема → количество в единице склада. */
+function consPerUnit(line,order){
+ const out=new Map();
+ /* Лайты строки читаются из soDraft — заказ подставляется, как в Finance. */
+ finWithOrder(order,()=>salesLineWeight(line,order)).rows.forEach(r=>{
+  if(!r.table||!r.itemId||!consUnitOf(r.table))return;
+  const k=consKey(r.table,r.itemId),waste=1+(r.wastePct||0)/100;
+  const q=r.table==='spacerVariant'?(r.perimeterM!=null?r.perimeterM*CONS_FT_PER_M*waste:null):r.usedKg;
+  out.set(k,q==null?NaN:(out.has(k)?out.get(k):0)+q);
+ });
+ return out;
+}
+/* Собранные на IGU юниты: сборка (asm) — один юнит; позиция — по её стеклу. */
+function consAssembled(){
+ const index=stationPieceIndex(),asm=new Map();
+ (DB.stationScan||[]).forEach(s=>{
+  if(s.undoneAt||s.broken||!s.asm||!s.unit||asm.has(s.asm))return;
+  const hit=index.get(s.piece);if(hit)asm.set(s.asm,{orderId:hit.orderId,lineId:hit.lineId,at:s.at});
+ });
+ return [...asm.values()];
+}
+function consRows(){
+ const rows=new Map(),row=(table,id)=>{
+  const k=consKey(table,id);
+  if(!rows.has(k)){const x=mdById(table,id),t=CONS_TABLES.find(t=>t[0]===table);rows.set(k,{key:k,table,id,group:t?t[1]:table,name:x?x.name:id,code:x?x.code||'':'',unit:consUnitOf(table),pack:x&&x.packQty!=null?x.packQty:null,received:0,used:0,reserved:0,adjust:0,noPack:0,unknown:0,lastCount:null});}
+  return rows.get(k);
+ };
+ CONS_TABLES.forEach(([t])=>(DB[t]||[]).forEach(x=>{if(x&&x.id&&x.active!==false)row(t,x.id);}));
+ /* Приход: строки Stock приёмок; не в единице склада — через «в упаковке». */
+ (DB.purchaseReceipt||[]).forEach(r=>{if(r.voidAt)return;(r.lines||[]).forEach(l=>{
+  if(l.kind!=='stock'||!consUnitOf(l.table)||!l.itemId)return;
+  const x=row(l.table,l.itemId),qty=(l.qty||0)-(l.damaged||0);
+  if(mdUnitCode(l.unit,'')===x.unit)x.received+=qty;else if(x.pack!=null)x.received+=qty*x.pack;else x.noPack++;
+ });});
+ /* Расход по сканам IGU и резерв несобранных юнитов сохранённых заказов. */
+ const per=new Map(),perOf=(o,l)=>{const k=o.id+'|'+l.id;if(!per.has(k))per.set(k,consPerUnit(l,o));return per.get(k);};
+ const built=new Map();
+ consAssembled().forEach(a=>{
+  const o=salesRecord(a.orderId),l=o&&(o.lines||[]).find(x=>x.id===a.lineId);if(!l)return;
+  built.set(o.id+'|'+l.id,(built.get(o.id+'|'+l.id)||0)+1);
+  perOf(o,l).forEach((q,k)=>{const[t,...id]=k.split(':'),x=row(t,id.join(':'));if(Number.isFinite(q))x.used+=q;else x.unknown++;});
+ });
+ (DB.salesOrder||[]).forEach(o=>{
+  if(salesIsQuote(o)||!CONS_RESERVE_STATES.includes(o.status))return;
+  (o.lines||[]).forEach(l=>{
+   const m=salesMakeupById(o,l.makeupId);if(!m||!(m.cavities||[]).length)return;
+   const left=salesPositiveInt(l.qty,1)-(built.get(o.id+'|'+l.id)||0);if(left<=0)return;
+   perOf(o,l).forEach((q,k)=>{const[t,...id]=k.split(':'),x=row(t,id.join(':'));if(Number.isFinite(q))x.reserved+=q*left;else x.unknown++;});
+  });
+ });
+ (DB.consumableEvent||[]).forEach(e=>{const x=rows.get(e.key);if(!x)return;x.adjust+=e.qty;if(!x.lastCount||e.at>x.lastCount.at)x.lastCount=e;});
+ return [...rows.values()].map(x=>{x.onHand=x.received-x.used+x.adjust;x.free=x.onHand-x.reserved;
+  x.status=x.noPack?'Pack size missing':x.unknown?'Norm missing':!x.lastCount?'Not counted':x.free<0?'Short':'OK';return x;})
+  .sort((a,b)=>CONS_TABLES.findIndex(t=>t[0]===a.table)-CONS_TABLES.findIndex(t=>t[0]===b.table)||String(a.name).localeCompare(String(b.name)));
+}
+function consNumber(v,label){const s=String(v==null?'':v).trim(),n=Number(s);if(!s||!Number.isFinite(n)||n<0)throw new Error(label+': enter 0 or more.');return n;}
+/* Пересчёт: разница с остатком — запись «было → стало», отход по факту. */
+function consCountSave(counts){
+ return invPersist(()=>{
+  const rows=new Map(consRows().map(r=>[r.key,r])),now=new Date().toISOString(),actor=orderLogActor(),out=[];
+  Object.entries(counts||{}).forEach(([key,v])=>{
+   const r=rows.get(key);if(!r)throw new Error('Item not found. Reopen the count.');
+   const n=consNumber(v,r.name),before=Math.round(r.onHand*1000)/1000;
+   const e={id:salesUid('CE'),key,qty:n-r.onHand,before,after:n,at:now,by:actor.by,byId:actor.byId};
+   DB.consumableEvent.push(e);out.push(e);
+  });
+  if(!out.length)throw new Error('Enter at least one count.');
+  return out;
+ });
+}
+/* В упаковке — в карточке айтема (packQty), правка отсюда же. */
+function consSetPack(key,v){
+ return invPersist(()=>{
+  const i=key.indexOf(':'),x=mdById(key.slice(0,i),key.slice(i+1));if(!x)throw new Error('Item not found.');
+  x.packQty=String(v==null?'':v).trim()===''?null:consNumber(v,'Per pack');return x;
+ });
+}
+function consEventValid(e){return !!(e&&typeof e==='object'&&typeof e.id==='string'&&e.id&&typeof e.key==='string'&&e.key.indexOf(':')>0&&Number.isFinite(+e.qty)&&typeof e.at==='string');}
+function normalizeConsumables(){
+ const ids=new Set();
+ DB.consumableEvent=(Array.isArray(DB.consumableEvent)?DB.consumableEvent:[]).filter(e=>consEventValid(e)&&!ids.has(e.id)&&(ids.add(e.id),true))
+  .map(e=>({id:e.id,key:e.key,qty:+e.qty,before:Number.isFinite(+e.before)?+e.before:null,after:Number.isFinite(+e.after)?+e.after:null,at:e.at,by:String(e.by||''),byId:String(e.byId||'')}));
+}
+
 /* ==== src/erp/views/glass-batches.js ==== */
 /* Очередь отдельных стёкол и реестр. Одна строка — одно стекло с Glass ID
    и местом «Unit 7 of 50». Общие фильтры колонок — из Sales; настройки трёх
@@ -40107,7 +40218,7 @@ function viewSheetUsage(){
 let invView='sheets',invCountDraft={},invJournalKey='',invWriteOffDraft=null,invNotice='',invPages={},invOffcutLostDraft=new Set(),invOffcutAll=false;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>Object.keys(invCountDraft).length>0||!!invWriteOffDraft||invOffcutLostDraft.size>0);
-const INV_VIEWS=[['sheets','Sheets'],['sizes','Sheet sizes'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
+const INV_VIEWS=[['sheets','Sheets'],['sizes','Sheet sizes'],['consumables','Consumables'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
 const INV_OFFCUT_TONE={'On rack':'ok','In batch':'info','Coming':'','Used':'','Broken':'bad','Written off':'warn','Back to waste':''};
 const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'','Size missing':'warn'};
 function invArg(v){return esc(JSON.stringify(String(v)));}
@@ -40116,7 +40227,7 @@ function invSectionsOpen(e){salesListMenu=Object.assign({kind:'inv-sections',sco
 function invSectionsMenuHTML(style){return '<div class="sl-menu sl-show-menu" style="'+style+'" role="dialog" aria-label="Inventory sections">'+INV_VIEWS.map(([k,n])=>'<label><input type="radio" name="inv-section" '+(k===invView?'checked':'')+' onchange="invGo(\''+k+'\')">'+n+'</label>').join('')+'</div>';}
 /* Раздел из меню — с чистого листа: фильтр журнала по стеклу ставит только
    строка дашборда (аудит 15.10.2026: он оставался и при входе из меню). */
-function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';invNotice='';invWriteOffDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
+function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';consNotice='';consCountDraft={};invNotice='';invWriteOffDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
 function invCountLeave(){
  if(Object.keys(invCountDraft).length&&!confirm('Discard counts you have not saved?'))return false;
  invCountDraft={};return true;
@@ -40345,8 +40456,31 @@ function invSizesView(){
 function invSizeAddUi(){const r=cutShopSizeAdd(mdVal('invSizeW'),mdVal('invSizeH'));invSizeNotice=r.error||'';render();}
 function invSizeRemoveUi(key){if(!confirm('Remove this sheet size?'))return;const r=cutShopSizeRemove(key);invSizeNotice=r.error||'';render();}
 
+/* Расходники обвязки (erp/inventory/consumables): приход, расход на скане
+   IGU, резерв сохранённых заказов, пересчёт. */
+let consCountDraft={},consNotice='';
+function consQty(v,unit){return (Math.round(v*100)/100).toLocaleString('en-US',{maximumFractionDigits:2})+' '+unit;}
+function invConsumablesView(){
+ const rows=consRows(),tone={'OK':'ok','Short':'bad','Not counted':'','Pack size missing':'warn','Norm missing':'warn'};
+ return '<p class="mut">Reserved on Save, used on IGU scan.</p>'+
+  (consNotice?'<div class="ncr-error" role="alert">'+esc(consNotice)+'</div>':'')+
+  '<div class="sales-table-wrap"><table class="ncr-table" data-cons-table><thead><tr><th>Item</th><th>Per pack</th><th class="n">Received</th><th class="n">Used</th><th class="n">Count adj.</th><th class="n">On hand</th><th class="n">Reserved</th><th class="n">Free</th><th>Status</th><th>Counted</th></tr></thead><tbody>'+
+  (rows.map(r=>'<tr data-cons-row="'+esc(r.key)+'"><td><b data-raw>'+esc(r.name)+'</b><div class="mut">'+esc(r.group)+(r.code?' · <span data-raw>'+esc(r.code)+'</span>':'')+'</div></td>'+
+   '<td><input type="number" min="0" step="any" class="inv-min" data-cons-pack="'+esc(r.key)+'" value="'+(r.pack==null?'':r.pack)+'" placeholder="—" onchange="consPackUi('+invArg(r.key)+',this.value)"> <span class="mut">'+esc(r.unit)+'</span></td>'+
+   ['received','used','adjust','onHand','reserved','free'].map(k=>'<td class="n" data-cons-'+k+'>'+esc(consQty(r[k],r.unit))+'</td>').join('')+
+   '<td><span class="pill '+(tone[r.status]||'')+'">'+esc(r.status)+'</span></td>'+
+   '<td><input type="number" min="0" step="any" class="inv-min" data-cons-count="'+esc(r.key)+'" value="'+(consCountDraft[r.key]==null?'':esc(consCountDraft[r.key]))+'" oninput="consCountDraft['+invArg(r.key)+']=this.value"></td></tr>').join('')||
+   '<tr><td colspan="10" class="mut">No spacers, sealants, gas or IGU parts in Master Data.</td></tr>')+'</tbody></table></div>';
+}
+function consPackUi(key,v){const r=consSetPack(key,v);consNotice=r.ok?'':r.error;render();}
+function consCountSaveUi(){
+ const counts={};Object.entries(consCountDraft).forEach(([k,v])=>{if(String(v).trim()!=='')counts[k]=v;});
+ const r=consCountSave(counts);consNotice=r.ok?'':r.error;if(r.ok)consCountDraft={};render();
+}
+
 function viewInventory(){
  if(!accessCan('inventory'))return '<div class="empty">Inventory access is required.</div>';
+ if(invView==='consumables')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'<span class="sales-toolbar-sp"></span><button type="button" class="pri" data-cons-count-save onclick="consCountSaveUi()">Save count</button></div>'+invConsumablesView()+salesListMenuHTML([])+'</div></div>';
  if(invView==='sizes')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'</div>'+invSizesView()+salesListMenuHTML([])+'</div></div>';
  const count=invView==='count',off=invView==='offcuts',infos=invView==='journal'?invMoveInfos():off?invOffcutInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):off?invOffcutsView(infos):count?invCountView(infos):invSheetsView(infos);
  const n=Object.keys(invCountDraft).length;
@@ -47995,6 +48129,7 @@ function normalizeDB(){
  if(typeof normalizePurchaseReceiving==='function')normalizePurchaseReceiving();
  if(typeof normalizePurchaseInvoices==='function')normalizePurchaseInvoices();
  if(typeof normalizeInventory==='function')normalizeInventory();
+ if(typeof normalizeConsumables==='function')normalizeConsumables();
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
