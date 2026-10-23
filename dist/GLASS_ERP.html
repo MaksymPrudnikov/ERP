@@ -3482,7 +3482,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='471a705cae16';
+var ERP_BUILD='72ec66fe3b62';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12490,6 +12490,10 @@ function normalizeSalesLaminatedPly(raw,legacyProductId,legacyHeatTreatmentId,d)
  const requestedType=raw.visionType||raw.type||(basis&&basis.coatingFamily),visionType=SALES_LAMINATED_GLASS_TYPES.includes(requestedType)?requestedType:d.visionType;
  const out={priceOverride:salesNonNegOrNull(raw.priceOverride),manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId,heatSoak:raw.heatSoak===true&&(raw.heatTreatmentId||legacyHeatTreatmentId)==='HT-FT',
   coatingPosition:SALES_LAMINATED_FRIT_POSITIONS.includes(raw.coatingPosition)?raw.coatingPosition:'outside',frit:normalizeSalesLaminatedFrit(raw.frit,d.frit)};
+ /* Выбранное стекло подходит — список кандидатов не нужен (F5 перебирал его
+    на каждый слой каждой строки). */
+ const g=requested;
+ if(g&&g.active!==false&&(!out.manufacturer||g.manufacturer===out.manufacturer)&&(!out.thicknessMm||g.thicknessMm===+out.thicknessMm)&&g.coatingFamily===(SALES_LAMINATED_GLASS_TYPES.includes(out.visionType)?out.visionType:'uncoated'))return out;
  const rows=salesLaminatedPlyCandidates(out);if(!rows.some(g=>g.id===out.glassProductId))out.glassProductId=(rows[0]||{}).id||'';
  return out;
 }
@@ -14549,6 +14553,23 @@ function finOrderTotals(order){
   m.set(order,t);
  }
  return t;
+}
+/* После F5 итоги заказов считаются понемногу в простое (30 мс за шаг), и
+   первый вход в Finance берёт готовое. Не на станции, не без Finance и не
+   во время ввода: скан и набор заказа важнее. */
+let finTotalsWarmTimer=null;
+function finTotalsWarm(delay){
+ if(finTotalsWarmTimer||typeof window==='undefined'||window.GF_NO_ARCHIVE)return;
+ let i=0;
+ const step=()=>{
+  finTotalsWarmTimer=null;
+  if(tab==='station'||!accessCan('finance'))return;
+  if(storageDepth||Date.now()-archiveInputAt<2000){finTotalsWarmTimer=setTimeout(step,2000);return;}
+  const list=DB.salesOrder||[],t=performance.now();
+  readScope(()=>{while(i<list.length&&performance.now()-t<30)finOrderTotals(list[i++]);});
+  if(i<list.length&&list===DB.salesOrder)finTotalsWarmTimer=setTimeout(step,0);
+ };
+ finTotalsWarmTimer=setTimeout(step,delay==null?3000:delay);
 }
 function finTotalsCheck(order,t){const now=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(JSON.stringify(now)!==JSON.stringify(t))console.error('Stale totals: '+order.id+' · '+String(new Error().stack).split('\n').slice(3,6).map(x=>x.trim().split(' ')[1]).join(' < '));}
 function finOrderPaid(orderId){
@@ -37752,14 +37773,16 @@ function carrierSetCommand(code,field,value){
 }
 /* Что сейчас на таре: стекло, чей последний скан положил его на неё, и
    которое с тех пор не сканировали, не разбили и не отгрузили. */
-function carrierContents(){
+/* station — только тара, на которую стекло положили на этой станции
+   (карточка «Dollies at …» на каждом скане): чужие не считаются. */
+function carrierContents(station){
  /* Сканы стекла собираются одним проходом: иначе каждое стекло на таре
     заново перебирало весь журнал (на SHIP — на каждый скан скида). */
  const last=new Map(),scans=new Map(),out=new Map();
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;last.set(s.piece,s);if(!scans.has(s.piece))scans.set(s.piece,[]);scans.get(s.piece).push(s);});
  const index=stationPieceIndex(),batches=stationBatchIndex();
  last.forEach((s,piece)=>{
-  if(!s.on||s.broken)return;
+  if(!s.on||s.broken||station&&s.station!==station)return;
   const g=stationGlass(piece,index,batches);if(!g||unitPieceCancelled(g))return;
   const place=stationPlace(g,scans.get(piece));if(place.broken||place.shipped)return;
   if(!out.has(s.on))out.set(s.on,[]);
@@ -41356,7 +41379,7 @@ function stationTareCount(list){
 function stationLoadedCard(){
  if(typeof carrierContents!=='function'||!(DB.carrier||[]).length)return '';
  const put=stationPutOn(),rows=[],loose=stationPutsOnHere()==='none'?[]:stationLooseOut();
- carrierContents().forEach((list,code)=>{const mine=list.filter(x=>x.scan.station===stationCode);if(mine.length)rows.push({code,list:mine,since:mine.map(x=>x.scan.at).sort()[0]||''});});
+ carrierContents(stationCode).forEach((list,code)=>{const mine=list.filter(x=>x.scan.station===stationCode);if(mine.length)rows.push({code,list:mine,since:mine.map(x=>x.scan.at).sort()[0]||''});});
  if(put&&!rows.some(r=>r.code===put))rows.push({code:put,list:[],since:''});
  if(!rows.length&&!loose.length)return '';
  rows.sort((a,b)=>(b.code===put)-(a.code===put)||String(a.since).localeCompare(String(b.since)));
@@ -41382,11 +41405,16 @@ function stationTareWord(){return stationPutsOnHere()==='skid'?'skid':'dolly';}
 function stationLooseIds(){const s=stationSession();return s&&Array.isArray(s.loose)?s.loose:[];}
 function stationLooseSave(ids){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.loose=ids;stationSessionsSave(m);}
 /* Сканы, всё ещё ждущие тару: не отменены, последние у своего стекла, тары нет. */
+/* С конца журнала: такие сканы свежие, весь журнал на каждом скане не
+   перебирается (задание «База», скан подряд). */
 function stationLoose(){
  const ids=new Set(stationLooseIds());if(!ids.size)return [];
- const last=new Map(),out=[];(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)last.set(s.piece,s);});
- (DB.stationScan||[]).forEach(s=>{if(ids.has(s.id)&&!s.undoneAt&&!s.on&&!s.broken&&last.get(s.piece)===s)out.push(s);});
- return out;
+ const scans=DB.stationScan||[],last=new Map(),out=[];let left=ids.size;
+ for(let i=scans.length-1;i>=0&&left>0;i--){
+  const s=scans[i];if(!s.undoneAt&&!last.has(s.piece))last.set(s.piece,s);
+  if(ids.has(s.id)){left--;if(!s.undoneAt&&!s.on&&!s.broken&&last.get(s.piece)===s)out.push(s);}
+ }
+ return out.reverse();
 }
 /* Скан записан без тары — запомнить, если стекло ушло со станции. На IGU
    лайт в машине, пока юнит не закрыт: тара ему не нужна. */
@@ -46822,6 +46850,28 @@ function storageSeqs(ids,base){
  }
  return seq;
 }
+/* Строки таблицы, какими их видело прошлое сравнение (задание «База», скан
+   подряд): tbl → {rows, ids, seq}. Команда с областью из ключей
+   (storageDiffTail) не перебирает 100 тысяч сканов: те же объекты на тех
+   же местах при той же базе — не тронуты (правка на месте вне
+   области — её дело, как и раньше); сравниваются названные строки и
+   дописанные в конец. Иначе — полный проход. */
+let storageSeen=new Map();
+function storageDiffTail(k,v,was,rows,out){
+ const s=storageSeen.get(k),n=s?s.rows.length:0;
+ if(!s||v.length<n||was.size!==n)return false;
+ for(let i=0;i<n;i++)if(v[i]!==s.rows[i])return false;
+ /* База та же, что видело сравнение: тот же размер и тот же seq у первой и
+    последней строки (перенумерация меняет все). */
+ for(const i of n?[0,n-1]:[]){const b=was.get(s.ids[i]);if(!b||b.s!==s.seq[i])return false;}
+ if(!s.at){s.at=new Map();s.ids.forEach((id,i)=>s.at.set(id,i));}
+ const add=[];
+ for(let i=n;i<v.length;i++){const id=storageRowKey(k,v[i]);if(!id||id==='*'||s.at.has(id)||was.has(id)||add.some(x=>x.id===id))return false;add.push({id,row:v[i]});}
+ rows.forEach(id=>{const i=s.at.get(id);if(i==null)return;const t=JSON.stringify(v[i]),b=was.get(id);if(b.t!==t)out.push({tbl:k,id,seq:s.seq[i],data:t});});
+ let last=n?s.seq[n-1]:-1;
+ add.forEach(x=>{last++;const i=s.rows.length;s.rows.push(x.row);s.ids.push(x.id);s.seq.push(last);s.at.set(x.id,i);out.push({tbl:k,id:x.id,seq:last,data:JSON.stringify(x.row)});});
+ return true;
+}
 /* Что изменилось в db против опорного состояния: записи для put и delete. */
 function storageDiff(db,only){
  const out=[],meta=storageBase.get('_meta')||new Map(),keys=new Set(Object.keys(db));
@@ -46836,14 +46886,16 @@ function storageDiff(db,only){
   const vis=storageVisit.size?storageVisit.get(k):null,v=vis&&Array.isArray(db[k])?db[k].filter(r=>!vis.has(storageRowKey(k,r))):db[k],base=storageBase.get(k);
   if(Array.isArray(v)){
    if(meta.has(k))out.push({tbl:'_meta',id:k,del:true});
-   const was=base||new Map(),ids=storageTableIds(k,v);
+   const was=base||new Map();
+   if(rows&&storageDiffTail(k,v,was,rows,out))return;
+   const ids=storageTableIds(k,v);
    if(!ids){
     const t=JSON.stringify(v),b=was.get('*');
     if(!b||b.t!==t)out.push({tbl:k,id:'*',seq:0,data:t});
     was.forEach((x,id)=>{if(id!=='*')out.push({tbl:k,id,del:true});});
     return;
    }
-   const seq=storageSeqs(ids,was),now=new Set(ids);
+   const seq=storageSeqs(ids,was),now=new Set(ids);storageSeen.set(k,{rows:v.slice(),ids,seq,at:null});
    for(let i=0;i<v.length;i++){
     if(rows){const x=was.get(ids[i]);if(x&&x.s===seq[i]&&!rows.has(ids[i]))continue;}
     const t=JSON.stringify(v[i]),b=was.get(ids[i]);
@@ -47221,9 +47273,12 @@ const STORAGE_UNSAVED_TABLES=new Set(['shapeDef']);
    (storageSweepLater). Журналы заказа и Master Data — новые строки всегда. */
 const STORAGE_SCOPE_ALWAYS={shapeDef:true,orderEvent:[],masterDataEvent:[]};
 let storageScope=null,storageSweepTimer=null;
+/* Фигуры правят на месте только в открытом заказе (soDraft); без него —
+   только новые, удалённые и сдвинутые: скан не сравнивает каждую фигуру
+   базы (задание «База», скан подряд). */
 function storageScopeMap(scope){
- const m=new Map();
- [STORAGE_SCOPE_ALWAYS,scope].forEach(s=>Object.keys(s).forEach(k=>{
+ const m=new Map(),always=typeof soDraft!=='undefined'&&soDraft?STORAGE_SCOPE_ALWAYS:Object.assign({},STORAGE_SCOPE_ALWAYS,{shapeDef:[]});
+ [always,scope].forEach(s=>Object.keys(s).forEach(k=>{
   const v=s[k],had=m.get(k);if(v===true||had===null){m.set(k,null);return;}
   const set=had||new Set();[...v].forEach(id=>{if(id!=null&&id!=='')set.add(String(id));});m.set(k,set);
  }));
@@ -47252,7 +47307,9 @@ function storageCommand(fn,scope){
     Не записаны бывают только фигуры открытого заказа (DB.shapeDef меняется
     до Update) — второе сравнение всей базы на каждом действии стоило
     столько же, сколько первое (задание «База», П5). */
- let before;try{before=storageDiff(DB,STORAGE_UNSAVED_TABLES);}catch(e){before=[];}
+ /* Без открытого заказа фигуры на месте не правят — только новые и
+    удалённые, без JSON каждой фигуры (задание «База», скан подряд). */
+ let before;try{before=storageDiff(DB,typeof soDraft!=='undefined'&&soDraft?STORAGE_UNSAVED_TABLES:new Map([...STORAGE_UNSAVED_TABLES].map(k=>[k,new Set()])));}catch(e){before=[];}
  let scopeBefore=null;if(scope&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{scopeBefore=storageScopeSig();}catch(e){}
  storageDepth++;
  try{
@@ -47543,7 +47600,7 @@ function storageStart(){
  const ready=()=>{storageStarting=false;storageBackupCheck();const tr=performance.now();render();if(storageBootMs)storageBootMs.render=performance.now()-tr;
   /* Другие вкладки узнают, что открыта эта сборка. */
   if(storageChannel&&!storageRecovery)try{storageChannel.postMessage({type:'hello',build:storageBuildId()});}catch(e){}
-  storageUsageCheck();storageReadyResolve();};
+  storageUsageCheck();finTotalsWarm();storageReadyResolve();};
  if(!navigator.locks){storageLastError='This browser cannot coordinate editing safely.';boot().then(ready);return;}
  navigator.locks.request(STORAGE_LOCK,{ifAvailable:true},async lock=>{
   storageWriter=!!lock;await boot();ready();
