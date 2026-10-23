@@ -63,7 +63,7 @@ function viewUsers(){
   </div>`}`;
 }
 /* Cloud — сервер (erp/cloud.js). Адрес и ключ — этого устройства; пароль
-   не сохраняется. Записи на сервер пока не уходят — так и сказано. */
+   не сохраняется. Ниже — синхронизация (erp/cloud-sync.js). */
 function usersCloudHTML(){
  const c=cloudConfig(),st=cloudState,s=c.session;
  const status=st.busy?'<span class="pill" data-cloud-status="busy">Connecting…</span>'
@@ -79,10 +79,19 @@ function usersCloudHTML(){
    <div><label>Email</label><input id="cl_email" autocomplete="username" value="${esc(s&&s.email||'')}"></div>
    <div><label>Password</label>${pwInput('id="cl_pass" autocomplete="current-password"')}</div>
   </div>
-  <div class="hint">Data still stays on this computer.</div>
   <div class="row">${status}
    <button class="pri" data-cloud-connect ${st.busy?'disabled':''} onclick="usersCloudConnect()">Connect</button>
-   ${s?`<button data-cloud-check onclick="cloudCheck()">Check</button><button data-cloud-out onclick="cloudSignOut()">Sign out</button>`:''}</div></div>`;
+   ${s?`<button data-cloud-check onclick="cloudCheck()">Check</button><button data-cloud-out onclick="cloudSignOut()">Sign out</button>`:''}</div>
+  ${s?usersCloudSyncHTML():''}</div>`;
+}
+function usersCloudSyncHTML(){
+ const y=cloudSync,text=cloudSyncText(),busy=!!y.busy;
+ const pill=text?`<span class="pill${y.error||y.offline?' warn':text==='Synced'?' ok':''}" data-cloud-sync="${y.on?'on':'busy'}">${esc(text)}</span>`:'<span class="mut" data-cloud-sync="off">Not synced</span>';
+ const warn=y.warn?`<div class="hint warn" data-cloud-warn>${esc(y.warn)}</div>`:'';
+ const err=!y.on&&y.error?`<div class="hint warn" data-cloud-sync-error>${esc(y.error)}</div>`:'';
+ return `<h3>Sync</h3>${warn}${err}<div class="row">${pill}
+  ${y.on?`<button data-cloud-stop ${busy?'disabled':''} onclick="cloudSyncStop()">Stop sync</button>`
+   :`<button class="pri" data-cloud-upload ${busy?'disabled':''} onclick="cloudUpload()">Upload this database</button><button data-cloud-download ${busy?'disabled':''} onclick="cloudDownload()">Download from server</button>`}</div>`;
 }
 function usersCloudConnect(){const v=id=>(document.getElementById(id)||{}).value||'';return cloudConnect(v('cl_url'),v('cl_key'),v('cl_email'),v('cl_pass'));}
 /* Журнал входов — таблица как в Sales: период When, воронки Who / What /

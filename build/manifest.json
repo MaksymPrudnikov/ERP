@@ -86,6 +86,7 @@
   "src/erp/nav.js",
   "src/erp/views/dashboard.js",
   "src/erp/cloud.js",
+  "src/erp/cloud-sync.js",
   "src/erp/views/users.js",
   "src/erp/signin.js",
   "src/erp/views/customers.js",

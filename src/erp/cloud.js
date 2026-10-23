@@ -4,8 +4,7 @@
    OUT: cloudConfig, cloudConnect, cloudSignOut, cloudRpc, cloudState
    Адрес, ключ и сессия живут на этом устройстве (localStorage), не в базе ERP
    и не в Git: репозиторий публичный. Пароль не хранится нигде — только
-   токены входа. Пока это вход и проверка связи: записи на сервер ещё не
-   уходят, база остаётся в браузере.
+   токены входа. Записи на сервер и обратно — erp/cloud-sync.js.
    ============================================================================ */
 const CLOUD_KEY='glazing_system_v1-cloud';
 let cloudState={busy:false,error:'',me:null};
@@ -50,6 +49,7 @@ async function cloudConnect(url,key,email,password){
   if(!email||!password)throw new Error('Email and password are required.');
   cloudSessionSave(await cloudFetch('/auth/v1/token?grant_type=password',{email:String(email).trim(),password}));
   cloudState.me=await cloudRpc('erp_whoami');
+  if(typeof cloudSync!=='undefined'){cloudSync.loaded=false;cloudSoon();}
  }catch(e){cloudState.error=e.message;}
  cloudState.busy=false;render();
  return !cloudState.error;
