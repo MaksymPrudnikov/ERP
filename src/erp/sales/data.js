@@ -360,9 +360,10 @@ function salesActiveSpacerVariants(){return (DB.spacerVariant||[]).filter(x=>x.a
 function salesCavitySpacer(c){return mdById('spacerVariant',c&&c.spacerVariantId)||salesActiveSpacerVariants()[0]||null;}
 /* Размеры в выпадающем списке — по возрастанию, а не в порядке заведения:
    шестнадцать дробей вперемешку читать невозможно. Сортируем по значению
-   дроби, потому что как текст 1/2 встаёт раньше 3/16. */
-function salesSpacerWidths(){
- const seen=[...new Set(salesActiveSpacerVariants().map(x=>x.size).filter(Boolean))];
+   дроби, потому что как текст 1/2 встаёт раньше 3/16. С системой — только
+   её ширины: несуществующую не предлагаем (владелец, 23.10.2026). */
+function salesSpacerWidths(system){
+ const seen=[...new Set(salesActiveSpacerVariants().filter(x=>!system||x.system===system).map(x=>x.size).filter(Boolean))];
  return seen.sort((a,b)=>{
   const qa=spacerSizeParts(a),qb=spacerSizeParts(b);
   if(qa&&qb)return qa.value-qb.value;
