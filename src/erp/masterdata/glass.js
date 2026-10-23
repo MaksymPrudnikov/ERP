@@ -240,7 +240,10 @@ function materialHeader(p,category,subcategory){
   purchaseUnit:mdString(p.purchaseUnit),
   currency:mdString(p.currency)||'CAD',
   priceDate:mdString(p.priceDate),
-  stockQty:mdNum(p.stockQty)
+  stockQty:mdNum(p.stockQty),
+  /* Сколько единиц хранения в одной единице закупки (1 box = 1880 ft) —
+     склад расходников (erp/inventory/consumables). */
+  packQty:mdNonNeg(p.packQty)
  };
 }
 function normalizeGlassProduct(p){

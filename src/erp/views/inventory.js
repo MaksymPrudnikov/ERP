@@ -17,7 +17,7 @@
 let invView='sheets',invCountDraft={},invJournalKey='',invWriteOffDraft=null,invNotice='',invPages={},invOffcutLostDraft=new Set(),invOffcutAll=false;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>Object.keys(invCountDraft).length>0||!!invWriteOffDraft||invOffcutLostDraft.size>0);
-const INV_VIEWS=[['sheets','Sheets'],['sizes','Sheet sizes'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
+const INV_VIEWS=[['sheets','Sheets'],['sizes','Sheet sizes'],['consumables','Consumables'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
 const INV_OFFCUT_TONE={'On rack':'ok','In batch':'info','Coming':'','Used':'','Broken':'bad','Written off':'warn','Back to waste':''};
 const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'','Size missing':'warn'};
 function invArg(v){return esc(JSON.stringify(String(v)));}
@@ -26,7 +26,7 @@ function invSectionsOpen(e){salesListMenu=Object.assign({kind:'inv-sections',sco
 function invSectionsMenuHTML(style){return '<div class="sl-menu sl-show-menu" style="'+style+'" role="dialog" aria-label="Inventory sections">'+INV_VIEWS.map(([k,n])=>'<label><input type="radio" name="inv-section" '+(k===invView?'checked':'')+' onchange="invGo(\''+k+'\')">'+n+'</label>').join('')+'</div>';}
 /* Раздел из меню — с чистого листа: фильтр журнала по стеклу ставит только
    строка дашборда (аудит 15.10.2026: он оставался и при входе из меню). */
-function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';invNotice='';invWriteOffDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
+function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';consNotice='';consCountDraft={};invNotice='';invWriteOffDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
 function invCountLeave(){
  if(Object.keys(invCountDraft).length&&!confirm('Discard counts you have not saved?'))return false;
  invCountDraft={};return true;
@@ -255,8 +255,31 @@ function invSizesView(){
 function invSizeAddUi(){const r=cutShopSizeAdd(mdVal('invSizeW'),mdVal('invSizeH'));invSizeNotice=r.error||'';render();}
 function invSizeRemoveUi(key){if(!confirm('Remove this sheet size?'))return;const r=cutShopSizeRemove(key);invSizeNotice=r.error||'';render();}
 
+/* Расходники обвязки (erp/inventory/consumables): приход, расход на скане
+   IGU, резерв сохранённых заказов, пересчёт. */
+let consCountDraft={},consNotice='';
+function consQty(v,unit){return (Math.round(v*100)/100).toLocaleString('en-US',{maximumFractionDigits:2})+' '+unit;}
+function invConsumablesView(){
+ const rows=consRows(),tone={'OK':'ok','Short':'bad','Not counted':'','Pack size missing':'warn','Norm missing':'warn'};
+ return '<p class="mut">Reserved on Save, used on IGU scan.</p>'+
+  (consNotice?'<div class="ncr-error" role="alert">'+esc(consNotice)+'</div>':'')+
+  '<div class="sales-table-wrap"><table class="ncr-table" data-cons-table><thead><tr><th>Item</th><th>Per pack</th><th class="n">Received</th><th class="n">Used</th><th class="n">Count adj.</th><th class="n">On hand</th><th class="n">Reserved</th><th class="n">Free</th><th>Status</th><th>Counted</th></tr></thead><tbody>'+
+  (rows.map(r=>'<tr data-cons-row="'+esc(r.key)+'"><td><b data-raw>'+esc(r.name)+'</b><div class="mut">'+esc(r.group)+(r.code?' · <span data-raw>'+esc(r.code)+'</span>':'')+'</div></td>'+
+   '<td><input type="number" min="0" step="any" class="inv-min" data-cons-pack="'+esc(r.key)+'" value="'+(r.pack==null?'':r.pack)+'" placeholder="—" onchange="consPackUi('+invArg(r.key)+',this.value)"> <span class="mut">'+esc(r.unit)+'</span></td>'+
+   ['received','used','adjust','onHand','reserved','free'].map(k=>'<td class="n" data-cons-'+k+'>'+esc(consQty(r[k],r.unit))+'</td>').join('')+
+   '<td><span class="pill '+(tone[r.status]||'')+'">'+esc(r.status)+'</span></td>'+
+   '<td><input type="number" min="0" step="any" class="inv-min" data-cons-count="'+esc(r.key)+'" value="'+(consCountDraft[r.key]==null?'':esc(consCountDraft[r.key]))+'" oninput="consCountDraft['+invArg(r.key)+']=this.value"></td></tr>').join('')||
+   '<tr><td colspan="10" class="mut">No spacers, sealants, gas or IGU parts in Master Data.</td></tr>')+'</tbody></table></div>';
+}
+function consPackUi(key,v){const r=consSetPack(key,v);consNotice=r.ok?'':r.error;render();}
+function consCountSaveUi(){
+ const counts={};Object.entries(consCountDraft).forEach(([k,v])=>{if(String(v).trim()!=='')counts[k]=v;});
+ const r=consCountSave(counts);consNotice=r.ok?'':r.error;if(r.ok)consCountDraft={};render();
+}
+
 function viewInventory(){
  if(!accessCan('inventory'))return '<div class="empty">Inventory access is required.</div>';
+ if(invView==='consumables')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'<span class="sales-toolbar-sp"></span><button type="button" class="pri" data-cons-count-save onclick="consCountSaveUi()">Save count</button></div>'+invConsumablesView()+salesListMenuHTML([])+'</div></div>';
  if(invView==='sizes')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'</div>'+invSizesView()+salesListMenuHTML([])+'</div></div>';
  const count=invView==='count',off=invView==='offcuts',infos=invView==='journal'?invMoveInfos():off?invOffcutInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):off?invOffcutsView(infos):count?invCountView(infos):invSheetsView(infos);
  const n=Object.keys(invCountDraft).length;

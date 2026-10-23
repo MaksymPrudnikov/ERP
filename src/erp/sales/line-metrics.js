@@ -271,7 +271,7 @@ function salesLineWeight(line,order,productionPlan){
   if(!mdById('spacerVariant',c.spacerVariantId))add('Spacer'+suffix,null,'Spacer not found');
   else if(!got.recipe)add('Surround'+suffix,null,'No recipe in the spacer card');
   const basis=geo?'perimeter '+geo.perimeterM.toFixed(2)+' m · area '+geo.areaFt2.toFixed(2)+' ft²':'';
-  got.parts.forEach(x=>rows.push({label:x.label+suffix,kg:x.kg,usedKg:x.usedKg,wastePct:x.wastePct,basisText:basis,note:x.note+(x.wastePct?' · used with '+x.wastePct+'% waste: '+(x.usedKg==null?'—':x.usedKg.toFixed(3)+' kg'):'')}));
+  got.parts.forEach(x=>rows.push({label:x.label+suffix,kg:x.kg,usedKg:x.usedKg,wastePct:x.wastePct,basisText:basis,table:x.table,itemId:x.item?x.item.id:'',perimeterM:geo?geo.perimeterM:null,note:x.note+(x.wastePct?' · used with '+x.wastePct+'% waste: '+(x.usedKg==null?'—':x.usedKg.toFixed(3)+' kg'):'')}));
   if(!same&&!geo)add('Cavity '+(i+1)+' · stepped / differing contours',null,'Choose the spacer contour in the cavity');
  });
  const muntin=shape&&shape.muntin;
