@@ -119,7 +119,9 @@ function invMinChange(key,value){const r=invSetMin(key,value);invNotice=r.ok?'':
 function invOpenJournal(key){invView='journal';invJournalKey=key;salesListMenu=null;const p=salesListLoadPrefs();delete p.filters.day;salesListSavePrefs();render();}
 function invSheetsView(infos){
  const rows=salesListRows(infos),cols=salesListColumns();
- return invTiles(infos.map(i=>i.r))+invListFilters(infos)+invTable(cols,rows,invSheetCell,'','',infos.length?'Nothing matches the filters.':'No glass in the catalogue yet.');
+ /* Плитки считают то же, что видно с фильтрами колонок; фильтр статуса —
+    сами плитки, поэтому в их счёт он не входит (как статусы Sales). */
+ return invTiles(salesListRows(infos,['status']).map(i=>i.r))+invListFilters(infos)+invTable(cols,rows,invSheetCell,'','',infos.length?'Nothing matches the filters.':'No glass in the catalogue yet.');
 }
 
 /* ------------------------------ Offcuts ------------------------------ */
@@ -163,7 +165,7 @@ function invOffcutFooter(rows){
 }
 function invOffcutsView(infos){
  const rows=salesListRows(infos),cols=salesListColumns();
- return invOffcutTiles(invOffcutRows())+invListFilters(infos)+invTable(cols,rows,invOffcutCell,'<th class="inv-lost-head">Not found</th>',invOffcutExtra,infos.length?'Nothing matches the filters.':'No offcuts on the rack.')+invOffcutFooter(rows);
+ return invOffcutTiles(salesListRows(infos,['status']).map(i=>i.x))+invListFilters(infos)+invTable(cols,rows,invOffcutCell,'<th class="inv-lost-head">Not found</th>',invOffcutExtra,infos.length?'Nothing matches the filters.':'No offcuts on the rack.')+invOffcutFooter(rows);
 }
 
 /* ------------------------------ Count ------------------------------ */
@@ -243,14 +245,20 @@ function invJournalView(infos){
    чтения, их правят в точках поставки. Отступы листа — Data → Cutting. */
 let invSizeNotice='';
 function invSizesView(){
- const sizes=cutSheetSizes(),whose=x=>[x.shop?'All glass':'',x.codes.slice(0,4).join(', ')+(x.codes.length>4?' +'+(x.codes.length-4):'')].filter(Boolean).join(' · ');
+ const data=accessCan('masterdata'),link=(c,k)=>data?'<button type="button" class="fin-link" data-inv-size-supply="'+esc(c)+'" title="Supply row in Data" onclick="invSizeSupplyOpen('+invArg(c)+','+invArg(k)+')">'+esc(c)+'</button>':esc(c);
+ const sizes=cutSheetSizes(),whose=x=>[x.shop?'All glass':'',x.codes.slice(0,4).map(c=>link(c,x.key)).join(', ')+(x.codes.length>4?' +'+(x.codes.length-4):'')].filter(Boolean).join(' · ');
  return '<p class="mut">Supply sizes of a glass go first; shop sizes work for any glass. Trim and border — Data → Cutting.</p>'+
   '<div class="sales-table-wrap"><table class="ncr-table" data-inv-sizes><thead><tr><th>Sheet</th><th>Glass</th><th>From</th><th></th></tr></thead><tbody>'+
-  (sizes.map(x=>'<tr data-inv-size="'+esc(x.key)+'"><td><b>'+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″</b></td><td class="mut">'+esc(whose(x))+'</td><td>'+(x.codes.length?'Supply'+(x.shop?' · Shop':''):'Shop')+'</td><td>'+
+  (sizes.map(x=>'<tr data-inv-size="'+esc(x.key)+'"><td><b>'+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″</b></td><td class="mut">'+whose(x)+'</td><td>'+(x.codes.length?'Supply'+(x.shop?' · Shop':''):'Shop')+'</td><td>'+
    (x.shop?'<button type="button" class="sm dl" data-inv-size-remove="'+esc(x.key)+'" aria-label="Remove '+esc(x.key)+'" onclick="invSizeRemoveUi('+invArg(x.key)+')">×</button>':'')+'</td></tr>').join('')||
    '<tr><td colspan="4" class="mut" data-inv-sizes-empty>No sheet sizes yet — glass shows Size missing.</td></tr>')+'</tbody></table></div>'+
   '<div class="cut-size-add" data-inv-size-add><input type="text" id="invSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="invSizeH" placeholder="width" aria-label="Sheet width, in"> <button type="button" onclick="invSizeAddUi()">+ Add sheet size</button>'+
   (invSizeNotice?'<span class="cut-md-error" role="alert" data-inv-size-error>'+esc(invSizeNotice)+'</span>':'')+'</div>';
+}
+/* Размер из поставки правят в его строке поставки (Data → Supply points). */
+function invSizeSupplyOpen(code,key){
+ const s=(DB.glassSheet||[]).find(x=>x&&x.productCode===code&&x.availability!=='inactive'&&cutSheetTrimKey(x.sheetWIn,x.sheetHIn)===key);if(!s)return;
+ navGo('masterdata');if(tab!=='masterdata')return;mdSetTab('materials');mdMatSwitch('glass','glassSheet');mdSheetEditRow(s.id);
 }
 function invSizeAddUi(){const r=cutShopSizeAdd(mdVal('invSizeW'),mdVal('invSizeH'));invSizeNotice=r.error||'';render();}
 function invSizeRemoveUi(key){if(!confirm('Remove this sheet size?'))return;const r=cutShopSizeRemove(key);invSizeNotice=r.error||'';render();}

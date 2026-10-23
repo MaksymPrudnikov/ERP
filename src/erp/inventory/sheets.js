@@ -23,7 +23,8 @@
      ошибка исправляется встречной записью, а не удалением;
    · стекло без «We cut it» (COG) на склад не идёт.
    Ответы владельца 14.10: пересчитывает оптимизатор с галочкой Inventory;
-   «каталог = то, что на складе» — в пересчёте все стёкла каталога сразу;
+   «каталог = то, что на складе» — в пересчёте все стёкла «Kept in stock»
+   сразу, Pre-order — когда по нему есть движение (владелец, 23.10.2026);
    размер — из точек поставки Master Data, где его нет — размеры цеха
    (Inventory → Sheet sizes), нет и их — «Size missing» (план Master Data,
    этап 5: базового 130 × 96 в коде больше нет).
@@ -201,7 +202,10 @@ function invSheetRows(){
    received:0,cut:0,broken:0,adjust:0,reserved:0,batches:new Map(),enterSheets:0,held:0,heldBlocks:0,onOrder:0,onOrderBlocks:0,lastCount:null,min:null});}
   return rows.get(key);
  };
- activeGlassProducts().filter(g=>g.cut!==false).forEach(g=>invCatalogSizes(g.code).forEach(z=>row(g.code,z)));
+ /* Пустые строки — только у стекла «Kept in stock»; Pre-order появляется
+    на складе с первым движением: приход, раскрой, резерв, заказ, пересчёт
+    (владелец, 23.10.2026). */
+ activeGlassProducts().filter(g=>g.cut!==false&&g.stocked).forEach(g=>invCatalogSizes(g.code).forEach(z=>row(g.code,z)));
  invReceiptLines().forEach(x=>{const r=row(x.code,x.size);r.received+=x.qty;if(x.issue==='Enter sheets')r.enterSheets++;});
  const scans=invCutScans(),cut=invCutSheets(scans);
  cut.forEach(s=>{if(!s.stock&&invGlassCut(s.glass))row(s.glass,invSize(s.w,s.h)).cut++;});

@@ -11,13 +11,14 @@ module.exports=async function({page,eq}){
   const all=rows();salesListSetFilter('supplier',{values:['Vitro USA']});const one=rows(),cur=(document.querySelector('[data-supply-row]')||{textContent:''}).textContent.includes('USD');salesListSetFilter('supplier',null);
   return {scope:salesListScope(),heads:heads.slice(0,4),all,one,cur,back:rows()};
  }),{scope:'mdSupply',heads:['product','glass','supplier','sheet'],all:3,one:1,cur:true,back:3});
- eq('new supply row: manufacturer, thickness and search narrow the glass list without losing typed values',await t.p.evaluate(()=>{
+ eq('new supply row: manufacturer, thickness and coating narrow the glass list like Sales, without losing typed values',await t.p.evaluate(()=>{
   mdSheetNew();if(!document.getElementById('md_sheetMfr'))return {missing:true};document.getElementById('md_sheetPrice').value='3.15';
-  const opts=()=>[...document.getElementById('md_sheetCode').options].map(o=>o.value),total=opts().length;
+  const opts=()=>[...document.getElementById('md_sheetCode').options].map(o=>o.value).filter(Boolean),total=opts().length;
   mdSheetPickSet('mfr','Vitro');mdSheetPickSet('thick','6');const narrowed=opts(),vitro6=narrowed.every(c=>{const p=glassProductByCode(c);return p.manufacturer==='Vitro'&&+p.thicknessMm===6;});
-  mdSheetPickSet('q','clear');const found=opts();
-  return {total:total===DB.glassProduct.length,narrowed:narrowed.length>0&&narrowed.length<total,vitro6,found:found.includes('6CLEAR')&&found.length<narrowed.length,count:document.getElementById('md_sheetCount').textContent===found.length+' of '+DB.glassProduct.length,price:document.getElementById('md_sheetPrice').value};
- }),{total:true,narrowed:true,vitro6:true,found:true,count:true,price:'3.15'});
+  const coat=glassCoatingName(glassProductByCode('6CLEAR')),sel=document.getElementById('md_sheetCoat');sel.value=coat;sel.dispatchEvent(new Event('change'));const found=opts();
+  document.getElementById('md_sheetCode').value='6CLEAR';document.getElementById('md_sheetCode').dispatchEvent(new Event('change'));
+  return {total:total===DB.glassProduct.length,narrowed:narrowed.length>0&&narrowed.length<total,vitro6,found:found.includes('6CLEAR')&&found.length<narrowed.length&&found.every(c=>glassCoatingName(glassProductByCode(c))===coat),meta:!!document.querySelector('#md_sheetMeta .mu-glass-meta .pill'),price:document.getElementById('md_sheetPrice').value};
+ }),{total:true,narrowed:true,vitro6:true,found:true,meta:true,price:'3.15'});
  eq('a known supply point fills its currency; the price date is a calendar field; the row saves',await t.p.evaluate(()=>{
   if(typeof mdSheetPoints!=='function')return {missing:true};const sup=document.getElementById('md_sheetSupplier');sup.value='Vitro USA';sup.dispatchEvent(new Event('change'));const cur=document.getElementById('md_sheetCurrency').value;
   document.getElementById('md_sheetCode').value='6CLEAR';document.getElementById('md_sheetW').value='130';document.getElementById('md_sheetH').value='96';
