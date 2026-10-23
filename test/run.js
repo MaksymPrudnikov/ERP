@@ -6046,6 +6046,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       ['Hardware', "tab='masterdata';mdTab='hardware';"],
       ['Master Data → Stations form', "tab='masterdata';mdTab='stations';stEdit='new';"],
       ['Master Data → Setup', "tab='masterdata';mdTab='setup';"],
+      ['Inventory → Sheet sizes', "tab='inventory';invView='sizes';"],
       ['Production → Terminals form', "tab='production';subtab='terminals';tmEdit='new';"],
       ['Sales order → stock & extra items', "tab='sales';subtab=null;render();salesOrderNew();"]
     ]) eq('EN без русского остатка: ' + label, await cyrillicOn(setup), []);

@@ -24,8 +24,9 @@
    · стекло без «We cut it» (COG) на склад не идёт.
    Ответы владельца 14.10: пересчитывает оптимизатор с галочкой Inventory;
    «каталог = то, что на складе» — в пересчёте все стёкла каталога сразу;
-   размер — из точек поставки Master Data, где его нет — базовый 130 × 96
-   («в будущем я поправлю все»).
+   размер — из точек поставки Master Data, где его нет — размеры цеха
+   (Inventory → Sheet sizes), нет и их — «Size missing» (план Master Data,
+   этап 5: базового 130 × 96 в коде больше нет).
 
    Остаток не хранится числом — он считается из фактов, как балансы
    Purchasing: отмена приёмки, Unbatch, Reset и пересборка раскроя сами
@@ -36,7 +37,6 @@
    ошибке — значит, не резали).
    ===================================================================== */
 DEFAULT.inventoryEvent=[];DEFAULT.inventoryMin={};
-const INV_BASE_SHEET={w:130,h:96};
 const INV_WRITE_OFF=['Broken on rack','Defect','Other'];
 /* Записи журнала склада: пересчёт и списание листов; кусок S- не найден
    при пересчёте и найден снова (erp/inventory/offcuts). */
@@ -60,11 +60,13 @@ function invPersist(fn){
  return storageCommand(fn);
 }
 
-/* Размеры каталога: точки поставки стекла, без них — базовый 130 × 96. */
+/* Размеры каталога: точки поставки стекла, без них — размеры цеха, без
+   них — строка «Size missing»: предупреждение, а не выдуманный лист. */
 function invCatalogSizes(code){
- const seen=new Set(),out=[];
- glassSheetsFor(code).filter(s=>s&&s.availability!=='inactive').forEach(s=>{const z=invSize(s.sheetWIn,s.sheetHIn);if(z&&!seen.has(z.w+'x'+z.h)){seen.add(z.w+'x'+z.h);out.push(z);}});
- return out.length?out:[invSize(INV_BASE_SHEET.w,INV_BASE_SHEET.h)];
+ const seen=new Set(),out=[],add=(w,h)=>{const z=invSize(w,h);if(z&&!seen.has(z.w+'x'+z.h)){seen.add(z.w+'x'+z.h);out.push(z);}};
+ glassSheetsFor(code).filter(s=>s&&s.availability!=='inactive').forEach(s=>add(s.sheetWIn,s.sheetHIn));
+ if(!out.length)cutShopSizes().forEach(s=>add(s.w,s.h));
+ return out.length?out:[null];
 }
 
 /* ---------------------------------------------------------------------

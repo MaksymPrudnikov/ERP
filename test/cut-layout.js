@@ -387,12 +387,15 @@ module.exports=async function({page,eq,ok}){
   cutSheetTrimSet('144x96','borderY','2');
   tab='masterdata';mdSetTab('cutting');
   const rows=[...document.querySelectorAll('[data-cut-sheet-row]')].map(r=>r.dataset.cutSheetRow+' '+r.children[1].textContent);
-  document.getElementById('cutMdSizeW').value='84';document.getElementById('cutMdSizeH').value='130';document.querySelector('[data-cut-size-add] button').click();
+  /* Размеры листов заводят в Inventory → Sheet sizes (план Master Data, этап 5). */
+  tab='inventory';invGo('sizes');render();
+  document.getElementById('invSizeW').value='84';document.getElementById('invSizeH').value='130';document.querySelector('[data-inv-size-add] button').click();
   const added=cutShopSizes().map(x=>x.key);
-  document.getElementById('cutMdSizeW').value='130';document.getElementById('cutMdSizeH').value='84';document.querySelector('[data-cut-size-add] button').click();
-  const mdError=(document.querySelector('[data-cut-md-error]')||{}).textContent;
-  document.querySelector('[data-cut-size-remove="144x96"]').click();
+  document.getElementById('invSizeW').value='130';document.getElementById('invSizeH').value='84';document.querySelector('[data-inv-size-add] button').click();
+  const mdError=(document.querySelector('[data-inv-size-error]')||{}).textContent;
+  document.querySelector('[data-inv-size-remove="144x96"]').click();
   const removed=cutShopSizes().map(x=>x.key),edgesGone=cutSheetTrim('144x96');
+  invGo('sheets');tab='masterdata';mdSetTab('cutting');render();
   document.querySelector('[data-cut-reset]').click();
   return {run,dup,bad,rows,added,mdError,removed,edgesGone,afterReset:cutShopSizes().map(x=>x.key)};
  }),{run:['144x96','130x96'],dup:'This sheet size is already there.',bad:'Enter the sheet size, for example 130 × 96.',
