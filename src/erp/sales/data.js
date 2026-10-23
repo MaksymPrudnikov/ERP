@@ -358,6 +358,13 @@ function salesPriceValue(cat,over){return over!=null?over:cat;}
 function salesNonNegOrNull(v){const n=+v;return v===``||v==null||!isFinite(n)||n<0?null:Math.round(n*100)/100;}
 function salesActiveSpacerVariants(){return (DB.spacerVariant||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
 function salesCavitySpacer(c){return mdById('spacerVariant',c&&c.spacerVariantId)||salesActiveSpacerVariants()[0]||null;}
+/* Рамка системы для камеры: той же ширины, а если такой у системы нет —
+   ближайшей. В Spacer видны все системы, Width подстраивается под выбранную
+   (владелец, 23.10.2026). */
+function salesSpacerForSystem(system,size){
+ const rows=salesActiveSpacerVariants().filter(x=>x.system===system),v=x=>{const q=spacerSizeParts(x);return q?q.value:0;};
+ return rows.find(x=>x.size===size)||rows.slice().sort((a,b)=>Math.abs(v(a.size)-v(size))-Math.abs(v(b.size)-v(size)))[0]||null;
+}
 /* Размеры в выпадающем списке — по возрастанию, а не в порядке заведения:
    шестнадцать дробей вперемешку читать невозможно. Сортируем по значению
    дроби, потому что как текст 1/2 встаёт раньше 3/16. С системой — только
