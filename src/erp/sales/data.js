@@ -150,6 +150,10 @@ function normalizeSalesLaminatedPly(raw,legacyProductId,legacyHeatTreatmentId,d)
  const requestedType=raw.visionType||raw.type||(basis&&basis.coatingFamily),visionType=SALES_LAMINATED_GLASS_TYPES.includes(requestedType)?requestedType:d.visionType;
  const out={priceOverride:salesNonNegOrNull(raw.priceOverride),manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId,heatSoak:raw.heatSoak===true&&(raw.heatTreatmentId||legacyHeatTreatmentId)==='HT-FT',
   coatingPosition:SALES_LAMINATED_FRIT_POSITIONS.includes(raw.coatingPosition)?raw.coatingPosition:'outside',frit:normalizeSalesLaminatedFrit(raw.frit,d.frit)};
+ /* Выбранное стекло подходит — список кандидатов не нужен (F5 перебирал его
+    на каждый слой каждой строки). */
+ const g=requested;
+ if(g&&g.active!==false&&(!out.manufacturer||g.manufacturer===out.manufacturer)&&(!out.thicknessMm||g.thicknessMm===+out.thicknessMm)&&g.coatingFamily===(SALES_LAMINATED_GLASS_TYPES.includes(out.visionType)?out.visionType:'uncoated'))return out;
  const rows=salesLaminatedPlyCandidates(out);if(!rows.some(g=>g.id===out.glassProductId))out.glassProductId=(rows[0]||{}).id||'';
  return out;
 }

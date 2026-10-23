@@ -228,6 +228,16 @@ module.exports=async function({page,eq}){
    return {first,again,paid,balance,order:order>0,price:price>0};
   }finally{window.salesOrderCommercialTotals=f;window.GF_SCOPE_CHECK=was;}
  }),{first:true,again:0,paid:0,balance:10,order:true,price:true});
+ eq('after F5 order totals are prepared in idle time: Finance then recalculates nothing; the station tab is skipped',await t.p.evaluate(async()=>{
+  let n=0;const f=window.salesOrderCommercialTotals;window.salesOrderCommercialTotals=function(){n++;return f.apply(this,arguments);};
+  const was=[window.GF_SCOPE_CHECK,window.GF_NO_ARCHIVE,tab,archiveInputAt],wait=()=>new Promise(r=>{const c=()=>finTotalsWarmTimer?setTimeout(c,20):r();c();});
+  window.GF_SCOPE_CHECK=false;window.GF_NO_ARCHIVE=false;archiveInputAt=0;
+  try{
+   tab='station';finTotalsKeep=new Map();finTotalsWarm(0);await wait();const station=finTotalsKeep.size;
+   tab=was[2];finTotalsWarm(0);await wait();const warm=finTotalsKeep.size===DB.salesOrder.length;n=0;render();
+   return {station,warm,render:n};
+  }finally{window.salesOrderCommercialTotals=f;[window.GF_SCOPE_CHECK,window.GF_NO_ARCHIVE,tab,archiveInputAt]=was;}
+ }),{station:0,warm:true,render:0});
  eq('a Shape change forgets only the order of its line; a new Shape — nothing; a library Shape — all',await t.p.evaluate(()=>{
   const keep=storageBase.get('shapeDef'),saved=finTotalsKeep;
   try{

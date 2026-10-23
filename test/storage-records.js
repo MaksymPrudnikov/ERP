@@ -67,6 +67,20 @@ module.exports=async function({page,eq,ok}){
   return {ok:out.ok,scoped:first[0],missed:first[1]==='Missed',added:first[2],after:stored()};
  }),{ok:true,scoped:'Scoped',missed:false,added:true,after:['Scoped','Missed',true]});
 
+ /* Область из ключей не перебирает всю таблицу (storageDiffTail): ответ тот
+    же, что у полного прохода; строку заменили или удалили — полный проход. */
+ eq('область из ключей: тот же ответ без перебора таблицы; замена и удаление строки — полный проход',await t.p.evaluate(()=>{
+  const keep=DB.customer.slice(),only=()=>new Map([['customer',new Set([keep[1].id])]]),slow=()=>{storageSeen.delete('customer');return storageDiff(DB,only());};
+  const tailFn=storageDiffTail,used=[];window.storageDiffTail=function(){const r=tailFn.apply(this,arguments);used.push(r);return r;};
+  const both=()=>{used.length=0;const f=storageDiff(DB,only()),hit=used[0]===true,s2=slow();touch();return {same:JSON.stringify(f)===JSON.stringify(s2),hit,rows:f.map(c=>c.id===keep[1].id?'named':c.id)};};
+  const notes=keep.slice(0,2).map(c=>c.notes);touch();DB.customer.push({id:'TAIL-1',legalName:'Tail'});keep[1].notes='Named';keep[0].notes='Unnamed';
+  const tail=both();
+  DB.customer[0]=Object.assign({},DB.customer[0],{notes:'Swapped'});const swapped=both();
+  DB.customer.splice(1,1);const removed=both();
+  window.storageDiffTail=tailFn;keep[0].notes=notes[0];keep[1].notes=notes[1];DB.customer=keep;touch();
+  return {tail,swapped:[swapped.same,swapped.hit],removed:[removed.same,removed.hit]};
+ }),{tail:{same:true,hit:true,rows:['named','TAIL-1']},swapped:[true,false],removed:[true,false]});
+
  /* Вторая вкладка: запись одной — сразу в памяти другой. */
  const p2=await t.c.newPage();p2.on('pageerror',e=>t.errs.push(e.message));p2.on('dialog',d=>d.accept());
  await p2.goto(t.p.url());await p2.evaluate(()=>window.storageReady);

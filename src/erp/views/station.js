@@ -796,7 +796,7 @@ function stationTareCount(list){
 function stationLoadedCard(){
  if(typeof carrierContents!=='function'||!(DB.carrier||[]).length)return '';
  const put=stationPutOn(),rows=[],loose=stationPutsOnHere()==='none'?[]:stationLooseOut();
- carrierContents().forEach((list,code)=>{const mine=list.filter(x=>x.scan.station===stationCode);if(mine.length)rows.push({code,list:mine,since:mine.map(x=>x.scan.at).sort()[0]||''});});
+ carrierContents(stationCode).forEach((list,code)=>{const mine=list.filter(x=>x.scan.station===stationCode);if(mine.length)rows.push({code,list:mine,since:mine.map(x=>x.scan.at).sort()[0]||''});});
  if(put&&!rows.some(r=>r.code===put))rows.push({code:put,list:[],since:''});
  if(!rows.length&&!loose.length)return '';
  rows.sort((a,b)=>(b.code===put)-(a.code===put)||String(a.since).localeCompare(String(b.since)));
@@ -822,11 +822,16 @@ function stationTareWord(){return stationPutsOnHere()==='skid'?'skid':'dolly';}
 function stationLooseIds(){const s=stationSession();return s&&Array.isArray(s.loose)?s.loose:[];}
 function stationLooseSave(ids){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.loose=ids;stationSessionsSave(m);}
 /* Сканы, всё ещё ждущие тару: не отменены, последние у своего стекла, тары нет. */
+/* С конца журнала: такие сканы свежие, весь журнал на каждом скане не
+   перебирается (задание «База», скан подряд). */
 function stationLoose(){
  const ids=new Set(stationLooseIds());if(!ids.size)return [];
- const last=new Map(),out=[];(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)last.set(s.piece,s);});
- (DB.stationScan||[]).forEach(s=>{if(ids.has(s.id)&&!s.undoneAt&&!s.on&&!s.broken&&last.get(s.piece)===s)out.push(s);});
- return out;
+ const scans=DB.stationScan||[],last=new Map(),out=[];let left=ids.size;
+ for(let i=scans.length-1;i>=0&&left>0;i--){
+  const s=scans[i];if(!s.undoneAt&&!last.has(s.piece))last.set(s.piece,s);
+  if(ids.has(s.id)){left--;if(!s.undoneAt&&!s.on&&!s.broken&&last.get(s.piece)===s)out.push(s);}
+ }
+ return out.reverse();
 }
 /* Скан записан без тары — запомнить, если стекло ушло со станции. На IGU
    лайт в машине, пока юнит не закрыт: тара ему не нужна. */
