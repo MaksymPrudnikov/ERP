@@ -57,13 +57,35 @@ create table if not exists public.erp_member (
   active boolean not null default true,
   updated_at timestamptz not null default now()
 );
+-- Галочки разделов человека — те же ключи, что USER_SECTIONS в erp/access.js.
+alter table public.erp_member add column if not exists sections text[] not null default '{}';
+
+-- Какие таблицы ERP закрыты разделом (пусто — открыто всем участникам).
+-- Деньги — Finance, комиссии — Commissions, закупки — Purchasing, люди —
+-- Users (журнал входов пишут все, читает Users). Остальное общее: заказ
+-- читают и меняют и офис, и станции. Цены внутри заказа — следующий шаг.
+create table if not exists public.erp_table_rule (
+  tbl text primary key,
+  read_section text,
+  write_section text
+);
+insert into public.erp_table_rule (tbl, read_section, write_section) values
+  ('receipt','finance','finance'), ('refund','finance','finance'), ('financeEvent','finance','finance'),
+  ('financeTerms','finance','finance'), ('financeExport','finance','finance'), ('financeExportBatch','finance','finance'),
+  ('referrer','commissions','commissions'), ('referrerPayout','commissions','commissions'),
+  ('supplier','purchasing','purchasing'), ('purchasingEvent','purchasing','purchasing'), ('purchaseOrder','purchasing','purchasing'),
+  ('purchaseReceipt','purchasing','purchasing'), ('purchaseDeliveryRequest','purchasing','purchasing'),
+  ('purchaseInvoice','purchasing','purchasing'), ('purchasePayment','purchasing','purchasing'),
+  ('user',null,'users'), ('authEvent','users',null)
+on conflict (tbl) do update set read_section = excluded.read_section, write_section = excluded.write_section;
 
 alter table public.erp_record enable row level security;
 alter table public.erp_log enable row level security;
 alter table public.erp_command enable row level security;
 alter table public.erp_counter enable row level security;
 alter table public.erp_member enable row level security;
-revoke all on public.erp_record, public.erp_log, public.erp_command, public.erp_counter, public.erp_member from public, anon, authenticated;
+alter table public.erp_table_rule enable row level security;
+revoke all on public.erp_record, public.erp_log, public.erp_command, public.erp_counter, public.erp_member, public.erp_table_rule from public, anon, authenticated;
 revoke all on sequence public.erp_log_rev_seq from public, anon, authenticated;
 
 -- Кто вошёл: ошибка, если не участник.
@@ -75,6 +97,20 @@ begin
   if not found then raise exception 'Not a member of this shop.' using errcode = '42501'; end if;
   return m;
 end $$;
+
+-- Может ли человек раздел: администратор — всё; пустой раздел — все.
+create or replace function public.erp_can(m public.erp_member, section text) returns boolean
+language sql stable set search_path = public, pg_temp as $$
+  select section is null or m.admin or section = any(m.sections)
+$$;
+create or replace function public.erp_can_read(m public.erp_member, t text) returns boolean
+language sql stable set search_path = public, pg_temp as $$
+  select public.erp_can(m, (select read_section from public.erp_table_rule where tbl = t))
+$$;
+create or replace function public.erp_can_write(m public.erp_member, t text) returns boolean
+language sql stable set search_path = public, pg_temp as $$
+  select public.erp_can(m, (select write_section from public.erp_table_rule where tbl = t))
+$$;
 
 -- Запись: change-set целиком или ничего.
 --   expect  — [{tbl,id,ver}]: ver строки сейчас; 0 — строки ещё нет.
@@ -99,6 +135,16 @@ begin
   perform pg_advisory_xact_lock(7240001);
   select result into prev from public.erp_command where id = command_id;
   if found then return prev; end if;
+
+  -- Таблица чужого раздела — отказ всей команды, ничего не записано.
+  select coalesce(jsonb_agg(distinct x->>'tbl'), '[]'::jsonb) into bad
+    from jsonb_array_elements(changes) x where not public.erp_can_write(me, x->>'tbl');
+  if jsonb_array_length(bad) > 0 then
+    res := jsonb_build_object('ok', false, 'denied', bad);
+    insert into public.erp_command (id, user_id, device, build, result)
+      values (command_id, me.user_id, coalesce(device, ''), coalesce(build, ''), res);
+    return res;
+  end if;
 
   for e in select * from jsonb_array_elements(coalesce(expect, '[]')) loop
     select ver into cur from public.erp_record where tbl = e->>'tbl' and id = e->>'id' and not deleted;
@@ -153,16 +199,17 @@ end $$;
 -- с deleted = true. last — rev, с которого спрашивать дальше.
 create or replace function public.erp_changes(since bigint, lim int default 2000)
 returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
-declare rows jsonb; last bigint;
+declare me public.erp_member := public.erp_me(); rows jsonb; last bigint;
 begin
-  perform public.erp_me();
   with l as (
     select tbl, id, max(rev) as rev from (
       select tbl, id, rev from public.erp_log where rev > coalesce(since, 0) order by rev limit greatest(1, least(coalesce(lim, 2000), 10000))
     ) s group by tbl, id
   )
+  -- Строки чужого раздела не приходят, но курсор last идёт дальше.
   select coalesce(jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'deleted', r.deleted,
-           'cold', r.cold, 'data', case when r.cold then null else r.data end) order by l.rev), '[]'::jsonb),
+           'cold', r.cold, 'data', case when r.cold then null else r.data end) order by l.rev)
+           filter (where public.erp_can_read(me, r.tbl)), '[]'::jsonb),
          max(l.rev)
     into rows, last
     from l join public.erp_record r on r.tbl = l.tbl and r.id = l.id;
@@ -172,11 +219,12 @@ end $$;
 -- Архивные строки по ключам (этап 3 просит их по запросу).
 create or replace function public.erp_cold(keys jsonb)
 returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare me public.erp_member := public.erp_me();
 begin
-  perform public.erp_me();
   return coalesce((select jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'month', r.month, 'data', r.data))
     from jsonb_array_elements(coalesce(keys, '[]')) k
-    join public.erp_record r on r.tbl = k->>'tbl' and r.id = k->>'id' and r.cold and not r.deleted), '[]'::jsonb);
+    join public.erp_record r on r.tbl = k->>'tbl' and r.id = k->>'id' and r.cold and not r.deleted
+    where public.erp_can_read(me, r.tbl)), '[]'::jsonb);
 end $$;
 
 -- Размер базы — в индикатор места (Free: 500 МБ).
@@ -192,12 +240,13 @@ create or replace function public.erp_whoami()
 returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare me public.erp_member := public.erp_me();
 begin
-  return jsonb_build_object('user_id', me.user_id, 'name', me.name, 'admin', me.admin);
+  return jsonb_build_object('user_id', me.user_id, 'name', me.name, 'admin', me.admin, 'sections', to_jsonb(me.sections));
 end $$;
 
 -- Администратор заводит, переименовывает и отключает людей. Сам вход
 -- (почта и пароль) создаётся в Supabase → Authentication → Users.
-create or replace function public.erp_member_set(email text, name text, admin boolean, active boolean)
+drop function if exists public.erp_member_set(text, text, boolean, boolean);
+create or replace function public.erp_member_set(email text, name text, admin boolean, active boolean, sections text[] default '{}')
 returns jsonb language plpgsql volatile security definer set search_path = public, pg_temp as $$
 declare me public.erp_member := public.erp_me(); uid uuid;
 begin
@@ -205,18 +254,22 @@ begin
   select id into uid from auth.users u where lower(u.email) = lower(erp_member_set.email);
   if uid is null then raise exception 'No login with this email. Create it in Authentication first.'; end if;
   if uid = me.user_id and (not admin or not active) then raise exception 'You cannot remove your own administrator access.'; end if;
-  insert into public.erp_member as m (user_id, name, admin, active, updated_at) values (uid, coalesce(name, ''), admin, active, now())
-    on conflict (user_id) do update set name = excluded.name, admin = excluded.admin, active = excluded.active, updated_at = now();
+  insert into public.erp_member as m (user_id, name, admin, active, sections, updated_at)
+    values (uid, coalesce(name, ''), admin, active, coalesce(sections, '{}'), now())
+    on conflict (user_id) do update set name = excluded.name, admin = excluded.admin, active = excluded.active,
+      sections = excluded.sections, updated_at = now();
   return jsonb_build_object('user_id', uid);
 end $$;
 
 revoke all on function public.erp_me(), public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int),
   public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_size(), public.erp_whoami(),
-  public.erp_member_set(text, text, boolean, boolean) from public, anon;
+  public.erp_member_set(text, text, boolean, boolean, text[]) from public, anon;
 revoke all on function public.erp_me() from authenticated;
+revoke all on function public.erp_can(public.erp_member, text), public.erp_can_read(public.erp_member, text),
+  public.erp_can_write(public.erp_member, text) from public, anon, authenticated;
 grant execute on function public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int),
   public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_size(), public.erp_whoami(),
-  public.erp_member_set(text, text, boolean, boolean) to authenticated;
+  public.erp_member_set(text, text, boolean, boolean, text[]) to authenticated;
 
 -- Первый администратор — вход admin@glass-erp.test (тестовый проект). Для
 -- другого адреса поменяйте его здесь перед запуском.
