@@ -798,6 +798,7 @@ function normalizeDB(){
  if(typeof normalizePurchaseReceiving==='function')normalizePurchaseReceiving();
  if(typeof normalizePurchaseInvoices==='function')normalizePurchaseInvoices();
  if(typeof normalizeInventory==='function')normalizeInventory();
+ if(typeof normalizeConsumables==='function')normalizeConsumables();
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
