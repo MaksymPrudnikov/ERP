@@ -21,7 +21,7 @@ module.exports=async function({page,eq,ok}){
 
  await open('HEAT');
  eq('вкладка Master Data → NCR: место слева, причины справа; общие на станции только для чтения',await t.p.evaluate(()=>{
-  const tabs=[...document.querySelectorAll('.tabs button')].map(b=>b.textContent),rows=[...document.querySelectorAll('[data-ncr-reason]')];
+  const tabs=[...document.querySelectorAll('[data-md-subtabs] button')].map(b=>b.textContent),rows=[...document.querySelectorAll('[data-ncr-reason]')];
   const base=rows.filter(r=>r.textContent.includes('All stations')),own=rows.filter(r=>r.textContent.includes('HEAT only'));
   return {tab:tabs.includes('NCR'),on:document.querySelector('[data-ncr-where="HEAT"]').classList.contains('on'),rows:rows.length,base:base.length,own:own.length,
    baseReadOnly:base.every(r=>!r.querySelector('input')),ownEditable:own.every(r=>r.querySelector('[data-ncr-name]')&&r.querySelector('[data-ncr-active]')),title:document.querySelector('.ncr-head h3').textContent};

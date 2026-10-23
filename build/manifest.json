@@ -112,6 +112,7 @@
   "src/erp/views/shipping.js",
   "src/erp/views/production.js",
   "src/erp/views/md-card.js",
+  "src/erp/views/md-catalog.js",
   "src/erp/views/masterdata.js",
   "src/erp/views/surround-ui.js",
   "src/erp/views/price-lists-ui.js",

@@ -93,7 +93,7 @@ module.exports=async function({page,eq,ok}){
  eq('конструктор: вкладка Stickers, размер −/+ в pt, жирный, детали, свой текст; Unsaved changes; Save хранит шаблон',await t.p.evaluate(()=>{
   oqReset();stOrder();tab='masterdata';mdSetTab('stickers');
   const row=k=>document.querySelector('[data-stk-kind="'+k+'"]'),fontOf=s=>{const x=[...document.querySelectorAll('[data-stk-paper] text')].find(e=>e.textContent.includes(s));return x?+x.getAttribute('font-size'):null;};
-  const tabs=[...document.querySelectorAll('.card > .tabs button')].map(b=>b.textContent),saveOff=document.querySelector('[data-stk-save]').disabled,before=fontOf('NORTHSIDE');
+  const tabs=[...document.querySelectorAll('[data-md-subtabs] button')].map(b=>b.textContent),saveOff=document.querySelector('[data-stk-save]').disabled,before=fontOf('NORTHSIDE');
   row('customer').querySelector('[data-stk-plus]').click();row('customer').querySelector('[data-stk-plus]').click();const plus=fontOf('NORTHSIDE');
   const input=row('customer').querySelector('[data-stk-size]');input.value='200';input.dispatchEvent(new Event('change'));const clamped=+row('customer').querySelector('[data-stk-size]').value;
   input.value;row('customer').querySelector('[data-stk-size]').value='22';row('customer').querySelector('[data-stk-size]').dispatchEvent(new Event('change'));
