@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 167 модулей, 23 стиля.
+  Состав сборки: 168 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -511,6 +511,7 @@ body.signin-mode main#app{padding:0}
 .stock-picker-row:hover{background:var(--surface-2)}.stock-picker-row td{padding:8px}
 .md-mat-cats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.md-mat-cats button{padding:6px 11px;font-size:11px}.md-mat-cats button.on{background:var(--blue2);border-color:var(--accent-line);color:var(--accent);font-weight:700}.md-mat-cats button .mut{margin-left:5px;font:9.5px ui-monospace,monospace}
 .md-st-tree{margin-bottom:14px}.md-st-tree ol,.md-st-tree ul{list-style:none;margin:0;padding:0}.md-st-step{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line2)}.md-st-step:last-child{border-bottom:0}.md-st-step>ul{flex:1;display:flex;flex-direction:column;gap:6px}.md-st-seq{flex:none;width:24px;height:24px;border-radius:7px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:11px}.md-st-node{padding-left:10px;border-left:2px solid var(--line)}.md-st-kids{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.md-setup input[type=number],.md-setup td input[type=text]{width:120px;display:inline-block}.md-setup [data-setup-cards] td input[type=text]{width:220px}.md-setup .md-setup-base{display:inline-flex;align-items:center;gap:4px;margin-right:12px;white-space:nowrap}.md-setup h3{margin-top:18px}.md-setup .grid{max-width:640px}
 .md-mat-subs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px solid var(--line2)}.md-mat-subs button{padding:4px 9px;font-size:10px}.md-mat-subs button.on{background:var(--blue);border-color:var(--blue);color:var(--on-solid)}
 .stock-picker-filters{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 10px}.stock-picker-filters button{padding:4px 9px;font-size:9.5px}.stock-picker-filters button.on{background:var(--blue2);border-color:var(--accent-line);color:var(--accent);font-weight:700}
 .sales-notes{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}.sales-notes textarea{font-size:11px;padding:6px 8px;border-radius:6px}.sales-modal-back{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:80;align-items:center;justify-content:center;padding:18px}.sales-modal-back.show{display:flex}.sales-modal{width:min(720px,96vw);background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;padding:12px;box-shadow:0 18px 60px rgba(16,24,40,.19)}.sales-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}.sales-modal-head h3{margin:0;font-size:14px}.sales-modal-head span{font-size:10px;color:var(--mut)}.sales-modal textarea{font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.sales-modal-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
@@ -3481,7 +3482,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='78d5b9cabcdc';
+var ERP_BUILD='471a705cae16';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11016,11 +11017,8 @@ const FRIT_PATTERNS=['2 x 2 square','4 x 4 square','2 x 4 diamond','Custom — s
    иначе трафарет ляжет зеркально. Это производственный параметр, а не
    оформление. На рабочих листах стоит Top right. */
 const FRIT_MARGIN_CORNERS=['Top left','Top right','Bottom left','Bottom right'];
-const FRIT_DEFAULT_CORNER='Top right';
-const FRIT_DEFAULT_DOT_MM=5;
-/* 1″ в канонических 1/16″. Это ПРЕДЗАПОЛНЕНИЕ, а не правило: пользователь
-   подтвердил, что отступ 0 законен, поэтому минимум не проверяем. */
-const FRIT_DEFAULT_MARGIN16=16;
+/* Угол, точка и отступ по умолчанию — в Data → Setup (erp/sales/order-setup).
+   Отступ — ПРЕДЗАПОЛНЕНИЕ, а не правило: 0 законен (пользователь). */
 /* Цвета спандрела — СПРАВОЧНИК, а не список в коде. Прежние пять слов
    ('Black', 'White', 'Gray', 'Bronze', 'Custom') были выдумкой: настоящая
    палитра принадлежит производителю и имеет коды, по которым цех и заказывает.
@@ -12270,6 +12268,75 @@ function customerCsvRows(){
 }
 function exportCustomersCSV(){customerDownload('glass_erp_customers.csv',customerCsvRows().map(r=>r.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');}
 
+/* ==== src/erp/sales/order-setup.js ==== */
+/* =====================================================================
+   erp/sales/order-setup  ·  order-setup-1.0
+   Настройки нового заказа (план Master Data, этап 5): сборы заказа —
+   Energy, HST, комиссия карты, доставка, депозит за скид — и что входит в
+   базу каждого сбора; умолчания фрита — точка, отступ и угол. Раньше это
+   были числа в коде (9.75, 13, 2.34 / 2.39 / 3.15, 5 мм, 1″). Теперь их
+   правят в Data → Setup, а код только читает.
+   IN : DB.orderSetup
+   OUT: orderSetup(); salesOrderChargeDefaults() — снимок для нового
+        заказа; orderSetupFrit() — умолчания фрита нового лайта
+   Правило: сохранённый заказ живёт по своему снимку orderCharges (ставки,
+   карта, база сборов); правка Setup его не меняет.
+   ===================================================================== */
+/* Порядок начисления один: Subtotal → Energy → HST → Card fee, доставка и
+   депозит — в конце. Настраивается, что входит в базу HST и комиссии карты.
+   Депозит за скид — деньги клиента, ни в одну базу не входит. Засев —
+   прежнее поведение кода. */
+const ORDER_SETUP_DEFAULT={
+ energyOn:true,energyRate:9.75,
+ hstOn:true,hstRate:13,hstOnEnergy:true,hstOnDelivery:false,
+ cardOn:false,cardOnEnergy:true,cardOnHst:true,cardOnDelivery:false,
+ cardNetworks:[{id:'visa',name:'Visa card fee',rate:2.34},{id:'mastercard',name:'Mastercard fee',rate:2.39},{id:'amex',name:'American Express fee',rate:3.15}],
+ deliveryOn:false,deliveryAmount:0,
+ skidDepositOn:false,skidDepositAmount:0,
+ fritDotMm:5,fritMargin16:16,fritCorner:'Top right'
+};
+/* Что может входить в базу сбора, кроме Subtotal. */
+const ORDER_CHARGE_BASE_PARTS={hst:['energy','delivery'],card:['energy','hst','delivery']};
+DEFAULT.orderSetup=JSON.parse(JSON.stringify(ORDER_SETUP_DEFAULT));
+if(!DB.orderSetup||typeof DB.orderSetup!=='object'||Array.isArray(DB.orderSetup))DB.orderSetup=JSON.parse(JSON.stringify(ORDER_SETUP_DEFAULT));
+
+function orderSetupNumber(v,fallback){const n=Number(v);return v!==''&&v!=null&&Number.isFinite(n)&&n>=0?Math.round(n*10000)/10000:fallback;}
+function normalizeOrderSetup(){
+ const s=DB.orderSetup&&typeof DB.orderSetup==='object'&&!Array.isArray(DB.orderSetup)?DB.orderSetup:{},d=ORDER_SETUP_DEFAULT,out={};
+ Object.keys(d).forEach(k=>{
+  if(typeof d[k]==='boolean')out[k]=typeof s[k]==='boolean'?s[k]:d[k];
+  else if(typeof d[k]==='number')out[k]=orderSetupNumber(s[k],d[k]);
+ });
+ out.fritDotMm=out.fritDotMm>0?out.fritDotMm:d.fritDotMm;
+ out.fritMargin16=Math.round(out.fritMargin16);
+ out.fritCorner=FRIT_MARGIN_CORNERS.includes(s.fritCorner)?s.fritCorner:d.fritCorner;
+ /* Списка карт нет вовсе (старая база) — засев; список очищен руками —
+    остаётся пустым: комиссии тогда нет, пока её не заведут. */
+ const ids=new Set();
+ out.cardNetworks=(Array.isArray(s.cardNetworks)?s.cardNetworks:d.cardNetworks).filter(x=>x&&typeof x==='object').map(x=>{
+  let id=typeof x.id==='string'&&/^[A-Za-z0-9_-]{1,40}$/.test(x.id)?x.id:'card-'+Math.random().toString(36).slice(2,8);
+  while(ids.has(id))id=id+'-2';ids.add(id);
+  return {id,name:String(x.name==null?'':x.name).trim().slice(0,60),rate:orderSetupNumber(x.rate,0)};
+ });
+ DB.orderSetup=out;
+}
+normalizeOrderSetup();
+function orderSetup(){return DB.orderSetup||ORDER_SETUP_DEFAULT;}
+function orderSetupNetwork(id){return orderSetup().cardNetworks.find(x=>x.id===id)||null;}
+function orderSetupBase(kind){const s=orderSetup(),key=kind+'On';return ORDER_CHARGE_BASE_PARTS[kind].filter(p=>s[key+p[0].toUpperCase()+p.slice(1)]);}
+/* Снимок для нового заказа: ставки, первая карта списка, база сборов. */
+function salesOrderChargeDefaults(){
+ const s=orderSetup(),n=s.cardNetworks[0]||{id:'',name:'Card fee',rate:0};
+ return {
+  energy:{enabled:s.energyOn,rate:s.energyRate},
+  hst:{enabled:s.hstOn,rate:s.hstRate,base:orderSetupBase('hst')},
+  card:{enabled:s.cardOn,network:n.id,name:n.name||'Card fee',rate:n.rate,base:orderSetupBase('card')},
+  delivery:{enabled:s.deliveryOn,amount:s.deliveryAmount},
+  skidDeposit:{enabled:s.skidDepositOn,amount:s.skidDepositAmount}
+ };
+}
+function orderSetupFrit(){const s=orderSetup();return {dotMm:s.fritDotMm,margin16:s.fritMargin16,marginFrom:s.fritCorner};}
+
 /* ==== src/erp/sales/data.js ==== */
 /* =====================================================================
    erp/sales/data · sales-0.3b-makeup
@@ -12292,14 +12359,6 @@ const SALES_MAX_INTERLAYERS=4;
 const SALES_INTERLAYER_LAYER_MM=.38;
 const SALES_MAX_INTERLAYER_LAYERS=6;
 const SALES_PRIMARY_SEALANT_ID='SEAL-PIB';
-const SALES_CARD_FEE_RATES={visa:2.34,mastercard:2.39,amex:3.15};
-const SALES_ORDER_CHARGE_DEFAULTS={
- energy:{enabled:true,rate:9.75},
- hst:{enabled:true,rate:13},
- card:{enabled:false,network:'visa',rate:2.34},
- delivery:{enabled:false,amount:0},
- skidDeposit:{enabled:false,amount:0}
-};
 
 function salesUid(prefix){
  prefix=prefix||'SO';
@@ -12327,13 +12386,19 @@ function salesDimTo16(v){
 }
 function salesStoredDim16(v){const n=+v;return Number.isInteger(n)&&n>0?n:null;}
 function salesOrderChargeNumber(v,fallback){const n=Number(v);return Number.isFinite(n)&&n>=0?n:fallback;}
+/* Сборы заказа — снимок Setup на момент создания (erp/sales/order-setup).
+   Карта хранит своё имя и ставку: удалённая из Setup карта в старом заказе
+   остаётся. Нет базы сбора — прежнее правило: HST на Subtotal + Energy,
+   карта на Subtotal + Energy + HST. */
+function salesOrderChargeBase(v,kind,legacy){return Array.isArray(v)?ORDER_CHARGE_BASE_PARTS[kind].filter(p=>v.includes(p)):legacy;}
 function normalizeSalesOrderCharges(raw){
  raw=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
- const network=Object.prototype.hasOwnProperty.call(SALES_CARD_FEE_RATES,raw.card&&raw.card.network)?raw.card.network:'visa';
+ const s=orderSetup(),rc=raw.card&&typeof raw.card==='object'?raw.card:{};
+ const network=salesRefId(rc.network)||((s.cardNetworks[0]?s.cardNetworks[0].id:'')),known=orderSetupNetwork(network);
  return {
-  energy:{enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:true,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,9.75)},
-  hst:{enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:true,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,13)},
-  card:{enabled:!!(raw.card&&raw.card.enabled),network:network,rate:salesOrderChargeNumber(raw.card&&raw.card.rate,SALES_CARD_FEE_RATES[network])},
+  energy:{enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:s.energyOn,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,s.energyRate)},
+  hst:{enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:s.hstOn,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,s.hstRate),base:salesOrderChargeBase(raw.hst&&raw.hst.base,'hst',['energy'])},
+  card:{enabled:!!rc.enabled,network:network,name:salesString(rc.name).slice(0,60)||(known&&known.name)||'Card fee',rate:salesOrderChargeNumber(rc.rate,known?known.rate:0),base:salesOrderChargeBase(rc.base,'card',['energy','hst'])},
   delivery:{enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)},
   skidDeposit:{enabled:!!(raw.skidDeposit&&raw.skidDeposit.enabled),amount:salesOrderChargeNumber(raw.skidDeposit&&raw.skidDeposit.amount,0)}
  };
@@ -12386,7 +12451,7 @@ function salesFirstGlass(family,manufacturer,thickness){
  const preferBaseClear=family==='lowe'||family==='reflective';
  return (preferBaseClear?salesSortCoatedGlass(rows):salesSortGlass(rows,false))[0]||salesSortGlass(activeGlassProducts(),false)[0]||null;
 }
-function salesDefaultLaminatedFrit(){return {enabled:false,position:'outside',productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:''};}
+function salesDefaultLaminatedFrit(){const fd=orderSetupFrit();return {enabled:false,position:'outside',productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:fd.dotMm,marginFrom:fd.marginFrom,marginW16:fd.margin16,marginH16:fd.margin16,marking:''};}
 function normalizeSalesLaminatedFrit(raw,d){
  raw=raw&&typeof raw==='object'?raw:{};d=d||salesDefaultLaminatedFrit();
  const position=SALES_LAMINATED_FRIT_POSITIONS.includes(raw.position)?raw.position:d.position,color=salesString(raw.color),pattern=salesString(raw.pattern),corner=salesString(raw.marginFrom);
@@ -12447,11 +12512,11 @@ function normalizeSalesInterlayers(lam,d){
 }
 function salesDefaultPane(i){
  const g=salesFirstGlass('uncoated','Vitro',6)||salesFirstGlass();
- const ply=salesDefaultLaminatedPly(g);
+ const ply=salesDefaultLaminatedPly(g),fd=orderSetupFrit();
  return {
   id:salesUid('LITE'),category:'vision',manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:salesRecommendedHeat(g)||'HT-AN',heatSoak:false,
   coatingSurface:null,
-  frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
+  frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:fd.dotMm,marginFrom:fd.marginFrom,marginW16:fd.margin16,marginH16:fd.margin16,marking:'',surface:null},
   /* Цвет по умолчанию — строка палитры, а не слово: иначе новый лайт сразу
      получал бы значение, которого в справочнике нет. Чёрный сохранён как
      прежнее поведение. Тип по умолчанию — силикон ICD, потому что Black
@@ -12850,7 +12915,7 @@ function validateSalesReferences(){
  (DB.recut||[]).forEach(r=>{if(r&&r.shapeRef&&[r.shapeRef].concat(Object.values(r.liteShapes||{})).some(x=>x&&x.id&&!shapeIds.has(x.id)))throw new Error('Recut '+r.no+' references a missing Shape.');});
 }
 function nextSalesOrderNumber(){let max=Math.max(76001,typeof archiveFloor==='function'?archiveFloor('order'):0);DB.salesOrder.forEach(o=>{if(o.kind==='quote'||/^Q-/i.test(String(o.businessNumber||'')))return;const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
-function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:SALES_ORDER_CHARGE_DEFAULTS,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
+function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:salesOrderChargeDefaults(),createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
 function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
 function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}
 /* Позицию каталога, на которую ссылается хоть один Makeup, удалять нельзя:
@@ -14049,7 +14114,7 @@ const MD_LOG_TABLES={
  priceList:'Price lists',itemGroup:'Item groups',
  spacerSystem:'Spacer systems',surroundRecipe:'Surround recipes',iguPart:'IGU parts'
 };
-const MD_LOG_SETTINGS={cutting:'Cutting',company:'Company',stickerTemplate:'Stickers'};
+const MD_LOG_SETTINGS={cutting:'Cutting',company:'Company',stickerTemplate:'Stickers',orderSetup:'Setup'};
 const MD_LOG_TEXT=120;
 
 function normalizeMdLog(){
@@ -14446,12 +14511,46 @@ function finWithOrder(order,fn){
 /* Итоги заказа — один раз на отрисовку (erp/read-scope): Finance спрашивал их
    почти трижды на заказ (задание «База», П2). Пока пишется прайс заказа
    (salesPriceBookOf ловит его по ходу расчёта) — считать по-настоящему. */
+/* Итоги заказа живут и между отрисовками: Finance после оплаты пересчитывал
+   цены всех заказов с формами — на годе это и есть 26 с на слабом ПК
+   (задание «База»). Запись в базу (storageBaseApply) забывает итоги своих
+   заказов; правка таблицы, от которой зависит цена (прайс, клиенты,
+   фигуры, настройки), — все. Таблицы ниже на цену заказа не влияют. В тестах
+   (GF_SCOPE_CHECK) каждый ответ из памяти сверяется с расчётом заново. */
+const FIN_TOTALS_NEUTRAL=new Set(['stationScan','stationScanSeq','productionRoute','glassBatch','cutPlan','glassPiece','glassPieceSeq','glassUnitId','glassUnitIdSeq',
+ 'orderEvent','masterDataEvent','authEvent','receipt','refund','financeEvent','financeExport','financeExportBatch','shipment','shipmentSeq','carrier','truck','tripKm',
+ 'skidReturn','sheetBreak','stockOffcut','stockOffcutSeq','inventoryEvent','purchasingEvent','purchaseOrder','purchaseOrderSeq','purchaseReceipt','purchaseReceiptSeq',
+ 'report','archiveRunDay','terminal','skip','productionUnbatch']);
+let finTotalsKeep=new Map();
+/* Фигура строки (ownerLineId) — забыть её заказ; новая фигура — ничего (от
+   неё не зависел ни один посчитанный заказ); фигура библиотеки — все. */
+function finTotalsForget(changes){
+ if(!finTotalsKeep.size)return;
+ let lines=null;
+ for(const c of changes){
+  if(c.tbl==='salesOrder'||c.tbl==='financeTerms')finTotalsKeep.delete(String(c.id));
+  else if(c.tbl==='shapeDef'){
+   const was=storageBase.get('shapeDef'),old=was&&was.get(c.id);if(!old)continue;
+   const owners=[old.t,c.del?null:c.data].filter(Boolean).map(t=>{try{return JSON.parse(t).ownerLineId||'';}catch(e){return '';}});
+   if(owners.some(x=>!x)){finTotalsKeep=new Map();return;}
+   if(!lines){lines=new Map();finTotalsKeep.forEach((k,id)=>(k.order.lines||[]).forEach(l=>lines.set(l.id,id)));}
+   owners.forEach(x=>{if(lines.has(x))finTotalsKeep.delete(lines.get(x));});
+  }
+  else if(!FIN_TOTALS_NEUTRAL.has(c.tbl==='_meta'?c.id:c.tbl)&&c.tbl!=='_archive'){finTotalsKeep=new Map();return;}
+ }
+}
 function finOrderTotals(order){
  if(!order||!readOn()||salesBookRec)return finWithOrder(order,()=>salesOrderCommercialTotals(order));
  const m=readMemo('finOrderTotals',[],()=>new WeakMap());let t=m.get(order);
- if(!t){t=finWithOrder(order,()=>salesOrderCommercialTotals(order));m.set(order,t);}
+ if(!t){
+  const db=readMemo('finDbOrders',[DB.salesOrder],()=>new Set(DB.salesOrder||[])).has(order),k=db?finTotalsKeep.get(String(order.id)):null;
+  if(k&&k.order===order){t=k.totals;if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)finTotalsCheck(order,t);}
+  else{t=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(db&&order.id)finTotalsKeep.set(String(order.id),{order,totals:t});}
+  m.set(order,t);
+ }
  return t;
 }
+function finTotalsCheck(order,t){const now=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(JSON.stringify(now)!==JSON.stringify(t))console.error('Stale totals: '+order.id+' · '+String(new Error().stack).split('\n').slice(3,6).map(x=>x.trim().split(' ')[1]).join(' < '));}
 function finOrderPaid(orderId){
  let paid=0,receipts=0;
  const order=(DB.salesOrder||[]).find(o=>o.id===orderId);
@@ -16141,7 +16240,7 @@ function viewDashboard(){
  return tabs+viewDashboardNow();
 }
 function viewDashboardNow(){
- const shop=accessCan('production'),ship=accessCan('shipping'),today=finToday(),d=shop||ship?{today,orders:prodBoard(),facts:repWorkFacts().filter(f=>f.day===today)}:null;
+ const shop=accessCan('production'),ship=accessCan('shipping'),today=finToday(),d=shop||ship?{today,orders:prodBoard(),facts:repWorkFacts(today)}:null;
  const orders=dashOrders(),left=shop?dashShop(d):'',right=(ship?dashShip(d):'')+(shop?dashQuality():'');
  const body=orders+(left||right?`<div class="dash-grid">${left?`<div class="dash-col">${left}</div>`:''}${right?`<div class="dash-col">${right}</div>`:''}</div>`:'');
  return (body||'<div class="card empty">Nothing to show here.</div>')+`<p class="dash-build">Glass Farm${typeof ERP_BUILD!=='undefined'?' · build '+esc(ERP_BUILD):''} · data lives in this browser — Export JSON keeps a copy.</p>`;
@@ -19524,14 +19623,17 @@ function salesLineAreas(line,order){
  return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,min):null,minArea:valid&&min>rounded?{id:minBy.id,name:minBy.name,value:min}:null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
 }
 function salesMoney(value){return Math.round((value+Number.EPSILON)*100)/100;}
+/* Порядок один: Energy → HST → Card fee, доставка и депозит в конце; что
+   входит в базу HST и карты — снимок заказа (erp/sales/order-setup). */
 function salesApplyOrderCharges(subtotal,raw){
  const c=normalizeSalesOrderCharges(raw),base=salesMoney(+subtotal||0);
  const energy=c.energy.enabled?salesMoney(base*c.energy.rate/100):0;
- const hstBase=salesMoney(base+energy),hst=c.hst.enabled?salesMoney(hstBase*c.hst.rate/100):0;
- const cardBase=salesMoney(hstBase+hst),card=c.card.enabled?salesMoney(cardBase*c.card.rate/100):0;
  const delivery=c.delivery.enabled?salesMoney(c.delivery.amount):0;
  const skidDeposit=c.skidDeposit.enabled?salesMoney(c.skidDeposit.amount):0;
- return {charges:c,subtotal:base,energy:energy,hstBase:hstBase,hst:hst,cardBase:cardBase,card:card,delivery:delivery,skidDeposit:skidDeposit,grand:salesMoney(cardBase+card+delivery+skidDeposit)};
+ const part={energy,delivery},sum=(list,more)=>salesMoney(list.reduce((n,p)=>n+(more[p]||0),base));
+ const hstBase=sum(c.hst.base,part),hst=c.hst.enabled?salesMoney(hstBase*c.hst.rate/100):0;
+ const cardBase=sum(c.card.base,Object.assign({hst},part)),card=c.card.enabled?salesMoney(cardBase*c.card.rate/100):0;
+ return {charges:c,subtotal:base,energy:energy,hstBase:hstBase,hst:hst,cardBase:cardBase,card:card,delivery:delivery,skidDeposit:skidDeposit,grand:salesMoney(base+energy+hst+card+delivery+skidDeposit)};
 }
 function salesOrderCommercialTotals(order){
  order=order||soDraft;let subtotal=0,missing=0,qty=0;
@@ -22451,7 +22553,7 @@ function salesCommercialOrderSummary(interactive){
  const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2):'—';
  const item=(key,label,rate,value,shown)=>`<span class="metric-order-charge-item charge-${key}${shown?'':' is-empty'}"><span class="metric-order-charge-label">${label}${rate!=null?` <small data-raw>${rate}%</small>`:''}</span><b data-raw>${shown?money(value):''}</b></span>`;
  const adj=(soDraft.adjustments||[]).reduce((n,a)=>salesMoney(n+(+a.amount||0)),0);
- const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(salesCardNetworkLabel(c.card.network)),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
+ const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(c.card.name),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
  rows.push(`<span class="metric-order-charge-item charge-total metric-grand-total"><span class="metric-order-charge-label">Total</span><b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${'lines need pricing'}</small>`:''}</span>`);
  const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" onclick="salesOpenMetrics('orderCharges')">Service +</button>`;
  return salesOrderReviewHTML(soDraft,t)+`<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · <span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`;
@@ -22460,7 +22562,6 @@ function salesOrderReviewHTML(o,t){
  t=t||finOrderTotals(o);if(!t.complete||t.grand>=0)return '';
  return `<div class="sales-pricing-warning" role="alert" data-order-review><b>Negative order total · Review required</b><span>Order ${esc(o.businessNumber)} · ${esc(salesCustomerDisplay(o.customerId))} · ${esc(t.grand.toFixed(2))} ${esc(o.currency||'CAD')} · Resolve with the customer</span></div>`;
 }
-function salesCardNetworkLabel(value){return ({visa:'Visa card fee',mastercard:'Mastercard fee',amex:'American Express fee'})[value]||'Card fee';}
 function salesSetOrderChargeEnabled(key,enabled){
  if(!['energy','hst','card','delivery','skidDeposit'].includes(key))return;
  soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges[key].enabled=!!enabled;touch();render();
@@ -22470,10 +22571,14 @@ function salesSetOrderChargeValue(key,field,value){
  const n=Number(value);if(!Number.isFinite(n)||n<0){alert('Enter a value of zero or greater.');render();return;}
  soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges[key][field]=n;touch();render();
 }
+/* Карты — список Data → Setup; карта старого заказа, которой в списке уже
+   нет, остаётся со своим именем и ставкой. */
 function salesSetCardNetwork(network){
- if(!Object.prototype.hasOwnProperty.call(SALES_CARD_FEE_RATES,network))return;
- soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges.card.network=network;soDraft.orderCharges.card.rate=SALES_CARD_FEE_RATES[network];touch();render();
+ const n=orderSetupNetwork(network);if(!soDraft||!n)return;
+ soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);Object.assign(soDraft.orderCharges.card,{network:n.id,name:n.name||'Card fee',rate:n.rate});touch();render();
 }
+const SALES_CHARGE_PART_LABELS={energy:'ES',hst:'HST',delivery:'Delivery'};
+function salesChargeBaseText(base){return 'Base: '+['Subtotal'].concat(base.map(p=>SALES_CHARGE_PART_LABELS[p])).join(' + ');}
 /* Поправки на заказ руками (normalizeSalesAdjustments): текст и сумма. */
 function salesAddAdjustment(){if(!soDraft)return;soDraft.adjustments=(soDraft.adjustments||[]).concat([{id:salesUid('ADJ'),label:'',amount:0}]);render();}
 function salesRemoveAdjustment(i){if(!soDraft||!soDraft.adjustments)return;soDraft.adjustments.splice(i,1);if(!soDraft.adjustments.length)delete soDraft.adjustments;touch();render();}
@@ -22490,11 +22595,11 @@ function salesAdjustmentsHTML(){
 function salesOrderChargesPanel(){
  const c=normalizeSalesOrderCharges(soDraft.orderCharges),toggle=(key,label,body)=>`<div class="metric-order-charge-row ${c[key].enabled?'on':''}"><label><input type="checkbox" ${c[key].enabled?'checked':''} onchange="salesSetOrderChargeEnabled('${key}',this.checked)"><b>${label}</b></label>${body}</div>`;
  const pct=(key)=>`<label>${'Rate'}<input type="number" min="0" step="0.01" value="${c[key].rate}" onchange="salesSetOrderChargeValue('${key}','rate',this.value)"><span>%</span></label>`;
- return `<p class="mut">${'Charges apply from top to bottom. A disabled row keeps its rate and can be enabled again.'}</p><div class="metric-order-charge-editor">
+ return `<p class="mut">${'Charges apply from top to bottom. A disabled row keeps its rate and can be enabled again. Defaults: Data → Setup.'}</p><div class="metric-order-charge-editor">
   ${toggle('energy','Energy Surcharge',pct('energy'))}
-  ${toggle('hst','HST',pct('hst')+`<small>${'Payment method does not disable tax automatically.'}</small>`)}
-   ${toggle('card','Card fee',`<label>${'Card'}<select onchange="salesSetCardNetwork(this.value)">${Object.keys(SALES_CARD_FEE_RATES).map(k=>`<option value="${k}" ${c.card.network===k?'selected':''}>${esc(salesCardNetworkLabel(k))}</option>`).join('')}</select></label>${pct('card')}`)}
-   ${toggle('delivery','Delivery',`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${c.delivery.amount}" onchange="salesSetOrderChargeValue('delivery','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${'Excluded from the ES, HST and Card fee bases.'}</small>`)}
+  ${toggle('hst','HST',pct('hst')+`<small>${salesChargeBaseText(c.hst.base)}. ${'Payment method does not disable tax automatically.'}</small>`)}
+   ${toggle('card','Card fee',`<label>${'Card'}<select onchange="salesSetCardNetwork(this.value)">${(()=>{const list=orderSetup().cardNetworks.slice();if(c.card.network&&!list.some(n=>n.id===c.card.network))list.push({id:c.card.network,name:c.card.name});return list.map(n=>`<option value="${esc(n.id)}" ${c.card.network===n.id?'selected':''}>${esc(n.name||n.id)}</option>`).join('');})()}</select></label>${pct('card')}<small>${salesChargeBaseText(c.card.base)}</small>`)}
+   ${toggle('delivery','Delivery',`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${c.delivery.amount}" onchange="salesSetOrderChargeValue('delivery','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${(b=>b.length?'In the '+b.join(' and ')+' base.':'Excluded from the ES, HST and Card fee bases.')([['hst','HST'],['card','Card fee']].filter(([k])=>c[k].base.includes('delivery')).map(x=>x[1]))}</small>`)}
    ${toggle('skidDeposit','Skid Deposit',`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${c.skidDeposit.amount}" onchange="salesSetOrderChargeValue('skidDeposit','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${'Customer skid deposit; excluded from all fee bases.'}</small>`)}
  </div>${salesAdjustmentsHTML()}<div class="metric-order-charge-preview">${salesCommercialOrderSummary()}</div>`;
 }
@@ -26725,6 +26830,7 @@ const MD_TABS=[
  {k:'carriers',  label:'Dollies & Skids'},
  {k:'trucks',    label:'Trucks'},
  {k:'ncr',       label:'NCR'},
+ {k:'setup',     label:'Setup'},
  {k:'overview',  label:'Data overview'}
 ];
 /* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
@@ -26783,7 +26889,7 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,prices:viewMdPrices,stations:viewMdStations,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
@@ -26818,6 +26924,53 @@ function mdStationTreeHTML(){
    ${n?`<div class="md-st-kids">${a.works.map(w=>pill(w.name||w.id,'info')).join(' ')}${a.items.map(x=>' '+pill(x.text+(x.n>1?' · '+x.n:''),'')).join('')}</div>`:''}</li>`;}).join('')}</ul></li>`).join('');
  return `<div class="md-st-tree" data-md-station-tree><div class="sub">Each step in order; the same step — parallel stations. Works name their station; frit, spandrel and materials follow their work.</div><ol>${steps}</ol></div>`;
 }
+/* Setup (этап 5 плана Master Data): сборы и умолчания нового заказа —
+   erp/sales/order-setup. Сохранённые заказы держат свой снимок. */
+function viewMdSetup(){
+ const s=orderSetup(),cur='CAD';
+ const on=k=>`<input type="checkbox" data-setup="${k}" ${s[k]?'checked':''} onchange="orderSetupSet('${k}',this.checked)">`;
+ const num=(k,unit)=>`<input type="number" min="0" step="0.01" data-setup="${k}" value="${s[k]}" onchange="orderSetupSet('${k}',this.value)"> <span class="mut">${unit}</span>`;
+ const inBase=(k,label)=>`<label class="md-setup-base">${on(k)} ${label}</label>`;
+ const row=(label,onKey,value,base)=>`<tr><td><b>${label}</b></td><td class="n">${on(onKey)}</td><td>${value}</td><td>${base}</td></tr>`;
+ const cards=s.cardNetworks.map((n,i)=>`<tr data-setup-card="${esc(n.id)}"><td><input type="text" maxlength="60" value="${esc(n.name)}" onchange="orderSetupCardSet(${i},'name',this.value)"></td><td><input type="number" min="0" step="0.01" value="${n.rate}" onchange="orderSetupCardSet(${i},'rate',this.value)"> <span class="mut">%</span></td><td><button type="button" onclick="orderSetupCardRemove(${i})">Remove</button></td></tr>`).join('');
+ return `<div class="md-setup" data-md-setup>
+  <h3>Order charges</h3><p class="mut">Defaults for new orders. Saved orders keep theirs. Order: Subtotal → ES → HST → Card fee; delivery and skid deposit last.</p>
+  <div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Charge</th><th class="n">On</th><th>Value</th><th>Base besides Subtotal</th></tr></thead><tbody>
+   ${row('Energy surcharge (ES)','energyOn',num('energyRate','%'),'<span class="mut">—</span>')}
+   ${row('HST','hstOn',num('hstRate','%'),inBase('hstOnEnergy','ES')+inBase('hstOnDelivery','Delivery'))}
+   ${row('Card fee','cardOn','<span class="mut">by card below</span>',inBase('cardOnEnergy','ES')+inBase('cardOnHst','HST')+inBase('cardOnDelivery','Delivery'))}
+   ${row('Delivery','deliveryOn',num('deliveryAmount',cur),'<span class="mut">—</span>')}
+   ${row('Skid deposit','skidDepositOn',num('skidDepositAmount',cur),'<span class="mut">Not in any base</span>')}
+  </tbody></table></div>
+  <h4>Cards</h4><p class="mut">The first card is the default.</p>
+  <div class="sales-table-wrap"><table class="ncr-table" data-setup-cards><thead><tr><th>Name on order</th><th>Rate</th><th></th></tr></thead><tbody>${cards||'<tr><td colspan="3" class="mut">No cards</td></tr>'}</tbody></table></div>
+  <button type="button" data-setup-card-add onclick="orderSetupCardAdd()">+ Card</button>
+  <h3>Frit</h3><p class="mut">Prefilled on a new frit lite.</p>
+  <div class="grid">
+   <div><label>Dot, mm</label><input type="number" min="0.1" step="0.1" data-setup="fritDotMm" value="${s.fritDotMm}" onchange="orderSetupSet('fritDotMm',this.value)"></div>
+   <div><label>Margin</label><input type="text" data-setup="fritMargin16" value="${esc(salesMarginFrom16(s.fritMargin16))}" onchange="orderSetupSet('fritMargin16',this.value)"></div>
+   <div><label>From corner</label><select data-setup="fritCorner" onchange="orderSetupSet('fritCorner',this.value)">${FRIT_MARGIN_CORNERS.map(c=>`<option ${s.fritCorner===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+  </div></div>`;
+}
+/* Предупреждать, а не запрещать: ноль законен, отрицательное и не число —
+   не значение. */
+function orderSetupSet(k,v){
+ const s=DB.orderSetup,d=ORDER_SETUP_DEFAULT;if(!s||!Object.prototype.hasOwnProperty.call(d,k)||k==='cardNetworks')return;
+ if(typeof d[k]==='boolean')s[k]=!!v;
+ else if(k==='fritCorner')s[k]=v;
+ else{const n=k==='fritMargin16'?salesMarginTo16(v):Number(v);
+  if(n==null||!Number.isFinite(n)||n<0||(k==='fritDotMm'&&!n)){alert('Enter a value of zero or greater.');render();return;}
+  s[k]=n;}
+ normalizeOrderSetup();touch();render();
+}
+function orderSetupCardAdd(){DB.orderSetup.cardNetworks.push({id:'card-'+Date.now().toString(36),name:'Card fee',rate:0});normalizeOrderSetup();touch();render();}
+function orderSetupCardSet(i,k,v){
+ const n=DB.orderSetup.cardNetworks[i];if(!n)return;
+ if(k==='rate'){const r=Number(v);if(!Number.isFinite(r)||r<0){alert('Enter a value of zero or greater.');render();return;}n.rate=r;}
+ else n.name=String(v);
+ normalizeOrderSetup();touch();render();
+}
+function orderSetupCardRemove(i){DB.orderSetup.cardNetworks.splice(i,1);normalizeOrderSetup();touch();render();}
 function mdSetTab(k){mdTab=k;if(typeof stEdit!=='undefined')stEdit=null;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
  /* Работы и материалы делят одну машинку Catalogues, поэтому при переходе
     между вкладками открытая таблица обязана соответствовать вкладке —
@@ -44689,14 +44842,18 @@ function repOrderInfo(o){
 function repSizeBand(ft2){return !(ft2>0)?'':ft2<10?'Under 10 ft²':ft2<30?'10–30 ft²':ft2<60?'30–60 ft²':'60 ft² and up';}
 function repMaker(glassId){const g=glassId&&glassProductById(glassId);return g&&g.manufacturer||'';}
 function repLineInfo(l){return {mark:l.mark||'',size:frac16((+l.width16||0)/16)+' × '+frac16((+l.height16||0)/16),shape:typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle'};}
-let repWorkCache={stamp:'',rows:null};
+let repWorkCache={stamp:'',rows:null},repWorkDayCache={stamp:'',day:'',rows:null};
 let repWorkBuilds=0;
 function repWorkStamp(){
  const scans=DB.stationScan||[];let undone=0;scans.forEach(s=>{if(s.undoneAt)undone++;});
  return [scans.length,undone,DB.stationScanSeq,repCatalogStamp(),(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')).join(',')].join('|');
 }
-function repWorkFacts(){
- const stamp=repWorkStamp();if(repWorkCache.stamp===stamp&&repWorkCache.rows)return repWorkCache.rows;
+/* day — только сканы этого дня (Overview и доска станции показывают
+   сегодня): на старте не считать работу по всей истории сканов (задание
+   «База», F5). Номер захода стекла на станцию считается по всем сканам. */
+function repWorkFacts(day){
+ const stamp=repWorkStamp();if(repWorkCache.stamp===stamp&&repWorkCache.rows)return day?repWorkCache.rows.filter(f=>f.day===day):repWorkCache.rows;
+ if(day&&repWorkDayCache.stamp===stamp&&repWorkDayCache.day===day)return repWorkDayCache.rows;
  repWorkBuilds++;
  const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[],orders=new Map(),lines=new Map(),visits=new Map();
  /* Юнит после сборки — сама сборка (стеклопакет на IGU, склейка на LAM), а
@@ -44709,6 +44866,7 @@ function repWorkFacts(){
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||s.broken||s.park)return;
   const vk=s.piece+'|'+s.station,nth=(visits.get(vk)||0)+1;visits.set(vk,nth);
+  if(day&&repDay(s.at)!==day)return;
   const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station,Number.isInteger(s.step)?s.step:-nth):{area:null,mm:null,heat:'',unitType:'',works:[]};
   const b=built.get(s.piece),unitKey=!g?'':b&&b.at<=s.at?'A:'+b.asm:g.o.id+'|'+g.l.id+'|'+g.unit;
   const sum=u=>w.works.filter(x=>x.unit===u).reduce((n,x)=>n+x.qty,0);
@@ -44721,7 +44879,7 @@ function repWorkFacts(){
    asm:s.asm||'',unitDone:!!(s.unit||s.joined),asmDone:(s.unit||s.joined)&&s.asm?s.asm:'',manual:!!s.manual,confirmedAt:s.confirmedAt||'',
    on:s.on||'',recut:g&&typeof g.unit==='string'?'Recut':'Original',sizeBand:repSizeBand(w.area),maker:w.maker||'',...(g?oInfo(g.o):{}),...(g?lInfo(g.l):{})});
  });
- repWorkCache={stamp,rows};
+ if(day)repWorkDayCache={stamp,day,rows};else repWorkCache={stamp,rows};
  return rows;
 }
 
@@ -45709,7 +45867,7 @@ function stationBoardDay(offset){const d=new Date(),p=v=>String(v).padStart(2,'0
 function stationBoardData(){
  stationBoardBuilds++;
  const today=finToday();
- return {today,orders:prodBoard(),facts:repWorkFacts().filter(f=>f.day===today)};
+ return {today,orders:prodBoard(),facts:repWorkFacts(today)};
 }
 function stationBoardHours(list,label){
  const now=new Date().getHours();
@@ -46702,6 +46860,7 @@ function storageDiff(db,only){
  return out;
 }
 function storageBaseApply(changes){
+ if(typeof finTotalsForget==='function')finTotalsForget(changes);
  changes.forEach(c=>{
   let m=storageBase.get(c.tbl);
   if(c.coldClear||c.tbl==='_archive')return;
@@ -47694,6 +47853,7 @@ function normalizeDB(){
     пока таблица мест не нормализована. */
  normalizeShopFloor();
  normalizeUsers();
+ if(typeof normalizeOrderSetup==='function')normalizeOrderSetup();
  normalizeSalesModules();
  if(typeof normalizeMasterData==='function')normalizeMasterData();
  if(typeof normalizePurchasing==='function')normalizePurchasing();

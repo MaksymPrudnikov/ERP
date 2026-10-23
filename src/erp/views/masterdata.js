@@ -34,6 +34,7 @@ const MD_TABS=[
  {k:'carriers',  label:'Dollies & Skids'},
  {k:'trucks',    label:'Trucks'},
  {k:'ncr',       label:'NCR'},
+ {k:'setup',     label:'Setup'},
  {k:'overview',  label:'Data overview'}
 ];
 /* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
@@ -92,7 +93,7 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,prices:viewMdPrices,stations:viewMdStations,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
@@ -127,6 +128,53 @@ function mdStationTreeHTML(){
    ${n?`<div class="md-st-kids">${a.works.map(w=>pill(w.name||w.id,'info')).join(' ')}${a.items.map(x=>' '+pill(x.text+(x.n>1?' · '+x.n:''),'')).join('')}</div>`:''}</li>`;}).join('')}</ul></li>`).join('');
  return `<div class="md-st-tree" data-md-station-tree><div class="sub">Each step in order; the same step — parallel stations. Works name their station; frit, spandrel and materials follow their work.</div><ol>${steps}</ol></div>`;
 }
+/* Setup (этап 5 плана Master Data): сборы и умолчания нового заказа —
+   erp/sales/order-setup. Сохранённые заказы держат свой снимок. */
+function viewMdSetup(){
+ const s=orderSetup(),cur='CAD';
+ const on=k=>`<input type="checkbox" data-setup="${k}" ${s[k]?'checked':''} onchange="orderSetupSet('${k}',this.checked)">`;
+ const num=(k,unit)=>`<input type="number" min="0" step="0.01" data-setup="${k}" value="${s[k]}" onchange="orderSetupSet('${k}',this.value)"> <span class="mut">${unit}</span>`;
+ const inBase=(k,label)=>`<label class="md-setup-base">${on(k)} ${label}</label>`;
+ const row=(label,onKey,value,base)=>`<tr><td><b>${label}</b></td><td class="n">${on(onKey)}</td><td>${value}</td><td>${base}</td></tr>`;
+ const cards=s.cardNetworks.map((n,i)=>`<tr data-setup-card="${esc(n.id)}"><td><input type="text" maxlength="60" value="${esc(n.name)}" onchange="orderSetupCardSet(${i},'name',this.value)"></td><td><input type="number" min="0" step="0.01" value="${n.rate}" onchange="orderSetupCardSet(${i},'rate',this.value)"> <span class="mut">%</span></td><td><button type="button" onclick="orderSetupCardRemove(${i})">Remove</button></td></tr>`).join('');
+ return `<div class="md-setup" data-md-setup>
+  <h3>Order charges</h3><p class="mut">Defaults for new orders. Saved orders keep theirs. Order: Subtotal → ES → HST → Card fee; delivery and skid deposit last.</p>
+  <div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Charge</th><th class="n">On</th><th>Value</th><th>Base besides Subtotal</th></tr></thead><tbody>
+   ${row('Energy surcharge (ES)','energyOn',num('energyRate','%'),'<span class="mut">—</span>')}
+   ${row('HST','hstOn',num('hstRate','%'),inBase('hstOnEnergy','ES')+inBase('hstOnDelivery','Delivery'))}
+   ${row('Card fee','cardOn','<span class="mut">by card below</span>',inBase('cardOnEnergy','ES')+inBase('cardOnHst','HST')+inBase('cardOnDelivery','Delivery'))}
+   ${row('Delivery','deliveryOn',num('deliveryAmount',cur),'<span class="mut">—</span>')}
+   ${row('Skid deposit','skidDepositOn',num('skidDepositAmount',cur),'<span class="mut">Not in any base</span>')}
+  </tbody></table></div>
+  <h4>Cards</h4><p class="mut">The first card is the default.</p>
+  <div class="sales-table-wrap"><table class="ncr-table" data-setup-cards><thead><tr><th>Name on order</th><th>Rate</th><th></th></tr></thead><tbody>${cards||'<tr><td colspan="3" class="mut">No cards</td></tr>'}</tbody></table></div>
+  <button type="button" data-setup-card-add onclick="orderSetupCardAdd()">+ Card</button>
+  <h3>Frit</h3><p class="mut">Prefilled on a new frit lite.</p>
+  <div class="grid">
+   <div><label>Dot, mm</label><input type="number" min="0.1" step="0.1" data-setup="fritDotMm" value="${s.fritDotMm}" onchange="orderSetupSet('fritDotMm',this.value)"></div>
+   <div><label>Margin</label><input type="text" data-setup="fritMargin16" value="${esc(salesMarginFrom16(s.fritMargin16))}" onchange="orderSetupSet('fritMargin16',this.value)"></div>
+   <div><label>From corner</label><select data-setup="fritCorner" onchange="orderSetupSet('fritCorner',this.value)">${FRIT_MARGIN_CORNERS.map(c=>`<option ${s.fritCorner===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+  </div></div>`;
+}
+/* Предупреждать, а не запрещать: ноль законен, отрицательное и не число —
+   не значение. */
+function orderSetupSet(k,v){
+ const s=DB.orderSetup,d=ORDER_SETUP_DEFAULT;if(!s||!Object.prototype.hasOwnProperty.call(d,k)||k==='cardNetworks')return;
+ if(typeof d[k]==='boolean')s[k]=!!v;
+ else if(k==='fritCorner')s[k]=v;
+ else{const n=k==='fritMargin16'?salesMarginTo16(v):Number(v);
+  if(n==null||!Number.isFinite(n)||n<0||(k==='fritDotMm'&&!n)){alert('Enter a value of zero or greater.');render();return;}
+  s[k]=n;}
+ normalizeOrderSetup();touch();render();
+}
+function orderSetupCardAdd(){DB.orderSetup.cardNetworks.push({id:'card-'+Date.now().toString(36),name:'Card fee',rate:0});normalizeOrderSetup();touch();render();}
+function orderSetupCardSet(i,k,v){
+ const n=DB.orderSetup.cardNetworks[i];if(!n)return;
+ if(k==='rate'){const r=Number(v);if(!Number.isFinite(r)||r<0){alert('Enter a value of zero or greater.');render();return;}n.rate=r;}
+ else n.name=String(v);
+ normalizeOrderSetup();touch();render();
+}
+function orderSetupCardRemove(i){DB.orderSetup.cardNetworks.splice(i,1);normalizeOrderSetup();touch();render();}
 function mdSetTab(k){mdTab=k;if(typeof stEdit!=='undefined')stEdit=null;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
  /* Работы и материалы делят одну машинку Catalogues, поэтому при переходе
     между вкладками открытая таблица обязана соответствовать вкладке —

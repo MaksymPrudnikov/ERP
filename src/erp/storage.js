@@ -790,6 +790,7 @@ function normalizeDB(){
     пока таблица мест не нормализована. */
  normalizeShopFloor();
  normalizeUsers();
+ if(typeof normalizeOrderSetup==='function')normalizeOrderSetup();
  normalizeSalesModules();
  if(typeof normalizeMasterData==='function')normalizeMasterData();
  if(typeof normalizePurchasing==='function')normalizePurchasing();
