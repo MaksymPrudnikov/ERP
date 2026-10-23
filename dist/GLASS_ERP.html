@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 171 модулей, 23 стиля.
+  Состав сборки: 172 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -3489,7 +3489,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='6cc69ad79c03';
+var ERP_BUILD='079c1b390293';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -16291,6 +16291,70 @@ function viewDashboardNow(){
  return (body||'<div class="card empty">Nothing to show here.</div>')+`<p class="dash-build">Glass Farm${typeof ERP_BUILD!=='undefined'?' · build '+esc(ERP_BUILD):''} · data lives in this browser — Export JSON keeps a copy.</p>`;
 }
 
+/* ==== src/erp/cloud.js ==== */
+/* ============================================================================
+   Сервер — этап 4 задания «База» (docs/ЗАДАЧА_БАЗА.md, tools/supabase/schema.sql)
+   IN : адрес проекта Supabase, publishable-ключ, вход человека (почта, пароль)
+   OUT: cloudConfig, cloudConnect, cloudSignOut, cloudRpc, cloudState
+   Адрес, ключ и сессия живут на этом устройстве (localStorage), не в базе ERP
+   и не в Git: репозиторий публичный. Пароль не хранится нигде — только
+   токены входа. Пока это вход и проверка связи: записи на сервер ещё не
+   уходят, база остаётся в браузере.
+   ============================================================================ */
+const CLOUD_KEY='glazing_system_v1-cloud';
+let cloudState={busy:false,error:'',me:null};
+function cloudConfig(){try{const c=JSON.parse(localStorage.getItem(CLOUD_KEY)||'null');return c&&typeof c==='object'?c:{};}catch(e){return {};}}
+function cloudConfigSave(c){try{localStorage.setItem(CLOUD_KEY,JSON.stringify(c));}catch(e){}}
+/* Ссылку на панель проекта (supabase.com/dashboard/project/<ref>) владелец
+   прислал вместо адреса — принимаем и её. */
+function cloudUrl(v){
+ const s=String(v||'').trim().replace(/\/+$/,''),m=s.match(/supabase\.com\/dashboard\/project\/([a-z0-9]+)/i);
+ return m?'https://'+m[1].toLowerCase()+'.supabase.co':s;
+}
+async function cloudFetch(path,body,token){
+ const c=cloudConfig();
+ if(!/^https:\/\//.test(c.url||'')||!c.key)throw new Error('Set the server and key first.');
+ /* Ключ — ASCII; лишний символ при копировании ломает заголовок запроса. */
+ if(/[^\x21-\x7e]/.test(c.key))throw new Error('The key has extra characters. Copy it again.');
+ let r;
+ try{r=await fetch(c.url+path,{method:'POST',headers:{'Content-Type':'application/json',apikey:c.key,Authorization:'Bearer '+(token||c.key)},body:JSON.stringify(body||{})});}
+ catch(e){throw new Error('No connection to the server.');}
+ let j=null;try{j=await r.json();}catch(e){}
+ if(!r.ok)throw new Error(String(j&&(j.message||j.msg||j.error_description||j.error)||'Server error '+r.status));
+ return j;
+}
+function cloudSessionSave(tok){
+ const c=cloudConfig();
+ c.session={access:tok.access_token,refresh:tok.refresh_token,exp:Date.now()+(+tok.expires_in||3600)*1000,email:tok.user&&tok.user.email||''};
+ cloudConfigSave(c);
+}
+/* Токен живёт час: за минуту до конца — новый по refresh. */
+async function cloudToken(){
+ const s=cloudConfig().session;
+ if(!s||!s.access)throw new Error('Not signed in to the server.');
+ if(Date.now()<s.exp-60e3)return s.access;
+ cloudSessionSave(await cloudFetch('/auth/v1/token?grant_type=refresh_token',{refresh_token:s.refresh}));
+ return cloudConfig().session.access;
+}
+async function cloudRpc(fn,args){return cloudFetch('/rest/v1/rpc/'+fn,args||{},await cloudToken());}
+async function cloudConnect(url,key,email,password){
+ const c=cloudConfig();c.url=cloudUrl(url);c.key=String(key||'').trim();delete c.session;cloudConfigSave(c);
+ cloudState={busy:true,error:'',me:null};render();
+ try{
+  if(!email||!password)throw new Error('Email and password are required.');
+  cloudSessionSave(await cloudFetch('/auth/v1/token?grant_type=password',{email:String(email).trim(),password}));
+  cloudState.me=await cloudRpc('erp_whoami');
+ }catch(e){cloudState.error=e.message;}
+ cloudState.busy=false;render();
+ return !cloudState.error;
+}
+async function cloudCheck(){
+ cloudState={busy:true,error:'',me:null};render();
+ try{cloudState.me=await cloudRpc('erp_whoami');}catch(e){cloudState.error=e.message;}
+ cloudState.busy=false;render();
+}
+function cloudSignOut(){const c=cloudConfig();delete c.session;cloudConfigSave(c);cloudState={busy:false,error:'',me:null};render();}
+
 /* ==== src/erp/views/users.js ==== */
 /* =====================================================================
    view/users  ·  erp-2.0
@@ -16319,7 +16383,7 @@ function userAccessHTML(u){
    офис и производство»). Office — у кого отмечены разделы, Production — у
    кого есть PIN станции или нет офиса (рабочий, которому PIN ещё не дали).
    Мастер цеха с обоими входами — в обеих. */
-function usersSide(){return subtab==='production'?'production':subtab==='log'?'log':'office';}
+function usersSide(){return subtab==='production'?'production':subtab==='log'?'log':subtab==='cloud'?'cloud':'office';}
 function usersOn(u,side){return side==='production'?userHasPin(u)||!userOffice(u):userOffice(u);}
 /* Зелёная точка — человек сейчас в системе на этом компьютере (офис или
    станция); серая — нет, рядом последний вход или выход из журнала
@@ -16331,9 +16395,9 @@ function userNowHTML(u){
  return `<span class="user-now" data-user-now="off"><i></i>${last?esc(salesListShortDay(salesListIsoDay(last))+' · '+new Date(last).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false})):'—'}</span>`;
 }
 function viewUsers(){
- const side=usersSide(),prod=side==='production',log=side==='log';
- const list=log?[]:DB.user.map((u,i)=>({u,i})).filter(x=>usersOn(x.u,side));
- const count=k=>k==='log'?(DB.authEvent||[]).length:DB.user.filter(u=>usersOn(u,k)).length;
+ const side=usersSide(),prod=side==='production',log=side==='log',cloud=side==='cloud';
+ const list=log||cloud?[]:DB.user.map((u,i)=>({u,i})).filter(x=>usersOn(x.u,side));
+ const count=k=>k==='cloud'?'':k==='log'?(DB.authEvent||[]).length:DB.user.filter(u=>usersOn(u,k)).length;
  const rows=list.map(({u,i})=>{
   const actions=`<td style="white-space:nowrap"><button class="sm" onclick="userEditOpen(${i})">Edit</button>
    <button class="sm dl" title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${i},'${side}')">×</button></td>`;
@@ -16347,15 +16411,38 @@ function viewUsers(){
   :'<th>Name</th><th title="Signed in now on this computer">Now</th><th>Sections</th><th>Password</th><th></th>';
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
- const tabs=`<div class="tabs">${[['office','Office'],['production','Production'],['log','Sign-in log']].map(([k,l])=>`<button class="${side===k?'on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;render()">${l} <span class="mut">${count(k)}</span></button>`).join('')}</div>`;
- return `<div class="page-head"><div><h2>Users</h2><p>${log?'Sign-ins and sign-outs on this computer.':prod?'Number and PIN · any station.':'Password and sections.'}</p></div>${off}
-  ${uEdit!==null||log?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>
-  ${log?`<div class="card sales-list-card users-log-card"><div class="users-log-tabs">${tabs}</div>${authLogTable()}</div>`:`<div class="card">${tabs}
+ const tabs=`<div class="tabs">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button class="${side===k?'on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;render()">${l} <span class="mut">${count(k)}</span></button>`).join('')}</div>`;
+ return `<div class="page-head"><div><h2>Users</h2><p>${cloud?'Server for all computers.':log?'Sign-ins and sign-outs on this computer.':prod?'Number and PIN · any station.':'Password and sections.'}</p></div>${off}
+  ${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>
+  ${cloud?`<div class="card">${tabs}${usersCloudHTML()}</div>`:log?`<div class="card sales-list-card users-log-card"><div class="users-log-tabs">${tabs}</div>${authLogTable()}</div>`:`<div class="card">${tabs}
   ${uEdit!==null?userForm():''}
   <table><thead><tr>${head}</tr></thead>
   <tbody>${rows||`<tr><td colspan="5" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody></table>
   </div>`}`;
 }
+/* Cloud — сервер (erp/cloud.js). Адрес и ключ — этого устройства; пароль
+   не сохраняется. Записи на сервер пока не уходят — так и сказано. */
+function usersCloudHTML(){
+ const c=cloudConfig(),st=cloudState,s=c.session;
+ const status=st.busy?'<span class="pill" data-cloud-status="busy">Connecting…</span>'
+  :st.error?`<span class="pill warn" data-cloud-status="error">${esc(st.error)}</span>`
+  :st.me?`<span class="pill ok" data-cloud-status="ok">Connected · ${esc(st.me.name||s&&s.email||'')}${st.me.admin?' · admin':''}</span>`
+  :s?`<span class="pill" data-cloud-status="signed">Signed in · ${esc(s.email||'')}</span>`:'<span class="mut" data-cloud-status="off">Not connected</span>';
+ return `<div class="form user-form" data-cloud>
+  <div class="grid">
+   <div><label>Server</label><input id="cl_url" autocomplete="off" placeholder="https://xxxx.supabase.co" value="${esc(c.url||'')}"></div>
+   <div><label>Publishable key</label><input id="cl_key" autocomplete="off" placeholder="sb_publishable_…" value="${esc(c.key||'')}"></div>
+  </div>
+  <div class="grid">
+   <div><label>Email</label><input id="cl_email" autocomplete="username" value="${esc(s&&s.email||'')}"></div>
+   <div><label>Password</label>${pwInput('id="cl_pass" autocomplete="current-password"')}</div>
+  </div>
+  <div class="hint">Data still stays on this computer.</div>
+  <div class="row">${status}
+   <button class="pri" data-cloud-connect ${st.busy?'disabled':''} onclick="usersCloudConnect()">Connect</button>
+   ${s?`<button data-cloud-check onclick="cloudCheck()">Check</button><button data-cloud-out onclick="cloudSignOut()">Sign out</button>`:''}</div></div>`;
+}
+function usersCloudConnect(){const v=id=>(document.getElementById(id)||{}).value||'';return cloudConnect(v('cl_url'),v('cl_key'),v('cl_email'),v('cl_pass'));}
 /* Журнал входов — таблица как в Sales: период When, воронки Who / What /
    Where. Своя область usersLog в общем движке (sales-list-ui). */
 function usersListScope(){return tab==='users'&&usersSide()==='log'?'usersLog':'';}
