@@ -3481,7 +3481,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='78d5b9cabcdc';
+var ERP_BUILD='eed5cf6012f3';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -14446,12 +14446,46 @@ function finWithOrder(order,fn){
 /* Итоги заказа — один раз на отрисовку (erp/read-scope): Finance спрашивал их
    почти трижды на заказ (задание «База», П2). Пока пишется прайс заказа
    (salesPriceBookOf ловит его по ходу расчёта) — считать по-настоящему. */
+/* Итоги заказа живут и между отрисовками: Finance после оплаты пересчитывал
+   цены всех заказов с формами — на годе это и есть 26 с на слабом ПК
+   (задание «База»). Запись в базу (storageBaseApply) забывает итоги своих
+   заказов; правка таблицы, от которой зависит цена (прайс, клиенты,
+   фигуры, настройки), — все. Таблицы ниже на цену заказа не влияют. В тестах
+   (GF_SCOPE_CHECK) каждый ответ из памяти сверяется с расчётом заново. */
+const FIN_TOTALS_NEUTRAL=new Set(['stationScan','stationScanSeq','productionRoute','glassBatch','cutPlan','glassPiece','glassPieceSeq','glassUnitId','glassUnitIdSeq',
+ 'orderEvent','masterDataEvent','authEvent','receipt','refund','financeEvent','financeExport','financeExportBatch','shipment','shipmentSeq','carrier','truck','tripKm',
+ 'skidReturn','sheetBreak','stockOffcut','stockOffcutSeq','inventoryEvent','purchasingEvent','purchaseOrder','purchaseOrderSeq','purchaseReceipt','purchaseReceiptSeq',
+ 'report','archiveRunDay','terminal','skip','productionUnbatch']);
+let finTotalsKeep=new Map();
+/* Фигура строки (ownerLineId) — забыть её заказ; новая фигура — ничего (от
+   неё не зависел ни один посчитанный заказ); фигура библиотеки — все. */
+function finTotalsForget(changes){
+ if(!finTotalsKeep.size)return;
+ let lines=null;
+ for(const c of changes){
+  if(c.tbl==='salesOrder'||c.tbl==='financeTerms')finTotalsKeep.delete(String(c.id));
+  else if(c.tbl==='shapeDef'){
+   const was=storageBase.get('shapeDef'),old=was&&was.get(c.id);if(!old)continue;
+   const owners=[old.t,c.del?null:c.data].filter(Boolean).map(t=>{try{return JSON.parse(t).ownerLineId||'';}catch(e){return '';}});
+   if(owners.some(x=>!x)){finTotalsKeep=new Map();return;}
+   if(!lines){lines=new Map();finTotalsKeep.forEach((k,id)=>(k.order.lines||[]).forEach(l=>lines.set(l.id,id)));}
+   owners.forEach(x=>{if(lines.has(x))finTotalsKeep.delete(lines.get(x));});
+  }
+  else if(!FIN_TOTALS_NEUTRAL.has(c.tbl==='_meta'?c.id:c.tbl)&&c.tbl!=='_archive'){finTotalsKeep=new Map();return;}
+ }
+}
 function finOrderTotals(order){
  if(!order||!readOn()||salesBookRec)return finWithOrder(order,()=>salesOrderCommercialTotals(order));
  const m=readMemo('finOrderTotals',[],()=>new WeakMap());let t=m.get(order);
- if(!t){t=finWithOrder(order,()=>salesOrderCommercialTotals(order));m.set(order,t);}
+ if(!t){
+  const db=readMemo('finDbOrders',[DB.salesOrder],()=>new Set(DB.salesOrder||[])).has(order),k=db?finTotalsKeep.get(String(order.id)):null;
+  if(k&&k.order===order){t=k.totals;if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)finTotalsCheck(order,t);}
+  else{t=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(db&&order.id)finTotalsKeep.set(String(order.id),{order,totals:t});}
+  m.set(order,t);
+ }
  return t;
 }
+function finTotalsCheck(order,t){const now=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(JSON.stringify(now)!==JSON.stringify(t))console.error('Stale totals: '+order.id+' · '+String(new Error().stack).split('\n').slice(3,6).map(x=>x.trim().split(' ')[1]).join(' < '));}
 function finOrderPaid(orderId){
  let paid=0,receipts=0;
  const order=(DB.salesOrder||[]).find(o=>o.id===orderId);
@@ -16141,7 +16175,7 @@ function viewDashboard(){
  return tabs+viewDashboardNow();
 }
 function viewDashboardNow(){
- const shop=accessCan('production'),ship=accessCan('shipping'),today=finToday(),d=shop||ship?{today,orders:prodBoard(),facts:repWorkFacts().filter(f=>f.day===today)}:null;
+ const shop=accessCan('production'),ship=accessCan('shipping'),today=finToday(),d=shop||ship?{today,orders:prodBoard(),facts:repWorkFacts(today)}:null;
  const orders=dashOrders(),left=shop?dashShop(d):'',right=(ship?dashShip(d):'')+(shop?dashQuality():'');
  const body=orders+(left||right?`<div class="dash-grid">${left?`<div class="dash-col">${left}</div>`:''}${right?`<div class="dash-col">${right}</div>`:''}</div>`:'');
  return (body||'<div class="card empty">Nothing to show here.</div>')+`<p class="dash-build">Glass Farm${typeof ERP_BUILD!=='undefined'?' · build '+esc(ERP_BUILD):''} · data lives in this browser — Export JSON keeps a copy.</p>`;
@@ -44689,14 +44723,18 @@ function repOrderInfo(o){
 function repSizeBand(ft2){return !(ft2>0)?'':ft2<10?'Under 10 ft²':ft2<30?'10–30 ft²':ft2<60?'30–60 ft²':'60 ft² and up';}
 function repMaker(glassId){const g=glassId&&glassProductById(glassId);return g&&g.manufacturer||'';}
 function repLineInfo(l){return {mark:l.mark||'',size:frac16((+l.width16||0)/16)+' × '+frac16((+l.height16||0)/16),shape:typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle'};}
-let repWorkCache={stamp:'',rows:null};
+let repWorkCache={stamp:'',rows:null},repWorkDayCache={stamp:'',day:'',rows:null};
 let repWorkBuilds=0;
 function repWorkStamp(){
  const scans=DB.stationScan||[];let undone=0;scans.forEach(s=>{if(s.undoneAt)undone++;});
  return [scans.length,undone,DB.stationScanSeq,repCatalogStamp(),(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')).join(',')].join('|');
 }
-function repWorkFacts(){
- const stamp=repWorkStamp();if(repWorkCache.stamp===stamp&&repWorkCache.rows)return repWorkCache.rows;
+/* day — только сканы этого дня (Overview и доска станции показывают
+   сегодня): на старте не считать работу по всей истории сканов (задание
+   «База», F5). Номер захода стекла на станцию считается по всем сканам. */
+function repWorkFacts(day){
+ const stamp=repWorkStamp();if(repWorkCache.stamp===stamp&&repWorkCache.rows)return day?repWorkCache.rows.filter(f=>f.day===day):repWorkCache.rows;
+ if(day&&repWorkDayCache.stamp===stamp&&repWorkDayCache.day===day)return repWorkDayCache.rows;
  repWorkBuilds++;
  const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[],orders=new Map(),lines=new Map(),visits=new Map();
  /* Юнит после сборки — сама сборка (стеклопакет на IGU, склейка на LAM), а
@@ -44709,6 +44747,7 @@ function repWorkFacts(){
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||s.broken||s.park)return;
   const vk=s.piece+'|'+s.station,nth=(visits.get(vk)||0)+1;visits.set(vk,nth);
+  if(day&&repDay(s.at)!==day)return;
   const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station,Number.isInteger(s.step)?s.step:-nth):{area:null,mm:null,heat:'',unitType:'',works:[]};
   const b=built.get(s.piece),unitKey=!g?'':b&&b.at<=s.at?'A:'+b.asm:g.o.id+'|'+g.l.id+'|'+g.unit;
   const sum=u=>w.works.filter(x=>x.unit===u).reduce((n,x)=>n+x.qty,0);
@@ -44721,7 +44760,7 @@ function repWorkFacts(){
    asm:s.asm||'',unitDone:!!(s.unit||s.joined),asmDone:(s.unit||s.joined)&&s.asm?s.asm:'',manual:!!s.manual,confirmedAt:s.confirmedAt||'',
    on:s.on||'',recut:g&&typeof g.unit==='string'?'Recut':'Original',sizeBand:repSizeBand(w.area),maker:w.maker||'',...(g?oInfo(g.o):{}),...(g?lInfo(g.l):{})});
  });
- repWorkCache={stamp,rows};
+ if(day)repWorkDayCache={stamp,day,rows};else repWorkCache={stamp,rows};
  return rows;
 }
 
@@ -45709,7 +45748,7 @@ function stationBoardDay(offset){const d=new Date(),p=v=>String(v).padStart(2,'0
 function stationBoardData(){
  stationBoardBuilds++;
  const today=finToday();
- return {today,orders:prodBoard(),facts:repWorkFacts().filter(f=>f.day===today)};
+ return {today,orders:prodBoard(),facts:repWorkFacts(today)};
 }
 function stationBoardHours(list,label){
  const now=new Date().getHours();
@@ -46702,6 +46741,7 @@ function storageDiff(db,only){
  return out;
 }
 function storageBaseApply(changes){
+ if(typeof finTotalsForget==='function')finTotalsForget(changes);
  changes.forEach(c=>{
   let m=storageBase.get(c.tbl);
   if(c.coldClear||c.tbl==='_archive')return;
