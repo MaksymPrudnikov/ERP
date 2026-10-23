@@ -16,8 +16,6 @@ const SALES_VISION_TYPES=['lowe','reflective','frit','uncoated'];
 const SALES_LAMINATED_GLASS_TYPES=['lowe','reflective','uncoated'];
 const SALES_LAMINATED_FRIT_POSITIONS=['outside','in_film'];
 const SALES_MAX_INTERLAYERS=4;
-const SALES_INTERLAYER_LAYER_MM=.38;
-const SALES_MAX_INTERLAYER_LAYERS=6;
 const SALES_PRIMARY_SEALANT_ID='SEAL-PIB';
 
 function salesUid(prefix){
@@ -157,17 +155,22 @@ function normalizeSalesLaminatedPly(raw,legacyProductId,legacyHeatTreatmentId,d)
  const rows=salesLaminatedPlyCandidates(out);if(!rows.some(g=>g.id===out.glassProductId))out.glassProductId=(rows[0]||{}).id||'';
  return out;
 }
-function salesInterlayerLayerCount(v,def){const n=Math.round(+v);return Number.isFinite(n)?Math.max(1,Math.min(SALES_MAX_INTERLAYER_LAYERS,n)):(def==null?1:def);}
-function salesInterlayerThicknessForLayers(layers){return +(salesInterlayerLayerCount(layers)*SALES_INTERLAYER_LAYER_MM).toFixed(2);}
-function salesInterlayerLayersFromThickness(v){const n=+v;if(!Number.isFinite(n)||n<=0)return 1;return Math.max(1,Math.min(SALES_MAX_INTERLAYER_LAYERS,Math.round(n/SALES_INTERLAYER_LAYER_MM)));}
+/* Слой плёнки и разрешённые толщины — в её карточке (erp/masterdata/glass,
+   interlayerCardFields). Число слоёв — толщина / слой. */
+function salesInterlayerPlyMm(productId){const p=mdById('interlayerProduct',productId);return p&&p.plyMm>0?p.plyMm:INTERLAYER_SEED_PLY_MM;}
+function salesInterlayerLayerCount(v,def){const n=Math.round(+v);return Number.isFinite(n)&&n>=1?n:(def==null?1:def);}
+function salesInterlayerThicknessForLayers(layers,productId){return +(salesInterlayerLayerCount(layers)*salesInterlayerPlyMm(productId)).toFixed(2);}
+function salesInterlayerLayersFromThickness(v,productId){const n=+v;if(!Number.isFinite(n)||n<=0)return 1;return Math.max(1,Math.round(n/salesInterlayerPlyMm(productId)));}
 function normalizeSalesInterlayer(layer,defaultProductId){
  layer=typeof layer==='string'?{productId:layer}:(layer&&typeof layer==='object'?layer:{});
  const sourceProductId=salesString(layer.productId)||defaultProductId,migration=interlayerProductMigration(sourceProductId);
  const productId=interlayerCanonicalProductId(sourceProductId)||interlayerCanonicalProductId(defaultProductId)||INTERLAYER_DEFAULT_ID;
  const explicit=layer.layers!=null&&layer.layers!==''?layer.layers:layer.layerCount,oldThickness=layer.thicknessMm;
  const layers=explicit!=null&&explicit!==''?salesInterlayerLayerCount(explicit)
-  :(oldThickness!=null&&oldThickness!==''?salesInterlayerLayersFromThickness(oldThickness):(migration?migration.layers:1));
- return {productId,layers,thicknessMm:salesInterlayerThicknessForLayers(layers),priceOverride:salesNonNegOrNull(layer.priceOverride)};
+  :(oldThickness!=null&&oldThickness!==''?salesInterlayerLayersFromThickness(oldThickness,productId):(migration?migration.layers:1));
+ /* Толщина заказа хранится: смена слоя в карточке сохранённый заказ не меняет. */
+ const kept=+oldThickness>0&&explicit!=null&&explicit!==''?+(+oldThickness).toFixed(2):null;
+ return {productId,layers,thicknessMm:kept!=null?kept:salesInterlayerThicknessForLayers(layers,productId),priceOverride:salesNonNegOrNull(layer.priceOverride)};
 }
 function normalizeSalesInterlayers(lam,d){
  let rows=Array.isArray(lam.interlayers)?lam.interlayers:(Array.isArray(lam.interlayerProductIds)?lam.interlayerProductIds:(lam.interlayerProductId?[lam.interlayerProductId]:d.interlayers));

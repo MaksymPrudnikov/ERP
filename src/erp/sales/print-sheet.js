@@ -275,12 +275,15 @@ function salesSheetPaneWeightKg(pane,areaFt2){
     if(!w){
       var mm=+ply.thicknessMm;
       if(!(mm>0))return;
-      w={kg:glassLayerWeightKg(mm,GLASS_DENSITY_KG_M3,areaFt2),exact:false};
+      var d=glassDensityKgM3();if(!d)return;
+      w={kg:glassLayerWeightKg(mm,d,areaFt2),exact:false};
     }
     total+=w.kg;if(!w.exact)exact=false;got=true;
   });
   (lam.interlayers||[]).forEach(function(f){
-    total+=glassLayerWeightKg(f&&f.thicknessMm,GLASS_INTERLAYER_DENSITY_KG_M3,areaFt2);
+    /* Плотность плёнки — её норма веса; нормы нет — вес приблизительный. */
+    var d=f?salesWeightRate('film:'+f.productId):null;
+    if(d>0)total+=glassLayerWeightKg(f.thicknessMm,d,areaFt2);else exact=false;
   });
   return got&&total>0?{kg:total,exact:exact}:null;
 }

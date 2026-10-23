@@ -3,7 +3,7 @@
 /* Нормы веса, которых ещё нет в карточках (плёнка, фрит, спандрел,
    шпросы), — строки Weight norms; обвязка — в карточках и рецепте
    (erp/masterdata/surround). */
-DEFAULT.materialWeightRates=[];
+DEFAULT.materialWeightRates=[{key:'glass',label:'Glass density',rate:GLASS_DENSITY_SEED_KG_M3,unit:'kg/m³',note:''}];
 if(!Array.isArray(DB.materialWeightRates))DB.materialWeightRates=[];
 /* Надбавки — работы Works с правилом (этап 4, часть 2 плана Master Data):
    минимальная площадь, Triple, большой юнит и любые, что заведёт владелец.
@@ -42,6 +42,8 @@ function salesUnitKinds(m){
 }
 function salesNormalizeWeightRates(){
  const seen=new Set();
+ /* Плотность стекла — засев нормы (этап 5 плана Master Data). */
+ if(Array.isArray(DB.materialWeightRates)&&!DB.materialWeightRates.some(r=>r&&r.key==='glass'))DB.materialWeightRates.push({key:'glass',label:'Glass density',rate:GLASS_DENSITY_SEED_KG_M3,unit:'kg/m³',note:''});
  DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
 }
 function salesLineAreas(line,order){
@@ -131,7 +133,7 @@ function salesLineMaterials(m,areas,order){
   if(rules.minCharge!=null&&amount<rules.minCharge){amount=rules.minCharge;notes.push('min charge '+rules.minCharge.toFixed(2));}
   out.rows.push({label,price,unit:rules.unit,qty,amount,note:notes.join(' · '),special:true});out.amount+=amount;
  };
- const glassKg=(ply,g)=>()=>{const t=glassEffectiveThicknessMm(g),mm=t.mm||+(ply&&ply.thicknessMm)||0;return mm>0&&areas.actual!=null?glassLayerWeightKg(mm,GLASS_DENSITY_KG_M3,areas.actual):null;};
+ const glassKg=(ply,g)=>()=>{const t=glassEffectiveThicknessMm(g),mm=t.mm||+(ply&&ply.thicknessMm)||0;const d=glassDensityKgM3(order);return mm>0&&d&&areas.actual!=null?glassLayerWeightKg(mm,d,areas.actual):null;};
  (m.panes||[]).forEach((p,i)=>{
   const label='Lite '+(i+1);
   if(p.category==='laminated'){
@@ -241,7 +243,8 @@ function salesLineWeight(line,order,productionPlan){
  const glass=(ply,label,geo)=>{
   const product=glassProductById(ply&&ply.glassProductId),t=glassEffectiveThicknessMm(product);
   const mm=t.mm||+(ply&&ply.thicknessMm)||0;
-  add(label+(product?' · '+product.code:''),geo.area!=null&&mm>0?glassLayerWeightKg(mm,GLASS_DENSITY_KG_M3,geo.area):null,t.exact?'':'Nominal thickness estimate');
+  const d=glassDensityKgM3(order);
+  add(label+(product?' · '+product.code:''),geo.area!=null&&mm>0&&d?glassLayerWeightKg(mm,d,geo.area):null,!d?'No glass density in Weight norms':t.exact?'':'Nominal thickness estimate');
  };
  const surface=(ply,label,geo)=>{
   if(ply.category==='spandrel')norm('spandrel:'+ply.spandrel.productId,label+' · Spandrel',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied coating norm per finished area');
