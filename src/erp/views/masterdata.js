@@ -318,44 +318,61 @@ function mdGlassNew(){
 const mdSeen={};
 function mdStale(form,cur){return !cur?'This item was deleted':JSON.stringify(cur)!==mdSeen[form]?'Changed elsewhere — reopen':'';}
 function mdGlassEdit(id){const p=glassProductById(id);if(!p)return;mdEdit=id;mdDraft=JSON.parse(JSON.stringify(p));mdSeen.glass=JSON.stringify(p);render();}
+/* Карточка стекла в виде плана (md-card). Поставка и склад — только
+   вид: правят их в Supply points и Inventory. */
 function mdGlassForm(){
  const r=mdDraft,isNew=mdEdit==='new';
  const used=!isNew&&salesGlassProductHasReferences(r.id);
- return `<div class="form"><h3>${isNew?'New catalog item':'Edit item'}</h3>
-  ${used?'<div class="note">Used in a Makeup: rename only, no delete.</div>':''}
-  <div class="grid">
-   <div><label>Code *</label><input id="md_code" value="${esc(r.code)}"><div class="hint">Printed on stickers.</div></div>
-   <div><label>Name *</label><input id="md_name" value="${esc(r.name)}"></div>
-   <div><label>Manufacturer</label><input id="md_mfr" value="${esc(r.manufacturer)}"></div>
-   <div><label>Thickness, mm *</label><input id="md_thick" type="number" step="0.1" min="${GLASS_MIN_MM}" max="${GLASS_MAX_MM}" value="${r.thicknessMm==null?'':r.thicknessMm}"></div>
-   <div><label>Actual thickness, mm</label><input id="md_actual" type="number" step="0.01" value="${r.actualThicknessMm==null?'':r.actualThicknessMm}"><div class="hint">Measured, not exact.</div></div>
-   <div><label>Substrate</label><select id="md_substrate">${mdVocabOptions('substrate',r.substrate)}</select></div>
-   <div><label>Coverage</label><select id="md_coating">${mdVocabOptions('coatingFamily',r.coatingFamily)}</select></div>
-   <div><label>Deposition</label><select id="md_deposition"><option value="">not set</option>${mdVocabOptions('deposition',r.deposition)}</select><div class="hint">Sputtered is soft.</div></div>
-   <div><label>Tempering</label><select id="md_temper">${mdVocabOptions('temperMode',r.temperMode)}</select><div class="hint">Furnace rule.</div></div>
-   <div><label>Surface rule</label><select id="md_exposure">${mdVocabOptions('exposureRule',r.exposureRule)}</select></div>
-   <div><label>Allowed surfaces</label><input id="md_surfaces" value="${esc(r.allowedSurfaces.join(','))}" placeholder="2,3"><div class="hint">Comma list; empty — any.</div></div>
-   <div><label>Stocking unit</label><select id="md_stockunit">${mdUnitOptions(r.stockingUnit)}</select></div>
-   <div><label>Sales unit</label><select id="md_salesunit">${mdUnitOptions(r.salesUnit)}</select></div>
-   ${mdSaleRulesFields(r)}
-   <div><label>Base edgework</label><select id="md_baseedge"><option value="" ${!r.baseEdgework?'selected':''}>Auto by thickness · ${esc(glassBaseEdgeworkLabel(glassAutoBaseEdgework(r.thicknessMm)))}</option><option value="arris" ${r.baseEdgework==='arris'?'selected':''}>Rough Arris</option><option value="polish" ${r.baseEdgework==='polish'?'selected':''}>Flat Polish</option></select><div class="hint">Default edge.</div></div>
-   <div><label>Legacy code</label><input id="md_legacy" value="${esc(r.legacyCode)}"><div class="hint">Code in Spil.</div></div>
+ const money=v=>v==null?'—':esc(Number(v).toFixed(2));
+ const general=`${used?'<div class="note">Used in a Makeup: rename only, no delete.</div>':''}<div class="grid">
+   ${mdField('Code *',`<input id="md_code" value="${esc(r.code)}">`,'Printed on stickers.')}
+   ${mdField('Name *',`<input id="md_name" value="${esc(r.name)}">`)}
+   ${mdField('Manufacturer',`<input id="md_mfr" value="${esc(r.manufacturer)}">`)}
+   ${mdField('Thickness, mm *',`<input id="md_thick" type="number" step="0.1" min="${GLASS_MIN_MM}" max="${GLASS_MAX_MM}" value="${r.thicknessMm==null?'':r.thicknessMm}">`)}
+   ${mdField('Actual thickness, mm',`<input id="md_actual" type="number" step="0.01" value="${r.actualThicknessMm==null?'':r.actualThicknessMm}">`,'Measured, not exact.')}
+   ${mdField('Substrate',`<select id="md_substrate">${mdVocabOptions('substrate',r.substrate)}</select>`)}
+   ${mdField('Coverage',`<select id="md_coating">${mdVocabOptions('coatingFamily',r.coatingFamily)}</select>`)}
+   ${mdField('Deposition',`<select id="md_deposition"><option value="">not set</option>${mdVocabOptions('deposition',r.deposition)}</select>`,'Sputtered is soft.')}
+   ${mdField('Legacy code',`<input id="md_legacy" value="${esc(r.legacyCode)}">`,'Code in Spil.')}
+  </div>
+  <div class="row" style="margin-top:12px"><label class="chk"><input type="checkbox" id="md_active" ${r.active!==false?'checked':''}> Item is in production</label></div>
+  <div style="margin-top:12px">${mdField('Note',`<input id="md_note" value="${esc(r.note)}">`)}</div>`;
+ const prod=`<div class="grid">
+   ${mdField('Tempering',`<select id="md_temper">${mdVocabOptions('temperMode',r.temperMode)}</select>`,'Furnace rule.')}
+   ${mdField('Surface rule',`<select id="md_exposure">${mdVocabOptions('exposureRule',r.exposureRule)}</select>`)}
+   ${mdField('Allowed surfaces',`<input id="md_surfaces" value="${esc(r.allowedSurfaces.join(','))}" placeholder="2,3">`,'Comma list; empty — any.')}
+   ${mdField('Base edgework',`<select id="md_baseedge"><option value="" ${!r.baseEdgework?'selected':''}>Auto by thickness · ${esc(glassBaseEdgeworkLabel(glassAutoBaseEdgework(r.thicknessMm)))}</option><option value="arris" ${r.baseEdgework==='arris'?'selected':''}>Rough Arris</option><option value="polish" ${r.baseEdgework==='polish'?'selected':''}>Flat Polish</option></select>`,'Default edge.')}
   </div>
   <div class="row" style="margin-top:12px">
-   <label class="chk"><input type="checkbox" id="md_stocked" ${r.stocked?'checked':''}> Kept in stock</label>
    <label class="chk" title="Off — bought glass, no cutting"><input type="checkbox" id="md_cut" ${r.cut!==false?'checked':''}> We cut it</label>
    <label class="chk"><input type="checkbox" id="md_edge" ${r.edgeDeletion?'checked':''}> Edge deletion required</label>
-   <label class="chk"><input type="checkbox" id="md_active" ${r.active!==false?'checked':''}> Item is in production</label>
-  </div>
-  <div style="margin-top:12px"><label>Note</label><input id="md_note" value="${esc(r.note)}"></div>
-  <div class="err" id="e_mdGlass"></div>
-  <div class="row"><button class="pri" onclick="mdGlassSave()">Save</button><button onclick="mdEdit=null;mdDraft=null;render()">Cancel</button></div></div>`;
+  </div>`;
+ const units=`<div class="grid">
+   ${mdField('Stocking unit',`<select id="md_stockunit">${mdUnitOptions(r.stockingUnit)}</select>`)}
+   ${mdField('Sales unit',`<select id="md_salesunit">${mdUnitOptions(r.salesUnit)}</select>`)}
+  </div>`;
+ const measure=`<div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`;
+ const sheets=isNew?[]:glassSheetsFor(r.code);
+ const purchase=sheets.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th><th class="n">Price</th><th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td><td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td><td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table></div><p class="mut">Edited in Supply points.</p>`:'<p class="mut" data-md-glass-supply>No supply rows. Add in Supply points.</p>';
+ const price=(id,k,label)=>mdField(label,`<input id="${id}" type="number" step="0.01" min="0" value="${r[k]==null?'':r[k]}" placeholder="—">`,'Empty — no price.');
+ const prices=`<div class="grid">${price('md_priceAN','salePriceAnnealed','Price annealed, CAD')}${price('md_priceFT','salePriceTempered','Price tempered, CAD')}${mdSaleRulesFields(r,['minCharge'])}</div>
+  ${isNew?'':mdPriceListsHTML('glass:'+r.id+':salePriceAnnealed').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · annealed</h4>')+mdPriceListsHTML('glass:'+r.id+':salePriceTempered').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · tempered</h4>')}`;
+ const racks=isNew||r.cut===false?[]:invSheetRows().filter(x=>x.code.toUpperCase()===String(r.code).toUpperCase());
+ const stock=`<div class="row"><label class="chk"><input type="checkbox" id="md_stocked" ${r.stocked?'checked':''}> Kept in stock</label></div>
+  ${racks.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-stock><thead><tr><th>Sheet</th><th class="n">On rack</th><th class="n">Reserved</th><th class="n">Free</th><th class="n">Min</th><th>Status</th></tr></thead><tbody>${racks.map(x=>`<tr><td class="mono">${esc(invSizeText(x))}</td><td class="n mono">${x.onRack}</td><td class="n mono">${x.reserved}</td><td class="n mono">${x.free}</td><td class="n mono">${x.min==null?'—':x.min}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table></div><p class="mut">Sizes and counts: Inventory.</p>`:'<p class="mut">No sheet sizes. Add in Inventory → Sheet sizes.</p>'}`;
+ return mdCardHTML({form:'glass',crumb:['Materials','Glass'].concat(r.manufacturer?[r.manufacturer]:[]),
+  title:isNew?'New catalog item':raw(r.name||r.code),status:isNew?null:r.active===false?['discontinued','warn']:r.stocked?[glassLabel('stock','stocked'),'ok']:[glassLabel('stock','preorder'),'info'],code:isNew?'':r.code,
+  tabs:[{k:'general',label:'General',html:general},{k:'production',label:'Production',html:prod},{k:'units',label:'Units',html:units},{k:'measure',label:'Measurements',html:measure},
+   {k:'purchase',label:'Purchase',html:purchase,missing:!isNew&&!sheets.length},{k:'prices',label:'Prices',html:prices,missing:r.salePriceAnnealed==null&&r.salePriceTempered==null},{k:'stock',label:'Stock',html:stock,missing:racks.some(x=>x.sizeMissing)}],
+  foot:`<div class="err" id="e_mdGlass"></div><div class="row"><button class="pri" onclick="mdGlassSave()">Save</button><button onclick="mdEdit=null;mdDraft=null;render()">Cancel</button></div>`});
 }
 /* Минимумы и размеры продажи в карточке (erp/masterdata/glass mdSaleRulesOf). */
-function mdSaleRulesFields(r){
- const f=(id,k,label,hint)=>`<div><label>${label}</label><input id="${id}" type="number" min="0" step="0.01" value="${r[k]==null?'':esc(r[k])}" placeholder="—">${hint?`<div class="hint">${hint}</div>`:''}</div>`;
- return f('md_minArea','minAreaFt2','Min area, ft²','Bills at least this area.')+f('md_minCharge','minCharge','Min charge, CAD','Bills at least this per lite.')
-  +f('md_minW','minWidthIn','Min width, in','Warning only.')+f('md_minH','minHeightIn','Min height, in','')+f('md_maxW','maxWidthIn','Max width, in','Warning only.')+f('md_maxH','maxHeightIn','Max height, in','');
+const MD_SALE_RULES=[['md_minArea','minAreaFt2','Min area, ft²','Bills at least this area.'],['md_minCharge','minCharge','Min charge, CAD','Bills at least this per lite.'],
+ ['md_minW','minWidthIn','Min width, in','Warning only.'],['md_minH','minHeightIn','Min height, in',''],['md_maxW','maxWidthIn','Max width, in','Warning only.'],['md_maxH','maxHeightIn','Max height, in','']];
+/* keys — только эти правила: карточка с вкладками раскладывает их по своим
+   вкладкам (минимум суммы — в Prices, размеры — в Measurements). */
+function mdSaleRulesFields(r,keys){
+ return MD_SALE_RULES.filter(x=>!keys||keys.includes(x[1])).map(([id,k,label,hint])=>`<div><label>${label}</label><input id="${id}" type="number" min="0" step="0.01" value="${r[k]==null?'':esc(r[k])}" placeholder="—">${hint?`<div class="hint">${hint}</div>`:''}</div>`).join('');
 }
 function mdSaleRulesRead(){
  const v=id=>{const el=document.getElementById(id);return el?el.value:'';};
@@ -372,6 +389,8 @@ function mdGlassSave(){
  if(!Number.isFinite(t)||t<GLASS_MIN_MM||t>GLASS_MAX_MM)return fail(e,'Thickness: a number from '+GLASS_MIN_MM+' to '+GLASS_MAX_MM+' mm');
  const surfaces=glassSurfacesCell(mdVal('md_surfaces'));
  if(surfaces===null)return fail(e,'Surfaces: numbers 1 to 8 separated by commas');
+ const money=id=>{const t=mdVal(id);return t===''?null:isFinite(+t)&&+t>=0?Math.round(+t*100)/100:NaN;},priceAN=money('md_priceAN'),priceFT=money('md_priceFT');
+ if([priceAN,priceFT].some(v=>v!=null&&(!isFinite(v)||v<0)))return fail(e,'Price: a non-negative number or empty');
  const next=Object.assign({},mdDraft,{
   code,name,manufacturer:mdVal('md_mfr'),thicknessMm:t,
   actualThicknessMm:mdVal('md_actual')===''?null:+mdVal('md_actual'),
@@ -379,6 +398,7 @@ function mdGlassSave(){
   temperMode:mdVal('md_temper'),exposureRule:mdVal('md_exposure'),allowedSurfaces:surfaces,
   stockingUnit:mdVal('md_stockunit'),salesUnit:mdVal('md_salesunit'),legacyCode:mdVal('md_legacy'),
   ...mdSaleRulesRead(),
+  salePriceAnnealed:priceAN,salePriceTempered:priceFT,
   note:mdVal('md_note'),stocked:mdChecked('md_stocked'),cut:mdChecked('md_cut'),edgeDeletion:mdChecked('md_edge'),baseEdgework:mdVal('md_baseedge'),active:mdChecked('md_active')
  });
  if(mdEdit==='new'){
@@ -640,36 +660,55 @@ function mdSpacerEditRow(id){
  const sp=(DB.spacerVariant||[]).find(x=>x.id===id);if(!sp)return;
  mdSpacerEdit=id;mdSpacerDraft=JSON.parse(JSON.stringify(sp));mdSeen.spacer=JSON.stringify(sp);render();
 }
+/* Карточка рамки в виде плана (md-card): вкладки как в Spiel плюс
+   расход по рецепту обвязки и склад расходников. */
 function mdSpacerForm(){
  const r=mdSpacerDraft,isNew=mdSpacerEdit==='new';
- const nominal=spacerNominalMm(r.size),systems=DB.spacerSystem||[];
- const sysOpts=systems.map(x=>`<option data-raw value="${esc(x.name)}" ${x.name===r.system?'selected':''}>${esc(x.name)}${x.family?' · '+esc(x.family):''}</option>`).join('')+(r.system&&!spacerSystemByName(r.system)?`<option data-raw value="${esc(r.system)}" selected>${esc(r.system)} · not in the list</option>`:'');
- return `<div class="form" data-spacer-card><h3>${isNew?'New spacer':'Spacer · '+esc(r.name||r.id)}</h3>
-  <div class="grid">
-   <div><label>System *</label><select id="md_spSystem">${sysOpts}</select><div class="hint">Systems are edited below the spacer list.</div></div>
-   <div><label>Nominal size *</label><input id="md_spSize" value="${esc(r.size)}" placeholder="17/32"><div class="hint">Fraction, as on the box. Nominal: ${nominal==null?'—':esc(nominal.toFixed(1)+' mm')}</div></div>
-   <div><label>Actual thickness, mm</label><input id="md_spMm" type="number" step="0.1" min="0" value="${r.thicknessMm==null?'':r.thicknessMm}" placeholder="${nominal==null?'':esc(nominal.toFixed(1))}"><div class="hint">Empty — nominal is used.</div></div>
-  </div>
-  <h4>Sale</h4>
-  <div class="grid">
-   <div><label>Price, CAD</label><input id="md_spPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}" placeholder="—"><div class="hint">Empty — no price.</div></div>
-   <div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select><div class="hint">How it is sold.</div></div>
-   ${mdSaleRulesFields(r)}
-  </div>
-  <h4>Weight & surround</h4>
-  <div class="grid">
-   <div><label>Weight, g</label><input id="md_spWeight" type="number" step="any" min="0" value="${r.weightG==null?'':r.weightG}" placeholder="unknown"></div>
-   <div><label>Per</label><select id="md_spWeightPer">${Object.keys(SPACER_WEIGHT_PER).map(k=>`<option value="${k}" ${k===r.weightPer?'selected':''}>${esc(SPACER_WEIGHT_PER[k])}</option>`).join('')}</select><div class="hint">Length runs along the spacer contour.</div></div>
+ const nominal=spacerNominalMm(r.size),systems=DB.spacerSystem||[],sys=spacerSystemByName(r.system),rec=surroundRecipeById(r.recipeId);
+ const sysOpts=systems.map(x=>`<option data-raw value="${esc(x.name)}" ${x.name===r.system?'selected':''}>${esc(x.name)}${x.family?' · '+esc(x.family):''}</option>`).join('')+(r.system&&!sys?`<option data-raw value="${esc(r.system)}" selected>${esc(r.system)} · not in the list</option>`:'');
+ const num=(id,v,attrs)=>`<input id="${id}" type="number" ${attrs||'step="any" min="0"'} value="${v==null?'':esc(v)}" placeholder="—">`;
+ const unit=(id,v)=>`<select id="${id}"><option value="">—</option>${mdUnitOptions(v)}</select>`;
+ const cost=r.purchasePrice!=null&&r.packQty?r.purchasePrice/r.packQty:null;
+ const general=`<div class="grid">
+   ${mdField('System *',`<select id="md_spSystem">${sysOpts}</select>`,'Systems: below the list.')}
+   ${mdField('Nominal size *',`<input id="md_spSize" value="${esc(r.size)}" placeholder="17/32">`,'Nominal: '+(nominal==null?'—':esc(nominal.toFixed(1)+' mm')))}
+   ${mdField('Actual thickness, mm',num('md_spMm',r.thicknessMm,'step="0.1" min="0"').replace('placeholder="—"',`placeholder="${nominal==null?'':esc(nominal.toFixed(1))}"`),'Empty — nominal.')}
+   ${mdField('Availability',`<select id="md_spAvail">${mdVocabOptions('availability',r.availability)}</select>`)}
+  </div><div style="margin-top:12px">${mdField('Note',`<input id="md_spNote" value="${esc(r.note)}">`)}</div>`;
+ const units=`<div class="grid">
+   ${mdField('Stocking unit',unit('md_spStockUnit',r.stockingUnit))}
+   ${mdField('Purchase unit',unit('md_spBuyUnit',r.purchaseUnit))}
+   ${mdField('Per purchase unit',num('md_spPack',r.packQty),'1 box = 1880 ft')}
+   ${mdField('Sales unit',`<select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select>`)}
+  </div>`;
+ const measure=`<div class="grid">
+   ${mdField('Weight, g',num('md_spWeight',r.weightG).replace('placeholder="—"','placeholder="unknown"'))}
+   ${mdField('Per',`<select id="md_spWeightPer">${Object.keys(SPACER_WEIGHT_PER).map(k=>`<option value="${k}" ${k===r.weightPer?'selected':''}>${esc(SPACER_WEIGHT_PER[k])}</option>`).join('')}</select>`)}
    <div><label class="chk"><input type="checkbox" id="md_spMeasured" ${r.weightMeasured?'checked':''}> Measured</label><div class="hint">Off — an estimate.</div></div>
-   <div><label>Surround recipe</label><select id="md_spRecipe"><option value="">— no recipe —</option>${(DB.surroundRecipe||[]).map(x=>`<option value="${esc(x.id)}" ${x.id===r.recipeId?'selected':''}>${esc(x.name||x.id)}</option>`).join('')}</select><div class="hint">Parts and norms of the surround.</div></div>
-  </div>
-  <div class="grid">
-   <div><label>Availability</label><select id="md_spAvail">${mdVocabOptions('availability',r.availability)}</select></div>
-   <div><label>Supplier</label><input id="md_spSupplier" value="${esc(r.supplier)}"></div>
-   <div><label>Lead time, days</label><input id="md_spLead" type="number" step="1" min="0" value="${r.leadTimeDays==null?'':r.leadTimeDays}"></div>
-  </div>
-  <div class="err" id="e_mdSpacer"></div>
-  <div class="row"><button class="pri" onclick="mdSpacerSave()">Save</button><button onclick="mdSpacerEdit=null;mdSpacerDraft=null;render()">Cancel</button></div></div>`;
+  </div><h4>Size limits</h4><div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`;
+ const purchase=`<div class="grid">
+   ${mdField('Supplier',`<input id="md_spSupplier" value="${esc(r.supplier)}">`)}
+   ${mdField('Purchase price',num('md_spBuyPrice',r.purchasePrice,'step="0.01" min="0"'),'Per purchase unit.')}
+   ${mdField('Currency',`<input id="md_spCurrency" value="${esc(r.currency||'CAD')}" maxlength="3">`)}
+   ${mdField('Price date',`<input id="md_spPriceDate" type="date" value="${esc(r.priceDate)}">`)}
+   ${mdField('Lead time, days',num('md_spLead',r.leadTimeDays,'step="1" min="0"'))}
+   ${mdField('Cost per '+esc(mdUnitName(r.stockingUnit)||'stock unit'),`<div class="mono" data-md-cost>${cost==null?'—':esc(cost.toFixed(4))+' '+esc(r.currency||'CAD')}</div>`,'Price ÷ per unit.')}
+  </div>`;
+ const prices=`<div class="grid">
+   ${mdField('Price, CAD',num('md_spPrice',r.salePrice,'step="0.01" min="0"'),'Empty — no price.')}
+   ${mdSaleRulesFields(r,['minCharge'])}
+  </div>${isNew?'':mdPriceListsHTML('item:spacerVariant:'+r.id)}`;
+ const st=isNew?null:consRows().find(x=>x.key===consKey('spacerVariant',r.id));
+ const q=v=>esc((Math.round(v*10)/10).toFixed(1))+' ft';
+ const stock=st?`<dl class="md-kv" data-md-stock><dt>On hand</dt><dd>${q(st.onHand)}</dd><dt>Reserved</dt><dd>${q(st.reserved)}</dd><dt>Free</dt><dd>${q(st.free)}</dd><dt>Status</dt><dd>${esc(st.status)}</dd></dl><p class="mut">Counted in Inventory → Consumables.</p>`:'<p class="mut">Save first.</p>';
+ const parts=rec?`<table class="ncr-table" data-md-recipe-parts><thead><tr><th>Part</th><th class="n">Amount</th><th class="n">Waste</th></tr></thead><tbody>${rec.rows.map(x=>`<tr><td>${raw(surroundPartLabel(x.part))}</td><td class="n mono">${x.amount==null?(x.part==='spacer'||x.part==='gas'?'<span class="mut">by size</span>':'<span class="pill warn">no norm</span>'):esc(String(x.amount))+' <span class="mut">'+esc(SURROUND_PER[x.per])+'</span>'}</td><td class="n mono">${esc(String(x.wastePct||0))}%</td></tr>`).join('')}</tbody></table>`:'';
+ const use=`<div class="grid">${mdField('Surround recipe',`<select id="md_spRecipe"><option value="">— no recipe —</option>${(DB.surroundRecipe||[]).map(x=>`<option value="${esc(x.id)}" ${x.id===r.recipeId?'selected':''}>${esc(x.name||x.id)}</option>`).join('')}</select>`,'Edited in Surround recipes.')}</div>${parts}`;
+ return mdCardHTML({form:'spacer',crumb:['Materials','IGU assembly','Spacers'].concat(r.system?[r.system]:[]),
+  title:isNew?'New spacer':raw(r.name||r.id),status:isNew?null:[glassLabel('availability',r.availability),r.availability==='stock'?'ok':r.availability==='inactive'?'warn':'info'],code:isNew?'':(r.code||r.id),
+  tabs:[{k:'general',label:'General',html:general,missing:!sys},{k:'units',label:'Units',html:units},{k:'measure',label:'Measurements',html:measure,missing:r.weightG==null},
+   {k:'purchase',label:'Purchase',html:purchase},{k:'prices',label:'Prices',html:prices,missing:r.salePrice==null},{k:'stock',label:'Stock',html:stock},{k:'use',label:'Consumption',html:use,missing:!rec}],
+  foot:`<div class="err" id="e_mdSpacer"></div><div class="row"><button class="pri" onclick="mdSpacerSave()">Save</button><button onclick="mdSpacerEdit=null;mdSpacerDraft=null;render()">Cancel</button></div>`})
+  .replace('data-md-card="spacer"','data-md-card="spacer" data-spacer-card');
 }
 function mdSpacerSave(){
  const e=document.getElementById('e_mdSpacer');e.style.display='none';
@@ -682,15 +721,17 @@ function mdSpacerSave(){
  const id=mdSpacerEdit==='new'?'SP-'+(sys&&sys.code?sys.code:'X')+'-'+spacerSizeKey(size):mdSpacerDraft.id;
  if(mdSpacerEdit==='new'&&(DB.spacerVariant||[]).some(x=>x.id===id))return fail(e,'This spacer already exists: '+id);
  const num=k=>{const t=mdVal(k);return t===''?null:+t;},bad=v=>v!=null&&(!isFinite(v)||v<0);
- const mm=num('md_spMm'),price=num('md_spPrice'),weight=num('md_spWeight'),lead=num('md_spLead');
+ const mm=num('md_spMm'),price=num('md_spPrice'),weight=num('md_spWeight'),lead=num('md_spLead'),pack=num('md_spPack'),buy=num('md_spBuyPrice');
  if(mm!=null&&(!isFinite(mm)||mm<=0))return fail(e,'Actual thickness: a positive number of millimetres');
- if([price,weight,lead].some(bad))return fail(e,'Price, weight and lead time: a non-negative number or empty');
+ if([price,weight,lead,pack,buy].some(bad))return fail(e,'Prices, weight, pack and lead time: a non-negative number or empty');
  const next=Object.assign({},mdSpacerDraft,mdSaleRulesRead(),{
   id:id,system:system,size:size,thicknessMm:mm,
   name:system+' '+size+'″',code:mdSpacerEdit==='new'?id:(mdSpacerDraft.code||id),
   salePrice:price,salesUnit:mdVal('md_salesunit'),
   weightG:weight,weightPer:mdVal('md_spWeightPer'),weightMeasured:mdChecked('md_spMeasured'),recipeId:mdVal('md_spRecipe'),
-  availability:mdVal('md_spAvail'),supplier:mdVal('md_spSupplier'),leadTimeDays:lead,active:mdSpacerDraft.active!==false
+  availability:mdVal('md_spAvail'),supplier:mdVal('md_spSupplier'),leadTimeDays:lead,active:mdSpacerDraft.active!==false,
+  note:mdVal('md_spNote'),stockingUnit:mdVal('md_spStockUnit'),purchaseUnit:mdVal('md_spBuyUnit'),packQty:pack,
+  purchasePrice:buy,currency:mdVal('md_spCurrency').toUpperCase()||'CAD',priceDate:mdVal('md_spPriceDate')
  });
  if(mdSpacerEdit==='new')DB.spacerVariant.push(next);
  else{const at=DB.spacerVariant.findIndex(x=>x.id===mdSpacerDraft.id);if(at<0)return fail(e,'Spacer not found');DB.spacerVariant[at]=next;}
@@ -1202,14 +1243,17 @@ function mdCatForm(){
  if(mdCatIsRate()){
   const stations=(DB.station||[]).slice().sort((a,b)=>(+a.seq||0)-(+b.seq||0));
   const v=x=>x==null?'':esc(x),warn=mdWorkWarnings(mdWorkDraftRead(false)||r);
-  return `<div class="form" data-md-work-form><h3>${isNew?'New work':'Edit · '+esc(r.name)}</h3>
-   <div class="sub mono">${isNew?'the id appears after saving':esc(r.id)}</div>
-   <div class="grid">
+  /* Карточка работы в виде плана (md-card): общее, когда применяется, цены. */
+  const general=`<div class="grid">
     <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
     <div><label>Unit</label><select id="md_catUnit">${(r.rule?[r.unit]:['pc','in','ft²']).map(u=>`<option value="${esc(u)}" ${u===r.unit?'selected':''}>${esc(u)}</option>`).join('')}</select><div class="hint">Label of the price</div></div>
     ${r.rule?'':`<div><label>Station</label><select id="md_catStation"><option value="">— no station —</option>${stations.map(st=>`<option value="${esc(st.code)}" ${st.code===(r.station||'')?'selected':''}>${esc(st.code)} · ${esc(st.nameEn||st.name)}</option>`).join('')}</select><div class="hint">Empty: price only</div></div>`}
    </div>
    <div class="grid">
+    <div><label>Note</label><input id="md_catNote" value="${esc(r.note||'')}"></div>
+    <div><label>Status</label><select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>no rate</option></select></div>
+   </div>`;
+  const applies=`<div class="grid">
     ${r.rule?'':`<div><label>Applies by</label><select id="md_catAppliesBy" onchange="mdWorkDraftRead(true);render()"><option value="" ${r.appliesBy?'':'selected'}>always</option><option value="diameter" ${r.appliesBy==='diameter'?'selected':''}>hole diameter, inches</option></select></div>
     ${r.appliesBy?`<div><label>Family</label><input id="md_catFamily" value="${esc(r.family||'')}"><div class="hint">Shared by all hole rows</div></div>
     <div><label>Diameter from</label><input id="md_catFrom" type="number" step="any" min="0" value="${v(r.appliesFrom)}" placeholder="no limit"></div>
@@ -1223,8 +1267,8 @@ function mdCatForm(){
     <div><label>Unit area under, ft²</label><input id="md_ruleUnder" type="number" step="any" min="0" value="${v(r.rule.areaUnder)}" placeholder="no limit"></div>
     ${r.rule.kind==='percent'?`<div><label>Order</label><input id="md_rulePriority" type="number" step="1" value="${v(r.rule.priority)}"><div class="hint">Smaller first</div></div>
     <div><label class="chk"><input type="checkbox" id="md_ruleOnTop" ${r.rule.onTop?'checked':''}> On top of earlier surcharges</label></div>`:''}`:''}
-   </div>
-   ${r.rule?'':`<label>Price by glass thickness</label>
+   </div>`;
+  const prices=`${r.rule?'<p class="mut">Value: Applies tab.</p>':`<label>Price by glass thickness</label>
    <table class="md-work-tiers" data-md-tiers><thead><tr><th>From, mm</th><th>To, mm</th><th>Price, CAD</th><th></th></tr></thead><tbody>
     ${(r.tiers||[]).map((t,i)=>`<tr data-md-tier="${esc(t.id)}"><td><input id="md_tierFrom${i}" type="number" step="any" min="0" value="${v(t.from)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierTo${i}" type="number" step="any" min="0" value="${v(t.to)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierPrice${i}" type="number" step="0.01" min="0" value="${v(t.price)}" placeholder="no price" style="width:90px"></td><td><button class="sm dl" title="Remove row" onclick="mdWorkTierRemove(${i})">×</button></td></tr>`).join('')}
    </tbody></table>
@@ -1233,35 +1277,48 @@ function mdCatForm(){
     <div><label>Round quantity up to</label><input id="md_catRoundTo" type="number" step="any" min="0" value="${v(r.roundTo)}" placeholder="no rounding"><div class="hint">In the work's unit</div></div>
     <div><label>Min charge, CAD</label><input id="md_catMinCharge" type="number" step="0.01" min="0" value="${v(r.minCharge)}" placeholder="no minimum"><div class="hint">Per unit</div></div>
    </div>`}
-   ${warn.length?`<div class="sales-pricing-warning" data-md-work-warn><b>Check</b><span>${warn.map(esc).join('<br>')}</span></div>`:''}
-   <div class="grid">
-    <div><label>Note</label><input id="md_catNote" value="${esc(r.note||'')}"></div>
-    <div><label>Status</label><select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>no rate</option></select></div>
-   </div>
-   <div class="err" id="e_mdCat"></div>
-   <div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div></div>`;
+   ${isNew||r.rule?'':mdPriceListsHTML('service:'+r.id)}`;
+  return mdCardHTML({form:'work',crumb:['Works',r.rule?'Surcharges':'Works'],title:isNew?'New work':raw(r.name||r.id),
+   status:isNew?null:r.active===false?['no rate','warn']:['active','ok'],code:isNew?'':r.id,
+   tabs:[{k:'general',label:'General',html:general},{k:'applies',label:'Applies',html:applies},{k:'prices',label:'Prices',html:prices,missing:warn.length>0}],
+   foot:`${warn.length?`<div class="sales-pricing-warning" data-md-work-warn><b>Check</b><span>${warn.map(esc).join('<br>')}</span></div>`:''}<div class="err" id="e_mdCat"></div>
+   <div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div>`})
+   .replace('data-md-card="work"','data-md-card="work" data-md-work-form');
  }
- return `<div class="form"><h3>${isNew?'New':'Edit'} · ${esc(def.label)}</h3>
-  <div class="grid">
-   <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
-   <div><label>Code</label><input id="md_catCode" value="${esc(r.code)}"><div class="hint">Manufacturer's code.</div></div>
-   ${colour
-    ?`<div><label>Family</label><input id="md_catFamily" list="md_catFamilyList" value="${esc(r.family||'')}"><datalist id="md_catFamilyList">${familyHints.map(f=>`<option value="${esc(f)}">`).join('')}</datalist><div class="hint">Empty — no family.</div></div>
-      <div><label>Spandrel</label><select id="md_catProduct"><option value="" ${r.productId?'':'selected'}>— any spandrel —</option>${(DB.spandrelProduct||[]).map(p=>`<option value="${esc(p.id)}" ${p.id===r.productId?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="hint">Empty — any spandrel.</div></div>`
-    :`<div><label>Supplier</label><input id="md_catSupplier" value="${esc(r.supplier||'')}"></div>
-      <div><label>Price, CAD</label><input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}"><div class="hint">Empty — Rate required.</div></div>
-      ${MD_CAT_SALE_UNIT.includes(mdCatKind)?`<div><label>Sales unit</label><select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select></div>${mdSaleRulesFields(r)}`:''}
-      ${mdStationViaHTML(mdCatKind)}
-      ${MD_CAT_WORK.includes(mdCatKind)?`<div><label>Work</label><select id="md_catWork"><option value="">— no work —</option>${(DB.serviceRate||[]).filter(w=>w&&!w.rule).map(w=>`<option value="${esc(w.id)}" ${w.id===r.workId?'selected':''}>${esc(w.name)}${w.station?' · '+esc(w.station):''}</option>`).join('')}</select><div class="hint">Station in the route</div></div>`:''}
-      ${mdCatKind==='interlayerProduct'?mdFilmFields(r):''}
-      ${mdCatKind==='gasProduct'?`<div><label>Density, kg/m³</label><input id="md_catDensity" type="number" step="any" min="0" value="${r.densityKgM3==null?'':r.densityKgM3}" placeholder="unknown"><div class="hint">Gas weight = density × cavity volume.</div></div>`:''}
-      ${mdCatKind==='stockItem'?`<div><label>Subcategory</label><input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(s=>`<option value="${esc(s)}">`).join('')}</datalist><div class="hint">Group in the order picker.</div></div>`:''}
-      <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="md_catOwnLine" ${r.sellsAsOwnLine?'checked':''}> Sells as its own order line</label>
-       <div class="hint">Sold as-is: quantity and price.</div></div>`}
-   <div><label>Status</label><select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select></div>
-  </div>
-  <div class="err" id="e_mdCat"></div>
-  <div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div></div>`;
+ const f={
+  name:mdField('Name *',`<input id="md_catName" value="${esc(r.name)}">`),
+  code:mdField('Code',`<input id="md_catCode" value="${esc(r.code)}">`,'Manufacturer\'s code.'),
+  status:mdField('Status',`<select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select>`)};
+ const foot=`<div class="err" id="e_mdCat"></div><div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div>`;
+ const card=tabs=>mdCardHTML({form:'cat-'+mdCatKind,crumb:[MD_WORK_CATALOGUES.includes(mdCatKind)?'Works':'Materials',def.label],title:isNew?'New':raw(r.name||r.id),
+  status:isNew?null:r.active===false?['inactive','warn']:['active','ok'],code:isNew?'':(r.code||r.id),tabs,foot});
+ if(colour)return card([{k:'general',label:'General',html:`<div class="grid">${f.name}${f.code}
+   ${mdField('Family',`<input id="md_catFamily" list="md_catFamilyList" value="${esc(r.family||'')}"><datalist id="md_catFamilyList">${familyHints.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>`,'Empty — no family.')}
+   ${mdField('Spandrel',`<select id="md_catProduct"><option value="" ${r.productId?'':'selected'}>— any spandrel —</option>${(DB.spandrelProduct||[]).map(p=>`<option value="${esc(p.id)}" ${p.id===r.productId?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`,'Empty — any spandrel.')}
+   ${f.status}</div>`}]);
+ f.supplier=mdField('Supplier',`<input id="md_catSupplier" value="${esc(r.supplier||'')}">`);
+ f.price=mdField('Price, CAD',`<input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}">`,'Empty — Rate required.');
+ f.unit=MD_CAT_SALE_UNIT.includes(mdCatKind)?mdField('Sales unit',`<select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select>`):'';
+ f.ownLine=`<div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="md_catOwnLine" ${r.sellsAsOwnLine?'checked':''}> Sells as its own order line</label><div class="hint">Sold as-is: quantity and price.</div></div>`;
+ f.work=MD_CAT_WORK.includes(mdCatKind)?mdField('Work',`<select id="md_catWork"><option value="">— no work —</option>${(DB.serviceRate||[]).filter(w=>w&&!w.rule).map(w=>`<option value="${esc(w.id)}" ${w.id===r.workId?'selected':''}>${esc(w.name)}${w.station?' · '+esc(w.station):''}</option>`).join('')}</select>`,'Station in the route'):'';
+ /* Плёнка — большая карточка: вкладки как у рамки. */
+ if(mdCatKind==='interlayerProduct')return card([
+  {k:'general',label:'General',html:`<div class="grid">${f.name}${f.code}${mdStationViaHTML(mdCatKind)}${f.status}${f.ownLine}</div>`},
+  {k:'units',label:'Units',html:`<div class="grid">${f.unit}</div>`},
+  {k:'measure',label:'Measurements',html:`<div class="grid">${mdFilmFields(r)}</div><h4>Size limits</h4><div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`,missing:!(r.plyMm>0)},
+  {k:'purchase',label:'Purchase',html:`<div class="grid">${f.supplier}</div>${mdFilmSupplyHTML(r)}`,missing:!isNew&&!(r.supply||[]).length},
+  {k:'prices',label:'Prices',html:`<div class="grid">${f.price}${mdSaleRulesFields(r,['minCharge'])}</div>${isNew?'':mdPriceListsHTML('item:interlayerProduct:'+r.id)}`,missing:r.salePrice==null}]);
+ f.density=mdCatKind==='gasProduct'?mdField('Density, kg/m³',`<input id="md_catDensity" type="number" step="any" min="0" value="${r.densityKgM3==null?'':r.densityKgM3}" placeholder="unknown">`,'Gas weight = density × cavity volume.'):'';
+ /* Части обвязки продаются за свою единицу — те же вкладки, что у рамки. */
+ if(f.unit)return card([
+  {k:'general',label:'General',html:`<div class="grid">${f.name}${f.code}${f.supplier}${mdStationViaHTML(mdCatKind)}${f.status}${f.ownLine}</div>`},
+  {k:'units',label:'Units',html:`<div class="grid">${f.unit}</div>`},
+  {k:'measure',label:'Measurements',html:`<div class="grid">${f.density}${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`,missing:mdCatKind==='gasProduct'&&r.densityKgM3==null},
+  {k:'prices',label:'Prices',html:`<div class="grid">${f.price}${mdSaleRulesFields(r,['minCharge'])}</div>${isNew?'':mdPriceListsHTML('item:'+mdCatKind+':'+r.id)}`,missing:r.salePrice==null}]);
+ return card([{k:'general',label:'General',html:`<div class="grid">${f.name}${f.code}${f.supplier}${f.price}
+   ${mdStationViaHTML(mdCatKind)}${f.work}
+   ${mdCatKind==='stockItem'?mdField('Subcategory',`<input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>`,'Group in the order picker.'):''}
+   ${f.ownLine}${f.status}</div>`}]);
 }
 /* Плёнка (этап 5): слой, разрешённые толщины и строки поставки. Строки
    поставки добавляются и убираются без перерисовки — введённое в форме не
@@ -1270,8 +1327,10 @@ function mdFilmSupplyRow(x){x=x||{};const v=k=>x[k]==null?'':esc(x[k]);
  return `<tr data-md-film-supply><td><input data-k="supplier" value="${v('supplier')}"></td><td><input data-k="widthIn" type="number" min="0" step="any" value="${v('widthIn')}"></td><td><input data-k="thicknessMm" type="number" min="0" step="any" value="${v('thicknessMm')}"></td><td><input data-k="price" type="number" min="0" step="any" value="${v('price')}"></td><td><input data-k="per" value="${v('per')}" placeholder="roll"></td><td><button type="button" class="sm dl" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
 function mdFilmFields(r){
  return `<div><label>Ply, mm</label><input id="md_filmPly" type="number" min="0" step="any" value="${r.plyMm==null?'':r.plyMm}"><div class="hint">One layer; price is per layer</div></div>
-  <div><label>Thicknesses, mm</label><input id="md_filmThick" value="${esc((r.thicknessesMm||[]).join(', '))}"><div class="hint">Offered in the order</div></div>
-  <div style="grid-column:1/-1" data-md-film-supplies><label>Supply</label><div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Supplier</th><th>Roll width, in</th><th>Thickness, mm</th><th>Price, CAD</th><th>Per</th><th></th></tr></thead><tbody>${(r.supply||[]).map(mdFilmSupplyRow).join('')}</tbody></table></div>
+  <div><label>Thicknesses, mm</label><input id="md_filmThick" value="${esc((r.thicknessesMm||[]).join(', '))}"><div class="hint">Offered in the order</div></div>`;
+}
+function mdFilmSupplyHTML(r){
+ return `<div data-md-film-supplies><label>Supply</label><div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Supplier</th><th>Roll width, in</th><th>Thickness, mm</th><th>Price, CAD</th><th>Per</th><th></th></tr></thead><tbody>${(r.supply||[]).map(mdFilmSupplyRow).join('')}</tbody></table></div>
    <button type="button" onclick="this.previousElementSibling.querySelector('tbody').insertAdjacentHTML('beforeend',mdFilmSupplyRow())">+ Supply row</button></div>`;
 }
 function mdFilmRead(){
