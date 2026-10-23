@@ -26,8 +26,9 @@ const STATION_SCAN_ID_RE=/^SC-\d{7,}$/;
 const STATION_RECORDED=['ok','hold'];
 
 function stationScanNextId(){
- DB.stationScanSeq=(Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0)+1;
- return 'SC-'+String(DB.stationScanSeq).padStart(7,'0');
+ const was=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0,n=cloudSeq('scan',was+1);
+ DB.stationScanSeq=Math.max(was,n);
+ return 'SC-'+String(n).padStart(7,'0');
 }
 /* Станция резки — та, что стоит у работы «cutting». Её скан и есть «резка
    началась» у стекла: поле cutStartedAt ждало этого события с PR #84. */

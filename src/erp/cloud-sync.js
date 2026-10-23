@@ -3,7 +3,7 @@
    IN : набор изменений каждой записи (touch → cloudOutbox), сервер
         erp_apply / erp_changes / erp_get (tools/supabase/schema.sql)
    OUT: cloudSync, cloudOutbox, cloudSyncStart, cloudUpload, cloudDownload,
-        cloudSyncStop, cloudSyncText
+        cloudSyncStop, cloudSyncText, cloudSeq
    Каждый компьютер работает со своей базой браузера, как раньше; сервер —
    общая копия. Свои изменения уходят командами (очередь лежит в складе
    cloud той же транзакцией, что и строки: без сети и после F5 не теряется),
@@ -15,13 +15,77 @@
    сочла бы чужую строку изменённой и отправила её обратно.
    Склад cloud: ref — адрес сервера, с которым связана эта база; since —
    курсор erp_changes; n — счётчик очереди; v␀tbl␀id — версия строки;
-   o␀000000000001 — команда в очереди.
+   o␀000000000001 — команда в очереди; b␀scan — блоки внутренних номеров;
+   r␀tbl␀id — строка, которую сервер перенумеровал: опрос возьмёт её копию.
+   Номера (владелец, 23.10.2026): заказы, квоты, счета, PS, NCR и документы
+   закупки — подряд с сервера: компьютер ставит свой следующий, сервер при
+   записи даёт следующий по счётчику (занят — следующий свободный). Стёкла,
+   юниты, сканы, обрезки и батчи — блоками с сервера (номер — ключ строки
+   или уже на стикере, менять его нельзя); пропуски допустимы. Счётчики
+   базы (_meta …Seq) на сервер не ходят: каждый компьютер ведёт свой.
    ============================================================================ */
 /* Команда — до 500 строк и около 1 МБ: заказ с чертежами весит десятки КБ. */
 const CLOUD_CHUNK=500,CLOUD_CHUNK_BYTES=1e6,CLOUD_POLL_MS=5000;
-let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),
+/* Номер документа новой строки: [счётчик, поле, префикс, цифр не меньше]. */
+const CLOUD_NUMBER={
+ salesOrder:o=>o.kind==='quote'?['quote','businessNumber','Q-',0]:['order','businessNumber','',0],
+ receipt:()=>['receipt','number','R-',4],shipment:()=>['shipment','number','PS-',4],ncr:()=>['ncr','number','NCR',0],
+ purchaseOrder:()=>['po','number','PO-',4],purchaseInvoice:()=>['pi','number','PI-',4],purchasePayment:()=>['pp','number','PP-',4],
+ purchaseReceipt:()=>['gr','number','GR-',4],purchaseDeliveryRequest:()=>['dr','number','DR-',4]};
+/* Блоки внутренних номеров: [размер, последний номер в базе]. Осталось
+   меньше половины — берётся следующий. */
+const CLOUD_BLOCK={
+ glass:[1000,()=>DB.glassPieceSeq],unit:[500,()=>DB.glassUnitIdSeq],scan:[1000,()=>DB.stationScanSeq],
+ offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0]};
+let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
  uploading:false,dirty:null,running:false,timer:null,wait:CLOUD_POLL_MS,busy:'',error:'',warn:'',offline:false,at:''};
 function cloudKey(tbl,id){return tbl+'\u0000'+id;}
+/* Следующий внутренний номер name. Без связи — local, как раньше; связь
+   есть, а блока нет (ещё не пришёл или кончился без сети) — тоже local, с
+   предупреждением: такой номер может совпасть с чужим. */
+function cloudSeq(name,local){
+ const s=cloudSync;if(!s.loaded||!s.on)return local;
+ const b=s.blocks.get(name)||[];
+ while(b.length&&b[0][0]>b[0][1])b.shift();
+ if(!b.length){s.warn='No server numbers here yet. IDs may repeat.';cloudSoon();return local;}
+ const n=b[0][0]++;s.blocks.set(name,b);s.blockDirty.add(name);
+ if(cloudBlockLeft(b)<CLOUD_BLOCK[name][0]/2)cloudSoon();
+ return n;
+}
+function cloudSeqTie(){
+ const s=cloudSync;if(!s.on)return 0;
+ if(!s.tie){let h=0;for(const ch of cloudDevice())h=(h*31+ch.charCodeAt(0))>>>0;s.tie=(h%9973+1)/10000;}
+ return s.tie;
+}
+function cloudBlockLeft(b){return (b||[]).reduce((n,r)=>n+Math.max(0,r[1]-r[0]+1),0);}
+async function cloudBlocksFill(){
+ const s=cloudSync,ops=[];
+ for(const name of Object.keys(CLOUD_BLOCK)){
+  const [size,top]=CLOUD_BLOCK[name],b=s.blocks.get(name)||[];
+  if(cloudBlockLeft(b)>=size/2)continue;
+  const first=+await cloudRpc('erp_take',{counter:name,n:size,from_n:(Math.floor(+top())||0)+1});
+  if(!Number.isSafeInteger(first)||first<1)continue;
+  b.push([first,first+size-1]);s.blocks.set(name,b);ops.push(['b\u0000'+name,b]);
+ }
+ if(ops.length)storageWrite([],ops);
+}
+/* Номер, который дал этот компьютер новой строке документа. */
+function cloudNumber(c){
+ const f=CLOUD_NUMBER[c.tbl];if(!f||typeof c.data!=='string')return null;
+ let r;try{r=JSON.parse(c.data);}catch(e){return null;}
+ const [name,field,prefix,pad]=f(r),v=String(r&&r[field]||'');
+ return v.startsWith(prefix)&&/^\d{1,15}$/.test(v.slice(prefix.length))?{name,value:v,prefix,pad}:null;
+}
+/* Номер занят — в командах очереди старый меняется на новый (как на
+   сервере: значение целиком, в кавычках JSON). */
+function cloudRenumber(changes,moved){
+ let hit=false;
+ changes.forEach(c=>{if(typeof c.data!=='string')return;let t=c.data;
+  moved.forEach(([a],i)=>{t=t.split('"'+a+'"').join('"\u0001'+i+'\u0001"');});
+  moved.forEach(([,b],i)=>{t=t.split('"\u0001'+i+'\u0001"').join('"'+b+'"');});
+  if(t!==c.data){c.data=t;hit=true;}});
+ return hit;
+}
 function cloudText(d){return typeof d==='string'?d:JSON.stringify(d);}
 function cloudChunks(rows){
  const out=[];let part=[],bytes=0;
@@ -38,6 +102,8 @@ async function cloudLoad(){
   if(k==='ref')s.ref=v;else if(k==='since')s.since=+v||0;else if(k==='n')s.n=+v||0;
   else if(k.startsWith('v\u0000'))s.vers.set(k.slice(2),v);
   else if(k.startsWith('o\u0000'))s.out.push(Object.assign({key:k},v));
+  else if(k.startsWith('b\u0000'))s.blocks.set(k.slice(2),v);
+  else if(k.startsWith('r\u0000'))s.refresh.add(k.slice(2));
  });
  s.on=!!s.ref&&s.ref===cloudConfig().url;s.loaded=true;
  /* Правки, сделанные до чтения склада, — в очередь теперь. */
@@ -51,19 +117,21 @@ async function cloudLoad(){
    сети спорила бы с первой). */
 function cloudOutbox(changes){
  const s=cloudSync;
- const rows=changes.filter(c=>c.tbl!=='_archive'&&!c.coldClear&&!c.cold&&c.tbl);
- if(!rows.length)return null;
- if(!s.loaded){if(cloudConfig().session)s.early.push(rows);return null;}
- if(!s.on)return null;
- if(s.uploading){rows.forEach(c=>s.dirty.add(cloudKey(c.tbl,c.id)));return null;}
- const cmds=[],ops=[],queued=new Set();let n=s.n;
+ const rows=changes.filter(c=>c.tbl!=='_archive'&&!c.coldClear&&!c.cold&&c.tbl&&!(c.tbl==='_meta'&&/Seq$/.test(c.id)));
+ const ops=[...s.blockDirty].map(name=>['b\u0000'+name,s.blocks.get(name)]);s.blockDirty.clear();
+ if(!rows.length||!s.loaded||!s.on||s.uploading){
+  if(!s.loaded&&rows.length&&cloudConfig().session)s.early.push(rows);
+  if(s.uploading)rows.forEach(c=>s.dirty.add(cloudKey(c.tbl,c.id)));
+  return ops.length?{ops,done(){}}:null;
+ }
+ const cmds=[],queued=new Set();let n=s.n;
  s.out.forEach(cmd=>cmd.changes.forEach(c=>queued.add(cloudKey(c.tbl,c.id))));
  cloudChunks(rows).forEach(part=>{
-  const expect=[];
+  const expect=[],fresh=new Set();
   part.forEach(c=>{const k=cloudKey(c.tbl,c.id),v=s.vers.get(k);
-   if(queued.has(k))expect.push({tbl:c.tbl,id:c.id,chain:true});else if(v)expect.push({tbl:c.tbl,id:c.id,ver:v});else if(!c.del)expect.push({tbl:c.tbl,id:c.id,ver:0});
+   if(queued.has(k))expect.push({tbl:c.tbl,id:c.id,chain:true});else if(v)expect.push({tbl:c.tbl,id:c.id,ver:v});else if(!c.del){expect.push({tbl:c.tbl,id:c.id,ver:0});fresh.add(c);}
    queued.add(k);});
-  const cmd={id:cloudId(),expect,changes:part.map(c=>({tbl:c.tbl,id:c.id,seq:c.seq||0,data:c.del?null:c.data}))};
+  const cmd={id:cloudId(),expect,changes:part.map(c=>{const x={tbl:c.tbl,id:c.id,seq:c.seq||0,data:c.del?null:c.data},num=fresh.has(c)&&cloudNumber(c);if(num)x.number=num;return x;})};
   const key='o\u0000'+String(++n).padStart(12,'0');
   cmds.push(Object.assign({key},cmd));ops.push([key,cmd]);
  });
@@ -84,8 +152,10 @@ function cloudApplyServer(rows,asked,ops){
    if(asked||b&&b.has(r.id))list.push({tbl:r.tbl,id:r.id,del:true});
    return;
   }
-  /* Своя же запись вернулась опросом — версия та же. */
-  if(!asked&&s.vers.get(k)===r.ver)return;
+  /* Своя же запись вернулась опросом — версия та же (перенумерованная
+     сервером — нет: у нас ещё старый номер). */
+  if(s.refresh.has(k)){s.refresh.delete(k);ops.push(['r\u0000'+k,null]);}
+  else if(!asked&&s.vers.get(k)===r.ver)return;
   s.vers.set(k,r.ver);ops.push(['v\u0000'+k,r.ver]);
   list.push({tbl:r.tbl,id:r.id,seq:+r.seq||0,data:cloudText(r.data)});
  });
@@ -112,7 +182,16 @@ async function cloudPushAll(){
   if(r&&r.ok){
    cmd.changes.forEach(c=>{const k=cloudKey(c.tbl,c.id),v=r.vers&&r.vers[c.tbl+'|'+c.id];
     if(c.data===null||!v){s.vers.delete(k);ops.push(['v\u0000'+k,null]);}else{s.vers.set(k,v);ops.push(['v\u0000'+k,v]);}});
-   s.out.shift();if(!s.out.length)s.lost.clear();cloudWriteLocal([],ops);continue;
+   s.out.shift();
+   /* Номер занят: сервер дал следующий. Строки команды — серверной копией
+      с опросом; в очереди и в открытом заказе старый номер меняется. */
+   const moved=cmd.changes.map(c=>c.number&&[c.number.value,r.numbers&&r.numbers[c.tbl+'|'+c.id]]).filter(m=>m&&m[1]&&m[1]!==m[0]);
+   if(moved.length){
+    s.out.forEach(o=>{if(cloudRenumber(o.changes,moved)){o.renum=true;ops.push([o.key,{id:o.id,expect:o.expect,changes:o.changes,renum:true}]);}});
+    if(typeof soDraft!=='undefined'&&soDraft)moved.forEach(([a,b])=>{if(soDraft.businessNumber===a)soDraft.businessNumber=b;});
+   }
+   if(moved.length||cmd.renum)cmd.changes.forEach(c=>{if(c.data===null)return;const k=cloudKey(c.tbl,c.id);s.refresh.add(k);ops.push(['r\u0000'+k,1]);});
+   if(!s.out.length)s.lost.clear();cloudWriteLocal([],ops);continue;
   }
   /* Отказ: строки команды — как на сервере сейчас. */
   const keys=cmd.changes.map(c=>({tbl:c.tbl,id:c.id}));
@@ -147,7 +226,7 @@ async function cloudSyncTick(){
   s.running=true;
   try{
    if(!s.loaded)await cloudLoad();
-   if(s.on&&storageWriter){await cloudPushAll();await cloudPull();s.offline=false;s.error='';s.wait=CLOUD_POLL_MS;s.at=new Date().toISOString();}
+   if(s.on&&storageWriter){await cloudPushAll();await cloudPull();await cloudBlocksFill();s.offline=false;s.error='';s.wait=CLOUD_POLL_MS;s.at=new Date().toISOString();}
   }catch(e){
    if(/No connection/.test(e.message))s.offline=true;else s.error=e.message;
    s.wait=Math.min(60000,s.wait*2);
@@ -175,7 +254,7 @@ async function cloudSaveAll(ref,since,vers){
   const st=tx.objectStore('cloud');st.clear();
   if(ref){st.put(ref,'ref');st.put(since,'since');st.put(0,'n');vers.forEach((v,k)=>st.put(v,'v\u0000'+k));}
  });
- Object.assign(cloudSync,{loaded:true,on:!!ref,ref:ref||'',since:since||0,n:0,vers:ref?vers:new Map(),out:[],early:[]});
+ Object.assign(cloudSync,{loaded:true,on:!!ref,ref:ref||'',since:since||0,n:0,vers:ref?vers:new Map(),out:[],early:[],blocks:new Map(),blockDirty:new Set(),refresh:new Set()});
 }
 async function cloudRun(label,fn){
  const s=cloudSync;

@@ -22,7 +22,10 @@ create table if not exists public.erp_record (
 );
 create index if not exists erp_record_cold on public.erp_record (cold, tbl);
 -- Порядок строки в таблице ERP (seq): строки встают на своё место у всех.
-alter table public.erp_record add column if not exists seq bigint not null default 0;
+-- Дробный: строка, вставленная между двумя, получает seq между ними
+-- (bigint отказывал всей команде, 23.10.2026).
+alter table public.erp_record add column if not exists seq double precision not null default 0;
+alter table public.erp_record alter column seq type double precision;
 
 -- Курсор изменений: каждая запись строки — новая строка журнала по порядку.
 create table if not exists public.erp_log (
@@ -118,9 +121,14 @@ $$;
 --   expect  — [{tbl,id,ver}]: ver строки сейчас; 0 — строки ещё нет.
 --             Не совпал хоть один — конфликт, ничего не записано.
 --   changes — [{tbl,id,data,cold?,month?,number?}]; data null — удалить.
---             number {name, path:[...]} — сервер ставит в data по пути
---             следующий номер счётчика name (номера подряд).
--- Ответ: {ok, rev, vers:{"tbl|id":ver}, numbers:{"tbl|id":n}} или
+--             number {name, value, prefix, pad} — новая строка с номером
+--             документа (заказ, счёт, PS): value — номер, который дал
+--             компьютер (prefix + цифры). Сервер ставит следующий номер
+--             счётчика name, но не меньше value: так счётчик начинается с
+--             уже выданных номеров. Номер занят — строка получает
+--             следующий, и value меняется на него во всех строках команды
+--             (ссылки «"76005"» в журнале заказа и т. п.).
+-- Ответ: {ok, rev, vers:{"tbl|id":ver}, numbers:{"tbl|id":"номер"}} или
 --        {ok:false, conflict:[{tbl,id,ver,now}]}.
 create or replace function public.erp_apply(command_id text, build text, device text, expect jsonb, changes jsonb)
 returns jsonb language plpgsql volatile security definer set search_path = public, pg_temp as $$
@@ -128,6 +136,7 @@ declare
   me public.erp_member := public.erp_me();
   prev jsonb; e jsonb; c jsonb; cur bigint; bad jsonb := '[]'::jsonb;
   r bigint; d jsonb; n bigint; vers jsonb := '{}'::jsonb; nums jsonb := '{}'::jsonb; res jsonb;
+  v text; pre text; t text; swap jsonb := '[]'::jsonb; i int; txt text;
 begin
   if coalesce(command_id, '') = '' then raise exception 'Command id is required.'; end if;
   if jsonb_typeof(coalesce(changes, 'null')) <> 'array' or jsonb_typeof(coalesce(expect, '[]')) <> 'array' then
@@ -158,24 +167,40 @@ begin
   if jsonb_array_length(bad) > 0 then
     res := jsonb_build_object('ok', false, 'conflict', bad);
   else
+    -- Номера документов — сначала все, затем запись: замена идёт по всей команде.
     for c in select * from jsonb_array_elements(changes) loop
       if coalesce(c->>'tbl', '') = '' or coalesce(c->>'id', '') = '' then raise exception 'Each change needs tbl and id.'; end if;
-      d := case when jsonb_typeof(c->'data') = 'null' or c->'data' is null then null else c->'data' end;
-      if d is not null and c ? 'number' then
-        insert into public.erp_counter as k (name, next) values (c->'number'->>'name', 2)
-          on conflict (name) do update set next = k.next + 1
-          returning next - 1 into n;
-        -- Строка приходит текстом JSON (порядок ключей как у ERP) или объектом.
-        if jsonb_typeof(d) = 'string' then
-          d := to_jsonb(jsonb_set((d #>> '{}')::jsonb, array(select jsonb_array_elements_text(c->'number'->'path')), to_jsonb(n), true)::text);
-        else
-          d := jsonb_set(d, array(select jsonb_array_elements_text(c->'number'->'path')), to_jsonb(n), true);
+      if c ? 'number' and jsonb_typeof(c->'data') is distinct from 'null' then
+        v := c->'number'->>'value'; pre := coalesce(c->'number'->>'prefix', '');
+        if pre !~ '^[A-Za-z-]{0,8}$' or v is null or left(v, length(pre)) <> pre or substr(v, length(pre) + 1) !~ '^[0-9]{1,15}$' then
+          raise exception 'Bad document number.';
         end if;
-        nums := nums || jsonb_build_object((c->>'tbl') || '|' || (c->>'id'), n);
+        insert into public.erp_counter as k (name, next) values (c->'number'->>'name', substr(v, length(pre) + 1)::bigint + 1)
+          on conflict (name) do update set next = greatest(k.next, substr(v, length(pre) + 1)::bigint) + 1
+          returning next - 1 into n;
+        t := pre || case when length(n::text) >= coalesce((c->'number'->>'pad')::int, 0) then n::text
+                         else lpad(n::text, (c->'number'->>'pad')::int, '0') end;
+        nums := nums || jsonb_build_object((c->>'tbl') || '|' || (c->>'id'), t);
+        if t <> v then swap := swap || jsonb_build_array(jsonb_build_array(v, t)); end if;
+      end if;
+    end loop;
+    for c in select * from jsonb_array_elements(changes) loop
+      d := case when jsonb_typeof(c->'data') = 'null' or c->'data' is null then null else c->'data' end;
+      -- Строка приходит текстом JSON (порядок ключей как у ERP) или объектом.
+      -- Замена в два шага: новый номер одной пары бывает старым у другой.
+      if d is not null and jsonb_array_length(swap) > 0 then
+        txt := case when jsonb_typeof(d) = 'string' then d #>> '{}' else d::text end;
+        for i in 0 .. jsonb_array_length(swap) - 1 loop
+          txt := replace(txt, '"' || (swap->i->>0) || '"', '"' || chr(1) || i || chr(1) || '"');
+        end loop;
+        for i in 0 .. jsonb_array_length(swap) - 1 loop
+          txt := replace(txt, '"' || chr(1) || i || chr(1) || '"', '"' || (swap->i->>1) || '"');
+        end loop;
+        d := case when jsonb_typeof(d) = 'string' then to_jsonb(txt) else txt::jsonb end;
       end if;
       insert into public.erp_log (tbl, id) values (c->>'tbl', c->>'id') returning rev into r;
       insert into public.erp_record as x (tbl, id, data, cold, month, ver, seq, deleted, updated_at, updated_by)
-        values (c->>'tbl', c->>'id', d, coalesce((c->>'cold')::boolean, false), coalesce(c->>'month', ''), r, coalesce((c->>'seq')::bigint, 0), d is null, now(), me.user_id)
+        values (c->>'tbl', c->>'id', d, coalesce((c->>'cold')::boolean, false), coalesce(c->>'month', ''), r, coalesce((c->>'seq')::float8, 0), d is null, now(), me.user_id)
         on conflict (tbl, id) do update set data = excluded.data, cold = excluded.cold, month = excluded.month, seq = excluded.seq,
           ver = excluded.ver, deleted = excluded.deleted, updated_at = excluded.updated_at, updated_by = excluded.updated_by;
       vers := vers || jsonb_build_object((c->>'tbl') || '|' || (c->>'id'), r);
@@ -188,16 +213,18 @@ begin
   return res;
 end $$;
 
--- Блок внутренних номеров: первый номер блока из n подряд. Пропуски
--- допустимы (решение владельца 22.10.2026).
-create or replace function public.erp_take(counter text, n int)
+-- Блок внутренних номеров: первый номер блока из n подряд, не меньше from_n
+-- (следующий за уже выданными в базе). Пропуски допустимы (решение
+-- владельца 22.10.2026).
+drop function if exists public.erp_take(text, int);
+create or replace function public.erp_take(counter text, n int, from_n bigint default 0)
 returns bigint language plpgsql volatile security definer set search_path = public, pg_temp as $$
 declare first bigint;
 begin
   perform public.erp_me();
   if n is null or n < 1 or n > 10000 then raise exception 'Block size must be 1–10000.'; end if;
-  insert into public.erp_counter as k (name, next) values (counter, n + 1)
-    on conflict (name) do update set next = k.next + n
+  insert into public.erp_counter as k (name, next) values (counter, greatest(coalesce(from_n, 0), 1) + n)
+    on conflict (name) do update set next = greatest(k.next, coalesce(from_n, 0)) + n
     returning next - n into first;
   return first;
 end $$;
@@ -281,13 +308,13 @@ begin
   return jsonb_build_object('user_id', uid);
 end $$;
 
-revoke all on function public.erp_me(), public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int),
+revoke all on function public.erp_me(), public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int, bigint),
   public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
   public.erp_member_set(text, text, boolean, boolean, text[]) from public, anon;
 revoke all on function public.erp_me() from authenticated;
 revoke all on function public.erp_can(public.erp_member, text), public.erp_can_read(public.erp_member, text),
   public.erp_can_write(public.erp_member, text) from public, anon, authenticated;
-grant execute on function public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int),
+grant execute on function public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int, bigint),
   public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
   public.erp_member_set(text, text, boolean, boolean, text[]) to authenticated;
 
