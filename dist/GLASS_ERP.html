@@ -3460,6 +3460,10 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 .cut-size-free{font-size:11px;font-weight:600;color:var(--text-2);margin-top:2px}
 .cut-size-free.short{color:var(--danger)}.cut-size-free.mut{font-weight:500;color:var(--text-3)}
 .pur-enter-sheets{font-size:11px;font-weight:600;color:var(--warning);margin-top:3px}
+.inv-acts{white-space:nowrap;padding-left:0}.inv-acts button{margin-right:2px}
+.inv-mv-row{margin-top:10px}.inv-mv-size{display:flex;align-items:center;gap:6px}.inv-mv-size input{width:80px}
+.inv-tabs{margin:0;flex-wrap:wrap}
+.inv-acts [data-inv-add],.inv-acts [data-inv-remove]{min-width:30px;font-size:16px;font-weight:600}
 
 </style>
 </head>
@@ -3489,7 +3493,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a3bb431c2ee3';
+var ERP_BUILD='fe55a6e4f824';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -27475,13 +27479,13 @@ function mdGlassForm(){
   </div>`;
  const measure=`<div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`;
  const sheets=isNew?[]:glassSheetsFor(r.code);
- const purchase=sheets.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th><th class="n">Price</th><th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td><td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td><td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table></div><p class="mut">Edited in Supply points.</p>`:'<p class="mut" data-md-glass-supply>No supply rows. Add in Supply points.</p>';
+ const purchase=sheets.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th><th class="n">Price</th><th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td><td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td><td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table></div><p class="mut">Edited in Supply points.</p>`:`<p class="mut" data-md-glass-supply>No supply rows.</p>${isNew?'':`<button type="button" class="sm" data-md-glass-supply-add onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`;
  const price=(id,k,label)=>mdField(label,`<input id="${id}" type="number" step="0.01" min="0" value="${r[k]==null?'':r[k]}" placeholder="—">`,'Empty — no price.');
  const prices=`<div class="grid">${price('md_priceAN','salePriceAnnealed','Price annealed, CAD')}${price('md_priceFT','salePriceTempered','Price tempered, CAD')}${mdSaleRulesFields(r,['minCharge'])}</div>
   ${isNew?'':mdPriceListsHTML('glass:'+r.id+':salePriceAnnealed').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · annealed</h4>')+mdPriceListsHTML('glass:'+r.id+':salePriceTempered').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · tempered</h4>')}`;
  const racks=isNew||r.cut===false?[]:invSheetRows().filter(x=>x.code.toUpperCase()===String(r.code).toUpperCase());
  const stock=`<div class="row"><label class="chk"><input type="checkbox" id="md_stocked" ${r.stocked?'checked':''}> Kept in stock</label></div>
-  ${racks.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-stock><thead><tr><th>Sheet</th><th class="n">On rack</th><th class="n">Reserved</th><th class="n">Free</th><th class="n">Min</th><th>Status</th></tr></thead><tbody>${racks.map(x=>`<tr><td class="mono">${esc(invSizeText(x))}</td><td class="n mono">${x.onRack}</td><td class="n mono">${x.reserved}</td><td class="n mono">${x.free}</td><td class="n mono">${x.min==null?'—':x.min}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table></div><p class="mut">Sizes and counts: Inventory.</p>`:'<p class="mut">No sheet sizes. Add in Inventory → Sheet sizes.</p>'}`;
+  ${racks.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-stock><thead><tr><th>Sheet</th><th class="n">On rack</th><th class="n">Reserved</th><th class="n">Free</th><th class="n">Min</th><th>Status</th></tr></thead><tbody>${racks.map(x=>`<tr><td class="mono">${esc(invSizeText(x))}</td><td class="n mono">${x.onRack}</td><td class="n mono">${x.reserved}</td><td class="n mono">${x.free}</td><td class="n mono">${x.min==null?'—':x.min}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table></div><p class="mut">Sizes and counts: Inventory.</p>`:`<p class="mut">No sheet size. Add a supply row.</p>${isNew?'':`<button type="button" class="sm" onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`}`;
  return mdCardHTML({form:'glass',crumb:['Materials','Glass'].concat(r.manufacturer?[r.manufacturer]:[]),
   title:isNew?'New catalog item':raw(r.name||r.code),status:isNew?null:r.active===false?['discontinued','warn']:r.stocked?[glassLabel('stock','stocked'),'ok']:[glassLabel('stock','preorder'),'info'],code:isNew?'':r.code,
   tabs:[{k:'general',label:'General',html:general},{k:'production',label:'Production',html:prod},{k:'units',label:'Units',html:units},{k:'measure',label:'Measurements',html:measure},
@@ -27590,35 +27594,48 @@ function viewMdSupply(){
   <div class="mut md-supply-foot">${rows.length} of ${infos.length} rows</div>${salesListMenuHTML(infos)}`;
 }
 function mdSheetNew(){
- mdSheetEdit='new';mdSheetPick={mfr:'',thick:'',q:''};
+ mdSheetEdit='new';mdSheetPick={mfr:'',thick:'',coat:''};
  mdSheetDraft=normalizeGlassSheet({productCode:'',supplier:'',currency:GLASS_DEFAULT_CURRENCY,purchaseUnit:GLASS_DEFAULT_UNIT,availability:'order'});
  render();
 }
+/* Строка поставки из карточки стекла: стекло уже выбрано. */
+function mdSheetNewFor(code){mdSetTab('materials');mdMatSwitch('glass','glassSheet');mdSheetNew();mdSheetDraft.productCode=code;mdSheetPick={mfr:'',thick:'',coat:''};render();}
 function mdSheetEditRow(id){
  const s=(DB.glassSheet||[]).find(x=>x.id===id);if(!s)return;
- mdSheetEdit=id;mdSheetDraft=JSON.parse(JSON.stringify(s));mdSeen.sheet=JSON.stringify(s);mdSheetPick={mfr:'',thick:'',q:''};render();
+ mdSheetEdit=id;mdSheetDraft=JSON.parse(JSON.stringify(s));mdSeen.sheet=JSON.stringify(s);mdSheetPick={mfr:'',thick:'',coat:''};render();
 }
-/* Форма из двух блоков (владелец, 2 октября 2026): Glass — производитель,
-   толщина и поиск сужают список из 500+ стёкол; Supply — точка поставки из
-   уже заведённых (валюта подставляется от неё), лист, цена, дата календарём.
-   Фильтры перестраивают только список стёкол: набранное в Supply не теряется. */
-let mdSheetPick={mfr:'',thick:'',q:''};
-function mdSheetProducts(){
- const q=mdSheetPick.q.trim().toLowerCase();
- return DB.glassProduct.filter(p=>(!mdSheetPick.mfr||p.manufacturer===mdSheetPick.mfr)&&(!mdSheetPick.thick||String(p.thicknessMm)===mdSheetPick.thick)&&(!q||(p.code+' '+p.name).toLowerCase().includes(q))).sort((a,b)=>a.code.localeCompare(b.code));
+/* Форма из двух блоков (владелец, 2 октября 2026): Glass — стекло, Supply —
+   точка поставки из уже заведённых (валюта подставляется от неё), лист,
+   цена, дата календарём. Стекло выбирается как в Sales (владелец,
+   23.10.2026: «почему он не как сейл удобный»): производитель → толщина →
+   покрытие → на каком стекле, под выбором — что выбрано. Фильтры
+   перестраивают только списки стёкол: набранное в Supply не теряется. */
+let mdSheetPick={mfr:'',thick:'',coat:''};
+function mdSheetProducts(coat){
+ return DB.glassProduct.filter(p=>(!mdSheetPick.mfr||p.manufacturer===mdSheetPick.mfr)&&(!mdSheetPick.thick||String(p.thicknessMm)===mdSheetPick.thick)&&(!coat||!mdSheetPick.coat||glassCoatingName(p)===mdSheetPick.coat)).sort((a,b)=>a.code.localeCompare(b.code));
+}
+function mdSheetCoatOptions(){
+ const c=[...new Set(mdSheetProducts(false).map(glassCoatingName).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+ return '<option value="">Any coating</option>'+c.map(n=>`<option data-raw value="${esc(n)}" ${n===mdSheetPick.coat?'selected':''}>${esc(n)}</option>`).join('');
 }
 function mdSheetProductOptions(code){
- const list=mdSheetProducts(),chosen=code&&!list.some(p=>p.code===code)?glassProductByCode(code):null;
- return (chosen?[chosen]:[]).concat(list).map(p=>`<option data-raw value="${esc(p.code)}" ${p.code===code?'selected':''}>${esc(p.code)} · ${esc(p.name)}</option>`).join('');
+ const list=mdSheetProducts(true),chosen=code&&!list.some(p=>p.code===code)?glassProductByCode(code):null;
+ return '<option value="">— select —</option>'+(chosen?[chosen]:[]).concat(list).map(p=>`<option data-raw value="${esc(p.code)}" ${p.code===code?'selected':''}>${esc(mdSheetPick.coat?glassBaseName(p):p.name)} · ${esc(p.code)}</option>`).join('');
 }
 function mdSheetThickOptions(){
  const t=[...new Set(DB.glassProduct.filter(p=>!mdSheetPick.mfr||p.manufacturer===mdSheetPick.mfr).map(p=>+p.thicknessMm).filter(n=>n>0))].sort((a,b)=>a-b);
  return '<option value="">Any thickness</option>'+t.map(n=>`<option value="${n}" ${String(n)===mdSheetPick.thick?'selected':''}>${n} mm</option>`).join('');
 }
 function mdSheetPickSet(k,v){
- mdSheetPick[k]=String(v==null?'':v);if(k==='mfr'){const t=document.getElementById('md_sheetThick');mdSheetPick.thick='';if(t)t.innerHTML=mdSheetThickOptions();}
+ mdSheetPick[k]=String(v==null?'':v);
+ if(k==='mfr'){mdSheetPick.thick='';const t=document.getElementById('md_sheetThick');if(t)t.innerHTML=mdSheetThickOptions();}
+ if(k!=='coat'){mdSheetPick.coat='';const c=document.getElementById('md_sheetCoat');if(c)c.innerHTML=mdSheetCoatOptions();}
  const sel=document.getElementById('md_sheetCode'),cur=sel?sel.value:'';if(sel)sel.innerHTML=mdSheetProductOptions(cur);
- const n=document.getElementById('md_sheetCount');if(n)n.textContent=mdSheetProducts().length+' of '+DB.glassProduct.length;
+ mdSheetGlassPicked();
+}
+function mdSheetGlassPicked(){
+ const sel=document.getElementById('md_sheetCode'),m=document.getElementById('md_sheetMeta');
+ if(m)m.innerHTML=salesGlassMetaFor((glassProductByCode(sel?sel.value:'')||{}).id);
 }
 /* Точка поставки знает свою валюту: Vitro Barrie — CAD, Vitro USA — USD. */
 function mdSheetPoints(){const m=new Map();(DB.glassSheet||[]).forEach(s=>{if(s.supplier&&!m.has(s.supplier))m.set(s.supplier,s.currency||'');});return m;}
@@ -27630,14 +27647,14 @@ function mdSheetSupplierPicked(id){
 }
 function mdSheetForm(){
  const r=mdSheetDraft,isNew=mdSheetEdit==='new',p=r.productCode?glassProductByCode(r.productCode):null;
- if(!mdSheetPick.touched){mdSheetPick={mfr:p?p.manufacturer:'',thick:p?String(p.thicknessMm):'',q:'',touched:true};}
+ if(!mdSheetPick.touched){mdSheetPick={mfr:p?p.manufacturer:'',thick:p?String(p.thicknessMm):'',coat:p?glassCoatingName(p):'',touched:true};}
  const mfrs=[...new Set(DB.glassProduct.map(x=>x.manufacturer).filter(Boolean))].sort(),points=mdSheetPoints();
  return `<div class="form md-sheet-form"><h3>${isNew?'New supply row':'Edit supply row'}</h3><div class="md-sheet-grid">
   <div class="md-sheet-box"><h4>Glass</h4><div class="md-sheet-fields">
    <div><label>Manufacturer</label><select id="md_sheetMfr" onchange="mdSheetPickSet('mfr',this.value)"><option value="">All manufacturers</option>${mfrs.map(m=>`<option data-raw value="${esc(m)}" ${m===mdSheetPick.mfr?'selected':''}>${esc(m)}</option>`).join('')}</select></div>
    <div><label>Thickness</label><select id="md_sheetThick" onchange="mdSheetPickSet('thick',this.value)">${mdSheetThickOptions()}</select></div>
-   <div class="md-sheet-wide"><label>Find glass</label><input id="md_sheetFind" type="search" autocomplete="off" placeholder="Code or name — 6CLEAR, Solarban" value="${esc(mdSheetPick.q)}" oninput="mdSheetPickSet('q',this.value)"></div>
-   <div class="md-sheet-wide"><label>Product *</label><select id="md_sheetCode" size="8">${mdSheetProductOptions(r.productCode)}</select><div class="mut md-sheet-tiny"><span id="md_sheetCount">${mdSheetProducts().length} of ${DB.glassProduct.length}</span></div></div>
+   <div class="md-sheet-wide"><label>Coating</label><select id="md_sheetCoat" onchange="mdSheetPickSet('coat',this.value)">${mdSheetCoatOptions()}</select></div>
+   <div class="md-sheet-wide"><label>Glass *</label><select id="md_sheetCode" onchange="mdSheetGlassPicked()">${mdSheetProductOptions(r.productCode)}</select><div id="md_sheetMeta">${salesGlassMetaFor(p&&p.id)}</div></div>
   </div></div>
   <div class="md-sheet-box"><h4>Supply</h4><div class="md-sheet-fields md-sheet-3">
    <div class="md-sheet-wide"><label>Supplier card</label><select id="md_sheetSupplierId" onchange="mdSheetSupplierPicked(this.value)"><option value="">Match by supply point</option>${(DB.supplier||[]).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>`<option value="${esc(s.id)}" ${s.id===r.supplierId?'selected':''} data-raw>${esc(s.name)}${s.active?'':' · Archived'}</option>`).join('')}</select></div>
@@ -27654,7 +27671,7 @@ function mdSheetForm(){
   </div><div class="mut md-sheet-tiny">Purchase prices.</div></div>
  </div>
   <div class="err" id="e_mdSheet"></div>
-  <div class="row"><button class="pri" onclick="mdSheetSave()">Save</button><button onclick="mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',q:''};render()">Cancel</button></div></div>`;
+  <div class="row"><button class="pri" onclick="mdSheetSave()">Save</button><button onclick="mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',coat:''};render()">Cancel</button></div></div>`;
 }
 function mdSheetSave(){
  const e=document.getElementById('e_mdSheet');e.style.display='none';
@@ -27686,7 +27703,7 @@ function mdSheetSave(){
   normalizeMasterData();normalizePurchasing();
  });
  if(!result.ok)return fail(e,result.error);
- mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',q:''};render();
+ mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',coat:''};render();
 }
 function mdSheetDelete(id){
  if(!confirm('Delete this supply row?'))return;
@@ -31196,7 +31213,6 @@ function salesListMenuHTML(infos){
  const top=Math.max(8,Math.min(m.y,window.innerHeight-80)),style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-(m.w||300)-8))}px;top:${top}px;max-height:${Math.max(180,window.innerHeight-top-12)}px`;
  const back='<div class="sl-backdrop" onclick="salesListCloseMenu()" oncontextmenu="event.preventDefault();salesListCloseMenu()"></div>';
  if(m.kind==='pur-sections')return back+purSectionsMenuHTML(style);
- if(m.kind==='inv-sections')return back+invSectionsMenuHTML(style);
  if(m.kind==='show')return back+salesListShowMenuHTML(style);
  if(m.kind==='date')return back+salesListDateMenuHTML(m,style);
  if(m.kind==='context')return back+salesListContextHTML(m,style);
@@ -36439,7 +36455,8 @@ function sheetUsageRows(){
      ошибка исправляется встречной записью, а не удалением;
    · стекло без «We cut it» (COG) на склад не идёт.
    Ответы владельца 14.10: пересчитывает оптимизатор с галочкой Inventory;
-   «каталог = то, что на складе» — в пересчёте все стёкла каталога сразу;
+   «каталог = то, что на складе» — в пересчёте все стёкла «Kept in stock»
+   сразу, Pre-order — когда по нему есть движение (владелец, 23.10.2026);
    размер — из точек поставки Master Data, где его нет — размеры цеха
    (Inventory → Sheet sizes), нет и их — «Size missing» (план Master Data,
    этап 5: базового 130 × 96 в коде больше нет).
@@ -36456,7 +36473,11 @@ DEFAULT.inventoryEvent=[];DEFAULT.inventoryMin={};
 const INV_WRITE_OFF=['Broken on rack','Defect','Other'];
 /* Записи журнала склада: пересчёт и списание листов; кусок S- не найден
    при пересчёте и найден снова (erp/inventory/offcuts). */
-const INV_EVENT_KINDS=['count','writeoff','offcut-lost','offcut-found'],INV_SHEET_KINDS=['count','writeoff'];
+const INV_EVENT_KINDS=['count','writeoff','add','offcut-lost','offcut-found'],INV_SHEET_KINDS=['count','writeoff','add'];
+/* Приход листов мимо приёмки (владелец, 23.10.2026: «добавлять,
+   пересчитывать, добавлять и уменьшать»): начальный остаток, нашли,
+   вернули. Поставка идёт приёмкой Purchasing. */
+const INV_ADD=['Opening stock','Found','Returned','Other'];
 const INV_STATUSES=['OK','Below minimum','Negative','Not counted','Size missing'];
 const INV_KEY_RE=/^[^|]+\|(\d+(\.\d+)?x\d+(\.\d+)?|\?)$/;
 
@@ -36516,12 +36537,12 @@ function invReceiptLines(){
    if(!['glass','sheet'].includes(l.kind))return;
    const g=purGlassProduct(l),code=g?g.code:l.productCode;if(!code||!invGlassCut(code))return;
    const unit=purUnit(l.unit),size=invSize(l.widthIn,l.heightIn);
-   let qty=0,issue='';
+   let qty=0,issue='',broken=0;
    /* 0 блоков — листов не ждём (аудит 19.10.2026, F05). */
-   if(unit==='block'){if(l.actualSheets==null&&l.qty!==0)issue='Enter sheets';else qty=(l.actualSheets||0)-(l.damagedSheets||0);}
-   else if(unit==='sheet')qty=(l.qty||0)-purBroken(l,l);
+   if(unit==='block'){if(l.actualSheets==null&&l.qty!==0)issue='Enter sheets';else{broken=l.damagedSheets||0;qty=(l.actualSheets||0)-broken;}}
+   else if(unit==='sheet'){broken=purBroken(l,l);qty=(l.qty||0)-broken;}
    else issue='Not in sheets';
-   out.push({r,l,code,size,qty,issue,day:r.date||salesListIsoDay(r.createdAt),at:r.createdAt||''});
+   out.push({r,l,code,size,qty,broken,issue,day:r.date||salesListIsoDay(r.createdAt),at:r.createdAt||''});
   });
  });
  return out;
@@ -36617,7 +36638,10 @@ function invSheetRows(){
    received:0,cut:0,broken:0,adjust:0,reserved:0,batches:new Map(),enterSheets:0,held:0,heldBlocks:0,onOrder:0,onOrderBlocks:0,lastCount:null,min:null});}
   return rows.get(key);
  };
- activeGlassProducts().filter(g=>g.cut!==false).forEach(g=>invCatalogSizes(g.code).forEach(z=>row(g.code,z)));
+ /* Пустые строки — только у стекла «Kept in stock»; Pre-order появляется
+    на складе с первым движением: приход, раскрой, резерв, заказ, пересчёт
+    (владелец, 23.10.2026). */
+ activeGlassProducts().filter(g=>g.cut!==false&&g.stocked).forEach(g=>invCatalogSizes(g.code).forEach(z=>row(g.code,z)));
  invReceiptLines().forEach(x=>{const r=row(x.code,x.size);r.received+=x.qty;if(x.issue==='Enter sheets')r.enterSheets++;});
  const scans=invCutScans(),cut=invCutSheets(scans);
  cut.forEach(s=>{if(!s.stock&&invGlassCut(s.glass))row(s.glass,invSize(s.w,s.h)).cut++;});
@@ -36650,7 +36674,7 @@ function invBatchSheetHints(batch,glass){
    пирамиды, он занимает листы). */
 function invMoves(){
  const out=[],add=(m,code,size)=>{const g=glassProductByCode(code);out.push(Object.assign({code:g?g.code:String(code).toUpperCase(),name:g?g.name:'',key:invKey(code,size),w:size?size.w:0,h:size?size.h:0,rack:null,layout:null,by:'',note:''},m));};
- invReceiptLines().forEach(x=>add({id:'GR|'+x.r.id+'|'+x.l.id,kind:'Receipt',ref:x.r.number,receipt:x.r.id,day:x.day,at:x.at,rack:x.issue?0:x.qty,by:x.r.receivedBy||x.r.createdBy,note:x.issue||(x.l.replacement?'Replacement':'')},x.code,x.size));
+ invReceiptLines().forEach(x=>add({id:'GR|'+x.r.id+'|'+x.l.id,kind:'Receipt',ref:x.r.number,receipt:x.r.id,day:x.day,at:x.at,rack:x.issue?0:x.qty,by:x.r.receivedBy||x.r.createdBy,note:x.issue||[x.l.replacement?'Replacement':'',x.broken?(x.qty+x.broken)+' arrived · '+x.broken+' broken':''].filter(Boolean).join(' · ')},x.code,x.size));
  (DB.cutPlan||[]).forEach(plan=>{
   if(!plan||plan.reset||!Array.isArray(plan.groups)||!glassBatchFind(plan.batch))return;
   plan.groups.forEach(g=>{if(!invGlassCut(g.glass))return;const by=new Map();
@@ -36663,7 +36687,7 @@ function invMoves(){
   add({id:'SB|'+x.id,kind:'Sheet broke',ref:x.batch+' · sheet '+x.sheet,batch:x.batch,breakId:x.id,undone:!!x.undoneAt,day:salesListIsoDay(x.at),at:x.at,rack:-1,by:x.by},x.glass,size);
   if(x.undoneAt)add({id:'SBU|'+x.id,kind:'Undo sheet broke',ref:x.batch+' · sheet '+x.sheet,batch:x.batch,day:salesListIsoDay(x.undoneAt),at:x.undoneAt,rack:1,by:x.undoneBy},x.glass,size);
  });
- (DB.inventoryEvent||[]).filter(e=>INV_SHEET_KINDS.includes(e.kind)).forEach(e=>add({id:e.id,kind:e.kind==='count'?'Count':'Write off',ref:'',day:salesListIsoDay(e.at),at:e.at,rack:e.qty,by:e.by,
+ (DB.inventoryEvent||[]).filter(e=>INV_SHEET_KINDS.includes(e.kind)).forEach(e=>add({id:e.id,kind:e.kind==='count'?'Count':e.kind==='add'?'Add':'Write off',ref:'',day:salesListIsoDay(e.at),at:e.at,rack:e.qty,by:e.by,
   note:e.kind==='count'?'Was '+e.before+' → '+e.after:[e.reason,e.note].filter(Boolean).join(' · ')},e.glass,invSize(e.w,e.h)));
  if(typeof invOffcutMoves==='function')invOffcutMoves().forEach(m=>out.push(m));
  return out.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
@@ -36682,11 +36706,17 @@ function invWhole(v,label){
 }
 /* Пересчёт: counts — {ключ: сколько насчитали}. Одна команда на все
    строки; разница с On rack в момент записи — встречная запись. */
+/* Стекло без строки на складе (Pre-order без движения, другой лист):
+   пересчёт заводит его с нуля. */
+function invCountNewRow(key){
+ const [code,dim]=String(key).split('|'),[w,h]=String(dim||'').split('x'),g=glassProductByCode(code),z=invSize(w,h);
+ return g&&g.cut!==false&&z?{code:g.code,w:z.w,h:z.h,onRack:0,sizeMissing:false}:null;
+}
 function invCountSave(counts){
  return invPersist(()=>{
   const rows=new Map(invSheetRows().map(r=>[r.key,r])),now=new Date().toISOString(),actor=orderLogActor(),out=[];
   Object.entries(counts||{}).forEach(([key,v])=>{
-   const r=rows.get(key);if(!r||r.sizeMissing)throw new Error('Glass or sheet size not found. Reopen the count.');
+   const r=rows.get(key)||invCountNewRow(key);if(!r||r.sizeMissing)throw new Error('Glass or sheet size not found. Reopen the count.');
    const n=invWhole(v,r.code+' '+invSizeText(r));
    const e={id:salesUid('IE'),kind:'count',glass:r.code,w:r.w,h:r.h,qty:n-r.onRack,before:r.onRack,after:n,reason:'',note:'',at:now,by:actor.by,byId:actor.byId};
    DB.inventoryEvent.push(e);out.push(e);
@@ -36701,6 +36731,15 @@ function invWriteOff(key,qty,reason,note){
   const n=invWhole(qty,'Sheets');if(!n)throw new Error('Sheets: enter 1 or more.');
   if(!INV_WRITE_OFF.includes(reason))throw new Error('Choose a reason.');
   const actor=orderLogActor(),e={id:salesUid('IE'),kind:'writeoff',glass:r.code,w:r.w,h:r.h,qty:-n,before:null,after:null,reason,note:String(note||'').trim().slice(0,200),at:new Date().toISOString(),by:actor.by,byId:actor.byId};
+  DB.inventoryEvent.push(e);return e;
+ });
+}
+function invAdd(key,qty,reason,note){
+ return invPersist(()=>{
+  const r=invRowFind(key)||invCountNewRow(key);if(!r||r.sizeMissing)throw new Error('Glass or sheet size not found.');
+  const n=invWhole(qty,'Sheets');if(!n)throw new Error('Sheets: enter 1 or more.');
+  if(!INV_ADD.includes(reason))throw new Error('Choose a reason.');
+  const actor=orderLogActor(),e={id:salesUid('IE'),kind:'add',glass:r.code,w:r.w,h:r.h,qty:n,before:null,after:null,reason,note:String(note||'').trim().slice(0,200),at:new Date().toISOString(),by:actor.by,byId:actor.byId};
   DB.inventoryEvent.push(e);return e;
  });
 }
@@ -40546,19 +40585,19 @@ function viewSheetUsage(){
    Offcuts (PR 2) — куски S-: где лежит, возраст, пересчёт Not found и
    Found; ушедшие куски скрыты, пока не отмечено «Show used and written off».
    ===================================================================== */
-let invView='sheets',invCountDraft={},invJournalKey='',invWriteOffDraft=null,invNotice='',invPages={},invOffcutLostDraft=new Set(),invOffcutAll=false;
+let invView='sheets',invCountDraft={},invJournalKey='',invMoveDraft=null,invNotice='',invPages={},invOffcutLostDraft=new Set(),invOffcutAll=false;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
-(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>Object.keys(invCountDraft).length>0||!!invWriteOffDraft||invOffcutLostDraft.size>0);
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>Object.keys(invCountDraft).length>0||!!invMoveDraft||invOffcutLostDraft.size>0);
 const INV_VIEWS=[['sheets','Sheets'],['sizes','Sheet sizes'],['consumables','Consumables'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
 const INV_OFFCUT_TONE={'On rack':'ok','In batch':'info','Coming':'','Used':'','Broken':'bad','Written off':'warn','Back to waste':''};
 const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'','Size missing':'warn'};
 function invArg(v){return esc(JSON.stringify(String(v)));}
-function invNav(){return '<button type="button" class="sl-quiet" data-inv-sections aria-haspopup="dialog" onclick="invSectionsOpen(event)">'+esc((INV_VIEWS.find(v=>v[0]===invView)||INV_VIEWS[0])[1])+'<span class="sl-disclosure">▾</span></button>';}
-function invSectionsOpen(e){salesListMenu=Object.assign({kind:'inv-sections',scope:salesListScope()},salesListAt(e,200));render();}
-function invSectionsMenuHTML(style){return '<div class="sl-menu sl-show-menu" style="'+style+'" role="dialog" aria-label="Inventory sections">'+INV_VIEWS.map(([k,n])=>'<label><input type="radio" name="inv-section" '+(k===invView?'checked':'')+' onchange="invGo(\''+k+'\')">'+n+'</label>').join('')+'</div>';}
-/* Раздел из меню — с чистого листа: фильтр журнала по стеклу ставит только
+/* Разделы склада кнопками в ряд (владелец, 23.10.2026): выпадашка
+   прятала Count и Journal. */
+function invNav(){return '<div class="tabs inv-tabs" data-inv-sections>'+INV_VIEWS.map(([k,n])=>'<button type="button" class="'+(k===invView?'on':'')+'" data-inv-section="'+k+'" onclick="invGo(\''+k+'\')">'+n+'</button>').join('')+'</div>';}
+/* Раздел — с чистого листа: фильтр журнала по стеклу ставит только
    строка дашборда (аудит 15.10.2026: он оставался и при входе из меню). */
-function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';consNotice='';consCountDraft={};invNotice='';invWriteOffDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
+function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';consNotice='';consCountDraft={};invNotice='';invMoveDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
 function invCountLeave(){
  if(Object.keys(invCountDraft).length&&!confirm('Discard counts you have not saved?'))return false;
  invCountDraft={};return true;
@@ -40572,7 +40611,9 @@ function invListColumns(){
  if(invView==='journal')return [['day','When','date'],['glass','Glass','text'],['code','Code','list'],['size','Size','list'],['kind','What','list'],['ref','Reference','text'],['rack','On rack','number'],['by','Who','text'],['note','Note','text']].map(col);
  if(invView==='offcuts')return [['id','Stock','text'],['code','Glass','list'],['mm','mm','number'],['size','Size','list'],['area','ft²','number'],['from','From','text'],['booked','Booked','date',false],['age','Age, days','number'],['status','Where','list']].map(col);
  if(invView==='count')return [['glass','Glass','text'],['code','Code','list'],['mm','mm','number'],['size','Size','list'],['onRack','On rack','number'],['lastCount','Last count','date']].map(col);
- return [['glass','Glass','text'],['code','Code','list'],['mm','mm','number'],['size','Size','list'],['onRack','On rack','number'],['reserved','Reserved','number'],['free','Free','number'],['min','Minimum','number'],['held','At supplier','number'],['onOrder','On order','number'],['lastCount','Last count','date'],['status','Status','list']].map(col);
+ /* Сначала то, что кладовщик смотрит каждый день: сколько стоит, сколько
+   едет, сколько свободно и статус; Minimum и Last count — правее. */
+ return [['glass','Glass','text'],['code','Code','list'],['mm','mm','number'],['size','Size','list'],['onRack','On rack','number'],['onOrder','On order','number'],['held','At supplier','number'],['reserved','Reserved','number'],['free','Free','number'],['status','Status','list'],['min','Minimum','number'],['lastCount','Last count','date']].map(col);
 }
 function invListDefaults(){return invView==='journal'?{day:{preset:'last30'}}:{};}
 function invListDefaultSort(){return invView==='journal'?{k:'day',dir:'desc'}:invView==='offcuts'?{k:'age',dir:'desc'}:{k:'code',dir:'asc'};}
@@ -40613,9 +40654,12 @@ function invHeader(c){
  const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);
  return '<th class="'+(c.type==='number'?'n':'')+'"><span class="sl-th">'+esc(c.label)+'<button type="button" class="sl-fbtn'+(active?' on':'')+'" data-filter-col="'+c.k+'" aria-label="Filter and sort '+esc(c.label)+'" onclick="salesListOpenFilter(event,\''+c.k+'\')"></button></span></th>';
 }
-function invTable(cols,rows,cell,extraHead,extraCells,empty){
- return '<div class="sales-table-wrap"><table class="sl-table inv-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(invHeader).join('')+(extraHead||'')+'</tr></thead><tbody>'+
-  (invPageRows(rows).map(i=>'<tr data-inv-row="'+esc(i.o.id)+'"><td></td>'+cols.map(c=>cell(i,c)).join('')+(extraCells?extraCells(i):'')+'</tr>').join('')||'<tr><td colspan="'+(cols.length+1+(extraHead?1:0))+'" class="empty" data-inv-empty>'+empty+'</td></tr>')+'</tbody></table></div>'+invPager(rows);
+/* lead — лишние ячейки слева, сразу за шестерёнкой: кнопки строки видны
+   без прокрутки широкой таблицы. */
+function invTable(cols,rows,cell,extraHead,extraCells,empty,lead){
+ const head=cols.map(invHeader).join(''),body=i=>cols.map(c=>cell(i,c)).join(''),xh=extraHead||'',xc=i=>extraCells?extraCells(i):'';
+ return '<div class="sales-table-wrap"><table class="sl-table inv-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+(lead?xh+head:head+xh)+'</tr></thead><tbody>'+
+  (invPageRows(rows).map(i=>'<tr data-inv-row="'+esc(i.o.id)+'"><td></td>'+(lead?xc(i)+body(i):body(i)+xc(i))+'</tr>').join('')||'<tr><td colspan="'+(cols.length+1+(extraHead?1:0))+'" class="empty" data-inv-empty>'+empty+'</td></tr>')+'</tbody></table></div>'+invPager(rows);
 }
 function invNum(v){return v==null||v===''?'<span class="mut">—</span>':esc(v);}
 function invLastCount(r){return r.lastCount?esc(salesListShortDay(salesListIsoDay(r.lastCount.at)))+(r.lastCount.by?' <span class="mut">· '+esc(r.lastCount.by)+'</span>':''):'<span class="mut">—</span>';}
@@ -40651,7 +40695,9 @@ function invMinChange(key,value){const r=invSetMin(key,value);invNotice=r.ok?'':
 function invOpenJournal(key){invView='journal';invJournalKey=key;salesListMenu=null;const p=salesListLoadPrefs();delete p.filters.day;salesListSavePrefs();render();}
 function invSheetsView(infos){
  const rows=salesListRows(infos),cols=salesListColumns();
- return invTiles(infos.map(i=>i.r))+invListFilters(infos)+invTable(cols,rows,invSheetCell,'','',infos.length?'Nothing matches the filters.':'No glass in the catalogue yet.');
+ /* Плитки считают то же, что видно с фильтрами колонок; фильтр статуса —
+    сами плитки, поэтому в их счёт он не входит (как статусы Sales). */
+ return invTiles(salesListRows(infos,['status']).map(i=>i.r))+invMoveHTML()+invListFilters(infos)+invTable(cols,rows,invSheetCell,'<th></th>',invSheetActs,infos.length?'Nothing matches the filters.':'No glass in the catalogue yet.',true);
 }
 
 /* ------------------------------ Offcuts ------------------------------ */
@@ -40695,7 +40741,7 @@ function invOffcutFooter(rows){
 }
 function invOffcutsView(infos){
  const rows=salesListRows(infos),cols=salesListColumns();
- return invOffcutTiles(invOffcutRows())+invListFilters(infos)+invTable(cols,rows,invOffcutCell,'<th class="inv-lost-head">Not found</th>',invOffcutExtra,infos.length?'Nothing matches the filters.':'No offcuts on the rack.')+invOffcutFooter(rows);
+ return invOffcutTiles(salesListRows(infos,['status']).map(i=>i.x))+invListFilters(infos)+invTable(cols,rows,invOffcutCell,'<th class="inv-lost-head">Not found</th>',invOffcutExtra,infos.length?'Nothing matches the filters.':'No offcuts on the rack.')+invOffcutFooter(rows);
 }
 
 /* ------------------------------ Count ------------------------------ */
@@ -40721,26 +40767,65 @@ function invCountExtra(i){
  const r=i.r;if(r.sizeMissing)return '<td class="mut">Size missing</td>';
  const v=invCountDraft[r.key]==null?'':invCountDraft[r.key],n=Number(v),diff=v!==''&&Number.isFinite(n)&&n!==r.onRack?(n>r.onRack?'+':'−')+Math.abs(n-r.onRack):'';
  return '<td class="inv-count-cell"><input type="number" min="0" step="1" inputmode="numeric" class="inv-count" data-inv-count="'+esc(r.key)+'" data-rack="'+r.onRack+'" aria-label="Counted sheets" value="'+esc(v)+'" oninput="invCountInput('+invArg(r.key)+',this.value,this)"><span class="inv-diff" data-inv-diff>'+esc(diff)+'</span>'+
-  '<button type="button" class="sl-quiet sm" data-inv-writeoff onclick="invWriteOffOpen('+invArg(r.key)+')">Write off</button></td>';
+  '<button type="button" class="sl-quiet sm" data-inv-writeoff onclick="invMoveOpen('+invArg(r.key)+',\'writeoff\')">Write off</button></td>';
 }
-function invWriteOffOpen(key){invWriteOffDraft={key,qty:'',reason:'',note:''};invNotice='';render();setTimeout(()=>document.getElementById('inv_wo_qty')?.focus(),0);}
-function invWriteOffSave(){
- const d=invWriteOffDraft;if(!d)return;
- const r=invWriteOff(d.key,d.qty,d.reason,d.note);
+/* Движение листов одной строки или новое стекло на пирамиде (владелец,
+   23.10.2026: «как пользователь — добавлять, пересчитывать, уменьшать»):
+   + Add — приход мимо приёмки, − Remove — списание, Count — «стоит ровно N».
+   Glass on rack — то же Add для стекла, которого нет в списке: выбор как в
+   Sales, лист из поставки (можно поправить). Всё пишется в Journal. */
+const INV_MOVE={add:['Add sheets','Add'],writeoff:['Remove sheets','Remove'],count:['Count','Save count']};
+function invMoveOpen(key,kind){
+ invMoveDraft={key,kind,qty:'',reason:key?'':'Opening stock',note:'',pick:{mfr:'',thick:'',coat:'',code:'',w:'',h:''}};invNotice='';render();
+ setTimeout(()=>document.getElementById(key?'inv_wo_qty':'inv_mv_mfr')?.focus(),0);
+}
+function invPickGlass(f,stop){
+ return activeGlassProducts().filter(g=>g.cut!==false&&(stop==='mfr'||!f.mfr||g.manufacturer===f.mfr)&&(stop==='mfr'||stop==='thick'||!f.thick||String(g.thicknessMm)===f.thick)&&(stop||!f.coat||glassCoatingName(g)===f.coat));
+}
+function invMovePick(k,v){
+ const f=invMoveDraft.pick,order=['mfr','thick','coat','code'];f[k]=v;order.slice(order.indexOf(k)+1).forEach(x=>{f[x]='';});
+ if(k==='code'){const z=v?invCatalogSizes(v)[0]:null;f.w=z?String(z.w):'';f.h=z?String(z.h):'';}
+ render();
+}
+function invMovePickHTML(f){
+ const opt=(v,label,on)=>'<option data-raw value="'+esc(v)+'"'+(v===on?' selected':'')+'>'+esc(label)+'</option>',uniq=a=>[...new Set(a.filter(x=>x!==''&&x!=null))];
+ const sel=(k,label,any,list)=>'<label>'+label+'<select id="inv_mv_'+k+'" onchange="invMovePick(\''+k+'\',this.value)"><option value="">'+any+'</option>'+list.join('')+'</select></label>';
+ return sel('mfr','Manufacturer','Any',uniq(invPickGlass(f,'mfr').map(g=>g.manufacturer)).sort().map(m=>opt(m,m,f.mfr)))+
+  sel('thick','Thickness','Any',uniq(invPickGlass(f,'thick').map(g=>g.thicknessMm)).sort((a,b)=>a-b).map(n=>opt(String(n),n+' mm',f.thick)))+
+  sel('coat','Coating','Any',uniq(invPickGlass(f,'coat').map(glassCoatingName)).sort().map(c=>opt(c,c,f.coat)))+
+  '<label class="inv-wo-note">Glass *<select id="inv_mv_code" onchange="invMovePick(\'code\',this.value)"><option value="">— select —</option>'+invPickGlass(f).sort((a,b)=>a.code.localeCompare(b.code)).map(g=>opt(g.code,(f.coat?glassBaseName(g):g.name)+' · '+g.code,f.code)).join('')+'</select></label>'+
+  '<label>Sheet, in *<span class="inv-mv-size"><input id="inv_mv_w" type="number" min="0" step="any" placeholder="length" value="'+esc(f.w)+'" oninput="invMoveDraft.pick.w=this.value"> × <input id="inv_mv_h" type="number" min="0" step="any" placeholder="width" value="'+esc(f.h)+'" oninput="invMoveDraft.pick.h=this.value"></span></label>';
+}
+function invMoveHTML(){
+ const d=invMoveDraft;if(!d)return '';const r=d.key?invRowFind(d.key):null;if(d.key&&!r)return '';
+ const [title,btn]=INV_MOVE[d.kind],reasons=d.kind==='add'?INV_ADD:d.kind==='writeoff'?INV_WRITE_OFF:null;
+ return '<section class="card inv-writeoff" data-inv-writeoff-form data-inv-move="'+esc(d.kind)+'"><h3>'+(r?esc(title)+' · '+esc(r.code)+' '+esc(invSizeText(r))+' <span class="mut">· on rack '+esc(r.onRack)+'</span>':'Glass on rack')+'</h3><div class="inv-wo-fields">'+
+  (r?'':invMovePickHTML(d.pick)+'</div><div class="inv-wo-fields inv-mv-row">')+
+  '<label>'+(d.kind==='count'?'On the rack':'Sheets')+'<input id="inv_wo_qty" type="number" min="'+(d.kind==='count'?0:1)+'" step="1" inputmode="numeric" value="'+esc(d.qty)+'" oninput="invMoveDraft.qty=this.value"></label>'+
+  (reasons?'<label>Reason<select id="inv_wo_reason" onchange="invMoveDraft.reason=this.value"><option value="">Choose…</option>'+reasons.map(x=>'<option'+(x===d.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></label>'+
+   '<label class="inv-wo-note">Note<input id="inv_wo_note" type="text" maxlength="200" value="'+esc(d.note)+'" oninput="invMoveDraft.note=this.value"></label>':'')+
+  '<div class="inv-wo-actions"><button type="button" onclick="invMoveDraft=null;invNotice=\'\';render()">Cancel</button><button type="button" class="pri" data-inv-writeoff-save onclick="invMoveSave()">'+esc(btn)+'</button></div></div></section>';
+}
+function invMoveSave(){
+ const d=invMoveDraft;if(!d)return;let key=d.key;
+ if(!key){
+  const g=glassProductByCode(d.pick.code),size=invSize(d.pick.w,d.pick.h);
+  if(!g){invNotice='Pick a glass.';render();return;}
+  if(!size){invNotice='Enter the sheet size.';render();return;}
+  key=invKey(g.code,size);
+ }
+ if(d.kind==='count'&&String(d.qty).trim()===''){invNotice='Enter sheets on the rack.';render();return;}
+ const r=d.kind==='add'?invAdd(key,d.qty,d.reason,d.note):d.kind==='writeoff'?invWriteOff(key,d.qty,d.reason,d.note):invCountSave({[key]:d.qty});
  if(!r.ok){invNotice=r.error;render();return;}
- invWriteOffDraft=null;invNotice='';render();
+ invMoveDraft=null;invNotice='';render();
 }
-function invWriteOffHTML(){
- const d=invWriteOffDraft,r=d&&invRowFind(d.key);if(!r)return '';
- return '<section class="card inv-writeoff" data-inv-writeoff-form><h3>Write off · '+esc(r.code)+' '+esc(invSizeText(r))+' <span class="mut">· on rack '+esc(r.onRack)+'</span></h3><div class="inv-wo-fields">'+
-  '<label>Sheets<input id="inv_wo_qty" type="number" min="1" step="1" inputmode="numeric" value="'+esc(d.qty)+'" oninput="invWriteOffDraft.qty=this.value"></label>'+
-  '<label>Reason<select id="inv_wo_reason" onchange="invWriteOffDraft.reason=this.value"><option value="">Choose…</option>'+INV_WRITE_OFF.map(x=>'<option'+(x===d.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></label>'+
-  '<label class="inv-wo-note">Note<input id="inv_wo_note" type="text" maxlength="200" value="'+esc(d.note)+'" oninput="invWriteOffDraft.note=this.value"></label>'+
-  '<div class="inv-wo-actions"><button type="button" onclick="invWriteOffDraft=null;invNotice=\'\';render()">Cancel</button><button type="button" class="pri" data-inv-writeoff-save onclick="invWriteOffSave()">Write off</button></div></div></section>';
+function invSheetActs(i){
+ const r=i.r;if(r.sizeMissing)return '<td></td>';const k=invArg(r.key);
+ return '<td class="inv-acts"><button type="button" class="sl-quiet sm" data-inv-add title="Add sheets" aria-label="Add sheets" onclick="invMoveOpen('+k+',\'add\')">+</button><button type="button" class="sl-quiet sm" data-inv-remove title="Remove sheets" aria-label="Remove sheets" onclick="invMoveOpen('+k+',\'writeoff\')">−</button><button type="button" class="sl-quiet sm" data-inv-count-one onclick="invMoveOpen('+k+',\'count\')">Count</button></td>';
 }
 function invCountView(infos){
  const rows=salesListRows(infos),cols=salesListColumns();
- return (invWriteOffDraft?invWriteOffHTML():'')+'<p class="mut inv-hint">Enter sheets on the rack. Only filled rows are saved.</p>'+invListFilters(infos)+
+ return invMoveHTML()+'<p class="mut inv-hint">Enter sheets on the rack. Only filled rows are saved.</p>'+invListFilters(infos)+
   invTable(cols,rows,invCountCell,'<th class="inv-count-head">Counted</th>',invCountExtra,infos.length?'Nothing matches the filters.':'No glass in the catalogue yet.');
 }
 
@@ -40775,14 +40860,20 @@ function invJournalView(infos){
    чтения, их правят в точках поставки. Отступы листа — Data → Cutting. */
 let invSizeNotice='';
 function invSizesView(){
- const sizes=cutSheetSizes(),whose=x=>[x.shop?'All glass':'',x.codes.slice(0,4).join(', ')+(x.codes.length>4?' +'+(x.codes.length-4):'')].filter(Boolean).join(' · ');
+ const data=accessCan('masterdata'),link=(c,k)=>data?'<button type="button" class="fin-link" data-inv-size-supply="'+esc(c)+'" title="Supply row in Data" onclick="invSizeSupplyOpen('+invArg(c)+','+invArg(k)+')">'+esc(c)+'</button>':esc(c);
+ const sizes=cutSheetSizes(),whose=x=>[x.shop?'All glass':'',x.codes.slice(0,4).map(c=>link(c,x.key)).join(', ')+(x.codes.length>4?' +'+(x.codes.length-4):'')].filter(Boolean).join(' · ');
  return '<p class="mut">Supply sizes of a glass go first; shop sizes work for any glass. Trim and border — Data → Cutting.</p>'+
   '<div class="sales-table-wrap"><table class="ncr-table" data-inv-sizes><thead><tr><th>Sheet</th><th>Glass</th><th>From</th><th></th></tr></thead><tbody>'+
-  (sizes.map(x=>'<tr data-inv-size="'+esc(x.key)+'"><td><b>'+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″</b></td><td class="mut">'+esc(whose(x))+'</td><td>'+(x.codes.length?'Supply'+(x.shop?' · Shop':''):'Shop')+'</td><td>'+
+  (sizes.map(x=>'<tr data-inv-size="'+esc(x.key)+'"><td><b>'+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″</b></td><td class="mut">'+whose(x)+'</td><td>'+(x.codes.length?'Supply'+(x.shop?' · Shop':''):'Shop')+'</td><td>'+
    (x.shop?'<button type="button" class="sm dl" data-inv-size-remove="'+esc(x.key)+'" aria-label="Remove '+esc(x.key)+'" onclick="invSizeRemoveUi('+invArg(x.key)+')">×</button>':'')+'</td></tr>').join('')||
    '<tr><td colspan="4" class="mut" data-inv-sizes-empty>No sheet sizes yet — glass shows Size missing.</td></tr>')+'</tbody></table></div>'+
   '<div class="cut-size-add" data-inv-size-add><input type="text" id="invSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="invSizeH" placeholder="width" aria-label="Sheet width, in"> <button type="button" onclick="invSizeAddUi()">+ Add sheet size</button>'+
   (invSizeNotice?'<span class="cut-md-error" role="alert" data-inv-size-error>'+esc(invSizeNotice)+'</span>':'')+'</div>';
+}
+/* Размер из поставки правят в его строке поставки (Data → Supply points). */
+function invSizeSupplyOpen(code,key){
+ const s=(DB.glassSheet||[]).find(x=>x&&x.productCode===code&&x.availability!=='inactive'&&cutSheetTrimKey(x.sheetWIn,x.sheetHIn)===key);if(!s)return;
+ navGo('masterdata');if(tab!=='masterdata')return;mdSetTab('materials');mdMatSwitch('glass','glassSheet');mdSheetEditRow(s.id);
 }
 function invSizeAddUi(){const r=cutShopSizeAdd(mdVal('invSizeW'),mdVal('invSizeH'));invSizeNotice=r.error||'';render();}
 function invSizeRemoveUi(key){if(!confirm('Remove this sheet size?'))return;const r=cutShopSizeRemove(key);invSizeNotice=r.error||'';render();}
@@ -40816,7 +40907,7 @@ function viewInventory(){
  const count=invView==='count',off=invView==='offcuts',infos=invView==='journal'?invMoveInfos():off?invOffcutInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):off?invOffcutsView(infos):count?invCountView(infos):invSheetsView(infos);
  const n=Object.keys(invCountDraft).length;
  return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'<span class="sales-toolbar-sp"></span>'+
-  (count?'<button type="button" class="pri" data-inv-count-save onclick="invCountSaveUi()">Save count · <span data-inv-count-n>'+n+'</span></button>':'')+
+  (count||invView==='sheets'?'<button type="button" data-inv-glass-on-rack onclick="invMoveOpen(\'\',\'add\')">+ Glass on rack</button>':'')+(count?'<button type="button" class="pri" data-inv-count-save onclick="invCountSaveUi()">Save count · <span data-inv-count-n>'+n+'</span></button>':'')+
   (off?'<label class="chk"><input type="checkbox" data-inv-offcut-all '+(invOffcutAll?'checked':'')+' onchange="invOffcutAll=this.checked;render()"> Show used and written off</label><button type="button" data-inv-lost-save onclick="invOffcutLostUi()">Write off <span data-inv-lost-n>'+invOffcutLostDraft.size+'</span> not found</button>':'')+'</div>'+
   (invNotice?'<div class="ncr-error" role="alert">'+esc(invNotice)+'</div>':'')+body+salesListMenuHTML(infos)+'</div></div>';
 }
