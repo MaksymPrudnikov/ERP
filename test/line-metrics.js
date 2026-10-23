@@ -200,6 +200,7 @@ module.exports=async function({page,eq,ok}){
  eq('column chooser fits a 390 px screen',await t.p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  await t.p.getByRole('button',{name:'Close',exact:true}).last().click();
  eq('order table scroll remains local on mobile',await t.p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ eq('cents: a half-cent tie rounds up whatever the float noise (98.175 + 2.82, 29.4 + 32.395, 1.005)',await t.p.evaluate(()=>[salesMoney(98.17499999999998+2.82),salesMoney(98.17499999999998+2.8200000000000003),salesMoney(29.4+32.394999999999996),salesMoney(29.4+32.395),salesMoney(1.005),salesMoney(0.1+0.2)]),[101,101,61.8,61.8,1.01,0.3]);
  eq('metrics have no browser errors',t.errs,[]);
  await t.c.close();
 };
