@@ -890,7 +890,10 @@ function salesWorkForValue(family,value){
 /* Диаметр отверстий, дюймы, включительно. Меньше 1/2″ своей полосы в прайсе
    нет — идёт по 1/2″–1″ (владелец, 18.10.2026: в DXF клиентов бывают 3/8″),
    поэтому у первой строки нижней границы нет. */
-const SERVICE_HOLE_SEED={'hole:0.5-1':[null,1],'hole:1-2':[1.0625,2],'hole:2-3':[2.0625,3],'hole:3-4':[3.0625,4],'hole:4+':[4.0625,null]};
+/* Порог ручного сверла 1 3/4″ — граница строк 1-1/16″–1-3/4″ (DRILL) и
+   1-13/16″–2″ (CNC): станцию отверстия даёт строка его диапазона (этап 4,
+   часть 3 плана Master Data), в коде порога больше нет. */
+const SERVICE_HOLE_SEED={'hole:0.5-1':[null,1],'hole:1-2':[1.0625,1.75],'hole:1.75-2':[1.8125,2],'hole:2-3':[2.0625,3],'hole:3-4':[3.0625,4],'hole:4+':[4.0625,null]};
 const SERVICE_RATE_SEED=[
  /* Четвёртое поле — СТАНЦИЯ. С 11 сентября 2026 работа несёт и станцию, и цену
     одной строкой: пока станция лежала отдельной таблицей цеха, маршрут и счёт
@@ -903,9 +906,11 @@ const SERVICE_RATE_SEED=[
  ['patch',            'Patch',                 'pc',  'DRILL', [10,15,20]],
  /* Отверстия до 1 3/4" делают ручным сверлом, крупнее — на ЧПУ: свёрл такого
     размера у цеха нет. Полоса 1-1/16"-2" пересекала этот порог и выключена
-    владельцем 11 сентября — он заведёт её заново сам, разделив по станку. */
+    владельцем 11 сентября; с 22.10.2026 она разделена по станку, обе части
+    без цены, пока её не введёт владелец. */
  ['hole:0.5-1',       'Hole 1/2″–1″',          'pc',  'DRILL', [5,6,7]],
- ['hole:1-2',         'Hole 1-1/16″–2″',       'pc',  'DRILL', [6,7,8],  false],
+ ['hole:1-2',         'Hole 1-1/16″–1-3/4″',   'pc',  'DRILL', [6,7,8],  false],
+ ['hole:1.75-2',      'Hole 1-13/16″–2″',      'pc',  'CNC',   [6,7,8],  false],
  ['hole:2-3',         'Hole 2-1/16″–3″',       'pc',  'CNC',   [7,8,9]],
  ['hole:3-4',         'Hole 3-1/16″–4″',       'pc',  'CNC',   [8,12,15]],
  ['hole:4+',          'Hole over 4″',          'pc',  'CNC',   [10,15,25]],
@@ -991,6 +996,14 @@ function serviceRateStage4Migrate(){
   if(!DB.serviceRate.some(r=>r&&r.id==='bevel'))DB.serviceRate.push(Object.assign({},old[0],{id:'bevel',name:'Beveling',family:'',appliesBy:'',appliesFrom:null,appliesTo:null,kind:undefined,flat:undefined,
    tiers:old.map(r=>({id:r.id.slice(6),from:r.appliesFrom||null,to:r.appliesTo,price:r.flat}))}));
   DB.serviceRate=DB.serviceRate.filter(r=>old.indexOf(r)<0);
+ }
+ /* Строка 1-1/16″–2″ делится по порогу ручного сверла один раз; цены и
+    включённость владельца переезжают в обе части. */
+ const h12=DB.serviceRate.find(r=>r&&r.id==='hole:1-2');
+ if(h12&&h12.appliesBy==='diameter'&&+h12.appliesTo===2&&!DB.serviceRate.some(r=>r&&r.id==='hole:1.75-2')){
+  if(h12.name==='Hole 1-1/16″–2″')h12.name='Hole 1-1/16″–1-3/4″';
+  DB.serviceRate.push(Object.assign(JSON.parse(JSON.stringify(h12)),{id:'hole:1.75-2',name:'Hole 1-13/16″–2″',station:'CNC',appliesFrom:1.8125,appliesTo:2}));
+  h12.appliesTo=1.75;
  }
  DB.serviceRate.forEach(r=>{const h=r&&SERVICE_HOLE_SEED[r.id];if(h&&!r.appliesBy)Object.assign(r,{family:'hole',appliesBy:'diameter',appliesFrom:h[0],appliesTo:h[1]});});
  /* Правила цены из настройки Pricing rules переезжают в надбавки со своими
