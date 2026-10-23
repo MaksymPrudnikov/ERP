@@ -35,6 +35,12 @@ Inventory, а там размер из поставки не открыть; с�
   можно поправить; заводит и стекло, которого нет в списке (Pre-order,
   другой лист: `invCountNewRow`). Journal показывает Add с причиной.
   Разделы склада — кнопками в ряд вместо выпадашки «Sheets ▾».
+- **Путь «PO → приёмка → склад» пройден руками** (владелец: «проверь как
+  человек»). Логика полная: On order до прихода, Receive из PO, On rack за
+  вычетом битых, остаток в On order, PO Partially received, Journal со
+  ссылкой на приёмку. Поправлено видимое: колонки Sheets — On rack, On
+  order, At supplier, Reserved, Free, Status впереди (On order уезжал за
+  край экрана); строка приёмки в Journal пишет «18 arrived · 1 broken».
 
 Проверки: `test/md-catalog.js` +1 (кнопка + Supply row и ссылка размера),
 `test/inventory.js` +1 (+, −, Count в строке, Glass on rack, разделы),

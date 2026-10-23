@@ -40,7 +40,9 @@ function invListColumns(){
  if(invView==='journal')return [['day','When','date'],['glass','Glass','text'],['code','Code','list'],['size','Size','list'],['kind','What','list'],['ref','Reference','text'],['rack','On rack','number'],['by','Who','text'],['note','Note','text']].map(col);
  if(invView==='offcuts')return [['id','Stock','text'],['code','Glass','list'],['mm','mm','number'],['size','Size','list'],['area','ft²','number'],['from','From','text'],['booked','Booked','date',false],['age','Age, days','number'],['status','Where','list']].map(col);
  if(invView==='count')return [['glass','Glass','text'],['code','Code','list'],['mm','mm','number'],['size','Size','list'],['onRack','On rack','number'],['lastCount','Last count','date']].map(col);
- return [['glass','Glass','text'],['code','Code','list'],['mm','mm','number'],['size','Size','list'],['onRack','On rack','number'],['reserved','Reserved','number'],['free','Free','number'],['min','Minimum','number'],['held','At supplier','number'],['onOrder','On order','number'],['lastCount','Last count','date'],['status','Status','list']].map(col);
+ /* Сначала то, что кладовщик смотрит каждый день: сколько стоит, сколько
+   едет, сколько свободно и статус; Minimum и Last count — правее. */
+ return [['glass','Glass','text'],['code','Code','list'],['mm','mm','number'],['size','Size','list'],['onRack','On rack','number'],['onOrder','On order','number'],['held','At supplier','number'],['reserved','Reserved','number'],['free','Free','number'],['status','Status','list'],['min','Minimum','number'],['lastCount','Last count','date']].map(col);
 }
 function invListDefaults(){return invView==='journal'?{day:{preset:'last30'}}:{};}
 function invListDefaultSort(){return invView==='journal'?{k:'day',dir:'desc'}:invView==='offcuts'?{k:'age',dir:'desc'}:{k:'code',dir:'asc'};}

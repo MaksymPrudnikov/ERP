@@ -105,12 +105,12 @@ function invReceiptLines(){
    if(!['glass','sheet'].includes(l.kind))return;
    const g=purGlassProduct(l),code=g?g.code:l.productCode;if(!code||!invGlassCut(code))return;
    const unit=purUnit(l.unit),size=invSize(l.widthIn,l.heightIn);
-   let qty=0,issue='';
+   let qty=0,issue='',broken=0;
    /* 0 блоков — листов не ждём (аудит 19.10.2026, F05). */
-   if(unit==='block'){if(l.actualSheets==null&&l.qty!==0)issue='Enter sheets';else qty=(l.actualSheets||0)-(l.damagedSheets||0);}
-   else if(unit==='sheet')qty=(l.qty||0)-purBroken(l,l);
+   if(unit==='block'){if(l.actualSheets==null&&l.qty!==0)issue='Enter sheets';else{broken=l.damagedSheets||0;qty=(l.actualSheets||0)-broken;}}
+   else if(unit==='sheet'){broken=purBroken(l,l);qty=(l.qty||0)-broken;}
    else issue='Not in sheets';
-   out.push({r,l,code,size,qty,issue,day:r.date||salesListIsoDay(r.createdAt),at:r.createdAt||''});
+   out.push({r,l,code,size,qty,broken,issue,day:r.date||salesListIsoDay(r.createdAt),at:r.createdAt||''});
   });
  });
  return out;
@@ -242,7 +242,7 @@ function invBatchSheetHints(batch,glass){
    пирамиды, он занимает листы). */
 function invMoves(){
  const out=[],add=(m,code,size)=>{const g=glassProductByCode(code);out.push(Object.assign({code:g?g.code:String(code).toUpperCase(),name:g?g.name:'',key:invKey(code,size),w:size?size.w:0,h:size?size.h:0,rack:null,layout:null,by:'',note:''},m));};
- invReceiptLines().forEach(x=>add({id:'GR|'+x.r.id+'|'+x.l.id,kind:'Receipt',ref:x.r.number,receipt:x.r.id,day:x.day,at:x.at,rack:x.issue?0:x.qty,by:x.r.receivedBy||x.r.createdBy,note:x.issue||(x.l.replacement?'Replacement':'')},x.code,x.size));
+ invReceiptLines().forEach(x=>add({id:'GR|'+x.r.id+'|'+x.l.id,kind:'Receipt',ref:x.r.number,receipt:x.r.id,day:x.day,at:x.at,rack:x.issue?0:x.qty,by:x.r.receivedBy||x.r.createdBy,note:x.issue||[x.l.replacement?'Replacement':'',x.broken?(x.qty+x.broken)+' arrived · '+x.broken+' broken':''].filter(Boolean).join(' · ')},x.code,x.size));
  (DB.cutPlan||[]).forEach(plan=>{
   if(!plan||plan.reset||!Array.isArray(plan.groups)||!glassBatchFind(plan.batch))return;
   plan.groups.forEach(g=>{if(!invGlassCut(g.glass))return;const by=new Map();
