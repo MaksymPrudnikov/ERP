@@ -65,7 +65,10 @@ function salesLineAreas(line,order){
   salesSurcharges(order||soDraft).forEach(x=>{if(x.rule.kind==='minArea'&&x.value>min&&salesSurchargeFits(x.rule,kinds,rounded)){min=x.value;minBy=x;}});}
  return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,min):null,minArea:valid&&min>rounded?{id:minBy.id,name:minBy.name,value:min}:null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
 }
-function salesMoney(value){return Math.round((value+Number.EPSILON)*100)/100;}
+/* Центы: «ничья» в полцента (98.175 + 2.82 = 100.995) округляется вверх.
+   Number.EPSILON для сотен долларов мал, и шум float решал её то вверх, то
+   вниз — от порядка умножения (4 заказа из 2634 на годе цеха после #328). */
+function salesMoney(value){return Math.round(+(value*100).toFixed(6))/100;}
 /* Порядок один: Energy → HST → Card fee, доставка и депозит в конце; что
    входит в базу HST и карты — снимок заказа (erp/sales/order-setup). */
 function salesApplyOrderCharges(subtotal,raw){
