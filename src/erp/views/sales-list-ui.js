@@ -456,7 +456,6 @@ function salesListMenuHTML(infos){
  const top=Math.max(8,Math.min(m.y,window.innerHeight-80)),style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-(m.w||300)-8))}px;top:${top}px;max-height:${Math.max(180,window.innerHeight-top-12)}px`;
  const back='<div class="sl-backdrop" onclick="salesListCloseMenu()" oncontextmenu="event.preventDefault();salesListCloseMenu()"></div>';
  if(m.kind==='pur-sections')return back+purSectionsMenuHTML(style);
- if(m.kind==='inv-sections')return back+invSectionsMenuHTML(style);
  if(m.kind==='show')return back+salesListShowMenuHTML(style);
  if(m.kind==='date')return back+salesListDateMenuHTML(m,style);
  if(m.kind==='context')return back+salesListContextHTML(m,style);

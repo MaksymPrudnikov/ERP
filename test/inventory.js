@@ -12,7 +12,7 @@ module.exports=async function({page,eq}){
    ['purchaseOrder','purchaseReceipt','purchaseDeliveryRequest','purchasingEvent'].forEach(k=>DB[k]=[]);DB.purchaseOrderSeq=0;DB.purchaseReceiptSeq=0;
    DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock'}));
    if(!window.ivSup)window.ivSup=purSupplierSave({name:'Inventory Glass Co'}).value;
-   invView='sheets';invCountDraft={};invJournalKey='';invWriteOffDraft=null;invNotice='';
+   invView='sheets';invCountDraft={};invJournalKey='';invMoveDraft=null;invNotice='';
    ['inventory-sheets','inventory-count','inventory-journal'].forEach(k=>{salesQueuePrefs[k]=null;localStorage.removeItem('glass_erp_'+k+'_list_v1');});
   };
   window.ivKey='6CLEAR|144x96';
@@ -155,6 +155,21 @@ module.exports=async function({page,eq}){
   const russian=/[А-яЁё]/.test(document.querySelector('.inventory-workspace').innerText);
   return {diff,n,saved,wo,undone:!!DB.sheetBreak[0].undoneAt,rack:ivRow().onRack,russian};
  }),{diff:'−2',n:'1',saved:[['6CLEAR',9,7]],wo:[6,true],undone:true,rack:7,russian:false});
+
+ eq('Sheets row: + adds with a reason, − removes, Count sets the number; Glass on rack brings a Pre-order glass with its supply sheet; sections are buttons',await t.p.evaluate(()=>{
+  ivReset();ivRec([{qty:10,unit:'sheet',widthIn:144,heightIn:96}]);navGo('inventory');invGo('count');invGo('sheets');salesListSetFilter('code',{values:['6CLEAR']});
+  const act=(sel,qty,reason)=>{document.querySelector('[data-inv-row="'+ivKey+'"] '+sel).click();const q=document.getElementById('inv_wo_qty');q.value=qty;q.dispatchEvent(new Event('input'));
+   const r=document.getElementById('inv_wo_reason');if(r){r.value=reason;r.dispatchEvent(new Event('change'));}document.querySelector('[data-inv-writeoff-save]').click();return ivRow().onRack;};
+  const noReason=(()=>{document.querySelector('[data-inv-row="'+ivKey+'"] [data-inv-add]').click();const q=document.getElementById('inv_wo_qty');q.value='2';q.dispatchEvent(new Event('input'));document.querySelector('[data-inv-writeoff-save]').click();const e=invNotice;invMoveDraft=null;invNotice='';render();return e;})();
+  const racks=[act('[data-inv-add]','3','Found'),act('[data-inv-remove]','1','Broken on rack'),act('[data-inv-count-one]','9')];
+  const pre=activeGlassProducts().find(g=>!g.stocked&&g.cut!==false&&g.code!=='6CLEAR');DB.glassSheet.push(normalizeGlassSheet({productCode:pre.code,supplier:'Vitro',sheetWIn:120,sheetHIn:84,availability:'order'}));
+  document.querySelector('[data-inv-glass-on-rack]').click();invMovePick('code',pre.code);
+  const size=[document.getElementById('inv_mv_w').value,document.getElementById('inv_mv_h').value];
+  const q=document.getElementById('inv_wo_qty');q.value='5';q.dispatchEvent(new Event('input'));document.querySelector('[data-inv-writeoff-save]').click();
+  const added=invSheetRows().find(r=>r.code===pre.code);
+  invGo('journal');const kinds=invMoves().filter(m=>m.code==='6CLEAR'||m.code===pre.code).map(m=>m.kind).sort();
+  return {noReason,racks,size,added:added&&[added.key===pre.code+'|120x84',added.onRack],kinds,tabs:document.querySelectorAll('[data-inv-sections] [data-inv-section]').length};
+ }),{noReason:'Choose a reason.',racks:[13,12,9],size:['120','84'],added:[true,5],kinds:['Add','Add','Count','Receipt','Write off'],tabs:6});
 
  eq('inventory has no JavaScript errors',t.errs,[]);await t.c.close();
 };

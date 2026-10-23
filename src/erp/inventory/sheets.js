@@ -41,7 +41,11 @@ DEFAULT.inventoryEvent=[];DEFAULT.inventoryMin={};
 const INV_WRITE_OFF=['Broken on rack','Defect','Other'];
 /* Записи журнала склада: пересчёт и списание листов; кусок S- не найден
    при пересчёте и найден снова (erp/inventory/offcuts). */
-const INV_EVENT_KINDS=['count','writeoff','offcut-lost','offcut-found'],INV_SHEET_KINDS=['count','writeoff'];
+const INV_EVENT_KINDS=['count','writeoff','add','offcut-lost','offcut-found'],INV_SHEET_KINDS=['count','writeoff','add'];
+/* Приход листов мимо приёмки (владелец, 23.10.2026: «добавлять,
+   пересчитывать, добавлять и уменьшать»): начальный остаток, нашли,
+   вернули. Поставка идёт приёмкой Purchasing. */
+const INV_ADD=['Opening stock','Found','Returned','Other'];
 const INV_STATUSES=['OK','Below minimum','Negative','Not counted','Size missing'];
 const INV_KEY_RE=/^[^|]+\|(\d+(\.\d+)?x\d+(\.\d+)?|\?)$/;
 
@@ -251,7 +255,7 @@ function invMoves(){
   add({id:'SB|'+x.id,kind:'Sheet broke',ref:x.batch+' · sheet '+x.sheet,batch:x.batch,breakId:x.id,undone:!!x.undoneAt,day:salesListIsoDay(x.at),at:x.at,rack:-1,by:x.by},x.glass,size);
   if(x.undoneAt)add({id:'SBU|'+x.id,kind:'Undo sheet broke',ref:x.batch+' · sheet '+x.sheet,batch:x.batch,day:salesListIsoDay(x.undoneAt),at:x.undoneAt,rack:1,by:x.undoneBy},x.glass,size);
  });
- (DB.inventoryEvent||[]).filter(e=>INV_SHEET_KINDS.includes(e.kind)).forEach(e=>add({id:e.id,kind:e.kind==='count'?'Count':'Write off',ref:'',day:salesListIsoDay(e.at),at:e.at,rack:e.qty,by:e.by,
+ (DB.inventoryEvent||[]).filter(e=>INV_SHEET_KINDS.includes(e.kind)).forEach(e=>add({id:e.id,kind:e.kind==='count'?'Count':e.kind==='add'?'Add':'Write off',ref:'',day:salesListIsoDay(e.at),at:e.at,rack:e.qty,by:e.by,
   note:e.kind==='count'?'Was '+e.before+' → '+e.after:[e.reason,e.note].filter(Boolean).join(' · ')},e.glass,invSize(e.w,e.h)));
  if(typeof invOffcutMoves==='function')invOffcutMoves().forEach(m=>out.push(m));
  return out.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
@@ -270,11 +274,17 @@ function invWhole(v,label){
 }
 /* Пересчёт: counts — {ключ: сколько насчитали}. Одна команда на все
    строки; разница с On rack в момент записи — встречная запись. */
+/* Стекло без строки на складе (Pre-order без движения, другой лист):
+   пересчёт заводит его с нуля. */
+function invCountNewRow(key){
+ const [code,dim]=String(key).split('|'),[w,h]=String(dim||'').split('x'),g=glassProductByCode(code),z=invSize(w,h);
+ return g&&g.cut!==false&&z?{code:g.code,w:z.w,h:z.h,onRack:0,sizeMissing:false}:null;
+}
 function invCountSave(counts){
  return invPersist(()=>{
   const rows=new Map(invSheetRows().map(r=>[r.key,r])),now=new Date().toISOString(),actor=orderLogActor(),out=[];
   Object.entries(counts||{}).forEach(([key,v])=>{
-   const r=rows.get(key);if(!r||r.sizeMissing)throw new Error('Glass or sheet size not found. Reopen the count.');
+   const r=rows.get(key)||invCountNewRow(key);if(!r||r.sizeMissing)throw new Error('Glass or sheet size not found. Reopen the count.');
    const n=invWhole(v,r.code+' '+invSizeText(r));
    const e={id:salesUid('IE'),kind:'count',glass:r.code,w:r.w,h:r.h,qty:n-r.onRack,before:r.onRack,after:n,reason:'',note:'',at:now,by:actor.by,byId:actor.byId};
    DB.inventoryEvent.push(e);out.push(e);
@@ -289,6 +299,15 @@ function invWriteOff(key,qty,reason,note){
   const n=invWhole(qty,'Sheets');if(!n)throw new Error('Sheets: enter 1 or more.');
   if(!INV_WRITE_OFF.includes(reason))throw new Error('Choose a reason.');
   const actor=orderLogActor(),e={id:salesUid('IE'),kind:'writeoff',glass:r.code,w:r.w,h:r.h,qty:-n,before:null,after:null,reason,note:String(note||'').trim().slice(0,200),at:new Date().toISOString(),by:actor.by,byId:actor.byId};
+  DB.inventoryEvent.push(e);return e;
+ });
+}
+function invAdd(key,qty,reason,note){
+ return invPersist(()=>{
+  const r=invRowFind(key)||invCountNewRow(key);if(!r||r.sizeMissing)throw new Error('Glass or sheet size not found.');
+  const n=invWhole(qty,'Sheets');if(!n)throw new Error('Sheets: enter 1 or more.');
+  if(!INV_ADD.includes(reason))throw new Error('Choose a reason.');
+  const actor=orderLogActor(),e={id:salesUid('IE'),kind:'add',glass:r.code,w:r.w,h:r.h,qty:n,before:null,after:null,reason,note:String(note||'').trim().slice(0,200),at:new Date().toISOString(),by:actor.by,byId:actor.byId};
   DB.inventoryEvent.push(e);return e;
  });
 }
