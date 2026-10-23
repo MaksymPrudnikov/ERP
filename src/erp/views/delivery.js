@@ -83,7 +83,7 @@ function deliveryPrint(date,truckId,withPS){
 function viewMdTrucks(){
  const set=(t,field,value)=>`mdTruckSet('${esc(t.id)}','${field}',${value})`;
  const rows=(DB.truck||[]).map(t=>`<tr data-truck-row="${esc(t.id)}"${t.active?'':' class="mut"'}><td><input aria-label="Truck name" value="${esc(t.name)}" onchange="${set(t,'name','this.value')}" style="max-width:220px"></td><td><input aria-label="Note" value="${esc(t.note)}" placeholder="Note" onchange="${set(t,'note','this.value')}" style="max-width:260px"></td><td><label class="chk"><input type="checkbox" ${t.active?'checked':''} onchange="${set(t,'active','this.checked')}"> Active</label></td></tr>`).join('');
- return `<div class="sub">Own trucks for the delivery plan. The driver is picked for the day in Shipping → Delivery.</div>
+ return `<div class="sub">Trucks for the delivery plan.</div>
   <div class="row" style="margin:0 0 12px"><button class="sm" data-truck-add onclick="mdTruckAdd()">+ Truck</button></div>
   <table><thead><tr><th>Name</th><th>Note</th><th>Active</th></tr></thead><tbody>${rows||'<tr><td colspan="3" class="empty">No trucks yet</td></tr>'}</tbody></table>`;
 }

@@ -58,7 +58,7 @@ function plGroupsView(){
  const groups=priceListGroups();if(plGroupId&&!groups.some(g=>g.id===plGroupId))plGroupId='';
  const g=priceListById(plGroupId);
  const list=groups.map(x=>`<tr data-pl-group class="${x.id===plGroupId?'sel':''}" style="cursor:pointer" onclick="plGroupId='${esc(x.id)}';render()"><td><b>${esc(x.name||'Unnamed group')}</b></td><td class="mono">${plGroupCustomers(x.id).length}</td><td class="mono">${x.rows.length}</td></tr>`).join('');
- return `<div class="sub">Customer group = special prices for its customers. A customer's personal prices beat the group; what neither has comes from base prices.</div>
+ return `<div class="sub">Personal beats group; else base price.</div>
   <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
    <div style="flex:0 0 300px"><table><thead><tr><th>Group</th><th>Customers</th><th>Prices</th></tr></thead><tbody>${list||'<tr><td colspan="3" class="mut">No groups yet.</td></tr>'}</tbody></table>
     <button class="pri" style="margin-top:8px" onclick="plNewGroup()">+ Customer group</button></div>

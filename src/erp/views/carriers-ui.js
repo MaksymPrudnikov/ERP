@@ -20,7 +20,7 @@ function viewMdCarriers(){
    <td><label class="chk"><input type="checkbox" ${c.active?'checked':''} onchange="carrierSet('${esc(c.code)}','active',this.checked);render()"> Active</label></td>
    <td><button class="sm" onclick="carrierPrintLabels(['${esc(c.code)}'])">Label</button></td></tr>`;
  }).join('');
- return `<div class="sub">Scan the dolly or skid, then the glass on it. The code says what to look for: DL · DA — L- and A-shape dolly, SL · SA — L- and A-shape skid.</div>
+ return `<div class="sub">DL · DA — dolly, SL · SA — skid.</div>
   <div class="row" style="margin:0 0 12px;gap:8px;flex-wrap:wrap">${CARRIER_TYPES.map(t=>`<button class="sm" data-carrier-add="${t.k}" onclick="carrierAdd('${t.k}',1);render()">+ ${esc(t.label)}</button>`).join('')}
    <span class="cb-seg">${[['loaded','Loaded'],['out','At customers'],['empty','Empty'],['all','All']].map(([k,l])=>`<button type="button" class="${mdCarrierShow===k?'on':''}" data-md-carrier-show="${k}" onclick="mdCarrierShow='${k}';render()">${l} <b>${count(k)}</b></button>`).join('')}</span>
    <span class="sp"></span><button class="sm" ${carrierSel.size?'':'disabled'} onclick="carrierPrintLabels([...carrierSel])">Print ${carrierSel.size||''} label${carrierSel.size===1?'':'s'}</button></div>
