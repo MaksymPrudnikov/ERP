@@ -43,7 +43,10 @@ function usersDoorError(after){
  if(signinOn()&&!after.some(u=>u.hasPassword&&(u.access||[]).includes(ACCESS_ADMIN)))return 'Someone with Users must keep a password';
  return '';
 }
-function usersShape(u,over){return Object.assign({access:u.access||[],hasPassword:userHasPassword(u)},over||{});}
+/* Человек с почтой входа на ПК с сервером входит паролем сервера
+   (erp/signin, signinServer) — пароль ERP ему не нужен. */
+function usersServer(){const c=typeof cloudConfig==='function'?cloudConfig():{};return !!(c.url&&c.key);}
+function usersShape(u,over){return Object.assign({access:u.access||[],hasPassword:userHasPassword(u)||usersServer()&&!!u.email},over||{});}
 
 /* Создать (id пуст) или изменить человека. input: {id, rev, name, no,
    office, access[], password, station, pin, email}; password и pin —
@@ -60,7 +63,8 @@ function usersSaveNow(input){
  const access=d.office?USER_SECTIONS.filter(k=>(d.access||[]).includes(k)):[];
  if(d.office&&!access.length)return usersFail('Office: tick at least one section');
  const pw=d.office?String(d.password||''):'',pin=d.station?String(d.pin||''):'';
- if(d.office&&(pw||!userHasPassword(cur))&&pw.length<USER_PASSWORD_MIN)return usersFail('Password: at least '+USER_PASSWORD_MIN+' characters');
+ const viaServer=usersServer()&&!!String(d.email||'').trim();
+ if(d.office&&(pw||!viaServer&&!userHasPassword(cur))&&pw.length<USER_PASSWORD_MIN)return usersFail('Password: at least '+USER_PASSWORD_MIN+' characters');
  if(d.station&&(pin||!userHasPin(cur))&&!USER_PIN_RE.test(pin))return usersFail('PIN: 4 digits');
  const no=String(d.no==null?'':d.no).trim();
  if(no&&!/^\d{1,4}$/.test(no))return usersFail('No.: up to 4 digits or empty');
@@ -71,7 +75,7 @@ function usersSaveNow(input){
  if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return usersFail('Server login: enter an email');
  const twin=email?(DB.user||[]).find(u=>u!==cur&&u.email===email):null;
  if(twin)return usersFail('Server login belongs to '+twin.name);
- const mine=usersShape({},{access,hasPassword:d.office&&(!!pw||userHasPassword(cur))});
+ const mine=usersShape({},{access,hasPassword:d.office&&(viaServer||!!pw||userHasPassword(cur))});
  const door=usersDoorError((DB.user||[]).map(u=>u===cur?mine:usersShape(u)).concat(isNew?[mine]:[]));
  if(door)return usersFail(door);
  const me=typeof signinUser==='function'?signinUser():null;
@@ -79,7 +83,8 @@ function usersSaveNow(input){
   const u=isNew?{}:usersFind(d.id);
   u.name=name;u.access=access;u.no=no?+no:0;
   if(email)u.email=email;else delete u.email;
-  if(!d.office)delete u.password;else if(pw)userPasswordSet(u,pw);
+  /* С сервером пароль — вход сервера (view/users → cloudSignup), не ERP. */
+  if(!d.office)delete u.password;else if(pw&&!viaServer)userPasswordSet(u,pw);
   if(!d.station)delete u.pin;else if(pin)userPinSet(u,pin);
   u.rev=(u.rev||0)+1;
   if(isNew)DB.user.push(u);

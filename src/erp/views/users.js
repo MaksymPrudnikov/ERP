@@ -48,7 +48,7 @@ function viewUsers(){
   return prod
    ?`<tr data-user-row="${esc(u.viewProfileId)}"><td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td>${userHasPin(u)?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>${actions}</tr>`
    :`<tr data-user-row="${esc(u.viewProfileId)}"><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td class="user-access-cell">${userAccessHTML(u)}</td>
-   <td>${userHasPassword(u)?'<span class="pill ok">set</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}</td>${srv?userServerHTML(u):''}${actions}</tr>`;
+   <td>${userHasPassword(u)?'<span class="pill ok">set</span>':u.email&&signinServer()?'<span class="pill ok" title="Server login">server</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}</td>${srv?userServerHTML(u):''}${actions}</tr>`;
  }).join('');
  const head=prod
   ?'<th title="Station sign-in: number + PIN">No.</th><th>Name</th><th title="Signed in now on this computer">Now</th><th>PIN</th><th></th>'
@@ -137,6 +137,54 @@ function usersRuleTick(t,side,k,on){
  const set=new Set(String(r[side]||'').split(',').filter(Boolean));if(on)set.add(k);else set.delete(k);
  r[side]=USER_SECTIONS.filter(x=>set.has(x)).join(',');render();
 }
+/* Подключение ПК к серверу маленьким окном — с экрана входа и снизу
+   экрана, без раздела Users (владелец, 24.10.2026: «маленьким окном,
+   туда ввести данные, чтобы подключиться, и тогда всё подтянется»).
+   Адрес и ключ — этого ПК; вход — свой. ПК ещё не связан — сразу Download
+   (вопрос «Replace this browser database?» остаётся). Человек с этой почтой
+   есть — он и вошёл в ERP. */
+let cloudJoin=null;
+function cloudJoinButton(){
+ const c=cloudConfig();let host='';try{host=c.url?new URL(c.url).host.split('.')[0]:'';}catch(e){}
+ return `<button type="button" class="signin-server" data-cloud-join onclick="cloudJoinOpen()">${host?'Server · '+esc(host):'Connect to server'}</button>`;
+}
+function cloudJoinOpen(){cloudJoin={busy:false,error:''};render();setTimeout(()=>{const el=document.getElementById(cloudConfig().url?'cj_email':'cj_url');if(el)el.focus();},0);}
+function cloudJoinClose(){if(cloudJoin&&cloudJoin.busy)return;cloudJoin=null;render();}
+function cloudJoinHTML(){
+ if(!cloudJoin)return '';
+ const c=cloudConfig(),b=cloudJoin.busy?'disabled':'';
+ return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)cloudJoinClose()"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="Server" data-cloud-join-dialog>
+  <div class="sales-service-modal-head"><div><span>This computer</span><h3>Server</h3></div><button type="button" aria-label="Close" onclick="cloudJoinClose()">×</button></div>
+  <form class="sales-dialog-body form" onsubmit="event.preventDefault();cloudJoinGo()">
+   <label>Server</label><input id="cj_url" autocomplete="off" placeholder="https://xxxx.supabase.co" value="${esc(c.url||'')}" ${b}>
+   <label>Publishable key</label><input id="cj_key" autocomplete="off" placeholder="sb_publishable_…" value="${esc(c.key||'')}" ${b}>
+   <label>Email</label><input id="cj_email" autocomplete="username" value="${esc(c.session&&c.session.email||'')}" ${b}>
+   <label>Password</label>${pwInput('id="cj_pass" autocomplete="current-password" '+b)}
+   <div class="signin-err" role="alert" data-cloud-join-error>${esc(cloudJoin.error||'')}</div>
+   <div class="row"><button type="submit" class="pri" data-cloud-join-go ${b}>${cloudJoin.busy?esc(cloudJoin.busy):'Connect'}</button><button type="button" onclick="cloudJoinClose()" ${b}>Cancel</button></div>
+  </form></div></div>`;
+}
+(window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(()=>tab==='station'?'':cloudJoinHTML());
+async function cloudJoinGo(){
+ const v=id=>String((document.getElementById(id)||{}).value||'').trim(),j=cloudJoin;if(!j||j.busy)return false;
+ const url=cloudUrl(v('cj_url')),key=v('cj_key'),email=v('cj_email').toLowerCase(),pass=(document.getElementById('cj_pass')||{}).value||'';
+ const step=t=>{j.busy=t;j.error='';render();};
+ try{
+  if(!url||!key||!email||!pass)throw new Error('Fill in all fields.');
+  step('Connecting…');
+  const c=cloudConfig();if(c.url!==url||c.key!==key){c.url=url;c.key=key;delete c.session;cloudConfigSave(c);}
+  await cloudLogin(email,pass);
+  if(!cloudSync.on){
+   step('Downloading…');
+   const ok=await cloudDownload();
+   if(!ok&&cloudSync.error)throw new Error(cloudSync.error);
+  }
+  const u=(DB.user||[]).find(x=>x.email===email&&userOffice(x));
+  cloudJoin=null;
+  if(u&&signinOn())signinAs(u.viewProfileId);else render();
+  return true;
+ }catch(e){j.busy=false;j.error=/invalid login/i.test(e.message)?'Wrong email or password':e.message;render();return false;}
+}
 function usersCloudConnect(){const v=id=>(document.getElementById(id)||{}).value||'';return cloudConnect(v('cl_url'),v('cl_key'),v('cl_email'),v('cl_pass'));}
 /* Журнал входов — таблица как в Sales: период When, воронки Who / What /
    Where. Своя область usersLog в общем движке (sales-list-ui). */
@@ -213,8 +261,11 @@ function saveUser(){
   d.pending=false;if(uDraft!==d)return r;
   if(!r.ok){userSaveButton(false);const el=document.getElementById('e_user');if(el)fail(el,r.error);return r;}
   uEdit=null;uDraft=null;render();
-  /* Галочки и вход — на сервер (erp/cloud-access); ответ сервера не ждём. */
-  cloudMemberPush(usersFind(r.id),old);return r;
+  /* Галочки и вход — на сервер (erp/cloud-access); ответ сервера не ждём.
+     Новый пароль у человека с почтой — новый вход на сервере. */
+  const u=usersFind(r.id),pw=input.office&&input.password;
+  (u&&u.email&&pw&&cloudAccessOn()?cloudSignup(u.email,pw).then(err=>{if(err)cloudSync.warn='Server: '+u.email+' — '+err;}):Promise.resolve()).then(()=>cloudMemberPush(u,old));
+  return r;
  });
 }
 function userSaveButton(busy){const b=document.querySelector('[data-user-save]');if(b){b.disabled=busy;b.textContent=busy?'Saving…':'Save';}}

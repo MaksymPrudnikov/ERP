@@ -24,12 +24,27 @@ function signinSetTabSid(sid){try{if(sid)sessionStorage.setItem(SIGNIN_TAB_KEY,s
    открыт. Свой пароль, сменённый самим человеком, вход обновляет. */
 function signinUser(){
  const s=signinSession();if(!s||signinChecking||signinTabSid()!==s.sid)return null;
- return (DB.user||[]).find(u=>u.viewProfileId===s.userId&&userOffice(u)&&userHasPassword(u)&&s.key===secretKey(u.password))||null;
+ return (DB.user||[]).find(u=>signinValid(u,s))||null;
+}
+/* Вход сервером (этап 4 «Базы», владелец 24.10.2026: «перенести на первый
+   экран входа подключение к базе»). ПК связан с сервером, и у кого-то с
+   Users есть почта входа (Users → Server login) — офис входит почтой и
+   паролем сервера: один вход на ERP и базу, пароль ERP не нужен. Вход
+   живёт, пока сеанс сервера на этом ПК того же человека. */
+function signinServer(){
+ const c=typeof cloudConfig==='function'?cloudConfig():{};
+ return !!(c.url&&c.key)&&(DB.user||[]).some(u=>u.email&&(u.access||[]).includes(ACCESS_ADMIN));
+}
+function signinKeyOf(u){return signinServer()?'cloud:'+(u.email||''):secretKey(u.password);}
+function signinValid(u,s){
+ if(!u||!s||u.viewProfileId!==s.userId||!userOffice(u))return false;
+ if(signinServer()){const c=cloudConfig().session;return !!u.email&&!!c&&c.email===u.email&&s.key==='cloud:'+u.email;}
+ return userHasPassword(u)&&s.key===secretKey(u.password);
 }
 function signinKeyRefresh(){
  const s=signinSession();if(!s)return;
  const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId);if(!u)return;
- s.key=secretKey(u.password);try{localStorage.setItem(SIGNIN_KEY,JSON.stringify(s));}catch(e){}
+ s.key=signinKeyOf(u);try{localStorage.setItem(SIGNIN_KEY,JSON.stringify(s));}catch(e){}
 }
 /* Смена человека за компьютером (аудит 3 октября 2026): в памяти вкладки
    остаются черновики и окна того, кто работал. Вернулся он же — работа
@@ -57,7 +72,7 @@ function signinFresh(){
    имя. Поэтому вход включается, когда пароль есть хотя бы у одного человека
    с разделом Users; до тех пор входа нет, как в пустой базе: иначе дверь
    закрыта и поставить пароль некому. */
-function signinOn(){return (DB.user||[]).some(u=>u.password&&(u.access||[]).includes(ACCESS_ADMIN));}
+function signinOn(){return signinServer()||(DB.user||[]).some(u=>u.password&&(u.access||[]).includes(ACCESS_ADMIN));}
 function signinNeeded(){
  if(window.GF_NO_SIGNIN||signinChecking||tab==='station')return false;
  return signinOn()&&!signinUser();
@@ -65,7 +80,7 @@ function signinNeeded(){
 function signinAs(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
  const sid='S-'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
- try{localStorage.setItem(SIGNIN_KEY,JSON.stringify({userId:u.viewProfileId,sid,key:secretKey(u.password),at:new Date().toISOString()}));}catch(e){signinError='This browser cannot keep the sign-in.';render();return;}
+ try{localStorage.setItem(SIGNIN_KEY,JSON.stringify({userId:u.viewProfileId,sid,key:signinKeyOf(u),at:new Date().toISOString()}));}catch(e){signinError='This browser cannot keep the sign-in.';render();return;}
  signinSetTabSid(sid);signinPick='';signinError='';authLog('Sign in','Office',u);
  if(signinOwner&&signinOwner!==id)return signinFresh();
  signinOwner=id;render();
@@ -97,10 +112,16 @@ function pwToggle(btn){
  inp.type=show?'text':'password';btn.setAttribute('aria-pressed',String(show));btn.setAttribute('aria-label',show?'Hide':'Show');inp.focus();
 }
 function signinFocus(){setTimeout(()=>{const el=document.getElementById('signinPass');if(el)el.focus();},0);}
+let signinBusy=false;
 function signinSubmit(e){
  if(e)e.preventDefault();
- const u=(DB.user||[]).find(x=>x.viewProfileId===signinPick);if(!u)return;
+ const u=(DB.user||[]).find(x=>x.viewProfileId===signinPick);if(!u||signinBusy)return;
  const pass=(document.getElementById('signinPass')||{}).value||'';
+ if(signinServer()){
+  signinBusy=true;signinError='';render();
+  return cloudLogin(u.email,pass).then(()=>{signinBusy=false;signinAs(u.viewProfileId);},err=>{
+   signinBusy=false;signinError=/invalid login/i.test(err.message)?'Wrong password':err.message;render();signinFocus();});
+ }
  if(userPasswordCheck(u,pass))return signinAs(u.viewProfileId);
  signinError='Wrong password';render();signinFocus();
 }
@@ -125,7 +146,8 @@ function signinTone(name){let h=0;for(const c of String(name||''))h=(h*31+c.char
    показывает только тех, у кого в Users отмечены разделы и стоит пароль; цех
    входит на своей станции номером и PIN. */
 function signinOfficeUsers(){
- return (DB.user||[]).filter(u=>userOffice(u)&&u.password).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+ const srv=signinServer();
+ return (DB.user||[]).filter(u=>userOffice(u)&&(srv?u.email:u.password)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
 }
 /* Office / Production (владелец, 2 октября 2026): «производство не должно
    видеть имена всех, кто в офисе». Production — только станции, имён нет;
@@ -148,13 +170,13 @@ function signinView(){
   const pad=pick?`<form class="signin-pin" onsubmit="signinSubmit(event)" data-signin-form="enter">
    <label for="signinPass">Hi, <span data-raw>${hi}</span> — your password</label>
    ${pwInput('id="signinPass" autocomplete="current-password" aria-label="Password" placeholder="Password"')}
-   <button type="submit" class="pri">Sign in</button>
+   <button type="submit" class="pri" ${signinBusy?'disabled':''}>${signinBusy?'Checking…':'Sign in'}</button>
    <div class="signin-err" role="alert">${esc(signinError)}</div></form>`:'';
   body=`<p class="signin-sub">Who is working?</p>
   <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b></span></button>`).join('')}</div>${pad}`;
  }
  return `<div class="signin"><div class="signin-glass" aria-hidden="true"><i></i><i class="g-bronze"></i><i class="g-blue"></i><i class="g-gray"></i><i class="g-frost"></i><i></i></div><div class="signin-wrap">
-  <div class="signin-card">${signinBrandHTML()}${sw}<h2>${esc(signinGreeting())}</h2>${body}</div></div></div>`;
+  <div class="signin-card">${signinBrandHTML()}${sw}<h2>${esc(signinGreeting())}</h2>${body}${side==='office'?cloudJoinButton():''}</div></div></div>${cloudJoinHTML()}`;
 }
 /* Кто вошёл — внизу левого меню (шапки на экране нет); на планшете — в More. */
 function signinNavHTML(){
@@ -172,7 +194,7 @@ function signinMeHTML(){
  const u=signinUser();if(!signinMe||!u)return '';
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)signinMeClose()"><div class="sales-service-modal sales-dialog signin-me" role="dialog" aria-modal="true" aria-label="Your account" data-signin-me>
   <div class="sales-service-modal-head"><div><span>Signed in</span><h3 data-raw>${esc(u.name)}</h3></div><button type="button" aria-label="Close" onclick="signinMeClose()">×</button></div>
-  <form class="sales-dialog-body signin-me-form" onsubmit="signinMeSave(event)">
+  <form class="sales-dialog-body signin-me-form" onsubmit="signinMeSave(event)">${signinServer()?'<div class="hint">Server password</div>':''}
    <label>Change password</label>
    ${pwInput('id="meOld" autocomplete="current-password" placeholder="Current password"')}
    ${pwInput(`id="meNew" autocomplete="new-password" placeholder="New · ${USER_PASSWORD_MIN}+ characters"`)}
@@ -187,6 +209,10 @@ function signinMeSave(e){
  const v=id=>(document.getElementById(id)||{}).value||'',old=v('meOld'),next=v('meNew');
  const fail=m=>{signinMe.error=m;render();};
  if(next!==v('meNew2'))return fail(next.length<USER_PASSWORD_MIN?'At least '+USER_PASSWORD_MIN+' characters':'Passwords differ');
+ if(signinServer()){
+  if(next.length<USER_PASSWORD_MIN)return fail('At least '+USER_PASSWORD_MIN+' characters');
+  return cloudPasswordChange(signinUser().email,old,next).then(()=>{signinMe=null;render();return {ok:true};},err=>{fail(/invalid login/i.test(err.message)?'Wrong password':err.message);return {ok:false};});
+ }
  return usersChangeOwnPassword(old,next,accessActor()).then(r=>{if(r.ok){signinMe=null;render();}else fail(r.error);return r;});
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(signinMeHTML);
@@ -248,7 +274,7 @@ function authLogFlush(){
 /* Кто сейчас в системе на этом компьютере: вход в офис и входы станций. */
 function authOnline(u){
  const where=[];if(!u)return where;
- const s=signinSession();if(s&&s.userId===u.viewProfileId&&userOffice(u)&&userHasPassword(u)&&s.key===secretKey(u.password))where.push('Office');
+ const s=signinSession();if(signinValid(u,s))where.push('Office');
  if(typeof stationSessions==='function')Object.entries(stationSessions()).forEach(([code,x])=>{if(x&&x.userId===u.viewProfileId&&userHasPin(u)&&x.key===secretKey(u.pin))where.push(code);});
  return where;
 }
