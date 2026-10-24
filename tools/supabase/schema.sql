@@ -75,13 +75,16 @@ alter table public.erp_member add column if not exists sections text[] not null 
 -- (financeEvent) — смена клиента заказа: офис без Finance их пишет, а
 -- условия и читает (ключ — заказ: не видя их, офис спорил бы с сервером).
 -- Без этого Save заказа офисом без Finance отказывал целиком (24.10.2026).
+-- Раздел правила — один или несколько через запятую («finance,sales»).
+-- Оплаты и возвраты Sales читает, но не пишет (владелец, 24.10.2026: при
+-- выдаче продавец должен видеть, что оплачено 20 или 50 %).
 create table if not exists public.erp_table_rule (
   tbl text primary key,
   read_section text,
   write_section text
 );
 insert into public.erp_table_rule (tbl, read_section, write_section) values
-  ('receipt','finance','finance'), ('refund','finance','finance'), ('financeEvent','finance',null),
+  ('receipt','finance,sales','finance'), ('refund','finance,sales','finance'), ('financeEvent','finance',null),
   ('financeExport','finance','finance'), ('financeExportBatch','finance','finance'),
   ('referrer','commissions','commissions'), ('referrerPayout','commissions','commissions'),
   ('supplier','purchasing','purchasing'), ('purchasingEvent','purchasing','purchasing'), ('purchaseOrder','purchasing','purchasing'),
@@ -113,7 +116,7 @@ end $$;
 -- Может ли человек раздел: администратор — всё; пустой раздел — все.
 create or replace function public.erp_can(m public.erp_member, section text) returns boolean
 language sql stable set search_path = public, pg_temp as $$
-  select section is null or m.admin or section = any(m.sections)
+  select section is null or m.admin or string_to_array(section, ',') && m.sections
 $$;
 create or replace function public.erp_can_read(m public.erp_member, t text) returns boolean
 language sql stable set search_path = public, pg_temp as $$
