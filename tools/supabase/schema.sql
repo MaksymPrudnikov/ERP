@@ -71,20 +71,25 @@ alter table public.erp_member add column if not exists sections text[] not null 
 -- Деньги — Finance, комиссии — Commissions, закупки — Purchasing, люди —
 -- Users (журнал входов пишут все, читает Users). Остальное общее: заказ
 -- читают и меняют и офис, и станции. Цены внутри заказа — следующий шаг.
+-- Условия оплаты заказа (financeTerms) пишет Save заказа, журнал денег
+-- (financeEvent) — смена клиента заказа: офис без Finance их пишет, а
+-- условия и читает (ключ — заказ: не видя их, офис спорил бы с сервером).
+-- Без этого Save заказа офисом без Finance отказывал целиком (24.10.2026).
 create table if not exists public.erp_table_rule (
   tbl text primary key,
   read_section text,
   write_section text
 );
 insert into public.erp_table_rule (tbl, read_section, write_section) values
-  ('receipt','finance','finance'), ('refund','finance','finance'), ('financeEvent','finance','finance'),
-  ('financeTerms','finance','finance'), ('financeExport','finance','finance'), ('financeExportBatch','finance','finance'),
+  ('receipt','finance','finance'), ('refund','finance','finance'), ('financeEvent','finance',null),
+  ('financeExport','finance','finance'), ('financeExportBatch','finance','finance'),
   ('referrer','commissions','commissions'), ('referrerPayout','commissions','commissions'),
   ('supplier','purchasing','purchasing'), ('purchasingEvent','purchasing','purchasing'), ('purchaseOrder','purchasing','purchasing'),
   ('purchaseReceipt','purchasing','purchasing'), ('purchaseDeliveryRequest','purchasing','purchasing'),
   ('purchaseInvoice','purchasing','purchasing'), ('purchasePayment','purchasing','purchasing'),
   ('user',null,'users'), ('authEvent','users',null)
 on conflict (tbl) do update set read_section = excluded.read_section, write_section = excluded.write_section;
+delete from public.erp_table_rule where tbl = 'financeTerms';
 
 alter table public.erp_record enable row level security;
 alter table public.erp_log enable row level security;

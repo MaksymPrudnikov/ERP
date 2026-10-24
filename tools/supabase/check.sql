@@ -94,6 +94,11 @@ begin
   assert not (r->>'ok')::boolean and r->'denied' = '["receipt"]', 'оплата без Finance: ' || r;
   assert public.erp_apply('off-1', 'b1', 'pc2', '[]', '[]') = r, 'повтор отказа — другой ответ';
   assert not exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' in ('receipt') or x->>'id' = 'SO-9'), 'отказ записал заказ или видна оплата';
+  -- Save заказа пишет условия оплаты и журнал денег — офис без Finance тоже.
+  r := public.erp_apply('off-1b', 'b1', 'pc2', '[]', '[{"tbl":"salesOrder","id":"SO-8","data":{"id":"SO-8"}},{"tbl":"financeTerms","id":"SO-8","data":{"orderId":"SO-8"}},{"tbl":"financeEvent","id":"FE-1","data":{"id":"FE-1"}}]');
+  assert (r->>'ok')::boolean, 'Save заказа офисом без Finance: ' || r;
+  assert exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' = 'financeTerms')
+     and not exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' = 'financeEvent'), 'условия видны, журнал денег — нет';
   r := public.erp_apply('off-2', 'b1', 'pc2', '[]', '[{"tbl":"authEvent","id":"A-1","data":{"id":"A-1"}}]');
   assert (r->>'ok')::boolean, 'журнал входов не пишется: ' || r;
   assert not exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' = 'authEvent'), 'журнал входов виден без Users';

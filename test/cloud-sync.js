@@ -102,6 +102,7 @@ module.exports=async function({page,eq}){
  eq('без раздела Finance оплата не пишется: строки нет ни на сервере, ни у B; предупреждение',
   {server:srv.rec.has('receipt|RCPT-CLOUD'),b:await B.p.evaluate(()=>DB.receipt.some(r=>r.id==='RCPT-CLOUD')),warn:await B.p.evaluate(()=>cloudSync.warn)},
   {server:false,b:false,warn:'No access on server: receipt. Server copy shown.'});
+ eq('отказ сервера виден и внизу экрана',await B.p.evaluate(()=>{render();const f=document.querySelector('[data-cloud-warn-foot]');return f&&f.textContent;}),'No access on server: receipt. Server copy shown.');
 
  /* Номера (владелец, 23.10.2026: на двух ПК открыли заказ — номер один). */
  const order=t=>t.p.evaluate(()=>{const o=newSalesOrderDraft('order');o.customerId='C-CLOUD';o.businessNumber=nextSalesOrderNumber();
@@ -132,6 +133,13 @@ module.exports=async function({page,eq}){
  eq('после F5 — дальше по своему блоку, номер не повторяется',await (async()=>{await A.p.reload();await A.p.evaluate(()=>window.storageReady);
   const g=await ids(A);return {glass:num(g[0])>1002&&num(g[1])===num(g[0])+1&&num(g[1])<=2000,scan:g[2]};})(),{glass:true,scan:'SC-0001002'});
  eq('ни один ПК не отправил назад чужую строку без правки',idle,[]);
+ /* Офис без Finance сохраняет заказ обычным Save: заодно пишутся условия
+    оплаты (financeTerms) — сервер не отказывает (24.10.2026: отказывал,
+    заказ оставался черновиком с номером первого ПК). */
+ await require('./optimization-fixture')(B.p);await B.p.evaluate(()=>{cloudSync.warn='';});
+ const saved=await B.p.evaluate(()=>{const c=DB.customer.find(x=>x.id==='C-CLOUD');oqOrder(c);return soEdit;});await sync(B);
+ eq('офис без Finance: Save заказа уходит на сервер вместе с условиями оплаты',
+  {server:!!srv.rec.get('salesOrder|'+saved),terms:!!srv.rec.get('financeTerms|'+saved),warn:await B.p.evaluate(()=>cloudSync.warn)},{server:true,terms:true,warn:''});
  /* Архив на сервере (24.10.2026): уход на одном ПК — у другого заказ тоже
     в архиве и открывается с диска; возврат — снова в работе у обоих. */
  await A.p.evaluate(id=>storageCommand(()=>{const o=DB.salesOrder.find(x=>x.id===id);o.status='cancelled';o.statusDates=Object.assign({},o.statusDates,{cancelled:'2026-01-10T12:00:00.000Z'});}),oa.id);
