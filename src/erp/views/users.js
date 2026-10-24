@@ -38,6 +38,8 @@ function userNowHTML(u){
 }
 function viewUsers(){
  const side=usersSide(),prod=side==='production',log=side==='log',cloud=side==='cloud';
+ if(cloudAccessOn()&&!cloudAccess.asked)setTimeout(cloudAccessLoad,0);
+ const srv=!prod&&Array.isArray(cloudAccess.members);
  const list=log||cloud?[]:DB.user.map((u,i)=>({u,i})).filter(x=>usersOn(x.u,side));
  const count=k=>k==='cloud'?'':k==='log'?(DB.authEvent||[]).length:DB.user.filter(u=>usersOn(u,k)).length;
  const rows=list.map(({u,i})=>{
@@ -46,11 +48,11 @@ function viewUsers(){
   return prod
    ?`<tr data-user-row="${esc(u.viewProfileId)}"><td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td>${userHasPin(u)?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>${actions}</tr>`
    :`<tr data-user-row="${esc(u.viewProfileId)}"><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td class="user-access-cell">${userAccessHTML(u)}</td>
-   <td>${userHasPassword(u)?'<span class="pill ok">set</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}</td>${actions}</tr>`;
+   <td>${userHasPassword(u)?'<span class="pill ok">set</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}</td>${srv?userServerHTML(u):''}${actions}</tr>`;
  }).join('');
  const head=prod
   ?'<th title="Station sign-in: number + PIN">No.</th><th>Name</th><th title="Signed in now on this computer">Now</th><th>PIN</th><th></th>'
-  :'<th>Name</th><th title="Signed in now on this computer">Now</th><th>Sections</th><th>Password</th><th></th>';
+  :'<th>Name</th><th title="Signed in now on this computer">Now</th><th>Sections</th><th>Password</th>'+(srv?'<th title="Login on server">Server</th>':'')+'<th></th>';
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
  const tabs=`<div class="tabs">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button class="${side===k?'on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;render()">${l} <span class="mut">${count(k)}</span></button>`).join('')}</div>`;
@@ -59,8 +61,15 @@ function viewUsers(){
   ${cloud?`<div class="card">${tabs}${usersCloudHTML()}</div>`:log?`<div class="card sales-list-card users-log-card"><div class="users-log-tabs">${tabs}</div>${authLogTable()}</div>`:`<div class="card">${tabs}
   ${uEdit!==null?userForm():''}
   <table><thead><tr>${head}</tr></thead>
-  <tbody>${rows||`<tr><td colspan="5" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody></table>
+  <tbody>${rows||`<tr><td colspan="${srv?6:5}" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody></table>
   </div>`}`;
+}
+/* Вход человека на сервер и совпадает ли он с галочками здесь
+   (erp/cloud-access). */
+function userServerHTML(u){
+ const st=cloudMemberState(u);
+ const pill=st==='ok'?'<span class="pill ok">same</span>':st==='missing'?'<span class="pill warn" title="Save again">not on server</span>':st==='differs'?'<span class="pill warn" title="Save again">differs</span>':'';
+ return `<td data-user-server="${st||'none'}">${u.email?`<span class="mono small">${esc(u.email)}</span> ${pill}`:'<span class="mut">—</span>'}</td>`;
 }
 /* Cloud — сервер (erp/cloud.js). Адрес и ключ — этого устройства; пароль
    не сохраняется. Ниже — синхронизация (erp/cloud-sync.js). */
@@ -82,7 +91,7 @@ function usersCloudHTML(){
   <div class="row">${status}
    <button class="pri" data-cloud-connect ${st.busy?'disabled':''} onclick="usersCloudConnect()">Connect</button>
    ${s?`<button data-cloud-check onclick="cloudCheck()">Check</button><button data-cloud-out onclick="cloudSignOut()">Sign out</button>`:''}</div>
-  ${s?usersCloudSyncHTML():''}</div>`;
+  ${s?usersCloudSyncHTML():''}${s&&Array.isArray(cloudAccess.members)?usersCloudAccessHTML():''}</div>`;
 }
 function usersCloudSyncHTML(){
  const y=cloudSync,text=cloudSyncText(),busy=!!y.busy;
@@ -92,6 +101,41 @@ function usersCloudSyncHTML(){
  return `<h3>Sync</h3>${warn}${err}<div class="row">${pill}
   ${y.on?`<button data-cloud-stop ${busy?'disabled':''} onclick="cloudSyncStop()">Stop sync</button>`
    :`<button class="pri" data-cloud-upload ${busy?'disabled':''} onclick="cloudUpload()">Upload this database</button><button data-cloud-download ${busy?'disabled':''} onclick="cloudDownload()">Download from server</button>`}</div>`;
+}
+/* Access — правила таблиц на сервере (erp_table_rule): кто читает и кто
+   пишет. Нет раздела — все. Видит и меняет администратор сервера. */
+function usersRuleText(v){
+ const a=String(v||'').split(',').filter(Boolean);
+ return a.length?a.map(k=>`<span class="pill">${esc(userSectionNav(k).label)}</span>`).join(' '):'<span class="mut">Everyone</span>';
+}
+function usersCloudAccessHTML(){
+ const a=cloudAccess,d=a.draft,list=d||a.rules||[],busy=a.busy;
+ const ticks=(r,side)=>{const on=String(r[side]||'').split(',');
+  return `<div class="user-secs" data-rule-side="${side}">${USER_SECTIONS.map(k=>`<label class="user-sec${on.includes(k)?' on':''}" data-rule-sec="${k}"><input type="checkbox" ${on.includes(k)?'checked':''} onchange="usersRuleTick('${esc(r.tbl)}','${side}','${k}',this.checked)">${esc(userSectionNav(k).label)}</label>`).join('')}</div>`;};
+ const rows=list.map(r=>{
+  const open=d&&a.open===r.tbl;
+  return `<tr data-rule-row="${esc(r.tbl)}"><td class="mono">${esc(r.tbl)}</td><td>${usersRuleText(r.read)}</td><td>${usersRuleText(r.write)}</td>
+   <td style="white-space:nowrap"><button class="sm" data-rule-open ${busy?'disabled':''} onclick="usersRuleOpen('${esc(r.tbl)}')">${open?'Done':'Edit'}</button><button class="sm dl" data-rule-drop title="Remove rule" ${busy?'disabled':''} onclick="usersRuleDrop('${esc(r.tbl)}')">×</button></td></tr>`
+   +(open?`<tr data-rule-edit><td></td><td>${ticks(r,'read')}</td><td>${ticks(r,'write')}</td><td></td></tr>`:'');
+ }).join('');
+ const used=new Set(list.map(r=>r.tbl)),free=Object.keys(DB).filter(t=>Array.isArray(DB[t])&&/^[A-Za-z]/.test(t)&&!used.has(t)).sort();
+ const add=`<select id="cl_rule_tbl" ${busy?'disabled':''}>${free.map(t=>`<option>${esc(t)}</option>`).join('')}</select><button class="sm" data-rule-add ${busy?'disabled':''} onclick="usersRuleAdd()">Add rule</button>`;
+ return `<h3>Access</h3><div class="hint">No rule — everyone.</div>
+  ${a.error?`<div class="hint warn" data-cloud-access-error>${esc(a.error)}</div>`:''}
+  <table data-cloud-rules><thead><tr><th>Table</th><th>Read</th><th>Write</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">No rules</td></tr>'}</tbody></table>
+  <div class="row">${add}${d?`<button class="pri" data-rule-save ${busy?'disabled':''} onclick="cloudRulesSave(cloudAccess.draft)">Save access</button><button ${busy?'disabled':''} onclick="cloudAccess.draft=null;cloudAccess.open='';render()">Cancel</button>`:`<button class="sm" ${busy?'disabled':''} onclick="cloudAccessLoad()">Refresh</button>`}</div>`;
+}
+function usersRuleDraft(){if(!cloudAccess.draft)cloudAccess.draft=(cloudAccess.rules||[]).map(r=>({tbl:r.tbl,read:r.read||'',write:r.write||''}));return cloudAccess.draft;}
+function usersRuleOpen(t){usersRuleDraft();cloudAccess.open=cloudAccess.open===t?'':t;render();}
+function usersRuleDrop(t){const d=usersRuleDraft(),i=d.findIndex(r=>r.tbl===t);if(i>=0)d.splice(i,1);render();}
+function usersRuleAdd(){
+ const t=(document.getElementById('cl_rule_tbl')||{}).value;if(!t)return;
+ usersRuleDraft().push({tbl:t,read:'',write:''});cloudAccess.open=t;render();
+}
+function usersRuleTick(t,side,k,on){
+ const r=usersRuleDraft().find(x=>x.tbl===t);if(!r)return;
+ const set=new Set(String(r[side]||'').split(',').filter(Boolean));if(on)set.add(k);else set.delete(k);
+ r[side]=USER_SECTIONS.filter(x=>set.has(x)).join(',');render();
 }
 function usersCloudConnect(){const v=id=>(document.getElementById(id)||{}).value||'';return cloudConnect(v('cl_url'),v('cl_key'),v('cl_email'),v('cl_pass'));}
 /* Журнал входов — таблица как в Sales: период When, воронки Who / What /
@@ -121,7 +165,7 @@ function userEditOpen(i){
  const u=i==='new'?null:DB.user[i];if(i!=='new'&&!u)return;
  uDraft={id:u?u.viewProfileId:'',rev:u?u.rev:0,name:u?u.name:'',no:u&&u.no?userNoText(u):'',access:u?u.access.slice():[],
   onOffice:u?userOffice(u):usersSide()==='office',onStation:u?userHasPin(u):usersSide()==='production',
-  hasPassword:userHasPassword(u),hasPin:userHasPin(u),newPassword:'',newPin:''};
+  hasPassword:userHasPassword(u),hasPin:userHasPin(u),newPassword:'',newPin:'',email:u&&u.email||''};
  uEdit=u?u.viewProfileId:'new';render();
  setTimeout(()=>{const el=document.getElementById('u_name');if(el&&!u)el.focus();},0);
 }
@@ -130,7 +174,8 @@ function userForm(){
  const sections=USER_SECTIONS.map(k=>{const n=userSectionNav(k),on=r.access.includes(k);
   return `<label class="user-sec${on?' on':''}" data-user-sec="${k}"><input type="checkbox" ${on?'checked':''} onchange="userToggleSection('${k}',this.checked)">${ico(n.icon,'icon-inline')}${esc(n.label)}</label>`;}).join('');
  const office=r.onOffice?`<div class="user-block-body">
-   <div class="grid"><div><label>Password</label>${pwInput(`id="u_password" autocomplete="new-password" placeholder="${r.hasPassword?'set · type to change':USER_PASSWORD_MIN+'+ characters'}" value="${esc(r.newPassword||'')}" oninput="uDraft.newPassword=this.value"`)}</div></div>
+   <div class="grid"><div><label>Password</label>${pwInput(`id="u_password" autocomplete="new-password" placeholder="${r.hasPassword?'set · type to change':USER_PASSWORD_MIN+'+ characters'}" value="${esc(r.newPassword||'')}" oninput="uDraft.newPassword=this.value"`)}</div>
+    <div><label>Server login</label><input id="u_email" autocomplete="off" placeholder="email" value="${esc(r.email||'')}" oninput="uDraft.email=this.value"></div></div>
    <div class="user-sec-head"><label>Sections</label><button type="button" class="sm" onclick="userSetSections(true)">All</button><button type="button" class="sm" onclick="userSetSections(false)">None</button></div>
    <div class="user-secs">${sections}</div></div>`:'';
  const station=r.onStation?`<div class="user-block-body"><div class="grid">
@@ -161,12 +206,15 @@ function userSetSections(all){uDraft.access=all?USER_SECTIONS.slice():[];render(
 function saveUser(){
  const d=uDraft;if(!d||d.pending)return Promise.resolve(null);
  const e=document.getElementById('e_user');if(e)e.style.display='none';
- const input={id:d.id,rev:d.rev,name:d.name,no:d.no,office:d.onOffice,access:d.access,password:d.newPassword,station:d.onStation,pin:d.newPin};
+ const input={id:d.id,rev:d.rev,name:d.name,no:d.no,office:d.onOffice,access:d.access,password:d.newPassword,station:d.onStation,pin:d.newPin,email:d.email};
+ const before=d.id?usersFind(d.id):null,old=before&&before.email||'';
  d.pending=true;userSaveButton(true);
  return usersSave(input,accessActor()).then(r=>{
   d.pending=false;if(uDraft!==d)return r;
   if(!r.ok){userSaveButton(false);const el=document.getElementById('e_user');if(el)fail(el,r.error);return r;}
-  uEdit=null;uDraft=null;render();return r;
+  uEdit=null;uDraft=null;render();
+  /* Галочки и вход — на сервер (erp/cloud-access); ответ сервера не ждём. */
+  cloudMemberPush(usersFind(r.id),old);return r;
  });
 }
 function userSaveButton(busy){const b=document.querySelector('[data-user-save]');if(b){b.disabled=busy;b.textContent=busy?'Saving…':'Save';}}
@@ -175,5 +223,7 @@ function delUser(i,side){
  const rev=u.rev,err=usersDropError(u.viewProfileId,side,rev);if(err){alert(err);return Promise.resolve(usersFail(err));}
  const prod=side==='production',other=prod?userOffice(u):userHasPin(u),name=u.name||'this user';
  if(!confirm(other?(prod?'Remove station sign-in for ':'Remove office sign-in for ')+name+'?':'Delete '+name+'?'))return Promise.resolve(null);
- return usersDrop(u.viewProfileId,side,rev,accessActor()).then(r=>{if(!r.ok)alert(r.error);render();return r;});
+ const email=u.email;
+ return usersDrop(u.viewProfileId,side,rev,accessActor()).then(r=>{if(!r.ok)alert(r.error);render();
+  if(r.ok&&!prod&&email)cloudMemberPush({email,name,access:[]});return r;});
 }

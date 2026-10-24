@@ -46,8 +46,9 @@ function usersDoorError(after){
 function usersShape(u,over){return Object.assign({access:u.access||[],hasPassword:userHasPassword(u)},over||{});}
 
 /* Создать (id пуст) или изменить человека. input: {id, rev, name, no,
-   office, access[], password, station, pin}; password и pin — только новые
-   значения, пусто — оставить заданный. */
+   office, access[], password, station, pin, email}; password и pin —
+   только новые значения, пусто — оставить заданный; email — вход на сервер
+   (erp/cloud-access), пусто — нет. */
 function usersSave(input,actor){return usersRun(actor,()=>usersSaveNow(input));}
 function usersSaveNow(input){
  if(!accessCan(ACCESS_ADMIN))return usersFail('Users access needed');
@@ -66,6 +67,10 @@ function usersSaveNow(input){
  if(no&&+no<1)return usersFail('No.: from 1');
  const taken=no?(DB.user||[]).find(u=>u!==cur&&u.no===+no):null;
  if(taken)return usersFail('No. '+userNoText(taken)+' belongs to '+taken.name);
+ const email=String(d.email||'').trim().toLowerCase();
+ if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return usersFail('Server login: enter an email');
+ const twin=email?(DB.user||[]).find(u=>u!==cur&&u.email===email):null;
+ if(twin)return usersFail('Server login belongs to '+twin.name);
  const mine=usersShape({},{access,hasPassword:d.office&&(!!pw||userHasPassword(cur))});
  const door=usersDoorError((DB.user||[]).map(u=>u===cur?mine:usersShape(u)).concat(isNew?[mine]:[]));
  if(door)return usersFail(door);
@@ -73,6 +78,7 @@ function usersSaveNow(input){
  const out=storageCommand(()=>{
   const u=isNew?{}:usersFind(d.id);
   u.name=name;u.access=access;u.no=no?+no:0;
+  if(email)u.email=email;else delete u.email;
   if(!d.office)delete u.password;else if(pw)userPasswordSet(u,pw);
   if(!d.station)delete u.pin;else if(pin)userPinSet(u,pin);
   u.rev=(u.rev||0)+1;

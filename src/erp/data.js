@@ -50,6 +50,8 @@ function normalizeUsers(){
   if(!/^view-[A-Za-z0-9-]+$/.test(u.viewProfileId||'')||profileIds.has(u.viewProfileId))u.viewProfileId='view-'+crypto.randomUUID();
   profileIds.add(u.viewProfileId);
   u.name=String(u.name==null?'':u.name);
+  /* Вход на сервер (erp/cloud-access): почта, строчными. */
+  if(u.email!=null){u.email=String(u.email).trim().toLowerCase();if(!u.email)delete u.email;}
   const access=Array.isArray(u.access)?u.access:LEGACY_OFFICE_ROLES.includes(u.role)?USER_SECTIONS:[];
   u.access=USER_SECTIONS.filter(k=>access.includes(k));
   delete u.role;delete u.skills;delete u.station;delete u.workPosition;
