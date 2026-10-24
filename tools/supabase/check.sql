@@ -66,9 +66,10 @@ begin
   assert public.erp_take('glass', 100) = 1 and public.erp_take('glass', 100) = 101, 'блоки номеров';
   assert public.erp_take('scan', 10, 500) = 500 and public.erp_take('scan', 10, 3) = 510, 'блок — после уже выданных';
   -- Архив по запросу.
-  perform public.erp_apply('cmd-5', 'b1', 'pc1', '[]', '[{"tbl":"stationScan","id":"S-1","data":{"id":"S-1"},"cold":true,"month":"2025-01"}]');
+  perform public.erp_apply('cmd-5', 'b1', 'pc1', '[]', '[{"tbl":"stationScan","id":"S-1","seq":4,"data":{"id":"S-1"},"cold":true,"month":"2025-01","owners":["SO-9"]}]');
   assert (public.erp_changes(0)->'rows'->-1->'data') = 'null', 'архив пришёл с данными в горячем';
   assert public.erp_cold('[{"tbl":"stationScan","id":"S-1"}]')->0->'data'->>'id' = 'S-1', 'архив по ключу';
+  assert public.erp_cold('[{"tbl":"stationScan","id":"S-1"}]')->0 @> '{"seq":4,"month":"2025-01","owners":["SO-9"]}', 'архив: seq, месяц, заказы';
   assert pg_temp.fails('select public.erp_take(''glass'', 0)', 'Block size%'), 'пустой блок';
 end $$;
 
@@ -92,7 +93,13 @@ begin
   r := public.erp_apply('off-1', 'b1', 'pc2', '[]', '[{"tbl":"salesOrder","id":"SO-9","data":{"id":"SO-9"}},{"tbl":"receipt","id":"R-2","data":{"id":"R-2"}}]');
   assert not (r->>'ok')::boolean and r->'denied' = '["receipt"]', 'оплата без Finance: ' || r;
   assert public.erp_apply('off-1', 'b1', 'pc2', '[]', '[]') = r, 'повтор отказа — другой ответ';
-  assert not exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' in ('receipt') or x->>'id' = 'SO-9'), 'отказ записал заказ или видна оплата';
+  assert not exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'id' = 'SO-9'), 'отказ записал заказ';
+  assert exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'id' = 'R-1'), 'Sales не видит оплату';
+  -- Save заказа пишет условия оплаты и журнал денег — офис без Finance тоже.
+  r := public.erp_apply('off-1b', 'b1', 'pc2', '[]', '[{"tbl":"salesOrder","id":"SO-8","data":{"id":"SO-8"}},{"tbl":"financeTerms","id":"SO-8","data":{"orderId":"SO-8"}},{"tbl":"financeEvent","id":"FE-1","data":{"id":"FE-1"}}]');
+  assert (r->>'ok')::boolean, 'Save заказа офисом без Finance: ' || r;
+  assert exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' = 'financeTerms')
+     and not exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' = 'financeEvent'), 'условия видны, журнал денег — нет';
   r := public.erp_apply('off-2', 'b1', 'pc2', '[]', '[{"tbl":"authEvent","id":"A-1","data":{"id":"A-1"}}]');
   assert (r->>'ok')::boolean, 'журнал входов не пишется: ' || r;
   assert not exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' = 'authEvent'), 'журнал входов виден без Users';
@@ -130,11 +137,11 @@ begin
 end $$;
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
-select public.erp_member_set('office@glass-erp.test', 'Office', false, true, '{sales}');
+select public.erp_member_set('office@glass-erp.test', 'Office', false, true, '{production}');
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
 do $$ begin
-  assert public.erp_get('[{"tbl":"receipt","id":"R-1"}]') = '[]', 'erp_get отдаёт оплату без Finance';
+  assert public.erp_get('[{"tbl":"receipt","id":"R-1"}]') = '[]', 'erp_get отдаёт оплату без Finance и Sales';
 end $$;
 
 -- Отключённый человек больше ничего не может.

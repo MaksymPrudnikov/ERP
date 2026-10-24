@@ -26,6 +26,8 @@ create index if not exists erp_record_cold on public.erp_record (cold, tbl);
 -- (bigint отказывал всей команде, 23.10.2026).
 alter table public.erp_record add column if not exists seq double precision not null default 0;
 alter table public.erp_record alter column seq type double precision;
+-- Архив: заказы, к которым относится строка (склад cold ERP ищет по ним).
+alter table public.erp_record add column if not exists owners jsonb not null default '[]'::jsonb;
 
 -- Курсор изменений: каждая запись строки — новая строка журнала по порядку.
 create table if not exists public.erp_log (
@@ -69,20 +71,28 @@ alter table public.erp_member add column if not exists sections text[] not null 
 -- Деньги — Finance, комиссии — Commissions, закупки — Purchasing, люди —
 -- Users (журнал входов пишут все, читает Users). Остальное общее: заказ
 -- читают и меняют и офис, и станции. Цены внутри заказа — следующий шаг.
+-- Условия оплаты заказа (financeTerms) пишет Save заказа, журнал денег
+-- (financeEvent) — смена клиента заказа: офис без Finance их пишет, а
+-- условия и читает (ключ — заказ: не видя их, офис спорил бы с сервером).
+-- Без этого Save заказа офисом без Finance отказывал целиком (24.10.2026).
+-- Раздел правила — один или несколько через запятую («finance,sales»).
+-- Оплаты и возвраты Sales читает, но не пишет (владелец, 24.10.2026: при
+-- выдаче продавец должен видеть, что оплачено 20 или 50 %).
 create table if not exists public.erp_table_rule (
   tbl text primary key,
   read_section text,
   write_section text
 );
 insert into public.erp_table_rule (tbl, read_section, write_section) values
-  ('receipt','finance','finance'), ('refund','finance','finance'), ('financeEvent','finance','finance'),
-  ('financeTerms','finance','finance'), ('financeExport','finance','finance'), ('financeExportBatch','finance','finance'),
+  ('receipt','finance,sales','finance'), ('refund','finance,sales','finance'), ('financeEvent','finance',null),
+  ('financeExport','finance','finance'), ('financeExportBatch','finance','finance'),
   ('referrer','commissions','commissions'), ('referrerPayout','commissions','commissions'),
   ('supplier','purchasing','purchasing'), ('purchasingEvent','purchasing','purchasing'), ('purchaseOrder','purchasing','purchasing'),
   ('purchaseReceipt','purchasing','purchasing'), ('purchaseDeliveryRequest','purchasing','purchasing'),
   ('purchaseInvoice','purchasing','purchasing'), ('purchasePayment','purchasing','purchasing'),
   ('user',null,'users'), ('authEvent','users',null)
 on conflict (tbl) do update set read_section = excluded.read_section, write_section = excluded.write_section;
+delete from public.erp_table_rule where tbl = 'financeTerms';
 
 alter table public.erp_record enable row level security;
 alter table public.erp_log enable row level security;
@@ -106,7 +116,7 @@ end $$;
 -- Может ли человек раздел: администратор — всё; пустой раздел — все.
 create or replace function public.erp_can(m public.erp_member, section text) returns boolean
 language sql stable set search_path = public, pg_temp as $$
-  select section is null or m.admin or section = any(m.sections)
+  select section is null or m.admin or string_to_array(section, ',') && m.sections
 $$;
 create or replace function public.erp_can_read(m public.erp_member, t text) returns boolean
 language sql stable set search_path = public, pg_temp as $$
@@ -120,7 +130,7 @@ $$;
 -- Запись: change-set целиком или ничего.
 --   expect  — [{tbl,id,ver}]: ver строки сейчас; 0 — строки ещё нет.
 --             Не совпал хоть один — конфликт, ничего не записано.
---   changes — [{tbl,id,data,cold?,month?,number?}]; data null — удалить.
+--   changes — [{tbl,id,data,cold?,month?,owners?,number?}]; data null — удалить.
 --             number {name, value, prefix, pad} — новая строка с номером
 --             документа (заказ, счёт, PS): value — номер, который дал
 --             компьютер (prefix + цифры). Сервер ставит следующий номер
@@ -199,9 +209,10 @@ begin
         d := case when jsonb_typeof(d) = 'string' then to_jsonb(txt) else txt::jsonb end;
       end if;
       insert into public.erp_log (tbl, id) values (c->>'tbl', c->>'id') returning rev into r;
-      insert into public.erp_record as x (tbl, id, data, cold, month, ver, seq, deleted, updated_at, updated_by)
-        values (c->>'tbl', c->>'id', d, coalesce((c->>'cold')::boolean, false), coalesce(c->>'month', ''), r, coalesce((c->>'seq')::float8, 0), d is null, now(), me.user_id)
-        on conflict (tbl, id) do update set data = excluded.data, cold = excluded.cold, month = excluded.month, seq = excluded.seq,
+      insert into public.erp_record as x (tbl, id, data, cold, month, owners, ver, seq, deleted, updated_at, updated_by)
+        values (c->>'tbl', c->>'id', d, coalesce((c->>'cold')::boolean, false), coalesce(c->>'month', ''),
+          case when jsonb_typeof(c->'owners') = 'array' then c->'owners' else '[]'::jsonb end, r, coalesce((c->>'seq')::float8, 0), d is null, now(), me.user_id)
+        on conflict (tbl, id) do update set data = excluded.data, cold = excluded.cold, month = excluded.month, owners = excluded.owners, seq = excluded.seq,
           ver = excluded.ver, deleted = excluded.deleted, updated_at = excluded.updated_at, updated_by = excluded.updated_by;
       vers := vers || jsonb_build_object((c->>'tbl') || '|' || (c->>'id'), r);
     end loop;
@@ -250,12 +261,13 @@ begin
   return jsonb_build_object('rows', rows, 'last', coalesce(last, since, 0));
 end $$;
 
--- Архивные строки по ключам (этап 3 просит их по запросу).
+-- Архивные строки по ключам: опрос и Download приносят их без данных, данные
+-- — отсюда, пачками.
 create or replace function public.erp_cold(keys jsonb)
 returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare me public.erp_member := public.erp_me();
 begin
-  return coalesce((select jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'month', r.month, 'data', r.data))
+  return coalesce((select jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'seq', r.seq, 'month', r.month, 'owners', r.owners, 'data', r.data))
     from jsonb_array_elements(coalesce(keys, '[]')) k
     join public.erp_record r on r.tbl = k->>'tbl' and r.id = k->>'id' and r.cold and not r.deleted
     where public.erp_can_read(me, r.tbl)), '[]'::jsonb);

@@ -300,7 +300,7 @@ function storageStatusHTML(){
  const admin=accessCan(ACCESS_ADMIN);
  return '<div class="storage-status'+(storageLastError||storageRecovery||storageStale?' bad':'')+'" role="status"><span>'+esc(text)+'</span>'+
   (storageLastSaved&&!storageLastError?'<small>Saved '+esc(new Date(storageLastSaved).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</small>':'')+
-  (typeof cloudSyncText==='function'&&cloudSyncText()?'<small data-cloud-sync-foot>Server: '+esc(cloudSyncText())+'</small>':'')+
+  (typeof cloudSyncText==='function'&&cloudSyncText()?'<small data-cloud-sync-foot>Server: '+esc(cloudSyncText())+'</small>'+(cloudSync.warn?'<small data-cloud-warn-foot class="warn" title="Click to hide" onclick="cloudSync.warn=\'\';render()">'+esc(cloudSync.warn)+'</small>':''):'')+
   (admin&&storageUsage?'<small>DB '+esc(String(Math.max(1,Math.round(storageUsage.usage/1048576))))+' MB</small>':'')+
   (admin&&storageLastAction!=null?'<small>Last action '+storageLastAction+' ms</small>':'')+
   (storageBackupPresent&&admin?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';

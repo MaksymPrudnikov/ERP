@@ -8,7 +8,7 @@ module.exports=async function({page,eq}){
   members:{'admin@glass-erp.test':{name:'Admin',admin:true,sections:[]},'office@glass-erp.test':{name:'Office',admin:false,sections:['sales']}}};
  const rule={receipt:'finance'};
  const can=(m,t)=>m.admin||!rule[t]||m.sections.includes(rule[t]);
- const row=r=>({tbl:r.tbl,id:r.id,ver:r.ver,seq:r.seq,deleted:r.deleted,cold:false,data:r.deleted?null:r.data});
+ const row=r=>({tbl:r.tbl,id:r.id,ver:r.ver,seq:r.seq,deleted:r.deleted,cold:!!r.cold,data:r.deleted||r.cold?null:r.data});
  const rpc={
   erp_whoami:m=>({name:m.name,admin:m.admin,sections:m.sections}),
   erp_apply:(m,a)=>{
@@ -25,7 +25,7 @@ module.exports=async function({page,eq}){
      const t=x.prefix+String(n).padStart(x.pad||0,'0');numbers[c.tbl+'|'+c.id]=t;if(t!==x.value)swap.push([x.value,t]);});
     a.changes.forEach(c=>{const k=c.tbl+'|'+c.id,ver=++srv.rev;srv.log.push({rev:ver,k});
      let d=c.data;if(d!==null&&swap.length){swap.forEach(([o],i)=>{d=d.split('"'+o+'"').join('"#'+i+'#"');});swap.forEach(([,t],i)=>{d=d.split('"#'+i+'#"').join('"'+t+'"');});}
-     srv.rec.set(k,{tbl:c.tbl,id:c.id,ver,seq:c.seq||0,deleted:d===null,data:d});vers[k]=ver;});
+     srv.rec.set(k,{tbl:c.tbl,id:c.id,ver,seq:c.seq||0,deleted:d===null,data:d,cold:!!c.cold,month:c.month||'',owners:c.owners||[]});vers[k]=ver;});
     res={ok:true,rev:srv.rev,vers,numbers};}
    srv.cmd.set(a.command_id,res);return res;
   },
@@ -36,8 +36,10 @@ module.exports=async function({page,eq}){
    const rows=[...keys.keys()].map(k=>srv.rec.get(k)).filter(r=>can(m,r.tbl)).map(row);
    return {rows,last:part.length?part[part.length-1].rev:(a.since||0)};
   },
+  erp_cold:(m,a)=>a.keys.map(k=>srv.rec.get(k.tbl+'|'+k.id)).filter(r=>r&&r.cold&&!r.deleted&&can(m,r.tbl)).map(r=>({tbl:r.tbl,id:r.id,ver:r.ver,seq:r.seq,month:r.month,owners:r.owners,data:r.data})),
   erp_get:(m,a)=>a.keys.map(k=>srv.rec.get(k.tbl+'|'+k.id)).filter(r=>r&&can(m,r.tbl)).map(row),
  };
+ const PGcold=k=>{const r=srv.rec.get(k);return !!r&&!!r.cold;};
  const route=async route=>{
   if(srv.down)return route.abort();
   const req=route.request(),u=new URL(req.url()),body=JSON.parse(req.postData()||'{}'),h=req.headers();
@@ -100,6 +102,7 @@ module.exports=async function({page,eq}){
  eq('без раздела Finance оплата не пишется: строки нет ни на сервере, ни у B; предупреждение',
   {server:srv.rec.has('receipt|RCPT-CLOUD'),b:await B.p.evaluate(()=>DB.receipt.some(r=>r.id==='RCPT-CLOUD')),warn:await B.p.evaluate(()=>cloudSync.warn)},
   {server:false,b:false,warn:'No access on server: receipt. Server copy shown.'});
+ eq('отказ сервера виден и внизу экрана',await B.p.evaluate(()=>{render();const f=document.querySelector('[data-cloud-warn-foot]');return f&&f.textContent;}),'No access on server: receipt. Server copy shown.');
 
  /* Номера (владелец, 23.10.2026: на двух ПК открыли заказ — номер один). */
  const order=t=>t.p.evaluate(()=>{const o=newSalesOrderDraft('order');o.customerId='C-CLOUD';o.businessNumber=nextSalesOrderNumber();
@@ -130,6 +133,30 @@ module.exports=async function({page,eq}){
  eq('после F5 — дальше по своему блоку, номер не повторяется',await (async()=>{await A.p.reload();await A.p.evaluate(()=>window.storageReady);
   const g=await ids(A);return {glass:num(g[0])>1002&&num(g[1])===num(g[0])+1&&num(g[1])<=2000,scan:g[2]};})(),{glass:true,scan:'SC-0001002'});
  eq('ни один ПК не отправил назад чужую строку без правки',idle,[]);
+ /* Офис без Finance сохраняет заказ обычным Save: заодно пишутся условия
+    оплаты (financeTerms) — сервер не отказывает (24.10.2026: отказывал,
+    заказ оставался черновиком с номером первого ПК). */
+ await require('./optimization-fixture')(B.p);await B.p.evaluate(()=>{cloudSync.warn='';});
+ const saved=await B.p.evaluate(()=>{const c=DB.customer.find(x=>x.id==='C-CLOUD');oqOrder(c);return soEdit;});await sync(B);
+ eq('офис без Finance: Save заказа уходит на сервер вместе с условиями оплаты',
+  {server:!!srv.rec.get('salesOrder|'+saved),terms:!!srv.rec.get('financeTerms|'+saved),warn:await B.p.evaluate(()=>cloudSync.warn)},{server:true,terms:true,warn:''});
+ /* Архив на сервере (24.10.2026): уход на одном ПК — у другого заказ тоже
+    в архиве и открывается с диска; возврат — снова в работе у обоих. */
+ await A.p.evaluate(id=>storageCommand(()=>{const o=DB.salesOrder.find(x=>x.id===id);o.status='cancelled';o.statusDates=Object.assign({},o.statusDates,{cancelled:'2026-01-10T12:00:00.000Z'});}),oa.id);
+ await sync(A);await sync(B);
+ const went=await A.p.evaluate(async id=>{const due=archiveDue('2026-06-01').has(id),r=archiveRun('2026-06-01',{});await storageFlush();return {due,ok:r.ok,hot:DB.salesOrder.some(o=>o.id===id)};},oa.id);
+ await sync(A);await sync(B);
+ const seen=t=>t.p.evaluate(async id=>({hot:DB.salesOrder.some(o=>o.id===id),index:archiveIndex.has(id),cold:(await storageIdbColdOf(id)).some(r=>r.tbl==='salesOrder'&&r.id===id)}),oa.id);
+ eq('заказ ушёл в архив на A: на сервере архивная строка и указатель Sales; у B — тоже в архиве, с диска',
+  {went,server:{cold:PGcold('salesOrder|'+oa.id),index:!!srv.rec.get('_archive|'+oa.id)},a:await seen(A),b:await seen(B)},
+  {went:{due:true,ok:true,hot:false},server:{cold:true,index:true},a:{hot:false,index:true,cold:true},b:{hot:false,index:true,cold:true}});
+ const C=await pc('admin@glass-erp.test');
+ eq('Download на третьем ПК приносит и архив: указатель Sales и записи с диска',await (async()=>{await C.p.evaluate(()=>cloudDownload());return seen(C);})(),{hot:false,index:true,cold:true});
+ await C.c.close();
+ await B.p.evaluate(async id=>{await archiveReturn(id);await storageFlush();},oa.id);
+ await sync(B);await sync(A);
+ eq('возврат из архива на B — заказ снова в работе у обоих, архивной копии нет',{a:await seen(A),b:await seen(B),cold:PGcold('salesOrder|'+oa.id)},
+  {a:{hot:true,index:false,cold:false},b:{hot:true,index:false,cold:false},cold:false});
  await B.p.evaluate(()=>{tab='users';subtab='cloud';render();});
  eq('Stop sync: связь снята, база остаётся',await B.p.evaluate(async()=>{await cloudSyncStop();return {sync:document.querySelector('[data-cloud-sync]').dataset.cloudSync,name:DB.customer.find(x=>x.id==='C-CLOUD').legalName};}),{sync:'off',name:'From A'});
  eq('синхронизация без ошибок страницы',[A.errs,B.errs],[[],[]]);
