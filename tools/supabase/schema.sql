@@ -26,6 +26,8 @@ create index if not exists erp_record_cold on public.erp_record (cold, tbl);
 -- (bigint отказывал всей команде, 23.10.2026).
 alter table public.erp_record add column if not exists seq double precision not null default 0;
 alter table public.erp_record alter column seq type double precision;
+-- Архив: заказы, к которым относится строка (склад cold ERP ищет по ним).
+alter table public.erp_record add column if not exists owners jsonb not null default '[]'::jsonb;
 
 -- Курсор изменений: каждая запись строки — новая строка журнала по порядку.
 create table if not exists public.erp_log (
@@ -120,7 +122,7 @@ $$;
 -- Запись: change-set целиком или ничего.
 --   expect  — [{tbl,id,ver}]: ver строки сейчас; 0 — строки ещё нет.
 --             Не совпал хоть один — конфликт, ничего не записано.
---   changes — [{tbl,id,data,cold?,month?,number?}]; data null — удалить.
+--   changes — [{tbl,id,data,cold?,month?,owners?,number?}]; data null — удалить.
 --             number {name, value, prefix, pad} — новая строка с номером
 --             документа (заказ, счёт, PS): value — номер, который дал
 --             компьютер (prefix + цифры). Сервер ставит следующий номер
@@ -199,9 +201,10 @@ begin
         d := case when jsonb_typeof(d) = 'string' then to_jsonb(txt) else txt::jsonb end;
       end if;
       insert into public.erp_log (tbl, id) values (c->>'tbl', c->>'id') returning rev into r;
-      insert into public.erp_record as x (tbl, id, data, cold, month, ver, seq, deleted, updated_at, updated_by)
-        values (c->>'tbl', c->>'id', d, coalesce((c->>'cold')::boolean, false), coalesce(c->>'month', ''), r, coalesce((c->>'seq')::float8, 0), d is null, now(), me.user_id)
-        on conflict (tbl, id) do update set data = excluded.data, cold = excluded.cold, month = excluded.month, seq = excluded.seq,
+      insert into public.erp_record as x (tbl, id, data, cold, month, owners, ver, seq, deleted, updated_at, updated_by)
+        values (c->>'tbl', c->>'id', d, coalesce((c->>'cold')::boolean, false), coalesce(c->>'month', ''),
+          case when jsonb_typeof(c->'owners') = 'array' then c->'owners' else '[]'::jsonb end, r, coalesce((c->>'seq')::float8, 0), d is null, now(), me.user_id)
+        on conflict (tbl, id) do update set data = excluded.data, cold = excluded.cold, month = excluded.month, owners = excluded.owners, seq = excluded.seq,
           ver = excluded.ver, deleted = excluded.deleted, updated_at = excluded.updated_at, updated_by = excluded.updated_by;
       vers := vers || jsonb_build_object((c->>'tbl') || '|' || (c->>'id'), r);
     end loop;
@@ -250,12 +253,13 @@ begin
   return jsonb_build_object('rows', rows, 'last', coalesce(last, since, 0));
 end $$;
 
--- Архивные строки по ключам (этап 3 просит их по запросу).
+-- Архивные строки по ключам: опрос и Download приносят их без данных, данные
+-- — отсюда, пачками.
 create or replace function public.erp_cold(keys jsonb)
 returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare me public.erp_member := public.erp_me();
 begin
-  return coalesce((select jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'month', r.month, 'data', r.data))
+  return coalesce((select jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'seq', r.seq, 'month', r.month, 'owners', r.owners, 'data', r.data))
     from jsonb_array_elements(coalesce(keys, '[]')) k
     join public.erp_record r on r.tbl = k->>'tbl' and r.id = k->>'id' and r.cold and not r.deleted
     where public.erp_can_read(me, r.tbl)), '[]'::jsonb);

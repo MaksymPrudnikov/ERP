@@ -66,9 +66,10 @@ begin
   assert public.erp_take('glass', 100) = 1 and public.erp_take('glass', 100) = 101, 'блоки номеров';
   assert public.erp_take('scan', 10, 500) = 500 and public.erp_take('scan', 10, 3) = 510, 'блок — после уже выданных';
   -- Архив по запросу.
-  perform public.erp_apply('cmd-5', 'b1', 'pc1', '[]', '[{"tbl":"stationScan","id":"S-1","data":{"id":"S-1"},"cold":true,"month":"2025-01"}]');
+  perform public.erp_apply('cmd-5', 'b1', 'pc1', '[]', '[{"tbl":"stationScan","id":"S-1","seq":4,"data":{"id":"S-1"},"cold":true,"month":"2025-01","owners":["SO-9"]}]');
   assert (public.erp_changes(0)->'rows'->-1->'data') = 'null', 'архив пришёл с данными в горячем';
   assert public.erp_cold('[{"tbl":"stationScan","id":"S-1"}]')->0->'data'->>'id' = 'S-1', 'архив по ключу';
+  assert public.erp_cold('[{"tbl":"stationScan","id":"S-1"}]')->0 @> '{"seq":4,"month":"2025-01","owners":["SO-9"]}', 'архив: seq, месяц, заказы';
   assert pg_temp.fails('select public.erp_take(''glass'', 0)', 'Block size%'), 'пустой блок';
 end $$;
 

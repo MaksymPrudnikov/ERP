@@ -10,7 +10,10 @@
    чужие приходят опросом erp_changes. Конфликт по версии строки или нет
    раздела — команда не пишется целиком, строки этого компьютера
    возвращаются к серверной копии и об этом говорится. Синхронизирует только
-   вкладка, которая пишет. Архив (cold) пока не уходит на сервер. Строка
+   вкладка, которая пишет. Архив тоже на сервере (24.10.2026): уход заказа в
+   архив — строки с cold, указатель Sales и выписки — строки _archive;
+   опрос и Download приносят архивные строки без данных, данные берутся
+   erp_cold пачками; возврат из архива — обычная строка. Строка
    едет текстом JSON как есть: jsonb переставил бы ключи, и после F5 база
    сочла бы чужую строку изменённой и отправила её обратно.
    Склад cloud: ref — адрес сервера, с которым связана эта база; since —
@@ -117,7 +120,7 @@ async function cloudLoad(){
    сети спорила бы с первой). */
 function cloudOutbox(changes){
  const s=cloudSync;
- const rows=changes.filter(c=>c.tbl!=='_archive'&&!c.coldClear&&!c.cold&&c.tbl&&!(c.tbl==='_meta'&&/Seq$/.test(c.id)));
+ const rows=changes.filter(c=>!c.coldClear&&c.tbl&&!(c.tbl==='_meta'&&/Seq$/.test(c.id)));
  const ops=[...s.blockDirty].map(name=>['b\u0000'+name,s.blocks.get(name)]);s.blockDirty.clear();
  if(!rows.length||!s.loaded||!s.on||s.uploading){
   if(!s.loaded&&rows.length&&cloudConfig().session)s.early.push(rows);
@@ -131,12 +134,29 @@ function cloudOutbox(changes){
   part.forEach(c=>{const k=cloudKey(c.tbl,c.id),v=s.vers.get(k);
    if(queued.has(k))expect.push({tbl:c.tbl,id:c.id,chain:true});else if(v)expect.push({tbl:c.tbl,id:c.id,ver:v});else if(!c.del){expect.push({tbl:c.tbl,id:c.id,ver:0});fresh.add(c);}
    queued.add(k);});
-  const cmd={id:cloudId(),expect,changes:part.map(c=>{const x={tbl:c.tbl,id:c.id,seq:c.seq||0,data:c.del?null:c.data},num=fresh.has(c)&&cloudNumber(c);if(num)x.number=num;return x;})};
+  const cmd={id:cloudId(),expect,changes:part.map(cloudChange)};
+  cmd.changes.forEach((x,i)=>{const num=fresh.has(part[i])&&!x.cold&&cloudNumber(part[i]);if(num)x.number=num;});
   const key='o\u0000'+String(++n).padStart(12,'0');
   cmds.push(Object.assign({key},cmd));ops.push([key,cmd]);
  });
  ops.push(['n',n]);
  return {ops,done(){s.n=n;s.out.push(...cmds);cloudSoon();}};
+}
+/* Строка набора изменений → строка команды erp_apply. */
+function cloudChange(c){
+ const x={tbl:c.tbl,id:c.id,seq:c.seq||0,data:c.del?null:c.data};
+ if(c.cold&&!c.del)Object.assign(x,{cold:true,month:c.month||'',owners:c.owners||[]});
+ return x;
+}
+/* Архивные строки приходят без данных — данные пачками из erp_cold. */
+async function cloudColdFill(rows){
+ const want=rows.filter(r=>r.cold&&!r.deleted&&r.data==null);
+ for(let i=0;i<want.length;i+=CLOUD_CHUNK){
+  const part=want.slice(i,i+CLOUD_CHUNK),got=await cloudRpc('erp_cold',{keys:part.map(r=>({tbl:r.tbl,id:r.id}))}),by=new Map();
+  (Array.isArray(got)?got:[]).forEach(x=>by.set(cloudKey(x.tbl,x.id),x));
+  part.forEach(r=>{const x=by.get(cloudKey(r.tbl,r.id));if(x)Object.assign(r,{data:x.data,owners:x.owners||[],month:x.month||'',seq:x.seq});});
+ }
+ return rows;
 }
 /* Серверные строки → база этого компьютера (как запись другой вкладки:
    storageApplySaved). asked — ключи, о которых спрашивали: нет в ответе —
@@ -145,19 +165,21 @@ function cloudApplyServer(rows,asked,ops){
  const s=cloudSync,list=[],seen=new Set();
  rows.forEach(r=>{
   const k=cloudKey(r.tbl,r.id);seen.add(k);
-  if(r.cold)return;
   if(r.deleted){
    const b=storageBase.get(r.tbl);
    if(s.vers.has(k)){s.vers.delete(k);ops.push(['v\u0000'+k,null]);}
-   if(asked||b&&b.has(r.id))list.push({tbl:r.tbl,id:r.id,del:true});
+   if(asked||r.tbl==='_archive'||b&&b.has(r.id))list.push({tbl:r.tbl,id:r.id,del:true});
    return;
   }
   /* Своя же запись вернулась опросом — версия та же (перенумерованная
      сервером — нет: у нас ещё старый номер). */
   if(s.refresh.has(k)){s.refresh.delete(k);ops.push(['r\u0000'+k,null]);}
   else if(!asked&&s.vers.get(k)===r.ver)return;
+  if(r.data==null)return;
   s.vers.set(k,r.ver);ops.push(['v\u0000'+k,r.ver]);
-  list.push({tbl:r.tbl,id:r.id,seq:+r.seq||0,data:cloudText(r.data)});
+  /* В архив — из горячих в склад cold; горячая строка — и из cold (возврат). */
+  if(r.cold)list.push({tbl:r.tbl,id:r.id,seq:+r.seq||0,data:cloudText(r.data),cold:true,owners:r.owners||[],month:r.month||''});
+  else list.push({tbl:r.tbl,id:r.id,seq:+r.seq||0,data:cloudText(r.data),warm:r.tbl!=='_archive'});
  });
  if(asked)asked.forEach(a=>{const k=cloudKey(a.tbl,a.id);if(seen.has(k))return;if(s.vers.has(k)){s.vers.delete(k);ops.push(['v\u0000'+k,null]);}list.push({tbl:a.tbl,id:a.id,del:true});});
  cloudWriteLocal(list,ops);
@@ -166,7 +188,9 @@ function cloudApplyServer(rows,asked,ops){
 function cloudWriteLocal(list,ops){
  if(!list.length){if(ops.length)storageWrite([],ops);return;}
  const shapes=typeof soDraft!=='undefined'&&soDraft&&Array.isArray(DB.shapeDef)?{shapeDef:DB.shapeDef.slice()}:null;
- storageApplyRecords(list);
+ storageApplyRecords(list.filter(c=>c.tbl!=='_archive').map(c=>c.cold?{tbl:c.tbl,id:c.id,del:true}:c));
+ const index=list.filter(c=>c.tbl==='_archive');
+ if(index.length&&typeof archiveIndexApply==='function')archiveIndexApply(index.map(c=>[c.id,c.del?null:JSON.parse(c.data)]));
  if(shapes&&typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(shapes,DB);
  storageWrite(list,ops);storageInvalidate();storageRerenderQuiet();
 }
@@ -196,6 +220,7 @@ async function cloudPushAll(){
   /* Отказ: строки команды — как на сервере сейчас. */
   const keys=cmd.changes.map(c=>({tbl:c.tbl,id:c.id}));
   const now=await cloudRpc('erp_get',{keys});
+  if(Array.isArray(now))await cloudColdFill(now);
   if(s.out[0]!==cmd)return;
   s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
   const names=[...new Set((r&&r.conflict||[]).map(x=>x.id))].slice(0,3).join(', ');
@@ -207,6 +232,7 @@ async function cloudPull(){
  const s=cloudSync;
  for(;;){
   const from=s.since,r=await cloudRpc('erp_changes',{since:from,lim:2000});
+  if(Array.isArray(r.rows))await cloudColdFill(r.rows);
   if(s.since!==from)return;
   const last=+r.last||from;
   s.since=last;cloudApplyServer(Array.isArray(r.rows)?r.rows:[],null,[['since',last]]);
@@ -280,7 +306,9 @@ function cloudUpload(){
   if(first&&(+first.last>0))throw new Error('The server already has data. Use Download.');
   if(!confirm('Send this database to the server?\n\nOther computers will download it from there.'))return false;
   await storageFlush();
-  const s=cloudSync,recs=cloudRecords(),vers=new Map(),url=cloudConfig().url;
+  const s=cloudSync,vers=new Map(),url=cloudConfig().url;
+  const recs=cloudRecords().concat((await storageIdbColdAll()).map(r=>({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,month:r.month,owners:r.owners})),
+   (await storageIdbArchiveAll()).map(a=>({tbl:'_archive',id:a.id,seq:0,data:JSON.stringify(a.row)})));
   s.uploading=true;s.dirty=new Set();
   let last=0;
   try{
@@ -288,7 +316,7 @@ function cloudUpload(){
    for(const part of cloudChunks(recs)){
     sent+=part.length;s.busy='Uploading '+sent+' / '+recs.length;afterRender();
     const r=await cloudRpc('erp_apply',{command_id:'up-'+cloudId(),build:storageBuildId(),device:cloudDevice(),expect:[],
-     changes:part.map(c=>({tbl:c.tbl,id:c.id,seq:c.seq||0,data:c.data}))});
+     changes:part.map(cloudChange)});
     if(!r||!r.ok)throw new Error(r&&r.denied?'No access on server: '+r.denied.join(', '):'Upload refused by the server.');
     part.forEach(c=>{const v=r.vers&&r.vers[c.tbl+'|'+c.id];if(v)vers.set(cloudKey(c.tbl,c.id),v);});
     last=+r.rev||last;
@@ -314,8 +342,11 @@ function cloudDownload(){
    const last=+r.last||since;if(last===since)break;since=last;
    s.busy='Downloading '+got.size;afterRender();
   }
-  const rows=[...got.values()].filter(x=>!x.deleted&&!x.cold),vers=new Map(rows.map(x=>[cloudKey(x.tbl,x.id),x.ver]));
+  const all=[...got.values()].filter(x=>!x.deleted),vers=new Map(all.map(x=>[cloudKey(x.tbl,x.id),x.ver]));
+  const rows=all.filter(x=>!x.cold&&x.tbl!=='_archive'),archive=all.filter(x=>x.tbl==='_archive').map(x=>({id:x.id,row:JSON.parse(cloudText(x.data))}));
   if(!rows.length)throw new Error('The server is empty. Upload a database first.');
+  s.busy='Downloading archive';afterRender();
+  const cold=(await cloudColdFill(all.filter(x=>x.cold))).filter(x=>x.data!=null).map(x=>({tbl:x.tbl,id:x.id,seq:+x.seq||0,data:cloudText(x.data),owners:x.owners||[],month:x.month||''}));
   /* Пустая таблица целиком («*») рядом со строками — осталась от Upload до
      v5.257: строки главнее. Пустые таблицы — как в новой базе. */
   const byRows=new Set(rows.filter(x=>x.id!=='*').map(x=>x.tbl));
@@ -323,7 +354,7 @@ function cloudDownload(){
   Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&!Object.prototype.hasOwnProperty.call(state,k))state[k]=[];});
   /* Связь снимается до замены: замена сама на сервер не уходит. */
   await cloudSaveAll('',0,null);
-  const ok=await storageImportState(state,{test:storageTest});
+  const ok=await storageImportState(state,{test:storageTest,cold,archive});
   if(!ok)return false;
   await cloudSaveAll(url,since,vers);cloudSoon();return true;
  });
