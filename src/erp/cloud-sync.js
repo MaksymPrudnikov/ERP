@@ -354,7 +354,7 @@ function cloudDownload(){
   Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&!Object.prototype.hasOwnProperty.call(state,k))state[k]=[];});
   /* Связь снимается до замены: замена сама на сервер не уходит. */
   await cloudSaveAll('',0,null);
-  const ok=await storageImportState(state,{test:storageTest,cold,archive});
+  const ok=await storageImportState(state,{test:storageTest,cold,archive,cloud:true});
   if(!ok)return false;
   await cloudSaveAll(url,since,vers);cloudSoon();return true;
  });

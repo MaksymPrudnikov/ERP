@@ -37,6 +37,7 @@ module.exports=async function({page,eq}){
    return {rows,last:part.length?part[part.length-1].rev:(a.since||0)};
   },
   erp_cold:(m,a)=>a.keys.map(k=>srv.rec.get(k.tbl+'|'+k.id)).filter(r=>r&&r.cold&&!r.deleted&&can(m,r.tbl)).map(r=>({tbl:r.tbl,id:r.id,ver:r.ver,seq:r.seq,month:r.month,owners:r.owners,data:r.data})),
+  erp_member_set:()=>({}),erp_members:m=>m.admin?[]:null,erp_rules:()=>[],
   erp_get:(m,a)=>a.keys.map(k=>srv.rec.get(k.tbl+'|'+k.id)).filter(r=>r&&can(m,r.tbl)).map(row),
  };
  const PGcold=k=>{const r=srv.rec.get(k);return !!r&&!!r.cold;};
@@ -44,6 +45,7 @@ module.exports=async function({page,eq}){
   if(srv.down)return route.abort();
   const req=route.request(),u=new URL(req.url()),body=JSON.parse(req.postData()||'{}'),h=req.headers();
   const json=(status,o)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(o)});
+  if(u.pathname==='/auth/v1/token'&&body.password==='bad')return json(400,{error_description:'Invalid login credentials'});
   if(u.pathname==='/auth/v1/token')return json(200,{access_token:'T:'+body.email,refresh_token:'R:'+body.email,expires_in:3600,user:{email:body.email}});
   const m=srv.members[String(h.authorization||'').replace('Bearer T:','')],fn=rpc[u.pathname.replace('/rest/v1/rpc/','')];
   if(!m)return json(401,{message:'Not a member of this ERP.'});
@@ -157,6 +159,35 @@ module.exports=async function({page,eq}){
  await sync(B);await sync(A);
  eq('возврат из архива на B — заказ снова в работе у обоих, архивной копии нет',{a:await seen(A),b:await seen(B),cold:PGcold('salesOrder|'+oa.id)},
   {a:{hot:true,index:false,cold:false},b:{hot:true,index:false,cold:false},cold:false});
+ /* Один вход (владелец, 24.10.2026): у людей почта входа — офис входит
+    почтой и паролем сервера; новый ПК подключается окном с экрана. */
+ eq('Users с сервером: почта входа вместо пароля ERP',await A.p.evaluate(async()=>{
+  const a=await usersSave({name:'Boss',office:true,access:USER_SECTIONS.slice(),email:'admin@glass-erp.test'},'setup');
+  const b=await usersSave({name:'Clerk',office:true,access:['sales','customers'],email:'office@glass-erp.test'},'setup');
+  await new Promise(r=>setTimeout(r,300));cloudSync.warn='';
+  return [a.ok,b.ok,signinServer(),DB.user.filter(u=>u.email).map(u=>[u.name,!!u.password])];}),[true,true,true,[['Boss',false],['Clerk',false]]]);
+ await sync(A);
+ const D=await page(undefined,undefined,{signin:true});await D.c.route('https://shop.supabase.co/**',route);
+ await D.c.addInitScript(()=>{window.GF_CLOUD_MANUAL=true;});await D.p.evaluate(()=>{window.GF_CLOUD_MANUAL=true;});
+ const join=async pass=>{await D.p.click('[data-cloud-join],[data-cloud-join-foot]');
+  await D.p.fill('#cj_url','https://shop.supabase.co');await D.p.fill('#cj_key','sb_publishable_test');await D.p.fill('#cj_email','Office@glass-erp.test');await D.p.fill('#cj_pass',pass);
+  await D.p.click('[data-cloud-join-go]');await D.p.waitForFunction(()=>!cloudJoin||!cloudJoin.busy);};
+ eq('новый ПК: «Connect server» внизу, неверный пароль — ошибка в окне',await (async()=>{const foot=await D.p.evaluate(()=>!!document.querySelector('[data-cloud-join-foot]'));
+  await join('bad');return {foot,err:await D.p.evaluate(()=>cloudJoin&&cloudJoin.error)};})(),{foot:true,err:'Wrong email or password'});
+ eq('…верный: база с сервера, вход в ERP — Clerk, без Users',await (async()=>{await D.p.evaluate(()=>cloudJoinClose());await join('pw');
+  return D.p.evaluate(()=>({who:signinUser()&&signinUser().name,users:accessCan('users'),sales:accessCan('sales'),cust:DB.customer.some(c=>c.id==='C-CLOUD')}));})().then(async r=>Object.assign(r,{sync:await sync(D)})),
+  {who:'Clerk',users:false,sales:true,cust:true,sync:'Synced'});
+ eq('Sign out → экран входа: имена с почтой, пароль сервера; неверный — «Wrong password»',await (async()=>{
+  await D.p.evaluate(()=>signinOut());
+  const names=await D.p.evaluate(()=>[...document.querySelectorAll('[data-signin-user]')].map(b=>DB.user.find(u=>u.viewProfileId===b.dataset.signinUser).name).sort());
+  await D.p.evaluate(()=>signinChoose(DB.user.find(u=>u.name==='Clerk').viewProfileId));
+  await D.p.fill('#signinPass','bad');await D.p.click('[data-signin-form] button[type=submit]');await D.p.waitForFunction(()=>!signinBusy);
+  const err=await D.p.evaluate(()=>signinError);
+  await D.p.fill('#signinPass','pw');await D.p.click('[data-signin-form] button[type=submit]');await D.p.waitForFunction(()=>!signinBusy&&!!signinUser());
+  return {names,err,who:await D.p.evaluate(()=>signinUser().name)};})(),{names:['Boss','Clerk'],err:'Wrong password',who:'Clerk'});
+ eq('Sign out сервера в этом ПК — и вход в ERP закончен',await D.p.evaluate(()=>{cloudSignOut();return !!signinUser();}),false);
+ eq('новый ПК без ошибок страницы',D.errs,[]);
+ await D.c.close();
  await B.p.evaluate(()=>{tab='users';subtab='cloud';render();});
  eq('Stop sync: связь снята, база остаётся',await B.p.evaluate(async()=>{await cloudSyncStop();return {sync:document.querySelector('[data-cloud-sync]').dataset.cloudSync,name:DB.customer.find(x=>x.id==='C-CLOUD').legalName};}),{sync:'off',name:'From A'});
  eq('синхронизация без ошибок страницы',[A.errs,B.errs],[[],[]]);

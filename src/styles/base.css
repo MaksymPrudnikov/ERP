@@ -308,6 +308,8 @@ body.signin-mode main#app{padding:0}
 .signin-pin input{width:min(300px,100%);font-size:16px;padding:10px 12px;border-radius:12px;text-align:center}
 .signin-pin button{width:min(300px,100%);padding:10px 12px;border-radius:12px}
 .signin-err{color:var(--danger);font-weight:600;font-size:13px;min-height:16px}
+.signin-server{display:block;margin:14px auto 0;padding:4px 10px;border:0;background:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer}
+[data-cloud-join-dialog] .sales-dialog-body{display:grid;gap:6px}
 @media (max-width:600px){.signin-glass i:nth-child(n+3){display:none}.signin-glass i:nth-child(1){left:-180px}.signin-glass i:nth-child(2){left:auto;right:-90px}.signin-clock{font-size:15px;padding:6px 10px}.signin-card{padding:18px}.signin-names{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .side .nav-user>span:last-child{max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-user-ini{width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line);font:700 10px/1 var(--font)}

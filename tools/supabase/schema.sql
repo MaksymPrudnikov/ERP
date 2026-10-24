@@ -91,8 +91,18 @@ insert into public.erp_table_rule (tbl, read_section, write_section) values
   ('purchaseReceipt','purchasing','purchasing'), ('purchaseDeliveryRequest','purchasing','purchasing'),
   ('purchaseInvoice','purchasing','purchasing'), ('purchasePayment','purchasing','purchasing'),
   ('user',null,'users'), ('authEvent','users',null)
-on conflict (tbl) do update set read_section = excluded.read_section, write_section = excluded.write_section;
-delete from public.erp_table_rule where tbl = 'financeTerms';
+on conflict (tbl) do nothing;
+-- Правила меняют в ERP (Users → Cloud → Access, erp_rules_set): повторный
+-- запуск файла их не трогает. Один раз — правки v5.259 поверх правил
+-- прежних запусков; отметка — строка erp_counter.
+do $$ begin
+  if not exists (select 1 from public.erp_counter where name = 'rules-v5259') then
+    update public.erp_table_rule set read_section = 'finance,sales' where tbl in ('receipt','refund');
+    update public.erp_table_rule set write_section = null where tbl = 'financeEvent';
+    delete from public.erp_table_rule where tbl = 'financeTerms';
+    insert into public.erp_counter (name, next) values ('rules-v5259', 1);
+  end if;
+end $$;
 
 alter table public.erp_record enable row level security;
 alter table public.erp_log enable row level security;
@@ -320,15 +330,53 @@ begin
   return jsonb_build_object('user_id', uid);
 end $$;
 
+-- Экран Users: люди сервера (только администратор) и правила таблиц.
+create or replace function public.erp_members()
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare me public.erp_member := public.erp_me();
+begin
+  if not me.admin then raise exception 'Only an administrator can see people.' using errcode = '42501'; end if;
+  return coalesce((select jsonb_agg(jsonb_build_object('email', lower(u.email), 'name', m.name, 'admin', m.admin,
+      'active', m.active, 'sections', to_jsonb(m.sections)) order by lower(u.email))
+    from public.erp_member m join auth.users u on u.id = m.user_id), '[]');
+end $$;
+create or replace function public.erp_rules()
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  perform public.erp_me();
+  return coalesce((select jsonb_agg(jsonb_build_object('tbl', tbl, 'read', read_section, 'write', write_section) order by tbl)
+    from public.erp_table_rule), '[]');
+end $$;
+-- Все правила разом (Users → Cloud → Access → Save): чего нет в списке —
+-- открыто всем. Раздел — ключи через запятую, пусто — все.
+create or replace function public.erp_rules_set(rules jsonb)
+returns jsonb language plpgsql volatile security definer set search_path = public, pg_temp as $$
+declare me public.erp_member := public.erp_me(); r jsonb; t text; rd text; wr text;
+begin
+  if not me.admin then raise exception 'Only an administrator can change access.' using errcode = '42501'; end if;
+  if jsonb_typeof(rules) <> 'array' then raise exception 'Rules must be a list.'; end if;
+  delete from public.erp_table_rule where true;
+  for r in select * from jsonb_array_elements(rules) loop
+    t := r->>'tbl'; rd := nullif(r->>'read', ''); wr := nullif(r->>'write', '');
+    if coalesce(t, '') !~ '^[A-Za-z_][A-Za-z0-9_]*$' then raise exception 'Bad table name: %', t; end if;
+    if rd !~ '^[a-z]+(,[a-z]+)*$' or wr !~ '^[a-z]+(,[a-z]+)*$' then raise exception 'Bad sections for %', t; end if;
+    insert into public.erp_table_rule (tbl, read_section, write_section) values (t, rd, wr)
+      on conflict (tbl) do update set read_section = excluded.read_section, write_section = excluded.write_section;
+  end loop;
+  return public.erp_rules();
+end $$;
+
 revoke all on function public.erp_me(), public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int, bigint),
   public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
-  public.erp_member_set(text, text, boolean, boolean, text[]) from public, anon;
+  public.erp_member_set(text, text, boolean, boolean, text[]), public.erp_members(), public.erp_rules(), public.erp_rules_set(jsonb)
+  from public, anon;
 revoke all on function public.erp_me() from authenticated;
 revoke all on function public.erp_can(public.erp_member, text), public.erp_can_read(public.erp_member, text),
   public.erp_can_write(public.erp_member, text) from public, anon, authenticated;
 grant execute on function public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int, bigint),
   public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
-  public.erp_member_set(text, text, boolean, boolean, text[]) to authenticated;
+  public.erp_member_set(text, text, boolean, boolean, text[]), public.erp_members(), public.erp_rules(), public.erp_rules_set(jsonb)
+  to authenticated;
 
 -- Первый администратор — вход admin@glass-erp.test (тестовый проект). Для
 -- другого адреса поменяйте его здесь перед запуском.

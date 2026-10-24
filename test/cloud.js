@@ -32,7 +32,7 @@ module.exports=async function({page,eq}){
 
  calls.length=0;await fill('right-pass');
  eq('вход: ссылка панели → адрес проекта; ключ в каждом запросе; whoami с токеном входа; «Connected · Admin · admin»',await t.p.evaluate(()=>({status:document.querySelector('[data-cloud-status]').textContent,url:cloudConfig().url})),{status:'Connected · Admin · admin',url:'https://testref.supabase.co'});
- eq('запросы: пароль только во входе, apikey везде, Bearer A1 у whoami',calls.map(c=>[c.path,c.apikey,c.auth,'password' in c.body]),[
+ eq('запросы: пароль только во входе, apikey везде, Bearer A1 у whoami',calls.filter(c=>!/erp_rules|erp_members/.test(c.path)).map(c=>[c.path,c.apikey,c.auth,'password' in c.body]),[
   ['/auth/v1/token?grant_type=password','sb_publishable_test','Bearer sb_publishable_test',true],
   ['/rest/v1/rpc/erp_whoami','sb_publishable_test','Bearer A1',false]]);
  eq('пароль нигде не сохранён: ни в localStorage, ни в базе ERP',await t.p.evaluate(()=>{const ls=Object.keys(localStorage).map(k=>localStorage.getItem(k)).join('|');return {ls:ls.includes('right-pass'),db:JSON.stringify(DB).includes('right-pass'),db2:JSON.stringify(DB).includes('sb_publishable_test')};}),{ls:false,db:false,db2:false});

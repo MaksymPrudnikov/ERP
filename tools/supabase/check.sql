@@ -144,6 +144,31 @@ do $$ begin
   assert public.erp_get('[{"tbl":"receipt","id":"R-1"}]') = '[]', 'erp_get отдаёт оплату без Finance и Sales';
 end $$;
 
+-- Экран Users: люди сервера и правила — только администратор меняет.
+do $$ begin
+  assert pg_temp.fails('select public.erp_members()', 'Only an administrator%'), 'офис видит людей сервера';
+  assert pg_temp.fails('select public.erp_rules_set(''[]'')', 'Only an administrator%'), 'офис меняет правила';
+  assert exists (select 1 from jsonb_array_elements(public.erp_rules()) x where x->>'tbl' = 'receipt' and x->>'read' = 'finance,sales'), 'правила не видны';
+end $$;
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+do $$
+declare m jsonb := public.erp_members(); r jsonb;
+begin
+  assert jsonb_array_length(m) = 2 and m->1->>'email' = 'office@glass-erp.test' and m->1->'sections' = '["production"]' and m->0->>'admin' = 'true', 'люди сервера: ' || m;
+  assert pg_temp.fails($q$select public.erp_rules_set('[{"tbl":"receipt","read":"Finance!"}]')$q$, 'Bad sections%'), 'раздел с ошибкой';
+  assert pg_temp.fails($q$select public.erp_rules_set('[{"tbl":"a b"}]')$q$, 'Bad table%'), 'таблица с ошибкой';
+  assert jsonb_array_length(public.erp_rules()) > 10, 'отказ стёр правила';
+  r := public.erp_rules_set('[{"tbl":"receipt","read":"finance,production","write":"finance"},{"tbl":"user","read":"","write":"users"}]');
+  assert r = '[{"tbl": "receipt", "read": "finance,production", "write": "finance"}, {"tbl": "user", "read": null, "write": "users"}]', 'правила после Save: ' || r;
+end $$;
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  assert public.erp_get('[{"tbl":"receipt","id":"R-1"}]') <> '[]', 'правило из ERP не действует';
+  assert (public.erp_apply('off-9', 'b1', 'pc2', '[]', '[{"tbl":"supplier","id":"SUP-1","data":{"id":"SUP-1"}}]')->>'ok')::boolean, 'снятое правило всё ещё закрывает';
+end $$;
+
 -- Отключённый человек больше ничего не может.
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');

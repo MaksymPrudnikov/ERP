@@ -16,13 +16,13 @@ function cloudUrl(v){
  const s=String(v||'').trim().replace(/\/+$/,''),m=s.match(/supabase\.com\/dashboard\/project\/([a-z0-9]+)/i);
  return m?'https://'+m[1].toLowerCase()+'.supabase.co':s;
 }
-async function cloudFetch(path,body,token){
+async function cloudFetch(path,body,token,method){
  const c=cloudConfig();
  if(!/^https:\/\//.test(c.url||'')||!c.key)throw new Error('Set the server and key first.');
  /* Ключ — ASCII; лишний символ при копировании ломает заголовок запроса. */
  if(/[^\x21-\x7e]/.test(c.key))throw new Error('The key has extra characters. Copy it again.');
  let r;
- try{r=await fetch(c.url+path,{method:'POST',headers:{'Content-Type':'application/json',apikey:c.key,Authorization:'Bearer '+(token||c.key)},body:JSON.stringify(body||{})});}
+ try{r=await fetch(c.url+path,{method:method||'POST',headers:{'Content-Type':'application/json',apikey:c.key,Authorization:'Bearer '+(token||c.key)},body:JSON.stringify(body||{})});}
  catch(e){throw new Error('No connection to the server.');}
  let j=null;try{j=await r.json();}catch(e){}
  if(!r.ok)throw new Error(String(j&&(j.message||j.msg||j.error_description||j.error)||'Server error '+r.status));
@@ -65,5 +65,26 @@ async function cloudCheck(){
  cloudState={busy:true,error:'',me:null};render();
  try{cloudState.me=await cloudRpc('erp_whoami');}catch(e){cloudState.error=e.message;}
  cloudState.busy=false;render();
+}
+/* Вход в ERP входом сервера (erp/signin, владелец 24.10.2026: «перенести
+   на первый экран входа подключение к базе»): почта и пароль проверяет
+   сервер; не участник цеха — вход не принят и сеанс снят. */
+async function cloudLogin(email,password){
+ const c=cloudConfig(),prev=c.session;
+ cloudSessionSave(await cloudFetch('/auth/v1/token?grant_type=password',{email,password}));
+ try{cloudState={busy:false,error:'',me:await cloudRpc('erp_whoami')};}
+ catch(e){const n=cloudConfig();if(prev)n.session=prev;else delete n.session;cloudConfigSave(n);throw e;}
+ if(!prev||prev.email!==email){if(typeof cloudSync!=='undefined'){cloudSync.loaded=false;cloudSoon();}cloudAccess.asked=false;}
+}
+/* Свой пароль на сервере: сначала проверка старого входом. */
+async function cloudPasswordChange(email,current,next){
+ await cloudFetch('/auth/v1/token?grant_type=password',{email,password:current});
+ await cloudFetch('/auth/v1/user',{password:next},await cloudToken(),'PUT');
+}
+/* Новый вход на сервере из Users (Save с паролем): работает, если в
+   Supabase выключено подтверждение почты. Вход уже есть — пароль прежний. */
+async function cloudSignup(email,password){
+ try{await cloudFetch('/auth/v1/signup',{email,password});return '';}
+ catch(e){return /already|registered|exists/i.test(e.message)?'':e.message;}
 }
 function cloudSignOut(){const c=cloudConfig();delete c.session;cloudConfigSave(c);cloudState={busy:false,error:'',me:null};render();}
