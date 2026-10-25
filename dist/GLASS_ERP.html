@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 173 модулей, 23 стиля.
+  Состав сборки: 174 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -415,6 +415,8 @@ body.signin-mode main#app{padding:0}
 .signin-pin input{width:min(300px,100%);font-size:16px;padding:10px 12px;border-radius:12px;text-align:center}
 .signin-pin button{width:min(300px,100%);padding:10px 12px;border-radius:12px}
 .signin-err{color:var(--danger);font-weight:600;font-size:13px;min-height:16px}
+.signin-server{display:block;margin:14px auto 0;padding:4px 10px;border:0;background:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer}
+[data-cloud-join-dialog] .sales-dialog-body{display:grid;gap:6px}
 @media (max-width:600px){.signin-glass i:nth-child(n+3){display:none}.signin-glass i:nth-child(1){left:-180px}.signin-glass i:nth-child(2){left:auto;right:-90px}.signin-clock{font-size:15px;padding:6px 10px}.signin-card{padding:18px}.signin-names{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .side .nav-user>span:last-child{max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-user-ini{width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line);font:700 10px/1 var(--font)}
@@ -3493,7 +3495,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='191b2c3dba6c';
+var ERP_BUILD='c9525d3ba3bb';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -8681,6 +8683,8 @@ function normalizeUsers(){
   if(!/^view-[A-Za-z0-9-]+$/.test(u.viewProfileId||'')||profileIds.has(u.viewProfileId))u.viewProfileId='view-'+crypto.randomUUID();
   profileIds.add(u.viewProfileId);
   u.name=String(u.name==null?'':u.name);
+  /* Вход на сервер (erp/cloud-access): почта, строчными. */
+  if(u.email!=null){u.email=String(u.email).trim().toLowerCase();if(!u.email)delete u.email;}
   const access=Array.isArray(u.access)?u.access:LEGACY_OFFICE_ROLES.includes(u.role)?USER_SECTIONS:[];
   u.access=USER_SECTIONS.filter(k=>access.includes(k));
   delete u.role;delete u.skills;delete u.station;delete u.workPosition;
@@ -9077,11 +9081,15 @@ function usersDoorError(after){
  if(signinOn()&&!after.some(u=>u.hasPassword&&(u.access||[]).includes(ACCESS_ADMIN)))return 'Someone with Users must keep a password';
  return '';
 }
-function usersShape(u,over){return Object.assign({access:u.access||[],hasPassword:userHasPassword(u)},over||{});}
+/* Человек с почтой входа на ПК с сервером входит паролем сервера
+   (erp/signin, signinServer) — пароль ERP ему не нужен. */
+function usersServer(){const c=typeof cloudConfig==='function'?cloudConfig():{};return !!(c.url&&c.key);}
+function usersShape(u,over){return Object.assign({access:u.access||[],hasPassword:userHasPassword(u)||usersServer()&&!!u.email},over||{});}
 
 /* Создать (id пуст) или изменить человека. input: {id, rev, name, no,
-   office, access[], password, station, pin}; password и pin — только новые
-   значения, пусто — оставить заданный. */
+   office, access[], password, station, pin, email}; password и pin —
+   только новые значения, пусто — оставить заданный; email — вход на сервер
+   (erp/cloud-access), пусто — нет. */
 function usersSave(input,actor){return usersRun(actor,()=>usersSaveNow(input));}
 function usersSaveNow(input){
  if(!accessCan(ACCESS_ADMIN))return usersFail('Users access needed');
@@ -9093,21 +9101,28 @@ function usersSaveNow(input){
  const access=d.office?USER_SECTIONS.filter(k=>(d.access||[]).includes(k)):[];
  if(d.office&&!access.length)return usersFail('Office: tick at least one section');
  const pw=d.office?String(d.password||''):'',pin=d.station?String(d.pin||''):'';
- if(d.office&&(pw||!userHasPassword(cur))&&pw.length<USER_PASSWORD_MIN)return usersFail('Password: at least '+USER_PASSWORD_MIN+' characters');
+ const viaServer=usersServer()&&!!String(d.email||'').trim();
+ if(d.office&&(pw||!viaServer&&!userHasPassword(cur))&&pw.length<USER_PASSWORD_MIN)return usersFail('Password: at least '+USER_PASSWORD_MIN+' characters');
  if(d.station&&(pin||!userHasPin(cur))&&!USER_PIN_RE.test(pin))return usersFail('PIN: 4 digits');
  const no=String(d.no==null?'':d.no).trim();
  if(no&&!/^\d{1,4}$/.test(no))return usersFail('No.: up to 4 digits or empty');
  if(no&&+no<1)return usersFail('No.: from 1');
  const taken=no?(DB.user||[]).find(u=>u!==cur&&u.no===+no):null;
  if(taken)return usersFail('No. '+userNoText(taken)+' belongs to '+taken.name);
- const mine=usersShape({},{access,hasPassword:d.office&&(!!pw||userHasPassword(cur))});
+ const email=String(d.email||'').trim().toLowerCase();
+ if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return usersFail('Server login: enter an email');
+ const twin=email?(DB.user||[]).find(u=>u!==cur&&u.email===email):null;
+ if(twin)return usersFail('Server login belongs to '+twin.name);
+ const mine=usersShape({},{access,hasPassword:d.office&&(viaServer||!!pw||userHasPassword(cur))});
  const door=usersDoorError((DB.user||[]).map(u=>u===cur?mine:usersShape(u)).concat(isNew?[mine]:[]));
  if(door)return usersFail(door);
  const me=typeof signinUser==='function'?signinUser():null;
  const out=storageCommand(()=>{
   const u=isNew?{}:usersFind(d.id);
   u.name=name;u.access=access;u.no=no?+no:0;
-  if(!d.office)delete u.password;else if(pw)userPasswordSet(u,pw);
+  if(email)u.email=email;else delete u.email;
+  /* С сервером пароль — вход сервера (view/users → cloudSignup), не ERP. */
+  if(!d.office)delete u.password;else if(pw&&!viaServer)userPasswordSet(u,pw);
   if(!d.station)delete u.pin;else if(pin)userPinSet(u,pin);
   u.rev=(u.rev||0)+1;
   if(isNew)DB.user.push(u);
@@ -16324,13 +16339,13 @@ function cloudUrl(v){
  const s=String(v||'').trim().replace(/\/+$/,''),m=s.match(/supabase\.com\/dashboard\/project\/([a-z0-9]+)/i);
  return m?'https://'+m[1].toLowerCase()+'.supabase.co':s;
 }
-async function cloudFetch(path,body,token){
+async function cloudFetch(path,body,token,method){
  const c=cloudConfig();
  if(!/^https:\/\//.test(c.url||'')||!c.key)throw new Error('Set the server and key first.');
  /* Ключ — ASCII; лишний символ при копировании ломает заголовок запроса. */
  if(/[^\x21-\x7e]/.test(c.key))throw new Error('The key has extra characters. Copy it again.');
  let r;
- try{r=await fetch(c.url+path,{method:'POST',headers:{'Content-Type':'application/json',apikey:c.key,Authorization:'Bearer '+(token||c.key)},body:JSON.stringify(body||{})});}
+ try{r=await fetch(c.url+path,{method:method||'POST',headers:{'Content-Type':'application/json',apikey:c.key,Authorization:'Bearer '+(token||c.key)},body:JSON.stringify(body||{})});}
  catch(e){throw new Error('No connection to the server.');}
  let j=null;try{j=await r.json();}catch(e){}
  if(!r.ok)throw new Error(String(j&&(j.message||j.msg||j.error_description||j.error)||'Server error '+r.status));
@@ -16373,6 +16388,27 @@ async function cloudCheck(){
  cloudState={busy:true,error:'',me:null};render();
  try{cloudState.me=await cloudRpc('erp_whoami');}catch(e){cloudState.error=e.message;}
  cloudState.busy=false;render();
+}
+/* Вход в ERP входом сервера (erp/signin, владелец 24.10.2026: «перенести
+   на первый экран входа подключение к базе»): почта и пароль проверяет
+   сервер; не участник цеха — вход не принят и сеанс снят. */
+async function cloudLogin(email,password){
+ const c=cloudConfig(),prev=c.session;
+ cloudSessionSave(await cloudFetch('/auth/v1/token?grant_type=password',{email,password}));
+ try{cloudState={busy:false,error:'',me:await cloudRpc('erp_whoami')};}
+ catch(e){const n=cloudConfig();if(prev)n.session=prev;else delete n.session;cloudConfigSave(n);throw e;}
+ if(!prev||prev.email!==email){if(typeof cloudSync!=='undefined'){cloudSync.loaded=false;cloudSoon();}cloudAccess.asked=false;}
+}
+/* Свой пароль на сервере: сначала проверка старого входом. */
+async function cloudPasswordChange(email,current,next){
+ await cloudFetch('/auth/v1/token?grant_type=password',{email,password:current});
+ await cloudFetch('/auth/v1/user',{password:next},await cloudToken(),'PUT');
+}
+/* Новый вход на сервере из Users (Save с паролем): работает, если в
+   Supabase выключено подтверждение почты. Вход уже есть — пароль прежний. */
+async function cloudSignup(email,password){
+ try{await cloudFetch('/auth/v1/signup',{email,password});return '';}
+ catch(e){return /already|registered|exists/i.test(e.message)?'':e.message;}
 }
 function cloudSignOut(){const c=cloudConfig();delete c.session;cloudConfigSave(c);cloudState={busy:false,error:'',me:null};render();}
 
@@ -16733,7 +16769,7 @@ function cloudDownload(){
   Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&!Object.prototype.hasOwnProperty.call(state,k))state[k]=[];});
   /* Связь снимается до замены: замена сама на сервер не уходит. */
   await cloudSaveAll('',0,null);
-  const ok=await storageImportState(state,{test:storageTest,cold,archive});
+  const ok=await storageImportState(state,{test:storageTest,cold,archive,cloud:true});
   if(!ok)return false;
   await cloudSaveAll(url,since,vers);cloudSoon();return true;
  });
@@ -16742,6 +16778,72 @@ async function cloudSyncStop(){
  const n=cloudSync.out.length;
  if(!confirm(n?n+' changes are not on the server yet. Stop syncing anyway?':'Stop syncing this computer?'))return false;
  return cloudRun('Stopping…',async()=>{await cloudSaveAll('',0,null);cloudSync.warn='';return true;});
+}
+
+/* ==== src/erp/cloud-access.js ==== */
+/* ============================================================================
+   Права на сервере — из ERP, а не SQL (задание «База», этап 4; владелец,
+   24.10.2026: «а зачем же нам интерфейс если ты спрятал под код?»).
+   IN : cloudRpc (erp/cloud), DB.user (email — вход человека на сервер)
+   OUT: cloudAccess, cloudAccessLoad, cloudMemberPush, cloudMemberState,
+        cloudRulesSave
+   · человек: почта входа + галочки разделов. Save в Users отправляет их на
+     сервер (erp_member_set): галочка Users — администратор сервера, без
+     офиса — вход отключён;
+   · правила таблиц (erp_table_rule): кто читает и кто пишет — Users →
+     Cloud → Access, Save отправляет весь список (erp_rules_set).
+   Отказ сервера не отменяет правку в ERP: он виден внизу экрана и в колонке
+   Server у человека.
+   ============================================================================ */
+let cloudAccess={members:null,rules:null,error:'',busy:false,asked:false,draft:null,open:''};
+function cloudAccessOn(){const s=cloudConfig().session;return !!(s&&s.access);}
+/* Люди сервера видны только администратору: не администратор — members
+   пусто (null), и колонки Server нет. */
+async function cloudAccessLoad(){
+ if(!cloudAccessOn()||cloudAccess.busy)return;
+ cloudAccess.busy=true;cloudAccess.asked=true;
+ try{
+  cloudAccess.rules=await cloudRpc('erp_rules');
+  try{cloudAccess.members=await cloudRpc('erp_members');}
+  catch(e){if(!/administrator/.test(e.message))throw e;cloudAccess.members=null;}
+  cloudAccess.error='';
+ }catch(e){cloudAccess.error=e.message;}
+ cloudAccess.busy=false;render();
+}
+function cloudMemberOf(u){
+ const access=u.access||[];
+ return {email:u.email,name:u.name||'',admin:access.includes(ACCESS_ADMIN),active:access.length>0,sections:access};
+}
+/* old — почта, которая была у человека до правки: другой вход больше не
+   его, на сервере он отключается. */
+async function cloudMemberPush(u,old){
+ if(!cloudAccessOn())return;
+ const list=[];
+ if(old&&old!==(u&&u.email))list.push({email:old,name:u&&u.name||'',admin:false,active:false,sections:[]});
+ if(u&&u.email)list.push(cloudMemberOf(u));
+ if(!list.length)return;
+ for(const m of list){
+  try{await cloudRpc('erp_member_set',m);}
+  catch(e){if(typeof cloudSync!=='undefined')cloudSync.warn='Server: '+m.email+' — '+e.message;}
+ }
+ await cloudAccessLoad();
+}
+/* Совпадает ли человек ERP с сервером: '' — не с чем сравнить. */
+function cloudMemberState(u){
+ if(!Array.isArray(cloudAccess.members)||!u.email)return '';
+ const m=cloudAccess.members.find(x=>x.email===u.email);
+ if(!m)return 'missing';
+ const want=cloudMemberOf(u),secs=a=>USER_SECTIONS.filter(k=>(a||[]).includes(k)).join(',');
+ return m.active===want.active&&(!want.active||m.admin===want.admin&&secs(m.sections)===secs(want.sections))?'ok':'differs';
+}
+async function cloudRulesSave(rules){
+ cloudAccess.busy=true;cloudAccess.error='';render();
+ try{
+  cloudAccess.rules=await cloudRpc('erp_rules_set',{rules:rules.map(r=>({tbl:r.tbl,read:r.read||'',write:r.write||''}))});
+  cloudAccess.draft=null;cloudAccess.open='';
+ }catch(e){cloudAccess.error=e.message;}
+ cloudAccess.busy=false;render();
+ return !cloudAccess.error;
 }
 
 /* ==== src/erp/views/users.js ==== */
@@ -16785,6 +16887,8 @@ function userNowHTML(u){
 }
 function viewUsers(){
  const side=usersSide(),prod=side==='production',log=side==='log',cloud=side==='cloud';
+ if(cloudAccessOn()&&!cloudAccess.asked)setTimeout(cloudAccessLoad,0);
+ const srv=!prod&&Array.isArray(cloudAccess.members);
  const list=log||cloud?[]:DB.user.map((u,i)=>({u,i})).filter(x=>usersOn(x.u,side));
  const count=k=>k==='cloud'?'':k==='log'?(DB.authEvent||[]).length:DB.user.filter(u=>usersOn(u,k)).length;
  const rows=list.map(({u,i})=>{
@@ -16793,11 +16897,11 @@ function viewUsers(){
   return prod
    ?`<tr data-user-row="${esc(u.viewProfileId)}"><td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td>${userHasPin(u)?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>${actions}</tr>`
    :`<tr data-user-row="${esc(u.viewProfileId)}"><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td class="user-access-cell">${userAccessHTML(u)}</td>
-   <td>${userHasPassword(u)?'<span class="pill ok">set</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}</td>${actions}</tr>`;
+   <td>${userHasPassword(u)?'<span class="pill ok">set</span>':u.email&&signinServer()?'<span class="pill ok" title="Server login">server</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}</td>${srv?userServerHTML(u):''}${actions}</tr>`;
  }).join('');
  const head=prod
   ?'<th title="Station sign-in: number + PIN">No.</th><th>Name</th><th title="Signed in now on this computer">Now</th><th>PIN</th><th></th>'
-  :'<th>Name</th><th title="Signed in now on this computer">Now</th><th>Sections</th><th>Password</th><th></th>';
+  :'<th>Name</th><th title="Signed in now on this computer">Now</th><th>Sections</th><th>Password</th>'+(srv?'<th title="Login on server">Server</th>':'')+'<th></th>';
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
  const tabs=`<div class="tabs">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button class="${side===k?'on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;render()">${l} <span class="mut">${count(k)}</span></button>`).join('')}</div>`;
@@ -16806,8 +16910,15 @@ function viewUsers(){
   ${cloud?`<div class="card">${tabs}${usersCloudHTML()}</div>`:log?`<div class="card sales-list-card users-log-card"><div class="users-log-tabs">${tabs}</div>${authLogTable()}</div>`:`<div class="card">${tabs}
   ${uEdit!==null?userForm():''}
   <table><thead><tr>${head}</tr></thead>
-  <tbody>${rows||`<tr><td colspan="5" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody></table>
+  <tbody>${rows||`<tr><td colspan="${srv?6:5}" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody></table>
   </div>`}`;
+}
+/* Вход человека на сервер и совпадает ли он с галочками здесь
+   (erp/cloud-access). */
+function userServerHTML(u){
+ const st=cloudMemberState(u);
+ const pill=st==='ok'?'<span class="pill ok">same</span>':st==='missing'?'<span class="pill warn" title="Save again">not on server</span>':st==='differs'?'<span class="pill warn" title="Save again">differs</span>':'';
+ return `<td data-user-server="${st||'none'}">${u.email?`<span class="mono small">${esc(u.email)}</span> ${pill}`:'<span class="mut">—</span>'}</td>`;
 }
 /* Cloud — сервер (erp/cloud.js). Адрес и ключ — этого устройства; пароль
    не сохраняется. Ниже — синхронизация (erp/cloud-sync.js). */
@@ -16829,7 +16940,7 @@ function usersCloudHTML(){
   <div class="row">${status}
    <button class="pri" data-cloud-connect ${st.busy?'disabled':''} onclick="usersCloudConnect()">Connect</button>
    ${s?`<button data-cloud-check onclick="cloudCheck()">Check</button><button data-cloud-out onclick="cloudSignOut()">Sign out</button>`:''}</div>
-  ${s?usersCloudSyncHTML():''}</div>`;
+  ${s?usersCloudSyncHTML():''}${s&&Array.isArray(cloudAccess.members)?usersCloudAccessHTML():''}</div>`;
 }
 function usersCloudSyncHTML(){
  const y=cloudSync,text=cloudSyncText(),busy=!!y.busy;
@@ -16839,6 +16950,89 @@ function usersCloudSyncHTML(){
  return `<h3>Sync</h3>${warn}${err}<div class="row">${pill}
   ${y.on?`<button data-cloud-stop ${busy?'disabled':''} onclick="cloudSyncStop()">Stop sync</button>`
    :`<button class="pri" data-cloud-upload ${busy?'disabled':''} onclick="cloudUpload()">Upload this database</button><button data-cloud-download ${busy?'disabled':''} onclick="cloudDownload()">Download from server</button>`}</div>`;
+}
+/* Access — правила таблиц на сервере (erp_table_rule): кто читает и кто
+   пишет. Нет раздела — все. Видит и меняет администратор сервера. */
+function usersRuleText(v){
+ const a=String(v||'').split(',').filter(Boolean);
+ return a.length?a.map(k=>`<span class="pill">${esc(userSectionNav(k).label)}</span>`).join(' '):'<span class="mut">Everyone</span>';
+}
+function usersCloudAccessHTML(){
+ const a=cloudAccess,d=a.draft,list=d||a.rules||[],busy=a.busy;
+ const ticks=(r,side)=>{const on=String(r[side]||'').split(',');
+  return `<div class="user-secs" data-rule-side="${side}">${USER_SECTIONS.map(k=>`<label class="user-sec${on.includes(k)?' on':''}" data-rule-sec="${k}"><input type="checkbox" ${on.includes(k)?'checked':''} onchange="usersRuleTick('${esc(r.tbl)}','${side}','${k}',this.checked)">${esc(userSectionNav(k).label)}</label>`).join('')}</div>`;};
+ const rows=list.map(r=>{
+  const open=d&&a.open===r.tbl;
+  return `<tr data-rule-row="${esc(r.tbl)}"><td class="mono">${esc(r.tbl)}</td><td>${usersRuleText(r.read)}</td><td>${usersRuleText(r.write)}</td>
+   <td style="white-space:nowrap"><button class="sm" data-rule-open ${busy?'disabled':''} onclick="usersRuleOpen('${esc(r.tbl)}')">${open?'Done':'Edit'}</button><button class="sm dl" data-rule-drop title="Remove rule" ${busy?'disabled':''} onclick="usersRuleDrop('${esc(r.tbl)}')">×</button></td></tr>`
+   +(open?`<tr data-rule-edit><td></td><td>${ticks(r,'read')}</td><td>${ticks(r,'write')}</td><td></td></tr>`:'');
+ }).join('');
+ const used=new Set(list.map(r=>r.tbl)),free=Object.keys(DB).filter(t=>Array.isArray(DB[t])&&/^[A-Za-z]/.test(t)&&!used.has(t)).sort();
+ const add=`<select id="cl_rule_tbl" ${busy?'disabled':''}>${free.map(t=>`<option>${esc(t)}</option>`).join('')}</select><button class="sm" data-rule-add ${busy?'disabled':''} onclick="usersRuleAdd()">Add rule</button>`;
+ return `<h3>Access</h3><div class="hint">No rule — everyone.</div>
+  ${a.error?`<div class="hint warn" data-cloud-access-error>${esc(a.error)}</div>`:''}
+  <table data-cloud-rules><thead><tr><th>Table</th><th>Read</th><th>Write</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">No rules</td></tr>'}</tbody></table>
+  <div class="row">${add}${d?`<button class="pri" data-rule-save ${busy?'disabled':''} onclick="cloudRulesSave(cloudAccess.draft)">Save access</button><button ${busy?'disabled':''} onclick="cloudAccess.draft=null;cloudAccess.open='';render()">Cancel</button>`:`<button class="sm" ${busy?'disabled':''} onclick="cloudAccessLoad()">Refresh</button>`}</div>`;
+}
+function usersRuleDraft(){if(!cloudAccess.draft)cloudAccess.draft=(cloudAccess.rules||[]).map(r=>({tbl:r.tbl,read:r.read||'',write:r.write||''}));return cloudAccess.draft;}
+function usersRuleOpen(t){usersRuleDraft();cloudAccess.open=cloudAccess.open===t?'':t;render();}
+function usersRuleDrop(t){const d=usersRuleDraft(),i=d.findIndex(r=>r.tbl===t);if(i>=0)d.splice(i,1);render();}
+function usersRuleAdd(){
+ const t=(document.getElementById('cl_rule_tbl')||{}).value;if(!t)return;
+ usersRuleDraft().push({tbl:t,read:'',write:''});cloudAccess.open=t;render();
+}
+function usersRuleTick(t,side,k,on){
+ const r=usersRuleDraft().find(x=>x.tbl===t);if(!r)return;
+ const set=new Set(String(r[side]||'').split(',').filter(Boolean));if(on)set.add(k);else set.delete(k);
+ r[side]=USER_SECTIONS.filter(x=>set.has(x)).join(',');render();
+}
+/* Подключение ПК к серверу маленьким окном — с экрана входа и снизу
+   экрана, без раздела Users (владелец, 24.10.2026: «маленьким окном,
+   туда ввести данные, чтобы подключиться, и тогда всё подтянется»).
+   Адрес и ключ — этого ПК; вход — свой. ПК ещё не связан — сразу Download
+   (вопрос «Replace this browser database?» остаётся). Человек с этой почтой
+   есть — он и вошёл в ERP. */
+let cloudJoin=null;
+function cloudJoinButton(){
+ const c=cloudConfig();let host='';try{host=c.url?new URL(c.url).host.split('.')[0]:'';}catch(e){}
+ return `<button type="button" class="signin-server" data-cloud-join onclick="cloudJoinOpen()">${host?'Server · '+esc(host):'Connect to server'}</button>`;
+}
+function cloudJoinOpen(){cloudJoin={busy:false,error:''};render();setTimeout(()=>{const el=document.getElementById(cloudConfig().url?'cj_email':'cj_url');if(el)el.focus();},0);}
+function cloudJoinClose(){if(cloudJoin&&cloudJoin.busy)return;cloudJoin=null;render();}
+function cloudJoinHTML(){
+ if(!cloudJoin)return '';
+ const c=cloudConfig(),b=cloudJoin.busy?'disabled':'';
+ return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)cloudJoinClose()"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="Server" data-cloud-join-dialog>
+  <div class="sales-service-modal-head"><div><span>This computer</span><h3>Server</h3></div><button type="button" aria-label="Close" onclick="cloudJoinClose()">×</button></div>
+  <form class="sales-dialog-body form" onsubmit="event.preventDefault();cloudJoinGo()">
+   <label>Server</label><input id="cj_url" autocomplete="off" placeholder="https://xxxx.supabase.co" value="${esc(c.url||'')}" ${b}>
+   <label>Publishable key</label><input id="cj_key" autocomplete="off" placeholder="sb_publishable_…" value="${esc(c.key||'')}" ${b}>
+   <label>Email</label><input id="cj_email" autocomplete="username" value="${esc(c.session&&c.session.email||'')}" ${b}>
+   <label>Password</label>${pwInput('id="cj_pass" autocomplete="current-password" '+b)}
+   <div class="signin-err" role="alert" data-cloud-join-error>${esc(cloudJoin.error||'')}</div>
+   <div class="row"><button type="submit" class="pri" data-cloud-join-go ${b}>${cloudJoin.busy?esc(cloudJoin.busy):'Connect'}</button><button type="button" onclick="cloudJoinClose()" ${b}>Cancel</button></div>
+  </form></div></div>`;
+}
+(window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(()=>tab==='station'?'':cloudJoinHTML());
+async function cloudJoinGo(){
+ const v=id=>String((document.getElementById(id)||{}).value||'').trim(),j=cloudJoin;if(!j||j.busy)return false;
+ const url=cloudUrl(v('cj_url')),key=v('cj_key'),email=v('cj_email').toLowerCase(),pass=(document.getElementById('cj_pass')||{}).value||'';
+ const step=t=>{j.busy=t;j.error='';render();};
+ try{
+  if(!url||!key||!email||!pass)throw new Error('Fill in all fields.');
+  step('Connecting…');
+  const c=cloudConfig();if(c.url!==url||c.key!==key){c.url=url;c.key=key;delete c.session;cloudConfigSave(c);}
+  await cloudLogin(email,pass);
+  if(!cloudSync.on){
+   step('Downloading…');
+   const ok=await cloudDownload();
+   if(!ok&&cloudSync.error)throw new Error(cloudSync.error);
+  }
+  const u=(DB.user||[]).find(x=>x.email===email&&userOffice(x));
+  cloudJoin=null;
+  if(u&&signinOn())signinAs(u.viewProfileId);else render();
+  return true;
+ }catch(e){j.busy=false;j.error=/invalid login/i.test(e.message)?'Wrong email or password':e.message;render();return false;}
 }
 function usersCloudConnect(){const v=id=>(document.getElementById(id)||{}).value||'';return cloudConnect(v('cl_url'),v('cl_key'),v('cl_email'),v('cl_pass'));}
 /* Журнал входов — таблица как в Sales: период When, воронки Who / What /
@@ -16868,7 +17062,7 @@ function userEditOpen(i){
  const u=i==='new'?null:DB.user[i];if(i!=='new'&&!u)return;
  uDraft={id:u?u.viewProfileId:'',rev:u?u.rev:0,name:u?u.name:'',no:u&&u.no?userNoText(u):'',access:u?u.access.slice():[],
   onOffice:u?userOffice(u):usersSide()==='office',onStation:u?userHasPin(u):usersSide()==='production',
-  hasPassword:userHasPassword(u),hasPin:userHasPin(u),newPassword:'',newPin:''};
+  hasPassword:userHasPassword(u),hasPin:userHasPin(u),newPassword:'',newPin:'',email:u&&u.email||''};
  uEdit=u?u.viewProfileId:'new';render();
  setTimeout(()=>{const el=document.getElementById('u_name');if(el&&!u)el.focus();},0);
 }
@@ -16877,7 +17071,8 @@ function userForm(){
  const sections=USER_SECTIONS.map(k=>{const n=userSectionNav(k),on=r.access.includes(k);
   return `<label class="user-sec${on?' on':''}" data-user-sec="${k}"><input type="checkbox" ${on?'checked':''} onchange="userToggleSection('${k}',this.checked)">${ico(n.icon,'icon-inline')}${esc(n.label)}</label>`;}).join('');
  const office=r.onOffice?`<div class="user-block-body">
-   <div class="grid"><div><label>Password</label>${pwInput(`id="u_password" autocomplete="new-password" placeholder="${r.hasPassword?'set · type to change':USER_PASSWORD_MIN+'+ characters'}" value="${esc(r.newPassword||'')}" oninput="uDraft.newPassword=this.value"`)}</div></div>
+   <div class="grid"><div><label>Password</label>${pwInput(`id="u_password" autocomplete="new-password" placeholder="${r.hasPassword?'set · type to change':USER_PASSWORD_MIN+'+ characters'}" value="${esc(r.newPassword||'')}" oninput="uDraft.newPassword=this.value"`)}</div>
+    <div><label>Server login</label><input id="u_email" autocomplete="off" placeholder="email" value="${esc(r.email||'')}" oninput="uDraft.email=this.value"></div></div>
    <div class="user-sec-head"><label>Sections</label><button type="button" class="sm" onclick="userSetSections(true)">All</button><button type="button" class="sm" onclick="userSetSections(false)">None</button></div>
    <div class="user-secs">${sections}</div></div>`:'';
  const station=r.onStation?`<div class="user-block-body"><div class="grid">
@@ -16908,12 +17103,18 @@ function userSetSections(all){uDraft.access=all?USER_SECTIONS.slice():[];render(
 function saveUser(){
  const d=uDraft;if(!d||d.pending)return Promise.resolve(null);
  const e=document.getElementById('e_user');if(e)e.style.display='none';
- const input={id:d.id,rev:d.rev,name:d.name,no:d.no,office:d.onOffice,access:d.access,password:d.newPassword,station:d.onStation,pin:d.newPin};
+ const input={id:d.id,rev:d.rev,name:d.name,no:d.no,office:d.onOffice,access:d.access,password:d.newPassword,station:d.onStation,pin:d.newPin,email:d.email};
+ const before=d.id?usersFind(d.id):null,old=before&&before.email||'';
  d.pending=true;userSaveButton(true);
  return usersSave(input,accessActor()).then(r=>{
   d.pending=false;if(uDraft!==d)return r;
   if(!r.ok){userSaveButton(false);const el=document.getElementById('e_user');if(el)fail(el,r.error);return r;}
-  uEdit=null;uDraft=null;render();return r;
+  uEdit=null;uDraft=null;render();
+  /* Галочки и вход — на сервер (erp/cloud-access); ответ сервера не ждём.
+     Новый пароль у человека с почтой — новый вход на сервере. */
+  const u=usersFind(r.id),pw=input.office&&input.password;
+  (u&&u.email&&pw&&cloudAccessOn()?cloudSignup(u.email,pw).then(err=>{if(err)cloudSync.warn='Server: '+u.email+' — '+err;}):Promise.resolve()).then(()=>cloudMemberPush(u,old));
+  return r;
  });
 }
 function userSaveButton(busy){const b=document.querySelector('[data-user-save]');if(b){b.disabled=busy;b.textContent=busy?'Saving…':'Save';}}
@@ -16922,7 +17123,9 @@ function delUser(i,side){
  const rev=u.rev,err=usersDropError(u.viewProfileId,side,rev);if(err){alert(err);return Promise.resolve(usersFail(err));}
  const prod=side==='production',other=prod?userOffice(u):userHasPin(u),name=u.name||'this user';
  if(!confirm(other?(prod?'Remove station sign-in for ':'Remove office sign-in for ')+name+'?':'Delete '+name+'?'))return Promise.resolve(null);
- return usersDrop(u.viewProfileId,side,rev,accessActor()).then(r=>{if(!r.ok)alert(r.error);render();return r;});
+ const email=u.email;
+ return usersDrop(u.viewProfileId,side,rev,accessActor()).then(r=>{if(!r.ok)alert(r.error);render();
+  if(r.ok&&!prod&&email)cloudMemberPush({email,name,access:[]});return r;});
 }
 
 /* ==== src/erp/signin.js ==== */
@@ -16952,12 +17155,27 @@ function signinSetTabSid(sid){try{if(sid)sessionStorage.setItem(SIGNIN_TAB_KEY,s
    открыт. Свой пароль, сменённый самим человеком, вход обновляет. */
 function signinUser(){
  const s=signinSession();if(!s||signinChecking||signinTabSid()!==s.sid)return null;
- return (DB.user||[]).find(u=>u.viewProfileId===s.userId&&userOffice(u)&&userHasPassword(u)&&s.key===secretKey(u.password))||null;
+ return (DB.user||[]).find(u=>signinValid(u,s))||null;
+}
+/* Вход сервером (этап 4 «Базы», владелец 24.10.2026: «перенести на первый
+   экран входа подключение к базе»). ПК связан с сервером, и у кого-то с
+   Users есть почта входа (Users → Server login) — офис входит почтой и
+   паролем сервера: один вход на ERP и базу, пароль ERP не нужен. Вход
+   живёт, пока сеанс сервера на этом ПК того же человека. */
+function signinServer(){
+ const c=typeof cloudConfig==='function'?cloudConfig():{};
+ return !!(c.url&&c.key)&&(DB.user||[]).some(u=>u.email&&(u.access||[]).includes(ACCESS_ADMIN));
+}
+function signinKeyOf(u){return signinServer()?'cloud:'+(u.email||''):secretKey(u.password);}
+function signinValid(u,s){
+ if(!u||!s||u.viewProfileId!==s.userId||!userOffice(u))return false;
+ if(signinServer()){const c=cloudConfig().session;return !!u.email&&!!c&&c.email===u.email&&s.key==='cloud:'+u.email;}
+ return userHasPassword(u)&&s.key===secretKey(u.password);
 }
 function signinKeyRefresh(){
  const s=signinSession();if(!s)return;
  const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId);if(!u)return;
- s.key=secretKey(u.password);try{localStorage.setItem(SIGNIN_KEY,JSON.stringify(s));}catch(e){}
+ s.key=signinKeyOf(u);try{localStorage.setItem(SIGNIN_KEY,JSON.stringify(s));}catch(e){}
 }
 /* Смена человека за компьютером (аудит 3 октября 2026): в памяти вкладки
    остаются черновики и окна того, кто работал. Вернулся он же — работа
@@ -16985,7 +17203,7 @@ function signinFresh(){
    имя. Поэтому вход включается, когда пароль есть хотя бы у одного человека
    с разделом Users; до тех пор входа нет, как в пустой базе: иначе дверь
    закрыта и поставить пароль некому. */
-function signinOn(){return (DB.user||[]).some(u=>u.password&&(u.access||[]).includes(ACCESS_ADMIN));}
+function signinOn(){return signinServer()||(DB.user||[]).some(u=>u.password&&(u.access||[]).includes(ACCESS_ADMIN));}
 function signinNeeded(){
  if(window.GF_NO_SIGNIN||signinChecking||tab==='station')return false;
  return signinOn()&&!signinUser();
@@ -16993,7 +17211,7 @@ function signinNeeded(){
 function signinAs(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
  const sid='S-'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
- try{localStorage.setItem(SIGNIN_KEY,JSON.stringify({userId:u.viewProfileId,sid,key:secretKey(u.password),at:new Date().toISOString()}));}catch(e){signinError='This browser cannot keep the sign-in.';render();return;}
+ try{localStorage.setItem(SIGNIN_KEY,JSON.stringify({userId:u.viewProfileId,sid,key:signinKeyOf(u),at:new Date().toISOString()}));}catch(e){signinError='This browser cannot keep the sign-in.';render();return;}
  signinSetTabSid(sid);signinPick='';signinError='';authLog('Sign in','Office',u);
  if(signinOwner&&signinOwner!==id)return signinFresh();
  signinOwner=id;render();
@@ -17025,10 +17243,16 @@ function pwToggle(btn){
  inp.type=show?'text':'password';btn.setAttribute('aria-pressed',String(show));btn.setAttribute('aria-label',show?'Hide':'Show');inp.focus();
 }
 function signinFocus(){setTimeout(()=>{const el=document.getElementById('signinPass');if(el)el.focus();},0);}
+let signinBusy=false;
 function signinSubmit(e){
  if(e)e.preventDefault();
- const u=(DB.user||[]).find(x=>x.viewProfileId===signinPick);if(!u)return;
+ const u=(DB.user||[]).find(x=>x.viewProfileId===signinPick);if(!u||signinBusy)return;
  const pass=(document.getElementById('signinPass')||{}).value||'';
+ if(signinServer()){
+  signinBusy=true;signinError='';render();
+  return cloudLogin(u.email,pass).then(()=>{signinBusy=false;signinAs(u.viewProfileId);},err=>{
+   signinBusy=false;signinError=/invalid login/i.test(err.message)?'Wrong password':err.message;render();signinFocus();});
+ }
  if(userPasswordCheck(u,pass))return signinAs(u.viewProfileId);
  signinError='Wrong password';render();signinFocus();
 }
@@ -17053,7 +17277,8 @@ function signinTone(name){let h=0;for(const c of String(name||''))h=(h*31+c.char
    показывает только тех, у кого в Users отмечены разделы и стоит пароль; цех
    входит на своей станции номером и PIN. */
 function signinOfficeUsers(){
- return (DB.user||[]).filter(u=>userOffice(u)&&u.password).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+ const srv=signinServer();
+ return (DB.user||[]).filter(u=>userOffice(u)&&(srv?u.email:u.password)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
 }
 /* Office / Production (владелец, 2 октября 2026): «производство не должно
    видеть имена всех, кто в офисе». Production — только станции, имён нет;
@@ -17076,13 +17301,13 @@ function signinView(){
   const pad=pick?`<form class="signin-pin" onsubmit="signinSubmit(event)" data-signin-form="enter">
    <label for="signinPass">Hi, <span data-raw>${hi}</span> — your password</label>
    ${pwInput('id="signinPass" autocomplete="current-password" aria-label="Password" placeholder="Password"')}
-   <button type="submit" class="pri">Sign in</button>
+   <button type="submit" class="pri" ${signinBusy?'disabled':''}>${signinBusy?'Checking…':'Sign in'}</button>
    <div class="signin-err" role="alert">${esc(signinError)}</div></form>`:'';
   body=`<p class="signin-sub">Who is working?</p>
   <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b></span></button>`).join('')}</div>${pad}`;
  }
  return `<div class="signin"><div class="signin-glass" aria-hidden="true"><i></i><i class="g-bronze"></i><i class="g-blue"></i><i class="g-gray"></i><i class="g-frost"></i><i></i></div><div class="signin-wrap">
-  <div class="signin-card">${signinBrandHTML()}${sw}<h2>${esc(signinGreeting())}</h2>${body}</div></div></div>`;
+  <div class="signin-card">${signinBrandHTML()}${sw}<h2>${esc(signinGreeting())}</h2>${body}${side==='office'?cloudJoinButton():''}</div></div></div>${cloudJoinHTML()}`;
 }
 /* Кто вошёл — внизу левого меню (шапки на экране нет); на планшете — в More. */
 function signinNavHTML(){
@@ -17100,7 +17325,7 @@ function signinMeHTML(){
  const u=signinUser();if(!signinMe||!u)return '';
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)signinMeClose()"><div class="sales-service-modal sales-dialog signin-me" role="dialog" aria-modal="true" aria-label="Your account" data-signin-me>
   <div class="sales-service-modal-head"><div><span>Signed in</span><h3 data-raw>${esc(u.name)}</h3></div><button type="button" aria-label="Close" onclick="signinMeClose()">×</button></div>
-  <form class="sales-dialog-body signin-me-form" onsubmit="signinMeSave(event)">
+  <form class="sales-dialog-body signin-me-form" onsubmit="signinMeSave(event)">${signinServer()?'<div class="hint">Server password</div>':''}
    <label>Change password</label>
    ${pwInput('id="meOld" autocomplete="current-password" placeholder="Current password"')}
    ${pwInput(`id="meNew" autocomplete="new-password" placeholder="New · ${USER_PASSWORD_MIN}+ characters"`)}
@@ -17115,6 +17340,10 @@ function signinMeSave(e){
  const v=id=>(document.getElementById(id)||{}).value||'',old=v('meOld'),next=v('meNew');
  const fail=m=>{signinMe.error=m;render();};
  if(next!==v('meNew2'))return fail(next.length<USER_PASSWORD_MIN?'At least '+USER_PASSWORD_MIN+' characters':'Passwords differ');
+ if(signinServer()){
+  if(next.length<USER_PASSWORD_MIN)return fail('At least '+USER_PASSWORD_MIN+' characters');
+  return cloudPasswordChange(signinUser().email,old,next).then(()=>{signinMe=null;render();return {ok:true};},err=>{fail(/invalid login/i.test(err.message)?'Wrong password':err.message);return {ok:false};});
+ }
  return usersChangeOwnPassword(old,next,accessActor()).then(r=>{if(r.ok){signinMe=null;render();}else fail(r.error);return r;});
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(signinMeHTML);
@@ -17176,7 +17405,7 @@ function authLogFlush(){
 /* Кто сейчас в системе на этом компьютере: вход в офис и входы станций. */
 function authOnline(u){
  const where=[];if(!u)return where;
- const s=signinSession();if(s&&s.userId===u.viewProfileId&&userOffice(u)&&userHasPassword(u)&&s.key===secretKey(u.password))where.push('Office');
+ const s=signinSession();if(signinValid(u,s))where.push('Office');
  if(typeof stationSessions==='function')Object.entries(stationSessions()).forEach(([code,x])=>{if(x&&x.userId===u.viewProfileId&&userHasPin(u)&&x.key===secretKey(u.pin))where.push(code);});
  return where;
 }
@@ -30500,7 +30729,8 @@ function purSupplierEdit(id){
  if(!accessCan('purchasing'))return;
  const s=id?purSupplierFind(id):null;if(id&&!s)return;purView='suppliers';
  purSupplierDraft=purClone(s||purSupplierClean({}));purSupplierOriginal=JSON.stringify(purSupplierDraft);purNotice='';salesListMenu=null;render();
- if(!id)setTimeout(()=>document.getElementById('pur_supplier_name')?.focus(),0);
+ /* render is synchronous; a delayed focus can steal input from Email. */
+ if(!id)document.getElementById('pur_supplier_name')?.focus();
 }
 function purSupplierInput(f){
  const d=purSupplierDraft,id='pur_supplier_'+f.k,v=d[f.k]==null?'':d[f.k];
@@ -48459,7 +48689,8 @@ function storageStatusHTML(){
  const admin=accessCan(ACCESS_ADMIN);
  return '<div class="storage-status'+(storageLastError||storageRecovery||storageStale?' bad':'')+'" role="status"><span>'+esc(text)+'</span>'+
   (storageLastSaved&&!storageLastError?'<small>Saved '+esc(new Date(storageLastSaved).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</small>':'')+
-  (typeof cloudSyncText==='function'&&cloudSyncText()?'<small data-cloud-sync-foot>Server: '+esc(cloudSyncText())+'</small>'+(cloudSync.warn?'<small data-cloud-warn-foot class="warn" title="Click to hide" onclick="cloudSync.warn=\'\';render()">'+esc(cloudSync.warn)+'</small>':''):'')+
+  (typeof cloudSyncText==='function'&&cloudSyncText()?'<small data-cloud-sync-foot>Server: '+esc(cloudSyncText())+'</small>'+(cloudSync.warn?'<small data-cloud-warn-foot class="warn" title="Click to hide" onclick="cloudSync.warn=\'\';render()">'+esc(cloudSync.warn)+'</small>':'')
+   :typeof cloudJoinOpen==='function'&&!cloudConfig().session?'<button type="button" data-cloud-join-foot onclick="cloudJoinOpen()">Connect server</button>':'')+
   (admin&&storageUsage?'<small>DB '+esc(String(Math.max(1,Math.round(storageUsage.usage/1048576))))+' MB</small>':'')+
   (admin&&storageLastAction!=null?'<small>Last action '+storageLastAction+' ms</small>':'')+
   (storageBackupPresent&&admin?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';
@@ -48730,7 +48961,9 @@ function storageImportSummary(next){return ['customer','salesOrder','receipt','g
    Import заменяет и архив (нет в файле — архив пустой). */
 async function storageImportState(raw,opts){
  opts=opts||{};
- if(!accessCan(ACCESS_ADMIN)){alert('Users access needed to replace the database.');return false;}
+ /* С сервера (cloud) — вход проверил сервер: подключить ПК может любой
+    участник цеха, не только Users. */
+ if(!opts.cloud&&!accessCan(ACCESS_ADMIN)){alert('Users access needed to replace the database.');return false;}
  const payload=raw&&raw.format==='glass-erp'?raw.data:raw;
  if(!payload||!Array.isArray(payload.customer)||!Array.isArray(payload.salesOrder)||!Array.isArray(payload.station))throw new Error('Choose a complete GLASS ERP backup. A partial data file cannot replace this database.');
  if(storageTest&&!opts.test&&!opts.restore){alert('Test data here. Clear database first.');return false;}
