@@ -50,7 +50,8 @@ function purSupplierEdit(id){
  if(!accessCan('purchasing'))return;
  const s=id?purSupplierFind(id):null;if(id&&!s)return;purView='suppliers';
  purSupplierDraft=purClone(s||purSupplierClean({}));purSupplierOriginal=JSON.stringify(purSupplierDraft);purNotice='';salesListMenu=null;render();
- if(!id)setTimeout(()=>document.getElementById('pur_supplier_name')?.focus(),0);
+ /* render is synchronous; a delayed focus can steal input from Email. */
+ if(!id)document.getElementById('pur_supplier_name')?.focus();
 }
 function purSupplierInput(f){
  const d=purSupplierDraft,id='pur_supplier_'+f.k,v=d[f.k]==null?'':d[f.k];
