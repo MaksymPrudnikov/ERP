@@ -93,6 +93,18 @@ module.exports=async function({page,eq}){
   return {errors,unchanged:JSON.stringify(DB)===before};
  }),{errors:[true,true,true],unchanged:true});
 
+ /* Moving to Email in the opening turn must survive queued autofocus. */
+ await t.p.evaluate(async()=>{
+  ppReset();render();document.querySelector('[data-pur-new]').click();
+  document.getElementById('pur_supplier_email').focus();
+  await new Promise(resolve=>setTimeout(resolve,0));
+ });
+ await t.p.keyboard.insertText('orders@example.test');
+ eq('opening a supplier cannot steal focus or send email input into its name',await t.p.evaluate(()=>({
+  focus:document.activeElement.id,name:document.getElementById('pur_supplier_name').value,
+  email:document.getElementById('pur_supplier_email').value,draftName:purSupplierDraft.name,draftEmail:purSupplierDraft.email
+ })),{focus:'pur_supplier_email',name:'',email:'orders@example.test',draftName:'',draftEmail:'orders@example.test'});
+
  /* Actual form controls: extra rows must not erase what is already typed. */
  await t.p.evaluate(()=>{ppReset();render();});
  await t.p.locator('[data-pur-new]').click();
