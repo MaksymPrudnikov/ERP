@@ -26,6 +26,12 @@
   `inactive`: пересчёт сам создаёт строку, как приёмки и сканы.
 - **Фокус окна +/− листов** — сразу после `render()`, без `setTimeout`
   (та же гонка, что в карточке поставщика v5.261).
+- **Фокус окна Server (Connect server)** — так же. Под нагрузкой прогон
+  `prepush` упал на `test/cloud-sync.js`: ключ уехал в поле Server,
+  и окно ответило «Fill in all fields.» вместо «Wrong email or password».
+  Отложенный фокус ещё остался в `signinFocus`/`signinMeOpen`
+  (`signin.js`), `userEditOpen` (`views/users.js`), `comEditOpen`
+  (`views/commissions.js`) и окне `sales/lifecycle.js` — не трогались.
 
 Ответы владельца 26.10 на вопросы 1–7 аудита (для следующих частей):
 закупочные цены в Data правит только тот, у кого Cost & margin;
@@ -38,7 +44,8 @@
 
 Проверки: `test/consumables.js` (+3: Cancel units, вопрос при уходе,
 неактивная карточка; первая проверка теперь ждёт Short), `test/inventory.js`
-(+2: минус без пересчёта в плитке Negative, фокус окна).
+(+2: минус без пересчёта в плитке Negative, фокус окна), `test/cloud-sync.js`
+(+1: фокус окна Server). Всего 2089.
 
 ## Purchasing: ввод Email не уезжает в Name · 25 октября 2026 (v5.261)
 

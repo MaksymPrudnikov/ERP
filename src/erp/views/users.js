@@ -148,7 +148,8 @@ function cloudJoinButton(){
  const c=cloudConfig();let host='';try{host=c.url?new URL(c.url).host.split('.')[0]:'';}catch(e){}
  return `<button type="button" class="signin-server" data-cloud-join onclick="cloudJoinOpen()">${host?'Server · '+esc(host):'Connect to server'}</button>`;
 }
-function cloudJoinOpen(){cloudJoin={busy:false,error:''};render();setTimeout(()=>{const el=document.getElementById(cloudConfig().url?'cj_email':'cj_url');if(el)el.focus();},0);}
+/* render синхронный; фокус позже уводил набранное в Server (как в Purchasing, v5.261). */
+function cloudJoinOpen(){cloudJoin={busy:false,error:''};render();const el=document.getElementById(cloudConfig().url?'cj_email':'cj_url');if(el)el.focus();}
 function cloudJoinClose(){if(cloudJoin&&cloudJoin.busy)return;cloudJoin=null;render();}
 function cloudJoinHTML(){
  if(!cloudJoin)return '';
