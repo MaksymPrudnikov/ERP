@@ -38,14 +38,14 @@ function consAssembled(){
  const index=stationPieceIndex(),asm=new Map();
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||s.broken||!s.asm||!s.unit||asm.has(s.asm))return;
-  const hit=index.get(s.piece);if(hit)asm.set(s.asm,{orderId:hit.orderId,lineId:hit.lineId,at:s.at});
+  const hit=index.get(s.piece);if(hit)asm.set(s.asm,{orderId:hit.orderId,lineId:hit.lineId,piece:s.piece,at:s.at});
  });
  return [...asm.values()];
 }
 function consRows(){
  const rows=new Map(),row=(table,id)=>{
   const k=consKey(table,id);
-  if(!rows.has(k)){const x=mdById(table,id),t=CONS_TABLES.find(t=>t[0]===table);rows.set(k,{key:k,table,id,group:t?t[1]:table,name:x?x.name:id,code:x?x.code||'':'',unit:consUnitOf(table),pack:x&&x.packQty!=null?x.packQty:null,received:0,used:0,reserved:0,adjust:0,noPack:0,unknown:0,lastCount:null});}
+  if(!rows.has(k)){const x=mdById(table,id),t=CONS_TABLES.find(t=>t[0]===table);rows.set(k,{key:k,table,id,group:t?t[1]:table,name:x?x.name:id,code:x?x.code||'':'',off:!!x&&x.active===false,unit:consUnitOf(table),pack:x&&x.packQty!=null?x.packQty:null,received:0,used:0,reserved:0,adjust:0,noPack:0,unknown:0,lastCount:null});}
   return rows.get(k);
  };
  CONS_TABLES.forEach(([t])=>(DB[t]||[]).forEach(x=>{if(x&&x.id&&x.active!==false)row(t,x.id);}));
@@ -55,25 +55,29 @@ function consRows(){
   const x=row(l.table,l.itemId),qty=(l.qty||0)-(l.damaged||0);
   if(mdUnitCode(l.unit,'')===x.unit)x.received+=qty;else if(x.pack!=null)x.received+=qty*x.pack;else x.noPack++;
  });});
- /* Расход по сканам IGU и резерв несобранных юнитов сохранённых заказов. */
+ /* Расход по сканам IGU и резерв несобранных юнитов сохранённых заказов.
+    Отменённые юниты (Cancel units) не резервируются; собранный и потом
+    отменённый остаётся расходом (аудит 25.10.2026, I-3). */
  const per=new Map(),perOf=(o,l)=>{const k=o.id+'|'+l.id;if(!per.has(k))per.set(k,consPerUnit(l,o));return per.get(k);};
- const built=new Map();
+ const built=new Map(),gone=new Map(),goneOf=o=>{if(!gone.has(o.id))gone.set(o.id,unitCancelledSet(o));return gone.get(o.id);};
  consAssembled().forEach(a=>{
   const o=salesRecord(a.orderId),l=o&&(o.lines||[]).find(x=>x.id===a.lineId);if(!l)return;
-  built.set(o.id+'|'+l.id,(built.get(o.id+'|'+l.id)||0)+1);
+  if(!goneOf(o).has(a.piece))built.set(o.id+'|'+l.id,(built.get(o.id+'|'+l.id)||0)+1);
   perOf(o,l).forEach((q,k)=>{const[t,...id]=k.split(':'),x=row(t,id.join(':'));if(Number.isFinite(q))x.used+=q;else x.unknown++;});
  });
  (DB.salesOrder||[]).forEach(o=>{
   if(salesIsQuote(o)||!CONS_RESERVE_STATES.includes(o.status))return;
   (o.lines||[]).forEach(l=>{
    const m=salesMakeupById(o,l.makeupId);if(!m||!(m.cavities||[]).length)return;
-   const left=salesPositiveInt(l.qty,1)-(built.get(o.id+'|'+l.id)||0);if(left<=0)return;
+   const left=salesPositiveInt(l.qty,1)-unitCancelled(l)-(built.get(o.id+'|'+l.id)||0);if(left<=0)return;
    perOf(o,l).forEach((q,k)=>{const[t,...id]=k.split(':'),x=row(t,id.join(':'));if(Number.isFinite(q))x.reserved+=q*left;else x.unknown++;});
   });
  });
- (DB.consumableEvent||[]).forEach(e=>{const x=rows.get(e.key);if(!x)return;x.adjust+=e.qty;if(!x.lastCount||e.at>x.lastCount.at)x.lastCount=e;});
+ /* Пересчёт держит строку и у неактивной карточки (I-7). */
+ (DB.consumableEvent||[]).forEach(e=>{const[t,...id]=String(e.key).split(':');if(!consUnitOf(t)||!id.length)return;const x=row(t,id.join(':'));x.adjust+=e.qty;if(!x.lastCount||e.at>x.lastCount.at)x.lastCount=e;});
+ /* Нехватка видна раньше «Not counted» (I-5). */
  return [...rows.values()].map(x=>{x.onHand=x.received-x.used+x.adjust;x.free=x.onHand-x.reserved;
-  x.status=x.noPack?'Pack size missing':x.unknown?'Norm missing':!x.lastCount?'Not counted':x.free<0?'Short':'OK';return x;})
+  x.status=x.noPack?'Pack size missing':x.unknown?'Norm missing':x.free<0?'Short':!x.lastCount?'Not counted':'OK';return x;})
   .sort((a,b)=>CONS_TABLES.findIndex(t=>t[0]===a.table)-CONS_TABLES.findIndex(t=>t[0]===b.table)||String(a.name).localeCompare(String(b.name)));
 }
 function consNumber(v,label){const s=String(v==null?'':v).trim(),n=Number(s);if(!s||!Number.isFinite(n)||n<0)throw new Error(label+': enter 0 or more.');return n;}
