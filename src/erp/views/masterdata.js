@@ -97,7 +97,7 @@ function viewMasterData(){
  /* Плитки каталога — только в его обзоре: над Prices, Company, Setup и
     открытой карточкой они место отнимали, а не помогали (аудит 25.10.2026,
     D-3). */
- const kpi=sec.k==='catalog'&&!mdCardOpen()&&!mdCatalogQuery.trim();
+ const kpi=sec.k==='catalog'&&!mdRowFormOpen()&&!mdCatalogQuery.trim();
  return `<div class="page-head"><div><h2>Master Data</h2><p>Items, works, prices and settings.</p></div><span class="pill info">Master Data · v2</span></div>
   ${kpi?`<div class="kpi-grid" data-md-kpi>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('layers')}</div></div><div class="kpi-num">${total}</div><div class="kpi-label">catalog items</div></div>
