@@ -823,8 +823,14 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 /* Карточки Data: длинное имя — на две колонки (аудит D-5). */
 .md-card-panes .grid>.md-wide,.form .grid>.md-wide{grid-column:span 2}
 @media (max-width:700px){.md-card-panes .grid>.md-wide,.form .grid>.md-wide{grid-column:auto}}
-/* Data → Shipping → Trucks: имя и заметка рядом, Active узкий (аудит D-6). */
-.md-trucks{max-width:820px}.md-trucks table{width:100%}.md-trucks td input[type=text],.md-trucks td input:not([type]){width:100%}
-.md-trucks th:first-child{width:38%}.md-trucks .md-trucks-on{width:70px;text-align:center}
-/* Data → Setup: значения и «база» ближе, таблицы не на всю ширину. */
-.md-setup .sales-table-wrap{max-width:900px}
+/* Data → Shipping → Trucks: на всю ширину, поля тянутся по колонкам —
+   без пустот между ними (владелец, 26.10.2026: «без укорочения»). */
+.md-trucks table{width:100%;table-layout:fixed}.md-trucks td input[type=text],.md-trucks td input:not([type]){width:100%;max-width:none!important}
+.md-trucks th:first-child{width:36%}.md-trucks .md-trucks-on{width:90px;text-align:center}
+/* Data → Setup: на всю ширину, колонки по долям — значение и «база» не
+   разбегаются по краям. */
+.md-setup .ncr-table{width:100%;table-layout:fixed}
+.md-setup .ncr-table:not([data-setup-cards]) th:nth-child(1){width:30%}.md-setup .ncr-table:not([data-setup-cards]) th:nth-child(2){width:8%}.md-setup .ncr-table:not([data-setup-cards]) th:nth-child(3){width:27%}
+.md-setup [data-setup-cards] th:nth-child(1){width:45%}.md-setup [data-setup-cards] th:nth-child(3){width:70px}
+.md-setup [data-setup-cards] td input[type=text]{width:100%}
+.md-trucks td{vertical-align:middle}.md-setup .ncr-table:not([data-setup-cards]) th:nth-child(4){text-align:left}
