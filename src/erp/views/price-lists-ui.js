@@ -62,7 +62,7 @@ function plGroupsView(){
   <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
    <div style="flex:0 0 300px"><table><thead><tr><th>Group</th><th>Customers</th><th>Prices</th></tr></thead><tbody>${list||'<tr><td colspan="3" class="mut">No groups yet.</td></tr>'}</tbody></table>
     <button class="pri" style="margin-top:8px" onclick="plNewGroup()">+ Customer group</button></div>
-   <div style="flex:1 1 480px;min-width:0">${g?plGroupEditor(g):'<div class="mut">Pick a group.</div>'}</div>
+   <div style="flex:1 1 480px;min-width:0">${g?plGroupEditor(g):groups.length?'<div class="mut">Pick a group.</div>':'<div class="mut">Add a group, then give it prices.</div>'}</div>
   </div>`;
 }
 function plGroupEditor(g){

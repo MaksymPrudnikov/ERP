@@ -79,6 +79,15 @@ module.exports=async function({page,eq}){
   mdCatalogGo('glassProduct');mdGlassEdit(DB.glassProduct[0].id);const wide=!!document.getElementById('md_name').closest('.md-wide');mdEdit=null;render();
   return {hw,title,sheet,err,wide,back:!!document.querySelector('[data-md-health]')};
  }),{hw:[true,false,false],title:true,sheet:[true,false,false],err:true,wide:true,back:true});
+ /* Аудит D-6: Trucks — «+ Truck» в строке инструментов, Active без подписи
+    в каждой строке; Setup — карту убирают крестиком; Prices без групп
+    подсказывает, что делать. */
+ eq('Trucks, Setup and Prices: toolbar button, compact Active, small remove, empty-state hint',await t.p.evaluate(()=>{
+  tab='masterdata';mdSetTab('trucks');render();const trucks=[!!document.querySelector('.md-trucks .md-toolbar [data-truck-add]'),[...document.querySelectorAll('[data-truck-row] td:last-child')].every(td=>!/Active/.test(td.textContent))];
+  mdSetTab('setup');render();const setup=[...document.querySelectorAll('[data-setup-card] button')].every(b=>b.textContent==='×'&&b.getAttribute('aria-label')==='Remove');
+  const keep=DB.priceList;DB.priceList=(DB.priceList||[]).filter(l=>l.kind!=='group');plGroupId='';plView='groups';mdSetTab('prices');render();const prices=/Add a group, then give it prices\./.test(document.body.textContent);DB.priceList=keep;render();
+  return {trucks,setup,prices};
+ }),{trucks:[true,true],setup:true,prices:true});
  eq('catalog search finds a row in any table; Open goes to its card',await t.p.evaluate(()=>{
   mdSetTab('materials');mdCatalogQuery='argon';render();
   const rows=document.querySelectorAll('[data-md-search] tbody tr').length;

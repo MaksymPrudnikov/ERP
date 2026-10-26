@@ -152,7 +152,7 @@ function viewMdSetup(){
  const num=(k,unit)=>`<input type="number" min="0" step="0.01" data-setup="${k}" value="${s[k]}" onchange="orderSetupSet('${k}',this.value)"> <span class="mut">${unit}</span>`;
  const inBase=(k,label)=>`<label class="md-setup-base">${on(k)} ${label}</label>`;
  const row=(label,onKey,value,base)=>`<tr><td><b>${label}</b></td><td class="n">${on(onKey)}</td><td>${value}</td><td>${base}</td></tr>`;
- const cards=s.cardNetworks.map((n,i)=>`<tr data-setup-card="${esc(n.id)}"><td><input type="text" maxlength="60" value="${esc(n.name)}" onchange="orderSetupCardSet(${i},'name',this.value)"></td><td><input type="number" min="0" step="0.01" value="${n.rate}" onchange="orderSetupCardSet(${i},'rate',this.value)"> <span class="mut">%</span></td><td><button type="button" onclick="orderSetupCardRemove(${i})">Remove</button></td></tr>`).join('');
+ const cards=s.cardNetworks.map((n,i)=>`<tr data-setup-card="${esc(n.id)}"><td><input type="text" maxlength="60" value="${esc(n.name)}" onchange="orderSetupCardSet(${i},'name',this.value)"></td><td><input type="number" min="0" step="0.01" value="${n.rate}" onchange="orderSetupCardSet(${i},'rate',this.value)"> <span class="mut">%</span></td><td><button type="button" class="sm dl" aria-label="Remove" title="Remove" onclick="orderSetupCardRemove(${i})">×</button></td></tr>`).join('');
  return `<div class="md-setup" data-md-setup>
   <h3>Order charges</h3><p class="mut">Defaults for new orders.</p>
   <div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Charge</th><th class="n">On</th><th>Value</th><th>Base besides Subtotal</th></tr></thead><tbody>
