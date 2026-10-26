@@ -125,7 +125,7 @@ module.exports=async function({page,eq,ok}){
   DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes','RP-start-km','RP-start-myday','RP-start-myedge','RP-start-mycustomers'].includes(r.id));
   DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
   return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
- }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes'],again:10,seed:4});
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'],again:11,seed:5});
  eq('Км рейса по карте Google: цех → остановки → цех, запоминаются за рейс; отчёт — км и км на рейс; поменяли остановки — видно',await t.p.evaluate(async()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'});DB.truck=[{id:'T1',name:'Truck 1',active:true}];DB.tripKm=[];
   DB.company=Object.assign({},DB.company,{address1:'10 Shop Rd',city:'Vaughan',province:'ON'});
@@ -190,7 +190,7 @@ module.exports=async function({page,eq,ok}){
   const copy=repClean(JSON.parse(JSON.stringify(Object.assign({},mine,{id:'RP-my-copy'}))));DB.report.push(copy);DB.reportSeed=3;normalizeReports();
   const fields=r=>r.pages[0].widgets.map(w=>w.q.date.f).join(),now=DB.report.find(r=>r.id==='RP-start-mycustomers');
   const res={start:fields(now),copy:fields(DB.report.find(r=>r.id==='RP-my-copy')),seed:DB.reportSeed};DB.report=DB.report.filter(r=>r.id!=='RP-my-copy');return res;
- }),{start:'created,created',copy:'due,due',seed:4});
+ }),{start:'created,created',copy:'due,due',seed:5});
 
  eq('Аудит 12.10: отчёты по заказам пересчитываются после скана готовности (SHIPR), а не после любого скана цеха',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},id=rbOrder(c,'6CLEAR','single',[[30,40,2]],{delivery:'pickup'});rbBatch([id]);
@@ -199,6 +199,42 @@ module.exports=async function({page,eq,ok}){
   rbGo(ready,b,who);const afterReady=repOrderFacts()!==first;
   return {afterCut,beforeReady,afterReady};
  }),{afterCut:true,beforeReady:true,afterReady:true});
+
+ /* Владелец, 26.10.2026: «сколько ft² плёнки продано, сколько петель в
+    штуках и клем и других айтемов, сколько всего продано в деньгах и
+    измерительных параметрах»; Fabrication — по видам. */
+ const sold=await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'Northview Windows'});
+  const mk=(lines,extra)=>{tab='sales';salesOrderNew('order');salesSetUnitType('single');soDraft.lines=[];
+   lines.forEach(x=>{const m=x.lam?normalizeOrderMakeup({code:'L',unitType:'single'},soDraft.makeups.length):soDraft.makeups[0],p=m.panes[0],g=glassProductByCode('6CLEAR');
+    if(x.lam){p.category='laminated';soDraft.makeups.push(m);['outer','inner'].forEach(k=>Object.assign(p.laminated[k],{glassProductId:g.id,thicknessMm:6,heatTreatmentId:'HT-FT',priceOverride:4}));
+     p.laminated.interlayers=[normalizeSalesInterlayer({productId:INTERLAYER_DEFAULT_ID,layers:4,priceOverride:5})];}
+    else Object.assign(p,{glassProductId:g.id,thicknessMm:6,heatTreatmentId:'HT-FT',heatSoak:false,priceOverride:5});
+    const l=normalizeSalesOrderLine({makeupId:m.id,width16:x.w*16,height16:x.h*16,qty:x.qty,priceManual:x.manual==null?null:x.manual});soDraft.lines.push(l);const s=salesEnsureLineShape(l);
+    if(x.fab){s.manufacturingItems=[shapeNormalizeManufacturingItem({id:'h1',type:'hinge',edge:'bottom',distance:7.5}),shapeNormalizeManufacturingItem({id:'h2',type:'hinge',edge:'bottom',distance:30}),
+      shapeNormalizeManufacturingItem({id:'o1',type:'hole',x:20,y:18,diameter:'3/4'})];ShapeModule.compute(s).edges.forEach(e=>{s.edgeOps[e.id]=[shapeNormalizeOp({type:'Flat Polish'})];});}
+    const rate={MI:k=>/^MI:hole/.test(k)?6:15,EDGE:()=>0.05};salesLineChargeRows(l).forEach(r=>{const f=rate[String(r.key).split(':')[0]];salesEnsureChargePricing(l,r).orderRate=f?f(r.key):0;});});
+   salesApplyCustomerDefaults(c.id);Object.assign(soDraft,extra||{});if(!salesOrderSave())throw new Error('Order did not save');const id=soDraft.id;soDraft=null;soEdit=null;return id;};
+  const A=mk([{w:40,h:36,qty:2,fab:true},{w:30,h:48,qty:1,lam:true},{w:20,h:36,qty:1,manual:30}]),B=mk([{w:40,h:36,qty:1}],{noCharge:true});
+  const rows=repSoldFacts().filter(r=>r.orderId===A),sum=f=>salesMoney(rows.filter(f).reduce((n,r)=>n+(r.amount||0),0)),tA=finOrderTotals(salesRecord(A));
+  const q=(o)=>repQuery(Object.assign({source:'sold',date:{preset:'all'},filters:[{f:'charge',op:'in',v:['Charged']}]},o));
+  const line=res=>res.keys.map(k=>k+' '+res.rowTotals.get(k).map((v,i)=>repFmt(res.metrics[i],v)).join(' / '));
+  const fab=q({dims:['type'],metrics:['pcs','amount','price'],filters:[{f:'charge',op:'in',v:['Charged']},{f:'category',op:'in',v:['Fabrication']}],sort:{by:'label',dir:'asc'}});
+  const film=q({dims:['product'],metrics:['filmFt2','lamFt2','amount','price'],filters:[{f:'charge',op:'in',v:['Charged']},{f:'category',op:'in',v:['Interlayer']}]});
+  const all=q({metrics:['amount','units','unitFt2','glassFt2','filmFt2','inches','pcs'],filters:[{f:'charge',op:'in',v:['Charged']},{f:'category',op:'notIn',v:['Order charges']}]});
+  const byProduct=q({dims:['product'],metrics:['qty'],filters:[{f:'charge',op:'in',v:['Charged']},{f:'category',op:'in',v:['Edgework','Fabrication']}],sort:{by:'label',dir:'asc'}});
+  const free=repQuery({source:'sold',date:{preset:'all'},filters:[{f:'charge',op:'in',v:['No charge']}],metrics:['amount','glassFt2','list']});
+  return {goods:[sum(r=>r.category!=='Order charges'),tA.subtotal],withCharges:[sum(()=>true),salesMoney(tA.grand-tA.hst)],
+   cats:[...new Set(rows.map(r=>r.category))].sort(),hand:rows.filter(r=>r.category==='Price set by hand').map(r=>r.amount),
+   fab:line(fab),film:line(film),all:all.metrics.map((m,i)=>m.label+' '+repFmt(m,all.total[i])),
+   products:line(byProduct),qtyTotal:repFmt(byProduct.metrics[0],byProduct.total[0]),free:free.metrics.map((m,i)=>m.label+' '+repFmt(m,free.total[i]))};
+ });
+ eq('Products sold: сумма строк = итог заказа до HST до цента; цена руками — своя строка',
+  {goods:sold.goods[0]===sold.goods[1],withCharges:sold.withCharges[0]===sold.withCharges[1],hand:sold.hand},{goods:true,withCharges:true,hand:[-0.6]});
+ eq('Products sold: петли, отверстия — штуки по видам Works; плёнка — ft² × слои; итоги в деньгах и мерах; количество разных единиц не складывается; переделка без оплаты — $0',
+  {cats:sold.cats,fab:sold.fab,film:sold.film,all:sold.all,products:sold.products,qtyTotal:sold.qtyTotal,free:sold.free},
+  {cats:["Edgework","Fabrication","Glass","Interlayer","Order charges","Price set by hand"],fab:["Hinge 4 / $60.00 / $15.00","Hole 2 / $12.00 / $6.00"],film:["EVA Clear · ft² 40 / 10 / $200.00 / $5.00"],
+   all:["Amount $512.80","Units 4","Unit ft² 35","Glass ft² 45","Film ft² 40","Linear in 728","Pieces 6"],products:["Flat Polish · in 304","Hinge · pcs 4","Hole 1/2″–1″ · pcs 2","Rough Arris · in 424"],qtyTotal:"—",free:["Amount $0.00","Glass ft² 10","By price list $1.52"]});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();

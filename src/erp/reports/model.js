@@ -23,7 +23,7 @@
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=4;
+const REP_SEED_VERSION=5;
 /* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
 function repUid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();}
 function repMe(){const u=typeof signinUser==='function'?signinUser():null;return u?u.viewProfileId:'';}
@@ -169,7 +169,22 @@ function REP_STARTERS(){
    ['Quotes',[repW('table','quotes',{title:'My quotes',date:{f:'created'},dims:['state'],metrics:['count','value'],filters:[{f:'rep',op:'in',v:['@me']}]})]]],3),
   R('sizes','Glass by size band','Production','thisMonth',['station','glass'],[
    ['Summary',[repW('bars','glass',{title:'Glass by size band',dims:['sizeBand'],metrics:['count'],width:'half'}),repW('pie','ordered',{title:'Ordered ft² by size band',date:{f:'created'},dims:['sizeBand'],metrics:['area'],width:'half'}),
-    repW('table','glass',{title:'Station × size band',dims:['station','sizeBand'],metrics:['count']})]]],2)
+    repW('table','glass',{title:'Station × size band',dims:['station','sizeBand'],metrics:['count']})]]],2),
+  /* Версия 5 (26.10.2026): продано по каждому продукту — деньги и меры.
+     По умолчанию только оплачиваемое: переделка NCR за $0 — не продажа. */
+  Object.assign(R('sold','Products · sold','Sales','thisMonth',['category','type','customer','charge'],[
+   ['Summary',[repW('number','sold',{title:'Sold · money',metrics:['amount','orders','units','unitFt2'],filters:[{f:'category',op:'notIn',v:['Order charges']}]}),
+    repW('number','sold',{title:'Sold · measures',metrics:['glassFt2','filmFt2','inches','pcs','workFt2']}),
+    repW('table','sold',{title:'By category',dims:['category'],metrics:['amount','glassFt2','filmFt2','inches','pcs','workFt2','orders']}),
+    repW('table','sold',{title:'Fabrication · by type',dims:['type'],metrics:['pcs','amount','price','orders'],filters:[{f:'category',op:'in',v:['Fabrication']}],width:'half'}),
+    repW('table','sold',{title:'Interlayer · ft²',dims:['product'],metrics:['filmFt2','lamFt2','amount','price'],filters:[{f:'category',op:'in',v:['Interlayer']}],width:'half'})]],
+   ['By product',[repW('table','sold',{title:'By product',dims:['product'],metrics:['qty','amount','price','orders','calc:qty~div~orders'],
+     filters:[{f:'category',op:'notIn',v:['Order charges','Adjustments','Price set by hand','Cancelled units']}]})]],
+   ['By month',[repW('columns','sold',{title:'Amount by month · category',date:{use:'own',preset:'thisYear'},dims:['created:month','category'],metrics:['amount'],filters:[{f:'category',op:'notIn',v:['Order charges']}]}),
+    repW('table','sold',{title:'Type by month',date:{use:'own',preset:'thisYear'},dims:['type','created:month'],metrics:['amount'],filters:[{f:'category',op:'notIn',v:['Order charges']}],limit:30})]],
+   ['Prices',[repW('table','sold',{title:'Price per unit · by product',dims:['product'],metrics:['price','unitPrice:min','unitPrice:max','customers'],
+     filters:[{f:'category',op:'notIn',v:['Order charges','Adjustments','Price set by hand','Cancelled units']}]}),
+    repW('table','sold',{title:'By customer',dims:['customer'],metrics:['amount','orders','calc:amount~div~orders'],limit:20,other:true})]]],5),{filters:{charge:['Charged']}})
  ];
 }
 

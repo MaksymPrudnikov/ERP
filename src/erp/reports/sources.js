@@ -143,6 +143,23 @@ Object.assign(REP_SRC,{
    .concat(repOrderFields(),[REP_F.num('total','Order total',{money:true}),REP_F.num('paid','Paid',{money:true}),REP_F.num('balance','Balance',{money:true}),REP_F.num('overdue','Overdue',{money:true}),REP_F.num('daysOverdue','Days overdue')]),
   metrics:[{k:'balance',label:'Balance',agg:'sum',f:'balance',money:true},{k:'overdue',label:'Overdue',agg:'sum',f:'overdue',money:true},{k:'overdueN',label:'Overdue orders',agg:'sum',f:'overdueN'},
    {k:'count',label:'Orders',agg:'count'},{k:'paid',label:'Paid',agg:'sum',f:'paid',money:true},{k:'total',label:'Order total',agg:'sum',f:'total',money:true}]},
+ /* Продано (reports/facts-sold): количество — в единице продукта, у
+    продукта она и в имени («Flat Polish · in»); где единицы разные, итога
+    количества нет (unitBy). Меры по видам — свои колонки. */
+ sold:{label:'Products sold',group:'Sales',hint:'Every product, work and service sold',rows:()=>repSoldFacts(),date:['created','due','shipped'],
+  fields:()=>[REP_F.date('created','Order date'),REP_F.date('due','Due'),REP_F.date('shipped','Shipped'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
+   REP_F.dim('category','Category'),REP_F.dim('type','Type',r=>r.type||'—'),REP_F.dim('product','Product',r=>r.unitName&&r.unitName!=='—'?r.product+' · '+r.unitName:r.product||'—'),REP_F.dim('unitName','Unit'),
+   REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('heat','Temper',r=>r.heat||'—'),REP_F.dim('station','Station',r=>r.station||'—'),REP_F.dim('unitType','Unit type',r=>r.unitType||'—'),
+   REP_F.text('makeup','Makeup',r=>r.makeup||'—'),REP_F.dim('charge','Charged'),REP_F.dim('status','Status'),REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery')]
+   .concat(repOrderFields(),repLineFields(),[REP_F.num('qty','Quantity',{digits:1,unitBy:'unitName'}),REP_F.num('amount','Amount',{money:true}),REP_F.num('unitPrice','Price per unit',{money:true,unitBy:'unitName'}),
+   REP_F.num('list','By price list',{money:true}),REP_F.num('units','Units'),REP_F.num('unitFt2','Unit ft²',{digits:1}),REP_F.num('glassFt2','Glass ft²',{digits:1}),REP_F.num('filmFt2','Film ft²',{digits:1}),
+   REP_F.num('lamFt2','Laminate ft²',{digits:1}),REP_F.num('spacerFt','Spacer ft',{digits:1}),REP_F.num('inches','Linear in'),REP_F.num('pcs','Pieces'),REP_F.num('workFt2','Work ft²',{digits:1})]),
+  metrics:[{k:'amount',label:'Amount',agg:'sum',f:'amount',money:true},{k:'qty',label:'Quantity',agg:'sum',f:'qty',digits:1,unitBy:'unitName'},
+   {k:'price',label:'Avg price per unit',agg:'ratio',num:'amount',den:'qty',money:true,unitBy:'unitName'},{k:'orders',label:'Orders',agg:'distinct',f:'order'},{k:'customers',label:'Customers',agg:'distinct',f:'customer'},
+   {k:'units',label:'Units',agg:'sum',f:'units'},{k:'unitFt2',label:'Unit ft²',agg:'sum',f:'unitFt2',digits:1},{k:'glassFt2',label:'Glass ft²',agg:'sum',f:'glassFt2',digits:1},
+   {k:'filmFt2',label:'Film ft²',agg:'sum',f:'filmFt2',digits:1},{k:'lamFt2',label:'Laminate ft²',agg:'sum',f:'lamFt2',digits:1},{k:'inches',label:'Linear in',agg:'sum',f:'inches'},
+   {k:'pcs',label:'Pieces',agg:'sum',f:'pcs'},{k:'workFt2',label:'Work ft²',agg:'sum',f:'workFt2',digits:1},{k:'spacerFt',label:'Spacer ft',agg:'sum',f:'spacerFt',digits:1},
+   {k:'list',label:'By price list',agg:'sum',f:'list',money:true}]},
  offcuts:{label:'Offcuts in stock',group:'Production',now:true,hint:'Sheet offcuts kept, used, removed',rows:()=>repOffcutFacts(),date:['at'],
   fields:()=>[REP_F.date('at','Booked'),REP_F.text('offcut','Offcut'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('maker','Manufacturer',r=>r.maker||'—'),
    REP_F.dim('size','Size'),REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.dim('status','Status'),REP_F.num('area','Area ft²',{digits:1})],

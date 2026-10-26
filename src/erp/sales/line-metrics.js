@@ -125,35 +125,38 @@ function salesLineMaterials(m,areas,order){
  const out={total:0,amount:0,known:true,rows:[]};
  if(!m||!areas.valid)return Object.assign(out,salesMakeupUnitPrice(m),{amount:0});
  let plain=0;
- const add=(label,price,table,item,kg,fixedUnit)=>{
-  if(price==null){out.known=false;out.rows.push({label,price:null});return;}
+ /* Что именно продано — справочник и айтем, лайт, плита, слои плёнки (tag):
+    по ним отчёт Products · sold (reports/facts-sold) делит продажи. */
+ const add=(label,price,table,item,kg,fixedUnit,tag)=>{
+  const ref=Object.assign({table:table||'',itemId:item&&item.id||''},tag);
+  if(price==null){out.known=false;out.rows.push(Object.assign({label,price:null},ref));return;}
   const rules=fixedUnit?{unit:fixedUnit,minArea:null,minCharge:null}:salesItemSaleRules(table,item);
-  if(rules.unit==='sqft'&&rules.minArea==null&&rules.minCharge==null){plain+=price;out.rows.push({label,price,unit:'sqft',qty:areas.billable,amount:price*areas.billable});return;}
+  if(rules.unit==='sqft'&&rules.minArea==null&&rules.minCharge==null){plain+=price;out.rows.push(Object.assign({label,price,unit:'sqft',qty:areas.billable,amount:price*areas.billable},ref));return;}
   const needKg=rules.unit==='kg'||rules.unit==='lb',qty=salesSaleQty(rules,areas,needKg?kg():null);
-  if(qty==null){out.known=false;out.rows.push({label,price,unit:rules.unit,qty:null,note:'No weight'});return;}
+  if(qty==null){out.known=false;out.rows.push(Object.assign({label,price,unit:rules.unit,qty:null,note:'No weight'},ref));return;}
   const notes=[];let amount=price*qty;
   if(rules.minArea!=null&&mdUnit(rules.unit)&&mdUnit(rules.unit).calc==='area'&&rules.minArea>areas.billable)notes.push('min '+rules.minArea+' ft²');
   if(rules.minCharge!=null&&amount<rules.minCharge){amount=rules.minCharge;notes.push('min charge '+rules.minCharge.toFixed(2));}
-  out.rows.push({label,price,unit:rules.unit,qty,amount,note:notes.join(' · '),special:true});out.amount+=amount;
+  out.rows.push(Object.assign({label,price,unit:rules.unit,qty,amount,note:notes.join(' · '),special:true},ref));out.amount+=amount;
  };
  const glassKg=(ply,g)=>()=>{const t=glassEffectiveThicknessMm(g),mm=t.mm||+(ply&&ply.thicknessMm)||0;const d=glassDensityKgM3(order);return mm>0&&d&&areas.actual!=null?glassLayerWeightKg(mm,d,areas.actual):null;};
  (m.panes||[]).forEach((p,i)=>{
   const label='Lite '+(i+1);
   if(p.category==='laminated'){
-   if(p.priceOverride!=null)return add(label+' · laminated',p.priceOverride,'','',null,'sqft');
+   if(p.priceOverride!=null)return add(label+' · laminated',p.priceOverride,'','',null,'sqft',{pane:i});
    const lam=p.laminated||{};
-   [lam.outer,lam.inner].forEach((ply,j)=>{const g=ply&&glassProductById(ply.glassProductId);add(label+(j?'b':'a')+(g?' · '+g.code:''),salesPlyPrice(ply),'glassProduct',g,glassKg(ply,g));});
+   [lam.outer,lam.inner].forEach((ply,j)=>{const g=ply&&glassProductById(ply.glassProductId);add(label+(j?'b':'a')+(g?' · '+g.code:''),salesPlyPrice(ply),'glassProduct',g,glassKg(ply,g),null,{pane:i,ply:j?'inner':'outer'});});
    (lam.interlayers||[]).forEach(f=>{
     const prod=mdById('interlayerProduct',f.productId),layers=salesInterlayerLayerCount(f.layers!=null?f.layers:2);
     const price=f.priceOverride!=null?f.priceOverride:salesInterlayerSalePrice(f.productId);
     const rules=salesItemSaleRules('interlayerProduct',prod),byWeight=rules.unit==='kg'||rules.unit==='lb';
     const kg=()=>{const d=salesWeightRate('film:'+f.productId,order);return d!=null&&areas.actual!=null&&+f.thicknessMm>0?d*areas.actual*GLASS_M2_PER_FT2*f.thicknessMm/1000:null;};
     /* Плёнка за вес — вес всей плёнки; иначе цена × число слоёв, как раньше. */
-    add(label+' · '+(prod?prod.name:'Interlayer')+(byWeight||layers===1?'':' × '+layers),price==null?null:byWeight?price:price*layers,'interlayerProduct',prod,kg);
+    add(label+' · '+(prod?prod.name:'Interlayer')+(byWeight||layers===1?'':' × '+layers),price==null?null:byWeight?price:price*layers,'interlayerProduct',prod,kg,null,{pane:i,layers});
    });
   }else{
    const g=glassProductById(p.glassProductId);
-   add(label+(g?' · '+g.code:''),p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p),'glassProduct',g,glassKg(p,g));
+   add(label+(g?' · '+g.code:''),p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p),'glassProduct',g,glassKg(p,g),null,{pane:i});
   }
  });
  /* Обвязка — по частям рецепта; ручная ставка камеры — одна строка за ft². */
