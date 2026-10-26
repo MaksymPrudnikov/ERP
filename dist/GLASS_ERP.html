@@ -1233,6 +1233,8 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .md-catalog{display:grid;grid-template-columns:180px minmax(0,1fr);gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}.md-catalog.md-catalog-peek{grid-template-columns:180px minmax(0,1fr) 250px}.md-tree{display:flex;flex-direction:column;background:var(--surface-2);border-right:1px solid var(--line);padding:6px 0 12px}.md-tree-group{padding:12px 14px 4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);font-weight:650}.md-tree button{all:unset;cursor:pointer;padding:7px 14px 7px 22px;font-size:13px;color:var(--text-2);border-left:3px solid transparent}.md-tree button:hover{color:var(--text)}.md-tree button.on{color:var(--text);font-weight:650;border-left-color:var(--accent);background:var(--surface)}.md-tree button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}.md-catalog-main{padding:14px 16px;min-width:0}.md-catalog-head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 14px;margin-bottom:10px}.md-catalog-head>div:first-child{margin-right:auto}.md-catalog-head h3{margin:2px 0 0;font-size:16px}.md-catalog-health{display:flex;flex-wrap:wrap;gap:5px}.md-catalog-search{margin-bottom:10px;max-width:none}.md-catalog [data-md-row]{cursor:pointer}.md-catalog [data-md-row]:hover td{background:var(--surface-2)}.md-peek{align-self:start;position:sticky;top:0;border-left:1px solid var(--line);background:var(--surface-2);padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}.md-peek h4{margin:0;font-size:15px}.md-peek-sec{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);font-weight:650}.md-peek-chips{display:flex;flex-wrap:wrap;gap:4px}
 @media (max-width:1100px){.md-catalog.md-catalog-peek{grid-template-columns:190px minmax(0,1fr)}.md-peek{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}}
 @media (max-width:700px){.md-catalog,.md-catalog.md-catalog-peek{grid-template-columns:1fr}.md-tree{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}.md-tree-group{display:none}.md-tree button{padding:6px 10px;border-left:0}}
+/* Open recipe из превью каталога — рецепт подсвечен на миг. */
+.card.md-recipe-on{outline:2px solid var(--accent);outline-offset:2px}
 
 /* ---- src/styles/service-sets.css ---- */
 /* =====================================================================
@@ -3495,7 +3497,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='3e9f810b6935';
+var ERP_BUILD='a79bed2759a4';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -27685,7 +27687,12 @@ function mdCatalogSearchChange(el){
 function mdCatalogOpen(t,id){
  mdCatalogGo(t);
  if(t==='glassProduct')mdGlassEdit(id);else if(t==='spacerVariant')mdSpacerEditRow(id);else if(t==='glassSheet')mdSheetEditRow(id);
- else if(t==='hardwareModel')mdHwModelEditRow(id);else if(t!=='surroundRecipe')mdCatEditRow(id);
+ else if(t==='hardwareModel')mdHwModelEditRow(id);else if(t==='surroundRecipe')mdRecipeShow(id);else mdCatEditRow(id);
+}
+/* Рецепт правится прямо в своей карточке: Open — к ней на экране. */
+function mdRecipeShow(id){
+ const el=document.querySelector('[data-recipe="'+CSS.escape(id)+'"]');if(!el)return;
+ el.scrollIntoView({block:'start'});el.classList.add('md-recipe-on');setTimeout(()=>el.classList.remove('md-recipe-on'),1500);
 }
 /* Превью: клик по строке списка (не по полю и не по кнопке). */
 function mdCatalogRowClick(ev){
@@ -27699,6 +27706,17 @@ function mdPeekFacts(t,x){
  else if(t==='spacerVariant'){const rec=surroundRecipeById(x.recipeId);f.push(['System',x.system],['Size',x.size],['Price',money(x.salePrice)],['Weight',x.weightG==null?null:x.weightG+' '+SPACER_WEIGHT_PER[x.weightPer]],['Recipe',rec?rec.name:null]);
   if(x.salePrice==null)miss.push('no price');if(x.weightG==null)miss.push('no weight');else if(!x.weightMeasured)miss.push('not measured');if(!rec)miss.push('no recipe');}
  else if(t==='serviceRate'){f.push(['Station',x.station],['Unit',x.unit],['Price',mdWorkTiersText(x)]);if(!x.rule&&!x.station)miss.push('no station');mdWorkWarnings(x).forEach(w=>miss.push(w));}
+ /* Supply points, Hardware, Recipes (аудит 25.10.2026, D-1). Закупочная
+    цена — с галочкой Cost & margin, не здесь. */
+ else if(t==='glassSheet'){const g=glassProductByCode(x.productCode),sup=x.supplierId&&typeof purSupplierFind==='function'?purSupplierFind(x.supplierId):null;
+  f.push(['Glass',g?g.code+' · '+g.name:x.productCode],['Supplier',sup?sup.name:x.supplier],['Sheet',x.sheetWIn&&x.sheetHIn?x.sheetWIn+' × '+x.sheetHIn+' in':null],['Unit',mdUnitName(x.purchaseUnit)],['Availability',x.availability],['Lead time',x.leadTimeDays==null?null:x.leadTimeDays+' days'],['Price date',x.priceDate]);
+  if(!g)miss.push('no product');if(!x.sheetWIn||!x.sheetHIn)miss.push('size missing');}
+ else if(t==='hardwareModel'){const kind=hardwareKindRow(x.kind);
+  f.push(['Kind',kind?hardwareKindName(x.kind):null],['Series',x.series],['On the drawing',hardwareModelShort(x)],['Glass thickness',x.thickness],['Supplier code',x.supplierCode],['On drawings',String(mdHwModelUsage(x.id))],['Note',x.note]);
+  if(!kind)miss.push('no kind');}
+ else if(t==='surroundRecipe'){const fixed=p=>p==='spacer'||p==='gas',users=mdRecipeUsers(x.id);
+  f.push(['PIB per side',x.pibPerSideMm==null?null:x.pibPerSideMm+' mm'],...x.rows.map(r=>[surroundPartLabel(r.part),fixed(r.part)?(r.part==='spacer'?'from the spacer card':'from the gas card'):r.amount==null?null:r.amount+' '+SURROUND_PER[r.per]+(r.wastePct?' · waste '+r.wastePct+'%':'')]),['Used by',users.length+' spacer'+(users.length===1?'':'s')]);
+  if(x.rows.some(r=>!fixed(r.part)&&r.amount==null))miss.push('norm missing');}
  else{f.push(['Code',x.code],['Supplier',x.supplier],['Price',money(x.salePrice)]);if('salePrice' in x&&x.salePrice==null&&t!=='stockItem'&&t!=='heatTreatment')miss.push('no price');}
  return {facts:f,miss};
 }
@@ -27707,11 +27725,12 @@ function mdPeekHTML(){
  if(!x)return '<aside class="md-peek"><span class="mut">Click a row to preview.</span></aside>';
  const p=mdPeekFacts(t,x),label=(MD_CATALOG_TREE.flatMap(g=>g[1]).find(n=>n[0]===t)||[])[1]||t;
  const last=(DB.masterDataEvent||[]).filter(e=>e.tbl===t&&e.rowId===id).sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0];
- return `<aside class="md-peek" data-md-peek="${esc(mdPeek)}"><div class="md-peek-sec">${esc(label)}</div><h4>${raw(x.name||x.code||x.id)}</h4>
+ const title=t==='glassSheet'?(x.productCode||'—')+' · '+(x.supplier||'—'):x.name||x.code||x.id;
+ return `<aside class="md-peek" data-md-peek="${esc(mdPeek)}"><div class="md-peek-sec">${esc(label)}</div><h4>${raw(title)}</h4>
   <div class="md-peek-chips">${x.active===false?'<span class="pill warn">inactive</span>':''}${p.miss.map(m=>`<span class="pill warn">${esc(m)}</span>`).join('')}${!p.miss.length&&x.active!==false?'<span class="pill ok">complete</span>':''}</div>
   <dl class="md-kv">${p.facts.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${v==null||v===''?'<span class="mut">—</span>':raw(v)}</dd>`).join('')}</dl>
   <div class="md-peek-sec">Last change</div><div class="mut">${last?raw(last.what+(last.field?' · '+last.field:'')+' · '+(last.by||'—')+' · '+String(last.at).slice(0,10)):'No changes logged'}</div>
-  <div class="row"><button class="pri" onclick="mdCatalogOpen('${esc(t)}','${esc(id)}')">Open card</button><button onclick="mdPeek='';render()">Close</button></div></aside>`;
+  <div class="row"><button class="pri" onclick="mdCatalogOpen('${esc(t)}','${esc(id)}')">${t==='surroundRecipe'?'Open recipe':'Open card'}</button><button onclick="mdPeek='';render()">Close</button></div></aside>`;
 }
 function viewMdCatalog(){
  const node=mdCatalogNode(),open=mdEdit!==null||mdSheetEdit!==null||mdSpacerEdit!==null||mdCatEdit!==null||mdHwKindEdit!==null||mdHwModelEdit!==null;
@@ -28214,7 +28233,7 @@ function viewMdSupply(){
   ${orphans?`<div class="note">Supply rows without a product: <b>${orphans}</b> — give them a product back.</div>`:''}
   ${salesListFilterChips()}
   <div class="sales-table-wrap"><table class="sl-table md-supply-table"><thead><tr><th><span class="sl-header-tools">${settings}</span></th>${cols.map(mdSupplyHeader).join('')}<th></th></tr></thead>
-  <tbody>${rows.map(i=>`<tr data-supply-row="${esc(i.s.id)}"><td></td>${cols.map(c=>mdSupplyCell(i,c)).join('')}<td style="white-space:nowrap"><button class="sm" onclick="mdSheetEditRow('${esc(i.s.id)}')">Edit</button> <button class="sm dl" onclick="mdSheetDelete('${esc(i.s.id)}')">×</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'Nothing matches the filters.':'No supply rows yet — load GLASS_SHEETS.csv or add a row'}</td></tr>`}</tbody></table></div>
+  <tbody>${rows.map(i=>`<tr data-supply-row="${esc(i.s.id)}" data-md-row="glassSheet:${esc(i.s.id)}"><td></td>${cols.map(c=>mdSupplyCell(i,c)).join('')}<td style="white-space:nowrap"><button class="sm" onclick="mdSheetEditRow('${esc(i.s.id)}')">Edit</button> <button class="sm dl" onclick="mdSheetDelete('${esc(i.s.id)}')">×</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'Nothing matches the filters.':'No supply rows yet — load GLASS_SHEETS.csv or add a row'}</td></tr>`}</tbody></table></div>
   <div class="mut md-supply-foot">${rows.length} of ${infos.length} rows</div>${salesListMenuHTML(infos)}`;
 }
 function mdSheetNew(){
@@ -28579,7 +28598,7 @@ function viewMdHardware(){
   <div class="sales-table-wrap"><table><thead><tr><th>Model</th><th>Kind</th><th>Series</th><th>On the drawing</th><th>Glass thickness</th><th>Supplier code</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
   <tbody>${sorted.map(m=>{
    const used=mdHwModelUsage(m.id),kind=hardwareKindRow(m.kind);
-   return `<tr><td><b>${raw(m.name)}</b>${m.note?`<div class="mut">${raw(m.note)}</div>`:''}</td>
+   return `<tr data-md-row="hardwareModel:${esc(m.id)}"><td><b>${raw(m.name)}</b>${m.note?`<div class="mut">${raw(m.note)}</div>`:''}</td>
     <td>${kind?raw(hardwareKindName(m.kind)):'<span class="pill warn">no kind</span>'}</td>
     <td>${m.series?raw(m.series):'<span class="mut">—</span>'}</td>
     <td class="mono"><b>${raw(hardwareModelShort(m))}</b>${m.short?'':'<div class="mut">auto</div>'}</td>
@@ -29247,7 +29266,7 @@ function mdRecipeCard(r){
   ?`<td colspan="2" class="mut">${x.part==='spacer'?'Weight from the spacer card':'Density from the gas card × cavity volume'}</td>`
   :`<td><input type="number" min="0" step="any" style="width:90px" value="${x.amount==null?'':x.amount}" placeholder="unknown" onchange="mdRecipeRowSet('${esc(r.id)}',${i},'amount',this.value)"></td>
     <td><select onchange="mdRecipeRowSet('${esc(r.id)}',${i},'per',this.value)">${Object.keys(SURROUND_PER).map(k=>`<option value="${k}" ${k===x.per?'selected':''}>${esc(SURROUND_PER[k])}</option>`).join('')}</select></td>`;
- return `<div class="card" data-recipe="${esc(r.id)}" style="margin:12px 0">
+ return `<div class="card" data-recipe="${esc(r.id)}" data-md-row="surroundRecipe:${esc(r.id)}" style="margin:12px 0">
   <div class="grid">
    <div><label>Recipe name</label><input value="${esc(r.name)}" onchange="mdRecipeSet('${esc(r.id)}','name',this.value)"></div>
    <div><label>PIB per side, mm</label><input type="number" min="0" step="any" value="${r.pibPerSideMm==null?'':r.pibPerSideMm}" placeholder="unknown" onchange="mdRecipeSet('${esc(r.id)}','pibPerSideMm',this.value)"><div class="hint">Adds to unit thickness on both sides of the spacer.</div></div>
