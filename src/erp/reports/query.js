@@ -235,13 +235,17 @@ function repOrderKeys(S,d,groups,ms,q,range){
  }
  const by=q.sort&&q.sort.by==='label'?'label':'metric',i=q.sort&&Number.isInteger(q.sort.i)?q.sort.i:0,dir=q.sort&&q.sort.dir==='asc'?1:-1;
  if(by==='label'||!ms.length){
-  const seq=(DB.station||[]).map(s=>s.code),at=v=>{const n=seq.indexOf(v);return n<0?999:n;};
-  if(p.f==='station'&&!(q.sort&&q.sort.by==='label'))return keys.sort((a,b)=>at(a)-at(b));
+  const cmp=repSeqSort(S,p.f);
+  if(cmp&&!(q.sort&&q.sort.by==='label'))return keys.sort(cmp);
   return keys.sort((a,b)=>(q.sort&&q.sort.by==='label'?dir:1)*String(a).localeCompare(String(b),undefined,{numeric:true}));
  }
  const m=ms[Math.min(i,ms.length-1)],val=new Map(keys.map(k=>[k,repAgg(S,m,groups.get(k))]));
  return keys.sort((a,b)=>dir*((val.get(a)||0)-(val.get(b)||0))||String(a).localeCompare(String(b),undefined,{numeric:true}));
 }
+/* Порядок значений по смыслу: станции — по маршруту, у поля со своим
+   порядком (seq: «где стекло» — от «не проверено» до «готово») — по нему. */
+function repStationAt(v){const n=(DB.station||[]).map(s=>s.code).indexOf(v);return n<0?999:n;}
+function repSeqSort(S,k){const f=repField(S,k);if(f&&f.seq)return (a,b)=>f.seq(a)-f.seq(b);return k==='station'?(a,b)=>repStationAt(a)-repStationAt(b):null;}
 function repGroupBy(S,rows,d){const g=new Map();rows.forEach(r=>{const k=repDimValue(S,r,d);if(!g.has(k))g.set(k,[]);g.get(k).push(r);});return g;}
 
 /* ------------------------------- Запрос ------------------------------ */
@@ -265,8 +269,7 @@ function repQuery(q,ctx){
    const g2=repGroupBy(S,rows,dims[1]);let k2=repIsTime(S,dims[1])?repOrderKeys(S,dims[1],g2,ms,{},range).filter(k=>g2.has(k)):[...g2.keys()];
    if(!repIsTime(S,dims[1])){
     if(k2.length>8){const m=ms[0];k2=k2.sort((a,b)=>(repAgg(S,m,g2.get(b))||0)-(repAgg(S,m,g2.get(a))||0));const rest=k2.slice(7);k2=k2.slice(0,7);g2.set('__other',rest.flatMap(k=>g2.get(k)));}
-    const seq=(DB.station||[]).map(s=>s.code),at=v=>{const n=seq.indexOf(v);return n<0?999:n;};
-    k2=k2.sort(repDimParse(dims[1]).f==='station'?(a,b)=>at(a)-at(b):(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
+    k2=k2.sort(repSeqSort(S,repDimParse(dims[1]).f)||((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true})));
     if(g2.has('__other'))k2.push('__other');
    }
    out.keys2=k2;

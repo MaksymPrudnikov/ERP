@@ -125,7 +125,7 @@ module.exports=async function({page,eq,ok}){
   DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes','RP-start-km','RP-start-myday','RP-start-myedge','RP-start-mycustomers'].includes(r.id));
   DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
   return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
- }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'],again:11,seed:5});
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow']).sort(),again:17,seed:6});
  eq('Км рейса по карте Google: цех → остановки → цех, запоминаются за рейс; отчёт — км и км на рейс; поменяли остановки — видно',await t.p.evaluate(async()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'});DB.truck=[{id:'T1',name:'Truck 1',active:true}];DB.tripKm=[];
   DB.company=Object.assign({},DB.company,{address1:'10 Shop Rd',city:'Vaughan',province:'ON'});
@@ -190,7 +190,7 @@ module.exports=async function({page,eq,ok}){
   const copy=repClean(JSON.parse(JSON.stringify(Object.assign({},mine,{id:'RP-my-copy'}))));DB.report.push(copy);DB.reportSeed=3;normalizeReports();
   const fields=r=>r.pages[0].widgets.map(w=>w.q.date.f).join(),now=DB.report.find(r=>r.id==='RP-start-mycustomers');
   const res={start:fields(now),copy:fields(DB.report.find(r=>r.id==='RP-my-copy')),seed:DB.reportSeed};DB.report=DB.report.filter(r=>r.id!=='RP-my-copy');return res;
- }),{start:'created,created',copy:'due,due',seed:5});
+ }),{start:'created,created',copy:'due,due',seed:6});
 
  eq('Аудит 12.10: отчёты по заказам пересчитываются после скана готовности (SHIPR), а не после любого скана цеха',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},id=rbOrder(c,'6CLEAR','single',[[30,40,2]],{delivery:'pickup'});rbBatch([id]);
@@ -243,6 +243,28 @@ module.exports=async function({page,eq,ok}){
   const r=repPresetRange('thisMonth'),all=repSoldFacts().filter(x=>x.created>=r[0]&&x.created<=r[1]);
   return {counted,same:month.total[0]===all.reduce((n,x)=>n+(x.amount||0),0),orders:month.total[1]};
  }),{counted:['new'],same:true,orders:1});
+
+ /* Владелец, 26.10.2026: «что ждёт, что не ждёт, что овердью, что уже
+    готово, а что нет». */
+ eq('Shop now: не проверен · ждёт батча · ждёт станцию N дней · готово; просрочено — срок прошёл, а не готово; готовый самовывоз — не просрочен; колонки — по ходу работы',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},day=n=>repAddDays(finToday(),n);
+  const mk=due=>rbOrder(c,'6CLEAR','single',[[30,40,2]],{dueDate:due,delivery:'pickup'});
+  const A=mk(day(-2)),B=mk(day(-1)),C=mk(day(3)),D=mk(day(5));
+  rbBatch([A,B]);salesSetRecordStatus(C,'verified');rbIds(A).forEach(p=>rbGo('CUT',p,who,rbAt(-3,0,0)));oqReady(B);
+  const rows=repShopFacts(),of=id=>rows.filter(r=>r.orderId===id),txt=id=>[...new Set(of(id).map(r=>r.where+' · '+r.stage+' · '+r.state))].join(' | ');
+  const q=repQuery({source:'shopnow',date:{preset:'all'},metrics:['glass','orders','overdueOrders','over']});
+  return {A:txt(A),Adays:of(A).map(r=>r.days+'/'+r.daysOver+' from '+r.from),B:txt(B),C:txt(C)+' '+of(C).length,D:txt(D)+' '+of(D).map(r=>r.glassN),total:q.total,cols:repQuery({source:'shopnow',date:{preset:'all'},dims:['customer','where'],metrics:['glass']}).keys2};
+ }),{A:'ARRIS · In production · Overdue',Adays:['3/2 from CUT','3/2 from CUT'],B:'Ready · Ready · Ready',C:'To batch · Not started · Due later 2',D:'To verify · Not started · Due later 2',total:[8,4,1,2],cols:['To verify','To batch','ARRIS','Ready']});
+ eq('Sheets cut: лист — тому, кто первым резал с него; лопнувший на столе — отдельно; Undo не считается',await t.p.evaluate(()=>{
+  oqReset();DB.cutPlan=[];DB.sheetBreak=[];DB.stockOffcut=[];DB.glassSheet=[];DB.cutting=cutSettingsDefault();
+  DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:96,sheetHIn:130,availability:'stock'}));
+  const c=oqCustomer({legalName:'Northside Windows'}),roman={id:'u1',name:'Roman'},dmytro={id:'u2',name:'Dmytro'};
+  const id=rbOrder(c,'6CLEAR','single',[[46,60,4],[34,52,5]]);rbBatch([id]);const n=DB.glassBatch[DB.glassBatch.length-1].number;const r=cutPlanRun(n);if(r&&r.error)throw new Error(r.error);
+  const sheets=cutPlanFor(n).groups[0].sheets;sheets.forEach((s,i)=>s.pieces.forEach(p=>rbGo('CUT',p.piece,i?dmytro:roman)));
+  stationSheetBreak(n,'6CLEAR',sheets[0].no,roman);const b=stationSheetBreak(n,'6CLEAR',sheets[1].no,dmytro).rec;b.undoneAt=new Date().toISOString();touch();
+  const q=repQuery({source:'sheetcut',date:{preset:'all'},dims:['person'],metrics:['sheets','broke','area'],sort:{by:'label',dir:'asc'}});
+  return {sheets:sheets.length,by:q.keys.map(k=>k+' '+q.rowTotals.get(k).map((v,i)=>repFmt(q.metrics[i],v)).join(' / '))};
+ }),{sheets:2,by:['Dmytro 1 / 0 / 86.7','Roman 1 / 1 / 86.7']});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
