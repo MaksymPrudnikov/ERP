@@ -348,21 +348,27 @@ async function archiveNcr(){
  if(typeof ncrCanOpen==='function'&&ncrCanOpen(salesRecord(id)))ncrOpenForm('ncr');
 }
 
-/* Склад листов и обрезки — что они показывают, без журнала движений. */
+/* Склад листов, обрезки и расходники — что они показывают, без журнала
+   движений. Расходники — расход по сканам IGU (аудит 25.10.2026, I-1). */
 function archiveInvState(){
- const sheets=new Map(),offcuts=new Map();
+ const sheets=new Map(),offcuts=new Map(),cons=new Map();
  if(typeof invSheetRows==='function')invSheetRows().forEach(r=>sheets.set(r.key,{cut:r.cut,broken:r.broken}));
  if(typeof invOffcutRows==='function')invOffcutRows().forEach(o=>offcuts.set(o.id,{status:o.status,used:o.used,broken:o.broken,onRackAt:o.onRackAt,onRackBy:o.onRackBy}));
- return {sheets,offcuts};
+ if(typeof consRows==='function')consRows().forEach(r=>cons.set(r.key,{used:r.used,unknown:r.unknown}));
+ return {sheets,offcuts,cons};
 }
 /* Разница «до − после» по складу ложится в inventoryArchived: склад
    прибавляет её, и он показывает то же, что до действия, — при уходе и при
    возврате одинаково. offcuts — запомнить факты обрезков (уход). */
 function archiveInvKeep(before,after,offcuts){
  const A=DB.inventoryArchived&&typeof DB.inventoryArchived==='object'?DB.inventoryArchived:(DB.inventoryArchived={});
- A.sheets=A.sheets||{};A.offcuts=A.offcuts||{};
+ A.sheets=A.sheets||{};A.offcuts=A.offcuts||{};A.cons=A.cons||{};
  before.sheets.forEach((b,key)=>{const a=after.sheets.get(key)||{cut:0,broken:0},x=A.sheets[key]||{cut:0,broken:0};
   x.cut+=b.cut-a.cut;x.broken+=b.broken-a.broken;if(x.cut||x.broken)A.sheets[key]=x;else delete A.sheets[key];});
+ /* Расход — дробный (футы, кг): остаток меньше миллионной — ноль. */
+ const keys=new Set([...before.cons.keys(),...after.cons.keys()]);
+ keys.forEach(key=>{const b=before.cons.get(key)||{used:0,unknown:0},a=after.cons.get(key)||{used:0,unknown:0},x=A.cons[key]||{used:0,unknown:0};
+  x.used+=b.used-a.used;x.unknown+=b.unknown-a.unknown;if(Math.abs(x.used)<1e-6)x.used=0;if(x.used||x.unknown)A.cons[key]=x;else delete A.cons[key];});
  if(offcuts)before.offcuts.forEach((b,id)=>{const a=after.offcuts.get(id);if(a&&JSON.stringify(a)===JSON.stringify(b))return;
   const slim=x=>x?{at:x.at||'',by:x.by||'',batch:x.batch||'',sheet:x.sheet||''}:null;A.offcuts[id]={used:slim(b.used),broken:slim(b.broken),onRackAt:b.onRackAt||'',onRackBy:b.onRackBy||''};});
 }

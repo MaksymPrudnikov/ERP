@@ -125,7 +125,7 @@ function surroundSnap(key,order,live){
 }
 function surroundSpacerCard(sp,order){
  if(!sp)return null;
- return surroundSnap('snap:spacer:'+sp.id,order,()=>({recipeId:sp.recipeId||'',weightG:sp.weightG==null?null:sp.weightG,weightPer:sp.weightPer||'ft2',measured:sp.weightMeasured===true}));
+ return surroundSnap('snap:spacer:'+sp.id,order,()=>({recipeId:sp.recipeId||'',weightG:sp.weightG==null?null:sp.weightG,weightPer:sp.weightPer||'ft2',measured:sp.weightMeasured===true,mm:spacerThicknessMm(sp)}));
 }
 function surroundRecipeOf(sp,order){
  const card=surroundSpacerCard(sp,order);if(!card||!card.recipeId)return null;
@@ -160,7 +160,10 @@ function surroundCavityParts(c,geo,order){
    kg=card.weightG!=null&&b!=null?card.weightG*b/1000:null;
    note=card.weightG==null?'No spacer weight in the card':(card.weightG+' '+SPACER_WEIGHT_PER[card.weightPer]+(card.measured?'':' · not measured'));
   }else if(r.part==='gas'){
-   table='gasProduct';item=mdById('gasProduct',c.gasProductId);const d=surroundGasDensity(item,order),mm=spacerThicknessMm(sp);
+   /* Толщина рамки — из снимка заказа, как вес и рецепт (аудит 25.10.2026,
+      I-8); в снимке её нет (заказ до v5.264) — из карточки. */
+   const card=surroundSpacerCard(sp,order),mm=card&&card.mm!=null?card.mm:spacerThicknessMm(sp);
+   table='gasProduct';item=mdById('gasProduct',c.gasProductId);const d=surroundGasDensity(item,order);
    kg=d!=null&&area!=null&&mm>0?d*area*GLASS_M2_PER_FT2*mm/1000:null;
    note=d==null?'No density in the gas card':d+' kg/m³ × cavity volume';
   }else{
