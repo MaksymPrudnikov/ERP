@@ -28,6 +28,33 @@ module.exports=async function({page,eq}){
  }),await t.p.evaluate(()=>({supply:'glassSheet:'+DB.glassSheet[0].id,supplyFacts:['Glass','Supplier','Sheet'],noPrice:true,sheetForm:true,
   row:'hardwareModel:'+DB.hardwareModel[0].id,hw:true,recipe:'surroundRecipe:'+DB.surroundRecipe[0].id,on:true,
   unknown:DB.surroundRecipe.some(r=>r.rows.some(x=>x.part!=='spacer'&&x.part!=='gas'&&x.amount==null))?{null:false,warn:true}:null})));
+ /* Аудит 25.10.2026, D-3: плитки каталога — только в обзоре Catalog. */
+ eq('catalog tiles only on the catalog overview: not over other sections, an open card or a search',await t.p.evaluate(()=>{
+  const kpi=()=>!!document.querySelector('[data-md-kpi]');tab='masterdata';mdCatalogGo('glassProduct');const over=kpi();
+  mdGlassEdit(DB.glassProduct[0].id);render();const card=kpi();mdEdit=null;
+  mdCatalogQuery='argon';render();const search=kpi();mdCatalogQuery='';
+  const other=['prices','company','setup','trucks'].map(k=>{mdSetTab(k);render();return kpi();});mdSetTab('materials');render();
+  return {over,card,search,other};
+ }),{over:true,card:false,search:false,other:[false,false,false,false]});
+ /* Владелец 26.10.2026 (аудит D-2): закупочные цены в Data видит и правит
+    только тот, у кого Cost & margin; администратор (Users) — всё. */
+ eq('Cost & margin: purchase prices in Data only with the tick or for the admin; Save without it keeps them',await t.p.evaluate(()=>{
+  const keep={no:window.GF_NO_SIGNIN,user:window.signinUser,on:window.signinOn};
+  const as=access=>{window.GF_NO_SIGNIN=false;window.signinOn=()=>true;window.signinUser=()=>({name:'T',viewProfileId:'t',access});};
+  DB.glassSheet=[normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock',purchasePrice:12.5,freightPct:3,priceDate:'2026-10-01'})];
+  const sh=DB.glassSheet[0],sp=DB.spacerVariant[0];sp.purchasePrice=40;
+  const look=()=>{tab='masterdata';mdSheetEdit=null;mdSpacerEdit=null;mdCatalogGo('glassSheet');const cols=[...document.querySelectorAll('.md-supply-table thead th')].map(th=>th.textContent.trim()).filter(Boolean);
+   mdSheetEditRow(sh.id);const form=!!document.getElementById('md_sheetPrice')&&!document.getElementById('md_sheetPrice').closest('[hidden]');
+   mdSheetSave();const saved=[DB.glassSheet[0].purchasePrice,DB.glassSheet[0].freightPct,DB.glassSheet[0].priceDate];
+   mdCatalogGo('spacerVariant');mdSpacerEditRow(sp.id);const spacer=!document.getElementById('md_spBuyPrice').closest('[hidden]')&&!!document.querySelector('[data-md-cost]');mdSpacerSave();
+   return {price:cols.includes('Purchase price'),form,saved,spacer,spKept:DB.spacerVariant.find(x=>x.id===sp.id).purchasePrice,can:accessCost()};};
+  /* Настройки колонок уже есть: без галочки цены нет, с галочкой она снова видна. */
+  tab='masterdata';mdCatalogGo('glassSheet');salesListSavePrefs();
+  try{as(['masterdata']);const data=look();as(['masterdata','cost']);const cost=look();as(['masterdata','users']);const admin=look();return {data,cost,admin};}
+  finally{window.GF_NO_SIGNIN=keep.no;window.signinUser=keep.user;window.signinOn=keep.on;mdSheetEdit=null;mdSpacerEdit=null;render();}
+ }),{data:{price:false,form:false,saved:[12.5,3,'2026-10-01'],spacer:false,spKept:40,can:false},
+  cost:{price:true,form:true,saved:[12.5,3,'2026-10-01'],spacer:true,spKept:40,can:true},
+  admin:{price:true,form:true,saved:[12.5,3,'2026-10-01'],spacer:true,spKept:40,can:true}});
  eq('catalog search finds a row in any table; Open goes to its card',await t.p.evaluate(()=>{
   mdSetTab('materials');mdCatalogQuery='argon';render();
   const rows=document.querySelectorAll('[data-md-search] tbody tr').length;

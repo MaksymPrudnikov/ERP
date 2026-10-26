@@ -21,10 +21,12 @@
      сами не трогают; про секреты экраны знают только «задан / не задан».
    Правило: файл не знает про заказы, цены и экраны.
    ===================================================================== */
-const USER_SECTIONS=['sales','optimization','production','shipping','finance','purchasing','inventory','customers','reports','commissions','screens','masterdata','users','dashboard'];
+const USER_SECTIONS=['sales','optimization','production','shipping','finance','purchasing','inventory','customers','reports','commissions','screens','masterdata','cost','users','dashboard'];
 /* Галочки, у которых нет своего пункта меню: Screens — ставить отчёты на
-   экраны станций и людей (Reports → Edit → Show on; владелец, 11.10.2026). */
-const USER_ACCESS_LABELS={screens:'Screens'};
+   экраны станций и людей (Reports → Edit → Show on; владелец, 11.10.2026);
+   Cost & margin — закупочные цены в Data (владелец, 26.10.2026: правит их
+   только тот, у кого галочка; администратор видит всё). */
+const USER_ACCESS_LABELS={screens:'Screens',cost:'Cost & margin'};
 const ACCESS_ADMIN='users';
 /* Никто не вошёл. Пока вход не настроен (пароля нет ни у кого с Users,
    erp/signin → signinOn) — открыто, как в пустой базе: иначе завести
@@ -41,6 +43,7 @@ function accessCan(key){
  const k=key==='configurators'?'sales':key;
  return !USER_SECTIONS.includes(k)||u.access.includes(k);
 }
+function accessCost(){return accessCan('cost')||accessCan(ACCESS_ADMIN);}
 /* Кто подаёт команду: сеанс входа и человек, «setup» — пока вход не
    настроен, пусто — никто. Команда запоминает это при нажатии и
    выполняется, только если к моменту выполнения подающий тот же: вышел,
