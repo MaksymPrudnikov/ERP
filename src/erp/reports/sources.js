@@ -18,7 +18,16 @@
    доли, pct — в процентах, digits, money}. Любое числовое поле можно взять
    ещё средним, минимумом и максимумом (reports/query).
    ===================================================================== */
-function repCustomer(id){return id?salesCustomerDisplay(id)||'—':'—';}
+/* Клиент — по имени. Одно имя у двух клиентов — к имени код клиента, иначе
+   отчёт сложил бы их строкой (аудит 25.10.2026, R-5). Имена считаются раз
+   до следующей записи (storageInvalidate). */
+let repCustomerNames=null;
+function repCustomer(id){
+ if(!id)return '—';const name=salesCustomerDisplay(id)||'—';
+ if(!repCustomerNames){repCustomerNames=new Map();(DB.customer||[]).forEach(x=>{const n=salesCustomerDisplay(x.id);repCustomerNames.set(n,(repCustomerNames.get(n)||0)+1);});}
+ if((repCustomerNames.get(name)||0)<2)return name;
+ const c=(DB.customer||[]).find(x=>x.id===id);return c?name+' · '+(c.code||c.id):name;
+}
 function repMmText(mm){return mm?String(+mm)+' mm':'—';}
 const REP_F={
  date:(k,label)=>({k,label,type:'date'}),

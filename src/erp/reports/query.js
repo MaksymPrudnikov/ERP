@@ -194,6 +194,11 @@ function repSelect(S,df,range,filters,ctx){
   return (filters||[]).every(x=>repFilterTest(S,x,r,ctx));
  });
 }
+/* Фильтры, которых у источника нет (фильтр отчёта с поля другого
+   источника, устаревший фильтр графика): график их не применяет и говорит
+   об этом, а не показывает всё молча (аудит 25.10.2026, R-3). */
+function repSkippedFilters(S,q){return [...new Set((q.skip||[]).concat((q.filters||[]).filter(x=>x&&x.f&&!repField(S,x.f)).map(x=>x.f)))];}
+function repFieldLabelAny(k){for(const S of Object.values(REP_SRC)){const f=repField(S,k);if(f)return f.label;}return k;}
 /* Значения поля для фильтра «Is any of» — то, что есть в данных. */
 function repFieldValues(S,k){const f=repField(S,k);if(!f)return [];const set=new Set();S.rows().forEach(r=>{const v=repGet(f,r);set.add(v==null||v===''?'—':String(v));});return [...set].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));}
 
@@ -273,7 +278,9 @@ function repQuery(q,ctx){
     const g=repGroupBy(S,crows,dims[0]);
     /* Даты сравниваются по месту: первый месяц с первым месяцем. */
     if(repIsTime(S,dims[0])){const ck=repDateKeys(repDimParse(dims[0]).g||'day',cr,[...g.keys()]);out.keys.forEach((k,i)=>c.rowTotals.set(k,vals(g.get(ck[i])||[])));}
-    else out.keys.forEach(k=>c.rowTotals.set(k,vals(k==='__other'?[]:g.get(k)||[])));
+    /* Other прошлого периода — всё, что не в показанном Top N, и то, чего
+       сейчас нет (аудит 25.10.2026, R-4): сумма строк — итог периода. */
+    else{const shown=new Set(out.keys);out.keys.forEach(k=>c.rowTotals.set(k,vals(k==='__other'?[...g.keys()].filter(x=>!shown.has(x)).flatMap(x=>g.get(x)):g.get(k)||[])));}
    }
    out.compare=c;
   }
