@@ -23,7 +23,7 @@
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=5;
+const REP_SEED_VERSION=6;
 /* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
 function repUid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();}
 function repMe(){const u=typeof signinUser==='function'?signinUser():null;return u?u.viewProfileId:'';}
@@ -184,7 +184,35 @@ function REP_STARTERS(){
     repW('table','sold',{title:'Type by month',date:{use:'own',preset:'thisYear'},dims:['type','created:month'],metrics:['amount'],filters:[{f:'category',op:'notIn',v:['Order charges']}],limit:30})]],
    ['Prices',[repW('table','sold',{title:'Price per unit · by product',dims:['product'],metrics:['price','unitPrice:min','unitPrice:max','customers'],
      filters:[{f:'category',op:'notIn',v:['Order charges','Adjustments','Price set by hand','Cancelled units']}]}),
-    repW('table','sold',{title:'By customer',dims:['customer'],metrics:['amount','orders','calc:amount~div~orders'],limit:20,other:true})]]],5),{filters:{charge:['Charged']}})
+    repW('table','sold',{title:'By customer',dims:['customer'],metrics:['amount','orders','calc:amount~div~orders'],limit:20,other:true})]]],5),{filters:{charge:['Charged']}}),
+  /* Версия 6 (26.10.2026): цех сейчас — «что ждёт, что не ждёт, что
+     овердью, что уже готово, а что нет»; листы по резчику; экраны станций. */
+  R('shopnow','Shop · where is it now','Production','all',['where','state','customer','priority'],[
+   ['Now',[repW('number','shopnow',{title:'In the shop now',metrics:['glass','area','orders','overdueOrders']}),
+    repW('bars','shopnow',{title:'Glass by where it is',dims:['where'],metrics:['glass'],width:'half'}),repW('bars','shopnow',{title:'Glass by due',dims:['state'],metrics:['glass'],width:'half'}),
+    repW('table','shopnow',{title:'Overdue · where it is stuck',dims:['order','where'],metrics:['glass'],filters:[{f:'state',op:'in',v:['Overdue']}]}),
+    repW('table','shopnow',{title:'Waiting by station',dims:['where'],metrics:['glass','days:avg','days:max','over']}),
+    repW('table','shopnow',{title:'Ready · waiting for pickup or delivery',dims:['order'],metrics:['glass','days:max'],filters:[{f:'where',op:'in',v:['Ready']}],limit:30})]],
+   ['By customer',[repW('table','shopnow',{title:'By customer',dims:['customer'],metrics:['glass','orders','overdueOrders','over']}),
+    repW('table','shopnow',{title:'Not started · to verify or to batch',dims:['order','where'],metrics:['glass'],filters:[{f:'stage',op:'in',v:['Not started']}]})]]],6),
+  R('sheetcut','Cutting · sheets by cutter','Production','thisWeek',['person','glass'],[
+   ['Summary',[repW('number','sheetcut',{metrics:['sheets','broke','area','batches'],compare:'prev'}),repW('table','sheetcut',{title:'By cutter',dims:['person'],metrics:['sheets','broke','area','batches']}),
+    repW('columns','sheetcut',{title:'Sheets by day · cutter',dims:['at:day','person'],metrics:['sheets']}),repW('table','sheetcut',{title:'Glass × sheet size',dims:['glass','size'],metrics:['sheets']})]]],6),
+  R('mycut','Cutting · my day','Screens','today',[],[
+   ['Today',[repW('number','sheetcut',{title:'Sheets today',width:'half',metrics:['sheets','broke']}),repW('number','sheetcut',{title:'Your sheets today',width:'half',metrics:['sheets','broke'],filters:[{f:'person',op:'in',v:['@me']}]}),
+    repW('number','cutting',{title:'Your glass today',width:'half',metrics:['count','area'],filters:[{f:'person',op:'in',v:['@me']}]}),repW('columns','sheetcut',{title:'Sheets by hour',width:'half',dims:['at:hour'],metrics:['sheets']})]]],6),
+  R('mydrill','Drilling & CNC · my day','Screens','today',[],[
+   ['Today',[repW('number','drilling',{title:'Pieces here today',width:'half',metrics:['pcs','glass'],filters:[{f:'station',op:'in',v:['@station']}]}),
+    repW('number','drilling',{title:'Your pieces today',width:'half',metrics:['pcs','glass'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
+    repW('table','drilling',{title:'By operation',dims:['op'],metrics:['pcs','glass'],filters:[{f:'station',op:'in',v:['@station']}]})]]],6),
+  R('myasm','Assembly · my day','Screens','today',[],[
+   ['Today',[repW('number','assembly',{title:'Units here today',width:'half',metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']}]}),
+    repW('number','assembly',{title:'Your units today',width:'half',metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
+    repW('table','assembly',{title:'By unit type',dims:['unitType'],metrics:['units','area'],filters:[{f:'station',op:'in',v:['@station']}]})]]],6),
+  R('myship','Shipping · my day','Screens','today',[],[
+   ['Today',[repW('number','glass',{title:'Here today',width:'half',metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']}]}),
+    repW('number','glass',{title:'You today',width:'half',metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
+    repW('table','glass',{title:'By customer',dims:['customer'],metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']}],limit:10,other:true})]]],6)
  ];
 }
 
