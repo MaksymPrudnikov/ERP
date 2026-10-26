@@ -18,6 +18,9 @@ module.exports=async function({page,eq}){
   const b0=glassBatchAssign(glassBatchRows([salesRecord(a)]),{}),plan=cutPlanRun(b0.number);if(plan&&plan.error)throw new Error(plan.error);
   const o=salesRecord(a),l=o.lines[0],piece=glassPieceMap(a).get(glassBatchComponents(o,l)[0].key).ids[0];stationMove('CUT',stationCheck('CUT',piece),{id:'ar',name:'Archive test'});
   const b=oqOrder(oqCustomer({legalName:'Second customer'})),h=oqOrder(oqCustomer({legalName:'Hold customer'})),open=oqOrder(oqCustomer({legalName:'Open customer'}));salesDraftDrop();
+  /* У второго собран стеклопакет: рамка, герметики и газ ушли со склада (аудит 25.10.2026, I-1). */
+  oqThrough(b,'verified');glassBatchAssign(glassBatchRows([salesRecord(b)]),{});const lb=salesRecord(b).lines[0];
+  storageCommand(()=>DB.glassPiece.filter(p=>p.key.split('|')[1]===lb.id).forEach(p=>DB.stationScan.push({id:stationScanNextId(),at:'2026-01-09T12:00:00.000Z',piece:p.ids[0],station:'IGU',by:'Archive IGU',byId:'',asm:'SC-ARCH-1',unit:1})));
   storageCommand(()=>{[a,b,h].forEach(id=>{const x=salesRecord(id);x.status='done';x.statusDates=Object.assign({},x.statusDates,{done:'2026-01-10T12:00:00.000Z'});});salesRecord(h).onHold=true;});
   [a,b].forEach(id=>{const x=salesRecord(id),total=finOrderTotals(x).grand;finPersist(()=>finSaveReceiptRecord({customerId:x.customerId,date:'2026-01-15',method:'cash',reference:'',note:'',amount:total,allocations:[{orderId:id,amount:total}],currency:'CAD'},'','',true));});
   /* Агент: 10% с клиента первого заказа, 5% со второго; комиссия первого выплачена. */
@@ -27,7 +30,7 @@ module.exports=async function({page,eq}){
  });
  const snap=()=>t.p.evaluate(()=>readScope(()=>({
   rows:Object.fromEntries(DB.salesOrder.map(o=>{const i=salesListInfo(o);return [o.id,SALES_LIST_COLUMNS.map(c=>salesListValue(i,c.k))];})),
-  inv:invSheetRows().map(r=>[r.key,r.onRack,r.free,r.cut]),deposit:DB.customer.map(c=>finCustomerDeposit(c.id)),
+  inv:invSheetRows().map(r=>[r.key,r.onRack,r.free,r.cut]).concat(consRows().map(r=>[r.key,+r.used.toFixed(6),+r.onHand.toFixed(6),r.status])),deposit:DB.customer.map(c=>finCustomerDeposit(c.id)),
   next:[nextSalesOrderNumber(),salesNextBatchNumber(),finNextReceiptNumber()],
   statements:DB.customer.map(c=>JSON.stringify([finStatementData(c.id,'',''),finStatementData(c.id,'2026-01-01','2026-01-31'),finStatementOrders(c.id,'','').map(x=>[x.o.businessNumber,x.billed,x.f.b.total,x.f.b.paid])])),
   reports:JSON.stringify(['glass','cutting','orders','payments','sheets'].map(src=>{const S=REP_SRC[src],r=repQuery({source:src,date:{from:'2025-12-01',to:'2026-01-31'},dims:[],metrics:S.metrics.map(m=>m.k),filters:[]});return [src,r.count,r.total];})),
@@ -42,8 +45,9 @@ module.exports=async function({page,eq}){
   return {ok:a.ok&&b.ok&&c.ok,batches:[a.value.orders,b.value.orders,c.value.orders],records:a.value.records+b.value.records>10,day1,day2:DB.archiveRunDay};});
  eq('уход в архив пачками: по заказу за раз, их записи ушли; день отмечен последней, неполной пачкой',run,{ok:true,batches:[1,1,0],records:true,day1:'',day2:'2026-06-01'});
  const mid=await t.p.evaluate(x=>({hot:[x.a,x.b,x.h,x.open].map(id=>!!salesRecord(id)),index:[...archiveIndex.keys()].sort().join()===[x.a,x.b].sort().join(),
-  scans:DB.stationScan.some(s=>s.by==='Archive test'),receipts:DB.receipt.some(r=>r.allocations.some(a=>a.orderId===x.a)),deleted:DB.orderEvent.some(e=>e.what==='Deleted'),sheetsKept:Object.values(DB.inventoryArchived.sheets||{}).reduce((n,x)=>n+x.cut,0)}),ids);
- eq('…в работе их нет, их скан и оплата ушли, в журнале заказа нет «Deleted», порезанный лист — в разнице склада',mid,{hot:[false,false,true,true],index:true,scans:false,receipts:false,deleted:false,sheetsKept:1});
+  scans:DB.stationScan.some(s=>s.by==='Archive test'),receipts:DB.receipt.some(r=>r.allocations.some(a=>a.orderId===x.a)),deleted:DB.orderEvent.some(e=>e.what==='Deleted'),sheetsKept:Object.values(DB.inventoryArchived.sheets||{}).reduce((n,x)=>n+x.cut,0),
+  igu:DB.stationScan.some(s=>s.by==='Archive IGU'),consKept:Object.keys(DB.inventoryArchived.cons||{}).length>0,used:consRows().some(r=>r.used>0)}),ids);
+ eq('…в работе их нет, их скан и оплата ушли, в журнале заказа нет «Deleted», порезанный лист и расход стеклопакета — в разнице склада',mid,{hot:[false,false,true,true],index:true,scans:false,receipts:false,deleted:false,sheetsKept:1,igu:false,consKept:true,used:true});
  const after=await snap();
  eq('строка Sales ушедших — та же; оставшиеся, склад, депозиты, следующие номера — те же',{
   index:await t.p.evaluate(([x,b])=>[x.a,x.b].every(id=>JSON.stringify(SALES_LIST_COLUMNS.map(c=>archiveIndex.get(id).row[c.k]))===JSON.stringify(b.rows[id])),[ids,before]),

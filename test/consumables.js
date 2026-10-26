@@ -5,7 +5,8 @@
    карточки); пересчёт пишет разницу — отход по факту. Аудит 25.10.2026:
    Cancel units снимает резерв (I-3), нехватка раньше «Not counted» (I-5),
    несохранённый пересчёт не теряется молча (I-6), неактивная карточка с
-   пересчётом остаётся в списке (I-7). */
+   пересчётом остаётся в списке (I-7), газ сохранённого заказа — по
+   толщине рамки на Save (I-8). */
 module.exports=async function({page,eq}){
  console.log('consumables stock');const t=await page(undefined,{width:1440,height:1000});
  await require('./optimization-fixture')(t.p);
@@ -34,6 +35,15 @@ module.exports=async function({page,eq}){
   DB.stationScan.forEach(s=>{s.undoneAt=new Date().toISOString();});const undone=csRow(k);
   return {used:after.used===per,reserved:+(before.reserved-after.reserved).toFixed(3)===per,onHand:after.onHand===-per,undone:undone.used===0&&undone.reserved===before.reserved};
  }),{used:true,reserved:true,onHand:true,undone:true});
+
+ eq('gas of a saved order keeps the spacer thickness of its Save; a new order takes the corrected card',await t.p.evaluate(()=>{
+  csReset();const id=oqOrder(oqCustomer({})),o=salesRecord(id),l=o.lines[0],m=salesMakeupById(o,l.makeupId),sp=mdById('spacerVariant',m.cavities[0].spacerVariantId);
+  const gas=k=>[...k.keys()].find(x=>x.startsWith('gasProduct:')),g0=consPerUnit(l,o),k=gas(g0),was=sp.thicknessMm;
+  sp.thicknessMm=spacerThicknessMm(sp)*2;
+  try{const g1=consPerUnit(l,salesRecord(id)).get(k),id2=oqOrder(oqCustomer({})),o2=salesRecord(id2),g2=consPerUnit(o2.lines[0],o2).get(k);
+   return {gas:!!k&&g0.get(k)>0,same:g1===g0.get(k),doubled:Math.abs(g2-2*g0.get(k))<1e-9};}
+  finally{sp.thicknessMm=was;}
+ }),{gas:true,same:true,doubled:true});
 
  eq('Cancel units frees the reserve of units not built; a built unit cancelled later stays used',await t.p.evaluate(()=>{
   csReset();const id=oqOrder(oqCustomer({}));oqThrough(id,'verified');const o=salesRecord(id);glassBatchAssign(glassBatchRows([o]),{});

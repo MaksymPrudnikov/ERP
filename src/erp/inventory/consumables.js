@@ -4,7 +4,7 @@
    газ, части пакета.
    IN : приёмки Purchasing (строки Stock: таблица + айтем), сохранённые
         заказы, сканы сборки IGU (DB.stationScan: asm + unit), пересчёты
-        (DB.consumableEvent)
+        (DB.consumableEvent), расход ушедших в архив (DB.inventoryArchived.cons)
    OUT: consRows() — строки склада; consCountSave, consSetPack
 
    Владелец, 23.10.2026: заказ резервирует материал на Save, со склада он
@@ -73,6 +73,8 @@ function consRows(){
    perOf(o,l).forEach((q,k)=>{const[t,...id]=k.split(':'),x=row(t,id.join(':'));if(Number.isFinite(q))x.reserved+=q*left;else x.unknown++;});
   });
  });
+ /* Ушедшее в архив (erp/archive): расход — разницей на день ухода (I-1). */
+ Object.entries(DB.inventoryArchived&&DB.inventoryArchived.cons||{}).forEach(([key,a])=>{const[t,...id]=key.split(':');if(!consUnitOf(t)||!id.length)return;const x=row(t,id.join(':'));x.used+=+a.used||0;x.unknown+=+a.unknown||0;});
  /* Пересчёт держит строку и у неактивной карточки (I-7). */
  (DB.consumableEvent||[]).forEach(e=>{const[t,...id]=String(e.key).split(':');if(!consUnitOf(t)||!id.length)return;const x=row(t,id.join(':'));x.adjust+=e.qty;if(!x.lastCount||e.at>x.lastCount.at)x.lastCount=e;});
  /* Нехватка видна раньше «Not counted» (I-5). */
