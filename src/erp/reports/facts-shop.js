@@ -19,18 +19,23 @@
      самовывозу — по сроку уже не считается).
    · Ждёт с — последний скан стекла; у стекла без сканов — батч, у
      непорезанного без батча — Verify, у непроверенного заказа — создание.
+     Days waiting — календарные дни до сегодня.
    ===================================================================== */
 const REP_SHOP_DONE=['done','closed','cancelled'];
 let repShopCache={stamp:'',rows:null};
-function repShopDays(from,now){const t=Date.parse(from);return Number.isNaN(t)?null:Math.max(0,Math.floor((now-t)/864e5));}
+/* Дни — календарные, по часам цеха: со вторника по пятницу — 3, в любой час
+   и через смену времени (сутки по 24 ч дали бы 4 после перевода часов). */
+function repShopDays(from,today){const d=repDay(from);return d?Math.max(0,repDaysBetween(d,today)):null;}
 function repShopFacts(){
- const today=finToday(),stamp=today+'|'+(typeof prodBoardStamp==='function'?prodBoardStamp():'')+'|'+(DB.shipment||[]).length;
+ /* Метка — раз на отрисовку (erp/read-scope): её спрашивает каждый график
+    страницы, а это проход по всем сканам и заказам. */
+ const today=finToday(),stamp=today+'|'+readMemo('repShopStamp',[DB.stationScan,DB.salesOrder,DB.glassBatch,DB.shipment],()=>(typeof prodBoardStamp==='function'?prodBoardStamp():'')+'|'+(DB.shipment||[]).length);
  if(repShopCache.stamp===stamp&&repShopCache.rows)return repShopCache.rows;
- const now=Date.now(),ship=shippingStations().ship,batches=stationBatchIndex(),scansBy=new Map(),rows=[];
+ const ship=shippingStations().ship,batches=stationBatchIndex(),scansBy=new Map(),rows=[];
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!scansBy.has(s.piece))scansBy.set(s.piece,[]);scansBy.get(s.piece).push(s);});
  (DB.salesOrder||[]).forEach(o=>{
   if(!o||salesIsQuote(o)||REP_SHOP_DONE.includes(o.status))return;
-  try{finWithOrder(o,()=>repShopOrder(o,{today,now,ship,batches,scansBy,rows}));}catch(e){}
+  try{finWithOrder(o,()=>repShopOrder(o,{today,ship,batches,scansBy,rows}));}catch(e){}
  });
  repShopCache={stamp,rows};
  return rows;
@@ -42,7 +47,7 @@ function repShopOrder(o,x){
  const put=(c,l,r)=>{
   const ready=r.where==='Ready',over=!!due&&due<x.today&&(!ready||delivery);
   x.rows.push(Object.assign({},base,{glass:c.glass,mm:repCompMm(c),area:r.area,glassN:r.n,id:o.id+'#'+x.rows.length,
-   stage:r.where==='To verify'||r.where==='To batch'?'Not started':ready?'Ready':'In production',since:r.since||'',days:r.since?repShopDays(r.since,x.now):null,
+   stage:r.where==='To verify'||r.where==='To batch'?'Not started':ready?'Ready':'In production',since:r.since||'',days:r.since?repShopDays(r.since,x.today):null,
    state:over?'Overdue':ready&&!delivery?'Ready':!due?'No due date':due===x.today?'Due today':'Due later',over:over?r.n:0,daysOver:over?repDaysBetween(due,x.today):null,overOrder:over?base.order:''},repLineInfo(l),r));
  };
  (o.lines||[]).forEach(l=>{
@@ -72,8 +77,8 @@ function repShopOrder(o,x){
    списывает склад) и лопнувший на столе лист; отменённый (Undo) — нет. */
 let repSheetCutCache={stamp:'',rows:null};
 function repSheetCutFacts(){
- const scans=DB.stationScan||[],breaks=DB.sheetBreak||[];let undone=0;scans.forEach(s=>{if(s.undoneAt)undone++;});breaks.forEach(b=>{if(b.undoneAt)undone++;});
- const stamp=[scans.length,undone,breaks.length,(DB.cutPlan||[]).length,(DB.cutPlan||[]).map(p=>p&&p.at||'').join(',')].join('|');
+ const stamp=readMemo('repSheetCutStamp',[DB.stationScan,DB.sheetBreak,DB.cutPlan],()=>{const scans=DB.stationScan||[],breaks=DB.sheetBreak||[];let undone=0;scans.forEach(s=>{if(s.undoneAt)undone++;});breaks.forEach(b=>{if(b.undoneAt)undone++;});
+  return [scans.length,undone,breaks.length,(DB.cutPlan||[]).length,(DB.cutPlan||[]).map(p=>p&&p.at||'').join(',')].join('|');});
  if(repSheetCutCache.stamp===stamp&&repSheetCutCache.rows)return repSheetCutCache.rows;
  const rows=[],mm=code=>{const g=glassProductByCode(code);return g&&g.thicknessMm||null;},sz=(w,h)=>w&&h?frac16(Math.max(w,h))+' × '+frac16(Math.min(w,h))+'″':'—';
  if(typeof invCutSheets==='function')invCutSheets().forEach(s=>rows.push({id:'C|'+s.id,at:s.at,day:repDay(s.at),person:s.by||'',event:'Cut',glass:s.glass,mm:mm(s.glass),size:sz(s.w,s.h),
