@@ -50,7 +50,7 @@ module.exports=async function({page,eq}){
    return {price:cols.includes('Purchase price'),form,saved,spacer,spKept:DB.spacerVariant.find(x=>x.id===sp.id).purchasePrice,can:accessCost()};};
   /* Порядок колонок уже сохранён с ценой — без галочки её просто нет. */
   tab='masterdata';mdCatalogGo('glassSheet');salesListSavePrefs();
-  try{as(['masterdata']);const data=look();as(['masterdata','cost']);const cost=look();as(['users']);const admin=look();return {data,cost,admin};}
+  try{as(['masterdata']);const data=look();as(['masterdata','cost']);const cost=look();as(['masterdata','users']);const admin=look();return {data,cost,admin};}
   finally{window.GF_NO_SIGNIN=keep.no;window.signinUser=keep.user;window.signinOn=keep.on;mdSheetEdit=null;mdSpacerEdit=null;render();}
  }),{data:{price:false,form:false,saved:[12.5,3,'2026-10-01'],spacer:false,spKept:40,can:false},
   cost:{price:true,form:true,saved:[12.5,3,'2026-10-01'],spacer:true,spKept:40,can:true},
