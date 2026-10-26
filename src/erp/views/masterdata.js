@@ -286,8 +286,8 @@ function viewMdGlass(){
    <select aria-label="Manufacturer" onchange="mdMfr=this.value;mdGlassLimit=MD_PAGE;render()"><option value="">All manufacturers</option>${mfrs.map(m=>`<option data-raw value="${esc(m)}" ${mdMfr===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
    <select aria-label="Thickness" onchange="mdThick=this.value;mdGlassLimit=MD_PAGE;render()"><option value="">Any thickness</option>${thicks.map(t=>`<option data-raw value="${t}" ${mdThick===String(t)?'selected':''}>${t} mm</option>`).join('')}</select>
    <select aria-label="Coating" onchange="mdCoating=this.value;mdGlassLimit=MD_PAGE;render()"><option value="">Any coating</option>${mdVocabOptions('coatingFamily',mdCoating,'')}</select>
-   <span class="md-seg">${[['all','All'],['stocked','In stock'],['preorder','Pre-order'],['inactive','Discontinued']].map(x=>`<button class="sm ${mdStatus===x[0]?'on':''}" onclick="mdStatus='${x[0]}';mdGlassLimit=MD_PAGE;render()">${x[1]}</button>`).join('')}</span>
-   <span class="sp"></span><button class="pri" onclick="mdGlassNew()">+ New item</button>
+   <select aria-label="Status" data-md-status onchange="mdStatus=this.value;mdGlassLimit=MD_PAGE;render()">${[['all','Any status'],['stocked','In stock'],['preorder','Pre-order'],['inactive','Discontinued']].map(x=>`<option value="${x[0]}" ${mdStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select>
+   <button class="pri" onclick="mdGlassNew()">+ New item</button>
   </div>
   <div class="customer-table-wrap"><table><thead><tr><th>Code</th><th class="md-name-col">Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
   <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="10" class="empty">no items found</td></tr>'}</tbody></table></div>

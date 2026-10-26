@@ -813,7 +813,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .card.md-recipe-on{outline:2px solid var(--accent);outline-offset:2px}
 /* Data: одна строка инструментов над списком — поиск, фильтры, + New справа (аудит D-4). */
 .md-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px}
-.md-toolbar .md-toolbar-search{flex:1 1 160px;min-width:150px;width:auto}
+.md-toolbar .md-toolbar-search{flex:1 1 260px;min-width:200px;width:auto}
 .md-toolbar select{width:auto;max-width:170px}
 .md-toolbar .sp{flex:1 1 0}
 .md-seg{display:inline-flex;gap:4px}.md-seg .on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
