@@ -243,8 +243,16 @@ function materialHeader(p,category,subcategory){
   stockQty:mdNum(p.stockQty),
   /* Сколько единиц хранения в одной единице закупки (1 box = 1880 ft) —
      склад расходников (erp/inventory/consumables). */
-  packQty:mdNonNeg(p.packQty)
+  packQty:mdNonNeg(p.packQty),
+  /* Во что покупают — несколько упаковок (владелец, 26.10.2026: «бывают
+     разные»): [{unit, qty}], 1 unit = qty единиц склада. Пустой список в
+     строку не пишется — остальные строки каталога не меняются. */
+  ...materialPacks(p.packs)
  };
+}
+function materialPacks(list){
+ const seen=new Set(),packs=(Array.isArray(list)?list:[]).map(x=>({unit:mdUnitCode(x&&x.unit,''),qty:mdNonNeg(x&&x.qty)})).filter(x=>x.unit&&x.qty>0&&!seen.has(x.unit)&&seen.add(x.unit));
+ return packs.length?{packs}:{};
 }
 function normalizeGlassProduct(p){
  p=p&&typeof p==='object'?p:{};

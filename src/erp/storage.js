@@ -821,6 +821,7 @@ function normalizeDB(){
  if(typeof normalizeNcrRecords==='function')normalizeNcrRecords();
  if(typeof normalizeGlassBatches==='function')normalizeGlassBatches();
  if(typeof normalizeNcrReasons==='function')normalizeNcrReasons();
+ if(typeof normalizeStockReasons==='function')normalizeStockReasons();
  if(typeof normalizeStickerTemplates==='function')normalizeStickerTemplates();
 
  if(typeof normalizeCutting==='function')normalizeCutting();

@@ -61,6 +61,17 @@ module.exports=async function({page,eq}){
   return {ft,missReceived:miss.received,miss:miss.status,set:set.ok,boxed:boxed.received,bad:bad.error};
  }),{ft:500,missReceived:500,miss:'Pack size missing',set:true,boxed:500+2*1880,bad:'Per pack: enter 0 or more.'});
 
+ /* Аудит 25.10.2026, I-2 и I-4; владелец 26.10.2026: упаковки бывают разные. */
+ eq('several purchase units; a receipt keeps the conversion of its day; metres convert; an unknown unit warns instead of counting as a box',await t.p.evaluate(()=>{
+  csReset();oqOrder(oqCustomer({}));const k=csSpacer().key;
+  const set=consSetPacks(k,[{unit:'box',qty:100},{unit:'each',qty:16}]).ok;const r1=csRec(k,2,'box');const box=csRow(k).received;
+  consSetPack(k,'200');const kept=csRow(k).received;csRec(k,1,'box');const next=csRow(k).received;
+  csRec(k,1,'m');const metre=csRow(k).received;csRec(k,1,'drum');const drum=csRow(k);csRec(k,3,'each');const each=csRow(k).received;
+  consSetPacks(k,consRows().find(r=>r.key===k).packs.concat([{unit:'drum',qty:50}]));const later=csRow(k);
+  const same=consSetPacks(k,[{unit:'ft',qty:2}]).error;
+  return {set,per:r1.value.lines[0].stockPer,box,kept,next,metre,drum:[drum.received,drum.status],each,later:[later.received,later.status==='Pack size missing'],same};
+ }),{set:true,per:100,box:200,kept:200,next:400,metre:403.281,drum:[403.281,'Pack size missing'],each:451.281,later:[501.281,false],same:'Same as the stock unit.'});
+
  eq('count writes the difference as waste by fact; free below zero is Short, never blocked',await t.p.evaluate(()=>{
   csReset();oqOrder(oqCustomer({}));const k=csSpacer().key;csRec(k,30,'ft');
   const r=consCountSave({[k]:'20'});const e=r.value[0],a=csRow(k);
@@ -85,6 +96,12 @@ module.exports=async function({page,eq}){
    return {unsaved,asked,kept,left:invView,draft:consCountDirty()};
   }finally{window.confirm=c;}
  },k),{unsaved:true,asked:['Discard counts you have not saved?','Discard counts you have not saved?'],kept:{view:'consumables',value:'17'},left:'sheets',draft:false});
+
+ eq('a consumables count keeps its reason and note and shows in the Inventory journal',await t.p.evaluate(()=>{
+  csReset();oqOrder(oqCustomer({}));const k=csSpacer().key;csRec(k,30,'ft');
+  const e=consCountSave({[k]:'20'},{[k]:{reason:'Miscount',note:'second shelf'}}).value[0],m=invMoves().find(x=>x.id===e.id);
+  return {ev:[e.reason,e.note],row:m&&[m.kind,m.note]};
+ }),{ev:['Miscount','second shelf'],row:['Count','Was 30 ft → 20 ft · Miscount · second shelf']});
 
  eq('an inactive consumable with a count keeps its row, marked inactive',await t.p.evaluate(()=>{
   csReset();const sp=DB.spacerVariant.find(x=>x.active!==false&&!consRows().find(r=>r.key===consKey('spacerVariant',x.id)&&(r.received||r.used||r.reserved))),k=consKey('spacerVariant',sp.id);

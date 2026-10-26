@@ -185,5 +185,20 @@ module.exports=async function({page,eq}){
   return [one,two];
  }),['inv_wo_qty','inv_mv_mfr']);
 
+ /* Владелец 26.10.2026 (вопрос 3 аудита): у разницы пересчёта — причина
+    из списка Data и заметка; видны в журнале; не обязательны. */
+ eq('a count difference takes a reason from Data and a note; the journal shows them; Data adds and turns reasons off',await t.p.evaluate(()=>{
+  ivReset();ivRec([{qty:10,unit:'sheet',widthIn:144,heightIn:96}]);navGo('inventory');invGo('count');salesListSetFilter('code',{values:['6CLEAR']});
+  const row=()=>document.querySelector('[data-inv-row="'+ivKey+'"]'),box=()=>row().querySelector('[data-inv-why]');const hidden=box().hidden;
+  const inp=row().querySelector('[data-inv-count]');inp.value='8';inp.dispatchEvent(new Event('input'));const shown=!box().hidden;
+  const sel=box().querySelector('[data-inv-why-reason]');sel.value='Broken on rack';sel.dispatchEvent(new Event('change'));
+  const note=box().querySelector('[data-inv-why-note]');note.value='forklift';note.dispatchEvent(new Event('input'));
+  document.querySelector('[data-inv-count-save]').click();const e=DB.inventoryEvent.filter(x=>x.kind==='count').pop();
+  const plain=invCountSave({[ivKey]:'8'}).ok;
+  tab='masterdata';mdSetTab('stockreasons');render();document.querySelector('[data-stock-reason-new]').value='Stolen';stockReasonNew='Stolen';document.querySelector('[data-stock-reason-add]').click();
+  const twice=stockReasonAdd('stolen');stockReasonSetActive(DB.stockReason.find(r=>r.name==='Defect').id,false);
+  return {hidden,shown,ev:[e.reason,e.note,e.qty],journal:invMoves().find(m=>m.id===e.id).note,plain,list:stockReasonsActive().slice(-2),off:stockReasonsActive().includes('Defect'),twice};
+ }),{hidden:true,shown:true,ev:['Broken on rack','forklift',-2],journal:'Was 10 → 8 · Broken on rack · forklift',plain:true,list:['Other','Stolen'],off:false,twice:'This reason is already there.'});
+
  eq('inventory has no JavaScript errors',t.errs,[]);await t.c.close();
 };
