@@ -458,10 +458,12 @@ function mdGlassDelete(id){
    фильтры колонок, без общего поиска). Своя область mdSupply, свои настройки. */
 function mdListScope(){return mdTab==='materials'&&mdMatCategory==='glass'&&mdMatView==='glassSheet'&&mdSheetEdit===null?'mdSupply':'';}
 function mdSupplyColumns(){
- const col=(k,label,type,def)=>({k,label,type:type||'text',def:def!==false}),cost=accessCost();
- return [col('product','Product'),col('glass','Glass'),col('supplier','Supply point','list'),col('sheet','Sheet'),col('unit','Unit','list'),col('price','Purchase price','number'),col('currency','Currency','list'),col('date','Price date','date'),col('freight','Freight, %','number'),col('lead','Lead time, days','number'),col('availability','Availability','list')]
-  .filter(c=>cost||!['price','currency','date','freight'].includes(c.k));
+ const col=(k,label,type,def)=>({k,label,type:type||'text',def:def!==false});
+ return [col('product','Product'),col('glass','Glass'),col('supplier','Supply point','list'),col('sheet','Sheet'),col('unit','Unit','list'),col('price','Purchase price','number'),col('currency','Currency','list'),col('date','Price date','date'),col('freight','Freight, %','number'),col('lead','Lead time, days','number'),col('availability','Availability','list')];
 }
+/* Без Cost & margin колонок закупки на экране нет; в настройках колонок
+   они остаются — сохранённый порядок не ломается при смене человека. */
+const MD_SUPPLY_COST_COLS=['price','currency','date','freight'];
 function mdSupplyInfos(){
  return (DB.glassSheet||[]).map(s=>{const p=glassProductByCode(s.productCode);return {o:{createdAt:s.priceDate||''},s,p,memo:{product:s.productCode,glass:p?p.name:'no product',supplier:s.supplier,
   sheet:s.sheetWIn!=null&&s.sheetHIn!=null?s.sheetWIn+' × '+s.sheetHIn+' in':'',unit:mdUnitName(s.purchaseUnit),price:s.purchasePrice,currency:s.currency,date:s.priceDate||'',freight:s.freightPct,lead:s.leadTimeDays,availability:glassLabel('availability',s.availability)}};});
@@ -480,7 +482,7 @@ function mdSupplyCell(i,c){
 }
 function viewMdSupply(){
  if(mdSheetEdit!==null)return mdSheetForm();
- const infos=mdSupplyInfos(),rows=salesListRows(infos),cols=salesListColumns(),orphans=glassOrphanSheets().length;
+ const infos=mdSupplyInfos(),rows=salesListRows(infos),cost=accessCost(),cols=salesListColumns().filter(c=>cost||!MD_SUPPLY_COST_COLS.includes(c.k)),orphans=glassOrphanSheets().length;
  const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
  return `<div class="md-supply-head"><span class="mut">Glass · supplier · sheet size.</span><span class="sp"></span><button class="pri" onclick="mdSheetNew()">+ New supply row</button></div>
   ${orphans?`<div class="note">Supply rows without a product: <b>${orphans}</b> — give them a product back.</div>`:''}

@@ -48,7 +48,7 @@ module.exports=async function({page,eq}){
    mdSheetSave();const saved=[DB.glassSheet[0].purchasePrice,DB.glassSheet[0].freightPct,DB.glassSheet[0].priceDate];
    mdCatalogGo('spacerVariant');mdSpacerEditRow(sp.id);const spacer=!document.getElementById('md_spBuyPrice').closest('[hidden]')&&!!document.querySelector('[data-md-cost]');mdSpacerSave();
    return {price:cols.includes('Purchase price'),form,saved,spacer,spKept:DB.spacerVariant.find(x=>x.id===sp.id).purchasePrice,can:accessCost()};};
-  /* Порядок колонок уже сохранён с ценой — без галочки её просто нет. */
+  /* Настройки колонок уже есть: без галочки цены нет, с галочкой она снова видна. */
   tab='masterdata';mdCatalogGo('glassSheet');salesListSavePrefs();
   try{as(['masterdata']);const data=look();as(['masterdata','cost']);const cost=look();as(['masterdata','users']);const admin=look();return {data,cost,admin};}
   finally{window.GF_NO_SIGNIN=keep.no;window.signinUser=keep.user;window.signinOn=keep.on;mdSheetEdit=null;mdSpacerEdit=null;render();}
