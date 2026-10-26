@@ -79,12 +79,16 @@ function cloudNumber(c){
  const [name,field,prefix,pad]=f(r),v=String(r&&r[field]||'');
  return v.startsWith(prefix)&&/^\d{1,15}$/.test(v.slice(prefix.length))?{name,value:v,prefix,pad}:null;
 }
-/* Номер занят — в командах очереди старый меняется на новый (как на
-   сервере: значение целиком, в кавычках JSON). */
+/* Номер занят — в командах очереди старый меняется на новый, как на
+   сервере (erp_apply): только значение поля номера или ссылки на документ
+   и строка списка (рейс — список PS). PO клиента, Mark, Notes с тем же
+   текстом не меняются (аудит 25.10.2026, A-4). */
+const CLOUD_NUMBER_KEYS='businessNumber|number|no|order|orderNumber|ps|doc|before|after';
+function cloudNumberRe(tbl,a){return new RegExp('("(?:'+CLOUD_NUMBER_KEYS+(tbl==='orderEvent'?'|note':'')+')"\\s*:\\s*|[\\[,]\\s*)"'+a+'"(?=\\s*[,\\]}])','g');}
 function cloudRenumber(changes,moved){
  let hit=false;
  changes.forEach(c=>{if(typeof c.data!=='string')return;let t=c.data;
-  moved.forEach(([a],i)=>{t=t.split('"'+a+'"').join('"\u0001'+i+'\u0001"');});
+  moved.forEach(([a],i)=>{t=t.replace(cloudNumberRe(c.tbl,a),'$1"\u0001'+i+'\u0001"');});
   moved.forEach(([,b],i)=>{t=t.split('"\u0001'+i+'\u0001"').join('"'+b+'"');});
   if(t!==c.data){c.data=t;hit=true;}});
  return hit;
@@ -352,9 +356,10 @@ function cloudDownload(){
   const byRows=new Set(rows.filter(x=>x.id!=='*').map(x=>x.tbl));
   const state=storageJoin(rows.filter(x=>!(x.id==='*'&&byRows.has(x.tbl))).map(x=>({tbl:x.tbl,id:x.id,seq:+x.seq||0,data:cloudText(x.data)})));
   Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&!Object.prototype.hasOwnProperty.call(state,k))state[k]=[];});
-  /* Связь снимается до замены: замена сама на сервер не уходит. */
-  await cloudSaveAll('',0,null);
-  const ok=await storageImportState(state,{test:storageTest,cold,archive,cloud:true});
+  /* Связь снимается перед самой заменой (замена сама на сервер не уходит),
+     а не раньше: Cancel на «Replace this browser database?» оставляет связь,
+     версии и очередь этого ПК как были (аудит 25.10.2026, A-1). */
+  const ok=await storageImportState(state,{test:storageTest,cold,archive,cloud:true,before:()=>cloudSaveAll('',0,null)});
   if(!ok)return false;
   await cloudSaveAll(url,since,vers);cloudSoon();return true;
  });

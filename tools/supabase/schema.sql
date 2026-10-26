@@ -84,11 +84,11 @@ create table if not exists public.erp_table_rule (
   write_section text
 );
 insert into public.erp_table_rule (tbl, read_section, write_section) values
-  ('receipt','finance,sales','finance'), ('refund','finance,sales','finance'), ('financeEvent','finance',null),
+  ('receipt','finance,sales,commissions','finance'), ('refund','finance,sales,commissions','finance'), ('financeEvent','finance',null),
   ('financeExport','finance','finance'), ('financeExportBatch','finance','finance'),
   ('referrer','commissions','commissions'), ('referrerPayout','commissions','commissions'),
-  ('supplier','purchasing','purchasing'), ('purchasingEvent','purchasing','purchasing'), ('purchaseOrder','purchasing','purchasing'),
-  ('purchaseReceipt','purchasing','purchasing'), ('purchaseDeliveryRequest','purchasing','purchasing'),
+  ('supplier','purchasing','purchasing'), ('purchasingEvent','purchasing','purchasing'), ('purchaseOrder','purchasing,inventory','purchasing'),
+  ('purchaseReceipt','purchasing,inventory','purchasing'), ('purchaseDeliveryRequest','purchasing,inventory','purchasing'),
   ('purchaseInvoice','purchasing','purchasing'), ('purchasePayment','purchasing','purchasing'),
   ('user',null,'users'), ('authEvent','users',null)
 on conflict (tbl) do nothing;
@@ -101,6 +101,16 @@ do $$ begin
     update public.erp_table_rule set write_section = null where tbl = 'financeEvent';
     delete from public.erp_table_rule where tbl = 'financeTerms';
     insert into public.erp_counter (name, next) values ('rules-v5259', 1);
+  end if;
+  -- v5.263 (аудит 25.10.2026, A-5): склад считает остаток и On order по
+  -- приёмкам и заказам поставщику, комиссии — по оплатам. Правило, которое
+  -- уже поменяли в ERP, не трогается.
+  if not exists (select 1 from public.erp_counter where name = 'rules-v5263') then
+    update public.erp_table_rule set read_section = 'purchasing,inventory'
+      where tbl in ('purchaseOrder','purchaseReceipt','purchaseDeliveryRequest') and read_section = 'purchasing';
+    update public.erp_table_rule set read_section = 'finance,sales,commissions'
+      where tbl in ('receipt','refund') and read_section = 'finance,sales';
+    insert into public.erp_counter (name, next) values ('rules-v5263', 1);
   end if;
 end $$;
 
@@ -136,6 +146,14 @@ create or replace function public.erp_can_write(m public.erp_member, t text) ret
 language sql stable set search_path = public, pg_temp as $$
   select public.erp_can(m, (select write_section from public.erp_table_rule where tbl = t))
 $$;
+-- Строка архива (_archive) читается ещё и по правилу своей таблицы: выписка
+-- `L:<таблица>:<id>` — как та таблица (оплата — как оплата), указатель Sales
+-- — как заказ (аудит 25.10.2026, A-6). Пишет архив любой пишущий ПК.
+create or replace function public.erp_can_read_row(m public.erp_member, t text, id text) returns boolean
+language sql stable set search_path = public, pg_temp as $$
+  select public.erp_can_read(m, t) and (t <> '_archive' or public.erp_can_read(m,
+    case when id like 'L:%:%' then split_part(id, ':', 2) else 'salesOrder' end))
+$$;
 
 -- Запись: change-set целиком или ничего.
 --   expect  — [{tbl,id,ver}]: ver строки сейчас; 0 — строки ещё нет.
@@ -147,7 +165,10 @@ $$;
 --             счётчика name, но не меньше value: так счётчик начинается с
 --             уже выданных номеров. Номер занят — строка получает
 --             следующий, и value меняется на него во всех строках команды
---             (ссылки «"76005"» в журнале заказа и т. п.).
+--             — только в полях номера и ссылок на документ (no, order, ps…)
+--             и в строке списка (рейс — список PS); PO клиента, Mark и Notes
+--             с тем же текстом не меняются (аудит 25.10.2026, A-4). Так же
+--             меняет очередь ERP — cloudRenumber в erp/cloud-sync.js.
 -- Ответ: {ok, rev, vers:{"tbl|id":ver}, numbers:{"tbl|id":"номер"}} или
 --        {ok:false, conflict:[{tbl,id,ver,now}]}.
 create or replace function public.erp_apply(command_id text, build text, device text, expect jsonb, changes jsonb)
@@ -156,7 +177,7 @@ declare
   me public.erp_member := public.erp_me();
   prev jsonb; e jsonb; c jsonb; cur bigint; bad jsonb := '[]'::jsonb;
   r bigint; d jsonb; n bigint; vers jsonb := '{}'::jsonb; nums jsonb := '{}'::jsonb; res jsonb;
-  v text; pre text; t text; swap jsonb := '[]'::jsonb; i int; txt text;
+  v text; pre text; t text; swap jsonb := '[]'::jsonb; i int; txt text; keys text;
 begin
   if coalesce(command_id, '') = '' then raise exception 'Command id is required.'; end if;
   if jsonb_typeof(coalesce(changes, 'null')) <> 'array' or jsonb_typeof(coalesce(expect, '[]')) <> 'array' then
@@ -210,8 +231,10 @@ begin
       -- Замена в два шага: новый номер одной пары бывает старым у другой.
       if d is not null and jsonb_array_length(swap) > 0 then
         txt := case when jsonb_typeof(d) = 'string' then d #>> '{}' else d::text end;
+        keys := 'businessNumber|number|no|order|orderNumber|ps|doc|before|after' || case when c->>'tbl' = 'orderEvent' then '|note' else '' end;
         for i in 0 .. jsonb_array_length(swap) - 1 loop
-          txt := replace(txt, '"' || (swap->i->>0) || '"', '"' || chr(1) || i || chr(1) || '"');
+          txt := regexp_replace(txt, '("(?:' || keys || ')"\s*:\s*|[\[,]\s*)"' || (swap->i->>0) || '"(?=\s*[,\]}])',
+                                '\1"' || chr(1) || i || chr(1) || '"', 'g');
         end loop;
         for i in 0 .. jsonb_array_length(swap) - 1 loop
           txt := replace(txt, '"' || chr(1) || i || chr(1) || '"', '"' || (swap->i->>1) || '"');
@@ -264,7 +287,7 @@ begin
   -- Строки чужого раздела не приходят, но курсор last идёт дальше.
   select coalesce(jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'seq', r.seq, 'deleted', r.deleted,
            'cold', r.cold, 'data', case when r.cold then null else r.data end) order by l.rev)
-           filter (where public.erp_can_read(me, r.tbl)), '[]'::jsonb),
+           filter (where public.erp_can_read_row(me, r.tbl, r.id)), '[]'::jsonb),
          max(l.rev)
     into rows, last
     from l join public.erp_record r on r.tbl = l.tbl and r.id = l.id;
@@ -280,7 +303,7 @@ begin
   return coalesce((select jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'seq', r.seq, 'month', r.month, 'owners', r.owners, 'data', r.data))
     from jsonb_array_elements(coalesce(keys, '[]')) k
     join public.erp_record r on r.tbl = k->>'tbl' and r.id = k->>'id' and r.cold and not r.deleted
-    where public.erp_can_read(me, r.tbl)), '[]'::jsonb);
+    where public.erp_can_read_row(me, r.tbl, r.id)), '[]'::jsonb);
 end $$;
 
 -- Строки, как они на сервере сейчас: после отказа (конфликт, нет раздела)
@@ -293,7 +316,7 @@ begin
       'cold', r.cold, 'data', case when r.cold then null else r.data end))
     from jsonb_array_elements(coalesce(keys, '[]')) k
     join public.erp_record r on r.tbl = k->>'tbl' and r.id = k->>'id'
-    where public.erp_can_read(me, r.tbl)), '[]'::jsonb);
+    where public.erp_can_read_row(me, r.tbl, r.id)), '[]'::jsonb);
 end $$;
 
 -- Размер базы — в индикатор места (Free: 500 МБ).
@@ -372,7 +395,7 @@ revoke all on function public.erp_me(), public.erp_apply(text, text, text, jsonb
   from public, anon;
 revoke all on function public.erp_me() from authenticated;
 revoke all on function public.erp_can(public.erp_member, text), public.erp_can_read(public.erp_member, text),
-  public.erp_can_write(public.erp_member, text) from public, anon, authenticated;
+  public.erp_can_write(public.erp_member, text), public.erp_can_read_row(public.erp_member, text, text) from public, anon, authenticated;
 grant execute on function public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int, bigint),
   public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
   public.erp_member_set(text, text, boolean, boolean, text[]), public.erp_members(), public.erp_rules(), public.erp_rules_set(jsonb)

@@ -48,12 +48,14 @@ begin
   c := public.erp_apply('cmd-2', 'b1', 'pc2', '[{"tbl":"salesOrder","id":"SO-1","ver":0}]', '[{"tbl":"salesOrder","id":"SO-1","data":{"id":"SO-1"}}]');
   assert not (c->>'ok')::boolean and c->'conflict'->0->>'id' = 'SO-1', 'конфликт не пойман: ' || c;
   d := public.erp_apply('cmd-3', 'b1', 'pc1', '[]',
-        '[{"tbl":"salesOrder","id":"SO-2","data":{"id":"SO-2","no":"76002"},"number":{"name":"order","value":"76002"}},{"tbl":"orderEvent","id":"E-1","data":{"id":"E-1","detail":"76002","note":"x76002"}}]');
+        '[{"tbl":"salesOrder","id":"SO-2","data":{"id":"SO-2","no":"76002","customerPo":"76002","notes":"76002","lines":[{"mark":"76002"}]},"number":{"name":"order","value":"76002"}},{"tbl":"orderEvent","id":"E-1","data":{"id":"E-1","no":"76002","detail":"76002","note":"x76002"}}]');
   assert d->'numbers'->>'salesOrder|SO-2' = '76003', 'занятый номер не сдвинут: ' || d;
   ch := public.erp_changes(0);
   assert jsonb_array_length(ch->'rows') = 3, 'изменений не 3: ' || ch;
   assert ch->'rows'->0->'data'->>'no' = '76002' and ch->'rows'->1->'data'->>'no' = '76003', 'номер не в данных: ' || ch;
-  assert ch->'rows'->2->'data' = '{"id":"E-1","detail":"76003","note":"x76002"}', 'ссылка на номер в команде: ' || ch;
+  -- Номер меняется в полях номера и ссылок; PO клиента, Notes, Mark и прочий текст — нет (A-4).
+  assert ch->'rows'->1->'data' = '{"id":"SO-2","no":"76003","customerPo":"76002","notes":"76002","lines":[{"mark":"76002"}]}', 'текст заказа с номером: ' || ch::text;
+  assert ch->'rows'->2->'data' = '{"id":"E-1","no":"76003","detail":"76002","note":"x76002"}', 'ссылка на номер в команде: ' || ch;
   assert pg_temp.fails($q$select public.erp_apply('cmd-bad', 'b1', 'pc1', '[]', '[{"tbl":"salesOrder","id":"R-9","data":{},"number":{"name":"receipt","value":"X-1","prefix":"R-"}}]')$q$, 'Bad document number%'), 'чужой номер';
   -- Удаление приходит пометкой; повтор чтения с last — пусто.
   d := public.erp_apply('cmd-4', 'b1', 'pc1', format('[{"tbl":"salesOrder","id":"SO-2","ver":%s},{"tbl":"orderEvent","id":"E-1","ver":%s}]', d->'vers'->>'salesOrder|SO-2', d->'vers'->>'orderEvent|E-1')::jsonb,
@@ -129,26 +131,51 @@ begin
   assert g @> '[{"id":"C-1","seq":7,"deleted":false,"data":{"id":"C-1"}}]' and g @> '[{"id":"SO-2","deleted":true}]', 'erp_get: ' || g;
   -- Строка текстом JSON (так шлёт ERP): номер встаёт в текст, текст остаётся текстом.
   r := public.erp_apply('off-5', 'b1', 'pc2', '[]', '[{"tbl":"salesOrder","id":"SO-3","data":"{\"id\":\"SO-3\",\"no\":\"R-0001\",\"ref\":\"R-0001\"}","number":{"name":"receipt","value":"R-0001","prefix":"R-","pad":4}}]');
-  r := public.erp_apply('off-6', 'b1', 'pc2', '[]', '[{"tbl":"salesOrder","id":"SO-4","data":"{\"id\":\"SO-4\",\"no\":\"R-0001\"}","number":{"name":"receipt","value":"R-0001","prefix":"R-","pad":4}}]');
+  r := public.erp_apply('off-6', 'b1', 'pc2', '[]', '[{"tbl":"salesOrder","id":"SO-4","data":"{\"id\":\"SO-4\",\"no\":\"R-0001\",\"po\":\"R-0001\",\"stops\":[\"R-0001\",\"PS-1\"]}","number":{"name":"receipt","value":"R-0001","prefix":"R-","pad":4}}]');
   g := public.erp_get('[{"tbl":"salesOrder","id":"SO-3"},{"tbl":"salesOrder","id":"SO-4"}]');
   assert jsonb_typeof(g->0->'data') = 'string' and g->0->>'data' = '{"id":"SO-3","no":"R-0001","ref":"R-0001"}', 'номер в тексте: ' || g;
   -- Тот же номер с другого компьютера — следующий, с нулями.
-  assert g->1->>'data' = '{"id":"SO-4","no":"R-0002"}' and r->'numbers'->>'salesOrder|SO-4' = 'R-0002', 'второй в команде: ' || r || g;
+  assert g->1->>'data' = '{"id":"SO-4","no":"R-0002","po":"R-0001","stops":["R-0002","PS-1"]}' and r->'numbers'->>'salesOrder|SO-4' = 'R-0002', 'второй в команде: ' || r::text || g::text;
+end $$;
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select public.erp_member_set('office@glass-erp.test', 'Office', false, true, '{production}');
+do $$ declare r jsonb; begin
+  r := public.erp_apply('adm-arch', 'b1', 'pc1', '[]', '[{"tbl":"_archive","id":"SO-77","data":{"number":"76077"}},{"tbl":"_archive","id":"L:receipt:R-7","data":{"amount":5}},{"tbl":"purchaseReceipt","id":"GR-1","data":{"id":"GR-1"}}]');
+  assert (r->>'ok')::boolean, 'админ не записал архив: ' || r::text;
+end $$;
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  assert public.erp_get('[{"tbl":"receipt","id":"R-1"}]') = '[]', 'erp_get отдаёт оплату без Finance и Sales';
+  -- Архив — по правилу своей таблицы: указатель заказа виден, выписка оплаты — нет (A-6).
+  assert public.erp_get('[{"tbl":"_archive","id":"SO-77"},{"tbl":"_archive","id":"L:receipt:R-7"}]') @> '[{"id":"SO-77"}]'
+     and jsonb_array_length(public.erp_get('[{"tbl":"_archive","id":"SO-77"},{"tbl":"_archive","id":"L:receipt:R-7"}]')) = 1, 'архив оплаты без Finance';
+  assert not exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'id' = 'L:receipt:R-7'), 'опрос отдаёт архив оплаты';
+  assert public.erp_get('[{"tbl":"purchaseReceipt","id":"GR-1"}]') = '[]', 'приёмка без Inventory и Purchasing';
+end $$;
+-- Склад читает приёмки (остаток листов и расходников), комиссии — оплаты (A-5).
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select public.erp_member_set('office@glass-erp.test', 'Office', false, true, '{inventory,commissions}');
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  assert public.erp_get('[{"tbl":"purchaseReceipt","id":"GR-1"}]') <> '[]', 'склад не видит приёмку';
+  assert public.erp_get('[{"tbl":"receipt","id":"R-1"}]') <> '[]', 'комиссии не видят оплату';
+  assert public.erp_get('[{"tbl":"_archive","id":"L:receipt:R-7"}]') <> '[]', 'комиссии не видят архив оплаты';
 end $$;
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
 select public.erp_member_set('office@glass-erp.test', 'Office', false, true, '{production}');
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
-do $$ begin
-  assert public.erp_get('[{"tbl":"receipt","id":"R-1"}]') = '[]', 'erp_get отдаёт оплату без Finance и Sales';
-end $$;
 
 -- Экран Users: люди сервера и правила — только администратор меняет.
 do $$ begin
   assert pg_temp.fails('select public.erp_members()', 'Only an administrator%'), 'офис видит людей сервера';
   assert pg_temp.fails('select public.erp_rules_set(''[]'')', 'Only an administrator%'), 'офис меняет правила';
-  assert exists (select 1 from jsonb_array_elements(public.erp_rules()) x where x->>'tbl' = 'receipt' and x->>'read' = 'finance,sales'), 'правила не видны';
+  assert exists (select 1 from jsonb_array_elements(public.erp_rules()) x where x->>'tbl' = 'receipt' and x->>'read' = 'finance,sales,commissions'), 'правила не видны';
 end $$;
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');

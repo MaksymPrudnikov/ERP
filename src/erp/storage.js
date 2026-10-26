@@ -595,6 +595,9 @@ async function storageImportState(raw,opts){
  }catch(e){alert('Nothing was replaced: '+e.message);return false;}
  storageBackupPresent=true;storageCopyAt=at;
  if(recovering){await storageExportRecovery();storageRecovery=false;}
+ /* Перед самой заменой (Download с сервера снимает связь, erp/cloud-sync):
+    Cancel и отказ проверки выше её не трогают. */
+ if(opts.before)await opts.before();
  /* Метка уходит той же записью, что и новая база (storageWriteNext). */
  storageImporting=true;const testWas=storageTest;storageTest=!!opts.test;storageColdImport={cold:(opts.cold||[]).slice(),archive:(opts.archive||[]).slice()};
  const result=storageCommand(()=>{DB=next;return true;});

@@ -24,7 +24,9 @@ module.exports=async function({page,eq}){
      const n=Math.max(srv.counter[x.name]||0,f);srv.counter[x.name]=n+1;
      const t=x.prefix+String(n).padStart(x.pad||0,'0');numbers[c.tbl+'|'+c.id]=t;if(t!==x.value)swap.push([x.value,t]);});
     a.changes.forEach(c=>{const k=c.tbl+'|'+c.id,ver=++srv.rev;srv.log.push({rev:ver,k});
-     let d=c.data;if(d!==null&&swap.length){swap.forEach(([o],i)=>{d=d.split('"'+o+'"').join('"#'+i+'#"');});swap.forEach(([,t],i)=>{d=d.split('"#'+i+'#"').join('"'+t+'"');});}
+     /* Только поля номера и ссылок и строка списка — как в schema.sql (A-4). */
+     let d=c.data;if(d!==null&&swap.length){const keys='businessNumber|number|no|order|orderNumber|ps|doc|before|after'+(c.tbl==='orderEvent'?'|note':'');
+      swap.forEach(([o],i)=>{d=d.replace(new RegExp('("(?:'+keys+')"\\s*:\\s*|[\\[,]\\s*)"'+o+'"(?=\\s*[,\\]}])','g'),'$1"#'+i+'#"');});swap.forEach(([,t],i)=>{d=d.split('"#'+i+'#"').join('"'+t+'"');});}
      srv.rec.set(k,{tbl:c.tbl,id:c.id,ver,seq:c.seq||0,deleted:d===null,data:d,cold:!!c.cold,month:c.month||'',owners:c.owners||[]});vers[k]=ver;});
     res={ok:true,rev:srv.rev,vers,numbers};}
    srv.cmd.set(a.command_id,res);return res;
@@ -98,6 +100,17 @@ module.exports=async function({page,eq}){
  srv.down=false;
  eq('сеть вернулась: обе правки подряд уходят (вторая не спорит с первой), A их видит',
   {b:await sync(B),a:(await sync(A),await A.p.evaluate(()=>DB.customer.find(x=>x.id==='C-CLOUD').notes))},{b:'Synced',a:'Offline 2'});
+ /* Download и Cancel на «Replace this browser database?»: связь, версии и
+    очередь этого ПК — как были (аудит 25.10.2026, A-1). */
+ await edit(B,'C-CLOUD','Waiting','notes');
+ eq('Download и Cancel на замене базы: связь и очередь те же, и после F5',await B.p.evaluate(async()=>{
+  const c=window.confirm,asked=[];window.confirm=m=>{asked.push(m.split('\n')[0]);return asked.length===1;};
+  const was={on:cloudSync.on,ref:cloudSync.ref,out:cloudSync.out.length,vers:cloudSync.vers.size};
+  try{const down=await cloudDownload();return {down,asked,same:JSON.stringify(was)===JSON.stringify({on:cloudSync.on,ref:cloudSync.ref,out:cloudSync.out.length,vers:cloudSync.vers.size}),out:was.out};}
+  finally{window.confirm=c;}
+ }).then(async r=>{await B.p.reload();await B.p.evaluate(()=>window.storageReady);return Object.assign(r,{after:await B.p.evaluate(()=>[cloudSync.on,cloudSync.out.length])});}),
+  {down:false,asked:['1 changes here are not on the server yet and will be lost. Download anyway?','Replace this browser database?'],same:true,out:1,after:[true,1]});
+ eq('…правка из очереди уходит, A её видит',{b:await sync(B),a:(await sync(A),await A.p.evaluate(()=>DB.customer.find(x=>x.id==='C-CLOUD').notes))},{b:'Synced',a:'Waiting'});
 
  await B.p.evaluate(()=>storageCommand(()=>{DB.receipt.push({id:'RCPT-CLOUD',orderId:'',amount:5});}));
  await sync(B);
@@ -121,11 +134,12 @@ module.exports=async function({page,eq}){
   {same:true,a:oa.no,b:String(+oa.no+1),bOnA:String(+oa.no+1),warn:''});
  eq('следующий заказ на любом ПК — после обоих',await (async()=>{const x=await order(B);await sync(B);return no(B,x.id);})(),String(+oa.no+2));
  await sync(A);srv.down=true;const oc=await order(B);
- await B.p.evaluate(id=>storageCommand(()=>{DB.salesOrder.find(o=>o.id===id).customerPo='PO-OFF';}),oc.id);
+ await B.p.evaluate(id=>storageCommand(()=>{const o=DB.salesOrder.find(o=>o.id===id);o.customerPo=o.businessNumber;o.notes=o.businessNumber;}),oc.id);
  srv.down=false;const od=await order(A);await sync(A);await sync(B);
- eq('без сети: тот же номер уже занят другим ПК — после связи следующий, и вторая правка его не затирает',
-  {same:oc.no===od.no,b:await no(B,oc.id),server:JSON.parse(srv.rec.get('salesOrder|'+oc.id).data).businessNumber,po:JSON.parse(srv.rec.get('salesOrder|'+oc.id).data).customerPo},
-  {same:true,b:String(+od.no+1),server:String(+od.no+1),po:'PO-OFF'});
+ eq('без сети: тот же номер уже занят другим ПК — после связи следующий, вторая правка его не затирает; PO и Notes с тем же текстом не меняются',
+  {same:oc.no===od.no,b:await no(B,oc.id),server:JSON.parse(srv.rec.get('salesOrder|'+oc.id).data).businessNumber,po:JSON.parse(srv.rec.get('salesOrder|'+oc.id).data).customerPo,
+   notes:JSON.parse(srv.rec.get('salesOrder|'+oc.id).data).notes,poOnB:await B.p.evaluate(id=>DB.salesOrder.find(o=>o.id===id).customerPo,oc.id)},
+  {same:true,b:String(+od.no+1),server:String(+od.no+1),po:oc.no,notes:oc.no,poOnB:oc.no});
  const ids=t=>t.p.evaluate(()=>{let g;storageCommand(()=>{g=[glassPieceNextId(),glassPieceNextId(),stationScanNextId()];});return g;});
  const ga=await ids(A),gb=await ids(B);
  /* Блок A — 1001–2000: первый ушёл с прежней связью (Download её сменил). */
