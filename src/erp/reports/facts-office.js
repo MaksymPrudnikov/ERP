@@ -68,6 +68,12 @@ function repBreakFacts(){
    клиент его ни забрал. On time % — из заказов On time и Late: просроченный
    невыданный заказ тоже опоздал. */
 let repOrderCache={stamp:'',rows:null};
+/* Отгружен — последний отправленный PS, когда заказ выдан целиком. */
+function repOrderShipped(o){
+ if(!['done','closed'].includes(o.status))return '';
+ const sent=shippingForOrder(o.id).filter(s=>shippingSent(s)&&shippingCarries(s,o.id)).map(s=>s.date).sort();
+ return sent[sent.length-1]||salesListIsoDay(o.statusDates&&o.statusDates.done)||'';
+}
 /* Готовность самовывоза меняют только сканы станции готовности: остальные
    сканы цеха не пересчитывают заказы (аудит 12.10.2026: раньше любой скан
    сбрасывал расчёт отчётов по заказам). */
@@ -86,8 +92,7 @@ function repOrderFacts(){
  };
  (DB.salesOrder||[]).forEach(o=>{
   if(!o||salesIsQuote(o)||o.status==='cancelled')return;
-  const done=['done','closed'].includes(o.status),sent=done?shippingForOrder(o.id).filter(s=>shippingSent(s)&&shippingCarries(s,o.id)).map(s=>s.date).sort():[];
-  const shipped=done?sent[sent.length-1]||salesListIsoDay(o.statusDates&&o.statusDates.done)||'':'',due=o.dueDate||'';
+  const done=['done','closed'].includes(o.status),shipped=repOrderShipped(o),due=o.dueDate||'';
   const ready=o.delivery==='pickup'?pickupReady(o,done,shipped):'',finish=o.delivery==='pickup'?ready:shipped;
   const state=!due?'No due date':finish?(finish<=due?'On time':'Late'):(due<today?'Late':'Open');
   const lines=o.lines||[],units=lines.reduce((n,l)=>n+Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)),0);

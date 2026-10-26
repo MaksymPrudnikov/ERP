@@ -38,19 +38,31 @@ function repSoldCharge(row){
  return {category,type:fam||(w&&w.name)||product,product,station:w&&w.station||''};
 }
 function repSoldUnit(u){return REP_SOLD_UNIT[u]||u||'—';}
-let repSoldCache={stamp:'',src:null,rows:null};
-function repSoldFacts(){
- /* Вид работы — имя и семья из Works: переименовали в Data — отчёт видит. */
- const shipped=repOrderFacts(),stamp=(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(',')+'|'+(DB.serviceRate||[]).map(w=>w&&w.id+w.name+w.family).join(',');
- if(repSoldCache.stamp===stamp&&repSoldCache.src===shipped&&repSoldCache.rows)return repSoldCache.rows;
- const shipDay=new Map(shipped.map(r=>[r.id,r.shipped])),rows=[];
+/* Строки — по заказу: заказ не менялся (время правки, статус, день
+   отгрузки, Works) — его строки те же, пересчитывается только изменённый.
+   want — период графика (reports/query, repSelect): считаются только
+   заказы, у которых этот день в периоде; без периода — все. */
+let repSoldCache={stamp:'',sets:new Map()},repSoldByOrder=new Map();
+function repSoldFacts(want){
+ const works=(DB.serviceRate||[]).map(w=>w&&w.id+w.name+w.family).join(',');
+ const stamp=[(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.shipment||[]).map(s=>s.id+s.status+s.date).join(','),works].join('|');
+ if(repSoldCache.stamp!==stamp)repSoldCache={stamp,sets:new Map()};
+ const pick=want&&want.range&&['created','due','shipped'].includes(want.df)?want:null,key=pick?pick.df+'|'+pick.range.join('~'):'all';
+ if(repSoldCache.sets.has(key))return repSoldCache.sets.get(key);
+ const rows=[],seen=new Set();
  (DB.salesOrder||[]).forEach(o=>{
-  if(!o||salesIsQuote(o)||o.status==='cancelled')return;
+  if(!o||salesIsQuote(o)||o.status==='cancelled')return;seen.add(o.id);
+  const shipped=repOrderShipped(o);
+  if(pick){const d=repIsoDay(pick.df==='created'?salesListIsoDay(o.createdAt):pick.df==='due'?o.dueDate:shipped);if(!d||(pick.range[0]&&d<pick.range[0])||(pick.range[1]&&d>pick.range[1]))return;}
+  const k=[o.updatedAt||'',o.status,shipped,works].join('|'),was=repSoldByOrder.get(o.id);
+  let mine=was&&was.key===k?was.rows:null;
   /* Заказ целиком или никак: сломанный расчёт одного заказа не оставляет
      в отчёте его половину. */
-  const mine=[];try{finWithOrder(o,()=>repSoldOrder(o,shipDay.get(o.id)||'',mine));mine.forEach(x=>rows.push(x));}catch(e){}
+  if(!mine){mine=[];try{finWithOrder(o,()=>repSoldOrder(o,shipped,mine));}catch(e){mine=[];}repSoldByOrder.set(o.id,{key:k,rows:mine});}
+  mine.forEach(x=>rows.push(x));
  });
- repSoldCache={stamp,src:shipped,rows};
+ if(!pick)repSoldByOrder.forEach((v,id)=>{if(!seen.has(id))repSoldByOrder.delete(id);});
+ repSoldCache.sets.set(key,rows);
  return rows;
 }
 function repSoldOrder(o,shipped,rows){
@@ -79,6 +91,10 @@ function repSoldLine(o,l,cad,put){
  (p.materialRows||[]).forEach(r=>{
   /* Без цены единица продажи неизвестна — количество по площади. */
   const none=r.price==null,unitName=none?'ft²':repSoldUnit(r.unit),qty=none?bill*live:r.qty==null?0:r.qty*live,pane=m&&r.pane!=null?(m.panes||[])[r.pane]:null;
+  /* Часть обвязки за $0 (осушитель, PIB, уголки) входит в цену рамки, её
+     ft² — те же Unit ft²: строки не добавляют ничего, кроме веса отчёту
+     (на годе — почти половина строк). Без цены — остаётся: её видно. */
+  if(r.cavity!=null&&r.price===0&&!r.amount&&r.table!=='spacerVariant')return;
   if(r.cavity!=null){const x=r.itemId&&mdById(r.table,r.itemId),t=typeof CONS_TABLES!=='undefined'&&CONS_TABLES.find(c=>c[0]===r.table);
    add({category:'IGU surround',type:t?t[1]:'Surround',product:x?x.name:'Surround · price by hand',unitName,qty,amount:money(r.amount),spacerFt:r.table==='spacerVariant'&&a.valid?a.perimeterIn/12*live:0});return;}
   if(r.table==='interlayerProduct'){const x=mdById('interlayerProduct',r.itemId),layers=r.layers||1,lam=bill*live,sq=unitName==='ft²';
@@ -89,7 +105,7 @@ function repSoldLine(o,l,cad,put){
   add({category:'Glass',type:g?salesVisionTypeLabel(g.coatingFamily):pane&&pane.category==='laminated'?'Laminated':'Glass',product:g?g.code:pane&&pane.category==='laminated'?'Laminated · price by hand':'Glass',
    unitName,qty,amount:money(r.amount),mm:g&&g.thicknessMm||ply&&+ply.thicknessMm||null,heat:heatOf(ply),maker:g&&g.manufacturer||'',glassFt2:bill*live*plies});
  });
- salesLineChargeRows(l).forEach(row=>{
+ (p.chargeRows||[]).forEach(row=>{
   const st=salesChargePricingState(l,row),c=repSoldCharge(row),unitName=repSoldUnit(row.unit),qty=row.basis*live;
   const mm=/ · ([\d.]+) mm$/.exec(row.label||''),work=!['Surcharges'].includes(c.category);
   add(Object.assign(c,{unitName,qty,amount:money(salesChargeUnitAmount(row,st.effectiveRate)),list:money(salesChargeUnitAmount(row,st.catalogRate)),mm:mm?+mm[1]:thick.ok?thick.thickness:null,

@@ -146,7 +146,7 @@ Object.assign(REP_SRC,{
  /* Продано (reports/facts-sold): количество — в единице продукта, у
     продукта она и в имени («Flat Polish · in»); где единицы разные, итога
     количества нет (unitBy). Меры по видам — свои колонки. */
- sold:{label:'Products sold',group:'Sales',hint:'Every product, work and service sold',rows:()=>repSoldFacts(),date:['created','due','shipped'],
+ sold:{label:'Products sold',group:'Sales',hint:'Every product, work and service sold',rows:h=>repSoldFacts(h),date:['created','due','shipped'],
   fields:()=>[REP_F.date('created','Order date'),REP_F.date('due','Due'),REP_F.date('shipped','Shipped'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
    REP_F.dim('category','Category'),REP_F.dim('type','Type',r=>r.type||'—'),REP_F.dim('product','Product',r=>r.unitName&&r.unitName!=='—'?r.product+' · '+r.unitName:r.product||'—'),REP_F.dim('unitName','Unit'),
    REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('heat','Temper',r=>r.heat||'—'),REP_F.dim('station','Station',r=>r.station||'—'),REP_F.dim('unitType','Unit type',r=>r.unitType||'—'),

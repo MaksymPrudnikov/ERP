@@ -236,6 +236,14 @@ module.exports=async function({page,eq,ok}){
   {cats:["Edgework","Fabrication","Glass","Interlayer","Order charges","Price set by hand"],fab:["Hinge 4 / $60.00 / $15.00","Hole 2 / $12.00 / $6.00"],film:["EVA Clear · ft² 40 / 10 / $200.00 / $5.00"],
    all:["Amount $512.80","Units 4","Unit ft² 35","Glass ft² 45","Film ft² 40","Linear in 728","Pieces 6"],products:["Flat Polish · in 304","Hinge · pcs 4","Hole 1/2″–1″ · pcs 2","Rough Arris · in 424"],qtyTotal:"—",free:["Amount $0.00","Glass ft² 10","By price list $1.52"]});
 
+ eq('Products sold: график за месяц считает только заказы месяца — итог тот же, что из всех строк',await t.p.evaluate(()=>{
+  const old=DB.salesOrder.find(o=>o.noCharge);old.createdAt='2025-01-15T12:00:00.000Z';old.updatedAt=new Date().toISOString();
+  repSoldCache={stamp:'',sets:new Map()};repSoldByOrder=new Map();
+  const month=repQuery({source:'sold',date:{preset:'thisMonth'},metrics:['amount','orders']}),counted=[...repSoldByOrder.keys()].map(id=>salesRecord(id).noCharge?'old':'new');
+  const r=repPresetRange('thisMonth'),all=repSoldFacts().filter(x=>x.created>=r[0]&&x.created<=r[1]);
+  return {counted,same:month.total[0]===all.reduce((n,x)=>n+(x.amount||0),0),orders:month.total[1]};
+ }),{counted:['new'],same:true,orders:1});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

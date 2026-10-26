@@ -190,9 +190,11 @@ function repFilterTest(S,flt,row,ctx){
  }
  return true;
 }
+/* Период уходит и источнику: тяжёлый (Products sold) считает только его —
+   месяц на годе не ждёт расчёта всего года. Отбор ниже всё равно тот же. */
 function repSelect(S,df,range,filters,ctx){
  const f=df?repField(S,df):null;
- return S.rows().filter(r=>{
+ return S.rows({df,range}).filter(r=>{
   if(f&&range){const d=repIsoDay(repGet(f,r));if(!d||(range[0]&&d<range[0])||(range[1]&&d>range[1]))return false;}
   return (filters||[]).every(x=>repFilterTest(S,x,r,ctx));
  });

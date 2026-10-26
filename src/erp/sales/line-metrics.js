@@ -199,7 +199,9 @@ function salesLineCommercialPrice(line,order){
   .sort((a,b)=>a.rule.priority-b.rule.priority).map(x=>({key:'svc:'+x.id,svc:x.id,label:x.name,percent:x.value,onTop:x.rule.onTop,rule:x.rule})):[];
  let running=base;
  adjustments.forEach(a=>{a.base=a.onTop?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
- const out={areas:areas,materialRate:rate.total,materialRows:rate.rows,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,qty:live,ordered:q,cancelled:q-live};
+ /* chargeRows — строки работ, по которым посчитана цена: отчёт Products sold
+    берёт их отсюда, а не считает второй раз (фигура — самое дорогое). */
+ const out={areas:areas,materialRate:rate.total,materialRows:rate.rows,chargeRows:services.rows,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,qty:live,ordered:q,cancelled:q-live};
  /* Цена руками: итоговая цена юнита, наценки к ней не прибавляются; расчёт
     остаётся для справки (computedUnit). */
  if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,line:salesMoney(v*live),complete:true,unsupportedCurrency:false});}
