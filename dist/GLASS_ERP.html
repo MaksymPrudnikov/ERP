@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 177 модулей, 23 стиля.
+  Состав сборки: 178 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -3545,7 +3545,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='ac69df3878c3';
+var ERP_BUILD='c8c9bc44ae98';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -37417,11 +37417,14 @@ function invBatchSheetHints(batch,glass){
 /* ------------------------------ Журнал ------------------------------
    Все движения листов. rack — сколько листов прибавилось (+) или ушло (−)
    с пирамиды; layout — листов в раскрое батча (Build ничего не снимает с
-   пирамиды, он занимает листы). */
-function invMoves(){
+   пирамиды, он занимает листы). rackOnly — только то, что двигает
+   пирамиду листов: без Build, расходников и кусков S- (отчёт Sheet moves;
+   куски S- считают порезанные листы второй раз — на годе это половина
+   времени). */
+function invMoves(rackOnly){
  const out=[],add=(m,code,size)=>{const g=glassProductByCode(code);out.push(Object.assign({code:g?g.code:String(code).toUpperCase(),name:g?g.name:'',key:invKey(code,size),w:size?size.w:0,h:size?size.h:0,rack:null,layout:null,by:'',note:''},m));};
  invReceiptLines().forEach(x=>add({id:'GR|'+x.r.id+'|'+x.l.id,kind:'Receipt',ref:x.r.number,receipt:x.r.id,day:x.day,at:x.at,rack:x.issue?0:x.qty,by:x.r.receivedBy||x.r.createdBy,note:x.issue||[x.l.replacement?'Replacement':'',x.broken?(x.qty+x.broken)+' arrived · '+x.broken+' broken':''].filter(Boolean).join(' · ')},x.code,x.size));
- (DB.cutPlan||[]).forEach(plan=>{
+ if(!rackOnly)(DB.cutPlan||[]).forEach(plan=>{
   if(!plan||plan.reset||!Array.isArray(plan.groups)||!glassBatchFind(plan.batch))return;
   plan.groups.forEach(g=>{if(!invGlassCut(g.glass))return;const by=new Map();
    g.sheets.forEach(s=>{const z=s.size||g.sheet||{},size=invPlanSize(z);if(!size||/^S-/.test(z.key||''))return;const k=size.w+'x'+size.h;if(!by.has(k))by.set(k,{size,n:0});by.get(k).n++;});
@@ -37436,8 +37439,8 @@ function invMoves(){
  (DB.inventoryEvent||[]).filter(e=>INV_SHEET_KINDS.includes(e.kind)).forEach(e=>add({id:e.id,kind:e.kind==='count'?'Count':e.kind==='add'?'Add':'Write off',ref:'',day:salesListIsoDay(e.at),at:e.at,rack:e.qty,by:e.by,
   note:[e.kind==='count'?'Was '+e.before+' → '+e.after:'',e.reason,e.note].filter(Boolean).join(' · ')},e.glass,invSize(e.w,e.h)));
  /* Пересчёт расходников — в том же журнале, с причиной и заметкой. */
- if(typeof consCountMoves==='function')consCountMoves().forEach(m=>out.push(m));
- if(typeof invOffcutMoves==='function')invOffcutMoves().forEach(m=>out.push(m));
+ if(!rackOnly&&typeof consCountMoves==='function')consCountMoves().forEach(m=>out.push(m));
+ if(!rackOnly&&typeof invOffcutMoves==='function')invOffcutMoves().forEach(m=>out.push(m));
  return out.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
 }
 
@@ -37704,7 +37707,7 @@ function consAssembled(){
  const index=stationPieceIndex(),asm=new Map();
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||s.broken||!s.asm||!s.unit||asm.has(s.asm))return;
-  const hit=index.get(s.piece);if(hit)asm.set(s.asm,{orderId:hit.orderId,lineId:hit.lineId,piece:s.piece,at:s.at});
+  const hit=index.get(s.piece);if(hit)asm.set(s.asm,{orderId:hit.orderId,lineId:hit.lineId,piece:s.piece,at:s.at,by:s.by||'',scan:s.id,asm:s.asm});
  });
  return [...asm.values()];
 }
@@ -37798,10 +37801,13 @@ function consSetPacks(key,packs){
  });
 }
 function consEventValid(e){return !!(e&&typeof e==='object'&&typeof e.id==='string'&&e.id&&typeof e.key==='string'&&e.key.indexOf(':')>0&&Number.isFinite(+e.qty)&&typeof e.at==='string');}
+/* Причина и заметка пересчёта переживают F5 и Import: без них журнал и
+   отчёт Stock counts после перезагрузки показывали бы «No reason». */
 function normalizeConsumables(){
  const ids=new Set();
  DB.consumableEvent=(Array.isArray(DB.consumableEvent)?DB.consumableEvent:[]).filter(e=>consEventValid(e)&&!ids.has(e.id)&&(ids.add(e.id),true))
-  .map(e=>({id:e.id,key:e.key,qty:+e.qty,before:Number.isFinite(+e.before)?+e.before:null,after:Number.isFinite(+e.after)?+e.after:null,at:e.at,by:String(e.by||''),byId:String(e.byId||'')}));
+  .map(e=>({id:e.id,key:e.key,qty:+e.qty,before:Number.isFinite(+e.before)?+e.before:null,after:Number.isFinite(+e.after)?+e.after:null,
+   reason:String(e.reason||'').slice(0,80),note:String(e.note||'').slice(0,200),at:e.at,by:String(e.by||''),byId:String(e.byId||'')}));
 }
 
 /* ==== src/erp/inventory/stock-reasons.js ==== */
@@ -46883,6 +46889,137 @@ function repSheetCutFacts(){
  return rows;
 }
 
+/* ==== src/erp/reports/facts-inventory.js ==== */
+/* =====================================================================
+   reports/facts-inventory  ·  facts-1.0
+   Склад: пересчёты (было → стало, разница, причина), движения листов
+   (приход, рез, слом, списание, добавление, поправка пересчётом) и расход
+   материалов IGU по скану сборки.
+   IN : DB.inventoryEvent (пересчёт листов), DB.consumableEvent (пересчёт
+        расходников), журнал листов invMoves (erp/inventory/sheets), сборки
+        IGU consAssembled × рецепт юнита consPerUnit
+        (erp/inventory/consumables), расход ушедших в архив
+        DB.inventoryArchived.cons
+   OUT: repCountFacts(), repSheetMoveFacts(), repIguMaterialFacts()
+   Правило: файл ничего не рисует.
+
+   План отчётов, часть «Склад» (владелец, 26.10.2026). Денег нет. Меры —
+   каждая в своей единице и своей колонкой: листы — штуки и ft² (размер ×
+   разница), рамка — ft, герметик, газ и части пакета — kg. Количество в
+   единице строки (Difference, Quantity) там, где единицы разные, итога не
+   даёт (unitBy).
+   ===================================================================== */
+/* Мера расходника — колонка по таблице: рамка в футах, остальное в кг. */
+const REP_CONS_MEASURE={spacerVariant:'spacerFt',sealantProduct:'sealantKg',gasProduct:'gasKg',iguPart:'partsKg'};
+function repConsMeasures(table,q){const out={spacerFt:0,sealantKg:0,gasKg:0,partsKg:0},k=REP_CONS_MEASURE[table];if(k&&Number.isFinite(q))out[k]=q;return out;}
+/* Айтем расходника по ключу «таблица:id»: вид (CONS_TABLES), имя, единица. */
+function repConsItem(key){
+ const [t,...rest]=String(key||'').split(':'),id=rest.join(':'),tb=typeof CONS_TABLES!=='undefined'&&CONS_TABLES.find(x=>x[0]===t);if(!tb||!id)return null;
+ const x=mdById(t,id);return {table:t,kind:tb[1],unit:tb[2],name:x?x.name:id};
+}
+function repConsNames(){return typeof CONS_TABLES==='undefined'?'':CONS_TABLES.map(t=>(DB[t[0]]||[]).map(x=>x&&x.id+'='+x.name).join()).join('|');}
+function repConsTables(){return typeof CONS_TABLES==='undefined'?[]:CONS_TABLES.map(t=>DB[t[0]]);}
+
+/* ---------------------------- Пересчёты ------------------------------
+   Строка — одна строка пересчёта. Разница = стало − было: минус —
+   недостача (Short), плюс — излишек (Over). Причины нет — «No reason». */
+let repCountCache={stamp:'',rows:null};
+function repCountFacts(){
+ const stamp=readMemo('repCountStamp',[DB.inventoryEvent,DB.consumableEvent].concat(repConsTables()),()=>[(DB.inventoryEvent||[]).length,(DB.consumableEvent||[]).length,
+  ((DB.inventoryEvent||[]).slice(-1)[0]||{}).id,((DB.consumableEvent||[]).slice(-1)[0]||{}).id,repConsNames()].join('|'));
+ if(repCountCache.stamp===stamp&&repCountCache.rows)return repCountCache.rows;
+ const rows=[],put=(e,r)=>{
+  /* Расходник — дробный: тысячные, как «было» в записи (consCountSave). */
+  const diff=Math.round((+e.qty||0)*1000)/1000;
+  rows.push(Object.assign({id:e.id,at:e.at,day:repDay(e.at),person:e.by||'',glass:'',size:'',mm:null,was:e.before,counted:e.after,diff,
+   dir:diff<0?'Short':diff>0?'Over':'Exact',off:diff?1:0,short:diff<0?1:0,over:diff>0?1:0,reason:e.reason||'No reason',note:e.note||'',
+   sheets:0,sheetFt2:0,spacerFt:0,sealantKg:0,gasKg:0,partsKg:0},r));
+ };
+ (DB.inventoryEvent||[]).forEach(e=>{
+  if(e.kind!=='count')return;const g=glassProductByCode(e.glass),size=invSizeText(e);
+  put(e,{kind:'Sheets',material:e.glass+' · '+size,glass:e.glass,size,mm:g&&g.thicknessMm||null,unit:'sheets',sheets:+e.qty||0,sheetFt2:(+e.qty||0)*e.w*e.h/144});
+ });
+ (DB.consumableEvent||[]).forEach(e=>{
+  const x=repConsItem(e.key);if(!x)return;
+  put(e,Object.assign({kind:x.kind,material:x.name,unit:x.unit},repConsMeasures(x.table,Math.round((+e.qty||0)*1000)/1000)));
+ });
+ repCountCache={stamp,rows};
+ return rows;
+}
+
+/* ------------------------- Движения листов ---------------------------
+   Журнал листов (invMoves) — только то, что меняет пирамиду: Build лишь
+   занимает листы раскроя, куски S- и расходники — не листы (rackOnly).
+   Причина — у пересчёта, списания и добавления (запись журнала склада). */
+let repMoveCache={stamp:'',rows:null};
+function repSheetMoveFacts(){
+ const stamp=readMemo('repMoveStamp',[DB.stationScan,DB.sheetBreak,DB.cutPlan,DB.inventoryEvent,DB.purchaseReceipt,DB.productionUnbatch],()=>{
+  let undone=0;(DB.stationScan||[]).forEach(s=>{if(s.undoneAt)undone++;});(DB.sheetBreak||[]).forEach(b=>{if(b.undoneAt)undone++;});
+  return [(DB.stationScan||[]).length,undone,(DB.sheetBreak||[]).length,(DB.cutPlan||[]).map(p=>p&&p.batch+(p.at||'')+(p.reset?'R':'')).join(','),(DB.inventoryEvent||[]).length,
+   (DB.purchaseReceipt||[]).map(r=>r.id+(r.updatedAt||'')+(r.voidAt||'')).join(','),(DB.productionUnbatch||[]).length].join('|');
+ });
+ if(repMoveCache.stamp===stamp&&repMoveCache.rows)return repMoveCache.rows;
+ const ev=new Map((DB.inventoryEvent||[]).map(e=>[e.id,e])),rows=[];
+ invMoves(true).forEach(m=>{
+  if(m.rack==null)return;
+  const n=+m.rack||0,ft=m.w&&m.h?m.w*m.h/144:0,e=ev.get(m.id),g=glassProductByCode(m.code),size=m.w?invSizeText(m):'Size missing';
+  rows.push({id:m.id,at:m.at,person:m.by||'',kind:m.kind,dir:n>0?'In':n<0?'Out':'No change',glass:m.code,mm:g&&g.thicknessMm||null,size,sheet:m.code+' · '+size,
+   ref:m.ref||'',batch:m.batch||'',reason:e?e.reason||'No reason':'',note:m.note||'',sheets:Math.abs(n),net:n,sIn:n>0?n:0,sOut:n<0?-n:0,
+   area:Math.abs(n)*ft,netFt2:n*ft,ftIn:n>0?n*ft:0,ftOut:n<0?-n*ft:0});
+ });
+ repMoveCache={stamp,rows};
+ return rows;
+}
+
+/* ----------------------- Материалы IGU по скану ----------------------
+   Собранный юнит (consAssembled) × рецепт юнита позиции (consPerUnit) —
+   то же, что склад расходников списывает (consRows): собранный и потом
+   отменённый юнит — тоже расход. Строка — день × кто собрал × материал:
+   за год это тысячи строк, а не сотни тысяч (юнит × материал). Units —
+   юниты этого дня и человека, в которые материал ушёл; нормы нет —
+   количество не считается, юнит идёт в «Units without norm».
+   want — период графика (reports/query, repSelect): рецепт считается только
+   у юнитов, собранных в периоде, — месяц на годе не ждёт расчёта всех
+   позиций года. Рецепт позиции помнится, пока заказ не менялся.
+   Ушедшее в архив (DB.inventoryArchived.cons) — итогом, без дня и
+   человека: строка «Archived · total only», только без периода (All time).
+   Отчёт, который подгрузил ушедшие заказы (erp/archive), видит их сборки
+   по дням — их расход из итога архива вычитается, чтобы не посчитать
+   дважды. */
+let repIguCache={stamp:'',asm:null,sets:new Map()},repIguPer=new Map();
+function repIguMaterialFacts(want){
+ const stamp=readMemo('repIguStamp',[DB.stationScan,DB.salesOrder,DB.materialWeightRates].concat(repConsTables()),()=>{
+  let undone=0;(DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken)undone++;});
+  return [(DB.stationScan||[]).length,undone,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')).join(','),JSON.stringify(DB.materialWeightRates||[]),
+   JSON.stringify(DB.inventoryArchived&&DB.inventoryArchived.cons||{}),repConsNames()].join('|');
+ })+'|'+(typeof storageVisit!=='undefined'&&storageVisit.get('stationScan')?storageVisit.get('stationScan').size:0);
+ if(repIguCache.stamp!==stamp)repIguCache={stamp,asm:null,sets:new Map()};
+ const pick=want&&want.range&&want.df==='day'?want.range:null,key=pick?pick.join('~'):'all';
+ if(repIguCache.sets.has(key))return repIguCache.sets.get(key);
+ if(!repIguCache.asm)repIguCache.asm=consAssembled().map(a=>Object.assign(a,{day:repDay(a.at)}));
+ const perOf=(o,l)=>{const k=o.id+'|'+l.id,was=repIguPer.get(k);if(was&&was.u===(o.updatedAt||''))return was.per;let per;try{per=consPerUnit(l,o);}catch(e){per=new Map();}repIguPer.set(k,{u:o.updatedAt||'',per});return per;};
+ const visit=!pick&&typeof storageVisit!=='undefined'&&storageVisit.get('stationScan')||null,fromArchive=new Map(),groups=new Map(),rows=[];
+ const row=(id,x,base)=>{let r=groups.get(id);if(!r){r=Object.assign({id,kind:x.kind,material:x.name,unit:x.unit,qty:0,units:0,missing:0,spacerFt:0,sealantKg:0,gasKg:0,partsKg:0},base);groups.set(id,r);rows.push(r);}return r;};
+ repIguCache.asm.forEach(a=>{
+  if(pick&&(!a.day||(pick[0]&&a.day<pick[0])||(pick[1]&&a.day>pick[1])))return;
+  const o=salesRecord(a.orderId),l=o&&(o.lines||[]).find(x=>x.id===a.lineId);if(!l)return;
+  const mine=visit&&visit.has(a.scan);
+  perOf(o,l).forEach((q,k)=>{
+   const x=repConsItem(k);if(!x)return;const ok=Number.isFinite(q),r=row(a.day+'|'+a.by+'|'+k,x,{day:a.day,person:a.by||'',record:'By scan'});
+   r.units++;if(ok){r.qty+=q;r[REP_CONS_MEASURE[x.table]]+=q;}else r.missing++;
+   if(mine){const f=fromArchive.get(k)||{used:0,unknown:0};if(ok)f.used+=q;else f.unknown++;fromArchive.set(k,f);}
+  });
+ });
+ if(!pick)Object.entries(DB.inventoryArchived&&DB.inventoryArchived.cons||{}).forEach(([k,a])=>{
+  const x=repConsItem(k);if(!x)return;const f=fromArchive.get(k)||{used:0,unknown:0};
+  let used=(+a.used||0)-f.used;const unknown=Math.max(0,(+a.unknown||0)-f.unknown);if(Math.abs(used)<1e-6)used=0;if(!used&&!unknown)return;
+  const r=row('ARCH|'+k,x,{day:'',person:'',record:'Archived · total only'});r.qty=used;r[REP_CONS_MEASURE[x.table]]=used;r.missing=unknown;
+ });
+ rows.forEach(r=>{r.norm=r.missing?'Norm missing':'Norm set';});
+ repIguCache.sets.set(key,rows);
+ return rows;
+}
+
 /* ==== src/erp/reports/sources.js ==== */
 /* =====================================================================
    reports/sources  ·  sources-1.0
@@ -47065,7 +47202,38 @@ Object.assign(REP_SRC,{
    REP_F.dim('size','Size'),REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.dim('status','Status'),REP_F.num('area','Area ft²',{digits:1})],
   metrics:[{k:'count',label:'Offcuts',agg:'count'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1}]}
 });
-const REP_GROUPS=['Production','Shipping','Sales','Finance','Quality','People'];
+/* Склад (reports/facts-inventory) — только с галочкой Inventory, денег нет.
+   Меры — каждая своей колонкой: листы шт и ft², рамка ft, герметик, газ и
+   части пакета kg; количество в единице строки — unitBy. */
+function repConsFields(){return [REP_F.num('spacerFt','Spacer ft',{digits:1}),REP_F.num('sealantKg','Sealant kg',{digits:2}),REP_F.num('gasKg','Gas kg',{digits:2}),REP_F.num('partsKg','IGU parts kg',{digits:2})];}
+function repConsMetrics(){return [{k:'spacerFt',label:'Spacer ft',agg:'sum',f:'spacerFt',digits:1},{k:'sealantKg',label:'Sealant kg',agg:'sum',f:'sealantKg',digits:2},
+ {k:'gasKg',label:'Gas kg',agg:'sum',f:'gasKg',digits:2},{k:'partsKg',label:'IGU parts kg',agg:'sum',f:'partsKg',digits:2}];}
+function repMaterialText(r){return r.unit?r.material+' · '+r.unit:r.material||'—';}
+Object.assign(REP_SRC,{
+ counts:{label:'Stock counts',group:'Inventory',access:'inventory',hint:'Was → counted, difference, reason',rows:()=>repCountFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Counted'),REP_F.dim('day','Count day'),REP_F.dim('person','Counted by',r=>r.person||'—'),REP_F.dim('kind','Kind'),REP_F.dim('material','Material',repMaterialText),
+   REP_F.dim('glass','Glass',r=>r.glass||'—'),REP_F.dim('size','Sheet size',r=>r.size||'—'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('unit','Unit'),
+   REP_F.dim('dir','Short or over'),REP_F.dim('reason','Reason'),REP_F.text('note','Note',r=>r.note||'—'),
+   REP_F.num('was','Was',{digits:2,unitBy:'unit'}),REP_F.num('counted','Counted',{digits:2,unitBy:'unit'}),REP_F.num('diff','Difference',{digits:2,unitBy:'unit'}),
+   REP_F.num('sheets','Sheets'),REP_F.num('sheetFt2','Sheet ft²',{digits:1})].concat(repConsFields()),
+  metrics:[{k:'count',label:'Lines counted',agg:'count'},{k:'off',label:'With difference',agg:'sum',f:'off'},{k:'short',label:'Short',agg:'sum',f:'short'},{k:'over',label:'Over',agg:'sum',f:'over'},
+   {k:'days',label:'Days counted',agg:'distinct',f:'day'},{k:'diff',label:'Difference',agg:'sum',f:'diff',digits:2,unitBy:'unit'},
+   {k:'sheets',label:'Sheets',agg:'sum',f:'sheets'},{k:'sheetFt2',label:'Sheet ft²',agg:'sum',f:'sheetFt2',digits:1}].concat(repConsMetrics())},
+ moves:{label:'Sheet moves',group:'Inventory',access:'inventory',hint:'Received, cut, broke, written off, counted',rows:()=>repSheetMoveFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Date'),REP_F.dim('kind','Move'),REP_F.dim('dir','In or out'),REP_F.dim('sheet','Sheet'),REP_F.dim('glass','Glass'),REP_F.dim('size','Sheet size'),
+   REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('person','Person',r=>r.person||'—'),REP_F.dim('reason','Reason',r=>r.reason||'—'),REP_F.text('ref','Reference',r=>r.ref||'—'),
+   REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.text('note','Note',r=>r.note||'—'),
+   REP_F.num('sheets','Sheets moved'),REP_F.num('sIn','Sheets in'),REP_F.num('sOut','Sheets out'),REP_F.num('net','Net sheets'),
+   REP_F.num('area','ft² moved',{digits:1}),REP_F.num('ftIn','ft² in',{digits:1}),REP_F.num('ftOut','ft² out',{digits:1}),REP_F.num('netFt2','Net ft²',{digits:1})],
+  metrics:[{k:'sIn',label:'Sheets in',agg:'sum',f:'sIn'},{k:'sOut',label:'Sheets out',agg:'sum',f:'sOut'},{k:'net',label:'Net sheets',agg:'sum',f:'net'},{k:'sheets',label:'Sheets moved',agg:'sum',f:'sheets'},
+   {k:'ftIn',label:'ft² in',agg:'sum',f:'ftIn',digits:1},{k:'ftOut',label:'ft² out',agg:'sum',f:'ftOut',digits:1},{k:'netFt2',label:'Net ft²',agg:'sum',f:'netFt2',digits:1},{k:'count',label:'Moves',agg:'count'}]},
+ igumat:{label:'IGU materials used',group:'Inventory',access:'inventory',hint:'Spacer, sealant, gas by IGU scan',rows:h=>repIguMaterialFacts(h),date:['day'],
+  fields:()=>[REP_F.date('day','Assembled'),REP_F.dim('person','Assembled by',r=>r.person||(r.record==='By scan'?'—':r.record)),REP_F.dim('kind','Kind'),REP_F.dim('material','Material',repMaterialText),
+   REP_F.dim('unit','Unit'),REP_F.dim('record','Record'),REP_F.dim('norm','Norm'),REP_F.num('qty','Quantity',{digits:2,unitBy:'unit'})].concat(repConsFields(),[REP_F.num('units','Units built with it'),REP_F.num('missing','Units without norm')]),
+  metrics:[{k:'qty',label:'Quantity',agg:'sum',f:'qty',digits:2,unitBy:'unit'}].concat(repConsMetrics(),[{k:'units',label:'Units built with it',agg:'sum',f:'units'},{k:'missing',label:'Units without norm',agg:'sum',f:'missing'},
+   {k:'days',label:'Days',agg:'distinct',f:'day'}])}
+});
+const REP_GROUPS=['Production','Shipping','Sales','Inventory','Finance','Quality','People'];
 
 /* ==== src/erp/reports/query.js ==== */
 /* =====================================================================
@@ -47393,7 +47561,7 @@ function repKeyText(S,d,k){return k==='__other'?'Other':repDimText(S,d,k);}
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=7;
+const REP_SEED_VERSION=8;
 /* Версия 7 (26.10.2026): стартовые Production — по подпапкам (каталог
    деревом, view/reports). У базы переезжают только те, чью папку не меняли. */
 const REP_START_FOLDERS={cut:'Production / Cutting',sheets:'Production / Cutting',sheetcut:'Production / Cutting',offcuts:'Production / Cutting',
@@ -47588,7 +47756,29 @@ function REP_STARTERS(){
   R('myship','Shipping · my day','Screens','today',[],[
    ['Today',[repW('number','glass',{title:'Here today',width:'half',metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']}]}),
     repW('number','glass',{title:'You today',width:'half',metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
-    repW('table','glass',{title:'By customer',dims:['customer'],metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']}],limit:10,other:true})]]],6)
+    repW('table','glass',{title:'By customer',dims:['customer'],metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']}],limit:10,other:true})]]],6),
+  /* Версия 8 (27.10.2026): склад — пересчёты с причинами, листы приход и
+     расход, материалы IGU по скану. Видит галочка Inventory. */
+  R('counts','Stock counts · differences','Inventory','thisYear',['kind','material','reason','person'],[
+   ['Summary',[repW('number','counts',{title:'Counts',metrics:['count','off','short','over','days']}),
+    repW('number','counts',{title:'Difference',metrics:['sheets','sheetFt2','spacerFt','sealantKg','gasKg','partsKg']}),
+    repW('table','counts',{title:'By material',dims:['material'],metrics:['count','short','over','diff']}),
+    repW('table','counts',{title:'By reason',dims:['reason'],metrics:['count','sheets','sheetFt2','spacerFt','sealantKg','gasKg','partsKg']}),
+    repW('columns','counts',{title:'Lines by month · short or over',dims:['at:month','dir'],metrics:['count']})]],
+   ['By day',[repW('table','counts',{title:'Days counted',dims:['day'],metrics:['count','off','short','over'],sort:{by:'label',dir:'desc'}}),
+    repW('table','counts',{title:'Notes',dims:['note'],metrics:['count','diff'],filters:[{f:'note',op:'notIn',v:['—']}]})]]],8),
+  R('sheetmoves','Sheets · in and out','Inventory','thisMonth',['glass','size','kind','person'],[
+   ['Summary',[repW('number','moves',{title:'In and out',metrics:['sIn','sOut','net','ftIn','ftOut'],compare:'prev'}),
+    repW('table','moves',{title:'By move',dims:['kind'],metrics:['sIn','sOut','ftIn','ftOut']}),
+    repW('table','moves',{title:'By sheet',dims:['sheet'],metrics:['sIn','sOut','net','netFt2']}),
+    repW('columns','moves',{title:'In and out by month',date:{use:'own',preset:'thisYear'},dims:['at:month','dir'],metrics:['sheets']})]],
+   ['By person',[repW('table','moves',{title:'Person × move',dims:['person','kind'],metrics:['sheets']})]]],8),
+  R('igumat','IGU materials used','Inventory','thisMonth',['kind','material','person'],[
+   ['Summary',[repW('number','igumat',{title:'Used',metrics:['spacerFt','sealantKg','gasKg','partsKg'],compare:'prev'}),
+    repW('table','igumat',{title:'By material',dims:['material'],metrics:['qty','units','missing'],opts:{totals:false}}),
+    repW('columns','igumat',{title:'Spacer ft by day',dims:['day:day'],metrics:['spacerFt'],width:'half'}),
+    repW('columns','igumat',{title:'Sealant kg by day',dims:['day:day'],metrics:['sealantKg'],width:'half'}),
+    repW('table','igumat',{title:'By person',dims:['person'],metrics:['spacerFt','sealantKg','gasKg','partsKg','days']})]]],8)
  ];
 }
 
@@ -47973,7 +48163,7 @@ function repTableHTML(r,S,res,w){
 function repParts(res,cls,k){return res.keys2.map(b=>({value:(res.cells.get(k+'\u0001'+b)||[])[0]||0,cls:cls.get(b)}));}
 function repLegend(S,res,cls){const d2=res.dims[1];return chartLegend(res.keys2.filter(b=>(res.colTotals.get(b)||[])[0]).map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b)})));}
 function repChart(r,w){
- if(!repSourceAllowed(w.q.source))return '<div class="mut">Needs Finance access.</div>';
+ if(!repSourceAllowed(w.q.source)){const a=(REP_SRC[w.q.source]||{}).access||'finance';return '<div class="mut">Needs '+a.charAt(0).toUpperCase()+a.slice(1)+' access.</div>';}
  const q=repWidgetQuery(r,w),res=repQuery(q,repCtx());if(!res)return '<div class="mut">Choose data.</div>';
  const S=REP_SRC[q.source],m=res.metrics[0],fmt=v=>repFmt(m,v),d1=res.dims[0],d2=res.dims[1];
  if(w.type==='number')return repNumbers(res);
