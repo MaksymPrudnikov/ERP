@@ -1861,7 +1861,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        код станка отбрасывается, офисная роль становится всеми разделами. */
     eq('станок у человека отброшен, роль стала галочками', await t.p.evaluate(() =>
       DB.user.map(u => [u.name, 'station' in u, u.workPosition === undefined, u.access.length])
-    ), [['Ivan',false,true,14], ['Petr',false,true,14]]);
+    ), [['Ivan',false,true,15], ['Petr',false,true,15]]);
     await t.c.close();
 
     /* Данных без refVersion — так выглядит браузер, который не открывали с
@@ -2195,7 +2195,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] }] });
       return [next.refVersion, next.station.length, next.workPosition === undefined,
               next.station[0].code, 'station' in next.user[0], next.user[0].access.length];
-    }), [9, 15, true, 'CUT', false, 14]);
+    }), [9, 15, true, 'CUT', false, 15]);
     await t.c.close();
 
     t = await page();
@@ -2218,9 +2218,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     /* --- B8: реальные роли и демо-пользователи ---------------------- */
     t = await page();
     /* Плюс галочки без своего пункта меню (USER_ACCESS_LABELS): Screens — ставить отчёты на экраны. */
-    eq('галочки доступа — ровно разделы меню и Screens', await t.p.evaluate(() => ({same:JSON.stringify(USER_SECTIONS.filter(k=>!USER_ACCESS_LABELS[k]))===JSON.stringify(NAV.map(n=>n.k)),extra:Object.keys(USER_ACCESS_LABELS)})), {same:true,extra:['screens']});
+    eq('галочки доступа — ровно разделы меню, Screens и Cost & margin', await t.p.evaluate(() => ({same:JSON.stringify(USER_SECTIONS.filter(k=>!USER_ACCESS_LABELS[k]))===JSON.stringify(NAV.map(n=>n.k)),extra:Object.keys(USER_ACCESS_LABELS)})), {same:true,extra:['screens','cost']});
     eq('чистый браузер получает трёх демо-пользователей', await t.p.evaluate(() => DB.user.map(u => u.name + ' · ' + u.access.length)),
-      ['Demo Sales · 6','Demo Accounting · 4','Demo Owner · 14']);
+      ['Demo Sales · 6','Demo Accounting · 4','Demo Owner · 15']);
     /* Роли и навыки — ХРАНИМЫЕ значения, и английский интерфейс их переименовал.
        У владельца в браузере лежат пользователи со старыми русскими значениями:
        без переноса роль стала бы «unknown role» на импорте, а навыки исчезли бы
@@ -2234,7 +2234,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const imported=(()=>{try{return prepareImportedState({user:[{name:'X',role:'Владелец',skills:[{skill:'?'}]},{name:'Y',role:'Цех'}]}).user.map(u=>u.access.length).join('/');}catch(e){return 'ошибка: '+e.message;}})();
       const out={accounting:pick('Legacy Person'),shop:pick('Legacy Shop'),admin:pick('Legacy Admin'),imported};
       DB.user=DB.user.filter(x=>!/^Legacy /.test(x.name));return out;
-    }), {accounting:[14,0,false],shop:[0,0,true],admin:[14,0,false],imported:'14/0'});
+    }), {accounting:[15,0,false],shop:[0,0,true],admin:[15,0,false],imported:'15/0'});
     /* Засев обязан быть одноразовым: иначе удалённые демо-записи возвращались бы
        после каждого обновления страницы, и удалить их было бы невозможно. */
     await t.p.evaluate(() => { DB.user=[]; touch(); });
