@@ -55,6 +55,20 @@ module.exports=async function({page,eq}){
  }),{data:{price:false,form:false,saved:[12.5,3,'2026-10-01'],spacer:false,spKept:40,can:false},
   cost:{price:true,form:true,saved:[12.5,3,'2026-10-01'],spacer:true,spKept:40,can:true},
   admin:{price:true,form:true,saved:[12.5,3,'2026-10-01'],spacer:true,spKept:40,can:true}});
+ /* Аудит 25.10.2026, D-4: одна строка инструментов, счётчики открытого
+    списка, найденное считается и показывается дальше, модели выше видов. */
+ eq('catalog lists: one toolbar row, counts for the open list, search count and Show more, Hardware models above kinds',await t.p.evaluate(()=>{
+  tab='masterdata';mdCatalogGo('glassProduct');const tb=document.querySelector('[data-md-toolbar]');
+  const glass=[tb.querySelectorAll('input').length,tb.querySelectorAll('select').length,!!tb.querySelector('.pri')];
+  const head=k=>{mdCatalogGo(k);return [...document.querySelectorAll('[data-md-health] .pill')].map(p=>p.textContent.replace(/\s*\d+$/,''));};
+  const counts={glass:head('glassProduct'),gas:head('gasProduct'),spacer:head('spacerVariant'),works:head('serviceRate'),hw:head('hardwareModel')};
+  mdCatalogGo('gasProduct');const gasNew=!!document.querySelector('.md-toolbar .pri');
+  mdCatalogQuery='a';mdCatalogLimit=0;render();const found=+document.querySelector('[data-md-search-count]').textContent.split(' ')[0],first=document.querySelectorAll('[data-md-search] tbody tr').length;
+  const more=document.querySelector('[data-md-more]');if(more)more.click();const next=document.querySelectorAll('[data-md-search] tbody tr').length;mdCatalogQuery='';
+  mdCatalogGo('hardwareModel');const order=[...document.querySelectorAll('.section-title h3')].map(h=>h.textContent);
+  return {glass,counts,gasNew,paged:found>MD_PAGE?[first,next]:[found,found],order};
+ }),await t.p.evaluate(()=>{const found=mdCatalogSearch('a').length;return {glass:[1,3,true],counts:{glass:['No price'],gas:['No price'],spacer:['No price','No weight','Not measured','No recipe'],works:['No station'],hw:[]},gasNew:true,
+  paged:found>MD_PAGE?[MD_PAGE,Math.min(found,2*MD_PAGE)]:[found,found],order:['Models','Kinds']};}));
  eq('catalog search finds a row in any table; Open goes to its card',await t.p.evaluate(()=>{
   mdSetTab('materials');mdCatalogQuery='argon';render();
   const rows=document.querySelectorAll('[data-md-search] tbody tr').length;

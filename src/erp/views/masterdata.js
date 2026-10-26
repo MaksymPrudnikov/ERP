@@ -277,24 +277,23 @@ function mdSearchChange(el){
 }
 function viewMdGlass(){
  if(mdEdit!==null)return mdGlassForm();
- const rows=mdVisibleProducts(),shown=rows.slice(0,MD_PAGE);
+ const rows=mdVisibleProducts(),shown=rows.slice(0,mdGlassLimit);
  const mfrs=[...new Set(DB.glassProduct.map(p=>p.manufacturer).filter(Boolean))].sort();
  const thicks=[...new Set(DB.glassProduct.map(p=>p.thicknessMm).filter(x=>x!=null))].sort((a,b)=>a-b);
- return `<div class="customer-toolbar">
-   <div class="customer-search"><input id="mdSearch" value="${esc(mdSearch)}" placeholder="Search by code, name or note…" oninput="mdSearchChange(this)"></div>
-   <div class="customer-actions"><button class="pri" onclick="mdGlassNew()">+ New item</button></div>
+ /* Одна строка инструментов, как у остальных списков (аудит D-4). */
+ return `<div class="md-toolbar" data-md-toolbar>
+   <input id="mdSearch" class="md-toolbar-search" value="${esc(mdSearch)}" placeholder="Search glass: code, name, note…" oninput="mdSearchChange(this)">
+   <select aria-label="Manufacturer" onchange="mdMfr=this.value;mdGlassLimit=MD_PAGE;render()"><option value="">All manufacturers</option>${mfrs.map(m=>`<option data-raw value="${esc(m)}" ${mdMfr===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
+   <select aria-label="Thickness" onchange="mdThick=this.value;mdGlassLimit=MD_PAGE;render()"><option value="">Any thickness</option>${thicks.map(t=>`<option data-raw value="${t}" ${mdThick===String(t)?'selected':''}>${t} mm</option>`).join('')}</select>
+   <select aria-label="Coating" onchange="mdCoating=this.value;mdGlassLimit=MD_PAGE;render()"><option value="">Any coating</option>${mdVocabOptions('coatingFamily',mdCoating,'')}</select>
+   <span class="md-seg">${[['all','All'],['stocked','In stock'],['preorder','Pre-order'],['inactive','Discontinued']].map(x=>`<button class="sm ${mdStatus===x[0]?'on':''}" onclick="mdStatus='${x[0]}';mdGlassLimit=MD_PAGE;render()">${x[1]}</button>`).join('')}</span>
+   <span class="sp"></span><button class="pri" onclick="mdGlassNew()">+ New item</button>
   </div>
-  <div class="customer-filterbar">
-   <select onchange="mdMfr=this.value;render()"><option value="">All manufacturers</option>${mfrs.map(m=>`<option data-raw value="${esc(m)}" ${mdMfr===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
-   <select onchange="mdThick=this.value;render()"><option value="">Any thickness</option>${thicks.map(t=>`<option data-raw value="${t}" ${mdThick===String(t)?'selected':''}>${t} mm</option>`).join('')}</select>
-   <select onchange="mdCoating=this.value;render()"><option value="">Any coating</option>${mdVocabOptions('coatingFamily',mdCoating,'')}</select>
-   ${[['all','All'],['stocked','In stock'],['preorder','Pre-order'],['inactive','Discontinued']].map(x=>`<button class="sm ${mdStatus===x[0]?'customer-filter-on':''}" onclick="mdStatus='${x[0]}';render()">${x[1]}</button>`).join('')}
-   <span class="mut">Shown: ${shown.length} / ${rows.length}</span>
-  </div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Code</th><th>Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
+  <div class="customer-table-wrap"><table><thead><tr><th>Code</th><th class="md-name-col">Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
   <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="10" class="empty">no items found</td></tr>'}</tbody></table></div>
-  ${rows.length>shown.length?`<div class="hint">More items: <b data-raw>${rows.length-shown.length}</b></div>`:''}`;
+  <div class="md-more"><span class="mut" data-md-shown>${shown.length} of ${rows.length}</span>${rows.length>shown.length?` <button class="sm" data-md-more onclick="mdGlassLimit+=MD_PAGE;render()">Show ${Math.min(MD_PAGE,rows.length-shown.length)} more</button>`:''}</div>`;
 }
+let mdGlassLimit=MD_PAGE;
 /* Цена продажи правится прямо в строке каталога: заполнять её придётся по многим
    позициям, и форма на каждую превратила бы это в работу на день. Пустое поле
    значит «в прайсе цены нет» — ровно как «no price» в присланном листе. */
@@ -657,13 +656,10 @@ function viewMdSpacer(){
   const qa=spacerSizeParts(a.size),qb=spacerSizeParts(b.size);
   return (qa?qa.value:0)-(qb?qb.value:0);
  });
- const live=all.filter(x=>x.active!==false),n=f=>live.filter(f).length;
- const warn=[['No price',n(x=>x.salePrice==null)],['No weight',n(x=>x.weightG==null)],['Not measured',n(x=>x.weightG!=null&&!x.weightMeasured)],['No recipe',n(x=>!surroundRecipeById(x.recipeId))]];
- return `<div class="sub">Price, weight and recipe per spacer.</div>
-  <div class="row" data-spacer-health>${warn.map(w=>`<span class="pill ${w[1]?'warn':'ok'}">${esc(w[0])} ${w[1]}</span>`).join('')}</div>
+ /* Счётчики этого списка — в шапке каталога (mdCatalogHealth), здесь их нет. */
+ return `<div class="md-toolbar"><span class="mut">Price, weight and recipe per spacer.</span><span class="sp"></span><button class="pri" onclick="mdSpacerNew()">+ New spacer</button></div>
   <div class="customer-table-wrap"><table><thead><tr><th>System</th><th>Nominal</th><th>Actual, mm</th><th>Price</th><th>Weight</th><th>Recipe</th><th>Availability</th><th></th></tr></thead>
   <tbody>${all.map(mdSpacerRow).join('')||'<tr><td colspan="8" class="empty">no spacers</td></tr>'}</tbody></table></div>
-  <div class="row"><button class="pri" onclick="mdSpacerNew()">+ New spacer</button></div>
   ${mdSpacerSystemsTable()}
   ${mdSurchargeTable()}`;
 }
@@ -826,6 +822,7 @@ function mdHwTreeHTML(){
    ${series.map(sr=>`<div class="md-st-kids"><span class="mut">${sr?esc(sr):'No series'} ·</span> ${list.filter(m=>(m.series||'')===sr).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(m=>`<button type="button" class="pill${m.active===false?' warn':''}" data-raw onclick="mdHwModelEditRow('${esc(m.id)}')">${esc(m.name)}</button>`).join(' ')}</div>`).join('')}</li>`;};
  return `<div class="md-st-tree" data-md-hw-tree><ol><li class="md-st-step"><ul>${kinds.map(node).join('')||'<li class="mut">No kinds</li>'}</ul></li></ol></div>`;
 }
+/* Дерево, потом модели — их правят чаще; виды ниже (аудит D-4). */
 function viewMdHardware(){
  if(mdHwKindEdit!==null)return mdHwKindForm();
  if(mdHwModelEdit!==null)return mdHwModelForm();
@@ -836,21 +833,8 @@ function viewMdHardware(){
  return `<div class="sub">Kind → series → models.</div>
   ${mdHwTreeHTML()}
   ${orphans?`<div class="note">Models without a kind: <b>${orphans}</b>. Give them a kind.</div>`:''}
-  <div class="section-title"><h3>Kinds</h3><span class="pill info">code goes on the drawing</span></div>
-  <div class="sales-table-wrap"><table><thead><tr><th>Kind</th><th>Code</th><th>On the drawing</th><th>Models</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
-  <tbody>${kinds.map(k=>{
-   const used=mdHwKindUsage(k.code);
-   return `<tr><td><b>${raw(hardwareKindName(k.code))}</b><div class="mut"><span data-raw>${esc(k.name)} · ${esc(k.nameEn)}</span></div></td>
-    <td class="mono"><span data-raw>${esc(k.code)}</span></td>
-    <td class="mono"><span data-raw>${esc(k.short)}</span></td>
-    <td class="mono">${hardwareModelsFor(k.code,true).length}</td>
-    <td class="mono">${used}</td>
-    <td><span class="pill ${k.active===false?'warn':'ok'}">${k.active===false?'inactive':'active'}</span></td>
-    <td style="white-space:nowrap"><button class="sm" onclick="mdHwKindEditRow('${esc(k.code)}')">Edit</button><button class="sm dl" onclick="mdHwKindDelete('${esc(k.code)}')">×</button></td></tr>`;
-  }).join('')||'<tr><td colspan="7" class="empty">no kinds</td></tr>'}</tbody></table></div>
-  <div class="row"><button onclick="mdHwKindNew()">+ New kind</button></div>
   <div class="section-title"><h3>Models</h3><span class="pill info">as on the shop template</span></div>
-  <div class="row"><label>Kind</label><select onchange="mdHwFilter=this.value;render()"><option value="">— all —</option>${kinds.map(k=>`<option value="${esc(k.code)}" ${mdHwFilter===k.code?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select></div>
+  <div class="md-toolbar" data-md-hw-models><select aria-label="Kind" onchange="mdHwFilter=this.value;render()"><option value="">All kinds</option>${kinds.map(k=>`<option value="${esc(k.code)}" ${mdHwFilter===k.code?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select><span class="sp"></span><button class="pri" onclick="mdHwModelNew()">+ New model</button></div>
   <div class="sales-table-wrap"><table><thead><tr><th>Model</th><th>Kind</th><th>Series</th><th>On the drawing</th><th>Glass thickness</th><th>Supplier code</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
   <tbody>${sorted.map(m=>{
    const used=mdHwModelUsage(m.id),kind=hardwareKindRow(m.kind);
@@ -864,7 +848,19 @@ function viewMdHardware(){
     <td><span class="pill ${m.active===false?'warn':'ok'}">${m.active===false?'inactive':'active'}</span></td>
     <td style="white-space:nowrap"><button class="sm" onclick="mdHwModelEditRow('${esc(m.id)}')">Edit</button><button class="sm dl" onclick="mdHwModelDelete('${esc(m.id)}')">×</button></td></tr>`;
   }).join('')||'<tr><td colspan="9" class="empty">no models</td></tr>'}</tbody></table></div>
-  <div class="row"><button class="pri" onclick="mdHwModelNew()">+ New model</button></div>`;
+  <div class="section-title"><h3>Kinds</h3><span class="pill info">code goes on the drawing</span></div>
+  <div class="sales-table-wrap"><table><thead><tr><th>Kind</th><th>Code</th><th>On the drawing</th><th>Models</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
+  <tbody>${kinds.map(k=>{
+   const used=mdHwKindUsage(k.code);
+   return `<tr><td><b>${raw(hardwareKindName(k.code))}</b><div class="mut"><span data-raw>${esc(k.name)} · ${esc(k.nameEn)}</span></div></td>
+    <td class="mono"><span data-raw>${esc(k.code)}</span></td>
+    <td class="mono"><span data-raw>${esc(k.short)}</span></td>
+    <td class="mono">${hardwareModelsFor(k.code,true).length}</td>
+    <td class="mono">${used}</td>
+    <td><span class="pill ${k.active===false?'warn':'ok'}">${k.active===false?'inactive':'active'}</span></td>
+    <td style="white-space:nowrap"><button class="sm" onclick="mdHwKindEditRow('${esc(k.code)}')">Edit</button><button class="sm dl" onclick="mdHwKindDelete('${esc(k.code)}')">×</button></td></tr>`;
+  }).join('')||'<tr><td colspan="7" class="empty">no kinds</td></tr>'}</tbody></table></div>
+  <div class="row"><button onclick="mdHwKindNew()">+ New kind</button></div>`;
 }
 function mdHwKindNew(){mdHwKindEdit='new';mdHwKindDraft={code:'',name:'',nameEn:'',short:'',active:true,note:''};render();}
 function mdHwKindEditRow(code){const k=hardwareKindRow(code);if(!k)return;mdHwKindEdit=code;mdHwKindDraft=JSON.parse(JSON.stringify(k));mdSeen.hwKind=JSON.stringify(k);render();}
@@ -1232,11 +1228,9 @@ function viewMdCatalogues(){
  if(mdCatEdit!==null)return mdCatForm();
  const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour(),rate=mdCatIsRate();
  const cols=rate?6:colour?5:6;
- return `<div class="sub">Used rows: switch off, don't delete.</div>
-  <div class="row"><b>${esc(def.label)}</b><span class="mut">${esc(def.what)}</span></div>
+ return `<div class="md-toolbar"><span class="mut">${esc(def.what.charAt(0).toUpperCase()+def.what.slice(1))} · used rows: switch off, don't delete.</span><span class="sp"></span><button class="pri" onclick="mdCatNew()">+ New</button></div>
   <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Station</th><th>Unit</th><th>Price by thickness, mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
   <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">empty</td></tr>`}</tbody></table></div>
-  <div class="row"><button class="pri" onclick="mdCatNew()">+ New</button></div>
   ${rate?'<div class="sub">Price by glass thickness.</div>':''}`;
 }
 function mdCatRowHTML(x){
