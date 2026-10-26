@@ -346,7 +346,7 @@ function mdGlassForm(){
  const money=v=>v==null?'—':esc(Number(v).toFixed(2));
  const general=`${used?'<div class="note">Used in a Makeup: rename only, no delete.</div>':''}<div class="grid">
    ${mdField('Code *',`<input id="md_code" value="${esc(r.code)}">`,'Printed on stickers.')}
-   ${mdField('Name *',`<input id="md_name" value="${esc(r.name)}">`)}
+   ${mdField('Name *',`<input id="md_name" value="${esc(r.name)}">`).replace('<div>','<div class="md-wide">')}
    ${mdField('Manufacturer',`<input id="md_mfr" value="${esc(r.manufacturer)}">`)}
    ${mdField('Thickness, mm *',`<input id="md_thick" type="number" step="0.1" min="${GLASS_MIN_MM}" max="${GLASS_MAX_MM}" value="${r.thicknessMm==null?'':r.thicknessMm}">`)}
    ${mdField('Actual thickness, mm',`<input id="md_actual" type="number" step="0.01" value="${r.actualThicknessMm==null?'':r.actualThicknessMm}">`,'Measured, not exact.')}
@@ -547,7 +547,9 @@ function mdSheetForm(){
  const r=mdSheetDraft,isNew=mdSheetEdit==='new',p=r.productCode?glassProductByCode(r.productCode):null;
  if(!mdSheetPick.touched){mdSheetPick={mfr:p?p.manufacturer:'',thick:p?String(p.thicknessMm):'',coat:p?glassCoatingName(p):'',touched:true};}
  const mfrs=[...new Set(DB.glassProduct.map(x=>x.manufacturer).filter(Boolean))].sort(),points=mdSheetPoints();
- return `<div class="form md-sheet-form"><h3>${isNew?'New supply row':'Edit supply row'}</h3><div class="md-sheet-grid">
+ /* Две части формы остаются (владелец, 2.10.2026); вокруг — общий вид
+    карточки Data (аудит D-5): путь, имя, наличие, Save внизу. */
+ const blocks=`<div class="md-sheet-form"><div class="md-sheet-grid">
   <div class="md-sheet-box"><h4>Glass</h4><div class="md-sheet-fields">
    <div><label>Manufacturer</label><select id="md_sheetMfr" onchange="mdSheetPickSet('mfr',this.value)"><option value="">All manufacturers</option>${mfrs.map(m=>`<option data-raw value="${esc(m)}" ${m===mdSheetPick.mfr?'selected':''}>${esc(m)}</option>`).join('')}</select></div>
    <div><label>Thickness</label><select id="md_sheetThick" onchange="mdSheetPickSet('thick',this.value)">${mdSheetThickOptions()}</select></div>
@@ -567,9 +569,11 @@ function mdSheetForm(){
    <div><label>Lead time, days</label><input id="md_sheetLead" type="number" step="1" min="0" value="${r.leadTimeDays==null?'':r.leadTimeDays}"></div>
    <div class="md-sheet-wide"><label>Note</label><input id="md_sheetNote" value="${esc(r.note)}"></div>
   </div>${accessCost()?'<div class="mut md-sheet-tiny">Purchase prices.</div>':''}</div>
- </div>
-  <div class="err" id="e_mdSheet"></div>
-  <div class="row"><button class="pri" onclick="mdSheetSave()">Save</button><button onclick="mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',coat:''};render()">Cancel</button></div></div>`;
+ </div></div>`;
+ return mdCardHTML({form:'sheet',crumb:['Materials','Supply points'],title:isNew?'New supply row':raw((r.productCode||'—')+' · '+(r.supplier||'—')),
+  status:isNew?null:[r.availability,r.availability==='stock'?'ok':r.availability==='inactive'?'warn':'info'],code:isNew||!r.sheetWIn?'':r.sheetWIn+' × '+r.sheetHIn,
+  tabs:[{k:'supply',label:'Supply',html:blocks}],
+  foot:`<div class="err" id="e_mdSheet"></div><div class="row"><button class="pri" onclick="mdSheetSave()">Save</button><button onclick="mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',coat:''};render()">Cancel</button></div>`});
 }
 function mdSheetSave(){
  const e=document.getElementById('e_mdSheet');e.style.display='none';
@@ -902,21 +906,24 @@ function mdHwKindDelete(code){
 }
 function mdHwModelNew(){mdHwModelEdit='new';mdHwModelDraft={id:'',kind:mdHwFilter||((DB.hardwareKind[0]||{}).code||''),name:'',series:'',thickness:'',supplierCode:'',active:true,note:''};render();}
 function mdHwModelEditRow(id){const m=hardwareModelById(id);if(!m)return;mdHwModelEdit=id;mdHwModelDraft=JSON.parse(JSON.stringify(m));mdSeen.hwModel=JSON.stringify(m);render();}
+/* Карточка модели — в общем виде карточек Data (аудит D-5): путь, имя,
+   статус, код на чертеже; Save внизу. Поля те же. */
 function mdHwModelForm(){
  const r=mdHwModelDraft,isNew=mdHwModelEdit==='new',kinds=DB.hardwareKind||[];
- return `<div class="form"><h3>${isNew?'New hardware model':'Edit model'}</h3>
-  <div class="grid">
+ const fields=`<div class="grid">
    <div><label>Kind *</label><select id="md_hwModelKind">${kinds.map(k=>`<option value="${esc(k.code)}" ${k.code===r.kind?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select></div>
-   <div><label>Name *</label><input id="md_hwModelName" value="${esc(r.name)}" placeholder="Vienna 180"><div class="hint">As on the shop template.</div></div>
+   <div class="md-wide"><label>Name *</label><input id="md_hwModelName" value="${esc(r.name)}" placeholder="Vienna 180"><div class="hint">As on the shop template.</div></div>
    <div><label>Series</label><input id="md_hwModelSeries" value="${esc(r.series||'')}" placeholder="Vienna"><div class="hint">List order only.</div></div>
    <div><label>On the drawing</label><input id="md_hwModelShort" value="${esc(r.short||'')}" placeholder="${esc(hwDeriveModelShort(r.name,r.series)||'GEN37')}" maxlength="10"><div class="hint">Empty — from the name.</div></div>
    <div><label>Glass thickness</label><input id="md_hwModelThickness" value="${esc(r.thickness||'')}" placeholder="3/8″ · 1/2″"><div class="hint">Note, not calculated.</div></div>
    <div><label>Supplier code</label><input id="md_hwModelCode" value="${esc(r.supplierCode||'')}"></div>
    <div><label>Status</label><select id="md_hwModelActive"><option value="1" ${r.active===false?'':'selected'}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select><div class="hint">Inactive — hidden in new orders.</div></div>
   </div>
-  <div style="margin-top:12px"><label>Note</label><input id="md_hwModelNote" value="${esc(r.note||'')}"></div>
-  <div class="err" id="e_mdHwModel"></div>
-  <div class="row"><button class="pri" onclick="mdHwModelSave()">Save</button><button onclick="mdHwModelEdit=null;mdHwModelDraft=null;render()">Cancel</button></div></div>`;
+  <div style="margin-top:12px"><label>Note</label><input id="md_hwModelNote" value="${esc(r.note||'')}"></div>`;
+ return mdCardHTML({form:'hwModel',crumb:['Hardware'].concat(r.kind&&hardwareKindRow(r.kind)?[hardwareKindName(r.kind)]:[]),title:isNew?'New model':raw(r.name),
+  status:isNew?null:r.active===false?['inactive','warn']:['active','ok'],code:isNew?'':hardwareModelShort(r),
+  tabs:[{k:'general',label:'General',html:fields}],
+  foot:`<div class="err" id="e_mdHwModel"></div><div class="row"><button class="pri" onclick="mdHwModelSave()">Save</button><button onclick="mdHwModelEdit=null;mdHwModelDraft=null;render()">Cancel</button></div>`});
 }
 function mdHwModelSave(){
  const e=document.getElementById('e_mdHwModel'),isNew=mdHwModelEdit==='new';e.style.display='none';
@@ -1318,7 +1325,7 @@ function mdCatForm(){
    .replace('data-md-card="work"','data-md-card="work" data-md-work-form');
  }
  const f={
-  name:mdField('Name *',`<input id="md_catName" value="${esc(r.name)}">`),
+  name:mdField('Name *',`<input id="md_catName" value="${esc(r.name)}">`).replace('<div>','<div class="md-wide">'),
   code:mdField('Code',`<input id="md_catCode" value="${esc(r.code)}">`,'Manufacturer\'s code.'),
   status:mdField('Status',`<select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select>`)};
  const foot=`<div class="err" id="e_mdCat"></div><div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div>`;

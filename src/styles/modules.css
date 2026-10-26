@@ -820,3 +820,6 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .md-catalog-main .customer-table-wrap{overflow-x:auto}
 .md-catalog-main .md-name-col{min-width:200px}
 .md-more{margin:10px 0}
+/* Карточки Data: длинное имя — на две колонки (аудит D-5). */
+.md-card-panes .grid>.md-wide,.form .grid>.md-wide{grid-column:span 2}
+@media (max-width:700px){.md-card-panes .grid>.md-wide,.form .grid>.md-wide{grid-column:auto}}

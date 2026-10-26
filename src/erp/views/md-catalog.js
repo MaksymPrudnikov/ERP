@@ -126,8 +126,8 @@ function viewMdCatalog(){
  return `<div class="md-catalog${peek?' md-catalog-peek':''}" data-md-catalog>
   <nav class="md-tree" aria-label="Catalog">${tree}</nav>
   <div class="md-catalog-main">
-   <div class="md-catalog-head"><div><span class="md-crumb">Master Data › Catalog</span><h3>${esc(mdCatalogQuery.trim()?'Search':label)}</h3></div><div class="md-catalog-health" data-md-health${node==='spacerVariant'?' data-spacer-health':''}>${health}</div></div>
-   <div class="customer-search md-catalog-search"><input id="mdCatalogSearch" value="${esc(mdCatalogQuery)}" placeholder="Search all catalog: name, code, supplier…" oninput="mdCatalogSearchChange(this)"></div>
+   ${open?'':`<div class="md-catalog-head"><div><span class="md-crumb">Master Data › Catalog</span><h3>${esc(mdCatalogQuery.trim()?'Search':label)}</h3></div><div class="md-catalog-health" data-md-health${node==='spacerVariant'?' data-spacer-health':''}>${health}</div></div>
+   <div class="customer-search md-catalog-search"><input id="mdCatalogSearch" value="${esc(mdCatalogQuery)}" placeholder="Search all catalog: name, code, supplier…" oninput="mdCatalogSearchChange(this)"></div>`}
    <div onclick="mdCatalogRowClick(event)">${body}</div>
   </div>${peek}</div>`;
 }

@@ -69,6 +69,16 @@ module.exports=async function({page,eq}){
   return {glass,counts,gasNew,paged:found>MD_PAGE?[first,next]:[found,found],order};
  }),await t.p.evaluate(()=>{const found=mdCatalogSearch('a').length;return {glass:[1,3,true],counts:{glass:['No price'],gas:['No price'],spacer:['No price','No weight','Not measured','No recipe'],works:['No station'],hw:[]},gasNew:true,
   paged:found>MD_PAGE?[MD_PAGE,Math.min(found,2*MD_PAGE)]:[found,found],order:['Models','Kinds']};}));
+ /* Аудит D-5: модель Hardware и строка поставки — в общем виде карточки;
+    над открытой карточкой нет шапки каталога; длинное имя — шире. */
+ eq('Hardware model and supply row open in the common card; no catalog head over an open card; the name field is wide',await t.p.evaluate(()=>{
+  tab='masterdata';DB.glassSheet=[normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock'})];
+  const look=sel=>[!!document.querySelector(sel),!!document.querySelector('[data-md-health]'),!!document.getElementById('mdCatalogSearch')];
+  mdCatalogGo('hardwareModel');mdHwModelEditRow(DB.hardwareModel[0].id);const hw=look('[data-md-card="hwModel"]'),title=document.querySelector('[data-md-card="hwModel"] h3').textContent===DB.hardwareModel[0].name;mdHwModelEdit=null;
+  mdCatalogGo('glassSheet');mdSheetEditRow(DB.glassSheet[0].id);const sheet=look('[data-md-card="sheet"]'),err=!!document.getElementById('e_mdSheet');mdSheetEdit=null;
+  mdCatalogGo('glassProduct');mdGlassEdit(DB.glassProduct[0].id);const wide=!!document.getElementById('md_name').closest('.md-wide');mdEdit=null;render();
+  return {hw,title,sheet,err,wide,back:!!document.querySelector('[data-md-health]')};
+ }),{hw:[true,false,false],title:true,sheet:[true,false,false],err:true,wide:true,back:true});
  eq('catalog search finds a row in any table; Open goes to its card',await t.p.evaluate(()=>{
   mdSetTab('materials');mdCatalogQuery='argon';render();
   const rows=document.querySelectorAll('[data-md-search] tbody tr').length;
