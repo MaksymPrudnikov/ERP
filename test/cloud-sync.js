@@ -172,6 +172,13 @@ module.exports=async function({page,eq}){
  const join=async pass=>{await D.p.click('[data-cloud-join],[data-cloud-join-foot]');
   await D.p.fill('#cj_url','https://shop.supabase.co');await D.p.fill('#cj_key','sb_publishable_test');await D.p.fill('#cj_email','Office@glass-erp.test');await D.p.fill('#cj_pass',pass);
   await D.p.click('[data-cloud-join-go]');await D.p.waitForFunction(()=>!cloudJoin||!cloudJoin.busy);};
+ /* Переход в Publishable key в тот же оборот, что открытие окна, — отложенный
+    фокус не уводит набранное в Server (падало под нагрузкой, 26.10.2026). */
+ await D.p.evaluate(async()=>{cloudJoinOpen();document.getElementById('cj_key').focus();await new Promise(r=>setTimeout(r,0));});
+ await D.p.keyboard.insertText('sb_publishable_test');
+ eq('окно Server не уводит фокус: ключ остаётся в Publishable key',await D.p.evaluate(()=>{
+  const r={focus:document.activeElement.id,url:document.getElementById('cj_url').value,key:document.getElementById('cj_key').value};cloudJoinClose();return r;}),
+  {focus:'cj_key',url:'',key:'sb_publishable_test'});
  eq('новый ПК: «Connect server» внизу, неверный пароль — ошибка в окне',await (async()=>{const foot=await D.p.evaluate(()=>!!document.querySelector('[data-cloud-join-foot]'));
   await join('bad');return {foot,err:await D.p.evaluate(()=>cloudJoin&&cloudJoin.error)};})(),{foot:true,err:'Wrong email or password'});
  eq('…верный: база с сервера, вход в ERP — Clerk, без Users',await (async()=>{await D.p.evaluate(()=>cloudJoinClose());await join('pw');

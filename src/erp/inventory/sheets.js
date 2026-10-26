@@ -222,7 +222,8 @@ function invSheetRows(){
  Object.entries(DB.inventoryArchived&&DB.inventoryArchived.sheets||{}).forEach(([key,x])=>{const [code,dim]=key.split('|'),[w,h]=String(dim).split('x');const r=row(code,dim==='?'?null:invSize(w,h));r.cut+=x.cut||0;r.broken+=x.broken||0;});
  return [...rows.values()].map(r=>{
   r.onRack=r.received-r.cut-r.broken+r.adjust;r.free=r.onRack-r.reserved;r.sizeMissing=!r.w;
-  r.status=r.sizeMissing?'Size missing':!r.lastCount?'Not counted':r.free<0?'Negative':r.min!=null&&r.free<r.min?'Below minimum':'OK';
+  /* Минус и минимум видны раньше «Not counted» (аудит 25.10.2026, I-5). */
+  r.status=r.sizeMissing?'Size missing':r.free<0?'Negative':r.min!=null&&r.free<r.min?'Below minimum':!r.lastCount?'Not counted':'OK';
   return r;
  }).sort((a,b)=>a.code.localeCompare(b.code)||b.w-a.w||b.h-a.h);
 }

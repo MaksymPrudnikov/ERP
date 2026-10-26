@@ -2,7 +2,10 @@
    23.10.2026): резерв на Save заказа, расход на скане сборки IGU, Undo
    скана возвращает; повторный Save не списывает дважды; приход строкой
    Stock приёмки — в единице склада или упаковками («в упаковке» из
-   карточки); пересчёт пишет разницу — отход по факту. */
+   карточки); пересчёт пишет разницу — отход по факту. Аудит 25.10.2026:
+   Cancel units снимает резерв (I-3), нехватка раньше «Not counted» (I-5),
+   несохранённый пересчёт не теряется молча (I-6), неактивная карточка с
+   пересчётом остаётся в списке (I-7). */
 module.exports=async function({page,eq}){
  console.log('consumables stock');const t=await page(undefined,{width:1440,height:1000});
  await require('./optimization-fixture')(t.p);
@@ -21,7 +24,7 @@ module.exports=async function({page,eq}){
   const want=o.lines.reduce((s,l)=>s+consPerUnit(l,o).get(r.key)*l.qty,0);
   soDraft=null;soEdit=null;salesOrderEdit(id);salesOrderSave();soDraft=null;soEdit=null;
   return {none,unit:r.unit,match:Math.abs(r.reserved-want)<1e-9,again:Math.abs(csSpacer().reserved-want)<1e-9,status:r.status,quote:!!q};
- }),{none:true,unit:'ft',match:true,again:true,status:'Not counted',quote:true});
+ }),{none:true,unit:'ft',match:true,again:true,status:'Short',quote:true});
 
  eq('IGU scan of a unit moves its recipe from reserved to used; Undo of the scan gives it back',await t.p.evaluate(()=>{
   csReset();const id=oqOrder(oqCustomer({}));oqThrough(id,'verified');const o=salesRecord(id);glassBatchAssign(glassBatchRows([o]),{});
@@ -31,6 +34,15 @@ module.exports=async function({page,eq}){
   DB.stationScan.forEach(s=>{s.undoneAt=new Date().toISOString();});const undone=csRow(k);
   return {used:after.used===per,reserved:+(before.reserved-after.reserved).toFixed(3)===per,onHand:after.onHand===-per,undone:undone.used===0&&undone.reserved===before.reserved};
  }),{used:true,reserved:true,onHand:true,undone:true});
+
+ eq('Cancel units frees the reserve of units not built; a built unit cancelled later stays used',await t.p.evaluate(()=>{
+  csReset();const id=oqOrder(oqCustomer({}));oqThrough(id,'verified');const o=salesRecord(id);glassBatchAssign(glassBatchRows([o]),{});
+  const l=o.lines[0],k=csSpacer().key,per=consPerUnit(l,o).get(k),r0=csRow(k).reserved,fx=v=>+v.toFixed(3);
+  csScan(DB.glassPiece.filter(p=>p.key.split('|')[1]===l.id).map(p=>p.ids[0]),1,'SC-9000002');const built=csRow(k);
+  const one=unitCancel(id,l.id,1,'Not needed',{chargeOverride:0}),a=csRow(k);
+  const two=unitCancel(id,l.id,1,'Not needed',{chargeOverride:0}),b=csRow(k);
+  return {qty:l.qty,built:built.reserved===fx(r0-per),one:one.ok&&a.reserved===fx(r0-2*per)&&a.used===fx(per),two:two.ok&&b.reserved===a.reserved&&b.used===fx(per),errors:[one.error||'',two.error||'']};
+ }),{qty:2,built:true,one:true,two:true,errors:['','']});
 
  eq('receipt in the stock unit counts as is; a box without Per pack warns; Per pack converts it',await t.p.evaluate(()=>{
   csReset();oqOrder(oqCustomer({}));const k=csSpacer().key;
@@ -52,4 +64,22 @@ module.exports=async function({page,eq}){
  eq('Inventory → Consumables: Per pack goes to the card, Save count books the difference; the table shows it',await t.p.evaluate(k=>{const row=document.querySelector('[data-cons-row="'+k+'"]');
   return {pack:mdById('spacerVariant',k.split(':')[1]).packQty,events:DB.consumableEvent.length,onHand:row.querySelector('[data-cons-onHand]').textContent,status:row.querySelector('.pill').textContent,draft:row.querySelector('[data-cons-count]').value,error:consNotice};
  },k),{pack:1880,events:1,onHand:'12 ft',status:'Short',draft:'',error:''});
+
+ eq('an unsaved consumables count asks before Inventory moves on; Cancel keeps it',await t.p.evaluate(k=>{
+  const c=window.confirm,asked=[];let answer=false;window.confirm=m=>{asked.push(m);return answer;};
+  try{
+   const box=()=>document.querySelector('[data-cons-row="'+k+'"] [data-cons-count]');
+   box().value='17';box().dispatchEvent(new Event('input'));const unsaved=window.STORAGE_UNSAVED.some(f=>f());
+   invGo('sheets');const kept={view:invView,value:box()&&box().value};
+   answer=true;invGo('sheets');
+   return {unsaved,asked,kept,left:invView,draft:consCountDirty()};
+  }finally{window.confirm=c;}
+ },k),{unsaved:true,asked:['Discard counts you have not saved?','Discard counts you have not saved?'],kept:{view:'consumables',value:'17'},left:'sheets',draft:false});
+
+ eq('an inactive consumable with a count keeps its row, marked inactive',await t.p.evaluate(()=>{
+  csReset();const sp=DB.spacerVariant.find(x=>x.active!==false&&!consRows().find(r=>r.key===consKey('spacerVariant',x.id)&&(r.received||r.used||r.reserved))),k=consKey('spacerVariant',sp.id);
+  consCountSave({[k]:'17'});sp.active=false;const r=consRows().find(x=>x.key===k);
+  tab='inventory';invGo('consumables');const pill=document.querySelector('[data-cons-row="'+k+'"] .pill.warn');sp.active=true;
+  return {row:!!r&&r.onHand,off:!!r&&r.off,pill:pill&&pill.textContent};
+ }),{row:17,off:true,pill:'inactive'});
 };

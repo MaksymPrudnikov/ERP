@@ -16,7 +16,7 @@
    ===================================================================== */
 let invView='sheets',invCountDraft={},invJournalKey='',invMoveDraft=null,invNotice='',invPages={},invOffcutLostDraft=new Set(),invOffcutAll=false;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
-(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>Object.keys(invCountDraft).length>0||!!invMoveDraft||invOffcutLostDraft.size>0);
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>Object.keys(invCountDraft).length>0||consCountDirty()||!!invMoveDraft||invOffcutLostDraft.size>0);
 const INV_VIEWS=[['sheets','Sheets'],['sizes','Sheet sizes'],['consumables','Consumables'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
 const INV_OFFCUT_TONE={'On rack':'ok','In batch':'info','Coming':'','Used':'','Broken':'bad','Written off':'warn','Back to waste':''};
 const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'','Size missing':'warn'};
@@ -27,9 +27,10 @@ function invNav(){return '<div class="tabs inv-tabs" data-inv-sections>'+INV_VIE
 /* Раздел — с чистого листа: фильтр журнала по стеклу ставит только
    строка дашборда (аудит 15.10.2026: он оставался и при входе из меню). */
 function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';consNotice='';consCountDraft={};invNotice='';invMoveDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
+/* Пересчёт листов и расходников — один вопрос (аудит 25.10.2026, I-6). */
 function invCountLeave(){
- if(Object.keys(invCountDraft).length&&!confirm('Discard counts you have not saved?'))return false;
- invCountDraft={};return true;
+ if((Object.keys(invCountDraft).length||consCountDirty())&&!confirm('Discard counts you have not saved?'))return false;
+ invCountDraft={};consCountDraft={};return true;
 }
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(to=>tab==='inventory'&&to!=='inventory'&&!invCountLeave());
 
@@ -206,7 +207,8 @@ function invCountExtra(i){
 const INV_MOVE={add:['Add sheets','Add'],writeoff:['Remove sheets','Remove'],count:['Count','Save count']};
 function invMoveOpen(key,kind){
  invMoveDraft={key,kind,qty:'',reason:key?'':'Opening stock',note:'',pick:{mfr:'',thick:'',coat:'',code:'',w:'',h:''}};invNotice='';render();
- setTimeout(()=>document.getElementById(key?'inv_wo_qty':'inv_mv_mfr')?.focus(),0);
+ /* render синхронный; фокус позже уводил набранное (как в Purchasing, v5.261). */
+ document.getElementById(key?'inv_wo_qty':'inv_mv_mfr')?.focus();
 }
 function invPickGlass(f,stop){
  return activeGlassProducts().filter(g=>g.cut!==false&&(stop==='mfr'||!f.mfr||g.manufacturer===f.mfr)&&(stop==='mfr'||stop==='thick'||!f.thick||String(g.thicknessMm)===f.thick)&&(stop||!f.coat||glassCoatingName(g)===f.coat));
@@ -310,13 +312,14 @@ function invSizeRemoveUi(key){if(!confirm('Remove this sheet size?'))return;cons
 /* Расходники обвязки (erp/inventory/consumables): приход, расход на скане
    IGU, резерв сохранённых заказов, пересчёт. */
 let consCountDraft={},consNotice='';
+function consCountDirty(){return Object.values(consCountDraft).some(v=>String(v).trim()!=='');}
 function consQty(v,unit){return (Math.round(v*100)/100).toLocaleString('en-US',{maximumFractionDigits:2})+' '+unit;}
 function invConsumablesView(){
  const rows=consRows(),tone={'OK':'ok','Short':'bad','Not counted':'','Pack size missing':'warn','Norm missing':'warn'};
  return '<p class="mut">Reserved on Save, used on IGU scan.</p>'+
   (consNotice?'<div class="ncr-error" role="alert">'+esc(consNotice)+'</div>':'')+
   '<div class="sales-table-wrap"><table class="ncr-table" data-cons-table><thead><tr><th>Item</th><th>Per pack</th><th class="n">Received</th><th class="n">Used</th><th class="n">Count adj.</th><th class="n">On hand</th><th class="n">Reserved</th><th class="n">Free</th><th>Status</th><th>Counted</th></tr></thead><tbody>'+
-  (rows.map(r=>'<tr data-cons-row="'+esc(r.key)+'"><td><b data-raw>'+esc(r.name)+'</b><div class="mut">'+esc(r.group)+(r.code?' · <span data-raw>'+esc(r.code)+'</span>':'')+'</div></td>'+
+  (rows.map(r=>'<tr data-cons-row="'+esc(r.key)+'"><td><b data-raw>'+esc(r.name)+'</b>'+(r.off?' <span class="pill warn">inactive</span>':'')+'<div class="mut">'+esc(r.group)+(r.code?' · <span data-raw>'+esc(r.code)+'</span>':'')+'</div></td>'+
    '<td><input type="number" min="0" step="any" class="inv-min" data-cons-pack="'+esc(r.key)+'" value="'+(r.pack==null?'':r.pack)+'" placeholder="—" onchange="consPackUi('+invArg(r.key)+',this.value)"> <span class="mut">'+esc(r.unit)+'</span></td>'+
    ['received','used','adjust','onHand','reserved','free'].map(k=>'<td class="n" data-cons-'+k+'>'+esc(consQty(r[k],r.unit))+'</td>').join('')+
    '<td><span class="pill '+(tone[r.status]||'')+'">'+esc(r.status)+'</span></td>'+

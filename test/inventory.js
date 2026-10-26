@@ -171,5 +171,19 @@ module.exports=async function({page,eq}){
   return {noReason,racks,size,added:added&&[added.key===pre.code+'|120x84',added.onRack],kinds,tabs:document.querySelectorAll('[data-inv-sections] [data-inv-section]').length};
  }),{noReason:'Choose a reason.',racks:[13,12,9],size:['120','84'],added:[true,5],kinds:['Add','Add','Count','Receipt','Write off'],tabs:6});
 
+ eq('a short row without a count is Negative, not Not counted; the Negative tile finds it',await t.p.evaluate(()=>{
+  ivReset();ivRec([{qty:5,unit:'sheet',widthIn:144,heightIn:96}]);ivBatch();ivBatch();
+  const r=ivRow();navGo('inventory');invGo('sheets');const tile=+document.querySelector('[data-inv-tile="Negative"] b').textContent;
+  document.querySelector('[data-inv-tile="Negative"]').click();const found=!!document.querySelector('[data-inv-row="'+ivKey+'"]');invListStatus('');
+  return {r,last:invLastCount(invRowFind(ivKey)).includes('—'),tile,found};
+ }),{r:{onRack:5,reserved:6,free:-1,status:'Negative'},last:true,tile:1,found:true});
+
+ eq('the sheet move window takes focus at once, so typing lands in the right box',await t.p.evaluate(()=>{
+  ivReset();ivRec([{qty:5,unit:'sheet',widthIn:144,heightIn:96}]);navGo('inventory');invGo('sheets');
+  invMoveOpen(ivKey,'add');const one=document.activeElement&&document.activeElement.id;invMoveDraft=null;render();
+  invMoveOpen('','add');const two=document.activeElement&&document.activeElement.id;invMoveDraft=null;render();
+  return [one,two];
+ }),['inv_wo_qty','inv_mv_mfr']);
+
  eq('inventory has no JavaScript errors',t.errs,[]);await t.c.close();
 };
