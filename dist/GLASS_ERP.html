@@ -3497,7 +3497,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a79bed2759a4';
+var ERP_BUILD='0d71225e2d3c';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -8567,10 +8567,12 @@ const MuntinModule={code:'MUNTIN',name:'Adaptive Muntin',version:'v4.5-port',com
      сами не трогают; про секреты экраны знают только «задан / не задан».
    Правило: файл не знает про заказы, цены и экраны.
    ===================================================================== */
-const USER_SECTIONS=['sales','optimization','production','shipping','finance','purchasing','inventory','customers','reports','commissions','screens','masterdata','users','dashboard'];
+const USER_SECTIONS=['sales','optimization','production','shipping','finance','purchasing','inventory','customers','reports','commissions','screens','masterdata','cost','users','dashboard'];
 /* Галочки, у которых нет своего пункта меню: Screens — ставить отчёты на
-   экраны станций и людей (Reports → Edit → Show on; владелец, 11.10.2026). */
-const USER_ACCESS_LABELS={screens:'Screens'};
+   экраны станций и людей (Reports → Edit → Show on; владелец, 11.10.2026);
+   Cost & margin — закупочные цены в Data (владелец, 26.10.2026: правит их
+   только тот, у кого галочка; администратор видит всё). */
+const USER_ACCESS_LABELS={screens:'Screens',cost:'Cost & margin'};
 const ACCESS_ADMIN='users';
 /* Никто не вошёл. Пока вход не настроен (пароля нет ни у кого с Users,
    erp/signin → signinOn) — открыто, как в пустой базе: иначе завести
@@ -8587,6 +8589,7 @@ function accessCan(key){
  const k=key==='configurators'?'sales':key;
  return !USER_SECTIONS.includes(k)||u.access.includes(k);
 }
+function accessCost(){return accessCan('cost')||accessCan(ACCESS_ADMIN);}
 /* Кто подаёт команду: сеанс входа и человек, «setup» — пока вход не
    настроен, пусто — никто. Команда запоминает это при нажатии и
    выполняется, только если к моменту выполнения подающий тот же: вышел,
@@ -27732,8 +27735,10 @@ function mdPeekHTML(){
   <div class="md-peek-sec">Last change</div><div class="mut">${last?raw(last.what+(last.field?' · '+last.field:'')+' · '+(last.by||'—')+' · '+String(last.at).slice(0,10)):'No changes logged'}</div>
   <div class="row"><button class="pri" onclick="mdCatalogOpen('${esc(t)}','${esc(id)}')">${t==='surroundRecipe'?'Open recipe':'Open card'}</button><button onclick="mdPeek='';render()">Close</button></div></aside>`;
 }
+/* Открыта карточка строки каталога (форма своего списка). */
+function mdRowFormOpen(){return mdEdit!==null||mdSheetEdit!==null||mdSpacerEdit!==null||mdCatEdit!==null||mdHwKindEdit!==null||mdHwModelEdit!==null;}
 function viewMdCatalog(){
- const node=mdCatalogNode(),open=mdEdit!==null||mdSheetEdit!==null||mdSpacerEdit!==null||mdCatEdit!==null||mdHwKindEdit!==null||mdHwModelEdit!==null;
+ const node=mdCatalogNode(),open=mdRowFormOpen();
  const tree=MD_CATALOG_TREE.map(([g,nodes])=>`<div class="md-tree-group">${esc(g)}</div>`+nodes.map(([k,label])=>`<button type="button" class="${k===node?'on':''}" data-md-node="${k}" onclick="mdCatalogGo('${k}')">${esc(label)} <span class="mut">${mdCatalogCount(k)}</span></button>`).join('')).join('');
  const label=(MD_CATALOG_TREE.flatMap(g=>g[1]).find(n=>n[0]===node)||[])[1]||'';
  const health=mdCatalogHealth().map(([k,n])=>`<span class="pill ${n?'warn':'ok'}">${esc(k)} ${n}</span>`).join(' ');
@@ -27850,19 +27855,23 @@ function viewMasterData(){
  const total=DB.glassProduct.length,stocked=DB.glassProduct.filter(p=>p.stocked).length;
  const inactive=DB.glassProduct.filter(p=>p.active===false).length;
  const sheets=DB.glassSheet.length,orphans=glassOrphanSheets().length;
+ /* Плитки каталога — только в его обзоре: над Prices, Company, Setup и
+    открытой карточкой они место отнимали, а не помогали (аудит 25.10.2026,
+    D-3). */
+ const kpi=sec.k==='catalog'&&!mdRowFormOpen()&&!mdCatalogQuery.trim();
  return `<div class="page-head"><div><h2>Master Data</h2><p>Items, works, prices and settings.</p></div><span class="pill info">Master Data · v2</span></div>
-  <div class="kpi-grid">
+  ${kpi?`<div class="kpi-grid" data-md-kpi>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('layers')}</div></div><div class="kpi-num">${total}</div><div class="kpi-label">catalog items</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('inventory')}</div></div><div class="kpi-num">${stocked}</div><div class="kpi-label">kept in stock</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('purchase')}</div></div><div class="kpi-num">${sheets}</div><div class="kpi-label">supply rows</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico(orphans||inactive?'alert':'check')}</div></div><div class="kpi-num">${orphans}</div><div class="kpi-label">supply rows without a product</div></div>
-  </div>
+  </div>`:''}
   <div class="card">
    <div class="tabs" data-md-sections>${MD_SECTIONS.map(s=>`<button class="${s.tabs.includes(mdTab)?'on':''}" data-md-section="${s.k}" onclick="mdSetTab('${s.tabs[0]}')">${s.label}</button>`).join('')}</div>
    ${sec.k!=='catalog'&&sec.tabs.length>1?`<div class="md-mat-subs" data-md-subtabs>${sec.tabs.map(k=>`<button class="sm ${mdTab===k?'on':''}" onclick="mdSetTab('${k}')">${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div>`:''}
    ${sec.k==='catalog'?viewMdCatalog():({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
   </div>
-  ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
+  ${mdTab==='materials'&&mdMatCategory==='glass'&&(mdMatView==='glassProduct'||accessCost())?mdImportCard():''}`;
 }
 /* Станции — шаги маршрута; работы в Works ссылаются на них. Сверху — дерево
    (этап 4, часть 3 плана Master Data): шаги по порядку, у станции всё, что
@@ -28002,6 +28011,9 @@ function mdUnitCalcName(calc){
  return row?row[1]:calc;
 }
 function mdVal(id){const el=document.getElementById(id);return el?el.value.trim():'';}
+/* Закупочная цена (Cost & margin, аудит 25.10.2026, D-2): без галочки поле
+   есть в форме, но скрыто — Save берёт прежнее значение и его не стирает. */
+function mdCostOnly(html){return accessCost()?html:'<div hidden data-md-cost-hidden>'+html+'</div>';}
 function mdChecked(id){const el=document.getElementById(id);return !!(el&&el.checked);}
 
 /* --- 1. Каталог стекла ------------------------------------------------ */
@@ -28122,7 +28134,8 @@ function mdGlassForm(){
   </div>`;
  const measure=`<div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`;
  const sheets=isNew?[]:glassSheetsFor(r.code);
- const purchase=sheets.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th><th class="n">Price</th><th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td><td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td><td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table></div><p class="mut">Edited in Supply points.</p>`:`<p class="mut" data-md-glass-supply>No supply rows.</p>${isNew?'':`<button type="button" class="sm" data-md-glass-supply-add onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`;
+ const cost=accessCost();
+ const purchase=sheets.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th>${cost?'<th class="n">Price</th>':''}<th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td>${cost?`<td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td>`:''}<td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table></div><p class="mut">Edited in Supply points.</p>`:`<p class="mut" data-md-glass-supply>No supply rows.</p>${isNew?'':`<button type="button" class="sm" data-md-glass-supply-add onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`;
  const price=(id,k,label)=>mdField(label,`<input id="${id}" type="number" step="0.01" min="0" value="${r[k]==null?'':r[k]}" placeholder="—">`,'Empty — no price.');
  const prices=`<div class="grid">${price('md_priceAN','salePriceAnnealed','Price annealed, CAD')}${price('md_priceFT','salePriceTempered','Price tempered, CAD')}${mdSaleRulesFields(r,['minCharge'])}</div>
   ${isNew?'':mdPriceListsHTML('glass:'+r.id+':salePriceAnnealed').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · annealed</h4>')+mdPriceListsHTML('glass:'+r.id+':salePriceTempered').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · tempered</h4>')}`;
@@ -28209,6 +28222,9 @@ function mdSupplyColumns(){
  const col=(k,label,type,def)=>({k,label,type:type||'text',def:def!==false});
  return [col('product','Product'),col('glass','Glass'),col('supplier','Supply point','list'),col('sheet','Sheet'),col('unit','Unit','list'),col('price','Purchase price','number'),col('currency','Currency','list'),col('date','Price date','date'),col('freight','Freight, %','number'),col('lead','Lead time, days','number'),col('availability','Availability','list')];
 }
+/* Без Cost & margin колонок закупки на экране нет; в настройках колонок
+   они остаются — сохранённый порядок не ломается при смене человека. */
+const MD_SUPPLY_COST_COLS=['price','currency','date','freight'];
 function mdSupplyInfos(){
  return (DB.glassSheet||[]).map(s=>{const p=glassProductByCode(s.productCode);return {o:{createdAt:s.priceDate||''},s,p,memo:{product:s.productCode,glass:p?p.name:'no product',supplier:s.supplier,
   sheet:s.sheetWIn!=null&&s.sheetHIn!=null?s.sheetWIn+' × '+s.sheetHIn+' in':'',unit:mdUnitName(s.purchaseUnit),price:s.purchasePrice,currency:s.currency,date:s.priceDate||'',freight:s.freightPct,lead:s.leadTimeDays,availability:glassLabel('availability',s.availability)}};});
@@ -28227,7 +28243,7 @@ function mdSupplyCell(i,c){
 }
 function viewMdSupply(){
  if(mdSheetEdit!==null)return mdSheetForm();
- const infos=mdSupplyInfos(),rows=salesListRows(infos),cols=salesListColumns(),orphans=glassOrphanSheets().length;
+ const infos=mdSupplyInfos(),rows=salesListRows(infos),cost=accessCost(),cols=salesListColumns().filter(c=>cost||!MD_SUPPLY_COST_COLS.includes(c.k)),orphans=glassOrphanSheets().length;
  const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
  return `<div class="md-supply-head"><span class="mut">Glass · supplier · sheet size.</span><span class="sp"></span><button class="pri" onclick="mdSheetNew()">+ New supply row</button></div>
   ${orphans?`<div class="note">Supply rows without a product: <b>${orphans}</b> — give them a product back.</div>`:''}
@@ -28302,16 +28318,16 @@ function mdSheetForm(){
   <div class="md-sheet-box"><h4>Supply</h4><div class="md-sheet-fields md-sheet-3">
    <div class="md-sheet-wide"><label>Supplier card</label><select id="md_sheetSupplierId" onchange="mdSheetSupplierPicked(this.value)"><option value="">Match by supply point</option>${(DB.supplier||[]).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>`<option value="${esc(s.id)}" ${s.id===r.supplierId?'selected':''} data-raw>${esc(s.name)}${s.active?'':' · Archived'}</option>`).join('')}</select></div>
    <div><label>Supply point *</label><input id="md_sheetSupplier" list="md_sheetPoints" autocomplete="off" value="${esc(r.supplier)}" placeholder="Vitro Barrie" onchange="mdSheetPointPicked(this.value)"><datalist id="md_sheetPoints">${[...points.keys()].map(n=>`<option value="${esc(n)}"></option>`).join('')}</datalist></div>
-   <div><label>Currency</label><input id="md_sheetCurrency" value="${esc(r.currency)}" maxlength="3" title="Filled from the supply point"></div>
+   ${mdCostOnly(`<div><label>Currency</label><input id="md_sheetCurrency" value="${esc(r.currency)}" maxlength="3" title="Filled from the supply point"></div>`)}
    <div><label>Availability</label><select id="md_sheetAvail">${mdVocabOptions('availability',r.availability)}</select></div>
    <div><label>Sheet, in</label><div class="md-sheet-pair"><input id="md_sheetW" type="number" step="0.1" min="0" placeholder="W" value="${r.sheetWIn==null?'':r.sheetWIn}"><span>×</span><input id="md_sheetH" type="number" step="0.1" min="0" placeholder="H" value="${r.sheetHIn==null?'':r.sheetHIn}"></div></div>
    <div><label>Purchase unit</label><select id="md_sheetUnit">${mdUnitOptions(r.purchaseUnit)}</select></div>
-   <div><label>Purchase price</label><input id="md_sheetPrice" type="number" step="0.01" min="0" value="${r.purchasePrice==null?'':r.purchasePrice}"></div>
+   ${mdCostOnly(`<div><label>Purchase price</label><input id="md_sheetPrice" type="number" step="0.01" min="0" value="${r.purchasePrice==null?'':r.purchasePrice}"></div>
    <div><label>Price date</label><input id="md_sheetDate" type="date" value="${esc(r.priceDate)}"></div>
-   <div><label>Freight, %</label><input id="md_sheetFreight" type="number" step="0.1" min="0" value="${r.freightPct==null?'':r.freightPct}"></div>
+   <div><label>Freight, %</label><input id="md_sheetFreight" type="number" step="0.1" min="0" value="${r.freightPct==null?'':r.freightPct}"></div>`)}
    <div><label>Lead time, days</label><input id="md_sheetLead" type="number" step="1" min="0" value="${r.leadTimeDays==null?'':r.leadTimeDays}"></div>
    <div class="md-sheet-wide"><label>Note</label><input id="md_sheetNote" value="${esc(r.note)}"></div>
-  </div><div class="mut md-sheet-tiny">Purchase prices.</div></div>
+  </div>${accessCost()?'<div class="mut md-sheet-tiny">Purchase prices.</div>':''}</div>
  </div>
   <div class="err" id="e_mdSheet"></div>
   <div class="row"><button class="pri" onclick="mdSheetSave()">Save</button><button onclick="mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',coat:''};render()">Cancel</button></div></div>`;
@@ -28470,11 +28486,9 @@ function mdSpacerForm(){
   </div><h4>Size limits</h4><div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`;
  const purchase=`<div class="grid">
    ${mdField('Supplier',`<input id="md_spSupplier" value="${esc(r.supplier)}">`)}
-   ${mdField('Purchase price',num('md_spBuyPrice',r.purchasePrice,'step="0.01" min="0"'),'Per purchase unit.')}
-   ${mdField('Currency',`<input id="md_spCurrency" value="${esc(r.currency||'CAD')}" maxlength="3">`)}
-   ${mdField('Price date',`<input id="md_spPriceDate" type="date" value="${esc(r.priceDate)}">`)}
+   ${mdCostOnly(mdField('Purchase price',num('md_spBuyPrice',r.purchasePrice,'step="0.01" min="0"'),'Per purchase unit.')+mdField('Currency',`<input id="md_spCurrency" value="${esc(r.currency||'CAD')}" maxlength="3">`)+mdField('Price date',`<input id="md_spPriceDate" type="date" value="${esc(r.priceDate)}">`))}
    ${mdField('Lead time, days',num('md_spLead',r.leadTimeDays,'step="1" min="0"'))}
-   ${mdField('Cost per '+esc(mdUnitName(r.stockingUnit)||'stock unit'),`<div class="mono" data-md-cost>${cost==null?'—':esc(cost.toFixed(4))+' '+esc(r.currency||'CAD')}</div>`,'Price ÷ per unit.')}
+   ${accessCost()?mdField('Cost per '+esc(mdUnitName(r.stockingUnit)||'stock unit'),`<div class="mono" data-md-cost>${cost==null?'—':esc(cost.toFixed(4))+' '+esc(r.currency||'CAD')}</div>`,'Price ÷ per unit.'):''}
   </div>`;
  const prices=`<div class="grid">
    ${mdField('Price, CAD',num('md_spPrice',r.salePrice,'step="0.01" min="0"'),'Empty — no price.')}
@@ -28811,7 +28825,8 @@ let mdOverviewView='collections';
 function viewMdOverview(){
  const views=[['collections','Collections'],['log','Change log'],['file','Master Data file']];
  const subs=`<div class="md-mat-subs" data-md-overview-subs>${views.map(([k,label])=>`<button class="sm ${k===mdOverviewView?'on':''}" onclick="mdOverviewView='${k}';render()">${label}</button>`).join('')}</div>`;
- return subs+(mdOverviewView==='log'?viewMdLog():mdOverviewView==='file'?mdTransferCard():viewMdCollections());
+ /* Файл Master Data несёт закупочные цены — с галочкой Cost & margin. */
+ return subs+(mdOverviewView==='log'?viewMdLog():mdOverviewView==='file'?(accessCost()?mdTransferCard():'<div class="mut">Needs Cost &amp; margin.</div>'):viewMdCollections());
 }
 function viewMdCollections(){
  const rows=MD_COLLECTIONS.map(c=>{
@@ -28828,10 +28843,16 @@ function viewMdCollections(){
 
 /* --- Журнал и перенос Master Data (erp/masterdata/md-log) ------------- */
 let mdLogFilter='',mdLogQuery='',mdLogShown=200,mdTransfer=null;
+/* Было → стало закупочной цены — с галочкой Cost & margin (D-2). */
+const MD_COST_FIELDS=['purchasePrice','freightPct','supply','priceDate','currency'];
+function mdLogValueCells(e){
+ if(!accessCost()&&MD_COST_FIELDS.includes(e.field))return '<td class="mut" colspan="2">Cost &amp; margin</td>';
+ return `<td class="mono" data-raw>${esc(e.was)}</td><td class="mono" data-raw>${esc(e.now)}</td>`;
+}
 function viewMdLog(){
  const rows=mdLogRows(mdLogFilter,mdLogQuery),places=[...new Set((DB.masterDataEvent||[]).map(e=>e.tbl))].sort((a,b)=>mdLogWhere(a).localeCompare(mdLogWhere(b)));
  const when=t=>esc(String(t||'').slice(0,16).replace('T',' '));
- const body=rows.slice(0,mdLogShown).map(e=>`<tr data-md-log-row><td class="mono">${when(e.at)}</td><td>${esc(e.by||'—')}</td><td>${esc(mdLogWhere(e.tbl))}</td><td><b data-raw>${esc(e.row)}</b></td><td>${esc(e.what)}${e.field?' · <span class="mono" data-raw>'+esc(e.field)+'</span>':''}</td><td class="mono" data-raw>${esc(e.was)}</td><td class="mono" data-raw>${esc(e.now)}</td></tr>`).join('');
+ const body=rows.slice(0,mdLogShown).map(e=>`<tr data-md-log-row><td class="mono">${when(e.at)}</td><td>${esc(e.by||'—')}</td><td>${esc(mdLogWhere(e.tbl))}</td><td><b data-raw>${esc(e.row)}</b></td><td>${esc(e.what)}${e.field?' · <span class="mono" data-raw>'+esc(e.field)+'</span>':''}</td>${mdLogValueCells(e)}</tr>`).join('');
  return `<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Search the log" placeholder="Search" value="${esc(mdLogQuery)}" oninput="mdLogQuery=this.value;mdLogShown=200;render()" style="max-width:260px">
   <select aria-label="Section" style="max-width:220px" onchange="mdLogFilter=this.value;mdLogShown=200;render()"><option value="">All sections</option>${places.map(k=>`<option value="${esc(k)}"${k===mdLogFilter?' selected':''}>${esc(mdLogWhere(k))}</option>`).join('')}</select>
   <span class="mut" data-md-log-count>${rows.length} changes</span></div>
@@ -29101,13 +29122,13 @@ function mdCatForm(){
    поставки добавляются и убираются без перерисовки — введённое в форме не
    пропадает; Save читает их с экрана. */
 function mdFilmSupplyRow(x){x=x||{};const v=k=>x[k]==null?'':esc(x[k]);
- return `<tr data-md-film-supply><td><input data-k="supplier" value="${v('supplier')}"></td><td><input data-k="widthIn" type="number" min="0" step="any" value="${v('widthIn')}"></td><td><input data-k="thicknessMm" type="number" min="0" step="any" value="${v('thicknessMm')}"></td><td><input data-k="price" type="number" min="0" step="any" value="${v('price')}"></td><td><input data-k="per" value="${v('per')}" placeholder="roll"></td><td><button type="button" class="sm dl" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
+ return `<tr data-md-film-supply><td><input data-k="supplier" value="${v('supplier')}"></td><td><input data-k="widthIn" type="number" min="0" step="any" value="${v('widthIn')}"></td><td><input data-k="thicknessMm" type="number" min="0" step="any" value="${v('thicknessMm')}"></td><td${accessCost()?'':' hidden'}><input data-k="price" type="number" min="0" step="any" value="${v('price')}"></td><td${accessCost()?'':' hidden'}><input data-k="per" value="${v('per')}" placeholder="roll"></td><td><button type="button" class="sm dl" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
 function mdFilmFields(r){
  return `<div><label>Ply, mm</label><input id="md_filmPly" type="number" min="0" step="any" value="${r.plyMm==null?'':r.plyMm}"><div class="hint">One layer; price is per layer</div></div>
   <div><label>Thicknesses, mm</label><input id="md_filmThick" value="${esc((r.thicknessesMm||[]).join(', '))}"><div class="hint">Offered in the order</div></div>`;
 }
 function mdFilmSupplyHTML(r){
- return `<div data-md-film-supplies><label>Supply</label><div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Supplier</th><th>Roll width, in</th><th>Thickness, mm</th><th>Price, CAD</th><th>Per</th><th></th></tr></thead><tbody>${(r.supply||[]).map(mdFilmSupplyRow).join('')}</tbody></table></div>
+ return `<div data-md-film-supplies><label>Supply</label><div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Supplier</th><th>Roll width, in</th><th>Thickness, mm</th>${accessCost()?'<th>Price, CAD</th><th>Per</th>':''}<th></th></tr></thead><tbody>${(r.supply||[]).map(mdFilmSupplyRow).join('')}</tbody></table></div>
    <button type="button" onclick="this.previousElementSibling.querySelector('tbody').insertAdjacentHTML('beforeend',mdFilmSupplyRow())">+ Supply row</button></div>`;
 }
 function mdFilmRead(){
