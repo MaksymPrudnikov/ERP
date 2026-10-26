@@ -55,6 +55,39 @@ module.exports=async function({page,eq}){
  }),{data:{price:false,form:false,saved:[12.5,3,'2026-10-01'],spacer:false,spKept:40,can:false},
   cost:{price:true,form:true,saved:[12.5,3,'2026-10-01'],spacer:true,spKept:40,can:true},
   admin:{price:true,form:true,saved:[12.5,3,'2026-10-01'],spacer:true,spKept:40,can:true}});
+ /* Аудит 25.10.2026, D-4: одна строка инструментов, счётчики открытого
+    списка, найденное считается и показывается дальше, модели выше видов. */
+ eq('catalog lists: one toolbar row, counts for the open list, search count and Show more, Hardware models above kinds',await t.p.evaluate(()=>{
+  tab='masterdata';mdCatalogGo('glassProduct');const tb=document.querySelector('[data-md-toolbar]');
+  const glass=[tb.querySelectorAll('input').length,tb.querySelectorAll('select').length,!!tb.querySelector('.pri')];
+  const head=k=>{mdCatalogGo(k);return [...document.querySelectorAll('[data-md-health] .pill')].map(p=>p.textContent.replace(/\s*\d+$/,''));};
+  const counts={glass:head('glassProduct'),gas:head('gasProduct'),spacer:head('spacerVariant'),works:head('serviceRate'),hw:head('hardwareModel')};
+  mdCatalogGo('gasProduct');const gasNew=!!document.querySelector('.md-toolbar .pri');
+  mdCatalogQuery='a';mdCatalogLimit=0;render();const found=+document.querySelector('[data-md-search-count]').textContent.split(' ')[0],first=document.querySelectorAll('[data-md-search] tbody tr').length;
+  const more=document.querySelector('[data-md-more]');if(more)more.click();const next=document.querySelectorAll('[data-md-search] tbody tr').length;mdCatalogQuery='';
+  mdCatalogGo('hardwareModel');const order=[...document.querySelectorAll('.section-title h3')].map(h=>h.textContent);
+  return {glass,counts,gasNew,paged:found>MD_PAGE?[first,next]:[found,found],order};
+ }),await t.p.evaluate(()=>{const found=mdCatalogSearch('a').length;return {glass:[1,4,true],counts:{glass:['No price'],gas:['No price'],spacer:['No price','No weight','Not measured','No recipe'],works:['No station'],hw:[]},gasNew:true,
+  paged:found>MD_PAGE?[MD_PAGE,Math.min(found,2*MD_PAGE)]:[found,found],order:['Models','Kinds']};}));
+ /* Аудит D-5: модель Hardware и строка поставки — в общем виде карточки;
+    над открытой карточкой нет шапки каталога; длинное имя — шире. */
+ eq('Hardware model and supply row open in the common card; no catalog head over an open card; the name field is wide',await t.p.evaluate(()=>{
+  tab='masterdata';DB.glassSheet=[normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock'})];
+  const look=sel=>[!!document.querySelector(sel),!!document.querySelector('[data-md-health]'),!!document.getElementById('mdCatalogSearch')];
+  mdCatalogGo('hardwareModel');mdHwModelEditRow(DB.hardwareModel[0].id);const hw=look('[data-md-card="hwModel"]'),title=document.querySelector('[data-md-card="hwModel"] h3').textContent===DB.hardwareModel[0].name;mdHwModelEdit=null;
+  mdCatalogGo('glassSheet');mdSheetEditRow(DB.glassSheet[0].id);const sheet=look('[data-md-card="sheet"]'),err=!!document.getElementById('e_mdSheet');mdSheetEdit=null;
+  mdCatalogGo('glassProduct');mdGlassEdit(DB.glassProduct[0].id);const wide=!!document.getElementById('md_name').closest('.md-wide');mdEdit=null;render();
+  return {hw,title,sheet,err,wide,back:!!document.querySelector('[data-md-health]')};
+ }),{hw:[true,false,false],title:true,sheet:[true,false,false],err:true,wide:true,back:true});
+ /* Аудит D-6: Trucks — «+ Truck» в строке инструментов, Active без подписи
+    в каждой строке; Setup — карту убирают крестиком; Prices без групп
+    подсказывает, что делать. */
+ eq('Trucks, Setup and Prices: toolbar button, compact Active, small remove, empty-state hint',await t.p.evaluate(()=>{
+  tab='masterdata';mdSetTab('trucks');render();const trucks=[!!document.querySelector('.md-trucks .md-toolbar [data-truck-add]'),[...document.querySelectorAll('[data-truck-row] td:last-child')].every(td=>!/Active/.test(td.textContent))];
+  mdSetTab('setup');render();const setup=[...document.querySelectorAll('[data-setup-card] button')].every(b=>b.textContent==='×'&&b.getAttribute('aria-label')==='Remove');
+  const keep=DB.priceList;DB.priceList=(DB.priceList||[]).filter(l=>l.kind!=='group');plGroupId='';plView='groups';mdSetTab('prices');render();const prices=/Add a group, then give it prices\./.test(document.body.textContent);DB.priceList=keep;render();
+  return {trucks,setup,prices};
+ }),{trucks:[true,true],setup:true,prices:true});
  eq('catalog search finds a row in any table; Open goes to its card',await t.p.evaluate(()=>{
   mdSetTab('materials');mdCatalogQuery='argon';render();
   const rows=document.querySelectorAll('[data-md-search] tbody tr').length;
