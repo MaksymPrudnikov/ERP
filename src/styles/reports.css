@@ -112,15 +112,39 @@ button.ch-stat.warn b{color:var(--warning)}
 .rep-cat-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}
 .rep-cat-head h3{margin:0;font-size:15px}
 .rep-search{width:100%;margin:0 0 10px;box-sizing:border-box}
-.rep-folders{display:flex;flex-direction:column;gap:2px;margin:0 0 10px}
-.rep-folder{display:flex;justify-content:space-between;gap:8px;border:0;background:transparent;border-radius:8px;padding:6px 8px;color:var(--text-2);font:inherit;text-align:left;cursor:pointer;box-shadow:none}
+.rep-cat-acts{display:flex;gap:6px}
+/* Каталог: разделы Pinned · Recent · Folders, дерево папок, строка — одна линия. */
+.rep-sec{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);font-weight:650;margin:12px 8px 4px}
+.rep-sec:first-child{margin-top:2px}
+.rep-list{display:flex;flex-direction:column;gap:1px}
+.rep-tree{display:flex;flex-direction:column;gap:1px}
+.rep-folder{display:flex;align-items:center;gap:6px;margin:0;border:0;background:transparent;border-radius:8px;padding:6px 8px;color:var(--text);font:inherit;text-align:left;cursor:pointer;box-shadow:none}
+.rep-folder i{font-style:normal;width:12px;flex:none;color:var(--text-3);font-size:10px}
+.rep-folder .n{margin-left:auto;color:var(--text-3);font-size:11.5px}
 .rep-folder:hover{background:var(--surface-2)}
-.rep-folder.on{background:var(--accent-soft);color:var(--text);font-weight:650}
-.rep-list{display:flex;flex-direction:column;gap:1px;border-top:1px solid var(--line-soft);padding-top:6px}
-.rep-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:0;background:transparent;border-radius:8px;padding:7px 8px;font:inherit;text-align:left;cursor:pointer;color:var(--text);box-shadow:none}
-.rep-item small{color:var(--text-3);font-size:11.5px;font-weight:400}
-.rep-item:hover{background:var(--surface-2)}
-.rep-item.on{background:var(--surface-3);font-weight:650}
+.rep-folder.on{background:var(--accent-soft);font-weight:650}
+.rep-folder.sub{padding-left:24px;font-weight:500}
+.rep-folder.sub.on{background:transparent;font-weight:650}
+.rep-item{display:flex;align-items:center;gap:6px;margin:0;border:0;background:transparent;border-radius:8px;padding:6px 8px;font:inherit;text-align:left;cursor:pointer;color:var(--text-2);box-shadow:none;min-width:0}
+.rep-item span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rep-item i{font-style:normal;color:var(--accent);margin-left:auto;flex:none}
+.rep-item small{display:block;color:var(--text-3);font-size:11px;font-weight:400;margin-left:auto;white-space:nowrap;flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis}
+.rep-item:hover{background:var(--surface-2);color:var(--text)}
+.rep-item.on{background:var(--surface-3);color:var(--text);font-weight:650}
+.rep-tree .rep-item{padding-left:26px}
+.rep-tree .rep-tree .rep-item{padding-left:42px}
+.rep-more{margin:0;border:0;background:transparent;color:var(--accent);font:inherit;font-size:12px;font-weight:600;text-align:left;padding:4px 8px 4px 26px;cursor:pointer;box-shadow:none}
+.rep-tree .rep-tree .rep-more{padding-left:42px}
+/* Панель спрятана: отчёт на всю ширину, сверху путь и быстрые ссылки. */
+.rep-app.flat{grid-template-columns:minmax(0,1fr)}
+.rep-app.flat.editing{grid-template-columns:minmax(0,1fr) 320px}
+.rep-bar{display:flex;align-items:center;gap:12px;padding:8px 12px;margin:0 0 12px;min-width:0}
+.rep-crumb{color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;max-width:45%}
+.rep-crumb b{color:var(--text);font-weight:650}
+.rep-chips{display:flex;gap:6px;margin-left:auto;overflow:hidden;min-width:0}
+.rep-chip{border:1px solid var(--line-soft);border-radius:999px;padding:3px 10px;background:var(--surface);font:inherit;font-size:12px;color:var(--text-2);white-space:nowrap;cursor:pointer;box-shadow:none;max-width:220px;overflow:hidden;text-overflow:ellipsis;flex:none}
+.rep-chip:hover{border-color:var(--accent-line);background:var(--accent-soft);color:var(--text)}
+.rep-pin.on{color:var(--accent)}
 .rep-main{min-width:0}
 .rep-head{margin:0 0 14px}
 .rep-head-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -199,10 +223,7 @@ button.ch-stat.warn b{color:var(--warning)}
 .rep-title{font-size:16px}
 .rep-wh h3{font-size:13px}
 .rep-wh .mut{font-size:11.5px}
-.rep-item{padding:6px 8px}
-.rep-item b{font-size:12.5px}
-.rep-item small{font-size:11px}
-.rep-folder{padding:5px 8px}
+.rep-item,.rep-folder{padding-top:5px;padding-bottom:5px}
 .rep-setup h5{font-size:10.5px;margin:12px 0 5px}
 .rep-setup select,.rep-setup input[type=text],.rep-setup input[type=number],.rep-setup input[type=date]{padding:5px 8px}
 .rep-types button{font-size:12px;padding:6px 4px}
