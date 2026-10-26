@@ -3495,7 +3495,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a8436ea4b1d9';
+var ERP_BUILD='3e9f810b6935';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -46436,7 +46436,16 @@ function repOffcutFacts(){
    доли, pct — в процентах, digits, money}. Любое числовое поле можно взять
    ещё средним, минимумом и максимумом (reports/query).
    ===================================================================== */
-function repCustomer(id){return id?salesCustomerDisplay(id)||'—':'—';}
+/* Клиент — по имени. Одно имя у двух клиентов — к имени код клиента, иначе
+   отчёт сложил бы их строкой (аудит 25.10.2026, R-5). Имена считаются раз
+   до следующей записи (storageInvalidate). */
+let repCustomerNames=null;
+function repCustomer(id){
+ if(!id)return '—';const name=salesCustomerDisplay(id)||'—';
+ if(!repCustomerNames){repCustomerNames=new Map();(DB.customer||[]).forEach(x=>{const n=salesCustomerDisplay(x.id);repCustomerNames.set(n,(repCustomerNames.get(n)||0)+1);});}
+ if((repCustomerNames.get(name)||0)<2)return name;
+ const c=(DB.customer||[]).find(x=>x.id===id);return c?name+' · '+(c.code||c.id):name;
+}
 function repMmText(mm){return mm?String(+mm)+' mm':'—';}
 const REP_F={
  date:(k,label)=>({k,label,type:'date'}),
@@ -46756,6 +46765,11 @@ function repSelect(S,df,range,filters,ctx){
   return (filters||[]).every(x=>repFilterTest(S,x,r,ctx));
  });
 }
+/* Фильтры, которых у источника нет (фильтр отчёта с поля другого
+   источника, устаревший фильтр графика): график их не применяет и говорит
+   об этом, а не показывает всё молча (аудит 25.10.2026, R-3). */
+function repSkippedFilters(S,q){return [...new Set((q.skip||[]).concat((q.filters||[]).filter(x=>x&&x.f&&!repField(S,x.f)).map(x=>x.f)))];}
+function repFieldLabelAny(k){for(const S of Object.values(REP_SRC)){const f=repField(S,k);if(f)return f.label;}return k;}
 /* Значения поля для фильтра «Is any of» — то, что есть в данных. */
 function repFieldValues(S,k){const f=repField(S,k);if(!f)return [];const set=new Set();S.rows().forEach(r=>{const v=repGet(f,r);set.add(v==null||v===''?'—':String(v));});return [...set].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));}
 
@@ -46835,7 +46849,9 @@ function repQuery(q,ctx){
     const g=repGroupBy(S,crows,dims[0]);
     /* Даты сравниваются по месту: первый месяц с первым месяцем. */
     if(repIsTime(S,dims[0])){const ck=repDateKeys(repDimParse(dims[0]).g||'day',cr,[...g.keys()]);out.keys.forEach((k,i)=>c.rowTotals.set(k,vals(g.get(ck[i])||[])));}
-    else out.keys.forEach(k=>c.rowTotals.set(k,vals(k==='__other'?[]:g.get(k)||[])));
+    /* Other прошлого периода — всё, что не в показанном Top N, и то, чего
+       сейчас нет (аудит 25.10.2026, R-4): сумма строк — итог периода. */
+    else{const shown=new Set(out.keys);out.keys.forEach(k=>c.rowTotals.set(k,vals(k==='__other'?[...g.keys()].filter(x=>!shown.has(x)).flatMap(x=>g.get(x)):g.get(k)||[])));}
    }
    out.compare=c;
   }
@@ -47289,7 +47305,7 @@ function repDateText(d){if(!d)return 'All time';if(d.from||d.to)return (d.from?s
 function repWidgetQuery(r,w){
  const q=JSON.parse(JSON.stringify(w.q)),v=repView(r.id),S=REP_SRC[q.source];
  if(q.date.use!=='own'){const d=v.date||r.date;q.date=Object.assign({},q.date,{preset:d.preset||'',from:d.from||'',to:d.to||''});}
- Object.entries(repViewFilters(r)).forEach(([f,vals])=>{if(Array.isArray(vals)&&vals.length&&S&&repField(S,f))q.filters.push({f,op:'in',v:vals});});
+ q.skip=[];Object.entries(repViewFilters(r)).forEach(([f,vals])=>{if(!Array.isArray(vals)||!vals.length||!S)return;if(repField(S,f))q.filters.push({f,op:'in',v:vals});else q.skip.push(f);});
  return q;
 }
 
@@ -47386,7 +47402,12 @@ function repWidgetTitle(w){
 function repWidgetCard(r,w,i,n){
  const sel=repEditOn&&w.id===repSelW,tools=repEditOn?`<span class="rep-wtools"><button type="button" class="sm" onclick="repSelectWidget('${esc(w.id)}')">Edit</button><button type="button" class="sm" title="Duplicate" onclick="repDupWidget('${esc(w.id)}')">Duplicate</button><button type="button" class="sm" title="Move up" ${i?'':'disabled'} onclick="repMoveWidget('${esc(w.id)}',-1)">↑</button><button type="button" class="sm" title="Move down" ${i<n-1?'':'disabled'} onclick="repMoveWidget('${esc(w.id)}',1)">↓</button><button type="button" class="sm dl" title="Remove" onclick="repDelWidget('${esc(w.id)}')">×</button></span>`:'';
  const src=REP_SRC[w.q.source],own=w.q.date.use==='own'?' · '+repDateText(w.q.date):'';
- return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${esc(w.id)}" data-rep-type="${w.type}"${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select'))repSelectWidget('${esc(w.id)}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span>${tools}</div>${repChart(r,w)}</div>`;
+ return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${esc(w.id)}" data-rep-type="${w.type}"${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select'))repSelectWidget('${esc(w.id)}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span>${tools}</div>${repChart(r,w)}${repSkipHTML(r,w)}</div>`;
+}
+
+function repSkipHTML(r,w){
+ const q=repWidgetQuery(r,w),S=REP_SRC[q.source],list=S?repSkippedFilters(S,q):[];
+ return list.length?`<div class="mut small" data-rep-skip>Not filtered by ${esc(list.map(repFieldLabelAny).join(', '))}</div>`:'';
 }
 
 /* ------------------------------ Фильтры отчёта ------------------------------ */
@@ -48490,6 +48511,10 @@ function storageInvalidate(){
  if(typeof stationFrozenIndex!=='undefined')stationFrozenIndex={list:null,size:-1,map:null};
  if(typeof stkSheetCache!=='undefined')stkSheetCache={batch:'',map:null};
  if(typeof orderLogCreators!=='undefined')orderLogCreators={ref:null,n:-1,map:null};
+ /* Reports: доставка узнавала перемену по длине и статусу PS — смену
+    водителя, города, времени выезда не видела (аудит 25.10.2026, R-6). */
+ if(typeof repDeliveryCache!=='undefined')repDeliveryCache={stamp:'',rows:null};
+ if(typeof repCustomerNames!=='undefined')repCustomerNames=null;
  if(typeof readMemoReset==='function')readMemoReset();
  /* Пересборка таблицы (откат, чужая запись) — строки просмотра из архива на место. */
  if(typeof archiveVisitKeep==='function')archiveVisitKeep();
