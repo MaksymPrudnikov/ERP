@@ -769,6 +769,8 @@ function mdSpacerSave(){
   note:mdVal('md_spNote'),stockingUnit:mdVal('md_spStockUnit'),purchaseUnit:mdVal('md_spBuyUnit'),packQty:pack,
   purchasePrice:buy,currency:mdVal('md_spCurrency').toUpperCase()||'CAD',priceDate:mdVal('md_spPriceDate')
  });
+ /* Единица закупки и «в упаковке» — первая строка «Bought in» склада. */
+ if(Array.isArray(next.packs)&&next.packs.length&&next.purchaseUnit&&pack>0)next.packs=[{unit:next.purchaseUnit,qty:pack}].concat(next.packs.slice(1).filter(p=>p.unit!==next.purchaseUnit));
  if(mdSpacerEdit==='new')DB.spacerVariant.push(next);
  else{const at=DB.spacerVariant.findIndex(x=>x.id===mdSpacerDraft.id);if(at<0)return fail(e,'Spacer not found');DB.spacerVariant[at]=next;}
  mdSpacerEdit=null;mdSpacerDraft=null;normalizeMasterData();touch();render();

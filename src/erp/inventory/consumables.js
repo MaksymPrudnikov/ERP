@@ -19,6 +19,21 @@ if(!Array.isArray(DB.consumableEvent))DB.consumableEvent=[];
 const CONS_TABLES=[['spacerVariant','Spacers','ft'],['sealantProduct','Sealants','kg'],['gasProduct','Gas','kg'],['iguPart','IGU parts','kg']];
 const CONS_RESERVE_STATES=['new','verified','batched'];
 const CONS_FT_PER_M=1/0.3048;
+/* Физические переводы — не нормы цеха (аудит 25.10.2026, I-4): длина и вес. */
+const CONS_PHYS={ft:['len',1],inch:['len',1/12],m:['len',CONS_FT_PER_M],kg:['kg',1],lb:['kg',0.45359237]};
+function consPhys(from,to){const a=CONS_PHYS[from],b=CONS_PHYS[to];return a&&b&&a[0]===b[0]?a[1]/b[1]:null;}
+/* Во что покупают: список карточки, а у старой карточки — «в упаковке» за
+   её единицу закупки (без единицы — коробка). */
+function consPacks(x){
+ if(!x)return [];if(Array.isArray(x.packs)&&x.packs.length)return x.packs;
+ return x.packQty>0?[{unit:mdUnitCode(x.purchaseUnit,'')||'box',qty:x.packQty}]:[];
+}
+/* Сколько единиц склада в одной единице закупки; неизвестно — null. */
+function consPerUnitOf(x,table,unit){
+ const stock=consUnitOf(table),u=mdUnitCode(unit,'');if(!u)return null;
+ if(u===stock)return 1;const ph=consPhys(u,stock);if(ph!=null)return ph;
+ const p=consPacks(x).find(p=>p.unit===u);return p?p.qty:null;
+}
 function consUnitOf(table){const t=CONS_TABLES.find(x=>x[0]===table);return t?t[2]:'';}
 function consKey(table,id){return table+':'+id;}
 /* Расход одного юнита позиции: ключ айтема → количество в единице склада. */
@@ -45,15 +60,18 @@ function consAssembled(){
 function consRows(){
  const rows=new Map(),row=(table,id)=>{
   const k=consKey(table,id);
-  if(!rows.has(k)){const x=mdById(table,id),t=CONS_TABLES.find(t=>t[0]===table);rows.set(k,{key:k,table,id,group:t?t[1]:table,name:x?x.name:id,code:x?x.code||'':'',off:!!x&&x.active===false,unit:consUnitOf(table),pack:x&&x.packQty!=null?x.packQty:null,received:0,used:0,reserved:0,adjust:0,noPack:0,unknown:0,lastCount:null});}
+  if(!rows.has(k)){const x=mdById(table,id),t=CONS_TABLES.find(t=>t[0]===table);rows.set(k,{key:k,table,id,group:t?t[1]:table,name:x?x.name:id,code:x?x.code||'':'',off:!!x&&x.active===false,unit:consUnitOf(table),pack:x&&x.packQty!=null?x.packQty:null,packs:consPacks(x),received:0,used:0,reserved:0,adjust:0,noPack:0,unknown:0,lastCount:null});}
   return rows.get(k);
  };
  CONS_TABLES.forEach(([t])=>(DB[t]||[]).forEach(x=>{if(x&&x.id&&x.active!==false)row(t,x.id);}));
- /* Приход: строки Stock приёмок; не в единице склада — через «в упаковке». */
+ /* Приход: строки Stock приёмок. Пересчёт в единицу склада — тот, что был
+    при приёмке (stockPer, аудит I-2: смена упаковки прошлое не меняет); не
+    было — по карточке сейчас; чужая единица без пересчёта — не коробка, а
+    «Pack size missing» (I-4). */
  (DB.purchaseReceipt||[]).forEach(r=>{if(r.voidAt)return;(r.lines||[]).forEach(l=>{
   if(l.kind!=='stock'||!consUnitOf(l.table)||!l.itemId)return;
-  const x=row(l.table,l.itemId),qty=(l.qty||0)-(l.damaged||0);
-  if(mdUnitCode(l.unit,'')===x.unit)x.received+=qty;else if(x.pack!=null)x.received+=qty*x.pack;else x.noPack++;
+  const x=row(l.table,l.itemId),qty=(l.qty||0)-(l.damaged||0),per=l.stockPer!=null?l.stockPer:consPerUnitOf(mdById(l.table,l.itemId),l.table,l.unit);
+  if(per!=null)x.received+=qty*per;else x.noPack++;
  });});
  /* Расход по сканам IGU и резерв несобранных юнитов сохранённых заказов.
     Отменённые юниты (Cancel units) не резервируются; собранный и потом
@@ -106,11 +124,26 @@ function consCountMoves(){
    note:['Was '+q(e.before)+' '+unit+' → '+q(e.after)+' '+unit,e.reason,e.note].filter(Boolean).join(' · ')};
  });
 }
-/* В упаковке — в карточке айтема (packQty), правка отсюда же. */
+/* В упаковке — в карточке айтема (packQty), правка отсюда же: первая
+   упаковка списка. */
 function consSetPack(key,v){
+ const i=key.indexOf(':'),x=mdById(key.slice(0,i),key.slice(i+1));if(!x)return {ok:false,error:'Item not found.'};
+ const packs=consPacks(x).map(p=>Object.assign({},p)),first=packs[0]||{unit:mdUnitCode(x.purchaseUnit,'')||'box'};
+ const t=String(v==null?'':v).trim();if(t!==''){const n=Number(t);if(!Number.isFinite(n)||n<0)return {ok:false,error:'Per pack: enter 0 or more.'};}
+ if(t===''||+t===0)packs.splice(0,packs.length?1:0);else{first.qty=+t;if(packs.length)packs[0]=first;else packs.push(first);}
+ return consSetPacks(key,packs);
+}
+/* Весь список «во что покупают»; первая упаковка — и единица закупки с «в
+   упаковке» карточки (их читает карточка рамки и цена за единицу). */
+function consSetPacks(key,packs){
  return invPersist(()=>{
-  const i=key.indexOf(':'),x=mdById(key.slice(0,i),key.slice(i+1));if(!x)throw new Error('Item not found.');
-  x.packQty=String(v==null?'':v).trim()===''?null:consNumber(v,'Per pack');return x;
+  const i=key.indexOf(':'),t=key.slice(0,i),x=mdById(t,key.slice(i+1));if(!x)throw new Error('Item not found.');
+  const clean=[],seen=new Set();
+  (packs||[]).forEach(p=>{const u=mdUnitCode(p&&p.unit,''),q=p&&p.qty;if(!u)return;
+   if(u===consUnitOf(t))throw new Error('Same as the stock unit.');if(seen.has(u))throw new Error(mdUnitName(u)+' is there twice.');
+   if(q==null||q==='')return;const n=consNumber(q,'Per '+mdUnitName(u));if(!n)return;seen.add(u);clean.push({unit:u,qty:n});});
+  if(clean.length){x.packs=clean;x.purchaseUnit=clean[0].unit;x.packQty=clean[0].qty;}else{delete x.packs;x.packQty=null;}
+  return x;
  });
 }
 function consEventValid(e){return !!(e&&typeof e==='object'&&typeof e.id==='string'&&e.id&&typeof e.key==='string'&&e.key.indexOf(':')>0&&Number.isFinite(+e.qty)&&typeof e.at==='string');}

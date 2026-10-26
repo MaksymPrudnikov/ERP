@@ -26,7 +26,7 @@ function invArg(v){return esc(JSON.stringify(String(v)));}
 function invNav(){return '<div class="tabs inv-tabs" data-inv-sections>'+INV_VIEWS.map(([k,n])=>'<button type="button" class="'+(k===invView?'on':'')+'" data-inv-section="'+k+'" onclick="invGo(\''+k+'\')">'+n+'</button>').join('')+'</div>';}
 /* Раздел — с чистого листа: фильтр журнала по стеклу ставит только
    строка дашборда (аудит 15.10.2026: он оставался и при входе из меню). */
-function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';consNotice='';consCountDraft={};consCountWhy={};invNotice='';invMoveDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
+function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';consNotice='';consCountDraft={};consCountWhy={};consPackNew=null;invNotice='';invMoveDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
 /* Пересчёт листов и расходников — один вопрос (аудит 25.10.2026, I-6). */
 function invCountLeave(){
  if((Object.keys(invCountDraft).length||consCountDirty())&&!confirm('Discard counts you have not saved?'))return false;
@@ -328,15 +328,35 @@ function invConsumablesView(){
  const rows=consRows(),tone={'OK':'ok','Short':'bad','Not counted':'','Pack size missing':'warn','Norm missing':'warn'};
  return '<p class="mut">Reserved on Save, used on IGU scan.</p>'+
   (consNotice?'<div class="ncr-error" role="alert">'+esc(consNotice)+'</div>':'')+
-  '<div class="sales-table-wrap"><table class="ncr-table" data-cons-table><thead><tr><th>Item</th><th>Per pack</th><th class="n">Received</th><th class="n">Used</th><th class="n">Count adj.</th><th class="n">On hand</th><th class="n">Reserved</th><th class="n">Free</th><th>Status</th><th>Counted</th></tr></thead><tbody>'+
+  '<div class="sales-table-wrap"><table class="ncr-table" data-cons-table><thead><tr><th>Item</th><th>Bought in</th><th class="n">Received</th><th class="n">Used</th><th class="n">Count adj.</th><th class="n">On hand</th><th class="n">Reserved</th><th class="n">Free</th><th>Status</th><th>Counted</th></tr></thead><tbody>'+
   (rows.map(r=>'<tr data-cons-row="'+esc(r.key)+'"><td><b data-raw>'+esc(r.name)+'</b>'+(r.off?' <span class="pill warn">inactive</span>':'')+'<div class="mut">'+esc(r.group)+(r.code?' · <span data-raw>'+esc(r.code)+'</span>':'')+'</div></td>'+
-   '<td><input type="number" min="0" step="any" class="inv-min" data-cons-pack="'+esc(r.key)+'" value="'+(r.pack==null?'':r.pack)+'" placeholder="—" onchange="consPackUi('+invArg(r.key)+',this.value)"> <span class="mut">'+esc(r.unit)+'</span></td>'+
+   '<td class="cons-packs">'+consPacksHTML(r)+'</td>'+
    ['received','used','adjust','onHand','reserved','free'].map(k=>'<td class="n" data-cons-'+k+'>'+esc(consQty(r[k],r.unit))+'</td>').join('')+
    '<td><span class="pill '+(tone[r.status]||'')+'">'+esc(r.status)+'</span></td>'+
    '<td class="inv-count-cell"><input type="number" min="0" step="any" class="inv-min" data-cons-count="'+esc(r.key)+'" value="'+(consCountDraft[r.key]==null?'':esc(consCountDraft[r.key]))+'" oninput="consCountDraft['+invArg(r.key)+']=this.value;const b=this.parentNode.querySelector(\'[data-inv-why]\');if(b)b.hidden=this.value.trim()===\'\'">'+invWhyHTML(consCountWhy,'consCountWhy',r.key,String(consCountDraft[r.key]==null?'':consCountDraft[r.key]).trim()==='')+'</td></tr>').join('')||
    '<tr><td colspan="10" class="mut">No spacers, sealants, gas or IGU parts in Master Data.</td></tr>')+'</tbody></table></div>';
 }
 function consPackUi(key,v){const r=consSetPack(key,v);consNotice=r.ok?'':r.error;render();}
+/* Во что покупают (владелец, 26.10.2026: «в боксах, в метрах, в кг —
+   настрою в интерфейсе»): 1 единица закупки = N единиц склада. Первая
+   строка — «в упаковке» карточки. Метры, дюймы, фунты переводятся сами. */
+function consPacksHTML(r){
+ const draft=consPackNew&&consPackNew.key===r.key?consPackNew.packs:null,list=draft||(r.packs.length?r.packs:[{unit:'box',qty:null}]),arg=invArg(r.key),saved=!!(draft||r.packs.length);
+ const opts=u=>MD_UNITS.filter(m=>m.code!==r.unit).map(m=>'<option value="'+m.code+'"'+(m.code===u?' selected':'')+'>'+esc(m.nameEn)+'</option>').join('');
+ return list.map((p,i)=>'<div class="cons-pack" data-cons-pack-row>1 <select aria-label="Bought in" data-cons-pack-unit onchange="consPackEdit('+arg+','+i+',\'unit\',this.value)">'+opts(p.unit)+'</select> = '+
+  '<input type="number" min="0" step="any" class="inv-min" '+(i===0?'data-cons-pack="'+esc(r.key)+'" ':'')+'data-cons-pack-qty value="'+(p.qty==null?'':p.qty)+'" placeholder="—" onchange="'+(saved?'consPackEdit('+arg+','+i+',\'qty\',this.value)':'consPackUi('+arg+',this.value)')+'"> <span class="mut">'+esc(r.unit)+'</span>'+
+  (i?' <button type="button" class="sm dl" aria-label="Remove" onclick="consPackEdit('+arg+','+i+',\'del\')">×</button>':'')+'</div>').join('')+
+  (saved?'<button type="button" class="sm" data-cons-pack-add onclick="consPackEdit('+arg+','+list.length+',\'add\')">+ Unit</button>':'');
+}
+let consPackNew=null;/* новая строка «Bought in», пока у неё нет числа */
+function consPackEdit(key,i,what,v){
+ const r=consRows().find(x=>x.key===key);if(!r)return;const packs=r.packs.map(p=>Object.assign({},p));
+ if(what==='add'){const free=MD_UNITS.find(m=>m.code!==r.unit&&!packs.some(p=>p.unit===m.code));if(free)packs.push({unit:free.code,qty:null});consPackNew={key,packs};render();return;}
+ const src=consPackNew&&consPackNew.key===key?consPackNew.packs:packs.length?packs:[{unit:'box',qty:null}];if(!src[i])return;
+ if(what==='del')src.splice(i,1);else src[i][what]=what==='qty'?v:v;
+ if(what!=='del'&&src.some(p=>p.qty==null||p.qty==='')){consPackNew={key,packs:src};render();return;}
+ consPackNew=null;const out=consSetPacks(key,src);consNotice=out.ok?'':out.error;render();
+}
 function consCountSaveUi(){
  const counts={};Object.entries(consCountDraft).forEach(([k,v])=>{if(String(v).trim()!=='')counts[k]=v;});
  const r=consCountSave(counts,consCountWhy);consNotice=r.ok?'':r.error;if(r.ok){consCountDraft={};consCountWhy={};}render();

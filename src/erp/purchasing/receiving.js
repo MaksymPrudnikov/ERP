@@ -14,7 +14,9 @@ function purFulfilFind(kind,id){return (DB[PUR_FULFIL[kind].key]||[]).find(x=>x.
 function purFulfilLine(x,i){
  x=x||{};const l={};
  ['id','poLineId','requestLineId','kind','productId','productCode','sheetId','table','itemId','description','unit','reason','resolution','note'].forEach(k=>l[k]=purText(x[k]));l.id=l.id||'line-'+(i+1);
- ['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>l[k]=purNumber(x[k]));l.replacement=!!x.replacement;return l;
+ ['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>l[k]=purNumber(x[k]));l.replacement=!!x.replacement;
+ /* Расходник: сколько единиц склада в единице строки — на день приёмки. */
+ const per=purNumber(x.stockPer);if(per!=null&&per>0)l.stockPer=per;return l;
 }
 function purFulfilClean(x){
  const d={};['id','number','poId','requestId','supplierId','supplierName','date','expectedDate','receivedBy','packingSlip','to','cc','note','createdAt','createdBy','createdById','updatedAt','updatedBy','updatedById','voidAt','sentAt'].forEach(k=>d[k]=purText(x[k]));
@@ -73,6 +75,12 @@ function purFulfilSave(kind,raw){
    /* Листы стекла — до 10 000 в строке (INV_SHEETS_MAX, erp/inventory). */
    const sheets=['glass','sheet'].includes(l.kind)?['actualSheets','damagedSheets'].concat(['sheet','block'].includes(purUnit(l.unit))?['qty','damaged']:[]):[];
    if(sheets.some(k=>l[k]>INV_SHEETS_MAX))throw new Error('Line '+(i+1)+': up to 10,000 sheets.');});
+  /* Пересчёт расходника в единицу склада запоминается в строке (аудит
+     25.10.2026, I-2): смена упаковки в карточке прошлые приёмки не меняет.
+     Та же строка с той же единицей при правке — прежний пересчёт. */
+  if(typeof consPerUnitOf==='function')d.lines.forEach(l=>{if(l.kind!=='stock'||!consUnitOf(l.table)||!l.itemId)return;
+   const was=old&&old.lines.find(x=>x.id===l.id&&x.table===l.table&&x.itemId===l.itemId&&x.unit===l.unit&&x.stockPer!=null);
+   const per=was?was.stockPer:consPerUnitOf(mdById(l.table,l.itemId),l.table,l.unit);if(per!=null)l.stockPer=per;else delete l.stockPer;});
   const now=new Date().toISOString(),actor=orderLogActor();d.id=old?old.id:salesUid(c.prefix);d.number=old?old.number:c.prefix+'-'+String(++DB[c.seq]).padStart(4,'0');
   d.createdAt=old?old.createdAt:now;d.createdBy=old?old.createdBy:actor.by;d.createdById=old?old.createdById:actor.byId;d.updatedAt=now;d.updatedBy=actor.by;d.updatedById=actor.byId;d.rev=old?old.rev+1:1;d.voidAt='';d.sentAt=old?old.sentAt:'';
   const changes=['poId','requestId','supplierId','supplierName','date','expectedDate','receivedBy','packingSlip','to','cc','note','lines'].filter(k=>JSON.stringify(old&&old[k])!==JSON.stringify(d[k])).map(k=>({field:k,label:stkHuman(k),before:old?old[k]:null,after:d[k]}));
