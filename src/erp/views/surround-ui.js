@@ -28,7 +28,7 @@ function mdRecipeCard(r){
   ?`<td colspan="2" class="mut">${x.part==='spacer'?'Weight from the spacer card':'Density from the gas card × cavity volume'}</td>`
   :`<td><input type="number" min="0" step="any" style="width:90px" value="${x.amount==null?'':x.amount}" placeholder="unknown" onchange="mdRecipeRowSet('${esc(r.id)}',${i},'amount',this.value)"></td>
     <td><select onchange="mdRecipeRowSet('${esc(r.id)}',${i},'per',this.value)">${Object.keys(SURROUND_PER).map(k=>`<option value="${k}" ${k===x.per?'selected':''}>${esc(SURROUND_PER[k])}</option>`).join('')}</select></td>`;
- return `<div class="card" data-recipe="${esc(r.id)}" style="margin:12px 0">
+ return `<div class="card" data-recipe="${esc(r.id)}" data-md-row="surroundRecipe:${esc(r.id)}" style="margin:12px 0">
   <div class="grid">
    <div><label>Recipe name</label><input value="${esc(r.name)}" onchange="mdRecipeSet('${esc(r.id)}','name',this.value)"></div>
    <div><label>PIB per side, mm</label><input type="number" min="0" step="any" value="${r.pibPerSideMm==null?'':r.pibPerSideMm}" placeholder="unknown" onchange="mdRecipeSet('${esc(r.id)}','pibPerSideMm',this.value)"><div class="hint">Adds to unit thickness on both sides of the spacer.</div></div>
