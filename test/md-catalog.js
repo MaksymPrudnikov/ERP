@@ -67,7 +67,7 @@ module.exports=async function({page,eq}){
   const more=document.querySelector('[data-md-more]');if(more)more.click();const next=document.querySelectorAll('[data-md-search] tbody tr').length;mdCatalogQuery='';
   mdCatalogGo('hardwareModel');const order=[...document.querySelectorAll('.section-title h3')].map(h=>h.textContent);
   return {glass,counts,gasNew,paged:found>MD_PAGE?[first,next]:[found,found],order};
- }),await t.p.evaluate(()=>{const found=mdCatalogSearch('a').length;return {glass:[1,3,true],counts:{glass:['No price'],gas:['No price'],spacer:['No price','No weight','Not measured','No recipe'],works:['No station'],hw:[]},gasNew:true,
+ }),await t.p.evaluate(()=>{const found=mdCatalogSearch('a').length;return {glass:[1,4,true],counts:{glass:['No price'],gas:['No price'],spacer:['No price','No weight','Not measured','No recipe'],works:['No station'],hw:[]},gasNew:true,
   paged:found>MD_PAGE?[MD_PAGE,Math.min(found,2*MD_PAGE)]:[found,found],order:['Models','Kinds']};}));
  eq('catalog search finds a row in any table; Open goes to its card',await t.p.evaluate(()=>{
   mdSetTab('materials');mdCatalogQuery='argon';render();
