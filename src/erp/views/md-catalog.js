@@ -104,8 +104,10 @@ function mdPeekHTML(){
   <div class="md-peek-sec">Last change</div><div class="mut">${last?raw(last.what+(last.field?' · '+last.field:'')+' · '+(last.by||'—')+' · '+String(last.at).slice(0,10)):'No changes logged'}</div>
   <div class="row"><button class="pri" onclick="mdCatalogOpen('${esc(t)}','${esc(id)}')">${t==='surroundRecipe'?'Open recipe':'Open card'}</button><button onclick="mdPeek='';render()">Close</button></div></aside>`;
 }
+/* Открыта карточка строки каталога (форма своего списка). */
+function mdCardOpen(){return mdEdit!==null||mdSheetEdit!==null||mdSpacerEdit!==null||mdCatEdit!==null||mdHwKindEdit!==null||mdHwModelEdit!==null;}
 function viewMdCatalog(){
- const node=mdCatalogNode(),open=mdEdit!==null||mdSheetEdit!==null||mdSpacerEdit!==null||mdCatEdit!==null||mdHwKindEdit!==null||mdHwModelEdit!==null;
+ const node=mdCatalogNode(),open=mdCardOpen();
  const tree=MD_CATALOG_TREE.map(([g,nodes])=>`<div class="md-tree-group">${esc(g)}</div>`+nodes.map(([k,label])=>`<button type="button" class="${k===node?'on':''}" data-md-node="${k}" onclick="mdCatalogGo('${k}')">${esc(label)} <span class="mut">${mdCatalogCount(k)}</span></button>`).join('')).join('');
  const label=(MD_CATALOG_TREE.flatMap(g=>g[1]).find(n=>n[0]===node)||[])[1]||'';
  const health=mdCatalogHealth().map(([k,n])=>`<span class="pill ${n?'warn':'ok'}">${esc(k)} ${n}</span>`).join(' ');

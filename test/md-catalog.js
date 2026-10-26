@@ -28,6 +28,14 @@ module.exports=async function({page,eq}){
  }),await t.p.evaluate(()=>({supply:'glassSheet:'+DB.glassSheet[0].id,supplyFacts:['Glass','Supplier','Sheet'],noPrice:true,sheetForm:true,
   row:'hardwareModel:'+DB.hardwareModel[0].id,hw:true,recipe:'surroundRecipe:'+DB.surroundRecipe[0].id,on:true,
   unknown:DB.surroundRecipe.some(r=>r.rows.some(x=>x.part!=='spacer'&&x.part!=='gas'&&x.amount==null))?{null:false,warn:true}:null})));
+ /* Аудит 25.10.2026, D-3: плитки каталога — только в обзоре Catalog. */
+ eq('catalog tiles only on the catalog overview: not over other sections, an open card or a search',await t.p.evaluate(()=>{
+  const kpi=()=>!!document.querySelector('[data-md-kpi]');tab='masterdata';mdCatalogGo('glassProduct');const over=kpi();
+  mdGlassEdit(DB.glassProduct[0].id);render();const card=kpi();mdEdit=null;
+  mdCatalogQuery='argon';render();const search=kpi();mdCatalogQuery='';
+  const other=['prices','company','setup','trucks'].map(k=>{mdSetTab(k);render();return kpi();});mdSetTab('materials');render();
+  return {over,card,search,other};
+ }),{over:true,card:false,search:false,other:[false,false,false,false]});
  eq('catalog search finds a row in any table; Open goes to its card',await t.p.evaluate(()=>{
   mdSetTab('materials');mdCatalogQuery='argon';render();
   const rows=document.querySelectorAll('[data-md-search] tbody tr').length;
