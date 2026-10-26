@@ -23,9 +23,12 @@ module.exports=async function({page,eq}){
   mdCatalogGo('hardwareModel');const tree=peekOf('[data-md-hw-model="'+m.id+'"]'),treeForm=mdHwModelEdit;
   const row=peekOf('[data-md-row="hardwareModel:'+m.id+'"] td'),hwFacts=facts();
   mdCatalogGo('surroundRecipe');const recipe=peekOf('[data-md-row="surroundRecipe:'+rc.id+'"] label'),btn=[...document.querySelectorAll('[data-md-peek] button')].find(b=>b.textContent==='Open recipe');btn.click();
-  return {supply,supplyFacts:supplyFacts.slice(0,3),noPrice,sheetForm,tree,treeForm,row,hw:hwFacts.includes('Kind')&&hwFacts.includes('On drawings'),recipe,on:!!document.querySelector('[data-recipe="'+rc.id+'"].md-recipe-on')};
+  const empty=DB.surroundRecipe.find(r=>r.rows.some(x=>x.part!=='spacer'&&x.part!=='gas'&&x.amount==null));let unknown=null;
+  if(empty){mdPeek='surroundRecipe:'+empty.id;render();const p=document.querySelector('[data-md-peek]');unknown={null:/null/.test(p.textContent),warn:/norm missing/.test(p.textContent)};}
+  return {supply,supplyFacts:supplyFacts.slice(0,3),noPrice,sheetForm,tree,treeForm,row,hw:hwFacts.includes('Kind')&&hwFacts.includes('On drawings'),recipe,on:!!document.querySelector('[data-recipe="'+rc.id+'"].md-recipe-on'),unknown};
  }),await t.p.evaluate(()=>({supply:'glassSheet:'+DB.glassSheet[0].id,supplyFacts:['Glass','Supplier','Sheet'],noPrice:true,sheetForm:true,tree:'hardwareModel:'+DB.hardwareModel[0].id,treeForm:null,
-  row:'hardwareModel:'+DB.hardwareModel[0].id,hw:true,recipe:'surroundRecipe:'+DB.surroundRecipe[0].id,on:true})));
+  row:'hardwareModel:'+DB.hardwareModel[0].id,hw:true,recipe:'surroundRecipe:'+DB.surroundRecipe[0].id,on:true,
+  unknown:DB.surroundRecipe.some(r=>r.rows.some(x=>x.part!=='spacer'&&x.part!=='gas'&&x.amount==null))?{null:false,warn:true}:null})));
  eq('catalog search finds a row in any table; Open goes to its card',await t.p.evaluate(()=>{
   mdSetTab('materials');mdCatalogQuery='argon';render();
   const rows=document.querySelectorAll('[data-md-search] tbody tr').length;
