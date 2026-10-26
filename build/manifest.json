@@ -150,6 +150,7 @@
   "src/erp/inventory/sheets.js",
   "src/erp/inventory/offcuts.js",
   "src/erp/inventory/consumables.js",
+  "src/erp/inventory/stock-reasons.js",
   "src/erp/views/glass-batches.js",
   "src/erp/quality/reasons.js",
   "src/erp/views/ncr-reasons-ui.js",

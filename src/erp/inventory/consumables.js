@@ -84,17 +84,26 @@ function consRows(){
 }
 function consNumber(v,label){const s=String(v==null?'':v).trim(),n=Number(s);if(!s||!Number.isFinite(n)||n<0)throw new Error(label+': enter 0 or more.');return n;}
 /* Пересчёт: разница с остатком — запись «было → стало», отход по факту. */
-function consCountSave(counts){
+function consCountSave(counts,why){
  return invPersist(()=>{
   const rows=new Map(consRows().map(r=>[r.key,r])),now=new Date().toISOString(),actor=orderLogActor(),out=[];
   Object.entries(counts||{}).forEach(([key,v])=>{
    const r=rows.get(key);if(!r)throw new Error('Item not found. Reopen the count.');
    const n=consNumber(v,r.name),before=Math.round(r.onHand*1000)/1000;
-   const e={id:salesUid('CE'),key,qty:n-r.onHand,before,after:n,at:now,by:actor.by,byId:actor.byId};
+   const e=Object.assign({id:salesUid('CE'),key,qty:n-r.onHand,before,after:n},stockReasonOf(why&&why[key]),{at:now,by:actor.by,byId:actor.byId});
    DB.consumableEvent.push(e);out.push(e);
   });
   if(!out.length)throw new Error('Enter at least one count.');
   return out;
+ });
+}
+/* Строки журнала Inventory: пересчёт расходника — было → стало, причина. */
+function consCountMoves(){
+ const q=v=>(Math.round(v*100)/100).toLocaleString('en-US',{maximumFractionDigits:2});
+ return (DB.consumableEvent||[]).map(e=>{
+  const[t,...id]=String(e.key).split(':'),x=mdById(t,id.join(':')),unit=consUnitOf(t);
+  return {id:e.id,kind:'Count',cons:true,code:x?x.code||'':'',name:x?x.name:id.join(':'),key:e.key,w:0,h:0,ref:'',day:salesListIsoDay(e.at),at:e.at,rack:Math.round(e.qty*100)/100,layout:null,by:e.by||'',
+   note:['Was '+q(e.before)+' '+unit+' → '+q(e.after)+' '+unit,e.reason,e.note].filter(Boolean).join(' · ')};
  });
 }
 /* В упаковке — в карточке айтема (packQty), правка отсюда же. */

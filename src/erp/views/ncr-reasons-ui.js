@@ -47,3 +47,18 @@ function viewMdNcr(){
   </div>
  </div>`;
 }
+
+/* Data → Production → Stock reasons (erp/inventory/stock-reasons): причины
+   разницы при пересчёте склада. Как причины NCR: добавить, переименовать,
+   выключить; удаления нет. */
+let stockReasonNew='',stockReasonError='';
+function viewMdStockReasons(){
+ const rows=(DB.stockReason||[]).map(r=>`<tr data-stock-reason="${esc(r.id)}" class="${r.active?'':'ncr-off'}"><td><input class="ncr-name-input" data-stock-reason-name value="${esc(r.name)}" maxlength="80" aria-label="Reason" onchange="stockReasonError=stockReasonRename('${esc(r.id)}',this.value);render()"></td>
+  <td class="ncr-active"><label class="ncr-switch"><input type="checkbox" data-stock-reason-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="stockReasonError=stockReasonSetActive('${esc(r.id)}',this.checked);render()"><span></span></label></td></tr>`).join('');
+ return `<div class="card ncr-main" data-stock-reasons>
+  <div class="ncr-head"><div><div class="ncr-label">STOCK COUNT</div><h3>Reasons</h3><p>Shown when a count differs.</p></div>
+   <div class="ncr-add"><input data-stock-reason-new maxlength="80" placeholder="New reason" aria-label="New reason" value="${esc(stockReasonNew)}" oninput="stockReasonNew=this.value" onkeydown="if(event.key==='Enter')stockReasonAddUi()"><button type="button" class="pri" data-stock-reason-add onclick="stockReasonAddUi()">+ Add</button></div></div>
+  ${stockReasonError?`<div class="ncr-error" role="alert">${esc(stockReasonError)}</div>`:''}
+  <table class="ncr-table"><thead><tr><th>Reason</th><th>Active</th></tr></thead><tbody>${rows||'<tr><td colspan="2" class="empty">No reasons yet.</td></tr>'}</tbody></table></div>`;
+}
+function stockReasonAddUi(){stockReasonError=stockReasonAdd(stockReasonNew);if(!stockReasonError)stockReasonNew='';render();}

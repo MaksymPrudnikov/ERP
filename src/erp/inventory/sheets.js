@@ -257,7 +257,9 @@ function invMoves(){
   if(x.undoneAt)add({id:'SBU|'+x.id,kind:'Undo sheet broke',ref:x.batch+' · sheet '+x.sheet,batch:x.batch,day:salesListIsoDay(x.undoneAt),at:x.undoneAt,rack:1,by:x.undoneBy},x.glass,size);
  });
  (DB.inventoryEvent||[]).filter(e=>INV_SHEET_KINDS.includes(e.kind)).forEach(e=>add({id:e.id,kind:e.kind==='count'?'Count':e.kind==='add'?'Add':'Write off',ref:'',day:salesListIsoDay(e.at),at:e.at,rack:e.qty,by:e.by,
-  note:e.kind==='count'?'Was '+e.before+' → '+e.after:[e.reason,e.note].filter(Boolean).join(' · ')},e.glass,invSize(e.w,e.h)));
+  note:[e.kind==='count'?'Was '+e.before+' → '+e.after:'',e.reason,e.note].filter(Boolean).join(' · ')},e.glass,invSize(e.w,e.h)));
+ /* Пересчёт расходников — в том же журнале, с причиной и заметкой. */
+ if(typeof consCountMoves==='function')consCountMoves().forEach(m=>out.push(m));
  if(typeof invOffcutMoves==='function')invOffcutMoves().forEach(m=>out.push(m));
  return out.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
 }
@@ -281,13 +283,14 @@ function invCountNewRow(key){
  const [code,dim]=String(key).split('|'),[w,h]=String(dim||'').split('x'),g=glassProductByCode(code),z=invSize(w,h);
  return g&&g.cut!==false&&z?{code:g.code,w:z.w,h:z.h,onRack:0,sizeMissing:false}:null;
 }
-function invCountSave(counts){
+/* why — {ключ: {reason, note}} строк пересчёта (erp/inventory/stock-reasons). */
+function invCountSave(counts,why){
  return invPersist(()=>{
   const rows=new Map(invSheetRows().map(r=>[r.key,r])),now=new Date().toISOString(),actor=orderLogActor(),out=[];
   Object.entries(counts||{}).forEach(([key,v])=>{
    const r=rows.get(key)||invCountNewRow(key);if(!r||r.sizeMissing)throw new Error('Glass or sheet size not found. Reopen the count.');
    const n=invWhole(v,r.code+' '+invSizeText(r));
-   const e={id:salesUid('IE'),kind:'count',glass:r.code,w:r.w,h:r.h,qty:n-r.onRack,before:r.onRack,after:n,reason:'',note:'',at:now,by:actor.by,byId:actor.byId};
+   const e=Object.assign({id:salesUid('IE'),kind:'count',glass:r.code,w:r.w,h:r.h,qty:n-r.onRack,before:r.onRack,after:n},stockReasonOf(why&&why[key]),{at:now,by:actor.by,byId:actor.byId});
    DB.inventoryEvent.push(e);out.push(e);
   });
   if(!out.length)throw new Error('Enter at least one count.');

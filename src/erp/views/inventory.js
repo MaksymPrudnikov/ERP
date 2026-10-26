@@ -14,7 +14,7 @@
    Offcuts (PR 2) — куски S-: где лежит, возраст, пересчёт Not found и
    Found; ушедшие куски скрыты, пока не отмечено «Show used and written off».
    ===================================================================== */
-let invView='sheets',invCountDraft={},invJournalKey='',invMoveDraft=null,invNotice='',invPages={},invOffcutLostDraft=new Set(),invOffcutAll=false;
+let invView='sheets',invCountDraft={},invCountWhy={},invJournalKey='',invMoveDraft=null,invNotice='',invPages={},invOffcutLostDraft=new Set(),invOffcutAll=false;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>Object.keys(invCountDraft).length>0||consCountDirty()||!!invMoveDraft||invOffcutLostDraft.size>0);
 const INV_VIEWS=[['sheets','Sheets'],['sizes','Sheet sizes'],['consumables','Consumables'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
@@ -26,11 +26,11 @@ function invArg(v){return esc(JSON.stringify(String(v)));}
 function invNav(){return '<div class="tabs inv-tabs" data-inv-sections>'+INV_VIEWS.map(([k,n])=>'<button type="button" class="'+(k===invView?'on':'')+'" data-inv-section="'+k+'" onclick="invGo(\''+k+'\')">'+n+'</button>').join('')+'</div>';}
 /* Раздел — с чистого листа: фильтр журнала по стеклу ставит только
    строка дашборда (аудит 15.10.2026: он оставался и при входе из меню). */
-function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';consNotice='';consCountDraft={};invNotice='';invMoveDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
+function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';consNotice='';consCountDraft={};consCountWhy={};invNotice='';invMoveDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
 /* Пересчёт листов и расходников — один вопрос (аудит 25.10.2026, I-6). */
 function invCountLeave(){
  if((Object.keys(invCountDraft).length||consCountDirty())&&!confirm('Discard counts you have not saved?'))return false;
- invCountDraft={};consCountDraft={};return true;
+ invCountDraft={};invCountWhy={};consCountDraft={};consCountWhy={};return true;
 }
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(to=>tab==='inventory'&&to!=='inventory'&&!invCountLeave());
 
@@ -53,7 +53,7 @@ function invRowInfos(){
   held:r.held,onOrder:r.onOrder,lastCount:r.lastCount?salesListIsoDay(r.lastCount.at):'',status:r.status}}));
 }
 function invMoveInfos(){
- return invMoves().filter(m=>!invJournalKey||m.key===invJournalKey).map(m=>({o:{id:m.id,createdAt:m.at},m,memo:{day:m.day,glass:m.name||m.code,code:m.code,size:invSizeText(m),kind:m.kind,ref:m.ref,rack:m.rack,by:m.by,note:m.note}}));
+ return invMoves().filter(m=>!invJournalKey||m.key===invJournalKey).map(m=>({o:{id:m.id,createdAt:m.at},m,memo:{day:m.day,glass:m.name||m.code,code:m.code,size:m.cons?'':invSizeText(m),kind:m.kind,ref:m.ref,rack:m.rack,by:m.by,note:m.note}}));
 }
 function invPageState(rows){
  const scope=invListScope(),p=salesListLoadPrefs(),signature=JSON.stringify([p.filters,p.sort,invJournalKey]);
@@ -179,12 +179,21 @@ function invCountInput(key,value,el){
  if(String(value).trim()==='')delete invCountDraft[key];else invCountDraft[key]=value;
  const r=el&&el.closest('tr'),d=r&&r.querySelector('[data-inv-diff]'),rack=el?+el.dataset.rack:0,n=Number(value);
  if(d)d.textContent=String(value).trim()!==''&&Number.isFinite(n)&&n!==rack?(n>rack?'+':'−')+Math.abs(n-rack):'';
+ const box=r&&r.querySelector('[data-inv-why]');if(box)box.hidden=!(d&&d.textContent);
  const s=document.querySelector('[data-inv-count-n]');if(s)s.textContent=Object.keys(invCountDraft).length;
 }
+/* Причина и заметка разницы (erp/inventory/stock-reasons): не обязательны,
+   видны, когда в строке есть разница. */
+function invWhyHTML(drafts,store,key,hide){
+ const w=drafts[key]||{},list=stockReasonsActive().concat(w.reason&&!stockReasonsActive().includes(w.reason)?[w.reason]:[]);
+ const set=(k,el)=>store+'['+invArg(key)+']=Object.assign('+store+'['+invArg(key)+']||{},{'+k+':'+el+'.value})';
+ return '<span class="inv-why" data-inv-why'+(hide?' hidden':'')+'><select aria-label="Reason" data-inv-why-reason onchange="'+set('reason','this')+'"><option value="">Reason…</option>'+list.map(x=>'<option'+(x===w.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select>'+
+  '<input type="text" maxlength="200" aria-label="Note" placeholder="Note" data-inv-why-note value="'+esc(w.note||'')+'" oninput="'+set('note','this')+'"></span>';
+}
 function invCountSaveUi(){
- const r=invCountSave(invCountDraft);
+ const r=invCountSave(invCountDraft,invCountWhy);
  if(!r.ok){invNotice=r.error;render();return;}
- invNotice='';invCountDraft={};render();
+ invNotice='';invCountDraft={};invCountWhy={};render();
 }
 function invCountCell(i,c){
  const r=i.r,v=salesListValue(i,c.k);
@@ -197,6 +206,7 @@ function invCountExtra(i){
  const r=i.r;if(r.sizeMissing)return '<td class="mut">Size missing</td>';
  const v=invCountDraft[r.key]==null?'':invCountDraft[r.key],n=Number(v),diff=v!==''&&Number.isFinite(n)&&n!==r.onRack?(n>r.onRack?'+':'−')+Math.abs(n-r.onRack):'';
  return '<td class="inv-count-cell"><input type="number" min="0" step="1" inputmode="numeric" class="inv-count" data-inv-count="'+esc(r.key)+'" data-rack="'+r.onRack+'" aria-label="Counted sheets" value="'+esc(v)+'" oninput="invCountInput('+invArg(r.key)+',this.value,this)"><span class="inv-diff" data-inv-diff>'+esc(diff)+'</span>'+
+  invWhyHTML(invCountWhy,'invCountWhy',r.key,!diff)+
   '<button type="button" class="sl-quiet sm" data-inv-writeoff onclick="invMoveOpen('+invArg(r.key)+',\'writeoff\')">Write off</button></td>';
 }
 /* Движение листов одной строки или новое стекло на пирамиде (владелец,
@@ -229,7 +239,7 @@ function invMovePickHTML(f){
 }
 function invMoveHTML(){
  const d=invMoveDraft;if(!d)return '';const r=d.key?invRowFind(d.key):null;if(d.key&&!r)return '';
- const [title,btn]=INV_MOVE[d.kind],reasons=d.kind==='add'?INV_ADD:d.kind==='writeoff'?INV_WRITE_OFF:null;
+ const [title,btn]=INV_MOVE[d.kind],reasons=d.kind==='add'?INV_ADD:d.kind==='writeoff'?INV_WRITE_OFF:stockReasonsActive();
  return '<section class="card inv-writeoff" data-inv-writeoff-form data-inv-move="'+esc(d.kind)+'"><h3>'+(r?esc(title)+' · '+esc(r.code)+' '+esc(invSizeText(r))+' <span class="mut">· on rack '+esc(r.onRack)+'</span>':'Glass on rack')+'</h3><div class="inv-wo-fields">'+
   (r?'':invMovePickHTML(d.pick)+'</div><div class="inv-wo-fields inv-mv-row">')+
   '<label>'+(d.kind==='count'?'On the rack':'Sheets')+'<input id="inv_wo_qty" type="number" min="'+(d.kind==='count'?0:1)+'" step="1" inputmode="numeric" value="'+esc(d.qty)+'" oninput="invMoveDraft.qty=this.value"></label>'+
@@ -246,7 +256,7 @@ function invMoveSave(){
   key=invKey(g.code,size);
  }
  if(d.kind==='count'&&String(d.qty).trim()===''){invNotice='Enter sheets on the rack.';render();return;}
- const r=d.kind==='add'?invAdd(key,d.qty,d.reason,d.note):d.kind==='writeoff'?invWriteOff(key,d.qty,d.reason,d.note):invCountSave({[key]:d.qty});
+ const r=d.kind==='add'?invAdd(key,d.qty,d.reason,d.note):d.kind==='writeoff'?invWriteOff(key,d.qty,d.reason,d.note):invCountSave({[key]:d.qty},{[key]:{reason:d.reason,note:d.note}});
  if(!r.ok){invNotice=r.error;render();return;}
  invMoveDraft=null;invNotice='';render();
 }
@@ -311,7 +321,7 @@ function invSizeRemoveUi(key){if(!confirm('Remove this sheet size?'))return;cons
 
 /* Расходники обвязки (erp/inventory/consumables): приход, расход на скане
    IGU, резерв сохранённых заказов, пересчёт. */
-let consCountDraft={},consNotice='';
+let consCountDraft={},consCountWhy={},consNotice='';
 function consCountDirty(){return Object.values(consCountDraft).some(v=>String(v).trim()!=='');}
 function consQty(v,unit){return (Math.round(v*100)/100).toLocaleString('en-US',{maximumFractionDigits:2})+' '+unit;}
 function invConsumablesView(){
@@ -323,13 +333,13 @@ function invConsumablesView(){
    '<td><input type="number" min="0" step="any" class="inv-min" data-cons-pack="'+esc(r.key)+'" value="'+(r.pack==null?'':r.pack)+'" placeholder="—" onchange="consPackUi('+invArg(r.key)+',this.value)"> <span class="mut">'+esc(r.unit)+'</span></td>'+
    ['received','used','adjust','onHand','reserved','free'].map(k=>'<td class="n" data-cons-'+k+'>'+esc(consQty(r[k],r.unit))+'</td>').join('')+
    '<td><span class="pill '+(tone[r.status]||'')+'">'+esc(r.status)+'</span></td>'+
-   '<td><input type="number" min="0" step="any" class="inv-min" data-cons-count="'+esc(r.key)+'" value="'+(consCountDraft[r.key]==null?'':esc(consCountDraft[r.key]))+'" oninput="consCountDraft['+invArg(r.key)+']=this.value"></td></tr>').join('')||
+   '<td class="inv-count-cell"><input type="number" min="0" step="any" class="inv-min" data-cons-count="'+esc(r.key)+'" value="'+(consCountDraft[r.key]==null?'':esc(consCountDraft[r.key]))+'" oninput="consCountDraft['+invArg(r.key)+']=this.value;const b=this.parentNode.querySelector(\'[data-inv-why]\');if(b)b.hidden=this.value.trim()===\'\'">'+invWhyHTML(consCountWhy,'consCountWhy',r.key,String(consCountDraft[r.key]==null?'':consCountDraft[r.key]).trim()==='')+'</td></tr>').join('')||
    '<tr><td colspan="10" class="mut">No spacers, sealants, gas or IGU parts in Master Data.</td></tr>')+'</tbody></table></div>';
 }
 function consPackUi(key,v){const r=consSetPack(key,v);consNotice=r.ok?'':r.error;render();}
 function consCountSaveUi(){
  const counts={};Object.entries(consCountDraft).forEach(([k,v])=>{if(String(v).trim()!=='')counts[k]=v;});
- const r=consCountSave(counts);consNotice=r.ok?'':r.error;if(r.ok)consCountDraft={};render();
+ const r=consCountSave(counts,consCountWhy);consNotice=r.ok?'':r.error;if(r.ok){consCountDraft={};consCountWhy={};}render();
 }
 
 function viewInventory(){

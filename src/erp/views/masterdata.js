@@ -33,6 +33,7 @@ const MD_TABS=[
  {k:'carriers',  label:'Dollies & Skids'},
  {k:'trucks',    label:'Trucks'},
  {k:'ncr',       label:'NCR'},
+ {k:'stockreasons',label:'Stock reasons'},
  {k:'setup',     label:'Setup'},
  {k:'overview',  label:'Data overview'}
 ];
@@ -42,7 +43,7 @@ const MD_TABS=[
 const MD_SECTIONS=[
  {k:'catalog',   label:'Catalog',         tabs:['materials','works','hardware']},
  {k:'prices',    label:'Prices',          tabs:['prices']},
- {k:'production',label:'Production',      tabs:['stations','cutting','carriers','ncr']},
+ {k:'production',label:'Production',      tabs:['stations','cutting','carriers','ncr','stockreasons']},
  {k:'shipping',  label:'Shipping',        tabs:['trucks']},
  {k:'print',     label:'Company & print', tabs:['company','stickers']},
  {k:'setup',     label:'Setup',           tabs:['setup','overview']}
@@ -108,7 +109,7 @@ function viewMasterData(){
   <div class="card">
    <div class="tabs" data-md-sections>${MD_SECTIONS.map(s=>`<button class="${s.tabs.includes(mdTab)?'on':''}" data-md-section="${s.k}" onclick="mdSetTab('${s.tabs[0]}')">${s.label}</button>`).join('')}</div>
    ${sec.k!=='catalog'&&sec.tabs.length>1?`<div class="md-mat-subs" data-md-subtabs>${sec.tabs.map(k=>`<button class="sm ${mdTab===k?'on':''}" onclick="mdSetTab('${k}')">${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div>`:''}
-   ${sec.k==='catalog'?viewMdCatalog():({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
+   ${sec.k==='catalog'?viewMdCatalog():({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'&&(mdMatView==='glassProduct'||accessCost())?mdImportCard():''}`;
 }

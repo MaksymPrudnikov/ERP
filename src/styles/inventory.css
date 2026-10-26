@@ -32,3 +32,5 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 .inv-mv-row{margin-top:10px}.inv-mv-size{display:flex;align-items:center;gap:6px}.inv-mv-size input{width:80px}
 .inv-tabs{margin:0;flex-wrap:wrap}
 .inv-acts [data-inv-add],.inv-acts [data-inv-remove]{min-width:30px;font-size:16px;font-weight:600}
+/* Причина и заметка разницы пересчёта (erp/inventory/stock-reasons). */
+.inv-why{display:inline-flex;gap:6px;margin-right:8px;vertical-align:middle}.inv-why[hidden]{display:none}.inv-why select{max-width:150px}.inv-why input{width:140px}

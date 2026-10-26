@@ -86,6 +86,12 @@ module.exports=async function({page,eq}){
   }finally{window.confirm=c;}
  },k),{unsaved:true,asked:['Discard counts you have not saved?','Discard counts you have not saved?'],kept:{view:'consumables',value:'17'},left:'sheets',draft:false});
 
+ eq('a consumables count keeps its reason and note and shows in the Inventory journal',await t.p.evaluate(()=>{
+  csReset();oqOrder(oqCustomer({}));const k=csSpacer().key;csRec(k,30,'ft');
+  const e=consCountSave({[k]:'20'},{[k]:{reason:'Miscount',note:'second shelf'}}).value[0],m=invMoves().find(x=>x.id===e.id);
+  return {ev:[e.reason,e.note],row:m&&[m.kind,m.note]};
+ }),{ev:['Miscount','second shelf'],row:['Count','Was 30 ft → 20 ft · Miscount · second shelf']});
+
  eq('an inactive consumable with a count keeps its row, marked inactive',await t.p.evaluate(()=>{
   csReset();const sp=DB.spacerVariant.find(x=>x.active!==false&&!consRows().find(r=>r.key===consKey('spacerVariant',x.id)&&(r.received||r.used||r.reserved))),k=consKey('spacerVariant',sp.id);
   consCountSave({[k]:'17'});sp.active=false;const r=consRows().find(x=>x.key===k);

@@ -26,7 +26,7 @@ const MD_LOG_TABLES={
  hardwareKind:'Hardware kinds',hardwareModel:'Hardware models',materialWeightRates:'Weight norms',
  edgeAllowance:'Cutting allowance',station:'Stations',ncrReason:'NCR reasons',carrier:'Dollies & Skids',truck:'Trucks',
  priceList:'Price lists',itemGroup:'Item groups',
- spacerSystem:'Spacer systems',surroundRecipe:'Surround recipes',iguPart:'IGU parts'
+ spacerSystem:'Spacer systems',surroundRecipe:'Surround recipes',iguPart:'IGU parts',stockReason:'Stock reasons'
 };
 const MD_LOG_SETTINGS={cutting:'Cutting',company:'Company',stickerTemplate:'Stickers',orderSetup:'Setup'};
 const MD_LOG_TEXT=120;
