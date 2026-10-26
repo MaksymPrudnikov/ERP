@@ -132,7 +132,9 @@ function salesListCleanFilter(k,f){
 function salesListColumns(){
  const p=salesListLoadPrefs(),both=['orders','quotes','ncr'].filter(k=>salesShow[k]).length>1;
  /* Type нужна, только когда в списке больше одного вида: заказы, квоты, NCR. */
- return p.cols.filter(c=>c.on&&(c.k!=='type'||both)).map(c=>salesListColumn(c.k));
+ /* Колонки, которой сейчас нет (Supply points без Cost & margin — без цены),
+    в сохранённом порядке нет и на экране. */
+ return p.cols.filter(c=>c.on&&(c.k!=='type'||both)).map(c=>salesListColumn(c.k)).filter(Boolean);
 }
 
 /* ------------------------------ Значения ------------------------------- */
@@ -517,7 +519,7 @@ function salesListApplyFilter(){const m=salesListMenu;if(!m||m.kind!=='filter')r
 /* ------------------------------ Колонки -------------------------------- */
 function salesListColumnsHTML(style){
  const p=salesListLoadPrefs();
- const rows=p.cols.map((c,i)=>{const col=salesListColumn(c.k);return `<div class="sl-cols-row" draggable="true" data-col-row="${c.k}" ondragstart="salesListDragKey='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();salesListDropColumn('${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-col-toggle="${c.k}" ${c.on?'checked':''} onchange="salesListSetColumn('${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="salesListMoveColumn('${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===p.cols.length-1?'disabled':''} onclick="salesListMoveColumn('${c.k}',1)">↓</button></div>`;}).join('');
+ const rows=p.cols.map((c,i)=>{const col=salesListColumn(c.k);if(!col)return '';return `<div class="sl-cols-row" draggable="true" data-col-row="${c.k}" ondragstart="salesListDragKey='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();salesListDropColumn('${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-col-toggle="${c.k}" ${c.on?'checked':''} onchange="salesListSetColumn('${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="salesListMoveColumn('${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===p.cols.length-1?'disabled':''} onclick="salesListMoveColumn('${c.k}',1)">↓</button></div>`;}).join('');
  return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button></div></div>`;
 }
 function salesListSetColumn(k,on){const c=salesListLoadPrefs().cols.find(x=>x.k===k);if(!c)return;c.on=!!on;salesListSavePrefs();render();}
