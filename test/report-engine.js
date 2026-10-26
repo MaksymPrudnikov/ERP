@@ -246,15 +246,15 @@ module.exports=async function({page,eq,ok}){
 
  /* Владелец, 26.10.2026: «что ждёт, что не ждёт, что овердью, что уже
     готово, а что нет». */
- eq('Shop now: не проверен · ждёт батча · ждёт станцию N дней · готово; просрочено — срок прошёл, а не готово; готовый самовывоз — не просрочен',await t.p.evaluate(()=>{
+ eq('Shop now: не проверен · ждёт батча · ждёт станцию N дней · готово; просрочено — срок прошёл, а не готово; готовый самовывоз — не просрочен; колонки — по ходу работы',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},day=n=>repAddDays(finToday(),n);
   const mk=due=>rbOrder(c,'6CLEAR','single',[[30,40,2]],{dueDate:due,delivery:'pickup'});
   const A=mk(day(-2)),B=mk(day(-1)),C=mk(day(3)),D=mk(day(5));
   rbBatch([A,B]);salesSetRecordStatus(C,'verified');rbIds(A).forEach(p=>rbGo('CUT',p,who,rbAt(-3,0,0)));oqReady(B);
   const rows=repShopFacts(),of=id=>rows.filter(r=>r.orderId===id),txt=id=>[...new Set(of(id).map(r=>r.where+' · '+r.stage+' · '+r.state))].join(' | ');
   const q=repQuery({source:'shopnow',date:{preset:'all'},metrics:['glass','orders','overdueOrders','over']});
-  return {A:txt(A),Adays:of(A).map(r=>r.days+'/'+r.daysOver+' from '+r.from),B:txt(B),C:txt(C)+' '+of(C).length,D:txt(D)+' '+of(D).map(r=>r.glassN),total:q.total};
- }),{A:'ARRIS · In production · Overdue',Adays:['3/2 from CUT','3/2 from CUT'],B:'Ready · Ready · Ready',C:'To batch · Not started · Due later 2',D:'To verify · Not started · Due later 2',total:[8,4,1,2]});
+  return {A:txt(A),Adays:of(A).map(r=>r.days+'/'+r.daysOver+' from '+r.from),B:txt(B),C:txt(C)+' '+of(C).length,D:txt(D)+' '+of(D).map(r=>r.glassN),total:q.total,cols:repQuery({source:'shopnow',date:{preset:'all'},dims:['customer','where'],metrics:['glass']}).keys2};
+ }),{A:'ARRIS · In production · Overdue',Adays:['3/2 from CUT','3/2 from CUT'],B:'Ready · Ready · Ready',C:'To batch · Not started · Due later 2',D:'To verify · Not started · Due later 2',total:[8,4,1,2],cols:['To verify','To batch','ARRIS','Ready']});
  eq('Sheets cut: лист — тому, кто первым резал с него; лопнувший на столе — отдельно; Undo не считается',await t.p.evaluate(()=>{
   oqReset();DB.cutPlan=[];DB.sheetBreak=[];DB.stockOffcut=[];DB.glassSheet=[];DB.cutting=cutSettingsDefault();
   DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:96,sheetHIn:130,availability:'stock'}));

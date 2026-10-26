@@ -163,7 +163,7 @@ Object.assign(REP_SRC,{
  /* Цех сейчас и листы по резчику (reports/facts-shop). now — то, что есть
     сейчас: период не нужен, срок и «ждёт с» — свои даты для фильтра. */
  shopnow:{label:'Shop now',group:'Production',now:true,hint:'Where every glass is, days waiting, overdue',rows:()=>repShopFacts(),date:['due','since'],
-  fields:()=>[REP_F.dim('where','Where'),REP_F.dim('stage','Stage'),REP_F.dim('state','Due state'),REP_F.date('due','Due'),REP_F.date('since','Waiting since'),REP_F.text('order','Order'),
+  fields:()=>[Object.assign(REP_F.dim('where','Where'),{seq:v=>v==='To verify'?-2:v==='To batch'?-1:v==='Ready'?1000:repStationAt(v)}),REP_F.dim('stage','Stage'),REP_F.dim('state','Due state'),REP_F.date('due','Due'),REP_F.date('since','Waiting since'),REP_F.text('order','Order'),
    REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery'),REP_F.dim('hold','On hold'),REP_F.dim('status','Status'),
    REP_F.dim('from','Came from',r=>r.from||'—'),REP_F.dim('on','Dolly / skid',r=>r.on||'—'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),
    REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.text('piece','Glass ID',r=>r.piece||'—')].concat(repOrderFields(),repLineFields(),

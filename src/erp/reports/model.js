@@ -196,7 +196,7 @@ function REP_STARTERS(){
    ['By customer',[repW('table','shopnow',{title:'By customer',dims:['customer'],metrics:['glass','orders','overdueOrders','over']}),
     repW('table','shopnow',{title:'Not started · to verify or to batch',dims:['order','where'],metrics:['glass'],filters:[{f:'stage',op:'in',v:['Not started']}]})]]],6),
   R('sheetcut','Cutting · sheets by cutter','Production','thisWeek',['person','glass'],[
-   ['Summary',[repW('number','sheetcut',{metrics:['sheets','broke','area','batches'],compare:'prev'}),repW('table','sheetcut',{title:'By cutter',dims:['person'],metrics:['sheets','broke','area','batches']}),
+   ['Summary',[repW('number','sheetcut',{title:'Sheets',metrics:['sheets','broke','area','batches'],compare:'prev'}),repW('table','sheetcut',{title:'By cutter',dims:['person'],metrics:['sheets','broke','area','batches']}),
     repW('columns','sheetcut',{title:'Sheets by day · cutter',dims:['at:day','person'],metrics:['sheets']}),repW('table','sheetcut',{title:'Glass × sheet size',dims:['glass','size'],metrics:['sheets']})]]],6),
   R('mycut','Cutting · my day','Screens','today',[],[
    ['Today',[repW('number','sheetcut',{title:'Sheets today',width:'half',metrics:['sheets','broke']}),repW('number','sheetcut',{title:'Your sheets today',width:'half',metrics:['sheets','broke'],filters:[{f:'person',op:'in',v:['@me']}]}),
