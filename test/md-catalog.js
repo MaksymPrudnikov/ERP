@@ -21,10 +21,10 @@ module.exports=async function({page,eq}){
   tab='masterdata';mdCatalogGo('glassSheet');const supply=peekOf('[data-md-row="glassSheet:'+sh.id+'"] td:nth-child(3)'),supplyFacts=facts(),noPrice=!supplyFacts.some(f=>f==='Purchase price'||f==='Price'||f==='Freight');
   [...document.querySelectorAll('[data-md-peek] button')].find(b=>b.textContent==='Open card').click();const sheetForm=mdSheetEdit===sh.id;mdSheetEdit=null;
   mdCatalogGo('hardwareModel');const row=peekOf('[data-md-row="hardwareModel:'+m.id+'"] td'),hwFacts=facts();
-  mdCatalogGo('surroundRecipe');const recipe=peekOf('[data-md-row="surroundRecipe:'+rc.id+'"] label'),btn=[...document.querySelectorAll('[data-md-peek] button')].find(b=>b.textContent==='Open recipe');btn.click();
+  mdCatalogGo('surroundRecipe');const recipe=peekOf('[data-md-row="surroundRecipe:'+rc.id+'"] label'),btn=[...document.querySelectorAll('[data-md-peek] button')].find(b=>b.textContent==='Open recipe');btn.click();const on=!!document.querySelector('[data-recipe="'+rc.id+'"].md-recipe-on');
   const empty=DB.surroundRecipe.find(r=>r.rows.some(x=>x.part!=='spacer'&&x.part!=='gas'&&x.amount==null));let unknown=null;
   if(empty){mdPeek='surroundRecipe:'+empty.id;render();const p=document.querySelector('[data-md-peek]');unknown={null:/null/.test(p.textContent),warn:/norm missing/.test(p.textContent)};}
-  return {supply,supplyFacts:supplyFacts.slice(0,3),noPrice,sheetForm,row,hw:hwFacts.includes('Kind')&&hwFacts.includes('On drawings'),recipe,on:!!document.querySelector('[data-recipe="'+rc.id+'"].md-recipe-on'),unknown};
+  return {supply,supplyFacts:supplyFacts.slice(0,3),noPrice,sheetForm,row,hw:hwFacts.includes('Kind')&&hwFacts.includes('On drawings'),recipe,on,unknown};
  }),await t.p.evaluate(()=>({supply:'glassSheet:'+DB.glassSheet[0].id,supplyFacts:['Glass','Supplier','Sheet'],noPrice:true,sheetForm:true,
   row:'hardwareModel:'+DB.hardwareModel[0].id,hw:true,recipe:'surroundRecipe:'+DB.surroundRecipe[0].id,on:true,
   unknown:DB.surroundRecipe.some(r=>r.rows.some(x=>x.part!=='spacer'&&x.part!=='gas'&&x.amount==null))?{null:false,warn:true}:null})));
