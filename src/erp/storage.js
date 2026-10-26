@@ -80,6 +80,7 @@ function storageInvalidate(){
     водителя, города, времени выезда не видела (аудит 25.10.2026, R-6). */
  if(typeof repDeliveryCache!=='undefined')repDeliveryCache={stamp:'',rows:null};
  if(typeof repCustomerNames!=='undefined')repCustomerNames=null;
+ if(typeof repSoldCache!=='undefined'){repSoldCache={stamp:'',sets:new Map()};repSoldByOrder=new Map();}
  if(typeof readMemoReset==='function')readMemoReset();
  /* Пересборка таблицы (откат, чужая запись) — строки просмотра из архива на место. */
  if(typeof archiveVisitKeep==='function')archiveVisitKeep();

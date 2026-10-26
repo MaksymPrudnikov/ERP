@@ -137,7 +137,7 @@ function repMetric(S,k){
  if(a==='distinct'){const f=repField(S,b);return f?{k,label:f.label+' · distinct',agg:'distinct',f:b}:null;}
  const f=repField(S,a);if(!f||f.type!=='num')return null;
  const agg=REP_AGGS.some(x=>x[0]===b)?b:'sum';
- return {k,label:f.label+(agg==='sum'?'':' · '+REP_AGGS.find(x=>x[0]===agg)[1].toLowerCase()),agg,f:a,digits:agg==='avg'?Math.max(1,f.digits||0):f.digits,money:f.money};
+ return {k,label:f.label+(agg==='sum'?'':' · '+REP_AGGS.find(x=>x[0]===agg)[1].toLowerCase()),agg,f:a,digits:agg==='avg'?Math.max(1,f.digits||0):f.digits,money:f.money,unitBy:f.unitBy};
 }
 function repMetricOptions(S){
  const out=(S.metrics||[]).map(m=>[m.k,m.label]);
@@ -149,6 +149,9 @@ function repMetricOptions(S){
 }
 function repAgg(S,m,list){
  if(m.agg==='calc'){const a=repAgg(S,m.a,list),b=m.b?repAgg(S,m.b,list):m.num;if(a==null||b==null)return null;return m.op==='div'?(b?a/b:null):m.op==='mul'?a*b:m.op==='add'?a+b:a-b;}
+ /* Количество в единице строки (unitBy): дюймы с ft² не складываются — где
+    в выборке разные единицы, числа нет. */
+ if(m.unitBy){const u=new Set(),k=m.f||m.den;list.forEach(r=>{if(+r[k])u.add(r[m.unitBy]);});if(u.size>1)return null;}
  if(m.agg==='count')return list.length;
  if(m.agg==='distinct'){const f=repField(S,m.f),set=new Set();list.forEach(r=>{const v=f?repGet(f,r):r[m.f];if(v!=null&&v!==''&&v!=='—')set.add(v);});return set.size;}
  if(m.agg==='ratio'){let a=0,b=0;list.forEach(r=>{a+=+r[m.num]||0;b+=+r[m.den]||0;});return b?a/b*(m.pct?100:1):null;}
@@ -187,9 +190,11 @@ function repFilterTest(S,flt,row,ctx){
  }
  return true;
 }
+/* Период уходит и источнику: тяжёлый (Products sold) считает только его —
+   месяц на годе не ждёт расчёта всего года. Отбор ниже всё равно тот же. */
 function repSelect(S,df,range,filters,ctx){
  const f=df?repField(S,df):null;
- return S.rows().filter(r=>{
+ return S.rows({df,range}).filter(r=>{
   if(f&&range){const d=repIsoDay(repGet(f,r));if(!d||(range[0]&&d<range[0])||(range[1]&&d>range[1]))return false;}
   return (filters||[]).every(x=>repFilterTest(S,x,r,ctx));
  });
