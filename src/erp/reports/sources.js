@@ -179,4 +179,35 @@ Object.assign(REP_SRC,{
    REP_F.dim('size','Size'),REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.dim('status','Status'),REP_F.num('area','Area ft²',{digits:1})],
   metrics:[{k:'count',label:'Offcuts',agg:'count'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1}]}
 });
-const REP_GROUPS=['Production','Shipping','Sales','Finance','Quality','People'];
+/* Склад (reports/facts-inventory) — только с галочкой Inventory, денег нет.
+   Меры — каждая своей колонкой: листы шт и ft², рамка ft, герметик, газ и
+   части пакета kg; количество в единице строки — unitBy. */
+function repConsFields(){return [REP_F.num('spacerFt','Spacer ft',{digits:1}),REP_F.num('sealantKg','Sealant kg',{digits:2}),REP_F.num('gasKg','Gas kg',{digits:2}),REP_F.num('partsKg','IGU parts kg',{digits:2})];}
+function repConsMetrics(){return [{k:'spacerFt',label:'Spacer ft',agg:'sum',f:'spacerFt',digits:1},{k:'sealantKg',label:'Sealant kg',agg:'sum',f:'sealantKg',digits:2},
+ {k:'gasKg',label:'Gas kg',agg:'sum',f:'gasKg',digits:2},{k:'partsKg',label:'IGU parts kg',agg:'sum',f:'partsKg',digits:2}];}
+function repMaterialText(r){return r.unit?r.material+' · '+r.unit:r.material||'—';}
+Object.assign(REP_SRC,{
+ counts:{label:'Stock counts',group:'Inventory',access:'inventory',hint:'Was → counted, difference, reason',rows:()=>repCountFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Counted'),REP_F.dim('day','Count day'),REP_F.dim('person','Counted by',r=>r.person||'—'),REP_F.dim('kind','Kind'),REP_F.dim('material','Material',repMaterialText),
+   REP_F.dim('glass','Glass',r=>r.glass||'—'),REP_F.dim('size','Sheet size',r=>r.size||'—'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('unit','Unit'),
+   REP_F.dim('dir','Short or over'),REP_F.dim('reason','Reason'),REP_F.text('note','Note',r=>r.note||'—'),
+   REP_F.num('was','Was',{digits:2,unitBy:'unit'}),REP_F.num('counted','Counted',{digits:2,unitBy:'unit'}),REP_F.num('diff','Difference',{digits:2,unitBy:'unit'}),
+   REP_F.num('sheets','Sheets'),REP_F.num('sheetFt2','Sheet ft²',{digits:1})].concat(repConsFields()),
+  metrics:[{k:'count',label:'Lines counted',agg:'count'},{k:'off',label:'With difference',agg:'sum',f:'off'},{k:'short',label:'Short',agg:'sum',f:'short'},{k:'over',label:'Over',agg:'sum',f:'over'},
+   {k:'days',label:'Days counted',agg:'distinct',f:'day'},{k:'diff',label:'Difference',agg:'sum',f:'diff',digits:2,unitBy:'unit'},
+   {k:'sheets',label:'Sheets',agg:'sum',f:'sheets'},{k:'sheetFt2',label:'Sheet ft²',agg:'sum',f:'sheetFt2',digits:1}].concat(repConsMetrics())},
+ moves:{label:'Sheet moves',group:'Inventory',access:'inventory',hint:'Received, cut, broke, written off, counted',rows:()=>repSheetMoveFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Date'),REP_F.dim('kind','Move'),REP_F.dim('dir','In or out'),REP_F.dim('sheet','Sheet'),REP_F.dim('glass','Glass'),REP_F.dim('size','Sheet size'),
+   REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('person','Person',r=>r.person||'—'),REP_F.dim('reason','Reason',r=>r.reason||'—'),REP_F.text('ref','Reference',r=>r.ref||'—'),
+   REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.text('note','Note',r=>r.note||'—'),
+   REP_F.num('sheets','Sheets moved'),REP_F.num('sIn','Sheets in'),REP_F.num('sOut','Sheets out'),REP_F.num('net','Net sheets'),
+   REP_F.num('area','ft² moved',{digits:1}),REP_F.num('ftIn','ft² in',{digits:1}),REP_F.num('ftOut','ft² out',{digits:1}),REP_F.num('netFt2','Net ft²',{digits:1})],
+  metrics:[{k:'sIn',label:'Sheets in',agg:'sum',f:'sIn'},{k:'sOut',label:'Sheets out',agg:'sum',f:'sOut'},{k:'net',label:'Net sheets',agg:'sum',f:'net'},{k:'sheets',label:'Sheets moved',agg:'sum',f:'sheets'},
+   {k:'ftIn',label:'ft² in',agg:'sum',f:'ftIn',digits:1},{k:'ftOut',label:'ft² out',agg:'sum',f:'ftOut',digits:1},{k:'netFt2',label:'Net ft²',agg:'sum',f:'netFt2',digits:1},{k:'count',label:'Moves',agg:'count'}]},
+ igumat:{label:'IGU materials used',group:'Inventory',access:'inventory',hint:'Spacer, sealant, gas by IGU scan',rows:h=>repIguMaterialFacts(h),date:['day'],
+  fields:()=>[REP_F.date('day','Assembled'),REP_F.dim('person','Assembled by',r=>r.person||(r.record==='By scan'?'—':r.record)),REP_F.dim('kind','Kind'),REP_F.dim('material','Material',repMaterialText),
+   REP_F.dim('unit','Unit'),REP_F.dim('record','Record'),REP_F.dim('norm','Norm'),REP_F.num('qty','Quantity',{digits:2,unitBy:'unit'})].concat(repConsFields(),[REP_F.num('units','Units built with it'),REP_F.num('missing','Units without norm')]),
+  metrics:[{k:'qty',label:'Quantity',agg:'sum',f:'qty',digits:2,unitBy:'unit'}].concat(repConsMetrics(),[{k:'units',label:'Units built with it',agg:'sum',f:'units'},{k:'missing',label:'Units without norm',agg:'sum',f:'missing'},
+   {k:'days',label:'Days',agg:'distinct',f:'day'}])}
+});
+const REP_GROUPS=['Production','Shipping','Sales','Inventory','Finance','Quality','People'];

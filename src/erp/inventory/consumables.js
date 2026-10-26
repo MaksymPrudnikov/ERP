@@ -53,7 +53,7 @@ function consAssembled(){
  const index=stationPieceIndex(),asm=new Map();
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||s.broken||!s.asm||!s.unit||asm.has(s.asm))return;
-  const hit=index.get(s.piece);if(hit)asm.set(s.asm,{orderId:hit.orderId,lineId:hit.lineId,piece:s.piece,at:s.at});
+  const hit=index.get(s.piece);if(hit)asm.set(s.asm,{orderId:hit.orderId,lineId:hit.lineId,piece:s.piece,at:s.at,by:s.by||'',scan:s.id,asm:s.asm});
  });
  return [...asm.values()];
 }
@@ -147,8 +147,11 @@ function consSetPacks(key,packs){
  });
 }
 function consEventValid(e){return !!(e&&typeof e==='object'&&typeof e.id==='string'&&e.id&&typeof e.key==='string'&&e.key.indexOf(':')>0&&Number.isFinite(+e.qty)&&typeof e.at==='string');}
+/* Причина и заметка пересчёта переживают F5 и Import: без них журнал и
+   отчёт Stock counts после перезагрузки показывали бы «No reason». */
 function normalizeConsumables(){
  const ids=new Set();
  DB.consumableEvent=(Array.isArray(DB.consumableEvent)?DB.consumableEvent:[]).filter(e=>consEventValid(e)&&!ids.has(e.id)&&(ids.add(e.id),true))
-  .map(e=>({id:e.id,key:e.key,qty:+e.qty,before:Number.isFinite(+e.before)?+e.before:null,after:Number.isFinite(+e.after)?+e.after:null,at:e.at,by:String(e.by||''),byId:String(e.byId||'')}));
+  .map(e=>({id:e.id,key:e.key,qty:+e.qty,before:Number.isFinite(+e.before)?+e.before:null,after:Number.isFinite(+e.after)?+e.after:null,
+   reason:String(e.reason||'').slice(0,80),note:String(e.note||'').slice(0,200),at:e.at,by:String(e.by||''),byId:String(e.byId||'')}));
 }
