@@ -154,7 +154,7 @@ function repTableHTML(r,S,res,w){
 function repParts(res,cls,k){return res.keys2.map(b=>({value:(res.cells.get(k+'\u0001'+b)||[])[0]||0,cls:cls.get(b)}));}
 function repLegend(S,res,cls){const d2=res.dims[1];return chartLegend(res.keys2.filter(b=>(res.colTotals.get(b)||[])[0]).map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b)})));}
 function repChart(r,w){
- if(!repSourceAllowed(w.q.source))return '<div class="mut">Needs Finance access.</div>';
+ if(!repSourceAllowed(w.q.source)){const a=(REP_SRC[w.q.source]||{}).access||'finance';return '<div class="mut">Needs '+a.charAt(0).toUpperCase()+a.slice(1)+' access.</div>';}
  const q=repWidgetQuery(r,w),res=repQuery(q,repCtx());if(!res)return '<div class="mut">Choose data.</div>';
  const S=REP_SRC[q.source],m=res.metrics[0],fmt=v=>repFmt(m,v),d1=res.dims[0],d2=res.dims[1];
  if(w.type==='number')return repNumbers(res);

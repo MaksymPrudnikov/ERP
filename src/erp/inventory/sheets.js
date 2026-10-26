@@ -240,11 +240,14 @@ function invBatchSheetHints(batch,glass){
 /* ------------------------------ Журнал ------------------------------
    Все движения листов. rack — сколько листов прибавилось (+) или ушло (−)
    с пирамиды; layout — листов в раскрое батча (Build ничего не снимает с
-   пирамиды, он занимает листы). */
-function invMoves(){
+   пирамиды, он занимает листы). rackOnly — только то, что двигает
+   пирамиду листов: без Build, расходников и кусков S- (отчёт Sheet moves;
+   куски S- считают порезанные листы второй раз — на годе это половина
+   времени). */
+function invMoves(rackOnly){
  const out=[],add=(m,code,size)=>{const g=glassProductByCode(code);out.push(Object.assign({code:g?g.code:String(code).toUpperCase(),name:g?g.name:'',key:invKey(code,size),w:size?size.w:0,h:size?size.h:0,rack:null,layout:null,by:'',note:''},m));};
  invReceiptLines().forEach(x=>add({id:'GR|'+x.r.id+'|'+x.l.id,kind:'Receipt',ref:x.r.number,receipt:x.r.id,day:x.day,at:x.at,rack:x.issue?0:x.qty,by:x.r.receivedBy||x.r.createdBy,note:x.issue||[x.l.replacement?'Replacement':'',x.broken?(x.qty+x.broken)+' arrived · '+x.broken+' broken':''].filter(Boolean).join(' · ')},x.code,x.size));
- (DB.cutPlan||[]).forEach(plan=>{
+ if(!rackOnly)(DB.cutPlan||[]).forEach(plan=>{
   if(!plan||plan.reset||!Array.isArray(plan.groups)||!glassBatchFind(plan.batch))return;
   plan.groups.forEach(g=>{if(!invGlassCut(g.glass))return;const by=new Map();
    g.sheets.forEach(s=>{const z=s.size||g.sheet||{},size=invPlanSize(z);if(!size||/^S-/.test(z.key||''))return;const k=size.w+'x'+size.h;if(!by.has(k))by.set(k,{size,n:0});by.get(k).n++;});
@@ -259,8 +262,8 @@ function invMoves(){
  (DB.inventoryEvent||[]).filter(e=>INV_SHEET_KINDS.includes(e.kind)).forEach(e=>add({id:e.id,kind:e.kind==='count'?'Count':e.kind==='add'?'Add':'Write off',ref:'',day:salesListIsoDay(e.at),at:e.at,rack:e.qty,by:e.by,
   note:[e.kind==='count'?'Was '+e.before+' → '+e.after:'',e.reason,e.note].filter(Boolean).join(' · ')},e.glass,invSize(e.w,e.h)));
  /* Пересчёт расходников — в том же журнале, с причиной и заметкой. */
- if(typeof consCountMoves==='function')consCountMoves().forEach(m=>out.push(m));
- if(typeof invOffcutMoves==='function')invOffcutMoves().forEach(m=>out.push(m));
+ if(!rackOnly&&typeof consCountMoves==='function')consCountMoves().forEach(m=>out.push(m));
+ if(!rackOnly&&typeof invOffcutMoves==='function')invOffcutMoves().forEach(m=>out.push(m));
  return out.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
 }
 

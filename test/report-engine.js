@@ -125,7 +125,7 @@ module.exports=async function({page,eq,ok}){
   DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes','RP-start-km','RP-start-myday','RP-start-myedge','RP-start-mycustomers'].includes(r.id));
   DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
   return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
- }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow']).sort(),again:17,seed:7});
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves']).sort(),again:20,seed:8});
  eq('Км рейса по карте Google: цех → остановки → цех, запоминаются за рейс; отчёт — км и км на рейс; поменяли остановки — видно',await t.p.evaluate(async()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'});DB.truck=[{id:'T1',name:'Truck 1',active:true}];DB.tripKm=[];
   DB.company=Object.assign({},DB.company,{address1:'10 Shop Rd',city:'Vaughan',province:'ON'});
@@ -190,7 +190,7 @@ module.exports=async function({page,eq,ok}){
   const copy=repClean(JSON.parse(JSON.stringify(Object.assign({},mine,{id:'RP-my-copy'}))));DB.report.push(copy);DB.reportSeed=3;normalizeReports();
   const fields=r=>r.pages[0].widgets.map(w=>w.q.date.f).join(),now=DB.report.find(r=>r.id==='RP-start-mycustomers');
   const res={start:fields(now),copy:fields(DB.report.find(r=>r.id==='RP-my-copy')),seed:DB.reportSeed};DB.report=DB.report.filter(r=>r.id!=='RP-my-copy');return res;
- }),{start:'created,created',copy:'due,due',seed:7});
+ }),{start:'created,created',copy:'due,due',seed:8});
 
  eq('Аудит 12.10: отчёты по заказам пересчитываются после скана готовности (SHIPR), а не после любого скана цеха',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},id=rbOrder(c,'6CLEAR','single',[[30,40,2]],{delivery:'pickup'});rbBatch([id]);
@@ -265,6 +265,52 @@ module.exports=async function({page,eq,ok}){
   const q=repQuery({source:'sheetcut',date:{preset:'all'},dims:['person'],metrics:['sheets','broke','area'],sort:{by:'label',dir:'asc'}});
   return {sheets:sheets.length,by:q.keys.map(k=>k+' '+q.rowTotals.get(k).map((v,i)=>repFmt(q.metrics[i],v)).join(' / '))};
  }),{sheets:2,by:['Dmytro 1 / 0 / 86.7','Roman 1 / 1 / 86.7']});
+ /* Часть «Склад» плана отчётов (владелец, 26.10.2026): пересчёт — было →
+    стало, разница и причина; меры раздельно, без денег; видит Inventory. */
+ eq('Stock counts: лист 62 → 61 с причиной — недостача 1 лист и 86.7 ft²; герметик в kg без причины — No reason; разные единицы итогом не складываются; причина переживает F5',await t.p.evaluate(()=>{
+  oqReset();DB.inventoryEvent=[];DB.consumableEvent=[];DB.cutPlan=[];DB.sheetBreak=[];DB.stationScan=[];DB.purchaseReceipt=[];const key='6CLEAR|130x96';
+  invAdd(key,'62','Opening stock');invCountSave({[key]:'61'},{[key]:{reason:'Miscount',note:'second rack'}});
+  const s=consRows().find(r=>r.table==='sealantProduct'),k=s.key,base=s.onHand;
+  consCountSave({[k]:String(base+12.5)});consCountSave({[k]:String(base+10)},{[k]:{reason:'Used without scan'}});normalizeConsumables();
+  const q=repQuery({source:'counts',date:{preset:'all'},dims:['material'],metrics:['count','short','over','diff'],sort:{by:'label',dir:'asc'}});
+  const n=repQuery({source:'counts',date:{preset:'all'},metrics:['count','off','days','sheets','sheetFt2','sealantKg','spacerFt']}),fmt=(res,v)=>v.map((x,i)=>repFmt(res.metrics[i],x)).join(' / ');
+  return {rows:q.keys.map(x=>x.replace(s.name,'Sealant')+': '+fmt(q,q.rowTotals.get(x))),total:fmt(q,q.total),n:fmt(n,n.total),lines:repCountFacts().map(r=>r.dir+' '+r.reason+(r.note?' · '+r.note:''))};
+ }),{rows:['6CLEAR · 130 × 96 · sheets: 1 / 1 / 0 / -1','Sealant · kg: 2 / 1 / 1 / 10'],total:'3 / 2 / 1 / —',n:'3 / 3 / 1 / -1 / -86.7 / 10 / 0',
+  lines:['Short Miscount · second rack','Over No reason','Short Used without scan']});
+ eq('Склад в отчётах — только с галочкой Inventory: источников нет в выборе, графики пишут «Needs Inventory access»',await t.p.evaluate(()=>{
+  const old=window.accessCan,r=repClean(REP_STARTERS().find(x=>x.id==='RP-start-counts'));window.accessCan=k=>k!=='inventory';
+  try{return {allowed:['counts','moves','igumat'].map(repSourceAllowed),chart:repChart(r,r.pages[0].widgets[0]),pick:/value="(counts|moves|igumat)"/.test(repSrcOptions('glass')),payments:repSourceAllowed('payments')};}
+  finally{window.accessCan=old;}
+ }),{allowed:[false,false,false],chart:'<div class="mut">Needs Inventory access.</div>',pick:false,payments:true});
+ eq('Sheets · in and out: добавлено, порезано, лопнуло, поправка пересчётом, списано — по движению и листу; Build листов не двигает',await t.p.evaluate(()=>{
+  oqReset();DB.cutPlan=[];DB.sheetBreak=[];DB.stockOffcut=[];DB.glassSheet=[];DB.inventoryEvent=[];DB.consumableEvent=[];DB.cutting=cutSettingsDefault();
+  DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:96,sheetHIn:130,availability:'stock'}));
+  const key='6CLEAR|130x96',who={id:'u1',name:'Roman'};invAdd(key,'62','Opening stock');
+  const id=rbOrder(oqCustomer({legalName:'Northside Windows'}),'6CLEAR','single',[[46,60,4],[34,52,5]]);rbBatch([id]);const n=DB.glassBatch[DB.glassBatch.length-1].number,r=cutPlanRun(n);if(r&&r.error)throw new Error(r.error);
+  const sheets=cutPlanFor(n).groups[0].sheets;sheets.forEach(s=>s.pieces.forEach(p=>rbGo('CUT',p.piece,who)));stationSheetBreak(n,'6CLEAR',sheets[0].no,who);
+  invCountSave({[key]:String(invRowFind(key).onRack-1)},{[key]:{reason:'Miscount'}});invWriteOff(key,'1','Broken on rack');
+  const q=repQuery({source:'moves',date:{preset:'all'},dims:['kind'],metrics:['sIn','sOut'],sort:{by:'label',dir:'asc'}}),b=repQuery({source:'moves',date:{preset:'all'},dims:['sheet'],metrics:['sIn','sOut','net','netFt2']});
+  return {sheets:sheets.length,kinds:q.keys.map(k=>k+' '+q.rowTotals.get(k).join('/')),bySheet:b.keys.map(k=>k+' '+b.rowTotals.get(k).map((v,i)=>repFmt(b.metrics[i],v)).join('/')),
+   reasons:repSheetMoveFacts().filter(x=>x.reason).map(x=>x.kind+' '+x.reason).sort(),person:repQuery({source:'moves',date:{preset:'all'},dims:['person'],metrics:['sOut'],filters:[{f:'kind',op:'in',v:['Cut','Sheet broke']}]}).keys};
+ }),{sheets:2,kinds:['Add 62/0','Count 0/1','Cut 0/2','Sheet broke 0/1','Write off 0/1'],bySheet:['6CLEAR · 130 × 96 62/5/57/4,940'],
+  reasons:['Add Opening stock','Count Miscount','Write off Broken on rack'],person:['Roman']});
+ eq('IGU materials used: юниты по скану сборки — рамка ft по рецепту юнита, по дню и тому, кто собрал; график за сегодня не считает юнит месяц назад; ушедшее в архив — итогом без дня; подгруженное из архива не считается дважды; ft и kg итогом не складываются',await t.p.evaluate(()=>{
+  oqReset();DB.inventoryArchived={};const id=oqOrder(oqCustomer({}));oqThrough(id,'verified');const o=salesRecord(id);glassBatchAssign(glassBatchRows([o]),{});
+  const l=o.lines[0],per=consPerUnit(l,o),sp=[...per.keys()].find(k=>k.startsWith('spacerVariant:')),fx=v=>+(+v).toFixed(3),ft=fx(per.get(sp));
+  DB.glassPiece.filter(p=>p.key.split('|')[1]===l.id).forEach(p=>{DB.stationScan.push({id:stationScanNextId(),at:new Date().toISOString(),piece:p.ids[0],station:'IGU',by:'Andrei',byId:'',asm:'SC-9100001',unit:1});
+   DB.stationScan.push({id:stationScanNextId(),at:rbAt(-40,10,0),piece:p.ids[1],station:'IGU',by:'Oleh',byId:'',asm:'SC-9100002',unit:2});});
+  const first=DB.stationScan.find(s=>s.asm==='SC-9100001').id,spacer=[{f:'kind',op:'in',v:['Spacers']}];
+  const by=res=>res.keys.map(k=>{const v=fx(res.rowTotals.get(k)[0]);return k+' '+(v===ft?'1 unit':v===fx(2*ft)?'2 units':v);});
+  const today=repQuery({source:'igumat',date:{preset:'today'},metrics:['units','spacerFt'],filters:spacer});
+  DB.inventoryArchived={cons:{[sp]:{used:5,unknown:0}}};
+  const all=repQuery({source:'igumat',date:{preset:'all'},dims:['record'],metrics:['spacerFt'],filters:spacer,sort:{by:'label',dir:'asc'}}),day=repQuery({source:'igumat',date:{preset:'today'},metrics:['spacerFt'],filters:spacer});
+  /* Отчёт подгрузил сегодняшний юнит из архива: его расход уже в итоге архива. */
+  DB.inventoryArchived.cons[sp].used=5+per.get(sp);storageVisit.set('stationScan',new Set([first]));
+  let loaded;try{loaded=repQuery({source:'igumat',date:{preset:'all'},dims:['record'],metrics:['spacerFt'],filters:spacer,sort:{by:'label',dir:'asc'}});}finally{storageVisit.delete('stationScan');DB.inventoryArchived={};}
+  const who=repQuery({source:'igumat',date:{preset:'all'},dims:['person'],metrics:['units'],filters:spacer,sort:{by:'label',dir:'asc'}});
+  return {units:today.total[0],spacer:fx(today.total[1])===ft&&ft>0,all:by(all),day:fx(day.total[0])===ft,loaded:by(loaded),person:who.keys.map(k=>k+' '+who.rowTotals.get(k)[0]),
+   mixed:repQuery({source:'igumat',date:{preset:'all'},metrics:['qty']}).total[0]};
+ }),{units:1,spacer:true,all:['Archived · total only 5','By scan 2 units'],day:true,loaded:['Archived · total only 5','By scan 2 units'],person:['Andrei 1','Oleh 1'],mixed:null});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();

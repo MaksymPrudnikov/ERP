@@ -23,7 +23,7 @@
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=7;
+const REP_SEED_VERSION=8;
 /* Версия 7 (26.10.2026): стартовые Production — по подпапкам (каталог
    деревом, view/reports). У базы переезжают только те, чью папку не меняли. */
 const REP_START_FOLDERS={cut:'Production / Cutting',sheets:'Production / Cutting',sheetcut:'Production / Cutting',offcuts:'Production / Cutting',
@@ -218,7 +218,29 @@ function REP_STARTERS(){
   R('myship','Shipping · my day','Screens','today',[],[
    ['Today',[repW('number','glass',{title:'Here today',width:'half',metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']}]}),
     repW('number','glass',{title:'You today',width:'half',metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
-    repW('table','glass',{title:'By customer',dims:['customer'],metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']}],limit:10,other:true})]]],6)
+    repW('table','glass',{title:'By customer',dims:['customer'],metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']}],limit:10,other:true})]]],6),
+  /* Версия 8 (27.10.2026): склад — пересчёты с причинами, листы приход и
+     расход, материалы IGU по скану. Видит галочка Inventory. */
+  R('counts','Stock counts · differences','Inventory','thisYear',['kind','material','reason','person'],[
+   ['Summary',[repW('number','counts',{title:'Counts',metrics:['count','off','short','over','days']}),
+    repW('number','counts',{title:'Difference',metrics:['sheets','sheetFt2','spacerFt','sealantKg','gasKg','partsKg']}),
+    repW('table','counts',{title:'By material',dims:['material'],metrics:['count','short','over','diff']}),
+    repW('table','counts',{title:'By reason',dims:['reason'],metrics:['count','sheets','sheetFt2','spacerFt','sealantKg','gasKg','partsKg']}),
+    repW('columns','counts',{title:'Lines by month · short or over',dims:['at:month','dir'],metrics:['count']})]],
+   ['By day',[repW('table','counts',{title:'Days counted',dims:['day'],metrics:['count','off','short','over'],sort:{by:'label',dir:'desc'}}),
+    repW('table','counts',{title:'Notes',dims:['note'],metrics:['count','diff'],filters:[{f:'note',op:'notIn',v:['—']}]})]]],8),
+  R('sheetmoves','Sheets · in and out','Inventory','thisMonth',['glass','size','kind','person'],[
+   ['Summary',[repW('number','moves',{title:'In and out',metrics:['sIn','sOut','net','ftIn','ftOut'],compare:'prev'}),
+    repW('table','moves',{title:'By move',dims:['kind'],metrics:['sIn','sOut','ftIn','ftOut']}),
+    repW('table','moves',{title:'By sheet',dims:['sheet'],metrics:['sIn','sOut','net','netFt2']}),
+    repW('columns','moves',{title:'In and out by month',date:{use:'own',preset:'thisYear'},dims:['at:month','dir'],metrics:['sheets']})]],
+   ['By person',[repW('table','moves',{title:'Person × move',dims:['person','kind'],metrics:['sheets']})]]],8),
+  R('igumat','IGU materials used','Inventory','thisMonth',['kind','material','person'],[
+   ['Summary',[repW('number','igumat',{title:'Used',metrics:['spacerFt','sealantKg','gasKg','partsKg'],compare:'prev'}),
+    repW('table','igumat',{title:'By material',dims:['material'],metrics:['qty','units','missing'],opts:{totals:false}}),
+    repW('columns','igumat',{title:'Spacer ft by day',dims:['day:day'],metrics:['spacerFt'],width:'half'}),
+    repW('columns','igumat',{title:'Sealant kg by day',dims:['day:day'],metrics:['sealantKg'],width:'half'}),
+    repW('table','igumat',{title:'By person',dims:['person'],metrics:['spacerFt','sealantKg','gasKg','partsKg','days']})]]],8)
  ];
 }
 

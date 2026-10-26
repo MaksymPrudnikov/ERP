@@ -194,6 +194,7 @@
   "src/erp/reports/facts-office.js",
   "src/erp/reports/facts-sold.js",
   "src/erp/reports/facts-shop.js",
+  "src/erp/reports/facts-inventory.js",
   "src/erp/reports/sources.js",
   "src/erp/reports/query.js",
   "src/erp/reports/model.js",
