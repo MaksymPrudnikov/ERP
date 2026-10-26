@@ -59,7 +59,12 @@ function mdCatalogSearchChange(el){
 function mdCatalogOpen(t,id){
  mdCatalogGo(t);
  if(t==='glassProduct')mdGlassEdit(id);else if(t==='spacerVariant')mdSpacerEditRow(id);else if(t==='glassSheet')mdSheetEditRow(id);
- else if(t==='hardwareModel')mdHwModelEditRow(id);else if(t!=='surroundRecipe')mdCatEditRow(id);
+ else if(t==='hardwareModel')mdHwModelEditRow(id);else if(t==='surroundRecipe')mdRecipeShow(id);else mdCatEditRow(id);
+}
+/* Рецепт правится прямо в своей карточке: Open — к ней на экране. */
+function mdRecipeShow(id){
+ const el=document.querySelector('[data-recipe="'+CSS.escape(id)+'"]');if(!el)return;
+ el.scrollIntoView({block:'start'});el.classList.add('md-recipe-on');setTimeout(()=>el.classList.remove('md-recipe-on'),1500);
 }
 /* Превью: клик по строке списка (не по полю и не по кнопке). */
 function mdCatalogRowClick(ev){
@@ -73,6 +78,17 @@ function mdPeekFacts(t,x){
  else if(t==='spacerVariant'){const rec=surroundRecipeById(x.recipeId);f.push(['System',x.system],['Size',x.size],['Price',money(x.salePrice)],['Weight',x.weightG==null?null:x.weightG+' '+SPACER_WEIGHT_PER[x.weightPer]],['Recipe',rec?rec.name:null]);
   if(x.salePrice==null)miss.push('no price');if(x.weightG==null)miss.push('no weight');else if(!x.weightMeasured)miss.push('not measured');if(!rec)miss.push('no recipe');}
  else if(t==='serviceRate'){f.push(['Station',x.station],['Unit',x.unit],['Price',mdWorkTiersText(x)]);if(!x.rule&&!x.station)miss.push('no station');mdWorkWarnings(x).forEach(w=>miss.push(w));}
+ /* Supply points, Hardware, Recipes (аудит 25.10.2026, D-1). Закупочная
+    цена — с галочкой Cost & margin, не здесь. */
+ else if(t==='glassSheet'){const g=glassProductByCode(x.productCode),sup=x.supplierId&&typeof purSupplierFind==='function'?purSupplierFind(x.supplierId):null;
+  f.push(['Glass',g?g.code+' · '+g.name:x.productCode],['Supplier',sup?sup.name:x.supplier],['Sheet',x.sheetWIn&&x.sheetHIn?x.sheetWIn+' × '+x.sheetHIn+' in':null],['Unit',mdUnitName(x.purchaseUnit)],['Availability',x.availability],['Lead time',x.leadTimeDays==null?null:x.leadTimeDays+' days'],['Price date',x.priceDate]);
+  if(!g)miss.push('no product');if(!x.sheetWIn||!x.sheetHIn)miss.push('size missing');}
+ else if(t==='hardwareModel'){const kind=hardwareKindRow(x.kind);
+  f.push(['Kind',kind?hardwareKindName(x.kind):null],['Series',x.series],['On the drawing',hardwareModelShort(x)],['Glass thickness',x.thickness],['Supplier code',x.supplierCode],['On drawings',String(mdHwModelUsage(x.id))],['Note',x.note]);
+  if(!kind)miss.push('no kind');}
+ else if(t==='surroundRecipe'){const fixed=p=>p==='spacer'||p==='gas',users=mdRecipeUsers(x.id);
+  f.push(['PIB per side',x.pibPerSideMm==null?null:x.pibPerSideMm+' mm'],...x.rows.map(r=>[surroundPartLabel(r.part),fixed(r.part)?(r.part==='spacer'?'from the spacer card':'from the gas card'):(r.amount==null?null:r.amount+' g · '+SURROUND_PER[r.per])+(r.wastePct?' · waste '+r.wastePct+'%':'')]),['Used by',users.length+' spacer'+(users.length===1?'':'s')]);
+  if(x.rows.some(r=>!fixed(r.part)&&r.amount==null))miss.push('norm missing');}
  else{f.push(['Code',x.code],['Supplier',x.supplier],['Price',money(x.salePrice)]);if('salePrice' in x&&x.salePrice==null&&t!=='stockItem'&&t!=='heatTreatment')miss.push('no price');}
  return {facts:f,miss};
 }
@@ -81,11 +97,12 @@ function mdPeekHTML(){
  if(!x)return '<aside class="md-peek"><span class="mut">Click a row to preview.</span></aside>';
  const p=mdPeekFacts(t,x),label=(MD_CATALOG_TREE.flatMap(g=>g[1]).find(n=>n[0]===t)||[])[1]||t;
  const last=(DB.masterDataEvent||[]).filter(e=>e.tbl===t&&e.rowId===id).sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0];
- return `<aside class="md-peek" data-md-peek="${esc(mdPeek)}"><div class="md-peek-sec">${esc(label)}</div><h4>${raw(x.name||x.code||x.id)}</h4>
+ const title=t==='glassSheet'?(x.productCode||'—')+' · '+(x.supplier||'—'):x.name||x.code||x.id;
+ return `<aside class="md-peek" data-md-peek="${esc(mdPeek)}"><div class="md-peek-sec">${esc(label)}</div><h4>${raw(title)}</h4>
   <div class="md-peek-chips">${x.active===false?'<span class="pill warn">inactive</span>':''}${p.miss.map(m=>`<span class="pill warn">${esc(m)}</span>`).join('')}${!p.miss.length&&x.active!==false?'<span class="pill ok">complete</span>':''}</div>
   <dl class="md-kv">${p.facts.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${v==null||v===''?'<span class="mut">—</span>':raw(v)}</dd>`).join('')}</dl>
   <div class="md-peek-sec">Last change</div><div class="mut">${last?raw(last.what+(last.field?' · '+last.field:'')+' · '+(last.by||'—')+' · '+String(last.at).slice(0,10)):'No changes logged'}</div>
-  <div class="row"><button class="pri" onclick="mdCatalogOpen('${esc(t)}','${esc(id)}')">Open card</button><button onclick="mdPeek='';render()">Close</button></div></aside>`;
+  <div class="row"><button class="pri" onclick="mdCatalogOpen('${esc(t)}','${esc(id)}')">${t==='surroundRecipe'?'Open recipe':'Open card'}</button><button onclick="mdPeek='';render()">Close</button></div></aside>`;
 }
 function viewMdCatalog(){
  const node=mdCatalogNode(),open=mdEdit!==null||mdSheetEdit!==null||mdSpacerEdit!==null||mdCatEdit!==null||mdHwKindEdit!==null||mdHwModelEdit!==null;

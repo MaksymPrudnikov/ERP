@@ -477,7 +477,7 @@ function viewMdSupply(){
   ${orphans?`<div class="note">Supply rows without a product: <b>${orphans}</b> — give them a product back.</div>`:''}
   ${salesListFilterChips()}
   <div class="sales-table-wrap"><table class="sl-table md-supply-table"><thead><tr><th><span class="sl-header-tools">${settings}</span></th>${cols.map(mdSupplyHeader).join('')}<th></th></tr></thead>
-  <tbody>${rows.map(i=>`<tr data-supply-row="${esc(i.s.id)}"><td></td>${cols.map(c=>mdSupplyCell(i,c)).join('')}<td style="white-space:nowrap"><button class="sm" onclick="mdSheetEditRow('${esc(i.s.id)}')">Edit</button> <button class="sm dl" onclick="mdSheetDelete('${esc(i.s.id)}')">×</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'Nothing matches the filters.':'No supply rows yet — load GLASS_SHEETS.csv or add a row'}</td></tr>`}</tbody></table></div>
+  <tbody>${rows.map(i=>`<tr data-supply-row="${esc(i.s.id)}" data-md-row="glassSheet:${esc(i.s.id)}"><td></td>${cols.map(c=>mdSupplyCell(i,c)).join('')}<td style="white-space:nowrap"><button class="sm" onclick="mdSheetEditRow('${esc(i.s.id)}')">Edit</button> <button class="sm dl" onclick="mdSheetDelete('${esc(i.s.id)}')">×</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'Nothing matches the filters.':'No supply rows yet — load GLASS_SHEETS.csv or add a row'}</td></tr>`}</tbody></table></div>
   <div class="mut md-supply-foot">${rows.length} of ${infos.length} rows</div>${salesListMenuHTML(infos)}`;
 }
 function mdSheetNew(){
@@ -811,7 +811,7 @@ function mdHwTreeHTML(){
  const kinds=DB.hardwareKind||[],models=DB.hardwareModel||[];
  const node=k=>{const list=models.filter(m=>m.kind===k.code),series=[...new Set(list.map(m=>m.series||''))].sort();
   return `<li class="md-st-node" data-md-hw-kind="${esc(k.code)}"><div><b data-raw>${esc(hardwareKindName(k.code))}</b> <span class="mono" data-raw>${esc(k.code)}</span> <span class="mut">${list.length} models</span>${k.active===false?' <span class="pill warn">inactive</span>':''}</div>
-   ${series.map(sr=>`<div class="md-st-kids"><span class="mut">${sr?esc(sr):'No series'} ·</span> ${list.filter(m=>(m.series||'')===sr).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(m=>`<button type="button" class="pill${m.active===false?' warn':''}" data-raw onclick="mdHwModelEditRow('${esc(m.id)}')">${esc(m.name)}</button>`).join(' ')}</div>`).join('')}</li>`;};
+   ${series.map(sr=>`<div class="md-st-kids"><span class="mut">${sr?esc(sr):'No series'} ·</span> ${list.filter(m=>(m.series||'')===sr).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(m=>`<button type="button" class="pill${m.active===false?' warn':''}" data-raw data-md-hw-model="${esc(m.id)}" onclick="mdPeek='hardwareModel:${esc(m.id)}';render()">${esc(m.name)}</button>`).join(' ')}</div>`).join('')}</li>`;};
  return `<div class="md-st-tree" data-md-hw-tree><ol><li class="md-st-step"><ul>${kinds.map(node).join('')||'<li class="mut">No kinds</li>'}</ul></li></ol></div>`;
 }
 function viewMdHardware(){
@@ -842,7 +842,7 @@ function viewMdHardware(){
   <div class="sales-table-wrap"><table><thead><tr><th>Model</th><th>Kind</th><th>Series</th><th>On the drawing</th><th>Glass thickness</th><th>Supplier code</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
   <tbody>${sorted.map(m=>{
    const used=mdHwModelUsage(m.id),kind=hardwareKindRow(m.kind);
-   return `<tr><td><b>${raw(m.name)}</b>${m.note?`<div class="mut">${raw(m.note)}</div>`:''}</td>
+   return `<tr data-md-row="hardwareModel:${esc(m.id)}"><td><b>${raw(m.name)}</b>${m.note?`<div class="mut">${raw(m.note)}</div>`:''}</td>
     <td>${kind?raw(hardwareKindName(m.kind)):'<span class="pill warn">no kind</span>'}</td>
     <td>${m.series?raw(m.series):'<span class="mut">—</span>'}</td>
     <td class="mono"><b>${raw(hardwareModelShort(m))}</b>${m.short?'':'<div class="mut">auto</div>'}</td>

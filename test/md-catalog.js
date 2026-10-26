@@ -13,6 +13,19 @@ module.exports=async function({page,eq}){
   [...document.querySelectorAll('[data-md-peek] button')].find(b=>b.textContent==='Open card').click();
   return {sections,list,peek,card:!!document.querySelector('[data-md-card="spacer"]')};
  }),{sections:['Catalog','Prices','Production','Shipping','Company & print','Setup'],list:true,peek:'spacerVariant:'+await t.p.evaluate(()=>DB.spacerVariant[0].id),card:true});
+ /* Аудит 25.10.2026, D-1: превью у Supply points, Hardware и Recipes. */
+ eq('Supply points, Hardware and Recipes preview a row like Glass; Open card / Open recipe goes to it',await t.p.evaluate(()=>{
+  DB.glassSheet=[normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock',leadTimeDays:5})];
+  const sh=DB.glassSheet[0],m=DB.hardwareModel[0],rc=DB.surroundRecipe[0],facts=()=>[...document.querySelectorAll('[data-md-peek] dt')].map(d=>d.textContent);
+  const peekOf=sel=>{document.querySelector(sel).click();return document.querySelector('[data-md-peek]').getAttribute('data-md-peek');};
+  tab='masterdata';mdCatalogGo('glassSheet');const supply=peekOf('[data-md-row="glassSheet:'+sh.id+'"] td:nth-child(3)'),supplyFacts=facts(),noPrice=!/Purchase price|Price\b/.test(supplyFacts.join());
+  [...document.querySelectorAll('[data-md-peek] button')].find(b=>b.textContent==='Open card').click();const sheetForm=mdSheetEdit===sh.id;mdSheetEdit=null;
+  mdCatalogGo('hardwareModel');const tree=peekOf('[data-md-hw-model="'+m.id+'"]'),treeForm=mdHwModelEdit;
+  const row=peekOf('[data-md-row="hardwareModel:'+m.id+'"] td'),hwFacts=facts();
+  mdCatalogGo('surroundRecipe');const recipe=peekOf('[data-md-row="surroundRecipe:'+rc.id+'"] label'),btn=[...document.querySelectorAll('[data-md-peek] button')].find(b=>b.textContent==='Open recipe');btn.click();
+  return {supply,supplyFacts:supplyFacts.slice(0,3),noPrice,sheetForm,tree,treeForm,row,hw:hwFacts.includes('Kind')&&hwFacts.includes('On drawings'),recipe,on:!!document.querySelector('[data-recipe="'+rc.id+'"].md-recipe-on')};
+ }),await t.p.evaluate(()=>({supply:'glassSheet:'+DB.glassSheet[0].id,supplyFacts:['Glass','Supplier','Sheet'],noPrice:true,sheetForm:true,tree:'hardwareModel:'+DB.hardwareModel[0].id,treeForm:null,
+  row:'hardwareModel:'+DB.hardwareModel[0].id,hw:true,recipe:'surroundRecipe:'+DB.surroundRecipe[0].id,on:true})));
  eq('catalog search finds a row in any table; Open goes to its card',await t.p.evaluate(()=>{
   mdSetTab('materials');mdCatalogQuery='argon';render();
   const rows=document.querySelectorAll('[data-md-search] tbody tr').length;
