@@ -87,7 +87,7 @@ function mdPeekFacts(t,x){
   f.push(['Kind',kind?hardwareKindName(x.kind):null],['Series',x.series],['On the drawing',hardwareModelShort(x)],['Glass thickness',x.thickness],['Supplier code',x.supplierCode],['On drawings',String(mdHwModelUsage(x.id))],['Note',x.note]);
   if(!kind)miss.push('no kind');}
  else if(t==='surroundRecipe'){const fixed=p=>p==='spacer'||p==='gas',users=mdRecipeUsers(x.id);
-  f.push(['PIB per side',x.pibPerSideMm==null?null:x.pibPerSideMm+' mm'],...x.rows.map(r=>[surroundPartLabel(r.part),fixed(r.part)?(r.part==='spacer'?'from the spacer card':'from the gas card'):(r.amount==null?null:r.amount+' g · '+SURROUND_PER[r.per])+(r.wastePct?' · waste '+r.wastePct+'%':'')]),['Used by',users.length+' spacer'+(users.length===1?'':'s')]);
+  f.push(['PIB per side',x.pibPerSideMm==null?null:x.pibPerSideMm+' mm'],...x.rows.map(r=>[surroundPartLabel(r.part),fixed(r.part)?(r.part==='spacer'?'from the spacer card':'from the gas card'):(r.amount==null?null:r.amount+' '+SURROUND_PER[r.per])+(r.wastePct?' · waste '+r.wastePct+'%':'')]),['Used by',users.length+' spacer'+(users.length===1?'':'s')]);
   if(x.rows.some(r=>!fixed(r.part)&&r.amount==null))miss.push('norm missing');}
  else{f.push(['Code',x.code],['Supplier',x.supplier],['Price',money(x.salePrice)]);if('salePrice' in x&&x.salePrice==null&&t!=='stockItem'&&t!=='heatTreatment')miss.push('no price');}
  return {facts:f,miss};
