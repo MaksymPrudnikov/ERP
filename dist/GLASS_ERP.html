@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 176 модулей, 23 стиля.
+  Состав сборки: 177 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -3524,7 +3524,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='5e76a6aab534';
+var ERP_BUILD='f15a455aa928';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -46770,6 +46770,98 @@ function repSoldLine(o,l,cad,put){
  big.amount=salesMoney((big.amount||0)+diff);big.unitPrice=big.qty>0?big.amount/big.qty:null;
 }
 
+/* ==== src/erp/reports/facts-shop.js ==== */
+/* =====================================================================
+   reports/facts-shop  ·  facts-1.0
+   Цех сейчас: каждое стекло, которое ещё не отдали клиенту, — где оно
+   (заказ не проверен, ждёт батча, ждёт станцию, готово), сколько дней
+   ждёт, просрочено ли. Листы по резчику: порезанные и лопнувшие листы.
+   IN : заказы, номера стёкол (glassPieceMap), батчи, сканы станций,
+        место стекла по маршруту (stationPlace — то же, что Production и
+        Overview), листы раскроя (invCutSheets, invBreaks)
+   OUT: repShopFacts() — строка на стекло; repSheetCutFacts() — строка на
+        порезанный или лопнувший лист
+   Правило: файл ничего не рисует.
+
+   Владелец, 26.10.2026: «что ждёт, что не ждёт, что овердью, что уже
+   готово, а что нет».
+   · Готово — прошло станцию готовности (SHIPR) и ждёт выдачи.
+   · Просрочено — срок прошёл, а стекло не готово; у доставки — и готовое,
+     пока не уехало: самовывоз вовремя по готовности (как Orders). Due
+     state: Overdue · Due today · Due later · No due date · Ready (готово к
+     самовывозу — по сроку уже не считается).
+   · Ждёт с — последний скан стекла; у стекла без сканов — батч, у
+     непорезанного без батча — Verify, у непроверенного заказа — создание.
+     Days waiting — календарные дни до сегодня.
+   ===================================================================== */
+const REP_SHOP_DONE=['done','closed','cancelled'];
+let repShopCache={stamp:'',rows:null};
+/* Дни — календарные, по часам цеха: со вторника по пятницу — 3, в любой час
+   и через смену времени (сутки по 24 ч дали бы 4 после перевода часов). */
+function repShopDays(from,today){const d=repDay(from);return d?Math.max(0,repDaysBetween(d,today)):null;}
+function repShopFacts(){
+ /* Метка — раз на отрисовку (erp/read-scope): её спрашивает каждый график
+    страницы, а это проход по всем сканам и заказам. */
+ const today=finToday(),stamp=today+'|'+readMemo('repShopStamp',[DB.stationScan,DB.salesOrder,DB.glassBatch,DB.shipment],()=>(typeof prodBoardStamp==='function'?prodBoardStamp():'')+'|'+(DB.shipment||[]).length);
+ if(repShopCache.stamp===stamp&&repShopCache.rows)return repShopCache.rows;
+ const ship=shippingStations().ship,batches=stationBatchIndex(),scansBy=new Map(),rows=[];
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!scansBy.has(s.piece))scansBy.set(s.piece,[]);scansBy.get(s.piece).push(s);});
+ (DB.salesOrder||[]).forEach(o=>{
+  if(!o||salesIsQuote(o)||REP_SHOP_DONE.includes(o.status))return;
+  try{finWithOrder(o,()=>repShopOrder(o,{today,ship,batches,scansBy,rows}));}catch(e){}
+ });
+ repShopCache={stamp,rows};
+ return rows;
+}
+function repShopOrder(o,x){
+ const due=o.dueDate||'',delivery=o.delivery==='delivery',pieces=o.status==='new'?new Map():glassPieceMap(o.id);
+ const base=Object.assign({},repOrderInfo(o),{orderId:o.id,order:o.businessNumber||'',customerId:o.customerId||'',due,priority:SALES_LIST_PRIORITY[o.priority]||'Normal',
+  hold:o.onHold?'On hold':'Not on hold',status:salesStatusLabel(o)});
+ const put=(c,l,r)=>{
+  const ready=r.where==='Ready',over=!!due&&due<x.today&&(!ready||delivery);
+  x.rows.push(Object.assign({},base,{glass:c.glass,mm:repCompMm(c),area:r.area,glassN:r.n,id:o.id+'#'+x.rows.length,
+   stage:r.where==='To verify'||r.where==='To batch'?'Not started':ready?'Ready':'In production',since:r.since||'',days:r.since?repShopDays(r.since,x.today):null,
+   state:over?'Overdue':ready&&!delivery?'Ready':!due?'No due date':due===x.today?'Due today':'Due later',over:over?r.n:0,daysOver:over?repDaysBetween(due,x.today):null,overOrder:over?base.order:''},repLineInfo(l),r));
+ };
+ (o.lines||[]).forEach(l=>{
+  const a=salesLineAreas(l,o),per=a&&a.valid?a.actual:null,live=Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l));
+  glassBatchComponents(o,l).forEach(c=>{
+   if(c.missing)return;
+   const rec=pieces.get(c.key);
+   /* Без номеров стёкол — заказ ещё не проверен: стекло строкой на позицию. */
+   if(!rec){if(live)put(c,l,{where:'To verify',n:live,area:per==null?null:per*live,since:o.createdAt||''});return;}
+   const ids=rec.ids.map((id,i)=>[id,i+1]).concat(...Object.keys(rec.extra||{}).map(nr=>rec.extra[nr].map((id,k)=>[id,nr+'.'+(k+1)]))).filter(v=>v[0]);
+   ids.forEach(([id,unit])=>{
+    const e=x.batches.get(id)||null,scans=x.scansBy.get(id)||[],g={id,o,l,c,unit,entry:e};
+    if(unitPieceCancelled(g))return;
+    const place=stationPlace(g,scans);if(place.broken)return;
+    /* В очереди батча — только то, что режут (как Production). */
+    if(!e&&!scans.length&&glassComponentCut(c)){put(c,l,{where:'To batch',n:1,area:per,piece:id,since:o.statusDates&&o.statusDates.verified||o.createdAt||''});return;}
+    if(place.shipped||!place.waiting)return;
+    const last=scans.slice().sort((p,q)=>String(p.at).localeCompare(String(q.at))).pop()||null;
+    put(c,l,{where:place.waiting===x.ship?'Ready':place.waiting,n:1,area:per,piece:id,batch:e?e.batch.number:'',from:last?last.station:'',on:last&&last.on||'',
+     since:last?last.at:e&&e.item&&e.item.at||''});
+   });
+  });
+ });
+}
+
+/* Листы по резчику: первый рез с листа (invCutSheets — тот же лист, что
+   списывает склад) и лопнувший на столе лист; отменённый (Undo) — нет. */
+let repSheetCutCache={stamp:'',rows:null};
+function repSheetCutFacts(){
+ const stamp=readMemo('repSheetCutStamp',[DB.stationScan,DB.sheetBreak,DB.cutPlan],()=>{const scans=DB.stationScan||[],breaks=DB.sheetBreak||[];let undone=0;scans.forEach(s=>{if(s.undoneAt)undone++;});breaks.forEach(b=>{if(b.undoneAt)undone++;});
+  return [scans.length,undone,breaks.length,(DB.cutPlan||[]).length,(DB.cutPlan||[]).map(p=>p&&p.at||'').join(',')].join('|');});
+ if(repSheetCutCache.stamp===stamp&&repSheetCutCache.rows)return repSheetCutCache.rows;
+ const rows=[],mm=code=>{const g=glassProductByCode(code);return g&&g.thicknessMm||null;},sz=(w,h)=>w&&h?frac16(Math.max(w,h))+' × '+frac16(Math.min(w,h))+'″':'—';
+ if(typeof invCutSheets==='function')invCutSheets().forEach(s=>rows.push({id:'C|'+s.id,at:s.at,day:repDay(s.at),person:s.by||'',event:'Cut',glass:s.glass,mm:mm(s.glass),size:sz(s.w,s.h),
+  kind:s.stock?'Offcut':'Sheet',batch:s.batch,sheets:1,broke:0,area:s.w&&s.h?s.w*s.h/144:null}));
+ if(typeof invBreaks==='function')invBreaks(true).forEach(({x,size,stock})=>{if(x.undoneAt)return;
+  rows.push({id:'B|'+x.id,at:x.at,day:repDay(x.at),person:x.by||'',event:'Broke',glass:x.glass,mm:mm(x.glass),size:size?sz(size.w,size.h):'—',kind:stock?'Offcut':'Sheet',batch:x.batch,sheets:0,broke:1,area:null});});
+ repSheetCutCache={stamp,rows};
+ return rows;
+}
+
 /* ==== src/erp/reports/sources.js ==== */
 /* =====================================================================
    reports/sources  ·  sources-1.0
@@ -46933,6 +47025,20 @@ Object.assign(REP_SRC,{
    {k:'filmFt2',label:'Film ft²',agg:'sum',f:'filmFt2',digits:1},{k:'lamFt2',label:'Laminate ft²',agg:'sum',f:'lamFt2',digits:1},{k:'inches',label:'Linear in',agg:'sum',f:'inches'},
    {k:'pcs',label:'Pieces',agg:'sum',f:'pcs'},{k:'workFt2',label:'Work ft²',agg:'sum',f:'workFt2',digits:1},{k:'spacerFt',label:'Spacer ft',agg:'sum',f:'spacerFt',digits:1},
    {k:'list',label:'By price list',agg:'sum',f:'list',money:true}]},
+ /* Цех сейчас и листы по резчику (reports/facts-shop). now — то, что есть
+    сейчас: период не нужен, срок и «ждёт с» — свои даты для фильтра. */
+ shopnow:{label:'Shop now',group:'Production',now:true,hint:'Where every glass is, days waiting, overdue',rows:()=>repShopFacts(),date:['due','since'],
+  fields:()=>[Object.assign(REP_F.dim('where','Where'),{seq:v=>v==='To verify'?-2:v==='To batch'?-1:v==='Ready'?1000:repStationAt(v)}),REP_F.dim('stage','Stage'),REP_F.dim('state','Due state'),REP_F.date('due','Due'),REP_F.date('since','Waiting since'),REP_F.text('order','Order'),
+   REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery'),REP_F.dim('hold','On hold'),REP_F.dim('status','Status'),
+   REP_F.dim('from','Came from',r=>r.from||'—'),REP_F.dim('on','Dolly / skid',r=>r.on||'—'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),
+   REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.text('piece','Glass ID',r=>r.piece||'—')].concat(repOrderFields(),repLineFields(),
+   [REP_F.num('glassN','Glass'),REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('days','Days waiting'),REP_F.num('daysOver','Days overdue'),REP_F.num('over','Overdue glass')]),
+  metrics:[{k:'glass',label:'Glass',agg:'sum',f:'glassN'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'},
+   {k:'overdueOrders',label:'Overdue orders',agg:'distinct',f:'overOrder'},{k:'over',label:'Overdue glass',agg:'sum',f:'over'}]},
+ sheetcut:{label:'Sheets cut',group:'Production',hint:'Sheets cut and broken by cutter',rows:()=>repSheetCutFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Date'),REP_F.dim('person','Cutter',r=>r.person||'—'),REP_F.dim('event','Cut or broke'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),
+   REP_F.dim('size','Sheet size'),REP_F.dim('kind','Sheet or offcut'),REP_F.text('batch','Batch'),REP_F.num('sheets','Sheets cut'),REP_F.num('broke','Broken'),REP_F.num('area','Sheet ft²',{digits:1})],
+  metrics:[{k:'sheets',label:'Sheets cut',agg:'sum',f:'sheets'},{k:'broke',label:'Broken',agg:'sum',f:'broke'},{k:'area',label:'Sheet ft²',agg:'sum',f:'area',digits:1},{k:'batches',label:'Batches',agg:'distinct',f:'batch'}]},
  offcuts:{label:'Offcuts in stock',group:'Production',now:true,hint:'Sheet offcuts kept, used, removed',rows:()=>repOffcutFacts(),date:['at'],
   fields:()=>[REP_F.date('at','Booked'),REP_F.text('offcut','Offcut'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('maker','Manufacturer',r=>r.maker||'—'),
    REP_F.dim('size','Size'),REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.dim('status','Status'),REP_F.num('area','Area ft²',{digits:1})],
@@ -47178,13 +47284,17 @@ function repOrderKeys(S,d,groups,ms,q,range){
  }
  const by=q.sort&&q.sort.by==='label'?'label':'metric',i=q.sort&&Number.isInteger(q.sort.i)?q.sort.i:0,dir=q.sort&&q.sort.dir==='asc'?1:-1;
  if(by==='label'||!ms.length){
-  const seq=(DB.station||[]).map(s=>s.code),at=v=>{const n=seq.indexOf(v);return n<0?999:n;};
-  if(p.f==='station'&&!(q.sort&&q.sort.by==='label'))return keys.sort((a,b)=>at(a)-at(b));
+  const cmp=repSeqSort(S,p.f);
+  if(cmp&&!(q.sort&&q.sort.by==='label'))return keys.sort(cmp);
   return keys.sort((a,b)=>(q.sort&&q.sort.by==='label'?dir:1)*String(a).localeCompare(String(b),undefined,{numeric:true}));
  }
  const m=ms[Math.min(i,ms.length-1)],val=new Map(keys.map(k=>[k,repAgg(S,m,groups.get(k))]));
  return keys.sort((a,b)=>dir*((val.get(a)||0)-(val.get(b)||0))||String(a).localeCompare(String(b),undefined,{numeric:true}));
 }
+/* Порядок значений по смыслу: станции — по маршруту, у поля со своим
+   порядком (seq: «где стекло» — от «не проверено» до «готово») — по нему. */
+function repStationAt(v){const n=(DB.station||[]).map(s=>s.code).indexOf(v);return n<0?999:n;}
+function repSeqSort(S,k){const f=repField(S,k);if(f&&f.seq)return (a,b)=>f.seq(a)-f.seq(b);return k==='station'?(a,b)=>repStationAt(a)-repStationAt(b):null;}
 function repGroupBy(S,rows,d){const g=new Map();rows.forEach(r=>{const k=repDimValue(S,r,d);if(!g.has(k))g.set(k,[]);g.get(k).push(r);});return g;}
 
 /* ------------------------------- Запрос ------------------------------ */
@@ -47208,8 +47318,7 @@ function repQuery(q,ctx){
    const g2=repGroupBy(S,rows,dims[1]);let k2=repIsTime(S,dims[1])?repOrderKeys(S,dims[1],g2,ms,{},range).filter(k=>g2.has(k)):[...g2.keys()];
    if(!repIsTime(S,dims[1])){
     if(k2.length>8){const m=ms[0];k2=k2.sort((a,b)=>(repAgg(S,m,g2.get(b))||0)-(repAgg(S,m,g2.get(a))||0));const rest=k2.slice(7);k2=k2.slice(0,7);g2.set('__other',rest.flatMap(k=>g2.get(k)));}
-    const seq=(DB.station||[]).map(s=>s.code),at=v=>{const n=seq.indexOf(v);return n<0?999:n;};
-    k2=k2.sort(repDimParse(dims[1]).f==='station'?(a,b)=>at(a)-at(b):(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
+    k2=k2.sort(repSeqSort(S,repDimParse(dims[1]).f)||((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true})));
     if(g2.has('__other'))k2.push('__other');
    }
    out.keys2=k2;
@@ -47263,7 +47372,7 @@ function repKeyText(S,d,k){return k==='__other'?'Other':repDimText(S,d,k);}
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=5;
+const REP_SEED_VERSION=6;
 /* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
 function repUid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();}
 function repMe(){const u=typeof signinUser==='function'?signinUser():null;return u?u.viewProfileId:'';}
@@ -47424,7 +47533,35 @@ function REP_STARTERS(){
     repW('table','sold',{title:'Type by month',date:{use:'own',preset:'thisYear'},dims:['type','created:month'],metrics:['amount'],filters:[{f:'category',op:'notIn',v:['Order charges']}],limit:30})]],
    ['Prices',[repW('table','sold',{title:'Price per unit · by product',dims:['product'],metrics:['price','unitPrice:min','unitPrice:max','customers'],
      filters:[{f:'category',op:'notIn',v:['Order charges','Adjustments','Price set by hand','Cancelled units']}]}),
-    repW('table','sold',{title:'By customer',dims:['customer'],metrics:['amount','orders','calc:amount~div~orders'],limit:20,other:true})]]],5),{filters:{charge:['Charged']}})
+    repW('table','sold',{title:'By customer',dims:['customer'],metrics:['amount','orders','calc:amount~div~orders'],limit:20,other:true})]]],5),{filters:{charge:['Charged']}}),
+  /* Версия 6 (26.10.2026): цех сейчас — «что ждёт, что не ждёт, что
+     овердью, что уже готово, а что нет»; листы по резчику; экраны станций. */
+  R('shopnow','Shop · where is it now','Production','all',['where','state','customer','priority'],[
+   ['Now',[repW('number','shopnow',{title:'In the shop now',metrics:['glass','area','orders','overdueOrders']}),
+    repW('bars','shopnow',{title:'Glass by where it is',dims:['where'],metrics:['glass'],width:'half'}),repW('bars','shopnow',{title:'Glass by due',dims:['state'],metrics:['glass'],width:'half'}),
+    repW('table','shopnow',{title:'Overdue · where it is stuck',dims:['order','where'],metrics:['glass'],filters:[{f:'state',op:'in',v:['Overdue']}]}),
+    repW('table','shopnow',{title:'Waiting by station',dims:['where'],metrics:['glass','days:avg','days:max','over']}),
+    repW('table','shopnow',{title:'Ready · waiting for pickup or delivery',dims:['order'],metrics:['glass','days:max'],filters:[{f:'where',op:'in',v:['Ready']}],limit:30})]],
+   ['By customer',[repW('table','shopnow',{title:'By customer',dims:['customer'],metrics:['glass','orders','overdueOrders','over']}),
+    repW('table','shopnow',{title:'Not started · to verify or to batch',dims:['order','where'],metrics:['glass'],filters:[{f:'stage',op:'in',v:['Not started']}]})]]],6),
+  R('sheetcut','Cutting · sheets by cutter','Production','thisWeek',['person','glass'],[
+   ['Summary',[repW('number','sheetcut',{title:'Sheets',metrics:['sheets','broke','area','batches'],compare:'prev'}),repW('table','sheetcut',{title:'By cutter',dims:['person'],metrics:['sheets','broke','area','batches']}),
+    repW('columns','sheetcut',{title:'Sheets by day · cutter',dims:['at:day','person'],metrics:['sheets']}),repW('table','sheetcut',{title:'Glass × sheet size',dims:['glass','size'],metrics:['sheets']})]]],6),
+  R('mycut','Cutting · my day','Screens','today',[],[
+   ['Today',[repW('number','sheetcut',{title:'Sheets today',width:'half',metrics:['sheets','broke']}),repW('number','sheetcut',{title:'Your sheets today',width:'half',metrics:['sheets','broke'],filters:[{f:'person',op:'in',v:['@me']}]}),
+    repW('number','cutting',{title:'Your glass today',width:'half',metrics:['count','area'],filters:[{f:'person',op:'in',v:['@me']}]}),repW('columns','sheetcut',{title:'Sheets by hour',width:'half',dims:['at:hour'],metrics:['sheets']})]]],6),
+  R('mydrill','Drilling & CNC · my day','Screens','today',[],[
+   ['Today',[repW('number','drilling',{title:'Pieces here today',width:'half',metrics:['pcs','glass'],filters:[{f:'station',op:'in',v:['@station']}]}),
+    repW('number','drilling',{title:'Your pieces today',width:'half',metrics:['pcs','glass'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
+    repW('table','drilling',{title:'By operation',dims:['op'],metrics:['pcs','glass'],filters:[{f:'station',op:'in',v:['@station']}]})]]],6),
+  R('myasm','Assembly · my day','Screens','today',[],[
+   ['Today',[repW('number','assembly',{title:'Units here today',width:'half',metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']}]}),
+    repW('number','assembly',{title:'Your units today',width:'half',metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
+    repW('table','assembly',{title:'By unit type',dims:['unitType'],metrics:['units','area'],filters:[{f:'station',op:'in',v:['@station']}]})]]],6),
+  R('myship','Shipping · my day','Screens','today',[],[
+   ['Today',[repW('number','glass',{title:'Here today',width:'half',metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']}]}),
+    repW('number','glass',{title:'You today',width:'half',metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']},{f:'person',op:'in',v:['@me']}]}),
+    repW('table','glass',{title:'By customer',dims:['customer'],metrics:['units','count'],filters:[{f:'station',op:'in',v:['@station']}],limit:10,other:true})]]],6)
  ];
 }
 
