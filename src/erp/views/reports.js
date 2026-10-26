@@ -42,7 +42,7 @@ function repDateText(d){if(!d)return 'All time';if(d.from||d.to)return (d.from?s
 function repWidgetQuery(r,w){
  const q=JSON.parse(JSON.stringify(w.q)),v=repView(r.id),S=REP_SRC[q.source];
  if(q.date.use!=='own'){const d=v.date||r.date;q.date=Object.assign({},q.date,{preset:d.preset||'',from:d.from||'',to:d.to||''});}
- Object.entries(repViewFilters(r)).forEach(([f,vals])=>{if(Array.isArray(vals)&&vals.length&&S&&repField(S,f))q.filters.push({f,op:'in',v:vals});});
+ q.skip=[];Object.entries(repViewFilters(r)).forEach(([f,vals])=>{if(!Array.isArray(vals)||!vals.length||!S)return;if(repField(S,f))q.filters.push({f,op:'in',v:vals});else q.skip.push(f);});
  return q;
 }
 
@@ -139,7 +139,12 @@ function repWidgetTitle(w){
 function repWidgetCard(r,w,i,n){
  const sel=repEditOn&&w.id===repSelW,tools=repEditOn?`<span class="rep-wtools"><button type="button" class="sm" onclick="repSelectWidget('${esc(w.id)}')">Edit</button><button type="button" class="sm" title="Duplicate" onclick="repDupWidget('${esc(w.id)}')">Duplicate</button><button type="button" class="sm" title="Move up" ${i?'':'disabled'} onclick="repMoveWidget('${esc(w.id)}',-1)">↑</button><button type="button" class="sm" title="Move down" ${i<n-1?'':'disabled'} onclick="repMoveWidget('${esc(w.id)}',1)">↓</button><button type="button" class="sm dl" title="Remove" onclick="repDelWidget('${esc(w.id)}')">×</button></span>`:'';
  const src=REP_SRC[w.q.source],own=w.q.date.use==='own'?' · '+repDateText(w.q.date):'';
- return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${esc(w.id)}" data-rep-type="${w.type}"${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select'))repSelectWidget('${esc(w.id)}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span>${tools}</div>${repChart(r,w)}</div>`;
+ return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${esc(w.id)}" data-rep-type="${w.type}"${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select'))repSelectWidget('${esc(w.id)}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span>${tools}</div>${repChart(r,w)}${repSkipHTML(r,w)}</div>`;
+}
+
+function repSkipHTML(r,w){
+ const q=repWidgetQuery(r,w),S=REP_SRC[q.source],list=S?repSkippedFilters(S,q):[];
+ return list.length?`<div class="mut small" data-rep-skip>Not filtered by ${esc(list.map(repFieldLabelAny).join(', '))}</div>`:'';
 }
 
 /* ------------------------------ Фильтры отчёта ------------------------------ */

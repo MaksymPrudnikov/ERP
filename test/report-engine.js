@@ -76,6 +76,25 @@ module.exports=async function({page,eq,ok}){
   const top=repQuery({source:'glass',date:{preset:'all'},dims:['customer'],metrics:['count'],limit:1,other:true});
   return {me,top:top.keys.map(k=>repKeyText(REP_SRC.glass,'customer',k)+' '+top.rowTotals.get(k)[0])};
  }),{me:4,top:['South Glass 8','Other 2']});
+ /* Аудит 25.10.2026: R-3 — фильтр, которого у источника нет, виден у
+    графика; R-4 — Other прошлого периода; R-5 — одноимённые клиенты
+    раздельно; R-6 — смена водителя доходит до отчёта доставки. */
+ eq('Аудит Reports: неприменённый фильтр виден; Other прошлого периода; одноимённые клиенты раздельно; новый водитель в доставке',await t.p.evaluate(()=>{
+  oqReset();const same1=oqCustomer({legalName:'Same Name'}),same2=oqCustomer({legalName:'Same Name'}),other=oqCustomer({legalName:'Other Co'});
+  /* Период 15–17 сентября: Same Name (первый) 2, Other 1; прошлый, 12–14: по одному у каждого из трёх. */
+  const day=d=>new Date(Date.UTC(2026,8,d,12)).toISOString(),sep=d=>'2026-09-'+String(d).padStart(2,'0');
+  [[same1,15],[same1,16],[other,17],[same1,12],[same2,13],[other,14]].forEach(([c,d])=>{const id=rbOrder(c,'6CLEAR','double',[[30,40,1]]);storageCommand(()=>{const o=salesRecord(id);o.createdAt=day(d);o.updatedAt=day(d);});});
+  const q=repQuery({source:'orders',date:{f:'created',from:sep(15),to:sep(17)},dims:['customer'],metrics:['count'],limit:1,other:true,compare:'prev'});
+  const prev=q.keys.map(k=>repKeyText(REP_SRC.orders,'customer',k).replace(/C-\d+/,'C-#')+' '+(q.compare.rowTotals.get(k)||[])[0]),sum=q.keys.reduce((n,k)=>n+((q.compare.rowTotals.get(k)||[])[0]||0),0);
+  const names=repQuery({source:'orders',date:{f:'created',from:sep(12),to:sep(17)},dims:['customer'],metrics:['count']}).keys.sort();
+  const r={id:'R-AUDIT',filters:{method:['Cash']},date:{preset:'all'},pages:[]},w={id:'W1',type:'number',q:{source:'orders',date:{use:'report'},dims:[],metrics:['count'],filters:[{f:'gone',op:'in',v:['x']}]}};
+  const skip=repSkipHTML(r,w).replace(/<[^>]+>/g,''),none=repSkipHTML({id:'R-AUDIT2',filters:{},date:{preset:'all'},pages:[]},Object.assign({},w,{q:Object.assign({},w.q,{filters:[]})}));
+  DB.truck=[{id:'T1',name:'Truck 1',active:true}];const u1=rbUser('First','1111'),u2=rbUser('Second','2222'),id=rbOrder(other,'6CLEAR','double',[[30,40,1]],{delivery:'delivery'});rbBatch([id]);oqReady(id);
+  const ps=shippingCreate({customerId:other.id,method:'delivery',shipTo:{address1:'Site'},date:finToday(),items:shippingAvailable(salesRecord(id)).map(shippingItem)}).value;
+  storageCommand(()=>{ps.truckId='T1';});deliverySetDriver(ps.date,'T1',u1.id);const d1=repDeliveryFacts().find(x=>x.id===ps.id).driver;
+  deliverySetDriver(ps.date,'T1',u2.id);const d2=repDeliveryFacts().find(x=>x.id===ps.id).driver;
+  return {top:prev,sum,total:q.compare.total[0],names:names.map(n=>n.replace(/C-\d+/,'C-#')),skip,none,drivers:[d1,d2]};
+ }),{top:['Same Name · C-# 1','Other 2'],sum:3,total:3,names:['Other Co','Same Name · C-#','Same Name · C-#'],skip:'Not filtered by Method, gone',none:'',drivers:['First','Second']});
  eq('Поля заказа и строки (PO, город, отметка, размер, Recut) и вычисляемые метрики: $ за дюйм, ft² ÷ число',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows',salesRep:'Kate',addresses:[{label:'Main',address1:'1 King St',city:'Toronto',province:'ON',isPrimary:true}]}),who={id:'u1',name:'Andrei'};
   const a=rbOrder(c,'6CLEAR','double',[[37,71,1]],{customerPo:'PO-77'});salesRecord(a).lines[0].mark='Kitchen';rbBatch([a]);rbIds(a).forEach(p=>{rbGo('CUT',p,who);rbGo('ARRIS',p,who);});

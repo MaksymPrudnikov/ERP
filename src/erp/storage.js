@@ -76,6 +76,10 @@ function storageInvalidate(){
  if(typeof stationFrozenIndex!=='undefined')stationFrozenIndex={list:null,size:-1,map:null};
  if(typeof stkSheetCache!=='undefined')stkSheetCache={batch:'',map:null};
  if(typeof orderLogCreators!=='undefined')orderLogCreators={ref:null,n:-1,map:null};
+ /* Reports: доставка узнавала перемену по длине и статусу PS — смену
+    водителя, города, времени выезда не видела (аудит 25.10.2026, R-6). */
+ if(typeof repDeliveryCache!=='undefined')repDeliveryCache={stamp:'',rows:null};
+ if(typeof repCustomerNames!=='undefined')repCustomerNames=null;
  if(typeof readMemoReset==='function')readMemoReset();
  /* Пересборка таблицы (откат, чужая запись) — строки просмотра из архива на место. */
  if(typeof archiveVisitKeep==='function')archiveVisitKeep();
