@@ -14,7 +14,7 @@
    уносит). Edit открывает черновик: Save — записать, Cancel — как было;
    уход с несохранёнными правками спрашивает.
    ===================================================================== */
-let repOpenId='',repPageId='',repEditOn=false,repSelW='',repQ='',repFolderSel='All',repMenu=null,repPicks=[],repDraft=null,repDraftBase='';
+let repOpenId='',repPageId='',repEditOn=false,repSelW='',repQ='',repMenu=null,repPicks=[],repDraft=null,repDraftBase='';
 const REP_VIEW_KEY='glass_erp_report_view_v1';
 function repViewAll(){try{const v=JSON.parse(localStorage.getItem(REP_VIEW_KEY)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return {};}}
 function repView(id){const v=repViewAll()[id];return v&&typeof v==='object'?v:{};}
@@ -47,15 +47,67 @@ function repWidgetQuery(r,w){
 }
 
 /* ------------------------------ Каталог ------------------------------ */
-function repFolderOf(r){return r.folder||'Unfiled';}
+/* Владелец, 26.10.2026: «если отчётов будет 300, то что — одним длинным
+   листом? презентабельней, минималистично, производительно и эффективно».
+   Выбран вид A + B: панель — поиск, Pinned, Recent и папки деревом
+   (подпапки — через « / » в имени папки, открыта одна папка, в ней первые
+   8 отчётов и «All N»); «‹» прячет панель — отчёт на всю ширину, сверху
+   путь и быстрые ссылки, «☰ Reports» возвращает. Избранное и недавние —
+   свои у каждого человека, в этом браузере (как фильтры зрителя). */
+const REP_UI_KEY='glass_erp_report_ui_v1',REP_FOLDER_SHOW=8,REP_FIND_SHOW=60;
+let repFolderOpen='',repSubOpen='',repFolderAll=new Set();
+function repUi(){try{const v=JSON.parse(localStorage.getItem(REP_UI_KEY)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return {};}}
+function repUiSet(fn){const v=repUi();fn(v);try{localStorage.setItem(REP_UI_KEY,JSON.stringify(v));}catch(e){}}
+function repUiList(k){const m=repUi()[k],l=m&&m[repMe()||'-'];return (Array.isArray(l)?l:[]).map(repFind).filter(r=>r&&repVisible(r));}
+function repPinned(id){return repUiList('pins').some(r=>r.id===id);}
+function repPinToggle(id){const on=repPinned(id);repUiSet(v=>{const me=repMe()||'-';v.pins=v.pins&&typeof v.pins==='object'?v.pins:{};const l=(Array.isArray(v.pins[me])?v.pins[me]:[]).filter(x=>x!==id);v.pins[me]=on?l:[id].concat(l).slice(0,20);});render();}
+function repRecentAdd(id){repUiSet(v=>{const me=repMe()||'-';v.recent=v.recent&&typeof v.recent==='object'?v.recent:{};v.recent[me]=[id].concat((Array.isArray(v.recent[me])?v.recent[me]:[]).filter(x=>x!==id)).slice(0,8);});}
+function repCatHidden(){return repUi().hidden===true;}
+function repCatHide(on){repUiSet(v=>{v.hidden=!!on;});render();}
+/* Путь папки: «Production / Cutting» — папка и подпапка; глубже — к подпапке. */
+function repFolderPath(r){const p=String(r&&r.folder||'').split('/').map(x=>x.trim()).filter(Boolean);return p.length?[p[0],p.slice(1).join(' / ')]:['Unfiled',''];}
+function repCatRow(r){
+ return `<button type="button" class="rep-item${r.id===repOpenId?' on':''}" data-rep-item="${esc(r.id)}" onclick="repOpen(this.dataset.repItem)" title="${esc(r.name)}"><span data-raw>${esc(r.name)}</span>${repPinned(r.id)?'<i aria-label="Pinned">★</i>':''}</button>`;
+}
+function repCatList(list,key){
+ const all=repFolderAll.has(key),shown=all?list:list.slice(0,REP_FOLDER_SHOW);
+ return shown.map(repCatRow).join('')+(list.length>shown.length?`<button type="button" class="rep-more" data-rep-all="${esc(key)}" onclick="repFolderAll.add(this.dataset.repAll);render()">All ${list.length} →</button>`:'');
+}
 function repCatalog(){
- const list=(DB.report||[]).filter(repVisible),q=repQ.trim().toLowerCase(),folders=[...new Set(list.map(repFolderOf))].sort((a,b)=>a.localeCompare(b));
- const inFolder=r=>repFolderSel==='All'||repFolderOf(r)===repFolderSel,shown=list.filter(r=>q?(r.name+' '+r.folder).toLowerCase().includes(q):inFolder(r)).sort((a,b)=>a.name.localeCompare(b.name));
- const src=r=>{const s=[...new Set(r.pages.flatMap(p=>p.widgets.map(w=>(REP_SRC[w.q.source]||{}).label)).filter(Boolean))];return s.slice(0,2).join(', ')+(s.length>2?' +'+(s.length-2):'');};
- return `<div class="card rep-cat" data-rep-catalog><div class="rep-cat-head"><h3>Reports</h3><button type="button" class="pri sm" data-rep-new onclick="repNew()">+ New</button></div>
-  <input type="search" class="rep-search" data-rep-search placeholder="Search ${list.length} reports…" value="${esc(repQ)}" oninput="repQ=this.value;render()">
-  <div class="rep-folders">${['All'].concat(folders).map(f=>{const n=f==='All'?list.length:list.filter(r=>repFolderOf(r)===f).length;return `<button type="button" class="rep-folder${!q&&repFolderSel===f?' on':''}" data-rep-folder="${esc(f)}" onclick="repFolderSel=this.dataset.repFolder;repQ='';render()"><span data-raw>${esc(f)}</span><span>${n}</span></button>`;}).join('')}</div>
-  <div class="rep-list">${shown.map(r=>`<button type="button" class="rep-item${r.id===repOpenId?' on':''}" data-rep-item="${esc(r.id)}" onclick="repOpen(this.dataset.repItem)"><b data-raw>${esc(r.name)}</b><small data-raw>${esc(src(r))} · ${esc(repDateText(r.date))}</small></button>`).join('')||'<div class="mut">Nothing found.</div>'}</div></div>`;
+ const list=(DB.report||[]).filter(repVisible).sort((a,b)=>a.name.localeCompare(b.name)),q=repQ.trim().toLowerCase();
+ const head=`<div class="rep-cat-head"><h3>Reports</h3><span class="rep-cat-acts"><button type="button" class="pri sm" data-rep-new onclick="repNew()">+ New</button><button type="button" class="sm" data-rep-hide title="Hide list" aria-label="Hide list" onclick="repCatHide(true)">‹</button></span></div>
+  <input type="search" class="rep-search" data-rep-search placeholder="Search ${list.length} reports…" value="${esc(repQ)}" oninput="repQ=this.value;render()">`;
+ let body='';
+ if(q){
+  /* Поиск — по имени и папке, найденное строками с папкой. */
+  const hit=list.filter(r=>(r.name+' '+r.folder).toLowerCase().includes(q));
+  body=hit.slice(0,REP_FIND_SHOW).map(r=>`<button type="button" class="rep-item${r.id===repOpenId?' on':''}" data-rep-item="${esc(r.id)}" onclick="repOpen(this.dataset.repItem)"><span data-raw>${esc(r.name)}</span><small data-raw>${esc(repFolderPath(r).filter(Boolean).join(' / '))}</small></button>`).join('')
+   +(hit.length>REP_FIND_SHOW?`<div class="mut small">First ${REP_FIND_SHOW} of ${hit.length}</div>`:'')||'<div class="mut">Nothing found.</div>';
+ }else{
+  const pins=repUiList('pins'),recent=repUiList('recent').filter(r=>!pins.includes(r)).slice(0,5);
+  if(pins.length)body+=`<div class="rep-sec">Pinned</div>`+pins.map(repCatRow).join('');
+  if(recent.length)body+=`<div class="rep-sec">Recent</div>`+recent.map(repCatRow).join('');
+  const tops=[...new Set(list.map(r=>repFolderPath(r)[0]))].sort((a,b)=>(a==='Unfiled')-(b==='Unfiled')||a.localeCompare(b));
+  body+=`<div class="rep-sec">Folders</div>`+tops.map(t=>{
+   const inTop=list.filter(r=>repFolderPath(r)[0]===t),open=repFolderOpen===t;
+   let h=`<button type="button" class="rep-folder${open?' on':''}" data-rep-folder="${esc(t)}" aria-expanded="${open}" onclick="repToggleFolder(this.dataset.repFolder)"><i>${open?'▾':'▸'}</i><span data-raw>${esc(t)}</span><span class="n">${inTop.length}</span></button>`;
+   if(!open)return h;
+   const subs=[...new Set(inTop.map(r=>repFolderPath(r)[1]).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+   h+=`<div class="rep-tree">`+subs.map(sub=>{const inSub=inTop.filter(r=>repFolderPath(r)[1]===sub),so=repSubOpen===t+' / '+sub;
+    return `<button type="button" class="rep-folder sub${so?' on':''}" data-rep-folder="${esc(t+' / '+sub)}" aria-expanded="${so}" onclick="repToggleSub(this.dataset.repFolder)"><i>${so?'▾':'▸'}</i><span data-raw>${esc(sub)}</span><span class="n">${inSub.length}</span></button>`
+     +(so?`<div class="rep-tree">${repCatList(inSub,t+' / '+sub)}</div>`:'');}).join('')+repCatList(inTop.filter(r=>!repFolderPath(r)[1]),t)+`</div>`;
+   return h;
+  }).join('');
+ }
+ return `<div class="card rep-cat" data-rep-catalog>${head}<div class="rep-list">${body}</div></div>`;
+}
+function repToggleFolder(t){repFolderOpen=repFolderOpen===t?'':t;repSubOpen='';render();}
+function repToggleSub(p){repSubOpen=repSubOpen===p?'':p;render();}
+/* Панель спрятана: путь к отчёту и быстрые ссылки — избранное и недавние. */
+function repCatBar(r){
+ const path=r?repFolderPath(r).filter(Boolean):[],chips=repUiList('pins').concat(repUiList('recent')).filter((x,i,a)=>a.indexOf(x)===i&&(!r||x.id!==r.id)).slice(0,6);
+ return `<div class="card rep-bar" data-rep-bar><button type="button" class="sm" data-rep-show onclick="repCatHide(false)">☰ Reports</button><span class="rep-crumb" data-raw>${['Reports'].concat(path).map(esc).join(' › ')}${r?' › <b>'+esc(r.name)+'</b>':''}</span>
+  <span class="rep-chips">${chips.map(x=>`<button type="button" class="rep-chip" data-rep-item="${esc(x.id)}" onclick="repOpen(this.dataset.repItem)">${repPinned(x.id)?'★ ':''}<span data-raw>${esc(x.name)}</span></button>`).join('')}</span></div>`;
 }
 
 /* ------------------------------ Графики ------------------------------ */
@@ -77,6 +129,9 @@ function repNumbers(res){
  const sub=(m,i)=>{if(!res.compare)return '';const d=repDelta(res.total[i],res.compare.total[i]);return esc((d?d+' · ':'')+(res.compare.kind==='year'?'Last year ':'Previous ')+repFmt(m,res.compare.total[i]));};
  return `<div class="ch-stats rep-nums">${res.metrics.map((m,i)=>chartStat(m.label,esc(repFmt(m,res.total[i])),sub(m,i),` data-rep-number="${esc(m.k)}"`)).join('')}</div>`;
 }
+/* Ноль в строке таблицы — точкой, как пустая клетка разбивки: меньше шума.
+   Деньги и проценты пишутся как есть. */
+function repCellHTML(m,v){return v===0&&!m.money&&!m.pct?'<span class="mut">·</span>':esc(repFmt(m,v));}
 function repTableHTML(r,S,res,w){
  const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],MAX=200,cmp=res.compare&&!d2;
  if(!d1)return `<div class="sales-table-wrap"><table class="sl-table rep-table"><thead><tr>${ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')}</tr></thead><tbody><tr>${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr></tbody></table></div>`;
@@ -91,7 +146,7 @@ function repTableHTML(r,S,res,w){
   if(w.opts.totals)foot=`<tr class="sl-foot"><td><b>Total</b></td>${k2.map(b=>ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.colTotals.get(b)[i]))}</b></td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr>`;
  }else{
   head=`<th>${esc(repDimLabel(S,d1))}</th>${ms.map(m=>`<th class="n">${esc(m.label)}</th>`+(cmp?`<th class="n rep-cmp">${esc(repCmpText(res))}</th>`:'')).join('')}`;
-  body=keys.slice(0,MAX).map(k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${ms.map((m,i)=>`<td class="n">${esc(repFmt(m,res.rowTotals.get(k)[i]))}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`).join('');
+  body=keys.slice(0,MAX).map(k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${ms.map((m,i)=>`<td class="n">${repCellHTML(m,res.rowTotals.get(k)[i])}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`).join('');
   if(w.opts.totals)foot=`<tr class="sl-foot"><td><b>Total</b></td>${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.total[i],res.compare.total[i]))}</td>`:'')).join('')}</tr>`;
  }
  return `<div class="sales-table-wrap"><table class="sl-table rep-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>MAX?`<div class="mut">First ${MAX} of ${keys.length}</div>`:''}`;
@@ -243,9 +298,9 @@ function repSetup(r){
 }
 
 /* ------------------------------ Команды экрана ------------------------------ */
-function repOpen(id){const r=repFind(id);if(!r||!repCanLeave())return;repDropDraft();repOpenId=id;repPageId=r.pages[0].id;render();}
+function repOpen(id){const r=repFind(id);if(!r||!repCanLeave())return;repDropDraft();repOpenId=id;repPageId=r.pages[0].id;repRecentAdd(id);const p=repFolderPath(r);repFolderOpen=p[0];repSubOpen=p[1]?p[0]+' / '+p[1]:'';render();}
 function repStartDraft(r){repDraft=JSON.parse(JSON.stringify(r));repDraftBase=repFind(r.id)?JSON.stringify(repDraft):'';repOpenId=r.id;repPageId=repDraft.pages[0].id;repEditOn=true;repSelW='';repMenu=null;}
-function repNew(){if(!repCanLeave())return;repDropDraft();const r=repBlank(repFolderSel!=='All'?repFolderSel:'');repStartDraft(r);repSelW=r.pages[0].widgets[0].id;render();}
+function repNew(){if(!repCanLeave())return;repDropDraft();const r=repBlank(repSubOpen||repFolderOpen||'');repStartDraft(r);repSelW=r.pages[0].widgets[0].id;render();}
 function repCopyOpen(){const src=repOpenReport();if(!src||!repCanLeave())return;const r=repCopyOf(src);repDropDraft();repStartDraft(r);render();}
 function repEditToggle(){const r=repFind(repOpenId);if(!r||!repCanEdit(r))return;repStartDraft(r);render();}
 function repSaveEdit(){if(!repDraft)return;const saved=repSave(repDraft);if(!saved)return;repDropDraft();repOpenId=saved.id;render();}
@@ -339,7 +394,7 @@ function repMain(r){
   :`<h2 class="rep-title" data-raw>${esc(r.name)}</h2>`;
  const dirty=repDirty(),saved=!!repFind(r.id);
  const acts=repEditOn?`${dirty?'<span class="mut small" data-rep-unsaved>Unsaved changes</span>':''}<button type="button" class="pri sm" data-rep-save onclick="repSaveEdit()">Save</button><button type="button" class="sm" data-rep-cancel onclick="repCancelEdit()">Cancel</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>${saved?`<button type="button" class="sm dl" onclick="repDeleteOpen()">Delete</button>`:''}`
-  :`${repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-edit onclick="repEditToggle()">Edit</button>`:''}<button type="button" class="sm" data-rep-copy onclick="repCopyOpen()">Copy</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>`;
+  :`${saved?`<button type="button" class="sm rep-pin${repPinned(r.id)?' on':''}" data-rep-pin="${esc(r.id)}" title="${repPinned(r.id)?'Unpin':'Pin'}" aria-label="${repPinned(r.id)?'Unpin':'Pin'}" onclick="repPinToggle(this.dataset.repPin)">${repPinned(r.id)?'★':'☆'}</button>`:''}${repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-edit onclick="repEditToggle()">Edit</button>`:''}<button type="button" class="sm" data-rep-copy onclick="repCopyOpen()">Copy</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>`;
  const tabs=`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-page="${esc(x.id)}" onclick="repPageId=this.dataset.repPage;repSelW='';render()">${esc(x.name)}</button>`).join('')}${repEditOn?`<button type="button" onclick="repAddPage()">+ Page</button>`:''}</div>
   ${repEditOn?`<div class="rep-page-edit"><input type="text" value="${esc(p.name)}" aria-label="Page name" onchange="repRenamePage(this.value)"><button type="button" class="sm" title="Move page left" onclick="repMovePage(-1)">←</button><button type="button" class="sm" title="Move page right" onclick="repMovePage(1)">→</button>${r.pages.length>1?`<button type="button" class="sm dl" onclick="repDelPage()">Delete page</button>`:''}</div>`:''}`;
  /* Период захватывает ушедшие в архив заказы — сначала их записи с диска. */
@@ -353,5 +408,6 @@ function viewReports(){
  repPicks=[];
  const r=repOpenReport();if(!r){repOpenId='';repEditOn=false;}
  const setup=r&&repEditOn?repSetup(r):'';
- return `<div class="rep-app${setup?' editing':''}">${repCatalog()}<div class="rep-main">${repMain(r)}</div>${setup}</div>${repMenuHTML(r)}`;
+ const hide=repCatHidden();
+ return `<div class="rep-app${setup?' editing':''}${hide?' flat':''}">${hide?'':repCatalog()}<div class="rep-main">${hide?repCatBar(r):''}${repMain(r)}</div>${setup}</div>${repMenuHTML(r)}`;
 }

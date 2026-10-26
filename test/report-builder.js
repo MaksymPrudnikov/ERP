@@ -20,13 +20,46 @@ module.exports=async function({page,eq,ok}){
   const old=window.accessCan;window.accessCan=k=>k!=='reports';tab='dashboard';render();const hidden=!document.querySelector('.side [title="Reports"]');window.accessCan=old;
   rpOpenTab();const folders=[...document.querySelectorAll('[data-rep-folder]')].map(x=>x.dataset.repFolder);
   return {inSections:USER_SECTIONS.includes('reports'),hidden,empty:!!document.querySelector('[data-rep-empty]'),widgets:rpWidgets().length,folders,starters:(DB.report||[]).filter(r=>/^RP-start-/.test(r.id)).length};
- }),{inSections:true,hidden:true,empty:true,widgets:0,folders:['All','Finance','People','Production','Quality','Sales','Screens','Shipping'],starters:32});
+ }),{inSections:true,hidden:true,empty:true,widgets:0,folders:['Finance','People','Production','Quality','Sales','Screens','Shipping'],starters:32});
 
  eq('Отчёт «Glass cut · by month» открывается страницей Summary; на второй странице — свои графики; поиск по каталогу',await t.p.evaluate(()=>{
-  rpScans();rpOpenTab();repQ='glass cut';render();const found=[...document.querySelectorAll('[data-rep-item]')].map(x=>x.querySelector('b').textContent);
+  rpScans();rpOpenTab();repQ='glass cut';render();const found=[...document.querySelectorAll('[data-rep-item]')].map(x=>x.querySelector('span').textContent);
   repQ='';document.querySelector('[data-rep-item="RP-start-cut"]').click();const p1=rpWidgets(),pages=[...document.querySelectorAll('[data-rep-page]')].map(x=>x.textContent);
   document.querySelectorAll('[data-rep-page]')[1].click();return {found,p1,pages,p2:rpWidgets()};
  }),{found:['Glass cut · by month'],p1:['number','columns','table'],pages:['Summary','By cutter'],p2:['table','columns']});
+
+ /* Владелец, 26.10.2026: «если отчётов будет 300 — одним длинным листом?»
+    Выбран вид A + B: папки деревом, Pinned, Recent; панель прячется. */
+ eq('Каталог на 300 отчётах: папки деревом — открыта одна, подпапки через « / », в папке первые 8 и «All N»; поиск — строки с папкой',await t.p.evaluate(()=>{
+  const keep=DB.report.slice();
+  for(let i=0;i<300;i++)DB.report.push(repClean({id:'RP-t-'+i,name:'Test '+String(i).padStart(3,'0'),folder:['Sales','Production / Cutting','Production / Edgework','Finance'][i%4],ownerId:'',share:'all',pages:[{name:'P',widgets:[]}]}));
+  try{localStorage.removeItem(REP_UI_KEY);}catch(e){}repFolderOpen='';repSubOpen='';repFolderAll=new Set();
+  rpOpenTab();const rows=()=>[...document.querySelectorAll('[data-rep-catalog] .rep-folder, [data-rep-catalog] .rep-item, [data-rep-catalog] .rep-more')].map(x=>x.textContent.replace(/\s+/g,' ').trim());
+  const closed=rows().length;
+  document.querySelector('[data-rep-folder="Production"]').click();const prod=rows().filter(x=>/Cutting|Edgework|All/.test(x));
+  const inSub=()=>document.querySelectorAll('[data-rep-catalog] .rep-tree .rep-tree .rep-item').length;
+  document.querySelector('[data-rep-folder="Production / Cutting"]').click();const cut=inSub(),more=rows().find(x=>/^All/.test(x));
+  document.querySelector('[data-rep-all="Production / Cutting"]').click();const all=inSub();
+  repQ='test 01';render();const found=[...document.querySelectorAll('[data-rep-item]')].slice(0,2).map(x=>x.textContent.replace(/\s+/g,' ').trim());
+  repQ='';repFolderAll=new Set();DB.report=keep;render();
+  return {closed,prod,cut,more,all,found};
+ }),{closed:7,prod:['▸Cutting79','▸Edgework77'],cut:8,more:'All 79 →',all:79,found:['Test 010Production / Edgework','Test 011Finance']});
+
+ eq('Pinned и Recent — свои у человека в этом браузере; ★ в шапке отчёта; «‹» прячет панель — отчёт на всю ширину, путь и быстрые ссылки; «☰ Reports» возвращает',await t.p.evaluate(()=>{
+  try{localStorage.removeItem(REP_UI_KEY);}catch(e){}rpOpenTab();
+  repOpen('RP-start-sold');document.querySelector('[data-rep-pin]').click();repOpen('RP-start-cut');
+  const sec=[...document.querySelectorAll('.rep-sec')].map(x=>x.textContent),pinned=repUiList('pins').map(r=>r.id),recent=repUiList('recent').map(r=>r.id),open=document.querySelector('.rep-folder.sub.on').dataset.repFolder;
+  document.querySelector('[data-rep-hide]').click();
+  const hidden={catalog:!!document.querySelector('[data-rep-catalog]'),flat:document.querySelector('.rep-app').classList.contains('flat'),crumb:document.querySelector('.rep-crumb').textContent,chips:[...document.querySelectorAll('.rep-chip')].map(x=>x.textContent)};
+  document.querySelector('[data-rep-show]').click();const back=!!document.querySelector('[data-rep-catalog]');
+  return {sec,pinned,recent,open,hidden,back};
+ }),{sec:['Pinned','Recent','Folders'],pinned:['RP-start-sold'],recent:['RP-start-cut','RP-start-sold'],open:'Production / Cutting',
+  hidden:{catalog:false,flat:true,crumb:'Reports › Production › Cutting › Glass cut · by month',chips:['★ Products · sold']},back:true});
+
+ eq('Стартовые версии 7: Production — по подпапкам; стартовый, которому владелец сменил папку, остаётся в ней',await t.p.evaluate(()=>{
+  const a=DB.report.find(r=>r.id==='RP-start-cut'),b=DB.report.find(r=>r.id==='RP-start-temper');a.folder='Production';b.folder='My shop';DB.reportSeed=6;normalizeReports();
+  const now=id=>DB.report.find(r=>r.id===id),out={cut:now('RP-start-cut').folder,temper:now('RP-start-temper').folder,seed:DB.reportSeed};now('RP-start-temper').folder='Production / Tempering';return out;
+ }),{cut:'Production / Cutting',temper:'My shop',seed:7});
 
  eq('Edit — черновик: тип графика меняется одной кнопкой, в базу — только по Save; Cancel возвращает; Copy — своя копия только для себя, в базе после Save',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repOpen('RP-start-edge');repEditToggle();const w=repOpenReport().pages[0].widgets[0];repSelectWidget(w.id);

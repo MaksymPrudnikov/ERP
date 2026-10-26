@@ -23,7 +23,12 @@
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=6;
+const REP_SEED_VERSION=7;
+/* Версия 7 (26.10.2026): стартовые Production — по подпапкам (каталог
+   деревом, view/reports). У базы переезжают только те, чью папку не меняли. */
+const REP_START_FOLDERS={cut:'Production / Cutting',sheets:'Production / Cutting',sheetcut:'Production / Cutting',offcuts:'Production / Cutting',
+ polish:'Production / Edgework',edge:'Production / Edgework',drill:'Production / Drilling & CNC',temper:'Production / Tempering',igu:'Production / IGU & lamination',
+ stations:'Production / Shop',shopnow:'Production / Shop',sizes:'Production / Shop'};
 /* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
 function repUid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();}
 function repMe(){const u=typeof signinUser==='function'?signinUser():null;return u?u.viewProfileId:'';}
@@ -75,6 +80,7 @@ function normalizeReports(){
   /* Версия 4: «Sales · my customers» считал заказы по сроку — заказ без Due
      date не попадал ни в один период. Теперь по дате заказа; правим только
      графики, которые ещё как в стартовом. */
+  if(seed>=1&&seed<7)Object.entries(REP_START_FOLDERS).forEach(([k,f])=>{const x=DB.report.find(r=>r.id==='RP-start-'+k);if(x&&x.folder==='Production')x.folder=f;});
   if(seed>=3&&seed<4){const x=DB.report.find(r=>r.id==='RP-start-mycustomers');if(x)x.pages.forEach(p=>p.widgets.forEach(w=>{if(w.q.source==='orders'&&w.q.date.f==='due'&&w.q.date.use!=='own')w.q.date.f='created';}));}
   DB.reportSeed=REP_SEED_VERSION;
  }
@@ -88,7 +94,7 @@ function validateReportsPayload(src){
 /* Образцы по участкам — первые отчёты каталога. w(тип, источник, …). */
 function repW(type,source,o){o=o||{};return {type,title:o.title||'',width:o.width||'full',q:{source,date:o.date||{},dims:o.dims||[],metrics:o.metrics||[],filters:o.filters||[],sort:o.sort||null,limit:o.limit||0,other:!!o.other,compare:o.compare||''},opts:o.opts||{}};}
 function REP_STARTERS(){
- const R=(id,name,folder,date,controls,pages,seed)=>({id:'RP-start-'+id,name,folder,ownerId:'',share:'all',seed:seed||1,date:{preset:date},controls,pages:pages.map((p,i)=>({id:'PG-start-'+id+'-'+i,name:p[0],widgets:p[1].map((w,j)=>Object.assign({id:'W-start-'+id+'-'+i+'-'+j},w))}))});
+ const R=(id,name,folder,date,controls,pages,seed)=>({id:'RP-start-'+id,name,folder:REP_START_FOLDERS[id]||folder,ownerId:'',share:'all',seed:seed||1,date:{preset:date},controls,pages:pages.map((p,i)=>({id:'PG-start-'+id+'-'+i,name:p[0],widgets:p[1].map((w,j)=>Object.assign({id:'W-start-'+id+'-'+i+'-'+j},w))}))});
  return [
   R('cut','Glass cut · by month','Production','thisYear',['glass','mm','person'],[
    ['Summary',[repW('number','cutting',{metrics:['count','area','batches'],compare:'year'}),repW('columns','cutting',{title:'Glass cut by month · thickness',dims:['at:month','mm'],metrics:['count']}),
