@@ -206,8 +206,8 @@ function invCountExtra(i){
  const r=i.r;if(r.sizeMissing)return '<td class="mut">Size missing</td>';
  const v=invCountDraft[r.key]==null?'':invCountDraft[r.key],n=Number(v),diff=v!==''&&Number.isFinite(n)&&n!==r.onRack?(n>r.onRack?'+':'−')+Math.abs(n-r.onRack):'';
  return '<td class="inv-count-cell"><input type="number" min="0" step="1" inputmode="numeric" class="inv-count" data-inv-count="'+esc(r.key)+'" data-rack="'+r.onRack+'" aria-label="Counted sheets" value="'+esc(v)+'" oninput="invCountInput('+invArg(r.key)+',this.value,this)"><span class="inv-diff" data-inv-diff>'+esc(diff)+'</span>'+
-  invWhyHTML(invCountWhy,'invCountWhy',r.key,!diff)+
-  '<button type="button" class="sl-quiet sm" data-inv-writeoff onclick="invMoveOpen('+invArg(r.key)+',\'writeoff\')">Write off</button></td>';
+  '<button type="button" class="sl-quiet sm" data-inv-writeoff onclick="invMoveOpen('+invArg(r.key)+',\'writeoff\')">Write off</button>'+
+  invWhyHTML(invCountWhy,'invCountWhy',r.key,!diff)+'</td>';
 }
 /* Движение листов одной строки или новое стекло на пирамиде (владелец,
    23.10.2026: «как пользователь — добавлять, пересчитывать, уменьшать»):
