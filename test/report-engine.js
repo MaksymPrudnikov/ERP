@@ -125,7 +125,7 @@ module.exports=async function({page,eq,ok}){
   DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes','RP-start-km','RP-start-myday','RP-start-myedge','RP-start-mycustomers'].includes(r.id));
   DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
   return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
- }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches']).sort(),again:23,seed:9});
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches','RP-start-pursupplier','RP-start-purbalances']).sort(),again:25,seed:10});
  eq('Км рейса по карте Google: цех → остановки → цех, запоминаются за рейс; отчёт — км и км на рейс; поменяли остановки — видно',await t.p.evaluate(async()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'});DB.truck=[{id:'T1',name:'Truck 1',active:true}];DB.tripKm=[];
   DB.company=Object.assign({},DB.company,{address1:'10 Shop Rd',city:'Vaughan',province:'ON'});
@@ -190,7 +190,7 @@ module.exports=async function({page,eq,ok}){
   const copy=repClean(JSON.parse(JSON.stringify(Object.assign({},mine,{id:'RP-my-copy'}))));DB.report.push(copy);DB.reportSeed=3;normalizeReports();
   const fields=r=>r.pages[0].widgets.map(w=>w.q.date.f).join(),now=DB.report.find(r=>r.id==='RP-start-mycustomers');
   const res={start:fields(now),copy:fields(DB.report.find(r=>r.id==='RP-my-copy')),seed:DB.reportSeed};DB.report=DB.report.filter(r=>r.id!=='RP-my-copy');return res;
- }),{start:'created,created',copy:'due,due',seed:9});
+ }),{start:'created,created',copy:'due,due',seed:10});
 
  eq('Аудит 12.10: отчёты по заказам пересчитываются после скана готовности (SHIPR), а не после любого скана цеха',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},id=rbOrder(c,'6CLEAR','single',[[30,40,2]],{delivery:'pickup'});rbBatch([id]);
@@ -345,6 +345,43 @@ module.exports=async function({page,eq,ok}){
   let kg=0;finWithOrder(o,()=>o.lines.forEach(l=>{kg+=salesLineWeight(l,o).lineKg;}));
   return {before,after,total:row().total===t.grand&&q.total[0]===t.grand,area:Math.abs(row().area-area)<1e-9&&q.total[1]===row().area,kg:kg>0&&Math.abs(row().kg-kg)<1e-9,keys:Object.keys(row()).filter(k=>['area','kg','total'].includes(k)).sort()};
  }),{before:[true,true,true],after:[false,true,false],total:true,area:true,kg:true,keys:['area','kg','total']});
+
+ /* Часть «закупки» плана отчётов (владелец, 26.10.2026): галочка Purchasing,
+    деньги — в валюте документа, бой — один раз, счёт на два PO — одной строкой. */
+ eq('Purchasing · PO lines: заказано, пришло, ждёт; сумма в валюте PO — CAD и USD итогом не складываются, по Account — каждая своя',await t.p.evaluate(()=>{
+  ['purchaseOrder','purchaseReceipt','purchaseDeliveryRequest','purchaseInvoice','purchasePayment'].forEach(k=>{DB[k]=[];DB[k+'Seq']=0;});
+  const cad=purSupplierSave({name:'Report Glass CAD'}).value,usd=purSupplierSave({name:'Report Glass US',currency:'USD'}).value,g=glassProductByCode('6CLEAR');
+  window.rpPO1=purOrderSave({supplierId:cad.id,state:'sent',date:'2026-10-01',expectedDate:'2026-10-10',lines:[{id:'a',kind:'glass',productId:g.id,qty:10,unit:'sheet',priceUnit:'sheet',price:100,widthIn:130,heightIn:96}]}).value;
+  window.rpPO2=purOrderSave({supplierId:usd.id,currency:'USD',state:'sent',date:'2026-10-02',lines:[{id:'b',kind:'other',description:'Gloves',qty:5,unit:'each',price:20}]}).value;
+  purFulfilSave('receipt',{poId:rpPO1.id,supplierId:cad.id,date:'2026-10-13',lines:[{id:'r1',poLineId:'a',kind:'glass',productId:g.id,qty:4,damaged:1,unit:'sheet',widthIn:130,heightIn:96,reason:'Broken in transit',resolution:'Credit'}]});
+  const q=(m,d)=>repQuery({source:'purlines',date:{preset:'all'},metrics:m,dims:d||[]}),all=q(['amount','lines','pos']),acc=q(['amount'],['account']);
+  return {rows:repPurLineFacts().map(r=>[r.po,r.qty,r.received,r.remaining,r.amount,r.currency,r.status].join('/')),total:all.total.map((v,i)=>repFmt(all.metrics[i],v)),
+   acc:acc.keys.map(k=>k+' '+repFmt(acc.metrics[0],acc.rowTotals.get(k)[0]))};
+ }),{rows:['PO-0001/10/4/6/1000/CAD/Partially received','PO-0002/5/0/5/100/USD/Sent'],total:['—','2','2'],acc:['Report Glass CAD · CAD $1,000.00','Report Glass US · USD $100.00']});
+ eq('Supplier receipts: бой — один раз, у блока — в листах; замена — своя строка, не новый приход; опоздание — к ожидаемой дате PO',await t.p.evaluate(()=>{
+  const g=glassProductByCode('6CLEAR'),cad=purSupplierFind(rpPO1.supplierId);
+  purFulfilSave('receipt',{poId:rpPO1.id,supplierId:cad.id,date:'2026-10-09',lines:[{id:'r2',poLineId:'a',kind:'glass',productId:g.id,qty:3,unit:'sheet',widthIn:130,heightIn:96},{id:'r3',poLineId:'a',kind:'glass',productId:g.id,qty:1,unit:'sheet',replacement:true}]});
+  window.rpPO3=purOrderSave({supplierId:cad.id,state:'sent',date:'2026-10-05',lines:[{id:'c',kind:'glass',productId:g.id,qty:2,unit:'block',sheetsPerBlock:20,widthIn:130,heightIn:96}]}).value;
+  purFulfilSave('receipt',{poId:rpPO3.id,supplierId:cad.id,date:'2026-10-14',lines:[{id:'r4',poLineId:'c',kind:'glass',productId:g.id,qty:1,unit:'block',actualSheets:20,damagedSheets:2,widthIn:130,heightIn:96}]});
+  const q=repQuery({source:'purreceipts',date:{preset:'all'},metrics:['receipts','lines','late','onTime','broken','brokenLines','sheets']}),a=purOrderFind(rpPO1.id);
+  return {rows:repPurReceiptFacts().map(r=>[r.receipt,r.arrival,r.state,r.daysLate==null?'—':r.daysLate,r.broken].join('/')),total:q.total.map((v,i)=>repFmt(q.metrics[i],v)),
+   po:[purReceived(a,a.lines[0]).received,repPurLineFacts().find(r=>r.po==='PO-0001').remaining]};
+ }),{rows:['GR-0001/New/Late/3/1','GR-0002/New/On time/0/0','GR-0002/Replacement/On time/0/0','GR-0003/New/No expected date/—/2'],total:['3','4','1','67%','3','2','28'],po:[7,3]});
+ eq('Supplier bills: счёт на два PO — одна строка, оплата — своя; Balance по поставщику и валюте — как Purchasing → Invoices; просрочка; CAD и USD итогом не складываются',await t.p.evaluate(()=>{
+  const cad=purSupplierFind(rpPO1.supplierId),usd=purSupplierFind(rpPO2.supplierId);
+  const inv=purMoneySave('invoice',{supplierId:cad.id,currency:'CAD',invoiceNumber:'INV-7',date:'2026-10-01',dueDate:'2026-10-15',amount:1500,poIds:[rpPO1.id,rpPO3.id]}).value;
+  purMoneySave('payment',{supplierId:cad.id,currency:'CAD',invoiceId:inv.id,date:'2026-10-20',method:'Bank transfer',amount:500});
+  purMoneySave('invoice',{supplierId:usd.id,currency:'USD',invoiceNumber:'U-1',date:'2026-10-02',amount:100,poIds:[rpPO2.id]});
+  const q=(m,d)=>repQuery({source:'purbills',date:{preset:'all'},metrics:m,dims:d||[]}),acc=q(['invoiced','paid','net','overdue'],['account']);
+  return {rows:repPurBillFacts().map(r=>[r.kind,r.doc,r.pos,r.invoiced,r.paid,r.net,r.overdue].join('/')),acc:acc.keys.map(k=>k+' '+acc.rowTotals.get(k).map((v,i)=>repFmt(acc.metrics[i],v)).join(' ')),
+   total:q(['net']).total[0],accounts:purSupplierAccounts().map(a=>a.supplierName+' · '+a.currency+' '+a.knownBalance).sort(),paidDays:repPurBillFacts().find(r=>r.kind==='Payment').daysToPay};
+ }),{rows:['Invoice/INV-7 · Report Glass CAD/PO-0001, PO-0003/1500//1500/1000','Invoice/U-1 · Report Glass US/PO-0002/100//100/0','Payment/PP-0001 · Report Glass CAD/PO-0001, PO-0003//500/-500/0'],
+  acc:['Report Glass CAD · CAD $1,500.00 $500.00 $1,000.00 $1,000.00','Report Glass US · USD $100.00 — $100.00 $0.00'],total:null,accounts:['Report Glass CAD · CAD 1000','Report Glass US · USD 100'],paidDays:19});
+ eq('Закупки в отчётах — только с галочкой Purchasing: источников нет в выборе, графики пишут «Needs Purchasing access»',await t.p.evaluate(()=>{
+  const old=window.accessCan,r=repClean(REP_STARTERS().find(x=>x.id==='RP-start-purbalances'));window.accessCan=k=>k!=='purchasing';
+  try{return {allowed:['purlines','purreceipts','purbills'].map(repSourceAllowed),chart:repChart(r,r.pages[0].widgets[0]),pick:/value="(purlines|purreceipts|purbills)"/.test(repSrcOptions('glass'))};}
+  finally{window.accessCan=old;}
+ }),{allowed:[false,false,false],chart:'<div class="mut">Needs Purchasing access.</div>',pick:false});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
