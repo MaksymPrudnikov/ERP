@@ -20,7 +20,7 @@ module.exports=async function({page,eq,ok}){
   const old=window.accessCan;window.accessCan=k=>k!=='reports';tab='dashboard';render();const hidden=!document.querySelector('.side [title="Reports"]');window.accessCan=old;
   rpOpenTab();const folders=[...document.querySelectorAll('[data-rep-folder]')].map(x=>x.dataset.repFolder);
   return {inSections:USER_SECTIONS.includes('reports'),hidden,empty:!!document.querySelector('[data-rep-empty]'),widgets:rpWidgets().length,folders,starters:(DB.report||[]).filter(r=>/^RP-start-/.test(r.id)).length};
- }),{inSections:true,hidden:true,empty:true,widgets:0,folders:['Finance','Inventory','People','Production','Purchasing','Quality','Sales','Screens','Shipping'],starters:40});
+ }),{inSections:true,hidden:true,empty:true,widgets:0,folders:['Finance','Inventory','People','Production','Purchasing','Quality','Sales','Screens','Shipping'],starters:42});
 
  eq('Отчёт «Glass cut · by month» открывается страницей Summary; на второй странице — свои графики; поиск по каталогу',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repQ='glass cut';render();const found=[...document.querySelectorAll('[data-rep-item]')].map(x=>x.querySelector('span').textContent);
@@ -59,7 +59,7 @@ module.exports=async function({page,eq,ok}){
  eq('Стартовые версии 7: Production — по подпапкам; стартовый, которому владелец сменил папку, остаётся в ней',await t.p.evaluate(()=>{
   const a=DB.report.find(r=>r.id==='RP-start-cut'),b=DB.report.find(r=>r.id==='RP-start-temper');a.folder='Production';b.folder='My shop';DB.reportSeed=6;normalizeReports();
   const now=id=>DB.report.find(r=>r.id===id),out={cut:now('RP-start-cut').folder,temper:now('RP-start-temper').folder,seed:DB.reportSeed};now('RP-start-temper').folder='Production / Tempering';return out;
- }),{cut:'Production / Cutting',temper:'My shop',seed:10});
+ }),{cut:'Production / Cutting',temper:'My shop',seed:11});
 
  eq('Edit — черновик: тип графика меняется одной кнопкой, в базу — только по Save; Cancel возвращает; Copy — своя копия только для себя, в базе после Save',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repOpen('RP-start-edge');repEditToggle();const w=repOpenReport().pages[0].widgets[0];repSelectWidget(w.id);
@@ -107,7 +107,7 @@ module.exports=async function({page,eq,ok}){
   let bad='';try{validateImportedState(Object.assign({},json,{report:{}}));}catch(e){bad=e.message;}
   DB.report=DB.report.filter(r=>r.name!=='Owner · weekly');normalizeReports();const gone=!DB.report.some(r=>r.name==='Owner · weekly');
   DB.report=json.report;normalizeReports();return {back:DB.report.some(r=>r.name==='Owner · weekly'),gone,bad,starters:DB.report.filter(r=>/^RP-start-/.test(r.id)).length};
- }),{back:true,gone:true,bad:'The "report" field must be an array.',starters:40});
+ }),{back:true,gone:true,bad:'The "report" field must be an array.',starters:42});
 
  eq('Линия со сравнением — пунктир прошлого периода; печать — название, период, графики, без кнопок правки',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repOpen('RP-start-stations');const line=document.querySelector('[data-rep-type="line"]');

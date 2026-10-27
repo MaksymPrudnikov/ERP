@@ -1,6 +1,54 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.278 · 27 октября 2026 — Reports: закупки — строки PO, приёмки от поставщиков, счета и оплаты; CAD и USD не складываются; два стартовых отчёта в папке Purchasing.
+Версия 5.279 · 27 октября 2026 — Reports: финансы и агенты — оплаты по заказам (до счёта, вовремя, поздно), возвраты, комиссии агентов как на экране Agents.
+
+## Reports: финансы и агенты — оплаты по заказам, возвраты, комиссии · 27 октября 2026 (v5.279)
+
+Часть «финансы и агенты» плана отчётов (владелец одобрил план 26.10,
+«делай следующую часть — финансы и агенты» 27.10). Оплаты и возвраты —
+только с галочкой Finance, комиссии — только с галочкой Commissions
+(продажникам их знать не надо). График без галочки пишет, какой не хватает.
+
+- **Источник Payments by order** (`src/erp/reports/facts-finance.js`,
+  `repPayOrderFacts`): строка — разнесение оплаты на заказ (аннулированные
+  оплаты не считаются). Оплата на два заказа — две строки: сумма строк —
+  сколько пришло на заказы, ничего не удваивается; нераспределённое (On
+  account) — в источнике Payments. Paid, Order date, Billed (день выдачи,
+  `finBillingDate`), Payment due (`finPaymentDue`, как в Finance), Receipt,
+  Order, Customer, Method, Currency, When paid (Before billing · On time ·
+  Late · Archived order), Sales rep, City, Customer type; Amount, Paid late,
+  Days to pay (от счёта), Days late. Метрики: Amount, Payments, Orders,
+  Paid late, Days to pay · avg, Customers. Деньги — `unitBy` currency.
+- **Источник Refunds** (`repRefundFacts`): строка — возврат (аннулированные
+  не считаются): Refunded, Refund, From payment, Customer, Method, Reason,
+  Amount, Days after payment. Метрики: Refunded, Refunds, Customers.
+- **Источник Agent commissions** (`repCommissionFacts`, `now`): строка —
+  агент × заказ, как на экране Agents (`comDue`, `comOrders` за всё
+  время): Paid by customer, Paid without HST, Percent, Earned, Earned with
+  HST, Paid out, To pay, To pay with HST. Сумма по агенту — его To pay;
+  заказ с выплатой, но без начисления (оплату перенесли) — строка с
+  переплатой, как в Agents. Ушедшие в архив заказы — из указателя архива.
+- **Стартовые, версия 11** (`REP_SEED_VERSION=11`, папка Finance):
+  - **Payments · by order month** (этот год, фильтры Customer, Method):
+    сумма, оплаты, заказы, дни до оплаты со сравнением с прошлым годом; по
+    месяцу заказа; оплачено по месяцам — до счёта, вовремя, поздно; по
+    клиенту. Страница Refunds — итог, по причине, список.
+  - **Agents · commission owed** (всё время, фильтры Agent, Customer):
+    начислено, выплачено, к выплате (и с HST); по агенту; к выплате по
+    заказу; по клиенту.
+
+Замер на годе (`year2-12m.ndjson`: 4 457 оплат — 5 005 строк), CPU ×1 /
+×4: Payments · by order month — 37 / 131 мс при первом открытии. Агентов в
+симуляции нет: 5 агентов по 12 клиентов (4 184 оплаченных заказа) — 68 /
+271 мс; сразу после F5, пока итоги заказов не посчитаны, — 0,42 / 1,8 с (та
+же работа, что у экрана Agents); начислено и к выплате совпали с Agents.
+
+Проверки: `test/report-engine.js` +4 — оплата на два заказа — две строки,
+до счёта Before billing, к сроку Net 30 On time, после — Late через 35
+дней, итог $370; возврат $30 с оплаты двумя днями раньше, аннулированный не
+считается; по агенту начислено, выплачено, к выплате и с HST — как
+`comSummary`, после выплаты заказ закрыт; без Finance / Commissions
+источников нет. `test/report-builder.js`: 42 стартовых. Всего 2132.
 
 ## Reports: закупки — строки PO, приёмки, счета поставщиков · 27 октября 2026 (v5.278)
 

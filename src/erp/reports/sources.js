@@ -260,4 +260,29 @@ Object.assign(REP_SRC,{
    {k:'invoices',label:'Invoices',agg:'sum',f:'invoices'},{k:'overdueN',label:'Invoices overdue',agg:'sum',f:'overdueN'},{k:'amountNeeded',label:'Amount needed',agg:'sum',f:'amountNeeded'},
    {k:'count',label:'Documents',agg:'count'}]}
 });
+/* Финансы и агенты (reports/facts-finance): оплаты по заказам и возвраты —
+   с галочкой Finance, комиссии — с галочкой Commissions. */
+Object.assign(REP_SRC,{
+ payorders:{label:'Payments by order',group:'Finance',access:'finance',hint:'What each order got, when, how late',rows:()=>repPayOrderFacts(),date:['at','created','billed','due'],
+  fields:()=>[REP_F.date('at','Paid'),REP_F.date('created','Order date'),REP_F.date('billed','Billed'),REP_F.date('due','Payment due'),REP_F.text('receipt','Receipt'),REP_F.text('order','Order'),
+   REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('method','Method'),REP_F.dim('currency','Currency'),REP_F.dim('state','When paid'),
+   REP_F.dim('rep','Sales rep',r=>r.rep||'—'),REP_F.dim('city','City',r=>r.city||'—'),REP_F.dim('ctype','Customer type',r=>r.ctype||'—'),
+   REP_F.num('amount','Amount',{money:true,unitBy:'currency'}),REP_F.num('lateAmount','Paid late',{money:true,unitBy:'currency'}),REP_F.num('daysToPay','Days to pay'),REP_F.num('daysLate','Days late')],
+  metrics:[{k:'amount',label:'Amount',agg:'sum',f:'amount',money:true,unitBy:'currency'},{k:'payments',label:'Payments',agg:'count'},{k:'orders',label:'Orders',agg:'distinct',f:'order'},
+   {k:'lateAmount',label:'Paid late',agg:'sum',f:'lateAmount',money:true,unitBy:'currency'},{k:'daysToPay',label:'Days to pay · avg',agg:'avg',f:'daysToPay',digits:1},
+   {k:'customers',label:'Customers',agg:'distinct',f:'customer'}]},
+ refunds:{label:'Refunds',group:'Finance',access:'finance',hint:'Money back: amount, reason',rows:()=>repRefundFacts(),date:['at'],
+  fields:()=>[REP_F.date('at','Refunded'),REP_F.text('refund','Refund'),REP_F.text('receipt','From payment',r=>r.receipt||'—'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
+   REP_F.dim('method','Method'),REP_F.dim('currency','Currency'),REP_F.dim('reason','Reason'),REP_F.dim('rep','Sales rep',r=>r.rep||'—'),
+   REP_F.num('amount','Amount',{money:true,unitBy:'currency'}),REP_F.num('days','Days after payment')],
+  metrics:[{k:'amount',label:'Refunded',agg:'sum',f:'amount',money:true,unitBy:'currency'},{k:'count',label:'Refunds',agg:'count'},{k:'customers',label:'Customers',agg:'distinct',f:'customer'}]},
+ /* now — долг агенту сейчас, а не события: начислено за всё время. */
+ commissions:{label:'Agent commissions',group:'Finance',access:'commissions',now:true,hint:'Earned, paid out, owed by agent',rows:()=>repCommissionFacts(),date:['date'],
+  fields:()=>[REP_F.date('date','Order date'),REP_F.dim('agent','Agent'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.text('order','Order'),REP_F.dim('pct','Percent',r=>r.pct?r.pct+'%':'—'),
+   REP_F.num('total','Order total',{money:true}),REP_F.num('paid','Paid by customer',{money:true}),REP_F.num('base','Paid without HST',{money:true}),REP_F.num('com','Earned',{money:true}),
+   REP_F.num('comHst','Earned with HST',{money:true}),REP_F.num('paidOut','Paid out',{money:true}),REP_F.num('due','To pay',{money:true}),REP_F.num('dueHst','To pay with HST',{money:true})],
+  metrics:[{k:'com',label:'Earned',agg:'sum',f:'com',money:true},{k:'paidOut',label:'Paid out',agg:'sum',f:'paidOut',money:true},{k:'due',label:'To pay',agg:'sum',f:'due',money:true},
+   {k:'comHst',label:'Earned with HST',agg:'sum',f:'comHst',money:true},{k:'dueHst',label:'To pay with HST',agg:'sum',f:'dueHst',money:true},{k:'paid',label:'Paid by customers',agg:'sum',f:'paid',money:true},
+   {k:'base',label:'Paid without HST',agg:'sum',f:'base',money:true},{k:'orders',label:'Orders',agg:'count'},{k:'owed',label:'Orders to pay',agg:'sum',f:'owed'},{k:'agents',label:'Agents',agg:'distinct',f:'agent'}]}
+});
 const REP_GROUPS=['Production','Shipping','Sales','Inventory','Purchasing','Finance','Quality','People'];
