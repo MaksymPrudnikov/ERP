@@ -23,7 +23,7 @@
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=11;
+const REP_SEED_VERSION=12;
 /* Версия 7 (26.10.2026): стартовые Production — по подпапкам (каталог
    деревом, view/reports). У базы переезжают только те, чью папку не меняли. */
 const REP_START_FOLDERS={cut:'Production / Cutting',sheets:'Production / Cutting',sheetcut:'Production / Cutting',offcuts:'Production / Cutting',
@@ -289,7 +289,16 @@ function REP_STARTERS(){
    ['Summary',[repW('number','commissions',{title:'Agents',metrics:['com','paidOut','due','dueHst']}),
     repW('table','commissions',{title:'By agent',dims:['agent'],metrics:['orders','paid','base','com','paidOut','due','dueHst']}),
     repW('table','commissions',{title:'To pay by order',dims:['order'],metrics:['com','paidOut','due'],filters:[{f:'due',op:'gt',v:['0']}],sort:{by:'metric',i:2,dir:'desc'},limit:50}),
-    repW('table','commissions',{title:'By customer',dims:['customer'],metrics:['paid','com','due']})]]],11)
+    repW('table','commissions',{title:'By customer',dims:['customer'],metrics:['paid','com','due']})]]],11),
+  /* Версия 12 (27.10.2026): клиенты — с галочкой Customers. */
+  R('customers','Customers · last order','Customers','all',['rep','ctype','recency'],[
+   ['Summary',[repW('number','customers',{title:'Customers',metrics:['customers','buying','active','lapsed']}),
+    repW('bars','customers',{title:'By last order',dims:['recency'],metrics:['customers'],width:'half'}),
+    repW('table','customers',{title:'By sales rep',dims:['rep'],metrics:['customers','active','lapsed','orders'],width:'half'}),
+    repW('table','customers',{title:'Not ordering lately',dims:['customer'],metrics:['daysSince','orders'],filters:[{f:'daysSince',op:'gt',v:['90']}],sort:{by:'metric',i:0,dir:'desc'},limit:50})]],
+   ['New',[repW('columns','customers',{title:'New customers by month',date:{f:'firstOrder'},dims:['firstOrder:month'],metrics:['customers'],filters:[{f:'orders',op:'gt',v:['0']}]}),
+    repW('table','customers',{title:'New customers',date:{f:'firstOrder'},dims:['customer'],metrics:['orders','daysSince'],filters:[{f:'orders',op:'gt',v:['0']}],sort:{by:'metric',i:0,dir:'desc'},limit:50})]],
+   ['Top customers',[repW('table','customers',{title:'Top customers · sales total',dims:['customer'],metrics:['orders','total','avgOrder','daysSince'],filters:[{f:'orders',op:'gt',v:['0']}],sort:{by:'metric',i:1,dir:'desc'},limit:30})]]],12)
  ];
 }
 
