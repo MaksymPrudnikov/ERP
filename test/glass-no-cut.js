@@ -16,7 +16,7 @@ module.exports=async function({page,eq}){
  eq('a saved catalogue gets the missing COG glass once, without touching what the owner made',await t.p.evaluate(()=>{
   const old=JSON.parse(JSON.stringify(storageExportEnvelope()));old.data.dataFix=6;old.data.glassProduct=old.data.glassProduct.filter(g=>g.manufacturer!=='COG'||g.code==='8COG');const own=old.data.glassProduct.find(g=>g.code==='8COG');own.name='Customer 8 mm';own.cut=true;
   const d=prepareImportedState(old);const cog=d.glassProduct.filter(g=>g.manufacturer==='COG');return {n:cog.length,own:[d.glassProduct.find(g=>g.code==='8COG').name,d.glassProduct.find(g=>g.code==='8COG').cut],fix:d.dataFix};
- }),{n:9,own:['Customer 8 mm',true],fix:8});
+ }),{n:9,own:['Customer 8 mm',true],fix:9});
  eq('in an IGU with a COG lite only our own lite waits in To batch',await t.p.evaluate(()=>{
   const o=ncOrder([1]),rows=glassBatchRows().filter(r=>r.orderId===o.id);window.ncMixed=o;
   return {rows:rows.length,lites:[...new Set(rows.map(r=>r.lite))],progress:glassBatchProgress(o),queued:optimizationMatches(o,'batch')};

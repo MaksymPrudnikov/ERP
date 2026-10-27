@@ -221,7 +221,7 @@ function salesOrderSaveCommand(opts){
  soDraft.priceBook=salesPriceBookOf(soDraft);
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
- normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
+ normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();salesMeasureWrite(DB.salesOrder.find(x=>x.id===soDraft.id));soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
 /* Delete на любом этапе (владелец, 9 октября 2026): тронутый заказ сначала
    возвращает всё стекло (erp/shopfloor/production-unbatch), накладная только
