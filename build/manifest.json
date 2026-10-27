@@ -199,6 +199,7 @@
   "src/erp/reports/facts-batches.js",
   "src/erp/reports/facts-purchasing.js",
   "src/erp/reports/facts-finance.js",
+  "src/erp/reports/facts-customers.js",
   "src/erp/reports/sources.js",
   "src/erp/reports/query.js",
   "src/erp/reports/model.js",

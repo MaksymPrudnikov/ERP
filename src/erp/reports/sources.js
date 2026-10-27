@@ -285,4 +285,14 @@ Object.assign(REP_SRC,{
    {k:'comHst',label:'Earned with HST',agg:'sum',f:'comHst',money:true},{k:'dueHst',label:'To pay with HST',agg:'sum',f:'dueHst',money:true},{k:'paid',label:'Paid by customers',agg:'sum',f:'paid',money:true},
    {k:'base',label:'Paid without HST',agg:'sum',f:'base',money:true},{k:'orders',label:'Orders',agg:'count'},{k:'owed',label:'Orders to pay',agg:'sum',f:'owed'},{k:'agents',label:'Agents',agg:'distinct',f:'agent'}]}
 });
-const REP_GROUPS=['Production','Shipping','Sales','Inventory','Purchasing','Finance','Quality','People'];
+/* Клиенты (reports/facts-customers) — с галочкой Customers: последний заказ,
+   дней с него, новые по месяцам (по первому заказу), сумма продаж. */
+REP_SRC.customers={label:'Customers',group:'Customers',access:'customers',now:true,hint:'Last order, days since, new by month',rows:()=>repCustomerFacts(),date:['lastOrder','firstOrder','created'],
+ fields:()=>[REP_F.date('lastOrder','Last order'),REP_F.date('firstOrder','First order'),REP_F.date('created','Customer since'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
+  REP_F.dim('recency','Last order · how long ago'),REP_F.dim('rep','Sales rep',r=>r.rep||'—'),REP_F.dim('ctype','Customer type',r=>r.ctype||'—'),REP_F.dim('city','City',r=>r.city||'—'),
+  REP_F.dim('province','Province',r=>r.province||'—'),REP_F.dim('status','Status'),REP_F.dim('terms','Terms'),REP_F.dim('currency','Currency'),
+  REP_F.num('daysSince','Days since last order'),REP_F.num('orders','Orders'),REP_F.num('total','Sales total',{money:true,unitBy:'currency'})],
+ metrics:[{k:'customers',label:'Customers',agg:'sum',f:'customers'},{k:'buying',label:'With orders',agg:'sum',f:'buying'},{k:'active',label:'Ordered in 90 days',agg:'sum',f:'active'},
+  {k:'lapsed',label:'No order 180+ days',agg:'sum',f:'lapsed'},{k:'orders',label:'Orders',agg:'sum',f:'orders'},{k:'total',label:'Sales total',agg:'sum',f:'total',money:true,unitBy:'currency'},
+  {k:'avgOrder',label:'Average order',agg:'ratio',num:'total',den:'orders',money:true,unitBy:'currency'},{k:'daysSince',label:'Days since last order · avg',agg:'avg',f:'daysSince',digits:0}]};
+const REP_GROUPS=['Production','Shipping','Sales','Customers','Inventory','Purchasing','Finance','Quality','People'];

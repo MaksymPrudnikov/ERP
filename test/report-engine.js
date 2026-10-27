@@ -125,7 +125,7 @@ module.exports=async function({page,eq,ok}){
   DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes','RP-start-km','RP-start-myday','RP-start-myedge','RP-start-mycustomers'].includes(r.id));
   DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
   return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
- }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches','RP-start-pursupplier','RP-start-purbalances','RP-start-payorders','RP-start-agents']).sort(),again:27,seed:11});
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches','RP-start-pursupplier','RP-start-purbalances','RP-start-payorders','RP-start-agents','RP-start-customers']).sort(),again:28,seed:12});
  eq('Км рейса по карте Google: цех → остановки → цех, запоминаются за рейс; отчёт — км и км на рейс; поменяли остановки — видно',await t.p.evaluate(async()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'});DB.truck=[{id:'T1',name:'Truck 1',active:true}];DB.tripKm=[];
   DB.company=Object.assign({},DB.company,{address1:'10 Shop Rd',city:'Vaughan',province:'ON'});
@@ -190,7 +190,7 @@ module.exports=async function({page,eq,ok}){
   const copy=repClean(JSON.parse(JSON.stringify(Object.assign({},mine,{id:'RP-my-copy'}))));DB.report.push(copy);DB.reportSeed=3;normalizeReports();
   const fields=r=>r.pages[0].widgets.map(w=>w.q.date.f).join(),now=DB.report.find(r=>r.id==='RP-start-mycustomers');
   const res={start:fields(now),copy:fields(DB.report.find(r=>r.id==='RP-my-copy')),seed:DB.reportSeed};DB.report=DB.report.filter(r=>r.id!=='RP-my-copy');return res;
- }),{start:'created,created',copy:'due,due',seed:11});
+ }),{start:'created,created',copy:'due,due',seed:12});
 
  eq('Аудит 12.10: отчёты по заказам пересчитываются после скана готовности (SHIPR), а не после любого скана цеха',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},id=rbOrder(c,'6CLEAR','single',[[30,40,2]],{delivery:'pickup'});rbBatch([id]);
@@ -413,6 +413,26 @@ module.exports=async function({page,eq,ok}){
    window.accessCan=k=>k!=='finance';const b={payorders:repSourceAllowed('payorders'),refunds:repSourceAllowed('refunds'),commissions:repSourceAllowed('commissions'),chart:repChart(pays,pays.pages[0].widgets[0])};return {a,b};}
   finally{window.accessCan=old;}
  }),{a:{commissions:false,payorders:true,chart:'<div class="mut">Needs Commissions access.</div>'},b:{payorders:false,refunds:false,commissions:true,chart:'<div class="mut">Needs Finance access.</div>'}});
+
+ /* Часть «клиенты» плана отчётов (владелец, 26.10.2026). */
+ eq('Customers: последний заказ и дней с него, давность; новые — по первому заказу; квота и отменённый не считаются; ушедший в архив — из указателя архива',await t.p.evaluate(()=>{
+  oqReset();const A=oqCustomer({legalName:'Avalon Glass'}),B=oqCustomer({legalName:'Birch Windows'}),C=oqCustomer({legalName:'Cedar Homes'}),D=oqCustomer({legalName:'Dune Interiors'});
+  const at=(id,days,extra)=>{const o=salesRecord(id);o.createdAt=rbAt(-days,10,0);Object.assign(o,extra||{});o.updatedAt=new Date().toISOString();return o;};
+  const a1=rbOrder(A,'6CLEAR','single',[[30,40,1]]),a2=rbOrder(A,'6CLEAR','single',[[24,36,2]]),b1=rbOrder(B,'6CLEAR','single',[[30,40,1]]);
+  at(a1,200);at(a2,100);at(b1,10);at(rbOrder(B,'6CLEAR','single',[[30,40,1]]),2,{status:'cancelled'});at(rbOrder(B,'6CLEAR','single',[[30,40,1]],{kind:'quote'}),1);
+  archiveIndex.set('ARCH-T1',{kind:'order',status:'done',customerId:C.id,createdAt:rbAt(-400,10,0),row:{total:500}});
+  try{
+   const rows=repCustomerFacts(),r=c=>rows.find(x=>x.customerId===c.id),f=c=>[r(c).orders,r(c).daysSince==null?'—':r(c).daysSince,r(c).recency].join('/');
+   const q=repQuery({source:'customers',metrics:['customers','buying','active','lapsed','orders']}),tot=id=>finOrderTotals(salesRecord(id)).grand;
+   return {A:f(A),B:f(B),C:f(C),D:f(D),first:r(A).firstOrder===repDay(rbAt(-200,10,0)),last:r(A).lastOrder===repDay(rbAt(-100,10,0)),total:[Math.abs(r(A).total-(tot(a1)+tot(a2)))<0.005,r(C).total,r(D).total],
+    q:q.total};
+  }finally{archiveIndex.delete('ARCH-T1');}
+ }),{A:'2/100/91–180 days',B:'1/10/Ordered in 90 days',C:'1/400/Over a year',D:'0/—/No orders yet',first:true,last:true,total:[true,500,null],q:[4,3,1,1,4]});
+ eq('Клиенты в отчётах — только с галочкой Customers: источника нет в выборе, график пишет «Needs Customers access»',await t.p.evaluate(()=>{
+  const old=window.accessCan,r=repClean(REP_STARTERS().find(x=>x.id==='RP-start-customers'));window.accessCan=k=>k!=='customers';
+  try{return {allowed:repSourceAllowed('customers'),chart:repChart(r,r.pages[0].widgets[0]),pick:/value="customers"/.test(repSrcOptions('glass'))};}
+  finally{window.accessCan=old;}
+ }),{allowed:false,chart:'<div class="mut">Needs Customers access.</div>',pick:false});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
