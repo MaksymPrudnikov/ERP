@@ -1,6 +1,67 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.277 · 27 октября 2026 — Заказ: количества работ и площадь позиции записываются при Save — сумма, Finance и отчёты не пересчитывают фигуру; Sales · by month за год после F5 0,6 с вместо 4,4 с (на слабом ПК 2,4 с вместо 19 с).
+Версия 5.278 · 27 октября 2026 — Reports: закупки — строки PO, приёмки от поставщиков, счета и оплаты; CAD и USD не складываются; два стартовых отчёта в папке Purchasing.
+
+## Reports: закупки — строки PO, приёмки, счета поставщиков · 27 октября 2026 (v5.278)
+
+Часть «закупки» плана отчётов (владелец одобрил план 26.10, «делай
+следующую часть — закупки» 27.10). Источники видит только тот, у кого в
+Users галочка Purchasing (`access:'purchasing'`); цены видны. График без
+галочки пишет «Needs Purchasing access.». Новая группа источников и папка
+каталога — Purchasing.
+
+- **Деньги — в валюте документа.** Суммы PO, счетов и оплат — поле с
+  `unitBy:'currency'`: где в выборке CAD и USD вместе, итога нет («—»).
+  Разрез **Account** — поставщик · валюта: каждая строка — одна валюта.
+- **Источник PO lines** (`src/erp/reports/facts-purchasing.js`,
+  `repPurLineFacts`): строка — строка PO (удалённые PO не считаются). PO
+  date, Expected (строки, иначе PO), Sent, PO, Supplier, Currency,
+  Account, Status (как в Purchasing), Held (Held at supplier · Delivered
+  to us), Kind (Glass · For customer order · Material · Other), Item group
+  (Glass, Spacers, Sealants…), Item, Glass, Thickness, Sheet size, Unit,
+  Price unit; Ordered, Received, Waiting — в единице строки (`unitBy`),
+  Replacement due, Sheets ordered и Sheet ft² ordered (лист — штукой, блок
+  — листами в блоке, если указано), Price и Amount (`purLineTotal`).
+  Метрики: PO lines, POs, Amount, Lines waiting, Waiting past expected,
+  Lines without price, Sheets / Sheet ft² ordered, Suppliers.
+- **Источник Supplier receipts** (`repPurReceiptFacts`): строка — строка
+  приёмки (отменённые не считаются). Received, Expected — строки PO, иначе
+  PO, иначе приёмки; On time (On time · Late · No expected date), Days late;
+  New or replacement — замена своя строка и новым приходом не считается
+  (как `purReceived`); Broken — один раз, в строке, где записан, у блока —
+  в листах (`unitBy` brokenUnit), Broken · reason и resolution; Sheets и
+  Sheet ft² (фактические листы, иначе из блока). Метрики: Receipts,
+  Receipt lines, Late lines, On time %, Lines with broken, Broken, Sheets,
+  Sheet ft².
+- **Источник Supplier bills** (`repPurBillFacts`): строка — счёт или
+  оплата (удалённые не считаются). Счёт на несколько PO — одна строка, PO
+  текстом, не делится. Invoiced (счёт), Paid (оплата), Balance (счёт +,
+  оплата −: сумма по Account — долг, как в Purchasing → Invoices),
+  Invoice balance и Overdue (срок прошёл — остаток счёта), Days overdue,
+  Days to pay (оплата от даты счёта), Status, Payment method. Метрики:
+  Invoiced, Paid, Balance, Overdue, Invoices, Invoices overdue, Amount
+  needed, Documents.
+- **Стартовые, версия 10** (`REP_SEED_VERSION=10`, папка Purchasing):
+  - **Purchasing · by supplier** (этот год, фильтры Supplier, Currency,
+    Kind): Summary — POs, строки, ждут, ждут дольше ожидаемого; по Account
+    — POs, строки, сумма, без цены; сумма по месяцам по Account; по
+    позиции — строки, листы, ft². Receipts — приёмки, опоздания, On time %,
+    бой по поставщику и по позиции. Waiting — PO, где ещё ждём.
+  - **Supplier balances** (всё время, фильтры Supplier, Currency): по
+    Account — выставлено, оплачено, долг, просрочено; открытые счета;
+    оплачено по месяцам.
+
+Замер на годе (`year2-12m.ndjson`: 207 PO, 218 приёмок; 600 счетов и 400
+оплат добавлены в замер), CPU ×1 / ×4: Purchasing · by supplier — до 14 /
+55 мс, Supplier balances — 40 / 141 мс при первом открытии.
+
+Проверки: `test/report-engine.js` +4 — PO в CAD и USD: заказано 10,
+пришло 4, ждём 6, сумма по Account своя, общий итог «—»; приёмки:
+опоздание 3 дня к ожидаемой дате PO, замена своей строкой (пришло 7, а не
+8), бой 1 лист + 2 листа из блока = 3, On time 67%; счёт на два PO —
+одна строка, оплата — своя, долг по Account = Purchasing → Invoices,
+просрочка, Days to pay 19; без галочки Purchasing источников нет.
+`test/report-builder.js`: 40 стартовых, папка Purchasing. Всего 2128.
 
 ## Заказ: количества работ и площадь — в строке при Save · 27 октября 2026 (v5.277)
 

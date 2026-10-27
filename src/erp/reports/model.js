@@ -23,7 +23,7 @@
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=9;
+const REP_SEED_VERSION=10;
 /* Версия 7 (26.10.2026): стартовые Production — по подпапкам (каталог
    деревом, view/reports). У базы переезжают только те, чью папку не меняли. */
 const REP_START_FOLDERS={cut:'Production / Cutting',sheets:'Production / Cutting',sheetcut:'Production / Cutting',offcuts:'Production / Cutting',
@@ -259,7 +259,22 @@ function REP_STARTERS(){
     repW('columns','batches',{title:'Batches by day',dims:['at:day'],metrics:['batches']}),
     repW('table','batches',{title:'By day',dims:['built'],metrics:['batches','glassN','area','sheets','yield','daysFirst','daysLast'],sort:{by:'label',dir:'desc'}}),
     repW('table','batches',{title:'By glass',dims:['glass'],metrics:['batches','glassN','area','sheets','offcuts','sheetFt2','yield','broken']})]],
-   ['Batch list',[repW('table','batches',{title:'Batches',dims:['batch'],metrics:['glassN','area','orders','sheets','offcuts','yield','daysFirst','daysLast'],sort:{by:'label',dir:'desc'},limit:100})]]],9)
+   ['Batch list',[repW('table','batches',{title:'Batches',dims:['batch'],metrics:['glassN','area','orders','sheets','offcuts','yield','daysFirst','daysLast'],sort:{by:'label',dir:'desc'},limit:100})]]],9),
+  /* Версия 10 (27.10.2026): закупки — только с галочкой Purchasing. Деньги
+     — по Account (поставщик · валюта): CAD и USD не складываются. */
+  R('pursupplier','Purchasing · by supplier','Purchasing','thisYear',['supplier','currency','kind'],[
+   ['Summary',[repW('number','purlines',{title:'Purchase orders',metrics:['pos','lines','waiting','overdue']}),
+    repW('table','purlines',{title:'By supplier and currency',dims:['account'],metrics:['pos','lines','amount','waiting','overdue','unpriced']}),
+    repW('columns','purlines',{title:'Amount by month',dims:['date:month','account'],metrics:['amount']}),
+    repW('table','purlines',{title:'By item',dims:['item'],metrics:['lines','sheets','sheetFt2'],limit:20,other:true})]],
+   ['Receipts',[repW('number','purreceipts',{title:'Receipts',metrics:['receipts','lines','late','onTime','brokenLines']}),
+    repW('table','purreceipts',{title:'By supplier',dims:['supplier'],metrics:['receipts','lines','late','onTime','daysLate:avg','brokenLines']}),
+    repW('table','purreceipts',{title:'Broken on arrival',dims:['item'],metrics:['broken','brokenLines'],filters:[{f:'broken',op:'gt',v:['0']}]})]],
+   ['Waiting',[repW('table','purlines',{title:'POs waiting',dims:['po'],metrics:['waiting','overdue'],filters:[{f:'remaining',op:'gt',v:['0']}],sort:{by:'metric',i:1,dir:'desc'},limit:50})]]],10),
+  R('purbalances','Supplier balances','Purchasing','all',['supplier','currency'],[
+   ['Summary',[repW('table','purbills',{title:'By supplier and currency',dims:['account'],metrics:['invoiced','paid','net','overdue','overdueN','amountNeeded']}),
+    repW('table','purbills',{title:'Open invoices',dims:['doc'],metrics:['balance','overdue','daysOverdue:max'],filters:[{f:'kind',op:'in',v:['Invoice']},{f:'status',op:'notIn',v:['Paid','Credit','Overpaid']}],sort:{by:'metric',i:0,dir:'desc'},limit:50}),
+    repW('columns','purbills',{title:'Paid by month',dims:['date:month','account'],metrics:['paid']})]]],10)
  ];
 }
 

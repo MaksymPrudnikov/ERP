@@ -225,4 +225,39 @@ Object.assign(REP_SRC,{
   metrics:[{k:'qty',label:'Quantity',agg:'sum',f:'qty',digits:2,unitBy:'unit'}].concat(repConsMetrics(),[{k:'units',label:'Units built with it',agg:'sum',f:'units'},{k:'missing',label:'Units without norm',agg:'sum',f:'missing'},
    {k:'days',label:'Days',agg:'distinct',f:'day'}])}
 });
-const REP_GROUPS=['Production','Shipping','Sales','Inventory','Finance','Quality','People'];
+/* Закупки (reports/facts-purchasing) — только с галочкой Purchasing, цены
+   видны. Деньги — в валюте документа: CAD и USD итогом не складываются
+   (unitBy currency); Account — поставщик · валюта. */
+function repPurItemFields(){return [REP_F.dim('kind','Kind'),REP_F.dim('group','Item group'),REP_F.dim('item','Item'),REP_F.dim('glass','Glass',r=>r.glass||'—'),
+ REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('size','Sheet size',r=>r.size||'—'),REP_F.dim('unit','Unit',r=>r.unit||'—')];}
+const REP_PUR_MONEY={money:true,unitBy:'currency'};
+Object.assign(REP_SRC,{
+ purlines:{label:'PO lines',group:'Purchasing',access:'purchasing',hint:'Ordered, received, waiting, amount',rows:()=>repPurLineFacts(),date:['date','expected','sent'],
+  fields:()=>[REP_F.date('date','PO date'),REP_F.date('expected','Expected'),REP_F.date('sent','Sent'),REP_F.text('po','PO'),REP_F.dim('supplier','Supplier'),REP_F.dim('currency','Currency'),
+   REP_F.dim('account','Account'),REP_F.dim('status','Status'),REP_F.dim('held','Held'),REP_F.dim('priceUnit','Price unit')].concat(repPurItemFields(),[
+   REP_F.num('qty','Ordered',{digits:2,unitBy:'unit'}),REP_F.num('received','Received',{digits:2,unitBy:'unit'}),REP_F.num('remaining','Waiting',{digits:2,unitBy:'unit'}),
+   REP_F.num('replaceLeft','Replacement due',{digits:2}),REP_F.num('sheets','Sheets ordered'),REP_F.num('sheetFt2','Sheet ft² ordered',{digits:1}),
+   REP_F.num('price','Price',Object.assign({digits:2},REP_PUR_MONEY)),REP_F.num('amount','Amount',REP_PUR_MONEY)]),
+  metrics:[{k:'lines',label:'PO lines',agg:'count'},{k:'pos',label:'POs',agg:'distinct',f:'po'},{k:'amount',label:'Amount',agg:'sum',f:'amount',money:true,unitBy:'currency'},
+   {k:'waiting',label:'Lines waiting',agg:'sum',f:'waiting'},{k:'overdue',label:'Waiting past expected',agg:'sum',f:'overdue'},{k:'unpriced',label:'Lines without price',agg:'sum',f:'unpriced'},
+   {k:'sheets',label:'Sheets ordered',agg:'sum',f:'sheets'},{k:'sheetFt2',label:'Sheet ft² ordered',agg:'sum',f:'sheetFt2',digits:1},{k:'suppliers',label:'Suppliers',agg:'distinct',f:'supplier'}]},
+ purreceipts:{label:'Supplier receipts',group:'Purchasing',access:'purchasing',hint:'Arrived, broken, late',rows:()=>repPurReceiptFacts(),date:['at','expected'],
+  fields:()=>[REP_F.date('at','Received'),REP_F.date('expected','Expected'),REP_F.text('receipt','Receipt'),REP_F.text('po','PO',r=>r.po||'—'),REP_F.dim('supplier','Supplier'),
+   REP_F.dim('receivedBy','Received by',r=>r.receivedBy||'—'),REP_F.text('slip','Packing slip',r=>r.slip||'—'),REP_F.dim('arrival','New or replacement'),REP_F.dim('state','On time'),
+   REP_F.dim('reason','Broken · reason',r=>r.reason||'—'),REP_F.dim('resolution','Broken · resolution',r=>r.resolution||'—')].concat(repPurItemFields(),[
+   REP_F.num('qty','Received',{digits:2,unitBy:'unit'}),REP_F.num('broken','Broken',{digits:2,unitBy:'brokenUnit'}),REP_F.num('sheets','Sheets'),REP_F.num('sheetFt2','Sheet ft²',{digits:1}),
+   REP_F.num('daysLate','Days late')]),
+  metrics:[{k:'lines',label:'Receipt lines',agg:'count'},{k:'receipts',label:'Receipts',agg:'distinct',f:'receipt'},{k:'late',label:'Late lines',agg:'sum',f:'late'},
+   {k:'onTime',label:'On time %',agg:'ratio',num:'onTimeN',den:'judgedN',pct:true,digits:0},{k:'brokenLines',label:'Lines with broken',agg:'sum',f:'brokenLines'},
+   {k:'broken',label:'Broken',agg:'sum',f:'broken',digits:2,unitBy:'brokenUnit'},{k:'sheets',label:'Sheets',agg:'sum',f:'sheets'},{k:'sheetFt2',label:'Sheet ft²',agg:'sum',f:'sheetFt2',digits:1}]},
+ purbills:{label:'Supplier bills',group:'Purchasing',access:'purchasing',hint:'Invoices, payments, balance, overdue',rows:()=>repPurBillFacts(),date:['date','due'],
+  fields:()=>[REP_F.date('date','Date'),REP_F.date('due','Due'),REP_F.dim('kind','Invoice or payment'),REP_F.text('doc','Document'),REP_F.dim('supplier','Supplier'),REP_F.dim('currency','Currency'),
+   REP_F.dim('account','Account'),REP_F.dim('status','Status'),REP_F.text('pos','POs',r=>r.pos||'—'),REP_F.dim('method','Payment method',r=>r.method||'—'),
+   REP_F.num('invoiced','Invoiced',REP_PUR_MONEY),REP_F.num('paid','Paid',REP_PUR_MONEY),REP_F.num('net','Balance',REP_PUR_MONEY),REP_F.num('balance','Invoice balance',REP_PUR_MONEY),
+   REP_F.num('overdue','Overdue',REP_PUR_MONEY),REP_F.num('daysOverdue','Days overdue'),REP_F.num('daysToPay','Days to pay')],
+  metrics:[{k:'invoiced',label:'Invoiced',agg:'sum',f:'invoiced',money:true,unitBy:'currency'},{k:'paid',label:'Paid',agg:'sum',f:'paid',money:true,unitBy:'currency'},
+   {k:'net',label:'Balance',agg:'sum',f:'net',money:true,unitBy:'currency'},{k:'overdue',label:'Overdue',agg:'sum',f:'overdue',money:true,unitBy:'currency'},
+   {k:'invoices',label:'Invoices',agg:'sum',f:'invoices'},{k:'overdueN',label:'Invoices overdue',agg:'sum',f:'overdueN'},{k:'amountNeeded',label:'Amount needed',agg:'sum',f:'amountNeeded'},
+   {k:'count',label:'Documents',agg:'count'}]}
+});
+const REP_GROUPS=['Production','Shipping','Sales','Inventory','Purchasing','Finance','Quality','People'];
