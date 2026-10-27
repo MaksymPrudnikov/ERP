@@ -19,10 +19,12 @@ const SHEET_USAGE_STATUS={'Awaiting cutting':'Planned','Cutting started':'Cuttin
 /* Одна строка — батч × стекло × размер листа. Кусок со стеллажа (S-…) —
    своя строка: это не купленный лист. */
 function sheetUsageRows(){
- const out=[];
+ /* Батч по номеру — один проход: на годе раскроев и батчей тысячи. */
+ const out=[],byNo=new Map();
+ (DB.glassBatch||[]).forEach(b=>{if(!byNo.has(b.number))byNo.set(b.number,b);});
  (DB.cutPlan||[]).forEach(plan=>{
   if(!plan||plan.reset||!Array.isArray(plan.groups))return;
-  const b=glassBatchFind(plan.batch),status=b&&SHEET_USAGE_STATUS[typeof glassBatchStatus==='function'?glassBatchStatus(b):''];
+  const b=byNo.get(plan.batch),status=b&&SHEET_USAGE_STATUS[typeof glassBatchStatus==='function'?glassBatchStatus(b):''];
   if(!status)return;
   plan.groups.forEach(g=>{
    const rows=new Map();

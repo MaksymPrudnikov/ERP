@@ -23,7 +23,7 @@
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=8;
+const REP_SEED_VERSION=9;
 /* Версия 7 (26.10.2026): стартовые Production — по подпапкам (каталог
    деревом, view/reports). У базы переезжают только те, чью папку не меняли. */
 const REP_START_FOLDERS={cut:'Production / Cutting',sheets:'Production / Cutting',sheetcut:'Production / Cutting',offcuts:'Production / Cutting',
@@ -240,7 +240,26 @@ function REP_STARTERS(){
     repW('table','igumat',{title:'By material',dims:['material'],metrics:['qty','units','missing'],opts:{totals:false}}),
     repW('columns','igumat',{title:'Spacer ft by day',dims:['day:day'],metrics:['spacerFt'],width:'half'}),
     repW('columns','igumat',{title:'Sealant kg by day',dims:['day:day'],metrics:['sealantKg'],width:'half'}),
-    repW('table','igumat',{title:'By person',dims:['person'],metrics:['spacerFt','sealantKg','gasKg','partsKg','days']})]]],8)
+    repW('table','igumat',{title:'By person',dims:['person'],metrics:['spacerFt','sealantKg','gasKg','partsKg','days']})]]],8),
+  /* Версия 9 (27.10.2026): дни на каждом этапе заказа, продажи по месяцам,
+     батчи раскроя. Нет этапа — пусто: max, а не сумма, не пишет ноль. */
+  R('stages','Orders · days at each stage','Sales','last90',['customer','delivery','priority'],[
+   ['Summary',[repW('number','orders',{title:'Average days',date:{f:'created'},metrics:['count','dVerify:avg','dBatch:avg','dReady:avg','dDone:avg']}),
+    repW('table','orders',{title:'By month created',date:{f:'created'},dims:['created:month'],metrics:['count','dVerify:avg','dBatch:avg','dReady:avg','dDone:avg','lead:avg']}),
+    repW('table','orders',{title:'By customer',date:{f:'created'},dims:['customer'],metrics:['count','dVerify:avg','dBatch:avg','dReady:avg','dDone:avg'],limit:20,other:true})]],
+   ['Slowest',[repW('table','orders',{title:'Verified → batched · slowest',date:{f:'created'},dims:['order'],metrics:['dBatch:max'],sort:{by:'metric',i:0,dir:'desc'},limit:20,width:'half'}),
+    repW('table','orders',{title:'Batched → ready · slowest',date:{f:'created'},dims:['order'],metrics:['dReady:max'],sort:{by:'metric',i:0,dir:'desc'},limit:20,width:'half'})]]],9),
+  R('salesmonth','Sales · by month','Sales','thisYear',['customer','rep'],[
+   ['Summary',[repW('number','orders',{title:'Orders',date:{f:'created'},metrics:['count','total','units','area'],compare:'year'}),
+    repW('columns','orders',{title:'Order total by month',date:{f:'created'},dims:['created:month'],metrics:['total']}),
+    repW('table','orders',{title:'By month',date:{f:'created'},dims:['created:month'],metrics:['count','total','units','glassN','area']}),
+    repW('table','orders',{title:'Sales rep × month',date:{f:'created'},dims:['rep','created:month'],metrics:['total']})]]],9),
+  R('batches','Batches · by day','Production / Optimization','thisMonth',['glass','status'],[
+   ['Summary',[repW('number','batches',{title:'Batches',metrics:['batches','glassN','area','sheets','yield','broken'],compare:'prev'}),
+    repW('columns','batches',{title:'Batches by day',dims:['at:day'],metrics:['batches']}),
+    repW('table','batches',{title:'By day',dims:['built'],metrics:['batches','glassN','area','sheets','yield','daysFirst','daysLast'],sort:{by:'label',dir:'desc'}}),
+    repW('table','batches',{title:'By glass',dims:['glass'],metrics:['batches','glassN','area','sheets','offcuts','sheetFt2','yield','broken']})]],
+   ['Batch list',[repW('table','batches',{title:'Batches',dims:['batch'],metrics:['glassN','area','orders','sheets','offcuts','yield','daysFirst','daysLast'],sort:{by:'label',dir:'desc'},limit:100})]]],9)
  ];
 }
 

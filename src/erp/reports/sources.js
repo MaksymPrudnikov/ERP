@@ -99,11 +99,15 @@ const REP_SRC={
    REP_F.num('stop','Stop #'),REP_F.num('units','Units'),REP_F.num('skids','Skids'),REP_F.num('kg','Weight kg'),REP_F.num('km','Km',{digits:1})],
   metrics:[{k:'count',label:'Packing slips',agg:'count'},{k:'trips',label:'Trips',agg:'distinct',f:'trip'},{k:'units',label:'Units',agg:'sum',f:'units'},{k:'skids',label:'Skids',agg:'sum',f:'skids'},{k:'kg',label:'Weight kg',agg:'sum',f:'kg'},
    {k:'km',label:'Km',agg:'sum',f:'km',digits:1},{k:'kmPerTrip',label:'Km per trip',agg:'ratio',num:'km',den:'kmDone',digits:1}]},
- orders:{label:'Orders & due dates',group:'Sales',hint:'On time, late, lead time',rows:()=>repOrderFacts(),date:['due','created','shipped'],
-  fields:()=>[REP_F.date('due','Due'),REP_F.date('created','Created'),REP_F.date('shipped','Shipped'),REP_F.date('ready','Ready for pickup'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
+ /* Этапы заказа: день Verified, Batched, Ready, Done и дни между ними —
+    пусто, если этапа не было (reports/facts-office). */
+ orders:{label:'Orders & due dates',group:'Sales',hint:'On time, late, days at each stage',rows:()=>repOrderFacts(),date:['due','created','shipped','stVerified','stBatched','stReady','stDone'],
+  fields:()=>[REP_F.date('due','Due'),REP_F.date('created','Created'),REP_F.date('shipped','Shipped'),REP_F.date('ready','Ready for pickup'),
+   REP_F.date('stVerified','Verified'),REP_F.date('stBatched','Batched'),REP_F.date('stReady','All ready'),REP_F.date('stDone','Done'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
    REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery'),REP_F.dim('status','Status'),REP_F.dim('state','On time'),REP_F.dim('hold','On hold')]
    .concat(repOrderFields(),[REP_F.num('units','Units'),REP_F.num('glassN','Glass pcs'),REP_F.num('area','Area ft²',{digits:1}),REP_F.num('lines','Lines'),REP_F.num('shapes','Shapes'),REP_F.num('kg','Weight kg'),
-   REP_F.num('daysLate','Days late'),REP_F.num('lead','Lead time, days'),REP_F.num('total','Order total',{money:true})]),
+   REP_F.num('daysLate','Days late'),REP_F.num('lead','Lead time, days'),REP_F.num('dVerify','Days new → verified'),REP_F.num('dBatch','Days verified → batched'),
+   REP_F.num('dReady','Days batched → ready'),REP_F.num('dDone','Days ready → done'),REP_F.num('total','Order total',{money:true})]),
   metrics:[{k:'count',label:'Orders',agg:'count'},{k:'late',label:'Late orders',agg:'sum',f:'late'},{k:'onTime',label:'On time %',agg:'ratio',num:'onTimeN',den:'judgedN',pct:true,digits:0},
    {k:'units',label:'Units',agg:'sum',f:'units'},{k:'glassN',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1},{k:'total',label:'Order total',agg:'sum',f:'total',money:true}]},
  ordered:{label:'Ordered glass',group:'Sales',hint:'Glass, thickness and ft² ordered',rows:()=>repOrderedFacts(),date:['created','due'],
@@ -179,6 +183,17 @@ Object.assign(REP_SRC,{
    REP_F.dim('size','Size'),REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.dim('status','Status'),REP_F.num('area','Area ft²',{digits:1})],
   metrics:[{k:'count',label:'Offcuts',agg:'count'},{k:'area',label:'Area ft²',agg:'sum',f:'area',digits:1}]}
 });
+/* Батчи раскроя (reports/facts-batches): батч × стекло × заказ; листы и
+   дни до реза — один раз на батч и стекло. Денег нет — их видит и
+   Optimization. */
+REP_SRC.batches={label:'Batches',group:'Production',hint:'Glass, sheets and days to cut by batch',rows:()=>repBatchFacts(),date:['at','first','last'],
+ fields:()=>[REP_F.date('at','Built'),REP_F.date('first','First cut'),REP_F.date('last','Last cut'),REP_F.dim('built','Batch day'),REP_F.text('batch','Batch'),REP_F.dim('status','Status'),REP_F.dim('glass','Glass'),
+  REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.text('order','Order',r=>r.order||'—'),REP_F.dim('customer','Customer',r=>r.customerId?repCustomer(r.customerId):r.customerName||'—'),
+  REP_F.num('glassN','Glass'),REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('glassCut','Glass cut'),REP_F.num('sheets','Sheets'),REP_F.num('offcuts','Offcuts used'),
+  REP_F.num('sheetFt2','Sheet ft²',{digits:1}),REP_F.num('usedFt2','Used ft²',{digits:1}),REP_F.num('broken','Sheets broken'),REP_F.num('daysFirst','Days to first cut'),REP_F.num('daysLast','Days to last cut')],
+ metrics:[{k:'batches',label:'Batches',agg:'distinct',f:'batch'},{k:'glassN',label:'Glass',agg:'sum',f:'glassN'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'},
+  {k:'sheets',label:'Sheets',agg:'sum',f:'sheets'},{k:'offcuts',label:'Offcuts used',agg:'sum',f:'offcuts'},{k:'sheetFt2',label:'Sheet ft²',agg:'sum',f:'sheetFt2',digits:1},{k:'yield',label:'Used %',agg:'ratio',num:'usedFt2',den:'sheetFt2',pct:true,digits:1},
+  {k:'broken',label:'Sheets broken',agg:'sum',f:'broken'},{k:'daysFirst',label:'Days to first cut · avg',agg:'avg',f:'daysFirst',digits:1},{k:'daysLast',label:'Days to last cut · avg',agg:'avg',f:'daysLast',digits:1}]};
 /* Склад (reports/facts-inventory) — только с галочкой Inventory, денег нет.
    Меры — каждая своей колонкой: листы шт и ft², рамка ft, герметик, газ и
    части пакета kg; количество в единице строки — unitBy. */

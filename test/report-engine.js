@@ -125,7 +125,7 @@ module.exports=async function({page,eq,ok}){
   DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes','RP-start-km','RP-start-myday','RP-start-myedge','RP-start-mycustomers'].includes(r.id));
   DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
   return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
- }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves']).sort(),again:20,seed:8});
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches']).sort(),again:23,seed:9});
  eq('Км рейса по карте Google: цех → остановки → цех, запоминаются за рейс; отчёт — км и км на рейс; поменяли остановки — видно',await t.p.evaluate(async()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'});DB.truck=[{id:'T1',name:'Truck 1',active:true}];DB.tripKm=[];
   DB.company=Object.assign({},DB.company,{address1:'10 Shop Rd',city:'Vaughan',province:'ON'});
@@ -190,7 +190,7 @@ module.exports=async function({page,eq,ok}){
   const copy=repClean(JSON.parse(JSON.stringify(Object.assign({},mine,{id:'RP-my-copy'}))));DB.report.push(copy);DB.reportSeed=3;normalizeReports();
   const fields=r=>r.pages[0].widgets.map(w=>w.q.date.f).join(),now=DB.report.find(r=>r.id==='RP-start-mycustomers');
   const res={start:fields(now),copy:fields(DB.report.find(r=>r.id==='RP-my-copy')),seed:DB.reportSeed};DB.report=DB.report.filter(r=>r.id!=='RP-my-copy');return res;
- }),{start:'created,created',copy:'due,due',seed:8});
+ }),{start:'created,created',copy:'due,due',seed:9});
 
  eq('Аудит 12.10: отчёты по заказам пересчитываются после скана готовности (SHIPR), а не после любого скана цеха',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},id=rbOrder(c,'6CLEAR','single',[[30,40,2]],{delivery:'pickup'});rbBatch([id]);
@@ -311,6 +311,28 @@ module.exports=async function({page,eq,ok}){
   return {units:today.total[0],spacer:fx(today.total[1])===ft&&ft>0,all:by(all),day:fx(day.total[0])===ft,loaded:by(loaded),person:who.keys.map(k=>k+' '+who.rowTotals.get(k)[0]),
    mixed:repQuery({source:'igumat',date:{preset:'all'},metrics:['qty']}).total[0]};
  }),{units:1,spacer:true,all:['Archived · total only 5','By scan 2 units'],day:true,loaded:['Archived · total only 5','By scan 2 units'],person:['Andrei 1','Oleh 1'],mixed:null});
+
+ /* Часть «этапы заказов + батчи» плана отчётов (владелец, 26.10.2026):
+    дни на каждом этапе; этапа не было — пусто, а не 0. */
+ eq('Orders · days at each stage: новый → проверен 1 день, → батч 2, → готов 3; без Verify — пусто; без батча — пусто, готов → выдан 3',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'Northside Windows'}),mk=()=>rbOrder(c,'6CLEAR','single',[[30,40,1]]),A=mk(),B=mk(),C=mk(),at=n=>rbAt(n,10,0);
+  const set=(id,status,d)=>{const o=salesRecord(id);o.status=status;o.statusDates=d;o.updatedAt=new Date().toISOString();};
+  set(A,'ready',{new:at(-6),verified:at(-5),batched:at(-3),ready:at(0)});set(B,'new',{new:at(-2)});set(C,'done',{new:at(-9),verified:at(-8),ready:at(-4),done:at(-1)});
+  const row=id=>repOrderFacts().find(r=>r.id===id),txt=id=>{const r=row(id);return [r.dVerify,r.dBatch,r.dReady,r.dDone].map(v=>v==null?'—':v).join('/');};
+  const q=repQuery({source:'orders',date:{preset:'all'},metrics:['count','dVerify:avg','dBatch:avg','dReady:avg','dDone:avg']});
+  return {A:txt(A),B:txt(B),C:txt(C),avg:q.total.map((v,i)=>repFmt(q.metrics[i],v)),batched:row(A).stBatched===repDay(at(-3))};
+ }),{A:'1/2/3/—',B:'—/—/—/—',C:'1/—/—/3',avg:['3','1','2','3','3'],batched:true});
+ eq('Batches: батч из двух заказов — строка на заказ, листы раскроя один раз; дни до первого реза сразу, до последнего — когда порезано всё',await t.p.evaluate(()=>{
+  oqReset();DB.cutPlan=[];DB.sheetBreak=[];DB.stockOffcut=[];DB.glassSheet=[];DB.cutting=cutSettingsDefault();
+  DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:96,sheetHIn:130,availability:'stock'}));
+  const c=oqCustomer({legalName:'Northside Windows'}),who={id:'u1',name:'Roman'},A=rbOrder(c,'6CLEAR','single',[[46,60,4]]),B=rbOrder(c,'6CLEAR','single',[[34,52,5]]);
+  rbBatch([A,B]);const b=DB.glassBatch[DB.glassBatch.length-1],r=cutPlanRun(b.number);if(r&&r.error)throw new Error(r.error);b.createdAt=rbAt(-2,9,0);
+  const sheets=cutPlanFor(b.number).groups[0].sheets.length,days=()=>repBatchFacts().map(x=>[x.daysFirst,x.daysLast].map(v=>v==null?'—':v).join('/'));
+  rbIds(A).forEach(p=>rbGo('CUT',p,who,rbAt(-1,9,0)));const half=days();
+  rbIds(B).forEach(p=>rbGo('CUT',p,who,rbAt(0,9,0)));
+  const q=repQuery({source:'batches',date:{preset:'all'},metrics:['batches','glassN','orders','sheets','daysFirst','daysLast']});
+  return {sheets,half,all:days(),rows:repBatchFacts().map(x=>[x.order===salesRecord(A).businessNumber?'A':'B',x.glassN,x.glassCut,x.sheets,x.status].join('/')),total:q.total.map((v,i)=>repFmt(q.metrics[i],v))};
+ }),{sheets:2,half:['1/—','—/—'],all:['1/2','—/—'],rows:['A/4/4/2/Cut','B/5/5/0/Cut'],total:['1','9','2','2','1','2']});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
