@@ -92,8 +92,11 @@ function finVoidRefund(id,reason){
  const r=DB.refund.find(r=>r.id===id);finAssert(r&&!r.voided,'Refund not found or already void.');finAssert(String(reason||'').trim(),'Enter a reason.');
  const before=finCopy(r);r.voided=true;r.voidReason=String(reason).trim().slice(0,300);r.voidedAt=new Date().toISOString();finEvent('refund_voided',before,r,r.voidReason,'refund');return r;
 }
+/* Условия заказа по номеру — один проход на отрисовку (erp/read-scope):
+   отчёты по заказам спрашивают их у каждого заказа года. */
 function finTermsFor(o){
- const stored=(DB.financeTerms||[]).find(t=>t.orderId===o.id);if(stored&&stored.customerId===o.customerId)return stored;
+ const stored=readOn()?readMemo('finTermsByOrder',[DB.financeTerms],()=>{const m=new Map();(DB.financeTerms||[]).forEach(t=>{if(t&&!m.has(t.orderId))m.set(t.orderId,t);});return m;}).get(o.id):(DB.financeTerms||[]).find(t=>t.orderId===o.id);
+ if(stored&&stored.customerId===o.customerId)return stored;
  const c=salesFindCustomer(o.customerId)||{},t=paymentTermsFrom(c);
  return {orderId:o.id,customerId:o.customerId,currency:finCurrency(o),paymentMode:t.paymentMode,depositPercent:paymentDepositPercent(t),creditDays:t.creditDays,issuedOn:'',dueOn:'',capturedAt:''};
 }

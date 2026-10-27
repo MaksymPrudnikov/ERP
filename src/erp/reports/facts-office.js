@@ -78,6 +78,14 @@ function repOrderShipped(o){
    сканы цеха не пересчитывают заказы (аудит 12.10.2026: раньше любой скан
    сбрасывал расчёт отчётов по заказам). */
 function repReadyScanCount(){const st=shippingStations().ready;let n=0;(DB.stationScan||[]).forEach(s=>{if(s.station===st)n+=s.undoneAt?2:1;});return n;}
+/* Поле, которое считается, когда его впервые читают, и запоминается в строке.
+   Площадь, вес и сумма заказа — самое дорогое в строке (фигуры, лайты
+   юнита, цены): на годе это секунды. Движок отчётов читает у строки только
+   поля графика (reports/query) — отчёт без них (дни на этапах, сроки) их не
+   ждёт, с ними — считает только заказы своего периода. Формулы те же. */
+function repLazy(row,k,fn){
+ Object.defineProperty(row,k,{enumerable:true,configurable:true,get(){const v=fn();Object.defineProperty(row,k,{value:v,enumerable:true,configurable:true,writable:true});return v;}});
+}
 function repOrderFacts(){
  const today=finToday(),stamp=[today,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.shipment||[]).map(s=>s.id+s.status+s.date).join(','),repReadyScanCount()].join('|');
  if(repOrderCache.stamp===stamp&&repOrderCache.rows)return repOrderCache.rows;
@@ -96,19 +104,21 @@ function repOrderFacts(){
   const ready=o.delivery==='pickup'?pickupReady(o,done,shipped):'',finish=o.delivery==='pickup'?ready:shipped;
   const state=!due?'No due date':finish?(finish<=due?'On time':'Late'):(due<today?'Late':'Open');
   const lines=o.lines||[],units=lines.reduce((n,l)=>n+Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)),0);
-  const area=finWithOrder(o,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,o);return n+(a.valid?a.actual*Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)):0);},0));
-  const created=salesListIsoDay(o.createdAt),c=salesFindCustomer(o.customerId)||{},t=finOrderTotals(o);
+  const created=salesListIsoDay(o.createdAt),c=salesFindCustomer(o.customerId)||{};
   const glassN=lines.reduce((n,l)=>n+Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l))*glassBatchComponents(o,l).filter(x=>!x.missing).length,0);
   const shapes=lines.filter(l=>typeof salesListShapedLine==='function'&&salesListShapedLine(l)).length;
-  let kg=0;try{finWithOrder(o,()=>lines.forEach(l=>{const w=salesLineWeight(l,o);if(w&&w.lineKg!=null)kg+=w.lineKg;}));}catch(e){}
   /* Этапы (план отчётов, 26.10.2026): день каждого этапа из statusDates и
      календарные дни между соседними; этапа не было — пусто, а не 0. */
   const sd=o.statusDates||{},stNew=repDay(sd.new||o.createdAt||''),stVerified=repDay(sd.verified||''),stBatched=repDay(sd.batched||''),stReady=repDay(sd.ready||''),stDone=repDay(sd.done||'');
   const gap=(a,b)=>{if(!a||!b)return null;const n=repDaysBetween(a,b);return n<0?null:n;};
-  rows.push({...repOrderInfo(o),id:o.id,stVerified,stBatched,stReady,stDone,dVerify:gap(stNew,stVerified),dBatch:gap(stVerified,stBatched),dReady:gap(stBatched,stReady),dDone:gap(stReady,stDone),at:o.createdAt||'',created,due,shipped,order:o.businessNumber||'',customerId:o.customerId||'',rep:c.salesRep||'',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',
-   lines:lines.length,shapes,kg:kg||null,hold:o.onHold?'On hold':'Not on hold',
+  const row={...repOrderInfo(o),id:o.id,stVerified,stBatched,stReady,stDone,dVerify:gap(stNew,stVerified),dBatch:gap(stVerified,stBatched),dReady:gap(stBatched,stReady),dDone:gap(stReady,stDone),at:o.createdAt||'',created,due,shipped,order:o.businessNumber||'',customerId:o.customerId||'',rep:c.salesRep||'',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',
+   lines:lines.length,shapes,hold:o.onHold?'On hold':'Not on hold',
    delivery:o.delivery==='delivery'?'Delivery':'Pickup',status:salesStatusLabel(o),state,daysLate:state==='Late'?Math.max(0,days(due,finish||today)):0,ready,
-   lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,area:area||null,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,judgedN:state==='On time'||state==='Late'?1:0,total:t&&t.complete?t.grand:null});
+   lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,judgedN:state==='On time'||state==='Late'?1:0};
+  repLazy(row,'area',()=>finWithOrder(o,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,o);return n+(a.valid?a.actual*Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)):0);},0))||null);
+  repLazy(row,'kg',()=>{let kg=0;try{finWithOrder(o,()=>lines.forEach(l=>{const w=salesLineWeight(l,o);if(w&&w.lineKg!=null)kg+=w.lineKg;}));}catch(e){}return kg||null;});
+  repLazy(row,'total',()=>{const t=finOrderTotals(o);return t&&t.complete?t.grand:null;});
+  rows.push(row);
  });
  repOrderCache={stamp,rows};
  return rows;

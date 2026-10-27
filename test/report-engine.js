@@ -334,6 +334,18 @@ module.exports=async function({page,eq,ok}){
   return {sheets,half,all:days(),rows:repBatchFacts().map(x=>[x.order===salesRecord(A).businessNumber?'A':'B',x.glassN,x.glassCut,x.sheets,x.status].join('/')),total:q.total.map((v,i)=>repFmt(q.metrics[i],v))};
  }),{sheets:2,half:['1/—','—/—'],all:['1/2','—/—'],rows:['A/4/4/2/Cut','B/5/5/0/Cut'],total:['1','9','2','2','1','2']});
 
+ /* Скорость на годе (27.10.2026): площадь, вес и сумма заказа считаются,
+    когда их читает график, — отчёт по срокам их не ждёт. Числа те же. */
+ eq('Orders: площадь, вес и сумма — только когда их читает график; отчёт без них их не считает; числа те же, что расчёт заново',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'Northside Windows'}),A=rbOrder(c,'6CLEAR','single',[[30,40,2],[24,36,1]]),o=salesRecord(A);repOrderCache={stamp:'',rows:null};
+  const row=()=>repOrderFacts().find(r=>r.id===A),open=()=>['area','kg','total'].map(k=>!!Object.getOwnPropertyDescriptor(row(),k).get);
+  repQuery({source:'orders',date:{preset:'all'},metrics:['count','late','onTime','dBatch:avg']});const before=open();
+  const q=repQuery({source:'orders',date:{preset:'all'},metrics:['total','area']}),after=open();
+  const t=finOrderTotals(o),area=finWithOrder(o,()=>o.lines.reduce((n,l)=>n+salesLineAreas(l,o).actual*l.qty,0));
+  let kg=0;finWithOrder(o,()=>o.lines.forEach(l=>{kg+=salesLineWeight(l,o).lineKg;}));
+  return {before,after,total:row().total===t.grand&&q.total[0]===t.grand,area:Math.abs(row().area-area)<1e-9&&q.total[1]===row().area,kg:kg>0&&Math.abs(row().kg-kg)<1e-9,keys:Object.keys(row()).filter(k=>['area','kg','total'].includes(k)).sort()};
+ }),{before:[true,true,true],after:[false,true,false],total:true,area:true,kg:true,keys:['area','kg','total']});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
