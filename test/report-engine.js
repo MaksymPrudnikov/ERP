@@ -125,7 +125,7 @@ module.exports=async function({page,eq,ok}){
   DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes','RP-start-km','RP-start-myday','RP-start-myedge','RP-start-mycustomers'].includes(r.id));
   DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
   return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
- }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches','RP-start-pursupplier','RP-start-purbalances']).sort(),again:25,seed:10});
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches','RP-start-pursupplier','RP-start-purbalances','RP-start-payorders','RP-start-agents']).sort(),again:27,seed:11});
  eq('Км рейса по карте Google: цех → остановки → цех, запоминаются за рейс; отчёт — км и км на рейс; поменяли остановки — видно',await t.p.evaluate(async()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'});DB.truck=[{id:'T1',name:'Truck 1',active:true}];DB.tripKm=[];
   DB.company=Object.assign({},DB.company,{address1:'10 Shop Rd',city:'Vaughan',province:'ON'});
@@ -190,7 +190,7 @@ module.exports=async function({page,eq,ok}){
   const copy=repClean(JSON.parse(JSON.stringify(Object.assign({},mine,{id:'RP-my-copy'}))));DB.report.push(copy);DB.reportSeed=3;normalizeReports();
   const fields=r=>r.pages[0].widgets.map(w=>w.q.date.f).join(),now=DB.report.find(r=>r.id==='RP-start-mycustomers');
   const res={start:fields(now),copy:fields(DB.report.find(r=>r.id==='RP-my-copy')),seed:DB.reportSeed};DB.report=DB.report.filter(r=>r.id!=='RP-my-copy');return res;
- }),{start:'created,created',copy:'due,due',seed:10});
+ }),{start:'created,created',copy:'due,due',seed:11});
 
  eq('Аудит 12.10: отчёты по заказам пересчитываются после скана готовности (SHIPR), а не после любого скана цеха',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},id=rbOrder(c,'6CLEAR','single',[[30,40,2]],{delivery:'pickup'});rbBatch([id]);
@@ -382,6 +382,37 @@ module.exports=async function({page,eq,ok}){
   try{return {allowed:['purlines','purreceipts','purbills'].map(repSourceAllowed),chart:repChart(r,r.pages[0].widgets[0]),pick:/value="(purlines|purreceipts|purbills)"/.test(repSrcOptions('glass'))};}
   finally{window.accessCan=old;}
  }),{allowed:[false,false,false],chart:'<div class="mut">Needs Purchasing access.</div>',pick:false});
+
+ /* Часть «финансы и агенты» плана отчётов (владелец, 26.10.2026). */
+ await t.p.evaluate(()=>{
+  window.rfPay=(customerId,date,amount,alloc)=>{DB.receipt.push(normalizeReceipt({number:'R-'+String(DB.receipt.length+1).padStart(4,'0'),customerId,date,method:'cheque',reference:'#'+(DB.receipt.length+1),amount,allocations:alloc}));return DB.receipt[DB.receipt.length-1];};
+  window.rfSeed=()=>{oqReset();DB.receipt=[];DB.refund=[];DB.referrer=[];DB.referrerPayout=[];DB.financeTerms=[];
+   const c=oqCustomer({legalName:'Northside Windows'}),A=rbOrder(c,'6CLEAR','single',[[30,40,2]]),B=rbOrder(c,'6CLEAR','single',[[24,36,1]]),a=salesRecord(A);
+   a.status='done';a.statusDates=Object.assign({},a.statusDates,{done:'2026-10-01T15:00:00.000Z'});a.updatedAt=new Date().toISOString();
+   rfPay(c.id,'2026-09-25',100,[{orderId:A,amount:100}]);rfPay(c.id,'2026-10-04',250,[{orderId:A,amount:200},{orderId:B,amount:50}]);return {c,A,B};};
+ });
+ eq('Payments by order: оплата на два заказа — две строки, сумма — сколько пришло на заказы; до счёта — Before billing; к сроку Net 30 — On time, после — Late; дни — от счёта',await t.p.evaluate(()=>{
+  const {c,A}=rfSeed();rfPay(c.id,'2026-11-05',20,[{orderId:A,amount:20}]);const n={[salesRecord(A).businessNumber]:'A'},q=repQuery({source:'payorders',date:{preset:'all'},metrics:['amount','payments','orders','lateAmount','daysToPay']});
+  return {due:finPaymentDue(salesRecord(A)),rows:repPayOrderFacts().map(r=>[r.receipt,n[r.order]||'B',r.state,r.amount,r.daysToPay==null?'—':r.daysToPay].join('/')),total:q.total.map((v,i)=>repFmt(q.metrics[i],v))};
+ }),{due:'2026-10-31',rows:['R-0001/A/Before billing/100/—','R-0002/A/On time/200/3','R-0002/B/Before billing/50/—','R-0003/A/Late/20/35'],total:['$370.00','4','2','$20.00','19']});
+ eq('Refunds: возврат — с какой оплаты, сколько дней спустя, причина; аннулированный не считается',await t.p.evaluate(()=>{
+  const {c}=rfSeed(),r=rfPay(c.id,'2026-10-05',80,[]);finCreateRefund({receiptId:r.id,amount:30,date:'2026-10-07',method:'cheque',reason:'Overpaid'});
+  const v=finCreateRefund({receiptId:r.id,amount:10,date:'2026-10-08',method:'cash',reason:'Mistake'});finVoidRefund(v.id,'Typo');
+  const q=repQuery({source:'refunds',date:{preset:'all'},metrics:['amount','count']});
+  return {rows:repRefundFacts().map(x=>[x.refund,x.receipt,x.amount,x.reason,x.days].join('/')),total:q.total.map((v,i)=>repFmt(q.metrics[i],v))};
+ }),{rows:['RF-0001/R-0003/30/Overpaid/2'],total:['$30.00','1']});
+ eq('Agent commissions: строка на агента и заказ; по агенту — начислено, выплачено и к выплате как на экране Agents; после выплаты заказ закрыт',await t.p.evaluate(()=>{
+  const {c,A,B}=rfSeed(),ref=comSave({name:'Sergey Petrov',customers:[{customerId:c.id,pct:5}]}).value;comPayoutAdd({referrerId:ref.id,date:'2026-10-10',orderIds:[A]});
+  const s=comSummary(comFind(ref.id),null),q=repQuery({source:'commissions',metrics:['com','paidOut','due','dueHst','owed'],dims:['agent']}),row=q.rowTotals.get('Sergey Petrov');
+  const near=(a,b)=>Math.abs(a-b)<0.005,by=id=>repCommissionFacts().find(r=>r.order===salesRecord(id).businessNumber);
+  return {keys:q.keys,same:[near(row[0],s.earned),near(row[1],s.paidOut),near(row[2],s.toPay),near(row[3],s.toPayHst)],owed:row[4],a:by(A).due,b:by(B).due>0&&near(by(B).due,by(B).com)};
+ }),{keys:['Sergey Petrov'],same:[true,true,true,true],owed:1,a:0,b:true});
+ eq('Оплаты и возвраты — только с Finance, комиссии — только с Commissions: без галочки источника нет, график пишет, какой галочки не хватает',await t.p.evaluate(()=>{
+  const old=window.accessCan,agents=repClean(REP_STARTERS().find(x=>x.id==='RP-start-agents')),pays=repClean(REP_STARTERS().find(x=>x.id==='RP-start-payorders'));
+  try{window.accessCan=k=>k!=='commissions';const a={commissions:repSourceAllowed('commissions'),payorders:repSourceAllowed('payorders'),chart:repChart(agents,agents.pages[0].widgets[0])};
+   window.accessCan=k=>k!=='finance';const b={payorders:repSourceAllowed('payorders'),refunds:repSourceAllowed('refunds'),commissions:repSourceAllowed('commissions'),chart:repChart(pays,pays.pages[0].widgets[0])};return {a,b};}
+  finally{window.accessCan=old;}
+ }),{a:{commissions:false,payorders:true,chart:'<div class="mut">Needs Commissions access.</div>'},b:{payorders:false,refunds:false,commissions:true,chart:'<div class="mut">Needs Finance access.</div>'}});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();

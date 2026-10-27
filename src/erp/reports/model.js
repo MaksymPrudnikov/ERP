@@ -23,7 +23,7 @@
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=10;
+const REP_SEED_VERSION=11;
 /* Версия 7 (26.10.2026): стартовые Production — по подпапкам (каталог
    деревом, view/reports). У базы переезжают только те, чью папку не меняли. */
 const REP_START_FOLDERS={cut:'Production / Cutting',sheets:'Production / Cutting',sheetcut:'Production / Cutting',offcuts:'Production / Cutting',
@@ -274,7 +274,22 @@ function REP_STARTERS(){
   R('purbalances','Supplier balances','Purchasing','all',['supplier','currency'],[
    ['Summary',[repW('table','purbills',{title:'By supplier and currency',dims:['account'],metrics:['invoiced','paid','net','overdue','overdueN','amountNeeded']}),
     repW('table','purbills',{title:'Open invoices',dims:['doc'],metrics:['balance','overdue','daysOverdue:max'],filters:[{f:'kind',op:'in',v:['Invoice']},{f:'status',op:'notIn',v:['Paid','Credit','Overpaid']}],sort:{by:'metric',i:0,dir:'desc'},limit:50}),
-    repW('columns','purbills',{title:'Paid by month',dims:['date:month','account'],metrics:['paid']})]]],10)
+    repW('columns','purbills',{title:'Paid by month',dims:['date:month','account'],metrics:['paid']})]]],10),
+  /* Версия 11 (27.10.2026): оплаты по заказам и возвраты — с Finance,
+     комиссии агентов — с Commissions; долг агенту — как на экране Agents. */
+  R('payorders','Payments · by order month','Finance','thisYear',['customer','method'],[
+   ['Summary',[repW('number','payorders',{title:'Payments on orders',metrics:['amount','payments','orders','daysToPay'],compare:'year'}),
+    repW('table','payorders',{title:'By order month',dims:['created:month'],metrics:['amount','orders','lateAmount','daysToPay']}),
+    repW('columns','payorders',{title:'Paid by month · when',dims:['at:month','state'],metrics:['amount']}),
+    repW('table','payorders',{title:'By customer',dims:['customer'],metrics:['amount','orders','lateAmount','daysToPay'],limit:20,other:true})]],
+   ['Refunds',[repW('number','refunds',{title:'Refunds',metrics:['amount','count','customers']}),
+    repW('table','refunds',{title:'By reason',dims:['reason'],metrics:['amount','count']}),
+    repW('table','refunds',{title:'Refund list',dims:['refund'],metrics:['amount'],sort:{by:'label',dir:'desc'},limit:100})]]],11),
+  R('agents','Agents · commission owed','Finance','all',['agent','customer'],[
+   ['Summary',[repW('number','commissions',{title:'Agents',metrics:['com','paidOut','due','dueHst']}),
+    repW('table','commissions',{title:'By agent',dims:['agent'],metrics:['orders','paid','base','com','paidOut','due','dueHst']}),
+    repW('table','commissions',{title:'To pay by order',dims:['order'],metrics:['com','paidOut','due'],filters:[{f:'due',op:'gt',v:['0']}],sort:{by:'metric',i:2,dir:'desc'},limit:50}),
+    repW('table','commissions',{title:'By customer',dims:['customer'],metrics:['paid','com','due']})]]],11)
  ];
 }
 
