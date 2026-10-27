@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 179 модулей, 23 стиля.
+  Состав сборки: 180 модулей, 23 стиля.
 -->
 <html lang="en">
 <head>
@@ -3545,7 +3545,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='d798b84128c0';
+var ERP_BUILD='2ea48cd3af0b';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -8998,8 +8998,9 @@ const DATA_FIXES=[
  [5,'edgeAllowance','ALW-CNCSHAPEPOLISH-LAMI-8-1000',{allowance:'1/8'},['allowance','note']]
 ];
 /* Номера правок кодом (не строкой таблицы): 4 — sfSplitEdgeFix, 6 —
-   приоритет раскроя, 7 — стекло COG (applyDataFixes). */
-const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),8);
+   приоритет раскроя, 7 — стекло COG, 8 — прайс заказа, 9 — количества работ
+   в строке (applyDataFixes). */
+const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),9);
 function applyDataFixes(){
  const have=Number.isInteger(+DB.dataFix)&&+DB.dataFix>0?+DB.dataFix:0;
  if(have>=DATA_FIX_VERSION)return false;
@@ -9030,6 +9031,11 @@ function applyDataFixes(){
     «при сохранении цена фиксируется»). Заказам и квотам, сохранённым раньше,
     — цены, которые в них видны сейчас: ни одна сумма не сдвигается. */
  if(have<8&&typeof salesPriceBookOf==='function')(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&!o.priceBook){try{o.priceBook=salesPriceBookOf(o);changed++;}catch(e){console.warn('price book '+(o.businessNumber||o.id)+': '+e.message);}}});
+ /* Номер 9 · 27 октября 2026. Количества работ и площадь позиции — в строке
+    (sales/line-measure): заказам, сохранённым раньше, — по их фигурам сейчас,
+    ни одна сумма не сдвигается. Квоты — тоже. Указатели (фигуры по номеру) —
+    на всю правку, как на отрисовку: на годе это секунды, а не минута. */
+ if(have<9&&typeof salesMeasureWrite==='function')readScope(()=>(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&Array.isArray(o.lines)){try{salesMeasureWrite(o);changed++;}catch(e){console.warn('measure '+(o.businessNumber||o.id)+': '+e.message);}}}));
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;
@@ -17919,7 +17925,7 @@ function salesOrderSaveCommand(opts){
  soDraft.priceBook=salesPriceBookOf(soDraft);
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
- normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
+ normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();salesMeasureWrite(DB.salesOrder.find(x=>x.id===soDraft.id));soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
 /* Delete на любом этапе (владелец, 9 октября 2026): тронутый заказ сначала
    возвращает всё стекло (erp/shopfloor/production-unbatch), накладная только
@@ -19891,6 +19897,8 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
 /* Billing and Cutting read the SAME effective snapshot. Округление и
    минимум работы накладывает salesLineChargeRows (sales/orders). */
 salesLineChargeRowsRaw=function(line){
+  /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
+  var kept=salesMeasureFor(line,soDraft);if(kept)return kept.rows.map(function(r){return Object.assign({},r);});
   var rows=[];
   /* Остекление (фрит, спандрел) приходит из makeup, а не из геометрии, и
      считается до выхода по отсутствию контура: наносят его и на прямоугольник. */
@@ -20453,6 +20461,8 @@ function salesNormalizeWeightRates(){
  DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
 }
 function salesLineAreas(line,order){
+ /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
+ const kept=salesMeasureFor(line,order||soDraft);if(kept)return Object.assign({},kept.areas);
  const lineW=(+(line&&line.width16)||0)/16,lineH=(+(line&&line.height16)||0)/16;
  const shape=salesShapeByRef(line&&line.shapeRef),r=shape?ShapeModule.compute(shape):null;
  const shapeValid=!!(r&&(r.valid||r.externalFile&&r.sourceValid)),w=shapeValid&&+r.width>0?+r.width:lineW,h=shapeValid&&+r.height>0?+r.height:lineH;
@@ -20698,6 +20708,95 @@ function salesLineWeight(line,order,productionPlan){
  const missing=rows.filter(r=>r.kg==null).length,known=rows.reduce((s,r)=>s+(r.kg||0),0),complete=rows.length>0&&missing===0;
  return {rows:rows,kg:complete?known:null,lineKg:complete?known*salesPositiveInt(line.qty,1):null,knownKg:known,complete:complete,missing:missing};
 }
+
+/* ==== src/erp/sales/line-measure.js ==== */
+/* =====================================================================
+   sales/line-measure · measure-1.0
+   Количества работ и площадь позиции записываются в строку при Save.
+   Владелец, 27.10.2026: «каждый раз читать фигуру не имеет смысла, если при
+   сохранении заказа мы уже получили данные». Сумма заказа — количество ×
+   ставка; количества (дюймы кромки по лайтам, ft², штуки) каждый расчёт
+   заново доставал из фигуры: ~5 расчётов фигуры на позицию, на годе 3 с из
+   4,7 с первого расчёта всех сумм.
+   IN : строка заказа, её makeup, наборы работ и прайс заказа, фигуры строки
+        (DB.shapeDef); при Save — расчёт по фигуре (sales/service-sets,
+        sales/line-metrics)
+   OUT: line.measure {sig, rows, areas}; salesMeasureFor — записанное, если
+        отпечаток сошёлся; salesMeasureWrite — запись заказа (Save, правка
+        данных 9)
+
+   Отпечаток (sig) — всё, что читает расчёт количеств из самого заказа:
+   строка без полей учёта (батч, Hold, Cancel, количество, ставки, заметки),
+   её makeup, наборы работ, клиент и прайс заказа, фигуры строки и лайтов.
+   Не сошёлся — строку считают по фигуре, как раньше, а запишет её
+   следующий Save. Справочники Master Data (стекло, ставки, прайсы клиента)
+   в отпечаток не входят: сохранённый заказ от них не меняется (владелец,
+   20.10.2026). При Save (пишется прайс заказа, salesBookRec) — всегда расчёт
+   по фигуре: прайс заказа — ровно те цены, по которым он посчитан.
+   ===================================================================== */
+const SALES_MEASURE_SKIP=new Set(['measure','qty','chargePricing','priceManual','batchedAt','cutStartedAt','batchNo','batchManaged',
+ 'onHold','holdReason','holdAt','heldUnits','cancelledUnits','shipQueue','mark','notes','weightExtras']);
+let salesMeasureOff=0;
+/* Два независимых 32-битных хеша — 16 знаков. */
+function salesMeasureHash(s){
+ let a=2166136261,b=5381;
+ for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);a=Math.imul(a^c,16777619);b=(Math.imul(b,33)+c)|0;}
+ return (a>>>0).toString(16).padStart(8,'0')+(b>>>0).toString(16).padStart(8,'0');
+}
+/* Хеш части (makeup, фигура, прайс заказа) — один раз на объект за
+   отрисовку: makeup общий у позиций заказа и длиннее самой строки. */
+function salesMeasurePart(x){
+ if(!x||typeof x!=='object')return JSON.stringify(x===undefined?null:x);
+ const memo=readOn()?readMemo('salesMeasurePart',[],()=>new WeakMap()):null,hit=memo&&memo.get(x);if(hit)return hit;
+ const h=salesMeasureHash(JSON.stringify(x));if(memo)memo.set(x,h);return h;
+}
+function salesMeasureSig(line,order){
+ const own={};Object.keys(line).forEach(k=>{if(!SALES_MEASURE_SKIP.has(k))own[k]=line[k];});
+ const shape=ref=>salesMeasurePart(ref&&ref.id?salesShapeByRef(ref):null),lites={};
+ Object.keys(line.liteShapes||{}).sort().forEach(k=>{lites[k]=shape(line.liteShapes[k]);});
+ const m=(order.makeups||[]).find(x=>x&&x.id===line.makeupId)||null;
+ return salesMeasureHash(JSON.stringify([own,shape(line.shapeRef),lites,salesMeasurePart(m),order.customerId||'',salesMeasurePart(order.serviceSets||[]),salesMeasurePart(order.priceBook||{})]));
+}
+/* Расчёт по фигуре — то, что записывается. */
+function salesMeasureLive(line,order){
+ salesMeasureOff++;
+ try{return finWithOrder(order,()=>({rows:salesLineChargeRowsRaw(line),areas:salesLineAreas(line,order)}));}
+ finally{salesMeasureOff--;}
+}
+function salesMeasureWrite(order){
+ (order&&order.lines||[]).forEach(l=>{const m=salesMeasureLive(l,order);l.measure={sig:salesMeasureSig(l,order),rows:m.rows,areas:m.areas};});
+}
+/* Отпечаток — один раз на строку за отрисовку (erp/read-scope): расчёт
+   суммы спрашивает строки работ и площадь позиции несколько раз. */
+function salesMeasureFor(line,order){
+ if(salesMeasureOff||salesBookRec||!order||!line||!line.measure)return null;
+ const memo=readOn()?readMemo('salesMeasureSig',[],()=>new WeakMap()):null,hit=memo&&memo.get(line);
+ const sig=hit&&hit.order===order?hit.sig:salesMeasureSig(line,order);
+ if(memo&&!hit)memo.set(line,{order,sig});
+ if(sig!==line.measure.sig)return null;
+ if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(line,order);
+ return line.measure;
+}
+/* Тесты (GF_SCOPE_CHECK): каждое чтение записанного сверяется с расчётом по
+   фигуре. */
+function salesMeasureCheck(line,order){
+ const now=salesMeasureLive(line,order),m=line.measure;
+ if(JSON.stringify(now.rows)!==JSON.stringify(m.rows)||JSON.stringify(now.areas)!==JSON.stringify(m.areas))
+  console.error('Stale measure: '+(order.businessNumber||order.id)+' · line '+line.id);
+}
+/* Запись переживает F5, Import и облако; битая — отбрасывается, строка
+   считается по фигуре. */
+function salesMeasureClean(m){
+ if(!m||typeof m!=='object'||typeof m.sig!=='string'||!/^[0-9a-f]{16}$/.test(m.sig)||!Array.isArray(m.rows)||!m.areas||typeof m.areas!=='object')return null;
+ if(!m.rows.every(r=>r&&typeof r==='object'&&typeof r.key==='string'&&Number.isFinite(r.basis)))return null;
+ return {sig:m.sig,rows:m.rows,areas:m.areas};
+}
+const __salesMeasureNormalizeLine=normalizeSalesOrderLine;
+normalizeSalesOrderLine=function(line){
+ const out=__salesMeasureNormalizeLine(line),m=salesMeasureClean(line&&line.measure);
+ if(m)out.measure=m;else delete out.measure;
+ return out;
+};
 
 /* ==== src/erp/sales/print-route.js ==== */
 /* =====================================================================
