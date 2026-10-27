@@ -5,7 +5,8 @@
    IN : приёмки Purchasing (строки Stock: таблица + айтем), сохранённые
         заказы, сканы сборки IGU (DB.stationScan: asm + unit), пересчёты
         (DB.consumableEvent), расход ушедших в архив (DB.inventoryArchived.cons)
-   OUT: consRows() — строки склада; consCountSave, consSetPack
+   OUT: consRows() — строки склада; consPerUnitSaved — рецепт юнита
+        сохранённой позиции; consCountSave, consSetPack
 
    Владелец, 23.10.2026: заказ резервирует материал на Save, со склада он
    уходит на скане сборки IGU. Остаток не хранится числом — он считается из
@@ -57,7 +58,24 @@ function consAssembled(){
  });
  return [...asm.values()];
 }
+/* Рецепт юнита записанной позиции помнится, пока заказ не менялся
+   (updatedAt) и не менялись нормы Data — рецепты обвязки, карточки рамки,
+   герметика, газа, частей. Без этого склад на годе считал геометрию каждой
+   собранной и зарезервированной позиции на каждой отрисовке: 1,3 с на
+   клик и на цифру в пересчёте, на слабом ПК 5,7 с. Черновик заказа сюда не
+   идёт: его updatedAt — от прошлого Save. consPerFresh — раз на расчёт. */
+let consPerCache=new Map(),consPerNorms='';
+function consPerFresh(){
+ const n=JSON.stringify([DB.surroundRecipe||[]].concat(CONS_TABLES.map(t=>DB[t[0]]||[])));
+ if(n!==consPerNorms){consPerCache=new Map();consPerNorms=n;}
+}
+function consPerUnitSaved(line,order){
+ const k=order.id+'|'+line.id,u=order.updatedAt||'',was=consPerCache.get(k);
+ if(was&&was.u===u)return was.per;
+ const per=consPerUnit(line,order);consPerCache.set(k,{u,per});return per;
+}
 function consRows(){
+ consPerFresh();
  const rows=new Map(),row=(table,id)=>{
   const k=consKey(table,id);
   if(!rows.has(k)){const x=mdById(table,id),t=CONS_TABLES.find(t=>t[0]===table);rows.set(k,{key:k,table,id,group:t?t[1]:table,name:x?x.name:id,code:x?x.code||'':'',off:!!x&&x.active===false,unit:consUnitOf(table),pack:x&&x.packQty!=null?x.packQty:null,packs:consPacks(x),received:0,used:0,reserved:0,adjust:0,noPack:0,unknown:0,lastCount:null});}
@@ -76,7 +94,7 @@ function consRows(){
  /* Расход по сканам IGU и резерв несобранных юнитов сохранённых заказов.
     Отменённые юниты (Cancel units) не резервируются; собранный и потом
     отменённый остаётся расходом (аудит 25.10.2026, I-3). */
- const per=new Map(),perOf=(o,l)=>{const k=o.id+'|'+l.id;if(!per.has(k))per.set(k,consPerUnit(l,o));return per.get(k);};
+ const perOf=(o,l)=>consPerUnitSaved(l,o);
  const built=new Map(),gone=new Map(),goneOf=o=>{if(!gone.has(o.id))gone.set(o.id,unitCancelledSet(o));return gone.get(o.id);};
  consAssembled().forEach(a=>{
   const o=salesRecord(a.orderId),l=o&&(o.lines||[]).find(x=>x.id===a.lineId);if(!l)return;

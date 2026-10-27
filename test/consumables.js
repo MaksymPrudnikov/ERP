@@ -109,4 +109,20 @@ module.exports=async function({page,eq}){
   tab='inventory';invGo('consumables');const pill=document.querySelector('[data-cons-row="'+k+'"] .pill.warn');sp.active=true;
   return {row:!!r&&r.onHand,off:!!r&&r.off,pill:pill&&pill.textContent};
  }),{row:17,off:true,pill:'inactive'});
+
+ /* Год: склад считал рецепт каждой позиции на каждой отрисовке — 1,3 с на
+    клик (27.10.2026). Рецепт помнится до Save заказа и правки норм Data. */
+ eq('a saved line keeps its unit recipe until the order is saved again or a Data norm changes — the same numbers as counting afresh',await t.p.evaluate(()=>{
+  csReset();const id=oqOrder(oqCustomer({})),k=csSpacer().key,fx=v=>+v.toFixed(3),res=key=>consRows().find(r=>r.key===key).reserved;
+  const fresh=key=>{const x=salesRecord(id);return x.lines.reduce((n,l)=>n+(consPerUnit(l,x).get(key)||0)*l.qty,0);};
+  const r0=res(k),same=fx(res(k))===fx(r0)&&fx(r0)===fx(fresh(k));
+  salesOrderEdit(id);const l0=soDraft.lines[0];delete l0.shapeRef;l0.width16+=160;salesEnsureLineShape(l0);salesOrderSave();soDraft=null;soEdit=null;
+  const r1=res(k),resized=r1>r0&&fx(r1)===fx(fresh(k));
+  /* Заказ без снимка норм (сохранён до v5.264) считается по Data сейчас. */
+  const x=salesRecord(id),c=salesMakeupById(x,x.lines[0].makeupId).cavities[0],sk='sealantProduct:'+c.secondarySealantId;
+  Object.keys(x.priceBook||{}).filter(b=>/^snap:/.test(b)).forEach(b=>delete x.priceBook[b]);x.updatedAt='2099-01-01T00:00:00.000Z';
+  const s0=res(sk),row=surroundRecipeById(mdById('spacerVariant',c.spacerVariantId).recipeId).rows.find(r=>r.part==='secondary'),was=row.amount;
+  row.amount=was*2;let s1;try{s1=res(sk);}finally{row.amount=was;}
+  return {same,resized,norm:s0>0&&fx(s1)===fx(2*s0),back:fx(res(sk))===fx(s0)};
+ }),{same:true,resized:true,norm:true,back:true});
 };

@@ -88,24 +88,25 @@ function repSheetMoveFacts(){
    количество не считается, юнит идёт в «Units without norm».
    want — период графика (reports/query, repSelect): рецепт считается только
    у юнитов, собранных в периоде, — месяц на годе не ждёт расчёта всех
-   позиций года. Рецепт позиции помнится, пока заказ не менялся.
+   позиций года. Рецепт позиции — тот же, что у склада (consPerUnitSaved).
    Ушедшее в архив (DB.inventoryArchived.cons) — итогом, без дня и
    человека: строка «Archived · total only», только без периода (All time).
    Отчёт, который подгрузил ушедшие заказы (erp/archive), видит их сборки
    по дням — их расход из итога архива вычитается, чтобы не посчитать
    дважды. */
-let repIguCache={stamp:'',asm:null,sets:new Map()},repIguPer=new Map();
+let repIguCache={stamp:'',asm:null,sets:new Map()};
 function repIguMaterialFacts(want){
- const stamp=readMemo('repIguStamp',[DB.stationScan,DB.salesOrder,DB.materialWeightRates].concat(repConsTables()),()=>{
+ /* Нормы Data (consPerFresh) — в метке: правка рецепта меняет расход. */
+ consPerFresh();
+ const stamp=readMemo('repIguStamp',[DB.stationScan,DB.salesOrder],()=>{
   let undone=0;(DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken)undone++;});
-  return [(DB.stationScan||[]).length,undone,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')).join(','),JSON.stringify(DB.materialWeightRates||[]),
-   JSON.stringify(DB.inventoryArchived&&DB.inventoryArchived.cons||{}),repConsNames()].join('|');
- })+'|'+(typeof storageVisit!=='undefined'&&storageVisit.get('stationScan')?storageVisit.get('stationScan').size:0);
+  return [(DB.stationScan||[]).length,undone,(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')).join(','),JSON.stringify(DB.inventoryArchived&&DB.inventoryArchived.cons||{})].join('|');
+ })+'|'+(typeof storageVisit!=='undefined'&&storageVisit.get('stationScan')?storageVisit.get('stationScan').size:0)+'|'+consPerNorms;
  if(repIguCache.stamp!==stamp)repIguCache={stamp,asm:null,sets:new Map()};
  const pick=want&&want.range&&want.df==='day'?want.range:null,key=pick?pick.join('~'):'all';
  if(repIguCache.sets.has(key))return repIguCache.sets.get(key);
  if(!repIguCache.asm)repIguCache.asm=consAssembled().map(a=>Object.assign(a,{day:repDay(a.at)}));
- const perOf=(o,l)=>{const k=o.id+'|'+l.id,was=repIguPer.get(k);if(was&&was.u===(o.updatedAt||''))return was.per;let per;try{per=consPerUnit(l,o);}catch(e){per=new Map();}repIguPer.set(k,{u:o.updatedAt||'',per});return per;};
+ const perOf=(o,l)=>{try{return consPerUnitSaved(l,o);}catch(e){return new Map();}};
  const visit=!pick&&typeof storageVisit!=='undefined'&&storageVisit.get('stationScan')||null,fromArchive=new Map(),groups=new Map(),rows=[];
  const row=(id,x,base)=>{let r=groups.get(id);if(!r){r=Object.assign({id,kind:x.kind,material:x.name,unit:x.unit,qty:0,units:0,missing:0,spacerFt:0,sealantKg:0,gasKg:0,partsKg:0},base);groups.set(id,r);rows.push(r);}return r;};
  repIguCache.asm.forEach(a=>{
