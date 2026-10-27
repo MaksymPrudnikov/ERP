@@ -47,6 +47,8 @@ function salesNormalizeWeightRates(){
  DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
 }
 function salesLineAreas(line,order){
+ /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
+ const kept=salesMeasureFor(line,order||soDraft);if(kept)return Object.assign({},kept.areas);
  const lineW=(+(line&&line.width16)||0)/16,lineH=(+(line&&line.height16)||0)/16;
  const shape=salesShapeByRef(line&&line.shapeRef),r=shape?ShapeModule.compute(shape):null;
  const shapeValid=!!(r&&(r.valid||r.externalFile&&r.sourceValid)),w=shapeValid&&+r.width>0?+r.width:lineW,h=shapeValid&&+r.height>0?+r.height:lineH;

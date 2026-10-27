@@ -312,8 +312,9 @@ const DATA_FIXES=[
  [5,'edgeAllowance','ALW-CNCSHAPEPOLISH-LAMI-8-1000',{allowance:'1/8'},['allowance','note']]
 ];
 /* Номера правок кодом (не строкой таблицы): 4 — sfSplitEdgeFix, 6 —
-   приоритет раскроя, 7 — стекло COG (applyDataFixes). */
-const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),8);
+   приоритет раскроя, 7 — стекло COG, 8 — прайс заказа, 9 — количества работ
+   в строке (applyDataFixes). */
+const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),9);
 function applyDataFixes(){
  const have=Number.isInteger(+DB.dataFix)&&+DB.dataFix>0?+DB.dataFix:0;
  if(have>=DATA_FIX_VERSION)return false;
@@ -344,6 +345,11 @@ function applyDataFixes(){
     «при сохранении цена фиксируется»). Заказам и квотам, сохранённым раньше,
     — цены, которые в них видны сейчас: ни одна сумма не сдвигается. */
  if(have<8&&typeof salesPriceBookOf==='function')(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&!o.priceBook){try{o.priceBook=salesPriceBookOf(o);changed++;}catch(e){console.warn('price book '+(o.businessNumber||o.id)+': '+e.message);}}});
+ /* Номер 9 · 27 октября 2026. Количества работ и площадь позиции — в строке
+    (sales/line-measure): заказам, сохранённым раньше, — по их фигурам сейчас,
+    ни одна сумма не сдвигается. Квоты — тоже. Указатели (фигуры по номеру) —
+    на всю правку, как на отрисовку: на годе это секунды, а не минута. */
+ if(have<9&&typeof salesMeasureWrite==='function')readScope(()=>(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&Array.isArray(o.lines)){try{salesMeasureWrite(o);changed++;}catch(e){console.warn('measure '+(o.businessNumber||o.id)+': '+e.message);}}}));
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;

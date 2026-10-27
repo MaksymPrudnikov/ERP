@@ -485,6 +485,8 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
 /* Billing and Cutting read the SAME effective snapshot. Округление и
    минимум работы накладывает salesLineChargeRows (sales/orders). */
 salesLineChargeRowsRaw=function(line){
+  /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
+  var kept=salesMeasureFor(line,soDraft);if(kept)return kept.rows.map(function(r){return Object.assign({},r);});
   var rows=[];
   /* Остекление (фрит, спандрел) приходит из makeup, а не из геометрии, и
      считается до выхода по отсутствию контура: наносят его и на прямоугольник. */
