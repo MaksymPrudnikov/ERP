@@ -142,10 +142,18 @@ function finTotalsWarm(delay){
  finTotalsWarmTimer=setTimeout(step,delay==null?3000:delay);
 }
 function finTotalsCheck(order,t){const now=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(JSON.stringify(now)!==JSON.stringify(t))console.error('Stale totals: '+order.id+' · '+String(new Error().stack).split('\n').slice(3,6).map(x=>x.trim().split(' ')[1]).join(' < '));}
+/* Оплаты заказа: на отрисовку — указатель «заказ → разнесения» за один
+   проход по оплатам (erp/read-scope): Finance спрашивает каждый заказ года,
+   и каждый вопрос перебирал все оплаты. Порядок сложения тот же. */
 function finOrderPaid(orderId){
  let paid=0,receipts=0;
- const order=(DB.salesOrder||[]).find(o=>o.id===orderId);
- finActiveReceipts().filter(r=>!order||finCurrency(r)===finCurrency(order)).forEach(r=>r.allocations.forEach(a=>{if(a.orderId===orderId){paid+=a.amount;receipts++;}}));
+ const order=salesRecord(orderId),cur=order&&finCurrency(order);
+ if(readOn()){
+  (readMemo('finPaidByOrder',[DB.receipt],()=>{const m=new Map();finActiveReceipts().forEach(r=>r.allocations.forEach(a=>{let l=m.get(a.orderId);if(!l)m.set(a.orderId,l=[]);l.push([a.amount,finCurrency(r)]);}));return m;}).get(orderId)||[])
+   .forEach(([amount,c])=>{if(!order||c===cur){paid+=amount;receipts++;}});
+  return {paid:finMoney(paid),receipts};
+ }
+ finActiveReceipts().filter(r=>!order||finCurrency(r)===cur).forEach(r=>r.allocations.forEach(a=>{if(a.orderId===orderId){paid+=a.amount;receipts++;}}));
  return {paid:finMoney(paid),receipts};
 }
 /* status: due — должен доплатить; paid — оплачен; overpaid — внесли больше

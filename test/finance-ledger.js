@@ -248,5 +248,14 @@ module.exports=async function({page,eq}){
    return {one,library:finTotalsKeep.size};
   }finally{if(keep)storageBase.set('shapeDef',keep);else storageBase.delete('shapeDef');finTotalsKeep=saved;}
  }),{one:['B'],library:0});
+ /* Скорость Finance на годе (27.10.2026): оплаты заказа в отрисовке — по
+    указателю за один проход; ответ тот же, что перебор всех оплат. */
+ eq('оплаты заказа по указателю в отрисовке = перебор: две оплаты, аннулированная не в счёт, оплата в USD CAD-заказу не идёт; запись в отрисовке — указатель заново',await t.p.evaluate(()=>{
+  financeSeed();const p=(a,c,alloc,voided)=>{const r=normalizeReceipt({number:'R-'+(DB.receipt.length+1),customerId:'CUS-FIN',currency:c,date:'2026-09-0'+(DB.receipt.length+1),method:'cheque',amount:a,allocations:alloc});r.voided=!!voided;DB.receipt.push(r);};
+  p(40,'CAD',[{orderId:'SO-FIN',amount:40}]);p(25.5,'CAD',[{orderId:'SO-FIN',amount:25.5}]);p(10,'CAD',[{orderId:'SO-FIN',amount:10}],true);p(7,'USD',[{orderId:'SO-FIN',amount:7}]);
+  const plain=finOrderPaid('SO-FIN'),scoped=readScope(()=>finOrderPaid('SO-FIN'));
+  const after=readScope(()=>{const a=finOrderPaid('SO-FIN');DB.receipt[0].allocations[0].amount=30;readMemoReset();return [a.paid,finOrderPaid('SO-FIN').paid];});
+  return {plain,same:JSON.stringify(plain)===JSON.stringify(scoped),after};
+ }),{plain:{paid:65.5,receipts:2},same:true,after:[65.5,55.5]});
  eq('finance workspace has no browser errors',t.errs,[]);await t.c.close();
 };
