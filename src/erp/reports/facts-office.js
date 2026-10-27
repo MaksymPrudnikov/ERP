@@ -101,7 +101,11 @@ function repOrderFacts(){
   const glassN=lines.reduce((n,l)=>n+Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l))*glassBatchComponents(o,l).filter(x=>!x.missing).length,0);
   const shapes=lines.filter(l=>typeof salesListShapedLine==='function'&&salesListShapedLine(l)).length;
   let kg=0;try{finWithOrder(o,()=>lines.forEach(l=>{const w=salesLineWeight(l,o);if(w&&w.lineKg!=null)kg+=w.lineKg;}));}catch(e){}
-  rows.push({...repOrderInfo(o),id:o.id,at:o.createdAt||'',created,due,shipped,order:o.businessNumber||'',customerId:o.customerId||'',rep:c.salesRep||'',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',
+  /* Этапы (план отчётов, 26.10.2026): день каждого этапа из statusDates и
+     календарные дни между соседними; этапа не было — пусто, а не 0. */
+  const sd=o.statusDates||{},stNew=repDay(sd.new||o.createdAt||''),stVerified=repDay(sd.verified||''),stBatched=repDay(sd.batched||''),stReady=repDay(sd.ready||''),stDone=repDay(sd.done||'');
+  const gap=(a,b)=>{if(!a||!b)return null;const n=repDaysBetween(a,b);return n<0?null:n;};
+  rows.push({...repOrderInfo(o),id:o.id,stVerified,stBatched,stReady,stDone,dVerify:gap(stNew,stVerified),dBatch:gap(stVerified,stBatched),dReady:gap(stBatched,stReady),dDone:gap(stReady,stDone),at:o.createdAt||'',created,due,shipped,order:o.businessNumber||'',customerId:o.customerId||'',rep:c.salesRep||'',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',
    lines:lines.length,shapes,kg:kg||null,hold:o.onHold?'On hold':'Not on hold',
    delivery:o.delivery==='delivery'?'Delivery':'Pickup',status:salesStatusLabel(o),state,daysLate:state==='Late'?Math.max(0,days(due,finish||today)):0,ready,
    lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,area:area||null,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,judgedN:state==='On time'||state==='Late'?1:0,total:t&&t.complete?t.grand:null});
