@@ -3545,7 +3545,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='8400dcc7c760';
+var ERP_BUILD='a1fa3cefbda2';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -43070,7 +43070,8 @@ function stationNextLabel(x){
 /* Сколько на таре: после сборки — юнитами («SL-1 · 33 units», а не
    «66 glass»), как в «Waiting here». */
 function stationTareCount(list){
- const asmOf=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)asmOf.set(s.piece,s.asm);});
+ /* Сборка стекла — один проход по сканам на отрисовку (erp/read-scope), а не на каждую тару. */
+ const asmOf=readMemo('stationAsmOf',[DB.stationScan],()=>{const m=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)m.set(s.piece,s.asm);});return m;});
  return stationHereCount(list.map(x=>{const mu=stationUnitMerge(x.g.o,x.g.l),r=x.place.route||[];return {unit:!!mu&&asmOf.has(x.id)&&r.indexOf(mu)>-1&&r.indexOf(mu)<=x.place.far,asm:asmOf.get(x.id)};}));
 }
 /* Тара, которую загрузили здесь: сколько на ней, из каких батчей и куда
@@ -43765,10 +43766,15 @@ function stationIguBoard(){
     const ready=u.loaded||places.every(p=>p&&p.waiting===st.ship);
     if(ready){r.done++;if(at>edge)edge=at;if(u.loaded)return;}
     /* Одинаковый состав чертежей — один расчёт на этот экран, а не на
-       каждый из тысяч юнитов. История выданных размеров не требует. */
-    const key=o.id+'|'+l.id+'|'+gs.map(g=>g&&g.c?g.c.key+'|'+stationDrawingKey(o,l,g.unit):'').sort().join(';');
-    if(!geometry.has(key))geometry.set(key,gs[0]?stationIguGeometry(gs[0],u.unit):l);
-    const x=Object.assign({},u,{l,at,geo:geometry.get(key)});
+       каждый из тысяч юнитов. История выданных размеров не требует. Размер
+       нужен только строкам «не сканирован» на экране — считается, когда его
+       спросили (на годе — тысячи юнитов, на экране — десятки). */
+    const x=Object.assign({},u,{l,at});
+    Object.defineProperty(x,'geo',{enumerable:true,configurable:true,get(){
+     const key=o.id+'|'+l.id+'|'+gs.map(g=>g&&g.c?g.c.key+'|'+stationDrawingKey(o,l,g.unit):'').sort().join(';');
+     if(!geometry.has(key))geometry.set(key,gs[0]?stationIguGeometry(gs[0],u.unit):l);
+     return geometry.get(key);
+    }});
     if(ready){
      if(u.skid){if(!r.skids.has(u.skid))r.skids.set(u.skid,[]);r.skids.get(u.skid).push(x);}else r.noSkid.push(x);
     }else if(places.every(p=>p&&!p.assembling&&p.waiting===st.ready))r.pending.push(x);
