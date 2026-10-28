@@ -175,6 +175,8 @@ function storageScopeCheck(before){
  const out=[];storageScopeSig().forEach((v,k)=>{if(before.get(k)!==v)out.push(k.replace('\u0000',':'));});
  if(out.length)console.error('Outside scope: '+out.slice(0,6).join(', ')+' · '+String(new Error().stack).split('\n').slice(3,5).map(x=>x.trim().split(' ')[1]).join(' < '));
 }
+/* Несохранённое после записи — для проверки touchScope (только в тестах). */
+function storageScopeMark(){if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{storageScopeLast=storageScopeSig();}catch(e){storageScopeLast=null;}}
 /* Полное сравнение — когда полминуты не трогают клавиши и мышь (как уход в
    архив): пропущенное областью записи не потеряется. */
 function storageSweepLater(){
@@ -208,6 +210,22 @@ function storageCommand(fn,scope){
   return {ok:true,value};
  }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
 }
+/* Запись правки, сделанной до вызова (раскрой: Build и правки листа, порядок
+   батчей): touch() только по области scope, как у storageCommand. Вне
+   области не сравнивается — пропущенное поймает storageSweep. В тестах
+   (GF_SCOPE_CHECK) — та же проверка, что у команды: что изменилось после
+   прошлой записи и осталось несохранённым — «Outside scope». */
+let storageScopeLast=null;
+function touchScope(scope){
+ if(storageDepth)return true;
+ const prev=storageScopeLast;
+ storageScope=storageScopeMap(scope);
+ let saved;try{saved=touch();}finally{storageScope=null;}
+ /* Проверка — только после настоящей записи (симулятор подменяет touch). */
+ if(saved&&prev&&storageScopeLast!==prev)storageScopeCheck(prev);
+ if(saved)storageSweepLater();
+ return saved;
+}
 function touch(){
  if(storageDepth)return true;
  if(!storageWriter||storageRecovery||storageStale){
@@ -227,11 +245,11 @@ function touch(){
   let diff=storageDiff(DB,only);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB,only);
   const changes=storageColdApply(diff);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
-  if(!changes.length){storageLastError=storageFailed?storageLastError:'';return true;}
+  if(!changes.length){storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
   /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
   const out=typeof cloudOutbox==='function'?cloudOutbox(changes):null;
   storageWrite(changes,out&&out.ops);if(out)out.done();storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
-  storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
+  storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();storageScopeMark();return true;
  }catch(e){
   storageLastError=storageStale?storageReadOnlyText():'Not saved. Your operation is still open; retry or export your changes.';
   if(!storageCommanding)storageRollback();

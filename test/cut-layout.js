@@ -137,7 +137,7 @@ module.exports=async function({page,eq,ok}){
     if(a.x<c.x+c.w+gp-1e-6&&c.x<a.x+a.w+gp-1e-6&&a.y<c.y+c.h+gp-1e-6&&c.y<a.y+a.h+gp-1e-6)out.push(a.piece+'/'+c.piece);}));}));return out;};
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);const id=ctOrder([[40,50,2]]);
   const o=salesRecord(id),l=o.lines[0],s=newShapeDef('raked');s.w='40';s.h='50';Object.assign(s.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
-  s.ownerLineId=l.id;DB.shapeDef.push(s);l.shapeRef=salesShapeRefFrom(s);
+  s.ownerLineId=l.id;DB.shapeDef.push(s);l.shapeRef=salesShapeRefFrom(s);touch();
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,pieces=cutPieces(b,{});
   /* Столбики должны уметь класть готовые коробки Shape без наружной рамки. */
   const stock=cutStockFor(plan.groups[0].glass,plan.groups[0].pick,plan.groups[0].mm,b.number);
@@ -203,7 +203,7 @@ module.exports=async function({page,eq,ok}){
  eq('Shape вручную поворачивается 0 → 90 → 180 → 270°, контур и отверстия идут вместе; старый rot читается',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);const id=ctOrder([[48.125,79,1]]);
   const o=salesRecord(id),l=o.lines[0],sh=newShapeDef('raked');sh.w='48.125';sh.h='79';
-  Object.assign(sh.params,{shortHeight:'62',rakeSide:'top',shortSide:'left'});sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);
+  Object.assign(sh.params,{shortHeight:'62',rakeSide:'top',shortSide:'left'});sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);touch();
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],sheet=g.sheets[0],src=cutPieces(b,{})[0];
   const signature=()=>{
    const p=cutFind(plan,src.piece).piece,draw=Object.assign({},src,{holes:[{x:7,y:11,d:2}],cutouts:[[[10,12],[14,12],[14,15],[10,15]]]});
@@ -224,7 +224,7 @@ module.exports=async function({page,eq,ok}){
  eq('Shape можно сразу повернуть на 180°, даже когда для промежуточных 90° нет места; отдельная кнопка видна',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[50,80,2]]);
   const o=salesRecord(id),l=o.lines[0],sh=newShapeDef('raked');sh.w='50';sh.h='80';
-  Object.assign(sh.params,{shortHeight:'62',rakeSide:'top',shortSide:'left'});sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);
+  Object.assign(sh.params,{shortHeight:'62',rakeSide:'top',shortSide:'left'});sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);touch();
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan;ctRow(b.number);
   const g=plan.groups[0],pcs=g.sheets[0].pieces.slice().sort((a,c)=>a.x-c.x),p=pcs[0],before={x:p.x,y:p.y,w:p.w,h:p.h};
   const ninety=cutPieceRotate(b.number,p.piece),sameAfterNinety=cutPieceTurn(cutFind(plan,p.piece).piece)===0;
@@ -1266,7 +1266,7 @@ module.exports=async function({page,eq,ok}){
   const id=ctOrder([[40,50,3],[38,18,10],[20,12,8]]);
   const o=salesRecord(id),l=o.lines[0],sh=newShapeDef('raked');sh.w='40';sh.h='50';
   Object.assign(sh.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
-  sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);
+  sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);touch();
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0];
   const pieces=cutPieces(b,{}),stock=cutStockFor(g.glass,g.pick,g.mm,b.number),pf=size=>cutRunParams(g.mm,size,g.pick);
   const md=cutGroupParams(g,g.sheet).minDist;
@@ -1292,7 +1292,7 @@ module.exports=async function({page,eq,ok}){
   /* Трапеция владельца: скошенный верх, короткая сторона слева. */
   const o=salesRecord(id),l=o.lines[0],sh=newShapeDef('raked');
   sh.w='48.125';sh.h='79';Object.assign(sh.params,{shortHeight:'62',rakeSide:'top',shortSide:'left'});
-  sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);
+  sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);touch();
   const b=DB.glassBatch[0],pieces=cutPieces(b,{}),one=pieces[0];
   const xs=one.pts.map(p=>p[0]),ys=one.pts.map(p=>p[1]);
   const box=[cutRound(Math.max(...xs)-Math.min(...xs)),cutRound(Math.max(...ys)-Math.min(...ys))];
@@ -1492,7 +1492,7 @@ module.exports=async function({page,eq,ok}){
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[40,50,1]]);
   const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('raked');shape.w='40';shape.h='50';
   Object.assign(shape.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
-  shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);
+  shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);touch();
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],s=g.sheets[0];
   const mv=cutTrialSheet(b.number,g.glass,s.no,'maver'),ds=cutTrialSheet(b.number,g.glass,s.no,'disai');
   if(mv.error||ds.error)return {error:mv.error||ds.error};
@@ -1518,7 +1518,7 @@ module.exports=async function({page,eq,ok}){
   const run=(w,h,setup)=>{
    oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[w,h,1]]);
    const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('custom');shape.w=String(w);shape.h=String(h);setup(shape);
-   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);
+   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);touch();
    const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],s=g.sheets[0];
    const mv=cutTrialSheet(b.number,g.glass,s.no,'maver'),ds=cutTrialSheet(b.number,g.glass,s.no,'disai');
    if(mv.error||ds.error)return {error:mv.error||ds.error};
@@ -1549,7 +1549,7 @@ module.exports=async function({page,eq,ok}){
   const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('custom');shape.w='40';shape.h='40';
   const a0=Math.atan2(22.3607,20),pts=[[0,0],[40,0]];for(let i=0;i<=64;i++){const a=a0+i/64*(Math.PI-2*a0);pts.push([20+30*Math.cos(a),10+30*Math.sin(a)]);}
   shape.source={kind:'dxf',fileName:'segment.dxf',fileSize:5000,uploadedAt:'2026-09-25',preview:{units:'in',points:pts,width16:640,height16:640}};
-  const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);
+  const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);touch();
   const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],ds=cutTrialSheet(b.number,g.glass,g.sheets[0].no,'disai');
   if(ds.error)return {error:ds.error};
   const db=(cutTrialDisai(ds).data.split(/\[DB\d+\]\r\n/)[1]||'').split('\r\n').filter(x=>/ (LS|CR|CO)$/.test(x));
@@ -1609,7 +1609,7 @@ module.exports=async function({page,eq,ok}){
   const run=(w,h,setup,exact)=>{
    oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[w,h,1]]);
    const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('custom');setup(shape);
-   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);
+   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);touch();
    const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],s=g.sheets[0],ds=cutTrialSheet(b.number,g.glass,s.no,'disai');
    if(ds.error)return ds.error;const f=ds.sheet.pieces[0].footprint;
    return exact?[f.w,f.h].map(v=>v.toFixed(4)).sort().join('x'):[f.w,f.h].map(v=>Math.round(v*16)).sort((a,b)=>a-b).join('x')+'/16';
@@ -1652,7 +1652,7 @@ module.exports=async function({page,eq,ok}){
    /* Disai: для 12 мм образцов нет — отказ стоит красной строкой, а выбор
       папки даже не открывается. */
    oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,1]]);
-   glassProductByCode('6CLEAR').thicknessMm=12;
+   glassProductByCode('6CLEAR').thicknessMm=12;touch();
    const b=DB.glassBatch[0];cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};cutNotice='';render();
    window.__pickerCalls=0;window.__oldPicker=window.showDirectoryPicker;
    window.showDirectoryPicker=async()=>{window.__pickerCalls++;throw Object.assign(new Error('cancel'),{name:'AbortError'});};
@@ -1664,7 +1664,7 @@ module.exports=async function({page,eq,ok}){
     alert:el?.getAttribute('role')||'',picker:window.__pickerCalls,menu:!!document.getElementById('cutMenu')};
    window.showDirectoryPicker=window.__oldPicker;return r;
   }),{error:true,alert:'alert',picker:0,menu:false});
-  await t.p.evaluate(()=>{glassProductByCode('6CLEAR').thicknessMm=6;cutNotice='';});
+  await t.p.evaluate(()=>{glassProductByCode('6CLEAR').thicknessMm=6;touch();cutNotice='';});
  }
 
  {
@@ -1754,12 +1754,12 @@ module.exports=async function({page,eq,ok}){
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[40,50,1]]);
   const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('raked');shape.w='40';shape.h='50';
   Object.assign(shape.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
-  shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);
+  shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);touch();
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,before=cutPieces(b,plan.settings||{})[0];
   const originallyFresh=!cutPlanStale(b.number),modern=plan.stamp;
   plan.stamp=cutLegacyStamp(cutPieces(b,plan.settings||{}));const legacyShapeStale=cutPlanStale(b.number);
   plan.stamp=modern;
-  shape.params.shortHeight='42';shape.revision=(shape.revision||0)+1;l.shapeRef=salesShapeRefFrom(shape);
+  shape.params.shortHeight='42';shape.revision=(shape.revision||0)+1;l.shapeRef=salesShapeRefFrom(shape);touch();
   const after=cutPieces(b,plan.settings||{})[0],sameBox=before.w===after.w&&before.h===after.h,
    changedContour=JSON.stringify(before.pts)!==JSON.stringify(after.pts),stale=cutPlanStale(b.number),blocked=cutMachineSnapshot(b.number);
   cutPlanReset(b.number);const rebuilt=cutPlanRun(b.number).plan;
@@ -1815,7 +1815,7 @@ module.exports=async function({page,eq,ok}){
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[40,50,1]]);
   const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('raked');shape.w='40';shape.h='50';
   Object.assign(shape.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
-  shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);
+  shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);touch();
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,p=plan.groups[0].sheets[0].pieces[0],src=cutPieces(b,{})[0];
   p.turn=2;p.rot=false;const job=cutMachineSnapshot(b.number),part=job.sheets[0].pieces[0];
   const q=src.machinePts[0],first=[p.x+p.w-q[0],p.y+p.h-q[1]];
@@ -1905,7 +1905,7 @@ module.exports=async function({page,eq,ok}){
    const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('rectangle');shape.w=String(w);shape.h=String(h);
    if(fromFile)shape.source={kind:'dxf',fileName:'h.dxf',fileSize:1,uploadedAt:'2026-10-19',preview:{units:'in',points:[[0,0],[w,0],[w,h],[0,h]],width16:w*16,height16:h*16}};
    shape.manufacturingItems=holes.map(([x,y,d])=>shapeNormalizeManufacturingItem({type:'hole',x,y,diameter:d,fromFile}));
-   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);
+   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);touch();
    const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],s=g.sheets[0];
    const mv=cutTrialSheet(b.number,g.glass,s.no,'maver'),ds=cutTrialSheet(b.number,g.glass,s.no,'disai');
    if(mv.error||ds.error)return {error:mv.error||ds.error};
@@ -1931,7 +1931,7 @@ module.exports=async function({page,eq,ok}){
    const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('rectangle');shape.w='40';shape.h='20';
    shape.source={kind:'dxf',fileName:'r.dxf',fileSize:1,uploadedAt:'2026-10-19',preview:{units:'in',points:[[0,0],[40.02,0],[40.02,20.01],[0,20.01]],width16:640,height16:320}};
    if(dia)shape.manufacturingItems=[shapeNormalizeManufacturingItem({type:'hole',x:5,y:5,diameter:dia,fromFile:true})];
-   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);
+   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);touch();
    const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],s=g.sheets[0];
    const mv=cutTrialSheet(b.number,g.glass,s.no,'maver');
    return mv.error||'';
@@ -1948,7 +1948,7 @@ module.exports=async function({page,eq,ok}){
   const o=salesRecord(id);
   [10+17/128,10.05].forEach((h,i)=>{const l=o.lines[i],shape=newShapeDef('rectangle');shape.w='30';shape.h='10';
    shape.source={kind:'dxf',fileName:'r'+i+'.dxf',fileSize:1,uploadedAt:'2026-10-19',preview:{units:'in',points:[[0,0],[30,0],[30,h],[0,h]],width16:480,height16:Math.round(h*16)}};
-   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);});
+   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);touch();});
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],s=g.sheets[0];
   const src=cutPieces(b,{}),sizes=src.map(p=>[p.w,p.h].sort((a,c)=>a-c)[0]).sort((a,c)=>a-c);
   const shared=s.pieces.length===2&&(()=>{const [a,c]=s.pieces;return Math.abs(a.y+a.h-(c.y+c.h))<1e-6&&Math.abs(a.y-c.y)<1e-6&&a.h!==c.h||Math.abs(a.x+a.w-(c.x+c.w))<1e-6&&Math.abs(a.x-c.x)<1e-6&&a.w!==c.w;})();

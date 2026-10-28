@@ -45,7 +45,7 @@ module.exports=async function({page,eq,ok}){
 
  eq('CUT показывает тот же контур Rake, что Optimization, и отмечает отсканированное стекло на листе и в All sheets',await t.p.evaluate(()=>{
   cbReset();const n=cbOrder([[48,36,2]]),b=glassBatchFind(n),part=b.parts[0],o=salesRecord(part.orderId),l=o.lines.find(x=>x.id===part.lineId);
-  const sh=newShapeDef('raked');sh.w='48';sh.h='36';Object.assign(sh.params,{shortHeight:'30',rakeSide:'top',shortSide:'left'});sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);
+  const sh=newShapeDef('raked');sh.w='48';sh.h='36';Object.assign(sh.params,{shortHeight:'30',rakeSide:'top',shortSide:'left'});sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);touch();
   const plan=cutPlanRun(n).plan,g=plan.groups[0],sheet=g.sheets[0],pieces=cutPieces(b,plan.settings||{}),host=document.createElement('div');host.innerHTML=cutSheetSVG(g,sheet,700,pieces,{});
   const opt=[...host.querySelectorAll('polygon.cut-glass')].map(x=>x.getAttribute('points'));
   cbLogin();const main=document.querySelector('.st-sheet-card .st-sheet-svg'),station=[...main.querySelectorAll('polygon.cut-glass')].map(x=>x.getAttribute('points'));

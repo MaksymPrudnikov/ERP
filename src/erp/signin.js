@@ -262,7 +262,7 @@ function normalizeAuthLog(){
 }
 function authLog(what,where,u,note){
  const ev={id:'AE-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),at:new Date().toISOString(),userId:u?u.viewProfileId:'',name:u?String(u.name||''):'',what,where:where||'',note:note||''};
- const write=()=>{const out=typeof storageCommand==='function'?storageCommand(()=>{if(!Array.isArray(DB.authEvent))DB.authEvent=[];DB.authEvent.push(ev);if(DB.authEvent.length>AUTH_LOG_MAX)DB.authEvent.splice(0,DB.authEvent.length-AUTH_LOG_MAX);return true;}):null;return out;};
+ const write=()=>{const out=typeof storageCommand==='function'?storageCommand(()=>{if(!Array.isArray(DB.authEvent))DB.authEvent=[];DB.authEvent.push(ev);if(DB.authEvent.length>AUTH_LOG_MAX)DB.authEvent.splice(0,DB.authEvent.length-AUTH_LOG_MAX);return true;},{authEvent:[]}):null;return out;};
  if(typeof storageWhenWriter==='function')storageWhenWriter(write);else write();
 }
 /* Запись «браузер был закрыт» ждёт, пока база поднимется. */
