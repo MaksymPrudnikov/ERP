@@ -165,6 +165,27 @@ module.exports=async function({page,eq,ok}){
  }),{took:false,stale:'other-build',writer:false});
  eq('вкладки одной сборки друг друга не останавливают',await r.c.newPage().then(async p=>{await p.goto(r.p.url());await p.evaluate(()=>window.storageReady);const s=await p.evaluate(()=>storageStale);await p.close();return s;}),'');
  /* Export v2 / Import v2, метка TEST и Clear database (этап 1, PR B). */
+ /* F5 своей базы (владелец, 28.10.2026: «если всё готово — зачем система
+    пересобирает?»): готовый раскрой не пересчитывается и старт ничего не
+    пишет; раскрой без цифр (старый файл) — пересчитывается. */
+ const f=await page();await require('./optimization-fixture')(f.p);
+ const fReload=async()=>{await f.p.reload();await f.p.evaluate(()=>window.storageReady);await require('./optimization-fixture')(f.p);};
+ const f5=await f.p.evaluate(async()=>{
+  oqReset();const id=oqOrder(oqCustomer());salesDraftDrop();salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
+  const n=glassBatchEntries(id)[0].batch.number;
+  DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock'}));touch();
+  const r=cutPlanRun(n);if(!r||r.error||!cutPlanFor(n))return 'Build: '+(r&&r.error||'no plan');
+  storageCommand(()=>{cutPlanFor(n).stats.used=12345;});await storageFlush();localStorage.setItem('sr-f5',JSON.stringify({n,rev:storageRev}));return n;
+ });
+ await fReload();
+ const kept=await f.p.evaluate(async()=>{const m=JSON.parse(localStorage.getItem('sr-f5')),p=cutPlanFor(m.n);await storageFlush();if(!p)return {kept:null,rev:false};
+  const out={kept:p.stats.used,rev:storageRev===m.rev};storageCommand(()=>{delete cutPlanFor(m.n).orders;});await storageFlush();return out;});
+ await fReload();
+ eq('F5 своей базы: готовый раскрой как сохранён, старт ничего не пишет; раскрой без цифр считается заново',Object.assign(kept,await f.p.evaluate(()=>{
+  const p=cutPlanFor(JSON.parse(localStorage.getItem('sr-f5')).n);localStorage.removeItem('sr-f5');return {recounted:!!p&&Array.isArray(p.orders)&&p.stats.used!==12345};
+ }),{batch:f5}),{kept:12345,rev:true,recounted:true,batch:f5&&/^B-/.test(f5)?f5:'B-…'});
+ await f.c.close();
+
  const v=await page();await require('./optimization-fixture')(v.p);
  await v.p.evaluate(()=>{window.srAlerts=[];window.alert=m=>srAlerts.push(m);oqReset();oqOrder(oqCustomer());salesDraftDrop();touch();});
  eq('Export v2: строка заголовка и по строке на запись, файл из частей',await v.p.evaluate(()=>{
@@ -316,6 +337,6 @@ module.exports=async function({page,eq,ok}){
   return {ok,replaced,restored,same:JSON.stringify(DB)===JSON.stringify(prepareImportedState(JSON.parse(before)))};
  }),{ok:true,replaced:2,restored:true,same:true});
  await y.c.close();await z.c.close();
- eq('хранилище без ошибок страницы',t.errs.concat(q.errs,r.errs,v.errs,w.errs,x.errs,y.errs,z.errs),[]);
+ eq('хранилище без ошибок страницы',t.errs.concat(f.errs,q.errs,r.errs,v.errs,w.errs,x.errs,y.errs,z.errs),[]);
  await q.c.close();await r.c.close();await v.c.close();
 };

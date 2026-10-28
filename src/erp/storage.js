@@ -433,7 +433,7 @@ async function storageApplySaved(d){
 }
 /* Записи пропущены (вкладка спала, сообщение не дошло) — база целиком. */
 async function storageReloadAll(){
- const got=await storageIdbReadAll();if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);const next=prepareImportedState(storageJoin(got.records));
+ const got=await storageIdbReadAll();if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);const next=prepareImportedState(storageJoin(got.records),true);
  if(typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(DB,next);
  storageBaseFrom(got.records);DB=next;storageRev=got.rev;storageTest=got.test===true;storageInvalidate();
 }
@@ -795,7 +795,9 @@ function validateImportedState(src){
   if(u&&u.access!=null&&!Array.isArray(u.access))throw new Error('User '+(i+1)+': access must be an array.');
  });
 }
-function prepareImportedState(src){
+/* own — своя база этого браузера (другая вкладка записала): готовое не
+   пересчитывается, как на F5 (normalizeOwn). Файл Import и сервер — всё. */
+function prepareImportedState(src,own){
  if(src&&src.format!==undefined){
   if(src.format!=='glass-erp'||src.schemaVersion!==1||!src.data)throw new Error('Unsupported GLASS ERP backup format or version.');src=src.data;
  }
@@ -803,7 +805,8 @@ function prepareImportedState(src){
  validateImportedState(src);
  const previous=DB, previousReseeded=referenceReseeded;
  try{
-  DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB();
+  DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);if(typeof glassIdMarkApply==='function')glassIdMarkApply();
+  normalizeOwn=!!own;try{normalizeDB();}finally{normalizeOwn=false;}
   /* Пересев на импорте, а не только на старте. Версия справочников живёт В
      ДАННЫХ ровно затем, чтобы чужой файл со старым каталогом тоже пересеялся;
      до сих пор это срабатывало лишь при следующем F5, и всё это время на
@@ -816,6 +819,12 @@ function prepareImportedState(src){
      баннер «справочники обновлены» рассказывал бы про замену, которой не было. */
  }catch(e){DB=previous;referenceReseeded=previousReseeded;throw e;}
 }
+/* Старт из своей базы (F5, другая вкладка записала): то, что сохранено
+   этой программой, уже приведено в порядок — готовые раскрои и статусы
+   отгрузки не пересчитываются (владелец, 28.10.2026: «если всё готово —
+   зачем система пересобирает?»). Import, сервер, пересев и правки данных
+   (DATA_FIXES) — пересчёт всего, как раньше. */
+let normalizeOwn=false;
 function normalizeDB(){
  Object.keys(DEFAULT).forEach(k=>{ if(Array.isArray(DEFAULT[k])&&!Array.isArray(DB[k])) DB[k]=JSON.parse(JSON.stringify(DEFAULT[k])); });
  normalizeRefVersion();
@@ -886,16 +895,18 @@ async function boot(){
  catch(e){storageRecovery=true;storageLastError=storageIdb?'Stored data could not be read. The original has been preserved.':'This browser could not open the database. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.';console.warn(storageLastError,e.message);}
  /* Блоки номеров сервера — до нормализации: она бывает, выдаёт номера стёкол. */
  if(!storageRecovery&&typeof cloudLoad==='function')try{await cloudLoad();}catch(e){console.warn('Sync state was not read:',e.message);}
+ normalizeOwn=hadSavedState;
  try{ if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB(); }
- catch(e){storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
+ catch(e){normalizeOwn=false;storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
+ normalizeOwn=false;
  /* Пересев справочников. Идёт ПОСЛЕ первой нормализации (иначе сравнивать не с
     чем) и сам вызывает её повторно, чтобы заводские данные прошли те же правила,
     что и любые другие. Рабочие данные не трогаются — см. reseedReferenceTables. */
- if(typeof reseedReferenceTables==='function'&&reseedReferenceTables(hadSavedState))normalizeDB();
+ const reseeded=typeof reseedReferenceTables==='function'&&reseedReferenceTables(hadSavedState);if(reseeded)normalizeDB();
  /* Разовые правки данных — после пересева и отдельно от него: подъём версии
     справочников заменяет восемь таблиц целиком, правка меняет только то, что
     ещё стоит заводским. См. applyDataFixes в erp/data. */
- if(typeof applyDataFixes==='function'&&applyDataFixes())normalizeDB();
+ const fixed=typeof applyDataFixes==='function'&&applyDataFixes();if(fixed)normalizeDB();
  /* B8: пустой список пользователей — не рабочее состояние прототипа. Засев
     идёт после нормализации, чтобы демо-записи прошли те же правила, и ровно
     один раз на браузер (см. seedDemoUsers в erp/data). */
@@ -905,8 +916,14 @@ async function boot(){
     правки: новые графы со значением по умолчанию. Пишет вкладка-писатель и
     ставит свою версию главной; остальные допишут, когда станут писателем. */
  if(!storageRecovery&&storageWriter){
-  touch();
-  if(!storageBusy&&storageBuildAtLoad!==storageBuildId())storageIdbMetaPut('build',storageBuildId()).catch(e=>console.warn('Version mark was not written:',e.message));
+  /* Своя база той же сборки, без пересева и правок: старт ничего не меняет
+     (год цеха: 0 из 3 211 раскроев) — полное сравнение (3,7 с на слабом ПК)
+     уходит в простой (storageSweep). */
+  if(hadSavedState&&storageBuildAtLoad===storageBuildId()&&!reseeded&&!fixed)storageSweepLater();
+  else{
+   touch();
+   if(!storageBusy&&storageBuildAtLoad!==storageBuildId())storageIdbMetaPut('build',storageBuildId()).catch(e=>console.warn('Version mark was not written:',e.message));
+  }
  }
  ms.write=T()-tw;storageBootMs=ms;
 }
