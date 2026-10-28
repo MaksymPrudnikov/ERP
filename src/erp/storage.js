@@ -162,8 +162,10 @@ let storageScope=null,storageSweepTimer=null;
 /* Фигуры правят на месте только в открытом заказе (soDraft); без него —
    только новые, удалённые и сдвинутые: скан не сравнивает каждую фигуру
    базы (задание «База», скан подряд). */
-function storageScopeMap(scope){
- const m=new Map(),always=typeof soDraft!=='undefined'&&soDraft?STORAGE_SCOPE_ALWAYS:Object.assign({},STORAGE_SCOPE_ALWAYS,{shapeDef:[]});
+/* exact — фигуры только названные, даже при открытом заказе (ввод размера
+   строки пишет одну свою фигуру). */
+function storageScopeMap(scope,exact){
+ const m=new Map(),always=typeof soDraft!=='undefined'&&soDraft&&!exact?STORAGE_SCOPE_ALWAYS:Object.assign({},STORAGE_SCOPE_ALWAYS,{shapeDef:[]});
  [always,scope].forEach(s=>Object.keys(s).forEach(k=>{
   const v=s[k],had=m.get(k);if(v===true||had===null){m.set(k,null);return;}
   const set=had||new Set();[...v].forEach(id=>{if(id!=null&&id!=='')set.add(String(id));});m.set(k,set);
@@ -250,10 +252,10 @@ function storageCommand(fn,scope){
    (GF_SCOPE_CHECK) — та же проверка, что у команды: что изменилось после
    прошлой записи и осталось несохранённым — «Outside scope». */
 let storageScopeLast=null;
-function touchScope(scope){
+function touchScope(scope,exact){
  if(storageDepth)return true;
  const prev=storageScopeLast;
- storageScope=storageScopeMap(scope);
+ storageScope=storageScopeMap(scope,exact);
  let saved;try{saved=touch();}finally{storageScope=null;}
  /* Проверка — только после настоящей записи (симулятор подменяет touch). */
  if(saved&&prev&&storageScopeLast!==prev)storageScopeCheck(prev);
