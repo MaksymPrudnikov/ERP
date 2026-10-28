@@ -14,8 +14,11 @@
      в IndexedDB в фоне), вторая вкладка, память вкладки, размер и самые
      тяжёлые таблицы.
    · Два прохода: обычный и процессор ×4 медленнее (слабый ПК станции).
-     Пороги владельца (20.10.2026) — для прохода ×4: скан ≤ 0,3 с, Save и
-     клик ≤ 0,5 с, экран ≤ 1 с, F5 ≤ 5 с, память вкладки ≤ 1 ГБ.
+     Пороги владельца для прохода ×4 — свой у каждого действия (28.10.2026:
+     «мой порог может варьироваться в зависимости от действия»): скан ≤ 1 с
+     («никто не сканирует быстрее секунды»), действие офиса (Save, Convert,
+     батч, правка листа, PS, Shipped, оплата) ≤ 5 с, экран ≤ 1 с, F5 ≤ 5 с
+     (20.10), память вкладки ≤ 1 ГБ.
    · Экран или действие дольше --timeout не ждём: «больше N с ✗», вкладка
      перезапускается (база в профиле на диске остаётся) — иначе прогон шёл бы
      сутки.
@@ -73,7 +76,7 @@ for (let i = 0; i < argv.length; i++) {
 }
 if (!o.base || !fs.existsSync(o.base)) { console.error('Укажите базу: node tools/perf-year.js <файл .ndjson|.json>'); process.exit(2); }
 if (!o.name) o.name = path.basename(o.base).replace(/\.(nd)?json$/, '');
-const TH = { scan: 300, action: 500, screen: 1000, f5: 5000, heapMB: 1024 };
+const TH = { scan: 1000, action: 5000, screen: 1000, f5: 5000, heapMB: 1024 };
 const day = new Date().toISOString().slice(0, 10), dir = path.join(o.out, day + '-' + o.name), profile = path.join(dir, 'profile');
 const URL = 'file://' + path.join(ROOT, o.dist ? 'dist/GLASS_ERP.html' : 'src/index.html');
 fs.rmSync(profile, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
@@ -81,7 +84,7 @@ fs.rmSync(profile, { recursive: true, force: true }); fs.mkdirSync(dir, { recurs
 const SCREENS = [['Overview', 'dashboard'], ['Sales', 'sales'], ['Sales order', '@order'], ['Production', 'production'], ['Optimization', 'optimization'],
   ['Station', '@station'], ['Shipping', 'shipping'], ['Finance', 'finance'], ['Reports', 'reports'], ['Inventory', 'inventory'],
   ['Purchasing', 'purchasing'], ['Master Data', 'masterdata'], ['Users', 'users']];
-const ACTIONS = ['Save order', 'Convert quote', 'Batch + cut', 'PS + Shipped', 'Payment'];
+const ACTIONS = ['Save order', 'Save 100 lines', 'Convert quote', 'Batch + cut', 'Sheet edit', 'Packing slip', 'Shipped', 'Payment'];
 
 /* В странице: открыть экран, выполнить действие с замером по частям. */
 function pageSetup() {
@@ -110,13 +113,22 @@ function pageSetup() {
       const run = fn => { const pr = parts(), t = T(); let out; try { out = fn(); if (!pr.p.render) render(); } finally { pr.undo(); } return { ms: T() - t, parts: pr.p, out }; };
       const flush = async r => { const t = T(); if (!await storageFlush() && !r.error) r.error = 'not saved to the database'; r.idb = T() - t; if (r.parts) Object.keys(r.parts).forEach(k => { r.parts[k] = Math.round(r.parts[k]); }); return r; };
       /* Действие — на своём экране: его перерисовка входит в замер, как у человека. */
-      tab = { 'Save order': 'sales', 'Convert quote': 'sales', 'Batch + cut': 'optimization', 'PS + Shipped': 'shipping', Payment: 'finance' }[name] || 'sales';
+      tab = { 'Save order': 'sales', 'Save 100 lines': 'sales', 'Convert quote': 'sales', 'Batch + cut': 'optimization', 'Sheet edit': 'optimization', 'Packing slip': 'shipping', Shipped: 'shipping', Payment: 'finance' }[name] || 'sales';
       await storageFlush();
       if (name === 'Save order') {
         const ord = pick(DB.salesOrder, x => !salesIsQuote(x) && ['new', 'verified', 'batched'].includes(x.status)); if (!ord) return { skip: 'no open order' };
         const note = 'perf ' + Date.now(); salesOrderEdit(ord.id); soDraft.notes = note;
         const r = run(() => salesOrderSave()); salesDraftDrop(); r.note = ord.businessNumber; delete r.out;
         if ((salesRecord(ord.id) || {}).notes !== note) r.error = 'order not saved'; return flush(r);
+      }
+      /* Заказ на 100 строк (владелец, 28.10.2026: «в нашей системе 100 линий
+         сохраняет более 10 минут»): новый заказ дописывается до 100 строк. */
+      if (name === 'Save 100 lines') {
+        const ord = pick(DB.salesOrder, x => !salesIsQuote(x) && x.status === 'new' && (x.lines || []).length); if (!ord) return { skip: 'no new order' };
+        salesOrderEdit(ord.id); const l0 = soDraft.lines[0];
+        while (soDraft.lines.length < 100) { const l = normalizeSalesOrderLine({ makeupId: l0.makeupId, width16: l0.width16, height16: l0.height16, qty: 1, mark: 'P' + soDraft.lines.length }); salesEnsureLineShape(l); soDraft.lines.push(l); }
+        const r = run(() => salesOrderSave()); salesDraftDrop(); delete r.out; const n = ((salesRecord(ord.id) || {}).lines || []).length;
+        r.note = ord.businessNumber + ' · ' + n + ' lines'; if (n < 100) r.error = 'order not saved'; return flush(r);
       }
       if (name === 'Convert quote') {
         const q = pick(DB.salesOrder, x => salesIsQuote(x) && !x.wonOrderId && !salesQuoteWonMember(x) && !['lost', 'expired', 'cancelled'].includes(x.status)); if (!q) return { skip: 'no open quote' };
@@ -131,14 +143,27 @@ function pageSetup() {
         if (!rows.length) return { skip: 'no verified order to batch' };
         const g = rows.filter(r => r.glassId === rows[0].glassId);
         const r = run(() => { const b = glassBatchAssign(g, {}); if (b) cutPlanRun(b.number); return b; }), b = r.out; r.note = (b && b.number || '—') + ' · ' + g.length + ' glass'; delete r.out;
-        if (!b || !b.number || !cutPlanFor(b.number)) r.error = 'not batched or not cut'; return flush(r);
+        if (!b || !b.number || !cutPlanFor(b.number)) r.error = 'not batched or not cut'; else PERF.lastBatch = b.number; return flush(r);
       }
-      if (name === 'PS + Shipped') {
+      /* Правка листа руками — замок на стекле только что собранного батча. */
+      if (name === 'Sheet edit') {
+        const plan = PERF.lastBatch && cutPlanFor(PERF.lastBatch), p = plan && plan.groups.flatMap(x => x.sheets).flatMap(x => x.pieces)[0];
+        if (!p) return { skip: 'no built batch' };
+        const was = !!p.locked, r = run(() => cutPieceLock(PERF.lastBatch, p.piece)); r.note = PERF.lastBatch + ' · ' + p.piece;
+        if (!r.out || r.out.error || !!cutFind(cutPlanFor(PERF.lastBatch), p.piece).piece.locked === was) r.error = r.out && r.out.error || 'lock not saved'; delete r.out; return flush(r);
+      }
+      /* PS и Shipped — два нажатия, порознь; готовое стекло выбрано до замера,
+         как его выбирает человек на экране. */
+      if (name === 'Packing slip') {
         const ord = pick(DB.salesOrder, x => !x.onHold && !['cancelled', 'closed', 'done'].includes(x.status) && shippingAvailable(x).length);
         if (!ord) return { skip: 'no ready glass' };
-        let id = ''; const r = run(() => { const made = shippingCreate({ customerId: ord.customerId, method: 'pickup', shipTo: {}, date: new Date().toISOString().slice(0, 10), items: shippingAvailable(ord).map(shippingItem), extras: [], note: '' });
-          if (!made.ok) return made; id = made.value.id; return shippingMarkShipped(id); });
-        r.note = ord.businessNumber; const s = (DB.shipment || []).find(x => x.id === id);
+        const items = shippingAvailable(ord).map(shippingItem);
+        const r = run(() => shippingCreate({ customerId: ord.customerId, method: 'pickup', shipTo: {}, date: new Date().toISOString().slice(0, 10), items, extras: [], note: '' }));
+        r.note = ord.businessNumber + ' · ' + items.length + ' units'; if (!r.out || !r.out.ok) r.error = r.out && r.out.error || 'packing slip not made'; else PERF.lastPs = r.out.value.id; delete r.out; return flush(r);
+      }
+      if (name === 'Shipped') {
+        const s0 = PERF.lastPs && (DB.shipment || []).find(x => x.id === PERF.lastPs); if (!s0) return { skip: 'no packing slip' };
+        const r = run(() => shippingMarkShipped(s0.id)); r.note = s0.number; const s = (DB.shipment || []).find(x => x.id === s0.id);
         if (!s || s.status !== 'shipped') r.error = r.out && r.out.error || 'packing slip not shipped'; delete r.out; return flush(r);
       }
       if (name === 'Payment') {
@@ -306,6 +331,20 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
       if (sc.timeout) await restart();
       row.ok = !row.timeout && !row.error && row.ms <= TH.scan; pass.actions.push(row);
       console.log((row.ok ? '✓ ' : '✗ ') + row.name.padEnd(14), row.timeout ? '> ' + o.timeout + ' s' : row.error || fmt(row.ms));
+      /* Второй скан подряд — как у стола: звук уже включён, экран станции открыт. */
+      if (!sc.timeout) {
+        const next = await within(o.timeout * 1000, page.evaluate(st => { for (let i = (DB.glassPiece || []).length - 1, seen = 0; i >= 0 && seen < 400; i--) for (const id of DB.glassPiece[i].ids || []) { if (!id) continue; seen++; if (STATION_RECORDED.includes(stationCheck(st, id).kind)) return id; } return null; }, target.v.st));
+        const again = next.v ? await within(o.timeout * 1000, (async () => {
+          const inp = page.locator('[data-station-scan]').first();
+          await inp.fill(next.v); await page.evaluate(() => { storageLastAction = null; });
+          await inp.press('Enter'); await page.waitForFunction(() => storageLastAction != null, null, { timeout: o.timeout * 1000 });
+          return page.evaluate(() => storageLastAction);
+        })()) : { skip: true };
+        const row2 = { name: 'Scan again', ms: again.v, timeout: !!again.timeout, error: again.error, skip: again.skip ? 'no second glass' : undefined, limit: TH.scan, note: next.v || '' };
+        if (again.timeout) await restart();
+        row2.ok = !row2.timeout && !row2.error && !row2.skip && row2.ms <= TH.scan; pass.actions.push(row2);
+        console.log((row2.ok ? '✓ ' : '✗ ') + row2.name.padEnd(14), row2.timeout ? '> ' + o.timeout + ' s' : row2.skip || row2.error || fmt(row2.ms));
+      }
     } else pass.actions.push({ name: 'Scan', skip: target.timeout ? 'timeout looking for glass' : 'no glass waiting at a station', ok: false });
     for (const name of ACTIONS) {
       await page.evaluate(() => storageTakeControl());
@@ -326,7 +365,7 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
       let saved = false, t = 0;
       for (let i = 0; i < 5 && !saved; i++) {
         await page.evaluate(() => storageTakeControl()); t = Date.now();
-        saved = await page.evaluate(n => storageCommand(() => { DB.customer[0].legalName = n; }).ok, name);
+        saved = await page.evaluate(n => storageCommand(() => { DB.customer[0].legalName = n; }, { customer: [DB.customer[0].id] }).ok, name);
         if (!saved) await page.waitForTimeout(500);
       }
       if (!saved) throw new Error('the first tab could not save');
@@ -362,7 +401,7 @@ function reportMd(r) {
   const s = r.size, L = [];
   L.push('# Годовой прогон · ' + r.name, '', 'База: `' + path.basename(r.base) + '` · ' + (s.total / 1048576).toFixed(0) + ' МБ · ' + s.orders + ' заказов · ' + s.scans + ' сканов · ' + s.batches + ' батчей · ' + s.months.toFixed(1) + ' мес.',
     'Сборка ' + r.build + ' · ' + r.machine + ' · ' + r.date.slice(0, 16).replace('T', ' ') + ' · прогон ' + r.minutes + ' мин.', '',
-    'Пороги (проход ×' + Math.max(...o.cpu) + ', слабый ПК): скан ≤ 0,3 с · Save и клик ≤ 0,5 с · экран ≤ 1 с · F5 ≤ 5 с · память ≤ 1 ГБ.', '',
+    'Пороги (проход ×' + Math.max(...o.cpu) + ', слабый ПК): скан ≤ 1 с · действие офиса ≤ 5 с · экран ≤ 1 с · F5 ≤ 5 с · память ≤ 1 ГБ.', '',
     '**Красное:** ' + (r.fail.join(', ') || 'нет') + '.', '', 'Import: ' + fmt(r.import.ms) + ' (×1).', '');
   if (r.years) L.push('Архив за ' + r.years.n + ' лет: ' + (r.years.error ? 'ошибка: ' + r.years.error : 'копии на прошлые годы — ' + r.years.cold + ' записей, ' + r.years.rows + ' строк указателя, ' + fmt(r.years.ms)) + '.', '');
   if (r.archive) {
