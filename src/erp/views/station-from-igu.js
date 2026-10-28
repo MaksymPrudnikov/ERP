@@ -46,10 +46,15 @@ function stationIguBoard(){
     const ready=u.loaded||places.every(p=>p&&p.waiting===st.ship);
     if(ready){r.done++;if(at>edge)edge=at;if(u.loaded)return;}
     /* Одинаковый состав чертежей — один расчёт на этот экран, а не на
-       каждый из тысяч юнитов. История выданных размеров не требует. */
-    const key=o.id+'|'+l.id+'|'+gs.map(g=>g&&g.c?g.c.key+'|'+stationDrawingKey(o,l,g.unit):'').sort().join(';');
-    if(!geometry.has(key))geometry.set(key,gs[0]?stationIguGeometry(gs[0],u.unit):l);
-    const x=Object.assign({},u,{l,at,geo:geometry.get(key)});
+       каждый из тысяч юнитов. История выданных размеров не требует. Размер
+       нужен только строкам «не сканирован» на экране — считается, когда его
+       спросили (на годе — тысячи юнитов, на экране — десятки). */
+    const x=Object.assign({},u,{l,at});
+    Object.defineProperty(x,'geo',{enumerable:true,configurable:true,get(){
+     const key=o.id+'|'+l.id+'|'+gs.map(g=>g&&g.c?g.c.key+'|'+stationDrawingKey(o,l,g.unit):'').sort().join(';');
+     if(!geometry.has(key))geometry.set(key,gs[0]?stationIguGeometry(gs[0],u.unit):l);
+     return geometry.get(key);
+    }});
     if(ready){
      if(u.skid){if(!r.skids.has(u.skid))r.skids.set(u.skid,[]);r.skids.get(u.skid).push(x);}else r.noSkid.push(x);
     }else if(places.every(p=>p&&!p.assembling&&p.waiting===st.ready))r.pending.push(x);

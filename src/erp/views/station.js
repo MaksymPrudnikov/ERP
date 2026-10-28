@@ -791,7 +791,8 @@ function stationNextLabel(x){
 /* Сколько на таре: после сборки — юнитами («SL-1 · 33 units», а не
    «66 glass»), как в «Waiting here». */
 function stationTareCount(list){
- const asmOf=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)asmOf.set(s.piece,s.asm);});
+ /* Сборка стекла — один проход по сканам на отрисовку (erp/read-scope), а не на каждую тару. */
+ const asmOf=readMemo('stationAsmOf',[DB.stationScan],()=>{const m=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)m.set(s.piece,s.asm);});return m;});
  return stationHereCount(list.map(x=>{const mu=stationUnitMerge(x.g.o,x.g.l),r=x.place.route||[];return {unit:!!mu&&asmOf.has(x.id)&&r.indexOf(mu)>-1&&r.indexOf(mu)<=x.place.far,asm:asmOf.get(x.id)};}));
 }
 /* Тара, которую загрузили здесь: сколько на ней, из каких батчей и куда
