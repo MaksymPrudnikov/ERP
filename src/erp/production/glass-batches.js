@@ -574,5 +574,5 @@ function glassBatchRushFirst(batch){
 function glassBatchCutMove(number,dir){
  const q=glassBatchCutQueue(),i=q.findIndex(b=>b.number===number),j=i+(dir<0?-1:1);
  if(i<0||j<0||j>=q.length)return false;
- [q[i],q[j]]=[q[j],q[i]];q.forEach((b,k)=>{b.cutOrder=k+1;});touch();return true;
+ [q[i],q[j]]=[q[j],q[i]];q.forEach((b,k)=>{b.cutOrder=k+1;});touchScope({glassBatch:q.map(b=>b.number)});return true;
 }

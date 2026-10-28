@@ -196,10 +196,17 @@ function cutPiecesOf(number,settings){
 }
 function cutPlanPut(number,plan){
  if(cutEstIs(number)){if(typeof cutEstPlanSet==='function')cutEstPlanSet(number,plan);return;}
- DB.cutPlan=(DB.cutPlan||[]).filter(p=>p&&p.batch!==number).concat([plan]);
- touch();
+ /* На месте, а не в конец: сдвиг строк заставил бы сравнивать все раскрои. */
+ if(!Array.isArray(DB.cutPlan))DB.cutPlan=[];
+ const i=DB.cutPlan.findIndex(p=>p&&p.batch===number);if(i>=0)DB.cutPlan[i]=plan;else DB.cutPlan.push(plan);
+ touchScope(cutPlanScope(number));
 }
-function cutSave(number){if(!cutEstIs(number))touch();}
+/* Область записи раскроя: сам раскрой, его батч (Reset пишет в History) и
+   куски стока (Build снимает со стока куски пересобранных листов, «В сток»
+   добавляет). Перенос стёкол в другой
+   батч (Move sheet, полка) трогает батчи и заказы — пишет полной записью. */
+function cutPlanScope(number){return {cutPlan:[number],glassBatch:[number],stockOffcut:true,stockOffcutSeq:true};}
+function cutSave(number){if(!cutEstIs(number))touchScope(cutPlanScope(number));}
 /* Приоритет: 0 — нет (по умолчанию), 1 … 10 — самый срочный, как в
    Perfect Cut (владелец, 4 октября 2026: «перевернуть: 10 — самый срочный»;
    до этого самым срочным был 1, старые значения обнулены — DATA_FIXES 6).
@@ -1593,7 +1600,7 @@ function cutStockBook(number,glass,sheetNo,rect){
  if(hit)return {error:'Overlaps '+hit.piece};
  const rec=stockOffcutAdd({glass:g.glass,mm:g.mm,w:box.w,h:box.h,batch:number,sheet:s.no,x:box.x,y:box.y});
  s.stock.push(Object.assign({id:rec.id},box));s.locked=true;
- cutPlanRefresh(plan);touch();return {ok:true,id:rec.id};
+ cutPlanRefresh(plan);cutSave(number);return {ok:true,id:rec.id};
 }
 function cutStockTake(number,glass,sheetNo,index){
  if(cutEstIs(number))return {error:'Preview only.'};
@@ -1773,7 +1780,7 @@ function cutStockCancel(number,id){
  const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
  for(const g of plan.groups)for(const s of g.sheets){
   const i=(s.stock||[]).findIndex(x=>x.id===id);
-  if(i>=0){s.stock.splice(i,1);if(typeof stockOffcutCancel==='function')stockOffcutCancel(id);cutPlanRefresh(plan);touch();return {ok:true};}
+  if(i>=0){s.stock.splice(i,1);if(typeof stockOffcutCancel==='function')stockOffcutCancel(id);cutPlanRefresh(plan);cutSave(number);return {ok:true};}
  }
  return {error:'Not in stock.'};
 }

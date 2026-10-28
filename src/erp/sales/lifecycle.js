@@ -430,13 +430,18 @@ function salesConvertQuoteRecord(id,po){
    buttons:[{label:'Back'},{label:'Convert to order',kind:'pri',run:d=>salesConvertQuoteRecord(id,d.input.value)}]});
   setTimeout(()=>{const el=document.querySelector('[data-dialog-input]');if(el)el.focus();},0);return;
  }
- const now=new Date().toISOString();
- const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now,customerPo:poText});
- const order=normalizeSalesOrder(copy);DB.salesOrder.push(order);
- if(typeof finCaptureTerms==='function')finCaptureTerms(order);
- quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
- normalizeSalesOrderIn(copy.id);normalizeSalesOrderIn(quote.id);touch();
- salesOrderEdit(copy.id);
+ /* Одной командой с областью: квота и новый заказ (с его фигурами, условиями
+    оплаты и журналом), не вся база; запись не прошла — всё как было. */
+ const out=storageCommand(()=>{
+  const now=new Date().toISOString();
+  const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now,customerPo:poText});
+  const order=normalizeSalesOrder(copy);DB.salesOrder.push(order);
+  if(typeof finCaptureTerms==='function')finCaptureTerms(order);
+  quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
+  normalizeSalesOrderIn(copy.id);normalizeSalesOrderIn(quote.id);return copy.id;
+ },{salesOrder:[quote.id],financeTerms:[],financeEvent:[]});
+ if(!out.ok){alert(out.error);render();return;}
+ salesOrderEdit(out.value);
 }
 
 /* ------------------------ Шапка редактора ----------------------------- */

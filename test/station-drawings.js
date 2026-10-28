@@ -17,7 +17,7 @@ module.exports=async function({page,eq,ok}){
    soDraft.lines.forEach(l=>salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;}));
    if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;
    const o=salesRecord(id),l=o.lines[0],s=newShapeDef('custom');s.type='circle';s.w='36';s.h='36';
-   const def=normalizeShapeDef(s);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);salesSyncLineFromShape(l,def);
+   const def=normalizeShapeDef(s);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);touch();salesSyncLineFromShape(l,def);
    oqThrough(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
    const pm=glassPieceMap(id),o2=salesRecord(id),ids=o2.lines.map(x=>{const c=glassBatchComponents(o2,x)[0];return pm.get(c.key).ids[0];});
    return {id,no:o2.businessNumber,ids};
