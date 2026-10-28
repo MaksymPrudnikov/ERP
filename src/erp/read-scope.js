@@ -9,9 +9,9 @@
    (проверка Codex 22.10.2026). Запись посреди отрисовки (touch) и
    действие внутри неё указатели тоже не используют.
    IN : DB, storageDepth
-   OUT: readScope(fn), readOn(), readMemo(key,sources,build), readMemoReset()
+   OUT: readScope(fn), readScopeNow(fn), readOn(), readMemo(key,sources,build), readMemoReset()
    ===================================================================== */
-let readDepth=0,readMemos=null;
+let readDepth=0,readMemos=null,readForce=false;
 function readScope(fn){
  if(!readDepth++)readMemos=new Map();
  try{return fn();}finally{if(!--readDepth)readMemos=null;}
@@ -24,7 +24,14 @@ function readMemo(key,sources,build){
  if(hit&&hit.src.length===sources.length&&hit.src.every((a,i)=>a===sources[i]&&hit.n[i]===(a?a.length:-1)))return hit.value;
  const value=build();readMemos.set(key,{src:sources,n:sources.map(a=>a?a.length:-1),value});return value;
 }
+/* Чистое чтение посреди действия (документ PS, проверка выбора): свои
+   указатели на время fn. Внутри fn база не меняется — указатели не соврут;
+   запись посреди (touch) их сбрасывает, как и в отрисовке. */
+function readScopeNow(fn){
+ const memos=readMemos,depth=readDepth,force=readForce;readMemos=new Map();readDepth=1;readForce=true;
+ try{return fn();}finally{readMemos=memos;readDepth=depth;readForce=force;}
+}
 /* Отрисовка идёт и действие не начато — указатели можно брать. */
-function readOn(){return !!readMemos&&!(typeof storageDepth!=='undefined'&&storageDepth);}
+function readOn(){return !!readMemos&&(readForce||!(typeof storageDepth!=='undefined'&&storageDepth));}
 /* Запись (storageInvalidate) — указатели этой отрисовки больше не верны. */
 function readMemoReset(){if(readMemos)readMemos=new Map();}
