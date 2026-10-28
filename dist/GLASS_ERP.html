@@ -3545,7 +3545,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='1d0f355b3f9e';
+var ERP_BUILD='c994a71d83e1';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13833,13 +13833,18 @@ function salesConvertQuoteRecord(id,po){
    buttons:[{label:'Back'},{label:'Convert to order',kind:'pri',run:d=>salesConvertQuoteRecord(id,d.input.value)}]});
   setTimeout(()=>{const el=document.querySelector('[data-dialog-input]');if(el)el.focus();},0);return;
  }
- const now=new Date().toISOString();
- const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now,customerPo:poText});
- const order=normalizeSalesOrder(copy);DB.salesOrder.push(order);
- if(typeof finCaptureTerms==='function')finCaptureTerms(order);
- quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
- normalizeSalesOrderIn(copy.id);normalizeSalesOrderIn(quote.id);touch();
- salesOrderEdit(copy.id);
+ /* Одной командой с областью: квота и новый заказ (с его фигурами, условиями
+    оплаты и журналом), не вся база; запись не прошла — всё как было. */
+ const out=storageCommand(()=>{
+  const now=new Date().toISOString();
+  const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now,customerPo:poText});
+  const order=normalizeSalesOrder(copy);DB.salesOrder.push(order);
+  if(typeof finCaptureTerms==='function')finCaptureTerms(order);
+  quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
+  normalizeSalesOrderIn(copy.id);normalizeSalesOrderIn(quote.id);return copy.id;
+ },{salesOrder:[quote.id],financeTerms:[],financeEvent:[]});
+ if(!out.ok){alert(out.error);render();return;}
+ salesOrderEdit(out.value);
 }
 
 /* ------------------------ Шапка редактора ----------------------------- */
@@ -17488,7 +17493,7 @@ function normalizeAuthLog(){
 }
 function authLog(what,where,u,note){
  const ev={id:'AE-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),at:new Date().toISOString(),userId:u?u.viewProfileId:'',name:u?String(u.name||''):'',what,where:where||'',note:note||''};
- const write=()=>{const out=typeof storageCommand==='function'?storageCommand(()=>{if(!Array.isArray(DB.authEvent))DB.authEvent=[];DB.authEvent.push(ev);if(DB.authEvent.length>AUTH_LOG_MAX)DB.authEvent.splice(0,DB.authEvent.length-AUTH_LOG_MAX);return true;}):null;return out;};
+ const write=()=>{const out=typeof storageCommand==='function'?storageCommand(()=>{if(!Array.isArray(DB.authEvent))DB.authEvent=[];DB.authEvent.push(ev);if(DB.authEvent.length>AUTH_LOG_MAX)DB.authEvent.splice(0,DB.authEvent.length-AUTH_LOG_MAX);return true;},{authEvent:[]}):null;return out;};
  if(typeof storageWhenWriter==='function')storageWhenWriter(write);else write();
 }
 /* Запись «браузер был закрыт» ждёт, пока база поднимется. */
@@ -33257,7 +33262,7 @@ function glassBatchRushFirst(batch){
 function glassBatchCutMove(number,dir){
  const q=glassBatchCutQueue(),i=q.findIndex(b=>b.number===number),j=i+(dir<0?-1:1);
  if(i<0||j<0||j>=q.length)return false;
- [q[i],q[j]]=[q[j],q[i]];q.forEach((b,k)=>{b.cutOrder=k+1;});touch();return true;
+ [q[i],q[j]]=[q[j],q[i]];q.forEach((b,k)=>{b.cutOrder=k+1;});touchScope({glassBatch:q.map(b=>b.number)});return true;
 }
 
 /* ==== src/erp/production/barcode.js ==== */
@@ -34233,10 +34238,17 @@ function cutPiecesOf(number,settings){
 }
 function cutPlanPut(number,plan){
  if(cutEstIs(number)){if(typeof cutEstPlanSet==='function')cutEstPlanSet(number,plan);return;}
- DB.cutPlan=(DB.cutPlan||[]).filter(p=>p&&p.batch!==number).concat([plan]);
- touch();
+ /* На месте, а не в конец: сдвиг строк заставил бы сравнивать все раскрои. */
+ if(!Array.isArray(DB.cutPlan))DB.cutPlan=[];
+ const i=DB.cutPlan.findIndex(p=>p&&p.batch===number);if(i>=0)DB.cutPlan[i]=plan;else DB.cutPlan.push(plan);
+ touchScope(cutPlanScope(number));
 }
-function cutSave(number){if(!cutEstIs(number))touch();}
+/* Область записи раскроя: сам раскрой, его батч (Reset пишет в History) и
+   куски стока (Build снимает со стока куски пересобранных листов, «В сток»
+   добавляет). Перенос стёкол в другой
+   батч (Move sheet, полка) трогает батчи и заказы — пишет полной записью. */
+function cutPlanScope(number){return {cutPlan:[number],glassBatch:[number],stockOffcut:true,stockOffcutSeq:true};}
+function cutSave(number){if(!cutEstIs(number))touchScope(cutPlanScope(number));}
 /* Приоритет: 0 — нет (по умолчанию), 1 … 10 — самый срочный, как в
    Perfect Cut (владелец, 4 октября 2026: «перевернуть: 10 — самый срочный»;
    до этого самым срочным был 1, старые значения обнулены — DATA_FIXES 6).
@@ -35630,7 +35642,7 @@ function cutStockBook(number,glass,sheetNo,rect){
  if(hit)return {error:'Overlaps '+hit.piece};
  const rec=stockOffcutAdd({glass:g.glass,mm:g.mm,w:box.w,h:box.h,batch:number,sheet:s.no,x:box.x,y:box.y});
  s.stock.push(Object.assign({id:rec.id},box));s.locked=true;
- cutPlanRefresh(plan);touch();return {ok:true,id:rec.id};
+ cutPlanRefresh(plan);cutSave(number);return {ok:true,id:rec.id};
 }
 function cutStockTake(number,glass,sheetNo,index){
  if(cutEstIs(number))return {error:'Preview only.'};
@@ -35810,7 +35822,7 @@ function cutStockCancel(number,id){
  const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
  for(const g of plan.groups)for(const s of g.sheets){
   const i=(s.stock||[]).findIndex(x=>x.id===id);
-  if(i>=0){s.stock.splice(i,1);if(typeof stockOffcutCancel==='function')stockOffcutCancel(id);cutPlanRefresh(plan);touch();return {ok:true};}
+  if(i>=0){s.stock.splice(i,1);if(typeof stockOffcutCancel==='function')stockOffcutCancel(id);cutPlanRefresh(plan);cutSave(number);return {ok:true};}
  }
  return {error:'Not in stock.'};
 }
@@ -49992,6 +50004,8 @@ function storageScopeCheck(before){
  const out=[];storageScopeSig().forEach((v,k)=>{if(before.get(k)!==v)out.push(k.replace('\u0000',':'));});
  if(out.length)console.error('Outside scope: '+out.slice(0,6).join(', ')+' · '+String(new Error().stack).split('\n').slice(3,5).map(x=>x.trim().split(' ')[1]).join(' < '));
 }
+/* Несохранённое после записи — для проверки touchScope (только в тестах). */
+function storageScopeMark(){if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{storageScopeLast=storageScopeSig();}catch(e){storageScopeLast=null;}}
 /* Полное сравнение — когда полминуты не трогают клавиши и мышь (как уход в
    архив): пропущенное областью записи не потеряется. */
 function storageSweepLater(){
@@ -50025,6 +50039,22 @@ function storageCommand(fn,scope){
   return {ok:true,value};
  }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
 }
+/* Запись правки, сделанной до вызова (раскрой: Build и правки листа, порядок
+   батчей): touch() только по области scope, как у storageCommand. Вне
+   области не сравнивается — пропущенное поймает storageSweep. В тестах
+   (GF_SCOPE_CHECK) — та же проверка, что у команды: что изменилось после
+   прошлой записи и осталось несохранённым — «Outside scope». */
+let storageScopeLast=null;
+function touchScope(scope){
+ if(storageDepth)return true;
+ const prev=storageScopeLast;
+ storageScope=storageScopeMap(scope);
+ let saved;try{saved=touch();}finally{storageScope=null;}
+ /* Проверка — только после настоящей записи (симулятор подменяет touch). */
+ if(saved&&prev&&storageScopeLast!==prev)storageScopeCheck(prev);
+ if(saved)storageSweepLater();
+ return saved;
+}
 function touch(){
  if(storageDepth)return true;
  if(!storageWriter||storageRecovery||storageStale){
@@ -50044,11 +50074,11 @@ function touch(){
   let diff=storageDiff(DB,only);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB,only);
   const changes=storageColdApply(diff);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
-  if(!changes.length){storageLastError=storageFailed?storageLastError:'';return true;}
+  if(!changes.length){storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
   /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
   const out=typeof cloudOutbox==='function'?cloudOutbox(changes):null;
   storageWrite(changes,out&&out.ops);if(out)out.done();storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
-  storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
+  storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();storageScopeMark();return true;
  }catch(e){
   storageLastError=storageStale?storageReadOnlyText():'Not saved. Your operation is still open; retry or export your changes.';
   if(!storageCommanding)storageRollback();
