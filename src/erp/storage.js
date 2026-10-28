@@ -178,14 +178,48 @@ function storageScopeCheck(before){
 /* Несохранённое после записи — для проверки touchScope (только в тестах). */
 function storageScopeMark(){if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{storageScopeLast=storageScopeSig();}catch(e){storageScopeLast=null;}}
 /* Полное сравнение — когда полминуты не трогают клавиши и мышь (как уход в
-   архив): пропущенное областью записи не потеряется. */
+   архив): пропущенное областью записи не потеряется. Идёт кусками по 30 мс:
+   целиком на годе это 3,5 с на слабом ПК, и скан в эту секунду ждал бы.
+   Ищет строки, изменённые на месте, и пишет их вместе с новыми, удалёнными
+   и сдвинутыми строками всех таблиц. Запись посреди прохода — заново позже.
+   Ответ — Promise: true, когда записано. */
 function storageSweepLater(){
  if(storageSweepTimer||typeof window!=='undefined'&&window.GF_NO_ARCHIVE)return;
  storageSweepTimer=setTimeout(storageSweep,30e3);
 }
 function storageSweep(){
- if(storageDepth||typeof archiveInputAt!=='undefined'&&Date.now()-archiveInputAt<30e3){storageSweepTimer=setTimeout(storageSweep,30e3);return;}
- storageSweepTimer=null;if(storageWriter&&!storageRecovery&&!storageStale)touch();
+ if(storageDepth||typeof archiveInputAt!=='undefined'&&Date.now()-archiveInputAt<30e3){storageSweepTimer=setTimeout(storageSweep,30e3);return Promise.resolve(false);}
+ storageSweepTimer=null;if(!storageWriter||storageRecovery||storageStale)return Promise.resolve(false);
+ const at=storageBaseRev,it=storageSweepSteps();
+ return new Promise(done=>{
+  const step=()=>{
+   storageSweepTimer=null;
+   if(storageBaseRev!==at||storageDepth||!storageWriter||storageStale){storageSweepLater();done(false);return;}
+   const t=performance.now();let r;do{r=it.next();}while(!r.done&&performance.now()-t<30);
+   if(!r.done){storageSweepTimer=setTimeout(step,0);return;}
+   storageScope=storageScopeMap(r.value);let saved;try{saved=touch();}finally{storageScope=null;}done(saved);
+  };
+  step();
+ });
+}
+/* Область прохода: каждая таблица с ключами строк, изменённых на месте
+   (новые, удалённые и сдвинутые видны и так), таблица одной записью и всё,
+   что не таблица, — целиком. Паузы (yield) — через каждые 200 строк. */
+function* storageSweepSteps(){
+ const scope={},keys=new Set(Object.keys(DB));storageBase.forEach((m,tbl)=>keys.add(tbl));
+ (storageBase.get('_meta')||new Map()).forEach((x,k)=>keys.add(k));keys.delete('_meta');
+ for(const tbl of keys){
+  const rows=DB[tbl],base=storageBase.get(tbl);
+  if(!Array.isArray(rows)||!base||base.has('*')){scope[tbl]=true;continue;}
+  const vis=storageVisit.get(tbl),ids=[];scope[tbl]=ids;
+  for(let i=0;i<rows.length;i++){
+   const id=storageRowKey(tbl,rows[i]),b=id&&base.get(id);
+   if(b&&!(vis&&vis.has(id))&&JSON.stringify(rows[i])!==b.t)ids.push(id);
+   if(i%200===199)yield;
+  }
+  yield;
+ }
+ return scope;
 }
 function storageCommand(fn,scope){
  if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}

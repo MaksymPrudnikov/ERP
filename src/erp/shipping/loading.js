@@ -52,10 +52,12 @@ function shippingUnprint(s,items){if(s.printedItems&&items.length)s.printedItems
    чужого стекла; на самовывозе — только если его погрузили сканом скида
    («клиент пригоняет свой трак, и мы на него грузим скиды»).
    units — юниты PS как их видит цех сейчас: {pieces, skid, loaded}. */
-function shippingCarriers(){const c=shippingCtxNow;return c?c.carriers||(c.carriers=carrierContents()):carrierContents();}
 function shippingSkidsOut(s,units){
- const mine=new Set(units.flatMap(u=>u.pieces)),on=shippingCarriers(),went=s.method==='pickup'?units.filter(u=>u.loaded):units;
- return [...new Set(went.map(u=>u.skid).filter(Boolean))].filter(code=>!(on.get(code)||[]).some(x=>!mine.has(x.id)));
+ const mine=new Set(units.flatMap(u=>u.pieces)),went=s.method==='pickup'?units.filter(u=>u.loaded):units;
+ const codes=[...new Set(went.map(u=>u.skid).filter(Boolean))];if(!codes.length)return [];
+ /* Содержимое только скидов этой PS, а не всей тары цеха (1,9 с на слабом ПК). */
+ const on=carrierContents('',new Set(codes));
+ return codes.filter(code=>!(on.get(code)||[]).some(x=>!mine.has(x.id)));
 }
 function shippingLoadPart(list){const skids=new Set(list.map(u=>u.skid).filter(Boolean)).size,loose=list.filter(u=>!u.skid).length;return [skids?shippingCount(skids,'skid'):'',loose?shippingCount(loose,'unit'):''].filter(Boolean).join(' + ');}
 function shippingLoadText(st){return st.loaded.length?shippingLoadPart(st.loaded)+' loaded'+(st.rest.length?' · '+shippingLoadPart(st.rest)+' not loaded':''):'';}

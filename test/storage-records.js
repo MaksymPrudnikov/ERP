@@ -63,9 +63,24 @@ module.exports=async function({page,eq,ok}){
   await storageFlush();const keep=window.GF_SCOPE_CHECK;window.GF_SCOPE_CHECK=false;const a=DB.customer[0],b=DB.customer[1];
   const out=storageCommand(()=>{a.notes='Scoped';b.notes='Missed';DB.customer.push({id:'SR-NEW',legalName:'New'});},{customer:[a.id]});window.GF_SCOPE_CHECK=keep;
   const stored=()=>{const c=testStoredState().customer;return [c.find(x=>x.id===a.id).notes,c.find(x=>x.id===b.id).notes,c.some(x=>x.id==='SR-NEW')];};
-  const first=stored();archiveInputAt=0;storageSweep();
+  const first=stored();archiveInputAt=0;await storageSweep();
   return {ok:out.ok,scoped:first[0],missed:first[1]==='Missed',added:first[2],after:stored()};
  }),{ok:true,scoped:'Scoped',missed:false,added:true,after:['Scoped','Missed',true]});
+ /* Сверка в простое идёт кусками (на годе 3,5 с на слабом ПК — скан в эту
+    секунду ждал бы): каждый шаг — новая пауза; запись посреди прохода —
+    проход заново позже, пропущенное всё равно дописано. */
+ eq('сверка в простое кусками: пропущенное дописано; запись посреди прохода — заново позже',await t.p.evaluate(async()=>{
+  await storageFlush();const keep=window.GF_SCOPE_CHECK;window.GF_SCOPE_CHECK=false;const a=DB.customer[0],b=DB.customer[1];
+  storageCommand(()=>{b.notes='Missed twice';},{customer:[a.id]});window.GF_SCOPE_CHECK=keep;
+  const real=performance.now.bind(performance);let k=0;performance.now=()=>real()+(k++)*100;
+  let steps=0;const timer=window.setTimeout;window.setTimeout=(f,ms)=>{if(!ms)steps++;return timer(f,ms);};
+  let first,second;try{
+   archiveInputAt=0;const run=storageSweep();storageCommand(()=>{a.notes='Between steps';},{customer:[a.id]});first=await run;
+   window.clearTimeout(storageSweepTimer);storageSweepTimer=null;second=await storageSweep();
+  }finally{performance.now=real;window.setTimeout=timer;}
+  const c=testStoredState().customer;
+  return {interrupted:first,written:second,steps:steps>1,missed:c.find(x=>x.id===b.id).notes,scoped:c.find(x=>x.id===a.id).notes};
+ }),{interrupted:false,written:true,steps:true,missed:'Missed twice',scoped:'Between steps'});
 
  /* Область из ключей не перебирает всю таблицу (storageDiffTail): ответ тот
     же, что у полного прохода; строку заменили или удалили — полный проход. */
