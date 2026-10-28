@@ -26,10 +26,9 @@ function skipCanOpen(o){return !!o&&!salesIsQuote(o)&&!['closed','cancelled'].in
 function skipForOrder(orderId){return (DB.skip||[]).filter(s=>s&&s.orderId===orderId);}
 /* Индексы на один расчёт: Skip смотрит на сотни стёкол заказа. */
 function skipCtx(){
- const scans=new Map(),onPs=new Set();
- (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!scans.has(s.piece))scans.set(s.piece,[]);scans.get(s.piece).push(s);});
+ const onPs=new Set();
  (DB.shipment||[]).filter(shippingActive).forEach(s=>s.items.forEach(i=>i.pieces.forEach(p=>onPs.add(p))));
- return {index:stationPieceIndex(),batches:stationBatchIndex(),scans,onPs,used:new Set(),taken:new Map()};
+ return Object.assign(stationScanCtx(),{onPs,used:new Set(),taken:new Map()});
 }
 /* Стекло, которое можно провести: живое, не уехало, не на другом PS. */
 function skipPiece(id,ctx){
@@ -128,22 +127,23 @@ function skipWantAsm(u,g,station){
 }
 /* Ручные отметки: по шагу маршрута за проход, пока стекло не дошло до
    target включительно. Сборка ждёт своих стёкол — следующий проход. */
-function skipRecord(units,target,at,who,skip){
+function skipRecord(units,target,at,who,skip,ctx){
  const lam=salesRouteStationOf('lamination','LAM');
  for(let pass=0;pass<200;pass++){
   let moved=false;
   units.forEach(u=>u.pieces.forEach(id=>{
-   const g=stationGlass(id);if(!g||!g.c)return;const p=stationPlace(g);
+   const g=stationGlass(id,ctx.index,ctx.batches);if(!g||!g.c)return;const scans=ctx.scans.get(id)||[],p=stationPlace(g,scans);
    if(p.broken||p.shipped||!p.waiting||p.assembling)return;
    const ti=p.route.lastIndexOf(target),wi=p.route.indexOf(p.waiting,p.far+1);if(ti<0||wi<0||wi>ti)return;
    const st=p.waiting,mu=stationUnitMerge(g.o,g.l),merge=st===mu||st===lam&&!!g.c.ply;
-   const rec=stationRecordCommand(st,{kind:'ok',code:id,g},who,{deferTouch:true,manual:true,now:at,actionId:skip.actionId||undefined,asm:merge?skipWantAsm(u,g,st):undefined});
+   const rec=stationRecordCommand(st,{kind:'ok',code:id,g},who,{deferTouch:true,manual:true,now:at,actionId:skip.actionId||undefined,asm:merge?skipWantAsm(u,g,st):undefined,scans,noSync:true});
    if(!rec)throw new Error('Skip was not recorded.');
+   stationScanCtxAdd(ctx,rec);
    if(!skip.actionId)skip.actionId=rec.actionId;moved=true;
   }));
   if(!moved)break;
  }
- const stuck=units.filter(u=>u.pieces.some(id=>{const g=stationGlass(id),p=g&&stationPlace(g);if(!p||p.broken)return true;const ti=p.route.lastIndexOf(target);return ti>=0&&!p.shipped&&p.far<ti;}));
+ const stuck=units.filter(u=>u.pieces.some(id=>{const g=stationGlass(id,ctx.index,ctx.batches),p=g&&stationPlace(g,ctx.scans.get(id)||[]);if(!p||p.broken)return true;const ti=p.route.lastIndexOf(target);return ti>=0&&!p.shipped&&p.far<ti;}));
  if(stuck.length)throw new Error(shippingCount(stuck.length,'unit')+' could not be moved to '+target+'.');
 }
 function skipAt(date){return date===finToday()?new Date().toISOString():new Date(date+'T12:00:00').toISOString();}
@@ -162,7 +162,7 @@ function skipCommand(d){
  shippingAssert(!pick.problems.length,pick.problems.join('. ')+'.');
  shippingAssert(pick.units.length||dispatch&&extras.length,'Choose what to skip.');
  shippingAssert(!extras.length||dispatch,'Stock items can only be shipped or received.');
- const offRoute=pick.units.flatMap(u=>u.pieces).find(id=>!stationPlace(stationGlass(id)).route.includes(target));
+ const offRoute=pick.units.flatMap(u=>u.pieces).find(id=>!stationPlace(stationGlass(id,ctx.index,ctx.batches),ctx.scans.get(id)||[]).route.includes(target));
  shippingAssert(!offRoute,'Glass '+(offRoute||'')+' does not pass '+target+'. Choose a station on its route.');
  /* Skip есть всегда (владелец, 8.10.2026: «никаких ограничений… человеческий
     фактор в действии»): ни Hold, ни поздний скан его не останавливают. День —
@@ -176,7 +176,7 @@ function skipCommand(d){
   by:actor.by||'',byId:actor.byId||'',actionId:'',pieces,shipments:[],status:o.status,eventId:'',undoneAt:'',undoneBy:''};
  /* «От создания заказа»: Skip сам себе Verify. */
  if(o.status==='new'){o.productionUnbatchVerify=false;o.status='verified';o.statusDates=Object.assign({},o.statusDates,{verified:at});salesSyncRecordLifecycle(o);}
- skipRecord(pick.units,target,at,who,skip);
+ skipRecord(pick.units,target,at,who,skip,ctx);
  shippingAssert(dispatch||!!skip.actionId,'The selected glass has already passed '+target+'.');
  if(dispatch){
   /* Hold заказа, строк и юнитов не мешает выдаче Skip: снят на время

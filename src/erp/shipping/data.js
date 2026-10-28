@@ -65,6 +65,9 @@ function shippingUnits(o,opts){
  if(!o||salesIsQuote(o)||o.status==='cancelled'||o.status==='closed'&&!(opts&&opts.includeClosed)||shippingLegacy(o))return [];
  const ctx=shippingCtx(),index=ctx.index,batches=ctx.batches,stations=shippingStations(),out=[],scansOf=id=>ctx.scans.get(id)||[];
  const reserved=shippingForOrder(o.id).filter(shippingActive).flatMap(s=>s.items.map(i=>Object.assign({shipment:s},i))),gone=unitCancelledSet(o);
+ /* Стёкла заказа — один раз на заказ: вне отрисовки glassPieceMap перебирает
+    все стёкла базы, и на каждой строке заказа на 500 строк это 0,5 с на скан Ready. */
+ let pieceMap=null;
  (o.lines||[]).forEach(l=>{
   const held=unitHeldSet(l);
   const fixed=reserved.filter(i=>i.lineId===l.id),taken=new Set(fixed.map(i=>i.unit)),labels=new Set(fixed.map(i=>i.label)),candidates=[];
@@ -72,7 +75,7 @@ function shippingUnits(o,opts){
   if(mu){stationAsms(o,l,mu,index,{scans:ctx.asm.get(o.id+'|'+l.id)||[],broken:ctx.broken}).filter(a=>a.complete&&!a.broken&&a.unit>0&&a.unit<=l.qty).forEach(a=>{
    if(keys.every(k=>a.lites.has(k)))candidates.push({unit:a.unit,label:unitIdAt(o.id,l.id,a.unit),pieces:[...a.lites.values()]});
   });}else if(keys.length===1){
-   const rec=glassPieceMap(o.id).get(keys[0]);if(rec){
+   const rec=(pieceMap=pieceMap||glassPieceMap(o.id)).get(keys[0]);if(rec){
     rec.ids.forEach((id,n)=>{if(id)candidates.push({unit:n+1,label:id,pieces:[id]});});
     Object.values(rec.extra||{}).forEach(a=>a.forEach(id=>{if(id)candidates.push({unit:0,label:id,pieces:[id]});}));
    }

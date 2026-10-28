@@ -66,7 +66,9 @@ function stationBatchIndexBuild(){
  return m;
 }
 function stationGlass(id,index,batches){
- const hit=index?index.get(id):(()=>{const h=glassLookup(id);return h&&h.kind==='glass'?h:null;})();
+ /* В отрисовке — указатель отрисовки (erp/read-scope): доска Ready на заказе в
+    3 000 стёкол спрашивала каждое стекло перебором всей базы. */
+ const hit=index?index.get(id):readOn()?stationPieceIndex().get(id)||null:(()=>{const h=glassLookup(id);return h&&h.kind==='glass'?h:null;})();
  if(!hit)return null;
  const o=salesRecord(hit.orderId),l=o&&(o.lines||[]).find(x=>x.id===hit.lineId);
  if(!o||!l)return null;
@@ -136,15 +138,24 @@ function stationPlace(g,scans){
    прошло, не его маршрут): Hold виден на любой станции, но скан не пишется
    и вопроса «сделано?» нет — иначе «Yes, done» записал бы CUT…IGU стеклу,
    которое не резали (аудит Shipping, 6.10.2026). */
-function stationCheck(station,raw){
+/* ctx — указатели на всё действие (Skip, Shipped: сотни стёкол подряд):
+   {index, batches, scans: Map стекло → сканы}; без него — как раньше. */
+function stationScanCtx(){
+ const scans=new Map();
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!scans.has(s.piece))scans.set(s.piece,[]);scans.get(s.piece).push(s);});
+ return {index:stationPieceIndex(),batches:stationBatchIndex(),scans};
+}
+/* Записанный скан — в указатель действия (следующее стекло видит его). */
+function stationScanCtxAdd(ctx,rec){if(!rec)return;if(!ctx.scans.has(rec.piece))ctx.scans.set(rec.piece,[]);ctx.scans.get(rec.piece).push(rec);}
+function stationCheck(station,raw,ctx){
  const code=stationCodeOf(raw);
  if(!code)return null;
  if(typeof carrierType==='function'&&carrierType(code))return {kind:'carrier',code};
  if(typeof unitIdValid==='function'&&unitIdValid(code))return stationUnitCheck(station,code);
  if(!glassPieceValid(code))return {kind:'unknown',code};
- const g=stationGlass(code);
+ const g=stationGlass(code,ctx&&ctx.index,ctx&&ctx.batches);
  if(!g)return {kind:'unknown',code};
- const scans=stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station&&!s.park).pop()||null;
+ const scans=ctx&&ctx.scans?(ctx.scans.get(code)||[]).slice():stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station&&!s.park).pop()||null;
  /* Без батча — «порезано из стока», но не стекло без резки (COG): его не режут вовсе. */
  const base={code,g,scans,place,here,stock:!g.entry&&glassComponentCut(g.c),priority:g.o.priority||'normal',due:g.o.dueDate||''};
  if(g.o.status==='cancelled')return Object.assign(base,{kind:'cancelled'});
@@ -192,7 +203,7 @@ function stationRecordCommand(station,check,who,opts){
  const rec={id:stationScanNextId(),at:now,piece:check.code,station,by:String(who&&who.name||''),byId:String(who&&who.id||''),manual:!!opts.manual,undoneAt:'',undoneBy:''};
  rec.actionId=opts.actionId||rec.id;check.actionId=rec.actionId;check.recordedAt=rec.at;
  if(check.g&&check.g.c){
-  const route=stationRouteOf(check.g);rec.step=stationRouteStep(route.codes,station,stationPlace(check.g).far);
+  const route=stationRouteOf(check.g);rec.step=stationRouteStep(route.codes,station,stationPlace(check.g,opts.scans).far);
   const rk=stationRouteKey(check.g);if(!stationFrozenRoute(rk))DB.productionRoute.push({key:rk,at:now,route:JSON.parse(JSON.stringify(route))});
  }
  if(opts.on&&typeof carrierFind==='function'){
@@ -208,7 +219,8 @@ function stationRecordCommand(station,check,who,opts){
     позиция узнаёт это через glassBatchSyncLine, как и прежде. */
  const e=check.g&&check.g.entry;
  if(station===stationCutCode()&&e&&!e.item.cutStartedAt){e.item.cutStartedAt=now;glassBatchSyncLine(check.g.o,check.g.l);}
- if(check.g&&station===shippingStations().ready)shippingSyncOrder(check.g.o,now);
+ /* noSync — заказ пересчитает сам вызвавший, один раз в конце (Skip). */
+ if(check.g&&station===shippingStations().ready&&!opts.noSync)shippingSyncOrder(check.g.o,now);
  if(!opts.deferTouch)touch();
  return rec;
 }
