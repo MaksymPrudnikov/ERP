@@ -3545,7 +3545,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='b8dab042cad4';
+var ERP_BUILD='adf4703cd599';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -27137,9 +27137,11 @@ function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TAB
 /* Заказ одного склада после Verify ждёт выдачи в Shipping, а не батча. */
 function optimizationMatches(o,key){
  if(!o||salesIsQuote(o))return false;
- const fresh=salesUnbatchedLines(o).length;
- return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?!salesStockOnly(o)&&(o.status==='verified'&&glassOrderNeedsCut(o)||(['batched','ready','shipping','done'].includes(o.status)&&fresh>0)):
-  key==='production'?o.status==='batched':key==='awaiting'?['verified','batched'].includes(o.status)&&!salesStockOnly(o):key==='ready'?shippingAvailable(o).length>0||salesStockOnly(o)&&o.status==='ready':key==='done'?o.status==='done'&&!fresh:false;
+ /* Строки без батча — только для To batch и Done: остальным вкладкам они не
+    нужны, а на годе это 1,9 с на слабом ПК (числа на вкладках). */
+ const fresh=()=>salesUnbatchedLines(o).length;
+ return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?!salesStockOnly(o)&&(o.status==='verified'&&glassOrderNeedsCut(o)||(['batched','ready','shipping','done'].includes(o.status)&&fresh()>0)):
+  key==='production'?o.status==='batched':key==='awaiting'?['verified','batched'].includes(o.status)&&!salesStockOnly(o):key==='ready'?shippingAvailable(o).length>0||salesStockOnly(o)&&o.status==='ready':key==='done'?o.status==='done'&&!fresh():false;
 }
 function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:key==='stock'?(DB.stockOffcut||[]).filter(r=>r.status==='stock').length:key==='sheets'?sheetUsageRows().length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}
 function optimizationBase(){return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,orderQueueKey())).map(salesListInfo);}
@@ -27285,7 +27287,9 @@ function shippingReadyExtras(o,q){return o.status!=='new'&&!o.onHold?q.extras.fi
 /* Стекло отменённых юнитов, которое забирает клиент, ждёт PS и у заказа,
    где отгружать больше нечего (аудит Shipping, Д2) — такой заказ тоже в Ready. */
 function shippingTakesOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&unitTakes(o).length>0);}
-function shippingReadyOrders(){const own=shippingOrders().filter(o=>{const q=shippingSummary(o);return q.ready>0||shippingReadyExtras(o,q).length>0;});return own.concat(shippingTakesOrders().filter(o=>!own.includes(o)));}
+/* Один раз на отрисовку (erp/read-scope): число на вкладке Ready и сам
+   список спрашивают одно и то же. */
+function shippingReadyOrders(){return readMemo('shippingReady',[DB.salesOrder,DB.shipment,DB.stationScan],()=>{const own=shippingOrders().filter(o=>{const q=shippingSummary(o);return q.ready>0||shippingReadyExtras(o,q).length>0;});return own.concat(shippingTakesOrders().filter(o=>!own.includes(o)));}).slice();}
 function shippingSelect(customerId,labels,on){if(shippingCustomer!==customerId){shippingSelection.clear();shippingCustomer=customerId;}labels.forEach(id=>on?shippingSelection.add(id):shippingSelection.delete(id));render();}
 /* Галочка заказа отмечает его готовые юниты; у заказа только с товаром
    склада юнитов нет — отмечается сам заказ (ключ «stock:»). */
@@ -39323,15 +39327,16 @@ function carrierSetCommand(code,field,value){
 /* Что сейчас на таре: стекло, чей последний скан положил его на неё, и
    которое с тех пор не сканировали, не разбили и не отгрузили. */
 /* station — только тара, на которую стекло положили на этой станции
-   (карточка «Dollies at …» на каждом скане): чужие не считаются. */
-function carrierContents(station){
+   (карточка «Dollies at …» на каждом скане): чужие не считаются. codes —
+   только эта тара (Set кодов): скиды одной PS. */
+function carrierContents(station,codes){
  /* Сканы стекла собираются одним проходом: иначе каждое стекло на таре
     заново перебирало весь журнал (на SHIP — на каждый скан скида). */
  const last=new Map(),scans=new Map(),out=new Map();
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;last.set(s.piece,s);if(!scans.has(s.piece))scans.set(s.piece,[]);scans.get(s.piece).push(s);});
  const index=stationPieceIndex(),batches=stationBatchIndex();
  last.forEach((s,piece)=>{
-  if(!s.on||s.broken||station&&s.station!==station)return;
+  if(!s.on||s.broken||station&&s.station!==station||codes&&!codes.has(s.on))return;
   const g=stationGlass(piece,index,batches);if(!g||unitPieceCancelled(g))return;
   const place=stationPlace(g,scans.get(piece));if(place.broken||place.shipped)return;
   if(!out.has(s.on))out.set(s.on,[]);
@@ -42689,10 +42694,14 @@ function stationCard(){
 
 /* ------------------------------ Журнал ------------------------------ */
 function stationJournal(){
- const rows=(DB.stationScan||[]).filter(s=>s.station===stationCode&&!s.undoneAt).slice(-8).reverse();
+ /* С конца журнала: восемь последних сканов станции и последний скан каждого
+    из этих стёкол (у него Undo) — без перебора сканов всего года. */
+ const all=DB.stationScan||[],rows=[];
+ for(let i=all.length-1;i>=0&&rows.length<8;i--){const s=all[i];if(s.station===stationCode&&!s.undoneAt)rows.push(s);}
  if(!rows.length)return '';
  const index=stationPieceIndex(),batches=stationBatchIndex();
- const lastOf=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)lastOf.set(s.piece,s);});
+ const want=new Set(rows.map(s=>s.piece)),lastOf=new Map();
+ for(let i=all.length-1;i>=0&&lastOf.size<want.size;i--){const s=all[i];if(!s.undoneAt&&want.has(s.piece)&&!lastOf.has(s.piece))lastOf.set(s.piece,s);}
  const body=rows.map(s=>{
   const g=stationGlass(s.piece,index,batches),snap=g&&g.entry&&g.entry.part?g.entry.part.snapshot:null,place=g?stationPlace(g):null;
   return '<tr'+(g&&stationUrgency(g.o)===2?' class="st-hot"':'')+'><td class="mut">'+esc(stationTime(s.at))+'</td><td class="mono"><b>'+esc(s.piece)+'</b>'+(s.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+(s.confirmedAt?' <span class="st-man" title="Not scanned here — confirmed at '+esc(s.confirmedAt)+'">at '+esc(s.confirmedAt)+'</span>':'')+'</td>'+
@@ -45206,7 +45215,7 @@ function shippingValidateSelection(d,exceptId){
  return Object.assign({items,extras},takes.length?{takes}:{});
 }
 function shippingCreate(d){return storageCommand(()=>{
- const picked=shippingValidateSelection(d),now=new Date().toISOString();
+ const picked=shippingWithCtx(()=>shippingValidateSelection(d)),now=new Date().toISOString();
  DB.shipmentSeq=(Number(DB.shipmentSeq)||0)+1;
  const s={id:salesUid('PS'),number:'PS-'+String(DB.shipmentSeq).padStart(4,'0'),customerId:d.customerId,method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,status:'planned',...picked,
   createdAt:now,createdBy:shippingActor(),shippedAt:'',shippedBy:'',deliveredAt:'',receivedBy:'',note:String(d.note||'').slice(0,1000),scanIds:[]};
@@ -45215,7 +45224,7 @@ function shippingCreate(d){return storageCommand(()=>{
 function shippingUpdate(id,d){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can change.');
  shippingAssert(s.customerId===d.customerId,'The packing slip customer cannot change.');
- const loaded=shippingLoadState(s).loaded.map(u=>u.label),picked=shippingValidateSelection(d,s.id),ids=shippingOrderIds(s);
+ const loaded=shippingWithCtx(()=>shippingLoadState(s)).loaded.map(u=>u.label),picked=shippingWithCtx(()=>shippingValidateSelection(d,s.id)),ids=shippingOrderIds(s);
  shippingAssert(loaded.every(label=>picked.items.some(i=>i.label===label)),'Loaded units cannot be removed. Undo loading at the station first.');
  const was={date:s.date,truckId:s.truckId||''};
  delete s.takes;Object.assign(s,picked,{method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,note:String(d.note||'').slice(0,1000)});
@@ -45240,7 +45249,7 @@ function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can be shipped.');
  shippingAssert(s.items.length+s.extras.length+(s.takes||[]).length>0,'An empty packing slip cannot be shipped.');
  const now=at||new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
- const loaded=new Set(shippingLoadState(s).loaded.map(u=>u.label));
+ const loaded=new Set(shippingWithCtx(()=>shippingLoadState(s)).loaded.map(u=>u.label));
  /* Сначала — что едет, потом проверка: непогруженный юнит, разбитый до
     печати, не держит отправку погруженных (аудит Shipping, F4). */
  if(mode==='loaded'){
@@ -45248,7 +45257,7 @@ function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
   s.items=s.items.filter(i=>loaded.has(i.label));shippingUnprint(s,left);
   [...new Set(left.map(i=>i.orderId))].forEach(oid=>orderLogPush(salesRecord(oid),'Not loaded',s.number+' · '+shippingCount(left.filter(i=>i.orderId===oid).length,'unit')+' back to Ready'));
  }
- const picked=shippingValidateSelection(s,s.id);delete s.takes;Object.assign(s,picked);
+ const picked=shippingWithCtx(()=>shippingValidateSelection(s,s.id));delete s.takes;Object.assign(s,picked);
  shippingAssert(s.items.length+s.extras.length+(s.takes||[]).length>0,'An empty packing slip cannot be shipped.');
  /* Какие скиды уезжают — до заморозки документа: на бумаге клиента только они. */
  s.skidsOut=shippingSkidsOut(s,s.items.map(i=>({pieces:i.pieces,skid:i.skid,loaded:loaded.has(i.label)})));
@@ -45401,10 +45410,12 @@ function shippingUnprint(s,items){if(s.printedItems&&items.length)s.printedItems
    чужого стекла; на самовывозе — только если его погрузили сканом скида
    («клиент пригоняет свой трак, и мы на него грузим скиды»).
    units — юниты PS как их видит цех сейчас: {pieces, skid, loaded}. */
-function shippingCarriers(){const c=shippingCtxNow;return c?c.carriers||(c.carriers=carrierContents()):carrierContents();}
 function shippingSkidsOut(s,units){
- const mine=new Set(units.flatMap(u=>u.pieces)),on=shippingCarriers(),went=s.method==='pickup'?units.filter(u=>u.loaded):units;
- return [...new Set(went.map(u=>u.skid).filter(Boolean))].filter(code=>!(on.get(code)||[]).some(x=>!mine.has(x.id)));
+ const mine=new Set(units.flatMap(u=>u.pieces)),went=s.method==='pickup'?units.filter(u=>u.loaded):units;
+ const codes=[...new Set(went.map(u=>u.skid).filter(Boolean))];if(!codes.length)return [];
+ /* Содержимое только скидов этой PS, а не всей тары цеха (1,9 с на слабом ПК). */
+ const on=carrierContents('',new Set(codes));
+ return codes.filter(code=>!(on.get(code)||[]).some(x=>!mine.has(x.id)));
 }
 function shippingLoadPart(list){const skids=new Set(list.map(u=>u.skid).filter(Boolean)).size,loose=list.filter(u=>!u.skid).length;return [skids?shippingCount(skids,'skid'):'',loose?shippingCount(loose,'unit'):''].filter(Boolean).join(' + ');}
 function shippingLoadText(st){return st.loaded.length?shippingLoadPart(st.loaded)+' loaded'+(st.rest.length?' · '+shippingLoadPart(st.rest)+' not loaded':''):'';}
@@ -49619,7 +49630,12 @@ function storageDiff(db,only){
  });
  return out;
 }
+/* Номер опорного состояния: растёт с каждой записью (своей, чужой вкладки,
+   чтением базы целиком) — сравнение в простое (storageSweep) по нему видит,
+   что база менялась посреди прохода. */
+let storageBaseRev=0;
 function storageBaseApply(changes){
+ storageBaseRev++;
  if(typeof finTotalsForget==='function')finTotalsForget(changes);
  changes.forEach(c=>{
   let m=storageBase.get(c.tbl);
@@ -50017,14 +50033,48 @@ function storageScopeCheck(before){
 /* Несохранённое после записи — для проверки touchScope (только в тестах). */
 function storageScopeMark(){if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{storageScopeLast=storageScopeSig();}catch(e){storageScopeLast=null;}}
 /* Полное сравнение — когда полминуты не трогают клавиши и мышь (как уход в
-   архив): пропущенное областью записи не потеряется. */
+   архив): пропущенное областью записи не потеряется. Идёт кусками по 30 мс:
+   целиком на годе это 3,5 с на слабом ПК, и скан в эту секунду ждал бы.
+   Ищет строки, изменённые на месте, и пишет их вместе с новыми, удалёнными
+   и сдвинутыми строками всех таблиц. Запись посреди прохода — заново позже.
+   Ответ — Promise: true, когда записано. */
 function storageSweepLater(){
  if(storageSweepTimer||typeof window!=='undefined'&&window.GF_NO_ARCHIVE)return;
  storageSweepTimer=setTimeout(storageSweep,30e3);
 }
 function storageSweep(){
- if(storageDepth||typeof archiveInputAt!=='undefined'&&Date.now()-archiveInputAt<30e3){storageSweepTimer=setTimeout(storageSweep,30e3);return;}
- storageSweepTimer=null;if(storageWriter&&!storageRecovery&&!storageStale)touch();
+ if(storageDepth||typeof archiveInputAt!=='undefined'&&Date.now()-archiveInputAt<30e3){storageSweepTimer=setTimeout(storageSweep,30e3);return Promise.resolve(false);}
+ storageSweepTimer=null;if(!storageWriter||storageRecovery||storageStale)return Promise.resolve(false);
+ const at=storageBaseRev,it=storageSweepSteps();
+ return new Promise(done=>{
+  const step=()=>{
+   storageSweepTimer=null;
+   if(storageBaseRev!==at||storageDepth||!storageWriter||storageStale){storageSweepLater();done(false);return;}
+   const t=performance.now();let r;do{r=it.next();}while(!r.done&&performance.now()-t<30);
+   if(!r.done){storageSweepTimer=setTimeout(step,0);return;}
+   storageScope=storageScopeMap(r.value);let saved;try{saved=touch();}finally{storageScope=null;}done(saved);
+  };
+  step();
+ });
+}
+/* Область прохода: каждая таблица с ключами строк, изменённых на месте
+   (новые, удалённые и сдвинутые видны и так), таблица одной записью и всё,
+   что не таблица, — целиком. Паузы (yield) — через каждые 200 строк. */
+function* storageSweepSteps(){
+ const scope={},keys=new Set(Object.keys(DB));storageBase.forEach((m,tbl)=>keys.add(tbl));
+ (storageBase.get('_meta')||new Map()).forEach((x,k)=>keys.add(k));keys.delete('_meta');
+ for(const tbl of keys){
+  const rows=DB[tbl],base=storageBase.get(tbl);
+  if(!Array.isArray(rows)||!base||base.has('*')){scope[tbl]=true;continue;}
+  const vis=storageVisit.get(tbl),ids=[];scope[tbl]=ids;
+  for(let i=0;i<rows.length;i++){
+   const id=storageRowKey(tbl,rows[i]),b=id&&base.get(id);
+   if(b&&!(vis&&vis.has(id))&&JSON.stringify(rows[i])!==b.t)ids.push(id);
+   if(i%200===199)yield;
+  }
+  yield;
+ }
+ return scope;
 }
 function storageCommand(fn,scope){
  if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}
