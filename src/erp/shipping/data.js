@@ -178,6 +178,9 @@ function normalizeShipments(){
  if(!Array.isArray(DB.shipment))DB.shipment=[];
  DB.shipment.forEach(s=>{s.shipTo=shippingAddress(s.shipTo);s.items=s.items||[];s.extras=s.extras||[];s.scanIds=s.scanIds||[];if(Array.isArray(s.takes)&&s.takes.length)s.takes=[...new Set(s.takes.filter(salesRefId))];else delete s.takes;});
  DB.shipmentSeq=Math.max(Number(DB.shipmentSeq)||0,...DB.shipment.map(s=>Number(String(s.number).slice(3))||0));
+ /* Статусы заказов по накладным: каждая команда отгрузки ставит их сама, на
+    F5 своей базы не пересчитываются (normalizeOwn, erp/storage). */
+ if(typeof normalizeOwn!=='undefined'&&normalizeOwn)return;
  shippingWithCtx(()=>(DB.salesOrder||[]).filter(o=>['ready','shipping'].includes(o.status)).forEach(o=>shippingSyncOrder(o,o.updatedAt)));
 }
 function validateShipmentPayload(src){

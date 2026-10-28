@@ -2048,9 +2048,16 @@ function normalizeCutPlansRun(){
      unplaced:Array.isArray(g.unplaced)?g.unplaced:[]}))});
    /* Отложенных правок больше нет: пока раскрой собран, параметры закрыты. */
    delete plan.pending;
-   if(typeof cutParamsFor==='function')try{cutPlanRefresh(plan);}catch(e){}
+   /* Цифры раскроя пересчитываются, когда их нет (старый файл) или данные
+      пришли не из своей базы (Import, сервер, правки данных); на F5 —
+      нет: раскрой такой, каким его сделал офис. */
+   if(typeof cutParamsFor==='function'&&!(typeof normalizeOwn!=='undefined'&&normalizeOwn&&cutPlanCounted(plan)))try{cutPlanRefresh(plan);}catch(e){}
    return plan;
   });
+}
+/* Цифры раскроя на месте: итоги, по заказам, остатки и площади каждого листа. */
+function cutPlanCounted(plan){
+ return !!plan.stats&&Number.isFinite(plan.stats.total)&&Array.isArray(plan.orders)&&plan.groups.every(g=>g.sheets.every(s=>Array.isArray(s.offcuts)&&Number.isFinite(s.used)&&Number.isFinite(s.net)));
 }
 function validateCutPlanPayload(src){
  if(src.cutPlan==null)return;
