@@ -32,7 +32,7 @@ function shippingValidateSelection(d,exceptId){
  return Object.assign({items,extras},takes.length?{takes}:{});
 }
 function shippingCreate(d){return storageCommand(()=>{
- const picked=shippingValidateSelection(d),now=new Date().toISOString();
+ const picked=shippingWithCtx(()=>shippingValidateSelection(d)),now=new Date().toISOString();
  DB.shipmentSeq=(Number(DB.shipmentSeq)||0)+1;
  const s={id:salesUid('PS'),number:'PS-'+String(DB.shipmentSeq).padStart(4,'0'),customerId:d.customerId,method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,status:'planned',...picked,
   createdAt:now,createdBy:shippingActor(),shippedAt:'',shippedBy:'',deliveredAt:'',receivedBy:'',note:String(d.note||'').slice(0,1000),scanIds:[]};
@@ -41,7 +41,7 @@ function shippingCreate(d){return storageCommand(()=>{
 function shippingUpdate(id,d){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can change.');
  shippingAssert(s.customerId===d.customerId,'The packing slip customer cannot change.');
- const loaded=shippingLoadState(s).loaded.map(u=>u.label),picked=shippingValidateSelection(d,s.id),ids=shippingOrderIds(s);
+ const loaded=shippingWithCtx(()=>shippingLoadState(s)).loaded.map(u=>u.label),picked=shippingWithCtx(()=>shippingValidateSelection(d,s.id)),ids=shippingOrderIds(s);
  shippingAssert(loaded.every(label=>picked.items.some(i=>i.label===label)),'Loaded units cannot be removed. Undo loading at the station first.');
  const was={date:s.date,truckId:s.truckId||''};
  delete s.takes;Object.assign(s,picked,{method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,note:String(d.note||'').slice(0,1000)});
@@ -66,7 +66,7 @@ function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can be shipped.');
  shippingAssert(s.items.length+s.extras.length+(s.takes||[]).length>0,'An empty packing slip cannot be shipped.');
  const now=at||new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
- const loaded=new Set(shippingLoadState(s).loaded.map(u=>u.label));
+ const loaded=new Set(shippingWithCtx(()=>shippingLoadState(s)).loaded.map(u=>u.label));
  /* Сначала — что едет, потом проверка: непогруженный юнит, разбитый до
     печати, не держит отправку погруженных (аудит Shipping, F4). */
  if(mode==='loaded'){
@@ -74,7 +74,7 @@ function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
   s.items=s.items.filter(i=>loaded.has(i.label));shippingUnprint(s,left);
   [...new Set(left.map(i=>i.orderId))].forEach(oid=>orderLogPush(salesRecord(oid),'Not loaded',s.number+' · '+shippingCount(left.filter(i=>i.orderId===oid).length,'unit')+' back to Ready'));
  }
- const picked=shippingValidateSelection(s,s.id);delete s.takes;Object.assign(s,picked);
+ const picked=shippingWithCtx(()=>shippingValidateSelection(s,s.id));delete s.takes;Object.assign(s,picked);
  shippingAssert(s.items.length+s.extras.length+(s.takes||[]).length>0,'An empty packing slip cannot be shipped.');
  /* Какие скиды уезжают — до заморозки документа: на бумаге клиента только они. */
  s.skidsOut=shippingSkidsOut(s,s.items.map(i=>({pieces:i.pieces,skid:i.skid,loaded:loaded.has(i.label)})));

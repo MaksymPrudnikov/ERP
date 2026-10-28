@@ -434,10 +434,14 @@ function stationCard(){
 
 /* ------------------------------ Журнал ------------------------------ */
 function stationJournal(){
- const rows=(DB.stationScan||[]).filter(s=>s.station===stationCode&&!s.undoneAt).slice(-8).reverse();
+ /* С конца журнала: восемь последних сканов станции и последний скан каждого
+    из этих стёкол (у него Undo) — без перебора сканов всего года. */
+ const all=DB.stationScan||[],rows=[];
+ for(let i=all.length-1;i>=0&&rows.length<8;i--){const s=all[i];if(s.station===stationCode&&!s.undoneAt)rows.push(s);}
  if(!rows.length)return '';
  const index=stationPieceIndex(),batches=stationBatchIndex();
- const lastOf=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)lastOf.set(s.piece,s);});
+ const want=new Set(rows.map(s=>s.piece)),lastOf=new Map();
+ for(let i=all.length-1;i>=0&&lastOf.size<want.size;i--){const s=all[i];if(!s.undoneAt&&want.has(s.piece)&&!lastOf.has(s.piece))lastOf.set(s.piece,s);}
  const body=rows.map(s=>{
   const g=stationGlass(s.piece,index,batches),snap=g&&g.entry&&g.entry.part?g.entry.part.snapshot:null,place=g?stationPlace(g):null;
   return '<tr'+(g&&stationUrgency(g.o)===2?' class="st-hot"':'')+'><td class="mut">'+esc(stationTime(s.at))+'</td><td class="mono"><b>'+esc(s.piece)+'</b>'+(s.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+(s.confirmedAt?' <span class="st-man" title="Not scanned here — confirmed at '+esc(s.confirmedAt)+'">at '+esc(s.confirmedAt)+'</span>':'')+'</td>'+

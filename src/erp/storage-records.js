@@ -143,7 +143,12 @@ function storageDiff(db,only){
  });
  return out;
 }
+/* Номер опорного состояния: растёт с каждой записью (своей, чужой вкладки,
+   чтением базы целиком) — сравнение в простое (storageSweep) по нему видит,
+   что база менялась посреди прохода. */
+let storageBaseRev=0;
 function storageBaseApply(changes){
+ storageBaseRev++;
  if(typeof finTotalsForget==='function')finTotalsForget(changes);
  changes.forEach(c=>{
   let m=storageBase.get(c.tbl);

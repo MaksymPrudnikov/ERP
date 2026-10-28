@@ -44,15 +44,16 @@ function carrierSetCommand(code,field,value){
 /* Что сейчас на таре: стекло, чей последний скан положил его на неё, и
    которое с тех пор не сканировали, не разбили и не отгрузили. */
 /* station — только тара, на которую стекло положили на этой станции
-   (карточка «Dollies at …» на каждом скане): чужие не считаются. */
-function carrierContents(station){
+   (карточка «Dollies at …» на каждом скане): чужие не считаются. codes —
+   только эта тара (Set кодов): скиды одной PS. */
+function carrierContents(station,codes){
  /* Сканы стекла собираются одним проходом: иначе каждое стекло на таре
     заново перебирало весь журнал (на SHIP — на каждый скан скида). */
  const last=new Map(),scans=new Map(),out=new Map();
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;last.set(s.piece,s);if(!scans.has(s.piece))scans.set(s.piece,[]);scans.get(s.piece).push(s);});
  const index=stationPieceIndex(),batches=stationBatchIndex();
  last.forEach((s,piece)=>{
-  if(!s.on||s.broken||station&&s.station!==station)return;
+  if(!s.on||s.broken||station&&s.station!==station||codes&&!codes.has(s.on))return;
   const g=stationGlass(piece,index,batches);if(!g||unitPieceCancelled(g))return;
   const place=stationPlace(g,scans.get(piece));if(place.broken||place.shipped)return;
   if(!out.has(s.on))out.set(s.on,[]);
