@@ -204,6 +204,55 @@ function storageSweep(){
   step();
  });
 }
+/* Пересчёт готовых цифр после обновления программы (аудит 29.10.2026, А2).
+   С #372 F5 доверяет цифрам раскроев (остатки, отход, Waste by order) и
+   статусам заказов по накладным своей базы. Метка counted (склад meta) —
+   сборка, которая их пересчитала и записала. Другая — F5 не ждёт
+   (владелец, 29.10.2026: «зачем загружать, если не используем»): пересчёт
+   в простое кусками по 30 мс, как сверка; пишется только изменившееся,
+   потом метка. Запись посреди прохода — проход заново позже: цифры не
+   считаются по устаревшей картине. Раскрой, где часть заказов батча в
+   архиве, остаётся как есть (cutPlanPartArchived). Ответ — Promise: true,
+   когда записано и метка поставлена. */
+let storageRecountTimer=null;
+function storageRecountLater(){
+ if(storageRecountTimer||typeof window!=='undefined'&&window.GF_NO_ARCHIVE)return;
+ storageRecountTimer=setTimeout(storageRecount,30e3);
+}
+function storageRecount(){
+ storageRecountTimer=null;
+ if(storageRecovery||storageStale)return Promise.resolve(false);
+ if(!storageWriter||storageDepth||typeof salesSaveJob!=='undefined'&&salesSaveJob||typeof archiveInputAt!=='undefined'&&Date.now()-archiveInputAt<30e3){storageRecountLater();return Promise.resolve(false);}
+ const at=storageBaseRev,it=storageRecountSteps();
+ return new Promise(done=>{
+  const step=()=>{
+   if(storageBaseRev!==at||storageDepth||!storageWriter||storageStale){storageRecountLater();done(false);return;}
+   const t=performance.now();let r;readScope(()=>{do{r=it.next();}while(!r.done&&performance.now()-t<30);});
+   if(!r.done){setTimeout(step,0);return;}
+   if(!touchScope(r.value)){done(false);return;}
+   storageFlush().then(ok=>ok&&storageIdbMetaPut('counted',storageBuildId()).then(()=>true)).catch(()=>false).then(ok=>done(!!ok));
+  };
+  step();
+ });
+}
+function* storageRecountSteps(){
+ const plans=[],orders=[],byNo=new Map((DB.glassBatch||[]).map(b=>[b.number,b])),list=(DB.cutPlan||[]).slice();
+ for(let i=0;i<list.length;i++){
+  const p=list[i];
+  if(p&&Array.isArray(p.groups)&&typeof cutPlanRefresh==='function'&&!cutPlanPartArchived(byNo.get(p.batch))){const was=JSON.stringify(p);try{cutPlanRefresh(p);}catch(e){}if(JSON.stringify(p)!==was)plans.push(p.batch);}
+  if(i%10===9)yield;
+ }
+ if(typeof shippingSyncOrder==='function'){
+  const ctx=shippingCtxBuild(),open=(DB.salesOrder||[]).filter(o=>['ready','shipping'].includes(o.status));
+  for(let i=0;i<open.length;i++){
+   const o=open[i],was=JSON.stringify(o);
+   shippingCtxNow=ctx;try{shippingSyncOrder(o,o.updatedAt);}finally{shippingCtxNow=null;}
+   if(JSON.stringify(o)!==was)orders.push(o.id);
+   if(i%20===19)yield;
+  }
+ }
+ return {cutPlan:plans,salesOrder:orders};
+}
 /* Область прохода: каждая таблица с ключами строк, изменённых на месте
    (новые, удалённые и сдвинутые видны и так), таблица одной записью и всё,
    что не таблица, — целиком. Паузы (yield) — через каждые 200 строк. */
@@ -471,7 +520,7 @@ async function storageApplySaved(d){
 }
 /* Записи пропущены (вкладка спала, сообщение не дошло) — база целиком. */
 async function storageReloadAll(){
- const got=await storageIdbReadAll();if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);const next=prepareImportedState(storageJoin(got.records),got.counted===storageBuildId());
+ const got=await storageIdbReadAll();if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);const next=prepareImportedState(storageJoin(got.records),true);
  if(typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(DB,next);
  storageBaseFrom(got.records);DB=next;storageRev=got.rev;storageTest=got.test===true;storageInvalidate();
 }
@@ -862,11 +911,8 @@ function prepareImportedState(src,own){
    отгрузки не пересчитываются (владелец, 28.10.2026: «если всё готово —
    зачем система пересобирает?»). Import, сервер, пересев и правки данных
    (DATA_FIXES) — пересчёт всего, как раньше.
-   «Эта программа» — та же сборка: цифры, посчитанные прежней версией, могли
-   считаться по другим правилам (аудит 29.10.2026, А2). Метка counted в базе
-   — сборка, которая пересчитала цифры и записала их; другая — первый F5
-   после обновления пересчитывает всё один раз (раскладки листов не
-   трогаются — только цифры). */
+   Цифры, посчитанные прежней версией программы, пересчитываются после
+   старта в простое (storageRecount, аудит 29.10.2026, А2). */
 let normalizeOwn=false;
 function normalizeDB(){
  Object.keys(DEFAULT).forEach(k=>{ if(Array.isArray(DEFAULT[k])&&!Array.isArray(DB[k])) DB[k]=JSON.parse(JSON.stringify(DEFAULT[k])); });
@@ -938,7 +984,7 @@ async function boot(){
  catch(e){storageRecovery=true;storageLastError=storageIdb?'Stored data could not be read. The original has been preserved.':'This browser could not open the database. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.';console.warn(storageLastError,e.message);}
  /* Блоки номеров сервера — до нормализации: она бывает, выдаёт номера стёкол. */
  if(!storageRecovery&&typeof cloudLoad==='function')try{await cloudLoad();}catch(e){console.warn('Sync state was not read:',e.message);}
- normalizeOwn=hadSavedState&&counted===storageBuildId();
+ normalizeOwn=hadSavedState;
  try{ if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB(); }
  catch(e){normalizeOwn=false;storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
  normalizeOwn=false;
@@ -962,13 +1008,17 @@ async function boot(){
   /* Своя база той же сборки, без пересева и правок: старт ничего не меняет
      (год цеха: 0 из 3 211 раскроев) — полное сравнение (3,7 с на слабом ПК)
      уходит в простой (storageSweep). */
-  if(hadSavedState&&storageBuildAtLoad===storageBuildId()&&counted===storageBuildId()&&!reseeded&&!fixed)storageSweepLater();
+  if(hadSavedState&&storageBuildAtLoad===storageBuildId()&&!reseeded&&!fixed)storageSweepLater();
   else{
    touch();
    if(!storageBusy&&storageBuildAtLoad!==storageBuildId())storageIdbMetaPut('build',storageBuildId()).catch(e=>console.warn('Version mark was not written:',e.message));
-   /* Цифры посчитаны этой сборкой и дошли до базы — следующий F5 им доверяет. */
-   if(counted!==storageBuildId())storageFlush().then(ok=>ok&&storageIdbMetaPut('counted',storageBuildId())).catch(e=>console.warn('Count mark was not written:',e.message));
   }
+ }
+ /* Цифры прежней сборки — пересчёт в простое; новая база посчитана этой
+    сборкой целиком — сразу метка. */
+ if(!storageRecovery&&counted!==storageBuildId()){
+  if(hadSavedState)storageRecountLater();
+  else storageFlush().then(ok=>ok&&storageIdbMetaPut('counted',storageBuildId())).catch(e=>console.warn('Count mark was not written:',e.message));
  }
  ms.write=T()-tw;storageBootMs=ms;
 }
