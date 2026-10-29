@@ -164,8 +164,11 @@ function salesBatchShrinks(draft,saved){
 }
 function salesStartedViolations(draft,saved){
  const out=[];if(!saved||typeof glassLineScanned!=='function')return out;
+ /* Стёкла заказа и сканы — один раз на заказ, а не на каждую строку (заказ на
+    500 строк перебирал сканы года 500 раз). */
+ const ctx=glassLineScannedCtx(saved.id);
  (saved.lines||[]).forEach((old,i)=>{
-  if(salesLineLocked(old)||!glassLineScanned(saved.id,old))return;
+  if(salesLineLocked(old)||!glassLineScanned(saved.id,old,ctx))return;
   const at=(draft.lines||[]).findIndex(l=>l.id===old.id),name=n=>'line '+n+(old.mark?' ('+old.mark+')':'');
   if(at<0)out.push(name(i+1)+' was removed');
   else if(salesLockedLineSnapshot(draft,draft.lines[at])!==salesLockedLineSnapshot(saved,old))out.push(name(at+1)+' changed');

@@ -162,7 +162,7 @@ module.exports=async function({page,eq,ok}){
  }),['12','12',1,1]);
  eq('Frit on each laminated ply is included in service pricing',await t.p.evaluate(()=>{
   const {l,m}=metricFixture('single',48,36,2),p=m.panes[0];p.category='laminated';
-  const product=DB.fritProduct[0];product.salePrice=3;
+  const product=DB.fritProduct[0];product.salePrice=3;touch();
   [p.laminated.outer,p.laminated.inner].forEach(ply=>Object.assign(ply.frit,{enabled:true,productId:product.id}));
   const r=salesLineChargeRows(l).find(r=>r.key==='GLAZE:frit:'+product.id);return [r.basis,r.catalogRate,r.basis*l.qty*r.catalogRate];
  }),[24,3,144]);

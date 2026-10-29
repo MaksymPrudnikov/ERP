@@ -221,8 +221,11 @@ function salesOrderSaveCommand(opts){
  soDraft.priceBook=salesPriceBookOf(soDraft);
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
- normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();salesMeasureWrite(DB.salesOrder.find(x=>x.id===soDraft.id));soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
+ normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();salesMeasureWrite(DB.salesOrder.find(x=>x.id===soDraft.id));soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();return true;
 }
+/* Экран рисует salesOrderSave после записи: внутри команды указатели
+   отрисовки выключены, и заказ на 500 строк искал фигуру каждой строки
+   перебором всей базы (2/3 времени Save). */
 /* Delete на любом этапе (владелец, 9 октября 2026): тронутый заказ сначала
    возвращает всё стекло (erp/shopfloor/production-unbatch), накладная только
    этого заказа удаляется, из общей уходит только он (erp/shipping/commands),
@@ -490,13 +493,16 @@ function salesLineDimChange(i,key,el){
  salesEnsureLineShape(line);
  salesSyncShapeFromLine(line);
  salesRefreshLineMetrics(line);
- touch();
+ /* Пишется одна фигура этой строки, а не сравнивается вся база (3 с на
+    слабом ПК после каждого поля). */
+ const shape=salesShapeByRef(line.shapeRef);
+ if(shape)touchScope({shapeDef:[shape.id]},true);else touch();
 }
 /* Qty — как размеры: без render(). Набрал Qty, кликнул мышью в Width —
    перерисовка заменяла поле, в которое кликнули, и набранное пропадало
    (проход «как человек», 7.10.2026). Итоги строки и заказа обновляются на
    месте. */
-function salesLineQtyChange(i){const line=soDraft&&soDraft.lines[i];if(!line)return;salesRefreshLineMetrics(line);touch();}
+function salesLineQtyChange(i){const line=soDraft&&soDraft.lines[i];if(!line)return;salesRefreshLineMetrics(line);}
 function salesLineMarkKey(i,e){if(e.key!=='Tab'||e.shiftKey)return;const l=soDraft.lines[i];if(!l||!l.width16||!l.height16)return;e.preventDefault();salesOrderAddLine(l.makeupId,true);}
 function salesToggleLine(id,on){if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);salesRefreshBulkBar();}
 function salesToggleAllLines(on){soSelectedLines=new Set(on?soDraft.lines.map(l=>l.id):[]);render();}

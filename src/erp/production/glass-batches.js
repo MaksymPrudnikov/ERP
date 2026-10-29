@@ -88,11 +88,17 @@ function glassBatchActive(orderId){
 /* Стекло строки уже в цеху без батча — порезано из стока и отсканировано.
    Это материал клиента: строку менять нельзя, как строку из батча
    (владелец, 05.10.2026). Undo скана снимает защиту. */
-function glassLineScanned(orderId,line){
+/* ctx — на весь заказ (Save проверяет каждую строку): {rows — стёкла заказа,
+   scanned — стёкла с живым сканом}; без него — как раньше. */
+function glassLineScanned(orderId,line,ctx){
  if(!orderId||!line)return false;
  const pre=orderId+'|'+line.id+'|',ids=new Set();
- (DB.glassPiece||[]).forEach(r=>{if(!r||!String(r.key).startsWith(pre))return;(r.ids||[]).forEach(id=>ids.add(id));Object.values(r.extra||{}).forEach(a=>(a||[]).forEach(id=>ids.add(id)));});
- return ids.size>0&&(DB.stationScan||[]).some(s=>s&&!s.undoneAt&&ids.has(s.piece));
+ (ctx?ctx.rows:DB.glassPiece||[]).forEach(r=>{if(!r||!String(r.key).startsWith(pre))return;(r.ids||[]).forEach(id=>ids.add(id));Object.values(r.extra||{}).forEach(a=>(a||[]).forEach(id=>ids.add(id)));});
+ return ids.size>0&&(ctx?[...ids].some(id=>ctx.scanned.has(id)):(DB.stationScan||[]).some(s=>s&&!s.undoneAt&&ids.has(s.piece)));
+}
+function glassLineScannedCtx(orderId){
+ const scanned=new Set();(DB.stationScan||[]).forEach(s=>{if(s&&!s.undoneAt)scanned.add(s.piece);});
+ return {rows:[...glassPieceMap(orderId).values()],scanned};
 }
 function glassPieceMap(orderId){
  if(orderId&&readOn())return new Map((readMemo('glassPieceByOrder',[DB.glassPiece],()=>{const m=new Map();(DB.glassPiece||[]).forEach(r=>{const id=r.key.split('|')[0];let a=m.get(id);if(!a)m.set(id,a=[]);a.push(r);});return m;}).get(orderId)||[]).map(r=>[r.key,r]));
