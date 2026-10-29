@@ -272,5 +272,17 @@ module.exports=async function({page,eq,ok}){
  eq('старая база в браузере после перезагрузки тоже продолжает с высшего номера',await t.p.evaluate(([high,printed])=>{
   return {seq:DB.glassPieceSeq>=high[0]&&DB.glassUnitIdSeq>=high[1],fresh:![glassPieceNextId(),unitIdNext()].some(id=>printed.includes(id))};
  },[back.high,back.printed]),{seq:true,fresh:true});
+ await helpers();
+ /* Аудит 29.10.2026: копия строки заказа (snapshot.production) — треть базы
+    года, её никто не читал. Новые батчи её не пишут; у прежних уходит при
+    старте; остальное в снимке и раскрой, стикеры, станции — те же. */
+ eq('снимок части батча без копии строки заказа: у новых её нет, у прежних уходит при старте, остальное то же',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer({legalName:'Slim snapshot'}));soDraft=null;soEdit=null;salesSetRecordStatus(id,'verified');
+  const b=glassBatchAssign(glassBatchRows([salesRecord(id)]),{}),fresh=b.parts.every(p=>!('production' in p.snapshot)&&p.snapshot.order&&p.snapshot.glass);
+  const keep=b.parts.map(p=>JSON.stringify(p.snapshot)),pieces=JSON.stringify(cutPieces(b,{}));
+  b.parts.forEach(p=>{p.snapshot.production={pane:{glass:'old'},line:'old line'};});normalizeGlassBatches();
+  const after=glassBatchFind(b.number);
+  return {fresh,stripped:after.parts.every(p=>!('production' in p.snapshot)),same:JSON.stringify(after.parts.map(p=>JSON.stringify(p.snapshot)))===JSON.stringify(keep),pieces:JSON.stringify(cutPieces(after,{}))===pieces};
+ }),{fresh:true,stripped:true,same:true,pieces:true});
  eq('батчи стёкол без ошибок страницы',t.errs,[]);await t.c.close();
 };
