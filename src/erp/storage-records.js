@@ -278,10 +278,10 @@ function storageIdbTx(stores,mode,fill){
 }
 function storageIdbReadAll(){
  return storageIdbTx(['record','meta','archive'],'readonly',tx=>{
-  const out={records:[],rev:0,build:'',copyAt:'',test:false,archive:[]},ms=tx.objectStore('meta');
+  const out={records:[],rev:0,build:'',copyAt:'',test:false,counted:'',archive:[]},ms=tx.objectStore('meta');
   tx.objectStore('record').getAll().onsuccess=e=>{out.records=e.target.result||[];};
   tx.objectStore('archive').getAll().onsuccess=e=>{out.archive=e.target.result||[];};
-  ['rev','build','copyAt','test'].forEach(k=>{ms.get(k).onsuccess=e=>{if(e.target.result!=null)out[k]=e.target.result;};});
+  ['rev','build','copyAt','test','counted'].forEach(k=>{ms.get(k).onsuccess=e=>{if(e.target.result!=null)out[k]=e.target.result;};});
   return out;
  });
 }

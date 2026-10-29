@@ -2059,7 +2059,7 @@ function normalizeCutPlans(){
  readScope(normalizeCutPlansRun);
 }
 function normalizeCutPlansRun(){
- const seen=new Set(),batches=new Set((DB.glassBatch||[]).map(b=>b.number));
+ const seen=new Set(),byNo=new Map((DB.glassBatch||[]).map(b=>[b.number,b])),batches=byNo;
  DB.cutPlan=DB.cutPlan.filter(p=>p&&typeof p==='object'&&typeof p.batch==='string'&&Array.isArray(p.groups)&&!seen.has(p.batch)&&(seen.add(p.batch),true)&&(typeof glassBatchFind!=='function'||batches.has(p.batch)))
   .map(p=>{
    const plan=Object.assign({},p,{reset:!!p.reset,settings:p.settings&&typeof p.settings==='object'&&!Array.isArray(p.settings)?p.settings:{},
@@ -2079,12 +2079,17 @@ function normalizeCutPlansRun(){
    /* Отложенных правок больше нет: пока раскрой собран, параметры закрыты. */
    delete plan.pending;
    /* Цифры раскроя пересчитываются, когда их нет (старый файл) или данные
-      пришли не из своей базы (Import, сервер, правки данных); на F5 —
-      нет: раскрой такой, каким его сделал офис. */
-   if(typeof cutParamsFor==='function'&&!(typeof normalizeOwn!=='undefined'&&normalizeOwn&&cutPlanCounted(plan)))try{cutPlanRefresh(plan);}catch(e){}
+      пришли не из своей базы (Import, сервер, правки данных); на F5 — нет:
+      раскрой такой, каким его сделал офис (после обновления программы —
+      пересчёт в простое, storageRecount). Часть заказов батча ушла в архив
+      — тоже нет: их стёкол в работе нет, и пересчёт вычеркнул бы их из
+      Waste by order и из числа стёкол (на годе цеха — 1 323 раскроя из
+      3 210, аудит 29.10.2026). */
+   if(typeof cutParamsFor==='function'&&!(cutPlanCounted(plan)&&(typeof normalizeOwn!=='undefined'&&normalizeOwn||cutPlanPartArchived(byNo.get(plan.batch)))))try{cutPlanRefresh(plan);}catch(e){}
    return plan;
   });
 }
+function cutPlanPartArchived(b){return !!b&&typeof archiveKnown==='function'&&b.parts.some(p=>!salesRecord(p.orderId)&&!!archiveKnown(p.orderId));}
 /* Цифры раскроя на месте: итоги, по заказам, остатки и площади каждого листа. */
 function cutPlanCounted(plan){
  return !!plan.stats&&Number.isFinite(plan.stats.total)&&Array.isArray(plan.orders)&&plan.groups.every(g=>g.sheets.every(s=>Array.isArray(s.offcuts)&&Number.isFinite(s.used)&&Number.isFinite(s.net)));

@@ -67,7 +67,17 @@ function* salesSaveSteps(job){
  if(tab==='sales'&&soEdit!==null){job.title=salesSaveTitle(soDraft);job.step='Opening the order';job.paint=true;yield 0.85;}
  return {ok:true};
 }
+/* Заказ записан в память — ждём диск: «Saved», закрытие заказа и отложенное
+   (другой заказ, Sign out) — только когда запись дошла до базы. Не дошла —
+   как отказ: заказ снова на экране, в углу «Not saved», отложенное не
+   выполняется, правка ждёт Retry save (аудит 29.10.2026, А1: «Saved»
+   показывался раньше записи на диск). */
 function salesSaveEnd(job,res){
+ if(res.ok&&!res.disk){
+  job.step='Saving to disk';job.pct=Math.max(job.pct,0.95);salesSaveDom();
+  storageFlush().then(ok=>salesSaveEnd(job,ok?{ok:true,disk:true}:{error:storageLastError||'Not saved. Retry or export your changes.'}));
+  return;
+ }
  salesSaveJob=null;
  if(res.ok){
   const title=soDraft&&soDraft.businessNumber?salesSaveTitle(soDraft):job.title;

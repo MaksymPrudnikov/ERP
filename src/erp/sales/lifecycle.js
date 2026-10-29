@@ -457,7 +457,9 @@ function salesConvertQuoteRecord(id,po){
 function salesSaveState(o){
  const dirty=salesDraftHasWork(),at=o&&o.updatedAt?new Date(o.updatedAt):null,ok=at&&!isNaN(at);
  const when=!ok?'':at.toDateString()===new Date().toDateString()?String(at.getHours()).padStart(2,'0')+':'+String(at.getMinutes()).padStart(2,'0'):salesShortDate(o.updatedAt);
- return {dirty,text:dirty?'Unsaved changes':soEdit==='new'?'Not saved':'Saved'+(when?' · '+when:'')};
+ /* Запись на диск отказала (полоса «Not saved», Retry save) — и у заказа не
+    «Saved» (аудит 29.10.2026, А1). */
+ return {dirty,text:dirty?'Unsaved changes':soEdit==='new'||typeof storageFailed!=='undefined'&&storageFailed?'Not saved':'Saved'+(when?' · '+when:'')};
 }
 /* Ввод в поля заказа экран не перерисовывает — метку и кнопку обновляем по месту. */
 function salesSaveStateRefresh(){
