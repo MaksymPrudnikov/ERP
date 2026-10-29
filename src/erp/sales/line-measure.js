@@ -51,8 +51,14 @@ function salesMeasureLive(line,order){
  try{return finWithOrder(order,()=>({rows:salesLineChargeRowsRaw(line),areas:salesLineAreas(line,order)}));}
  finally{salesMeasureOff--;}
 }
-function salesMeasureWrite(order){
- (order&&order.lines||[]).forEach(l=>{const m=salesMeasureLive(l,order);l.measure={sig:salesMeasureSig(l,order),rows:m.rows,areas:m.areas};});
+/* pre — посчитанное заранее Save в фоне (erp/sales/save-job): строка с тем же
+   отпечатком берёт готовое. */
+function salesMeasureWrite(order,pre){
+ (order&&order.lines||[]).forEach(l=>{
+  const sig=salesMeasureSig(l,order),p=pre&&pre.get(l.id);
+  if(p&&p.sig===sig){l.measure={sig,rows:p.rows,areas:p.areas};if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(l,order);return;}
+  const m=salesMeasureLive(l,order);l.measure={sig,rows:m.rows,areas:m.areas};
+ });
 }
 /* Отпечаток — один раз на строку за отрисовку (erp/read-scope): расчёт
    суммы спрашивает строки работ и площадь позиции несколько раз. */

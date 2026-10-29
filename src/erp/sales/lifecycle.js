@@ -458,7 +458,7 @@ function salesSaveState(o){
 }
 /* Ввод в поля заказа экран не перерисовывает — метку и кнопку обновляем по месту. */
 function salesSaveStateRefresh(){
- if(!soDraft)return;
+ if(!soDraft||typeof salesSaveJob!=='undefined'&&salesSaveJob)return;
  const el=document.querySelector('[data-order-state]'),btn=document.querySelector('[data-order-save]');if(!el&&!btn)return;
  const st=salesSaveState(soDraft);
  if(el){el.textContent=st.text;el.classList.toggle('dirty',st.dirty);}
@@ -470,7 +470,7 @@ function salesHeaderActions(o){
  if(typeof archiveViewing==='function'&&archiveViewing(o))return archiveHeaderActions(o);
  const st=salesSaveState(o);
  const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesOrderClose()">Close</button>'];
- if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
+ if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave({bg:true})">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
  if(typeof recutCanOpenHere==='function'&&recutCanOpenHere(o))parts.push('<button class="recut-btn" data-recut-open onclick="ncrOpenForm(\'recut\')">Recut</button>');
  if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open onclick="ncrOpenForm(\'ncr\')">NCR</button>');

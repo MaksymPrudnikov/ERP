@@ -190,7 +190,7 @@ function storageSweepLater(){
  storageSweepTimer=setTimeout(storageSweep,30e3);
 }
 function storageSweep(){
- if(storageDepth||typeof archiveInputAt!=='undefined'&&Date.now()-archiveInputAt<30e3){storageSweepTimer=setTimeout(storageSweep,30e3);return Promise.resolve(false);}
+ if(storageDepth||typeof salesSaveJob!=='undefined'&&salesSaveJob||typeof archiveInputAt!=='undefined'&&Date.now()-archiveInputAt<30e3){storageSweepTimer=setTimeout(storageSweep,30e3);return Promise.resolve(false);}
  storageSweepTimer=null;if(!storageWriter||storageRecovery||storageStale)return Promise.resolve(false);
  const at=storageBaseRev,it=storageSweepSteps();
  return new Promise(done=>{
@@ -380,6 +380,8 @@ function afterRender(){
  const host=document.getElementById('storageStatus');if(host)host.innerHTML=storageStatusHTML();
  const alertBar=document.getElementById('storageAlert');if(alertBar){const h=storageAlertHTML();alertBar.innerHTML=h;alertBar.hidden=!h;}
  const chip=document.getElementById('testChip');if(chip)chip.hidden=!storageTest;
+ /* Save в фоне: стекло в углу и полоса в заказе (erp/sales/save-job). */
+ if(typeof salesSaveDom==='function')salesSaveDom();
  /* Forms remain available for reading. A tab that can take over keeps its
     buttons: the click itself makes it the writer. Without coordination, with
     a broken database or in an older version, persisting controls are off. */
