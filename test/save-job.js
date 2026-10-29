@@ -40,14 +40,16 @@ module.exports=async function({page,eq}){
   await sjWait();return {waits,note:note.replace(/\d+/,'N'),guarded,opened:soEdit===other,saved:salesRecord(id).notes};
  }),{waits:true,note:'Order N opens after saving.',guarded:true,opened:true,saved:'Background'});
  eq('запись другого экрана посреди Save — проверки и счёт заново, заказ записан',await t.p.evaluate(async()=>{
-  salesDraftDrop();const id=sjBig(),f=window.salesOrderSaveCommand;let dry=0;
+  salesDraftDrop();const id=sjBig(),f=window.salesOrderSaveCommand,m=window.salesMeasureLive;let dry=0,wrote=false;
   window.salesOrderSaveCommand=function(o){if(o&&o.dry)dry++;return f.apply(this,arguments);};
+  /* Запись другого экрана — в начале счёта (шаг Prices). Ждать шага «Line …»
+     нельзя: на быстрой машине все строки проходят за один кусок, и тест
+     ждал вечно (CI 29.10.2026). */
+  window.salesMeasureLive=function(){if(!wrote&&salesSaveJob&&salesSaveJob.step==='Prices'){wrote=true;storageCommand(()=>{DB.customer[0].notes='Changed elsewhere';return true;},{customer:[DB.customer[0].id]});}return m.apply(this,arguments);};
   try{
    salesOrderSave({bg:true});
-   await new Promise(r=>{const c=()=>/^Line /.test(salesSaveJob&&salesSaveJob.step||'')?r():setTimeout(c,5);c();});
-   storageCommand(()=>{DB.customer[0].notes='Changed elsewhere';return true;},{customer:[DB.customer[0].id]});
    await sjWait();
-  }finally{window.salesOrderSaveCommand=f;}
+  }finally{window.salesOrderSaveCommand=f;window.salesMeasureLive=m;}
   return {dry,saved:salesRecord(id).notes,pieces:sjPieces(id)};
  }),{dry:2,saved:'Background',pieces:true});
  eq('не записалось — заказ снова на экране с правками и ошибкой',await t.p.evaluate(async()=>{

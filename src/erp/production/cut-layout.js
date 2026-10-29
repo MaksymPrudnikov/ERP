@@ -1382,9 +1382,12 @@ function* cutPlanSteps(number,probe,quick){
   (quick?[0]:rest.length<=150?[1,2,3]:rest.length<=300?[1,2]:[1]).forEach(seed=>jobs.push({k:'fill'+seed,w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,seed,false,quick?CUT_FILL_PREVIEW:null)}));
   columns(stock,'');
   /* Полоса → столбик → стопка, как Perfect Cut: тот же «лист за листом», где
-     к вариантам листа добавлены полосы со стопками. Тысячи стёкол — без него:
-     рюкзак на каждую полосу дорог, а квоты на тысячи стёкол прикидочные. */
-  if(!quick&&rest.length<=600)jobs.push({k:'stack',w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,1,false,null,true)});
+     к вариантам листа добавлены полосы со стопками. На любом числе стёкол
+     (владелец, 29.10.2026: раз в год расчёт на 3–4 тысячи стёкол — укладка
+     должна участвовать и там). Квота 2 788 стёкол: 245 → 240 листов, Build
+     31 → 81 с на обычном ПК; до 600 стёкол раскрой тот же до байта (порог
+     600 был до 29.10.2026). */
+  if(!quick)jobs.push({k:'stack',w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,1,false,null,true)});
   /* Несколько размеров — ещё проход «каждый лист своего размера». */
   if(stock.filter(r=>!r.base).length>1||stock.some(r=>r.base))(quick?[0]:rest.length<=150?[1,2]:[1]).forEach(seed=>jobs.push({k:'fill-mix'+seed,w:CUT_FILL_WEIGHT*stock.length,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,seed,true,quick?CUT_FILL_PREVIEW:null)}));
   if(!quick&&rest.some(p=>p.priority>0))jobs.push({k:'fill-urgent',w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,true)});
@@ -2056,7 +2059,7 @@ function normalizeCutPlans(){
  readScope(normalizeCutPlansRun);
 }
 function normalizeCutPlansRun(){
- const seen=new Set(),batches=new Set((DB.glassBatch||[]).map(b=>b.number));
+ const seen=new Set(),byNo=new Map((DB.glassBatch||[]).map(b=>[b.number,b])),batches=byNo;
  DB.cutPlan=DB.cutPlan.filter(p=>p&&typeof p==='object'&&typeof p.batch==='string'&&Array.isArray(p.groups)&&!seen.has(p.batch)&&(seen.add(p.batch),true)&&(typeof glassBatchFind!=='function'||batches.has(p.batch)))
   .map(p=>{
    const plan=Object.assign({},p,{reset:!!p.reset,settings:p.settings&&typeof p.settings==='object'&&!Array.isArray(p.settings)?p.settings:{},
@@ -2076,12 +2079,17 @@ function normalizeCutPlansRun(){
    /* Отложенных правок больше нет: пока раскрой собран, параметры закрыты. */
    delete plan.pending;
    /* Цифры раскроя пересчитываются, когда их нет (старый файл) или данные
-      пришли не из своей базы (Import, сервер, правки данных); на F5 —
-      нет: раскрой такой, каким его сделал офис. */
-   if(typeof cutParamsFor==='function'&&!(typeof normalizeOwn!=='undefined'&&normalizeOwn&&cutPlanCounted(plan)))try{cutPlanRefresh(plan);}catch(e){}
+      пришли не из своей базы (Import, сервер, правки данных); на F5 — нет:
+      раскрой такой, каким его сделал офис (после обновления программы —
+      пересчёт в простое, storageRecount). Часть заказов батча ушла в архив
+      — тоже нет: их стёкол в работе нет, и пересчёт вычеркнул бы их из
+      Waste by order и из числа стёкол (на годе цеха — 1 323 раскроя из
+      3 210, аудит 29.10.2026). */
+   if(typeof cutParamsFor==='function'&&!(cutPlanCounted(plan)&&(typeof normalizeOwn!=='undefined'&&normalizeOwn||cutPlanPartArchived(byNo.get(plan.batch)))))try{cutPlanRefresh(plan);}catch(e){}
    return plan;
   });
 }
+function cutPlanPartArchived(b){return !!b&&typeof archiveKnown==='function'&&b.parts.some(p=>!salesRecord(p.orderId)&&!!archiveKnown(p.orderId));}
 /* Цифры раскроя на месте: итоги, по заказам, остатки и площади каждого листа. */
 function cutPlanCounted(plan){
  return !!plan.stats&&Number.isFinite(plan.stats.total)&&Array.isArray(plan.orders)&&plan.groups.every(g=>g.sheets.every(s=>Array.isArray(s.offcuts)&&Number.isFinite(s.used)&&Number.isFinite(s.net)));
