@@ -265,9 +265,13 @@ function glassBatchSelectionStamp(rows){
  const ids=[...new Set(rows.map(r=>r.orderId))];
  return JSON.stringify([ids.map(salesRecord),DB.glassBatch,DB.glassPiece,DB.shapeDef,DB.glassProduct,DB.serviceRate,DB.customer,DB.receipt,(DB.recut||[]).filter(r=>ids.includes(r.orderId))]);
 }
+/* Снимок части — что видит человек в списках батча. Копию строки заказа
+   (production: стекло, фигура, точки реза, вся строка) больше не храним:
+   её никто не читал — строка после батча заблокирована, и раскрой, стикеры,
+   станции, выгрузка берут её из заказа; а весила она треть базы года (186
+   из 544 МБ) и переписывалась на каждом скане (аудит 29.10.2026). */
 function glassBatchPartSnapshot(r){
- return {order:r.o.businessNumber,customer:r.customer,line:r.line,of:r.of,...(r.recut?{recut:r.recut}:{}),lite:r.lite,glassId:r.glassId,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,heat:r.heat,coating:r.coating,
-  production:{pane:glassBatchClone(r.pane),shape:glassBatchClone(r.shape),cuttingPoints:glassBatchClone(r.cut.cuttingPoints||[]),line:salesLockedLineSnapshot(r.o,r.geo||r.l)}};
+ return {order:r.o.businessNumber,customer:r.customer,line:r.line,of:r.of,...(r.recut?{recut:r.recut}:{}),lite:r.lite,glassId:r.glassId,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,heat:r.heat,coating:r.coating};
 }
 /* Внутренний commit вызывается только после всех проверок выбранной группы.
    Независимый повторный разбор прямо перед записью исключает двойной запуск.
@@ -470,7 +474,9 @@ function normalizeGlassBatches(){
   if(!Array.isArray(b.parts))glassBatchConvertCounted(b);
   if(!Array.isArray(b.history))b.history=[];if(typeof b.createdAt!=='string')b.createdAt='';
   if(b.cutOrder!=null&&!(Number.isSafeInteger(b.cutOrder)&&b.cutOrder>0))delete b.cutOrder;
-  b.parts=b.parts.map(p=>{p=p&&typeof p==='object'?p:{};const k=String(p.key||'').split('|');return Object.assign(p,{key:String(p.key||''),orderId:k[0]||'',lineId:k[1]||'',snapshot:p.snapshot&&typeof p.snapshot==='object'?p.snapshot:{}});});
+  b.parts=b.parts.map(p=>{p=p&&typeof p==='object'?p:{};const k=String(p.key||'').split('|');Object.assign(p,{key:String(p.key||''),orderId:k[0]||'',lineId:k[1]||'',snapshot:p.snapshot&&typeof p.snapshot==='object'?p.snapshot:{}});
+   /* Копия строки заказа в снимке прежних батчей — уходит (см. glassBatchPartSnapshot). */
+   if('production' in p.snapshot)delete p.snapshot.production;return p;});
   b.items=b.items.filter(i=>i&&typeof i==='object'&&Number.isSafeInteger(i.part)&&b.parts[i.part]&&b.parts[i.part].key.split('|').length===4&&glassUnitValid(i.unit));
   b.items.forEach(i=>{['at','releasedAt','cutStartedAt'].forEach(k=>{if(typeof i[k]!=='string')i[k]='';});if(!glassPieceValid(i.piece))i.piece='';if(i.from!=null&&!salesBatchNumber(i.from))delete i.from;if(i.movedTo!=null&&(!salesBatchNumber(i.movedTo)||!i.releasedAt))delete i.movedTo;});
   b.history.forEach(h=>{if(!Array.isArray(h.pieces))h.pieces=[];});
@@ -497,7 +503,7 @@ function normalizeGlassBatches(){
   let b=glassBatchFind(number);if(!b){b={number,createdAt:at,parts:[],items:[],history:[]};DB.glassBatch.push(b);}
   const made=[];
   glassBatchComponents(o,l).forEach(c=>{
-   const part=b.parts.length;b.parts.push({key:c.key,orderId:o.id,lineId:l.id,snapshot:{order:o.businessNumber,customer:salesCustomerDisplay(o.customerId),line:li+1,of:l.qty,lite:c.lite,glass:c.glass,glassId:c.glassId||'',width:l.width16/16,height:l.height16/16,shape:'Legacy',heat:'',coating:'',production:null}});
+   const part=b.parts.length;b.parts.push({key:c.key,orderId:o.id,lineId:l.id,snapshot:{order:o.businessNumber,customer:salesCustomerDisplay(o.customerId),line:li+1,of:l.qty,lite:c.lite,glass:c.glass,glassId:c.glassId||'',width:l.width16/16,height:l.height16/16,shape:'Legacy',heat:'',coating:''}});
    for(let unit=1;unit<=l.qty;unit++){const item={piece:'',part,unit,at,releasedAt:'',cutStartedAt:l.cutStartedAt||''};b.items.push(item);made.push(item);}
   });
   b.history.push({at,action:'Imported legacy batch',pieces:[],qty:made.length,convert:made});
