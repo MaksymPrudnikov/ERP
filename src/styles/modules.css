@@ -688,7 +688,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 /* Строка лайта: шесть полей в один ряд — производитель, толщина, стекло, тип,
    термообработка, цена. Спецификация типа идёт вторым рядом и появляется
    только когда есть что уточнять. */
-.mu-field-grid-6{grid-template-columns:minmax(110px,.75fr) minmax(85px,.5fr) minmax(240px,1.35fr) minmax(120px,.7fr) minmax(150px,.85fr) minmax(120px,.6fr)}
+.mu-field-grid-6{grid-template-columns:minmax(110px,.75fr) minmax(85px,.5fr) minmax(120px,.7fr) minmax(240px,1.35fr) minmax(150px,.85fr) minmax(120px,.6fr)}
 /* Второй ряд остаётся рядом покрытия (класс сохранён), но колонок в нём две:
    само покрытие и поверхность. Стекло уехало в первый ряд. */
 .mu-second-row{display:grid;gap:6px;align-items:start;grid-template-columns:minmax(260px,1.3fr) minmax(150px,.75fr) minmax(0,1fr);margin-top:8px;padding-top:10px;border-top:1px dashed var(--line)}
