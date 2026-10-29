@@ -75,7 +75,7 @@ function salesQuoteContentKey(o){
  const n=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));
  const lines=n.lines.map(l=>{const c=JSON.parse(JSON.stringify(l));delete c.id;delete c.batchedAt;c.shapeRef=shape(l.shapeRef);c.liteShapes={};Object.keys(l.liteShapes||{}).forEach(k=>{c.liteShapes[k]=shape(l.liteShapes[k]);});return c;});
  return JSON.stringify({customerId:n.customerId,customerPo:n.customerPo,dueDate:n.dueDate,priority:n.priority,branch:n.branch,delivery:n.delivery,currency:n.currency,notes:n.notes,validUntil:n.validUntil,
-  servicePricing:n.servicePricing,orderCharges:n.orderCharges,makeups:n.makeups,extraItems:n.extraItems,serviceSets:n.serviceSets,lines});
+  servicePricing:n.servicePricing,surchargeRates:n.surchargeRates,orderCharges:n.orderCharges,makeups:n.makeups,extraItems:n.extraItems,serviceSets:n.serviceSets,lines});
 }
 /* Квота на экране записана: несохранённые правки сохраняются (у отправленной
    ревизии — новой ревизией). Возвращает номер записи того, что на экране. */
