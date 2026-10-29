@@ -44,14 +44,19 @@ module.exports=async function({page,eq}){
   const green=await q('green'),upper=await q('GREEN'),spaced=await q('   green  ');
   return {same:green.length===6&&JSON.stringify(green)===JSON.stringify(upper)&&JSON.stringify(green)===JSON.stringify(spaced),inside:await q('window sys'),legal:await q('bluewater'),code:await q('c-00007'),archived:(await q('greenhouse')).length};
  }),{same:true,inside:['Greenline Window Systems C-00007'],legal:['BTW Glass C-00050'],code:['Greenline Window Systems C-00007'],archived:0});
- eq('Customer: набор, Escape, Enter без стрелки, Tab — клиент, условия и поле прежние; заказ не сохраняется',await act(async()=>{
+ eq('Customer: Escape — прежний клиент и условия; Tab без набора — дальше, клиент тот же; заказ не сохраняется',await act(async()=>{
   const before=await run(()=>{csOpen();soDraft.paymentTerms='Manual 10';render();return DB.salesOrder.length;});
   await type('green');const typed=await run(()=>csField()),k1=await run(()=>csKept());
   await key('Escape');const esc=await run(()=>csField()),k2=await run(()=>csKept());
-  await type('green');await key('Enter');const k3=await run(()=>csKept()),saved=await run(()=>DB.salesOrder.length);
-  await type('green');await key('Tab');const tabbed=await run(()=>csField().value),k4=await run(()=>csKept());
-  return {typed,esc,tabbed,kept:[k1,k2,k3,k4],saved:saved===before};
- }),{typed:{value:'green',open:true,focus:true},esc:{value:'Atlantic Windows',open:false,focus:true},tabbed:'Atlantic Windows',kept:[true,true,true,true],saved:true});
+  await key('Tab');const passed=await run(()=>({value:csField().value,focus:document.activeElement&&document.activeElement.id!=='so_customer'})),k3=await run(()=>csKept());
+  return {typed,esc,passed,kept:[k1,k2,k3],saved:await run(()=>DB.salesOrder.length)===before};
+ }),{typed:{value:'green',open:true,focus:true},esc:{value:'Atlantic Windows',open:false,focus:true},passed:{value:'Atlantic Windows',focus:true},kept:[true,true,true],saved:true});
+ eq('Customer: набрал и Tab — первая подсказка, фокус в Customer PO; Enter без стрелки — тоже первая, заказ не сохраняется',await act(async()=>{
+  const before=await run(()=>{csOpen();return DB.salesOrder.length;});
+  await type('greenf');await key('Tab');const tab=await run(()=>({id:soDraft.customerId===csC.greenfield.id,value:csField().value,po:document.activeElement===document.querySelector('.sales-header-compact>div:nth-child(2) input')}));
+  await type('north g');await key('Enter');const enter=await run(()=>({id:soDraft.customerId===csC.north.id,saved:DB.salesOrder.length}));
+  return {tab,enter:{id:enter.id,saved:enter.saved===before}};
+ }),{tab:{id:true,value:'Greenfield Glass',po:true},enter:{id:true,saved:true}});
  eq('Customer: стрелки и Enter берут выбранную строку — вторую из двух одинаковых названий',await act(async()=>{
   await run(()=>csOpen());await type('green valley');await key('ArrowDown',2);await key('Enter');
   return run(()=>({second:soDraft.customerId===csC.valleyHa.id,first:soDraft.customerId===csC.valleyTo.id,value:document.getElementById('so_customer').value}));

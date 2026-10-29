@@ -55,15 +55,17 @@ function salesCustomerField(){
 function salesCustomerOpen(el,q){
  const box=document.getElementById('so_cust_list');if(!box)return;
  box.innerHTML=salesCustomerListHTML(q);box.hidden=false;box.scrollTop=0;
- el.setAttribute('aria-expanded','true');el.dataset.active='-1';el.removeAttribute('aria-activedescendant');
+ el.setAttribute('aria-expanded','true');el.dataset.active='-1';el.dataset.typed=salesCustomerNorm(q)?'1':'';el.removeAttribute('aria-activedescendant');
 }
 function salesCustomerClose(el){
  const box=document.getElementById('so_cust_list');if(box){box.hidden=true;box.innerHTML='';}
  if(!el)return;el.value=salesCustomerName(salesFindCustomer(soDraft&&soDraft.customerId));el.setAttribute('aria-expanded','false');el.removeAttribute('aria-activedescendant');
 }
-/* Стрелки выбирают строку, Enter — только выбранную стрелкой (первое
-   совпадение молча не берётся), Escape и Tab — без смены клиента. Enter и
-   Escape не уходят дальше поля: не сохраняют и не закрывают заказ. */
+/* Стрелки выбирают строку. Tab и Enter берут выбранную стрелкой, а без
+   стрелки — первую подсказку (владелец 30.10.2026: «без Enter, достаточно
+   просто Tab»); только если что-то набрано — проход Tab по пустому полю
+   клиента не меняет. Escape — без смены клиента. Enter и Escape не уходят
+   дальше поля: не сохраняют и не закрывают заказ. */
 function salesCustomerKeydown(e,el){
  const box=document.getElementById('so_cust_list');if(!box)return;
  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
@@ -73,10 +75,19 @@ function salesCustomerKeydown(e,el){
   opts.forEach((o,k)=>{o.classList.toggle('act',k===i);o.setAttribute('aria-selected',k===i?'true':'false');});
   el.setAttribute('aria-activedescendant',opts[i].id);opts[i].scrollIntoView({block:'nearest'});
  }else if(e.key==='Enter'){
-  e.preventDefault();e.stopPropagation();
-  const opt=box.querySelectorAll('[data-customer-option]')[+el.dataset.active];if(!box.hidden&&opt)salesCustomerPick(opt.dataset.customerOption);
+  e.preventDefault();e.stopPropagation();salesCustomerTake(el,box,false);
  }else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();salesCustomerClose(el);}
+ else if(e.key==='Tab'&&!e.shiftKey&&salesCustomerTake(el,box,true))e.preventDefault();
  else if(e.key==='Tab')salesCustomerClose(el);
+}
+/* Выбор с клавиатуры: строка под стрелкой или первая. После Tab фокус —
+   в следующем поле (Customer PO), как обычный переход. */
+function salesCustomerTake(el,box,next){
+ const opts=box.querySelectorAll('[data-customer-option]'),opt=opts[+el.dataset.active]||(el.dataset.typed?opts[0]:null);
+ if(box.hidden||!opt)return false;
+ salesCustomerPick(opt.dataset.customerOption);
+ if(next){const po=document.querySelector('.sales-header-compact>div:nth-child(2) input');if(po)po.focus();}
+ return true;
 }
 /* Тот же клиент — ничего не трогаем: ручные условия заказа остаются. */
 function salesCustomerPick(id){
