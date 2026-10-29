@@ -1382,9 +1382,12 @@ function* cutPlanSteps(number,probe,quick){
   (quick?[0]:rest.length<=150?[1,2,3]:rest.length<=300?[1,2]:[1]).forEach(seed=>jobs.push({k:'fill'+seed,w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,seed,false,quick?CUT_FILL_PREVIEW:null)}));
   columns(stock,'');
   /* Полоса → столбик → стопка, как Perfect Cut: тот же «лист за листом», где
-     к вариантам листа добавлены полосы со стопками. Тысячи стёкол — без него:
-     рюкзак на каждую полосу дорог, а квоты на тысячи стёкол прикидочные. */
-  if(!quick&&rest.length<=600)jobs.push({k:'stack',w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,1,false,null,true)});
+     к вариантам листа добавлены полосы со стопками. На любом числе стёкол
+     (владелец, 29.10.2026: раз в год расчёт на 3–4 тысячи стёкол — укладка
+     должна участвовать и там). Квота 2 788 стёкол: 245 → 240 листов, Build
+     31 → 81 с на обычном ПК; до 600 стёкол раскрой тот же до байта (порог
+     600 был до 29.10.2026). */
+  if(!quick)jobs.push({k:'stack',w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,1,false,null,true)});
   /* Несколько размеров — ещё проход «каждый лист своего размера». */
   if(stock.filter(r=>!r.base).length>1||stock.some(r=>r.base))(quick?[0]:rest.length<=150?[1,2]:[1]).forEach(seed=>jobs.push({k:'fill-mix'+seed,w:CUT_FILL_WEIGHT*stock.length,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,seed,true,quick?CUT_FILL_PREVIEW:null)}));
   if(!quick&&rest.some(p=>p.priority>0))jobs.push({k:'fill-urgent',w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,true)});
