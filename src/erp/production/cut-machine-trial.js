@@ -20,7 +20,7 @@ function cutTrialDate(){const d=new Date();return [d.getFullYear(),String(d.getM
 function cutTrialDisaiBase(program){
  const d=new Date(),mon=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()];
  const part=v=>String(v==null?'':v).replace(/[^A-Za-z0-9#-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,36)||'GLASS';
- const gid=cutTrialText(program.sheet.glass).replace(/\s+/g,'').replace(/[<>:"/\\|?*\u0000-\u001f_]/g,'-')||'GLASS';
+ const gid=cutTrialText(glassCodeLabel(program.sheet.glass)).replace(/\s+/g,'').replace(/[<>:"/\\|?*\u0000-\u001f_]/g,'-')||'GLASS';
  return part(program.batch)+'-S'+program.sheet.no+'-'+String(d.getDate()).padStart(2,'0')+'-'+mon+'-'+d.getFullYear()+'-DISAI_'+gid;
 }
 /* Толщина в миллиметрах. В проектах стола владельца (24.09.2026) прозрачное
@@ -188,7 +188,7 @@ function cutTrialMaverBmp(program){
  ctx.fillStyle='#a01818';ctx.font='bold 10px Arial';ctx.textAlign='left';ctx.textBaseline='alphabetic';
  ctx.fillText('TRIAL ONLY - DO NOT CUT',5,10);
  ctx.fillStyle='#27394e';
- cutTrialBmpText(ctx,'Batch '+program.batch+'  |  '+sheet.glass+'  |  Sheet '+sheet.no+
+ cutTrialBmpText(ctx,'Batch '+program.batch+'  |  '+glassCodeLabel(sheet.glass)+'  |  Sheet '+sheet.no+
   '  |  '+frac16(sheet.size.w)+' × '+frac16(sheet.size.h)+'"  |  '+sheet.mm+' mm',5,21,430,9,6,'left');
  const scale=Math.min(430/sheet.size.w,288/sheet.size.h),left=(440-sheet.size.w*scale)/2,bottom=316;
  const project=r=>({x:left+r.x*scale,y:bottom-(r.y+r.h)*scale,w:r.w*scale,h:r.h*scale});

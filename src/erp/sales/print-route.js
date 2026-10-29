@@ -317,7 +317,7 @@ function salesPrintRoute(line,order,shape,result){
            14.10.2026). Своей кромки по умолчанию у него нет (orders.js). */
         if(g&&g.cut===false){var cutCode=salesRouteStationOf('cutting','CUT');st.list=st.list.filter(function(s){return s.code!==cutCode;});}
         var row={label:(v.label||('Lite '+(i+1)))+(side?(side==='outer'?'a':'b'):''),
-          glass:(g?(g.code||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after,unassigned:st.unassigned,
+          glass:(g?(glassShortName(g)||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after,unassigned:st.unassigned,
           /* Размер реза этого стекла — для проверки габарита станций; лист его не печатает. */
           cut:cut?{width:cut.cutW,height:cut.cutH}:null};
         if(lam)salesRouteAppendMerge([row],salesRouteStationOf('lamination','LAM'),'lamination');

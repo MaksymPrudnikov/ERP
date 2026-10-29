@@ -124,11 +124,11 @@ function salesCavityPriceBadge(c){
 function salesPaneProductSummary(p,index){
  if(p.category==='laminated'){
   const lam=p.laminated||{},outer=lam.outer||{},inner=lam.inner||{},a=glassProductById(outer.glassProductId),b=glassProductById(inner.glassProductId);
-  const part=(g,ply,side)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code+(ply.heatSoak&&ht.code==='FT'?' + HST':''));if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'#'+salesLaminatedFritOutsideSurface(index,side)));const cs=salesCoatingSurfaceOf(p,index,side);if(cs)bits.push(salesVisionTypeLabel(ply.visionType)+' '+(cs==='film'?'into film':'#'+cs));return bits.filter(Boolean).join(' · ');};
+  const part=(g,ply,side)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(glassShortName(g)||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code+(ply.heatSoak&&ht.code==='FT'?' + HST':''));if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'#'+salesLaminatedFritOutsideSurface(index,side)));const cs=salesCoatingSurfaceOf(p,index,side);if(cs)bits.push(salesVisionTypeLabel(ply.visionType)+' '+(cs==='film'?'into film':'#'+cs));return bits.filter(Boolean).join(' · ');};
   const films=(lam.interlayers||[]).map(x=>{const il=mdById('interlayerProduct',x.productId),th=Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0?' '+(+x.thicknessMm)+' mm':'';return il?(il.code||il.name)+th:'';});
   return [part(a,outer,'outer')].concat(films,part(b,inner,'inner')).filter(Boolean).join(' + ')||'Laminated';
  }
- const g=glassProductById(p.glassProductId),ht=mdById('heatTreatment',p.heatTreatmentId),bits=[g?(g.code||g.name):'Glass'];
+ const g=glassProductById(p.glassProductId),ht=mdById('heatTreatment',p.heatTreatmentId),bits=[g?(glassShortName(g)||g.name):'Glass'];
  if(p.category==='spandrel'){const col=spandrelColourText(p.spandrel.color,p.spandrel.colorNote);bits.push('Spandrel'+(col?' '+col:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
  else if(p.visionType==='frit'){bits.push('Frit'+(p.frit.color?' '+p.frit.color:''));if(p.frit.surface)bits.push('#'+p.frit.surface);}
  else if(p.visionType==='lowe'||p.visionType==='reflective'){bits.push(salesVisionTypeLabel(p.visionType));if(p.coatingSurface)bits.push('#'+p.coatingSurface);}

@@ -39,7 +39,7 @@ function mdCatalogCount(key){return (DB[key]||[]).filter(x=>x&&x.active!==false)
    считал весь каталог): цена, станция работы, вес и рецепт рамки. */
 function mdCatalogHealth(node){
  const live=(DB[node]||[]).filter(x=>x&&x.active!==false),n=f=>live.filter(f).length;
- if(node==='glassProduct')return [['No price',n(g=>g.salePriceAnnealed==null&&g.salePriceTempered==null)]];
+ if(node==='glassProduct')return [['No price',n(g=>g.salePriceAnnealed==null&&g.salePriceTempered==null)],['No short name',n(g=>!g.shortName)]];
  if(node==='spacerVariant')return [['No price',n(x=>x.salePrice==null)],['No weight',n(x=>x.weightG==null)],['Not measured',n(x=>x.weightG!=null&&!x.weightMeasured)],['No recipe',n(x=>!surroundRecipeById(x.recipeId))]];
  if(node==='serviceRate')return [['No station',n(w=>!w.rule&&!w.station)]];
  if(['gasProduct','sealantProduct','iguPart','interlayerProduct','fritProduct','spandrelProduct'].includes(node))return [['No price',n(x=>x.salePrice==null)]];
@@ -52,7 +52,7 @@ function mdCatalogSearch(q){
  q=q.trim().toLowerCase();if(!q)return [];
  const out=[];
  MD_CATALOG_TREE.forEach(([,nodes])=>nodes.forEach(([t,label])=>(DB[t]||[]).forEach(x=>{
-  if(!x||![x.name,x.code,x.id,x.supplier,x.manufacturer,x.productCode].join(' ').toLowerCase().includes(q))return;
+  if(!x||![x.name,x.code,x.shortName,x.id,x.supplier,x.manufacturer,x.productCode].join(' ').toLowerCase().includes(q))return;
   out.push({t,label,x});})));
  return out;
 }
@@ -78,8 +78,8 @@ function mdCatalogRowClick(ev){
 }
 function mdPeekFacts(t,x){
  const money=v=>v==null?null:Number(v).toFixed(2),f=[],miss=[];
- if(t==='glassProduct'){f.push(['Thickness',x.thicknessMm==null?null:x.thicknessMm+' mm'],['Manufacturer',x.manufacturer],['Price AN',money(x.salePriceAnnealed)],['Price FT',money(x.salePriceTempered)],['Supply rows',String(glassSheetsFor(x.code).length)]);
-  if(x.salePriceAnnealed==null&&x.salePriceTempered==null)miss.push('no price');if(!glassSheetsFor(x.code).length)miss.push('no supply');}
+ if(t==='glassProduct'){f.push(['Short name',x.shortName],['Thickness',x.thicknessMm==null?null:x.thicknessMm+' mm'],['Manufacturer',x.manufacturer],['Price AN',money(x.salePriceAnnealed)],['Price FT',money(x.salePriceTempered)],['Supply rows',String(glassSheetsFor(x.code).length)]);
+  if(x.salePriceAnnealed==null&&x.salePriceTempered==null)miss.push('no price');if(!glassSheetsFor(x.code).length)miss.push('no supply');if(!x.shortName)miss.push('no short name');}
  else if(t==='spacerVariant'){const rec=surroundRecipeById(x.recipeId);f.push(['System',x.system],['Size',x.size],['Price',money(x.salePrice)],['Weight',x.weightG==null?null:x.weightG+' '+SPACER_WEIGHT_PER[x.weightPer]],['Recipe',rec?rec.name:null]);
   if(x.salePrice==null)miss.push('no price');if(x.weightG==null)miss.push('no weight');else if(!x.weightMeasured)miss.push('not measured');if(!rec)miss.push('no recipe');}
  else if(t==='serviceRate'){f.push(['Station',x.station],['Unit',x.unit],['Price',mdWorkTiersText(x)]);if(!x.rule&&!x.station)miss.push('no station');mdWorkWarnings(x).forEach(w=>miss.push(w));}

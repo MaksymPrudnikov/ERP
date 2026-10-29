@@ -261,7 +261,7 @@ function normalizeGlassProduct(p){
  const fam=GLASS_COATING_FAMILIES.includes(p.coatingFamily)?p.coatingFamily
   :(GLASS_COATING_FAMILIES.includes(p.family)?p.family:'uncoated');
  return Object.assign(materialHeader(p,'glass',fam),{
-  id:mdString(p.id),code:mdString(p.code),manufacturer:mdString(p.manufacturer),name:mdString(p.name),
+  id:mdString(p.id),code:mdString(p.code),...glassShortNameOf(p),manufacturer:mdString(p.manufacturer),name:mdString(p.name),
   substrate:GLASS_SUBSTRATES.includes(p.substrate)?p.substrate:'clear',
   coatingFamily:fam,
   thicknessMm:mdNum(p.thicknessMm),actualThicknessMm:mdNum(p.actualThicknessMm),
@@ -1205,6 +1205,27 @@ function mdById(key,id){
 }
 function glassProductById(id){return mdById('glassProduct',id);}
 function glassProductByCode(code){const c=mdString(code).toUpperCase();return (DB.glassProduct||[]).find(x=>x.code.toUpperCase()===c)||null;}
+/* Short name (владелец, 29.10.2026): код задаётся один раз при заведении
+   и остаётся ключом — за него держатся поставка, склад, раскрой и обрезки;
+   Short name — то, что читают люди; Name — полное название. Пусто — люди
+   видят код, как раньше. Связи, группировка и расчёты — по id и коду. */
+const GLASS_SHORT_MAX=40;
+function glassShortNameOf(p){const v=mdString(p&&p.shortName);return v?{shortName:v}:{};}
+function glassShortName(g){return g?(g.shortName||g.code):'';}
+/* То же по коду: раскрой, склад и станции хранят стекло кодом. */
+function glassCodeLabel(code){
+ const by=readMemo('glassByCode',[DB.glassProduct],()=>{const m=new Map();(DB.glassProduct||[]).forEach(x=>{const k=String(x&&x.code||'').toUpperCase();if(k&&!m.has(k))m.set(k,x);});return m;});
+ const g=by.get(mdString(code).toUpperCase());
+ return g&&g.shortName||mdString(code);
+}
+/* Код и Short name — одно пространство имён: занятое у другого стекла не
+   берётся ни кодом, ни коротким названием (владелец, 29.10.2026: «кастомный
+   код украдёт у меня сокращение»). */
+function glassNameKey(v){return mdString(v).replace(/\s+/g,' ').toUpperCase();}
+function glassNameOwner(name,exceptId){
+ const k=glassNameKey(name);if(!k)return null;
+ return (DB.glassProduct||[]).find(g=>g&&g.id!==exceptId&&(glassNameKey(g.code)===k||glassNameKey(g.shortName)===k))||null;
+}
 /* Из выбора выпадает только снятое с производства. Отсутствие на складе —
    не запрет, а пометка «по предзаказу»: пользователь начал разговор именно
    с того, что заказать можно и то, чего у него нет. */

@@ -237,7 +237,7 @@ function stkDialogHTML(){
  const title='Print stickers · Order '+(o.businessNumber||''),sub=[salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · ');
  const rows=stkOrderRows(o).map(row=>{
   const x=d.rows[row.key]||{on:false,which:'all',units:''},unitType=d.type==='unit',usable=unitType?row.kind==='line'&&row.comps.length>1:row.comps.length>0,on=x.on&&usable;
-  const opts=unitType?[{v:'all',t:'Whole unit'}]:[{v:'all',t:row.comps.length>1?'All glass':'Lite '+(row.comps[0]?row.comps[0].lite+' · '+row.comps[0].glass:'')}].concat(row.comps.length>1?row.comps.map(c=>({v:c.key,t:'Lite '+c.lite+' · '+c.glass})):[]);
+  const opts=unitType?[{v:'all',t:'Whole unit'}]:[{v:'all',t:row.comps.length>1?'All glass':'Lite '+(row.comps[0]?row.comps[0].lite+' · '+glassCodeLabel(row.comps[0].glass):'')}].concat(row.comps.length>1?row.comps.map(c=>({v:c.key,t:'Lite '+c.lite+' · '+glassCodeLabel(c.glass)})):[]);
   const max=row.kind==='recut'?row.r.qty:row.l.qty,name=row.kind==='recut'?`<b class="stk-recut">Recut ${row.r.no}</b> · Line ${row.li+1}`:'Line '+(row.li+1)+(row.l.mark?' · '+esc(row.l.mark):'');
   return `<tr data-stk-row="${esc(row.key)}" class="${on?'on':''}${usable?'':' off'}"><td><input type="checkbox" data-stk-row-on ${on?'checked':''} ${usable?'':'disabled'} aria-label="Print ${row.kind==='recut'?'recut '+row.r.no:'line '+(row.li+1)}" onchange="stkDialogRow('${esc(row.key)}','on',this.checked,true)"></td>
    <td>${name}</td><td class="nowrap">${(g=>`${esc(dimIn16(g.width16/16))} × ${esc(dimIn16(g.height16/16))}`)(row.kind==='recut'?recutLine(row.r,row.l):row.l)}</td><td class="n">${max}</td>
@@ -264,7 +264,7 @@ function stkDialogHTML(){
    печать браузера идёт на один принтер. */
 function stkBatchDialogHTML(d,seg){
  const x=stkBatchView(d);if(!x){stkDialog=null;return '';}
- const b=x.b,glass=[...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / ');
+ const b=x.b,glass=[...new Set(b.parts.map(p=>p.snapshot.glass))].map(glassCodeLabel).join(' / ');
  const plural=(n,w)=>n+' '+w+(n===1?'':'s'),glassN=x.selected.filter(j=>j.type!=='stock').length,stockN=x.selected.length-glassN;
  const sub=[glass,x.all.filter(j=>j.type!=='stock').length+' glass',x.laid?plural(x.max,'sheet'):'Not built · in order'].join(' · ');
  const cur=typeof cutUi!=='undefined'&&cutUi&&cutUi.batch===b.number&&+cutUi.sheet||1;
@@ -453,7 +453,7 @@ function stkSamples(type){
  (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&o.status!=='cancelled').slice().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,15).forEach(o=>(o.lines||[]).forEach((l,li)=>{
   const comps=glassBatchComponents(o,l).filter(c=>!c.missing),shape=salesShapeIsLineRect(salesLineGeometryShape(l))?'':' · shape';
   if(type==='unit'){if(comps.length>1)out.push({key:o.id+'|'+l.id,label:o.businessNumber+' · Line '+(li+1)+' · Unit 1'+shape,o,l});return;}
-  comps.forEach(c=>out.push({key:c.key,label:o.businessNumber+' · Line '+(li+1)+' · Lite '+c.lite+' · '+c.glass+shape,o,l,c}));
+  comps.forEach(c=>out.push({key:c.key,label:o.businessNumber+' · Line '+(li+1)+' · Lite '+c.lite+' · '+glassCodeLabel(c.glass)+shape,o,l,c}));
  }));
  return out.slice(0,80);
 }

@@ -624,16 +624,20 @@ function salesGlassProductHasReferences(id){
 }
 function salesShapeHasReferences(id){return (DB.salesOrder||[]).some(o=>o.lines.some(l=>l.shapeRef&&l.shapeRef.id===id))||(typeof soDraft!=='undefined'&&soDraft&&soDraft.lines.some(l=>l.shapeRef&&l.shapeRef.id===id));}
 
-function salesGlassCodeForPane(p){
+/* Внутри (цех, офис, чертежи) — Short name, пусто — код; клиенту ('name') —
+   Name, как в его проекте; 'code' — код (галочка Makeup code на стикере).
+   Владелец, 29.10.2026: «всё, что идёт к клиенту, — имя; сокращения — для
+   общения внутри и чертежей». */
+function salesGlassCodeForPane(p,how){
  if(p.category==='laminated')return 'LAM';
- const g=glassProductById(p.glassProductId),base=g?(g.code||g.name):'?';
+ const g=glassProductById(p.glassProductId),base=g?(how==='name'?g.name:how==='code'?g.code:glassShortName(g))||g.name:'?';
  if(p.category==='spandrel')return base+' SP';
  if(p.visionType==='frit')return base+' FRIT';
  if(p.visionType==='lowe'||p.visionType==='reflective')return base;
  return base;
 }
-function salesMakeupSummary(m){
- const bits=[];m.panes.forEach((p,i)=>{if(i){const c=m.cavities[i-1],sp=mdById('spacerVariant',c&&c.spacerVariantId),gas=mdById('gasProduct',c&&c.gasProductId);bits.push((sp?sp.size+' '+sp.system:'Cavity')+(gas&&gas.code!=='AIR'?' '+gas.code:''));}bits.push(salesGlassCodeForPane(p));});return bits.join(' / ');
+function salesMakeupSummary(m,how){
+ const bits=[];m.panes.forEach((p,i)=>{if(i){const c=m.cavities[i-1],sp=mdById('spacerVariant',c&&c.spacerVariantId),gas=mdById('gasProduct',c&&c.gasProductId);bits.push((sp?sp.size+' '+sp.system:'Cavity')+(gas&&gas.code!=='AIR'?' '+gas.code:''));}bits.push(salesGlassCodeForPane(p,how));});return bits.join(' / ');
 }
 /* Толщина пакета складывается из стёкол и КАМЕР, а камера — это фактическая
    толщина рамки, а не её название. Раньше здесь разбиралась дробь из size, и

@@ -51,11 +51,11 @@ module.exports=async function({page,eq}){
   const supplier=purSupplierSave({name:'External plant'}).value;window.poExternalSupplier=supplier.id;
   const row=purOrderComponentLine(o.id,l.id,c.key),p=poSave({supplierId:supplier.id,supplierName:'External plant',expectedDate:'2026-10-20',lines:[row]}).value;
   window.poLinked=p.id;window.poSnapshot=purClone(row.spec);
-  const part=row.spec.parts[0];return {count:row.spec.parts.length,label:row.spec.part,glass:part.glass.includes('6SBN60')&&part.glass.includes('Tempered')&&part.glass.includes('#3'),size:part.finished,service:part.services.includes('ROUGH ARRIS'),same:before===JSON.stringify({o,scans:DB.stationScan,batches:DB.glassBatch,receipts:DB.receipt}),linked:purLinkedPurchases(o.id,l.id).map(x=>x.p.number)};
+  const part=row.spec.parts[0];return {count:row.spec.parts.length,label:row.spec.part,glass:part.glass.includes(glassProductByCode('6SBN60').name)&&!part.glass.includes('6SBN60')&&part.glass.includes('Tempered')&&part.glass.includes('#3'),size:part.finished,service:part.services.includes('ROUGH ARRIS'),same:before===JSON.stringify({o,scans:DB.stationScan,batches:DB.glassBatch,receipts:DB.receipt}),linked:purLinkedPurchases(o.id,l.id).map(x=>x.p.number)};
  }),{count:1,label:'Lite 2',glass:true,size:{w:37,h:71},service:true,same:true,linked:['PO-0004']});
  eq('PO specification remains the ordered snapshot when the customer makeup changes later',await t.p.evaluate(()=>{
   const o=salesRecord(poCustomerOrder);o.makeups[0].panes[1].glassProductId=glassProductByCode('6CLEAR').id;
-  const p=purOrderFind(poLinked);return {same:JSON.stringify(p.lines[0].spec)===JSON.stringify(poSnapshot),printed:purDocPages(p).flatMap(p=>p.items).some(i=>i.t==='text'&&i.s.includes('6SBN60'))};
+  const p=purOrderFind(poLinked);return {same:JSON.stringify(p.lines[0].spec)===JSON.stringify(poSnapshot),printed:purDocPages(p).flatMap(p=>p.items).some(i=>i.t==='text'&&i.s.includes(glassProductByCode('6SBN60').name))};
  }),{same:true,printed:true});
  eq('invalid nested specification data is rejected before import can break a PO screen',await t.p.evaluate(()=>{
   const before=JSON.stringify(DB),p=purClone(purOrderFind(poLinked));p.lines[0].spec.parts[0].services={};

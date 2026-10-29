@@ -144,8 +144,8 @@ function carrierText(it,k,print){
   case 'mark':return l.mark||'';
   case 'size':return carrierSize(it,print);
   case 'glass':{
-   if(it.unit)return [...new Set(it.glass.map(g=>g.c&&g.c.glass).filter(Boolean))].join(' / ');
-   const c=it.g.c;return c?(carrierLites(it)>1?'Lite '+c.lite+' · ':'')+c.glass:'';
+   if(it.unit)return [...new Set(it.glass.map(g=>g.c&&g.c.glass).filter(Boolean))].map(glassCodeLabel).join(' / ');
+   const c=it.g.c;return c?(carrierLites(it)>1?'Lite '+c.lite+' · ':'')+glassCodeLabel(c.glass):'';
   }
   case 'makeup':{const m=salesMakeupById(o,l.makeupId);return m?salesMakeupSummary(m):'';}
   case 'id':return it.label;

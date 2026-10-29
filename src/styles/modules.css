@@ -100,6 +100,11 @@
 /* Master Data · факты о выбранном стекле под селектом конфигуратора. */
 .mu-glass-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px;min-height:15px;font-size:10px;line-height:1.35}.mu-glass-meta .pill{font-size:9.5px;padding:1px 6px}
 .md-row-off{opacity:.55}.md-row-off b{text-decoration:line-through}
+/* Стекло без Short name: черта у строки, полоса со счётчиком, ссылка add. */
+.md-row-noshort td:first-child{box-shadow:inset 3px 0 0 var(--warning)}
+.md-short-banner{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:9px 12px;border:1px solid var(--warning-line);border-radius:9px;background:var(--warning-soft);color:var(--text)}
+.md-short-banner>b{color:var(--warning)}.md-short-banner>.sp{flex:1}
+.gb-link.md-short-add{color:var(--warning);font-weight:600;text-decoration:underline}
 /* Два шага выбора покрытого стекла: покрытие · на каком стекле · поверхность. */.mu-coating-grid{display:grid;grid-template-columns:minmax(200px,1fr) minmax(220px,1.2fr) minmax(96px,max-content);gap:6px;align-items:start;margin-top:6px}.mu-coating-grid>div{min-height:64px}/* .mu-surface прижимался к низу ячейки — в сетке покрытия он от этого
    стоял на пару пикселей ниже соседей и заставлял ряд «плясать». */.mu-coating-grid .mu-surface{align-self:start}.mu-cell-empty{min-height:0}.mu-surface-hint{margin-top:4px;min-height:15px;font-size:9.5px;line-height:1.35;color:var(--text-2)}.mu-surface-buttons button.off-catalog{opacity:.5;border-style:dashed}@media(max-width:900px){.mu-coating-grid{grid-template-columns:1fr 1fr}}@media(max-width:620px){.mu-coating-grid{grid-template-columns:1fr}}
 @media(max-width:1350px){.mu-lam-ply-grid{grid-template-columns:repeat(3,minmax(140px,1fr))}}
