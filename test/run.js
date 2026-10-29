@@ -4576,6 +4576,26 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
               plain.indexOf('Selected Coating') < 0, plain.indexOf('>Glass<') > 0];
     }), [true, true, true, true]);
 
+    /* Порядок полей стекла (владелец, 29.10.2026, пункт 10 плана v1.16):
+       Manufacturer → Thickness → Type → Glass → Heat Treatment → Price · sq ft
+       в каждом лайте — Vision, Spandrel, обе плиты ламината; Tab идёт тем же
+       порядком (DOM), выбранное в полях — на своих местах. */
+    eq('порядок полей стекла: Type перед Glass во всех лайтах, значения на своих полях', await t.p.evaluate(() => {
+      tab = 'sales'; subtab = null; salesOrderNew(); salesSetUnitType('triple');
+      salesSetPaneCategory(1, 'spandrel'); salesSetPaneCategory(2, 'laminated'); soExpandAll = true; render();
+      const grids = [...document.querySelectorAll('.mu-field-grid-6')];
+      const labels = grids.map(g => [...g.children].map(c => c.querySelector('label').textContent.trim()));
+      const p = salesCurrentMakeup().panes[0], vision = grids[0].children, tabbable = [...grids[0].querySelectorAll('select,input')];
+      soExpandAll = false;
+      return { grids: grids.length, labels, values: [vision[2].querySelector('select').value === p.visionType, vision[3].querySelector('select').value === p.glassProductId],
+        tab: tabbable.map(x => x.closest('.mu-field-grid-6>div').querySelector('label').textContent.trim()) };
+    }), { grids: 4, labels: [
+      ['Manufacturer', 'Thickness', 'Type', 'Glass', 'Heat Treatment', 'Price · sq ft'],
+      ['Manufacturer', 'Thickness', 'Type', 'Base Glass', 'Heat Treatment', 'Price · sq ft'],
+      ['Manufacturer', 'Thickness', 'Type', 'Glass', 'Heat Treatment', 'Price · sq ft'],
+      ['Manufacturer', 'Thickness', 'Type', 'Glass', 'Heat Treatment', 'Price · sq ft']],
+      values: [true, true], tab: ['Manufacturer', 'Thickness', 'Type', 'Glass', 'Heat Treatment', 'Price · sq ft'] });
+
     /* Смена покрытия переносит базовое стекло: человек выбрал Azuria и на
        новом покрытии ждёт ту же Azuria, а не первую строку списка. */
     eq('смена покрытия в интерфейсе переносит базовое стекло', await t.p.evaluate(() => {
