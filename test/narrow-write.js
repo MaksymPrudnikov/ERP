@@ -34,6 +34,7 @@ module.exports=async function({page,eq}){
   ['more units',()=>{salesOrderEdit(NW1);soDraft.lines[0].qty=3;salesOrderSave();}],
   ['new line',()=>{salesOrderEdit(NW1);const l=normalizeSalesOrderLine(Object.assign({},soDraft.lines[0],{id:'',qty:1,mark:'New'}));soDraft.lines.push(l);salesEnsureLineShape(l);salesOrderSave();}],
   ['PO and notes',()=>{salesOrderEdit(NW1);soDraft.customerPo='PO-W';soDraft.notes='Walk';salesOrderSave();}],
+  ['surcharge for this order',()=>{salesOrderEdit(NW1);salesOpenMetrics('rules');salesSetOrderSurcharge('largeUnit','value','40');salesSetOrderSurcharge('minArea','value','8');salesOrderSave();}],
   ['customer changed',()=>{salesOrderEdit(NW1);soDraft.customerId=oqCustomer({legalName:'Walk B'}).id;salesOrderSave();}],
   ['line removed',()=>{salesOrderEdit(NW1);soDraft.lines.pop();salesOrderSave();}],
   ['batched: fewer units',()=>{window.NW2=oqOrder(oqCustomer({legalName:'Walk C'}));oqThrough(NW2,'batched');touch();salesOrderEdit(NW2);soDraft.lines[0].qty=1;salesOrderSave();}],
@@ -56,6 +57,6 @@ module.exports=async function({page,eq}){
   const rest=await left();if(rest.length)bad.push(name+': '+rest.join(', '));
   await t.p.evaluate(()=>touch());
  }
- eq('узкая запись: 20 случаев (Save, квота, статусы, оплата, батч, сканы, PS) — ничего не остаётся незаписанным',bad,[]);
+ eq('узкая запись: 21 случай (Save, надбавки заказа, квота, статусы, оплата, батч, сканы, PS) — ничего не остаётся незаписанным',bad,[]);
  await t.c.close();
 };

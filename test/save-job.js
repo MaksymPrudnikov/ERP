@@ -88,6 +88,16 @@ module.exports=async function({page,eq}){
    return {waiting,tab,open:soEdit===id,card:/^Not saved: /.test(h3()),error:!!(e&&e.textContent),state:(document.querySelector('[data-order-state]')||{}).textContent,queued:soEdit!==other};
   }finally{window.storageIdbWrite=keep;storageRetry();await storageFlush();salesSaveClose();}
  }),{waiting:{job:true,saved:false,step:'Saving to disk',tab:'finance'},tab:'sales',open:true,card:true,error:true,state:'Not saved',queued:true});
+ /* Пункт 15: числа надбавок заказа — и в Save в фоне (цены считаются
+    заранее по черновику); пока заказ пишется, поля окна недоступны. */
+ eq('P15-06 Save в фоне: Minimum area 8 ft² заказа — в ценах записанного заказа; во время записи поля Surcharges недоступны',await t.p.evaluate(async()=>{
+  salesDraftDrop();const id=sjBig();
+  if(typeof salesSetOrderSurcharge==='function'){salesOpenMetrics('rules');salesSetOrderSurcharge('minArea','value','8');}
+  salesOrderSave({bg:true});salesOpenMetrics('rules');
+  const locked=[...document.querySelectorAll('[data-surcharge-list] input')].map(x=>x.disabled||!!x.closest('[inert]'));
+  await sjWait();const o=salesRecord(id),small=o.lines.filter(l=>l.width16*l.height16/256/144<8);
+  return {rates:o.surchargeRates,locked:locked.length>0&&locked.every(Boolean),billed:finWithOrder(o,()=>small.every(l=>salesLineAreas(l,o).billable===8)),some:small.length>0};
+ }),{rates:{minArea:{value:8}},locked:true,billed:true,some:true});
  eq('Save в фоне без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

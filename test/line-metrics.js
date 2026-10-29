@@ -203,4 +203,111 @@ module.exports=async function({page,eq,ok}){
  eq('cents: a half-cent tie rounds up whatever the float noise (98.175 + 2.82, 29.4 + 32.395, 1.005)',await t.p.evaluate(()=>[salesMoney(98.17499999999998+2.82),salesMoney(98.17499999999998+2.8200000000000003),salesMoney(29.4+32.394999999999996),salesMoney(29.4+32.395),salesMoney(1.005),salesMoney(0.1+0.2)]),[101,101,61.8,61.8,1.01,0.3]);
  eq('metrics have no browser errors',t.errs,[]);
  await t.c.close();
+ /* Пункт 15 плана (владелец, 29.10.2026): числа надбавок меняются в окне
+    Surcharges только для этого заказа. Контрольный заказ 17.3 — 90 × 120″
+    Double 6CLEAR / BWE 17/32 ARG / 6CLEAR, Rough Arris: юнит 968.40, Large
+    unit 50% → 1452.60. Возможность снимали 22.10 (v5.240) вместе с проверкой;
+    эти проверки её сторожат. */
+ const s=await page();await require('./optimization-fixture')(s.p);
+ const p15Helpers=()=>{
+  window.p15Order=function(w=90,h=120,type='double',customer){
+   tab='sales';salesOrderNew();salesSetUnitType(type);const m=soDraft.makeups[0],l=normalizeSalesOrderLine({makeupId:m.id,width16:w*16,height16:h*16,qty:1});
+   soDraft.lines=[l];salesEnsureLineShape(l);if(customer!==false)salesApplyCustomerDefaults((customer||oqCustomer({legalName:'Surcharge Co'})).id);render();return l;
+  };
+  window.p15Unit=()=>salesLineCommercialPrice(soDraft.lines[0],soDraft).unit;
+  /* Ввод как у человека: поле окна Surcharges, событие change. */
+  window.p15Type=function(id,field,value){
+   tab='sales';salesOpenMetrics('rules');
+   const el=document.querySelector(`[data-surcharge-input="${id}:${field}"]`);if(!el)return;el.value=value;el.dispatchEvent(new Event('change',{bubbles:true}));
+  };
+  window.p15Switch=function(id,on){tab='sales';salesOpenMetrics('rules');const el=document.querySelector(`[data-surcharge="${id}"] input[type=checkbox]`);if(!el)return;el.checked=on;el.dispatchEvent(new Event('change',{bubbles:true}));};
+  window.p15Row=id=>{const r=document.querySelector(`[data-surcharge="${id}"]`);if(!r)return null;return {off:r.classList.contains('off'),on:r.querySelector('input[type=checkbox]').checked,tag:r.querySelector('.sales-rate-origin').textContent,value:r.querySelector(`[data-surcharge-input="${id}:value"]`).value};};
+  window.p15Works=id=>DB.serviceRate.find(r=>r.id===id).tiers[0].price;
+ };
+ await s.p.evaluate(p15Helpers);
+ /* Узкая запись (X-01): Save → F5 через 2 с, до сверки в простое. */
+ const sf5=async()=>{await s.p.evaluate(()=>storageFlush());await s.p.waitForTimeout(2000);await s.p.reload();await s.p.evaluate(()=>window.storageReady);await require('./optimization-fixture')(s.p);await s.p.evaluate(p15Helpers);};
+ const p15=await s.p.evaluate(()=>{
+  p15Order();const before=p15Unit();p15Type('largeUnit','value','40');
+  const row=p15Row('largeUnit'),badge=document.querySelector('[data-surcharge-badge]')?.textContent;
+  salesOpenLineServices(soDraft.lines[0].id);const own=(document.querySelector('[data-surcharge-own]')?.textContent||'').replace(/\s+/g,' ').trim();salesCloseServices();
+  const cell=document.querySelector('.line-services-cell').textContent.replace(/\s+/g,' ');
+  const a=salesLineCommercialPrice(soDraft.lines[0],soDraft).adjustments[0]||{};
+  salesOrderSave();const id=soEdit;salesDraftDrop(true);
+  return {id,before,amount:a.amount,row,badge,own:[own.includes('ORDER'),own.includes('968.40 × 40% = 387.36'),own.includes('Catalog +50% · > 60 ft²')],cell:cell.includes('Large unit +40%'),works:p15Works('largeUnit')};
+ });
+ eq('P15-01 Large unit 40% в окне Surcharges заказа: надбавка 387.36, юнит 968.40 → 1355.76; метка ORDER, признак на кнопке, расчёт в окне строки; Data → Works по-прежнему 50%',
+  {before:p15.before,amount:p15.amount,row:p15.row,badge:p15.badge,own:p15.own,cell:p15.cell,works:p15.works},
+  {before:1452.6,amount:387.36,row:{off:false,on:true,tag:'ORDER',value:'40'},badge:'ORDER 1',own:[true,true,true],cell:true,works:50});
+ await sf5();
+ eq('P15-01 после Save → F5 через 2 с: у заказа 40% и 1355.76; Works 50%; новый заказ — 50% и 1452.60',await s.p.evaluate(id=>{
+  const o=salesRecord(id),saved=finWithOrder(o,()=>salesLineCommercialPrice(o.lines[0],o).unit);
+  p15Order();return {rates:o.surchargeRates,saved,works:p15Works('largeUnit'),fresh:p15Unit(),freshRates:soDraft.surchargeRates||null};
+ },p15.id),{rates:{largeUnit:{value:40}},saved:1355.76,works:50,fresh:1452.6,freshRates:null});
+ eq('P15-06 Order confirmation, Invoice и Finance считают по числу заказа: 1355.76',await s.p.evaluate(id=>{
+  const o=salesRecord(id),docs=['confirmation','invoice'].map(k=>finWithOrder(o,()=>docBuildModel(k,o).items[0].amount));
+  return [docs.map(x=>x===docMoney(1355.76)),finOrderTotals(o).subtotal];
+ },p15.id),[[true,true],1355.76]);
+ eq('P15-02 порог 80 ft², 0 → Off, включатель, Reset; −5, текст и порог 0 не приняты — прежнее число на месте',await s.p.evaluate(()=>{
+  p15Order();const out={};
+  p15Type('largeUnit','areaOver','80');out.over80=p15Unit();p15Type('largeUnit','areaOver','');
+  p15Type('largeUnit','value','0');out.zero=[p15Unit(),p15Row('largeUnit'),soDraft.surchargeRates?.largeUnit];
+  out.hidden=[document.querySelector('.line-services-cell').textContent.includes('Large unit'),salesLineCommercialAdjustments(soDraft.lines[0],soDraft).length];
+  p15Switch('largeUnit',true);out.back=p15Unit();
+  p15Type('largeUnit','value','40');p15Switch('largeUnit',false);out.offKeeps=[p15Unit(),p15Row('largeUnit')?.value];p15Switch('largeUnit',true);out.onAgain=p15Unit();
+  const bad=['-5','abc'].map(v=>{p15Type('largeUnit','value',v);return [p15Unit(),!!document.querySelector('[data-surcharge-error]')];});
+  p15Type('largeUnit','areaOver','0');bad.push([p15Unit(),!!document.querySelector('[data-surcharge-error]'),soDraft.surchargeRates?.largeUnit?.areaOver==null]);
+  document.querySelector('[data-surcharge="largeUnit"] button')?.click();out.reset=[p15Unit(),soDraft.surchargeRates||null,!!document.querySelector('[data-surcharge-badge]')];
+  out.bad=bad;return out;
+ }),{over80:968.4,zero:[968.4,{off:true,on:false,tag:'OFF',value:''},{off:true}],hidden:[false,0],back:1452.6,offKeeps:[968.4,'40'],onAgain:1355.76,
+  reset:[1452.6,null,false],bad:[[1355.76,true],[1355.76,true],[1355.76,true,true]]});
+ eq('P15-03 Minimum area 8 ft² для заказа: строка 10 × 10″ оплачивается как 8 ft², в другом заказе — 4 ft²',await s.p.evaluate(()=>{
+  const l=p15Order(10,10);const was=salesLineAreas(l,soDraft).billable;p15Type('minArea','value','8');
+  const a=salesLineAreas(soDraft.lines[0],soDraft),own=document.querySelector('[data-surcharge="minArea"] .metric-surcharge-effect')?.textContent;
+  const other=p15Order(10,10);return [was,a.billable,a.minArea&&a.minArea.value,own,salesLineAreas(other,soDraft).billable];
+ }),[4,8,8,'1 line at 8 ft²',4]);
+ eq('P15-04 сохранённый заказ держит снимок: Works Large unit 60% — у заказа своё 40%, Reset возвращает 50% снимка, а не 60%',await s.p.evaluate(id=>{
+  const g=DB.serviceRate.find(r=>r.id==='largeUnit');g.tiers[0].price=60;
+  salesOrderEdit(id);const own=p15Unit();salesOpenMetrics('rules');const row=document.querySelector('[data-surcharge="largeUnit"]')?.textContent||'';
+  if(typeof salesResetOrderSurcharge==='function')salesResetOrderSurcharge('largeUnit');const reset=p15Unit(),dirty=salesSaveState(soDraft).dirty;salesDraftDrop(true);g.tiers[0].price=50;
+  return [own,row.includes('+50% · > 60 ft²'),reset,dirty];
+ },p15.id),[1355.76,true,1452.6,true]);
+ eq('P15-07 журнал заказа: правка надбавки записана «было → стало»; правка в открытом заказе — несохранённое изменение',await s.p.evaluate(id=>{
+  const notes=()=>DB.orderEvent.filter(e=>e.orderId===id&&e.what==='Surcharge').map(e=>e.note);const first=notes();
+  salesOrderEdit(id);p15Type('largeUnit','areaOver','70');const dirty=salesSaveState(soDraft).dirty;salesOrderSave();salesDraftDrop(true);
+  return {first,next:notes().slice(first.length),dirty};
+ },p15.id),{first:['Large unit: +50% → +40%'],next:['Large unit: > 60 ft² → > 70 ft²'],dirty:true});
+ eq('P15-09 две надбавки на одном юните — каждая от цены юнита с работами: Triple 50% + Large 50% → 100 + 50 + 50; у заказа Large 40% → 100 + 50 + 40',await s.p.evaluate(()=>{
+  const l=p15Order(120,84,'triple',false),m=soDraft.makeups[0];m.panes.forEach(x=>{x.priceOverride=5;});m.cavities.forEach(c=>{c.priceOverride=5;});salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0;});
+  const p=salesLineCommercialPrice(l,soDraft);
+  soDraft.surchargeRates={largeUnit:{value:40}};const q=salesLineCommercialPrice(l,soDraft);
+  return [p.base,p.adjustments.map(a=>a.amount),p.unit,q.adjustments.map(a=>[a.label,a.base,a.amount]),q.unit];
+ }),[1750,[875,875],3500,[['Triple unit',1750,875],['Large unit',1750,700]],3325]);
+ const p15w=await s.p.evaluate(()=>{
+  const l1=p15Order(),l2=normalizeSalesOrderLine({makeupId:l1.makeupId,width16:90*16,height16:120*16,qty:1});soDraft.lines.push(l2);salesEnsureLineShape(l2);
+  const key=salesChargeGroupKey(salesLineChargeRows(l1)[0]);salesSetOrderGroupRate(key,'0.02');salesSetChargeOrderRate(l2.id,salesLineChargeRows(l2)[0].key,'0.03');
+  salesOrderSave();const id=soEdit,tot=[salesLinePricingSummary(soDraft.lines[0]).total,salesLinePricingSummary(soDraft.lines[1]).total];salesDraftDrop(true);return {id,tot};
+ });
+ eq('P15-08 сторож: order-wide rate работы (Services & prices) и LINE RATE строки — Save → F5 на месте',p15w.tot,[16.8,25.2]);
+ await sf5();
+ eq('P15-08 сторож после F5: ставки работ заказа и строки те же; надбавка заказа их не меняет',await s.p.evaluate(id=>{
+  salesOrderEdit(id);const [l1,l2]=soDraft.lines,key=salesChargeGroupKey(salesLineChargeRows(l1)[0]),tot=()=>[salesLinePricingSummary(l1).total,salesLinePricingSummary(l2).total];
+  const kept=[soDraft.servicePricing[key]?.orderRate,l2.chargePricing[salesLineChargeRows(l2)[0].key].orderRate,...tot()];
+  p15Type('largeUnit','value','30');const after=tot();salesDraftDrop(true);return [kept,after];
+ },p15w.id),[[0.02,0.03,16.8,25.2],[16.8,25.2]]);
+ eq('P15-05 поле проходит Import (нормализация) и ревизию квоты → Convert; смена клиента числа заказа не трогает',await s.p.evaluate(()=>{
+  const n=normalizeSalesOrder(JSON.parse(JSON.stringify({surchargeRates:{largeUnit:{value:40,areaOver:'70'},triple:{off:true},bad:{value:-1},'x y':{value:5},minArea:{}}}))).surchargeRates;
+  const qid=oqOrder(oqCustomer({legalName:'Quote Surcharge'}),{kind:'quote',surchargeRates:{largeUnit:{value:40}}});salesQuoteMarkSent([qid]);
+  salesOrderEdit(qid);p15Type('largeUnit','value','35');salesOrderSave();const rev=soEdit;salesDraftDrop(true);
+  const won=salesConvertQuoteRecord(rev,'PO-S'),order=DB.salesOrder.find(o=>o.fromQuoteId===rev);
+  p15Order();p15Type('largeUnit','value','45');salesApplyCustomerDefaults(oqCustomer({legalName:'Other Customer'}).id);const kept=soDraft.surchargeRates;salesDraftDrop(true);
+  return {n,rev:salesRecord(rev)?.surchargeRates,rev2:rev!==qid,order:order&&order.surchargeRates,kept};
+ }),{n:{largeUnit:{value:40,areaOver:70},triple:{off:true}},rev:{largeUnit:{value:35}},rev2:true,order:{largeUnit:{value:35}},kept:{largeUnit:{value:45}}});
+ eq('P15-07 закрытый / отменённый заказ только для чтения: поля надбавок недоступны',await s.p.evaluate(id=>{
+  salesSetRecordStatus(id,'cancelled');salesOrderEdit(id);salesOpenMetrics('rules');
+  const inputs=[...document.querySelectorAll('[data-surcharge-list] input')],was=JSON.stringify(soDraft.surchargeRates);if(typeof salesSetOrderSurcharge==='function')salesSetOrderSurcharge('largeUnit','value','10');
+  const out=[inputs.length>0&&inputs.every(x=>x.disabled||x.closest('[inert]')),JSON.stringify(soDraft.surchargeRates)===was];salesDraftDrop(true);return out;
+ },p15.id),[true,true]);
+ eq('надбавки заказа — без ошибок страницы',s.errs,[]);
+ await s.c.close();
 };

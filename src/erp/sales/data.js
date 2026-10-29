@@ -465,6 +465,21 @@ function normalizeSalesChargePricing(raw){
  });
  return out;
 }
+/* Числа надбавок только этого заказа (пункт 15 плана, 29.10.2026): id
+   работы-надбавки → {value, areaOver, areaUnder, off}. Пустое поле — число
+   каталога; off — надбавка выключена у заказа (не идёт в цену). */
+function normalizeSalesSurchargeRates(raw){
+ raw=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};const out={};
+ Object.keys(raw).forEach(id=>{
+  if(!/^[A-Za-z0-9:._|+\-]{1,180}$/.test(id))return;const r=raw[id]&&typeof raw[id]==='object'?raw[id]:{},x={};
+  const n=v=>v==null||v===''?NaN:Number(v);
+  if(Number.isFinite(n(r.value))&&n(r.value)>=0)x.value=n(r.value);
+  ['areaOver','areaUnder'].forEach(k=>{if(Number.isFinite(n(r[k]))&&n(r[k])>0)x[k]=n(r[k]);});
+  if(r.off===true)x.off=true;
+  if(Object.keys(x).length)out[id]=x;
+ });
+ return out;
+}
 /* Отдельная форма на лайт. Ступенчатый пакет с фигурой: у 10 мм один контур, у
    6 мм — другой, меньший, и отступом от общего он не выводится. Пусто = лайт
    живёт на общей форме строки (со своим отступом, если он задан). */
@@ -536,7 +551,7 @@ function normalizeSalesOrder(o){
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(r=>Object.keys(r).length?{surchargeRates:r}:{})(normalizeSalesSurchargeRates(o.surchargeRates)),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
   remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
   ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines)),
