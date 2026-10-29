@@ -79,7 +79,7 @@ function prodBoard(){
      const on=last&&last.on||'',w=place.waiting;(lonAt[w]||(lonAt[w]={}))[on]=(lonAt[w][on]||0)+1;(onAt[w]||(onAt[w]={}))[on]=(onAt[w][on]||0)+1;
      lc[place.waiting]=(lc[place.waiting]||0)+1;counts[place.waiting]=(counts[place.waiting]||0)+1;
     });
-    if(!codes.includes(c.glass))codes.push(c.glass);
+    const name=glassCodeLabel(c.glass);if(!codes.includes(name))codes.push(name);
     lites.push({glass:c.glass,lite:c.lite,counts:lc,route:lr,on:[...lon],onAt:lonAt,shipped:ls,total:ids.length-lb});
    });
    if(lites.length)lines.push({no:li+1,mark:l.mark||'',size:frac16(l.width16/16)+' × '+frac16(l.height16/16),units:l.qty,lites});
@@ -152,7 +152,7 @@ function prodSubRows(r,cols){
   switch(c.k){
    case 'number':return `<td class="mut">${i?'':'Line '+L.no}</td>`;
    case 'customer':return `<td>${i?'':`<b>${esc(L.size)}</b> · ${L.units} unit${L.units===1?'':'s'}${L.mark?` · <span data-raw>${esc(L.mark)}</span>`:''}`}</td>`;
-   case 'glass':return `<td><b data-raw>${esc(t.glass)}</b>${L.lites.length>1?` <span class="mut">Lite ${esc(t.lite)}</span>`:''}</td>`;
+   case 'glass':return `<td><b data-raw>${esc(glassCodeLabel(t.glass))}</b>${L.lites.length>1?` <span class="mut">Lite ${esc(t.lite)}</span>`:''}</td>`;
    case 'shipped':return `<td class="pb-prog mut">${t.shipped} / ${t.total}</td>`;
    case 'queue':return `<td class="pb-st">${prodCount(t.counts.queue||0)}</td>`;
    case 'on':return `<td>${prodOn(t.on)}</td>`;

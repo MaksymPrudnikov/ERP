@@ -325,7 +325,7 @@ function stkUnitData(o,l,unit,from){
   });
   const mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
   return Object.assign(stkOrderData(o,l,li,Object.assign({},geo,{width16:finished.w*16,height16:finished.h*16})),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
-   heading:type+(lam&&m.unitType!=='single'?' · laminated':''),thicknessMm:mm,code:m?salesMakeupSummary(m):'',rows,muntin:muntin?'Muntins · '+salesMuntinSections(l)+' sections':'',
+   heading:type+(lam&&m.unitType!=='single'?' · laminated':''),thicknessMm:mm,code:m?salesMakeupSummary(m,'code'):'',rows,muntin:muntin?'Muntins · '+salesMuntinSections(l)+' sections':'',
    finished,cut:null,area:stkPieceArea(geo,o,lite),weight:stkWeight(geo,o,null,plan),shape:stkShapeOf(lite)});
  });
 }

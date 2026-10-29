@@ -80,7 +80,7 @@ function stationFlowLoads(S,d){
  return '<div class="card"><div class="st-sec"><h3>Furnace loads</h3><span class="mut">thickness · glass · treatment — one program each</span></div><table class="st-loads" data-flow-loads><thead><tr><th>Load</th><th class="n">Here</th><th class="n">Coming</th><th style="width:30%"></th></tr></thead><tbody>'+
   rows.map(r=>{const head=r.mm!==mm?'<tr class="st-load-mm"><td colspan="4">'+(r.mm?r.mm+' mm':'—')+'</td></tr>':'';mm=r.mm;
    const from=[...r.at.entries()].map(([a,n])=>a+' '+n).join(' · ');
-   return head+'<tr'+(r.urg===2?' class="st-hot"':'')+' data-load="'+esc(r.code+' · '+(r.heat||'—'))+'"><td><b data-raw>'+esc(r.code)+'</b> · '+esc(r.heat||'—')+(r.soak?' · Heat soak':'')+(r.urg===2?' <span class="pill bad">Critical</span>':'')+'</td>'+
+   return head+'<tr'+(r.urg===2?' class="st-hot"':'')+' data-load="'+esc(r.code+' · '+(r.heat||'—'))+'"><td><b data-raw>'+esc(glassCodeLabel(r.code))+'</b> · '+esc(r.heat||'—')+(r.soak?' · Heat soak':'')+(r.urg===2?' <span class="pill bad">Critical</span>':'')+'</td>'+
     '<td class="n st-nw"><b>'+stationFmtSqft(r.hereFt)+'</b> sq ft<div class="mut">'+r.here+' pcs</div></td><td class="n st-nw">'+stationFmtSqft(r.comingFt)+' sq ft<div class="mut">'+r.coming+' pcs'+(from?' · '+esc(from):'')+'</div></td>'+
     '<td><div class="st-lbar"><i style="width:'+(r.hereFt/max*100).toFixed(1)+'%"></i><i class="c" style="width:'+(r.comingFt/max*100).toFixed(1)+'%"></i></div></td></tr>';}).join('')+'</tbody></table></div>';
 }
@@ -104,7 +104,7 @@ function stationFlowUnits(S,d){
  return '<div class="card"><div class="st-sec"><h3>Ready to assemble</h3><span class="pill ok">'+stationPlural(ready.reduce((s,x)=>s+x.n,0),'unit','units')+'</span><span class="sp"></span><span class="mut">all lites here</span></div>'+
   (ready.length?'<table data-flow-ready><thead><tr><th>Order</th><th>Line</th><th>Makeup</th><th class="n">Units</th><th>Due</th></tr></thead><tbody>'+ready.sort(sort).map(x=>'<tr'+(stationUrgency(x.L.g.o)===2?' class="st-hot"':'')+'>'+lineTd(x.L)+'<td data-raw>'+esc(x.L.comps.map(c=>c.glass).join(' / '))+'</td><td class="n st-qbig">'+x.n+'</td><td class="mut">'+esc(x.L.g.o.dueDate?salesListShortDay(x.L.g.o.dueDate):'')+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">No full sets here yet</div>')+'</div>'+
   (partial.length?'<div class="card"><div class="st-sec"><h3>Waiting for a lite</h3><span class="pill warn">'+stationPlural(partial.reduce((s,x)=>s+x.n,0),'unit','units')+'</span><span class="sp"></span><span class="mut">one lite here, the other on its way</span></div><table data-flow-partial><thead><tr><th>Order</th><th>Line</th><th>Here</th><th>Missing — now at</th><th class="n">Units</th></tr></thead><tbody>'+
-   partial.sort(sort).map(x=>'<tr>'+lineTd(x.L)+'<td data-raw>'+x.has.map(c=>'Lite '+esc(c.lite)+' · '+esc(c.glass)).join(', ')+'</td><td data-raw>'+x.miss.map(c=>'Lite '+esc(c.lite)+' · '+esc(c.glass)+' — '+where(x.L,c)).join('<br>')+'</td><td class="n"><b>'+x.n+'</b></td></tr>').join('')+'</tbody></table></div>':'');
+   partial.sort(sort).map(x=>'<tr>'+lineTd(x.L)+'<td data-raw>'+x.has.map(c=>'Lite '+esc(c.lite)+' · '+esc(glassCodeLabel(c.glass))).join(', ')+'</td><td data-raw>'+x.miss.map(c=>'Lite '+esc(c.lite)+' · '+esc(glassCodeLabel(c.glass))+' — '+where(x.L,c)).join('<br>')+'</td><td class="n"><b>'+x.n+'</b></td></tr>').join('')+'</tbody></table></div>':'');
 }
 /* Батчи CUT, которые везут стекло на эту станцию, — в порядке офиса. */
 function stationFlowBatches(S,d){
@@ -114,7 +114,7 @@ function stationFlowBatches(S,d){
  return '<div class="card"><div class="st-sec"><h3>Coming from CUT</h3><span class="mut">batches in the suggested order</span></div><table data-flow-batches><thead><tr><th>Batch</th><th>Glass</th><th class="n">For '+esc(S)+'</th></tr></thead><tbody>'+
   q.map(b=>{const live=b.items.filter(i=>!i.releasedAt),started=live.some(i=>i.cutStartedAt),glass=[...new Set(live.map(i=>{const p=b.parts[i.part];return p&&p.snapshot?p.snapshot.glass:'';}).filter(Boolean))];
    const orders=[...new Set(live.map(i=>b.parts[i.part]&&b.parts[i.part].orderId))].map(salesRecord).filter(Boolean),urg=Math.max(0,...orders.map(stationUrgency));
-   return '<tr><td><b class="mono">'+esc(b.number)+'</b>'+(started?' <span class="pill ok">cutting now</span>':'')+(urg===2?' <span class="pill bad">Critical</span>':'')+'</td><td data-raw>'+esc(glass.join(', '))+'</td><td class="n"><b>'+by.get(b.number)+'</b></td></tr>';}).join('')+'</tbody></table></div>';
+   return '<tr><td><b class="mono">'+esc(b.number)+'</b>'+(started?' <span class="pill ok">cutting now</span>':'')+(urg===2?' <span class="pill bad">Critical</span>':'')+'</td><td data-raw>'+esc(glass.map(glassCodeLabel).join(', '))+'</td><td class="n"><b>'+by.get(b.number)+'</b></td></tr>';}).join('')+'</tbody></table></div>';
 }
 function stationFlowView(){
  const S=stationCode,d=stationFlowData(S),merge=stationMergeCodes().includes(S)&&S!==salesRouteStationOf('lamination','LAM');

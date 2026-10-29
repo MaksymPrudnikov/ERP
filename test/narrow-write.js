@@ -58,5 +58,9 @@ module.exports=async function({page,eq}){
   await t.p.evaluate(()=>touch());
  }
  eq('узкая запись: 21 случай (Save, надбавки заказа, квота, статусы, оплата, батч, сканы, PS) — ничего не остаётся незаписанным',bad,[]);
+ /* Short name стекла (владелец, 29.10.2026): Save карточки пишет его сразу, F5 не теряет. */
+ await t.p.evaluate(()=>{tab='masterdata';mdCatalogGo('glassProduct');mdGlassEdit(glassProductByCode('6CLEAR').id);const el=document.getElementById('md_short');if(el)el.value='6 Clear';mdGlassSave();});
+ const afterShort=await left();await f5();
+ eq('Save карточки стекла: Short name записан сразу, F5 его не теряет',{left:afterShort,short:await t.p.evaluate(()=>glassProductByCode('6CLEAR').shortName||'')},{left:[],short:'6 Clear'});
  await t.c.close();
 };

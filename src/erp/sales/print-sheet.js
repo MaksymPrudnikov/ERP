@@ -67,8 +67,9 @@ function salesGlassNameForPane(pane){
 /* В самом чертеже места мало, поэтому используем складской код, а не длинное
    маркетинговое имя. Термообработка остаётся отдельной явной пометкой: её
    нельзя угадывать из похожего кода продукта. */
+/* Внутри и на чертежах — Short name, пусто — код (владелец, 29.10.2026). */
 function salesSheetGlassCode(glass){
-  return String(glass&&(glass.code||glass.name)||'').trim();
+  return String(glass&&(glassShortName(glass)||glass.name)||'').trim();
 }
 function salesSheetPlyText(ply){
   if(!ply)return '';

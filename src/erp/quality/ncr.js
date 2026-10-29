@@ -18,8 +18,8 @@ function ncrNextNumber(){let n=Math.max(1000,typeof archiveFloor==='function'?ar
 function ncrForOrder(orderId){return (DB.ncr||[]).filter(n=>n.orderId===orderId);}
 function ncrFind(id){return (DB.ncr||[]).find(n=>n.id===id)||null;}
 function ncrPaneCode(p){
- if(p&&p.category==='laminated'){const L=p.laminated||{},a=glassProductById(L.outer&&L.outer.glassProductId),b=glassProductById(L.inner&&L.inner.glassProductId);return (a?a.code:'?')+'+'+(b?b.code:'?');}
- const g=glassProductById(p&&p.glassProductId);return g?g.code:'?';
+ if(p&&p.category==='laminated'){const L=p.laminated||{},a=glassProductById(L.outer&&L.outer.glassProductId),b=glassProductById(L.inner&&L.inner.glassProductId);return (a?glassShortName(a):'?')+'+'+(b?glassShortName(b):'?');}
+ const g=glassProductById(p&&p.glassProductId);return g?glassShortName(g):'?';
 }
 /* Какое стекло позиции: весь пакет или один лайт (у ламината — обе плиты). */
 /* Плита ламината — свой выбор «0:outer» / «0:inner»: перерезают одну
@@ -27,7 +27,7 @@ function ncrPaneCode(p){
    плиту»). */
 function ncrLiteOptions(o,l){
  const m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[];
- const plies=(p,i)=>p.category==='laminated'?glassBatchComponents(o,l).filter(c=>c.index===i&&c.ply).map(c=>({value:i+':'+c.ply,label:'Ply '+c.lite+' · '+c.glass})):[];
+ const plies=(p,i)=>p.category==='laminated'?glassBatchComponents(o,l).filter(c=>c.index===i&&c.ply).map(c=>({value:i+':'+c.ply,label:'Ply '+c.lite+' · '+glassCodeLabel(c.glass)})):[];
  if(panes.length<2)return [{value:'unit',label:panes.length?'Glass · '+ncrPaneCode(panes[0]):'Whole unit'}].concat(panes.length?plies(panes[0],0):[]);
  return [{value:'unit',label:'Whole unit'}].concat(panes.flatMap((p,i)=>[{value:String(i),label:'Lite '+(i+1)+' · '+ncrPaneCode(p)}].concat(plies(p,i))));
 }

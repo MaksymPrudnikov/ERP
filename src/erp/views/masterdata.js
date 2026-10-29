@@ -264,10 +264,11 @@ function mdVisibleProducts(){
   if(mdStatus==='stocked'&&!p.stocked)return false;
   if(mdStatus==='preorder'&&(p.stocked||p.active===false))return false;
   if(mdStatus==='inactive'&&p.active!==false)return false;
+  if(mdStatus==='noshort'&&!mdGlassNoShort(p))return false;
   if(mdMfr&&p.manufacturer!==mdMfr)return false;
   if(mdThick&&String(p.thicknessMm)!==mdThick)return false;
   if(mdCoating&&p.coatingFamily!==mdCoating)return false;
-  if(q&&![p.code,p.name,p.manufacturer,p.legacyCode,p.note].join(' ').toLowerCase().includes(q))return false;
+  if(q&&![p.code,p.shortName,p.name,p.manufacturer,p.legacyCode,p.note].join(' ').toLowerCase().includes(q))return false;
   return true;
  });
 }
@@ -275,9 +276,13 @@ function mdSearchChange(el){
  mdSearch=el.value;const pos=el.selectionStart;render();
  requestAnimationFrame(()=>{const e=document.getElementById('mdSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});
 }
+/* Стекло без Short name — люди видят код (владелец, 29.10.2026: «пусто —
+   код плюс подсветка, чтобы я видел, что заполнить»). Снятое с производства
+   не считается — его не заказывают. */
+function mdGlassNoShort(p){return p.active!==false&&!p.shortName;}
 function viewMdGlass(){
  if(mdEdit!==null)return mdGlassForm();
- const rows=mdVisibleProducts(),shown=rows.slice(0,mdGlassLimit);
+ const rows=mdVisibleProducts(),shown=rows.slice(0,mdGlassLimit),noShort=DB.glassProduct.filter(mdGlassNoShort).length;
  const mfrs=[...new Set(DB.glassProduct.map(p=>p.manufacturer).filter(Boolean))].sort();
  const thicks=[...new Set(DB.glassProduct.map(p=>p.thicknessMm).filter(x=>x!=null))].sort((a,b)=>a-b);
  /* Одна строка инструментов, как у остальных списков (аудит D-4). */
@@ -286,11 +291,12 @@ function viewMdGlass(){
    <select aria-label="Manufacturer" onchange="mdMfr=this.value;mdGlassLimit=MD_PAGE;render()"><option value="">All manufacturers</option>${mfrs.map(m=>`<option data-raw value="${esc(m)}" ${mdMfr===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
    <select aria-label="Thickness" onchange="mdThick=this.value;mdGlassLimit=MD_PAGE;render()"><option value="">Any thickness</option>${thicks.map(t=>`<option data-raw value="${t}" ${mdThick===String(t)?'selected':''}>${t} mm</option>`).join('')}</select>
    <select aria-label="Coating" onchange="mdCoating=this.value;mdGlassLimit=MD_PAGE;render()"><option value="">Any coating</option>${mdVocabOptions('coatingFamily',mdCoating,'')}</select>
-   <select aria-label="Status" data-md-status onchange="mdStatus=this.value;mdGlassLimit=MD_PAGE;render()">${[['all','Any status'],['stocked','In stock'],['preorder','Pre-order'],['inactive','Discontinued']].map(x=>`<option value="${x[0]}" ${mdStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select>
+   <select aria-label="Status" data-md-status onchange="mdStatus=this.value;mdGlassLimit=MD_PAGE;render()">${[['all','Any status'],['stocked','In stock'],['preorder','Pre-order'],['noshort','No short name · '+noShort],['inactive','Discontinued']].map(x=>`<option value="${x[0]}" ${mdStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select>
    <button class="pri" onclick="mdGlassNew()">+ New item</button>
   </div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Code</th><th class="md-name-col">Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
-  <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="10" class="empty">no items found</td></tr>'}</tbody></table></div>
+  ${noShort?`<div class="md-short-banner" data-md-short-banner><b>${noShort}</b> glass items have no short name — people see the code.<span class="sp"></span>${mdStatus==='noshort'?`<button class="sm" onclick="mdStatus='all';mdGlassLimit=MD_PAGE;render()">Show all</button>`:`<button class="sm" onclick="mdStatus='noshort';mdGlassLimit=MD_PAGE;render()">Show only these</button>`}</div>`:''}
+  <div class="customer-table-wrap"><table><thead><tr><th>Code</th><th>Short name</th><th class="md-name-col">Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
+  <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="13" class="empty">no items found</td></tr>'}</tbody></table></div>
   <div class="md-more"><span class="mut" data-md-shown>${shown.length} of ${rows.length}</span>${rows.length>shown.length?` <button class="sm" data-md-more onclick="mdGlassLimit+=MD_PAGE;render()">Show ${Math.min(MD_PAGE,rows.length-shown.length)} more</button>`:''}</div>`;
 }
 let mdGlassLimit=MD_PAGE;
@@ -312,7 +318,8 @@ function mdGlassSetPrice(id,field,v){
 function mdGlassRow(p){
  const sheets=glassSheetsFor(p.code).length;
  const temper=p.temperMode==='temper_required'?'bad':p.temperMode==='annealed_only'?'warn':'info';
- return `<tr class="${p.active===false?'md-row-off':''}" data-md-row="glassProduct:${esc(p.id)}"><td class="mono"><b>${raw(p.code)}</b>${p.active===false?' <span class="pill warn">discontinued</span>':''}</td>
+ return `<tr class="${p.active===false?'md-row-off':mdGlassNoShort(p)?'md-row-noshort':''}" data-md-row="glassProduct:${esc(p.id)}"><td class="mono"><b>${raw(p.code)}</b>${p.active===false?' <span class="pill warn">discontinued</span>':''}</td>
+  <td data-md-short>${p.shortName?`<b>${raw(p.shortName)}</b>`:`<button type="button" class="gb-link md-short-add" onclick="mdGlassEdit('${esc(p.id)}','short')">add</button>`}</td>
   <td><b>${raw(p.name)}</b><div class="mut">${raw(p.manufacturer)}</div></td>
   <td class="mono">${p.thicknessMm==null?'—':p.thicknessMm+' mm'}</td>
   <td>${esc(glassLabel('substrate',p.substrate))}</td>
@@ -337,7 +344,8 @@ function mdGlassNew(){
    карточка клиента (аудит 19.10.2026, F08; владелец 20.10.2026). */
 const mdSeen={};
 function mdStale(form,cur){return !cur?'This item was deleted':JSON.stringify(cur)!==mdSeen[form]?'Changed elsewhere — reopen':'';}
-function mdGlassEdit(id){const p=glassProductById(id);if(!p)return;mdEdit=id;mdDraft=JSON.parse(JSON.stringify(p));mdSeen.glass=JSON.stringify(p);render();}
+function mdGlassEdit(id,focus){const p=glassProductById(id);if(!p)return;mdEdit=id;mdDraft=JSON.parse(JSON.stringify(p));mdSeen.glass=JSON.stringify(p);render();
+ if(focus==='short'){const el=document.getElementById('md_short');if(el)el.focus();}}
 /* Карточка стекла в виде плана (md-card). Поставка и склад — только
    вид: правят их в Supply points и Inventory. */
 function mdGlassForm(){
@@ -345,8 +353,9 @@ function mdGlassForm(){
  const used=!isNew&&salesGlassProductHasReferences(r.id);
  const money=v=>v==null?'—':esc(Number(v).toFixed(2));
  const general=`${used?'<div class="note">Used in a Makeup: rename only, no delete.</div>':''}<div class="grid">
-   ${mdField('Code *',`<input id="md_code" value="${esc(r.code)}">`,'Printed on stickers.')}
+   ${mdField('Code *',`<input id="md_code" value="${esc(r.code)}">`,'Links stock and cuts.')}
    ${mdField('Name *',`<input id="md_name" value="${esc(r.name)}">`).replace('<div>','<div class="md-wide">')}
+   ${mdField('Short name',`<input id="md_short" value="${esc(r.shortName||'')}" maxlength="${GLASS_SHORT_MAX}" placeholder="${esc(r.code)}">`,'Shown to people. Empty — code.')}
    ${mdField('Manufacturer',`<input id="md_mfr" value="${esc(r.manufacturer)}">`)}
    ${mdField('Thickness, mm *',`<input id="md_thick" type="number" step="0.1" min="${GLASS_MIN_MM}" max="${GLASS_MAX_MM}" value="${r.thicknessMm==null?'':r.thicknessMm}">`)}
    ${mdField('Actual thickness, mm',`<input id="md_actual" type="number" step="0.01" value="${r.actualThicknessMm==null?'':r.actualThicknessMm}">`,'Measured, not exact.')}
@@ -406,6 +415,10 @@ function mdGlassSave(){
  if(!code||!name)return fail(e,'Code and name are required');
  if(!GLASS_CODE_RE.test(code))return fail(e,'Code: letters, digits and + . _ - / only');
  if(DB.glassProduct.some(p=>p.code.toUpperCase()===code.toUpperCase()&&p.id!==mdDraft.id))return fail(e,'This code already exists');
+ const short=mdVal('md_short').replace(/\s+/g,' '),codeTaken=glassNameOwner(code,mdDraft.id),shortTaken=glassNameOwner(short,mdDraft.id);
+ if(codeTaken)return fail(e,code+' is the short name of '+codeTaken.code);
+ if(short.length>GLASS_SHORT_MAX)return fail(e,'Short name: '+GLASS_SHORT_MAX+' characters at most');
+ if(shortTaken)return fail(e,glassNameKey(shortTaken.code)===glassNameKey(short)?short+' is the code of another glass':short+' is the short name of '+shortTaken.code);
  const t=+thick;
  if(!Number.isFinite(t)||t<GLASS_MIN_MM||t>GLASS_MAX_MM)return fail(e,'Thickness: a number from '+GLASS_MIN_MM+' to '+GLASS_MAX_MM+' mm');
  const surfaces=glassSurfacesCell(mdVal('md_surfaces'));
@@ -413,7 +426,7 @@ function mdGlassSave(){
  const money=id=>{const t=mdVal(id);return t===''?null:isFinite(+t)&&+t>=0?Math.round(+t*100)/100:NaN;},priceAN=money('md_priceAN'),priceFT=money('md_priceFT');
  if([priceAN,priceFT].some(v=>v!=null&&(!isFinite(v)||v<0)))return fail(e,'Price: a non-negative number or empty');
  const next=Object.assign({},mdDraft,{
-  code,name,manufacturer:mdVal('md_mfr'),thicknessMm:t,
+  code,shortName:short,name,manufacturer:mdVal('md_mfr'),thicknessMm:t,
   actualThicknessMm:mdVal('md_actual')===''?null:+mdVal('md_actual'),
   substrate:mdVal('md_substrate'),coatingFamily:mdVal('md_coating'),deposition:mdVal('md_deposition'),
   temperMode:mdVal('md_temper'),exposureRule:mdVal('md_exposure'),allowedSurfaces:surfaces,
@@ -422,6 +435,9 @@ function mdGlassSave(){
   salePriceAnnealed:priceAN,salePriceTempered:priceFT,
   note:mdVal('md_note'),stocked:mdChecked('md_stocked'),cut:mdChecked('md_cut'),edgeDeletion:mdChecked('md_edge'),baseEdgework:mdVal('md_baseedge'),active:mdChecked('md_active')
  });
+ /* Склад, поставка, раскрой и обрезки держатся за код: смена кода их
+    отвязывает. Не запрет — вопрос (владелец, 29.10.2026). */
+ if(mdEdit!=='new'&&code!==mdDraft.code&&!confirm('Stock, supply and cut plans are linked by the code. Change it anyway? For a shorter name use Short name.'))return;
  if(mdEdit==='new'){
   next.id=glassProductId(code);
   if(DB.glassProduct.some(p=>p.id===next.id))return fail(e,'An item with this id already exists');

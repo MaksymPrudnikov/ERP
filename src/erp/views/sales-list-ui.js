@@ -163,12 +163,14 @@ function salesListPresetRange(key){
  }
  return null;
 }
-/* Коды стёкол по лайтам как в Master Data; несколько Makeup — через «·». */
-function salesListGlass(o){
- const used=new Set((o.lines||[]).map(l=>l.makeupId));
+/* Стёкла по лайтам — Short name, пусто — код (владелец, 29.10.2026);
+   несколько Makeup — через «·». byCode — те же стёкла кодами: фильтр Glass
+   находит и по короткому названию, и по коду. */
+function salesListGlass(o,byCode){
+ const used=new Set((o.lines||[]).map(l=>l.makeupId)),name=g=>g?(byCode?g.code:glassShortName(g)):'?';
  const code=p=>{
-  if(p.category==='laminated'){const L=p.laminated||{},a=glassProductById(L.outer&&L.outer.glassProductId),b=glassProductById(L.inner&&L.inner.glassProductId);return (a?a.code:'?')+'+'+(b?b.code:'?');}
-  const g=glassProductById(p.glassProductId);return g?g.code:'?';
+  if(p.category==='laminated'){const L=p.laminated||{},a=glassProductById(L.outer&&L.outer.glassProductId),b=glassProductById(L.inner&&L.inner.glassProductId);return name(a)+'+'+name(b);}
+  return name(glassProductById(p.glassProductId));
  };
  return (o.makeups||[]).filter(m=>used.has(m.id)).map(m=>(m.panes||[]).map(code).join(' / ')).join(' · ');
 }
@@ -257,12 +259,16 @@ function salesListCondTest(type,c,val){
 }
 function salesListFilterTest(col,f,info){
  const val=salesListValue(info,col.k);let ok=true;
+ /* Glass: условие проверяется и по Short name, и по коду. «Не содержит» —
+    по обоим сразу. */
+ const alt=col.k==='glass'&&!info.a?salesListGlass(info.o,true):null;
+ const test=c=>{const t=salesListCondTest(col.type,c,val);if(alt==null||alt===val)return t;const u=salesListCondTest(col.type,c,alt);return c.op==='notContains'||c.op==='notEqual'?t&&u:t||u;};
  if(Array.isArray(f.values))ok=col.tokens?salesListTokens(info,col.k).some(v=>f.values.includes(v)):f.values.includes(salesListText(info,col.k));
  if(ok&&f.preset&&col.type==='date'){const r=salesListPresetRange(f.preset);ok=!!val&&!!r&&val>=r[0]&&val<=r[1];}
  const conds=(f.conds||[]).filter(salesListCondReady);
  if(ok&&conds.length){
-  let r=salesListCondTest(col.type,conds[0],val);
-  for(let i=1;i<conds.length;i++){const t=salesListCondTest(col.type,conds[i],val);r=conds[i].join==='or'?(r||t):(r&&t);}
+  let r=test(conds[0]);
+  for(let i=1;i<conds.length;i++){const t=test(conds[i]);r=conds[i].join==='or'?(r||t):(r&&t);}
   ok=r;
  }
  return f.mode==='exclude'?!ok:ok;
@@ -332,7 +338,7 @@ function salesListTokens(info,k){
  const used=new Set((info.o.lines||[]).map(l=>l.makeupId)),codes=[];
  (info.o.makeups||[]).filter(m=>used.has(m.id)).forEach(m=>(m.panes||[]).forEach(p=>{
   const panes=p.category==='laminated'?[p.laminated&&p.laminated.outer,p.laminated&&p.laminated.inner]:[p];
-  panes.forEach(x=>{const g=glassProductById(x&&x.glassProductId);if(g)codes.push(g.code);});
+  panes.forEach(x=>{const g=glassProductById(x&&x.glassProductId);if(g)codes.push(glassShortName(g));});
  }));
  return codes.length?[...new Set(codes)]:['(empty)'];
 }
@@ -480,7 +486,7 @@ function salesListFilterHTML(m,infos,style){
   html+=`<div class="sl-row"><button type="button" class="sl-btn" data-add-cond="and" onclick="salesListDraftAddCond('and')">+ And</button><button type="button" class="sl-btn" data-add-cond="or" onclick="salesListDraftAddCond('or')">+ Or</button></div>`;
  }
  if(col.type==='list'||col.type==='text'){
-  const opts=salesListValueOptions(col.k,infos),q=String(m.search||'').toLowerCase(),shown=opts.filter(x=>!q||x.text.toLowerCase().includes(q));
+  const opts=salesListValueOptions(col.k,infos),q=String(m.search||'').toLowerCase(),shown=opts.filter(x=>!q||x.text.toLowerCase().includes(q)||col.k==='glass'&&((glassNameOwner(x.text,'')||{}).code||'').toLowerCase().includes(q));
   const checked=t=>!Array.isArray(d.values)||d.values.includes(t);
   html+=`<h5>Values</h5><input type="text" id="salesListValueSearch" class="sl-search" placeholder="Search values…" value="${esc(m.search||'')}" oninput="salesListValueSearch(this)"><div class="sl-vals"><label><input type="checkbox" data-val-all ${!Array.isArray(d.values)?'checked':''} onchange="salesListDraftAllValues(this.checked)"> (Select all)</label>${shown.map(x=>`<label><input type="checkbox" data-val="${esc(x.text)}" ${checked(x.text)?'checked':''} onchange="salesListDraftValue(this.dataset.val,this.checked)"> <span>${esc(x.text)}</span><b>${x.n}</b></label>`).join('')}</div>`;
  }

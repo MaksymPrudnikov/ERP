@@ -57,7 +57,7 @@ function salesCutEstimateRecs(busy){
 function salesCutEstimateGlass(){
  const list=cutEstGlass(cutPiecesOf(CUT_EST));if(!list.length)return '';
  const by=g=>[...g.by.values()].map(r=>esc(r.order)+' '+r.pcs).join(', ');
- return `<div class="cut-est-glass" data-cut-est-glass>${list.map(g=>`<span class="${g.ids.size>1?'':'mut'}" data-cut-est-shared="${g.ids.size>1}" data-cut-est-glass-pcs="${esc(g.glass)}:${g.pcs}"><b>${esc(g.glass)}</b> · ${g.mm} mm — <b>${g.pcs} pcs</b>${g.ids.size>1?' together: '+by(g):', only '+by(g)+' — nothing to mix'}</span>`).join('')}</div>`;
+ return `<div class="cut-est-glass" data-cut-est-glass>${list.map(g=>`<span class="${g.ids.size>1?'':'mut'}" data-cut-est-shared="${g.ids.size>1}" data-cut-est-glass-pcs="${esc(g.glass)}:${g.pcs}"><b>${esc(glassCodeLabel(g.glass))}</b> · ${g.mm} mm — <b>${g.pcs} pcs</b>${g.ids.size>1?' together: '+by(g):', only '+by(g)+' — nothing to mix'}</span>`).join('')}</div>`;
 }
 function salesCutEstimateSkipped(){
  const list=cutEstSkipped();if(!list.length)return '';
@@ -78,7 +78,7 @@ function salesCutEstimateCompare(){
    <td class="n">${r.alone?(r.quick?'≈':'')+r.alone.sheets:'—'}</td><td class="n" data-cut-est-alone>${r.alone?(r.quick?'≈':'')+pct(r.alonePct):'—'}</td><td class="n">${pct(g.pct)}</td><td class="n">${r.alonePct==null?'—':diff(g.pct-r.alonePct)}</td></tr>`).join('');
   const total=`<tr class="cut-est-total" data-cut-est-total><td colspan="2"><b>All</b></td><td class="n">${g.rows.reduce((n,r)=>n+r.pcs,0)}</td><td class="n">${cutNum(g.used,1)}</td>
    <td class="n" data-cut-est-sheets>${all?q+aSheets+' → <b>'+g.sheets+'</b>':'—'}</td><td class="n">${all?q+pct(aPct):'—'}</td><td class="n"><b>${pct(g.pct)}</b></td><td class="n">${all?diff(g.pct-aPct):'—'}</td></tr>`;
-  return `<div class="cut-orders cut-est-compare" data-cut-est-compare="${esc(g.glass)}"><h4>Alone / together · ${esc(g.glass)} · ${g.mm} mm</h4>
+  return `<div class="cut-orders cut-est-compare" data-cut-est-compare="${esc(g.glass)}"><h4>Alone / together · ${esc(glassCodeLabel(g.glass))} · ${g.mm} mm</h4>
    <table class="sl-table"><thead><tr><th>Order / quote</th><th>Customer</th><th class="n">Pcs</th><th class="n">Glass ft²</th><th class="n">Sheets alone</th><th class="n">Waste alone</th><th class="n">Waste together</th><th class="n">Change, pts</th></tr></thead><tbody>${rows}${total}</tbody></table></div>`;
  }).join('');
 }

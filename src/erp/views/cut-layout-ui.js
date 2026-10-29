@@ -149,7 +149,7 @@ function cutUiTrialFiles(machine){
 function cutUiTrialFolderName(p,machine){
  if(machine==='disai')return cutTrialDisaiBase(p)+'.prjx';
  const safe=v=>String(v||'unknown').replace(/[<>:"/\\|?*\u0000-\u001f]/g,'-').replace(/\s+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)||'unknown';
- return safe(p.batch)+'_'+safe(p.sheet.glass)+'_'+cutTrialDate()+'_MAVER';
+ return safe(p.batch)+'_'+safe(glassCodeLabel(p.sheet.glass))+'_'+cutTrialDate()+'_MAVER';
 }
 /* Браузер без выбора папки получает оба файла обычной загрузкой. */
 function cutUiTrialDownload(machine,files){
@@ -919,7 +919,7 @@ function cutPrintLayouts(number,sheetNos){
  const layout=cutPrintPlan(list.map(x=>x.size)),landscape=layout.landscape;
  list.forEach(({g,s,size},k)=>{
   const autoTrim=cutAutoTrimInfo(g,s);
-  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″${autoTrim?autoTrim.edges.map(e=>' · '+e.label+' '+esc(frac16(e.minimum))+'″ → '+esc(frac16(e.actual))+'″').join(''):''}${changed?` · <span class="cut-print-stale" data-print-stale>Changed — don’t cut · ${esc(changed.text)}</span>`:''}</h3>
+  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(glassCodeLabel(g.glass))} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″${autoTrim?autoTrim.edges.map(e=>' · '+e.label+' '+esc(frac16(e.minimum))+'″ → '+esc(frac16(e.actual))+'″').join(''):''}${changed?` · <span class="cut-print-stale" data-print-stale>Changed — don’t cut · ${esc(changed.text)}</span>`:''}</h3>
    <div class="cut-print-sheet">${cutSheetSVG(g,s,Math.floor(Math.max(size.w,size.h)*layout.scales[k]),pieces,{gone:changed&&changed.gone})}</div></div>`);
  });
  if(!pages.length)return false;
@@ -1144,7 +1144,7 @@ function viewCutLayout(b){
  const strip=!group||!group.sheets.length?'':`<div class="cut-strip-wrap"><div class="cut-strip-nav"><button type="button" class="cut-strip-step" data-cut-first ${sheet.no<=group.sheets[0].no?'disabled':''} onclick="cutUiEdge('${esc(group.glass)}',false)" title="First sheet" aria-label="First sheet">${ico('first')}</button><button type="button" class="cut-strip-step" data-cut-prev ${sheet.no<=group.sheets[0].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',-1)" title="Previous sheet" aria-label="Previous sheet">${ico('previous')}</button></div>
   <div class="cut-strip" data-cut-strip>${tabs}</div>
   <div class="cut-strip-nav"><button type="button" class="cut-strip-step" data-cut-next ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',1)" title="Next sheet" aria-label="Next sheet">${ico('next')}</button><button type="button" class="cut-strip-step" data-cut-last ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiEdge('${esc(group.glass)}',true)" title="Last sheet" aria-label="Last sheet">${ico('last')}</button></div><span class="mut cut-strip-count">${sheet.no} / ${group.sheets.length}</span></div>`;
- const glasses=plan.groups.length>1?`<div class="stk-seg cut-glass">${plan.groups.map(g=>`<button type="button" class="${g.glass===group.glass?'on':''}" data-cut-glass="${esc(g.glass)}" onclick="cutUiSheet('${esc(g.glass)}',1)">${esc(g.glass)} · ${g.mm} mm${est?' · '+pieces.filter(p=>!p.off&&p.glass===g.glass&&p.mm===g.mm).length+' pcs':''}</button>`).join('')}</div>`:'';
+ const glasses=plan.groups.length>1?`<div class="stk-seg cut-glass">${plan.groups.map(g=>`<button type="button" class="${g.glass===group.glass?'on':''}" data-cut-glass="${esc(g.glass)}" onclick="cutUiSheet('${esc(g.glass)}',1)">${esc(glassCodeLabel(g.glass))} · ${g.mm} mm${est?' · '+pieces.filter(p=>!p.off&&p.glass===g.glass&&p.mm===g.mm).length+' pcs':''}</button>`).join('')}</div>`:'';
  /* Все переменные правятся здесь же: склад листов прогона и параметры реза.
     Master Data остаётся значением по умолчанию. */
  const pick=group&&plan.sheetPick&&plan.sheetPick[group.glass]||{},stock=group?cutStockFor(group.glass,pick,group.mm,b.number):[];

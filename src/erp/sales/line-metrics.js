@@ -186,7 +186,7 @@ function salesLineMaterials(m,areas,order){
   if(p.category==='laminated'){
    if(p.priceOverride!=null)return add(label+' · laminated',p.priceOverride,'','',null,'sqft',{pane:i});
    const lam=p.laminated||{};
-   [lam.outer,lam.inner].forEach((ply,j)=>{const g=ply&&glassProductById(ply.glassProductId);add(label+(j?'b':'a')+(g?' · '+g.code:''),salesPlyPrice(ply),'glassProduct',g,glassKg(ply,g),null,{pane:i,ply:j?'inner':'outer'});});
+   [lam.outer,lam.inner].forEach((ply,j)=>{const g=ply&&glassProductById(ply.glassProductId);add(label+(j?'b':'a')+(g?' · '+glassShortName(g):''),salesPlyPrice(ply),'glassProduct',g,glassKg(ply,g),null,{pane:i,ply:j?'inner':'outer'});});
    (lam.interlayers||[]).forEach(f=>{
     const prod=mdById('interlayerProduct',f.productId),layers=salesInterlayerLayerCount(f.layers!=null?f.layers:2);
     const price=f.priceOverride!=null?f.priceOverride:salesInterlayerSalePrice(f.productId);
@@ -197,7 +197,7 @@ function salesLineMaterials(m,areas,order){
    });
   }else{
    const g=glassProductById(p.glassProductId);
-   add(label+(g?' · '+g.code:''),p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p),'glassProduct',g,glassKg(p,g),null,{pane:i});
+   add(label+(g?' · '+glassShortName(g):''),p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p),'glassProduct',g,glassKg(p,g),null,{pane:i});
   }
  });
  /* Обвязка — по частям рецепта; ручная ставка камеры — одна строка за ft². */

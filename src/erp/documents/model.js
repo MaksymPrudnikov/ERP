@@ -44,12 +44,16 @@ function docHeatName(spec){
  const h=mdById('heatTreatment',spec&&spec.heatTreatmentId);
  return (h?h.name:'')+(spec&&spec.heatSoak?' + Heat Soak':'');
 }
-function docPaneCode(p){
+/* Клиенту — Name, как в его проекте; Work order — цеху — Short name
+   (владелец, 29.10.2026). Без указания (спецификация закупки, отчёты) — код,
+   как раньше. */
+function docGlassName(g,opts){const how=opts&&opts.glassNames;return !g?'?':how==='short'?glassShortName(g):how==='name'?g.name||g.code:g.code;}
+function docPaneCode(p,opts){
  if(p.category==='laminated'){
   const lam=p.laminated||{},o=glassProductById(lam.outer&&lam.outer.glassProductId),i=glassProductById(lam.inner&&lam.inner.glassProductId);
-  return 'LAM '+(o?o.code:'?')+docHeatCode(lam.outer)+'+'+(i?i.code:'?')+docHeatCode(lam.inner);
+  return 'LAM '+docGlassName(o,opts)+docHeatCode(lam.outer)+'+'+docGlassName(i,opts)+docHeatCode(lam.inner);
  }
- const g=glassProductById(p.glassProductId);let s=(g?g.code:'?')+docHeatCode(p);
+ const g=glassProductById(p.glassProductId);let s=docGlassName(g,opts)+docHeatCode(p);
  if(p.category==='spandrel')s+=' SP';else if(p.visionType==='frit')s+=' FRIT';
  return s;
 }
@@ -70,15 +74,15 @@ function docCavityText(c){
  const seals=[c.primarySealantId,c.secondarySealantId].map(id=>{const x=mdById('sealantProduct',id);return x?x.name:'';}).filter(Boolean);
  return [sp?sp.name:'Spacer not selected',gas?gas.name:'',seals.join(' + ')].filter(Boolean).join(' · ');
 }
-function docMakeupShort(m){
- const bits=[];(m.panes||[]).forEach((p,i)=>{if(i&&m.cavities[i-1])bits.push(docCavityCode(m.cavities[i-1]));bits.push(docPaneCode(p));});
+function docMakeupShort(m,opts){
+ const bits=[];(m.panes||[]).forEach((p,i)=>{if(i&&m.cavities[i-1])bits.push(docCavityCode(m.cavities[i-1]));bits.push(docPaneCode(p,opts));});
  return bits.join(' / ');
 }
-function docMakeupFullLines(m){
+function docMakeupFullLines(m,opts){
  const out=[];
  (m.panes||[]).forEach((p,i)=>{
   const lam=p.category==='laminated',g=lam?null:glassProductById(p.glassProductId);
-  let s='Lite '+(i+1)+': '+docPaneName(p)+(g&&g.code?' ('+g.code+')':'');
+  const how=opts&&opts.glassNames;let s='Lite '+(i+1)+': '+docPaneName(p)+(g&&g.code&&how!=='name'?' ('+(how==='short'?glassShortName(g):g.code)+')':'');
   const heat=docHeatName(lam?(p.laminated||{}).outer:p);if(heat)s+=' · '+heat;
   if(lam)['outer','inner'].forEach(side=>{const cs=salesCoatingSurfaceOf(p,i,side);if(cs)s+=' · coating '+(cs==='film'?'into film':'#'+cs);});
   else if(p.coatingSurface)s+=' · coating #'+p.coatingSurface;
@@ -209,12 +213,12 @@ function docSaleItem(model,line,index,order){
  return it;
 }
 function docItemBase(opts,line,index,m,q){
- return {n:index+1,mark:opts.mark?salesString(line.mark):'',prefix:opts.makeupShort&&m?docUnitLabel(m.unitType)+' '+m.code:'',short:opts.makeupShort&&m?docMakeupShort(m):'',
+ return {n:index+1,mark:opts.mark?salesString(line.mark):'',prefix:opts.makeupShort&&m?docUnitLabel(m.unitType)+' '+m.code:'',short:opts.makeupShort&&m?docMakeupShort(m,opts):'',
   size:opts.size?docSize(line):'',qty:'Qty '+q,amount:null,info:'',sub:[],full:[],drawing:null,groups:[],note:'',unitRow:null,lites:[],cavities:[]};
 }
 function docItemDetails(it,opts,line,m,order){
  if(opts.thickness&&m){const mm=salesMakeupThicknessMm(m);if(mm)it.sub.push({text:'Unit thickness '+docNum(mm,1)+' mm'});}
- if(opts.makeupFull&&m)it.full=docMakeupFullLines(m);
+ if(opts.makeupFull&&m)it.full=docMakeupFullLines(m,opts);
  if(opts.shapeDrawing)it.drawing=docLineDrawing(line,order);
 }
 function docShopItem(model,line,index,order){
@@ -234,7 +238,7 @@ function docShopItem(model,line,index,order){
 
 /* ------------------------------ Бланк ------------------------------- */
 function docBuildModel(kind,order,opts){
- order=order||soDraft;opts=Object.assign(docBaseOptions(kind),opts||{});
+ order=order||soDraft;opts=Object.assign(docBaseOptions(kind),opts||{},{glassNames:kind==='workOrder'?'short':'name'});
  const sale=kind!=='workOrder',mode=sale?opts.priceMode:'none',C=salesFindCustomer(order.customerId),company=DB.company||{};
  const number=order.businessNumber||'Draft',docName=docKindLabel(kind),terms=finTermsFor(order);
  const model={kind,sale,mode,opts,title:DOC_TITLES[kind],docName,number,customerName:C?(C.legalName||C.displayName):'',po:order.customerPo||'',

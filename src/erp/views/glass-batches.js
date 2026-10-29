@@ -39,7 +39,7 @@ function glassBatchInfo(r){
 function glassBatchInfos(){
  const scope=glassBatchViewScope();
  if(scope==='glassQueue')return glassBatchRows().map(glassBatchInfo);
- if(scope==='glassBatches'){const stops=glassStopMap();return (DB.glassBatch||[]).map(b=>{const a=glassBatchActiveItems(b);return {o:{createdAt:b.createdAt},b,stale:a.some(i=>!i.cutStartedAt)?glassBatchStale(b,stops):null,memo:{number:b.number,created:salesListIsoDay(b.createdAt),glass:[...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '),units:a.length,cut:a.filter(i=>i.cutStartedAt).length,queue:(glassBatchCutQueue().findIndex(x=>x===b)+1)||'',orders:new Set(a.map(i=>b.parts[i.part].orderId)).size,status:glassBatchStatus(b)}};});}
+ if(scope==='glassBatches'){const stops=glassStopMap();return (DB.glassBatch||[]).map(b=>{const a=glassBatchActiveItems(b);return {o:{createdAt:b.createdAt},b,stale:a.some(i=>!i.cutStartedAt)?glassBatchStale(b,stops):null,memo:{number:b.number,created:salesListIsoDay(b.createdAt),glass:[...new Set(b.parts.map(p=>p.snapshot.glass))].map(glassCodeLabel).join(' / '),units:a.length,cut:a.filter(i=>i.cutStartedAt).length,queue:(glassBatchCutQueue().findIndex(x=>x===b)+1)||'',orders:new Set(a.map(i=>b.parts[i.part].orderId)).size,status:glassBatchStatus(b)}};});}
  const b=glassBatchFind(glassBatchOpenNumber);if(!b)return [];const stops=glassStopMap();
  /* Стекло с полки раскроя вернули в To batch — заказ не трогали, это не Unbatch. */
  const back=new Set(b.history.filter(h=>h.action==='Back to To batch').flatMap(h=>h.pieces||[]));
@@ -117,7 +117,7 @@ function glassBatchUnbatchOrder(orderId){
  const o=salesRecord(orderId);if(!glassBatchCanUnbatchOrder(o))return;
  const free=glassBatchOrderReleasable(o),cut=glassBatchEntries(o.id).filter(x=>!x.item.releasedAt).length-free.length,groups=new Map(),p=glassBatchProgress(o);
  free.forEach(x=>{const k=x.batch.number;if(!groups.has(k))groups.set(k,{glass:new Set(),n:0});groups.get(k).glass.add(x.part.snapshot.glass);groups.get(k).n++;});
- const stamp=()=>JSON.stringify([DB.glassBatch,salesRecord(orderId)]),before=stamp(),lineChoices=[...groups].map(([k,g])=>({id:k,label:k+' · '+[...g.glass].join(' / '),detail:g.n+' pcs'}));
+ const stamp=()=>JSON.stringify([DB.glassBatch,salesRecord(orderId)]),before=stamp(),lineChoices=[...groups].map(([k,g])=>({id:k,label:k+' · '+[...g.glass].map(glassCodeLabel).join(' / '),detail:g.n+' pcs'}));
  salesDialogOpen({title:'Unbatch order '+o.businessNumber+'?',sub:salesCustomerDisplay(o.customerId)+' · '+p.assigned+' of '+p.total+' pcs in batches',lineChoices,checkedLines:lineChoices.map(x=>x.id),confirmed:false,
   note:'Order glass → queue · order → To verify'+(cut?' · '+cut+' pcs cutting stay':''),
   buttons:[{label:'Back'},{label:'Unbatch order',kind:'pri',requiresConfirmation:true,run:d=>{
