@@ -326,9 +326,12 @@ function salesSyncRecordLifecycle(o){
   ['heldUnits','cancelledUnits'].forEach(k=>{if(saved[k]!=null)l[k]=JSON.parse(JSON.stringify(saved[k]));else delete l[k];});}});
  if(o.cancellations)soDraft.cancellations=JSON.parse(JSON.stringify(o.cancellations));else delete soDraft.cancellations;
 }
+/* Отмена переносит оплаты заказа на депозит (finReleaseOrder) — его
+   квитанции тоже в области записи (аудит 29.10.2026, А5). */
 function salesSetRecordStatus(orderId,next,opts){
  if(storageDepth||opts&&opts.deferTouch)return salesSetRecordStatusCommand(orderId,next,opts);
- const out=storageCommand(()=>salesSetRecordStatusCommand(orderId,next,opts),Object.assign(salesOrderScope(orderId),{glassBatch:glassBatchEntries(orderId).map(x=>x.batch.number).concat(glassBatchScope([{orderId}],opts).glassBatch)}));return out.ok&&out.value;
+ const paid=next==='cancelled'?(DB.receipt||[]).filter(r=>r.allocations.some(a=>a.orderId===orderId)).map(r=>r.id):[];
+ const out=storageCommand(()=>salesSetRecordStatusCommand(orderId,next,opts),Object.assign(salesOrderScope(orderId),{glassBatch:glassBatchEntries(orderId).map(x=>x.batch.number).concat(glassBatchScope([{orderId}],opts).glassBatch),receipt:paid}));return out.ok&&out.value;
 }
 function salesSetRecordStatusCommand(orderId,next,opts){
  opts=opts||{};const o=salesRecord(orderId);
