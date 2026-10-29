@@ -156,10 +156,13 @@ function salesRebaseDraft(current){
  soSavedBaseline=JSON.stringify(current);return true;
 }
 /* Область записи Save (storageCommand): заказ, его условия оплаты, стёкла и
-   батчи (меньше Qty — стекло снимается с батча). */
+   батчи (меньше Qty — стекло снимается с батча). Новые записи журнала
+   Finance: смена клиента меняет условия оплаты и пишет об этом в журнал —
+   без него запись ждала сверки в простое, и F5 в эти 30 с её терял (аудит
+   29.10.2026, А4). */
 function salesOrderScope(id){
  const own=id&&id!=='new'?[id]:[];
- return {salesOrder:own,financeTerms:own,glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true,glassBatch:own.length?glassBatchEntries(id).map(x=>x.batch.number):[]};
+ return {salesOrder:own,financeTerms:own,financeEvent:[],glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true,glassBatch:own.length?glassBatchEntries(id).map(x=>x.batch.number):[]};
 }
 /* opts.bg — кнопка: большой заказ сохраняется в фоне (erp/sales/save-job);
    opts.noRender — экран нарисует он сам, opts.failed — ему текст отказа:
