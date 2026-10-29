@@ -73,9 +73,13 @@
 пространство имён; вопрос при смене кода; внутри — Short name, клиенту —
 Name, связи и сумма по коду; поставщику — Name и правка 10) и
 `test/narrow-write.js` +1 (Save карточки пишет Short name сразу, F5 его не
-теряет). Все шесть на main падают. Номер правки данных в трёх проверках
-(test/run.js, test/cut-layout.js, test/glass-no-cut.js) — 9 → 10, как при
-правке 9. Убранных или ослабленных проверок нет. Всего 2176.
+теряет). Все шесть на main падают. Изменённые проверки: номер правки данных
+9 → 10 (test/run.js, test/cut-layout.js, test/glass-no-cut.js,
+test/line-measure.js, test/lami-edges.js, test/md-stations.js — как при
+правке 9); спецификация PO в test/purchase-orders.js ждёт Name стекла, а не
+код (решение владельца «поставщики пусть будет имя тоже»); счётчики Data в
+test/md-catalog.js — плюс «No short name». Убранных или ослабленных проверок
+нет. Всего 2176.
 
 
 ## Порядок полей стекла: Type перед Glass · 29 октября 2026 (v5.298)
