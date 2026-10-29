@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 183 модулей, 23 стиля.
+  Состав сборки: 184 модулей, 24 стиля.
 -->
 <html lang="en">
 <head>
@@ -3517,6 +3517,45 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 /* Inventory → Consumables: во что покупают (1 box = 1880 ft). */
 .cons-packs{white-space:nowrap}.cons-pack{display:flex;align-items:center;gap:4px;margin:2px 0}.cons-pack select{max-width:90px}
 
+/* ---- src/styles/busy.css ---- */
+/* Save в фоне (erp/sales/save-job). Владелец, 28.10.2026: прозрачное стекло,
+   не матовое, с лёгким блюром; зелёная кромка флоат-стекла, бегущий блик,
+   как на экране входа (.signin-glass); крупный процент; без значка. Стекло —
+   в правом нижнем углу, поверх любого экрана; сам заказ — полоса «Saving»
+   и притушенное содержимое. */
+.busy-dock{position:fixed;right:24px;bottom:76px;z-index:9998;width:360px;max-width:calc(100vw - 32px)}
+.busy-pane{position:relative;padding:16px 18px 14px;border-radius:18px;overflow:hidden;color:var(--text);font:14px var(--font);
+ background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 22%,transparent),color-mix(in srgb,var(--accent) 9%,transparent) 48%,color-mix(in srgb,var(--accent) 18%,transparent));
+ border:1px solid color-mix(in srgb,var(--accent) 60%,transparent);border-left-width:3px;border-top-width:2px;
+ backdrop-filter:blur(7px) saturate(1.4);-webkit-backdrop-filter:blur(7px) saturate(1.4);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 0 0 1px rgba(255,255,255,.18),0 30px 60px rgba(16,24,40,.22)}
+.busy-pane::after{content:"";position:absolute;inset:-40%;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.3) 46.5%,rgba(255,255,255,.12) 50.5%,transparent 56%);animation:busyShine 1.8s ease-in-out infinite}
+@keyframes busyShine{0%{transform:translateX(-70%)}70%,100%{transform:translateX(70%)}}
+.busy-pane h3{position:relative;z-index:1;margin:0;font-size:15px;font-weight:650;letter-spacing:-.01em;display:flex;align-items:center;gap:12px;text-shadow:0 1px 0 color-mix(in srgb,var(--surface) 80%,transparent)}
+.busy-pct{margin-left:auto;font-size:22px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--accent)}
+.busy-sub{position:relative;z-index:1;margin:4px 0 10px;font-size:13px;font-weight:550;text-shadow:0 1px 0 color-mix(in srgb,var(--surface) 80%,transparent)}
+.busy-note{position:relative;z-index:1;margin:9px 0 0;color:var(--text-2);font-size:12px;text-shadow:0 1px 0 color-mix(in srgb,var(--surface) 80%,transparent)}
+.busy-tube{position:relative;z-index:1;height:8px;border-radius:6px;background:color-mix(in srgb,var(--accent) 8%,transparent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);box-shadow:inset 0 1px 0 rgba(255,255,255,.3);overflow:hidden}
+.busy-tube i{position:absolute;top:1px;bottom:1px;left:1px;border-radius:4px;background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 70%,var(--on-solid)),var(--accent));box-shadow:inset 0 1px 0 rgba(255,255,255,.3);transition:width .2s}
+.busy-acts{position:relative;z-index:1;margin-top:10px;display:flex;justify-content:flex-end;gap:8px}
+.busy-error .busy-pane{--accent:var(--danger)}
+.busy-error .busy-pane::after{animation:none;display:none}
+:root[data-theme="dark"] .busy-pct{color:color-mix(in srgb,var(--accent) 70%,var(--on-solid))}
+:root[data-theme="dark"] .busy-pane{box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 0 1px rgba(255,255,255,.07),0 30px 60px rgba(0,0,0,.5)}
+:root[data-theme="dark"] .busy-pane::after{background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.22) 46.5%,rgba(255,255,255,.05) 50.5%,transparent 56%)}
+:root[data-theme="dark"] :is(.busy-pane h3,.busy-sub,.busy-note){text-shadow:0 1px 2px rgba(0,0,0,.6)}
+/* Заказ, который сохраняется. */
+.sales-saving{display:flex;align-items:center;gap:14px;margin:0 0 12px;padding:12px 16px;border-radius:14px;font:14px var(--font);color:var(--text);
+ background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 20%,transparent),color-mix(in srgb,var(--accent) 7%,transparent));
+ border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);border-left-width:3px;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 1px 2px rgba(16,24,40,.06)}
+.sales-saving b{font-weight:650}.sales-saving>span{color:var(--text-2)}
+.sales-saving .busy-tube{flex:1;max-width:280px}
+.sales-saving .busy-pct{margin-left:0;font-size:18px;color:var(--text)}
+:root[data-theme="dark"] .sales-saving{box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.sales-saving-ro{opacity:.45;filter:saturate(.5)}
+:root[data-theme="dark"] .sales-saving-ro{opacity:.35}
+@media (prefers-reduced-motion:reduce){.busy-pane::after{animation:none}.busy-tube i{transition:none}}
+
 </style>
 </head>
 <body>
@@ -3545,7 +3584,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='65271d629623';
+var ERP_BUILD='d13b3e7ecf3f';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13861,7 +13900,7 @@ function salesSaveState(o){
 }
 /* Ввод в поля заказа экран не перерисовывает — метку и кнопку обновляем по месту. */
 function salesSaveStateRefresh(){
- if(!soDraft)return;
+ if(!soDraft||typeof salesSaveJob!=='undefined'&&salesSaveJob)return;
  const el=document.querySelector('[data-order-state]'),btn=document.querySelector('[data-order-save]');if(!el&&!btn)return;
  const st=salesSaveState(soDraft);
  if(el){el.textContent=st.text;el.classList.toggle('dirty',st.dirty);}
@@ -13873,7 +13912,7 @@ function salesHeaderActions(o){
  if(typeof archiveViewing==='function'&&archiveViewing(o))return archiveHeaderActions(o);
  const st=salesSaveState(o);
  const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesOrderClose()">Close</button>'];
- if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
+ if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave({bg:true})">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
  if(typeof recutCanOpenHere==='function'&&recutCanOpenHere(o))parts.push('<button class="recut-btn" data-recut-open onclick="ncrOpenForm(\'recut\')">Recut</button>');
  if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open onclick="ncrOpenForm(\'ncr\')">NCR</button>');
@@ -17759,8 +17798,8 @@ function salesApplyCustomerDefaults(id){
 }
 /* Строки поиска в списке больше нет — фильтры колонок (views/sales-list-ui). */
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(kind){soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){salesSaveQueue(()=>salesOrderNew(kind),'A new '+(kind==='quote'?'quote':'order')+' opens after saving.');return;}soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){const x=salesRecord(id);salesSaveQueue(()=>salesOrderEdit(id),(x&&x.businessNumber?salesSaveTitle(x).replace(/^./,c=>c.toUpperCase()):'The order')+' opens after saving.');return;}salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -17842,6 +17881,8 @@ function salesDraftDrop(discard){
    другой заказ, новый заказ, другая ревизия квоты. */
 function salesLeaveDraft(next){
  const go=()=>{if(typeof next==='function')next();else render();};
+ /* Идёт Save в фоне (erp/sales/save-job) — уход после записи. */
+ if(typeof salesSaveJob!=='undefined'&&salesSaveJob){salesSaveQueue(go);return;}
  if(!soDraft){go();return;}
  if(!salesDraftHasWork()){salesDraftDrop(true);go();return;}
  const isNew=soEdit==='new',what=salesIsQuote(soDraft)?'quote':'order',name=soDraft.businessNumber||'';
@@ -17854,6 +17895,10 @@ function salesOrderClose(){salesLeaveDraft();}
 /* Боковое меню: уход из заказа (и из редактора формы его строки) — тот же
    вопрос. nav.js про заказы не знает — только спрашивает стражей. */
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){
+ /* Save в фоне (erp/sales/save-job): другие экраны работают, заказ ждёт
+    записи открытым; Sign out — после записи, иначе правку записали бы на
+    следующего вошедшего. */
+ if(typeof salesSaveJob!=='undefined'&&salesSaveJob){if(k!=='signout')return false;salesSaveQueue(go,'Sign out after saving.');return true;}
  if(!soDraft)return false;
  const inOrder=tab==='sales'||(tab==='configurators'&&!!salesBridge);
  if(!inOrder)return false;
@@ -17882,26 +17927,42 @@ function salesOrderScope(id){
  const own=id&&id!=='new'?[id]:[];
  return {salesOrder:own,financeTerms:own,glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true,glassBatch:own.length?glassBatchEntries(id).map(x=>x.batch.number):[]};
 }
+/* opts.bg — кнопка: большой заказ сохраняется в фоне (erp/sales/save-job);
+   opts.noRender — экран нарисует он сам, opts.failed — ему текст отказа:
+   заказа на экране может и не быть. */
 function salesOrderSave(opts){
+ if(opts&&opts.bg)return salesOrderSaveBg();
  const editor={draft:soDraft?JSON.parse(JSON.stringify(soDraft)):null,edit:soEdit,quote:soQuoteCopyOf,shapes:soShapeSnapshot,baseline:soSavedBaseline};
  const out=storageCommand(()=>{
   const rebased=salesRebaseDraft(DB.salesOrder.find(x=>x.id===soEdit));if(rebased!==true)throw new Error(rebased);
-  const result=salesOrderSaveCommand(opts);if(result!==true){const e=document.getElementById('e_sales_order');throw new Error(e&&e.textContent||'The order was not saved.');}return true;
+  const result=salesOrderSaveCommand(opts);if(result!==true){const e=salesOrderErrorBox();throw new Error(e.style.display!=='none'&&e.textContent||'The order was not saved.');}return true;
  },salesOrderScope(soEdit));
- if(!out.ok){soDraft=editor.draft;soEdit=editor.edit;soQuoteCopyOf=editor.quote;soShapeSnapshot=editor.shapes;soSavedBaseline=editor.baseline;render();fail(document.getElementById('e_sales_order'),out.error);return false;}
- soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));render();return true;
+ if(!out.ok){soDraft=editor.draft;soEdit=editor.edit;soQuoteCopyOf=editor.quote;soShapeSnapshot=editor.shapes;soSavedBaseline=editor.baseline;render();const e=document.getElementById('e_sales_order');if(e)fail(e,out.error);if(opts&&opts.failed)opts.failed(out.error);return false;}
+ soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));if(!(opts&&opts.noRender))render();return true;
 }
+/* Строка ошибки заказа. Save в фоне идёт и без заказа на экране — тогда
+   ошибка пишется в строку вне экрана. */
+let salesOrderErrorSpare=null;
+function salesOrderErrorBox(){return document.getElementById('e_sales_order')||salesOrderErrorSpare||(salesOrderErrorSpare=document.createElement('div'));}
+/* Save в фоне (erp/sales/save-job): opts.dry — только проверки и вопросы,
+   без записи; opts.checked — вопросы уже заданы; opts.pre — цены и
+   количества строк, посчитанные заранее. Они берутся, только если база и
+   заказ с тех пор не менялись, иначе — всё заново, как у обычного Save. */
 function salesOrderSaveCommand(opts){
  opts=opts||{};
- const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
+ const e=salesOrderErrorBox();e.style.display='none';
  if(soQuoteCopyOf&&!salesDraftHasWork()){render();return true;}
+ const pre=opts.pre&&opts.pre.rev===storageBaseRev&&opts.pre.json===JSON.stringify(soDraft)?opts.pre:null;
+ const ask=opts.checked?()=>true:t=>confirm(t);
+ let shrinks=pre?pre.shrinks:null,previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
+ if(!pre){
  salesSnapshotAllChargePricing();
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
  /* «PO required»: PO приходит вместе с заказом, без него заказ не пишется
     (владелец, 8.10.2026: «без PO ничего не сохранять… PO сразу же с заказом»). */
  if(customer.poRequired&&!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'This customer requires a PO. Enter the PO.');
- const previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
+ previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  const shippingError=shippingSaveGuard(soDraft,previousOrder);if(shippingError)return fail(e,shippingError);
  if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&(DB.receipt||[]).some(r=>r.allocations.some(a=>a.orderId===soDraft.id)))return fail(e,'This order has payment records. Its customer cannot change.');
  /* Строки из батча: стекло уже на резке (владелец, 15 сентября 2026). Новый
@@ -17910,13 +17971,12 @@ function salesOrderSaveCommand(opts){
   const started=salesStartedViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(started.length)return fail(e,'Glass already in production: '+started.join('; ')+'. Add a new line or open a new order.');}
  /* Меньше юнитов у строки в батче (salesLineShrinkable): лишнее стекло уходит
     из батча до записи. Резчик мог порезать без скана — спросить. */
- const shrinks=opts.unlock||soEdit==='new'?[]:salesBatchShrinks(soDraft,previousOrder);
- if(shrinks.length&&!confirm(shrinks.map(x=>x.text).join('\n')+'\n\nThis glass is not cut yet?'))return;
- if(shrinks.length){
-  const now=new Date().toISOString(),gone=new Set(shrinks.flatMap(x=>x.pieces));
-  glassBatchCancelPieces([...gone],now,'Quantity changed');
-  shrinks.forEach(x=>orderLogPush(previousOrder,x.to?'Quantity changed':'Line removed','line '+x.no+(x.to?' · '+x.from+' → '+x.to:'')+' · '+x.pieces.length+' glass out of '+(x.batches.join(', ')||'the batch')));
- }
+ const was=opts.pre&&opts.pre.shrinks;shrinks=opts.unlock||soEdit==='new'?[]:salesBatchShrinks(soDraft,previousOrder);
+ const shrinkText=shrinks.map(x=>x.text).join('\n');
+ /* Пока Save шёл в фоне, стекло заказа сняли с батча или поставили в батч —
+    вопрос «не порезано?» был о другом: Save заново. */
+ if(opts.checked&&was&&shrinkText!==was.map(x=>x.text).join('\n'))return fail(e,'The batch changed while saving. Save again.');
+ if(shrinks.length&&!ask(shrinkText+'\n\nThis glass is not cut yet?'))return;
  /* Заказ одного склада: пустая стартовая строка стекла не мешает сохранить. */
  if((soDraft.extraItems||[]).length)soDraft.lines=soDraft.lines.filter(l=>!salesOrderLineIsBlank(l));
  /* Строка без размера уезжала в Draft молча и всплывала уже в цеху.
@@ -17926,18 +17986,25 @@ function salesOrderSaveCommand(opts){
    ?'Line '+noDim[0]+' has no width or height. Enter the size or remove the line.'
    :'Lines without width or height: '+noDim.join(', ')+'. Enter the sizes or remove these lines.');
  const temperWarnings=salesTemperCompatibilityWarnings(soDraft);
- if(temperWarnings.length&&!confirm('Glass / heat-treatment warning:\n\n- '+temperWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
+ if(temperWarnings.length&&!ask('Glass / heat-treatment warning:\n\n- '+temperWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  /* Габарит станции — тот же приём, что у закалки: предупредить и дать сохранить.
     Решение владельца 13 сентября 2026: запрет на засеянных 144 × 100″ стоял бы
     на пути законных заказов. */
  const sizeWarnings=typeof salesStationSizeWarnings==='function'?salesStationSizeWarnings(soDraft):[];
- if(sizeWarnings.length&&!confirm('Station size warning:\n\n- '+sizeWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
+ if(sizeWarnings.length&&!ask('Station size warning:\n\n- '+sizeWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  /* Операция без станции (этап 4, часть 3): станцию даёт только карточка работы. */
  const noStation=salesRouteUnassignedWarnings(soDraft);
- if(noStation.length&&!confirm('Route warning:\n\n- '+noStation.join('\n- ')+'\n\nSet the station in Data → Works. Save this order anyway?'))return;
+ if(noStation.length&&!ask('Route warning:\n\n- '+noStation.join('\n- ')+'\n\nSet the station in Data → Works. Save this order anyway?'))return;
  /* Мин. и макс. размер из карточки айтема — так же: предупредить, решает менеджер. */
  const itemSize=salesItemSizeWarnings(soDraft);
- if(itemSize.length&&!confirm('Item size warning:\n\n- '+itemSize.join('\n- ')+'\n\nSave this order anyway?'))return;
+ if(itemSize.length&&!ask('Item size warning:\n\n- '+itemSize.join('\n- ')+'\n\nSave this order anyway?'))return;
+ }
+ if(opts.dry)return {dry:true,shrinks};
+ if(shrinks.length){
+  const now=new Date().toISOString(),gone=new Set(shrinks.flatMap(x=>x.pieces));
+  glassBatchCancelPieces([...gone],now,'Quantity changed');
+  shrinks.forEach(x=>orderLogPush(previousOrder,x.to?'Quantity changed':'Line removed','line '+x.no+(x.to?' · '+x.from+' → '+x.to:'')+' · '+x.pieces.length+' glass out of '+(x.batches.join(', ')||'the batch')));
+ }
  /* Правка отправленной ревизии квоты — следующая ревизия со своим номером. */
  const copyOf=salesQuoteCopySource();
  if(copyOf){const rev=salesQuoteNextRev(copyOf);soDraft.quoteGroupId=salesQuoteGroupId(copyOf);soDraft.quoteRev=rev;soDraft.businessNumber=salesQuoteBaseNumber(copyOf)+'-R'+rev;soDraft.status='open';soDraft.sentAt='';soDraft.statusDates={};if(soDraft.validUntil===copyOf.validUntil)soDraft.validUntil='';}
@@ -17945,10 +18012,11 @@ function salesOrderSaveCommand(opts){
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;if(!soDraft.statusDates[soDraft.status])soDraft.statusDates[soDraft.status]=soDraft.updatedAt;
  /* Цены справочников — на день сохранения (salesBook): прежние в заказе
     остаются, новые позиции берут Master Data (владелец, 20.10.2026). */
- soDraft.priceBook=salesPriceBookOf(soDraft);
+ if(pre){salesSaveBookCheck(soDraft,pre);soDraft.priceBook=pre.book;if(pre.from)soDraft.priceFrom=pre.from;else delete soDraft.priceFrom;}
+ else soDraft.priceBook=salesPriceBookOf(soDraft);
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
- normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();salesMeasureWrite(DB.salesOrder.find(x=>x.id===soDraft.id));soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();return true;
+ normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();salesMeasureWrite(DB.salesOrder.find(x=>x.id===soDraft.id),pre&&pre.measures);soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();return true;
 }
 /* Экран рисует salesOrderSave после записи: внутри команды указатели
    отрисовки выключены, и заказ на 500 строк искал фигуру каждой строки
@@ -20792,8 +20860,14 @@ function salesMeasureLive(line,order){
  try{return finWithOrder(order,()=>({rows:salesLineChargeRowsRaw(line),areas:salesLineAreas(line,order)}));}
  finally{salesMeasureOff--;}
 }
-function salesMeasureWrite(order){
- (order&&order.lines||[]).forEach(l=>{const m=salesMeasureLive(l,order);l.measure={sig:salesMeasureSig(l,order),rows:m.rows,areas:m.areas};});
+/* pre — посчитанное заранее Save в фоне (erp/sales/save-job): строка с тем же
+   отпечатком берёт готовое. */
+function salesMeasureWrite(order,pre){
+ (order&&order.lines||[]).forEach(l=>{
+  const sig=salesMeasureSig(l,order),p=pre&&pre.get(l.id);
+  if(p&&p.sig===sig){l.measure={sig,rows:p.rows,areas:p.areas};if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(l,order);return;}
+  const m=salesMeasureLive(l,order);l.measure={sig,rows:m.rows,areas:m.areas};
+ });
 }
 /* Отпечаток — один раз на строку за отрисовку (erp/read-scope): расчёт
    суммы спрашивает строки работ и площадь позиции несколько раз. */
@@ -20826,6 +20900,136 @@ normalizeSalesOrderLine=function(line){
  if(m)out.measure=m;else delete out.measure;
  return out;
 };
+
+/* ==== src/erp/sales/save-job.js ==== */
+/* =====================================================================
+   erp/sales/save-job · Save большого заказа в фоне
+   Владелец, 28–29.10.2026: квота на здание — 500 строк, и Save на слабом ПК
+   идёт 10–30 с. «Главное, чтобы система не висла, а показывала, что заказ
+   сохраняется»; процент настоящий; работать дальше можно («сразу фоновое»).
+
+   Save идёт кусками, между кусками экран живой: проверки с теми же
+   вопросами, цены заказа, количества работ строка за строкой — всё в
+   памяти, база не меняется. Запись — одним куском в конце, тем же Save, что
+   у маленького заказа: цены и строки он берёт готовыми, только если база и
+   заказ с тех пор не менялись, иначе считает всё сам.
+   Пока идёт, заказ только для просмотра (стекло в углу, полоса в заказе).
+   Другие экраны работают, их записи идут сразу; база изменилась посреди
+   счёта — проверки и счёт заново. Открыть другой заказ — откроется сам после
+   записи. Не записалось — заказ снова на экране с ошибкой, правки целы.
+   ===================================================================== */
+const SALES_BG_LINES=100;
+let salesSaveJob=null,salesSaveNote=null,salesSaveNoteTimer=null;
+/* Кнопка Save / Update — salesOrderSave({bg:true}). */
+function salesOrderSaveBg(){
+ if(salesSaveJob)return false;
+ if(!soDraft||(soDraft.lines||[]).length<SALES_BG_LINES)return salesOrderSave();
+ return salesSaveBg();
+}
+function salesSaveTitle(o){return (salesIsQuote(o)?'quote ':'order ')+(o.businessNumber||'');}
+function salesSaveBg(){
+ const o=soDraft,job={title:o.businessNumber?salesSaveTitle(o):salesIsQuote(o)?'new quote':'new order',lines:o.lines.length,glass:o.lines.reduce((n,l)=>n+salesPositiveInt(l.qty,1),0),pct:0,step:'Checking lines',paint:false,next:null};
+ salesSaveJob=job;salesSaveNote=null;salesSaveDom();
+ const it=salesSaveSteps(job);
+ const tick=()=>{
+  const t0=performance.now();let r;
+  try{do{r=it.next();if(!r.done)job.pct=r.value;}while(!r.done&&!job.paint&&performance.now()-t0<40);}
+  catch(e){console.error('Background save failed:',e);r={done:true,value:{error:e&&e.message||'The order was not saved.'}};}
+  job.paint=false;
+  if(!r.done){salesSaveDom();setTimeout(tick,0);return;}
+  salesSaveEnd(job,r.value||{});
+ };
+ /* Сначала стекло и полоса на экране, потом счёт. */
+ setTimeout(tick,30);
+ return true;
+}
+function* salesSaveSteps(job){
+ const before=JSON.stringify(soDraft);
+ let pre=null;
+ /* Записи других экранов посреди счёта — проверки и счёт заново (без
+    вопросов); третий раз подряд — Save считает всё сам при записи. */
+ for(let round=0;round<3;round++){
+  job.step='Checking lines';job.paint=true;yield 0.01;
+  const dry=salesOrderSaveCommand(round?{dry:true,checked:true,pre}:{dry:true});
+  if(dry===true)return {ok:true};
+  if(!dry||dry.dry!==true){const e=salesOrderErrorBox(),msg=e.style.display!=='none'?e.textContent:'';soDraft=JSON.parse(before);return msg?{error:msg}:{cancelled:true};}
+  pre={rev:storageBaseRev,json:JSON.stringify(soDraft),shrinks:dry.shrinks,measures:new Map()};
+  job.step='Prices';job.paint=true;yield 0.2;
+  const copy=JSON.parse(pre.json);
+  pre.book=salesPriceBookOf(copy);pre.from=copy.priceFrom;copy.priceBook=pre.book;
+  const lines=copy.lines,n=lines.length;
+  for(let i=0;i<n;i++){
+   const l=lines[i],m=salesMeasureLive(l,copy);
+   pre.measures.set(l.id,{sig:salesMeasureSig(l,copy),rows:m.rows,areas:m.areas});
+   job.step='Line '+(i+1)+' of '+n;yield 0.4+0.35*(i+1)/n;
+  }
+  if(pre.rev===storageBaseRev)break;
+ }
+ job.step='Writing';job.paint=true;yield 0.76;
+ let error='';
+ if(!salesOrderSave({checked:true,pre,noRender:true,failed:m=>{error=m;}}))return {error:error||'The order was not saved.'};
+ if(tab==='sales'&&soEdit!==null){job.title=salesSaveTitle(soDraft);job.step='Opening the order';job.paint=true;yield 0.85;}
+ return {ok:true};
+}
+function salesSaveEnd(job,res){
+ salesSaveJob=null;
+ if(res.ok){
+  const title=soDraft&&soDraft.businessNumber?salesSaveTitle(soDraft):job.title;
+  /* Ушли из заказа — он сохранён, закрываем его, как Close. */
+  if(tab!=='sales'&&soDraft&&!salesDraftHasWork())salesDraftDrop(false);
+  render();
+  salesSaveShow({kind:'done',title});
+  if(job.next)job.next.run();
+  return;
+ }
+ /* Не записалось — заказ снова на экране, с ошибкой; ушли в другой экран —
+    возвращаемся: черновик с правками не должен остаться без хозяина. */
+ if(res.error)tab='sales';
+ render();
+ const el=document.getElementById('e_sales_order');if(el&&res.error)fail(el,res.error);
+ salesSaveShow(res.error?{kind:'error',title:job.title,text:res.error}:null);
+}
+/* Открыть другой заказ, пока идёт Save, — откроется сам после записи. */
+function salesSaveQueue(run,text){if(salesSaveJob){salesSaveJob.next={run,text:text||''};salesSaveDom();}}
+function salesSaveShow(note){
+ clearTimeout(salesSaveNoteTimer);salesSaveNote=note;salesSaveDom();
+ if(note&&note.kind==='done')salesSaveNoteTimer=setTimeout(()=>{salesSaveNote=null;salesSaveDom();},1500);
+}
+function salesSaveClose(){salesSaveShow(null);}
+/* Тесты (GF_SCOPE_CHECK): готовые цены сверяются с расчётом заново — по
+   черновику, каким он пришёл в запись. */
+function salesSaveBookCheck(o,pre){
+ if(typeof window==='undefined'||!window.GF_SCOPE_CHECK)return;
+ const copy=JSON.parse(JSON.stringify(o)),book=salesPriceBookOf(copy);
+ if(JSON.stringify(book)!==JSON.stringify(pre.book)||JSON.stringify(copy.priceFrom||null)!==JSON.stringify(pre.from||null))console.error('Stale save book: '+(o.businessNumber||o.id));
+}
+/* Стекло в углу — поверх любого экрана, живёт вне #app; заказ на экране —
+   полоса «Saving», всё ниже — только просмотр. Рисуется после каждой
+   отрисовки (afterRender) и на каждом шаге. */
+function salesSaveDom(){
+ const job=salesSaveJob,note=salesSaveNote;let g=document.getElementById('busyGlass');
+ if(!job&&!note){if(g)g.remove();return;}
+ if(!g){g=document.createElement('div');g.id='busyGlass';g.className='busy-dock';g.setAttribute('role','status');document.body.appendChild(g);}
+ const pct=job?Math.min(99,Math.round(job.pct*100)):note.kind==='done'?100:0;
+ const head=job?'Saving '+job.title:note.kind==='done'?'Saved '+note.title:'Not saved: '+note.title;
+ const sub=job?job.step:note.kind==='done'?'Saved':note.text;
+ const tail=job?`<div class="busy-note">${esc(job.next&&job.next.text||'You can keep working. This order is read-only until it’s saved.')}</div>`:note.kind==='error'?`<div class="busy-acts"><button type="button" onclick="salesSaveClose()">Close</button></div>`:'';
+ g.className='busy-dock'+(note&&note.kind==='error'?' busy-error':'');
+ g.innerHTML=`<div class="busy-pane"><h3>${esc(head)}${note&&note.kind==='error'?'':`<span class="busy-pct">${pct}%</span>`}</h3><div class="busy-sub">${esc(sub)}</div>${note&&note.kind==='error'?'':`<div class="busy-tube"><i style="width:${pct}%"></i></div>`}${tail}</div>`;
+ const ed=job&&document.querySelector('.sales-order-editor');if(!ed)return;
+ let band=ed.querySelector('[data-saving-band]');
+ if(!band){
+  const top=ed.querySelector('.sales-editor-top');if(!top)return;
+  top.insertAdjacentHTML('afterend','<div class="sales-saving" data-saving-band><b>Saving · read-only until saved</b><span></span><div class="busy-tube"><i></i></div><span class="busy-pct"></span></div>');
+  band=ed.querySelector('[data-saving-band]');
+  [...ed.children].forEach(x=>{if(x!==top&&x!==band){x.inert=true;x.classList.add('sales-saving-ro');}});
+  top.querySelectorAll('button').forEach(b=>{b.disabled=true;});
+ }
+ band.children[1].textContent=job.lines.toLocaleString('en-US')+' lines · '+job.glass.toLocaleString('en-US')+' glass';
+ band.querySelector('i').style.width=pct+'%';band.querySelector('.busy-pct').textContent=pct+'%';
+ const btn=ed.querySelector('[data-order-save]');if(btn)btn.textContent='Saving '+pct+'%';
+ const st=ed.querySelector('[data-order-state]');if(st)st.textContent='Saving…';
+}
 
 /* ==== src/erp/sales/print-route.js ==== */
 /* =====================================================================
@@ -34557,14 +34761,30 @@ const CUT_FILL_SPLIT=[
 ];
 /* Один лист: u — поле между линиями, t — укладка столбиками (оси
    переставлены). Возвращает места стёкол в координатах листа и остаток. */
+/* Что у стёкол листа не зависит от варианта — один раз на лист (cache):
+   вид (тот же размер в любом повороте), сколько стёкол каждого вида, ранг
+   срочности и место номера по алфавиту. В каждом из сотен вариантов это
+   считалось заново: строка вида на каждое стекло и сравнение номеров
+   localeCompare — четверть времени Build. Порядок и листы те же. */
+function cutFillFacts(list,cache){
+ const got=cache&&cache.get('#facts');if(got)return got;
+ const ids=new Map(),kind=new Map();
+ list.forEach(p=>{const k=Math.max(p.w,p.h)+'x'+Math.min(p.w,p.h);let i=ids.get(k);if(i===undefined)ids.set(k,i=ids.size);kind.set(p,i);});
+ const count=new Int32Array(ids.size);kind.forEach(i=>{count[i]++;});
+ const name=new Map();list.slice().sort((a,b)=>a.piece.localeCompare(b.piece)).forEach((p,i)=>name.set(p,i));
+ const out={kind,count,name};if(cache)cache.set('#facts',out);return out;
+}
 /* Порядок стёкол варианта. cache — один на лист: у сотен вариантов всего
    несколько разных порядков, сортировать каждый раз незачем. */
 function cutFillOrder(list,v,cache){
  const T=!!v.t,key=v.keys?null:(v.u?'u':'')+v.s+(T?'t':'');
  if(key&&cache&&cache.has(key))return cache.get(key);
+ const F=cutFillFacts(list,cache);
  /* v.u — срочные первыми: приоритет тянет стекло на ранние листы, если лист
     от этого не хуже забит (выбор между вариантами решает площадь). */
- const order=list.map(p=>T?Object.assign({},p,{w:p.h,h:p.w,t0:p}):Object.assign({},p,{t0:p})).sort((a,b)=>(v.u?cutPrioRank(a.priority)-cutPrioRank(b.priority):0)||(v.keys?v.keys.get(a.piece)-v.keys.get(b.piece):CUT_FILL_SORTS[v.s](a,b))||cutPrioRank(a.priority)-cutPrioRank(b.priority)||a.piece.localeCompare(b.piece));
+ /* Копия стекла — только то, что читает укладка (t0 — само стекло). */
+ const order=list.map(p=>({w:T?p.h:p.w,h:T?p.w:p.h,norot:p.norot,t0:p,fk:F.kind.get(p),fr:cutPrioRank(p.priority),fn:F.name.get(p),fv:v.keys?v.keys.get(p.piece):0}))
+  .sort((a,b)=>(v.u?a.fr-b.fr:0)||(v.keys?a.fv-b.fv:CUT_FILL_SORTS[v.s](a,b))||a.fr-b.fr||a.fn-b.fn);
  if(key&&cache)cache.set(key,order);
  return order;
 }
@@ -34574,12 +34794,12 @@ function cutFillSheet(list,u,params,v,cache){
  const free=[{x:U.x0,y:U.y0,w:cutRound(U.x1-U.x0),h:cutRound(U.y1-U.y0)}],placed=[],rest=[];
  const order=cutFillOrder(list,v,cache);
  let used=0,urgent=0;
- const kind=p=>Math.max(p.w,p.h)+'x'+Math.min(p.w,p.h),left=new Map();order.forEach(p=>left.set(kind(p),(left.get(kind(p))||0)+1));
+ const left=cutFillFacts(list,cache).count.slice();
  for(let k=0;k<order.length;k++){
   const p=order[k];
   /* Лист забит — остальное сразу в остаток. */
   if(!free.length){for(;k<order.length;k++)rest.push(order[k].t0);break;}
-  const same=left.get(kind(p))||1;
+  const same=left[p.fk]||1;
   const turn=params.rotate&&!p.norot&&p.w!==p.h,ways=[{w:p.w,h:p.h,turn:0,rot:false}].concat(turn?[{w:p.h,h:p.w,turn:1,rot:true}]:[]);
   if(v.r&&ways.length>1)ways.reverse();
   let best=null;
@@ -34597,7 +34817,7 @@ function cutFillSheet(list,u,params,v,cache){
     if(!best||sc<best.sc-1e-9)best={sc,i,o,W,H,rw,rh};
    }
   }
-  left.set(kind(p),same-1);
+  left[p.fk]=same-1;
   if(!best){rest.push(p.t0);continue;}
   const F=free[best.i];free.splice(best.i,1);
   const across=CUT_FILL_SPLIT[v.c](best.rw,best.rh,best.W,best.H);
@@ -34630,20 +34850,27 @@ const CUT_FILL_VARIANTS=(()=>{const out=[];for(let s=0;s<CUT_FILL_SORTS.length;s
    плотная (m=1 — самая высокая среди почти таких же плотных). t — полосы
    стоя, оси переставлены. */
 const CUT_STACK_VARIANTS=[{stack:1,t:0,m:0},{stack:1,t:0,m:1},{stack:1,t:1,m:0},{stack:1,t:1,m:1}];
-function cutStackSheet(list,u,params,v){
+function cutStackSheet(list,u,params,v,cache){
  const T=!!v.t,E=1e-6,md=+params.minDist||0,ok=g=>cutSliverOk(g,params),q=x=>Math.ceil(x*16-E);
  const W=cutRound(T?u.y1-u.y0:u.x1-u.x0),H=cutRound(T?u.x1-u.x0:u.y1-u.y0),X0=T?u.y0:u.x0,Y0=T?u.x0:u.y0;
  /* Полоса у края листа отламывается вместе с Border: до края, не до линии. */
  const bR=+(T?params.borderX:params.borderY)||0,bT=+(T?params.borderY:params.borderX)||0;
- /* Одинаковые стёкла — один тип; внутри типа срочные первыми. */
- const types=new Map();
- list.forEach(p=>{
-  const w=T?p.h:p.w,h=T?p.w:p.h,turn=!!(params.rotate&&!p.norot&&p.w!==p.h),k=w+'x'+h+(turn?'':'n');
-  if(!types.has(k))types.set(k,{ways:[{w,h,turn:0}].concat(turn?[{w:h,h:w,turn:1}]:[]).filter(o=>o.w<=W+E&&o.h<=H+E),items:[]});
-  types.get(k).items.push(p);
- });
- const all=[...types.values()].filter(t=>t.ways.length);
- all.forEach(t=>t.items.sort((a,b)=>cutPrioRank(a.priority)-cutPrioRank(b.priority)||a.piece.localeCompare(b.piece)));
+ /* Типы стёкол и посчитанные полосы — одни на лист и сторону (cache):
+    варианты m=0 и m=1 различаются только выбором полосы. */
+ const shared=cache&&cache.get('#stack'+(T?'t':''));let all,memo;
+ if(shared)({all,memo}=shared);
+ else{
+  /* Одинаковые стёкла — один тип; внутри типа срочные первыми. */
+  const types=new Map();
+  list.forEach(p=>{
+   const w=T?p.h:p.w,h=T?p.w:p.h,turn=!!(params.rotate&&!p.norot&&p.w!==p.h),k=w+'x'+h+(turn?'':'n');
+   if(!types.has(k))types.set(k,{ways:[{w,h,turn:0}].concat(turn?[{w:h,h:w,turn:1}]:[]).filter(o=>o.w<=W+E&&o.h<=H+E),items:[]});
+   types.get(k).items.push(p);
+  });
+  all=[...types.values()].filter(t=>t.ways.length);
+  all.forEach(t=>t.items.sort((a,b)=>cutPrioRank(a.priority)-cutPrioRank(b.priority)||a.piece.localeCompare(b.piece)));
+  memo=new Map();if(cache)cache.set('#stack'+(T?'t':''),{all,memo});
+ }
  const left=new Map(all.map(t=>[t,t.items.length]));
  /* Одна полоса высотой h из того, что осталось (left): столбики-стопки
     одного типа, рюкзак по ширине. */
@@ -34710,11 +34937,15 @@ function cutStackSheet(list,u,params,v){
   const area=cols.reduce((a,col)=>a+col.stack.reduce((b,s)=>b+s.o.w*s.o.h,0),0);
   return {cols,area,h,have};
  };
+ /* Полоса зависит только от высоты и того, что осталось: восемь первых
+    полос, досчитанные до конца листа, проходят одни и те же полосы — рюкзак
+    считается один раз. Полосу никто не меняет, она та же. */
+ const stripOf=(h,lf)=>{const k=h+'|'+all.map(t=>lf.get(t)).join(',');let s=memo.get(k);if(s===undefined){s=strip(h,lf);memo.set(k,s);}return s;};
  /* Полосы, которые ещё помещаются в room. */
  const strips=(lf,room)=>{
   const hs=new Set();
   all.forEach(t=>{const n=lf.get(t);if(n)t.ways.forEach(o=>{for(let k=1;k<=Math.min(3,n);k++){const h=cutRound(o.h*k);if(h<=room+E&&ok(cutRound(room-h+bT)))hs.add(h);}});});
-  return [...hs].sort((a,b)=>b-a).slice(0,48).map(h=>strip(h,lf)).filter(Boolean);
+  return [...hs].sort((a,b)=>b-a).slice(0,48).map(h=>stripOf(h,lf)).filter(Boolean);
  };
  const dense=s=>s.area/(W*s.h);
  const choose=tries=>{
@@ -34786,7 +35017,7 @@ function cutFillBest(fit,u,pr,urgent,rseed,variants,need,size,stack){
  const better=(a,b)=>urgent?a.urgent>b.urgent||a.urgent===b.urgent&&a.used>b.used+1e-6:
   a.used>b.used+1e-6||Math.abs(a.used-b.used)<=1e-6&&a.urgent>b.urgent;
  for(const v of tries){
-  const r=v.stack?cutStackSheet(fit,u,pr,v):cutFillSheet(fit,u,pr,v,cache);
+  const r=v.stack?cutStackSheet(fit,u,pr,v,cache):cutFillSheet(fit,u,pr,v,cache);
   if(need&&!r.placed.some(q=>need.has(q.piece)))continue;
   if(!best||better(r,best))best=r;
   if(size&&(!top.length||top.length<64||better(r,top[top.length-1]))){
@@ -50091,7 +50322,7 @@ function storageSweepLater(){
  storageSweepTimer=setTimeout(storageSweep,30e3);
 }
 function storageSweep(){
- if(storageDepth||typeof archiveInputAt!=='undefined'&&Date.now()-archiveInputAt<30e3){storageSweepTimer=setTimeout(storageSweep,30e3);return Promise.resolve(false);}
+ if(storageDepth||typeof salesSaveJob!=='undefined'&&salesSaveJob||typeof archiveInputAt!=='undefined'&&Date.now()-archiveInputAt<30e3){storageSweepTimer=setTimeout(storageSweep,30e3);return Promise.resolve(false);}
  storageSweepTimer=null;if(!storageWriter||storageRecovery||storageStale)return Promise.resolve(false);
  const at=storageBaseRev,it=storageSweepSteps();
  return new Promise(done=>{
@@ -50281,6 +50512,8 @@ function afterRender(){
  const host=document.getElementById('storageStatus');if(host)host.innerHTML=storageStatusHTML();
  const alertBar=document.getElementById('storageAlert');if(alertBar){const h=storageAlertHTML();alertBar.innerHTML=h;alertBar.hidden=!h;}
  const chip=document.getElementById('testChip');if(chip)chip.hidden=!storageTest;
+ /* Save в фоне: стекло в углу и полоса в заказе (erp/sales/save-job). */
+ if(typeof salesSaveDom==='function')salesSaveDom();
  /* Forms remain available for reading. A tab that can take over keeps its
     buttons: the click itself makes it the writer. Without coordination, with
     a broken database or in an older version, persisting controls are off. */
