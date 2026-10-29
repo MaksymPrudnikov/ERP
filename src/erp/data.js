@@ -313,8 +313,8 @@ const DATA_FIXES=[
 ];
 /* Номера правок кодом (не строкой таблицы): 4 — sfSplitEdgeFix, 6 —
    приоритет раскроя, 7 — стекло COG, 8 — прайс заказа, 9 — количества работ
-   в строке (applyDataFixes). */
-const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),9);
+   в строке, 10 — наш код стекла в PO поставщику (applyDataFixes). */
+const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),10);
 function applyDataFixes(){
  const have=Number.isInteger(+DB.dataFix)&&+DB.dataFix>0?+DB.dataFix:0;
  if(have>=DATA_FIX_VERSION)return false;
@@ -350,6 +350,10 @@ function applyDataFixes(){
     ни одна сумма не сдвигается. Квоты — тоже. Указатели (фигуры по номеру) —
     на всю правку, как на отрисовку: на годе это секунды, а не минута. */
  if(have<9&&typeof salesMeasureWrite==='function')readScope(()=>(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&Array.isArray(o.lines)){try{salesMeasureWrite(o);changed++;}catch(e){console.warn('measure '+(o.businessNumber||o.id)+': '+e.message);}}}));
+ /* Номер 10 · 29 октября 2026. Поставщику — Name, не наш код (владелец:
+    «поставщики пусть будет имя тоже»): строка Glass code в PO выключается
+    один раз; включить обратно можно в Customize. */
+ if(have<10&&DB.purchaseDocumentOptions&&DB.purchaseDocumentOptions.productCode===true){DB.purchaseDocumentOptions.productCode=false;changed++;}
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;

@@ -1963,7 +1963,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         spacersNotReseeded: DB.spacerVariant.map(s => s.id),
         silicone: [silicone.name, silicone.supplier]
       };
-    }), { version: [9, 9], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
+    }), { version: [9, 10], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
           spacersNotReseeded: ['SP-OWN-1616'], silicone: ['Opaci-Coat · Silicone Spandrel', 'ICD'] });
     /* Правка разовая. Вернул владелец полосу — после перезагрузки она осталась. */
     /* Запись идёт в фоне за записью старта: без storageFlush перезагрузка
@@ -1972,7 +1972,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.p.reload();await t.p.evaluate(()=>window.storageReady);
     await t.p.waitForTimeout(250);
     eq('выполненная правка не повторяется после перезагрузки', await t.p.evaluate(() =>
-      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 9]);
+      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 10]);
     await t.c.close();
 
     /* Старый файл Export JSON — тот же путь, номера правки в нём нет. Цену

@@ -69,5 +69,13 @@ module.exports=async function({page,eq}){
    named:Object.assign({inside:{glass:true,makeup:true,drawing:true,station:true,maver:'6-Clear',disai:'6Clear',workOrder:['6 Clear'+heat,'Lite 1: '+g.name+' (6 Clear)']},client},common,{tokens:['6 Clear']}),
    sameTotal:true,heat,name:g.name};
  }));
+ /* Владелец, 29.10.2026: «поставщики пусть будет имя тоже». */
+ eq('поставщику — Name: спецификация юнита, состав и описание без нашего кода; строка Glass code в PO выключена, и правка 10 выключает её в старой базе',await run(()=>{
+  const id=DB.salesOrder[0].id,o=salesRecord(id),g=glassProductByCode('6CLEAR'),l=purOrderComponentLine(id,o.lines[0].id),part=purOrderComponentLine(id,o.lines[0].id,glassBatchComponents(o,o.lines[0])[0].key);
+  const keep={fix:DB.dataFix,opts:DB.purchaseDocumentOptions};DB.purchaseDocumentOptions=Object.assign({},keep.opts,{productCode:true});DB.dataFix=9;applyDataFixes();
+  const fixed=DB.purchaseDocumentOptions.productCode;DB.dataFix=keep.fix;DB.purchaseDocumentOptions=keep.opts;
+  return {description:l.description.split(' / ')[0],makeup:l.spec.makeup[0].split(' · ')[0],part:part.description.split(' · ')[0],code:[l.description,part.description,...l.spec.makeup].some(x=>/6CLEAR/.test(x)),
+   name:g.name,option:purDocOptions({}).productCode,fixed};
+ }),await t.p.evaluate(()=>{const g=glassProductByCode('6CLEAR');return {description:g.name+docHeatCode(salesMakeupById(DB.salesOrder[0],DB.salesOrder[0].lines[0].makeupId).panes[0]),makeup:'Lite 1: '+g.name,part:g.name,code:false,name:g.name,option:false,fixed:false};}));
  await t.c.close();
 };

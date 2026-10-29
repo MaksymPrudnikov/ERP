@@ -3,9 +3,11 @@
    or changes it. A missing catalogue glass can still be bought by text.
    The office uses existing Skip after receiving external glass. */
 function purComponentLabel(c){return 'Lite '+c.lite+(c.ply?' · '+c.ply+' ply':'');}
+/* Поставщику — Name, без нашего кода (владелец, 29.10.2026: «поставщики
+   пусть будет имя тоже»). */
 function purSpecComponent(o,l,c){
  const d=stkGlassData('final',o,l,c,1),route=stkRoute(o,l,c),g=d.glass;
- const glass=[g.code,g.name,g.mm?g.mm+' mm':'',g.heat,g.heatSoak?'Heat soak':'',g.surface?'Coating '+g.surface:'',...(g.paint||[])].filter(Boolean).join(' · ');
+ const glass=[g.name,g.mm?g.mm+' mm':'',g.heat,g.heatSoak?'Heat soak':'',g.surface?'Coating '+g.surface:'',...(g.paint||[])].filter(Boolean).join(' · ');
  return {key:c.key,label:purComponentLabel(c),glass,finished:d.finished,cut:d.cut,shape:d.shape,
   services:route.services.map(s=>s.text),missing:!g.code,raw:{pane:purClone(c.pane),spec:purClone(c.spec)}};
 }
@@ -15,8 +17,8 @@ function purOrderComponentLine(orderId,lineId,key){
   const cs=glassBatchComponents(o,l),chosen=key?cs.filter(c=>c.key===key):cs;if(!chosen.length)return null;
   const m=salesMakeupById(o,l.makeupId),parts=chosen.map(c=>purSpecComponent(o,l,c)),whole=!key;
   const spec={orderNumber:o.businessNumber,lineNumber:o.lines.indexOf(l)+1,mark:l.mark||'',part:whole?'Whole unit':purComponentLabel(chosen[0]),
-   makeup:whole&&m?docMakeupFullLines(m):[],parts,note:l.notes||'',capturedAt:new Date().toISOString()};
-  return purLineClean({id:salesUid('PL'),kind:'order',orderId,lineId,componentKey:key||'',description:whole?(m?docMakeupShort(m):'Whole unit'):parts[0].glass,
+   makeup:whole&&m?docMakeupFullLines(m,{glassNames:'name'}):[],parts,note:l.notes||'',capturedAt:new Date().toISOString()};
+  return purLineClean({id:salesUid('PL'),kind:'order',orderId,lineId,componentKey:key||'',description:whole?(m?docMakeupShort(m,{glassNames:'name'}):'Whole unit'):parts[0].glass,
    unit:'each',priceUnit:'each',qty:l.qty,spec},0);
  });
 }

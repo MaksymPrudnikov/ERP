@@ -45,8 +45,8 @@ function docHeatName(spec){
  return (h?h.name:'')+(spec&&spec.heatSoak?' + Heat Soak':'');
 }
 /* Клиенту — Name, как в его проекте; Work order — цеху — Short name
-   (владелец, 29.10.2026). Без указания (спецификация закупки, отчёты) — код,
-   как раньше. */
+   (владелец, 29.10.2026); поставщику — тоже Name. Без указания (отчёты) —
+   код, как раньше. */
 function docGlassName(g,opts){const how=opts&&opts.glassNames;return !g?'?':how==='short'?glassShortName(g):how==='name'?g.name||g.code:g.code;}
 function docPaneCode(p,opts){
  if(p.category==='laminated'){

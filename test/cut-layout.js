@@ -577,7 +577,7 @@ module.exports=async function({page,eq,ok}){
   DB.cutPlan[0].settings['G-0000001'].priority=10;const again=applyDataFixes(),kept=DB.cutPlan[0].settings['G-0000001'].priority;
   DB.cutPlan=keep.plan;DB.dataFix=keep.fix;
   return {ran,cleared,fix,again,kept};
- }),{ran:true,cleared:'{"G-0000001":{"off":true},"G-0000002":{}}',fix:9,again:false,kept:10});
+ }),{ran:true,cleared:'{"G-0000001":{"off":true},"G-0000002":{}}',fix:10,again:false,kept:10});
 
  eq('остатки мышью: правая кнопка по остатку — To stock и Split с размером; по стоку — печать и возврат в отход',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,30,2]]);const b=DB.glassBatch[0];

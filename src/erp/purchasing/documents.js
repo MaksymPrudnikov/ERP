@@ -9,7 +9,7 @@ const PUR_PO_FIELDS=[
  ['currency','Header','Currency',true],['createdBy','Header','Created by',false],
  ['supplier','Supplier','Supplier name and address',true],['contact','Supplier','Contact details',true],
  ['account','Supplier','Account / tax / website',false],['terms','Supplier','Payment terms and method',true],
- ['description','Lines','Description',true],['productCode','Lines','Glass code',true],
+ ['description','Lines','Description',true],['productCode','Lines','Glass code',false],
  ['quantity','Lines','Quantity and unit',true],['sheetSize','Lines','Sheet size and sheets per block',true],
  ['lineDate','Lines','Line expected date',true],['held','Lines','Held at supplier',true],
  ['source','Specification','Customer order and position',true],['makeup','Specification','Whole-unit makeup',true],
