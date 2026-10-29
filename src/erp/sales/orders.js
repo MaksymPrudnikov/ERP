@@ -32,8 +32,8 @@ function salesApplyCustomerDefaults(id){
 }
 /* Строки поиска в списке больше нет — фильтры колонок (views/sales-list-ui). */
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(kind){soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){salesSaveQueue(()=>salesOrderNew(kind),'A new '+(kind==='quote'?'quote':'order')+' opens after saving.');return;}soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){const x=salesRecord(id);salesSaveQueue(()=>salesOrderEdit(id),(x&&x.businessNumber?salesSaveTitle(x).replace(/^./,c=>c.toUpperCase()):'The order')+' opens after saving.');return;}salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -115,6 +115,8 @@ function salesDraftDrop(discard){
    другой заказ, новый заказ, другая ревизия квоты. */
 function salesLeaveDraft(next){
  const go=()=>{if(typeof next==='function')next();else render();};
+ /* Идёт Save в фоне (erp/sales/save-job) — уход после записи. */
+ if(typeof salesSaveJob!=='undefined'&&salesSaveJob){salesSaveQueue(go);return;}
  if(!soDraft){go();return;}
  if(!salesDraftHasWork()){salesDraftDrop(true);go();return;}
  const isNew=soEdit==='new',what=salesIsQuote(soDraft)?'quote':'order',name=soDraft.businessNumber||'';
@@ -127,6 +129,10 @@ function salesOrderClose(){salesLeaveDraft();}
 /* Боковое меню: уход из заказа (и из редактора формы его строки) — тот же
    вопрос. nav.js про заказы не знает — только спрашивает стражей. */
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){
+ /* Save в фоне (erp/sales/save-job): другие экраны работают, заказ ждёт
+    записи открытым; Sign out — после записи, иначе правку записали бы на
+    следующего вошедшего. */
+ if(typeof salesSaveJob!=='undefined'&&salesSaveJob){if(k!=='signout')return false;salesSaveQueue(go,'Sign out after saving.');return true;}
  if(!soDraft)return false;
  const inOrder=tab==='sales'||(tab==='configurators'&&!!salesBridge);
  if(!inOrder)return false;
@@ -155,26 +161,42 @@ function salesOrderScope(id){
  const own=id&&id!=='new'?[id]:[];
  return {salesOrder:own,financeTerms:own,glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true,glassBatch:own.length?glassBatchEntries(id).map(x=>x.batch.number):[]};
 }
+/* opts.bg — кнопка: большой заказ сохраняется в фоне (erp/sales/save-job);
+   opts.noRender — экран нарисует он сам, opts.failed — ему текст отказа:
+   заказа на экране может и не быть. */
 function salesOrderSave(opts){
+ if(opts&&opts.bg)return salesOrderSaveBg();
  const editor={draft:soDraft?JSON.parse(JSON.stringify(soDraft)):null,edit:soEdit,quote:soQuoteCopyOf,shapes:soShapeSnapshot,baseline:soSavedBaseline};
  const out=storageCommand(()=>{
   const rebased=salesRebaseDraft(DB.salesOrder.find(x=>x.id===soEdit));if(rebased!==true)throw new Error(rebased);
-  const result=salesOrderSaveCommand(opts);if(result!==true){const e=document.getElementById('e_sales_order');throw new Error(e&&e.textContent||'The order was not saved.');}return true;
+  const result=salesOrderSaveCommand(opts);if(result!==true){const e=salesOrderErrorBox();throw new Error(e.style.display!=='none'&&e.textContent||'The order was not saved.');}return true;
  },salesOrderScope(soEdit));
- if(!out.ok){soDraft=editor.draft;soEdit=editor.edit;soQuoteCopyOf=editor.quote;soShapeSnapshot=editor.shapes;soSavedBaseline=editor.baseline;render();fail(document.getElementById('e_sales_order'),out.error);return false;}
- soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));render();return true;
+ if(!out.ok){soDraft=editor.draft;soEdit=editor.edit;soQuoteCopyOf=editor.quote;soShapeSnapshot=editor.shapes;soSavedBaseline=editor.baseline;render();const e=document.getElementById('e_sales_order');if(e)fail(e,out.error);if(opts&&opts.failed)opts.failed(out.error);return false;}
+ soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));if(!(opts&&opts.noRender))render();return true;
 }
+/* Строка ошибки заказа. Save в фоне идёт и без заказа на экране — тогда
+   ошибка пишется в строку вне экрана. */
+let salesOrderErrorSpare=null;
+function salesOrderErrorBox(){return document.getElementById('e_sales_order')||salesOrderErrorSpare||(salesOrderErrorSpare=document.createElement('div'));}
+/* Save в фоне (erp/sales/save-job): opts.dry — только проверки и вопросы,
+   без записи; opts.checked — вопросы уже заданы; opts.pre — цены и
+   количества строк, посчитанные заранее. Они берутся, только если база и
+   заказ с тех пор не менялись, иначе — всё заново, как у обычного Save. */
 function salesOrderSaveCommand(opts){
  opts=opts||{};
- const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
+ const e=salesOrderErrorBox();e.style.display='none';
  if(soQuoteCopyOf&&!salesDraftHasWork()){render();return true;}
+ const pre=opts.pre&&opts.pre.rev===storageBaseRev&&opts.pre.json===JSON.stringify(soDraft)?opts.pre:null;
+ const ask=opts.checked?()=>true:t=>confirm(t);
+ let shrinks=pre?pre.shrinks:null,previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
+ if(!pre){
  salesSnapshotAllChargePricing();
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
  /* «PO required»: PO приходит вместе с заказом, без него заказ не пишется
     (владелец, 8.10.2026: «без PO ничего не сохранять… PO сразу же с заказом»). */
  if(customer.poRequired&&!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'This customer requires a PO. Enter the PO.');
- const previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
+ previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  const shippingError=shippingSaveGuard(soDraft,previousOrder);if(shippingError)return fail(e,shippingError);
  if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&(DB.receipt||[]).some(r=>r.allocations.some(a=>a.orderId===soDraft.id)))return fail(e,'This order has payment records. Its customer cannot change.');
  /* Строки из батча: стекло уже на резке (владелец, 15 сентября 2026). Новый
@@ -183,13 +205,12 @@ function salesOrderSaveCommand(opts){
   const started=salesStartedViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(started.length)return fail(e,'Glass already in production: '+started.join('; ')+'. Add a new line or open a new order.');}
  /* Меньше юнитов у строки в батче (salesLineShrinkable): лишнее стекло уходит
     из батча до записи. Резчик мог порезать без скана — спросить. */
- const shrinks=opts.unlock||soEdit==='new'?[]:salesBatchShrinks(soDraft,previousOrder);
- if(shrinks.length&&!confirm(shrinks.map(x=>x.text).join('\n')+'\n\nThis glass is not cut yet?'))return;
- if(shrinks.length){
-  const now=new Date().toISOString(),gone=new Set(shrinks.flatMap(x=>x.pieces));
-  glassBatchCancelPieces([...gone],now,'Quantity changed');
-  shrinks.forEach(x=>orderLogPush(previousOrder,x.to?'Quantity changed':'Line removed','line '+x.no+(x.to?' · '+x.from+' → '+x.to:'')+' · '+x.pieces.length+' glass out of '+(x.batches.join(', ')||'the batch')));
- }
+ const was=opts.pre&&opts.pre.shrinks;shrinks=opts.unlock||soEdit==='new'?[]:salesBatchShrinks(soDraft,previousOrder);
+ const shrinkText=shrinks.map(x=>x.text).join('\n');
+ /* Пока Save шёл в фоне, стекло заказа сняли с батча или поставили в батч —
+    вопрос «не порезано?» был о другом: Save заново. */
+ if(opts.checked&&was&&shrinkText!==was.map(x=>x.text).join('\n'))return fail(e,'The batch changed while saving. Save again.');
+ if(shrinks.length&&!ask(shrinkText+'\n\nThis glass is not cut yet?'))return;
  /* Заказ одного склада: пустая стартовая строка стекла не мешает сохранить. */
  if((soDraft.extraItems||[]).length)soDraft.lines=soDraft.lines.filter(l=>!salesOrderLineIsBlank(l));
  /* Строка без размера уезжала в Draft молча и всплывала уже в цеху.
@@ -199,18 +220,25 @@ function salesOrderSaveCommand(opts){
    ?'Line '+noDim[0]+' has no width or height. Enter the size or remove the line.'
    :'Lines without width or height: '+noDim.join(', ')+'. Enter the sizes or remove these lines.');
  const temperWarnings=salesTemperCompatibilityWarnings(soDraft);
- if(temperWarnings.length&&!confirm('Glass / heat-treatment warning:\n\n- '+temperWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
+ if(temperWarnings.length&&!ask('Glass / heat-treatment warning:\n\n- '+temperWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  /* Габарит станции — тот же приём, что у закалки: предупредить и дать сохранить.
     Решение владельца 13 сентября 2026: запрет на засеянных 144 × 100″ стоял бы
     на пути законных заказов. */
  const sizeWarnings=typeof salesStationSizeWarnings==='function'?salesStationSizeWarnings(soDraft):[];
- if(sizeWarnings.length&&!confirm('Station size warning:\n\n- '+sizeWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
+ if(sizeWarnings.length&&!ask('Station size warning:\n\n- '+sizeWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  /* Операция без станции (этап 4, часть 3): станцию даёт только карточка работы. */
  const noStation=salesRouteUnassignedWarnings(soDraft);
- if(noStation.length&&!confirm('Route warning:\n\n- '+noStation.join('\n- ')+'\n\nSet the station in Data → Works. Save this order anyway?'))return;
+ if(noStation.length&&!ask('Route warning:\n\n- '+noStation.join('\n- ')+'\n\nSet the station in Data → Works. Save this order anyway?'))return;
  /* Мин. и макс. размер из карточки айтема — так же: предупредить, решает менеджер. */
  const itemSize=salesItemSizeWarnings(soDraft);
- if(itemSize.length&&!confirm('Item size warning:\n\n- '+itemSize.join('\n- ')+'\n\nSave this order anyway?'))return;
+ if(itemSize.length&&!ask('Item size warning:\n\n- '+itemSize.join('\n- ')+'\n\nSave this order anyway?'))return;
+ }
+ if(opts.dry)return {dry:true,shrinks};
+ if(shrinks.length){
+  const now=new Date().toISOString(),gone=new Set(shrinks.flatMap(x=>x.pieces));
+  glassBatchCancelPieces([...gone],now,'Quantity changed');
+  shrinks.forEach(x=>orderLogPush(previousOrder,x.to?'Quantity changed':'Line removed','line '+x.no+(x.to?' · '+x.from+' → '+x.to:'')+' · '+x.pieces.length+' glass out of '+(x.batches.join(', ')||'the batch')));
+ }
  /* Правка отправленной ревизии квоты — следующая ревизия со своим номером. */
  const copyOf=salesQuoteCopySource();
  if(copyOf){const rev=salesQuoteNextRev(copyOf);soDraft.quoteGroupId=salesQuoteGroupId(copyOf);soDraft.quoteRev=rev;soDraft.businessNumber=salesQuoteBaseNumber(copyOf)+'-R'+rev;soDraft.status='open';soDraft.sentAt='';soDraft.statusDates={};if(soDraft.validUntil===copyOf.validUntil)soDraft.validUntil='';}
@@ -218,10 +246,11 @@ function salesOrderSaveCommand(opts){
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;if(!soDraft.statusDates[soDraft.status])soDraft.statusDates[soDraft.status]=soDraft.updatedAt;
  /* Цены справочников — на день сохранения (salesBook): прежние в заказе
     остаются, новые позиции берут Master Data (владелец, 20.10.2026). */
- soDraft.priceBook=salesPriceBookOf(soDraft);
+ if(pre){salesSaveBookCheck(soDraft,pre);soDraft.priceBook=pre.book;if(pre.from)soDraft.priceFrom=pre.from;else delete soDraft.priceFrom;}
+ else soDraft.priceBook=salesPriceBookOf(soDraft);
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
- normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();salesMeasureWrite(DB.salesOrder.find(x=>x.id===soDraft.id));soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();return true;
+ normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();salesMeasureWrite(DB.salesOrder.find(x=>x.id===soDraft.id),pre&&pre.measures);soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();return true;
 }
 /* Экран рисует salesOrderSave после записи: внутри команды указатели
    отрисовки выключены, и заказ на 500 строк искал фигуру каждой строки
