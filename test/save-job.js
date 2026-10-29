@@ -69,6 +69,23 @@ module.exports=async function({page,eq}){
   salesDraftDrop(true);const id=oqOrder(oqCustomer());salesOrderEdit(id);soDraft.notes='Small';render();
   const ok=salesOrderSave({bg:true});return {ok,job:!!salesSaveJob,notes:salesRecord(id).notes};
  }),{ok:true,job:false,notes:'Small'});
+ /* Аудит 29.10.2026, А1: «Saved», закрытие заказа и отложенное — только
+    после записи на диск; диск отказал — заказ на экране, «Not saved». */
+ eq('запись на диск ещё идёт — «Saved» нет; отказала — заказ на экране, «Not saved», другой заказ не открыт',await t.p.evaluate(async()=>{
+  salesDraftDrop(true);oqReset();const other=oqOrder(oqCustomer({legalName:'Queued customer'}));salesDraftDrop();await storageFlush();
+  const id=sjBig(true),keep=window.storageIdbWrite;let fail=null;
+  window.storageIdbWrite=()=>new Promise((res,rej)=>{fail=rej;});
+  const h3=()=>(document.querySelector('#busyGlass h3')||{}).textContent||'';
+  try{
+   salesOrderSave({bg:true});navGo('finance');salesOrderEdit(other);
+   await new Promise(r=>{const c=()=>fail&&salesRecord(id).notes==='Background'?r():setTimeout(c,10);c();});
+   await new Promise(r=>setTimeout(r,50));
+   const waiting={job:!!salesSaveJob,saved:/^Saved /.test(h3()),step:salesSaveJob&&salesSaveJob.step,tab};
+   fail(new Error('Disk test'));await sjWait();
+   const e=document.getElementById('e_sales_order');
+   return {waiting,tab,open:soEdit===id,card:/^Not saved: /.test(h3()),error:!!(e&&e.textContent),state:(document.querySelector('[data-order-state]')||{}).textContent,queued:soEdit!==other};
+  }finally{window.storageIdbWrite=keep;storageRetry();await storageFlush();salesSaveClose();}
+ }),{waiting:{job:true,saved:false,step:'Saving to disk',tab:'finance'},tab:'sales',open:true,card:true,error:true,state:'Not saved',queued:true});
  eq('Save в фоне без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
