@@ -34,3 +34,4 @@
 .sales-commercial-row i.sales-rate-origin{font-style:normal;font-size:7.5px;margin-left:4px;vertical-align:middle}
 @media(max-width:900px){.metric-surcharge-table{overflow-x:auto}.metric-surcharge-row{min-width:900px}}
 .sales-rate-origin.off{background:var(--surface-3);color:var(--text-2)!important}
+.sales-commercial-row>span:nth-child(2) small{display:block;margin-top:2px}
