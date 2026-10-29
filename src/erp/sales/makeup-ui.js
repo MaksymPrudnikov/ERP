@@ -234,18 +234,19 @@ function salesVisionFieldsSafe(p,index){
  const typeSelect=`<select onchange="salesPaneSetVisionType(${index},this.value)">${
   [['uncoated','Uncoated'],['lowe','Low-E'],['reflective','Reflective'],['frit','Frit']]
    .map(x=>salesOption(x[0],x[1],p.visionType,true)).join('')}</select>`;
- return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>${coated?'On Glass':(isFrit?'Base Glass':'Glass')}</label>${glassSelect}${salesGlassMetaFor(p.glassProductId)}</div><div><label>Type</label>${typeSelect}</div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
+ return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Type</label>${typeSelect}</div><div><label>${coated?'On Glass':(isFrit?'Base Glass':'Glass')}</label>${glassSelect}${salesGlassMetaFor(p.glassProductId)}</div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
   ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetCoating(${index},this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(p,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select><div class="mu-glass-meta"><span class="mut" data-raw>${esc(coatings.length)} coatings · ${esc(rows.length)} variants</span></div></div>${salesCoatingSurfaceSelector(p,index)}</div>`:''}
   ${isFrit?salesFritFields(p,index):''}`;
 }
 /* Спандрел описывается тем же рядом, что и обычный лайт: производитель,
-   толщина, стекло, тип, термообработка, цена. Раньше здесь была своя сетка из
+   толщина, тип, стекло, термообработка, цена (порядок — владелец, 29.10.2026:
+   Type перед Glass во всех лайтах). Раньше здесь была своя сетка из
    четырёх полей без цены, и глазу приходилось искать её в другом месте — а
    сравнивают лайты между собой, значит и выглядеть они должны одинаково.
    Место TYPE занимает продукт спандрела: он и есть тип этой позиции. */
 function salesSpandrelFields(p,index){
  const rows=salesBaseGlassCandidates(p);
- return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div><div><label>Type</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
+ return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Type</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div><div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
   <div class="mu-coating-grid mu-second-row"><div><label>Colour</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${salesSpandrelColourOptions(p.spandrel.color,p.spandrel.productId)}</select></div>${salesSpandrelCustomColourField(p,index)}${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
 }
 /* Custom Colour, Customer's Own Paint и керамический Custom — строки палитры
@@ -258,7 +259,7 @@ function salesSpandrelCustomColourField(p,index){
  return `<div><label>Custom colour name</label><input maxlength="60" value="${esc(p.spandrel.colorNote||'')}" placeholder="Name the colour or paint" oninput="salesPaneSetSpandrel(${index},'colorNote',this.value)"><small>Goes on the route sheet — the shop needs this to know what to mix.</small></div>`;
 }
 /* Плита ламината описывается тем же рядом, что обычный лайт: производитель,
-   толщина, стекло, тип, термообработка, цена. У ламината таких плит две, и цена
+   толщина, тип, стекло, термообработка, цена. У ламината таких плит две, и цена
    у каждой своя — внутренний лист может быть дороже внешнего. Итог позиции
    складывается из обеих плит и плёнки. */
 function salesLaminatedPlyFields(p,index,side,label){
@@ -272,8 +273,8 @@ function salesLaminatedPlyFields(p,index,side,label){
   <div class="mu-field-grid mu-field-grid-6">
    <div><label>Manufacturer</label><select onchange="salesPaneSetLamPly(${index},'${side}','manufacturer',this.value)">${salesManufacturers().map(x=>salesOption(x,x,ply.manufacturer,true)).join('')}</select></div>
    <div><label>Thickness</label><select onchange="salesPaneSetLamPly(${index},'${side}','thicknessMm',this.value)">${salesThicknessesFor(ply).map(x=>salesOption(String(x),x+' mm',String(ply.thicknessMm),true)).join('')}</select></div>
-   <div class="mu-lam-glass"><label>${coated?'On Glass':'Glass'}</label><select onchange="salesPaneSetLamPlyProduct(${index},'${side}',this.value)">${glassSelect}</select>${salesGlassMetaFor(ply.glassProductId)}</div>
    <div><label>Type</label>${typeSelect}</div>
+   <div class="mu-lam-glass"><label>${coated?'On Glass':'Glass'}</label><select onchange="salesPaneSetLamPlyProduct(${index},'${side}',this.value)">${glassSelect}</select>${salesGlassMetaFor(ply.glassProductId)}</div>
    <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesHeatOptions(ply)}</select></div>
    <div><label>Price · sq ft</label>${salesPriceCell('LamPly'+(side==='outer'?'Outer':'Inner'),index,salesPlyCatalogPrice(ply),ply.priceOverride,salesGlassPriceFrom(ply))}</div>
   </div>
