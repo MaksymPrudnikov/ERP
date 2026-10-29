@@ -471,7 +471,7 @@ async function storageApplySaved(d){
 }
 /* Записи пропущены (вкладка спала, сообщение не дошло) — база целиком. */
 async function storageReloadAll(){
- const got=await storageIdbReadAll();if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);const next=prepareImportedState(storageJoin(got.records),true);
+ const got=await storageIdbReadAll();if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);const next=prepareImportedState(storageJoin(got.records),got.counted===storageBuildId());
  if(typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(DB,next);
  storageBaseFrom(got.records);DB=next;storageRev=got.rev;storageTest=got.test===true;storageInvalidate();
 }
@@ -861,7 +861,12 @@ function prepareImportedState(src,own){
    этой программой, уже приведено в порядок — готовые раскрои и статусы
    отгрузки не пересчитываются (владелец, 28.10.2026: «если всё готово —
    зачем система пересобирает?»). Import, сервер, пересев и правки данных
-   (DATA_FIXES) — пересчёт всего, как раньше. */
+   (DATA_FIXES) — пересчёт всего, как раньше.
+   «Эта программа» — та же сборка: цифры, посчитанные прежней версией, могли
+   считаться по другим правилам (аудит 29.10.2026, А2). Метка counted в базе
+   — сборка, которая пересчитала цифры и записала их; другая — первый F5
+   после обновления пересчитывает всё один раз (раскладки листов не
+   трогаются — только цифры). */
 let normalizeOwn=false;
 function normalizeDB(){
  Object.keys(DEFAULT).forEach(k=>{ if(Array.isArray(DEFAULT[k])&&!Array.isArray(DB[k])) DB[k]=JSON.parse(JSON.stringify(DEFAULT[k])); });
@@ -919,11 +924,11 @@ function normalizeDB(){
    tools/perf-year.js (задание «База», этап 2). */
 let storageBootMs=null;
 async function boot(){
- let hadSavedState=false;const T=()=>performance.now(),t0=T(),ms={};
+ let hadSavedState=false,counted='';const T=()=>performance.now(),t0=T(),ms={};
  try{
   await storageIdbOpen();
   const got=await storageIdbReadAll();ms.read=T()-t0;
-  storageBaseFrom(got.records);if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);storageRev=got.rev;storageBuildAtLoad=got.build;storageCopyAt=got.copyAt||'';storageBackupPresent=!!got.copyAt;storageTest=got.test===true;
+  storageBaseFrom(got.records);if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);storageRev=got.rev;storageBuildAtLoad=got.build;storageCopyAt=got.copyAt||'';storageBackupPresent=!!got.copyAt;storageTest=got.test===true;counted=got.counted;
   if(got.records.length){
    hadSavedState=true;const parsed=storageJoin(got.records);ms.join=T()-t0-ms.read;
    if(!Object.keys(parsed).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a database object.');
@@ -933,7 +938,7 @@ async function boot(){
  catch(e){storageRecovery=true;storageLastError=storageIdb?'Stored data could not be read. The original has been preserved.':'This browser could not open the database. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.';console.warn(storageLastError,e.message);}
  /* Блоки номеров сервера — до нормализации: она бывает, выдаёт номера стёкол. */
  if(!storageRecovery&&typeof cloudLoad==='function')try{await cloudLoad();}catch(e){console.warn('Sync state was not read:',e.message);}
- normalizeOwn=hadSavedState;
+ normalizeOwn=hadSavedState&&counted===storageBuildId();
  try{ if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB(); }
  catch(e){normalizeOwn=false;storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
  normalizeOwn=false;
@@ -957,10 +962,12 @@ async function boot(){
   /* Своя база той же сборки, без пересева и правок: старт ничего не меняет
      (год цеха: 0 из 3 211 раскроев) — полное сравнение (3,7 с на слабом ПК)
      уходит в простой (storageSweep). */
-  if(hadSavedState&&storageBuildAtLoad===storageBuildId()&&!reseeded&&!fixed)storageSweepLater();
+  if(hadSavedState&&storageBuildAtLoad===storageBuildId()&&counted===storageBuildId()&&!reseeded&&!fixed)storageSweepLater();
   else{
    touch();
    if(!storageBusy&&storageBuildAtLoad!==storageBuildId())storageIdbMetaPut('build',storageBuildId()).catch(e=>console.warn('Version mark was not written:',e.message));
+   /* Цифры посчитаны этой сборкой и дошли до базы — следующий F5 им доверяет. */
+   if(counted!==storageBuildId())storageFlush().then(ok=>ok&&storageIdbMetaPut('counted',storageBuildId())).catch(e=>console.warn('Count mark was not written:',e.message));
   }
  }
  ms.write=T()-tw;storageBootMs=ms;

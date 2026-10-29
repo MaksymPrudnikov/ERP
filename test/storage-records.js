@@ -199,6 +199,29 @@ module.exports=async function({page,eq,ok}){
  eq('F5 своей базы: готовый раскрой как сохранён, старт ничего не пишет; раскрой без цифр считается заново',Object.assign(kept,await f.p.evaluate(()=>{
   const p=cutPlanFor(JSON.parse(localStorage.getItem('sr-f5')).n);localStorage.removeItem('sr-f5');return {recounted:!!p&&Array.isArray(p.orders)&&p.stats.used!==12345};
  }),{batch:f5}),{kept:12345,rev:true,recounted:true,batch:f5&&/^B-/.test(f5)?f5:'B-…'});
+ /* Обновили программу (аудит 29.10.2026, А2): цифры посчитаны прежней
+    сборкой — первый F5 пересчитывает их один раз и ставит метку counted;
+    следующий F5 снова им доверяет. */
+ const mark=()=>f.p.evaluate(async()=>{await storageFlush();await new Promise(r=>setTimeout(r,50));return (await storageIdbReadAll()).counted===storageBuildId();});
+ await f.p.evaluate(async n=>{storageCommand(()=>{cutPlanFor(n).stats.used=777;});await storageFlush();await storageIdbMetaPut('counted','older-build');},f5);
+ await fReload();
+ const fresh=await f.p.evaluate(n=>cutPlanFor(n).stats.used!==777,f5),marked=await mark();
+ await f.p.evaluate(async n=>{storageCommand(()=>{cutPlanFor(n).stats.used=778;});await storageFlush();},f5);
+ await fReload();
+ eq('F5 после обновления программы: цифры прежней сборки пересчитаны один раз, дальше F5 им доверяет',
+  {fresh,marked,trusted:await f.p.evaluate(n=>cutPlanFor(n).stats.used,f5)},{fresh:true,marked:true,trusted:778});
+ /* Батч двух заказов, один ушёл в архив: пересчёт (Import, другая сборка)
+    не вычёркивает его стёкла из цифр раскроя — посчитать их заново нечем. */
+ eq('пересчёт раскроя, когда часть заказов батча в архиве: цифры как были',await f.p.evaluate(()=>{
+  oqReset();const c=oqCustomer({legalName:'Archive split'}),a=oqOrder(c),b=oqOrder(c);salesDraftDrop();
+  [a,b].forEach(id=>salesSetRecordStatus(id,'verified'));const batch=glassBatchAssign(glassBatchRows([salesRecord(a),salesRecord(b)]),{});
+  const n=batch.number;cutPlanRun(n);const was=JSON.stringify([cutPlanFor(n).stats,cutPlanFor(n).orders]);
+  const gone=salesRecord(a);DB.salesOrder=DB.salesOrder.filter(o=>o!==gone);archiveIndexApply([[gone.id,{id:gone.id,row:{}}]]);
+  normalizeOwn=false;try{normalizeDB();}finally{normalizeOwn=false;}
+  const kept=JSON.stringify([cutPlanFor(n).stats,cutPlanFor(n).orders])===was,orders=cutPlanFor(n).orders.length;
+  archiveIndexApply([[gone.id,null]]);DB.salesOrder.push(gone);normalizeDB();touch();
+  return {kept,orders};
+ }),{kept:true,orders:2});
  await f.c.close();
 
  const v=await page();await require('./optimization-fixture')(v.p);
