@@ -72,8 +72,8 @@ function salesResetMetricColumns(context){
  salesSaveViewPrefs();render();
 }
 function salesOpenMetrics(panel,id){salesMetricsPanel=panel;salesMetricsLineId=id||null;salesMetricsEditWeights=false;render();}
-function salesCloseMetrics(){salesMetricsPanel=null;render();}
-function salesMetricsTools(){return `<button type="button" onclick="salesOpenMetrics('columns')">${'Columns'}</button><button type="button" onclick="salesOpenMetrics('rules')">${'Surcharges'}</button>`;}
+function salesCloseMetrics(){salesMetricsPanel=null;salesSurchargeError=null;render();}
+function salesMetricsTools(){const n=salesOrderSurchargeCount(soDraft);return `<button type="button" onclick="salesOpenMetrics('columns')">${'Columns'}</button><button type="button" data-surcharges-btn onclick="salesOpenMetrics('rules')">${'Surcharges'}${n?`<span class="metric-surcharge-badge" data-surcharge-badge>ORDER ${n}</span>`:''}</button>`;}
 function salesMetricHeaders(context){return salesMetricColumnsFor(context).map(c=>`<th class="line-metric" data-metric="${c.key}"><span data-raw>${c.label}</span></th>`).join('');}
 function salesMetricCells(line,context){
  const columns=salesMetricColumnsFor(context),price=salesLineCommercialPrice(line,soDraft),a=price.areas;
@@ -177,11 +177,57 @@ function salesPricePanel(line){
  const p=salesLineCommercialPrice(line,soDraft),cur=esc(soDraft.currency),row=(label,value)=>`<div class="metric-price-row"><span>${label}</span><b data-raw>${value==null?'—':value.toFixed(2)+' '+cur}</b></div>`;
  return salesPriceManualHTML(line,p,cur)+`<p class="mut">${'Calculation for one finished unit'}</p>${row('Materials'+((p.materialRows||[]).some(r=>r.special||r.cavity!=null)?'':` · ${p.materialRate.toFixed(2)} × ${p.areas.billable==null?'—':p.areas.billable.toFixed(1)} ft²`),p.missingMaterials||p.unsupportedCurrency?null:p.materials)}${salesMaterialRowsHTML(p)}${row('Services and processing',p.missingServices||p.unsupportedCurrency?null:p.services)}${row('Base unit price',p.missingMaterials||p.missingServices||p.unsupportedCurrency?null:p.base)}${p.adjustments.map(a=>row(`${esc(a.label)} · +${a.percent}% × ${a.base.toFixed(2)}`,p.complete?a.amount:null)).join('')}${row('Unit Price',p.unit)}${row('Line Total · Qty '+p.qty,p.line)}${p.unsupportedCurrency?`<p class="metric-incomplete">${'Catalog prices are in CAD. USD totals require a defined currency conversion; CAD amounts are not relabelled as USD.'}</p>`:''}${!p.complete?`<p class="metric-incomplete">${'Calculation incomplete: check dimensions and material / service prices.'}</p>`:''}<p class="mut">${'Surcharges from Data → Works. Before energy surcharge, tax and delivery.'}</p><button type="button" onclick="salesMetricsPanel=null;salesOpenLineServices('${esc(line.id)}')">${'Open services'}</button>`;
 }
-/* Надбавки — работы Data → Works с правилом; здесь только то, что в силе
-   у этого заказа (сохранённый заказ — по снимку на Save). */
+/* Надбавки — работы Data → Works с правилом. Окно показывает каталог этого
+   заказа (сохранённый — снимок на Save) и числа самого заказа: процент,
+   минимальную площадь и порог площади меняют только для этого заказа
+   (пункт 15 плана, владелец 29.10.2026; вид — вариант 1 с включателем из
+   варианта 3). Data → Works, прайсы и другие заказы не меняются. Пустое поле
+   или Reset — каталог; 0 или выключатель — надбавка не идёт в цену. */
+let salesSurchargeError=null;
+function salesOrderSurchargeCount(o){const own=o&&o.surchargeRates;return own?salesSurchargeCatalog(o).filter(x=>own[x.id]).length:0;}
+function salesSurchargeLocked(){return !soDraft||salesOrderReadOnly(soDraft)||typeof salesSaveJob!=='undefined'&&!!salesSaveJob;}
+function salesSurchargeEdit(id,fn){
+ if(salesSurchargeLocked())return;
+ const all=Object.assign({},soDraft.surchargeRates||{}),x=Object.assign({},all[id]||{});
+ fn(x);
+ if(Object.keys(x).length)all[id]=x;else delete all[id];
+ if(Object.keys(all).length)soDraft.surchargeRates=all;else delete soDraft.surchargeRates;
+ render();
+}
+function salesSetOrderSurcharge(id,field,value){
+ if(!['value','areaOver','areaUnder'].includes(field))return;
+ const txt=String(value==null?'':value).trim(),n=Number(txt);
+ if(txt!==''&&(!Number.isFinite(n)||n<0||field!=='value'&&n===0)){salesSurchargeError={id,field,text:field==='value'?'Enter 0 or more':'Enter more than 0'};render();return;}
+ salesSurchargeError=null;
+ salesSurchargeEdit(id,x=>{
+  if(txt===''){delete x[field];return;}
+  if(field==='value'&&n===0){x.off=true;delete x.value;return;}
+  x[field]=Math.round(n*10000)/10000;if(field==='value')delete x.off;
+ });
+}
+function salesSetOrderSurchargeOn(id,on){salesSurchargeError=null;salesSurchargeEdit(id,x=>{if(on)delete x.off;else x.off=true;});}
+function salesResetOrderSurcharge(id){salesSurchargeError=null;salesSurchargeEdit(id,x=>{Object.keys(x).forEach(k=>delete x[k]);});}
+function salesSurchargeInput(x,field,own,locked){
+ const err=salesSurchargeError&&salesSurchargeError.id===x.id&&salesSurchargeError.field===field?salesSurchargeError.text:'';
+ const set=own&&own[field]!=null,catalog=field==='value'?x.value:x.rule[field];
+ return `<input type="text" inputmode="decimal" class="${set?'own':''}${err?' bad':''}" data-surcharge-input="${esc(x.id)}:${field}" aria-label="${esc(x.name)} ${field==='value'?'order value':field==='areaOver'?'area over':'area under'}" value="${set?esc(own[field]):''}" placeholder="${esc(catalog)}" ${locked?'disabled':''} onchange="salesSetOrderSurcharge('${esc(x.id)}','${field}',this.value)">${err?`<em class="metric-surcharge-error" data-surcharge-error>${esc(err)}</em>`:''}`;
+}
 function salesRulePanel(){
- const rows=salesSurcharges(soDraft);
- return `<div class="metric-explanation" data-surcharge-list>${rows.length?`<dl>${rows.map(x=>`<dt>${esc(x.name)}</dt><dd>${x.rule.kind==='minArea'?'min '+x.value+' ft²':'+'+x.value+'%'} · ${esc(serviceRuleText(x.rule))}${x.from?' · '+esc(priceListName(x.from)):''}</dd>`).join('')}</dl>`:`<p class="mut">No surcharges</p>`}<p class="mut">${'Edit in Data → Works. Saved orders keep theirs.'}</p></div>`;
+ const rows=salesSurchargeCatalog(soDraft),own=soDraft.surchargeRates||{},cur=esc(soDraft.currency||'CAD'),locked=salesSurchargeLocked();
+ const groups=new Map(salesOrderCommercialAdjustments(soDraft).map(g=>[g.key,g])),total=salesMoney([...groups.values()].reduce((n,g)=>n+g.total,0));
+ const minLines=id=>(soDraft.lines||[]).filter(l=>{const a=salesLineAreas(l,soDraft);return a.minArea&&a.minArea.id===id;}).length;
+ const plural=(n,w)=>n+' '+w+(n===1?'':'s');
+ const row=x=>{
+  const o=own[x.id]||null,eff=salesSurcharges(soDraft).find(y=>y.id===x.id)||null,on=!!eff,min=x.rule.kind==='minArea',unit=min?'ft²':'%';
+  const types=x.rule.unitTypes&&x.rule.unitTypes.length?x.rule.unitTypes.map(t=>t[0].toUpperCase()+t.slice(1)).join(' / ')+' units':'Any unit';
+  const applies=types+(x.rule.areaOver!=null?`, area &gt; ${salesSurchargeInput(x,'areaOver',o,locked)} ft²`:'')+(x.rule.areaUnder!=null?`, area &lt; ${salesSurchargeInput(x,'areaUnder',o,locked)} ft²`:'');
+  const tag=!on?['off','OFF']:o?['order','ORDER']:x.from?['list','LIST']:['catalog','CATALOG'];
+  const g=groups.get('svc:'+x.id),lines=min&&on?minLines(x.id):0;
+  const effect=!on?'<span class="mut">Off · not charged</span>':min?(lines?`${plural(lines,'line')} at ${esc(eff.value)} ft²`:`<span class="mut">No lines under ${esc(eff.value)} ft²</span>`)
+   :g?`<small>${plural(g.lines,'line')} · ${plural(g.qty,'unit')}</small><b data-raw>${g.incomplete?'—':'+'+g.total.toFixed(2)+' '+cur}</b>`:'<span class="mut">Not in this order</span>';
+  return `<div class="metric-surcharge-row${on?'':' off'}" data-surcharge="${esc(x.id)}"><label class="ncr-switch" title="${on?'On':'Off'}"><input type="checkbox" role="switch" aria-label="${esc(x.name)} on" ${on?'checked':''} ${locked?'disabled':''} onchange="salesSetOrderSurchargeOn('${esc(x.id)}',this.checked)"><span></span></label><span><b>${esc(x.name)}</b><small>${min?'Billable area per unit':'% of unit price'}</small></span><span class="metric-surcharge-applies">${applies}</span><span data-raw>${esc(salesSurchargeShown(x))}${x.from?`<small>${esc(priceListName(x.from))}</small>`:''}</span><span class="metric-surcharge-rate"><span>${salesSurchargeInput(x,'value',o,locked)}<i>${unit}</i></span><small class="sales-rate-origin ${tag[0]}">${tag[1]}</small></span><span class="metric-surcharge-effect">${effect}</span><button type="button" class="sm" ${o&&!locked?'':'disabled'} onclick="salesResetOrderSurcharge('${esc(x.id)}')">Reset to Catalog</button></div>`;
+ };
+ return `<div class="metric-surcharges" data-surcharge-list><p class="mut">${'This order only. Data → Works unchanged.'}</p>${rows.length?`<div class="metric-surcharge-table"><div class="metric-surcharge-row head"><span></span><span>Surcharge</span><span>Applies to</span><span>Catalog</span><span>Order</span><span>This order</span><span></span></div>${rows.map(row).join('')}</div><div class="metric-surcharge-foot"><span><b>Off</b> — not charged · <b>Empty</b> — Catalog</span><span>Surcharges in this order <b data-raw>${total.toFixed(2)} ${cur}</b></span></div>`:`<p class="mut">No surcharges</p>`}</div>`;
 }
 function salesWeightNormDisplay(row){
  if(row.rate==null)return {value:'',unit:row.unit||'',factor:1};
@@ -222,7 +268,7 @@ function salesMetricsModal(){
  const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Surcharges',orderCharges:'Order charges',area:'Unit area',weight:'Unit weight',price:'Unit price'};
  if(!titles[panel]||!line&&['area','weight','price'].includes(panel))return '';
  const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):salesPricePanel(line);
- return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
+ return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal${panel==='rules'?' metric-modal-wide':''}"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
 }
 /* Refresh computed cells without replacing the input currently receiving Tab. */
 function salesRefreshLineMetrics(line){

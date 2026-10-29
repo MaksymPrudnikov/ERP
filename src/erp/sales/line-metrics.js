@@ -11,7 +11,7 @@ if(!Array.isArray(DB.materialWeightRates))DB.materialWeightRates=[];
    Save целиком (snap:surcharges): новая надбавка или новое число в Data не
    меняют сохранённый заказ. */
 let salesSurchargeParsed={src:null,v:[]};
-function salesSurcharges(order){
+function salesSurchargeCatalog(order){
  const k='snap:surcharges',b=order&&order.priceBook;let v;
  /* Площадь юнита спрашивают на каждой отрисовке: разбор снимка — один раз. */
  if(b&&Object.prototype.hasOwnProperty.call(b,k)){
@@ -27,6 +27,45 @@ function salesSurcharges(order){
  }
  if(salesBookRec)salesBookRec[k]=JSON.stringify(v);
  return v;
+}
+/* Надбавки в силе у заказа: каталог заказа (снимок на Save или Data → Works)
+   и поверх него числа самого заказа (order.surchargeRates, окно Surcharges).
+   Это одно место: минимальная площадь, проценты, документы, Finance и Save в
+   фоне берут одно число. Выключенная у заказа надбавка (off или 0) не идёт в
+   цену и нигде не показывается нулём (владелец, 29.10.2026). Снимок каталога
+   остаётся каталогом — Reset у сохранённого заказа возвращает его. */
+function salesSurcharges(order){
+ const v=salesSurchargeCatalog(order),own=order&&order.surchargeRates;
+ if(!own)return v;
+ const out=[];
+ v.forEach(x=>{
+  const o=own[x.id];if(!o){out.push(x);return;}
+  const value=o.value!=null?o.value:x.value;if(o.off||!(value>0))return;
+  const rule=o.areaOver!=null||o.areaUnder!=null?Object.assign({},x.rule,o.areaOver!=null?{areaOver:o.areaOver}:null,o.areaUnder!=null?{areaUnder:o.areaUnder}:null):x.rule;
+  out.push(Object.assign({},x,{value,rule,catalog:x}));
+ });
+ return out;
+}
+/* Надбавка словами: «+50% · > 60 ft²», «min 4 ft²», «Off»; o — числа
+   заказа поверх каталога x. */
+function salesSurchargeParts(x,o){
+ if(o&&(o.off||o.value===0))return ['Off'];
+ const v=o&&o.value!=null?o.value:x.value,over=o&&o.areaOver!=null?o.areaOver:x.rule.areaOver,under=o&&o.areaUnder!=null?o.areaUnder:x.rule.areaUnder;
+ return [x.rule.kind==='minArea'?'min '+v+' ft²':'+'+v+'%',over!=null?'> '+over+' ft²':'',under!=null?'< '+under+' ft²':''];
+}
+function salesSurchargeShown(x,o){return salesSurchargeParts(x,o).filter(Boolean).join(' · ');}
+/* Журнал заказа (erp/sales/order-log): что поменяли в числах надбавок,
+   «было → стало» — только изменённое, например «Large unit: +50% → +40%». */
+function salesSurchargeLogNotes(a,b){
+ const ra=a&&a.surchargeRates||{},rb=b&&b.surchargeRates||{};
+ const ids=[...new Set(Object.keys(ra).concat(Object.keys(rb)))].filter(id=>JSON.stringify(ra[id]||null)!==JSON.stringify(rb[id]||null));
+ if(!ids.length)return [];
+ const cat=new Map(salesSurchargeCatalog(b).map(x=>[x.id,x]));
+ return ids.filter(id=>cat.has(id)).map(id=>{
+  const x=cat.get(id),pa=salesSurchargeParts(x,ra[id]),pb=salesSurchargeParts(x,rb[id]),off=pa.length===1||pb.length===1;
+  const pick=p=>(off?p:p.filter((v,i)=>pa[i]!==pb[i])).filter(Boolean).join(' · ');
+  return pa.join()===pb.join()?'':x.name+': '+pick(pa)+' → '+pick(pb);
+ }).filter(Boolean);
 }
 /* Подходит ли надбавка юниту: виды юнита (single/double/triple, плюс
    laminated, если в нём есть ламинат) и площадь к оплате одного юнита. */
@@ -198,7 +237,7 @@ function salesLineCommercialPrice(line,order){
  /* Процентные надбавки — по приоритету; onTop — от цены с предыдущими. */
  const kinds=salesUnitKinds(m);
  const adjustments=areas.valid?salesSurcharges(order).filter(x=>x.rule.kind==='percent'&&salesSurchargeFits(x.rule,kinds,areas.billable))
-  .sort((a,b)=>a.rule.priority-b.rule.priority).map(x=>({key:'svc:'+x.id,svc:x.id,label:x.name,percent:x.value,onTop:x.rule.onTop,rule:x.rule})):[];
+  .sort((a,b)=>a.rule.priority-b.rule.priority).map(x=>({key:'svc:'+x.id,svc:x.id,label:x.name,percent:x.value,onTop:x.rule.onTop,rule:x.rule,catalog:x.catalog||null})):[];
  let running=base;
  adjustments.forEach(a=>{a.base=a.onTop?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
  /* chargeRows — строки работ, по которым посчитана цена: отчёт Products sold
@@ -211,7 +250,7 @@ function salesLineCommercialPrice(line,order){
 }
 function salesLineCommercialAdjustments(line,order){
  const price=salesLineCommercialPrice(line,order);
- return price.adjustments.map(a=>({key:a.key,label:a.label,percent:a.percent,rule:a.rule,base:price.complete?a.base:null,unitAmount:price.complete?a.amount:null,qty:price.qty,lineAmount:price.complete?salesMoney(a.amount*price.qty):null,complete:price.complete}));
+ return price.adjustments.map(a=>({key:a.key,label:a.label,percent:a.percent,rule:a.rule,catalog:a.catalog,base:price.complete?a.base:null,unitAmount:price.complete?a.amount:null,qty:price.qty,lineAmount:price.complete?salesMoney(a.amount*price.qty):null,complete:price.complete}));
 }
 function salesOrderCommercialAdjustments(order){
  order=order||soDraft;

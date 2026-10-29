@@ -15,7 +15,8 @@
 
    Отпечаток (sig) — всё, что читает расчёт количеств из самого заказа:
    строка без полей учёта (батч, Hold, Cancel, количество, ставки, заметки),
-   её makeup, наборы работ, клиент и прайс заказа, фигуры строки и лайтов.
+   её makeup, наборы работ, клиент, прайс и числа надбавок заказа, фигуры
+   строки и лайтов.
    Не сошёлся — строку считают по фигуре, как раньше, а запишет её
    следующий Save. Справочники Master Data (стекло, ставки, прайсы клиента)
    в отпечаток не входят: сохранённый заказ от них не меняется (владелец,
@@ -43,7 +44,11 @@ function salesMeasureSig(line,order){
  const shape=ref=>salesMeasurePart(ref&&ref.id?salesShapeByRef(ref):null),lites={};
  Object.keys(line.liteShapes||{}).sort().forEach(k=>{lites[k]=shape(line.liteShapes[k]);});
  const m=(order.makeups||[]).find(x=>x&&x.id===line.makeupId)||null;
- return salesMeasureHash(JSON.stringify([own,shape(line.shapeRef),lites,salesMeasurePart(m),order.customerId||'',salesMeasurePart(order.serviceSets||[]),salesMeasurePart(order.priceBook||{})]));
+ /* Числа надбавок заказа (минимальная площадь) — только когда они есть:
+    отпечатки заказов без них прежние. */
+ const parts=[own,shape(line.shapeRef),lites,salesMeasurePart(m),order.customerId||'',salesMeasurePart(order.serviceSets||[]),salesMeasurePart(order.priceBook||{})];
+ if(order.surchargeRates)parts.push(salesMeasurePart(order.surchargeRates));
+ return salesMeasureHash(JSON.stringify(parts));
 }
 /* Расчёт по фигуре — то, что записывается. */
 function salesMeasureLive(line,order){
