@@ -973,6 +973,14 @@ module.exports=async function({page,eq,ok}){
   const c=ctSet(b.number,()=>['trimX','trimY','borderX','borderY'].forEach(f=>cutSetParam(b.number,'6CLEAR',f,'3/4'))).plan,g=c.groups[0];
   return {sheets:g.sheets.length,strategy:g.strategy,placed:c.stats.placed===c.stats.total,clean:!ctOverlap(c).length&&!ctOutside(c).length,safe:cutGroupCutQuality(g).bad===0};
  }),{sheets:2,strategy:'stack',placed:true,clean:true,safe:true});
+ /* Владелец, 29.10.2026: раз в год — расчёт на 3–4 тысячи стёкол; полоса →
+    столбик → стопка участвует и больше чем на 600 стёклах (до 29.10 — нет). */
+ eq('полоса → столбик → стопка участвует и на 624 стёклах: побеждает, всё разложено, режется',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',130,96);
+  ctOrder([[35.25,27.75,240],[18,30.5,192],[17,53.75,192]]);const b=DB.glassBatch[0];
+  const c=ctSet(b.number,()=>['trimX','trimY','borderX','borderY'].forEach(f=>cutSetParam(b.number,'6CLEAR',f,'3/4'))).plan,g=c.groups[0];
+  return {total:c.stats.total,sheets:g.sheets.length,strategy:g.strategy,placed:c.stats.placed===c.stats.total,clean:!ctOverlap(c).length&&!ctOutside(c).length,safe:cutGroupCutQuality(g).bad===0};
+ }),{total:624,sheets:49,strategy:'stack',placed:true,clean:true,safe:true});
 
  /* Владелец, 5 октября 2026: G number на стекле, мелко, «чтобы влазило даже
     на стекло 20 на 20», и тот же вид, что на стикере. */
