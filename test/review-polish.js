@@ -20,7 +20,8 @@ module.exports=async function({page,eq}){
  }),{light:[40,40,220],brighter:true});
  eq('шапка заказа: имя клиента целиком, пустых колонок нет',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer({legalName:'Northside Windows Ltd'}));salesDraftDrop&&salesDraftDrop();salesOrderEdit(id);
-  const head=document.querySelector('.sales-header-compact'),sel=head.querySelector('select');
+  /* Поле Customer — поиск с подсказками (пункт 12), а не список. */
+  const head=document.querySelector('.sales-header-compact'),sel=head.querySelector('[data-customer-input]');
   const fits=sel.scrollWidth<=sel.clientWidth&&sel.getBoundingClientRect().width>=200;
   const right=Math.max(...[...head.children].map(x=>x.getBoundingClientRect().right)),edge=head.getBoundingClientRect().right;
   soDraft=null;soEdit=null;tab='dashboard';render();return {fits,noGap:edge-right<20};

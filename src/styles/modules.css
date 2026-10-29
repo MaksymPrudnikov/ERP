@@ -76,6 +76,18 @@
 /* Первая колонка — клиент: имя длинное («QA1 · Northside Windows Ltd»), ей вдвое шире;
    остальные поля делят строку без пустых колонок (у заказа их 6, у квоты 7). */
 .sales-header-compact{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(auto-fit,minmax(110px,1fr));gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px}.sales-header-compact label,.sales-order-editor label{font-size:10px;text-transform:uppercase;letter-spacing:.045em;color:var(--text-2);margin-bottom:3px;font-weight:650}.sales-header-compact input,.sales-header-compact select,.sales-order-editor .mu-section input,.sales-order-editor .mu-section select{height:34px;padding:5px 8px;font-size:12px;border-radius:7px;border-color:var(--line-strong)}.sales-hold{font-size:11px;color:var(--danger);background:var(--danger-soft);border:1px solid var(--danger-line);border-radius:8px;padding:7px 10px}
+/* Поле Customer с подсказками (пункт 12, views/sales.js). */
+.so-cust{position:relative}.sales-header-compact .so-cust input{width:100%;padding-right:26px}
+.so-cust-car{position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-3);font-size:10px}
+.so-cust-list{position:absolute;left:0;top:calc(100% + 4px);z-index:40;width:max(100%,440px);max-height:340px;overflow:auto;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;box-shadow:var(--shadow-lg);padding:4px}
+.so-cust-opt{display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:6px;font-size:12.5px;color:var(--text);cursor:pointer}
+.so-cust-opt:hover{background:var(--surface-2)}.so-cust-opt.on{font-weight:650}
+.so-cust-opt.act{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.so-cust-opt mark{background:none;color:inherit;font-weight:800;text-decoration:underline;text-underline-offset:2px}
+.so-cust-city{color:var(--text-3);font-size:11px}.so-cust-opt .pill{font-size:9.5px;padding:0 6px}
+.so-cust-code{margin-left:auto;font:11px ui-monospace,monospace;color:var(--text-3);white-space:nowrap}
+.so-cust-none{padding:12px 10px;font-size:12.5px;color:var(--text-2)}
+.so-cust-foot{border-top:1px solid var(--line);margin-top:4px;padding:6px 9px 3px;font-size:10.5px;color:var(--text-3)}
 .sales-block{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px}.sales-block-head,.sales-lines-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.sales-block-head>div,.sales-lines-head>div:first-child{display:flex;align-items:baseline;gap:9px}.sales-block-head b,.sales-lines-head b{font-size:11px;letter-spacing:.055em;color:var(--text)}.sales-block-head span,.sales-lines-head span{font-size:10.5px;color:var(--mut)}
 .mu-strip{display:flex;align-items:stretch;gap:7px;margin-bottom:8px}.mu-strip-scroll{display:flex;gap:6px;overflow-x:auto;flex:1;padding-bottom:1px}.mu-tab{display:flex;align-items:center;gap:7px;min-width:0;max-width:360px;height:34px;padding:4px 8px;border:1px solid var(--sline);background:var(--surface-2);border-radius:8px;color:var(--text-2)}.mu-tab b{font-size:12px;min-width:20px}.mu-tab span{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}/* Выбранный мейкап — как всё выбранное в ERP: зелёная рамка, мягкий зелёный фон, тёмный текст. Оранжевый на жёлтом был «грязненько» (владелец, 3 октября 2026). */
 .mu-tab.on{border-color:var(--accent);background:var(--accent-soft);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent-line)}.mu-tab.on b{color:var(--accent)}.mu-add{height:34px;white-space:nowrap;border-style:dashed;color:var(--text-2)}
