@@ -3584,7 +3584,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='f0aa6498d8d9';
+var ERP_BUILD='fca0734c7b30';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13899,7 +13899,9 @@ function salesConvertQuoteRecord(id,po){
 function salesSaveState(o){
  const dirty=salesDraftHasWork(),at=o&&o.updatedAt?new Date(o.updatedAt):null,ok=at&&!isNaN(at);
  const when=!ok?'':at.toDateString()===new Date().toDateString()?String(at.getHours()).padStart(2,'0')+':'+String(at.getMinutes()).padStart(2,'0'):salesShortDate(o.updatedAt);
- return {dirty,text:dirty?'Unsaved changes':soEdit==='new'?'Not saved':'Saved'+(when?' · '+when:'')};
+ /* Запись на диск отказала (полоса «Not saved», Retry save) — и у заказа не
+    «Saved» (аудит 29.10.2026, А1). */
+ return {dirty,text:dirty?'Unsaved changes':soEdit==='new'||typeof storageFailed!=='undefined'&&storageFailed?'Not saved':'Saved'+(when?' · '+when:'')};
 }
 /* Ввод в поля заказа экран не перерисовывает — метку и кнопку обновляем по месту. */
 function salesSaveStateRefresh(){
@@ -20977,7 +20979,17 @@ function* salesSaveSteps(job){
  if(tab==='sales'&&soEdit!==null){job.title=salesSaveTitle(soDraft);job.step='Opening the order';job.paint=true;yield 0.85;}
  return {ok:true};
 }
+/* Заказ записан в память — ждём диск: «Saved», закрытие заказа и отложенное
+   (другой заказ, Sign out) — только когда запись дошла до базы. Не дошла —
+   как отказ: заказ снова на экране, в углу «Not saved», отложенное не
+   выполняется, правка ждёт Retry save (аудит 29.10.2026, А1: «Saved»
+   показывался раньше записи на диск). */
 function salesSaveEnd(job,res){
+ if(res.ok&&!res.disk){
+  job.step='Saving to disk';job.pct=Math.max(job.pct,0.95);salesSaveDom();
+  storageFlush().then(ok=>salesSaveEnd(job,ok?{ok:true,disk:true}:{error:storageLastError||'Not saved. Retry or export your changes.'}));
+  return;
+ }
  salesSaveJob=null;
  if(res.ok){
   const title=soDraft&&soDraft.businessNumber?salesSaveTitle(soDraft):job.title;
