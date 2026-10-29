@@ -489,14 +489,30 @@ const CUT_FILL_SPLIT=[
 ];
 /* Один лист: u — поле между линиями, t — укладка столбиками (оси
    переставлены). Возвращает места стёкол в координатах листа и остаток. */
+/* Что у стёкол листа не зависит от варианта — один раз на лист (cache):
+   вид (тот же размер в любом повороте), сколько стёкол каждого вида, ранг
+   срочности и место номера по алфавиту. В каждом из сотен вариантов это
+   считалось заново: строка вида на каждое стекло и сравнение номеров
+   localeCompare — четверть времени Build. Порядок и листы те же. */
+function cutFillFacts(list,cache){
+ const got=cache&&cache.get('#facts');if(got)return got;
+ const ids=new Map(),kind=new Map();
+ list.forEach(p=>{const k=Math.max(p.w,p.h)+'x'+Math.min(p.w,p.h);let i=ids.get(k);if(i===undefined)ids.set(k,i=ids.size);kind.set(p,i);});
+ const count=new Int32Array(ids.size);kind.forEach(i=>{count[i]++;});
+ const name=new Map();list.slice().sort((a,b)=>a.piece.localeCompare(b.piece)).forEach((p,i)=>name.set(p,i));
+ const out={kind,count,name};if(cache)cache.set('#facts',out);return out;
+}
 /* Порядок стёкол варианта. cache — один на лист: у сотен вариантов всего
    несколько разных порядков, сортировать каждый раз незачем. */
 function cutFillOrder(list,v,cache){
  const T=!!v.t,key=v.keys?null:(v.u?'u':'')+v.s+(T?'t':'');
  if(key&&cache&&cache.has(key))return cache.get(key);
+ const F=cutFillFacts(list,cache);
  /* v.u — срочные первыми: приоритет тянет стекло на ранние листы, если лист
     от этого не хуже забит (выбор между вариантами решает площадь). */
- const order=list.map(p=>T?Object.assign({},p,{w:p.h,h:p.w,t0:p}):Object.assign({},p,{t0:p})).sort((a,b)=>(v.u?cutPrioRank(a.priority)-cutPrioRank(b.priority):0)||(v.keys?v.keys.get(a.piece)-v.keys.get(b.piece):CUT_FILL_SORTS[v.s](a,b))||cutPrioRank(a.priority)-cutPrioRank(b.priority)||a.piece.localeCompare(b.piece));
+ /* Копия стекла — только то, что читает укладка (t0 — само стекло). */
+ const order=list.map(p=>({w:T?p.h:p.w,h:T?p.w:p.h,norot:p.norot,t0:p,fk:F.kind.get(p),fr:cutPrioRank(p.priority),fn:F.name.get(p),fv:v.keys?v.keys.get(p.piece):0}))
+  .sort((a,b)=>(v.u?a.fr-b.fr:0)||(v.keys?a.fv-b.fv:CUT_FILL_SORTS[v.s](a,b))||a.fr-b.fr||a.fn-b.fn);
  if(key&&cache)cache.set(key,order);
  return order;
 }
@@ -506,12 +522,12 @@ function cutFillSheet(list,u,params,v,cache){
  const free=[{x:U.x0,y:U.y0,w:cutRound(U.x1-U.x0),h:cutRound(U.y1-U.y0)}],placed=[],rest=[];
  const order=cutFillOrder(list,v,cache);
  let used=0,urgent=0;
- const kind=p=>Math.max(p.w,p.h)+'x'+Math.min(p.w,p.h),left=new Map();order.forEach(p=>left.set(kind(p),(left.get(kind(p))||0)+1));
+ const left=cutFillFacts(list,cache).count.slice();
  for(let k=0;k<order.length;k++){
   const p=order[k];
   /* Лист забит — остальное сразу в остаток. */
   if(!free.length){for(;k<order.length;k++)rest.push(order[k].t0);break;}
-  const same=left.get(kind(p))||1;
+  const same=left[p.fk]||1;
   const turn=params.rotate&&!p.norot&&p.w!==p.h,ways=[{w:p.w,h:p.h,turn:0,rot:false}].concat(turn?[{w:p.h,h:p.w,turn:1,rot:true}]:[]);
   if(v.r&&ways.length>1)ways.reverse();
   let best=null;
@@ -529,7 +545,7 @@ function cutFillSheet(list,u,params,v,cache){
     if(!best||sc<best.sc-1e-9)best={sc,i,o,W,H,rw,rh};
    }
   }
-  left.set(kind(p),same-1);
+  left[p.fk]=same-1;
   if(!best){rest.push(p.t0);continue;}
   const F=free[best.i];free.splice(best.i,1);
   const across=CUT_FILL_SPLIT[v.c](best.rw,best.rh,best.W,best.H);
@@ -562,20 +578,27 @@ const CUT_FILL_VARIANTS=(()=>{const out=[];for(let s=0;s<CUT_FILL_SORTS.length;s
    плотная (m=1 — самая высокая среди почти таких же плотных). t — полосы
    стоя, оси переставлены. */
 const CUT_STACK_VARIANTS=[{stack:1,t:0,m:0},{stack:1,t:0,m:1},{stack:1,t:1,m:0},{stack:1,t:1,m:1}];
-function cutStackSheet(list,u,params,v){
+function cutStackSheet(list,u,params,v,cache){
  const T=!!v.t,E=1e-6,md=+params.minDist||0,ok=g=>cutSliverOk(g,params),q=x=>Math.ceil(x*16-E);
  const W=cutRound(T?u.y1-u.y0:u.x1-u.x0),H=cutRound(T?u.x1-u.x0:u.y1-u.y0),X0=T?u.y0:u.x0,Y0=T?u.x0:u.y0;
  /* Полоса у края листа отламывается вместе с Border: до края, не до линии. */
  const bR=+(T?params.borderX:params.borderY)||0,bT=+(T?params.borderY:params.borderX)||0;
- /* Одинаковые стёкла — один тип; внутри типа срочные первыми. */
- const types=new Map();
- list.forEach(p=>{
-  const w=T?p.h:p.w,h=T?p.w:p.h,turn=!!(params.rotate&&!p.norot&&p.w!==p.h),k=w+'x'+h+(turn?'':'n');
-  if(!types.has(k))types.set(k,{ways:[{w,h,turn:0}].concat(turn?[{w:h,h:w,turn:1}]:[]).filter(o=>o.w<=W+E&&o.h<=H+E),items:[]});
-  types.get(k).items.push(p);
- });
- const all=[...types.values()].filter(t=>t.ways.length);
- all.forEach(t=>t.items.sort((a,b)=>cutPrioRank(a.priority)-cutPrioRank(b.priority)||a.piece.localeCompare(b.piece)));
+ /* Типы стёкол и посчитанные полосы — одни на лист и сторону (cache):
+    варианты m=0 и m=1 различаются только выбором полосы. */
+ const shared=cache&&cache.get('#stack'+(T?'t':''));let all,memo;
+ if(shared)({all,memo}=shared);
+ else{
+  /* Одинаковые стёкла — один тип; внутри типа срочные первыми. */
+  const types=new Map();
+  list.forEach(p=>{
+   const w=T?p.h:p.w,h=T?p.w:p.h,turn=!!(params.rotate&&!p.norot&&p.w!==p.h),k=w+'x'+h+(turn?'':'n');
+   if(!types.has(k))types.set(k,{ways:[{w,h,turn:0}].concat(turn?[{w:h,h:w,turn:1}]:[]).filter(o=>o.w<=W+E&&o.h<=H+E),items:[]});
+   types.get(k).items.push(p);
+  });
+  all=[...types.values()].filter(t=>t.ways.length);
+  all.forEach(t=>t.items.sort((a,b)=>cutPrioRank(a.priority)-cutPrioRank(b.priority)||a.piece.localeCompare(b.piece)));
+  memo=new Map();if(cache)cache.set('#stack'+(T?'t':''),{all,memo});
+ }
  const left=new Map(all.map(t=>[t,t.items.length]));
  /* Одна полоса высотой h из того, что осталось (left): столбики-стопки
     одного типа, рюкзак по ширине. */
@@ -642,11 +665,15 @@ function cutStackSheet(list,u,params,v){
   const area=cols.reduce((a,col)=>a+col.stack.reduce((b,s)=>b+s.o.w*s.o.h,0),0);
   return {cols,area,h,have};
  };
+ /* Полоса зависит только от высоты и того, что осталось: восемь первых
+    полос, досчитанные до конца листа, проходят одни и те же полосы — рюкзак
+    считается один раз. Полосу никто не меняет, она та же. */
+ const stripOf=(h,lf)=>{const k=h+'|'+all.map(t=>lf.get(t)).join(',');let s=memo.get(k);if(s===undefined){s=strip(h,lf);memo.set(k,s);}return s;};
  /* Полосы, которые ещё помещаются в room. */
  const strips=(lf,room)=>{
   const hs=new Set();
   all.forEach(t=>{const n=lf.get(t);if(n)t.ways.forEach(o=>{for(let k=1;k<=Math.min(3,n);k++){const h=cutRound(o.h*k);if(h<=room+E&&ok(cutRound(room-h+bT)))hs.add(h);}});});
-  return [...hs].sort((a,b)=>b-a).slice(0,48).map(h=>strip(h,lf)).filter(Boolean);
+  return [...hs].sort((a,b)=>b-a).slice(0,48).map(h=>stripOf(h,lf)).filter(Boolean);
  };
  const dense=s=>s.area/(W*s.h);
  const choose=tries=>{
@@ -718,7 +745,7 @@ function cutFillBest(fit,u,pr,urgent,rseed,variants,need,size,stack){
  const better=(a,b)=>urgent?a.urgent>b.urgent||a.urgent===b.urgent&&a.used>b.used+1e-6:
   a.used>b.used+1e-6||Math.abs(a.used-b.used)<=1e-6&&a.urgent>b.urgent;
  for(const v of tries){
-  const r=v.stack?cutStackSheet(fit,u,pr,v):cutFillSheet(fit,u,pr,v,cache);
+  const r=v.stack?cutStackSheet(fit,u,pr,v,cache):cutFillSheet(fit,u,pr,v,cache);
   if(need&&!r.placed.some(q=>need.has(q.piece)))continue;
   if(!best||better(r,best))best=r;
   if(size&&(!top.length||top.length<64||better(r,top[top.length-1]))){
