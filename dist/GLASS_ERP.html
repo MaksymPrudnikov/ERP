@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 186 модулей, 25 стиля.
+  Состав сборки: 189 модулей, 25 стиля.
 -->
 <html lang="en">
 <head>
@@ -2891,6 +2891,10 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
  .st-top:has(.st-topscan) .st-name,.st-top:has(.st-topscan) .st-chip:has(.st-av) b{display:none}
  .st-top:has(.st-topscan) .st-chip:has(.st-av){padding:6px}
 }
+/* Четвёртая вкладка Dollies (этап 8, 30.10.2026): с полем скана вкладки уже. */
+@media (max-width:1600px){.st-top:has(.st-topscan) .st-tabs button{padding:8px 12px}}
+@media (max-width:1366px){.st-top:has(.st-topscan) .st-tabs button{padding:8px 9px;font-size:13.5px}}
+@media (max-width:1100px){.st-top:has(.st-topscan) .st-tabs button{padding:8px 6px}}
 @media (max-width:1366px){.st-top:has(.st-topscan) .st-chip-more{display:none}}
 /* До 1200 — ещё без слова «Batch» и кнопки темы (тема — на вкладке Scan). */
 @media (max-width:1200px){.st-top:has(.st-topscan) .st-chip-word,.st-top:has(.st-topscan) [data-station-theme]{display:none}}
@@ -2960,6 +2964,30 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .st-print-act em{margin-left:auto;font-style:normal;font-size:15px;color:var(--mut)}
 .st-print-act:disabled{opacity:.45}
 .st-print-msg{margin-top:10px}
+/* Вкладка Dollies (план v1.16, этап 8): список тары и карточка выбранной. */
+.st-dly .st-dly-row{grid-template-columns:76px minmax(0,1fr) auto;cursor:pointer;border-radius:8px}
+.st-dly .st-dly-row.now{background:var(--accent-soft)}
+.st-dly .st-dly-seg{margin:0 0 10px}
+.st-dly .st-dly-find{padding:8px 16px}
+.st-dly-card{border-color:var(--line-strong)}
+.st-dly-card .st-res-h{background:var(--surface-2);color:var(--text)}
+.st-dly-card.st-ok .st-res-h{background:var(--green2);color:var(--green)}
+.st-dly-card.warn{border-color:var(--warning-line)}
+.st-dly-card .st-acts{flex-wrap:wrap;align-items:center}
+.st-dly-card .st-acts .sp{flex:1}
+.st-dly .st-acts .b svg{width:18px;height:18px;vertical-align:-3px;margin-right:6px}
+.st-dly-red{margin-top:8px;color:var(--danger);font-weight:600}
+.st-dly-warn{margin:0 16px 12px;border:2px solid var(--warning-line);background:var(--warning-soft);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.st-dly-warn b{color:var(--warning);font-size:16px}
+.st-dly-warn span{color:var(--text-2)}
+.st-dly-label{width:130px;border:1px solid var(--line-strong);border-radius:6px;overflow:hidden;background:var(--on-solid)}
+.st-dly-types{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 10px}
+.st-dly-types .st-gbtn{min-height:80px;padding:12px 16px}
+.st-dly-types .st-gbtn b{font-size:19px}
+.st-dly-types .st-gbtn span{font-size:13px}
+.st-dly-acts{padding:12px 0 0}
+.st-dly .st-acts .b{display:inline-flex;align-items:center}
+.st-dly-card .st-gid{font-size:18px;line-height:1.35;color:var(--text);font-family:inherit}
 
 /* ---- src/styles/theme.css ---- */
 /* ==============================================================
@@ -3133,6 +3161,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 /* Километры рейса по карте Google (views/delivery, shipping/trip-km). */
 .delivery-km{display:inline-flex;align-items:center;gap:6px;margin-left:10px}
 .delivery-km b{font-variant-numeric:tabular-nums}
+.skids-acts{display:inline-flex;gap:8px;flex-wrap:wrap}
 
 /* ---- src/styles/carriers.css ---- */
 /* Долли и скиды в офисе: Production → Dollies & Skids и окно «что на ней
@@ -3266,6 +3295,34 @@ button.cw-danger:hover{background:var(--danger-soft)}
 .sf-sheet-paper{zoom:.72;border:1px solid var(--line);border-radius:6px;margin-top:6px;max-height:820px;overflow:hidden}
 .sf-sheet-paper .cs-sheet{padding:28px 34px}
 @media(max-width:900px){.sf-sheet{grid-template-columns:1fr}}
+/* Учёт тары и пересчёт (план v1.16, этап 8, вариант 1 офиса). */
+.cb-tiles.cb-tiles-7{grid-template-columns:repeat(7,minmax(0,1fr))}
+button.cb-tile{font:inherit;text-align:left;color:var(--text);cursor:pointer}
+button.cb-tile:hover{border-color:var(--accent-line)}
+.cb-count-btn{margin-left:10px;font-weight:600;white-space:nowrap}
+.cc-head{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.cc-head h2{margin:0;font-size:20px}
+.cc-head .b.pri{background:var(--green);border-color:var(--green);color:var(--on-solid);font-weight:600}
+.cc-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;align-items:start}
+.cc-left{display:grid;gap:12px}
+.cc-top{display:grid;grid-template-columns:minmax(0,1fr) auto 160px;gap:12px;align-items:stretch}
+.cc-scan{display:flex;align-items:center;gap:14px;border:3px solid var(--accent);border-radius:14px;padding:8px 16px;background:var(--surface);cursor:text}
+.cc-scan svg{width:30px;height:30px;color:var(--accent);flex:none}
+.cc-scan-t{display:flex;flex-direction:column;flex:1;min-width:0}
+.cc-scan b{font-size:12px;letter-spacing:.12em;color:var(--accent)}
+.cc-scan input{border:0;outline:0;background:none;font-size:18px;padding:2px 0;color:var(--text)}
+.cc-place{display:flex;flex-direction:column;justify-content:center;gap:4px}
+.cc-found{justify-content:center;background:var(--accent-soft)}
+.cc-card{padding:12px 14px}
+.cc-sec{display:flex;align-items:center;gap:10px;margin:4px 0 8px}
+.cc-sec h3{margin:0;font-size:15px}
+.cc-right .cc-sec+.st-dl,.cc-right .cc-sec{margin-top:10px}
+.cc-ns{display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line-soft)}
+.cc-table{width:100%}
+.cc-table td{vertical-align:middle}
+.cc-table td:last-child,.cc-table td:nth-child(3){white-space:nowrap}
+.cc-warn{color:var(--warning)}.cc-bad{color:var(--danger)}
+.cc-table .cw-code{white-space:nowrap}
 
 /* ---- src/styles/reports.css ---- */
 /* =====================================================================
@@ -3717,7 +3774,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='94fb7d03b484';
+var ERP_BUILD='77f3cca9479d';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -14921,7 +14978,7 @@ function finWithOrder(order,fn){
    фигуры, настройки), — все. Таблицы ниже на цену заказа не влияют. В тестах
    (GF_SCOPE_CHECK) каждый ответ из памяти сверяется с расчётом заново. */
 const FIN_TOTALS_NEUTRAL=new Set(['stationScan','stationScanSeq','productionRoute','glassBatch','cutPlan','glassPiece','glassPieceSeq','glassUnitId','glassUnitIdSeq',
- 'orderEvent','masterDataEvent','authEvent','receipt','refund','financeEvent','financeExport','financeExportBatch','shipment','shipmentSeq','carrier','truck','tripKm',
+ 'orderEvent','masterDataEvent','authEvent','receipt','refund','financeEvent','financeExport','financeExportBatch','shipment','shipmentSeq','carrier','carrierSeq','carrierEvent','carrierCount','truck','tripKm',
  'skidReturn','sheetBreak','stockOffcut','stockOffcutSeq','inventoryEvent','consumableEvent','purchasingEvent','purchaseOrder','purchaseOrderSeq','purchaseReceipt','purchaseReceiptSeq',
  'report','archiveRunDay','terminal','skip','productionUnbatch']);
 let finTotalsKeep=new Map();
@@ -40587,7 +40644,11 @@ function stationUnitStatus(g,station){
    erp/shopfloor/carriers  ·  carriers-1.0
    Долли и скиды: тара, на которой стекло едет между станциями.
    IN : DB.stationScan (поле on у скана)
-   OUT: DB.carrier {code, note, active} · DB.carrierCols {userId, cols} — колонки окна тары у человека
+   OUT: DB.carrier {code, note, active, regAt, regBy, regStation, req, emptiedAt}
+        · DB.carrierCols {userId, cols} — колонки окна тары у человека
+        · DB.carrierSeq {DL, DA, SL, SA} — последний выданный номер типа
+        · DB.carrierEvent {id, at, kind:'register'|'print'|'check', code, by, station, customerId, count, codes}
+        · DB.carrierCount {id, startedAt, by, finishedAt, obs[], missing[]} — пересчёт
    Владелец, 29 сентября 2026:
    - «нужно L A shape dolly & skids… если мне нужно срочно найти, система
      скажет L-34, и я знаю, какой формы искать»; скиды тоже бывают L и A →
@@ -40601,6 +40662,7 @@ function stationUnitStatus(g,station){
    таре, пока его не отсканируют снова.
    ===================================================================== */
 DEFAULT.carrier=[];
+DEFAULT.carrierSeq={};
 const CARRIER_TYPES=[
  {k:'DL',kind:'Dolly',shape:'L',label:'L-shape dolly'},
  {k:'DA',kind:'Dolly',shape:'A',label:'A-shape dolly'},
@@ -40611,14 +40673,60 @@ const CARRIER_RE=/^(DL|DA|SL|SA)-([1-9]\d{0,4})$/;
 function carrierCode(v){return String(v==null?'':v).trim().toUpperCase().replace(/\s+/g,'');}
 function carrierType(code){const m=CARRIER_RE.exec(carrierCode(code));return m?CARRIER_TYPES.find(t=>t.k===m[1]):null;}
 function carrierFind(code){const c=carrierCode(code);return (DB.carrier||[]).find(x=>x.code===c)||null;}
-/* Номер — следующий внутри своего типа: DL-1, DL-2… и отдельно DA-1… */
+/* Номер — следующий внутри своего типа: DL-1, DL-2… и отдельно DA-1…
+   Выданный номер не возвращается (план v1.16, пункт 7, P7-R3): счётчик
+   DB.carrierSeq помнит последний, даже если запись потом пропадёт. */
 function carrierAdd(prefix,count,opts){if(storageDepth||opts&&opts.deferTouch)return carrierAddCommand(prefix,count,opts);const out=storageCommand(()=>carrierAddCommand(prefix,count,opts));return out.ok?out.value:{error:out.error};}
+function carrierNextNo(prefix){
+ const top=(DB.carrier||[]).reduce((m,c)=>{const x=CARRIER_RE.exec(c.code);return x&&x[1]===prefix?Math.max(m,+x[2]):m;},0);
+ return Math.max(top,+(DB.carrierSeq&&DB.carrierSeq[prefix])||0)+1;
+}
 function carrierAddCommand(prefix,count,opts){
  opts=opts||{};const t=CARRIER_TYPES.find(x=>x.k===prefix);if(!t)return {error:'Unknown type.'};
  const n=Math.max(1,Math.min(50,Math.floor(+count)||1));if(!Array.isArray(DB.carrier))DB.carrier=[];
- let top=DB.carrier.reduce((m,c)=>{const x=CARRIER_RE.exec(c.code);return x&&x[1]===prefix?Math.max(m,+x[2]):m;},0);
+ if(!DB.carrierSeq||typeof DB.carrierSeq!=='object'||Array.isArray(DB.carrierSeq))DB.carrierSeq={};
+ let top=carrierNextNo(prefix)-1;
  const made=[];for(let i=0;i<n;i++){const code=prefix+'-'+(++top);DB.carrier.push({code,note:'',active:true});made.push(code);}
+ DB.carrierSeq[prefix]=top;
  if(!opts.deferTouch)touch();return {codes:made};
+}
+/* Новая тара пришла в цех — её регистрирует сам рабочий на станции, офис не
+   ждут (план v1.16, пункт 7, решение владельца 28.10.2026). Номер — следующий
+   никогда не выданный этого типа; кто, когда и на какой станции —
+   в записи. req — ключ одного нажатия: повторный клик или Retry того же
+   окна возвращает ту же тару, а не вторую (P7-R17). Чужой номер выбрать
+   нельзя — его здесь нет. */
+function carrierRegister(prefix,who,station,req){const out=storageCommand(()=>{
+ if(!CARRIER_TYPES.some(t=>t.k===prefix))throw new Error('Choose the type.');
+ const again=req&&(DB.carrier||[]).find(c=>c.req===req);if(again)return {code:again.code,again:true};
+ const made=carrierAddCommand(prefix,1,{deferTouch:true});if(!made.codes)throw new Error(made.error||'Not registered.');
+ const c=carrierFind(made.codes[0]),now=new Date().toISOString();
+ c.regAt=now;c.regBy=String(who&&who.name||'').slice(0,80);c.regStation=String(station||'').slice(0,40);if(req)c.req=String(req).slice(0,40);
+ carrierEventPush({kind:'register',code:c.code,by:c.regBy,station:c.regStation,at:now});
+ return {code:c.code};
+});return out.ok?out.value:{error:out.error};}
+/* Журнал этикеток и проверок у клиента: печать не меняет тару, только
+   запоминает, кто и где просил этикетку (P7-R10) — бумага могла и не выйти. */
+DEFAULT.carrierEvent=[];
+function carrierEventPush(e){
+ if(!Array.isArray(DB.carrierEvent))DB.carrierEvent=[];
+ const r=Object.assign({id:salesUid('CE'),at:new Date().toISOString(),code:'',by:'',station:''},e);DB.carrierEvent.push(r);return r;
+}
+function carrierPrintLog(code,who,station){return storageCommand(()=>{if(!carrierFind(code))throw new Error('Unknown dolly or skid.');carrierEventPush({kind:'print',code:carrierCode(code),by:String(who&&who.name||'').slice(0,80),station:String(station||'').slice(0,40)});return true;});}
+/* Физическая ли это тара: её зарегистрировали в цеху, на неё клали стекло,
+   её отгружали, возвращали или видели при пересчёте. Запись, заведённая в
+   Data и ни разу не тронутая, — номер без подтверждённой тары: до первого
+   пересчёта она не входит в «registered» (P7-R2, P7-09). */
+function carrierSeenSet(){
+ return readMemo('carrierSeen',[DB.carrier,DB.stationScan,DB.shipment,DB.skidReturn,DB.carrierCount],()=>{
+  const s=new Set();
+  (DB.carrier||[]).forEach(c=>{if(c.regAt)s.add(c.code);});
+  (DB.stationScan||[]).forEach(x=>{if(x.on)s.add(x.on);if(x.moved&&x.moved.from)s.add(x.moved.from);});
+  (DB.shipment||[]).forEach(x=>(x.items||[]).forEach(i=>{if(i.skid)s.add(i.skid);}));
+  (DB.skidReturn||[]).forEach(r=>{s.add(r.code);if(r.newCode)s.add(r.newCode);});
+  (DB.carrierCount||[]).forEach(n=>(n.obs||[]).forEach(o=>{if(o.code&&o.res!=='unknown')s.add(o.code);}));
+  return s;
+ });
 }
 function carrierSet(code,field,value){const out=storageCommand(()=>carrierSetCommand(code,field,value));return out.ok&&out.value;}
 function carrierSetCommand(code,field,value){
@@ -40658,8 +40766,10 @@ function carrierContents(station,codes){
    скид или на долли — стереть всё, что на ней, иначе много лишнего
    подвиснет»). Рядом со сканом — откуда, кто и когда (moved), как у
    переноса; Undo возвращает. */
+/* Время обнуления (emptiedAt): «кладу на» в другой вкладке, выбранное до
+   него, устарело — стекло не ляжет на новую загрузку (план v1.16, P3-R4). */
 function carrierEmpty(code,who){const out=storageCommand(()=>{
- const c=carrierCode(code),list=carrierContents().get(c)||[],now=new Date().toISOString(),was=[],off=[];
+ const c=carrierCode(code),list=carrierContents().get(c)||[],now=new Date().toISOString(),was=[],off=[],rec=carrierFind(c);if(rec)rec.emptiedAt=now;
  list.forEach(x=>{was.push({id:x.scan.id,on:x.scan.on||'',moved:x.scan.moved||null});x.scan.moved={from:c,at:now,by:String(who&&who.name||'')};delete x.scan.on;});
  const ghosts=typeof unitOnSkid==='function'?unitOnSkid(c):[];ghosts.forEach(x=>{off.push({orderId:x.o.id,pieces:x.u.pieces.slice(),off:(x.u.off||[]).slice()});x.u.off=[...new Set((x.u.off||[]).concat(x.pieces))];x.o.updatedAt=now;salesSyncRecordLifecycle(x.o);});
  return {code:c,count:list.length+ghosts.reduce((n,x)=>n+x.pieces.length,0),was,off};
@@ -40750,16 +40860,139 @@ function carrierMoveUndo(move){
 function normalizeCarriers(){
  if(!Array.isArray(DB.carrier))DB.carrier=[];
  const seen=new Set();
+ const iso=v=>typeof v==='string'&&!isNaN(Date.parse(v)),txt=(v,n)=>String(v==null?'':v).slice(0,n);
  DB.carrier=DB.carrier.filter(c=>c&&typeof c==='object'&&CARRIER_RE.test(carrierCode(c.code))&&!seen.has(carrierCode(c.code))&&(seen.add(carrierCode(c.code)),true))
-  .map(c=>({code:carrierCode(c.code),note:String(c.note==null?'':c.note).slice(0,80),active:c.active!==false}));
+  .map(c=>{const r={code:carrierCode(c.code),note:txt(c.note,80),active:c.active!==false};
+   if(iso(c.regAt)){r.regAt=c.regAt;r.regBy=txt(c.regBy,80);r.regStation=txt(c.regStation,40);}
+   if(c.req)r.req=txt(c.req,40);if(iso(c.emptiedAt))r.emptiedAt=c.emptiedAt;return r;});
+ const seq=DB.carrierSeq&&typeof DB.carrierSeq==='object'&&!Array.isArray(DB.carrierSeq)?DB.carrierSeq:{};
+ DB.carrierSeq={};CARRIER_TYPES.forEach(t=>{const n=Math.max(Math.floor(+seq[t.k])||0,carrierNextNo(t.k)-1);if(n>0)DB.carrierSeq[t.k]=Math.min(n,99999);});
+ if(!Array.isArray(DB.carrierEvent))DB.carrierEvent=[];
+ const ev=new Set();
+ DB.carrierEvent=DB.carrierEvent.filter(e=>e&&typeof e==='object'&&salesRefId(e.id)&&!ev.has(e.id)&&(ev.add(e.id),true)&&iso(e.at)&&['register','print','check'].includes(e.kind))
+  .map(e=>{const r={id:e.id,at:e.at,kind:e.kind,code:CARRIER_RE.test(carrierCode(e.code))?carrierCode(e.code):'',by:txt(e.by,80),station:txt(e.station,40)};
+   if(e.kind==='check'){r.customerId=txt(e.customerId,80);r.count=Math.max(0,Math.floor(+e.count)||0);r.codes=(Array.isArray(e.codes)?e.codes:[]).map(carrierCode).filter(x=>CARRIER_RE.test(x)).slice(0,200);}
+   return r;});
+ normalizeCarrierCounts();
  if(!Array.isArray(DB.carrierCols))DB.carrierCols=[];
  const users=new Set();
  DB.carrierCols=DB.carrierCols.filter(r=>r&&typeof r==='object'&&!users.has(String(r.userId==null?'':r.userId))&&(users.add(String(r.userId==null?'':r.userId)),true))
   .map(r=>({userId:String(r.userId==null?'':r.userId).slice(0,80),cols:carrierColsClean(r.cols)})).filter(r=>r.cols.length);
 }
 function validateCarrierPayload(src){
+ ['carrierEvent','carrierCount'].forEach(k=>{if(src&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('The "'+k+'" field must be an array.');});
  if(src&&Object.prototype.hasOwnProperty.call(src,'carrier')&&!Array.isArray(src.carrier))throw new Error('The "carrier" field must be an array.');
  if(src&&Object.prototype.hasOwnProperty.call(src,'carrierCols')&&!Array.isArray(src.carrierCols))throw new Error('The "carrierCols" field must be an array.');
+}
+
+/* ==== src/erp/shopfloor/carrier-count.js ==== */
+/* =====================================================================
+   erp/shopfloor/carrier-count  ·  carriers-3.0
+   Учёт тары (план доработок v1.16, пункт 7, этап 8, 30.10.2026): сводка
+   «сколько у нас долли и скидов и где они» и пересчёт.
+   IN : DB.carrier, carrierSeenSet(), carrierContents() (erp/shopfloor/carriers)
+        · skidsOut() (erp/shipping/skids)
+   OUT: DB.carrierCount {id, startedAt, by, finishedAt, obs[], missing[]}
+        obs: {at, code, place, by, res:'ok'|'dup'|'unknown'|'out'|'retired'|'twin'|'nolabel', info, customerId, kind, note, fixed}
+   Владелец выбрал вариант 1 офиса (30.10.2026): плитки на Production →
+   Dollies & Skids и кнопка Count — пересчёт на месте доски.
+   Пересчёт только смотрит: каждый скан — отметка «видели здесь», повтор не
+   добавляет тару; стекло не двигается, скид не «возвращается» сам
+   (P7-R13, P7-R14). Что не сходится — «по учёту у клиента, а стоит у нас»,
+   неизвестный код, две тары с одной этикеткой, тара без этикетки — офису
+   на разбор; исправляет офис своей кнопкой.
+   ===================================================================== */
+DEFAULT.carrierCount=[];
+const CARRIER_COUNTED=['ok','out','retired'];
+function carrierCountOpen(){return (DB.carrierCount||[]).find(n=>!n.finishedAt)||null;}
+function carrierCountFind(id){return (DB.carrierCount||[]).find(n=>n.id===id)||null;}
+function carrierCountLast(){return (DB.carrierCount||[]).filter(n=>n.finishedAt).sort((a,b)=>a.finishedAt.localeCompare(b.finishedAt)).pop()||null;}
+function carrierCountStart(who){return storageCommand(()=>{
+ const open=carrierCountOpen();if(open)return open;
+ if(!Array.isArray(DB.carrierCount))DB.carrierCount=[];
+ const n={id:salesUid('CC'),startedAt:new Date().toISOString(),by:String(who&&who.name||'').slice(0,80),finishedAt:'',obs:[],missing:[]};
+ DB.carrierCount.push(n);return n;
+});}
+/* Отмена — пересчёта не было: его отметки уходят целиком. */
+function carrierCountCancel(id){return storageCommand(()=>{
+ const n=carrierCountFind(id);if(!n||n.finishedAt)throw new Error('No count to cancel.');
+ DB.carrierCount=DB.carrierCount.filter(x=>x!==n);return true;
+});}
+function carrierCountScan(id,raw,place,who){return storageCommand(()=>{
+ const n=carrierCountFind(id);if(!n||n.finishedAt)throw new Error('Start a count first.');
+ const code=carrierCode(raw).slice(0,20),rec=CARRIER_RE.test(code)?carrierFind(code):null,now=new Date().toISOString();
+ const o={at:now,code,place:String(place||'').slice(0,40),by:String(who&&who.name||'').slice(0,80),res:'ok',info:''};
+ const first=rec&&n.obs.find(x=>x.code===code&&CARRIER_COUNTED.includes(x.res));
+ if(!rec)o.res='unknown';
+ else if(first){o.res='dup';o.info=first.at;}
+ else if(!rec.active)o.res='retired';
+ else{const x=typeof skidsOut==='function'&&skidsOut().get(code);if(x){o.res='out';o.customerId=x.customerId;o.info=x.ps;}}
+ n.obs.push(o);return o;
+});}
+/* Тара без этикетки — отдельной строкой, без выдуманного кода (P7-R11, случай 3). */
+function carrierCountNoLabel(id,kind,place,note,who){return storageCommand(()=>{
+ const n=carrierCountFind(id);if(!n||n.finishedAt)throw new Error('Start a count first.');
+ n.obs.push({at:new Date().toISOString(),code:'',place:String(place||'').slice(0,40),by:String(who&&who.name||'').slice(0,80),res:'nolabel',info:'',kind:kind==='skid'?'skid':'dolly',note:String(note||'').slice(0,80)});return true;
+});}
+/* «Уже учтено», а перед глазами другая тара с той же этикеткой — для разбора
+   офисом; переименования сами по себе нет (P7-R13). */
+function carrierCountTwin(id,i){return storageCommand(()=>{
+ const n=carrierCountFind(id),o=n&&n.obs[i];if(!o||o.res!=='dup')throw new Error('Nothing to mark.');o.res='twin';return true;
+});}
+/* По учёту скид у клиента, а стоит у нас: офис подтверждает возврат — тем же
+   возвратом, что скан скида на станции, временем отметки (P7-R14). */
+function carrierCountBack(id,i,who){return storageCommand(()=>{
+ const n=carrierCountFind(id),o=n&&n.obs[i];if(!o||o.res!=='out'||o.fixed)throw new Error('Nothing to fix.');
+ const x=skidsOut().get(o.code);if(x)skidReturnPush(o.code,x,'back','',who&&who.name,o.at);
+ o.fixed=true;return true;
+});}
+/* Какую тару ждём увидеть в цеху: действующая, подтверждённая и не у клиента. */
+function carrierExpected(){
+ const seen=carrierSeenSet(),out=typeof skidsOut==='function'?skidsOut():new Map();
+ return (DB.carrier||[]).filter(c=>c.active&&seen.has(c.code)&&!out.has(c.code)).map(c=>c.code);
+}
+function carrierCountCounted(n){return new Set((n&&n.obs||[]).filter(o=>CARRIER_COUNTED.includes(o.res)).map(o=>o.code));}
+/* Закончили — что ждали в цеху и не увидели, запоминается на этот день. */
+function carrierCountFinish(id){return storageCommand(()=>{
+ const n=carrierCountFind(id);if(!n||n.finishedAt)throw new Error('No count to finish.');
+ const got=carrierCountCounted(n);n.missing=carrierExpected().filter(c=>!got.has(c));n.finishedAt=new Date().toISOString();return n;
+});}
+/* Проверка у клиента (P7-R12, P7-R15): по номерам — какие видели; только
+   числом — хранится число, номера не отмечаются. */
+function carrierCustomerCheck(customerId,text,who){return storageCommand(()=>{
+ const t=String(text||'').toUpperCase(),codes=[...new Set((t.match(/\b(DL|DA|SL|SA)\s*-\s*\d{1,5}\b/g)||[]).map(carrierCode))].filter(c=>carrierFind(c));
+ const num=/(^|[^\w-])(\d{1,4})(?![\w-])/.exec(t.replace(/\b(DL|DA|SL|SA)\s*-\s*\d{1,5}\b/g,' '));
+ if(!codes.length&&!num)throw new Error('Type the skids you saw or how many.');
+ carrierEventPush({kind:'check',customerId:String(customerId||''),codes,count:codes.length||+num[2],by:String(who&&who.name||'').slice(0,80)});return true;
+});}
+function carrierCustomerChecks(customerId){return (DB.carrierEvent||[]).filter(e=>e.kind==='check'&&e.customerId===customerId).sort((a,b)=>a.at.localeCompare(b.at));}
+
+/* Сводка для плиток (P7-R12): физическая тара отдельно от номеров без
+   подтверждения и от списанной; у клиента — по отгрузкам. */
+function carrierSummary(){
+ const seen=carrierSeenSet(),out=typeof skidsOut==='function'?skidsOut():new Map(),contents=carrierContents(),byType={},shop={loaded:0,empty:0,items:[]};
+ let reg=0,unconfirmed=0,retired=0,outN=0,oldest='';
+ (DB.carrier||[]).forEach(c=>{
+  if(!c.active){retired++;return;}
+  const x=out.get(c.code);if(x){outN++;if(!oldest||x.since<oldest)oldest=x.since;}
+  if(!seen.has(c.code)&&!x){unconfirmed++;return;}
+  reg++;const k=c.code.slice(0,2);byType[k]=(byType[k]||0)+1;
+  if(x)return;const on=contents.get(c.code);if(on&&on.length){shop.loaded++;shop.items=shop.items.concat(on);}else shop.empty++;
+ });
+ const last=carrierCountLast(),act=new Set((DB.carrier||[]).filter(c=>c.active).map(c=>c.code));
+ return {reg,byType,shop,outN,oldest,unconfirmed,retired,last,missing:last?last.missing.filter(c=>act.has(c)&&!out.has(c)):[],nolabel:last?last.obs.filter(o=>o.res==='nolabel').length:0};
+}
+function normalizeCarrierCounts(){
+ if(!Array.isArray(DB.carrierCount))DB.carrierCount=[];
+ const seen=new Set(),iso=v=>typeof v==='string'&&!isNaN(Date.parse(v)),txt=(v,n)=>String(v==null?'':v).slice(0,n);
+ const RES=['ok','dup','unknown','out','retired','twin','nolabel'];
+ DB.carrierCount=DB.carrierCount.filter(n=>n&&typeof n==='object'&&salesRefId(n.id)&&!seen.has(n.id)&&(seen.add(n.id),true)&&iso(n.startedAt))
+  .map(n=>({id:n.id,startedAt:n.startedAt,by:txt(n.by,80),finishedAt:iso(n.finishedAt)?n.finishedAt:'',
+   obs:(Array.isArray(n.obs)?n.obs:[]).filter(o=>o&&iso(o.at)&&RES.includes(o.res)).map(o=>{const r={at:o.at,code:txt(carrierCode(o.code),20),place:txt(o.place,40),by:txt(o.by,80),res:o.res,info:txt(o.info,80)};
+    if(o.customerId)r.customerId=txt(o.customerId,80);if(o.res==='nolabel'){r.kind=o.kind==='skid'?'skid':'dolly';r.note=txt(o.note,80);}if(o.fixed)r.fixed=true;return r;}),
+   missing:(Array.isArray(n.missing)?n.missing:[]).map(carrierCode).filter(c=>CARRIER_RE.test(c))}));
+ /* Открытым бывает один пересчёт — лишние закрываются. */
+ const open=DB.carrierCount.filter(n=>!n.finishedAt);open.slice(0,-1).forEach(n=>{n.finishedAt=n.obs.length?n.obs[n.obs.length-1].at:n.startedAt;});
 }
 
 /* ==== src/erp/views/ncr-ui.js ==== */
@@ -43598,7 +43831,7 @@ let stationSheetView=null; // какой лист показан: {batch, glass,
 let stationMenu=null;      // меню стекла на листе: {piece, x, y}
 let stationLoginNo='',stationLoginStep='no'; // вход: личный номер, затем PIN
 let stationPin='',stationPinError='';
-let stationTab='scan';      // scan | queue | board
+let stationTab='scan';      // scan | queue | board | dollies
 let stationIncoming='';    // долли, которая привезла стекло на эту станцию: её стопка справа
 let stationQuestions=[];   // пропущенная станция: вопрос ждёт ответа, работа не стоит
 let stationParkPending=[]; // IGU: вынутые из машины стёкла ждут скана долли, на которую их положили
@@ -43661,12 +43894,16 @@ function stationWho(){
 }
 /* На какую тару рабочий сейчас кладёт стекло — свойство рабочего места, как
    и вход: живёт в сессии этого браузера. */
+/* Тару обнулили после того, как её здесь выбрали (другая вкладка, офис), —
+   выбор устарел: следующее стекло ждёт тару, а не ложится на новую загрузку
+   (план v1.16, P3-R4). */
 function stationPutOn(){
  const s=stationSession(),c=s&&s.putOn&&typeof carrierFind==='function'?carrierFind(s.putOn):null;
- if(c&&c.active&&(s.putOnMode==null||s.putOnMode===stationPutsOnHere())){if(s.putOnMode==null)stationSetPutOn(c.code);return c.code;}
+ const stale=c&&c.emptiedAt&&!(s.putOnAt&&s.putOnAt>=c.emptiedAt);
+ if(c&&c.active&&!stale&&(s.putOnMode==null||s.putOnMode===stationPutsOnHere())){if(s.putOnMode==null)stationSetPutOn(c.code);return c.code;}
  if(s&&s.putOn)stationSetPutOn('');return '';
 }
-function stationSetPutOn(code){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.putOn=code||'';s.putOnMode=stationPutsOnHere();stationSessionsSave(m);}
+function stationSetPutOn(code){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.putOn=code||'';s.putOnMode=stationPutsOnHere();s.putOnAt=new Date().toISOString();stationSessionsSave(m);}
 function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a dolly';render();}
 function stationLogin(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;
@@ -43714,6 +43951,8 @@ function stationBeep(kind){
 /* ------------------------------- Скан ------------------------------- */
 function stationSubmit(raw){
  const who=stationWho();if(!who)return false;
+ /* Вкладка Dollies: скан тары только выбирает её (view/station-dollies). */
+ if(stationTab==='dollies'){const r=stationDollyScan(raw);if(r)return r;}
  /* Станция отгрузки грузит рейс по своим правилам (station-shipping). */
  if(stationIsShip())return stationShipSubmit(raw,who);
  const check=stationCheck(stationCode,raw);if(!check)return false;
@@ -44037,7 +44276,7 @@ function stationBatchChip(){
 }
 function stationTop(who){
  const s=stationRow();
- const tabs=who?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button><button type="button" class="'+(stationTab==='board'?'on':'')+'" data-station-tab="board" onclick="stationTab=\'board\';stationMenu=null;render()">Board</button></div>'+
+ const tabs=who?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button><button type="button" class="'+(stationTab==='board'?'on':'')+'" data-station-tab="board" onclick="stationTab=\'board\';stationMenu=null;render()">Board</button><button type="button" class="'+(stationTab==='dollies'?'on':'')+'" data-station-tab="dollies" onclick="stationTab=\'dollies\';stationMenu=null;render()">Dollies</button></div>'+
   (stationTab==='queue'||stationTab==='board'?'<label class="st-topscan">'+ico('scan')+'<input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
  return '<div class="st-top"><div class="st-code">'+esc(stationCode)+'</div><div class="st-name">'+(s?sfLabel(s):'Unknown station')+'</div>'+tabs+'<span class="sp"></span>'+
   (who&&stationMergeCodes().includes(stationCode)?'<button type="button" class="st-chip st-autoprint'+(stationAutoPrintOn()?' on':'')+'" data-station-autoprint onclick="stationAutoPrintToggle()" title="Unit sticker when the last lite is scanned">Unit stickers <b>'+(stationAutoPrintOn()?'Auto':'By button')+'</b></button>':'')+
@@ -44077,6 +44316,7 @@ function viewStation(){
  if(stationTab==='queue')return stationTop(who)+(stationCode===stationCutCode()?stationQueueView():stationFlowView())+drawer;
  /* Board (view/station-board) считается только здесь, когда вкладка открыта. */
  if(stationTab==='board')return stationTop(who)+stationBoardView(who)+drawer;
+ if(stationTab==='dollies')return stationTop(who)+stationDolliesView()+drawer;
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+(stationIsShip()?stationShipJournal():stationJournal())+
@@ -44353,7 +44593,7 @@ function stationCarrierScan(code){
 function stationCarrierCard(L){
  const c=L.check,t=typeof carrierType==='function'?carrierType(c.code):null,time='<span>'+esc(stationTime(L.at))+'</span>';
  if(c.kind==='carrierPark')return '<div class="st-res st-ok" data-station-result="carrierPark"><div class="st-res-h">✓ On '+esc(c.code)+' · waits for a pair'+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>SET ASIDE ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.count+' glass waits for Recut</div><div class="mut">When the new glass comes, the screen says where its pair is</div></div></div></div>';
- if(c.kind==='carrierBad')return '<div class="st-res st-red" data-station-result="carrierBad"><div class="st-res-h">✕ Unknown dolly or skid'+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Add it in Master Data</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.code)+'</div><div class="mut">Master Data → Dollies &amp; Skids</div></div></div></div>';
+ if(c.kind==='carrierBad')return '<div class="st-res st-red" data-station-result="carrierBad"><div class="st-res-h">✕ Unknown dolly or skid'+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>New one? Register it</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.code)+'</div><div class="mut">Dollies tab → Register new</div></div></div></div>';
  if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+(c.took?' · took '+c.took+' glass':'')+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">'+(stationPutOn()===c.code?'Glass stays on '+esc(c.code):'The stack is on the right, top first')+'</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
  if(c.kind==='carrierMoved')return '<div class="st-res st-ok" data-station-result="carrierMoved"><div class="st-res-h">✓ Moved '+stationMovedWhat(c)+' · '+esc(c.from||'no '+stationTareWord())+' → '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>NOW ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+stationMovedWhat(c)+' moved</div><div class="mut">From '+esc(c.from||'no '+stationTareWord())+(c.puton?' · next glass goes on '+esc(c.code):'')+'</div></div></div><div class="st-acts"><button type="button" class="b" data-dolly-undo onclick="stationDollyUndo()">Undo move</button></div></div>';
  if(c.kind==='carrierEmptied')return stationEmptiedCard(L);
@@ -44971,9 +45211,11 @@ function stationRestack(check,who){
 let stationEmptyAsk='';
 function stationSkidEmpty(code){
  if(stationEmptyAsk!==code){stationEmptyAsk=code;render();return false;}
- stationEmptyAsk='';const list=carrierContents().get(code)||[],what=list.length?stationTareCount(list):'';
+ stationEmptyAsk='';const list=carrierContents().get(code)||[],what=list.length?stationTareCount(list):'',mine=stationPutOn()===code;
  const r=carrierEmpty(code,stationWho());
  if(r.error){stationNote=r.error;stationBeep('error');render();return false;}
+ /* Обнулили ту, на которую здесь кладут, — кладут и дальше. */
+ if(mine)stationSetPutOn(code);
  stationMenu=null;stationNote='';stationDrawer=null;
  stationLast={check:{kind:'carrierEmptied',code:r.code,count:r.count,what},empty:r,rec:null,data:null,place:null,at:new Date().toISOString()};
  stationBeep('ok');render();return true;
@@ -45310,6 +45552,133 @@ function stationSkidHTML(){
   '<button type="button" class="b" onclick="stationCloseDrawer()">Close</button></div></div>';
 }
 
+/* ==== src/erp/views/station-dollies.js ==== */
+/* =====================================================================
+   view/station-dollies  ·  carriers-3.0
+   Вкладка Dollies на станции (план доработок v1.16, пункты 3 и 7, этап 8;
+   владелец выбрал вариант 2, 30.10.2026): вся тара списком, поле «скан или
+   номер» и карточка выбранной — что на ней, Empty, Print label;
+   Register new — новая тара, пришедшая в цех.
+   IN : DB.carrier, carrierContents(), skidsOut() · stationWho()
+   OUT: html; команды erp/shopfloor/carriers (carrierEmpty, carrierRegister,
+        carrierPrintLog) и печать этикетки carrierPrintLabels (view/carriers-ui)
+   Скан тары в этой вкладке только выбирает её: не «кладу на», не забирает
+   стекло без тары, не оформляет возврат скида (P3-R1, P7-R5). Скан стекла —
+   обычный скан, экран уходит на Scan.
+   ===================================================================== */
+let stationDollyShow='all';   // all | loaded | empty | out
+let stationDollyCode='';      // выбранная тара
+let stationDollyAsk='';       // Empty: первое нажатие сделано
+let stationDollyWarn=null;    // {code, sig} — этикетка занятой тары ждёт подтверждения
+let stationDollyReg=null;     // {type, req, error, done}
+let stationDollyEmptied=null; // последнее обнуление здесь — для Undo
+let stationDollyNote='';
+
+function stationDollyInfo(code,contents,out){
+ const on=contents.get(code)||[],x=out.get(code);
+ if(on.length){const w=[...new Set(on.map(i=>i.place.waiting).filter(Boolean))];return {code,st:'loaded',n:stationTareCount(on),where:(w.length?'waiting at '+w.join(', '):'on it')+' since '+carrierSince(on),orders:[...new Set(on.map(i=>i.g.o.businessNumber||''))].filter(Boolean)};}
+ if(x)return {code,st:'out',n:'',where:'at '+salesCustomerDisplay(x.customerId)+' since '+docDate(finLocalDate(x.since))+' · '+x.ps+' · '+stationPlural(skidDays(x.since),'day','days'),orders:[]};
+ return {code,st:'empty',n:'',where:'',orders:[]};
+}
+/* Скан или набранный номер во вкладке: только выбор. Не тара — null, и
+   скан идёт обычным путём. */
+function stationDollyScan(raw){
+ const code=carrierCode(raw);if(!CARRIER_RE.test(code))return null;
+ return stationDollyPick(code)?'dollyPick':'dollyUnknown';
+}
+function stationDollyPick(code){
+ const c=carrierFind(code);stationDollyAsk='';stationDollyWarn=null;stationDollyReg=null;stationDollyEmptied=null;
+ if(!c){stationDollyCode='';stationDollyNote=carrierCode(code)+' not found · nothing created';stationBeep('error');render();return false;}
+ stationDollyCode=c.code;stationDollyNote='';stationBeep('info');render();return true;
+}
+function stationDollyClose(){stationDollyCode='';stationDollyAsk='';stationDollyWarn=null;stationDollyEmptied=null;render();}
+/* Empty в два нажатия; стекло остаётся на своей станции без тары (P3-R3),
+   обнуляется вся тара, не только то, что видит эта станция (P3-R2). */
+function stationDollyEmpty(){
+ const code=stationDollyCode;if(!code)return false;
+ if(stationDollyAsk!==code){stationDollyAsk=code;render();return false;}
+ stationDollyAsk='';const list=carrierContents().get(code)||[],what=list.length?stationTareCount(list):'',mine=stationPutOn()===code;
+ const r=carrierEmpty(code,stationWho());
+ if(r.error){stationDollyNote=r.error;stationBeep('error');render();return false;}
+ /* Эта станция клала на неё — кладёт и дальше (свой выбор не устарел). */
+ if(mine)stationSetPutOn(code);
+ stationDollyEmptied=Object.assign({what},r);stationBeep('ok');render();return true;
+}
+function stationDollyEmptyUndo(){
+ const r=stationDollyEmptied&&carrierEmptyUndo(stationDollyEmptied);stationDollyEmptied=null;
+ stationDollyNote=r&&r.error?r.error:'Back on '+stationDollyCode;stationBeep(r&&r.error?'error':'twice');render();
+}
+/* Этикетка: свободная — сразу; занятая или у клиента — сначала
+   предупреждение с тем, что на ней сейчас (P7-R6). Подтверждение
+   разрешает только печать. */
+function stationDollySig(code){const i=stationDollyInfo(code,carrierContents(),skidsOut());return i.st+'|'+i.n+'|'+i.where;}
+function stationDollyPrint(confirmed){
+ const code=stationDollyCode;if(!code||!carrierFind(code))return false;
+ const sig=stationDollySig(code),busy=!sig.startsWith('empty');
+ if(busy&&!(confirmed&&stationDollyWarn&&stationDollyWarn.code===code&&stationDollyWarn.sig===sig)){
+  stationDollyNote=confirmed?'Changed — check and reprint':'';stationDollyWarn={code,sig};render();return false;
+ }
+ stationDollyWarn=null;return stationDollyLabel(code);
+}
+function stationDollyLabel(code){
+ const log=carrierPrintLog(code,stationWho(),stationCode);
+ stationDollyNote=log.ok?'Label sent to print · '+code:log.error;
+ const n=carrierPrintLabels([code]);render();return n;
+}
+/* Register new: тип — плиткой, номер даёт система; одно окно — одна тара. */
+function stationDollyRegOpen(){stationDollyReg={type:'',req:salesUid('RQ'),error:'',done:''};stationDollyCode='';stationDollyWarn=null;stationDollyEmptied=null;stationDollyNote='';render();}
+function stationDollyRegType(k){if(!stationDollyReg||stationDollyReg.done)return;stationDollyReg.type=k;stationDollyReg.error='';render();}
+function stationDollyRegSave(){
+ const g=stationDollyReg;if(!g||!g.type)return false;
+ const r=carrierRegister(g.type,stationWho(),stationCode,g.req);
+ if(r.error){g.error=r.error;stationBeep('error');render();return false;}
+ g.done=r.code;stationBeep('ok');render();return r.code;
+}
+
+function stationDollyRowsHTML(list){
+ return list.map(i=>'<div class="st-dl st-dly-row'+(i.code===stationDollyCode?' now':'')+'" data-station-dolly-row="'+esc(i.code)+'" onclick="stationDollyPick(\''+esc(i.code)+'\')"><span class="st-dchip'+(/^S/.test(i.code)?' skid':'')+'">'+esc(i.code)+'</span>'+
+  '<span class="st-src-t"><b>'+(i.st==='loaded'?esc(i.n):i.st==='out'?'At customer':'Empty')+'</b> <span class="mut">'+esc(i.where.replace(/^waiting /,''))+'</span></span>'+
+  '<span>'+(i.st==='loaded'?'<span class="pill warn">loaded</span>':i.st==='out'?'<span class="pill bad">at customer</span>':'<span class="pill ok">empty</span>')+'</span></div>').join('');
+}
+function stationDollyCardHTML(i){
+ const c=carrierFind(i.code),t=carrierType(i.code),word=t.kind==='Skid'?'skid':'dolly',ask=stationDollyAsk===i.code,warn=stationDollyWarn&&stationDollyWarn.code===i.code;
+ const reg=c&&c.regAt?'<div class="mut">Registered '+esc(docDate(finLocalDate(c.regAt)))+(c.regBy?' · '+esc(c.regBy):'')+(c.regStation?' · '+esc(c.regStation):'')+'</div>':'';
+ const done=stationDollyEmptied&&stationDollyEmptied.code===i.code;
+ const acts=warn?'<button type="button" class="b" data-dolly-warn-back onclick="stationDollyWarn=null;render()">Back</button><button type="button" class="b st-yes" data-dolly-reprint onclick="stationDollyPrint(true)">'+ico('printer')+'Reprint label</button>':
+  '<button type="button" class="b" data-dolly-print onclick="stationDollyPrint()">'+ico('printer')+'Print label</button>'+
+  (i.st==='loaded'&&!(stationIsShip()&&/^S[LA]-/.test(i.code))?'<button type="button" class="b'+(ask?' st-red-b':'')+'" data-dolly-empty onclick="stationDollyEmpty()">'+(ask?'Empty '+esc(i.n)+' — tap again':'Empty '+esc(i.code))+'</button>':'')+
+  (done?'<button type="button" class="b" data-dolly-empty-undo onclick="stationDollyEmptyUndo()">Undo</button>':'')+
+  '<span class="sp"></span><button type="button" class="b" onclick="stationDollyClose()">Close</button>';
+ return '<div class="st-res st-dly-card'+(warn?' warn':done?' st-ok':'')+'" data-station-dolly-card="'+esc(i.code)+'"><div class="st-res-h">'+(done?'✓ '+esc(i.code)+' emptied · '+esc(stationDollyEmptied.what||stationDollyEmptied.count+' glass')+' without a '+word:esc(i.code)+' · '+esc(t.label))+'<span>'+esc(i.n)+'</span></div>'+
+  '<div class="st-res-b"><div class="st-big st-dark"><small>'+({loaded:'ON IT NOW',out:'AT CUSTOMER',empty:'EMPTY'})[i.st]+'</small><b>'+esc(i.code)+'</b><span>'+esc(t.label)+'</span></div>'+
+  '<div class="st-info"><div class="st-gid">'+(i.st==='loaded'?'<b>'+esc(i.n)+'</b> · ':'')+esc(i.where||'Nothing on it')+'</div>'+(i.orders.length?'<div class="mut">Orders '+esc(i.orders.slice(0,6).join(' · ')+(i.orders.length>6?' +'+(i.orders.length-6):''))+'</div>':'')+reg+
+  (ask?'<div class="st-dly-red">The glass stays where it is, just without a '+word+'.</div>':done?'<div class="mut">Glass stays at its station · scan the '+word+' on Scan to put on it</div>':'')+'</div></div>'+
+  (warn?'<div class="st-dly-warn" role="alert" data-dolly-warn><b>⚠ '+esc(i.code)+' is '+(i.st==='out'?'at a customer':'in use')+'. Reprint its label for the same '+word+'?</b><span>'+esc(i.where)+(i.orders.length?' · '+esc(i.orders.slice(0,3).join(' · ')):'')+'. Stick it only on this '+word+'.</span></div>':'')+
+  '<div class="st-acts">'+acts+'</div></div>';
+}
+function stationDollyRegHTML(){
+ const g=stationDollyReg;
+ if(g.done){const t=carrierType(g.done),c=carrierFind(g.done);
+  return '<div class="st-res st-ok" data-station-dolly-reg-done="'+esc(g.done)+'"><div class="st-res-h">✓ '+esc(g.done)+' registered<span>'+esc((c&&c.regBy||'')+' · '+stationCode+' · '+stationTime(c&&c.regAt))+'</span></div><div class="st-res-b"><div class="st-dly-label">'+carrierLabelSVG(g.done).replace('width="4in" height="6in"','width="100%"')+'</div>'+
+   '<div class="st-info"><div class="st-gid">New '+esc(t.label)+' · <b>'+esc(g.done)+'</b></div><div class="mut">Print the label and stick it on this '+(t.kind==='Skid'?'skid':'dolly')+'.</div><div class="st-acts st-dly-acts"><button type="button" class="b st-yes" data-dolly-reg-print onclick="stationDollyLabel(\''+esc(g.done)+'\')">'+ico('printer')+'Print label</button><button type="button" class="b" onclick="stationDollyReg=null;stationDollyPick(\''+esc(g.done)+'\')">Done</button></div></div></div></div>';}
+ return '<div class="card st-dly-reg" data-station-dolly-reg><div class="st-sec"><h3>Register a new dolly or skid</h3></div><div class="st-dly-types">'+
+  CARRIER_TYPES.map(t=>'<button type="button" class="st-gbtn'+(g.type===t.k?' on':'')+'" data-dolly-reg-type="'+t.k+'" onclick="stationDollyRegType(\''+t.k+'\')"><b>'+esc(t.label)+'</b><span>next number '+t.k+'-'+carrierNextNo(t.k)+'</span></button>').join('')+'</div>'+
+  '<div class="mut">Only a new dolly or skid that came to the shop. The number is given by the system.</div>'+(g.error?'<div class="st-pin-err" role="alert">'+esc(g.error)+'</div>':'')+
+  '<div class="st-acts st-dly-acts"><button type="button" class="b" onclick="stationDollyReg=null;render()">Back</button>'+(g.type?'<button type="button" class="b st-yes" data-dolly-reg-save onclick="stationDollyRegSave()">Register '+g.type+'-'+carrierNextNo(g.type)+'</button>':'')+'</div></div>';
+}
+function stationDolliesView(){
+ const contents=carrierContents(),out=typeof skidsOut==='function'?skidsOut():new Map();
+ const all=(DB.carrier||[]).filter(c=>c.active).sort((a,b)=>{const x=CARRIER_RE.exec(a.code),y=CARRIER_RE.exec(b.code);return CARRIER_TYPES.findIndex(t=>t.k===x[1])-CARRIER_TYPES.findIndex(t=>t.k===y[1])||(+x[2])-(+y[2]);}).map(c=>stationDollyInfo(c.code,contents,out));
+ const n=k=>k==='all'?all.length:all.filter(i=>i.st===k).length,list=all.filter(i=>stationDollyShow==='all'||i.st===stationDollyShow);
+ const sel=stationDollyCode&&carrierFind(stationDollyCode)?stationDollyInfo(stationDollyCode,contents,out):null;
+ return '<div class="st-body st-dly" data-station-dollies><div class="st-col"><div class="card"><div class="st-sec"><h3>Dollies &amp; skids</h3><span class="mut">'+all.length+' · tap or scan one</span><span class="sp"></span><button type="button" class="b" data-dolly-reg-open onclick="stationDollyRegOpen()">+ Register new</button></div>'+
+  '<div class="cb-seg st-dly-seg">'+[['all','All'],['loaded','Loaded'],['empty','Empty'],['out','At customers']].map(([k,l])=>'<button type="button" class="'+(stationDollyShow===k?'on':'')+'" data-dolly-show="'+k+'" onclick="stationDollyShow=\''+k+'\';render()">'+l+' <b>'+n(k)+'</b></button>').join('')+'</div>'+
+  (list.length?stationDollyRowsHTML(list):'<div class="empty">'+(all.length?'None here':'No dollies or skids yet')+'</div>')+'</div></div>'+
+  '<div class="st-col"><label class="st-scan st-dly-find"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>DOLLY OR SKID</b><input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan or type: DL-2" onkeydown="stationKey(event,this)"></span></label>'+
+  (stationDollyNote?'<div class="st-note" data-dolly-note>'+esc(stationDollyNote)+'</div>':'')+
+  (stationDollyReg?stationDollyRegHTML():sel?stationDollyCardHTML(sel):'<div class="st-idle">Scan a dolly or skid, or tap one in the list. Nothing is put on it.</div>')+'</div></div>';
+}
+
 /* ==== src/erp/views/shipping-lookup.js ==== */
 /* Shipping · заказ по номеру у стойки (6 октября 2026).
    Владелец: клиент приходит — «заказ 8000, я забрать»; пара стёкол, сразу
@@ -45500,13 +45869,29 @@ function skidsSwapAsk(customerId){
  const name=salesCustomerDisplay(customerId),go=prefix=>{
   const out=skidSwap(customerId,prefix);
   skidsNotice=out.ok?{text:out.value.code+' added · '+out.value.old+' left at '+name}:{error:true,text:out.error};render();
-  if(out.ok)carrierPrintLabels([out.value.code]);
+  if(out.ok&&!out.value.own)carrierPrintLabels([out.value.code]);
  };
- salesDialogOpen({title:'Skid from '+name,note:'Their skid gets a new code and label. '+mine.list[0].code+' stays at '+name+'.',buttons:[{label:'Back'},{label:'L-shape skid',run:()=>go('SL')},{label:'A-shape skid',run:()=>go('SA')}]});
+ /* Скид, уже зарегистрированный цехом, — его и берём (его этикетка уже есть). */
+ const reg=skidSwapCandidates().slice(0,2).map(code=>{const c=carrierFind(code);return {label:'Use '+code+' · '+salesListShortDay(finLocalDate(c.regAt)),run:()=>go(code)};});
+ salesDialogOpen({title:'Skid from '+name,note:'Their skid gets a new code and label'+(reg.length?' — or use one the shop registered':'')+'. '+mine.list[0].code+' stays at '+name+'.',buttons:[{label:'Back'}].concat(reg,[{label:'L-shape skid',run:()=>go('SL')},{label:'A-shape skid',run:()=>go('SA')}])});
+}
+/* Проверка у клиента (план v1.16, P7-R12, P7-R15): какие наши скиды видели
+   там — номерами; или только сколько — числом. */
+function skidsCheckAsk(customerId){
+ const name=salesCustomerDisplay(customerId);
+ salesDialogOpen({title:'Checked at '+name,sub:'Codes you saw (SL-2, SA-1) or just how many.',input:{label:'Seen',value:''},buttons:[{label:'Back'},{label:'Save',kind:'pri',run:d=>{
+  const out=carrierCustomerCheck(customerId,d.input.value,orderLogActor().by?{name:orderLogActor().by}:null);
+  skidsNotice=out.ok?{text:'Check saved · '+name}:{error:true,text:out.error};render();
+ }}]});
+}
+function skidsCheckText(g){
+ const c=carrierCustomerChecks(g.customerId).pop();if(!c)return '';
+ const codes=new Set(g.list.map(x=>x.code)),seen=c.codes.filter(x=>codes.has(x)).length;
+ return 'Checked '+docDate(finLocalDate(c.at))+(c.by?' · '+c.by:'')+' · '+(c.codes.length?seen+' of '+g.list.length+' seen':c.count+' counted · codes not checked');
 }
 function skidsHTML(){
  const groups=skidsByCustomer(),notice=skidsNotice?`<div class="shipping-notice ${skidsNotice.error?'bad':''}" role="${skidsNotice.error?'alert':'status'}" data-skids-notice>${esc(skidsNotice.text)}</div>`:'';
- return notice+(groups.map(g=>`<section class="card shipping-customer" data-skids-customer="${esc(g.customerId)}"><div class="shipping-customer-head"><div><h3>${esc(salesCustomerDisplay(g.customerId))}</h3><span class="mut">${shippingCount(g.list.length,'skid')}</span></div><button type="button" data-skid-swap onclick="skidsSwapAsk('${esc(g.customerId)}')">Skid from ${esc(salesCustomerDisplay(g.customerId))}</button></div><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Skid</th><th>Since</th><th>Days</th><th>Packing slip</th></tr></thead><tbody>${g.list.map(x=>`<tr data-skid-out="${esc(x.code)}"><td><b>${esc(x.code)}</b></td><td>${esc(salesListShortDay(finLocalDate(x.since)))}</td><td>${skidDays(x.since)}</td><td><button type="button" class="sm" onclick="shippingGo('${esc(x.psId)}')">${esc(x.ps)}</button></td></tr>`).join('')}</tbody></table></div></section>`).join('')||'<div class="card empty">No skids at customers.</div>');
+ return notice+(groups.map(g=>`<section class="card shipping-customer" data-skids-customer="${esc(g.customerId)}"><div class="shipping-customer-head"><div><h3>${esc(salesCustomerDisplay(g.customerId))}</h3><span class="mut">${shippingCount(g.list.length,'skid')}</span>${(t=>t?` <span class="mut" data-skids-check>· ${esc(t)}</span>`:'')(skidsCheckText(g))}</div><span class="skids-acts"><button type="button" data-skids-check-ask onclick="skidsCheckAsk('${esc(g.customerId)}')">Checked</button> <button type="button" data-skid-swap onclick="skidsSwapAsk('${esc(g.customerId)}')">Skid from ${esc(salesCustomerDisplay(g.customerId))}</button></span></div><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Skid</th><th>Since</th><th>Days</th><th>Packing slip</th><th>Seen there</th></tr></thead><tbody>${(chk=>g.list.map(x=>`<tr data-skid-out="${esc(x.code)}"><td><b>${esc(x.code)}</b></td><td>${esc(salesListShortDay(finLocalDate(x.since)))}</td><td>${skidDays(x.since)}</td><td><button type="button" class="sm" onclick="shippingGo('${esc(x.psId)}')">${esc(x.ps)}</button></td><td class="mut" data-skid-seen>${(c=>c?esc(salesListShortDay(finLocalDate(c.at))):'')(chk.filter(c=>c.at>=x.since&&c.codes.includes(x.code)).pop())}</td></tr>`).join(''))(carrierCustomerChecks(g.customerId))}</tbody></table></div></section>`).join('')||'<div class="card empty">No skids at customers.</div>');
 }
 
 /* ==== src/erp/views/batch-drawings.js ==== */
@@ -46326,6 +46711,8 @@ function carrierCardHTML(c){
 function carrierBoardSet(v){carrierBoardShow=v;render();}
 function carrierBoardToggle(k){if(carrierBoardMore.has(k))carrierBoardMore.delete(k);else carrierBoardMore.add(k);render();}
 function viewProdCarriers(){
+ /* Пересчёт (view/carrier-count) — на месте доски. */
+ if(carrierCountShow){const html=carrierCountScreen();if(html)return html;}
  const b=carrierBoard();carrierBoardCache=b;
  let infos,rows;try{infos=prodCarrierInfos();rows=salesListRows(infos);}finally{carrierBoardCache=null;}
  const p=salesListLoadPrefs(),show=carrierBoardShow,cards=rows.map(r=>r.card);
@@ -46333,13 +46720,10 @@ function viewProdCarriers(){
  const stations=[...new Set(cards.filter(c=>c.kind!=='out').map(c=>c.station))].sort((a,b)=>{const x=order.get(a)||[999,0],y=order.get(b)||[999,0];return x[0]-y[0]||x[1]-y[1];});
  const fbtn=(k,label)=>{const f=p.filters[k],on=!!f&&salesListFilterActive(f);return `<button type="button" class="cb-filter${on?' on':''}" data-filter-col="${k}" onclick="salesListOpenFilter(event,'${k}')">${label} ▾</button>`;};
  const total=b.loadedN+b.outN+b.empty.length,seg=[['loaded','Loaded',b.loadedN],['out','At customers',b.outN],['empty','Empty',b.empty.length],['all','All',total]];
- const tiles=`<div class="cb-tiles">
-  <div class="cb-tile"><b>${b.loaded.dolly}</b><span>${b.loaded.dolly===1?'dolly':'dollies'} loaded · ${esc(carrierCountText(b.loaded.dollyItems))}</span></div>
-  <div class="cb-tile"><b>${b.loaded.skid}</b><span>${b.loaded.skid===1?'skid':'skids'} in the shop · ${esc(carrierCountText(b.loaded.skidItems))}</span></div>
-  <div class="cb-tile"><b>${b.outN}</b><span>${b.outN===1?'skid':'skids'} at customers</span></div>
-  <div class="cb-tile${b.looseN?' warn':''}" data-carrier-loose-tile><b>${b.looseN}</b><span>glass with no dolly or skid</span></div>
-  <div class="cb-tile"><b>${b.empty.length}</b><span>empty</span></div></div>`;
- const tools=`<div class="cb-tools">${fbtn('order','Order')}${fbtn('customer','Customer')}${fbtn('station','Station')}<span class="cb-seg">${seg.map(([k,l,n])=>`<button type="button" class="${show===k?'on':''}" data-carrier-show="${k}" onclick="carrierBoardSet('${k}')">${l} <b>${n}</b></button>`).join('')}</span><span class="cw-sp"></span><span class="mut small">Click a dolly or skid to see what is on it</span></div>`;
+ /* Плитки — учёт тары (вариант 1 этапа 8): зарегистрировано, в цеху, у
+    клиентов, стекло без тары, итоги последнего пересчёта. */
+ const tiles=carrierTilesHTML(b);
+ const tools=`<div class="cb-tools">${fbtn('order','Order')}${fbtn('customer','Customer')}${fbtn('station','Station')}<span class="cb-seg">${seg.map(([k,l,n])=>`<button type="button" class="${show===k?'on':''}" data-carrier-show="${k}" onclick="carrierBoardSet('${k}')">${l} <b>${n}</b></button>`).join('')}</span><span class="cw-sp"></span><span class="mut small">Click a dolly or skid to see what is on it</span>${carrierCountButton()}</div>`;
  const group=(title,sub,body,key)=>`<section class="cb-group" data-carrier-group="${esc(key)}"><div class="cb-gh"><b>${esc(title)}</b><span>${esc(sub)}</span></div><div class="cb-cards">${body}</div></section>`;
  const many=(n,one,more)=>n===1?'1 '+one:n+' '+more;
  const groups=[];
@@ -46389,6 +46773,99 @@ function carrierSheetEditorHTML(code){
  const list=cols.map((c,i)=>{const col=CARRIER_COLS.find(x=>x.k===c.k);return `<div class="sl-cols-row" draggable="true" data-sf-sheet-col="${c.k}" ondragstart="sfSheetDrag='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();sfSheetDrop('${esc(code)}','${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-sf-sheet-toggle="${c.k}" ${c.on?'checked':''} onchange="sfSheetSet('${esc(code)}','${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="sfSheetMove('${esc(code)}','${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===cols.length-1?'disabled':''} onclick="sfSheetMove('${esc(code)}','${c.k}',1)">↓</button></div>`;}).join('');
  return `<div class="sf-sheet" data-sf-sheet-editor="${esc(code)}"><div class="sf-sheet-cols"><h4>${esc(code)} — what is on a dolly or skid</h4><div class="mut small">Printed and shown — drag to reorder</div>${list}<div class="row" style="margin-top:8px"><button class="sm" data-sf-sheet-all onclick="sfSheetStore('${esc(code)}',[])">All columns</button></div></div>
   <div class="sf-sheet-preview"><div class="mut small">Preview${m?' · '+esc(m.code||m.station):''}</div>${m?`<div class="sf-sheet-paper">${carrierSheetHTML(m,carrierColsOn(cols),{id:'',name:''})}</div>`:'<div class="empty">No dolly or skid in use to preview</div>'}</div></div>`;
+}
+
+/* ==== src/erp/views/carrier-count.js ==== */
+/* =====================================================================
+   view/carrier-count  ·  carriers-3.0
+   Production → Dollies & Skids: плитки учёта тары и пересчёт (план
+   доработок v1.16, пункт 7, этап 8; владелец выбрал вариант 1 офиса,
+   30.10.2026: плитки сверху, кнопка Count, пересчёт — на месте доски).
+   IN : carrierSummary(), DB.carrierCount (erp/shopfloor/carrier-count)
+   OUT: html; команды пересчёта erp/shopfloor/carrier-count
+   ===================================================================== */
+let carrierCountShow='';     // id открытого на экране пересчёта ('' — доска)
+let carrierCountPlace='Shop';
+let carrierCountNotice='';
+const CARRIER_COUNT_PLACES=['Shop','Yard'];
+
+function carrierTilesHTML(b){
+ const s=carrierSummary(),days=s.oldest?skidDays(s.oldest):0,types=CARRIER_TYPES.map(t=>t.k+' '+(s.byType[t.k]||0)).join(' · ');
+ const shopN=s.shop.loaded+s.shop.empty,last=s.last?docDate(finLocalDate(s.last.finishedAt)):'';
+ return `<div class="cb-tiles cb-tiles-7">
+  <div class="cb-tile" data-carrier-tile="reg"><b>${s.reg}</b><span>registered · ${esc(types)}</span></div>
+  <div class="cb-tile" data-carrier-tile="shop"><b>${shopN}</b><span>in the shop · ${s.shop.loaded} loaded${s.shop.items.length?' · '+esc(carrierCountText(carrierItems(s.shop.items))):''} · ${s.shop.empty} empty</span></div>
+  <div class="cb-tile" data-carrier-tile="out"><b>${s.outN}</b><span>at customers${s.outN?' · oldest '+stationPlural(days,'day','days'):''}</span></div>
+  <div class="cb-tile${b.looseN?' warn':''}" data-carrier-loose-tile><b>${b.looseN}</b><span>glass with no dolly or skid</span></div>
+  <${s.last?'button type="button" onclick="carrierCountView(\''+esc(s.last.id)+'\')"':'div'} class="cb-tile${s.missing.length?' warn':''}" data-carrier-tile="missing"><b>${s.last?s.missing.length:'—'}</b><span>${s.last?'not found at last count · '+esc(last):'no count yet'}</span></${s.last?'button':'div'}>
+  <${s.last?'button type="button" onclick="carrierCountView(\''+esc(s.last.id)+'\')"':'div'} class="cb-tile${s.nolabel?' warn':''}" data-carrier-tile="nolabel"><b>${s.last?s.nolabel:'—'}</b><span>found without a label</span></${s.last?'button':'div'}>
+  <div class="cb-tile" data-carrier-tile="unconfirmed"><b>${s.unconfirmed}</b><span>not confirmed yet${s.retired?' · '+s.retired+' retired':''}</span></div></div>`;
+}
+function carrierCountButton(){
+ const n=carrierCountOpen();
+ return `<button type="button" class="b cb-count-btn" data-carrier-count-open onclick="carrierCountGo()">${n?'Count in progress · '+carrierCountCounted(n).size+' scanned':'Count dollies &amp; skids'}</button>`;
+}
+function carrierCountGo(){
+ const n=carrierCountOpen();if(n){carrierCountView(n.id);return;}
+ const out=carrierCountStart(carrierMe());if(!out.ok){carrierCountNotice=out.error;render();return;}
+ carrierCountView(out.value.id);
+}
+function carrierCountView(id){carrierCountShow=id||'';carrierCountNotice='';render();}
+function carrierCountScanUI(raw){
+ const n=carrierCountFind(carrierCountShow);if(!n||!String(raw||'').trim())return false;
+ const out=carrierCountScan(n.id,raw,carrierCountPlace,carrierMe());carrierCountNotice=out.ok?'':out.error;render();return out.ok?out.value.res:false;
+}
+function carrierCountKey(ev,el){if(ev.key!=='Enter')return;ev.preventDefault();const v=el.value;el.value='';carrierCountScanUI(v);}
+function carrierCountFocus(){const el=document.querySelector('[data-carrier-count-scan]');if(el&&document.activeElement!==el&&!salesDialog)el.focus();}
+function carrierCountNoLabelAsk(){
+ const n=carrierCountFind(carrierCountShow);if(!n)return;
+ const go=kind=>d=>{const out=carrierCountNoLabel(n.id,kind,carrierCountPlace,d.input.value,carrierMe());carrierCountNotice=out.ok?'':out.error;render();};
+ salesDialogOpen({title:'Found without a label',sub:'Office checks it later. No code is given now.',input:{label:'Where and how it looks',value:''},buttons:[{label:'Back'},{label:'Dolly',run:go('dolly')},{label:'Skid',kind:'pri',run:go('skid')}]});
+}
+function carrierCountAct(fn){const out=fn();carrierCountNotice=out.ok?'':out.error;render();}
+function carrierCountEnd(finish){
+ const n=carrierCountFind(carrierCountShow);if(!n)return;
+ if(finish){carrierCountAct(()=>carrierCountFinish(n.id));return;}
+ salesDialogOpen({title:'Cancel this count?',note:'Its scans are thrown away.',buttons:[{label:'Back'},{label:'Cancel count',kind:'pri',run:()=>{const out=carrierCountCancel(n.id);carrierCountShow='';carrierCountNotice=out.ok?'':out.error;render();}}]});
+}
+function carrierCountResult(o,n,i,open){
+ const when=x=>stationTime(x);
+ switch(o.res){
+  case 'ok':return '✓ Counted'+(o.place?' · '+esc(o.place):'');
+  case 'dup':return `<span class="mut">Already counted at ${esc(when(o.info))} — not added again</span>${open?` <button type="button" class="sm" data-count-twin="${i}" onclick="carrierCountAct(()=>carrierCountTwin('${esc(n.id)}',${i}))">Another one with this label</button>`:''}`;
+  case 'twin':return `<b class="cc-warn">Two with one label</b> — office checks`;
+  case 'unknown':return `<b class="cc-bad">Unknown code</b> — not in the list, nothing created`;
+  case 'retired':return `<b class="cc-warn">Retired — found here</b> — office checks`;
+  case 'out':return o.fixed?`✓ Back from <span data-raw>${esc(salesCustomerDisplay(o.customerId))}</span>`:`<b class="cc-warn">⚠ Found here · records say at <span data-raw>${esc(salesCustomerDisplay(o.customerId))}</span> (${esc(o.info)})</b> <button type="button" class="sm" data-count-back="${i}" onclick="carrierCountAct(()=>carrierCountBack('${esc(n.id)}',${i},carrierMe()))">Back from customer</button>`;
+  case 'nolabel':return `<b>Unidentified ${esc(o.kind)}</b>${o.place?' · '+esc(o.place):''}${o.note?' · “'+esc(o.note)+'”':''} — office checks`;
+ }
+ return '';
+}
+function carrierCountScreen(){
+ const n=carrierCountFind(carrierCountShow);if(!n){carrierCountShow='';return '';}
+ const open=!n.finishedAt,got=carrierCountCounted(n),exp=carrierExpected(),found=exp.filter(c=>got.has(c)).length;
+ const contents=carrierContents(),out=typeof skidsOut==='function'?skidsOut():new Map(),seen=carrierSeenSet();
+ const used=new Map();(DB.stationScan||[]).forEach(s=>{if(s.on&&!s.undoneAt){const u=used.get(s.on);if(!u||String(s.at)>u.at)used.set(s.on,{at:String(s.at),st:s.station});}});
+ const lastSeen=code=>{const u=used.get(code);return u?' · last used '+docDate(finLocalDate(u.at))+' at '+u.st:'';};
+ const cap=(list,f)=>list.slice(0,60).map(f).join('')+(list.length>60?`<div class="mut">+${list.length-60} more</div>`:'');
+ const desc=code=>{const on=contents.get(code)||[];return on.length?stationTareCount(on)+' at '+[...new Set(on.map(x=>x.place.waiting).filter(Boolean))].join(', '):'empty'+lastSeen(code);};
+ const ns=(code,t)=>`<div class="st-dl cc-ns" data-count-missing="${esc(code)}"><span class="cw-code sm">${esc(code)}</span><span class="mut" data-raw>${esc(t)}</span></div>`;
+ const missing=open?exp.filter(c=>!got.has(c)):n.missing;
+ const atCust=[...out.values()].filter(x=>!got.has(x.code)),unconf=(DB.carrier||[]).filter(c=>c.active&&!seen.has(c.code)&&!out.has(c.code)&&!got.has(c.code));
+ const rows=n.obs.map((o,i)=>({o,i})).reverse().map(({o,i})=>`<tr data-count-obs="${esc(o.res)}"><td>${o.code?`<span class="cw-code sm">${esc(o.code)}</span>`:'<span class="cw-code sm none">no label</span>'}</td><td>${carrierCountResult(o,n,i,open)}</td><td class="mut">${esc(o.by)}</td><td class="mut">${esc(stationTime(o.at))}</td></tr>`).join('');
+ if(open)setTimeout(carrierCountFocus,0);
+ return `<div class="cc" data-carrier-count="${esc(n.id)}"><div class="cc-head"><h2>Count · ${esc(docDate(finLocalDate(n.startedAt)))}</h2><span class="mut">${open?'started '+esc(stationTime(n.startedAt)):'finished '+esc(stationTime(n.finishedAt))}${n.by?' · '+esc(n.by):''}</span><span class="cw-sp"></span>
+  ${open?'<button type="button" class="b" data-count-cancel onclick="carrierCountEnd(false)">Cancel count</button><button type="button" class="b pri" data-count-finish onclick="carrierCountEnd(true)">Finish count</button>':'<button type="button" class="b" onclick="carrierCountView(\'\')">Back to dollies &amp; skids</button>'}</div>
+  ${carrierCountNotice?`<div class="shipping-notice bad" role="alert">${esc(carrierCountNotice)}</div>`:''}
+  <div class="cc-grid"><div class="cc-left">
+  ${open?`<div class="cc-top"><div class="cc-scan" onclick="carrierCountFocus()">${ico('scan')}<div class="cc-scan-t"><b>SCAN EVERY DOLLY AND SKID</b><input data-carrier-count-scan autocomplete="off" spellcheck="false" placeholder="Label or code: DL-2" onkeydown="carrierCountKey(event,this)"></div></div>
+   <div class="cc-place"><span class="mut">Place</span><span class="cb-seg">${CARRIER_COUNT_PLACES.map(p=>`<button type="button" class="${carrierCountPlace===p?'on':''}" data-count-place="${p}" onclick="carrierCountPlace='${p}';render()">${p}</button>`).join('')}</span></div>
+   <div class="cb-tile cc-found" data-count-found><b>${found} of ${exp.length}</b><span>in the shop found</span></div></div>`:''}
+  <div class="card cc-card"><div class="cc-sec"><h3>Scanned · ${got.size}</h3><span class="cw-sp"></span>${open?'<button type="button" class="sm" data-count-nolabel onclick="carrierCountNoLabelAsk()">+ No label</button>':''}</div>
+   ${rows?`<table class="cc-table"><thead><tr><th>Code</th><th>Result</th><th>By</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="empty">Scan the first dolly or skid</div>'}</div></div>
+  <div class="card cc-card cc-right"><div class="cc-sec"><h3>${open?'Not seen yet':'Not found'} · ${missing.length}</h3></div>${cap(missing,c=>ns(c,desc(c)))||'<div class="mut">All found</div>'}
+   ${open&&atCust.length?`<div class="cc-sec"><h3>At customers · ${atCust.length}</h3></div>${cap(atCust,x=>ns(x.code,salesCustomerDisplay(x.customerId)+' · '+x.ps+' · '+stationPlural(skidDays(x.since),'day','days')))}`:''}
+   ${open&&unconf.length?`<div class="cc-sec"><h3>Not confirmed yet · ${unconf.length}</h3><span class="mut">a scan here confirms</span></div>${cap(unconf,c=>ns(c.code,'never used'))}`:''}</div></div></div>`;
 }
 
 /* ==== src/erp/shipping/data.js ==== */
@@ -47120,15 +47597,24 @@ function skidBack(code,who){
  return out.ok?{code:x.code,customerId:x.customerId,customer:salesCustomerDisplay(x.customerId),days:skidDays(x.since),ps:x.ps}:{error:out.error};
 }
 /* Обмен: клиент отдал свой скид вместо нашего. Чужой заводится новым кодом,
-   самый давний наш скид у этого клиента списывается. */
+   самый давний наш скид у этого клиента списывается. Цех уже
+   зарегистрировал полученный скид (Dollies → Register new) — обмен берёт эту
+   запись, второй не заводит (план v1.16, P7-R18): prefix — код такого скида. */
 function skidSwap(customerId,prefix){return storageCommand(()=>{
  const mine=skidsByCustomer().find(x=>x.customerId===customerId);shippingAssert(mine,'This customer has none of our skids.');
- shippingAssert(['SL','SA'].includes(prefix),'Choose the skid type.');
- const old=mine.list[0],made=carrierAdd(prefix,1,{deferTouch:true});shippingAssert(made&&made.codes&&made.codes.length,made&&made.error||'The skid was not added.');
+ const own=CARRIER_RE.test(carrierCode(prefix))?carrierCode(prefix):'';
+ shippingAssert(own?skidSwapCandidates().includes(own):['SL','SA'].includes(prefix),own?'This skid cannot be used for a swap.':'Choose the skid type.');
+ const old=mine.list[0],made=own?{codes:[own]}:carrierAdd(prefix,1,{deferTouch:true});shippingAssert(made&&made.codes&&made.codes.length,made&&made.error||'The skid was not added.');
  const c=carrierFind(old.code);if(c){c.active=false;c.note=('left at '+salesCustomerDisplay(customerId)+' (swap)').slice(0,80);}
  const who=orderLogActor();skidReturnPush(old.code,old,'swap',made.codes[0],who.by||'Office');
- return {old:old.code,code:made.codes[0]};
+ return own?{old:old.code,code:own,own:true}:{old:old.code,code:made.codes[0]};
 });}
+/* Скиды, которые цех зарегистрировал за последние 14 дней и которые ещё ни
+   в каком обмене: из них офис выбирает полученный от клиента. */
+function skidSwapCandidates(){
+ const used=new Set((DB.skidReturn||[]).map(r=>r.newCode).filter(Boolean)),out=skidsOut(),from=new Date(Date.now()-14*864e5).toISOString();
+ return (DB.carrier||[]).filter(c=>c.active&&c.regAt&&c.regAt>=from&&/^S[LA]-/.test(c.code)&&!used.has(c.code)&&!out.has(c.code)).sort((a,b)=>b.regAt.localeCompare(a.regAt)).map(c=>c.code);
+}
 function normalizeSkidReturns(){
  if(!Array.isArray(DB.skidReturn))DB.skidReturn=[];
  const seen=new Set(),iso=v=>typeof v==='string'&&!isNaN(Date.parse(v));
