@@ -1411,7 +1411,7 @@ function mdFilmRead(){
 function mdStockKindHTML(r,hints){
  const cur=r.subcategory||'',list=hints.includes(cur)||!cur?hints:hints.concat([cur]),cap=v=>v.charAt(0).toUpperCase()+v.slice(1);
  return `<div class="md-stock-kind" data-md-stock-kind><label>Kind</label><div class="md-stock-kind-row"><div class="stk-seg">${list.map(v=>`<button type="button" class="${v===cur?'on':''}" data-md-kind="${esc(v)}" onclick="mdStockKindPick(this)">${esc(cap(v))}</button>`).join('')}</div>
-  <input id="md_catSubcategory" value="${esc(cur)}" placeholder="New kind" ${list.includes(cur)?'hidden':''} oninput="mdStockKindPick(null)"><button type="button" class="sm" data-md-kind-new onclick="const i=document.getElementById('md_catSubcategory');i.hidden=false;i.value='';i.focus();mdStockKindPick(null)">+ New kind</button></div><div class="hint">Kind sets the measurements of a new item.</div></div>`;
+  <input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(cur)}" placeholder="New kind" ${list.includes(cur)?'hidden':''} oninput="mdStockKindPick(null)"><datalist id="md_catSubcategoryList">${hints.map(x=>`<option value="${esc(x)}">`).join('')}</datalist><button type="button" class="sm" data-md-kind-new onclick="const i=document.getElementById('md_catSubcategory');i.hidden=false;i.value='';i.focus();mdStockKindPick(null)">+ New kind</button></div><div class="hint">Kind sets the measurements of a new item.</div></div>`;
 }
 function mdStockKindPick(btn){
  const box=document.querySelector('[data-md-stock-kind]'),inp=document.getElementById('md_catSubcategory');if(!box||!inp)return;
