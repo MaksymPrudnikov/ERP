@@ -480,12 +480,16 @@ function salesSaveStateRefresh(){
 }
 ['input','change'].forEach(t=>document.addEventListener(t,()=>{if(soDraft&&tab==='sales')salesSaveStateRefresh();}));
 function salesHeaderActions(o){
- /* Заказ из архива — только просмотр, печать, Repeat и NCR (erp/archive). */
+ /* Заказ из архива — только просмотр, печать, Copy и NCR (erp/archive). */
  if(typeof archiveViewing==='function'&&archiveViewing(o))return archiveHeaderActions(o);
  const st=salesSaveState(o);
  const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesOrderClose()">Close</button>'];
  if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave({bg:true})">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'||salesIsDraft(o)?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
+ /* Copy (пункт 8, Copy order) — у записанного заказа, черновика и квоты
+    (у отправленной ревизии на экране — её рабочая копия). */
+ const copyId=soQuoteCopyOf||(soEdit!=='new'?soEdit:null);
+ if(copyId)parts.push(`<button data-copy-order onclick="salesCopyOrder('${esc(copyId)}')">Copy</button>`);
  if(typeof recutCanOpenHere==='function'&&recutCanOpenHere(o))parts.push('<button class="recut-btn" data-recut-open onclick="ncrOpenForm(\'recut\')">Recut</button>');
  if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open onclick="ncrOpenForm(\'ncr\')">NCR</button>');
  if(salesIsQuote(o)){if(!salesQuoteWonMember(o))parts.push('<button class="go" data-convert-quote onclick="salesConvertQuote()">Convert to order</button>');}

@@ -54,6 +54,8 @@ button.go{background:var(--success);border-color:var(--success);color:var(--on-s
 .sales-lockbar{border:1px solid var(--warning-line);background:var(--warning-soft);color:var(--warning)}
 .sales-lockbar .sp{flex:1}
 .sales-quote-note{border:1px solid var(--success-line);background:var(--success-soft);color:var(--success)}
+/* Открыта копия, ещё не записанная (пункт 8, Copy order). */
+.sales-copy-strip{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 10px;padding:8px 12px;border-radius:9px;border:1px solid var(--accent-line);background:var(--accent-soft);color:var(--text);font-size:13px}.sales-copy-strip b{color:var(--accent)}.sales-copy-strip .mut{color:var(--text-2)}
 tr.line-locked td{background:var(--surface-2);color:var(--text-2)}
 tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .line-lock{font-size:11px}

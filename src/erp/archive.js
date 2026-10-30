@@ -12,12 +12,13 @@
    научились видеть архив (А3–А4).
    Sales и вкладка Orders клиента (А3) показывают ушедшие строки вместе с
    живыми; клик — заказ с диска на том же экране, только просмотр и печать;
-   Repeat — новый заказ из него; NCR — возврат в работу.
+   Copy — новый заказ или квота из него (erp/sales/orders); NCR — возврат
+   в работу.
    IN : DB, salesListValue, finOrderBalance, shippingHistoryOrderIds,
         invSheetRows, invOffcutRows, storageIdbColdOf, storageVisit
    OUT: archiveIndex, archiveDue(day), archiveCollect(ids), archiveRun(day),
         archiveReturn(orderId), archiveIndexLoad / archiveIndexApply,
-        archiveListInfos, archiveOpen(id), archiveViewing(o), archiveRepeat,
+        archiveListInfos, archiveOpen(id), archiveViewing(o),
         archiveLedgerFor(customerId), archiveWith(owners,fn), archiveScopeFor(range)
    ===================================================================== */
 const ARCHIVE_ON=true,ARCHIVE_MONTHS=3;
@@ -317,25 +318,7 @@ function archiveVisitKeep(){
 function archiveViewing(o){return !!archiveVisit&&!!o&&(archiveVisit.ids.has(o.id)||typeof soDraft!=='undefined'&&o===soDraft);}
 function archiveHeaderActions(o){
  const a=archiveIndex.get(archiveVisit.id);
- return `<span class="sales-save-state" data-order-state>Archived${a&&a.archivedAt?' · '+esc(salesShortDate(a.archivedAt)):''}</span><button onclick="salesOrderClose()">Close</button><button onclick="docOpen()">Documents</button><button data-archive-repeat onclick="archiveRepeat()">Repeat</button>${salesIsQuote(o)?'':'<button class="ncr-btn" data-archive-ncr title="Returns the order to work" onclick="archiveNcr()">NCR</button>'}`;
-}
-/* Repeat (владелец, 22.10.2026: «возможность воссоздать заказ»): новый
-   заказ того же клиента с теми же стёклами, размерами и фигурами. Цены —
-   сегодняшние из Master Data (снимок цен старого заказа не берётся), цены
-   руками — как были. PO, срок и производство — пустые. */
-function archiveRepeat(){
- const src=archiveVisit&&(DB.salesOrder||[]).find(o=>o.id===archiveVisit.id);if(!src)return;
- const now=new Date().toISOString(),q=salesIsQuote(src);
- const copy=salesCopySalesRecord(src,{businessNumber:'',status:q?'open':'new',statusDates:{},batchNo:'',batchHistory:[],unbatchHistory:[],productionUnbatchVerify:false,fulfilledVia:'',fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
-  customerPo:'',dueDate:'',onHold:false,holdReason:'',holdAt:'',remakeNcrId:'',noCharge:false,cancellations:[],adjustments:[],createdAt:now,updatedAt:now});
- delete copy.priceBook;
- copy.lines.forEach(l=>{Object.assign(l,{onHold:false,holdReason:'',holdAt:'',cutStartedAt:'',batchNo:''});});
- const draft=normalizeSalesOrder(copy);
- /* Копии фигур уже в DB (salesCopySalesRecord): просмотр закрывается без
-    salesDraftDrop — та убрала бы их как ничьи до нового черновика. */
- archiveVisitEnd();
- salesOrderNew(q?'quote':'order');soDraft=draft;salesEnsureAllLineShapes();
- soMakeupId=(soDraft.makeups[0]||{}).id||null;soGlassOpen=soDraft.lines.length>0;render();
+ return `<span class="sales-save-state" data-order-state>Archived${a&&a.archivedAt?' · '+esc(salesShortDate(a.archivedAt)):''}</span><button onclick="salesOrderClose()">Close</button><button onclick="docOpen()">Documents</button><button data-copy-order onclick="salesCopyOrder('${esc(o.id)}')">Copy</button>${salesIsQuote(o)?'':'<button class="ncr-btn" data-archive-ncr title="Returns the order to work" onclick="archiveNcr()">NCR</button>'}`;
 }
 /* NCR по архивному заказу возвращает его в работу (владелец, 22.10.2026),
    и форма NCR открывается на нём. */
