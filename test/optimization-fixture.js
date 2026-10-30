@@ -8,7 +8,7 @@ module.exports=async function(p){
    const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');
    m.panes.forEach(p=>{p.glassProductId=g.id;p.thicknessMm=6;p.priceOverride=5.55;p.heatTreatmentId='HT-FT';p.heatSoak=false;});m.cavities.forEach(c=>{c.priceOverride=3.1;});soDraft.lines=[];
    [[37,71,2,'Kitchen'],[30,40,1,'Bedroom']].forEach(x=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:x[0]*16,height16:x[1]*16,qty:x[2],mark:x[3]});soDraft.lines.push(l);salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});});
-   salesApplyCustomerDefaults(c.id);Object.assign(soDraft,extra||{});if(!salesOrderSave())throw new Error('Fixture order did not save');return soDraft.id;
+   salesApplyCustomerDefaults(c.id);if(soDraft.kind!=='quote')soDraft.customerPo='PO-QA';Object.assign(soDraft,extra||{});if(!salesOrderSave())throw new Error('Fixture order did not save');return soDraft.id;
   };
   window.oqPay=function(id){const o=salesRecord(id);DB.receipt.push(normalizeReceipt({number:'R-'+(DB.receipt.length+1),customerId:o.customerId,amount:finOrderBalance(o).total,allocations:[{orderId:id,amount:finOrderBalance(o).total}]}));};
   window.oqQueue=function(key){tab=['awaiting','ready','shipments','backorders','done'].includes(key)?'shipping':'optimization';optimizationSetTab(key||'new');};

@@ -101,7 +101,7 @@ function consRows(){
   if(!goneOf(o).has(a.piece))built.set(o.id+'|'+l.id,(built.get(o.id+'|'+l.id)||0)+1);
   perOf(o,l).forEach((q,k)=>{const[t,...id]=k.split(':'),x=row(t,id.join(':'));if(Number.isFinite(q))x.used+=q;else x.unknown++;});
  });
- (DB.salesOrder||[]).forEach(o=>{
+ (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(salesIsQuote(o)||!CONS_RESERVE_STATES.includes(o.status))return;
   (o.lines||[]).forEach(l=>{
    const m=salesMakeupById(o,l.makeupId);if(!m||!(m.cavities||[]).length)return;

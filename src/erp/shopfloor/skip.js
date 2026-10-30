@@ -22,7 +22,7 @@ DEFAULT.skip=[];
 const SKIP_PICKUP='pickup',SKIP_DELIVERED='delivery';
 function skipAllowed(){return typeof accessCan==='function'&&(accessCan('users')||accessCan('finance'));}
 function skipFind(id){return (DB.skip||[]).find(s=>s&&s.id===id)||null;}
-function skipCanOpen(o){return !!o&&!salesIsQuote(o)&&!['closed','cancelled'].includes(o.status)&&!!salesRecord(o.id);}
+function skipCanOpen(o){return !!o&&!salesIsQuote(o)&&!salesIsDraft(o)&&!['closed','cancelled'].includes(o.status)&&!!salesRecord(o.id);}
 function skipForOrder(orderId){return (DB.skip||[]).filter(s=>s&&s.orderId===orderId);}
 /* Индексы на один расчёт: Skip смотрит на сотни стёкол заказа. */
 function skipCtx(){

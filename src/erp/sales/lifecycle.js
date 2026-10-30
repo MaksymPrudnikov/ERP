@@ -27,6 +27,10 @@ function salesPrevStatus(o){const f=salesOrderFlow(o),i=f.indexOf(o&&o.status);r
 
 function salesKindOf(o){return o&&o.kind==='quote'?'quote':'order';}
 function salesIsQuote(o){return salesKindOf(o)==='quote';}
+/* Черновик заказа (пункт 2): Save as Draft из окна выхода. Не идёт ни в
+   Verify, ни в батч, ни в Shipping, ни в деньги и отчёты — пока обычный Save
+   не сделает его заказом. Старый status:'draft' — это New, не черновик. */
+function salesIsDraft(o){return !!o&&o.isDraft===true&&!salesIsQuote(o);}
 /* Старые заказы жили одним статусом «draft» — это сохранённые заказы, а не
    квоты, поэтому они становятся заказами в статусе New. */
 function salesLifecycleFields(o){
@@ -53,6 +57,7 @@ function nextSalesQuoteNumber(){
 function salesStatusLabel(o,status){
  status=status||(o&&o.status);
  if(salesIsQuote(o))return status==='won'?'Won':status==='sent'?'Sent':'Not sent';
+ if(salesIsDraft(o)&&status===o.status)return 'Draft';
  if(status==='shipping')return o&&o.status!=='shipping'&&o.statusDates&&o.statusDates.shipping?'Partially shipped':typeof shippingBackCount==='function'&&o&&o.id&&shippingBackCount(o)===0?'Shipped':'Partially shipped';
  if(status==='done')return o&&(o.fulfilledVia||o.delivery)==='delivery'?'Delivered':'Picked up';
  return ({new:'New',verified:'Verified',batched:'Batched',ready:'Ready',closed:'Closed',cancelled:'Cancelled'})[status]||'New';
@@ -64,6 +69,7 @@ function salesStatusPill(o){
   const won=(DB.salesOrder||[]).find(x=>x.id===o.wonOrderId);
   return `<span class="pill st-won">Won${won&&won.businessNumber?' → '+esc(won.businessNumber):''}</span>`;
  }
+ if(salesIsDraft(o))return '<span class="pill st-draft">DRAFT</span>';
  return `<span class="pill st-${esc(o.status||'new')}">${esc(salesStatusLabel(o))}${o.status==='batched'?' 🔒'+(salesUnbatchedLines(o).length?(p=>' · '+p.assigned+'/'+p.total+' pcs')(glassBatchProgress(o)):''):''}</span>`;
 }
 function salesShortDate(iso){return typeof docDate==='function'?docDate(iso):String(iso||'').slice(0,10);}
@@ -219,8 +225,11 @@ function salesTransitionChecks(o,next){
     (проход 7.10.2026: Harbour 76005 без PO прошёл до самовывоза).
     perOrder — в Shipping окно своё у каждого заказа, без строки долга.
     block — без «…anyway»: без PO дальше не идёт (владелец, 8.10.2026). */
- const noPo=c&&c.poRequired&&!String(o.customerPo||'').trim()&&['verified','batched','done'].includes(next);
- if(noPo)out.push({title:'PO missing — order '+num,sub,rows:[['Customer',name+' requires a PO']],note:'Enter the PO in the order.',block:true,perOrder:true,short:'PO missing'});
+ /* PO — у всех клиентов (владелец 29.10.2026: «PO для всех обязательно»;
+    не прислали — впишут своё, например дату заказа). */
+ if(salesIsDraft(o)&&['verified','batched','done'].includes(next))out.push({title:'Draft — order '+num,sub,rows:[],note:'Open the draft and Save it as an order.',block:true,perOrder:true,short:'Draft'});
+ const noPo=c&&!String(o.customerPo||'').trim()&&['verified','batched','done'].includes(next);
+ if(noPo)out.push({title:'PO missing — order '+num,sub,rows:[['Customer PO','Not entered']],note:'Enter the PO in the order.',block:true,perOrder:true,short:'PO missing'});
  if(next==='verified'||next==='batched'){
   if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway:'Continue anyway',short:'Customer on hold'});
   if(b.total==null)out.push({title:'Pricing is not complete',sub,rows:[],note:'Some lines have no price.',anyway:'Continue anyway',short:'Pricing not complete'});
@@ -431,8 +440,8 @@ function salesConvertQuote(){
 function salesConvertQuoteRecord(id,po){
  const quote=DB.salesOrder.find(o=>o.id===id);if(!quote||!salesIsQuote(quote)||salesQuoteWonMember(quote))return;
  const c=salesFindCustomer(quote.customerId),poText=salesString(po!=null?po:quote.customerPo);
- if(c&&c.poRequired&&!poText){
-  salesDialogOpen({title:'PO required · '+quote.businessNumber,sub:(c.displayName||c.legalName)+' requires a PO',rows:[],input:{label:'Customer PO',value:''},note:po!=null?'Enter the PO.':'',
+ if(c&&!poText){
+  salesDialogOpen({title:'PO required · '+quote.businessNumber,sub:(c.displayName||c.legalName)+' · enter the Customer PO',rows:[],input:{label:'Customer PO',value:''},note:po!=null?'Enter the PO.':'',
    buttons:[{label:'Back'},{label:'Convert to order',kind:'pri',run:d=>salesConvertQuoteRecord(id,d.input.value)}]});
   setTimeout(()=>{const el=document.querySelector('[data-dialog-input]');if(el)el.focus();},0);return;
  }
@@ -475,7 +484,7 @@ function salesHeaderActions(o){
  if(typeof archiveViewing==='function'&&archiveViewing(o))return archiveHeaderActions(o);
  const st=salesSaveState(o);
  const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesOrderClose()">Close</button>'];
- if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave({bg:true})">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
+ if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave({bg:true})">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'||salesIsDraft(o)?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
  if(typeof recutCanOpenHere==='function'&&recutCanOpenHere(o))parts.push('<button class="recut-btn" data-recut-open onclick="ncrOpenForm(\'recut\')">Recut</button>');
  if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open onclick="ncrOpenForm(\'ncr\')">NCR</button>');

@@ -50,7 +50,7 @@ function repSoldFacts(want){
  const pick=want&&want.range&&['created','due','shipped'].includes(want.df)?want:null,key=pick?pick.df+'|'+pick.range.join('~'):'all';
  if(repSoldCache.sets.has(key))return repSoldCache.sets.get(key);
  const rows=[],seen=new Set();
- (DB.salesOrder||[]).forEach(o=>{
+ (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(!o||salesIsQuote(o)||o.status==='cancelled')return;seen.add(o.id);
   const shipped=repOrderShipped(o);
   if(pick){const d=repIsoDay(pick.df==='created'?salesListIsoDay(o.createdAt):pick.df==='due'?o.dueDate:shipped);if(!d||(pick.range[0]&&d<pick.range[0])||(pick.range[1]&&d>pick.range[1]))return;}

@@ -12,7 +12,7 @@ function orderQueueKey(){return tab==='shipping'?shippingTab:optimizationTab;}
 function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TABS;}
 /* Заказ одного склада после Verify ждёт выдачи в Shipping, а не батча. */
 function optimizationMatches(o,key){
- if(!o||salesIsQuote(o))return false;
+ if(!o||salesIsQuote(o)||salesIsDraft(o))return false;
  /* Строки без батча — только для To batch и Done: остальным вкладкам они не
     нужны, а на годе это 1,9 с на слабом ПК (числа на вкладках). */
  const fresh=()=>salesUnbatchedLines(o).length;

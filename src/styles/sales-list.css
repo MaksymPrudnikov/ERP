@@ -17,6 +17,8 @@
 .sl-glass{display:inline-block;max-width:220px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:var(--text-2);font-size:12px}
 .sl-table tr.sl-row-sel td{background:var(--accent-soft)}
 .sl-table tr.sl-row-work td{background:var(--surface-3)}
+/* Черновик заказа (пункт 2): вся строка светло-жёлтая. */
+.sl-table tr.sl-row-draft td{background:var(--warning-soft)}
 .sl-table tr.sl-row-hold td{background:var(--danger-soft)}
 .sl-table tr.sl-row-hold td:first-child{box-shadow:inset 4px 0 0 var(--danger)}
 .pill.hold{background:var(--danger-soft);color:var(--danger);border:1px solid var(--danger-line)}
