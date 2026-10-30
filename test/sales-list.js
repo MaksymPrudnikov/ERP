@@ -14,9 +14,11 @@ module.exports=async function({page,eq,ok}){
    soDraft.lines=[];
    const l=normalizeSalesOrderLine({makeupId:m.id,width16:37*16,height16:71*16,qty:opt.qty||1,mark:'L-1'});soDraft.lines.push(l);salesEnsureLineShape(l);
    salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});
-   salesApplyCustomerDefaults(cust.id);soDraft.customerPo=opt.po||'';if(opt.priority)soDraft.priority=opt.priority;
+   salesApplyCustomerDefaults(cust.id);soDraft.customerPo=opt.po||(opt.kind==='quote'?'':'PO-SL');if(opt.priority)soDraft.priority=opt.priority;
    salesOrderSave();
    const id=soDraft.id,o=DB.salesOrder.find(x=>x.id===id);
+   /* Заказ без PO — только старый: PO у всех с 29.10.2026, Save без него не пишет. */
+   if(opt.po==='')o.customerPo='';
    if(opt.days!=null){const d=new Date();d.setDate(d.getDate()-opt.days);d.setHours(10,0,0,0);o.createdAt=d.toISOString();}
    soEdit=null;soDraft=null;return id;
   };
