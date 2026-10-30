@@ -50,7 +50,7 @@ module.exports=async function({page,eq,ok}){
   let shipped=false;shippingWithChecks([id],'pickup',false,()=>{shipped=true;});const ship=salesDialog?salesDialog.buttons.map(b=>b.label):[];oqChoose('Back');
   o.customerPo='HF-1';const withPo=salesTransitionChecks(o,'verified').map(x=>x.title);o.customerPo='';
   tab='dashboard';render();return {save,title:/^PO missing — order \d+$/.test(title),buttons,back,batched:batched.some(x=>/^PO missing/.test(x)),done,ship,shipped,withPo};
- }),{save:'This customer requires a PO. Enter the PO.',title:true,buttons:['Back'],back:'new',batched:true,done:[true],ship:['Back'],shipped:false,withPo:[]});
+ }),{save:'Enter the Customer PO.',title:true,buttons:['Back'],back:'new',batched:true,done:[true],ship:['Back'],shipped:false,withPo:[]});
 
  eq('батч перерезки — «Awaiting cutting»: строку заказа резали в другом батче, но это стекло ещё нет',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer({}));soDraft=null;soEdit=null;salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});

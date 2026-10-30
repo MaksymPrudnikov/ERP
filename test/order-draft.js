@@ -34,7 +34,7 @@ module.exports=async function({page,eq}){
   return run(x=>{const o=salesRecord(x.id),c=salesFindCustomer(x.c);return {draft:o.isDraft===true,lines:o.lines.length,price:o.lines[0].priceManual,surcharge:(o.surchargeRates||{}).largeUnit,contact:o.customerContactId===c.contacts[1].id,notes:o.notes};},{id,c:ids.c});
  })(),{draft:true,lines:2,price:99,surcharge:{value:40},contact:true,notes:'Call first'});
  eq('Draft: обычный Save с ошибкой — черновик остаётся, форма открыта; успешный — тот же id и номер, DRAFT уходит',await run(()=>{
-  const d=DB.salesOrder.find(x=>x.isDraft);salesOrderEdit(d.id);const label=document.querySelector('[data-order-save]').textContent;
+  const d=DB.salesOrder.find(x=>x.isDraft);tab='sales';salesOrderEdit(d.id);const label=document.querySelector('[data-order-save]').textContent;
   salesOrderSave();const err=document.getElementById('e_sales_order').textContent,still=salesRecord(d.id).isDraft===true,open=soEdit===d.id;
   soDraft.lines=soDraft.lines.filter(l=>l.width16);soDraft.customerPo='PO-77';const ok=salesOrderSave();const o=salesRecord(d.id);salesDraftDrop();
   return {label,err,still,open,ok,same:o.id===d.id&&o.businessNumber===d.businessNumber,draft:o.isDraft===true,status:o.status,pieces:(DB.glassPiece||[]).filter(p=>p.orderId===o.id).length>0};

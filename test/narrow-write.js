@@ -69,5 +69,13 @@ module.exports=async function({page,eq}){
  });
  const afterContact=await left();await f5();
  eq('Save с выбранным контактом заказа: записан сразу, F5 его не теряет',{left:afterContact,contact:await t.p.evaluate(x=>salesRecord(x.id).customerContactId===x.second,contact)},{left:[],contact:true});
+ /* Save as Draft (пункт 2): черновик пишется сразу, F5 его не теряет. */
+ const draft=await t.p.evaluate(()=>{
+  const c=oqCustomer({legalName:'Draft Narrow'});tab='sales';salesOrderNew('order');salesApplyCustomerDefaults(c.id);soDraft.notes='Draft narrow';salesOrderClose();
+  const i=salesDialog?salesDialog.buttons.findIndex(b=>b.label==='Save as Draft'):-1;if(i>=0)salesDialogChoose(i);else{salesDialog=null;salesDraftDrop(true);}
+  const o=DB.salesOrder.find(x=>x.notes==='Draft narrow');return o?o.id:'';
+ });
+ const afterDraft=await left();await f5();
+ eq('Save as Draft: черновик записан сразу, F5 его не теряет',{left:afterDraft,draft:await t.p.evaluate(id=>{const o=salesRecord(id);return !!o&&o.isDraft===true;},draft)},{left:[],draft:true});
  await t.c.close();
 };
