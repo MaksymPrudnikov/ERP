@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 184 модулей, 24 стиля.
+  Состав сборки: 185 модулей, 25 стиля.
 -->
 <html lang="en">
 <head>
@@ -1825,6 +1825,33 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .line-units-row td{padding:6px 12px 10px 44px}.line-units-hold,.line-units-cancelled{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;padding:4px 0}
 .line-units-hold{color:var(--red)}.line-units-hold span{color:var(--red)}.line-units-cancelled span{color:var(--text-2)}.line-units-cancelled label{display:inline-flex;gap:6px;align-items:center;color:var(--text-2);text-transform:none;letter-spacing:0;font-size:13px;font-weight:400;margin:0}.line-units-cancelled input{width:110px;margin-top:0;text-align:right}
 
+/* ---- src/styles/col-widths.css ---- */
+/* Ширина и порядок колонок (views/col-widths): Sales и Order Lines одинаково. */
+table[data-cw-table] th[data-cw-key]{position:relative;cursor:grab}
+.cw-grip{position:absolute;top:0;right:0;width:9px;height:100%;cursor:col-resize;z-index:2;touch-action:none}
+.cw-grip::after{content:'';position:absolute;right:0;top:28%;height:44%;width:1px;background:var(--line-strong)}
+.cw-grip:hover::after,th.cw-active .cw-grip::after{top:0;height:100%;width:3px;border-radius:2px;background:var(--accent)}
+.cw-guide{position:fixed;z-index:70;width:2px;background:var(--accent);pointer-events:none}
+.cw-drop{position:fixed;z-index:70;width:3px;border-radius:2px;background:var(--accent);pointer-events:none}
+.cw-ghost{position:fixed;z-index:71;pointer-events:none;padding:6px 10px;border-radius:7px;background:var(--surface);border:1px solid var(--accent-line);box-shadow:0 10px 26px rgba(0,0,0,.18);font-size:12px;font-weight:600;color:var(--text);white-space:nowrap}
+th.cw-src{opacity:.45}
+body.cw-resizing,body.cw-resizing *{cursor:col-resize!important;user-select:none!important}
+body.cw-moving,body.cw-moving *{cursor:grabbing!important;user-select:none!important}
+/* Свои ширины: колонка держит ширину, длинное — многоточием. */
+table.cw-fixed{table-layout:fixed;min-width:0!important}
+table.cw-fixed>thead>tr>th,table.cw-fixed>tbody>tr>td,table.cw-fixed>tfoot>tr>td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.cw-fixed .sl-th{display:flex;min-width:0;max-width:100%}
+table.cw-fixed [data-cw-label]{min-width:0;overflow:hidden;text-overflow:ellipsis}
+table.cw-fixed .sl-fbtn{flex:none}
+table.cw-fixed .sl-glass{display:block;max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Order Lines: поля и кнопки ячейки — в её ширину, ввод остаётся доступным. */
+table.cw-fixed>tbody>tr>td>input:not([type=checkbox]),table.cw-fixed>tbody>tr>td>select{width:100%!important;min-width:0!important;max-width:100%;box-sizing:border-box}
+table.cw-fixed th.line-metric,table.cw-fixed td.line-metric,table.cw-fixed .line-services-cell{min-width:0}
+table.cw-fixed .line-services-btn{min-width:0!important;max-width:100%;overflow:hidden}
+table.cw-fixed .line-services-chips{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.cw-fixed .line-services-money{flex:none}
+table.cw-fixed .metric-cell-btn{overflow:hidden;text-overflow:ellipsis}
+
 /* ---- src/styles/optimization.css ---- */
 /* Очередь Optimization: вкладки, выбор заказов, общий батч и On Hold.
    На узком экране горизонтально прокручивается только таблица. */
@@ -3642,7 +3669,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='6be25b2bdcda';
+var ERP_BUILD='dbe759f5aecd';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -23754,6 +23781,151 @@ function finBalancesDoc(list,selection){
  return finDocLayout(m);
 }
 
+/* ==== src/erp/views/col-widths.js ==== */
+/* =====================================================================
+   views/col-widths  ·  col-widths-1.0
+   Ширина и порядок колонок прямо в заголовке — один механизм для списка
+   Sales и Order Lines (пункт 11 плана v1.16). Владелец, 30.10.2026: вид —
+   вариант 1 («черта как в Excel»: тонкая черта между заголовками, при
+   наведении и перетаскивании зелёная, через таблицу — линия); «чтобы колонки
+   можно было ренжовать как в экселе: беру колонку за голову и переношу».
+   - Граница заголовка (.cw-grip) — ширина колонки; заголовок — перенос.
+   - Ширины — {ключ колонки: px} в настройках самой таблицы этого браузера
+     (адаптер cwRegister): Sales и Order Lines хранят свои отдельно.
+   - Пока ширин нет, таблица как раньше (авто). Первое перетаскивание
+     запоминает ширины всех видимых колонок такими, как они на экране, и
+     дальше таблица держит их (table-layout:fixed, <colgroup>); длинный
+     текст — многоточие, полный — подсказкой при наведении.
+   - Конец перетаскивания — отпускание где угодно (захват указателя);
+     Escape — отмена. Ширина не трогает заказ, ввод и выделение строк.
+   ===================================================================== */
+
+const CW_MIN=40,CW_MAX=1200;
+const CW_TABLES={};
+/* id → {widths(), save(widths), def(key), min(key), move(from,to,after),
+   lead: [px служебных колонок слева], trail: px кнопок справа} */
+function cwRegister(id,adapter){CW_TABLES[id]=adapter;}
+/* Ширины из настроек: ключ колонки → целые px; чужое и отрицательное — вон,
+   слишком узкое и широкое — к границам. */
+function cwClean(w){
+ const out={};if(!w||typeof w!=='object'||Array.isArray(w))return out;
+ Object.keys(w).forEach(k=>{const n=Math.round(Number(w[k]));if(/^[A-Za-z0-9_]{1,40}$/.test(k)&&Number.isFinite(n)&&n>0)out[k]=Math.min(CW_MAX,Math.max(CW_MIN,n));});
+ return out;
+}
+function cwWidths(id){const a=CW_TABLES[id];return a?cwClean(a.widths()):{};}
+function cwFixed(id){return Object.keys(cwWidths(id)).length>0;}
+/* Сумма ширин: служебные колонки, колонки данных и кнопки в конце. Таблица
+   не уже экрана и не уже суммы — лишнее берёт последняя колонка (кнопки),
+   нехватка — прокрутка вбок, сохранённые ширины не сжимаются. */
+function cwSum(a,keys,w){return a.lead.reduce((s,x)=>s+x,0)+keys.reduce((s,k)=>s+(w[k]||a.def(k)),0)+a.trail;}
+function cwColgroupFor(id,keys,w){
+ const a=CW_TABLES[id];if(!a||!Object.keys(w).length)return '';
+ return `<colgroup>${a.lead.map(x=>`<col style="width:${x}px">`).join('')}${keys.map(k=>`<col data-cw-col="${k}" style="width:${w[k]||a.def(k)}px">`).join('')}<col></colgroup>`;
+}
+/* Разметка таблицы: метка, класс и ширина; без сохранённых ширин — как раньше. */
+function cwTableAttrs(id,keys){
+ const a=CW_TABLES[id],w=cwWidths(id);
+ return ` data-cw-table="${id}"`+(Object.keys(w).length?` style="width:max(100%,${cwSum(a,keys,w)}px)"`:'');
+}
+function cwTableClass(id){return cwFixed(id)?' cw-fixed':'';}
+function cwColgroup(id,keys){return cwColgroupFor(id,keys,cwWidths(id));}
+function cwGrip(){return '<span class="cw-grip" data-cw-grip aria-hidden="true"></span>';}
+
+/* ------------------------------ Жесты ---------------------------------- */
+let cwDrag=null;
+function cwKeys(table){return [...table.querySelectorAll('thead th[data-cw-key]')];}
+/* Ширины всех видимых колонок такими, как они на экране, — один раз, при первом жесте. */
+function cwSnapshot(table,id){
+ const w=cwWidths(id);if(Object.keys(w).length)return w;
+ cwKeys(table).forEach(th=>{w[th.dataset.cwKey]=Math.max(CW_MIN,Math.ceil(th.getBoundingClientRect().width));});
+ return w;
+}
+/* Таблица на экране — в режим ширин без перерисовки (ввод и фокус на месте). */
+function cwApply(table,id,w){
+ const a=CW_TABLES[id],keys=cwKeys(table).map(th=>th.dataset.cwKey),tmp=document.createElement('table');
+ tmp.innerHTML=cwColgroupFor(id,keys,w);const g=tmp.querySelector('colgroup'),old=table.querySelector(':scope>colgroup');
+ if(old)old.replaceWith(g);else table.insertBefore(g,table.firstChild);
+ table.classList.add('cw-fixed');table.style.width=`max(100%,${cwSum(a,keys,w)}px)`;
+}
+function cwGuide(x,table){
+ let g=document.querySelector('.cw-guide');if(!g){g=document.createElement('div');g.className='cw-guide';document.body.appendChild(g);}
+ const r=table.getBoundingClientRect(),wrap=table.parentElement.getBoundingClientRect(),top=Math.max(r.top,wrap.top,0),bottom=Math.min(r.bottom,wrap.bottom,innerHeight);
+ g.style.left=Math.round(x-1)+'px';g.style.top=top+'px';g.style.height=Math.max(0,bottom-top)+'px';return g;
+}
+function cwClear(){document.querySelectorAll('.cw-guide,.cw-ghost,.cw-drop').forEach(e=>e.remove());document.body.classList.remove('cw-resizing','cw-moving');document.querySelectorAll('th.cw-active,th.cw-src').forEach(th=>th.classList.remove('cw-active','cw-src'));}
+/* Клик после жеста не должен открыть фильтр, сортировку или заказ. */
+function cwSwallowClick(){const f=e=>{e.stopPropagation();e.preventDefault();};document.addEventListener('click',f,true);setTimeout(()=>document.removeEventListener('click',f,true),0);}
+
+function cwDown(e){
+ if(e.button!==0||cwDrag)return;
+ const th=e.target.closest&&e.target.closest('th[data-cw-key]'),table=th&&th.closest('table[data-cw-table]');
+ if(!table||!CW_TABLES[table.dataset.cwTable])return;
+ const id=table.dataset.cwTable,key=th.dataset.cwKey;
+ if(e.target.closest('[data-cw-grip]')){
+  e.preventDefault();e.stopPropagation();
+  const w=cwSnapshot(table,id);cwApply(table,id,w);
+  cwDrag={kind:'resize',id,key,table,th,w,start:w[key]||th.getBoundingClientRect().width,x:e.clientX,pointer:e.pointerId};
+  try{e.target.setPointerCapture(e.pointerId);}catch(x){}
+  document.body.classList.add('cw-resizing');th.classList.add('cw-active');cwGuide(th.getBoundingClientRect().right,table);
+  return;
+ }
+ if(e.target.closest('button,input,select,textarea,a,label'))return;
+ e.preventDefault();
+ cwDrag={kind:'move',id,key,table,th,x:e.clientX,y:e.clientY,pointer:e.pointerId,on:false};
+ try{th.setPointerCapture(e.pointerId);}catch(x){}
+}
+function cwMoveTarget(d,x){
+ const ths=cwKeys(d.table);let best=null;
+ ths.forEach(th=>{const r=th.getBoundingClientRect();[[r.left,false],[r.right,true]].forEach(([edge,after])=>{const dist=Math.abs(x-edge);if(!best||dist<best.dist)best={th,after,edge,dist};});});
+ return best;
+}
+function cwMove(e){
+ const d=cwDrag;if(!d||e.pointerId!==d.pointer)return;
+ if(d.kind==='resize'){
+  const min=CW_TABLES[d.id].min(d.key),px=Math.min(CW_MAX,Math.max(min,Math.round(d.start+e.clientX-d.x)));d.w[d.key]=px;
+  const col=d.table.querySelector(`col[data-cw-col="${d.key}"]`);if(col)col.style.width=px+'px';
+  d.table.style.width=`max(100%,${cwSum(CW_TABLES[d.id],cwKeys(d.table).map(th=>th.dataset.cwKey),d.w)}px)`;cwGuide(d.th.getBoundingClientRect().right,d.table);
+  return;
+ }
+ if(!d.on){if(Math.abs(e.clientX-d.x)<6)return;d.on=true;document.body.classList.add('cw-moving');d.th.classList.add('cw-src');
+  const g=document.createElement('div');g.className='cw-ghost';g.textContent=(d.th.querySelector('[data-cw-label]')||d.th).textContent.trim();document.body.appendChild(g);}
+ const g=document.querySelector('.cw-ghost');if(g){g.style.left=(e.clientX+12)+'px';g.style.top=(e.clientY+10)+'px';}
+ const t=cwMoveTarget(d,e.clientX);d.target=t;
+ let line=document.querySelector('.cw-drop');if(!line){line=document.createElement('div');line.className='cw-drop';document.body.appendChild(line);}
+ const r=d.table.getBoundingClientRect(),wrap=d.table.parentElement.getBoundingClientRect(),top=Math.max(r.top,wrap.top,0),bottom=Math.min(r.bottom,wrap.bottom,innerHeight);
+ line.style.left=Math.round(t.edge-1.5)+'px';line.style.top=top+'px';line.style.height=Math.max(0,bottom-top)+'px';
+}
+function cwUp(e){
+ const d=cwDrag;if(!d||(e&&e.pointerId!==d.pointer))return;cwDrag=null;cwClear();
+ if(d.kind==='resize'){CW_TABLES[d.id].save(cwClean(d.w));cwSwallowClick();return;}
+ if(!d.on)return;cwSwallowClick();
+ const t=d.target;if(!t||t.th===d.th)return;
+ CW_TABLES[d.id].move(d.key,t.th.dataset.cwKey,t.after);
+}
+function cwCancel(){
+ const d=cwDrag;if(!d)return;cwDrag=null;cwClear();
+ /* Отмена: настройки не менялись — перерисовка вернёт прежние ширины. */
+ if(d.kind==='resize')render();
+}
+document.addEventListener('pointerdown',cwDown,true);
+document.addEventListener('pointermove',cwMove,true);
+document.addEventListener('pointerup',cwUp,true);
+document.addEventListener('pointercancel',e=>{if(cwDrag&&e.pointerId===cwDrag.pointer)cwUp(e);},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&cwDrag){e.stopPropagation();cwCancel();}},true);
+
+/* Полный текст обрезанной ячейки — подсказкой при наведении (вариант 1:
+   обычная подсказка браузера). Несколько признаков (Batched, On Hold) — через «·». */
+function cwCellText(td){
+ const out=[],walk=document.createTreeWalker(td,NodeFilter.SHOW_TEXT);let n;
+ while((n=walk.nextNode())){const t=n.nodeValue.replace(/\s+/g,' ').trim();if(t)out.push(t);}
+ return out.join(' · ');
+}
+document.addEventListener('mouseover',e=>{
+ const td=e.target.closest&&e.target.closest('table.cw-fixed>tbody>tr>td');if(!td||td.hasAttribute('title'))return;
+ const cut=[td,...td.querySelectorAll('*')].some(x=>x.clientWidth>0&&x.scrollWidth>x.clientWidth+1);
+ if(cut){const t=cwCellText(td);if(t)td.title=t;}
+},true);
+
 /* ==== src/erp/views/sales.js ==== */
 /* =====================================================================
    view/sales · sales-0.3b-makeup
@@ -24053,6 +24225,7 @@ function salesLoadViewPrefs(){
   salesViewPrefs.columnsVersion=2;try{localStorage.setItem('glass_erp_line_columns_v1',JSON.stringify(salesViewPrefs));}catch(e){salesViewSaveFailed=true;}
  }
  if(!(DB.user||[]).some(u=>u.viewProfileId===salesViewPrefs.active))salesViewPrefs.active='browser';
+ Object.values(salesViewPrefs.profiles).forEach(v=>{if(!v||typeof v!=='object')return;const w=cwClean(v.widths);if(Object.keys(w).length)v.widths=w;else delete v.widths;});
  return salesViewPrefs;
 }
 function salesSaveViewPrefs(){
@@ -24095,9 +24268,22 @@ function salesSetViewProfile(id){
  salesLoadViewPrefs().active=id;touch();salesSaveViewPrefs();render();
 }
 function salesResetMetricColumns(context){
- const p=salesLoadViewPrefs();if(p.profiles[p.active]){delete p.profiles[p.active][context];delete p.profiles[p.active].order;}
+ const p=salesLoadViewPrefs();if(p.profiles[p.active]){delete p.profiles[p.active][context];delete p.profiles[p.active].order;delete p.profiles[p.active].widths;}
  salesSaveViewPrefs();render();
 }
+/* Ширины Order Lines (views/col-widths) — в том же профиле, что видимость и
+   порядок, отдельно от списка Sales. Reset widths — только ширины. */
+function salesLineWidths(){const p=salesLoadViewPrefs(),v=p.profiles[p.active]||{};return v.widths||{};}
+function salesSaveLineWidths(w){const p=salesLoadViewPrefs();if(!p.profiles[p.active])p.profiles[p.active]={};if(Object.keys(w).length)p.profiles[p.active].widths=w;else delete p.profiles[p.active].widths;salesSaveViewPrefs();}
+function salesResetLineWidths(){salesSaveLineWidths({});render();}
+function salesMoveOrderColumn(from,to,after){
+ const order=salesOrderColumnOrder(),a=order.indexOf(from);if(a<0||from===to)return;
+ order.splice(a,1);const b=order.indexOf(to);if(b<0)return;order.splice(after?b+1:b,0,from);salesSetOrderColumnOrder(order);
+}
+/* Поля ввода — не уже, чем можно в них попасть. */
+const SALES_LINE_MIN_WIDTH={mu:52,qty:48,width:56,height:56,mark:48,notes:48,services:60};
+cwRegister('lines',{widths:salesLineWidths,save:salesSaveLineWidths,def:k=>({mu:62,set:60,qty:62,width:100,height:100,mark:90,shape:56,services:150,notes:100})[k]||103,
+ min:k=>SALES_LINE_MIN_WIDTH[k]||CW_MIN,move:salesMoveOrderColumn,lead:[34,52],trail:44});
 function salesOpenMetrics(panel,id){salesMetricsPanel=panel;salesMetricsLineId=id||null;salesMetricsEditWeights=false;render();}
 function salesCloseMetrics(){salesMetricsPanel=null;salesSurchargeError=null;render();}
 function salesMetricsTools(){const n=salesOrderSurchargeCount(soDraft);return `<button type="button" onclick="salesOpenMetrics('columns')">${'Columns'}</button><button type="button" data-surcharges-btn onclick="salesOpenMetrics('rules')">${'Surcharges'}${n?`<span class="metric-surcharge-badge" data-surcharge-badge>ORDER ${n}</span>`:''}</button>`;}
@@ -24176,7 +24362,7 @@ function salesOrderChargesPanel(){
 function salesColumnsPanel(){
  const p=salesLoadViewPrefs();
  const order=salesOrderColumnOrder(),rows=order.map((key,i)=>{const c=SALES_METRIC_COLUMNS.find(x=>x.key===key)||SALES_ORDER_BASE_COLUMNS.find(x=>x.key===key),metric=SALES_METRIC_COLUMNS.some(x=>x.key===key);return `<div class="metric-column-row" draggable="true" ondragstart="salesMetricDragStart(event,'${c.key}')" ondragend="salesMetricDragEnd(event)" ondragover="event.preventDefault()" ondrop="salesMetricDrop(event,'${c.key}')"><span class="metric-drag" title="${'Drag column'}">⋮⋮</span><span data-raw>${c.label}</span><span class="metric-move"><button type="button" aria-label="Move ${c.label} left" ${i===0?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',-1)">←</button><button type="button" aria-label="Move ${c.label} right" ${i===order.length-1?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',1)">→</button></span>${metric?['screen'].map(ctx=>`<label><input type="checkbox" aria-label="${ctx} ${c.label}" ${salesMetricColumnsFor(ctx).some(x=>x.key===c.key)?'checked':''} onchange="salesSetMetricColumn('${ctx}','${c.key}',this.checked)"></label>`).join(''):`<span class="metric-required" title="${'Required order column'}">●</span>`}</div>`;}).join('');
- return `<label class="metric-profile">${'View preferences for'}<select onchange="salesSetViewProfile(this.value)"><option value="browser">${'This browser'}</option>${(DB.user||[]).map(u=>`<option data-raw value="${esc(u.viewProfileId)}" ${p.active===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label><p class="mut">${'Visibility and order save automatically in this browser. Drag a row or use the arrows.'}</p><div class="metric-column-grid"><div class="metric-column-head"><span></span><span>${'Column'}</span><span>${'Order'}</span><b>${'Screen'}</b></div>${rows}<div class="metric-column-reset"><span>${'Standard view'}</span>${['screen'].map(ctx=>`<button type="button" class="sm" onclick="salesResetMetricColumns('${ctx}')">${'Reset'}</button>`).join('')}</div></div>${salesViewSaveFailed?`<p class="metric-incomplete">${'Browser preferences could not be saved. Selections apply until this page closes.'}</p>`:''}`;
+ return `<label class="metric-profile">${'View preferences for'}<select onchange="salesSetViewProfile(this.value)"><option value="browser">${'This browser'}</option>${(DB.user||[]).map(u=>`<option data-raw value="${esc(u.viewProfileId)}" ${p.active===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label><p class="mut">${'Visibility, order and widths save automatically in this browser. Drag a row or use the arrows.'}</p><div class="metric-column-grid"><div class="metric-column-head"><span></span><span>${'Column'}</span><span>${'Order'}</span><b>${'Screen'}</b></div>${rows}</div><div class="sl-actions metric-column-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesResetMetricColumns('screen')">Standard view</button><button type="button" class="sl-btn" data-reset-widths ${cwFixed('lines')?'':'disabled'} onclick="salesResetLineWidths()">Reset widths</button></div>${salesViewSaveFailed?`<p class="metric-incomplete">${'Browser preferences could not be saved. Selections apply until this page closes.'}</p>`:''}`;
 }
 function salesAreaPanel(line){
  const a=salesLineAreas(line,soDraft);
@@ -27525,8 +27711,9 @@ function salesOrderScreenColumns(){
 }
 function salesOrderColumnHeader(key){
   var metric=SALES_METRIC_COLUMNS.find(function(c){return c.key===key;});
-  if(metric)return `<th class="line-metric" data-metric="${metric.key}"><span data-raw>${metric.label}</span></th>`;
-  var base=SALES_ORDER_BASE_COLUMNS.find(function(c){return c.key===key;});return `<th data-column="${esc(key)}">${esc(base?base.label:key)}</th>`;
+  /* Граница — ширина, сам заголовок — перенос (views/col-widths, как в Sales). */
+  if(metric)return `<th class="line-metric" data-metric="${metric.key}" data-cw-key="${metric.key}"><span data-raw data-cw-label>${metric.label}</span>${cwGrip()}</th>`;
+  var base=SALES_ORDER_BASE_COLUMNS.find(function(c){return c.key===key;});return `<th data-column="${esc(key)}" data-cw-key="${esc(key)}"><span data-cw-label>${esc(base?base.label:key)}</span>${cwGrip()}</th>`;
 }
 function salesOrderColumnCell(key,l,i,linked,st){
   var metric=SALES_METRIC_COLUMNS.find(function(c){return c.key===key;});if(metric)return salesMetricCell(l,metric,'screen');
@@ -27547,7 +27734,7 @@ function salesOrderColumnCell(key,l,i,linked,st){
 }
 function salesOrderLines(){
   var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce(function(n,g){return n+g.lines;},0),hasServices=pricing.charges>0||commercial.length>0,columns=salesOrderScreenColumns();
-  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag and reorder columns in Columns</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}${typeof purSalesLinksHTML==='function'?purSalesLinksHTML(soDraft.id,l,columns.length+3):''}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
+  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag a header to move or resize</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services${cwTableClass('lines')}'${cwTableAttrs('lines',columns)}>${cwColgroup('lines',columns)}<thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}${typeof purSalesLinksHTML==='function'?purSalesLinksHTML(soDraft.id,l,columns.length+3):''}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
 }
 
 /* ---------- Edgework Set editor ---------- */
@@ -32289,6 +32476,8 @@ function purPOInvoicesHTML(p){return '<section class="card pur-card pur-receivin
    на удержании красная, Batched — серая («заказ уже в работе»). Коды стёкол —
    как в Master Data, программа их не сокращает. Итоги — только строкой под
    таблицей, не плитками на экране.
+   Ширина и порядок колонок — за заголовок (views/col-widths, пункт 11,
+   30.10.2026); Order Items — отдельные стёкла заказа по материалам.
    ===================================================================== */
 
 const SALES_LIST_PREFS_KEY='glass_erp_sales_list_v1';
@@ -32305,6 +32494,7 @@ const SALES_LIST_COLUMNS=[
  {k:'status',label:'Status',type:'list',def:true},
  {k:'priority',label:'Priority',type:'list',def:true},
  {k:'glass',label:'Glass',type:'text',def:true},
+ {k:'orderItems',label:'Order Items',type:'text',def:true},
  {k:'units',label:'Units',type:'number',def:true,sum:true},
  {k:'area',label:'Area ft²',type:'number',def:true,sum:true,digits:1},
  {k:'total',label:'Total',type:'number',def:true,sum:true,money:true},
@@ -32363,7 +32553,7 @@ function salesListCatalog(){
     Area ft² видна сразу, рядом с Units — Glass pcs, стекло к резке (у
     стеклопакета два-три, у ламината — каждая плита, как в To batch). */
  const pcs={k:'pcs',label:'Glass pcs',type:'number',def:true,sum:true};
- return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)&&!(money&&c.money)).flatMap(c=>{const col=Object.assign({},c,{def:defaults.includes(c.k)||money&&c.k==='area',tokens:c.k==='glass'});return money&&c.k==='units'?[col,pcs]:[col];})
+ return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote','orderItems'].includes(c.k)&&!(money&&c.money)).flatMap(c=>{const col=Object.assign({},c,{def:defaults.includes(c.k)||money&&c.k==='area',tokens:c.k==='glass'});return money&&c.k==='units'?[col,pcs]:[col];})
   .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]).concat(tab==='shipping'&&shippingTab==='awaiting'?[{k:'readyQty',label:'Ready',type:'text',def:true}]:[]);
 }
 function salesListColumn(k){return salesListCatalog().find(c=>c.k===k)||null;}
@@ -32379,7 +32569,8 @@ function salesListCleanPrefs(p){
  p=p&&typeof p==='object'&&!Array.isArray(p)?p:{};
  const seen=new Set(),cols=[];
  (Array.isArray(p.cols)?p.cols:[]).forEach(c=>{if(c&&salesListColumn(c.k)&&!seen.has(c.k)){seen.add(c.k);cols.push({k:c.k,on:!!c.on});}});
- salesListCatalog().forEach(c=>{if(!seen.has(c.k))cols.push({k:c.k,on:!!c.def});});
+ /* Новая колонка встаёт за соседкой по каталогу, а не в конец (Order Items — сразу после Glass). */
+ salesListCatalog().forEach((c,i,all)=>{if(seen.has(c.k))return;const prev=all.slice(0,i).reverse().find(x=>cols.some(y=>y.k===x.k));cols.splice(prev?cols.findIndex(y=>y.k===prev.k)+1:0,0,{k:c.k,on:!!c.def});});
  const filters={},src=p.filters&&typeof p.filters==='object'&&!Array.isArray(p.filters)?p.filters:{};
  Object.keys(src).forEach(k=>{const f=salesListCleanFilter(k,src[k]);if(f&&salesListFilterActive(f))filters[k]=f;});
  const sort=p.sort&&salesListColumn(p.sort.k)?{k:p.sort.k,dir:p.sort.dir==='asc'?'asc':'desc'}:null;
@@ -32391,6 +32582,7 @@ function salesListCleanPrefs(p){
  const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all'};
  if(tab==='inventory'&&p.inventoryDateInitialized!==true&&typeof invListDefaults==='function')Object.entries(invListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
  if(tab==='purchasing')clean.purchasingDateInitialized=true;
+ if(salesListScope()==='sales'){const w=cwClean(p.widths);if(Object.keys(w).length)clean.widths=w;}
  if(tab==='inventory')clean.inventoryDateInitialized=true;
  return clean;
 }
@@ -32450,6 +32642,24 @@ function salesListGlass(o,byCode){
  };
  return (o.makeups||[]).filter(m=>used.has(m.id)).map(m=>(m.panes||[]).map(code).join(' / ')).join(' · ');
 }
+/* Order Items (пункт 11): отдельные стёкла по материалам — Qty строки ×
+   вхождения стекла в её Makeup, у ламината каждая плита; прослойка — не
+   стекло. Short name, пусто — код; byCode — те же группы кодами (фильтр
+   находит и по коду). Порядок — первое появление. Неполное не выдаётся за
+   ноль: стекла нет в каталоге — Unknown glass, строка без Makeup или Qty — «not counted». */
+function salesListOrderItems(o,byCode){
+ const lines=o.lines||[];if(!lines.length)return null;
+ const sum=new Map();let unknown=0,skipped=0;
+ lines.forEach(l=>{
+  const q=Number(l.qty),m=salesMakeupById(o,l.makeupId);
+  if(!(q>0)||!m||!(m.panes||[]).length){skipped++;return;}
+  glassBatchComponents(o,l).forEach(c=>{const g=glassProductById(c.glassId);if(!g){unknown+=q;return;}const x=sum.get(g.id);if(x)x.n+=q;else sum.set(g.id,{g,n:q});});
+ });
+ const parts=[...sum.values()].map(x=>(byCode?x.g.code:glassShortName(x.g))+': '+x.n);
+ if(unknown)parts.push('Unknown glass: '+unknown);
+ if(skipped)parts.push(skipped+' line'+(skipped===1?'':'s')+' not counted');
+ return parts.length?parts.join(' | '):null;
+}
 function salesListInfo(o){return {o,q:salesIsQuote(o),c:salesFindCustomer(o.customerId)||{},memo:{}};}
 function salesListValue(info,k){
  if(Object.prototype.hasOwnProperty.call(info.memo,k))return info.memo[k];
@@ -32467,6 +32677,7 @@ function salesListValue(info,k){
   case 'status':v=salesStatusLabel(o,salesListStatus(o));break;
   case 'priority':v=SALES_LIST_PRIORITY[o.priority]||'Normal';break;
   case 'glass':v=salesListGlass(o);break;
+  case 'orderItems':v=salesListOrderItems(o);break;
   case 'batch':v=salesOrderBatchNumbers(o).join(', ');break;
   case 'newLines':v=salesUnbatchedLines(o).length;break;
   case 'units':v=lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1),0);break;
@@ -32537,7 +32748,7 @@ function salesListFilterTest(col,f,info){
  const val=salesListValue(info,col.k);let ok=true;
  /* Glass: условие проверяется и по Short name, и по коду. «Не содержит» —
     по обоим сразу. */
- const alt=col.k==='glass'&&!info.a?salesListGlass(info.o,true):null;
+ const alt=info.a?null:col.k==='glass'?salesListGlass(info.o,true):col.k==='orderItems'?salesListOrderItems(info.o,true):null;
  const test=c=>{const t=salesListCondTest(col.type,c,val);if(alt==null||alt===val)return t;const u=salesListCondTest(col.type,c,alt);return c.op==='notContains'||c.op==='notEqual'?t&&u:t||u;};
  if(Array.isArray(f.values))ok=col.tokens?salesListTokens(info,col.k).some(v=>f.values.includes(v)):f.values.includes(salesListText(info,col.k));
  if(ok&&f.preset&&col.type==='date'){const r=salesListPresetRange(f.preset);ok=!!val&&!!r&&val>=r[0]&&val<=r[1];}
@@ -32661,7 +32872,7 @@ function salesListCell(info,col){
   case 'customer':return `<td><b>${raw(v||'—')}</b></td>`;
   case 'created':case 'due':case 'validUntil':case 'updated':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'status':return `<td>${q?salesQuoteGroupPill(o):salesStatusPill(o)}${!q&&o.onHold?' <span class="pill hold">On Hold</span>':''}</td>`;
-  case 'glass':return `<td><span class="sl-glass" title="${esc(v)}">${raw(v||'—')}</span></td>`;
+  case 'glass':case 'orderItems':return `<td><span class="sl-glass" title="${esc(v)}">${raw(v||'—')}</span></td>`;
   case 'units':case 'pcs':case 'lines':case 'shapes':case 'revisions':case 'weight':return `<td class="n">${salesListNum(v)}</td>`;
   case 'area':return `<td class="n">${salesListNum(v,1)}</td>`;
   case 'total':return `<td class="n${!q&&finOrderCounts(o)?'':' mut'}">${finFmt(v)}</td>`;
@@ -32704,7 +32915,9 @@ function salesListView(){
  const estN=typeof salesCutEstimateIds==='function'?salesCutEstimateIds().length:0;
  const estBtn=typeof salesCutEstimateOpen==='function'?`<button type="button" class="sl-quiet sl-est-btn" data-cut-est-open title="Cut preview${estN?' · '+estN+' selected':': select orders or quotes'}" aria-label="Cut preview" ${estN?'':'disabled'} onclick="salesCutEstimateOpen(salesCutEstimateIds())">${ico('cut')}${estN?`<b>${estN}</b>`:''}</button>`:'';
  const rowIds=rows.filter(r=>!r.n&&!r.a).map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
- const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${c.label}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
+ /* Ширина и порядок за заголовок — только у списка Sales (views/col-widths). */
+ const cw=salesListScope()==='sales',keys=cols.map(c=>c.k);
+ const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"${cw?` data-cw-key="${c.k}"`:''}><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cw?cwGrip():''}</th>`;};
  const body=rows.map(r=>{
   if(r.n)return ncrListRow(r,cols);
   if(r.a)return archiveListRow(r,cols);
@@ -32712,7 +32925,7 @@ function salesListView(){
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
- return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListScope()==='sales'?salesQuickHTML(filtered,anyDate):''}<div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListScope()==='sales'?salesQuickHTML(filtered,anyDate):''}<div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -32800,7 +33013,7 @@ function salesListApplyFilter(){const m=salesListMenu;if(!m||m.kind!=='filter')r
 function salesListColumnsHTML(style){
  const p=salesListLoadPrefs();
  const rows=p.cols.map((c,i)=>{const col=salesListColumn(c.k);return `<div class="sl-cols-row" draggable="true" data-col-row="${c.k}" ondragstart="salesListDragKey='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();salesListDropColumn('${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-col-toggle="${c.k}" ${c.on?'checked':''} onchange="salesListSetColumn('${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="salesListMoveColumn('${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===p.cols.length-1?'disabled':''} onclick="salesListMoveColumn('${c.k}',1)">↓</button></div>`;}).join('');
- return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button></div></div>`;
+ return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button>${salesListScope()==='sales'?`<button type="button" class="sl-btn" data-reset-widths ${cwFixed('sales')?'':'disabled'} onclick="salesListResetWidths()">Reset widths</button>`:''}</div></div>`;
 }
 function salesListSetColumn(k,on){const c=salesListLoadPrefs().cols.find(x=>x.k===k);if(!c)return;c.on=!!on;salesListSavePrefs();render();}
 function salesListMoveColumn(k,delta){
@@ -32813,7 +33026,22 @@ function salesListDropColumn(k){
  const cols=salesListLoadPrefs().cols,at=cols.findIndex(c=>c.k===from);if(at<0)return;
  const [c]=cols.splice(at,1);cols.splice(cols.findIndex(x=>x.k===k),0,c);salesListSavePrefs();render();
 }
-function salesListStandardView(){salesListLoadPrefs().cols=salesListCatalog().map(c=>({k:c.k,on:!!c.def}));salesListSavePrefs();render();}
+function salesListStandardView(){const p=salesListLoadPrefs();p.cols=salesListCatalog().map(c=>({k:c.k,on:!!c.def}));delete p.widths;salesListSavePrefs();render();}
+/* Reset widths — только ширины Sales: порядок, видимость, фильтры и выбор строк на месте. */
+function salesListResetWidths(){delete salesListLoadPrefs().widths;salesListSavePrefs();render();}
+/* Перенос колонки за заголовок — тот же порядок, что в меню Columns. */
+function salesListMoveColumnTo(from,to,after){
+ const cols=salesListLoadPrefs().cols,a=cols.findIndex(c=>c.k===from);if(a<0||from===to)return;
+ const [c]=cols.splice(a,1),b=cols.findIndex(x=>x.k===to);if(b<0){cols.splice(a,0,c);return;}
+ cols.splice(after?b+1:b,0,c);salesListSavePrefs();render();
+}
+const SALES_LIST_WIDTH={number:96,customer:200,po:100,created:90,due:90,status:110,priority:90,glass:200,orderItems:220};
+cwRegister('sales',{
+ widths:()=>salesListLoadPrefs().widths||{},
+ save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
+ def:k=>{const c=salesListColumn(k);return SALES_LIST_WIDTH[k]||(c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
+ min:()=>CW_MIN,move:salesListMoveColumnTo,lead:[68],trail:96
+});
 
 /* ------------------------------ Выбор строк ---------------------------- */
 function salesListToggleRow(e,id){
@@ -49975,6 +50203,9 @@ function archiveListValue(info,k){
  const a=info.a;let v=Object.prototype.hasOwnProperty.call(a.row,k)?a.row[k]:null;
  if(k==='customer'||k==='rep'){const c=readMemo('archiveCustomers',[DB.customer],()=>new Map((DB.customer||[]).map(x=>[x.id,x]))).get(a.customerId);if(c)v=k==='customer'?c.displayName||c.legalName||'':c.salesRep||'';}
  if(k==='balance'&&a.pay)info.memo.balanceInfo=a.pay;
+ /* Order Items появилась 30.10.2026: у ушедших раньше количеств нет — так и
+    пишем, а не «—» или ноль; разбирать Glass нельзя (в ней нет Qty). */
+ if(k==='orderItems'&&!Object.prototype.hasOwnProperty.call(a.row,k))v='Quantities unavailable';
  info.memo[k]=v;return v;
 }
 /* Ячейка ушедшей строки: статус — как был, с серой меткой Archived. */
