@@ -37,8 +37,8 @@ module.exports=async function({page,eq}){
   const d=DB.salesOrder.find(x=>x.isDraft);tab='sales';salesOrderEdit(d.id);const label=document.querySelector('[data-order-save]').textContent;
   salesOrderSave();const err=document.getElementById('e_sales_order').textContent,still=salesRecord(d.id).isDraft===true,open=soEdit===d.id;
   soDraft.lines=soDraft.lines.filter(l=>l.width16);soDraft.customerPo='PO-77';const ok=salesOrderSave();const o=salesRecord(d.id);salesDraftDrop();
-  return {label,err,still,open,ok,same:o.id===d.id&&o.businessNumber===d.businessNumber,draft:o.isDraft===true,status:o.status,pieces:(DB.glassPiece||[]).filter(p=>p.orderId===o.id).length>0};
- }),{label:'Save',err:'Enter the Customer PO.',still:true,open:true,ok:true,same:true,draft:false,status:'new',pieces:true});
+  return {label,err,still,open,ok,same:o.id===d.id&&o.businessNumber===d.businessNumber,draft:o.isDraft===true,status:o.status,verify:salesTransitionChecks(o,'verified').some(x=>x.short==='Draft')};
+ }),{label:'Save',err:'Enter the Customer PO.',still:true,open:true,ok:true,same:true,draft:false,status:'new',verify:false});
  eq('Draft: не в Optimization и Shipping, Verify и Skip закрыты, деньги не считают; обычный заказ — как раньше',await run(c=>{
   odNew(salesFindCustomer(c));salesOrderClose();oqChoose('Save as Draft');const d=DB.salesOrder[DB.salesOrder.length-1];
   const order=oqOrder(salesFindCustomer(c));salesDraftDrop();
