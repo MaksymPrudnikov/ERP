@@ -202,6 +202,9 @@ function archiveListValue(info,k){
  const a=info.a;let v=Object.prototype.hasOwnProperty.call(a.row,k)?a.row[k]:null;
  if(k==='customer'||k==='rep'){const c=readMemo('archiveCustomers',[DB.customer],()=>new Map((DB.customer||[]).map(x=>[x.id,x]))).get(a.customerId);if(c)v=k==='customer'?c.displayName||c.legalName||'':c.salesRep||'';}
  if(k==='balance'&&a.pay)info.memo.balanceInfo=a.pay;
+ /* Order Items появилась 30.10.2026: у ушедших раньше количеств нет — так и
+    пишем, а не «—» или ноль; разбирать Glass нельзя (в ней нет Qty). */
+ if(k==='orderItems'&&!Object.prototype.hasOwnProperty.call(a.row,k))v='Quantities unavailable';
  info.memo[k]=v;return v;
 }
 /* Ячейка ушедшей строки: статус — как был, с серой меткой Archived. */

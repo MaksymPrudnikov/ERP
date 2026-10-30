@@ -34,7 +34,7 @@ module.exports=async function({page,eq,ok}){
   };
  });
  await init();
- const HEADS=['Type','Number','Customer','PO','Created','Due','Status','Priority','Glass','Units','Area ft²','Total','Receipts','Balance'];
+ const HEADS=['Type','Number','Customer','PO','Created','Due','Status','Priority','Glass','Order Items','Units','Area ft²','Total','Receipts','Balance'];
 
  eq('колонки по умолчанию как на макете; Type — только когда видны и заказы, и квоты; строки поиска нет',await t.p.evaluate(()=>{
   slSeed();const heads=slHeads();
@@ -102,7 +102,7 @@ module.exports=async function({page,eq,ok}){
   return {ops,chip,active,presets,vals};
  }),{ops:['gt','gte','lt','lte','eq','ne','between','empty'],chip:'Total: > $1,000.00 and < $1,000,000.00',active:true,presets:9,vals:['New','Not sent']});
 
- const MOVED=['Type','Number','Customer','PO','Created','Due','Status','Units','Total','Area ft²','Receipts','Balance','Weight kg'];
+ const MOVED=['Type','Number','Customer','PO','Created','Due','Status','Order Items','Units','Total','Area ft²','Receipts','Balance','Weight kg'];
  eq('колонки: скрыть Priority и Glass, включить Weight, поднять Total',await t.p.evaluate(()=>{
   salesListSetColumn('priority',false);salesListSetColumn('glass',false);salesListSetColumn('weight',true);salesListMoveColumn('total',-1);
   return slHeads();
