@@ -117,6 +117,15 @@ module.exports=async function({page,eq}){
    locked:['8,9','2 selected · 1 locked'],field:['8,9',true,7]});
  await run(()=>salesDraftDrop(true));
 
+ /* Владелец, 30.10.2026: «какой смысл от окна Makeup, если сейчас только 1
+    мейкап, она ещё и визуально большая». */
+ eq('Один Makeup: полосы нет; выбрали строку — узкая полоса «1 selected» и Edgework, без полей Lines и Apply; второй Makeup — полоса с полями; высота полосы ≤ 40 px',await run(()=>{
+  const id=oqOrder(oqCustomer());tab='sales';salesOrderEdit(id);render();const none=!document.querySelector('[data-mk-bar]');
+  mrClick(1);const bar=document.querySelector('[data-mk-bar]'),one={count:bar.querySelector('[data-mk-live]').textContent,edge:!!bar.querySelector('.ss-bulk'),fields:!!bar.querySelector('[data-mk-field]'),apply:!!bar.querySelector('[data-mk-apply]')};
+  salesBulkClear();const b=JSON.parse(JSON.stringify(soDraft.makeups[0]));b.id=salesUid('MU');b.code='B';soDraft.makeups.push(b);render();
+  const two=document.querySelector('[data-mk-bar]'),h=Math.round(two.getBoundingClientRect().height),r={none,one,two:!!two.querySelector('[data-mk-field]'),low:h<=40};salesDraftDrop(true);return r;
+ }),{none:true,one:{count:'1 selected',edge:true,fields:false,apply:false},two:true,low:true});
+
  eq('makeup range: без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

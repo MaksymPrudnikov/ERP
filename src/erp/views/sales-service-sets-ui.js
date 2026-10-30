@@ -77,6 +77,7 @@ function salesBulkLiveHTML(){
   var why=salesMakeupApplyLocked()?'Saving…':r&&r.error?r.error:!picked.length?'Choose lines':!soBulkMakeupId?'Choose Makeup':'';
   var note=soBulkNote?`<span class='mk-applied' data-mk-note>${soBulkNote.ok?'✓ Applied '+esc(soBulkNote.code)+' to '+soBulkNote.ok+' line'+(soBulkNote.ok===1?'':'s'):'Not applied'}${soBulkNote.locked.length?' · '+soBulkNote.locked.length+' locked (line'+(soBulkNote.locked.length===1?' ':'s ')+soBulkNote.locked.join(', ')+')':''}</span>`:'';
   var count=r&&r.error?`<span class='mk-error' data-mk-error>${esc(r.error)}</span>`:`<span class='mk-count' data-mk-count><b>${picked.length} selected</b>${locked?` · <span class='mk-warn'>${locked} locked</span>`:''}${hidden?` · ${hidden} hidden by filter`:''}</span>`;
+  if(soDraft&&soDraft.makeups.length<2)return count;
   return `<button type='button' class='pri sm' data-mk-apply ${why?'disabled':''} title='${esc(why||'Apply Makeup')}' onclick='salesBulkApply()'>Apply</button>${note||count}`;
 }
 /* Без перерисовки: курсор остаётся в поле номера (typing — поле, в котором
@@ -140,6 +141,10 @@ function salesMakeupBarHTML(){
   var ids=new Set(soDraft.lines.map(function(l){return l.id;}));soSelectedLines=new Set([...soSelectedLines].filter(function(id){return ids.has(id);}));
   if(soRangeSig&&soRangeSig!==salesLinesSig()){salesRangeClear();soBulkNote=null;}
   if(soBulkMakeupId&&!salesMakeupById(soDraft,soBulkMakeupId))soBulkMakeupId='';
+  /* Один Makeup — менять не на что (владелец, 30.10.2026: «какой смысл от
+     окна Makeup, если сейчас только 1 мейкап, она ещё и визуально большая»):
+     полосы нет; выбрали строки — узкая полоса с числом и Edgework. */
+  if(soDraft.makeups.length<2)return salesServiceVisibleSelected().length?`<div class='mk-bar mk-bar-one' data-mk-bar><span class='mk-live' data-mk-live>${salesBulkLiveHTML()}</span><span class='mk-grow'></span>${salesBulkServiceControls()}<span class='mk-hint'>Shift+click — range</span></div>${salesServiceBulkPreviewHtml()}`:'';
   var n=soDraft.lines.length,field=function(k,v,ph){return `<input class='mk-num' data-mk-field='${k}' inputmode='numeric' value='${esc(v)}' placeholder='${ph}' aria-label='${k==='from'?'From line':'To line'}' oninput='salesRangeInput("${k}",this.value)' onkeydown='if(event.key==="Enter")salesBulkApply()'>`;};
   return `<div class='mk-bar' data-mk-bar><b class='mk-title'>Makeup</b><span>Lines</span>${field('from',soRangeFrom,'1')}<span>to</span>${field('to',soRangeTo,String(n))}<span class='mk-arrow'>→</span><select class='mk-sel' data-mk-makeup aria-label='Makeup' onchange='salesBulkPickMakeup(this.value)'><option value=''>—</option>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${soBulkMakeupId===m.id?'selected':''}>${esc(m.code)}${salesMakeupGlassText(m)?' · '+esc(salesMakeupGlassText(m)):''}</option>`;}).join('')}</select><span class='mk-live' data-mk-live>${salesBulkLiveHTML()}</span><span class='mk-grow'></span>${salesBulkServiceControls()}<span class='mk-hint'>Shift+click — range</span></div>${salesServiceBulkPreviewHtml()}`;
 }
