@@ -10,7 +10,7 @@ module.exports=async function({page,eq}){
   window.odOrder=(type='single',qty=10,customer)=>{
    const id=oqOrder(customer||oqCustomer());salesOrderEdit(id);const m=soDraft.makeups[0];
    if(type==='single'){m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];}
-   soDraft.lines=[soDraft.lines[0]];soDraft.lines[0].qty=qty;if(!salesOrderSave())throw Error('Order save failed');salesDraftDrop();return id;
+   soDraft.lines=[soDraft.lines[0]];soDraft.lines[0].qty=qty;if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw Error('Order save failed');salesDraftDrop();return id;
   };
   window.odIds=id=>[...stationPieceIndex()].filter(([,h])=>h.orderId===id).map(([p])=>p);
   window.odPs=(ids,method='pickup',to='delivered')=>{

@@ -13,7 +13,7 @@ module.exports=async function({page,eq,ok}){
    m.cavities.forEach(c=>{c.priceOverride=3.1;});
    soDraft.lines=[];
    [[37,71,2,'L-1'],[30,40,1,'L-2']].forEach(x=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:x[0]*16,height16:x[1]*16,qty:x[2],mark:x[3]});soDraft.lines.push(l);salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});});
-   salesApplyCustomerDefaults(cust.id);
+   salesApplyCustomerDefaults(cust.id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';
    return soDraft;
   };
   window.qCleanup=function(){DB.receipt=[];DB.salesOrder=[];DB.customer=DB.customer.filter(c=>!/^QAQUOTE/.test(c.code||''));soEdit=null;soDraft=null;soQuoteCopyOf=null;salesDialog=null;docState=null;tab='sales';salesShow={orders:true,quotes:true};salesStatusFilter='';salesPruneOrphanShapes();};
@@ -74,7 +74,7 @@ module.exports=async function({page,eq,ok}){
 
  eq('Convert при нескольких ревизиях спрашивает, какую; заказ из выбранной R1, квота Won, все ревизии остаются и только для чтения',await t.p.evaluate(()=>{
   const r1=DB.salesOrder.find(o=>o.businessNumber==='Q-10001-R1'),r2=DB.salesOrder.find(o=>o.businessNumber==='Q-10001-R2');
-  salesOrderEdit(r2.id);salesConvertQuote();
+  r1.customerPo=r2.customerPo='PO-Q';salesOrderEdit(r2.id);salesConvertQuote();
   const choices=salesDialog.choices.map(c=>c.label),radios=document.querySelectorAll('[data-dialog-choice]').length,preset=salesDialog.choice===r2.id;
   salesDialogPick(r1.id);
   salesDialogChoose(salesDialog.buttons.findIndex(b=>b.label==='Convert to order'));

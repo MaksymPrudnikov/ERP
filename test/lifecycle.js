@@ -26,7 +26,7 @@ module.exports=async function({page,eq,ok}){
  eq('уход из заказа: новый — Save / Don\'t save, сохранённый — Update / Don\'t update; метка и кнопка знают, сохранено ли',await t.p.evaluate(()=>{
   const pick=l=>salesDialogChoose(salesDialog.buttons.findIndex(b=>b.label===l)),state=()=>document.querySelector('[data-order-state]').textContent,off=()=>document.querySelector('[data-order-save]').disabled;
   oqReset();const cust=oqCustomer(),orders=DB.salesOrder.length;
-  tab='sales';salesOrderNew();salesApplyCustomerDefaults(cust.id);soDraft.lines[0].width16=30*16;soDraft.lines[0].height16=20*16;salesEnsureLineShape(soDraft.lines[0]);render();
+  tab='sales';salesOrderNew();salesApplyCustomerDefaults(cust.id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';soDraft.lines[0].width16=30*16;soDraft.lines[0].height16=20*16;salesEnsureLineShape(soDraft.lines[0]);render();
   const shape=soDraft.lines[0].shapeRef.id,fresh={state:state(),off:off()};
   salesOrderClose();const ask=[salesDialog.title,salesDialog.buttons.map(b=>b.label).join(' / ')];
   pick("Don't save");const gone={orders:DB.salesOrder.length===orders,draft:soDraft===null,shape:!DB.shapeDef.some(s=>s.id===shape)};
@@ -37,7 +37,7 @@ module.exports=async function({page,eq,ok}){
   tab='sales';salesOrderEdit(id);const w2=document.querySelector('[data-so-width]');w2.value='40';w2.dispatchEvent(new Event('change',{bubbles:true}));
   salesOrderClose();pick('Update');const updated={draft:soDraft===null,width:salesRecord(id).lines[0].width16/16};
   return {fresh,ask,gone,saved,dirty,leave,back,kept,updated};
- }),{fresh:{state:'Unsaved changes',off:false},ask:['Save the order before leaving?','Back / Don\'t save / Save'],gone:{orders:true,draft:true,shape:true},
+ }),{fresh:{state:'Unsaved changes',off:false},ask:['Save the order before leaving?','Back / Don\'t save / Save as Draft / Save'],gone:{orders:true,draft:true,shape:true},
   saved:{state:true,off:true},dirty:{state:'Unsaved changes',off:false},leave:['Update 76002 before leaving?','Back / Don\'t update / Update'],back:true,
   kept:{tab:'dashboard',width:37},updated:{draft:true,width:40}});
  eq('Don\'t update возвращает формы строк: размер строки, Save revision в редакторе формы',await t.p.evaluate(()=>{
@@ -89,7 +89,7 @@ module.exports=async function({page,eq,ok}){
   oqReset();const id=oqOrder(oqCustomer()),o=salesRecord(id);DB.receipt.push(normalizeReceipt({number:'R-1',customerId:o.customerId,amount:200,allocations:[{orderId:id,amount:200}]}));oqThrough(id,'batched');oqQueue('production');salesCancelOrder(id);const msg=salesDialog.note;oqChoose('Cancel orders');const deposit=finCustomerDeposit(o.customerId),debt=finCustomerAccount(salesFindCustomer(o.customerId)).balanceDue;tab='sales';salesOrderEdit(id);const ro=!!document.querySelector('.sales-readonly[inert]'),noRestore=!document.querySelector('.sales-status-row button');soEdit=null;soDraft=null;render();salesListContext(null,id);const restore=!!document.querySelector('[data-menu="restore"]');salesListMenuRun('restore');return {msg:msg.includes('deposit'),deposit,debt,ro,noRestore,restore,status:salesRecord(id).status,locked:salesRecord(id).lines.every(salesLineLocked),dates:Object.keys(salesRecord(id).statusDates)};
  }),{msg:true,deposit:200,debt:0,ro:true,noRestore:true,restore:true,status:'new',locked:true,dates:['new']});
  eq('Convert у квоты остаётся; заказ получает свой номер и фигуры',await t.p.evaluate(()=>{
-  oqReset();const id=oqOrder(oqCustomer(),{kind:'quote'}),q=salesRecord(id),old=q.lines.map(l=>l.shapeRef.id),total=finOrderTotals(q).grand,convert=!!document.querySelector('[data-convert-quote]');salesConvertQuote();const o=soDraft;return {convert,kind:o.kind,status:o.status,from:o.fromQuoteId===id,newShapes:o.lines.every((l,i)=>l.shapeRef.id!==old[i]),sameTotal:finOrderTotals(o).grand===total,won:salesRecord(id).status,batch:o.batchNo};
+  oqReset();const id=oqOrder(oqCustomer(),{kind:'quote',customerPo:'PO-Q'}),q=salesRecord(id),old=q.lines.map(l=>l.shapeRef.id),total=finOrderTotals(q).grand,convert=!!document.querySelector('[data-convert-quote]');salesConvertQuote();const o=soDraft;return {convert,kind:o.kind,status:o.status,from:o.fromQuoteId===id,newShapes:o.lines.every((l,i)=>l.shapeRef.id!==old[i]),sameTotal:finOrderTotals(o).grand===total,won:salesRecord(id).status,batch:o.batchNo};
  }),{convert:true,kind:'order',status:'new',from:true,newShapes:true,sameTotal:true,won:'won',batch:''});
  eq('подмена/пропуск шага и On Hold не проходят даже на уровне записи',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());const skip=salesSetRecordStatus(id,'ready');salesHoldApply([id],'Wait');const held=salesSetRecordStatus(id,'verified'),invalid=salesSetRecordStatus(id,'bogus');return [skip,held,invalid,salesRecord(id).status];

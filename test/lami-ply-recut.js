@@ -11,7 +11,7 @@ module.exports=async function({page,eq,ok}){
    tab='sales';salesOrderNew('order');salesSetUnitType('single');
    const m=soDraft.makeups[0],pn=m.panes[0];pn.category='laminated';['outer','inner'].forEach(k=>{const g=glassProductByCode('6CLEAR');Object.assign(pn.laminated[k],{glassProductId:g.id,thicknessMm:6,heatTreatmentId:'HT-FT'});});
    soDraft.makeups[0]=normalizeOrderMakeup(m,0);soDraft.lines=[normalizeSalesOrderLine({makeupId:soDraft.makeups[0].id,width16:40*16,height16:36*16,qty:1})];salesEnsureLineShape(soDraft.lines[0]);
-   salesApplyCustomerDefaults(c.id);salesOrderSave();const id=soDraft.id;soDraft=null;soEdit=null;tab='dashboard';rbBatch([id]);return id;
+   salesApplyCustomerDefaults(c.id);soDraft.customerPo='PO-QA';salesOrderSave();const id=soDraft.id;soDraft=null;soEdit=null;tab='dashboard';rbBatch([id]);return id;
   };
   /* Стеклопакет: лайт 1 — 6CLEAR, лайт 2 — ламинат 6 + 6. Склейка на LAM, сборка на IGU. */
   window.lpIgu=function(){
@@ -19,7 +19,7 @@ module.exports=async function({page,eq,ok}){
    tab='sales';salesOrderNew('order');salesSetUnitType('double');
    const m=soDraft.makeups[0],pn=m.panes[1];pn.category='laminated';['outer','inner'].forEach(k=>{const g=glassProductByCode('6CLEAR');Object.assign(pn.laminated[k],{glassProductId:g.id,thicknessMm:6});});
    soDraft.makeups[0]=normalizeOrderMakeup(m,0);soDraft.lines=[normalizeSalesOrderLine({makeupId:soDraft.makeups[0].id,width16:30*16,height16:40*16,qty:1})];salesEnsureLineShape(soDraft.lines[0]);
-   salesApplyCustomerDefaults(c.id);salesOrderSave();const id=soDraft.id;soDraft=null;soEdit=null;tab='dashboard';rbBatch([id]);return id;
+   salesApplyCustomerDefaults(c.id);soDraft.customerPo='PO-QA';salesOrderSave();const id=soDraft.id;soDraft=null;soEdit=null;tab='dashboard';rbBatch([id]);return id;
   };
   window.lpWho={id:'u1',name:'Yurii'};
   /* Провести стекло по маршруту до станции stop (не включая). */

@@ -11,7 +11,7 @@ module.exports=async function({page,eq,ok}){
   window.saOrder=function(qty,ready,customer){
    if(!customer){oqReset();DB.carrier=[];carrierAdd('SL',3);DB.orderEvent=[];stationLast=null;stationNote='';stationQuestions=[];stationIncoming='';shippingSelection.clear();shippingNotice=null;shippingDraft=null;}
    const id=oqOrder(customer||oqCustomer({legalName:'Customer A'}));salesOrderEdit(id);soDraft.lines=soDraft.lines.slice(0,1);soDraft.lines[0].qty=qty;
-   if(!salesOrderSave())throw new Error('order not saved');salesDraftDrop();oqThrough(id,ready?'ready':'batched');const o=salesRecord(id);
+   if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('order not saved');salesDraftDrop();oqThrough(id,ready?'ready':'batched');const o=salesRecord(id);
    if(ready)shippingAvailable(o).forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));
    return o;
   };
@@ -96,7 +96,7 @@ module.exports=async function({page,eq,ok}){
    const id=oqOrder(oqCustomer({legalName:'North Shore Windows'}));salesOrderEdit(id);const m=soDraft.makeups[0];m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];
    soDraft.lines=sizes.map(([w,h,q],i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:w*16,height16:h*16,qty:q,mark:'M'+(i+1)});salesEnsureLineShape(l);return l;});
    soDraft.lines.forEach(l=>salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;}));
-   if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;oqThrough(id,'verified');
+   if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;oqThrough(id,'verified');
    glassBatchAssign(glassBatchRows([salesRecord(id)]),{});const n=DB.glassBatch[DB.glassBatch.length-1].number;cutPlanRun(n);return {o:salesRecord(id),n};
   };
   window.saFresh=function(){oqReset();DB.stationScan=[];DB.carrier=[];DB.sheetBreak=[];DB.orderEvent=[];DB.stockOffcut=[];stationLast=null;stationSheetView=null;stationIncoming='';stationQuestions=[];stationNote='';stationDrawer=null;stationMenu=null;stationTab='scan';};

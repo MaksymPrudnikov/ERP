@@ -12,7 +12,7 @@ module.exports=async function({page,eq,ok}){
   window.plfPersonal=function(c,rows){const l={id:salesUid('PL'),kind:'customer',name:'',customerId:c.id,rows:rows.map((r,i)=>Object.assign({id:salesUid('PLR'),at:'2026-10-22T11:0'+i+':00Z'},r))};DB.priceList.push(l);return l;};
   window.plfKey=()=>'glass:'+glassProductByCode('6CLEAR').id+':salePriceAnnealed';
   /* Новый заказ клиента с отожжённым 6CLEAR без ручной цены. */
-  window.plfDraft=function(c){tab='sales';salesOrderNew('order');salesSetUnitType('double');salesApplyCustomerDefaults(c.id);
+  window.plfDraft=function(c){tab='sales';salesOrderNew('order');salesSetUnitType('double');salesApplyCustomerDefaults(c.id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';
    const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');m.panes.forEach(p=>{p.glassProductId=g.id;p.heatTreatmentId='HT-AN';p.priceOverride=null;});
    const l=normalizeSalesOrderLine({makeupId:m.id,width16:40*16,height16:50*16,qty:1});soDraft.lines=[l];salesEnsureLineShape(l);return m.panes[0];};
  });
@@ -69,7 +69,7 @@ module.exports=async function({page,eq,ok}){
   plfReset();const a=oqCustomer({legalName:'First Co'}),b=oqCustomer({legalName:'Second Co'}),k=plfKey();
   plfPersonal(b,[{target:k,price:3}]);
   plfDraft(a);salesOrderSave();const id=soDraft.id,before=salesRecord(id).priceBook[k];salesDraftDrop(true);
-  salesOrderEdit(id);salesApplyCustomerDefaults(b.id);const kept=salesPaneCatalogPrice(soDraft.makeups[0].panes[0]);
+  salesOrderEdit(id);salesApplyCustomerDefaults(b.id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';const kept=salesPaneCatalogPrice(soDraft.makeups[0].panes[0]);
   salesUpdatePrices();const now=salesPaneCatalogPrice(soDraft.makeups[0].panes[0]);salesDraftDrop(true);
   return {same:kept===before,now};
  }),{same:true,now:3});

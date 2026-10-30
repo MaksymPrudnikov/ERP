@@ -20,6 +20,7 @@
 .pill.st-open{background:var(--surface-3);color:var(--text)}
 .pill.st-won{background:var(--success-soft);color:var(--success)}
 .pill.st-new{background:var(--surface-3);color:var(--text)}
+.pill.st-draft{background:var(--surface);color:var(--warning);border:1px solid var(--warning);font-weight:800;letter-spacing:.04em}
 .pill.st-verified{background:var(--accent-soft);color:var(--accent)}
 .pill.st-batched{background:var(--warning-soft);color:var(--warning)}
 .pill.st-ready{background:var(--success-soft);color:var(--success);box-shadow:inset 0 0 0 1px var(--success-line)}

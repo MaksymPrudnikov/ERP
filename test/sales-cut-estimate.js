@@ -13,7 +13,7 @@ module.exports=async function({page,eq,ok}){
    salesOrderEdit(id);const m=soDraft.makeups[0];m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];
    soDraft.lines=sizes.map(([w,h,q],i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:w*16,height16:h*16,qty:q||1,mark:'M'+(i+1)});salesEnsureLineShape(l);return l;});
    soDraft.lines.forEach(l=>salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;}));
-   if(!salesOrderSave())throw new Error('record not saved');soDraft=null;soEdit=null;
+   if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('record not saved');soDraft=null;soEdit=null;
    if(code)salesRecord(id).makeups[0].panes[0].glassProductId=glassProductByCode(code).id;
    return id;
   };
@@ -91,7 +91,7 @@ module.exports=async function({page,eq,ok}){
  }),{row:false,onSheet:false,claims:0,refused:'Preview only.',same:true});
 
  eq('выигранная квота и заказ из неё отмечены вместе — стекло берётся один раз, из заказа',await t.p.evaluate(()=>{
-  ceSetup();const q=ceRec('quote',[[30,30,2]]);salesConvertQuoteRecord(q);const o=salesRecord(q).wonOrderId;soDraft=null;soEdit=null;
+  ceSetup();const q=ceRec('quote',[[30,30,2]]);salesConvertQuoteRecord(q,'PO-CE');const o=salesRecord(q).wonOrderId;soDraft=null;soEdit=null;
   cutEstOpen([q,o]);const recs=cutEst.recs.map(r=>r.id),n=cutPiecesOf('EST').length;cutEstClose();
   return {recs:recs.length===1&&recs[0]===o,n};
  }),{recs:true,n:2});

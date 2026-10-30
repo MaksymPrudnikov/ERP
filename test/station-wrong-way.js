@@ -21,7 +21,7 @@ module.exports=async function({page,eq,ok}){
    m.panes.forEach(p=>{p.heatTreatmentId=o.heat;if(o.edge)p.edgework=o.edge;});
    const l=normalizeSalesOrderLine({makeupId:m.id,width16:(o.w||36)*16,height16:(o.h||24)*16,qty:o.qty||1,mark:'M1'});soDraft.lines=[l];salesEnsureLineShape(l);
    salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});
-   if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;oqThrough(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});return id;
+   if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;oqThrough(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});return id;
   };
   window.wwIds=id=>[...glassPieceMap(id).values()].flatMap(r=>r.ids);
   window.wwLogin=function(station){const name='Op '+station;DB.user=DB.user.filter(u=>u.name!==name);DB.user.push({name,role:'Shop',station,skills:[],pin:'0000'});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode=station;tab='station';stationIncoming='';stationLast=null;stationNote='';stationLogin(DB.user[DB.user.length-1].viewProfileId);};

@@ -14,7 +14,7 @@ module.exports=async function({page,eq}){
   DB.glassSheet=[normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock'})];
   const a=oqOrder(oqCustomer({legalName:'Archive Windows'}));salesOrderEdit(a);const m=soDraft.makeups[0];m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];
   soDraft.lines=[normalizeSalesOrderLine({makeupId:m.id,width16:60*16,height16:40*16,qty:4,mark:'A1'})];soDraft.lines.forEach(l=>{salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});});
-  if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;oqThrough(a,'verified');
+  if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;oqThrough(a,'verified');
   const b0=glassBatchAssign(glassBatchRows([salesRecord(a)]),{}),plan=cutPlanRun(b0.number);if(plan&&plan.error)throw new Error(plan.error);
   const o=salesRecord(a),l=o.lines[0],piece=glassPieceMap(a).get(glassBatchComponents(o,l)[0].key).ids[0];stationMove('CUT',stationCheck('CUT',piece),{id:'ar',name:'Archive test'});
   const b=oqOrder(oqCustomer({legalName:'Second customer'})),h=oqOrder(oqCustomer({legalName:'Hold customer'})),open=oqOrder(oqCustomer({legalName:'Open customer'}));salesDraftDrop();
@@ -92,7 +92,8 @@ module.exports=async function({page,eq}){
   await archiveOpen(x.b);const src=JSON.parse(JSON.stringify(salesRecord(x.b)));archiveRepeat();
   const d=soDraft,r={edit:soEdit,customer:d.customerId===src.customerId,lines:d.lines.map(l=>[l.width16,l.height16,l.qty].join()).join()===src.lines.map(l=>[l.width16,l.height16,l.qty].join()).join(),
    fresh:d.id!==src.id&&!d.businessNumber&&!d.customerPo&&d.status==='new'&&d.lines.every(l=>!l.batchedAt),visit:storageVisit.size,src:!salesRecord(x.b)};
-  const n=nextSalesOrderNumber(),saved=salesOrderSave();
+  /* PO у всех (владелец 29.10.2026) — вписать перед Save. */
+  soDraft.customerPo='PO-R';const n=nextSalesOrderNumber(),saved=salesOrderSave();
   return Object.assign(r,{saved,number:salesRecord(soEdit).businessNumber===n,still:archiveIndex.has(x.b)});
  },ids),{edit:'new',customer:true,lines:true,fresh:true,visit:0,src:true,saved:true,number:true,still:true});
  await t.p.evaluate(()=>{salesDraftDrop(false);});

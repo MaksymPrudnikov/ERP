@@ -48,7 +48,8 @@ function salesDraftHasWork(){
  /* Заказ из архива на просмотре — сохранять нечего (erp/archive). */
  if(typeof archiveViewing==='function'&&archiveViewing(soDraft))return false;
  if(soQuoteCopyOf){const src=DB.salesOrder.find(x=>x.id===soQuoteCopyOf);return !src||salesQuoteContentKey(soDraft)!==salesQuoteContentKey(src);}
- if(soEdit==='new')return soDraft.lines.length>1||soDraft.lines.some(l=>!salesOrderLineIsBlank(l))||!!(soDraft.extraItems||[]).length||!!salesString(soDraft.customerPo)||!!salesString(soDraft.notes);
+ /* Выбранный клиент — тоже работа (пункт 2, P2-R8): уход спрашивает. */
+ if(soEdit==='new')return soDraft.lines.length>1||soDraft.lines.some(l=>!salesOrderLineIsBlank(l))||!!(soDraft.extraItems||[]).length||!!salesString(soDraft.customerPo)||!!salesString(soDraft.notes)||!!soDraft.customerId;
  const saved=DB.salesOrder.find(x=>x.id===soEdit);
  return saved?JSON.stringify(saved)!==JSON.stringify(normalizeSalesOrder(soDraft)):soDraft.lines.length>0;
 }
@@ -124,10 +125,35 @@ function salesLeaveDraft(next){
  if(!soDraft){go();return;}
  if(!salesDraftHasWork()){salesDraftDrop(true);go();return;}
  const isNew=soEdit==='new',what=salesIsQuote(soDraft)?'quote':'order',name=soDraft.businessNumber||'';
- salesDialogOpen({title:isNew?'Save the '+what+' before leaving?':'Update '+(name||'the '+what)+' before leaving?',rows:[],
+ /* Save as Draft — только здесь, у нового заказа и у черновика (пункт 2,
+    вариант 1 владельца 30.10.2026); у квоты и готового заказа окно прежнее. */
+ const draft=!salesIsQuote(soDraft)&&(isNew||salesIsDraft(DB.salesOrder.find(x=>x.id===soEdit)));
+ salesDialogOpen({title:isNew?'Save the '+what+' before leaving?':draft?'Update draft '+name+' before leaving?':'Update '+(name||'the '+what)+' before leaving?',rows:[],
   buttons:[{label:'Back'},
    {label:isNew?"Don't save":"Don't update",run:()=>{salesDraftDrop(true);go();}},
-   {label:isNew?'Save':'Update',kind:'pri',run:()=>{if(salesOrderSave()===true){salesDraftDrop(false);go();}}}]});
+   ...(draft?[{label:'Save as Draft',run:()=>{if(salesOrderSaveDraft()===true){salesDraftDrop(false);go();}}}]:[]),
+   {label:isNew||draft?'Save':'Update',kind:'pri',run:()=>{if(salesOrderSave()===true){salesDraftDrop(false);go();}}}]});
+}
+/* Save as Draft: заказ пишется как есть — без проверок клиента, PO и
+   размеров, номер — при первой записи. Стекло, батчи, условия оплаты и
+   отгрузки создаёт только обычный Save. Отказ записи — заказ остаётся
+   открытым с ошибкой, как у Save. */
+function salesOrderSaveDraft(){
+ const editor={draft:soDraft?JSON.parse(JSON.stringify(soDraft)):null,edit:soEdit,quote:soQuoteCopyOf,shapes:soShapeSnapshot,baseline:soSavedBaseline};
+ const out=storageCommand(()=>{
+  const rebased=salesRebaseDraft(DB.salesOrder.find(x=>x.id===soEdit));if(rebased!==true)throw new Error(rebased);
+  salesSnapshotAllChargePricing();
+  soDraft=normalizeSalesOrder(soDraft);soDraft.isDraft=true;
+  if(!soDraft.businessNumber)soDraft.businessNumber=nextSalesOrderNumber();
+  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;
+  soDraft.priceBook=salesPriceBookOf(soDraft);
+  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
+  normalizeSalesOrderIn(soDraft.id);salesPruneOrphanShapes();salesMeasureWrite(DB.salesOrder.find(x=>x.id===soDraft.id));
+  soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;
+  return true;
+ },salesOrderScope(soEdit));
+ if(!out.ok){soDraft=editor.draft;soEdit=editor.edit;soQuoteCopyOf=editor.quote;soShapeSnapshot=editor.shapes;soSavedBaseline=editor.baseline;render();const e=document.getElementById('e_sales_order');if(e)fail(e,out.error);return false;}
+ soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));render();return true;
 }
 function salesOrderClose(){salesLeaveDraft();}
 /* Боковое меню: уход из заказа (и из редактора формы его строки) — тот же
@@ -204,7 +230,8 @@ function salesOrderSaveCommand(opts){
     (владелец, 8.10.2026: «без PO ничего не сохранять… PO сразу же с заказом»). */
  /* Контакт — только лицо этого клиента: удалённое или чужое — основное. */
  if(!customer.contacts.some(x=>x.id===soDraft.customerContactId))soDraft.customerContactId=customerPrimaryContact(customer).id||'';
- if(customer.poRequired&&!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'This customer requires a PO. Enter the PO.');
+ /* 29.10.2026 — у всех клиентов: «PO для всех обязательно». */
+ if(!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'Enter the Customer PO.');
  previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  const shippingError=shippingSaveGuard(soDraft,previousOrder);if(shippingError)return fail(e,shippingError);
  if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&(DB.receipt||[]).some(r=>r.allocations.some(a=>a.orderId===soDraft.id)))return fail(e,'This order has payment records. Its customer cannot change.');
@@ -252,6 +279,8 @@ function salesOrderSaveCommand(opts){
  const copyOf=salesQuoteCopySource();
  if(copyOf){const rev=salesQuoteNextRev(copyOf);soDraft.quoteGroupId=salesQuoteGroupId(copyOf);soDraft.quoteRev=rev;soDraft.businessNumber=salesQuoteBaseNumber(copyOf)+'-R'+rev;soDraft.status='open';soDraft.sentAt='';soDraft.statusDates={};if(soDraft.validUntil===copyOf.validUntil)soDraft.validUntil='';}
  if(!soDraft.businessNumber)soDraft.businessNumber=salesIsQuote(soDraft)?nextSalesQuoteNumber():nextSalesOrderNumber();
+ /* Обычный Save делает черновик заказом — та же запись, тот же номер. */
+ delete soDraft.isDraft;
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;if(!soDraft.statusDates[soDraft.status])soDraft.statusDates[soDraft.status]=soDraft.updatedAt;
  /* Цены справочников — на день сохранения (salesBook): прежние в заказе
     остаются, новые позиции берут Master Data (владелец, 20.10.2026). */

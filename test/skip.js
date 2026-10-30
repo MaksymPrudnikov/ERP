@@ -17,7 +17,7 @@ module.exports=async function({page,eq}){
    oqReset();DB.skip=[];DB.productionRoute=[];stationRouteReset();const c=oqCustomer();tab='sales';salesOrderNew('order');salesSetUnitType('single');
    const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');m.panes.forEach(p=>{p.glassProductId=g.id;p.thicknessMm=6;p.priceOverride=5.55;p.heatTreatmentId='HT-FT';});
    soDraft.lines=[];const l=normalizeSalesOrderLine({makeupId:m.id,width16:36*16,height16:24*16,qty:10,mark:'Big'});soDraft.lines.push(l);salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});
-   salesApplyCustomerDefaults(c.id);if(!salesOrderSave())throw Error('Fixture save failed');const id=soDraft.id;salesDraftDrop();return id;
+   salesApplyCustomerDefaults(c.id);if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw Error('Fixture save failed');const id=soDraft.id;salesDraftDrop();return id;
   };
   /* Права: вход включён, у человека только эти разделы. */
   window.skAs=access=>{const keep={no:window.GF_NO_SIGNIN,user:window.signinUser,on:window.signinOn};window.GF_NO_SIGNIN=false;window.signinUser=()=>({name:'T',viewProfileId:'t',access});window.signinOn=()=>true;
@@ -60,7 +60,7 @@ module.exports=async function({page,eq}){
   oqReset();DB.skip=[];DB.recut=[];const c=oqCustomer();tab='sales';salesOrderNew('order');salesSetUnitType('single');const m=soDraft.makeups[0];
   m.panes=[normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0)];m.cavities=[];m.panes[0].priceOverride=9;
   soDraft.lines=[];const l=normalizeSalesOrderLine({makeupId:m.id,width16:40*16,height16:30*16,qty:2,mark:'Lami'});soDraft.lines.push(l);salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});
-  salesApplyCustomerDefaults(c.id);salesOrderSave();const id=soDraft.id;salesDraftDrop();
+  salesApplyCustomerDefaults(c.id);soDraft.customerPo='PO-QA';salesOrderSave();const id=soDraft.id;salesDraftDrop();
   const rs=ncrReasonsFor('OFFICE',{activeOnly:true})[0];recutCreate({orderId:id,where:'OFFICE',reasonId:rs.id,lines:{[l.id]:{on:true,qty:1,which:'unit'}}});
   const o=salesRecord(id),left=skipLineLeft(o,o.lines[0]),r=skipRun({orderId:id,lines:{[o.lines[0].id]:'all'},to:'pickup',date:finToday()});
   return {left,ok:!r.error,units:stationAsms(o,o.lines[0],'LAM').filter(a=>a.unit).map(a=>[a.lites.size,a.unit]),ps:shippingForOrder(id)[0].items.length,status:salesRecord(id).status};

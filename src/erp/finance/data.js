@@ -72,7 +72,7 @@ function finActiveReceipts(){return (DB.receipt||[]).filter(r=>!r.voided);}
 function finReceiptApplied(r){return finMoney((r.allocations||[]).reduce((s,a)=>s+a.amount,0));}
 function finReceiptOnAccount(r){return r.voided?0:finMoney(r.amount-finReceiptApplied(r)-finRefunded(r.id));}
 /* Долг и лимит — только по заказам: квота не долг, отменённый заказ тоже. */
-function finOrderCounts(o){return !!o&&o.kind!=='quote'&&o.status!=='cancelled';}
+function finOrderCounts(o){return !!o&&o.kind!=='quote'&&o.status!=='cancelled'&&o.isDraft!==true;}
 
 /* Цена строки частично читает Makeup из открытого заказа (soDraft). Сумма
    сохранённого, не открытого заказа поэтому считается с ним «на месте»

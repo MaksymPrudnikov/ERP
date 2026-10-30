@@ -9,7 +9,7 @@ module.exports=async function({page,eq}){
  await t.p.evaluate(()=>{
   window.suReset=function(){oqReset();DB.priceList=[];const g=glassProductByCode('6CLEAR');Object.assign(g,{salesUnit:'sqft',minAreaFt2:null,minCharge:null,minWidthIn:null,minHeightIn:null,maxWidthIn:null,maxHeightIn:null});return g;};
   /* Двойной 40 × 50 из 6CLEAR без ручных цен: 13.9 ft², периметр 180″. */
-  window.suDraft=function(){tab='sales';salesOrderNew('order');salesSetUnitType('double');salesApplyCustomerDefaults(oqCustomer({legalName:'Unit Co'}).id);
+  window.suDraft=function(){tab='sales';salesOrderNew('order');salesSetUnitType('double');salesApplyCustomerDefaults(oqCustomer({legalName:'Unit Co'}).id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';
    const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');m.panes.forEach(p=>{p.glassProductId=g.id;p.heatTreatmentId='HT-AN';p.priceOverride=null;});m.cavities.forEach(c=>{c.priceOverride=3;});
    const l=normalizeSalesOrderLine({makeupId:m.id,width16:40*16,height16:50*16,qty:1});soDraft.lines=[l];salesEnsureLineShape(l);return l;};
   window.suMat=l=>salesLineCommercialPrice(l,soDraft).materials;

@@ -148,7 +148,7 @@ module.exports=async function({page,eq,ok}){
   soDraft.makeups[0]=normalizeOrderMakeup(m,0);
   const l=normalizeSalesOrderLine({makeupId:soDraft.makeups[0].id,width16:40*16,height16:36*16,qty:1});soDraft.lines=[l];const s=salesEnsureLineShape(l);
   ShapeModule.compute(s).edges.forEach(e=>{s.edgeOps[e.id]=[shapeNormalizeOp({type:'Flat Polish'}),shapeNormalizeOp({type:'Lami Polish'})];});
-  salesApplyCustomerDefaults(c.id);salesOrderSave();const A=soDraft.id;soDraft=null;soEdit=null;rbBatch([A]);
+  salesApplyCustomerDefaults(c.id);soDraft.customerPo='PO-QA';salesOrderSave();const A=soDraft.id;soDraft=null;soEdit=null;rbBatch([A]);
   const ids=rbIds(A);ids.forEach(p=>rbGo('CUT',p,andrei));ids.forEach(p=>rbGo('POLISH',p,andrei));ids.forEach(p=>rbGo('HEAT',p,andrei));ids.forEach(p=>rbGo('LAM',p,andrei));stationMove('POLISH',stationCheck('POLISH',ids[0]),vasyl,{});
   const q=repQuery({source:'edgework',date:{preset:'all'},dims:['person','op'],metrics:['inches'],sort:{by:'label',dir:'asc'}});
   return q.keys.flatMap(k=>q.keys2.filter(k2=>(q.cells.get(k+'\u0001'+k2)||[])[0]).map(k2=>k+' '+k2+' '+q.cells.get(k+'\u0001'+k2)[0]));
@@ -214,7 +214,7 @@ module.exports=async function({page,eq,ok}){
     if(x.fab){s.manufacturingItems=[shapeNormalizeManufacturingItem({id:'h1',type:'hinge',edge:'bottom',distance:7.5}),shapeNormalizeManufacturingItem({id:'h2',type:'hinge',edge:'bottom',distance:30}),
       shapeNormalizeManufacturingItem({id:'o1',type:'hole',x:20,y:18,diameter:'3/4'})];ShapeModule.compute(s).edges.forEach(e=>{s.edgeOps[e.id]=[shapeNormalizeOp({type:'Flat Polish'})];});}
     const rate={MI:k=>/^MI:hole/.test(k)?6:15,EDGE:()=>0.05};salesLineChargeRows(l).forEach(r=>{const f=rate[String(r.key).split(':')[0]];salesEnsureChargePricing(l,r).orderRate=f?f(r.key):0;});});
-   salesApplyCustomerDefaults(c.id);Object.assign(soDraft,extra||{});if(!salesOrderSave())throw new Error('Order did not save');const id=soDraft.id;soDraft=null;soEdit=null;return id;};
+   salesApplyCustomerDefaults(c.id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';Object.assign(soDraft,extra||{});if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('Order did not save');const id=soDraft.id;soDraft=null;soEdit=null;return id;};
   const A=mk([{w:40,h:36,qty:2,fab:true},{w:30,h:48,qty:1,lam:true},{w:20,h:36,qty:1,manual:30}]),B=mk([{w:40,h:36,qty:1}],{noCharge:true});
   const rows=repSoldFacts().filter(r=>r.orderId===A),sum=f=>salesMoney(rows.filter(f).reduce((n,r)=>n+(r.amount||0),0)),tA=finOrderTotals(salesRecord(A));
   const q=(o)=>repQuery(Object.assign({source:'sold',date:{preset:'all'},filters:[{f:'charge',op:'in',v:['Charged']}]},o));

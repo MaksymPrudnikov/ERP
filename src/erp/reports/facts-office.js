@@ -98,7 +98,7 @@ function repOrderFacts(){
   if(done||o.status==='shipping'&&(()=>{const q=shippingSummary(o);return q.glass>0&&q.physicalReady+q.lines.reduce((n,r)=>n+r.shipped,0)>=q.glass;})())return repDay(readyAt.get(o.id)||'')||shipped;
   return '';
  };
- (DB.salesOrder||[]).forEach(o=>{
+ (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(!o||salesIsQuote(o)||o.status==='cancelled')return;
   const done=['done','closed'].includes(o.status),shipped=repOrderShipped(o),due=o.dueDate||'';
   const ready=o.delivery==='pickup'?pickupReady(o,done,shipped):'',finish=o.delivery==='pickup'?ready:shipped;
@@ -133,7 +133,7 @@ function repOrderedFacts(){
  const stamp=(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(',');
  if(repOrderedCache.stamp===stamp&&repOrderedCache.rows)return repOrderedCache.rows;
  const rows=[];
- (DB.salesOrder||[]).forEach(o=>{
+ (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(!o||salesIsQuote(o)||o.status==='cancelled')return;
   finWithOrder(o,()=>(o.lines||[]).forEach(l=>{
    const live=Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)),a=salesLineAreas(l,o),per=a&&a.valid?a.actual:0,m=salesMakeupById(o,l.makeupId);

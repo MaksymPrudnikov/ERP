@@ -32,7 +32,7 @@ function repCustomerFacts(){
   if(day){if(!x.first||day<x.first)x.first=day;if(day>x.last)x.last=day;}
   x.orders++;if(o)x.live.push(o);else x.archived+=+archived||0;
  };
- (DB.salesOrder||[]).forEach(o=>{if(!o||salesIsQuote(o)||o.status==='cancelled')return;seen.add(o.id);add(o.customerId,salesListIsoDay(o.createdAt),o);});
+ (DB.salesOrder||[]).forEach(o=>{if(!o||salesIsQuote(o)||salesIsDraft(o)||o.status==='cancelled')return;seen.add(o.id);add(o.customerId,salesListIsoDay(o.createdAt),o);});
  if(typeof archiveIndex!=='undefined')archiveIndex.forEach((a,id)=>{
   if(seen.has(id)||a.kind!=='order'||a.status==='cancelled')return;
   const t=a.row&&+a.row.total;add(a.customerId,String(a.createdAt||'').slice(0,10),null,Number.isFinite(t)?t:0);

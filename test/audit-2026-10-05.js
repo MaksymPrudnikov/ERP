@@ -50,13 +50,13 @@ module.exports=async function({page,eq,ok}){
 
  eq('заказ одного склада: Save активна, Close спрашивает, пустая строка стекла не мешает',await t.p.evaluate(()=>{
   oqReset();DB.stockItem.push({id:'STK-A5',type:'stock',name:'A5 Door',code:'',thicknessMm:0,salePrice:100,availability:'stock',supplier:'',leadTimeDays:0,subcategory:'door',sellsAsOwnLine:true,active:true});
-  const c=oqCustomer();tab='sales';salesOrderNew('order');salesApplyCustomerDefaults(c.id);const before=salesDraftHasWork();
+  const c=oqCustomer();tab='sales';salesOrderNew('order');salesApplyCustomerDefaults(c.id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';const before=salesDraftHasWork();
   salesExtraItemAdd('stockItem','STK-A5');render();const button=document.querySelector('[data-order-save]'),enabled=!!button&&!button.disabled;
   salesOrderClose();const asked=!!salesDialog;salesDialog=null;
   const saved=salesOrderSave(),o=salesRecord(soDraft.id),r={before,enabled,asked,saved,lines:o.lines.length,items:o.extraItems.length};salesDraftDrop();
   salesOrderNew('order');soDraft.customerPo='PO-77';r.poAsks=salesDraftHasWork();salesDraftDrop(true);
   DB.stockItem=DB.stockItem.filter(s=>s.id!=='STK-A5');return r;
- }),{before:false,enabled:true,asked:true,saved:true,lines:0,items:1,poAsks:true});
+ }),{before:true,enabled:true,asked:true,saved:true,lines:0,items:1,poAsks:true});
 
  eq('заказ одного склада: Verify автоматически Ready, без Batched; ручного Back нет',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer(),o=normalizeSalesOrder({id:'SO-A5',businessNumber:'95001',customerId:c.id,status:'new',lines:[],extraItems:[{id:'EXT-A5',table:'stockItem',itemId:'X',qty:1,priceOverride:100}]});DB.salesOrder.push(o);
