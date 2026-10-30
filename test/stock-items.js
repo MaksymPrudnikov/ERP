@@ -144,7 +144,7 @@ module.exports=async function({page,eq}){
   const tiles=[...document.querySelectorAll('[data-inv-tile]')].map(x=>x.getAttribute('data-inv-tile'));
   document.querySelector('[data-inv-row="stock:STK-SD24"] [data-inv-stock-count]').click();
   const q=document.getElementById('inv_stock_qty');q.value='4';q.dispatchEvent(new Event('input'));const diff=document.querySelector('[data-inv-stock-diff]').textContent;
-  const sel=document.querySelector('[data-inv-stock-edit] select');sel.value=sel.options[1].value;sel.dispatchEvent(new Event('change'));
+  const sel=document.querySelector('[data-inv-stock-reason]');sel.value=sel.options[1].value;sel.dispatchEvent(new Event('change'));
   document.querySelector('[data-inv-stock-save]').click();
   document.querySelector('[data-inv-row="stock:STK-SD24"] [data-inv-stock-remove]').click();const q2=document.getElementById('inv_stock_qty');q2.value='1';q2.dispatchEvent(new Event('input'));document.querySelector('[data-inv-stock-save]').click();
   const log=[...document.querySelectorAll('[data-inv-stock-log] tbody tr')].map(tr=>[...tr.children].slice(2,5).map(td=>td.textContent).join('|'));

@@ -149,7 +149,14 @@ function invStockTiles(rows){
  return '<div class="inv-tiles">'+invTile('Stock items',rows.length)+invTile('On hand, pcs',sum('onHand'))+invTile('Reserved',sum('reserved'))+invTile('Available',sum('available'))+st('Short','bad')+st('Not counted','')+'</div>';
 }
 function invStockCell(i,c){
- const r=i.r,v=salesListValue(i,c.k);
+ const r=i.r,v=salesListValue(i,c.k),d=invStockEdit&&invStockEdit.id===r.id?invStockEdit:null;
+ /* Правка в строке (вариант D4): число — в On hand, причина и заметка
+    столбиком — в Status, Save — в Last count; скрытая колонка — её часть в
+    On hand. Ширина колонок не меняется. */
+ if(d&&c.k==='onHand'){const shown=new Set(salesListColumns().map(x=>x.k));
+  return '<td class="n inv-stock-edit">'+invStockQtyHTML(d)+(shown.has('status')?'':invStockReasonHTML(d))+(shown.has('lastCount')?'':invStockSaveHTML(d))+'</td>';}
+ if(d&&c.k==='status')return '<td class="inv-stock-edit inv-stock-why">'+invStockReasonHTML(d)+'</td>';
+ if(d&&c.k==='lastCount')return '<td class="inv-stock-edit">'+invStockSaveHTML(d)+'</td>';
  if(c.k==='item')return '<td data-raw><button type="button" class="fin-link inv-glass" title="Journal" onclick="invOpenJournal('+invArg(r.key)+')">'+esc(v)+'</button>'+(r.off?' <span class="pill warn">inactive</span>':'')+'</td>';
  if(c.k==='measures')return '<td class="nowrap">'+(v?'<b>'+esc(v)+'</b>':'<span class="mut">—</span>')+'</td>';
  if(c.k==='onHand')return '<td class="n'+(r.onHand<0?' inv-neg':'')+'">'+esc(v)+'</td>';
@@ -159,8 +166,7 @@ function invStockCell(i,c){
  if(c.k==='lastCount')return '<td class="nowrap">'+invLastCount(r)+'</td>';
  return '<td'+(c.type==='number'?' class="n"':'')+(c.k==='code'||c.k==='kind'?' data-raw':'')+'>'+invNum(v)+'</td>';
 }
-/* Count / + / − прямо в строке (вариант D4): число, разница, причина,
-   заметка, ✓ и ✕ на месте кнопок строки. */
+/* Count / + / − прямо в строке (вариант D4). */
 function invStockOpen(id,kind){
  if(invStockEdit&&invStockEdit.id===id&&invStockEdit.kind===kind)return;
  invStockEdit={id,kind,qty:'',reason:'',note:''};invNotice='';render();document.getElementById('inv_stock_qty')?.focus();
@@ -176,15 +182,21 @@ function invStockSave(){
  if(!out.ok){invNotice=out.error;render();return;}
  invStockEdit=null;invNotice='';render();
 }
+function invStockQtyHTML(d){
+ return '<input id="inv_stock_qty" type="number" min="'+(d.kind==='count'?0:1)+'" step="1" inputmode="numeric" aria-label="'+(d.kind==='count'?'Counted':d.kind==='add'?'Add':'Remove')+'" placeholder="'+(d.kind==='count'?'counted':d.kind==='add'?'+ pcs':'− pcs')+'" value="'+esc(d.qty)+'" oninput="invStockQty(this)" onkeydown="if(event.key===\'Enter\')invStockSave();if(event.key===\'Escape\'){invStockEdit=null;render();}"><span class="inv-diff" data-inv-stock-diff></span>';
+}
+function invStockReasonHTML(d){
+ const reasons=d.kind==='add'?INV_ADD:d.kind==='remove'?SINV_REMOVE:stockReasonsActive();
+ return '<select aria-label="Reason" data-inv-stock-reason onchange="invStockEdit.reason=this.value"><option value="">Reason…</option>'+reasons.map(x=>'<option'+(x===d.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select>'+
+  '<input type="text" maxlength="200" aria-label="Note" placeholder="Note" value="'+esc(d.note)+'" oninput="invStockEdit.note=this.value">';
+}
+function invStockSaveHTML(d){
+ return '<button type="button" class="sm pri" data-inv-stock-save onclick="invStockSave()">Save</button><button type="button" class="sm" aria-label="Cancel" onclick="invStockEdit=null;invNotice=\'\';render()">×</button>';
+}
 function invStockActs(i){
  const r=i.r,id=invArg(r.id),d=invStockEdit&&invStockEdit.id===r.id?invStockEdit:null;
- if(!d)return '<td class="inv-acts"><button type="button" class="sl-quiet sm" data-inv-stock-add title="Add" aria-label="Add" onclick="invStockOpen('+id+',\'add\')">+</button><button type="button" class="sl-quiet sm" data-inv-stock-remove title="Remove" aria-label="Remove" onclick="invStockOpen('+id+',\'remove\')">−</button><button type="button" class="sl-quiet sm" data-inv-stock-count onclick="invStockOpen('+id+',\'count\')">Count</button></td>';
- const reasons=d.kind==='add'?INV_ADD:d.kind==='remove'?SINV_REMOVE:stockReasonsActive();
- return '<td class="inv-stock-edit" data-inv-stock-edit="'+esc(d.kind)+'"><span class="inv-stock-label">'+(d.kind==='count'?'Counted':d.kind==='add'?'Add':'Remove')+'</span>'+
-  '<input id="inv_stock_qty" type="number" min="'+(d.kind==='count'?0:1)+'" step="1" inputmode="numeric" aria-label="Quantity" value="'+esc(d.qty)+'" oninput="invStockQty(this)" onkeydown="if(event.key===\'Enter\')invStockSave();if(event.key===\'Escape\'){invStockEdit=null;render();}"><span class="inv-diff" data-inv-stock-diff></span>'+
-  '<select aria-label="Reason" onchange="invStockEdit.reason=this.value"><option value="">Reason…</option>'+reasons.map(x=>'<option'+(x===d.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select>'+
-  '<input type="text" maxlength="200" aria-label="Note" placeholder="Note" value="'+esc(d.note)+'" oninput="invStockEdit.note=this.value">'+
-  '<button type="button" class="sm pri" data-inv-stock-save onclick="invStockSave()">Save</button><button type="button" class="sm" aria-label="Cancel" onclick="invStockEdit=null;invNotice=\'\';render()">×</button></td>';
+ if(d)return '<td class="inv-acts inv-stock-edit" data-inv-stock-edit="'+esc(d.kind)+'"><span class="inv-stock-label">'+(d.kind==='count'?'Count':d.kind==='add'?'Add':'Remove')+'</span></td>';
+ return '<td class="inv-acts"><button type="button" class="sl-quiet sm" data-inv-stock-add title="Add" aria-label="Add" onclick="invStockOpen('+id+',\'add\')">+</button><button type="button" class="sl-quiet sm" data-inv-stock-remove title="Remove" aria-label="Remove" onclick="invStockOpen('+id+',\'remove\')">−</button><button type="button" class="sl-quiet sm" data-inv-stock-count onclick="invStockOpen('+id+',\'count\')">Count</button></td>';
 }
 /* Под таблицей (вариант D3): что посчитано и поправлено сегодня. */
 function invStockLog(rows){
