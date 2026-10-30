@@ -358,7 +358,7 @@ function docLayout(model){
  if(model.extra){const parts=docExtraParts(model);room(parts.slice(0,2).reduce((s,p)=>s+p.h,0));flow(parts);}
  inTable=false;
  if(model.end){const b=docEndBlock(model);room(b.h);b.draw(P,y);y+=b.h;}
- if(model.summary){const h=44;room(h);docCells(P,model.summary,y+12,32,10.5);y+=h;}
+ if(model.summary){const h=model.summaryNote?58:44;room(h);docCells(P,model.summary,y+12,32,10.5);if(model.summaryNote)P.text(W.left,y+55,docFit(model.summaryNote,7.6,false,W.right-W.left),{size:7.6});y+=h;}
  if(model.notes){const parts=docParagraphParts('Order notes',model.notes,7.8);room(parts.slice(0,2).reduce((s,p)=>s+p.h,0));flow(parts);}
  if(model.terms){const parts=docParagraphParts('Terms and conditions',model.terms,6.8);room(parts.slice(0,3).reduce((s,p)=>s+p.h,0));flow(parts);}
  if(model.signature){const b=docSignatureBlock(model);room(b.h);b.draw(P,y);y+=b.h;}

@@ -171,6 +171,8 @@ function docSaleItem(model,line,index,order){
  it.amount=mode==='none'?null:mode==='glass'?docMoney(glassLine):docMoney(p.line);
  const bits=[];
  if(opts.billableArea&&a.valid)bits.push('Billable '+docNum(a.billable,1)+' ft² per unit');
+ /* Галочка Weight per unit / per line предлагается и бланкам продаж (пункт 14). */
+ if(opts.weight)bits.push('Weight '+docUnitWeightText(salesLineWeight(line,order),'kg per unit'));
  if(opts.perFt2&&['split','glass','unit'].includes(mode)&&!p.missingMaterials&&a.valid)bits.push('glass '+docMoney(p.materialRate)+'/ft²');
  if(bits.length)it.sub.push({text:bits.join(' · ')});
  docItemDetails(it,opts,line,m,order);
@@ -221,11 +223,17 @@ function docItemDetails(it,opts,line,m,order){
  if(opts.makeupFull&&m)it.full=docMakeupFullLines(m,opts);
  if(opts.shapeDrawing)it.drawing=docLineDrawing(line,order);
 }
+/* Вес юнита на бумаге (пункт 14, вариант 1 владельца 30.10.2026): известное
+   число и Partial — клиент видит, что вес неполный, без внутренних подсказок;
+   нет ничего — «—». */
+function docUnitWeightText(w,unit){
+ return w.complete?(w.estimated?'≈ ':'')+docNum(w.kg,1)+' '+unit:w.knownKg>0?docNum(w.knownKg,1)+' '+unit+' · Partial':'— kg';
+}
 function docShopItem(model,line,index,order){
  const opts=model.opts,m=salesMakeupById(order,line.makeupId),a=salesLineAreas(line,order),q=salesPositiveInt(line.qty,1);
  const it=docItemBase(opts,line,index,m,q),info=[];
  if(opts.actualArea&&a.valid)info.push(docNum(a.actual,1)+' ft²');
- if(opts.weight){const w=salesLineWeight(line,order);info.push(w.complete?docNum(w.kg,1)+' kg/unit':'— kg');}
+ if(opts.weight)info.push(docUnitWeightText(salesLineWeight(line,order),'kg/unit'));
  it.info=info.join(' · ');
  docItemDetails(it,opts,line,m,order);
  if(opts.route){
@@ -244,7 +252,7 @@ function docBuildModel(kind,order,opts){
  const model={kind,sale,mode,opts,title:DOC_TITLES[kind],docName,number,customerName:C?(C.legalName||C.displayName):'',po:order.customerPo||'',
   company:opts.company?docCompanyBlock():null,meta:[],boxes:[],
   table:{amount:sale&&mode!=='none',basisRate:sale&&['full','split','glass'].includes(mode)&&opts.basisRate,perUnit:['full','split','glass'].includes(mode)},
-  items:[],extra:null,end:null,terms:'',signature:'',summary:null,notes:'',footerLeft:'',footerRight:''};
+  items:[],extra:null,end:null,terms:'',signature:'',summary:null,summaryNote:'',notes:'',footerLeft:'',footerRight:''};
 
  const cell=(on,label,value)=>{if(on)model.meta.push({label,value:value||'—'});};
  /* Счёт: дата — день выдачи последнего юнита, срок — оплаты (Net от него). */
@@ -360,13 +368,18 @@ function docBuildModel(kind,order,opts){
   :'Please check sizes, makeups and quantities. Production starts after this confirmation is signed'+(depositFirst?' and the deposit is received.':'.');
   model.footerLeft=company.footerText||'';
  }else{
-  if(opts.orderSummary){
-   let units=0,area=0,kg=0,kgKnown=true;
-   (order.lines||[]).forEach(l=>{const q=salesPositiveInt(l.qty,1),a=salesLineAreas(l,order),w=salesLineWeight(l,order);units+=q;if(a.valid)area+=a.actual*q;if(w.complete)kg+=w.lineKg;else kgKnown=false;});
-   model.summary=[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:kgKnown?docNum(kg,0)+' kg':'—'},{label:'Due date',value:docDate(order.dueDate)||'—'}];
-  }
   if(opts.notes&&order.notes)model.notes=order.notes;
   model.footerLeft='Internal · no prices';
+ }
+ /* Order summary — в каждом бланке, где его отметили в Customize (пункт 14:
+    раньше только в бланках без цен). Вес — известное и Partial с тем, что не
+    учтено, строкой под блоком: на бумаге без наведения. */
+ if(opts.orderSummary){
+  let units=0,area=0;
+  (order.lines||[]).forEach(l=>{const q=salesPositiveInt(l.qty,1),a=salesLineAreas(l,order);units+=q;if(a.valid)area+=a.actual*q;});
+  const w=salesOrderWeight(order),miss=salesWeightMissingText(w);
+  model.summary=[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:w.kg==null?'Weight unavailable':(w.complete&&w.estimated?'≈ ':'')+docNum(w.kg,w.kg<10?2:0)+' kg'+(w.complete?'':' · Partial')},{label:'Due date',value:docDate(order.dueDate)||'—'}];
+  if(w.partial&&miss)model.summaryNote='Partial weight: '+miss.charAt(0).toLowerCase()+miss.slice(1)+'.';
  }
  model.footerRight=[company.legalName,docName+' '+number].filter(Boolean).join(' · ');
  return model;

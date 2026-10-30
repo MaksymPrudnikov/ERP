@@ -116,7 +116,10 @@ function repOrderFacts(){
    delivery:o.delivery==='delivery'?'Delivery':'Pickup',status:salesStatusLabel(o),state,daysLate:state==='Late'?Math.max(0,days(due,finish||today)):0,ready,
    lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,judgedN:state==='On time'||state==='Late'?1:0};
   repLazy(row,'area',()=>finWithOrder(o,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,o);return n+(a.valid?a.actual*Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)):0);},0))||null);
-  repLazy(row,'kg',()=>{let kg=0;try{finWithOrder(o,()=>lines.forEach(l=>{const w=salesLineWeight(l,o);if(w&&w.lineKg!=null)kg+=w.lineKg;}));}catch(e){}return kg||null;});
+  /* Вес — известное, как в Sales (пункт 14); полнота — своим полем. */
+  let ow=null;const owOf=()=>{if(!ow){try{ow=finWithOrder(o,()=>salesOrderWeight(o));}catch(e){ow={kg:null,complete:false};}}return ow;};
+  repLazy(row,'kg',()=>owOf().kg);
+  repLazy(row,'kgStatus',()=>{const w=owOf();return w.kg==null?'Unavailable':w.complete?'Complete':'Partial';});
   repLazy(row,'total',()=>{const t=finOrderTotals(o);return t&&t.complete?t.grand:null;});
   rows.push(row);
  });
