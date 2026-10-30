@@ -214,7 +214,7 @@ module.exports=async function({page,eq,ok}){
     if(x.fab){s.manufacturingItems=[shapeNormalizeManufacturingItem({id:'h1',type:'hinge',edge:'bottom',distance:7.5}),shapeNormalizeManufacturingItem({id:'h2',type:'hinge',edge:'bottom',distance:30}),
       shapeNormalizeManufacturingItem({id:'o1',type:'hole',x:20,y:18,diameter:'3/4'})];ShapeModule.compute(s).edges.forEach(e=>{s.edgeOps[e.id]=[shapeNormalizeOp({type:'Flat Polish'})];});}
     const rate={MI:k=>/^MI:hole/.test(k)?6:15,EDGE:()=>0.05};salesLineChargeRows(l).forEach(r=>{const f=rate[String(r.key).split(':')[0]];salesEnsureChargePricing(l,r).orderRate=f?f(r.key):0;});});
-   salesApplyCustomerDefaults(c.id);Object.assign(soDraft,extra||{});if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('Order did not save');const id=soDraft.id;soDraft=null;soEdit=null;return id;};
+   salesApplyCustomerDefaults(c.id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';Object.assign(soDraft,extra||{});if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('Order did not save');const id=soDraft.id;soDraft=null;soEdit=null;return id;};
   const A=mk([{w:40,h:36,qty:2,fab:true},{w:30,h:48,qty:1,lam:true},{w:20,h:36,qty:1,manual:30}]),B=mk([{w:40,h:36,qty:1}],{noCharge:true});
   const rows=repSoldFacts().filter(r=>r.orderId===A),sum=f=>salesMoney(rows.filter(f).reduce((n,r)=>n+(r.amount||0),0)),tA=finOrderTotals(salesRecord(A));
   const q=(o)=>repQuery(Object.assign({source:'sold',date:{preset:'all'},filters:[{f:'charge',op:'in',v:['Charged']}]},o));

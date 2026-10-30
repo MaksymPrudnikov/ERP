@@ -13,7 +13,7 @@ module.exports=async function({page,eq,ok}){
    m.cavities.forEach(c=>{c.priceOverride=3.1;});
    soDraft.lines=[];
    [[37,71,2,'L-1'],[30,40,1,'L-2']].forEach(x=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:x[0]*16,height16:x[1]*16,qty:x[2],mark:x[3]});soDraft.lines.push(l);salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});});
-   salesApplyCustomerDefaults(cust.id);
+   salesApplyCustomerDefaults(cust.id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';
    return soDraft;
   };
   window.qCleanup=function(){DB.receipt=[];DB.salesOrder=[];DB.customer=DB.customer.filter(c=>!/^QAQUOTE/.test(c.code||''));soEdit=null;soDraft=null;soQuoteCopyOf=null;salesDialog=null;docState=null;tab='sales';salesShow={orders:true,quotes:true};salesStatusFilter='';salesPruneOrphanShapes();};

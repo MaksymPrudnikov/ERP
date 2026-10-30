@@ -212,7 +212,7 @@ module.exports=async function({page,eq,ok}){
  const p15Helpers=()=>{
   window.p15Order=function(w=90,h=120,type='double',customer){
    tab='sales';salesOrderNew();salesSetUnitType(type);const m=soDraft.makeups[0],l=normalizeSalesOrderLine({makeupId:m.id,width16:w*16,height16:h*16,qty:1});
-   soDraft.lines=[l];salesEnsureLineShape(l);if(customer!==false)salesApplyCustomerDefaults((customer||oqCustomer({legalName:'Surcharge Co'})).id);render();return l;
+   soDraft.lines=[l];salesEnsureLineShape(l);if(customer!==false)salesApplyCustomerDefaults((customer||oqCustomer({legalName:'Surcharge Co'})).id);soDraft.customerPo='PO-T';render();return l;
   };
   window.p15Unit=()=>salesLineCommercialPrice(soDraft.lines[0],soDraft).unit;
   /* Ввод как у человека: поле окна Surcharges, событие change. */
@@ -300,7 +300,7 @@ module.exports=async function({page,eq,ok}){
   const qid=oqOrder(oqCustomer({legalName:'Quote Surcharge'}),{kind:'quote',surchargeRates:{largeUnit:{value:40}}});salesQuoteMarkSent([qid]);
   salesOrderEdit(qid);p15Type('largeUnit','value','35');salesOrderSave();const rev=soEdit;salesDraftDrop(true);
   const won=salesConvertQuoteRecord(rev,'PO-S'),order=DB.salesOrder.find(o=>o.fromQuoteId===rev);
-  p15Order();p15Type('largeUnit','value','45');salesApplyCustomerDefaults(oqCustomer({legalName:'Other Customer'}).id);const kept=soDraft.surchargeRates;salesDraftDrop(true);
+  p15Order();p15Type('largeUnit','value','45');salesApplyCustomerDefaults(oqCustomer({legalName:'Other Customer'}).id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';const kept=soDraft.surchargeRates;salesDraftDrop(true);
   return {n,rev:salesRecord(rev)?.surchargeRates,rev2:rev!==qid,order:order&&order.surchargeRates,kept};
  }),{n:{largeUnit:{value:40,areaOver:70},triple:{off:true}},rev:{largeUnit:{value:35}},rev2:true,order:{largeUnit:{value:35}},kept:{largeUnit:{value:45}}});
  eq('P15-07 закрытый / отменённый заказ только для чтения: поля надбавок недоступны',await s.p.evaluate(id=>{

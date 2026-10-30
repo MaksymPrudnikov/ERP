@@ -138,12 +138,12 @@ module.exports=async function({page,eq,ok}){
  const ready=await A.evaluate(()=>{oqReset();const id=oqOrder(oqCustomer({legalName:'Walk-in Client'}));oqThrough(id,'ready');salesDraftDrop();return id;});
  const bigShape=await A.evaluate(()=>{window.afLines=(n,w,h,mark)=>{const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];Object.assign(m.panes[0],{glassProductId:g.id,thicknessMm:6,heatTreatmentId:'HT-FT'});
    return Array.from({length:n},(_,i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:(w+i)*16,height16:h*16,qty:1,mark:mark+(i+1)});salesEnsureLineShape(l);return l;});};
-  tab='sales';salesOrderNew('order');salesApplyCustomerDefaults(oqCustomer({legalName:'Big Project Inc'}).id);soDraft.lines=afLines(12,30,40,'B');
+  tab='sales';salesOrderNew('order');salesApplyCustomerDefaults(oqCustomer({legalName:'Big Project Inc'}).id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';soDraft.lines=afLines(12,30,40,'B');
   const s=DB.shapeDef.find(x=>x.id===soDraft.lines[0].shapeRef.id);s.name='Big custom shape';touch();render();return s.id;});
  const B=await two.c.newPage();B.on('pageerror',e=>two.errs.push(e.message));B.on('dialog',d=>{two.errs.push('dialog: '+d.message());d.accept();});await B.goto(A.url());await B.waitForFunction(()=>typeof storageStarting!=='undefined'&&!storageStarting);await require('./optimization-fixture')(B);
  await B.waitForFunction(()=>storageWriter,null,{timeout:5000});
  eq('walk-in: the new tab picks up an order and saves a 2-glass order while the big order waits',await B.evaluate(id=>{
-  oqFulfill(id);tab='sales';salesOrderNew('order');salesApplyCustomerDefaults(oqCustomer({legalName:'Walk-in Client 2'}).id);
+  oqFulfill(id);tab='sales';salesOrderNew('order');salesApplyCustomerDefaults(oqCustomer({legalName:'Walk-in Client 2'}).id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';
   window.afLines=(n,w,h,mark)=>{const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];Object.assign(m.panes[0],{glassProductId:g.id,thicknessMm:6,heatTreatmentId:'HT-FT'});
    return Array.from({length:n},(_,i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:(w+i)*16,height16:h*16,qty:1,mark:mark+(i+1)});salesEnsureLineShape(l);return l;});};
   soDraft.lines=afLines(2,20,21,'S');return {saved:salesOrderSave(),status:salesRecord(id).status};},ready),{saved:true,status:'done'});

@@ -133,7 +133,7 @@ module.exports=async function({page,eq,ok}){
  eq('Email: PDF уходит в Загрузки, Gmail открывается с адресом клиента, темой и депозитом',await t.p.evaluate(()=>{
   docFixture();
   DB.customer.push(normalizeCustomer({id:'CUS-QA-MAIL',legalName:'QA Mail Ltd',invoiceEmail:'ap@qa-mail.ca',contacts:[{name:'Anna Lee',email:'anna@qa-mail.ca',isPrimary:true}]}));
-  salesApplyCustomerDefaults('CUS-QA-MAIL');render();docOpen('proforma');
+  salesApplyCustomerDefaults('CUS-QA-MAIL');if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';render();docOpen('proforma');
   const oldOpen=window.open,oldDownload=docDownload;let url='',file=null;
   window.open=u=>{url=u;return {};};docDownload=(n,b)=>{file={n,head:String.fromCharCode.apply(null,Array.from(b.slice(0,8)))};};
   try{docEmail();}finally{window.open=oldOpen;docDownload=oldDownload;}
@@ -157,7 +157,7 @@ module.exports=async function({page,eq,ok}){
 
  eq('шапка заказа без Terms: условия оплаты живут в карточке клиента, бланк берёт их оттуда',await t.p.evaluate(()=>{
   DB.customer.push(normalizeCustomer({id:'CUS-QA-NET',legalName:'QA Net Ltd',paymentMode:'credit',creditDays:30}));
-  docFixture();salesApplyCustomerDefaults('CUS-QA-NET');render();
+  docFixture();salesApplyCustomerDefaults('CUS-QA-NET');if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';render();
   const labels=[...document.querySelectorAll('.sales-header-compact label')].map(l=>l.textContent.trim()),terms=docBuildModel('proforma',soDraft).meta.find(x=>x.label==='Terms');
   DB.customer=DB.customer.filter(c=>c.id!=='CUS-QA-NET');
   return {termsField:labels.includes('Terms'),control:!!document.querySelector('.sales-terms'),orderKeys:['paymentMode','creditDays','depositPercent'].some(k=>k in soDraft),docTerms:terms&&terms.value};

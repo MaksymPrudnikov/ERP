@@ -26,7 +26,7 @@ module.exports=async function({page,eq,ok}){
  eq('уход из заказа: новый — Save / Don\'t save, сохранённый — Update / Don\'t update; метка и кнопка знают, сохранено ли',await t.p.evaluate(()=>{
   const pick=l=>salesDialogChoose(salesDialog.buttons.findIndex(b=>b.label===l)),state=()=>document.querySelector('[data-order-state]').textContent,off=()=>document.querySelector('[data-order-save]').disabled;
   oqReset();const cust=oqCustomer(),orders=DB.salesOrder.length;
-  tab='sales';salesOrderNew();salesApplyCustomerDefaults(cust.id);soDraft.lines[0].width16=30*16;soDraft.lines[0].height16=20*16;salesEnsureLineShape(soDraft.lines[0]);render();
+  tab='sales';salesOrderNew();salesApplyCustomerDefaults(cust.id);if(!soDraft.customerPo&&!salesIsQuote(soDraft))soDraft.customerPo='PO-T';soDraft.lines[0].width16=30*16;soDraft.lines[0].height16=20*16;salesEnsureLineShape(soDraft.lines[0]);render();
   const shape=soDraft.lines[0].shapeRef.id,fresh={state:state(),off:off()};
   salesOrderClose();const ask=[salesDialog.title,salesDialog.buttons.map(b=>b.label).join(' / ')];
   pick("Don't save");const gone={orders:DB.salesOrder.length===orders,draft:soDraft===null,shape:!DB.shapeDef.some(s=>s.id===shape)};
