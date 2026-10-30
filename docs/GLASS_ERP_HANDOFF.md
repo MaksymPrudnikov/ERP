@@ -49,7 +49,11 @@ New; PO у всех; 120 строк) и проверка без ошибок с�
 вместо «This customer requires a PO. Enter the PO.»
 (`test/office-walk-fixes.js`); заготовки заказов в тестах вписывают PO
 (`test/optimization-fixture.js` и др.; Repeat из архива, Convert квот);
-заказ без PO в `test/sales-list.js` — старый (PO стёрт после Save). Убранных
+заказ без PO в `test/sales-list.js` — старый (PO стёрт после Save);
+заказы `test/finance-ledger.js` и `test/shipping.js` — с PO. Изменённые
+проверки (черновик): окно выхода нового заказа — Back · Don't save · Save as
+Draft · Save (`test/lifecycle.js`); новый заказ с одним клиентом — уже
+«есть что сохранять» (`test/audit-2026-10-05.js`, P2-R8). Убранных
 или ослабленных проверок нет. Всего 2203.
 
 ## Контакт клиента в заказе · 30 октября 2026 (v5.301)

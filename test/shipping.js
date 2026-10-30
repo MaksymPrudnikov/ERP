@@ -128,7 +128,7 @@ module.exports=async function({page,eq,ok}){
     позицией в PS, вкладка Ready без пустых строк, самовывоз одним сканом,
     слова на PS, счётчики вкладок и индексы один раз на экран. */
  eq('Order with stock items on a PS saves unchanged; reducing below the PS quantity is refused',await t.p.evaluate(()=>{
-  oqReset();const c=oqCustomer(),o=normalizeSalesOrder({id:'SO-STOCK2',businessNumber:'ST2',customerId:c.id,status:'new',lines:[],extraItems:[{id:'EXT-1',table:'stockItem',itemId:'X',qty:3,priceOverride:20}]});DB.salesOrder.push(o);salesSetRecordStatus(o.id,'verified');
+  oqReset();const c=oqCustomer(),o=normalizeSalesOrder({id:'SO-STOCK2',businessNumber:'ST2',customerId:c.id,customerPo:'PO-ST2',status:'new',lines:[],extraItems:[{id:'EXT-1',table:'stockItem',itemId:'X',qty:3,priceOverride:20}]});DB.salesOrder.push(o);salesSetRecordStatus(o.id,'verified');
   const made=shippingCreate({customerId:c.id,method:'pickup',shipTo:{},date:finToday(),items:[],extras:[{orderId:o.id,extraId:'EXT-1',qty:2}]}).ok;
   const same=shippingSaveGuard(shippingClone(o),o),less=shippingClone(o);less.extraItems[0].qty=1;const refused=shippingSaveGuard(less,o);
   tab='sales';salesOrderEdit(o.id);const ui=!!salesOrderSave();salesDraftDrop();return {made,same,refused,ui};

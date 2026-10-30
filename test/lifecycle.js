@@ -37,7 +37,7 @@ module.exports=async function({page,eq,ok}){
   tab='sales';salesOrderEdit(id);const w2=document.querySelector('[data-so-width]');w2.value='40';w2.dispatchEvent(new Event('change',{bubbles:true}));
   salesOrderClose();pick('Update');const updated={draft:soDraft===null,width:salesRecord(id).lines[0].width16/16};
   return {fresh,ask,gone,saved,dirty,leave,back,kept,updated};
- }),{fresh:{state:'Unsaved changes',off:false},ask:['Save the order before leaving?','Back / Don\'t save / Save'],gone:{orders:true,draft:true,shape:true},
+ }),{fresh:{state:'Unsaved changes',off:false},ask:['Save the order before leaving?','Back / Don\'t save / Save as Draft / Save'],gone:{orders:true,draft:true,shape:true},
   saved:{state:true,off:true},dirty:{state:'Unsaved changes',off:false},leave:['Update 76002 before leaving?','Back / Don\'t update / Update'],back:true,
   kept:{tab:'dashboard',width:37},updated:{draft:true,width:40}});
  eq('Don\'t update возвращает формы строк: размер строки, Save revision в редакторе формы',await t.p.evaluate(()=>{
