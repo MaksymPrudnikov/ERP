@@ -9,7 +9,7 @@
    IN : строка заказа, её makeup, наборы работ и прайс заказа, фигуры строки
         (DB.shapeDef); при Save — расчёт по фигуре (sales/service-sets,
         sales/line-metrics)
-   OUT: line.measure {sig, rows, areas}; salesMeasureFor — записанное, если
+   OUT: line.measure {sig, rows, areas, lites — геометрия лайтов для веса}; salesMeasureFor — записанное, если
         отпечаток сошёлся; salesMeasureWrite — запись заказа (Save, правка
         данных 9)
 
@@ -53,7 +53,7 @@ function salesMeasureSig(line,order){
 /* Расчёт по фигуре — то, что записывается. */
 function salesMeasureLive(line,order){
  salesMeasureOff++;
- try{return finWithOrder(order,()=>({rows:salesLineChargeRowsRaw(line),areas:salesLineAreas(line,order)}));}
+ try{return finWithOrder(order,()=>({rows:salesLineChargeRowsRaw(line),areas:salesLineAreas(line,order),lites:salesLineLiteGeo(line,order)}));}
  finally{salesMeasureOff--;}
 }
 /* pre — посчитанное заранее Save в фоне (erp/sales/save-job): строка с тем же
@@ -61,8 +61,8 @@ function salesMeasureLive(line,order){
 function salesMeasureWrite(order,pre){
  (order&&order.lines||[]).forEach(l=>{
   const sig=salesMeasureSig(l,order),p=pre&&pre.get(l.id);
-  if(p&&p.sig===sig){l.measure={sig,rows:p.rows,areas:p.areas};if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(l,order);return;}
-  const m=salesMeasureLive(l,order);l.measure={sig,rows:m.rows,areas:m.areas};
+  if(p&&p.sig===sig){l.measure={sig,rows:p.rows,areas:p.areas,lites:p.lites};if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(l,order);return;}
+  const m=salesMeasureLive(l,order);l.measure={sig,rows:m.rows,areas:m.areas,lites:m.lites};
  });
 }
 /* Отпечаток — один раз на строку за отрисовку (erp/read-scope): расчёт
@@ -80,7 +80,7 @@ function salesMeasureFor(line,order){
    фигуре. */
 function salesMeasureCheck(line,order){
  const now=salesMeasureLive(line,order),m=line.measure;
- if(JSON.stringify(now.rows)!==JSON.stringify(m.rows)||JSON.stringify(now.areas)!==JSON.stringify(m.areas))
+ if(JSON.stringify(now.rows)!==JSON.stringify(m.rows)||JSON.stringify(now.areas)!==JSON.stringify(m.areas)||m.lites&&JSON.stringify(now.lites)!==JSON.stringify(m.lites))
   console.error('Stale measure: '+(order.businessNumber||order.id)+' · line '+line.id);
 }
 /* Запись переживает F5, Import и облако; битая — отбрасывается, строка
@@ -88,7 +88,10 @@ function salesMeasureCheck(line,order){
 function salesMeasureClean(m){
  if(!m||typeof m!=='object'||typeof m.sig!=='string'||!/^[0-9a-f]{16}$/.test(m.sig)||!Array.isArray(m.rows)||!m.areas||typeof m.areas!=='object')return null;
  if(!m.rows.every(r=>r&&typeof r==='object'&&typeof r.key==='string'&&Number.isFinite(r.basis)))return null;
- return {sig:m.sig,rows:m.rows,areas:m.areas};
+ /* Геометрия лайтов для веса (пункт 14) — с 30.10.2026; у старых записей её
+    нет — вес считает по фигуре, следующий Save запишет. */
+ const lites=Array.isArray(m.lites)&&m.lites.every(x=>x&&Number.isInteger(x.index)&&Number.isFinite(x.area)&&Number.isFinite(x.perimeter)&&typeof x.contour==='string')?m.lites:null;
+ return lites?{sig:m.sig,rows:m.rows,areas:m.areas,lites}:{sig:m.sig,rows:m.rows,areas:m.areas};
 }
 const __salesMeasureNormalizeLine=normalizeSalesOrderLine;
 normalizeSalesOrderLine=function(line){

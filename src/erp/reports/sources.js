@@ -105,7 +105,7 @@ const REP_SRC={
   fields:()=>[REP_F.date('due','Due'),REP_F.date('created','Created'),REP_F.date('shipped','Shipped'),REP_F.date('ready','Ready for pickup'),
    REP_F.date('stVerified','Verified'),REP_F.date('stBatched','Batched'),REP_F.date('stReady','All ready'),REP_F.date('stDone','Done'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
    REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery'),REP_F.dim('status','Status'),REP_F.dim('state','On time'),REP_F.dim('hold','On hold')]
-   .concat(repOrderFields(),[REP_F.num('units','Units'),REP_F.num('glassN','Glass pcs'),REP_F.num('area','Area ft²',{digits:1}),REP_F.num('lines','Lines'),REP_F.num('shapes','Shapes'),REP_F.num('kg','Weight kg'),
+   .concat(repOrderFields(),[REP_F.num('units','Units'),REP_F.num('glassN','Glass pcs'),REP_F.num('area','Area ft²',{digits:1}),REP_F.num('lines','Lines'),REP_F.num('shapes','Shapes'),REP_F.num('kg','Weight kg'),REP_F.dim('kgStatus','Weight'),
    REP_F.num('daysLate','Days late'),REP_F.num('lead','Lead time, days'),REP_F.num('dVerify','Days new → verified'),REP_F.num('dBatch','Days verified → batched'),
    REP_F.num('dReady','Days batched → ready'),REP_F.num('dDone','Days ready → done'),REP_F.num('total','Order total',{money:true})]),
   metrics:[{k:'count',label:'Orders',agg:'count'},{k:'late',label:'Late orders',agg:'sum',f:'late'},{k:'onTime',label:'On time %',agg:'ratio',num:'onTimeN',den:'judgedN',pct:true,digits:0},

@@ -89,6 +89,43 @@ module.exports=async function({page,eq}){
  await t.p.evaluate(()=>storageFlush());await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  eq('после F5 — тот же состав',await run(()=>{const o=DB.salesOrder.find(x=>(x.lines||[]).length===10&&x.lines[0].mark==='M1');return o.lines.map(l=>(o.makeups.find(m=>m.id===l.makeupId)||{}).code).join('');}),'BBBAAAAAAA');
 
+ /* Владелец, 30.10.2026: «шифт клик по полосе (линии)» — и по номеру #.
+    Настоящая мышь с Shift: номер, пустое место строки, ячейка-кнопка, × и
+    строка в батче (её ячейки inert); поле Qty остаётся полем. */
+ await require('./optimization-fixture')(t.p);await setup();
+ eq('Shift по строке: заказ на 12 строк',await run(()=>{mrOrder(12,{lock:[9]});return soDraft.lines.length;}),12);
+ const row=n=>t.p.locator('.sales-lines-table tbody tr[data-metrics-line-id]').nth(n-1);
+ await row(2).locator('td.line-check input').click();
+ await row(6).locator('td.line-num').click({modifiers:['Shift']});
+ const byNum=await run(()=>[mrSel().join(),document.querySelector('[data-mk-field="from"]').value+'-'+document.querySelector('[data-mk-field="to"]').value]);
+ await row(10).locator('td.line-metric[data-metric="materials"]').click({modifiers:['Shift']});
+ const byRow=await run(()=>mrSel().join());
+ await row(11).locator('.line-delete').click({modifiers:['Shift']});
+ const byDelete=await run(()=>[mrSel().join(),soDraft.lines.length,!!document.querySelector('.metric-modal')]);
+ await row(4).locator('td.line-check input').click();
+ await row(7).locator('td.line-num').click({modifiers:['Shift']});
+ const off=await run(()=>mrSel().join());
+ await run(()=>salesBulkClear());await row(8).locator('td.line-check input').click();
+ await row(9).locator('td.line-num').click({modifiers:['Shift'],force:true});
+ const locked=await run(()=>[mrSel().join(),mrLive().text]);
+ await row(3).locator('.line-mark').click({modifiers:['Shift']});await t.p.keyboard.type('X');
+ await row(4).locator('.line-qty').click();await t.p.keyboard.press('Backspace');await t.p.keyboard.type('7');
+ const field=await run(()=>[mrSel().join(),soDraft.lines[2].mark.includes('X'),soDraft.lines[3].qty]);
+ eq('Shift+клик по # и по самой строке: 2 флажком, Shift+# 6 — 2–6 и поля 2-6; Shift по ячейке Materials строки 10 — до 10, окно не открылось; Shift по × строки 11 — выделена, не удалена; снять 4 флажком, Shift+# 7 — снято 4–7; строка 9 в батче — Shift+# выделяет, «1 locked»; Shift+клик в Mark — поле редактируется, выбор не меняется; обычный клик в Qty — ввод',
+  {byNum,byRow,byDelete,off,locked,field},
+  {byNum:['2,3,4,5,6','2-6'],byRow:'2,3,4,5,6,7,8,9,10',byDelete:['2,3,4,5,6,7,8,9,10,11',12,false],off:'2,3,8,9,10,11',
+   locked:['8,9','2 selected · 1 locked'],field:['8,9',true,7]});
+ await run(()=>salesDraftDrop(true));
+
+ /* Владелец, 30.10.2026: «какой смысл от окна Makeup, если сейчас только 1
+    мейкап, она ещё и визуально большая». */
+ eq('Один Makeup: полосы нет; выбрали строку — узкая полоса «1 selected» и Edgework, без полей Lines и Apply; второй Makeup — полоса с полями; высота полосы ≤ 40 px',await run(()=>{
+  const id=oqOrder(oqCustomer());tab='sales';salesOrderEdit(id);render();const none=!document.querySelector('[data-mk-bar]');
+  mrClick(1);const bar=document.querySelector('[data-mk-bar]'),one={count:bar.querySelector('[data-mk-live]').textContent,edge:!!bar.querySelector('.ss-bulk'),fields:!!bar.querySelector('[data-mk-field]'),apply:!!bar.querySelector('[data-mk-apply]')};
+  salesBulkClear();const b=JSON.parse(JSON.stringify(soDraft.makeups[0]));b.id=salesUid('MU');b.code='B';soDraft.makeups.push(b);render();
+  const two=document.querySelector('[data-mk-bar]'),h=Math.round(two.getBoundingClientRect().height),r={none,one,two:!!two.querySelector('[data-mk-field]'),low:h<=40};salesDraftDrop(true);return r;
+ }),{none:true,one:{count:'1 selected',edge:true,fields:false,apply:false},two:true,low:true});
+
  eq('makeup range: без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

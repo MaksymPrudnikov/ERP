@@ -123,20 +123,30 @@ function surroundSnap(key,order,live){
  if(salesBookRec)salesBookRec[key]=v==null?null:JSON.stringify(v);
  return v;
 }
+/* Пустой вес и пустые нормы снимка берутся из Data, когда их внесли (пункт
+   14, как salesWeightRate): незнание не замораживается. Архив на просмотре —
+   как записан. */
+function surroundLiveFill(order){return !(typeof archiveVisit!=='undefined'&&archiveVisit&&order&&archiveVisit.ids.has(order.id));}
 function surroundSpacerCard(sp,order){
  if(!sp)return null;
- return surroundSnap('snap:spacer:'+sp.id,order,()=>({recipeId:sp.recipeId||'',weightG:sp.weightG==null?null:sp.weightG,weightPer:sp.weightPer||'ft2',measured:sp.weightMeasured===true,mm:spacerThicknessMm(sp)}));
+ const card=surroundSnap('snap:spacer:'+sp.id,order,()=>({recipeId:sp.recipeId||'',weightG:sp.weightG==null?null:sp.weightG,weightPer:sp.weightPer||'ft2',measured:sp.weightMeasured===true,mm:spacerThicknessMm(sp)}));
+ if(card&&card.weightG==null&&sp.weightG!=null&&surroundLiveFill(order))return Object.assign({},card,{weightG:sp.weightG,weightPer:sp.weightPer||'ft2',measured:sp.weightMeasured===true});
+ return card;
 }
 function surroundRecipeOf(sp,order){
  const card=surroundSpacerCard(sp,order);if(!card||!card.recipeId)return null;
- return surroundSnap('snap:recipe:'+card.recipeId,order,()=>{const r=surroundRecipeById(card.recipeId);return r?JSON.parse(JSON.stringify(r)):null;});
+ const r=surroundSnap('snap:recipe:'+card.recipeId,order,()=>{const r=surroundRecipeById(card.recipeId);return r?JSON.parse(JSON.stringify(r)):null;});
+ const live=r&&r.rows.some(x=>x.amount==null)&&surroundLiveFill(order)?surroundRecipeById(card.recipeId):null;
+ if(!live)return r;
+ return Object.assign({},r,{rows:r.rows.map(x=>{const y=x.amount==null&&live.rows.find(y=>y.id===x.id&&y.part===x.part&&y.per===x.per);return y&&y.amount!=null?Object.assign({},x,{amount:y.amount}):x;})});
 }
 /* PIB добавляет к толщине пакета по pibPerSideMm с каждой стороны рамки. */
 function surroundPibMm(sp,order){const r=surroundRecipeOf(sp,order);return r&&r.pibPerSideMm!=null?2*r.pibPerSideMm:null;}
 function surroundGasDensity(gas,order){
  if(!gas)return null;
  const k='weight:gas:'+gas.id,b=order&&order.priceBook;
- const v=b&&Object.prototype.hasOwnProperty.call(b,k)?b[k]:(gas.densityKgM3==null?null:gas.densityKgM3);
+ const live=gas.densityKgM3==null?null:gas.densityKgM3,kept=b&&Object.prototype.hasOwnProperty.call(b,k);
+ const v=kept&&(b[k]!=null||!surroundLiveFill(order))?b[k]:live;
  if(salesBookRec)salesBookRec[k]=v==null?null:v;
  return v;
 }

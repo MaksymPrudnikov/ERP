@@ -268,36 +268,63 @@ function salesOrderCommercialAdjustments(order){
 /* Нормы веса замораживаются в заказе на Save, как цены (priceBook, ключ
    weight:…): новая норма в Master Data не меняет вес сохранённого заказа.
    Заказ — свой, не soDraft: наклейки и отгрузка считают вес чужого заказа. */
+/* Пустая норма не замораживается (пункт 14, владелец 29.10.2026: «то, что мы
+   не знаем, будет подсвечено — что нужно исправить и внести данные»):
+   внесли норму в Data — сохранённый заказ берёт её; заполненная норма заказа
+   остаётся своей. Заказ из архива на просмотре — как записан. */
 function salesWeightRate(key,order){
- const k='weight:'+key,b=order&&order.priceBook;
- const v=b&&Object.prototype.hasOwnProperty.call(b,k)?b[k]:(()=>{const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;})();
+ const k='weight:'+key,b=order&&order.priceBook,live=()=>{const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;};
+ const kept=b&&Object.prototype.hasOwnProperty.call(b,k),archived=typeof archiveVisit!=='undefined'&&archiveVisit&&order&&archiveVisit.ids.has(order.id);
+ const v=kept&&(b[k]!=null||archived)?b[k]:live();
  if(salesBookRec)salesBookRec[k]=v==null?null:v;
  return v;
 }
 /* productionPlan — фактические лайты собранного юнита (частичный Recut).
    Без него коммерческие документы по-прежнему считают геометрию заказа. */
+/* Пробел в весе (пункт 14, владелец 29.10.2026): «то, что мы не знаем, будет
+   подсвечено у нас — что нужно исправить и внести данные». what — чего нет,
+   where — где внести, part — слово для клиента («Interlayer weight not
+   included»). key — один пробел на весь заказ, сколько бы строк его ни имели. */
+function salesWeightGap(key,what,where,part,go){return {key,what,where,part,go:go||null};}
+const SALES_WEIGHT_WHERE={glass:'Data → Setup → Weights',card:'Data → Materials → Glass',film:'Data → Materials → Lamination',spacer:'Data → Materials → IGU assembly → Spacers',gas:'Data → Materials → IGU assembly → Gas',recipe:'Data → Materials → IGU assembly → Surround recipes',norm:'Order line → Weight → Edit weight norms',extra:'Order line → Weight → Additional components',line:'Order Lines',shape:'Shape of the line'};
+/* Геометрия лайтов для веса: площадь ft², периметр м и отпечаток контура
+   (одинаковые лайты — рамка по любому). Записывается в строку при Save
+   (line.measure.lites, sales/line-measure) — владелец, 30.10.2026: «если
+   данные с фигуры уже получены в ячейку веса, то зачем её пересчитывать!». */
+function salesWeightLiteGeo(plan){
+ if(!plan||!plan.valid)return [];
+ return (plan.lites||[]).map(l=>({index:l.index,area:(l.result&&l.result.valid?l.result.area:Math.abs(fabSignedArea(l.finishedPoints)))/144,perimeter:fabPolylineLength(l.finishedPoints,true)*.0254,contour:salesMeasureHash(JSON.stringify(l.finishedPoints))}));
+}
+function salesLineLiteGeo(line,order){
+ const shape=salesLineGeometryShape(line),m=salesMakeupById(order,line.makeupId);
+ return salesWeightLiteGeo(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
+}
 function salesLineWeight(line,order,productionPlan){
  order=order||soDraft;
  const rows=[],m=salesMakeupById(order,line.makeupId),shape=salesLineGeometryShape(line),areas=salesLineAreas(line,order);
- const plan=productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
- const add=(label,kg,note)=>rows.push({label:label,kg:Number.isFinite(kg)&&kg>=0?kg:null,note:note||''});
- const norm=(key,label,basis,unit,note)=>{const rate=salesWeightRate(key,order);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||''});};
- if(!m||!areas.valid)return {rows:[],kg:null,lineKg:null,knownKg:0,complete:false,missing:1};
+ const kept=!productionPlan&&typeof salesMeasureFor==='function'?salesMeasureFor(line,order):null;
+ const lites=kept&&kept.lites?kept.lites:salesWeightLiteGeo(productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null));
+ const add=(label,kg,note,gap)=>rows.push({label:label,kg:Number.isFinite(kg)&&kg>=0?kg:null,note:note||'',gap:gap||null});
+ const norm=(key,label,basis,unit,note,gap)=>{const rate=salesWeightRate(key,order);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||'',gap:basis==null?salesWeightGap('shape','Size of the glass',SALES_WEIGHT_WHERE.shape,'glass'):gap});};
+ if(!m||!areas.valid){
+  const gap=!m?salesWeightGap('line-makeup','Makeup',SALES_WEIGHT_WHERE.line,'line'):salesWeightGap('line-size','Size',SALES_WEIGHT_WHERE.line,'line');
+  return {rows:[],kg:null,lineKg:null,knownKg:0,complete:false,estimated:false,missing:1,gaps:[gap]};
+ }
  const geometry=(i)=>{
-  const lite=plan&&plan.valid&&(plan.lites||[]).find(l=>l.index===i);
-  if(!lite)return {area:null,perimeter:null};
-  const area=lite.result&&lite.result.valid?lite.result.area:Math.abs(fabSignedArea(lite.finishedPoints));
-  return {area:area/144,perimeter:fabPolylineLength(lite.finishedPoints,true)*.0254};
+  const lite=lites.find(l=>l.index===i);
+  return lite?{area:lite.area,perimeter:lite.perimeter,contour:lite.contour}:{area:null,perimeter:null,contour:null};
  };
  const glass=(ply,label,geo)=>{
   const product=glassProductById(ply&&ply.glassProductId),t=glassEffectiveThicknessMm(product);
   const mm=t.mm||+(ply&&ply.thicknessMm)||0;
   const d=glassDensityKgM3(order);
-  add(label+(product?' · '+product.code:''),geo.area!=null&&mm>0&&d?glassLayerWeightKg(mm,d,geo.area):null,!d?'No glass density in Weight norms':t.exact?'':'Nominal thickness estimate');
+  const gap=geo.area==null?salesWeightGap('shape','Size of the glass',SALES_WEIGHT_WHERE.shape,'glass'):!(mm>0)?salesWeightGap('thickness:'+(product?product.id:''),(product?glassShortName(product):'Glass')+' thickness',SALES_WEIGHT_WHERE.card,'glass',product?{t:'glassProduct',id:product.id}:null):!d?salesWeightGap('glass-density','Glass density',SALES_WEIGHT_WHERE.glass,'glass',{setup:true}):null;
+  add(label+(product?' · '+product.code:''),geo.area!=null&&mm>0&&d?glassLayerWeightKg(mm,d,geo.area):null,!d?'No glass density in Weight norms':t.exact?'':'Nominal thickness estimate',gap);
+  if(!t.exact&&mm>0)rows[rows.length-1].estimated=true;
  };
  const surface=(ply,label,geo)=>{
-  if(ply.category==='spandrel')norm('spandrel:'+ply.spandrel.productId,label+' · Spandrel',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied coating norm per finished area');
-  if(ply.visionType==='frit'||ply.frit&&ply.frit.enabled)norm('frit:'+ply.frit.productId+':'+(ply.frit.pattern||'custom'),label+' · Frit',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied pattern norm per finished area');
+  if(ply.category==='spandrel')norm('spandrel:'+ply.spandrel.productId,label+' · Spandrel',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied coating norm per finished area',salesWeightGap('weight:spandrel:'+ply.spandrel.productId,'Spandrel weight norm',SALES_WEIGHT_WHERE.norm,'spandrel coating',{line:true}));
+  if(ply.visionType==='frit'||ply.frit&&ply.frit.enabled)norm('frit:'+ply.frit.productId+':'+(ply.frit.pattern||'custom'),label+' · Frit',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied pattern norm per finished area',salesWeightGap('weight:frit:'+ply.frit.productId+':'+(ply.frit.pattern||'custom'),'Frit weight norm',SALES_WEIGHT_WHERE.norm,'frit',{line:true}));
  };
  (m.panes||[]).forEach((p,i)=>{
   const g=geometry(i),label='Lite '+(i+1);
@@ -306,7 +333,7 @@ function salesLineWeight(line,order,productionPlan){
    [lam.outer,lam.inner].forEach((ply,j)=>{if(ply){glass(ply,label+(j?'b':'a'),g);surface(ply,label+(j?'b':'a'),g);}});
    (lam.interlayers||[]).forEach(f=>{
     const prod=mdById('interlayerProduct',f.productId);
-    norm('film:'+f.productId,label+' · '+(prod?prod.name:'Interlayer'),g.area==null?null:g.area*GLASS_M2_PER_FT2*(f.thicknessMm/1000),'kg/m³','Density × actual interlayer volume');
+    norm('film:'+f.productId,label+' · '+(prod?prod.name:'Interlayer'),g.area==null?null:g.area*GLASS_M2_PER_FT2*(f.thicknessMm/1000),'kg/m³','Density × actual interlayer volume',salesWeightGap('film:'+f.productId,(prod?prod.name:'Interlayer')+' density',SALES_WEIGHT_WHERE.film+(prod?' → '+prod.name:''),'interlayer',prod?{t:'interlayerProduct',id:prod.id}:null));
    });
   }else{glass(p,label,g);surface(p,label,g);}
  });
@@ -314,22 +341,62 @@ function salesLineWeight(line,order,productionPlan){
     пакета — всегда по меньшему лайту, иначе юнит не загерметизировать
     (владелец, 23.10.2026); размеры лайтов — из Shape designer. */
  (m.cavities||[]).forEach((c,i)=>{
-  const a=geometry(i),b=geometry(i+1),same=plan&&plan.valid&&plan.lites[i]&&plan.lites[i+1]&&JSON.stringify(plan.lites[i].finishedPoints)===JSON.stringify(plan.lites[i+1].finishedPoints);
+  const a=geometry(i),b=geometry(i+1),same=!!a.contour&&a.contour===b.contour;
   const pick=same?a:a.area!=null&&b.area!=null?(b.area<a.area?b:a):null,suffix=' · Cavity '+(i+1);
   const geo=pick&&pick.area!=null?{areaFt2:pick.area,perimeterM:pick.perimeter}:null;
-  const got=surroundCavityParts(c,geo,order);
-  if(!mdById('spacerVariant',c.spacerVariantId))add('Spacer'+suffix,null,'Spacer not found');
-  else if(!got.recipe)add('Surround'+suffix,null,'No recipe in the spacer card');
+  const got=surroundCavityParts(c,geo,order),sp=mdById('spacerVariant',c.spacerVariantId);
+  if(!sp)add('Spacer'+suffix,null,'Spacer not found',salesWeightGap('spacer-missing','Spacer of the Makeup',SALES_WEIGHT_WHERE.line,'spacer'));
+  else if(!got.recipe)add('Surround'+suffix,null,'No recipe in the spacer card',salesWeightGap('recipe:'+sp.id,sp.name+' recipe',SALES_WEIGHT_WHERE.spacer,'spacer and sealant',{t:'spacerVariant',id:sp.id}));
   const basis=geo?'perimeter '+geo.perimeterM.toFixed(2)+' m · area '+geo.areaFt2.toFixed(2)+' ft²':'';
-  got.parts.forEach(x=>rows.push({label:x.label+suffix,kg:x.kg,usedKg:x.usedKg,wastePct:x.wastePct,basisText:basis,table:x.table,itemId:x.item?x.item.id:'',perimeterM:geo?geo.perimeterM:null,note:x.note+(x.wastePct?' · used with '+x.wastePct+'% waste: '+(x.usedKg==null?'—':x.usedKg.toFixed(3)+' kg'):'')}));
+  const gapOf=x=>!geo?salesWeightGap('shape','Size of the glass',SALES_WEIGHT_WHERE.shape,'glass')
+   :x.part==='spacer'?salesWeightGap('spacer-weight:'+sp.id,sp.name+' weight',SALES_WEIGHT_WHERE.spacer,'spacer',{t:'spacerVariant',id:sp.id})
+   :x.part==='gas'?salesWeightGap('gas:'+(x.item?x.item.id:''),(x.item?x.item.name:'Gas')+' density',SALES_WEIGHT_WHERE.gas,'gas',x.item?{t:'gasProduct',id:x.item.id}:null)
+   :salesWeightGap('recipe-row:'+(got.recipe?got.recipe.id:'')+':'+x.rowId,(got.recipe?got.recipe.name+' · ':'')+x.label+' norm',SALES_WEIGHT_WHERE.recipe,String(x.label).toLowerCase(),got.recipe?{t:'surroundRecipe',id:got.recipe.id}:null);
+  got.parts.forEach(x=>rows.push({label:x.label+suffix,kg:x.kg,usedKg:x.usedKg,wastePct:x.wastePct,basisText:basis,table:x.table,itemId:x.item?x.item.id:'',perimeterM:geo?geo.perimeterM:null,note:x.note+(x.wastePct?' · used with '+x.wastePct+'% waste: '+(x.usedKg==null?'—':x.usedKg.toFixed(3)+' kg'):''),gap:x.kg==null?gapOf(x):null}));
  });
  const muntin=shape&&shape.muntin;
  if(muntin&&muntin.enabled&&(m.cavities||[]).length){
   const got=shapeMuntinGeoFor(shape),prod=muntinProduct(muntin.productId);
-  norm('muntin:'+muntin.productId,'Muntin · '+prod.label,got?got.result.totalLengthIn*.0254:null,'kg/m','Calculated bar cut length');
-  norm('muntin-connectors:'+muntin.productId,'Muntin connectors',1,'kg/unit','Total connectors per unit');
+  norm('muntin:'+muntin.productId,'Muntin · '+prod.label,got?got.result.totalLengthIn*.0254:null,'kg/m','Calculated bar cut length',salesWeightGap('weight:muntin:'+muntin.productId,'Muntin weight norm',SALES_WEIGHT_WHERE.norm,'muntins',{line:true}));
+  norm('muntin-connectors:'+muntin.productId,'Muntin connectors',1,'kg/unit','Total connectors per unit',salesWeightGap('weight:muntin-connectors:'+muntin.productId,'Muntin connectors norm',SALES_WEIGHT_WHERE.norm,'muntins',{line:true}));
  }
- (line.weightExtras||[]).forEach(x=>add(x.label||'Additional component',mdNonNeg(x.kg),'Per unit'));
+ (line.weightExtras||[]).forEach(x=>add(x.label||'Additional component',mdNonNeg(x.kg),'Per unit',salesWeightGap('extra:'+(x.label||''),(x.label||'Additional component')+' weight',SALES_WEIGHT_WHERE.extra,x.label?String(x.label).toLowerCase():'additional components',{line:true})));
  const missing=rows.filter(r=>r.kg==null).length,known=rows.reduce((s,r)=>s+(r.kg||0),0),complete=rows.length>0&&missing===0;
- return {rows:rows,kg:complete?known:null,lineKg:complete?known*salesPositiveInt(line.qty,1):null,knownKg:known,complete:complete,missing:missing};
+ const gaps=[];rows.forEach(r=>{if(r.kg==null&&r.gap&&!gaps.some(g=>g.key===r.gap.key))gaps.push(r.gap);});
+ return {rows:rows,kg:complete?known:null,lineKg:complete?known*salesPositiveInt(line.qty,1):null,knownKg:known,complete:complete,estimated:rows.some(r=>r.estimated&&r.kg!=null),missing:missing,gaps:gaps};
 }
+/* Вес заказа (пункт 14): известное складывается всегда — снизу вверх,
+   компонент → юнит → строка × Qty → заказ, до округления. Неизвестное не ноль:
+   пробелы с номерами строк. kg — null, только если посчитать нечего; complete —
+   все нормы есть; estimated — где-то номинальная толщина вместо фактической.
+   Qty — заказанное (отгрузки, сканы и Recut вес заказа не меняют). */
+function salesOrderWeight(order){
+ order=order||soDraft;
+ if(!order)return {kg:null,complete:false,estimated:false,partial:false,gaps:[]};
+ const lines=order&&order.lines||[],gaps=new Map();let kg=0,counted=0,estimated=false,complete=lines.length>0;
+ lines.forEach((l,i)=>{
+  const w=salesLineWeight(l,order);
+  if(w.complete||w.knownKg>0){kg+=w.knownKg*salesPositiveInt(l.qty,1);counted++;}
+  if(w.estimated)estimated=true;
+  if(w.complete)return;
+  complete=false;
+  (w.gaps.length?w.gaps:[salesWeightGap('unknown','Weight data',SALES_WEIGHT_WHERE.norm,'components')]).forEach(g=>{let x=gaps.get(g.key);if(!x){x=Object.assign({},g,{lines:[]});gaps.set(g.key,x);}x.lines.push(i+1);});
+ });
+ return {kg:counted?kg:null,complete:complete,estimated:estimated,partial:!complete&&counted>0,gaps:[...gaps.values()]};
+}
+/* Чего нет в весе — клиенту, без внутренних подсказок: «Interlayer weight not
+   included», строка без размера — «line 3». */
+function salesWeightMissingText(w){
+ if(!w||w.complete)return '';
+ const lines=[],parts=[];
+ w.gaps.forEach(g=>{if(g.part==='line')g.lines.forEach(n=>{if(!lines.includes(n))lines.push(n);});else if(!parts.includes(g.part))parts.push(g.part);});
+ const list=parts.concat(lines.length?[(lines.length===1?'line ':'lines ')+lines.sort((a,b)=>a-b).join(', ')]:[]);
+ const t=list.join(', ');return t?t.charAt(0).toUpperCase()+t.slice(1)+' weight not included':'';
+}
+/* Подсказка у нас: чего нет, в каких строках и где внести. */
+function salesWeightTip(w){
+ if(!w||w.complete)return '';
+ return [w.missingText||salesWeightMissingText(w)].concat((w.gaps||[]).map(g=>g.what+' → '+g.where+(g.lines&&g.lines.length?' (line'+(g.lines.length>1?'s ':' ')+g.lines.join(', ')+')':''))).filter(Boolean).join('\n');
+}
+/* Число веса: мелкое — с сотыми (0.28 kg не «0»), остальное — целыми. */
+function salesKgText(kg){return kg==null?'—':kg<10?kg.toFixed(2):Math.round(kg).toLocaleString('en-US');}
