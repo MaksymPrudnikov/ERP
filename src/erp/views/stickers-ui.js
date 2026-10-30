@@ -43,6 +43,7 @@ function stkPages(jobs,size,override){
 function stkPrintHost(){let h=document.getElementById('stkPrintHost');if(!h){h=document.createElement('div');h.id='stkPrintHost';document.body.appendChild(h);}return h;}
 function stkPrintPrepare(pages){
  if(!pages.length)return 0;
+ if(typeof printOthersCleanup==='function')printOthersCleanup();
  const win=pages[0].w/72,hin=pages[0].h/72;
  let st=document.getElementById('stkPageStyle');if(!st){st=document.createElement('style');st.id='stkPageStyle';document.head.appendChild(st);}
  st.textContent='@page stk{size:'+win+'in '+hin+'in;margin:0}';
@@ -104,40 +105,49 @@ function stkDialogRefresh(){
 }
 /* Порядок печати: «по порядку» — заказ, позиция, изделие, лайт; «по листу» —
    как стёкла лежат на листах раскроя: «будем печатать из нашей оптимизации». */
+/* Номера листов свои у каждого стекла батча (6CLEAR 1–3, 6E272 1–2): лист —
+   стекло и номер (stkSheetKey), порядок — стекло в порядке плана, лист,
+   место на листе. Раньше «лист 1» двух стёкол печатался вперемешку. */
+function stkSheetKey(glass,no){return glass+':'+no;}
 function stkBatchJobs(b,pieces,order){
  const pick=pieces&&pieces.length?new Set(pieces):null,jobs=[];
  const sheets=order==='sheet'&&typeof cutPlanIndex==='function'?cutPlanIndex(b.number):null;
+ const plan=sheets&&typeof cutPlanFor==='function'?cutPlanFor(b.number):null,group=glass=>plan?Math.max(0,plan.groups.findIndex(g=>g.glass===glass)):0;
  glassBatchActiveItems(b).forEach(item=>{
   if(pick&&!pick.has(item.piece))return;
   const part=b.parts[item.part],o=salesRecord(part.orderId),l=o&&(o.lines||[]).find(x=>x.id===part.lineId),cs=o&&l?glassBatchComponents(o,l):[],c=cs.find(x=>x.key===part.key);
   if(!c)return;
   const at=sheets&&sheets.get(item.piece);
-  jobs.push({type:'production',o,l,c,unit:item.unit,piece:item.piece,sheet:at?at.sheet:0,
+  jobs.push({type:'production',o,l,c,unit:item.unit,piece:item.piece,sheet:at?at.sheet:0,glass:at?at.glass:'',sheetKey:at?stkSheetKey(at.glass,at.sheet):'',group:at?group(at.glass):0,
    sort:at?[0,at.sheet,at.idx,0]:[+String(o.businessNumber).replace(/\D/g,'')||0,o.lines.indexOf(l),typeof item.unit==='string'?1e6+(+item.unit.split('.')[1]||0):item.unit,cs.indexOf(c)]});
  });
  /* По листу: после стёкол листа — его куски в стоке. Стикер стока не
     печатается кнопкой «в сток» — «он будет печататься, следуя листам»
     (владелец, 18 сентября 2026). */
- const plan=sheets&&!pick&&typeof cutPlanFor==='function'?cutPlanFor(b.number):null;
- if(plan)plan.groups.forEach(g=>g.sheets.forEach(s=>(s.stock||[]).forEach((x,i)=>{const rec=typeof stockOffcutFind==='function'&&stockOffcutFind(x.id);if(rec&&rec.status==='stock')jobs.push({type:'stock',rec,sheet:s.no,sort:[0,s.no,1e6+i,0]});})));
- return jobs.sort((a,b)=>{for(let i=0;i<4;i++)if(a.sort[i]!==b.sort[i])return a.sort[i]-b.sort[i];return 0;});
+ if(plan&&!pick)plan.groups.forEach((g,k)=>g.sheets.forEach(s=>(s.stock||[]).forEach((x,i)=>{const rec=typeof stockOffcutFind==='function'&&stockOffcutFind(x.id);if(rec&&rec.status==='stock')jobs.push({type:'stock',rec,sheet:s.no,glass:g.glass,sheetKey:stkSheetKey(g.glass,s.no),group:k,sort:[0,s.no,1e6+i,0]});})));
+ return jobs.sort((a,b)=>a.sort[0]-b.sort[0]||a.group-b.group||a.sort[1]-b.sort[1]||a.sort[2]-b.sort[2]||a.sort[3]-b.sort[3]);
 }
 /* Окно печати батча (владелец, 4 октября 2026): «весь батч, определённый
    оптимизированный лист или определённое выбранное стекло». Раскрой собран —
    стёкла его листов в порядке листа, куски в сток — за стёклами своего листа;
    стёкла не на листе не печатаются. Не собран — все стёкла по порядку. */
 function stkJobKey(j){return j.type==='stock'?j.rec.id:j.piece;}
+/* d.sheetKey — ровно один лист (This, лист станции CUT); иначе поле «2, 5-7»
+   — эти номера у каждого стекла, пусто — все листы. */
 function stkBatchView(d){
  const b=glassBatchFind(d.batchNo);if(!b)return null;
  const laid=typeof cutPlanLaid==='function'?cutPlanLaid(b.number):null,all=stkBatchJobs(b,null,laid?'sheet':'in');
- const nos=laid?[...new Set(laid.groups.flatMap(g=>g.sheets.map(s=>s.no)))].sort((x,y)=>x-y):[],max=nos.length?nos[nos.length-1]:0;
- const want=laid?stkParseUnits(d.sheets,max):null,error=laid&&!want?'Sheets 1 to '+max:'';
- const pick=new Set(want||[]),scope=laid?all.filter(j=>j.sheet&&pick.has(j.sheet)):all;
+ const keys=laid?laid.groups.flatMap(g=>g.sheets.map(s=>stkSheetKey(g.glass,s.no))):[],max=laid?Math.max(0,...laid.groups.flatMap(g=>g.sheets.map(s=>s.no))):0;
+ const nums=laid&&!d.sheetKey?stkParseUnits(d.sheets,max):null,error=laid&&!d.sheetKey&&!nums?'Sheets 1 to '+max:'';
+ const pick=new Set(d.sheetKey?keys.filter(k=>k===d.sheetKey):keys.filter(k=>nums&&nums.includes(+k.slice(k.lastIndexOf(':')+1))));
+ const scope=laid?all.filter(j=>j.sheetKey&&pick.has(j.sheetKey)):all;
  const selected=scope.filter(j=>!d.off.has(stkJobKey(j)));
- return {b,laid,all,scope,selected,error,max,
+ return {b,laid,all,scope,selected,error,max,keys,multi:!!laid&&laid.groups.length>1,
   away:laid?all.filter(j=>!j.sheet).length:0,
-  sheets:[...new Set(selected.map(j=>j.sheet))].filter(Boolean)};
+  sheets:[...new Set(selected.map(j=>j.sheetKey))].filter(Boolean)};
 }
+/* Подпись листа: у батча из нескольких стёкол — со стеклом. */
+function stkSheetLabel(glass,no,multi){return (multi?glassCodeLabel(glass)+' · ':'')+'Sheet '+no;}
 /* Перерисовывается только окно, прокрутка списка сохраняется: галочка в
    конце длинного батча не отбрасывает список к началу. */
 function stkBatchRender(){
@@ -145,10 +155,11 @@ function stkBatchRender(){
  if(html)back.outerHTML=html;else render();
  const next=document.querySelector('[data-stk-batch-list]');if(next)next.scrollTop=top;
 }
-function stkBatchSheets(v){const d=stkDialog;if(!d)return;d.sheets=String(v==null?'':v).trim();d.warning='';d.error='';d.notice='';stkBatchRender();}
+function stkBatchSheets(v){const d=stkDialog;if(!d)return;d.sheets=String(v==null?'':v).trim();d.sheetKey='';d.warning='';d.error='';d.notice='';stkBatchRender();}
+function stkBatchThis(key){const d=stkDialog;if(!d)return;d.sheets='';d.sheetKey=String(key||'');d.warning='';d.error='';d.notice='';stkBatchRender();}
 function stkBatchCheck(kind,v,on){
  const d=stkDialog,x=d&&stkBatchView(d);if(!x)return;
- const keys=kind==='all'?x.scope.map(stkJobKey):kind==='sheet'?x.scope.filter(j=>j.sheet===+v).map(stkJobKey):[String(v)];
+ const keys=kind==='all'?x.scope.map(stkJobKey):kind==='sheet'?x.scope.filter(j=>j.sheetKey===String(v)).map(stkJobKey):[String(v)];
  keys.forEach(k=>{if(on)d.off.delete(k);else d.off.add(k);});d.warning='';d.error='';d.notice='';stkBatchRender();
 }
 function stkLogPrinted(jobs,what,batchNo){
@@ -266,9 +277,10 @@ function stkBatchDialogHTML(d,seg){
  const x=stkBatchView(d);if(!x){stkDialog=null;return '';}
  const b=x.b,glass=[...new Set(b.parts.map(p=>p.snapshot.glass))].map(glassCodeLabel).join(' / ');
  const plural=(n,w)=>n+' '+w+(n===1?'':'s'),glassN=x.selected.filter(j=>j.type!=='stock').length,stockN=x.selected.length-glassN;
- const sub=[glass,x.all.filter(j=>j.type!=='stock').length+' glass',x.laid?plural(x.max,'sheet'):'Not built · in order'].join(' · ');
- const cur=typeof cutUi!=='undefined'&&cutUi&&cutUi.batch===b.number&&+cutUi.sheet||1;
- const sheets=x.laid?`<div><div class="ncr-label">SHEETS</div><div class="stk-sheets"><div class="stk-seg"><button type="button" class="${d.sheets===''?'on':''}" data-stk-sheets-all onclick="stkBatchSheets('')">All</button><button type="button" class="${d.sheets===String(cur)?'on':''}" data-stk-sheets-this onclick="stkBatchSheets('${cur}')">This · ${cur}</button></div><input type="text" data-stk-sheets value="${esc(d.sheets)}" placeholder="1-${x.max}" aria-label="Sheets" onchange="stkBatchSheets(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();stkBatchSheets(this.value);}"></div></div>`:'';
+ const sub=[glass,x.all.filter(j=>j.type!=='stock').length+' glass',x.laid?plural(x.keys.length,'sheet'):'Not built · in order'].join(' · ');
+ /* This — лист, открытый в Optimization: стекло и номер. */
+ const ui=typeof cutUi!=='undefined'&&cutUi&&cutUi.batch===b.number?stkSheetKey(cutUi.glass,+cutUi.sheet||1):'',cur=x.keys.includes(ui)?ui:x.keys[0]||'',curAt=cur.lastIndexOf(':');
+ const sheets=x.laid?`<div><div class="ncr-label">SHEETS</div><div class="stk-sheets"><div class="stk-seg"><button type="button" class="${d.sheets===''&&!d.sheetKey?'on':''}" data-stk-sheets-all onclick="stkBatchSheets('')">All</button><button type="button" class="${d.sheetKey&&d.sheetKey===cur?'on':''}" data-stk-sheets-this onclick="stkBatchThis('${esc(cur)}')">This · ${esc((x.multi?glassCodeLabel(cur.slice(0,curAt))+' ':'')+cur.slice(curAt+1))}</button></div><input type="text" data-stk-sheets value="${esc(d.sheets)}" placeholder="1-${x.max}" aria-label="Sheets" onchange="stkBatchSheets(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();stkBatchSheets(this.value);}"></div></div>`:'';
  /* Стекло Recut со своим чертежом — его форма и размер (erp/quality/recut). */
  const lines=new Map(),info=j=>{const g=glassRecutLine(j.o,j.l,j.unit),k=j.o.id+'|'+j.l.id+'|'+(g===j.l?'':String(j.unit).split('.')[0]);if(!lines.has(k))lines.set(k,{g,shape:!salesShapeIsLineRect(salesLineGeometryShape(g)),many:glassBatchComponents(j.o,j.l).length>1});return lines.get(k);};
  const row=j=>{
@@ -277,10 +289,10 @@ function stkBatchDialogHTML(d,seg){
   const f=info(j),li=j.o.lines.indexOf(j.l)+1;
   return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" onchange="stkBatchCheck('item','${esc(k)}',this.checked)"></td><td class="gb-piece">${esc(k)}</td><td>${esc(j.o.businessNumber||'')} / ${li}${f.many?' · Lite '+esc(j.c.lite):''}${j.l.mark?' · '+esc(j.l.mark):''}</td><td>${esc(salesCustomerDisplay(j.o.customerId))}</td><td class="nowrap">${esc(dimIn16(f.g.width16/16))} × ${esc(dimIn16(f.g.height16/16))}</td><td>${f.shape?'<span class="pill">shape</span>':''}</td></tr>`;
  };
- const groups=[];x.scope.forEach(j=>{const g=groups[groups.length-1];if(g&&g.no===j.sheet)g.jobs.push(j);else groups.push({no:j.sheet,jobs:[j]});});
+ const groups=[];x.scope.forEach(j=>{const g=groups[groups.length-1];if(g&&g.key===j.sheetKey)g.jobs.push(j);else groups.push({key:j.sheetKey,no:j.sheet,glass:j.glass,jobs:[j]});});
  const body=groups.map(g=>{
   const on=g.jobs.filter(j=>!d.off.has(stkJobKey(j))).length,n=g.jobs.filter(j=>j.type!=='stock').length,st=g.jobs.length-n;
-  const head=x.laid?`<tr class="stk-sheet-row" data-stk-sheet="${g.no}"><td><input type="checkbox" data-stk-sheet-check ${on===g.jobs.length?'checked':''} aria-label="Print sheet ${g.no}" onchange="stkBatchCheck('sheet',${g.no},this.checked)"></td><td colspan="5"><b>Sheet ${g.no}</b> · ${n+' glass'}${st?' · '+st+' stock':''}</td></tr>`:'';
+  const head=x.laid?`<tr class="stk-sheet-row" data-stk-sheet="${esc(g.key)}"><td><input type="checkbox" data-stk-sheet-check ${on===g.jobs.length?'checked':''} aria-label="Print sheet ${g.no}" onchange="stkBatchCheck('sheet','${esc(g.key)}',this.checked)"></td><td colspan="5"><b>${esc(stkSheetLabel(g.glass,g.no,x.multi))}</b> · ${n+' glass'}${st?' · '+st+' stock':''}</td></tr>`:'';
   return head+g.jobs.map(row).join('');
  }).join('');
  const allOn=x.scope.length&&x.scope.every(j=>!d.off.has(stkJobKey(j)));

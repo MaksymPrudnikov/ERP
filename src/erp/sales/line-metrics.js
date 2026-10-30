@@ -326,8 +326,9 @@ function salesLineWeight(line,order,productionPlan){
   if(ply.category==='spandrel')norm('spandrel:'+ply.spandrel.productId,label+' · Spandrel',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied coating norm per finished area',salesWeightGap('weight:spandrel:'+ply.spandrel.productId,'Spandrel weight norm',SALES_WEIGHT_WHERE.norm,'spandrel coating',{line:true}));
   if(ply.visionType==='frit'||ply.frit&&ply.frit.enabled)norm('frit:'+ply.frit.productId+':'+(ply.frit.pattern||'custom'),label+' · Frit',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied pattern norm per finished area',salesWeightGap('weight:frit:'+ply.frit.productId+':'+(ply.frit.pattern||'custom'),'Frit weight norm',SALES_WEIGHT_WHERE.norm,'frit',{line:true}));
  };
+ /* lite — чей слой: лист одного стекла на чертеже берёт только свои строки. */
  (m.panes||[]).forEach((p,i)=>{
-  const g=geometry(i),label='Lite '+(i+1);
+  const g=geometry(i),label='Lite '+(i+1),from=rows.length;
   if(p.category==='laminated'){
    const lam=p.laminated||{};
    [lam.outer,lam.inner].forEach((ply,j)=>{if(ply){glass(ply,label+(j?'b':'a'),g);surface(ply,label+(j?'b':'a'),g);}});
@@ -336,6 +337,7 @@ function salesLineWeight(line,order,productionPlan){
     norm('film:'+f.productId,label+' · '+(prod?prod.name:'Interlayer'),g.area==null?null:g.area*GLASS_M2_PER_FT2*(f.thicknessMm/1000),'kg/m³','Density × actual interlayer volume',salesWeightGap('film:'+f.productId,(prod?prod.name:'Interlayer')+' density',SALES_WEIGHT_WHERE.film+(prod?' → '+prod.name:''),'interlayer',prod?{t:'interlayerProduct',id:prod.id}:null));
    });
   }else{glass(p,label,g);surface(p,label,g);}
+  rows.slice(from).forEach(r=>{r.lite=i;});
  });
  /* Обвязка по рецепту рамки: рамка идёт по контуру камеры. У ступенчатого
     пакета — всегда по меньшему лайту, иначе юнит не загерметизировать

@@ -908,14 +908,16 @@ function cutPrintPlan(sizes){
  const worst=landscape=>Math.min(...sizes.map(z=>cutPrintFit(z,landscape))),landscape=worst(true)>=worst(false);
  return {landscape,scales:sizes.map(z=>cutPrintFit(z,landscape))};
 }
-/* sheetNos — только эти листы (окно печати батча); без него — все. */
+/* sheetNos — только эти листы (окно печати батча); без него — все. Лист —
+   «стекло:номер» (stkSheetKey): номера свои у каждого стекла; голый номер —
+   этот номер у каждого стекла. */
 function cutPrintLayouts(number,sheetNos){
  const plan=cutPlanFor(number);if(!plan)return false;
- const pieces=cutPiecesOf(number,plan.settings||{}),pages=[],only=sheetNos?new Set(sheetNos.map(Number)):null;
+ const pieces=cutPiecesOf(number,plan.settings||{}),pages=[],only=sheetNos?new Set(sheetNos.map(String)):null;
  /* По бумаге тоже режут: устаревший раскрой печатается с предупреждением,
     отменённое и остановленное — красным (как на CUT). */
  const changed=cutEstIs(number)?null:glassBatchStale(glassBatchFind(number));
- const list=plan.groups.flatMap(g=>g.sheets.filter(s=>!only||only.has(s.no)).map(s=>({g,s,size:s.size||g.sheet})));
+ const list=plan.groups.flatMap(g=>g.sheets.filter(s=>!only||only.has(String(s.no))||only.has(g.glass+':'+s.no)).map(s=>({g,s,size:s.size||g.sheet})));
  const layout=cutPrintPlan(list.map(x=>x.size)),landscape=layout.landscape;
  list.forEach(({g,s,size},k)=>{
   const autoTrim=cutAutoTrimInfo(g,s);
@@ -923,6 +925,7 @@ function cutPrintLayouts(number,sheetNos){
    <div class="cut-print-sheet">${cutSheetSVG(g,s,Math.floor(Math.max(size.w,size.h)*layout.scales[k]),pieces,{gone:changed&&changed.gone})}</div></div>`);
  });
  if(!pages.length)return false;
+ if(typeof printOthersCleanup==='function')printOthersCleanup();
  let st=document.getElementById('cutPageStyle');if(!st){st=document.createElement('style');st.id='cutPageStyle';document.head.appendChild(st);}
  st.textContent='@page cutsheet{size:'+(landscape?'11in 8.5in':'8.5in 11in')+';margin:'+CUT_PRINT_MARGIN_MM+'mm}';
  cutPrintHost().innerHTML=pages.join('');
