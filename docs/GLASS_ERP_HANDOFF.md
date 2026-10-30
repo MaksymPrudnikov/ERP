@@ -115,7 +115,7 @@ Open → карточка плёнки; заполненная норма зам
 `test/md-catalog.js` (catalog lists) — у Gas в счётчиках теперь и «No
 density»; номер правки данных 10 → 11 в `test/line-measure.js`,
 `test/cut-layout.js`, `test/glass-no-cut.js`, `test/md-stations.js`,
-`test/lami-edges.js`. Убранных или ослабленных проверок нет. Всего 2251.
+`test/lami-edges.js` и пяти проверках разовой правки в `test/run.js`. Убранных или ослабленных проверок нет. Всего 2251.
 
 
 ## Makeup диапазону строк и Shift-выделение · 30 октября 2026 (v5.305)
