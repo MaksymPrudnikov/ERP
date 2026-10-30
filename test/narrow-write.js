@@ -62,5 +62,12 @@ module.exports=async function({page,eq}){
  await t.p.evaluate(()=>{tab='masterdata';mdCatalogGo('glassProduct');mdGlassEdit(glassProductByCode('6CLEAR').id);const el=document.getElementById('md_short');if(el)el.value='6 Clear';mdGlassSave();});
  const afterShort=await left();await f5();
  eq('Save карточки стекла: Short name записан сразу, F5 его не теряет',{left:afterShort,short:await t.p.evaluate(()=>glassProductByCode('6CLEAR').shortName||'')},{left:[],short:'6 Clear'});
+ /* Контакт заказа (пункт 6): выбранное лицо Save пишет сразу, F5 его не теряет. */
+ const contact=await t.p.evaluate(async()=>{
+  const c=oqCustomer({legalName:'Contact Narrow',contacts:[{name:'First Person',isPrimary:true},{name:'Second Person'}]});touch();await storageFlush();
+  const id=oqOrder(c),second=salesFindCustomer(c.id).contacts[1].id;salesOrderEdit(id);if(typeof salesContactPick==='function')salesContactPick(second);salesOrderSave();salesDraftDrop();return {id,second};
+ });
+ const afterContact=await left();await f5();
+ eq('Save с выбранным контактом заказа: записан сразу, F5 его не теряет',{left:afterContact,contact:await t.p.evaluate(x=>salesRecord(x.id).customerContactId===x.second,contact)},{left:[],contact:true});
  await t.c.close();
 };
