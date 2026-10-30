@@ -61,6 +61,7 @@
 .mk-bar .mk-num{width:48px;height:26px;text-align:center;padding:2px 6px}
 .mk-bar .mk-num,.mk-bar .mk-sel,.mk-bar .ss-bulk select,.mk-bar button{min-height:0;height:26px;font-size:12px}
 .mk-bar .mk-sel{width:auto;min-width:180px;padding:2px 8px}
+.mk-bar select{padding-top:0;padding-bottom:0;line-height:24px}
 .mk-arrow{color:var(--text-3)}
 .mk-live{display:inline-flex;align-items:center;gap:8px}
 .mk-count b{color:var(--text)}.mk-warn{color:var(--warning);font-weight:600}.mk-error{color:var(--danger);font-weight:600}

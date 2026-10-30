@@ -53,18 +53,33 @@ module.exports=async function({page,eq}){
   return {cells:[cell(a),cell(b),cell(c)],foot,only,sort:+salesListValue(salesListInfo(salesRecord(a)),'weight').toFixed(1),tip};
  }),{cells:['80Partial','25','—'],foot:'105Partial',only:'—',sort:80,tip:'Interlayer weight not included\nEVA Clear density → Data → Materials → Lamination → EVA Clear (line 1)'});
 
- eq('Заказ: в итогах «80 kg Partial»; под итогами «Weight partial · <плёнка> density · line 1 → Data → Materials → Lamination → <плёнка>» и Open; окно Weight строки — что и где внести; показ веса ничего не пишет в базу',await run(()=>{
-  owSetup();const id=owOrder();salesOrderEdit(id);render();const before=testStoredText();
-  const cap=document.querySelector('[data-order-weight]').textContent,note=document.querySelector('[data-weight-gaps]').textContent,f=owFilm().name;
-  salesOpenMetrics('weight',soDraft.lines[0].id);const where=document.querySelector('[data-weight-where]').textContent;salesCloseMetrics();
-  const r={cap,note:note===`⚠ Weight partial${f} density · line 1 → Data → Materials → Lamination → ${f} Open`,where:where===`${f} density → Data → Materials → Lamination → ${f}`,stored:testStoredText()===before,state:document.querySelector('[data-order-state]').textContent.split(' ·')[0]};
-  salesDraftDrop(true);return r;
- }),{cap:'80 kgPartial',note:true,where:true,stored:true,state:'Saved'});
+ /* Владелец, 30.10.2026: вес — не отдельной строкой в итогах, а «внизу
+    сумм, как в Excel — сабтотал для всех таких переменных». */
+ const owCols=keys=>run(k=>{const p=salesLoadViewPrefs();if(!p.profiles[p.active])p.profiles[p.active]={};p.profiles[p.active].screen=k;salesSaveViewPrefs();},keys);
+ await owCols(['actual','rounded','lineWeight','unitPrice','lineTotal']);
+ eq('Order Lines: строка Total под колонками — Qty 3, площадь × Qty, Line Weight «80.02 Partial», деньги — как итог; вес в «Entire order» и жёлтой строки нет; окно Order weight — что и где внести; показ ничего не пишет в базу',await run(()=>{
+  owSetup();const id=owOrder();salesOrderEdit(id);render();const before=testStoredText(),f=k=>{const c=document.querySelector('[data-foot="'+k+'"]');return c?c.textContent.trim():null;};
+  const a=salesLineAreas(soDraft.lines[0],soDraft),t=salesOrderCommercialTotals(soDraft);
+  const r={label:document.querySelector('[data-lines-foot] .line-foot-label').textContent,qty:f('qty'),actual:f('actual')===(a.actual*3).toFixed(2),weight:f('lineWeight'),total:f('lineTotal')===t.subtotal.toFixed(2)||f('lineTotal'),
+   caption:/kg/.test(document.querySelector('.metric-order-total-main>small').textContent),strip:!!document.querySelector('.sales-lines-block>[data-weight-gaps]')};
+  document.querySelector('[data-foot="lineWeight"] button').click();const f2=owFilm().name;
+  r.panel=document.querySelector('.metric-modal [data-weight-gaps]').textContent===`${f2} density · line 1 → Data → Materials → Lamination → ${f2} Open`;salesCloseMetrics();
+  salesOpenMetrics('weight',soDraft.lines[0].id);r.where=document.querySelector('[data-weight-where]').textContent===`${f2} density → Data → Materials → Lamination → ${f2}`;salesCloseMetrics();
+  r.stored=testStoredText()===before;salesDraftDrop(true);return r;
+ }),{label:'Total',qty:'3',actual:true,weight:'80.02Partial',total:true,caption:false,strip:false,panel:true,where:true,stored:true});
 
- eq('Open у плёнки — уход из заказа и карточка плёнки в Data; заказ без правок не спрашивает',await run(()=>{
-  owSetup();const id=owOrder();salesOrderEdit(id);render();document.querySelector('[data-weight-gaps] button').click();
+ eq('Ячейки строки: Line Weight неполной — «55.01 Partial», полной — «25.01»; фильтр строк — «Total · 1 of 2 lines» и сумма только видимых',await run(()=>{
+  owSetup();const id=owOrder();salesOrderEdit(id);soDraft.lines[1].onHold=true;render();
+  const cells=[...document.querySelectorAll('.sales-lines-table tbody td[data-metric="lineWeight"]')].map(x=>x.textContent.trim());
+  salesSetServiceFilter('hold');const label=document.querySelector('[data-lines-foot] .line-foot-label').textContent,w=document.querySelector('[data-foot="lineWeight"]').textContent.trim();
+  salesDraftDrop(true);return {cells,label,w};
+ }),{cells:['55.01Partial','25.01'],label:'Total · 1 of 2 lines',w:'25.01'});
+
+ eq('Open у плёнки в окне Order weight — уход из заказа и карточка плёнки в Data; заказ без правок не спрашивает',await run(()=>{
+  owSetup();const id=owOrder();salesOrderEdit(id);render();document.querySelector('[data-foot="lineWeight"] button').click();document.querySelector('.metric-modal [data-weight-gaps] button').click();
   return {tab,draft:!!soDraft,card:mdCatEdit===owFilm().id,kind:mdCatKind};
  }),{tab:'masterdata',draft:false,card:true,kind:'interlayerProduct'});
+ await owCols(null);
 
  eq('Нормы заказа: заполненная плотность стекла заморожена при Save (2500 → 2600 в Data не меняет сохранённый, новый — по 2600); пустая плотность плёнки не заморожена — внесли в Data, сохранённый заказ стал полным',await run(()=>{
   owSetup();const f=owFilm(),id=owOrder({rows:[['B',1]]}),lam=owOrder();

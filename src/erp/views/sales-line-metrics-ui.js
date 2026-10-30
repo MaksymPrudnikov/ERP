@@ -101,22 +101,53 @@ function salesMetricCell(line,c,context,price,a,weight){
   if(['actual','rounded','billable'].includes(c.key)){value=a[c.key];panel='area';}
   else if(c.key==='materials'||c.key==='unitPrice'||c.key==='lineTotal')value=c.key==='materials'?(!price.missingMaterials&&!price.unsupportedCurrency?price.materials:null):(c.key==='unitPrice'?price.unit:price.line);
   else{value=c.key==='unitWeight'?weight.kg:weight.lineKg;panel='weight';}
-  const text=value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2);
+  /* Вес неполный (пункт 14): известное и Partial, а не «—». */
+  const partial=panel==='weight'&&value==null&&weight.knownKg>0;
+  if(partial)value=c.key==='unitWeight'?weight.knownKg:weight.knownKg*salesPositiveInt(line.qty,1);
+  const text=(value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2))+(partial?'<span class="pill warn sl-partial">Partial</span>':'');
   const hand=price.manual&&(c.key==='unitPrice'||c.key==='lineTotal');
   const body=`<b data-raw>${text}</b>${hand&&context==='screen'?'<i class="metric-hand" title="Price by hand">✎</i>':''}`;
-  return `<td class="line-metric${value==null?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
+  return `<td class="line-metric${value==null||partial?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
 }
-/* Вес заказа (пункт 14, вариант 1 владельца 30.10.2026): в строке итогов —
-   известное число и метка Partial; под итогами — чего нет, в каких строках и
-   где внести, с переходом туда. Нет ничего — вес не показывается. */
-function salesOrderWeightCaption(w){
- if(w.kg==null)return '';
- return `<span data-order-weight${w.complete?'':` title="${esc(salesWeightTip(w))}"`}>${w.complete&&w.estimated?'≈ ':''}${esc(salesKgText(w.kg))} kg${w.complete?'':'<span class="pill warn sl-partial">Partial</span>'}</span> · `;
+/* Итог под колонками Order Lines, как в Excel (владелец, 30.10.2026:
+   «у каждой колонки есть переменная… внизу нет сумм, как в Excel — сделать
+   сабтотал для всех таких переменных, а не только отдельно для веса»).
+   Колонка «на юнит» — сумма × Qty: итог заказа. Деньги — за юниты без
+   отменённых, как Line Total; площадь и вес — заказанное. Не у всех строк
+   есть число — известное и Partial. Строки, скрытые фильтром, не входят. */
+function salesMetricFootValue(key,lines){
+ let sum=0,any=false,miss=0;
+ lines.forEach(l=>{
+  let v=null;
+  if(key==='unitWeight'||key==='lineWeight'){const w=salesLineWeight(l,soDraft);v=w.complete||w.knownKg>0?w.knownKg*salesPositiveInt(l.qty,1):null;if(!w.complete)miss++;}
+  else{const p=salesLineCommercialPrice(l,soDraft),a=p.areas,q=salesPositiveInt(l.qty,1);
+   if(['actual','rounded','billable'].includes(key))v=a.valid?a[key]*q:null;
+   else if(key==='materials')v=!p.missingMaterials&&!p.unsupportedCurrency?p.materials*p.qty:null;
+   else if(key==='unitPrice')v=p.unit==null?null:p.unit*p.qty;
+   else if(key==='lineTotal')v=p.line;
+   if(v==null)miss++;}
+  if(v!=null){sum+=v;any=true;}
+ });
+ return {value:any?sum:null,partial:any&&miss>0};
 }
-function salesOrderWeightNote(w){
- if(w.complete||!w.gaps.length)return '';
- const lines=n=>n.length?` <span class="mut">· line${n.length>1?'s':''} ${n.slice(0,8).join(', ')}${n.length>8?'…':''}</span>`:'';
- return `<div class="metric-weight-gaps" data-weight-gaps><b>⚠ Weight partial</b>${w.gaps.map((g,i)=>`<span class="metric-weight-gap">${esc(g.what)}${lines(g.lines)} → ${esc(g.where)}${g.go&&(g.go.line||accessCan('masterdata'))?` <button type="button" class="sm" onclick="salesWeightGapOpen(${i})">Open</button>`:''}</span>`).join('')}</div>`;
+function salesOrderLinesFoot(lines,columns){
+ if(!lines.length)return '';
+ const n=soDraft.lines.length,label=lines.length<n?`Total · ${lines.length} of ${n} lines`:'Total';
+ const cells=columns.map(key=>{
+  if(key==='qty')return `<td class="line-foot-n" data-foot="qty">${lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1),0)}</td>`;
+  const c=SALES_METRIC_COLUMNS.find(x=>x.key===key);if(!c)return '<td></td>';
+  const f=salesMetricFootValue(key,lines),weight=/Weight/.test(key);
+  const text=(f.value==null?'—':f.value.toFixed(['rounded','billable'].includes(key)?1:2))+(f.partial?'<span class="pill warn sl-partial">Partial</span>':'');
+  const w=weight&&f.partial?salesOrderWeight(soDraft):null;
+  return `<td class="line-metric line-foot-n" data-foot="${key}">${w?`<button type="button" class="metric-cell-btn" title="${esc(salesWeightTip(w))}" onclick="salesOpenMetrics('orderWeight')"><b data-raw>${text}</b></button>`:`<b data-raw>${text}</b>`}</td>`;
+ }).join('');
+ return `<tfoot><tr class="line-foot" data-lines-foot><td colspan="2" class="line-foot-label">${esc(label)}</td>${cells}<td></td></tr></tfoot>`;
+}
+/* Окно «чего нет в весе»: что, в каких строках, где внести, Open. */
+function salesOrderWeightPanel(){
+ const w=salesOrderWeight(soDraft),lines=n=>n.length?` <span class="mut">· line${n.length>1?'s':''} ${n.slice(0,12).join(', ')}${n.length>12?'…':''}</span>`:'';
+ if(w.complete||!w.gaps.length)return '<p>Weight is complete.</p>';
+ return `<p>Known weight ${esc(salesKgText(w.kg))} kg. Missing data:</p><div class="metric-weight-gaps" data-weight-gaps>${w.gaps.map((g,i)=>`<span class="metric-weight-gap">${esc(g.what)}${lines(g.lines)} → ${esc(g.where)}${g.go&&(g.go.line||accessCan('masterdata'))?` <button type="button" class="sm" onclick="salesWeightGapOpen(${i})">Open</button>`:''}</span>`).join('')}</div>`;
 }
 /* Open: норма строки — окно Weight этой строки; карточка Data — уход из
    заказа обычным путём (Save / Don't save), затем карточка. */
@@ -127,13 +158,13 @@ function salesWeightGapOpen(i){
  salesLeaveDraft(()=>{tab='masterdata';if(g.go.setup){mdSetTab('setup');render();}else mdCatalogOpen(g.go.t,g.go.id);});
 }
 function salesCommercialOrderSummary(interactive){
- const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2):'—',w=salesOrderWeight(soDraft);
+ const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2):'—';
  const item=(key,label,rate,value,shown)=>`<span class="metric-order-charge-item charge-${key}${shown?'':' is-empty'}"><span class="metric-order-charge-label">${label}${rate!=null?` <small data-raw>${rate}%</small>`:''}</span><b data-raw>${shown?money(value):''}</b></span>`;
  const adj=(soDraft.adjustments||[]).reduce((n,a)=>salesMoney(n+(+a.amount||0)),0);
  const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(c.card.name),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
  rows.push(`<span class="metric-order-charge-item charge-total metric-grand-total"><span class="metric-order-charge-label">Total</span><b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${'lines need pricing'}</small>`:''}</span>`);
  const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" onclick="salesOpenMetrics('orderCharges')">Service +</button>`;
- return salesOrderReviewHTML(soDraft,t)+`<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · ${salesOrderWeightCaption(w)}<span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`+(interactive===false?'':salesOrderWeightNote(w));
+ return salesOrderReviewHTML(soDraft,t)+`<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · <span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`;
 }
 function salesOrderReviewHTML(o,t){
  t=t||finOrderTotals(o);if(!t.complete||t.grand>=0)return '';
@@ -299,9 +330,9 @@ function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtr
 function salesSetWeightExtra(i,key,value){const l=salesMetricsLine(),x=l&&l.weightExtras[i];if(!x)return;if(key==='label')x.label=value;else{x.kg=mdNonNeg(value);render();}}
 function salesMetricsModal(){
  if(!salesMetricsPanel||!soDraft)return '';
- const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Surcharges',orderCharges:'Order charges',area:'Unit area',weight:'Unit weight',price:'Unit price'};
+ const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Surcharges',orderCharges:'Order charges',area:'Unit area',weight:'Unit weight',orderWeight:'Order weight',price:'Unit price'};
  if(!titles[panel]||!line&&['area','weight','price'].includes(panel))return '';
- const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):salesPricePanel(line);
+ const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):panel==='orderWeight'?salesOrderWeightPanel():salesPricePanel(line);
  return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal${panel==='rules'?' metric-modal-wide':''}"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
 }
 /* Refresh computed cells without replacing the input currently receiving Tab. */
@@ -312,6 +343,7 @@ function salesRefreshLineMetrics(line){
   const next=Array.from(holder.children);tr.querySelectorAll('td[data-metric]').forEach((cell,i)=>{if(next[i])cell.replaceWith(next[i]);});
   const services=tr.querySelector('.line-services-cell');if(services)services.innerHTML=salesLineServicesSummary(line);
  }
+ const foot=document.querySelector('.sales-lines-table>tfoot');if(foot)foot.outerHTML=salesOrderLinesFoot(salesServiceFilteredEntries().map(x=>x.line),salesOrderScreenColumns());
  const total=document.querySelector('.sales-lines-block>.metric-order-total');if(total){const warning=total.previousElementSibling;if(warning&&warning.matches('[data-order-review]'))warning.remove();total.outerHTML=salesCommercialOrderSummary();}
  const prices=document.querySelector('.sales-services-order-btn .sales-order-price-summary');
  if(prices){const p=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce((n,g)=>n+g.lines,0);prices.innerHTML=`<b>${p.total.toFixed(2)} ${esc(soDraft.currency)}</b>${p.unpriced?`<small>${p.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}`;}
