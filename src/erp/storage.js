@@ -1060,10 +1060,19 @@ function printSheetUniqueIds(svg){
 }
 /* Подготовка листа отделена от вызова печати: так её можно проверить тестом,
    не открывая системный диалог. */
+/* Перед новой печатью убираем прежнюю — стикеры, чертежи, схемы листов:
+   браузер, не приславший afterprint, иначе печатал бы оба набора разом,
+   с чужим форматом бумаги (пункт 9 плана v1.16). */
+function printOthersCleanup(){
+  if(typeof stkPrintCleanup==='function')stkPrintCleanup();
+  if(typeof cutPrintCleanup==='function')cutPrintCleanup();
+  printSheetCleanup();
+}
 function printSheetPrepare(svg,caption,after){
   /* Несколько чертежей (окно Drawings) — массив: каждый на своей странице. */
   var list=(Array.isArray(svg)?svg:[svg]).filter(Boolean);
   if(!list.length)return false;
+  printOthersCleanup();
   var h=printSheetHost();
   h.innerHTML=list.map(function(x){return '<div class="print-sheet">'+printSheetUniqueIds(x)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';}).join('');
   document.body.classList.add('printing');

@@ -71,7 +71,7 @@ function stationDrawOrders(){
 function stationDrawHTML(){
  const x=stationDrawer,o=x.orderId?salesRecord(x.orderId):null;
  const find='<label class="st-draw-find">'+ico('scan')+'<input data-station-keep data-station-draw-find autocomplete="off" spellcheck="false" placeholder="Order # or glass sticker" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationDrawFind(this.value);}"></label>';
- const head=(title)=>'<div class="st-draw-h"><h2>'+title+'</h2><span class="sp"></span>'+find+'<button type="button" class="b st-draw-close" onclick="stationCloseDrawer()">× Close</button></div>'+(x.error?'<div class="st-pin-err">'+esc(x.error)+'</div>':'');
+ const head=(title,print)=>'<div class="st-draw-h"><h2>'+title+'</h2><span class="sp"></span>'+find+(print||'')+'<button type="button" class="b st-draw-close" onclick="stationCloseDrawer()">× Close</button></div>'+(x.error?'<div class="st-pin-err">'+esc(x.error)+'</div>':'');
  if(!o){
   /* Окно выбора (владелец, 2 октября 2026: «провалился в окно и не понял,
      куда попал и зачем»): настоящее окно поверх станции, одна строка о том,
@@ -81,16 +81,32 @@ function stationDrawHTML(){
    '<p class="st-draw-hint">Open any order\'s drawing: tap an order, type its number or scan a glass sticker.</p>'+
    '<div class="st-rgroup">Orders with glass at '+esc(stationCode)+'</div><div class="st-draw-orders">'+(list.length?list.map(r=>{const n=stationDrawItems(r).length;return '<button type="button" class="st-draw-order" data-station-draw-order="'+esc(r.businessNumber||'')+'" onclick="stationDrawOpen(\''+esc(r.id)+'\',\'\')"><b>'+esc(r.businessNumber||'')+'</b><span data-raw>'+esc(salesCustomerDisplay(r.customerId))+'</span><small>'+n+' drawing'+(n===1?'':'s')+'</small></button>';}).join(''):'<div class="mut">No orders here yet — type the order number or scan a glass sticker</div>')+'</div></div>';
  }
- const lines=stationDrawItems(o),it=lines.find(y=>y.id===x.lineId)||lines[0],at=lines.indexOf(it),l=it&&it.l,rc=it&&it.r;
+ const lines=stationDrawItems(o),it=stationDrawCurrent(o,lines),at=lines.indexOf(it),l=it&&it.l,rc=it&&it.r;
  const title='Drawings · <b>'+esc(o.businessNumber||'')+'</b> <span class="mut" data-raw>'+esc(salesCustomerDisplay(o.customerId))+'</span>';
  if(!l)return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw>'+head(title)+'<div class="empty">No drawings in this order</div></div>';
  setTimeout(stationDrawFit,0);
- const li=(o.lines||[]).indexOf(l)+1,many=lines.length>1,geo=rc?recutLine(rc,l):l;
+ const li=(o.lines||[]).indexOf(l)+1,many=lines.length>1,geo=rc?recutLine(rc,l):l,sheet=stationDrawItemSheet(o,it);
  const step=(sign,off)=>many?'<button type="button" class="doc-step" '+(off?'disabled':'')+' onclick="stationDrawStep('+sign+')">'+(sign<0?'‹':'›')+'</button>':'';
- return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw="'+esc(l.id)+'">'+head(title)+
-  '<div class="st-draw-stage">'+step(-1,at<=0)+'<figure class="doc-drawing" style="zoom:'+stationDrawZoom().toFixed(3)+'">'+stationDrawSheet(rc?stationDrawingOf(o,l,'R'+rc.no+'.1'):stationDrawingOf(o,l,undefined,it.lite))+'</figure>'+step(1,at>=lines.length-1)+'</div>'+
+ /* Print drawing — только у листа, который построился: пустой печати нет. */
+ const print=sheet&&sheet.html?'<button type="button" class="b st-draw-close st-draw-print" data-station-draw-print onclick="stationDrawPrint()">'+ico('printer')+'Print drawing</button>':'';
+ return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw="'+esc(l.id)+'">'+head(title,print)+
+  '<div class="st-draw-stage">'+step(-1,at<=0)+'<figure class="doc-drawing" style="zoom:'+stationDrawZoom().toFixed(3)+'">'+stationDrawSheet(sheet)+'</figure>'+step(1,at>=lines.length-1)+'</div>'+
   (many?'<div class="st-draw-film">'+lines.map(y=>{const n=(o.lines||[]).indexOf(y.l)+1,g=y.r?recutLine(y.r,y.l):y.l;return '<button type="button" class="st-draw-chip'+(y===it?' on':'')+(y.r?' st-draw-recut':'')+'" data-station-draw-line="'+(y.r?'R'+y.r.no:n)+'" onclick="stationDrawer.lineId=\''+esc(y.id)+'\';render()"><b>'+(y.r?'Recut '+y.r.no+' · ':'')+'Line '+n+(y.lite!=null?' · Lite '+(y.lite+1):'')+'</b><span>'+esc(frac16(g.width16/16)+' × '+frac16(g.height16/16))+(y.l.mark?' · '+esc(y.l.mark):'')+'</span></button>';}).join('')+'</div>':'')+
-  '<div class="st-draw-foot mut">'+(rc?'Recut '+rc.no+' · ':'')+'Line '+li+(it.lite!=null?' · Lite '+(it.lite+1):'')+' · '+(at+1)+' of '+lines.length+(many?' · ← → to flip':'')+'</div></div>';
+  '<div class="st-draw-foot mut">'+stationDrawName(o,it)+' · '+(at+1)+' of '+lines.length+(many?' · ← → to flip':'')+'</div></div>';
+}
+/* Открытый в окне лист: строка, Lite или Recut, выбранные стрелками и плитками. */
+function stationDrawCurrent(o,lines){lines=lines||stationDrawItems(o);const x=stationDrawer;return lines.find(y=>x&&y.id===x.lineId)||lines[0]||null;}
+function stationDrawItemSheet(o,it){return !it?null:it.r?stationDrawingOf(o,it.l,'R'+it.r.no+'.1'):stationDrawingOf(o,it.l,undefined,it.lite);}
+function stationDrawName(o,it){return (it.r?'Recut '+it.r.no+' · ':'')+'Line '+((o.lines||[]).indexOf(it.l)+1)+(it.lite!=null?' · Lite '+(it.lite+1):'');}
+/* Print drawing (пункт 9 плана v1.16, вариант A владельца, 30.10.2026):
+   ровно открытый лист — позиция, Lite, Recut — тем же листом и той же
+   печатью, что в офисе, без панелей станции. Заказ, место стекла и
+   производство не меняются; в журнал заказа — «Printed». */
+function stationDrawPrint(){
+ const x=stationDrawer,o=x&&x.kind==='draw'&&x.orderId?salesRecord(x.orderId):null,it=o&&stationDrawCurrent(o),d=it&&stationDrawItemSheet(o,it);
+ if(!d||!d.html||!printSheet([d.html],'',salesSheetFitDrawing))return false;
+ if(typeof orderLogAdd==='function')orderLogAdd(o.id,'Printed','Drawing · '+stationDrawName(o,it)+' · '+stationCode);
+ return true;
 }
 /* Мини-лист на карточке скана: у стекла форма, отверстия или вырезы. */
 function stationDrawThumb(g,d){

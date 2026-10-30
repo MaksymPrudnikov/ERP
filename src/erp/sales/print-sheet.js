@@ -184,11 +184,13 @@ function salesSheetMakeupHTML(makeup,shape,step,names,current){
   panes.forEach(function(p,i){
     if(i){
       var bar=i-1===cavityIndex?muntin:null,stepCav=!!small(i-1)!==!!small(i);
-      /* У ступенчатого юнита строка фиксированной высоты: раскладка и шов —
-         одной подписью. */
-      var stepText=stepCav?['Step',SALES_STEP_SEALS[step.seal],salesSheetSealantName(makeup,i)].filter(Boolean).join(' · '):'';
+      /* Герметик камеры — у каждой камеры, на листе юнита и листах стёкол
+         (пункт 1 плана v1.16, вариант 2 владельца, 30.10.2026): «Sealant:
+         Silicone» под камерой. У ступенчатого юнита строка фиксированной
+         высоты: раскладка, герметик и шов — одной подписью. */
+      var seal=salesSheetSealantText(makeup,i),stepText=stepCav?['Step',SALES_STEP_SEALS[step.seal]].join(' · '):'';
       row('<div class="mk-row"><span>Cavity'+(panes.length>2?' '+i:'')+': '+esc(salesSheetCavityText(makeup,i))+
-        (stepped?(bar||stepText?'<small class="mk-size">'+esc([bar&&bar.text,stepText].filter(Boolean).join(' · '))+'</small>':''):(bar?'<small class="mk-muntin-text">'+esc(bar.text)+'</small>':''))+'</span>'+
+        (stepped?(bar||seal||stepText?'<small class="mk-size">'+esc([bar&&bar.text,seal,stepText].filter(Boolean).join(' · '))+'</small>':''):(bar?'<small class="mk-muntin-text">'+esc(bar.text)+'</small>':'')+(seal?'<small class="mk-size mk-seal">'+esc(seal)+'</small>':''))+'</span>'+
         /* Распорка стоит по меньшему из двух стёкол камеры (владелец,
            20.10.2026) — полоска камеры той же длины, что у меньшего. */
         '<i class="mk-cav'+(small(i-1)||small(i)?' mk-smaller':'')+'">'+(bar?bar.svg:'')+'</i><em></em></div>');
@@ -238,10 +240,17 @@ var SALES_SHEET_STEP_ROW=30;
 function salesSheetStepSeal(seal,side,h){
   return seal==='edge'||seal==='buttered'?'<b class="mk-step-seal '+seal+' '+side+'" style="height:'+h+'px"></b>':'';
 }
-/* Герметик камеры — им же заливают ступеньку («доп. силикон по ступеньке»). */
+/* Герметик камеры — им же заливают ступеньку («доп. силикон по ступеньке»).
+   Имя из каталога: Polysulphide, Silicone, новый — его имя. Ссылка битая —
+   «not found», а не другой герметик. */
 function salesSheetSealantName(makeup,i){
   var c=(makeup.cavities||[])[i-1],s=c&&typeof mdById==='function'?mdById('sealantProduct',c.secondarySealantId):null;
   return s&&s.name?String(s.name):'';
+}
+function salesSheetSealantText(makeup,i){
+  var c=(makeup.cavities||[])[i-1];if(!c)return '';
+  var name=salesSheetSealantName(makeup,i);
+  return name?'Sealant: '+name:'Sealant not found';
 }
 function salesSheetRouteHTML(route){
   if(!route||!route.lites.length)return '';
