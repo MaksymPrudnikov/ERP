@@ -515,7 +515,26 @@ function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};
  /* Фрит и спандрел — работы (этап 4): карточка называет работу Works, а
     станцию и место в маршруте даёт она. Пусто — работа не назначена. */
  type==='frit'||type==='spandrel'?{workId:mdString(p.workId)}:{},
- type==='interlayer'?interlayerCardFields(p):{});}
+ type==='interlayer'?interlayerCardFields(p):{},
+ type==='stock'?{measures:stockMeasuresClean(p.measures)}:{});}
+/* Измерения Stock item (план доработок v1.16, пункт 4; владелец 30.10.2026:
+   «могут быть другие переменные, измеряемые другими параметрами, не только
+   двери»): строки «что · значение · единица». У двери — Width, Height,
+   Thickness; у расходки — например Volume 1 L. Из названия не выводятся;
+   старым карточкам размеров не придумываем. */
+const STOCK_MEASURE_PRESET={door:[['Width','in'],['Height','in'],['Thickness','mm']]};
+function stockMeasuresClean(a){
+ return (Array.isArray(a)?a:[]).filter(m=>m&&typeof m==='object').map(m=>({name:mdString(m.name).slice(0,40),value:mdNonNeg(m.value),unit:mdString(m.unit).slice(0,12)})).filter(m=>m.name||m.value!=null);
+}
+/* «24 × 72″ · 10 mm», «1 L»: ширина × высота — вместе, остальное — по строке. */
+function stockMeasureText(x){
+ const ms=(x&&x.measures||[]).filter(m=>m.value!=null),find=n=>ms.find(m=>m.name.toLowerCase()===n);
+ const w=find('width'),h=find('height'),unit=u=>u==='in'?'″':u?' '+u:'';
+ const out=[];
+ if(w&&h)out.push(w.value+' × '+h.value+(w.unit===h.unit?unit(w.unit):unit(h.unit)));
+ ms.forEach(m=>{if(w&&h&&(m===w||m===h))return;out.push((ms.length>1&&!['thickness'].includes(m.name.toLowerCase())?m.name+' ':'')+m.value+unit(m.unit));});
+ return out.join(' · ');
+}
 /* Плёнка (план Master Data, этап 5): толщина слоя и разрешённые толщины —
    карточка, а не код (Ultra Clear: 0.76 и 1.52, без 0.38); строки
    поставки — поставщик, ширина рулона, толщина, цена. Пусто у старой строки —

@@ -97,5 +97,13 @@ module.exports=async function({page,eq}){
  const afterTare=await left();await f5();
  eq('тара: Register new, этикетка, Empty, пересчёт, проверка у клиента записаны сразу, F5 их не теряет',{left:afterTare,...await t.p.evaluate(x=>{const c=carrierFind(x.code);return {reg:!!c&&c.regBy==='Oleg K.'&&c.regStation==='SHIPR'&&!!c.emptiedAt,seq:DB.carrierSeq.SL,events:DB.carrierEvent.map(e=>e.kind).join(),obs:carrierCountFind(x.count).obs.map(o=>o.code+':'+o.res).join()};},tare)},
   {left:[],reg:true,seq:1,events:'register,print,check',obs:'SL-1:ok'});
+ /* Stock items (пункт 4): пересчёт и − в строке Inventory, измерения карточки пишутся сразу, F5 их не теряет. */
+ await t.p.evaluate(async()=>{
+  DB.stockItem.push(normalizeSimpleMaterial({id:'STK-NW',name:'NW door',subcategory:'door',measures:[{name:'Width',value:24,unit:'in'}]},'stock'));touch();await storageFlush();
+  if(typeof sinvCount==='function'){sinvCount('STK-NW',5,{note:'first'});sinvMove('STK-NW','remove',1,{reason:'Damaged'});}
+ });
+ const afterStock=await left();await f5();
+ eq('Stock items: пересчёт и списание записаны сразу, F5 их не теряет',{left:afterStock,...await t.p.evaluate(()=>({hand:typeof sinvRowOf==='function'&&sinvRowOf('STK-NW')?sinvRowOf('STK-NW').onHand:null,
+  events:(DB.stockItemEvent||[]).map(e=>e.kind+':'+e.qty).join(),measures:(DB.stockItem.find(x=>x.id==='STK-NW')||{}).measures}))},{left:[],hand:4,events:'count:5,remove:-1',measures:[{name:'Width',value:24,unit:'in'}]});
  await t.c.close();
 };

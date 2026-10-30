@@ -1249,11 +1249,11 @@ function mdSetCatKind(k){if(!MD_CATALOGUES.some(c=>c.k===k))return;mdCatKind=k;m
 function viewMdCatalogues(){
  if(!MD_CATALOGUES.some(c=>c.k===mdCatKind))mdCatKind=MD_CATALOGUES[0].k;
  if(mdCatEdit!==null)return mdCatForm();
- const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour(),rate=mdCatIsRate();
- const cols=rate?6:colour?5:6;
- return `<div class="md-toolbar"><span class="mut">${esc(def.what.charAt(0).toUpperCase()+def.what.slice(1))} · used rows: switch off, don't delete.</span><span class="sp"></span><button class="pri" onclick="mdCatNew()">+ New</button></div>
+ const def=mdCatDef(),all=mdCatRows(),rows=mdCatalogFilterRows(all),colour=mdCatIsColour(),rate=mdCatIsRate();
+ const cols=rate?6:colour?5:6,found=rows!==all;
+ return `<div class="md-toolbar"><span class="mut"${found?' data-md-search-count':''}>${found?rows.length+' of '+all.length+' '+esc(def.label.toLowerCase()):esc(def.what.charAt(0).toUpperCase()+def.what.slice(1))+' · used rows: switch off, don\'t delete.'}</span><span class="sp"></span><button class="pri" onclick="mdCatNew()">+ New</button></div>
   <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Station</th><th>Unit</th><th>Price by thickness, mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
-  <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">empty</td></tr>`}</tbody></table></div>
+  <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">${found?'Nothing found':'empty'}</td></tr>`}</tbody></table></div>
   ${rate?'<div class="sub">Price by glass thickness.</div>':''}`;
 }
 function mdCatRowHTML(x){
@@ -1267,7 +1267,7 @@ function mdCatRowHTML(x){
   <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button></td></tr>`;}
  const scope=colour?(x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'any'):'';
  return `<tr data-md-row="${esc(mdCatKind)}:${esc(x.id)}">
-  <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}${x.subcategory?' · '+esc(x.subcategory):''}</div>${x.sellsAsOwnLine?'<span class="pill info">own order line</span>':''}${MD_CAT_WORK.includes(mdCatKind)?`<div class="mut">Work: ${x.workId?esc((salesServiceRateRow(x.workId)||{}).name||x.workId):'—'}</div>`:''}</td>
+  <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}${x.subcategory?' · '+esc(x.subcategory):''}${mdCatKind==='stockItem'&&stockMeasureText(x)?' · '+esc(stockMeasureText(x)):''}</div>${x.sellsAsOwnLine?'<span class="pill info">own order line</span>':''}${MD_CAT_WORK.includes(mdCatKind)?`<div class="mut">Work: ${x.workId?esc((salesServiceRateRow(x.workId)||{}).name||x.workId):'—'}</div>`:''}</td>
   <td class="mono">${x.code?raw(x.code):'<span class="mut">—</span>'}</td>
   ${colour?`<td>${x.family?raw(x.family):'<span class="mut">—</span>'}</td><td class="mut">${raw(scope)}</td>`
           :`<td>${x.supplier?raw(x.supplier):'<span class="mut">—</span>'}</td>
@@ -1372,6 +1372,14 @@ function mdCatForm(){
   {k:'units',label:'Units',html:`<div class="grid">${f.unit}</div>`},
   {k:'measure',label:'Measurements',html:`<div class="grid">${f.density}${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`,missing:mdCatKind==='gasProduct'&&r.densityKgM3==null},
   {k:'prices',label:'Prices',html:`<div class="grid">${f.price}${mdSaleRulesFields(r,['minCharge'])}</div>${isNew?'':mdPriceListsHTML('item:'+mdCatKind+':'+r.id)}`,missing:r.salePrice==null}]);
+ /* Stock item (пункт 4; владелец 30.10.2026 — C2 + C3): вид сверху, вкладки
+    General · Measurements · Stock · Prices. Вид — прежняя свободная
+    подкатегория кнопками; свой вид — + New kind. */
+ if(mdCatKind==='stockItem')return card([
+  {k:'general',label:'General',html:mdStockKindHTML(r,subcatHints)+`<div class="grid">${f.name}${f.code}${f.supplier}${mdStationViaHTML(mdCatKind)}${f.status}${f.ownLine}</div>`},
+  {k:'measures',label:'Measurements',html:mdStockMeasuresHTML(r,isNew)},
+  {k:'stock',label:'Stock',html:isNew?'<p class="mut">After Save.</p>':mdStockTabHTML(r)},
+  {k:'prices',label:'Prices',html:`<div class="grid">${f.price}</div>${isNew?'':mdPriceListsHTML('item:stockItem:'+r.id)}`,missing:r.salePrice==null}]);
  return card([{k:'general',label:'General',html:`<div class="grid">${f.name}${f.code}${f.supplier}${f.price}
    ${mdStationViaHTML(mdCatKind)}${f.work}
    ${mdCatKind==='stockItem'?mdField('Subcategory',`<input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(r.subcategory||'')}"><datalist id="md_catSubcategoryList">${subcatHints.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>`,'Group in the order picker.'):''}
@@ -1396,6 +1404,50 @@ function mdFilmRead(){
  if(list.some(v=>!(+v>0)))return {error:'Thicknesses must be positive numbers'};
  const supply=[...document.querySelectorAll('[data-md-film-supply]')].map(tr=>{const o={};tr.querySelectorAll('[data-k]').forEach(i=>{o[i.dataset.k]=i.value;});return o;});
  return {plyMm:+ply,thicknessesMm:list.map(Number),supply};
+}
+/* Вид Stock item: кнопки из подсказок (door, kit, consumable и уже
+   заведённые) и + New kind — своё слово. Поле md_catSubcategory читает Save;
+   кнопки меняют его без перерисовки — набранное в форме не пропадает. */
+function mdStockKindHTML(r,hints){
+ const cur=r.subcategory||'',list=hints.includes(cur)||!cur?hints:hints.concat([cur]),cap=v=>v.charAt(0).toUpperCase()+v.slice(1);
+ return `<div class="md-stock-kind" data-md-stock-kind><label>Kind</label><div class="md-stock-kind-row"><div class="stk-seg">${list.map(v=>`<button type="button" class="${v===cur?'on':''}" data-md-kind="${esc(v)}" onclick="mdStockKindPick(this)">${esc(cap(v))}</button>`).join('')}</div>
+  <input id="md_catSubcategory" value="${esc(cur)}" placeholder="New kind" ${list.includes(cur)?'hidden':''} oninput="mdStockKindPick(null)"><button type="button" class="sm" data-md-kind-new onclick="const i=document.getElementById('md_catSubcategory');i.hidden=false;i.value='';i.focus();mdStockKindPick(null)">+ New kind</button></div><div class="hint">Kind sets the measurements of a new item.</div></div>`;
+}
+function mdStockKindPick(btn){
+ const box=document.querySelector('[data-md-stock-kind]'),inp=document.getElementById('md_catSubcategory');if(!box||!inp)return;
+ if(btn){inp.value=btn.getAttribute('data-md-kind');inp.hidden=true;}
+ box.querySelectorAll('[data-md-kind]').forEach(b=>b.classList.toggle('on',b===btn));
+ /* Пустые измерения — заготовка вида (у двери Width, Height, Thickness). */
+ const body=document.querySelector('[data-md-measures] tbody'),preset=STOCK_MEASURE_PRESET[inp.value.trim().toLowerCase()];
+ if(body&&preset&&![...body.querySelectorAll('[data-k]')].some(i=>i.value.trim()))body.innerHTML=preset.map(([name,unit])=>mdStockMeasureRow({name,unit})).join('');
+}
+const MD_STOCK_UNITS=['in','mm','ft','m','L','gal','kg','lb'];
+function mdStockMeasureRow(m){m=m||{};
+ return `<tr data-md-measure><td><input data-k="name" aria-label="Measurement" value="${esc(m.name||'')}"></td><td><input data-k="value" aria-label="Value" type="number" min="0" step="any" value="${m.value==null?'':esc(m.value)}"></td><td><input data-k="unit" aria-label="Unit" list="md_stockUnits" value="${esc(m.unit||'')}"></td><td><button type="button" class="sm dl" aria-label="Remove" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
+function mdStockMeasuresHTML(r,isNew){
+ const preset=isNew&&!(r.measures||[]).length?(STOCK_MEASURE_PRESET[String(r.subcategory||'').toLowerCase()]||[]).map(([name,unit])=>({name,unit})):(r.measures||[]);
+ return `<div data-md-measures><div class="sales-table-wrap md-stock-measures"><table class="ncr-table"><thead><tr><th>Measurement</th><th>Value</th><th>Unit</th><th></th></tr></thead><tbody>${preset.map(mdStockMeasureRow).join('')}</tbody></table></div>
+  <datalist id="md_stockUnits">${MD_STOCK_UNITS.map(u=>`<option value="${u}">`).join('')}</datalist>
+  <div class="row"><button type="button" class="sm" data-md-measure-add onclick="document.querySelector('[data-md-measures] tbody').insertAdjacentHTML('beforeend',mdStockMeasureRow())">+ Measurement</button><button type="button" class="sm" data-md-measure-name onclick="mdStockNameFromMeasures()">Name from measurements</button><span class="hint">Another value — another stock item.</span></div></div>`;
+}
+function mdStockMeasuresRead(){
+ const rows=[...document.querySelectorAll('[data-md-measure]')].map(tr=>{const o={};tr.querySelectorAll('[data-k]').forEach(i=>{o[i.dataset.k]=i.value.trim();});return o;}).filter(o=>o.name||o.value);
+ if(rows.some(o=>o.value!==''&&!(+o.value>=0)))return {error:'Measurements: enter 0 or more.'};
+ return {measures:stockMeasuresClean(rows.map(o=>({name:o.name,value:o.value===''?null:+o.value,unit:o.unit})))};
+}
+/* Имя из измерений — только по кнопке: «Door 24 × 72″ · 10 mm». */
+function mdStockNameFromMeasures(){
+ const m=mdStockMeasuresRead();if(m.error)return;const kind=(document.getElementById('md_catSubcategory')||{}).value||'';
+ const text=stockMeasureText(m);const el=document.getElementById('md_catName');if(!el||!text)return;
+ el.value=((kind?kind.charAt(0).toUpperCase()+kind.slice(1)+' ':'')+text).trim();
+}
+/* Вкладка Stock: остаток позиции и последние движения (erp/inventory/stock-items). */
+function mdStockTabHTML(r){
+ const s=sinvRowOf(r.id);if(!s)return '<p class="mut">Inactive.</p>';
+ const moves=s.moves.slice(0,5);
+ return `<div class="inv-tiles md-stock-tiles" data-md-stock-tab><div class="inv-tile"><b>${s.onHand}</b><span>On hand, pcs</span></div><div class="inv-tile"><b>${s.reserved}</b><span>Reserved</span></div><div class="inv-tile${s.available<0?' bad':''}"><b>${s.available}</b><span>Available</span></div></div>
+  <h4>Last movements</h4>${moves.length?`<div class="sales-table-wrap"><table class="ncr-table"><tbody>${moves.map(m=>`<tr><td class="nowrap">${esc(salesListShortDay(m.day))}</td><td>${esc(m.kind)}${m.ref?' · '+esc(m.ref):''}${m.note?' <span class="mut">· '+esc(m.note)+'</span>':''}</td><td class="n${m.rack<0?' inv-neg':''}">${m.rack>0?'+':''}${esc(m.rack)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="mut">No movements yet.</p>'}
+  ${accessCan('inventory')?`<div class="row"><button type="button" onclick="invOpenStock('${esc(r.id)}')">Open in Inventory</button></div>`:''}`;
 }
 /* Форма работы → запись. Поля читаются с экрана: строка таблицы
    добавляется и убирается перерисовкой, и введённое не должно пропасть.
@@ -1482,9 +1534,11 @@ function mdCatSave(){
   if(film&&film.error)return fail(e,film.error);
   if(film)filmD=mdVal('md_filmDensity');
   if(film&&filmD!==''&&!(+filmD>=0))return fail(e,'Density must be a non-negative number or empty');
+  const stock=mdCatKind==='stockItem'&&document.querySelector('[data-md-measures]')?mdStockMeasuresRead():null;
+  if(stock&&stock.error)return fail(e,stock.error);
   const density=mdVal('md_catDensity');
   if(mdCatKind==='gasProduct'&&density!==''&&(!isFinite(+density)||+density<0))return fail(e,'Density must be a non-negative number or empty');
-  next=Object.assign({},prev,MD_CAT_SALE_UNIT.includes(mdCatKind)?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},mdCatKind==='gasProduct'?{densityKgM3:density===''?null:+density}:{},film||{},MD_CAT_WORK.includes(mdCatKind)?{workId:mdVal('md_catWork')}:{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
+  next=Object.assign({},prev,MD_CAT_SALE_UNIT.includes(mdCatKind)?Object.assign(mdSaleRulesRead(),{salesUnit:mdVal('md_salesunit')}):{},mdCatKind==='gasProduct'?{densityKgM3:density===''?null:+density}:{},film||{},stock||{},MD_CAT_WORK.includes(mdCatKind)?{workId:mdVal('md_catWork')}:{},{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,
    sellsAsOwnLine:ownLineEl?ownLineEl.checked:!!prev.sellsAsOwnLine,
    subcategory:subcatEl?subcatEl.value:(prev.subcategory||''),active:active});
  }

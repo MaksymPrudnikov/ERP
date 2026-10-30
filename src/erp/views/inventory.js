@@ -13,11 +13,14 @@
    тот же фильтр, что чип. Строка дашборда открывает журнал этого стекла.
    Offcuts (PR 2) — куски S-: где лежит, возраст, пересчёт Not found и
    Found; ушедшие куски скрыты, пока не отмечено «Show used and written off».
+   Stock items (план доработок v1.16, пункт 4; владелец 30.10.2026 — B1,
+   пересчёт D4 + D3) — двери и другое в штуках: таблица как у листов,
+   Count / + / − прямо в строке, под таблицей — что посчитано сегодня.
    ===================================================================== */
-let invView='sheets',invCountDraft={},invCountWhy={},invJournalKey='',invMoveDraft=null,invNotice='',invPages={},invOffcutLostDraft=new Set(),invOffcutAll=false;
+let invStockEdit=null,invView='sheets',invCountDraft={},invCountWhy={},invJournalKey='',invMoveDraft=null,invNotice='',invPages={},invOffcutLostDraft=new Set(),invOffcutAll=false;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
-(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>Object.keys(invCountDraft).length>0||consCountDirty()||!!invMoveDraft||invOffcutLostDraft.size>0);
-const INV_VIEWS=[['sheets','Sheets'],['sizes','Sheet sizes'],['consumables','Consumables'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>Object.keys(invCountDraft).length>0||!!invStockEdit||consCountDirty()||!!invMoveDraft||invOffcutLostDraft.size>0);
+const INV_VIEWS=[['sheets','Sheets'],['sizes','Sheet sizes'],['consumables','Consumables'],['stock','Stock items'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
 const INV_OFFCUT_TONE={'On rack':'ok','In batch':'info','Coming':'','Used':'','Broken':'bad','Written off':'warn','Back to waste':''};
 const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'','Size missing':'warn'};
 function invArg(v){return esc(JSON.stringify(String(v)));}
@@ -26,7 +29,7 @@ function invArg(v){return esc(JSON.stringify(String(v)));}
 function invNav(){return '<div class="tabs inv-tabs" data-inv-sections>'+INV_VIEWS.map(([k,n])=>'<button type="button" class="'+(k===invView?'on':'')+'" data-inv-section="'+k+'" onclick="invGo(\''+k+'\')">'+n+'</button>').join('')+'</div>';}
 /* Раздел — с чистого листа: фильтр журнала по стеклу ставит только
    строка дашборда (аудит 15.10.2026: он оставался и при входе из меню). */
-function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';consNotice='';consCountDraft={};consCountWhy={};consPackNew=null;invNotice='';invMoveDraft=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
+function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';consNotice='';consCountDraft={};consCountWhy={};consPackNew=null;invNotice='';invMoveDraft=null;invStockEdit=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
 /* Пересчёт листов и расходников — один вопрос (аудит 25.10.2026, I-6). */
 function invCountLeave(){
  if((Object.keys(invCountDraft).length||consCountDirty())&&!confirm('Discard counts you have not saved?'))return false;
@@ -40,20 +43,21 @@ function invListColumns(){
  const col=([k,label,type,def])=>({k,label,type,def:def!==false});
  if(invView==='journal')return [['day','When','date'],['glass','Glass','text'],['code','Code','list'],['size','Size','list'],['kind','What','list'],['ref','Reference','text'],['rack','On rack','number'],['by','Who','text'],['note','Note','text']].map(col);
  if(invView==='offcuts')return [['id','Stock','text'],['code','Glass','list'],['mm','mm','number'],['size','Size','list'],['area','ft²','number'],['from','From','text'],['booked','Booked','date',false],['age','Age, days','number'],['status','Where','list']].map(col);
+ if(invView==='stock')return [['item','Item','text'],['code','Code','list'],['kind','Kind','list'],['measures','Measurements','list'],['unit','Unit','list',false],['onHand','On hand','number'],['reserved','Reserved','number'],['available','Available','number'],['status','Status','list'],['lastCount','Last count','date']].map(col);
  if(invView==='count')return [['glass','Glass','text'],['code','Code','list'],['mm','mm','number'],['size','Size','list'],['onRack','On rack','number'],['lastCount','Last count','date']].map(col);
  /* Сначала то, что кладовщик смотрит каждый день: сколько стоит, сколько
    едет, сколько свободно и статус; Minimum и Last count — правее. */
  return [['glass','Glass','text'],['code','Code','list'],['mm','mm','number'],['size','Size','list'],['onRack','On rack','number'],['onOrder','On order','number'],['held','At supplier','number'],['reserved','Reserved','number'],['free','Free','number'],['status','Status','list'],['min','Minimum','number'],['lastCount','Last count','date']].map(col);
 }
 function invListDefaults(){return invView==='journal'?{day:{preset:'last30'}}:{};}
-function invListDefaultSort(){return invView==='journal'?{k:'day',dir:'desc'}:invView==='offcuts'?{k:'age',dir:'desc'}:{k:'code',dir:'asc'};}
+function invListDefaultSort(){return invView==='stock'?{k:'kind',dir:'asc'}:invView==='journal'?{k:'day',dir:'desc'}:invView==='offcuts'?{k:'age',dir:'desc'}:{k:'code',dir:'asc'};}
 function invListDateColumn(){return invView==='journal'?'day':'';}
 function invRowInfos(){
  return invSheetRows().map(r=>({o:{id:r.key},r,memo:{glass:r.name||r.code,code:r.code,mm:r.mm,size:invSizeText(r),onRack:r.onRack,reserved:r.reserved,free:r.free,min:r.min,
   held:r.held,onOrder:r.onOrder,lastCount:r.lastCount?salesListIsoDay(r.lastCount.at):'',status:r.status}}));
 }
 function invMoveInfos(){
- return invMoves().filter(m=>!invJournalKey||m.key===invJournalKey).map(m=>({o:{id:m.id,createdAt:m.at},m,memo:{day:m.day,glass:m.name||m.code,code:m.code,size:m.cons?'':invSizeText(m),kind:m.kind,ref:m.ref,rack:m.rack,by:m.by,note:m.note}}));
+ return invMoves().filter(m=>!invJournalKey||m.key===invJournalKey).map(m=>({o:{id:m.id,createdAt:m.at},m,memo:{day:m.day,glass:m.name||m.code,code:m.code,size:m.cons||m.stock?'':invSizeText(m),kind:m.kind,ref:m.ref,rack:m.rack,by:m.by,note:m.note}}));
 }
 function invPageState(rows){
  const scope=invListScope(),p=salesListLoadPrefs(),signature=JSON.stringify([p.filters,p.sort,invJournalKey]);
@@ -72,6 +76,10 @@ function invListFilters(infos){
  if(invView==='offcuts'){
   const base=salesListRows(infos,['status']),f=salesListLoadPrefs().filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
   status=salesListStatusControlHTML(INV_OFFCUT_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,'invListStatus');
+ }
+ if(invView==='stock'){
+  const base=salesListRows(infos,['status']),f=salesListLoadPrefs().filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
+  status=salesListStatusControlHTML(INV_STOCK_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,'invListStatus');
  }
  if(invView==='sheets'){
   const base=salesListRows(infos,['status']),f=salesListLoadPrefs().filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
@@ -129,6 +137,69 @@ function invSheetsView(infos){
     сами плитки, поэтому в их счёт он не входит (как статусы Sales). */
  return invTiles(salesListRows(infos,['status']).map(i=>i.r))+invMoveHTML()+invListFilters(infos)+invTable(cols,rows,invSheetCell,'<th></th>',invSheetActs,infos.length?'Nothing matches the filters.':'No glass in the catalogue yet.',true);
 }
+
+/* ---------------------------- Stock items ---------------------------- */
+const INV_STOCK_STATUSES=['OK','Short','Not counted'],INV_STOCK_TONE={'OK':'ok','Short':'bad','Not counted':''};
+function invStockInfos(){
+ return sinvRows().map(r=>({o:{id:r.key},r,memo:{item:r.name,code:r.code,kind:r.kind,measures:r.measures,unit:'pcs',onHand:r.onHand,reserved:r.reserved,available:r.available,status:r.status,lastCount:r.lastCount?salesListIsoDay(r.lastCount.at):''}}));
+}
+function invStockTiles(rows){
+ const sum=k=>rows.reduce((a,r)=>a+r[k],0),f=salesListLoadPrefs().filters.status,sel=f&&f.values&&f.values.length===1?f.values[0]:'',n=s=>rows.filter(r=>r.status===s).length;
+ const st=(s,tone)=>invTile(s,n(s),{click:'invListStatus('+invArg(sel===s?'':s)+')',tone:n(s)?tone:'',on:sel===s});
+ return '<div class="inv-tiles">'+invTile('Stock items',rows.length)+invTile('On hand, pcs',sum('onHand'))+invTile('Reserved',sum('reserved'))+invTile('Available',sum('available'))+st('Short','bad')+st('Not counted','')+'</div>';
+}
+function invStockCell(i,c){
+ const r=i.r,v=salesListValue(i,c.k);
+ if(c.k==='item')return '<td data-raw><button type="button" class="fin-link inv-glass" title="Journal" onclick="invOpenJournal('+invArg(r.key)+')">'+esc(v)+'</button>'+(r.off?' <span class="pill warn">inactive</span>':'')+'</td>';
+ if(c.k==='measures')return '<td class="nowrap">'+(v?'<b>'+esc(v)+'</b>':'<span class="mut">—</span>')+'</td>';
+ if(c.k==='onHand')return '<td class="n'+(r.onHand<0?' inv-neg':'')+'">'+esc(v)+'</td>';
+ if(c.k==='reserved')return '<td class="n">'+esc(v)+(r.orders.length?'<div class="inv-note">'+esc(r.orders.length>2?r.orders.length+' orders':r.orders.map(o=>o.n+(r.orders.length>1?': '+o.qty:'')).join(', '))+'</div>':'')+'</td>';
+ if(c.k==='available')return '<td class="n'+(r.available<0?' inv-neg':'')+'"><b>'+esc(v)+'</b></td>';
+ if(c.k==='status')return '<td><span class="pill '+(INV_STOCK_TONE[v]||'')+'" data-inv-stock-status>'+esc(v==='Short'?'Short '+(-r.available):v)+'</span></td>';
+ if(c.k==='lastCount')return '<td class="nowrap">'+invLastCount(r)+'</td>';
+ return '<td'+(c.type==='number'?' class="n"':'')+(c.k==='code'||c.k==='kind'?' data-raw':'')+'>'+invNum(v)+'</td>';
+}
+/* Count / + / − прямо в строке (вариант D4): число, разница, причина,
+   заметка, ✓ и ✕ на месте кнопок строки. */
+function invStockOpen(id,kind){
+ if(invStockEdit&&invStockEdit.id===id&&invStockEdit.kind===kind)return;
+ invStockEdit={id,kind,qty:'',reason:'',note:''};invNotice='';render();document.getElementById('inv_stock_qty')?.focus();
+}
+function invStockQty(el){
+ invStockEdit.qty=el.value;const d=document.querySelector('[data-inv-stock-diff]');if(!d)return;
+ const r=sinvRowOf(invStockEdit.id),n=Number(el.value);
+ d.textContent=invStockEdit.kind==='count'&&r&&el.value.trim()!==''&&Number.isFinite(n)&&n!==r.onHand?(n>r.onHand?'+':'−')+Math.abs(n-r.onHand):'';
+}
+function invStockSave(){
+ const d=invStockEdit;if(!d)return;
+ const out=d.kind==='count'?sinvCount(d.id,d.qty,{reason:d.reason,note:d.note}):sinvMove(d.id,d.kind,d.qty,{reason:d.reason,note:d.note});
+ if(!out.ok){invNotice=out.error;render();return;}
+ invStockEdit=null;invNotice='';render();
+}
+function invStockActs(i){
+ const r=i.r,id=invArg(r.id),d=invStockEdit&&invStockEdit.id===r.id?invStockEdit:null;
+ if(!d)return '<td class="inv-acts"><button type="button" class="sl-quiet sm" data-inv-stock-add title="Add" aria-label="Add" onclick="invStockOpen('+id+',\'add\')">+</button><button type="button" class="sl-quiet sm" data-inv-stock-remove title="Remove" aria-label="Remove" onclick="invStockOpen('+id+',\'remove\')">−</button><button type="button" class="sl-quiet sm" data-inv-stock-count onclick="invStockOpen('+id+',\'count\')">Count</button></td>';
+ const reasons=d.kind==='add'?INV_ADD:d.kind==='remove'?SINV_REMOVE:stockReasonsActive();
+ return '<td class="inv-stock-edit" data-inv-stock-edit="'+esc(d.kind)+'"><span class="inv-stock-label">'+(d.kind==='count'?'Counted':d.kind==='add'?'Add':'Remove')+'</span>'+
+  '<input id="inv_stock_qty" type="number" min="'+(d.kind==='count'?0:1)+'" step="1" inputmode="numeric" aria-label="Quantity" value="'+esc(d.qty)+'" oninput="invStockQty(this)" onkeydown="if(event.key===\'Enter\')invStockSave();if(event.key===\'Escape\'){invStockEdit=null;render();}"><span class="inv-diff" data-inv-stock-diff></span>'+
+  '<select aria-label="Reason" onchange="invStockEdit.reason=this.value"><option value="">Reason…</option>'+reasons.map(x=>'<option'+(x===d.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select>'+
+  '<input type="text" maxlength="200" aria-label="Note" placeholder="Note" value="'+esc(d.note)+'" oninput="invStockEdit.note=this.value">'+
+  '<button type="button" class="sm pri" data-inv-stock-save onclick="invStockSave()">Save</button><button type="button" class="sm" aria-label="Cancel" onclick="invStockEdit=null;invNotice=\'\';render()">×</button></td>';
+}
+/* Под таблицей (вариант D3): что посчитано и поправлено сегодня. */
+function invStockLog(rows){
+ const today=salesListDay(new Date()),list=rows.flatMap(r=>r.moves.filter(m=>m.event&&salesListIsoDay(m.at)===today).map(m=>({r,m}))).sort((a,b)=>String(b.m.at).localeCompare(String(a.m.at)));
+ const left=rows.filter(r=>r.status==='Not counted').length;
+ return '<section class="inv-stock-log" data-inv-stock-log><div class="inv-stock-log-head"><b>Today</b><span class="mut">'+list.length+' count'+(list.length===1?'':'s')+' and changes</span>'+(left?'<button type="button" class="fin-link" onclick="invListStatus(\'Not counted\')">Not counted yet · '+left+'</button>':'')+'<span class="sales-toolbar-sp"></span><button type="button" class="sm" onclick="invGo(\'journal\')">Full journal</button></div>'+
+  (list.length?'<div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Time</th><th>Item</th><th>What</th><th class="n">Was → now</th><th class="n">Change</th><th>Reason</th><th>Who</th></tr></thead><tbody>'+
+   list.map(({r,m})=>{const e=m.event,was=e.kind==='count'?e.before:null;return '<tr><td class="nowrap">'+esc(new Date(e.at).toTimeString().slice(0,5))+'</td><td data-raw>'+esc(r.name)+'</td><td>'+esc(m.kind)+'</td><td class="n">'+(was==null?'<span class="mut">—</span>':esc(was+' → '+e.after))+'</td><td class="n'+(e.qty<0?' inv-neg':'')+'">'+esc((e.qty>0?'+':e.qty<0?'−':'')+Math.abs(e.qty))+'</td><td>'+invNum([e.reason,e.note].filter(Boolean).join(' · '))+'</td><td data-raw>'+invNum(e.by)+'</td></tr>';}).join('')+'</tbody></table></div>':'<p class="mut">Nothing counted today.</p>')+'</section>';
+}
+function invStockView(infos){
+ const rows=salesListRows(infos),cols=salesListColumns(),all=infos.map(i=>i.r);
+ return invStockTiles(salesListRows(infos,['status']).map(i=>i.r))+invListFilters(infos)+invTable(cols,rows,invStockCell,'<th></th>',invStockActs,infos.length?'Nothing matches the filters.':'No stock items. Add them in Data → Stock items.',true)+invStockLog(all);
+}
+/* Из карточки Data: Inventory → Stock items, журнал этой позиции. */
+function invOpenStock(id){navGo('inventory');if(tab!=='inventory')return;invGo('journal');invOpenJournal(sinvKey(id));}
 
 /* ------------------------------ Offcuts ------------------------------ */
 function invOffcutInfos(){
@@ -292,7 +363,7 @@ function invMoveCell(i,c){
 }
 function invJournalView(infos){
  const rows=salesListRows(infos),cols=salesListColumns(),r=invJournalKey&&invRowFind(invJournalKey);
- const key=invJournalKey?'<div class="sl-chips"><span class="sl-chips-label">Glass</span><span class="sl-chip" data-inv-journal-key>'+esc(r?r.code+' '+invSizeText(r):invJournalKey)+'<button type="button" aria-label="Show all glass" onclick="invJournalKey=\'\';render()">×</button></span></div>':'';
+ const key=invJournalKey?'<div class="sl-chips"><span class="sl-chips-label">Glass</span><span class="sl-chip" data-inv-journal-key>'+esc(r?r.code+' '+invSizeText(r):(String(invJournalKey).startsWith('stock:')&&sinvRowOf(invJournalKey.slice(6))||{}).name||invJournalKey)+'<button type="button" aria-label="Show all glass" onclick="invJournalKey=\'\';render()">×</button></span></div>':'';
  return key+invListFilters(infos)+invTable(cols,rows,invMoveCell,'','',infos.length?'Nothing matches the filters.':'No movements yet.');
 }
 
@@ -366,7 +437,7 @@ function viewInventory(){
  if(!accessCan('inventory'))return '<div class="empty">Inventory access is required.</div>';
  if(invView==='consumables')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'<span class="sales-toolbar-sp"></span><button type="button" class="pri" data-cons-count-save onclick="consCountSaveUi()">Save count</button></div>'+invConsumablesView()+salesListMenuHTML([])+'</div></div>';
  if(invView==='sizes')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'</div>'+invSizesView()+salesListMenuHTML([])+'</div></div>';
- const count=invView==='count',off=invView==='offcuts',infos=invView==='journal'?invMoveInfos():off?invOffcutInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):off?invOffcutsView(infos):count?invCountView(infos):invSheetsView(infos);
+ const count=invView==='count',off=invView==='offcuts',stock=invView==='stock',infos=invView==='journal'?invMoveInfos():off?invOffcutInfos():stock?invStockInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):off?invOffcutsView(infos):stock?invStockView(infos):count?invCountView(infos):invSheetsView(infos);
  const n=Object.keys(invCountDraft).length;
  return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'<span class="sales-toolbar-sp"></span>'+
   (count||invView==='sheets'?'<button type="button" data-inv-glass-on-rack onclick="invMoveOpen(\'\',\'add\')">+ Glass on rack</button>':'')+(count?'<button type="button" class="pri" data-inv-count-save onclick="invCountSaveUi()">Save count · <span data-inv-count-n>'+n+'</span></button>':'')+
