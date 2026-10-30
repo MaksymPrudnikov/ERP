@@ -63,7 +63,8 @@ module.exports=async function({page,eq}){
   const head=k=>{mdCatalogGo(k);return [...document.querySelectorAll('[data-md-health] .pill')].map(p=>p.textContent.replace(/\s*\d+$/,''));};
   const counts={glass:head('glassProduct'),gas:head('gasProduct'),spacer:head('spacerVariant'),works:head('serviceRate'),hw:head('hardwareModel')};
   mdCatalogGo('gasProduct');const gasNew=!!document.querySelector('.md-toolbar .pri');
-  mdCatalogQuery='a';mdCatalogLimit=0;render();const found=+document.querySelector('[data-md-search-count]').textContent.split(' ')[0],first=document.querySelectorAll('[data-md-search] tbody tr').length;
+  /* Весь каталог — явным All catalog (пункт 4 плана v1.16, P4-R2). */
+  mdCatalogQuery='a';mdCatalogAll=true;mdCatalogLimit=0;render();const found=+document.querySelector('[data-md-search-count]').textContent.split(' ')[0],first=document.querySelectorAll('[data-md-search] tbody tr').length;
   const more=document.querySelector('[data-md-more]');if(more)more.click();const next=document.querySelectorAll('[data-md-search] tbody tr').length;mdCatalogQuery='';
   mdCatalogGo('hardwareModel');const order=[...document.querySelectorAll('.section-title h3')].map(h=>h.textContent);
   return {glass,counts,gasNew,paged:found>MD_PAGE?[first,next]:[found,found],order};
@@ -88,8 +89,8 @@ module.exports=async function({page,eq}){
   const keep=DB.priceList;DB.priceList=(DB.priceList||[]).filter(l=>l.kind!=='group');plGroupId='';plView='groups';mdSetTab('prices');render();const prices=/Add a group, then give it prices\./.test(document.body.textContent);DB.priceList=keep;render();
   return {trucks,setup,prices};
  }),{trucks:[true,true],setup:true,prices:true});
- eq('catalog search finds a row in any table; Open goes to its card',await t.p.evaluate(()=>{
-  mdSetTab('materials');mdCatalogQuery='argon';render();
+ eq('catalog search with All catalog finds a row in any table; Open goes to its card',await t.p.evaluate(()=>{
+  mdSetTab('materials');mdCatalogQuery='argon';mdCatalogAll=true;render();
   const rows=document.querySelectorAll('[data-md-search] tbody tr').length;
   document.querySelector('[data-md-search] tbody button').click();
   return {rows,card:document.querySelector('[data-md-card]').getAttribute('data-md-card'),query:mdCatalogQuery};

@@ -264,6 +264,8 @@ function invMoves(rackOnly){
  /* Пересчёт расходников — в том же журнале, с причиной и заметкой. */
  if(!rackOnly&&typeof consCountMoves==='function')consCountMoves().forEach(m=>out.push(m));
  if(!rackOnly&&typeof invOffcutMoves==='function')invOffcutMoves().forEach(m=>out.push(m));
+ /* Stock items (двери и другое, pcs): приёмка, отгрузка, пересчёт, + / −. */
+ if(!rackOnly&&typeof sinvMoves==='function')sinvMoves().forEach(m=>out.push(m));
  return out.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
 }
 

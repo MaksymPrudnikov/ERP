@@ -340,18 +340,22 @@ async function archiveNcr(){
 /* Склад листов, обрезки и расходники — что они показывают, без журнала
    движений. Расходники — расход по сканам IGU (аудит 25.10.2026, I-1). */
 function archiveInvState(){
- const sheets=new Map(),offcuts=new Map(),cons=new Map();
+ const sheets=new Map(),offcuts=new Map(),cons=new Map(),stock=new Map();
  if(typeof invSheetRows==='function')invSheetRows().forEach(r=>sheets.set(r.key,{cut:r.cut,broken:r.broken}));
  if(typeof invOffcutRows==='function')invOffcutRows().forEach(o=>offcuts.set(o.id,{status:o.status,used:o.used,broken:o.broken,onRackAt:o.onRackAt,onRackBy:o.onRackBy}));
  if(typeof consRows==='function')consRows().forEach(r=>cons.set(r.key,{used:r.used,unknown:r.unknown}));
- return {sheets,offcuts,cons};
+ /* Stock items: приход и отгрузка ушедших заказов и накладных. */
+ if(typeof sinvBuild==='function')sinvBuild().forEach(r=>stock.set(r.id,{received:r.received,shipped:r.shipped}));
+ return {sheets,offcuts,cons,stock};
 }
 /* Разница «до − после» по складу ложится в inventoryArchived: склад
    прибавляет её, и он показывает то же, что до действия, — при уходе и при
    возврате одинаково. offcuts — запомнить факты обрезков (уход). */
 function archiveInvKeep(before,after,offcuts){
  const A=DB.inventoryArchived&&typeof DB.inventoryArchived==='object'?DB.inventoryArchived:(DB.inventoryArchived={});
- A.sheets=A.sheets||{};A.offcuts=A.offcuts||{};A.cons=A.cons||{};
+ A.sheets=A.sheets||{};A.offcuts=A.offcuts||{};A.cons=A.cons||{};A.stock=A.stock||{};
+ new Set([...before.stock.keys(),...after.stock.keys()]).forEach(id=>{const b=before.stock.get(id)||{received:0,shipped:0},a=after.stock.get(id)||{received:0,shipped:0},x=A.stock[id]||{received:0,shipped:0};
+  x.received+=b.received-a.received;x.shipped+=b.shipped-a.shipped;if(x.received||x.shipped)A.stock[id]=x;else delete A.stock[id];});
  before.sheets.forEach((b,key)=>{const a=after.sheets.get(key)||{cut:0,broken:0},x=A.sheets[key]||{cut:0,broken:0};
   x.cut+=b.cut-a.cut;x.broken+=b.broken-a.broken;if(x.cut||x.broken)A.sheets[key]=x;else delete A.sheets[key];});
  /* Расход — дробный (футы, кг): остаток меньше миллионной — ноль. */

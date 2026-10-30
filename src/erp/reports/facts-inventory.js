@@ -4,7 +4,7 @@
    (приход, рез, слом, списание, добавление, поправка пересчётом) и расход
    материалов IGU по скану сборки.
    IN : DB.inventoryEvent (пересчёт листов), DB.consumableEvent (пересчёт
-        расходников), журнал листов invMoves (erp/inventory/sheets), сборки
+        расходников), DB.stockItemEvent (пересчёт Stock items, pcs), журнал листов invMoves (erp/inventory/sheets), сборки
         IGU consAssembled × рецепт юнита consPerUnit
         (erp/inventory/consumables), расход ушедших в архив
         DB.inventoryArchived.cons
@@ -33,7 +33,7 @@ function repConsTables(){return typeof CONS_TABLES==='undefined'?[]:CONS_TABLES.
    недостача (Short), плюс — излишек (Over). Причины нет — «No reason». */
 let repCountCache={stamp:'',rows:null};
 function repCountFacts(){
- const stamp=readMemo('repCountStamp',[DB.inventoryEvent,DB.consumableEvent].concat(repConsTables()),()=>[(DB.inventoryEvent||[]).length,(DB.consumableEvent||[]).length,
+ const stamp=readMemo('repCountStamp',[DB.inventoryEvent,DB.consumableEvent,DB.stockItemEvent,DB.stockItem].concat(repConsTables()),()=>[(DB.inventoryEvent||[]).length,(DB.consumableEvent||[]).length,(DB.stockItemEvent||[]).length,((DB.stockItemEvent||[]).slice(-1)[0]||{}).id,(DB.stockItem||[]).map(x=>x&&x.id+'='+x.name).join(),
   ((DB.inventoryEvent||[]).slice(-1)[0]||{}).id,((DB.consumableEvent||[]).slice(-1)[0]||{}).id,repConsNames()].join('|'));
  if(repCountCache.stamp===stamp&&repCountCache.rows)return repCountCache.rows;
  const rows=[],put=(e,r)=>{
@@ -41,7 +41,7 @@ function repCountFacts(){
   const diff=Math.round((+e.qty||0)*1000)/1000;
   rows.push(Object.assign({id:e.id,at:e.at,day:repDay(e.at),person:e.by||'',glass:'',size:'',mm:null,was:e.before,counted:e.after,diff,
    dir:diff<0?'Short':diff>0?'Over':'Exact',off:diff?1:0,short:diff<0?1:0,over:diff>0?1:0,reason:e.reason||'No reason',note:e.note||'',
-   sheets:0,sheetFt2:0,spacerFt:0,sealantKg:0,gasKg:0,partsKg:0},r));
+   sheets:0,sheetFt2:0,spacerFt:0,sealantKg:0,gasKg:0,partsKg:0,stockPcs:0},r));
  };
  (DB.inventoryEvent||[]).forEach(e=>{
   if(e.kind!=='count')return;const g=glassProductByCode(e.glass),size=invSizeText(e);
@@ -51,6 +51,9 @@ function repCountFacts(){
   const x=repConsItem(e.key);if(!x)return;
   put(e,Object.assign({kind:x.kind,material:x.name,unit:x.unit},repConsMeasures(x.table,Math.round((+e.qty||0)*1000)/1000)));
  });
+ /* Stock items (двери и другое) — штуки, своей колонкой: с kg и ft не складываются. */
+ (DB.stockItemEvent||[]).forEach(e=>{if(e.kind!=='count')return;const x=(DB.stockItem||[]).find(s=>s&&s.id===e.itemId);
+  put(e,{kind:'Stock items',material:x?x.name:e.itemId,unit:'pcs',stockPcs:+e.qty||0});});
  repCountCache={stamp,rows};
  return rows;
 }

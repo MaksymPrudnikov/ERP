@@ -3,8 +3,9 @@
    Data → Catalog в виде плана Master Data («Как выглядит Catalog»;
    владелец, 23.10.2026: «доделай до конца»): слева дерево групп со
    счётчиками, в центре список выбранного типа, справа превью строки.
-   Поиск сверху — по всему каталогу. Счётчики «не хватает» только
-   предупреждают.
+   Поиск сверху — в открытом разделе, весь каталог — кнопкой All catalog
+   (план доработок v1.16, пункт 4; владелец 30.10.2026 — вариант A1).
+   Счётчики «не хватает» только предупреждают.
    IN : таблицы Master Data; экраны списков из view/masterdata
    OUT: html
 
@@ -23,16 +24,17 @@ const MD_CATALOG_TREE=[
  ['Recipes',[['surroundRecipe','IGU surround','materials','igu']]]
 ];
 const MD_CATALOG_TABS=['materials','works','hardware'];
-let mdCatalogQuery='',mdPeek='';
+let mdCatalogQuery='',mdPeek='',mdCatalogAll=false;
 function mdCatalogNode(){
  if(mdTab==='hardware')return 'hardwareModel';
  if(mdTab==='works')return mdCatKind;
  return mdMatView;
 }
+/* Другой раздел — поиск снова в разделе (P4-R2). */
 function mdCatalogGo(key){
  const hit=MD_CATALOG_TREE.flatMap(g=>g[1]).find(n=>n[0]===key);if(!hit)return;
  mdSetTab(hit[2]);if(hit[2]==='materials')mdMatSwitch(hit[3],key);else if(hit[2]==='works')mdCatKind=key;
- mdCatalogQuery='';mdCatalogLimit=0;mdPeek='';if(typeof mdGlassLimit!=='undefined')mdGlassLimit=MD_PAGE;render();
+ mdCatalogQuery='';mdCatalogAll=false;mdCatalogLimit=0;mdPeek='';if(typeof mdGlassLimit!=='undefined')mdGlassLimit=MD_PAGE;render();
 }
 function mdFilmDensity(x){const r=(DB.materialWeightRates||[]).find(r=>r.key==='film:'+x.id);return r?mdNonNeg(r.rate):null;}
 function mdCatalogCount(key){return (DB[key]||[]).filter(x=>x&&x.active!==false).length;}
@@ -51,14 +53,26 @@ function mdCatalogHealth(node){
 }
 /* Сколько найденного показано; 0 — первая страница (MD_PAGE из views/masterdata, он грузится позже). */
 let mdCatalogLimit=0;
-/* Поиск по всему каталогу: имя, код, поставщик. */
-function mdCatalogSearch(q){
+/* Поиск: имя, код, поставщик. node — только этот раздел (P4-R1), без
+   него — весь каталог. */
+function mdCatalogMatch(x,q){return !!x&&[x.name,x.code,x.shortName,x.id,x.supplier,x.manufacturer,x.productCode,x.subcategory].join(' ').toLowerCase().includes(q);}
+function mdCatalogSearch(q,node){
  q=q.trim().toLowerCase();if(!q)return [];
  const out=[];
- MD_CATALOG_TREE.forEach(([,nodes])=>nodes.forEach(([t,label])=>(DB[t]||[]).forEach(x=>{
-  if(!x||![x.name,x.code,x.shortName,x.id,x.supplier,x.manufacturer,x.productCode].join(' ').toLowerCase().includes(q))return;
-  out.push({t,label,x});})));
+ MD_CATALOG_TREE.forEach(([,nodes])=>nodes.forEach(([t,label])=>{if(node&&t!==node)return;(DB[t]||[]).forEach(x=>{
+  if(mdCatalogMatch(x,q))out.push({t,label,x});});}));
  return out;
+}
+/* Строки справочника (Catalogues) под запросом раздела: список тот же, с
+   Edit и + New. */
+function mdCatalogFilterRows(rows){
+ const q=mdCatalogQuery.trim().toLowerCase();return q&&!mdCatalogAll?rows.filter(x=>mdCatalogMatch(x,q)):rows;
+}
+function mdCatalogScope(all){mdCatalogAll=!!all;mdCatalogLimit=0;render();document.getElementById('mdCatalogSearch')?.focus();}
+/* + New при поиске и пустой выдаче — в открытом разделе (P4-R3). */
+function mdCatalogNew(node){
+ mdCatalogGo(node);
+ ({glassProduct:mdGlassNew,glassSheet:mdSheetNew,spacerVariant:mdSpacerNew,hardwareModel:mdHwModelNew,surroundRecipe:mdRecipeNew}[node]||mdCatNew)();
 }
 function mdCatalogSearchChange(el){
  mdCatalogQuery=el.value;mdCatalogLimit=0;const pos=el.selectionStart;render();
@@ -120,19 +134,21 @@ function viewMdCatalog(){
  const node=mdCatalogNode(),open=mdRowFormOpen();
  const tree=MD_CATALOG_TREE.map(([g,nodes])=>`<div class="md-tree-group">${esc(g)}</div>`+nodes.map(([k,label])=>`<button type="button" class="${k===node?'on':''}" data-md-node="${k}" onclick="mdCatalogGo('${k}')">${esc(label)} <span class="mut">${mdCatalogCount(k)}</span></button>`).join('')).join('');
  const label=(MD_CATALOG_TREE.flatMap(g=>g[1]).find(n=>n[0]===node)||[])[1]||'';
- const health=mdCatalogQuery.trim()?'':mdCatalogHealth(node).map(([k,n])=>`<span class="pill ${n?'warn':'ok'}">${esc(k)} ${n}</span>`).join(' ');
- const hits=mdCatalogSearch(mdCatalogQuery);
+ const health=mdCatalogQuery.trim()&&mdCatalogAll?'':mdCatalogHealth(node).map(([k,n])=>`<span class="pill ${n?'warn':'ok'}">${esc(k)} ${n}</span>`).join(' ');
+ const q=mdCatalogQuery.trim(),own=q&&!mdCatalogAll&&MD_CATALOGUES.some(c=>c.k===node);
+ const hits=q&&!own?mdCatalogSearch(mdCatalogQuery,mdCatalogAll?'':node):[];
+ const newBtn=`<button class="pri" data-md-search-new onclick="mdCatalogNew('${esc(node)}')">+ New${mdCatalogAll?' · '+esc(label):''}</button>`;
  let body;
- if(mdCatalogQuery.trim())body=`<div class="md-toolbar"><span class="mut" data-md-search-count>${hits.length} found</span></div><div class="customer-table-wrap"><table data-md-search><thead><tr><th>Type</th><th>Name</th><th>Code</th><th></th></tr></thead><tbody>${hits.slice(0,mdCatalogLimit||MD_PAGE).map(h=>`<tr><td>${esc(h.label)}</td><td><b>${raw(h.x.name||h.x.id)}</b></td><td class="mono">${raw(h.x.code||h.x.productCode||'')}</td><td><button class="sm" onclick="mdCatalogOpen('${esc(h.t)}','${esc(h.x.id)}')">Open</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nothing found</td></tr>'}</tbody></table></div>${hits.length>(mdCatalogLimit||MD_PAGE)?`<div class="md-more"><button class="sm" data-md-more onclick="mdCatalogLimit=(mdCatalogLimit||MD_PAGE)+MD_PAGE;render()">Show ${Math.min(MD_PAGE,hits.length-(mdCatalogLimit||MD_PAGE))} more</button></div>`:''}`;
+ if(q&&!own)body=`<div class="md-toolbar"><span class="mut" data-md-search-count>${hits.length} found${mdCatalogAll?' in all catalog':' in '+esc(label)}</span><span class="sp"></span>${newBtn}</div><div class="customer-table-wrap"><table data-md-search><thead><tr><th>Type</th><th>Name</th><th>Code</th><th></th></tr></thead><tbody>${hits.slice(0,mdCatalogLimit||MD_PAGE).map(h=>`<tr><td>${esc(h.label)}</td><td><b>${raw(h.x.name||h.x.id)}</b></td><td class="mono">${raw(h.x.code||h.x.productCode||'')}</td><td><button class="sm" onclick="mdCatalogOpen('${esc(h.t)}','${esc(h.x.id)}')">Open</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nothing found</td></tr>'}</tbody></table></div>${hits.length>(mdCatalogLimit||MD_PAGE)?`<div class="md-more"><button class="sm" data-md-more onclick="mdCatalogLimit=(mdCatalogLimit||MD_PAGE)+MD_PAGE;render()">Show ${Math.min(MD_PAGE,hits.length-(mdCatalogLimit||MD_PAGE))} more</button></div>`:''}`;
  else if(mdTab==='hardware')body=viewMdHardware();
  else if(mdTab==='works')body=viewMdCatalogues()+(mdCatEdit===null&&mdCatKind==='serviceRate'?viewMdAllowance():'');
  else{const hit=mdMatResolve(mdMatCategory,mdMatView).hit;body=hit.view?({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,recipe:viewMdRecipes})[hit.view]():viewMdCatalogues();}
- const peek=mdPeek&&!open&&!mdCatalogQuery.trim()?mdPeekHTML():'';
+ const peek=mdPeek&&!open&&(!q||own)?mdPeekHTML():'';
  return `<div class="md-catalog${peek?' md-catalog-peek':''}" data-md-catalog>
   <nav class="md-tree" aria-label="Catalog">${tree}</nav>
   <div class="md-catalog-main">
-   ${open?'':`<div class="md-catalog-head"><div><span class="md-crumb">Master Data › Catalog</span><h3>${esc(mdCatalogQuery.trim()?'Search':label)}</h3></div><div class="md-catalog-health" data-md-health${node==='spacerVariant'?' data-spacer-health':''}>${health}</div></div>
-   <div class="customer-search md-catalog-search"><input id="mdCatalogSearch" value="${esc(mdCatalogQuery)}" placeholder="Search all catalog: name, code, supplier…" oninput="mdCatalogSearchChange(this)"></div>`}
+   ${open?'':`<div class="md-catalog-head"><div><span class="md-crumb">Master Data › Catalog</span><h3>${esc(q&&mdCatalogAll?'Search':label)}</h3></div><div class="md-catalog-health" data-md-health${node==='spacerVariant'?' data-spacer-health':''}>${health}</div></div>
+   <div class="customer-search md-catalog-search md-catalog-scope"><div class="stk-seg" data-md-scope><button type="button" class="${mdCatalogAll?'':'on'}" data-md-scope-node onclick="mdCatalogScope(false)">${esc(label)}</button><button type="button" class="${mdCatalogAll?'on':''}" data-md-scope-all onclick="mdCatalogScope(true)">All catalog</button></div><input id="mdCatalogSearch" value="${esc(mdCatalogQuery)}" placeholder="${mdCatalogAll?'Search all catalog':'Search '+esc(label)}: name, code, supplier…" oninput="mdCatalogSearchChange(this)"></div>`}
    <div onclick="mdCatalogRowClick(event)">${body}</div>
   </div>${peek}</div>`;
 }

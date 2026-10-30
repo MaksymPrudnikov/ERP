@@ -169,7 +169,7 @@ module.exports=async function({page,eq}){
   const added=invSheetRows().find(r=>r.code===pre.code);
   invGo('journal');const kinds=invMoves().filter(m=>m.code==='6CLEAR'||m.code===pre.code).map(m=>m.kind).sort();
   return {noReason,racks,size,added:added&&[added.key===pre.code+'|120x84',added.onRack],kinds,tabs:document.querySelectorAll('[data-inv-sections] [data-inv-section]').length};
- }),{noReason:'Choose a reason.',racks:[13,12,9],size:['120','84'],added:[true,5],kinds:['Add','Add','Count','Receipt','Write off'],tabs:6});
+ }),{noReason:'Choose a reason.',racks:[13,12,9],size:['120','84'],added:[true,5],kinds:['Add','Add','Count','Receipt','Write off'],tabs:7});
 
  eq('a short row without a count is Negative, not Not counted; the Negative tile finds it',await t.p.evaluate(()=>{
   ivReset();ivRec([{qty:5,unit:'sheet',widthIn:144,heightIn:96}]);ivBatch();ivBatch();

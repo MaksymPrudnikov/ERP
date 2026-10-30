@@ -36,3 +36,10 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 .inv-why{display:flex;gap:6px;margin-top:6px}.inv-why[hidden]{display:none}.inv-why select{max-width:150px}.inv-why input{width:140px}
 /* Inventory → Consumables: во что покупают (1 box = 1880 ft). */
 .cons-packs{white-space:nowrap}.cons-pack{display:flex;align-items:center;gap:4px;margin:2px 0}.cons-pack select{max-width:90px}
+/* Stock items: Count / + / − в строке и «сегодня» под таблицей (пункт 4). */
+.inv-stock-edit{white-space:nowrap}.inv-stock-edit>*{vertical-align:middle}.inv-stock-edit>*+*{margin-left:6px}
+.inv-stock-edit input[type=number]{width:72px}.inv-stock-why select,.inv-stock-why input{display:block;width:100%;min-width:110px;margin:0}.inv-stock-why input{margin-top:4px}
+.inv-stock-label{font-size:12px;font-weight:650;color:var(--text-2)}
+tr:has(.inv-stock-edit) td{background:var(--accent-soft)}
+.inv-stock-log{margin:14px 20px 18px;display:flex;flex-direction:column;gap:8px}
+.inv-stock-log-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
