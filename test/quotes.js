@@ -74,7 +74,7 @@ module.exports=async function({page,eq,ok}){
 
  eq('Convert при нескольких ревизиях спрашивает, какую; заказ из выбранной R1, квота Won, все ревизии остаются и только для чтения',await t.p.evaluate(()=>{
   const r1=DB.salesOrder.find(o=>o.businessNumber==='Q-10001-R1'),r2=DB.salesOrder.find(o=>o.businessNumber==='Q-10001-R2');
-  salesOrderEdit(r2.id);salesConvertQuote();
+  r1.customerPo=r2.customerPo='PO-Q';salesOrderEdit(r2.id);salesConvertQuote();
   const choices=salesDialog.choices.map(c=>c.label),radios=document.querySelectorAll('[data-dialog-choice]').length,preset=salesDialog.choice===r2.id;
   salesDialogPick(r1.id);
   salesDialogChoose(salesDialog.buttons.findIndex(b=>b.label==='Convert to order'));

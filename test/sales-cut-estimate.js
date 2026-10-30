@@ -91,7 +91,7 @@ module.exports=async function({page,eq,ok}){
  }),{row:false,onSheet:false,claims:0,refused:'Preview only.',same:true});
 
  eq('выигранная квота и заказ из неё отмечены вместе — стекло берётся один раз, из заказа',await t.p.evaluate(()=>{
-  ceSetup();const q=ceRec('quote',[[30,30,2]]);salesConvertQuoteRecord(q);const o=salesRecord(q).wonOrderId;soDraft=null;soEdit=null;
+  ceSetup();const q=ceRec('quote',[[30,30,2]]);salesConvertQuoteRecord(q,'PO-CE');const o=salesRecord(q).wonOrderId;soDraft=null;soEdit=null;
   cutEstOpen([q,o]);const recs=cutEst.recs.map(r=>r.id),n=cutPiecesOf('EST').length;cutEstClose();
   return {recs:recs.length===1&&recs[0]===o,n};
  }),{recs:true,n:2});

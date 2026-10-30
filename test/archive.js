@@ -92,7 +92,8 @@ module.exports=async function({page,eq}){
   await archiveOpen(x.b);const src=JSON.parse(JSON.stringify(salesRecord(x.b)));archiveRepeat();
   const d=soDraft,r={edit:soEdit,customer:d.customerId===src.customerId,lines:d.lines.map(l=>[l.width16,l.height16,l.qty].join()).join()===src.lines.map(l=>[l.width16,l.height16,l.qty].join()).join(),
    fresh:d.id!==src.id&&!d.businessNumber&&!d.customerPo&&d.status==='new'&&d.lines.every(l=>!l.batchedAt),visit:storageVisit.size,src:!salesRecord(x.b)};
-  const n=nextSalesOrderNumber(),saved=salesOrderSave();
+  /* PO у всех (владелец 29.10.2026) — вписать перед Save. */
+  soDraft.customerPo='PO-R';const n=nextSalesOrderNumber(),saved=salesOrderSave();
   return Object.assign(r,{saved,number:salesRecord(soEdit).businessNumber===n,still:archiveIndex.has(x.b)});
  },ids),{edit:'new',customer:true,lines:true,fresh:true,visit:0,src:true,saved:true,number:true,still:true});
  await t.p.evaluate(()=>{salesDraftDrop(false);});
