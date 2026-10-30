@@ -313,8 +313,9 @@ const DATA_FIXES=[
 ];
 /* Номера правок кодом (не строкой таблицы): 4 — sfSplitEdgeFix, 6 —
    приоритет раскроя, 7 — стекло COG, 8 — прайс заказа, 9 — количества работ
-   в строке, 10 — наш код стекла в PO поставщику (applyDataFixes). */
-const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),10);
+   в строке, 10 — наш код стекла в PO поставщику, 11 — геометрия лайтов для
+   веса в строке (applyDataFixes). */
+const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),11);
 function applyDataFixes(){
  const have=Number.isInteger(+DB.dataFix)&&+DB.dataFix>0?+DB.dataFix:0;
  if(have>=DATA_FIX_VERSION)return false;
@@ -354,6 +355,10 @@ function applyDataFixes(){
     «поставщики пусть будет имя тоже»): строка Glass code в PO выключается
     один раз; включить обратно можно в Customize. */
  if(have<10&&DB.purchaseDocumentOptions&&DB.purchaseDocumentOptions.productCode===true){DB.purchaseDocumentOptions.productCode=false;changed++;}
+ /* Номер 11 · 30 октября 2026. Геометрия лайтов для веса — в записи строки
+    (line.measure.lites, пункт 14): владелец — «если данные с фигуры уже
+    получены, зачем её пересчитывать». Только строкам, чья запись верна. */
+ if(have<11&&typeof salesLineLiteGeo==='function')readScope(()=>(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&Array.isArray(o.lines))o.lines.forEach(l=>{if(!l||!l.measure||l.measure.lites)return;try{if(salesMeasureFor(l,o)){l.measure.lites=finWithOrder(o,()=>salesLineLiteGeo(l,o));changed++;}}catch(e){console.warn('lites '+(o.businessNumber||o.id)+': '+e.message);}});}));
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;

@@ -118,6 +118,14 @@ module.exports=async function({page,eq}){
   return {exact:lite.exact,kg:Math.round(r.kg),status:r.kgStatus};
  }),{exact:false,kg:80,status:'Partial'});
 
+ eq('Геометрия лайтов для веса записана в строку при Save: вес сохранённого заказа не строит план резки; старым строкам её дописывает правка данных 11 — вес тот же',await run(()=>{
+  owSetup();const o=salesRecord(owOrder()),before=owW(o).kg,keep=salesEffectiveCuttingPlan;let plans=0;
+  window.salesEffectiveCuttingPlan=function(){plans++;return keep.apply(this,arguments);};
+  const check=window.GF_SCOPE_CHECK;window.GF_SCOPE_CHECK=false;readScope(()=>salesOrderWeight(o));window.GF_SCOPE_CHECK=check;const used=plans;window.salesEffectiveCuttingPlan=keep;
+  o.lines.forEach(l=>{delete l.measure.lites;});DB.dataFix=10;applyDataFixes();
+  return {stored:o.lines.every(l=>Array.isArray(l.measure.lites)&&l.measure.lites.length>0),plans:used,fix:DB.dataFix,same:owW(o).kg===before};
+ }),{stored:true,plans:0,fix:11,same:true});
+
  await run(()=>{owSetup();window.owF5=owOrder();return storageFlush();});
  await t.p.reload();await t.p.evaluate(()=>window.storageReady);await require('./optimization-fixture')(t.p);await setup();
  eq('После F5 — тот же вес: 80 Partial, плёнка, строка 1',await run(()=>{const o=DB.salesOrder[DB.salesOrder.length-1];return owW(o);}),{kg:80,complete:false,partial:true,gaps:['film@1'],text:'Interlayer weight not included'});

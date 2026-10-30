@@ -56,7 +56,7 @@ function* salesSaveSteps(job){
   const lines=copy.lines,n=lines.length;
   for(let i=0;i<n;i++){
    const l=lines[i],m=salesMeasureLive(l,copy);
-   pre.measures.set(l.id,{sig:salesMeasureSig(l,copy),rows:m.rows,areas:m.areas});
+   pre.measures.set(l.id,{sig:salesMeasureSig(l,copy),rows:m.rows,areas:m.areas,lites:m.lites});
    job.step='Line '+(i+1)+' of '+n;yield 0.4+0.35*(i+1)/n;
   }
   if(pre.rev===storageBaseRev)break;

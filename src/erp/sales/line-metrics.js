@@ -287,10 +287,23 @@ function salesWeightRate(key,order){
    included»). key — один пробел на весь заказ, сколько бы строк его ни имели. */
 function salesWeightGap(key,what,where,part,go){return {key,what,where,part,go:go||null};}
 const SALES_WEIGHT_WHERE={glass:'Data → Setup → Weights',card:'Data → Materials → Glass',film:'Data → Materials → Lamination',spacer:'Data → Materials → IGU assembly → Spacers',gas:'Data → Materials → IGU assembly → Gas',recipe:'Data → Materials → IGU assembly → Surround recipes',norm:'Order line → Weight → Edit weight norms',extra:'Order line → Weight → Additional components',line:'Order Lines',shape:'Shape of the line'};
+/* Геометрия лайтов для веса: площадь ft², периметр м и отпечаток контура
+   (одинаковые лайты — рамка по любому). Записывается в строку при Save
+   (line.measure.lites, sales/line-measure) — владелец, 30.10.2026: «если
+   данные с фигуры уже получены в ячейку веса, то зачем её пересчитывать!». */
+function salesWeightLiteGeo(plan){
+ if(!plan||!plan.valid)return [];
+ return (plan.lites||[]).map(l=>({index:l.index,area:(l.result&&l.result.valid?l.result.area:Math.abs(fabSignedArea(l.finishedPoints)))/144,perimeter:fabPolylineLength(l.finishedPoints,true)*.0254,contour:salesMeasureHash(JSON.stringify(l.finishedPoints))}));
+}
+function salesLineLiteGeo(line,order){
+ const shape=salesLineGeometryShape(line),m=salesMakeupById(order,line.makeupId);
+ return salesWeightLiteGeo(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
+}
 function salesLineWeight(line,order,productionPlan){
  order=order||soDraft;
  const rows=[],m=salesMakeupById(order,line.makeupId),shape=salesLineGeometryShape(line),areas=salesLineAreas(line,order);
- const plan=productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
+ const kept=!productionPlan&&typeof salesMeasureFor==='function'?salesMeasureFor(line,order):null;
+ const lites=kept&&kept.lites?kept.lites:salesWeightLiteGeo(productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null));
  const add=(label,kg,note,gap)=>rows.push({label:label,kg:Number.isFinite(kg)&&kg>=0?kg:null,note:note||'',gap:gap||null});
  const norm=(key,label,basis,unit,note,gap)=>{const rate=salesWeightRate(key,order);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||'',gap:basis==null?salesWeightGap('shape','Size of the glass',SALES_WEIGHT_WHERE.shape,'glass'):gap});};
  if(!m||!areas.valid){
@@ -298,10 +311,8 @@ function salesLineWeight(line,order,productionPlan){
   return {rows:[],kg:null,lineKg:null,knownKg:0,complete:false,estimated:false,missing:1,gaps:[gap]};
  }
  const geometry=(i)=>{
-  const lite=plan&&plan.valid&&(plan.lites||[]).find(l=>l.index===i);
-  if(!lite)return {area:null,perimeter:null};
-  const area=lite.result&&lite.result.valid?lite.result.area:Math.abs(fabSignedArea(lite.finishedPoints));
-  return {area:area/144,perimeter:fabPolylineLength(lite.finishedPoints,true)*.0254};
+  const lite=lites.find(l=>l.index===i);
+  return lite?{area:lite.area,perimeter:lite.perimeter,contour:lite.contour}:{area:null,perimeter:null,contour:null};
  };
  const glass=(ply,label,geo)=>{
   const product=glassProductById(ply&&ply.glassProductId),t=glassEffectiveThicknessMm(product);
@@ -330,7 +341,7 @@ function salesLineWeight(line,order,productionPlan){
     пакета — всегда по меньшему лайту, иначе юнит не загерметизировать
     (владелец, 23.10.2026); размеры лайтов — из Shape designer. */
  (m.cavities||[]).forEach((c,i)=>{
-  const a=geometry(i),b=geometry(i+1),same=plan&&plan.valid&&plan.lites[i]&&plan.lites[i+1]&&JSON.stringify(plan.lites[i].finishedPoints)===JSON.stringify(plan.lites[i+1].finishedPoints);
+  const a=geometry(i),b=geometry(i+1),same=!!a.contour&&a.contour===b.contour;
   const pick=same?a:a.area!=null&&b.area!=null?(b.area<a.area?b:a):null,suffix=' · Cavity '+(i+1);
   const geo=pick&&pick.area!=null?{areaFt2:pick.area,perimeterM:pick.perimeter}:null;
   const got=surroundCavityParts(c,geo,order),sp=mdById('spacerVariant',c.spacerVariantId);
@@ -361,6 +372,7 @@ function salesLineWeight(line,order,productionPlan){
    Qty — заказанное (отгрузки, сканы и Recut вес заказа не меняют). */
 function salesOrderWeight(order){
  order=order||soDraft;
+ if(!order)return {kg:null,complete:false,estimated:false,partial:false,gaps:[]};
  const lines=order&&order.lines||[],gaps=new Map();let kg=0,counted=0,estimated=false,complete=lines.length>0;
  lines.forEach((l,i)=>{
   const w=salesLineWeight(l,order);

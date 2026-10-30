@@ -35,6 +35,6 @@ module.exports=async function({page,eq}){
   salesRecord(id).lines.forEach(l=>{delete l.measure;});DB.dataFix=8;applyDataFixes();
   const o=salesRecord(id),bad=normalizeSalesOrderLine(Object.assign({},o.lines[0],{measure:{sig:'x',rows:[],areas:{}}})),good=normalizeSalesOrderLine(o.lines[0]);
   return {written:o.lines.every(l=>!!salesMeasureFor(l,o)),same:JSON.stringify(lmTotal(id))===before,bad:'measure' in bad,good:!!good.measure,fix:DB.dataFix};
- }),{written:true,same:true,bad:false,good:true,fix:10});
+ }),{written:true,same:true,bad:false,good:true,fix:11});
  eq('line measure: без ошибок страницы',t.errs,[]);await t.c.close();
 };
