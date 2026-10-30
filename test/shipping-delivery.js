@@ -6,7 +6,7 @@ module.exports=async function({page,eq,ok}){
   window.print=()=>{window.dvPrints=(window.dvPrints||0)+1;};
   /* 'A B A$' — заказ на букву клиента; у каждого свой скид SL-n. */
   window.dvSeed=function(spec){
-   oqReset();DB.carrier=[];carrierAdd('SL',6);DB.truck=[];DB.orderEvent=[];window.dvPrints=0;deliveryDate='';deliveryNotice='';const cs={};
+   oqReset();DB.carrier=[];DB.carrierSeq={};carrierAdd('SL',6);DB.truck=[];DB.orderEvent=[];window.dvPrints=0;deliveryDate='';deliveryNotice='';const cs={};
    window.dvIds=spec.split(' ').map((k,n)=>{
     cs[k[0]]=cs[k[0]]||oqCustomer(Object.assign({legalName:'Customer '+k[0]},k[1]==='$'?{paymentMode:'cash'}:{}));const id=oqOrder(cs[k[0]]);salesDraftDrop();oqThrough(id,'ready');
     shippingAvailable(salesRecord(id)).forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-'+(n+1);}));return id;});

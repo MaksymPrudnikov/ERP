@@ -86,5 +86,16 @@ module.exports=async function({page,eq}){
  });
  const afterCopy=await left();await f5();
  eq('Copy order → Save: копия и её фигуры записаны сразу, F5 их не теряет',{left:afterCopy,...await t.p.evaluate(x=>({copy:!!salesRecord(x.id)&&x.id!==x.src,shapes:x.shapes.length>0&&x.shapes.every(id=>DB.shapeDef.some(s=>s.id===id))}),copy)},{left:[],copy:true,shapes:true});
+ /* Тара (этап 8, пункт 7): регистрация на станции, журнал этикетки, Empty,
+    пересчёт и проверка у клиента пишутся сразу, F5 их не теряет. */
+ const tare=await t.p.evaluate(async()=>{
+  DB.carrier=[];DB.carrierSeq={};DB.carrierEvent=[];DB.carrierCount=[];touch();await storageFlush();
+  const r=carrierRegister('SL',{name:'Oleg K.'},'SHIPR','RQ-NW');carrierPrintLog(r.code,{name:'Oleg K.'},'SHIPR');carrierEmpty(r.code,{name:'Oleg K.'});
+  const n=carrierCountStart({name:'Anna K.'}).value;carrierCountScan(n.id,r.code,'Shop',{name:'Anna K.'});carrierCustomerCheck('C-NW','SL-1',{name:'Anna K.'});
+  return {code:r.code,count:n.id};
+ });
+ const afterTare=await left();await f5();
+ eq('тара: Register new, этикетка, Empty, пересчёт, проверка у клиента записаны сразу, F5 их не теряет',{left:afterTare,...await t.p.evaluate(x=>{const c=carrierFind(x.code);return {reg:!!c&&c.regBy==='Oleg K.'&&c.regStation==='SHIPR'&&!!c.emptiedAt,seq:DB.carrierSeq.SL,events:DB.carrierEvent.map(e=>e.kind).join(),obs:carrierCountFind(x.count).obs.map(o=>o.code+':'+o.res).join()};},tare)},
+  {left:[],reg:true,seq:1,events:'register,print,check',obs:'SL-1:ok'});
  await t.c.close();
 };

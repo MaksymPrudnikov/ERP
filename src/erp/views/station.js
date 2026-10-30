@@ -21,7 +21,7 @@ let stationSheetView=null; // какой лист показан: {batch, glass,
 let stationMenu=null;      // меню стекла на листе: {piece, x, y}
 let stationLoginNo='',stationLoginStep='no'; // вход: личный номер, затем PIN
 let stationPin='',stationPinError='';
-let stationTab='scan';      // scan | queue | board
+let stationTab='scan';      // scan | queue | board | dollies
 let stationIncoming='';    // долли, которая привезла стекло на эту станцию: её стопка справа
 let stationQuestions=[];   // пропущенная станция: вопрос ждёт ответа, работа не стоит
 let stationParkPending=[]; // IGU: вынутые из машины стёкла ждут скана долли, на которую их положили
@@ -84,12 +84,16 @@ function stationWho(){
 }
 /* На какую тару рабочий сейчас кладёт стекло — свойство рабочего места, как
    и вход: живёт в сессии этого браузера. */
+/* Тару обнулили после того, как её здесь выбрали (другая вкладка, офис), —
+   выбор устарел: следующее стекло ждёт тару, а не ложится на новую загрузку
+   (план v1.16, P3-R4). */
 function stationPutOn(){
  const s=stationSession(),c=s&&s.putOn&&typeof carrierFind==='function'?carrierFind(s.putOn):null;
- if(c&&c.active&&(s.putOnMode==null||s.putOnMode===stationPutsOnHere())){if(s.putOnMode==null)stationSetPutOn(c.code);return c.code;}
+ const stale=c&&c.emptiedAt&&!(s.putOnAt&&s.putOnAt>=c.emptiedAt);
+ if(c&&c.active&&!stale&&(s.putOnMode==null||s.putOnMode===stationPutsOnHere())){if(s.putOnMode==null)stationSetPutOn(c.code);return c.code;}
  if(s&&s.putOn)stationSetPutOn('');return '';
 }
-function stationSetPutOn(code){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.putOn=code||'';s.putOnMode=stationPutsOnHere();stationSessionsSave(m);}
+function stationSetPutOn(code){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.putOn=code||'';s.putOnMode=stationPutsOnHere();s.putOnAt=new Date().toISOString();stationSessionsSave(m);}
 function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a dolly';render();}
 function stationLogin(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;
@@ -137,6 +141,8 @@ function stationBeep(kind){
 /* ------------------------------- Скан ------------------------------- */
 function stationSubmit(raw){
  const who=stationWho();if(!who)return false;
+ /* Вкладка Dollies: скан тары только выбирает её (view/station-dollies). */
+ if(stationTab==='dollies'){const r=stationDollyScan(raw);if(r)return r;}
  /* Станция отгрузки грузит рейс по своим правилам (station-shipping). */
  if(stationIsShip())return stationShipSubmit(raw,who);
  const check=stationCheck(stationCode,raw);if(!check)return false;
@@ -460,7 +466,7 @@ function stationBatchChip(){
 }
 function stationTop(who){
  const s=stationRow();
- const tabs=who?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button><button type="button" class="'+(stationTab==='board'?'on':'')+'" data-station-tab="board" onclick="stationTab=\'board\';stationMenu=null;render()">Board</button></div>'+
+ const tabs=who?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button><button type="button" class="'+(stationTab==='board'?'on':'')+'" data-station-tab="board" onclick="stationTab=\'board\';stationMenu=null;render()">Board</button><button type="button" class="'+(stationTab==='dollies'?'on':'')+'" data-station-tab="dollies" onclick="stationTab=\'dollies\';stationMenu=null;render()">Dollies</button></div>'+
   (stationTab==='queue'||stationTab==='board'?'<label class="st-topscan">'+ico('scan')+'<input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
  return '<div class="st-top"><div class="st-code">'+esc(stationCode)+'</div><div class="st-name">'+(s?sfLabel(s):'Unknown station')+'</div>'+tabs+'<span class="sp"></span>'+
   (who&&stationMergeCodes().includes(stationCode)?'<button type="button" class="st-chip st-autoprint'+(stationAutoPrintOn()?' on':'')+'" data-station-autoprint onclick="stationAutoPrintToggle()" title="Unit sticker when the last lite is scanned">Unit stickers <b>'+(stationAutoPrintOn()?'Auto':'By button')+'</b></button>':'')+
@@ -500,6 +506,7 @@ function viewStation(){
  if(stationTab==='queue')return stationTop(who)+(stationCode===stationCutCode()?stationQueueView():stationFlowView())+drawer;
  /* Board (view/station-board) считается только здесь, когда вкладка открыта. */
  if(stationTab==='board')return stationTop(who)+stationBoardView(who)+drawer;
+ if(stationTab==='dollies')return stationTop(who)+stationDolliesView()+drawer;
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+(stationIsShip()?stationShipJournal():stationJournal())+
@@ -776,7 +783,7 @@ function stationCarrierScan(code){
 function stationCarrierCard(L){
  const c=L.check,t=typeof carrierType==='function'?carrierType(c.code):null,time='<span>'+esc(stationTime(L.at))+'</span>';
  if(c.kind==='carrierPark')return '<div class="st-res st-ok" data-station-result="carrierPark"><div class="st-res-h">✓ On '+esc(c.code)+' · waits for a pair'+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>SET ASIDE ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.count+' glass waits for Recut</div><div class="mut">When the new glass comes, the screen says where its pair is</div></div></div></div>';
- if(c.kind==='carrierBad')return '<div class="st-res st-red" data-station-result="carrierBad"><div class="st-res-h">✕ Unknown dolly or skid'+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Add it in Master Data</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.code)+'</div><div class="mut">Master Data → Dollies &amp; Skids</div></div></div></div>';
+ if(c.kind==='carrierBad')return '<div class="st-res st-red" data-station-result="carrierBad"><div class="st-res-h">✕ Unknown dolly or skid'+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>New one? Register it</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.code)+'</div><div class="mut">Dollies tab → Register new</div></div></div></div>';
  if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+(c.took?' · took '+c.took+' glass':'')+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">'+(stationPutOn()===c.code?'Glass stays on '+esc(c.code):'The stack is on the right, top first')+'</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
  if(c.kind==='carrierMoved')return '<div class="st-res st-ok" data-station-result="carrierMoved"><div class="st-res-h">✓ Moved '+stationMovedWhat(c)+' · '+esc(c.from||'no '+stationTareWord())+' → '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>NOW ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+stationMovedWhat(c)+' moved</div><div class="mut">From '+esc(c.from||'no '+stationTareWord())+(c.puton?' · next glass goes on '+esc(c.code):'')+'</div></div></div><div class="st-acts"><button type="button" class="b" data-dolly-undo onclick="stationDollyUndo()">Undo move</button></div></div>';
  if(c.kind==='carrierEmptied')return stationEmptiedCard(L);

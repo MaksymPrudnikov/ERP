@@ -9,7 +9,7 @@ module.exports=async function({page,eq,ok}){
   /* ready — юниты готовы и лежат на SL-1; иначе заказ в батче, стекло не резали.
      customer — второй заказ того же клиента. */
   window.saOrder=function(qty,ready,customer){
-   if(!customer){oqReset();DB.carrier=[];carrierAdd('SL',3);DB.orderEvent=[];stationLast=null;stationNote='';stationQuestions=[];stationIncoming='';shippingSelection.clear();shippingNotice=null;shippingDraft=null;}
+   if(!customer){oqReset();DB.carrier=[];DB.carrierSeq={};carrierAdd('SL',3);DB.orderEvent=[];stationLast=null;stationNote='';stationQuestions=[];stationIncoming='';shippingSelection.clear();shippingNotice=null;shippingDraft=null;}
    const id=oqOrder(customer||oqCustomer({legalName:'Customer A'}));salesOrderEdit(id);soDraft.lines=soDraft.lines.slice(0,1);soDraft.lines[0].qty=qty;
    if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('order not saved');salesDraftDrop();oqThrough(id,ready?'ready':'batched');const o=salesRecord(id);
    if(ready)shippingAvailable(o).forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));
@@ -99,7 +99,7 @@ module.exports=async function({page,eq,ok}){
    if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;oqThrough(id,'verified');
    glassBatchAssign(glassBatchRows([salesRecord(id)]),{});const n=DB.glassBatch[DB.glassBatch.length-1].number;cutPlanRun(n);return {o:salesRecord(id),n};
   };
-  window.saFresh=function(){oqReset();DB.stationScan=[];DB.carrier=[];DB.sheetBreak=[];DB.orderEvent=[];DB.stockOffcut=[];stationLast=null;stationSheetView=null;stationIncoming='';stationQuestions=[];stationNote='';stationDrawer=null;stationMenu=null;stationTab='scan';};
+  window.saFresh=function(){oqReset();DB.stationScan=[];DB.carrier=[];DB.carrierSeq={};DB.sheetBreak=[];DB.orderEvent=[];DB.stockOffcut=[];stationLast=null;stationSheetView=null;stationIncoming='';stationQuestions=[];stationNote='';stationDrawer=null;stationMenu=null;stationTab='scan';};
   window.saItem=function(n,piece){return glassBatchFind(n).items.find(i=>i.piece===piece);};
  });
  eq('Hold units takes uncut glass off its batch; in the glass queue it is On Hold and cannot be batched; Release brings it back',await t.p.evaluate(()=>{

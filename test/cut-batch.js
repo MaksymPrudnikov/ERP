@@ -8,7 +8,7 @@ module.exports=async function({page,eq,ok}){
  console.log('cut-batch');const t=await page();
  await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
-  window.cbReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.sheetBreak=[];stationLast=null;stationSheetView=null;stationIncoming='';stationQuestions=[];stationNote='';stationDrawer=null;stationMenu=null;stationTab='scan';
+  window.cbReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.carrierSeq={};DB.sheetBreak=[];stationLast=null;stationSheetView=null;stationIncoming='';stationQuestions=[];stationNote='';stationDrawer=null;stationMenu=null;stationTab='scan';
    if(!DB.glassSheet.some(s=>s.productCode==='6CLEAR'&&+s.sheetWIn===144))DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock'}));};
   window.cbOrder=function(sizes){
    const id=oqOrder(oqCustomer({legalName:'North Shore Windows'}),{dueDate:'2026-10-06'});

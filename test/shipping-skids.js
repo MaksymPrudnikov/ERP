@@ -6,7 +6,7 @@ module.exports=async function({page,eq,ok}){
   window.print=()=>{window.skPrints=(window.skPrints||0)+1;};
   /* 'A A B' — заказ на букву клиента, готов и лежит на своём скиде SL-n. */
   window.skSeed=function(spec){
-   oqReset();DB.carrier=[];carrierAdd('SL',6);DB.skidReturn=[];DB.truck=[];window.skPrints=0;skidsNotice=null;stationLast=null;stationNote='';stationQuestions=[];stationIncoming='';const cs={};
+   oqReset();DB.carrier=[];DB.carrierSeq={};carrierAdd('SL',6);DB.skidReturn=[];DB.truck=[];window.skPrints=0;skidsNotice=null;stationLast=null;stationNote='';stationQuestions=[];stationIncoming='';const cs={};
    window.skIds=spec.split(' ').map((k,n)=>{cs[k[0]]=cs[k[0]]||oqCustomer({legalName:'Customer '+k[0]});const id=oqOrder(cs[k[0]]);salesDraftDrop();oqThrough(id,'ready');
     shippingAvailable(salesRecord(id)).forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-'+(n+1);}));return id;});
    return skIds;
@@ -64,7 +64,7 @@ module.exports=async function({page,eq,ok}){
   return {kind,card:stationLast.check.kind,back:skText('[data-station-back]'),putOn:stationPutOn(),out:skidsOut().size,records:DB.skidReturn.map(r=>r.kind)};
  }),{kind:'carrier',card:'carrierPut',back:'back from Customer A',putOn:'SL-1',out:0,records:['back']});
  eq('Ready station: a skid that arrives with glass keeps it; the mix warning fires once, when one customer turns into two',await t.p.evaluate(()=>{
-  oqReset();DB.carrier=[];carrierAdd('SL',2);DB.skidReturn=[];stationLast=null;stationQuestions=[];const ready=shippingStations().ready,ids=['A','B','C'].map(k=>{const id=oqOrder(oqCustomer({legalName:'Customer '+k}));salesDraftDrop();oqThrough(id,'batched');return id;});
+  oqReset();DB.carrier=[];DB.carrierSeq={};carrierAdd('SL',2);DB.skidReturn=[];stationLast=null;stationQuestions=[];const ready=shippingStations().ready,ids=['A','B','C'].map(k=>{const id=oqOrder(oqCustomer({legalName:'Customer '+k}));salesDraftDrop();oqThrough(id,'batched');return id;});
   const pieces=id=>[...stationPieceIndex()].filter(([p,h])=>h.orderId===id).map(([p])=>p);
   /* как в цеху: после IGU юниты кладут на скид, на станцию готовности он приезжает уже со стеклом */
   ids.forEach(id=>{for(let pass=0;pass<20;pass++){let moved=false;pieces(id).forEach(piece=>{const g=stationGlass(piece),p=g&&stationPlace(g);if(!p||p.assembling||!p.waiting||p.waiting===ready)return;const c=stationCheck(p.waiting,piece);if(c.kind==='ok')moved=stationMove(p.waiting,c,{name:'IGU'},id===ids[0]?{on:'SL-1'}:{}).ok||moved;});if(!moved)break;}});

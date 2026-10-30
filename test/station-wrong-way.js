@@ -12,7 +12,7 @@ module.exports=async function({page,eq,ok}){
  await t.p.evaluate(()=>{
   window.print=()=>{};
   window.wwBeeps=[];stationBeep=k=>{wwBeeps.push(k);};
-  window.wwReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.sheetBreak=[];stationLast=null;stationSheetView=null;stationIncoming='';stationNote='';stationDrawer=null;stationTab='scan';wwBeeps.length=0;
+  window.wwReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.carrierSeq={};DB.sheetBreak=[];stationLast=null;stationSheetView=null;stationIncoming='';stationNote='';stationDrawer=null;stationTab='scan';wwBeeps.length=0;
    if(!DB.glassSheet.some(s=>s.productCode==='6CLEAR'&&+s.sheetWIn===144))DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock'}));};
   /* single — одно стекло, double — стеклопакет; HT-FT — закалка, HT-AN — нет. */
   window.wwOrder=function(o){

@@ -2,7 +2,11 @@
    erp/shopfloor/carriers  ·  carriers-1.0
    Долли и скиды: тара, на которой стекло едет между станциями.
    IN : DB.stationScan (поле on у скана)
-   OUT: DB.carrier {code, note, active} · DB.carrierCols {userId, cols} — колонки окна тары у человека
+   OUT: DB.carrier {code, note, active, regAt, regBy, regStation, req, emptiedAt}
+        · DB.carrierCols {userId, cols} — колонки окна тары у человека
+        · DB.carrierSeq {DL, DA, SL, SA} — последний выданный номер типа
+        · DB.carrierEvent {id, at, kind:'register'|'print'|'check', code, by, station, customerId, count, codes}
+        · DB.carrierCount {id, startedAt, by, finishedAt, obs[], missing[]} — пересчёт
    Владелец, 29 сентября 2026:
    - «нужно L A shape dolly & skids… если мне нужно срочно найти, система
      скажет L-34, и я знаю, какой формы искать»; скиды тоже бывают L и A →
@@ -16,6 +20,7 @@
    таре, пока его не отсканируют снова.
    ===================================================================== */
 DEFAULT.carrier=[];
+DEFAULT.carrierSeq={};
 const CARRIER_TYPES=[
  {k:'DL',kind:'Dolly',shape:'L',label:'L-shape dolly'},
  {k:'DA',kind:'Dolly',shape:'A',label:'A-shape dolly'},
@@ -26,14 +31,60 @@ const CARRIER_RE=/^(DL|DA|SL|SA)-([1-9]\d{0,4})$/;
 function carrierCode(v){return String(v==null?'':v).trim().toUpperCase().replace(/\s+/g,'');}
 function carrierType(code){const m=CARRIER_RE.exec(carrierCode(code));return m?CARRIER_TYPES.find(t=>t.k===m[1]):null;}
 function carrierFind(code){const c=carrierCode(code);return (DB.carrier||[]).find(x=>x.code===c)||null;}
-/* Номер — следующий внутри своего типа: DL-1, DL-2… и отдельно DA-1… */
+/* Номер — следующий внутри своего типа: DL-1, DL-2… и отдельно DA-1…
+   Выданный номер не возвращается (план v1.16, пункт 7, P7-R3): счётчик
+   DB.carrierSeq помнит последний, даже если запись потом пропадёт. */
 function carrierAdd(prefix,count,opts){if(storageDepth||opts&&opts.deferTouch)return carrierAddCommand(prefix,count,opts);const out=storageCommand(()=>carrierAddCommand(prefix,count,opts));return out.ok?out.value:{error:out.error};}
+function carrierNextNo(prefix){
+ const top=(DB.carrier||[]).reduce((m,c)=>{const x=CARRIER_RE.exec(c.code);return x&&x[1]===prefix?Math.max(m,+x[2]):m;},0);
+ return Math.max(top,+(DB.carrierSeq&&DB.carrierSeq[prefix])||0)+1;
+}
 function carrierAddCommand(prefix,count,opts){
  opts=opts||{};const t=CARRIER_TYPES.find(x=>x.k===prefix);if(!t)return {error:'Unknown type.'};
  const n=Math.max(1,Math.min(50,Math.floor(+count)||1));if(!Array.isArray(DB.carrier))DB.carrier=[];
- let top=DB.carrier.reduce((m,c)=>{const x=CARRIER_RE.exec(c.code);return x&&x[1]===prefix?Math.max(m,+x[2]):m;},0);
+ if(!DB.carrierSeq||typeof DB.carrierSeq!=='object'||Array.isArray(DB.carrierSeq))DB.carrierSeq={};
+ let top=carrierNextNo(prefix)-1;
  const made=[];for(let i=0;i<n;i++){const code=prefix+'-'+(++top);DB.carrier.push({code,note:'',active:true});made.push(code);}
+ DB.carrierSeq[prefix]=top;
  if(!opts.deferTouch)touch();return {codes:made};
+}
+/* Новая тара пришла в цех — её регистрирует сам рабочий на станции, офис не
+   ждут (план v1.16, пункт 7, решение владельца 28.10.2026). Номер — следующий
+   никогда не выданный этого типа; кто, когда и на какой станции —
+   в записи. req — ключ одного нажатия: повторный клик или Retry того же
+   окна возвращает ту же тару, а не вторую (P7-R17). Чужой номер выбрать
+   нельзя — его здесь нет. */
+function carrierRegister(prefix,who,station,req){const out=storageCommand(()=>{
+ if(!CARRIER_TYPES.some(t=>t.k===prefix))throw new Error('Choose the type.');
+ const again=req&&(DB.carrier||[]).find(c=>c.req===req);if(again)return {code:again.code,again:true};
+ const made=carrierAddCommand(prefix,1,{deferTouch:true});if(!made.codes)throw new Error(made.error||'Not registered.');
+ const c=carrierFind(made.codes[0]),now=new Date().toISOString();
+ c.regAt=now;c.regBy=String(who&&who.name||'').slice(0,80);c.regStation=String(station||'').slice(0,40);if(req)c.req=String(req).slice(0,40);
+ carrierEventPush({kind:'register',code:c.code,by:c.regBy,station:c.regStation,at:now});
+ return {code:c.code};
+});return out.ok?out.value:{error:out.error};}
+/* Журнал этикеток и проверок у клиента: печать не меняет тару, только
+   запоминает, кто и где просил этикетку (P7-R10) — бумага могла и не выйти. */
+DEFAULT.carrierEvent=[];
+function carrierEventPush(e){
+ if(!Array.isArray(DB.carrierEvent))DB.carrierEvent=[];
+ const r=Object.assign({id:salesUid('CE'),at:new Date().toISOString(),code:'',by:'',station:''},e);DB.carrierEvent.push(r);return r;
+}
+function carrierPrintLog(code,who,station){return storageCommand(()=>{if(!carrierFind(code))throw new Error('Unknown dolly or skid.');carrierEventPush({kind:'print',code:carrierCode(code),by:String(who&&who.name||'').slice(0,80),station:String(station||'').slice(0,40)});return true;});}
+/* Физическая ли это тара: её зарегистрировали в цеху, на неё клали стекло,
+   её отгружали, возвращали или видели при пересчёте. Запись, заведённая в
+   Data и ни разу не тронутая, — номер без подтверждённой тары: до первого
+   пересчёта она не входит в «registered» (P7-R2, P7-09). */
+function carrierSeenSet(){
+ return readMemo('carrierSeen',[DB.carrier,DB.stationScan,DB.shipment,DB.skidReturn,DB.carrierCount],()=>{
+  const s=new Set();
+  (DB.carrier||[]).forEach(c=>{if(c.regAt)s.add(c.code);});
+  (DB.stationScan||[]).forEach(x=>{if(x.on)s.add(x.on);if(x.moved&&x.moved.from)s.add(x.moved.from);});
+  (DB.shipment||[]).forEach(x=>(x.items||[]).forEach(i=>{if(i.skid)s.add(i.skid);}));
+  (DB.skidReturn||[]).forEach(r=>{s.add(r.code);if(r.newCode)s.add(r.newCode);});
+  (DB.carrierCount||[]).forEach(n=>(n.obs||[]).forEach(o=>{if(o.code&&o.res!=='unknown')s.add(o.code);}));
+  return s;
+ });
 }
 function carrierSet(code,field,value){const out=storageCommand(()=>carrierSetCommand(code,field,value));return out.ok&&out.value;}
 function carrierSetCommand(code,field,value){
@@ -73,8 +124,10 @@ function carrierContents(station,codes){
    скид или на долли — стереть всё, что на ней, иначе много лишнего
    подвиснет»). Рядом со сканом — откуда, кто и когда (moved), как у
    переноса; Undo возвращает. */
+/* Время обнуления (emptiedAt): «кладу на» в другой вкладке, выбранное до
+   него, устарело — стекло не ляжет на новую загрузку (план v1.16, P3-R4). */
 function carrierEmpty(code,who){const out=storageCommand(()=>{
- const c=carrierCode(code),list=carrierContents().get(c)||[],now=new Date().toISOString(),was=[],off=[];
+ const c=carrierCode(code),list=carrierContents().get(c)||[],now=new Date().toISOString(),was=[],off=[],rec=carrierFind(c);if(rec)rec.emptiedAt=now;
  list.forEach(x=>{was.push({id:x.scan.id,on:x.scan.on||'',moved:x.scan.moved||null});x.scan.moved={from:c,at:now,by:String(who&&who.name||'')};delete x.scan.on;});
  const ghosts=typeof unitOnSkid==='function'?unitOnSkid(c):[];ghosts.forEach(x=>{off.push({orderId:x.o.id,pieces:x.u.pieces.slice(),off:(x.u.off||[]).slice()});x.u.off=[...new Set((x.u.off||[]).concat(x.pieces))];x.o.updatedAt=now;salesSyncRecordLifecycle(x.o);});
  return {code:c,count:list.length+ghosts.reduce((n,x)=>n+x.pieces.length,0),was,off};
@@ -165,14 +218,27 @@ function carrierMoveUndo(move){
 function normalizeCarriers(){
  if(!Array.isArray(DB.carrier))DB.carrier=[];
  const seen=new Set();
+ const iso=v=>typeof v==='string'&&!isNaN(Date.parse(v)),txt=(v,n)=>String(v==null?'':v).slice(0,n);
  DB.carrier=DB.carrier.filter(c=>c&&typeof c==='object'&&CARRIER_RE.test(carrierCode(c.code))&&!seen.has(carrierCode(c.code))&&(seen.add(carrierCode(c.code)),true))
-  .map(c=>({code:carrierCode(c.code),note:String(c.note==null?'':c.note).slice(0,80),active:c.active!==false}));
+  .map(c=>{const r={code:carrierCode(c.code),note:txt(c.note,80),active:c.active!==false};
+   if(iso(c.regAt)){r.regAt=c.regAt;r.regBy=txt(c.regBy,80);r.regStation=txt(c.regStation,40);}
+   if(c.req)r.req=txt(c.req,40);if(iso(c.emptiedAt))r.emptiedAt=c.emptiedAt;return r;});
+ const seq=DB.carrierSeq&&typeof DB.carrierSeq==='object'&&!Array.isArray(DB.carrierSeq)?DB.carrierSeq:{};
+ DB.carrierSeq={};CARRIER_TYPES.forEach(t=>{const n=Math.max(Math.floor(+seq[t.k])||0,carrierNextNo(t.k)-1);if(n>0)DB.carrierSeq[t.k]=Math.min(n,99999);});
+ if(!Array.isArray(DB.carrierEvent))DB.carrierEvent=[];
+ const ev=new Set();
+ DB.carrierEvent=DB.carrierEvent.filter(e=>e&&typeof e==='object'&&salesRefId(e.id)&&!ev.has(e.id)&&(ev.add(e.id),true)&&iso(e.at)&&['register','print','check'].includes(e.kind))
+  .map(e=>{const r={id:e.id,at:e.at,kind:e.kind,code:CARRIER_RE.test(carrierCode(e.code))?carrierCode(e.code):'',by:txt(e.by,80),station:txt(e.station,40)};
+   if(e.kind==='check'){r.customerId=txt(e.customerId,80);r.count=Math.max(0,Math.floor(+e.count)||0);r.codes=(Array.isArray(e.codes)?e.codes:[]).map(carrierCode).filter(x=>CARRIER_RE.test(x)).slice(0,200);}
+   return r;});
+ normalizeCarrierCounts();
  if(!Array.isArray(DB.carrierCols))DB.carrierCols=[];
  const users=new Set();
  DB.carrierCols=DB.carrierCols.filter(r=>r&&typeof r==='object'&&!users.has(String(r.userId==null?'':r.userId))&&(users.add(String(r.userId==null?'':r.userId)),true))
   .map(r=>({userId:String(r.userId==null?'':r.userId).slice(0,80),cols:carrierColsClean(r.cols)})).filter(r=>r.cols.length);
 }
 function validateCarrierPayload(src){
+ ['carrierEvent','carrierCount'].forEach(k=>{if(src&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('The "'+k+'" field must be an array.');});
  if(src&&Object.prototype.hasOwnProperty.call(src,'carrier')&&!Array.isArray(src.carrier))throw new Error('The "carrier" field must be an array.');
  if(src&&Object.prototype.hasOwnProperty.call(src,'carrierCols')&&!Array.isArray(src.carrierCols))throw new Error('The "carrierCols" field must be an array.');
 }

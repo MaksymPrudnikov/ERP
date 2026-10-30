@@ -6,7 +6,7 @@ module.exports=async function({page,eq,ok}){
  await t.p.evaluate(()=>{
   window.print=()=>{};
   window.rsSeed=function(spec){
-   oqReset();DB.carrier=[];carrierAdd('SL',4);DB.skidReturn=[];stationLast=null;stationNote='';stationQuestions=[];stationIncoming='';stationEmptyAsk='';const cs={};
+   oqReset();DB.carrier=[];DB.carrierSeq={};carrierAdd('SL',4);DB.skidReturn=[];stationLast=null;stationNote='';stationQuestions=[];stationIncoming='';stationEmptyAsk='';const cs={};
    window.rsIds=spec.split(' ').map((k,n)=>{cs[k[0]]=cs[k[0]]||oqCustomer({legalName:'Customer '+k[0]});const id=oqOrder(cs[k[0]]);salesDraftDrop();oqThrough(id,'ready');
     shippingAvailable(salesRecord(id)).forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-'+(n+1);}));return id;});
    DB.user=DB.user.filter(u=>u.name!=='Loader');DB.user.push({name:'Loader',role:'Shop',station:'SHIPR',skills:[],pin:'0000'});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}

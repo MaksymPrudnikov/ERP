@@ -129,3 +129,31 @@ button.cw-danger:hover{background:var(--danger-soft)}
 .sf-sheet-paper{zoom:.72;border:1px solid var(--line);border-radius:6px;margin-top:6px;max-height:820px;overflow:hidden}
 .sf-sheet-paper .cs-sheet{padding:28px 34px}
 @media(max-width:900px){.sf-sheet{grid-template-columns:1fr}}
+/* Учёт тары и пересчёт (план v1.16, этап 8, вариант 1 офиса). */
+.cb-tiles.cb-tiles-7{grid-template-columns:repeat(7,minmax(0,1fr))}
+button.cb-tile{font:inherit;text-align:left;color:var(--text);cursor:pointer}
+button.cb-tile:hover{border-color:var(--accent-line)}
+.cb-count-btn{margin-left:10px;font-weight:600;white-space:nowrap}
+.cc-head{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.cc-head h2{margin:0;font-size:20px}
+.cc-head .b.pri{background:var(--green);border-color:var(--green);color:var(--on-solid);font-weight:600}
+.cc-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;align-items:start}
+.cc-left{display:grid;gap:12px}
+.cc-top{display:grid;grid-template-columns:minmax(0,1fr) auto 160px;gap:12px;align-items:stretch}
+.cc-scan{display:flex;align-items:center;gap:14px;border:3px solid var(--accent);border-radius:14px;padding:8px 16px;background:var(--surface);cursor:text}
+.cc-scan svg{width:30px;height:30px;color:var(--accent);flex:none}
+.cc-scan-t{display:flex;flex-direction:column;flex:1;min-width:0}
+.cc-scan b{font-size:12px;letter-spacing:.12em;color:var(--accent)}
+.cc-scan input{border:0;outline:0;background:none;font-size:18px;padding:2px 0;color:var(--text)}
+.cc-place{display:flex;flex-direction:column;justify-content:center;gap:4px}
+.cc-found{justify-content:center;background:var(--accent-soft)}
+.cc-card{padding:12px 14px}
+.cc-sec{display:flex;align-items:center;gap:10px;margin:4px 0 8px}
+.cc-sec h3{margin:0;font-size:15px}
+.cc-right .cc-sec+.st-dl,.cc-right .cc-sec{margin-top:10px}
+.cc-ns{display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line-soft)}
+.cc-table{width:100%}
+.cc-table td{vertical-align:middle}
+.cc-table td:last-child,.cc-table td:nth-child(3){white-space:nowrap}
+.cc-warn{color:var(--warning)}.cc-bad{color:var(--danger)}
+.cc-table .cw-code{white-space:nowrap}

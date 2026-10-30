@@ -9,7 +9,7 @@ module.exports=async function({page,eq,ok}){
  await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
   window.print=()=>{window.unPrinted=(window.unPrinted||0)+1;};
-  window.unReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.sheetBreak=[];stationLast=null;stationSheetView=null;stationIncoming='';stationQuestions=[];stationNote='';stationDrawer=null;stationTab='scan';window.unPrinted=0;};
+  window.unReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.carrierSeq={};DB.sheetBreak=[];stationLast=null;stationSheetView=null;stationIncoming='';stationQuestions=[];stationNote='';stationDrawer=null;stationTab='scan';window.unPrinted=0;};
   /* Стеклопакет из двух лайтов, позиция на 2 юнита; маршрут лайта
      CUT › ARRIS › HEAT › IGU › SHIPR › SHIP. */
   window.unOrder=function(){

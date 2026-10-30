@@ -7,7 +7,7 @@ module.exports=async function({page,eq,ok}){
   window.print=()=>{};
   /* Заказ в батче: строка 37 × 71, qty юнитов. */
   window.ucOrder=function(qty,extra){
-   oqReset();DB.carrier=[];DB.orderEvent=[];DB.stockOffcut=[];const id=oqOrder(oqCustomer(Object.assign({legalName:'Customer A'},extra)));
+   oqReset();DB.carrier=[];DB.carrierSeq={};DB.orderEvent=[];DB.stockOffcut=[];const id=oqOrder(oqCustomer(Object.assign({legalName:'Customer A'},extra)));
    salesOrderEdit(id);soDraft.lines=soDraft.lines.slice(0,1);soDraft.lines[0].qty=qty;if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('order not saved');salesDraftDrop();oqThrough(id,'batched');window.ucId=id;return id;
   };
   window.ucO=function(){return salesRecord(ucId);};window.ucL=function(){return ucO().lines[0];};

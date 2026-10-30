@@ -7,7 +7,7 @@ module.exports=async function({page,eq,ok}){
  console.log('shipping-walk-fixes');const t=await page();await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
   window.print=()=>{};
-  window.swSeed=function(extra){oqReset();DB.carrier=[];carrierAdd('SL',2);stationLast=null;stationNote='';const id=oqOrder(oqCustomer(Object.assign({legalName:'Maria Gonzalez'},extra||{})));salesDraftDrop();oqThrough(id,'ready');return id;};
+  window.swSeed=function(extra){oqReset();DB.carrier=[];DB.carrierSeq={};carrierAdd('SL',2);stationLast=null;stationNote='';const id=oqOrder(oqCustomer(Object.assign({legalName:'Maria Gonzalez'},extra||{})));salesDraftDrop();oqThrough(id,'ready');return id;};
   window.swPS=function(id,method){return shippingCreate({customerId:salesRecord(id).customerId,method:method||'pickup',shipTo:method==='delivery'?{address1:'1 Main St'}:{},date:finToday(),items:shippingAvailable(salesRecord(id)).map(shippingItem),extras:[]}).value;};
   window.swOpen=function(s){tab='shipping';shippingTab='shipments';shippingOpenId=s.id;render();};
  });

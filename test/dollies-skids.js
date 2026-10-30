@@ -7,7 +7,7 @@ module.exports=async function({page,eq,ok}){
  await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
   window.print=()=>{window.dsPrinted=(window.dsPrinted||0)+1;};
-  window.dsReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.carrierCols=[];DB.skidReturn=[];DB.truck=[];carrierWin=null;carrierBoardShow='loaded';salesDialog=null;stationDrawer=null;stationLast=null;
+  window.dsReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.carrierSeq={};DB.carrierCols=[];DB.skidReturn=[];DB.truck=[];carrierWin=null;carrierBoardShow='loaded';salesDialog=null;stationDrawer=null;stationLast=null;
    carrierAdd('DL',4);carrierAdd('SL',3);try{localStorage.removeItem('glass_erp_prodCarriers_list_v1');}catch(e){}salesQueuePrefs.prodCarriers=null;
    if(!DB.glassSheet.some(s=>s.productCode==='6CLEAR'&&+s.sheetWIn===144))DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock'}));};
   /* Одинарное стекло: CUT → ARRIS → HEAT … (как в test/carriers). */
@@ -36,7 +36,7 @@ module.exports=async function({page,eq,ok}){
   card.click();const w=document.querySelector('[data-carrier-window="DL-1"]');
   const rows=[...w.querySelectorAll('[data-carrier-row]')].map(r=>r.dataset.carrierRow),heads=[...w.querySelectorAll('thead th')].map(th=>th.textContent).filter(Boolean).join(',');
   return {tabs,tiles,group,cardText,top:rows[0]===gb[1],bottom:rows.at(-1)===ga[0],n:rows.length,chips:ab([...w.querySelectorAll('[data-carrier-order]')].map(dsInner).join('|')),sub:dsText('.cw-sub').replace(since,'T'),heads,total:dsText('[data-carrier-total]')};
- }),{tabs:'In production|Stations|Terminals|Dollies & Skids',tiles:'1 dolly loaded · 5 glass|0 skids in the shop · 0 glass|0 skids at customers|0 glass with no dolly or skid|6 empty',group:'ARRIS',
+ }),{tabs:'In production|Stations|Terminals|Dollies & Skids',tiles:'1 registered · DL 1 · DA 0 · SL 0 · SA 0|1 in the shop · 1 loaded · 5 glass · 0 empty|0 at customers|0 glass with no dolly or skid|— no count yet|— found without a label|6 not confirmed yet',group:'ARRIS',
   cardText:'DL-1 5 glass A · B Critical since T',top:true,bottom:true,n:5,chips:'A Granite City Glazing · 3 Critical|B Vista Railings · 2',sub:'At ARRIS · since T · 5 glass · 2 orders',
   heads:'#,Order,Customer,Customer PO,Line,Mark,Size,Glass,Makeup,Glass / unit ID,Batch,Next,Due,Weight kg,Put on',total:'Total: 5 glass · 2 orders'});
 
@@ -61,8 +61,8 @@ module.exports=async function({page,eq,ok}){
   dsReset();const a=dsOrder([[36,24,2]],'Granite City Glazing'),b=dsOrder([[30,20,1]],'Vista Railings'),ga=dsIds(a),gb=dsIds(b);
   dsScan(ga);dsScan(ga,'DL-3');dsScan(gb,'DL-3');dsOpenTab();
   const cards=[...document.querySelectorAll('[data-carrier-card="DL-3"]')].map(c=>c.closest('[data-carrier-group]').dataset.carrierGroup+': '+c.querySelector('.cb-top b').textContent+' / '+(c.querySelector('.cb-s')||{}).textContent).join('|');
-  return {cards,tile:dsText('.cb-tile'),pill:dsText('[data-carrier-show="loaded"]')};
- }),{cards:'ARRIS: 1 of 3 / also HEAT 2|HEAT: 2 of 3 / also ARRIS 1',tile:'1 dolly loaded · 3 glass',pill:'Loaded 1'});
+  return {cards,tile:dsText('[data-carrier-tile="shop"]'),pill:dsText('[data-carrier-show="loaded"]')};
+ }),{cards:'ARRIS: 1 of 3 / also HEAT 2|HEAT: 2 of 3 / also ARRIS 1',tile:'1 in the shop · 1 loaded · 3 glass · 0 empty',pill:'Loaded 1'});
 
  eq('стекло без тары: карточка «No dolly» на станции, где ждёт, жёлтая плитка; окно — Move to кладёт на долли, Take off нет',await t.p.evaluate(()=>{
   dsReset();const a=dsOrder([[36,24,2]],'Granite City Glazing'),ga=dsIds(a);dsScan(ga);dsOpenTab();
@@ -76,7 +76,7 @@ module.exports=async function({page,eq,ok}){
   dsReset();const c=oqCustomer({legalName:'Kingsway Renovations'}),id=oqOrder(c);salesDraftDrop();oqThrough(id,'ready');
   const units=shippingAvailable(salesRecord(id));units.forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));
   const single=dsOrder([[30,20,1]],'Kingsway Renovations'),gs=dsIds(single);oqReady(single);stationScansFor(gs[0]).at(-1).on='SL-1';
-  dsOpenTab();carrierWinOpen('SL-1');const rows=[...document.querySelectorAll('[data-carrier-row]')].map(r=>r.dataset.carrierRow.slice(0,2)).join(','),total=dsText('[data-carrier-total]'),tile=dsInner([...document.querySelectorAll('.cb-tile')][1]);
+  dsOpenTab();carrierWinOpen('SL-1');const rows=[...document.querySelectorAll('[data-carrier-row]')].map(r=>r.dataset.carrierRow.slice(0,2)).join(','),total=dsText('[data-carrier-total]'),tile=dsInner(document.querySelector('[data-carrier-tile="shop"]'));
   carrierWinClose();carrierEmpty('SL-1',{name:'QA'});
   units.forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-2';}));
   const s=shippingCreate({customerId:c.id,method:'delivery',shipTo:{address1:'1 Main St'},date:finToday(),items:shippingAvailable(salesRecord(id)).map(shippingItem),extras:[]}).value;shippingMarkShipped(s.id);
@@ -84,7 +84,7 @@ module.exports=async function({page,eq,ok}){
   const out=dsText('[data-carrier-out]'),went=document.querySelectorAll('[data-carrier-row]').length,check=document.querySelectorAll('[data-carrier-window] tbody input').length;
   document.querySelector('[data-carrier-back]').click();
   return {rows,total,tile,card:card.startsWith('SL-2 Kingsway Renovations 0 days · PS-'),out:out.startsWith('At Kingsway Renovations since'),went,check,back:dsText('[data-carrier-done] b'),left:skidsOut().has('SL-2')};
- }),{rows:'G-,U-,U-,U-',total:'Total: 3 units · 1 glass · 2 orders',tile:'1 skid in the shop · 3 units · 1 glass',card:true,out:true,went:3,check:0,back:'SL-2 back from Kingsway Renovations · 0 days',left:false});
+ }),{rows:'G-,U-,U-,U-',total:'Total: 3 units · 1 glass · 2 orders',tile:'1 in the shop · 1 loaded · 3 units · 1 glass · 0 empty',card:true,out:true,went:3,check:0,back:'SL-2 back from Kingsway Renovations · 0 days',left:false});
 
  /* Владелец, 15.10.2026: «для одиночного стекла я не увидел вес». */
  eq('вес: у одинарного стекла — вес юнита позиции, у лайта стеклопакета на долли — его стекло; у стеклопакета без норм рамки — известная часть со «~»',await t.p.evaluate(()=>{

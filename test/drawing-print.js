@@ -31,7 +31,7 @@ module.exports=async function({page,eq}){
   window.dpProd=()=>JSON.stringify([DB.stationScan,DB.glassBatch,DB.cutPlan,DB.stockOffcut,DB.glassPiece,(DB.salesOrder||[]).map(o=>[o.status,o.lines])]);
   /* Смешанный батч: заказ IGU (6E272 + 6CLEAR) и одинарные 6CLEAR другого клиента. */
   window.dpBatch=function(){
-   oqReset();DB.stationScan=[];DB.carrier=[];DB.sheetBreak=[];stationLast=null;stationSheetView=null;stationDrawer=null;dpSheets();
+   oqReset();DB.stationScan=[];DB.carrier=[];DB.carrierSeq={};DB.sheetBreak=[];stationLast=null;stationSheetView=null;stationDrawer=null;dpSheets();
    const a=dpCtl('SEAL-SIL'),cu=oqCustomer({legalName:'North Shore Windows'});tab='sales';salesOrderNew('order');salesSetUnitType('single');
    const mb=soDraft.makeups[0],clear=glassProductByCode('6CLEAR');mb.panes[0].glassProductId=clear.id;mb.panes[0].thicknessMm=6;
    soDraft.lines=[[30,40,2],[24,36,3]].map((x,i)=>{const l=normalizeSalesOrderLine({makeupId:mb.id,width16:x[0]*16,height16:x[1]*16,qty:x[2],mark:'B'+(i+1)});salesEnsureLineShape(l);return l;});

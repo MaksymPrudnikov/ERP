@@ -10,7 +10,7 @@ module.exports=async function({page,eq,ok}){
  await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
   window.sqSetup=function(){
-   oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];carrierAdd('DL',3);stationLast=null;stationDrawer=null;stationTab='scan';
+   oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.carrierSeq={};carrierAdd('DL',3);stationLast=null;stationDrawer=null;stationTab='scan';
    const who={id:'x',name:'Ivan'},sc=(st,g,on)=>stationRecord(st,stationCheck(st,g),who,{on});
    const mk=crit=>{const id=oqOrder(oqCustomer({legalName:'North Shore Windows'}),crit?{priority:'critical',dueDate:'2026-10-01'}:{dueDate:'2026-10-06'});soDraft=null;soEdit=null;
     salesRecord(id).makeups[0].panes[1].glassProductId=glassProductByCode('6Q240').id;salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});return id;};

@@ -10,7 +10,7 @@ module.exports=async function({page,eq}){
  await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
   window.print=()=>{};stationBeep=()=>{};
-  window.irReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.shipment=[];stationLast=null;stationIncoming='';stationNote='';stationDrawer=null;stationTab='scan';stationIguSel.clear();stationIguOpen='';};
+  window.irReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.carrierSeq={};DB.shipment=[];stationLast=null;stationIncoming='';stationNote='';stationDrawer=null;stationTab='scan';stationIguSel.clear();stationIguOpen='';};
   window.irOrder=function(customer,qty,unit){
    const id=oqOrder(oqCustomer({legalName:customer}),{dueDate:'2026-10-09'});salesOrderEdit(id);const m=soDraft.makeups[0];
    if(unit==='single'){m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];}m.panes.forEach(p=>{p.heatTreatmentId='HT-AN';});
