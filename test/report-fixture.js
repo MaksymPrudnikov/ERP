@@ -10,7 +10,7 @@ module.exports=async function(p){
    const m=soDraft.makeups[0],g=glassProductByCode(code);
    m.panes.forEach(p=>{p.glassProductId=g.id;p.thicknessMm=g.thicknessMm;p.priceOverride=5.55;p.heatTreatmentId='HT-FT';p.heatSoak=false;});(m.cavities||[]).forEach(x=>{x.priceOverride=3.1;});soDraft.lines=[];
    lines.forEach(x=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:x[0]*16,height16:x[1]*16,qty:x[2]});soDraft.lines.push(l);salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});});
-   salesApplyCustomerDefaults(c.id);Object.assign(soDraft,extra||{});if(!salesOrderSave())throw new Error('Order did not save');const id=soDraft.id;soDraft=null;soEdit=null;return id;
+   salesApplyCustomerDefaults(c.id);Object.assign(soDraft,extra||{});if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('Order did not save');const id=soDraft.id;soDraft=null;soEdit=null;return id;
   };
   window.rbBatch=function(ids){ids.forEach(id=>salesSetRecordStatus(id,'verified'));glassBatchAssign(glassBatchRows(ids.map(salesRecord)),{});};
   window.rbIds=function(id){const o=salesRecord(id),pm=glassPieceMap(id);return o.lines.flatMap(l=>glassBatchComponents(o,l).flatMap(c=>pm.get(c.key).ids));};

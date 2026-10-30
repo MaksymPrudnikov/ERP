@@ -9,7 +9,7 @@ module.exports=async function({page,eq,ok}){
    if(lam){const pn=salesDefaultPane(0);pn.category='laminated';['outer','inner'].forEach(k=>{Object.assign(pn.laminated[k],{glassProductId:glassProductByCode('6CLEAR').id,thicknessMm:6,heatTreatmentId:'HT-FT'});});
     m.unitType=double?'double':'single';m.panes=double?[normalizeSalesPane(pn,0),normalizeSalesPane({...pn,id:salesDefaultPane(1).id},1)]:[normalizeSalesPane(pn,0)];if(!double)m.cavities=[];
     const s=salesLineGeometryShape(l);['A','B','C','D'].forEach(k=>s.edgeOps[k]=['CNC Shape Polish','CNC Lami Polish'].map(type=>shapeNormalizeOp({type})));}
-   if(!salesOrderSave())throw Error('Fixture save failed');salesDraftDrop();salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
+   if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw Error('Fixture save failed');salesDraftDrop();salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
    const o=salesRecord(id),line=o.lines[0],cs=glassBatchComponents(o,line),pm=glassPieceMap(id);window.af={id,o,l:line,ids:cs.map(c=>pm.get(c.key).ids[0]),who:{id:'af',name:'Audit operator'}};return af.ids;
   };
   window.afScan=(s,id)=>{const c=stationCheck(s,id);return STATION_RECORDED.includes(c.kind)?stationMove(s,c,af.who):{kind:c.kind};};

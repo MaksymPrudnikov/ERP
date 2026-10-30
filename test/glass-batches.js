@@ -10,7 +10,7 @@ module.exports=async function({page,eq,ok}){
   window.gbPick=function(code){glassBatchMaterial(code||'');document.querySelector('[data-glass-all]').click();};
   window.gbText=function(){return document.getElementById('app').innerText;};
   window.gbIds=function(){return (DB.glassPiece||[]).flatMap(r=>r.ids);};
-  window.gbSetQty=function(id,index,qty){tab='sales';salesOrderEdit(id);soDraft.lines[index].qty=qty;if(!salesOrderSave())throw new Error('Order did not save');soDraft=null;soEdit=null;};
+  window.gbSetQty=function(id,index,qty){tab='sales';salesOrderEdit(id);soDraft.lines[index].qty=qty;if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('Order did not save');soDraft=null;soEdit=null;};
  });};
  await helpers();
 
@@ -77,7 +77,7 @@ module.exports=async function({page,eq,ok}){
   tab='sales';salesOrderNew('order');salesSetUnitType('single');const m=soDraft.makeups[0];
   m.panes=[normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0)];m.cavities=[];m.panes[0].priceOverride=9;
   soDraft.lines=[];const l=normalizeSalesOrderLine({makeupId:m.id,width16:640,height16:480,qty:3,mark:'Lami'});soDraft.lines.push(l);salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});
-  salesApplyCustomerDefaults(c.id);salesOrderSave();const lam=soDraft.id;soDraft=null;soEdit=null;salesSetRecordStatus(lam,'verified');
+  salesApplyCustomerDefaults(c.id);soDraft.customerPo='PO-QA';salesOrderSave();const lam=soDraft.id;soDraft=null;soEdit=null;salesSetRecordStatus(lam,'verified');
   const packRows=glassBatchRows([salesRecord(pack)]),lamRows=glassBatchRows([salesRecord(lam)]);
   return {pack:packRows.map(r=>r.line+'/'+r.lite+':'+r.unit+' of '+r.of),slots:new Set(packRows.map(r=>r.slot)).size,lam:lamRows.map(r=>[r.lite,r.ply,r.unit,r.width,r.height,r.reason].join(' ')),progress:glassBatchProgress(salesRecord(lam))};
  }),{pack:['1/1:1 of 2','1/1:2 of 2','1/2:1 of 2','1/2:2 of 2','2/1:1 of 1','2/2:1 of 1'],slots:6,lam:['1a outer 1 40 30 ','1a outer 2 40 30 ','1a outer 3 40 30 ','1b inner 1 40 30 ','1b inner 2 40 30 ','1b inner 3 40 30 '],progress:{total:6,left:6,assigned:0}});

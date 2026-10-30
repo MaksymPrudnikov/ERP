@@ -15,7 +15,7 @@ module.exports=async function({page,eq,ok}){
    salesOrderEdit(id);const m=soDraft.makeups[0];m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];
    soDraft.lines=[[36,36,2],[30,20,1],[24,24,1]].map(([w,h,q],i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:w*16,height16:h*16,qty:q,mark:'M'+(i+1)});salesEnsureLineShape(l);return l;});
    soDraft.lines.forEach(l=>salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;}));
-   if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;
+   if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;
    const o=salesRecord(id),l=o.lines[0],s=newShapeDef('custom');s.type='circle';s.w='36';s.h='36';
    const def=normalizeShapeDef(s);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);touch();salesSyncLineFromShape(l,def);
    oqThrough(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});

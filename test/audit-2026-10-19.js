@@ -125,7 +125,7 @@ module.exports=async function({page,eq}){
  const u01=await t.p.evaluate(()=>{oqReset();DB.stationScan=[];DB.stationScanSeq=0;
   const id=oqOrder(oqCustomer({legalName:'U01 Glass'}));salesOrderEdit(id);const m=soDraft.makeups[0];m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];
   soDraft.lines=[normalizeSalesOrderLine({makeupId:m.id,width16:36*16,height16:24*16,qty:3,mark:'M1'})];salesEnsureLineShape(soDraft.lines[0]);
-  if(!salesOrderSave())throw new Error('save');soDraft=null;soEdit=null;oqThrough(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
+  if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('save');soDraft=null;soEdit=null;oqThrough(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
   DB.user=DB.user.filter(u=>u.name!=='Scan U01');DB.user.push({name:'Scan U01',role:'Shop',station:'',skills:[],pin:'4321'});normalizeUsers();touch();
   stationCode='CUT';tab='station';render();stationLogin(DB.user.find(u=>u.name==='Scan U01').viewProfileId);render();
   return [...glassPieceMap(id).values()].flatMap(r=>r.ids);});

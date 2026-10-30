@@ -16,7 +16,7 @@ module.exports=async function({page,eq}){
    if(unit==='single'){m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];}m.panes.forEach(p=>{p.heatTreatmentId='HT-AN';});
    const l=normalizeSalesOrderLine({makeupId:m.id,width16:36*16,height16:24*16,qty,mark:'M1'});soDraft.lines=[l];salesEnsureLineShape(l);
    salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});
-   if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;oqThrough(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});return id;
+   if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;oqThrough(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});return id;
   };
   window.irLites=id=>[...glassPieceMap(id).values()].map(r=>r.ids);
   window.irLogin=function(station){const name='Op '+station;DB.user=DB.user.filter(u=>u.name!==name);DB.user.push({name,role:'Shop',station,skills:[],pin:'0000'});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode=station;tab='station';stationIncoming='';stationLast=null;stationNote='';stationLogin(DB.user[DB.user.length-1].viewProfileId);};

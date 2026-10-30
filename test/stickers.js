@@ -13,7 +13,7 @@ module.exports=async function({page,eq,ok}){
    m.panes.forEach(p=>{p.glassProductId=g.id;p.thicknessMm=6;p.priceOverride=5.55;p.heatTreatmentId='HT-FT';});
    const lam=normalizeSalesPane({category:'laminated',heatTreatmentId:'HT-HS',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0);lam.id=m.panes[0].id;lam.priceOverride=9;m.panes[0]=lam;
    m.cavities.forEach(x=>{x.priceOverride=3.1;});soDraft.lines=[];const l=normalizeSalesOrderLine({makeupId:m.id,width16:48*16,height16:36*16,qty:2,mark:'Lobby'});soDraft.lines.push(l);salesEnsureLineShape(l);
-   salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});salesApplyCustomerDefaults(oqCustomer({legalName:'City Glazing'}).id);if(!salesOrderSave())throw new Error('TGU not saved');const id=soDraft.id;soDraft=null;soEdit=null;return id;};
+   salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});salesApplyCustomerDefaults(oqCustomer({legalName:'City Glazing'}).id);if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw new Error('TGU not saved');const id=soDraft.id;soDraft=null;soEdit=null;return id;};
   window.stList=ids=>{soDraft=null;soEdit=null;tab='sales';salesListSel=new Set(ids);render();};
   window.stHost=()=>[...document.querySelectorAll('#stkPrintHost .stk-print-page')].map(p=>p.textContent.replace(/\s+/g,' ').trim());
   window.stDecode=widths=>{let i=0;const vals=[];while(i<widths.length){const run=widths.slice(i,i+6).join('');const v=BARCODE128.indexOf(run);if(v===106||run==='233111'){vals.push(106);break;}if(v<0)return null;vals.push(v);i+=6;}

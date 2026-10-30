@@ -90,7 +90,7 @@ module.exports=async function({page,eq,ok}){
    const c=oqCustomer();tab='sales';salesOrderNew('order');salesSetUnitType('single');const m=soDraft.makeups[0];
    m.panes=[normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0)];m.cavities=[];m.panes[0].priceOverride=9;
    soDraft.lines=[];const l=normalizeSalesOrderLine({makeupId:m.id,width16:37*16,height16:71*16,qty:2,mark:'SKYLITE'});soDraft.lines.push(l);salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});
-   salesApplyCustomerDefaults(c.id);if(!salesOrderSave())throw Error('Fixture save failed');const id=soDraft.id;salesDraftDrop();salesSetRecordStatus(id,'verified');
+   salesApplyCustomerDefaults(c.id);if(!soDraft.customerPo)soDraft.customerPo='PO-QA';if(!salesOrderSave())throw Error('Fixture save failed');const id=soDraft.id;salesDraftDrop();salesSetRecordStatus(id,'verified');
    glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
    [...stationPieceIndex()].filter(([,h])=>h.orderId===id).forEach(([piece])=>rdScan('CUT',piece));
    tab='sales';salesOrderEdit(id);rcFill(id,{where:'OFFICE',reason:'Drawing wrong',lines:[[0,2,'unit']]});ncrFormCreate();

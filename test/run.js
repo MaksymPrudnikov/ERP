@@ -2346,7 +2346,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const dontSave=()=>{if(salesDialog)salesDialogChoose(salesDialog.buttons.findIndex(b=>/^Don't/.test(b.label)));};
       salesOrderClose();dontSave();
       const afterClose=DB.shapeDef.length;
-      salesOrderNew();soDraft.customerId='CUS-SH';soDraft.lines=[];
+      salesOrderNew();soDraft.customerId='CUS-SH';soDraft.customerPo='PO-SH';soDraft.lines=[];
       salesExcelPasteText('1\t20\t30\tA\n1\t24\t36\tB',0);salesExcelApply();salesOrderSave();
       const saved=DB.shapeDef.length,id=soEdit;
       salesOrderRemoveLine(0);
