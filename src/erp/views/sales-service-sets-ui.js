@@ -103,6 +103,21 @@ function salesLineCheck(e,id){
   }else{if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);soShiftAnchor=id;soShiftOn=on;}
   salesRangeFromSelection();soServiceBulkPreview=null;soBulkNote=null;salesBulkSync();
 }
+/* Shift+клик по самой строке или по её номеру # — как по флажку (владелец,
+   30.10.2026: «шифт клик по полосе (линии)»). В поле ввода Shift+клик
+   остаётся полю (выделение текста); кнопки строки при Shift не срабатывают —
+   строка выделяется (Shift по × не удалит строку). Слушатель — один на
+   документ: render() пересоздаёт таблицу. Ячейки строки в батче inert —
+   клик по ним приходит таблице, строку находим по высоте клика. */
+function salesLineRowShift(ev){
+  var t=ev.shiftKey&&soDraft&&ev.target&&ev.target.closest?ev.target:null,tr=t&&t.closest('.sales-lines-table tbody tr[data-metrics-line-id]');
+  if(!tr&&t&&t.matches('.sales-lines-table'))tr=[...t.querySelectorAll('tbody tr[data-metrics-line-id]')].find(function(r){var b=r.getBoundingClientRect();return ev.clientY>=b.top&&ev.clientY<b.bottom;});
+  if(!tr||t.closest('input,select,textarea,[contenteditable="true"]'))return;
+  ev.preventDefault();ev.stopPropagation();
+  if(ev.type!=='click')return;
+  var id=tr.dataset.metricsLineId;salesLineCheck({shiftKey:true,target:{checked:!soSelectedLines.has(id)}},id);
+}
+if(typeof document!=='undefined'&&document.addEventListener){document.addEventListener('click',salesLineRowShift,true);document.addEventListener('mousedown',salesLineRowShift,true);}
 salesToggleLine=function(id,on){if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);salesRangeFromSelection();soServiceBulkPreview=null;soBulkNote=null;render();};
 salesToggleAllLines=function(on){salesServiceFilteredEntries().forEach(function(x){if(on)soSelectedLines.add(x.line.id);else soSelectedLines.delete(x.line.id);});if(!soSelectedLines.size)soShiftAnchor=null;salesRangeFromSelection();soServiceBulkPreview=null;soBulkNote=null;render();};
 function salesBulkClear(){soSelectedLines=new Set();soShiftAnchor=null;salesRangeClear();soServiceBulkPreview=null;soBulkNote=null;render();}

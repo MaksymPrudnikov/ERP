@@ -177,6 +177,8 @@ function archiveCollect(ids){
 function archiveRowOf(o,day,now){
  const info=salesListInfo(o),row={};
  (typeof SALES_LIST_COLUMNS!=='undefined'?SALES_LIST_COLUMNS:[]).forEach(c=>{try{row[c.k]=salesListValue(info,c.k);}catch(e){row[c.k]=null;}});
+ /* Неполный вес (пункт 14) — число известного и что не учтено. */
+ const wi=info.memo.weightInfo;if(wi&&!wi.complete&&row.weight!=null)row.weightPartial=salesWeightMissingText(wi)||'Partial';
  const q=salesIsQuote(o),b=info.memo.balanceInfo,glass=new Set();
  /* Стёкла каталога в Makeup: Master Data не даст удалить их, пока заказ в архиве. */
  (o.makeups||[]).forEach(m=>(m.panes||[]).forEach(p=>[p.glassProductId,p.laminated&&p.laminated.outer&&p.laminated.outer.glassProductId,p.laminated&&p.laminated.inner&&p.laminated.inner.glassProductId].forEach(id=>{if(id)glass.add(id);})));
@@ -202,6 +204,7 @@ function archiveListValue(info,k){
  const a=info.a;let v=Object.prototype.hasOwnProperty.call(a.row,k)?a.row[k]:null;
  if(k==='customer'||k==='rep'){const c=readMemo('archiveCustomers',[DB.customer],()=>new Map((DB.customer||[]).map(x=>[x.id,x]))).get(a.customerId);if(c)v=k==='customer'?c.displayName||c.legalName||'':c.salesRep||'';}
  if(k==='balance'&&a.pay)info.memo.balanceInfo=a.pay;
+ if(k==='weight'&&a.row.weightPartial)info.memo.weightInfo={complete:false,gaps:[],missingText:a.row.weightPartial};
  /* Order Items появилась 30.10.2026: у ушедших раньше количеств нет — так и
     пишем, а не «—» или ноль; разбирать Glass нельзя (в ней нет Qty). */
  if(k==='orderItems'&&!Object.prototype.hasOwnProperty.call(a.row,k))v='Quantities unavailable';

@@ -35,3 +35,4 @@
 @media(max-width:900px){.metric-surcharge-table{overflow-x:auto}.metric-surcharge-row{min-width:900px}}
 .sales-rate-origin.off{background:var(--surface-3);color:var(--text-2)!important}
 .sales-commercial-row>span:nth-child(2) small{display:block;margin-top:2px}
+.metric-weight-gaps{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin:0 16px 12px;padding:8px 12px;border:1px solid var(--warning-line);background:var(--warning-soft);border-radius:8px;font-size:12px}.metric-weight-gaps>b{color:var(--warning)}.metric-weight-gap{display:inline-flex;align-items:center;gap:6px}.metric-weight-gap button{padding:2px 10px}

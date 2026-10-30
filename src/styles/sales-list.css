@@ -127,3 +127,4 @@
 .line-units-total{display:flex;gap:10px;align-items:center;margin:8px 0}.line-units-total b{margin-left:auto}.line-units-total input{width:110px;margin-top:0}
 .line-units-row td{padding:6px 12px 10px 44px}.line-units-hold,.line-units-cancelled{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;padding:4px 0}
 .line-units-hold{color:var(--red)}.line-units-hold span{color:var(--red)}.line-units-cancelled span{color:var(--text-2)}.line-units-cancelled label{display:inline-flex;gap:6px;align-items:center;color:var(--text-2);text-transform:none;letter-spacing:0;font-size:13px;font-weight:400;margin:0}.line-units-cancelled input{width:110px;margin-top:0;text-align:right}
+.sl-partial{margin-left:6px;padding:1px 6px;font-size:10px;font-weight:700;vertical-align:1px}

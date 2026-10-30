@@ -229,7 +229,9 @@ function salesListValue(info,k){
   case 'createdBy':{const e=orderCreatedBy(o.id);v=e?e.by:'';break;}
   case 'terms':v=finTermsFor(o).paymentMode==='credit'?'Credit':'Cash';break;
   case 'lines':v=lines.length;break;
-  case 'weight':v=finWithOrder(o,()=>{let kg=0,known=lines.length>0;lines.forEach(l=>{const w=salesLineWeight(l,o);if(w.complete&&w.lineKg!=null)kg+=w.lineKg;else known=false;});return known?Math.round(kg):null;});break;
+  /* Пункт 14: известный вес всегда, неполный — с Partial (salesListWeightCell);
+     число — для сортировки и фильтра, признак — в memo. */
+  case 'weight':{const w=finWithOrder(o,()=>salesOrderWeight(o));info.memo.weightInfo=w;v=w.kg;break;}
   case 'unitType':v=[...new Set((o.makeups||[]).filter(m=>lines.some(l=>l.makeupId===m.id)).map(m=>docUnitLabel(m.unitType)))].join(', ');break;
   case 'shapes':v=lines.filter(salesListShapedLine).length;break;
   case 'validUntil':v=q?(o.validUntil||''):'';break;
@@ -400,6 +402,15 @@ function salesListFilterChips(){
 
 /* ------------------------------ Экран ---------------------------------- */
 function salesListNum(v,digits){return v==null||v===''?'<span class="mut">—</span>':Number(v).toLocaleString('en-US',{minimumFractionDigits:digits||0,maximumFractionDigits:digits||0});}
+/* Вес (вариант 1 владельца, 30.10.2026): число всегда, неполный — метка
+   Partial, в подсказке чего нет и где внести; нет ничего — «—», не 0.
+   «Наверное лучше первый, так как он акцентирует внимание офиса на том, что
+   нет информации». Ушедший в архив до 30.10 — только число (полный вес). */
+function salesListWeightCell(v,w){
+ if(v==null)return '<td class="n" title="Weight unavailable"><span class="mut">—</span></td>';
+ if(!w||w.complete)return `<td class="n"${w&&w.estimated?' title="Nominal glass thickness"':''}>${w&&w.estimated?'≈ ':''}${esc(salesKgText(v))}</td>`;
+ return `<td class="n" title="${esc(salesWeightTip(w))}" data-weight-partial>${esc(salesKgText(v))}<span class="pill warn sl-partial">Partial</span></td>`;
+}
 function salesListCell(info,col){
  if(info.n)return ncrListCell(info,col);
  const o=info.o,q=info.q,v=salesListValue(info,col.k);
@@ -410,7 +421,8 @@ function salesListCell(info,col){
   case 'created':case 'due':case 'validUntil':case 'updated':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'status':return `<td>${q?salesQuoteGroupPill(o):salesStatusPill(o)}${!q&&o.onHold?' <span class="pill hold">On Hold</span>':''}</td>`;
   case 'glass':case 'orderItems':return `<td><span class="sl-glass" title="${esc(v)}">${raw(v||'—')}</span></td>`;
-  case 'units':case 'pcs':case 'lines':case 'shapes':case 'revisions':case 'weight':return `<td class="n">${salesListNum(v)}</td>`;
+  case 'weight':return salesListWeightCell(v,info.memo.weightInfo);
+  case 'units':case 'pcs':case 'lines':case 'shapes':case 'revisions':return `<td class="n">${salesListNum(v)}</td>`;
   case 'area':return `<td class="n">${salesListNum(v,1)}</td>`;
   case 'total':return `<td class="n${!q&&finOrderCounts(o)?'':' mut'}">${finFmt(v)}</td>`;
   case 'receipts':return `<td class="n">${v==null?'<span class="mut">—</span>':finFmt(v)}</td>`;
@@ -435,6 +447,10 @@ function salesListFooter(rows,cols){
   if(!c.sum)return '<td></td>';
   const vals=rows.map(r=>salesListValue(r,c.k)).filter(v=>v!=null&&v!=='');
   const total=vals.reduce((s,v)=>s+Number(v),0);
+  /* Вес: сумма известного; хоть один заказ неполный или без веса — Partial;
+     ничего не известно — «—», а не 0. NCR веса не имеют. */
+  if(c.k==='weight'){const own=rows.filter(r=>!r.n),part=own.filter(r=>{const w=r.memo.weightInfo;return salesListValue(r,'weight')==null||!!w&&!w.complete;}).length;
+   return `<td class="n" data-sum="weight"${part?` title="${part} order${part===1?'':'s'} without full weight"`:''}>${vals.length?esc(salesKgText(total))+(part?'<span class="pill warn sl-partial">Partial</span>':''):'<span class="mut">—</span>'}</td>`;}
   return `<td class="n" data-sum="${c.k}">${c.money?finFmt(finMoney(total)):total.toLocaleString('en-US',{minimumFractionDigits:c.digits||0,maximumFractionDigits:c.digits||0})}</td>`;
  }).join('');
  return `<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head" data-foot-count>${head}</td>${sums}<td></td></tr></tfoot>`;

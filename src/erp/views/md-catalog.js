@@ -34,6 +34,7 @@ function mdCatalogGo(key){
  mdSetTab(hit[2]);if(hit[2]==='materials')mdMatSwitch(hit[3],key);else if(hit[2]==='works')mdCatKind=key;
  mdCatalogQuery='';mdCatalogLimit=0;mdPeek='';if(typeof mdGlassLimit!=='undefined')mdGlassLimit=MD_PAGE;render();
 }
+function mdFilmDensity(x){const r=(DB.materialWeightRates||[]).find(r=>r.key==='film:'+x.id);return r?mdNonNeg(r.rate):null;}
 function mdCatalogCount(key){return (DB[key]||[]).filter(x=>x&&x.active!==false).length;}
 /* Чего не хватает в открытом списке (аудит D-4: «No price 466» над Gas
    считал весь каталог): цена, станция работы, вес и рецепт рамки. */
@@ -42,7 +43,10 @@ function mdCatalogHealth(node){
  if(node==='glassProduct')return [['No price',n(g=>g.salePriceAnnealed==null&&g.salePriceTempered==null)],['No short name',n(g=>!g.shortName)]];
  if(node==='spacerVariant')return [['No price',n(x=>x.salePrice==null)],['No weight',n(x=>x.weightG==null)],['Not measured',n(x=>x.weightG!=null&&!x.weightMeasured)],['No recipe',n(x=>!surroundRecipeById(x.recipeId))]];
  if(node==='serviceRate')return [['No station',n(w=>!w.rule&&!w.station)]];
- if(['gasProduct','sealantProduct','iguPart','interlayerProduct','fritProduct','spandrelProduct'].includes(node))return [['No price',n(x=>x.salePrice==null)]];
+ /* Плотность плёнки и газа — вес заказов (пункт 14): пусто — вес Partial. */
+ if(node==='interlayerProduct')return [['No price',n(x=>x.salePrice==null)],['No density',n(x=>mdFilmDensity(x)==null)]];
+ if(node==='gasProduct')return [['No price',n(x=>x.salePrice==null)],['No density',n(x=>x.densityKgM3==null)]];
+ if(['sealantProduct','iguPart','fritProduct','spandrelProduct'].includes(node))return [['No price',n(x=>x.salePrice==null)]];
  return [];
 }
 /* Сколько найденного показано; 0 — первая страница (MD_PAGE из views/masterdata, он грузится позже). */
@@ -94,7 +98,8 @@ function mdPeekFacts(t,x){
  else if(t==='surroundRecipe'){const fixed=p=>p==='spacer'||p==='gas',users=mdRecipeUsers(x.id);
   f.push(['PIB per side',x.pibPerSideMm==null?null:x.pibPerSideMm+' mm'],...x.rows.map(r=>[surroundPartLabel(r.part),fixed(r.part)?(r.part==='spacer'?'from the spacer card':'from the gas card'):r.amount==null?null:r.amount+' '+SURROUND_PER[r.per]+(r.wastePct?' · waste '+r.wastePct+'%':'')]),['Used by',users.length+' spacer'+(users.length===1?'':'s')]);
   if(x.rows.some(r=>!fixed(r.part)&&r.amount==null))miss.push('norm missing');}
- else{f.push(['Code',x.code],['Supplier',x.supplier],['Price',money(x.salePrice)]);if('salePrice' in x&&x.salePrice==null&&t!=='stockItem'&&t!=='heatTreatment')miss.push('no price');}
+ else{f.push(['Code',x.code],['Supplier',x.supplier],['Price',money(x.salePrice)]);if('salePrice' in x&&x.salePrice==null&&t!=='stockItem'&&t!=='heatTreatment')miss.push('no price');
+  if(t==='interlayerProduct'&&mdFilmDensity(x)==null||t==='gasProduct'&&x.densityKgM3==null)miss.push('no density');}
  return {facts:f,miss};
 }
 function mdPeekHTML(){

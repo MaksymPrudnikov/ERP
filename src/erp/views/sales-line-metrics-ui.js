@@ -106,14 +106,34 @@ function salesMetricCell(line,c,context,price,a,weight){
   const body=`<b data-raw>${text}</b>${hand&&context==='screen'?'<i class="metric-hand" title="Price by hand">✎</i>':''}`;
   return `<td class="line-metric${value==null?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
 }
+/* Вес заказа (пункт 14, вариант 1 владельца 30.10.2026): в строке итогов —
+   известное число и метка Partial; под итогами — чего нет, в каких строках и
+   где внести, с переходом туда. Нет ничего — вес не показывается. */
+function salesOrderWeightCaption(w){
+ if(w.kg==null)return '';
+ return `<span data-order-weight${w.complete?'':` title="${esc(salesWeightTip(w))}"`}>${w.complete&&w.estimated?'≈ ':''}${esc(salesKgText(w.kg))} kg${w.complete?'':'<span class="pill warn sl-partial">Partial</span>'}</span> · `;
+}
+function salesOrderWeightNote(w){
+ if(w.complete||!w.gaps.length)return '';
+ const lines=n=>n.length?` <span class="mut">· line${n.length>1?'s':''} ${n.slice(0,8).join(', ')}${n.length>8?'…':''}</span>`:'';
+ return `<div class="metric-weight-gaps" data-weight-gaps><b>⚠ Weight partial</b>${w.gaps.map((g,i)=>`<span class="metric-weight-gap">${esc(g.what)}${lines(g.lines)} → ${esc(g.where)}${g.go&&(g.go.line||accessCan('masterdata'))?` <button type="button" class="sm" onclick="salesWeightGapOpen(${i})">Open</button>`:''}</span>`).join('')}</div>`;
+}
+/* Open: норма строки — окно Weight этой строки; карточка Data — уход из
+   заказа обычным путём (Save / Don't save), затем карточка. */
+function salesWeightGapOpen(i){
+ const g=soDraft&&salesOrderWeight(soDraft).gaps[i];if(!g||!g.go)return;
+ if(g.go.line){const l=soDraft.lines[g.lines[0]-1];if(l)salesOpenMetrics('weight',l.id);return;}
+ if(!accessCan('masterdata'))return;
+ salesLeaveDraft(()=>{tab='masterdata';if(g.go.setup){mdSetTab('setup');render();}else mdCatalogOpen(g.go.t,g.go.id);});
+}
 function salesCommercialOrderSummary(interactive){
- const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2):'—';
+ const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2):'—',w=salesOrderWeight(soDraft);
  const item=(key,label,rate,value,shown)=>`<span class="metric-order-charge-item charge-${key}${shown?'':' is-empty'}"><span class="metric-order-charge-label">${label}${rate!=null?` <small data-raw>${rate}%</small>`:''}</span><b data-raw>${shown?money(value):''}</b></span>`;
  const adj=(soDraft.adjustments||[]).reduce((n,a)=>salesMoney(n+(+a.amount||0)),0);
  const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(c.card.name),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
  rows.push(`<span class="metric-order-charge-item charge-total metric-grand-total"><span class="metric-order-charge-label">Total</span><b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${'lines need pricing'}</small>`:''}</span>`);
  const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" onclick="salesOpenMetrics('orderCharges')">Service +</button>`;
- return salesOrderReviewHTML(soDraft,t)+`<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · <span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`;
+ return salesOrderReviewHTML(soDraft,t)+`<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · ${salesOrderWeightCaption(w)}<span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`+(interactive===false?'':salesOrderWeightNote(w));
 }
 function salesOrderReviewHTML(o,t){
  t=t||finOrderTotals(o);if(!t.complete||t.grand>=0)return '';
@@ -262,7 +282,7 @@ function salesWeightRow(row,index,editable){
 }
 function salesWeightPanel(line){
  const w=salesLineWeight(line,soDraft);
- return `<p>${'Calculated weight of all components in one unit. An empty norm means missing data, not zero weight.'}</p><button type="button" onclick="salesMetricsEditWeights=!salesMetricsEditWeights;render()">${salesMetricsEditWeights?'Close weight norms':'Edit weight norms'}</button>${salesMetricsEditWeights?`<p class="mut">${'Norms apply across all orders. Area norms and connectors are entered in grams; calculation converts them to kg.'}</p>`:''}<div class="metric-detail-scroll"><table class="metric-weight-table"><thead><tr><th>${'Component'}</th><th>${'Basis'}</th><th>${'Norm'}</th><th>kg / unit</th></tr></thead><tbody>${w.rows.map((r,i)=>salesWeightRow(r,i,salesMetricsEditWeights)).join('')}</tbody></table></div><div class="metric-price-row"><span>Unit Weight</span><b data-raw>${w.complete?w.kg.toFixed(2)+' kg':'—'}</b></div><div class="metric-price-row"><span>Line Weight · Qty ${line.qty}</span><b data-raw>${w.complete?w.lineKg.toFixed(2)+' kg':'—'}</b></div>${!w.complete?`<p class="metric-incomplete">${'Weight incomplete. Known components'}: ${w.knownKg.toFixed(2)} kg/unit · ${w.missing} ${'items need data'}</p>`:''}<h4>${'Additional components'}</h4><p class="mut">${'Supplied items only: hardware, fasteners and other components. A Clamp / Hinge processing mark does not itself mean hardware is supplied.'}</p>${(line.weightExtras||[]).map((x,i)=>`<div class="metric-extra"><input aria-label="Component name ${i+1}" value="${esc(x.label)}" placeholder="Component" oninput="salesSetWeightExtra(${i},'label',this.value)"><input aria-label="Component kg ${i+1}" type="number" min="0" step="any" value="${x.kg==null?'':x.kg}" placeholder="kg / unit" onchange="salesSetWeightExtra(${i},'kg',this.value)"><button type="button" onclick="salesRemoveWeightExtra(${i})">×</button></div>`).join('')}<button type="button" onclick="salesAddWeightExtra()">+ ${'Component'}</button>`;
+ return `<p>${'Calculated weight of all components in one unit. An empty norm means missing data, not zero weight.'}</p><button type="button" onclick="salesMetricsEditWeights=!salesMetricsEditWeights;render()">${salesMetricsEditWeights?'Close weight norms':'Edit weight norms'}</button>${salesMetricsEditWeights?`<p class="mut">${'Norms apply across all orders. Area norms and connectors are entered in grams; calculation converts them to kg.'}</p>`:''}<div class="metric-detail-scroll"><table class="metric-weight-table"><thead><tr><th>${'Component'}</th><th>${'Basis'}</th><th>${'Norm'}</th><th>kg / unit</th></tr></thead><tbody>${w.rows.map((r,i)=>salesWeightRow(r,i,salesMetricsEditWeights)).join('')}</tbody></table></div><div class="metric-price-row"><span>Unit Weight</span><b data-raw>${w.complete?w.kg.toFixed(2)+' kg':'—'}</b></div><div class="metric-price-row"><span>Line Weight · Qty ${line.qty}</span><b data-raw>${w.complete?w.lineKg.toFixed(2)+' kg':'—'}</b></div>${!w.complete?`<p class="metric-incomplete">${'Weight incomplete. Known components'}: ${w.knownKg.toFixed(2)} kg/unit · ${w.missing} ${'items need data'}</p>${w.gaps.length?`<p class="metric-incomplete" data-weight-where>${w.gaps.map(g=>esc(g.what)+' → '+esc(g.where)).join('<br>')}</p>`:''}`:''}<h4>${'Additional components'}</h4><p class="mut">${'Supplied items only: hardware, fasteners and other components. A Clamp / Hinge processing mark does not itself mean hardware is supplied.'}</p>${(line.weightExtras||[]).map((x,i)=>`<div class="metric-extra"><input aria-label="Component name ${i+1}" value="${esc(x.label)}" placeholder="Component" oninput="salesSetWeightExtra(${i},'label',this.value)"><input aria-label="Component kg ${i+1}" type="number" min="0" step="any" value="${x.kg==null?'':x.kg}" placeholder="kg / unit" onchange="salesSetWeightExtra(${i},'kg',this.value)"><button type="button" onclick="salesRemoveWeightExtra(${i})">×</button></div>`).join('')}<button type="button" onclick="salesAddWeightExtra()">+ ${'Component'}</button>`;
 }
 function salesMetricsLine(){return soDraft&&(soDraft.lines||[]).find(l=>l.id===salesMetricsLineId);}
 function salesSaveWeightNorm(index,value,factor){
