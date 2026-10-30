@@ -3837,7 +3837,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       host.remove();return rows;
     }), [
       {text:'Lite 1: 6SBN60VT #2 FT',whiteSpace:'nowrap'},
-      {text:'Cavity: 1/2 BWE+ARG',whiteSpace:'nowrap'},
+      /* Под камерой — её герметик (пункт 1 плана v1.16, вариант 2 владельца). */
+      {text:'Cavity: 1/2 BWE+ARGSealant: Polysulphide',whiteSpace:'nowrap'},
       {text:'Lite 2: 6LAM030',whiteSpace:'nowrap'}
     ]);
 
@@ -5201,7 +5202,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         thicknessMm:10,actualThicknessMm:9.7,substrate:'clear',coatingFamily:'uncoated'})];
       DB.customer=[{id:'C1',displayName:'Acme Glazing Ltd',legalName:'Acme Glazing Ltd',code:'ACME'}];
       soDraft=newSalesOrderDraft();soDraft.customerId='C1';soDraft.customerPo=soDraft.customerPo||'PO-T';soDraft.businessNumber='SO-1042';soDraft.customerPo='8891';
-      const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];
+      /* Одинарное стекло — без камеры, как после salesSetUnitType('single'): вес
+         листа — расчёт заказа (этап 7), и камера от двойного Makeup делала
+         его Partial. */
+      const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.cavities=[];
       m.panes[0].glassProductId='G10';m.panes[0].thicknessMm=10;m.panes[0].heatTreatmentId='HT-FT';
       const line=normalizeSalesOrderLine({makeupId:m.id,qty:4,width16:800,height16:1280,mark:'D-2'});
       soDraft.lines=[line];
