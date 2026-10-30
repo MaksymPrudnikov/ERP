@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 185 модулей, 25 стиля.
+  Состав сборки: 186 модулей, 25 стиля.
 -->
 <html lang="en">
 <head>
@@ -1004,6 +1004,8 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sheet-spec{font-size:11.5px;font-weight:600;line-height:1.35;color:var(--text)}
 .sheet-size{margin-top:3px;font-size:10.5px;line-height:1.35;color:var(--text)}
 .sheet-mass{font-size:10.5px;line-height:1.35;color:var(--text-2)}
+/* Вес Partial — чего в нём нет, на бумаге без наведения (пункт 14). */
+.sheet-mass-note{font-size:9.5px;line-height:1.3;color:var(--text-2);max-width:240px}
 .sheet-mk{margin:5px 0 3px}
 /* Количество идёт третьей строкой названия: «Makeup A / Double 25.5 mm /
    10 units» — один блок про изделие. */
@@ -2939,6 +2941,25 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .st-skid-oh.on td{background:var(--blue2)}
 .st-skid-oh .n{text-align:right}
 .st-skid-t .st-pos{width:28px}
+/* Print drawing рядом с Close (пункт 9 плана v1.16). */
+.st-draw-print{display:inline-flex;align-items:center;gap:8px}
+.st-draw-print>span{display:inline-flex;width:18px;height:18px}
+.st-draw-print svg{width:18px;height:18px}
+/* Print на CUT — окно станции (пункт 9, вариант 2 владельца): две плитки
+   области и три больших действия. */
+.st-sheetprint{display:inline-flex;align-items:center;gap:6px}
+.st-sheetprint>span{display:inline-flex;width:15px;height:15px}.st-sheetprint svg{width:15px;height:15px}
+.st-print{width:min(520px,100%)}
+.st-print-area{display:flex;gap:10px;margin:12px 0}
+.st-print-area .st-gbtn{flex:1;min-height:64px;padding:12px 16px;text-align:left}
+.st-print-area .st-gbtn b{font-size:18px}.st-print-area .st-gbtn span{font-size:12px}
+.st-print-area .st-gbtn:disabled{opacity:.45;cursor:default}
+.st-print-acts{display:grid;gap:10px}
+.st-print-act{display:flex;align-items:center;gap:10px;width:100%;font-size:17px;padding:15px 18px;text-align:left}
+.st-print-act>span{display:inline-flex;width:20px;height:20px}.st-print-act svg{width:20px;height:20px}
+.st-print-act em{margin-left:auto;font-style:normal;font-size:15px;color:var(--mut)}
+.st-print-act:disabled{opacity:.45}
+.st-print-msg{margin-top:10px}
 
 /* ---- src/styles/theme.css ---- */
 /* ==============================================================
@@ -3696,7 +3717,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='7a547b2b8620';
+var ERP_BUILD='94fb7d03b484';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -6921,15 +6942,15 @@ function shapeMetricInchText(x,y,label,size,cls,extra,rot){
    точек самого стекла (feet), а не от угла рамки: у косой детали в углу рамки
    стекла нет, и выносная висела в воздухе. */
 function shapeMetricOverallSvg(mo,key,dir,a,b,pos,feet,mmText,inText,role,side){
-  var c='#111827',mid=(a+b)/2,label,cx,cy,line;
+  var c='#111827',mid=(a+b)/2,label,cx,cy,line,fs=mo&&mo.inchSheet?SHAPE_DIM_FONT+'" font-weight="700':'16" font-weight="600';
   if(dir==='h'){
-    label='<text data-metric-role="'+role+'" x="'+mid+'" y="'+(pos-9)+'" text-anchor="middle" font-size="16" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">'+shapeXml(mmText)+'</text>'+
+    label='<text data-metric-role="'+role+'" x="'+mid+'" y="'+(pos-9)+'" text-anchor="middle" font-size="'+fs+'" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">'+shapeXml(mmText)+'</text>'+
       (inText?'<g class="shape-inch-reference-layer shape-inch-overall" data-units="in">'+shapeMetricInchText(mid,pos+15,inText,15,'shape-inch-compact',' data-inch-role="'+role+'"')+'</g>':'');
     cx=mid;cy=pos+2;
     line='<line x1="'+a+'" y1="'+pos+'" x2="'+b+'" y2="'+pos+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>';
   }else{
     var tx=pos-11*side,hx=pos+11*side;
-    label='<text data-metric-role="'+role+'" x="'+tx+'" y="'+mid+'" text-anchor="middle" font-size="16" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate(-90 '+tx+' '+mid+')">'+shapeXml(mmText)+'</text>'+
+    label='<text data-metric-role="'+role+'" x="'+tx+'" y="'+mid+'" text-anchor="middle" font-size="'+fs+'" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate(-90 '+tx+' '+mid+')">'+shapeXml(mmText)+'</text>'+
       (inText?'<g class="shape-inch-reference-layer shape-inch-overall" data-units="in"><text class="shape-inch-reference shape-inch-compact" data-inch-role="'+role+'" x="'+hx+'" y="'+mid+'" text-anchor="middle" font-size="15" font-weight="600" fill="#98a2b3" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate(-90 '+hx+' '+mid+')">'+shapeXml(inText)+'″</text></g>':'');
     cx=pos;cy=mid;
     line='<line x1="'+pos+'" y1="'+a+'" x2="'+pos+'" y2="'+b+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>';
@@ -7013,7 +7034,10 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
   var mo=Object.assign({},opts,{vw:opts.vw||F.vw});
   var path=Q.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
   var o='<g class="shape-metric-layer" data-units="mm"><defs><marker id="shapeMetricArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+c+'" stroke-width=".9"/></marker></defs>';
-  o+='<path class="shape-metric-contour" d="'+path+'" fill="#f2f4f7" fill-opacity=".72" stroke="#344054" stroke-width="1.2"/>';
+  o+=opts.inchSheet?'<path class="shape-metric-contour" d="'+path+'" fill="none" stroke="#101828" stroke-width="1.9"/>'
+                   :'<path class="shape-metric-contour" d="'+path+'" fill="#f2f4f7" fill-opacity=".72" stroke="#344054" stroke-width="1.2"/>';
+  /* Дюймовый лист: размер — кеглем чертежа (SHAPE_DIM_FONT, владелец 28.09.2026). */
+  var lenFont=opts.inchSheet?SHAPE_DIM_FONT:14.5,lenWeight=opts.inchSheet?700:600,square=[],skewed=0;
   /* Отрезки одной дуги идут подряд под общим id ребра. Если их набралось
      много, это тесселяция кривой, а не настоящие рёбра: подписи по отрезкам
      не рисуем вовсе, кривая получит одну свою ниже. */
@@ -7039,7 +7063,7 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     var lead=axis?off+11:off,inchLead=axis?off+27:lead+16;
     var x=mx+nx*lead,y=my+ny*lead,ix=mx+nx*inchLead,iy=my+ny*inchLead,ang=Math.atan2(dy,dx)*180/Math.PI;
     if(ang>90)ang-=180;if(ang<-90)ang+=180;
-    var label='<text class="shape-metric-length" data-edge-id="'+shapeXml(seg.edgeId)+'" data-length-mm="'+shapeMetricFormat(seg.lengthMm)+'" x="'+x+'" y="'+(y+4.5)+'" text-anchor="middle" font-size="14.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+(inUnits?fmt(seg.lengthMm):'('+fmt(seg.lengthMm)+')')+'</text>'+
+    var label='<text class="shape-metric-length" data-edge-id="'+shapeXml(seg.edgeId)+'" data-length-mm="'+shapeMetricFormat(seg.lengthMm)+'" x="'+x+'" y="'+(y+4.5)+'" text-anchor="middle" font-size="'+lenFont+'" font-weight="'+lenWeight+'" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+(inUnits?fmt(seg.lengthMm):'('+fmt(seg.lengthMm)+')')+'</text>'+
       (inUnits?'':shapeMetricInchText(ix,iy+3.5,echo(seg.lengthMm),13.5,'shape-inch-edge-reference shape-inch-compact',' data-edge-id="'+shapeXml(seg.edgeId)+'"',ang));
     var cx=(x+ix)/2,cy=(y+iy)/2;
     if(!axis){o+=shapeAnnItem(mo,key,label,cx,cy,{from:[mx,my],vw:mo.vw});return;}
@@ -7056,6 +7080,10 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     if(arcSeg[i]&&arcSeg[(i-1+arcSeg.length)%arcSeg.length])return;
     if(Math.abs(v.angleDeg-180)<.5)return;
     var b=Q[i],prev=Q[(i-1+n)%n],next=Q[(i+1)%n];
+    /* Прямой угол дюймового листа — уголок, как у обычного чертежа
+       (shapeAnnRightAngles), и только если у фигуры есть не прямые углы. */
+    if(opts.inchSheet&&(Math.abs(v.angleDeg-90)<.5||Math.abs(v.angleDeg-270)<.5)){square.push([prev,b,next]);return;}
+    skewed++;
     var a0=Math.atan2(next[1]-b[1],next[0]-b[0]),a1=Math.atan2(prev[1]-b[1],prev[0]-b[0]);
     var span=orient>0?shapeMetricPositiveAngle(a1-a0):shapeMetricPositiveAngle(a0-a1),delta=orient*span;
     var r=Math.max(12,Math.min(30,Math.min(Math.hypot(prev[0]-b[0],prev[1]-b[1]),Math.hypot(next[0]-b[0],next[1]-b[1]))*.24));
@@ -7067,6 +7095,11 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     for(var j=0;j<=steps;j++){var t=a0+delta*j/steps,ax=b[0]+Math.cos(t)*r,ay=b[1]+Math.sin(t)*r;arc+=(j?' L ':'M ')+ax+' '+ay;}
     o+='<path class="shape-metric-angle-arc" data-vertex-index="'+i+'" d="'+arc+'" fill="none" stroke="'+c+'" stroke-width="1.15"/>';
     o+=shapeAnnItem(mo,key,angleText,lx,ly,{from:[b[0],b[1]],vw:mo.vw});
+  });
+  if(skewed)square.forEach(function(t){
+    var q=t[1],s1=[t[0][0]-q[0],t[0][1]-q[1]],s2=[t[2][0]-q[0],t[2][1]-q[1]],l1=Math.hypot(s1[0],s1[1])||1,l2=Math.hypot(s2[0],s2[1])||1,z=8;
+    var pA=[q[0]+s1[0]/l1*z,q[1]+s1[1]/l1*z],pB=[pA[0]+s2[0]/l2*z,pA[1]+s2[1]/l2*z],pC=[q[0]+s2[0]/l2*z,q[1]+s2[1]/l2*z];
+    o+='<path class="shape-right-angle" d="M'+pA[0]+' '+pA[1]+' L'+pB[0]+' '+pB[1]+' L'+pC[0]+' '+pC[1]+'" fill="none" stroke="#101828" stroke-width=".7"/>';
   });
   o+=shapeMetricCurvesSvg(metric,arcSeg,DP,c,mo,F);
   var xs=Q.map(function(p){return p[0];}),ys=Q.map(function(p){return p[1];});
@@ -7215,9 +7248,14 @@ function shapeLiteSheetSvg(result,opts){
   var disp=pts.map(function(p){return [F.X(p[0]),F.Y(p[1])];}),path=disp.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
   var xs=disp.map(function(p){return p[0];}),ys=disp.map(function(p){return p[1];});
   var mo=Object.assign({},opts.metric||{},{keyPrefix:units+':lite'+lite.index+':',layout:(opts.metric&&opts.metric.layout)||(result.definition&&result.definition.drawingLayout)||{},vw:F.vw,sheet:!!opts.sheet,units:units,points:pts,cleanParallelogram:true});
+  /* В дюймах — оформление обычного дюймового чертежа (пункт 1 плана v1.16,
+     листы 4/7/15 контрольного заказа): белое стекло с чёрным контуром, без
+     заливки, знака стекла и подписей прямых углов — их нет и у листа
+     большего стекла. Углы фигуры не прямые остаются. Metric detail — как был. */
+  mo.inchSheet=units==='in';
   var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(opts.sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING · '+(lite.label||''),F));
   o+='<path class="shape-sheet-glass" d="'+path+'" fill="#fff" stroke="none"/>';
-  o+=shapeMetricLayerSvg(result,F,null,metric,mo)+shapeGlassHatchSvg({path:path,points:disp,box:{left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)}});
+  o+=shapeMetricLayerSvg(result,F,null,metric,mo)+(mo.inchSheet?'':shapeGlassHatchSvg({path:path,points:disp,box:{left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)}}));
   if(result.featureGeometry)o+=shapeProductionFeaturesSvg(result,F);
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }
@@ -21111,8 +21149,9 @@ function salesLineWeight(line,order,productionPlan){
   if(ply.category==='spandrel')norm('spandrel:'+ply.spandrel.productId,label+' · Spandrel',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied coating norm per finished area',salesWeightGap('weight:spandrel:'+ply.spandrel.productId,'Spandrel weight norm',SALES_WEIGHT_WHERE.norm,'spandrel coating',{line:true}));
   if(ply.visionType==='frit'||ply.frit&&ply.frit.enabled)norm('frit:'+ply.frit.productId+':'+(ply.frit.pattern||'custom'),label+' · Frit',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied pattern norm per finished area',salesWeightGap('weight:frit:'+ply.frit.productId+':'+(ply.frit.pattern||'custom'),'Frit weight norm',SALES_WEIGHT_WHERE.norm,'frit',{line:true}));
  };
+ /* lite — чей слой: лист одного стекла на чертеже берёт только свои строки. */
  (m.panes||[]).forEach((p,i)=>{
-  const g=geometry(i),label='Lite '+(i+1);
+  const g=geometry(i),label='Lite '+(i+1),from=rows.length;
   if(p.category==='laminated'){
    const lam=p.laminated||{};
    [lam.outer,lam.inner].forEach((ply,j)=>{if(ply){glass(ply,label+(j?'b':'a'),g);surface(ply,label+(j?'b':'a'),g);}});
@@ -21121,6 +21160,7 @@ function salesLineWeight(line,order,productionPlan){
     norm('film:'+f.productId,label+' · '+(prod?prod.name:'Interlayer'),g.area==null?null:g.area*GLASS_M2_PER_FT2*(f.thicknessMm/1000),'kg/m³','Density × actual interlayer volume',salesWeightGap('film:'+f.productId,(prod?prod.name:'Interlayer')+' density',SALES_WEIGHT_WHERE.film+(prod?' → '+prod.name:''),'interlayer',prod?{t:'interlayerProduct',id:prod.id}:null));
    });
   }else{glass(p,label,g);surface(p,label,g);}
+  rows.slice(from).forEach(r=>{r.lite=i;});
  });
  /* Обвязка по рецепту рамки: рамка идёт по контуру камеры. У ступенчатого
     пакета — всегда по меньшему лайту, иначе юнит не загерметизировать
@@ -22094,11 +22134,13 @@ function salesSheetMakeupHTML(makeup,shape,step,names,current){
   panes.forEach(function(p,i){
     if(i){
       var bar=i-1===cavityIndex?muntin:null,stepCav=!!small(i-1)!==!!small(i);
-      /* У ступенчатого юнита строка фиксированной высоты: раскладка и шов —
-         одной подписью. */
-      var stepText=stepCav?['Step',SALES_STEP_SEALS[step.seal],salesSheetSealantName(makeup,i)].filter(Boolean).join(' · '):'';
+      /* Герметик камеры — у каждой камеры, на листе юнита и листах стёкол
+         (пункт 1 плана v1.16, вариант 2 владельца, 30.10.2026): «Sealant:
+         Silicone» под камерой. У ступенчатого юнита строка фиксированной
+         высоты: раскладка, герметик и шов — одной подписью. */
+      var seal=salesSheetSealantText(makeup,i),stepText=stepCav?['Step',SALES_STEP_SEALS[step.seal]].join(' · '):'';
       row('<div class="mk-row"><span>Cavity'+(panes.length>2?' '+i:'')+': '+esc(salesSheetCavityText(makeup,i))+
-        (stepped?(bar||stepText?'<small class="mk-size">'+esc([bar&&bar.text,stepText].filter(Boolean).join(' · '))+'</small>':''):(bar?'<small class="mk-muntin-text">'+esc(bar.text)+'</small>':''))+'</span>'+
+        (stepped?(bar||seal||stepText?'<small class="mk-size">'+esc([bar&&bar.text,seal,stepText].filter(Boolean).join(' · '))+'</small>':''):(bar?'<small class="mk-muntin-text">'+esc(bar.text)+'</small>':'')+(seal?'<small class="mk-size mk-seal">'+esc(seal)+'</small>':''))+'</span>'+
         /* Распорка стоит по меньшему из двух стёкол камеры (владелец,
            20.10.2026) — полоска камеры той же длины, что у меньшего. */
         '<i class="mk-cav'+(small(i-1)||small(i)?' mk-smaller':'')+'">'+(bar?bar.svg:'')+'</i><em></em></div>');
@@ -22148,10 +22190,17 @@ var SALES_SHEET_STEP_ROW=30;
 function salesSheetStepSeal(seal,side,h){
   return seal==='edge'||seal==='buttered'?'<b class="mk-step-seal '+seal+' '+side+'" style="height:'+h+'px"></b>':'';
 }
-/* Герметик камеры — им же заливают ступеньку («доп. силикон по ступеньке»). */
+/* Герметик камеры — им же заливают ступеньку («доп. силикон по ступеньке»).
+   Имя из каталога: Polysulphide, Silicone, новый — его имя. Ссылка битая —
+   «not found», а не другой герметик. */
 function salesSheetSealantName(makeup,i){
   var c=(makeup.cavities||[])[i-1],s=c&&typeof mdById==='function'?mdById('sealantProduct',c.secondarySealantId):null;
   return s&&s.name?String(s.name):'';
+}
+function salesSheetSealantText(makeup,i){
+  var c=(makeup.cavities||[])[i-1];if(!c)return '';
+  var name=salesSheetSealantName(makeup,i);
+  return name?'Sealant: '+name:'Sealant not found';
 }
 function salesSheetRouteHTML(route){
   if(!route||!route.lites.length)return '';
@@ -22172,35 +22221,27 @@ function salesSheetRouteHTML(route){
   return '<div class="sheet-route"><div class="sheet-route-t">ROUTE</div>'+body+'</div>';
 }
 /* Собирает лист. svg — уже готовый чертёж без собственного заголовка. */
-/* Вес одного слоя пакета. У ламината это ОБА стекла и плёнка между ними:
-   лист показывал вес одной панели, и 6 + 6 весил как шестёрка — вдвое меньше
-   настоящего. По этой цифре в цехе считают подъём. */
-function salesSheetPaneWeightKg(pane,areaFt2){
-  if(!pane)return null;
-  if(pane.category!=='laminated')
-    return glassWeightKg(glassProductById(pane.glassProductId),areaFt2);
-  var lam=pane.laminated||{},total=0,exact=true,got=false;
-  [lam.outer,lam.inner].forEach(function(ply){
-    if(!ply)return;
-    var w=glassWeightKg(glassProductById(ply.glassProductId),areaFt2);
-    if(!w){
-      var mm=+ply.thicknessMm;
-      if(!(mm>0))return;
-      var d=glassDensityKgM3();if(!d)return;
-      w={kg:glassLayerWeightKg(mm,d,areaFt2),exact:false};
-    }
-    total+=w.kg;if(!w.exact)exact=false;got=true;
-  });
-  (lam.interlayers||[]).forEach(function(f){
-    /* Плотность плёнки — её норма веса; нормы нет — вес приблизительный. */
-    var d=f?salesWeightRate('film:'+f.productId):null;
-    if(d>0)total+=glassLayerWeightKg(f.thicknessMm,d,areaFt2);else exact=false;
-  });
-  return got&&total>0?{kg:total,exact:exact}:null;
+/* Вес на листе — тот же расчёт, что в заказе (salesLineWeight; владелец,
+   30.10.2026, этап 7): нормы заказа, геометрия лайтов строки, всё, что
+   входит в юнит, — у ламината оба стекла и плёнка, у пакета ещё рамка, газ
+   и герметики. По этой цифре в цехе считают подъём. liteIndex — лист одного
+   стекла: только его слои. Неполный — известное и Partial с тем, чего нет
+   (вариант 1 владельца, пункт 14); посчитать нечего — null. */
+function salesSheetWeight(line,order,liteIndex){
+  if(!line||!order||typeof salesLineWeight!=='function')return null;
+  var w=salesLineWeight(line,order),n=(order.lines||[]).findIndex(function(l){return l.id===line.id;})+1;
+  var rows=liteIndex==null?w.rows:w.rows.filter(function(r){return r.lite===liteIndex;});
+  var gaps=liteIndex==null||!w.rows.length?w.gaps:[];
+  if(liteIndex!=null)rows.forEach(function(r){if(r.kg==null&&r.gap&&!gaps.some(function(g){return g.key===r.gap.key;}))gaps.push(r.gap);});
+  var known=rows.reduce(function(s,r){return s+(r.kg||0);},0),complete=rows.length>0&&rows.every(function(r){return r.kg!=null;});
+  if(!complete&&!(known>0))return null;
+  return {kg:known,complete:complete,estimated:rows.some(function(r){return r.estimated&&r.kg!=null;}),
+    missing:complete?'':salesWeightMissingText({complete:false,gaps:gaps.map(function(g){return Object.assign({},g,{lines:[n||1]});})})};
 }
 function salesSheetWeightText(w){
   if(!w)return '';
-  return (w.exact?'':'~')+(w.kg>=10?Math.round(w.kg):w.kg.toFixed(1))+' kg';
+  var kg=(w.kg>=10?Math.round(w.kg):w.kg.toFixed(1))+' kg';
+  return w.complete?(w.estimated?'≈ ':'')+kg:kg+' · Partial';
 }
 /* opts.liteIndex — лист одного стекла ступенчатого юнита: размер, площадь,
    вес и маршрут этого стекла, его строка в составе выделена. opts.step —
@@ -22219,18 +22260,7 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
   var names=result&&result.geometry&&typeof shapeEdgeNames==='function'?shapeEdgeNames(result.geometry):null;
   if(step&&step.step&&liteIndex!=null&&line&&typeof salesLineGeometryShape==='function'){var mainR=ShapeModule.compute(salesLineGeometryShape(line));if(mainR&&mainR.geometry)names=shapeEdgeNames(mainR.geometry);}
   var areaFt2=stepLite?stepLite.area/144:ok?result.area/144:0;
-  var pane=makeup&&(makeup.panes||[])[0];
-  var weight='';
-  if(stepLite&&makeup)weight=salesSheetWeightText(salesSheetPaneWeightKg((makeup.panes||[])[liteIndex],areaFt2));
-  else if(makeup&&(makeup.panes||[]).length){
-    var total=0,exact=true,ok=true;
-    (makeup.panes||[]).forEach(function(p){
-      var w=salesSheetPaneWeightKg(p,areaFt2);
-      if(!w){ok=false;return;}
-      total+=w.kg;if(!w.exact)exact=false;
-    });
-    if(ok&&total>0)weight=salesSheetWeightText({kg:total,exact:exact});
-  }else if(pane)weight=salesSheetWeightText(salesSheetPaneWeightKg(pane,areaFt2));
+  var w=salesSheetWeight(line,order,stepLite?liteIndex:null),weight=salesSheetWeightText(w);
 
   var finished=stepLite?dimIn16(stepLite.w)+' × '+dimIn16(stepLite.h):ok?dimIn16(result.width)+' × '+dimIn16(result.height):'';
   var size=finished?'Finished '+finished:'';
@@ -22274,6 +22304,7 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
         '<div class="sheet-nums">'+
           (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
           (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+
+          (w&&w.missing?'<div class="sheet-mass-note">'+esc(w.missing)+'</div>':'')+
           '<div class="sheet-who">'+
             '<span>LINE</span><b>'+esc(lineText)+'</b>'+
             '<span>NOTE</span><b class="sheet-note">'+esc(note)+'</b>'+
@@ -22326,17 +22357,30 @@ function salesStepLiteSheet(r,geo,liteIndex,step){
   var sl=step&&step.step&&liteIndex!=null?step.lites[liteIndex]:null;if(!sl)return null;
   var opts={liteIndex:liteIndex,step:step};
   if(sl.asShape)return {html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false,{noStep:true}),'PRODUCTION DRAWING',opts)};
-  if(sl.own){
+  /* Меньшее стекло прямоугольника — тоже прямоугольник: его лист рисуется
+     тем же путём, что лист большего, а не контурным слоем (пункт 1 плана
+     v1.16: на листах 4/7/15 появлялись «90.00°», заливка и другие размеры). */
+  var rect=sl.own?null:salesStepLiteRect(sDraft,sl);
+  if(sl.own||rect){
     var keep={draft:sDraft,bridge:salesBridge};
     try{
-      sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(salesLineLiteShape(geo,liteIndex))));salesBridge=Object.assign({},salesBridge,{liteIndex:liteIndex});
+      sDraft=rect||normalizeShapeDef(JSON.parse(JSON.stringify(salesLineLiteShape(geo,liteIndex))));salesBridge=Object.assign({},salesBridge,{liteIndex:liteIndex});
       var ro=ShapeModule.compute(sDraft);
       if(!shapeSheetOk(ro))return {error:String((ro.errors&&ro.errors[0])||ro.reason||'Invalid geometry')};
-      return {html:salesShapeSheetHTML(sDraft,ro,shapeSheetSvg(ro,false),'PRODUCTION DRAWING',opts)};
+      return {html:salesShapeSheetHTML(sDraft,ro,shapeSheetSvg(ro,false,rect?{noStep:true}:undefined),'PRODUCTION DRAWING',opts)};
     }finally{sDraft=keep.draft;salesBridge=keep.bridge;}
   }
   var lite={index:liteIndex,label:'Lite '+(liteIndex+1),points:sl.points,edgeIds:step.ids,units:typeof sMetricDetail!=='undefined'&&sMetricDetail?'mm':'in'};
   return {html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false,{lite:lite}),'PRODUCTION DRAWING',opts)};
+}
+/* Прямоугольник размером с лайт — у прямоугольной формы без отверстий и
+   вырезов (их места отсчитаны от угла формы, у меньшего стекла угол другой —
+   такой лайт остаётся контуром). Обработки кромок и раскладка — формы. */
+function salesStepLiteRect(shape,sl){
+  if(!shape||shape.type!=='rectangle'||(shape.features||[]).length||(sl.points||[]).length!==4)return null;
+  var b=fabEdgeBounds(sl.points),at=function(v,a,c){return Math.abs(v-a)<1e-6||Math.abs(v-c)<1e-6;};
+  if(!sl.points.every(function(p){return at(p[0],b.minX,b.maxX)&&at(p[1],b.minY,b.maxY);}))return null;
+  return normalizeShapeDef(Object.assign(JSON.parse(JSON.stringify(shape)),{w:String(b.maxX-b.minX),h:String(b.maxY-b.minY),lites:{}}));
 }
 /* Состав стоит СПРАВА от чертежа — так решил владелец, и это раскладка по
    умолчанию. Уступает она только там, где сама себе мешает: у лежачей фигуры
@@ -40951,6 +40995,7 @@ function stkPages(jobs,size,override){
 function stkPrintHost(){let h=document.getElementById('stkPrintHost');if(!h){h=document.createElement('div');h.id='stkPrintHost';document.body.appendChild(h);}return h;}
 function stkPrintPrepare(pages){
  if(!pages.length)return 0;
+ if(typeof printOthersCleanup==='function')printOthersCleanup();
  const win=pages[0].w/72,hin=pages[0].h/72;
  let st=document.getElementById('stkPageStyle');if(!st){st=document.createElement('style');st.id='stkPageStyle';document.head.appendChild(st);}
  st.textContent='@page stk{size:'+win+'in '+hin+'in;margin:0}';
@@ -41012,40 +41057,49 @@ function stkDialogRefresh(){
 }
 /* Порядок печати: «по порядку» — заказ, позиция, изделие, лайт; «по листу» —
    как стёкла лежат на листах раскроя: «будем печатать из нашей оптимизации». */
+/* Номера листов свои у каждого стекла батча (6CLEAR 1–3, 6E272 1–2): лист —
+   стекло и номер (stkSheetKey), порядок — стекло в порядке плана, лист,
+   место на листе. Раньше «лист 1» двух стёкол печатался вперемешку. */
+function stkSheetKey(glass,no){return glass+':'+no;}
 function stkBatchJobs(b,pieces,order){
  const pick=pieces&&pieces.length?new Set(pieces):null,jobs=[];
  const sheets=order==='sheet'&&typeof cutPlanIndex==='function'?cutPlanIndex(b.number):null;
+ const plan=sheets&&typeof cutPlanFor==='function'?cutPlanFor(b.number):null,group=glass=>plan?Math.max(0,plan.groups.findIndex(g=>g.glass===glass)):0;
  glassBatchActiveItems(b).forEach(item=>{
   if(pick&&!pick.has(item.piece))return;
   const part=b.parts[item.part],o=salesRecord(part.orderId),l=o&&(o.lines||[]).find(x=>x.id===part.lineId),cs=o&&l?glassBatchComponents(o,l):[],c=cs.find(x=>x.key===part.key);
   if(!c)return;
   const at=sheets&&sheets.get(item.piece);
-  jobs.push({type:'production',o,l,c,unit:item.unit,piece:item.piece,sheet:at?at.sheet:0,
+  jobs.push({type:'production',o,l,c,unit:item.unit,piece:item.piece,sheet:at?at.sheet:0,glass:at?at.glass:'',sheetKey:at?stkSheetKey(at.glass,at.sheet):'',group:at?group(at.glass):0,
    sort:at?[0,at.sheet,at.idx,0]:[+String(o.businessNumber).replace(/\D/g,'')||0,o.lines.indexOf(l),typeof item.unit==='string'?1e6+(+item.unit.split('.')[1]||0):item.unit,cs.indexOf(c)]});
  });
  /* По листу: после стёкол листа — его куски в стоке. Стикер стока не
     печатается кнопкой «в сток» — «он будет печататься, следуя листам»
     (владелец, 18 сентября 2026). */
- const plan=sheets&&!pick&&typeof cutPlanFor==='function'?cutPlanFor(b.number):null;
- if(plan)plan.groups.forEach(g=>g.sheets.forEach(s=>(s.stock||[]).forEach((x,i)=>{const rec=typeof stockOffcutFind==='function'&&stockOffcutFind(x.id);if(rec&&rec.status==='stock')jobs.push({type:'stock',rec,sheet:s.no,sort:[0,s.no,1e6+i,0]});})));
- return jobs.sort((a,b)=>{for(let i=0;i<4;i++)if(a.sort[i]!==b.sort[i])return a.sort[i]-b.sort[i];return 0;});
+ if(plan&&!pick)plan.groups.forEach((g,k)=>g.sheets.forEach(s=>(s.stock||[]).forEach((x,i)=>{const rec=typeof stockOffcutFind==='function'&&stockOffcutFind(x.id);if(rec&&rec.status==='stock')jobs.push({type:'stock',rec,sheet:s.no,glass:g.glass,sheetKey:stkSheetKey(g.glass,s.no),group:k,sort:[0,s.no,1e6+i,0]});})));
+ return jobs.sort((a,b)=>a.sort[0]-b.sort[0]||a.group-b.group||a.sort[1]-b.sort[1]||a.sort[2]-b.sort[2]||a.sort[3]-b.sort[3]);
 }
 /* Окно печати батча (владелец, 4 октября 2026): «весь батч, определённый
    оптимизированный лист или определённое выбранное стекло». Раскрой собран —
    стёкла его листов в порядке листа, куски в сток — за стёклами своего листа;
    стёкла не на листе не печатаются. Не собран — все стёкла по порядку. */
 function stkJobKey(j){return j.type==='stock'?j.rec.id:j.piece;}
+/* d.sheetKey — ровно один лист (This, лист станции CUT); иначе поле «2, 5-7»
+   — эти номера у каждого стекла, пусто — все листы. */
 function stkBatchView(d){
  const b=glassBatchFind(d.batchNo);if(!b)return null;
  const laid=typeof cutPlanLaid==='function'?cutPlanLaid(b.number):null,all=stkBatchJobs(b,null,laid?'sheet':'in');
- const nos=laid?[...new Set(laid.groups.flatMap(g=>g.sheets.map(s=>s.no)))].sort((x,y)=>x-y):[],max=nos.length?nos[nos.length-1]:0;
- const want=laid?stkParseUnits(d.sheets,max):null,error=laid&&!want?'Sheets 1 to '+max:'';
- const pick=new Set(want||[]),scope=laid?all.filter(j=>j.sheet&&pick.has(j.sheet)):all;
+ const keys=laid?laid.groups.flatMap(g=>g.sheets.map(s=>stkSheetKey(g.glass,s.no))):[],max=laid?Math.max(0,...laid.groups.flatMap(g=>g.sheets.map(s=>s.no))):0;
+ const nums=laid&&!d.sheetKey?stkParseUnits(d.sheets,max):null,error=laid&&!d.sheetKey&&!nums?'Sheets 1 to '+max:'';
+ const pick=new Set(d.sheetKey?keys.filter(k=>k===d.sheetKey):keys.filter(k=>nums&&nums.includes(+k.slice(k.lastIndexOf(':')+1))));
+ const scope=laid?all.filter(j=>j.sheetKey&&pick.has(j.sheetKey)):all;
  const selected=scope.filter(j=>!d.off.has(stkJobKey(j)));
- return {b,laid,all,scope,selected,error,max,
+ return {b,laid,all,scope,selected,error,max,keys,multi:!!laid&&laid.groups.length>1,
   away:laid?all.filter(j=>!j.sheet).length:0,
-  sheets:[...new Set(selected.map(j=>j.sheet))].filter(Boolean)};
+  sheets:[...new Set(selected.map(j=>j.sheetKey))].filter(Boolean)};
 }
+/* Подпись листа: у батча из нескольких стёкол — со стеклом. */
+function stkSheetLabel(glass,no,multi){return (multi?glassCodeLabel(glass)+' · ':'')+'Sheet '+no;}
 /* Перерисовывается только окно, прокрутка списка сохраняется: галочка в
    конце длинного батча не отбрасывает список к началу. */
 function stkBatchRender(){
@@ -41053,10 +41107,11 @@ function stkBatchRender(){
  if(html)back.outerHTML=html;else render();
  const next=document.querySelector('[data-stk-batch-list]');if(next)next.scrollTop=top;
 }
-function stkBatchSheets(v){const d=stkDialog;if(!d)return;d.sheets=String(v==null?'':v).trim();d.warning='';d.error='';d.notice='';stkBatchRender();}
+function stkBatchSheets(v){const d=stkDialog;if(!d)return;d.sheets=String(v==null?'':v).trim();d.sheetKey='';d.warning='';d.error='';d.notice='';stkBatchRender();}
+function stkBatchThis(key){const d=stkDialog;if(!d)return;d.sheets='';d.sheetKey=String(key||'');d.warning='';d.error='';d.notice='';stkBatchRender();}
 function stkBatchCheck(kind,v,on){
  const d=stkDialog,x=d&&stkBatchView(d);if(!x)return;
- const keys=kind==='all'?x.scope.map(stkJobKey):kind==='sheet'?x.scope.filter(j=>j.sheet===+v).map(stkJobKey):[String(v)];
+ const keys=kind==='all'?x.scope.map(stkJobKey):kind==='sheet'?x.scope.filter(j=>j.sheetKey===String(v)).map(stkJobKey):[String(v)];
  keys.forEach(k=>{if(on)d.off.delete(k);else d.off.add(k);});d.warning='';d.error='';d.notice='';stkBatchRender();
 }
 function stkLogPrinted(jobs,what,batchNo){
@@ -41174,9 +41229,10 @@ function stkBatchDialogHTML(d,seg){
  const x=stkBatchView(d);if(!x){stkDialog=null;return '';}
  const b=x.b,glass=[...new Set(b.parts.map(p=>p.snapshot.glass))].map(glassCodeLabel).join(' / ');
  const plural=(n,w)=>n+' '+w+(n===1?'':'s'),glassN=x.selected.filter(j=>j.type!=='stock').length,stockN=x.selected.length-glassN;
- const sub=[glass,x.all.filter(j=>j.type!=='stock').length+' glass',x.laid?plural(x.max,'sheet'):'Not built · in order'].join(' · ');
- const cur=typeof cutUi!=='undefined'&&cutUi&&cutUi.batch===b.number&&+cutUi.sheet||1;
- const sheets=x.laid?`<div><div class="ncr-label">SHEETS</div><div class="stk-sheets"><div class="stk-seg"><button type="button" class="${d.sheets===''?'on':''}" data-stk-sheets-all onclick="stkBatchSheets('')">All</button><button type="button" class="${d.sheets===String(cur)?'on':''}" data-stk-sheets-this onclick="stkBatchSheets('${cur}')">This · ${cur}</button></div><input type="text" data-stk-sheets value="${esc(d.sheets)}" placeholder="1-${x.max}" aria-label="Sheets" onchange="stkBatchSheets(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();stkBatchSheets(this.value);}"></div></div>`:'';
+ const sub=[glass,x.all.filter(j=>j.type!=='stock').length+' glass',x.laid?plural(x.keys.length,'sheet'):'Not built · in order'].join(' · ');
+ /* This — лист, открытый в Optimization: стекло и номер. */
+ const ui=typeof cutUi!=='undefined'&&cutUi&&cutUi.batch===b.number?stkSheetKey(cutUi.glass,+cutUi.sheet||1):'',cur=x.keys.includes(ui)?ui:x.keys[0]||'',curAt=cur.lastIndexOf(':');
+ const sheets=x.laid?`<div><div class="ncr-label">SHEETS</div><div class="stk-sheets"><div class="stk-seg"><button type="button" class="${d.sheets===''&&!d.sheetKey?'on':''}" data-stk-sheets-all onclick="stkBatchSheets('')">All</button><button type="button" class="${d.sheetKey&&d.sheetKey===cur?'on':''}" data-stk-sheets-this onclick="stkBatchThis('${esc(cur)}')">This · ${esc((x.multi?glassCodeLabel(cur.slice(0,curAt))+' ':'')+cur.slice(curAt+1))}</button></div><input type="text" data-stk-sheets value="${esc(d.sheets)}" placeholder="1-${x.max}" aria-label="Sheets" onchange="stkBatchSheets(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();stkBatchSheets(this.value);}"></div></div>`:'';
  /* Стекло Recut со своим чертежом — его форма и размер (erp/quality/recut). */
  const lines=new Map(),info=j=>{const g=glassRecutLine(j.o,j.l,j.unit),k=j.o.id+'|'+j.l.id+'|'+(g===j.l?'':String(j.unit).split('.')[0]);if(!lines.has(k))lines.set(k,{g,shape:!salesShapeIsLineRect(salesLineGeometryShape(g)),many:glassBatchComponents(j.o,j.l).length>1});return lines.get(k);};
  const row=j=>{
@@ -41185,10 +41241,10 @@ function stkBatchDialogHTML(d,seg){
   const f=info(j),li=j.o.lines.indexOf(j.l)+1;
   return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" onchange="stkBatchCheck('item','${esc(k)}',this.checked)"></td><td class="gb-piece">${esc(k)}</td><td>${esc(j.o.businessNumber||'')} / ${li}${f.many?' · Lite '+esc(j.c.lite):''}${j.l.mark?' · '+esc(j.l.mark):''}</td><td>${esc(salesCustomerDisplay(j.o.customerId))}</td><td class="nowrap">${esc(dimIn16(f.g.width16/16))} × ${esc(dimIn16(f.g.height16/16))}</td><td>${f.shape?'<span class="pill">shape</span>':''}</td></tr>`;
  };
- const groups=[];x.scope.forEach(j=>{const g=groups[groups.length-1];if(g&&g.no===j.sheet)g.jobs.push(j);else groups.push({no:j.sheet,jobs:[j]});});
+ const groups=[];x.scope.forEach(j=>{const g=groups[groups.length-1];if(g&&g.key===j.sheetKey)g.jobs.push(j);else groups.push({key:j.sheetKey,no:j.sheet,glass:j.glass,jobs:[j]});});
  const body=groups.map(g=>{
   const on=g.jobs.filter(j=>!d.off.has(stkJobKey(j))).length,n=g.jobs.filter(j=>j.type!=='stock').length,st=g.jobs.length-n;
-  const head=x.laid?`<tr class="stk-sheet-row" data-stk-sheet="${g.no}"><td><input type="checkbox" data-stk-sheet-check ${on===g.jobs.length?'checked':''} aria-label="Print sheet ${g.no}" onchange="stkBatchCheck('sheet',${g.no},this.checked)"></td><td colspan="5"><b>Sheet ${g.no}</b> · ${n+' glass'}${st?' · '+st+' stock':''}</td></tr>`:'';
+  const head=x.laid?`<tr class="stk-sheet-row" data-stk-sheet="${esc(g.key)}"><td><input type="checkbox" data-stk-sheet-check ${on===g.jobs.length?'checked':''} aria-label="Print sheet ${g.no}" onchange="stkBatchCheck('sheet','${esc(g.key)}',this.checked)"></td><td colspan="5"><b>${esc(stkSheetLabel(g.glass,g.no,x.multi))}</b> · ${n+' glass'}${st?' · '+st+' stock':''}</td></tr>`:'';
   return head+g.jobs.map(row).join('');
  }).join('');
  const allOn=x.scope.length&&x.scope.every(j=>!d.off.has(stkJobKey(j)));
@@ -42346,14 +42402,16 @@ function cutPrintPlan(sizes){
  const worst=landscape=>Math.min(...sizes.map(z=>cutPrintFit(z,landscape))),landscape=worst(true)>=worst(false);
  return {landscape,scales:sizes.map(z=>cutPrintFit(z,landscape))};
 }
-/* sheetNos — только эти листы (окно печати батча); без него — все. */
+/* sheetNos — только эти листы (окно печати батча); без него — все. Лист —
+   «стекло:номер» (stkSheetKey): номера свои у каждого стекла; голый номер —
+   этот номер у каждого стекла. */
 function cutPrintLayouts(number,sheetNos){
  const plan=cutPlanFor(number);if(!plan)return false;
- const pieces=cutPiecesOf(number,plan.settings||{}),pages=[],only=sheetNos?new Set(sheetNos.map(Number)):null;
+ const pieces=cutPiecesOf(number,plan.settings||{}),pages=[],only=sheetNos?new Set(sheetNos.map(String)):null;
  /* По бумаге тоже режут: устаревший раскрой печатается с предупреждением,
     отменённое и остановленное — красным (как на CUT). */
  const changed=cutEstIs(number)?null:glassBatchStale(glassBatchFind(number));
- const list=plan.groups.flatMap(g=>g.sheets.filter(s=>!only||only.has(s.no)).map(s=>({g,s,size:s.size||g.sheet})));
+ const list=plan.groups.flatMap(g=>g.sheets.filter(s=>!only||only.has(String(s.no))||only.has(g.glass+':'+s.no)).map(s=>({g,s,size:s.size||g.sheet})));
  const layout=cutPrintPlan(list.map(x=>x.size)),landscape=layout.landscape;
  list.forEach(({g,s,size},k)=>{
   const autoTrim=cutAutoTrimInfo(g,s);
@@ -42361,6 +42419,7 @@ function cutPrintLayouts(number,sheetNos){
    <div class="cut-print-sheet">${cutSheetSVG(g,s,Math.floor(Math.max(size.w,size.h)*layout.scales[k]),pieces,{gone:changed&&changed.gone})}</div></div>`);
  });
  if(!pages.length)return false;
+ if(typeof printOthersCleanup==='function')printOthersCleanup();
  let st=document.getElementById('cutPageStyle');if(!st){st=document.createElement('style');st.id='cutPageStyle';document.head.appendChild(st);}
  st.textContent='@page cutsheet{size:'+(landscape?'11in 8.5in':'8.5in 11in')+';margin:'+CUT_PRINT_MARGIN_MM+'mm}';
  cutPrintHost().innerHTML=pages.join('');
@@ -43858,7 +43917,7 @@ function stationSheetCard(){
   return '<button type="button" class="st-tile'+(done?' done':'')+(s===sheet?' now':'')+'" onclick="stationSheetPick(\''+esc(v.batch)+'\',\''+esc(group.glass)+'\','+s.no+')"><b>'+s.no+'</b><span>'+(done?'✓':k?k+'/'+s.pieces.length:s.pieces.length)+'</span></button>';}).join('');
  const menu=stationMenu&&sheet.pieces.some(p=>p.piece===stationMenu.piece)?stationMenuHTML():'';
  const breaks=(DB.sheetBreak||[]).filter(x=>!x.undoneAt&&x.batch===v.batch&&x.glass===group.glass&&x.sheet===sheet.no).length;
- return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+stationStaleHTML(stale)+'<div class="st-sec"><h3>Sheet '+sheet.no+' of '+group.sheets.length+'</h3><span class="pill" data-raw>'+esc(glassCodeLabel(group.glass))+' · '+esc(frac16(size.w)+' × '+frac16(size.h))+'</span>'+(breaks?'<span class="pill bad" data-sheet-breaks>broke '+breaks+'×</span>':'')+'<span class="sp"></span><span class="pill '+(n===sheet.pieces.length?'ok':'')+'">'+n+' / '+sheet.pieces.length+' cut</span><button type="button" class="b sm st-sheetbrk" onclick="stationOpenSheetBreak()">Sheet broke</button></div>'+
+ return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+stationStaleHTML(stale)+'<div class="st-sec"><h3>Sheet '+sheet.no+' of '+group.sheets.length+'</h3><span class="pill" data-raw>'+esc(glassCodeLabel(group.glass))+' · '+esc(frac16(size.w)+' × '+frac16(size.h))+'</span>'+(breaks?'<span class="pill bad" data-sheet-breaks>broke '+breaks+'×</span>':'')+'<span class="sp"></span><span class="pill '+(n===sheet.pieces.length?'ok':'')+'">'+n+' / '+sheet.pieces.length+' cut</span><button type="button" class="b sm st-sheetbrk st-sheetprint" data-station-print onclick="stationOpenPrint()">'+ico('printer')+'Print</button><button type="button" class="b sm st-sheetbrk" onclick="stationOpenSheetBreak()">Sheet broke</button></div>'+
   stationSheetSVG(group,sheet,pieces,cut,nowId,false,broken,stale&&stale.gone)+'<div class="st-tiles">'+tiles+'</div>'+menu+'</div>';
 }
 function stationMenuHTML(){
@@ -44014,7 +44073,7 @@ function viewStation(){
  if(!who)return stationTop(null)+'<div class="st-body st-one">'+stationLoginView()+'</div>';
  setTimeout(stationFocus,0);
  if(stationCode===stationCutCode())stationSheetEnsure();
- const drawer=stationDrawer?(stationDrawer.kind==='recut'?stationRecutHTML():stationDrawer.kind==='batch'?stationBatchHTML():stationDrawer.kind==='draw'?stationDrawHTML():stationDrawer.kind==='dolly'?stationDollyHTML():stationDrawer.kind==='skid'?stationSkidHTML():stationSheetBreakHTML()):'';
+ const drawer=stationDrawer?(stationDrawer.kind==='recut'?stationRecutHTML():stationDrawer.kind==='batch'?stationBatchHTML():stationDrawer.kind==='draw'?stationDrawHTML():stationDrawer.kind==='print'?stationPrintHTML():stationDrawer.kind==='dolly'?stationDollyHTML():stationDrawer.kind==='skid'?stationSkidHTML():stationSheetBreakHTML()):'';
  if(stationTab==='queue')return stationTop(who)+(stationCode===stationCutCode()?stationQueueView():stationFlowView())+drawer;
  /* Board (view/station-board) считается только здесь, когда вкладка открыта. */
  if(stationTab==='board')return stationTop(who)+stationBoardView(who)+drawer;
@@ -44674,7 +44733,7 @@ function stationDrawOrders(){
 function stationDrawHTML(){
  const x=stationDrawer,o=x.orderId?salesRecord(x.orderId):null;
  const find='<label class="st-draw-find">'+ico('scan')+'<input data-station-keep data-station-draw-find autocomplete="off" spellcheck="false" placeholder="Order # or glass sticker" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationDrawFind(this.value);}"></label>';
- const head=(title)=>'<div class="st-draw-h"><h2>'+title+'</h2><span class="sp"></span>'+find+'<button type="button" class="b st-draw-close" onclick="stationCloseDrawer()">× Close</button></div>'+(x.error?'<div class="st-pin-err">'+esc(x.error)+'</div>':'');
+ const head=(title,print)=>'<div class="st-draw-h"><h2>'+title+'</h2><span class="sp"></span>'+find+(print||'')+'<button type="button" class="b st-draw-close" onclick="stationCloseDrawer()">× Close</button></div>'+(x.error?'<div class="st-pin-err">'+esc(x.error)+'</div>':'');
  if(!o){
   /* Окно выбора (владелец, 2 октября 2026: «провалился в окно и не понял,
      куда попал и зачем»): настоящее окно поверх станции, одна строка о том,
@@ -44684,16 +44743,32 @@ function stationDrawHTML(){
    '<p class="st-draw-hint">Open any order\'s drawing: tap an order, type its number or scan a glass sticker.</p>'+
    '<div class="st-rgroup">Orders with glass at '+esc(stationCode)+'</div><div class="st-draw-orders">'+(list.length?list.map(r=>{const n=stationDrawItems(r).length;return '<button type="button" class="st-draw-order" data-station-draw-order="'+esc(r.businessNumber||'')+'" onclick="stationDrawOpen(\''+esc(r.id)+'\',\'\')"><b>'+esc(r.businessNumber||'')+'</b><span data-raw>'+esc(salesCustomerDisplay(r.customerId))+'</span><small>'+n+' drawing'+(n===1?'':'s')+'</small></button>';}).join(''):'<div class="mut">No orders here yet — type the order number or scan a glass sticker</div>')+'</div></div>';
  }
- const lines=stationDrawItems(o),it=lines.find(y=>y.id===x.lineId)||lines[0],at=lines.indexOf(it),l=it&&it.l,rc=it&&it.r;
+ const lines=stationDrawItems(o),it=stationDrawCurrent(o,lines),at=lines.indexOf(it),l=it&&it.l,rc=it&&it.r;
  const title='Drawings · <b>'+esc(o.businessNumber||'')+'</b> <span class="mut" data-raw>'+esc(salesCustomerDisplay(o.customerId))+'</span>';
  if(!l)return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw>'+head(title)+'<div class="empty">No drawings in this order</div></div>';
  setTimeout(stationDrawFit,0);
- const li=(o.lines||[]).indexOf(l)+1,many=lines.length>1,geo=rc?recutLine(rc,l):l;
+ const li=(o.lines||[]).indexOf(l)+1,many=lines.length>1,geo=rc?recutLine(rc,l):l,sheet=stationDrawItemSheet(o,it);
  const step=(sign,off)=>many?'<button type="button" class="doc-step" '+(off?'disabled':'')+' onclick="stationDrawStep('+sign+')">'+(sign<0?'‹':'›')+'</button>':'';
- return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw="'+esc(l.id)+'">'+head(title)+
-  '<div class="st-draw-stage">'+step(-1,at<=0)+'<figure class="doc-drawing" style="zoom:'+stationDrawZoom().toFixed(3)+'">'+stationDrawSheet(rc?stationDrawingOf(o,l,'R'+rc.no+'.1'):stationDrawingOf(o,l,undefined,it.lite))+'</figure>'+step(1,at>=lines.length-1)+'</div>'+
+ /* Print drawing — только у листа, который построился: пустой печати нет. */
+ const print=sheet&&sheet.html?'<button type="button" class="b st-draw-close st-draw-print" data-station-draw-print onclick="stationDrawPrint()">'+ico('printer')+'Print drawing</button>':'';
+ return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw="'+esc(l.id)+'">'+head(title,print)+
+  '<div class="st-draw-stage">'+step(-1,at<=0)+'<figure class="doc-drawing" style="zoom:'+stationDrawZoom().toFixed(3)+'">'+stationDrawSheet(sheet)+'</figure>'+step(1,at>=lines.length-1)+'</div>'+
   (many?'<div class="st-draw-film">'+lines.map(y=>{const n=(o.lines||[]).indexOf(y.l)+1,g=y.r?recutLine(y.r,y.l):y.l;return '<button type="button" class="st-draw-chip'+(y===it?' on':'')+(y.r?' st-draw-recut':'')+'" data-station-draw-line="'+(y.r?'R'+y.r.no:n)+'" onclick="stationDrawer.lineId=\''+esc(y.id)+'\';render()"><b>'+(y.r?'Recut '+y.r.no+' · ':'')+'Line '+n+(y.lite!=null?' · Lite '+(y.lite+1):'')+'</b><span>'+esc(frac16(g.width16/16)+' × '+frac16(g.height16/16))+(y.l.mark?' · '+esc(y.l.mark):'')+'</span></button>';}).join('')+'</div>':'')+
-  '<div class="st-draw-foot mut">'+(rc?'Recut '+rc.no+' · ':'')+'Line '+li+(it.lite!=null?' · Lite '+(it.lite+1):'')+' · '+(at+1)+' of '+lines.length+(many?' · ← → to flip':'')+'</div></div>';
+  '<div class="st-draw-foot mut">'+stationDrawName(o,it)+' · '+(at+1)+' of '+lines.length+(many?' · ← → to flip':'')+'</div></div>';
+}
+/* Открытый в окне лист: строка, Lite или Recut, выбранные стрелками и плитками. */
+function stationDrawCurrent(o,lines){lines=lines||stationDrawItems(o);const x=stationDrawer;return lines.find(y=>x&&y.id===x.lineId)||lines[0]||null;}
+function stationDrawItemSheet(o,it){return !it?null:it.r?stationDrawingOf(o,it.l,'R'+it.r.no+'.1'):stationDrawingOf(o,it.l,undefined,it.lite);}
+function stationDrawName(o,it){return (it.r?'Recut '+it.r.no+' · ':'')+'Line '+((o.lines||[]).indexOf(it.l)+1)+(it.lite!=null?' · Lite '+(it.lite+1):'');}
+/* Print drawing (пункт 9 плана v1.16, вариант A владельца, 30.10.2026):
+   ровно открытый лист — позиция, Lite, Recut — тем же листом и той же
+   печатью, что в офисе, без панелей станции. Заказ, место стекла и
+   производство не меняются; в журнал заказа — «Printed». */
+function stationDrawPrint(){
+ const x=stationDrawer,o=x&&x.kind==='draw'&&x.orderId?salesRecord(x.orderId):null,it=o&&stationDrawCurrent(o),d=it&&stationDrawItemSheet(o,it);
+ if(!d||!d.html||!printSheet([d.html],'',salesSheetFitDrawing))return false;
+ if(typeof orderLogAdd==='function')orderLogAdd(o.id,'Printed','Drawing · '+stationDrawName(o,it)+' · '+stationCode);
+ return true;
 }
 /* Мини-лист на карточке скана: у стекла форма, отверстия или вырезы. */
 function stationDrawThumb(g,d){
@@ -44723,6 +44798,88 @@ document.addEventListener('keydown',function(e){
  if(tab!=='station'||!stationDrawer||stationDrawer.kind!=='draw'||e.altKey||e.ctrlKey||e.metaKey)return;
  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();stationDrawStep(e.key==='ArrowRight'?1:-1);}
 });
+
+/* ==== src/erp/views/station-print.js ==== */
+/* =====================================================================
+   view/station-print  ·  station-print-1.0
+   Печать на CUT — пункт 9 плана v1.16, вариант 2 владельца (30.10.2026:
+   «визуально проще выглядит печать, а так и надо»). Кнопка Print в шапке
+   листа открывает окно станции: текущий лист или весь батч и три действия —
+   схема, чертежи, стикеры. Состав и порядок — те же, что в окне Print ·
+   Batch офиса (stkBatchJobs): по листам, внутри листа — как стёкла лежат на
+   схеме; куски в сток — за стёклами своего листа, у них стикер без чертежа.
+   Печать ничего не меняет в производстве: ни сканов, ни мест, ни раскроя.
+   Принтера на CUT пока нет (план 11.1): стикеры — 4-дюймовый принтер
+   этикеток, схемы и чертежи — обычный принтер, Letter.
+   IN : stationSheetView · stkBatchView · cutPrintLayouts · batchDrawingsPrint · stkPages
+   OUT: html · печать браузера · журнал заказа (Printed)
+   ===================================================================== */
+function stationOpenPrint(){
+ const v=stationSheetView;if(!v||!glassBatchFind(v.batch))return false;
+ stationMenu=null;stationDrawer={kind:'print',batch:v.batch,glass:v.glass,no:v.no,area:'sheet',shown:'',notice:'',error:'',warning:''};render();return true;
+}
+/* Область: лист станции — ровно он (стекло и номер), весь батч — все листы. */
+function stationPrintView(d,area){
+ return stkBatchView({batchNo:d.batch,sheets:'',sheetKey:area==='sheet'&&d.glass&&d.no?stkSheetKey(d.glass,d.no):'',off:new Set()});
+}
+function stationPrintArea(a){const d=stationDrawer;if(!d||d.kind!=='print')return;d.area=a==='all'?'all':'sheet';d.notice=d.error=d.warning='';render();}
+function stationPrintSig(x){return x?JSON.stringify(x.selected.map(stkJobKey).concat(x.sheets)):'';}
+/* Печатается то, что рабочий видел: батч изменился после открытия окна —
+   сначала новые цифры, печать — следующим нажатием. */
+function stationPrintFresh(){
+ const d=stationDrawer;if(!d||d.kind!=='print')return null;
+ const x=stationPrintView(d,d.area);
+ if(!x){d.error='Batch '+d.batch+' not found';render();return null;}
+ if(stationPrintSig(x)!==d.shown){d.notice=d.warning='';d.error='Batch changed — check and print again';render();return null;}
+ return x;
+}
+function stationPrintCount(n,w){return n+' '+w+(n===1?'':'s');}
+function stationPrintLayouts(){
+ const d=stationDrawer,x=stationPrintFresh();if(!x||!x.laid||!x.sheets.length)return false;
+ const ok=cutPrintLayouts(d.batch,x.sheets);
+ d.warning=d.error='';d.notice=ok?stationPrintCount(x.sheets.length,'layout')+' sent':'';render();return ok;
+}
+function stationPrintDrawings(){
+ const d=stationDrawer,x=stationPrintFresh();if(!x)return false;
+ const n=x.selected.filter(j=>j.type!=='stock').length;if(!n||n>100&&!confirm('Print '+n+' drawings?'))return false;
+ const r=batchDrawingsPrint(d.batch,x.selected);
+ d.warning='';d.notice=r.printed?stationPrintCount(r.printed,'drawing')+' sent':'';
+ d.error=r.bad.length?'No drawing: '+r.bad.slice(0,5).join(', ')+(r.bad.length>5?' …':''):'';render();return r.printed>0;
+}
+function stationPrintStickers(){
+ const d=stationDrawer,x=stationPrintFresh();if(!x||!x.selected.length)return false;
+ let pages;try{pages=stkPages(x.selected,stkPrefSize(),null);}catch(e){d.error='Stickers could not be prepared: '+(e&&e.message||e);render();return false;}
+ const over=[...new Set(pages.flatMap(p=>p.overflow))];
+ if(over.length&&!d.warning){d.warning="Doesn't fit: "+over.join(', ');render();return false;}
+ d.warning=d.error='';d.notice=stationPrintCount(pages.length,'sticker')+' sent';render();
+ if(!stkPrint(pages))return false;
+ stkLogPrinted(x.selected,'Stickers',d.batch);return true;
+}
+function stationPrintHTML(){
+ const d=stationDrawer,b=glassBatchFind(d.batch),close='<button type="button" class="b" onclick="stationCloseDrawer()">Close</button>';
+ const shell=body=>'<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-sm st-print" role="dialog" aria-label="Print" data-station-print-window>'+body+'</div>';
+ if(!b)return shell('<h2>Print</h2><div class="st-pin-err" data-station-print-error>Batch '+esc(d.batch)+' not found</div><div class="st-drawer-foot"><span class="mut"></span>'+close+'</div>');
+ const cur=stationPrintView(d,'sheet'),all=stationPrintView(d,'all'),laid=!!all.laid,hasSheet=laid&&cur.scope.length>0;
+ if(!hasSheet)d.area='all';
+ const x=d.area==='sheet'?cur:all,glassOf=v=>v.selected.filter(j=>j.type!=='stock').length,stockOf=v=>v.selected.length-glassOf(v);
+ d.shown=stationPrintSig(x);
+ const what=v=>[glassOf(v)+' glass',stockOf(v)?stockOf(v)+' stock':''].filter(Boolean).join(' · ');
+ const tile=(a,on,off,t,sub)=>'<button type="button" class="st-gbtn'+(on?' on':'')+'" data-print-area="'+a+'"'+(off?' disabled':'')+' onclick="stationPrintArea(\''+a+'\')"><b>'+t+'</b><span>'+esc(sub)+'</span></button>';
+ const area='<div class="st-print-area">'+
+  tile('sheet',d.area==='sheet',!hasSheet,'Current sheet',hasSheet?stkSheetLabel(d.glass,d.no,true)+' · '+what(cur):'No sheet')+
+  tile('all',d.area==='all',false,'Whole batch',[laid?stationPrintCount(all.keys.length,'sheet'):'Not built · in order',what(all),all.away?all.away+' not on a sheet':''].filter(Boolean).join(' · '))+'</div>';
+ const glassN=glassOf(x),size=stkSizeDef(stkPrefSize());
+ const act=(k,t,meta,off)=>'<button type="button" class="b st-print-act" data-station-print-'+k+(off?' disabled':'')+' onclick="stationPrint'+k.charAt(0).toUpperCase()+k.slice(1)+'()">'+ico('printer')+'<b>'+t+'</b><em>'+esc(meta)+'</em></button>';
+ const acts='<div class="st-print-acts">'+
+  act('layouts',d.area==='sheet'?'Print layout':'Print layouts',laid?stationPrintCount(x.sheets.length,'sheet'):'Not built',!laid||!x.sheets.length)+
+  act('drawings','Print drawings',stationPrintCount(glassN,'drawing'),!glassN)+
+  act('stickers',d.warning?'Stickers anyway':'Print stickers',stationPrintCount(x.selected.length,'sticker')+' · '+(size?size.label:''),!x.selected.length)+'</div>';
+ const msg=(d.notice?'<div class="stk-sent st-print-msg" data-station-print-notice>✓ '+esc(d.notice)+'</div>':'')+
+  (d.warning?'<div class="ncr-warning st-print-msg" role="alert" data-station-print-warning>⚠ '+esc(d.warning)+'</div>':'')+
+  (d.error?'<div class="st-pin-err st-print-msg" role="alert" data-station-print-error>'+esc(d.error)+'</div>':'');
+ return shell('<h2>Print · Batch <b class="mono">'+esc(b.number)+'</b></h2>'+stationStaleHTML(glassBatchStale(b))+area+acts+msg+
+  '<div class="st-drawer-foot"><span class="mut">Letter: layout, drawings · label printer: stickers</span>'+close+'</div>');
+}
 
 /* ==== src/erp/views/station-shipping.js ==== */
 /* =====================================================================
@@ -45364,13 +45521,15 @@ function skidsHTML(){
    IN : задания стикеров батча (stkBatchJobs) · stationDrawingOf
    OUT: printSheet · журнал заказа
    ===================================================================== */
-function batchDrawingTag(number,j){
+/* multi — в батче несколько стёкол: номер листа свой у каждого, поэтому
+   на бумаге «6CLEAR · Sheet 1». */
+function batchDrawingTag(number,j,multi){
  const lite=j.c&&glassBatchComponents(j.o,j.l).length>1?'Lite '+j.c.lite:'';
- return [number,j.sheet?'Sheet '+j.sheet:'',j.piece,lite].filter(Boolean).join(' · ');
+ return [number,j.sheet?stkSheetLabel(j.glass,j.sheet,multi&&!!j.glass):'',j.piece,lite].filter(Boolean).join(' · ');
 }
 /* Куски в сток чертежа не имеют. Строка, чей лист не строится, — в bad. */
 function batchDrawingPages(number,jobs){
- const pages=[],bad=[],seen=new Map();
+ const pages=[],bad=[],seen=new Map(),plan=typeof cutPlanFor==='function'?cutPlanFor(number):null,multi=!!plan&&plan.groups.length>1;
  (jobs||[]).forEach(j=>{
   if(j.type!=='production'||!j.o||!j.l)return;
   /* Стекло Recut со своим чертежом — лист Recut (erp/quality/recut). */
@@ -45378,7 +45537,7 @@ function batchDrawingPages(number,jobs){
      строки): «у каждого стекла свой лист», владелец 20.10.2026. */
   const rc=stationDrawRecut(j.o,j.l,j.unit),lite=j.c&&j.c.index!=null?j.c.index:null,k=j.o.id+'|'+j.l.id+'|'+(rc?rc.id:'')+'|'+(lite==null?'':lite);if(!seen.has(k))seen.set(k,stationDrawingOf(j.o,j.l,j.unit,lite));
   const d=seen.get(k);
-  if(d&&d.html)pages.push({j,html:salesSheetFoot(d.html,batchDrawingTag(number,j))});else bad.push(j.piece||'');
+  if(d&&d.html)pages.push({j,html:salesSheetFoot(d.html,batchDrawingTag(number,j,multi))});else bad.push(j.piece||'');
  });
  return {pages,bad};
 }
@@ -52177,10 +52336,19 @@ function printSheetUniqueIds(svg){
 }
 /* Подготовка листа отделена от вызова печати: так её можно проверить тестом,
    не открывая системный диалог. */
+/* Перед новой печатью убираем прежнюю — стикеры, чертежи, схемы листов:
+   браузер, не приславший afterprint, иначе печатал бы оба набора разом,
+   с чужим форматом бумаги (пункт 9 плана v1.16). */
+function printOthersCleanup(){
+  if(typeof stkPrintCleanup==='function')stkPrintCleanup();
+  if(typeof cutPrintCleanup==='function')cutPrintCleanup();
+  printSheetCleanup();
+}
 function printSheetPrepare(svg,caption,after){
   /* Несколько чертежей (окно Drawings) — массив: каждый на своей странице. */
   var list=(Array.isArray(svg)?svg:[svg]).filter(Boolean);
   if(!list.length)return false;
+  printOthersCleanup();
   var h=printSheetHost();
   h.innerHTML=list.map(function(x){return '<div class="print-sheet">'+printSheetUniqueIds(x)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';}).join('');
   document.body.classList.add('printing');
