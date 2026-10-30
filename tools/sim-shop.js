@@ -729,7 +729,8 @@ function simPage() {
     const priority = opts.priority || pickW([[86, 'normal'], [11, 'rush'], [3, 'critical']])[1];
     const lead = priority === 'critical' ? 1 : priority === 'rush' ? int(2, 3) : anyIgu ? int(6, 10) : anyTemp ? int(4, 7) : int(3, 5);
     const due = addWork(day, lead);
-    const po = c.po || chance(0.55) ? (c.type === 'contractor' ? 'J' : 'PO-') + int(10000, 99999) : '';
+    /* PO у всех (владелец 29.10.2026): клиент не прислал — офис вписывает дату заказа. */
+    const po = c.po || chance(0.55) ? (c.type === 'contractor' ? 'J' : 'PO-') + int(10000, 99999) : opts.kind === 'quote' ? '' : day;
     const site = c.sites.length ? pick(c.sites) : null;
     const notes = chance(0.15) ? pick(['Call before delivery', 'Site has forklift', 'Label each unit by room', 'Rush if possible', 'Same as last order']) : '';
     const rep = people[c.rep]; asOffice(rep);
@@ -742,7 +743,7 @@ function simPage() {
   function winQuote(q, day) {
     const rec = salesRecord(q.id); if (!rec || salesQuoteWonMember(rec)) return;
     asOffice(people[q.rep]); salesOrderEdit(q.id);
-    salesConvertQuoteRecord(q.id);
+    salesConvertQuoteRecord(q.id, salesRecord(q.id).customerPo || day);
     const won = salesRecord(salesRecord(q.id).wonOrderId); if (!won) { fail('quote', 'not converted'); soDraft = null; soEdit = null; return; }
     const c = CUST.find(x => x.id === won.customerId);
     salesOrderEdit(won.id);
