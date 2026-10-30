@@ -1,0 +1,25 @@
+/* Ширина и порядок колонок (views/col-widths): Sales и Order Lines одинаково. */
+table[data-cw-table] th[data-cw-key]{position:relative;cursor:grab}
+.cw-grip{position:absolute;top:0;right:0;width:9px;height:100%;cursor:col-resize;z-index:2;touch-action:none}
+.cw-grip::after{content:'';position:absolute;right:0;top:28%;height:44%;width:1px;background:var(--line-strong)}
+.cw-grip:hover::after,th.cw-active .cw-grip::after{top:0;height:100%;width:3px;border-radius:2px;background:var(--accent)}
+.cw-guide{position:fixed;z-index:70;width:2px;background:var(--accent);pointer-events:none}
+.cw-drop{position:fixed;z-index:70;width:3px;border-radius:2px;background:var(--accent);pointer-events:none}
+.cw-ghost{position:fixed;z-index:71;pointer-events:none;padding:6px 10px;border-radius:7px;background:var(--surface);border:1px solid var(--accent-line);box-shadow:0 10px 26px rgba(0,0,0,.18);font-size:12px;font-weight:600;color:var(--text);white-space:nowrap}
+th.cw-src{opacity:.45}
+body.cw-resizing,body.cw-resizing *{cursor:col-resize!important;user-select:none!important}
+body.cw-moving,body.cw-moving *{cursor:grabbing!important;user-select:none!important}
+/* Свои ширины: колонка держит ширину, длинное — многоточием. */
+table.cw-fixed{table-layout:fixed;min-width:0!important}
+table.cw-fixed>thead>tr>th,table.cw-fixed>tbody>tr>td,table.cw-fixed>tfoot>tr>td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.cw-fixed .sl-th{display:flex;min-width:0;max-width:100%}
+table.cw-fixed [data-cw-label]{min-width:0;overflow:hidden;text-overflow:ellipsis}
+table.cw-fixed .sl-fbtn{flex:none}
+table.cw-fixed .sl-glass{display:block;max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Order Lines: поля и кнопки ячейки — в её ширину, ввод остаётся доступным. */
+table.cw-fixed>tbody>tr>td>input:not([type=checkbox]),table.cw-fixed>tbody>tr>td>select{width:100%!important;min-width:0!important;max-width:100%;box-sizing:border-box}
+table.cw-fixed th.line-metric,table.cw-fixed td.line-metric,table.cw-fixed .line-services-cell{min-width:0}
+table.cw-fixed .line-services-btn{min-width:0!important;max-width:100%;overflow:hidden}
+table.cw-fixed .line-services-chips{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.cw-fixed .line-services-money{flex:none}
+table.cw-fixed .metric-cell-btn{overflow:hidden;text-overflow:ellipsis}

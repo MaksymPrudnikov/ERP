@@ -26,6 +26,7 @@ function salesLoadViewPrefs(){
   salesViewPrefs.columnsVersion=2;try{localStorage.setItem('glass_erp_line_columns_v1',JSON.stringify(salesViewPrefs));}catch(e){salesViewSaveFailed=true;}
  }
  if(!(DB.user||[]).some(u=>u.viewProfileId===salesViewPrefs.active))salesViewPrefs.active='browser';
+ Object.values(salesViewPrefs.profiles).forEach(v=>{if(!v||typeof v!=='object')return;const w=cwClean(v.widths);if(Object.keys(w).length)v.widths=w;else delete v.widths;});
  return salesViewPrefs;
 }
 function salesSaveViewPrefs(){
@@ -68,9 +69,22 @@ function salesSetViewProfile(id){
  salesLoadViewPrefs().active=id;touch();salesSaveViewPrefs();render();
 }
 function salesResetMetricColumns(context){
- const p=salesLoadViewPrefs();if(p.profiles[p.active]){delete p.profiles[p.active][context];delete p.profiles[p.active].order;}
+ const p=salesLoadViewPrefs();if(p.profiles[p.active]){delete p.profiles[p.active][context];delete p.profiles[p.active].order;delete p.profiles[p.active].widths;}
  salesSaveViewPrefs();render();
 }
+/* Ширины Order Lines (views/col-widths) — в том же профиле, что видимость и
+   порядок, отдельно от списка Sales. Reset widths — только ширины. */
+function salesLineWidths(){const p=salesLoadViewPrefs(),v=p.profiles[p.active]||{};return v.widths||{};}
+function salesSaveLineWidths(w){const p=salesLoadViewPrefs();if(!p.profiles[p.active])p.profiles[p.active]={};if(Object.keys(w).length)p.profiles[p.active].widths=w;else delete p.profiles[p.active].widths;salesSaveViewPrefs();}
+function salesResetLineWidths(){salesSaveLineWidths({});render();}
+function salesMoveOrderColumn(from,to,after){
+ const order=salesOrderColumnOrder(),a=order.indexOf(from);if(a<0||from===to)return;
+ order.splice(a,1);const b=order.indexOf(to);if(b<0)return;order.splice(after?b+1:b,0,from);salesSetOrderColumnOrder(order);
+}
+/* Поля ввода — не уже, чем можно в них попасть. */
+const SALES_LINE_MIN_WIDTH={mu:52,qty:48,width:56,height:56,mark:48,notes:48,services:60};
+cwRegister('lines',{widths:salesLineWidths,save:salesSaveLineWidths,def:k=>({mu:62,set:60,qty:62,width:100,height:100,mark:90,shape:56,services:150,notes:100})[k]||103,
+ min:k=>SALES_LINE_MIN_WIDTH[k]||CW_MIN,move:salesMoveOrderColumn,lead:[34,52],trail:44});
 function salesOpenMetrics(panel,id){salesMetricsPanel=panel;salesMetricsLineId=id||null;salesMetricsEditWeights=false;render();}
 function salesCloseMetrics(){salesMetricsPanel=null;salesSurchargeError=null;render();}
 function salesMetricsTools(){const n=salesOrderSurchargeCount(soDraft);return `<button type="button" onclick="salesOpenMetrics('columns')">${'Columns'}</button><button type="button" data-surcharges-btn onclick="salesOpenMetrics('rules')">${'Surcharges'}${n?`<span class="metric-surcharge-badge" data-surcharge-badge>ORDER ${n}</span>`:''}</button>`;}
@@ -149,7 +163,7 @@ function salesOrderChargesPanel(){
 function salesColumnsPanel(){
  const p=salesLoadViewPrefs();
  const order=salesOrderColumnOrder(),rows=order.map((key,i)=>{const c=SALES_METRIC_COLUMNS.find(x=>x.key===key)||SALES_ORDER_BASE_COLUMNS.find(x=>x.key===key),metric=SALES_METRIC_COLUMNS.some(x=>x.key===key);return `<div class="metric-column-row" draggable="true" ondragstart="salesMetricDragStart(event,'${c.key}')" ondragend="salesMetricDragEnd(event)" ondragover="event.preventDefault()" ondrop="salesMetricDrop(event,'${c.key}')"><span class="metric-drag" title="${'Drag column'}">⋮⋮</span><span data-raw>${c.label}</span><span class="metric-move"><button type="button" aria-label="Move ${c.label} left" ${i===0?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',-1)">←</button><button type="button" aria-label="Move ${c.label} right" ${i===order.length-1?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',1)">→</button></span>${metric?['screen'].map(ctx=>`<label><input type="checkbox" aria-label="${ctx} ${c.label}" ${salesMetricColumnsFor(ctx).some(x=>x.key===c.key)?'checked':''} onchange="salesSetMetricColumn('${ctx}','${c.key}',this.checked)"></label>`).join(''):`<span class="metric-required" title="${'Required order column'}">●</span>`}</div>`;}).join('');
- return `<label class="metric-profile">${'View preferences for'}<select onchange="salesSetViewProfile(this.value)"><option value="browser">${'This browser'}</option>${(DB.user||[]).map(u=>`<option data-raw value="${esc(u.viewProfileId)}" ${p.active===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label><p class="mut">${'Visibility and order save automatically in this browser. Drag a row or use the arrows.'}</p><div class="metric-column-grid"><div class="metric-column-head"><span></span><span>${'Column'}</span><span>${'Order'}</span><b>${'Screen'}</b></div>${rows}<div class="metric-column-reset"><span>${'Standard view'}</span>${['screen'].map(ctx=>`<button type="button" class="sm" onclick="salesResetMetricColumns('${ctx}')">${'Reset'}</button>`).join('')}</div></div>${salesViewSaveFailed?`<p class="metric-incomplete">${'Browser preferences could not be saved. Selections apply until this page closes.'}</p>`:''}`;
+ return `<label class="metric-profile">${'View preferences for'}<select onchange="salesSetViewProfile(this.value)"><option value="browser">${'This browser'}</option>${(DB.user||[]).map(u=>`<option data-raw value="${esc(u.viewProfileId)}" ${p.active===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label><p class="mut">${'Visibility, order and widths save automatically in this browser. Drag a row or use the arrows.'}</p><div class="metric-column-grid"><div class="metric-column-head"><span></span><span>${'Column'}</span><span>${'Order'}</span><b>${'Screen'}</b></div>${rows}</div><div class="sl-actions metric-column-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesResetMetricColumns('screen')">Standard view</button><button type="button" class="sl-btn" data-reset-widths ${cwFixed('lines')?'':'disabled'} onclick="salesResetLineWidths()">Reset widths</button></div>${salesViewSaveFailed?`<p class="metric-incomplete">${'Browser preferences could not be saved. Selections apply until this page closes.'}</p>`:''}`;
 }
 function salesAreaPanel(line){
  const a=salesLineAreas(line,soDraft);
