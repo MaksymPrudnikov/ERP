@@ -1358,10 +1358,12 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .mu-flip input{width:14px;height:14px;margin:0;flex:none}
 .mu-flip span{font-size:9.5px;color:var(--text-2)}
 /* Makeup по номерам строк (пункт 13, вариант 1): полоса над Order Lines. */
-.mk-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 12px;margin:6px 0 8px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);font-size:12.5px;color:var(--text-2)}
+.mk-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 10px;margin:4px 0 6px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);font-size:12.5px;color:var(--text-2)}
 .mk-title{font-weight:700;color:var(--text);letter-spacing:.02em}
-.mk-bar .mk-num{width:54px;text-align:center;padding:5px 6px}
-.mk-bar .mk-sel{width:auto;min-width:180px;padding:5px 8px}
+.mk-bar .mk-num{width:48px;height:26px;text-align:center;padding:2px 6px}
+.mk-bar .mk-num,.mk-bar .mk-sel,.mk-bar .ss-bulk select,.mk-bar button{min-height:0;height:26px;font-size:12px}
+.mk-bar .mk-sel{width:auto;min-width:180px;padding:2px 8px}
+.mk-bar select{padding-top:0;padding-bottom:0;line-height:24px}
 .mk-arrow{color:var(--text-3)}
 .mk-live{display:inline-flex;align-items:center;gap:8px}
 .mk-count b{color:var(--text)}.mk-warn{color:var(--warning);font-weight:600}.mk-error{color:var(--danger);font-weight:600}
@@ -1417,6 +1419,9 @@ table.cw-fixed tr[data-picked] td>select:has(+.line-locked-pill){width:calc(100%
 @media(max-width:900px){.metric-surcharge-table{overflow-x:auto}.metric-surcharge-row{min-width:900px}}
 .sales-rate-origin.off{background:var(--surface-3);color:var(--text-2)!important}
 .sales-commercial-row>span:nth-child(2) small{display:block;margin-top:2px}
+.metric-weight-gaps{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin:0 16px 12px;padding:8px 12px;border:1px solid var(--warning-line);background:var(--warning-soft);border-radius:8px;font-size:12px}.metric-weight-gaps>b{color:var(--warning)}.metric-weight-gap{display:inline-flex;align-items:center;gap:6px}.metric-weight-gap button{padding:2px 10px}
+.sales-lines-table tfoot td{background:var(--surface-2);border-top:2px solid var(--line-strong);font-variant-numeric:tabular-nums}.sales-lines-table .line-foot-label{font-weight:700;color:var(--text-2);font-size:11.5px;white-space:nowrap}.sales-lines-table .line-foot-n{text-align:center;font-weight:700}
+.sales-lines-table td.line-metric,.sales-lines-table td.line-metric b{white-space:nowrap}.sales-lines-table .line-metric .sl-partial{margin-left:4px;padding:0 5px;font-size:9.5px}.sales-lines-block>.sales-table-wrap+.metric-order-total{margin-top:20px}
 
 /* ---- src/styles/documents.css ---- */
 /* Бланки заказа: окно Preview, панель ✎ Customize, печать листов Letter,
@@ -1845,6 +1850,7 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .line-units-total{display:flex;gap:10px;align-items:center;margin:8px 0}.line-units-total b{margin-left:auto}.line-units-total input{width:110px;margin-top:0}
 .line-units-row td{padding:6px 12px 10px 44px}.line-units-hold,.line-units-cancelled{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;padding:4px 0}
 .line-units-hold{color:var(--red)}.line-units-hold span{color:var(--red)}.line-units-cancelled span{color:var(--text-2)}.line-units-cancelled label{display:inline-flex;gap:6px;align-items:center;color:var(--text-2);text-transform:none;letter-spacing:0;font-size:13px;font-weight:400;margin:0}.line-units-cancelled input{width:110px;margin-top:0;text-align:right}
+.sl-partial{margin-left:6px;padding:1px 6px;font-size:10px;font-weight:700;vertical-align:1px}
 
 /* ---- src/styles/col-widths.css ---- */
 /* Ширина и порядок колонок (views/col-widths): Sales и Order Lines одинаково. */
@@ -3690,7 +3696,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='c61b6064790c';
+var ERP_BUILD='7a547b2b8620';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -9144,8 +9150,9 @@ const DATA_FIXES=[
 ];
 /* Номера правок кодом (не строкой таблицы): 4 — sfSplitEdgeFix, 6 —
    приоритет раскроя, 7 — стекло COG, 8 — прайс заказа, 9 — количества работ
-   в строке, 10 — наш код стекла в PO поставщику (applyDataFixes). */
-const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),10);
+   в строке, 10 — наш код стекла в PO поставщику, 11 — геометрия лайтов для
+   веса в строке (applyDataFixes). */
+const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),11);
 function applyDataFixes(){
  const have=Number.isInteger(+DB.dataFix)&&+DB.dataFix>0?+DB.dataFix:0;
  if(have>=DATA_FIX_VERSION)return false;
@@ -9185,6 +9192,10 @@ function applyDataFixes(){
     «поставщики пусть будет имя тоже»): строка Glass code в PO выключается
     один раз; включить обратно можно в Customize. */
  if(have<10&&DB.purchaseDocumentOptions&&DB.purchaseDocumentOptions.productCode===true){DB.purchaseDocumentOptions.productCode=false;changed++;}
+ /* Номер 11 · 30 октября 2026. Геометрия лайтов для веса — в записи строки
+    (line.measure.lites, пункт 14): владелец — «если данные с фигуры уже
+    получены, зачем её пересчитывать». Только строкам, чья запись верна. */
+ if(have<11&&typeof salesLineLiteGeo==='function')readScope(()=>(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&Array.isArray(o.lines))o.lines.forEach(l=>{if(!l||!l.measure||l.measure.lites)return;try{if(salesMeasureFor(l,o)){l.measure.lites=finWithOrder(o,()=>salesLineLiteGeo(l,o));changed++;}}catch(e){console.warn('lites '+(o.businessNumber||o.id)+': '+e.message);}});}));
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;
@@ -12185,20 +12196,30 @@ function surroundSnap(key,order,live){
  if(salesBookRec)salesBookRec[key]=v==null?null:JSON.stringify(v);
  return v;
 }
+/* Пустой вес и пустые нормы снимка берутся из Data, когда их внесли (пункт
+   14, как salesWeightRate): незнание не замораживается. Архив на просмотре —
+   как записан. */
+function surroundLiveFill(order){return !(typeof archiveVisit!=='undefined'&&archiveVisit&&order&&archiveVisit.ids.has(order.id));}
 function surroundSpacerCard(sp,order){
  if(!sp)return null;
- return surroundSnap('snap:spacer:'+sp.id,order,()=>({recipeId:sp.recipeId||'',weightG:sp.weightG==null?null:sp.weightG,weightPer:sp.weightPer||'ft2',measured:sp.weightMeasured===true,mm:spacerThicknessMm(sp)}));
+ const card=surroundSnap('snap:spacer:'+sp.id,order,()=>({recipeId:sp.recipeId||'',weightG:sp.weightG==null?null:sp.weightG,weightPer:sp.weightPer||'ft2',measured:sp.weightMeasured===true,mm:spacerThicknessMm(sp)}));
+ if(card&&card.weightG==null&&sp.weightG!=null&&surroundLiveFill(order))return Object.assign({},card,{weightG:sp.weightG,weightPer:sp.weightPer||'ft2',measured:sp.weightMeasured===true});
+ return card;
 }
 function surroundRecipeOf(sp,order){
  const card=surroundSpacerCard(sp,order);if(!card||!card.recipeId)return null;
- return surroundSnap('snap:recipe:'+card.recipeId,order,()=>{const r=surroundRecipeById(card.recipeId);return r?JSON.parse(JSON.stringify(r)):null;});
+ const r=surroundSnap('snap:recipe:'+card.recipeId,order,()=>{const r=surroundRecipeById(card.recipeId);return r?JSON.parse(JSON.stringify(r)):null;});
+ const live=r&&r.rows.some(x=>x.amount==null)&&surroundLiveFill(order)?surroundRecipeById(card.recipeId):null;
+ if(!live)return r;
+ return Object.assign({},r,{rows:r.rows.map(x=>{const y=x.amount==null&&live.rows.find(y=>y.id===x.id&&y.part===x.part&&y.per===x.per);return y&&y.amount!=null?Object.assign({},x,{amount:y.amount}):x;})});
 }
 /* PIB добавляет к толщине пакета по pibPerSideMm с каждой стороны рамки. */
 function surroundPibMm(sp,order){const r=surroundRecipeOf(sp,order);return r&&r.pibPerSideMm!=null?2*r.pibPerSideMm:null;}
 function surroundGasDensity(gas,order){
  if(!gas)return null;
  const k='weight:gas:'+gas.id,b=order&&order.priceBook;
- const v=b&&Object.prototype.hasOwnProperty.call(b,k)?b[k]:(gas.densityKgM3==null?null:gas.densityKgM3);
+ const live=gas.densityKgM3==null?null:gas.densityKgM3,kept=b&&Object.prototype.hasOwnProperty.call(b,k);
+ const v=kept&&(b[k]!=null||!surroundLiveFill(order))?b[k]:live;
  if(salesBookRec)salesBookRec[k]=v==null?null:v;
  return v;
 }
@@ -21032,36 +21053,63 @@ function salesOrderCommercialAdjustments(order){
 /* Нормы веса замораживаются в заказе на Save, как цены (priceBook, ключ
    weight:…): новая норма в Master Data не меняет вес сохранённого заказа.
    Заказ — свой, не soDraft: наклейки и отгрузка считают вес чужого заказа. */
+/* Пустая норма не замораживается (пункт 14, владелец 29.10.2026: «то, что мы
+   не знаем, будет подсвечено — что нужно исправить и внести данные»):
+   внесли норму в Data — сохранённый заказ берёт её; заполненная норма заказа
+   остаётся своей. Заказ из архива на просмотре — как записан. */
 function salesWeightRate(key,order){
- const k='weight:'+key,b=order&&order.priceBook;
- const v=b&&Object.prototype.hasOwnProperty.call(b,k)?b[k]:(()=>{const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;})();
+ const k='weight:'+key,b=order&&order.priceBook,live=()=>{const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;};
+ const kept=b&&Object.prototype.hasOwnProperty.call(b,k),archived=typeof archiveVisit!=='undefined'&&archiveVisit&&order&&archiveVisit.ids.has(order.id);
+ const v=kept&&(b[k]!=null||archived)?b[k]:live();
  if(salesBookRec)salesBookRec[k]=v==null?null:v;
  return v;
 }
 /* productionPlan — фактические лайты собранного юнита (частичный Recut).
    Без него коммерческие документы по-прежнему считают геометрию заказа. */
+/* Пробел в весе (пункт 14, владелец 29.10.2026): «то, что мы не знаем, будет
+   подсвечено у нас — что нужно исправить и внести данные». what — чего нет,
+   where — где внести, part — слово для клиента («Interlayer weight not
+   included»). key — один пробел на весь заказ, сколько бы строк его ни имели. */
+function salesWeightGap(key,what,where,part,go){return {key,what,where,part,go:go||null};}
+const SALES_WEIGHT_WHERE={glass:'Data → Setup → Weights',card:'Data → Materials → Glass',film:'Data → Materials → Lamination',spacer:'Data → Materials → IGU assembly → Spacers',gas:'Data → Materials → IGU assembly → Gas',recipe:'Data → Materials → IGU assembly → Surround recipes',norm:'Order line → Weight → Edit weight norms',extra:'Order line → Weight → Additional components',line:'Order Lines',shape:'Shape of the line'};
+/* Геометрия лайтов для веса: площадь ft², периметр м и отпечаток контура
+   (одинаковые лайты — рамка по любому). Записывается в строку при Save
+   (line.measure.lites, sales/line-measure) — владелец, 30.10.2026: «если
+   данные с фигуры уже получены в ячейку веса, то зачем её пересчитывать!». */
+function salesWeightLiteGeo(plan){
+ if(!plan||!plan.valid)return [];
+ return (plan.lites||[]).map(l=>({index:l.index,area:(l.result&&l.result.valid?l.result.area:Math.abs(fabSignedArea(l.finishedPoints)))/144,perimeter:fabPolylineLength(l.finishedPoints,true)*.0254,contour:salesMeasureHash(JSON.stringify(l.finishedPoints))}));
+}
+function salesLineLiteGeo(line,order){
+ const shape=salesLineGeometryShape(line),m=salesMakeupById(order,line.makeupId);
+ return salesWeightLiteGeo(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
+}
 function salesLineWeight(line,order,productionPlan){
  order=order||soDraft;
  const rows=[],m=salesMakeupById(order,line.makeupId),shape=salesLineGeometryShape(line),areas=salesLineAreas(line,order);
- const plan=productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
- const add=(label,kg,note)=>rows.push({label:label,kg:Number.isFinite(kg)&&kg>=0?kg:null,note:note||''});
- const norm=(key,label,basis,unit,note)=>{const rate=salesWeightRate(key,order);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||''});};
- if(!m||!areas.valid)return {rows:[],kg:null,lineKg:null,knownKg:0,complete:false,missing:1};
+ const kept=!productionPlan&&typeof salesMeasureFor==='function'?salesMeasureFor(line,order):null;
+ const lites=kept&&kept.lites?kept.lites:salesWeightLiteGeo(productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null));
+ const add=(label,kg,note,gap)=>rows.push({label:label,kg:Number.isFinite(kg)&&kg>=0?kg:null,note:note||'',gap:gap||null});
+ const norm=(key,label,basis,unit,note,gap)=>{const rate=salesWeightRate(key,order);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||'',gap:basis==null?salesWeightGap('shape','Size of the glass',SALES_WEIGHT_WHERE.shape,'glass'):gap});};
+ if(!m||!areas.valid){
+  const gap=!m?salesWeightGap('line-makeup','Makeup',SALES_WEIGHT_WHERE.line,'line'):salesWeightGap('line-size','Size',SALES_WEIGHT_WHERE.line,'line');
+  return {rows:[],kg:null,lineKg:null,knownKg:0,complete:false,estimated:false,missing:1,gaps:[gap]};
+ }
  const geometry=(i)=>{
-  const lite=plan&&plan.valid&&(plan.lites||[]).find(l=>l.index===i);
-  if(!lite)return {area:null,perimeter:null};
-  const area=lite.result&&lite.result.valid?lite.result.area:Math.abs(fabSignedArea(lite.finishedPoints));
-  return {area:area/144,perimeter:fabPolylineLength(lite.finishedPoints,true)*.0254};
+  const lite=lites.find(l=>l.index===i);
+  return lite?{area:lite.area,perimeter:lite.perimeter,contour:lite.contour}:{area:null,perimeter:null,contour:null};
  };
  const glass=(ply,label,geo)=>{
   const product=glassProductById(ply&&ply.glassProductId),t=glassEffectiveThicknessMm(product);
   const mm=t.mm||+(ply&&ply.thicknessMm)||0;
   const d=glassDensityKgM3(order);
-  add(label+(product?' · '+product.code:''),geo.area!=null&&mm>0&&d?glassLayerWeightKg(mm,d,geo.area):null,!d?'No glass density in Weight norms':t.exact?'':'Nominal thickness estimate');
+  const gap=geo.area==null?salesWeightGap('shape','Size of the glass',SALES_WEIGHT_WHERE.shape,'glass'):!(mm>0)?salesWeightGap('thickness:'+(product?product.id:''),(product?glassShortName(product):'Glass')+' thickness',SALES_WEIGHT_WHERE.card,'glass',product?{t:'glassProduct',id:product.id}:null):!d?salesWeightGap('glass-density','Glass density',SALES_WEIGHT_WHERE.glass,'glass',{setup:true}):null;
+  add(label+(product?' · '+product.code:''),geo.area!=null&&mm>0&&d?glassLayerWeightKg(mm,d,geo.area):null,!d?'No glass density in Weight norms':t.exact?'':'Nominal thickness estimate',gap);
+  if(!t.exact&&mm>0)rows[rows.length-1].estimated=true;
  };
  const surface=(ply,label,geo)=>{
-  if(ply.category==='spandrel')norm('spandrel:'+ply.spandrel.productId,label+' · Spandrel',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied coating norm per finished area');
-  if(ply.visionType==='frit'||ply.frit&&ply.frit.enabled)norm('frit:'+ply.frit.productId+':'+(ply.frit.pattern||'custom'),label+' · Frit',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied pattern norm per finished area');
+  if(ply.category==='spandrel')norm('spandrel:'+ply.spandrel.productId,label+' · Spandrel',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied coating norm per finished area',salesWeightGap('weight:spandrel:'+ply.spandrel.productId,'Spandrel weight norm',SALES_WEIGHT_WHERE.norm,'spandrel coating',{line:true}));
+  if(ply.visionType==='frit'||ply.frit&&ply.frit.enabled)norm('frit:'+ply.frit.productId+':'+(ply.frit.pattern||'custom'),label+' · Frit',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied pattern norm per finished area',salesWeightGap('weight:frit:'+ply.frit.productId+':'+(ply.frit.pattern||'custom'),'Frit weight norm',SALES_WEIGHT_WHERE.norm,'frit',{line:true}));
  };
  (m.panes||[]).forEach((p,i)=>{
   const g=geometry(i),label='Lite '+(i+1);
@@ -21070,7 +21118,7 @@ function salesLineWeight(line,order,productionPlan){
    [lam.outer,lam.inner].forEach((ply,j)=>{if(ply){glass(ply,label+(j?'b':'a'),g);surface(ply,label+(j?'b':'a'),g);}});
    (lam.interlayers||[]).forEach(f=>{
     const prod=mdById('interlayerProduct',f.productId);
-    norm('film:'+f.productId,label+' · '+(prod?prod.name:'Interlayer'),g.area==null?null:g.area*GLASS_M2_PER_FT2*(f.thicknessMm/1000),'kg/m³','Density × actual interlayer volume');
+    norm('film:'+f.productId,label+' · '+(prod?prod.name:'Interlayer'),g.area==null?null:g.area*GLASS_M2_PER_FT2*(f.thicknessMm/1000),'kg/m³','Density × actual interlayer volume',salesWeightGap('film:'+f.productId,(prod?prod.name:'Interlayer')+' density',SALES_WEIGHT_WHERE.film+(prod?' → '+prod.name:''),'interlayer',prod?{t:'interlayerProduct',id:prod.id}:null));
    });
   }else{glass(p,label,g);surface(p,label,g);}
  });
@@ -21078,25 +21126,65 @@ function salesLineWeight(line,order,productionPlan){
     пакета — всегда по меньшему лайту, иначе юнит не загерметизировать
     (владелец, 23.10.2026); размеры лайтов — из Shape designer. */
  (m.cavities||[]).forEach((c,i)=>{
-  const a=geometry(i),b=geometry(i+1),same=plan&&plan.valid&&plan.lites[i]&&plan.lites[i+1]&&JSON.stringify(plan.lites[i].finishedPoints)===JSON.stringify(plan.lites[i+1].finishedPoints);
+  const a=geometry(i),b=geometry(i+1),same=!!a.contour&&a.contour===b.contour;
   const pick=same?a:a.area!=null&&b.area!=null?(b.area<a.area?b:a):null,suffix=' · Cavity '+(i+1);
   const geo=pick&&pick.area!=null?{areaFt2:pick.area,perimeterM:pick.perimeter}:null;
-  const got=surroundCavityParts(c,geo,order);
-  if(!mdById('spacerVariant',c.spacerVariantId))add('Spacer'+suffix,null,'Spacer not found');
-  else if(!got.recipe)add('Surround'+suffix,null,'No recipe in the spacer card');
+  const got=surroundCavityParts(c,geo,order),sp=mdById('spacerVariant',c.spacerVariantId);
+  if(!sp)add('Spacer'+suffix,null,'Spacer not found',salesWeightGap('spacer-missing','Spacer of the Makeup',SALES_WEIGHT_WHERE.line,'spacer'));
+  else if(!got.recipe)add('Surround'+suffix,null,'No recipe in the spacer card',salesWeightGap('recipe:'+sp.id,sp.name+' recipe',SALES_WEIGHT_WHERE.spacer,'spacer and sealant',{t:'spacerVariant',id:sp.id}));
   const basis=geo?'perimeter '+geo.perimeterM.toFixed(2)+' m · area '+geo.areaFt2.toFixed(2)+' ft²':'';
-  got.parts.forEach(x=>rows.push({label:x.label+suffix,kg:x.kg,usedKg:x.usedKg,wastePct:x.wastePct,basisText:basis,table:x.table,itemId:x.item?x.item.id:'',perimeterM:geo?geo.perimeterM:null,note:x.note+(x.wastePct?' · used with '+x.wastePct+'% waste: '+(x.usedKg==null?'—':x.usedKg.toFixed(3)+' kg'):'')}));
+  const gapOf=x=>!geo?salesWeightGap('shape','Size of the glass',SALES_WEIGHT_WHERE.shape,'glass')
+   :x.part==='spacer'?salesWeightGap('spacer-weight:'+sp.id,sp.name+' weight',SALES_WEIGHT_WHERE.spacer,'spacer',{t:'spacerVariant',id:sp.id})
+   :x.part==='gas'?salesWeightGap('gas:'+(x.item?x.item.id:''),(x.item?x.item.name:'Gas')+' density',SALES_WEIGHT_WHERE.gas,'gas',x.item?{t:'gasProduct',id:x.item.id}:null)
+   :salesWeightGap('recipe-row:'+(got.recipe?got.recipe.id:'')+':'+x.rowId,(got.recipe?got.recipe.name+' · ':'')+x.label+' norm',SALES_WEIGHT_WHERE.recipe,String(x.label).toLowerCase(),got.recipe?{t:'surroundRecipe',id:got.recipe.id}:null);
+  got.parts.forEach(x=>rows.push({label:x.label+suffix,kg:x.kg,usedKg:x.usedKg,wastePct:x.wastePct,basisText:basis,table:x.table,itemId:x.item?x.item.id:'',perimeterM:geo?geo.perimeterM:null,note:x.note+(x.wastePct?' · used with '+x.wastePct+'% waste: '+(x.usedKg==null?'—':x.usedKg.toFixed(3)+' kg'):''),gap:x.kg==null?gapOf(x):null}));
  });
  const muntin=shape&&shape.muntin;
  if(muntin&&muntin.enabled&&(m.cavities||[]).length){
   const got=shapeMuntinGeoFor(shape),prod=muntinProduct(muntin.productId);
-  norm('muntin:'+muntin.productId,'Muntin · '+prod.label,got?got.result.totalLengthIn*.0254:null,'kg/m','Calculated bar cut length');
-  norm('muntin-connectors:'+muntin.productId,'Muntin connectors',1,'kg/unit','Total connectors per unit');
+  norm('muntin:'+muntin.productId,'Muntin · '+prod.label,got?got.result.totalLengthIn*.0254:null,'kg/m','Calculated bar cut length',salesWeightGap('weight:muntin:'+muntin.productId,'Muntin weight norm',SALES_WEIGHT_WHERE.norm,'muntins',{line:true}));
+  norm('muntin-connectors:'+muntin.productId,'Muntin connectors',1,'kg/unit','Total connectors per unit',salesWeightGap('weight:muntin-connectors:'+muntin.productId,'Muntin connectors norm',SALES_WEIGHT_WHERE.norm,'muntins',{line:true}));
  }
- (line.weightExtras||[]).forEach(x=>add(x.label||'Additional component',mdNonNeg(x.kg),'Per unit'));
+ (line.weightExtras||[]).forEach(x=>add(x.label||'Additional component',mdNonNeg(x.kg),'Per unit',salesWeightGap('extra:'+(x.label||''),(x.label||'Additional component')+' weight',SALES_WEIGHT_WHERE.extra,x.label?String(x.label).toLowerCase():'additional components',{line:true})));
  const missing=rows.filter(r=>r.kg==null).length,known=rows.reduce((s,r)=>s+(r.kg||0),0),complete=rows.length>0&&missing===0;
- return {rows:rows,kg:complete?known:null,lineKg:complete?known*salesPositiveInt(line.qty,1):null,knownKg:known,complete:complete,missing:missing};
+ const gaps=[];rows.forEach(r=>{if(r.kg==null&&r.gap&&!gaps.some(g=>g.key===r.gap.key))gaps.push(r.gap);});
+ return {rows:rows,kg:complete?known:null,lineKg:complete?known*salesPositiveInt(line.qty,1):null,knownKg:known,complete:complete,estimated:rows.some(r=>r.estimated&&r.kg!=null),missing:missing,gaps:gaps};
 }
+/* Вес заказа (пункт 14): известное складывается всегда — снизу вверх,
+   компонент → юнит → строка × Qty → заказ, до округления. Неизвестное не ноль:
+   пробелы с номерами строк. kg — null, только если посчитать нечего; complete —
+   все нормы есть; estimated — где-то номинальная толщина вместо фактической.
+   Qty — заказанное (отгрузки, сканы и Recut вес заказа не меняют). */
+function salesOrderWeight(order){
+ order=order||soDraft;
+ if(!order)return {kg:null,complete:false,estimated:false,partial:false,gaps:[]};
+ const lines=order&&order.lines||[],gaps=new Map();let kg=0,counted=0,estimated=false,complete=lines.length>0;
+ lines.forEach((l,i)=>{
+  const w=salesLineWeight(l,order);
+  if(w.complete||w.knownKg>0){kg+=w.knownKg*salesPositiveInt(l.qty,1);counted++;}
+  if(w.estimated)estimated=true;
+  if(w.complete)return;
+  complete=false;
+  (w.gaps.length?w.gaps:[salesWeightGap('unknown','Weight data',SALES_WEIGHT_WHERE.norm,'components')]).forEach(g=>{let x=gaps.get(g.key);if(!x){x=Object.assign({},g,{lines:[]});gaps.set(g.key,x);}x.lines.push(i+1);});
+ });
+ return {kg:counted?kg:null,complete:complete,estimated:estimated,partial:!complete&&counted>0,gaps:[...gaps.values()]};
+}
+/* Чего нет в весе — клиенту, без внутренних подсказок: «Interlayer weight not
+   included», строка без размера — «line 3». */
+function salesWeightMissingText(w){
+ if(!w||w.complete)return '';
+ const lines=[],parts=[];
+ w.gaps.forEach(g=>{if(g.part==='line')g.lines.forEach(n=>{if(!lines.includes(n))lines.push(n);});else if(!parts.includes(g.part))parts.push(g.part);});
+ const list=parts.concat(lines.length?[(lines.length===1?'line ':'lines ')+lines.sort((a,b)=>a-b).join(', ')]:[]);
+ const t=list.join(', ');return t?t.charAt(0).toUpperCase()+t.slice(1)+' weight not included':'';
+}
+/* Подсказка у нас: чего нет, в каких строках и где внести. */
+function salesWeightTip(w){
+ if(!w||w.complete)return '';
+ return [w.missingText||salesWeightMissingText(w)].concat((w.gaps||[]).map(g=>g.what+' → '+g.where+(g.lines&&g.lines.length?' (line'+(g.lines.length>1?'s ':' ')+g.lines.join(', ')+')':''))).filter(Boolean).join('\n');
+}
+/* Число веса: мелкое — с сотыми (0.28 kg не «0»), остальное — целыми. */
+function salesKgText(kg){return kg==null?'—':kg<10?kg.toFixed(2):Math.round(kg).toLocaleString('en-US');}
 
 /* ==== src/erp/sales/line-measure.js ==== */
 /* =====================================================================
@@ -21110,7 +21198,7 @@ function salesLineWeight(line,order,productionPlan){
    IN : строка заказа, её makeup, наборы работ и прайс заказа, фигуры строки
         (DB.shapeDef); при Save — расчёт по фигуре (sales/service-sets,
         sales/line-metrics)
-   OUT: line.measure {sig, rows, areas}; salesMeasureFor — записанное, если
+   OUT: line.measure {sig, rows, areas, lites — геометрия лайтов для веса}; salesMeasureFor — записанное, если
         отпечаток сошёлся; salesMeasureWrite — запись заказа (Save, правка
         данных 9)
 
@@ -21154,7 +21242,7 @@ function salesMeasureSig(line,order){
 /* Расчёт по фигуре — то, что записывается. */
 function salesMeasureLive(line,order){
  salesMeasureOff++;
- try{return finWithOrder(order,()=>({rows:salesLineChargeRowsRaw(line),areas:salesLineAreas(line,order)}));}
+ try{return finWithOrder(order,()=>({rows:salesLineChargeRowsRaw(line),areas:salesLineAreas(line,order),lites:salesLineLiteGeo(line,order)}));}
  finally{salesMeasureOff--;}
 }
 /* pre — посчитанное заранее Save в фоне (erp/sales/save-job): строка с тем же
@@ -21162,8 +21250,8 @@ function salesMeasureLive(line,order){
 function salesMeasureWrite(order,pre){
  (order&&order.lines||[]).forEach(l=>{
   const sig=salesMeasureSig(l,order),p=pre&&pre.get(l.id);
-  if(p&&p.sig===sig){l.measure={sig,rows:p.rows,areas:p.areas};if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(l,order);return;}
-  const m=salesMeasureLive(l,order);l.measure={sig,rows:m.rows,areas:m.areas};
+  if(p&&p.sig===sig){l.measure={sig,rows:p.rows,areas:p.areas,lites:p.lites};if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(l,order);return;}
+  const m=salesMeasureLive(l,order);l.measure={sig,rows:m.rows,areas:m.areas,lites:m.lites};
  });
 }
 /* Отпечаток — один раз на строку за отрисовку (erp/read-scope): расчёт
@@ -21181,7 +21269,7 @@ function salesMeasureFor(line,order){
    фигуре. */
 function salesMeasureCheck(line,order){
  const now=salesMeasureLive(line,order),m=line.measure;
- if(JSON.stringify(now.rows)!==JSON.stringify(m.rows)||JSON.stringify(now.areas)!==JSON.stringify(m.areas))
+ if(JSON.stringify(now.rows)!==JSON.stringify(m.rows)||JSON.stringify(now.areas)!==JSON.stringify(m.areas)||m.lites&&JSON.stringify(now.lites)!==JSON.stringify(m.lites))
   console.error('Stale measure: '+(order.businessNumber||order.id)+' · line '+line.id);
 }
 /* Запись переживает F5, Import и облако; битая — отбрасывается, строка
@@ -21189,7 +21277,10 @@ function salesMeasureCheck(line,order){
 function salesMeasureClean(m){
  if(!m||typeof m!=='object'||typeof m.sig!=='string'||!/^[0-9a-f]{16}$/.test(m.sig)||!Array.isArray(m.rows)||!m.areas||typeof m.areas!=='object')return null;
  if(!m.rows.every(r=>r&&typeof r==='object'&&typeof r.key==='string'&&Number.isFinite(r.basis)))return null;
- return {sig:m.sig,rows:m.rows,areas:m.areas};
+ /* Геометрия лайтов для веса (пункт 14) — с 30.10.2026; у старых записей её
+    нет — вес считает по фигуре, следующий Save запишет. */
+ const lites=Array.isArray(m.lites)&&m.lites.every(x=>x&&Number.isInteger(x.index)&&Number.isFinite(x.area)&&Number.isFinite(x.perimeter)&&typeof x.contour==='string')?m.lites:null;
+ return lites?{sig:m.sig,rows:m.rows,areas:m.areas,lites}:{sig:m.sig,rows:m.rows,areas:m.areas};
 }
 const __salesMeasureNormalizeLine=normalizeSalesOrderLine;
 normalizeSalesOrderLine=function(line){
@@ -21257,7 +21348,7 @@ function* salesSaveSteps(job){
   const lines=copy.lines,n=lines.length;
   for(let i=0;i<n;i++){
    const l=lines[i],m=salesMeasureLive(l,copy);
-   pre.measures.set(l.id,{sig:salesMeasureSig(l,copy),rows:m.rows,areas:m.areas});
+   pre.measures.set(l.id,{sig:salesMeasureSig(l,copy),rows:m.rows,areas:m.areas,lites:m.lites});
    job.step='Line '+(i+1)+' of '+n;yield 0.4+0.35*(i+1)/n;
   }
   if(pre.rev===storageBaseRev)break;
@@ -22947,6 +23038,8 @@ function docSaleItem(model,line,index,order){
  it.amount=mode==='none'?null:mode==='glass'?docMoney(glassLine):docMoney(p.line);
  const bits=[];
  if(opts.billableArea&&a.valid)bits.push('Billable '+docNum(a.billable,1)+' ft² per unit');
+ /* Галочка Weight per unit / per line предлагается и бланкам продаж (пункт 14). */
+ if(opts.weight)bits.push('Weight '+docUnitWeightText(salesLineWeight(line,order),'kg per unit'));
  if(opts.perFt2&&['split','glass','unit'].includes(mode)&&!p.missingMaterials&&a.valid)bits.push('glass '+docMoney(p.materialRate)+'/ft²');
  if(bits.length)it.sub.push({text:bits.join(' · ')});
  docItemDetails(it,opts,line,m,order);
@@ -22997,11 +23090,17 @@ function docItemDetails(it,opts,line,m,order){
  if(opts.makeupFull&&m)it.full=docMakeupFullLines(m,opts);
  if(opts.shapeDrawing)it.drawing=docLineDrawing(line,order);
 }
+/* Вес юнита на бумаге (пункт 14, вариант 1 владельца 30.10.2026): известное
+   число и Partial — клиент видит, что вес неполный, без внутренних подсказок;
+   нет ничего — «—». */
+function docUnitWeightText(w,unit){
+ return w.complete?(w.estimated?'≈ ':'')+docNum(w.kg,1)+' '+unit:w.knownKg>0?docNum(w.knownKg,1)+' '+unit+' · Partial':'— kg';
+}
 function docShopItem(model,line,index,order){
  const opts=model.opts,m=salesMakeupById(order,line.makeupId),a=salesLineAreas(line,order),q=salesPositiveInt(line.qty,1);
  const it=docItemBase(opts,line,index,m,q),info=[];
  if(opts.actualArea&&a.valid)info.push(docNum(a.actual,1)+' ft²');
- if(opts.weight){const w=salesLineWeight(line,order);info.push(w.complete?docNum(w.kg,1)+' kg/unit':'— kg');}
+ if(opts.weight)info.push(docUnitWeightText(salesLineWeight(line,order),'kg/unit'));
  it.info=info.join(' · ');
  docItemDetails(it,opts,line,m,order);
  if(opts.route){
@@ -23020,7 +23119,7 @@ function docBuildModel(kind,order,opts){
  const model={kind,sale,mode,opts,title:DOC_TITLES[kind],docName,number,customerName:C?(C.legalName||C.displayName):'',po:order.customerPo||'',
   company:opts.company?docCompanyBlock():null,meta:[],boxes:[],
   table:{amount:sale&&mode!=='none',basisRate:sale&&['full','split','glass'].includes(mode)&&opts.basisRate,perUnit:['full','split','glass'].includes(mode)},
-  items:[],extra:null,end:null,terms:'',signature:'',summary:null,notes:'',footerLeft:'',footerRight:''};
+  items:[],extra:null,end:null,terms:'',signature:'',summary:null,summaryNote:'',notes:'',footerLeft:'',footerRight:''};
 
  const cell=(on,label,value)=>{if(on)model.meta.push({label,value:value||'—'});};
  /* Счёт: дата — день выдачи последнего юнита, срок — оплаты (Net от него). */
@@ -23136,13 +23235,18 @@ function docBuildModel(kind,order,opts){
   :'Please check sizes, makeups and quantities. Production starts after this confirmation is signed'+(depositFirst?' and the deposit is received.':'.');
   model.footerLeft=company.footerText||'';
  }else{
-  if(opts.orderSummary){
-   let units=0,area=0,kg=0,kgKnown=true;
-   (order.lines||[]).forEach(l=>{const q=salesPositiveInt(l.qty,1),a=salesLineAreas(l,order),w=salesLineWeight(l,order);units+=q;if(a.valid)area+=a.actual*q;if(w.complete)kg+=w.lineKg;else kgKnown=false;});
-   model.summary=[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:kgKnown?docNum(kg,0)+' kg':'—'},{label:'Due date',value:docDate(order.dueDate)||'—'}];
-  }
   if(opts.notes&&order.notes)model.notes=order.notes;
   model.footerLeft='Internal · no prices';
+ }
+ /* Order summary — в каждом бланке, где его отметили в Customize (пункт 14:
+    раньше только в бланках без цен). Вес — известное и Partial с тем, что не
+    учтено, строкой под блоком: на бумаге без наведения. */
+ if(opts.orderSummary){
+  let units=0,area=0;
+  (order.lines||[]).forEach(l=>{const q=salesPositiveInt(l.qty,1),a=salesLineAreas(l,order);units+=q;if(a.valid)area+=a.actual*q;});
+  const w=salesOrderWeight(order),miss=salesWeightMissingText(w);
+  model.summary=[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:w.kg==null?'Weight unavailable':(w.complete&&w.estimated?'≈ ':'')+docNum(w.kg,w.kg<10?2:0)+' kg'+(w.complete?'':' · Partial')},{label:'Due date',value:docDate(order.dueDate)||'—'}];
+  if(w.partial&&miss)model.summaryNote='Partial weight: '+miss.charAt(0).toLowerCase()+miss.slice(1)+'.';
  }
  model.footerRight=[company.legalName,docName+' '+number].filter(Boolean).join(' · ');
  return model;
@@ -23509,7 +23613,7 @@ function docLayout(model){
  if(model.extra){const parts=docExtraParts(model);room(parts.slice(0,2).reduce((s,p)=>s+p.h,0));flow(parts);}
  inTable=false;
  if(model.end){const b=docEndBlock(model);room(b.h);b.draw(P,y);y+=b.h;}
- if(model.summary){const h=44;room(h);docCells(P,model.summary,y+12,32,10.5);y+=h;}
+ if(model.summary){const h=model.summaryNote?58:44;room(h);docCells(P,model.summary,y+12,32,10.5);if(model.summaryNote)P.text(W.left,y+55,docFit(model.summaryNote,7.6,false,W.right-W.left),{size:7.6});y+=h;}
  if(model.notes){const parts=docParagraphParts('Order notes',model.notes,7.8);room(parts.slice(0,2).reduce((s,p)=>s+p.h,0));flow(parts);}
  if(model.terms){const parts=docParagraphParts('Terms and conditions',model.terms,6.8);room(parts.slice(0,3).reduce((s,p)=>s+p.h,0));flow(parts);}
  if(model.signature){const b=docSignatureBlock(model);room(b.h);b.draw(P,y);y+=b.h;}
@@ -24321,10 +24425,61 @@ function salesMetricCell(line,c,context,price,a,weight){
   if(['actual','rounded','billable'].includes(c.key)){value=a[c.key];panel='area';}
   else if(c.key==='materials'||c.key==='unitPrice'||c.key==='lineTotal')value=c.key==='materials'?(!price.missingMaterials&&!price.unsupportedCurrency?price.materials:null):(c.key==='unitPrice'?price.unit:price.line);
   else{value=c.key==='unitWeight'?weight.kg:weight.lineKg;panel='weight';}
-  const text=value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2);
+  /* Вес неполный (пункт 14): известное и Partial, а не «—». */
+  const partial=panel==='weight'&&value==null&&weight.knownKg>0;
+  if(partial)value=c.key==='unitWeight'?weight.knownKg:weight.knownKg*salesPositiveInt(line.qty,1);
+  const text=(value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2))+(partial?'<span class="pill warn sl-partial">Partial</span>':'');
   const hand=price.manual&&(c.key==='unitPrice'||c.key==='lineTotal');
   const body=`<b data-raw>${text}</b>${hand&&context==='screen'?'<i class="metric-hand" title="Price by hand">✎</i>':''}`;
-  return `<td class="line-metric${value==null?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
+  return `<td class="line-metric${value==null||partial?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
+}
+/* Итог под колонками Order Lines, как в Excel (владелец, 30.10.2026:
+   «у каждой колонки есть переменная… внизу нет сумм, как в Excel — сделать
+   сабтотал для всех таких переменных, а не только отдельно для веса»).
+   Колонка «на юнит» — сумма × Qty: итог заказа. Деньги — за юниты без
+   отменённых, как Line Total; площадь и вес — заказанное. Не у всех строк
+   есть число — известное и Partial. Строки, скрытые фильтром, не входят. */
+function salesMetricFootValue(key,lines){
+ let sum=0,any=false,miss=0;
+ lines.forEach(l=>{
+  let v=null;
+  if(key==='unitWeight'||key==='lineWeight'){const w=salesLineWeight(l,soDraft);v=w.complete||w.knownKg>0?w.knownKg*salesPositiveInt(l.qty,1):null;if(!w.complete)miss++;}
+  else{const p=salesLineCommercialPrice(l,soDraft),a=p.areas,q=salesPositiveInt(l.qty,1);
+   if(['actual','rounded','billable'].includes(key))v=a.valid?a[key]*q:null;
+   else if(key==='materials')v=!p.missingMaterials&&!p.unsupportedCurrency?p.materials*p.qty:null;
+   else if(key==='unitPrice')v=p.unit==null?null:p.unit*p.qty;
+   else if(key==='lineTotal')v=p.line;
+   if(v==null)miss++;}
+  if(v!=null){sum+=v;any=true;}
+ });
+ return {value:any?sum:null,partial:any&&miss>0};
+}
+function salesOrderLinesFoot(lines,columns){
+ if(!lines.length)return '';
+ const n=soDraft.lines.length,label=lines.length<n?`Total · ${lines.length} of ${n} lines`:'Total';
+ const cells=columns.map(key=>{
+  if(key==='qty')return `<td class="line-foot-n" data-foot="qty">${lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1),0)}</td>`;
+  const c=SALES_METRIC_COLUMNS.find(x=>x.key===key);if(!c)return '<td></td>';
+  const f=salesMetricFootValue(key,lines),weight=/Weight/.test(key);
+  const text=(f.value==null?'—':f.value.toFixed(['rounded','billable'].includes(key)?1:2))+(f.partial?'<span class="pill warn sl-partial">Partial</span>':'');
+  const w=weight&&f.partial?salesOrderWeight(soDraft):null;
+  return `<td class="line-metric line-foot-n" data-foot="${key}">${w?`<button type="button" class="metric-cell-btn" title="${esc(salesWeightTip(w))}" onclick="salesOpenMetrics('orderWeight')"><b data-raw>${text}</b></button>`:`<b data-raw>${text}</b>`}</td>`;
+ }).join('');
+ return `<tfoot><tr class="line-foot" data-lines-foot><td colspan="2" class="line-foot-label">${esc(label)}</td>${cells}<td></td></tr></tfoot>`;
+}
+/* Окно «чего нет в весе»: что, в каких строках, где внести, Open. */
+function salesOrderWeightPanel(){
+ const w=salesOrderWeight(soDraft),lines=n=>n.length?` <span class="mut">· line${n.length>1?'s':''} ${n.slice(0,12).join(', ')}${n.length>12?'…':''}</span>`:'';
+ if(w.complete||!w.gaps.length)return '<p>Weight is complete.</p>';
+ return `<p>Known weight ${esc(salesKgText(w.kg))} kg. Missing data:</p><div class="metric-weight-gaps" data-weight-gaps>${w.gaps.map((g,i)=>`<span class="metric-weight-gap">${esc(g.what)}${lines(g.lines)} → ${esc(g.where)}${g.go&&(g.go.line||accessCan('masterdata'))?` <button type="button" class="sm" onclick="salesWeightGapOpen(${i})">Open</button>`:''}</span>`).join('')}</div>`;
+}
+/* Open: норма строки — окно Weight этой строки; карточка Data — уход из
+   заказа обычным путём (Save / Don't save), затем карточка. */
+function salesWeightGapOpen(i){
+ const g=soDraft&&salesOrderWeight(soDraft).gaps[i];if(!g||!g.go)return;
+ if(g.go.line){const l=soDraft.lines[g.lines[0]-1];if(l)salesOpenMetrics('weight',l.id);return;}
+ if(!accessCan('masterdata'))return;
+ salesLeaveDraft(()=>{tab='masterdata';if(g.go.setup){mdSetTab('setup');render();}else mdCatalogOpen(g.go.t,g.go.id);});
 }
 function salesCommercialOrderSummary(interactive){
  const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2):'—';
@@ -24482,7 +24637,7 @@ function salesWeightRow(row,index,editable){
 }
 function salesWeightPanel(line){
  const w=salesLineWeight(line,soDraft);
- return `<p>${'Calculated weight of all components in one unit. An empty norm means missing data, not zero weight.'}</p><button type="button" onclick="salesMetricsEditWeights=!salesMetricsEditWeights;render()">${salesMetricsEditWeights?'Close weight norms':'Edit weight norms'}</button>${salesMetricsEditWeights?`<p class="mut">${'Norms apply across all orders. Area norms and connectors are entered in grams; calculation converts them to kg.'}</p>`:''}<div class="metric-detail-scroll"><table class="metric-weight-table"><thead><tr><th>${'Component'}</th><th>${'Basis'}</th><th>${'Norm'}</th><th>kg / unit</th></tr></thead><tbody>${w.rows.map((r,i)=>salesWeightRow(r,i,salesMetricsEditWeights)).join('')}</tbody></table></div><div class="metric-price-row"><span>Unit Weight</span><b data-raw>${w.complete?w.kg.toFixed(2)+' kg':'—'}</b></div><div class="metric-price-row"><span>Line Weight · Qty ${line.qty}</span><b data-raw>${w.complete?w.lineKg.toFixed(2)+' kg':'—'}</b></div>${!w.complete?`<p class="metric-incomplete">${'Weight incomplete. Known components'}: ${w.knownKg.toFixed(2)} kg/unit · ${w.missing} ${'items need data'}</p>`:''}<h4>${'Additional components'}</h4><p class="mut">${'Supplied items only: hardware, fasteners and other components. A Clamp / Hinge processing mark does not itself mean hardware is supplied.'}</p>${(line.weightExtras||[]).map((x,i)=>`<div class="metric-extra"><input aria-label="Component name ${i+1}" value="${esc(x.label)}" placeholder="Component" oninput="salesSetWeightExtra(${i},'label',this.value)"><input aria-label="Component kg ${i+1}" type="number" min="0" step="any" value="${x.kg==null?'':x.kg}" placeholder="kg / unit" onchange="salesSetWeightExtra(${i},'kg',this.value)"><button type="button" onclick="salesRemoveWeightExtra(${i})">×</button></div>`).join('')}<button type="button" onclick="salesAddWeightExtra()">+ ${'Component'}</button>`;
+ return `<p>${'Calculated weight of all components in one unit. An empty norm means missing data, not zero weight.'}</p><button type="button" onclick="salesMetricsEditWeights=!salesMetricsEditWeights;render()">${salesMetricsEditWeights?'Close weight norms':'Edit weight norms'}</button>${salesMetricsEditWeights?`<p class="mut">${'Norms apply across all orders. Area norms and connectors are entered in grams; calculation converts them to kg.'}</p>`:''}<div class="metric-detail-scroll"><table class="metric-weight-table"><thead><tr><th>${'Component'}</th><th>${'Basis'}</th><th>${'Norm'}</th><th>kg / unit</th></tr></thead><tbody>${w.rows.map((r,i)=>salesWeightRow(r,i,salesMetricsEditWeights)).join('')}</tbody></table></div><div class="metric-price-row"><span>Unit Weight</span><b data-raw>${w.complete?w.kg.toFixed(2)+' kg':'—'}</b></div><div class="metric-price-row"><span>Line Weight · Qty ${line.qty}</span><b data-raw>${w.complete?w.lineKg.toFixed(2)+' kg':'—'}</b></div>${!w.complete?`<p class="metric-incomplete">${'Weight incomplete. Known components'}: ${w.knownKg.toFixed(2)} kg/unit · ${w.missing} ${'items need data'}</p>${w.gaps.length?`<p class="metric-incomplete" data-weight-where>${w.gaps.map(g=>esc(g.what)+' → '+esc(g.where)).join('<br>')}</p>`:''}`:''}<h4>${'Additional components'}</h4><p class="mut">${'Supplied items only: hardware, fasteners and other components. A Clamp / Hinge processing mark does not itself mean hardware is supplied.'}</p>${(line.weightExtras||[]).map((x,i)=>`<div class="metric-extra"><input aria-label="Component name ${i+1}" value="${esc(x.label)}" placeholder="Component" oninput="salesSetWeightExtra(${i},'label',this.value)"><input aria-label="Component kg ${i+1}" type="number" min="0" step="any" value="${x.kg==null?'':x.kg}" placeholder="kg / unit" onchange="salesSetWeightExtra(${i},'kg',this.value)"><button type="button" onclick="salesRemoveWeightExtra(${i})">×</button></div>`).join('')}<button type="button" onclick="salesAddWeightExtra()">+ ${'Component'}</button>`;
 }
 function salesMetricsLine(){return soDraft&&(soDraft.lines||[]).find(l=>l.id===salesMetricsLineId);}
 function salesSaveWeightNorm(index,value,factor){
@@ -24499,9 +24654,9 @@ function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtr
 function salesSetWeightExtra(i,key,value){const l=salesMetricsLine(),x=l&&l.weightExtras[i];if(!x)return;if(key==='label')x.label=value;else{x.kg=mdNonNeg(value);render();}}
 function salesMetricsModal(){
  if(!salesMetricsPanel||!soDraft)return '';
- const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Surcharges',orderCharges:'Order charges',area:'Unit area',weight:'Unit weight',price:'Unit price'};
+ const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Surcharges',orderCharges:'Order charges',area:'Unit area',weight:'Unit weight',orderWeight:'Order weight',price:'Unit price'};
  if(!titles[panel]||!line&&['area','weight','price'].includes(panel))return '';
- const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):salesPricePanel(line);
+ const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):panel==='orderWeight'?salesOrderWeightPanel():salesPricePanel(line);
  return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal${panel==='rules'?' metric-modal-wide':''}"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
 }
 /* Refresh computed cells without replacing the input currently receiving Tab. */
@@ -24512,6 +24667,7 @@ function salesRefreshLineMetrics(line){
   const next=Array.from(holder.children);tr.querySelectorAll('td[data-metric]').forEach((cell,i)=>{if(next[i])cell.replaceWith(next[i]);});
   const services=tr.querySelector('.line-services-cell');if(services)services.innerHTML=salesLineServicesSummary(line);
  }
+ const foot=document.querySelector('.sales-lines-table>tfoot');if(foot)foot.outerHTML=salesOrderLinesFoot(salesServiceFilteredEntries().map(x=>x.line),salesOrderScreenColumns());
  const total=document.querySelector('.sales-lines-block>.metric-order-total');if(total){const warning=total.previousElementSibling;if(warning&&warning.matches('[data-order-review]'))warning.remove();total.outerHTML=salesCommercialOrderSummary();}
  const prices=document.querySelector('.sales-services-order-btn .sales-order-price-summary');
  if(prices){const p=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce((n,g)=>n+g.lines,0);prices.innerHTML=`<b>${p.total.toFixed(2)} ${esc(soDraft.currency)}</b>${p.unpriced?`<small>${p.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}`;}
@@ -27716,6 +27872,7 @@ function salesBulkLiveHTML(){
   var why=salesMakeupApplyLocked()?'Saving…':r&&r.error?r.error:!picked.length?'Choose lines':!soBulkMakeupId?'Choose Makeup':'';
   var note=soBulkNote?`<span class='mk-applied' data-mk-note>${soBulkNote.ok?'✓ Applied '+esc(soBulkNote.code)+' to '+soBulkNote.ok+' line'+(soBulkNote.ok===1?'':'s'):'Not applied'}${soBulkNote.locked.length?' · '+soBulkNote.locked.length+' locked (line'+(soBulkNote.locked.length===1?' ':'s ')+soBulkNote.locked.join(', ')+')':''}</span>`:'';
   var count=r&&r.error?`<span class='mk-error' data-mk-error>${esc(r.error)}</span>`:`<span class='mk-count' data-mk-count><b>${picked.length} selected</b>${locked?` · <span class='mk-warn'>${locked} locked</span>`:''}${hidden?` · ${hidden} hidden by filter`:''}</span>`;
+  if(soDraft&&soDraft.makeups.length<2)return count;
   return `<button type='button' class='pri sm' data-mk-apply ${why?'disabled':''} title='${esc(why||'Apply Makeup')}' onclick='salesBulkApply()'>Apply</button>${note||count}`;
 }
 /* Без перерисовки: курсор остаётся в поле номера (typing — поле, в котором
@@ -27742,6 +27899,21 @@ function salesLineCheck(e,id){
   }else{if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);soShiftAnchor=id;soShiftOn=on;}
   salesRangeFromSelection();soServiceBulkPreview=null;soBulkNote=null;salesBulkSync();
 }
+/* Shift+клик по самой строке или по её номеру # — как по флажку (владелец,
+   30.10.2026: «шифт клик по полосе (линии)»). В поле ввода Shift+клик
+   остаётся полю (выделение текста); кнопки строки при Shift не срабатывают —
+   строка выделяется (Shift по × не удалит строку). Слушатель — один на
+   документ: render() пересоздаёт таблицу. Ячейки строки в батче inert —
+   клик по ним приходит таблице, строку находим по высоте клика. */
+function salesLineRowShift(ev){
+  var t=ev.shiftKey&&soDraft&&ev.target&&ev.target.closest?ev.target:null,tr=t&&t.closest('.sales-lines-table tbody tr[data-metrics-line-id]');
+  if(!tr&&t&&t.matches('.sales-lines-table'))tr=[...t.querySelectorAll('tbody tr[data-metrics-line-id]')].find(function(r){var b=r.getBoundingClientRect();return ev.clientY>=b.top&&ev.clientY<b.bottom;});
+  if(!tr||t.closest('input,select,textarea,[contenteditable="true"]'))return;
+  ev.preventDefault();ev.stopPropagation();
+  if(ev.type!=='click')return;
+  var id=tr.dataset.metricsLineId;salesLineCheck({shiftKey:true,target:{checked:!soSelectedLines.has(id)}},id);
+}
+if(typeof document!=='undefined'&&document.addEventListener){document.addEventListener('click',salesLineRowShift,true);document.addEventListener('mousedown',salesLineRowShift,true);}
 salesToggleLine=function(id,on){if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);salesRangeFromSelection();soServiceBulkPreview=null;soBulkNote=null;render();};
 salesToggleAllLines=function(on){salesServiceFilteredEntries().forEach(function(x){if(on)soSelectedLines.add(x.line.id);else soSelectedLines.delete(x.line.id);});if(!soSelectedLines.size)soShiftAnchor=null;salesRangeFromSelection();soServiceBulkPreview=null;soBulkNote=null;render();};
 function salesBulkClear(){soSelectedLines=new Set();soShiftAnchor=null;salesRangeClear();soServiceBulkPreview=null;soBulkNote=null;render();}
@@ -27764,6 +27936,10 @@ function salesMakeupBarHTML(){
   var ids=new Set(soDraft.lines.map(function(l){return l.id;}));soSelectedLines=new Set([...soSelectedLines].filter(function(id){return ids.has(id);}));
   if(soRangeSig&&soRangeSig!==salesLinesSig()){salesRangeClear();soBulkNote=null;}
   if(soBulkMakeupId&&!salesMakeupById(soDraft,soBulkMakeupId))soBulkMakeupId='';
+  /* Один Makeup — менять не на что (владелец, 30.10.2026: «какой смысл от
+     окна Makeup, если сейчас только 1 мейкап, она ещё и визуально большая»):
+     полосы нет; выбрали строки — узкая полоса с числом и Edgework. */
+  if(soDraft.makeups.length<2)return salesServiceVisibleSelected().length?`<div class='mk-bar mk-bar-one' data-mk-bar><span class='mk-live' data-mk-live>${salesBulkLiveHTML()}</span><span class='mk-grow'></span>${salesBulkServiceControls()}<span class='mk-hint'>Shift+click — range</span></div>${salesServiceBulkPreviewHtml()}`:'';
   var n=soDraft.lines.length,field=function(k,v,ph){return `<input class='mk-num' data-mk-field='${k}' inputmode='numeric' value='${esc(v)}' placeholder='${ph}' aria-label='${k==='from'?'From line':'To line'}' oninput='salesRangeInput("${k}",this.value)' onkeydown='if(event.key==="Enter")salesBulkApply()'>`;};
   return `<div class='mk-bar' data-mk-bar><b class='mk-title'>Makeup</b><span>Lines</span>${field('from',soRangeFrom,'1')}<span>to</span>${field('to',soRangeTo,String(n))}<span class='mk-arrow'>→</span><select class='mk-sel' data-mk-makeup aria-label='Makeup' onchange='salesBulkPickMakeup(this.value)'><option value=''>—</option>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${soBulkMakeupId===m.id?'selected':''}>${esc(m.code)}${salesMakeupGlassText(m)?' · '+esc(salesMakeupGlassText(m)):''}</option>`;}).join('')}</select><span class='mk-live' data-mk-live>${salesBulkLiveHTML()}</span><span class='mk-grow'></span>${salesBulkServiceControls()}<span class='mk-hint'>Shift+click — range</span></div>${salesServiceBulkPreviewHtml()}`;
 }
@@ -27841,7 +28017,7 @@ function salesOrderColumnCell(key,l,i,linked,st){
 }
 function salesOrderLines(){
   var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce(function(n,g){return n+g.lines;},0),hasServices=pricing.charges>0||commercial.length>0,columns=salesOrderScreenColumns();
-  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag a header to move or resize</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesMakeupBarHTML()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services${cwTableClass('lines')}'${cwTableAttrs('lines',columns)}>${cwColgroup('lines',columns)}<thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${soSelectedLines.has(l.id)?' data-picked':''}${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onclick='salesLineCheck(event,"${esc(l.id)}")'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}${typeof purSalesLinksHTML==='function'?purSalesLinksHTML(soDraft.id,l,columns.length+3):''}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
+  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag a header to move or resize</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesMakeupBarHTML()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services${cwTableClass('lines')}'${cwTableAttrs('lines',columns)}>${cwColgroup('lines',columns)}<thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${soSelectedLines.has(l.id)?' data-picked':''}${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onclick='salesLineCheck(event,"${esc(l.id)}")'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}${typeof purSalesLinksHTML==='function'?purSalesLinksHTML(soDraft.id,l,columns.length+3):''}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody>${salesOrderLinesFoot(entries.map(function(x){return x.line;}),columns)}</table></div>${salesCommercialOrderSummary()}</section>`;
 }
 
 /* ---------- Edgework Set editor ---------- */
@@ -28788,6 +28964,7 @@ function mdCatalogGo(key){
  mdSetTab(hit[2]);if(hit[2]==='materials')mdMatSwitch(hit[3],key);else if(hit[2]==='works')mdCatKind=key;
  mdCatalogQuery='';mdCatalogLimit=0;mdPeek='';if(typeof mdGlassLimit!=='undefined')mdGlassLimit=MD_PAGE;render();
 }
+function mdFilmDensity(x){const r=(DB.materialWeightRates||[]).find(r=>r.key==='film:'+x.id);return r?mdNonNeg(r.rate):null;}
 function mdCatalogCount(key){return (DB[key]||[]).filter(x=>x&&x.active!==false).length;}
 /* Чего не хватает в открытом списке (аудит D-4: «No price 466» над Gas
    считал весь каталог): цена, станция работы, вес и рецепт рамки. */
@@ -28796,7 +28973,10 @@ function mdCatalogHealth(node){
  if(node==='glassProduct')return [['No price',n(g=>g.salePriceAnnealed==null&&g.salePriceTempered==null)],['No short name',n(g=>!g.shortName)]];
  if(node==='spacerVariant')return [['No price',n(x=>x.salePrice==null)],['No weight',n(x=>x.weightG==null)],['Not measured',n(x=>x.weightG!=null&&!x.weightMeasured)],['No recipe',n(x=>!surroundRecipeById(x.recipeId))]];
  if(node==='serviceRate')return [['No station',n(w=>!w.rule&&!w.station)]];
- if(['gasProduct','sealantProduct','iguPart','interlayerProduct','fritProduct','spandrelProduct'].includes(node))return [['No price',n(x=>x.salePrice==null)]];
+ /* Плотность плёнки и газа — вес заказов (пункт 14): пусто — вес Partial. */
+ if(node==='interlayerProduct')return [['No price',n(x=>x.salePrice==null)],['No density',n(x=>mdFilmDensity(x)==null)]];
+ if(node==='gasProduct')return [['No price',n(x=>x.salePrice==null)],['No density',n(x=>x.densityKgM3==null)]];
+ if(['sealantProduct','iguPart','fritProduct','spandrelProduct'].includes(node))return [['No price',n(x=>x.salePrice==null)]];
  return [];
 }
 /* Сколько найденного показано; 0 — первая страница (MD_PAGE из views/masterdata, он грузится позже). */
@@ -28848,7 +29028,8 @@ function mdPeekFacts(t,x){
  else if(t==='surroundRecipe'){const fixed=p=>p==='spacer'||p==='gas',users=mdRecipeUsers(x.id);
   f.push(['PIB per side',x.pibPerSideMm==null?null:x.pibPerSideMm+' mm'],...x.rows.map(r=>[surroundPartLabel(r.part),fixed(r.part)?(r.part==='spacer'?'from the spacer card':'from the gas card'):r.amount==null?null:r.amount+' '+SURROUND_PER[r.per]+(r.wastePct?' · waste '+r.wastePct+'%':'')]),['Used by',users.length+' spacer'+(users.length===1?'':'s')]);
   if(x.rows.some(r=>!fixed(r.part)&&r.amount==null))miss.push('norm missing');}
- else{f.push(['Code',x.code],['Supplier',x.supplier],['Price',money(x.salePrice)]);if('salePrice' in x&&x.salePrice==null&&t!=='stockItem'&&t!=='heatTreatment')miss.push('no price');}
+ else{f.push(['Code',x.code],['Supplier',x.supplier],['Price',money(x.salePrice)]);if('salePrice' in x&&x.salePrice==null&&t!=='stockItem'&&t!=='heatTreatment')miss.push('no price');
+  if(t==='interlayerProduct'&&mdFilmDensity(x)==null||t==='gasProduct'&&x.densityKgM3==null)miss.push('no density');}
  return {facts:f,miss};
 }
 function mdPeekHTML(){
@@ -32799,7 +32980,9 @@ function salesListValue(info,k){
   case 'createdBy':{const e=orderCreatedBy(o.id);v=e?e.by:'';break;}
   case 'terms':v=finTermsFor(o).paymentMode==='credit'?'Credit':'Cash';break;
   case 'lines':v=lines.length;break;
-  case 'weight':v=finWithOrder(o,()=>{let kg=0,known=lines.length>0;lines.forEach(l=>{const w=salesLineWeight(l,o);if(w.complete&&w.lineKg!=null)kg+=w.lineKg;else known=false;});return known?Math.round(kg):null;});break;
+  /* Пункт 14: известный вес всегда, неполный — с Partial (salesListWeightCell);
+     число — для сортировки и фильтра, признак — в memo. */
+  case 'weight':{const w=finWithOrder(o,()=>salesOrderWeight(o));info.memo.weightInfo=w;v=w.kg;break;}
   case 'unitType':v=[...new Set((o.makeups||[]).filter(m=>lines.some(l=>l.makeupId===m.id)).map(m=>docUnitLabel(m.unitType)))].join(', ');break;
   case 'shapes':v=lines.filter(salesListShapedLine).length;break;
   case 'validUntil':v=q?(o.validUntil||''):'';break;
@@ -32970,6 +33153,15 @@ function salesListFilterChips(){
 
 /* ------------------------------ Экран ---------------------------------- */
 function salesListNum(v,digits){return v==null||v===''?'<span class="mut">—</span>':Number(v).toLocaleString('en-US',{minimumFractionDigits:digits||0,maximumFractionDigits:digits||0});}
+/* Вес (вариант 1 владельца, 30.10.2026): число всегда, неполный — метка
+   Partial, в подсказке чего нет и где внести; нет ничего — «—», не 0.
+   «Наверное лучше первый, так как он акцентирует внимание офиса на том, что
+   нет информации». Ушедший в архив до 30.10 — только число (полный вес). */
+function salesListWeightCell(v,w){
+ if(v==null)return '<td class="n" title="Weight unavailable"><span class="mut">—</span></td>';
+ if(!w||w.complete)return `<td class="n"${w&&w.estimated?' title="Nominal glass thickness"':''}>${w&&w.estimated?'≈ ':''}${esc(salesKgText(v))}</td>`;
+ return `<td class="n" title="${esc(salesWeightTip(w))}" data-weight-partial>${esc(salesKgText(v))}<span class="pill warn sl-partial">Partial</span></td>`;
+}
 function salesListCell(info,col){
  if(info.n)return ncrListCell(info,col);
  const o=info.o,q=info.q,v=salesListValue(info,col.k);
@@ -32980,7 +33172,8 @@ function salesListCell(info,col){
   case 'created':case 'due':case 'validUntil':case 'updated':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'status':return `<td>${q?salesQuoteGroupPill(o):salesStatusPill(o)}${!q&&o.onHold?' <span class="pill hold">On Hold</span>':''}</td>`;
   case 'glass':case 'orderItems':return `<td><span class="sl-glass" title="${esc(v)}">${raw(v||'—')}</span></td>`;
-  case 'units':case 'pcs':case 'lines':case 'shapes':case 'revisions':case 'weight':return `<td class="n">${salesListNum(v)}</td>`;
+  case 'weight':return salesListWeightCell(v,info.memo.weightInfo);
+  case 'units':case 'pcs':case 'lines':case 'shapes':case 'revisions':return `<td class="n">${salesListNum(v)}</td>`;
   case 'area':return `<td class="n">${salesListNum(v,1)}</td>`;
   case 'total':return `<td class="n${!q&&finOrderCounts(o)?'':' mut'}">${finFmt(v)}</td>`;
   case 'receipts':return `<td class="n">${v==null?'<span class="mut">—</span>':finFmt(v)}</td>`;
@@ -33005,6 +33198,10 @@ function salesListFooter(rows,cols){
   if(!c.sum)return '<td></td>';
   const vals=rows.map(r=>salesListValue(r,c.k)).filter(v=>v!=null&&v!=='');
   const total=vals.reduce((s,v)=>s+Number(v),0);
+  /* Вес: сумма известного; хоть один заказ неполный или без веса — Partial;
+     ничего не известно — «—», а не 0. NCR веса не имеют. */
+  if(c.k==='weight'){const own=rows.filter(r=>!r.n),part=own.filter(r=>{const w=r.memo.weightInfo;return salesListValue(r,'weight')==null||!!w&&!w.complete;}).length;
+   return `<td class="n" data-sum="weight"${part?` title="${part} order${part===1?'':'s'} without full weight"`:''}>${vals.length?esc(salesKgText(total))+(part?'<span class="pill warn sl-partial">Partial</span>':''):'<span class="mut">—</span>'}</td>`;}
   return `<td class="n" data-sum="${c.k}">${c.money?finFmt(finMoney(total)):total.toLocaleString('en-US',{minimumFractionDigits:c.digits||0,maximumFractionDigits:c.digits||0})}</td>`;
  }).join('');
  return `<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head" data-foot-count>${head}</td>${sums}<td></td></tr></tfoot>`;
@@ -34614,8 +34811,10 @@ function stkRoute(o,l,c){
 function stkWeight(l,o,lite,plan){
  const w=salesLineWeight(l,o,plan);
  if(lite==null)return w.kg!=null?{kg:w.kg,exact:true}:w.knownKg?{kg:w.knownKg,exact:false}:null;
- const rows=w.rows.filter(r=>r.label.startsWith('Lite '+lite+' ·')&&r.kg!=null);
- return rows.length?{kg:rows.reduce((s,r)=>s+r.kg,0),exact:true}:null;
+ /* Нет нормы покрытия лайта — известная часть со «≈», а не точное число
+    (пункт 14). */
+ const rows=w.rows.filter(r=>r.label.startsWith('Lite '+lite+' ·')),known=rows.filter(r=>r.kg!=null);
+ return known.length?{kg:known.reduce((s,r)=>s+r.kg,0),exact:known.length===rows.length&&!known.some(r=>r.estimated)}:null;
 }
 /* Лист раскроя этого стекла — из плана батча (erp/production/cut-layout).
    Карта считается один раз на батч: стикеров бывает двести. */
@@ -47787,7 +47986,10 @@ function repOrderFacts(){
    delivery:o.delivery==='delivery'?'Delivery':'Pickup',status:salesStatusLabel(o),state,daysLate:state==='Late'?Math.max(0,days(due,finish||today)):0,ready,
    lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,judgedN:state==='On time'||state==='Late'?1:0};
   repLazy(row,'area',()=>finWithOrder(o,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,o);return n+(a.valid?a.actual*Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)):0);},0))||null);
-  repLazy(row,'kg',()=>{let kg=0;try{finWithOrder(o,()=>lines.forEach(l=>{const w=salesLineWeight(l,o);if(w&&w.lineKg!=null)kg+=w.lineKg;}));}catch(e){}return kg||null;});
+  /* Вес — известное, как в Sales (пункт 14); полнота — своим полем. */
+  let ow=null;const owOf=()=>{if(!ow){try{ow=finWithOrder(o,()=>salesOrderWeight(o));}catch(e){ow={kg:null,complete:false};}}return ow;};
+  repLazy(row,'kg',()=>owOf().kg);
+  repLazy(row,'kgStatus',()=>{const w=owOf();return w.kg==null?'Unavailable':w.complete?'Complete':'Partial';});
   repLazy(row,'total',()=>{const t=finOrderTotals(o);return t&&t.complete?t.grand:null;});
   rows.push(row);
  });
@@ -48669,7 +48871,7 @@ const REP_SRC={
   fields:()=>[REP_F.date('due','Due'),REP_F.date('created','Created'),REP_F.date('shipped','Shipped'),REP_F.date('ready','Ready for pickup'),
    REP_F.date('stVerified','Verified'),REP_F.date('stBatched','Batched'),REP_F.date('stReady','All ready'),REP_F.date('stDone','Done'),REP_F.text('order','Order'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
    REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery'),REP_F.dim('status','Status'),REP_F.dim('state','On time'),REP_F.dim('hold','On hold')]
-   .concat(repOrderFields(),[REP_F.num('units','Units'),REP_F.num('glassN','Glass pcs'),REP_F.num('area','Area ft²',{digits:1}),REP_F.num('lines','Lines'),REP_F.num('shapes','Shapes'),REP_F.num('kg','Weight kg'),
+   .concat(repOrderFields(),[REP_F.num('units','Units'),REP_F.num('glassN','Glass pcs'),REP_F.num('area','Area ft²',{digits:1}),REP_F.num('lines','Lines'),REP_F.num('shapes','Shapes'),REP_F.num('kg','Weight kg'),REP_F.dim('kgStatus','Weight'),
    REP_F.num('daysLate','Days late'),REP_F.num('lead','Lead time, days'),REP_F.num('dVerify','Days new → verified'),REP_F.num('dBatch','Days verified → batched'),
    REP_F.num('dReady','Days batched → ready'),REP_F.num('dDone','Days ready → done'),REP_F.num('total','Order total',{money:true})]),
   metrics:[{k:'count',label:'Orders',agg:'count'},{k:'late',label:'Late orders',agg:'sum',f:'late'},{k:'onTime',label:'On time %',agg:'ratio',num:'onTimeN',den:'judgedN',pct:true,digits:0},
@@ -50285,6 +50487,8 @@ function archiveCollect(ids){
 function archiveRowOf(o,day,now){
  const info=salesListInfo(o),row={};
  (typeof SALES_LIST_COLUMNS!=='undefined'?SALES_LIST_COLUMNS:[]).forEach(c=>{try{row[c.k]=salesListValue(info,c.k);}catch(e){row[c.k]=null;}});
+ /* Неполный вес (пункт 14) — число известного и что не учтено. */
+ const wi=info.memo.weightInfo;if(wi&&!wi.complete&&row.weight!=null)row.weightPartial=salesWeightMissingText(wi)||'Partial';
  const q=salesIsQuote(o),b=info.memo.balanceInfo,glass=new Set();
  /* Стёкла каталога в Makeup: Master Data не даст удалить их, пока заказ в архиве. */
  (o.makeups||[]).forEach(m=>(m.panes||[]).forEach(p=>[p.glassProductId,p.laminated&&p.laminated.outer&&p.laminated.outer.glassProductId,p.laminated&&p.laminated.inner&&p.laminated.inner.glassProductId].forEach(id=>{if(id)glass.add(id);})));
@@ -50310,6 +50514,7 @@ function archiveListValue(info,k){
  const a=info.a;let v=Object.prototype.hasOwnProperty.call(a.row,k)?a.row[k]:null;
  if(k==='customer'||k==='rep'){const c=readMemo('archiveCustomers',[DB.customer],()=>new Map((DB.customer||[]).map(x=>[x.id,x]))).get(a.customerId);if(c)v=k==='customer'?c.displayName||c.legalName||'':c.salesRep||'';}
  if(k==='balance'&&a.pay)info.memo.balanceInfo=a.pay;
+ if(k==='weight'&&a.row.weightPartial)info.memo.weightInfo={complete:false,gaps:[],missingText:a.row.weightPartial};
  /* Order Items появилась 30.10.2026: у ушедших раньше количеств нет — так и
     пишем, а не «—» или ноль; разбирать Glass нельзя (в ней нет Qty). */
  if(k==='orderItems'&&!Object.prototype.hasOwnProperty.call(a.row,k))v='Quantities unavailable';
