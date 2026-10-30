@@ -269,8 +269,10 @@ function stkRoute(o,l,c){
 function stkWeight(l,o,lite,plan){
  const w=salesLineWeight(l,o,plan);
  if(lite==null)return w.kg!=null?{kg:w.kg,exact:true}:w.knownKg?{kg:w.knownKg,exact:false}:null;
- const rows=w.rows.filter(r=>r.label.startsWith('Lite '+lite+' ·')&&r.kg!=null);
- return rows.length?{kg:rows.reduce((s,r)=>s+r.kg,0),exact:true}:null;
+ /* Нет нормы покрытия лайта — известная часть со «≈», а не точное число
+    (пункт 14). */
+ const rows=w.rows.filter(r=>r.label.startsWith('Lite '+lite+' ·')),known=rows.filter(r=>r.kg!=null);
+ return known.length?{kg:known.reduce((s,r)=>s+r.kg,0),exact:known.length===rows.length&&!known.some(r=>r.estimated)}:null;
 }
 /* Лист раскроя этого стекла — из плана батча (erp/production/cut-layout).
    Карта считается один раз на батч: стикеров бывает двести. */
