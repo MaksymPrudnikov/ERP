@@ -1607,6 +1607,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .pill.st-open{background:var(--surface-3);color:var(--text)}
 .pill.st-won{background:var(--success-soft);color:var(--success)}
 .pill.st-new{background:var(--surface-3);color:var(--text)}
+.pill.st-draft{background:var(--surface);color:var(--warning);border:1px solid var(--warning);font-weight:800;letter-spacing:.04em}
 .pill.st-verified{background:var(--accent-soft);color:var(--accent)}
 .pill.st-batched{background:var(--warning-soft);color:var(--warning)}
 .pill.st-ready{background:var(--success-soft);color:var(--success);box-shadow:inset 0 0 0 1px var(--success-line)}
@@ -1711,6 +1712,8 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sl-glass{display:inline-block;max-width:220px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:var(--text-2);font-size:12px}
 .sl-table tr.sl-row-sel td{background:var(--accent-soft)}
 .sl-table tr.sl-row-work td{background:var(--surface-3)}
+/* Черновик заказа (пункт 2): вся строка светло-жёлтая. */
+.sl-table tr.sl-row-draft td{background:var(--warning-soft)}
 .sl-table tr.sl-row-hold td{background:var(--danger-soft)}
 .sl-table tr.sl-row-hold td:first-child{box-shadow:inset 4px 0 0 var(--danger)}
 .pill.hold{background:var(--danger-soft);color:var(--danger);border:1px solid var(--danger-line)}
@@ -3637,7 +3640,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='92a28f05e4cf';
+var ERP_BUILD='54ee3b23a4e3';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13118,7 +13121,7 @@ function normalizeSalesOrder(o){
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),...(x=>x?{customerContactId:x}:{})(salesString(o.customerContactId)),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(r=>Object.keys(r).length?{surchargeRates:r}:{})(normalizeSalesSurchargeRates(o.surchargeRates)),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),...(x=>x?{customerContactId:x}:{})(salesString(o.customerContactId)),...(o.isDraft===true&&o.kind!=='quote'?{isDraft:true}:{}),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(r=>Object.keys(r).length?{surchargeRates:r}:{})(normalizeSalesSurchargeRates(o.surchargeRates)),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
   remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
   ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines)),
@@ -13566,6 +13569,10 @@ function salesPrevStatus(o){const f=salesOrderFlow(o),i=f.indexOf(o&&o.status);r
 
 function salesKindOf(o){return o&&o.kind==='quote'?'quote':'order';}
 function salesIsQuote(o){return salesKindOf(o)==='quote';}
+/* Черновик заказа (пункт 2): Save as Draft из окна выхода. Не идёт ни в
+   Verify, ни в батч, ни в Shipping, ни в деньги и отчёты — пока обычный Save
+   не сделает его заказом. Старый status:'draft' — это New, не черновик. */
+function salesIsDraft(o){return !!o&&o.isDraft===true&&!salesIsQuote(o);}
 /* Старые заказы жили одним статусом «draft» — это сохранённые заказы, а не
    квоты, поэтому они становятся заказами в статусе New. */
 function salesLifecycleFields(o){
@@ -13592,6 +13599,7 @@ function nextSalesQuoteNumber(){
 function salesStatusLabel(o,status){
  status=status||(o&&o.status);
  if(salesIsQuote(o))return status==='won'?'Won':status==='sent'?'Sent':'Not sent';
+ if(salesIsDraft(o)&&status===o.status)return 'Draft';
  if(status==='shipping')return o&&o.status!=='shipping'&&o.statusDates&&o.statusDates.shipping?'Partially shipped':typeof shippingBackCount==='function'&&o&&o.id&&shippingBackCount(o)===0?'Shipped':'Partially shipped';
  if(status==='done')return o&&(o.fulfilledVia||o.delivery)==='delivery'?'Delivered':'Picked up';
  return ({new:'New',verified:'Verified',batched:'Batched',ready:'Ready',closed:'Closed',cancelled:'Cancelled'})[status]||'New';
@@ -13603,6 +13611,7 @@ function salesStatusPill(o){
   const won=(DB.salesOrder||[]).find(x=>x.id===o.wonOrderId);
   return `<span class="pill st-won">Won${won&&won.businessNumber?' → '+esc(won.businessNumber):''}</span>`;
  }
+ if(salesIsDraft(o))return '<span class="pill st-draft">DRAFT</span>';
  return `<span class="pill st-${esc(o.status||'new')}">${esc(salesStatusLabel(o))}${o.status==='batched'?' 🔒'+(salesUnbatchedLines(o).length?(p=>' · '+p.assigned+'/'+p.total+' pcs')(glassBatchProgress(o)):''):''}</span>`;
 }
 function salesShortDate(iso){return typeof docDate==='function'?docDate(iso):String(iso||'').slice(0,10);}
@@ -13758,8 +13767,11 @@ function salesTransitionChecks(o,next){
     (проход 7.10.2026: Harbour 76005 без PO прошёл до самовывоза).
     perOrder — в Shipping окно своё у каждого заказа, без строки долга.
     block — без «…anyway»: без PO дальше не идёт (владелец, 8.10.2026). */
- const noPo=c&&c.poRequired&&!String(o.customerPo||'').trim()&&['verified','batched','done'].includes(next);
- if(noPo)out.push({title:'PO missing — order '+num,sub,rows:[['Customer',name+' requires a PO']],note:'Enter the PO in the order.',block:true,perOrder:true,short:'PO missing'});
+ /* PO — у всех клиентов (владелец 29.10.2026: «PO для всех обязательно»;
+    не прислали — впишут своё, например дату заказа). */
+ if(salesIsDraft(o)&&['verified','batched','done'].includes(next))out.push({title:'Draft — order '+num,sub,rows:[],note:'Open the draft and Save it as an order.',block:true,perOrder:true,short:'Draft'});
+ const noPo=c&&!String(o.customerPo||'').trim()&&['verified','batched','done'].includes(next);
+ if(noPo)out.push({title:'PO missing — order '+num,sub,rows:[['Customer PO','Not entered']],note:'Enter the PO in the order.',block:true,perOrder:true,short:'PO missing'});
  if(next==='verified'||next==='batched'){
   if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway:'Continue anyway',short:'Customer on hold'});
   if(b.total==null)out.push({title:'Pricing is not complete',sub,rows:[],note:'Some lines have no price.',anyway:'Continue anyway',short:'Pricing not complete'});
@@ -13970,8 +13982,8 @@ function salesConvertQuote(){
 function salesConvertQuoteRecord(id,po){
  const quote=DB.salesOrder.find(o=>o.id===id);if(!quote||!salesIsQuote(quote)||salesQuoteWonMember(quote))return;
  const c=salesFindCustomer(quote.customerId),poText=salesString(po!=null?po:quote.customerPo);
- if(c&&c.poRequired&&!poText){
-  salesDialogOpen({title:'PO required · '+quote.businessNumber,sub:(c.displayName||c.legalName)+' requires a PO',rows:[],input:{label:'Customer PO',value:''},note:po!=null?'Enter the PO.':'',
+ if(c&&!poText){
+  salesDialogOpen({title:'PO required · '+quote.businessNumber,sub:(c.displayName||c.legalName)+' · enter the Customer PO',rows:[],input:{label:'Customer PO',value:''},note:po!=null?'Enter the PO.':'',
    buttons:[{label:'Back'},{label:'Convert to order',kind:'pri',run:d=>salesConvertQuoteRecord(id,d.input.value)}]});
   setTimeout(()=>{const el=document.querySelector('[data-dialog-input]');if(el)el.focus();},0);return;
  }
@@ -14014,7 +14026,7 @@ function salesHeaderActions(o){
  if(typeof archiveViewing==='function'&&archiveViewing(o))return archiveHeaderActions(o);
  const st=salesSaveState(o);
  const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesOrderClose()">Close</button>'];
- if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave({bg:true})">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
+ if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave({bg:true})">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'||salesIsDraft(o)?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
  if(typeof recutCanOpenHere==='function'&&recutCanOpenHere(o))parts.push('<button class="recut-btn" data-recut-open onclick="ncrOpenForm(\'recut\')">Recut</button>');
  if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open onclick="ncrOpenForm(\'ncr\')">NCR</button>');
@@ -14776,7 +14788,7 @@ function finActiveReceipts(){return (DB.receipt||[]).filter(r=>!r.voided);}
 function finReceiptApplied(r){return finMoney((r.allocations||[]).reduce((s,a)=>s+a.amount,0));}
 function finReceiptOnAccount(r){return r.voided?0:finMoney(r.amount-finReceiptApplied(r)-finRefunded(r.id));}
 /* Долг и лимит — только по заказам: квота не долг, отменённый заказ тоже. */
-function finOrderCounts(o){return !!o&&o.kind!=='quote'&&o.status!=='cancelled';}
+function finOrderCounts(o){return !!o&&o.kind!=='quote'&&o.status!=='cancelled'&&o.isDraft!==true;}
 
 /* Цена строки частично читает Makeup из открытого заказа (soDraft). Сумма
    сохранённого, не открытого заказа поэтому считается с ним «на месте»
@@ -17925,7 +17937,8 @@ function salesDraftHasWork(){
  /* Заказ из архива на просмотре — сохранять нечего (erp/archive). */
  if(typeof archiveViewing==='function'&&archiveViewing(soDraft))return false;
  if(soQuoteCopyOf){const src=DB.salesOrder.find(x=>x.id===soQuoteCopyOf);return !src||salesQuoteContentKey(soDraft)!==salesQuoteContentKey(src);}
- if(soEdit==='new')return soDraft.lines.length>1||soDraft.lines.some(l=>!salesOrderLineIsBlank(l))||!!(soDraft.extraItems||[]).length||!!salesString(soDraft.customerPo)||!!salesString(soDraft.notes);
+ /* Выбранный клиент — тоже работа (пункт 2, P2-R8): уход спрашивает. */
+ if(soEdit==='new')return soDraft.lines.length>1||soDraft.lines.some(l=>!salesOrderLineIsBlank(l))||!!(soDraft.extraItems||[]).length||!!salesString(soDraft.customerPo)||!!salesString(soDraft.notes)||!!soDraft.customerId;
  const saved=DB.salesOrder.find(x=>x.id===soEdit);
  return saved?JSON.stringify(saved)!==JSON.stringify(normalizeSalesOrder(soDraft)):soDraft.lines.length>0;
 }
@@ -18001,10 +18014,35 @@ function salesLeaveDraft(next){
  if(!soDraft){go();return;}
  if(!salesDraftHasWork()){salesDraftDrop(true);go();return;}
  const isNew=soEdit==='new',what=salesIsQuote(soDraft)?'quote':'order',name=soDraft.businessNumber||'';
- salesDialogOpen({title:isNew?'Save the '+what+' before leaving?':'Update '+(name||'the '+what)+' before leaving?',rows:[],
+ /* Save as Draft — только здесь, у нового заказа и у черновика (пункт 2,
+    вариант 1 владельца 30.10.2026); у квоты и готового заказа окно прежнее. */
+ const draft=!salesIsQuote(soDraft)&&(isNew||salesIsDraft(DB.salesOrder.find(x=>x.id===soEdit)));
+ salesDialogOpen({title:isNew?'Save the '+what+' before leaving?':draft?'Update draft '+name+' before leaving?':'Update '+(name||'the '+what)+' before leaving?',rows:[],
   buttons:[{label:'Back'},
    {label:isNew?"Don't save":"Don't update",run:()=>{salesDraftDrop(true);go();}},
-   {label:isNew?'Save':'Update',kind:'pri',run:()=>{if(salesOrderSave()===true){salesDraftDrop(false);go();}}}]});
+   ...(draft?[{label:'Save as Draft',run:()=>{if(salesOrderSaveDraft()===true){salesDraftDrop(false);go();}}}]:[]),
+   {label:isNew||draft?'Save':'Update',kind:'pri',run:()=>{if(salesOrderSave()===true){salesDraftDrop(false);go();}}}]});
+}
+/* Save as Draft: заказ пишется как есть — без проверок клиента, PO и
+   размеров, номер — при первой записи. Стекло, батчи, условия оплаты и
+   отгрузки создаёт только обычный Save. Отказ записи — заказ остаётся
+   открытым с ошибкой, как у Save. */
+function salesOrderSaveDraft(){
+ const editor={draft:soDraft?JSON.parse(JSON.stringify(soDraft)):null,edit:soEdit,quote:soQuoteCopyOf,shapes:soShapeSnapshot,baseline:soSavedBaseline};
+ const out=storageCommand(()=>{
+  const rebased=salesRebaseDraft(DB.salesOrder.find(x=>x.id===soEdit));if(rebased!==true)throw new Error(rebased);
+  salesSnapshotAllChargePricing();
+  soDraft=normalizeSalesOrder(soDraft);soDraft.isDraft=true;
+  if(!soDraft.businessNumber)soDraft.businessNumber=nextSalesOrderNumber();
+  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;
+  soDraft.priceBook=salesPriceBookOf(soDraft);
+  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
+  normalizeSalesOrderIn(soDraft.id);salesPruneOrphanShapes();salesMeasureWrite(DB.salesOrder.find(x=>x.id===soDraft.id));
+  soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;
+  return true;
+ },salesOrderScope(soEdit));
+ if(!out.ok){soDraft=editor.draft;soEdit=editor.edit;soQuoteCopyOf=editor.quote;soShapeSnapshot=editor.shapes;soSavedBaseline=editor.baseline;render();const e=document.getElementById('e_sales_order');if(e)fail(e,out.error);return false;}
+ soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));render();return true;
 }
 function salesOrderClose(){salesLeaveDraft();}
 /* Боковое меню: уход из заказа (и из редактора формы его строки) — тот же
@@ -18081,7 +18119,8 @@ function salesOrderSaveCommand(opts){
     (владелец, 8.10.2026: «без PO ничего не сохранять… PO сразу же с заказом»). */
  /* Контакт — только лицо этого клиента: удалённое или чужое — основное. */
  if(!customer.contacts.some(x=>x.id===soDraft.customerContactId))soDraft.customerContactId=customerPrimaryContact(customer).id||'';
- if(customer.poRequired&&!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'This customer requires a PO. Enter the PO.');
+ /* 29.10.2026 — у всех клиентов: «PO для всех обязательно». */
+ if(!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'Enter the Customer PO.');
  previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  const shippingError=shippingSaveGuard(soDraft,previousOrder);if(shippingError)return fail(e,shippingError);
  if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&(DB.receipt||[]).some(r=>r.allocations.some(a=>a.orderId===soDraft.id)))return fail(e,'This order has payment records. Its customer cannot change.');
@@ -18129,6 +18168,8 @@ function salesOrderSaveCommand(opts){
  const copyOf=salesQuoteCopySource();
  if(copyOf){const rev=salesQuoteNextRev(copyOf);soDraft.quoteGroupId=salesQuoteGroupId(copyOf);soDraft.quoteRev=rev;soDraft.businessNumber=salesQuoteBaseNumber(copyOf)+'-R'+rev;soDraft.status='open';soDraft.sentAt='';soDraft.statusDates={};if(soDraft.validUntil===copyOf.validUntil)soDraft.validUntil='';}
  if(!soDraft.businessNumber)soDraft.businessNumber=salesIsQuote(soDraft)?nextSalesQuoteNumber():nextSalesOrderNumber();
+ /* Обычный Save делает черновик заказом — та же запись, тот же номер. */
+ delete soDraft.isDraft;
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;if(!soDraft.statusDates[soDraft.status])soDraft.statusDates[soDraft.status]=soDraft.updatedAt;
  /* Цены справочников — на день сохранения (salesBook): прежние в заказе
     остаются, новые позиции берут Master Data (владелец, 20.10.2026). */
@@ -27692,7 +27733,7 @@ function orderQueueKey(){return tab==='shipping'?shippingTab:optimizationTab;}
 function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TABS;}
 /* Заказ одного склада после Verify ждёт выдачи в Shipping, а не батча. */
 function optimizationMatches(o,key){
- if(!o||salesIsQuote(o))return false;
+ if(!o||salesIsQuote(o)||salesIsDraft(o))return false;
  /* Строки без батча — только для To batch и Done: остальным вкладкам они не
     нужны, а на годе это 1,9 с на слабом ПК (числа на вкладках). */
  const fresh=()=>salesUnbatchedLines(o).length;
@@ -32623,7 +32664,7 @@ function salesListView(){
  const body=rows.map(r=>{
   if(r.n)return ncrListRow(r,cols);
   if(r.a)return archiveListRow(r,cols);
-  const o=r.o,sel=salesListSel.has(o.id),cls=[!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
+  const o=r.o,sel=salesListSel.has(o.id),cls=[salesIsDraft(o)?'sl-row-draft':'',!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
@@ -38515,7 +38556,7 @@ function consRows(){
   if(!goneOf(o).has(a.piece))built.set(o.id+'|'+l.id,(built.get(o.id+'|'+l.id)||0)+1);
   perOf(o,l).forEach((q,k)=>{const[t,...id]=k.split(':'),x=row(t,id.join(':'));if(Number.isFinite(q))x.used+=q;else x.unknown++;});
  });
- (DB.salesOrder||[]).forEach(o=>{
+ (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(salesIsQuote(o)||!CONS_RESERVE_STATES.includes(o.status))return;
   (o.lines||[]).forEach(l=>{
    const m=salesMakeupById(o,l.makeupId);if(!m||!(m.cavities||[]).length)return;
@@ -46510,7 +46551,7 @@ DEFAULT.skip=[];
 const SKIP_PICKUP='pickup',SKIP_DELIVERED='delivery';
 function skipAllowed(){return typeof accessCan==='function'&&(accessCan('users')||accessCan('finance'));}
 function skipFind(id){return (DB.skip||[]).find(s=>s&&s.id===id)||null;}
-function skipCanOpen(o){return !!o&&!salesIsQuote(o)&&!['closed','cancelled'].includes(o.status)&&!!salesRecord(o.id);}
+function skipCanOpen(o){return !!o&&!salesIsQuote(o)&&!salesIsDraft(o)&&!['closed','cancelled'].includes(o.status)&&!!salesRecord(o.id);}
 function skipForOrder(orderId){return (DB.skip||[]).filter(s=>s&&s.orderId===orderId);}
 /* Индексы на один расчёт: Skip смотрит на сотни стёкол заказа. */
 function skipCtx(){
@@ -47347,7 +47388,7 @@ function repOrderFacts(){
   if(done||o.status==='shipping'&&(()=>{const q=shippingSummary(o);return q.glass>0&&q.physicalReady+q.lines.reduce((n,r)=>n+r.shipped,0)>=q.glass;})())return repDay(readyAt.get(o.id)||'')||shipped;
   return '';
  };
- (DB.salesOrder||[]).forEach(o=>{
+ (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(!o||salesIsQuote(o)||o.status==='cancelled')return;
   const done=['done','closed'].includes(o.status),shipped=repOrderShipped(o),due=o.dueDate||'';
   const ready=o.delivery==='pickup'?pickupReady(o,done,shipped):'',finish=o.delivery==='pickup'?ready:shipped;
@@ -47382,7 +47423,7 @@ function repOrderedFacts(){
  const stamp=(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(',');
  if(repOrderedCache.stamp===stamp&&repOrderedCache.rows)return repOrderedCache.rows;
  const rows=[];
- (DB.salesOrder||[]).forEach(o=>{
+ (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(!o||salesIsQuote(o)||o.status==='cancelled')return;
   finWithOrder(o,()=>(o.lines||[]).forEach(l=>{
    const live=Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)),a=salesLineAreas(l,o),per=a&&a.valid?a.actual:0,m=salesMakeupById(o,l.makeupId);
@@ -47551,7 +47592,7 @@ function repSoldFacts(want){
  const pick=want&&want.range&&['created','due','shipped'].includes(want.df)?want:null,key=pick?pick.df+'|'+pick.range.join('~'):'all';
  if(repSoldCache.sets.has(key))return repSoldCache.sets.get(key);
  const rows=[],seen=new Set();
- (DB.salesOrder||[]).forEach(o=>{
+ (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(!o||salesIsQuote(o)||o.status==='cancelled')return;seen.add(o.id);
   const shipped=repOrderShipped(o);
   if(pick){const d=repIsoDay(pick.df==='created'?salesListIsoDay(o.createdAt):pick.df==='due'?o.dueDate:shipped);if(!d||(pick.range[0]&&d<pick.range[0])||(pick.range[1]&&d>pick.range[1]))return;}
@@ -47659,7 +47700,7 @@ function repShopFacts(){
  if(repShopCache.stamp===stamp&&repShopCache.rows)return repShopCache.rows;
  const ship=shippingStations().ship,batches=stationBatchIndex(),scansBy=new Map(),rows=[];
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!scansBy.has(s.piece))scansBy.set(s.piece,[]);scansBy.get(s.piece).push(s);});
- (DB.salesOrder||[]).forEach(o=>{
+ (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(!o||salesIsQuote(o)||REP_SHOP_DONE.includes(o.status))return;
   try{finWithOrder(o,()=>repShopOrder(o,{today,ship,batches,scansBy,rows}));}catch(e){}
  });
@@ -48122,7 +48163,7 @@ function repCustomerFacts(){
   if(day){if(!x.first||day<x.first)x.first=day;if(day>x.last)x.last=day;}
   x.orders++;if(o)x.live.push(o);else x.archived+=+archived||0;
  };
- (DB.salesOrder||[]).forEach(o=>{if(!o||salesIsQuote(o)||o.status==='cancelled')return;seen.add(o.id);add(o.customerId,salesListIsoDay(o.createdAt),o);});
+ (DB.salesOrder||[]).forEach(o=>{if(!o||salesIsQuote(o)||salesIsDraft(o)||o.status==='cancelled')return;seen.add(o.id);add(o.customerId,salesListIsoDay(o.createdAt),o);});
  if(typeof archiveIndex!=='undefined')archiveIndex.forEach((a,id)=>{
   if(seen.has(id)||a.kind!=='order'||a.status==='cancelled')return;
   const t=a.row&&+a.row.total;add(a.customerId,String(a.createdAt||'').slice(0,10),null,Number.isFinite(t)?t:0);
