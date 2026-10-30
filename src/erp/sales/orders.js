@@ -36,8 +36,8 @@ function salesApplyCustomerDefaults(id){
 }
 /* Строки поиска в списке больше нет — фильтры колонок (views/sales-list-ui). */
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(kind){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){salesSaveQueue(()=>salesOrderNew(kind),'A new '+(kind==='quote'?'quote':'order')+' opens after saving.');return;}soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){const x=salesRecord(id);salesSaveQueue(()=>salesOrderEdit(id),(x&&x.businessNumber?salesSaveTitle(x).replace(/^./,c=>c.toUpperCase()):'The order')+' opens after saving.');return;}salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){salesSaveQueue(()=>salesOrderNew(kind),'A new '+(kind==='quote'?'quote':'order')+' opens after saving.');return;}soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){const x=salesRecord(id);salesSaveQueue(()=>salesOrderEdit(id),(x&&x.businessNumber?salesSaveTitle(x).replace(/^./,c=>c.toUpperCase()):'The order')+' opens after saving.');return;}salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;soCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -109,7 +109,7 @@ function salesDraftDrop(discard){
  soSavedBaseline=null;
  const restored=!!discard&&salesShapeSnapshotRestore();
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
- salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
+ salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
  if(salesPruneOrphanShapes()||restored)touch();
  /* Заказ из архива на просмотре — его записи уходят из DB (erp/archive). */
  if(typeof archiveVisitEnd==='function')archiveVisitEnd();
@@ -156,6 +156,44 @@ function salesOrderSaveDraft(){
  soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));render();return true;
 }
 function salesOrderClose(){salesLeaveDraft();}
+/* Copy order (пункт 8, вариант 1 владельца 30.10.2026; «Все копируется на 100
+   процентов»): новый заказ с тем же содержанием — клиент, контакт, PO, срок,
+   строки, формы (свои копии), услуги, склад, цены заказа (priceBook), ручные
+   цены и надбавки. Исполнение не переносится: статус, батчи, Hold, отмены
+   юнитов, поправки денег, связи с квотой и NCR; стекло, отгрузки и оплаты
+   привязаны к номеру старого заказа. Копия не записывается сама: номер — при
+   первом Save или Save as Draft, выход без сохранения убирает её формы.
+   Кнопка в шапке и меню Sales — одна команда; несохранённые правки открытого
+   заказа — обычное окно выхода (Back отменяет копию).
+   Квота — так же, без разделения (владелец, 30.10.2026: «И не надо разделять
+   заказ или квота»): новая отдельная квота без отправки и срока цен, как у
+   ревизии; ревизии остаются своим путём. Заказ и квота из архива — та же
+   копия вместо прежнего Repeat («Замени», «Тоже пусть будет копия»). Кнопка
+   и пункт меню — одно слово Copy («Может просто одно слово copy»). */
+let soCopyOf=null;
+function salesCopyOrder(id){
+ const o=salesRecord(id);if(!o)return;
+ /* Из архива: копия до того, как его записи уйдут из DB (salesDraftDrop
+    убрал бы копии фигур как ничьи). */
+ if(typeof archiveViewing==='function'&&archiveViewing(o)){const d=salesCopyOrderDraft(o);archiveVisitEnd();salesCopyOrderShow(d,o);return;}
+ salesLeaveDraft(()=>{const src=salesRecord(id);if(!src){render();return;}salesCopyOrderShow(salesCopyOrderDraft(src),src);});
+}
+function salesCopyOrderDraft(src){
+ const copy=salesCopySalesRecord(src,{businessNumber:'',status:salesIsQuote(src)?'open':'new',statusDates:{},batchNo:'',batchHistory:[],unbatchHistory:[],productionUnbatchVerify:false,fulfilledVia:'',fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
+  onHold:false,holdReason:'',holdAt:'',remakeNcrId:'',noCharge:false,cancellations:[],adjustments:[],createdAt:'',updatedAt:''});
+ delete copy.isDraft;
+ copy.lines.forEach(l=>{Object.assign(l,{batchManaged:false,onHold:false,holdReason:'',holdAt:'',cutStartedAt:'',batchNo:''});});
+ return normalizeSalesOrder(copy);
+}
+function salesCopyOrderShow(draft,src){
+ salesOrderNew(salesIsQuote(src)?'quote':'order');soDraft=draft;soCopyOf={id:src.id,number:src.businessNumber||''};salesEnsureAllLineShapes();
+ soMakeupId=(soDraft.makeups[0]||{}).id||null;soGlassOpen=soDraft.lines.length>0;render();
+}
+/* Открыта копия, ещё не записанная: полоса под шапкой. */
+function salesCopyStrip(o){
+ if(!soCopyOf||soEdit!=='new'||o!==soDraft)return '';
+ return `<div class="sales-copy-strip" data-copy-strip><span>Copy of <b>${esc(soCopyOf.number)}</b></span><span class="mut">Not saved yet</span></div>`;
+}
 /* Боковое меню: уход из заказа (и из редактора формы его строки) — тот же
    вопрос. nav.js про заказы не знает — только спрашивает стражей. */
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){

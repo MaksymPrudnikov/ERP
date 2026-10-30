@@ -77,5 +77,14 @@ module.exports=async function({page,eq}){
  });
  const afterDraft=await left();await f5();
  eq('Save as Draft: черновик записан сразу, F5 его не теряет',{left:afterDraft,draft:await t.p.evaluate(id=>{const o=salesRecord(id);return !!o&&o.isDraft===true;},draft)},{left:[],draft:true});
+ /* Copy order (пункт 8): Save копии пишет её сразу — заказ и копии фигур, F5 не теряет. */
+ const copy=await t.p.evaluate(async()=>{
+  const c=oqCustomer({legalName:'Copy Narrow'});touch();await storageFlush();const src=oqOrder(c);tab='sales';salesOrderEdit(src);
+  if(typeof salesCopyOrder==='function')salesCopyOrder(src);
+  if(soEdit!=='new'){salesDraftDrop();return {src,id:'',shapes:[]};}
+  salesOrderSave();const o=salesRecord(soEdit);salesDraftDrop();return {src,id:o.id,shapes:o.lines.map(l=>l.shapeRef.id)};
+ });
+ const afterCopy=await left();await f5();
+ eq('Copy order → Save: копия и её фигуры записаны сразу, F5 их не теряет',{left:afterCopy,...await t.p.evaluate(x=>({copy:!!salesRecord(x.id)&&x.id!==x.src,shapes:x.shapes.length>0&&x.shapes.every(id=>DB.shapeDef.some(s=>s.id===id))}),copy)},{left:[],copy:true,shapes:true});
  await t.c.close();
 };

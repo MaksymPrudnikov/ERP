@@ -68,7 +68,8 @@ module.exports=async function({page,eq}){
   hot:await t.p.evaluate(x=>[x.a,x.b].some(id=>!!salesRecord(id)),ids),index:await t.p.evaluate(()=>archiveIndex.size),
   inv:JSON.stringify(f5.inv)===JSON.stringify(before.inv),next:JSON.stringify(f5.next)===JSON.stringify(before.next),statements:JSON.stringify(f5.statements)===JSON.stringify(before.statements),agents:f5.agents===before.agents},{hot:false,index:2,inv:true,next:true,statements:true,agents:true});
  /* А3: Sales и вкладка клиента показывают ушедшие строки; открыть — с диска,
-    только просмотр; в базу ничего не пишется; Repeat; NCR возвращает в работу. */
+    только просмотр; в базу ничего не пишется; Copy (бывший Repeat); NCR
+    возвращает в работу. */
  eq('Sales: ушедшие строки вместе с живыми, с меткой Archived, Open; те же значения и итоги',await t.p.evaluate(([x,b])=>{
   storageTakeControl();tab='sales';subtab='orders';salesShow={orders:true,quotes:false,ncr:false};salesStatusFilter='';salesListLoadPrefs().filters={};render();
   const rows=[...document.querySelectorAll('[data-archived-row]')].map(tr=>tr.dataset.archivedRow).sort(),num=id=>document.querySelector(`[data-archived-row="${id}"] td:nth-child(2)`).textContent.trim();
@@ -83,17 +84,18 @@ module.exports=async function({page,eq}){
  eq('открыть из архива: тот же экран, только просмотр; база не видит его записи, журнал не пишет «Created», Export их не берёт',await t.p.evaluate(async x=>{
   const opened=await archiveOpen(x.b),o=soDraft;render();touch();await storageFlush();
   const html=document.querySelector('.sales-order-editor').innerHTML;
-  const r={opened,edit:soEdit===x.b,ro:salesOrderReadOnly(o),repeat:html.includes('data-archive-repeat'),save:html.includes('data-order-save'),inert:!!document.querySelector('.sales-order-editor .sales-readonly[inert]'),
+  const r={opened,edit:soEdit===x.b,ro:salesOrderReadOnly(o),copy:html.includes('data-copy-order'),save:html.includes('data-order-save'),inert:!!document.querySelector('.sales-order-editor .sales-readonly[inert]'),
    diff:storageDiff(DB).length,created:DB.orderEvent.filter(e=>e.orderId===x.b&&e.what==='Created').length,exported:storageHotRecords().some(c=>c.tbl==='salesOrder'&&c.id===x.b),paid:finOrderBalance(salesRecord(x.b)).status};
   salesOrderClose();
   return Object.assign(r,{closed:soEdit===null,gone:!salesRecord(x.b)&&!DB.receipt.some(q=>q.allocations.some(a=>a.orderId===x.b)),visit:storageVisit.size,after:storageDiff(DB).length,still:archiveIndex.has(x.b)});
- },ids),{opened:true,edit:true,ro:true,repeat:true,save:false,inert:true,diff:0,created:1,exported:false,paid:'paid',closed:true,gone:true,visit:0,after:0,still:true});
- eq('Repeat: новый заказ того же клиента с теми же строками, без PO и производства; архивный остаётся в архиве',await t.p.evaluate(async x=>{
-  await archiveOpen(x.b);const src=JSON.parse(JSON.stringify(salesRecord(x.b)));archiveRepeat();
+ },ids),{opened:true,edit:true,ro:true,copy:true,save:false,inert:true,diff:0,created:1,exported:false,paid:'paid',closed:true,gone:true,visit:0,after:0,still:true});
+ /* Repeat заменён на Copy (владелец, 30.10.2026: «Замени»; «Все копируется на
+    100 процентов»): PO и цены заказа — как у исходного. */
+ eq('Copy из архива: новый заказ того же клиента с теми же строками, PO и ценами заказа, без производства; архивный остаётся в архиве',await t.p.evaluate(async x=>{
+  await archiveOpen(x.b);const src=JSON.parse(JSON.stringify(salesRecord(x.b)));document.querySelector('[data-copy-order]').click();
   const d=soDraft,r={edit:soEdit,customer:d.customerId===src.customerId,lines:d.lines.map(l=>[l.width16,l.height16,l.qty].join()).join()===src.lines.map(l=>[l.width16,l.height16,l.qty].join()).join(),
-   fresh:d.id!==src.id&&!d.businessNumber&&!d.customerPo&&d.status==='new'&&d.lines.every(l=>!l.batchedAt),visit:storageVisit.size,src:!salesRecord(x.b)};
-  /* PO у всех (владелец 29.10.2026) — вписать перед Save. */
-  soDraft.customerPo='PO-R';const n=nextSalesOrderNumber(),saved=salesOrderSave();
+   fresh:d.id!==src.id&&!d.businessNumber&&!!d.customerPo&&d.customerPo===src.customerPo&&JSON.stringify(d.priceBook)===JSON.stringify(src.priceBook)&&d.status==='new'&&d.lines.every(l=>!l.batchedAt),visit:storageVisit.size,src:!salesRecord(x.b)};
+  const n=nextSalesOrderNumber(),saved=salesOrderSave();
   return Object.assign(r,{saved,number:salesRecord(soEdit).businessNumber===n,still:archiveIndex.has(x.b)});
  },ids),{edit:'new',customer:true,lines:true,fresh:true,visit:0,src:true,saved:true,number:true,still:true});
  await t.p.evaluate(()=>{salesDraftDrop(false);});
