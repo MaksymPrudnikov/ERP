@@ -512,6 +512,29 @@ body.signin-mode main#app{padding:0}
 .so-cust-code{margin-left:auto;font:11px ui-monospace,monospace;color:var(--text-3);white-space:nowrap}
 .so-cust-none{padding:12px 10px;font-size:12.5px;color:var(--text-2)}
 .so-cust-foot{border-top:1px solid var(--line);margin-top:4px;padding:6px 9px 3px;font-size:10.5px;color:var(--text-3)}
+/* Шапка заказа (владелец 30.10.2026): Customer PO шире — «размера с колонку клиента», дата, приоритет,
+   доставка и валюта уже. У квоты ещё Valid until. */
+@media(min-width:1351px){.sales-header-compact.so-head{grid-template-columns:minmax(220px,1.6fr) minmax(220px,1.6fr) repeat(4,minmax(105px,.75fr)) minmax(150px,1.1fr)}
+.sales-header-compact.so-head.q{grid-template-columns:minmax(220px,1.6fr) minmax(220px,1.6fr) repeat(5,minmax(105px,.75fr)) minmax(150px,1.1fr)}}
+/* Контакт заказа (пункт 6, views/sales.js): иконка у Customer, строка под шапкой. */
+.so-cust-cell{display:flex;gap:6px;align-items:center}.so-cust-cell .so-cust{flex:1;min-width:0}
+.so-contact-btn{flex:none;display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--line-strong);border-radius:7px;background:var(--surface);color:var(--text-2)}
+.so-contact-btn span,.so-contact-pick span{display:inline-flex}.so-contact-btn svg{width:17px;height:17px}
+.so-contact-btn.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
+.sales-header-compact.has-contact{border-bottom-left-radius:0;border-bottom-right-radius:0}
+.so-contact-row{position:relative;display:grid;grid-template-columns:1fr 1fr 1.5fr 1.5fr;gap:14px;align-items:center;margin-top:-11px;padding:9px 14px;background:var(--surface);border:1px solid var(--line);border-radius:0 0 11px 11px;font-size:12.5px;color:var(--text)}
+.so-contact-row>span{display:inline-flex;align-items:center;gap:8px;min-width:0;user-select:text}
+.so-contact-i{display:inline-flex;color:var(--text-3)}.so-contact-i svg{width:14px;height:14px}
+.so-contact-who{font-weight:600}
+.so-contact-pick{display:inline-grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--text-2)}.so-contact-pick svg{width:15px;height:15px}
+.so-contact-addr{display:flex;flex-direction:column;line-height:1.3}.so-contact-addr small{color:var(--text-3);font-size:11px}
+.so-contact-back{position:fixed;inset:0;z-index:39}
+.so-contact-menu{position:absolute;left:8px;top:calc(100% - 2px);z-index:40;width:340px;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;box-shadow:var(--shadow-lg);padding:4px;font-weight:400}
+.so-contact-menu button{display:grid;grid-template-columns:16px 1fr auto;gap:8px;align-items:center;width:100%;height:auto;padding:7px 8px;border:0;border-radius:6px;background:transparent;text-align:left;font-size:12.5px;color:var(--text)}
+.so-contact-menu button:hover{background:var(--surface-2)}.so-contact-menu button.on{background:var(--accent-soft)}
+.so-contact-menu small{display:block;color:var(--text-3);font-size:10.5px}
+.so-contact-menu .ck{display:inline-flex;color:var(--accent)}.so-contact-menu .ck svg{width:14px;height:14px}
+.so-contact-menu .ph{font-size:11px;color:var(--text-2);font-variant-numeric:tabular-nums}
 .sales-block{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px}.sales-block-head,.sales-lines-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.sales-block-head>div,.sales-lines-head>div:first-child{display:flex;align-items:baseline;gap:9px}.sales-block-head b,.sales-lines-head b{font-size:11px;letter-spacing:.055em;color:var(--text)}.sales-block-head span,.sales-lines-head span{font-size:10.5px;color:var(--mut)}
 .mu-strip{display:flex;align-items:stretch;gap:7px;margin-bottom:8px}.mu-strip-scroll{display:flex;gap:6px;overflow-x:auto;flex:1;padding-bottom:1px}.mu-tab{display:flex;align-items:center;gap:7px;min-width:0;max-width:360px;height:34px;padding:4px 8px;border:1px solid var(--sline);background:var(--surface-2);border-radius:8px;color:var(--text-2)}.mu-tab b{font-size:12px;min-width:20px}.mu-tab span{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}/* Выбранный мейкап — как всё выбранное в ERP: зелёная рамка, мягкий зелёный фон, тёмный текст. Оранжевый на жёлтом был «грязненько» (владелец, 3 октября 2026). */
 .mu-tab.on{border-color:var(--accent);background:var(--accent-soft);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent-line)}.mu-tab.on b{color:var(--accent)}.mu-add{height:34px;white-space:nowrap;border-style:dashed;color:var(--text-2)}
@@ -3614,7 +3637,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='7a97600f0733';
+var ERP_BUILD='92a28f05e4cf';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13095,7 +13118,7 @@ function normalizeSalesOrder(o){
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(r=>Object.keys(r).length?{surchargeRates:r}:{})(normalizeSalesSurchargeRates(o.surchargeRates)),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),...(x=>x?{customerContactId:x}:{})(salesString(o.customerContactId)),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(r=>Object.keys(r).length?{surchargeRates:r}:{})(normalizeSalesSurchargeRates(o.surchargeRates)),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
   remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
   ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines)),
@@ -16196,6 +16219,11 @@ const ICONS={
  activity:'<path d="M3 12h4l2-6 4 12 2-6h6"/>',
  alert:'<path d="M12 3 2 21h20z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
  check:'<path d="m5 12 4 4L19 6"/>',
+ chevron:'<path d="m6 9 6 6 6-6"/>',
+ contact:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="10" r="2.8"/><path d="M7.5 17a4.5 4.5 0 0 1 9 0"/>',
+ phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>',
+ mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+ pin:'<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
  lock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
  unlock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/>',
  printer:'<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M18 12h.01"/>',
@@ -17871,18 +17899,22 @@ let soStockPickerOpen=false,soStockPickerFilter='';
    здесь, а не в DOM, иначе перерисовка его теряла бы. */
 let soExpandAll=false;
 let soPricingLineId=null,soServiceLineId=null,soServiceOrderOpen=false;
+/* Строка контакта под шапкой (пункт 6): спрятана при каждом открытии заказа. */
+let soContactOpen=false,soContactMenu=false;
 let salesBridge=null;
 
 function salesFindCustomer(id){return (DB.customer||[]).find(c=>c.id===id)||null;}
 function salesApplyCustomerDefaults(id){
- const c=salesFindCustomer(id);soDraft.customerId=id||'';if(!c)return;
+ const c=salesFindCustomer(id);soDraft.customerId=id||'';
+ /* Контакт заказа — лицо этого клиента (пункт 6): у нового клиента основное. */
+ soDraft.customerContactId=c&&customerPrimaryContact(c).id||'';if(!c)return;
  if(c.paymentTerms)soDraft.paymentTerms=c.paymentTerms;if(c.currency)soDraft.currency=c.currency;
  const dm=String(c.defaultDeliveryMethod||'').toLowerCase();if(dm.includes('pickup'))soDraft.delivery='pickup';else if(dm)soDraft.delivery='delivery';
 }
 /* Строки поиска в списке больше нет — фильтры колонок (views/sales-list-ui). */
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(kind){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){salesSaveQueue(()=>salesOrderNew(kind),'A new '+(kind==='quote'?'quote':'order')+' opens after saving.');return;}soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){const x=salesRecord(id);salesSaveQueue(()=>salesOrderEdit(id),(x&&x.businessNumber?salesSaveTitle(x).replace(/^./,c=>c.toUpperCase()):'The order')+' opens after saving.');return;}salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){salesSaveQueue(()=>salesOrderNew(kind),'A new '+(kind==='quote'?'quote':'order')+' opens after saving.');return;}soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){const x=salesRecord(id);salesSaveQueue(()=>salesOrderEdit(id),(x&&x.businessNumber?salesSaveTitle(x).replace(/^./,c=>c.toUpperCase()):'The order')+' opens after saving.');return;}salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -17953,7 +17985,7 @@ function salesDraftDrop(discard){
  soSavedBaseline=null;
  const restored=!!discard&&salesShapeSnapshotRestore();
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
- salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
+ salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
  if(salesPruneOrphanShapes()||restored)touch();
  /* Заказ из архива на просмотре — его записи уходят из DB (erp/archive). */
  if(typeof archiveVisitEnd==='function')archiveVisitEnd();
@@ -18047,6 +18079,8 @@ function salesOrderSaveCommand(opts){
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
  /* «PO required»: PO приходит вместе с заказом, без него заказ не пишется
     (владелец, 8.10.2026: «без PO ничего не сохранять… PO сразу же с заказом»). */
+ /* Контакт — только лицо этого клиента: удалённое или чужое — основное. */
+ if(!customer.contacts.some(x=>x.id===soDraft.customerContactId))soDraft.customerContactId=customerPrimaryContact(customer).id||'';
  if(customer.poRequired&&!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'This customer requires a PO. Enter the PO.');
  previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  const shippingError=shippingSaveGuard(soDraft,previousOrder);if(shippingError)return fail(e,shippingError);
@@ -23688,8 +23722,39 @@ function salesCustomerListHTML(q){
 }
 function salesCustomerField(){
  const c=salesFindCustomer(soDraft.customerId),name=salesCustomerName(c);
- return `<div class="so-cust"><input id="so_customer" data-customer-input role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="so_cust_list" autocomplete="off" value="${esc(name)}" title="${esc(c?name+' · '+(c.code||''):'')}" placeholder="Search customers by name or code" onfocus="this.select();salesCustomerOpen(this,'')" oninput="salesCustomerOpen(this,this.value)" onkeydown="salesCustomerKeydown(event,this)" onblur="salesCustomerClose(this)"><span class="so-cust-car" aria-hidden="true">▾</span><div class="so-cust-list" id="so_cust_list" role="listbox" hidden onmousedown="event.preventDefault()"></div></div>`;
+ return `<div class="so-cust-cell"><div class="so-cust"><input id="so_customer" data-customer-input role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="so_cust_list" autocomplete="off" value="${esc(name)}" title="${esc(c?name+' · '+(c.code||''):'')}" placeholder="Search customers by name or code" onfocus="this.select();salesCustomerOpen(this,'')" oninput="salesCustomerOpen(this,this.value)" onkeydown="salesCustomerKeydown(event,this)" onblur="salesCustomerClose(this)"><span class="so-cust-car" aria-hidden="true">▾</span><div class="so-cust-list" id="so_cust_list" role="listbox" hidden onmousedown="event.preventDefault()"></div></div><button type="button" class="so-contact-btn${soContactOpen&&c?' on':''}" data-contact-toggle title="Contact" aria-label="Contact" aria-expanded="${soContactOpen&&!!c}" ${c?'':'disabled'} onclick="salesContactToggle()">${ico('contact')}</button></div>`;
 }
+/* Контакт заказа (пункт 6; рисунок владельца 30.10.2026: «чтобы оно было
+   спрятано, но при нажатии на иконку выпадала снизу строка с данными»).
+   Лицо — из контактов клиента, выбор хранится в заказе (customerContactId)
+   и карточку клиента не меняет. Нет телефона или email у лица — берётся у
+   основного, потом у остальных лиц этого клиента; меток источника и
+   названия компании нет (владелец: «без подсказок … и имя компании
+   дублируем»), источник — только во всплывающей подсказке. Текст обычный:
+   выделяется мышью и копируется. */
+function salesOrderContact(o,c){if(!c)return null;const p=c.contacts.find(x=>x.id===o.customerContactId)||customerPrimaryContact(c);return p.id?p:null;}
+function salesContactValue(c,p,pick){
+ for(const x of [p].concat(c.contacts.filter(y=>y.isPrimary),c.contacts)){const v=x&&pick(x);if(v)return {v,from:x};}
+ return null;
+}
+function salesContactAddress(c){const a=customerAddressByType(c,'billing');return a.id?a:c.addresses.find(x=>x.isDefault)||c.addresses[0]||null;}
+function salesContactRow(o,c){
+ if(!soContactOpen||!c)return '';
+ const p=salesOrderContact(o,c),ph=salesContactValue(c,p,x=>x.phone||x.mobile||x.phone2),em=salesContactValue(c,p,x=>x.email),a=salesContactAddress(c);
+ const from=x=>x&&x.from!==p?` title="From ${esc(x.from.name||'another contact')}"`:'';
+ const street=a?[a.address1,a.address2,a.address3].filter(Boolean).join(', '):'',town=a?[a.city,[a.province,a.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', '):'';
+ return `<div class="so-contact-row" data-order-contact>
+  <span class="so-contact-who"><span data-contact-name>${esc(p&&p.name||'—')}</span>${c.contacts.length>1?`<button type="button" class="so-contact-pick" aria-label="Contact person" aria-expanded="${soContactMenu}" onclick="salesContactMenuToggle()">${ico('chevron')}</button>`:''}${soContactMenu?salesContactMenuHTML(c,p):''}</span>
+  <span>${ico('phone','so-contact-i')}<span data-contact-phone${from(ph)}>${esc(ph?ph.v:'—')}</span></span>
+  <span>${ico('mail','so-contact-i')}<span data-contact-email${from(em)}>${esc(em?em.v:'—')}</span></span>
+  <span>${ico('pin','so-contact-i')}<span class="so-contact-addr" data-contact-address>${street||town?`${esc(street||town)}${street&&town?`<small>${esc(town)}</small>`:''}`:'—'}</span></span></div>`;
+}
+function salesContactMenuHTML(c,p){
+ return `<span class="so-contact-back" onclick="salesContactMenuToggle()"></span><span class="so-contact-menu" role="listbox">${c.contacts.map(x=>`<button type="button" role="option" aria-selected="${x===p}" class="${x===p?'on':''}" data-contact-option="${esc(x.id)}" onclick="salesContactPick(this.dataset.contactOption)"><span class="ck">${x===p?ico('check'):''}</span><span><b>${esc(x.name||'—')}</b><small>${esc([x.role,x.isPrimary?'primary':''].filter(Boolean).join(' · '))}</small></span><span class="ph">${esc(x.phone||x.mobile||x.phone2||'')}</span></button>`).join('')}</span>`;
+}
+function salesContactToggle(){soContactOpen=!soContactOpen;soContactMenu=false;render();}
+function salesContactMenuToggle(){soContactMenu=!soContactMenu;render();}
+function salesContactPick(id){const c=salesFindCustomer(soDraft.customerId);soContactMenu=false;if(c&&c.contacts.some(x=>x.id===id))soDraft.customerContactId=id;render();}
 function salesCustomerOpen(el,q){
  const box=document.getElementById('so_cust_list');if(!box)return;
  box.innerHTML=salesCustomerListHTML(q);box.hidden=false;box.scrollTop=0;
@@ -23739,8 +23804,8 @@ function salesOrderEditor(){
  const o=soDraft,c=salesFindCustomer(o.customerId),title=salesOrderTitle(o),ro=salesOrderReadOnly(o),av=typeof archiveViewing==='function'&&archiveViewing(o),q=salesIsQuote(o),fromQuote=o.fromQuoteId?((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber:'',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
  return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(q?salesQuoteShown(o):o)}${!q&&o.onHold?'<span class="pill hold" data-hold-pill>On Hold</span>':''}${customerFlags}</div><div class="mut mono">${esc(q?salesQuoteShown(o).id:o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}${(e=>e&&e.by?`<span data-created-by> · Created by ${esc(e.by)} · ${esc(salesListShortDay(salesListIsoDay(e.at)))}</span>`:'')(orderCreatedBy(q?salesQuoteShown(o).id:o.id))}</div></div>${q?'':av?`<div inert>${salesPaymentStrip(o)}</div>`:salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
  ${av?'<div class="sales-readonly" inert>':''}${salesHoldBar(o)}${shippingOrderStrip(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro&&!av?'<div class="sales-readonly" inert>':''}
- <div class="sales-header-compact"><div><label for="so_customer">Customer *</label>${salesCustomerField()}</div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" onchange="soDraft.validUntil=this.value;render()"></div>`:''}</div>
- ${salesPriceListStrip(o)}${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
+ <div class="sales-header-compact so-head${q?' q':''}${soContactOpen&&c?' has-contact':''}"><div><label for="so_customer">Customer *</label>${salesCustomerField()}</div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" onchange="soDraft.validUntil=this.value;render()"></div>`:''}</div>
+ ${salesContactRow(o,c)}${salesPriceListStrip(o)}${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
  ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
  ${typeof recutOrderSection==='function'?recutOrderSection(o):''}<div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${typeof ncrModalHTML==='function'?ncrModalHTML():''}${salesLineHoldMenuHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
