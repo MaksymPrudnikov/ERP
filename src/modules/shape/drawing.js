@@ -188,15 +188,15 @@ function shapeMetricInchText(x,y,label,size,cls,extra,rot){
    точек самого стекла (feet), а не от угла рамки: у косой детали в углу рамки
    стекла нет, и выносная висела в воздухе. */
 function shapeMetricOverallSvg(mo,key,dir,a,b,pos,feet,mmText,inText,role,side){
-  var c='#111827',mid=(a+b)/2,label,cx,cy,line;
+  var c='#111827',mid=(a+b)/2,label,cx,cy,line,fs=mo&&mo.inchSheet?SHAPE_DIM_FONT+'" font-weight="700':'16" font-weight="600';
   if(dir==='h'){
-    label='<text data-metric-role="'+role+'" x="'+mid+'" y="'+(pos-9)+'" text-anchor="middle" font-size="16" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">'+shapeXml(mmText)+'</text>'+
+    label='<text data-metric-role="'+role+'" x="'+mid+'" y="'+(pos-9)+'" text-anchor="middle" font-size="'+fs+'" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">'+shapeXml(mmText)+'</text>'+
       (inText?'<g class="shape-inch-reference-layer shape-inch-overall" data-units="in">'+shapeMetricInchText(mid,pos+15,inText,15,'shape-inch-compact',' data-inch-role="'+role+'"')+'</g>':'');
     cx=mid;cy=pos+2;
     line='<line x1="'+a+'" y1="'+pos+'" x2="'+b+'" y2="'+pos+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>';
   }else{
     var tx=pos-11*side,hx=pos+11*side;
-    label='<text data-metric-role="'+role+'" x="'+tx+'" y="'+mid+'" text-anchor="middle" font-size="16" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate(-90 '+tx+' '+mid+')">'+shapeXml(mmText)+'</text>'+
+    label='<text data-metric-role="'+role+'" x="'+tx+'" y="'+mid+'" text-anchor="middle" font-size="'+fs+'" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate(-90 '+tx+' '+mid+')">'+shapeXml(mmText)+'</text>'+
       (inText?'<g class="shape-inch-reference-layer shape-inch-overall" data-units="in"><text class="shape-inch-reference shape-inch-compact" data-inch-role="'+role+'" x="'+hx+'" y="'+mid+'" text-anchor="middle" font-size="15" font-weight="600" fill="#98a2b3" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate(-90 '+hx+' '+mid+')">'+shapeXml(inText)+'″</text></g>':'');
     cx=pos;cy=mid;
     line='<line x1="'+pos+'" y1="'+a+'" x2="'+pos+'" y2="'+b+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>';
@@ -280,7 +280,10 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
   var mo=Object.assign({},opts,{vw:opts.vw||F.vw});
   var path=Q.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
   var o='<g class="shape-metric-layer" data-units="mm"><defs><marker id="shapeMetricArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+c+'" stroke-width=".9"/></marker></defs>';
-  o+='<path class="shape-metric-contour" d="'+path+'" fill="#f2f4f7" fill-opacity=".72" stroke="#344054" stroke-width="1.2"/>';
+  o+=opts.inchSheet?'<path class="shape-metric-contour" d="'+path+'" fill="none" stroke="#101828" stroke-width="1.9"/>'
+                   :'<path class="shape-metric-contour" d="'+path+'" fill="#f2f4f7" fill-opacity=".72" stroke="#344054" stroke-width="1.2"/>';
+  /* Дюймовый лист: размер — кеглем чертежа (SHAPE_DIM_FONT, владелец 28.09.2026). */
+  var lenFont=opts.inchSheet?SHAPE_DIM_FONT:14.5,lenWeight=opts.inchSheet?700:600,square=[],skewed=0;
   /* Отрезки одной дуги идут подряд под общим id ребра. Если их набралось
      много, это тесселяция кривой, а не настоящие рёбра: подписи по отрезкам
      не рисуем вовсе, кривая получит одну свою ниже. */
@@ -306,7 +309,7 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     var lead=axis?off+11:off,inchLead=axis?off+27:lead+16;
     var x=mx+nx*lead,y=my+ny*lead,ix=mx+nx*inchLead,iy=my+ny*inchLead,ang=Math.atan2(dy,dx)*180/Math.PI;
     if(ang>90)ang-=180;if(ang<-90)ang+=180;
-    var label='<text class="shape-metric-length" data-edge-id="'+shapeXml(seg.edgeId)+'" data-length-mm="'+shapeMetricFormat(seg.lengthMm)+'" x="'+x+'" y="'+(y+4.5)+'" text-anchor="middle" font-size="14.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+(inUnits?fmt(seg.lengthMm):'('+fmt(seg.lengthMm)+')')+'</text>'+
+    var label='<text class="shape-metric-length" data-edge-id="'+shapeXml(seg.edgeId)+'" data-length-mm="'+shapeMetricFormat(seg.lengthMm)+'" x="'+x+'" y="'+(y+4.5)+'" text-anchor="middle" font-size="'+lenFont+'" font-weight="'+lenWeight+'" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+(inUnits?fmt(seg.lengthMm):'('+fmt(seg.lengthMm)+')')+'</text>'+
       (inUnits?'':shapeMetricInchText(ix,iy+3.5,echo(seg.lengthMm),13.5,'shape-inch-edge-reference shape-inch-compact',' data-edge-id="'+shapeXml(seg.edgeId)+'"',ang));
     var cx=(x+ix)/2,cy=(y+iy)/2;
     if(!axis){o+=shapeAnnItem(mo,key,label,cx,cy,{from:[mx,my],vw:mo.vw});return;}
@@ -323,6 +326,10 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     if(arcSeg[i]&&arcSeg[(i-1+arcSeg.length)%arcSeg.length])return;
     if(Math.abs(v.angleDeg-180)<.5)return;
     var b=Q[i],prev=Q[(i-1+n)%n],next=Q[(i+1)%n];
+    /* Прямой угол дюймового листа — уголок, как у обычного чертежа
+       (shapeAnnRightAngles), и только если у фигуры есть не прямые углы. */
+    if(opts.inchSheet&&(Math.abs(v.angleDeg-90)<.5||Math.abs(v.angleDeg-270)<.5)){square.push([prev,b,next]);return;}
+    skewed++;
     var a0=Math.atan2(next[1]-b[1],next[0]-b[0]),a1=Math.atan2(prev[1]-b[1],prev[0]-b[0]);
     var span=orient>0?shapeMetricPositiveAngle(a1-a0):shapeMetricPositiveAngle(a0-a1),delta=orient*span;
     var r=Math.max(12,Math.min(30,Math.min(Math.hypot(prev[0]-b[0],prev[1]-b[1]),Math.hypot(next[0]-b[0],next[1]-b[1]))*.24));
@@ -334,6 +341,11 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     for(var j=0;j<=steps;j++){var t=a0+delta*j/steps,ax=b[0]+Math.cos(t)*r,ay=b[1]+Math.sin(t)*r;arc+=(j?' L ':'M ')+ax+' '+ay;}
     o+='<path class="shape-metric-angle-arc" data-vertex-index="'+i+'" d="'+arc+'" fill="none" stroke="'+c+'" stroke-width="1.15"/>';
     o+=shapeAnnItem(mo,key,angleText,lx,ly,{from:[b[0],b[1]],vw:mo.vw});
+  });
+  if(skewed)square.forEach(function(t){
+    var q=t[1],s1=[t[0][0]-q[0],t[0][1]-q[1]],s2=[t[2][0]-q[0],t[2][1]-q[1]],l1=Math.hypot(s1[0],s1[1])||1,l2=Math.hypot(s2[0],s2[1])||1,z=8;
+    var pA=[q[0]+s1[0]/l1*z,q[1]+s1[1]/l1*z],pB=[pA[0]+s2[0]/l2*z,pA[1]+s2[1]/l2*z],pC=[q[0]+s2[0]/l2*z,q[1]+s2[1]/l2*z];
+    o+='<path class="shape-right-angle" d="M'+pA[0]+' '+pA[1]+' L'+pB[0]+' '+pB[1]+' L'+pC[0]+' '+pC[1]+'" fill="none" stroke="#101828" stroke-width=".7"/>';
   });
   o+=shapeMetricCurvesSvg(metric,arcSeg,DP,c,mo,F);
   var xs=Q.map(function(p){return p[0];}),ys=Q.map(function(p){return p[1];});
@@ -482,9 +494,14 @@ function shapeLiteSheetSvg(result,opts){
   var disp=pts.map(function(p){return [F.X(p[0]),F.Y(p[1])];}),path=disp.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
   var xs=disp.map(function(p){return p[0];}),ys=disp.map(function(p){return p[1];});
   var mo=Object.assign({},opts.metric||{},{keyPrefix:units+':lite'+lite.index+':',layout:(opts.metric&&opts.metric.layout)||(result.definition&&result.definition.drawingLayout)||{},vw:F.vw,sheet:!!opts.sheet,units:units,points:pts,cleanParallelogram:true});
+  /* В дюймах — оформление обычного дюймового чертежа (пункт 1 плана v1.16,
+     листы 4/7/15 контрольного заказа): белое стекло с чёрным контуром, без
+     заливки, знака стекла и подписей прямых углов — их нет и у листа
+     большего стекла. Углы фигуры не прямые остаются. Metric detail — как был. */
+  mo.inchSheet=units==='in';
   var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(opts.sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING · '+(lite.label||''),F));
   o+='<path class="shape-sheet-glass" d="'+path+'" fill="#fff" stroke="none"/>';
-  o+=shapeMetricLayerSvg(result,F,null,metric,mo)+shapeGlassHatchSvg({path:path,points:disp,box:{left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)}});
+  o+=shapeMetricLayerSvg(result,F,null,metric,mo)+(mo.inchSheet?'':shapeGlassHatchSvg({path:path,points:disp,box:{left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)}}));
   if(result.featureGeometry)o+=shapeProductionFeaturesSvg(result,F);
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }

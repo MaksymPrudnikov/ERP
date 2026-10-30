@@ -580,6 +580,8 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sheet-spec{font-size:11.5px;font-weight:600;line-height:1.35;color:var(--text)}
 .sheet-size{margin-top:3px;font-size:10.5px;line-height:1.35;color:var(--text)}
 .sheet-mass{font-size:10.5px;line-height:1.35;color:var(--text-2)}
+/* Вес Partial — чего в нём нет, на бумаге без наведения (пункт 14). */
+.sheet-mass-note{font-size:9.5px;line-height:1.3;color:var(--text-2);max-width:240px}
 .sheet-mk{margin:5px 0 3px}
 /* Количество идёт третьей строкой названия: «Makeup A / Double 25.5 mm /
    10 units» — один блок про изделие. */

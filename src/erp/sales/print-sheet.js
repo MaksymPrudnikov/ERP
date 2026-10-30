@@ -262,35 +262,27 @@ function salesSheetRouteHTML(route){
   return '<div class="sheet-route"><div class="sheet-route-t">ROUTE</div>'+body+'</div>';
 }
 /* Собирает лист. svg — уже готовый чертёж без собственного заголовка. */
-/* Вес одного слоя пакета. У ламината это ОБА стекла и плёнка между ними:
-   лист показывал вес одной панели, и 6 + 6 весил как шестёрка — вдвое меньше
-   настоящего. По этой цифре в цехе считают подъём. */
-function salesSheetPaneWeightKg(pane,areaFt2){
-  if(!pane)return null;
-  if(pane.category!=='laminated')
-    return glassWeightKg(glassProductById(pane.glassProductId),areaFt2);
-  var lam=pane.laminated||{},total=0,exact=true,got=false;
-  [lam.outer,lam.inner].forEach(function(ply){
-    if(!ply)return;
-    var w=glassWeightKg(glassProductById(ply.glassProductId),areaFt2);
-    if(!w){
-      var mm=+ply.thicknessMm;
-      if(!(mm>0))return;
-      var d=glassDensityKgM3();if(!d)return;
-      w={kg:glassLayerWeightKg(mm,d,areaFt2),exact:false};
-    }
-    total+=w.kg;if(!w.exact)exact=false;got=true;
-  });
-  (lam.interlayers||[]).forEach(function(f){
-    /* Плотность плёнки — её норма веса; нормы нет — вес приблизительный. */
-    var d=f?salesWeightRate('film:'+f.productId):null;
-    if(d>0)total+=glassLayerWeightKg(f.thicknessMm,d,areaFt2);else exact=false;
-  });
-  return got&&total>0?{kg:total,exact:exact}:null;
+/* Вес на листе — тот же расчёт, что в заказе (salesLineWeight; владелец,
+   30.10.2026, этап 7): нормы заказа, геометрия лайтов строки, всё, что
+   входит в юнит, — у ламината оба стекла и плёнка, у пакета ещё рамка, газ
+   и герметики. По этой цифре в цехе считают подъём. liteIndex — лист одного
+   стекла: только его слои. Неполный — известное и Partial с тем, чего нет
+   (вариант 1 владельца, пункт 14); посчитать нечего — null. */
+function salesSheetWeight(line,order,liteIndex){
+  if(!line||!order||typeof salesLineWeight!=='function')return null;
+  var w=salesLineWeight(line,order),n=(order.lines||[]).findIndex(function(l){return l.id===line.id;})+1;
+  var rows=liteIndex==null?w.rows:w.rows.filter(function(r){return r.lite===liteIndex;});
+  var gaps=liteIndex==null||!w.rows.length?w.gaps:[];
+  if(liteIndex!=null)rows.forEach(function(r){if(r.kg==null&&r.gap&&!gaps.some(function(g){return g.key===r.gap.key;}))gaps.push(r.gap);});
+  var known=rows.reduce(function(s,r){return s+(r.kg||0);},0),complete=rows.length>0&&rows.every(function(r){return r.kg!=null;});
+  if(!complete&&!(known>0))return null;
+  return {kg:known,complete:complete,estimated:rows.some(function(r){return r.estimated&&r.kg!=null;}),
+    missing:complete?'':salesWeightMissingText({complete:false,gaps:gaps.map(function(g){return Object.assign({},g,{lines:[n||1]});})})};
 }
 function salesSheetWeightText(w){
   if(!w)return '';
-  return (w.exact?'':'~')+(w.kg>=10?Math.round(w.kg):w.kg.toFixed(1))+' kg';
+  var kg=(w.kg>=10?Math.round(w.kg):w.kg.toFixed(1))+' kg';
+  return w.complete?(w.estimated?'≈ ':'')+kg:kg+' · Partial';
 }
 /* opts.liteIndex — лист одного стекла ступенчатого юнита: размер, площадь,
    вес и маршрут этого стекла, его строка в составе выделена. opts.step —
@@ -309,18 +301,7 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
   var names=result&&result.geometry&&typeof shapeEdgeNames==='function'?shapeEdgeNames(result.geometry):null;
   if(step&&step.step&&liteIndex!=null&&line&&typeof salesLineGeometryShape==='function'){var mainR=ShapeModule.compute(salesLineGeometryShape(line));if(mainR&&mainR.geometry)names=shapeEdgeNames(mainR.geometry);}
   var areaFt2=stepLite?stepLite.area/144:ok?result.area/144:0;
-  var pane=makeup&&(makeup.panes||[])[0];
-  var weight='';
-  if(stepLite&&makeup)weight=salesSheetWeightText(salesSheetPaneWeightKg((makeup.panes||[])[liteIndex],areaFt2));
-  else if(makeup&&(makeup.panes||[]).length){
-    var total=0,exact=true,ok=true;
-    (makeup.panes||[]).forEach(function(p){
-      var w=salesSheetPaneWeightKg(p,areaFt2);
-      if(!w){ok=false;return;}
-      total+=w.kg;if(!w.exact)exact=false;
-    });
-    if(ok&&total>0)weight=salesSheetWeightText({kg:total,exact:exact});
-  }else if(pane)weight=salesSheetWeightText(salesSheetPaneWeightKg(pane,areaFt2));
+  var w=salesSheetWeight(line,order,stepLite?liteIndex:null),weight=salesSheetWeightText(w);
 
   var finished=stepLite?dimIn16(stepLite.w)+' × '+dimIn16(stepLite.h):ok?dimIn16(result.width)+' × '+dimIn16(result.height):'';
   var size=finished?'Finished '+finished:'';
@@ -364,6 +345,7 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
         '<div class="sheet-nums">'+
           (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
           (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+
+          (w&&w.missing?'<div class="sheet-mass-note">'+esc(w.missing)+'</div>':'')+
           '<div class="sheet-who">'+
             '<span>LINE</span><b>'+esc(lineText)+'</b>'+
             '<span>NOTE</span><b class="sheet-note">'+esc(note)+'</b>'+
@@ -416,17 +398,30 @@ function salesStepLiteSheet(r,geo,liteIndex,step){
   var sl=step&&step.step&&liteIndex!=null?step.lites[liteIndex]:null;if(!sl)return null;
   var opts={liteIndex:liteIndex,step:step};
   if(sl.asShape)return {html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false,{noStep:true}),'PRODUCTION DRAWING',opts)};
-  if(sl.own){
+  /* Меньшее стекло прямоугольника — тоже прямоугольник: его лист рисуется
+     тем же путём, что лист большего, а не контурным слоем (пункт 1 плана
+     v1.16: на листах 4/7/15 появлялись «90.00°», заливка и другие размеры). */
+  var rect=sl.own?null:salesStepLiteRect(sDraft,sl);
+  if(sl.own||rect){
     var keep={draft:sDraft,bridge:salesBridge};
     try{
-      sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(salesLineLiteShape(geo,liteIndex))));salesBridge=Object.assign({},salesBridge,{liteIndex:liteIndex});
+      sDraft=rect||normalizeShapeDef(JSON.parse(JSON.stringify(salesLineLiteShape(geo,liteIndex))));salesBridge=Object.assign({},salesBridge,{liteIndex:liteIndex});
       var ro=ShapeModule.compute(sDraft);
       if(!shapeSheetOk(ro))return {error:String((ro.errors&&ro.errors[0])||ro.reason||'Invalid geometry')};
-      return {html:salesShapeSheetHTML(sDraft,ro,shapeSheetSvg(ro,false),'PRODUCTION DRAWING',opts)};
+      return {html:salesShapeSheetHTML(sDraft,ro,shapeSheetSvg(ro,false,rect?{noStep:true}:undefined),'PRODUCTION DRAWING',opts)};
     }finally{sDraft=keep.draft;salesBridge=keep.bridge;}
   }
   var lite={index:liteIndex,label:'Lite '+(liteIndex+1),points:sl.points,edgeIds:step.ids,units:typeof sMetricDetail!=='undefined'&&sMetricDetail?'mm':'in'};
   return {html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false,{lite:lite}),'PRODUCTION DRAWING',opts)};
+}
+/* Прямоугольник размером с лайт — у прямоугольной формы без отверстий и
+   вырезов (их места отсчитаны от угла формы, у меньшего стекла угол другой —
+   такой лайт остаётся контуром). Обработки кромок и раскладка — формы. */
+function salesStepLiteRect(shape,sl){
+  if(!shape||shape.type!=='rectangle'||(shape.features||[]).length||(sl.points||[]).length!==4)return null;
+  var b=fabEdgeBounds(sl.points),at=function(v,a,c){return Math.abs(v-a)<1e-6||Math.abs(v-c)<1e-6;};
+  if(!sl.points.every(function(p){return at(p[0],b.minX,b.maxX)&&at(p[1],b.minY,b.maxY);}))return null;
+  return normalizeShapeDef(Object.assign(JSON.parse(JSON.stringify(shape)),{w:String(b.maxX-b.minX),h:String(b.maxY-b.minY),lites:{}}));
 }
 /* Состав стоит СПРАВА от чертежа — так решил владелец, и это раскладка по
    умолчанию. Уступает она только там, где сама себе мешает: у лежачей фигуры
