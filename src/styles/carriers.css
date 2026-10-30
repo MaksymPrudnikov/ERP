@@ -156,3 +156,4 @@ button.cb-tile:hover{border-color:var(--accent-line)}
 .cc-table td{vertical-align:middle}
 .cc-table td:last-child,.cc-table td:nth-child(3){white-space:nowrap}
 .cc-warn{color:var(--warning)}.cc-bad{color:var(--danger)}
+.cc-table .cw-code{white-space:nowrap}

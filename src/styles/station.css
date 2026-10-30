@@ -483,3 +483,4 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .st-dly-types .st-gbtn span{font-size:13px}
 .st-dly-acts{padding:12px 0 0}
 .st-dly .st-acts .b{display:inline-flex;align-items:center}
+.st-dly-card .st-gid{font-size:18px;line-height:1.35;color:var(--text);font-family:inherit}

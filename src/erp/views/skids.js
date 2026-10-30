@@ -15,7 +15,7 @@ function skidsSwapAsk(customerId){
   if(out.ok&&!out.value.own)carrierPrintLabels([out.value.code]);
  };
  /* Скид, уже зарегистрированный цехом, — его и берём (его этикетка уже есть). */
- const reg=skidSwapCandidates().slice(0,2).map(code=>{const c=carrierFind(code);return {label:'Use '+code+' · '+docDate(finLocalDate(c.regAt))+(c.regBy?' · '+c.regBy:''),run:()=>go(code)};});
+ const reg=skidSwapCandidates().slice(0,2).map(code=>{const c=carrierFind(code);return {label:'Use '+code+' · '+salesListShortDay(finLocalDate(c.regAt)),run:()=>go(code)};});
  salesDialogOpen({title:'Skid from '+name,note:'Their skid gets a new code and label'+(reg.length?' — or use one the shop registered':'')+'. '+mine.list[0].code+' stays at '+name+'.',buttons:[{label:'Back'}].concat(reg,[{label:'L-shape skid',run:()=>go('SL')},{label:'A-shape skid',run:()=>go('SA')}])});
 }
 /* Проверка у клиента (план v1.16, P7-R12, P7-R15): какие наши скиды видели
