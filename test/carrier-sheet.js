@@ -8,7 +8,7 @@ module.exports=async function({page,eq,ok}){
  await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
   window.print=()=>{window.csPrinted=(window.csPrinted||0)+1;};
-  window.csReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.carrierCols=[];DB.skidReturn=[];DB.truck=[];carrierWin=null;sfSheetEdit='';salesDialog=null;stationDrawer=null;stationLast=null;
+  window.csReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.carrierSeq={};DB.carrierCols=[];DB.skidReturn=[];DB.truck=[];carrierWin=null;sfSheetEdit='';salesDialog=null;stationDrawer=null;stationLast=null;
    DB.station.forEach(s=>{delete s.sheetCols;});carrierAdd('DL',3);carrierAdd('SL',3);window.csPrinted=0;};
   /* Стеклопакеты заказа — готовы, на скиде SL-1, положил SHIPR. */
   window.csSkid=function(name){const c=oqCustomer({legalName:name||'Kingsway Renovations'}),id=oqOrder(c);salesDraftDrop();oqThrough(id,'ready');

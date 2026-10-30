@@ -87,9 +87,11 @@ function stationRestack(check,who){
 let stationEmptyAsk='';
 function stationSkidEmpty(code){
  if(stationEmptyAsk!==code){stationEmptyAsk=code;render();return false;}
- stationEmptyAsk='';const list=carrierContents().get(code)||[],what=list.length?stationTareCount(list):'';
+ stationEmptyAsk='';const list=carrierContents().get(code)||[],what=list.length?stationTareCount(list):'',mine=stationPutOn()===code;
  const r=carrierEmpty(code,stationWho());
  if(r.error){stationNote=r.error;stationBeep('error');render();return false;}
+ /* Обнулили ту, на которую здесь кладут, — кладут и дальше. */
+ if(mine)stationSetPutOn(code);
  stationMenu=null;stationNote='';stationDrawer=null;
  stationLast={check:{kind:'carrierEmptied',code:r.code,count:r.count,what},empty:r,rec:null,data:null,place:null,at:new Date().toISOString()};
  stationBeep('ok');render();return true;

@@ -378,6 +378,8 @@ function carrierCardHTML(c){
 function carrierBoardSet(v){carrierBoardShow=v;render();}
 function carrierBoardToggle(k){if(carrierBoardMore.has(k))carrierBoardMore.delete(k);else carrierBoardMore.add(k);render();}
 function viewProdCarriers(){
+ /* Пересчёт (view/carrier-count) — на месте доски. */
+ if(carrierCountShow){const html=carrierCountScreen();if(html)return html;}
  const b=carrierBoard();carrierBoardCache=b;
  let infos,rows;try{infos=prodCarrierInfos();rows=salesListRows(infos);}finally{carrierBoardCache=null;}
  const p=salesListLoadPrefs(),show=carrierBoardShow,cards=rows.map(r=>r.card);
@@ -385,13 +387,10 @@ function viewProdCarriers(){
  const stations=[...new Set(cards.filter(c=>c.kind!=='out').map(c=>c.station))].sort((a,b)=>{const x=order.get(a)||[999,0],y=order.get(b)||[999,0];return x[0]-y[0]||x[1]-y[1];});
  const fbtn=(k,label)=>{const f=p.filters[k],on=!!f&&salesListFilterActive(f);return `<button type="button" class="cb-filter${on?' on':''}" data-filter-col="${k}" onclick="salesListOpenFilter(event,'${k}')">${label} ▾</button>`;};
  const total=b.loadedN+b.outN+b.empty.length,seg=[['loaded','Loaded',b.loadedN],['out','At customers',b.outN],['empty','Empty',b.empty.length],['all','All',total]];
- const tiles=`<div class="cb-tiles">
-  <div class="cb-tile"><b>${b.loaded.dolly}</b><span>${b.loaded.dolly===1?'dolly':'dollies'} loaded · ${esc(carrierCountText(b.loaded.dollyItems))}</span></div>
-  <div class="cb-tile"><b>${b.loaded.skid}</b><span>${b.loaded.skid===1?'skid':'skids'} in the shop · ${esc(carrierCountText(b.loaded.skidItems))}</span></div>
-  <div class="cb-tile"><b>${b.outN}</b><span>${b.outN===1?'skid':'skids'} at customers</span></div>
-  <div class="cb-tile${b.looseN?' warn':''}" data-carrier-loose-tile><b>${b.looseN}</b><span>glass with no dolly or skid</span></div>
-  <div class="cb-tile"><b>${b.empty.length}</b><span>empty</span></div></div>`;
- const tools=`<div class="cb-tools">${fbtn('order','Order')}${fbtn('customer','Customer')}${fbtn('station','Station')}<span class="cb-seg">${seg.map(([k,l,n])=>`<button type="button" class="${show===k?'on':''}" data-carrier-show="${k}" onclick="carrierBoardSet('${k}')">${l} <b>${n}</b></button>`).join('')}</span><span class="cw-sp"></span><span class="mut small">Click a dolly or skid to see what is on it</span></div>`;
+ /* Плитки — учёт тары (вариант 1 этапа 8): зарегистрировано, в цеху, у
+    клиентов, стекло без тары, итоги последнего пересчёта. */
+ const tiles=carrierTilesHTML(b);
+ const tools=`<div class="cb-tools">${fbtn('order','Order')}${fbtn('customer','Customer')}${fbtn('station','Station')}<span class="cb-seg">${seg.map(([k,l,n])=>`<button type="button" class="${show===k?'on':''}" data-carrier-show="${k}" onclick="carrierBoardSet('${k}')">${l} <b>${n}</b></button>`).join('')}</span><span class="cw-sp"></span><span class="mut small">Click a dolly or skid to see what is on it</span>${carrierCountButton()}</div>`;
  const group=(title,sub,body,key)=>`<section class="cb-group" data-carrier-group="${esc(key)}"><div class="cb-gh"><b>${esc(title)}</b><span>${esc(sub)}</span></div><div class="cb-cards">${body}</div></section>`;
  const many=(n,one,more)=>n===1?'1 '+one:n+' '+more;
  const groups=[];

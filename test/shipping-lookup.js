@@ -5,7 +5,7 @@ module.exports=async function({page,eq,ok}){
  await t.p.evaluate(()=>{
   window.print=()=>{window.lkPrints=(window.lkPrints||0)+1;};
   window.lkSeed=function(spec,upTo){
-   oqReset();DB.carrier=[];carrierAdd('SL',3);carrierAdd('DL',1);DB.orderEvent=[];window.lkPrints=0;shippingLookupReset();shippingLookupBy='order';const cs={};
+   oqReset();DB.carrier=[];DB.carrierSeq={};carrierAdd('SL',3);carrierAdd('DL',1);DB.orderEvent=[];window.lkPrints=0;shippingLookupReset();shippingLookupBy='order';const cs={};
    const ids=spec.split(' ').map(k=>{cs[k[0]]=cs[k[0]]||oqCustomer(Object.assign({legalName:'Customer '+k[0]},k[1]==='$'?{paymentMode:'cash'}:{}));const id=oqOrder(cs[k[0]]);salesDraftDrop();oqThrough(id,'ready');return id;});
    tab='shipping';shippingTab='ready';render();return ids;
   };

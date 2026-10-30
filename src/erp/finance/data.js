@@ -92,7 +92,7 @@ function finWithOrder(order,fn){
    фигуры, настройки), — все. Таблицы ниже на цену заказа не влияют. В тестах
    (GF_SCOPE_CHECK) каждый ответ из памяти сверяется с расчётом заново. */
 const FIN_TOTALS_NEUTRAL=new Set(['stationScan','stationScanSeq','productionRoute','glassBatch','cutPlan','glassPiece','glassPieceSeq','glassUnitId','glassUnitIdSeq',
- 'orderEvent','masterDataEvent','authEvent','receipt','refund','financeEvent','financeExport','financeExportBatch','shipment','shipmentSeq','carrier','truck','tripKm',
+ 'orderEvent','masterDataEvent','authEvent','receipt','refund','financeEvent','financeExport','financeExportBatch','shipment','shipmentSeq','carrier','carrierSeq','carrierEvent','carrierCount','truck','tripKm',
  'skidReturn','sheetBreak','stockOffcut','stockOffcutSeq','inventoryEvent','consumableEvent','purchasingEvent','purchaseOrder','purchaseOrderSeq','purchaseReceipt','purchaseReceiptSeq',
  'report','archiveRunDay','terminal','skip','productionUnbatch']);
 let finTotalsKeep=new Map();

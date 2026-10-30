@@ -39,15 +39,24 @@ function skidBack(code,who){
  return out.ok?{code:x.code,customerId:x.customerId,customer:salesCustomerDisplay(x.customerId),days:skidDays(x.since),ps:x.ps}:{error:out.error};
 }
 /* Обмен: клиент отдал свой скид вместо нашего. Чужой заводится новым кодом,
-   самый давний наш скид у этого клиента списывается. */
+   самый давний наш скид у этого клиента списывается. Цех уже
+   зарегистрировал полученный скид (Dollies → Register new) — обмен берёт эту
+   запись, второй не заводит (план v1.16, P7-R18): prefix — код такого скида. */
 function skidSwap(customerId,prefix){return storageCommand(()=>{
  const mine=skidsByCustomer().find(x=>x.customerId===customerId);shippingAssert(mine,'This customer has none of our skids.');
- shippingAssert(['SL','SA'].includes(prefix),'Choose the skid type.');
- const old=mine.list[0],made=carrierAdd(prefix,1,{deferTouch:true});shippingAssert(made&&made.codes&&made.codes.length,made&&made.error||'The skid was not added.');
+ const own=CARRIER_RE.test(carrierCode(prefix))?carrierCode(prefix):'';
+ shippingAssert(own?skidSwapCandidates().includes(own):['SL','SA'].includes(prefix),own?'This skid cannot be used for a swap.':'Choose the skid type.');
+ const old=mine.list[0],made=own?{codes:[own]}:carrierAdd(prefix,1,{deferTouch:true});shippingAssert(made&&made.codes&&made.codes.length,made&&made.error||'The skid was not added.');
  const c=carrierFind(old.code);if(c){c.active=false;c.note=('left at '+salesCustomerDisplay(customerId)+' (swap)').slice(0,80);}
  const who=orderLogActor();skidReturnPush(old.code,old,'swap',made.codes[0],who.by||'Office');
- return {old:old.code,code:made.codes[0]};
+ return own?{old:old.code,code:own,own:true}:{old:old.code,code:made.codes[0]};
 });}
+/* Скиды, которые цех зарегистрировал за последние 14 дней и которые ещё ни
+   в каком обмене: из них офис выбирает полученный от клиента. */
+function skidSwapCandidates(){
+ const used=new Set((DB.skidReturn||[]).map(r=>r.newCode).filter(Boolean)),out=skidsOut(),from=new Date(Date.now()-14*864e5).toISOString();
+ return (DB.carrier||[]).filter(c=>c.active&&c.regAt&&c.regAt>=from&&/^S[LA]-/.test(c.code)&&!used.has(c.code)&&!out.has(c.code)).sort((a,b)=>b.regAt.localeCompare(a.regAt)).map(c=>c.code);
+}
 function normalizeSkidReturns(){
  if(!Array.isArray(DB.skidReturn))DB.skidReturn=[];
  const seen=new Set(),iso=v=>typeof v==='string'&&!isNaN(Date.parse(v));

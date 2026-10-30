@@ -88,7 +88,7 @@ module.exports=async function({page,eq,ok}){
  }),{error:true,ncr:0,orders:true});
 
  eq('«Not on DL-1» снимает с долли весь юнит',await t.p.evaluate(()=>{
-  oqReset();DB.carrier=[];carrierAdd('DL',1);const id=oqOrder(oqCustomer());salesDraftDrop();salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
+  oqReset();DB.carrier=[];DB.carrierSeq={};carrierAdd('DL',1);const id=oqOrder(oqCustomer());salesDraftDrop();salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});
   const o=salesRecord(id),pm=glassPieceMap(id),ids=glassBatchComponents(o,o.lines[0]).map(c=>pm.get(c.key).ids[0]),who={id:'a5',name:'Audit operator'};
   for(const st of ['CUT','ARRIS','HEAT','IGU'])ids.forEach(g=>{const c=stationCheck(st,g);if(STATION_RECORDED.includes(c.kind))stationMove(st,c,who);});
   const c=stationCheck('SHIPR',ids[0]);stationMove('SHIPR',c,who,{on:'DL-1'});const on=()=>ids.map(g=>{const r=stationScansFor(g).filter(s=>s.station==='SHIPR'&&!s.undoneAt).pop();return r&&r.on||'—';}).join();

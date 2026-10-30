@@ -9,7 +9,7 @@ module.exports=async function({page,eq,ok}){
   /* 'A A B$' — три заказа: два клиента A и cash-клиент B. upTo — станция, на
      которой стекло остаётся ждать (по умолчанию готово к отгрузке). */
   window.ldSeed=function(spec,upTo){
-   oqReset();DB.carrier=[];carrierAdd('SL',6);carrierAdd('DL',1);DB.orderEvent=[];stationLast=null;stationNote='';stationQuestions=[];stationIncoming='';const cs={};
+   oqReset();DB.carrier=[];DB.carrierSeq={};carrierAdd('SL',6);carrierAdd('DL',1);DB.orderEvent=[];stationLast=null;stationNote='';stationQuestions=[];stationIncoming='';const cs={};
    return spec.split(' ').map(k=>{
     cs[k[0]]=cs[k[0]]||oqCustomer(Object.assign({legalName:'Customer '+k[0]},k[1]==='$'?{paymentMode:'cash'}:{}));
     const id=oqOrder(cs[k[0]]);salesDraftDrop();if(upTo){oqThrough(id,'batched');ldUpTo(id,upTo);}else oqThrough(id,'ready');return id;

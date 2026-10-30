@@ -3,7 +3,7 @@
 module.exports=async function({page,eq,ok}){
  console.log('shipping');const t=await page();await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
-  window.shSeed=function(n){oqReset();DB.carrier=[];carrierAdd('SL',2);const c=oqCustomer(),ids=[];for(let k=0;k<(n||1);k++){const id=oqOrder(c);salesDraftDrop();oqThrough(id,'ready');ids.push(id);}return ids;};
+  window.shSeed=function(n){oqReset();DB.carrier=[];DB.carrierSeq={};carrierAdd('SL',2);const c=oqCustomer(),ids=[];for(let k=0;k<(n||1);k++){const id=oqOrder(c);salesDraftDrop();oqThrough(id,'ready');ids.push(id);}return ids;};
   /* method 'delivery' — там, где проверяется скид на бумаге: у стойки (pickup) клиенту выдают юниты, а не скид. */
   window.shCreate=function(ids,count,method){const os=ids.map(salesRecord),all=os.flatMap(shippingAvailable);return shippingCreate({customerId:os[0].customerId,method:method||'pickup',shipTo:method==='delivery'?{address1:'1 Main St'}:{},date:finToday(),items:(count==null?all:all.slice(0,count)).map(shippingItem),extras:[]});};
   window.shFail=fn=>testFailWrite(fn,new Error('Disk full'));

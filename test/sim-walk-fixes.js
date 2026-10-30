@@ -7,7 +7,7 @@ module.exports=async function({page,eq,ok}){
  console.log('sim-walk-fixes');const t=await page(undefined,{width:1440,height:900});await require('./optimization-fixture')(t.p);await require('./report-fixture')(t.p);
  await t.p.evaluate(()=>{
   window.print=()=>{};
-  window.swSeed=function(extra){oqReset();DB.carrier=[];carrierAdd('SL',2);DB.orderEvent=[];stationLast=null;stationNote='';const id=oqOrder(oqCustomer(Object.assign({legalName:'Maria Gonzalez'},extra||{})));salesDraftDrop();oqThrough(id,'ready');return id;};
+  window.swSeed=function(extra){oqReset();DB.carrier=[];DB.carrierSeq={};carrierAdd('SL',2);DB.orderEvent=[];stationLast=null;stationNote='';const id=oqOrder(oqCustomer(Object.assign({legalName:'Maria Gonzalez'},extra||{})));salesDraftDrop();oqThrough(id,'ready');return id;};
   window.swPS=function(id,method){return shippingCreate({customerId:salesRecord(id).customerId,method:method||'pickup',shipTo:method==='delivery'?{address1:'1 Main St'}:{},date:finToday(),items:shippingAvailable(salesRecord(id)).map(shippingItem),extras:[]}).value;};
   window.swOpen=function(s){tab='shipping';shippingTab='shipments';shippingOpenId=s.id;render();};
   window.swNoFinance=function(fn){const old=window.accessCan;window.accessCan=k=>k!=='finance';try{return fn();}finally{window.accessCan=old;}};
@@ -68,7 +68,7 @@ module.exports=async function({page,eq,ok}){
 
  /* Медиазапросы шапки — от ширины окна: окно меняется снаружи. */
  await t.p.evaluate(()=>{
-  oqReset();DB.carrier=[];carrierAdd('DL',1);const id=oqOrder(oqCustomer());salesDraftDrop();oqThrough(id,'batched');window.swBatch=DB.glassBatch[DB.glassBatch.length-1].number;
+  oqReset();DB.carrier=[];DB.carrierSeq={};carrierAdd('DL',1);const id=oqOrder(oqCustomer());salesDraftDrop();oqThrough(id,'batched');window.swBatch=DB.glassBatch[DB.glassBatch.length-1].number;
   const who=rbUser('Roman Hrytsenko','1234');rbStation('CUT',who);stationSetPutOn('DL-1');window.swLoose=window.stationLoose;window.stationLoose=()=>[1,2,3];
  });
  const wide=[];
