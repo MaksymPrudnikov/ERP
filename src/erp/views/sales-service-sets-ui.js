@@ -32,17 +32,102 @@ function salesServiceAvailableFilters(){
   return [['hold','On Hold'],['unset','No set'],['attention','Needs attention'],['override','Has overrides'],['dxf','DXF']].map(function(d){return {key:d[0],label:d[1],count:salesServiceFilterCount(d[0])};}).filter(function(d){return d.count>0;});
 }
 function salesNormalizeVisibleServiceFilter(){var a=salesServiceAvailableFilters();if(soServiceFilter!=='all'&&!a.some(function(d){return d.key===soServiceFilter;}))soServiceFilter='all';}
-function salesSetServiceFilter(key){var a=salesServiceAvailableFilters();soServiceFilter=key==='all'||a.some(function(d){return d.key===key;})?key:'all';soServiceBulkPreview=null;render();}
+function salesSetServiceFilter(key){var a=salesServiceAvailableFilters();soServiceFilter=key==='all'||a.some(function(d){return d.key===key;})?key:'all';soServiceBulkPreview=null;soShiftAnchor=null;render();}
 function salesServiceFiltersHtml(){
   salesNormalizeVisibleServiceFilter();var a=salesServiceAvailableFilters();if(!a.length)return '';
   return `<div class='ss-filters'><button class='ss-filter ${soServiceFilter==='all'?'on':''}' onclick='salesSetServiceFilter("all")'>All <span>${salesServiceFilterCount('all')}</span></button>${a.map(function(d){return `<button class='ss-filter ${soServiceFilter===d.key?'on':''} ${d.key==='attention'?'attn':''}' onclick='salesSetServiceFilter("${d.key}")'>${esc(d.label)} <span>${d.count}</span></button>`;}).join('')}</div>`;
 }
 
-const __salesServiceToggleLine=salesToggleLine;
-salesToggleLine=function(id,on){__salesServiceToggleLine(id,on);soServiceBulkPreview=null;render();};
-salesToggleAllLines=function(on){salesServiceFilteredEntries().forEach(function(x){if(on)soSelectedLines.add(x.line.id);else soSelectedLines.delete(x.line.id);});soServiceBulkPreview=null;render();};
-salesRefreshBulkBar=function(){var el=document.getElementById('salesBulkCount');if(el)el.textContent=salesServiceVisibleSelected().length+' selected';};
-salesAssignSelected=function(makeupId){if(!makeupId||!salesMakeupById(soDraft,makeupId))return;salesServiceVisibleSelected().forEach(function(l){l.makeupId=makeupId;});soServiceBulkPreview=null;render();};
+/* ---------- Makeup по номерам строк (пункт 13) ----------
+   Вариант 1 владельца (30.10.2026): полоса «Makeup · Lines [2] to [16] →
+   [B] · Apply» всегда над строками заказа. Номера — колонка #, границы
+   включены; верный диапазон заменяет прежние галочки (и строки, скрытые
+   фильтром, — их число видно). Shift+клик по флажку — то же намерение
+   (выбрать или снять), что у последнего обычного клика, на всех видимых
+   строках между. Makeup меняется только по Apply: строки в батче не
+   меняются и показаны; Apply заказ не сохраняет — Save, как обычно.
+   Выбор, поля и итог — только на экране, в заказ не пишутся. */
+let soRangeFrom='',soRangeTo='',soRangeSig='',soBulkMakeupId='',soShiftAnchor=null,soShiftOn=true,soBulkNote=null,soBulkOwner=null;
+function salesLinesSig(){return soDraft?soDraft.lines.map(function(l){return l.id;}).join(','):'';}
+function salesRangeClear(){soRangeFrom='';soRangeTo='';soRangeSig='';}
+/* Пусто — диапазона нет; неверно — {error}; иначе {from,to}. Ничего не исправляется молча. */
+function salesRangeParse(){
+  var a=String(soRangeFrom).trim(),b=String(soRangeTo).trim(),n=soDraft?soDraft.lines.length:0;
+  if(!a&&!b)return null;
+  if(!/^\d+$/.test(a)||!/^\d+$/.test(b)||+a<1||+b>n||+a>+b)return {error:'Use lines 1–'+n};
+  return {from:+a,to:+b};
+}
+/* Поля показывают выбор, только если это один сплошной ряд номеров. */
+function salesRangeFromSelection(){
+  var at=[];soDraft.lines.forEach(function(l,i){if(soSelectedLines.has(l.id))at.push(i+1);});
+  if(at.length&&at[at.length-1]-at[0]+1===at.length){soRangeFrom=String(at[0]);soRangeTo=String(at[at.length-1]);soRangeSig=salesLinesSig();}else salesRangeClear();
+}
+function salesRangeInput(which,value){
+  if(which==='from')soRangeFrom=value;else soRangeTo=value;soBulkNote=null;soShiftAnchor=null;
+  var r=salesRangeParse();
+  if(r&&!r.error){soSelectedLines=new Set(soDraft.lines.slice(r.from-1,r.to).map(function(l){return l.id;}));soRangeSig=salesLinesSig();soServiceBulkPreview=null;}
+  salesBulkSync(which);
+}
+function salesBulkPickMakeup(id){soBulkMakeupId=id;soBulkNote=null;salesBulkSync();}
+function salesMakeupApplyLocked(){return !soDraft||salesOrderReadOnly(soDraft)||typeof salesSaveJob!=='undefined'&&!!salesSaveJob;}
+function salesBulkPicked(){return soDraft?soDraft.lines.filter(function(l){return soSelectedLines.has(l.id);}):[];}
+/* Кнопка Apply и счётчик: сколько выбрано, сколько в батче, сколько скрыто фильтром. */
+function salesBulkLiveHTML(){
+  var r=salesRangeParse(),picked=salesBulkPicked(),locked=picked.filter(salesLineLocked).length,shown=new Set(salesServiceFilteredEntries().map(function(x){return x.line.id;})),hidden=picked.filter(function(l){return !shown.has(l.id);}).length;
+  var why=salesMakeupApplyLocked()?'Saving…':r&&r.error?r.error:!picked.length?'Choose lines':!soBulkMakeupId?'Choose Makeup':'';
+  var note=soBulkNote?`<span class='mk-applied' data-mk-note>${soBulkNote.ok?'✓ Applied '+esc(soBulkNote.code)+' to '+soBulkNote.ok+' line'+(soBulkNote.ok===1?'':'s'):'Not applied'}${soBulkNote.locked.length?' · '+soBulkNote.locked.length+' locked (line'+(soBulkNote.locked.length===1?' ':'s ')+soBulkNote.locked.join(', ')+')':''}</span>`:'';
+  var count=r&&r.error?`<span class='mk-error' data-mk-error>${esc(r.error)}</span>`:`<span class='mk-count' data-mk-count><b>${picked.length} selected</b>${locked?` · <span class='mk-warn'>${locked} locked</span>`:''}${hidden?` · ${hidden} hidden by filter`:''}</span>`;
+  return `<button type='button' class='pri sm' data-mk-apply ${why?'disabled':''} title='${esc(why||'Apply Makeup')}' onclick='salesBulkApply()'>Apply</button>${note||count}`;
+}
+/* Без перерисовки: курсор остаётся в поле номера (typing — поле, в котором
+   печатают). Перерисовка — только если появляется или уходит полоса Edgework. */
+function salesBulkSync(typing){
+  var bar=document.querySelector('[data-mk-bar]');
+  if(!bar||!!document.querySelector('.sales-lines-block .ss-bulk')!==salesServiceVisibleSelected().length>0){
+    var f=typing&&document.querySelector('[data-mk-field="'+typing+'"]'),key=f&&typing,pos=f&&f.selectionStart;render();
+    if(key)requestAnimationFrame(function(){var e=document.querySelector('[data-mk-field="'+key+'"]');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});
+    return;
+  }
+  document.querySelectorAll('.sales-lines-table tr[data-metrics-line-id]').forEach(function(tr){var on=soSelectedLines.has(tr.dataset.metricsLineId),cb=tr.querySelector('td.line-check input');tr.toggleAttribute('data-picked',on);if(cb)cb.checked=on;});
+  var all=document.querySelector('.sales-lines-table thead .line-check input'),visible=salesServiceFilteredEntries();if(all)all.checked=visible.length>0&&visible.every(function(x){return soSelectedLines.has(x.line.id);});
+  ['from','to'].forEach(function(k){var e=bar.querySelector('[data-mk-field="'+k+'"]'),v=k==='from'?soRangeFrom:soRangeTo;if(e&&k!==typing&&e.value!==v)e.value=v;});
+  bar.querySelector('[data-mk-live]').innerHTML=salesBulkLiveHTML();
+}
+salesRefreshBulkBar=salesBulkSync;
+/* Флажок строки: обычный клик — эта строка и намерение; Shift — то же
+   намерение на видимых строках от прежней до этой. */
+function salesLineCheck(e,id){
+  var on=!!(e&&e.target&&e.target.checked),ids=salesServiceFilteredEntries().map(function(x){return x.line.id;});
+  if(e&&e.shiftKey&&soShiftAnchor&&soShiftAnchor!==id&&ids.indexOf(soShiftAnchor)>=0&&ids.indexOf(id)>=0){
+    var a=ids.indexOf(soShiftAnchor),b=ids.indexOf(id);ids.slice(Math.min(a,b),Math.max(a,b)+1).forEach(function(x){if(soShiftOn)soSelectedLines.add(x);else soSelectedLines.delete(x);});
+  }else{if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);soShiftAnchor=id;soShiftOn=on;}
+  salesRangeFromSelection();soServiceBulkPreview=null;soBulkNote=null;salesBulkSync();
+}
+salesToggleLine=function(id,on){if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);salesRangeFromSelection();soServiceBulkPreview=null;soBulkNote=null;render();};
+salesToggleAllLines=function(on){salesServiceFilteredEntries().forEach(function(x){if(on)soSelectedLines.add(x.line.id);else soSelectedLines.delete(x.line.id);});if(!soSelectedLines.size)soShiftAnchor=null;salesRangeFromSelection();soServiceBulkPreview=null;soBulkNote=null;render();};
+function salesBulkClear(){soSelectedLines=new Set();soShiftAnchor=null;salesRangeClear();soServiceBulkPreview=null;soBulkNote=null;render();}
+/* Apply: выбранный Makeup — выбранным строкам; в батче — пропуск с номерами. */
+salesAssignSelected=function(makeupId){
+  var m=makeupId&&salesMakeupById(soDraft,makeupId),r=salesRangeParse();if(!m||salesMakeupApplyLocked()||r&&r.error)return null;
+  var picked=[];soDraft.lines.forEach(function(l,i){if(soSelectedLines.has(l.id))picked.push({l:l,n:i+1});});if(!picked.length)return null;
+  var ok=picked.filter(function(x){return !salesLineLocked(x.l);});ok.forEach(function(x){x.l.makeupId=m.id;});
+  soBulkNote={code:m.code,ok:ok.length,locked:picked.filter(function(x){return salesLineLocked(x.l);}).map(function(x){return x.n;})};soServiceBulkPreview=null;render();return soBulkNote;
+};
+function salesBulkApply(){return salesAssignSelected(soBulkMakeupId);}
+function salesMakeupGlassText(m){
+  return (m.panes||[]).map(function(p){var n=function(id){var g=glassProductById(id);return g?glassShortName(g):'?';};return p.category==='laminated'?n(p.laminated&&p.laminated.outer&&p.laminated.outer.glassProductId)+'+'+n(p.laminated&&p.laminated.inner&&p.laminated.inner.glassProductId):n(p.glassProductId);}).join(' / ');
+}
+function salesMakeupBarHTML(){
+  if(!soDraft||!soDraft.lines.length||salesOrderReadOnly(soDraft))return '';
+  /* Другой заказ (открыли, Copy, новый) — всё временное заново; строки
+     удалили или переставили — номера устарели, диапазон вводят снова. */
+  if(soBulkOwner!==soDraft.id){soBulkOwner=soDraft.id;salesRangeClear();soBulkMakeupId='';soShiftAnchor=null;soBulkNote=null;}
+  var ids=new Set(soDraft.lines.map(function(l){return l.id;}));soSelectedLines=new Set([...soSelectedLines].filter(function(id){return ids.has(id);}));
+  if(soRangeSig&&soRangeSig!==salesLinesSig()){salesRangeClear();soBulkNote=null;}
+  if(soBulkMakeupId&&!salesMakeupById(soDraft,soBulkMakeupId))soBulkMakeupId='';
+  var n=soDraft.lines.length,field=function(k,v,ph){return `<input class='mk-num' data-mk-field='${k}' inputmode='numeric' value='${esc(v)}' placeholder='${ph}' aria-label='${k==='from'?'From line':'To line'}' oninput='salesRangeInput("${k}",this.value)' onkeydown='if(event.key==="Enter")salesBulkApply()'>`;};
+  return `<div class='mk-bar' data-mk-bar><b class='mk-title'>Makeup</b><span>Lines</span>${field('from',soRangeFrom,'1')}<span>to</span>${field('to',soRangeTo,String(n))}<span class='mk-arrow'>→</span><select class='mk-sel' data-mk-makeup aria-label='Makeup' onchange='salesBulkPickMakeup(this.value)'><option value=''>—</option>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${soBulkMakeupId===m.id?'selected':''}>${esc(m.code)}${salesMakeupGlassText(m)?' · '+esc(salesMakeupGlassText(m)):''}</option>`;}).join('')}</select><span class='mk-live' data-mk-live>${salesBulkLiveHTML()}</span><span class='mk-grow'></span>${salesBulkServiceControls()}<span class='mk-hint'>Shift+click — range</span></div>${salesServiceBulkPreviewHtml()}`;
+}
 
 /* Ссылки на набор у строки больше нет — бейдж показывает, ОТКУДА пришла
    кромка: от формы или базовая от стекла. Клик открывает разбор по кромкам. */
@@ -83,7 +168,8 @@ function salesServiceBulkPreviewHtml(){
 }
 function salesBulkServiceControls(){
   var selected=salesServiceVisibleSelected();if(!selected.length)return '';
-  return `<div class='sales-bulk ss-bulk'><b id='salesBulkCount'>${selected.length} selected</b><span>Makeup</span><select onchange='salesAssignSelected(this.value)'><option value=''>—</option>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}'>${esc(m.code)}</option>`;}).join('')}</select><span>Bulk Set</span><select onchange='soBulkServiceSetId=this.value;soServiceBulkPreview=null;render()'><option value=''>—</option>${(soDraft.serviceSets||[]).map(function(s){return `<option value='${esc(s.id)}' ${soBulkServiceSetId===s.id?'selected':''}>${esc(s.code)} · ${esc(salesServiceSetFormula(s))}</option>`;}).join('')}</select><span>Policy</span><select onchange='soBulkServicePolicy=this.value;soServiceBulkPreview=null;render()'><option value='keep' ${soBulkServicePolicy==='keep'?'selected':''}>Keep overrides</option><option value='overwrite' ${soBulkServicePolicy==='overwrite'?'selected':''}>Overwrite overrides</option><option value='empty' ${soBulkServicePolicy==='empty'?'selected':''}>Only empty</option></select><button class='sm' onclick='salesPreviewServiceAssignment()'>Preview</button><button class='sm' data-extra-bulk onclick='salesOpenOrderServices();salesExtraFormOpen("order")'>+ Service</button><button class='sm' onclick='soSelectedLines=new Set();soServiceBulkPreview=null;render()'>Clear</button></div>${salesServiceBulkPreviewHtml()}`;
+  /* Edgework — отдельно от Makeup (пункт 13): те же Bulk Set, Policy, Preview, + Service. */
+  return `<span class='ss-bulk mk-edge'><span class='mk-vsep'></span><span class='mk-sub'>Edgework</span><span>Bulk Set</span><select onchange='soBulkServiceSetId=this.value;soServiceBulkPreview=null;render()'><option value=''>—</option>${(soDraft.serviceSets||[]).map(function(s){return `<option value='${esc(s.id)}' ${soBulkServiceSetId===s.id?'selected':''}>${esc(s.code)} · ${esc(salesServiceSetFormula(s))}</option>`;}).join('')}</select><span>Policy</span><select onchange='soBulkServicePolicy=this.value;soServiceBulkPreview=null;render()'><option value='keep' ${soBulkServicePolicy==='keep'?'selected':''}>Keep overrides</option><option value='overwrite' ${soBulkServicePolicy==='overwrite'?'selected':''}>Overwrite overrides</option><option value='empty' ${soBulkServicePolicy==='empty'?'selected':''}>Only empty</option></select><button class='sm' onclick='salesPreviewServiceAssignment()'>Preview</button><button class='sm' data-extra-bulk onclick='salesOpenOrderServices();salesExtraFormOpen("order")'>+ Service</button><button class='sm' onclick='salesBulkClear()'>Clear</button></span>`;
 }
 
 /* Approved Sales line layout: Set column immediately after MU. */
@@ -99,7 +185,7 @@ function salesOrderColumnHeader(key){
 }
 function salesOrderColumnCell(key,l,i,linked,st){
   var metric=SALES_METRIC_COLUMNS.find(function(c){return c.key===key;});if(metric)return salesMetricCell(l,metric,'screen');
-  if(key==='mu')return `<td><select class='line-mu' onchange='soDraft.lines[${i}].makeupId=this.value;render()'>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${l.makeupId===m.id?'selected':''}>${esc(m.code)}</option>`;}).join('')}</select></td>`;
+  if(key==='mu')return `<td><select class='line-mu' onchange='soDraft.lines[${i}].makeupId=this.value;render()'>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${l.makeupId===m.id?'selected':''}>${esc(m.code)}</option>`;}).join('')}</select>${salesLineLocked(l)?"<span class='line-locked-pill'>Locked</span>":''}</td>`;
   if(key==='set')return `<td class='ss-cell'>${salesSetBadge(l)}</td>`;
   if(key==='qty'){
    /* Строка в батче, стекло не порезано: количество только вниз (salesLineShrinkable). */
@@ -116,7 +202,7 @@ function salesOrderColumnCell(key,l,i,linked,st){
 }
 function salesOrderLines(){
   var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce(function(n,g){return n+g.lines;},0),hasServices=pricing.charges>0||commercial.length>0,columns=salesOrderScreenColumns();
-  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag a header to move or resize</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services${cwTableClass('lines')}'${cwTableAttrs('lines',columns)}>${cwColgroup('lines',columns)}<thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}${typeof purSalesLinksHTML==='function'?purSalesLinksHTML(soDraft.id,l,columns.length+3):''}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
+  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag a header to move or resize</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesMakeupBarHTML()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services${cwTableClass('lines')}'${cwTableAttrs('lines',columns)}>${cwColgroup('lines',columns)}<thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${soSelectedLines.has(l.id)?' data-picked':''}${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onclick='salesLineCheck(event,"${esc(l.id)}")'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}${typeof purSalesLinksHTML==='function'?purSalesLinksHTML(soDraft.id,l,columns.length+3):''}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
 }
 
 /* ---------- Edgework Set editor ---------- */
