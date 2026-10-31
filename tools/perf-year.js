@@ -117,7 +117,7 @@ function pageSetup() {
       await storageFlush();
       if (name === 'Save order') {
         const ord = pick(DB.salesOrder, x => !salesIsQuote(x) && ['new', 'verified', 'batched'].includes(x.status)); if (!ord) return { skip: 'no open order' };
-        const note = 'perf ' + Date.now(); salesOrderEdit(ord.id); soDraft.notes = note;
+        const note = 'perf ' + Date.now(); salesOrderEdit(ord.id); soDraft.notes = note; if (!String(soDraft.customerPo || '').trim()) soDraft.customerPo = 'PERF';
         const r = run(() => salesOrderSave()); salesDraftDrop(); r.note = ord.businessNumber; delete r.out;
         if ((salesRecord(ord.id) || {}).notes !== note) r.error = 'order not saved'; return flush(r);
       }
@@ -125,7 +125,7 @@ function pageSetup() {
          сохраняет более 10 минут»): новый заказ дописывается до 100 строк. */
       if (name === 'Save 100 lines') {
         const ord = pick(DB.salesOrder, x => !salesIsQuote(x) && x.status === 'new' && (x.lines || []).length); if (!ord) return { skip: 'no new order' };
-        salesOrderEdit(ord.id); const l0 = soDraft.lines[0];
+        salesOrderEdit(ord.id); const l0 = soDraft.lines[0]; if (!String(soDraft.customerPo || '').trim()) soDraft.customerPo = 'PERF';
         while (soDraft.lines.length < 100) { const l = normalizeSalesOrderLine({ makeupId: l0.makeupId, width16: l0.width16, height16: l0.height16, qty: 1, mark: 'P' + soDraft.lines.length }); salesEnsureLineShape(l); soDraft.lines.push(l); }
         const r = run(() => salesOrderSave()); salesDraftDrop(); delete r.out; const n = ((salesRecord(ord.id) || {}).lines || []).length;
         r.note = ord.businessNumber + ' · ' + n + ' lines'; if (n < 100) r.error = 'order not saved'; return flush(r);
