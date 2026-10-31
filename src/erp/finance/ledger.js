@@ -32,7 +32,11 @@ function normalizeFinanceLedger(){
  const alive=new Set((DB.receipt||[]).concat(DB.refund||[],DB.salesOrder||[]).map(x=>x&&x.id));
  DB.financeExport=DB.financeExport.filter(e=>e&&typeof e==='object'&&alive.has(e.entityId));
  DB.financeVersion=1;
- (DB.receipt||[]).forEach(finEnsureHistory);
+ /* То же, что finEnsureHistory на каждую оплату, но журнал проходится один
+    раз: на годовой базе проверка «есть ли история» по каждой оплате
+    проходила весь журнал денег (замер 31.10.2026: 0.9 с на ×4 при F5). */
+ const has=new Set((DB.financeEvent||[]).map(e=>e&&e.entityId));
+ (DB.receipt||[]).forEach(r=>{if(has.has(r.id))return;finEvent('opening',null,r,'Existing record; earlier changes are not available.');has.add(r.id);});
 }
 /* Commit money and its history together. A failed write leaves the UI draft
    available, and restores the previous in-memory balances. */
