@@ -3785,7 +3785,7 @@ tr:has(.inv-stock-edit) td{background:var(--accent-soft)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='fb607dd6a092';
+var ERP_BUILD='c8395f6eed8c';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12848,32 +12848,52 @@ function salesGlassIsClear(g,preferBaseClear){
 }
 function salesGlassPriority(g,preferBaseClear){return salesGlassIsClear(g,preferBaseClear)?0:(g&&g.stocked===true?1:2);}
 function salesGlassSortLabel(g,preferBaseClear){return String(preferBaseClear?glassBaseName(g):(g&&g.name)||'');}
+/* Одно сравнение на весь каталог: localeCompare с настройками строит
+   сравнитель заново на каждый вызов, а F5 спрашивает первое стекло для
+   каждого лайта каждого заказа (замер года 31.10.2026: 2.8 с из 28 на ×4). */
+const SALES_GLASS_COLLATOR=new Intl.Collator('en',{sensitivity:'base',numeric:true});
+function salesGlassCompare(a,b,preferBaseClear){
+ const priority=salesGlassPriority(a,preferBaseClear)-salesGlassPriority(b,preferBaseClear);
+ if(priority)return priority;
+ const cmp=SALES_GLASS_COLLATOR.compare,label=cmp(salesGlassSortLabel(a,preferBaseClear),salesGlassSortLabel(b,preferBaseClear));
+ if(label)return label;
+ return cmp(String((a&&a.name)||''),String((b&&b.name)||''))||cmp(String((a&&a.code)||''),String((b&&b.code)||''));
+}
 function salesSortGlass(rows,preferBaseClear){
- return (Array.isArray(rows)?rows:[]).slice().sort((a,b)=>{
-  const priority=salesGlassPriority(a,preferBaseClear)-salesGlassPriority(b,preferBaseClear);
-  if(priority)return priority;
-  const label=salesGlassSortLabel(a,preferBaseClear).localeCompare(salesGlassSortLabel(b,preferBaseClear),'en',{sensitivity:'base',numeric:true});
-  if(label)return label;
-  return String((a&&a.name)||'').localeCompare(String((b&&b.name)||''),'en',{sensitivity:'base',numeric:true})||String((a&&a.code)||'').localeCompare(String((b&&b.code)||''),'en',{sensitivity:'base',numeric:true});
- });
+ return (Array.isArray(rows)?rows:[]).slice().sort((a,b)=>salesGlassCompare(a,b,preferBaseClear));
+}
+/* Первое по тому же порядку — без сортировки всего списка: при равенстве
+   остаётся более раннее, как в устойчивой сортировке. */
+function salesMinGlass(rows,preferBaseClear){
+ let best=null;(Array.isArray(rows)?rows:[]).forEach(g=>{if(best===null||salesGlassCompare(g,best,preferBaseClear)<0)best=g;});return best;
 }
 /* У покрытого стекла первым шагом выбирают покрытие. Поэтому общий список
    группируем именно по покрытию: сначала покрытия, у которых для выбранных
    производителя и толщины есть хотя бы одна складская позиция, затем только
    предзаказ. Внутри покрытия сохраняется правило Clear → склад → предзаказ. */
-function salesSortCoatedGlass(rows){
+function salesCoatedGroups(rows){
  const groups=Object.create(null);
  (Array.isArray(rows)?rows:[]).forEach(g=>{const coating=glassCoatingName(g);if(!groups[coating])groups[coating]=[];groups[coating].push(g);});
- return Object.keys(groups).sort((a,b)=>{
+ const order=(a,b)=>{
   const stock=(groups[a].some(g=>g.stocked===true)?0:1)-(groups[b].some(g=>g.stocked===true)?0:1);
-  return stock||a.localeCompare(b,'en',{sensitivity:'base',numeric:true});
- }).reduce((out,coating)=>out.concat(salesSortGlass(groups[coating],true)),[]);
+  return stock||SALES_GLASS_COLLATOR.compare(a,b);
+ };
+ return {groups,order};
+}
+function salesSortCoatedGlass(rows){
+ const {groups,order}=salesCoatedGroups(rows);
+ return Object.keys(groups).sort(order).reduce((out,coating)=>out.concat(salesSortGlass(groups[coating],true)),[]);
+}
+function salesFirstCoatedGlass(rows){
+ const {groups,order}=salesCoatedGroups(rows);let best=null;
+ Object.keys(groups).forEach(k=>{if(best===null||order(k,best)<0)best=k;});
+ return best===null?null:salesMinGlass(groups[best],true);
 }
 
 function salesFirstGlass(family,manufacturer,thickness){
  const rows=activeGlassProducts().filter(x=>(!family||x.coatingFamily===family)&&(!manufacturer||x.manufacturer===manufacturer)&&(!thickness||x.thicknessMm===+thickness));
  const preferBaseClear=family==='lowe'||family==='reflective';
- return (preferBaseClear?salesSortCoatedGlass(rows):salesSortGlass(rows,false))[0]||salesSortGlass(activeGlassProducts(),false)[0]||null;
+ return (preferBaseClear?salesFirstCoatedGlass(rows):salesMinGlass(rows,false))||salesMinGlass(activeGlassProducts(),false)||null;
 }
 function salesDefaultLaminatedFrit(){const fd=orderSetupFrit();return {enabled:false,position:'outside',productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:fd.dotMm,marginFrom:fd.marginFrom,marginW16:fd.margin16,marginH16:fd.margin16,marking:''};}
 function normalizeSalesLaminatedFrit(raw,d){
@@ -15192,7 +15212,11 @@ function normalizeFinanceLedger(){
  const alive=new Set((DB.receipt||[]).concat(DB.refund||[],DB.salesOrder||[]).map(x=>x&&x.id));
  DB.financeExport=DB.financeExport.filter(e=>e&&typeof e==='object'&&alive.has(e.entityId));
  DB.financeVersion=1;
- (DB.receipt||[]).forEach(finEnsureHistory);
+ /* То же, что finEnsureHistory на каждую оплату, но журнал проходится один
+    раз: на годовой базе проверка «есть ли история» по каждой оплате
+    проходила весь журнал денег (замер 31.10.2026: 0.9 с на ×4 при F5). */
+ const has=new Set((DB.financeEvent||[]).map(e=>e&&e.entityId));
+ (DB.receipt||[]).forEach(r=>{if(has.has(r.id))return;finEvent('opening',null,r,'Existing record; earlier changes are not available.');has.add(r.id);});
 }
 /* Commit money and its history together. A failed write leaves the UI draft
    available, and restores the previous in-memory balances. */
@@ -40053,7 +40077,14 @@ function recutNextNo(orderId){return (DB.recut||[]).filter(r=>r&&r.orderId===ord
 function recutSlots(r){
  return (r&&r.keys||[]).flatMap(key=>Array.from({length:Math.max(0,Math.floor(+r.qty)||0)},(_,i)=>({key,lineId:r.lineId,unit:'R'+r.no+'.'+(i+1),k:i+1,of:+r.qty,ref:'R'+r.no,label:'Recut '+r.no})));
 }
-function recutSlotsFor(orderId,lineId){return (DB.recut||[]).filter(r=>r&&r.orderId===orderId&&(!lineId||r.lineId===lineId)).flatMap(recutSlots);}
+/* В отрисовке — по указателю «заказ → его Recut» (erp/read-scope): Overview
+   спрашивает каждую строку каждого заказа, и каждый вопрос проходил все
+   Recut (замер года 31.10.2026: 1.7 с на ×4). */
+function recutRowsOf(orderId){
+ if(readOn())return readMemo('recutByOrder',[DB.recut],()=>{const m=new Map();(DB.recut||[]).forEach(r=>{if(!r)return;let a=m.get(r.orderId);if(!a)m.set(r.orderId,a=[]);a.push(r);});return m;}).get(orderId)||[];
+ return (DB.recut||[]).filter(r=>r&&r.orderId===orderId);
+}
+function recutSlotsFor(orderId,lineId){return recutRowsOf(orderId).filter(r=>!lineId||r.lineId===lineId).flatMap(recutSlots);}
 /* «Recut 1 · 2 of 3» по месту стекла; старые места NCR1001.2 — до переноса. */
 function recutUnitText(unit,of){const [ref,k]=String(unit).split('.');return 'Recut '+(ref.startsWith('R')?ref.slice(1):ref)+' · '+k+' of '+(of||'?');}
 function recutStatus(r){
