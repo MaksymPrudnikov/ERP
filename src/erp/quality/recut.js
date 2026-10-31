@@ -21,7 +21,14 @@ function recutNextNo(orderId){return (DB.recut||[]).filter(r=>r&&r.orderId===ord
 function recutSlots(r){
  return (r&&r.keys||[]).flatMap(key=>Array.from({length:Math.max(0,Math.floor(+r.qty)||0)},(_,i)=>({key,lineId:r.lineId,unit:'R'+r.no+'.'+(i+1),k:i+1,of:+r.qty,ref:'R'+r.no,label:'Recut '+r.no})));
 }
-function recutSlotsFor(orderId,lineId){return (DB.recut||[]).filter(r=>r&&r.orderId===orderId&&(!lineId||r.lineId===lineId)).flatMap(recutSlots);}
+/* В отрисовке — по указателю «заказ → его Recut» (erp/read-scope): Overview
+   спрашивает каждую строку каждого заказа, и каждый вопрос проходил все
+   Recut (замер года 31.10.2026: 1.7 с на ×4). */
+function recutRowsOf(orderId){
+ if(readOn())return readMemo('recutByOrder',[DB.recut],()=>{const m=new Map();(DB.recut||[]).forEach(r=>{if(!r)return;let a=m.get(r.orderId);if(!a)m.set(r.orderId,a=[]);a.push(r);});return m;}).get(orderId)||[];
+ return (DB.recut||[]).filter(r=>r&&r.orderId===orderId);
+}
+function recutSlotsFor(orderId,lineId){return recutRowsOf(orderId).filter(r=>!lineId||r.lineId===lineId).flatMap(recutSlots);}
 /* «Recut 1 · 2 of 3» по месту стекла; старые места NCR1001.2 — до переноса. */
 function recutUnitText(unit,of){const [ref,k]=String(unit).split('.');return 'Recut '+(ref.startsWith('R')?ref.slice(1):ref)+' · '+k+' of '+(of||'?');}
 function recutStatus(r){
