@@ -267,8 +267,8 @@ async function cloudPushAll(){
   const now=await cloudRpc('erp_get',{keys});
   if(s.out[0]!==cmd)return;
   s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
-  /* Людям — номер заказа или таблица, а не внутренний ключ строки. */
-  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=x.tbl==='salesOrder'&&salesRecord(x.id);return o?o.businessNumber||'order':x.tbl;}))].slice(0,3).join(', ');
+  /* Заказ людям виден номером, а не внутренним ключом строки. */
+  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=x.tbl==='salesOrder'&&salesRecord(x.id);return o?o.businessNumber||'order':x.id;}))].slice(0,3).join(', ');
   if(!s.out.length)s.lost.clear();
   s.warn=r&&r.denied?'No access on server: '+r.denied.join(', ')+'. Server copy shown.':'Changed on another computer: '+(names||'rows')+'. Server copy shown.';s.warnAt=Date.now();
  }

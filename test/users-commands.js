@@ -29,7 +29,7 @@ module.exports=async function({page,eq}){
  eq('Restore pre-import backup без Users: кнопки нет, замена отказывает и база прежняя',await t.p.evaluate(async()=>{
   const env=storageExportEnvelope(),copy=JSON.parse(JSON.stringify(env));copy.data.user.forEach(u=>{u.access=USER_SECTIONS.slice();});
   const at=new Date().toISOString();await storageIdbCopyPut(JSON.stringify(copy),at);storageCopyAt=at;storageBackupPresent=true;
-  const admin=storageStatusHTML().includes('Restore pre-import backup');
+  const admin=usersDataHTML().includes('Restore pre-import backup');
   ucAs('Demo Sales');
   const before=JSON.stringify(DB),msgs=[],al=window.alert;window.alert=m=>msgs.push(m);
   const button=storageStatusHTML().includes('Restore pre-import backup'),restored=await storageRestoreBackup(),imported=await storageImportState(copy);window.alert=al;
