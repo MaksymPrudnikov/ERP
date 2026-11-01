@@ -3785,7 +3785,7 @@ tr:has(.inv-stock-edit) td{background:var(--accent-soft)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='c8395f6eed8c';
+var ERP_BUILD='d906666a2374';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11915,7 +11915,11 @@ function mdById(key,id){
  return (DB[key]||[]).find(x=>x.id===id)||null;
 }
 function glassProductById(id){return mdById('glassProduct',id);}
-function glassProductByCode(code){const c=mdString(code).toUpperCase();return (DB.glassProduct||[]).find(x=>x.code.toUpperCase()===c)||null;}
+function glassProductByCode(code){
+ const c=mdString(code).toUpperCase();
+ if(readOn())return readMemo('glassProductByCode',[DB.glassProduct],()=>{const m=new Map();(DB.glassProduct||[]).forEach(x=>{const k=x.code.toUpperCase();if(!m.has(k))m.set(k,x);});return m;}).get(c)||null;
+ return (DB.glassProduct||[]).find(x=>x.code.toUpperCase()===c)||null;
+}
 /* Short name (владелец, 29.10.2026): код задаётся один раз при заведении
    и остаётся ключом — за него держатся поставка, склад, раскрой и обрезки;
    Short name — то, что читают люди; Name — полное название. Пусто — люди
@@ -12890,7 +12894,14 @@ function salesFirstCoatedGlass(rows){
  return best===null?null:salesMinGlass(groups[best],true);
 }
 
+/* На проход нормализации заказов: один и тот же вопрос на каждый лайт. */
+let salesFirstGlassMemo=null;
 function salesFirstGlass(family,manufacturer,thickness){
+ if(!salesFirstGlassMemo)return salesFirstGlassPick(family,manufacturer,thickness);
+ const k=family+'|'+manufacturer+'|'+thickness;if(!salesFirstGlassMemo.has(k))salesFirstGlassMemo.set(k,salesFirstGlassPick(family,manufacturer,thickness));
+ return salesFirstGlassMemo.get(k);
+}
+function salesFirstGlassPick(family,manufacturer,thickness){
  const rows=activeGlassProducts().filter(x=>(!family||x.coatingFamily===family)&&(!manufacturer||x.manufacturer===manufacturer)&&(!thickness||x.thicknessMm===+thickness));
  const preferBaseClear=family==='lowe'||family==='reflective';
  return (preferBaseClear?salesFirstCoatedGlass(rows):salesMinGlass(rows,false))||salesMinGlass(activeGlassProducts(),false)||null;
@@ -13351,9 +13362,17 @@ function normalizeSalesAdjustments(raw){
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
+/* Заказ или квота, с которыми работа закончена. */
+function salesOrderSettled(o){return ['done','closed'].includes(o.status)?!!o.fulfilledVia:['cancelled','won'].includes(o.status);}
 function normalizeSalesData(){
  if(!Array.isArray(DB.salesOrder))DB.salesOrder=[];const ids=new Set(),numbers=new Set(),lineIds=new Set();
- DB.salesOrder=DB.salesOrder.filter(x=>x&&typeof x==='object').map(x=>{const o=normalizeSalesOrder(x);while(ids.has(o.id))o.id=salesUid('SO');ids.add(o.id);if(o.businessNumber){if(numbers.has(o.businessNumber))o.businessNumber='';else numbers.add(o.businessNumber);}o.lines.forEach(l=>{while(lineIds.has(l.id))l.id=salesUid('SOL');lineIds.add(l.id);});return o;});
+ salesFirstGlassMemo=new Map();
+ try{
+ DB.salesOrder=DB.salesOrder.filter(x=>x&&typeof x==='object').map(x=>{
+  /* F5 своей базы: завершённая история уже в порядке (normalizeSame). */
+  if(normalizeSame&&salesOrderSettled(x)){ids.add(x.id);if(x.businessNumber)numbers.add(x.businessNumber);(x.lines||[]).forEach(l=>lineIds.add(l.id));return x;}
+  const o=normalizeSalesOrder(x);while(ids.has(o.id))o.id=salesUid('SO');ids.add(o.id);if(o.businessNumber){if(numbers.has(o.businessNumber))o.businessNumber='';else numbers.add(o.businessNumber);}o.lines.forEach(l=>{while(lineIds.has(l.id))l.id=salesUid('SOL');lineIds.add(l.id);});return o;});
+ }finally{salesFirstGlassMemo=null;}
 }
 /* Один заказ — Save, Convert, копия квоты, переделка NCR меняют только его;
    остальные заказы уже приведены в порядок (старт, импорт). Раньше на каждый
@@ -14065,7 +14084,11 @@ function salesRecord(id){
 }
 /* Строка, всё стекло которой порезано по скану без батча (Skip, сток), — не
    «без батча»: иначе заказ не закрыть (владелец, 8.10.2026). */
-function salesUnbatchedLines(o){return (o&&o.lines||[]).filter(l=>l.batchManaged?glassBatchRemaining(o,l)>0:!salesLineLocked(l)&&!(l.qty>0&&glassBatchComponents(o,l).length&&glassBatchRemaining(o,l)===0));}
+function salesUnbatchedLines(o){
+ /* Батчи и отмены заказа — один раз на заказ, а не на каждую строку. */
+ let active=null,gone=null;const left=l=>glassBatchRemaining(o,l,active||(active=glassBatchActive(o.id)),gone||(gone=glassCancelledSlots(o)));
+ return (o&&o.lines||[]).filter(l=>l.batchManaged?left(l)>0:!salesLineLocked(l)&&!(l.qty>0&&glassBatchComponents(o,l).length&&left(l)===0));
+}
 function salesBatchableLines(o){return salesUnbatchedLines(o).filter(l=>!l.onHold);}
 function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};
@@ -28550,12 +28573,19 @@ function shippingOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&
 /* Ready — только то, что можно положить в PS: готовые юниты без PS и товары
    склада. Заказ, где готового нет, сюда не попадает (он в Awaiting). */
 function shippingReadyExtras(o,q){return o.status!=='new'&&!o.onHold?q.extras.filter(e=>e.ready>0):[];}
+function shippingHasReady(o){
+ const ps=shippingForOrder(o.id),full=()=>{const q=shippingSummary(o);return q.ready>0||shippingReadyExtras(o,q).length>0;};
+ if(!shippingAllUnitsTaken(o,ps))return full();
+ const has=shippingReadyExtras(o,{extras:shippingExtraRows(o,ps,shippingLegacy(o))}).length>0;
+ if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK&&has!==full())console.error('Stale ready: '+o.id);
+ return has;
+}
 /* Стекло отменённых юнитов, которое забирает клиент, ждёт PS и у заказа,
    где отгружать больше нечего (аудит Shipping, Д2) — такой заказ тоже в Ready. */
 function shippingTakesOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&unitTakes(o).length>0);}
 /* Один раз на отрисовку (erp/read-scope): число на вкладке Ready и сам
    список спрашивают одно и то же. */
-function shippingReadyOrders(){return readMemo('shippingReady',[DB.salesOrder,DB.shipment,DB.stationScan],()=>{const own=shippingOrders().filter(o=>{const q=shippingSummary(o);return q.ready>0||shippingReadyExtras(o,q).length>0;});return own.concat(shippingTakesOrders().filter(o=>!own.includes(o)));}).slice();}
+function shippingReadyOrders(){return readMemo('shippingReady',[DB.salesOrder,DB.shipment,DB.stationScan],()=>{const own=shippingOrders().filter(shippingHasReady);return own.concat(shippingTakesOrders().filter(o=>!own.includes(o)));}).slice();}
 function shippingSelect(customerId,labels,on){if(shippingCustomer!==customerId){shippingSelection.clear();shippingCustomer=customerId;}labels.forEach(id=>on?shippingSelection.add(id):shippingSelection.delete(id));render();}
 /* Галочка заказа отмечает его готовые юниты; у заказа только с товаром
    склада юнитов нет — отмечается сам заказ (ключ «stock:»). */
@@ -34174,7 +34204,10 @@ function glassBatchComponents(o,l){
 function glassComponentCut(c){const g=c&&!c.missing&&glassProductById(c.glassId);return !g||g.cut!==false;}
 function glassCutKeys(o,l){return new Set(glassBatchComponents(o,l).filter(glassComponentCut).map(c=>c.key));}
 function glassOrderNeedsCut(o){return (o&&o.lines||[]).some(l=>glassCutKeys(o,l).size>0);}
-function glassBatchFind(number){return (DB.glassBatch||[]).find(b=>b.number===number);}
+function glassBatchFind(number){
+ if(readOn())return readMemo('glassBatchByNo',[DB.glassBatch],()=>{const m=new Map();(DB.glassBatch||[]).forEach(b=>{if(!m.has(b.number))m.set(b.number,b);});return m;}).get(number);
+ return (DB.glassBatch||[]).find(b=>b.number===number);
+}
 /* Записи батчей по заказу — один проход по всем батчам на отрисовку
    (erp/read-scope, П1 «Базы»): экраны спрашивают это для каждого заказа. */
 function glassBatchByOrder(){
@@ -34235,9 +34268,10 @@ function glassLookup(code){
  if(unitIdValid(id)){for(const r of DB.glassUnitId||[]){const i=r.ids.indexOf(id);if(i>=0){const [orderId,lineId]=r.key.split('|');return {kind:'unit',id,orderId,lineId,unit:i+1};}}return null;}
  if(!glassPieceValid(id))return null;
  for(const r of DB.glassPiece||[]){
-  const [orderId,lineId]=r.key.split('|'),i=r.ids.indexOf(id);
-  if(i>=0)return {kind:'glass',id,orderId,lineId,key:r.key,unit:i+1};
-  for(const nr of Object.keys(r.extra||{})){const k=r.extra[nr].indexOf(id);if(k>=0)return {kind:'glass',id,orderId,lineId,key:r.key,unit:nr+'.'+(k+1)};}
+  const i=r.ids.indexOf(id);
+  if(i>=0){const [orderId,lineId]=r.key.split('|');return {kind:'glass',id,orderId,lineId,key:r.key,unit:i+1};}
+  if(!r.extra)continue;
+  for(const nr of Object.keys(r.extra)){const k=r.extra[nr].indexOf(id);if(k>=0){const [orderId,lineId]=r.key.split('|');return {kind:'glass',id,orderId,lineId,key:r.key,unit:nr+'.'+(k+1)};}}
  }
  return null;
 }
@@ -34570,19 +34604,31 @@ function glassBatchConvertCounted(b){
    нормализации не создаёт новых записей; возвращённые записи не исчезают.
    Позиция с замком, но без активных записей, тоже импортируется: замок
    важнее — такое стекло нельзя снова выпустить в резку. */
+function glassPieceSeqTop(){
+ let top=Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0;
+ DB.glassPiece.forEach(r=>r.ids.concat(...Object.values(r.extra||{})).forEach(id=>{top=Math.max(top,glassPieceNumber(id));}));
+ DB.glassBatch.forEach(b=>b.items.forEach(i=>{top=Math.max(top,glassPieceNumber(i.piece));}));
+ DB.glassPieceSeq=top;
+}
+function glassUnitSeqTop(){DB.glassUnitIdSeq=Math.max(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0,...DB.glassUnitId.flatMap(r=>r.ids.map(unitIdNumber)));}
 function normalizeGlassBatches(){
  if(!Array.isArray(DB.glassBatch))DB.glassBatch=[];
  if(!Array.isArray(DB.glassPiece))DB.glassPiece=[];
  /* Заказы и стёкла строк — одним проходом, а не поиском по всем заказам и
     батчам на каждую запись (старт на базе 3 мес. — 6 с, задание «База», П4). */
  const ids=new Set(),orderIds=new Set((DB.salesOrder||[]).filter(Boolean).map(o=>o.id));
- const byLine=()=>{const m=new Map();DB.glassBatch.forEach(batch=>batch.items.forEach((item,index)=>{const part=batch.parts[item.part];if(!part)return;const k=part.orderId+'|'+part.lineId;let a=m.get(k);if(!a)m.set(k,a=[]);a.push({batch,item,index,part});}));return m;};
- DB.glassPiece=DB.glassPiece.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===4&&Array.isArray(r.ids)&&orderIds.has(r.key.split('|')[0]))
+ /* F5 своей базы (normalizeSame): история не перебирается, только открытые заказы. */
+ const orders=normalizeSame?(DB.salesOrder||[]).filter(o=>!salesOrderSettled(o)):(DB.salesOrder||[]),own=normalizeSame?new Set(orders.map(o=>o.id)):null;
+ const byLine=()=>{const m=new Map();DB.glassBatch.forEach(batch=>batch.items.forEach((item,index)=>{const part=batch.parts[item.part];if(!part||own&&!own.has(part.orderId))return;const k=part.orderId+'|'+part.lineId;let a=m.get(k);if(!a)m.set(k,a=[]);a.push({batch,item,index,part});}));return m;};
+ const ownOrder=r=>orderIds.has(r.key.slice(0,r.key.indexOf('|')));
+ if(normalizeSame)DB.glassPiece=DB.glassPiece.filter(ownOrder);
+ else DB.glassPiece=DB.glassPiece.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===4&&Array.isArray(r.ids)&&orderIds.has(r.key.split('|')[0]))
   .map(r=>{
    const out={key:r.key,ids:r.ids.map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'')};
    if(r.extra&&typeof r.extra==='object'){const extra={};Object.keys(r.extra).filter(nr=>/^(NCR|R)\d+$/.test(nr)&&Array.isArray(r.extra[nr])).forEach(nr=>{extra[nr]=r.extra[nr].map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'');});if(Object.keys(extra).length)out.extra=extra;}
    return out;
   });
+ if(!normalizeSame){
  DB.glassBatch=DB.glassBatch.filter(b=>b&&typeof b==='object'&&salesBatchNumber(b.number)&&Array.isArray(b.items));
  DB.glassBatch.forEach(b=>{
   if(!Array.isArray(b.parts))glassBatchConvertCounted(b);
@@ -34599,19 +34645,19 @@ function normalizeGlassBatches(){
     восстанавливается по movedTo старого батча. */
  const byNo=new Map(DB.glassBatch.map(b=>[b.number,b]));
  DB.glassBatch.forEach(b=>b.items.forEach(i=>{const to=i.movedTo&&byNo.get(i.movedTo);if(!to)return;const n=to.items.find(x=>x.piece===i.piece&&!x.from&&x.at>=i.releasedAt);if(n)n.from=b.number;}));
- let top=Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0;
- DB.glassPiece.forEach(r=>r.ids.concat(...Object.values(r.extra||{})).forEach(id=>{top=Math.max(top,glassPieceNumber(id));}));
- DB.glassBatch.forEach(b=>b.items.forEach(i=>{top=Math.max(top,glassPieceNumber(i.piece));}));
- DB.glassPieceSeq=top;
+ }
+ glassPieceSeqTop();
  /* Места для записей без номера изделия: активные — первые свободные. */
+ if(!normalizeSame){
  const taken=new Set();DB.glassBatch.forEach(b=>b.items.forEach(i=>{if(i.unit!==0&&!i.releasedAt)taken.add(b.parts[i.part].key+'|'+i.unit);}));
  DB.glassBatch.forEach(b=>{const released=new Map();b.items.forEach(i=>{
   if(i.unit!==0)return;const key=b.parts[i.part].key;
   if(i.releasedAt){const n=(released.get(key)||0)+1;released.set(key,n);i.unit=n;return;}
   let u=1;while(taken.has(key+'|'+u))u++;i.unit=u;taken.add(key+'|'+u);
  });});
- let lines=byLine();
- (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)).forEach(o=>(o.lines||[]).forEach((l,li)=>{
+ }
+ let lines=byLine(),legacy=false;
+ orders.filter(o=>!salesIsQuote(o)).forEach(o=>(o.lines||[]).forEach((l,li)=>{
   if(!salesLineLocked(l)||(lines.get(o.id+'|'+l.id)||[]).some(x=>!x.item.releasedAt))return;
   const number=salesBatchNumber(l.batchNo)||salesBatchNumber(o.batchNo)||salesNextBatchNumber(),at=l.batchedAt||l.cutStartedAt||o.updatedAt||o.createdAt||'';
   let b=glassBatchFind(number);if(!b){b={number,createdAt:at,parts:[],items:[],history:[]};DB.glassBatch.push(b);}
@@ -34620,22 +34666,25 @@ function normalizeGlassBatches(){
    const part=b.parts.length;b.parts.push({key:c.key,orderId:o.id,lineId:l.id,snapshot:{order:o.businessNumber,customer:salesCustomerDisplay(o.customerId),line:li+1,of:l.qty,lite:c.lite,glass:c.glass,glassId:c.glassId||'',width:l.width16/16,height:l.height16/16,shape:'Legacy',heat:'',coating:''}});
    for(let unit=1;unit<=l.qty;unit++){const item={piece:'',part,unit,at,releasedAt:'',cutStartedAt:l.cutStartedAt||''};b.items.push(item);made.push(item);}
   });
-  b.history.push({at,action:'Imported legacy batch',pieces:[],qty:made.length,convert:made});
+  b.history.push({at,action:'Imported legacy batch',pieces:[],qty:made.length,convert:made});legacy=true;
   l.batchManaged=true;l.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
  }));
  if(!Array.isArray(DB.glassUnitId))DB.glassUnitId=[];
  const unitIds=new Set(),unitKeys=new Set();
- DB.glassUnitId=DB.glassUnitId.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===2&&Array.isArray(r.ids)&&orderIds.has(r.key.split('|')[0])&&!unitKeys.has(r.key)&&unitKeys.add(r.key))
+ if(normalizeSame)DB.glassUnitId=DB.glassUnitId.filter(ownOrder);
+ else DB.glassUnitId=DB.glassUnitId.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===2&&Array.isArray(r.ids)&&orderIds.has(r.key.split('|')[0])&&!unitKeys.has(r.key)&&unitKeys.add(r.key))
   .map(r=>({key:r.key,ids:r.ids.map(id=>unitIdValid(id)&&!unitIds.has(id)?(unitIds.add(id),id):'')}));
- DB.glassUnitIdSeq=Math.max(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0,...DB.glassUnitId.flatMap(r=>r.ids.map(unitIdNumber)));
- const ctx=glassPieceCtx();(DB.salesOrder||[]).forEach(o=>glassPieceEnsure(o,ctx));
+ glassUnitSeqTop();
+ const ctx=glassPieceCtx();orders.forEach(o=>glassPieceEnsure(o,ctx));
+ if(!normalizeSame||legacy){
  const pieces=glassPieceMap();
  DB.glassBatch.forEach(b=>{
   b.items.forEach(i=>{if(glassPieceValid(i.piece))return;const id=glassPieceAt(pieces.get(b.parts[i.part].key),i.unit);i.piece=glassPieceValid(id)?id:glassPieceNextId();});
   b.history.forEach(h=>{if(h.convert){h.pieces=h.convert.map(i=>i.piece);delete h.convert;}});
  });
+ }
  lines=byLine();
- (DB.salesOrder||[]).forEach(o=>(o.lines||[]).forEach(l=>{
+ orders.forEach(o=>(o.lines||[]).forEach(l=>{
   const active=(lines.get(o.id+'|'+l.id)||[]).filter(x=>!x.item.releasedAt);if(!active.length)return;
   /* Замок позиции без отметок стёкол — старые данные: резку отмечали всей
      позицией. Со сканом станции отметка у каждого стекла своя, и позиция
@@ -36806,6 +36855,7 @@ function cutConsolidateSheets(group,paramsFor,source){
 /* ------------------------------ Прогон ------------------------------ */
 function cutPlanFor(number){
  if(cutEstIs(number))return typeof cutEstPlan==='function'?cutEstPlan(number):null;
+ if(readOn())return readMemo('cutPlanByBatch',[DB.cutPlan],()=>{const m=new Map();(DB.cutPlan||[]).forEach(p=>{if(p&&!m.has(p.batch))m.set(p.batch,p);});return m;}).get(number)||null;
  return (DB.cutPlan||[]).find(p=>p&&p.batch===number)||null;
 }
 /* The old stamp covered only the footprint. A raked Shape can change its cut
@@ -40378,9 +40428,15 @@ function stationRouteOf(g){
    порядку, и каждый продвигает стекло к БЛИЖАЙШЕМУ впереди заходу на эту
    станцию; повтор уже пройденной станции место не меняет. */
 function stationRouteStep(route,station,far){const i=route.indexOf(station,far+1);return i>=0?i:route.lastIndexOf(station);}
+/* Сканы одного стекла почти всегда уже идут по времени — сортировка только
+   если нет: это самый частый вызов экранов Overview и Shipping. */
+function stationScansInTime(list){
+ for(let i=1;i<list.length;i++)if(!(list[i-1].at<list[i].at))return list.sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
+ return list;
+}
 function stationPlace(g,scans){
  const route=stationRouteOf(g).codes;scans=scans||stationScansFor(g.id);
- let far=-1;scans.filter(s=>!s.broken&&!s.park).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)))
+ let far=-1;stationScansInTime(scans.filter(s=>!s.broken&&!s.park))
   .forEach(s=>{const i=Number.isInteger(s.step)&&route[s.step]===s.station?s.step:stationRouteStep(route,s.station,far);if(i>far)far=i;});
  /* Разбитое стекло выходит из маршрута: станции его больше не ждут, вместо
     него едет стекло Recut со своим номером. */
@@ -40450,7 +40506,7 @@ function stationRecord(station,check,who,opts){
 function stationScope(station,check){
  const orders=[],batches=[],lines=new Set(),pieces=new Set(),scans=[];
  [check].concat((check&&check.mates||[]).map(id=>stationCheck(station,id))).forEach(c=>{const g=c&&c.g;if(!g)return;if(g.o)orders.push(g.o.id);if(g.entry)batches.push(g.entry.batch.number);if(g.o&&g.l)lines.add(g.o.id+'|'+g.l.id);});
- if(lines.size)(DB.glassPiece||[]).forEach(r=>{const [o,l]=String(r.key).split('|');if(!lines.has(o+'|'+l))return;r.ids.forEach(id=>{if(id)pieces.add(id);});Object.values(r.extra||{}).forEach(x=>x.forEach(id=>{if(id)pieces.add(id);}));});
+ if(lines.size)(DB.glassPiece||[]).forEach(r=>{const k=String(r.key),end=k.indexOf('|',k.indexOf('|')+1);if(!lines.has(end<0?k:k.slice(0,end)))return;r.ids.forEach(id=>{if(id)pieces.add(id);});Object.values(r.extra||{}).forEach(x=>x.forEach(id=>{if(id)pieces.add(id);}));});
  if(pieces.size)(DB.stationScan||[]).forEach(x=>{if(pieces.has(x.piece))scans.push(x.id);});
  return {stationScan:scans,stationScanSeq:true,productionRoute:[],salesOrder:orders,glassBatch:batches};
 }
@@ -40553,9 +40609,14 @@ function stationWaiting(){
    сроку система не придумывает. */
 function stationUrgency(o){return o&&o.priority==='critical'?2:o&&o.priority==='rush'?1:0;}
 
+function stationScanSeqTop(){
+ let top=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0;
+ DB.stationScan.forEach(s=>{top=Math.max(top,+s.id.slice(3));});DB.stationScanSeq=top;
+}
 function normalizeStationScans(){
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
  if(!Array.isArray(DB.productionRoute))DB.productionRoute=[];
+ if(normalizeSame){stationScanSeqTop();normalizeSheetBreaks();return;}
  DB.productionRoute=DB.productionRoute.filter(x=>x&&typeof x.key==='string'&&x.route&&Array.isArray(x.route.codes)&&x.route.codes.length&&x.route.codes.every(c=>typeof c==='string'&&SF_CODE_RE.test(c))&&Array.isArray(x.route.services));
  const ids=new Set(),iso=v=>typeof v==='string'&&!Number.isNaN(Date.parse(v));
  DB.stationScan=DB.stationScan.filter(s=>s&&typeof s==='object'&&STATION_SCAN_ID_RE.test(String(s.id))&&!ids.has(s.id)&&glassPieceValid(s.piece)&&iso(s.at)&&typeof s.station==='string'&&s.station.trim()&&(ids.add(s.id),true))
@@ -40572,8 +40633,7 @@ function normalizeStationScans(){
    ...(STATION_SCAN_ID_RE.test(String(s.asm))&&Number.isInteger(s.unit)&&s.unit>0&&s.unit<1e5?{unit:s.unit}:{}),
    ...(s.park===true&&s.broken!==true?{park:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{}),
    ...(s.broken===true?{broken:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{})}));
- let top=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0;
- DB.stationScan.forEach(s=>{top=Math.max(top,+s.id.slice(3));});DB.stationScanSeq=top;
+ stationScanSeqTop();
  /* Скан резки — правда о «резка началась»: у импортированных данных поле
     стекла могло потеряться, журнал его восстанавливает. */
  const cut=stationCutCode(),first=new Map();
@@ -44276,9 +44336,10 @@ function stationInitials(name){return String(name||'?').split(/\s+/).filter(Bool
 /* ------------------------------ Звук ------------------------------- */
 /* Разный звук на разный исход: рабочий понимает, не глядя на экран. */
 let stationAudio=null;
+function stationAudioReady(){stationAudio=stationAudio||new (window.AudioContext||window.webkitAudioContext)();}
 function stationBeep(kind){
  try{
-  stationAudio=stationAudio||new (window.AudioContext||window.webkitAudioContext)();
+  stationAudioReady();if(stationAudio.state==='suspended')stationAudio.resume();
   const tones={ok:[[880,.07]],info:[[880,.07]],twice:[[660,.06],[660,.06]],error:[[220,.35]],sheet:[[660,.08],[990,.14]],warn:[[523,.1],[392,.18]],urgent:[[880,.07],[1320,.12]]}[kind]||[[880,.07]];
   let t=stationAudio.currentTime+.01;
   tones.forEach(([f,d])=>{const o=stationAudio.createOscillator(),g=stationAudio.createGain();o.type=kind==='error'?'square':'sine';o.frequency.value=f;g.gain.value=.12;o.connect(g);g.connect(stationAudio.destination);o.start(t);o.stop(t+d);t+=d+.05;});
@@ -44642,6 +44703,8 @@ function stationLoginView(){
 }
 function viewStation(){
  const s=stationRow();
+ /* Звук готовится сразу: первый скан не ждёт его (X-02, 0,3 с на слабом ПК). */
+ if(!stationAudio)setTimeout(()=>{try{stationAudioReady();}catch(e){}},0);
  if(!s){
   return stationTop(null)+'<div class="st-body st-one"><div class="card"><h2>Choose a station</h2><div class="st-names">'+(DB.station||[]).map(x=>'<button type="button" class="st-name-btn" onclick="location.hash=\'station='+esc(x.code)+'\'"><b>'+esc(x.code)+'</b> '+sfLabel(x)+'</button>').join('')+'</div></div></div>';
  }
@@ -46436,11 +46499,9 @@ function prodListDefaultSort(){return subtab==='carriers'?{k:'',dir:'asc'}:{k:'r
    несколько раз за одну отрисовку. */
 let prodBoardCache={stamp:'',data:null};
 function prodBoardStamp(){
- /* Тара стекла меняется без новых сканов («Not on DL-1», перенос на другую
-    долли) — её коды тоже в метке. */
- const scans=DB.stationScan||[];let undone=0,on=0;scans.forEach(s=>{if(s.undoneAt)undone++;const v=s.on||'';for(let i=0;i<v.length;i++)on=(on*31+v.charCodeAt(i))|0;on=(on*31+1)|0;});
- let items=0,released=0,cut=0;(DB.glassBatch||[]).forEach(b=>b.items.forEach(i=>{items++;if(i.releasedAt)released++;if(i.cutStartedAt)cut++;}));
- return [scans.length,undone,on,DB.stationScanSeq,items,released,cut,(DB.salesOrder||[]).map(o=>o.id+o.updatedAt+o.status+(o.priority||'')+(o.dueDate||'')).join(',')].join('|');
+ /* Любая запись (своя, чужой вкладки) сбрасывает доску: storageInvalidate.
+    Метка — только то, что видно без прохода по всем сканам и стёклам. */
+ return [(DB.stationScan||[]).length,DB.stationScanSeq,(DB.salesOrder||[]).length,(DB.glassBatch||[]).length].join('|');
 }
 function prodBoard(){
  const stamp=prodBoardStamp();if(prodBoardCache.stamp===stamp&&prodBoardCache.data)return prodBoardCache.data;
@@ -47312,6 +47373,19 @@ function shippingUnits(o,opts){
 /* Свой PS держит и то, что уже погружено: оно больше не «ждёт на станции». */
 function shippingLoadedOn(i,id){return !!i.loaded&&!!i.shipment&&i.shipment.status==='planned'&&(!id||i.shipment.id===id);}
 function shippingAvailable(o,exceptId){return shippingUnits(o).filter(i=>i.ready?!i.shipment||i.shipment.id===exceptId:!!exceptId&&shippingLoadedOn(i,exceptId));}
+function shippingExtraRows(o,ps,legacy){
+ return (o.extraItems||[]).map(x=>{
+  const count=filter=>ps.filter(filter).flatMap(s=>s.extras).filter(i=>i.orderId===o.id&&i.extraId===x.id).reduce((n,i)=>n+i.qty,0);
+  const shipped=legacy?x.qty:count(shippingSent),delivered=legacy?x.qty:count(s=>s.status==='delivered');
+  return {x,ordered:x.qty,shipped,delivered,back:Math.max(0,x.qty-shipped),ready:Math.max(0,x.qty-count(shippingActive))};
+ });
+}
+/* Каждый юнит каждой строки уже на PS: готового без PS у заказа нет, стёкла
+   можно не перебирать (на годе почти все заказы экрана такие). */
+function shippingAllUnitsTaken(o,ps){
+ const taken=new Set();ps.filter(shippingActive).forEach(s=>s.items.forEach(i=>{if(i.orderId===o.id)taken.add(i.lineId+'|'+i.unit);}));
+ return (o.lines||[]).every(l=>{for(let n=1;n<=l.qty;n++)if(!taken.has(l.id+'|'+n))return false;return true;});
+}
 function shippingSummary(o){
  const legacy=shippingLegacy(o),ps=shippingForOrder(o.id),units=shippingUnits(o);
  const lines=(o.lines||[]).map(l=>{
@@ -47319,11 +47393,7 @@ function shippingSummary(o){
   const ordered=shippingLineQty(l),shipped=legacy?ordered:sent.length,delivered=legacy?ordered:received.length;
   return {l,ordered,shipped,delivered,back:Math.max(0,ordered-shipped),ready:units.filter(i=>i.lineId===l.id&&i.ready&&!i.shipment).length,physicalReady:units.filter(i=>i.lineId===l.id&&(i.ready&&(!i.shipment||i.shipment.status==='planned')||shippingLoadedOn(i))).length};
  });
- const extras=(o.extraItems||[]).map(x=>{
-  const count=filter=>ps.filter(filter).flatMap(s=>s.extras).filter(i=>i.orderId===o.id&&i.extraId===x.id).reduce((n,i)=>n+i.qty,0);
-  const shipped=legacy?x.qty:count(shippingSent),delivered=legacy?x.qty:count(s=>s.status==='delivered');
-  return {x,ordered:x.qty,shipped,delivered,back:Math.max(0,x.qty-shipped),ready:Math.max(0,x.qty-count(shippingActive))};
- });
+ const extras=shippingExtraRows(o,ps,legacy);
  const sum=(a,k)=>a.reduce((n,x)=>n+x[k],0),all=lines.concat(extras);
  return {lines,extras,ordered:sum(all,'ordered'),shipped:sum(all,'shipped'),delivered:sum(all,'delivered'),back:sum(all,'back'),ready:sum(lines,'ready'),physicalReady:sum(lines,'physicalReady'),glass:sum(lines,'ordered'),ps};
 }
@@ -48789,6 +48859,12 @@ function repGlassWork(g,station,visit){
 
 /* День и час — по часам этого компьютера, как finToday. */
 function repDay(iso){const d=new Date(iso);if(Number.isNaN(d.getTime()))return '';const p=v=>String(v).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+/* Тот же ответ, что repDay(iso)===day, но время программы (…Z) — сравнением
+   строк: дата из каждого из сотен тысяч сканов на старте стоит секунду. */
+function repDayTest(day){
+ const a=new Date(day+'T00:00:00'),lo=a.toISOString(),hi=new Date(a.getFullYear(),a.getMonth(),a.getDate()+1).toISOString();
+ return iso=>typeof iso==='string'&&iso.length===24&&iso[23]==='Z'?iso>=lo&&iso<hi:repDay(iso)===day;
+}
 function repHour(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?-1:d.getHours();}
 
 /* Факты работы: скан, который продвинул стекло. Разбитое (Recut) и вынутое
@@ -48825,14 +48901,16 @@ function repWorkFacts(day){
  /* Юнит после сборки — сама сборка (стеклопакет на IGU, склейка на LAM), а
     не номер стекла в позиции: лайты одного пакета бывают из разных юнитов
     позиции, и «юниты» на выдаче считались бы по стёклам. */
- const asmAt=new Map(),built=new Map();
+ const asmAt=new Map(),built=new Map(),inDay=day?repDayTest(day):null,today=day?new Set():null;
+ /* Номер захода считается только у стёкол этого дня. */
+ if(day)(DB.stationScan||[]).forEach(s=>{if(inDay(s.at))today.add(s.piece);});
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||!s.asm||!(s.unit||s.joined))return;const t=asmAt.get(s.asm);if(!t||s.at>t)asmAt.set(s.asm,s.at);});
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||!s.asm||!(s.unit||s.joined))return;const was=built.get(s.piece);if(!was||s.unit&&!was.unit)built.set(s.piece,{asm:s.asm,unit:!!s.unit,at:asmAt.get(s.asm)});});
  const oInfo=o=>{if(!orders.has(o.id))orders.set(o.id,repOrderInfo(o));return orders.get(o.id);},lInfo=l=>{if(!lines.has(l))lines.set(l,repLineInfo(l));return lines.get(l);};
  (DB.stationScan||[]).forEach(s=>{
-  if(s.undoneAt||s.broken||s.park)return;
+  if(s.undoneAt||s.broken||s.park||today&&!today.has(s.piece))return;
   const vk=s.piece+'|'+s.station,nth=(visits.get(vk)||0)+1;visits.set(vk,nth);
-  if(day&&repDay(s.at)!==day)return;
+  if(day&&!inDay(s.at))return;
   const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station,Number.isInteger(s.step)?s.step:-nth):{area:null,mm:null,heat:'',unitType:'',works:[]};
   const b=built.get(s.piece),unitKey=!g?'':b&&b.at<=s.at?'A:'+b.asm:g.o.id+'|'+g.l.id+'|'+g.unit;
   const sum=u=>w.works.filter(x=>x.unit===u).reduce((n,x)=>n+x.qty,0);
@@ -51896,7 +51974,7 @@ function storageBaseApply(changes){
   if(!m.size)storageBase.delete(c.tbl);
  });
 }
-function storageBaseFrom(records){storageBase=new Map();storageBaseApply(records.map(r=>({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data})));}
+function storageBaseFrom(records){storageBase=new Map();storageBaseApply(records);}
 /* Строки таблицы из опорного состояния — по порядку seq; overlay —
    изменения поверх (откат к состоянию до команды). */
 function storageBaseRows(tbl,overlay){
@@ -52835,7 +52913,8 @@ async function storageSeed(src){
  await storageIdbTx(['record','cold','archive','meta'],'readwrite',tx=>{
   const rs=tx.objectStore('record');rs.clear();tx.objectStore('cold').clear();tx.objectStore('archive').clear();
   changes.forEach(c=>rs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data}));
-  tx.objectStore('meta').put(storageRev+1,'rev');
+  /* Посеянное этой сборкой в порядок не приводилось: F5 — проход целиком. */
+  tx.objectStore('meta').put(storageRev+1,'rev');tx.objectStore('meta').delete('counted');
  });
 }
 function storageRestoreBackup(){
@@ -53021,6 +53100,11 @@ function prepareImportedState(src,own){
    Цифры, посчитанные прежней версией программы, пересчитываются после
    старта в простое (storageRecount, аудит 29.10.2026, А2). */
 let normalizeOwn=false;
+/* Своя база той же сборки, где цифры этой сборкой уже посчитаны (метка
+   counted): строки заказов, батчей и сканов эта программа уже приводила в
+   порядок — F5 их не перебирает (X-02, 01.11.2026). Счётчики номеров
+   сверяются всё равно. Новая сборка, Import, сервер — проход целиком. */
+let normalizeSame=false;
 function normalizeDB(){
  Object.keys(DEFAULT).forEach(k=>{ if(Array.isArray(DEFAULT[k])&&!Array.isArray(DB[k])) DB[k]=JSON.parse(JSON.stringify(DEFAULT[k])); });
  normalizeRefVersion();
@@ -53073,12 +53157,21 @@ function normalizeDB(){
     старый браузер и старый файл приносят библиотеку прежних версий. */
  if(typeof salesPruneOrphanShapes==='function')salesPruneOrphanShapes();
 }
+/* Тесты (GF_SCOPE_CHECK): проход целиком дал бы то же, что старт без него.
+   Порядок ключей строки не важен: команда дописывает поле в конец. */
+function storageSameCheck(){
+ const canon=x=>Array.isArray(x)?x.map(canon):x&&typeof x==='object'?Object.keys(x).sort().reduce((m,k)=>{m[k]=canon(x[k]);return m;},{}):x,text=()=>Object.keys(DB).sort().map(k=>[k,JSON.stringify(canon(DB[k]))]);
+ const keep=JSON.stringify(DB),was=text();normalizeSame=false;normalizeDB();
+ const now=new Map(text()),bad=was.filter(([k,v])=>now.get(k)!==v).map(([k])=>k).concat([...now.keys()].filter(k=>!was.some(x=>x[0]===k)));
+ if(bad.length)console.error('Stale boot: '+bad.join(', '));
+ DB=JSON.parse(keep);normalizeSame=true;
+}
 /* Старт по частям, мс: чтение записей, сборка, нормализация (с пересевом и
    правками), запись дописанного, первая отрисовка — их показывает
    tools/perf-year.js (задание «База», этап 2). */
 let storageBootMs=null;
 async function boot(){
- let hadSavedState=false,counted='';const T=()=>performance.now(),t0=T(),ms={};
+ let hadSavedState=false,counted='',same=false;const T=()=>performance.now(),t0=T(),ms={};
  try{
   await storageIdbOpen();
   const got=await storageIdbReadAll();ms.read=T()-t0;
@@ -53092,10 +53185,11 @@ async function boot(){
  catch(e){storageRecovery=true;storageLastError=storageIdb?'Stored data could not be read. The original has been preserved.':'This browser could not open the database. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.';console.warn(storageLastError,e.message);}
  /* Блоки номеров сервера — до нормализации: она бывает, выдаёт номера стёкол. */
  if(!storageRecovery&&typeof cloudLoad==='function')try{await cloudLoad();}catch(e){console.warn('Sync state was not read:',e.message);}
- normalizeOwn=hadSavedState;
+ normalizeOwn=hadSavedState;normalizeSame=hadSavedState&&!storageRecovery&&storageBuildAtLoad===storageBuildId()&&counted===storageBuildId()&&!(typeof cloudSync!=='undefined'&&cloudSync.on);same=normalizeSame;
  try{ if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB(); }
- catch(e){normalizeOwn=false;storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
- normalizeOwn=false;
+ catch(e){normalizeOwn=false;normalizeSame=false;same=false;storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
+ if(normalizeSame&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)storageSameCheck();
+ normalizeOwn=false;normalizeSame=false;
  /* Пересев справочников. Идёт ПОСЛЕ первой нормализации (иначе сравнивать не с
     чем) и сам вызывает её повторно, чтобы заводские данные прошли те же правила,
     что и любые другие. Рабочие данные не трогаются — см. reseedReferenceTables. */
@@ -53108,7 +53202,7 @@ async function boot(){
     идёт после нормализации, чтобы демо-записи прошли те же правила, и ровно
     один раз на браузер (см. seedDemoUsers в erp/data). */
  if(typeof seedDemoUsers==='function')seedDemoUsers();
- ms.normalize=T()-t0-(ms.read||0)-(ms.join||0);const tw=T();
+ ms.normalize=T()-t0-(ms.read||0)-(ms.join||0);ms.same=same?1:0;const tw=T();
  /* Новая сборка дописывает в базу то, что изменили нормализация, пересев и
     правки: новые графы со значением по умолчанию. Пишет вкладка-писатель и
     ставит свою версию главной; остальные допишут, когда станут писателем. */
