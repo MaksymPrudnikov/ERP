@@ -40,7 +40,7 @@ const CLOUD_NUMBER={
    меньше половины — берётся следующий. */
 const CLOUD_BLOCK={
  glass:[1000,()=>DB.glassPieceSeq],unit:[500,()=>DB.glassUnitIdSeq],scan:[1000,()=>DB.stationScanSeq],
- offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0]};
+ offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0],journal:[50,()=>finJournalTop()]};
 let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
  uploading:false,dirty:null,running:false,timer:null,wait:CLOUD_POLL_MS,busy:'',error:'',warn:'',offline:false,at:''};
 function cloudKey(tbl,id){return tbl+'\u0000'+id;}
@@ -129,7 +129,7 @@ function cloudOutbox(changes){
  const ops=[...s.blockDirty].map(name=>['b\u0000'+name,s.blocks.get(name)]);s.blockDirty.clear();
  if(!rows.length||!s.loaded||!s.on||s.uploading){
   if(!s.loaded&&rows.length&&cloudConfig().session)s.early.push(rows);
-  if(s.uploading)rows.forEach(c=>s.dirty.add(cloudKey(c.tbl,c.id)));
+  if(s.uploading)rows.forEach(c=>s.dirty.set(cloudKey(c.tbl,c.id),c));
   return ops.length?{ops,done(){}}:null;
  }
  const cmds=[],queued=new Set();let n=s.n;
@@ -316,7 +316,7 @@ function cloudUpload(){
   const s=cloudSync,vers=new Map(),url=cloudConfig().url;
   const recs=cloudRecords().concat((await storageIdbColdAll()).map(r=>({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,month:r.month,owners:r.owners})),
    (await storageIdbArchiveAll()).map(a=>({tbl:'_archive',id:a.id,seq:0,data:JSON.stringify(a.row)})));
-  s.uploading=true;s.dirty=new Set();
+  s.uploading=true;s.dirty=new Map();
   let last=0;
   try{
    let sent=0;
@@ -331,12 +331,18 @@ function cloudUpload(){
    await cloudSaveAll(url,last,vers);
   }finally{s.uploading=false;}
   /* Правки во время отправки — следом обычной командой. */
+  /* Как было записано: строка, ушедшая в архив посреди отправки, на сервере
+     уходит в архив, а не удаляется (проверка на Supabase, 01.11.2026). */
   const dirty=s.dirty;s.dirty=null;
-  if(dirty&&dirty.size){const again=cloudRecords().filter(r=>dirty.has(cloudKey(r.tbl,r.id)));
-   const gone=[...dirty].filter(k=>!again.some(r=>cloudKey(r.tbl,r.id)===k)).map(k=>{const i=k.indexOf('\u0000');return {tbl:k.slice(0,i),id:k.slice(i+1),del:true};});
-   const out=cloudOutbox(again.concat(gone));if(out){storageWrite([],out.ops);out.done();}}
+  if(dirty&&dirty.size){const out=cloudOutbox([...dirty.values()]);if(out){storageWrite([],out.ops);out.done();}}
   cloudSoon();return true;
  });
+}
+/* Номера журнала денег, совпавшие у двух компьютеров до блоков: у всех
+   компьютеров одинаково — по времени и id, следующие свободные. */
+function cloudJournalUnique(state){
+ const list=Array.isArray(state.financeEvent)?state.financeEvent:[],used=new Set();let top=list.reduce((n,e)=>Math.max(n,e&&e.seq||0),0);
+ list.slice().sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).forEach(e=>{if(used.has(e.seq))e.seq=++top;used.add(e.seq);});
 }
 function cloudDownload(){
  return cloudRun('Downloading…',async()=>{
@@ -357,6 +363,7 @@ function cloudDownload(){
   const byRows=new Set(rows.filter(x=>x.id!=='*').map(x=>x.tbl));
   const state=storageJoin(rows.filter(x=>!(x.id==='*'&&byRows.has(x.tbl))).map(x=>({tbl:x.tbl,id:x.id,seq:+x.seq||0,data:cloudText(x.data)})));
   Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&!Object.prototype.hasOwnProperty.call(state,k))state[k]=[];});
+  cloudJournalUnique(state);
   /* Связь снимается перед самой заменой (замена сама на сервер не уходит),
      а не раньше: Cancel на «Replace this browser database?» оставляет связь,
      версии и очередь этого ПК как были (аудит 25.10.2026, A-1). */

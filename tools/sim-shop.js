@@ -41,6 +41,7 @@
    Ключи: --start --end (YYYY-MM-DD) --seed N --scale 0.2 (доля объёма)
           --name --out --small --quick-cut (быстрый раскрой, для отладки)
           --end-at 10 (последний день — до этого часа, можно 7.5)
+          --first-order 80000 (номер первого заказа)
           --check (отчёты конструктора против truth, время отчётов)
           --inventory (склад: поставщики, закупки и приёмки блоками, пересчёт,
             минимумы, Held, Offset у Maver, куски S-, лопнувший лист — для
@@ -63,6 +64,7 @@ for (let i = 0; i < argv.length; i++) {
   const a = argv[i], v = () => argv[++i];
   if (a === '--start') o.start = v(); else if (a === '--end') o.end = v(); else if (a === '--seed') o.seed = +v();
   else if (a === '--scale') o.scale = +v(); else if (a === '--name') o.name = v(); else if (a === '--out') o.out = v();
+  else if (a === '--first-order') o.firstOrder = +v();
   else if (a === '--small') o.small = true; else if (a === '--end-at') o.endAt = +v(); else if (a === '--quick-cut') o.quickCut = true; else if (a === '--check') o.check = true; else if (a === '--inventory') o.inventory = true; else if (a === '--guide') o.guide = true;
   else if (a === '--ndjson') o.ndjson = true; else if (a === '--snap') o.snap = v().split(',').map(Number).filter(n => n > 0);
   else if (a === '-h' || a === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('*/')[0]); process.exit(0); }
@@ -1732,6 +1734,7 @@ if (require.main === module) (async () => {
   await p.evaluate(() => window.storageReady);
   await p.waitForTimeout(400);
   await p.evaluate(`(${simPage.toString()})()`);
+  if (o.firstOrder) await p.evaluate(n => { DB.archiveFloor = Object.assign({}, DB.archiveFloor, { order: n - 1 }); }, o.firstOrder);
   console.log('setup', JSON.stringify(await p.evaluate(x => SIM.setup(x), { seed: o.seed, scale: o.scale, quickCut: o.quickCut, start: o.start, inventory: o.inventory })));
   const sizes = [];
   /* Export v2 в файл: заголовок с числом записей пишется в конце на место

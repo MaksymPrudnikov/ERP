@@ -69,8 +69,9 @@ module.exports=async function({page,eq}){
  await A.p.evaluate(()=>storageCommand(()=>{DB.customer.push({id:'C-CLOUD',legalName:'Cloud Co'});}));
  await A.p.evaluate(()=>{tab='users';subtab='cloud';render();});
  eq('Users → Cloud: после входа — «Not synced», Upload и Download',await A.p.evaluate(()=>({sync:document.querySelector('[data-cloud-sync]').dataset.cloudSync,up:!!document.querySelector('[data-cloud-upload]'),down:!!document.querySelector('[data-cloud-download]')})),{sync:'off',up:true,down:true});
- const up=await A.p.evaluate(()=>cloudUpload());
+ const up=await A.p.evaluate(()=>{const f=cloudRpc;cloudRpc=function(n,a){if(n==='erp_apply'){cloudRpc=f;cloudOutbox([{tbl:'customer',id:'C-COLD',seq:90,data:'{"id":"C-COLD"}',cold:true,owners:['SO-x'],month:'2026-01'}]);}return f(n,a);};return cloudUpload();});
  eq('Upload: база A на сервере, A — «Synced»',{up,has:!!srv.rec.get('customer|C-CLOUD'),text:await sync(A)},{up:true,has:true,text:'Synced'});
+ eq('строка, ушедшая в архив посреди Upload, на сервере в архиве, а не удалена',(r=>r&&{cold:r.cold,deleted:r.deleted})(srv.rec.get('customer|C-COLD')),{cold:true,deleted:false});
  eq('Upload второй раз — отказ: на сервере уже есть данные',await A.p.evaluate(async()=>{await cloudSaveAll('',0,null);await cloudUpload();const e=cloudSync.error;cloudSync.error='';return e;}),'The server already has data. Use Download.');
  await A.p.evaluate(async()=>{await cloudDownload();});
 
@@ -167,6 +168,10 @@ module.exports=async function({page,eq}){
  eq('заказ ушёл в архив на A: на сервере архивная строка и указатель Sales; у B — тоже в архиве, с сервера, на диск не копируется',
   {went,server:{cold:PGcold('salesOrder|'+oa.id),index:!!srv.rec.get('_archive|'+oa.id)},a:await seen(A),b:await seen(B)},
   {went:{due:true,ok:true,hot:false},server:{cold:true,index:true},a:{hot:false,index:true,cold:true,disk:true},b:{hot:false,index:true,cold:true,disk:false}});
+ eq('журнал денег: совпавшие номера двух компьютеров разводятся одинаково, новые — из блока сервера',await A.p.evaluate(()=>{
+  const st={financeEvent:[{id:'b',seq:1,at:'2026-01-02T00:00:00.000Z'},{id:'a',seq:1,at:'2026-01-01T00:00:00.000Z'},{id:'c',seq:2,at:'2026-01-03T00:00:00.000Z'}]};cloudJournalUnique(st);
+  return {seqs:st.financeEvent.map(e=>e.id+e.seq).sort(),block:Object.prototype.hasOwnProperty.call(CLOUD_BLOCK,'journal')};
+ }),{seqs:['a1','b3','c2'],block:true});
  const C=await pc('admin@glass-erp.test');
  eq('Download на третьем ПК: указатель Sales есть, записи архива — с сервера по запросу, на диск не копируются',await (async()=>{await C.p.evaluate(()=>cloudDownload());return seen(C);})(),{hot:false,index:true,cold:true,disk:false});
  eq('архивный заказ открывается с сервера',await C.p.evaluate(async id=>{const ok=await archiveOpen(id),n=soDraft&&soDraft.id;archiveVisitEnd();return {ok,same:n===id};},oa.id),{ok:true,same:true});
