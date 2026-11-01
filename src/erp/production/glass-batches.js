@@ -27,7 +27,7 @@ function unitIdNumber(id){return unitIdValid(id)?+id.slice(2):0;}
 /* Со связью с сервером — номер из блока этого компьютера (erp/cloud-sync). */
 function unitIdNext(){const was=glassIdSeq(DB.glassUnitIdSeq),n=cloudSeq('unit',was+1);DB.glassUnitIdSeq=Math.max(was,n);return 'U-'+String(n).padStart(7,'0');}
 function unitIdAt(orderId,lineId,unit){
- const key=orderId+'|'+lineId,r=readOn()?readMemo('unitIdByKey',[DB.glassUnitId],()=>{const m=new Map();(DB.glassUnitId||[]).forEach(x=>{if(!m.has(x.key))m.set(x.key,x);});return m;}).get(key):(DB.glassUnitId||[]).find(x=>x.key===key);
+ const key=orderId+'|'+lineId,r=typeof stationBulkNow!=='undefined'&&stationBulkNow?stationBulkUnits().get(key):readOn()?readMemo('unitIdByKey',[DB.glassUnitId],()=>{const m=new Map();(DB.glassUnitId||[]).forEach(x=>{if(!m.has(x.key))m.set(x.key,x);});return m;}).get(key):(DB.glassUnitId||[]).find(x=>x.key===key);
  return r&&r.ids[unit-1]||'';
 }
 function glassPieceNextId(){const was=glassIdSeq(DB.glassPieceSeq),n=cloudSeq('glass',was+1);DB.glassPieceSeq=Math.max(was,n);return 'G-'+String(n).padStart(7,'0');}

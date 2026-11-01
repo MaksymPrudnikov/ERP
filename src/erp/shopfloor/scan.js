@@ -65,6 +65,15 @@ function stationBulk(fn){
  stationBulkNow={index:null,scans:null,lines:null,broken:null};
  try{return fn();}finally{stationBulkNow=null;}
 }
+function stationBulkOrder(id){
+ const b=stationBulkNow;
+ if(!b.orders||b.orderList!==DB.salesOrder||b.orderN!==DB.salesOrder.length){const m=new Map();(DB.salesOrder||[]).forEach(o=>{if(o&&!m.has(o.id))m.set(o.id,o);});b.orders=m;b.orderList=DB.salesOrder;b.orderN=DB.salesOrder.length;}
+ return b.orders.get(id);
+}
+function stationBulkUnits(){
+ const b=stationBulkNow;if(b.units)return b.units;
+ const m=b.units=new Map();(DB.glassUnitId||[]).forEach(x=>{if(!m.has(x.key))m.set(x.key,x);});return m;
+}
 function stationBulkScans(){
  const b=stationBulkNow;if(b.scans)return b.scans;
  const m=b.scans=new Map();(DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;let a=m.get(s.piece);if(!a)m.set(s.piece,a=[]);a.push(s);});
