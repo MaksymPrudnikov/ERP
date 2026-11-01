@@ -322,6 +322,17 @@ function storageIdbWrite(changes,rev,build,test,cloud){
   if(cloud&&cloud.length){const st=tx.objectStore('cloud');cloud.forEach(([k,v])=>{if(v==null)st.delete(k);else st.put(v,k);});}
  });
 }
+/* Склад cloud без версий строк (ключи v␀…). */
+function storageIdbCloudHead(){
+ return storageIdbTx(['cloud'],'readonly',tx=>{
+  const st=tx.objectStore('cloud'),out={keys:[],values:[]};
+  [IDBKeyRange.upperBound('v\u0000',true),IDBKeyRange.lowerBound('v\u0001')].forEach(r=>{
+   const a={};st.getAllKeys(r).onsuccess=e=>{a.k=e.target.result||[];};
+   st.getAll(r).onsuccess=e=>{(e.target.result||[]).forEach((v,i)=>{out.keys.push(a.k[i]);out.values.push(v);});};
+  });
+  return out;
+ });
+}
 function storageIdbCloudAll(){
  return storageIdbTx(['cloud'],'readonly',tx=>{
   const st=tx.objectStore('cloud'),out={keys:[],values:[]};

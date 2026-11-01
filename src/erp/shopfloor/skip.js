@@ -150,7 +150,7 @@ function skipAt(date){return date===finToday()?new Date().toISOString():new Date
 /* d: {orderId, lines, codes, extras {extraId: qty}, to, date, reason, receivedBy}. */
 function skipRun(d){
  if(!skipAllowed())return {error:'Only Users or Finance can skip.'};
- const out=storageCommand(()=>skipCommand(d));
+ const out=storageCommand(()=>stationBulk(()=>skipCommand(d)));
  return out.ok?out.value:{error:out.error};
 }
 function skipCommand(d){

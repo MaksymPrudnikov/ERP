@@ -35,6 +35,7 @@ function stationScanNextId(){
 function stationCutCode(){return typeof salesRouteStationOf==='function'?salesRouteStationOf('cutting','CUT'):'CUT';}
 /* Сканы стекла — на отрисовку один указатель «стекло → сканы» (erp/read-scope). */
 function stationScansFor(piece){
+ if(stationBulkNow)return (stationBulkScans().get(piece)||[]).filter(s=>!s.undoneAt);
  if(readOn())return (readMemo('stationScansByPiece',[DB.stationScan],()=>{const m=new Map();(DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;let a=m.get(s.piece);if(!a)m.set(s.piece,a=[]);a.push(s);});return m;}).get(piece)||[]).slice();
  return (DB.stationScan||[]).filter(s=>s.piece===piece&&!s.undoneAt);
 }
@@ -49,7 +50,46 @@ function stationCodeOf(raw){
 }
 /* Номер стекла → заказ, позиция, стекло Makeup и активная запись батча.
    index — готовая карта номеров, когда стёкол много (экран офиса). */
-function stationPieceIndex(){return readMemo('stationPieceIndex',[DB.glassPiece],stationPieceIndexBuild);}
+function stationPieceIndex(){
+ if(stationBulkNow)return stationBulkNow.index||(stationBulkNow.index=stationPieceIndexBuild());
+ return readMemo('stationPieceIndex',[DB.glassPiece],stationPieceIndexBuild);
+}
+/* Указатели на одно действие (скан, Skip, отгрузка): в команде указатели
+   отрисовки выключены, и заказ на 500 строк на каждое стекло строил номера
+   всей базы и перебирал все сканы: Skip 65 с, Shipped 38 с (проверка на
+   сервере, 01.11.2026). Строятся при первом вопросе, новый скан дописывается
+   (stationBulkAdd). Внутри fn номера стёкол не выдаются. */
+let stationBulkNow=null;
+function stationBulk(fn){
+ if(stationBulkNow)return fn();
+ stationBulkNow={index:null,scans:null,lines:null,broken:null};
+ try{return fn();}finally{stationBulkNow=null;}
+}
+function stationBulkOrder(id){
+ const b=stationBulkNow;
+ if(!b.orders||b.orderList!==DB.salesOrder||b.orderN!==DB.salesOrder.length){const m=new Map();(DB.salesOrder||[]).forEach(o=>{if(o&&!m.has(o.id))m.set(o.id,o);});b.orders=m;b.orderList=DB.salesOrder;b.orderN=DB.salesOrder.length;}
+ return b.orders.get(id);
+}
+function stationBulkUnits(){
+ const b=stationBulkNow;if(b.units)return b.units;
+ const m=b.units=new Map();(DB.glassUnitId||[]).forEach(x=>{if(!m.has(x.key))m.set(x.key,x);});return m;
+}
+function stationBulkScans(){
+ const b=stationBulkNow;if(b.scans)return b.scans;
+ const m=b.scans=new Map();(DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;let a=m.get(s.piece);if(!a)m.set(s.piece,a=[]);a.push(s);});
+ return m;
+}
+function stationBulkLines(){
+ const b=stationBulkNow;if(b.lines)return b;
+ const index=stationPieceIndex(),m=b.lines=new Map(),br=b.broken=new Set();
+ (DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)br.add(s.piece);const h=index.get(s.piece);if(!h)return;const k=h.orderId+'|'+h.lineId;let a=m.get(k);if(!a)m.set(k,a=[]);a.push(s);});
+ return b;
+}
+function stationBulkAdd(rec){
+ const b=stationBulkNow;if(!b)return;
+ if(b.scans){let a=b.scans.get(rec.piece);if(!a)b.scans.set(rec.piece,a=[]);a.push(rec);}
+ if(b.lines){const h=stationPieceIndex().get(rec.piece);if(h){const k=h.orderId+'|'+h.lineId;let a=b.lines.get(k);if(!a)b.lines.set(k,a=[]);a.push(rec);}}
+}
 function stationPieceIndexBuild(){
  const m=new Map();
  (DB.glassPiece||[]).forEach(r=>{
@@ -68,7 +108,7 @@ function stationBatchIndexBuild(){
 function stationGlass(id,index,batches){
  /* В отрисовке — указатель отрисовки (erp/read-scope): доска Ready на заказе в
     3 000 стёкол спрашивала каждое стекло перебором всей базы. */
- const hit=index?index.get(id):readOn()?stationPieceIndex().get(id)||null:(()=>{const h=glassLookup(id);return h&&h.kind==='glass'?h:null;})();
+ const hit=index?index.get(id):readOn()||stationBulkNow?stationPieceIndex().get(id)||null:(()=>{const h=glassLookup(id);return h&&h.kind==='glass'?h:null;})();
  if(!hit)return null;
  const o=salesRecord(hit.orderId),l=o&&(o.lines||[]).find(x=>x.id===hit.lineId);
  if(!o||!l)return null;
@@ -219,7 +259,7 @@ function stationRecordCommand(station,check,who,opts){
  /* Скан резки помнит лист раскладки: склад листов списывает его и после
     Reset раскроя (erp/inventory/sheets). */
  if(station===stationCutCode()&&check.g&&check.g.entry&&typeof invScanSheet==='function'){const sh=invScanSheet(check.g.entry,rec.piece);if(sh)rec.sheet=sh;}
- DB.stationScan.push(rec);
+ DB.stationScan.push(rec);stationBulkAdd(rec);
  if(check.g)stationAsmJoin(rec,check.g,station,opts.asm);
  /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
     позиция узнаёт это через glassBatchSyncLine, как и прежде. */
@@ -410,6 +450,7 @@ function stationBreakCommand(station,check,who,reasonId,opts){
   const p={id:stationScanNextId(),at:now,piece:id,station,by,byId,manual:false,undoneAt:'',undoneBy:'',park:true,recut:ref,reason:'Waits for a pair'};
   DB.stationScan.push(p);return p;
  });
+ if(stationBulkNow){stationBulkNow.scans=null;stationBulkNow.lines=null;}
  /* Разбилось на резе — стекло всё равно порезано: лист закрывается. */
  const e=g.entry;if(station===stationCutCode()&&e&&!e.item.cutStartedAt){e.item.cutStartedAt=now;glassBatchSyncLine(o,l);}
  shippingSyncOrder(o,now);
@@ -508,6 +549,7 @@ function stationLineKeys(o,l){return glassBatchComponents(o,l).filter(c=>!c.miss
    shippingCtx): экран Shipping не перебирает весь журнал на каждую строку. */
 function stationAsms(o,l,station,index,pre){
  index=index||stationPieceIndex();
+ if(!pre&&stationBulkNow){const b=stationBulkLines();pre={scans:b.lines.get(o.id+'|'+l.id)||[],broken:b.broken};}
  const broken=pre?pre.broken:new Set(),out=new Map();
  if(!pre)(DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)broken.add(s.piece);});
  (pre?pre.scans:DB.stationScan||[]).forEach(s=>{

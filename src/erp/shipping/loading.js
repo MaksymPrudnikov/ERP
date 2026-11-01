@@ -104,18 +104,19 @@ function shippingLoadPlan(code,tripId){
  /* Очередь: готовый юнит этого клиента с меньшим номером (в этом рейсе или
     без PS) ещё не погружен. Без номера — после всех номеров. */
  const mine=new Set(units.map(u=>u.label)),q=Math.min(...units.map(u=>shippingUnitQueue(u)||Infinity));
- const first=(DB.salesOrder||[]).filter(o=>o.customerId===customerId&&!salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status)).flatMap(o=>shippingUnits(o))
+ const first=(DB.salesOrder||[]).filter(o=>o.customerId===customerId&&!salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status)&&(o.lines||[]).some(l=>shippingQueueOf(l))).flatMap(o=>shippingUnits(o))
   .filter(u=>u.ready&&!mine.has(u.label)&&(!u.shipment||u.shipment.id===trip.id)).map(u=>({u,q:shippingUnitQueue(u)})).filter(x=>x.q&&x.q<q).sort((a,b)=>a.q-b.q||a.u.label.localeCompare(b.u.label))[0];
  if(first)return fail('shipQueue',{trip,customer,take:first.u.skid||first.u.label,queue:first.q});
  return {kind:'ok',code,skid,units,add:units.filter(u=>!u.shipment),trip,opened,switched,customerId,customer};
 }
 function shippingLoad(code,tripId,who,opts){
  const plan=shippingWithCtx(()=>shippingLoadPlan(code,tripId));if(plan.kind!=='ok')return plan;
- const out=storageCommand(()=>shippingLoadCommand(code,tripId,who,opts));
+ /* Записывается то, что только что разобрано: разбор здесь же, без паузы. */
+ const out=storageCommand(()=>shippingLoadCommand(code,tripId,who,opts,plan),{shipment:[plan.trip.id],salesOrder:[...new Set(plan.units.map(u=>u.orderId))],stationScan:[],stationScanSeq:true,productionRoute:[],carrier:true});
  return out.ok?out.value:{kind:'saveError',code,note:out.error};
 }
-function shippingLoadCommand(code,tripId,who,opts){
- opts=opts||{};const plan=shippingWithCtx(()=>shippingLoadPlan(code,tripId));shippingAssert(plan.kind==='ok','Scan again.');
+function shippingLoadCommand(code,tripId,who,opts,ready){
+ opts=opts||{};const plan=ready||shippingWithCtx(()=>shippingLoadPlan(code,tripId));shippingAssert(plan.kind==='ok','Scan again.');
  const ship=shippingStations().ship,now=new Date().toISOString(),s=plan.trip,ids=[...new Set(plan.units.map(u=>u.orderId))];let actionId='';
  /* Весь скид — одно действие: один actionId, один Undo. */
  plan.units.forEach(u=>u.pieces.forEach(piece=>{

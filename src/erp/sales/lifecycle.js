@@ -302,6 +302,7 @@ function salesBatchTop(){
 function salesNextBatchNumber(){return 'B-'+String(cloudSeq('batch',salesBatchTop()+1)).padStart(4,'0');}
 /* Заказ по номеру — в отрисовке по указателю (erp/read-scope, П4 «Базы»). */
 function salesRecord(id){
+ if(typeof stationBulkNow!=='undefined'&&stationBulkNow)return stationBulkOrder(id);
  if(readOn())return readMemo('salesById',[DB.salesOrder],()=>{const m=new Map();(DB.salesOrder||[]).forEach(o=>{if(o&&!m.has(o.id))m.set(o.id,o);});return m;}).get(id);
  return (DB.salesOrder||[]).find(o=>o.id===id);
 }

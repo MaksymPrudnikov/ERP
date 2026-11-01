@@ -2,7 +2,8 @@
    erp/archive  ·  erp-1.0
    Архив (задание «База», этап 3, А2): какие заказы уходят из работы, что
    уходит вместе с ними, что они оставляют после себя и как возвращаются.
-   Владелец, 22.10.2026: через 3 месяца после отгрузки и полной оплаты;
+   Владелец, 22.10.2026: после отгрузки и полной оплаты (01.11.2026: через
+   месяц вместо трёх — с сервером архив для людей незаметен, archiveOpenWork);
    Hold не уходит; комиссия агенту заказ не держит («в агента падает номер
    заказа и его комиссия»). Склад — cold (erp/storage-records): перенос —
    storageColdMove внутри действия, возврат — storageColdBring; строка
@@ -21,7 +22,7 @@
         archiveListInfos, archiveOpen(id), archiveViewing(o),
         archiveLedgerFor(customerId), archiveWith(owners,fn), archiveScopeFor(range)
    ===================================================================== */
-const ARCHIVE_ON=true,ARCHIVE_MONTHS=3;
+const ARCHIVE_ON=true,ARCHIVE_MONTHS=1;
 DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};DEFAULT.archiveRunDay='';
 let archiveIndex=new Map(),archiveIncoming=null;
 /* Заказ в архиве: строка указателя (клиент, вид). Пока идёт Import —
@@ -71,7 +72,7 @@ function archiveLedgerOf(set){
 function archiveFloor(name){const f=DB.archiveFloor;return f&&Number.isFinite(+f[name])?+f[name]:0;}
 function archiveFloorRaise(name,n){if(!(n>archiveFloor(name)))return;if(!DB.archiveFloor||typeof DB.archiveFloor!=='object')DB.archiveFloor={};DB.archiveFloor[name]=n;}
 
-/* День, с которого считаются 3 месяца, — позже всего из: отгрузка, приём,
+/* День, с которого считается срок, — позже всего из: отгрузка, приём,
    полная оплата, закрытие, отмена. */
 function archiveCutoff(day){const d=new Date(String(day).slice(0,10)+'T12:00:00');d.setMonth(d.getMonth()-ARCHIVE_MONTHS);return d.toISOString().slice(0,10);}
 function archiveContext(){
@@ -96,7 +97,7 @@ function archiveOrderClosed(o,ctx){
  return !(ctx.ships.get(o.id)||[]).some(s=>s.status==='planned'||s.status==='shipped'&&s.method==='delivery');
 }
 /* Кому пора в архив на день day: заказы и группы квот. Переделка NCR и её
-   исходный заказ уходят только вместе; квота без ответа — через 3 месяца
+   исходный заказ уходят только вместе; квота без ответа — через тот же срок
    после последней ревизии; выигравшая квота — вместе со своим заказом. */
 function archiveDue(day){
  const ctx=archiveContext(),cut=archiveCutoff(day),due=new Set();
@@ -218,7 +219,7 @@ function archiveListCell(info,col){
 }
 function archiveListRow(r,cols){
  const id=esc(r.o.id);
- return `<tr data-archived-row="${id}" class="sl-row-archived" ondblclick="archiveOpen('${id}')"><td class="sl-check"></td>${cols.map(c=>archiveListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="archiveOpen('${id}')">Open</button></td></tr>`;
+ return `<tr data-archived-row="${id}" class="sl-row-archived" ondblclick="archiveOpenWork('${id}')"><td class="sl-check"></td>${cols.map(c=>archiveListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="archiveOpen('${id}')">Open</button></td></tr>`;
 }
 
 /* ------------------------- Просмотр с диска --------------------------- */
@@ -237,6 +238,18 @@ async function archiveOpen(id){
  archiveVisitEnd();
  const tables=archiveRowsPut(recs,true);
  archiveVisit={id,ids:new Set(ids),tables,arrays:new Map([...tables.keys()].map(t=>[t,DB[t]]))};
+ salesOrderEdit(id);return true;
+}
+/* Заказ из архива открывается как обычный (владелец, 01.11.2026): у кого есть
+   Sales, тому он сразу возвращается в работу, правится и завтра уходит сам.
+   Остальным и квотам — просмотр. */
+async function archiveOpenWork(id){
+ const a=archiveIndex.get(id);
+ if(!a||a.kind==='quote'||!accessCan('sales'))return archiveOpen(id);
+ if(typeof soDraft!=='undefined'&&soDraft){salesLeaveDraft(()=>archiveOpenWork(id));return false;}
+ const out=await archiveReturn(id);
+ if(!out.ok){alert(out.error);render();return false;}
+ if(!salesRecord(id)){alert('This archived order could not be read.');render();return false;}
  salesOrderEdit(id);return true;
 }
 /* Просмотр закрыт — строки уходят из DB. */

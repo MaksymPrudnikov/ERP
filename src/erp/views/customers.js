@@ -138,7 +138,7 @@ function customerToSales(go){
   if(typeof soDraft!=='undefined'&&soDraft&&typeof salesLeaveDraft==='function')salesLeaveDraft(go);else go();});
 }
 function customerOpenOrder(id){customerToSales(()=>salesOrderEdit(id));}
-function customerOpenArchived(id){customerToSales(()=>{archiveOpen(id);});}
+function customerOpenArchived(id){customerToSales(()=>{archiveOpenWork(id);});}
 function customerNewOrder(kind){const id=cEdit;customerToSales(()=>{salesOrderNew(kind==='quote'?'quote':'order');salesApplyCustomerDefaults(id);render();});}
 
 /* Дубль при создании (владелец, 3 октября 2026): похожее название (без

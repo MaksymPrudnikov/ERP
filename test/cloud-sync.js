@@ -172,6 +172,10 @@ module.exports=async function({page,eq}){
   const st={financeEvent:[{id:'b',seq:1,at:'2026-01-02T00:00:00.000Z'},{id:'a',seq:1,at:'2026-01-01T00:00:00.000Z'},{id:'c',seq:2,at:'2026-01-03T00:00:00.000Z'}]};cloudJournalUnique(st);
   return {seqs:st.financeEvent.map(e=>e.id+e.seq).sort(),block:Object.prototype.hasOwnProperty.call(CLOUD_BLOCK,'journal')};
  }),{seqs:['a1','b3','c2'],block:true});
+ eq('большой заказ: номера берутся заранее, сервер даёт порциями до 10 000; предупреждение снимается',await A.p.evaluate(async()=>{
+  const left=()=>cloudBlockLeft(cloudSync.blocks.get('scan'));await cloudNumbersReserve({scan:left()+25000});const enough=left()>=25000;
+  cloudSync.warn=CLOUD_NO_BLOCK;await cloudBlocksFill();return {enough,warn:cloudSync.warn};
+ }),{enough:true,warn:''});
  const C=await pc('admin@glass-erp.test');
  eq('Download на третьем ПК: указатель Sales есть, записи архива — с сервера по запросу, на диск не копируются',await (async()=>{await C.p.evaluate(()=>cloudDownload());return seen(C);})(),{hot:false,index:true,cold:true,disk:false});
  eq('архивный заказ открывается с сервера',await C.p.evaluate(async id=>{const ok=await archiveOpen(id),n=soDraft&&soDraft.id;archiveVisitEnd();return {ok,same:n===id};},oa.id),{ok:true,same:true});

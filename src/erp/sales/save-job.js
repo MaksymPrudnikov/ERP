@@ -19,6 +19,15 @@ let salesSaveJob=null,salesSaveNote=null,salesSaveNoteTimer=null;
 /* Кнопка Save / Update — salesOrderSave({bg:true}). */
 function salesOrderSaveBg(){
  if(salesSaveJob)return false;
+ /* Номера стёкол и юнитов заказа — с сервера до Save. */
+ const units=soDraft?(soDraft.lines||[]).reduce((n,l)=>n+salesPositiveInt(l.qty,1),0):0,needs={glass:units*3,unit:units};
+ if(soDraft&&typeof cloudNumbersShort==='function'&&cloudNumbersShort(needs)){
+  const o=soDraft;cloudNumbersReserve(needs).catch(e=>console.warn('Numbers were not reserved:',e.message)).then(()=>{if(soDraft===o)salesOrderSaveGo();});
+  return true;
+ }
+ return salesOrderSaveGo();
+}
+function salesOrderSaveGo(){
  if(!soDraft||(soDraft.lines||[]).length<SALES_BG_LINES)return salesOrderSave();
  return salesSaveBg();
 }

@@ -919,7 +919,7 @@ let normalizeOwn=false;
 /* Своя база той же сборки, где цифры этой сборкой уже посчитаны (метка
    counted): строки заказов, батчей и сканов эта программа уже приводила в
    порядок — F5 их не перебирает (X-02, 01.11.2026). Счётчики номеров
-   сверяются всё равно. Новая сборка, Import, сервер — проход целиком. */
+   сверяются всё равно. Новая сборка, Import, Download — проход целиком. */
 let normalizeSame=false;
 function normalizeDB(){
  Object.keys(DEFAULT).forEach(k=>{ if(Array.isArray(DEFAULT[k])&&!Array.isArray(DB[k])) DB[k]=JSON.parse(JSON.stringify(DEFAULT[k])); });
@@ -1000,8 +1000,8 @@ async function boot(){
  }
  catch(e){storageRecovery=true;storageLastError=storageIdb?'Stored data could not be read. The original has been preserved.':'This browser could not open the database. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.';console.warn(storageLastError,e.message);}
  /* Блоки номеров сервера — до нормализации: она бывает, выдаёт номера стёкол. */
- if(!storageRecovery&&typeof cloudLoad==='function')try{await cloudLoad();}catch(e){console.warn('Sync state was not read:',e.message);}
- normalizeOwn=hadSavedState;normalizeSame=hadSavedState&&!storageRecovery&&storageBuildAtLoad===storageBuildId()&&counted===storageBuildId()&&!(typeof cloudSync!=='undefined'&&cloudSync.on);same=normalizeSame;
+ if(!storageRecovery&&typeof cloudLoadHead==='function')try{await cloudLoadHead();}catch(e){console.warn('Sync state was not read:',e.message);}
+ normalizeOwn=hadSavedState;normalizeSame=hadSavedState&&!storageRecovery&&storageBuildAtLoad===storageBuildId()&&counted===storageBuildId();same=normalizeSame;
  try{ if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB(); }
  catch(e){normalizeOwn=false;normalizeSame=false;same=false;storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
  if(normalizeSame&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)storageSameCheck();

@@ -27,7 +27,7 @@ function unitIdNumber(id){return unitIdValid(id)?+id.slice(2):0;}
 /* Со связью с сервером — номер из блока этого компьютера (erp/cloud-sync). */
 function unitIdNext(){const was=glassIdSeq(DB.glassUnitIdSeq),n=cloudSeq('unit',was+1);DB.glassUnitIdSeq=Math.max(was,n);return 'U-'+String(n).padStart(7,'0');}
 function unitIdAt(orderId,lineId,unit){
- const key=orderId+'|'+lineId,r=readOn()?readMemo('unitIdByKey',[DB.glassUnitId],()=>{const m=new Map();(DB.glassUnitId||[]).forEach(x=>{if(!m.has(x.key))m.set(x.key,x);});return m;}).get(key):(DB.glassUnitId||[]).find(x=>x.key===key);
+ const key=orderId+'|'+lineId,r=typeof stationBulkNow!=='undefined'&&stationBulkNow?stationBulkUnits().get(key):readOn()?readMemo('unitIdByKey',[DB.glassUnitId],()=>{const m=new Map();(DB.glassUnitId||[]).forEach(x=>{if(!m.has(x.key))m.set(x.key,x);});return m;}).get(key):(DB.glassUnitId||[]).find(x=>x.key===key);
  return r&&r.ids[unit-1]||'';
 }
 function glassPieceNextId(){const was=glassIdSeq(DB.glassPieceSeq),n=cloudSeq('glass',was+1);DB.glassPieceSeq=Math.max(was,n);return 'G-'+String(n).padStart(7,'0');}
@@ -134,6 +134,7 @@ function glassLookup(code){
 function glassBatchTaken(active,key,qty){let n=0;for(let u=1;u<=qty;u++)if(active.has(key+'|'+u))n++;return n;}
 /* Слоты отменённых юнитов (erp/sales/unit-cancel): в очередь батча они не
    возвращаются, хотя с батча сняты. */
+function glassPieceTotal(orderId){return (DB.glassPiece||[]).reduce((n,r)=>n+(r.key.startsWith(orderId+'|')?r.ids.length:0),0);}
 function glassCancelledSlots(o){
  const out=new Set(),gone=unitCancelledSet(o);if(!gone.size)return out;
  (DB.glassPiece||[]).forEach(r=>{if(!r.key.startsWith(o.id+'|'))return;r.ids.forEach((id,i)=>{if(gone.has(id))out.add(r.key+'|'+(i+1));});Object.keys(r.extra||{}).forEach(ref=>r.extra[ref].forEach((id,k)=>{if(gone.has(id))out.add(r.key+'|'+ref+'.'+(k+1));}));});
@@ -218,9 +219,10 @@ let glassCutCache=null;
 function glassCutByScan(){
  const list=DB.stationScan||[];
  if(!storageDepth&&glassCutCache&&glassCutCache.list===list&&glassCutCache.size===list.length)return glassCutCache.out;
- const cut=typeof stationCutCode==='function'?stationCutCode():'CUT',out=new Set();
- list.forEach(s=>{if(s&&!s.undoneAt&&!s.park&&s.station===cut)out.add(s.piece);});
- if(!storageDepth)glassCutCache={list,size:list.length,out};
+ const build=()=>{const cut=typeof stationCutCode==='function'?stationCutCode():'CUT',out=new Set();list.forEach(s=>{if(s&&!s.undoneAt&&!s.park&&s.station===cut)out.add(s.piece);});return out;};
+ /* Внутри записи — один раз на чистое чтение (readScopeNow), а не на строку. */
+ if(storageDepth)return readMemo('glassCutByScan',[list],build);
+ const out=build();glassCutCache={list,size:list.length,out};
  return out;
 }
 function glassBatchRows(orders){
@@ -295,7 +297,7 @@ function glassBatchScope(rows,opts){
 function glassBatchAssignCommand(rows,opts){
  opts=opts||{};if(!rows||!rows.length)return null;
  if(new Set(rows.map(r=>r.slot)).size!==rows.length)return null;
- const current=new Map(glassBatchRows([...new Set(rows.map(r=>r.orderId))].map(salesRecord).filter(Boolean)).map(r=>[r.slot,r]));
+ const current=new Map(readScopeNow(()=>glassBatchRows([...new Set(rows.map(r=>r.orderId))].map(salesRecord).filter(Boolean))).map(r=>[r.slot,r]));
  const chosen=rows.map(r=>current.get(r.slot));
  if(chosen.some((c,i)=>!c||c.reason||!c.cut||!c.piece||c.piece!==rows[i].piece))return null;
  const number=salesBatchNumber(opts.batchNo)||salesNextBatchNumber();

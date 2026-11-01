@@ -43,15 +43,16 @@ const CLOUD_BLOCK={
  offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0],journal:[50,()=>finJournalTop()]};
 let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
  uploading:false,dirty:null,running:false,timer:null,wait:CLOUD_POLL_MS,busy:'',error:'',warn:'',offline:false,at:''};
+const CLOUD_NO_BLOCK='No server numbers here yet. IDs may repeat.';
 function cloudKey(tbl,id){return tbl+'\u0000'+id;}
 /* Следующий внутренний номер name. Без связи — local, как раньше; связь
    есть, а блока нет (ещё не пришёл или кончился без сети) — тоже local, с
    предупреждением: такой номер может совпасть с чужим. */
 function cloudSeq(name,local){
- const s=cloudSync;if(!s.loaded||!s.on)return local;
+ const s=cloudSync;if(!(s.loaded||s.head)||!s.on)return local;
  const b=s.blocks.get(name)||[];
  while(b.length&&b[0][0]>b[0][1])b.shift();
- if(!b.length){s.warn='No server numbers here yet. IDs may repeat.';cloudSoon();return local;}
+ if(!b.length){s.warn=CLOUD_NO_BLOCK;cloudSoon();return local;}
  const n=b[0][0]++;s.blocks.set(name,b);s.blockDirty.add(name);
  if(cloudBlockLeft(b)<CLOUD_BLOCK[name][0]/2)cloudSoon();
  return n;
@@ -62,6 +63,24 @@ function cloudSeqTie(){
  return s.tie;
 }
 function cloudBlockLeft(b){return (b||[]).reduce((n,r)=>n+Math.max(0,r[1]-r[0]+1),0);}
+/* Большой заказ берёт номера разом: иначе блок кончается посреди Save и
+   компьютер выдаёт свои, которые могут совпасть с чужими (проверка на
+   Supabase, 01.11.2026). needs — {glass:n,…}. Без связи — как раньше. */
+async function cloudNumbersReserve(needs){
+ const s=cloudSync,ops=[];if(!s.on)return;
+ for(const name of Object.keys(needs)){
+  const b=s.blocks.get(name)||[];let lack=Math.ceil(needs[name]-cloudBlockLeft(b));
+  /* Сервер даёт не больше 10 000 за раз. */
+  for(;lack>0;lack-=10000){
+   const n=Math.min(10000,lack+CLOUD_BLOCK[name][0]),first=+await cloudRpc('erp_take',{counter:name,n,from_n:(Math.floor(+CLOUD_BLOCK[name][1]())||0)+1});
+   if(!Number.isSafeInteger(first)||first<1)break;
+   b.push([first,first+n-1]);
+  }
+  s.blocks.set(name,b);ops.push(['b\u0000'+name,b]);
+ }
+ if(ops.length)storageWrite([],ops);
+}
+function cloudNumbersShort(needs){const s=cloudSync;return !!s.on&&Object.keys(needs).some(k=>needs[k]>cloudBlockLeft(s.blocks.get(k)));}
 async function cloudBlocksFill(){
  const s=cloudSync,ops=[];
  for(const name of Object.keys(CLOUD_BLOCK)){
@@ -72,6 +91,8 @@ async function cloudBlocksFill(){
   b.push([first,first+size-1]);s.blocks.set(name,b);ops.push(['b\u0000'+name,b]);
  }
  if(ops.length)storageWrite([],ops);
+ /* Блоки снова есть — предупреждение больше не верно. */
+ if(s.warn===CLOUD_NO_BLOCK&&Object.keys(CLOUD_BLOCK).every(k=>cloudBlockLeft(s.blocks.get(k))>0))s.warn='';
 }
 /* Номер, который дал этот компьютер новой строке документа. */
 function cloudNumber(c){
@@ -102,18 +123,33 @@ function cloudChunks(rows){
 }
 function cloudId(){try{if(globalThis.crypto&&typeof crypto.randomUUID==='function')return crypto.randomUUID();}catch(e){}return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,12);}
 function cloudDevice(){const c=cloudConfig();if(!c.device){c.device=cloudId();cloudConfigSave(c);}return c.device;}
+/* Старт: только связь, курсор, очередь и блоки номеров. Версии строк (по
+   одной на каждую строку сервера, год — полмиллиона) читает первый такт
+   синхронизации, после отрисовки: F5 их не ждёт (2,5 с, 01.11.2026). Правки
+   этой паузы ждут в s.early, как и раньше. */
+async function cloudLoadHead(){
+ const got=await storageIdbCloudHead(),s=cloudSync;
+ s.out=[];
+ got.keys.forEach((k,i)=>{
+  const v=got.values[i];
+  if(k==='ref')s.ref=v;else if(k.startsWith('b\u0000'))s.blocks.set(k.slice(2),v);
+  else if(k.startsWith('o\u0000'))s.out.push(Object.assign({key:k},v));
+ });
+ s.on=!!s.ref&&s.ref===cloudConfig().url;s.head=true;
+}
 async function cloudLoad(){
- const got=await storageIdbCloudAll(),s=cloudSync;
+ const got=await storageIdbCloudAll(),s=cloudSync,head=s.head;
  s.vers=new Map();s.out=[];s.ref='';s.since=0;s.n=0;
  got.keys.forEach((k,i)=>{
   const v=got.values[i];
   if(k==='ref')s.ref=v;else if(k==='since')s.since=+v||0;else if(k==='n')s.n=+v||0;
   else if(k.startsWith('v\u0000'))s.vers.set(k.slice(2),v);
   else if(k.startsWith('o\u0000'))s.out.push(Object.assign({key:k},v));
-  else if(k.startsWith('b\u0000'))s.blocks.set(k.slice(2),v);
+  /* Блоки старта уже в ходу: их остаток новее записанного. */
+  else if(k.startsWith('b\u0000')){if(!head)s.blocks.set(k.slice(2),v);}
   else if(k.startsWith('r\u0000'))s.refresh.add(k.slice(2));
  });
- s.on=!!s.ref&&s.ref===cloudConfig().url;s.loaded=true;
+ s.on=!!s.ref&&s.ref===cloudConfig().url;s.loaded=true;s.head=false;
  /* Правки, сделанные до чтения склада, — в очередь теперь. */
  const early=s.early;s.early=[];
  if(s.on&&early.length){const out=cloudOutbox([].concat(...early));if(out){storageWrite([],out.ops);out.done();}}
