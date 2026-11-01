@@ -1000,7 +1000,7 @@ async function boot(){
  }
  catch(e){storageRecovery=true;storageLastError=storageIdb?'Stored data could not be read. The original has been preserved.':'This browser could not open the database. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.';console.warn(storageLastError,e.message);}
  /* Блоки номеров сервера — до нормализации: она бывает, выдаёт номера стёкол. */
- if(!storageRecovery&&typeof cloudLoad==='function')try{await cloudLoad();}catch(e){console.warn('Sync state was not read:',e.message);}
+ if(!storageRecovery&&typeof cloudLoadHead==='function')try{await cloudLoadHead();}catch(e){console.warn('Sync state was not read:',e.message);}
  normalizeOwn=hadSavedState;normalizeSame=hadSavedState&&!storageRecovery&&storageBuildAtLoad===storageBuildId()&&counted===storageBuildId();same=normalizeSame;
  try{ if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB(); }
  catch(e){normalizeOwn=false;normalizeSame=false;same=false;storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}

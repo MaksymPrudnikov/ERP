@@ -49,7 +49,7 @@ function cloudKey(tbl,id){return tbl+'\u0000'+id;}
    есть, а блока нет (ещё не пришёл или кончился без сети) — тоже local, с
    предупреждением: такой номер может совпасть с чужим. */
 function cloudSeq(name,local){
- const s=cloudSync;if(!s.loaded||!s.on)return local;
+ const s=cloudSync;if(!(s.loaded||s.head)||!s.on)return local;
  const b=s.blocks.get(name)||[];
  while(b.length&&b[0][0]>b[0][1])b.shift();
  if(!b.length){s.warn=CLOUD_NO_BLOCK;cloudSoon();return local;}
@@ -123,18 +123,31 @@ function cloudChunks(rows){
 }
 function cloudId(){try{if(globalThis.crypto&&typeof crypto.randomUUID==='function')return crypto.randomUUID();}catch(e){}return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,12);}
 function cloudDevice(){const c=cloudConfig();if(!c.device){c.device=cloudId();cloudConfigSave(c);}return c.device;}
+/* Старт: только связь, курсор, очередь и блоки номеров. Версии строк (по
+   одной на каждую строку сервера, год — полмиллиона) читает первый такт
+   синхронизации, после отрисовки: F5 их не ждёт (2,5 с, 01.11.2026). Правки
+   этой паузы ждут в s.early, как и раньше. */
+async function cloudLoadHead(){
+ const got=await storageIdbCloudHead(),s=cloudSync;
+ got.keys.forEach((k,i)=>{
+  const v=got.values[i];
+  if(k==='ref')s.ref=v;else if(k.startsWith('b\u0000'))s.blocks.set(k.slice(2),v);
+ });
+ s.on=!!s.ref&&s.ref===cloudConfig().url;s.head=true;
+}
 async function cloudLoad(){
- const got=await storageIdbCloudAll(),s=cloudSync;
+ const got=await storageIdbCloudAll(),s=cloudSync,head=s.head;
  s.vers=new Map();s.out=[];s.ref='';s.since=0;s.n=0;
  got.keys.forEach((k,i)=>{
   const v=got.values[i];
   if(k==='ref')s.ref=v;else if(k==='since')s.since=+v||0;else if(k==='n')s.n=+v||0;
   else if(k.startsWith('v\u0000'))s.vers.set(k.slice(2),v);
   else if(k.startsWith('o\u0000'))s.out.push(Object.assign({key:k},v));
-  else if(k.startsWith('b\u0000'))s.blocks.set(k.slice(2),v);
+  /* Блоки старта уже в ходу: их остаток новее записанного. */
+  else if(k.startsWith('b\u0000')){if(!head)s.blocks.set(k.slice(2),v);}
   else if(k.startsWith('r\u0000'))s.refresh.add(k.slice(2));
  });
- s.on=!!s.ref&&s.ref===cloudConfig().url;s.loaded=true;
+ s.on=!!s.ref&&s.ref===cloudConfig().url;s.loaded=true;s.head=false;
  /* Правки, сделанные до чтения склада, — в очередь теперь. */
  const early=s.early;s.early=[];
  if(s.on&&early.length){const out=cloudOutbox([].concat(...early));if(out){storageWrite([],out.ops);out.done();}}
