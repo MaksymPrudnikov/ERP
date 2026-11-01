@@ -60,7 +60,10 @@ function glassBatchComponents(o,l){
 function glassComponentCut(c){const g=c&&!c.missing&&glassProductById(c.glassId);return !g||g.cut!==false;}
 function glassCutKeys(o,l){return new Set(glassBatchComponents(o,l).filter(glassComponentCut).map(c=>c.key));}
 function glassOrderNeedsCut(o){return (o&&o.lines||[]).some(l=>glassCutKeys(o,l).size>0);}
-function glassBatchFind(number){return (DB.glassBatch||[]).find(b=>b.number===number);}
+function glassBatchFind(number){
+ if(readOn())return readMemo('glassBatchByNo',[DB.glassBatch],()=>{const m=new Map();(DB.glassBatch||[]).forEach(b=>{if(!m.has(b.number))m.set(b.number,b);});return m;}).get(number);
+ return (DB.glassBatch||[]).find(b=>b.number===number);
+}
 /* Записи батчей по заказу — один проход по всем батчам на отрисовку
    (erp/read-scope, П1 «Базы»): экраны спрашивают это для каждого заказа. */
 function glassBatchByOrder(){
@@ -456,9 +459,17 @@ function glassBatchConvertCounted(b){
    нормализации не создаёт новых записей; возвращённые записи не исчезают.
    Позиция с замком, но без активных записей, тоже импортируется: замок
    важнее — такое стекло нельзя снова выпустить в резку. */
+function glassPieceSeqTop(){
+ let top=Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0;
+ DB.glassPiece.forEach(r=>r.ids.concat(...Object.values(r.extra||{})).forEach(id=>{top=Math.max(top,glassPieceNumber(id));}));
+ DB.glassBatch.forEach(b=>b.items.forEach(i=>{top=Math.max(top,glassPieceNumber(i.piece));}));
+ DB.glassPieceSeq=top;
+}
+function glassUnitSeqTop(){DB.glassUnitIdSeq=Math.max(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0,...DB.glassUnitId.flatMap(r=>r.ids.map(unitIdNumber)));}
 function normalizeGlassBatches(){
  if(!Array.isArray(DB.glassBatch))DB.glassBatch=[];
  if(!Array.isArray(DB.glassPiece))DB.glassPiece=[];
+ if(normalizeSame){if(!Array.isArray(DB.glassUnitId))DB.glassUnitId=[];glassPieceSeqTop();glassUnitSeqTop();return;}
  /* Заказы и стёкла строк — одним проходом, а не поиском по всем заказам и
     батчам на каждую запись (старт на базе 3 мес. — 6 с, задание «База», П4). */
  const ids=new Set(),orderIds=new Set((DB.salesOrder||[]).filter(Boolean).map(o=>o.id));
@@ -485,10 +496,7 @@ function normalizeGlassBatches(){
     восстанавливается по movedTo старого батча. */
  const byNo=new Map(DB.glassBatch.map(b=>[b.number,b]));
  DB.glassBatch.forEach(b=>b.items.forEach(i=>{const to=i.movedTo&&byNo.get(i.movedTo);if(!to)return;const n=to.items.find(x=>x.piece===i.piece&&!x.from&&x.at>=i.releasedAt);if(n)n.from=b.number;}));
- let top=Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0;
- DB.glassPiece.forEach(r=>r.ids.concat(...Object.values(r.extra||{})).forEach(id=>{top=Math.max(top,glassPieceNumber(id));}));
- DB.glassBatch.forEach(b=>b.items.forEach(i=>{top=Math.max(top,glassPieceNumber(i.piece));}));
- DB.glassPieceSeq=top;
+ glassPieceSeqTop();
  /* Места для записей без номера изделия: активные — первые свободные. */
  const taken=new Set();DB.glassBatch.forEach(b=>b.items.forEach(i=>{if(i.unit!==0&&!i.releasedAt)taken.add(b.parts[i.part].key+'|'+i.unit);}));
  DB.glassBatch.forEach(b=>{const released=new Map();b.items.forEach(i=>{
@@ -513,7 +521,7 @@ function normalizeGlassBatches(){
  const unitIds=new Set(),unitKeys=new Set();
  DB.glassUnitId=DB.glassUnitId.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===2&&Array.isArray(r.ids)&&orderIds.has(r.key.split('|')[0])&&!unitKeys.has(r.key)&&unitKeys.add(r.key))
   .map(r=>({key:r.key,ids:r.ids.map(id=>unitIdValid(id)&&!unitIds.has(id)?(unitIds.add(id),id):'')}));
- DB.glassUnitIdSeq=Math.max(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0,...DB.glassUnitId.flatMap(r=>r.ids.map(unitIdNumber)));
+ glassUnitSeqTop();
  const ctx=glassPieceCtx();(DB.salesOrder||[]).forEach(o=>glassPieceEnsure(o,ctx));
  const pieces=glassPieceMap();
  DB.glassBatch.forEach(b=>{

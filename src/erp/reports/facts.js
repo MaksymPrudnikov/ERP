@@ -122,6 +122,12 @@ function repGlassWork(g,station,visit){
 
 /* День и час — по часам этого компьютера, как finToday. */
 function repDay(iso){const d=new Date(iso);if(Number.isNaN(d.getTime()))return '';const p=v=>String(v).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+/* Тот же ответ, что repDay(iso)===day, но время программы (…Z) — сравнением
+   строк: дата из каждого из сотен тысяч сканов на старте стоит секунду. */
+function repDayTest(day){
+ const a=new Date(day+'T00:00:00'),lo=a.toISOString(),hi=new Date(a.getFullYear(),a.getMonth(),a.getDate()+1).toISOString();
+ return iso=>typeof iso==='string'&&iso.length===24&&iso[23]==='Z'?iso>=lo&&iso<hi:repDay(iso)===day;
+}
 function repHour(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?-1:d.getHours();}
 
 /* Факты работы: скан, который продвинул стекло. Разбитое (Recut) и вынутое
@@ -158,14 +164,16 @@ function repWorkFacts(day){
  /* Юнит после сборки — сама сборка (стеклопакет на IGU, склейка на LAM), а
     не номер стекла в позиции: лайты одного пакета бывают из разных юнитов
     позиции, и «юниты» на выдаче считались бы по стёклам. */
- const asmAt=new Map(),built=new Map();
+ const asmAt=new Map(),built=new Map(),inDay=day?repDayTest(day):null,today=day?new Set():null;
+ /* Номер захода считается только у стёкол этого дня. */
+ if(day)(DB.stationScan||[]).forEach(s=>{if(inDay(s.at))today.add(s.piece);});
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||!s.asm||!(s.unit||s.joined))return;const t=asmAt.get(s.asm);if(!t||s.at>t)asmAt.set(s.asm,s.at);});
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||!s.asm||!(s.unit||s.joined))return;const was=built.get(s.piece);if(!was||s.unit&&!was.unit)built.set(s.piece,{asm:s.asm,unit:!!s.unit,at:asmAt.get(s.asm)});});
  const oInfo=o=>{if(!orders.has(o.id))orders.set(o.id,repOrderInfo(o));return orders.get(o.id);},lInfo=l=>{if(!lines.has(l))lines.set(l,repLineInfo(l));return lines.get(l);};
  (DB.stationScan||[]).forEach(s=>{
-  if(s.undoneAt||s.broken||s.park)return;
+  if(s.undoneAt||s.broken||s.park||today&&!today.has(s.piece))return;
   const vk=s.piece+'|'+s.station,nth=(visits.get(vk)||0)+1;visits.set(vk,nth);
-  if(day&&repDay(s.at)!==day)return;
+  if(day&&!inDay(s.at))return;
   const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station,Number.isInteger(s.step)?s.step:-nth):{area:null,mm:null,heat:'',unitType:'',works:[]};
   const b=built.get(s.piece),unitKey=!g?'':b&&b.at<=s.at?'A:'+b.asm:g.o.id+'|'+g.l.id+'|'+g.unit;
   const sum=u=>w.works.filter(x=>x.unit===u).reduce((n,x)=>n+x.qty,0);

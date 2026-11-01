@@ -1223,7 +1223,11 @@ function mdById(key,id){
  return (DB[key]||[]).find(x=>x.id===id)||null;
 }
 function glassProductById(id){return mdById('glassProduct',id);}
-function glassProductByCode(code){const c=mdString(code).toUpperCase();return (DB.glassProduct||[]).find(x=>x.code.toUpperCase()===c)||null;}
+function glassProductByCode(code){
+ const c=mdString(code).toUpperCase();
+ if(readOn())return readMemo('glassProductByCode',[DB.glassProduct],()=>{const m=new Map();(DB.glassProduct||[]).forEach(x=>{const k=x.code.toUpperCase();if(!m.has(k))m.set(k,x);});return m;}).get(c)||null;
+ return (DB.glassProduct||[]).find(x=>x.code.toUpperCase()===c)||null;
+}
 /* Short name (владелец, 29.10.2026): код задаётся один раз при заведении
    и остаётся ключом — за него держатся поставка, склад, раскрой и обрезки;
    Short name — то, что читают люди; Name — полное название. Пусто — люди

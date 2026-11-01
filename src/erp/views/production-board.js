@@ -35,11 +35,9 @@ function prodListDefaultSort(){return subtab==='carriers'?{k:'',dir:'asc'}:{k:'r
    несколько раз за одну отрисовку. */
 let prodBoardCache={stamp:'',data:null};
 function prodBoardStamp(){
- /* Тара стекла меняется без новых сканов («Not on DL-1», перенос на другую
-    долли) — её коды тоже в метке. */
- const scans=DB.stationScan||[];let undone=0,on=0;scans.forEach(s=>{if(s.undoneAt)undone++;const v=s.on||'';for(let i=0;i<v.length;i++)on=(on*31+v.charCodeAt(i))|0;on=(on*31+1)|0;});
- let items=0,released=0,cut=0;(DB.glassBatch||[]).forEach(b=>b.items.forEach(i=>{items++;if(i.releasedAt)released++;if(i.cutStartedAt)cut++;}));
- return [scans.length,undone,on,DB.stationScanSeq,items,released,cut,(DB.salesOrder||[]).map(o=>o.id+o.updatedAt+o.status+(o.priority||'')+(o.dueDate||'')).join(',')].join('|');
+ /* Любая запись (своя, чужой вкладки) сбрасывает доску: storageInvalidate.
+    Метка — только то, что видно без прохода по всем сканам и стёклам. */
+ return [(DB.stationScan||[]).length,DB.stationScanSeq,(DB.salesOrder||[]).length,(DB.glassBatch||[]).length].join('|');
 }
 function prodBoard(){
  const stamp=prodBoardStamp();if(prodBoardCache.stamp===stamp&&prodBoardCache.data)return prodBoardCache.data;
