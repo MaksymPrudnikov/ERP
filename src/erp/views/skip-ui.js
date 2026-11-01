@@ -29,7 +29,7 @@ function skipExtraLeft(o,x){return Math.max(0,x.qty-shippingForOrder(o.id).filte
 function skipConfirm(reserved){
  const d=skipDialog;if(!d)return false;
  /* Номера сканов — с сервера заранее: на заказ в тысячи стёкол блока не хватает. */
- const need={scan:glassPieceTotal(d.orderId)*12};
+ const need={scan:glassPieceTotal(d.orderId)*6};
  if(!reserved&&typeof cloudNumbersShort==='function'&&cloudNumbersShort(need)){cloudNumbersReserve(need).catch(e=>console.warn('Numbers were not reserved:',e.message)).then(()=>skipConfirm(true));return true;}
  const o=salesRecord(d.orderId),clean=!!o&&!!soDraft&&soDraft.id===o.id&&JSON.stringify(o)===JSON.stringify(normalizeSalesOrder(soDraft));
  const lines={};Object.keys(d.lines).forEach(id=>{const v=String(d.lines[id]).trim();if(v)lines[id]=v==='all'?'all':Number(v);});

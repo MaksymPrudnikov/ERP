@@ -219,9 +219,10 @@ let glassCutCache=null;
 function glassCutByScan(){
  const list=DB.stationScan||[];
  if(!storageDepth&&glassCutCache&&glassCutCache.list===list&&glassCutCache.size===list.length)return glassCutCache.out;
- const cut=typeof stationCutCode==='function'?stationCutCode():'CUT',out=new Set();
- list.forEach(s=>{if(s&&!s.undoneAt&&!s.park&&s.station===cut)out.add(s.piece);});
- if(!storageDepth)glassCutCache={list,size:list.length,out};
+ const build=()=>{const cut=typeof stationCutCode==='function'?stationCutCode():'CUT',out=new Set();list.forEach(s=>{if(s&&!s.undoneAt&&!s.park&&s.station===cut)out.add(s.piece);});return out;};
+ /* Внутри записи — один раз на чистое чтение (readScopeNow), а не на строку. */
+ if(storageDepth)return readMemo('glassCutByScan',[list],build);
+ const out=build();glassCutCache={list,size:list.length,out};
  return out;
 }
 function glassBatchRows(orders){

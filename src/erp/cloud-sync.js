@@ -69,11 +69,14 @@ function cloudBlockLeft(b){return (b||[]).reduce((n,r)=>n+Math.max(0,r[1]-r[0]+1
 async function cloudNumbersReserve(needs){
  const s=cloudSync,ops=[];if(!s.on)return;
  for(const name of Object.keys(needs)){
-  const b=s.blocks.get(name)||[],lack=needs[name]-cloudBlockLeft(b);
-  if(lack<=0)continue;
-  const n=Math.ceil(lack)+CLOUD_BLOCK[name][0],first=+await cloudRpc('erp_take',{counter:name,n,from_n:(Math.floor(+CLOUD_BLOCK[name][1]())||0)+1});
-  if(!Number.isSafeInteger(first)||first<1)continue;
-  b.push([first,first+n-1]);s.blocks.set(name,b);ops.push(['b\u0000'+name,b]);
+  const b=s.blocks.get(name)||[];let lack=Math.ceil(needs[name]-cloudBlockLeft(b));
+  /* Сервер даёт не больше 10 000 за раз. */
+  for(;lack>0;lack-=10000){
+   const n=Math.min(10000,lack+CLOUD_BLOCK[name][0]),first=+await cloudRpc('erp_take',{counter:name,n,from_n:(Math.floor(+CLOUD_BLOCK[name][1]())||0)+1});
+   if(!Number.isSafeInteger(first)||first<1)break;
+   b.push([first,first+n-1]);
+  }
+  s.blocks.set(name,b);ops.push(['b\u0000'+name,b]);
  }
  if(ops.length)storageWrite([],ops);
 }
