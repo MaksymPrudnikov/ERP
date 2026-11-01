@@ -58,6 +58,11 @@ module.exports=async function({page,eq,ok}){
   const blocks=['orders','shop','ship','quality'].filter(k=>document.querySelector('[data-dash-'+k+']'));tab='sales';render();
   return {nav,go,forced,blocks};
  }),{nav:['Sales','Optimize','Production','Shipping','Customers','Overview'],go:'dashboard',forced:'sales',blocks:['orders','shop','ship','quality']});
+ eq('браузер не показывает вопрос (отказ за миг) — экран говорит; настоящий ответ человека — молча',await t.p.evaluate(()=>{
+  const was=document.getElementById('confirmBlocked');if(was)was.remove();
+  const slow=confirmWatch(()=>{const t=performance.now();while(performance.now()-t<30);return false;});slow('q');const quiet=!document.getElementById('confirmBlocked');
+  const r=confirmWatch(()=>false)('q'),el=document.getElementById('confirmBlocked'),text=el&&el.textContent;if(el)el.remove();return {r,quiet,shown:/Open Glass Farm in Chrome/.test(text||'')};
+ }),{r:false,quiet:true,shown:true});
  eq('Export / Import JSON — только у администратора (Users): кнопок нет, вызов ничего не делает',await t.p.evaluate(async()=>{
   const shown=[...document.querySelectorAll('[data-admin]')].filter(b=>getComputedStyle(b).display!=='none').length;
   const keep=storageDownload;let saved=0;storageDownload=()=>{saved++;};await doExport();storageDownload=keep;

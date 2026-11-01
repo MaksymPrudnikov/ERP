@@ -11,6 +11,18 @@
    редкое. Заглушек «planned» нет. Раздел виден только по подсвеченной иконке:
    шапки и заголовка-повтора нет. На узком экране (планшет станции, телефон)
    то же меню — нижний таб-бар: первые пять пунктов и «More». */
+/* Окно вопроса браузера запрещено (панель приложения, встроенный браузер):
+   confirm молча отвечает «нет», и кнопка кажется мёртвой (владелец,
+   02.11.2026: Reset и Save). Человек не отвечает за 20 мс — экран говорит. */
+function confirmWatch(native){
+ return function(m){const t=performance.now(),r=native.call(window,m);if(!r&&performance.now()-t<20)confirmBlocked();return r;};
+}
+function confirmBlocked(){
+ let el=document.getElementById('confirmBlocked');
+ if(!el){el=document.createElement('div');el.id='confirmBlocked';el.className='confirm-blocked';el.setAttribute('role','alert');el.onclick=()=>el.remove();document.body.appendChild(el);}
+ el.textContent='This window cannot show the question, so nothing was done. Open Glass Farm in Chrome.';
+}
+if(typeof window!=='undefined'&&typeof window.confirm==='function')window.confirm=confirmWatch(window.confirm);
 const NAV=[
  {k:'sales', label:'Sales', icon:'sales'},
  {k:'optimization', label:'Optimize', title:'Optimization', icon:'optimize'},
