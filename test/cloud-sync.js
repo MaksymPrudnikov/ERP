@@ -38,6 +38,7 @@ module.exports=async function({page,eq}){
    const rows=[...keys.keys()].map(k=>srv.rec.get(k)).filter(r=>can(m,r.tbl)).map(row);
    return {rows,last:part.length?part[part.length-1].rev:(a.since||0)};
   },
+  erp_cold_of:(m,a)=>[...srv.rec.values()].filter(r=>r.cold&&!r.deleted&&can(m,r.tbl)&&(r.owners||[]).some(o=>a.owners.includes(o))).map(r=>({tbl:r.tbl,id:r.id,ver:r.ver,seq:r.seq,month:r.month,owners:r.owners,data:r.data})),
   erp_cold:(m,a)=>a.keys.map(k=>srv.rec.get(k.tbl+'|'+k.id)).filter(r=>r&&r.cold&&!r.deleted&&can(m,r.tbl)).map(r=>({tbl:r.tbl,id:r.id,ver:r.ver,seq:r.seq,month:r.month,owners:r.owners,data:r.data})),
   erp_member_set:()=>({}),erp_members:m=>m.admin?[]:null,erp_rules:()=>[],
   erp_get:(m,a)=>a.keys.map(k=>srv.rec.get(k.tbl+'|'+k.id)).filter(r=>r&&can(m,r.tbl)).map(row),
@@ -162,17 +163,18 @@ module.exports=async function({page,eq}){
  await sync(A);await sync(B);
  const went=await A.p.evaluate(async id=>{const due=archiveDue('2026-06-01').has(id),r=archiveRun('2026-06-01',{});await storageFlush();return {due,ok:r.ok,hot:DB.salesOrder.some(o=>o.id===id)};},oa.id);
  await sync(A);await sync(B);
- const seen=t=>t.p.evaluate(async id=>({hot:DB.salesOrder.some(o=>o.id===id),index:archiveIndex.has(id),cold:(await storageIdbColdOf(id)).some(r=>r.tbl==='salesOrder'&&r.id===id)}),oa.id);
- eq('заказ ушёл в архив на A: на сервере архивная строка и указатель Sales; у B — тоже в архиве, с диска',
+ const seen=t=>t.p.evaluate(async id=>({hot:DB.salesOrder.some(o=>o.id===id),index:archiveIndex.has(id),cold:(await storageColdOf(id)).some(r=>r.tbl==='salesOrder'&&r.id===id),disk:(await storageIdbColdOf(id)).length>0}),oa.id);
+ eq('заказ ушёл в архив на A: на сервере архивная строка и указатель Sales; у B — тоже в архиве, с сервера, на диск не копируется',
   {went,server:{cold:PGcold('salesOrder|'+oa.id),index:!!srv.rec.get('_archive|'+oa.id)},a:await seen(A),b:await seen(B)},
-  {went:{due:true,ok:true,hot:false},server:{cold:true,index:true},a:{hot:false,index:true,cold:true},b:{hot:false,index:true,cold:true}});
+  {went:{due:true,ok:true,hot:false},server:{cold:true,index:true},a:{hot:false,index:true,cold:true,disk:true},b:{hot:false,index:true,cold:true,disk:false}});
  const C=await pc('admin@glass-erp.test');
- eq('Download на третьем ПК приносит и архив: указатель Sales и записи с диска',await (async()=>{await C.p.evaluate(()=>cloudDownload());return seen(C);})(),{hot:false,index:true,cold:true});
+ eq('Download на третьем ПК: указатель Sales есть, записи архива — с сервера по запросу, на диск не копируются',await (async()=>{await C.p.evaluate(()=>cloudDownload());return seen(C);})(),{hot:false,index:true,cold:true,disk:false});
+ eq('архивный заказ открывается с сервера',await C.p.evaluate(async id=>{const ok=await archiveOpen(id),n=soDraft&&soDraft.id;archiveVisitEnd();return {ok,same:n===id};},oa.id),{ok:true,same:true});
  await C.c.close();
  await B.p.evaluate(async id=>{await archiveReturn(id);await storageFlush();},oa.id);
  await sync(B);await sync(A);
  eq('возврат из архива на B — заказ снова в работе у обоих, архивной копии нет',{a:await seen(A),b:await seen(B),cold:PGcold('salesOrder|'+oa.id)},
-  {a:{hot:true,index:false,cold:false},b:{hot:true,index:false,cold:false},cold:false});
+  {a:{hot:true,index:false,cold:false,disk:false},b:{hot:true,index:false,cold:false,disk:false},cold:false});
  /* Один вход (владелец, 24.10.2026): у людей почта входа — офис входит
     почтой и паролем сервера; новый ПК подключается окном с экрана. */
  eq('Users с сервером: почта входа вместо пароля ERP',await A.p.evaluate(async()=>{

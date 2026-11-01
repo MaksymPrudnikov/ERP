@@ -335,6 +335,22 @@ function storageIdbMetaPut(key,value){return storageIdbTx(['meta'],'readwrite',t
    указателю owners в одной транзакции — по одному они шли ~5 мс каждый. */
 function storageIdbColdOfMany(owners){return storageIdbTx(['cold'],'readonly',tx=>{const ix=tx.objectStore('cold').index('owners'),out={lists:new Array(owners.length)};owners.forEach((o,i)=>{ix.getAll(o).onsuccess=e=>{out.lists[i]=e.target.result||[];};});return out;}).then(o=>o.lists);}
 function storageIdbColdOf(owner){return storageIdbTx(['cold'],'readonly',tx=>{const out={records:[]};tx.objectStore('cold').index('owners').getAll(owner).onsuccess=e=>{out.records=e.target.result||[];};return out;}).then(o=>o.records);}
+/* Архив с сервером: сервер знает всё, на этом компьютере — то, что ушло
+   отсюда (и ещё в очереди без сети). Нет связи — что есть здесь. */
+async function storageColdOfMany(owners){
+ const local=await storageIdbColdOfMany(owners);
+ if(typeof cloudSync==='undefined'||!cloudSync.on)return local;
+ let got;try{got=await cloudColdOf(owners);}catch(e){console.warn('Archive was not read from the server:',e.message);return local;}
+ return owners.map((o,i)=>{const list=got.filter(r=>r.owners.includes(o)),seen=new Set(list.map(r=>r.tbl+'\u0000'+r.id));return list.concat(local[i].filter(r=>!seen.has(r.tbl+'\u0000'+r.id)));});
+}
+function storageColdOf(owner){return storageColdOfMany([owner]).then(x=>x[0]);}
+/* Весь архив (Export): с сервера — по указателю заказов. */
+async function storageColdAll(){
+ const local=await storageIdbColdAll();
+ if(typeof cloudSync==='undefined'||!cloudSync.on||typeof archiveIndex==='undefined')return local;
+ const got=await cloudColdOf([...archiveIndex.keys()]),seen=new Set(got.map(r=>r.tbl+'\u0000'+r.id));
+ return [...new Map(got.map(r=>[r.tbl+'\u0000'+r.id,r])).values()].concat(local.filter(r=>!seen.has(r.tbl+'\u0000'+r.id)));
+}
 function storageIdbArchiveGet(ids){return storageIdbTx(['archive'],'readonly',tx=>{const st=tx.objectStore('archive'),out={rows:new Array(ids.length)};ids.forEach((id,i)=>{st.get(id).onsuccess=e=>{out.rows[i]=e.target.result||null;};});return out;}).then(o=>o.rows);}
 function storageIdbArchiveAll(){return storageIdbTx(['archive'],'readonly',tx=>{const out={rows:[]};tx.objectStore('archive').getAll().onsuccess=e=>{out.rows=e.target.result||[];};return out;}).then(o=>o.rows);}
 function storageIdbColdAll(){return storageIdbTx(['cold'],'readonly',tx=>{const out={records:[]};tx.objectStore('cold').getAll().onsuccess=e=>{out.records=e.target.result||[];};return out;}).then(o=>o.records);}
