@@ -1073,7 +1073,8 @@ function simPage() {
     SHIPPED[id] = day; const tot = finOrderTotals(o); TOTAL[id] = tot && tot.complete ? tot.grand : null; DUE[id] = c.credit ? addDays(day, salesFindCustomer(o.customerId).creditDays || 30) : day;
     if (!c.credit) { if (o.delivery === 'delivery') PAY.push({ day: addWork(day, int(0, 3)), orderId: id, customerId: o.customerId, balance: true, method: 'cheque', note: 'Balance on delivery' }); return; }
     const due = finPaymentDue(o) || addDays(day, 30);
-    let payDay = c.pays === 'punctual' ? addDays(due, -int(0, 7)) : c.pays === 'normal' ? addDays(due, int(-3, 10)) : c.pays === 'slow' ? addDays(due, int(5, 45)) : (chance(0.4) ? null : addDays(due, int(20, 90)));
+    /* Просрочка самое большее 90 дней (владелец, 29.10.2026): неоплаченных навсегда нет. */
+    let payDay = c.pays === 'punctual' ? addDays(due, -int(0, 7)) : c.pays === 'normal' ? addDays(due, int(-3, 10)) : c.pays === 'slow' ? addDays(due, int(5, 45)) : addDays(due, int(20, 90));
     if (payDay && payDay < day) payDay = day;
     if (payDay) PAY.push({ day: payDay, orderId: id, customerId: o.customerId, balance: true, method: pick(['cheque', 'cheque', 'etransfer', 'eft']), note: '' });
   }
