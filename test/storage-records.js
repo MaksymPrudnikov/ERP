@@ -262,7 +262,7 @@ module.exports=async function({page,eq,ok}){
  }),{ok:false,alert:'Test data here. Clear database first.',same:true,test:true});
  eq('Clear database — только администратор, со сводкой перед удалением',await v.p.evaluate(()=>{
   let asked='';window.confirm=m=>{asked=m;return false;};const kept=storageClear();
-  return {summary:/Delete the whole database in this browser\?/.test(asked)&&/orders/.test(asked)&&/scans/.test(asked),admin:document.querySelector('.app-foot button[onclick="storageClear()"]').hasAttribute('data-admin')};
+  return {summary:/Delete the whole database in this browser\?/.test(asked)&&/orders/.test(asked)&&/scans/.test(asked),admin:!document.querySelector('.app-foot button[onclick="storageClear()"]')&&usersDataHTML().includes('storageClear()')};
  }),{summary:true,admin:true});
  /* Clear сам перезагружает вкладку. */
  await Promise.all([v.p.waitForEvent('load'),v.p.evaluate(()=>{glassPieceNextId();touch();window.confirm=()=>true;storageClear();})]);
