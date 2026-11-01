@@ -411,8 +411,7 @@ function storageStatusHTML(){
   (typeof cloudSyncText==='function'&&cloudSyncText()?'<small data-cloud-sync-foot>Server: '+esc(cloudSyncText())+'</small>'+(cloudSync.warn?'<small data-cloud-warn-foot class="warn" title="Click to hide" onclick="cloudSync.warn=\'\';render()">'+esc(cloudSync.warn)+'</small>':'')
    :typeof cloudJoinOpen==='function'&&!cloudConfig().session?'<button type="button" data-cloud-join-foot onclick="cloudJoinOpen()">Connect server</button>':'')+
   (admin&&storageUsage?'<small>DB '+esc(String(Math.max(1,Math.round(storageUsage.usage/1048576))))+' MB</small>':'')+
-  (admin&&storageLastAction!=null?'<small>Last action '+storageLastAction+' ms</small>':'')+
-  (storageBackupPresent&&admin?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';
+  (admin&&storageLastAction!=null?'<small>Last action '+storageLastAction+' ms</small>':'')+'</div>';
 }
 function storageAlertHTML(){
  const text=storageRecovery?'Database recovery needed. '+(storageLastError||''):!navigator.locks?'This browser cannot coordinate editing. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.':storageStale?storageReadOnlyText():storageLastError||(storageUsageFull()?'Storage almost full. Export and tell admin.':'');
@@ -685,6 +684,8 @@ async function storageImportState(raw,opts){
  /* С сервера (cloud) — вход проверил сервер: подключить ПК может любой
     участник цеха, не только Users. */
  if(!opts.cloud&&!accessCan(ACCESS_ADMIN)){alert('Users access needed to replace the database.');return false;}
+ /* С сервером замена базы ушла бы всем компьютерам (проверка 02.11.2026). */
+ if(!opts.cloud&&typeof cloudSync!=='undefined'&&cloudSync.on){alert('This computer is connected to the server. Stop sync first: Import would replace the data for everyone.');return false;}
  const payload=raw&&raw.format==='glass-erp'?raw.data:raw;
  if(!payload||!Array.isArray(payload.customer)||!Array.isArray(payload.salesOrder)||!Array.isArray(payload.station))throw new Error('Choose a complete GLASS ERP backup. A partial data file cannot replace this database.');
  if(storageTest&&!opts.test&&!opts.restore){alert('Test data here. Clear database first.');return false;}

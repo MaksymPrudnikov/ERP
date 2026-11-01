@@ -253,6 +253,7 @@ function salesOrderErrorBox(){return document.getElementById('e_sales_order')||s
    без записи; opts.checked — вопросы уже заданы; opts.pre — цены и
    количества строк, посчитанные заранее. Они берутся, только если база и
    заказ с тех пор не менялись, иначе — всё заново, как у обычного Save. */
+const SALES_QTY_ASK=2000;
 function salesOrderSaveCommand(opts){
  opts=opts||{};
  const e=salesOrderErrorBox();e.style.display='none';
@@ -261,6 +262,10 @@ function salesOrderSaveCommand(opts){
  const ask=opts.checked?()=>true:t=>confirm(t);
  let shrinks=pre?pre.shrinks:null,previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  if(!pre){
+ /* Опечатка в количестве: не запрет, а вопрос (проверка 02.11.2026: 50 000
+    в строке записывались молча, с номерами на каждое стекло). */
+ const typo=(soDraft.lines||[]).findIndex(l=>l.qty>SALES_QTY_ASK);
+ if(typo>=0&&!ask('Line '+(typo+1)+': '+soDraft.lines[typo].qty.toLocaleString('en-US')+' units. Is this right?')){render();return false;}
  salesSnapshotAllChargePricing();
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');

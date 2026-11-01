@@ -91,7 +91,13 @@ function usersCloudHTML(){
   <div class="row">${status}
    <button class="pri" data-cloud-connect ${st.busy?'disabled':''} onclick="usersCloudConnect()">Connect</button>
    ${s?`<button data-cloud-check onclick="cloudCheck()">Check</button><button data-cloud-out onclick="cloudSignOut()">Sign out</button>`:''}</div>
-  ${s?usersCloudSyncHTML():''}${s&&Array.isArray(cloudAccess.members)?usersCloudAccessHTML():''}</div>`;
+  ${s?usersCloudSyncHTML():''}${s&&Array.isArray(cloudAccess.members)?usersCloudAccessHTML():''}${usersDataHTML()}</div>`;
+}
+/* Вся база файлом — только здесь, не на каждом экране (владелец, 02.11.2026).
+   С сервером замена базы ушла бы всем: Import, Restore и Clear не показаны. */
+function usersDataHTML(){
+ const on=typeof cloudSync!=='undefined'&&cloudSync.on;
+ return `<h3>Data</h3><div class="row" data-users-data><button onclick="doExport()">Export JSON</button>${on?'':`<button onclick="document.getElementById('imp').click()">Import JSON</button>${storageBackupPresent?'<button onclick="storageRestoreBackup()">Restore pre-import backup</button>':''}<button onclick="storageClear()">Clear database</button>`}</div>`;
 }
 function usersCloudSyncHTML(){
  const y=cloudSync,text=cloudSyncText(),busy=!!y.busy;

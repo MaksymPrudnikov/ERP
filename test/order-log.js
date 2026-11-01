@@ -69,7 +69,7 @@ module.exports=async function({page,eq,ok}){
   return {tab,nav:!![...document.querySelectorAll('#side .nav-item>span')].find(x=>x.textContent==='Users')};
  }),{tab:'users',nav:true});
 
- eq('с разделом Users — Export / Import и Clear database снова видны',await t.p.evaluate(()=>[...document.querySelectorAll('.app-foot button[data-admin]')].filter(b=>getComputedStyle(b).display!=='none').map(b=>b.textContent)),['Export JSON','Import JSON','Clear database']);
+ eq('с разделом Users — Export / Import и Clear только в Users → Cloud, в нижней строке их нет',await t.p.evaluate(()=>{const foot=document.querySelectorAll('.app-foot button[data-admin]').length;tab='users';render();document.querySelector('[data-users-side="cloud"]').click();return {foot,here:[...document.querySelectorAll('[data-users-data] button')].map(b=>b.textContent)};}),{foot:0,here:['Export JSON','Import JSON','Clear database']});
  eq('Users: две вкладки — Office и Production; мастер цеха с обоими входами в обеих',await t.p.evaluate(async()=>{
   DB.user.push({name:'Shift Lead',access:['production'],pin:'1357'});normalizeUsers();
   const names=side=>{subtab=side;render();return [...document.querySelectorAll('[data-user-row] b')].map(b=>b.textContent);};

@@ -56,17 +56,14 @@
   <div id="storageStatus" aria-live="polite"></div>
   <span id="dirty" data-admin title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
   <span class="sp"></span>
-  <button class="gh" data-admin onclick="doExport()">Export JSON</button>
-  <button class="gh" data-admin onclick="document.getElementById('imp').click()">Import JSON</button>
   <input type="file" id="imp" accept=".json,.ndjson" style="display:none" onchange="doImport(this)">
-  <button class="gh" data-admin onclick="storageClear()">Clear database</button>
 </footer>
 </div>
 </div>
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='b3d3d134ec64';
+var ERP_BUILD='1f9401c9b7ba';
 </script>
 <script src="core/dim.js"></script>
 <script src="core/poly.js"></script>

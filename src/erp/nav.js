@@ -113,7 +113,7 @@ function renderScreen(){
  /* Export / Import JSON — вся база целиком, это дело администратора (Users). */
  document.body.classList.toggle('no-admin',!accessCan(ACCESS_ADMIN));
  renderNav();
- document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
+ document.getElementById('dirty').style.display=dirty&&!(typeof cloudSync!=='undefined'&&cloudSync.on)?'inline-flex':'none';
  const meta={
   dashboard:['Overview','Orders, shop and shipping now'],
   reports:['Reports','Report builder'],
