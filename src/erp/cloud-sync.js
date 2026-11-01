@@ -40,7 +40,7 @@ const CLOUD_NUMBER={
    меньше половины — берётся следующий. */
 const CLOUD_BLOCK={
  glass:[1000,()=>DB.glassPieceSeq],unit:[500,()=>DB.glassUnitIdSeq],scan:[1000,()=>DB.stationScanSeq],
- offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0]};
+ offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0],journal:[50,()=>finJournalTop()]};
 let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
  uploading:false,dirty:null,running:false,timer:null,wait:CLOUD_POLL_MS,busy:'',error:'',warn:'',offline:false,at:''};
 function cloudKey(tbl,id){return tbl+'\u0000'+id;}
@@ -338,6 +338,12 @@ function cloudUpload(){
   cloudSoon();return true;
  });
 }
+/* Номера журнала денег, совпавшие у двух компьютеров до блоков: у всех
+   компьютеров одинаково — по времени и id, следующие свободные. */
+function cloudJournalUnique(state){
+ const list=Array.isArray(state.financeEvent)?state.financeEvent:[],used=new Set();let top=list.reduce((n,e)=>Math.max(n,e&&e.seq||0),0);
+ list.slice().sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).forEach(e=>{if(used.has(e.seq))e.seq=++top;used.add(e.seq);});
+}
 function cloudDownload(){
  return cloudRun('Downloading…',async()=>{
   const s=cloudSync,url=cloudConfig().url;
@@ -357,6 +363,7 @@ function cloudDownload(){
   const byRows=new Set(rows.filter(x=>x.id!=='*').map(x=>x.tbl));
   const state=storageJoin(rows.filter(x=>!(x.id==='*'&&byRows.has(x.tbl))).map(x=>({tbl:x.tbl,id:x.id,seq:+x.seq||0,data:cloudText(x.data)})));
   Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&!Object.prototype.hasOwnProperty.call(state,k))state[k]=[];});
+  cloudJournalUnique(state);
   /* Связь снимается перед самой заменой (замена сама на сервер не уходит),
      а не раньше: Cancel на «Replace this browser database?» оставляет связь,
      версии и очередь этого ПК как были (аудит 25.10.2026, A-1). */

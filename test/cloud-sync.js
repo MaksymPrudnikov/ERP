@@ -167,6 +167,10 @@ module.exports=async function({page,eq}){
  eq('заказ ушёл в архив на A: на сервере архивная строка и указатель Sales; у B — тоже в архиве, с сервера, на диск не копируется',
   {went,server:{cold:PGcold('salesOrder|'+oa.id),index:!!srv.rec.get('_archive|'+oa.id)},a:await seen(A),b:await seen(B)},
   {went:{due:true,ok:true,hot:false},server:{cold:true,index:true},a:{hot:false,index:true,cold:true,disk:true},b:{hot:false,index:true,cold:true,disk:false}});
+ eq('журнал денег: совпавшие номера двух компьютеров разводятся одинаково, новые — из блока сервера',await A.p.evaluate(()=>{
+  const st={financeEvent:[{id:'b',seq:1,at:'2026-01-02T00:00:00.000Z'},{id:'a',seq:1,at:'2026-01-01T00:00:00.000Z'},{id:'c',seq:2,at:'2026-01-03T00:00:00.000Z'}]};cloudJournalUnique(st);
+  return {seqs:st.financeEvent.map(e=>e.id+e.seq).sort(),block:Object.prototype.hasOwnProperty.call(CLOUD_BLOCK,'journal')};
+ }),{seqs:['a1','b3','c2'],block:true});
  const C=await pc('admin@glass-erp.test');
  eq('Download на третьем ПК: указатель Sales есть, записи архива — с сервера по запросу, на диск не копируются',await (async()=>{await C.p.evaluate(()=>cloudDownload());return seen(C);})(),{hot:false,index:true,cold:true,disk:false});
  eq('архивный заказ открывается с сервера',await C.p.evaluate(async id=>{const ok=await archiveOpen(id),n=soDraft&&soDraft.id;archiveVisitEnd();return {ok,same:n===id};},oa.id),{ok:true,same:true});

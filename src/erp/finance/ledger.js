@@ -15,10 +15,13 @@ function finAssert(cond,message){if(!cond)throw new Error(message);}
 function finCurrency(r){return r&&r.currency||'CAD';}
 function finRefunded(id){return finMoney((DB.refund||[]).filter(r=>r.receiptId===id&&!r.voided).reduce((s,r)=>s+r.amount,0));}
 function finHistoryFor(id){return (DB.financeEvent||[]).filter(e=>e.entityId===id);}
+function finJournalTop(){return (DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),typeof archiveFloor==='function'?archiveFloor('financeEvent'):0);}
 function finEvent(kind,before,after,reason,entity){
  const r=after||before,customer=(DB.customer||[]).find(c=>c.id===r.customerId);
  const number=r.number||finOrderNumber(r.orderId),snapshot=x=>x?finCopy(x):null;
- const seq=(DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),typeof archiveFloor==='function'?archiveFloor('financeEvent'):0)+1;
+ /* С сервером номер — из блока: у двух компьютеров «последний + 1» совпадал,
+    и новый компьютер не мог скачать базу (проверка на Supabase, 01.11.2026). */
+ const next=finJournalTop()+1,seq=typeof cloudSeq==='function'?cloudSeq('journal',next):next;
  const e={id:'FE-'+finUid(),seq,at:new Date().toISOString(),date:r.date||finToday(),kind,entity:entity||'receipt',entityId:r.id||r.orderId,
   customerId:r.customerId,customerName:customer?(customer.displayName||customer.legalName):'',number,currency:finCurrency(r),
   actor:(typeof signinUser==='function'&&signinUser()||{}).name||finActor||'Not specified',reason:String(reason||'').trim(),before:snapshot(before),after:snapshot(after)};
