@@ -134,6 +134,7 @@ function glassLookup(code){
 function glassBatchTaken(active,key,qty){let n=0;for(let u=1;u<=qty;u++)if(active.has(key+'|'+u))n++;return n;}
 /* Слоты отменённых юнитов (erp/sales/unit-cancel): в очередь батча они не
    возвращаются, хотя с батча сняты. */
+function glassPieceTotal(orderId){return (DB.glassPiece||[]).reduce((n,r)=>n+(r.key.startsWith(orderId+'|')?r.ids.length:0),0);}
 function glassCancelledSlots(o){
  const out=new Set(),gone=unitCancelledSet(o);if(!gone.size)return out;
  (DB.glassPiece||[]).forEach(r=>{if(!r.key.startsWith(o.id+'|'))return;r.ids.forEach((id,i)=>{if(gone.has(id))out.add(r.key+'|'+(i+1));});Object.keys(r.extra||{}).forEach(ref=>r.extra[ref].forEach((id,k)=>{if(gone.has(id))out.add(r.key+'|'+ref+'.'+(k+1));}));});
@@ -295,7 +296,7 @@ function glassBatchScope(rows,opts){
 function glassBatchAssignCommand(rows,opts){
  opts=opts||{};if(!rows||!rows.length)return null;
  if(new Set(rows.map(r=>r.slot)).size!==rows.length)return null;
- const current=new Map(glassBatchRows([...new Set(rows.map(r=>r.orderId))].map(salesRecord).filter(Boolean)).map(r=>[r.slot,r]));
+ const current=new Map(readScopeNow(()=>glassBatchRows([...new Set(rows.map(r=>r.orderId))].map(salesRecord).filter(Boolean))).map(r=>[r.slot,r]));
  const chosen=rows.map(r=>current.get(r.slot));
  if(chosen.some((c,i)=>!c||c.reason||!c.cut||!c.piece||c.piece!==rows[i].piece))return null;
  const number=salesBatchNumber(opts.batchNo)||salesNextBatchNumber();

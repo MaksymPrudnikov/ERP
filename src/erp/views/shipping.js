@@ -141,8 +141,10 @@ function shippingLoadedGo(id){
  const s=shippingFind(id);if(!s)return;
  const state=()=>{const now=shippingFind(id);return now&&shippingWithCtx(()=>shippingLoadState(now));},st=state();
  const stamp=()=>{const now=state();return JSON.stringify([shippingFind(id),now&&now.loaded.map(u=>u.label)]);},before=stamp();
- const run=mode=>{
+ const run=(mode,reserved)=>{
   if(stamp()!==before){shippingNotice={error:true,text:'Packing slip changed. Try again.'};render();return;}
+  const need={scan:(s.items||[]).reduce((n,i)=>n+i.pieces.length,0)};
+  if(!reserved&&typeof cloudNumbersShort==='function'&&cloudNumbersShort(need)){cloudNumbersReserve(need).catch(e=>console.warn('Numbers were not reserved:',e.message)).then(()=>run(mode,true));return;}
   const out=shippingMarkShipped(id,mode);shippingResult(out);if(out.ok)shippingPrint(id,true);
  };
  if(!st.units.length||st.loaded.length===st.units.length){run(st.units.length?'loaded':'');return;}

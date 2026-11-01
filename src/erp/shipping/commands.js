@@ -85,11 +85,11 @@ function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
     scans. Rollback owns these IDs only; it never undoes an unrelated scan. */
  /* Указатели на всю отгрузку: сотни юнитов не перебирают сканы года по одному. */
  const ctx=stationScanCtx();
- s.items.filter(i=>!loaded.has(i.label)).forEach(i=>i.pieces.forEach(piece=>{
+ stationBulk(()=>s.items.filter(i=>!loaded.has(i.label)).forEach(i=>i.pieces.forEach(piece=>{
   const check=stationCheck(station,piece,ctx);shippingAssert(check&&check.kind==='ok','Glass is no longer ready. Review the packing slip.');
   const rec=stationRecord(station,check,{id:who.byId,name:who.by||'Office'},{deferTouch:true,manual:true,now,scans:ctx.scans.get(piece)||[]});
   shippingAssert(rec,'Dispatch was not recorded.');scanIds.push(rec.id);stationScanCtxAdd(ctx,rec);
- }));
+ })));
  s.scanIds=scanIds;s.status='shipped';s.shippedAt=now;s.shippedBy=shippingActor();
  /* Стекло отменённых юнитов, которое клиент забирает, уехало с этим PS. */
  shippingOrderIds(s).forEach(oid=>unitTakesShipped(salesRecord(oid),s.id));

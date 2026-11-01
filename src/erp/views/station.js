@@ -140,7 +140,8 @@ function stationBeep(kind){
 }
 
 /* ------------------------------- Скан ------------------------------- */
-function stationSubmit(raw){
+function stationSubmit(raw){return stationBulk(()=>stationSubmitNow(raw));}
+function stationSubmitNow(raw){
  const who=stationWho();if(!who)return false;
  /* Вкладка Dollies: скан тары только выбирает её (view/station-dollies). */
  if(stationTab==='dollies'){const r=stationDollyScan(raw);if(r)return r;}
