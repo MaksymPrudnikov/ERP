@@ -685,6 +685,8 @@ async function storageImportState(raw,opts){
  /* С сервера (cloud) — вход проверил сервер: подключить ПК может любой
     участник цеха, не только Users. */
  if(!opts.cloud&&!accessCan(ACCESS_ADMIN)){alert('Users access needed to replace the database.');return false;}
+ /* С сервером замена базы ушла бы всем компьютерам (проверка 02.11.2026). */
+ if(!opts.cloud&&typeof cloudSync!=='undefined'&&cloudSync.on){alert('This computer is connected to the server. Stop sync first: Import would replace the data for everyone.');return false;}
  const payload=raw&&raw.format==='glass-erp'?raw.data:raw;
  if(!payload||!Array.isArray(payload.customer)||!Array.isArray(payload.salesOrder)||!Array.isArray(payload.station))throw new Error('Choose a complete GLASS ERP backup. A partial data file cannot replace this database.');
  if(storageTest&&!opts.test&&!opts.restore){alert('Test data here. Clear database first.');return false;}

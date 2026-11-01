@@ -176,6 +176,9 @@ module.exports=async function({page,eq}){
   const left=()=>cloudBlockLeft(cloudSync.blocks.get('scan'));await cloudNumbersReserve({scan:left()+25000});const enough=left()>=25000;
   cloudSync.warn=CLOUD_NO_BLOCK;await cloudBlocksFill();return {enough,warn:cloudSync.warn};
  }),{enough:true,warn:''});
+ eq('Import и Restore на подключённом компьютере не трогают базу и сервер',await A.p.evaluate(async()=>{
+  const was=window.alert;let said='';window.alert=m=>{said=m;};const n=DB.salesOrder.length,out=cloudSync.out.length;const raw=JSON.parse(JSON.stringify(DB));raw.salesOrder=[];const r=await storageImportState(raw,{});window.alert=was;return {r,said:/Stop sync/.test(said),same:DB.salesOrder.length===n,out:cloudSync.out.length===out};
+ }),{r:false,said:true,same:true,out:true});
  const C=await pc('admin@glass-erp.test');
  eq('Download на третьем ПК: указатель Sales есть, записи архива — с сервера по запросу, на диск не копируются',await (async()=>{await C.p.evaluate(()=>cloudDownload());return seen(C);})(),{hot:false,index:true,cold:true,disk:false});
  eq('архивный заказ открывается с сервера',await C.p.evaluate(async id=>{const ok=await archiveOpen(id),n=soDraft&&soDraft.id;archiveVisitEnd();return {ok,same:n===id};},oa.id),{ok:true,same:true});
