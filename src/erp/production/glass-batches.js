@@ -124,9 +124,10 @@ function glassLookup(code){
  if(unitIdValid(id)){for(const r of DB.glassUnitId||[]){const i=r.ids.indexOf(id);if(i>=0){const [orderId,lineId]=r.key.split('|');return {kind:'unit',id,orderId,lineId,unit:i+1};}}return null;}
  if(!glassPieceValid(id))return null;
  for(const r of DB.glassPiece||[]){
-  const [orderId,lineId]=r.key.split('|'),i=r.ids.indexOf(id);
-  if(i>=0)return {kind:'glass',id,orderId,lineId,key:r.key,unit:i+1};
-  for(const nr of Object.keys(r.extra||{})){const k=r.extra[nr].indexOf(id);if(k>=0)return {kind:'glass',id,orderId,lineId,key:r.key,unit:nr+'.'+(k+1)};}
+  const i=r.ids.indexOf(id);
+  if(i>=0){const [orderId,lineId]=r.key.split('|');return {kind:'glass',id,orderId,lineId,key:r.key,unit:i+1};}
+  if(!r.extra)continue;
+  for(const nr of Object.keys(r.extra)){const k=r.extra[nr].indexOf(id);if(k>=0){const [orderId,lineId]=r.key.split('|');return {kind:'glass',id,orderId,lineId,key:r.key,unit:nr+'.'+(k+1)};}}
  }
  return null;
 }

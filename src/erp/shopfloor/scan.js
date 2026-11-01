@@ -197,7 +197,7 @@ function stationRecord(station,check,who,opts){
 function stationScope(station,check){
  const orders=[],batches=[],lines=new Set(),pieces=new Set(),scans=[];
  [check].concat((check&&check.mates||[]).map(id=>stationCheck(station,id))).forEach(c=>{const g=c&&c.g;if(!g)return;if(g.o)orders.push(g.o.id);if(g.entry)batches.push(g.entry.batch.number);if(g.o&&g.l)lines.add(g.o.id+'|'+g.l.id);});
- if(lines.size)(DB.glassPiece||[]).forEach(r=>{const [o,l]=String(r.key).split('|');if(!lines.has(o+'|'+l))return;r.ids.forEach(id=>{if(id)pieces.add(id);});Object.values(r.extra||{}).forEach(x=>x.forEach(id=>{if(id)pieces.add(id);}));});
+ if(lines.size)(DB.glassPiece||[]).forEach(r=>{const k=String(r.key),end=k.indexOf('|',k.indexOf('|')+1);if(!lines.has(end<0?k:k.slice(0,end)))return;r.ids.forEach(id=>{if(id)pieces.add(id);});Object.values(r.extra||{}).forEach(x=>x.forEach(id=>{if(id)pieces.add(id);}));});
  if(pieces.size)(DB.stationScan||[]).forEach(x=>{if(pieces.has(x.piece))scans.push(x.id);});
  return {stationScan:scans,stationScanSeq:true,productionRoute:[],salesOrder:orders,glassBatch:batches};
 }

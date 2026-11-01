@@ -3069,6 +3069,20 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     },legacyBoot), {oldTable:false,oldRef:false,mark:'Keep me',price:987.65});
     await t.c.close();
 
+    /* --- F5 своей базы той же сборки: строки не перебираются (X-02). Сверка
+       с проходом целиком — на каждом таком F5 всех проверок (staleFast). --- */
+    {
+      const f = await page();
+      const f5 = async () => { await f.p.reload(); await f.p.evaluate(() => window.storageReady); return f.p.evaluate(() => storageBootMs.same); };
+      await f.p.evaluate(() => storageFlush().then(() => storageIdbMetaPut('counted', storageBuildId())));
+      eq('F5 своей базы той же сборки — без прохода по строкам', await f5(), 1);
+      await f.p.evaluate(() => storageIdbMetaPut('counted', 'old'));
+      eq('цифры прежней сборки — проход целиком', await f5(), 0);
+      await f.p.evaluate(() => storageIdbMetaPut('counted', storageBuildId()).then(() => storageIdbMetaPut('build', 'old')));
+      eq('запись прежней сборки — проход целиком', await f5(), 0);
+      await f.c.close();
+    }
+
     /* --- ловушки Этапа 3C: молчаливая потеря работы и перевёрнутые размеры --- */
     t = await page();
     eq('пустой черновик закрывается без вопроса, черновик со строками — спрашивает', await t.p.evaluate(() => {
