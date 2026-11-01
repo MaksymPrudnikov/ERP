@@ -267,9 +267,10 @@ async function cloudPushAll(){
   const now=await cloudRpc('erp_get',{keys});
   if(s.out[0]!==cmd)return;
   s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
-  const names=[...new Set((r&&r.conflict||[]).map(x=>x.id))].slice(0,3).join(', ');
+  /* Людям — номер заказа или таблица, а не внутренний ключ строки. */
+  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=x.tbl==='salesOrder'&&salesRecord(x.id);return o?o.businessNumber||'order':x.tbl;}))].slice(0,3).join(', ');
   if(!s.out.length)s.lost.clear();
-  s.warn=r&&r.denied?'No access on server: '+r.denied.join(', ')+'. Server copy shown.':'Changed on another computer: '+(names||'rows')+'. Server copy shown.';
+  s.warn=r&&r.denied?'No access on server: '+r.denied.join(', ')+'. Server copy shown.':'Changed on another computer: '+(names||'rows')+'. Server copy shown.';s.warnAt=Date.now();
  }
 }
 async function cloudPull(){
@@ -290,6 +291,8 @@ async function cloudSyncTick(){
  const s=cloudSync;s.timer=null;
  if(s.running)return;
  const was=cloudSyncText();
+ /* Предупреждение о конфликте сказало своё и уходит само. */
+ if(s.warnAt&&Date.now()-s.warnAt>120e3){s.warn='';s.warnAt=0;}
  if(!storageWriter||storageStale||storageRecovery){s.loaded=false;s.early=[];}
  else if(cloudConfig().session&&!storageFailed&&!s.busy){
   s.running=true;
@@ -297,7 +300,8 @@ async function cloudSyncTick(){
    if(!s.loaded)await cloudLoad();
    if(s.on&&storageWriter){await cloudPushAll();await cloudPull();await cloudBlocksFill();s.offline=false;s.error='';s.wait=CLOUD_POLL_MS;s.at=new Date().toISOString();}
   }catch(e){
-   if(/No connection/.test(e.message))s.offline=true;else s.error=e.message;
+   /* Просрочен вход: сырой ответ сервера людям ни о чём не говорит. */
+   if(/No connection/.test(e.message))s.offline=true;else s.error=/JWT|refresh token/i.test(e.message)?'Sign in to the server again.':e.message;
    s.wait=Math.min(60000,s.wait*2);
   }finally{s.running=false;}
  }
