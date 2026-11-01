@@ -411,8 +411,7 @@ function storageStatusHTML(){
   (typeof cloudSyncText==='function'&&cloudSyncText()?'<small data-cloud-sync-foot>Server: '+esc(cloudSyncText())+'</small>'+(cloudSync.warn?'<small data-cloud-warn-foot class="warn" title="Click to hide" onclick="cloudSync.warn=\'\';render()">'+esc(cloudSync.warn)+'</small>':'')
    :typeof cloudJoinOpen==='function'&&!cloudConfig().session?'<button type="button" data-cloud-join-foot onclick="cloudJoinOpen()">Connect server</button>':'')+
   (admin&&storageUsage?'<small>DB '+esc(String(Math.max(1,Math.round(storageUsage.usage/1048576))))+' MB</small>':'')+
-  (admin&&storageLastAction!=null?'<small>Last action '+storageLastAction+' ms</small>':'')+
-  (storageBackupPresent&&admin?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';
+  (admin&&storageLastAction!=null?'<small>Last action '+storageLastAction+' ms</small>':'')+'</div>';
 }
 function storageAlertHTML(){
  const text=storageRecovery?'Database recovery needed. '+(storageLastError||''):!navigator.locks?'This browser cannot coordinate editing. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.':storageStale?storageReadOnlyText():storageLastError||(storageUsageFull()?'Storage almost full. Export and tell admin.':'');

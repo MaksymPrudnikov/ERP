@@ -180,6 +180,7 @@ module.exports=async function({page,eq}){
   const was=window.alert;let said='';window.alert=m=>{said=m;};const n=DB.salesOrder.length,out=cloudSync.out.length;const raw=JSON.parse(JSON.stringify(DB));raw.salesOrder=[];const r=await storageImportState(raw,{});window.alert=was;return {r,said:/Stop sync/.test(said),same:DB.salesOrder.length===n,out:cloudSync.out.length===out};
  }),{r:false,said:true,same:true,out:true});
  eq('просроченный вход и конфликт — словами для людей',await A.p.evaluate(()=>{const was=cloudSync.warn;cloudSync.warn='x';cloudSync.warnAt=Date.now()-130e3;const f=cloudSync.running;return cloudSyncTick().then(()=>({warn:cloudSync.warn,at:cloudSync.warnAt}));}),{warn:'',at:0});
+ eq('на подключённом компьютере в Users остаётся только Export',await A.p.evaluate(()=>{const d=document.createElement('div');d.innerHTML=usersDataHTML();return [...d.querySelectorAll('button')].map(b=>b.textContent);}),['Export JSON']);
  const C=await pc('admin@glass-erp.test');
  eq('Download на третьем ПК: указатель Sales есть, записи архива — с сервера по запросу, на диск не копируются',await (async()=>{await C.p.evaluate(()=>cloudDownload());return seen(C);})(),{hot:false,index:true,cold:true,disk:false});
  eq('архивный заказ открывается с сервера',await C.p.evaluate(async id=>{const ok=await archiveOpen(id),n=soDraft&&soDraft.id;archiveVisitEnd();return {ok,same:n===id};},oa.id),{ok:true,same:true});
