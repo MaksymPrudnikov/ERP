@@ -3775,17 +3775,14 @@ tr:has(.inv-stock-edit) td{background:var(--accent-soft)}
   <div id="storageStatus" aria-live="polite"></div>
   <span id="dirty" data-admin title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
   <span class="sp"></span>
-  <button class="gh" data-admin onclick="doExport()">Export JSON</button>
-  <button class="gh" data-admin onclick="document.getElementById('imp').click()">Import JSON</button>
   <input type="file" id="imp" accept=".json,.ndjson" style="display:none" onchange="doImport(this)">
-  <button class="gh" data-admin onclick="storageClear()">Clear database</button>
 </footer>
 </div>
 </div>
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='b3d3d134ec64';
+var ERP_BUILD='1f9401c9b7ba';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -16666,7 +16663,7 @@ function renderScreen(){
  /* Export / Import JSON — вся база целиком, это дело администратора (Users). */
  document.body.classList.toggle('no-admin',!accessCan(ACCESS_ADMIN));
  renderNav();
- document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
+ document.getElementById('dirty').style.display=dirty&&!(typeof cloudSync!=='undefined'&&cloudSync.on)?'inline-flex':'none';
  const meta={
   dashboard:['Overview','Orders, shop and shipping now'],
   reports:['Reports','Report builder'],
@@ -17199,9 +17196,10 @@ async function cloudPushAll(){
   const now=await cloudRpc('erp_get',{keys});
   if(s.out[0]!==cmd)return;
   s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
-  const names=[...new Set((r&&r.conflict||[]).map(x=>x.id))].slice(0,3).join(', ');
+  /* Заказ людям виден номером, а не внутренним ключом строки. */
+  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=x.tbl==='salesOrder'&&salesRecord(x.id);return o?o.businessNumber||'order':x.id;}))].slice(0,3).join(', ');
   if(!s.out.length)s.lost.clear();
-  s.warn=r&&r.denied?'No access on server: '+r.denied.join(', ')+'. Server copy shown.':'Changed on another computer: '+(names||'rows')+'. Server copy shown.';
+  s.warn=r&&r.denied?'No access on server: '+r.denied.join(', ')+'. Server copy shown.':'Changed on another computer: '+(names||'rows')+'. Server copy shown.';s.warnAt=Date.now();
  }
 }
 async function cloudPull(){
@@ -17222,6 +17220,8 @@ async function cloudSyncTick(){
  const s=cloudSync;s.timer=null;
  if(s.running)return;
  const was=cloudSyncText();
+ /* Предупреждение о конфликте сказало своё и уходит само. */
+ if(s.warnAt&&Date.now()-s.warnAt>120e3){s.warn='';s.warnAt=0;}
  if(!storageWriter||storageStale||storageRecovery){s.loaded=false;s.early=[];}
  else if(cloudConfig().session&&!storageFailed&&!s.busy){
   s.running=true;
@@ -17229,7 +17229,8 @@ async function cloudSyncTick(){
    if(!s.loaded)await cloudLoad();
    if(s.on&&storageWriter){await cloudPushAll();await cloudPull();await cloudBlocksFill();s.offline=false;s.error='';s.wait=CLOUD_POLL_MS;s.at=new Date().toISOString();}
   }catch(e){
-   if(/No connection/.test(e.message))s.offline=true;else s.error=e.message;
+   /* Просрочен вход: сырой ответ сервера людям ни о чём не говорит. */
+   if(/No connection/.test(e.message))s.offline=true;else s.error=/JWT|refresh token/i.test(e.message)?'Sign in to the server again.':e.message;
    s.wait=Math.min(60000,s.wait*2);
   }finally{s.running=false;}
  }
@@ -17506,7 +17507,13 @@ function usersCloudHTML(){
   <div class="row">${status}
    <button class="pri" data-cloud-connect ${st.busy?'disabled':''} onclick="usersCloudConnect()">Connect</button>
    ${s?`<button data-cloud-check onclick="cloudCheck()">Check</button><button data-cloud-out onclick="cloudSignOut()">Sign out</button>`:''}</div>
-  ${s?usersCloudSyncHTML():''}${s&&Array.isArray(cloudAccess.members)?usersCloudAccessHTML():''}</div>`;
+  ${s?usersCloudSyncHTML():''}${s&&Array.isArray(cloudAccess.members)?usersCloudAccessHTML():''}${usersDataHTML()}</div>`;
+}
+/* Вся база файлом — только здесь, не на каждом экране (владелец, 02.11.2026).
+   С сервером замена базы ушла бы всем: Import, Restore и Clear не показаны. */
+function usersDataHTML(){
+ const on=typeof cloudSync!=='undefined'&&cloudSync.on;
+ return `<h3>Data</h3><div class="row" data-users-data><button onclick="doExport()">Export JSON</button>${on?'':`<button onclick="document.getElementById('imp').click()">Import JSON</button>${storageBackupPresent?'<button onclick="storageRestoreBackup()">Restore pre-import backup</button>':''}<button onclick="storageClear()">Clear database</button>`}</div>`;
 }
 function usersCloudSyncHTML(){
  const y=cloudSync,text=cloudSyncText(),busy=!!y.busy;
@@ -18437,6 +18444,7 @@ function salesOrderErrorBox(){return document.getElementById('e_sales_order')||s
    без записи; opts.checked — вопросы уже заданы; opts.pre — цены и
    количества строк, посчитанные заранее. Они берутся, только если база и
    заказ с тех пор не менялись, иначе — всё заново, как у обычного Save. */
+const SALES_QTY_ASK=2000;
 function salesOrderSaveCommand(opts){
  opts=opts||{};
  const e=salesOrderErrorBox();e.style.display='none';
@@ -18445,6 +18453,10 @@ function salesOrderSaveCommand(opts){
  const ask=opts.checked?()=>true:t=>confirm(t);
  let shrinks=pre?pre.shrinks:null,previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  if(!pre){
+ /* Опечатка в количестве: не запрет, а вопрос (проверка 02.11.2026: 50 000
+    в строке записывались молча, с номерами на каждое стекло). */
+ const typo=(soDraft.lines||[]).findIndex(l=>l.qty>SALES_QTY_ASK);
+ if(typo>=0&&!ask('Line '+(typo+1)+': '+soDraft.lines[typo].qty.toLocaleString('en-US')+' units. Is this right?')){render();return false;}
  salesSnapshotAllChargePricing();
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
@@ -52745,8 +52757,7 @@ function storageStatusHTML(){
   (typeof cloudSyncText==='function'&&cloudSyncText()?'<small data-cloud-sync-foot>Server: '+esc(cloudSyncText())+'</small>'+(cloudSync.warn?'<small data-cloud-warn-foot class="warn" title="Click to hide" onclick="cloudSync.warn=\'\';render()">'+esc(cloudSync.warn)+'</small>':'')
    :typeof cloudJoinOpen==='function'&&!cloudConfig().session?'<button type="button" data-cloud-join-foot onclick="cloudJoinOpen()">Connect server</button>':'')+
   (admin&&storageUsage?'<small>DB '+esc(String(Math.max(1,Math.round(storageUsage.usage/1048576))))+' MB</small>':'')+
-  (admin&&storageLastAction!=null?'<small>Last action '+storageLastAction+' ms</small>':'')+
-  (storageBackupPresent&&admin?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';
+  (admin&&storageLastAction!=null?'<small>Last action '+storageLastAction+' ms</small>':'')+'</div>';
 }
 function storageAlertHTML(){
  const text=storageRecovery?'Database recovery needed. '+(storageLastError||''):!navigator.locks?'This browser cannot coordinate editing. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.':storageStale?storageReadOnlyText():storageLastError||(storageUsageFull()?'Storage almost full. Export and tell admin.':'');
@@ -53019,6 +53030,8 @@ async function storageImportState(raw,opts){
  /* С сервера (cloud) — вход проверил сервер: подключить ПК может любой
     участник цеха, не только Users. */
  if(!opts.cloud&&!accessCan(ACCESS_ADMIN)){alert('Users access needed to replace the database.');return false;}
+ /* С сервером замена базы ушла бы всем компьютерам (проверка 02.11.2026). */
+ if(!opts.cloud&&typeof cloudSync!=='undefined'&&cloudSync.on){alert('This computer is connected to the server. Stop sync first: Import would replace the data for everyone.');return false;}
  const payload=raw&&raw.format==='glass-erp'?raw.data:raw;
  if(!payload||!Array.isArray(payload.customer)||!Array.isArray(payload.salesOrder)||!Array.isArray(payload.station))throw new Error('Choose a complete GLASS ERP backup. A partial data file cannot replace this database.');
  if(storageTest&&!opts.test&&!opts.restore){alert('Test data here. Clear database first.');return false;}
