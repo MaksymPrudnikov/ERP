@@ -129,7 +129,7 @@ function cloudOutbox(changes){
  const ops=[...s.blockDirty].map(name=>['b\u0000'+name,s.blocks.get(name)]);s.blockDirty.clear();
  if(!rows.length||!s.loaded||!s.on||s.uploading){
   if(!s.loaded&&rows.length&&cloudConfig().session)s.early.push(rows);
-  if(s.uploading)rows.forEach(c=>s.dirty.add(cloudKey(c.tbl,c.id)));
+  if(s.uploading)rows.forEach(c=>s.dirty.set(cloudKey(c.tbl,c.id),c));
   return ops.length?{ops,done(){}}:null;
  }
  const cmds=[],queued=new Set();let n=s.n;
@@ -316,7 +316,7 @@ function cloudUpload(){
   const s=cloudSync,vers=new Map(),url=cloudConfig().url;
   const recs=cloudRecords().concat((await storageIdbColdAll()).map(r=>({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,month:r.month,owners:r.owners})),
    (await storageIdbArchiveAll()).map(a=>({tbl:'_archive',id:a.id,seq:0,data:JSON.stringify(a.row)})));
-  s.uploading=true;s.dirty=new Set();
+  s.uploading=true;s.dirty=new Map();
   let last=0;
   try{
    let sent=0;
@@ -331,10 +331,10 @@ function cloudUpload(){
    await cloudSaveAll(url,last,vers);
   }finally{s.uploading=false;}
   /* Правки во время отправки — следом обычной командой. */
+  /* Как было записано: строка, ушедшая в архив посреди отправки, на сервере
+     уходит в архив, а не удаляется (проверка на Supabase, 01.11.2026). */
   const dirty=s.dirty;s.dirty=null;
-  if(dirty&&dirty.size){const again=cloudRecords().filter(r=>dirty.has(cloudKey(r.tbl,r.id)));
-   const gone=[...dirty].filter(k=>!again.some(r=>cloudKey(r.tbl,r.id)===k)).map(k=>{const i=k.indexOf('\u0000');return {tbl:k.slice(0,i),id:k.slice(i+1),del:true};});
-   const out=cloudOutbox(again.concat(gone));if(out){storageWrite([],out.ops);out.done();}}
+  if(dirty&&dirty.size){const out=cloudOutbox([...dirty.values()]);if(out){storageWrite([],out.ops);out.done();}}
   cloudSoon();return true;
  });
 }

@@ -69,8 +69,9 @@ module.exports=async function({page,eq}){
  await A.p.evaluate(()=>storageCommand(()=>{DB.customer.push({id:'C-CLOUD',legalName:'Cloud Co'});}));
  await A.p.evaluate(()=>{tab='users';subtab='cloud';render();});
  eq('Users → Cloud: после входа — «Not synced», Upload и Download',await A.p.evaluate(()=>({sync:document.querySelector('[data-cloud-sync]').dataset.cloudSync,up:!!document.querySelector('[data-cloud-upload]'),down:!!document.querySelector('[data-cloud-download]')})),{sync:'off',up:true,down:true});
- const up=await A.p.evaluate(()=>cloudUpload());
+ const up=await A.p.evaluate(()=>{const f=cloudRpc;cloudRpc=function(n,a){if(n==='erp_apply'){cloudRpc=f;cloudOutbox([{tbl:'customer',id:'C-COLD',seq:90,data:'{"id":"C-COLD"}',cold:true,owners:['SO-x'],month:'2026-01'}]);}return f(n,a);};return cloudUpload();});
  eq('Upload: база A на сервере, A — «Synced»',{up,has:!!srv.rec.get('customer|C-CLOUD'),text:await sync(A)},{up:true,has:true,text:'Synced'});
+ eq('строка, ушедшая в архив посреди Upload, на сервере в архиве, а не удалена',(r=>r&&{cold:r.cold,deleted:r.deleted})(srv.rec.get('customer|C-COLD')),{cold:true,deleted:false});
  eq('Upload второй раз — отказ: на сервере уже есть данные',await A.p.evaluate(async()=>{await cloudSaveAll('',0,null);await cloudUpload();const e=cloudSync.error;cloudSync.error='';return e;}),'The server already has data. Use Download.');
  await A.p.evaluate(async()=>{await cloudDownload();});
 
