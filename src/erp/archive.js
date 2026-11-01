@@ -244,7 +244,7 @@ function archiveVisitEnd(){const v=archiveVisit;if(!v)return;archiveVisit=null;a
 /* Записи ушедших заказов owners с диска (общая запись — один раз). */
 async function archiveRead(owners){
  const seen=new Set(),recs=[];
- (await storageIdbColdOfMany(owners)).forEach(list=>list.forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}}));
+ (await storageColdOfMany(owners)).forEach(list=>list.forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}}));
  return recs;
 }
 /* Записи архива — в DB на время просмотра или расчёта; сравнение базы их не
@@ -423,7 +423,7 @@ if(typeof window!=='undefined')setTimeout(archiveAuto,60e3);
    указателя снимается; склад — разница обратно. */
 async function archiveReturn(orderId){
  await storageFlush();
- const got=await storageIdbColdOf(orderId);if(!got.length)return {ok:true,value:0};
+ const got=await storageColdOf(orderId);if(!got.length)return {ok:true,value:0};
  const owners=new Set();got.forEach(r=>(r.owners||[]).forEach(o=>owners.add(o)));
  return storageCommand(()=>{
   const before=archiveInvState();

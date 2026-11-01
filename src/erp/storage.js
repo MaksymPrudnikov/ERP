@@ -146,7 +146,7 @@ function storageColdApply(changes){
    DB на своё место по seq, их запись забирает их из склада cold. */
 async function storageColdBring(owner){
  await storageFlush();
- const got=await storageIdbColdOf(owner);if(!got.length)return {ok:true,value:0};
+ const got=await storageColdOf(owner);if(!got.length)return {ok:true,value:0};
  return storageCommand(()=>{got.forEach(storageColdPut);return got.length;});
 }
 const STORAGE_UNSAVED_TABLES=new Set(['shapeDef']);
@@ -660,7 +660,7 @@ function storageExportParts(cold,archive){
    заменяет и людей с их правами, Export отдаёт и Finance. */
 async function doExport(){
  if(!accessCan(ACCESS_ADMIN))return;
- await storageFlush();const cold=storageIdb?await storageIdbColdAll().catch(()=>[]):[],archive=storageIdb?await storageIdbArchiveAll().catch(()=>[]):[];
+ await storageFlush();const cold=storageIdb?await storageColdAll().catch(()=>storageIdbColdAll()).catch(()=>[]):[],archive=storageIdb?await storageIdbArchiveAll().catch(()=>[]):[];
  storageDownload('glazing_system_data.ndjson',storageExportParts(cold,archive),'application/x-ndjson');
  storageBackupAt=new Date().toISOString();dirty=false;if(storageFailed)storageFailedExported=true;render();
 }

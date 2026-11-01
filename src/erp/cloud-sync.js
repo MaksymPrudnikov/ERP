@@ -12,8 +12,9 @@
    возвращаются к серверной копии и об этом говорится. Синхронизирует только
    вкладка, которая пишет. Архив тоже на сервере (24.10.2026): уход заказа в
    архив — строки с cold, указатель Sales и выписки — строки _archive;
-   опрос и Download приносят архивные строки без данных, данные берутся
-   erp_cold пачками; возврат из архива — обычная строка. Строка
+   опрос и Download приносят архивные строки без данных, на компьютер они не
+   копируются: записи заказа приходят при открытии (erp_cold_of, 01.11.2026);
+   возврат из архива — обычная строка. Строка
    едет текстом JSON как есть: jsonb переставил бы ключи, и после F5 база
    сочла бы чужую строку изменённой и отправила её обратно.
    Склад cloud: ref — адрес сервера, с которым связана эта база; since —
@@ -152,15 +153,14 @@ function cloudChange(c){
  if(c.cold&&!c.del)Object.assign(x,{cold:true,month:c.month||'',owners:c.owners||[]});
  return x;
 }
-/* Архивные строки приходят без данных — данные пачками из erp_cold. */
-async function cloudColdFill(rows){
- const want=rows.filter(r=>r.cold&&!r.deleted&&r.data==null);
- for(let i=0;i<want.length;i+=CLOUD_CHUNK){
-  const part=want.slice(i,i+CLOUD_CHUNK),got=await cloudRpc('erp_cold',{keys:part.map(r=>({tbl:r.tbl,id:r.id}))}),by=new Map();
-  (Array.isArray(got)?got:[]).forEach(x=>by.set(cloudKey(x.tbl,x.id),x));
-  part.forEach(r=>{const x=by.get(cloudKey(r.tbl,r.id));if(x)Object.assign(r,{data:x.data,owners:x.owners||[],month:x.month||'',seq:x.seq});});
+/* Архив живёт на сервере: записи заказов owners — по запросу, пачками. */
+async function cloudColdOf(owners){
+ const out=[];
+ for(let i=0;i<owners.length;i+=CLOUD_CHUNK){
+  const got=await cloudRpc('erp_cold_of',{owners:owners.slice(i,i+CLOUD_CHUNK)});
+  (Array.isArray(got)?got:[]).forEach(x=>out.push({tbl:x.tbl,id:x.id,seq:+x.seq||0,data:cloudText(x.data),owners:x.owners||[],month:x.month||''}));
  }
- return rows;
+ return out;
 }
 /* Серверные строки → база этого компьютера (как запись другой вкладки:
    storageApplySaved). asked — ключи, о которых спрашивали: нет в ответе —
@@ -179,11 +179,16 @@ function cloudApplyServer(rows,asked,ops){
      сервером — нет: у нас ещё старый номер). */
   if(s.refresh.has(k)){s.refresh.delete(k);ops.push(['r\u0000'+k,null]);}
   else if(!asked&&s.vers.get(k)===r.ver)return;
+  /* Строка ушла в архив: у нас её больше нет, данные — на сервере. */
+  if(r.cold&&r.data==null){
+   s.vers.set(k,r.ver);ops.push(['v\u0000'+k,r.ver]);
+   const b=storageBase.get(r.tbl);if(b&&b.has(r.id))list.push({tbl:r.tbl,id:r.id,del:true});
+   return;
+  }
   if(r.data==null)return;
   s.vers.set(k,r.ver);ops.push(['v\u0000'+k,r.ver]);
-  /* В архив — из горячих в склад cold; горячая строка — и из cold (возврат). */
-  if(r.cold)list.push({tbl:r.tbl,id:r.id,seq:+r.seq||0,data:cloudText(r.data),cold:true,owners:r.owners||[],month:r.month||''});
-  else list.push({tbl:r.tbl,id:r.id,seq:+r.seq||0,data:cloudText(r.data),warm:r.tbl!=='_archive'});
+  /* Горячая строка — и из cold (возврат). */
+  list.push({tbl:r.tbl,id:r.id,seq:+r.seq||0,data:cloudText(r.data),warm:r.tbl!=='_archive'});
  });
  if(asked)asked.forEach(a=>{const k=cloudKey(a.tbl,a.id);if(seen.has(k))return;if(s.vers.has(k)){s.vers.delete(k);ops.push(['v\u0000'+k,null]);}list.push({tbl:a.tbl,id:a.id,del:true});});
  cloudWriteLocal(list,ops);
@@ -224,7 +229,6 @@ async function cloudPushAll(){
   /* Отказ: строки команды — как на сервере сейчас. */
   const keys=cmd.changes.map(c=>({tbl:c.tbl,id:c.id}));
   const now=await cloudRpc('erp_get',{keys});
-  if(Array.isArray(now))await cloudColdFill(now);
   if(s.out[0]!==cmd)return;
   s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
   const names=[...new Set((r&&r.conflict||[]).map(x=>x.id))].slice(0,3).join(', ');
@@ -236,7 +240,6 @@ async function cloudPull(){
  const s=cloudSync;
  for(;;){
   const from=s.since,r=await cloudRpc('erp_changes',{since:from,lim:2000});
-  if(Array.isArray(r.rows))await cloudColdFill(r.rows);
   if(s.since!==from)return;
   const last=+r.last||from;
   s.since=last;cloudApplyServer(Array.isArray(r.rows)?r.rows:[],null,[['since',last]]);
@@ -349,8 +352,6 @@ function cloudDownload(){
   const all=[...got.values()].filter(x=>!x.deleted),vers=new Map(all.map(x=>[cloudKey(x.tbl,x.id),x.ver]));
   const rows=all.filter(x=>!x.cold&&x.tbl!=='_archive'),archive=all.filter(x=>x.tbl==='_archive').map(x=>({id:x.id,row:JSON.parse(cloudText(x.data))}));
   if(!rows.length)throw new Error('The server is empty. Upload a database first.');
-  s.busy='Downloading archive';afterRender();
-  const cold=(await cloudColdFill(all.filter(x=>x.cold))).filter(x=>x.data!=null).map(x=>({tbl:x.tbl,id:x.id,seq:+x.seq||0,data:cloudText(x.data),owners:x.owners||[],month:x.month||''}));
   /* Пустая таблица целиком («*») рядом со строками — осталась от Upload до
      v5.257: строки главнее. Пустые таблицы — как в новой базе. */
   const byRows=new Set(rows.filter(x=>x.id!=='*').map(x=>x.tbl));
@@ -359,7 +360,7 @@ function cloudDownload(){
   /* Связь снимается перед самой заменой (замена сама на сервер не уходит),
      а не раньше: Cancel на «Replace this browser database?» оставляет связь,
      версии и очередь этого ПК как были (аудит 25.10.2026, A-1). */
-  const ok=await storageImportState(state,{test:storageTest,cold,archive,cloud:true,before:()=>cloudSaveAll('',0,null)});
+  const ok=await storageImportState(state,{test:storageTest,cold:[],archive,cloud:true,before:()=>cloudSaveAll('',0,null)});
   if(!ok)return false;
   await cloudSaveAll(url,since,vers);cloudSoon();return true;
  });

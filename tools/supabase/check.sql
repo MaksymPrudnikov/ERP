@@ -72,6 +72,8 @@ begin
   assert (public.erp_changes(0)->'rows'->-1->'data') = 'null', 'архив пришёл с данными в горячем';
   assert public.erp_cold('[{"tbl":"stationScan","id":"S-1"}]')->0->'data'->>'id' = 'S-1', 'архив по ключу';
   assert public.erp_cold('[{"tbl":"stationScan","id":"S-1"}]')->0 @> '{"seq":4,"month":"2025-01","owners":["SO-9"]}', 'архив: seq, месяц, заказы';
+  assert public.erp_cold_of('["SO-9"]')->0->'data'->>'id' = 'S-1', 'архив по заказу';
+  assert public.erp_cold_of('["SO-0"]') = '[]', 'архив чужого заказа пуст';
   assert pg_temp.fails('select public.erp_take(''glass'', 0)', 'Block size%'), 'пустой блок';
 end $$;
 

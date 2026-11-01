@@ -273,7 +273,7 @@ begin
   return first;
 end $$;
 
--- Изменения после rev since (горячее; архив — erp_cold). Удалённые приходят
+-- Изменения после rev since (горячее; архив — erp_cold_of). Удалённые приходят
 -- с deleted = true. last — rev, с которого спрашивать дальше.
 create or replace function public.erp_changes(since bigint, lim int default 2000)
 returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
@@ -304,6 +304,19 @@ begin
     from jsonb_array_elements(coalesce(keys, '[]')) k
     join public.erp_record r on r.tbl = k->>'tbl' and r.id = k->>'id' and r.cold and not r.deleted
     where public.erp_can_read_row(me, r.tbl, r.id)), '[]'::jsonb);
+end $$;
+
+-- Архив заказов owners: все их записи. Браузер спрашивает при открытии заказа.
+create index if not exists erp_record_owners on public.erp_record using gin (owners) where cold;
+create or replace function public.erp_cold_of(owners jsonb)
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare me public.erp_member := public.erp_me();
+begin
+  return coalesce((select jsonb_agg(jsonb_build_object('tbl', r.tbl, 'id', r.id, 'ver', r.ver, 'seq', r.seq, 'month', r.month, 'owners', r.owners, 'data', r.data))
+    from public.erp_record r
+    where r.cold and not r.deleted
+      and r.owners ?| array(select jsonb_array_elements_text(coalesce(erp_cold_of.owners, '[]')))
+      and public.erp_can_read_row(me, r.tbl, r.id)), '[]'::jsonb);
 end $$;
 
 -- Строки, как они на сервере сейчас: после отказа (конфликт, нет раздела)
@@ -390,14 +403,14 @@ begin
 end $$;
 
 revoke all on function public.erp_me(), public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int, bigint),
-  public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
+  public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_cold_of(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
   public.erp_member_set(text, text, boolean, boolean, text[]), public.erp_members(), public.erp_rules(), public.erp_rules_set(jsonb)
   from public, anon;
 revoke all on function public.erp_me() from authenticated;
 revoke all on function public.erp_can(public.erp_member, text), public.erp_can_read(public.erp_member, text),
   public.erp_can_write(public.erp_member, text), public.erp_can_read_row(public.erp_member, text, text) from public, anon, authenticated;
 grant execute on function public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int, bigint),
-  public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
+  public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_cold_of(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
   public.erp_member_set(text, text, boolean, boolean, text[]), public.erp_members(), public.erp_rules(), public.erp_rules_set(jsonb)
   to authenticated;
 
