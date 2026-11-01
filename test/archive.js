@@ -115,6 +115,11 @@ module.exports=async function({page,eq}){
   await archiveOpen(x.b);await archiveNcr();await storageFlush();
   return {back:!!salesRecord(x.b),edit:soEdit===x.b,index:archiveIndex.has(x.b),form:!!ncrForm,visit:storageVisit.size,stored:(await storageIdbColdOf(x.b)).length};
  },ids),{back:true,edit:true,index:false,form:true,visit:0,stored:0});
+ eq('заказ из архива открывается как обычный: сразу в работе и правится',await t.p.evaluate(async x=>{
+  const r=archiveRun('2026-06-01');await storageFlush();const was=archiveIndex.has(x.a);
+  const ok=await archiveOpenWork(x.a);await storageFlush();salesOrderClose();
+  return {went:r.ok&&was,ok,back:!!salesRecord(x.a),index:archiveIndex.has(x.a),view:!!archiveVisit};
+ },ids),{went:true,ok:true,back:true,index:false,view:false});
  eq('архив без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
