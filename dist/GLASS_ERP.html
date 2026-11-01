@@ -3785,7 +3785,7 @@ tr:has(.inv-stock-edit) td{background:var(--accent-soft)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='1c9387a585c2';
+var ERP_BUILD='9df32f8e2980';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -15218,10 +15218,13 @@ function finAssert(cond,message){if(!cond)throw new Error(message);}
 function finCurrency(r){return r&&r.currency||'CAD';}
 function finRefunded(id){return finMoney((DB.refund||[]).filter(r=>r.receiptId===id&&!r.voided).reduce((s,r)=>s+r.amount,0));}
 function finHistoryFor(id){return (DB.financeEvent||[]).filter(e=>e.entityId===id);}
+function finJournalTop(){return (DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),typeof archiveFloor==='function'?archiveFloor('financeEvent'):0);}
 function finEvent(kind,before,after,reason,entity){
  const r=after||before,customer=(DB.customer||[]).find(c=>c.id===r.customerId);
  const number=r.number||finOrderNumber(r.orderId),snapshot=x=>x?finCopy(x):null;
- const seq=(DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),typeof archiveFloor==='function'?archiveFloor('financeEvent'):0)+1;
+ /* С сервером номер — из блока: у двух компьютеров «последний + 1» совпадал,
+    и новый компьютер не мог скачать базу (проверка на Supabase, 01.11.2026). */
+ const next=finJournalTop()+1,seq=typeof cloudSeq==='function'?cloudSeq('journal',next):next;
  const e={id:'FE-'+finUid(),seq,at:new Date().toISOString(),date:r.date||finToday(),kind,entity:entity||'receipt',entityId:r.id||r.orderId,
   customerId:r.customerId,customerName:customer?(customer.displayName||customer.legalName):'',number,currency:finCurrency(r),
   actor:(typeof signinUser==='function'&&signinUser()||{}).name||finActor||'Not specified',reason:String(reason||'').trim(),before:snapshot(before),after:snapshot(after)};
@@ -16968,7 +16971,7 @@ const CLOUD_NUMBER={
    меньше половины — берётся следующий. */
 const CLOUD_BLOCK={
  glass:[1000,()=>DB.glassPieceSeq],unit:[500,()=>DB.glassUnitIdSeq],scan:[1000,()=>DB.stationScanSeq],
- offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0]};
+ offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0],journal:[50,()=>finJournalTop()]};
 let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
  uploading:false,dirty:null,running:false,timer:null,wait:CLOUD_POLL_MS,busy:'',error:'',warn:'',offline:false,at:''};
 function cloudKey(tbl,id){return tbl+'\u0000'+id;}
@@ -17057,7 +17060,7 @@ function cloudOutbox(changes){
  const ops=[...s.blockDirty].map(name=>['b\u0000'+name,s.blocks.get(name)]);s.blockDirty.clear();
  if(!rows.length||!s.loaded||!s.on||s.uploading){
   if(!s.loaded&&rows.length&&cloudConfig().session)s.early.push(rows);
-  if(s.uploading)rows.forEach(c=>s.dirty.add(cloudKey(c.tbl,c.id)));
+  if(s.uploading)rows.forEach(c=>s.dirty.set(cloudKey(c.tbl,c.id),c));
   return ops.length?{ops,done(){}}:null;
  }
  const cmds=[],queued=new Set();let n=s.n;
@@ -17244,7 +17247,7 @@ function cloudUpload(){
   const s=cloudSync,vers=new Map(),url=cloudConfig().url;
   const recs=cloudRecords().concat((await storageIdbColdAll()).map(r=>({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,month:r.month,owners:r.owners})),
    (await storageIdbArchiveAll()).map(a=>({tbl:'_archive',id:a.id,seq:0,data:JSON.stringify(a.row)})));
-  s.uploading=true;s.dirty=new Set();
+  s.uploading=true;s.dirty=new Map();
   let last=0;
   try{
    let sent=0;
@@ -17259,12 +17262,18 @@ function cloudUpload(){
    await cloudSaveAll(url,last,vers);
   }finally{s.uploading=false;}
   /* Правки во время отправки — следом обычной командой. */
+  /* Как было записано: строка, ушедшая в архив посреди отправки, на сервере
+     уходит в архив, а не удаляется (проверка на Supabase, 01.11.2026). */
   const dirty=s.dirty;s.dirty=null;
-  if(dirty&&dirty.size){const again=cloudRecords().filter(r=>dirty.has(cloudKey(r.tbl,r.id)));
-   const gone=[...dirty].filter(k=>!again.some(r=>cloudKey(r.tbl,r.id)===k)).map(k=>{const i=k.indexOf('\u0000');return {tbl:k.slice(0,i),id:k.slice(i+1),del:true};});
-   const out=cloudOutbox(again.concat(gone));if(out){storageWrite([],out.ops);out.done();}}
+  if(dirty&&dirty.size){const out=cloudOutbox([...dirty.values()]);if(out){storageWrite([],out.ops);out.done();}}
   cloudSoon();return true;
  });
+}
+/* Номера журнала денег, совпавшие у двух компьютеров до блоков: у всех
+   компьютеров одинаково — по времени и id, следующие свободные. */
+function cloudJournalUnique(state){
+ const list=Array.isArray(state.financeEvent)?state.financeEvent:[],used=new Set();let top=list.reduce((n,e)=>Math.max(n,e&&e.seq||0),0);
+ list.slice().sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).forEach(e=>{if(used.has(e.seq))e.seq=++top;used.add(e.seq);});
 }
 function cloudDownload(){
  return cloudRun('Downloading…',async()=>{
@@ -17285,6 +17294,7 @@ function cloudDownload(){
   const byRows=new Set(rows.filter(x=>x.id!=='*').map(x=>x.tbl));
   const state=storageJoin(rows.filter(x=>!(x.id==='*'&&byRows.has(x.tbl))).map(x=>({tbl:x.tbl,id:x.id,seq:+x.seq||0,data:cloudText(x.data)})));
   Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&!Object.prototype.hasOwnProperty.call(state,k))state[k]=[];});
+  cloudJournalUnique(state);
   /* Связь снимается перед самой заменой (замена сама на сервер не уходит),
      а не раньше: Cancel на «Replace this browser database?» оставляет связь,
      версии и очередь этого ПК как были (аудит 25.10.2026, A-1). */
@@ -31836,7 +31846,7 @@ function finVoidRefundUI(id){const reason=prompt('Void this refund record. Reaso
 
 /* ------------------------------ Журнал ------------------------------- */
 function finSnapshotHTML(r,entity,orders){if(!r)return '<span class="mut">—</span>';const fields=entity==='terms'?[['Terms',paymentTermsLabel(r)],['Billing date',r.issuedOn||'Pickup day'],['Due date',r.dueOn||'By terms']]:[['Amount',finFmt(r.amount)+' '+finCurrency(r)],['Date',r.date],['Method',finMethodLabel(r.method)],['Reference',r.reference||'—'],['Status',r.voided?'Void':'Active'],['Note / reason',r.note||r.reason||r.voidReason||'—'],['Applied',(r.allocations||[]).map(a=>(((orders||[]).find(o=>o.id===a.orderId)||{}).number||finOrderNumber(a.orderId))+': '+finFmt(a.amount)).join('; ')||'—']];return `<dl>${fields.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;}
-function finJournalTable(rows){return `<div class="fin-history">${rows.slice().sort((a,b)=>b.seq-a.seq).map(e=>`<details class="fin-event"><summary><span class="fin-event-no">#${e.seq}</span><span><b>${esc(FIN_EVENT_LABELS[e.kind]||e.kind)}</b> · ${esc(e.number)}${e.reason?`<small>${esc(e.reason)}</small>`:''}</span><span class="fin-event-time">${esc(new Date(e.at).toLocaleString('en-CA'))}${e.actor&&e.actor!=='Not specified'?`<small>${esc(e.actor)}</small>`:''}</span></summary><div class="fin-event-diff"><section><h5>Before</h5>${finSnapshotHTML(e.before,e.entity,e.orders)}</section><section><h5>After</h5>${finSnapshotHTML(e.after,e.entity,e.orders)}</section></div></details>`).join('')}</div>`;}
+function finJournalTable(rows){return `<div class="fin-history">${rows.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))||b.seq-a.seq).map(e=>`<details class="fin-event"><summary><span class="fin-event-no">#${e.seq}</span><span><b>${esc(FIN_EVENT_LABELS[e.kind]||e.kind)}</b> · ${esc(e.number)}${e.reason?`<small>${esc(e.reason)}</small>`:''}</span><span class="fin-event-time">${esc(new Date(e.at).toLocaleString('en-CA'))}${e.actor&&e.actor!=='Not specified'?`<small>${esc(e.actor)}</small>`:''}</span></summary><div class="fin-event-diff"><section><h5>Before</h5>${finSnapshotHTML(e.before,e.entity,e.orders)}</section><section><h5>After</h5>${finSnapshotHTML(e.after,e.entity,e.orders)}</section></div></details>`).join('')}</div>`;}
 
 /* ------------------------- Бланки: просмотр -------------------------- */
 /* Квитанция, выписка и списки открываются как в Documents: лист на экране,
@@ -51787,7 +51797,7 @@ function archiveAuto(){
  if(!ARCHIVE_ON||archiveTimer||typeof window!=='undefined'&&window.GF_NO_ARCHIVE)return;
  const next=ms=>{archiveTimer=setTimeout(()=>{archiveTimer=null;archiveAuto();},ms);},today=salesListDay(new Date());
  if(Date.now()-archiveInputAt<60e3){next(60e3);return;}
- if(!storageWriter||storageRecovery||storageStale||storageStarting||typeof soDraft!=='undefined'&&soDraft||archiveVisit||archiveScope){next(10*60e3);return;}
+ if(!storageWriter||storageRecovery||storageStale||storageStarting||typeof soDraft!=='undefined'&&soDraft||archiveVisit||archiveScope||typeof cloudSync!=='undefined'&&(cloudSync.busy||cloudSync.uploading)){next(10*60e3);return;}
  if(DB.archiveRunDay===today){next(60*60e3);return;}
  const r=archiveRun(today,{limit:ARCHIVE_BATCH,mark:true});
  next(!r.ok?10*60e3:r.value.orders>=ARCHIVE_BATCH?2000:60*60e3);
