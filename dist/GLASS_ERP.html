@@ -3785,7 +3785,7 @@ tr:has(.inv-stock-edit) td{background:var(--accent-soft)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='9df32f8e2980';
+var ERP_BUILD='b3d3d134ec64';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -14079,6 +14079,7 @@ function salesBatchTop(){
 function salesNextBatchNumber(){return 'B-'+String(cloudSeq('batch',salesBatchTop()+1)).padStart(4,'0');}
 /* Заказ по номеру — в отрисовке по указателю (erp/read-scope, П4 «Базы»). */
 function salesRecord(id){
+ if(typeof stationBulkNow!=='undefined'&&stationBulkNow)return stationBulkOrder(id);
  if(readOn())return readMemo('salesById',[DB.salesOrder],()=>{const m=new Map();(DB.salesOrder||[]).forEach(o=>{if(o&&!m.has(o.id))m.set(o.id,o);});return m;}).get(id);
  return (DB.salesOrder||[]).find(o=>o.id===id);
 }
@@ -16974,15 +16975,16 @@ const CLOUD_BLOCK={
  offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0],journal:[50,()=>finJournalTop()]};
 let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
  uploading:false,dirty:null,running:false,timer:null,wait:CLOUD_POLL_MS,busy:'',error:'',warn:'',offline:false,at:''};
+const CLOUD_NO_BLOCK='No server numbers here yet. IDs may repeat.';
 function cloudKey(tbl,id){return tbl+'\u0000'+id;}
 /* Следующий внутренний номер name. Без связи — local, как раньше; связь
    есть, а блока нет (ещё не пришёл или кончился без сети) — тоже local, с
    предупреждением: такой номер может совпасть с чужим. */
 function cloudSeq(name,local){
- const s=cloudSync;if(!s.loaded||!s.on)return local;
+ const s=cloudSync;if(!(s.loaded||s.head)||!s.on)return local;
  const b=s.blocks.get(name)||[];
  while(b.length&&b[0][0]>b[0][1])b.shift();
- if(!b.length){s.warn='No server numbers here yet. IDs may repeat.';cloudSoon();return local;}
+ if(!b.length){s.warn=CLOUD_NO_BLOCK;cloudSoon();return local;}
  const n=b[0][0]++;s.blocks.set(name,b);s.blockDirty.add(name);
  if(cloudBlockLeft(b)<CLOUD_BLOCK[name][0]/2)cloudSoon();
  return n;
@@ -16993,6 +16995,24 @@ function cloudSeqTie(){
  return s.tie;
 }
 function cloudBlockLeft(b){return (b||[]).reduce((n,r)=>n+Math.max(0,r[1]-r[0]+1),0);}
+/* Большой заказ берёт номера разом: иначе блок кончается посреди Save и
+   компьютер выдаёт свои, которые могут совпасть с чужими (проверка на
+   Supabase, 01.11.2026). needs — {glass:n,…}. Без связи — как раньше. */
+async function cloudNumbersReserve(needs){
+ const s=cloudSync,ops=[];if(!s.on)return;
+ for(const name of Object.keys(needs)){
+  const b=s.blocks.get(name)||[];let lack=Math.ceil(needs[name]-cloudBlockLeft(b));
+  /* Сервер даёт не больше 10 000 за раз. */
+  for(;lack>0;lack-=10000){
+   const n=Math.min(10000,lack+CLOUD_BLOCK[name][0]),first=+await cloudRpc('erp_take',{counter:name,n,from_n:(Math.floor(+CLOUD_BLOCK[name][1]())||0)+1});
+   if(!Number.isSafeInteger(first)||first<1)break;
+   b.push([first,first+n-1]);
+  }
+  s.blocks.set(name,b);ops.push(['b\u0000'+name,b]);
+ }
+ if(ops.length)storageWrite([],ops);
+}
+function cloudNumbersShort(needs){const s=cloudSync;return !!s.on&&Object.keys(needs).some(k=>needs[k]>cloudBlockLeft(s.blocks.get(k)));}
 async function cloudBlocksFill(){
  const s=cloudSync,ops=[];
  for(const name of Object.keys(CLOUD_BLOCK)){
@@ -17003,6 +17023,8 @@ async function cloudBlocksFill(){
   b.push([first,first+size-1]);s.blocks.set(name,b);ops.push(['b\u0000'+name,b]);
  }
  if(ops.length)storageWrite([],ops);
+ /* Блоки снова есть — предупреждение больше не верно. */
+ if(s.warn===CLOUD_NO_BLOCK&&Object.keys(CLOUD_BLOCK).every(k=>cloudBlockLeft(s.blocks.get(k))>0))s.warn='';
 }
 /* Номер, который дал этот компьютер новой строке документа. */
 function cloudNumber(c){
@@ -17033,18 +17055,33 @@ function cloudChunks(rows){
 }
 function cloudId(){try{if(globalThis.crypto&&typeof crypto.randomUUID==='function')return crypto.randomUUID();}catch(e){}return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,12);}
 function cloudDevice(){const c=cloudConfig();if(!c.device){c.device=cloudId();cloudConfigSave(c);}return c.device;}
+/* Старт: только связь, курсор, очередь и блоки номеров. Версии строк (по
+   одной на каждую строку сервера, год — полмиллиона) читает первый такт
+   синхронизации, после отрисовки: F5 их не ждёт (2,5 с, 01.11.2026). Правки
+   этой паузы ждут в s.early, как и раньше. */
+async function cloudLoadHead(){
+ const got=await storageIdbCloudHead(),s=cloudSync;
+ s.out=[];
+ got.keys.forEach((k,i)=>{
+  const v=got.values[i];
+  if(k==='ref')s.ref=v;else if(k.startsWith('b\u0000'))s.blocks.set(k.slice(2),v);
+  else if(k.startsWith('o\u0000'))s.out.push(Object.assign({key:k},v));
+ });
+ s.on=!!s.ref&&s.ref===cloudConfig().url;s.head=true;
+}
 async function cloudLoad(){
- const got=await storageIdbCloudAll(),s=cloudSync;
+ const got=await storageIdbCloudAll(),s=cloudSync,head=s.head;
  s.vers=new Map();s.out=[];s.ref='';s.since=0;s.n=0;
  got.keys.forEach((k,i)=>{
   const v=got.values[i];
   if(k==='ref')s.ref=v;else if(k==='since')s.since=+v||0;else if(k==='n')s.n=+v||0;
   else if(k.startsWith('v\u0000'))s.vers.set(k.slice(2),v);
   else if(k.startsWith('o\u0000'))s.out.push(Object.assign({key:k},v));
-  else if(k.startsWith('b\u0000'))s.blocks.set(k.slice(2),v);
+  /* Блоки старта уже в ходу: их остаток новее записанного. */
+  else if(k.startsWith('b\u0000')){if(!head)s.blocks.set(k.slice(2),v);}
   else if(k.startsWith('r\u0000'))s.refresh.add(k.slice(2));
  });
- s.on=!!s.ref&&s.ref===cloudConfig().url;s.loaded=true;
+ s.on=!!s.ref&&s.ref===cloudConfig().url;s.loaded=true;s.head=false;
  /* Правки, сделанные до чтения склада, — в очередь теперь. */
  const early=s.early;s.early=[];
  if(s.on&&early.length){const out=cloudOutbox([].concat(...early));if(out){storageWrite([],out.ops);out.done();}}
@@ -18084,7 +18121,7 @@ function customerToSales(go){
   if(typeof soDraft!=='undefined'&&soDraft&&typeof salesLeaveDraft==='function')salesLeaveDraft(go);else go();});
 }
 function customerOpenOrder(id){customerToSales(()=>salesOrderEdit(id));}
-function customerOpenArchived(id){customerToSales(()=>{archiveOpen(id);});}
+function customerOpenArchived(id){customerToSales(()=>{archiveOpenWork(id);});}
 function customerNewOrder(kind){const id=cEdit;customerToSales(()=>{salesOrderNew(kind==='quote'?'quote':'order');salesApplyCustomerDefaults(id);render();});}
 
 /* Дубль при создании (владелец, 3 октября 2026): похожее название (без
@@ -21496,6 +21533,15 @@ let salesSaveJob=null,salesSaveNote=null,salesSaveNoteTimer=null;
 /* Кнопка Save / Update — salesOrderSave({bg:true}). */
 function salesOrderSaveBg(){
  if(salesSaveJob)return false;
+ /* Номера стёкол и юнитов заказа — с сервера до Save. */
+ const units=soDraft?(soDraft.lines||[]).reduce((n,l)=>n+salesPositiveInt(l.qty,1),0):0,needs={glass:units*3,unit:units};
+ if(soDraft&&typeof cloudNumbersShort==='function'&&cloudNumbersShort(needs)){
+  const o=soDraft;cloudNumbersReserve(needs).catch(e=>console.warn('Numbers were not reserved:',e.message)).then(()=>{if(soDraft===o)salesOrderSaveGo();});
+  return true;
+ }
+ return salesOrderSaveGo();
+}
+function salesOrderSaveGo(){
  if(!soDraft||(soDraft.lines||[]).length<SALES_BG_LINES)return salesOrderSave();
  return salesSaveBg();
 }
@@ -28698,8 +28744,10 @@ function shippingLoadedGo(id){
  const s=shippingFind(id);if(!s)return;
  const state=()=>{const now=shippingFind(id);return now&&shippingWithCtx(()=>shippingLoadState(now));},st=state();
  const stamp=()=>{const now=state();return JSON.stringify([shippingFind(id),now&&now.loaded.map(u=>u.label)]);},before=stamp();
- const run=mode=>{
+ const run=(mode,reserved)=>{
   if(stamp()!==before){shippingNotice={error:true,text:'Packing slip changed. Try again.'};render();return;}
+  const need={scan:(s.items||[]).reduce((n,i)=>n+i.pieces.length,0)};
+  if(!reserved&&typeof cloudNumbersShort==='function'&&cloudNumbersShort(need)){cloudNumbersReserve(need).catch(e=>console.warn('Numbers were not reserved:',e.message)).then(()=>run(mode,true));return;}
   const out=shippingMarkShipped(id,mode);shippingResult(out);if(out.ok)shippingPrint(id,true);
  };
  if(!st.units.length||st.loaded.length===st.units.length){run(st.units.length?'loaded':'');return;}
@@ -34182,7 +34230,7 @@ function unitIdNumber(id){return unitIdValid(id)?+id.slice(2):0;}
 /* Со связью с сервером — номер из блока этого компьютера (erp/cloud-sync). */
 function unitIdNext(){const was=glassIdSeq(DB.glassUnitIdSeq),n=cloudSeq('unit',was+1);DB.glassUnitIdSeq=Math.max(was,n);return 'U-'+String(n).padStart(7,'0');}
 function unitIdAt(orderId,lineId,unit){
- const key=orderId+'|'+lineId,r=readOn()?readMemo('unitIdByKey',[DB.glassUnitId],()=>{const m=new Map();(DB.glassUnitId||[]).forEach(x=>{if(!m.has(x.key))m.set(x.key,x);});return m;}).get(key):(DB.glassUnitId||[]).find(x=>x.key===key);
+ const key=orderId+'|'+lineId,r=typeof stationBulkNow!=='undefined'&&stationBulkNow?stationBulkUnits().get(key):readOn()?readMemo('unitIdByKey',[DB.glassUnitId],()=>{const m=new Map();(DB.glassUnitId||[]).forEach(x=>{if(!m.has(x.key))m.set(x.key,x);});return m;}).get(key):(DB.glassUnitId||[]).find(x=>x.key===key);
  return r&&r.ids[unit-1]||'';
 }
 function glassPieceNextId(){const was=glassIdSeq(DB.glassPieceSeq),n=cloudSeq('glass',was+1);DB.glassPieceSeq=Math.max(was,n);return 'G-'+String(n).padStart(7,'0');}
@@ -34289,6 +34337,7 @@ function glassLookup(code){
 function glassBatchTaken(active,key,qty){let n=0;for(let u=1;u<=qty;u++)if(active.has(key+'|'+u))n++;return n;}
 /* Слоты отменённых юнитов (erp/sales/unit-cancel): в очередь батча они не
    возвращаются, хотя с батча сняты. */
+function glassPieceTotal(orderId){return (DB.glassPiece||[]).reduce((n,r)=>n+(r.key.startsWith(orderId+'|')?r.ids.length:0),0);}
 function glassCancelledSlots(o){
  const out=new Set(),gone=unitCancelledSet(o);if(!gone.size)return out;
  (DB.glassPiece||[]).forEach(r=>{if(!r.key.startsWith(o.id+'|'))return;r.ids.forEach((id,i)=>{if(gone.has(id))out.add(r.key+'|'+(i+1));});Object.keys(r.extra||{}).forEach(ref=>r.extra[ref].forEach((id,k)=>{if(gone.has(id))out.add(r.key+'|'+ref+'.'+(k+1));}));});
@@ -34373,9 +34422,10 @@ let glassCutCache=null;
 function glassCutByScan(){
  const list=DB.stationScan||[];
  if(!storageDepth&&glassCutCache&&glassCutCache.list===list&&glassCutCache.size===list.length)return glassCutCache.out;
- const cut=typeof stationCutCode==='function'?stationCutCode():'CUT',out=new Set();
- list.forEach(s=>{if(s&&!s.undoneAt&&!s.park&&s.station===cut)out.add(s.piece);});
- if(!storageDepth)glassCutCache={list,size:list.length,out};
+ const build=()=>{const cut=typeof stationCutCode==='function'?stationCutCode():'CUT',out=new Set();list.forEach(s=>{if(s&&!s.undoneAt&&!s.park&&s.station===cut)out.add(s.piece);});return out;};
+ /* Внутри записи — один раз на чистое чтение (readScopeNow), а не на строку. */
+ if(storageDepth)return readMemo('glassCutByScan',[list],build);
+ const out=build();glassCutCache={list,size:list.length,out};
  return out;
 }
 function glassBatchRows(orders){
@@ -34450,7 +34500,7 @@ function glassBatchScope(rows,opts){
 function glassBatchAssignCommand(rows,opts){
  opts=opts||{};if(!rows||!rows.length)return null;
  if(new Set(rows.map(r=>r.slot)).size!==rows.length)return null;
- const current=new Map(glassBatchRows([...new Set(rows.map(r=>r.orderId))].map(salesRecord).filter(Boolean)).map(r=>[r.slot,r]));
+ const current=new Map(readScopeNow(()=>glassBatchRows([...new Set(rows.map(r=>r.orderId))].map(salesRecord).filter(Boolean))).map(r=>[r.slot,r]));
  const chosen=rows.map(r=>current.get(r.slot));
  if(chosen.some((c,i)=>!c||c.reason||!c.cut||!c.piece||c.piece!==rows[i].piece))return null;
  const number=salesBatchNumber(opts.batchNo)||salesNextBatchNumber();
@@ -40355,6 +40405,7 @@ function stationScanNextId(){
 function stationCutCode(){return typeof salesRouteStationOf==='function'?salesRouteStationOf('cutting','CUT'):'CUT';}
 /* Сканы стекла — на отрисовку один указатель «стекло → сканы» (erp/read-scope). */
 function stationScansFor(piece){
+ if(stationBulkNow)return (stationBulkScans().get(piece)||[]).filter(s=>!s.undoneAt);
  if(readOn())return (readMemo('stationScansByPiece',[DB.stationScan],()=>{const m=new Map();(DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;let a=m.get(s.piece);if(!a)m.set(s.piece,a=[]);a.push(s);});return m;}).get(piece)||[]).slice();
  return (DB.stationScan||[]).filter(s=>s.piece===piece&&!s.undoneAt);
 }
@@ -40369,7 +40420,46 @@ function stationCodeOf(raw){
 }
 /* Номер стекла → заказ, позиция, стекло Makeup и активная запись батча.
    index — готовая карта номеров, когда стёкол много (экран офиса). */
-function stationPieceIndex(){return readMemo('stationPieceIndex',[DB.glassPiece],stationPieceIndexBuild);}
+function stationPieceIndex(){
+ if(stationBulkNow)return stationBulkNow.index||(stationBulkNow.index=stationPieceIndexBuild());
+ return readMemo('stationPieceIndex',[DB.glassPiece],stationPieceIndexBuild);
+}
+/* Указатели на одно действие (скан, Skip, отгрузка): в команде указатели
+   отрисовки выключены, и заказ на 500 строк на каждое стекло строил номера
+   всей базы и перебирал все сканы: Skip 65 с, Shipped 38 с (проверка на
+   сервере, 01.11.2026). Строятся при первом вопросе, новый скан дописывается
+   (stationBulkAdd). Внутри fn номера стёкол не выдаются. */
+let stationBulkNow=null;
+function stationBulk(fn){
+ if(stationBulkNow)return fn();
+ stationBulkNow={index:null,scans:null,lines:null,broken:null};
+ try{return fn();}finally{stationBulkNow=null;}
+}
+function stationBulkOrder(id){
+ const b=stationBulkNow;
+ if(!b.orders||b.orderList!==DB.salesOrder||b.orderN!==DB.salesOrder.length){const m=new Map();(DB.salesOrder||[]).forEach(o=>{if(o&&!m.has(o.id))m.set(o.id,o);});b.orders=m;b.orderList=DB.salesOrder;b.orderN=DB.salesOrder.length;}
+ return b.orders.get(id);
+}
+function stationBulkUnits(){
+ const b=stationBulkNow;if(b.units)return b.units;
+ const m=b.units=new Map();(DB.glassUnitId||[]).forEach(x=>{if(!m.has(x.key))m.set(x.key,x);});return m;
+}
+function stationBulkScans(){
+ const b=stationBulkNow;if(b.scans)return b.scans;
+ const m=b.scans=new Map();(DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;let a=m.get(s.piece);if(!a)m.set(s.piece,a=[]);a.push(s);});
+ return m;
+}
+function stationBulkLines(){
+ const b=stationBulkNow;if(b.lines)return b;
+ const index=stationPieceIndex(),m=b.lines=new Map(),br=b.broken=new Set();
+ (DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)br.add(s.piece);const h=index.get(s.piece);if(!h)return;const k=h.orderId+'|'+h.lineId;let a=m.get(k);if(!a)m.set(k,a=[]);a.push(s);});
+ return b;
+}
+function stationBulkAdd(rec){
+ const b=stationBulkNow;if(!b)return;
+ if(b.scans){let a=b.scans.get(rec.piece);if(!a)b.scans.set(rec.piece,a=[]);a.push(rec);}
+ if(b.lines){const h=stationPieceIndex().get(rec.piece);if(h){const k=h.orderId+'|'+h.lineId;let a=b.lines.get(k);if(!a)b.lines.set(k,a=[]);a.push(rec);}}
+}
 function stationPieceIndexBuild(){
  const m=new Map();
  (DB.glassPiece||[]).forEach(r=>{
@@ -40388,7 +40478,7 @@ function stationBatchIndexBuild(){
 function stationGlass(id,index,batches){
  /* В отрисовке — указатель отрисовки (erp/read-scope): доска Ready на заказе в
     3 000 стёкол спрашивала каждое стекло перебором всей базы. */
- const hit=index?index.get(id):readOn()?stationPieceIndex().get(id)||null:(()=>{const h=glassLookup(id);return h&&h.kind==='glass'?h:null;})();
+ const hit=index?index.get(id):readOn()||stationBulkNow?stationPieceIndex().get(id)||null:(()=>{const h=glassLookup(id);return h&&h.kind==='glass'?h:null;})();
  if(!hit)return null;
  const o=salesRecord(hit.orderId),l=o&&(o.lines||[]).find(x=>x.id===hit.lineId);
  if(!o||!l)return null;
@@ -40539,7 +40629,7 @@ function stationRecordCommand(station,check,who,opts){
  /* Скан резки помнит лист раскладки: склад листов списывает его и после
     Reset раскроя (erp/inventory/sheets). */
  if(station===stationCutCode()&&check.g&&check.g.entry&&typeof invScanSheet==='function'){const sh=invScanSheet(check.g.entry,rec.piece);if(sh)rec.sheet=sh;}
- DB.stationScan.push(rec);
+ DB.stationScan.push(rec);stationBulkAdd(rec);
  if(check.g)stationAsmJoin(rec,check.g,station,opts.asm);
  /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
     позиция узнаёт это через glassBatchSyncLine, как и прежде. */
@@ -40730,6 +40820,7 @@ function stationBreakCommand(station,check,who,reasonId,opts){
   const p={id:stationScanNextId(),at:now,piece:id,station,by,byId,manual:false,undoneAt:'',undoneBy:'',park:true,recut:ref,reason:'Waits for a pair'};
   DB.stationScan.push(p);return p;
  });
+ if(stationBulkNow){stationBulkNow.scans=null;stationBulkNow.lines=null;}
  /* Разбилось на резе — стекло всё равно порезано: лист закрывается. */
  const e=g.entry;if(station===stationCutCode()&&e&&!e.item.cutStartedAt){e.item.cutStartedAt=now;glassBatchSyncLine(o,l);}
  shippingSyncOrder(o,now);
@@ -40828,6 +40919,7 @@ function stationLineKeys(o,l){return glassBatchComponents(o,l).filter(c=>!c.miss
    shippingCtx): экран Shipping не перебирает весь журнал на каждую строку. */
 function stationAsms(o,l,station,index,pre){
  index=index||stationPieceIndex();
+ if(!pre&&stationBulkNow){const b=stationBulkLines();pre={scans:b.lines.get(o.id+'|'+l.id)||[],broken:b.broken};}
  const broken=pre?pre.broken:new Set(),out=new Map();
  if(!pre)(DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)broken.add(s.piece);});
  (pre?pre.scans:DB.stationScan||[]).forEach(s=>{
@@ -44358,7 +44450,8 @@ function stationBeep(kind){
 }
 
 /* ------------------------------- Скан ------------------------------- */
-function stationSubmit(raw){
+function stationSubmit(raw){return stationBulk(()=>stationSubmitNow(raw));}
+function stationSubmitNow(raw){
  const who=stationWho();if(!who)return false;
  /* Вкладка Dollies: скан тары только выбирает её (view/station-dollies). */
  if(stationTab==='dollies'){const r=stationDollyScan(raw);if(r)return r;}
@@ -47591,11 +47684,11 @@ function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
     scans. Rollback owns these IDs only; it never undoes an unrelated scan. */
  /* Указатели на всю отгрузку: сотни юнитов не перебирают сканы года по одному. */
  const ctx=stationScanCtx();
- s.items.filter(i=>!loaded.has(i.label)).forEach(i=>i.pieces.forEach(piece=>{
+ stationBulk(()=>s.items.filter(i=>!loaded.has(i.label)).forEach(i=>i.pieces.forEach(piece=>{
   const check=stationCheck(station,piece,ctx);shippingAssert(check&&check.kind==='ok','Glass is no longer ready. Review the packing slip.');
   const rec=stationRecord(station,check,{id:who.byId,name:who.by||'Office'},{deferTouch:true,manual:true,now,scans:ctx.scans.get(piece)||[]});
   shippingAssert(rec,'Dispatch was not recorded.');scanIds.push(rec.id);stationScanCtxAdd(ctx,rec);
- }));
+ })));
  s.scanIds=scanIds;s.status='shipped';s.shippedAt=now;s.shippedBy=shippingActor();
  /* Стекло отменённых юнитов, которое клиент забирает, уехало с этим PS. */
  shippingOrderIds(s).forEach(oid=>unitTakesShipped(salesRecord(oid),s.id));
@@ -47788,18 +47881,19 @@ function shippingLoadPlan(code,tripId){
  /* Очередь: готовый юнит этого клиента с меньшим номером (в этом рейсе или
     без PS) ещё не погружен. Без номера — после всех номеров. */
  const mine=new Set(units.map(u=>u.label)),q=Math.min(...units.map(u=>shippingUnitQueue(u)||Infinity));
- const first=(DB.salesOrder||[]).filter(o=>o.customerId===customerId&&!salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status)).flatMap(o=>shippingUnits(o))
+ const first=(DB.salesOrder||[]).filter(o=>o.customerId===customerId&&!salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status)&&(o.lines||[]).some(l=>shippingQueueOf(l))).flatMap(o=>shippingUnits(o))
   .filter(u=>u.ready&&!mine.has(u.label)&&(!u.shipment||u.shipment.id===trip.id)).map(u=>({u,q:shippingUnitQueue(u)})).filter(x=>x.q&&x.q<q).sort((a,b)=>a.q-b.q||a.u.label.localeCompare(b.u.label))[0];
  if(first)return fail('shipQueue',{trip,customer,take:first.u.skid||first.u.label,queue:first.q});
  return {kind:'ok',code,skid,units,add:units.filter(u=>!u.shipment),trip,opened,switched,customerId,customer};
 }
 function shippingLoad(code,tripId,who,opts){
  const plan=shippingWithCtx(()=>shippingLoadPlan(code,tripId));if(plan.kind!=='ok')return plan;
- const out=storageCommand(()=>shippingLoadCommand(code,tripId,who,opts));
+ /* Записывается то, что только что разобрано: разбор здесь же, без паузы. */
+ const out=storageCommand(()=>shippingLoadCommand(code,tripId,who,opts,plan),{shipment:[plan.trip.id],salesOrder:[...new Set(plan.units.map(u=>u.orderId))],stationScan:[],stationScanSeq:true,productionRoute:[],carrier:true});
  return out.ok?out.value:{kind:'saveError',code,note:out.error};
 }
-function shippingLoadCommand(code,tripId,who,opts){
- opts=opts||{};const plan=shippingWithCtx(()=>shippingLoadPlan(code,tripId));shippingAssert(plan.kind==='ok','Scan again.');
+function shippingLoadCommand(code,tripId,who,opts,ready){
+ opts=opts||{};const plan=ready||shippingWithCtx(()=>shippingLoadPlan(code,tripId));shippingAssert(plan.kind==='ok','Scan again.');
  const ship=shippingStations().ship,now=new Date().toISOString(),s=plan.trip,ids=[...new Set(plan.units.map(u=>u.orderId))];let actionId='';
  /* Весь скид — одно действие: один actionId, один Undo. */
  plan.units.forEach(u=>u.pieces.forEach(piece=>{
@@ -48324,7 +48418,7 @@ function skipAt(date){return date===finToday()?new Date().toISOString():new Date
 /* d: {orderId, lines, codes, extras {extraId: qty}, to, date, reason, receivedBy}. */
 function skipRun(d){
  if(!skipAllowed())return {error:'Only Users or Finance can skip.'};
- const out=storageCommand(()=>skipCommand(d));
+ const out=storageCommand(()=>stationBulk(()=>skipCommand(d)));
  return out.ok?out.value:{error:out.error};
 }
 function skipCommand(d){
@@ -48455,8 +48549,11 @@ function skipSetAll(on){
  render();
 }
 function skipExtraLeft(o,x){return Math.max(0,x.qty-shippingForOrder(o.id).filter(shippingActive).flatMap(s=>s.extras).filter(i=>i.extraId===x.id).reduce((n,i)=>n+i.qty,0));}
-function skipConfirm(){
+function skipConfirm(reserved){
  const d=skipDialog;if(!d)return false;
+ /* Номера сканов — с сервера заранее: на заказ в тысячи стёкол блока не хватает. */
+ const need={scan:glassPieceTotal(d.orderId)*6};
+ if(!reserved&&typeof cloudNumbersShort==='function'&&cloudNumbersShort(need)){cloudNumbersReserve(need).catch(e=>console.warn('Numbers were not reserved:',e.message)).then(()=>skipConfirm(true));return true;}
  const o=salesRecord(d.orderId),clean=!!o&&!!soDraft&&soDraft.id===o.id&&JSON.stringify(o)===JSON.stringify(normalizeSalesOrder(soDraft));
  const lines={};Object.keys(d.lines).forEach(id=>{const v=String(d.lines[id]).trim();if(v)lines[id]=v==='all'?'all':Number(v);});
  const extras={};Object.keys(d.extras).forEach(id=>{const v=Number(d.extras[id]);if(v>0)extras[id]=v;});
@@ -51388,7 +51485,8 @@ function viewReports(){
    erp/archive  ·  erp-1.0
    Архив (задание «База», этап 3, А2): какие заказы уходят из работы, что
    уходит вместе с ними, что они оставляют после себя и как возвращаются.
-   Владелец, 22.10.2026: через 3 месяца после отгрузки и полной оплаты;
+   Владелец, 22.10.2026: после отгрузки и полной оплаты (01.11.2026: через
+   месяц вместо трёх — с сервером архив для людей незаметен, archiveOpenWork);
    Hold не уходит; комиссия агенту заказ не держит («в агента падает номер
    заказа и его комиссия»). Склад — cold (erp/storage-records): перенос —
    storageColdMove внутри действия, возврат — storageColdBring; строка
@@ -51407,7 +51505,7 @@ function viewReports(){
         archiveListInfos, archiveOpen(id), archiveViewing(o),
         archiveLedgerFor(customerId), archiveWith(owners,fn), archiveScopeFor(range)
    ===================================================================== */
-const ARCHIVE_ON=true,ARCHIVE_MONTHS=3;
+const ARCHIVE_ON=true,ARCHIVE_MONTHS=1;
 DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};DEFAULT.archiveRunDay='';
 let archiveIndex=new Map(),archiveIncoming=null;
 /* Заказ в архиве: строка указателя (клиент, вид). Пока идёт Import —
@@ -51457,7 +51555,7 @@ function archiveLedgerOf(set){
 function archiveFloor(name){const f=DB.archiveFloor;return f&&Number.isFinite(+f[name])?+f[name]:0;}
 function archiveFloorRaise(name,n){if(!(n>archiveFloor(name)))return;if(!DB.archiveFloor||typeof DB.archiveFloor!=='object')DB.archiveFloor={};DB.archiveFloor[name]=n;}
 
-/* День, с которого считаются 3 месяца, — позже всего из: отгрузка, приём,
+/* День, с которого считается срок, — позже всего из: отгрузка, приём,
    полная оплата, закрытие, отмена. */
 function archiveCutoff(day){const d=new Date(String(day).slice(0,10)+'T12:00:00');d.setMonth(d.getMonth()-ARCHIVE_MONTHS);return d.toISOString().slice(0,10);}
 function archiveContext(){
@@ -51482,7 +51580,7 @@ function archiveOrderClosed(o,ctx){
  return !(ctx.ships.get(o.id)||[]).some(s=>s.status==='planned'||s.status==='shipped'&&s.method==='delivery');
 }
 /* Кому пора в архив на день day: заказы и группы квот. Переделка NCR и её
-   исходный заказ уходят только вместе; квота без ответа — через 3 месяца
+   исходный заказ уходят только вместе; квота без ответа — через тот же срок
    после последней ревизии; выигравшая квота — вместе со своим заказом. */
 function archiveDue(day){
  const ctx=archiveContext(),cut=archiveCutoff(day),due=new Set();
@@ -51604,7 +51702,7 @@ function archiveListCell(info,col){
 }
 function archiveListRow(r,cols){
  const id=esc(r.o.id);
- return `<tr data-archived-row="${id}" class="sl-row-archived" ondblclick="archiveOpen('${id}')"><td class="sl-check"></td>${cols.map(c=>archiveListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="archiveOpen('${id}')">Open</button></td></tr>`;
+ return `<tr data-archived-row="${id}" class="sl-row-archived" ondblclick="archiveOpenWork('${id}')"><td class="sl-check"></td>${cols.map(c=>archiveListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="archiveOpen('${id}')">Open</button></td></tr>`;
 }
 
 /* ------------------------- Просмотр с диска --------------------------- */
@@ -51623,6 +51721,18 @@ async function archiveOpen(id){
  archiveVisitEnd();
  const tables=archiveRowsPut(recs,true);
  archiveVisit={id,ids:new Set(ids),tables,arrays:new Map([...tables.keys()].map(t=>[t,DB[t]]))};
+ salesOrderEdit(id);return true;
+}
+/* Заказ из архива открывается как обычный (владелец, 01.11.2026): у кого есть
+   Sales, тому он сразу возвращается в работу, правится и завтра уходит сам.
+   Остальным и квотам — просмотр. */
+async function archiveOpenWork(id){
+ const a=archiveIndex.get(id);
+ if(!a||a.kind==='quote'||!accessCan('sales'))return archiveOpen(id);
+ if(typeof soDraft!=='undefined'&&soDraft){salesLeaveDraft(()=>archiveOpenWork(id));return false;}
+ const out=await archiveReturn(id);
+ if(!out.ok){alert(out.error);render();return false;}
+ if(!salesRecord(id)){alert('This archived order could not be read.');render();return false;}
  salesOrderEdit(id);return true;
 }
 /* Просмотр закрыт — строки уходят из DB. */
@@ -52149,6 +52259,17 @@ function storageIdbWrite(changes,rev,build,test,cloud){
   });
   ms.put(rev,'rev');ms.put(build,'build');if(test!==undefined)ms.put(test===true,'test');
   if(cloud&&cloud.length){const st=tx.objectStore('cloud');cloud.forEach(([k,v])=>{if(v==null)st.delete(k);else st.put(v,k);});}
+ });
+}
+/* Склад cloud без версий строк (ключи v␀…). */
+function storageIdbCloudHead(){
+ return storageIdbTx(['cloud'],'readonly',tx=>{
+  const st=tx.objectStore('cloud'),out={keys:[],values:[]};
+  [IDBKeyRange.upperBound('v\u0000',true),IDBKeyRange.lowerBound('v\u0001')].forEach(r=>{
+   const a={};st.getAllKeys(r).onsuccess=e=>{a.k=e.target.result||[];};
+   st.getAll(r).onsuccess=e=>{(e.target.result||[]).forEach((v,i)=>{out.keys.push(a.k[i]);out.values.push(v);});};
+  });
+  return out;
  });
 }
 function storageIdbCloudAll(){
@@ -53132,7 +53253,7 @@ let normalizeOwn=false;
 /* Своя база той же сборки, где цифры этой сборкой уже посчитаны (метка
    counted): строки заказов, батчей и сканов эта программа уже приводила в
    порядок — F5 их не перебирает (X-02, 01.11.2026). Счётчики номеров
-   сверяются всё равно. Новая сборка, Import, сервер — проход целиком. */
+   сверяются всё равно. Новая сборка, Import, Download — проход целиком. */
 let normalizeSame=false;
 function normalizeDB(){
  Object.keys(DEFAULT).forEach(k=>{ if(Array.isArray(DEFAULT[k])&&!Array.isArray(DB[k])) DB[k]=JSON.parse(JSON.stringify(DEFAULT[k])); });
@@ -53213,8 +53334,8 @@ async function boot(){
  }
  catch(e){storageRecovery=true;storageLastError=storageIdb?'Stored data could not be read. The original has been preserved.':'This browser could not open the database. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.';console.warn(storageLastError,e.message);}
  /* Блоки номеров сервера — до нормализации: она бывает, выдаёт номера стёкол. */
- if(!storageRecovery&&typeof cloudLoad==='function')try{await cloudLoad();}catch(e){console.warn('Sync state was not read:',e.message);}
- normalizeOwn=hadSavedState;normalizeSame=hadSavedState&&!storageRecovery&&storageBuildAtLoad===storageBuildId()&&counted===storageBuildId()&&!(typeof cloudSync!=='undefined'&&cloudSync.on);same=normalizeSame;
+ if(!storageRecovery&&typeof cloudLoadHead==='function')try{await cloudLoadHead();}catch(e){console.warn('Sync state was not read:',e.message);}
+ normalizeOwn=hadSavedState;normalizeSame=hadSavedState&&!storageRecovery&&storageBuildAtLoad===storageBuildId()&&counted===storageBuildId();same=normalizeSame;
  try{ if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB(); }
  catch(e){normalizeOwn=false;normalizeSame=false;same=false;storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
  if(normalizeSame&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)storageSameCheck();
