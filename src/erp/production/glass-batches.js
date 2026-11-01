@@ -60,7 +60,10 @@ function glassBatchComponents(o,l){
 function glassComponentCut(c){const g=c&&!c.missing&&glassProductById(c.glassId);return !g||g.cut!==false;}
 function glassCutKeys(o,l){return new Set(glassBatchComponents(o,l).filter(glassComponentCut).map(c=>c.key));}
 function glassOrderNeedsCut(o){return (o&&o.lines||[]).some(l=>glassCutKeys(o,l).size>0);}
-function glassBatchFind(number){return (DB.glassBatch||[]).find(b=>b.number===number);}
+function glassBatchFind(number){
+ if(readOn())return readMemo('glassBatchByNo',[DB.glassBatch],()=>{const m=new Map();(DB.glassBatch||[]).forEach(b=>{if(!m.has(b.number))m.set(b.number,b);});return m;}).get(number);
+ return (DB.glassBatch||[]).find(b=>b.number===number);
+}
 /* Записи батчей по заказу — один проход по всем батчам на отрисовку
    (erp/read-scope, П1 «Базы»): экраны спрашивают это для каждого заказа. */
 function glassBatchByOrder(){
@@ -121,9 +124,10 @@ function glassLookup(code){
  if(unitIdValid(id)){for(const r of DB.glassUnitId||[]){const i=r.ids.indexOf(id);if(i>=0){const [orderId,lineId]=r.key.split('|');return {kind:'unit',id,orderId,lineId,unit:i+1};}}return null;}
  if(!glassPieceValid(id))return null;
  for(const r of DB.glassPiece||[]){
-  const [orderId,lineId]=r.key.split('|'),i=r.ids.indexOf(id);
-  if(i>=0)return {kind:'glass',id,orderId,lineId,key:r.key,unit:i+1};
-  for(const nr of Object.keys(r.extra||{})){const k=r.extra[nr].indexOf(id);if(k>=0)return {kind:'glass',id,orderId,lineId,key:r.key,unit:nr+'.'+(k+1)};}
+  const i=r.ids.indexOf(id);
+  if(i>=0){const [orderId,lineId]=r.key.split('|');return {kind:'glass',id,orderId,lineId,key:r.key,unit:i+1};}
+  if(!r.extra)continue;
+  for(const nr of Object.keys(r.extra)){const k=r.extra[nr].indexOf(id);if(k>=0){const [orderId,lineId]=r.key.split('|');return {kind:'glass',id,orderId,lineId,key:r.key,unit:nr+'.'+(k+1)};}}
  }
  return null;
 }
@@ -456,19 +460,31 @@ function glassBatchConvertCounted(b){
    нормализации не создаёт новых записей; возвращённые записи не исчезают.
    Позиция с замком, но без активных записей, тоже импортируется: замок
    важнее — такое стекло нельзя снова выпустить в резку. */
+function glassPieceSeqTop(){
+ let top=Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0;
+ DB.glassPiece.forEach(r=>r.ids.concat(...Object.values(r.extra||{})).forEach(id=>{top=Math.max(top,glassPieceNumber(id));}));
+ DB.glassBatch.forEach(b=>b.items.forEach(i=>{top=Math.max(top,glassPieceNumber(i.piece));}));
+ DB.glassPieceSeq=top;
+}
+function glassUnitSeqTop(){DB.glassUnitIdSeq=Math.max(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0,...DB.glassUnitId.flatMap(r=>r.ids.map(unitIdNumber)));}
 function normalizeGlassBatches(){
  if(!Array.isArray(DB.glassBatch))DB.glassBatch=[];
  if(!Array.isArray(DB.glassPiece))DB.glassPiece=[];
  /* Заказы и стёкла строк — одним проходом, а не поиском по всем заказам и
     батчам на каждую запись (старт на базе 3 мес. — 6 с, задание «База», П4). */
  const ids=new Set(),orderIds=new Set((DB.salesOrder||[]).filter(Boolean).map(o=>o.id));
- const byLine=()=>{const m=new Map();DB.glassBatch.forEach(batch=>batch.items.forEach((item,index)=>{const part=batch.parts[item.part];if(!part)return;const k=part.orderId+'|'+part.lineId;let a=m.get(k);if(!a)m.set(k,a=[]);a.push({batch,item,index,part});}));return m;};
- DB.glassPiece=DB.glassPiece.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===4&&Array.isArray(r.ids)&&orderIds.has(r.key.split('|')[0]))
+ /* F5 своей базы (normalizeSame): история не перебирается, только открытые заказы. */
+ const orders=normalizeSame?(DB.salesOrder||[]).filter(o=>!salesOrderSettled(o)):(DB.salesOrder||[]),own=normalizeSame?new Set(orders.map(o=>o.id)):null;
+ const byLine=()=>{const m=new Map();DB.glassBatch.forEach(batch=>batch.items.forEach((item,index)=>{const part=batch.parts[item.part];if(!part||own&&!own.has(part.orderId))return;const k=part.orderId+'|'+part.lineId;let a=m.get(k);if(!a)m.set(k,a=[]);a.push({batch,item,index,part});}));return m;};
+ const ownOrder=r=>orderIds.has(r.key.slice(0,r.key.indexOf('|')));
+ if(normalizeSame)DB.glassPiece=DB.glassPiece.filter(ownOrder);
+ else DB.glassPiece=DB.glassPiece.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===4&&Array.isArray(r.ids)&&orderIds.has(r.key.split('|')[0]))
   .map(r=>{
    const out={key:r.key,ids:r.ids.map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'')};
    if(r.extra&&typeof r.extra==='object'){const extra={};Object.keys(r.extra).filter(nr=>/^(NCR|R)\d+$/.test(nr)&&Array.isArray(r.extra[nr])).forEach(nr=>{extra[nr]=r.extra[nr].map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'');});if(Object.keys(extra).length)out.extra=extra;}
    return out;
   });
+ if(!normalizeSame){
  DB.glassBatch=DB.glassBatch.filter(b=>b&&typeof b==='object'&&salesBatchNumber(b.number)&&Array.isArray(b.items));
  DB.glassBatch.forEach(b=>{
   if(!Array.isArray(b.parts))glassBatchConvertCounted(b);
@@ -485,19 +501,19 @@ function normalizeGlassBatches(){
     восстанавливается по movedTo старого батча. */
  const byNo=new Map(DB.glassBatch.map(b=>[b.number,b]));
  DB.glassBatch.forEach(b=>b.items.forEach(i=>{const to=i.movedTo&&byNo.get(i.movedTo);if(!to)return;const n=to.items.find(x=>x.piece===i.piece&&!x.from&&x.at>=i.releasedAt);if(n)n.from=b.number;}));
- let top=Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0;
- DB.glassPiece.forEach(r=>r.ids.concat(...Object.values(r.extra||{})).forEach(id=>{top=Math.max(top,glassPieceNumber(id));}));
- DB.glassBatch.forEach(b=>b.items.forEach(i=>{top=Math.max(top,glassPieceNumber(i.piece));}));
- DB.glassPieceSeq=top;
+ }
+ glassPieceSeqTop();
  /* Места для записей без номера изделия: активные — первые свободные. */
+ if(!normalizeSame){
  const taken=new Set();DB.glassBatch.forEach(b=>b.items.forEach(i=>{if(i.unit!==0&&!i.releasedAt)taken.add(b.parts[i.part].key+'|'+i.unit);}));
  DB.glassBatch.forEach(b=>{const released=new Map();b.items.forEach(i=>{
   if(i.unit!==0)return;const key=b.parts[i.part].key;
   if(i.releasedAt){const n=(released.get(key)||0)+1;released.set(key,n);i.unit=n;return;}
   let u=1;while(taken.has(key+'|'+u))u++;i.unit=u;taken.add(key+'|'+u);
  });});
- let lines=byLine();
- (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)).forEach(o=>(o.lines||[]).forEach((l,li)=>{
+ }
+ let lines=byLine(),legacy=false;
+ orders.filter(o=>!salesIsQuote(o)).forEach(o=>(o.lines||[]).forEach((l,li)=>{
   if(!salesLineLocked(l)||(lines.get(o.id+'|'+l.id)||[]).some(x=>!x.item.releasedAt))return;
   const number=salesBatchNumber(l.batchNo)||salesBatchNumber(o.batchNo)||salesNextBatchNumber(),at=l.batchedAt||l.cutStartedAt||o.updatedAt||o.createdAt||'';
   let b=glassBatchFind(number);if(!b){b={number,createdAt:at,parts:[],items:[],history:[]};DB.glassBatch.push(b);}
@@ -506,22 +522,25 @@ function normalizeGlassBatches(){
    const part=b.parts.length;b.parts.push({key:c.key,orderId:o.id,lineId:l.id,snapshot:{order:o.businessNumber,customer:salesCustomerDisplay(o.customerId),line:li+1,of:l.qty,lite:c.lite,glass:c.glass,glassId:c.glassId||'',width:l.width16/16,height:l.height16/16,shape:'Legacy',heat:'',coating:''}});
    for(let unit=1;unit<=l.qty;unit++){const item={piece:'',part,unit,at,releasedAt:'',cutStartedAt:l.cutStartedAt||''};b.items.push(item);made.push(item);}
   });
-  b.history.push({at,action:'Imported legacy batch',pieces:[],qty:made.length,convert:made});
+  b.history.push({at,action:'Imported legacy batch',pieces:[],qty:made.length,convert:made});legacy=true;
   l.batchManaged=true;l.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
  }));
  if(!Array.isArray(DB.glassUnitId))DB.glassUnitId=[];
  const unitIds=new Set(),unitKeys=new Set();
- DB.glassUnitId=DB.glassUnitId.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===2&&Array.isArray(r.ids)&&orderIds.has(r.key.split('|')[0])&&!unitKeys.has(r.key)&&unitKeys.add(r.key))
+ if(normalizeSame)DB.glassUnitId=DB.glassUnitId.filter(ownOrder);
+ else DB.glassUnitId=DB.glassUnitId.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===2&&Array.isArray(r.ids)&&orderIds.has(r.key.split('|')[0])&&!unitKeys.has(r.key)&&unitKeys.add(r.key))
   .map(r=>({key:r.key,ids:r.ids.map(id=>unitIdValid(id)&&!unitIds.has(id)?(unitIds.add(id),id):'')}));
- DB.glassUnitIdSeq=Math.max(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0,...DB.glassUnitId.flatMap(r=>r.ids.map(unitIdNumber)));
- const ctx=glassPieceCtx();(DB.salesOrder||[]).forEach(o=>glassPieceEnsure(o,ctx));
+ glassUnitSeqTop();
+ const ctx=glassPieceCtx();orders.forEach(o=>glassPieceEnsure(o,ctx));
+ if(!normalizeSame||legacy){
  const pieces=glassPieceMap();
  DB.glassBatch.forEach(b=>{
   b.items.forEach(i=>{if(glassPieceValid(i.piece))return;const id=glassPieceAt(pieces.get(b.parts[i.part].key),i.unit);i.piece=glassPieceValid(id)?id:glassPieceNextId();});
   b.history.forEach(h=>{if(h.convert){h.pieces=h.convert.map(i=>i.piece);delete h.convert;}});
  });
+ }
  lines=byLine();
- (DB.salesOrder||[]).forEach(o=>(o.lines||[]).forEach(l=>{
+ orders.forEach(o=>(o.lines||[]).forEach(l=>{
   const active=(lines.get(o.id+'|'+l.id)||[]).filter(x=>!x.item.releasedAt);if(!active.length)return;
   /* Замок позиции без отметок стёкол — старые данные: резку отмечали всей
      позицией. Со сканом станции отметка у каждого стекла своя, и позиция

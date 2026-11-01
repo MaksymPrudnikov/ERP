@@ -129,9 +129,10 @@ function stationInitials(name){return String(name||'?').split(/\s+/).filter(Bool
 /* ------------------------------ Звук ------------------------------- */
 /* Разный звук на разный исход: рабочий понимает, не глядя на экран. */
 let stationAudio=null;
+function stationAudioReady(){stationAudio=stationAudio||new (window.AudioContext||window.webkitAudioContext)();}
 function stationBeep(kind){
  try{
-  stationAudio=stationAudio||new (window.AudioContext||window.webkitAudioContext)();
+  stationAudioReady();if(stationAudio.state==='suspended')stationAudio.resume();
   const tones={ok:[[880,.07]],info:[[880,.07]],twice:[[660,.06],[660,.06]],error:[[220,.35]],sheet:[[660,.08],[990,.14]],warn:[[523,.1],[392,.18]],urgent:[[880,.07],[1320,.12]]}[kind]||[[880,.07]];
   let t=stationAudio.currentTime+.01;
   tones.forEach(([f,d])=>{const o=stationAudio.createOscillator(),g=stationAudio.createGain();o.type=kind==='error'?'square':'sine';o.frequency.value=f;g.gain.value=.12;o.connect(g);g.connect(stationAudio.destination);o.start(t);o.stop(t+d);t+=d+.05;});
@@ -495,6 +496,8 @@ function stationLoginView(){
 }
 function viewStation(){
  const s=stationRow();
+ /* Звук готовится сразу: первый скан не ждёт его (X-02, 0,3 с на слабом ПК). */
+ if(!stationAudio)setTimeout(()=>{try{stationAudioReady();}catch(e){}},0);
  if(!s){
   return stationTop(null)+'<div class="st-body st-one"><div class="card"><h2>Choose a station</h2><div class="st-names">'+(DB.station||[]).map(x=>'<button type="button" class="st-name-btn" onclick="location.hash=\'station='+esc(x.code)+'\'"><b>'+esc(x.code)+'</b> '+sfLabel(x)+'</button>').join('')+'</div></div></div>';
  }

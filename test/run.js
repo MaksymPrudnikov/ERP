@@ -125,6 +125,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
   const outsideScope = [];
   /* Итоги заказов из памяти Finance (finTotalsKeep) — те же, что расчёт заново. */
   const staleTotals = [];
+  /* Быстрый F5 и Ready без перебора стёкол — те же ответы, что проход целиком. */
+  const staleFast = [];
   /* Количества работ, записанные в строке при Save (sales/line-measure), — те же, что расчёт по фигуре. */
   const staleMeasure = [];
   /* Цены заказа, посчитанные Save в фоне заранее (sales/save-job), — те же, что расчёт при записи. */
@@ -138,7 +140,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     const p = await c.newPage();
     const errs = [];
     p.on('pageerror', e => errs.push(e.message));
-    p.on('console', m => { if (m.type() === 'error' && m.text().startsWith('Outside scope')) outsideScope.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Stale totals')) staleTotals.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Stale measure')) staleMeasure.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Stale save book')) staleBook.push(m.text()); });
+    p.on('console', m => { if (m.type() === 'error' && m.text().startsWith('Outside scope')) outsideScope.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Stale totals')) staleTotals.push(m.text()); if (m.type() === 'error' && /^Stale (boot|ready)/.test(m.text())) staleFast.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Stale measure')) staleMeasure.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Stale save book')) staleBook.push(m.text()); });
     p.on('dialog', d => d.accept());
     await p.goto(TARGET);
     await p.evaluate(() => window.storageReady);
@@ -3066,6 +3068,20 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {oldTable:'muntinDef' in out,oldRef:'muntinRef' in o.lines[0],mark:o.lines[0].mark,price:out.glassProduct[0].salePriceAnnealed};
     },legacyBoot), {oldTable:false,oldRef:false,mark:'Keep me',price:987.65});
     await t.c.close();
+
+    /* --- F5 своей базы той же сборки: строки не перебираются (X-02). Сверка
+       с проходом целиком — на каждом таком F5 всех проверок (staleFast). --- */
+    {
+      const f = await page();
+      const f5 = async () => { await f.p.reload(); await f.p.evaluate(() => window.storageReady); return f.p.evaluate(() => storageBootMs.same); };
+      await f.p.evaluate(() => storageFlush().then(() => storageIdbMetaPut('counted', storageBuildId())));
+      eq('F5 своей базы той же сборки — без прохода по строкам', await f5(), 1);
+      await f.p.evaluate(() => storageIdbMetaPut('counted', 'old'));
+      eq('цифры прежней сборки — проход целиком', await f5(), 0);
+      await f.p.evaluate(() => storageIdbMetaPut('counted', storageBuildId()).then(() => storageIdbMetaPut('build', 'old')));
+      eq('запись прежней сборки — проход целиком', await f5(), 0);
+      await f.c.close();
+    }
 
     /* --- ловушки Этапа 3C: молчаливая потеря работы и перевёрнутые размеры --- */
     t = await page();
@@ -6165,6 +6181,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
   await b.close();
   eq('команды с областью записи ничего не меняют вне неё', outsideScope.slice(0, 8), []);
   eq('итоги заказов из памяти Finance совпадают с расчётом заново', staleTotals.slice(0, 8), []);
+  eq('F5 своей базы и Ready без перебора стёкол дают то же, что проход целиком', staleFast.slice(0, 8), []);
   eq('количества работ, записанные в строке при Save, совпадают с расчётом по фигуре', staleMeasure.slice(0, 8), []);
   eq('цены, посчитанные Save в фоне заранее, совпадают с расчётом при записи', staleBook.slice(0, 8), []);
   /* Счёт проверок в README — настоящий: его знает только этот прогон.

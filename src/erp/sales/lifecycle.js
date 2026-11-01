@@ -307,7 +307,11 @@ function salesRecord(id){
 }
 /* Строка, всё стекло которой порезано по скану без батча (Skip, сток), — не
    «без батча»: иначе заказ не закрыть (владелец, 8.10.2026). */
-function salesUnbatchedLines(o){return (o&&o.lines||[]).filter(l=>l.batchManaged?glassBatchRemaining(o,l)>0:!salesLineLocked(l)&&!(l.qty>0&&glassBatchComponents(o,l).length&&glassBatchRemaining(o,l)===0));}
+function salesUnbatchedLines(o){
+ /* Батчи и отмены заказа — один раз на заказ, а не на каждую строку. */
+ let active=null,gone=null;const left=l=>glassBatchRemaining(o,l,active||(active=glassBatchActive(o.id)),gone||(gone=glassCancelledSlots(o)));
+ return (o&&o.lines||[]).filter(l=>l.batchManaged?left(l)>0:!salesLineLocked(l)&&!(l.qty>0&&glassBatchComponents(o,l).length&&left(l)===0));
+}
 function salesBatchableLines(o){return salesUnbatchedLines(o).filter(l=>!l.onHold);}
 function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};

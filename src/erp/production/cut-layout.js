@@ -1324,6 +1324,7 @@ function cutConsolidateSheets(group,paramsFor,source){
 /* ------------------------------ Прогон ------------------------------ */
 function cutPlanFor(number){
  if(cutEstIs(number))return typeof cutEstPlan==='function'?cutEstPlan(number):null;
+ if(readOn())return readMemo('cutPlanByBatch',[DB.cutPlan],()=>{const m=new Map();(DB.cutPlan||[]).forEach(p=>{if(p&&!m.has(p.batch))m.set(p.batch,p);});return m;}).get(number)||null;
  return (DB.cutPlan||[]).find(p=>p&&p.batch===number)||null;
 }
 /* The old stamp covered only the footprint. A raked Shape can change its cut

@@ -119,9 +119,15 @@ function stationRouteOf(g){
    порядку, и каждый продвигает стекло к БЛИЖАЙШЕМУ впереди заходу на эту
    станцию; повтор уже пройденной станции место не меняет. */
 function stationRouteStep(route,station,far){const i=route.indexOf(station,far+1);return i>=0?i:route.lastIndexOf(station);}
+/* Сканы одного стекла почти всегда уже идут по времени — сортировка только
+   если нет: это самый частый вызов экранов Overview и Shipping. */
+function stationScansInTime(list){
+ for(let i=1;i<list.length;i++)if(!(list[i-1].at<list[i].at))return list.sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
+ return list;
+}
 function stationPlace(g,scans){
  const route=stationRouteOf(g).codes;scans=scans||stationScansFor(g.id);
- let far=-1;scans.filter(s=>!s.broken&&!s.park).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)))
+ let far=-1;stationScansInTime(scans.filter(s=>!s.broken&&!s.park))
   .forEach(s=>{const i=Number.isInteger(s.step)&&route[s.step]===s.station?s.step:stationRouteStep(route,s.station,far);if(i>far)far=i;});
  /* Разбитое стекло выходит из маршрута: станции его больше не ждут, вместо
     него едет стекло Recut со своим номером. */
@@ -191,7 +197,7 @@ function stationRecord(station,check,who,opts){
 function stationScope(station,check){
  const orders=[],batches=[],lines=new Set(),pieces=new Set(),scans=[];
  [check].concat((check&&check.mates||[]).map(id=>stationCheck(station,id))).forEach(c=>{const g=c&&c.g;if(!g)return;if(g.o)orders.push(g.o.id);if(g.entry)batches.push(g.entry.batch.number);if(g.o&&g.l)lines.add(g.o.id+'|'+g.l.id);});
- if(lines.size)(DB.glassPiece||[]).forEach(r=>{const [o,l]=String(r.key).split('|');if(!lines.has(o+'|'+l))return;r.ids.forEach(id=>{if(id)pieces.add(id);});Object.values(r.extra||{}).forEach(x=>x.forEach(id=>{if(id)pieces.add(id);}));});
+ if(lines.size)(DB.glassPiece||[]).forEach(r=>{const k=String(r.key),end=k.indexOf('|',k.indexOf('|')+1);if(!lines.has(end<0?k:k.slice(0,end)))return;r.ids.forEach(id=>{if(id)pieces.add(id);});Object.values(r.extra||{}).forEach(x=>x.forEach(id=>{if(id)pieces.add(id);}));});
  if(pieces.size)(DB.stationScan||[]).forEach(x=>{if(pieces.has(x.piece))scans.push(x.id);});
  return {stationScan:scans,stationScanSeq:true,productionRoute:[],salesOrder:orders,glassBatch:batches};
 }
@@ -294,9 +300,14 @@ function stationWaiting(){
    сроку система не придумывает. */
 function stationUrgency(o){return o&&o.priority==='critical'?2:o&&o.priority==='rush'?1:0;}
 
+function stationScanSeqTop(){
+ let top=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0;
+ DB.stationScan.forEach(s=>{top=Math.max(top,+s.id.slice(3));});DB.stationScanSeq=top;
+}
 function normalizeStationScans(){
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
  if(!Array.isArray(DB.productionRoute))DB.productionRoute=[];
+ if(normalizeSame){stationScanSeqTop();normalizeSheetBreaks();return;}
  DB.productionRoute=DB.productionRoute.filter(x=>x&&typeof x.key==='string'&&x.route&&Array.isArray(x.route.codes)&&x.route.codes.length&&x.route.codes.every(c=>typeof c==='string'&&SF_CODE_RE.test(c))&&Array.isArray(x.route.services));
  const ids=new Set(),iso=v=>typeof v==='string'&&!Number.isNaN(Date.parse(v));
  DB.stationScan=DB.stationScan.filter(s=>s&&typeof s==='object'&&STATION_SCAN_ID_RE.test(String(s.id))&&!ids.has(s.id)&&glassPieceValid(s.piece)&&iso(s.at)&&typeof s.station==='string'&&s.station.trim()&&(ids.add(s.id),true))
@@ -313,8 +324,7 @@ function normalizeStationScans(){
    ...(STATION_SCAN_ID_RE.test(String(s.asm))&&Number.isInteger(s.unit)&&s.unit>0&&s.unit<1e5?{unit:s.unit}:{}),
    ...(s.park===true&&s.broken!==true?{park:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{}),
    ...(s.broken===true?{broken:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{})}));
- let top=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0;
- DB.stationScan.forEach(s=>{top=Math.max(top,+s.id.slice(3));});DB.stationScanSeq=top;
+ stationScanSeqTop();
  /* Скан резки — правда о «резка началась»: у импортированных данных поле
     стекла могло потеряться, журнал его восстанавливает. */
  const cut=stationCutCode(),first=new Map();

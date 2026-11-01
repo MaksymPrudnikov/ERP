@@ -104,6 +104,19 @@ function shippingUnits(o,opts){
 /* Свой PS держит и то, что уже погружено: оно больше не «ждёт на станции». */
 function shippingLoadedOn(i,id){return !!i.loaded&&!!i.shipment&&i.shipment.status==='planned'&&(!id||i.shipment.id===id);}
 function shippingAvailable(o,exceptId){return shippingUnits(o).filter(i=>i.ready?!i.shipment||i.shipment.id===exceptId:!!exceptId&&shippingLoadedOn(i,exceptId));}
+function shippingExtraRows(o,ps,legacy){
+ return (o.extraItems||[]).map(x=>{
+  const count=filter=>ps.filter(filter).flatMap(s=>s.extras).filter(i=>i.orderId===o.id&&i.extraId===x.id).reduce((n,i)=>n+i.qty,0);
+  const shipped=legacy?x.qty:count(shippingSent),delivered=legacy?x.qty:count(s=>s.status==='delivered');
+  return {x,ordered:x.qty,shipped,delivered,back:Math.max(0,x.qty-shipped),ready:Math.max(0,x.qty-count(shippingActive))};
+ });
+}
+/* Каждый юнит каждой строки уже на PS: готового без PS у заказа нет, стёкла
+   можно не перебирать (на годе почти все заказы экрана такие). */
+function shippingAllUnitsTaken(o,ps){
+ const taken=new Set();ps.filter(shippingActive).forEach(s=>s.items.forEach(i=>{if(i.orderId===o.id)taken.add(i.lineId+'|'+i.unit);}));
+ return (o.lines||[]).every(l=>{for(let n=1;n<=l.qty;n++)if(!taken.has(l.id+'|'+n))return false;return true;});
+}
 function shippingSummary(o){
  const legacy=shippingLegacy(o),ps=shippingForOrder(o.id),units=shippingUnits(o);
  const lines=(o.lines||[]).map(l=>{
@@ -111,11 +124,7 @@ function shippingSummary(o){
   const ordered=shippingLineQty(l),shipped=legacy?ordered:sent.length,delivered=legacy?ordered:received.length;
   return {l,ordered,shipped,delivered,back:Math.max(0,ordered-shipped),ready:units.filter(i=>i.lineId===l.id&&i.ready&&!i.shipment).length,physicalReady:units.filter(i=>i.lineId===l.id&&(i.ready&&(!i.shipment||i.shipment.status==='planned')||shippingLoadedOn(i))).length};
  });
- const extras=(o.extraItems||[]).map(x=>{
-  const count=filter=>ps.filter(filter).flatMap(s=>s.extras).filter(i=>i.orderId===o.id&&i.extraId===x.id).reduce((n,i)=>n+i.qty,0);
-  const shipped=legacy?x.qty:count(shippingSent),delivered=legacy?x.qty:count(s=>s.status==='delivered');
-  return {x,ordered:x.qty,shipped,delivered,back:Math.max(0,x.qty-shipped),ready:Math.max(0,x.qty-count(shippingActive))};
- });
+ const extras=shippingExtraRows(o,ps,legacy);
  const sum=(a,k)=>a.reduce((n,x)=>n+x[k],0),all=lines.concat(extras);
  return {lines,extras,ordered:sum(all,'ordered'),shipped:sum(all,'shipped'),delivered:sum(all,'delivered'),back:sum(all,'back'),ready:sum(lines,'ready'),physicalReady:sum(lines,'physicalReady'),glass:sum(lines,'ordered'),ps};
 }

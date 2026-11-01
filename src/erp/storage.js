@@ -729,7 +729,8 @@ async function storageSeed(src){
  await storageIdbTx(['record','cold','archive','meta'],'readwrite',tx=>{
   const rs=tx.objectStore('record');rs.clear();tx.objectStore('cold').clear();tx.objectStore('archive').clear();
   changes.forEach(c=>rs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data}));
-  tx.objectStore('meta').put(storageRev+1,'rev');
+  /* Посеянное этой сборкой в порядок не приводилось: F5 — проход целиком. */
+  tx.objectStore('meta').put(storageRev+1,'rev');tx.objectStore('meta').delete('counted');
  });
 }
 function storageRestoreBackup(){
@@ -915,6 +916,11 @@ function prepareImportedState(src,own){
    Цифры, посчитанные прежней версией программы, пересчитываются после
    старта в простое (storageRecount, аудит 29.10.2026, А2). */
 let normalizeOwn=false;
+/* Своя база той же сборки, где цифры этой сборкой уже посчитаны (метка
+   counted): строки заказов, батчей и сканов эта программа уже приводила в
+   порядок — F5 их не перебирает (X-02, 01.11.2026). Счётчики номеров
+   сверяются всё равно. Новая сборка, Import, сервер — проход целиком. */
+let normalizeSame=false;
 function normalizeDB(){
  Object.keys(DEFAULT).forEach(k=>{ if(Array.isArray(DEFAULT[k])&&!Array.isArray(DB[k])) DB[k]=JSON.parse(JSON.stringify(DEFAULT[k])); });
  normalizeRefVersion();
@@ -967,12 +973,21 @@ function normalizeDB(){
     старый браузер и старый файл приносят библиотеку прежних версий. */
  if(typeof salesPruneOrphanShapes==='function')salesPruneOrphanShapes();
 }
+/* Тесты (GF_SCOPE_CHECK): проход целиком дал бы то же, что старт без него.
+   Порядок ключей строки не важен: команда дописывает поле в конец. */
+function storageSameCheck(){
+ const canon=x=>Array.isArray(x)?x.map(canon):x&&typeof x==='object'?Object.keys(x).sort().reduce((m,k)=>{m[k]=canon(x[k]);return m;},{}):x,text=()=>Object.keys(DB).sort().map(k=>[k,JSON.stringify(canon(DB[k]))]);
+ const keep=JSON.stringify(DB),was=text();normalizeSame=false;normalizeDB();
+ const now=new Map(text()),bad=was.filter(([k,v])=>now.get(k)!==v).map(([k])=>k).concat([...now.keys()].filter(k=>!was.some(x=>x[0]===k)));
+ if(bad.length)console.error('Stale boot: '+bad.join(', '));
+ DB=JSON.parse(keep);normalizeSame=true;
+}
 /* Старт по частям, мс: чтение записей, сборка, нормализация (с пересевом и
    правками), запись дописанного, первая отрисовка — их показывает
    tools/perf-year.js (задание «База», этап 2). */
 let storageBootMs=null;
 async function boot(){
- let hadSavedState=false,counted='';const T=()=>performance.now(),t0=T(),ms={};
+ let hadSavedState=false,counted='',same=false;const T=()=>performance.now(),t0=T(),ms={};
  try{
   await storageIdbOpen();
   const got=await storageIdbReadAll();ms.read=T()-t0;
@@ -986,10 +1001,11 @@ async function boot(){
  catch(e){storageRecovery=true;storageLastError=storageIdb?'Stored data could not be read. The original has been preserved.':'This browser could not open the database. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.';console.warn(storageLastError,e.message);}
  /* Блоки номеров сервера — до нормализации: она бывает, выдаёт номера стёкол. */
  if(!storageRecovery&&typeof cloudLoad==='function')try{await cloudLoad();}catch(e){console.warn('Sync state was not read:',e.message);}
- normalizeOwn=hadSavedState;
+ normalizeOwn=hadSavedState;normalizeSame=hadSavedState&&!storageRecovery&&storageBuildAtLoad===storageBuildId()&&counted===storageBuildId()&&!(typeof cloudSync!=='undefined'&&cloudSync.on);same=normalizeSame;
  try{ if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB(); }
- catch(e){normalizeOwn=false;storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
- normalizeOwn=false;
+ catch(e){normalizeOwn=false;normalizeSame=false;same=false;storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
+ if(normalizeSame&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)storageSameCheck();
+ normalizeOwn=false;normalizeSame=false;
  /* Пересев справочников. Идёт ПОСЛЕ первой нормализации (иначе сравнивать не с
     чем) и сам вызывает её повторно, чтобы заводские данные прошли те же правила,
     что и любые другие. Рабочие данные не трогаются — см. reseedReferenceTables. */
@@ -1002,7 +1018,7 @@ async function boot(){
     идёт после нормализации, чтобы демо-записи прошли те же правила, и ровно
     один раз на браузер (см. seedDemoUsers в erp/data). */
  if(typeof seedDemoUsers==='function')seedDemoUsers();
- ms.normalize=T()-t0-(ms.read||0)-(ms.join||0);const tw=T();
+ ms.normalize=T()-t0-(ms.read||0)-(ms.join||0);ms.same=same?1:0;const tw=T();
  /* Новая сборка дописывает в базу то, что изменили нормализация, пересев и
     правки: новые графы со значением по умолчанию. Пишет вкладка-писатель и
     ставит свою версию главной; остальные допишут, когда станут писателем. */

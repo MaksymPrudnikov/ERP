@@ -124,7 +124,14 @@ function salesFirstCoatedGlass(rows){
  return best===null?null:salesMinGlass(groups[best],true);
 }
 
+/* На проход нормализации заказов: один и тот же вопрос на каждый лайт. */
+let salesFirstGlassMemo=null;
 function salesFirstGlass(family,manufacturer,thickness){
+ if(!salesFirstGlassMemo)return salesFirstGlassPick(family,manufacturer,thickness);
+ const k=family+'|'+manufacturer+'|'+thickness;if(!salesFirstGlassMemo.has(k))salesFirstGlassMemo.set(k,salesFirstGlassPick(family,manufacturer,thickness));
+ return salesFirstGlassMemo.get(k);
+}
+function salesFirstGlassPick(family,manufacturer,thickness){
  const rows=activeGlassProducts().filter(x=>(!family||x.coatingFamily===family)&&(!manufacturer||x.manufacturer===manufacturer)&&(!thickness||x.thicknessMm===+thickness));
  const preferBaseClear=family==='lowe'||family==='reflective';
  return (preferBaseClear?salesFirstCoatedGlass(rows):salesMinGlass(rows,false))||salesMinGlass(activeGlassProducts(),false)||null;
@@ -585,9 +592,17 @@ function normalizeSalesAdjustments(raw){
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
+/* Заказ или квота, с которыми работа закончена. */
+function salesOrderSettled(o){return ['done','closed'].includes(o.status)?!!o.fulfilledVia:['cancelled','won'].includes(o.status);}
 function normalizeSalesData(){
  if(!Array.isArray(DB.salesOrder))DB.salesOrder=[];const ids=new Set(),numbers=new Set(),lineIds=new Set();
- DB.salesOrder=DB.salesOrder.filter(x=>x&&typeof x==='object').map(x=>{const o=normalizeSalesOrder(x);while(ids.has(o.id))o.id=salesUid('SO');ids.add(o.id);if(o.businessNumber){if(numbers.has(o.businessNumber))o.businessNumber='';else numbers.add(o.businessNumber);}o.lines.forEach(l=>{while(lineIds.has(l.id))l.id=salesUid('SOL');lineIds.add(l.id);});return o;});
+ salesFirstGlassMemo=new Map();
+ try{
+ DB.salesOrder=DB.salesOrder.filter(x=>x&&typeof x==='object').map(x=>{
+  /* F5 своей базы: завершённая история уже в порядке (normalizeSame). */
+  if(normalizeSame&&salesOrderSettled(x)){ids.add(x.id);if(x.businessNumber)numbers.add(x.businessNumber);(x.lines||[]).forEach(l=>lineIds.add(l.id));return x;}
+  const o=normalizeSalesOrder(x);while(ids.has(o.id))o.id=salesUid('SO');ids.add(o.id);if(o.businessNumber){if(numbers.has(o.businessNumber))o.businessNumber='';else numbers.add(o.businessNumber);}o.lines.forEach(l=>{while(lineIds.has(l.id))l.id=salesUid('SOL');lineIds.add(l.id);});return o;});
+ }finally{salesFirstGlassMemo=null;}
 }
 /* Один заказ — Save, Convert, копия квоты, переделка NCR меняют только его;
    остальные заказы уже приведены в порядок (старт, импорт). Раньше на каждый

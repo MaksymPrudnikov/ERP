@@ -27,12 +27,19 @@ function shippingOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&
 /* Ready — только то, что можно положить в PS: готовые юниты без PS и товары
    склада. Заказ, где готового нет, сюда не попадает (он в Awaiting). */
 function shippingReadyExtras(o,q){return o.status!=='new'&&!o.onHold?q.extras.filter(e=>e.ready>0):[];}
+function shippingHasReady(o){
+ const ps=shippingForOrder(o.id),full=()=>{const q=shippingSummary(o);return q.ready>0||shippingReadyExtras(o,q).length>0;};
+ if(!shippingAllUnitsTaken(o,ps))return full();
+ const has=shippingReadyExtras(o,{extras:shippingExtraRows(o,ps,shippingLegacy(o))}).length>0;
+ if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK&&has!==full())console.error('Stale ready: '+o.id);
+ return has;
+}
 /* Стекло отменённых юнитов, которое забирает клиент, ждёт PS и у заказа,
    где отгружать больше нечего (аудит Shipping, Д2) — такой заказ тоже в Ready. */
 function shippingTakesOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&unitTakes(o).length>0);}
 /* Один раз на отрисовку (erp/read-scope): число на вкладке Ready и сам
    список спрашивают одно и то же. */
-function shippingReadyOrders(){return readMemo('shippingReady',[DB.salesOrder,DB.shipment,DB.stationScan],()=>{const own=shippingOrders().filter(o=>{const q=shippingSummary(o);return q.ready>0||shippingReadyExtras(o,q).length>0;});return own.concat(shippingTakesOrders().filter(o=>!own.includes(o)));}).slice();}
+function shippingReadyOrders(){return readMemo('shippingReady',[DB.salesOrder,DB.shipment,DB.stationScan],()=>{const own=shippingOrders().filter(shippingHasReady);return own.concat(shippingTakesOrders().filter(o=>!own.includes(o)));}).slice();}
 function shippingSelect(customerId,labels,on){if(shippingCustomer!==customerId){shippingSelection.clear();shippingCustomer=customerId;}labels.forEach(id=>on?shippingSelection.add(id):shippingSelection.delete(id));render();}
 /* Галочка заказа отмечает его готовые юниты; у заказа только с товаром
    склада юнитов нет — отмечается сам заказ (ключ «stock:»). */

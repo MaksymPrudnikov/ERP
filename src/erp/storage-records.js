@@ -158,7 +158,7 @@ function storageBaseApply(changes){
   if(!m.size)storageBase.delete(c.tbl);
  });
 }
-function storageBaseFrom(records){storageBase=new Map();storageBaseApply(records.map(r=>({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data})));}
+function storageBaseFrom(records){storageBase=new Map();storageBaseApply(records);}
 /* Строки таблицы из опорного состояния — по порядку seq; overlay —
    изменения поверх (откат к состоянию до команды). */
 function storageBaseRows(tbl,overlay){
