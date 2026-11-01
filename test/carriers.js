@@ -121,6 +121,11 @@ module.exports=async function({page,eq,ok}){
 
  /* Владелец, 6.10.2026: «где стекло, там и долли» — тара под числом
     станции, у заказа и у позиции; отдельной колонки On по умолчанию нет. */
+ eq('Production: заказ, всё стекло которого уехало, в списке не стоит',await t.p.evaluate(()=>{
+  const keep=prodBoard,was=subtab,row=(n,total,shipped)=>({o:{businessNumber:n,priority:'normal',dueDate:''},customer:'',glass:[],on:[],shipped,total,counts:{},rank:0});
+  prodBoard=()=>[row('A',5,5),row('B',5,4),row('C',5,0)];subtab='orders';
+  try{return prodListInfos().map(i=>i.memo.number);}finally{prodBoard=keep;subtab=was;}
+ }),['B','C']);
  eq('Production: под числом станции — на какой таре лежат стёкла заказа и позиции',await t.p.evaluate(()=>{
   cvReset();carrierAdd('DL',1);carrierAdd('SA',1);const id=cvOrder([[36,24,2],[30,20,1]]);const g=cvIds(id);
   cvLogin('CUT','Ivan P.');stationSubmit('DL-1');stationSubmit(g[0]);stationSubmit('SA-1');stationSubmit(g[2]);stationSwitch();

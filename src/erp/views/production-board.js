@@ -95,7 +95,9 @@ function prodBoard(){
 function prodQueueAll(){prodBoard();return prodBoardCache.queue||0;}
 function prodListInfos(){
  if(subtab==='carriers')return prodCarrierInfos();
- return prodBoard().map(x=>{
+ /* Всё стекло заказа уехало — в производстве его больше нет (владелец,
+    01.11.2026): заказ остаётся в Sales и Finance. */
+ return prodBoard().filter(x=>x.total>x.shipped).map(x=>{
   const memo={number:x.o.businessNumber||'',customer:x.customer,priority:SALES_LIST_PRIORITY[x.o.priority]||'Normal',due:x.o.dueDate||'',glass:x.glass.join(', '),shipped:x.shipped,queue:x.counts.queue||0,on:x.on.join(', '),rank:x.rank};
   (DB.station||[]).forEach(s=>{memo['st_'+s.code]=x.counts[s.code]||0;});
   return {o:x.o,q:false,c:{},x,tokens:{glass:x.glass,on:x.on},memo};
