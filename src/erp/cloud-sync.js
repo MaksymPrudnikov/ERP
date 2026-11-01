@@ -129,9 +129,11 @@ function cloudDevice(){const c=cloudConfig();if(!c.device){c.device=cloudId();cl
    этой паузы ждут в s.early, как и раньше. */
 async function cloudLoadHead(){
  const got=await storageIdbCloudHead(),s=cloudSync;
+ s.out=[];
  got.keys.forEach((k,i)=>{
   const v=got.values[i];
   if(k==='ref')s.ref=v;else if(k.startsWith('b\u0000'))s.blocks.set(k.slice(2),v);
+  else if(k.startsWith('o\u0000'))s.out.push(Object.assign({key:k},v));
  });
  s.on=!!s.ref&&s.ref===cloudConfig().url;s.head=true;
 }
