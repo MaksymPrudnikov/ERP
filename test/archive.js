@@ -37,8 +37,8 @@ module.exports=async function({page,eq}){
   agents:comWithScope(()=>{const r=comFind('RFR-T');return JSON.stringify([null,{from:'2026-01-01',to:'2026-01-31'}].map(g=>{const x=comSummary(r,g);return [x.orders,x.base,x.paid,x.com,x.earned,x.paidOut,x.toPay,x.rows.map(y=>[y.number,y.date,y.total,y.paid,y.base,y.pct,y.com])];})
    .concat([[...comDue(r).values()].map(y=>[y.number,y.com,y.paidOut,y.due]).sort()]));})})));
  const before=await snap();
- eq('кому пора: отгружен и оплачен 3 месяца назад — да; Hold, не отгружен и рано — нет',await t.p.evaluate(x=>{
-  const due=d=>{const s=archiveDue(d);return [x.a,x.b,x.h,x.open].map(id=>s.has(id));};return {june:due('2026-06-01'),march:due('2026-03-20')};
+ eq('кому пора: отгружен и оплачен месяц назад — да; Hold, не отгружен и рано — нет',await t.p.evaluate(x=>{
+  const due=d=>{const s=archiveDue(d);return [x.a,x.b,x.h,x.open].map(id=>s.has(id));};return {june:due('2026-06-01'),march:due('2026-02-01')};
  },ids),{june:[true,true,false,false],march:[false,false,false,false]});
  /* Пачками, как уходит сам (archiveAuto): по одному заказу; день отмечен, когда пачка неполная. */
  const run=await t.p.evaluate(async()=>{const a=archiveRun('2026-06-01',{limit:1,mark:true}),day1=DB.archiveRunDay||'',b=archiveRun('2026-06-01',{limit:1,mark:true}),c=archiveRun('2026-06-01',{limit:1,mark:true});await storageFlush();
