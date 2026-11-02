@@ -64,7 +64,7 @@ module.exports=async function({page,eq,ok}){
 
  eq('Лист на бумаге: №1 первым сверху; в окне сверху последний поставленный',await t.p.evaluate(()=>{
   csReset();csSkid();tab='shipping';shippingTab='ready';render();carrierWinOpen('SL-1');
-  const n=r=>r.textContent.match(/#\d+/)[0],screen=[...document.querySelectorAll('[data-carrier-row]')].map(n);carrierPrint();carrierWinClose();
+  const n=r=>[...r.cells].map(c=>c.textContent.trim()).find(x=>/^#\d+$/.test(x)),screen=[...document.querySelectorAll('[data-carrier-row]')].map(n);carrierPrint();carrierWinClose();
   const paper=[...document.querySelectorAll('#carrierPrintHost tbody tr:not(.cs-group)')].map(n);window.dispatchEvent(new Event('afterprint'));tab='dashboard';render();
   return {first:paper[0],same:paper.length===screen.length&&paper.length>1,flipped:paper.join()===screen.slice().reverse().join()};
  }),{first:'#1',same:true,flipped:true});
