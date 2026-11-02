@@ -5,22 +5,26 @@
    LIST_IDLE_ROWS строк, чтобы Ctrl+F и печать видели обычный список) и при
    прокрутке. Высоту таблицы до дорисовки держит строка data-list-rest.
    Итоги и выбор строк считаются по данным, а не по странице.
+   Строки всегда идут с начала: номер поля среди строк не меняется, и курсор
+   после перерисовки (renderFocusBack) не уходит в чужую строку заказа.
    Ширину колонок задают все строки: дорисовка сдвигала их на глазах (Production
    на 65 px). Поэтому первая отрисовка экрана длинная, запоминает ширины, а
    дальше колонки стоят на них с первого кадра.
    IN:  storageLockButtons (erp/storage), readScope (erp/read-scope)
-   OUT: listWindowBody(rows,rowHTML,span), listWindowAfter() */
+   OUT: listWindowBody(rows,rowHTML,span,opt), listWindowAll(), listWindowAfter() */
 const LIST_BATCH=60,LIST_IDLE_ROWS=400,LIST_ROW_PX=55,LIST_ROW_MIN=28,LIST_AHEAD_PX=1500;
 let listRest=null,listScrollWait=false,listDraw=null;
 const listSizes=new Map();
-function listWindowBody(rows,rowHTML,span){
+/* opt: table — селектор таблицы, rowPx — высота строки. */
+function listWindowBody(rows,rowHTML,span,opt){
+ const table=opt&&opt.table||'.sl-table',rowPx=opt&&opt.rowPx||LIST_ROW_PX;
  /* Перерисовка при прокрутке вниз: всё выше экрана на месте, страница не прыгает. */
  const fit=Math.max(LIST_BATCH,Math.ceil((window.scrollY+window.innerHeight)/LIST_ROW_MIN)+20);
- const key=tab+':'+subtab,now=listSizes.has(key)?fit:Math.max(fit,LIST_IDLE_ROWS);
- listDraw=rows.length>fit?key:null;
+ const key=tab+':'+subtab+table,now=listSizes.has(key)?fit:Math.max(fit,LIST_IDLE_ROWS);
+ listDraw=rows.length>fit?{key,table}:null;
  if(rows.length<=now){listRest=null;return rows.map(rowHTML).join('');}
- listRest={rows,rowHTML,at:now};
- return rows.slice(0,now).map(rowHTML).join('')+`<tr class="list-rest" data-list-rest><td colspan="${span}" style="height:${(rows.length-now)*LIST_ROW_PX}px"></td></tr>`;
+ listRest={rows,rowHTML,at:now,rowPx};
+ return rows.slice(0,now).map(rowHTML).join('')+`<tr class="list-rest" data-list-rest><td colspan="${span}" style="height:${(rows.length-now)*rowPx}px"></td></tr>`;
 }
 function listWindowTail(){return listRest&&document.querySelector('[data-list-rest]');}
 function listWindowGrow(){
@@ -28,18 +32,20 @@ function listWindowGrow(){
  const r=listRest,end=Math.min(r.at+LIST_BATCH,r.rows.length);
  tail.insertAdjacentHTML('beforebegin',readScope(()=>r.rows.slice(r.at,end).map(r.rowHTML).join('')));
  r.at=end;
- if(end<r.rows.length)tail.firstChild.style.height=(r.rows.length-end)*LIST_ROW_PX+'px';else{tail.remove();listRest=null;}
+ if(end<r.rows.length)tail.firstChild.style.height=(r.rows.length-end)*r.rowPx+'px';else{tail.remove();listRest=null;}
  storageLockButtons();
  return !!listRest;
 }
+/* Нужен конец таблицы: новая строка заказа внизу. */
+function listWindowAll(){while(listWindowGrow());}
 function listWindowAfter(){
- const key=listDraw;listDraw=null;
- const table=key&&document.querySelector('#app .sl-table');
+ const draw=listDraw;listDraw=null;
+ const table=draw&&document.querySelector('#app '+draw.table);
  if(table){
-  const heads=[...table.tHead.rows[0].cells].filter(th=>th.dataset.col),sizes=listSizes.get(key);
-  if(sizes)heads.forEach(th=>{if(sizes[th.dataset.col])th.style.minWidth=sizes[th.dataset.col]+'px';});
+  const name=th=>th.dataset.col||th.dataset.cwKey,heads=[...table.tHead.rows[0].cells].filter(name),sizes=listSizes.get(draw.key);
+  if(sizes)heads.forEach(th=>{if(sizes[name(th)])th.style.minWidth=sizes[name(th)]+'px';});
   /* Ширины, заданные вручную (views/col-widths), не трогаем. */
-  else listSizes.set(key,getComputedStyle(table).tableLayout==='fixed'?{}:Object.fromEntries(heads.map(th=>[th.dataset.col,Math.ceil(th.getBoundingClientRect().width)])));
+  else listSizes.set(draw.key,getComputedStyle(table).tableLayout==='fixed'?{}:Object.fromEntries(heads.map(th=>[name(th),Math.ceil(th.getBoundingClientRect().width)])));
  }
  listWindowIdle();
 }

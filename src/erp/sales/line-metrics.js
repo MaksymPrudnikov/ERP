@@ -86,6 +86,9 @@ function salesNormalizeWeightRates(){
  DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
 }
 function salesLineAreas(line,order){
+ return Object.assign({},readLine('areas',line,order,()=>salesLineAreasLive(line,order)));
+}
+function salesLineAreasLive(line,order){
  /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
  const kept=salesMeasureFor(line,order||soDraft);if(kept)return Object.assign({},kept.areas);
  const lineW=(+(line&&line.width16)||0)/16,lineH=(+(line&&line.height16)||0)/16;
@@ -229,6 +232,9 @@ function salesItemSizeWarnings(order){
 }
 function salesLineCommercialPrice(line,order){
  order=order||soDraft;
+ return readLine('price',line,order,()=>salesLinePriceLive(line,order));
+}
+function salesLinePriceLive(line,order){
  const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),q=salesPositiveInt(line.qty,1),live=Math.max(0,q-unitCancelled(line));
  const rate=salesLineMaterials(m,areas,order),services=salesLinePricingSummary(line),materials=areas.valid?rate.amount:0;
  const base=salesMoney(materials+services.total/q);
@@ -301,6 +307,9 @@ function salesLineLiteGeo(line,order){
 }
 function salesLineWeight(line,order,productionPlan){
  order=order||soDraft;
+ return productionPlan?salesLineWeightLive(line,order,productionPlan):readLine('weight',line,order,()=>salesLineWeightLive(line,order));
+}
+function salesLineWeightLive(line,order,productionPlan){
  const rows=[],m=salesMakeupById(order,line.makeupId),shape=salesLineGeometryShape(line),areas=salesLineAreas(line,order);
  const kept=!productionPlan&&typeof salesMeasureFor==='function'?salesMeasureFor(line,order):null;
  const lites=kept&&kept.lites?kept.lites:salesWeightLiteGeo(productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null));

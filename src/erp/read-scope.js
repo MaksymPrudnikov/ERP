@@ -9,7 +9,7 @@
    (проверка Codex 22.10.2026). Запись посреди отрисовки (touch) и
    действие внутри неё указатели тоже не используют.
    IN : DB, storageDepth
-   OUT: readScope(fn), readScopeNow(fn), readOn(), readMemo(key,sources,build), readMemoReset()
+   OUT: readScope(fn), readScopeNow(fn), readOn(), readMemo(key,sources,build), readLine(key,line,order,build), readMemoReset()
    ===================================================================== */
 let readDepth=0,readMemos=null,readForce=false;
 /* Что считается только из базы, живёт и между отрисовками, пока база та же:
@@ -19,7 +19,7 @@ let readDepth=0,readMemos=null,readForce=false;
    «сегодня» и просрочка считаются от даты. От экрана, фильтров и открытого
    заказа эти значения не зависят. Внутри записи — только свежие. */
 const READ_KEEP=new Set(['cutPlanByBatch','finPaidByOrder','finTermsByOrder','glassBatchByNo','glassBatchByOrder','glassByCode','glassPieceByOrder','glassProductByCode',
- 'recutByOrder','salesById','shapeById','shippingByOrder','shippingCtx','shippingReady','shippingOrders','stationBatchIndex','stationPieceIndex','stationScansByPiece','unitIdByKey','salesListInfos']);
+ 'recutByOrder','salesById','salesLineStatus','salesMeasureDraft','shapeById','shippingByOrder','shippingCtx','shippingReady','shippingOrders','stationBatchIndex','stationPieceIndex','stationScansByPiece','unitIdByKey','salesListInfos']);
 function readKeepKey(key){return READ_KEEP.has(key)||key.startsWith('mdById:')||key.startsWith('optQueue:');}
 let readKeep=new Map(),readKeepDay=0;
 function readScope(fn){
@@ -34,6 +34,16 @@ function readMemo(key,sources,build){
  if(hit&&hit.src.length===sources.length&&hit.src.every((a,i)=>a===sources[i]&&hit.n[i]===(a?a.length:-1)))return hit.value;
  const value=build();store.set(key,{src:sources,n:sources.map(a=>a?a.length:-1),value});return value;
 }
+/* Посчитанное по строке заказа — один раз за отрисовку: цену строки спрашивали
+   каждая колонка, каждый итог внизу и каждый счётчик, 12 расчётов на строку
+   (заказ на 521 строку — 1,6 с на клик, 2.11.2026). Save считает мимо: он
+   записывает прайс заказа по ходу расчёта. */
+function readLine(key,line,order,build){
+ if(!readOn()||!line||salesBookRec||salesMeasureOff)return build();
+ const memo=readMemo('line:'+key,[],()=>new WeakMap()),hit=memo.get(line);
+ if(hit&&hit.order===order&&hit.draft===soDraft)return hit.value;
+ const value=build();memo.set(line,{order,draft:soDraft,value});return value;
+}
 /* Чистое чтение посреди действия (документ PS, проверка выбора): свои
    указатели на время fn. Внутри fn база не меняется — указатели не соврут;
    запись посреди (touch) их сбрасывает, как и в отрисовке. */
@@ -43,5 +53,10 @@ function readScopeNow(fn){
 }
 /* Отрисовка идёт и действие не начато — указатели можно брать. */
 function readOn(){return !!readMemos&&(readForce||!(typeof storageDepth!=='undefined'&&storageDepth));}
-/* Запись (storageInvalidate) — указатели этой отрисовки больше не верны. */
-function readMemoReset(){readKeep=new Map();if(readMemos)readMemos=new Map();}
+/* Запись (storageInvalidate) — указатели этой отрисовки больше не верны.
+   lines — запись только фигур: посчитанное по строке держит их в отпечатке (sales/line-measure), правка одного размера не считает заново
+   весь заказ. */
+function readMemoReset(lines){
+ const keep=lines?['salesLineStatus','salesMeasureDraft'].filter(k=>readKeep.has(k)).map(k=>[k,readKeep.get(k)]):[];
+ readKeep=new Map(keep);if(readMemos)readMemos=new Map();
+}

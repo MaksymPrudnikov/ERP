@@ -667,7 +667,14 @@ function salesSyncLamiOpsForMakeup(makeupId){
   });
   return dropped;
 }
-function salesLineServiceStatus(line){
+/* Статус — по фигуре: один раз на отпечаток строки (sales/line-measure). */
+function salesLineServiceStatus(line){return readLine('status',line,soDraft,function(){
+  if(!readOn())return salesLineStatusLive(line);
+  var keep=readMemo('salesLineStatus',[],function(){return new Map();}),sig=salesLineSig(line,soDraft),hit=keep.get(sig);
+  if(!hit){hit=salesLineStatusLive(line);keep.set(sig,hit);}
+  return hit;
+});}
+function salesLineStatusLive(line){
   var shape=salesLineGeometryShape(line);if(!shape)return {key:'geometry',label:'Needs geometry',cls:'warn'};
   var set=salesServiceSetById(soDraft,line.serviceSetId);if(line.serviceSetId&&!set)return {key:'missing',label:'Missing set',cls:'bad'};
   if(salesDxfOverrideStale(line,shape))return {key:'lost',label:'Override needs review',cls:'bad'};

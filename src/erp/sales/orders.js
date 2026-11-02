@@ -544,7 +544,7 @@ function salesCavitySetWidth(i,size){
 }
 
 function salesOrderLineIsBlank(l){return !!l&&!l.width16&&!l.height16&&!salesString(l.mark)&&!salesString(l.notes)&&!(l.shapeRef&&l.shapeRef.id)&&!Object.keys(l.chargePricing||{}).length&&salesPositiveInt(l.qty,1)===1;}
-function salesOrderAddLine(makeupId,focus){const m=salesMakeupById(soDraft,makeupId)||salesCurrentMakeup();if(!m)return;const prev=soDraft.lines[soDraft.lines.length-1];soDraft.lines.push(normalizeSalesOrderLine({makeupId:m.id,qty:prev?prev.qty:1}));render();if(focus)setTimeout(salesFocusLastWidth,0);}
+function salesOrderAddLine(makeupId,focus){const m=salesMakeupById(soDraft,makeupId)||salesCurrentMakeup();if(!m)return;const prev=soDraft.lines[soDraft.lines.length-1];const line=normalizeSalesOrderLine({makeupId:m.id,qty:prev?prev.qty:1});soDraft.lines.push(line);if(!salesLineAppend(line))render();if(focus)setTimeout(salesFocusLastWidth,0);}
 function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSalesOrderLine({makeupId:(salesCurrentMakeup()||soDraft.makeups[0]).id,qty:1}));render();}
 /* Форма принадлежала строке — уходит вместе с ней. */
 /* Строка сохранённого заказа уходит пока только из черновика: закроют без
@@ -591,7 +591,7 @@ function salesStockPickerChoose(table,id,qty){soStockPickerOpen=false;salesExtra
 function salesExtraItemRemove(id){soDraft.extraItems=(soDraft.extraItems||[]).filter(x=>x.id!==id);render();}
 function salesExtraItemSetQty(id,v){const x=(soDraft.extraItems||[]).find(x=>x.id===id);if(!x)return;x.qty=salesPositiveInt(v,1);render();}
 function salesExtraItemSetPrice(id,v){const x=(soDraft.extraItems||[]).find(x=>x.id===id);if(!x)return;x.priceOverride=salesNonNegOrNull(v);render();}
-function salesFocusLastWidth(){const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
+function salesFocusLastWidth(){listWindowAll();const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
 function salesLineDimChange(i,key,el){
  const line=soDraft.lines[i],n=salesDimTo16(el.value);
  if(salesLineLocked(line)||salesLockedLineGuard(line)){render();return;}
@@ -606,7 +606,7 @@ function salesLineDimChange(i,key,el){
  /* Пишется одна фигура этой строки, а не сравнивается вся база (3 с на
     слабом ПК после каждого поля). */
  const shape=salesShapeByRef(line.shapeRef);
- if(shape)touchScope({shapeDef:[shape.id]},true);else touch();
+ if(shape)touchScope({shapeDef:[shape.id]},true);
 }
 /* Qty — как размеры: без render(). Набрал Qty, кликнул мышью в Width —
    перерисовка заменяла поле, в которое кликнули, и набранное пропадало
@@ -1338,7 +1338,8 @@ function salesLineChargeRowsRaw(line){
 }
 /* Округление количества и минимальная сумма — из карточки работы (этап 4,
    часть 2), на юнит. Замораживаются в заказе на Save, как ставка. */
-function salesLineChargeRows(line){
+function salesLineChargeRows(line){return readLine('charges',line,soDraft,()=>salesLineChargeRowsLive(line));}
+function salesLineChargeRowsLive(line){
  return salesLineChargeRowsRaw(line).map(row=>{
   if(!row.svc)return row;
   const w=salesServiceRateRow(row.svc);
@@ -1389,7 +1390,8 @@ function salesChargeUnitValue(value,unit){
 }
 function salesChargeBasisText(row,line){const q=salesPositiveInt(line.qty,1),total=row.basis*q,one=salesChargeUnitValue(row.basis,row.unit);return one+(q>1?' × '+q+' = '+salesChargeUnitValue(total,row.unit):'')+(row.minCharge?' · min '+row.minCharge.toFixed(2)+' / unit':'');}
 function salesRateText(v,unit,currency){return v==null?'—':Number(v).toFixed(2)+' '+currency+'/'+(unit==='pc'?'pc':unit==='ft²'?'ft²':'in');}
-function salesLinePricingSummary(line){const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row);if(st.effectiveRate==null)unpriced++;else total+=salesChargeUnitAmount(row,st.effectiveRate)*q;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0,rows:rows};}
+function salesLinePricingSummary(line){return readLine('services',line,soDraft,()=>salesLinePricingLive(line));}
+function salesLinePricingLive(line){const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row);if(st.effectiveRate==null)unpriced++;else total+=salesChargeUnitAmount(row,st.effectiveRate)*q;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0,rows:rows};}
 function salesOrderPricingSummary(){return (soDraft&&soDraft.lines||[]).reduce(function(a,l){const s=salesLinePricingSummary(l);a.total+=s.total;a.unpriced+=s.unpriced;a.charges+=s.charges;return a;},{total:0,unpriced:0,charges:0});}
 function salesLinePricingTotal(line){return salesLinePricingSummary(line).total;}
 function salesOrderPricingTotal(){return salesOrderPricingSummary().total;}

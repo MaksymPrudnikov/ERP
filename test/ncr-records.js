@@ -77,7 +77,8 @@ module.exports=async function({page,eq,ok}){
   return {menu,rows:rows.length,first:rows.some(r=>r.includes('NCR1001')&&r.includes('Open')&&r.includes('Remake order · SHIP · Broke in transit')),types,label,foot:foot.includes('Orders 3 · Quotes 0 · NCR 2')&&/NCR: (Done 1 · Open 1|Open 1 · Done 1)/.test(foot),same:total===plainTotal,done,onlyNcr,stays,opened};
  }),{menu:['orders','quotes','ncr'],rows:2,first:true,types:2,label:'Orders + NCR▾',foot:true,same:true,done:1,onlyNcr:'0/2',stays:true,opened:true});
 
- const saved=await t.p.evaluate(()=>JSON.stringify([DB.ncr,DB.glassPiece]));
+ /* Запись идёт в фоне: F5 раньше неё оборвал бы транзакцию (людям в этот миг браузер показывает «Leave site?»). */
+ const saved=await t.p.evaluate(async()=>{await storageFlush();return JSON.stringify([DB.ncr,DB.glassPiece]);});
  await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  eq('после перезагрузки NCR и выбор Show те же',await t.p.evaluate(saved=>({same:JSON.stringify([DB.ncr,DB.glassPiece])===saved,show:salesShow.ncr}),saved),{same:true,show:true});
  await helpers();

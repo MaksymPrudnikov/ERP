@@ -84,13 +84,15 @@ function salesBulkLiveHTML(){
    печатают). Перерисовка — только если появляется или уходит полоса Edgework. */
 function salesBulkSync(typing){
   var bar=document.querySelector('[data-mk-bar]');
-  if(!bar||!!document.querySelector('.sales-lines-block .ss-bulk')!==salesServiceVisibleSelected().length>0){
+  if(!!document.querySelector('.sales-lines-block .ss-bulk')!==salesServiceVisibleSelected().length>0&&(typing||!salesLinesBarsRefresh())){
     var f=typing&&document.querySelector('[data-mk-field="'+typing+'"]'),key=f&&typing,pos=f&&f.selectionStart;render();
     if(key)requestAnimationFrame(function(){var e=document.querySelector('[data-mk-field="'+key+'"]');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});
     return;
   }
+  bar=document.querySelector('[data-mk-bar]');
   document.querySelectorAll('.sales-lines-table tr[data-metrics-line-id]').forEach(function(tr){var on=soSelectedLines.has(tr.dataset.metricsLineId),cb=tr.querySelector('td.line-check input');tr.toggleAttribute('data-picked',on);if(cb)cb.checked=on;});
   var all=document.querySelector('.sales-lines-table thead .line-check input'),visible=salesServiceFilteredEntries();if(all)all.checked=visible.length>0&&visible.every(function(x){return soSelectedLines.has(x.line.id);});
+  if(!bar)return;
   ['from','to'].forEach(function(k){var e=bar.querySelector('[data-mk-field="'+k+'"]'),v=k==='from'?soRangeFrom:soRangeTo;if(e&&k!==typing&&e.value!==v)e.value=v;});
   bar.querySelector('[data-mk-live]').innerHTML=salesBulkLiveHTML();
 }
@@ -220,9 +222,29 @@ function salesOrderColumnCell(key,l,i,linked,st){
   if(key==='notes')return `<td><input class='line-notes line-notes-compact' value='${esc(l.notes)}' oninput='soDraft.lines[${i}].notes=this.value'></td>`;
   return '<td></td>';
 }
+/* Строка таблицы заказа: и в таблице, и новая внизу (salesLineAppend). */
+function salesOrderLineRow(x,columns){
+  var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${soSelectedLines.has(l.id)?' data-picked':''}${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onclick='salesLineCheck(event,"${esc(l.id)}")'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}${typeof purSalesLinksHTML==='function'?purSalesLinksHTML(soDraft.id,l,columns.length+3):''}`;
+}
+/* Полосы над таблицей меняются с выбором и числом строк, сама таблица — нет:
+   в заказе на 521 строку перерисовка всех строк стоила 250 мс на первую галочку. */
+function salesLinesBarsHTML(){return salesServiceFiltersHtml()+salesMakeupBarHTML();}
+function salesLinesBarsRefresh(){
+  var slot=document.querySelector('[data-lines-bars]');if(!slot)return false;
+  slot.innerHTML=readScope(salesLinesBarsHTML);storageLockButtons();return true;
+}
+/* Новая строка внизу — на месте. Таблица дорисована не до конца или под
+   фильтром — false, и строку покажет обычная перерисовка. */
+function salesLineAppend(line){
+  var body=document.querySelector('.sales-lines-table>tbody'),columns=salesOrderScreenColumns();
+  if(!body||listWindowTail()||soServiceFilter!=='all'||!body.querySelector('tr[data-metrics-line-id]'))return false;
+  body.insertAdjacentHTML('beforeend',readScope(function(){return salesOrderLineRow({line:line,index:soDraft.lines.indexOf(line)},columns);}));
+  salesLinesBarsRefresh();salesRefreshLineMetrics(line);return true;
+}
+const SALES_LINE_ROW_PX=45;
 function salesOrderLines(){
   var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce(function(n,g){return n+g.lines;},0),hasServices=pricing.charges>0||commercial.length>0,columns=salesOrderScreenColumns();
-  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag a header to move or resize</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesMakeupBarHTML()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services${cwTableClass('lines')}'${cwTableAttrs('lines',columns)}>${cwColgroup('lines',columns)}<thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${soSelectedLines.has(l.id)?' data-picked':''}${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onclick='salesLineCheck(event,"${esc(l.id)}")'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}${typeof purSalesLinksHTML==='function'?purSalesLinksHTML(soDraft.id,l,columns.length+3):''}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody>${salesOrderLinesFoot(entries.map(function(x){return x.line;}),columns)}</table></div>${salesCommercialOrderSummary()}</section>`;
+  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag a header to move or resize</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div><div class='sales-lines-bars' data-lines-bars>${salesLinesBarsHTML()}</div><div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services${cwTableClass('lines')}'${cwTableAttrs('lines',columns)}>${cwColgroup('lines',columns)}<thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${listWindowBody(entries,function(x){return salesOrderLineRow(x,columns);},columns.length+3,{table:'.sales-lines-table',rowPx:SALES_LINE_ROW_PX})||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody>${salesOrderLinesFoot(entries.map(function(x){return x.line;}),columns)}</table></div>${salesCommercialOrderSummary()}</section>`;
 }
 
 /* ---------- Edgework Set editor ---------- */
