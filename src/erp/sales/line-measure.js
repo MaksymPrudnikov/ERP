@@ -48,6 +48,9 @@ function salesMeasureSig(line,order){
     отпечатки заказов без них прежние. */
  const parts=[own,shape(line.shapeRef),lites,salesMeasurePart(m),order.customerId||'',salesMeasurePart(order.serviceSets||[]),salesMeasurePart(order.priceBook||{})];
  if(order.surchargeRates)parts.push(salesMeasurePart(order.surchargeRates));
+ /* Новое правило количеств (дюймы кромки как в Spiel, 02.11.2026): записанные
+    раньше строки считаются заново. */
+ parts.push('inches-2');
  return salesMeasureHash(JSON.stringify(parts));
 }
 /* Расчёт по фигуре — то, что записывается. */

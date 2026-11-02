@@ -51,11 +51,12 @@ module.exports=async function({page,eq,ok}){
   return {customer:[c.paymentMode,c.creditDays],orderHasTerms,csv,hst:next.company.hstNumber,kinds:Object.keys(next.documentSettings),proforma:[next.documentSettings.proforma.priceMode,next.documentSettings.proforma.signature,'bogus' in next.documentSettings.proforma]};
  }),{customer:['credit',30],orderHasTerms:false,csv:['credit','',30],hst:'123 RT0001',kinds:['proforma'],proforma:['glass',true,false]});
 
- eq('Full breakdown: строки под позицией складываются ровно в Unit price, итог строки — цена × Qty, как в заказе',await t.p.evaluate(()=>{
+ eq('Full breakdown: строки на всю позицию, итог считается целиком, Unit price на бланке нет (владелец, 02.11.2026)',await t.p.evaluate(()=>{
   const {l}=docFixture(),p=salesLineCommercialPrice(l,soDraft),it=docBuildModel('proforma',soDraft).items[0];
   const sum=it.groups.flatMap(g=>g.rows).reduce((s,r)=>s+docCents(r.amount),0);
-  return {complete:p.complete,groups:it.groups.map(g=>g.label),sumIsUnit:sum===Math.round(p.unit*100),amount:it.amount===docMoney(p.line),unitRow:it.unitRow.map(u=>u.label),lineIsUnitTimesQty:Math.round(p.line*100)===Math.round(p.unit*100)*3};
- }),{complete:true,groups:['Materials · per unit','Processing · per unit'],sumIsUnit:true,amount:true,unitRow:['Unit price','×','Line total'],lineIsUnitTimesQty:true});
+  const unit=docBuildModel('proforma',soDraft,{priceMode:'unit'}).items[0];
+  return {complete:p.complete,groups:it.groups.map(g=>g.label),sumIsLine:Math.abs(sum-Math.round(p.line*100))<=it.groups.flatMap(g=>g.rows).length,amount:it.amount===docMoney(p.line),unitRow:it.unitRow.map(u=>u.label),unitMode:unit.unitRow.map(u=>u.label),lineIsExact:p.line===salesCents(p.exact)};
+ }),{complete:true,groups:['Materials','Processing'],sumIsLine:true,amount:true,unitRow:['Line total'],unitMode:['Unit price','×','Line total'],lineIsExact:true});
 
  eq('Glass price only и Totals by group: цена строки без сервисов, группы складываются ровно в Subtotal',await t.p.evaluate(()=>{
   docFixture({lines:[[37,71,3,'W-1'],[100,110,1,'BIG']]});

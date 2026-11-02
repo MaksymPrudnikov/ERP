@@ -99,9 +99,10 @@ function salesLineAreasLive(line,order){
  /* Коммерческая площадь всегда идёт к следующей десятой. Обычный round
     занижал 33 × 80 с 18.3333 до 18.3 вместо подтверждённых 18.4 ft². */
  const rounded=valid?Math.ceil((Math.ceil(w)*Math.ceil(h)/144-1e-10)*10)/10:null;
- /* Периметр для продажи за погонную длину — вверх до целого дюйма, как в
-    Spiel (владелец, 22.10.2026); у фигуры — её контур. */
- const perimeterIn=valid?Math.ceil((shapeValid&&+r.perimeter>0?+r.perimeter:2*(Math.ceil(w)+Math.ceil(h)))-1e-9):null;
+ /* Периметр для продажи за погонную длину — как в Spiel (владелец, 22.10.2026
+    и 02.11.2026): у прямоугольника каждая сторона вверх до целого дюйма, у
+    него форма тоже есть, но она только хранит размер; у фигуры — её контур. */
+ const perimeterIn=valid?salesWholeInches(!salesPlainRect(shape)&&shapeValid&&+r.perimeter>0?+r.perimeter:2*(Math.ceil(w)+Math.ceil(h))):null;
  /* Минимальная площадь — самая большая из подходящих надбавок minArea. Вид
     юнита нужен только при условии по видам: без макапа условие не сходится. */
  let min=0,minBy=null;
@@ -113,30 +114,41 @@ function salesLineAreasLive(line,order){
    Number.EPSILON для сотен долларов мал, и шум float решал её то вверх, то
    вниз — от порядка умножения (4 заказа из 2634 на годе цеха после #328). */
 function salesMoney(value){return Math.round(+(value*100).toFixed(6))/100;}
+/* Счёт до цента как в Spiel (владелец, 02.11.2026: «нам нужно чтобы считало
+   до центика»; сверено на 4 заказах). Сумма остаётся точной до самого конца,
+   округляется один раз: готовое число — обычным округлением до цента. Раннее
+   округление цены юнита и давало расхождение. salesExact убирает только шум
+   двоичных чисел. */
+function salesExact(value){return +(+value).toFixed(6);}
+function salesCents(value){return +salesExact(value).toFixed(2);}
+/* Дюймы продажи: вверх до целого, как в Spiel. */
+function salesWholeInches(value){return Math.ceil(+value-1e-9);}
+function salesPlainRect(shape){return !shape||shape.type==='rectangle'&&!(shape.features||[]).length&&!shapeIsDxfSource(shape);}
 /* Порядок один: Energy → HST → Card fee, доставка и депозит в конце; что
-   входит в базу HST и карты — снимок заказа (erp/sales/order-setup). */
+   входит в базу HST и карты — снимок заказа (erp/sales/order-setup). subtotal —
+   точная сумма позиций; Energy считается от неё, а не от округлённой. */
 function salesApplyOrderCharges(subtotal,raw){
- const c=normalizeSalesOrderCharges(raw),base=salesMoney(+subtotal||0);
- const energy=c.energy.enabled?salesMoney(base*c.energy.rate/100):0;
+ const c=normalizeSalesOrderCharges(raw),exact=salesExact(+subtotal||0),base=salesCents(exact);
+ const energy=c.energy.enabled?salesCents(exact*c.energy.rate/100):0;
  const delivery=c.delivery.enabled?salesMoney(c.delivery.amount):0;
  const skidDeposit=c.skidDeposit.enabled?salesMoney(c.skidDeposit.amount):0;
  const part={energy,delivery},sum=(list,more)=>salesMoney(list.reduce((n,p)=>n+(more[p]||0),base));
- const hstBase=sum(c.hst.base,part),hst=c.hst.enabled?salesMoney(hstBase*c.hst.rate/100):0;
- const cardBase=sum(c.card.base,Object.assign({hst},part)),card=c.card.enabled?salesMoney(cardBase*c.card.rate/100):0;
+ const hstBase=sum(c.hst.base,part),hst=c.hst.enabled?salesCents(hstBase*c.hst.rate/100):0;
+ const cardBase=sum(c.card.base,Object.assign({hst},part)),card=c.card.enabled?salesCents(cardBase*c.card.rate/100):0;
  return {charges:c,subtotal:base,energy:energy,hstBase:hstBase,hst:hst,cardBase:cardBase,card:card,delivery:delivery,skidDeposit:skidDeposit,grand:salesMoney(base+energy+hst+card+delivery+skidDeposit)};
 }
 function salesOrderCommercialTotals(order){
  order=order||soDraft;let subtotal=0,missing=0,qty=0;
  /* Переделка NCR без оплаты: итог заказа $0, пока офис не снимет No charge. */
  if(order&&order.noCharge){(order.lines||[]).forEach(l=>{qty+=salesPositiveInt(l.qty,1);});const out=salesApplyOrderCharges(0,{});Object.keys(out).forEach(k=>{if(typeof out[k]==='number')out[k]=0;});out.complete=true;out.missing=0;out.qty=qty;out.noCharge=true;return out;}
- (order&&order.lines||[]).forEach(function(line){const p=salesLineCommercialPrice(line,order);qty+=p.qty;if(p.complete)subtotal+=p.line;else missing++;});
+ (order&&order.lines||[]).forEach(function(line){const p=salesLineCommercialPrice(line,order);qty+=p.qty;if(p.complete)subtotal+=p.exact;else missing++;});
  /* Позиции каталога — те же деньги, в тот же subtotal, без геометрии и без
     Makeup: у них попросту нет areas/services, которые считает p.complete выше. */
  (order&&order.extraItems||[]).forEach(function(x){const t=salesExtraItemLineTotal(x);qty+=salesPositiveInt(x.qty,1);if(t!=null)subtotal+=t;else missing++;});
  /* Отменённые юниты: клиент платит за сделанную работу (erp/sales/unit-cancel). */
  (order&&order.cancellations||[]).forEach(function(c){const v=unitChargeOf(c);if(v!=null)subtotal+=v;else missing++;});
  /* Поправки руками (normalizeSalesAdjustments). */
- (order&&order.adjustments||[]).forEach(function(a){if(Number.isFinite(+a.amount))subtotal=salesMoney(subtotal+(+a.amount));});
+ (order&&order.adjustments||[]).forEach(function(a){if(Number.isFinite(+a.amount))subtotal+=+a.amount;});
  const out=salesApplyOrderCharges(subtotal,order&&order.orderCharges);out.complete=!missing;out.missing=missing;out.qty=qty;return out;
 }
 /* Единица продажи айтема (план Master Data, этап 2, часть 3; владелец,
@@ -212,8 +224,8 @@ function salesLineMaterials(m,areas,order){
    parts.forEach(x=>add('Cavity '+(i+1)+' · '+x.label,salesSurroundPartPrice(x),x.table,x.item,()=>x.usedKg));}
   for(let k=at;k<out.rows.length;k++)out.rows[k].cavity=i;
  });
- plain=Math.round(plain*100)/100;out.amount+=plain*areas.billable;
- out.total=out.rows.some(r=>r.special)&&areas.billable>0?Math.round(out.amount/areas.billable*100)/100:plain;
+ out.amount=salesExact(out.amount+plain*areas.billable);
+ out.total=out.rows.some(r=>r.special)&&areas.billable>0?Math.round(out.amount/areas.billable*100)/100:Math.round(plain*100)/100;
  return out;
 }
 /* Мин. и макс. размер айтема — только предупреждение (владелец, 22.10.2026). */
@@ -237,7 +249,7 @@ function salesLineCommercialPrice(line,order){
 function salesLinePriceLive(line,order){
  const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),q=salesPositiveInt(line.qty,1),live=Math.max(0,q-unitCancelled(line));
  const rate=salesLineMaterials(m,areas,order),services=salesLinePricingSummary(line),materials=areas.valid?rate.amount:0;
- const base=salesMoney(materials+services.total/q);
+ const base=salesExact(materials+services.total/q);
  const unsupportedCurrency=!!(order.currency&&order.currency!=='CAD');
  const incomplete=!areas.valid||!m||!rate.known||services.unpriced>0||unsupportedCurrency;
  /* Процентные надбавки — по приоритету; onTop — от цены с предыдущими. */
@@ -245,13 +257,15 @@ function salesLinePriceLive(line,order){
  const adjustments=areas.valid?salesSurcharges(order).filter(x=>x.rule.kind==='percent'&&salesSurchargeFits(x.rule,kinds,areas.billable))
   .sort((a,b)=>a.rule.priority-b.rule.priority).map(x=>({key:'svc:'+x.id,svc:x.id,label:x.name,percent:x.value,onTop:x.rule.onTop,rule:x.rule,catalog:x.catalog||null})):[];
  let running=base;
- adjustments.forEach(a=>{a.base=a.onTop?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
+ adjustments.forEach(a=>{a.base=a.onTop?running:base;a.amount=salesExact(a.base*a.percent/100);running=salesExact(running+a.amount);});
  /* chargeRows — строки работ, по которым посчитана цена: отчёт Products sold
-    берёт их отсюда, а не считает второй раз (фигура — самое дорогое). */
- const out={areas:areas,materialRate:rate.total,materialRows:rate.rows,chargeRows:services.rows,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,qty:live,ordered:q,cancelled:q-live};
+    берёт их отсюда, а не считает второй раз (фигура — самое дорогое).
+    materials, services, base, unit — точные суммы на юнит; exact — точная
+    сумма строки, в итог заказа идёт она; line — она же в центах для показа. */
+ const out={areas:areas,materialRate:rate.total,materialRows:rate.rows,chargeRows:services.rows,materials:salesExact(materials),services:salesExact(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,exact:incomplete?null:salesExact(running*live),line:incomplete?null:salesCents(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,qty:live,ordered:q,cancelled:q-live};
  /* Цена руками: итоговая цена юнита, наценки к ней не прибавляются; расчёт
     остаётся для справки (computedUnit). */
- if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,line:salesMoney(v*live),complete:true,unsupportedCurrency:false});}
+ if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,exact:salesExact(v*live),line:salesCents(v*live),complete:true,unsupportedCurrency:false});}
  return out;
 }
 function salesLineCommercialAdjustments(line,order){

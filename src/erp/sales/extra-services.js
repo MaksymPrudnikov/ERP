@@ -44,11 +44,7 @@ function salesExtraServiceBasis(line,x){
   if(x.qty!=null)return x.qty;
   var unit=salesExtraServiceUnit(x);
   if(unit==='ft²'){var a=salesLineAreas(line,soDraft);return a.valid?a.billable:0;}
-  if(unit==='in'){
-    var s=salesLineGeometryShape(line),r=s?ShapeModule.compute(s):null;
-    if(r&&r.valid)return salesShapePerimeterIn(r);
-    return 2*((+line.width16||0)+(+line.height16||0))/16;
-  }
+  if(unit==='in'){var b=salesLineAreas(line,soDraft);return b.valid?b.perimeterIn:0;}
   return 1;
 }
 function salesExtraServiceRows(line){

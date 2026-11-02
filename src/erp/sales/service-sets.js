@@ -534,7 +534,9 @@ salesLineChargeRowsRaw=function(line){
           if(!meta)return;
           var key=meta.id+':'+meta.bandKey;
           if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,from:meta.from,svc:meta.svc,length:0};order.push(key);}
-          acc[key].length+=group.length*(target.count||1);
+          /* Как в Spiel: у прямоугольника каждая сторона вверх до целого
+             дюйма; у фигуры контур целиком — ниже, при записи строки. */
+          acc[key].length+=(salesPlainRect(saved)?salesWholeInches(group.length):group.length)*(target.count||1);
         });
       });});
     });
@@ -544,7 +546,7 @@ salesLineChargeRowsRaw=function(line){
     var manyThickness=new Set(order.map(function(k){return acc[k].mm;})).size>1;
     order.forEach(function(key){
       var x=acc[key];
-      rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),x.length,'in',x.rate,'Effective Edge Processing',x.from,x.svc));
+      rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),salesWholeInches(x.length),'in',x.rate,'Effective Edge Processing',x.from,x.svc));
     });
   }
   if(saved&&!shapeIsDxfSource(saved)){
