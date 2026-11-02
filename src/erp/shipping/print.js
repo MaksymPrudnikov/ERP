@@ -61,7 +61,8 @@ function shippingPages(d,skidOnly){
  const header=title=>{
   pageTitle=title;P=docPage();pages.push(P);P.text(36,44,docFit(d.company.name||'Glass Farm',13,true,320),{size:13,bold:true});
   P.text(576,44,title,{size:17,bold:true,align:'right'});P.text(576,64,d.number||'Not assigned',{size:13,bold:true,align:'right'});
-  if(d.number&&title==='PACKING SLIP')P.items.push(...barcode128Items(d.number,390,75,30,1.05));
+  /* Штрихкод у правого края, под номером; полоса 0.02″ читается любым сканером. */
+  if(d.number&&title==='PACKING SLIP')P.items.push(...barcode128Items(d.number,576-(barcode128Width(d.number)-BARCODE128_QUIET)*1.44,75,30,1.44));
   y=64;d.company.lines.slice(0,3).forEach(t=>{P.text(36,y,docFit(t,8,false,330),{size:8,color:DOC_COLOR.mut});y+=11;});y=Math.max(y+8,121);
   P.text(36,y,d.customer,{size:12,bold:true});P.text(576,y,docDate(d.date)+' · '+(d.method==='pickup'?'Pickup':'Delivery'),{size:9,align:'right'});y+=17;
   const a=d.shipTo;[a.addressee,docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean).forEach(t=>{docWrap(t,9,false,540).forEach(t=>{P.text(36,y,t,{size:9});y+=13;});});y+=12;

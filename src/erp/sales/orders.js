@@ -546,7 +546,7 @@ function salesCavitySetWidth(i,size){
 }
 
 function salesOrderLineIsBlank(l){return !!l&&!l.width16&&!l.height16&&!salesString(l.mark)&&!salesString(l.notes)&&!(l.shapeRef&&l.shapeRef.id)&&!Object.keys(l.chargePricing||{}).length&&salesPositiveInt(l.qty,1)===1;}
-function salesOrderAddLine(makeupId,focus){const m=salesMakeupById(soDraft,makeupId)||salesCurrentMakeup();if(!m)return;const prev=soDraft.lines[soDraft.lines.length-1];const line=normalizeSalesOrderLine({makeupId:m.id,qty:prev?prev.qty:1});soDraft.lines.push(line);if(!salesLineAppend(line))render();if(focus)setTimeout(salesFocusLastWidth,0);}
+function salesOrderAddLine(makeupId,focus){const m=salesMakeupById(soDraft,makeupId)||salesCurrentMakeup();if(!m)return;const prev=soDraft.lines[soDraft.lines.length-1];const line=normalizeSalesOrderLine({makeupId:m.id,qty:prev?prev.qty:1});soDraft.lines.push(line);if(!salesLineAppend(line))render();if(focus)setTimeout(salesFocusLastQty,0);}
 function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSalesOrderLine({makeupId:(salesCurrentMakeup()||soDraft.makeups[0]).id,qty:1}));render();}
 /* Форма принадлежала строке — уходит вместе с ней. */
 /* Строка сохранённого заказа уходит пока только из черновика: закроют без
@@ -593,7 +593,7 @@ function salesStockPickerChoose(table,id,qty){soStockPickerOpen=false;salesExtra
 function salesExtraItemRemove(id){soDraft.extraItems=(soDraft.extraItems||[]).filter(x=>x.id!==id);render();}
 function salesExtraItemSetQty(id,v){const x=(soDraft.extraItems||[]).find(x=>x.id===id);if(!x)return;x.qty=salesPositiveInt(v,1);render();}
 function salesExtraItemSetPrice(id,v){const x=(soDraft.extraItems||[]).find(x=>x.id===id);if(!x)return;x.priceOverride=salesNonNegOrNull(v);render();}
-function salesFocusLastWidth(){listWindowAll();const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
+function salesFocusLastQty(){listWindowAll();const a=document.querySelectorAll('input.line-qty'),el=a[a.length-1];if(el&&!el.disabled)salesLineFocus(el);}
 function salesLineDimChange(i,key,el){
  const line=soDraft.lines[i],n=salesDimTo16(el.value);
  if(salesLineLocked(line)||salesLockedLineGuard(line)){render();return;}
@@ -615,7 +615,24 @@ function salesLineDimChange(i,key,el){
    (проход «как человек», 7.10.2026). Итоги строки и заказа обновляются на
    месте. */
 function salesLineQtyChange(i){const line=soDraft&&soDraft.lines[i];if(!line)return;salesRefreshLineMetrics(line);}
-function salesLineMarkKey(i,e){if(e.key!=='Tab'||e.shiftKey)return;const l=soDraft.lines[i];if(!l||!l.width16||!l.height16)return;e.preventDefault();salesOrderAddLine(l.makeupId,true);}
+/* Tab в строке заказа (владелец, 02.11.2026): Qty → Width → Height → Mark →
+   Notes → Qty следующей строки, в порядке колонок на экране. Кнопки Shape и
+   Services — мышью: при наборе размеров Tab на них не останавливается.
+   Последняя строка с размерами — новая строка, Tab начинает её с Qty. */
+function salesLineInputs(tr){return [...tr.querySelectorAll('input.line-qty,input.line-dim,input.line-mark,input.line-notes')].filter(x=>!x.disabled&&!x.readOnly);}
+function salesLineFocus(el){if(!el)return;el.focus();try{el.select();}catch(e){}}
+function salesLineTab(i,e){
+ if(e.key!=='Tab'||e.shiftKey)return;
+ const row=e.target.closest('tr'),own=salesLineInputs(row),next=own[own.indexOf(e.target)+1];
+ if(next){e.preventDefault();salesLineFocus(next);return;}
+ const after=soDraft.lines[i+1],l=soDraft.lines[i];
+ if(after){
+  const find=()=>document.querySelector('[data-metrics-line-id="'+after.id+'"]');
+  if(!find())listWindowAll();
+  e.preventDefault();salesLineFocus(salesLineInputs(find())[0]);return;
+ }
+ if(l&&l.width16&&l.height16){e.preventDefault();salesOrderAddLine(l.makeupId,true);}
+}
 function salesToggleLine(id,on){if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);salesRefreshBulkBar();}
 function salesToggleAllLines(on){soSelectedLines=new Set(on?soDraft.lines.map(l=>l.id):[]);render();}
 function salesRefreshBulkBar(){const el=document.getElementById('salesBulkCount');if(el)el.textContent=soSelectedLines.size+' selected';}

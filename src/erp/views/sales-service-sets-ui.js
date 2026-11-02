@@ -212,14 +212,14 @@ function salesOrderColumnCell(key,l,i,linked,st){
   if(key==='qty'){
    /* Строка в батче, стекло не порезано: количество только вниз (salesLineShrinkable). */
    var max=salesLineLocked(l)&&salesLineShrinkableInDraft(l)?((salesRecord(soDraft.id).lines||[]).find(function(x){return x.id===l.id;})||{}).qty:0;
-   return `<td><input class='line-qty' type='number' min='1' step='1' inputmode='numeric'${max?` max='${max}' title='Not cut yet — fewer units only'`:''} value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=${max?`Math.min(${max},salesPositiveInt(this.value,1))`:'salesPositiveInt(this.value,1)'}' onchange='salesLineQtyChange(${i})'></td>`;
+   return `<td><input class='line-qty' type='number' onkeydown='salesLineTab(${i},event)' min='1' step='1' inputmode='numeric'${max?` max='${max}' title='Not cut yet — fewer units only'`:''} value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=${max?`Math.min(${max},salesPositiveInt(this.value,1))`:'salesPositiveInt(this.value,1)'}' onchange='salesLineQtyChange(${i})'></td>`;
   }
-  if(key==='width')return `<td><input data-so-width class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.width16))}' placeholder='34 13/16' onchange='salesLineDimChange(${i},"width",this)'></td>`;
-  if(key==='height')return `<td><input class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.height16))}' placeholder='15 5/16' onchange='salesLineDimChange(${i},"height",this)'></td>`;
-  if(key==='mark')return `<td><input class='line-mark' value='${esc(l.mark)}' oninput='soDraft.lines[${i}].mark=this.value' onkeydown='salesLineMarkKey(${i},event)'></td>`;
+  if(key==='width')return `<td><input data-so-width class='line-dim' onkeydown='salesLineTab(${i},event)' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.width16))}' placeholder='34 13/16' onchange='salesLineDimChange(${i},"width",this)'></td>`;
+  if(key==='height')return `<td><input class='line-dim' onkeydown='salesLineTab(${i},event)' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.height16))}' placeholder='15 5/16' onchange='salesLineDimChange(${i},"height",this)'></td>`;
+  if(key==='mark')return `<td><input class='line-mark' value='${esc(l.mark)}' oninput='soDraft.lines[${i}].mark=this.value' onkeydown='salesLineTab(${i},event)'></td>`;
   if(key==='shape')return `<td>${salesLineShapeCell(l,i)}</td>`;
   if(key==='services')return `<td class='line-services-cell'>${salesLineServicesSummary(l)}</td>`;
-  if(key==='notes')return `<td><input class='line-notes line-notes-compact' value='${esc(l.notes)}' oninput='soDraft.lines[${i}].notes=this.value'></td>`;
+  if(key==='notes')return `<td><input class='line-notes line-notes-compact' value='${esc(l.notes)}' onkeydown='salesLineTab(${i},event)' oninput='soDraft.lines[${i}].notes=this.value'></td>`;
   return '<td></td>';
 }
 /* Строка таблицы заказа: и в таблице, и новая внизу (salesLineAppend). */

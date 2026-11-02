@@ -115,6 +115,29 @@ module.exports=async function({page,eq,ok}){
   const row=document.querySelector('[data-ps="'+s.number+'"]'),card=document.querySelector('.shipping-detail');
   return {date:row.cells[2].textContent===salesListShortDay(finToday()),pill:row.querySelector('.pill.st-new').textContent,card:card.querySelector('.shipping-customer-head .pill').textContent,head:[...card.querySelectorAll('th')].map(e=>e.textContent).join('|'),main:card.querySelector('button.pri').textContent,toolbar:!!document.querySelector('.shipping-toolbar [data-order-lookup]')};
  }),{date:true,pill:'Planned',card:'Planned',head:'Line / Mark|Size|Makeup|Skids|Qty|Before|Back order',main:'Ship',toolbar:true});
+ eq('Create packing slip: только отмеченное; без выбора — все заказы с готовым, без пустых заголовков',await t.p.evaluate(()=>{
+  const ids=shSeed(3),o=salesRecord(ids[1]),u=shippingAvailable(o)[0];tab='shipping';shippingTab='ready';render();
+  shippingCustomer=o.customerId;shippingSelection.clear();shippingSelection.add(u.label);shippingOpen(o.customerId);render();
+  const heads=()=>[...document.querySelectorAll('.shipping-modal h4')].map(h=>h.textContent.includes(o.businessNumber)),picked={heads:heads(),rows:document.querySelectorAll('.shipping-modal .shipping-pick').length};
+  shippingDraft=null;shippingSelection.clear();shippingOpen(o.customerId);render();const all=heads().length,edit=shCreate([ids[0]]).value;
+  shippingDraft=null;shippingOpen(o.customerId,edit.id);render();const empty=[...document.querySelectorAll('.shipping-modal h4')].filter(h=>!h.nextElementSibling||!h.nextElementSibling.matches('.shipping-pick')).length;
+  shippingDraft=null;render();return {picked,all,empty};
+ }),{picked:{heads:[true],rows:1},all:3,empty:0});
+ eq('Штрихкод Packing slip: у правого края листа, полоса 0.02″',await t.p.evaluate(()=>{
+  const [id]=shSeed(),s=shCreate([id]).value,bars=shippingPages(shippingDocument(s))[0].items.filter(i=>i.t==='rect'&&i.fill==='#000000');
+  return {right:Math.round(Math.max(...bars.map(b=>b.x+b.w))),thin:Math.min(...bars.map(b=>b.w))};
+ }),{right:576,thin:1.44});
+ eq('Просмотр PS: окно поверх списка, страница на месте; × закрывает',await t.p.evaluate(()=>{
+  const [id]=shSeed(),s=shCreate([id]).value;tab='shipping';shippingTab='shipments';shippingOpenId='';render();const y=scrollY;shippingShow(s.id);
+  const win=document.querySelector('.sales-service-modal-back .shipping-detail-window .shipping-detail'),over=getComputedStyle(document.querySelector('.shipping-detail-back')).position,list=!!document.querySelector('[data-ps="'+s.number+'"]');
+  document.querySelector('.shipping-detail-close').click();return {win:!!win,over,list,same:scrollY===y,closed:!document.querySelector('.shipping-detail'),id:shippingOpenId};
+ }),{win:true,over:'fixed',list:true,same:true,closed:true,id:''});
+ eq('Старый PS с заказом в архиве печатается, Order not found только у пропавшего заказа',await t.p.evaluate(()=>{
+  const [id]=shSeed(),s=shCreate([id],null,'delivery').value;shippingMarkShipped(s.id);shippingMarkDelivered(s.id);
+  const o=salesRecord(id);DB.salesOrder=DB.salesOrder.filter(x=>x.id!==id);storageInvalidate();archiveIndex.set(id,{customerId:o.customerId,day:finToday()});
+  const before=window.shPrints||0;shippingNotice=null;shippingPrint(s.id);const printed=(window.shPrints||0)-before,notice=shippingNotice;
+  archiveIndex.delete(id);shippingNotice=null;shippingPrint(s.id);const gone=shippingNotice&&shippingNotice.text;shippingNotice=null;return {printed,notice,gone};
+ }),{printed:1,notice:null,gone:'Order not found.'});
  eq('PS includes unselected order lines with Now zero and the remaining backorder',await t.p.evaluate(()=>{
   const [id]=shSeed(),s=shCreate([id],1).value,d=shippingDocument(s);return d.orders[0].rows.map(r=>[r.ordered,r.before,r.now,r.back]);
  }),[[2,0,1,1],[1,0,0,1]]);

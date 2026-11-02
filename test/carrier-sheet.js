@@ -50,16 +50,17 @@ module.exports=async function({page,eq,ok}){
   return {label,printed:window.csPrinted,heads,by,at:/by Oleg at SHIPR/.test(foot),hidden};
  }),{label:'Print what is on SL-1',printed:1,heads:'#,Line,Mark,Size,Glass,Glass / unit ID,Batch,Next,Due,Weight kg,Put on',by:'Oleg',at:true,hidden:true});
 
- eq('CUT: в окне долли — кнопка печати, набор CUT; Shipping → Ready: Skid sheet печатает тот же лист скида',await t.p.evaluate(()=>{
+ eq('CUT: в окне долли — кнопка печати, набор CUT; Shipping → Ready: Skid sheet открывает окно с Columns, Print — тот же лист скида',await t.p.evaluate(()=>{
   csReset();const id=csSkid();
   const d=oqOrder(oqCustomer({legalName:'Vista Railings'}));salesDraftDrop();oqThrough(d,'batched');const g=[...glassPieceMap(d).values()].flatMap(r=>r.ids).slice(0,2);
   csLogin('CUT','Roman H.');stationSubmit('DL-1');g.forEach(x=>stationSubmit(x));stationDollyOpen('DL-1');
   const dolly=!!document.querySelector('[data-station-print="DL-1"]');document.querySelector('[data-station-print="DL-1"]').click();const cut=!!document.querySelector('#carrierPrintHost [data-carrier-sheet="DL-1"]');
   window.dispatchEvent(new Event('afterprint'));stationDrawer=null;stationSwitch();
   tab='shipping';shippingTab='ready';render();const b=document.querySelector('[data-skid-sheet="SL-1"]');b.click();
+  const win=!!document.querySelector('[data-carrier-cols-button]'),held=window.csPrinted;carrierPrint();carrierWinClose();
   const sheet=document.querySelector('#carrierPrintHost [data-carrier-sheet="SL-1"]'),old=document.querySelectorAll('.doc-print-page').length;window.dispatchEvent(new Event('afterprint'));tab='dashboard';render();
-  return {dolly,cut,shipping:!!sheet,kind:sheet&&sheet.querySelector('.cs-code small').textContent,old,printed:window.csPrinted};
- }),{dolly:true,cut:true,shipping:true,kind:'SKID CONTENTS',old:0,printed:2});
+  return {dolly,cut,win,held,shipping:!!sheet,kind:sheet&&sheet.querySelector('.cs-code small').textContent,old,printed:window.csPrinted};
+ }),{dolly:true,cut:true,win:true,held:1,shipping:true,kind:'SKID CONTENTS',old:0,printed:2});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
