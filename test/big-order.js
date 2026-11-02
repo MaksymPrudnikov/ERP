@@ -65,10 +65,10 @@ module.exports=async function({page,eq}){
   return {few:first<=80,tail,foot,all,range,shift,end};
  }),{few:true,tail:true,foot:true,all:450,range:291,shift:416,end:{rows:450,tail:false,picked:true,out:false,num:'450'}});
 
- eq('+ Line в недорисованном заказе: строка в странице, курсор в её Width, итог с новой строкой',await run(async()=>{
+ eq('+ Line в недорисованном заказе: строка в странице, курсор в её Qty, итог с новой строкой',await run(async()=>{
   boOrder(450);window.requestIdleCallback=()=>0;render();render();
   const before=boRows().length;salesOrderAddLine(null,true);await new Promise(r=>setTimeout(r,20));
-  const rows=boRows(),last=rows[rows.length-1],focus=document.activeElement===last.querySelector('[data-so-width]');
+  const rows=boRows(),last=rows[rows.length-1],focus=document.activeElement===last.querySelector('input.line-qty');
   delete window.requestIdleCallback;
   return {few:before<=80,rows:rows.length,lines:soDraft.lines.length,focus,num:last.querySelector('.line-num').textContent.trim()};
  }),{few:true,rows:451,lines:451,focus:true,num:'451'});
@@ -78,9 +78,10 @@ module.exports=async function({page,eq}){
   const renders=boCount('render',()=>salesOrderAddLine(null,false));
   const rows=boRows(),attn=[...document.querySelectorAll('.ss-filter')].map(b=>b.textContent.replace(/\s+/g,' ').trim());
   const qty=soDraft.lines.reduce((s,l)=>s+l.qty,0);
-  /* Tab из Mark заполненной строки — та же дорога, курсор в новой Width. */
-  salesLineMarkKey(0,{key:'Tab',shiftKey:false,preventDefault(){}});await new Promise(r=>setTimeout(r,20));
-  const after=boRows(),focus=document.activeElement===after[after.length-1].querySelector('[data-so-width]');
+  /* Tab из последнего поля заполненной последней строки — та же дорога, курсор в новой Qty. */
+  const end=soDraft.lines.length-1,box=salesLineInputs(boRows()[end]);soDraft.lines[end].width16=480;soDraft.lines[end].height16=480;
+  salesLineTab(end,{key:'Tab',shiftKey:false,preventDefault(){},target:box[box.length-1]});await new Promise(r=>setTimeout(r,20));
+  const after=boRows(),focus=document.activeElement===after[after.length-1].querySelector('input.line-qty');
   return {renders,same:table===document.querySelector('.sales-lines-table'),kept:boRows()[2].querySelector('.line-mark')===mark&&mark.value==='typing',rows:rows.length,num:rows[5].querySelector('.line-num').textContent.trim(),foot:boFoot()===String(qty+soDraft.lines[6].qty),all:attn.some(x=>x==='All 7'||x==='All 6'),focus,lines:soDraft.lines.length};
  }),{renders:0,same:true,kept:true,rows:6,num:'6',foot:true,all:true,focus:true,lines:7});
 

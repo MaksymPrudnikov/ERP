@@ -18,6 +18,16 @@ module.exports=async function({page,eq,ok}){
   const l=soDraft.lines[0];return {qty:l.qty,width:l.width16/16,shown:document.querySelector('input[data-so-width]').value};
  }),{qty:3,width:20,shown:'20'});
 
+ /* Tab настоящей клавиатурой: Qty → Width → Height → Mark → Notes → Qty следующей строки. */
+ const owLines=await t.p.evaluate(()=>{const n=soDraft.lines.length;salesOrderAddLine(null,false);const l=soDraft.lines[n];l.width16=320;l.height16=320;render();return n;});
+ const where=()=>t.p.evaluate(()=>{const a=document.activeElement,r=a.closest('tr');return a.className.split(' ')[0]+'@'+soDraft.lines.findIndex(l=>l.id===(r&&r.dataset.metricsLineId));});
+ await t.p.locator('input.line-qty').first().focus();
+ const path=[];for(let i=0;i<5;i++){await t.p.keyboard.press('Tab');path.push(await where());}
+ eq('Tab в строке заказа: Qty, Width, Height, Mark, Notes и Qty следующей строки, без Shape и Services',path,['line-dim@0','line-dim@0','line-mark@0','line-notes@0','line-qty@1']);
+ await t.p.locator('input.line-notes').last().focus();await t.p.keyboard.press('Tab');await t.p.waitForTimeout(30);
+ eq('Tab из конца последней строки с размерами: новая строка, курсор в её Qty',await where(),'line-qty@'+(owLines+1));
+ await t.p.evaluate(n=>{soDraft.lines.length=n;render();},owLines);
+
  eq('курсор переживает перерисовку: поле PO снова в фокусе с той же кареткой; закрытое окно фокус не крадёт',await t.p.evaluate(()=>{
   const po=[...document.querySelectorAll('#app input')].find(i=>/customerPo/.test(i.getAttribute('oninput')||i.getAttribute('onchange')||''));
   if(!po)return 'no PO field';

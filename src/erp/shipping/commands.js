@@ -163,7 +163,9 @@ function shippingWithChecks(ids,method,printing,done){
  const run=n=>{
   if(shippingCheckStamp()!==stamp){shippingNotice={error:true,text:'Data changed. Review and try again.'};render();return;}
   if(n===ids.length){done();return;}
-  const o=salesRecord(ids[n]);if(!o){shippingNotice={error:true,text:'Order not found.'};render();return;}
+  /* Заказ в архиве — закрыт и оплачен, проверять нечего; старый лист печатается. */
+  const o=salesRecord(ids[n]);if(!o&&typeof archiveKnown==='function'&&archiveKnown(ids[n])){run(n+1);return;}
+  if(!o){shippingNotice={error:true,text:'Order not found.'};render();return;}
   const checks=salesTransitionChecks(Object.assign({},o,{delivery:method}),'done').filter(c=>c.pay!=null||c.perOrder||!told.has(o.customerId)).map(c=>{
    const out=Object.assign({},c,{anyway:printing?'Print anyway':'Create anyway'});if(c.pay!=null||c.perOrder)return out;
    told.add(o.customerId);
