@@ -16,3 +16,32 @@
 .delivery-km{display:inline-flex;align-items:center;gap:6px;margin-left:10px}
 .delivery-km b{font-variant-numeric:tabular-nums}
 .skids-acts{display:inline-flex;gap:8px;flex-wrap:wrap}
+/* Вкладки Shipping — таблетки в карточке (владелец, 02.11.2026, «верх А»). */
+.shipping-workspace>.oq-tabs{gap:8px;padding:12px 16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
+.shipping-workspace>.oq-tabs button{padding:5px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:12px;font-weight:600;color:var(--text);box-shadow:none}
+.shipping-workspace>.oq-tabs button b{margin-left:6px;padding:0;background:none;font-size:11px;font-weight:500;color:var(--text-2)}
+.shipping-workspace>.oq-tabs button.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}
+.shipping-workspace>.oq-tabs button.on b{color:inherit;opacity:.8}
+/* Список PS: слева дни, справа листы дня (владелец, 02.11.2026, вариант 3). */
+.ship-split{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px;align-items:start}
+.ship-split>.card{margin:0}
+.ship-days{display:grid;gap:2px;padding:14px 10px;position:sticky;top:12px}
+.ship-days h5{margin:6px 10px;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-2)}
+.ship-days p{margin:6px 10px}
+.ship-day{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;padding:8px 10px;border:0;border-radius:8px;background:transparent;color:var(--text);font-size:13px;font-weight:600;text-align:left}
+.ship-day b{font-size:12px;font-weight:500;color:var(--text-2)}
+.ship-day:hover{background:var(--surface-2)}
+.ship-day.on{background:var(--accent);color:var(--on-solid)}
+.ship-day.on b{color:inherit;opacity:.8}
+.shipping-scan.ship-top{gap:8px;padding:12px 20px;border-bottom:0;align-items:center}
+.ship-top label,.ship-top label:first-child{display:inline-flex;flex:none;min-width:0;gap:8px;align-items:center;white-space:nowrap;font-size:12px;font-weight:600;color:var(--text-2)}
+.ship-top input,.ship-top select{min-height:34px;font-size:13px}
+.ship-top #shippingSigned{width:130px}
+.ship-top #shippingReceiver{width:120px}
+.ship-top #shippingReceivedOn{width:128px}
+.ship-top .shipping-lookup-field input{width:110px}
+.ship-top>select{width:176px}
+.shipping-ps-table td.sales-row-actions{text-align:right}
+.shipping-ps-table .shipping-pills{flex-wrap:nowrap}
+@media(max-width:1400px){.ship-split{grid-template-columns:160px minmax(0,1fr)}}
+@media(max-width:1100px){.ship-split{grid-template-columns:minmax(0,1fr)}.ship-days{position:static;display:flex;gap:6px;padding:8px;overflow-x:auto}.ship-days h5,.ship-days p{display:none}.ship-day{width:auto;flex:none;gap:10px}}

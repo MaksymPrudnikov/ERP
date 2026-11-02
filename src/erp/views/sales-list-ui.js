@@ -130,7 +130,8 @@ function salesListCleanPrefs(p){
  const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,statusHidden:p.statusHidden===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all',calc,pinned:(Array.isArray(p.pinned)?p.pinned:[]).filter(k=>salesListColumn(k))};
  if(tab==='inventory'&&p.inventoryDateInitialized!==true&&typeof invListDefaults==='function')Object.entries(invListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
  if(tab==='purchasing')clean.purchasingDateInitialized=true;
- if(salesListScope()==='sales'){const w=cwClean(p.widths);if(Object.keys(w).length)clean.widths=w;}
+ if(salesListCwId()){const w=cwClean(p.widths);if(Object.keys(w).length)clean.widths=w;}
+ if(salesListScope()==='shippingPS')clean.dayInit=p.dayInit===true;
  if(tab==='inventory')clean.inventoryDateInitialized=true;
  return clean;
 }
@@ -150,6 +151,8 @@ function salesListColumns(){
  /* Type нужна, только когда в списке больше одного вида: заказы, квоты, NCR. */
  return p.cols.filter(c=>c.on&&(c.k!=='type'||both)&&!salesListAutoHidden(c.k)).map(c=>salesListColumn(c.k));
 }
+/* Таблицы с ширинами и порядком за заголовок (views/col-widths): Sales и список PS. */
+function salesListCwId(){const s=salesListScope();return s==='sales'?'sales':s==='shippingPS'?'shipments':'';}
 function salesListNarrowRule(k){return salesListScope()==='sales'&&window.innerWidth<(SALES_LIST_NARROW[k]||0);}
 function salesListAutoHidden(k){return salesListNarrowRule(k)&&!salesListLoadPrefs().pinned.includes(k);}
 
@@ -347,7 +350,7 @@ function salesListBase(){
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
 function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(tab==='inventory'&&typeof invListDefaultSort==='function')return invListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
-function salesListDateColumn(){if(tab==='purchasing'&&typeof purListDateColumn==='function')return purListDateColumn();if(tab==='inventory'&&typeof invListDateColumn==='function')return invListDateColumn();return salesListScope()==='usersLog'?'when':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
+function salesListDateColumn(){if(tab==='purchasing'&&typeof purListDateColumn==='function')return purListDateColumn();if(tab==='inventory'&&typeof invListDateColumn==='function')return invListDateColumn();return salesListScope()==='usersLog'?'when':salesListScope()==='shippingPS'?'date':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos,skip){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(skip||[]).includes(k));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
@@ -473,7 +476,7 @@ function salesListFooter(rows,cols){
 function salesListCalcOptions(col){return col.type==='number'?SALES_LIST_CALC_NUMBER:SALES_LIST_CALC_TEXT;}
 function salesListCalc(col){const v=salesListLoadPrefs().calc[col.k];return salesListCalcOptions(col).some(x=>x[0]===v)?v:col.sum?'sum':'none';}
 function salesListSetCalc(k,v){const p=salesListLoadPrefs();p.calc[k]=v;salesListSavePrefs();render();}
-function salesListCalcHere(){return ['sales','optimization','shipping'].includes(salesListScope());}
+function salesListCalcHere(){return ['sales','optimization','shipping','shippingPS'].includes(salesListScope());}
 function salesListCalcCell(c,rows){
  const kind=salesListCalc(c);if(kind==='none')return '<td></td>';
  const vals=rows.map(r=>salesListValue(r,c.k)).filter(v=>v!=null&&v!==''),nums=vals.map(Number),total=nums.reduce((s,v)=>s+v,0);
@@ -616,7 +619,7 @@ function salesListApplyFilter(){const m=salesListMenu;if(!m||m.kind!=='filter')r
 function salesListColumnsHTML(style){
  const p=salesListLoadPrefs();
  const rows=p.cols.map((c,i)=>{const col=salesListColumn(c.k);return `<div class="sl-cols-row" draggable="true" data-col-row="${c.k}" ondragstart="salesListDragKey='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();salesListDropColumn('${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-col-toggle="${c.k}" ${c.on&&!salesListAutoHidden(c.k)?'checked':''} onchange="salesListSetColumn('${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="salesListMoveColumn('${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===p.cols.length-1?'disabled':''} onclick="salesListMoveColumn('${c.k}',1)">↓</button></div>`;}).join('');
- return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button>${salesListScope()==='sales'?`<button type="button" class="sl-btn" data-reset-widths ${cwFixed('sales')?'':'disabled'} onclick="salesListResetWidths()">Reset widths</button>`:''}</div></div>`;
+ return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button>${salesListCwId()?`<button type="button" class="sl-btn" data-reset-widths ${cwFixed(salesListCwId())?'':'disabled'} onclick="salesListResetWidths()">Reset widths</button>`:''}</div></div>`;
 }
 /* Шестерёнка на узком экране: включённая колонка видна всегда (прокрутка вбок),
    снятая снова прячется только здесь, а на широком экране остаётся. */
@@ -637,7 +640,7 @@ function salesListDropColumn(k){
  const [c]=cols.splice(at,1);cols.splice(cols.findIndex(x=>x.k===k),0,c);salesListSavePrefs();render();
 }
 function salesListStandardView(){const p=salesListLoadPrefs();p.cols=salesListCatalog().map(c=>({k:c.k,on:!!c.def}));p.pinned=[];delete p.widths;salesListSavePrefs();render();}
-/* Reset widths — только ширины Sales: порядок, видимость, фильтры и выбор строк на месте. */
+/* Reset widths — только ширины этой таблицы: порядок, видимость, фильтры и выбор строк на месте. */
 function salesListResetWidths(){delete salesListLoadPrefs().widths;salesListSavePrefs();render();}
 /* Перенос колонки за заголовок — тот же порядок, что в меню Columns. */
 function salesListMoveColumnTo(from,to,after){
@@ -651,6 +654,14 @@ cwRegister('sales',{
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
  def:k=>{const c=salesListColumn(k);return SALES_LIST_WIDTH[k]||(c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:[68],trail:20,fill:'customer'
+});
+/* Список PS (Shipping → Shipments): те же жесты, свои ширины; справа кнопка Print. */
+const SHIPPING_LIST_WIDTH={number:116,customer:110,date:84,method:94,skids:110,units:76,status:180};
+cwRegister('shipments',{
+ widths:()=>salesListLoadPrefs().widths||{},
+ save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
+ def:k=>SHIPPING_LIST_WIDTH[k]||100,
+ min:()=>CW_MIN,move:salesListMoveColumnTo,lead:[40],trail:70,fill:'customer'
 });
 
 /* ------------------------------ Выбор строк ---------------------------- */

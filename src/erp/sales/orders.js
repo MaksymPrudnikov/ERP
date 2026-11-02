@@ -107,6 +107,8 @@ function salesDraftKeepShapes(from,to){
    сохранённым, редактор формы строки закрывается вместе с заказом. */
 function salesDraftDrop(discard){
  soSavedBaseline=null;
+ /* Строки заказа дорисовываются в простое и читают soDraft (views/list-window). */
+ listWindowDrop('.sales-lines-table');
  const restored=!!discard&&salesShapeSnapshotRestore();
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
  salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();

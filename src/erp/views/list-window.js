@@ -11,7 +11,8 @@
    на 65 px). Поэтому первая отрисовка экрана длинная, запоминает ширины, а
    дальше колонки стоят на них с первого кадра.
    IN:  storageLockButtons (erp/storage), readScope (erp/read-scope)
-   OUT: listWindowBody(rows,rowHTML,span,opt), listWindowAll(), listWindowAfter() */
+   OUT: listWindowBody(rows,rowHTML,span,opt), listWindowAll(), listWindowAfter(),
+        listWindowDrop(table) */
 const LIST_BATCH=60,LIST_IDLE_ROWS=400,LIST_ROW_PX=55,LIST_ROW_MIN=28,LIST_AHEAD_PX=1500;
 let listRest=null,listScrollWait=false,listDraw=null;
 const listSizes=new Map();
@@ -23,10 +24,13 @@ function listWindowBody(rows,rowHTML,span,opt){
  const key=tab+':'+subtab+table,now=listSizes.has(key)?fit:Math.max(fit,LIST_IDLE_ROWS);
  listDraw=rows.length>fit?{key,table}:null;
  if(rows.length<=now){listRest=null;return rows.map(rowHTML).join('');}
- listRest={rows,rowHTML,at:now,rowPx};
+ listRest={rows,rowHTML,at:now,rowPx,table};
  return rows.slice(0,now).map(rowHTML).join('')+`<tr class="list-rest" data-list-rest><td colspan="${span}" style="height:${(rows.length-now)*rowPx}px"></td></tr>`;
 }
 function listWindowTail(){return listRest&&document.querySelector('[data-list-rest]');}
+/* Данных таблицы больше нет (заказ закрыли): дорисовка в простое и при прокрутке не
+   должна читать их после этого. Строка-распорка уйдёт со следующей отрисовкой. */
+function listWindowDrop(table){if(listRest&&listRest.table===table)listRest=null;}
 function listWindowGrow(){
  const tail=listWindowTail();if(!tail)return false;
  const r=listRest,end=Math.min(r.at+LIST_BATCH,r.rows.length);

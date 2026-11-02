@@ -197,13 +197,81 @@ function shippingReadyHTML(){
  }).join('')||'<div class="card empty">No units ready for a packing slip.</div>';
 }
 function shippingListScope(){return shippingTab==='shipments'?'shippingPS':shippingTab==='awaiting'?'shippingAwaiting':shippingTab==='done'?'shippingDone':'';}
-function shippingListColumns(){return [{k:'number',label:'Packing slip',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'date',label:'Date',type:'date'},{k:'method',label:'Method',type:'list'},{k:'skids',label:'Skids',type:'text',tokens:true},{k:'units',label:'Units',type:'number'},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
+function shippingListColumns(){return [{k:'number',label:'Packing slip',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'date',label:'Date',type:'date',range:[['today','Today'],['thisWeek','This week'],['last30','30 days'],['','All time']]},{k:'method',label:'Method',type:'list'},{k:'skids',label:'Skids',type:'text',tokens:true},{k:'units',label:'Units',type:'number',sum:true},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
 function shippingListInfos(){return (DB.shipment||[]).map(s=>({o:s,memo:{number:s.number,customer:salesCustomerDisplay(s.customerId),date:s.date,method:s.method==='pickup'?'Pickup':'Delivery',skids:(Array.isArray(s.skidsOut)?s.skidsOut:[...new Set(s.items.map(i=>i.skid).filter(Boolean))]).join(', '),units:s.items.length+s.extras.reduce((n,i)=>n+i.qty,0),status:shippingStatus(s)}}));}
-function shippingListHTML(){
- const infos=shippingListInfos(),cols=shippingListColumns(),rows=salesListRows(infos);
- const th=c=>`<th${c.type==='number'?' class="n"':''}><span class="sl-th">${c.label}<button class="sl-fbtn${salesListFilterActive(salesListLoadPrefs().filters[c.k])?' on':''}" aria-label="Filter ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;
+/* Список PS (владелец, 02.11.2026, вариант 3): слева дни, справа листы дня; шапка и
+   таблица — блоки Sales. День — фильтр колонки Date, поэтому та же кнопка Date, чипы
+   и меню колонки. Быстрый вид вне All смотрит поверх дней, как в Sales. */
+const SHIPPING_LIST_STATUSES=['Planned','Shipped','Delivered','Picked up','Cancelled'],SHIPPING_DAYS_SHOWN=12;
+let shippingStatusKey='';
+function shippingDayFilter(day){return salesListCleanFilter('date',{conds:[{op:'between',v:day,v2:day}]});}
+function shippingCurrentDay(){const d=salesListDateParts(salesListLoadPrefs().filters.date);return d.simple&&d.from&&d.from===d.to?d.from:'';}
+function shippingSetDay(day){
+ const p=salesListLoadPrefs();
+ if(day)p.filters.date=shippingDayFilter(day);else delete p.filters.date;
+ p.quick='all';salesListMenu=null;salesListSavePrefs();render();
+}
+/* Первый вход: сегодня, нет — ближайший прошлый день с PS, нет прошлых — самый ранний. */
+function shippingDayDefault(infos){
+ const days=[...new Set(infos.map(i=>i.o.date).filter(Boolean))].sort(),today=finToday(),past=days.filter(d=>d<=today);
+ return past.length?past[past.length-1]:days[0]||'';
+}
+function shippingAttention(s){return ['planned','shipped'].includes(s.status)&&s.date<finToday()||shippingNeedsReprint(s);}
+function shippingQuickTest(key,info){
+ if(key==='all')return true;
+ const s=info.o;
+ if(key==='today')return s.date===finToday();
+ if(key==='week'){const w=salesListPresetRange('thisWeek');return s.date>=w[0]&&s.date<=w[1];}
+ return shippingAttention(s);
+}
+function shippingQuickName(label){return label==='Due this week'?'This week':label;}
+/* Один All, как в Sales: снимает быстрый вид и статус, снимать нечего — прячет ряд статусов. */
+function shippingQuickPick(key){
+ const p=salesListLoadPrefs();
+ if(key==='all'){
+  if(p.quick==='all'&&!shippingStatusKey)p.statusHidden=!p.statusHidden;
+  shippingStatusKey='';p.quick='all';
+ }else p.quick=SALES_QUICK.some(q=>q[0]===key)?key:'all';
+ salesListSavePrefs();render();
+}
+function shippingStatusPick(key){shippingStatusKey=shippingStatusKey===key?'':key;render();}
+function shippingStatusPills(rows){
+ if(salesListLoadPrefs().statusHidden)return '';
+ const n={};rows.forEach(r=>{n[r.memo.status]=(n[r.memo.status]||0)+1;});
+ return `<span class="sl-filter-sep" aria-hidden="true"></span>${SHIPPING_LIST_STATUSES.map(k=>`<button type="button" class="sl-quick-pill sl-status-pill${k===shippingStatusKey?' on':''}" aria-pressed="${k===shippingStatusKey}" data-status-chip="${esc(k)}" onclick="shippingStatusPick(${esc(JSON.stringify(k))})">${k}<b>${(n[k]||0).toLocaleString('en-US')}</b></button>`).join('')}`;
+}
+function shippingDaysHTML(anyDay,quick){
+ const counts=new Map();anyDay.forEach(i=>counts.set(i.o.date,(counts.get(i.o.date)||0)+1));
+ const cur=quick==='all'?shippingCurrentDay():'',all=[...counts.keys()].sort().reverse();
+ let at=all.findIndex(d=>d<=finToday());if(at<0)at=all.length;
+ const days=all.slice(Math.max(0,at-3)).slice(0,SHIPPING_DAYS_SHOWN);
+ if(cur&&!days.includes(cur))days.push(cur),days.sort().reverse();
+ const none=quick==='all'&&!salesListFilterActive(salesListLoadPrefs().filters.date);
+ return `<aside class="card ship-days" aria-label="Days"><h5>Days</h5>${days.map(d=>`<button type="button" class="ship-day${d===cur?' on':''}" data-day="${d}" onclick="shippingSetDay('${d}')"><span>${esc(salesListShortDay(d))}</span><b>${counts.get(d)||0}</b></button>`).join('')||'<p class="mut">No packing slips.</p>'}<h5>Other</h5><button type="button" class="ship-day" data-day-pick onclick="salesListOpenDate(event,'date')"><span>Pick a date…</span></button><button type="button" class="ship-day${none?' on':''}" data-day-all onclick="shippingSetDay('')"><span>All time</span><b>${anyDay.length}</b></button></aside>`;
+}
+function shippingTripHTML(){return `<select aria-label="Customer for new trip" onchange="if(this.value)shippingOpen(this.value)"><option value="">Open a trip · customer</option>${(DB.customer||[]).filter(c=>c.status!=='archived').map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}</option>`).join('')}</select>`;}
+function shippingTopHTML(lookupField){
+ return `<div class="ship-top shipping-scan"><label>Signed packing slip<input id="shippingSigned" data-signed-ps placeholder="PS number" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingSigned(this.value)}"></label><input id="shippingReceiver" aria-label="Received by" value="${esc(shippingReceivedBy)}" placeholder="Received by" oninput="shippingReceivedBy=this.value"><input id="shippingReceivedOn" type="date" aria-label="Received on" title="Received on" value="${shippingReceivedOn||finToday()}" max="${finToday()}" onchange="shippingReceivedOn=this.value"><span class="sales-toolbar-sp"></span>${lookupField}${shippingTripHTML()}</div>`;
+}
+function shippingListFooter(rows,cols){
+ const n={};rows.forEach(r=>{n[r.memo.status]=(n[r.memo.status]||0)+1;});
+ const detail=SHIPPING_LIST_STATUSES.filter(k=>n[k]).map(k=>k+' '+n[k]).join(' · '),first=cols.findIndex(c=>salesListCalc(c)!=='none'),lead=first<0?cols.length:first;
+ return `<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head" data-foot-count><b>${rows.length.toLocaleString('en-US')} packing slip${rows.length===1?'':'s'}</b>${detail?`<small>${esc(detail)}</small>`:''}</td>${cols.slice(lead).map(c=>salesListCalcCell(c,rows)).join('')}<td></td></tr></tfoot>`;
+}
+function shippingListHTML(lookupField){
+ const infos=shippingListInfos(),p=salesListLoadPrefs();
+ if(!p.dayInit&&infos.length){p.dayInit=true;const d=!p.filters.date&&shippingDayDefault(infos);if(d)p.filters.date=shippingDayFilter(d);salesListSavePrefs();}
+/* PS открыли из заказа, по скану или после сохранения: его день должен быть виден в списке. */
+ const open=shippingOpenId&&infos.find(i=>i.o.id===shippingOpenId);
+ if(open&&p.filters.date&&!salesListFilterTest(salesListColumn('date'),p.filters.date,open)){p.filters.date=shippingDayFilter(open.o.date);p.quick='all';salesListSavePrefs();}
+ const cols=salesListColumns(),quick=p.quick||'all',box=document.querySelector('#app .sl-wide');salesListScrollKeep=box?{x:box.scrollLeft,y:box.scrollTop}:null;
+ const filtered=salesListRows(infos),anyDay=salesListRows(infos,['date']),shown=quick==='all'?filtered:anyDay.filter(i=>shippingQuickTest(quick,i)),rows=shippingStatusKey?shown.filter(i=>i.memo.status===shippingStatusKey):shown;
+ const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;};
  const cell=(i,c)=>c.k==='number'?`<button class="sm" onclick="shippingShow('${esc(i.o.id)}')">${esc(i.memo.number)}</button>`:c.k==='customer'?`<b>${esc(i.memo.customer)}</b>`:c.k==='date'?esc(salesListShortDay(i.memo.date)):c.k==='status'?shippingStatusPill(i.o)+(i.o.status==='planned'?(t=>t?` <span class="mut small" data-ps-list-loaded>${esc(t)}</span>`:'')(shippingWithCtx(()=>shippingLoadText(shippingLoadState(i.o)))):'')+(shippingNeedsReprint(i.o)?' <span class="pill st-batched">Reprint</span>':''):esc(i.memo[c.k])||'<span class="mut">—</span>';
- return `<div class="card sales-list-card shipping-list-card"><div class="shipping-scan"><label>Signed packing slip<input id="shippingSigned" data-signed-ps placeholder="Scan PS-0001" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingSigned(this.value)}"></label><label>Received by<input id="shippingReceiver" value="${esc(shippingReceivedBy)}" placeholder="Optional" oninput="shippingReceivedBy=this.value"></label><label>Received on<input id="shippingReceivedOn" type="date" value="${shippingReceivedOn||finToday()}" max="${finToday()}" onchange="shippingReceivedOn=this.value"></label></div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr>${cols.map(th).join('')}<th></th></tr></thead><tbody>${rows.map(i=>`<tr data-ps="${esc(i.o.number)}" class="${i.o.id===shippingOpenId?'shipping-selected':''}">${cols.map(c=>`<td${c.type==='number'?' class="n"':''}>${cell(i,c)}</td>`).join('')}<td class="sales-row-actions"><button class="sm" ${i.o.status==='cancelled'&&!i.o.unbatchedItems?.length?'disabled':''} onclick="shippingPrint('${esc(i.o.id)}')">Print</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No packing slips.</td></tr>'}</tbody></table></div>${salesListMenuHTML(infos)}</div>${shippingDetailHTML()}`;
+ const body=listWindowBody(rows,i=>`<tr data-ps="${esc(i.o.number)}" class="${i.o.id===shippingOpenId?'shipping-selected':''}"><td class="sl-check"></td>${cols.map(c=>`<td${c.type==='number'?' class="n"':''}>${cell(i,c)}</td>`).join('')}<td class="sales-row-actions"><button class="sm" ${i.o.status==='cancelled'&&!i.o.unbatchedItems?.length?'disabled':''} onclick="shippingPrint('${esc(i.o.id)}')">Print</button></td></tr>`,cols.length+2,{table:'.shipping-ps-table'});
+ const keys=cols.map(c=>c.k);
+ const table=`<div class="sales-table-wrap"><table class="sl-table shipping-ps-table${cwTableClass('shipments')}"${cwTableAttrs('shipments',keys)}>${cwColgroup('shipments',keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'No packing slips match.':'No packing slips.'}</td></tr>`}</tbody>${rows.length?shippingListFooter(rows,cols):''}</table></div>`;
+ return `<div class="ship-split">${shippingDaysHTML(anyDay,quick)}<div class="card sales-list-card shipping-list-card sl-foot-pin">${shippingTopHTML(lookupField)}<div class="sl-filter-row">${salesQuickHTML(anyDay,anyDay,{cur:shippingStatusKey?'-':quick,set:'shippingQuickPick',test:shippingQuickTest,name:shippingQuickName})}${shippingStatusPills(shown)}<span class="sales-toolbar-sp"></span>${salesListDateButton('date')}</div>${salesListFilterChips()}${table}${salesListMenuHTML(infos)}</div></div>${shippingDetailHTML()}`;
 }
 function shippingDetailHTML(){
  const s=shippingFind(shippingOpenId);if(!s)return '';const d=shippingDocument(s),loaded=s.status==='planned'?shippingLoadText(shippingLoadState(s)):'';
@@ -235,8 +303,9 @@ function shippingFocus(){if(tab!=='shipping'||shippingTab!=='shipments'||shippin
 function viewShipping(){
  if(shippingTab==='shipments')setTimeout(shippingFocus,0);
  return shippingWithCtx(()=>{
- const body=shippingTab==='ready'?shippingReadyHTML():shippingTab==='shipments'?shippingListHTML():shippingTab==='delivery'?deliveryHTML():shippingTab==='skids'?skidsHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true),lookup=shippingLookupHTML();
- return `<section class="shipping-workspace">${shippingTabs()}<div class="card shipping-toolbar">${lookup.field}<span class="sales-toolbar-sp"></span><label>Open a trip<select aria-label="Customer for new trip" onchange="if(this.value)shippingOpen(this.value)"><option value="">Choose customer</option>${(DB.customer||[]).filter(c=>c.status!=='archived').map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}</option>`).join('')}</select></label></div>${shippingNotice?`<div class="shipping-notice ${shippingNotice.error?'bad':''}" role="${shippingNotice.error?'alert':'status'}">${esc(shippingNotice.text)}</div>`:''}${lookup.card}${body}${shippingDraftHTML()}</section>`;
+ const lookup=shippingLookupHTML(),list=shippingTab==='shipments';
+ const body=list?shippingListHTML(lookup.field):shippingTab==='ready'?shippingReadyHTML():shippingTab==='delivery'?deliveryHTML():shippingTab==='skids'?skidsHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true);
+ return `<section class="shipping-workspace">${shippingTabs()}${list?'':`<div class="card shipping-toolbar">${lookup.field}<span class="sales-toolbar-sp"></span>${shippingTripHTML()}</div>`}${shippingNotice?`<div class="shipping-notice ${shippingNotice.error?'bad':''}" role="${shippingNotice.error?'alert':'status'}">${esc(shippingNotice.text)}</div>`:''}${lookup.card}${body}${shippingDraftHTML()}</section>`;
  });
 }
 document.addEventListener('focusout',()=>{if(tab==='shipping')setTimeout(shippingFocus,150);});
