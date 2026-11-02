@@ -5,13 +5,19 @@
    LIST_IDLE_ROWS строк, чтобы Ctrl+F и печать видели обычный список) и при
    прокрутке. Высоту таблицы до дорисовки держит строка data-list-rest.
    Итоги и выбор строк считаются по данным, а не по странице.
+   Ширину колонок задают все строки: дорисовка сдвигала их на глазах (Production
+   на 65 px). Поэтому первая отрисовка экрана длинная, запоминает ширины, а
+   дальше колонки стоят на них с первого кадра.
    IN:  storageLockButtons (erp/storage), readScope (erp/read-scope)
-   OUT: listWindowBody(rows,rowHTML,span), listWindowIdle() */
+   OUT: listWindowBody(rows,rowHTML,span), listWindowAfter() */
 const LIST_BATCH=60,LIST_IDLE_ROWS=400,LIST_ROW_PX=38,LIST_ROW_MIN=28,LIST_AHEAD_PX=1500;
-let listRest=null,listScrollWait=false;
+let listRest=null,listScrollWait=false,listDraw=null;
+const listSizes=new Map();
 function listWindowBody(rows,rowHTML,span){
  /* Перерисовка при прокрутке вниз: всё выше экрана на месте, страница не прыгает. */
- const now=Math.max(LIST_BATCH,Math.ceil((window.scrollY+window.innerHeight)/LIST_ROW_MIN)+20);
+ const fit=Math.max(LIST_BATCH,Math.ceil((window.scrollY+window.innerHeight)/LIST_ROW_MIN)+20);
+ const key=tab+':'+subtab,now=listSizes.has(key)?fit:Math.max(fit,LIST_IDLE_ROWS);
+ listDraw=rows.length>fit?key:null;
  if(rows.length<=now){listRest=null;return rows.map(rowHTML).join('');}
  listRest={rows,rowHTML,at:now};
  return rows.slice(0,now).map(rowHTML).join('')+`<tr class="list-rest" data-list-rest><td colspan="${span}" style="height:${(rows.length-now)*LIST_ROW_PX}px"></td></tr>`;
@@ -25,6 +31,17 @@ function listWindowGrow(){
  if(end<r.rows.length)tail.firstChild.style.height=(r.rows.length-end)*LIST_ROW_PX+'px';else{tail.remove();listRest=null;}
  storageLockButtons();
  return !!listRest;
+}
+function listWindowAfter(){
+ const key=listDraw;listDraw=null;
+ const table=key&&document.querySelector('#app .sl-table');
+ if(table){
+  const heads=[...table.tHead.rows[0].cells].filter(th=>th.dataset.col),sizes=listSizes.get(key);
+  if(sizes)heads.forEach(th=>{if(sizes[th.dataset.col])th.style.minWidth=sizes[th.dataset.col]+'px';});
+  /* Ширины, заданные вручную (views/col-widths), не трогаем. */
+  else listSizes.set(key,getComputedStyle(table).tableLayout==='fixed'?{}:Object.fromEntries(heads.map(th=>[th.dataset.col,Math.ceil(th.getBoundingClientRect().width)])));
+ }
+ listWindowIdle();
 }
 function listWindowIdle(){
  const r=listRest;if(!r||r.at>=LIST_IDLE_ROWS)return;

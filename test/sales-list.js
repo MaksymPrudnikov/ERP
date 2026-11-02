@@ -187,7 +187,7 @@ module.exports=async function({page,eq,ok}){
  eq('длинный список: в странице начало, остальное по прокрутке; Select all, итог и Shift видят все заказы',await t.p.evaluate(async()=>{
   slSeed();const base=DB.salesOrder[0],frames=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
   for(let i=0;i<500;i++)DB.salesOrder.push(Object.assign(JSON.parse(JSON.stringify(base)),{id:'SO-LONG'+i,businessNumber:String(90000+i)}));
-  storageInvalidate();tab='sales';listRest=null;window.requestIdleCallback=()=>0;render();
+  storageInvalidate();tab='sales';window.requestIdleCallback=()=>0;render();render();
   const all=salesListIds.length,first=document.querySelectorAll('[data-order-row]').length,tail=!!document.querySelector('[data-list-rest]');
   const foot=document.querySelector('.sl-foot').textContent.includes(String(all));
   document.querySelector('[data-select-all]').click();const selected=salesListSel.size;

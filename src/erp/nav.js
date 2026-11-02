@@ -155,7 +155,7 @@ function renderScreen(){
  navHideRepeatedTitle(meta[0]);
  afterRender();
  renderFocusBack(focus);
- listWindowIdle();
+ listWindowAfter();
 }
 /* Курсор переживает перерисовку: поле, где он стоял (или куда только что
    кликнули), ищется в новом #app по тому же виду и порядковому номеру и
