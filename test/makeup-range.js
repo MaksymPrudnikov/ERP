@@ -126,6 +126,15 @@ module.exports=async function({page,eq}){
   const two=document.querySelector('[data-mk-bar]'),h=Math.round(two.getBoundingClientRect().height),r={none,one,two:!!two.querySelector('[data-mk-field]'),low:h<=40};salesDraftDrop(true);return r;
  }),{none:true,one:{count:'1 selected',edge:true,fields:false,apply:false},two:true,low:true});
 
+ /* Заказ закрыли, а дорисовка в простое ещё ждёт своей очереди: читала soDraft у null
+    (ловилось только на загруженной машине). */
+ eq('Закрытый заказ: дорисовка строк в простое не читает сброшенный черновик',await run(()=>{
+  const q=[],keep=window.requestIdleCallback;window.requestIdleCallback=f=>{q.push(f);return 1;};
+  mrOrder(62);render();render();const rest=!!document.querySelector('[data-list-rest]');q.length=0;render();const queued=q.length;salesDraftDrop(true);
+  let thrown='';try{q.forEach(f=>f());listWindowGrow();}catch(e){thrown=e.message;}
+  window.requestIdleCallback=keep;render();return {rest,queued,thrown};
+ }),{rest:true,queued:1,thrown:''});
+
  eq('makeup range: без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

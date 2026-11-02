@@ -166,7 +166,10 @@ module.exports=async function({page,eq,ok}){
   const office=bar();tab='station';stationCode='CUT';render();const station=bar();tab='sales';render();return {granted,office,station};});
  await A.setViewportSize({width:820,height:1180});
  eq('a tab that does not answer: the alert bar with Edit here is visible in the office, on the station and on a tablet',{...stuck,tablet:await A.evaluate(()=>{const el=document.getElementById('storageAlert');return !el.hidden&&el.offsetHeight>0;})},{granted:false,office:true,station:true,tablet:true});
- await B.close();await A.dispatchEvent('body','pointerdown');await A.waitForFunction(()=>storageWriter,null,{timeout:5000});
+ /* Замок закрытой вкладки на загруженной машине отпускается не сразу, а программа ждёт его
+    4 с и пишет, что надо кликнуть: человек кликает ещё раз. Не вышло за 20 с — FAIL ниже. */
+ await B.close();
+ for(const end=Date.now()+20000;;){await A.dispatchEvent('body','pointerdown');if(await A.waitForFunction(()=>storageWriter,null,{timeout:4500}).then(()=>true,()=>false)||Date.now()>end)break;}
  eq('the other tab closed: a click makes this one the writer and the alert goes away',await A.evaluate(()=>({writer:storageWriter,alert:!document.getElementById('storageAlert').hidden})),{writer:true,alert:false});
  const twoErrs=two.errs.slice();await two.c.close();
  const closing=await page();await require('./optimization-fixture')(closing.p);
