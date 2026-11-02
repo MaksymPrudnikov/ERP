@@ -56,11 +56,20 @@ module.exports=async function({page,eq}){
   {index:true,rows:true,inv:true,deposit:true,next:true});
  eq('выписки клиентов (всё время, январь, раздел Orders) — те же после ухода: строки ушедших — из указателя архива',after.statements.map((x,i)=>x===before.statements[i]),before.statements.map(()=>true));
  eq('отчёт за декабрь–январь: ушедшие заказы читаются с диска на время показа — те же числа; закрыли — в памяти пусто',await t.p.evaluate(async b=>{
-  const range=['2025-12-01','2026-01-31'],first=archiveScopeFor(range);for(let i=0;i<100&&archiveScopeFor(range)!=='ready';i++)await new Promise(r=>setTimeout(r,20));
+  const range=[['2025-12-01','2026-01-31']],first=archiveScopeFor(range);for(let i=0;i<100&&archiveScopeFor(range)!=='ready';i++)await new Promise(r=>setTimeout(r,20));
   const rows=readScope(()=>JSON.stringify(['glass','cutting','orders','payments','sheets'].map(src=>{const S=REP_SRC[src],r=repQuery({source:src,date:{from:'2025-12-01',to:'2026-01-31'},dims:[],metrics:S.metrics.map(m=>m.k),filters:[]});return [src,r.count,r.total];})));
   const loaded=storageVisit.size>0,diff=storageDiff(DB).length;archiveScopeDrop();
-  return {first,same:rows===b.reports,loaded,diff,after:storageVisit.size,hot:DB.salesOrder.length,none:archiveScopeFor(['2025-01-01','2025-01-31'])};
+  return {first,same:rows===b.reports,loaded,diff,after:storageVisit.size,hot:DB.salesOrder.length,none:archiveScopeFor([['2025-01-01','2025-01-31']])};
  },before),{first:'loading',same:true,loaded:true,diff:0,after:0,hot:2,none:'none'});
+ eq('период и сравнение «год назад» — два отрезка, а не год между ними: дыра не читается',await t.p.evaluate(()=>{
+  const w=repCleanWidget({type:'number',q:{source:'cutting',metrics:['count'],compare:'year'}}),r=repClean({date:{from:'2026-11-03',to:'2026-11-03'},pages:[{widgets:[w]}]});
+  /* Жизнь заказов — с января 2026: отрезки по обе стороны их не задевают. */
+  return {ranges:repArchiveRanges(r,r.pages[0]),gap:archiveScopeCount([['2025-01-10','2025-01-10'],['2999-02-01','2999-02-01']]),one:archiveScopeCount([['2025-01-10','2025-01-10'],['2026-02-01','2026-02-01']]),all:archiveScopeCount([['','']])};
+ }),{ranges:[['2026-11-03','2026-11-03'],['2025-11-03','2025-11-03']],gap:0,one:2,all:2});
+ eq('отчёт Offcuts: кусок, взятый раскроем, который ушёл в архив, — Used, а не снова In stock',await t.p.evaluate(()=>{
+  const list=DB.stockOffcut,kept=DB.inventoryArchived.offcuts;DB.stockOffcut=[{id:'S-ARCH',at:'2026-01-05T12:00:00.000Z',glass:'6CLEAR',w:20,h:30,status:''},{id:'S-FREE',at:'2026-01-05T12:00:00.000Z',glass:'6CLEAR',w:20,h:30,status:''}];DB.inventoryArchived.offcuts={'S-ARCH':{used:{at:'2026-01-06T12:00:00.000Z',by:'',batch:'',sheet:''},broken:null,onRackAt:'',onRackBy:''}};
+  try{return repOffcutFacts().map(r=>r.status);}finally{DB.stockOffcut=list;DB.inventoryArchived.offcuts=kept;}
+ }),['Used','In stock']);
  eq('Agents: комиссия, выплачено и к выплате — те же после ухода; выплата агенту осталась в работе',{same:after.agents===before.agents,due:JSON.parse(after.agents)[2].map(x=>x[3]),payout:await t.p.evaluate(()=>DB.referrerPayout.length)},{same:true,due:[0,JSON.parse(before.agents)[2].find(x=>x[3]>0)[3]],payout:1});
  await t.p.reload();await t.p.evaluate(()=>window.storageReady);
  const f5=await snap();

@@ -244,10 +244,11 @@ function repBalanceFacts(){
  }).filter(Boolean);
 }
 
-/* Остатки листа в стоке: лежит, ушёл в раскрой вместо листа или снят. */
+/* Остатки листа в стоке: лежит, ушёл в раскрой вместо листа или снят. Раскрой
+   ушёл в архив — факт использования остался в разнице склада (erp/archive). */
 function repOffcutFacts(){
- const used=new Set();
+ const used=new Set(),kept=DB.inventoryArchived&&DB.inventoryArchived.offcuts||{};
  (DB.cutPlan||[]).forEach(p=>{if(!p||p.reset)return;(p.groups||[]).forEach(g=>(g.sheets||[]).forEach(s=>{const k=s.size&&s.size.key;if(/^S-/.test(k||''))used.add(k);}));});
  return (DB.stockOffcut||[]).map(r=>({id:r.id,at:r.at,created:salesListIsoDay(r.at),offcut:r.id,glass:r.glass,mm:r.mm||null,maker:(glassProductByCode(r.glass)||{}).manufacturer||'',
-  size:frac16(Math.max(r.w,r.h))+' × '+frac16(Math.min(r.w,r.h))+'″',area:r.w&&r.h?r.w*r.h/144:null,batch:r.batch,status:r.status==='cancelled'?'Removed':used.has(r.id)?'Used':'In stock'}));
+  size:frac16(Math.max(r.w,r.h))+' × '+frac16(Math.min(r.w,r.h))+'″',area:r.w&&r.h?r.w*r.h/144:null,batch:r.batch,status:r.status==='cancelled'?'Removed':used.has(r.id)||kept[r.id]&&kept[r.id].used?'Used':'In stock'}));
 }
