@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 191 модулей, 25 стиля.
+  Состав сборки: 192 модулей, 26 стиля.
 -->
 <html lang="en">
 <head>
@@ -3760,6 +3760,33 @@ tr:has(.inv-stock-edit) td{background:var(--accent-soft)}
 :root[data-theme="dark"] .sales-saving-ro{opacity:.35}
 @media (prefers-reduced-motion:reduce){.busy-pane::after{animation:none}.busy-tube i{transition:none}}
 
+/* ---- src/styles/motion.css ---- */
+/* Движение экрана (erp/motion). Кривая — пружина без отскока, как в iOS: почти
+   весь путь за первую треть времени, дальше мягкая посадка. Лист: заказ выезжает
+   снизу, старый экран отступает и темнеет; выход из заказа — наоборот.
+   Сквозь анимацию клики идут в уже готовый экран. */
+:root{--spring:linear(0 0%,0.0344 3.1%,0.1143 6.2%,0.2149 9.4%,0.3206 12.5%,0.4226 15.6%,0.5162 18.8%,0.5991 21.9%,0.6709 25.0%,0.7318 28.1%,0.7829 31.2%,0.8252 34.4%,0.8600 37.5%,0.8883 40.6%,0.9112 43.8%,0.9296 46.9%,0.9444 50.0%,0.9562 53.1%,0.9656 56.2%,0.9730 59.4%,0.9789 62.5%,0.9835 65.6%,0.9871 68.8%,0.9900 71.9%,0.9922 75.0%,0.9939 78.1%,0.9953 81.2%,0.9964 84.4%,0.9972 87.5%,0.9978 90.6%,0.9983 93.8%,0.9987 96.9%,1 100%);view-transition-name:none}
+.main{view-transition-name:erp-main}
+::view-transition{pointer-events:none}
+::view-transition-group(erp-main){animation:none}
+::view-transition-image-pair(erp-main){isolation:auto}
+::view-transition-old(erp-main),::view-transition-new(erp-main){mix-blend-mode:normal;animation-duration:420ms;animation-timing-function:var(--spring);animation-fill-mode:both}
+::view-transition-old(erp-main){animation-name:sheet-back;transform-origin:50% var(--motion-y,50vh)}
+::view-transition-new(erp-main){animation-name:sheet-in;box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+html[data-motion="out"]::view-transition-old(erp-main){animation-name:sheet-out;z-index:1;box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-front;box-shadow:none;transform-origin:50% var(--motion-y,50vh)}
+@keyframes sheet-in{from{transform:translateY(100vh)}to{transform:none}}
+@keyframes sheet-out{from{transform:none}to{transform:translateY(100vh)}}
+@keyframes sheet-back{from{transform:none;filter:brightness(1)}to{transform:scale(.95);filter:brightness(.7)}}
+@keyframes sheet-front{from{transform:scale(.95);filter:brightness(.7)}to{transform:none;filter:brightness(1)}}
+@keyframes window-in{from{transform:translateY(100vh)}to{transform:none}}
+@keyframes window-back{from{opacity:0}to{opacity:1}}
+@keyframes tab-rise{from{opacity:0;transform:translateY(10px) scale(.992)}to{opacity:1;transform:none}}
+.motion-window{animation:window-back 200ms ease-out backwards}
+.motion-window>[role="dialog"]{animation:window-in 320ms var(--spring) backwards}
+.motion-tab{animation:tab-rise 260ms var(--spring) backwards}
+@media (prefers-reduced-motion:reduce){.motion-window,.motion-window>[role="dialog"],.motion-tab{animation:none}}
+
 </style>
 </head>
 <body>
@@ -3785,7 +3812,7 @@ tr:has(.inv-stock-edit) td{background:var(--accent-soft)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='8eca25a130f4';
+var ERP_BUILD='6a9dc4a84a72';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -14265,7 +14292,7 @@ function salesHeaderActions(o){
  /* Заказ из архива — только просмотр, печать, Copy и NCR (erp/archive). */
  if(typeof archiveViewing==='function'&&archiveViewing(o))return archiveHeaderActions(o);
  const st=salesSaveState(o);
- const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesOrderClose()">Close</button>'];
+ const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesCloseClick()">Close</button>'];
  if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave({bg:true})">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'||salesIsDraft(o)?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
  /* Copy (пункт 8, Copy order) — у записанного заказа, черновика и квоты
@@ -16575,6 +16602,40 @@ function readMemoReset(lines){
  readKeep=new Map(keep);if(readMemos)readMemos=new Map();
 }
 
+/* ==== src/erp/motion.js ==== */
+/* ERP module: erp/motion — движение экрана (владелец, 2.11.2026: «понимаешь, что
+   что-то происходит, а не резкие неприятные скачки»). Вариант F + H: разделы и
+   вкладки лежат рядом — лёгкий подъём; заказ и окно открываются глубже — лист.
+   Только от настоящего клика человека: действия из кода и тестов идут синхронно,
+   как раньше. Станциям всё мгновенно. */
+const MOTION_WINDOW='.sales-service-modal-back,.doc-back';
+let motionTab=false;
+function motionOk(){
+ const e=window.event;
+ return tab!=='station'&&!!e&&e.isTrusted&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+/* Лист: браузер снимает старый экран, go рисует новый на следующем кадре. */
+function motionSheet(go,out){
+ if(!motionOk()||!document.startViewTransition)return go();
+ const root=document.documentElement;
+ root.style.setProperty('--motion-y',(window.scrollY+window.innerHeight/2)+'px');
+ if(out)root.dataset.motion='out';else delete root.dataset.motion;
+ const v=document.startViewTransition(go);
+ v.ready.catch(()=>{});v.finished.catch(()=>{});
+}
+/* Открылось окно: render заменил всё, поэтому сравниваем с тем, что было до него. */
+function motionHasWindow(app){return !!app.querySelector(MOTION_WINDOW);}
+function motionAfterRender(app,had){
+ const rise=motionTab;motionTab=false;
+ if(!had&&motionOk()){const w=app.querySelector(MOTION_WINDOW);if(w){w.classList.add('motion-window');return;}}
+ if(rise&&app.firstElementChild)app.firstElementChild.classList.add('motion-tab');
+}
+/* Раздел и вкладка — подъём: render идёт из их же клика. Свой раздел не двигается. */
+document.addEventListener('click',e=>{
+ if(!e.isTrusted||!e.target.closest||!e.target.closest('.tabs button,#side .nav-item:not(.on)')||!motionOk())return;
+ motionTab=true;setTimeout(()=>{motionTab=false;},0);
+},true);
+
 /* ==== src/erp/nav.js ==== */
 /* =====================================================================
    erp/nav  ·  erp-1.0
@@ -16728,12 +16789,13 @@ function renderScreen(){
  const V={dashboard:viewDashboard,reports:typeof viewReports==='function'?viewReports:null,commissions:typeof viewCommissions==='function'?viewCommissions:null,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,purchasing:typeof viewPurchasing==='function'?viewPurchasing:null,inventory:typeof viewInventory==='function'?viewInventory:null,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
- const focus=renderFocusKey();
+ const focus=renderFocusKey(),hadWindow=motionHasWindow(document.getElementById('app'));
  document.getElementById('app').innerHTML = (V ? V() : '<div class="empty">module planned</div>')+(window.APP_OVERLAYS||[]).map(f=>f()).join('');
  navHideRepeatedTitle(meta[0]);
  afterRender();
  renderFocusBack(focus);
  listWindowAfter();
+ motionAfterRender(document.getElementById('app'),hadWindow);
 }
 /* Курсор переживает перерисовку: поле, где он стоял (или куда только что
    кликнули), ищется в новом #app по тому же виду и порядковому номеру и
@@ -18405,6 +18467,8 @@ function salesOrderSaveDraft(){
  soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));render();return true;
 }
 function salesOrderClose(){salesLeaveDraft();}
+/* С несохранённым сначала вопрос: лист уезжает только когда уходим сразу. */
+function salesCloseClick(){const go=()=>salesOrderClose();if(soDraft&&salesDraftHasWork())go();else motionSheet(go,true);}
 /* Copy order (пункт 8, вариант 1 владельца 30.10.2026; «Все копируется на 100
    процентов»): новый заказ с тем же содержанием — клиент, контакт, PO, срок,
    строки, формы (свои копии), услуги, склад, цены заказа (priceBook), ручные
@@ -33734,7 +33798,7 @@ function salesListView(){
   if(r.n)return ncrListRow(r,cols);
   if(r.a)return archiveListRow(r,cols);
   const o=r.o,sel=salesListSel.has(o.id),cls=[salesIsDraft(o)?'sl-row-draft':'',!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
-  return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
+  return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="motionSheet(()=>salesOrderEdit('${esc(o.id)}'))">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
  return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListScope()==='sales'?salesQuickHTML(filtered,anyDate):''}<div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
