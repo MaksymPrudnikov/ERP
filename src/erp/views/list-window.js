@@ -10,7 +10,7 @@
    дальше колонки стоят на них с первого кадра.
    IN:  storageLockButtons (erp/storage), readScope (erp/read-scope)
    OUT: listWindowBody(rows,rowHTML,span), listWindowAfter() */
-const LIST_BATCH=60,LIST_IDLE_ROWS=400,LIST_ROW_PX=38,LIST_ROW_MIN=28,LIST_AHEAD_PX=1500;
+const LIST_BATCH=60,LIST_IDLE_ROWS=400,LIST_ROW_PX=55,LIST_ROW_MIN=28,LIST_AHEAD_PX=1500;
 let listRest=null,listScrollWait=false,listDraw=null;
 const listSizes=new Map();
 function listWindowBody(rows,rowHTML,span){
