@@ -3192,6 +3192,35 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 .delivery-km{display:inline-flex;align-items:center;gap:6px;margin-left:10px}
 .delivery-km b{font-variant-numeric:tabular-nums}
 .skids-acts{display:inline-flex;gap:8px;flex-wrap:wrap}
+/* Вкладки Shipping — таблетки в карточке (владелец, 02.11.2026, «верх А»). */
+.shipping-workspace>.oq-tabs{gap:8px;padding:12px 16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
+.shipping-workspace>.oq-tabs button{padding:5px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:12px;font-weight:600;color:var(--text);box-shadow:none}
+.shipping-workspace>.oq-tabs button b{margin-left:6px;padding:0;background:none;font-size:11px;font-weight:500;color:var(--text-2)}
+.shipping-workspace>.oq-tabs button.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}
+.shipping-workspace>.oq-tabs button.on b{color:inherit;opacity:.8}
+/* Список PS: слева дни, справа листы дня (владелец, 02.11.2026, вариант 3). */
+.ship-split{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px;align-items:start}
+.ship-split>.card{margin:0}
+.ship-days{display:grid;gap:2px;padding:14px 10px;position:sticky;top:12px}
+.ship-days h5{margin:6px 10px;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-2)}
+.ship-days p{margin:6px 10px}
+.ship-day{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;padding:8px 10px;border:0;border-radius:8px;background:transparent;color:var(--text);font-size:13px;font-weight:600;text-align:left}
+.ship-day b{font-size:12px;font-weight:500;color:var(--text-2)}
+.ship-day:hover{background:var(--surface-2)}
+.ship-day.on{background:var(--accent);color:var(--on-solid)}
+.ship-day.on b{color:inherit;opacity:.8}
+.shipping-scan.ship-top{gap:8px;padding:12px 20px;border-bottom:0;align-items:center}
+.ship-top label,.ship-top label:first-child{display:inline-flex;flex:none;min-width:0;gap:8px;align-items:center;white-space:nowrap;font-size:12px;font-weight:600;color:var(--text-2)}
+.ship-top input,.ship-top select{min-height:34px;font-size:13px}
+.ship-top #shippingSigned{width:130px}
+.ship-top #shippingReceiver{width:120px}
+.ship-top #shippingReceivedOn{width:128px}
+.ship-top .shipping-lookup-field input{width:110px}
+.ship-top>select{width:176px}
+.shipping-ps-table td.sales-row-actions{text-align:right}
+.shipping-ps-table .shipping-pills{flex-wrap:nowrap}
+@media(max-width:1400px){.ship-split{grid-template-columns:160px minmax(0,1fr)}}
+@media(max-width:1100px){.ship-split{grid-template-columns:minmax(0,1fr)}.ship-days{position:static;display:flex;gap:6px;padding:8px;overflow-x:auto}.ship-days h5,.ship-days p{display:none}.ship-day{width:auto;flex:none;gap:10px}}
 
 /* ---- src/styles/carriers.css ---- */
 /* Долли и скиды в офисе: Production → Dollies & Skids и окно «что на ней
@@ -3835,7 +3864,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='bb363bc11086';
+var ERP_BUILD='495da50cd750';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -18447,6 +18476,8 @@ function salesDraftKeepShapes(from,to){
    сохранённым, редактор формы строки закрывается вместе с заказом. */
 function salesDraftDrop(discard){
  soSavedBaseline=null;
+ /* Строки заказа дорисовываются в простое и читают soDraft (views/list-window). */
+ listWindowDrop('.sales-lines-table');
  const restored=!!discard&&salesShapeSnapshotRestore();
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
  salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
@@ -29051,13 +29082,81 @@ function shippingReadyHTML(){
  }).join('')||'<div class="card empty">No units ready for a packing slip.</div>';
 }
 function shippingListScope(){return shippingTab==='shipments'?'shippingPS':shippingTab==='awaiting'?'shippingAwaiting':shippingTab==='done'?'shippingDone':'';}
-function shippingListColumns(){return [{k:'number',label:'Packing slip',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'date',label:'Date',type:'date'},{k:'method',label:'Method',type:'list'},{k:'skids',label:'Skids',type:'text',tokens:true},{k:'units',label:'Units',type:'number'},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
+function shippingListColumns(){return [{k:'number',label:'Packing slip',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'date',label:'Date',type:'date',range:[['today','Today'],['thisWeek','This week'],['last30','30 days'],['','All time']]},{k:'method',label:'Method',type:'list'},{k:'skids',label:'Skids',type:'text',tokens:true},{k:'units',label:'Units',type:'number',sum:true},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
 function shippingListInfos(){return (DB.shipment||[]).map(s=>({o:s,memo:{number:s.number,customer:salesCustomerDisplay(s.customerId),date:s.date,method:s.method==='pickup'?'Pickup':'Delivery',skids:(Array.isArray(s.skidsOut)?s.skidsOut:[...new Set(s.items.map(i=>i.skid).filter(Boolean))]).join(', '),units:s.items.length+s.extras.reduce((n,i)=>n+i.qty,0),status:shippingStatus(s)}}));}
-function shippingListHTML(){
- const infos=shippingListInfos(),cols=shippingListColumns(),rows=salesListRows(infos);
- const th=c=>`<th${c.type==='number'?' class="n"':''}><span class="sl-th">${c.label}<button class="sl-fbtn${salesListFilterActive(salesListLoadPrefs().filters[c.k])?' on':''}" aria-label="Filter ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;
+/* Список PS (владелец, 02.11.2026, вариант 3): слева дни, справа листы дня; шапка и
+   таблица — блоки Sales. День — фильтр колонки Date, поэтому та же кнопка Date, чипы
+   и меню колонки. Быстрый вид вне All смотрит поверх дней, как в Sales. */
+const SHIPPING_LIST_STATUSES=['Planned','Shipped','Delivered','Picked up','Cancelled'],SHIPPING_DAYS_SHOWN=12;
+let shippingStatusKey='';
+function shippingDayFilter(day){return salesListCleanFilter('date',{conds:[{op:'between',v:day,v2:day}]});}
+function shippingCurrentDay(){const d=salesListDateParts(salesListLoadPrefs().filters.date);return d.simple&&d.from&&d.from===d.to?d.from:'';}
+function shippingSetDay(day){
+ const p=salesListLoadPrefs();
+ if(day)p.filters.date=shippingDayFilter(day);else delete p.filters.date;
+ p.quick='all';salesListMenu=null;salesListSavePrefs();render();
+}
+/* Первый вход: сегодня, нет — ближайший прошлый день с PS, нет прошлых — самый ранний. */
+function shippingDayDefault(infos){
+ const days=[...new Set(infos.map(i=>i.o.date).filter(Boolean))].sort(),today=finToday(),past=days.filter(d=>d<=today);
+ return past.length?past[past.length-1]:days[0]||'';
+}
+function shippingAttention(s){return ['planned','shipped'].includes(s.status)&&s.date<finToday()||shippingNeedsReprint(s);}
+function shippingQuickTest(key,info){
+ if(key==='all')return true;
+ const s=info.o;
+ if(key==='today')return s.date===finToday();
+ if(key==='week'){const w=salesListPresetRange('thisWeek');return s.date>=w[0]&&s.date<=w[1];}
+ return shippingAttention(s);
+}
+function shippingQuickName(label){return label==='Due this week'?'This week':label;}
+/* Один All, как в Sales: снимает быстрый вид и статус, снимать нечего — прячет ряд статусов. */
+function shippingQuickPick(key){
+ const p=salesListLoadPrefs();
+ if(key==='all'){
+  if(p.quick==='all'&&!shippingStatusKey)p.statusHidden=!p.statusHidden;
+  shippingStatusKey='';p.quick='all';
+ }else p.quick=SALES_QUICK.some(q=>q[0]===key)?key:'all';
+ salesListSavePrefs();render();
+}
+function shippingStatusPick(key){shippingStatusKey=shippingStatusKey===key?'':key;render();}
+function shippingStatusPills(rows){
+ if(salesListLoadPrefs().statusHidden)return '';
+ const n={};rows.forEach(r=>{n[r.memo.status]=(n[r.memo.status]||0)+1;});
+ return `<span class="sl-filter-sep" aria-hidden="true"></span>${SHIPPING_LIST_STATUSES.map(k=>`<button type="button" class="sl-quick-pill sl-status-pill${k===shippingStatusKey?' on':''}" aria-pressed="${k===shippingStatusKey}" data-status-chip="${esc(k)}" onclick="shippingStatusPick(${esc(JSON.stringify(k))})">${k}<b>${(n[k]||0).toLocaleString('en-US')}</b></button>`).join('')}`;
+}
+function shippingDaysHTML(anyDay,quick){
+ const counts=new Map();anyDay.forEach(i=>counts.set(i.o.date,(counts.get(i.o.date)||0)+1));
+ const cur=quick==='all'?shippingCurrentDay():'',all=[...counts.keys()].sort().reverse();
+ let at=all.findIndex(d=>d<=finToday());if(at<0)at=all.length;
+ const days=all.slice(Math.max(0,at-3)).slice(0,SHIPPING_DAYS_SHOWN);
+ if(cur&&!days.includes(cur))days.push(cur),days.sort().reverse();
+ const none=quick==='all'&&!salesListFilterActive(salesListLoadPrefs().filters.date);
+ return `<aside class="card ship-days" aria-label="Days"><h5>Days</h5>${days.map(d=>`<button type="button" class="ship-day${d===cur?' on':''}" data-day="${d}" onclick="shippingSetDay('${d}')"><span>${esc(salesListShortDay(d))}</span><b>${counts.get(d)||0}</b></button>`).join('')||'<p class="mut">No packing slips.</p>'}<h5>Other</h5><button type="button" class="ship-day" data-day-pick onclick="salesListOpenDate(event,'date')"><span>Pick a date…</span></button><button type="button" class="ship-day${none?' on':''}" data-day-all onclick="shippingSetDay('')"><span>All time</span><b>${anyDay.length}</b></button></aside>`;
+}
+function shippingTripHTML(){return `<select aria-label="Customer for new trip" onchange="if(this.value)shippingOpen(this.value)"><option value="">Open a trip · customer</option>${(DB.customer||[]).filter(c=>c.status!=='archived').map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}</option>`).join('')}</select>`;}
+function shippingTopHTML(lookupField){
+ return `<div class="ship-top shipping-scan"><label>Signed packing slip<input id="shippingSigned" data-signed-ps placeholder="PS number" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingSigned(this.value)}"></label><input id="shippingReceiver" aria-label="Received by" value="${esc(shippingReceivedBy)}" placeholder="Received by" oninput="shippingReceivedBy=this.value"><input id="shippingReceivedOn" type="date" aria-label="Received on" title="Received on" value="${shippingReceivedOn||finToday()}" max="${finToday()}" onchange="shippingReceivedOn=this.value"><span class="sales-toolbar-sp"></span>${lookupField}${shippingTripHTML()}</div>`;
+}
+function shippingListFooter(rows,cols){
+ const n={};rows.forEach(r=>{n[r.memo.status]=(n[r.memo.status]||0)+1;});
+ const detail=SHIPPING_LIST_STATUSES.filter(k=>n[k]).map(k=>k+' '+n[k]).join(' · '),first=cols.findIndex(c=>salesListCalc(c)!=='none'),lead=first<0?cols.length:first;
+ return `<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head" data-foot-count><b>${rows.length.toLocaleString('en-US')} packing slip${rows.length===1?'':'s'}</b>${detail?`<small>${esc(detail)}</small>`:''}</td>${cols.slice(lead).map(c=>salesListCalcCell(c,rows)).join('')}<td></td></tr></tfoot>`;
+}
+function shippingListHTML(lookupField){
+ const infos=shippingListInfos(),p=salesListLoadPrefs();
+ if(!p.dayInit&&infos.length){p.dayInit=true;const d=!p.filters.date&&shippingDayDefault(infos);if(d)p.filters.date=shippingDayFilter(d);salesListSavePrefs();}
+/* PS открыли из заказа, по скану или после сохранения: его день должен быть виден в списке. */
+ const open=shippingOpenId&&infos.find(i=>i.o.id===shippingOpenId);
+ if(open&&p.filters.date&&!salesListFilterTest(salesListColumn('date'),p.filters.date,open)){p.filters.date=shippingDayFilter(open.o.date);p.quick='all';salesListSavePrefs();}
+ const cols=salesListColumns(),quick=p.quick||'all',box=document.querySelector('#app .sl-wide');salesListScrollKeep=box?{x:box.scrollLeft,y:box.scrollTop}:null;
+ const filtered=salesListRows(infos),anyDay=salesListRows(infos,['date']),shown=quick==='all'?filtered:anyDay.filter(i=>shippingQuickTest(quick,i)),rows=shippingStatusKey?shown.filter(i=>i.memo.status===shippingStatusKey):shown;
+ const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;};
  const cell=(i,c)=>c.k==='number'?`<button class="sm" onclick="shippingShow('${esc(i.o.id)}')">${esc(i.memo.number)}</button>`:c.k==='customer'?`<b>${esc(i.memo.customer)}</b>`:c.k==='date'?esc(salesListShortDay(i.memo.date)):c.k==='status'?shippingStatusPill(i.o)+(i.o.status==='planned'?(t=>t?` <span class="mut small" data-ps-list-loaded>${esc(t)}</span>`:'')(shippingWithCtx(()=>shippingLoadText(shippingLoadState(i.o)))):'')+(shippingNeedsReprint(i.o)?' <span class="pill st-batched">Reprint</span>':''):esc(i.memo[c.k])||'<span class="mut">—</span>';
- return `<div class="card sales-list-card shipping-list-card"><div class="shipping-scan"><label>Signed packing slip<input id="shippingSigned" data-signed-ps placeholder="Scan PS-0001" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingSigned(this.value)}"></label><label>Received by<input id="shippingReceiver" value="${esc(shippingReceivedBy)}" placeholder="Optional" oninput="shippingReceivedBy=this.value"></label><label>Received on<input id="shippingReceivedOn" type="date" value="${shippingReceivedOn||finToday()}" max="${finToday()}" onchange="shippingReceivedOn=this.value"></label></div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr>${cols.map(th).join('')}<th></th></tr></thead><tbody>${rows.map(i=>`<tr data-ps="${esc(i.o.number)}" class="${i.o.id===shippingOpenId?'shipping-selected':''}">${cols.map(c=>`<td${c.type==='number'?' class="n"':''}>${cell(i,c)}</td>`).join('')}<td class="sales-row-actions"><button class="sm" ${i.o.status==='cancelled'&&!i.o.unbatchedItems?.length?'disabled':''} onclick="shippingPrint('${esc(i.o.id)}')">Print</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No packing slips.</td></tr>'}</tbody></table></div>${salesListMenuHTML(infos)}</div>${shippingDetailHTML()}`;
+ const body=listWindowBody(rows,i=>`<tr data-ps="${esc(i.o.number)}" class="${i.o.id===shippingOpenId?'shipping-selected':''}"><td class="sl-check"></td>${cols.map(c=>`<td${c.type==='number'?' class="n"':''}>${cell(i,c)}</td>`).join('')}<td class="sales-row-actions"><button class="sm" ${i.o.status==='cancelled'&&!i.o.unbatchedItems?.length?'disabled':''} onclick="shippingPrint('${esc(i.o.id)}')">Print</button></td></tr>`,cols.length+2,{table:'.shipping-ps-table'});
+ const keys=cols.map(c=>c.k);
+ const table=`<div class="sales-table-wrap"><table class="sl-table shipping-ps-table${cwTableClass('shipments')}"${cwTableAttrs('shipments',keys)}>${cwColgroup('shipments',keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'No packing slips match.':'No packing slips.'}</td></tr>`}</tbody>${rows.length?shippingListFooter(rows,cols):''}</table></div>`;
+ return `<div class="ship-split">${shippingDaysHTML(anyDay,quick)}<div class="card sales-list-card shipping-list-card sl-foot-pin">${shippingTopHTML(lookupField)}<div class="sl-filter-row">${salesQuickHTML(anyDay,anyDay,{cur:shippingStatusKey?'-':quick,set:'shippingQuickPick',test:shippingQuickTest,name:shippingQuickName})}${shippingStatusPills(shown)}<span class="sales-toolbar-sp"></span>${salesListDateButton('date')}</div>${salesListFilterChips()}${table}${salesListMenuHTML(infos)}</div></div>${shippingDetailHTML()}`;
 }
 function shippingDetailHTML(){
  const s=shippingFind(shippingOpenId);if(!s)return '';const d=shippingDocument(s),loaded=s.status==='planned'?shippingLoadText(shippingLoadState(s)):'';
@@ -29089,8 +29188,9 @@ function shippingFocus(){if(tab!=='shipping'||shippingTab!=='shipments'||shippin
 function viewShipping(){
  if(shippingTab==='shipments')setTimeout(shippingFocus,0);
  return shippingWithCtx(()=>{
- const body=shippingTab==='ready'?shippingReadyHTML():shippingTab==='shipments'?shippingListHTML():shippingTab==='delivery'?deliveryHTML():shippingTab==='skids'?skidsHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true),lookup=shippingLookupHTML();
- return `<section class="shipping-workspace">${shippingTabs()}<div class="card shipping-toolbar">${lookup.field}<span class="sales-toolbar-sp"></span><label>Open a trip<select aria-label="Customer for new trip" onchange="if(this.value)shippingOpen(this.value)"><option value="">Choose customer</option>${(DB.customer||[]).filter(c=>c.status!=='archived').map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}</option>`).join('')}</select></label></div>${shippingNotice?`<div class="shipping-notice ${shippingNotice.error?'bad':''}" role="${shippingNotice.error?'alert':'status'}">${esc(shippingNotice.text)}</div>`:''}${lookup.card}${body}${shippingDraftHTML()}</section>`;
+ const lookup=shippingLookupHTML(),list=shippingTab==='shipments';
+ const body=list?shippingListHTML(lookup.field):shippingTab==='ready'?shippingReadyHTML():shippingTab==='delivery'?deliveryHTML():shippingTab==='skids'?skidsHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true);
+ return `<section class="shipping-workspace">${shippingTabs()}${list?'':`<div class="card shipping-toolbar">${lookup.field}<span class="sales-toolbar-sp"></span>${shippingTripHTML()}</div>`}${shippingNotice?`<div class="shipping-notice ${shippingNotice.error?'bad':''}" role="${shippingNotice.error?'alert':'status'}">${esc(shippingNotice.text)}</div>`:''}${lookup.card}${body}${shippingDraftHTML()}</section>`;
  });
 }
 document.addEventListener('focusout',()=>{if(tab==='shipping')setTimeout(shippingFocus,150);});
@@ -33334,7 +33434,8 @@ function purPOInvoicesHTML(p){return '<section class="card pur-card pur-receivin
    на 65 px). Поэтому первая отрисовка экрана длинная, запоминает ширины, а
    дальше колонки стоят на них с первого кадра.
    IN:  storageLockButtons (erp/storage), readScope (erp/read-scope)
-   OUT: listWindowBody(rows,rowHTML,span,opt), listWindowAll(), listWindowAfter() */
+   OUT: listWindowBody(rows,rowHTML,span,opt), listWindowAll(), listWindowAfter(),
+        listWindowDrop(table) */
 const LIST_BATCH=60,LIST_IDLE_ROWS=400,LIST_ROW_PX=55,LIST_ROW_MIN=28,LIST_AHEAD_PX=1500;
 let listRest=null,listScrollWait=false,listDraw=null;
 const listSizes=new Map();
@@ -33346,10 +33447,13 @@ function listWindowBody(rows,rowHTML,span,opt){
  const key=tab+':'+subtab+table,now=listSizes.has(key)?fit:Math.max(fit,LIST_IDLE_ROWS);
  listDraw=rows.length>fit?{key,table}:null;
  if(rows.length<=now){listRest=null;return rows.map(rowHTML).join('');}
- listRest={rows,rowHTML,at:now,rowPx};
+ listRest={rows,rowHTML,at:now,rowPx,table};
  return rows.slice(0,now).map(rowHTML).join('')+`<tr class="list-rest" data-list-rest><td colspan="${span}" style="height:${(rows.length-now)*rowPx}px"></td></tr>`;
 }
 function listWindowTail(){return listRest&&document.querySelector('[data-list-rest]');}
+/* Данных таблицы больше нет (заказ закрыли): дорисовка в простое и при прокрутке не
+   должна читать их после этого. Строка-распорка уйдёт со следующей отрисовкой. */
+function listWindowDrop(table){if(listRest&&listRest.table===table)listRest=null;}
 function listWindowGrow(){
  const tail=listWindowTail();if(!tail)return false;
  const r=listRest,end=Math.min(r.at+LIST_BATCH,r.rows.length);
@@ -33516,7 +33620,8 @@ function salesListCleanPrefs(p){
  const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,statusHidden:p.statusHidden===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all',calc,pinned:(Array.isArray(p.pinned)?p.pinned:[]).filter(k=>salesListColumn(k))};
  if(tab==='inventory'&&p.inventoryDateInitialized!==true&&typeof invListDefaults==='function')Object.entries(invListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
  if(tab==='purchasing')clean.purchasingDateInitialized=true;
- if(salesListScope()==='sales'){const w=cwClean(p.widths);if(Object.keys(w).length)clean.widths=w;}
+ if(salesListCwId()){const w=cwClean(p.widths);if(Object.keys(w).length)clean.widths=w;}
+ if(salesListScope()==='shippingPS')clean.dayInit=p.dayInit===true;
  if(tab==='inventory')clean.inventoryDateInitialized=true;
  return clean;
 }
@@ -33536,6 +33641,8 @@ function salesListColumns(){
  /* Type нужна, только когда в списке больше одного вида: заказы, квоты, NCR. */
  return p.cols.filter(c=>c.on&&(c.k!=='type'||both)&&!salesListAutoHidden(c.k)).map(c=>salesListColumn(c.k));
 }
+/* Таблицы с ширинами и порядком за заголовок (views/col-widths): Sales и список PS. */
+function salesListCwId(){const s=salesListScope();return s==='sales'?'sales':s==='shippingPS'?'shipments':'';}
 function salesListNarrowRule(k){return salesListScope()==='sales'&&window.innerWidth<(SALES_LIST_NARROW[k]||0);}
 function salesListAutoHidden(k){return salesListNarrowRule(k)&&!salesListLoadPrefs().pinned.includes(k);}
 
@@ -33733,7 +33840,7 @@ function salesListBase(){
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
 function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(tab==='inventory'&&typeof invListDefaultSort==='function')return invListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
-function salesListDateColumn(){if(tab==='purchasing'&&typeof purListDateColumn==='function')return purListDateColumn();if(tab==='inventory'&&typeof invListDateColumn==='function')return invListDateColumn();return salesListScope()==='usersLog'?'when':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
+function salesListDateColumn(){if(tab==='purchasing'&&typeof purListDateColumn==='function')return purListDateColumn();if(tab==='inventory'&&typeof invListDateColumn==='function')return invListDateColumn();return salesListScope()==='usersLog'?'when':salesListScope()==='shippingPS'?'date':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos,skip){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(skip||[]).includes(k));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
@@ -33859,7 +33966,7 @@ function salesListFooter(rows,cols){
 function salesListCalcOptions(col){return col.type==='number'?SALES_LIST_CALC_NUMBER:SALES_LIST_CALC_TEXT;}
 function salesListCalc(col){const v=salesListLoadPrefs().calc[col.k];return salesListCalcOptions(col).some(x=>x[0]===v)?v:col.sum?'sum':'none';}
 function salesListSetCalc(k,v){const p=salesListLoadPrefs();p.calc[k]=v;salesListSavePrefs();render();}
-function salesListCalcHere(){return ['sales','optimization','shipping'].includes(salesListScope());}
+function salesListCalcHere(){return ['sales','optimization','shipping','shippingPS'].includes(salesListScope());}
 function salesListCalcCell(c,rows){
  const kind=salesListCalc(c);if(kind==='none')return '<td></td>';
  const vals=rows.map(r=>salesListValue(r,c.k)).filter(v=>v!=null&&v!==''),nums=vals.map(Number),total=nums.reduce((s,v)=>s+v,0);
@@ -34002,7 +34109,7 @@ function salesListApplyFilter(){const m=salesListMenu;if(!m||m.kind!=='filter')r
 function salesListColumnsHTML(style){
  const p=salesListLoadPrefs();
  const rows=p.cols.map((c,i)=>{const col=salesListColumn(c.k);return `<div class="sl-cols-row" draggable="true" data-col-row="${c.k}" ondragstart="salesListDragKey='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();salesListDropColumn('${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-col-toggle="${c.k}" ${c.on&&!salesListAutoHidden(c.k)?'checked':''} onchange="salesListSetColumn('${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="salesListMoveColumn('${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===p.cols.length-1?'disabled':''} onclick="salesListMoveColumn('${c.k}',1)">↓</button></div>`;}).join('');
- return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button>${salesListScope()==='sales'?`<button type="button" class="sl-btn" data-reset-widths ${cwFixed('sales')?'':'disabled'} onclick="salesListResetWidths()">Reset widths</button>`:''}</div></div>`;
+ return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button>${salesListCwId()?`<button type="button" class="sl-btn" data-reset-widths ${cwFixed(salesListCwId())?'':'disabled'} onclick="salesListResetWidths()">Reset widths</button>`:''}</div></div>`;
 }
 /* Шестерёнка на узком экране: включённая колонка видна всегда (прокрутка вбок),
    снятая снова прячется только здесь, а на широком экране остаётся. */
@@ -34023,7 +34130,7 @@ function salesListDropColumn(k){
  const [c]=cols.splice(at,1);cols.splice(cols.findIndex(x=>x.k===k),0,c);salesListSavePrefs();render();
 }
 function salesListStandardView(){const p=salesListLoadPrefs();p.cols=salesListCatalog().map(c=>({k:c.k,on:!!c.def}));p.pinned=[];delete p.widths;salesListSavePrefs();render();}
-/* Reset widths — только ширины Sales: порядок, видимость, фильтры и выбор строк на месте. */
+/* Reset widths — только ширины этой таблицы: порядок, видимость, фильтры и выбор строк на месте. */
 function salesListResetWidths(){delete salesListLoadPrefs().widths;salesListSavePrefs();render();}
 /* Перенос колонки за заголовок — тот же порядок, что в меню Columns. */
 function salesListMoveColumnTo(from,to,after){
@@ -34037,6 +34144,14 @@ cwRegister('sales',{
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
  def:k=>{const c=salesListColumn(k);return SALES_LIST_WIDTH[k]||(c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:[68],trail:20,fill:'customer'
+});
+/* Список PS (Shipping → Shipments): те же жесты, свои ширины; справа кнопка Print. */
+const SHIPPING_LIST_WIDTH={number:116,customer:110,date:84,method:94,skids:110,units:76,status:180};
+cwRegister('shipments',{
+ widths:()=>salesListLoadPrefs().widths||{},
+ save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
+ def:k=>SHIPPING_LIST_WIDTH[k]||100,
+ min:()=>CW_MIN,move:salesListMoveColumnTo,lead:[40],trail:70,fill:'customer'
 });
 
 /* ------------------------------ Выбор строк ---------------------------- */
@@ -34203,6 +34318,7 @@ function salesListFit(){
  if(wide&&salesListScrollKeep){wrap.scrollLeft=salesListScrollKeep.x;wrap.scrollTop=salesListScrollKeep.y;}
 }
 window.addEventListener('resize',()=>{
+ if(tab==='shipping'){salesListFit();return;}
  if(tab!=='sales'||soEdit!==null)return;
  if(salesListStep()===salesListStepNow)salesListFit();else render();
 });
@@ -34221,7 +34337,7 @@ function salesListDateParts(f){
 const SALES_LIST_RANGE=[['last7','7 days'],['last14','14 days'],['last30','30 days'],['','All time']];
 function salesListDateButton(k){
  k=k||'created';const col=salesListColumn(k)||{label:'Created'},f=salesListLoadPrefs().filters[k],d=salesListDateParts(f),presets=(col.presets||SALES_LIST_PRESETS).concat(col.range||[]);
- const label=d.preset?(presets.find(x=>x[0]===d.preset)||['','Custom'])[1]:!d.simple?'Custom filter':d.from&&d.to?salesListShortDay(d.from)+' – '+salesListShortDay(d.to):d.from?'From '+salesListShortDay(d.from):d.to?'Through '+salesListShortDay(d.to):'All time';
+ const label=d.preset?(presets.find(x=>x[0]===d.preset)||['','Custom'])[1]:!d.simple?'Custom filter':d.from&&d.to?(d.from===d.to?salesListShortDay(d.from):salesListShortDay(d.from)+' – '+salesListShortDay(d.to)):d.from?'From '+salesListShortDay(d.from):d.to?'Through '+salesListShortDay(d.to):'All time';
  return `<button type="button" class="sl-quiet sl-date-toggle" data-created-range data-date-col="${esc(k)}" title="${esc(f?salesListFilterSummary(col,f):col.label+': all dates')}" aria-haspopup="dialog" onclick="salesListOpenDate(event,'${esc(k)}')">${esc(col.label)}: ${esc(label)}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
 }
 function salesListOpenDate(e,k){k=k||'created';salesListMenu=Object.assign({kind:'date',scope:salesListScope(),col:k,error:''},salesListDateParts(salesListLoadPrefs().filters[k]),salesListAt(e,360));render();}
@@ -48161,7 +48277,8 @@ function shippingDropOrder(orderId){
    скан подписанного PS ставит и Shipped, и Picked up. Сбой на любом шаге
    откатывает оба (предложено в ревью PR 1, 05.10.2026). */
 function shippingScanSigned(raw,by,date){
- const number=String(raw||'').trim().toUpperCase();if(!/^PS-\d{4,}$/.test(number))return {ok:false,error:'Scan a packing slip number.'};
+ /* В офисе нет сканера (владелец, 02.11.2026): достаточно номера — «212», «ps 212» — PS- и нули подставляются. */
+ const typed=String(raw||'').trim().toUpperCase().replace(/^PS[\s-]*/,''),number=/^\d{1,6}$/.test(typed)?'PS-'+typed.padStart(4,'0'):String(raw||'').trim().toUpperCase();if(!/^PS-\d{4,}$/.test(number))return {ok:false,error:'Scan a packing slip number.'};
  const s=shippingFind(number);
  if(s&&s.method==='pickup'&&s.status==='planned')return storageCommand(()=>{
   const shipped=shippingMarkShipped(s.id);shippingAssert(shipped.ok,shipped.error);
