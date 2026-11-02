@@ -150,12 +150,13 @@ function renderScreen(){
  const V={dashboard:viewDashboard,reports:typeof viewReports==='function'?viewReports:null,commissions:typeof viewCommissions==='function'?viewCommissions:null,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,purchasing:typeof viewPurchasing==='function'?viewPurchasing:null,inventory:typeof viewInventory==='function'?viewInventory:null,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
- const focus=renderFocusKey();
+ const focus=renderFocusKey(),hadWindow=motionHasWindow(document.getElementById('app'));
  document.getElementById('app').innerHTML = (V ? V() : '<div class="empty">module planned</div>')+(window.APP_OVERLAYS||[]).map(f=>f()).join('');
  navHideRepeatedTitle(meta[0]);
  afterRender();
  renderFocusBack(focus);
  listWindowAfter();
+ motionAfterRender(document.getElementById('app'),hadWindow);
 }
 /* Курсор переживает перерисовку: поле, где он стоял (или куда только что
    кликнули), ищется в новом #app по тому же виду и порядковому номеру и

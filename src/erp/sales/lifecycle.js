@@ -488,7 +488,7 @@ function salesHeaderActions(o){
  /* Заказ из архива — только просмотр, печать, Copy и NCR (erp/archive). */
  if(typeof archiveViewing==='function'&&archiveViewing(o))return archiveHeaderActions(o);
  const st=salesSaveState(o);
- const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesOrderClose()">Close</button>'];
+ const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesCloseClick()">Close</button>'];
  if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave({bg:true})">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'||salesIsDraft(o)?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
  /* Copy (пункт 8, Copy order) — у записанного заказа, черновика и квоты

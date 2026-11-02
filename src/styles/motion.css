@@ -1,0 +1,25 @@
+/* Движение экрана (erp/motion). Кривая — пружина без отскока, как в iOS: почти
+   весь путь за первую треть времени, дальше мягкая посадка. Лист: заказ выезжает
+   снизу, старый экран отступает и темнеет; выход из заказа — наоборот.
+   Сквозь анимацию клики идут в уже готовый экран. */
+:root{--spring:linear(0 0%,0.0344 3.1%,0.1143 6.2%,0.2149 9.4%,0.3206 12.5%,0.4226 15.6%,0.5162 18.8%,0.5991 21.9%,0.6709 25.0%,0.7318 28.1%,0.7829 31.2%,0.8252 34.4%,0.8600 37.5%,0.8883 40.6%,0.9112 43.8%,0.9296 46.9%,0.9444 50.0%,0.9562 53.1%,0.9656 56.2%,0.9730 59.4%,0.9789 62.5%,0.9835 65.6%,0.9871 68.8%,0.9900 71.9%,0.9922 75.0%,0.9939 78.1%,0.9953 81.2%,0.9964 84.4%,0.9972 87.5%,0.9978 90.6%,0.9983 93.8%,0.9987 96.9%,1 100%);view-transition-name:none}
+.main{view-transition-name:erp-main}
+::view-transition{pointer-events:none}
+::view-transition-group(erp-main){animation:none}
+::view-transition-image-pair(erp-main){isolation:auto}
+::view-transition-old(erp-main),::view-transition-new(erp-main){mix-blend-mode:normal;animation-duration:420ms;animation-timing-function:var(--spring);animation-fill-mode:both}
+::view-transition-old(erp-main){animation-name:sheet-back;transform-origin:50% var(--motion-y,50vh)}
+::view-transition-new(erp-main){animation-name:sheet-in;box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+html[data-motion="out"]::view-transition-old(erp-main){animation-name:sheet-out;z-index:1;box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-front;box-shadow:none;transform-origin:50% var(--motion-y,50vh)}
+@keyframes sheet-in{from{transform:translateY(100vh)}to{transform:none}}
+@keyframes sheet-out{from{transform:none}to{transform:translateY(100vh)}}
+@keyframes sheet-back{from{transform:none;filter:brightness(1)}to{transform:scale(.95);filter:brightness(.7)}}
+@keyframes sheet-front{from{transform:scale(.95);filter:brightness(.7)}to{transform:none;filter:brightness(1)}}
+@keyframes window-in{from{transform:translateY(100vh)}to{transform:none}}
+@keyframes window-back{from{opacity:0}to{opacity:1}}
+@keyframes tab-rise{from{opacity:0;transform:translateY(10px) scale(.992)}to{opacity:1;transform:none}}
+.motion-window{animation:window-back 200ms ease-out backwards}
+.motion-window>[role="dialog"]{animation:window-in 320ms var(--spring) backwards}
+.motion-tab{animation:tab-rise 260ms var(--spring) backwards}
+@media (prefers-reduced-motion:reduce){.motion-window,.motion-window>[role="dialog"],.motion-tab{animation:none}}

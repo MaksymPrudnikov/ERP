@@ -156,6 +156,8 @@ function salesOrderSaveDraft(){
  soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));render();return true;
 }
 function salesOrderClose(){salesLeaveDraft();}
+/* С несохранённым сначала вопрос: лист уезжает только когда уходим сразу. */
+function salesCloseClick(){const go=()=>salesOrderClose();if(soDraft&&salesDraftHasWork())go();else motionSheet(go,true);}
 /* Copy order (пункт 8, вариант 1 владельца 30.10.2026; «Все копируется на 100
    процентов»): новый заказ с тем же содержанием — клиент, контакт, PO, срок,
    строки, формы (свои копии), услуги, склад, цены заказа (priceBook), ручные
