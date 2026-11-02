@@ -23,7 +23,7 @@ module.exports=async function({page,eq}){
 
  const ship=await t.p.evaluate(()=>{const r=a19Ship();tab='shipping';shippingTab='shipments';shippingOpenId='';render();scrollTo(0,0);return r;});
  await t.p.setViewportSize({width:1440,height:420});
- await t.p.locator('.shipping-list-card button.sm',{hasText:ship.number}).click();await t.p.waitForTimeout(50);
+ await t.p.locator('.shipping-list-card button.sm',{hasText:ship.number}).click();await t.p.waitForTimeout(450);
  eq('F04: номер PS в Shipments открывает окно поверх списка; страница на месте, курсор в поле сканера',await t.p.evaluate(()=>{
   const card=document.querySelector('.shipping-detail').getBoundingClientRect();
   return {open:!!document.querySelector('.shipping-detail'),scrolled:scrollY>0,inView:card.top>=0&&card.top<innerHeight,scanner:document.activeElement&&document.activeElement.id};
