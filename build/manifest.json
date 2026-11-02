@@ -25,7 +25,8 @@
   "src/styles/reports.css",
   "src/styles/purchasing.css",
   "src/styles/inventory.css",
-  "src/styles/busy.css"
+  "src/styles/busy.css",
+  "src/styles/motion.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -85,6 +86,7 @@
   "src/erp/purchasing/documents.js",
   "src/erp/icons.js",
   "src/erp/read-scope.js",
+  "src/erp/motion.js",
   "src/erp/nav.js",
   "src/erp/views/dashboard.js",
   "src/erp/cloud.js",
