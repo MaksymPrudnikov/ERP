@@ -192,6 +192,7 @@ module.exports=async function({page,eq,ok}){
  await t.p.locator('[data-create-ps]').click();await t.p.getByLabel('Method',{exact:true}).selectOption('pickup');await t.p.locator('[data-save-ps]').click();
  await t.p.getByRole('button',{name:'Ship',exact:true}).click();await t.p.getByRole('button',{name:'Ship all',exact:true}).click();await t.p.locator('[data-signed-ps]').fill('PS-0001');await t.p.locator('[data-signed-ps]').press('Enter');
  eq('Office controls create, ship and scan the signed PS; scan focus returns',await t.p.evaluate(()=>({status:DB.shipment[0].status,order:DB.salesOrder[0].status,focus:document.activeElement.id})),{status:'delivered',order:'done',focus:'shippingSigned'});
+  await t.p.evaluate(()=>{shippingOpenId='';render();});
  await t.p.getByRole('button',{name:'Filter Customer',exact:true}).click();ok('Shipment column filter opens',await t.p.locator('.sl-menu').count()>0);await t.p.evaluate(()=>{salesListMenu=null;render();});
  await t.p.setViewportSize({width:390,height:844});eq('Shipping fits the narrow viewport',await t.p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
  // Both order lists share the class of the small Queue input in Ready.
