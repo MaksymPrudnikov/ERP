@@ -142,7 +142,8 @@ function shippingDropOrder(orderId){
    скан подписанного PS ставит и Shipped, и Picked up. Сбой на любом шаге
    откатывает оба (предложено в ревью PR 1, 05.10.2026). */
 function shippingScanSigned(raw,by,date){
- const number=String(raw||'').trim().toUpperCase();if(!/^PS-\d{4,}$/.test(number))return {ok:false,error:'Scan a packing slip number.'};
+ /* В офисе нет сканера (владелец, 02.11.2026): достаточно номера — «212», «ps 212» — PS- и нули подставляются. */
+ const typed=String(raw||'').trim().toUpperCase().replace(/^PS[\s-]*/,''),number=/^\d{1,6}$/.test(typed)?'PS-'+typed.padStart(4,'0'):String(raw||'').trim().toUpperCase();if(!/^PS-\d{4,}$/.test(number))return {ok:false,error:'Scan a packing slip number.'};
  const s=shippingFind(number);
  if(s&&s.method==='pickup'&&s.status==='planned')return storageCommand(()=>{
   const shipped=shippingMarkShipped(s.id);shippingAssert(shipped.ok,shipped.error);

@@ -128,6 +128,10 @@ module.exports=async function({page,eq,ok}){
   shippingSetDay(finToday());shippingOpenId=b.id;render();out.reveal=[rows()===b.number,date()==='Date: '+salesListShortDay(old)];
   return out;
  }),{first:[true,true,true],day:[true,true],attention:[true,true],today:true,all:[2,'2 packing slips',true],shipped:['',true],reveal:[true,true]});
+ eq('Signed PS accepts a bare number: 1, ps 1 and PS-0001 are the same slip; text and an unknown number are refused',await t.p.evaluate(()=>{
+  const [id]=shSeed(),s=shCreate([id],null,'pickup').value,bad=shippingScanSigned('abc','',finToday()),miss=shippingScanSigned('9999','',finToday()),out=shippingScanSigned(' ps 1 ','Ann',finToday());
+  return {number:s.number,bad:bad.ok,miss:miss.ok,out:out.ok&&out.value.number,status:shippingFind(s.id).status};
+ }),{number:'PS-0001',bad:false,miss:false,out:'PS-0001',status:'delivered'});
  eq('Create packing slip: только отмеченное; без выбора — все заказы с готовым, без пустых заголовков',await t.p.evaluate(()=>{
   const ids=shSeed(3),o=salesRecord(ids[1]),u=shippingAvailable(o)[0];tab='shipping';shippingTab='ready';render();
   shippingCustomer=o.customerId;shippingSelection.clear();shippingSelection.add(u.label);shippingOpen(o.customerId);render();
