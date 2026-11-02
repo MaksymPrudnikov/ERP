@@ -10,8 +10,8 @@
         (DB.shapeDef); при Save — расчёт по фигуре (sales/service-sets,
         sales/line-metrics)
    OUT: line.measure {sig, rows, areas, lites — геометрия лайтов для веса}; salesMeasureFor — записанное, если
-        отпечаток сошёлся; salesMeasureWrite — запись заказа (Save, правка
-        данных 9)
+        отпечаток сошёлся; salesLineSig — отпечаток; salesMeasureWrite — запись
+        заказа (Save, правка данных 9)
 
    Отпечаток (sig) — всё, что читает расчёт количеств из самого заказа:
    строка без полей учёта (батч, Hold, Cancel, количество, ставки, заметки),
@@ -61,25 +61,34 @@ function salesMeasureLive(line,order){
 function salesMeasureWrite(order,pre){
  (order&&order.lines||[]).forEach(l=>{
   const sig=salesMeasureSig(l,order),p=pre&&pre.get(l.id);
-  if(p&&p.sig===sig){l.measure={sig,rows:p.rows,areas:p.areas,lites:p.lites};if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(l,order);return;}
+  if(p&&p.sig===sig){l.measure={sig,rows:p.rows,areas:p.areas,lites:p.lites};if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(l,order,l.measure);return;}
   const m=salesMeasureLive(l,order);l.measure={sig,rows:m.rows,areas:m.areas,lites:m.lites};
  });
 }
 /* Отпечаток — один раз на строку за отрисовку (erp/read-scope): расчёт
    суммы спрашивает строки работ и площадь позиции несколько раз. */
-function salesMeasureFor(line,order){
- if(salesMeasureOff||salesBookRec||!order||!line||!line.measure)return null;
+function salesLineSig(line,order){
  const memo=readOn()?readMemo('salesMeasureSig',[],()=>new WeakMap()):null,hit=memo&&memo.get(line);
  const sig=hit&&hit.order===order?hit.sig:salesMeasureSig(line,order);
  if(memo&&!hit)memo.set(line,{order,sig});
- if(sig!==line.measure.sig)return null;
- if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(line,order);
- return line.measure;
+ return sig;
+}
+/* Строка, ещё не записанная Save (новая, правленая), считается по фигуре один
+   раз на отпечаток: отрисовка живёт до первой записи в базу, галочка в заказе
+   на 521 строку не считает 521 фигуру (2.11.2026). Справочники в отпечаток не
+   входят — их правка и есть запись, она сбрасывает посчитанное. */
+function salesMeasureFor(line,order){
+ if(salesMeasureOff||salesBookRec||!order||!line||!line.measure&&!readOn())return null;
+ const sig=salesLineSig(line,order);
+ let m=line.measure&&sig===line.measure.sig?line.measure:null;
+ if(!m&&readOn()){const keep=readMemo('salesMeasureDraft',[],()=>new Map());m=keep.get(sig);if(!m){m=salesMeasureLive(line,order);keep.set(sig,m);}}
+ if(m&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(line,order,m);
+ return m;
 }
 /* Тесты (GF_SCOPE_CHECK): каждое чтение записанного сверяется с расчётом по
    фигуре. */
-function salesMeasureCheck(line,order){
- const now=salesMeasureLive(line,order),m=line.measure;
+function salesMeasureCheck(line,order,m){
+ const now=salesMeasureLive(line,order);
  if(JSON.stringify(now.rows)!==JSON.stringify(m.rows)||JSON.stringify(now.areas)!==JSON.stringify(m.areas)||m.lites&&JSON.stringify(now.lites)!==JSON.stringify(m.lites))
   console.error('Stale measure: '+(order.businessNumber||order.id)+' · line '+line.id);
 }

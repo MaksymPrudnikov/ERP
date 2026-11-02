@@ -336,8 +336,9 @@ function salesMetricsModal(){
  return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal${panel==='rules'?' metric-modal-wide':''}"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
 }
 /* Refresh computed cells without replacing the input currently receiving Tab. */
-function salesRefreshLineMetrics(line){
- const tr=Array.from(document.querySelectorAll('tr[data-metrics-line-id]')).find(el=>el.dataset.metricsLineId===line.id);
+function salesRefreshLineMetrics(line){return readScope(()=>salesRefreshLineLive(line));}
+function salesRefreshLineLive(line){
+ const tr=document.querySelector(`tr[data-metrics-line-id="${CSS.escape(line.id)}"]`);
  if(tr){
   const holder=document.createElement('tr');holder.innerHTML=salesMetricCells(line,'screen');
   const next=Array.from(holder.children);tr.querySelectorAll('td[data-metric]').forEach((cell,i)=>{if(next[i])cell.replaceWith(next[i]);});

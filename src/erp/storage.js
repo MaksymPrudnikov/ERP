@@ -66,7 +66,7 @@ function storageBackupDrop(){
  storageBackupPresent=false;storageCopyAt='';
  return storageIdbCopyDrop().catch(e=>console.warn('Pre-import copy was not removed:',e.message));
 }
-function storageInvalidate(){
+function storageInvalidate(lines){
  if(typeof stationRouteCache!=='undefined')stationRouteCache=new Map();
  if(typeof prodBoardCache!=='undefined')prodBoardCache={stamp:'',data:null};
  if(typeof stationAreaCache!=='undefined')stationAreaCache=new Map();
@@ -81,7 +81,7 @@ function storageInvalidate(){
  if(typeof repDeliveryCache!=='undefined')repDeliveryCache={stamp:'',rows:null};
  if(typeof repCustomerNames!=='undefined')repCustomerNames=null;
  if(typeof repSoldCache!=='undefined'){repSoldCache={stamp:'',sets:new Map()};repSoldByOrder=new Map();}
- if(typeof readMemoReset==='function')readMemoReset();
+ if(typeof readMemoReset==='function')readMemoReset(lines);
  /* Пересборка таблицы (откат, чужая запись) — строки просмотра из архива на место. */
  if(typeof archiveVisitKeep==='function')archiveVisitKeep();
 }
@@ -334,7 +334,7 @@ function touch(){
   /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
   const out=typeof cloudOutbox==='function'?cloudOutbox(changes):null;
   storageWrite(changes,out&&out.ops);if(out)out.done();storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
-  storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();storageScopeMark();return true;
+  storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate(changes.every(c=>c.tbl==='shapeDef'));storageScopeMark();return true;
  }catch(e){
   storageLastError=storageStale?storageReadOnlyText():'Not saved. Your operation is still open; retry or export your changes.';
   if(!storageCommanding)storageRollback();
