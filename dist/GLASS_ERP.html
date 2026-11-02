@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 190 модулей, 25 стиля.
+  Состав сборки: 191 модулей, 25 стиля.
 -->
 <html lang="en">
 <head>
@@ -1738,6 +1738,7 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sl-chip button{border:0;background:var(--surface);border-radius:9px;width:18px;height:18px;padding:0;line-height:18px;font-size:12px;color:var(--text-2)}
 .sl-clear{border:0 !important;background:none !important;color:var(--danger) !important;font-weight:700;font-size:12px;padding:0 4px !important}
 .sl-table th,.sl-table td{white-space:nowrap}
+.sl-table tr.list-rest td{padding:0;border:0;background:none}
 .sl-th{display:inline-flex;align-items:center;gap:5px}
 .sl-fbtn{width:18px;height:18px;padding:0 !important;border:1px solid var(--line-strong);border-radius:5px;background:var(--surface);color:var(--text-2);font-size:9px;line-height:16px;cursor:pointer}
 .sl-fbtn::after{content:'▾'}
@@ -3783,7 +3784,7 @@ tr:has(.inv-stock-edit) td{background:var(--accent-soft)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='b4aeb038647a';
+var ERP_BUILD='3c7a92d48743';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -16716,6 +16717,7 @@ function renderScreen(){
  navHideRepeatedTitle(meta[0]);
  afterRender();
  renderFocusBack(focus);
+ listWindowAfter();
 }
 /* Курсор переживает перерисовку: поле, где он стоял (или куда только что
    кликнули), ищется в новом #app по тому же виду и порядковому номеру и
@@ -17189,7 +17191,24 @@ function cloudWriteLocal(list,ops){
  const index=list.filter(c=>c.tbl==='_archive');
  if(index.length&&typeof archiveIndexApply==='function')archiveIndexApply(index.map(c=>[c.id,c.del?null:JSON.parse(c.data)]));
  if(shapes&&typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(shapes,DB);
- storageWrite(list,ops);storageInvalidate();storageRerenderQuiet();
+ storageWrite(list,ops);storageInvalidate();cloudRedrawSoon();
+}
+/* Чужая запись приходит в цехе каждые несколько секунд, а перерисовка без запаса
+   посчитанного — 100–200 мс: под рукой это рывок (2.11.2026). Данные уже свежие,
+   экран обновится, когда человек на миг остановится, но не позже CLOUD_REDRAW_MS.
+   Станция и ручной режим тестов — сразу. */
+const CLOUD_REDRAW_REST=700,CLOUD_REDRAW_MS=10000;
+let cloudRedrawTimer=null,cloudRedrawAt=0,cloudHandAt=0;
+['pointermove','wheel','keydown','scroll'].forEach(k=>window.addEventListener(k,()=>{cloudHandAt=performance.now();},{passive:true,capture:true}));
+function cloudRedrawSoon(){
+ if(tab==='station'||window.GF_CLOUD_MANUAL){storageRerenderQuiet();return;}
+ if(!cloudRedrawAt)cloudRedrawAt=performance.now();
+ if(!cloudRedrawTimer)cloudRedrawTimer=setTimeout(cloudRedrawTick,CLOUD_REDRAW_REST);
+}
+function cloudRedrawTick(){
+ cloudRedrawTimer=null;const now=performance.now(),wait=CLOUD_REDRAW_REST-(now-cloudHandAt);
+ if(wait>0&&now-cloudRedrawAt<CLOUD_REDRAW_MS){cloudRedrawTimer=setTimeout(cloudRedrawTick,wait);return;}
+ cloudRedrawAt=0;storageRerenderQuiet();
 }
 async function cloudPushAll(){
  const s=cloudSync;
@@ -33098,6 +33117,63 @@ function purAccountHTML(){
 function purPOInvoicesHTML(p){return '<section class="card pur-card pur-receiving"><div class="pur-section-head"><h3>Supplier invoices</h3><button type="button" onclick="purInvoiceFromPO()">+ Invoice</button></div>'+purInvoicesForPO(p.id).map(d=>'<p><button type="button" class="fin-link" onclick="purMoneyEdit(\'invoice\','+purArg(d.id)+')">'+esc(purMoneyReference(d)+' · '+purInvoiceStatus(d)+' · '+(d.amount==null?'Unknown':docNum(d.amount,2))+' '+d.currency+(d.poIds.length>1?' · shared across '+d.poIds.length+' POs':''))+'</button></p>').join('')+'</section>';}
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(to=>tab==='purchasing'&&to!=='purchasing'&&!purMoneyLeave());
 
+/* ==== src/erp/views/list-window.js ==== */
+/* ERP module: erp/views/list-window — длинная таблица без рывка.
+   Sales и Production клали в страницу все строки: 213 заказов — 7000 элементов,
+   половина времени каждого клика, хотя на экране 15 строк (2.11.2026). Сразу
+   идёт то, что видно, с запасом; остальное дорисовывается в простое (до
+   LIST_IDLE_ROWS строк, чтобы Ctrl+F и печать видели обычный список) и при
+   прокрутке. Высоту таблицы до дорисовки держит строка data-list-rest.
+   Итоги и выбор строк считаются по данным, а не по странице.
+   Ширину колонок задают все строки: дорисовка сдвигала их на глазах (Production
+   на 65 px). Поэтому первая отрисовка экрана длинная, запоминает ширины, а
+   дальше колонки стоят на них с первого кадра.
+   IN:  storageLockButtons (erp/storage), readScope (erp/read-scope)
+   OUT: listWindowBody(rows,rowHTML,span), listWindowAfter() */
+const LIST_BATCH=60,LIST_IDLE_ROWS=400,LIST_ROW_PX=55,LIST_ROW_MIN=28,LIST_AHEAD_PX=1500;
+let listRest=null,listScrollWait=false,listDraw=null;
+const listSizes=new Map();
+function listWindowBody(rows,rowHTML,span){
+ /* Перерисовка при прокрутке вниз: всё выше экрана на месте, страница не прыгает. */
+ const fit=Math.max(LIST_BATCH,Math.ceil((window.scrollY+window.innerHeight)/LIST_ROW_MIN)+20);
+ const key=tab+':'+subtab,now=listSizes.has(key)?fit:Math.max(fit,LIST_IDLE_ROWS);
+ listDraw=rows.length>fit?key:null;
+ if(rows.length<=now){listRest=null;return rows.map(rowHTML).join('');}
+ listRest={rows,rowHTML,at:now};
+ return rows.slice(0,now).map(rowHTML).join('')+`<tr class="list-rest" data-list-rest><td colspan="${span}" style="height:${(rows.length-now)*LIST_ROW_PX}px"></td></tr>`;
+}
+function listWindowTail(){return listRest&&document.querySelector('[data-list-rest]');}
+function listWindowGrow(){
+ const tail=listWindowTail();if(!tail)return false;
+ const r=listRest,end=Math.min(r.at+LIST_BATCH,r.rows.length);
+ tail.insertAdjacentHTML('beforebegin',readScope(()=>r.rows.slice(r.at,end).map(r.rowHTML).join('')));
+ r.at=end;
+ if(end<r.rows.length)tail.firstChild.style.height=(r.rows.length-end)*LIST_ROW_PX+'px';else{tail.remove();listRest=null;}
+ storageLockButtons();
+ return !!listRest;
+}
+function listWindowAfter(){
+ const key=listDraw;listDraw=null;
+ const table=key&&document.querySelector('#app .sl-table');
+ if(table){
+  const heads=[...table.tHead.rows[0].cells].filter(th=>th.dataset.col),sizes=listSizes.get(key);
+  if(sizes)heads.forEach(th=>{if(sizes[th.dataset.col])th.style.minWidth=sizes[th.dataset.col]+'px';});
+  /* Ширины, заданные вручную (views/col-widths), не трогаем. */
+  else listSizes.set(key,getComputedStyle(table).tableLayout==='fixed'?{}:Object.fromEntries(heads.map(th=>[th.dataset.col,Math.ceil(th.getBoundingClientRect().width)])));
+ }
+ listWindowIdle();
+}
+function listWindowIdle(){
+ const r=listRest;if(!r||r.at>=LIST_IDLE_ROWS)return;
+ (window.requestIdleCallback||setTimeout)(()=>{if(listRest===r&&listWindowGrow())listWindowIdle();});
+}
+function listWindowScrollStep(){
+ const tail=listWindowTail();
+ if(tail&&tail.getBoundingClientRect().top<window.innerHeight+LIST_AHEAD_PX&&listWindowGrow()){requestAnimationFrame(listWindowScrollStep);return;}
+ listScrollWait=false;
+}
+window.addEventListener('scroll',()=>{if(!listRest||listScrollWait)return;listScrollWait=true;requestAnimationFrame(listWindowScrollStep);},{passive:true,capture:true});
+
 /* ==== src/erp/views/sales-list-ui.js ==== */
 /* =====================================================================
    views/sales-list-ui  ·  sales-list-1.0
@@ -33581,12 +33657,13 @@ function salesListView(){
  /* Ширина и порядок за заголовок — только у списка Sales (views/col-widths). */
  const cw=salesListScope()==='sales',keys=cols.map(c=>c.k);
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"${cw?` data-cw-key="${c.k}"`:''}><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cw?cwGrip():''}</th>`;};
- const body=rows.map(r=>{
+ salesListIds=rowIds;
+ const body=listWindowBody(rows,r=>{
   if(r.n)return ncrListRow(r,cols);
   if(r.a)return archiveListRow(r,cols);
   const o=r.o,sel=salesListSel.has(o.id),cls=[salesIsDraft(o)?'sl-row-draft':'',!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
- }).join('');
+ },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
  return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListScope()==='sales'?salesQuickHTML(filtered,anyDate):''}<div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
@@ -33707,9 +33784,11 @@ cwRegister('sales',{
 });
 
 /* ------------------------------ Выбор строк ---------------------------- */
+/* Все заказы списка по порядку: в странице может быть только их начало. */
+let salesListIds=[];
 function salesListToggleRow(e,id){
  if(e)e.stopPropagation();
- const ids=[...document.querySelectorAll('[data-order-row]')].map(tr=>tr.dataset.orderRow),on=!salesListSel.has(id);
+ const ids=salesListIds,on=!salesListSel.has(id);
  if(e&&e.shiftKey&&salesListAnchor&&ids.includes(salesListAnchor)&&ids.includes(id)){
   const a=ids.indexOf(salesListAnchor),b=ids.indexOf(id);
   ids.slice(Math.min(a,b),Math.max(a,b)+1).forEach(x=>{if(on)salesListSel.add(x);else salesListSel.delete(x);});
@@ -33717,8 +33796,7 @@ function salesListToggleRow(e,id){
  salesListAnchor=id;render();
 }
 function salesListToggleAll(on){
- const ids=[...document.querySelectorAll('[data-order-row]')].map(tr=>tr.dataset.orderRow);
- ids.forEach(id=>{if(on)salesListSel.add(id);else salesListSel.delete(id);});render();
+ salesListIds.forEach(id=>{if(on)salesListSel.add(id);else salesListSel.delete(id);});render();
 }
 function salesListContextHTML(m,style){
  const o=(DB.salesOrder||[]).find(x=>x.id===m.id);if(!o)return '';
@@ -46788,7 +46866,7 @@ function viewProdOrders(){
   const tare=[...new Set(infos.flatMap(i=>Object.keys(i.x.onAt[s.code]||{}).filter(Boolean)))],d=tare.length,word=tare.every(c=>/^S/.test(c))?(d===1?'skid':'skids'):(d===1?'dolly':'dollies');
   return `<button type="button" class="pb-tile${n?'':' zero'}${on?' sel':''}" data-prod-station="${esc(s.code)}" onclick="prodFocusStation('${esc(s.code)}')"><b>${esc(s.code)}</b><span>${n.toLocaleString('en-US')}</span><small>${s.code===cut?'in batches':'waiting'+(d?' · '+d+' '+word:'')}</small></button>`;
  }).join('')+'</div>';
- const body=rows.map(r=>`<tr class="pb-row${r.x.o.priority==='critical'?' pb-hot':''}${prodOpen.has(r.x.o.id)?' pb-opened':''}" data-prod-order="${esc(r.x.o.id)}" onclick="prodToggle('${esc(r.x.o.id)}')">${cols.map(c=>prodCell(r,c)).join('')}<td></td></tr>`+(prodOpen.has(r.x.o.id)?prodSubRows(r,cols):'')).join('');
+ const body=listWindowBody(rows,r=>`<tr class="pb-row${r.x.o.priority==='critical'?' pb-hot':''}${prodOpen.has(r.x.o.id)?' pb-opened':''}" data-prod-order="${esc(r.x.o.id)}" onclick="prodToggle('${esc(r.x.o.id)}')">${cols.map(c=>prodCell(r,c)).join('')}<td></td></tr>`+(prodOpen.has(r.x.o.id)?prodSubRows(r,cols):''),cols.length+1);
  const glassN=rows.reduce((n,r)=>n+r.x.total-r.x.shipped,0);
  const foot=rows.length?`<tfoot><tr class="sl-foot">${cols.map((c,i)=>i===0?`<td data-foot-count><b>${rows.length} order${rows.length===1?'':'s'}</b></td>`:c.sum?`<td class="n pb-st">${rows.reduce((n,r)=>n+(salesListValue(r,c.k)||0),0)||''}</td>`:'<td></td>').join('')}<td></td></tr></tfoot>`:'';
  return `${tiles}${prodExceptionsHTML(infos)}<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><span class="mut small">${rows.length} order${rows.length===1?'':'s'} · ${glassN.toLocaleString('en-US')} glass components in production</span></div>${salesListFilterChips()}
@@ -52811,9 +52889,12 @@ function afterRender(){
  const chip=document.getElementById('testChip');if(chip)chip.hidden=!storageTest;
  /* Save в фоне: стекло в углу и полоса в заказе (erp/sales/save-job). */
  if(typeof salesSaveDom==='function')salesSaveDom();
- /* Forms remain available for reading. A tab that can take over keeps its
-    buttons: the click itself makes it the writer. Without coordination, with
-    a broken database or in an older version, persisting controls are off. */
+ storageLockButtons();
+}
+/* Forms remain available for reading. A tab that can take over keeps its
+   buttons: the click itself makes it the writer. Without coordination, with
+   a broken database or in an older version, persisting controls are off. */
+function storageLockButtons(){
  if(storageRecovery||!navigator.locks||storageStale){
   document.querySelectorAll('#app button[onclick],#app [data-station-scan]').forEach(el=>{
    if(el.hasAttribute('data-station-scan')||/\b(?:save\w*|\w*Save|\w*Create|stationSubmit|stationMark|stationUndoClick|finConfirmApply|finExportQuickBooks|del\w*|carrierSet)\s*\(/.test(el.getAttribute('onclick')||'')){
