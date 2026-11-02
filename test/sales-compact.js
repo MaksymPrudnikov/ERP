@@ -1,6 +1,6 @@
 /* Компактный Sales и Hold позиции: реальные клики плюс правила записи. */
 module.exports=async function({page,eq,ok}){
- console.log('compact Sales / line hold');const t=await page();await require('./optimization-fixture')(t.p);
+ console.log('compact Sales / line hold');const t=await page(undefined,{width:1920,height:900});await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
   window.scDay=n=>{const d=new Date();d.setDate(d.getDate()-n);return salesListDay(d);};
   window.scSeed=()=>{
@@ -11,7 +11,7 @@ module.exports=async function({page,eq,ok}){
   window.scRows=()=>[...document.querySelectorAll('[data-order-row]')].map(e=>salesRecord(e.dataset.orderRow).businessNumber);
   scSeed();
  });
- eq('Sales по умолчанию: последние 14 дней по createdAt, компактный All и скрытые настройки',await t.p.evaluate(()=>({rows:scRows(),date:document.querySelector('[data-created-range]').textContent.includes('Last 14 days'),closed:document.querySelector('[data-status-toggle]').getAttribute('aria-expanded'),hidden:!document.querySelector('[data-range-today],[data-range-reset],[data-show]'),gear:!!document.querySelector('thead [data-columns-button] svg')})),{rows:['88001','88002','88003'],date:true,closed:'false',hidden:true,gear:true});
+ eq('Sales по умолчанию: последние 14 дней по createdAt, один All, статусы на виду и скрытые настройки',await t.p.evaluate(()=>({rows:scRows(),date:document.querySelector('[data-created-range]').textContent.includes('Last 14 days'),chips:document.querySelectorAll('[data-status-chip]').length>0,hidden:!document.querySelector('[data-range-today],[data-range-reset],[data-show]'),gear:!!document.querySelector('thead [data-columns-button] svg')})),{rows:['88001','88002','88003'],date:true,chips:true,hidden:true,gear:true});
  await t.p.locator('[data-created-range]').click();await t.p.locator('[data-range-preset="last7"]').click();await t.p.locator('[data-range-apply]').click();
  eq('7 дней включает сегодняшний и шестой предыдущий день',await t.p.evaluate(()=>scRows()),['88001','88002']);
  await t.p.locator('[data-created-range]').click();await t.p.locator('[data-range-preset="last30"]').click();await t.p.locator('[data-range-apply]').click();
@@ -28,8 +28,8 @@ module.exports=async function({page,eq,ok}){
  eq('Today находится внутри окна; дата читается в местном календарном дне',await t.p.evaluate(()=>{
   salesListOpenDate();salesListDateToday();const to=salesListMenu.to,today=salesListDay(new Date());salesListCloseMenu();return {to:to===today,local:salesListIsoDay(new Date(new Date().getFullYear(),new Date().getMonth(),new Date().getDate(),0,1).toISOString())===today,hidden:!document.querySelector('[data-range-today]')};
  }),{to:true,local:true,hidden:true});
- await t.p.locator('[data-status-toggle]').click();await t.p.locator('[data-status-chip="order:verified"]').click();await t.p.locator('[data-status-toggle]').click();
- eq('сворачивание сохраняет выбранный этап и показывает его имя',await t.p.evaluate(()=>({rows:scRows(),label:document.querySelector('[data-status-toggle]').textContent.includes('Verified'),hidden:!document.querySelector('[data-status-chip]'),saved:JSON.parse(localStorage.getItem(SALES_LIST_PREFS_KEY)).statusExpanded})),{rows:['88002'],label:true,hidden:true,saved:false});
+ await t.p.locator('[data-status-chip="order:verified"]').click();
+ eq('кнопка этапа фильтрует и горит сама, All снимает её и не трогает период',await t.p.evaluate(()=>{const on=!!document.querySelector('[data-status-chip="order:verified"].on'),rows=scRows();document.querySelector('[data-quick="all"]').click();return {on,rows,back:scRows().length>rows.length,filter:salesStatusFilter};}),{on:true,rows:['88002'],back:true,filter:''});
  await t.p.evaluate(()=>{salesStatusFilter='';render();});
  await t.p.locator('[data-show-menu]').click();await t.p.locator('[data-show="quotes"]').check();await t.p.locator('[data-show="orders"]').uncheck();await t.p.keyboard.press('Escape');
  eq('Show — один контрол, Orders/Quotes выбираются внутри; нельзя скрыть оба вида',await t.p.evaluate(()=>({show:salesShow,label:document.querySelector('[data-show-menu]').textContent.trim(),saved:JSON.parse(localStorage.getItem('glass_erp_sales_show'))})),{show:{orders:false,quotes:true},label:'Quotes▾',saved:{orders:false,quotes:true}});

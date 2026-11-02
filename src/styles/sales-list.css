@@ -70,7 +70,29 @@
 .sales-list-card .sl-quiet:hover,.fin-card .sl-quiet:hover,.fin-modal-back .sl-quiet:hover{background:var(--surface-2);border-color:var(--text-3)}
 .sales-list-card .sl-hold-quiet{color:var(--text-2);border-color:transparent}
 .sales-list-card .sl-hold-quiet:disabled{opacity:.45}
+.sales-list-card .sl-delete-quiet:not(:disabled){color:var(--danger)}
+.sales-list-card .sl-quiet:disabled{opacity:.45}
 .sl-view-controls{display:flex;align-items:flex-start;flex-wrap:wrap;gap:6px;margin:0 0 9px}
+/* Шапка Sales: быстрые виды, статусы и Created одним рядом, кнопки одного размера. */
+.sl-filter-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:0 20px 10px}
+.sl-filter-row .sl-quick{display:contents}
+.sl-filter-row .sl-quick-pill{height:28px;padding:0 9px;white-space:nowrap;font-size:12px;display:inline-flex;align-items:center;gap:5px}
+.sl-filter-row .sl-quick-pill b{margin:0}
+.sl-status-pill b{color:var(--text)}
+.sl-filter-sep{width:1px;height:18px;margin:0 3px;background:var(--line-strong)}
+.sales-toolbar .sl-date-toggle{border:0;background:transparent;font-weight:500;color:var(--text-2)}
+.sl-status-menu{width:220px;display:grid;gap:4px}
+.sl-status-menu .sl-btn{display:flex;justify-content:space-between;gap:10px}
+.sl-calc-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+/* Итоги: что посчитано — словом над числом. */
+.sl-foot .sl-calc small{display:block;margin:0 0 2px;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-2)}
+/* Sales: итоги внизу экрана. overflow:hidden карточки и обёртки держал бы их на месте. */
+.card.sales-list-card.sl-foot-pin{overflow:clip}
+.sl-foot-pin table.cw-fixed th.n .sl-th{justify-content:flex-end}
+.sl-foot-pin .sales-table-wrap{overflow:visible}
+.sl-foot-pin .sales-table-wrap.sl-wide{overflow:auto}
+.sl-foot-pin .sl-foot td{position:sticky;bottom:var(--sl-foot-bottom,0);z-index:3;border-top:0;box-shadow:inset 0 1px var(--line)}
+.sl-foot-pin .sl-wide .sl-foot td{bottom:0}
 .sales-status-chips.sl-status-compact{display:contents}
 .sl-status-options{display:flex;gap:5px;flex-wrap:wrap;align-items:center;max-width:100%;order:3;flex-basis:100%}
 .sales-status-chips .sl-status-toggle{display:inline-flex;gap:5px;align-items:center;height:28px;padding:3px 8px;border-radius:7px;color:var(--text);font-weight:600;background:var(--surface);border:1px solid var(--line);box-shadow:none}

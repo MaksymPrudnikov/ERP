@@ -545,10 +545,15 @@ function salesListVisible(){
  /* Строки поиска нет (владелец, 15 сентября 2026): ищут фильтрами колонок. */
  return (DB.salesOrder||[]).filter(o=>salesShow[salesIsQuote(o)?'quotes':'orders']).filter(o=>!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id);
 }
+/* Кнопка статуса строки. Черновик — не статус, а флаг заказа в New: своя
+   кнопка первой, в New не считается (владелец, 2.11.2026). */
+function salesListStatusKey(r){return r.n?'ncr:'+r.o.ncrStatus.toLowerCase():r.a?r.o.kind+':'+r.o.status:salesIsDraft(r.o)?'order:draft':salesKindOf(r.o)+':'+salesListStatus(r.o);}
+/* rows — строки списка без фильтра статуса: числа идут за быстрым видом и фильтрами. */
 function salesStatusChips(rows){
- const count=(kind,s)=>rows.filter(o=>o.kind!=='ncr'&&salesKindOf(o)===kind&&salesListStatus(o)===s).length,chips=[];
- if(salesShow.orders)SALES_ORDER_STATE_LIST.forEach(s=>chips.push({key:'order:'+s,label:s==='done'?'Picked up / Delivered':salesStatusLabel({kind:'order'},s),n:count('order',s)}));
- if(salesShow.quotes)SALES_QUOTE_STATE_LIST.forEach(s=>chips.push({key:'quote:'+s,label:salesStatusLabel({kind:'quote'},s),n:count('quote',s)}));
- if(salesShow.ncr)['Open','Done'].forEach(s=>chips.push({key:'ncr:'+s.toLowerCase(),label:'NCR '+s,n:rows.filter(o=>o.kind==='ncr'&&o.ncrStatus===s).length}));
- return salesListStatusControlHTML(chips,salesStatusFilter,rows.length,'salesSetStatusFilter');
+ const n={},chips=[];rows.forEach(r=>{const k=salesListStatusKey(r);n[k]=(n[k]||0)+1;});
+ const add=(key,label)=>chips.push({key,label,n:n[key]||0});
+ if(salesShow.orders){add('order:draft','Draft');SALES_ORDER_STATE_LIST.forEach(s=>add('order:'+s,s==='done'?'Picked up / Delivered':salesStatusLabel({kind:'order'},s)));}
+ if(salesShow.quotes)SALES_QUOTE_STATE_LIST.forEach(s=>add('quote:'+s,salesStatusLabel({kind:'quote'},s)));
+ if(salesShow.ncr)['Open','Done'].forEach(s=>add('ncr:'+s.toLowerCase(),'NCR '+s));
+ return chips;
 }

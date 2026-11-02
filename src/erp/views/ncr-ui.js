@@ -181,5 +181,5 @@ function ncrListCell(info,col){
  return v==null||v===''?(col.type==='number'?'<td class="n"><span class="mut">—</span></td>':'<td><span class="mut">—</span></td>'):`<td class="${col.type==='number'?'n':''}">${esc(String(v))}</td>`;
 }
 function ncrListRow(r,cols){
- return `<tr data-ncr-row="${esc(r.n.id)}" class="sl-row-ncr"><td class="sl-check"></td>${cols.map(c=>ncrListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="ncrView('${esc(r.n.id)}')">Open</button></td></tr>`;
+ return `<tr data-ncr-row="${esc(r.n.id)}" class="sl-row-ncr${salesListSel.has(r.n.id)?' sl-row-sel':''}">${salesListSideCheck(r.n.id,r.n.number||'')}${cols.map(c=>ncrListCell(r,c)).join('')}<td></td></tr>`;
 }

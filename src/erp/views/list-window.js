@@ -19,7 +19,7 @@ const listSizes=new Map();
 function listWindowBody(rows,rowHTML,span,opt){
  const table=opt&&opt.table||'.sl-table',rowPx=opt&&opt.rowPx||LIST_ROW_PX;
  /* Перерисовка при прокрутке вниз: всё выше экрана на месте, страница не прыгает. */
- const fit=Math.max(LIST_BATCH,Math.ceil((window.scrollY+window.innerHeight)/LIST_ROW_MIN)+20);
+ const box=document.querySelector('#app .sl-wide'),fit=Math.max(LIST_BATCH,Math.ceil((window.scrollY+(box?box.scrollTop:0)+window.innerHeight)/LIST_ROW_MIN)+20);
  const key=tab+':'+subtab+table,now=listSizes.has(key)?fit:Math.max(fit,LIST_IDLE_ROWS);
  listDraw=rows.length>fit?{key,table}:null;
  if(rows.length<=now){listRest=null;return rows.map(rowHTML).join('');}

@@ -27,8 +27,9 @@ module.exports=async function({page,eq}){
 
  const id=await p.evaluate(()=>{const id=oqOrder(oqCustomer());tab='sales';soDraft=null;soEdit=null;salesShow={orders:true,quotes:false,ncr:false};render();return id;});
  eq('Open — лист вперёд, Close — лист назад; с несохранённым сначала вопрос, без листа',await (async()=>{
+  await p.click('[data-order-row] [data-row-check]');
   const before=await p.evaluate(()=>mvCount);
-  await p.click('[data-order-row] button.sm');await settle();
+  await p.click('[data-open-button]');await settle();
   const open=await p.evaluate(b=>({n:mvCount-b,mode:mvMode(),edit:!!soEdit}),before);
   await p.click('.sales-save-state ~ button');await settle();
   const close=await p.evaluate(b=>({n:mvCount-b,mode:mvMode(),edit:!!soEdit}),before);

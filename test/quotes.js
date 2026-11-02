@@ -3,7 +3,7 @@
    Прогоняется и на src, и на собранном dist. */
 module.exports=async function({page,eq,ok}){
  console.log('quotes');
- const t=await page();
+ const t=await page(undefined,{width:1920,height:900});
  await t.p.evaluate(()=>{
   window.qCustomer=function(extra){const c=normalizeCustomer(Object.assign({legalName:'QA Quote Ltd',code:'QAQUOTE'+(DB.customer.length+1),contacts:[{name:'Jane Buyer',email:'buyer@qaquote.ca',isPrimary:true}]},extra||{}));DB.customer.push(c);return c;};
   window.qNew=function(cust){
@@ -94,7 +94,7 @@ module.exports=async function({page,eq,ok}){
   const chips=[chip('quote:open'),chip('quote:sent'),chip('quote:won')];
   const n=DB.salesOrder.length,old=window.confirm;let msg='';window.confirm=m=>{msg=m;return true;};salesOrderDelete(q2);window.confirm=old;
   return {chips,deleted:n-DB.salesOrder.length,msg:msg.includes('Delete quote Q-10002 and all 2 revisions')};
- }),{chips:['Not sent 1','Sent 0','Won 1'],deleted:2,msg:true});
+ }),{chips:['Not sent1','Sent0','Won1'],deleted:2,msg:true});
 
  eq('у заказа — бланки заказа и вкладка Drawings, бланка Quote нет',await t.p.evaluate(()=>{
   const o=DB.salesOrder.find(x=>x.kind==='order');salesOrderEdit(o.id);docOpen();

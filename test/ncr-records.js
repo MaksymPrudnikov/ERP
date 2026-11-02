@@ -2,7 +2,7 @@
    Remake — новый заказ без оплаты, список в Sales, полоса в заказе, запрет
    удаления, сохранение, JSON, Glass ID не в Sales. Recut — test/recut.js. */
 module.exports=async function({page,eq,ok}){
- console.log('ncr records');const t=await page();
+ console.log('ncr records');const t=await page(undefined,{width:1920,height:900});
  const helpers=async()=>{await require('./optimization-fixture')(t.p);await t.p.evaluate(()=>{
   window.nrReason=(where,name)=>ncrReasonsFor(where,{activeOnly:true}).find(r=>r.name===name).id;
   window.nrOrder=status=>{const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;if(status)oqThrough(id,status);tab='sales';salesOrderEdit(id);return id;};
@@ -70,10 +70,10 @@ module.exports=async function({page,eq,ok}){
   salesShow={orders:true,quotes:false,ncr:false};render();const plainTotal=document.querySelector('[data-sum="total"]').textContent;
   salesListOpenShow(null);const menu=[...document.querySelectorAll('[data-show]')].map(x=>x.dataset.show);salesListMenu=null;salesToggleShow('ncr');
   const rows=[...document.querySelectorAll('[data-ncr-row]')].map(r=>r.innerText.replace(/\s+/g,' ').trim());
-  const types=[...document.querySelectorAll('.sl-table tbody .pill.kind-ncr')].length,label=document.querySelector('[data-show-menu]').textContent,foot=document.querySelector('[data-foot-count]').innerText.replace(/\s+/g,' ');
+  const types=[...document.querySelectorAll('.sl-table tbody .pill.kind-ncr')].length,label=document.querySelector('[data-show-menu]').textContent,foot=document.querySelector('[data-foot-count]').title;
   const total=document.querySelector('[data-sum="total"]').textContent;salesSetStatusFilter('ncr:done');const done=[...document.querySelectorAll('[data-ncr-row]')].length;salesSetStatusFilter('');
   salesToggleShow('orders');const onlyNcr=[...document.querySelectorAll('[data-order-row]')].length+'/'+[...document.querySelectorAll('[data-ncr-row]')].length;salesToggleShow('ncr');const stays=salesShow.ncr;
-  document.querySelector('[data-ncr-row] button').click();const opened=!!document.querySelector('[data-ncr-status]');
+  document.querySelector('[data-ncr-row] [data-row-check]').click();document.querySelector('[data-open-button]').click();const opened=!!document.querySelector('[data-ncr-status]');
   return {menu,rows:rows.length,first:rows.some(r=>r.includes('NCR1001')&&r.includes('Open')&&r.includes('Remake order · SHIP · Broke in transit')),types,label,foot:foot.includes('Orders 3 · Quotes 0 · NCR 2')&&/NCR: (Done 1 · Open 1|Open 1 · Done 1)/.test(foot),same:total===plainTotal,done,onlyNcr,stays,opened};
  }),{menu:['orders','quotes','ncr'],rows:2,first:true,types:2,label:'Orders + NCR▾',foot:true,same:true,done:1,onlyNcr:'0/2',stays:true,opened:true});
 

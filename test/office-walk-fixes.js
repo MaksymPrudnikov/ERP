@@ -6,7 +6,7 @@
    строку 1; Priority не видна в очереди; «+ New receipt» из заказа без
    клиента и суммы; вкладка станции «Glass Farm · Glass Farm». */
 module.exports=async function({page,eq,ok}){
- console.log('office-walk-fixes');const t=await page();
+ console.log('office-walk-fixes');const t=await page(undefined,{width:1920,height:900});
  await require('./optimization-fixture')(t.p);
 
  /* Настоящая мышь и клавиатура: набрать Qty, кликнуть в Width, набрать. */

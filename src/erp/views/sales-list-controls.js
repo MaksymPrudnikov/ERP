@@ -12,6 +12,43 @@ function salesListShowMenuHTML(style){
  return `<label><input type="checkbox" data-show="${key}" ${salesShow[key]?'checked':''} ${only?'disabled':''} onchange="salesToggleShow('${key}')">${label}<small>${n}</small></label>`;
  }).join('')}</div>`;
 }
+/* Один All (владелец, 2.11.2026): снимает быстрый вид и кнопку статуса; когда
+   снимать нечего, прячет и показывает ряд статусов, выбор запоминается. */
+function salesQuickPick(key){
+ if(key!=='all'){salesQuickSet(key);return;}
+ const p=salesListLoadPrefs();
+ if(p.quick==='all'&&!salesStatusFilter){p.statusHidden=!p.statusHidden;salesListSavePrefs();render();return;}
+ salesStatusFilter='';salesQuickSet('all');
+}
+let salesListStepNow=0,salesListChipsNow=[],salesListScrollKeep=null;
+/* Ступени ширины экрана: на них меняются колонки, подписи и место Created. */
+function salesListStep(){return [1200,1400,1600,1620,1800].filter(x=>window.innerWidth>=x).length;}
+function salesListShortLabel(s){return window.innerWidth>=1400?s:({'Due this week':'This week','Needs attention':'Attention','Partially shipped':'Partial','Picked up / Delivered':'Delivered'})[s]||s;}
+/* Ряд кнопок статусов; на узком экране все статусы в одной кнопке Status. */
+function salesListStatusPills(chips){
+ const cur=chips.find(c=>c.key===salesStatusFilter);
+ if(window.innerWidth<1200)return `<button type="button" class="sl-quick-pill${cur?' on':''}" data-status-menu aria-haspopup="dialog" onclick="salesListOpenStatus(event)">Status: ${esc(cur?salesListShortLabel(cur.label):'All')}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
+ if(salesListLoadPrefs().statusHidden)return '';
+ return `<span class="sl-filter-sep" aria-hidden="true"></span>${chips.map(c=>`<button type="button" class="sl-quick-pill sl-status-pill${c.key===salesStatusFilter?' on':''}" aria-pressed="${c.key===salesStatusFilter}" data-status-chip="${esc(c.key)}" onclick="salesSetStatusFilter(${esc(JSON.stringify(c.key))})">${esc(salesListShortLabel(c.label))}<b>${c.n.toLocaleString('en-US')}</b></button>`).join('')}`;
+}
+function salesListOpenStatus(e){salesListMenu=Object.assign({kind:'status',scope:'sales'},salesListAt(e,220));render();}
+function salesListStatusMenuHTML(style){
+ return `<div class="sl-menu sl-status-menu" style="${style}" role="dialog" aria-label="Status">${salesListChipsNow.map(c=>`<button type="button" class="sl-btn${c.key===salesStatusFilter?' on':''}" data-status-chip="${esc(c.key)}" onclick="salesListMenu=null;salesSetStatusFilter(${esc(JSON.stringify(c.key))})">${esc(c.label)}<b>${c.n.toLocaleString('en-US')}</b></button>`).join('')}</div>`;
+}
+/* После отрисовки. Итоги прилипают к низу страницы, а это работает, только
+   пока обёртка таблицы не прокручивается. Шире экрана (включили колонку,
+   потянули ширины) — таблица крутится сама, итоги внизу её окна. */
+function salesListFit(){
+ const wrap=document.querySelector('#app .sl-foot-pin .sales-table-wrap');if(!wrap)return;
+ const foot=(document.querySelector('.app-foot')||{}).offsetHeight||0,wide=wrap.firstElementChild.offsetWidth>wrap.clientWidth+1;
+ wrap.style.setProperty('--sl-foot-bottom',foot+'px');wrap.classList.toggle('sl-wide',wide);
+ wrap.style.maxHeight=wide?Math.max(260,window.innerHeight-foot-wrap.getBoundingClientRect().top-window.scrollY-12)+'px':'';
+ if(wide&&salesListScrollKeep){wrap.scrollLeft=salesListScrollKeep.x;wrap.scrollTop=salesListScrollKeep.y;}
+}
+window.addEventListener('resize',()=>{
+ if(tab!=='sales'||soEdit!==null)return;
+ if(salesListStep()===salesListStepNow)salesListFit();else render();
+});
 function salesListToggleStatuses(){const p=salesListLoadPrefs();p.statusExpanded=!p.statusExpanded;salesListSavePrefs();render();}
 function salesListDateParts(f){
  if(!f||!salesListFilterActive(f))return {preset:'',from:'',to:'',simple:true};
