@@ -113,8 +113,21 @@ module.exports=async function({page,eq,ok}){
  eq('Shipments look like the Sales list: short date, status pill, PS contents as a table with the main action highlighted',await t.p.evaluate(()=>{
   const [id]=shSeed(),s=shCreate([id],null,'delivery').value;tab='shipping';shippingTab='shipments';shippingOpenId=s.id;render();
   const row=document.querySelector('[data-ps="'+s.number+'"]'),card=document.querySelector('.shipping-detail');
-  return {date:row.cells[2].textContent===salesListShortDay(finToday()),pill:row.querySelector('.pill.st-new').textContent,card:card.querySelector('.shipping-customer-head .pill').textContent,head:[...card.querySelectorAll('th')].map(e=>e.textContent).join('|'),main:card.querySelector('button.pri').textContent,toolbar:!!document.querySelector('.shipping-toolbar [data-order-lookup]')};
+  return {date:row.cells[3].textContent===salesListShortDay(finToday()),pill:row.querySelector('.pill.st-new').textContent,card:card.querySelector('.shipping-customer-head .pill').textContent,head:[...card.querySelectorAll('th')].map(e=>e.textContent).join('|'),main:card.querySelector('button.pri').textContent,toolbar:!!document.querySelector('.shipping-list-card [data-order-lookup]')};
  }),{date:true,pill:'Planned',card:'Planned',head:'Line / Mark|Size|Makeup|Skids|Qty|Before|Back order',main:'Ship',toolbar:true});
+ eq('Shipments: days on the left, the day is the Date filter, a quick view looks past the day, a status narrows the day',await t.p.evaluate(()=>{
+  const ids=shSeed(2),a=shCreate([ids[0]],null,'delivery').value,b=shCreate([ids[1]],null,'delivery').value,old=salesListDay(new Date(Date.now()-3*864e5));
+  DB.shipment.find(s=>s.id===b.id).date=old;tab='shipping';shippingTab='shipments';shippingOpenId='';shippingStatusKey='';render();
+  const rows=()=>[...document.querySelectorAll('tr[data-ps]')].map(r=>r.dataset.ps).join(','),foot=()=>document.querySelector('.sl-foot [data-foot-count] b').textContent,date=()=>document.querySelector('[data-created-range]').textContent.replace('▾','');
+  const out={first:[rows()===a.number,date()==='Date: '+salesListShortDay(finToday()),[...document.querySelectorAll('[data-day]')].map(e=>e.dataset.day+':'+e.querySelector('b').textContent).join()===finToday()+':1,'+old+':1']};
+  shippingSetDay(old);out.day=[rows()===b.number,date()==='Date: '+salesListShortDay(old)];
+  shippingQuickPick('attention');out.attention=[rows()===b.number,document.querySelector('[data-quick=attention]').textContent.includes('1')];
+  shippingQuickPick('today');out.today=rows()===a.number;
+  shippingQuickPick('all');shippingSetDay('');out.all=[rows().split(',').length,foot(),document.querySelector('[data-day-all]').classList.contains('on')];
+  shippingStatusPick('Shipped');out.shipped=[rows(),!document.querySelector('.sl-foot')];shippingStatusPick('Shipped');
+  shippingSetDay(finToday());shippingOpenId=b.id;render();out.reveal=[rows()===b.number,date()==='Date: '+salesListShortDay(old)];
+  return out;
+ }),{first:[true,true,true],day:[true,true],attention:[true,true],today:true,all:[2,'2 packing slips',true],shipped:['',true],reveal:[true,true]});
  eq('Create packing slip: только отмеченное; без выбора — все заказы с готовым, без пустых заголовков',await t.p.evaluate(()=>{
   const ids=shSeed(3),o=salesRecord(ids[1]),u=shippingAvailable(o)[0];tab='shipping';shippingTab='ready';render();
   shippingCustomer=o.customerId;shippingSelection.clear();shippingSelection.add(u.label);shippingOpen(o.customerId);render();
@@ -193,7 +206,7 @@ module.exports=async function({page,eq,ok}){
  await t.p.getByRole('button',{name:'Ship',exact:true}).click();await t.p.getByRole('button',{name:'Ship all',exact:true}).click();await t.p.locator('[data-signed-ps]').fill('PS-0001');await t.p.locator('[data-signed-ps]').press('Enter');
  eq('Office controls create, ship and scan the signed PS; scan focus returns',await t.p.evaluate(()=>({status:DB.shipment[0].status,order:DB.salesOrder[0].status,focus:document.activeElement.id})),{status:'delivered',order:'done',focus:'shippingSigned'});
   await t.p.evaluate(()=>{shippingOpenId='';render();});
- await t.p.getByRole('button',{name:'Filter Customer',exact:true}).click();ok('Shipment column filter opens',await t.p.locator('.sl-menu').count()>0);await t.p.evaluate(()=>{salesListMenu=null;render();});
+ await t.p.getByRole('button',{name:'Filter and sort Customer',exact:true}).click();ok('Shipment column filter opens',await t.p.locator('.sl-menu').count()>0);await t.p.evaluate(()=>{salesListMenu=null;render();});
  await t.p.setViewportSize({width:390,height:844});eq('Shipping fits the narrow viewport',await t.p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
  // Both order lists share the class of the small Queue input in Ready.
  // A width intended for that input must never collapse the whole list.

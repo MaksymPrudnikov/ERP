@@ -40,7 +40,7 @@
 .ship-top #shippingReceiver{width:120px}
 .ship-top #shippingReceivedOn{width:128px}
 .ship-top .shipping-lookup-field input{width:110px}
-.ship-top>select{width:160px}
+.ship-top>select{width:176px}
 .shipping-ps-table td.sales-row-actions{text-align:right}
 .shipping-ps-table .shipping-pills{flex-wrap:nowrap}
 @media(max-width:1400px){.ship-split{grid-template-columns:160px minmax(0,1fr)}}
