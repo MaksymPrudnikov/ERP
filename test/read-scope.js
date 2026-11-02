@@ -39,6 +39,12 @@ module.exports=async function({page,eq}){
   salesOrderSave();salesDraftDrop(true);const book=o=>JSON.stringify(salesPriceBookOf(o)),o=salesRecord(id);
   return {totals:sig()===readScope(sig),book:book(o)===readScope(()=>{finOrderTotals(o);return book(o);}),bookFull:Object.keys(salesPriceBookOf(o)).length>0};
  }),{totals:true,book:true,bookFull:true});
+ eq('посчитанное из базы живёт между отрисовками; любая запись сбрасывает, в записи — только свежее',await t.p.evaluate(()=>{
+  const get=()=>readScope(()=>stationPieceIndex());const a=get(),same=get()===a;
+  const c=DB.customer[0]||{};storageCommand(()=>{DB.customer.push(normalizeCustomer({legalName:'Keep check',code:'KC-1'}));return true;},{customer:[]});const fresh=get()!==a;
+  let inCommand=false;storageCommand(()=>{const x=get();inCommand=x!==get();return true;},{});
+  return {same,fresh,inCommand};
+ }),{same:true,fresh:true,inCommand:true});
  eq('указатели без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

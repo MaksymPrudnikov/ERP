@@ -197,7 +197,13 @@ function salesListOrderItems(o,byCode){
  if(skipped)parts.push(skipped+' line'+(skipped===1?'':'s')+' not counted');
  return parts.length?parts.join(' | '):null;
 }
-function salesListInfo(o){return {o,q:salesIsQuote(o),c:salesFindCustomer(o.customerId)||{},memo:{}};}
+/* Значения строк живут между отрисовками вместе с указателями (erp/read-scope):
+   сортировка и фильтр не считают их заново. Открытый заказ — всегда заново. */
+function salesListInfo(o){
+ const keep=readOn()&&!(typeof storageDepth!=='undefined'&&storageDepth)&&o!==soDraft?readMemo('salesListInfos',[DB.salesOrder,DB.customer],()=>new WeakMap()):null;
+ let info=keep&&keep.get(o);if(info)return info;
+ info={o,q:salesIsQuote(o),c:salesFindCustomer(o.customerId)||{},memo:{}};if(keep)keep.set(o,info);return info;
+}
 function salesListValue(info,k){
  if(Object.prototype.hasOwnProperty.call(info.memo,k))return info.memo[k];
  /* Заказ в архиве — значения из строки, снятой в день ухода (erp/archive). */
@@ -290,7 +296,7 @@ function salesListFilterTest(col,f,info){
  const alt=info.a?null:col.k==='glass'?salesListGlass(info.o,true):col.k==='orderItems'?salesListOrderItems(info.o,true):null;
  const test=c=>{const t=salesListCondTest(col.type,c,val);if(alt==null||alt===val)return t;const u=salesListCondTest(col.type,c,alt);return c.op==='notContains'||c.op==='notEqual'?t&&u:t||u;};
  if(Array.isArray(f.values))ok=col.tokens?salesListTokens(info,col.k).some(v=>f.values.includes(v)):f.values.includes(salesListText(info,col.k));
- if(ok&&f.preset&&col.type==='date'){const r=salesListPresetRange(f.preset);ok=!!val&&!!r&&val>=r[0]&&val<=r[1];}
+ if(ok&&f.preset&&col.type==='date'){const r=readMemo('salesPreset:'+f.preset,[],()=>salesListPresetRange(f.preset));ok=!!val&&!!r&&val>=r[0]&&val<=r[1];}
  const conds=(f.conds||[]).filter(salesListCondReady);
  if(ok&&conds.length){
   let r=test(conds[0]);
@@ -299,11 +305,14 @@ function salesListFilterTest(col,f,info){
  }
  return f.mode==='exclude'?!ok:ok;
 }
+/* Один Intl.Collator на сортировку: тот же порядок, что localeCompare с теми
+   же настройками, но он не собирается заново на каждое сравнение. */
+const salesListTextOrder=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'}),salesListPlainOrder=new Intl.Collator();
 function salesListCompare(col,dir){
  return (a,b)=>{
   const va=salesListValue(a,col.k),vb=salesListValue(b,col.k),ea=va==null||va==='',eb=vb==null||vb==='';
   if(ea||eb)return ea&&eb?0:ea?1:-1;
-  const r=col.type==='number'?va-vb:String(va).localeCompare(String(vb),undefined,{numeric:true,sensitivity:'base'});
+  const r=col.type==='number'?va-vb:salesListTextOrder.compare(String(va),String(vb));
   return dir==='asc'?r:-r;
  };
 }
@@ -331,7 +340,7 @@ function salesListRows(infos,skip){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(skip||[]).includes(k));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
  const d=salesListDefaultSort(),s=p.sort||d,col=salesListColumn(s.k)||salesListColumn(d.k),cmp=col?salesListCompare(col,s.dir):()=>0;
- return rows.sort((a,b)=>cmp(a,b)||String(b.o.createdAt||'').localeCompare(String(a.o.createdAt||'')));
+ return rows.sort((a,b)=>cmp(a,b)||salesListPlainOrder.compare(String(b.o.createdAt||''),String(a.o.createdAt||'')));
 }
 /* Быстрые виды Sales (владелец, 1 октября 2026): таблетки над таблицей.
    Работают поверх фильтров колонок, кроме даты создания: заказ, созданный
