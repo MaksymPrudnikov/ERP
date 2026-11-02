@@ -3,7 +3,7 @@
    ширины у каждой таблицы свои; Order Items — отдельные стёкла по материалам. */
 module.exports=async function({page,eq}){
  console.log('col widths · order items');
- const t=await page(undefined,{width:1600,height:900});await require('./optimization-fixture')(t.p);
+ const t=await page(undefined,{width:1920,height:900});await require('./optimization-fixture')(t.p);
  const run=(fn,arg)=>t.p.evaluate(fn,arg).catch(e=>({error:String(e.message).split('\n')[0]}));
  const box=sel=>t.p.evaluate(s=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height};},sel);
  /* Настоящая мышь: граница — нажать, протянуть, отпустить (где угодно). */
@@ -77,7 +77,7 @@ module.exports=async function({page,eq}){
   const after={widths:p.widths||null,fixed:document.querySelector('.sl-table').classList.contains('cw-fixed'),order:cwHeads().join()===order,filter:!!p.filters.customer,menu:!!salesListMenu};
   p.widths={glass:120};salesListStandardView();
   return {kept:w0===w1,btns,after,standard:salesListLoadPrefs().widths||null};
- }),{kept:true,btns:['Standard view','Reset widths'],after:{widths:null,fixed:false,order:true,filter:true,menu:true},standard:null});
+ }),{kept:true,btns:['Standard view','Reset widths'],after:{widths:null,fixed:true,order:true,filter:true,menu:true},standard:null});
 
  eq('Sales: старые и испорченные ширины — без ошибок: чужое и отрицательное убрано, узкое и огромное — к границам',await run(()=>{
   localStorage.setItem(SALES_LIST_PREFS_KEY,JSON.stringify({cols:[{k:'number',on:true}],widths:{glass:-5,status:'abc',number:10,customer:99999,'x y':50,po:120.4}}));

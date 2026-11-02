@@ -14,12 +14,16 @@
      текст — многоточие, полный — подсказкой при наведении.
    - Конец перетаскивания — отпускание где угодно (захват указателя);
      Escape — отмена. Ширина не трогает заказ, ввод и выделение строк.
+   - Адаптер с fill (список Sales, владелец 2.11.2026): таблица всегда на
+     ширинах, короткие колонки стоят на своих, остаток берёт колонка fill.
+     Её ширина не запоминается, пока её не потянули руками.
    ===================================================================== */
 
 const CW_MIN=40,CW_MAX=1200;
 const CW_TABLES={};
 /* id → {widths(), save(widths), def(key), min(key), move(from,to,after),
-   lead: [px служебных колонок слева], trail: px кнопок справа} */
+   lead: [px служебных колонок слева], trail: px кнопок справа, fill: ключ
+   колонки, забирающей остаток; её def — наименьшая ширина} */
 function cwRegister(id,adapter){CW_TABLES[id]=adapter;}
 /* Ширины из настроек: ключ колонки → целые px; чужое и отрицательное — вон,
    слишком узкое и широкое — к границам. */
@@ -35,15 +39,16 @@ function cwFixed(id){return Object.keys(cwWidths(id)).length>0;}
    нехватка — прокрутка вбок, сохранённые ширины не сжимаются. */
 function cwSum(a,keys,w){return a.lead.reduce((s,x)=>s+x,0)+keys.reduce((s,k)=>s+(w[k]||a.def(k)),0)+a.trail;}
 function cwColgroupFor(id,keys,w){
- const a=CW_TABLES[id];if(!a||!Object.keys(w).length)return '';
- return `<colgroup>${a.lead.map(x=>`<col style="width:${x}px">`).join('')}${keys.map(k=>`<col data-cw-col="${k}" style="width:${w[k]||a.def(k)}px">`).join('')}<col></colgroup>`;
+ const a=CW_TABLES[id];if(!a||(!a.fill&&!Object.keys(w).length))return '';
+ const free=!!a.fill&&keys.includes(a.fill)&&!w[a.fill];
+ return `<colgroup>${a.lead.map(x=>`<col style="width:${x}px">`).join('')}${keys.map(k=>`<col data-cw-col="${k}"${free&&k===a.fill?'':` style="width:${w[k]||a.def(k)}px"`}>`).join('')}<col${free?` style="width:${a.trail}px"`:''}></colgroup>`;
 }
 /* Разметка таблицы: метка, класс и ширина; без сохранённых ширин — как раньше. */
 function cwTableAttrs(id,keys){
  const a=CW_TABLES[id],w=cwWidths(id);
- return ` data-cw-table="${id}"`+(Object.keys(w).length?` style="width:max(100%,${cwSum(a,keys,w)}px)"`:'');
+ return ` data-cw-table="${id}"`+(a.fill||Object.keys(w).length?` style="width:max(100%,${cwSum(a,keys,w)}px)"`:'');
 }
-function cwTableClass(id){return cwFixed(id)?' cw-fixed':'';}
+function cwTableClass(id){return cwFixed(id)||CW_TABLES[id].fill?' cw-fixed':'';}
 function cwColgroup(id,keys){return cwColgroupFor(id,keys,cwWidths(id));}
 function cwGrip(){return '<span class="cw-grip" data-cw-grip aria-hidden="true"></span>';}
 
@@ -53,7 +58,7 @@ function cwKeys(table){return [...table.querySelectorAll('thead th[data-cw-key]'
 /* Ширины всех видимых колонок такими, как они на экране, — один раз, при первом жесте. */
 function cwSnapshot(table,id){
  const w=cwWidths(id);if(Object.keys(w).length)return w;
- cwKeys(table).forEach(th=>{w[th.dataset.cwKey]=Math.max(CW_MIN,Math.ceil(th.getBoundingClientRect().width));});
+ cwKeys(table).forEach(th=>{if(th.dataset.cwKey!==CW_TABLES[id].fill)w[th.dataset.cwKey]=Math.max(CW_MIN,Math.ceil(th.getBoundingClientRect().width));});
  return w;
 }
 /* Таблица на экране — в режим ширин без перерисовки (ввод и фокус на месте). */

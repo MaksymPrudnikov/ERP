@@ -5,7 +5,7 @@
    archiveRun вызывается сам. */
 module.exports=async function({page,eq}){
  console.log('archive');
- const t=await page();await require('./optimization-fixture')(t.p);
+ const t=await page(undefined,{width:1920,height:900});await require('./optimization-fixture')(t.p);
  /* Три заказа отгружены 10 января 2026: два оплачены, третий на Hold;
     у первого батч, раскрой и скан резки. Ещё один — не отгружен. */
  const ids=await t.p.evaluate(async()=>{
@@ -74,7 +74,7 @@ module.exports=async function({page,eq}){
   storageTakeControl();tab='sales';subtab='orders';salesShow={orders:true,quotes:false,ncr:false};salesStatusFilter='';salesListLoadPrefs().filters={};render();
   const rows=[...document.querySelectorAll('[data-archived-row]')].map(tr=>tr.dataset.archivedRow).sort(),num=id=>document.querySelector(`[data-archived-row="${id}"] td:nth-child(2)`).textContent.trim();
   return {rows:rows.join()===[x.a,x.b].sort().join(),hot:document.querySelectorAll('[data-order-row]').length,label:document.querySelectorAll('[data-archived-row] [data-archived]').length,
-   number:num(x.a)===b.rows[x.a][1],open:!!document.querySelector(`[data-archived-row="${x.b}"] .sales-row-actions button`),foot:/Orders 4/.test(document.querySelector('[data-foot-count]').textContent),
+   number:num(x.a)===b.rows[x.a][1],open:!!document.querySelector(`[data-archived-row="${x.b}"]  [data-row-check]`),foot:/Orders 4/.test(document.querySelector('[data-foot-count]').title),
    chip:salesListBase().all.filter(o=>o.status==='done').length};
  },[ids,before]),{rows:true,hot:2,label:2,number:true,open:true,foot:true,chip:3});
  eq('вкладка Orders клиента: ушедший заказ с меткой Archived',await t.p.evaluate(x=>{

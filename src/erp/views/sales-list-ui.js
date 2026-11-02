@@ -15,6 +15,10 @@
    таблицей, не плитками на экране.
    Ширина и порядок колонок — за заголовок (views/col-widths, пункт 11,
    30.10.2026); Order Items — отдельные стёкла заказа по материалам.
+   Все экраны (владелец, 2.11.2026): короткие колонки на своих ширинах,
+   остаток — Customer; когда места нет, колонки прячутся по порядку
+   (SALES_LIST_NARROW), включённая шестерёнкой видна всегда. Итоги прилипают
+   к низу экрана, что считать — раздел Show at bottom в меню колонки.
    ===================================================================== */
 
 const SALES_LIST_PREFS_KEY='glass_erp_sales_list_v1';
@@ -60,6 +64,11 @@ const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek
 /* Сроки оплаты смотрят вперёд (Finance → Due dates): просрочено и ближайшие дни. */
 const SALES_LIST_DUE_PRESETS=[['overdue','Overdue'],['today','Today'],['next7','Next 7 days'],['next30','Next 30 days'],['thisMonth','This month'],['nextMonth','Next month']];
 const SALES_HOLD_REASONS=['Waiting for payment','Customer asked to wait','Sizes or drawing to confirm','Credit check'];
+/* Sales: колонка прячется на экране уже этой ширины (владелец, 2.11.2026). */
+const SALES_LIST_NARROW={orderItems:1800,glass:1620,created:1620,priority:1400,area:1400,units:1200,po:1200,receipts:1200};
+/* Show at bottom: что считать под колонкой. Таблицы с итогом salesListFooter. */
+const SALES_LIST_CALC_NUMBER=[['sum','Sum'],['avg','Average'],['count','Count'],['min','Min'],['max','Max'],['none','None']];
+const SALES_LIST_CALC_TEXT=[['count','Count'],['unique','Unique'],['none','None']];
 
 let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAnchor=null,salesListDragKey=null,salesHoldDialog=null;
 
@@ -116,7 +125,9 @@ function salesListCleanPrefs(p){
  if(salesListScope()==='customers'&&p.createdRangeInitialized!==true&&typeof custListDefaults==='function')Object.entries(custListDefaults()).forEach(([k,f])=>{const c=salesListCleanFilter(k,f);if(c&&salesListFilterActive(c))filters[k]=c;});
  if(salesListScope().startsWith('fin')&&p.createdRangeInitialized!==true&&typeof finListDefaults==='function')Object.entries(finListDefaults()).forEach(([k,f])=>{const c=salesListCleanFilter(k,f);if(c&&salesListFilterActive(c))filters[k]=c;});
  if(tab==='purchasing'&&p.purchasingDateInitialized!==true&&typeof purListDefaults==='function')Object.entries(purListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
- const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all'};
+ const calc={},src2=p.calc&&typeof p.calc==='object'&&!Array.isArray(p.calc)?p.calc:{};
+ Object.keys(src2).forEach(k=>{const c=salesListColumn(k);if(c&&salesListCalcOptions(c).some(x=>x[0]===src2[k]))calc[k]=src2[k];});
+ const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,statusHidden:p.statusHidden===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all',calc,pinned:(Array.isArray(p.pinned)?p.pinned:[]).filter(k=>salesListColumn(k))};
  if(tab==='inventory'&&p.inventoryDateInitialized!==true&&typeof invListDefaults==='function')Object.entries(invListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
  if(tab==='purchasing')clean.purchasingDateInitialized=true;
  if(salesListScope()==='sales'){const w=cwClean(p.widths);if(Object.keys(w).length)clean.widths=w;}
@@ -137,8 +148,10 @@ function salesListCleanFilter(k,f){
 function salesListColumns(){
  const p=salesListLoadPrefs(),both=['orders','quotes','ncr'].filter(k=>salesShow[k]).length>1;
  /* Type нужна, только когда в списке больше одного вида: заказы, квоты, NCR. */
- return p.cols.filter(c=>c.on&&(c.k!=='type'||both)).map(c=>salesListColumn(c.k));
+ return p.cols.filter(c=>c.on&&(c.k!=='type'||both)&&!salesListAutoHidden(c.k)).map(c=>salesListColumn(c.k));
 }
+function salesListNarrowRule(k){return salesListScope()==='sales'&&window.innerWidth<(SALES_LIST_NARROW[k]||0);}
+function salesListAutoHidden(k){return salesListNarrowRule(k)&&!salesListLoadPrefs().pinned.includes(k);}
 
 /* ------------------------------ Значения ------------------------------- */
 function salesListDay(d){const p=v=>String(v).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
@@ -327,10 +340,9 @@ function salesListBase(){
  const all=salesListVisible(),ncrs=salesShow.ncr&&typeof ncrListInfos==='function'?ncrListInfos():[];
  /* Ушедшие в архив — вместе с живыми: за любой период, в фильтрах и итогах. */
  const old=typeof archiveListInfos==='function'?archiveListInfos(a=>salesShow[a.kind==='quote'?'quotes':'orders']):[];
- const infos=all.filter(o=>!salesStatusFilter||salesStatusFilter===salesKindOf(o)+':'+salesListStatus(o)).map(salesListInfo)
-  .concat(old.filter(i=>!salesStatusFilter||salesStatusFilter===i.o.kind+':'+i.o.status))
-  .concat(ncrs.filter(i=>!salesStatusFilter||salesStatusFilter==='ncr:'+i.o.ncrStatus.toLowerCase()));
- return {all:all.concat(old.map(i=>i.o),ncrs.map(i=>i.o)),infos};
+ /* pool — без кнопки статуса: по нему считаются числа на кнопках. */
+ const pool=all.map(salesListInfo).concat(old,ncrs);
+ return {all:all.concat(old.map(i=>i.o),ncrs.map(i=>i.o)),pool,infos:salesStatusFilter?pool.filter(r=>salesListStatusKey(r)===salesStatusFilter):pool};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
 function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(tab==='inventory'&&typeof invListDefaultSort==='function')return invListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
@@ -360,9 +372,9 @@ function salesQuickTest(key,info){
 }
 function salesQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK.some(q=>q[0]===key)?key:'all';salesListSel=new Set();salesListSavePrefs();render();}
 function salesQuickHTML(rows,anyDate,options){
- const cur=salesListLoadPrefs().quick||'all',test=options&&options.test||salesQuickTest,set=options&&options.set||'salesQuickSet';
+ const cur=options&&options.cur||salesListLoadPrefs().quick||'all',test=options&&options.test||salesQuickTest,set=options&&options.set||'salesQuickSet',name=options&&options.name||(x=>x);
  return `<div class="sl-quick" role="tablist" aria-label="Quick views">${SALES_QUICK.map(([k,label])=>{const n=(k==='all'?rows:anyDate).filter(r=>test(k,r)).length;
-  return `<button type="button" role="tab" class="sl-quick-pill${k===cur?' on':''}${k==='attention'&&n?' warn':''}" aria-selected="${k===cur}" data-quick="${k}" onclick="${set}('${k}')">${label}${k==='all'||n?`<b>${n}</b>`:''}</button>`;}).join('')}</div>`;
+  return `<button type="button" role="tab" class="sl-quick-pill${k===cur?' on':''}${k==='attention'&&n?' warn':''}" aria-selected="${k===cur}" data-quick="${k}" onclick="${set}('${k}')">${name(label)}${k==='all'||n?`<b>${n}</b>`:''}</button>`;}).join('')}</div>`;
 }
 /* В очереди флажок Glass — конкретное стекло из каталога, даже если оно
    встречается вместе с другими стёклами в Double/Triple или нескольких Makeup. */
@@ -451,25 +463,50 @@ function salesListFooter(rows,cols){
     мешают в Sales (владелец, 7.10.2026): только «N orders». */
  const queue=salesListScope()!=='sales';
  const head=`<b>${queue?orders.length+' order'+(orders.length===1?'':'s'):rows.length+' row'+(rows.length===1?'':'s')+' · Orders '+orders.length+' · Quotes '+quotes.length+(salesShow.ncr?' · NCR '+ncrs.length:'')}</b>${detail?`<small>${esc(detail)}</small>`:''}`;
- const first=cols.findIndex(c=>c.sum),lead=first<0?cols.length:first;
- const sums=cols.slice(lead).map(c=>{
-  if(!c.sum)return '<td></td>';
-  const vals=rows.map(r=>salesListValue(r,c.k)).filter(v=>v!=null&&v!=='');
-  const total=vals.reduce((s,v)=>s+Number(v),0);
-  /* Вес: сумма известного; хоть один заказ неполный или без веса — Partial;
-     ничего не известно — «—», а не 0. NCR веса не имеют. */
-  if(c.k==='weight'){const own=rows.filter(r=>!r.n),part=own.filter(r=>{const w=r.memo.weightInfo;return salesListValue(r,'weight')==null||!!w&&!w.complete;}).length;
-   return `<td class="n" data-sum="weight"${part?` title="${part} order${part===1?'':'s'} without full weight"`:''}>${vals.length?esc(salesKgText(total))+(part?'<span class="pill warn sl-partial">Partial</span>':''):'<span class="mut">—</span>'}</td>`;}
-  return `<td class="n" data-sum="${c.k}">${c.money?finFmt(finMoney(total)):total.toLocaleString('en-US',{minimumFractionDigits:c.digits||0,maximumFractionDigits:c.digits||0})}</td>`;
- }).join('');
+ const first=cols.findIndex(c=>salesListCalc(c)!=='none'),lead=first<0?cols.length:first;
+ const sums=cols.slice(lead).map(c=>salesListCalcCell(c,rows)).join('');
+ /* Sales: «Rows» над числом; разбивка по видам и статусам — в подсказке. */
+ if(!queue)return `<tfoot><tr class="sl-foot"><td class="sl-check"></td>${lead?`<td colspan="${lead}" class="sl-calc sl-foot-head" data-foot-count title="${esc(rows.length+' row'+(rows.length===1?'':'s')+' · Orders '+orders.length+' · Quotes '+quotes.length+(salesShow.ncr?' · NCR '+ncrs.length:'')+(detail?' · '+detail:''))}"><small>Rows</small><b>${rows.length.toLocaleString('en-US')}</b></td>`:''}${sums}<td></td></tr></tfoot>`;
  return `<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head" data-foot-count>${head}</td>${sums}<td></td></tr></tfoot>`;
+}
+/* Что считать под колонкой: выбранное в меню, иначе Sum у числовых с итогом. */
+function salesListCalcOptions(col){return col.type==='number'?SALES_LIST_CALC_NUMBER:SALES_LIST_CALC_TEXT;}
+function salesListCalc(col){const v=salesListLoadPrefs().calc[col.k];return salesListCalcOptions(col).some(x=>x[0]===v)?v:col.sum?'sum':'none';}
+function salesListSetCalc(k,v){const p=salesListLoadPrefs();p.calc[k]=v;salesListSavePrefs();render();}
+function salesListCalcHere(){return ['sales','optimization','shipping'].includes(salesListScope());}
+function salesListCalcCell(c,rows){
+ const kind=salesListCalc(c);if(kind==='none')return '<td></td>';
+ const vals=rows.map(r=>salesListValue(r,c.k)).filter(v=>v!=null&&v!==''),nums=vals.map(Number),total=nums.reduce((s,v)=>s+v,0);
+ const whole=n=>n.toLocaleString('en-US'),cell=html=>`<td class="sl-calc${c.type==='number'?' n':''}"><small>${(salesListCalcOptions(c).find(x=>x[0]===kind)||[])[1]}</small><span data-sum="${c.k}">${html}</span></td>`;
+ if(kind==='count')return cell(whole(vals.length));
+ if(kind==='unique')return cell(whole(new Set(vals.map(String)).size));
+ /* Вес: сумма известного; хоть один заказ неполный или без веса — Partial;
+    ничего не известно — «—», а не 0. NCR веса не имеют. */
+ if(c.k==='weight'&&kind==='sum'){const own=rows.filter(r=>!r.n),part=own.filter(r=>{const w=r.memo.weightInfo;return salesListValue(r,'weight')==null||!!w&&!w.complete;}).length;
+  return cell(`<span${part?` title="${part} order${part===1?'':'s'} without full weight"`:''}>${vals.length?esc(salesKgText(total))+(part?'<span class="pill warn sl-partial">Partial</span>':''):'<span class="mut">—</span>'}</span>`);}
+ if(kind!=='sum'&&!vals.length)return cell('<span class="mut">—</span>');
+ const x=kind==='sum'?total:kind==='avg'?total/vals.length:kind==='min'?Math.min(...nums):Math.max(...nums);
+ const digits=Math.max(c.digits||0,kind==='avg'?1:0);
+ return cell(c.money?finFmt(finMoney(x)):c.k==='weight'?esc(salesKgText(x)):x.toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits}));
+}
+/* Галочка строки без заказа в базе: NCR и архив открываются той же кнопкой Open. */
+function salesListSideCheck(id,label){return `<td class="sl-check"><input type="checkbox" data-row-check ${salesListSel.has(id)?'checked':''} aria-label="Select ${esc(label)}" onclick="salesListToggleRow(event,'${esc(id)}')"></td>`;}
+let salesListRowsNow=[];
+function salesListOpenSelected(){
+ const id=[...salesListSel][0],r=salesListRowsNow.find(x=>x.o.id===id);if(!r||salesListSel.size!==1)return;
+ if(r.n)ncrView(r.n.id);else if(r.a)archiveOpen(r.o.id);else motionSheet(()=>salesOrderEdit(id));
 }
 function salesListSelectedOrders(){return [...salesListSel].filter(id=>{const o=(DB.salesOrder||[]).find(x=>x.id===id);return !!o&&!salesIsQuote(o);});}
 function salesListView(){
- const p=salesListLoadPrefs(),{all,infos}=salesListBase(),filtered=salesListRows(infos),quick=salesListScope()==='sales'?p.quick||'all':'all',anyDate=quick==='all'&&salesListScope()!=='sales'?filtered:salesListRows(infos,['created']),rows=quick==='all'?filtered:anyDate.filter(r=>salesQuickTest(quick,r)),cols=salesListColumns();
+ const box=document.querySelector('#app .sl-wide');salesListScrollKeep=box?{x:box.scrollLeft,y:box.scrollTop}:null;salesListStepNow=salesListStep();
+ const p=salesListLoadPrefs(),{all,infos,pool}=salesListBase(),own=salesListScope()==='sales',source=own?pool:infos,filtered=salesListRows(source),quick=own?p.quick||'all':'all',anyDate=quick==='all'&&!own?filtered:salesListRows(source,['created']),shown=quick==='all'?filtered:anyDate.filter(r=>salesQuickTest(quick,r)),rows=own&&salesStatusFilter?shown.filter(r=>salesListStatusKey(r)===salesStatusFilter):shown,cols=salesListColumns();
  salesListSel=new Set([...salesListSel].filter(id=>rows.some(r=>r.o.id===id)));
  const selOrders=salesListSelectedOrders(),allHeld=selOrders.length>0&&selOrders.every(id=>(DB.salesOrder.find(o=>o.id===id)||{}).onHold);
  const holdBtn=`<button type="button" class="sl-quiet sl-hold-quiet" data-hold-button ${selOrders.length?'':'disabled'} onclick="salesListHoldSelected()">${allHeld?'Release':'On Hold'}${selOrders.length?' ('+selOrders.length+')':''}</button>`;
+ /* Open и Delete над таблицей, у отмеченной строки (владелец, 2.11.2026). */
+ const only=salesListSel.size===1?[...salesListSel][0]:'',onlyRow=only?rows.find(r=>r.o.id===only):null;
+ const openBtn=`<button type="button" class="sl-quiet" data-open-button ${onlyRow?'':'disabled'} onclick="salesListOpenSelected()">Open</button>`;
+ const deleteBtn=`<button type="button" class="sl-quiet sl-delete-quiet" data-delete-button ${onlyRow&&!onlyRow.n&&!onlyRow.a?'':'disabled'} onclick="salesOrderDelete('${esc(only)}')">Delete</button>`;
  const stickerOrder=selOrders.length===1&&typeof stkCanPrintOrder==='function'&&stkCanPrintOrder(salesRecord(selOrders[0]))?selOrders[0]:'';
  const stickersBtn=`<button type="button" class="sl-quiet" data-stickers-button ${stickerOrder?'':'disabled'} onclick="stkOpenForOrder('${esc(stickerOrder)}')">Stickers</button>`;
  /* Cut preview: раскрой отмеченных заказов и квот вместе — только просмотр
@@ -480,15 +517,16 @@ function salesListView(){
  /* Ширина и порядок за заголовок — только у списка Sales (views/col-widths). */
  const cw=salesListScope()==='sales',keys=cols.map(c=>c.k);
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"${cw?` data-cw-key="${c.k}"`:''}><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cw?cwGrip():''}</th>`;};
- salesListIds=rowIds;
+ salesListIds=rowIds;salesListRowsNow=rows;
  const body=listWindowBody(rows,r=>{
   if(r.n)return ncrListRow(r,cols);
   if(r.a)return archiveListRow(r,cols);
   const o=r.o,sel=salesListSel.has(o.id),cls=[salesIsDraft(o)?'sl-row-draft':'',!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
-  return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="motionSheet(()=>salesOrderEdit('${esc(o.id)}'))">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
+  return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td></td></tr>`;
  },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
- return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListScope()==='sales'?salesQuickHTML(filtered,anyDate):''}<div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ const wide=window.innerWidth>=1600,dateBtn=salesListDateButton(),chips=salesStatusChips(shown);salesListChipsNow=chips;
+ return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -515,6 +553,7 @@ function salesListMenuHTML(infos){
  const back='<div class="sl-backdrop" onclick="salesListCloseMenu()" oncontextmenu="event.preventDefault();salesListCloseMenu()"></div>';
  if(m.kind==='pur-sections')return back+purSectionsMenuHTML(style);
  if(m.kind==='show')return back+salesListShowMenuHTML(style);
+ if(m.kind==='status')return back+salesListStatusMenuHTML(style);
  if(m.kind==='date')return back+salesListDateMenuHTML(m,style);
  if(m.kind==='context')return back+salesListContextHTML(m,style);
  if(m.kind==='columns')return back+salesListColumnsHTML(style);
@@ -526,6 +565,7 @@ function salesListFilterHTML(m,infos,style){
  const d=m.draft,p=salesListLoadPrefs(),sort=p.sort||salesListDefaultSort();
  const labels=col.type==='number'?['↑ Smallest first','↓ Largest first']:col.type==='date'?['↑ Oldest first','↓ Newest first']:['↑ A → Z','↓ Z → A'];
  let html=`<div class="sl-menu" style="${style}" role="dialog" aria-label="Filter ${esc(col.label)}" data-filter-menu="${col.k}"><h5>Sort</h5><div class="sl-row"><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='asc'?' on':''}" data-sort="asc" onclick="salesListSort('${col.k}','asc')">${labels[0]}</button><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='desc'?' on':''}" data-sort="desc" onclick="salesListSort('${col.k}','desc')">${labels[1]}</button></div>`;
+ if(salesListCalcHere()){const on=salesListCalc(col);html+=`<h5>Show at bottom</h5><div class="sl-calc-pick">${salesListCalcOptions(col).map(x=>`<button type="button" class="sl-btn${on===x[0]?' on':''}" data-calc="${x[0]}" onclick="salesListSetCalc('${col.k}','${x[0]}')">${x[1]}</button>`).join('')}</div>`;}
  if(col.type==='date')html+=`<h5>Date</h5><div class="sl-presets">${(col.presets||SALES_LIST_PRESETS).map(x=>`<button type="button" class="sl-btn${d.preset===x[0]?' on':''}" data-preset="${x[0]}" onclick="salesListDraft('preset','${x[0]}')">${x[1]}</button>`).join('')}</div>`;
  if(col.type!=='list'){
   const ops=SALES_LIST_OPS[col.type],input=col.type==='number'?'number':col.type==='date'?'date':'text',step=input==='number'?' step="any"':'';
@@ -575,10 +615,17 @@ function salesListApplyFilter(){const m=salesListMenu;if(!m||m.kind!=='filter')r
 /* ------------------------------ Колонки -------------------------------- */
 function salesListColumnsHTML(style){
  const p=salesListLoadPrefs();
- const rows=p.cols.map((c,i)=>{const col=salesListColumn(c.k);return `<div class="sl-cols-row" draggable="true" data-col-row="${c.k}" ondragstart="salesListDragKey='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();salesListDropColumn('${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-col-toggle="${c.k}" ${c.on?'checked':''} onchange="salesListSetColumn('${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="salesListMoveColumn('${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===p.cols.length-1?'disabled':''} onclick="salesListMoveColumn('${c.k}',1)">↓</button></div>`;}).join('');
+ const rows=p.cols.map((c,i)=>{const col=salesListColumn(c.k);return `<div class="sl-cols-row" draggable="true" data-col-row="${c.k}" ondragstart="salesListDragKey='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();salesListDropColumn('${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-col-toggle="${c.k}" ${c.on&&!salesListAutoHidden(c.k)?'checked':''} onchange="salesListSetColumn('${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="salesListMoveColumn('${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===p.cols.length-1?'disabled':''} onclick="salesListMoveColumn('${c.k}',1)">↓</button></div>`;}).join('');
  return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button>${salesListScope()==='sales'?`<button type="button" class="sl-btn" data-reset-widths ${cwFixed('sales')?'':'disabled'} onclick="salesListResetWidths()">Reset widths</button>`:''}</div></div>`;
 }
-function salesListSetColumn(k,on){const c=salesListLoadPrefs().cols.find(x=>x.k===k);if(!c)return;c.on=!!on;salesListSavePrefs();render();}
+/* Шестерёнка на узком экране: включённая колонка видна всегда (прокрутка вбок),
+   снятая снова прячется только здесь, а на широком экране остаётся. */
+function salesListSetColumn(k,on){
+ const p=salesListLoadPrefs(),c=p.cols.find(x=>x.k===k);if(!c)return;
+ const rule=salesListNarrowRule(k);p.pinned=p.pinned.filter(x=>x!==k);
+ if(!rule)c.on=!!on;else if(on){c.on=true;p.pinned.push(k);}
+ salesListSavePrefs();render();
+}
 function salesListMoveColumn(k,delta){
  const cols=salesListLoadPrefs().cols,at=cols.findIndex(c=>c.k===k),to=at+delta;
  if(at<0||to<0||to>=cols.length)return;
@@ -589,7 +636,7 @@ function salesListDropColumn(k){
  const cols=salesListLoadPrefs().cols,at=cols.findIndex(c=>c.k===from);if(at<0)return;
  const [c]=cols.splice(at,1);cols.splice(cols.findIndex(x=>x.k===k),0,c);salesListSavePrefs();render();
 }
-function salesListStandardView(){const p=salesListLoadPrefs();p.cols=salesListCatalog().map(c=>({k:c.k,on:!!c.def}));delete p.widths;salesListSavePrefs();render();}
+function salesListStandardView(){const p=salesListLoadPrefs();p.cols=salesListCatalog().map(c=>({k:c.k,on:!!c.def}));p.pinned=[];delete p.widths;salesListSavePrefs();render();}
 /* Reset widths — только ширины Sales: порядок, видимость, фильтры и выбор строк на месте. */
 function salesListResetWidths(){delete salesListLoadPrefs().widths;salesListSavePrefs();render();}
 /* Перенос колонки за заголовок — тот же порядок, что в меню Columns. */
@@ -598,12 +645,12 @@ function salesListMoveColumnTo(from,to,after){
  const [c]=cols.splice(a,1),b=cols.findIndex(x=>x.k===to);if(b<0){cols.splice(a,0,c);return;}
  cols.splice(after?b+1:b,0,c);salesListSavePrefs();render();
 }
-const SALES_LIST_WIDTH={number:96,customer:200,po:100,created:90,due:90,status:110,priority:90,glass:200,orderItems:220};
+const SALES_LIST_WIDTH={type:76,number:88,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:170,units:76,area:92,total:100,receipts:100,balance:100};
 cwRegister('sales',{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
  def:k=>{const c=salesListColumn(k);return SALES_LIST_WIDTH[k]||(c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
- min:()=>CW_MIN,move:salesListMoveColumnTo,lead:[68],trail:96
+ min:()=>CW_MIN,move:salesListMoveColumnTo,lead:[68],trail:20,fill:'customer'
 });
 
 /* ------------------------------ Выбор строк ---------------------------- */

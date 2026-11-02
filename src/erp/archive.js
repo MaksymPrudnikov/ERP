@@ -219,7 +219,7 @@ function archiveListCell(info,col){
 }
 function archiveListRow(r,cols){
  const id=esc(r.o.id);
- return `<tr data-archived-row="${id}" class="sl-row-archived" ondblclick="archiveOpenWork('${id}')"><td class="sl-check"></td>${cols.map(c=>archiveListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="archiveOpen('${id}')">Open</button></td></tr>`;
+ return `<tr data-archived-row="${id}" class="sl-row-archived${salesListSel.has(r.o.id)?' sl-row-sel':''}" ondblclick="archiveOpenWork('${id}')">${salesListSideCheck(r.o.id,r.o.businessNumber||'')}${cols.map(c=>archiveListCell(r,c)).join('')}<td></td></tr>`;
 }
 
 /* ------------------------- Просмотр с диска --------------------------- */
