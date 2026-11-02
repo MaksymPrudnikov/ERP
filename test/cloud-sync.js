@@ -227,6 +227,16 @@ module.exports=async function({page,eq}){
  await D.c.close();
  await B.p.evaluate(()=>{tab='users';subtab='cloud';render();});
  eq('Stop sync: связь снята, база остаётся',await B.p.evaluate(async()=>{await cloudSyncStop();return {sync:document.querySelector('[data-cloud-sync]').dataset.cloudSync,name:DB.customer.find(x=>x.id==='C-CLOUD').legalName};}),{sync:'off',name:'From A'});
+ eq('чужая запись: экран ждёт, пока рука остановится; станция — сразу',await A.p.evaluate(async()=>{
+  const r0=render;let n=0;window.render=()=>{n++;return r0();};
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  window.GF_CLOUD_MANUAL=false;const was=tab;tab='sales';document.activeElement.blur();
+  cloudHandAt=performance.now();cloudRedrawSoon();await wait(400);cloudHandAt=performance.now();await wait(400);const moving=n;
+  await wait(800);const rest=n;
+  tab='station';n=0;cloudRedrawSoon();const station=n;
+  tab=was;window.GF_CLOUD_MANUAL=true;window.render=r0;render();
+  return {moving,rest,station};
+ }),{moving:0,rest:1,station:1});
  eq('синхронизация без ошибок страницы',[A.errs,B.errs],[[],[]]);
  await A.c.close();await B.c.close();
 };

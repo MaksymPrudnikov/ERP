@@ -480,12 +480,13 @@ function salesListView(){
  /* Ширина и порядок за заголовок — только у списка Sales (views/col-widths). */
  const cw=salesListScope()==='sales',keys=cols.map(c=>c.k);
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"${cw?` data-cw-key="${c.k}"`:''}><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cw?cwGrip():''}</th>`;};
- const body=rows.map(r=>{
+ salesListIds=rowIds;
+ const body=listWindowBody(rows,r=>{
   if(r.n)return ncrListRow(r,cols);
   if(r.a)return archiveListRow(r,cols);
   const o=r.o,sel=salesListSel.has(o.id),cls=[salesIsDraft(o)?'sl-row-draft':'',!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
- }).join('');
+ },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
  return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListScope()==='sales'?salesQuickHTML(filtered,anyDate):''}<div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
@@ -606,9 +607,11 @@ cwRegister('sales',{
 });
 
 /* ------------------------------ Выбор строк ---------------------------- */
+/* Все заказы списка по порядку: в странице может быть только их начало. */
+let salesListIds=[];
 function salesListToggleRow(e,id){
  if(e)e.stopPropagation();
- const ids=[...document.querySelectorAll('[data-order-row]')].map(tr=>tr.dataset.orderRow),on=!salesListSel.has(id);
+ const ids=salesListIds,on=!salesListSel.has(id);
  if(e&&e.shiftKey&&salesListAnchor&&ids.includes(salesListAnchor)&&ids.includes(id)){
   const a=ids.indexOf(salesListAnchor),b=ids.indexOf(id);
   ids.slice(Math.min(a,b),Math.max(a,b)+1).forEach(x=>{if(on)salesListSel.add(x);else salesListSel.delete(x);});
@@ -616,8 +619,7 @@ function salesListToggleRow(e,id){
  salesListAnchor=id;render();
 }
 function salesListToggleAll(on){
- const ids=[...document.querySelectorAll('[data-order-row]')].map(tr=>tr.dataset.orderRow);
- ids.forEach(id=>{if(on)salesListSel.add(id);else salesListSel.delete(id);});render();
+ salesListIds.forEach(id=>{if(on)salesListSel.add(id);else salesListSel.delete(id);});render();
 }
 function salesListContextHTML(m,style){
  const o=(DB.salesOrder||[]).find(x=>x.id===m.id);if(!o)return '';

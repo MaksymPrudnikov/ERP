@@ -137,6 +137,7 @@
   "src/erp/views/purchasing-receiving.js",
   "src/erp/views/purchasing-delivery-documents.js",
   "src/erp/views/purchasing-invoices.js",
+  "src/erp/views/list-window.js",
   "src/erp/views/sales-list-ui.js",
   "src/erp/views/sales-list-controls.js",
   "src/erp/sales/line-hold.js",

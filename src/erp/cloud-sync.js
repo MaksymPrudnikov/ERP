@@ -237,7 +237,24 @@ function cloudWriteLocal(list,ops){
  const index=list.filter(c=>c.tbl==='_archive');
  if(index.length&&typeof archiveIndexApply==='function')archiveIndexApply(index.map(c=>[c.id,c.del?null:JSON.parse(c.data)]));
  if(shapes&&typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(shapes,DB);
- storageWrite(list,ops);storageInvalidate();storageRerenderQuiet();
+ storageWrite(list,ops);storageInvalidate();cloudRedrawSoon();
+}
+/* Чужая запись приходит в цехе каждые несколько секунд, а перерисовка без запаса
+   посчитанного — 100–200 мс: под рукой это рывок (2.11.2026). Данные уже свежие,
+   экран обновится, когда человек на миг остановится, но не позже CLOUD_REDRAW_MS.
+   Станция и ручной режим тестов — сразу. */
+const CLOUD_REDRAW_REST=700,CLOUD_REDRAW_MS=10000;
+let cloudRedrawTimer=null,cloudRedrawAt=0,cloudHandAt=0;
+['pointermove','wheel','keydown','scroll'].forEach(k=>window.addEventListener(k,()=>{cloudHandAt=performance.now();},{passive:true,capture:true}));
+function cloudRedrawSoon(){
+ if(tab==='station'||window.GF_CLOUD_MANUAL){storageRerenderQuiet();return;}
+ if(!cloudRedrawAt)cloudRedrawAt=performance.now();
+ if(!cloudRedrawTimer)cloudRedrawTimer=setTimeout(cloudRedrawTick,CLOUD_REDRAW_REST);
+}
+function cloudRedrawTick(){
+ cloudRedrawTimer=null;const now=performance.now(),wait=CLOUD_REDRAW_REST-(now-cloudHandAt);
+ if(wait>0&&now-cloudRedrawAt<CLOUD_REDRAW_MS){cloudRedrawTimer=setTimeout(cloudRedrawTick,wait);return;}
+ cloudRedrawAt=0;storageRerenderQuiet();
 }
 async function cloudPushAll(){
  const s=cloudSync;

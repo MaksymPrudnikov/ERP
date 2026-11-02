@@ -430,9 +430,12 @@ function afterRender(){
  const chip=document.getElementById('testChip');if(chip)chip.hidden=!storageTest;
  /* Save в фоне: стекло в углу и полоса в заказе (erp/sales/save-job). */
  if(typeof salesSaveDom==='function')salesSaveDom();
- /* Forms remain available for reading. A tab that can take over keeps its
-    buttons: the click itself makes it the writer. Without coordination, with
-    a broken database or in an older version, persisting controls are off. */
+ storageLockButtons();
+}
+/* Forms remain available for reading. A tab that can take over keeps its
+   buttons: the click itself makes it the writer. Without coordination, with
+   a broken database or in an older version, persisting controls are off. */
+function storageLockButtons(){
  if(storageRecovery||!navigator.locks||storageStale){
   document.querySelectorAll('#app button[onclick],#app [data-station-scan]').forEach(el=>{
    if(el.hasAttribute('data-station-scan')||/\b(?:save\w*|\w*Save|\w*Create|stationSubmit|stationMark|stationUndoClick|finConfirmApply|finExportQuickBooks|del\w*|carrierSet)\s*\(/.test(el.getAttribute('onclick')||'')){
