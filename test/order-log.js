@@ -191,6 +191,7 @@ module.exports=async function({page,eq,ok}){
   return a.by;
  }),'Demo Owner · CUT');
 
+ await t.p.evaluate(()=>storageFlush());
  await t.p.reload();await t.p.evaluate(()=>window.storageReady);await started(t.p);
  eq('F5 не выходит',await t.p.evaluate(()=>signinUser()&&signinUser().name),'Demo Sales');
  const p2=await t.c.newPage();await p2.goto(t.p.url());await started(p2);
