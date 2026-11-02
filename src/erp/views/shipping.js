@@ -17,13 +17,13 @@ function shippingTabCount(key){
  if(key==='shipments')return (DB.shipment||[]).filter(s=>s.status==='planned'||s.status==='shipped').length;
  if(key==='ready')return shippingReadyOrders().length;
  if(key==='backorders')return shippingOrders().filter(o=>o.status==='shipping'&&shippingBackCount(o)>0).length;
- return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;
+ return optimizationQueue(key).length;
 }
 /* Delivery — свой экран, не очередь заказов: в SHIPPING_TABS (вкладки
    очереди, erp/views/optimization) он не входит. */
 function shippingViewTabs(){const t=SHIPPING_TABS.slice();t.splice(t.findIndex(x=>x[0]==='shipments')+1,0,['delivery','Delivery'],['skids','Skids']);return t;}
 function shippingTabs(){return '<div class="oq-tabs" role="tablist">'+shippingViewTabs().map(([key,name])=>`<button type="button" role="tab" data-shipping-tab="${key}" aria-selected="${shippingTab===key}" class="${shippingTab===key?'on':''}" onclick="shippingSetTab('${key}')">${name} <b>${shippingTabCount(key)}</b></button>`).join('')+'</div>';}
-function shippingOrders(){return (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&!['cancelled','closed'].includes(o.status)&&!shippingLegacy(o)&&(o.status!=='new'||shippingAvailable(o).length>0));}
+function shippingOrders(){return readMemo('shippingOrders',[DB.salesOrder,DB.shipment,DB.stationScan],()=>(DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&!['cancelled','closed'].includes(o.status)&&!shippingLegacy(o)&&(o.status!=='new'||shippingAvailable(o).length>0)));}
 /* Ready — только то, что можно положить в PS: готовые юниты без PS и товары
    склада. Заказ, где готового нет, сюда не попадает (он в Awaiting). */
 function shippingReadyExtras(o,q){return o.status!=='new'&&!o.onHold?q.extras.filter(e=>e.ready>0):[];}

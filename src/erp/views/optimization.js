@@ -19,8 +19,9 @@ function optimizationMatches(o,key){
  return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?!salesStockOnly(o)&&(o.status==='verified'&&glassOrderNeedsCut(o)||(['batched','ready','shipping','done'].includes(o.status)&&fresh()>0)):
   key==='production'?o.status==='batched':key==='awaiting'?['verified','batched'].includes(o.status)&&!salesStockOnly(o):key==='ready'?shippingAvailable(o).length>0||salesStockOnly(o)&&o.status==='ready':key==='done'?o.status==='done'&&!fresh():false;
 }
-function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:key==='stock'?(DB.stockOffcut||[]).filter(r=>r.status==='stock').length:key==='sheets'?sheetUsageRows().length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}
-function optimizationBase(){return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,orderQueueKey())).map(salesListInfo);}
+function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:key==='stock'?(DB.stockOffcut||[]).filter(r=>r.status==='stock').length:key==='sheets'?sheetUsageRows().length:optimizationQueue(key).length;}
+function optimizationQueue(key){return readMemo('optQueue:'+key,[DB.salesOrder,DB.shipment,DB.stationScan,DB.glassBatch],()=>(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)));}
+function optimizationBase(){return optimizationQueue(orderQueueKey()).map(salesListInfo);}
 function optimizationRows(){return salesListRows(optimizationBase()).map(info=>info.o);}
 function optimizationBlocked(o){return o.onHold&&tab!=='shipping'&&['all','new','batch'].includes(orderQueueKey());}
 function optimizationSetTab(key){

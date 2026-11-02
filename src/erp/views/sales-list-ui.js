@@ -197,7 +197,13 @@ function salesListOrderItems(o,byCode){
  if(skipped)parts.push(skipped+' line'+(skipped===1?'':'s')+' not counted');
  return parts.length?parts.join(' | '):null;
 }
-function salesListInfo(o){return {o,q:salesIsQuote(o),c:salesFindCustomer(o.customerId)||{},memo:{}};}
+/* Значения строк живут между отрисовками вместе с указателями (erp/read-scope):
+   сортировка и фильтр не считают их заново. Открытый заказ — всегда заново. */
+function salesListInfo(o){
+ const keep=readOn()&&!(typeof storageDepth!=='undefined'&&storageDepth)&&o!==soDraft?readMemo('salesListInfos',[DB.salesOrder,DB.customer],()=>new WeakMap()):null;
+ let info=keep&&keep.get(o);if(info)return info;
+ info={o,q:salesIsQuote(o),c:salesFindCustomer(o.customerId)||{},memo:{}};if(keep)keep.set(o,info);return info;
+}
 function salesListValue(info,k){
  if(Object.prototype.hasOwnProperty.call(info.memo,k))return info.memo[k];
  /* Заказ в архиве — значения из строки, снятой в день ухода (erp/archive). */
