@@ -46,6 +46,7 @@ function salesListFit(){
  if(wide&&salesListScrollKeep){wrap.scrollLeft=salesListScrollKeep.x;wrap.scrollTop=salesListScrollKeep.y;}
 }
 window.addEventListener('resize',()=>{
+ if(tab==='shipping'){salesListFit();return;}
  if(tab!=='sales'||soEdit!==null)return;
  if(salesListStep()===salesListStepNow)salesListFit();else render();
 });
@@ -64,7 +65,7 @@ function salesListDateParts(f){
 const SALES_LIST_RANGE=[['last7','7 days'],['last14','14 days'],['last30','30 days'],['','All time']];
 function salesListDateButton(k){
  k=k||'created';const col=salesListColumn(k)||{label:'Created'},f=salesListLoadPrefs().filters[k],d=salesListDateParts(f),presets=(col.presets||SALES_LIST_PRESETS).concat(col.range||[]);
- const label=d.preset?(presets.find(x=>x[0]===d.preset)||['','Custom'])[1]:!d.simple?'Custom filter':d.from&&d.to?salesListShortDay(d.from)+' – '+salesListShortDay(d.to):d.from?'From '+salesListShortDay(d.from):d.to?'Through '+salesListShortDay(d.to):'All time';
+ const label=d.preset?(presets.find(x=>x[0]===d.preset)||['','Custom'])[1]:!d.simple?'Custom filter':d.from&&d.to?(d.from===d.to?salesListShortDay(d.from):salesListShortDay(d.from)+' – '+salesListShortDay(d.to)):d.from?'From '+salesListShortDay(d.from):d.to?'Through '+salesListShortDay(d.to):'All time';
  return `<button type="button" class="sl-quiet sl-date-toggle" data-created-range data-date-col="${esc(k)}" title="${esc(f?salesListFilterSummary(col,f):col.label+': all dates')}" aria-haspopup="dialog" onclick="salesListOpenDate(event,'${esc(k)}')">${esc(col.label)}: ${esc(label)}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
 }
 function salesListOpenDate(e,k){k=k||'created';salesListMenu=Object.assign({kind:'date',scope:salesListScope(),col:k,error:''},salesListDateParts(salesListLoadPrefs().filters[k]),salesListAt(e,360));render();}
