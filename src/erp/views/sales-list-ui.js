@@ -656,7 +656,7 @@ cwRegister('sales',{
  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:[68],trail:20,fill:'customer'
 });
 /* Список PS (Shipping → Shipments): те же жесты, свои ширины; справа кнопка Print. */
-const SHIPPING_LIST_WIDTH={number:116,customer:110,date:84,method:84,skids:110,units:76,status:180};
+const SHIPPING_LIST_WIDTH={number:116,customer:110,date:84,method:94,skids:110,units:76,status:180};
 cwRegister('shipments',{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
