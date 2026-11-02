@@ -297,7 +297,9 @@ function carrierSheetHTML(m,cols,who){
   const o=g.o,head=one?'':`<tr class="cs-group"><td colspan="${use.length}"><b data-raw>${esc([o.businessNumber,salesCustomerDisplay(o.customerId),o.customerPo?'PO '+o.customerPo:''].filter(Boolean).join(' · '))}</b> ${prio(o)}<span class="cs-count">${esc(carrierCountText(g.items))}</span></td></tr>`;
   /* Номер батча не рвётся на дефисе: «B-0058, B-0059» переносится только между номерами. */
   const cell=(it,c)=>{const t=carrierText(it,c.k,true);return c.k==='batch'?t.split(', ').map(x=>`<span class="cs-nw">${esc(x)}</span>`).join(', '):esc(t);};
-  return head+g.items.slice().reverse().map(it=>`<tr>${use.map(c=>`<td class="${CARRIER_NOWRAP.includes(c.k)?'cs-nw':''}${c.k==='size'||c.k==='id'?' cs-b':''}${c.k==='weight'?' cs-n':''}" data-raw>${cell(it,c)}</td>`).join('')}</tr>`).join('');
+  /* На бумаге №1 первым, сверху (владелец, 02.11.2026): на экране окна сверху
+     лежит последний поставленный, как на самом скиде. */
+  return head+g.items.map(it=>`<tr>${use.map(c=>`<td class="${CARRIER_NOWRAP.includes(c.k)?'cs-nw':''}${c.k==='size'||c.k==='id'?' cs-b':''}${c.k==='weight'?' cs-n':''}" data-raw>${cell(it,c)}</td>`).join('')}</tr>`).join('');
  }).join('');
  const style=`--cs-ink:${C.ink};--cs-mut:${C.mut};--cs-line:${C.line};--cs-bar:${C.bar};--cs-box:${C.box};--cs-navy:${C.navy};--cs-due:${C.due};--cs-warn:${C.warn};--cs-paper:#ffffff`;
  return `<div class="cs-sheet" style="${style}" data-carrier-sheet="${esc(m.code||m.station)}">
