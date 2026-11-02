@@ -25,6 +25,21 @@ module.exports=async function({page,eq,ok}){
   const aa=salesLineAreas(a,soDraft),bb=salesLineAreas(b,soDraft);
   return [aa.actual.toFixed(4),aa.rounded,aa.billable,bb.actual.toFixed(4),bb.rounded,bb.billable*10];
  }),['18.3333',18.4,18.4,'11.1111',11.2,112]);
+ eq('Spiel: сторона вверх до дюйма, площадь и периметр на штуку, потом Qty',await t.p.evaluate(()=>[[4,56.5,94],[4,62.625,38.125],[65,40.125,37.25],[52,30.5625,37.25],[1,23.625,32.375],[1,11,57.25]].map(([q,w,h])=>{
+  const {l}=metricFixture('single',w,h,q),a=salesLineAreas(l,soDraft);return [+(a.billable*q).toFixed(2),a.perimeterIn*q];
+ })),[[149.2,1208],[68.4,816],[708.5,10270],[426.4,7176],[5.5,114],[4.5,138]]);
+ eq('Spiel: кромка прямоугольника — каждая сторона вверх до целого дюйма',await t.p.evaluate(()=>{
+  const {l}=metricFixture('single',62.625,38.125,4);l.chargePricing={};
+  const rows=salesLineChargeRowsRaw(l).filter(r=>r.unit==='in');return rows.map(r=>r.basis);
+ }),[204]);
+ eq('Spiel: сумма строки считается целиком, а не цена юнита × Qty',await t.p.evaluate(()=>{
+  const {l,m}=metricFixture('single',56.5,94,4);m.panes[0].priceOverride=3.35;const p=salesLineCommercialPrice(l,soDraft);
+  return {unit:p.unit,exact:p.exact,line:p.line};
+ }),{unit:124.955,exact:499.82,line:499.82});
+ eq('Spiel: итог округляется один раз, готовое число до цента',await t.p.evaluate(()=>{
+  const c={energy:{enabled:true,rate:9.75},hst:{enabled:true,rate:13}},r=v=>{const x=salesApplyOrderCharges(v,c);return [x.subtotal,x.energy,x.hst,x.grand];};
+  return [salesCents(8904.275),salesCents(6486.345),salesCents(2313.565),r(20406.75),r(2313.565)];
+ }),[8904.27,6486.35,2313.57,[20406.75,1989.66,2911.53,25307.94],[2313.57,225.57,330.09,2869.23]]);
  eq('order charges follow Subtotal -> ES -> HST -> Card -> fixed Delivery and Skid Deposit',await t.p.evaluate(()=>{
   const c={energy:{enabled:true,rate:9.75},hst:{enabled:true,rate:13},card:{enabled:true,network:'visa',rate:2.34},delivery:{enabled:true,amount:500},skidDeposit:{enabled:true,amount:750}};
   const x=salesApplyOrderCharges(13000,c),deliveryOnly=salesApplyOrderCharges(13000,{energy:{enabled:false},hst:{enabled:false},card:{enabled:false},delivery:{enabled:true,amount:500}});

@@ -98,15 +98,10 @@ function docMakeupFullLines(m,opts){
  return out;
 }
 
-/* Разбивка строки в цифрах: каждая сумма округляется до цента отдельно, и
-   сумма округлённых могла бы разойтись с ценой штуки на цент. Разница
-   уходит в самую крупную позицию группы — так на бланке строки всегда
-   складываются ровно в Unit price, как на счёте из бухгалтерии. */
-function docReconcile(rows,target){
- const known=rows.filter(r=>r.value!=null);if(!known.length||target==null)return;
- const diff=salesMoney(target-known.reduce((s,r)=>s+r.value,0));
- if(diff!==0&&Math.abs(diff)<=0.05){const big=known.reduce((a,b)=>b.value>a.value?b:a);big.value=salesMoney(big.value+diff);}
-}
+/* Сумма строки считается целиком, как в Spiel (владелец, 02.11.2026): цена
+   юнита бывает не в целых центах, поэтому четыре знака — цена × Qty сходится
+   на калькуляторе. */
+function docUnitMoney(v){return v==null||!Number.isFinite(+v)?'—':salesExact(v)===salesCents(v)?docMoney(v):'$'+docNum(v,4);}
 function docIncompleteReason(p){
  if(p.unsupportedCurrency)return 'catalog prices are in CAD';
  if(!p.areas.valid)return 'size or shape is not valid';
@@ -116,8 +111,8 @@ function docIncompleteReason(p){
 }
 /* Step Unit клиент не видит, пока его ставка 0 (владелец, 20.10.2026): в ERP,
    на станции и на чертеже он виден всегда, с ценой появится в документах сам. */
-function docServiceRows(line){
- return salesLineChargeRows(line).map(row=>{const st=salesChargePricingState(line,row);return {key:row.key,label:row.label,basis:row.basis,unit:row.unit,rate:st.effectiveRate,value:st.effectiveRate==null?null:salesMoney(salesChargeUnitAmount(row,st.effectiveRate))};})
+function docServiceRows(line,qty){
+ return salesLineChargeRows(line).map(row=>{const st=salesChargePricingState(line,row);return {key:row.key,label:row.label,basis:row.basis,unit:row.unit,rate:st.effectiveRate,value:st.effectiveRate==null?null:salesCents(salesChargeUnitAmount(row,st.effectiveRate)*qty)};})
   .filter(r=>!(r.key==='SURCHARGE:step-unit'&&r.rate===0));
 }
 function docLineRoute(line,order){
@@ -167,17 +162,20 @@ function docSaleItem(model,line,index,order){
  const it=docItemBase(opts,line,index,m,q);
  /* Отменённые юниты: заказанное число не меняется, в сумму идут оставшиеся. */
  if(p.cancelled)it.qty='Qty '+p.ordered+' · '+p.cancelled+' cancelled';
- const glassLine=p.manual?p.line:p.complete?salesMoney(p.materials*q):null;
+ const glassLine=p.manual?p.line:p.complete?salesCents(p.materials*q):null;
+ /* Строки бланка — на всю позицию, как в Spiel: 149.20 ft² × ставка. */
+ const areaAll=a.valid?docNum(a.billable*q,2)+' ft²':'';
  it.amount=mode==='none'?null:mode==='glass'?docMoney(glassLine):docMoney(p.line);
  const bits=[];
- if(opts.billableArea&&a.valid)bits.push('Billable '+docNum(a.billable,1)+' ft² per unit');
+ if(opts.billableArea&&a.valid)bits.push('Billable '+docNum(a.billable,1)+' ft²'+(q>1?' × '+q+' = '+areaAll:''));
  /* Галочка Weight per unit / per line предлагается и бланкам продаж (пункт 14). */
  if(opts.weight)bits.push('Weight '+docUnitWeightText(salesLineWeight(line,order),'kg per unit'));
  if(opts.perFt2&&['split','glass','unit'].includes(mode)&&!p.missingMaterials&&a.valid)bits.push('glass '+docMoney(p.materialRate)+'/ft²');
  if(bits.length)it.sub.push({text:bits.join(' · ')});
  docItemDetails(it,opts,line,m,order);
  if(!p.complete&&mode!=='none')it.sub.push({text:'Pricing incomplete — '+docIncompleteReason(p),tone:'warn'});
- const services=docServiceRows(line),names=services.map(s=>s.label).join(', ');
+ const services=docServiceRows(line,q),names=services.map(s=>s.label).join(', ');
+ const adj=x=>fmt({desc:x.label,basis:docMoney(x.base*q),rate:'+'+x.percent+'%',value:p.complete?salesCents(x.amount*q):null,tone:'adj'});
  const fmt=r=>({desc:r.desc,basis:opts.basisRate?r.basis||'':'',rate:opts.basisRate?r.rate||'':'',amount:r.value==null?(r.required?'Rate required':''):docMoney(r.value),tone:r.tone||''});
  /* Цена руками — без разбивки: итог юнита не сложить из материалов и работ. */
  if(p.manual){}
@@ -185,33 +183,35 @@ function docSaleItem(model,line,index,order){
   const mat=[],svc=[];
   (m?m.panes:[]).forEach((pn,i)=>{
    const rate=pn.priceOverride!=null?pn.priceOverride:salesPaneCatalogPrice(pn),heat=docHeatName(pn.category==='laminated'?(pn.laminated||{}).outer:pn);
-   mat.push({desc:'Lite '+(i+1)+' · '+docPaneName(pn)+(heat?' · '+heat:''),basis:a.valid?docNum(a.billable,1)+' ft²':'',rate:rate==null?'':docMoney(rate),value:rate==null||!a.valid?null:salesMoney(rate*a.billable),required:rate==null});
+   mat.push({desc:'Lite '+(i+1)+' · '+docPaneName(pn)+(heat?' · '+heat:''),basis:areaAll,rate:rate==null?'':docMoney(rate),value:rate==null||!a.valid?null:salesCents(rate*a.billable*q),required:rate==null});
   });
   (m?m.cavities:[]).forEach((c,i)=>{
    /* Обвязка по частям рецепта: сумма частей этой камеры, в том числе за
       дюйм периметра или штуку (erp/masterdata/surround). */
    const rate=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c),parts=(p.materialRows||[]).filter(r=>r.cavity===i);
-   const value=!a.valid||parts.some(r=>r.amount==null)?null:salesMoney(parts.reduce((n,r)=>n+r.amount,0));
-   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:a.valid?docNum(a.billable,1)+' ft²':'',rate:rate==null?'':docMoney(rate)+(salesCavityOtherUnits(c)?' +':''),value:value,required:value==null});
+   const value=!a.valid||parts.some(r=>r.amount==null)?null:salesCents(parts.reduce((n,r)=>n+r.amount,0)*q);
+   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:areaAll,rate:rate==null?'':docMoney(rate)+(salesCavityOtherUnits(c)?' +':''),value:value,required:value==null});
   });
-  services.forEach(s=>svc.push({desc:s.label,basis:docBasis(s.basis,s.unit),rate:s.rate==null?'':docMoney(s.rate),value:s.value,required:s.rate==null}));
-  if(p.complete){docReconcile(mat,p.materials);docReconcile(svc,salesMoney(p.base-p.materials));}
-  if(mat.length)it.groups.push({label:'Materials · per unit',rows:mat.map(fmt)});
-  if(svc.length)it.groups.push({label:'Processing · per unit',rows:svc.map(fmt)});
-  if(p.adjustments.length)it.groups.push({label:'Surcharges · per unit',rows:p.adjustments.map(x=>fmt({desc:x.label,basis:docMoney(x.base),rate:'+'+x.percent+'%',value:p.complete?x.amount:null,tone:'adj'}))});
+  services.forEach(s=>svc.push({desc:s.label,basis:docBasis(s.basis*q,s.unit),rate:s.rate==null?'':docMoney(s.rate),value:s.value,required:s.rate==null}));
+  if(mat.length)it.groups.push({label:'Materials',rows:mat.map(fmt)});
+  if(svc.length)it.groups.push({label:'Processing',rows:svc.map(fmt)});
+  if(p.adjustments.length)it.groups.push({label:'Surcharges',rows:p.adjustments.map(adj)});
  }else if(mode==='split'){
-  const rows=[{desc:'Glass & IGU',basis:a.valid?docNum(a.billable,1)+' ft²':'',rate:p.missingMaterials?'':docMoney(p.materialRate),value:p.missingMaterials?null:p.materials}];
-  if(services.length)rows.push({desc:'Services · '+names,value:p.complete?salesMoney(p.base-p.materials):null});
-  p.adjustments.forEach(x=>rows.push({desc:x.label,basis:docMoney(x.base),rate:'+'+x.percent+'%',value:p.complete?x.amount:null,tone:'adj'}));
-  it.groups.push({label:'',rows:rows.map(fmt)});
+  const rows=[fmt({desc:'Glass & IGU',basis:areaAll,rate:p.missingMaterials?'':docMoney(p.materialRate),value:p.missingMaterials?null:salesCents(p.materials*q)})];
+  if(services.length)rows.push(fmt({desc:'Services · '+names,value:p.complete?salesCents((p.base-p.materials)*q):null}));
+  p.adjustments.forEach(x=>rows.push(adj(x)));
+  it.groups.push({label:'',rows});
  }else if(mode==='glass'){
-  it.groups.push({label:'',rows:[fmt({desc:'Glass & IGU · per unit',basis:a.valid?docNum(a.billable,1)+' ft²':'',rate:p.missingMaterials?'':docMoney(p.materialRate),value:p.missingMaterials?null:p.materials})]});
+  it.groups.push({label:'',rows:[fmt({desc:'Glass & IGU',basis:areaAll,rate:p.missingMaterials?'':docMoney(p.materialRate),value:p.missingMaterials?null:salesCents(p.materials*q)})]});
   if(services.length||p.adjustments.length)it.note=(services.length?'Services on this line: '+names:'Surcharges on this line')+' — priced separately in totals';
  }else if(opts.serviceNames&&services.length){
   it.note=(mode==='unit'?'Includes: ':'Services: ')+names;
  }
- if(mode==='glass'&&!p.manual)it.unitRow=[{label:'Glass price per unit',value:docMoney(p.complete?p.materials:null)},{label:'×',value:String(q)},{label:'Glass total',value:docMoney(glassLine)}];
- else if(mode!=='none')it.unitRow=[{label:'Unit price',value:docMoney(p.unit)},{label:'×',value:String(q)},{label:'Line total',value:docMoney(p.line)}];
+ /* Unit price — только в режиме Unit price and line total и у цены руками:
+    на обычном бланке нет числа, которое не сходится на калькуляторе. */
+ if(mode==='glass'&&!p.manual)it.unitRow=[{label:'Glass total',value:docMoney(glassLine)}];
+ else if(mode!=='none'&&(mode==='unit'||p.manual))it.unitRow=[{label:'Unit price',value:docUnitMoney(p.unit)},{label:'×',value:String(q)},{label:'Line total',value:docMoney(p.line)}];
+ else if(mode!=='none')it.unitRow=[{label:'Line total',value:docMoney(p.line)}];
  return it;
 }
 function docItemBase(opts,line,index,m,q){
@@ -251,7 +251,7 @@ function docBuildModel(kind,order,opts){
  const number=order.businessNumber||'Draft',docName=docKindLabel(kind),terms=finTermsFor(order);
  const model={kind,sale,mode,opts,title:DOC_TITLES[kind],docName,number,customerName:C?(C.legalName||C.displayName):'',po:order.customerPo||'',
   company:opts.company?docCompanyBlock():null,meta:[],boxes:[],
-  table:{amount:sale&&mode!=='none',basisRate:sale&&['full','split','glass'].includes(mode)&&opts.basisRate,perUnit:['full','split','glass'].includes(mode)},
+  table:{amount:sale&&mode!=='none',basisRate:sale&&['full','split','glass'].includes(mode)&&opts.basisRate},
   items:[],extra:null,end:null,terms:'',signature:'',summary:null,summaryNote:'',notes:'',footerLeft:'',footerRight:''};
 
  const cell=(on,label,value)=>{if(on)model.meta.push({label,value:value||'—'});};

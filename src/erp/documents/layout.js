@@ -170,7 +170,7 @@ function docBoxes(P,boxes,y){
 function docTableHead(P,m,y){
  const W=DOC_PAGE,C=DOC_COLOR;
  if(m.table.amount){
-  docLabel(P,DOC_COL.item,y+6,m.table.perUnit?'Description · per unit':'Description');
+  docLabel(P,DOC_COL.item,y+6,'Description');
   if(m.table.basisRate){docLabel(P,DOC_COL.basis,y+6,'Basis',{align:'right'});docLabel(P,DOC_COL.rate,y+6,'Rate',{align:'right'});}
   docLabel(P,DOC_COL.amount,y+6,'Amount',{align:'right'});
  }else docLabel(P,DOC_COL.item,y+6,m.sale?'Lines':'Lines · route by station');

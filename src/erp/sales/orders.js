@@ -1221,7 +1221,7 @@ function salesSurfaceMarkChargeRows(features,ctx,areaFt2,perimeterIn){
   const g=groups[key],f=g.feature,label=shapeSurfaceMarkLabel(f);
   if(f.type==='mirrorsealant')
    return salesChargeRow('FEATURE:mirror-sealant:'+salesRateBandKey('mirrorSealant',ctx),label,
-    +(perimeter*g.qty).toFixed(4),'in',salesCatalogRate('mirrorSealant',ctx),'Shape feature');
+    salesWholeInches(perimeter)*g.qty,'in',salesCatalogRate('mirrorSealant',ctx),'Shape feature');
   if(f.type==='mirrorbacker')
    return salesChargeRow('FEATURE:mirror-backer-'+shapeMirrorSide(f)+':'+salesRateBandKey('mirrorBacker',ctx),label,
     +(area*g.qty).toFixed(4),'ft²',salesCatalogRate('mirrorBacker',ctx),'Shape feature');
