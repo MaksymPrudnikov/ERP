@@ -1738,7 +1738,8 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sl-chip button{border:0;background:var(--surface);border-radius:9px;width:18px;height:18px;padding:0;line-height:18px;font-size:12px;color:var(--text-2)}
 .sl-clear{border:0 !important;background:none !important;color:var(--danger) !important;font-weight:700;font-size:12px;padding:0 4px !important}
 .sl-table th,.sl-table td{white-space:nowrap}
-.sl-table tr.list-rest td{padding:0;border:0;background:none}
+.sl-table tr.list-rest td,.sales-lines-table tr.list-rest td{padding:0;border:0;background:none}
+.sales-lines-bars{display:contents}
 .sl-th{display:inline-flex;align-items:center;gap:5px}
 .sl-fbtn{width:18px;height:18px;padding:0 !important;border:1px solid var(--line-strong);border-radius:5px;background:var(--surface);color:var(--text-2);font-size:9px;line-height:16px;cursor:pointer}
 .sl-fbtn::after{content:'▾'}
@@ -3784,7 +3785,7 @@ tr:has(.inv-stock-edit) td{background:var(--accent-soft)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='3c7a92d48743';
+var ERP_BUILD='8eca25a130f4';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -16522,7 +16523,7 @@ function ico(name, cls=''){
    (проверка Codex 22.10.2026). Запись посреди отрисовки (touch) и
    действие внутри неё указатели тоже не используют.
    IN : DB, storageDepth
-   OUT: readScope(fn), readScopeNow(fn), readOn(), readMemo(key,sources,build), readMemoReset()
+   OUT: readScope(fn), readScopeNow(fn), readOn(), readMemo(key,sources,build), readLine(key,line,order,build), readMemoReset()
    ===================================================================== */
 let readDepth=0,readMemos=null,readForce=false;
 /* Что считается только из базы, живёт и между отрисовками, пока база та же:
@@ -16532,7 +16533,7 @@ let readDepth=0,readMemos=null,readForce=false;
    «сегодня» и просрочка считаются от даты. От экрана, фильтров и открытого
    заказа эти значения не зависят. Внутри записи — только свежие. */
 const READ_KEEP=new Set(['cutPlanByBatch','finPaidByOrder','finTermsByOrder','glassBatchByNo','glassBatchByOrder','glassByCode','glassPieceByOrder','glassProductByCode',
- 'recutByOrder','salesById','shapeById','shippingByOrder','shippingCtx','shippingReady','shippingOrders','stationBatchIndex','stationPieceIndex','stationScansByPiece','unitIdByKey','salesListInfos']);
+ 'recutByOrder','salesById','salesLineStatus','salesMeasureDraft','shapeById','shippingByOrder','shippingCtx','shippingReady','shippingOrders','stationBatchIndex','stationPieceIndex','stationScansByPiece','unitIdByKey','salesListInfos']);
 function readKeepKey(key){return READ_KEEP.has(key)||key.startsWith('mdById:')||key.startsWith('optQueue:');}
 let readKeep=new Map(),readKeepDay=0;
 function readScope(fn){
@@ -16547,6 +16548,16 @@ function readMemo(key,sources,build){
  if(hit&&hit.src.length===sources.length&&hit.src.every((a,i)=>a===sources[i]&&hit.n[i]===(a?a.length:-1)))return hit.value;
  const value=build();store.set(key,{src:sources,n:sources.map(a=>a?a.length:-1),value});return value;
 }
+/* Посчитанное по строке заказа — один раз за отрисовку: цену строки спрашивали
+   каждая колонка, каждый итог внизу и каждый счётчик, 12 расчётов на строку
+   (заказ на 521 строку — 1,6 с на клик, 2.11.2026). Save считает мимо: он
+   записывает прайс заказа по ходу расчёта. */
+function readLine(key,line,order,build){
+ if(!readOn()||!line||salesBookRec||salesMeasureOff)return build();
+ const memo=readMemo('line:'+key,[],()=>new WeakMap()),hit=memo.get(line);
+ if(hit&&hit.order===order&&hit.draft===soDraft)return hit.value;
+ const value=build();memo.set(line,{order,draft:soDraft,value});return value;
+}
 /* Чистое чтение посреди действия (документ PS, проверка выбора): свои
    указатели на время fn. Внутри fn база не меняется — указатели не соврут;
    запись посреди (touch) их сбрасывает, как и в отрисовке. */
@@ -16556,8 +16567,13 @@ function readScopeNow(fn){
 }
 /* Отрисовка идёт и действие не начато — указатели можно брать. */
 function readOn(){return !!readMemos&&(readForce||!(typeof storageDepth!=='undefined'&&storageDepth));}
-/* Запись (storageInvalidate) — указатели этой отрисовки больше не верны. */
-function readMemoReset(){readKeep=new Map();if(readMemos)readMemos=new Map();}
+/* Запись (storageInvalidate) — указатели этой отрисовки больше не верны.
+   lines — запись только фигур: посчитанное по строке держит их в отпечатке (sales/line-measure), правка одного размера не считает заново
+   весь заказ. */
+function readMemoReset(lines){
+ const keep=lines?['salesLineStatus','salesMeasureDraft'].filter(k=>readKeep.has(k)).map(k=>[k,readKeep.get(k)]):[];
+ readKeep=new Map(keep);if(readMemos)readMemos=new Map();
+}
 
 /* ==== src/erp/nav.js ==== */
 /* =====================================================================
@@ -18777,7 +18793,7 @@ function salesCavitySetWidth(i,size){
 }
 
 function salesOrderLineIsBlank(l){return !!l&&!l.width16&&!l.height16&&!salesString(l.mark)&&!salesString(l.notes)&&!(l.shapeRef&&l.shapeRef.id)&&!Object.keys(l.chargePricing||{}).length&&salesPositiveInt(l.qty,1)===1;}
-function salesOrderAddLine(makeupId,focus){const m=salesMakeupById(soDraft,makeupId)||salesCurrentMakeup();if(!m)return;const prev=soDraft.lines[soDraft.lines.length-1];soDraft.lines.push(normalizeSalesOrderLine({makeupId:m.id,qty:prev?prev.qty:1}));render();if(focus)setTimeout(salesFocusLastWidth,0);}
+function salesOrderAddLine(makeupId,focus){const m=salesMakeupById(soDraft,makeupId)||salesCurrentMakeup();if(!m)return;const prev=soDraft.lines[soDraft.lines.length-1];const line=normalizeSalesOrderLine({makeupId:m.id,qty:prev?prev.qty:1});soDraft.lines.push(line);if(!salesLineAppend(line))render();if(focus)setTimeout(salesFocusLastWidth,0);}
 function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSalesOrderLine({makeupId:(salesCurrentMakeup()||soDraft.makeups[0]).id,qty:1}));render();}
 /* Форма принадлежала строке — уходит вместе с ней. */
 /* Строка сохранённого заказа уходит пока только из черновика: закроют без
@@ -18824,7 +18840,7 @@ function salesStockPickerChoose(table,id,qty){soStockPickerOpen=false;salesExtra
 function salesExtraItemRemove(id){soDraft.extraItems=(soDraft.extraItems||[]).filter(x=>x.id!==id);render();}
 function salesExtraItemSetQty(id,v){const x=(soDraft.extraItems||[]).find(x=>x.id===id);if(!x)return;x.qty=salesPositiveInt(v,1);render();}
 function salesExtraItemSetPrice(id,v){const x=(soDraft.extraItems||[]).find(x=>x.id===id);if(!x)return;x.priceOverride=salesNonNegOrNull(v);render();}
-function salesFocusLastWidth(){const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
+function salesFocusLastWidth(){listWindowAll();const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
 function salesLineDimChange(i,key,el){
  const line=soDraft.lines[i],n=salesDimTo16(el.value);
  if(salesLineLocked(line)||salesLockedLineGuard(line)){render();return;}
@@ -18839,7 +18855,7 @@ function salesLineDimChange(i,key,el){
  /* Пишется одна фигура этой строки, а не сравнивается вся база (3 с на
     слабом ПК после каждого поля). */
  const shape=salesShapeByRef(line.shapeRef);
- if(shape)touchScope({shapeDef:[shape.id]},true);else touch();
+ if(shape)touchScope({shapeDef:[shape.id]},true);
 }
 /* Qty — как размеры: без render(). Набрал Qty, кликнул мышью в Width —
    перерисовка заменяла поле, в которое кликнули, и набранное пропадало
@@ -19571,7 +19587,8 @@ function salesLineChargeRowsRaw(line){
 }
 /* Округление количества и минимальная сумма — из карточки работы (этап 4,
    часть 2), на юнит. Замораживаются в заказе на Save, как ставка. */
-function salesLineChargeRows(line){
+function salesLineChargeRows(line){return readLine('charges',line,soDraft,()=>salesLineChargeRowsLive(line));}
+function salesLineChargeRowsLive(line){
  return salesLineChargeRowsRaw(line).map(row=>{
   if(!row.svc)return row;
   const w=salesServiceRateRow(row.svc);
@@ -19622,7 +19639,8 @@ function salesChargeUnitValue(value,unit){
 }
 function salesChargeBasisText(row,line){const q=salesPositiveInt(line.qty,1),total=row.basis*q,one=salesChargeUnitValue(row.basis,row.unit);return one+(q>1?' × '+q+' = '+salesChargeUnitValue(total,row.unit):'')+(row.minCharge?' · min '+row.minCharge.toFixed(2)+' / unit':'');}
 function salesRateText(v,unit,currency){return v==null?'—':Number(v).toFixed(2)+' '+currency+'/'+(unit==='pc'?'pc':unit==='ft²'?'ft²':'in');}
-function salesLinePricingSummary(line){const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row);if(st.effectiveRate==null)unpriced++;else total+=salesChargeUnitAmount(row,st.effectiveRate)*q;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0,rows:rows};}
+function salesLinePricingSummary(line){return readLine('services',line,soDraft,()=>salesLinePricingLive(line));}
+function salesLinePricingLive(line){const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row);if(st.effectiveRate==null)unpriced++;else total+=salesChargeUnitAmount(row,st.effectiveRate)*q;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0,rows:rows};}
 function salesOrderPricingSummary(){return (soDraft&&soDraft.lines||[]).reduce(function(a,l){const s=salesLinePricingSummary(l);a.total+=s.total;a.unpriced+=s.unpriced;a.charges+=s.charges;return a;},{total:0,unpriced:0,charges:0});}
 function salesLinePricingTotal(line){return salesLinePricingSummary(line).total;}
 function salesOrderPricingTotal(){return salesOrderPricingSummary().total;}
@@ -20724,7 +20742,14 @@ function salesSyncLamiOpsForMakeup(makeupId){
   });
   return dropped;
 }
-function salesLineServiceStatus(line){
+/* Статус — по фигуре: один раз на отпечаток строки (sales/line-measure). */
+function salesLineServiceStatus(line){return readLine('status',line,soDraft,function(){
+  if(!readOn())return salesLineStatusLive(line);
+  var keep=readMemo('salesLineStatus',[],function(){return new Map();}),sig=salesLineSig(line,soDraft),hit=keep.get(sig);
+  if(!hit){hit=salesLineStatusLive(line);keep.set(sig,hit);}
+  return hit;
+});}
+function salesLineStatusLive(line){
   var shape=salesLineGeometryShape(line);if(!shape)return {key:'geometry',label:'Needs geometry',cls:'warn'};
   var set=salesServiceSetById(soDraft,line.serviceSetId);if(line.serviceSetId&&!set)return {key:'missing',label:'Missing set',cls:'bad'};
   if(salesDxfOverrideStale(line,shape))return {key:'lost',label:'Override needs review',cls:'bad'};
@@ -21145,6 +21170,9 @@ function salesNormalizeWeightRates(){
  DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
 }
 function salesLineAreas(line,order){
+ return Object.assign({},readLine('areas',line,order,()=>salesLineAreasLive(line,order)));
+}
+function salesLineAreasLive(line,order){
  /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
  const kept=salesMeasureFor(line,order||soDraft);if(kept)return Object.assign({},kept.areas);
  const lineW=(+(line&&line.width16)||0)/16,lineH=(+(line&&line.height16)||0)/16;
@@ -21288,6 +21316,9 @@ function salesItemSizeWarnings(order){
 }
 function salesLineCommercialPrice(line,order){
  order=order||soDraft;
+ return readLine('price',line,order,()=>salesLinePriceLive(line,order));
+}
+function salesLinePriceLive(line,order){
  const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),q=salesPositiveInt(line.qty,1),live=Math.max(0,q-unitCancelled(line));
  const rate=salesLineMaterials(m,areas,order),services=salesLinePricingSummary(line),materials=areas.valid?rate.amount:0;
  const base=salesMoney(materials+services.total/q);
@@ -21360,6 +21391,9 @@ function salesLineLiteGeo(line,order){
 }
 function salesLineWeight(line,order,productionPlan){
  order=order||soDraft;
+ return productionPlan?salesLineWeightLive(line,order,productionPlan):readLine('weight',line,order,()=>salesLineWeightLive(line,order));
+}
+function salesLineWeightLive(line,order,productionPlan){
  const rows=[],m=salesMakeupById(order,line.makeupId),shape=salesLineGeometryShape(line),areas=salesLineAreas(line,order);
  const kept=!productionPlan&&typeof salesMeasureFor==='function'?salesMeasureFor(line,order):null;
  const lites=kept&&kept.lites?kept.lites:salesWeightLiteGeo(productionPlan||(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null));
@@ -21475,8 +21509,8 @@ function salesKgText(kg){return kg==null?'—':kg<10?kg.toFixed(2):Math.round(kg
         (DB.shapeDef); при Save — расчёт по фигуре (sales/service-sets,
         sales/line-metrics)
    OUT: line.measure {sig, rows, areas, lites — геометрия лайтов для веса}; salesMeasureFor — записанное, если
-        отпечаток сошёлся; salesMeasureWrite — запись заказа (Save, правка
-        данных 9)
+        отпечаток сошёлся; salesLineSig — отпечаток; salesMeasureWrite — запись
+        заказа (Save, правка данных 9)
 
    Отпечаток (sig) — всё, что читает расчёт количеств из самого заказа:
    строка без полей учёта (батч, Hold, Cancel, количество, ставки, заметки),
@@ -21526,25 +21560,34 @@ function salesMeasureLive(line,order){
 function salesMeasureWrite(order,pre){
  (order&&order.lines||[]).forEach(l=>{
   const sig=salesMeasureSig(l,order),p=pre&&pre.get(l.id);
-  if(p&&p.sig===sig){l.measure={sig,rows:p.rows,areas:p.areas,lites:p.lites};if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(l,order);return;}
+  if(p&&p.sig===sig){l.measure={sig,rows:p.rows,areas:p.areas,lites:p.lites};if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(l,order,l.measure);return;}
   const m=salesMeasureLive(l,order);l.measure={sig,rows:m.rows,areas:m.areas,lites:m.lites};
  });
 }
 /* Отпечаток — один раз на строку за отрисовку (erp/read-scope): расчёт
    суммы спрашивает строки работ и площадь позиции несколько раз. */
-function salesMeasureFor(line,order){
- if(salesMeasureOff||salesBookRec||!order||!line||!line.measure)return null;
+function salesLineSig(line,order){
  const memo=readOn()?readMemo('salesMeasureSig',[],()=>new WeakMap()):null,hit=memo&&memo.get(line);
  const sig=hit&&hit.order===order?hit.sig:salesMeasureSig(line,order);
  if(memo&&!hit)memo.set(line,{order,sig});
- if(sig!==line.measure.sig)return null;
- if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(line,order);
- return line.measure;
+ return sig;
+}
+/* Строка, ещё не записанная Save (новая, правленая), считается по фигуре один
+   раз на отпечаток: отрисовка живёт до первой записи в базу, галочка в заказе
+   на 521 строку не считает 521 фигуру (2.11.2026). Справочники в отпечаток не
+   входят — их правка и есть запись, она сбрасывает посчитанное. */
+function salesMeasureFor(line,order){
+ if(salesMeasureOff||salesBookRec||!order||!line||!line.measure&&!readOn())return null;
+ const sig=salesLineSig(line,order);
+ let m=line.measure&&sig===line.measure.sig?line.measure:null;
+ if(!m&&readOn()){const keep=readMemo('salesMeasureDraft',[],()=>new Map());m=keep.get(sig);if(!m){m=salesMeasureLive(line,order);keep.set(sig,m);}}
+ if(m&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)salesMeasureCheck(line,order,m);
+ return m;
 }
 /* Тесты (GF_SCOPE_CHECK): каждое чтение записанного сверяется с расчётом по
    фигуре. */
-function salesMeasureCheck(line,order){
- const now=salesMeasureLive(line,order),m=line.measure;
+function salesMeasureCheck(line,order,m){
+ const now=salesMeasureLive(line,order);
  if(JSON.stringify(now.rows)!==JSON.stringify(m.rows)||JSON.stringify(now.areas)!==JSON.stringify(m.areas)||m.lites&&JSON.stringify(now.lites)!==JSON.stringify(m.lites))
   console.error('Stale measure: '+(order.businessNumber||order.id)+' · line '+line.id);
 }
@@ -24949,8 +24992,9 @@ function salesMetricsModal(){
  return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal${panel==='rules'?' metric-modal-wide':''}"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
 }
 /* Refresh computed cells without replacing the input currently receiving Tab. */
-function salesRefreshLineMetrics(line){
- const tr=Array.from(document.querySelectorAll('tr[data-metrics-line-id]')).find(el=>el.dataset.metricsLineId===line.id);
+function salesRefreshLineMetrics(line){return readScope(()=>salesRefreshLineLive(line));}
+function salesRefreshLineLive(line){
+ const tr=document.querySelector(`tr[data-metrics-line-id="${CSS.escape(line.id)}"]`);
  if(tr){
   const holder=document.createElement('tr');holder.innerHTML=salesMetricCells(line,'screen');
   const next=Array.from(holder.children);tr.querySelectorAll('td[data-metric]').forEach((cell,i)=>{if(next[i])cell.replaceWith(next[i]);});
@@ -28168,13 +28212,15 @@ function salesBulkLiveHTML(){
    печатают). Перерисовка — только если появляется или уходит полоса Edgework. */
 function salesBulkSync(typing){
   var bar=document.querySelector('[data-mk-bar]');
-  if(!bar||!!document.querySelector('.sales-lines-block .ss-bulk')!==salesServiceVisibleSelected().length>0){
+  if(!!document.querySelector('.sales-lines-block .ss-bulk')!==salesServiceVisibleSelected().length>0&&(typing||!salesLinesBarsRefresh())){
     var f=typing&&document.querySelector('[data-mk-field="'+typing+'"]'),key=f&&typing,pos=f&&f.selectionStart;render();
     if(key)requestAnimationFrame(function(){var e=document.querySelector('[data-mk-field="'+key+'"]');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});
     return;
   }
+  bar=document.querySelector('[data-mk-bar]');
   document.querySelectorAll('.sales-lines-table tr[data-metrics-line-id]').forEach(function(tr){var on=soSelectedLines.has(tr.dataset.metricsLineId),cb=tr.querySelector('td.line-check input');tr.toggleAttribute('data-picked',on);if(cb)cb.checked=on;});
   var all=document.querySelector('.sales-lines-table thead .line-check input'),visible=salesServiceFilteredEntries();if(all)all.checked=visible.length>0&&visible.every(function(x){return soSelectedLines.has(x.line.id);});
+  if(!bar)return;
   ['from','to'].forEach(function(k){var e=bar.querySelector('[data-mk-field="'+k+'"]'),v=k==='from'?soRangeFrom:soRangeTo;if(e&&k!==typing&&e.value!==v)e.value=v;});
   bar.querySelector('[data-mk-live]').innerHTML=salesBulkLiveHTML();
 }
@@ -28304,9 +28350,29 @@ function salesOrderColumnCell(key,l,i,linked,st){
   if(key==='notes')return `<td><input class='line-notes line-notes-compact' value='${esc(l.notes)}' oninput='soDraft.lines[${i}].notes=this.value'></td>`;
   return '<td></td>';
 }
+/* Строка таблицы заказа: и в таблице, и новая внизу (salesLineAppend). */
+function salesOrderLineRow(x,columns){
+  var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${soSelectedLines.has(l.id)?' data-picked':''}${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onclick='salesLineCheck(event,"${esc(l.id)}")'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}${typeof purSalesLinksHTML==='function'?purSalesLinksHTML(soDraft.id,l,columns.length+3):''}`;
+}
+/* Полосы над таблицей меняются с выбором и числом строк, сама таблица — нет:
+   в заказе на 521 строку перерисовка всех строк стоила 250 мс на первую галочку. */
+function salesLinesBarsHTML(){return salesServiceFiltersHtml()+salesMakeupBarHTML();}
+function salesLinesBarsRefresh(){
+  var slot=document.querySelector('[data-lines-bars]');if(!slot)return false;
+  slot.innerHTML=readScope(salesLinesBarsHTML);storageLockButtons();return true;
+}
+/* Новая строка внизу — на месте. Таблица дорисована не до конца или под
+   фильтром — false, и строку покажет обычная перерисовка. */
+function salesLineAppend(line){
+  var body=document.querySelector('.sales-lines-table>tbody'),columns=salesOrderScreenColumns();
+  if(!body||listWindowTail()||soServiceFilter!=='all'||!body.querySelector('tr[data-metrics-line-id]'))return false;
+  body.insertAdjacentHTML('beforeend',readScope(function(){return salesOrderLineRow({line:line,index:soDraft.lines.indexOf(line)},columns);}));
+  salesLinesBarsRefresh();salesRefreshLineMetrics(line);return true;
+}
+const SALES_LINE_ROW_PX=45;
 function salesOrderLines(){
   var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce(function(n,g){return n+g.lines;},0),hasServices=pricing.charges>0||commercial.length>0,columns=salesOrderScreenColumns();
-  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag a header to move or resize</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesMakeupBarHTML()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services${cwTableClass('lines')}'${cwTableAttrs('lines',columns)}>${cwColgroup('lines',columns)}<thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${soSelectedLines.has(l.id)?' data-picked':''}${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onclick='salesLineCheck(event,"${esc(l.id)}")'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`,'delete')}</tr>${salesLineUnitsRow(l,columns.length+3)}${typeof purSalesLinksHTML==='function'?purSalesLinksHTML(soDraft.id,l,columns.length+3):''}`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody>${salesOrderLinesFoot(entries.map(function(x){return x.line;}),columns)}</table></div>${salesCommercialOrderSummary()}</section>`;
+  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag a header to move or resize</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div><div class='sales-lines-bars' data-lines-bars>${salesLinesBarsHTML()}</div><div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services${cwTableClass('lines')}'${cwTableAttrs('lines',columns)}>${cwColgroup('lines',columns)}<thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${listWindowBody(entries,function(x){return salesOrderLineRow(x,columns);},columns.length+3,{table:'.sales-lines-table',rowPx:SALES_LINE_ROW_PX})||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody>${salesOrderLinesFoot(entries.map(function(x){return x.line;}),columns)}</table></div>${salesCommercialOrderSummary()}</section>`;
 }
 
 /* ---------- Edgework Set editor ---------- */
@@ -33125,22 +33191,26 @@ function purPOInvoicesHTML(p){return '<section class="card pur-card pur-receivin
    LIST_IDLE_ROWS строк, чтобы Ctrl+F и печать видели обычный список) и при
    прокрутке. Высоту таблицы до дорисовки держит строка data-list-rest.
    Итоги и выбор строк считаются по данным, а не по странице.
+   Строки всегда идут с начала: номер поля среди строк не меняется, и курсор
+   после перерисовки (renderFocusBack) не уходит в чужую строку заказа.
    Ширину колонок задают все строки: дорисовка сдвигала их на глазах (Production
    на 65 px). Поэтому первая отрисовка экрана длинная, запоминает ширины, а
    дальше колонки стоят на них с первого кадра.
    IN:  storageLockButtons (erp/storage), readScope (erp/read-scope)
-   OUT: listWindowBody(rows,rowHTML,span), listWindowAfter() */
+   OUT: listWindowBody(rows,rowHTML,span,opt), listWindowAll(), listWindowAfter() */
 const LIST_BATCH=60,LIST_IDLE_ROWS=400,LIST_ROW_PX=55,LIST_ROW_MIN=28,LIST_AHEAD_PX=1500;
 let listRest=null,listScrollWait=false,listDraw=null;
 const listSizes=new Map();
-function listWindowBody(rows,rowHTML,span){
+/* opt: table — селектор таблицы, rowPx — высота строки. */
+function listWindowBody(rows,rowHTML,span,opt){
+ const table=opt&&opt.table||'.sl-table',rowPx=opt&&opt.rowPx||LIST_ROW_PX;
  /* Перерисовка при прокрутке вниз: всё выше экрана на месте, страница не прыгает. */
  const fit=Math.max(LIST_BATCH,Math.ceil((window.scrollY+window.innerHeight)/LIST_ROW_MIN)+20);
- const key=tab+':'+subtab,now=listSizes.has(key)?fit:Math.max(fit,LIST_IDLE_ROWS);
- listDraw=rows.length>fit?key:null;
+ const key=tab+':'+subtab+table,now=listSizes.has(key)?fit:Math.max(fit,LIST_IDLE_ROWS);
+ listDraw=rows.length>fit?{key,table}:null;
  if(rows.length<=now){listRest=null;return rows.map(rowHTML).join('');}
- listRest={rows,rowHTML,at:now};
- return rows.slice(0,now).map(rowHTML).join('')+`<tr class="list-rest" data-list-rest><td colspan="${span}" style="height:${(rows.length-now)*LIST_ROW_PX}px"></td></tr>`;
+ listRest={rows,rowHTML,at:now,rowPx};
+ return rows.slice(0,now).map(rowHTML).join('')+`<tr class="list-rest" data-list-rest><td colspan="${span}" style="height:${(rows.length-now)*rowPx}px"></td></tr>`;
 }
 function listWindowTail(){return listRest&&document.querySelector('[data-list-rest]');}
 function listWindowGrow(){
@@ -33148,18 +33218,20 @@ function listWindowGrow(){
  const r=listRest,end=Math.min(r.at+LIST_BATCH,r.rows.length);
  tail.insertAdjacentHTML('beforebegin',readScope(()=>r.rows.slice(r.at,end).map(r.rowHTML).join('')));
  r.at=end;
- if(end<r.rows.length)tail.firstChild.style.height=(r.rows.length-end)*LIST_ROW_PX+'px';else{tail.remove();listRest=null;}
+ if(end<r.rows.length)tail.firstChild.style.height=(r.rows.length-end)*r.rowPx+'px';else{tail.remove();listRest=null;}
  storageLockButtons();
  return !!listRest;
 }
+/* Нужен конец таблицы: новая строка заказа внизу. */
+function listWindowAll(){while(listWindowGrow());}
 function listWindowAfter(){
- const key=listDraw;listDraw=null;
- const table=key&&document.querySelector('#app .sl-table');
+ const draw=listDraw;listDraw=null;
+ const table=draw&&document.querySelector('#app '+draw.table);
  if(table){
-  const heads=[...table.tHead.rows[0].cells].filter(th=>th.dataset.col),sizes=listSizes.get(key);
-  if(sizes)heads.forEach(th=>{if(sizes[th.dataset.col])th.style.minWidth=sizes[th.dataset.col]+'px';});
+  const name=th=>th.dataset.col||th.dataset.cwKey,heads=[...table.tHead.rows[0].cells].filter(name),sizes=listSizes.get(draw.key);
+  if(sizes)heads.forEach(th=>{if(sizes[name(th)])th.style.minWidth=sizes[name(th)]+'px';});
   /* Ширины, заданные вручную (views/col-widths), не трогаем. */
-  else listSizes.set(key,getComputedStyle(table).tableLayout==='fixed'?{}:Object.fromEntries(heads.map(th=>[th.dataset.col,Math.ceil(th.getBoundingClientRect().width)])));
+  else listSizes.set(draw.key,getComputedStyle(table).tableLayout==='fixed'?{}:Object.fromEntries(heads.map(th=>[name(th),Math.ceil(th.getBoundingClientRect().width)])));
  }
  listWindowIdle();
 }
@@ -52525,7 +52597,7 @@ function storageBackupDrop(){
  storageBackupPresent=false;storageCopyAt='';
  return storageIdbCopyDrop().catch(e=>console.warn('Pre-import copy was not removed:',e.message));
 }
-function storageInvalidate(){
+function storageInvalidate(lines){
  if(typeof stationRouteCache!=='undefined')stationRouteCache=new Map();
  if(typeof prodBoardCache!=='undefined')prodBoardCache={stamp:'',data:null};
  if(typeof stationAreaCache!=='undefined')stationAreaCache=new Map();
@@ -52540,7 +52612,7 @@ function storageInvalidate(){
  if(typeof repDeliveryCache!=='undefined')repDeliveryCache={stamp:'',rows:null};
  if(typeof repCustomerNames!=='undefined')repCustomerNames=null;
  if(typeof repSoldCache!=='undefined'){repSoldCache={stamp:'',sets:new Map()};repSoldByOrder=new Map();}
- if(typeof readMemoReset==='function')readMemoReset();
+ if(typeof readMemoReset==='function')readMemoReset(lines);
  /* Пересборка таблицы (откат, чужая запись) — строки просмотра из архива на место. */
  if(typeof archiveVisitKeep==='function')archiveVisitKeep();
 }
@@ -52793,7 +52865,7 @@ function touch(){
   /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
   const out=typeof cloudOutbox==='function'?cloudOutbox(changes):null;
   storageWrite(changes,out&&out.ops);if(out)out.done();storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
-  storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();storageScopeMark();return true;
+  storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate(changes.every(c=>c.tbl==='shapeDef'));storageScopeMark();return true;
  }catch(e){
   storageLastError=storageStale?storageReadOnlyText():'Not saved. Your operation is still open; retry or export your changes.';
   if(!storageCommanding)storageRollback();
