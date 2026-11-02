@@ -38,8 +38,8 @@ module.exports=async function({page,eq,ok}){
  }),{unit:124.955,exact:499.82,line:499.82});
  eq('Spiel: итог округляется один раз, готовое число до цента',await t.p.evaluate(()=>{
   const c={energy:{enabled:true,rate:9.75},hst:{enabled:true,rate:13}},r=v=>{const x=salesApplyOrderCharges(v,c);return [x.subtotal,x.energy,x.hst,x.grand];};
-  return [salesCents(8904.275),salesCents(6486.345),salesCents(2313.565),r(20406.75),r(2313.565)];
- }),[8904.27,6486.35,2313.57,[20406.75,1989.66,2911.53,25307.94],[2313.57,225.57,330.09,2869.23]]);
+  return [salesCents(1.005),salesCents(8.345),salesMoney(1.005),r(1000.25),r(1234.565)];
+ }),[1,8.35,1.01,[1000.25,97.52,142.71,1240.48],[1234.57,120.37,176.14,1531.08]]);
  eq('order charges follow Subtotal -> ES -> HST -> Card -> fixed Delivery and Skid Deposit',await t.p.evaluate(()=>{
   const c={energy:{enabled:true,rate:9.75},hst:{enabled:true,rate:13},card:{enabled:true,network:'visa',rate:2.34},delivery:{enabled:true,amount:500},skidDeposit:{enabled:true,amount:750}};
   const x=salesApplyOrderCharges(13000,c),deliveryOnly=salesApplyOrderCharges(13000,{energy:{enabled:false},hst:{enabled:false},card:{enabled:false},delivery:{enabled:true,amount:500}});
