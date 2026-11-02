@@ -99,9 +99,10 @@ function salesLineAreasLive(line,order){
  /* Коммерческая площадь всегда идёт к следующей десятой. Обычный round
     занижал 33 × 80 с 18.3333 до 18.3 вместо подтверждённых 18.4 ft². */
  const rounded=valid?Math.ceil((Math.ceil(w)*Math.ceil(h)/144-1e-10)*10)/10:null;
- /* Периметр для продажи за погонную длину — вверх до целого дюйма, как в
-    Spiel (владелец, 22.10.2026); у фигуры — её контур. */
- const perimeterIn=valid?Math.ceil((shapeValid&&+r.perimeter>0?+r.perimeter:2*(Math.ceil(w)+Math.ceil(h)))-1e-9):null;
+ /* Периметр для продажи за погонную длину — как в Spiel (владелец, 22.10.2026
+    и 02.11.2026): у прямоугольника каждая сторона вверх до целого дюйма, у
+    него форма тоже есть, но она только хранит размер; у фигуры — её контур. */
+ const perimeterIn=valid?salesWholeInches(!salesPlainRect(shape)&&shapeValid&&+r.perimeter>0?+r.perimeter:2*(Math.ceil(w)+Math.ceil(h))):null;
  /* Минимальная площадь — самая большая из подходящих надбавок minArea. Вид
     юнита нужен только при условии по видам: без макапа условие не сходится. */
  let min=0,minBy=null;
@@ -122,6 +123,7 @@ function salesExact(value){return +(+value).toFixed(6);}
 function salesCents(value){return +salesExact(value).toFixed(2);}
 /* Дюймы продажи: вверх до целого, как в Spiel. */
 function salesWholeInches(value){return Math.ceil(+value-1e-9);}
+function salesPlainRect(shape){return !shape||shape.type==='rectangle'&&!(shape.features||[]).length&&!shapeIsDxfSource(shape);}
 /* Порядок один: Energy → HST → Card fee, доставка и депозит в конце; что
    входит в базу HST и карты — снимок заказа (erp/sales/order-setup). subtotal —
    точная сумма позиций; Energy считается от неё, а не от округлённой. */

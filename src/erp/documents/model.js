@@ -111,7 +111,7 @@ function docIncompleteReason(p){
 }
 /* Step Unit клиент не видит, пока его ставка 0 (владелец, 20.10.2026): в ERP,
    на станции и на чертеже он виден всегда, с ценой появится в документах сам. */
-function docServiceRows(line,qty){
+function docServiceRows(line,qty=1){
  return salesLineChargeRows(line).map(row=>{const st=salesChargePricingState(line,row);return {key:row.key,label:row.label,basis:row.basis,unit:row.unit,rate:st.effectiveRate,value:st.effectiveRate==null?null:salesCents(salesChargeUnitAmount(row,st.effectiveRate)*qty)};})
   .filter(r=>!(r.key==='SURCHARGE:step-unit'&&r.rate===0));
 }

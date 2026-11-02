@@ -536,7 +536,7 @@ salesLineChargeRowsRaw=function(line){
           if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,from:meta.from,svc:meta.svc,length:0};order.push(key);}
           /* Как в Spiel: у прямоугольника каждая сторона вверх до целого
              дюйма; у фигуры контур целиком — ниже, при записи строки. */
-          acc[key].length+=(saved?group.length:salesWholeInches(group.length))*(target.count||1);
+          acc[key].length+=(salesPlainRect(saved)?salesWholeInches(group.length):group.length)*(target.count||1);
         });
       });});
     });

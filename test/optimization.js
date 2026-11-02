@@ -43,7 +43,7 @@ module.exports=async function({page,eq,ok}){
  }),['batched','B-0001',true,false,true]);
  eq('массовая отмена показывает депозиты по заказам и возвращает оплаты нужным клиентам',await t.p.evaluate(()=>{
   oqReset();const a=oqOrder(oqCustomer()),b=oqOrder(oqCustomer({legalName:'City Glazing'}));oqPay(a);oqPay(b);oqQueue();optimizationRunOrders([a,b],'cancelled');const rows=salesDialog.rows.length;oqChoose('Cancel orders');return {rows,statuses:[salesRecord(a).status,salesRecord(b).status],deposits:[a,b].map(id=>finCustomerDeposit(salesRecord(id).customerId)),allocations:DB.receipt.map(r=>r.allocations.length)};
- }),{rows:2,statuses:['cancelled','cancelled'],deposits:[810.92,810.92],allocations:[0,0]});
+ }),{rows:2,statuses:['cancelled','cancelled'],deposits:[810.91,810.91],allocations:[0,0]});
  // Проверяем кнопки реальными кликами браузера, а не только вызовом обработчика.
  const readyIds=await t.p.evaluate(()=>{oqReset();window.readyA=oqOrder(oqCustomer());window.readyB=oqOrder(oqCustomer({legalName:'City Glazing'}));oqPay(readyA);oqPay(readyB);oqThrough(readyA,'ready');oqThrough(readyB,'ready');soDraft=null;soEdit=null;oqQueue('ready');return [readyA,readyB];});
  await t.p.evaluate(()=>{oqFulfill(readyA,'pickup');oqFulfill(readyB,'delivery');shippingSetTab('done');});

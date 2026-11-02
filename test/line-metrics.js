@@ -57,7 +57,7 @@ module.exports=async function({page,eq,ok}){
   salesSetOrderChargeEnabled('card',true);salesSetOrderChargeEnabled('delivery',true);salesSetOrderChargeValue('delivery','amount','500');salesSetOrderChargeEnabled('skidDeposit',true);salesSetOrderChargeValue('skidDeposit','amount','750');
   const after=salesOrderCommercialTotals(soDraft),text=document.querySelector('.metric-order-total').textContent.replace(/\s+/g,' ').trim();
   return {before,initial,after:[after.subtotal,after.energy,after.hst,after.card,after.delivery,after.skidDeposit,after.grand],shown:['ES','HST','Visa card fee','Delivery','Skid Deposit','Total'].every(x=>text.includes(x)),slots:document.querySelector('.metric-order-charge-preview').querySelectorAll('.metric-order-charge-item').length};
- }),{before:{button:'Service +',layout:{labels:['Subtotal','ES 9.75%','HST 13%','Total'],contiguous:true,totalAnchored:true},currency:'CAD',currencyCount:1,amountCurrencyCount:0,amountFontSizes:['12px'],noLaptopOverflow:true},initial:{checked:2,rates:[9.75,13,2.34,0,0],cards:['visa','mastercard','amex']},after:[242,23.6,34.53,7.02,500,750,1557.15],shown:true,slots:7});
+ }),{before:{button:'Service +',layout:{labels:['Subtotal','ES 9.75%','HST 13%','Total'],contiguous:true,totalAnchored:true},currency:'CAD',currencyCount:1,amountCurrencyCount:0,amountFontSizes:['12px'],noLaptopOverflow:true},initial:{checked:2,rates:[9.75,13,2.34,0,0],cards:['visa','mastercard','amex']},after:[242,23.59,34.53,7.02,500,750,1557.14],shown:true,slots:7});
  eq('Triple base 100 -> 150; Qty is applied once',await t.p.evaluate(()=>{
   const {l}=metricFixture('triple',12,12,3),p=salesLineCommercialPrice(l,soDraft);
   return {base:p.base,adjustments:p.adjustments.map(a=>a.amount),unit:p.unit,line:p.line};
