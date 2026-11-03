@@ -12,6 +12,7 @@ they appear on screen.
 |---|---|---|
 | Reports | [reports.ru.md](reports.ru.md) | [reports.en.md](reports.en.md) |
 | Optimization | [optimization.ru.md](optimization.ru.md) | [optimization.en.md](optimization.en.md) |
+| Shipping | [shipping.ru.md](shipping.ru.md) | [shipping.en.md](shipping.en.md) |
 
 Правило (владелец, 03.11.2026): кто меняет раздел, тот в том же PR обновляет его руководство на обоих языках —
 «тот, кто делал, знает больше контекста».

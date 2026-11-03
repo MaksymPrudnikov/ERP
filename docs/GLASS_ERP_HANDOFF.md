@@ -2,6 +2,25 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Shipping и Production в виде Sales · 3 ноября 2026
+
+Владелец, 03.11.2026: «все экраны в один стиль», примеры «было / будет» до кода; Delivery — вариант A, Stations —
+вариант A; «не потерять ни одной функциональной кнопки»; Skids — «провалиться в скид», Columns и ширина; окно
+скида — «№1 всегда вверху».
+
+- Shipping (`views/shipping.js`, `skids.js`, `delivery.js`, `shipping-lookup.js`): отдельной карточки поиска нет —
+  поиск и Open a trip в шапке каждой вкладки (`shippingBarRight`). Тип совпадения — кнопка в поле
+  (`SHIPPING_MATCH`: = / ≈ / a…). Ready — один список со строкой клиента (скиды чипами, `shippingSelectCustomer`),
+  Create packing slip сверху. Skids, Backorders, Delivery — списки через общую `salesListTableHTML` (scopes
+  `shippingSkids`, `shippingBackorders`, `shippingDelivery`: Columns, фильтры, ширина и порядок, итог). Shipments:
+  колонки ft², Weight kg, Glass, Balance (`shippingListExtra`). Hold / Release в очередях Shipping.
+- Production (`production.js`, `carriers-board.js`): маршрут одной строкой (`sfRouteHTML`), Open screen, Terminals и
+  шапка Dollies & Skids в виде Sales; ряд экранов на одном месте. Окно долли / скида: №1 сверху, ширина и порядок
+  колонок (`cwRegister('carrierWin'|'carrierWinOut')`, ширины в браузере, по человеку).
+- Проверка функций: опись кнопок, полей и кликов каждого экрана «до / после» (скрипт вне репозитория, две базы —
+  выгрузка владельца и неделя цеха): без потерь; Back → Move back, Release — в шапке для отмеченного на паузе.
+- Руководство: `docs/manual/shipping.ru.md` и `shipping.en.md`, Production — в `optimization.*.md`.
+
 ## Optimization: вид как у Sales, действия над отмеченным, правая кнопка · 3 ноября 2026
 
 Владелец, 03.11.2026: «оптимизация и продакшн выглядят не так, как Sales»; Back и Cancel order «просмотр или
