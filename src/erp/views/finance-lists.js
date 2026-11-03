@@ -93,7 +93,7 @@ function finListFooter(all,cols,noun){
    строки — сверху в шапке для отмеченной (r.acts: [label, onclick, атрибуты]),
    шестерёнка слева, ширина и порядок колонок, итог. */
 let finSel='';
-function finSelect(id,on){finSel=on?id:'';render();}
+function finSelect(id,on=true){finSel=on?id:'';render();}
 function finListTable(infos,cell,rowAttrs,noun,empty){
  const p=salesListLoadPrefs(),rows=salesListRows(infos),cols=salesListColumns();
  if(finSel&&!rows.some(r=>r.o.id===finSel))finSel='';
