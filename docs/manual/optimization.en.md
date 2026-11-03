@@ -15,4 +15,8 @@ Same look as Sales: one card with a row of actions, a row of pills with counts, 
   A button that does not fit the ticked orders is grey.
 - **Right click** on an order gives the same actions for the ticked orders (the order under the mouse is ticked
   first). A held order has **Release** in its row.
+- **To batch, Batches, Stock, Sheets** use the same card, pills and header. Stock and Sheets list their rows
+  without per-column filters; Sheets has the gear at the right of its row.
+- **Production** has the same look: the switch In production / Stations / Terminals / Dollies & Skids is a row of
+  pills; the station tiles stay tiles above the table.
 - **Gear** in the header — Columns. Filters and sorting are in each header, like in Sales; the totals are at the bottom.

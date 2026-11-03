@@ -14,7 +14,14 @@
 - `optimizationActions` — один список действий для строки над таблицей (появляется при отметке) и для меню правой
   кнопки (`optimizationContext`, `optimizationContextHTML`, меню `oq-context` в `salesListMenuHTML`). «Back» теперь
   «Move back»; новый `On Hold` / `Release` через `salesHoldOpen` / `salesReleaseHold`. Shipping использует тот же вид.
-- Не сделано: вкладки Batches / Stock / Sheets и Production — следующие PR этапа 6.
+- Те же шапка и таблетки у To batch, Batches, Stock, Sheets (`glassBatchTabs` теперь ряд `sl-quick-pill` внутри
+  карточки; заголовки «Batches», «Stock», «Sheets» убраны) и у Production: переключатель экранов
+  `sfScreenPills` (In production / Stations / Terminals / Dollies & Skids), тайлы станций остаются тайлами.
+  В Sheets колонки — шестерёнка справа в строке; в Stock нет фильтров колонок (таблица без общего списка).
+  Открытый батч (Contents / History / Optimization) не менялся. Motion: `[aria-label="Production"] button`
+  поднимает экран как прежний `.tabs button`. Shipping не рисует внутренние таблетки: у него свои.
+- Не сделано: таблицы без общего списка (`commissions`, `finance-workspace`, `delivery`, `price-lists-ui`, Data), Finance,
+  Purchasing, Inventory, Customers, Users — следующие PR этапа 6.
 - Руководство: `docs/manual/optimization.ru.md` и `optimization.en.md`.
 
 ## Reports: пояснения к полям и показателям · 3 ноября 2026
