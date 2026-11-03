@@ -31,7 +31,7 @@ module.exports=async function({page,eq,ok}){
  eq('вкладка Dollies & Skids: плитки, карточка долли под станцией, где ждёт стекло; клик — окно: сверху положенное последним, сводка по заказам, все колонки',await t.p.evaluate(()=>{
   dsReset();const a=dsOrder([[36,24,3]],'Granite City Glazing',{priority:'critical'}),b=dsOrder([[30,20,2]],'Vista Railings'),ga=dsIds(a),gb=dsIds(b),na=salesRecord(a).businessNumber,nb=salesRecord(b).businessNumber,ab=x=>x.split(na).join('A').split(nb).join('B');
   dsScan(ga,'DL-1');dsScan(gb,'DL-1');dsOpenTab();const since=carrierWhen(DB.stationScan[0].at);
-  const tabs=[...document.querySelectorAll('.tabs button')].map(b=>b.textContent).join('|'),tiles=[...document.querySelectorAll('.cb-tile')].map(dsInner).join('|');
+  const tabs=[...document.querySelectorAll('[aria-label="Production"] button')].map(b=>b.textContent).join('|'),tiles=[...document.querySelectorAll('.cb-tile')].map(dsInner).join('|');
   const card=document.querySelector('[data-carrier-card="DL-1"]'),group=card.closest('[data-carrier-group]').dataset.carrierGroup,cardText=ab(dsInner(card)).replace(since,'T');
   card.click();const w=document.querySelector('[data-carrier-window="DL-1"]');
   const rows=[...w.querySelectorAll('[data-carrier-row]')].map(r=>r.dataset.carrierRow),heads=[...w.querySelectorAll('thead th')].map(th=>th.textContent).filter(Boolean).join(',');
