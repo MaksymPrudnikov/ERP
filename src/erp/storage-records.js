@@ -254,14 +254,15 @@ function storageMerge(a,b){
    build (версия, что писала последней), copyAt, test (метка TEST); copy —
    копия до импорта; cold — архив (указатель owners — по заказу); archive —
    указатель архива (строка Sales ушедшего заказа); cloud — синхронизация с
-   сервером (erp/cloud-sync.js): версии строк, очередь на отправку, курсор. */
+   сервером (erp/cloud-sync.js): версии строк, очередь на отправку, курсор;
+   facts — строки отчётов по закрытым месяцам архива (reports/archive-facts). */
 function storageIdbOpen(){
  return new Promise((resolve,reject)=>{
-  let q;try{q=indexedDB.open(STORAGE_IDB_NAME,4);}catch(e){reject(e);return;}
+  let q;try{q=indexedDB.open(STORAGE_IDB_NAME,5);}catch(e){reject(e);return;}
   q.onupgradeneeded=()=>{const d=q.result,has=n=>d.objectStoreNames.contains(n);
    if(!has('record'))d.createObjectStore('record',{keyPath:['tbl','id']});if(!has('meta'))d.createObjectStore('meta');if(!has('copy'))d.createObjectStore('copy');
    if(!has('cold'))d.createObjectStore('cold',{keyPath:['tbl','id']}).createIndex('owners','owners',{multiEntry:true});
-   if(!has('archive'))d.createObjectStore('archive',{keyPath:'id'});if(!has('cloud'))d.createObjectStore('cloud');};
+   if(!has('archive'))d.createObjectStore('archive',{keyPath:'id'});if(!has('cloud'))d.createObjectStore('cloud');if(!has('facts'))d.createObjectStore('facts');};
   q.onsuccess=()=>{storageIdb=q.result;storageIdb.onversionchange=()=>{storageIdb.close();storageIdb=null;};resolve(storageIdb);};
   q.onerror=()=>reject(q.error||new Error('The database could not be opened.'));
  });

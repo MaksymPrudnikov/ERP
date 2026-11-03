@@ -20,7 +20,7 @@
    OUT: archiveIndex, archiveDue(day), archiveCollect(ids), archiveRun(day),
         archiveReturn(orderId), archiveIndexLoad / archiveIndexApply,
         archiveListInfos, archiveOpen(id), archiveViewing(o),
-        archiveLedgerFor(customerId), archiveWith(owners,fn), archiveScopeFor(range)
+        archiveLedgerFor(customerId), archiveWith(owners,fn)
    ===================================================================== */
 const ARCHIVE_ON=true,ARCHIVE_MONTHS=1;
 DEFAULT.archiveFloor={};DEFAULT.inventoryArchived={};DEFAULT.archiveRunDay='';
@@ -291,37 +291,6 @@ function archiveRowsDrop(put){
   if(v){t.forEach((x,id)=>v.delete(id));if(!v.size)storageVisit.delete(tbl);}});
  storageInvalidate();
 }
-/* ------------------------- Отчёты за прошлые месяцы -------------------- */
-/* Отчёт, чей период захватывает ушедшие заказы (Reports): записи заказов,
-   чья жизнь «создан … день ухода» пересекает период, читаются с диска и
-   стоят в DB, пока отчёт открыт с этим периодом (задание: «детали — по
-   запросу с индикатором»). ranges — список отрезков [from, to] днями, ''
-   — без границы; читается их объединение.
-   Ответ: 'none' (архив не нужен), 'loading' (читается), 'ready', 'big' —
-   заказов больше ARCHIVE_SCOPE_MAX: столько разом память не вместит, нужен
-   период короче (предел — проверить на базе за 7 лет, А5). */
-const ARCHIVE_SCOPE_MAX=3000;
-let archiveScope=null;
-function archiveScopeFor(ranges){
- const owners=[];
- archiveIndex.forEach((a,id)=>{if(archiveSpanIn(a,ranges))owners.push(id);});
- if(!owners.length){archiveScopeDrop();return 'none';}
- if(owners.length>ARCHIVE_SCOPE_MAX){archiveScopeDrop();return 'big';}
- const key=[...new Set(ranges.map(String))].sort().join(';')+'|'+owners.length+'|'+owners[0]+'|'+owners[owners.length-1];
- if(archiveScope&&archiveScope.key===key)return archiveScope.put?'ready':'loading';
- archiveScopeDrop();const st=archiveScope={key,put:null,orders:owners.length};
- archiveRead(owners).then(recs=>{if(archiveScope!==st)return;st.put=archiveRowsPut(recs,false);render();}).catch(e=>{if(archiveScope===st)archiveScope=null;console.warn('Archive was not read:',e.message);});
- return 'loading';
-}
-function archiveScopeDrop(){const st=archiveScope;archiveScope=null;if(st&&st.put)archiveRowsDrop(st.put);}
-/* Жизнь заказа пересекает хоть один отрезок — от самой ранней до самой поздней
-   из его дат: создан, срок (Due), «действительна до» у квоты, день ухода. */
-function archiveSpanIn(a,ranges){const span=[String(a.createdAt||'').slice(0,10),a.day,a.row&&a.row.due,a.row&&a.row.validUntil].filter(Boolean).map(String).sort(),lo=span[0],hi=span[span.length-1];return !!span.length&&ranges.some(r=>(!r[1]||lo<=r[1])&&(!r[0]||hi>=r[0]));}
-/* Сколько ушедших заказов в периоде — для надписи на экране. */
-function archiveScopeCount(ranges){let n=0;archiveIndex.forEach(a=>{if(archiveSpanIn(a,ranges))n++;});return n;}
-/* Ушли из отчётов — записи архива уходят из памяти. */
-(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k){if(archiveScope&&k!=='reports')archiveScopeDrop();return false;});
-
 /* Записи ушедших заказов на время одного расчёта (счета за период к
    выписке): встают в DB, fn строит из них — и сразу уходят. */
 async function archiveWith(owners,fn){

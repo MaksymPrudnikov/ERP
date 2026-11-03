@@ -211,7 +211,7 @@ function repQuoteFacts(){
   const base=ms.find(m=>!m.quoteRev)||ms[0],won=ms.find(m=>m.status==='won'),q=won||ms[ms.length-1],sent=ms.map(m=>m.sentAt||'').filter(Boolean).sort().pop()||'';
   const valid=q.validUntil||'',state=won?'Won':valid&&valid<today?'Expired':sent?'Sent':'Not sent',t=finOrderTotals(q),lines=q.lines||[];
   const units=lines.reduce((n,l)=>n+salesPositiveInt(l.qty,1),0),area=finWithOrder(q,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,q);return n+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0));
-  const value=t&&t.complete?t.grand:null,order=won&&won.wonOrderId?(salesRecord(won.wonOrderId)||{}).businessNumber||'':'';
+  const value=t&&t.complete?t.grand:null,order=won&&won.wonOrderId?(salesRecord(won.wonOrderId)||{}).businessNumber||(archiveKnown(won.wonOrderId)||{}).number||'':'';
   return {...repOrderInfo(q),id:g,at:base.createdAt||'',created:salesListIsoDay(base.createdAt),sent:salesListIsoDay(sent),validUntil:valid,quote:salesQuoteBaseNumber(base),customerId:q.customerId||'',
    state,won:won?1:0,one:1,revisions:ms.length,units,area:area||null,value,wonValue:won?value:0,order};
  });
