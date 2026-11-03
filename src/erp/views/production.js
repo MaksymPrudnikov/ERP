@@ -28,12 +28,14 @@ const SF_TABS=[
  {k:'carriers',  label:'Dollies & Skids'}
 ];
 
+/* Переключатель экранов Production — таблетки, как быстрые виды в Sales. */
+function sfScreenPills(){return '<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Production">'+SF_TABS.map(t=>`<button type="button" role="tab" class="sl-quick-pill${subtab===t.k?' on':''}" aria-selected="${subtab===t.k}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')+'</div></div>';}
 function viewProduction(){
  if(!SF_TABS.some(t=>t.k===subtab)) subtab='orders';
  return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Reference tables updated: stations were reseeded from the factory data.</div>':''}
   ${subtab!=='stations'?'':`<div class="card sf-route-card">${sfRouteHTML()}</div>`}
-  <div class="card">
-   <div class="tabs">${SF_TABS.map(t=>`<button class="${subtab===t.k?'on':''}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')}</div>
+  <div class="card${subtab==='orders'?' sales-list-card sl-foot-pin':''}">
+   ${subtab==='orders'?'':sfScreenPills()}
    ${({orders:viewProdOrders,stations:()=>viewSfStations(false),terminals:viewSfTerminals,carriers:viewProdCarriers})[subtab]()}
   </div>
   ${subtab==='stations'?sfImportCard():''}`;

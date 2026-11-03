@@ -88,10 +88,10 @@ function viewStockList(){
     <button type="button" class="sm" data-stock-print onclick="stockUiPrint('${esc(r.id)}')">Sticker</button>
     <button type="button" class="sm" data-stock-drop onclick="stockUiDrop('${esc(r.id)}')">Back to waste</button>`)(stockUiWhere(r.id))}</td></tr>`;
  const body=shown.map(row).join('')||`<tr><td colspan="8" class="empty" data-stock-empty>Nothing in stock yet. Offcuts get here from a batch layout: right-click an offcut → To stock.</td></tr>`;
- return `<section class="optimization-queue"><div class="page-head"><div><h2>Stock</h2><p>Offcuts booked from cut layouts. Numbers are on the stickers on the rack. To cut one, tick its S-… row in the batch layout: Reset → SHEETS → Build.</p></div></div>
-  <div class="oq-tabs" role="tablist">${glassBatchTabs()}</div>
-  <div class="card oq-card"><div class="oq-toolbar"><b data-stock-total>${live.length} in stock · ${stockOffcutTotal()} ft\u00b2</b><span class="sp"></span>
+ return `<section class="optimization-queue">
+  <div class="card oq-card sales-list-card sl-foot-pin"><div class="oq-toolbar sales-toolbar"><b class="oq-sel" data-stock-total title="Offcuts booked from cut layouts. To cut one, tick its S-… row in the batch layout: Reset → SHEETS → Build.">${live.length} in stock · ${stockOffcutTotal()} ft\u00b2</b><span class="sales-toolbar-sp"></span>
    ${off.length?`<label class="chk"><input type="checkbox" data-stock-show-off ${stockShowOff?'checked':''} onchange="stockUiShowOff(this.checked)"> Show ${off.length} back to waste</label>`:''}</div>
+   ${glassBatchTabs()}
    ${cutNotice?`<div class="ncr-error" role="alert" data-stock-error>${esc(cutNotice)}</div>`:''}
    ${stockInfo?`<div class="cut-info" data-stock-info>${esc(stockInfo.id)} ${stockInfo.used?'→':'✕'} ${esc(stockInfo.batch)}${stockInfo.used?' · press Build there':''}
     <button type="button" class="gb-link" data-stock-info-open onclick="stockUiOpenBatch('${esc(stockInfo.batch)}')">Open ${esc(stockInfo.batch)}</button></div>`:''}

@@ -49,10 +49,9 @@ function viewSheetUsage(){
  const th=c=>{const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
  const body=rows.map(i=>`<tr data-sheet-row="${esc(i.r.batch+'|'+i.r.glass+'|'+(i.r.stock||i.r.w+'x'+i.r.h))}">${cols.map(c=>sheetUsageCell(i,c)).join('')}</tr>`).join('')
   ||`<tr><td colspan="${cols.length}" class="empty" data-sheet-empty>${infos.length?'Nothing matches the filters.':'No built layouts yet.'}</td></tr>`;
- return `<section class="optimization-queue sheet-usage"><div class="page-head"><div><h2>Sheets</h2><p>Sheets in built batch layouts. A broken sheet counts as a used sheet and as waste.</p></div></div>
-  <div class="oq-tabs" role="tablist">${glassBatchTabs()}</div>
-  <div class="card oq-card"><div class="oq-toolbar">${salesListDateButton('built')}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
-   ${salesListFilterChips()}
+ return `<section class="optimization-queue sheet-usage">
+  <div class="card oq-card sales-list-card sl-foot-pin"><div class="oq-toolbar sales-toolbar">${salesListDateButton('built')}<span class="sales-toolbar-sp"></span><button type="button" class="sl-settings" data-columns-button aria-label="Columns" title="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></div>
+   ${glassBatchTabs()}${salesListFilterChips()}
    <div class="sales-table-wrap"><table class="sl-table" data-sheet-table><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>${body}</tbody>${rows.length?sheetUsageFooter(rows,cols):''}</table></div>
   </div>${salesListMenuHTML(infos)}</section>`;
 }

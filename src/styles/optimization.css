@@ -45,3 +45,4 @@
 .oq-table-wrap .sl-th{gap:4px}
 .oq-card .sl-foot-head small{white-space:normal}
 .oq-sel{font-size:12px;font-weight:500;color:var(--text-2);margin:0 6px}.oq-card.sales-list-card{padding:0}
+.pb-top{padding:0 20px}.card:not(.sales-list-card)>.sl-filter-row{padding:0 0 12px}.sales-list-card .oq-sel{align-self:center}
