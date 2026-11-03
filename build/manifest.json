@@ -219,6 +219,7 @@
   "src/erp/views/station-board.js",
   "src/erp/views/reports.js",
   "src/erp/archive.js",
+  "src/erp/reports/archive-facts.js",
   "src/erp/storage-records.js",
   "src/erp/storage.js"
  ]
