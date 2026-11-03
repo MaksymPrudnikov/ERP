@@ -213,7 +213,12 @@ button.ch-stat.warn b{color:var(--warning)}
 .rep-print-head small{font-size:10.5px;color:var(--text-3)}
 .rep-print .rep-w{box-shadow:none;border:1px solid var(--line);padding:10px 12px}
 .rep-print .ch-track>i,.rep-print .ch-col-bar>i,.rep-print .ch-stack i,.rep-print .ch-hstack i,.rep-print .ch-legend i,.rep-print .ch-track,.rep-print .ch-seg,.rep-print .ch-l{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-@media print{.rep-print .rep-w,.rep-print .ch-stats{break-inside:avoid}.rep-print .sales-table-wrap{overflow:visible;max-height:none}}
+/* Лист отчёта: как на экране — прокрутка обрезана по высоте карточки, весь
+   лист уменьшен под бумагу (repPrintFit). */
+.rep-print .rep-scroll,.rep-print .ch-pie-legend{max-height:520px;overflow:hidden}
+@media print{.rep-print .rep-w,.rep-print .ch-stats{break-inside:avoid}.rep-print .sales-table-wrap:not(.rep-scroll){overflow:visible;max-height:none}
+ @page rep-port{size:letter portrait;margin:9mm}@page rep-land{size:letter landscape;margin:9mm}
+ .print-sheet.rep-port{page:rep-port}.print-sheet.rep-land{page:rep-land}}
 /* Компактнее (владелец: «как Google Analytics, только текст можно поменьше»). */
 .rep-app{font-size:12.5px}
 .rep-app button,.rep-app select,.rep-app input{font-size:12.5px}

@@ -137,11 +137,11 @@ function repNumbers(res){
 function repCellHTML(m,v){return v===0&&!m.money&&!m.pct?'<span class="mut">·</span>':esc(repFmt(m,v));}
 /* Таблица — все строки (владелец, 03.11.2026: «ничего не ограничивать»):
    первые REP_TABLE_STEP сразу, дальше дорисовываются, когда карточку
-   прокручивают вниз (repTableMore); печать — все сразу. */
+   прокручивают вниз (repTableMore). */
 const REP_TABLE_STEP=300;
-let repTableRest=new Map(),repPrinting=false;
+let repTableRest=new Map();
 function repTableBody(w,keys,rowHTML){
- if(repPrinting||keys.length<=REP_TABLE_STEP){repTableRest.delete(w.id);return keys.map(rowHTML).join('');}
+ if(keys.length<=REP_TABLE_STEP){repTableRest.delete(w.id);return keys.map(rowHTML).join('');}
  repTableRest.set(w.id,{keys,rowHTML,at:REP_TABLE_STEP});
  return keys.slice(0,REP_TABLE_STEP).map(rowHTML).join('');
 }
@@ -425,6 +425,7 @@ function repDelWidget(wid){repEditCur(r=>{r.pages.forEach(p=>{p.widgets=p.widget
 function repMoveWidget(wid,d){repEditCur(r=>{r.pages.forEach(p=>{const i=p.widgets.findIndex(w=>w.id===wid),j=i+d;if(i<0||j<0||j>=p.widgets.length)return;const x=p.widgets[i];p.widgets[i]=p.widgets[j];p.widgets[j]=x;});});}
 function repAddPage(){let id='';repEditCur(r=>{const p={id:repUid('PG'),name:'Page '+(r.pages.length+1),widgets:[]};id=p.id;r.pages.push(p);});repPageId=id;repSelW='';render();}
 function repDelPage(){const r=repOpenReport();if(!r||r.pages.length<2||!confirm('Delete this page and its charts?'))return;const pid=repPage(r).id;repEditCur(x=>{x.pages=x.pages.filter(p=>p.id!==pid);});repPageId='';render();}
+function repSetOrient(v){const pid=repPage(repOpenReport()).id;repEditCur(r=>{const p=r.pages.find(x=>x.id===pid);if(p)p.orient=v==='landscape'?'landscape':'portrait';});}
 function repRenamePage(v){const pid=repPage(repOpenReport()).id;repEditCur(r=>{const p=r.pages.find(x=>x.id===pid);if(p)p.name=String(v||'').trim()||p.name;});}
 function repMovePage(d){const r=repOpenReport(),pid=repPage(r).id;repEditCur(x=>{const i=x.pages.findIndex(p=>p.id===pid),j=i+d;if(i<0||j<0||j>=x.pages.length)return;const t=x.pages[i];x.pages[i]=x.pages[j];x.pages[j]=t;});}
 function repSetMeta(k,v){repEditCur(r=>{if(k==='name')r.name=String(v||'').trim()||r.name;if(k==='folder')r.folder=String(v||'').trim();if(k==='share')r.share=v==='all'?'all':'me';if(k==='date')r.date={preset:v,from:'',to:''};});}
@@ -432,16 +433,37 @@ function repAddControl(f){repEditCur(r=>{if(!r.controls.includes(f))r.controls.p
 function repDelControl(f){repEditCur(r=>{r.controls=r.controls.filter(x=>x!==f);});}
 
 /* ------------------------------ Печать ------------------------------ */
-/* Страница отчёта на Letter, светлым: название, период, фильтры, графики.
-   Путь печати общий (printSheet); в окне печати есть и «Save as PDF». */
-function repPrintHTML(){
- const r=repOpenReport();if(!r)return '';const p=repPage(r),v=repView(r.id),now=new Date();
- const filters=Object.entries(v.f||{}).filter(([f,x])=>x&&x.length).map(([f,x])=>(repControlFields(r).get(f)||f)+': '+x.join(', '));
- repEditOn=false;
+/* Владелец, 03.11.2026: «печать — один лист, одна страница; нужно две — сделаю
+   две страницы»; «нужно горизонтально — горизонтально». Print печатает все
+   страницы отчёта, каждую на свой лист Letter в её ориентации (page.orient):
+   то, что видно на экране, уменьшенное под лист (repPrintFit). Страница с
+   архивом или долгим расчётом сначала открывается и досчитывается. */
+const REP_SHEET={portrait:[816,1056],landscape:[1056,816]},REP_SHEET_PAD=68;
+function repPrintPageHTML(r,p){
+ const v=repView(r.id),now=new Date(),filters=Object.entries(v.f||{}).filter(([f,x])=>x&&x.length).map(([f,x])=>(repControlFields(r).get(f)||f)+': '+x.join(', '));
  const body=p.widgets.map((w,i)=>repWidgetCard(r,w,i,p.widgets.length)).join('');
- return `<div class="rep-print"><div class="rep-print-head"><h2 data-raw>${esc(r.name)}${r.pages.length>1?' · '+esc(p.name):''}</h2><div>${esc(['Date: '+repDateText(v.date||r.date)].concat(filters).join(' · '))}</div><small>Glass Farm · printed ${esc(now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}))} ${esc(now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}))}</small></div><div class="rep-ws">${body}</div></div>`;
+ return `<div class="rep-print" data-rep-orient="${esc(p.orient||'portrait')}"><div class="rep-print-head"><h2 data-raw>${esc(r.name)}${r.pages.length>1?' · '+esc(p.name):''}</h2><div>${esc(['Date: '+repDateText(v.date||r.date)].concat(filters).join(' · '))}</div><small>Glass Farm · printed ${esc(now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}))} ${esc(now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}))}</small></div><div class="rep-ws">${body}</div></div>`;
 }
-function repPrint(){const was=repEditOn;repPrinting=true;let html;try{html=repPrintHTML();}finally{repPrinting=false;}repEditOn=was;repMenu=null;return html&&printSheet(html,'');}
+/* Лист: ширина листа, высота — сколько вышло; не влезло — меньше (zoom). */
+function repPrintFit(el){
+ const x=el.querySelector('.rep-print');if(!x)return;const land=x.dataset.repOrient==='landscape',[W,H]=REP_SHEET[land?'landscape':'portrait'];
+ el.classList.add(land?'rep-land':'rep-port');x.style.width=(W-REP_SHEET_PAD)+'px';x.style.zoom='';
+ const h=x.scrollHeight,k=Math.min(1,(H-REP_SHEET_PAD)/Math.max(1,h));if(k<1)x.style.zoom=String(Math.floor(k*1000)/1000);
+}
+let repPrintBusy=false;
+async function repPrint(){
+ const r0=repOpenReport();if(!r0||repPrintBusy)return false;
+ const was={page:repPageId,edit:repEditOn},sheets=[];repPrintBusy=true;repEditOn=false;repMenu=null;
+ try{
+  for(const p of r0.pages){
+   repPageId=p.id;render();
+   for(let i=0;i<6000&&document.querySelector('[data-rep-archive-wait]');i++)await new Promise(res=>setTimeout(res,50));
+   const r=repOpenReport();sheets.push(readScope(()=>repPrintPageHTML(r,repPage(r))));
+  }
+ }finally{repPageId=was.page;repEditOn=was.edit;repPrintBusy=false;render();}
+ return printSheet(sheets,'',repPrintFit);
+}
+function repPrintHTML(){const r=repOpenReport();return r?repPrintPageHTML(r,repPage(r)):'';}
 
 /* Отчёт на чужом экране — Board станции или Overview человека: страницы и
    графики, без правки и фильтров; подстановки — станция и человек экрана. */
@@ -476,7 +498,7 @@ function repMain(r){
  const acts=repEditOn?`${dirty?'<span class="mut small" data-rep-unsaved>Unsaved changes</span>':''}<button type="button" class="pri sm" data-rep-save onclick="repSaveEdit()">Save</button><button type="button" class="sm" data-rep-cancel onclick="repCancelEdit()">Cancel</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>${saved?`<button type="button" class="sm dl" onclick="repDeleteOpen()">Delete</button>`:''}`
   :`${saved?`<button type="button" class="sm rep-pin${repPinned(r.id)?' on':''}" data-rep-pin="${esc(r.id)}" title="${repPinned(r.id)?'Unpin':'Pin'}" aria-label="${repPinned(r.id)?'Unpin':'Pin'}" onclick="repPinToggle(this.dataset.repPin)">${repPinned(r.id)?'★':'☆'}</button>`:''}${repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-edit onclick="repEditToggle()">Edit</button>`:''}<button type="button" class="sm" data-rep-copy onclick="repCopyOpen()">Copy</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>`;
  const tabs=`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-page="${esc(x.id)}" onclick="repPageId=this.dataset.repPage;repSelW='';render()">${esc(x.name)}</button>`).join('')}${repEditOn?`<button type="button" onclick="repAddPage()">+ Page</button>`:''}</div>
-  ${repEditOn?`<div class="rep-page-edit"><input type="text" value="${esc(p.name)}" aria-label="Page name" onchange="repRenamePage(this.value)"><button type="button" class="sm" title="Move page left" onclick="repMovePage(-1)">←</button><button type="button" class="sm" title="Move page right" onclick="repMovePage(1)">→</button>${r.pages.length>1?`<button type="button" class="sm dl" onclick="repDelPage()">Delete page</button>`:''}</div>`:''}`;
+  ${repEditOn?`<div class="rep-page-edit"><input type="text" value="${esc(p.name)}" aria-label="Page name" onchange="repRenamePage(this.value)"><select aria-label="Print" data-rep-orient onchange="repSetOrient(this.value)">${repOpt([['portrait','Portrait'],['landscape','Landscape']],p.orient)}</select><button type="button" class="sm" title="Move page left" onclick="repMovePage(-1)">←</button><button type="button" class="sm" title="Move page right" onclick="repMovePage(1)">→</button>${r.pages.length>1?`<button type="button" class="sm dl" onclick="repDelPage()">Delete page</button>`:''}</div>`:''}`;
  /* Период захватывает ушедшие в архив заказы — сначала их строки с диска. */
  const ranges=repArchiveRanges(r,p),arch=ranges?archiveScopeFor(ranges,repArchiveNeed(r,p)):'none';
  if(!ranges)archiveScopeDrop();

@@ -59,7 +59,7 @@ function repCleanWidget(w){
 }
 function repClean(r){
  r=r&&typeof r==='object'?r:{};
- const pages=(Array.isArray(r.pages)?r.pages:[]).filter(p=>p&&typeof p==='object').slice(0,20).map(p=>({id:repStr(p.id,80)||repUid('PG'),name:repStr(p.name,60)||'Page',widgets:(Array.isArray(p.widgets)?p.widgets:[]).slice(0,40).map(repCleanWidget)}));
+ const pages=(Array.isArray(r.pages)?r.pages:[]).filter(p=>p&&typeof p==='object').slice(0,20).map(p=>({id:repStr(p.id,80)||repUid('PG'),name:repStr(p.name,60)||'Page',orient:p.orient==='landscape'?'landscape':'portrait',widgets:(Array.isArray(p.widgets)?p.widgets:[]).slice(0,40).map(repCleanWidget)}));
  const d=r.date&&typeof r.date==='object'?r.date:{},fl=r.filters&&typeof r.filters==='object'&&!Array.isArray(r.filters)?r.filters:{},filters={};
  Object.keys(fl).slice(0,20).forEach(k=>{if(Array.isArray(fl[k])&&fl[k].length)filters[repStr(k,40)]=fl[k].map(x=>repStr(x,120)).slice(0,200);});
  return {id:repStr(r.id,80)||repUid('RP'),name:repStr(r.name,120)||'Untitled report',folder:repStr(r.folder,60),note:repStr(r.note,500),ownerId:repStr(r.ownerId,80),

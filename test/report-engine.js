@@ -435,7 +435,7 @@ module.exports=async function({page,eq,ok}){
  }),{allowed:false,chart:'<div class="mut">Needs Customers access.</div>',pick:false});
 
  /* Владелец, 03.11.2026: «ничего не ограничивать»; «показывать, что он грузится, в процентах». */
- eq('Без ограничений показа: 700 строк таблицы (дорисовка при прокрутке, печать — все), 12 значений разбивки без Other, все полосы и доли, все дни за три года',await t.p.evaluate(()=>{
+ eq('Без ограничений показа: 700 строк таблицы (дорисовка при прокрутке), 12 значений разбивки без Other, все полосы и доли, все дни за три года',await t.p.evaluate(()=>{
   const rows=Array.from({length:700},(_,i)=>({id:'q'+i,at:repAddDays('2023-01-01',i%1096),k:'K'+String(i).padStart(3,'0'),b:'B'+(i%12),n:1}));
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.dim('b','B'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
   const w=type=>repCleanWidget({type,q:{source:'qa',dims:type==='table'?['k','b']:['k'],metrics:['count']}}),r=repClean({date:{preset:'all'},pages:[{widgets:[w('table'),w('bars'),w('pie')]}]});
@@ -444,11 +444,11 @@ module.exports=async function({page,eq,ok}){
    const box=document.createElement('div');document.body.appendChild(box);box.innerHTML=repChart(r,r.pages[0].widgets[0]);
    const el=box.querySelector('[data-rep-scroll]'),first=el.querySelectorAll('tbody tr').length;
    for(let i=0;i<10;i++){el.scrollTop=el.scrollHeight;repTableMore(el);}
-   const all=el.querySelectorAll('tbody tr').length;repPrinting=true;box.innerHTML=repChart(r,r.pages[0].widgets[0]);const print=box.querySelectorAll('tbody tr').length;repPrinting=false;
+   const all=el.querySelectorAll('tbody tr').length;
    box.innerHTML=repChart(r,r.pages[0].widgets[1]);const bars=box.querySelectorAll('.ch-hbar').length;box.innerHTML=repChart(r,r.pages[0].widgets[2]);const slices=box.querySelectorAll('.ch-pie-legend>span').length;box.remove();
-   return {keys2:res.keys2.length,other:res.keys2.includes('__other'),first,all,print,bars,slices,days,colors:[0,7,8,16,30].map(repSeriesClass)};
+   return {keys2:res.keys2.length,other:res.keys2.includes('__other'),first,all,bars,slices,days,colors:[0,7,8,16,30].map(repSeriesClass)};
   }finally{delete REP_SRC.qa;}
- }),{keys2:12,other:false,first:300,all:700,print:700,bars:700,slices:700,days:1096,colors:['ch-s1','ch-s8','ch-s1 ch-t2','ch-s1 ch-t3','ch-s7 ch-t3']});
+ }),{keys2:12,other:false,first:300,all:700,bars:700,slices:700,days:1096,colors:['ch-s1','ch-s8','ch-s1 ch-t2','ch-s1 ch-t3','ch-s7 ch-t3']});
  eq('Таблица: несколько измерений строк, как в Looker — «батч · стекло · толщина» своими колонками; в графиках — только первое',await t.p.evaluate(()=>{
   const rows=[{id:'1',at:'2024-01-01',k:'B-2',g:'6CLEAR',mm:'6 mm',n:1},{id:'2',at:'2024-01-01',k:'B-2',g:'6CLEAR',mm:'6 mm',n:1},{id:'3',at:'2024-01-01',k:'B-1',g:'4E272',mm:'4 mm',n:1}];
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','Batch'),REP_F.dim('g','Glass'),REP_F.dim('mm','Thickness'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
@@ -464,6 +464,17 @@ module.exports=async function({page,eq,ok}){
    return {head,body,foot,bars,grouped};
   }finally{delete REP_SRC.qa;}
  }),{head:['Batch','Glass','Thickness','Rows'],body:['B-2 | 6CLEAR | 6 mm | 2','B-1 | 4E272 | 4 mm | 1'],foot:3,bars:['B-2','B-1'],grouped:['4 mm | 4E272 | B-1','6 mm | 6CLEAR | B-2','~6 mm | ~6CLEAR | B-3']});
+ eq('Печать: каждая страница отчёта — свой лист в своей ориентации, уменьшенный под лист; таблица — как на экране',await t.p.evaluate(async()=>{
+  const rows=Array.from({length:700},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+String(i).padStart(3,'0'),n:1}));
+  REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
+  const w=type=>({type,q:{source:'qa',dims:['k'],metrics:['count']}}),r=repClean({id:'RP-print-qa',name:'Print QA',share:'all',date:{preset:'all'},pages:[{name:'Tall',orient:'landscape',widgets:[w('table'),w('bars'),w('table')]},{name:'Short',widgets:[w('number')]}]});
+  const was=window.print,keep=DB.report;let printed=0;window.print=()=>{printed++;};DB.report=keep.concat([r]);
+  try{
+   tab='reports';repOpen(r.id);await repPrint();
+   const sheets=[...document.querySelectorAll('#printSheetHost .print-sheet')].map(el=>({cls:el.classList.contains('rep-land')?'land':el.classList.contains('rep-port')?'port':'',small:+(el.querySelector('.rep-print').style.zoom||1)<1,rows:el.querySelectorAll('tbody tr').length}));
+   return {printed,sheets,orient:repClean({pages:[{orient:'sideways'}]}).pages[0].orient,back:repPage(repOpenReport()).name};
+  }finally{window.print=was;printSheetCleanup();DB.report=keep;repOpenId='';delete REP_SRC.qa;}
+ }),{printed:1,sheets:[{cls:'land',small:true,rows:600},{cls:'port',small:false,rows:0}],orient:'portrait',back:'Tall'});
  eq('Список батчей у прежней базы: толщина, стекло, внутри батчи, все батчи; изменённый человеком — не трогается',await t.p.evaluate(()=>{
   const was=DB.report,seed=DB.reportSeed,old=()=>repClean(Object.assign(REP_STARTERS().find(r=>r.id==='RP-start-batches'),{pages:[{id:'P',name:'Batch list',widgets:[{type:'table',q:{source:'batches',dims:['batch'],metrics:['glassN'],limit:100,sort:{by:'label',dir:'desc'}}}]}]}));
   try{
