@@ -158,8 +158,8 @@ function repTableHTML(r,S,res,w){
  const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],cmp=res.compare&&!d2;
  /* Измерения строк: первое и ещё (res.more) — каждое своей колонкой. */
  /* Клик по заголовку — порядок строк (как в Looker): свой у зрителя, в этом браузере. */
- const so=repWidgetQuery(r,w).sort,sortTh=(text,by,i,cls,at)=>{const on=!!so&&so.by===by&&(by==='label'||so.i===i);return `<th${at||''} class="${cls||''} rep-sortable${on?' rep-sort-on':''}" data-rep-sort="${by}:${i}" onclick="repSortClick('${esc(w.id)}','${by}',${i})">${esc(text)}${on?(so.dir==='asc'?' ▲':' ▼'):''}</th>`;};
- const rowDims=[d1].concat(res.more||[]),rowHead=at=>rowDims.map(d=>sortTh(repDimLabel(S,d),'label',0,'',at)).join('');
+ const so=repWidgetQuery(r,w).sort,sortTh=(text,by,i,cls,at,j)=>{const on=!!so&&so.by===by&&(by==='label'?!j:so.i===i);return `<th${at||''} class="${cls||''} rep-sortable${on?' rep-sort-on':''}" data-rep-sort="${by}:${i}" onclick="repSortClick('${esc(w.id)}','${by}',${i})">${esc(text)}${on?(so.dir==='asc'?' ▲':' ▼'):''}</th>`;};
+ const rowDims=[d1].concat(res.more||[]),rowHead=at=>rowDims.map((d,j)=>sortTh(repDimLabel(S,d),'label',0,'',at,j)).join('');
  /* Значение, как в строке выше, — бледно: группа видна, «6 mm · 6CLEAR» и батчи под ней. */
  const rowCells=(k,i,arr)=>{const parts=String(k).split('\u0002'),prev=i>0&&arr?String(arr[i-1]).split('\u0002'):[];let same=rowDims.length>1;
   return rowDims.map((d,j)=>{const v=parts[j];if(v==null)return '<td></td>';same=same&&j<rowDims.length-1&&prev[j]===v;const t=esc(repKeyText(S,d,v));return `<td${repPickAttrs(r,S,d,v)}${same?' class="rep-same"':''}>${j?`<span data-raw>${t}</span>`:`<b data-raw>${t}</b>`}</td>`;}).join('');},totalCell=`<td colspan="${rowDims.length}"><b>Total</b></td>`;

@@ -463,7 +463,7 @@ module.exports=async function({page,eq,ok}){
    const grouped=[...box.querySelectorAll('tbody tr')].map(tr=>[...tr.children].slice(0,3).map(x=>(x.classList.contains('rep-same')?'~':'')+x.textContent).join(' | '));box.remove();
    return {head,body,foot,bars,grouped};
   }finally{delete REP_SRC.qa;}
- }),{head:['Batch','Glass','Thickness','Rows'],body:['B-2 | 6CLEAR | 6 mm | 2','B-1 | 4E272 | 4 mm | 1'],foot:3,bars:['B-2','B-1'],grouped:['4 mm | 4E272 | B-1','6 mm | 6CLEAR | B-2','~6 mm | ~6CLEAR | B-3']});
+ }),{head:['Batch ▼','Glass','Thickness','Rows'],body:['B-2 | 6CLEAR | 6 mm | 2','B-1 | 4E272 | 4 mm | 1'],foot:3,bars:['B-2','B-1'],grouped:['4 mm | 4E272 | B-1','6 mm | 6CLEAR | B-2','~6 mm | ~6CLEAR | B-3']});
  eq('Печать: каждая страница отчёта — свой лист в своей ориентации, ширина как на экране, уменьшено под лист; граница листа в Edit; дни за годы — плотная гистограмма',await t.p.evaluate(async()=>{
   const rows=Array.from({length:700},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+String(i).padStart(3,'0'),n:1}));
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
