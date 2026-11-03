@@ -43,6 +43,18 @@
      замеры идут уже с архивом. Ответы «после» сверяются с «до»: заказ в
      работе — вся строка, ушедший — колонки списка Sales из указателя
      архива (✗ «archive answers», если что-то не так).
+   · --reports (задание правок 02.11, 7в): вместо обычных замеров — все
+     готовые отчёты, каждая страница на своём периоде и на All time: до
+     ухода в архив и после него; ответ, время до графиков, память. Числа
+     графиков «до» и «после» сверяются (✗ — расхождение). Отдельно —
+     reports.md и reports.json в папке прогона.
+     --today <день> — часы страницы на этот день: у симуляции данные
+     кончаются в её последний день, «этот месяц» иначе пуст.
+     --profile <папка> — готовый профиль браузера: без Import, ухода в
+     архив и размножения (прогнать отчёты ещё раз после правки кода);
+     профиль этого прогона не удаляется; --years N на нём размножает архив
+     (один раз: копия профиля), --compare <папка прогона> берёт из него
+     числа «до». --keep — оставить профиль нового прогона для такого повтора.
 
    Выход: ~/.glass-erp-walk/perf/<дата>-<имя>/ — report.md, report.json,
    PNG медленных экранов. В Git не класть: это рабочие и тестовые данные.
@@ -56,18 +68,23 @@
           --compare <папка или report.json прошлого прогона> (контрольные ответы)
           --archive <YYYY-MM-DD> (уход в архив после Import, сверка ответов)
           --years N (с --archive: архив за N лет)
+          --reports (все готовые отчёты) --today <YYYY-MM-DD> --profile <папка> --keep
    ===================================================================== */
 const { chromium } = require('playwright');
 const fs = require('fs'), os = require('os'), path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const o = { base: '', name: '', out: path.join(os.homedir(), '.glass-erp-walk', 'perf'), cpu: [1, 4], timeout: 120, dist: false, required: false, compare: '', archive: '', years: 1 };
+const o = { base: '', name: '', out: path.join(os.homedir(), '.glass-erp-walk', 'perf'), cpu: [1, 4], timeout: 120, dist: false, required: false, compare: '', archive: '', years: 1, reports: false, today: '', profile: '', keep: false };
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i], v = () => argv[++i];
   if (a === '--name') o.name = v(); else if (a === '--out') o.out = v(); else if (a === '--cpu') o.cpu = v().split(',').map(Number);
   else if (a === '--timeout') o.timeout = +v(); else if (a === '--dist') o.dist = true; else if (a === '--required') o.required = true;
   else if (a === '--compare') o.compare = v().replace(/^~(?=\/|$)/, os.homedir());
+  else if (a === '--reports') o.reports = true;
+  else if (a === '--keep') o.keep = true;
+  else if (a === '--profile') o.profile = v().replace(/^~(?=\/|$)/, os.homedir());
+  else if (a === '--today') { o.today = v(); if (!/^\d{4}-\d{2}-\d{2}$/.test(o.today)) { console.error('--today: день YYYY-MM-DD'); process.exit(2); } }
   else if (a === '--years') o.years = Math.max(1, Math.floor(+v() || 1));
   else if (a === '--archive') { o.archive = v(); if (!/^\d{4}-\d{2}-\d{2}$/.test(o.archive)) { console.error('--archive: день YYYY-MM-DD'); process.exit(2); } }
   else if (a === '-h' || a === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('*/')[0]); process.exit(0); }
@@ -77,9 +94,10 @@ for (let i = 0; i < argv.length; i++) {
 if (!o.base || !fs.existsSync(o.base)) { console.error('Укажите базу: node tools/perf-year.js <файл .ndjson|.json>'); process.exit(2); }
 if (!o.name) o.name = path.basename(o.base).replace(/\.(nd)?json$/, '');
 const TH = { scan: 1000, action: 5000, screen: 1000, f5: 5000, heapMB: 1024 };
-const day = new Date().toISOString().slice(0, 10), dir = path.join(o.out, day + '-' + o.name), profile = path.join(dir, 'profile');
+const day = new Date().toISOString().slice(0, 10), dir = path.join(o.out, day + '-' + o.name), profile = o.profile || path.join(dir, 'profile');
 const URL = 'file://' + path.join(ROOT, o.dist ? 'dist/GLASS_ERP.html' : 'src/index.html');
-fs.rmSync(profile, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
+if (!o.profile) fs.rmSync(profile, { recursive: true, force: true });
+fs.mkdirSync(dir, { recursive: true });
 
 const SCREENS = [['Overview', 'dashboard'], ['Sales', 'sales'], ['Sales order', '@order'], ['Production', 'production'], ['Optimization', 'optimization'],
   ['Station', '@station'], ['Shipping', 'shipping'], ['Finance', 'finance'], ['Reports', 'reports'], ['Inventory', 'inventory'],
@@ -213,6 +231,18 @@ function pageSetup() {
       }
       return { ms: Math.round(performance.now() - t), cold, rows };
     },
+    /* Готовые отчёты (--reports): страницы и экран страницы до графиков. */
+    reportList() { return (DB.report || []).filter(r => /^RP-start-/.test(r.id)).map(r => ({ id: r.id, name: r.name, preset: r.date.preset, pages: r.pages.map(p => ({ id: p.id, name: p.name })) })); },
+    async report(id, pid, all, limit) {
+      repViewSet(id, v => { delete v.f; if (all) v.date = { preset: 'all', from: '', to: '' }; else delete v.date; });
+      tab = 'reports'; repOpenId = id; repPageId = pid; repEditOn = false;
+      const t = T(); render(); const first = T() - t;
+      const wait = () => document.querySelector('[data-rep-archive-wait]'), big = () => /too many|shorter period/i.test((wait() || {}).textContent || '');
+      while (wait() && !big() && T() - t < limit) await new Promise(r => setTimeout(r, 50));
+      const state = !wait() ? 'ok' : big() ? 'big' : 'timeout', w = [...document.querySelectorAll('[data-rep-widget]')].map(x => x.innerText.replace(/\s+/g, ' ').trim());
+      return { first: Math.round(first), ms: Math.round(T() - t), state, text: wait() ? wait().textContent : '', orders: typeof archiveScope !== 'undefined' && archiveScope ? archiveScope.orders : 0, widgets: w };
+    },
+    reportDrop() { repViewSet(repOpenId, v => { delete v.date; }); if (typeof archiveScopeDrop === 'function') archiveScopeDrop(); tab = 'dashboard'; repOpenId = ''; },
     answersArchived(keys) { return [...archiveIndex].map(([id, a]) => [id].concat(keys.map(k => Object.prototype.hasOwnProperty.call(a.row, k) ? a.row[k] : '∅'))); },
     f5parts() { const m = typeof storageBootMs !== 'undefined' && storageBootMs || {}; return Object.fromEntries(Object.entries(m).map(([k, v]) => [k, Math.round(v)])); },
     size() {
@@ -231,6 +261,8 @@ const within = (ms, p) => { let timer; return Promise.race([p.then(v => ({ v }),
 async function open() {
   ctx = await chromium.launchPersistentContext(profile, { viewport: { width: 1440, height: 900 }, timezoneId: 'America/Toronto', locale: 'en-CA' });
   await ctx.addInitScript(() => { window.GF_NO_SIGNIN = true; window.GF_NO_ARCHIVE = true; });
+  /* --today: часы страницы сдвинуты, идут как обычно. */
+  if (o.today) await ctx.addInitScript(day => { const D = Date, shift = D.parse(day + 'T15:00:00') - D.now(); window.Date = class extends D { constructor(...a) { if (a.length) super(...a); else super(D.now() + shift); } static now() { return D.now() + shift; } }; }, o.today);
   page = ctx.pages()[0] || await ctx.newPage();
   page.on('pageerror', e => errors.push(e.message)); page.on('dialog', d => d.accept().catch(() => {}));
   cdp = await ctx.newCDPSession(page); await cdp.send('Performance.enable');
@@ -257,6 +289,7 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
   const t0 = Date.now(), report = { base: o.base, name: o.name, date: new Date().toISOString(), machine: os.cpus()[0].model + ' · ' + Math.round(os.totalmem() / 1073741824) + ' GB', thresholds: TH, passes: [] };
   await open(); await boot();
   report.build = await page.evaluate(() => typeof ERP_BUILD !== 'undefined' ? ERP_BUILD : 'dev');
+  if (o.profile) { if (o.years > 1) await moreYears(report); return reportsOnly(report); }
   console.log('Import', o.base, (fs.statSync(o.base).size / 1048576).toFixed(0) + ' МБ…');
   await page.evaluate(() => { const f = window.storageImportFile; window.PERF_IMPORT = new Promise(res => { window.storageImportFile = file => f(file).then(r => { res(r); return r; }, e => { res('error: ' + e.message); throw e; }); }); });
   const ti = Date.now(); await page.setInputFiles('#imp', o.base);
@@ -265,6 +298,7 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
   console.log('Import', fmt(report.import.ms), report.import.result);
   if (report.import.result !== 'ok') { fs.writeFileSync(path.join(dir, 'report.json'), JSON.stringify(report, null, 1)); console.error('Import не прошёл'); await ctx.close(); process.exit(1); }
   /* --archive: ответы «до» — по базе как после Import; уход — одним действием. */
+  if (o.reports) { await boot(true); report.before = await runReports('до архива'); }
   if (o.archive) {
     await boot(true);
     const a = await within(30 * 60000, page.evaluate(() => PERF.answers()));
@@ -273,12 +307,9 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
     await page.evaluate(() => storageFlush());
     report.archive = ar.v || { error: ar.timeout ? 'timeout' : ar.error };
     console.log('архив на', o.archive, ar.v ? fmt(ar.v.ms) + ' · ушло заказов ' + ar.v.orders + ', записей ' + ar.v.records : report.archive.error);
-    if (o.years > 1) {
-      const y = await within(6 * 3600000, page.evaluate(n => PERF.years(n), o.years));
-      report.years = y.v ? Object.assign({ n: o.years }, y.v) : { n: o.years, error: y.timeout ? 'timeout' : y.error };
-      console.log('архив за', o.years, 'лет:', y.v ? fmt(y.v.ms) + ' · копий записей ' + y.v.cold + ', строк указателя ' + y.v.rows : report.years.error);
-    }
+    if (o.years > 1) await moreYears(report);
   }
+  if (o.reports) return reportsOnly(report);
   report.size = await page.evaluate(() => PERF.size());
   report.size.disk = await page.evaluate(async () => navigator.storage && navigator.storage.estimate ? (await navigator.storage.estimate()) : null);
 
@@ -395,6 +426,57 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
   console.log('\nОтчёт:', path.join(dir, 'report.md'), '· за', report.minutes, 'мин · ✗:', report.fail.join(', ') || 'нет');
   process.exit(o.required && report.fail.length ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
+
+async function moreYears(report) {
+  const y = await within(6 * 3600000, page.evaluate(n => PERF.years(n), o.years));
+  report.years = y.v ? Object.assign({ n: o.years }, y.v) : { n: o.years, error: y.timeout ? 'timeout' : y.error };
+  console.log('архив за', o.years, 'лет:', y.v ? fmt(y.v.ms) + ' · копий записей ' + y.v.cold + ', строк указателя ' + y.v.rows : report.years.error);
+  await boot(true);
+}
+/* Все готовые отчёты: страница × период. Память — после сборки мусора, пока
+   записи архива ещё в памяти. Вкладка зависла — открыть заново, дальше. */
+async function runReports(label) {
+  const limit = Math.max(o.timeout, 900) * 1000, rows = [], list = await page.evaluate(() => PERF.reportList());
+  console.log('\n== отчёты · ' + label + ': ' + list.length);
+  for (const r of list) for (const p of r.pages) for (const all of [false, true]) {
+    const before = errors.length, x = await within(limit + 30000, page.evaluate(([id, pid, a, l]) => PERF.report(id, pid, a, l), [r.id, p.id, all, limit]));
+    const row = Object.assign({ report: r.name, page: p.name, period: all ? 'All time' : r.preset }, x.v || { state: x.timeout ? 'hung' : 'error', text: x.error || '', widgets: [] });
+    row.errors = errors.slice(before);
+    if (x.timeout) await restart(); else { row.heapMB = await heapMB(); await page.evaluate(() => PERF.reportDrop()); }
+    rows.push(row);
+    console.log((row.state === 'ok' && !row.errors.length ? '✓ ' : '✗ ') + (r.name + ' · ' + p.name).padEnd(52) + row.period.padEnd(13) + row.state.padEnd(8) + fmt(row.ms).padEnd(9) + String(row.orders || 0).padEnd(7) + (row.heapMB || '?') + ' МБ');
+  }
+  return rows;
+}
+/* Числа графиков «до» и «после» архива: один отчёт, одна страница, один период. */
+function reportsDiff(before, after) {
+  const was = new Map((before || []).map(r => [r.report + '|' + r.page + '|' + r.period, r])), diffs = [];
+  (after || []).forEach(r => {
+    const w = was.get(r.report + '|' + r.page + '|' + r.period); if (!w || w.state !== 'ok' || r.state !== 'ok') return;
+    r.widgets.forEach((t, i) => { if (t !== w.widgets[i]) diffs.push({ key: r.report + ' · ' + r.page + ' · ' + r.period, was: w.widgets[i] || '', now: t }); });
+  });
+  return diffs;
+}
+async function reportsOnly(report) {
+  /* --compare <папка прогона>: числа «до» — из него (повтор на готовом профиле). */
+  if (o.compare && !report.before) report.before = JSON.parse(fs.readFileSync(path.join(o.compare, 'reports.json'), 'utf8')).before;
+  report.after = await runReports(o.archive || o.profile ? 'после архива' : 'как есть');
+  await ctx.close();
+  const rows = report.after, bad = rows.filter(r => r.state !== 'ok' || r.errors.length), diffs = reportsDiff(report.before, rows), max = Math.max(0, ...rows.map(r => r.heapMB || 0));
+  const count = s => rows.filter(r => r.state === s).length, slow = rows.slice().sort((a, b) => (b.ms || 0) - (a.ms || 0)).slice(0, 10);
+  const L = ['# Готовые отчёты · ' + o.name, '', 'База: `' + path.basename(o.base) + '`' + (o.archive ? ' · архив на ' + o.archive : '') + (o.years > 1 ? ' · ' + o.years + ' лет' : '') + (o.today ? ' · часы ' + o.today : '') + ' · сборка ' + report.build + ' · ' + report.date.slice(0, 16).replace('T', ' ') + '.', '',
+    'Страниц × периодов: ' + rows.length + '. Готово: ' + count('ok') + ', отказ «too many»: ' + count('big') + ', не успели: ' + (count('timeout') + count('hung')) + ', ошибки: ' + rows.filter(r => r.errors.length || r.state === 'error').length + '. Память до ' + max + ' МБ.',
+    report.before ? 'Числа «до / после архива»: ' + (diffs.length ? '**расходятся** — ' + diffs.length + ' графиков.' : 'все те же.') : '', '',
+    '| Отчёт · страница | Период | Ответ | Время | Заказов архива | Память |', '|---|---|---|---|---|---|'];
+  rows.forEach(r => L.push('| ' + r.report + ' · ' + r.page + ' | ' + r.period + ' | ' + r.state + (r.errors.length ? ' ✗ ' + r.errors[0] : '') + ' | ' + fmt(r.ms) + ' | ' + (r.orders || 0) + ' | ' + (r.heapMB || '—') + ' МБ |'));
+  L.push('', '## Самые долгие', '', ...slow.map(r => '- ' + r.report + ' · ' + r.page + ' · ' + r.period + ': ' + fmt(r.ms)));
+  if (diffs.length) L.push('', '## Расхождения (первые 40)', '', ...diffs.slice(0, 40).map(d => '- ' + d.key + '\n  - было: ' + d.was.slice(0, 400) + '\n  - стало: ' + d.now.slice(0, 400)));
+  fs.writeFileSync(path.join(dir, 'reports.json'), JSON.stringify(Object.assign(report, { diffs }), null, 1));
+  fs.writeFileSync(path.join(dir, 'reports.md'), L.join('\n') + '\n');
+  if (!o.profile && !o.keep) fs.rmSync(profile, { recursive: true, force: true });
+  console.log('\nОтчёт:', path.join(dir, 'reports.md'), '· проблемных', bad.length, '· расхождений', diffs.length);
+  process.exit(o.required && (bad.length || diffs.length) ? 1 : 0);
+}
 
 function reportMd(r) {
   const mark = ok => ok ? '✓' : '✗', cell = x => x.timeout ? '> ' + o.timeout + ' s' : x.skip ? 'нет данных: ' + x.skip : x.error ? 'ошибка: ' + x.error : fmt(x.ms);

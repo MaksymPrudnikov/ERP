@@ -375,15 +375,14 @@ function repScreenHTML(r,ctx){
 /* Вкладки экрана: «Now» — встроенный экран, дальше — назначенные отчёты. */
 function repScreenTabs(reps,cur,setter){return `<div class="rep-screen-tabs tabs" data-rep-screen-tabs>${[['','Now']].concat(reps.map(r=>[r.id,r.name])).map(([id,n])=>`<button type="button" class="${id===cur?'on':''}" data-rep-screen-tab="${esc(id)}" onclick="${setter}(this.dataset.repScreenTab)">${esc(n)}</button>`).join('')}</div>`;}
 
-/* Период страницы для архива (erp/archive): от самого раннего до самого
-   позднего дня её графиков, со сравнением; «всё время» — без границы. */
-function repArchiveRange(r,p){
- let from=null,to=null;
- /* '' — без границы: шире любой даты. */
- const widen=x=>{const a=x[0]||'',b=x[1]||'';from=from===null?a:from===''||a===''?'':a<from?a:from;to=to===null?b:to===''||b===''?'':b>to?b:to;};
+/* Периоды страницы для архива (erp/archive): у каждого графика свой отрезок и
+   отрезок сравнения. Дыры между ними не читаются: Today со сравнением «год
+   назад» — два дня, а не год. «Всё время» — без границ. */
+function repArchiveRanges(r,p){
+ const list=[];
  p.widgets.forEach(w=>{const q=repWidgetQuery(r,w),S=REP_SRC[q.source];if(!S||S.now||!repDates(S).length)return;
-  const range=repRange(q.date)||['',''];widen(range);const c=repCompareRange(range,q.compare);if(c)widen(c);});
- return from===null?null:[from,to];
+  const range=repRange(q.date)||['',''];list.push(range);const c=repCompareRange(range,q.compare);if(c)list.push(c);});
+ return list.length?list:null;
 }
 /* ------------------------------ Экран ------------------------------ */
 function repMain(r){
@@ -398,9 +397,9 @@ function repMain(r){
  const tabs=`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-page="${esc(x.id)}" onclick="repPageId=this.dataset.repPage;repSelW='';render()">${esc(x.name)}</button>`).join('')}${repEditOn?`<button type="button" onclick="repAddPage()">+ Page</button>`:''}</div>
   ${repEditOn?`<div class="rep-page-edit"><input type="text" value="${esc(p.name)}" aria-label="Page name" onchange="repRenamePage(this.value)"><button type="button" class="sm" title="Move page left" onclick="repMovePage(-1)">←</button><button type="button" class="sm" title="Move page right" onclick="repMovePage(1)">→</button>${r.pages.length>1?`<button type="button" class="sm dl" onclick="repDelPage()">Delete page</button>`:''}</div>`:''}`;
  /* Период захватывает ушедшие в архив заказы — сначала их записи с диска. */
- const range=repArchiveRange(r,p),arch=range&&typeof archiveScopeFor==='function'?archiveScopeFor(range):'none';
- if(!range&&typeof archiveScopeDrop==='function')archiveScopeDrop();
- const wait=arch==='loading'?`Reading ${archiveScopeCount(range)} archived orders…`:arch==='big'?`This period reaches ${archiveScopeCount(range)} archived orders — too many at once. Pick a shorter period.`:'';
+ const ranges=repArchiveRanges(r,p),arch=ranges&&typeof archiveScopeFor==='function'?archiveScopeFor(ranges):'none';
+ if(!ranges&&typeof archiveScopeDrop==='function')archiveScopeDrop();
+ const wait=arch==='loading'?`Reading ${archiveScopeCount(ranges)} archived orders…`:arch==='big'?`This period reaches ${archiveScopeCount(ranges)} archived orders — too many at once. Pick a shorter period.`:'';
  const body=wait?`<div class="card mut" data-rep-archive-wait>${esc(wait)}</div>`:p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
  return `<div class="card rep-head"><div class="rep-head-row">${head}<span class="sales-toolbar-sp"></span>${acts}</div>${!can&&!repEditOn?`<div class="mut small">${r.ownerId?'Shared with you':'Starter report'} · Copy to change it</div>`:''}${tabs}${repControls(r)}</div><div class="rep-ws">${body}</div>`;
 }
