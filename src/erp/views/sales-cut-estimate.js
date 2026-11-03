@@ -79,7 +79,7 @@ function salesCutEstimateCompare(){
   const total=`<tr class="cut-est-total" data-cut-est-total><td colspan="2"><b>All</b></td><td class="n">${g.rows.reduce((n,r)=>n+r.pcs,0)}</td><td class="n">${cutNum(g.used,1)}</td>
    <td class="n" data-cut-est-sheets>${all?q+aSheets+' → <b>'+g.sheets+'</b>':'—'}</td><td class="n">${all?q+pct(aPct):'—'}</td><td class="n"><b>${pct(g.pct)}</b></td><td class="n">${all?diff(g.pct-aPct):'—'}</td></tr>`;
   return `<div class="cut-orders cut-est-compare" data-cut-est-compare="${esc(g.glass)}"><h4>Alone / together · ${esc(glassCodeLabel(g.glass))} · ${g.mm} mm</h4>
-   <table class="sl-table"><thead><tr><th>Order / quote</th><th>Customer</th><th class="n">Pcs</th><th class="n">Glass ft²</th><th class="n">Sheets alone</th><th class="n">Waste alone</th><th class="n">Waste together</th><th class="n">Change, pts</th></tr></thead><tbody>${rows}${total}</tbody></table></div>`;
+   ${(t=>`<table class="sl-table${t.cls}"${t.attrs}>${t.col}<thead><tr>${t.head}</tr></thead>`)(cwStaticTable('cutEstimate',[['order','Order / quote'],['customer','Customer'],['pcs','Pcs','n'],['ft2','Glass ft²','n'],['sheets','Sheets alone','n'],['waste','Waste alone','n'],['together','Waste together','n'],['change','Change, pts','n']]))}<tbody>${rows}${total}</tbody></table></div>`;
  }).join('');
 }
 function viewSalesCutEstimate(){
