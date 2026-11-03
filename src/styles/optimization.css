@@ -46,3 +46,8 @@
 .oq-card .sl-foot-head small{white-space:normal}
 .oq-sel{font-size:12px;font-weight:500;color:var(--text-2);margin:0 6px}.oq-card.sales-list-card{padding:0}
 .pb-top{padding:0 20px}.card:not(.sales-list-card)>.sl-filter-row{padding:0 0 12px}.sales-list-card .oq-sel{align-self:center}
+.sf-route-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0 20px 12px}.sf-route-line h3{font-size:12px;font-weight:600;color:var(--text-2);margin:0 4px 0 0}
+.sf-route-line .sf-route-step{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--line);border-radius:999px;font-size:12px;white-space:nowrap;border-bottom:1px solid var(--line);grid-template-columns:none}
+.sf-route-line .sf-route-step.always{background:var(--accent-soft)}.sf-route-line .sf-route-step .n{width:auto;height:auto;background:none;font-size:12px}.sf-route-line .sf-route-step b{font-size:12px}.sf-route-line .sf-route-step .codes{margin:0;font-size:11px}.sf-route-arrow{color:var(--text-3)}
+.cb-body{padding:0 20px 16px}.sales-list-card .cb-tools{margin-bottom:8px}
+.cb-seg .sl-quick-pill.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}

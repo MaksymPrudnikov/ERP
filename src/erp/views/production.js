@@ -31,14 +31,13 @@ const SF_TABS=[
 /* Переключатель экранов Production — таблетки, как быстрые виды в Sales. */
 function sfScreenPills(){return '<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Production">'+SF_TABS.map(t=>`<button type="button" role="tab" class="sl-quick-pill${subtab===t.k?' on':''}" aria-selected="${subtab===t.k}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')+'</div></div>';}
 function sfStationsBar(){
- return `<div class="sales-toolbar"><button type="button" class="sl-quiet" data-sf-screen ${sfSel&&DB.station.some(s=>s.code===sfSel)?'':'disabled'} onclick="stationOpen(sfSel)" title="Open the scan screen">Screen</button><button type="button" class="sl-quiet" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`;
+ return `<div class="sales-toolbar"><button type="button" class="sl-quiet" data-sf-screen ${sfSel&&DB.station.some(s=>s.code===sfSel)?'':'disabled'} onclick="stationOpen(sfSel)" title="Open the scan screen">${sfSel&&DB.station.some(s=>s.code===sfSel)?'Open screen ('+esc(sfSel)+')':'Open screen'}</button><button type="button" class="sl-quiet" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`;
 }
 function viewProduction(){
  if(!SF_TABS.some(t=>t.k===subtab)) subtab='orders';
  return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Reference tables updated: stations were reseeded from the factory data.</div>':''}
-  ${subtab!=='stations'?'':`<div class="card sf-route-card">${sfRouteHTML()}</div>`}
-  <div class="card${subtab==='orders'||subtab==='stations'?' sales-list-card sl-foot-pin':''}">
-   ${subtab==='orders'?'':subtab==='stations'?sfStationsBar()+sfScreenPills():sfScreenPills()}
+  <div class="card sales-list-card sl-foot-pin">
+   ${subtab==='orders'?'':subtab==='stations'?sfStationsBar()+sfScreenPills()+sfRouteHTML():subtab==='terminals'?sfTerminalsBar()+sfScreenPills():''}
    ${({orders:viewProdOrders,stations:()=>viewSfStations(false,true),terminals:viewSfTerminals,carriers:viewProdCarriers})[subtab]()}
   </div>
   ${subtab==='stations'?sfImportCard():''}`;
@@ -76,16 +75,17 @@ function sfPipelineHTML(){
    Жёлтых плашек здесь нет: «размер не замерен» видно в колонке Size. */
 const SF_PLAIN={CUT:'cut from the sheet',DRILL:'holes and notches',CERP:'ceramic frit or print',HEAT:'tempered or heat-strengthened',SAND:'frosted by sand',PAINT:'back-painted',LAM:'laminated with film',IGU:'sealed into insulated units',SHIPR:'checked and staged for the customer',SHIP:'picked up or delivered'};
 const SF_EDGE_CODES=['ARRIS','POLISH','BEVEL','MITER','CNC','SEAM'];
+/* Маршрут одной строкой над таблицей станций (вариант A владельца, 03.11.2026:
+   «How glass moves занимает очень много места»). Щелчок по шагу — его станции
+   в таблице; полное описание шага — в подсказке. */
 function sfRouteHTML(){
- return `<div class="section-title"><h3>How glass moves</h3></div>
-  <p class="sf-route-lead">Every glass starts at CUT and stops only where its works need it.</p>
-  <ol class="sf-route">${sfSteps().map(([seq,list],i)=>{
+ return `<div class="sf-route-card sf-route-line"><h3>How glass moves</h3>${sfSteps().map(([seq,list],i)=>{
    const group=list.length>1,edges=group&&list.every(s=>SF_EDGE_CODES.includes(s.code)),always=list.every(s=>s.always),name=s=>s.nameEn||s.name;
    const title=group?(edges?'Edges':list.map(name).join(' / ')):name(list[0]);
    const what=group?(edges?'edges ground and polished — at one of these':'at one of these'):(SF_PLAIN[list[0].code]||'');
-   const idle=!always&&list.every(s=>!stationOperations(s.code).length);
-   return `<li class="sf-route-step" data-route-step="${seq}" data-route-codes="${esc(list.map(s=>s.code).join(' '))}" onclick="sfRouteFocus(this)"><span class="n">${i+1}</span><div><b data-raw>${esc(title)}</b><span class="when">${always?'always':'if needed'}</span>${what?`<div class="what">${esc(what)}</div>`:''}<div class="codes" data-raw>${list.map(s=>esc(s.code)).join(' · ')}${idle?' · <span class="mut">no works yet</span>':''}</div></div></li>`;
-  }).join('')}</ol>`;
+   const idle=!always&&list.every(s=>!stationOperations(s.code).length),codes=list.map(s=>s.code).join(' · ');
+   return (i?'<span class="sf-route-arrow" aria-hidden="true">→</span>':'')+`<span class="sf-route-step${always?' always':''}" data-route-step="${seq}" data-route-codes="${esc(list.map(s=>s.code).join(' '))}" title="${esc(title+' · '+(always?'always':'if needed')+(what?' · '+what:'')+' · '+codes+(idle?' · no works yet':''))}" onclick="sfRouteFocus(this)"><span class="n">${i+1}</span><b data-raw>${esc(title)}</b><span class="when" hidden>${always?'always':'if needed'}</span>${what?`<span class="what" hidden>${esc(what)}</span>`:''}<span class="codes" data-raw>${esc(codes)}</span></span>`;
+  }).join('')}<span class="mut small">· highlighted — always</span></div>`;
 }
 /* Щелчок по шагу подсвечивает его станции в таблице ниже. */
 function sfRouteFocus(el){
@@ -118,7 +118,7 @@ function viewSfStations(edit,framed){
    (edit&&typeof sfSheetEdit!=='undefined'&&sfSheetEdit===s.code?`<tr class="sf-sheet-row"><td colspan="10">${carrierSheetEditorHTML(s.code)}</td></tr>`:'');
  }).join('');
  return `${edit&&stEdit!==null?sfStationForm():''}
-  <div class="sub">${edit?'Same step — parallel stations.':'Route steps in order. Stations are added, removed and ordered in Master Data → Stations.'}</div>
+  ${framed?'':`<div class="sub">${edit?'Same step — parallel stations.':'Route steps in order. Stations are added, removed and ordered in Master Data → Stations.'}</div>`}
   ${edit||framed?'':`<div class="row" style="margin:0 0 10px"><button class="sm" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`}
   <div class="sales-table-wrap"><table${framed?' class="sl-table"':''}><thead><tr>${framed?'<th class="sl-check"></th>':''}<th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th title="What glass goes on after this station">Puts on</th><th title="Columns of the printed dolly or skid sheet">Dolly / skid sheet</th><th>Works</th><th>Note</th><th></th></tr></thead>
   <tbody>${rows||'<tr><td colspan="11" class="empty">empty</td></tr>'}</tbody></table></div>
@@ -218,20 +218,20 @@ function delSfStation(i){
 
 /* --- 2. Терминалы ---------------------------------------------------- */
 let tmEdit=null;
+/* Terminals — вид Sales: Add terminal в шапке, Edit и × — для отмеченного. */
+let tmSel=null;
+function sfTerminalsBar(){
+ const on=tmSel!==null&&DB.terminal[tmSel];
+ return `<div class="sales-toolbar"><button type="button" class="sl-quiet" ${on?'':'disabled'} onclick="tmEdit=tmSel;render()">Edit</button><button type="button" class="sl-quiet sl-delete-quiet" ${on?'':'disabled'} onclick="delSfTerminal(tmSel);tmSel=null">Delete</button><span class="sales-toolbar-sp"></span><span class="mut small" title="One account per scanning screen; the operator is the badge scan. A step that is not in the glass route is not on the screen.">One account per screen · badge = person</span>${tmEdit!==null?'':'<button type="button" class="pri" onclick="tmEdit=&quot;new&quot;;render()">Add terminal</button>'}</div>`;
+}
 function viewSfTerminals(){
- const rows=DB.terminal.map((t,i)=>{
-  return `<tr><td class="mono"><b>${raw(t.code)}</b></td><td>${sfLabel(t)}</td>
+ if(tmSel!==null&&!DB.terminal[tmSel])tmSel=null;
+ const rows=DB.terminal.map((t,i)=>`<tr${tmSel===i?' class="oq-selected"':''} ondblclick="tmEdit=${i};render()"><td class="sl-check"><input type="checkbox" aria-label="Select ${esc(t.code)}" ${tmSel===i?'checked':''} onchange="tmSel=this.checked?${i}:null;render()"></td><td class="mono"><b>${raw(t.code)}</b></td><td>${sfLabel(t)}</td>
    <td>${(t.stations||[]).map(c=>`<span class="pill info" data-raw>${esc(c)}</span>`).join(' ')||'<span class="warn pill">no stations</span>'}</td>
-   <td class="mut" style="max-width:260px">${raw(t.note||'')}</td>
-   <td style="white-space:nowrap"><button class="sm" onclick="tmEdit=${i};render()">Edit</button>
-   <button class="sm dl" onclick="delSfTerminal(${i})">×</button></td></tr>`;
- }).join('');
- return `${tmEdit!==null?sfTerminalForm():''}
-  <div class="sub">The scanning screen. The account belongs to the station terminal and the individual operator is identified by a badge scan at the moment of the action: make people log in every shift and everyone will work under one shared account, leaving the event log useless.</div>
-  <div class="note" style="margin-bottom:12px">This closes the most expensive defect in Spil: closing an operation that is not in the part’s route is physically impossible — it is simply not on the screen.</div>
-  <table><thead><tr><th>Code</th><th>Name</th><th>Stations</th><th>Note</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="5" class="empty">The list is empty, and that is an honest state. How many screens stand in the shop and which stations sit on each is entered from the shop, not invented here.</td></tr>'}</tbody></table>
-  ${tmEdit!==null?'':'<div class="row"><button class="pri" onclick="tmEdit=&quot;new&quot;;render()">Add terminal</button></div>'}`;
+   <td class="mut" style="max-width:260px">${raw(t.note||'')}</td></tr>`).join('');
+ return `${tmEdit!==null?'<div style="padding:0 20px">'+sfTerminalForm()+'</div>':''}
+  <div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"></th><th>Code</th><th>Name</th><th>Stations</th><th>Note</th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="5" class="empty">No terminals yet. Add one for each scanning screen in the shop.</td></tr>'}</tbody>${DB.terminal.length?`<tfoot><tr class="sl-foot"><td></td><td colspan="4"><b>${DB.terminal.length} terminal${DB.terminal.length===1?'':'s'}</b></td></tr></tfoot>`:''}</table></div>`;
 }
 function sfTerminalForm(){
  const r = tmEdit==='new' ? {code:'',name:'',nameEn:'',stations:[],note:''} : DB.terminal[tmEdit];

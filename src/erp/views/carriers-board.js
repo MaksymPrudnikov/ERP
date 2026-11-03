@@ -387,12 +387,15 @@ function viewProdCarriers(){
  const p=salesListLoadPrefs(),show=carrierBoardShow,cards=rows.map(r=>r.card);
  const order=new Map((DB.station||[]).map((s,i)=>[s.code,[s.seq,i]]));
  const stations=[...new Set(cards.filter(c=>c.kind!=='out').map(c=>c.station))].sort((a,b)=>{const x=order.get(a)||[999,0],y=order.get(b)||[999,0];return x[0]-y[0]||x[1]-y[1];});
- const fbtn=(k,label)=>{const f=p.filters[k],on=!!f&&salesListFilterActive(f);return `<button type="button" class="cb-filter${on?' on':''}" data-filter-col="${k}" onclick="salesListOpenFilter(event,'${k}')">${label} ▾</button>`;};
+ const fbtn=(k,label)=>{const f=p.filters[k],on=!!f&&salesListFilterActive(f);return `<button type="button" class="sl-quiet cb-filter${on?' on':''}" data-filter-col="${k}" onclick="salesListOpenFilter(event,'${k}')">${label} ▾</button>`;};
  const total=b.loadedN+b.outN+b.empty.length,seg=[['loaded','Loaded',b.loadedN],['out','At customers',b.outN],['empty','Empty',b.empty.length],['all','All',total]];
  /* Плитки — учёт тары (вариант 1 этапа 8): зарегистрировано, в цеху, у
     клиентов, стекло без тары, итоги последнего пересчёта. */
  const tiles=carrierTilesHTML(b);
- const tools=`<div class="cb-tools">${fbtn('order','Order')}${fbtn('customer','Customer')}${fbtn('station','Station')}<span class="cb-seg">${seg.map(([k,l,n])=>`<button type="button" class="${show===k?'on':''}" data-carrier-show="${k}" onclick="carrierBoardSet('${k}')">${l} <b>${n}</b></button>`).join('')}</span><span class="cw-sp"></span><span class="mut small">Click a dolly or skid to see what is on it</span>${carrierCountButton()}</div>`;
+ /* Шапка вида Sales (этап 6): фильтры, подсказка и пересчёт — одной строкой;
+    экраны Production и Loaded / At customers / Empty / All — таблетками. Доска
+    и окно «что на ней» по клику — как были. */
+ const tools=`<div class="sales-toolbar cb-tools">${fbtn('order','Order')}${fbtn('customer','Customer')}${fbtn('station','Station')}<span class="sales-toolbar-sp"></span><span class="mut small">Click a dolly or skid to see what is on it</span>${carrierCountButton()}</div><div class="sl-filter-row">${typeof sfScreenPills==='function'?sfScreenPills().replace('<div class="sl-filter-row">','').replace(/<\/div>$/,''):''}<span style="width:12px"></span><div class="sl-quick cb-seg">${seg.map(([k,l,n])=>`<button type="button" class="sl-quick-pill${show===k?' on':''}" data-carrier-show="${k}" onclick="carrierBoardSet('${k}')">${l} <b>${n}</b></button>`).join('')}</div></div>`;
  const group=(title,sub,body,key)=>`<section class="cb-group" data-carrier-group="${esc(key)}"><div class="cb-gh"><b>${esc(title)}</b><span>${esc(sub)}</span></div><div class="cb-cards">${body}</div></section>`;
  const many=(n,one,more)=>n===1?'1 '+one:n+' '+more;
  const groups=[];
@@ -413,7 +416,7 @@ function viewProdCarriers(){
   }).join('');
   if(b.empty.length)groups.push(`<section class="cb-group" data-carrier-group="empty"><div class="cb-gh"><b>Empty — free</b><span>not at any station</span></div><div class="cb-free-all">${body}</div></section>`);
  }
- return `${tiles}${tools}${salesListFilterChips()}${groups.join('')||`<div class="empty">${infos.length?'Nothing matches the filters.':'No dollies or skids in use.'}</div>`}${salesListMenuHTML(infos)}`;
+ return `${tools}<div class="cb-body">${tiles}${salesListFilterChips()}${groups.join('')||`<div class="empty">${infos.length?'Nothing matches the filters.':'No dollies or skids in use.'}</div>`}</div>${salesListMenuHTML(infos)}`;
 }
 
 /* ------------- Data → Stations: колонки листа долли / скида ------------- */
