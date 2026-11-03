@@ -1617,6 +1617,7 @@ table.cw-fixed tr[data-picked] td>select:has(+.line-locked-pill){width:calc(100%
 .com-form [data-com-customer] input[type=date]{flex:none;width:170px}.com-form [data-com-customer] .mut{flex:none}
 .com-form [data-com-customer] .dl{flex:none;width:auto;margin-left:auto}
 .com-form [data-com-add-customer]{margin-bottom:10px}
+.fin-tiles-row{padding:0 20px 10px}.sales-list-card.fin-card{padding:0}
 
 /* ---- src/styles/lifecycle.css ---- */
 /* Квота и заказ: галочки Show, фильтр статусов, цепочка шагов, замок строк
@@ -1965,6 +1966,16 @@ table.cw-fixed .metric-cell-btn{overflow:hidden;text-overflow:ellipsis}
 .sf-route-line .sf-route-step.always{background:var(--accent-soft)}.sf-route-line .sf-route-step .n{width:auto;height:auto;background:none;font-size:12px}.sf-route-line .sf-route-step b{font-size:12px}.sf-route-line .sf-route-step .codes{margin:0;font-size:11px}.sf-route-arrow{color:var(--text-3)}
 .cb-body{padding:0 20px 16px}.sales-list-card .cb-tools{margin-bottom:8px}
 .cb-seg .sl-quick-pill.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}
+.md-card .kpi-grid{margin:0 0 14px}
+.md-shell{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px;align-items:start}.md-shell.md-shell-peek{grid-template-columns:200px minmax(0,1fr) 250px}
+.md-shell>.md-tree{border:1px solid var(--line);border-radius:16px;padding:6px 0 12px;position:sticky;top:12px}.md-tree-foot{padding:10px 14px 0}
+.md-catalog-main{padding:0;min-width:0}.md-catalog-main .md-catalog-head{padding:4px 20px 8px}.md-catalog-body{padding:0 20px 16px}
+.md-bar .stk-seg{display:inline-flex}.md-bar-search{width:280px;height:auto;min-height:30px;margin:0;padding:4px 10px}
+.md-catalog-main tr[data-md-row] td:last-child>button{display:none}.md-catalog-main tr[data-md-row]{cursor:pointer}
+@media (max-width:1100px){.md-shell.md-shell-peek{grid-template-columns:200px minmax(0,1fr)}.md-shell .md-peek{grid-column:1/-1}}
+@media (max-width:700px){.md-shell,.md-shell.md-shell-peek{grid-template-columns:1fr}.md-shell>.md-tree{position:static}}
+.md-catalog-main .md-toolbar{gap:6px;margin:0 0 10px}.md-catalog-main .md-toolbar select,.md-catalog-main .md-toolbar input{height:auto;min-height:30px;padding-top:4px;padding-bottom:4px;font-size:13px}
+.md-catalog-main .md-row-noshort td:first-child{box-shadow:none}.md-catalog-main .md-catalog-health{display:inline-flex;gap:6px}
 
 /* ---- src/styles/glass-batches.css ---- */
 /* Компактная очередь стёкол и состав батча. */
@@ -3906,7 +3917,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='3075f6c30e78';
+var ERP_BUILD='774ec03c2cf3';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -17672,6 +17683,7 @@ function userNowHTML(u){
  if(on.length)return `<span class="user-now on" data-user-now="on"><i></i>${esc(on.join(', '))}</span>`;
  return `<span class="user-now" data-user-now="off"><i></i>${last?esc(salesListShortDay(salesListIsoDay(last))+' · '+new Date(last).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false})):'—'}</span>`;
 }
+let uSel='';
 function viewUsers(){
  const side=usersSide(),prod=side==='production',log=side==='log',cloud=side==='cloud';
  if(cloudAccessOn()&&!cloudAccess.asked)setTimeout(cloudAccessLoad,0);
@@ -17679,25 +17691,25 @@ function viewUsers(){
  const list=log||cloud?[]:DB.user.map((u,i)=>({u,i})).filter(x=>usersOn(x.u,side));
  const count=k=>k==='cloud'?'':k==='log'?(DB.authEvent||[]).length:DB.user.filter(u=>usersOn(u,k)).length;
  const rows=list.map(({u,i})=>{
-  const actions=`<td style="white-space:nowrap"><button class="sm" onclick="userEditOpen(${i})">Edit</button>
-   <button class="sm dl" title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${i},'${side}')">×</button></td>`;
+  /* Edit и Remove — сверху для отмеченного (вид Sales, владелец 03.11.2026). */
+  const on=uSel===u.viewProfileId,actions='<td></td>',check=`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(u.name)}" ${on?'checked':''} onchange="uSel=this.checked?'${esc(u.viewProfileId)}':'';render()"></td>`;
   return prod
-   ?`<tr data-user-row="${esc(u.viewProfileId)}"><td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td>${userHasPin(u)?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>${actions}</tr>`
-   :`<tr data-user-row="${esc(u.viewProfileId)}"><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td class="user-access-cell">${userAccessHTML(u)}</td>
+   ?`<tr data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ondblclick="userEditOpen(${i})">${check}<td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td>${userHasPin(u)?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>${actions}</tr>`
+   :`<tr data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ondblclick="userEditOpen(${i})">${check}<td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td class="user-access-cell">${userAccessHTML(u)}</td>
    <td>${userHasPassword(u)?'<span class="pill ok">set</span>':u.email&&signinServer()?'<span class="pill ok" title="Server login">server</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}</td>${srv?userServerHTML(u):''}${actions}</tr>`;
  }).join('');
  const head=prod
-  ?'<th title="Station sign-in: number + PIN">No.</th><th>Name</th><th title="Signed in now on this computer">Now</th><th>PIN</th><th></th>'
-  :'<th>Name</th><th title="Signed in now on this computer">Now</th><th>Sections</th><th>Password</th>'+(srv?'<th title="Login on server">Server</th>':'')+'<th></th>';
+  ?'<th class="sl-check"></th><th title="Station sign-in: number + PIN">No.</th><th>Name</th><th title="Signed in now on this computer">Now</th><th>PIN</th><th></th>'
+  :'<th class="sl-check"></th><th>Name</th><th title="Signed in now on this computer">Now</th><th>Sections</th><th>Password</th>'+(srv?'<th title="Login on server">Server</th>':'')+'<th></th>';
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
- const tabs=`<div class="tabs">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button class="${side===k?'on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;render()">${l} <span class="mut">${count(k)}</span></button>`).join('')}</div>`;
- return `<div class="page-head"><div><h2>Users</h2><p>${cloud?'Server for all computers.':log?'Sign-ins and sign-outs on this computer.':prod?'Number and PIN · any station.':'Password and sections.'}</p></div>${off}
-  ${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>
-  ${cloud?`<div class="card">${tabs}${usersCloudHTML()}</div>`:log?`<div class="card sales-list-card users-log-card"><div class="users-log-tabs">${tabs}</div>${authLogTable()}</div>`:`<div class="card">${tabs}
+ const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;uSel='';render()">${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
+ const selI=list.findIndex(x=>x.u.viewProfileId===uSel),sel=selI<0?null:list[selI];
+ const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} onclick="userEditOpen(${sel?sel.i:-1})">Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${sel?sel.i:-1},'${side}');uSel=''">Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>`;
+ return `${cloud?`<div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${off}</div>${tabs}<div style="padding:0 20px 16px">${usersCloudHTML()}</div></div>`:log?`<div class="card sales-list-card users-log-card">${tabs}${authLogTable()}</div>`:`<div class="card sales-list-card sl-foot-pin">${bar}${tabs}
   ${uEdit!==null?userForm():''}
-  <table><thead><tr>${head}</tr></thead>
-  <tbody>${rows||`<tr><td colspan="${srv?6:5}" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody></table>
+  <div class="sales-table-wrap"><table class="sl-table"><thead><tr>${head}</tr></thead>
+  <tbody>${rows||`<tr><td colspan="${srv?7:6}" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody>${list.length?`<tfoot><tr class="sl-foot"><td></td><td colspan="${srv?6:5}"><b>${list.length} ${list.length===1?'person':'people'}</b></td></tr></tfoot>`:''}</table></div>
   </div>`}`;
 }
 /* Вход человека на сервер и совпадает ли он с галочками здесь
@@ -17841,10 +17853,10 @@ function authLogInfos(){
 }
 function authLogTable(){
  const infos=authLogInfos(),rows=salesListRows(infos).sort((a,b)=>b.e.at.localeCompare(a.e.at)),cols=salesListColumns();
- const head=c=>{const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
+ const head=c=>salesListHead(c),cw=salesListCwTable(cols.map(c=>c.k),[],0);
  const cell=(i,c)=>c.k==='when'?`<td>${esc(salesListShortDay(i.memo.when))} · ${esc(new Date(i.e.at).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false}))}</td>`:c.k==='what'?`<td><span class="pill ${i.e.what==='Sign in'?'ok':''}">${esc(i.e.what)}</span></td>`:`<td>${i.memo[c.k]?raw(String(i.memo[c.k])):'<span class="mut">—</span>'}</td>`;
  return `<div class="sales-toolbar">${salesListDateButton('when')}</div>${salesListFilterChips()}
-  <div class="sales-table-wrap"><table class="sl-table users-log"><thead><tr>${cols.map(head).join('')}</tr></thead>
+  <div class="sales-table-wrap"><table class="sl-table users-log${cw.cls}"${cw.attrs}>${cw.col}<thead><tr>${cols.map(head).join('')}</tr></thead>
   <tbody>${rows.map(i=>`<tr data-auth-row>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="empty">${infos.length?'Nothing matches the filters.':'No sign-ins yet'}</td></tr>`}</tbody></table></div>
   <div class="mut cust-foot">${rows.length} of ${infos.length} records · this computer only</div>${salesListMenuHTML(infos)}`;
 }
@@ -18243,7 +18255,7 @@ function custInfos(){
    terms:paymentTermsLabel(c),credit:c.creditLimit,balance:money?money.balance:null,lastOrder:custLastOrder(c.id),status:custStatusText(c),
    created:c.createdAt?salesListIsoDay(c.createdAt):'',type:c.customerType||'',group:customerGroupName(c),area:c.area||'',rep:c.salesRep||''}};});
 }
-function custHeader(c){const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
+function custHeader(c){return salesListHead(c);}
 function custCell(i,c){
  const x=i.c,v=salesListValue(i,c.k),none='<span class="mut">—</span>';
  if(c.k==='code')return `<td class="mono"><b>${raw(x.code||'—')}</b></td>`;
@@ -18257,15 +18269,20 @@ function custCell(i,c){
 function viewCustomers(){
  return `<div class="page-head"><div><h2>Customers</h2></div></div>${cEdit!==null?customerForm():customerList()}${custMenuHTML()}${custDupHTML()}`;
 }
+/* Отмеченный клиент: Open / Duplicate / Archive / Delete — сверху, как в меню
+   правой кнопки (вид Sales, владелец 03.11.2026). */
+let custSel='';
 function customerList(){
  const infos=custInfos(),rows=salesListRows(infos),cols=salesListColumns();
+ if(custSel&&!rows.some(i=>i.c.id===custSel))custSel='';
+ const sel=custSel&&(DB.customer||[]).find(x=>x.id===custSel),used=sel&&customerHasReferences(sel.id),q=(act,label,fn,cls,dis,title)=>`<button type="button" class="sl-quiet${cls?' '+cls:''}" data-cust-act="${act}" ${sel&&!dis?'':'disabled'} ${title?`title="${esc(title)}"`:''} onclick="${fn}">${label}</button>`;
+ const acts=(sel?`<b class="oq-sel" title="${esc(salesCustomerDisplay(sel.id))}">1 selected</b>`:'')+q('open','Open',`customerEdit(custSel)`)+q('duplicate','Duplicate',`customerDuplicate(custSel)`)+q('archive',sel&&sel.status==='archived'?'Restore':'Archive',`customerToggleArchive(custSel)`)+q('delete','Delete',`customerDelete(custSel)`,'sl-delete-quiet',used,used?'Has orders — archive instead':'');
  const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
  return `<div class="card sales-list-card">
-  <div class="sales-toolbar">${salesListDateButton('created')}<span class="sales-toolbar-sp"></span><button class="pri" data-customer-new onclick="customerNew()">+ New customer</button><button type="button" class="cust-more" data-customer-more title="Export" aria-label="Export" onclick="custMenuOpen(event,'more')">⋯</button></div>
+  <div class="sales-toolbar">${acts}<span class="sales-toolbar-sp"></span>${salesListDateButton('created')}<button class="pri" data-customer-new onclick="customerNew()">+ New customer</button><button type="button" class="cust-more" data-customer-more title="Export" aria-label="Export" onclick="custMenuOpen(event,'more')">⋯</button></div>
   ${salesListFilterChips()}
-  <div class="sales-table-wrap"><table class="sl-table cust-table"><thead><tr><th><span class="sl-header-tools">${settings}</span></th>${cols.map(custHeader).join('')}<th></th></tr></thead>
-  <tbody>${rows.map(i=>`<tr data-customer-row="${esc(i.c.id)}" ondblclick="customerEdit('${esc(i.c.id)}')" oncontextmenu="custMenuOpen(event,'row','${esc(i.c.id)}')"><td></td>${cols.map(c=>custCell(i,c)).join('')}<td class="customer-row-actions"><button class="sm" onclick="customerEdit('${esc(i.c.id)}')">Open</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'No customers match the filters':'No customers yet'}</td></tr>`}</tbody></table></div>
-  <div class="mut cust-foot">${rows.length} of ${infos.length} customers · right-click a row for more</div>
+  <div class="sales-table-wrap">${(cw=>`<table class="sl-table cust-table${cw.cls}"${cw.attrs}>${cw.col}`)(salesListCwTable(cols.map(c=>c.k),[44],20))}<thead><tr><th class="sl-check"><span class="sl-header-tools">${settings}</span></th>${cols.map(custHeader).join('')}<th></th></tr></thead>
+  <tbody>${rows.map(i=>`<tr data-customer-row="${esc(i.c.id)}"${custSel===i.c.id?' class="oq-selected"':''} ondblclick="customerEdit('${esc(i.c.id)}')" oncontextmenu="custMenuOpen(event,'row','${esc(i.c.id)}')"><td class="sl-check"><input type="checkbox" aria-label="Select ${esc(i.c.id)}" ${custSel===i.c.id?'checked':''} onchange="custSel=this.checked?'${esc(i.c.id)}':'';render()"></td>${cols.map(c=>custCell(i,c)).join('')}<td></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'No customers match the filters':'No customers yet'}</td></tr>`}</tbody>${rows.length?(lead=>`<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head"><b>${rows.length} of ${infos.length} customers</b></td>${cols.slice(lead).map(c=>salesListCalcCell(c,rows)).join('')}<td></td></tr></tfoot>`)(Math.max(0,cols.findIndex(c=>salesListCalc(c)!=='none'))):''}</table></div>
  </div>${salesListMenuHTML(infos)}`;
 }
 /* Меню: правая кнопка на строке — Open / Duplicate / Archive / Delete;
@@ -29156,9 +29173,9 @@ function shippingReadyHTML(){
   }).join('');
   return head+rows;
  }).join('');
- const bar=`<div class="sales-toolbar"><button type="button" class="sl-quiet" data-create-ps="${esc(cur)}" ${cur?'':'disabled'} title="${cur?'':'Tick a customer, order or skid'}" onclick="shippingOpen(shippingCustomer)">Create packing slip</button>${cur?`<b class="oq-sel">${shippingSelection.size} selected · ${esc(salesCustomerDisplay(cur))}</b>`:''}<span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>`;
+ const bar=`<div class="sales-toolbar"><button type="button" class="sl-quiet" data-create-ps="${esc(cur)}" ${cur?'':'disabled'} title="${cur?'':'Tick a customer, order or skid'}" onclick="shippingOpen(shippingCustomer)">Create packing slip</button>${cur?`<b class="oq-sel" title="${esc(salesCustomerDisplay(cur))}">${shippingSelection.size} selected</b>`:''}<span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>`;
  const foot=customers.length?`<tfoot><tr class="sl-foot"><td></td><td colspan="4"><b>${customers.length} customer${customers.length===1?'':'s'} · ${orders.length} order${orders.length===1?'':'s'}</b></td><td class="n"><b>${sumReady}</b></td><td class="n"><b>${sumLeft}</b></td><td></td><td></td><td></td></tr></tfoot>`:'';
- return `<div class="card sales-list-card sl-foot-pin">${bar}<div class="sales-table-wrap"><table class="sl-table shipping-ready-table"><thead><tr><th class="sl-check"></th><th>Order</th><th>Line / Mark</th><th>Size</th><th>Makeup</th><th class="n">Ready</th><th class="n">Not ready</th><th class="n">Back order</th><th>Queue</th><th>Select qty</th></tr></thead><tbody>${body||'<tr><td colspan="10" class="empty">No units ready for a packing slip.</td></tr>'}</tbody>${foot}</table></div></div>`;
+ return `<div class="card sales-list-card sl-foot-pin">${bar}<div class="sales-table-wrap">${(t=>`<table class="sl-table shipping-ready-table${t.cls}"${t.attrs}>${t.col}<thead><tr><th class="sl-check"></th>${t.head}</tr></thead>`)(cwStaticTable('shippingReady',[['order','Order'],['line','Line / Mark'],['size','Size'],['makeup','Makeup'],['ready','Ready','n'],['left','Not ready','n'],['back','Back order','n'],['queue','Queue'],['qty','Select qty']],[44]))}<tbody>${body||'<tr><td colspan="10" class="empty">No units ready for a packing slip.</td></tr>'}</tbody>${foot}</table></div></div>`;
 }
 /* Поиск заказа и «Open a trip» — справа в шапке списка каждой вкладки Shipping. */
 function shippingBarRight(){return shippingLookupHTML().field+shippingTripHTML();}
@@ -29668,7 +29685,7 @@ const MD_CATALOG_TREE=[
  ['Recipes',[['surroundRecipe','IGU surround','materials','igu']]]
 ];
 const MD_CATALOG_TABS=['materials','works','hardware'];
-let mdCatalogQuery='',mdPeek='',mdCatalogAll=false;
+let mdCatalogQuery='',mdPeek='',mdCatalogAll=false,mdPreview=true;
 function mdCatalogNode(){
  if(mdTab==='hardware')return 'hardwareModel';
  if(mdTab==='works')return mdCatKind;
@@ -29774,7 +29791,11 @@ function mdPeekHTML(){
 }
 /* Открыта карточка строки каталога (форма своего списка). */
 function mdRowFormOpen(){return mdEdit!==null||mdSheetEdit!==null||mdSpacerEdit!==null||mdCatEdit!==null||mdHwKindEdit!==null||mdHwModelEdit!==null;}
-function viewMdCatalog(){
+/* Каталог Data — вид Sales (картинка «будет» владельца, 03.11.2026): дерево —
+   своя карточка слева; справа шапка (действия отмеченной строки, поиск, + New),
+   таблетки разделов, плашки и фильтры раздела, таблица. Строка отмечается
+   щелчком (mdPeek); её кнопки — в шапке (mdSyncBar). */
+function viewMdCatalog(pills){
  const node=mdCatalogNode(),open=mdRowFormOpen();
  const tree=MD_CATALOG_TREE.map(([g,nodes])=>`<div class="md-tree-group">${esc(g)}</div>`+nodes.map(([k,label])=>`<button type="button" class="${k===node?'on':''}" data-md-node="${k}" onclick="mdCatalogGo('${k}')">${esc(label)} <span class="mut">${mdCatalogCount(k)}</span></button>`).join('')).join('');
  const label=(MD_CATALOG_TREE.flatMap(g=>g[1]).find(n=>n[0]===node)||[])[1]||'';
@@ -29787,14 +29808,31 @@ function viewMdCatalog(){
  else if(mdTab==='hardware')body=viewMdHardware();
  else if(mdTab==='works')body=viewMdCatalogues()+(mdCatEdit===null&&mdCatKind==='serviceRate'?viewMdAllowance():'');
  else{const hit=mdMatResolve(mdMatCategory,mdMatView).hit;body=hit.view?({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,recipe:viewMdRecipes})[hit.view]():viewMdCatalogues();}
- const peek=mdPeek&&!open&&(!q||own)?mdPeekHTML():'';
- return `<div class="md-catalog${peek?' md-catalog-peek':''}" data-md-catalog>
-  <nav class="md-tree" aria-label="Catalog">${tree}</nav>
-  <div class="md-catalog-main">
-   ${open?'':`<div class="md-catalog-head"><div><span class="md-crumb">Master Data › Catalog</span><h3>${esc(q&&mdCatalogAll?'Search':label)}</h3></div><div class="md-catalog-health" data-md-health${node==='spacerVariant'?' data-spacer-health':''}>${health}</div></div>
-   <div class="customer-search md-catalog-search md-catalog-scope"><div class="stk-seg" data-md-scope><button type="button" class="${mdCatalogAll?'':'on'}" data-md-scope-node onclick="mdCatalogScope(false)">${esc(label)}</button><button type="button" class="${mdCatalogAll?'on':''}" data-md-scope-all onclick="mdCatalogScope(true)">All catalog</button></div><input id="mdCatalogSearch" value="${esc(mdCatalogQuery)}" placeholder="${mdCatalogAll?'Search all catalog':'Search '+esc(label)}: name, code, supplier…" oninput="mdCatalogSearchChange(this)"></div>`}
-   <div onclick="mdCatalogRowClick(event)">${body}</div>
-  </div>${peek}</div>`;
+ /* Боковая карточка отмеченной строки (владельцу нравится, 03.11.2026); Hide preview в шапке прячет. */
+ const peek=mdPeek&&mdPreview&&!open&&(!q||own)?mdPeekHTML():'';
+ setTimeout(mdSyncBar,0);
+ const scope=`<div class="stk-seg" data-md-scope><button type="button" class="${mdCatalogAll?'':'on'}" data-md-scope-node onclick="mdCatalogScope(false)">${esc(label)}</button><button type="button" class="${mdCatalogAll?'on':''}" data-md-scope-all onclick="mdCatalogScope(true)">All catalog</button></div><input id="mdCatalogSearch" class="md-bar-search" value="${esc(mdCatalogQuery)}" placeholder="${mdCatalogAll?'Search all catalog':'Search '+esc(label)}: name, code, supplier…" oninput="mdCatalogSearchChange(this)">`;
+ const stocked=DB.glassProduct.filter(p=>p.stocked).length,orphans=glassOrphanSheets().length;
+ return `<div class="md-shell${peek?' md-shell-peek':''}" data-md-catalog>
+  <nav class="card md-tree" aria-label="Catalog">${tree}<div class="md-tree-foot mut small">${stocked} kept in stock · ${orphans} supply rows without a product</div></nav>
+  <div class="card sales-list-card md-catalog-main">
+   ${open?pills:`<div class="sales-toolbar md-bar"><span data-md-acts></span><span class="sales-toolbar-sp"></span>${scope}</div>${pills.replace(/<\/div>$/,`<span class="sales-toolbar-sp"></span><div class="md-catalog-health" data-md-health${node==='spacerVariant'?' data-spacer-health':''} title="${esc(q&&mdCatalogAll?'Search':label)}">${health}</div></div>`)}`}
+   <div class="md-catalog-body" onclick="mdCatalogRowClick(event)">${body}</div>
+  </div>${peek}</div>${mdPeek?`<style>[data-md-row="${esc(mdPeek).replace(/"/g,'')}"]>td{background:var(--accent-soft)}</style>`:''}`;
+}
+/* Кнопки отмеченной строки — в шапку: те же кнопки строки (Edit, Discontinue,
+   ×…), нажатие идёт в них; в строке они скрыты. Ничего не отмечено — серые. */
+function mdSyncBar(){
+ const bar=document.querySelector('[data-md-acts]');if(!bar)return;
+ const tr=mdPeek&&document.querySelector('[data-md-row="'+mdPeek.replace(/"/g,'')+'"]'),btns=tr?[...tr.querySelectorAll('td:last-child>button')]:[];
+ const i=mdPeek.indexOf(':'),t=mdPeek.slice(0,i),id=mdPeek.slice(i+1);
+ bar.innerHTML='';
+ const add=(label,fn,cls,dis)=>{const b=document.createElement('button');b.type='button';b.className='sl-quiet'+(cls?' '+cls:'');b.textContent=label;b.disabled=!!dis;if(fn)b.onclick=fn;bar.appendChild(b);};
+ if(!tr){add('Open',null,'',true);add('Preview',null,'',true);add('Edit',null,'',true);add('Delete',null,'sl-delete-quiet',true);return;}
+ const lab=document.createElement('b');lab.className='oq-sel';lab.textContent='1 selected';bar.appendChild(lab);
+ add(t==='surroundRecipe'?'Open recipe':'Open',()=>mdCatalogOpen(t,id));
+ add(mdPreview?'Hide preview':'Preview',()=>{mdPreview=!mdPreview;render();});
+ btns.forEach(x=>add(x.textContent.trim()==='×'?'Delete':x.textContent.trim(),()=>x.click(),x.classList.contains('dl')?'sl-delete-quiet':'',x.disabled));
 }
 
 /* ==== src/erp/views/masterdata.js ==== */
@@ -29892,25 +29930,12 @@ let mdImportReport=null;
 function viewMasterData(){
  if(!MD_TABS.some(t=>t.k===mdTab))mdTab='materials';
  const sec=MD_SECTIONS.find(s=>s.tabs.includes(mdTab))||MD_SECTIONS[0];
- const total=DB.glassProduct.length,stocked=DB.glassProduct.filter(p=>p.stocked).length;
- const inactive=DB.glassProduct.filter(p=>p.active===false).length;
- const sheets=DB.glassSheet.length,orphans=glassOrphanSheets().length;
- /* Плитки каталога — только в его обзоре: над Prices, Company, Setup и
-    открытой карточкой они место отнимали, а не помогали (аудит 25.10.2026,
-    D-3). */
- const kpi=sec.k==='catalog'&&!mdRowFormOpen()&&!mdCatalogQuery.trim();
- return `<div class="page-head"><div><h2>Master Data</h2><p>Items, works, prices and settings.</p></div><span class="pill info">Master Data · v2</span></div>
-  ${kpi?`<div class="kpi-grid" data-md-kpi>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('layers')}</div></div><div class="kpi-num">${total}</div><div class="kpi-label">catalog items</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('inventory')}</div></div><div class="kpi-num">${stocked}</div><div class="kpi-label">kept in stock</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('purchase')}</div></div><div class="kpi-num">${sheets}</div><div class="kpi-label">supply rows</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico(orphans||inactive?'alert':'check')}</div></div><div class="kpi-num">${orphans}</div><div class="kpi-label">supply rows without a product</div></div>
-  </div>`:''}
-  <div class="card">
-   <div class="tabs" data-md-sections>${MD_SECTIONS.map(s=>`<button class="${s.tabs.includes(mdTab)?'on':''}" data-md-section="${s.k}" onclick="mdSetTab('${s.tabs[0]}')">${s.label}</button>`).join('')}</div>
-   ${sec.k!=='catalog'&&sec.tabs.length>1?`<div class="md-mat-subs" data-md-subtabs>${sec.tabs.map(k=>`<button class="sm ${mdTab===k?'on':''}" onclick="mdSetTab('${k}')">${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div>`:''}
-   ${sec.k==='catalog'?viewMdCatalog():({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
-  </div>
+ const pills=`<div class="sl-filter-row"><div class="sl-quick" role="tablist" data-md-sections>${MD_SECTIONS.map(s=>`<button type="button" role="tab" class="sl-quick-pill${s.tabs.includes(mdTab)?' on':''}" data-md-section="${s.k}" onclick="mdSetTab('${s.tabs[0]}')">${s.label}</button>`).join('')}</div></div>`;
+ const subs=sec.k!=='catalog'&&sec.tabs.length>1?`<div class="sl-filter-row md-mat-subs" data-md-subtabs><div class="sl-quick">${sec.tabs.map(k=>`<button type="button" class="sl-quick-pill${mdTab===k?' on':''}" onclick="mdSetTab('${k}')">${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div></div>`:'';
+ /* Каталог — своя раскладка (viewMdCatalog); остальные разделы — карточка с таблетками. */
+ return `${sec.k==='catalog'?viewMdCatalog(pills):`<div class="card md-card">${pills}${subs}
+   ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
+  </div>`}
   ${mdTab==='materials'&&mdMatCategory==='glass'&&(mdMatView==='glassProduct'||accessCost())?mdImportCard():''}`;
 }
 /* Станции — шаги маршрута; работы в Works ссылаются на них. Сверху — дерево
@@ -30094,9 +30119,8 @@ function viewMdGlass(){
    <select aria-label="Status" data-md-status onchange="mdStatus=this.value;mdGlassLimit=MD_PAGE;render()">${[['all','Any status'],['stocked','In stock'],['preorder','Pre-order'],['noshort','No short name · '+noShort],['inactive','Discontinued']].map(x=>`<option value="${x[0]}" ${mdStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select>
    <button class="pri" onclick="mdGlassNew()">+ New item</button>
   </div>
-  ${noShort?`<div class="md-short-banner" data-md-short-banner><b>${noShort}</b> glass items have no short name — people see the code.<span class="sp"></span>${mdStatus==='noshort'?`<button class="sm" onclick="mdStatus='all';mdGlassLimit=MD_PAGE;render()">Show all</button>`:`<button class="sm" onclick="mdStatus='noshort';mdGlassLimit=MD_PAGE;render()">Show only these</button>`}</div>`:''}
-  <div class="customer-table-wrap"><table><thead><tr><th>Code</th><th>Short name</th><th class="md-name-col">Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
-  <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="13" class="empty">no items found</td></tr>'}</tbody></table></div>
+    <div class="customer-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"></th><th>Code</th><th>Short name</th><th class="md-name-col">Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
+  <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="14" class="empty">no items found</td></tr>'}</tbody></table></div>
   <div class="md-more"><span class="mut" data-md-shown>${shown.length} of ${rows.length}</span>${rows.length>shown.length?` <button class="sm" data-md-more onclick="mdGlassLimit+=MD_PAGE;render()">Show ${Math.min(MD_PAGE,rows.length-shown.length)} more</button>`:''}</div>`;
 }
 let mdGlassLimit=MD_PAGE;
@@ -30118,7 +30142,7 @@ function mdGlassSetPrice(id,field,v){
 function mdGlassRow(p){
  const sheets=glassSheetsFor(p.code).length;
  const temper=p.temperMode==='temper_required'?'bad':p.temperMode==='annealed_only'?'warn':'info';
- return `<tr class="${p.active===false?'md-row-off':mdGlassNoShort(p)?'md-row-noshort':''}" data-md-row="glassProduct:${esc(p.id)}"><td class="mono"><b>${raw(p.code)}</b>${p.active===false?' <span class="pill warn">discontinued</span>':''}</td>
+ return `<tr class="${p.active===false?'md-row-off':mdGlassNoShort(p)?'md-row-noshort':''}" data-md-row="glassProduct:${esc(p.id)}"><td class="sl-check"><input type="checkbox" aria-label="Select ${esc(p.code)}" ${mdPeek==='glassProduct:'+p.id?'checked':''} onclick="event.stopPropagation();mdPeek=this.checked?'glassProduct:${esc(p.id)}':'';render()"></td><td class="mono"><b>${raw(p.code)}</b>${p.active===false?' <span class="pill warn">discontinued</span>':''}</td>
   <td data-md-short>${p.shortName?`<b>${raw(p.shortName)}</b>`:`<button type="button" class="gb-link md-short-add" onclick="mdGlassEdit('${esc(p.id)}','short')">add</button>`}</td>
   <td><b>${raw(p.name)}</b><div class="mut">${raw(p.manufacturer)}</div></td>
   <td class="mono">${p.thicknessMm==null?'—':p.thicknessMm+' mm'}</td>
@@ -32294,9 +32318,11 @@ function finFilterChips(){
 }
 const FIN_TABS=[['accounts','Accounts'],['schedule','Due dates'],['receipts','Payments']];
 function finWorkspaceHTML(){
- return `<div class="card fin-card"><div class="fin-workspace-head">${finOverviewHTML()}<button type="button" class="pri" data-fin-new onclick="finNewReceiptHere()">+ New receipt</button></div>
- <div class="tabs" role="tablist" aria-label="Finance sections">${FIN_TABS.map(t=>`<button role="tab" aria-selected="${finTab===t[0]}" class="${finTab===t[0]?'on':''}" onclick="finSetTab('${t[0]}')">${t[1]}</button>`).join('')}</div>
- ${finTab==='accounts'?(finAccountId?finAccountHTML():finAccountsWorkspace()):finTab==='schedule'?finScheduleHTML():finEdit!==null?finReceiptForm():finReceiptsView()}</div>${finApplyModal()}${finActionHTML()}${finStatementsHTML()}${finPreviewHTML()}${finRangeMenuHTML()}`;
+ const list=finTab==='accounts'?!finAccountId:finTab==='schedule'||finEdit===null;
+ /* Списки — вид Sales (finFrame); карточка клиента и форма оплаты — как были. */
+ return (list?`<div class="card fin-card sales-list-card sl-foot-pin">${finTab==='accounts'?finAccountsWorkspace():finTab==='schedule'?finScheduleHTML():finReceiptsView()}</div>`:`<div class="card fin-card"><div class="fin-workspace-head">${finOverviewHTML()}<button type="button" class="pri" data-fin-new onclick="finNewReceiptHere()">+ New receipt</button></div>
+ ${finPills()}
+ ${finTab==='accounts'?finAccountHTML():finReceiptForm()}</div>`)+`${finApplyModal()}${finActionHTML()}${finStatementsHTML()}${finPreviewHTML()}${finRangeMenuHTML()}`;
 }
 /* Четыре цифры по всем клиентам и переход к списку за каждой. Сколько
    должны нам, сколько из этого просрочено, и сколько денег клиентов у нас:
@@ -32640,7 +32666,7 @@ function finListFocus(tabKey,filters,all){
  salesListSavePrefs();render();
 }
 function finMoneyText(v){return v>0?finFmt(v):'<span class="mut">—</span>';}
-function finListTh(c,p){const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${c.label}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
+function finListTh(c){return salesListHead(c);}
 /* Итог внизу: число строк и суммы денежных колонок — только строкой.
    Аннулированный (Void) платёж в итог не входит — его денег нет (проход
    11.10.2026: подвал Payments расходился с плитками и Reports). */
@@ -32655,11 +32681,25 @@ function finListFooter(all,cols,noun){
  const count=`<b>${rows.length} ${noun}${rows.length===1?'':'s'}</b>${voids?` <span class="mut" data-foot-void>· ${voids} void not counted</span>`:''}`;
  return `<tfoot><tr class="sl-foot">${lead?`<td colspan="${lead}" class="sl-foot-head" data-foot-count>${count}</td>`:''}${sums}<td${lead?'':' data-foot-count'}>${lead?'':count}</td></tr></tfoot>`;
 }
-function finListTable(infos,cell,rowAttrs,noun,empty){
+/* Списки Finance — вид Sales (этап 6, 03.11.2026): галочка строки, действия
+   строки — сверху в шапке для отмеченной (r.acts: [label, onclick, атрибуты]),
+   шестерёнка слева, ширина и порядок колонок, итог. */
+let finSel='';
+function finSelect(id,on=true){finSel=on?id:'';render();}
+function finListTable(infos,cell,rowAttrs,noun,empty,names){
  const p=salesListLoadPrefs(),rows=salesListRows(infos),cols=salesListColumns();
- const body=rows.map(r=>`<tr ${rowAttrs(r)}>${cols.map(c=>cell(r,c)).join('')}<td class="fin-actions">${r.actions||''}</td></tr>`).join('');
- return {rows,html:`${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table fin-list"><thead><tr>${cols.map(c=>finListTh(c,p)).join('')}<th class="fin-actions"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':empty}</td></tr>`}</tbody>${rows.length?finListFooter(rows,cols,noun):''}</table></div>${salesListMenuHTML(infos)}`};
+ if(finSel&&!rows.some(r=>r.o.id===finSel))finSel='';
+ const body=rows.map(r=>{const on=finSel===r.o.id;return `<tr ${rowAttrs(r)}${on?' data-fin-sel':''}><td class="sl-check" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(String(r.memo.number||r.memo.customer||r.o.id))}" ${on?'checked':''} onchange="finSelect('${esc(r.o.id)}',this.checked)"></td>${cols.map(c=>cell(r,c)).join('')}<td></td></tr>`;}).join('');
+ const cw=salesListCwTable(cols.map(c=>c.k),[44],20,{due:130,terms:150,days:110,balance:110,outstanding:110,limit:110,state:130,status:110}),sel=rows.find(r=>r.o.id===finSel);
+ const acts=(sel&&sel.acts||[]).map(([l,fn,attr])=>`<button type="button" class="sl-quiet" ${attr||''} onclick="${fn}">${l}</button>`).join('');
+ /* Ничего не отмечено — те же кнопки серыми, как в Sales: шапка не пустеет. */
+ return {rows,acts:sel?`<b class="oq-sel">1 selected</b>${acts}`:(names||[]).map(l=>`<button type="button" class="sl-quiet" disabled title="Tick a row">${l}</button>`).join(''),html:`${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table fin-list${cw.cls}"${cw.attrs}>${cw.col}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(c=>finListTh(c,p)).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'Nothing matches the filters.':empty}</td></tr>`}</tbody>${rows.length?finListFooter(rows,cols,noun):''}</table></div>${salesListMenuHTML(infos)}`};
 }
+/* Шапка, таблетки разделов и плитки — общие для трёх списков Finance. */
+function finFrame(left,right,html){
+ return `<div class="sales-toolbar">${left}<span class="sales-toolbar-sp"></span>${right}<button type="button" class="pri" data-fin-new onclick="finNewReceiptHere()">+ New receipt</button></div>${finPills()}<div class="fin-tiles-row">${finOverviewHTML()}</div>${html}`;
+}
+function finPills(){return `<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Finance sections">${FIN_TABS.map(t=>`<button type="button" role="tab" aria-selected="${finTab===t[0]}" class="sl-quick-pill${finTab===t[0]?' on':''}" onclick="finSetTab('${t[0]}')">${t[1]}</button>`).join('')}</div></div>`;}
 function finDateCell(v){return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;}
 
 /* ------------------------------ Accounts ----------------------------- */
@@ -32687,9 +32727,9 @@ function finAccountCell(r,c){
 /* Строки таблицы Accounts после фильтров — для CSV, печати и тестов. */
 function finAccountsList(){return salesListRows(finAccountInfos()).map(r=>({c:r.c,m:r.m}));}
 function finAccountsWorkspace(){
- const infos=finAccountInfos();infos.forEach(r=>{r.actions=r.m.money.deposit>0&&r.m.money.balance>0?`<button class="sm" onclick="finOpenApply('${esc(r.c.id)}')">Apply deposit</button>`:'';});
- const t=finListTable(infos,finAccountCell,r=>`data-account="${esc(r.c.id)}"`,'customer',finAccountAll?'No customers yet':'No open balances');
- return `<div class="sales-toolbar"><button type="button" class="sl-quiet${finAccountAll?'':' on'}" data-accounts="open" onclick="finAccountAll=false;render()">Open accounts</button><button type="button" class="sl-quiet${finAccountAll?' on':''}" data-accounts="all" onclick="finAccountAll=true;render()">All customers</button><span class="sales-toolbar-sp"></span><button onclick="finOpenStatements()" title="Statements for all customers for a month">Statements</button><button ${t.rows.length?'':'disabled'} onclick="finBalancesExport()">CSV</button><button ${t.rows.length?'':'disabled'} onclick="finOpenPreview('balances')">Print</button></div>${t.html}`;
+ const infos=finAccountInfos();infos.forEach(r=>{r.acts=[['Open',`finOpenAccount('${esc(r.c.id)}')`]].concat(r.m.money.deposit>0&&r.m.money.balance>0?[['Apply deposit',`finOpenApply('${esc(r.c.id)}')`]]:[]);r.applyHint=r.m.money.deposit>0&&r.m.money.balance>0;});
+ const t=finListTable(infos,finAccountCell,r=>`data-account="${esc(r.c.id)}"`,'customer',finAccountAll?'No customers yet':'No open balances',['Open','Apply deposit']);
+ return finFrame(`<button type="button" class="sl-quiet${finAccountAll?'':' on'}" data-accounts="open" onclick="finAccountAll=false;render()">Open accounts</button><button type="button" class="sl-quiet${finAccountAll?' on':''}" data-accounts="all" onclick="finAccountAll=true;render()">All customers</button>${t.acts}`,`<button type="button" class="sl-quiet" onclick="finOpenStatements()" title="Statements for all customers for a month">Statements</button><button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finBalancesExport()">CSV</button><button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finOpenPreview('balances')">Print</button>`,t.html);
 }
 
 /* ------------------------------ Due dates ---------------------------- */
@@ -32723,9 +32763,9 @@ function finDueCell(r,c){
 }
 function finDueFiltered(){return salesListRows(finDueInfos());}
 function finScheduleHTML(){
- const infos=finDueInfos();infos.forEach(r=>{r.actions=(finInvoiceDate(r.o)?`<button class="sm" data-fin-invoice="${esc(r.o.businessNumber)}" onclick="finOpenInvoice('${esc(r.o.id)}')">Invoice</button> `:'')+`<button class="sm" onclick="finEditTerms('${esc(r.o.id)}')">Terms</button>`;});
- const t=finListTable(infos,finDueCell,r=>`data-due-order="${esc(r.o.id)}"`,'order','Nothing unpaid.');
- return `<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><button ${t.rows.length?'':'disabled'} onclick="finDueExport()">CSV</button><button ${t.rows.length?'':'disabled'} onclick="finOpenPreview('schedule')">Print</button></div>${t.html}${infos.review?`<p class="mut small">${infos.review} not priced — not in totals.</p>`:''}`;
+ const infos=finDueInfos();infos.forEach(r=>{r.acts=[['Open order',`optimizationOpenOrder('${esc(r.o.id)}')`]].concat(finInvoiceDate(r.o)?[['Invoice',`finOpenInvoice('${esc(r.o.id)}')`,`data-fin-invoice="${esc(r.o.businessNumber)}"`]]:[]).concat([['Terms',`finEditTerms('${esc(r.o.id)}')`]]);});
+ const t=finListTable(infos,finDueCell,r=>`data-due-order="${esc(r.o.id)}"`,'order','Nothing unpaid.',['Open order','Invoice','Terms']);
+ return finFrame(t.acts,`${salesListDateButton('due')}<button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finDueExport()">CSV</button><button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finOpenPreview('schedule')">Print</button>`,t.html)+`${infos.review?`<p class="mut small">${infos.review} not priced — not in totals.</p>`:''}`;
 }
 function finDueExport(){const rows=finDueFiltered();if(!rows.length)return;customerDownload('payments-due.csv',finDueCSV(rows),'text/csv;charset=utf-8');}
 
@@ -32751,8 +32791,9 @@ function finPaymentCell(r,c){
 }
 function finFilteredReceipts(){return salesListRows(finPaymentInfos()).map(i=>i.r);}
 function finReceiptsView(){
- const t=finListTable(finPaymentInfos(),finPaymentCell,r=>`class="fin-row${r.r.voided?' fin-void':''}" data-receipt="${esc(r.r.id)}" onclick="finOpenReceipt('${esc(r.r.id)}')"`,'payment','No payments yet');
- return `${finFilterChips()}<div class="sales-toolbar">${salesListDateButton('date')}<span class="sales-toolbar-sp"></span><button type="button" onclick="finExportCsv()" title="Payments and refunds in this list">CSV</button>${finExportButtonHTML()}</div>${t.html}`;
+ const infos=finPaymentInfos();infos.forEach(r=>{r.acts=[['Open',`finOpenReceipt('${esc(r.r.id)}')`]];});
+ const t=finListTable(infos,finPaymentCell,r=>`class="fin-row${r.r.voided?' fin-void':''}" data-receipt="${esc(r.r.id)}" onclick="finOpenReceipt('${esc(r.r.id)}')"`,'payment','No payments yet',['Open']);
+ return finFrame(t.acts,`${salesListDateButton('date')}<button type="button" class="sl-quiet" onclick="finExportCsv()" title="Payments and refunds in this list">CSV</button>${finExportButtonHTML()}`,finFilterChips()+t.html);
 }
 /* Возвраты в CSV — за тот же клиент/заказ и тот же период, что оплаты. */
 function finExportCsv(){
@@ -32787,10 +32828,9 @@ function viewCommissionsIn(){
    <td><b data-raw>${esc(r.name)}</b></td><td class="mut" data-raw>${esc([r.phone,r.email].filter(Boolean).join(' · '))||'—'}</td><td data-raw>${esc(r.customers.map(c=>comCustomerName(c.customerId)+' '+c.pct+'%').join(', '))||'<span class="mut">—</span>'}</td>
    <td class="n">${s.orders}</td><td class="n">${money(s.base)}</td><td class="n"><b>${money(s.com)}</b></td>${comHst?`<td class="n">${money(s.paid)}</td><td class="n">${money(s.comHst)}</td>`:''}<td class="n">${money(s.paidOut)}</td><td class="n"><b class="${s.toPay>0?'fin-due':''}">${finFmt(s.toPay)}</b></td></tr>`).join('');
  const foot=list.length?`<tfoot><tr class="sl-foot"><td colspan="3"><b>${list.length} ${list.length===1?'person':'people'}</b></td><td class="n">${list.reduce((n,x)=>n+x.s.orders,0)}</td><td class="n">${finFmt(sum('base'))}</td><td class="n"><b>${finFmt(sum('com'))}</b></td>${comHst?`<td class="n">${finFmt(sum('paid'))}</td><td class="n">${finFmt(sum('comHst'))}</td>`:''}<td class="n">${finFmt(sum('paidOut'))}</td><td class="n"><b>${finFmt(sum('toPay'))}</b></td></tr></tfoot>`:'';
- const tools=`<div class="sales-toolbar"><div class="com-period" data-com-period>${COM_PERIODS.map(([k,l])=>`<button type="button" class="sl-btn${comPeriod===k?' on':''}" onclick="comPeriod='${k}';render()">${l}</button>`).join('')}</div><label class="com-check"><input type="checkbox" data-com-hst ${comHst?'checked':''} onchange="comHst=this.checked;render()"> With HST</label><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-com-add onclick="comEditOpen('')">+ Person</button></div>`;
+ const tools=`<div class="sales-toolbar"><div class="sl-quick com-period" data-com-period>${COM_PERIODS.map(([k,l])=>`<button type="button" class="sl-quick-pill${comPeriod===k?' on':''}" onclick="comPeriod='${k}';render()">${l}</button>`).join('')}</div><label class="com-check"><input type="checkbox" data-com-hst ${comHst?'checked':''} onchange="comHst=this.checked;render()"> With HST</label><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-com-add onclick="comEditOpen('')">+ Person</button></div>`;
  const table=`<div class="sales-table-wrap"><table class="sl-table fin-list" data-com-table><thead><tr><th>Person</th><th>Contact</th><th>Customers · %</th><th class="n" title="Orders with payments in the period">Orders</th><th class="n" title="Payments without HST">Paid</th><th class="n">Commission</th>${hstHead}<th class="n" title="All time">Paid out</th><th class="n" title="All time: commission − paid out">To pay</th></tr></thead><tbody>${rows||`<tr><td colspan="${comHst?11:9}" class="empty">Nobody yet. + Person — who brought a customer and the percent.</td></tr>`}</tbody>${foot}</table></div>`;
- return `<div class="page-head"><div><h2>Agents</h2><p>People who bring customers · percent of what the customer paid, without HST.</p></div></div>
-  ${comNotice?`<div class="ncr-error" role="alert" data-com-error>${esc(comNotice)}</div>`:''}
+ return `${comNotice?`<div class="ncr-error" role="alert" data-com-error>${esc(comNotice)}</div>`:''}
   <div class="card sales-list-card">${tools}${table}</div>${comDraft?comFormHTML():comOpen&&comFind(comOpen)?comDetailHTML(comFind(comOpen),range):''}`;
 }
 /* Заказы человека: начислено за период; «Paid out» и «Due» — за всё время
@@ -32861,10 +32901,7 @@ function purSupplierInfos(){
  const counts=new Map();(DB.glassSheet||[]).forEach(s=>counts.set(s.supplierId,(counts.get(s.supplierId)||0)+1));
  return (DB.supplier||[]).map(s=>({o:{id:s.id},s,memo:Object.assign({},s,{supplyCount:counts.get(s.id)||0,status:s.active?'Active':'Archived'})}));
 }
-function purListHeader(c){
- const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);
- return `<th class="${c.type==='number'?'n':''}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;
-}
+function purListHeader(c){return salesListHead(c);}
 function viewPurchasing(){
  if(!accessCan('purchasing'))return '<div class="empty">Purchasing access is required.</div>';
  if(purMoneyDraft)return purMoneyForm();
@@ -32883,7 +32920,7 @@ function viewPurchasing(){
  };
  return `<div class="purchasing-workspace"><div class="card sales-list-card"><div class="sales-toolbar">${purNav()}<span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new onclick="purSupplierEdit('')">+ Supplier</button></div>
   ${purNotice?`<div class="ncr-error" role="alert">${esc(purNotice)}</div>`:''}
-  ${purListFilters(infos)}<div class="sales-table-wrap"><table class="sl-table" data-pur-suppliers><thead><tr><th><button type="button" class="sl-settings" title="Columns" aria-label="Columns" data-columns-button onclick="salesListOpenColumns(event)">${ico('settings')}</button></th>${cols.map(purListHeader).join('')}</tr></thead>
+  ${purListFilters(infos)}<div class="sales-table-wrap">${(cw=>`<table class="sl-table${cw.cls}"${cw.attrs} data-pur-suppliers>${cw.col}`)(salesListCwTable(cols.map(c=>c.k),[44],0))}<thead><tr><th><button type="button" class="sl-settings" title="Columns" aria-label="Columns" data-columns-button onclick="salesListOpenColumns(event)">${ico('settings')}</button></th>${cols.map(purListHeader).join('')}</tr></thead>
   <tbody>${purPageRows(rows).map(i=>`<tr data-pur-supplier="${esc(i.s.id)}"><td></td>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No suppliers yet. Add a supplier when you need a reusable card.'}</td></tr>`}</tbody>
   </table></div>${purListPager(rows)}${salesListMenuHTML(infos)}</div></div>`;
 }
@@ -32973,7 +33010,7 @@ function purOrderList(){
   return '<td data-raw class="'+(c.type==='number'?'n':'')+'">'+(v==null||v===''?'—':c.k==='amount'?esc(docNum(v,2)):c.k==='at'?esc(new Date(i.e.at).toLocaleString()):esc(v))+'</td>';
  };
  return '<div class="purchasing-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(history?'':'<button type="button" class="pri" data-pur-po-new onclick="purOrderEdit(\'\')">+ New Purchase Order</button>')+'</div>'+purListFilters(infos)+
-  '<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
+  (cw=>'<div class="sales-table-wrap"><table class="sl-table'+cw.cls+'"'+cw.attrs+'>'+cw.col)(salesListCwTable(cols.map(c=>c.k),[44],0))+'<thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
   purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
 }
 function purHistoryOpen(entity,id){if(PUR_MONEY[entity])purMoneyEdit(entity,id);else if(PUR_FULFIL[entity])purFulfilEdit(entity,id);else if(entity==='po')purOrderEdit(id);else purSupplierEdit(id);}
@@ -33383,7 +33420,7 @@ function purReceivingList(){
  const infos=purReceivingInfos(),rows=salesListRows(infos),cols=salesListColumns(),kind=purView==='receipts'?'receipt':'request',waiting=['backorders','held'].includes(purView),title=({receipts:'Receipts',requests:'Delivery requests',backorders:'Waiting from suppliers',held:'Held at supplier'})[purView];
  const cell=(i,c)=>{const v=salesListValue(i,c.k);if(i.held)return purHeldCell(i.held,c,v);return '<td'+(c.type==='number'?' class="n"':'')+'>'+(c.k==='number'?'<button type="button" class="fin-link" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purFulfilEdit('+purArg(i.kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>'+(i.kind==='receipt'&&!i.d.voidAt&&i.d.lines.some(purEnterSheets)?' <span class="pill warn" data-pur-enter-sheets-list>Enter sheets</span>':''):v==null||v===''?'—':esc(v))+'</td>';};
  return '<div class="purchasing-workspace">'+'<div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(waiting?'':'<label><input type="checkbox" '+(purShowUndone?'checked':'')+' onchange="purShowUndone=this.checked;render()"> Include undone / cancelled</label><button type="button" class="pri" onclick="purFulfilEdit(\''+kind+'\',\'\')">+ '+(kind==='receipt'?'Receipt':'Request')+'</button>')+'</div>'+(purView==='held'?'<p class="mut pur-held-note">Pace: last 90 days. Order by = runs out − lead time.</p>':'')+purListFilters(infos)+
-  '<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
+  (cw=>'<div class="sales-table-wrap"><table class="sl-table'+cw.cls+'"'+cw.attrs+'>'+cw.col)(salesListCwTable(cols.map(c=>c.k),[44],0))+'<thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
 }
 /* Held board cells: a bar of what is still at the supplier, coloured by
    when to order, and links to every PO of the row. */
@@ -33522,7 +33559,7 @@ function purMoneyList(){
  const infos=purMoneyInfos(),rows=salesListRows(infos),cols=salesListColumns(),accounts=purView==='payables',kind=purView==='invoices'?'invoice':'payment';
  const cell=(i,c)=>{const v=salesListValue(i,c.k),link=i.account&&c.k==='supplierName'||i.d&&c.k===(kind==='invoice'?'reference':'number');return '<td class="'+(c.type==='number'?'n':'')+'">'+(link?'<button type="button" class="fin-link" onclick="'+(i.account?'purAccountKey='+purArg(i.account.id)+';render()':'purMoneyEdit('+purArg(kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>':v==null||v===''?'—':esc(c.type==='number'&&!['unknown','review'].includes(c.k)?docNum(v,2):v))+'</td>';};
  return '<div class="purchasing-workspace">'+'<div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(accounts?'':'<label><input type="checkbox" '+(purMoneyShowUndone?'checked':'')+' onchange="purMoneyShowUndone=this.checked;render()"> Include deleted / undone</label><button type="button" class="pri" onclick="purMoneyEdit(\''+kind+'\',\'\')">+ '+(kind==='invoice'?'Invoice':'Payment record')+'</button>')+'</div>'+(accounts?'<p class="mut">Each currency has its own balance. Negative balances are supplier credits.</p>':'')+purListFilters(infos)+
-  '<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
+  (cw=>'<div class="sales-table-wrap"><table class="sl-table'+cw.cls+'"'+cw.attrs+'>'+cw.col)(salesListCwTable(cols.map(c=>c.k),[44],0))+'<thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
 }
 function purAccountHTML(){
  const a=purSupplierAccounts().find(a=>a.id===purAccountKey);if(!a){purAccountKey='';return purMoneyList();}
@@ -33688,6 +33725,7 @@ function salesListCatalog(){
  if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
  if(salesListScope().startsWith('prod')&&typeof prodListColumns==='function')return prodListColumns();
  if(salesListScope()==='glassSheets'&&typeof sheetUsageColumns==='function')return sheetUsageColumns();
+ if(salesListScope()==='glassStock'&&typeof stockListColumns==='function')return stockListColumns();
  if(typeof glassBatchColumns==='function'&&salesListScope().startsWith('glass'))return glassBatchColumns();
  if(salesListScope()==='mdSupply'&&typeof mdSupplyColumns==='function')return mdSupplyColumns();
  if(salesListScope()==='customers'&&typeof custColumns==='function')return custColumns();
@@ -34279,6 +34317,28 @@ cwRegister('shipments',{
  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead?[lead]:[],trail:20,fill
 }));
 
+/* Заголовок колонки любого списка: фильтр и сортировка, ширина и перенос. */
+function salesListHead(c){const f=salesListLoadPrefs().filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;}
+/* Ширина и порядок за заголовок для списка этого экрана: адаптер по scope
+   регистрируется при первом показе (lead — служебные колонки слева, trail —
+   кнопки справа, px). Возвращает класс, атрибуты и <colgroup> таблицы. */
+function salesListCwTable(keys,lead,trail,defs){
+ const id=salesListScope();
+ if(!CW_TABLES[id])cwRegister(id,{widths:()=>salesListLoadPrefs().widths||{},
+  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
+  def:k=>{const c=salesListColumn(k);return (defs&&defs[k])||SALES_LIST_WIDTH[k]||(c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
+  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead||[],trail:trail||0,fill:keys.includes('customer')?'customer':''});
+ return {cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
+}
+/* Таблица с постоянными колонками (окна, Ready): ширина тянется за край
+   заголовка и хранится в этом браузере; порядок у таких таблиц постоянный.
+   head — [[ключ, подпись, класс]]. Возвращает {head, cls, attrs, col}. */
+function cwStaticTable(id,head,lead){
+ const key='glass_erp_cw_'+id,read=()=>{try{const v=JSON.parse(localStorage.getItem(key)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return {};}};
+ if(!CW_TABLES[id])cwRegister(id,{widths:read,save:w=>{try{if(Object.keys(w).length)localStorage.setItem(key,JSON.stringify(w));else localStorage.removeItem(key);}catch(e){}render();},def:()=>110,min:()=>CW_MIN,move:()=>{},lead:lead||[],trail:0,fill:''});
+ const keys=head.map(h=>h[0]);
+ return {head:head.map(([k,l,c])=>`<th${c?` class="${c}"`:''} data-cw-key="${k}"><span data-cw-label>${l}</span>${cwGrip()}</th>`).join(''),cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
+}
 /* Таблица списка вида Sales для вкладок со своими строками (Skids, Backorders,
    Delivery): шестерёнка Columns, фильтр и сортировка в заголовке, ширина и
    порядок перетаскиванием, итог внизу. o: {infos, rows, cell(info,col,prev),
@@ -40393,7 +40453,7 @@ function glassBatchPageForFilters(){const sig=JSON.stringify(salesListLoadPrefs(
 function glassBatchRegistryReset(){
  const p=salesListLoadPrefs();['number','status','created'].forEach(k=>delete p.filters[k]);glassBatchPage=1;salesListSavePrefs();render();
 }
-function glassBatchViewScope(){return optimizationTab==='sheets'?'glassSheets':optimizationTab==='batch'?'glassQueue':optimizationTab==='production'?(glassBatchOpenNumber?'glassContents':'glassBatches'):'';}
+function glassBatchViewScope(){return optimizationTab==='stock'?'glassStock':optimizationTab==='sheets'?'glassSheets':optimizationTab==='batch'?'glassQueue':optimizationTab==='production'?(glassBatchOpenNumber?'glassContents':'glassBatches'):'';}
 function glassBatchColumns(){
  const col=(k,label,type,def)=>({k,label,type:type||'text',def:def!==false});
  if(glassBatchViewScope()==='glassBatches')return [col('number','Batch'),col('created','Created','date'),col('glass','Glass'),col('units','Qty','number'),col('cut','Cut','number'),col('queue','Cut order','number'),col('orders','Orders','number'),col('status','Status','list')];
@@ -44148,20 +44208,21 @@ function stockUiBar(rows){
   +b('data-stock-use-menu','Use in batch ▾',`stockUiUseMenu(event,'${id}')`,!!r&&r.status==='stock'&&!w)+b('data-stock-print','Sticker',`stockUiPrint('${id}')`,!!r&&r.status==='stock'&&!w)
   +b('data-stock-drop','Back to waste',`stockUiDrop('${id}')`,!!r&&r.status==='stock'&&!w,'sl-delete-quiet');
 }
+function stockListColumns(){return [{k:'id',label:'Stock',type:'text'},{k:'glass',label:'Glass',type:'list'},{k:'mm',label:'Thickness',type:'list'},{k:'size',label:'Size',type:'text'},{k:'area',label:'ft²',type:'number',sum:true,digits:2},{k:'from',label:'From',type:'text'},{k:'booked',label:'Booked',type:'date'},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
 function viewStockList(){
  const rows=stockOffcutRows(),live=rows.filter(r=>r.status==='stock'),off=rows.filter(r=>r.status!=='stock');
  const shown=stockShowOff?rows:live;
- const row=r=>`<tr data-stock-row="${esc(r.id)}" class="${r.status==='stock'?'':'off'}${stockSel===r.id?' oq-selected':''}" oncontextmenu="stockUiContext(event,'${esc(r.id)}')">
-  <td class="sl-check"><input type="checkbox" data-stock-check aria-label="Select ${esc(r.id)}" ${stockSel===r.id?'checked':''} onchange="stockUiSelect('${esc(r.id)}',this.checked)"></td>
-  <td><span class="pill ${r.status==='stock'?'ok':''}">${esc(r.id)}</span></td>
-  <td>${esc(r.glass)}${r.mm?' · '+r.mm+' mm':''}</td>
-  <td class="nowrap"><b>${esc(frac16(r.w))} × ${esc(frac16(r.h))}″</b></td>
-  <td class="n">${r.area}</td>
-  <td>${esc(r.batch)}${r.sheet?' · sheet '+r.sheet:''}</td>
-  <td>${esc(salesShortDate(r.at))}</td>
-  <td>${r.status!=='stock'?'<span class="mut">Back to waste</span>':(w=>w?`<span class="pill" data-stock-in>${w.laid?'In':'Picked for'} ${esc(w.batch)}</span>`:'<span class="mut">On the rack</span>')(stockUiWhere(r.id))}</td>
-  <td></td></tr>`;
- const body=shown.map(row).join('')||`<tr><td colspan="9" class="empty" data-stock-empty>Nothing in stock yet. Offcuts get here from a batch layout: right-click an offcut → To stock.</td></tr>`;
+ /* Список вида Sales: Columns, фильтры, ширина и порядок, итог (этап 6). */
+ const where=r=>r.status!=='stock'?'Back to waste':(w=>w?(w.laid?'In ':'Picked for ')+w.batch:'On the rack')(stockUiWhere(r.id));
+ const infos=shown.map(r=>({o:{id:r.id},r,memo:{id:r.id,glass:r.glass,mm:r.mm?r.mm+' mm':'',size:frac16(r.w)+' × '+frac16(r.h)+'″',area:r.area,from:r.batch+(r.sheet?' · sheet '+r.sheet:''),booked:finLocalDate(r.at),status:where(r)}})),list=salesListRows(infos);
+ const cell=(i,c)=>{const r=i.r,v=i.memo[c.k];switch(c.k){
+  case 'id':return `<td><span class="pill ${r.status==='stock'?'ok':''}">${esc(v)}</span></td>`;
+  case 'size':return `<td class="nowrap"><b>${esc(v)}</b></td>`;
+  case 'booked':return `<td>${esc(salesShortDate(r.at))}</td>`;
+  case 'status':return `<td>${r.status!=='stock'?'<span class="mut">Back to waste</span>':(w=>w?`<span class="pill" data-stock-in>${w.laid?'In':'Picked for'} ${esc(w.batch)}</span>`:'<span class="mut">On the rack</span>')(stockUiWhere(r.id))}</td>`;
+  default:return `<td${c.type==='number'?' class="n"':''}>${v===''||v==null?'<span class="mut">—</span>':esc(String(v))}</td>`;}};
+ const row=i=>{const r=i.r;return {attrs:` data-stock-row="${esc(r.id)}" class="${r.status==='stock'?'':'off'}${stockSel===r.id?' oq-selected':''}" oncontextmenu="stockUiContext(event,'${esc(r.id)}')"`,first:`<td class="sl-check"><input type="checkbox" data-stock-check aria-label="Select ${esc(r.id)}" ${stockSel===r.id?'checked':''} onchange="stockUiSelect('${esc(r.id)}',this.checked)"></td>`};};
+ const table=salesListTableHTML({infos,rows:list,cell,row,noun:r=>r.length+' offcut'+(r.length===1?'':'s'),empty:shown.length?'Nothing matches the filters.':'<span data-stock-empty>Nothing in stock yet. Offcuts get here from a batch layout: right-click an offcut → To stock.</span>'});
  return `<section class="optimization-queue">
   <div class="card oq-card sales-list-card sl-foot-pin"><div class="oq-toolbar sales-toolbar">${stockUiBar(shown)}<b class="oq-sel" data-stock-total title="Offcuts booked from cut layouts. To cut one, tick its S-… row in the batch layout: Reset → SHEETS → Build.">${live.length} in stock · ${stockOffcutTotal()} ft\u00b2</b><span class="sales-toolbar-sp"></span>
    ${off.length?`<label class="chk"><input type="checkbox" data-stock-show-off ${stockShowOff?'checked':''} onchange="stockUiShowOff(this.checked)"> Show ${off.length} back to waste</label>`:''}</div>
@@ -44169,7 +44230,7 @@ function viewStockList(){
    ${cutNotice?`<div class="ncr-error" role="alert" data-stock-error>${esc(cutNotice)}</div>`:''}
    ${stockInfo?`<div class="cut-info" data-stock-info>${esc(stockInfo.id)} ${stockInfo.used?'→':'✕'} ${esc(stockInfo.batch)}${stockInfo.used?' · press Build there':''}
     <button type="button" class="gb-link" data-stock-info-open onclick="stockUiOpenBatch('${esc(stockInfo.batch)}')">Open ${esc(stockInfo.batch)}</button></div>`:''}
-   <div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"></th><th>Stock</th><th>Glass</th><th>Size</th><th class="n">ft\u00b2</th><th>From</th><th>Booked</th><th>Status</th><th></th></tr></thead><tbody>${body}</tbody></table></div>
+   ${table}
   </div>${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;
 }
 
@@ -44262,10 +44323,21 @@ const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'
 function invArg(v){return esc(JSON.stringify(String(v)));}
 /* Разделы склада кнопками в ряд (владелец, 23.10.2026): выпадашка
    прятала Count и Journal. */
-function invNav(){return '<div class="tabs inv-tabs" data-inv-sections>'+INV_VIEWS.map(([k,n])=>'<button type="button" class="'+(k===invView?'on':'')+'" data-inv-section="'+k+'" onclick="invGo(\''+k+'\')">'+n+'</button>').join('')+'</div>';}
+function invNav(){return '<div class="sl-filter-row"><div class="sl-quick inv-tabs" role="tablist" data-inv-sections>'+INV_VIEWS.map(([k,n])=>'<button type="button" role="tab" class="sl-quick-pill'+(k===invView?' on':'')+'" data-inv-section="'+k+'" onclick="invGo(\''+k+'\')">'+n+'</button>').join('')+'</div></div>';}
+/* Отмеченная строка Sheets / Stock items: её + − Count — сверху в шапке
+   (вид Sales, владелец 03.11.2026). */
+let invSel='';
+function invSelect(id,on=true){invSel=on?id:'';render();}
+function invSelActs(infos){
+ const i=infos.find(x=>x.o.id===invSel);if(!i)return '';
+ const b=(attr,label,fn,aria)=>'<button type="button" class="sl-quiet" '+attr+(aria?' aria-label="'+aria+'" title="'+aria+'"':'')+' onclick="'+fn+'">'+label+'</button>';
+ if(invView==='sheets'){const r=i.r;if(r.sizeMissing)return '';const k=invArg(r.key);return '<b class="oq-sel" title="'+esc(r.code||'')+'">1 selected</b>'+b('data-inv-add','+ Add','invMoveOpen('+k+',\'add\')','Add sheets')+b('data-inv-remove','− Remove','invMoveOpen('+k+',\'writeoff\')','Remove sheets')+b('data-inv-count-one','Count','invMoveOpen('+k+',\'count\')');}
+ if(invView==='stock'){const r=i.r,id=invArg(r.id);if(invStockEdit&&invStockEdit.id===r.id)return '';return '<b class="oq-sel" title="'+esc(r.name||r.code||'')+'">1 selected</b>'+b('data-inv-stock-add','+ Add','invStockOpen('+id+',\'add\')','Add')+b('data-inv-stock-remove','− Remove','invStockOpen('+id+',\'remove\')','Remove')+b('data-inv-stock-count','Count','invStockOpen('+id+',\'count\')');}
+ return '';
+}
 /* Раздел — с чистого листа: фильтр журнала по стеклу ставит только
    строка дашборда (аудит 15.10.2026: он оставался и при входе из меню). */
-function invGo(v){if(!invCountLeave())return;invView=v;invSizeNotice='';consNotice='';consCountDraft={};consCountWhy={};consPackNew=null;invNotice='';invMoveDraft=null;invStockEdit=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
+function invGo(v){if(!invCountLeave())return;invView=v;invSel='';invSizeNotice='';consNotice='';consCountDraft={};consCountWhy={};consPackNew=null;invNotice='';invMoveDraft=null;invStockEdit=null;invOffcutLostDraft.clear();invJournalKey='';salesListMenu=null;render();}
 /* Пересчёт листов и расходников — один вопрос (аудит 25.10.2026, I-6). */
 function invCountLeave(){
  if((Object.keys(invCountDraft).length||consCountDirty())&&!confirm('Discard counts you have not saved?'))return false;
@@ -44324,16 +44396,14 @@ function invListFilters(infos){
  const date=invListDateColumn();
  return '<div class="sl-view-controls">'+status+(date?salesListDateButton(date):'')+'</div>'+salesListFilterChips();
 }
-function invHeader(c){
- const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);
- return '<th class="'+(c.type==='number'?'n':'')+'"><span class="sl-th">'+esc(c.label)+'<button type="button" class="sl-fbtn'+(active?' on':'')+'" data-filter-col="'+c.k+'" aria-label="Filter and sort '+esc(c.label)+'" onclick="salesListOpenFilter(event,\''+c.k+'\')"></button></span></th>';
-}
+function invHeader(c){return salesListHead(c);}
 /* lead — лишние ячейки слева, сразу за шестерёнкой: кнопки строки видны
    без прокрутки широкой таблицы. */
 function invTable(cols,rows,cell,extraHead,extraCells,empty,lead){
  const head=cols.map(invHeader).join(''),body=i=>cols.map(c=>cell(i,c)).join(''),xh=extraHead||'',xc=i=>extraCells?extraCells(i):'';
- return '<div class="sales-table-wrap"><table class="sl-table inv-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+(lead?xh+head:head+xh)+'</tr></thead><tbody>'+
-  (invPageRows(rows).map(i=>'<tr data-inv-row="'+esc(i.o.id)+'"><td></td>'+(lead?xc(i)+body(i):body(i)+xc(i))+'</tr>').join('')||'<tr><td colspan="'+(cols.length+1+(extraHead?1:0))+'" class="empty" data-inv-empty>'+empty+'</td></tr>')+'</tbody></table></div>'+invPager(rows);
+ const cw=salesListCwTable(cols.map(c=>c.k),lead&&xh?[44,120]:[44],!lead&&xh?120:0);
+ return '<div class="sales-table-wrap"><table class="sl-table inv-table'+cw.cls+'"'+cw.attrs+'>'+cw.col+'<thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+(lead?xh+head:head+xh)+'</tr></thead><tbody>'+
+  (invPageRows(rows).map(i=>'<tr data-inv-row="'+esc(i.o.id)+'"'+(invSel===i.o.id?' class="oq-selected"':'')+' oncontextmenu="'+(invView==='sheets'||invView==='stock'?'event.preventDefault();invSelect(\''+esc(i.o.id)+'\')':'')+'">'+(invView==='sheets'||invView==='stock'?'<td class="sl-check"><input type="checkbox" data-inv-check aria-label="Select '+esc(i.o.id)+'" '+(invSel===i.o.id?'checked':'')+' onchange="invSelect(\''+esc(i.o.id)+'\',this.checked)"></td>':'<td></td>')+(lead?xc(i)+body(i):body(i)+xc(i))+'</tr>').join('')||'<tr><td colspan="'+(cols.length+1+(extraHead?1:0))+'" class="empty" data-inv-empty>'+empty+'</td></tr>')+'</tbody></table></div>'+invPager(rows);
 }
 function invNum(v){return v==null||v===''?'<span class="mut">—</span>':esc(v);}
 function invLastCount(r){return r.lastCount?esc(salesListShortDay(salesListIsoDay(r.lastCount.at)))+(r.lastCount.by?' <span class="mut">· '+esc(r.lastCount.by)+'</span>':''):'<span class="mut">—</span>';}
@@ -44371,7 +44441,7 @@ function invSheetsView(infos){
  const rows=salesListRows(infos),cols=salesListColumns();
  /* Плитки считают то же, что видно с фильтрами колонок; фильтр статуса —
     сами плитки, поэтому в их счёт он не входит (как статусы Sales). */
- return invTiles(salesListRows(infos,['status']).map(i=>i.r))+invMoveHTML()+invListFilters(infos)+invTable(cols,rows,invSheetCell,'<th></th>',invSheetActs,infos.length?'Nothing matches the filters.':'No glass in the catalogue yet.',true);
+ return invTiles(salesListRows(infos,['status']).map(i=>i.r))+invMoveHTML()+invListFilters(infos)+invTable(cols,rows,invSheetCell,'','',infos.length?'Nothing matches the filters.':'No glass in the catalogue yet.');
 }
 
 /* ---------------------------- Stock items ---------------------------- */
@@ -44432,7 +44502,7 @@ function invStockSaveHTML(d){
 function invStockActs(i){
  const r=i.r,id=invArg(r.id),d=invStockEdit&&invStockEdit.id===r.id?invStockEdit:null;
  if(d)return '<td class="inv-acts inv-stock-edit" data-inv-stock-edit="'+esc(d.kind)+'"><span class="inv-stock-label">'+(d.kind==='count'?'Count':d.kind==='add'?'Add':'Remove')+'</span></td>';
- return '<td class="inv-acts"><button type="button" class="sl-quiet sm" data-inv-stock-add title="Add" aria-label="Add" onclick="invStockOpen('+id+',\'add\')">+</button><button type="button" class="sl-quiet sm" data-inv-stock-remove title="Remove" aria-label="Remove" onclick="invStockOpen('+id+',\'remove\')">−</button><button type="button" class="sl-quiet sm" data-inv-stock-count onclick="invStockOpen('+id+',\'count\')">Count</button></td>';
+ return '<td></td>';
 }
 /* Под таблицей (вариант D3): что посчитано и поправлено сегодня. */
 function invStockLog(rows){
@@ -44579,10 +44649,6 @@ function invMoveSave(){
  if(!r.ok){invNotice=r.error;render();return;}
  invMoveDraft=null;invNotice='';render();
 }
-function invSheetActs(i){
- const r=i.r;if(r.sizeMissing)return '<td></td>';const k=invArg(r.key);
- return '<td class="inv-acts"><button type="button" class="sl-quiet sm" data-inv-add title="Add sheets" aria-label="Add sheets" onclick="invMoveOpen('+k+',\'add\')">+</button><button type="button" class="sl-quiet sm" data-inv-remove title="Remove sheets" aria-label="Remove sheets" onclick="invMoveOpen('+k+',\'writeoff\')">−</button><button type="button" class="sl-quiet sm" data-inv-count-one onclick="invMoveOpen('+k+',\'count\')">Count</button></td>';
-}
 function invCountView(infos){
  const rows=salesListRows(infos),cols=salesListColumns();
  return invMoveHTML()+'<p class="mut inv-hint">Enter sheets on the rack. Only filled rows are saved.</p>'+invListFilters(infos)+
@@ -44683,13 +44749,14 @@ function consCountSaveUi(){
 
 function viewInventory(){
  if(!accessCan('inventory'))return '<div class="empty">Inventory access is required.</div>';
- if(invView==='consumables')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'<span class="sales-toolbar-sp"></span><button type="button" class="pri" data-cons-count-save onclick="consCountSaveUi()">Save count</button></div>'+invConsumablesView()+salesListMenuHTML([])+'</div></div>';
- if(invView==='sizes')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'</div>'+invSizesView()+salesListMenuHTML([])+'</div></div>';
+ if(invView==='consumables')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-cons-count-save onclick="consCountSaveUi()">Save count</button></div>'+invNav()+invConsumablesView()+salesListMenuHTML([])+'</div></div>';
+ if(invView==='sizes')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span></div>'+invNav()+invSizesView()+salesListMenuHTML([])+'</div></div>';
  const count=invView==='count',off=invView==='offcuts',stock=invView==='stock',infos=invView==='journal'?invMoveInfos():off?invOffcutInfos():stock?invStockInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):off?invOffcutsView(infos):stock?invStockView(infos):count?invCountView(infos):invSheetsView(infos);
  const n=Object.keys(invCountDraft).length;
- return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invNav()+'<span class="sales-toolbar-sp"></span>'+
+ if(invSel&&!infos.some(i=>i.o.id===invSel))invSel='';
+ return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invSelActs(infos)+'<span class="sales-toolbar-sp"></span>'+
   (count||invView==='sheets'?'<button type="button" data-inv-glass-on-rack onclick="invMoveOpen(\'\',\'add\')">+ Glass on rack</button>':'')+(count?'<button type="button" class="pri" data-inv-count-save onclick="invCountSaveUi()">Save count · <span data-inv-count-n>'+n+'</span></button>':'')+
-  (off?'<label class="chk"><input type="checkbox" data-inv-offcut-all '+(invOffcutAll?'checked':'')+' onchange="invOffcutAll=this.checked;render()"> Show used and written off</label><button type="button" data-inv-lost-save onclick="invOffcutLostUi()">Write off <span data-inv-lost-n>'+invOffcutLostDraft.size+'</span> not found</button>':'')+'</div>'+
+  (off?'<label class="chk"><input type="checkbox" data-inv-offcut-all '+(invOffcutAll?'checked':'')+' onchange="invOffcutAll=this.checked;render()"> Show used and written off</label><button type="button" data-inv-lost-save onclick="invOffcutLostUi()">Write off <span data-inv-lost-n>'+invOffcutLostDraft.size+'</span> not found</button>':'')+'</div>'+invNav()+
   (invNotice?'<div class="ncr-error" role="alert">'+esc(invNotice)+'</div>':'')+body+salesListMenuHTML(infos)+'</div></div>';
 }
 
@@ -44946,7 +45013,7 @@ function salesCutEstimateCompare(){
   const total=`<tr class="cut-est-total" data-cut-est-total><td colspan="2"><b>All</b></td><td class="n">${g.rows.reduce((n,r)=>n+r.pcs,0)}</td><td class="n">${cutNum(g.used,1)}</td>
    <td class="n" data-cut-est-sheets>${all?q+aSheets+' → <b>'+g.sheets+'</b>':'—'}</td><td class="n">${all?q+pct(aPct):'—'}</td><td class="n"><b>${pct(g.pct)}</b></td><td class="n">${all?diff(g.pct-aPct):'—'}</td></tr>`;
   return `<div class="cut-orders cut-est-compare" data-cut-est-compare="${esc(g.glass)}"><h4>Alone / together · ${esc(glassCodeLabel(g.glass))} · ${g.mm} mm</h4>
-   <table class="sl-table"><thead><tr><th>Order / quote</th><th>Customer</th><th class="n">Pcs</th><th class="n">Glass ft²</th><th class="n">Sheets alone</th><th class="n">Waste alone</th><th class="n">Waste together</th><th class="n">Change, pts</th></tr></thead><tbody>${rows}${total}</tbody></table></div>`;
+   ${(t=>`<table class="sl-table${t.cls}"${t.attrs}>${t.col}<thead><tr>${t.head}</tr></thead>`)(cwStaticTable('cutEstimate',[['order','Order / quote'],['customer','Customer'],['pcs','Pcs','n'],['ft2','Glass ft²','n'],['sheets','Sheets alone','n'],['waste','Waste alone','n'],['together','Waste together','n'],['change','Change, pts','n']]))}<tbody>${rows}${total}</tbody></table></div>`;
  }).join('');
 }
 function viewSalesCutEstimate(){
@@ -44989,7 +45056,7 @@ function orderLogDialogHTML(){
  const rows=orderLogFor(o.id).map(r=>`<tr data-order-log-row><td>${esc(orderLogWhen(r.at))}</td><td>${r.by?raw(r.by):'<span class="mut">—</span>'}</td><td><b>${esc(r.what)}</b>${r.note?` <span class="order-log-note">· ${raw(r.note)}</span>`:''}${undo(r)}</td></tr>`).join('');
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)orderLogClose()"><div class="sales-service-modal sales-dialog order-log-dialog" role="dialog" aria-modal="true" aria-label="Activity log" data-order-log>
   <div class="sales-service-modal-head"><div><span>Activity log</span><h3 data-raw>${esc([o.businessNumber,salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))}</h3></div><button type="button" aria-label="Close" onclick="orderLogClose()">×</button></div>
-  <div class="sales-dialog-body"><table class="order-log-table"><thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`;
+  <div class="sales-dialog-body">${(t=>`<table class="order-log-table${t.cls}"${t.attrs}>${t.col}<thead><tr>${t.head}</tr></thead>`)(cwStaticTable('orderLog',[['when','When'],['who','Who'],['what','What']]))}<tbody>${rows}</tbody></table></div></div></div>`;
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(orderLogDialogHTML);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&orderLogView)orderLogClose();});
@@ -47011,7 +47078,7 @@ function deliveryHTML(){
  const tr=truck&&truck.t,driver=tr&&deliveryDriver(date,tr.id),tl=truck?truck.stops.map(deliveryLoad):[],load=tr?`<span class="mut small" data-truck-load>${shippingCount(truck.stops.length,'stop')} · ${shippingCount(tl.reduce((n,l)=>n+l.skids.length,0),'skid')} · ${(tl.every(l=>l.exact)?'':'~')+docNum(tl.reduce((n,l)=>n+l.kg,0),0)} kg</span>`:'';
  const truckActs=tr?`${load}<label class="rep-inline">Driver<select aria-label="Driver ${esc(tr.name)}" ${truck.stops.length?'':'disabled'} onchange="deliveryRun(deliverySetDriver('${date}','${esc(tr.id)}',this.value))"><option value="">Not set</option>${users.map(u=>`<option value="${esc(u.viewProfileId)}" ${driver&&driver.viewProfileId===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label>${truck.stops.length?q('Trip sheet',`deliveryPrint('${date}','${esc(tr.id)}',false)`,true,'data-trip-sheet')+q('With packing slips',`deliveryPrint('${date}','${esc(tr.id)}',true)`,true,'data-trip-packet'):''}${deliveryKmHTML(date,tr,truck.stops)}`:'';
  const nav=`<button type="button" class="sl-quiet" aria-label="Previous day" onclick="deliverySetDate(finAddDays('${date}',-1))">‹</button><input type="date" aria-label="Delivery day" value="${date}" onchange="deliverySetDate(this.value)"><button type="button" class="sl-quiet" aria-label="Next day" onclick="deliverySetDate(finAddDays('${date}',1))">›</button><button type="button" class="sl-quiet" onclick="deliverySetDate('')">Today</button>`;
- const bar=`<div class="sales-toolbar delivery-bar">${nav}${sel?`<b class="oq-sel">${esc(sel.s.number)}</b>`:''}${stopActs}${truckActs?'<span class="delivery-truck-acts">'+(tr?'<b>'+esc(tr.name)+'</b>':'')+truckActs+'</span>':''}<span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>`;
+ const bar=`<div class="sales-toolbar delivery-bar">${nav}${sel?`<b class="oq-sel" title="${esc(sel.s.number)}">1 selected</b>`:''}${stopActs}${truckActs?'<span class="delivery-truck-acts">'+(tr?'<b>'+esc(tr.name)+'</b>':'')+truckActs+'</span>':''}<span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>`;
  const pill=(k,l,n)=>`<button type="button" class="sl-quick-pill${deliveryPill===k?' on':''}" data-delivery-pill="${esc(k)}" onclick="deliveryPick('${esc(k)}')">${esc(l)} <b>${n}</b></button>`;
  const pills=`<div class="sl-filter-row"><div class="sl-quick">${pill('','All',all.length)}${day.trucks.map(({t,stops})=>pill(t.id,t.name+(t.active?'':' · inactive'),stops.length)).join('')}${pill('free','Not on a truck',day.free.length)}${pill('pickups','Pickups',day.pickups.length)}</div></div>`;
  const truckCell=x=>x.kind==='pickup'?'<span class="mut">Pickup</span>':x.kind==='free'?(x.s.status==='delivered'?'<span class="mut">Not on a truck</span>':`<select aria-label="Truck for ${esc(x.s.number)}" onchange="deliveryRun(deliveryAssign('${esc(x.s.id)}',this.value))"><option value="">Choose truck</option>${active.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select>`):esc(x.t.name);
@@ -47131,7 +47198,7 @@ function skidsHTML(){
  const infos=skidsListInfos(),p=salesListLoadPrefs(),cols=salesListColumns(),keys=cols.map(c=>c.k),cwId=salesListCwId(),listed=salesListRows(infos),rows=skidsOld?listed.filter(i=>i.memo.days>30):listed,nOld=listed.filter(i=>i.memo.days>30).length;
  if(skidsSel&&!all.some(g=>g.customerId===skidsSel))skidsSel='';
  const cur=skidsSel,name=cur?salesCustomerDisplay(cur):'';
- const bar=`<div class="sales-toolbar"><button type="button" class="sl-quiet" data-skids-check-ask ${cur?'':'disabled'} onclick="skidsCheckAsk(skidsSel)">Checked</button><button type="button" class="sl-quiet" data-skid-swap ${cur?'':'disabled'} onclick="skidsSwapAsk(skidsSel)">${cur?'Skid from '+esc(name):'Skid back from customer'}</button>${cur?`<b class="oq-sel">${esc(name)}</b>`:''}<span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>`;
+ const bar=`<div class="sales-toolbar"><button type="button" class="sl-quiet" data-skids-check-ask ${cur?'':'disabled'} onclick="skidsCheckAsk(skidsSel)">Checked</button><button type="button" class="sl-quiet" data-skid-swap ${cur?'':'disabled'} onclick="skidsSwapAsk(skidsSel)">${cur?'Skid from '+esc(name):'Skid back from customer'}</button>${cur?`<b class="oq-sel" title="${esc(name)}">1 selected</b>`:''}<span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>`;
  const pills=`<div class="sl-filter-row"><div class="sl-quick"><button type="button" class="sl-quick-pill${skidsOld?'':' on'}" onclick="skidsOld=false;render()">All <b>${listed.length}</b></button><button type="button" class="sl-quick-pill${skidsOld?' on':''}" data-skids-old onclick="skidsOld=true;render()">Over 30 days <b>${nOld}</b></button></div></div>`;
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;};
  const cell=(i,c,prev)=>{const v=i.memo[c.k];switch(c.k){
