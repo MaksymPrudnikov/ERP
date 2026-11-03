@@ -139,9 +139,9 @@ module.exports=async function({page,eq,ok}){
   const ps=ids.map((id,i)=>shippingCreate({customerId:c.id,method:'delivery',shipTo:{address1:(i+1)+' Main St',city:i?'Brampton':'Mississauga',province:'ON'},date:finToday(),items:shippingAvailable(salesRecord(id)).map(shippingItem)}).value);
   ps.forEach((s,i)=>{s.truckId='T1';s.stop=i+1;});touch();
   const rec=await tripKmCalc(finToday(),'T1');const q=repQuery({source:'deliveries',date:{preset:'today'},metrics:['km','trips','kmPerTrip']});
-  tab='shipping';shippingTab='delivery';deliveryDate='';render();const chip=[...document.querySelector('[data-trip-km="T1"]').children].map(x=>x.textContent.trim()).filter(Boolean).join('|');
+  tab='shipping';shippingTab='delivery';deliveryDate='';deliveryPill='T1';render();const chip=[...document.querySelector('[data-trip-km="T1"]').children].map(x=>x.textContent.trim()).filter(Boolean).join('|');
   ps[1].stop=3;const p3=ps[1];p3.stop=1;ps[0].stop=2;touch();render();const stale=/stops changed/.test(document.querySelector('[data-trip-km="T1"]').textContent);
-  delete window.google;tab='dashboard';render();
+  delete window.google;deliveryPill='';tab='dashboard';render();
   return {km:rec.km,stops:rec.stops.length,call:calls[0][0]+' → '+calls[0][2].join(' → ')+' → '+calls[0][1],report:q.metrics.map((m,i)=>m.label+' '+repFmt(m,q.total[i])),chip:chip.replace(/\s+/g,' ').trim(),stale};
  }),{km:32,stops:2,call:'10 Shop Rd, Vaughan, ON, Canada → 1 Main St, Mississauga, ON → 2 Main St, Brampton, ON → 10 Shop Rd, Vaughan, ON, Canada',report:['Km 32','Trips 1','Km per trip 32'],chip:'32 km|Recalculate km',stale:true});
  /* Проход цеха 11.10.2026 (tools/sim-shop.js): сверка отчётов с собственным
