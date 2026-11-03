@@ -25,4 +25,9 @@ module.exports=async function({eq}){
    /* Шаблон вида docs/ЗАДАЧА_*.md — это не ссылка, а описание группы. */
    if(p.indexOf('*')<0&&!fs.existsSync(path.join(root,p)))dead.push(f+' → '+p);});});
  eq('документы: живые документы не ссылаются на удалённые файлы',dead,[]);
+ /* Руководство Reports: приложение «все поля и показатели» — то же, что в
+    коде (tools/manual-fields.js --write). Владелец, 03.11.2026: «руководство с
+    объяснениями — тогда сам сможешь проверять, если что-то дублируется». */
+ const mf=require('../tools/manual-fields.js'),want=mf.appendix();
+ eq('руководство Reports: поля и показатели в обоих языках — как в коде',mf.FILES.map(f=>[f,mf.current(f)===want]),mf.FILES.map(f=>[f,true]));
 };
