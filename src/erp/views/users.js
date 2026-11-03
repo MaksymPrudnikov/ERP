@@ -205,10 +205,10 @@ function authLogInfos(){
 }
 function authLogTable(){
  const infos=authLogInfos(),rows=salesListRows(infos).sort((a,b)=>b.e.at.localeCompare(a.e.at)),cols=salesListColumns();
- const head=c=>{const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
+ const head=c=>salesListHead(c),cw=salesListCwTable(cols.map(c=>c.k),[],0);
  const cell=(i,c)=>c.k==='when'?`<td>${esc(salesListShortDay(i.memo.when))} · ${esc(new Date(i.e.at).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false}))}</td>`:c.k==='what'?`<td><span class="pill ${i.e.what==='Sign in'?'ok':''}">${esc(i.e.what)}</span></td>`:`<td>${i.memo[c.k]?raw(String(i.memo[c.k])):'<span class="mut">—</span>'}</td>`;
  return `<div class="sales-toolbar">${salesListDateButton('when')}</div>${salesListFilterChips()}
-  <div class="sales-table-wrap"><table class="sl-table users-log"><thead><tr>${cols.map(head).join('')}</tr></thead>
+  <div class="sales-table-wrap"><table class="sl-table users-log${cw.cls}"${cw.attrs}>${cw.col}<thead><tr>${cols.map(head).join('')}</tr></thead>
   <tbody>${rows.map(i=>`<tr data-auth-row>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="empty">${infos.length?'Nothing matches the filters.':'No sign-ins yet'}</td></tr>`}</tbody></table></div>
   <div class="mut cust-foot">${rows.length} of ${infos.length} records · this computer only</div>${salesListMenuHTML(infos)}`;
 }

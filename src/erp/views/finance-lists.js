@@ -74,7 +74,7 @@ function finListFocus(tabKey,filters,all){
  salesListSavePrefs();render();
 }
 function finMoneyText(v){return v>0?finFmt(v):'<span class="mut">—</span>';}
-function finListTh(c,p){const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${c.label}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
+function finListTh(c){return salesListHead(c);}
 /* Итог внизу: число строк и суммы денежных колонок — только строкой.
    Аннулированный (Void) платёж в итог не входит — его денег нет (проход
    11.10.2026: подвал Payments расходился с плитками и Reports). */
@@ -92,7 +92,8 @@ function finListFooter(all,cols,noun){
 function finListTable(infos,cell,rowAttrs,noun,empty){
  const p=salesListLoadPrefs(),rows=salesListRows(infos),cols=salesListColumns();
  const body=rows.map(r=>`<tr ${rowAttrs(r)}>${cols.map(c=>cell(r,c)).join('')}<td class="fin-actions">${r.actions||''}</td></tr>`).join('');
- return {rows,html:`${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table fin-list"><thead><tr>${cols.map(c=>finListTh(c,p)).join('')}<th class="fin-actions"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':empty}</td></tr>`}</tbody>${rows.length?finListFooter(rows,cols,noun):''}</table></div>${salesListMenuHTML(infos)}`};
+ const cw=salesListCwTable(cols.map(c=>c.k),[],120);
+ return {rows,html:`${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table fin-list${cw.cls}"${cw.attrs}>${cw.col}<thead><tr>${cols.map(c=>finListTh(c,p)).join('')}<th class="fin-actions"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':empty}</td></tr>`}</tbody>${rows.length?finListFooter(rows,cols,noun):''}</table></div>${salesListMenuHTML(infos)}`};
 }
 function finDateCell(v){return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;}
 

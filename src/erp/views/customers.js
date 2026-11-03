@@ -33,7 +33,7 @@ function custInfos(){
    terms:paymentTermsLabel(c),credit:c.creditLimit,balance:money?money.balance:null,lastOrder:custLastOrder(c.id),status:custStatusText(c),
    created:c.createdAt?salesListIsoDay(c.createdAt):'',type:c.customerType||'',group:customerGroupName(c),area:c.area||'',rep:c.salesRep||''}};});
 }
-function custHeader(c){const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
+function custHeader(c){return salesListHead(c);}
 function custCell(i,c){
  const x=i.c,v=salesListValue(i,c.k),none='<span class="mut">—</span>';
  if(c.k==='code')return `<td class="mono"><b>${raw(x.code||'—')}</b></td>`;
@@ -53,7 +53,7 @@ function customerList(){
  return `<div class="card sales-list-card">
   <div class="sales-toolbar">${salesListDateButton('created')}<span class="sales-toolbar-sp"></span><button class="pri" data-customer-new onclick="customerNew()">+ New customer</button><button type="button" class="cust-more" data-customer-more title="Export" aria-label="Export" onclick="custMenuOpen(event,'more')">⋯</button></div>
   ${salesListFilterChips()}
-  <div class="sales-table-wrap"><table class="sl-table cust-table"><thead><tr><th><span class="sl-header-tools">${settings}</span></th>${cols.map(custHeader).join('')}<th></th></tr></thead>
+  <div class="sales-table-wrap">${(cw=>`<table class="sl-table cust-table${cw.cls}"${cw.attrs}>${cw.col}`)(salesListCwTable(cols.map(c=>c.k),[44],20))}<thead><tr><th><span class="sl-header-tools">${settings}</span></th>${cols.map(custHeader).join('')}<th></th></tr></thead>
   <tbody>${rows.map(i=>`<tr data-customer-row="${esc(i.c.id)}" ondblclick="customerEdit('${esc(i.c.id)}')" oncontextmenu="custMenuOpen(event,'row','${esc(i.c.id)}')"><td></td>${cols.map(c=>custCell(i,c)).join('')}<td class="customer-row-actions"><button class="sm" onclick="customerEdit('${esc(i.c.id)}')">Open</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'No customers match the filters':'No customers yet'}</td></tr>`}</tbody></table></div>
   <div class="mut cust-foot">${rows.length} of ${infos.length} customers · right-click a row for more</div>
  </div>${salesListMenuHTML(infos)}`;

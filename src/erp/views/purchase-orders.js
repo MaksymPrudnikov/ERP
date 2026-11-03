@@ -30,7 +30,7 @@ function purOrderList(){
   return '<td data-raw class="'+(c.type==='number'?'n':'')+'">'+(v==null||v===''?'—':c.k==='amount'?esc(docNum(v,2)):c.k==='at'?esc(new Date(i.e.at).toLocaleString()):esc(v))+'</td>';
  };
  return '<div class="purchasing-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(history?'':'<button type="button" class="pri" data-pur-po-new onclick="purOrderEdit(\'\')">+ New Purchase Order</button>')+'</div>'+purListFilters(infos)+
-  '<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
+  (cw=>'<div class="sales-table-wrap"><table class="sl-table'+cw.cls+'"'+cw.attrs+'>'+cw.col)(salesListCwTable(cols.map(c=>c.k),[44],0))+'<thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
   purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
 }
 function purHistoryOpen(entity,id){if(PUR_MONEY[entity])purMoneyEdit(entity,id);else if(PUR_FULFIL[entity])purFulfilEdit(entity,id);else if(entity==='po')purOrderEdit(id);else purSupplierEdit(id);}

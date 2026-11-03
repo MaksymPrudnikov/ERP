@@ -88,15 +88,13 @@ function invListFilters(infos){
  const date=invListDateColumn();
  return '<div class="sl-view-controls">'+status+(date?salesListDateButton(date):'')+'</div>'+salesListFilterChips();
 }
-function invHeader(c){
- const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);
- return '<th class="'+(c.type==='number'?'n':'')+'"><span class="sl-th">'+esc(c.label)+'<button type="button" class="sl-fbtn'+(active?' on':'')+'" data-filter-col="'+c.k+'" aria-label="Filter and sort '+esc(c.label)+'" onclick="salesListOpenFilter(event,\''+c.k+'\')"></button></span></th>';
-}
+function invHeader(c){return salesListHead(c);}
 /* lead — лишние ячейки слева, сразу за шестерёнкой: кнопки строки видны
    без прокрутки широкой таблицы. */
 function invTable(cols,rows,cell,extraHead,extraCells,empty,lead){
  const head=cols.map(invHeader).join(''),body=i=>cols.map(c=>cell(i,c)).join(''),xh=extraHead||'',xc=i=>extraCells?extraCells(i):'';
- return '<div class="sales-table-wrap"><table class="sl-table inv-table"><thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+(lead?xh+head:head+xh)+'</tr></thead><tbody>'+
+ const cw=salesListCwTable(cols.map(c=>c.k),lead&&xh?[44,120]:[44],!lead&&xh?120:0);
+ return '<div class="sales-table-wrap"><table class="sl-table inv-table'+cw.cls+'"'+cw.attrs+'>'+cw.col+'<thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+(lead?xh+head:head+xh)+'</tr></thead><tbody>'+
   (invPageRows(rows).map(i=>'<tr data-inv-row="'+esc(i.o.id)+'"><td></td>'+(lead?xc(i)+body(i):body(i)+xc(i))+'</tr>').join('')||'<tr><td colspan="'+(cols.length+1+(extraHead?1:0))+'" class="empty" data-inv-empty>'+empty+'</td></tr>')+'</tbody></table></div>'+invPager(rows);
 }
 function invNum(v){return v==null||v===''?'<span class="mut">—</span>':esc(v);}
