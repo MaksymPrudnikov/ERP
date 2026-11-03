@@ -15,7 +15,7 @@
   кнопки (`optimizationContext`, `optimizationContextHTML`, меню `oq-context` в `salesListMenuHTML`). «Back» теперь
   «Move back»; новый `On Hold` / `Release` через `salesHoldOpen` / `salesReleaseHold`. Shipping использует тот же вид.
 - Не сделано: вкладки Batches / Stock / Sheets и Production — следующие PR этапа 6.
-- Руководство: `docs/manual/optimization.{ru,en}.md`.
+- Руководство: `docs/manual/optimization.ru.md` и `optimization.en.md`.
 
 ## Reports: пояснения к полям и показателям · 3 ноября 2026
 
