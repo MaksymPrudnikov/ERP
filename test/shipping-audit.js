@@ -26,7 +26,7 @@ module.exports=async function({page,eq,ok}){
  eq('F1: the selected order went on hold — Create packing slip does not take the other order; it says so and clears the choice',await t.p.evaluate(()=>{
   const a=saOrder(1,true);saOrder(1,true,salesFindCustomer(a.customerId));
   shippingSelectOrder(a.id,true);unitHold(a.id,a.lines[0].id,1,'Customer asked to wait');tab='shipping';shippingTab='ready';render();
-  shippingSelectCustomer(a.customerId,true);document.querySelector('[data-create-ps="'+a.customerId+'"]').click();
+  document.querySelector('[data-create-ps="'+a.customerId+'"]').click();
   return {draft:!!shippingDraft,notice:saText('.shipping-notice'),selection:shippingSelection.size};
  }),{draft:false,notice:'The selected glass is no longer ready. Select again.',selection:0});
  eq('F1: part of the selection went to another packing slip — the form keeps the rest of it and says how many dropped out',await t.p.evaluate(()=>{
