@@ -16,12 +16,12 @@ module.exports=async function({page,eq}){
  eq('Data → Glass: Short name в карточке и таблице; пустые — черта у строки, add, счётчик, полоса и фильтр',await run(()=>{
   tab='masterdata';mdCatalogGo('glassProduct');const g=glassProductByCode('6CLEAR'),err=snSave('6CLEAR','6 Clear');
   mdSearch='6CLEAR';render();
-  const row=document.querySelector('[data-md-row="glassProduct:'+g.id+'"]'),heads=[...document.querySelectorAll('.customer-table-wrap thead th')].map(x=>x.textContent).slice(0,3);
+  const row=document.querySelector('[data-md-row="glassProduct:'+g.id+'"]'),heads=[...document.querySelectorAll('.customer-table-wrap thead th')].map(x=>x.textContent).slice(1,4);
   const other=glassProductByCode('6E272');mdSearch='6E272';render();
   const miss=document.querySelector('[data-md-row="glassProduct:'+other.id+'"]'),add=miss&&miss.querySelector('.md-short-add');
   const live=DB.glassProduct.filter(x=>x.active!==false&&!x.shortName).length;
   const pill=[...document.querySelectorAll('[data-md-health] .pill')].map(x=>x.textContent).find(x=>/short/.test(x))||'';
-  const banner=document.querySelector('[data-md-short-banner]');
+  const banner=[...document.querySelectorAll('[data-md-status] option')].find(o=>o.value==='noshort');
   mdSearch='';mdStatus='noshort';render();const only=mdVisibleProducts().length===live&&mdVisibleProducts().every(x=>!x.shortName);
   mdStatus='all';mdSearch='6 clear';render();const found=mdVisibleProducts().map(x=>x.code);mdSearch='';render();
   if(add)add.click();const focus=document.activeElement&&document.activeElement.id;mdEdit=null;render();
