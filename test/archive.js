@@ -36,6 +36,10 @@ module.exports=async function({page,eq}){
   reports:JSON.stringify(['glass','cutting','orders','payments','sheets'].map(src=>{const S=REP_SRC[src],r=repQuery({source:src,date:{from:'2025-12-01',to:'2026-01-31'},dims:[],metrics:S.metrics.map(m=>m.k),filters:[]});return [src,r.count,r.total];})),
   agents:comWithScope(()=>{const r=comFind('RFR-T');return JSON.stringify([null,{from:'2026-01-01',to:'2026-01-31'}].map(g=>{const x=comSummary(r,g);return [x.orders,x.base,x.paid,x.com,x.earned,x.paidOut,x.toPay,x.rows.map(y=>[y.number,y.date,y.total,y.paid,y.base,y.pct,y.com])];})
    .concat([[...comDue(r).values()].map(y=>[y.number,y.com,y.paidOut,y.due]).sort()]));})})));
+ eq('План против факта: батч × стекло — листов по плану, порезано по скану, разница; склад сейчас — лист на полке',await t.p.evaluate(x=>{
+  const p=repPlanFacts().find(r=>r.batch===(salesRecord(x.a).batchNo||salesRecord(x.a).lines[0].batchNo)),s=repStockFacts();
+  return {plan:!!p&&p.planSheets>=1&&p.cutSheets===1&&p.diffSheets===1-p.planSheets&&p.brokenSheets===0&&p.planFt2>0&&p.cutFt2>0&&p.glass==='6CLEAR',kinds:[...new Set(s.map(r=>r.kind))].includes('Sheet')};
+ },ids),{plan:true,kinds:true});
  const before=await snap();
  eq('кому пора: отгружен и оплачен месяц назад — да; Hold, не отгружен и рано — нет',await t.p.evaluate(x=>{
   const due=d=>{const s=archiveDue(d);return [x.a,x.b,x.h,x.open].map(id=>s.has(id));};return {june:due('2026-06-01'),march:due('2026-02-01')};

@@ -50,7 +50,7 @@ Starter reports are edited by an administrator; everyone else uses Copy and edit
 
 | Field | What it is |
 |---|---|
-| Chart type | Number (totals), Table, Bars, Columns, Line, Pie. One click to change. |
+| Chart type | Number (totals), Table, Bars, Columns, Combo, Line, Pie. One click to change. |
 | Title | Your own title; empty — a title from the data. |
 | Data | The data source (list in section 5). |
 | Dimension | What rows are split by (Glass, Thickness, Batch, day, month…). Dates: Day, Week, Month, Quarter, Year, Weekday, Hour. |
@@ -66,9 +66,14 @@ Starter reports are edited by an administrator; everyone else uses Copy and edit
 | Sort · rows | Row order; Top N keeps the first N, Other row shows the rest as one row. By default everything is shown. |
 | Layout | Full width or Half width; Totals — the totals row of a table. |
 
-### 4.2 Tables, bars, pies
+### 4.2 Tables, bars, pies, Combo
 
 - A table shows every row: it scrolls inside its card, the header and Total stay in place. The row count is under it.
+- **Sorting:** click a column header to sort by it (▼ biggest first, click again for ▲). The order is yours, in this
+  browser; Reset returns the report's order.
+- **CSV** in the corner of every chart — all its rows and columns as a file for Excel, plain numbers, with Total.
+- **Combo** — two metrics on one chart: the column is the first metric, a narrow inner column is the second on its
+  own scale. For example "sheets cut per month" with "batches" inside. Hover to see both numbers.
 - Bars and the pie legend show every value and scroll inside the card.
 - Days over years become a dense histogram: every day is visible; hover for the date and number.
 
@@ -86,6 +91,7 @@ Each source has its own rows and fields. Fields of one source never share a name
 | Edgework · Drilling & CNC · All operations | a work on a glass | linear inches, pieces, work ft², $ |
 | Tempering · IGU & lamination · Shipping handout | a scan at that station | glass, ft², units |
 | Batches | batch × glass × order | sheets, offcuts, Used %, days to cut |
+| Plan vs actual | batch × glass | cut plan against reality: planned and cut sheets, broken, planned and actual waste (section 5.1) |
 | Orders & due dates | an order | on time / late, days at each stage, total |
 | Ordered glass · Products sold | an order line | what was ordered and sold, by measures and money |
 | Breaks & recuts | broken glass, Recut, NCR | where, why, who, what it cost |
@@ -93,9 +99,36 @@ Each source has its own rows and fields. Fields of one source never share a name
 | Quotes | a quote | won, sent, value |
 | Payments · Payments by order · Refunds · Balances & overdue · Agent commissions | money | Finance / Commissions access only |
 | Stock counts · Sheet moves · IGU materials used · Offcuts in stock | stock | counts, sheet moves, IGU consumption |
+| Stock now | a stock line now | everything on the shelves in one table: sheets, offcuts, consumables, stock items (section 5.2) |
 | PO lines · Supplier receipts · Supplier bills | purchasing | Purchasing access only |
 | Shop now | a glass in the shop now | where it is, days waiting, overdue |
 | Customers | a customer | last order, new customers, sales |
+
+### 5.1 Plan vs actual
+
+A row is a batch and a glass. It compares what the cut plan intended with what really happened in the shop.
+
+| Field | How it is counted |
+|---|---|
+| Plan sheets, Plan sheet ft² | sheets and their area in the batch cut plan |
+| Plan glass ft², Plan waste ft² | used glass and waste by the plan |
+| Sheets cut, Cut sheet ft² | sheets cut by the cutter's scan (first cut from a sheet) |
+| Sheets broken, Broken sheet ft² | broken sheets — separate: a broken sheet is not a cut sheet and is not in actual waste |
+| Good glass ft² | glass of the batch that was cut and not broken |
+| Recut ft², Recut pcs | glass that was cut and then broken (went to Recut) |
+| Actual waste ft² | Cut sheet ft² − Good glass ft² − Recut ft² |
+| Plan waste %, Actual waste % | waste ÷ sheet area × 100 — by plan and in fact |
+| Sheets over plan | Sheets cut − Plan sheets; negative for a batch still being cut |
+| Cutter | who cut most sheets of the batch |
+
+Starter report **Cutting · plan vs actual** (Production / Cutting): totals, sheets per month with batches inside
+(Combo), by cutter, by thickness and glass, and a Batches page with every batch.
+
+### 5.2 Stock now
+
+A row is a stock line now: a sheet size, an offcut on the rack or in a batch, a consumable, a stock item. On hand,
+Free, Reserved, On order and Minimum are in the row's unit (sheets, pieces, kg, ft); a total adds up one unit only.
+Starter report **Stock now · everything on the shelves** (Inventory).
 
 ## 6. Custom metric
 
@@ -153,13 +186,17 @@ With no row dimension the filter checks the whole total.
 
 - **Print** prints every page of the report, each on its own Letter sheet. Need two sheets — make two pages.
 - Orientation belongs to the page: Portrait or Landscape (in Edit, next to the page name).
-- A sheet is the report as on screen, scaled to the paper. A table prints as it shows in its card; all rows will come
-  with Export (later).
+- A sheet is the report as on screen, scaled to the paper. A table prints as it shows in its card; all rows — use CSV.
 - In Edit, the dashed **End of sheet** line shows where the sheet ends: everything above prints as on screen,
   anything below makes the sheet scale down further.
 - The print window has "Save as PDF".
 
-## 10. Reports on people's and stations' screens
+## 10. The manual as one PDF
+
+`node tools/manual-pdf.js` builds the whole manual (every section of `docs/manual/`) into a PDF in Russian and
+English: cover, contents, chapters, page numbers. The files go to Downloads.
+
+## 10.1 Reports on people's and stations' screens
 
 **Show on** (administrator or the Screens tick): the report becomes a tab on the Board of chosen stations and in the
 Overview of chosen people. Filters "This station" and "Me" use the screen's station and the signed-in person.
@@ -1390,5 +1427,74 @@ Last order, days since, new by month.
 | Sales total | Sum of Sales total (one unit only) |
 | Average order | Sales total ÷ Orders (one unit only) |
 | Days since last order · avg | Average of Days since last order |
+
+### Plan vs actual
+
+Cut plan against what was really cut.
+
+| Field | Kind |
+|---|---|
+| Built | Date |
+| First cut | Date |
+| Batch | Text |
+| Glass | List |
+| Thickness | List |
+| Cutter | List |
+| Status | List |
+| Plan sheets | Number |
+| Sheets cut | Number |
+| Sheets over plan | Number |
+| Sheets broken | Number |
+| Plan sheet ft² | Number |
+| Cut sheet ft² | Number |
+| Broken sheet ft² | Number |
+| Plan glass ft² | Number |
+| Good glass ft² | Number |
+| Recut ft² | Number |
+| Recut pcs | Number |
+| Plan waste ft² | Number |
+| Actual waste ft² | Number |
+
+| Metric | How |
+|---|---|
+| Plan sheets | Sum of Plan sheets |
+| Sheets cut | Sum of Sheets cut |
+| Sheets over plan | Sum of Sheets over plan |
+| Sheets broken | Sum of Sheets broken |
+| Plan waste % | Plan waste ft² ÷ Plan sheet ft² × 100 |
+| Actual waste % | Actual waste ft² ÷ Cut sheet ft² × 100 |
+| Recut ft² | Sum of Recut ft² |
+| Batches | Distinct Batch |
+
+### Stock now · inventory · now
+
+Everything on the shelves now.
+
+| Field | Kind |
+|---|---|
+| Kind | List |
+| Material | List |
+| Glass | List |
+| Thickness | List |
+| Size | List |
+| Unit | List |
+| Status | List |
+| On hand | Number |
+| Free | Number |
+| Reserved | Number |
+| On order | Number |
+| Minimum | Number |
+| Sheet ft² on hand | Number |
+| Pieces | Number |
+
+| Metric | How |
+|---|---|
+| On hand | Sum of On hand (one unit only) |
+| Free | Sum of Free (one unit only) |
+| Reserved | Sum of Reserved (one unit only) |
+| On order | Sum of On order (one unit only) |
+| Sheet ft² on hand | Sum of Sheet ft² on hand |
+| Pieces | Sum of Pieces |
+| Lines | Count of rows |
 
 <!-- fields:end -->

@@ -125,7 +125,7 @@ module.exports=async function({page,eq,ok}){
   DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes','RP-start-km','RP-start-myday','RP-start-myedge','RP-start-mycustomers'].includes(r.id));
   DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
   return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
- }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches','RP-start-pursupplier','RP-start-purbalances','RP-start-payorders','RP-start-agents','RP-start-customers']).sort(),again:28,seed:13});
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches','RP-start-pursupplier','RP-start-purbalances','RP-start-payorders','RP-start-agents','RP-start-customers','RP-start-plan','RP-start-stock']).sort(),again:30,seed:14});
  eq('Км рейса по карте Google: цех → остановки → цех, запоминаются за рейс; отчёт — км и км на рейс; поменяли остановки — видно',await t.p.evaluate(async()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'});DB.truck=[{id:'T1',name:'Truck 1',active:true}];DB.tripKm=[];
   DB.company=Object.assign({},DB.company,{address1:'10 Shop Rd',city:'Vaughan',province:'ON'});
@@ -190,7 +190,7 @@ module.exports=async function({page,eq,ok}){
   const copy=repClean(JSON.parse(JSON.stringify(Object.assign({},mine,{id:'RP-my-copy'}))));DB.report.push(copy);DB.reportSeed=3;normalizeReports();
   const fields=r=>r.pages[0].widgets.map(w=>w.q.date.f).join(),now=DB.report.find(r=>r.id==='RP-start-mycustomers');
   const res={start:fields(now),copy:fields(DB.report.find(r=>r.id==='RP-my-copy')),seed:DB.reportSeed};DB.report=DB.report.filter(r=>r.id!=='RP-my-copy');return res;
- }),{start:'created,created',copy:'due,due',seed:13});
+ }),{start:'created,created',copy:'due,due',seed:14});
 
  eq('Аудит 12.10: отчёты по заказам пересчитываются после скана готовности (SHIPR), а не после любого скана цеха',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},id=rbOrder(c,'6CLEAR','single',[[30,40,2]],{delivery:'pickup'});rbBatch([id]);
@@ -511,6 +511,21 @@ module.exports=async function({page,eq,ok}){
  eq('У каждого поля и показателя своё название: «Glass» — тип стекла, «Glass pcs» — штуки; формула не спутает',await t.p.evaluate(()=>Object.entries(REP_SRC).flatMap(([k,S])=>{
   const f=S.fields(),out=[],by=new Map();f.forEach(x=>{if(by.has(x.label))out.push(k+': two fields "'+x.label+'"');by.set(x.label,x);});
   (S.metrics||[]).forEach(m=>{const x=by.get(m.label);if(x&&!(x.type==='num'&&m.f===x.k&&m.agg==='sum'))out.push(k+': metric and field "'+m.label+'"');});return out;})),[]);
+ eq('Combo: колонка — первый показатель, внутри узкая — второй; клик по заголовку сортирует (второй клик — наоборот); CSV — все строки, разбивка колонками, Total',await t.p.evaluate(()=>{
+  const rows=[{id:'1',at:'2024-01-01',k:'A',b:'x',n:5,m:1},{id:'2',at:'2024-02-01',k:'B',b:'y',n:2,m:3},{id:'3',at:'2024-02-02',k:'B',b:'x',n:1,m:1},{id:'4',at:'2024-03-01',k:'C, Inc',b:'y',n:9,m:0}];
+  REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.dim('b','B'),REP_F.num('n','N'),REP_F.num('m','M')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
+  const w=(type,o)=>Object.assign({type,q:Object.assign({source:'qa',dims:['k'],metrics:['n','m']},o||{})}),r=repClean({id:'RP-csv-qa',name:'CSV QA',share:'all',date:{preset:'all'},pages:[{widgets:[w('combo',{dims:['at:month']}),w('table'),w('table',{dims:['k','b'],metrics:['n']})]}]});
+  const keep=DB.report;DB.report=keep.concat([r]);
+  try{
+   repOpen(r.id);const ws=r.pages[0].widgets,box=document.createElement('div');document.body.appendChild(box);box.innerHTML=repChart(r,ws[0]);
+   const combo={inner:box.querySelectorAll('.ch-inner').length,legend:[...box.querySelectorAll('.ch-legend>span')].map(x=>x.textContent)};
+   const order=()=>{box.innerHTML=repChart(r,ws[1]);return [...box.querySelectorAll('tbody tr')].map(tr=>tr.firstElementChild.textContent);};
+   const before=order();repSortClick(ws[1].id,'metric',0);const desc=order();repSortClick(ws[1].id,'metric',0);const asc=order();repSortClick(ws[1].id,'label',0);const name=order();
+   const csv=repCsvText(r,ws[2]).trim().split('\r\n'),csv2=repCsvText(r,ws[1]).trim().split('\r\n');box.remove();repResetView();
+   return {combo,before,desc,asc,name,csv,csv2};
+  }finally{DB.report=keep;repOpenId='';delete REP_SRC.qa;}
+ }),{combo:{inner:2,legend:['N','M (inner)']},before:['C, Inc','A','B'],desc:['C, Inc','A','B'],asc:['B','A','C, Inc'],name:['A','B','C, Inc'],
+  csv:['K,x · N,y · N,Total · N','"C, Inc",0,9,9','A,5,0,5','B,1,2,3','Total,6,11,17'],csv2:['K,N,M','A,5,1','B,3,4','"C, Inc",9,0','Total,17,5']});
  eq('Долгий отчёт: вместо замершей страницы — процент, графики считаются в фоне; после записи прежние графики на экране, пока считаются новые',await t.p.evaluate(async()=>{
   const rows=Array.from({length:50},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+(i%5),n:1}));
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};

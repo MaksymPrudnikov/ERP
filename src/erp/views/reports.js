@@ -250,10 +250,11 @@ function repChart(r,w){
   return (d2?repLegend(S,res,cls):'')+`<div class="rep-scroll">${chartHBars(rows,{fmt,label:w.title})}</div>`;
  }
  /* Combo (как в Looker): колонка — первый показатель, внутри узкая колонка —
-    второй по своей шкале; значения обоих — в подсказке и подписях. */
+    второй по своей шкале (самая высокая — 70% высоты, чтобы оставаться
+    внутри); значения обоих — в подсказке. */
  if(w.type==='combo'){
   const m2=res.metrics[1],v2=k=>(res.rowTotals.get(k)||[])[1],max2=Math.max(0,...res.keys.map(k=>+v2(k)||0));
-  const pts=res.keys.map((k,i)=>({label:text(k),value:res.rowTotals.get(k)[0]||0,inner:m2&&max2?(+v2(k)||0)/max2*100:null,tick:i%every===0,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])+(m2?' · '+m2.label+' '+repFmt(m2,v2(k)):'')}));
+  const pts=res.keys.map((k,i)=>({label:text(k),value:res.rowTotals.get(k)[0]||0,inner:m2&&max2?(+v2(k)||0)/max2*70:null,tick:i%every===0,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])+(m2?' · '+m2.label+' '+repFmt(m2,v2(k)):'')}));
   return chartLegend([{label:m.label,cls:'rep-key-acc'}].concat(m2?[{label:m2.label+' (inner)',cls:'ch-inner-key'}]:[]))+chartColumns(pts,{fmt,label:w.title})+(m2?'':'<div class="mut small">Add a second metric for the inner column.</div>');
  }
  if(w.type==='columns'){

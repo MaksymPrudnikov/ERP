@@ -48,7 +48,7 @@ Reports — конструктор отчётов, как Looker Studio: вы с
 
 | Поле | Что это |
 |---|---|
-| Chart type | Number (итог), Table, Bars (полосы), Columns (столбцы), Line, Pie (круг). Меняется в один клик. |
+| Chart type | Number (итог), Table, Bars (полосы), Columns (столбцы), Combo, Line, Pie (круг). Меняется в один клик. |
 | Title | Своё название; пусто — название по данным. |
 | Data | Источник данных (список ниже, раздел 5). |
 | Dimension | Разрез строк: по чему делить (Glass, Thickness, Batch, день, месяц…). Даты — Day, Week, Month, Quarter, Year, Weekday, Hour. |
@@ -64,9 +64,14 @@ Reports — конструктор отчётов, как Looker Studio: вы с
 | Sort · rows | Порядок строк; Top N — оставить N первых, Other row — остальное одной строкой. По умолчанию показывается всё. |
 | Layout | Full width или Half width; Totals — строка итогов у таблицы. |
 
-### 4.2 Таблица, полосы, круг
+### 4.2 Таблица, полосы, круг, Combo
 
 - Таблица показывает все строки: прокрутка внутри карточки, шапка и Total на месте. Под таблицей — сколько строк.
+- **Сортировка:** клик по заголовку колонки — по ней (▼ больше вверху, второй клик ▲). Порядок свой у вас в этом
+  браузере; Reset возвращает порядок отчёта.
+- **CSV** в углу каждого графика — все его строки и колонки файлом для Excel, числа без форматирования, строка Total.
+- **Combo** — два показателя на одном графике: колонка — первый показатель, внутри узкая колонка — второй, по своей
+  шкале. Например «листов порезано за месяц» и внутри «батчей». При наведении видны оба числа.
 - Полосы и легенда круга — все значения, прокрутка внутри карточки.
 - Дни за годы — плотная гистограмма: каждый день виден, при наведении — дата и число.
 
@@ -84,6 +89,7 @@ Reports — конструктор отчётов, как Looker Studio: вы с
 | Edgework · Drilling & CNC · All operations | работа на стекле | линейные дюймы, штуки, ft² работы, $ |
 | Tempering · IGU & lamination · Shipping handout | скан своей станции | стёкла, ft², юниты |
 | Batches | батч × стекло × заказ | листы, остатки, Used %, дни до реза |
+| Plan vs actual | батч × стекло | план раскроя против факта: листов по плану и порезано, лопнуло, отход по плану и по факту (раздел 5.1) |
 | Orders & due dates | заказ | вовремя / поздно, дни на этапах, сумма |
 | Ordered glass · Products sold | строка заказа | что заказали и продали, по мерам и деньгам |
 | Breaks & recuts | разбитое стекло, Recut, NCR | где, почему, кто, сколько стоило |
@@ -91,9 +97,36 @@ Reports — конструктор отчётов, как Looker Studio: вы с
 | Quotes | квота | выиграно, отправлено, сумма |
 | Payments · Payments by order · Refunds · Balances & overdue · Agent commissions | деньги | только с галочкой Finance / Commissions |
 | Stock counts · Sheet moves · IGU materials used · Offcuts in stock | склад | пересчёты, движения листов, расход IGU |
+| Stock now | позиция склада сейчас | всё на полках одной таблицей: листы, обрезки, расходники, Stock items (раздел 5.2) |
 | PO lines · Supplier receipts · Supplier bills | закупки | с галочкой Purchasing |
 | Shop now | стекло в цеху сейчас | где стоит, сколько ждёт, просрочка |
 | Customers | клиент | последний заказ, новые, сумма продаж |
+
+### 5.1 План против факта (Plan vs actual)
+
+Строка — батч и стекло. Сравнивает, что заложил раскрой, с тем, что было в цеху.
+
+| Поле | Как считается |
+|---|---|
+| Plan sheets, Plan sheet ft² | листы и их площадь в раскрое батча |
+| Plan glass ft², Plan waste ft² | годное и отход по раскрою |
+| Sheets cut, Cut sheet ft² | листы, порезанные по скану резчика (первый рез с листа) |
+| Sheets broken, Broken sheet ft² | лопнувшие листы — отдельно: лопнувший лист не порезанный, в отход по факту не входит |
+| Good glass ft² | порезанное стекло батча, которое не разбили |
+| Recut ft², Recut pcs | порезанное и потом разбитое стекло (ушло в Recut) |
+| Actual waste ft² | Cut sheet ft² − Good glass ft² − Recut ft² |
+| Plan waste %, Actual waste % | отход ÷ площадь листов × 100 — по плану и по факту |
+| Sheets over plan | Sheets cut − Plan sheets; у батча, который ещё режут, — минус |
+| Cutter | кто порезал больше листов этого батча |
+
+Готовый отчёт **Cutting · plan vs actual** (Production / Cutting): итоги, листы по месяцам с батчами внутри (Combo),
+по резчикам, по толщине и стеклу, страница Batches — каждый батч.
+
+### 5.2 Склад сейчас (Stock now)
+
+Строка — позиция склада сейчас: лист размера, обрезок на полке или в батче, расходник, Stock item. Колонки On hand,
+Free, Reserved, On order, Minimum — в единице строки (листы, штуки, kg, ft); итог складывается только в одной единице.
+Готовый отчёт **Stock now · everything on the shelves** (Inventory).
 
 ## 6. Свой показатель (Custom metric)
 
@@ -151,13 +184,17 @@ Reports — конструктор отчётов, как Looker Studio: вы с
 
 - **Print** печатает все страницы отчёта, каждую на свой лист Letter. Нужно два листа — сделайте две страницы.
 - Ориентация — у страницы: Portrait или Landscape (в Edit рядом с названием страницы).
-- Лист — как отчёт на экране, уменьшенный под бумагу. Таблица печатается так, как видна в карточке; все строки —
-  через Export (будет позже).
+- Лист — как отчёт на экране, уменьшенный под бумагу. Таблица печатается так, как видна в карточке; все строки — через CSV.
 - В Edit пунктир **End of sheet** показывает, где кончается лист: всё выше ляжет на лист как на экране, всё ниже
   уменьшит лист сильнее.
 - В окне печати есть «Save as PDF».
 
-## 10. Отчёт на экранах людей и станций
+## 10. Руководство одним PDF
+
+`node tools/manual-pdf.js` собирает всё руководство (все разделы `docs/manual/`) в PDF на русском и английском:
+обложка, оглавление, главы, номера страниц. Файлы — в папке Downloads.
+
+## 10.1 Отчёт на экранах людей и станций
 
 **Show on** (администратор или галочка Screens): отчёт появляется вкладкой на Board выбранных станций и в Overview
 выбранных людей. Фильтры «This station» и «Me» подставляют станцию и вошедшего человека.
@@ -1388,5 +1425,74 @@ Last order, days since, new by month.
 | Sales total | Sum of Sales total (one unit only) |
 | Average order | Sales total ÷ Orders (one unit only) |
 | Days since last order · avg | Average of Days since last order |
+
+### Plan vs actual
+
+Cut plan against what was really cut.
+
+| Field | Kind |
+|---|---|
+| Built | Date |
+| First cut | Date |
+| Batch | Text |
+| Glass | List |
+| Thickness | List |
+| Cutter | List |
+| Status | List |
+| Plan sheets | Number |
+| Sheets cut | Number |
+| Sheets over plan | Number |
+| Sheets broken | Number |
+| Plan sheet ft² | Number |
+| Cut sheet ft² | Number |
+| Broken sheet ft² | Number |
+| Plan glass ft² | Number |
+| Good glass ft² | Number |
+| Recut ft² | Number |
+| Recut pcs | Number |
+| Plan waste ft² | Number |
+| Actual waste ft² | Number |
+
+| Metric | How |
+|---|---|
+| Plan sheets | Sum of Plan sheets |
+| Sheets cut | Sum of Sheets cut |
+| Sheets over plan | Sum of Sheets over plan |
+| Sheets broken | Sum of Sheets broken |
+| Plan waste % | Plan waste ft² ÷ Plan sheet ft² × 100 |
+| Actual waste % | Actual waste ft² ÷ Cut sheet ft² × 100 |
+| Recut ft² | Sum of Recut ft² |
+| Batches | Distinct Batch |
+
+### Stock now · inventory · now
+
+Everything on the shelves now.
+
+| Field | Kind |
+|---|---|
+| Kind | List |
+| Material | List |
+| Glass | List |
+| Thickness | List |
+| Size | List |
+| Unit | List |
+| Status | List |
+| On hand | Number |
+| Free | Number |
+| Reserved | Number |
+| On order | Number |
+| Minimum | Number |
+| Sheet ft² on hand | Number |
+| Pieces | Number |
+
+| Metric | How |
+|---|---|
+| On hand | Sum of On hand (one unit only) |
+| Free | Sum of Free (one unit only) |
+| Reserved | Sum of Reserved (one unit only) |
+| On order | Sum of On order (one unit only) |
+| Sheet ft² on hand | Sum of Sheet ft² on hand |
+| Pieces | Sum of Pieces |
+| Lines | Count of rows |
 
 <!-- fields:end -->
