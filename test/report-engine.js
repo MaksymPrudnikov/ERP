@@ -464,6 +464,15 @@ module.exports=async function({page,eq,ok}){
    return {head,body,foot,bars,grouped};
   }finally{delete REP_SRC.qa;}
  }),{head:['Batch','Glass','Thickness','Rows'],body:['B-2 | 6CLEAR | 6 mm | 2','B-1 | 4E272 | 4 mm | 1'],foot:3,bars:['B-2','B-1'],grouped:['4 mm | 4E272 | B-1','6 mm | 6CLEAR | B-2','~6 mm | ~6CLEAR | B-3']});
+ eq('Список батчей у прежней базы: толщина, стекло, внутри батчи, все батчи; изменённый человеком — не трогается',await t.p.evaluate(()=>{
+  const was=DB.report,seed=DB.reportSeed,old=()=>repClean(Object.assign(REP_STARTERS().find(r=>r.id==='RP-start-batches'),{pages:[{id:'P',name:'Batch list',widgets:[{type:'table',q:{source:'batches',dims:['batch'],metrics:['glassN'],limit:100,sort:{by:'label',dir:'desc'}}}]}]}));
+  try{
+   const mine=old();mine.pages[0].widgets[0].q.limit=50;
+   DB.report=[old()];DB.reportSeed=12;normalizeReports();const q=DB.report.find(r=>r.id==='RP-start-batches').pages[0].widgets[0].q;
+   DB.report=[mine];DB.reportSeed=12;normalizeReports();const m=DB.report.find(r=>r.id==='RP-start-batches').pages[0].widgets[0].q;
+   return {dims:q.dims,more:q.more,limit:q.limit,sort:q.sort,kept:[m.dims,m.limit]};
+  }finally{DB.report=was;DB.reportSeed=seed;}
+ }),{dims:['mm'],more:['glass','batch'],limit:0,sort:null,kept:[['batch'],50]});
  eq('Долгий отчёт: вместо замершей страницы — процент, графики считаются в фоне; после записи прежние графики на экране, пока считаются новые',await t.p.evaluate(async()=>{
   const rows=Array.from({length:50},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+(i%5),n:1}));
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};

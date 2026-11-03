@@ -82,10 +82,11 @@ function normalizeReports(){
      графики, которые ещё как в стартовом. */
   if(seed>=1&&seed<7)Object.entries(REP_START_FOLDERS).forEach(([k,f])=>{const x=DB.report.find(r=>r.id==='RP-start-'+k);if(x&&x.folder==='Production')x.folder=f;});
   if(seed>=3&&seed<4){const x=DB.report.find(r=>r.id==='RP-start-mycustomers');if(x)x.pages.forEach(p=>p.widgets.forEach(w=>{if(w.q.source==='orders'&&w.q.date.f==='due'&&w.q.date.use!=='own')w.q.date.f='created';}));}
-  /* Версия 13 (03.11.2026): список батчей — с типом стекла и толщиной, все
-     батчи (владелец: «понятен номер, но нет типа и мм»; «ничего не
-     ограничивать»). Только если график ещё как в стартовом. */
-  if(seed>=9&&seed<13){const x=DB.report.find(r=>r.id==='RP-start-batches');if(x)x.pages.forEach(p=>p.widgets.forEach(w=>{if(w.q.source==='batches'&&w.q.dims.join()==='batch'&&!w.q.more.length&&w.q.limit===100){w.q.more=['glass','mm'];w.q.limit=0;}}));}
+  /* Версия 13 (03.11.2026): список батчей — толщина, стекло, внутри батчи,
+     все батчи (владелец: «понятен номер, но нет типа и мм»; «наоборот: мм,
+     тип и внутри батчи — чтобы быстро найти»; «ничего не ограничивать»).
+     Только если график ещё как в стартовом. */
+  if(seed>=9&&seed<13){const x=DB.report.find(r=>r.id==='RP-start-batches');if(x)x.pages.forEach(p=>p.widgets.forEach(w=>{if(w.q.source==='batches'&&w.q.dims.join()==='batch'&&!w.q.more.length&&w.q.limit===100){w.q.dims=['mm'];w.q.more=['glass','batch'];w.q.limit=0;w.q.sort=null;}}));}
   DB.reportSeed=REP_SEED_VERSION;
  }
 }
@@ -263,7 +264,7 @@ function REP_STARTERS(){
     repW('columns','batches',{title:'Batches by day',dims:['at:day'],metrics:['batches']}),
     repW('table','batches',{title:'By day',dims:['built'],metrics:['batches','glassN','area','sheets','yield','daysFirst','daysLast'],sort:{by:'label',dir:'desc'}}),
     repW('table','batches',{title:'By glass',dims:['glass'],metrics:['batches','glassN','area','sheets','offcuts','sheetFt2','yield','broken']})]],
-   ['Batch list',[repW('table','batches',{title:'Batches',dims:['batch'],more:['glass','mm'],metrics:['glassN','area','orders','sheets','offcuts','yield','daysFirst','daysLast'],sort:{by:'label',dir:'desc'}})]]],9),
+   ['Batch list',[repW('table','batches',{title:'Batches',dims:['mm'],more:['glass','batch'],metrics:['glassN','area','orders','sheets','offcuts','yield','daysFirst','daysLast']})]]],9),
   /* Версия 10 (27.10.2026): закупки — только с галочкой Purchasing. Деньги
      — по Account (поставщик · валюта): CAD и USD не складываются. */
   R('pursupplier','Purchasing · by supplier','Purchasing','thisYear',['supplier','currency','kind'],[
