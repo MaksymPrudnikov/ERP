@@ -43,6 +43,7 @@ function repWidgetQuery(r,w){
  const q=JSON.parse(JSON.stringify(w.q)),v=repView(r.id),S=REP_SRC[q.source];
  if(q.date.use!=='own'){const d=v.date||r.date;q.date=Object.assign({},q.date,{preset:d.preset||'',from:d.from||'',to:d.to||''});}
  if(w.type!=='table')q.more=[];
+ const vs=v.s&&v.s[w.id];if(vs)q.sort=vs;
  q.custom=r.custom||[];
  q.skip=[];Object.entries(repViewFilters(r)).forEach(([f,vals])=>{if(!Array.isArray(vals)||!vals.length||!S)return;if(repField(S,f))q.filters.push({f,op:'in',v:vals});else q.skip.push(f);});
  return q;
@@ -156,7 +157,9 @@ function repTableMore(el){
 function repTableHTML(r,S,res,w){
  const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],cmp=res.compare&&!d2;
  /* Измерения строк: первое и ещё (res.more) — каждое своей колонкой. */
- const rowDims=[d1].concat(res.more||[]),rowHead=at=>rowDims.map(d=>`<th${at||''}>${esc(repDimLabel(S,d))}</th>`).join('');
+ /* Клик по заголовку — порядок строк (как в Looker): свой у зрителя, в этом браузере. */
+ const so=repWidgetQuery(r,w).sort,sortTh=(text,by,i,cls,at)=>{const on=!!so&&so.by===by&&(by==='label'||so.i===i);return `<th${at||''} class="${cls||''} rep-sortable${on?' rep-sort-on':''}" data-rep-sort="${by}:${i}" onclick="repSortClick('${esc(w.id)}','${by}',${i})">${esc(text)}${on?(so.dir==='asc'?' ▲':' ▼'):''}</th>`;};
+ const rowDims=[d1].concat(res.more||[]),rowHead=at=>rowDims.map(d=>sortTh(repDimLabel(S,d),'label',0,'',at)).join('');
  /* Значение, как в строке выше, — бледно: группа видна, «6 mm · 6CLEAR» и батчи под ней. */
  const rowCells=(k,i,arr)=>{const parts=String(k).split('\u0002'),prev=i>0&&arr?String(arr[i-1]).split('\u0002'):[];let same=rowDims.length>1;
   return rowDims.map((d,j)=>{const v=parts[j];if(v==null)return '<td></td>';same=same&&j<rowDims.length-1&&prev[j]===v;const t=esc(repKeyText(S,d,v));return `<td${repPickAttrs(r,S,d,v)}${same?' class="rep-same"':''}>${j?`<span data-raw>${t}</span>`:`<b data-raw>${t}</b>`}</td>`;}).join('');},totalCell=`<td colspan="${rowDims.length}"><b>Total</b></td>`;
@@ -171,7 +174,7 @@ function repTableHTML(r,S,res,w){
   body=repTableBody(w,keys,(k,i,arr)=>`<tr>${rowCells(k,i,arr)}${k2.map(b=>ms.map((m,i)=>`<td class="n">${cell((res.cells.get(k+'\u0001'+b)||[])[i],m)}</td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(k)[i]))}</b></td>`).join('')}</tr>`);
   if(w.opts.totals)foot=`<tr class="sl-foot">${totalCell}${k2.map(b=>ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.colTotals.get(b)[i]))}</b></td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr>`;
  }else{
-  head=`${rowHead()}${ms.map(m=>`<th class="n">${esc(m.label)}</th>`+(cmp?`<th class="n rep-cmp">${esc(repCmpText(res))}</th>`:'')).join('')}`;
+  head=`${rowHead()}${ms.map((m,i)=>sortTh(m.label,'metric',i,'n')+(cmp?`<th class="n rep-cmp">${esc(repCmpText(res))}</th>`:'')).join('')}`;
   body=repTableBody(w,keys,(k,n,arr)=>`<tr>${rowCells(k,n,arr)}${ms.map((m,i)=>`<td class="n">${repCellHTML(m,res.rowTotals.get(k)[i])}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`);
   if(w.opts.totals)foot=`<tr class="sl-foot">${totalCell}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.total[i],res.compare.total[i]))}</td>`:'')).join('')}</tr>`;
  }
@@ -246,6 +249,13 @@ function repChart(r,w){
   const rows=res.keys.map(k=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])}));
   return (d2?repLegend(S,res,cls):'')+`<div class="rep-scroll">${chartHBars(rows,{fmt,label:w.title})}</div>`;
  }
+ /* Combo (как в Looker): колонка — первый показатель, внутри узкая колонка —
+    второй по своей шкале; значения обоих — в подсказке и подписях. */
+ if(w.type==='combo'){
+  const m2=res.metrics[1],v2=k=>(res.rowTotals.get(k)||[])[1],max2=Math.max(0,...res.keys.map(k=>+v2(k)||0));
+  const pts=res.keys.map((k,i)=>({label:text(k),value:res.rowTotals.get(k)[0]||0,inner:m2&&max2?(+v2(k)||0)/max2*100:null,tick:i%every===0,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])+(m2?' · '+m2.label+' '+repFmt(m2,v2(k)):'')}));
+  return chartLegend([{label:m.label,cls:'rep-key-acc'}].concat(m2?[{label:m2.label+' (inner)',cls:'ch-inner-key'}]:[]))+chartColumns(pts,{fmt,label:w.title})+(m2?'':'<div class="mut small">Add a second metric for the inner column.</div>');
+ }
  if(w.type==='columns'){
   const pts=res.keys.map((k,i)=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,tick:i%every===0,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])+(res.compare?' · '+repCmpText(res)+' '+fmt((res.compare.rowTotals.get(k)||[])[0]):'')}));
   return (d2?repLegend(S,res,cls):'')+chartColumns(pts,{fmt,label:w.title});
@@ -274,7 +284,7 @@ function repWidgetTitle(w){
 function repWidgetCard(r,w,i,n){
  const sel=repEditOn&&w.id===repSelW,tools=repEditOn?`<span class="rep-wtools"><button type="button" class="sm" onclick="repSelectWidget('${esc(w.id)}')">Edit</button><button type="button" class="sm" title="Duplicate" onclick="repDupWidget('${esc(w.id)}')">Duplicate</button><button type="button" class="sm" title="Move up" ${i?'':'disabled'} onclick="repMoveWidget('${esc(w.id)}',-1)">↑</button><button type="button" class="sm" title="Move down" ${i<n-1?'':'disabled'} onclick="repMoveWidget('${esc(w.id)}',1)">↓</button><button type="button" class="sm dl" title="Remove" onclick="repDelWidget('${esc(w.id)}')">×</button></span>`:'';
  const src=REP_SRC[w.q.source],own=w.q.date.use==='own'?' · '+repDateText(w.q.date):'';
- return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${esc(w.id)}" data-rep-type="${w.type}"${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select'))repSelectWidget('${esc(w.id)}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span>${tools}</div>${repChart(r,w)}${repSkipHTML(r,w)}</div>`;
+ return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${esc(w.id)}" data-rep-type="${w.type}"${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select'))repSelectWidget('${esc(w.id)}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span>${tools}${w.type!=='number'||!repEditOn?`<button type="button" class="sm rep-csv" data-rep-csv title="Export all rows to CSV" onclick="repCsv('${esc(w.id)}')">CSV</button>`:''}</div>${repChart(r,w)}${repSkipHTML(r,w)}</div>`;
 }
 
 function repSkipHTML(r,w){
@@ -291,7 +301,7 @@ function repControls(r){
  const keys=[...new Set(r.controls.filter(f=>labels.has(f)).concat(active))];
  const btn=f=>{const vals=vf[f]||[],on=vals.length>0;return `<span class="rep-ctl${on?' on':''}"><button type="button" class="sl-quiet" data-rep-ctl="${esc(f)}" onclick="repOpenCtl(event,'${esc(f)}')">${esc(labels.get(f)||f)}${on?': '+esc(vals.length>2?vals.length+' values':vals.join(', ')):''}<span class="sl-disclosure">▾</span></button>${on?`<button type="button" class="rep-x" aria-label="Clear" onclick="repClearCtl('${esc(f)}')">×</button>`:''}${repEditOn&&r.controls.includes(f)?`<button type="button" class="rep-x" title="Remove control" onclick="repDelControl('${esc(f)}')">−</button>`:''}</span>`;};
  const free=[...labels.keys()].filter(f=>!keys.includes(f));
- return `<div class="rep-bar"><button type="button" class="sl-quiet rep-ctl-date" data-rep-date onclick="repOpenDate(event)">Date: ${esc(repDateText(repEditOn?r.date:v.date||r.date))}<span class="sl-disclosure">▾</span></button>${keys.map(btn).join('')}${repEditOn&&free.length?`<select class="rep-add-ctl" aria-label="Add control" onchange="if(this.value)repAddControl(this.value)"><option value="">+ Control</option>${free.map(f=>`<option value="${esc(f)}">${esc(labels.get(f))}</option>`).join('')}</select>`:''}${v.date||v.f!==undefined?`<button type="button" class="sm" data-rep-reset onclick="repResetView()" title="Back to the report's own period and filters">Reset</button>${!repEditOn&&repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-save-view onclick="repSaveDefaults()" title="Keep this period and these filters in the report">Save as default</button>`:''}`:''}</div>`;
+ return `<div class="rep-bar"><button type="button" class="sl-quiet rep-ctl-date" data-rep-date onclick="repOpenDate(event)">Date: ${esc(repDateText(repEditOn?r.date:v.date||r.date))}<span class="sl-disclosure">▾</span></button>${keys.map(btn).join('')}${repEditOn&&free.length?`<select class="rep-add-ctl" aria-label="Add control" onchange="if(this.value)repAddControl(this.value)"><option value="">+ Control</option>${free.map(f=>`<option value="${esc(f)}">${esc(labels.get(f))}</option>`).join('')}</select>`:''}${v.date||v.f!==undefined||v.s?`<button type="button" class="sm" data-rep-reset onclick="repResetView()" title="Back to the report's own period and filters">Reset</button>${!repEditOn&&repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-save-view onclick="repSaveDefaults()" title="Keep this period and these filters in the report">Save as default</button>`:''}`:''}</div>`;
 }
 function repMenuHTML(r){
  const m=repMenu;if(!m||!r)return '';
@@ -337,7 +347,33 @@ function repClearCtl(f){const r=repOpenReport();if(!r)return;const base=Object.a
 function repSetViewDate(d){const r=repOpenReport();if(!r)return;const date={preset:d.preset||'',from:d.from||'',to:d.to||''};
  if(repEditOn&&repDraft){repViewSet(r.id,v=>{delete v.date;});repMenu=null;repEditCur(x=>{x.date=date;});return;}
  repViewSet(r.id,v=>{v.date=date;});repMenu=null;render();}
-function repResetView(){const r=repOpenReport();if(!r)return;repViewSet(r.id,v=>{delete v.date;delete v.f;});repMenu=null;render();}
+function repResetView(){const r=repOpenReport();if(!r)return;repViewSet(r.id,v=>{delete v.date;delete v.f;delete v.s;});repMenu=null;render();}
+function repSortClick(wid,by,i){
+ const r=repOpenReport();if(!r)return;const w=r.pages.flatMap(p=>p.widgets).find(x=>x.id===wid);if(!w)return;
+ const cur=repWidgetQuery(r,w).sort,same=cur&&cur.by===by&&(by==='label'||cur.i===i),dir=same?(cur.dir==='asc'?'desc':'asc'):by==='label'?'asc':'desc';
+ repViewSet(r.id,v=>{v.s=v.s&&typeof v.s==='object'?v.s:{};v.s[wid]={by,i,dir};});render();
+}
+/* Export CSV (как в Looker: меню графика → Export): все строки и колонки,
+   как в таблице, числа без форматирования, строка Total. */
+function repCsvText(r,w){
+ const q=repWidgetQuery(r,w),S=REP_SRC[q.source],res=repResultOf(q,repCtx());if(!S||!res)return '';
+ const cell=v=>{const s=v==null?'':String(v);return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;},num=(m,v)=>v==null||!Number.isFinite(+v)?'':m.money?(+v).toFixed(2):String(+(+v).toFixed(6));
+ const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],rowDims=d1?[d1].concat(res.more||[]):[],lines=[];
+ const keys2=d2?res.keys2:[],head=rowDims.map(d=>repDimLabel(S,d)).concat(d2?keys2.flatMap(b=>ms.map(m=>repKeyText(S,d2,b)+' · '+m.label)).concat(ms.map(m=>'Total · '+m.label)):ms.map(m=>m.label));
+ lines.push(head);
+ if(!d1)lines.push(ms.map((m,i)=>num(m,res.total[i])));
+ else{
+  res.keys.forEach(k=>{const parts=String(k).split('\u0002'),dims=rowDims.map((d,j)=>parts[j]==null?'':repKeyText(S,d,parts[j]));
+   lines.push(dims.concat(d2?keys2.flatMap(b=>ms.map((m,i)=>num(m,(res.cells.get(k+'\u0001'+b)||[])[i]))).concat(ms.map((m,i)=>num(m,res.rowTotals.get(k)[i]))):ms.map((m,i)=>num(m,res.rowTotals.get(k)[i]))));});
+  lines.push(['Total'].concat(rowDims.slice(1).map(()=>'')).concat(d2?keys2.flatMap(b=>ms.map((m,i)=>num(m,(res.colTotals.get(b)||[])[i]))).concat(ms.map((m,i)=>num(m,res.total[i]))):ms.map((m,i)=>num(m,res.total[i]))));
+ }
+ return lines.map(l=>l.map(cell).join(',')).join('\r\n')+'\r\n';
+}
+function repCsv(wid){
+ const r=repOpenReport();if(!r)return;const w=r.pages.flatMap(p=>p.widgets).find(x=>x.id===wid);if(!w)return;
+ const name=(r.name+' - '+repWidgetTitle(w)).replace(/[\\/:*?"<>|]+/g,' ').trim()+' '+finToday()+'.csv';
+ storageDownload(name,['\ufeff'+readScope(()=>repCsvText(r,w))],'text/csv');
+}
 /* Save as default: свой период и фильтры становятся периодом и фильтрами отчёта. */
 function repSaveDefaults(){const r=repOpenReport();if(!r||repDraft)return;const v=repView(r.id);if(repEditReport(r.id,x=>{if(v.date)x.date=v.date;if(v.f!==undefined)x.filters=v.f;}))repResetView();}
 
@@ -365,7 +401,7 @@ function repSetup(r){
   <h5>Title</h5><input type="text" value="${esc(w.title)}" placeholder="${esc(repWidgetTitle(Object.assign({},w,{title:''})))}" onchange="repSetW('title',this.value)">
   <h5>Data</h5><select data-rep-source onchange="repSetSource(this.value)">${repSrcOptions(q.source)}</select><div class="hint">${esc(S.hint||'')}</div>
   <h5>Dimension</h5><select data-rep-dim="0" onchange="repSetDim(0,this.value)">${repOpt(dims,q.dims[0]||'','None — totals only')}</select>${repMoreHTML(w,S)}
-  ${w.type!=='number'&&w.type!=='pie'?`<h5>Breakdown</h5><select data-rep-dim="1" onchange="repSetDim(1,this.value)">${repOpt(dims.filter(d=>d[0]!==q.dims[0]),q.dims[1]||'','None')}</select>${q.dims[1]&&w.type!=='table'&&q.metrics.length>1?'<div class="hint" data-rep-first-metric>Chart shows the first metric; Table shows all.</div>':''}`:''}
+  ${w.type==='combo'?'<div class="hint" data-rep-combo>First metric — column; second — inner column.</div>':''}${w.type!=='number'&&w.type!=='pie'&&w.type!=='combo'?`<h5>Breakdown</h5><select data-rep-dim="1" onchange="repSetDim(1,this.value)">${repOpt(dims.filter(d=>d[0]!==q.dims[0]),q.dims[1]||'','None')}</select>${q.dims[1]&&w.type!=='table'&&q.metrics.length>1?'<div class="hint" data-rep-first-metric>Chart shows the first metric; Table shows all.</div>':''}`:''}
   <h5>Metrics</h5>${(q.metrics.length?q.metrics:[S.metrics[0].k]).map((k,i)=>{const c=repCalcParse(k),del=q.metrics.length>1?`<button type="button" class="sm dl" onclick="repDelMetric(${i})">×</button>`:'';
    if(!c)return `<div class="sl-row"><select data-rep-metric="${i}" onchange="repSetMetric(${i},this.value)">${repOpt(mets,k)}</select>${del}</div>`;
    const num=/^n:/.test(c.b);
@@ -403,7 +439,9 @@ function repSetW(path,v){repWEdit(w=>{
  else if(p[0]==='limit')w.q.limit=Math.max(0,Math.floor(+v||0));
  else if(p[0]==='other')w.q.other=!!v;
  else if(p[0]==='compare')w.q.compare=v;
- if(w.type==='number'||w.type==='pie')w.q.dims=w.type==='number'?[]:w.q.dims.slice(0,1);
+ if(w.type==='number'||w.type==='pie'||w.type==='combo')w.q.dims=w.type==='number'?[]:w.q.dims.slice(0,1);
+ /* Combo — два показателя: второй добавляется сам. */
+ if(w.type==='combo'&&w.q.metrics.length<2){const S=REP_SRC[w.q.source],have=w.q.metrics.length?w.q.metrics:[S.metrics[0].k],next=S.metrics.find(x=>!have.includes(x.k));w.q.metrics=have.concat(next?[next.k]:[]);}
 });}
 function repSetSource(k){const S=REP_SRC[k];if(!S)return;repWEdit(w=>{w.q.source=k;w.q.filters=[];w.q.metrics=[S.metrics[0].k];w.q.dims=w.type==='number'?[]:[repDimOptions(S)[0][0]];w.q.sort=null;w.q.date.f='';});}
 /* Ещё измерения строк таблицы (как в Looker): «+ Row dimension». */

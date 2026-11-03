@@ -22,11 +22,11 @@
    ===================================================================== */
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
-const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=13;
+const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['combo','Combo'],['line','Line'],['pie','Pie']];
+const REP_SEED_VERSION=14;
 /* Версия 7 (26.10.2026): стартовые Production — по подпапкам (каталог
    деревом, view/reports). У базы переезжают только те, чью папку не меняли. */
-const REP_START_FOLDERS={cut:'Production / Cutting',sheets:'Production / Cutting',sheetcut:'Production / Cutting',offcuts:'Production / Cutting',
+const REP_START_FOLDERS={plan:'Production / Cutting',cut:'Production / Cutting',sheets:'Production / Cutting',sheetcut:'Production / Cutting',offcuts:'Production / Cutting',
  polish:'Production / Edgework',edge:'Production / Edgework',drill:'Production / Drilling & CNC',temper:'Production / Tempering',igu:'Production / IGU & lamination',
  stations:'Production / Shop',shopnow:'Production / Shop',sizes:'Production / Shop'};
 /* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
@@ -274,6 +274,19 @@ function REP_STARTERS(){
     repW('table','batches',{title:'By day',dims:['built'],metrics:['batches','glassN','area','sheets','yield','daysFirst','daysLast'],sort:{by:'label',dir:'desc'}}),
     repW('table','batches',{title:'By glass',dims:['glass'],metrics:['batches','glassN','area','sheets','offcuts','sheetFt2','yield','broken']})]],
    ['Batch list',[repW('table','batches',{title:'Batches',dims:['mm'],more:['glass','batch'],metrics:['glassN','area','orders','sheets','offcuts','yield','daysFirst','daysLast']})]]],9),
+  /* Версия 14 (03.11.2026): план раскроя против факта и склад сейчас
+     (владелец: «что было реально, а что было оптимизировано»; «листы
+     инвентаризации — вся инвентаризация сразу»). */
+  R('plan','Cutting · plan vs actual','Production / Cutting','thisMonth',['mm','glass','person'],[
+   ['Summary',[repW('number','plan',{title:'Plan vs actual',metrics:['planSheets','cutSheets','diffSheets','brokenSheets','planPct','actualPct']}),
+    repW('combo','plan',{title:'Sheets cut by month · batches',date:{use:'own',preset:'thisYear'},dims:['at:month'],metrics:['cutSheets','batches']}),
+    repW('table','plan',{title:'By cutter',dims:['person'],metrics:['cutSheets','planSheets','diffSheets','brokenSheets','actualPct','planPct']}),
+    repW('table','plan',{title:'By thickness and glass',dims:['mm'],more:['glass'],metrics:['cutSheets','planSheets','diffSheets','brokenSheets','actualPct','planPct']})]],
+   ['Batches',[repW('table','plan',{title:'Batch · plan vs actual',dims:['mm'],more:['glass','batch'],metrics:['planSheets','cutSheets','diffSheets','brokenSheets','planPct','actualPct','recutFt2']})]]],14),
+  R('stock','Stock now · everything on the shelves','Inventory','all',['kind','glass','status'],[
+   ['Now',[repW('number','stock',{title:'On the shelves',metrics:['pcs','ft2','count']}),
+    repW('table','stock',{title:'Sheets and offcuts',dims:['mm'],more:['glass','size','kind'],metrics:['onHand','free','reserved','ft2'],filters:[{f:'kind',op:'in',v:['Sheet','Offcut']}]}),
+    repW('table','stock',{title:'Consumables and stock items',dims:['kind'],more:['material','unit'],metrics:['onHand','free','reserved','onOrder'],filters:[{f:'kind',op:'notIn',v:['Sheet','Offcut']}]})]]],14),
   /* Версия 10 (27.10.2026): закупки — только с галочкой Purchasing. Деньги
      — по Account (поставщик · валюта): CAD и USD не складываются. */
   R('pursupplier','Purchasing · by supplier','Purchasing','thisYear',['supplier','currency','kind'],[

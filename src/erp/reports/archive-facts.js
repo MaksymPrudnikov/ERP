@@ -35,12 +35,13 @@ const ARCH_GENS={
  delivery:{fn:'repDeliveryFacts',shared:true},sheet:{fn:'repSheetFacts',shared:true},sheetcut:{fn:'repSheetCutFacts',shared:true,early:true},move:{fn:'repSheetMoveFacts',shared:true,early:true},
  receipt:{fn:'repReceiptFacts',shared:true},refund:{fn:'repRefundFacts',shared:true},
  batch:{fn:'repBatchFacts',shared:true,cold:true,own:r=>r.orderId},payorder:{fn:'repPayOrderFacts',shared:true,cold:true,own:r=>String(r.id).split('|')[1]},
+ plan:{fn:'repPlanFacts',shared:true},
  igu:{fn:'repIguMaterialFacts',shared:true,sum:['qty','units','missing','spacerFt','sealantKg','gasKg','partsKg']}
 };
 /* Источник отчёта → функция фактов. Чего здесь нет — не зависит от архива:
    закупки, склад без заказов, то, что есть сейчас (now). */
 const REP_ARCH_SRC={glass:'work',cutting:'work',tempering:'work',assembly:'work',shipping:'work',time:'work',edgework:'op',drilling:'op',ops:'op',breaks:'break',orders:'order',ordered:'ordered',
- sold:'sold',quotes:'quote',deliveries:'delivery',sheets:'sheet',sheetcut:'sheetcut',batches:'batch',payments:'receipt',payorders:'payorder',refunds:'refund',moves:'move',igumat:'igu'};
+ sold:'sold',quotes:'quote',deliveries:'delivery',sheets:'sheet',sheetcut:'sheetcut',batches:'batch',payments:'receipt',payorders:'payorder',refunds:'refund',moves:'move',igumat:'igu',plan:'plan'};
 /* Поля, которые читают сами функции поверх строк. */
 const REP_ARCH_KEYS={work:['station'],op:['station','kind','unit'],igu:['record','norm'],delivery:['trip','km','tripFirst','kmDone']};
 const REP_ARCH_TIME=['day','personId','person','station','at','area'];

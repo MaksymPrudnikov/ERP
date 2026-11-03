@@ -295,4 +295,24 @@ REP_SRC.customers={label:'Customers',group:'Customers',access:'customers',now:tr
  metrics:[{k:'customers',label:'Customers',agg:'sum',f:'customers'},{k:'buying',label:'With orders',agg:'sum',f:'buying'},{k:'active',label:'Ordered in 90 days',agg:'sum',f:'active'},
   {k:'lapsed',label:'No order 180+ days',agg:'sum',f:'lapsed'},{k:'orders',label:'Orders',agg:'sum',f:'orders'},{k:'total',label:'Sales total',agg:'sum',f:'total',money:true,unitBy:'currency'},
   {k:'avgOrder',label:'Average order',agg:'ratio',num:'total',den:'orders',money:true,unitBy:'currency'},{k:'daysSince',label:'Days since last order · avg',agg:'avg',f:'daysSince',digits:0}]};
+/* План раскроя против факта и склад сейчас (reports/facts-plan). Владелец,
+   03.11.2026: «что было реально, а что было оптимизировано — чтобы выявлять
+   проблемы»; лопнувший лист — не порезанный, своей колонкой. */
+REP_SRC.plan={label:'Plan vs actual',group:'Production',hint:'Cut plan against what was really cut',rows:()=>repPlanFacts(),date:['at','cut'],
+ fields:()=>[REP_F.date('at','Built'),REP_F.date('cut','First cut'),REP_F.text('batch','Batch'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('person','Cutter',r=>r.person||'—'),REP_F.dim('status','Status',r=>r.status||'—'),
+  REP_F.num('planSheets','Plan sheets'),REP_F.num('cutSheets','Sheets cut'),REP_F.num('diffSheets','Sheets over plan'),REP_F.num('brokenSheets','Sheets broken'),
+  REP_F.num('planFt2','Plan sheet ft²',{digits:1}),REP_F.num('cutFt2','Cut sheet ft²',{digits:1}),REP_F.num('brokenFt2','Broken sheet ft²',{digits:1}),
+  REP_F.num('glassFt2','Plan glass ft²',{digits:1}),REP_F.num('goodFt2','Good glass ft²',{digits:1}),REP_F.num('recutFt2','Recut ft²',{digits:1}),REP_F.num('recutN','Recut pcs'),
+  REP_F.num('planWaste','Plan waste ft²',{digits:1}),REP_F.num('actualWaste','Actual waste ft²',{digits:1})],
+ metrics:[{k:'planSheets',label:'Plan sheets',agg:'sum',f:'planSheets'},{k:'cutSheets',label:'Sheets cut',agg:'sum',f:'cutSheets'},{k:'diffSheets',label:'Sheets over plan',agg:'sum',f:'diffSheets'},
+  {k:'brokenSheets',label:'Sheets broken',agg:'sum',f:'brokenSheets'},{k:'planPct',label:'Plan waste %',agg:'ratio',num:'planWaste',den:'planFt2',pct:true,digits:1},
+  {k:'actualPct',label:'Actual waste %',agg:'ratio',num:'actualWaste',den:'cutFt2',pct:true,digits:1},{k:'recutFt2',label:'Recut ft²',agg:'sum',f:'recutFt2',digits:1},
+  {k:'batches',label:'Batches',agg:'distinct',f:'batch'}]};
+REP_SRC.stock={label:'Stock now',group:'Inventory',access:'inventory',now:true,hint:'Everything on the shelves now',rows:()=>repStockFacts(),date:[],
+ fields:()=>[REP_F.dim('kind','Kind'),REP_F.dim('material','Material'),REP_F.dim('glass','Glass',r=>r.glass||'—'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('size','Size',r=>r.size||'—'),
+  REP_F.dim('unit','Unit',r=>r.unit||'—'),REP_F.dim('status','Status',r=>r.status||'—'),REP_F.num('onHand','On hand',{digits:2,unitBy:'unit'}),REP_F.num('free','Free',{digits:2,unitBy:'unit'}),
+  REP_F.num('reserved','Reserved',{digits:2,unitBy:'unit'}),REP_F.num('onOrder','On order',{digits:2,unitBy:'unit'}),REP_F.num('min','Minimum',{digits:2,unitBy:'unit'}),
+  REP_F.num('ft2','Sheet ft² on hand',{digits:1}),REP_F.num('pcs','Pieces')],
+ metrics:[{k:'onHand',label:'On hand',agg:'sum',f:'onHand',digits:2,unitBy:'unit'},{k:'free',label:'Free',agg:'sum',f:'free',digits:2,unitBy:'unit'},{k:'reserved',label:'Reserved',agg:'sum',f:'reserved',digits:2,unitBy:'unit'},
+  {k:'onOrder',label:'On order',agg:'sum',f:'onOrder',digits:2,unitBy:'unit'},{k:'ft2',label:'Sheet ft² on hand',agg:'sum',f:'ft2',digits:1},{k:'pcs',label:'Pieces',agg:'sum',f:'pcs'},{k:'count',label:'Lines',agg:'count'}]};
 const REP_GROUPS=['Production','Shipping','Sales','Customers','Inventory','Purchasing','Finance','Quality','People'];

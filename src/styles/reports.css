@@ -167,6 +167,7 @@ button.ch-stat.warn b{color:var(--warning)}
 .rep-wh h3{margin:0;font-size:14px}
 .rep-wh .mut{font-size:12px}
 .rep-wtools{margin-left:auto;display:flex;gap:4px}
+.rep-csv{margin-left:auto}.rep-wtools+.rep-csv{margin-left:0}.rep-print .rep-csv,.rep-screen .rep-csv{display:none}
 .rep-add{grid-column:span 2;border:1px dashed var(--line-strong);background:transparent;color:var(--text-2);font:inherit;padding:18px;cursor:pointer;margin:0;box-shadow:none}
 .rep-add:hover{border-color:var(--accent);color:var(--accent)}
 .rep-empty{text-align:center;padding:40px 20px}
@@ -207,6 +208,9 @@ button.ch-stat.warn b{color:var(--warning)}
 .ch-dense svg{display:block;width:100%;height:132px;border-bottom:1px solid var(--line)}.ch-dense rect:not([class]){fill:var(--accent);opacity:.8}.ch-dense rect:hover{opacity:1}
 .ch-dense-x{position:relative;height:18px}.ch-dense-x em{position:absolute;top:2px;transform:translateX(-50%);font-style:normal;font-size:11px;color:var(--text-3);white-space:nowrap}
 .rep-ws{position:relative}
+.ch-col-bar{position:relative}.ch-inner{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:34%;max-width:9px;background:var(--series-3);border-radius:2px 2px 0 0;text-decoration:none}
+.ch-inner-key{background:var(--series-3)}
+.rep-sortable{cursor:pointer;user-select:none}.rep-sortable:hover{color:var(--accent)}.rep-sort-on{color:var(--accent)}
 .rep-sheet-mark{position:absolute;left:0;right:0;top:0;height:0;border-bottom:2px dashed var(--accent);pointer-events:none;z-index:3}
 .rep-swatches{display:grid;grid-template-columns:repeat(12,22px);gap:6px;margin:4px 0 8px}.rep-swatches button{width:22px;height:22px;border-radius:5px;border:2px solid transparent;padding:0;cursor:pointer;box-shadow:none}.rep-swatches button.on{border-color:var(--text)}
 .ch-legend [data-rep-color]{cursor:pointer}.rep-formula{width:100%;box-sizing:border-box;min-height:64px;font:13px/1.4 var(--mono,monospace)}.rep-formula-err{color:var(--danger);font-size:12px;margin:2px 0 6px}.rep-formula-ok{color:var(--success);font-size:12px;margin:2px 0 6px}
