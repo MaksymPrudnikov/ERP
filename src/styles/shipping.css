@@ -45,3 +45,4 @@
 .shipping-ps-table .shipping-pills{flex-wrap:nowrap}
 @media(max-width:1400px){.ship-split{grid-template-columns:160px minmax(0,1fr)}}
 @media(max-width:1100px){.ship-split{grid-template-columns:minmax(0,1fr)}.ship-days{position:static;display:flex;gap:6px;padding:8px;overflow-x:auto}.ship-days h5,.ship-days p{display:none}.ship-day{width:auto;flex:none;gap:10px}}
+.delivery-truck-acts{display:inline-flex;align-items:center;gap:6px;margin-left:10px;padding-left:10px;border-left:1px solid var(--line)}.delivery-bar input[type=date]{height:28px;margin:0;width:140px}.shipping-customer-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.shipping-ready-table .shipping-skid{display:inline-flex;align-items:center;gap:4px}.sales-toolbar .shipping-lookup-field{display:inline-flex;gap:4px}

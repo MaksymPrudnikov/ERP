@@ -13,13 +13,19 @@
    («OAI 77224»), на один PO — несколько заказов, тогда список на выбор. */
 const SHIPPING_LOOKUP_MAX=12;
 let shippingLookupId='',shippingLookupText='',shippingLookupMiss='',shippingLookupIds=[],shippingLookupBy='order';
+/* Как совпадать (владелец, 03.11.2026: «тип соответствия можно добавить»): по
+   умолчанию номер — точно, PO — по части текста; выбор держится до смены Order | PO. */
+let shippingLookupMatch='';
+function shippingLookupMatchNow(){return shippingLookupMatch||(shippingLookupBy==='po'?'contains':'exact');}
+function shippingLookupSetMatch(v){const e=document.querySelector('[data-order-lookup]');shippingLookupMatch=['contains','exact','starts'].includes(v)?v:'';shippingLookupGo(e?e.value:shippingLookupText);}
 function shippingLookupOpen(o){return !['done','closed','cancelled'].includes(o.status)&&!shippingLegacy(o);}
 function shippingLookupFind(text){
- const t=text.toLowerCase(),orders=(DB.salesOrder||[]).filter(o=>!salesIsQuote(o));
- return shippingLookupBy==='po'?orders.filter(o=>String(o.customerPo||'').toLowerCase().includes(t)).sort((a,b)=>shippingLookupOpen(b)-shippingLookupOpen(a)):orders.filter(o=>String(o.businessNumber||'').trim().toLowerCase()===t);
+ const t=text.toLowerCase(),orders=(DB.salesOrder||[]).filter(o=>!salesIsQuote(o)),how=shippingLookupMatchNow();
+ const hit=v=>{v=String(v||'').trim().toLowerCase();return how==='exact'?v===t:how==='starts'?v.startsWith(t):v.includes(t);};
+ return orders.filter(o=>hit(shippingLookupBy==='po'?o.customerPo:o.businessNumber)).sort((a,b)=>shippingLookupOpen(b)-shippingLookupOpen(a));
 }
 /* Переключили — тот же текст ищется заново, набирать второй раз не надо. */
-function shippingLookupSetBy(v){const e=document.querySelector('[data-order-lookup]');shippingLookupBy=v==='po'?'po':'order';shippingLookupGo(e?e.value:shippingLookupText);}
+function shippingLookupSetBy(v){const e=document.querySelector('[data-order-lookup]');shippingLookupBy=v==='po'?'po':'order';shippingLookupMatch='';shippingLookupGo(e?e.value:shippingLookupText);}
 function shippingLookupReset(){shippingLookupId='';shippingLookupText='';shippingLookupMiss='';shippingLookupIds=[];}
 function shippingLookupGo(raw){
  const text=String(raw||'').trim(),found=text?shippingLookupFind(text):[];shippingLookupReset();
@@ -58,7 +64,7 @@ function shippingLookupPickup(id){
 }
 function shippingLookupHTML(){
  const po=shippingLookupBy==='po';
- const field=`<div class="shipping-lookup-field"><select aria-label="Search by" data-lookup-by onchange="shippingLookupSetBy(this.value)"><option value="order" ${po?'':'selected'}>Order</option><option value="po" ${po?'selected':''}>PO</option></select><input data-order-lookup aria-label="${po?'Customer PO':'Order number'}" value="${esc(shippingLookupText)}" placeholder="${po?'Part of the PO':'Order number'}" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingLookupGo(this.value)}"></div>`;
+ const field=`<div class="shipping-lookup-field"><select aria-label="Search by" data-lookup-by onchange="shippingLookupSetBy(this.value)"><option value="order" ${po?'':'selected'}>Order</option><option value="po" ${po?'selected':''}>PO</option></select><select aria-label="Match" data-lookup-match onchange="shippingLookupSetMatch(this.value)">${[['contains','Contains'],['exact','Exact'],['starts','Starts with']].map(([k,l])=>`<option value="${k}" ${shippingLookupMatchNow()===k?'selected':''}>${l}</option>`).join('')}</select><input data-order-lookup aria-label="${po?'Customer PO':'Order number'}" value="${esc(shippingLookupText)}" placeholder="${po?'Customer PO':'Order number'}" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingLookupGo(this.value)}"></div>`;
  const o=shippingLookupId&&salesRecord(shippingLookupId);
  if(!o){
   const list=shippingLookupIds.map(salesRecord).filter(Boolean),more=list.length-SHIPPING_LOOKUP_MAX;

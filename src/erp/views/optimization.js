@@ -102,8 +102,8 @@ function viewOptimization(){return ['batch','production'].includes(optimizationT
 function optimizationCan(selected,act){return selected.length>0&&selected.every(o=>salesRecordTransitionAllowed(o,act==='back'?salesPrevStatus(o):act,{back:act==='back'}));}
 function optimizationActions(shipping,key,selected){
  const n=selected.length,item=(act,label,enabled,cls)=>({act,label,enabled,cls});
- if(shipping)return (key==='done'?[item('closed','Close order',optimizationCan(selected,'closed'))]:[]).concat([item('cancelled','Cancel order',optimizationCan(selected,'cancelled'),'sl-delete-quiet')]);
  const held=n>0&&selected.every(o=>o.onHold),out=[];
+ if(shipping)return (key==='done'?[item('closed','Close order',optimizationCan(selected,'closed'))]:[]).concat([item('hold',held?'Release':'On Hold',n>0),item('cancelled','Cancel order',optimizationCan(selected,'cancelled'),'sl-delete-quiet')]);
  if(key==='all'||key==='new')out.push(item('verified','Verify',optimizationCan(selected,'verified')));
  if(key==='all')out.push(item('select-glass','Select glass',true));
  out.push(item('unbatch','Unbatch',n>0&&selected.every(salesCanUnbatch)));
@@ -151,7 +151,7 @@ function viewOrderQueue(shipping){
    <td></td></tr>`;
  }).join('');
  return `<section class="optimization-queue ${shipping?'shipping-queue':''}">
-  <div class="card sales-list-card oq-card sl-foot-pin"><div class="sales-toolbar"><button type="button" class="sl-quiet" data-queue-open-order ${only?'':'disabled'} onclick="optimizationOpenOrder('${only?esc(only.id):''}')">Open</button>${n?`<b class="oq-sel" data-queue-selection>${n} selected</b>${bar}`:`<b class="oq-sel" data-queue-selection hidden>0 selected</b>`}</div>
+  <div class="card sales-list-card oq-card sl-foot-pin"><div class="sales-toolbar"><button type="button" class="sl-quiet" data-queue-open-order ${only?'':'disabled'} onclick="optimizationOpenOrder('${only?esc(only.id):''}')">Open</button>${n?`<b class="oq-sel" data-queue-selection>${n} selected</b>${bar}`:`<b class="oq-sel" data-queue-selection hidden>0 selected</b>`}${shipping&&typeof shippingBarRight==='function'?'<span class="sales-toolbar-sp"></span>'+shippingBarRight():''}</div>
   ${shipping?'':`<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Order queues">${tabs}</div></div>`}
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
    ${optimizationNotice?`<div class="oq-notice${optimizationNotice.error?' bad':''}" role="${optimizationNotice.error?'alert':'status'}"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
