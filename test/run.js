@@ -2214,7 +2214,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     t = await page(JSON.stringify({user:[{name:'Оператор',role:'неизвестно',workPosition:'',skills:[{skill:'Резка',level:'неизвестно'}]}]}));
     eq('неизвестная роль — без офиса, навыки отброшены: права не повышаются', await t.p.evaluate(() => ({access:DB.user[0].access,role:'role' in DB.user[0],skills:'skills' in DB.user[0]})), {access:[],role:false,skills:false});
-    eq('человек без входа — во вкладке Production, PIN «—»', await t.p.evaluate(() => {tab='users';subtab='production';render();return [...document.querySelectorAll('tbody tr td')].slice(1,3).map(td=>td.textContent.trim());}), ['Оператор','—']);
+    eq('человек без входа — во вкладке Production, PIN «—»', await t.p.evaluate(() => {tab='users';subtab='production';render();return [...document.querySelectorAll('tbody tr td')].slice(2,4).map(td=>td.textContent.trim());}), ['Оператор','—']);
     await t.c.close();
 
     t = await page(JSON.stringify({user:[{name:'Оператор',role:'Цех',workPosition:'',skills:{skill:'Резка'}}]}));
