@@ -52,8 +52,9 @@
      кончаются в её последний день, «этот месяц» иначе пуст.
      --profile <папка> — готовый профиль браузера: без Import, ухода в
      архив и размножения (прогнать отчёты ещё раз после правки кода);
-     профиль этого прогона не удаляется. --keep — оставить профиль нового
-     прогона для такого повтора.
+     профиль этого прогона не удаляется; --years N на нём размножает архив
+     (один раз: копия профиля), --compare <папка прогона> берёт из него
+     числа «до». --keep — оставить профиль нового прогона для такого повтора.
 
    Выход: ~/.glass-erp-walk/perf/<дата>-<имя>/ — report.md, report.json,
    PNG медленных экранов. В Git не класть: это рабочие и тестовые данные.
@@ -288,7 +289,7 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
   const t0 = Date.now(), report = { base: o.base, name: o.name, date: new Date().toISOString(), machine: os.cpus()[0].model + ' · ' + Math.round(os.totalmem() / 1073741824) + ' GB', thresholds: TH, passes: [] };
   await open(); await boot();
   report.build = await page.evaluate(() => typeof ERP_BUILD !== 'undefined' ? ERP_BUILD : 'dev');
-  if (o.profile) return reportsOnly(report);
+  if (o.profile) { if (o.years > 1) await moreYears(report); return reportsOnly(report); }
   console.log('Import', o.base, (fs.statSync(o.base).size / 1048576).toFixed(0) + ' МБ…');
   await page.evaluate(() => { const f = window.storageImportFile; window.PERF_IMPORT = new Promise(res => { window.storageImportFile = file => f(file).then(r => { res(r); return r; }, e => { res('error: ' + e.message); throw e; }); }); });
   const ti = Date.now(); await page.setInputFiles('#imp', o.base);
@@ -306,11 +307,7 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
     await page.evaluate(() => storageFlush());
     report.archive = ar.v || { error: ar.timeout ? 'timeout' : ar.error };
     console.log('архив на', o.archive, ar.v ? fmt(ar.v.ms) + ' · ушло заказов ' + ar.v.orders + ', записей ' + ar.v.records : report.archive.error);
-    if (o.years > 1) {
-      const y = await within(6 * 3600000, page.evaluate(n => PERF.years(n), o.years));
-      report.years = y.v ? Object.assign({ n: o.years }, y.v) : { n: o.years, error: y.timeout ? 'timeout' : y.error };
-      console.log('архив за', o.years, 'лет:', y.v ? fmt(y.v.ms) + ' · копий записей ' + y.v.cold + ', строк указателя ' + y.v.rows : report.years.error);
-    }
+    if (o.years > 1) await moreYears(report);
   }
   if (o.reports) return reportsOnly(report);
   report.size = await page.evaluate(() => PERF.size());
@@ -430,6 +427,12 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
   process.exit(o.required && report.fail.length ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
 
+async function moreYears(report) {
+  const y = await within(6 * 3600000, page.evaluate(n => PERF.years(n), o.years));
+  report.years = y.v ? Object.assign({ n: o.years }, y.v) : { n: o.years, error: y.timeout ? 'timeout' : y.error };
+  console.log('архив за', o.years, 'лет:', y.v ? fmt(y.v.ms) + ' · копий записей ' + y.v.cold + ', строк указателя ' + y.v.rows : report.years.error);
+  await boot(true);
+}
 /* Все готовые отчёты: страница × период. Память — после сборки мусора, пока
    записи архива ещё в памяти. Вкладка зависла — открыть заново, дальше. */
 async function runReports(label) {
@@ -455,7 +458,9 @@ function reportsDiff(before, after) {
   return diffs;
 }
 async function reportsOnly(report) {
-  report.after = await runReports(o.archive ? 'после архива' : 'как есть');
+  /* --compare <папка прогона>: числа «до» — из него (повтор на готовом профиле). */
+  if (o.compare && !report.before) report.before = JSON.parse(fs.readFileSync(path.join(o.compare, 'reports.json'), 'utf8')).before;
+  report.after = await runReports(o.archive || o.profile ? 'после архива' : 'как есть');
   await ctx.close();
   const rows = report.after, bad = rows.filter(r => r.state !== 'ok' || r.errors.length), diffs = reportsDiff(report.before, rows), max = Math.max(0, ...rows.map(r => r.heapMB || 0));
   const count = s => rows.filter(r => r.state === s).length, slow = rows.slice().sort((a, b) => (b.ms || 0) - (a.ms || 0)).slice(0, 10);
