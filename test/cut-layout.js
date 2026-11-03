@@ -656,7 +656,7 @@ module.exports=async function({page,eq,ok}){
   const total=document.querySelector('[data-stock-total]').textContent,count=document.querySelector('[data-queue-tab="stock"] b').textContent;
   const before=cutPlanFor(b.number).groups[0].sheets.reduce((n,s)=>n+(s.stock||[]).length,0);
   /* Возврат в отход из журнала — кусок уходит и с листа раскроя. */
-  document.querySelector('[data-stock-row="'+rows[0]+'"] [data-stock-drop]').click();
+  stockUiSelect(rows[0],true);document.querySelector('[data-stock-drop]').click();
   const after=cutPlanFor(b.number).groups[0].sheets.reduce((n,s)=>n+(s.stock||[]).length,0),gone=!document.querySelector('[data-stock-row="'+rows[0]+'"]');
   stockUiShowOff(true);const withOff=!!document.querySelector('[data-stock-row="'+rows[0]+'"]');stockUiShowOff(false);
   const again=stockOffcutDrop(rows[0]).error;

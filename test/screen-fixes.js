@@ -45,8 +45,8 @@ module.exports=async function({page,eq,ok}){
   const rows=new Set(tiles.map(r=>Math.round(r.top))).size,below=tiles.every(r=>r.bottom<=btn.top+1);
   tab='shipping';shippingTab='delivery';render();
   const lines=e=>{const r=document.createRange();r.selectNodeContents(e);return r.getClientRects().length;};
-  const day=document.querySelector('.delivery-day'),b=day.querySelector('b'),inside=b.getBoundingClientRect().right<=day.getBoundingClientRect().right+1&&lines(b)===1;
-  shippingTab='backorders';render();const oneLine=lines(document.querySelector('.shipping-customer>h3>button'))===1;
+  const day=document.querySelector('.delivery-list'),b=day.querySelector('input[type=date]'),inside=b.getBoundingClientRect().right<=day.getBoundingClientRect().right+1;
+  shippingTab='backorders';render();const oneLine=lines(document.querySelector('.shipping-customer .gb-link'))===1;
   tab='dashboard';render();return {rows,below,sums,inside,oneLine};
  }),{rows:2,below:true,sums:true,inside:true,oneLine:true});
 

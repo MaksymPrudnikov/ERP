@@ -31,11 +31,11 @@ module.exports=async function({page,eq,ok}){
  eq('вкладка Dollies & Skids: плитки, карточка долли под станцией, где ждёт стекло; клик — окно: сверху положенное последним, сводка по заказам, все колонки',await t.p.evaluate(()=>{
   dsReset();const a=dsOrder([[36,24,3]],'Granite City Glazing',{priority:'critical'}),b=dsOrder([[30,20,2]],'Vista Railings'),ga=dsIds(a),gb=dsIds(b),na=salesRecord(a).businessNumber,nb=salesRecord(b).businessNumber,ab=x=>x.split(na).join('A').split(nb).join('B');
   dsScan(ga,'DL-1');dsScan(gb,'DL-1');dsOpenTab();const since=carrierWhen(DB.stationScan[0].at);
-  const tabs=[...document.querySelectorAll('.tabs button')].map(b=>b.textContent).join('|'),tiles=[...document.querySelectorAll('.cb-tile')].map(dsInner).join('|');
+  const tabs=[...document.querySelectorAll('[aria-label="Production"] button')].map(b=>b.textContent).join('|'),tiles=[...document.querySelectorAll('.cb-tile')].map(dsInner).join('|');
   const card=document.querySelector('[data-carrier-card="DL-1"]'),group=card.closest('[data-carrier-group]').dataset.carrierGroup,cardText=ab(dsInner(card)).replace(since,'T');
   card.click();const w=document.querySelector('[data-carrier-window="DL-1"]');
   const rows=[...w.querySelectorAll('[data-carrier-row]')].map(r=>r.dataset.carrierRow),heads=[...w.querySelectorAll('thead th')].map(th=>th.textContent).filter(Boolean).join(',');
-  return {tabs,tiles,group,cardText,top:rows[0]===gb[1],bottom:rows.at(-1)===ga[0],n:rows.length,chips:ab([...w.querySelectorAll('[data-carrier-order]')].map(dsInner).join('|')),sub:dsText('.cw-sub').replace(since,'T'),heads,total:dsText('[data-carrier-total]')};
+  return {tabs,tiles,group,cardText,top:rows[0]===ga[0],bottom:rows.at(-1)===gb[1],n:rows.length,chips:ab([...w.querySelectorAll('[data-carrier-order]')].map(dsInner).join('|')),sub:dsText('.cw-sub').replace(since,'T'),heads,total:dsText('[data-carrier-total]')};
  }),{tabs:'In production|Stations|Terminals|Dollies & Skids',tiles:'1 registered · DL 1 · DA 0 · SL 0 · SA 0|1 in the shop · 1 loaded · 5 glass · 0 empty|0 at customers|0 glass with no dolly or skid|— no count yet|— found without a label|6 not confirmed yet',group:'ARRIS',
   cardText:'DL-1 5 glass A · B Critical since T',top:true,bottom:true,n:5,chips:'A Granite City Glazing · 3 Critical|B Vista Railings · 2',sub:'At ARRIS · since T · 5 glass · 2 orders',
   heads:'#,Order,Customer,Customer PO,Line,Mark,Size,Glass,Makeup,Glass / unit ID,Batch,Next,Due,Weight kg,Put on',total:'Total: 5 glass · 2 orders'});
@@ -84,7 +84,7 @@ module.exports=async function({page,eq,ok}){
   const out=dsText('[data-carrier-out]'),went=document.querySelectorAll('[data-carrier-row]').length,check=document.querySelectorAll('[data-carrier-window] tbody input').length;
   document.querySelector('[data-carrier-back]').click();
   return {rows,total,tile,card:card.startsWith('SL-2 Kingsway Renovations 0 days · PS-'),out:out.startsWith('At Kingsway Renovations since'),went,check,back:dsText('[data-carrier-done] b'),left:skidsOut().has('SL-2')};
- }),{rows:'G-,U-,U-,U-',total:'Total: 3 units · 1 glass · 2 orders',tile:'1 in the shop · 1 loaded · 3 units · 1 glass · 0 empty',card:true,out:true,went:3,check:0,back:'SL-2 back from Kingsway Renovations · 0 days',left:false});
+ }),{rows:'U-,U-,U-,G-',total:'Total: 3 units · 1 glass · 2 orders',tile:'1 in the shop · 1 loaded · 3 units · 1 glass · 0 empty',card:true,out:true,went:3,check:0,back:'SL-2 back from Kingsway Renovations · 0 days',left:false});
 
  /* Владелец, 15.10.2026: «для одиночного стекла я не увидел вес». */
  eq('вес: у одинарного стекла — вес юнита позиции, у лайта стеклопакета на долли — его стекло; у стеклопакета без норм рамки — известная часть со «~»',await t.p.evaluate(()=>{

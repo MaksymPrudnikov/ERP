@@ -24,7 +24,7 @@ module.exports=async function({page,eq,ok}){
  }),{title:'2 orders need attention',rows:2,before:['verified','verified'],batch:['B-0001','B-0001'],next:'B-0002',open:false});
  eq('On Hold серый и не выбирается для Verify/батча; Release снимает удержание без перехода',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer(),a=oqOrder(c),b=oqOrder(c);salesHoldApply([b],'Credit check');oqQueue();const row=document.querySelector(`[data-queue-order="${b}"]`),gray=row.classList.contains('oq-hold'),disabled=row.querySelector('[data-queue-check]').disabled;document.querySelector('[data-queue-all]').click();const selected=[...optimizationSel];optimizationRunOrders([b],'verified');const title=salesDialog.title;oqChoose('Release hold');return {gray,disabled,selected:selected.length===1&&selected[0]===a,title:title.includes('On Hold'),held:salesRecord(b).onHold,status:salesRecord(b).status,checkEnabled:!document.querySelector(`[data-queue-order="${b}"] [data-queue-check]`).disabled};
- }),{gray:true,disabled:true,selected:true,title:true,held:false,status:'new',checkEnabled:true});
+ }),{gray:true,disabled:false,selected:true,title:true,held:false,status:'new',checkEnabled:true});
  eq('фильтр и смена вкладки сбрасывают выбор скрытых заказов',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer(),a=oqOrder(c,{customerPo:'Find-this'});oqOrder(c);oqQueue();optimizationSelectAll(true);
   salesListSetFilter('po',{conds:[{op:'contains',v:'Find-this'}]});const count=optimizationRows().length,sel=optimizationSel.size;const chosen=[...optimizationSel];optimizationSetTab('batch');return {count,sel,chosen:chosen.length===1&&chosen[0]===a,after:optimizationSel.size};
@@ -44,6 +44,13 @@ module.exports=async function({page,eq,ok}){
  eq('массовая отмена показывает депозиты по заказам и возвращает оплаты нужным клиентам',await t.p.evaluate(()=>{
   oqReset();const a=oqOrder(oqCustomer()),b=oqOrder(oqCustomer({legalName:'City Glazing'}));oqPay(a);oqPay(b);oqQueue();optimizationRunOrders([a,b],'cancelled');const rows=salesDialog.rows.length;oqChoose('Cancel orders');return {rows,statuses:[salesRecord(a).status,salesRecord(b).status],deposits:[a,b].map(id=>finCustomerDeposit(salesRecord(id).customerId)),allocations:DB.receipt.map(r=>r.allocations.length)};
  }),{rows:2,statuses:['cancelled','cancelled'],deposits:[810.91,810.91],allocations:[0,0]});
+ eq('Очередь Optimization как Sales: действия появляются над отмеченным, Move back и On Hold, правая кнопка даёт те же действия',await t.p.evaluate(()=>{
+  oqReset();const a=oqOrder(oqCustomer());oqQueue();const none=[...document.querySelectorAll('[data-queue-action]')].length,pills=document.querySelectorAll('.sl-quick-pill[data-queue-tab]').length;
+  optimizationSel=new Set([a]);render();const bar=[...document.querySelectorAll('.sales-toolbar [data-queue-action]')].map(b=>b.textContent);
+  optimizationContext({preventDefault(){},stopPropagation(){},clientX:300,clientY:300},a);const menu=[...document.querySelectorAll('.sl-ctx [data-menu]')].map(b=>b.textContent);
+  optimizationContextRun('hold');const hold=!!salesHoldDialog&&salesHoldDialog.ids[0]===a;salesHoldClose();
+  return {none,pills,bar,menu,hold,gear:!!document.querySelector('.sl-table [data-columns-button]'),old:document.querySelector('.oq-tabs')===null};
+ }),{none:0,pills:6,bar:['Verify','Unbatch','Move back','On Hold','Cancel order','Delete'],menu:['Open','Verify','On Hold','Cancel order','Delete'],hold:true,gear:true,old:true});
  // Проверяем кнопки реальными кликами браузера, а не только вызовом обработчика.
  const readyIds=await t.p.evaluate(()=>{oqReset();window.readyA=oqOrder(oqCustomer());window.readyB=oqOrder(oqCustomer({legalName:'City Glazing'}));oqPay(readyA);oqPay(readyB);oqThrough(readyA,'ready');oqThrough(readyB,'ready');soDraft=null;soEdit=null;oqQueue('ready');return [readyA,readyB];});
  await t.p.evaluate(()=>{oqFulfill(readyA,'pickup');oqFulfill(readyB,'delivery');shippingSetTab('done');});

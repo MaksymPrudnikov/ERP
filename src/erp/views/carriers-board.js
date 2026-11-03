@@ -109,6 +109,18 @@ function carrierColSet(k,on){const cols=carrierColPrefs(),c=cols.find(x=>x.k===k
 function carrierColMove(k,delta){const cols=carrierColPrefs(),at=cols.findIndex(c=>c.k===k),to=at+delta;if(at<0||to<0||to>=cols.length)return;const [c]=cols.splice(at,1);cols.splice(to,0,c);carrierColsStore(cols);}
 function carrierColDrop(k){const from=carrierColDrag;carrierColDrag='';if(!from||from===k)return;const cols=carrierColPrefs(),at=cols.findIndex(c=>c.k===from);if(at<0)return;const [c]=cols.splice(at,1);cols.splice(cols.findIndex(x=>x.k===k),0,c);carrierColsStore(cols);}
 function carrierColsStandard(){carrierColsStore([]);}
+/* Ширина колонок окна — в этом браузере, у каждого человека своя; порядок —
+   перенос заголовка, тот же, что в меню Columns (владелец, 03.11.2026). */
+const CARRIER_WIDTHS_KEY='glass_erp_carrier_widths_v1';
+function carrierWidthsAll(){try{const v=JSON.parse(localStorage.getItem(CARRIER_WIDTHS_KEY)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return {};}}
+function carrierWidths(){return carrierWidthsAll()[carrierMe().id]||{};}
+function carrierWidthsSave(w){const all=carrierWidthsAll(),id=carrierMe().id;if(Object.keys(w).length)all[id]=w;else delete all[id];try{localStorage.setItem(CARRIER_WIDTHS_KEY,JSON.stringify(all));}catch(e){}render();}
+const CARRIER_COL_WIDTH={pos:52,order:80,customer:170,po:110,line:64,mark:100,size:140,glass:130,makeup:220,id:120,batch:120,next:70,due:70,weight:84,puton:160};
+const CARRIER_CW={widths:carrierWidths,save:carrierWidthsSave,def:k=>CARRIER_COL_WIDTH[k]||100,min:()=>CW_MIN,
+ move:(from,to,after)=>{const cols=carrierColPrefs(),a=cols.findIndex(c=>c.k===from);if(a<0||from===to)return;const [c]=cols.splice(a,1),b=cols.findIndex(x=>x.k===to);if(b<0){cols.splice(a,0,c);return;}cols.splice(after?b+1:b,0,c);carrierColsStore(cols);},
+ trail:0,fill:'customer'};
+cwRegister('carrierWin',Object.assign({lead:[36]},CARRIER_CW));
+cwRegister('carrierWinOut',Object.assign({lead:[]},CARRIER_CW));
 function carrierColsHTML(){
  const cols=carrierColPrefs(),at=carrierWin&&carrierWin.menu||{},top=Math.max(8,at.y||80);
  return `<div class="sl-menu sl-cols cw-cols" style="left:${Math.max(8,(at.x||window.innerWidth)-300)}px;top:${top}px;max-height:${Math.max(200,window.innerHeight-top-12)}px" role="dialog" aria-label="Columns" data-carrier-cols><h5>Columns · drag to reorder</h5>${cols.map((c,i)=>{const col=CARRIER_COLS.find(x=>x.k===c.k);return `<div class="sl-cols-row" draggable="true" data-carrier-col="${c.k}" ondragstart="carrierColDrag='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();carrierColDrop('${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-carrier-col-toggle="${c.k}" ${c.on?'checked':''} onchange="carrierColSet('${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="carrierColMove('${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===cols.length-1?'disabled':''} onclick="carrierColMove('${c.k}',1)">↓</button></div>`;}).join('')}<div class="sl-actions"><button type="button" class="sl-btn" onclick="carrierColsStandard()">Standard view</button></div></div>`;
@@ -254,9 +266,9 @@ function carrierWinHTML(){
  const done=w.done?`<div class="cw-done" role="status" data-carrier-done><b>${esc(w.done.text)}</b>${w.done.by?` · by <span data-raw>${esc(w.done.by)}</span>`:''}${w.done.kind==='back'?'':' <button type="button" class="sm" data-carrier-undo onclick="carrierWinUndo()">Undo</button>'}</div>`:'';
  const chips=loaded&&orders.length?`<div class="cw-orders">${orders.map(g=>{const all=g.items.every(i=>w.sel.has(i.key));return `<label class="cw-chip${all?' on':''}" data-carrier-order="${esc(g.o.businessNumber||'')}"><input type="checkbox" ${all?'checked':''} onchange="carrierWinPickOrder('${esc(g.o.id)}')"><b>${esc(g.o.businessNumber||'')}</b> <span data-raw>${esc(salesCustomerDisplay(g.o.customerId))}</span> · ${g.items.length}${carrierPrio(g.o)}</label>`;}).join('')}</div>`:'';
  const allSel=loaded&&sel.length===m.items.length;
- const head=`<tr>${loaded?`<th class="cw-check"><input type="checkbox" aria-label="Select all" data-carrier-all ${allSel?'checked':''} onchange="carrierWinPickAll(this.checked)"></th>`:''}${cols.map(c=>`<th${c.k==='weight'?' class="n"':''}>${esc(c.label)}</th>`).join('')}</tr>`;
- const body=rows.slice().reverse().map(it=>{const on=w.sel.has(it.key);return `<tr class="${on?'on':''}" data-carrier-row="${esc(it.label)}"${loaded?` onclick="if(event.target.tagName!=='INPUT')carrierWinPick('${esc(it.key)}')"`:''}>${loaded?`<td class="cw-check"><input type="checkbox" ${on?'checked':''} aria-label="Select ${esc(it.label)}" onchange="carrierWinPick('${esc(it.key)}')"></td>`:''}${cols.map(c=>carrierCell(it,c)).join('')}</tr>`;}).join('');
- const table=rows.length?`<div class="cw-table-wrap"><table class="sl-table cw-table"><thead>${head}</thead><tbody>${body}</tbody></table></div><div class="cw-note"><span>${loaded?'Top — put on last. #1 went on first.':'What went to the customer on '+esc(m.out.ps)+'.'}</span><b data-carrier-total>Total: ${esc(carrierCountText(rows))} · ${stationPlural(orders.length,'order','orders')}</b></div>`:'<div class="empty">Nothing on it</div>';
+ const head=`<tr>${loaded?`<th class="cw-check"><input type="checkbox" aria-label="Select all" data-carrier-all ${allSel?'checked':''} onchange="carrierWinPickAll(this.checked)"></th>`:''}${cols.map(c=>`<th${c.k==='weight'?' class="n"':''} data-cw-key="${c.k}"><span data-cw-label>${esc(c.label)}</span>${cwGrip()}</th>`).join('')}</tr>`,cwKeys=cols.map(c=>c.k),cwId=loaded?'carrierWin':'carrierWinOut';
+ const body=rows.map(it=>{const on=w.sel.has(it.key);return `<tr class="${on?'on':''}" data-carrier-row="${esc(it.label)}"${loaded?` onclick="if(event.target.tagName!=='INPUT')carrierWinPick('${esc(it.key)}')"`:''}>${loaded?`<td class="cw-check"><input type="checkbox" ${on?'checked':''} aria-label="Select ${esc(it.label)}" onchange="carrierWinPick('${esc(it.key)}')"></td>`:''}${cols.map(c=>carrierCell(it,c)).join('')}</tr>`;}).join('');
+ const table=rows.length?`<div class="cw-table-wrap"><table class="sl-table cw-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,cwKeys)}>${cwColgroup(cwId,cwKeys)}<thead>${head}</thead><tbody>${body}</tbody></table></div><div class="cw-note"><span>${loaded?'#1 went on first.':'What went to the customer on '+esc(m.out.ps)+'.'}</span><b data-carrier-total>Total: ${esc(carrierCountText(rows))} · ${stationPlural(orders.length,'order','orders')}</b></div>`:'<div class="empty">Nothing on it</div>';
  const bar=sel.length?`<div class="cw-bar" data-carrier-sel><span><b>${esc(carrierCountText(sel))} selected</b> <span class="mut">${sel.map(i=>'#'+i.pos).join(', ')}</span></span><span class="cw-sp"></span><label class="cw-to">Move to <input data-carrier-to placeholder="DL-15" value="${esc(w.to)}" oninput="carrierWin.to=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();carrierWinMove(this.value)}"></label><button type="button" class="pri" data-carrier-move onclick="carrierWinMove(document.querySelector('[data-carrier-to]').value)">Move</button>${m.code?`<button type="button" class="cw-danger" data-carrier-takeoff onclick="carrierWinTakeOff()">Take off ${esc(m.code)}</button>`:''}</div>`:'';
  const title=m.code?`<span class="cw-code">${esc(m.code)}</span><h3>${esc(m.type?m.type.label:'')}</h3>`:`<span class="cw-code none">${esc(m.word)}</span><h3>Waiting at ${esc(m.station)}</h3>`;
  return `<div class="sales-service-modal-back cw-back" onclick="if(event.target===this)carrierWinClose()"><div class="sales-service-modal cw" role="dialog" aria-modal="true" aria-label="${esc(m.code||m.word)}" data-carrier-window="${esc(m.code||'none:'+m.station)}" onclick="if(carrierWin&&carrierWin.menu&&!event.target.closest('[data-carrier-cols],[data-carrier-cols-button]')){carrierWin.menu=false;render();}">
@@ -387,12 +399,15 @@ function viewProdCarriers(){
  const p=salesListLoadPrefs(),show=carrierBoardShow,cards=rows.map(r=>r.card);
  const order=new Map((DB.station||[]).map((s,i)=>[s.code,[s.seq,i]]));
  const stations=[...new Set(cards.filter(c=>c.kind!=='out').map(c=>c.station))].sort((a,b)=>{const x=order.get(a)||[999,0],y=order.get(b)||[999,0];return x[0]-y[0]||x[1]-y[1];});
- const fbtn=(k,label)=>{const f=p.filters[k],on=!!f&&salesListFilterActive(f);return `<button type="button" class="cb-filter${on?' on':''}" data-filter-col="${k}" onclick="salesListOpenFilter(event,'${k}')">${label} ▾</button>`;};
+ const fbtn=(k,label)=>{const f=p.filters[k],on=!!f&&salesListFilterActive(f);return `<button type="button" class="sl-quiet cb-filter${on?' on':''}" data-filter-col="${k}" onclick="salesListOpenFilter(event,'${k}')">${label} ▾</button>`;};
  const total=b.loadedN+b.outN+b.empty.length,seg=[['loaded','Loaded',b.loadedN],['out','At customers',b.outN],['empty','Empty',b.empty.length],['all','All',total]];
  /* Плитки — учёт тары (вариант 1 этапа 8): зарегистрировано, в цеху, у
     клиентов, стекло без тары, итоги последнего пересчёта. */
  const tiles=carrierTilesHTML(b);
- const tools=`<div class="cb-tools">${fbtn('order','Order')}${fbtn('customer','Customer')}${fbtn('station','Station')}<span class="cb-seg">${seg.map(([k,l,n])=>`<button type="button" class="${show===k?'on':''}" data-carrier-show="${k}" onclick="carrierBoardSet('${k}')">${l} <b>${n}</b></button>`).join('')}</span><span class="cw-sp"></span><span class="mut small">Click a dolly or skid to see what is on it</span>${carrierCountButton()}</div>`;
+ /* Шапка вида Sales (этап 6): фильтры, подсказка и пересчёт — одной строкой;
+    экраны Production и Loaded / At customers / Empty / All — таблетками. Доска
+    и окно «что на ней» по клику — как были. */
+ const tools=`<div class="sales-toolbar cb-tools">${fbtn('order','Order')}${fbtn('customer','Customer')}${fbtn('station','Station')}<span class="sales-toolbar-sp"></span><span class="mut small">Click a dolly or skid to see what is on it</span>${carrierCountButton()}</div><div class="sl-filter-row">${typeof sfScreenPills==='function'?sfScreenPills().replace('<div class="sl-filter-row">','').replace(/<\/div>$/,''):''}<span style="width:12px"></span><div class="sl-quick cb-seg">${seg.map(([k,l,n])=>`<button type="button" class="sl-quick-pill${show===k?' on':''}" data-carrier-show="${k}" onclick="carrierBoardSet('${k}')">${l} <b>${n}</b></button>`).join('')}</div></div>`;
  const group=(title,sub,body,key)=>`<section class="cb-group" data-carrier-group="${esc(key)}"><div class="cb-gh"><b>${esc(title)}</b><span>${esc(sub)}</span></div><div class="cb-cards">${body}</div></section>`;
  const many=(n,one,more)=>n===1?'1 '+one:n+' '+more;
  const groups=[];
@@ -413,7 +428,7 @@ function viewProdCarriers(){
   }).join('');
   if(b.empty.length)groups.push(`<section class="cb-group" data-carrier-group="empty"><div class="cb-gh"><b>Empty — free</b><span>not at any station</span></div><div class="cb-free-all">${body}</div></section>`);
  }
- return `${tiles}${tools}${salesListFilterChips()}${groups.join('')||`<div class="empty">${infos.length?'Nothing matches the filters.':'No dollies or skids in use.'}</div>`}${salesListMenuHTML(infos)}`;
+ return `${tools}<div class="cb-body">${tiles}${salesListFilterChips()}${groups.join('')||`<div class="empty">${infos.length?'Nothing matches the filters.':'No dollies or skids in use.'}</div>`}</div>${salesListMenuHTML(infos)}`;
 }
 
 /* ------------- Data → Stations: колонки листа долли / скида ------------- */

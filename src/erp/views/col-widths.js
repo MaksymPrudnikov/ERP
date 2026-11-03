@@ -45,10 +45,10 @@ function cwColgroupFor(id,keys,w){
 }
 /* Разметка таблицы: метка, класс и ширина; без сохранённых ширин — как раньше. */
 function cwTableAttrs(id,keys){
- const a=CW_TABLES[id],w=cwWidths(id);
+ const a=CW_TABLES[id],w=cwWidths(id);if(!a)return '';
  return ` data-cw-table="${id}"`+(a.fill||Object.keys(w).length?` style="width:max(100%,${cwSum(a,keys,w)}px)"`:'');
 }
-function cwTableClass(id){return cwFixed(id)||CW_TABLES[id].fill?' cw-fixed':'';}
+function cwTableClass(id){return CW_TABLES[id]&&(cwFixed(id)||CW_TABLES[id].fill)?' cw-fixed':'';}
 function cwColgroup(id,keys){return cwColgroupFor(id,keys,cwWidths(id));}
 function cwGrip(){return '<span class="cw-grip" data-cw-grip aria-hidden="true"></span>';}
 

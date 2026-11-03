@@ -2,6 +2,47 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Shipping и Production в виде Sales · 3 ноября 2026
+
+Владелец, 03.11.2026: «все экраны в один стиль», примеры «было / будет» до кода; Delivery — вариант A, Stations —
+вариант A; «не потерять ни одной функциональной кнопки»; Skids — «провалиться в скид», Columns и ширина; окно
+скида — «№1 всегда вверху».
+
+- Shipping (`views/shipping.js`, `skids.js`, `delivery.js`, `shipping-lookup.js`): отдельной карточки поиска нет —
+  поиск и Open a trip в шапке каждой вкладки (`shippingBarRight`). Тип совпадения — кнопка в поле
+  (`SHIPPING_MATCH`: = / ≈ / a…). Ready — один список со строкой клиента (скиды чипами, `shippingSelectCustomer`),
+  Create packing slip сверху. Skids, Backorders, Delivery — списки через общую `salesListTableHTML` (scopes
+  `shippingSkids`, `shippingBackorders`, `shippingDelivery`: Columns, фильтры, ширина и порядок, итог). Shipments:
+  колонки ft², Weight kg, Glass, Balance (`shippingListExtra`). Hold / Release в очередях Shipping.
+- Production (`production.js`, `carriers-board.js`): маршрут одной строкой (`sfRouteHTML`), Open screen, Terminals и
+  шапка Dollies & Skids в виде Sales; ряд экранов на одном месте. Окно долли / скида: №1 сверху, ширина и порядок
+  колонок (`cwRegister('carrierWin'|'carrierWinOut')`, ширины в браузере, по человеку).
+- Проверка функций: опись кнопок, полей и кликов каждого экрана «до / после» (скрипт вне репозитория, две базы —
+  выгрузка владельца и неделя цеха): без потерь; Back → Move back, Release — в шапке для отмеченного на паузе.
+- Руководство: `docs/manual/shipping.ru.md` и `shipping.en.md`, Production — в `optimization.*.md`.
+
+## Optimization: вид как у Sales, действия над отмеченным, правая кнопка · 3 ноября 2026
+
+Владелец, 03.11.2026: «оптимизация и продакшн выглядят не так, как Sales»; Back и Cancel order «просмотр или
+действие?»; нужен On Hold; вариант C «в стиле A» и правая кнопка с теми же действиями. Этап 6 плана
+`ЗАДАЧА_ПРАВКИ_02_11.md` (единая таблица), экран 1.
+
+- `views/optimization.js`: `viewOrderQueue` рисуется карточкой `sales-list-card` (стили Sales), вместо вкладок —
+  таблетки `sl-quick-pill` с `data-queue-tab`, вместо заголовка «Order queue» и кнопки Columns — шестерёнка в шапке
+  таблицы (`data-columns-button`). Колонки «Action» нет; у заказа на паузе в строке `Release`.
+- `optimizationActions` — один список действий для строки над таблицей (появляется при отметке) и для меню правой
+  кнопки (`optimizationContext`, `optimizationContextHTML`, меню `oq-context` в `salesListMenuHTML`). «Back» теперь
+  «Move back»; новый `On Hold` / `Release` через `salesHoldOpen` / `salesReleaseHold`. Shipping использует тот же вид.
+- Те же шапка и таблетки у To batch, Batches, Stock, Sheets (`glassBatchTabs` теперь ряд `sl-quick-pill` внутри
+  карточки; заголовки «Batches», «Stock», «Sheets» убраны) и у Production: переключатель экранов
+  `sfScreenPills` (In production / Stations / Terminals / Dollies & Skids), тайлы станций остаются тайлами.
+  В Sheets колонки — шестерёнка справа в строке; в Stock нет фильтров колонок (таблица без общего списка).
+  Открытый батч (Contents / History / Optimization) не менялся. Motion: `[aria-label="Production"] button`
+  поднимает экран как прежний `.tabs button`. Shipping не рисует внутренние таблетки: у него свои.
+- Не сделано: таблицы без общего списка (`commissions`, `finance-workspace`, `delivery`, `price-lists-ui`, Data), Finance,
+  Purchasing, Inventory, Customers, Users — следующие PR этапа 6.
+- Руководство: `docs/manual/optimization.ru.md` и `optimization.en.md`.
+
 ## Reports: пояснения к полям и показателям · 3 ноября 2026
 
 Владелец, 03.11.2026: в настройке графика «Glass все равно два раза без объяснения, что и как».

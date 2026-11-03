@@ -51,7 +51,7 @@ module.exports=async function({page,eq}){
 
  eq('вкладка раздела чуть всплывает, из кода — нет',await (async()=>{
   await p.evaluate(()=>{navGo('production');});
-  await p.locator('#app .tabs button').nth(1).click();
+  await p.locator('#app [aria-label="Production"] button').nth(1).click();
   const click=await p.evaluate(()=>!!document.querySelector('#app .motion-tab'));
   const code=await p.evaluate(()=>{render();return !!document.querySelector('#app .motion-tab');});
   return {click,code};
