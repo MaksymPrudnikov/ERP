@@ -457,7 +457,7 @@ module.exports=async function({page,eq,ok}){
    repResults=new Map();repStale=new Map();repCost.set('qa',5000);
    const first=repPageReady(r,p),text=repBuildText(repBuild);
    for(let i=0;i<100&&repBuild;i++)await new Promise(res=>setTimeout(res,20));
-   const done=repPageReady(r,p);repResultsDrop();const after=repPageReady(r,p),up=repBuildText(repBuild,true);
+   const done=repPageReady(r,p);repResultsDrop();repCost.set('qa',5000);const after=repPageReady(r,p),up=repBuildText(repBuild,true);
    for(let i=0;i<100&&repBuild;i++)await new Promise(res=>setTimeout(res,20));
    repCost.set('qa',1);repResultsDrop();const quick=repPageReady(r,p);
    return {first,text,done,after,up,quick};
