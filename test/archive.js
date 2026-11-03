@@ -67,6 +67,13 @@ module.exports=async function({page,eq}){
  eq('заказ вернулся из архива или ушёл новый — месяц считается заново: отпечаток месяца другой',await t.p.evaluate(x=>{
   const mo={m:'2026-01',owners:[...archiveIndex.keys()]},a=archiveMonthStamp('B',mo),b=archiveMonthStamp('B',{m:mo.m,owners:mo.owners.slice(1)});return {differ:a!==b,same:a===archiveMonthStamp('B',mo)};
  },ids),{differ:true,same:true});
+ eq('строки архива и работы: общая запись — одна, первый рез — ранний, строка с заказом — из архива, итоги дня — вместе',await t.p.evaluate(()=>{
+  const was=archiveScope,join=(gen,hot,cold)=>{archiveScope={ready:true,rows:new Map([[gen,archiveJoin(gen,cold)]]),merged:new Map()};return archiveFactsMerge(gen,hot,[]).map(r=>[r.id,r.who||r.qty]);};
+  try{return {work:join('work',[{id:'1',who:'h'}],[{id:'2',who:'c'}]),day:(archiveScope={ready:true,rows:new Map([['work',[{id:'2'}]]]),merged:new Map()},archiveFactsMerge('work',[{id:'1'}],['2026-01-01']).length),
+   shared:join('sheet',[{id:'1',who:'h'}],[{id:'1',who:'c'},{id:'2',who:'c'},{id:'2',who:'d'}]),early:join('sheetcut',[{id:'1',at:'2026-02',who:'h'}],[{id:'1',at:'2026-01',who:'c'}]),
+   cold:join('payorder',[{id:'1',who:'h'}],[{id:'1',who:'c'}]),sum:join('igu',[{id:'d|p|k',qty:2}],[{id:'d|p|k',qty:3},{id:'d|p|k',qty:1}])};
+  }finally{archiveScope=was;}
+ }),{work:[['1','h'],['2','c']],day:1,shared:[['1','h'],['2','c']],early:[['1','c']],cold:[['1','c']],sum:[['d|p|k',6]]});
  eq('столбцы на диске: числа, пусто, слова — как были; вложенное не хранится',await t.p.evaluate(()=>{
   const rows=[{id:'a',n:1.5,e:null,w:[1]},{id:'b',n:null,e:'',w:null},{id:'b',n:0,e:'x',w:null}],c=archColsOf(rows);
   return {keys:Object.keys(c),id:[0,1,2].map(i=>archColAt(c.id,i)),n:[0,1,2].map(i=>archColAt(c.n,i)),e:[0,1,2].map(i=>archColAt(c.e,i))};

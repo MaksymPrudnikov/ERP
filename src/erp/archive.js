@@ -265,7 +265,7 @@ async function archiveRead(owners){
    на прежнее место по seq — порядок строк тот же, что до ухода, и отчёты
    складывают в том же порядке. Возвращает поставленное: tbl → Map id → текст
    записи (keep — для просмотра, который возвращает строки после пересборки
-   таблицы; отчёту и расчёту текст не нужен — меньше памяти). */
+   таблицы; расчёту текст не нужен — меньше памяти). */
 function archiveRowsPut(recs,keep){
  const put=new Map(),byTbl=new Map();
  recs.forEach(r=>{const v=storageVisit.get(r.tbl);if(v&&v.has(r.id))return;let a=byTbl.get(r.tbl);if(!a)byTbl.set(r.tbl,a=[]);a.push(r);});
