@@ -47,15 +47,20 @@ function custCell(i,c){
 function viewCustomers(){
  return `<div class="page-head"><div><h2>Customers</h2></div></div>${cEdit!==null?customerForm():customerList()}${custMenuHTML()}${custDupHTML()}`;
 }
+/* Отмеченный клиент: Open / Duplicate / Archive / Delete — сверху, как в меню
+   правой кнопки (вид Sales, владелец 03.11.2026). */
+let custSel='';
 function customerList(){
  const infos=custInfos(),rows=salesListRows(infos),cols=salesListColumns();
+ if(custSel&&!rows.some(i=>i.c.id===custSel))custSel='';
+ const sel=custSel&&(DB.customer||[]).find(x=>x.id===custSel),used=sel&&customerHasReferences(sel.id),q=(act,label,fn,cls,dis,title)=>`<button type="button" class="sl-quiet${cls?' '+cls:''}" data-cust-act="${act}" ${sel&&!dis?'':'disabled'} ${title?`title="${esc(title)}"`:''} onclick="${fn}">${label}</button>`;
+ const acts=(sel?`<b class="oq-sel">${esc(salesCustomerDisplay(sel.id))}</b>`:'')+q('open','Open',`customerEdit(custSel)`)+q('duplicate','Duplicate',`customerDuplicate(custSel)`)+q('archive',sel&&sel.status==='archived'?'Restore':'Archive',`customerToggleArchive(custSel)`)+q('delete','Delete',`customerDelete(custSel)`,'sl-delete-quiet',used,used?'Has orders — archive instead':'');
  const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
  return `<div class="card sales-list-card">
-  <div class="sales-toolbar">${salesListDateButton('created')}<span class="sales-toolbar-sp"></span><button class="pri" data-customer-new onclick="customerNew()">+ New customer</button><button type="button" class="cust-more" data-customer-more title="Export" aria-label="Export" onclick="custMenuOpen(event,'more')">⋯</button></div>
+  <div class="sales-toolbar">${acts}<span class="sales-toolbar-sp"></span>${salesListDateButton('created')}<button class="pri" data-customer-new onclick="customerNew()">+ New customer</button><button type="button" class="cust-more" data-customer-more title="Export" aria-label="Export" onclick="custMenuOpen(event,'more')">⋯</button></div>
   ${salesListFilterChips()}
   <div class="sales-table-wrap">${(cw=>`<table class="sl-table cust-table${cw.cls}"${cw.attrs}>${cw.col}`)(salesListCwTable(cols.map(c=>c.k),[44],20))}<thead><tr><th><span class="sl-header-tools">${settings}</span></th>${cols.map(custHeader).join('')}<th></th></tr></thead>
-  <tbody>${rows.map(i=>`<tr data-customer-row="${esc(i.c.id)}" ondblclick="customerEdit('${esc(i.c.id)}')" oncontextmenu="custMenuOpen(event,'row','${esc(i.c.id)}')"><td></td>${cols.map(c=>custCell(i,c)).join('')}<td class="customer-row-actions"><button class="sm" onclick="customerEdit('${esc(i.c.id)}')">Open</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'No customers match the filters':'No customers yet'}</td></tr>`}</tbody></table></div>
-  <div class="mut cust-foot">${rows.length} of ${infos.length} customers · right-click a row for more</div>
+  <tbody>${rows.map(i=>`<tr data-customer-row="${esc(i.c.id)}"${custSel===i.c.id?' class="oq-selected"':''} ondblclick="customerEdit('${esc(i.c.id)}')" oncontextmenu="custMenuOpen(event,'row','${esc(i.c.id)}')"><td class="sl-check"><input type="checkbox" aria-label="Select ${esc(i.c.id)}" ${custSel===i.c.id?'checked':''} onchange="custSel=this.checked?'${esc(i.c.id)}':'';render()"></td>${cols.map(c=>custCell(i,c)).join('')}<td></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'No customers match the filters':'No customers yet'}</td></tr>`}</tbody>${rows.length?(lead=>`<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head"><b>${rows.length} of ${infos.length} customers</b></td>${cols.slice(lead).map(c=>salesListCalcCell(c,rows)).join('')}<td></td></tr></tfoot>`)(Math.max(0,cols.findIndex(c=>salesListCalc(c)!=='none'))):''}</table></div>
  </div>${salesListMenuHTML(infos)}`;
 }
 /* Меню: правая кнопка на строке — Open / Duplicate / Archive / Delete;

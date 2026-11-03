@@ -36,8 +36,8 @@ module.exports=async function({page,eq}){
   const menu=id=>{document.querySelector(`[data-customer-row="${id}"]`).dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:200,clientY:200}));const r=[...document.querySelectorAll('[data-cust-menu]')].map(b=>b.textContent+(b.disabled?' ·off':''));custMenuClose();return r;};
   const used=menu(c.id),open=menu(free.id);
   document.querySelector('[data-customer-more]').click();const more=[...document.querySelectorAll('[data-cust-menu]')].map(b=>b.textContent);custMenuClose();
-  return {used,open,more,rowButtons:[...document.querySelector(`[data-customer-row="${c.id}"] td:last-child`).querySelectorAll('button')].map(b=>b.textContent)};
- }),{used:['Open','Duplicate','Archive','Delete ·off'],open:['Open','Duplicate','Archive','Delete'],more:['Export CSV','Export JSON'],rowButtons:['Open']});
+  return {used,open,more,rowButtons:(custSel=c.id,render(),[...document.querySelectorAll('[data-cust-act]')].filter(b=>!b.disabled).map(b=>b.textContent))};
+ }),{used:['Open','Duplicate','Archive','Delete ·off'],open:['Open','Duplicate','Archive','Delete'],more:['Export CSV','Export JSON'],rowButtons:['Open','Duplicate','Archive']});
 
  eq('карточка: General / Contacts / Addresses / Payment / Prices / Orders; Legacy IDs — только если заполнены; деньги — во вкладке Payment',await t.p.evaluate(()=>{
   const c=DB.customer.find(x=>x.legalName==='Money Co');customerEdit(c.id);
