@@ -497,7 +497,7 @@ module.exports=async function({page,eq,ok}){
    {id:'X',name:'Twice waste',formula:'[Waste %] * 2',source:'qa',fmt:'number',digits:0}];
   const S=REP_SRC.qa,err=f=>repFormulaParse(f,S,custom).error;
   try{
-   const all=repQuery({source:'qa',date:{},dims:[],metrics:['cm:W','cm:D','cm:X'],filters:[],custom}),by=repQuery({source:'qa',date:{},dims:['b'],metrics:['cm:W','sheets'],filters:[],custom,having:[{m:'cm:W',op:'lt',v:[20]}]});
+   const all=repQuery({source:'qa',date:{},dims:[],metrics:['cm:W','cm:D','cm:X','count:g'],filters:[],custom}),by=repQuery({source:'qa',date:{},dims:['b'],metrics:['cm:W','sheets'],filters:[],custom,having:[{m:'cm:W',op:'lt',v:[20]}]});
    const none=repQuery({source:'qa',date:{},dims:[],metrics:['sheets'],filters:[],custom,having:[{m:'cm:W',op:'gt',v:[50]}]});
    repColorsCur={g:{'4CLEAR':5}};const cls=repSeriesCls(S,'g',['4CLEAR','6CLEAR']);repColorsCur={};
    const clean=repClean({custom:custom.concat([{id:'Z',name:'Gone',formula:'1',source:'nope'}]),colors:{g:{'6CLEAR':3,'4CLEAR':99},bad:'x'}});
@@ -505,7 +505,7 @@ module.exports=async function({page,eq,ok}){
     errs:[err('[Nope] / 2'),err('([Sheets] + 1'),err('[Glass] * 2'),err('SUM([Glass])'),err('2 +')],cls:[cls.get('4CLEAR'),cls.get('6CLEAR')],
     clean:[clean.custom.map(c=>c.id).join(),JSON.stringify(clean.colors)],opts:repMetricOptions(S,custom).filter(o=>/^cm:/.test(o[0])).map(o=>o[1])};
   }finally{delete REP_SRC.qa;}
- }),{all:[20,3.5,40],label:['Waste %','Sheets per day','Twice waste'],by:['B2'],byTotal:[10,4],none:0,
+ }),{all:[20,3.5,40,3],label:['Waste %','Sheets per day','Twice waste','Glass · count'],by:['B2'],byTotal:[10,4],none:0,
    errs:['No field "Nope" in QA.','A bracket is not closed.','[Glass] is not a number — use COUNT_DISTINCT([Glass]).','[Glass] is not a number.','The formula ends too early.'],
    cls:['ch-s5','ch-s2'],clean:['W,D,X','{"g":{"6CLEAR":3}}'],opts:['Waste %','Sheets per day','Twice waste']});
  eq('У каждого поля и показателя своё название: «Glass» — тип стекла, «Glass pcs» — штуки; формула не спутает',await t.p.evaluate(()=>Object.entries(REP_SRC).flatMap(([k,S])=>{

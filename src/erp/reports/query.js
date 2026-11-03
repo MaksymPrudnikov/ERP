@@ -149,6 +149,7 @@ function repMetric(S,k,custom){
  const own=(S.metrics||[]).find(m=>m.k===k);if(own)return own;
  const i=String(k).indexOf(':'),a=i<0?k:k.slice(0,i),b=i<0?'':k.slice(i+1);
  if(a==='distinct'){const f=repField(S,b);return f?{k,label:f.label+' · distinct',agg:'distinct',f:b}:null;}
+ if(a==='count'&&b){const f=repField(S,b);return f?{k,label:f.label+' · count',agg:'nonempty',f:b}:null;}
  const f=repField(S,a);if(!f||f.type!=='num')return null;
  const agg=REP_AGGS.some(x=>x[0]===b)?b:'sum';
  return {k,label:f.label+(agg==='sum'?'':' · '+REP_AGGS.find(x=>x[0]===agg)[1].toLowerCase()),agg,f:a,digits:agg==='avg'?Math.max(1,f.digits||0):f.digits,money:f.money,unitBy:f.unitBy};
@@ -158,7 +159,7 @@ function repMetricOptions(S,custom){
  const src=repSrcKey(S);(custom||repCustomCur).filter(x=>x.source===src).forEach(x=>out.push(['cm:'+x.id,x.name]));
  repFields(S).forEach(f=>{
   if(f.type==='num'){REP_AGGS.forEach(([a,l])=>{const k=a==='sum'?f.k:f.k+':'+a;if(!out.some(x=>x[0]===k))out.push([k,f.label+(a==='sum'?'':' · '+l.toLowerCase())]);});}
-  if(f.type==='dim'||f.type==='text')out.push(['distinct:'+f.k,f.label+' · distinct']);
+  if(f.type==='dim'||f.type==='text'){out.push(['count:'+f.k,f.label+' · count']);out.push(['distinct:'+f.k,f.label+' · distinct']);}
  });
  return out;
 }
@@ -169,6 +170,7 @@ function repAgg(S,m,list){
     в выборке разные единицы, числа нет. */
  if(m.unitBy){const u=new Set(),k=m.f||m.den;list.forEach(r=>{if(+r[k])u.add(r[m.unitBy]);});if(u.size>1)return null;}
  if(m.agg==='count')return list.length;
+ if(m.agg==='nonempty'){const f=repField(S,m.f);let c=0;list.forEach(r=>{const v=f?repGet(f,r):r[m.f];if(v!=null&&v!==''&&v!=='—')c++;});return c;}
  if(m.agg==='distinct'){const f=repField(S,m.f),set=new Set();list.forEach(r=>{const v=f?repGet(f,r):r[m.f];if(v!=null&&v!==''&&v!=='—')set.add(v);});return set.size;}
  if(m.agg==='ratio'){let a=0,b=0;list.forEach(r=>{a+=+r[m.num]||0;b+=+r[m.den]||0;});return b?a/b*(m.pct?100:1):null;}
  let s=0,n=0,lo=null,hi=null;
