@@ -43,6 +43,7 @@ function repWidgetQuery(r,w){
  const q=JSON.parse(JSON.stringify(w.q)),v=repView(r.id),S=REP_SRC[q.source];
  if(q.date.use!=='own'){const d=v.date||r.date;q.date=Object.assign({},q.date,{preset:d.preset||'',from:d.from||'',to:d.to||''});}
  if(w.type!=='table')q.more=[];
+ q.custom=r.custom||[];
  q.skip=[];Object.entries(repViewFilters(r)).forEach(([f,vals])=>{if(!Array.isArray(vals)||!vals.length||!S)return;if(repField(S,f))q.filters.push({f,op:'in',v:vals});else q.skip.push(f);});
  return q;
 }
@@ -115,12 +116,14 @@ function repCatBar(r){
 function repDelta(cur,prev){if(cur==null||prev==null||!prev)return '';const d=(cur-prev)/Math.abs(prev)*100;return (d>=0?'▲ ':'▼ ')+Math.abs(d).toFixed(Math.abs(d)<10?1:0)+'%';}
 function repCmpText(res){const c=res.compare;return c?(c.kind==='year'?'vs last year':'vs previous period'):'';}
 /* Цвет значения разбивки — по его месту в полном списке значений поля, а не
-   в выборке: фильтр не перекрашивает (dataviz). Цветов восемь; девятое и
-   дальше — те же цвета светлее (ch-t2, ch-t3), значений сколько угодно. */
-function repSeriesClass(i){const t=Math.floor(i/8);return 'ch-s'+(i%8+1)+(t?' ch-t'+Math.min(3,t+1):'');}
+   в выборке: фильтр не перекрашивает (dataviz). Цветов 24 (series-1…24,
+   только для отчётов); 25-е и дальше — те же цвета светлее (ch-t2). Цвет,
+   выбранный человеком квадратиком (r.colors[поле][значение]), — его. */
+let repColorsCur={};
+function repSeriesClass(i){return 'ch-s'+(i%24+1)+(i>=24?' ch-t2':'');}
 function repSeriesCls(S,d,keys){
  const p=repDimParse(d),all=repIsTime(S,d)?keys:repFieldValues(S,p.f),rank=k=>{const i=all.indexOf(k);return i<0?9999:i;};
- const order=keys.filter(k=>k!=='__other').slice().sort((a,b)=>rank(a)-rank(b)),m=new Map();order.forEach((k,i)=>m.set(k,repSeriesClass(i)));m.set('__other','ch-so');return m;
+ const own=repColorsCur[p.f]||{},order=keys.filter(k=>k!=='__other').slice().sort((a,b)=>rank(a)-rank(b)),m=new Map();order.forEach((k,i)=>m.set(k,own[k]?'ch-s'+own[k]:repSeriesClass(i)));m.set('__other','ch-so');return m;
 }
 function repPickAttrs(r,S,d,k){
  const p=repDimParse(d),f=repField(S,p.f);if(!f||f.type==='date'||k==='__other'||k==='—')return '';
@@ -175,7 +178,11 @@ function repTableHTML(r,S,res,w){
  return `<div class="sales-table-wrap rep-scroll" data-rep-scroll="${esc(w.id)}" onscroll="repTableMore(this)"><table class="sl-table rep-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>REP_TABLE_STEP?`<div class="mut small" data-rep-rows>${chNum(keys.length)} rows</div>`:''}`;
 }
 function repParts(res,cls,k){return res.keys2.map(b=>({value:(res.cells.get(k+'\u0001'+b)||[])[0]||0,cls:cls.get(b)}));}
-function repLegend(S,res,cls){const d2=res.dims[1];return chartLegend(res.keys2.filter(b=>(res.colTotals.get(b)||[])[0]).map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b)})));}
+function repLegend(S,res,cls){const d2=res.dims[1];return chartLegend(res.keys2.filter(b=>(res.colTotals.get(b)||[])[0]).map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b),attrs:repColorAttrs(S,d2,b)})));}
+/* В Edit значение в легенде — выбор цвета квадратиком (два ряда по 12, как в Looker). */
+function repColorAttrs(S,d,k){if(!repEditOn||k==='__other'||repIsTime(S,d))return '';return ` role="button" data-rep-color data-f="${esc(repDimParse(d).f)}" data-v="${esc(k)}" title="Colour" onclick="repColorOpen(event,this.dataset.f,this.dataset.v)"`;}
+function repColorOpen(e,f,v){if(e)e.stopPropagation();repMenu=Object.assign({kind:'color',f,v},repAt(e));render();}
+function repColorSet(n){const m=repMenu;repMenu=null;if(!m)return;repEditCur(r=>{r.colors=r.colors||{};const x=r.colors[m.f]=r.colors[m.f]||{};if(n)x[m.v]=n;else delete x[m.v];});}
 /* ------------------------------ Расчёт графиков ------------------------------ */
 /* Владелец, 03.11.2026: «не показывать, что он завис, а показывать, что он
    грузится, в процентах». Посчитанный график помнится до записи в базе
@@ -254,7 +261,7 @@ function repChart(r,w){
  if(w.type==='pie'){
   /* Все доли (владелец, 03.11.2026: «количество долей тоже не ограничивать»). */
   const keys=res.keys.filter(k=>(res.rowTotals.get(k)[0]||0)>0),pc=repSeriesCls(S,d1,keys);
-  const parts=keys.map(k=>({label:text(k),value:res.rowTotals.get(k)[0],cls:pc.get(k),attrs:repPickAttrs(r,S,d1,k)}));
+  const parts=keys.map(k=>({label:text(k),value:res.rowTotals.get(k)[0],cls:pc.get(k),attrs:repEditOn?repColorAttrs(S,d1,k):repPickAttrs(r,S,d1,k)}));
   return chartPie(parts,{fmt,label:w.title})||'<div class="mut">No data for this period and filters.</div>';
  }
  return '';
@@ -300,6 +307,10 @@ function repMenuHTML(r){
   return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-screens-menu><h5>Board of stations</h5><div class="sl-vals">${(DB.station||[]).map(s=>box('stations',s.code,s.code+' · '+sfName(s))).join('')}</div>
    <h5>Overview of people</h5><div class="sl-vals">${people.map(u=>box('people',u.viewProfileId,u.name)).join('')||'<div class="mut">No office users</div>'}</div>
    <div class="hint">Filters “This station” and “Me” follow the screen.</div><div class="sl-actions"><button type="button" class="pri" data-rep-screens-apply onclick="repScreensApply()">Apply</button></div></div>`;
+ }
+ if(m.kind==='color'){
+  const cur=((repColorsCur[m.f]||{})[m.v])||0;
+  return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-color-menu><h5 data-raw>${esc(m.v)}</h5><div class="rep-swatches">${Array.from({length:24},(_,i)=>`<button type="button" class="ch-s${i+1}${cur===i+1?' on':''}" aria-label="Colour ${i+1}" data-rep-swatch="${i+1}" onclick="repColorSet(${i+1})"></button>`).join('')}</div><div class="sl-actions"><button type="button" class="sl-btn" onclick="repColorSet(0)">Automatic</button></div></div>`;
  }
  if(m.kind==='ctl'){
   const all=repControlValues(r,m.f),q=String(m.search||'').toLowerCase(),shown=all.filter(x=>!q||x.toLowerCase().includes(q));
@@ -360,7 +371,9 @@ function repSetup(r){
    const num=/^n:/.test(c.b);
    return `<div class="rep-calc" data-rep-calc="${i}"><div class="sl-row"><select aria-label="First metric" onchange="repSetCalc(${i},'a',this.value)">${repOpt(mets,c.a)}</select>${del}</div><div class="sl-row"><select aria-label="Operation" onchange="repSetCalc(${i},'op',this.value)">${repOpt(REP_CALC_OPS,c.op)}</select><select aria-label="Second metric or number" onchange="repSetCalc(${i},'b',this.value)">${repOpt([['n:','Number']].concat(mets),num?'n:':c.b)}</select>${num?`<input type="number" step="any" aria-label="Number" value="${esc(c.b.slice(2))}" onchange="repSetCalc(${i},'n',this.value)">`:''}</div></div>`;}).join('')}
   <div class="sl-row"><button type="button" class="sl-btn" data-rep-add-metric onclick="repAddMetric()">+ Add metric</button><button type="button" class="sl-btn" data-rep-add-calc onclick="repAddCalc()" title="Metric ÷ × + − another metric or a number">+ Calculated</button></div>
+  ${repCustomHTML(r,S,q)}
   <h5>Filter</h5>${q.filters.map((f,i)=>repFilterRow(S,f,i)).join('')}<button type="button" class="sl-btn" data-rep-add-filter onclick="repAddFilter()">+ Add filter</button>
+  ${(q.having||[]).map((h,i)=>repHavingRow(mets,h,i)).join('')}<button type="button" class="sl-btn" data-rep-add-having onclick="repAddHaving()" title="Keep rows whose value fits">+ Metric filter</button>
   <h5>Date range</h5>${dates.length>1?`<select aria-label="Date field" onchange="repSetW('date.f',this.value)">${repOpt(dates.map(k=>[k,repField(S,k).label]),q.date.f||dates[0])}</select>`:''}
   <select data-rep-date-use onchange="repSetDateUse(this.value)">${repOpt([['report','Report period']].concat(REP_PRESETS).concat([['custom','Custom dates']]),dateCur)}</select>
   ${dateCur==='custom'?`<div class="sl-row"><input type="date" value="${esc(q.date.from)}" onchange="repSetW('date.from',this.value)"><input type="date" value="${esc(q.date.to)}" onchange="repSetW('date.to',this.value)"></div>`:''}
@@ -401,6 +414,51 @@ function repMoreHTML(w,S){
   +(free&&more.length<4?`<button type="button" class="sl-btn" data-rep-add-row onclick="repSetMore(${more.length},'${esc(free[0])}')">+ Row dimension</button>`:'');
 }
 function repSetMore(i,v){repWEdit(w=>{const m=(w.q.more||[]).slice();if(v)m[i]=v;else m.splice(i,1);w.q.more=m.filter(Boolean);w.q.sort=null;});}
+/* ------------------------- Свои показатели ------------------------- */
+/* Владелец, 03.11.2026: «кастомный показатель — ввожу название и что отнять
+   или что на что поделить, и у меня моя личная формула». Показатель живёт в
+   отчёте (r.custom) и стоит в списке Metrics у всех графиков этого источника. */
+let repCm=null;
+function repCustomHTML(r,S,q){
+ const src=repSrcKey(S),mine=(r.custom||[]).filter(c=>c.source===src);
+ const list=mine.map(c=>`<div class="sl-row rep-cm" data-rep-cm="${esc(c.id)}"><span class="mut small" data-raw>${esc(c.name)} = ${esc(c.formula)}</span><button type="button" class="sm" onclick="repCmOpen('${esc(c.id)}')">Edit</button><button type="button" class="sm dl" title="Delete" onclick="repCmDel('${esc(c.id)}')">×</button></div>`).join('');
+ if(!repCm||repCm.source!==src)return list+`<button type="button" class="sl-btn" data-rep-cm-new onclick="repCmOpen('')" title="Your own metric by formula">+ Custom metric</button>`;
+ const f=repFields(S).filter(x=>x.type==='num'||x.type==='dim'||x.type==='text'),chips=f.map(x=>`<button type="button" class="sm" onclick="repCmInsert(this.dataset.t)" data-t="${esc('['+x.label+']')}">${esc(x.label)}</button>`).join('')+(S.metrics||[]).filter(m=>!f.some(x=>x.label===m.label)).map(m=>`<button type="button" class="sm" onclick="repCmInsert(this.dataset.t)" data-t="${esc('['+m.label+']')}">${esc(m.label)}</button>`).join('');
+ const fns=REP_FORMULA_FUNCS.map(fn=>`<button type="button" class="sm" onclick="repCmInsert('${fn}(')">${fn}</button>`).join('')+['+','−','×','÷','(',')'].map(o=>`<button type="button" class="sm" onclick="repCmInsert(' ${{'−':'-','×':'*','÷':'/'}[o]||o} ')">${o}</button>`).join('');
+ return list+`<div class="rep-calc" data-rep-cm-edit><input type="text" id="repCmName" placeholder="Name, e.g. Waste %" value="${esc(repCm.name)}" oninput="repCm.name=this.value">
+  <textarea id="repCmFormula" class="rep-formula" placeholder="[Waste ft²] / [Sheet ft²] * 100" oninput="repCm.formula=this.value;repCmCheck()">${esc(repCm.formula)}</textarea>
+  <div data-rep-cm-msg class="${repCmMsg().ok?'rep-formula-ok':'rep-formula-err'}">${esc(repCmMsg().text)}</div>
+  <div class="rep-fchips">${fns}</div><div class="rep-fchips">${chips}</div>
+  <div class="sl-row"><select aria-label="Format" onchange="repCm.fmt=this.value">${repOpt([['number','Number'],['money','Money'],['pct','Percent']],repCm.fmt)}</select><select aria-label="Decimals" onchange="repCm.digits=+this.value">${repOpt([0,1,2,3].map(n=>[String(n),n+' decimals']),String(repCm.digits))}</select></div>
+  <div class="sl-row"><button type="button" class="pri sm" data-rep-cm-save onclick="repCmSave()">Save metric</button><button type="button" class="sm" onclick="repCm=null;render()">Cancel</button></div></div>`;
+}
+function repCmSource(){const r=repOpenReport(),w=r&&repSelWidget(r);return w?w.q.source:'';}
+function repCmOpen(id){const r=repOpenReport(),c=id&&(r.custom||[]).find(x=>x.id===id);repCm=c?Object.assign({},c):{id:'',name:'',formula:'',fmt:'number',digits:1,source:repCmSource()};render();}
+function repCmMsg(){
+ if(!repCm||!repCm.formula.trim())return {ok:false,text:'Type a formula: fields in [ ], + − × ÷, SUM, AVG, COUNT_DISTINCT…'};
+ const r=repOpenReport(),S=REP_SRC[repCm.source],p=repFormulaParse(repCm.formula,S,(r.custom||[]).filter(c=>c.source===repCm.source&&c.id!==repCm.id));
+ return p.error?{ok:false,text:p.error}:{ok:true,text:'Formula is OK'};
+}
+function repCmCheck(){const el=document.querySelector('[data-rep-cm-msg]');if(!el)return;const m=repCmMsg();el.textContent=m.text;el.className=m.ok?'rep-formula-ok':'rep-formula-err';}
+function repCmInsert(t){const el=document.getElementById('repCmFormula');if(!el||!repCm)return;const a=el.selectionStart??el.value.length,b=el.selectionEnd??a;el.setRangeText(t,a,b,'end');repCm.formula=el.value;el.focus();repCmCheck();}
+function repCmSave(){
+ const c=repCm;if(!c)return;const name=String(c.name||'').trim();if(!name){alert('Name the metric.');return;}if(!repCmMsg().ok){alert(repCmMsg().text);return;}
+ const r=repOpenReport();if((r.custom||[]).some(x=>x.id!==c.id&&x.source===c.source&&x.name.toLowerCase()===name.toLowerCase())){alert('A metric with this name already exists.');return;}
+ const id=c.id||repUid('CM'),isNew=!c.id;repCm=null;
+ repEditCur(x=>{x.custom=(x.custom||[]).filter(y=>y.id!==id).concat([{id,name,formula:c.formula,source:c.source,fmt:c.fmt,digits:c.digits}]);});
+ if(isNew)repWEdit(w=>{if(w.q.source===c.source){const m=w.q.metrics.length?w.q.metrics:[REP_SRC[w.q.source].metrics[0].k];w.q.metrics=m.concat(['cm:'+id]).slice(0,8);}});
+}
+function repCmDel(id){
+ const r=repOpenReport(),c=(r.custom||[]).find(x=>x.id===id);if(!c||!confirm('Delete metric "'+c.name+'"?'))return;
+ repEditCur(x=>{x.custom=(x.custom||[]).filter(y=>y.id!==id);x.pages.forEach(p=>p.widgets.forEach(w=>{w.q.metrics=w.q.metrics.filter(k=>k!=='cm:'+id);w.q.having=(w.q.having||[]).filter(h=>h.m!=='cm:'+id);}));});
+}
+/* Фильтр по показателю: строка графика остаётся, если её значение подходит. */
+function repHavingRow(mets,h,i){
+ return `<div class="rep-filter-row" data-rep-having="${i}"><div class="sl-row"><select aria-label="Metric" onchange="repSetHaving(${i},'m',this.value)">${repOpt(mets,h.m)}</select><select aria-label="Condition" onchange="repSetHaving(${i},'op',this.value)">${repOpt(REP_HAVING_OPS,h.op)}</select><button type="button" class="sm dl" onclick="repSetHaving(${i},'del')">×</button></div>
+  <div class="sl-row"><input type="number" step="any" aria-label="Value" value="${esc(h.v[0]??'')}" onchange="repSetHaving(${i},'v0',this.value)">${h.op==='between'?`<input type="number" step="any" aria-label="To" value="${esc(h.v[1]??'')}" onchange="repSetHaving(${i},'v1',this.value)">`:''}</div></div>`;
+}
+function repAddHaving(){repWEdit(w=>{const m=w.q.metrics[0]||REP_SRC[w.q.source].metrics[0].k;w.q.having=(w.q.having||[]).concat([{m,op:'lt',v:['']}]);});}
+function repSetHaving(i,k,v){repWEdit(w=>{const h=(w.q.having||[])[i];if(!h)return;if(k==='del'){w.q.having.splice(i,1);return;}if(k==='m')h.m=v;else if(k==='op')h.op=v;else if(k==='v0')h.v[0]=v===''?'':+v;else if(k==='v1')h.v[1]=v===''?'':+v;});}
 function repSetDim(i,v){repWEdit(w=>{const d=w.q.dims.slice();d[i]=v;w.q.dims=d.filter(Boolean);if(w.q.dims[0]===w.q.dims[1])w.q.dims.length=1;w.q.sort=null;});}
 function repSetMetric(i,v){repWEdit(w=>{const m=w.q.metrics.length?w.q.metrics.slice():[REP_SRC[w.q.source].metrics[0].k];m[i]=v;w.q.metrics=m;});}
 function repAddMetric(){repWEdit(w=>{const S=REP_SRC[w.q.source],have=w.q.metrics.length?w.q.metrics:[S.metrics[0].k],next=S.metrics.find(m=>!have.includes(m.k));w.q.metrics=have.concat(next?[next.k]:[]);});}
@@ -481,11 +539,11 @@ function repPrintHTML(){const r=repOpenReport();return r?repPrintPageHTML(r,repP
    графики, без правки и фильтров; подстановки — станция и человек экрана. */
 let repScreenPage={};
 function repScreenHTML(r,ctx){
- const was=repCtxOverride,wasEdit=repEditOn;repCtxOverride=ctx;repEditOn=false;
+ const was=repCtxOverride,wasEdit=repEditOn,wasC=[repCustomCur,repColorsCur];repCtxOverride=ctx;repEditOn=false;repCustomCur=r.custom||[];repColorsCur=r.colors||{};
  try{
   const p=r.pages.find(x=>x.id===repScreenPage[r.id])||r.pages[0],tabs=r.pages.length>1?`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-screen-page="${esc(x.id)}" onclick="repScreenPage[this.dataset.rid]=this.dataset.repScreenPage;render()" data-rid="${esc(r.id)}">${esc(x.name)}</button>`).join('')}</div>`:'';
   return `<div class="rep-screen" data-rep-screen="${esc(r.id)}">${tabs}<div class="mut small rep-screen-period">${esc(repDateText(r.date))}</div><div class="rep-ws">${p.widgets.map((w,i)=>repWidgetCard(r,w,i,p.widgets.length)).join('')}</div></div>`;
- }finally{repCtxOverride=was;repEditOn=wasEdit;}
+ }finally{repCtxOverride=was;repEditOn=wasEdit;[repCustomCur,repColorsCur]=wasC;}
 }
 /* Вкладки экрана: «Now» — встроенный экран, дальше — назначенные отчёты. */
 function repScreenTabs(reps,cur,setter){return `<div class="rep-screen-tabs tabs" data-rep-screen-tabs>${[['','Now']].concat(reps.map(r=>[r.id,r.name])).map(([id,n])=>`<button type="button" class="${id===cur?'on':''}" data-rep-screen-tab="${esc(id)}" onclick="${setter}(this.dataset.repScreenTab)">${esc(n)}</button>`).join('')}</div>`;}
@@ -521,6 +579,7 @@ function repMain(r){
 function viewReports(){
  repPicks=[];
  const r=repOpenReport();if(!r){repOpenId='';repEditOn=false;}
+ repCustomCur=r&&r.custom||[];repColorsCur=r&&r.colors||{};
  const setup=r&&repEditOn?repSetup(r):'';
  const hide=repCatHidden();
  return `<div class="rep-app${setup?' editing':''}${hide?' flat':''}">${hide?'':repCatalog()}<div class="rep-main">${hide?repCatBar(r):''}${repMain(r)}</div>${setup}</div>${repMenuHTML(r)}`;

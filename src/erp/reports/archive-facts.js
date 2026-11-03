@@ -54,6 +54,7 @@ function repArchFieldKeys(f,keys){
 }
 function repArchMetricKeys(S,m,keys){
  if(!m)return;if(m.agg==='calc'){repArchMetricKeys(S,m.a,keys);repArchMetricKeys(S,m.b,keys);return;}
+ if(m.agg==='formula'){repFormulaWalk(m.ast,n=>{if(n.t==='agg'&&n.f)repArchFieldKeys(n.f,keys);if(n.t==='met')repArchMetricKeys(S,n.m,keys);});return;}
  if(m.agg==='distinct'){const f=repField(S,m.f);if(f)repArchFieldKeys(f,keys);else keys.add(m.f);return;}
  [m.f,m.num,m.den,m.unitBy].forEach(k=>{if(k)keys.add(k);});
 }
@@ -68,7 +69,7 @@ function repArchiveNeed(r,p){
   const dates=repDates(S),df=q.date&&dates.includes(q.date.f)?q.date.f:dates[0];if(df)keys.add(df);
   const field=k=>{const f=repField(S,k);if(f)repArchFieldKeys(f,keys);};
   (q.dims||[]).concat(q.more||[]).forEach(d=>field(repDimParse(d).f));(q.filters||[]).forEach(x=>field(x.f));r.controls.forEach(field);
-  (q.metrics&&q.metrics.length?q.metrics:[S.metrics[0].k]).forEach(k=>repArchMetricKeys(S,repMetric(S,k),keys));
+  (q.metrics&&q.metrics.length?q.metrics:[S.metrics[0].k]).concat((q.having||[]).map(h=>h.m)).forEach(k=>repArchMetricKeys(S,repMetric(S,k,q.custom),keys));
  });
  return need;
 }

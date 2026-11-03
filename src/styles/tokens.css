@@ -11,9 +11,10 @@
                  («кромка стекла», заменил прежний синий)
    Статусы       success · warning · danger · violet — у каждого
                  сам цвет, -soft (подложка) и -line (рамка)
-   Серии         series-1…8 — цвета разбивки на графиках отчётов, всегда
-                 в этом порядке; проверены на различимость при дальтонизме
-                 (dataviz validate_palette) в светлой и тёмной теме
+   Серии         series-1…24 — цвета разбивки на графиках отчётов, всегда
+                 в этом порядке: 1–12 глубокие, 13–24 ещё 12 насыщенных
+                 оттенков (владелец, 03.11.2026: «насыщенные, глубокие,
+                 приятные, а не плоские»; квадратики двумя рядами, как в Looker)
 
    Тёмная тема — те же токены с другими значениями (<html data-theme="dark">).
    Светлые островки — бумага: .gf-light, лист чертежа .print-sheet, бланки
@@ -30,7 +31,7 @@
  --warning:#9a5b0f;--warning-soft:#fdf5e4;--warning-line:#efd5a1;
  --danger:#b42318;--danger-soft:#fdecea;--danger-line:#f3c4bf;
  --violet:#6941c6;--violet-soft:#f3effc;--violet-line:#d6caf3;
- --series-1:#1baf7a;--series-2:#eb6834;--series-3:#2a78d6;--series-4:#eda100;--series-5:#e87ba4;--series-6:#008300;--series-7:#4a3aa7;--series-8:#e34948;
+ --series-1:#2b5c8a;--series-2:#1f7a63;--series-3:#c05a35;--series-4:#6e4a9e;--series-5:#b88a1e;--series-6:#2f8fa8;--series-7:#a33a5b;--series-8:#5e7f2e;--series-9:#d07a2e;--series-10:#45509e;--series-11:#8a5a3c;--series-12:#4d6a7a;--series-13:#1e88c9;--series-14:#2ea36b;--series-15:#e2553a;--series-16:#9a3fb5;--series-17:#d9a21b;--series-18:#138f9e;--series-19:#d23f78;--series-20:#7fa022;--series-21:#ef7f1a;--series-22:#5a6bd8;--series-23:#a0522d;--series-24:#3d7d9c;
  --shadow:0 1px 3px rgba(16,24,40,.05),0 1px 2px rgba(16,24,40,.03);
  --shadow-lg:0 12px 40px rgba(16,24,40,.12);
  --edge-mix:100%;
@@ -46,7 +47,7 @@
  --warning:#d08a26;--warning-soft:#2a2112;--warning-line:#4d3a1a;
  --danger:#e0524a;--danger-soft:#2e1615;--danger-line:#5a2a26;
  --violet:#9b7be8;--violet-soft:#211b33;--violet-line:#3e3363;
- --series-1:#199e70;--series-2:#d95926;--series-3:#3987e5;--series-4:#c98500;--series-5:#d55181;--series-6:#008300;--series-7:#9085e9;--series-8:#e66767;
+ --series-1:#5b8fc4;--series-2:#3fae8f;--series-3:#e07d55;--series-4:#9b7bcb;--series-5:#d9ae45;--series-6:#4fb3cc;--series-7:#d0628a;--series-8:#8caf54;--series-9:#ee9c55;--series-10:#7480d0;--series-11:#b98563;--series-12:#7f9dae;--series-13:#4fa8e0;--series-14:#4fc48a;--series-15:#f0765c;--series-16:#b96ad3;--series-17:#e8bc45;--series-18:#3fb7c4;--series-19:#e66796;--series-20:#a2c246;--series-21:#f69a45;--series-22:#8794ec;--series-23:#c97e58;--series-24:#6aa6c4;
  --shadow:0 1px 2px rgba(0,0,0,.4);
  --shadow-lg:0 20px 50px rgba(0,0,0,.5);
  --edge-mix:62%;

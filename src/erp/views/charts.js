@@ -62,7 +62,7 @@ function chartColumns(points,opts){
 }
 /* Легенда разбивки: цветной квадрат и подпись цветом текста. */
 function chartLegend(items){
- return `<div class="ch-legend">${items.map(x=>`<span><i class="${x.cls}"></i><span data-raw>${esc(x.label)}</span></span>`).join('')}</div>`;
+ return `<div class="ch-legend">${items.map(x=>`<span${x.attrs||''}><i class="${x.cls}"></i><span data-raw>${esc(x.label)}</span></span>`).join('')}</div>`;
 }
 /* Круглая верхняя граница шкалы: 37 → 40, 1 840 → 2 000. */
 function chNice(v){if(!(v>0))return 1;const p=Math.pow(10,Math.floor(Math.log10(v))),f=v/p;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p;}

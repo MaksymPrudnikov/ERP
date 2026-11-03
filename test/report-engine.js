@@ -448,7 +448,7 @@ module.exports=async function({page,eq,ok}){
    box.innerHTML=repChart(r,r.pages[0].widgets[1]);const bars=box.querySelectorAll('.ch-hbar').length;box.innerHTML=repChart(r,r.pages[0].widgets[2]);const slices=box.querySelectorAll('.ch-pie-legend>span').length;box.remove();
    return {keys2:res.keys2.length,other:res.keys2.includes('__other'),first,all,bars,slices,days,colors:[0,7,8,16,30].map(repSeriesClass)};
   }finally{delete REP_SRC.qa;}
- }),{keys2:12,other:false,first:300,all:700,bars:700,slices:700,days:1096,colors:['ch-s1','ch-s8','ch-s1 ch-t2','ch-s1 ch-t3','ch-s7 ch-t3']});
+ }),{keys2:12,other:false,first:300,all:700,bars:700,slices:700,days:1096,colors:['ch-s1','ch-s8','ch-s9','ch-s17','ch-s7 ch-t2']});
  eq('Таблица: несколько измерений строк, как в Looker — «батч · стекло · толщина» своими колонками; в графиках — только первое',await t.p.evaluate(()=>{
   const rows=[{id:'1',at:'2024-01-01',k:'B-2',g:'6CLEAR',mm:'6 mm',n:1},{id:'2',at:'2024-01-01',k:'B-2',g:'6CLEAR',mm:'6 mm',n:1},{id:'3',at:'2024-01-01',k:'B-1',g:'4E272',mm:'4 mm',n:1}];
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','Batch'),REP_F.dim('g','Glass'),REP_F.dim('mm','Thickness'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
@@ -487,6 +487,27 @@ module.exports=async function({page,eq,ok}){
    return {dims:q.dims,more:q.more,limit:q.limit,sort:q.sort,kept:[m.dims,m.limit]};
   }finally{DB.report=was;DB.reportSeed=seed;}
  }),{dims:['mm'],more:['glass','batch'],limit:0,sort:null,kept:[['batch'],50]});
+ /* Владелец, 03.11.2026: «кастомный показатель — моя личная формула»; «фильтр через показатель». */
+ eq('Свой показатель формулой и фильтр по показателю: отход %, листы в день, ошибки словами; строки по условию, итог по оставшимся; свой цвет значения',await t.p.evaluate(()=>{
+  const rows=[{id:'1',at:'2024-01-01',day:'2024-01-01',b:'B1',g:'6CLEAR',sheets:2,area:100,waste:40},{id:'2',at:'2024-01-02',day:'2024-01-02',b:'B1',g:'6CLEAR',sheets:1,area:50,waste:10},
+   {id:'3',at:'2024-01-02',day:'2024-01-02',b:'B2',g:'4CLEAR',sheets:4,area:200,waste:20}];
+  REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('day','Day'),REP_F.dim('b','Batch'),REP_F.dim('g','Glass'),REP_F.num('sheets','Sheets'),REP_F.num('area','Sheet ft²'),REP_F.num('waste','Waste ft²')],
+   metrics:[{k:'count',label:'Rows',agg:'count'},{k:'yield',label:'Used %',agg:'ratio',num:'area',den:'area',pct:true}]};
+  const custom=[{id:'W',name:'Waste %',formula:'[Waste ft²] / [Sheet ft²] * 100',source:'qa',fmt:'pct',digits:1},{id:'D',name:'Sheets per day',formula:'SUM([Sheets]) / COUNT_DISTINCT([Day])',source:'qa',fmt:'number',digits:1},
+   {id:'X',name:'Twice waste',formula:'[Waste %] * 2',source:'qa',fmt:'number',digits:0}];
+  const S=REP_SRC.qa,err=f=>repFormulaParse(f,S,custom).error;
+  try{
+   const all=repQuery({source:'qa',date:{},dims:[],metrics:['cm:W','cm:D','cm:X'],filters:[],custom}),by=repQuery({source:'qa',date:{},dims:['b'],metrics:['cm:W','sheets'],filters:[],custom,having:[{m:'cm:W',op:'lt',v:[20]}]});
+   const none=repQuery({source:'qa',date:{},dims:[],metrics:['sheets'],filters:[],custom,having:[{m:'cm:W',op:'gt',v:[50]}]});
+   repColorsCur={g:{'4CLEAR':5}};const cls=repSeriesCls(S,'g',['4CLEAR','6CLEAR']);repColorsCur={};
+   const clean=repClean({custom:custom.concat([{id:'Z',name:'Gone',formula:'1',source:'nope'}]),colors:{g:{'6CLEAR':3,'4CLEAR':99},bad:'x'}});
+   return {all:all.total.map(v=>+v.toFixed(2)),label:all.metrics.map(m=>m.label),by:by.keys,byTotal:by.total.map(v=>+v.toFixed(2)),none:none.count,
+    errs:[err('[Nope] / 2'),err('([Sheets] + 1'),err('[Glass] * 2'),err('SUM([Glass])'),err('2 +')],cls:[cls.get('4CLEAR'),cls.get('6CLEAR')],
+    clean:[clean.custom.map(c=>c.id).join(),JSON.stringify(clean.colors)],opts:repMetricOptions(S,custom).filter(o=>/^cm:/.test(o[0])).map(o=>o[1])};
+  }finally{delete REP_SRC.qa;}
+ }),{all:[20,3.5,40],label:['Waste %','Sheets per day','Twice waste'],by:['B2'],byTotal:[10,4],none:0,
+   errs:['No field "Nope" in QA.','A bracket is not closed.','[Glass] is not a number — use COUNT_DISTINCT([Glass]).','[Glass] is not a number.','The formula ends too early.'],
+   cls:['ch-s5','ch-s2'],clean:['W,D,X','{"g":{"6CLEAR":3}}'],opts:['Waste %','Sheets per day','Twice waste']});
  eq('Долгий отчёт: вместо замершей страницы — процент, графики считаются в фоне; после записи прежние графики на экране, пока считаются новые',await t.p.evaluate(async()=>{
   const rows=Array.from({length:50},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+(i%5),n:1}));
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};

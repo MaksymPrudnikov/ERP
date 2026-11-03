@@ -13,7 +13,10 @@
      more:['glass','mm'] — ещё измерения строк таблицы (как в Looker: строка
      «батч · стекло · толщина»), ключ строки — значения через \u0002,
      metrics:['count' | 'area' | 'area:avg' | 'distinct:customer' …],
-     sort:{by:'label'|'metric', i, dir}, limit, other, compare:'prev'|'year' }
+     sort:{by:'label'|'metric', i, dir}, limit, other, compare:'prev'|'year',
+     having:[{m, op, v}] — фильтр по показателю у строки графика (Used % < 60),
+     custom:[{id, name, formula, source, fmt, digits}] — свои показатели
+     отчёта (reports/formula), метрика «cm:<id>» }
    ctx — подстановки экранов: {person, station} для '@me' и '@station'.
    Сутки — 0:00–24:00 по часам компьютера, неделя — с понедельника.
    ===================================================================== */
@@ -126,10 +129,19 @@ function repCalcKey(a,op,b){return 'calc:'+a+'~'+op+'~'+b;}
 /* Метрика по ключу: своя у источника или числовое поле с агрегатом
    («area:avg»), или число разных значений поля («distinct:customer»), или
    вычисляемая. */
-function repMetric(S,k){
+/* Свои показатели открытого отчёта — для подписей и меню экрана (view/reports). */
+let repCustomCur=[];
+function repSrcKey(S){return S.key||Object.keys(REP_SRC).find(k=>REP_SRC[k]===S)||'';}
+function repMetric(S,k,custom){
+ custom=custom||repCustomCur;
+ if(/^cm:/.test(String(k))){
+  const src=repSrcKey(S),d=custom.find(x=>'cm:'+x.id===k&&x.source===src);if(!d)return null;
+  const p=repFormulaParse(d.formula,S,custom.filter(x=>x.source===src));if(!p.ast)return null;
+  return {k,label:d.name,agg:'formula',ast:p.ast,money:d.fmt==='money',pct:d.fmt==='pct',digits:Number.isFinite(+d.digits)?+d.digits:d.fmt==='number'?1:2};
+ }
  const c=repCalcParse(k);
  if(c){
-  const a=repMetric(S,c.a),num=/^n:/.test(c.b)?+c.b.slice(2):null,b=num==null?repMetric(S,c.b):null;
+  const a=repMetric(S,c.a,custom),num=/^n:/.test(c.b)?+c.b.slice(2):null,b=num==null?repMetric(S,c.b,custom):null;
   if(!a||(num==null&&!b)||(num!=null&&!Number.isFinite(num)))return null;
   const sign=REP_CALC_OPS.find(x=>x[0]===c.op)[1],money=c.op==='div'||c.op==='mul'?!!a.money&&!(b&&b.money):!!a.money&&!!(b&&b.money);
   return {k,label:a.label+' '+sign+' '+(b?b.label:chNum(num,4)),agg:'calc',op:c.op,a,b,num,money,digits:c.op==='div'?2:Math.max(a.digits||0,b&&b.digits||0)};
@@ -141,8 +153,9 @@ function repMetric(S,k){
  const agg=REP_AGGS.some(x=>x[0]===b)?b:'sum';
  return {k,label:f.label+(agg==='sum'?'':' · '+REP_AGGS.find(x=>x[0]===agg)[1].toLowerCase()),agg,f:a,digits:agg==='avg'?Math.max(1,f.digits||0):f.digits,money:f.money,unitBy:f.unitBy};
 }
-function repMetricOptions(S){
+function repMetricOptions(S,custom){
  const out=(S.metrics||[]).map(m=>[m.k,m.label]);
+ const src=repSrcKey(S);(custom||repCustomCur).filter(x=>x.source===src).forEach(x=>out.push(['cm:'+x.id,x.name]));
  repFields(S).forEach(f=>{
   if(f.type==='num'){REP_AGGS.forEach(([a,l])=>{const k=a==='sum'?f.k:f.k+':'+a;if(!out.some(x=>x[0]===k))out.push([k,f.label+(a==='sum'?'':' · '+l.toLowerCase())]);});}
   if(f.type==='dim'||f.type==='text')out.push(['distinct:'+f.k,f.label+' · distinct']);
@@ -150,6 +163,7 @@ function repMetricOptions(S){
  return out;
 }
 function repAgg(S,m,list){
+ if(m.agg==='formula')return repFormulaEval(m.ast,S,list);
  if(m.agg==='calc'){const a=repAgg(S,m.a,list),b=m.b?repAgg(S,m.b,list):m.num;if(a==null||b==null)return null;return m.op==='div'?(b?a/b:null):m.op==='mul'?a*b:m.op==='add'?a+b:a-b;}
  /* Количество в единице строки (unitBy): дюймы с ft² не складываются — где
     в выборке разные единицы, числа нет. */
@@ -256,10 +270,14 @@ function repGroupBy(S,rows,d,key){const g=new Map();rows.forEach(r=>{const k=key
 function repQuery(q,ctx){
  ctx=ctx||{};const S=REP_SRC[q&&q.source];if(!S)return null;
  const dates=repDates(S),df=q.date&&dates.includes(q.date.f)?q.date.f:dates[0]||'',range=df?repRange(q.date||{}):null;
- const ms=(q.metrics&&q.metrics.length?q.metrics:[S.metrics[0].k]).map(k=>repMetric(S,k)).filter(Boolean);
+ const custom=q.custom||repCustomCur,ms=(q.metrics&&q.metrics.length?q.metrics:[S.metrics[0].k]).map(k=>repMetric(S,k,custom)).filter(Boolean);
  const dims=(q.dims||[]).filter(d=>d&&repField(S,repDimParse(d).f)).slice(0,2);
  const vals=list=>ms.map(m=>repAgg(S,m,list));
- const rows=repSelect(S,df,range,q.filters,ctx);
+ let rows=repSelect(S,df,range,q.filters,ctx);
+ /* Фильтр по показателю (как в Looker): строка графика остаётся, если её
+    значение подходит; итог и разбивка — по оставшимся. Без измерения — весь итог. */
+ const having=(q.having||[]).map(h=>({h,m:repMetric(S,h.m,custom)})).filter(x=>x.m),pass=list=>having.every(({h,m})=>repHavingTest(h,repAgg(S,m,list)));
+ if(having.length&&!(q.dims||[]).some(d=>d&&repField(S,repDimParse(d).f))&&!pass(rows))rows=[];
  /* Измерения строк сверх первого — только у списка значений, не у даты. */
  const more=dims[0]&&!repIsTime(S,dims[0])?(q.more||[]).filter(d=>d&&d!==dims[0]&&repField(S,d)&&!repIsTime(S,d)):[];
  const rowKey=more.length?r=>[dims[0]].concat(more).map(d=>repDimValue(S,r,d)).join('\u0002'):null;
@@ -267,7 +285,9 @@ function repQuery(q,ctx){
  if(dims[0]){
   /* Несколько измерений строк — по умолчанию по именам: строки одной толщины
      и одного стекла идут подряд, батчи внутри (найти глазами). */
-  const g1=repGroupBy(S,rows,dims[0],rowKey);let keys=repOrderKeys(S,dims[0],g1,ms,rowKey&&!q.sort?Object.assign({},q,{sort:{by:'label',i:0,dir:'asc'}}):q,range);
+  const g1=repGroupBy(S,rows,dims[0],rowKey);
+  if(having.length){[...g1.keys()].forEach(k=>{if(!pass(g1.get(k)))g1.delete(k);});rows=[...g1.values()].flat();out.rows=rows;out.count=rows.length;out.total=vals(rows);}
+  let keys=repOrderKeys(S,dims[0],g1,ms,rowKey&&!q.sort?Object.assign({},q,{sort:{by:'label',i:0,dir:'asc'}}):q,range);
   /* Топ N: остальное — строкой «Other», если попросили. Даты не режутся. */
   if(!repIsTime(S,dims[0])&&q.limit>0&&keys.length>q.limit){const rest=keys.slice(q.limit);keys=keys.slice(0,q.limit);if(q.other){g1.set('__other',rest.flatMap(k=>g1.get(k)));keys.push('__other');}}
   out.keys=keys;out.groups=g1;keys.forEach(k=>out.rowTotals.set(k,vals(g1.get(k)||[])));
@@ -300,5 +320,11 @@ function repQuery(q,ctx){
   }
  }
  return out;
+}
+const REP_HAVING_OPS=[['gt','>'],['gte','≥'],['lt','<'],['lte','≤'],['eq','='],['between','Between']];
+function repHavingTest(h,v){
+ if(v==null||!Number.isFinite(+v))return false;const a=+h.v[0],b=+h.v[1];if(h.v[0]===''||h.v[0]==null||!Number.isFinite(a))return true;
+ switch(h.op){case 'gt':return v>a;case 'gte':return v>=a;case 'lt':return v<a;case 'lte':return v<=a;case 'eq':return Math.abs(v-a)<1e-9;case 'between':return v>=a&&(!Number.isFinite(b)||h.v[1]===''||v<=b);}
+ return true;
 }
 function repKeyText(S,d,k){return k==='__other'?'Other':repDimText(S,d,k);}

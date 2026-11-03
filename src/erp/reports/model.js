@@ -50,12 +50,18 @@ function repCleanQuery(q){
  return {source:S,date:{f:repStr(d.f,40),use:d.use==='own'?'own':'report',preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},
   filters:(Array.isArray(q.filters)?q.filters:[]).filter(f=>f&&typeof f==='object'&&f.f).slice(0,20).map(f=>({f:repStr(f.f,40),op:repStr(f.op,20)||'in',v:(Array.isArray(f.v)?f.v:[f.v]).map(x=>repStr(x,120)).slice(0,200)})),
   dims:arr(q.dims,2),more:arr(q.more,4),metrics:arr(q.metrics,8),sort:q.sort&&typeof q.sort==='object'?{by:q.sort.by==='label'?'label':'metric',i:Math.max(0,Math.min(7,Math.floor(+q.sort.i||0))),dir:q.sort.dir==='asc'?'asc':'desc'}:null,
-  limit:Math.max(0,Math.min(500,Math.floor(+q.limit||0))),other:q.other===true,compare:['prev','year'].includes(q.compare)?q.compare:''};
+  limit:Math.max(0,Math.min(500,Math.floor(+q.limit||0))),other:q.other===true,compare:['prev','year'].includes(q.compare)?q.compare:'',
+  having:(Array.isArray(q.having)?q.having:[]).filter(h=>h&&typeof h==='object'&&h.m).slice(0,10).map(h=>({m:repStr(h.m,120),op:REP_HAVING_OPS.some(o=>o[0]===h.op)?h.op:'gt',v:(Array.isArray(h.v)?h.v:[h.v]).slice(0,2).map(x=>x===''||x==null||!Number.isFinite(+x)?'':+x)}))};
 }
 function repCleanWidget(w){
  w=w&&typeof w==='object'?w:{};
  return {id:repStr(w.id,80)||repUid('W'),type:REP_TYPES.some(t=>t[0]===w.type)?w.type:'table',title:repStr(w.title,120),width:w.width==='half'?'half':'full',
   q:repCleanQuery(w.q),opts:{totals:!(w.opts&&w.opts.totals===false),labels:!!(w.opts&&w.opts.labels)}};
+}
+function repCleanColors(c){
+ const out={};if(!c||typeof c!=='object'||Array.isArray(c))return out;
+ Object.keys(c).slice(0,40).forEach(f=>{const m=c[f];if(!m||typeof m!=='object')return;const x={};Object.keys(m).slice(0,300).forEach(v=>{const n=Math.floor(+m[v]);if(n>=1&&n<=24)x[repStr(v,120)]=n;});if(Object.keys(x).length)out[repStr(f,40)]=x;});
+ return out;
 }
 function repClean(r){
  r=r&&typeof r==='object'?r:{};
@@ -67,6 +73,9 @@ function repClean(r){
   controls:(Array.isArray(r.controls)?r.controls:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,10),
   date:{preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'thisMonth',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},filters,
   screens:{stations:(r.screens&&Array.isArray(r.screens.stations)?r.screens.stations:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,100),people:(r.screens&&Array.isArray(r.screens.people)?r.screens.people:[]).map(x=>repStr(x,80)).filter(Boolean).slice(0,200)},
+  /* Свои показатели (reports/formula) и цвета значений, выбранные человеком. */
+  custom:(Array.isArray(r.custom)?r.custom:[]).filter(c=>c&&typeof c==='object'&&c.name&&c.formula&&REP_SRC[c.source]).slice(0,60).map(c=>({id:repStr(c.id,40)||repUid('CM'),name:repStr(c.name,60),formula:repStr(c.formula,600),source:repStr(c.source,40),fmt:['money','pct'].includes(c.fmt)?c.fmt:'number',digits:Math.max(0,Math.min(4,Math.floor(+c.digits||0)))})),
+  colors:repCleanColors(r.colors),
   pages:pages.length?pages:[{id:repUid('PG'),name:'Page 1',widgets:[]}],createdAt:repStr(r.createdAt,40),updatedAt:repStr(r.updatedAt,40)};
 }
 function normalizeReports(){
