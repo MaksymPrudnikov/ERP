@@ -207,7 +207,7 @@ function shippingReadyHTML(){
 }
 /* Поиск заказа и «Open a trip» — справа в шапке списка каждой вкладки Shipping. */
 function shippingBarRight(){return shippingLookupHTML().field+shippingTripHTML();}
-function shippingListScope(){return shippingTab==='shipments'?'shippingPS':shippingTab==='awaiting'?'shippingAwaiting':shippingTab==='done'?'shippingDone':'';}
+function shippingListScope(){return shippingTab==='shipments'?'shippingPS':shippingTab==='awaiting'?'shippingAwaiting':shippingTab==='done'?'shippingDone':shippingTab==='skids'?'shippingSkids':'';}
 function shippingListColumns(){return [{k:'number',label:'Packing slip',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'date',label:'Date',type:'date',range:[['today','Today'],['thisWeek','This week'],['last30','30 days'],['','All time']]},{k:'method',label:'Method',type:'list'},{k:'skids',label:'Skids',type:'text',tokens:true},{k:'units',label:'Units',type:'number',sum:true},{k:'area',label:'ft²',type:'number',sum:true,digits:1},{k:'kg',label:'Weight kg',type:'number',sum:true,digits:1},{k:'glass',label:'Glass',type:'text',tokens:true},{k:'balance',label:'Balance',type:'number',sum:true,money:true},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
 /* Площадь, вес, стекло и баланс заказов PS — колонки списка Shipments (владелец, 03.11.2026). */
 function shippingListExtra(s){
