@@ -98,7 +98,7 @@ function finListTable(infos,cell,rowAttrs,noun,empty){
  const p=salesListLoadPrefs(),rows=salesListRows(infos),cols=salesListColumns();
  if(finSel&&!rows.some(r=>r.o.id===finSel))finSel='';
  const body=rows.map(r=>{const on=finSel===r.o.id;return `<tr ${rowAttrs(r)}${on?' data-fin-sel':''}><td class="sl-check" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(String(r.memo.number||r.memo.customer||r.o.id))}" ${on?'checked':''} onchange="finSelect('${esc(r.o.id)}',this.checked)"></td>${cols.map(c=>cell(r,c)).join('')}<td></td></tr>`;}).join('');
- const cw=salesListCwTable(cols.map(c=>c.k),[44],20),sel=rows.find(r=>r.o.id===finSel);
+ const cw=salesListCwTable(cols.map(c=>c.k),[44],20,{due:130,terms:150,days:110,balance:110,outstanding:110,limit:110,state:130,status:110}),sel=rows.find(r=>r.o.id===finSel);
  const acts=(sel&&sel.acts||[]).map(([l,fn,attr])=>`<button type="button" class="sl-quiet" ${attr||''} onclick="${fn}">${l}</button>`).join('');
  return {rows,acts:sel?`<b class="oq-sel">1 selected</b>${acts}`:'',html:`${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table fin-list${cw.cls}"${cw.attrs}>${cw.col}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(c=>finListTh(c,p)).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'Nothing matches the filters.':empty}</td></tr>`}</tbody>${rows.length?finListFooter(rows,cols,noun):''}</table></div>${salesListMenuHTML(infos)}`};
 }

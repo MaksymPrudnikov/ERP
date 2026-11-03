@@ -683,11 +683,11 @@ function salesListHead(c){const f=salesListLoadPrefs().filters[c.k],on=!!f&&sale
 /* Ширина и порядок за заголовок для списка этого экрана: адаптер по scope
    регистрируется при первом показе (lead — служебные колонки слева, trail —
    кнопки справа, px). Возвращает класс, атрибуты и <colgroup> таблицы. */
-function salesListCwTable(keys,lead,trail){
+function salesListCwTable(keys,lead,trail,defs){
  const id=salesListScope();
  if(!CW_TABLES[id])cwRegister(id,{widths:()=>salesListLoadPrefs().widths||{},
   save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
-  def:k=>{const c=salesListColumn(k);return SALES_LIST_WIDTH[k]||(c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
+  def:k=>{const c=salesListColumn(k);return (defs&&defs[k])||SALES_LIST_WIDTH[k]||(c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
   min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead||[],trail:trail||0,fill:keys.includes('customer')?'customer':''});
  return {cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
 }
