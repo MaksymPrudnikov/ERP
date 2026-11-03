@@ -16,6 +16,8 @@ let shippingLookupId='',shippingLookupText='',shippingLookupMiss='',shippingLook
 /* Как совпадать (владелец, 03.11.2026: «тип соответствия можно добавить»): по
    умолчанию номер — точно, PO — по части текста; выбор держится до смены Order | PO. */
 let shippingLookupMatch='';
+/* Значок, название и следующий тип по клику. */
+const SHIPPING_MATCH={exact:['=','Exact','contains'],contains:['≈','Contains','starts'],starts:['a…','Starts with','exact']};
 function shippingLookupMatchNow(){return shippingLookupMatch||(shippingLookupBy==='po'?'contains':'exact');}
 function shippingLookupSetMatch(v){const e=document.querySelector('[data-order-lookup]');shippingLookupMatch=['contains','exact','starts'].includes(v)?v:'';shippingLookupGo(e?e.value:shippingLookupText);}
 function shippingLookupOpen(o){return !['done','closed','cancelled'].includes(o.status)&&!shippingLegacy(o);}
@@ -64,7 +66,7 @@ function shippingLookupPickup(id){
 }
 function shippingLookupHTML(){
  const po=shippingLookupBy==='po';
- const field=`<div class="shipping-lookup-field"><select aria-label="Search by" data-lookup-by onchange="shippingLookupSetBy(this.value)"><option value="order" ${po?'':'selected'}>Order</option><option value="po" ${po?'selected':''}>PO</option></select><select aria-label="Match" data-lookup-match onchange="shippingLookupSetMatch(this.value)">${[['contains','Contains'],['exact','Exact'],['starts','Starts with']].map(([k,l])=>`<option value="${k}" ${shippingLookupMatchNow()===k?'selected':''}>${l}</option>`).join('')}</select><input data-order-lookup aria-label="${po?'Customer PO':'Order number'}" value="${esc(shippingLookupText)}" placeholder="${po?'Customer PO':'Order number'}" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingLookupGo(this.value)}"></div>`;
+ const field=`<div class="shipping-lookup-field"><select aria-label="Search by" data-lookup-by onchange="shippingLookupSetBy(this.value)"><option value="order" ${po?'':'selected'}>Order</option><option value="po" ${po?'selected':''}>PO</option></select><span class="shipping-lookup-box"><input data-order-lookup aria-label="${po?'Customer PO':'Order number'}" value="${esc(shippingLookupText)}" placeholder="${po?'Customer PO':'Order number'}" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingLookupGo(this.value)}">${(m=>`<button type="button" class="shipping-match" data-lookup-match="${m}" aria-label="Match: ${SHIPPING_MATCH[m][1]}" title="Match: ${SHIPPING_MATCH[m][1]} — click to change" onclick="shippingLookupSetMatch(SHIPPING_MATCH[shippingLookupMatchNow()][2])">${SHIPPING_MATCH[m][0]}</button>`)(shippingLookupMatchNow())}</span></div>`;
  const o=shippingLookupId&&salesRecord(shippingLookupId);
  if(!o){
   const list=shippingLookupIds.map(salesRecord).filter(Boolean),more=list.length-SHIPPING_LOOKUP_MAX;
