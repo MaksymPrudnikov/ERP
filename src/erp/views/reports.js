@@ -114,10 +114,12 @@ function repCatBar(r){
 function repDelta(cur,prev){if(cur==null||prev==null||!prev)return '';const d=(cur-prev)/Math.abs(prev)*100;return (d>=0?'▲ ':'▼ ')+Math.abs(d).toFixed(Math.abs(d)<10?1:0)+'%';}
 function repCmpText(res){const c=res.compare;return c?(c.kind==='year'?'vs last year':'vs previous period'):'';}
 /* Цвет значения разбивки — по его месту в полном списке значений поля, а не
-   в выборке: фильтр не перекрашивает (dataviz). */
+   в выборке: фильтр не перекрашивает (dataviz). Цветов восемь; девятое и
+   дальше — те же цвета светлее (ch-t2, ch-t3), значений сколько угодно. */
+function repSeriesClass(i){const t=Math.floor(i/8);return 'ch-s'+(i%8+1)+(t?' ch-t'+Math.min(3,t+1):'');}
 function repSeriesCls(S,d,keys){
  const p=repDimParse(d),all=repIsTime(S,d)?keys:repFieldValues(S,p.f),rank=k=>{const i=all.indexOf(k);return i<0?9999:i;};
- const order=keys.filter(k=>k!=='__other').slice().sort((a,b)=>rank(a)-rank(b)),m=new Map();order.forEach((k,i)=>m.set(k,'ch-s'+(i%8+1)));m.set('__other','ch-so');return m;
+ const order=keys.filter(k=>k!=='__other').slice().sort((a,b)=>rank(a)-rank(b)),m=new Map();order.forEach((k,i)=>m.set(k,repSeriesClass(i)));m.set('__other','ch-so');return m;
 }
 function repPickAttrs(r,S,d,k){
  const p=repDimParse(d),f=repField(S,p.f);if(!f||f.type==='date'||k==='__other'||k==='—')return '';
@@ -132,8 +134,23 @@ function repNumbers(res){
 /* Ноль в строке таблицы — точкой, как пустая клетка разбивки: меньше шума.
    Деньги и проценты пишутся как есть. */
 function repCellHTML(m,v){return v===0&&!m.money&&!m.pct?'<span class="mut">·</span>':esc(repFmt(m,v));}
+/* Таблица — все строки (владелец, 03.11.2026: «ничего не ограничивать»):
+   первые REP_TABLE_STEP сразу, дальше дорисовываются, когда карточку
+   прокручивают вниз (repTableMore); печать — все сразу. */
+const REP_TABLE_STEP=300;
+let repTableRest=new Map(),repPrinting=false;
+function repTableBody(w,keys,rowHTML){
+ if(repPrinting||keys.length<=REP_TABLE_STEP){repTableRest.delete(w.id);return keys.map(rowHTML).join('');}
+ repTableRest.set(w.id,{keys,rowHTML,at:REP_TABLE_STEP});
+ return keys.slice(0,REP_TABLE_STEP).map(rowHTML).join('');
+}
+function repTableMore(el){
+ const x=repTableRest.get(el.dataset.repScroll);if(!x||el.scrollTop+el.clientHeight<el.scrollHeight-600)return;
+ const body=el.querySelector('tbody'),end=Math.min(x.at+REP_TABLE_STEP,x.keys.length);if(!body)return;
+ body.insertAdjacentHTML('beforeend',readScope(()=>x.keys.slice(x.at,end).map(x.rowHTML).join('')));x.at=end;if(end>=x.keys.length)repTableRest.delete(el.dataset.repScroll);
+}
 function repTableHTML(r,S,res,w){
- const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],MAX=200,cmp=res.compare&&!d2;
+ const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],cmp=res.compare&&!d2;
  if(!d1)return `<div class="sales-table-wrap"><table class="sl-table rep-table"><thead><tr>${ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')}</tr></thead><tbody><tr>${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr></tbody></table></div>`;
  const keys=res.keys,label=k=>repKeyText(S,d1,k);let head,body,foot='';
  if(d2){
@@ -142,20 +159,70 @@ function repTableHTML(r,S,res,w){
   const k2=res.keys2,cell=(v,m)=>v?esc(repFmt(m,v)):'<span class="mut">·</span>',many=ms.length>1;
   head=many?`<th rowspan="2">${esc(repDimLabel(S,d1))}</th>${k2.map(k=>`<th class="n rep-group" colspan="${ms.length}" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n rep-group" colspan="${ms.length}">Total</th></tr><tr>${k2.concat(['']).map(()=>ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')).join('')}`
    :`<th>${esc(repDimLabel(S,d1))}</th>${k2.map(k=>`<th class="n" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n">Total</th>`;
-  body=keys.slice(0,MAX).map(k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${k2.map(b=>ms.map((m,i)=>`<td class="n">${cell((res.cells.get(k+'\u0001'+b)||[])[i],m)}</td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(k)[i]))}</b></td>`).join('')}</tr>`).join('');
+  body=repTableBody(w,keys,k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${k2.map(b=>ms.map((m,i)=>`<td class="n">${cell((res.cells.get(k+'\u0001'+b)||[])[i],m)}</td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(k)[i]))}</b></td>`).join('')}</tr>`);
   if(w.opts.totals)foot=`<tr class="sl-foot"><td><b>Total</b></td>${k2.map(b=>ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.colTotals.get(b)[i]))}</b></td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr>`;
  }else{
   head=`<th>${esc(repDimLabel(S,d1))}</th>${ms.map(m=>`<th class="n">${esc(m.label)}</th>`+(cmp?`<th class="n rep-cmp">${esc(repCmpText(res))}</th>`:'')).join('')}`;
-  body=keys.slice(0,MAX).map(k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${ms.map((m,i)=>`<td class="n">${repCellHTML(m,res.rowTotals.get(k)[i])}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`).join('');
+  body=repTableBody(w,keys,k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${ms.map((m,i)=>`<td class="n">${repCellHTML(m,res.rowTotals.get(k)[i])}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`);
   if(w.opts.totals)foot=`<tr class="sl-foot"><td><b>Total</b></td>${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.total[i],res.compare.total[i]))}</td>`:'')).join('')}</tr>`;
  }
- return `<div class="sales-table-wrap"><table class="sl-table rep-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>MAX?`<div class="mut">First ${MAX} of ${keys.length}</div>`:''}`;
+ return `<div class="sales-table-wrap rep-scroll" data-rep-scroll="${esc(w.id)}" onscroll="repTableMore(this)"><table class="sl-table rep-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>REP_TABLE_STEP?`<div class="mut small" data-rep-rows>${chNum(keys.length)} rows</div>`:''}`;
 }
 function repParts(res,cls,k){return res.keys2.map(b=>({value:(res.cells.get(k+'\u0001'+b)||[])[0]||0,cls:cls.get(b)}));}
 function repLegend(S,res,cls){const d2=res.dims[1];return chartLegend(res.keys2.filter(b=>(res.colTotals.get(b)||[])[0]).map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b)})));}
+/* ------------------------------ Расчёт графиков ------------------------------ */
+/* Владелец, 03.11.2026: «не показывать, что он завис, а показывать, что он
+   грузится, в процентах». Посчитанный график помнится до записи в базе
+   (storageInvalidate) или нового дня; строки выборки не хранятся — только
+   итоги. Страница, которой нужен долгий расчёт, сначала показывает процент,
+   графики считаются в фоне по одному (repBuild). После записи (скан в другой
+   вкладке) прежние графики остаются на экране, пока считаются новые
+   (repStale), — страница не мигает процентом на каждый скан. Долгий — тот, чей источник в
+   прошлый раз считался дольше REP_SYNC_MS, или ещё не считался на большой
+   базе (repHeavy). */
+const REP_SYNC_MS=300;
+let repResults=new Map(),repStale=new Map(),repCost=new Map(),repBuild=null;
+function repResultsDrop(){if(repResults.size)repStale=repResults;repResults=new Map();}
+function repResultKey(q,ctx){return finToday()+'|'+JSON.stringify([q,ctx,typeof archiveScope!=='undefined'&&archiveScope&&archiveScope.ready?archiveScope.key:'']);}
+function repResultOf(q,ctx){
+ const key=repResultKey(q,ctx);if(repResults.has(key))return repResults.get(key);
+ const t=performance.now(),res=repQuery(q,ctx);repCost.set(q.source,performance.now()-t);
+ if(res){delete res.rows;delete res.groups;}
+ if(repResults.size>300)repResults.delete(repResults.keys().next().value);
+ repResults.set(key,res);return res;
+}
+function repHeavy(){return (DB.stationScan||[]).length+(DB.salesOrder||[]).length*40>60000;}
+function repSlow(q){const c=repCost.get(q.source);return c==null?repHeavy():c>REP_SYNC_MS;}
+function repPageQueries(r,p){return p.widgets.filter(w=>repSourceAllowed(w.q.source)).map(w=>repWidgetQuery(r,w));}
+/* Страница: 'ready' — всё посчитано; 'stale' — показываются прежние графики,
+   новые считаются; 'wait' — процент вместо графиков. Быстрые — сразу. */
+function repPageReady(r,p){
+ const ctx=repCtx(),qs=repPageQueries(r,p).filter(q=>!repResults.has(repResultKey(q,ctx)));
+ qs.forEach(q=>{if(!repSlow(q))repResultOf(q,ctx);});
+ const left=qs.filter(q=>!repResults.has(repResultKey(q,ctx)));
+ if(!left.length){repBuild=null;return 'ready';}
+ const key=r.id+'|'+p.id+'|'+repEditOn;
+ if(!repBuild||repBuild.key!==key)repBuildStart(key);
+ return left.every(q=>repStale.has(repResultKey(q,ctx)))?'stale':'wait';
+}
+function repBuildStart(key){
+ const b=repBuild={key,pct:0};
+ const step=()=>{
+  if(repBuild!==b||tab!=='reports')return;
+  const r=repOpenReport(),p=r&&repPage(r);if(!p||r.id+'|'+p.id+'|'+repEditOn!==key){repBuild=null;return;}
+  const ctx=repCtx(),qs=repPageQueries(r,p),next=qs.find(q=>!repResults.has(repResultKey(q,ctx)));
+  if(!next){repBuild=null;render();return;}
+  readScope(()=>repResultOf(next,ctx));
+  b.pct=Math.floor(qs.filter(q=>repResults.has(repResultKey(q,ctx))).length/qs.length*100);
+  const el=document.querySelector('[data-rep-archive-wait]'),up=document.querySelector('[data-rep-updating]');if(el)el.textContent=repBuildText(b);if(up)up.textContent=repBuildText(b,true);
+  setTimeout(step,0);
+ };
+ setTimeout(step,0);
+}
+function repBuildText(b,stale){return `${stale?'Updating':'Building report'} · ${b?b.pct:0}%`;}
 function repChart(r,w){
  if(!repSourceAllowed(w.q.source)){const a=(REP_SRC[w.q.source]||{}).access||'finance';return '<div class="mut">Needs '+a.charAt(0).toUpperCase()+a.slice(1)+' access.</div>';}
- const q=repWidgetQuery(r,w),res=repQuery(q,repCtx());if(!res)return '<div class="mut">Choose data.</div>';
+ const q=repWidgetQuery(r,w),ctx=repCtx(),key=repResultKey(q,ctx),res=repResults.has(key)?repResults.get(key):repBuild&&repStale.has(key)?repStale.get(key):repResultOf(q,ctx);if(!res)return '<div class="mut">Choose data.</div>';
  const S=REP_SRC[q.source],m=res.metrics[0],fmt=v=>repFmt(m,v),d1=res.dims[0],d2=res.dims[1];
  if(w.type==='number')return repNumbers(res);
  if(w.type==='table')return repTableHTML(r,S,res,w);
@@ -163,8 +230,8 @@ function repChart(r,w){
  if(!res.count&&!(res.compare&&res.compare.total.some(Boolean)))return '<div class="mut">No data for this period and filters.</div>';
  const cls=d2?repSeriesCls(S,d2,res.keys2):null,text=k=>repKeyText(S,d1,k),every=Math.max(1,Math.ceil(res.keys.length/14));
  if(w.type==='bars'){
-  const rows=res.keys.slice(0,40).map(k=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])}));
-  return (d2?repLegend(S,res,cls):'')+chartHBars(rows,{fmt,label:w.title})+(res.keys.length>40?'<div class="mut">Top 40 — set Top N</div>':'');
+  const rows=res.keys.map(k=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])}));
+  return (d2?repLegend(S,res,cls):'')+`<div class="rep-scroll">${chartHBars(rows,{fmt,label:w.title})}</div>`;
  }
  if(w.type==='columns'){
   const pts=res.keys.map((k,i)=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,tick:i%every===0,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])+(res.compare?' · '+repCmpText(res)+' '+fmt((res.compare.rowTotals.get(k)||[])[0]):'')}));
@@ -179,9 +246,9 @@ function repChart(r,w){
   return legend+chartLine(labels,series,{fmt,label:w.title});
  }
  if(w.type==='pie'){
-  let keys=res.keys.filter(k=>(res.rowTotals.get(k)[0]||0)>0);const pc=repSeriesCls(S,d1,keys.slice(0,7));
-  const parts=keys.slice(0,7).map(k=>({label:text(k),value:res.rowTotals.get(k)[0],cls:pc.get(k),attrs:repPickAttrs(r,S,d1,k)}));
-  if(keys.length>7)parts.push({label:'Other',value:keys.slice(7).reduce((n,k)=>n+(res.rowTotals.get(k)[0]||0),0),cls:'ch-so'});
+  /* Все доли (владелец, 03.11.2026: «количество долей тоже не ограничивать»). */
+  const keys=res.keys.filter(k=>(res.rowTotals.get(k)[0]||0)>0),pc=repSeriesCls(S,d1,keys);
+  const parts=keys.map(k=>({label:text(k),value:res.rowTotals.get(k)[0],cls:pc.get(k),attrs:repPickAttrs(r,S,d1,k)}));
   return chartPie(parts,{fmt,label:w.title})||'<div class="mut">No data for this period and filters.</div>';
  }
  return '';
@@ -360,7 +427,7 @@ function repPrintHTML(){
  const body=p.widgets.map((w,i)=>repWidgetCard(r,w,i,p.widgets.length)).join('');
  return `<div class="rep-print"><div class="rep-print-head"><h2 data-raw>${esc(r.name)}${r.pages.length>1?' · '+esc(p.name):''}</h2><div>${esc(['Date: '+repDateText(v.date||r.date)].concat(filters).join(' · '))}</div><small>Glass Farm · printed ${esc(now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}))} ${esc(now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}))}</small></div><div class="rep-ws">${body}</div></div>`;
 }
-function repPrint(){const was=repEditOn,html=repPrintHTML();repEditOn=was;repMenu=null;return html&&printSheet(html,'');}
+function repPrint(){const was=repEditOn;repPrinting=true;let html;try{html=repPrintHTML();}finally{repPrinting=false;}repEditOn=was;repMenu=null;return html&&printSheet(html,'');}
 
 /* Отчёт на чужом экране — Board станции или Overview человека: страницы и
    графики, без правки и фильтров; подстановки — станция и человек экрана. */
@@ -399,9 +466,9 @@ function repMain(r){
  /* Период захватывает ушедшие в архив заказы — сначала их строки с диска. */
  const ranges=repArchiveRanges(r,p),arch=ranges?archiveScopeFor(ranges,repArchiveNeed(r,p)):'none';
  if(!ranges)archiveScopeDrop();
- const wait=arch==='loading'?archiveFactsText(archiveScope):'';
+ const ready=arch==='loading'?'':repPageReady(r,p),wait=arch==='loading'?archiveFactsText(archiveScope):ready==='wait'?repBuildText(repBuild):'';
  const body=wait?`<div class="card mut" data-rep-archive-wait>${esc(wait)}</div>`:p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
- return `<div class="card rep-head"><div class="rep-head-row">${head}<span class="sales-toolbar-sp"></span>${acts}</div>${!can&&!repEditOn?`<div class="mut small">${r.ownerId?'Shared with you':'Starter report'} · Copy to change it</div>`:''}${tabs}${repControls(r)}</div><div class="rep-ws">${body}</div>`;
+ return `<div class="card rep-head"><div class="rep-head-row">${head}<span class="sales-toolbar-sp"></span>${ready==='stale'?`<span class="mut small" data-rep-updating>${esc(repBuildText(repBuild,true))}</span>`:''}${acts}</div>${!can&&!repEditOn?`<div class="mut small">${r.ownerId?'Shared with you':'Starter report'} · Copy to change it</div>`:''}${tabs}${repControls(r)}</div><div class="rep-ws">${body}</div>`;
 }
 function viewReports(){
  repPicks=[];

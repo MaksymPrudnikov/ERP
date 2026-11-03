@@ -209,18 +209,20 @@ function repFieldValues(S,k){const f=repField(S,k);if(!f)return [];const set=new
 
 /* ------------------------------ Порядок ------------------------------ */
 /* Все корзины периода, и пустые: месяц без резки — ноль, а не дыра. Без
-   границ периода — от первой до последней корзины в данных; слишком много
-   корзин (дни за десять лет) — только те, где есть данные. */
+   границ периода — от первой до последней корзины в данных. Дни за семь лет —
+   все дни (владелец, 03.11.2026: «ничего не ограничивать»); REP_DATE_MAX —
+   только защита от битой даты (год 9999), а не предел показа. */
+const REP_DATE_MAX=40000;
 function repDateKeys(g,range,present){
  if(g==='hour')return Array.from({length:24},(_,h)=>String(h).padStart(2,'0'));
  if(g==='weekday')return ['0','1','2','3','4','5','6'];
  const have=present.filter(Boolean).sort(),lo=range&&range[0]?repBucket(range[0],g):have[0],hi=range&&range[1]?repBucket(range[1],g):have[have.length-1],out=[];
  if(!lo||!hi)return have;
- if(g==='day'||g==='week'){for(let d=lo;d<=hi&&out.length<=400;d=repAddDays(d,g==='week'?7:1))out.push(d);}
- else if(g==='month'){let [y,m]=lo.split('-').map(Number);for(let k=lo;k<=hi&&out.length<=400;){out.push(k);if(++m>12){m=1;y++;}k=y+'-'+String(m).padStart(2,'0');}}
- else if(g==='quarter'){let y=+lo.slice(0,4),q=+lo.slice(6);for(let k=lo;k<=hi&&out.length<=400;){out.push(k);if(++q>4){q=1;y++;}k=y+'-Q'+q;}}
- else if(g==='year'){for(let y=+lo;y<=+hi&&out.length<=400;y++)out.push(String(y));}
- return out.length>400?have:out;
+ if(g==='day'||g==='week'){for(let d=lo;d<=hi&&out.length<=REP_DATE_MAX;d=repAddDays(d,g==='week'?7:1))out.push(d);}
+ else if(g==='month'){let [y,m]=lo.split('-').map(Number);for(let k=lo;k<=hi&&out.length<=REP_DATE_MAX;){out.push(k);if(++m>12){m=1;y++;}k=y+'-'+String(m).padStart(2,'0');}}
+ else if(g==='quarter'){let y=+lo.slice(0,4),q=+lo.slice(6);for(let k=lo;k<=hi&&out.length<=REP_DATE_MAX;){out.push(k);if(++q>4){q=1;y++;}k=y+'-Q'+q;}}
+ else if(g==='year'){for(let y=+lo;y<=+hi&&out.length<=REP_DATE_MAX;y++)out.push(String(y));}
+ return out.length>REP_DATE_MAX?have:out;
 }
 function repIsTime(S,d){const p=repDimParse(d),f=repField(S,p.f);return !!f&&f.type==='date';}
 function repOrderKeys(S,d,groups,ms,q,range){
@@ -263,15 +265,11 @@ function repQuery(q,ctx){
   if(!repIsTime(S,dims[0])&&q.limit>0&&keys.length>q.limit){const rest=keys.slice(q.limit);keys=keys.slice(0,q.limit);if(q.other){g1.set('__other',rest.flatMap(k=>g1.get(k)));keys.push('__other');}}
   out.keys=keys;out.groups=g1;keys.forEach(k=>out.rowTotals.set(k,vals(g1.get(k)||[])));
   if(dims[1]){
-   /* Разбивка — до восьми значений: семь самых больших по первой метрике
-      и «Other»; дальше — по имени (станции — по маршруту). Цвет значению
-      даёт экран по полному списку значений поля, а не по этой выборке. */
+   /* Разбивка — все значения (владелец, 03.11.2026: раньше семь и «Other»),
+      по имени (станции — по маршруту). Цвет значению даёт экран по полному
+      списку значений поля, а не по этой выборке. */
    const g2=repGroupBy(S,rows,dims[1]);let k2=repIsTime(S,dims[1])?repOrderKeys(S,dims[1],g2,ms,{},range).filter(k=>g2.has(k)):[...g2.keys()];
-   if(!repIsTime(S,dims[1])){
-    if(k2.length>8){const m=ms[0];k2=k2.sort((a,b)=>(repAgg(S,m,g2.get(b))||0)-(repAgg(S,m,g2.get(a))||0));const rest=k2.slice(7);k2=k2.slice(0,7);g2.set('__other',rest.flatMap(k=>g2.get(k)));}
-    k2=k2.sort(repSeqSort(S,repDimParse(dims[1]).f)||((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true})));
-    if(g2.has('__other'))k2.push('__other');
-   }
+   if(!repIsTime(S,dims[1]))k2=k2.sort(repSeqSort(S,repDimParse(dims[1]).f)||((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true})));
    out.keys2=k2;
    /* Строка — в одной клетке: разбивка по дням за годы — тысячи колонок, перебирать строки на каждую нельзя. */
    const col=new Map();k2.forEach(k=>(g2.get(k)||[]).forEach(r=>col.set(r,k)));

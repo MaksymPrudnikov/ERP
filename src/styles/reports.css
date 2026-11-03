@@ -54,6 +54,7 @@ button.ch-stat.warn b{color:var(--warning)}
 .ch-s1{background:var(--series-1);stroke:var(--series-1)}.ch-s2{background:var(--series-2);stroke:var(--series-2)}.ch-s3{background:var(--series-3);stroke:var(--series-3)}.ch-s4{background:var(--series-4);stroke:var(--series-4)}
 .ch-s5{background:var(--series-5);stroke:var(--series-5)}.ch-s6{background:var(--series-6);stroke:var(--series-6)}.ch-s7{background:var(--series-7);stroke:var(--series-7)}.ch-s8{background:var(--series-8);stroke:var(--series-8)}
 .ch-so{background:var(--text-3);stroke:var(--text-3)}
+.ch-t2{opacity:.6}.ch-t3{opacity:.35}
 .ch-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 8px;font-size:12.5px;color:var(--text-2)}
 .ch-legend>span{display:inline-flex;align-items:center;gap:6px}
 .ch-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
@@ -193,6 +194,11 @@ button.ch-stat.warn b{color:var(--warning)}
 .rep-cmp{color:var(--text-3);font-size:12px}
 .rep-w .n{text-align:right;font-variant-numeric:tabular-nums}
 .rep-table td[role=button]{cursor:pointer}
+/* Все строки и все значения — прокрутка внутри карточки, шапка и итог на месте. */
+.rep-scroll{max-height:70vh;overflow:auto}
+.rep-scroll .rep-table thead th{position:sticky;top:0;z-index:1;background:var(--surface)}
+.rep-scroll .rep-table tfoot td{position:sticky;bottom:0;background:var(--surface)}
+.ch-pie-legend{max-height:60vh;overflow:auto}
 .rep-table td[role=button]:hover b{color:var(--accent)}
 .rep-key-acc{background:var(--accent)}
 .rep-menu{width:300px}

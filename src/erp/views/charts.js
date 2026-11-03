@@ -76,7 +76,7 @@ function chartLine(labels,series,opts){
  const lines=series.map(s=>`<polyline class="ch-l ${s.cls}${s.dashed?' ch-dash':''}" points="${s.values.map((v,i)=>x(i).toFixed(1)+','+y(v).toFixed(1)).join(' ')}"/>`+(s.dashed?'':s.values.map((v,i)=>`<circle class="ch-pt ${s.cls}" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4"><title>${esc(s.label+' · '+labels[i]+': '+fmt(+v||0))}</title></circle>`).join(''))).join('');
  return `<svg class="ch-line" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label||'')}">${grid}${xs}${lines}</svg>`;
 }
-/* Круг (кольцо): доля частей; посередине — итог. Частей до восьми. */
+/* Круг (кольцо): доля частей; посередине — итог. Частей сколько угодно. */
 function chartPie(parts,opts){
  opts=opts||{};const fmt=opts.fmt||(v=>chNum(v)),shown=parts.filter(p=>+p.value>0),total=shown.reduce((n,p)=>n+(+p.value),0);
  if(!total)return '';

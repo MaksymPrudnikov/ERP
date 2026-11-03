@@ -81,6 +81,8 @@ function storageInvalidate(lines){
  if(typeof repDeliveryCache!=='undefined')repDeliveryCache={stamp:'',rows:null};
  if(typeof repCustomerNames!=='undefined')repCustomerNames=null;
  if(typeof repSoldCache!=='undefined'){repSoldCache={stamp:'',sets:new Map()};repSoldByOrder=new Map();}
+ /* Посчитанные графики отчёта — по прежним данным (views/reports). */
+ if(typeof repResultsDrop==='function')repResultsDrop();
  if(typeof readMemoReset==='function')readMemoReset(lines);
  /* Пересборка таблицы (откат, чужая запись) — строки просмотра из архива на место. */
  if(typeof archiveVisitKeep==='function')archiveVisitKeep();
