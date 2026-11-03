@@ -438,7 +438,8 @@ function repDelControl(f){repEditCur(r=>{r.controls=r.controls.filter(x=>x!==f);
    страницы отчёта, каждую на свой лист Letter в её ориентации (page.orient):
    то, что видно на экране, уменьшенное под лист (repPrintFit). Страница с
    архивом или долгим расчётом сначала открывается и досчитывается. */
-const REP_SHEET={portrait:[816,1056],landscape:[1056,816]},REP_SHEET_PAD=68;
+/* Лист Letter в px (96 на дюйм) без полей 9 мм; запас — раскладка печати чуть выше экранной. */
+const REP_SHEET={portrait:[816,1056],landscape:[1056,816]},REP_SHEET_PAD=68,REP_SHEET_SPARE=0.94;
 function repPrintPageHTML(r,p){
  const v=repView(r.id),now=new Date(),filters=Object.entries(v.f||{}).filter(([f,x])=>x&&x.length).map(([f,x])=>(repControlFields(r).get(f)||f)+': '+x.join(', '));
  const body=p.widgets.map((w,i)=>repWidgetCard(r,w,i,p.widgets.length)).join('');
@@ -448,7 +449,7 @@ function repPrintPageHTML(r,p){
 function repPrintFit(el){
  const x=el.querySelector('.rep-print');if(!x)return;const land=x.dataset.repOrient==='landscape',[W,H]=REP_SHEET[land?'landscape':'portrait'];
  el.classList.add(land?'rep-land':'rep-port');x.style.width=(W-REP_SHEET_PAD)+'px';x.style.zoom='';
- const h=x.scrollHeight,k=Math.min(1,(H-REP_SHEET_PAD)/Math.max(1,h));if(k<1)x.style.zoom=String(Math.floor(k*1000)/1000);
+ const h=x.scrollHeight,k=Math.min(1,(H-REP_SHEET_PAD)*REP_SHEET_SPARE/Math.max(1,h));if(k<1)x.style.zoom=String(Math.floor(k*1000)/1000);
 }
 let repPrintBusy=false;
 async function repPrint(){
