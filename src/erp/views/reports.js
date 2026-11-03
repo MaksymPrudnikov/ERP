@@ -379,7 +379,9 @@ function repCsv(wid){
 function repSaveDefaults(){const r=repOpenReport();if(!r||repDraft)return;const v=repView(r.id);if(repEditReport(r.id,x=>{if(v.date)x.date=v.date;if(v.f!==undefined)x.filters=v.f;}))repResetView();}
 
 /* ------------------------------ Настройка графика ------------------------------ */
-function repOpt(list,cur,none){return (none?`<option value="">${esc(none)}</option>`:'')+list.map(([k,l])=>`<option value="${esc(k)}"${k===cur?' selected':''}>${esc(l)}</option>`).join('');}
+function repOpt(list,cur,none){return (none?`<option value="">${esc(none)}</option>`:'')+list.map(([k,l,t])=>`<option value="${esc(k)}"${k===cur?' selected':''}${t?` title="${esc(t)}"`:''}>${esc(l)}</option>`).join('');}
+/* Что выбрано — одной строкой под списком. */
+function repNoteOf(list,cur){const o=list.find(x=>x[0]===cur);return o&&o[2]?`<div class="hint" data-rep-note>${esc(o[2])}</div>`:'';}
 function repSrcOptions(cur){return REP_GROUPS.map(g=>`<optgroup label="${esc(g)}">${Object.keys(REP_SRC).filter(k=>REP_SRC[k].group===g&&(repSourceAllowed(k)||k===cur)).map(k=>`<option value="${k}"${k===cur?' selected':''}>${esc(REP_SRC[k].label)}</option>`).join('')}</optgroup>`).join('');}
 function repFilterRow(S,f,i){
  const fd=repField(S,f.f),ops=fd?REP_OPS[fd.type]||REP_OPS.text:REP_OPS.text,fields=repFields(S).map(x=>[x.k,x.label]);
@@ -401,10 +403,10 @@ function repSetup(r){
   <h5>Chart type</h5><div class="rep-types">${REP_TYPES.map(([k,l])=>`<button type="button" class="${w.type===k?'on':''}" data-rep-type-btn="${k}" onclick="repSetW('type','${k}')">${l}</button>`).join('')}</div>
   <h5>Title</h5><input type="text" value="${esc(w.title)}" placeholder="${esc(repWidgetTitle(Object.assign({},w,{title:''})))}" onchange="repSetW('title',this.value)">
   <h5>Data</h5><select data-rep-source onchange="repSetSource(this.value)">${repSrcOptions(q.source)}</select><div class="hint">${esc(S.hint||'')}</div>
-  <h5>Dimension</h5><select data-rep-dim="0" onchange="repSetDim(0,this.value)">${repOpt(dims,q.dims[0]||'','None — totals only')}</select>${repMoreHTML(w,S)}
+  <h5>Dimension</h5><select data-rep-dim="0" onchange="repSetDim(0,this.value)">${repOpt(dims,q.dims[0]||'','None — totals only')}</select>${repNoteOf(dims,q.dims[0]||'')}${repMoreHTML(w,S)}
   ${w.type==='combo'?'<div class="hint" data-rep-combo>First metric — column; second — inner column.</div>':''}${w.type!=='number'&&w.type!=='pie'&&w.type!=='combo'?`<h5>Breakdown</h5><select data-rep-dim="1" onchange="repSetDim(1,this.value)">${repOpt(dims.filter(d=>d[0]!==q.dims[0]),q.dims[1]||'','None')}</select>${q.dims[1]&&w.type!=='table'&&q.metrics.length>1?'<div class="hint" data-rep-first-metric>Chart shows the first metric; Table shows all.</div>':''}`:''}
   <h5>Metrics</h5>${(q.metrics.length?q.metrics:[S.metrics[0].k]).map((k,i)=>{const c=repCalcParse(k),del=q.metrics.length>1?`<button type="button" class="sm dl" onclick="repDelMetric(${i})">×</button>`:'';
-   if(!c)return `<div class="sl-row"><select data-rep-metric="${i}" onchange="repSetMetric(${i},this.value)">${repOpt(mets,k)}</select>${del}</div>`;
+   if(!c)return `<div class="sl-row"><select data-rep-metric="${i}" onchange="repSetMetric(${i},this.value)">${repOpt(mets,k)}</select>${del}</div>${repNoteOf(mets,k)}`;
    const num=/^n:/.test(c.b);
    return `<div class="rep-calc" data-rep-calc="${i}"><div class="sl-row"><select aria-label="First metric" onchange="repSetCalc(${i},'a',this.value)">${repOpt(mets,c.a)}</select>${del}</div><div class="sl-row"><select aria-label="Operation" onchange="repSetCalc(${i},'op',this.value)">${repOpt(REP_CALC_OPS,c.op)}</select><select aria-label="Second metric or number" onchange="repSetCalc(${i},'b',this.value)">${repOpt([['n:','Number']].concat(mets),num?'n:':c.b)}</select>${num?`<input type="number" step="any" aria-label="Number" value="${esc(c.b.slice(2))}" onchange="repSetCalc(${i},'n',this.value)">`:''}</div></div>`;}).join('')}
   <div class="sl-row"><button type="button" class="sl-btn" data-rep-add-metric onclick="repAddMetric()">+ Add metric</button><button type="button" class="sl-btn" data-rep-add-calc onclick="repAddCalc()" title="Metric ÷ × + − another metric or a number">+ Calculated</button></div>
@@ -465,13 +467,14 @@ function repCustomHTML(r,S,q){
  /* Поле вставляется с выбранной функцией (как в Looker: Field as Sum, Count…);
     Auto — число суммой, текст — COUNT_DISTINCT. Метрика источника — как есть. */
  const f=repFields(S).filter(x=>x.type==='num'||x.type==='dim'||x.type==='text'),as=repCm.as||'auto',wrap=x=>{const t='['+x.label+']',fn=as==='auto'?(x.type==='num'?'':'COUNT_DISTINCT'):x.type!=='num'&&['SUM','AVG','MIN','MAX'].includes(as)?'COUNT_DISTINCT':as;return fn?fn+'('+t+')':t;};
- const chips=f.map(x=>`<button type="button" class="sm" onclick="repCmInsert(this.dataset.t)" data-t="${esc(wrap(x))}" title="${esc(wrap(x))}">${esc(x.label)}</button>`).join('')+(S.metrics||[]).filter(m=>!f.some(x=>x.label===m.label)).map(m=>`<button type="button" class="sm" onclick="repCmInsert(this.dataset.t)" data-t="${esc('['+m.label+']')}">${esc(m.label)}</button>`).join('');
+ const tip=n=>`title="${esc(n)}" data-n="${esc(n)}" onmouseover="repCmTip(this)" onfocus="repCmTip(this)"`;
+ const chips=f.map(x=>`<button type="button" class="sm" onclick="repCmInsert(this.dataset.t)" data-t="${esc(wrap(x))}" ${tip(repFieldNote(x)+' → '+wrap(x))}>${esc(x.label)}</button>`).join('')+(S.metrics||[]).filter(m=>!f.some(x=>x.label===m.label)).map(m=>`<button type="button" class="sm" onclick="repCmInsert(this.dataset.t)" data-t="${esc('['+m.label+']')}" ${tip(repMetricNote(S,m))}>${esc(m.label)}</button>`).join('');
  const asSel=`<div class="sl-row"><label class="rep-inline">Field as <select aria-label="Field as" data-rep-cm-as onchange="repCm.as=this.value;render()">${repOpt([['auto','Auto'],['SUM','Sum'],['AVG','Average'],['MIN','Min'],['MAX','Max'],['COUNT','Count'],['COUNT_DISTINCT','Count distinct']],as)}</select></label></div>`;
  const fns=REP_FORMULA_FUNCS.map(fn=>`<button type="button" class="sm" onclick="repCmInsert('${fn}(')">${fn}</button>`).join('')+['+','−','×','÷','(',')'].map(o=>`<button type="button" class="sm" onclick="repCmInsert(' ${{'−':'-','×':'*','÷':'/'}[o]||o} ')">${o}</button>`).join('');
  return list+`<div class="rep-calc" data-rep-cm-edit><input type="text" id="repCmName" placeholder="Name, e.g. Waste %" value="${esc(repCm.name)}" oninput="repCm.name=this.value">
   <textarea id="repCmFormula" class="rep-formula" placeholder="[Waste ft²] / [Sheet ft²] * 100" oninput="repCm.formula=this.value;repCmCheck()">${esc(repCm.formula)}</textarea>
   <div data-rep-cm-msg class="${repCmMsg().ok?'rep-formula-ok':'rep-formula-err'}">${esc(repCmMsg().text)}</div>
-  <div class="rep-fchips">${fns}</div>${asSel}<div class="rep-fchips">${chips}</div>
+  <div class="rep-fchips">${fns}</div>${asSel}<div class="rep-fchips">${chips}</div><div class="hint" data-rep-cm-tip>Point at a field to see what it is.</div>
   <div class="sl-row"><select aria-label="Format" onchange="repCm.fmt=this.value">${repOpt([['number','Number'],['money','Money'],['pct','Percent']],repCm.fmt)}</select><select aria-label="Decimals" onchange="repCm.digits=+this.value">${repOpt([0,1,2,3].map(n=>[String(n),n+' decimals']),String(repCm.digits))}</select></div>
   <div class="sl-row"><button type="button" class="pri sm" data-rep-cm-save onclick="repCmSave()">Save metric</button><button type="button" class="sm" onclick="repCm=null;render()">Cancel</button></div></div>`;
 }
@@ -483,6 +486,7 @@ function repCmMsg(){
  return p.error?{ok:false,text:p.error}:{ok:true,text:'Formula is OK'};
 }
 function repCmCheck(){const el=document.querySelector('[data-rep-cm-msg]');if(!el)return;const m=repCmMsg();el.textContent=m.text;el.className=m.ok?'rep-formula-ok':'rep-formula-err';}
+function repCmTip(el){const t=document.querySelector('[data-rep-cm-tip]');if(t)t.textContent=el.dataset.n;}
 function repCmInsert(t){const el=document.getElementById('repCmFormula');if(!el||!repCm)return;const a=el.selectionStart??el.value.length,b=el.selectionEnd??a;el.setRangeText(t,a,b,'end');repCm.formula=el.value;el.focus();repCmCheck();}
 function repCmSave(){
  const c=repCm;if(!c)return;const name=String(c.name||'').trim();if(!name){alert('Name the metric.');return;}if(!repCmMsg().ok){alert(repCmMsg().text);return;}

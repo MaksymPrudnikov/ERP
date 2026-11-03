@@ -82,6 +82,12 @@ Starter reports are edited by an administrator; everyone else uses Copy and edit
 Each source has its own rows and fields. Fields of one source never share a name: "Glass" is the glass type,
 "Glass pcs" is pieces.
 
+Every field and metric explains itself. Under the Dimension and Metrics lists a line says what the chosen item is
+(e.g. "Glass · distinct — how many different Glass values"); each option and each field button under the formula
+has the same text as a tooltip, and pointing at a button shows it under the buttons. Kinds: **list** (group or
+filter by it), **text**, **date**, **number** (sum, average, min, max). **Glass · count** counts rows where Glass is
+filled; **Glass · distinct** counts different glass types.
+
 | Source | A row is | Main use |
 |---|---|---|
 | Station work | a station scan of a glass | glass, ft², units, $ by price list, who, where, when |
