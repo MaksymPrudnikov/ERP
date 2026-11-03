@@ -27,6 +27,6 @@ function motionAfterRender(app,had){
 }
 /* Раздел и вкладка — подъём: render идёт из их же клика. Свой раздел не двигается. */
 document.addEventListener('click',e=>{
- if(!e.isTrusted||!e.target.closest||!e.target.closest('.tabs button,#side .nav-item:not(.on)')||!motionOk())return;
+ if(!e.isTrusted||!e.target.closest||!e.target.closest('.tabs button,[aria-label="Production"] button,#side .nav-item:not(.on)')||!motionOk())return;
  motionTab=true;setTimeout(()=>{motionTab=false;},0);
 },true);
