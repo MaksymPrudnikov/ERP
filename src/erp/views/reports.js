@@ -411,7 +411,7 @@ function repMoreHTML(w,S){
  const q=w.q,d0=q.dims[0];if(w.type!=='table'||!d0||repIsTime(S,d0))return '';
  const opts=repDimOptions(S).filter(d=>!d[0].includes(':')&&d[0]!==d0),more=q.more||[],free=opts.find(d=>!more.includes(d[0]));
  return more.map((d,i)=>`<div class="sl-row"><select aria-label="Row dimension" data-rep-more="${i}" onchange="repSetMore(${i},this.value)">${repOpt(opts,d)}</select><button type="button" class="sm dl" onclick="repSetMore(${i},'')">×</button></div>`).join('')
-  +(free&&more.length<4?`<button type="button" class="sl-btn" data-rep-add-row onclick="repSetMore(${more.length},'${esc(free[0])}')">+ Row dimension</button>`:'');
+  +(free&&more.length<8?`<button type="button" class="sl-btn" data-rep-add-row onclick="repSetMore(${more.length},'${esc(free[0])}')">+ Row dimension</button>`:'');
 }
 function repSetMore(i,v){repWEdit(w=>{const m=(w.q.more||[]).slice();if(v)m[i]=v;else m.splice(i,1);w.q.more=m.filter(Boolean);w.q.sort=null;});}
 /* ------------------------- Свои показатели ------------------------- */
@@ -421,7 +421,7 @@ function repSetMore(i,v){repWEdit(w=>{const m=(w.q.more||[]).slice();if(v)m[i]=v
 let repCm=null;
 function repCustomHTML(r,S,q){
  const src=repSrcKey(S),mine=(r.custom||[]).filter(c=>c.source===src);
- const list=mine.map(c=>`<div class="sl-row rep-cm" data-rep-cm="${esc(c.id)}"><span class="mut small" data-raw>${esc(c.name)} = ${esc(c.formula)}</span><button type="button" class="sm" onclick="repCmOpen('${esc(c.id)}')">Edit</button><button type="button" class="sm dl" title="Delete" onclick="repCmDel('${esc(c.id)}')">×</button></div>`).join('');
+ const list=mine.map(c=>`<div class="rep-cm" data-rep-cm="${esc(c.id)}"><b data-raw>${esc(c.name)}</b><span class="rep-cm-acts"><button type="button" class="sm" onclick="repCmOpen('${esc(c.id)}')">Edit</button><button type="button" class="sm dl" title="Delete" onclick="repCmDel('${esc(c.id)}')">×</button></span><code data-raw>${esc(c.formula)}</code></div>`).join('');
  if(!repCm||repCm.source!==src)return list+`<button type="button" class="sl-btn" data-rep-cm-new onclick="repCmOpen('')" title="Your own metric by formula">+ Custom metric</button>`;
  const f=repFields(S).filter(x=>x.type==='num'||x.type==='dim'||x.type==='text'),chips=f.map(x=>`<button type="button" class="sm" onclick="repCmInsert(this.dataset.t)" data-t="${esc('['+x.label+']')}">${esc(x.label)}</button>`).join('')+(S.metrics||[]).filter(m=>!f.some(x=>x.label===m.label)).map(m=>`<button type="button" class="sm" onclick="repCmInsert(this.dataset.t)" data-t="${esc('['+m.label+']')}">${esc(m.label)}</button>`).join('');
  const fns=REP_FORMULA_FUNCS.map(fn=>`<button type="button" class="sm" onclick="repCmInsert('${fn}(')">${fn}</button>`).join('')+['+','−','×','÷','(',')'].map(o=>`<button type="button" class="sm" onclick="repCmInsert(' ${{'−':'-','×':'*','÷':'/'}[o]||o} ')">${o}</button>`).join('');
@@ -446,7 +446,7 @@ function repCmSave(){
  const r=repOpenReport();if((r.custom||[]).some(x=>x.id!==c.id&&x.source===c.source&&x.name.toLowerCase()===name.toLowerCase())){alert('A metric with this name already exists.');return;}
  const id=c.id||repUid('CM'),isNew=!c.id;repCm=null;
  repEditCur(x=>{x.custom=(x.custom||[]).filter(y=>y.id!==id).concat([{id,name,formula:c.formula,source:c.source,fmt:c.fmt,digits:c.digits}]);});
- if(isNew)repWEdit(w=>{if(w.q.source===c.source){const m=w.q.metrics.length?w.q.metrics:[REP_SRC[w.q.source].metrics[0].k];w.q.metrics=m.concat(['cm:'+id]).slice(0,8);}});
+ if(isNew)repWEdit(w=>{if(w.q.source===c.source){const m=w.q.metrics.length?w.q.metrics:[REP_SRC[w.q.source].metrics[0].k];w.q.metrics=m.concat(['cm:'+id]);}});
 }
 function repCmDel(id){
  const r=repOpenReport(),c=(r.custom||[]).find(x=>x.id===id);if(!c||!confirm('Delete metric "'+c.name+'"?'))return;

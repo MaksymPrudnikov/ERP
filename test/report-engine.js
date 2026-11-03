@@ -508,6 +508,9 @@ module.exports=async function({page,eq,ok}){
  }),{all:[20,3.5,40],label:['Waste %','Sheets per day','Twice waste'],by:['B2'],byTotal:[10,4],none:0,
    errs:['No field "Nope" in QA.','A bracket is not closed.','[Glass] is not a number — use COUNT_DISTINCT([Glass]).','[Glass] is not a number.','The formula ends too early.'],
    cls:['ch-s5','ch-s2'],clean:['W,D,X','{"g":{"6CLEAR":3}}'],opts:['Waste %','Sheets per day','Twice waste']});
+ eq('У каждого поля и показателя своё название: «Glass» — тип стекла, «Glass pcs» — штуки; формула не спутает',await t.p.evaluate(()=>Object.entries(REP_SRC).flatMap(([k,S])=>{
+  const f=S.fields(),out=[],by=new Map();f.forEach(x=>{if(by.has(x.label))out.push(k+': two fields "'+x.label+'"');by.set(x.label,x);});
+  (S.metrics||[]).forEach(m=>{const x=by.get(m.label);if(x&&!(x.type==='num'&&m.f===x.k&&m.agg==='sum'))out.push(k+': metric and field "'+m.label+'"');});return out;})),[]);
  eq('Долгий отчёт: вместо замершей страницы — процент, графики считаются в фоне; после записи прежние графики на экране, пока считаются новые',await t.p.evaluate(async()=>{
   const rows=Array.from({length:50},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+(i%5),n:1}));
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};

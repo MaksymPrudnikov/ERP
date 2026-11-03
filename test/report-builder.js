@@ -113,7 +113,7 @@ module.exports=async function({page,eq,ok}){
   rpScans();rpOpenTab();repOpen('RP-start-stations');const line=document.querySelector('[data-rep-type="line"]');
   const html=repPrintHTML();return {dashed:!!line.querySelector('.ch-dash'),legend:[...line.querySelectorAll('.ch-legend > span')].map(x=>x.textContent),
    print:{name:html.includes('Stations · glass by day'),period:/Date: This week/.test(html),charts:(html.match(/data-rep-widget=/g)||[]).length,tools:/rep-wtools/.test(html)}};
- }),{dashed:true,legend:['Glass','vs previous period'],print:{name:true,period:true,charts:4,tools:false}});
+ }),{dashed:true,legend:['Glass pcs','vs previous period'],print:{name:true,period:true,charts:4,tools:false}});
  eq('+ Calculated: метрика ÷ метрика или число прямо в настройке графика',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repNew();repSetW('type','table');repSetSource('edgework');repSetDim(0,'person');
   document.querySelector('[data-rep-add-calc]').click();const row=document.querySelector('[data-rep-calc]');const label1=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] thead th`)].map(x=>x.textContent);

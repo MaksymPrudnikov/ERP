@@ -48,10 +48,10 @@ function repCleanQuery(q){
  const arr=(v,n)=>(Array.isArray(v)?v:[]).map(x=>repStr(x,120)).filter(Boolean).slice(0,n);
  const d=q.date&&typeof q.date==='object'?q.date:{};
  return {source:S,date:{f:repStr(d.f,40),use:d.use==='own'?'own':'report',preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},
-  filters:(Array.isArray(q.filters)?q.filters:[]).filter(f=>f&&typeof f==='object'&&f.f).slice(0,20).map(f=>({f:repStr(f.f,40),op:repStr(f.op,20)||'in',v:(Array.isArray(f.v)?f.v:[f.v]).map(x=>repStr(x,120)).slice(0,200)})),
-  dims:arr(q.dims,2),more:arr(q.more,4),metrics:arr(q.metrics,8),sort:q.sort&&typeof q.sort==='object'?{by:q.sort.by==='label'?'label':'metric',i:Math.max(0,Math.min(7,Math.floor(+q.sort.i||0))),dir:q.sort.dir==='asc'?'asc':'desc'}:null,
+  filters:(Array.isArray(q.filters)?q.filters:[]).filter(f=>f&&typeof f==='object'&&f.f).slice(0,60).map(f=>({f:repStr(f.f,40),op:repStr(f.op,20)||'in',v:(Array.isArray(f.v)?f.v:[f.v]).map(x=>repStr(x,120)).slice(0,200)})),
+  dims:arr(q.dims,2),more:arr(q.more,8),metrics:arr(q.metrics,30),sort:q.sort&&typeof q.sort==='object'?{by:q.sort.by==='label'?'label':'metric',i:Math.max(0,Math.min(29,Math.floor(+q.sort.i||0))),dir:q.sort.dir==='asc'?'asc':'desc'}:null,
   limit:Math.max(0,Math.min(500,Math.floor(+q.limit||0))),other:q.other===true,compare:['prev','year'].includes(q.compare)?q.compare:'',
-  having:(Array.isArray(q.having)?q.having:[]).filter(h=>h&&typeof h==='object'&&h.m).slice(0,10).map(h=>({m:repStr(h.m,120),op:REP_HAVING_OPS.some(o=>o[0]===h.op)?h.op:'gt',v:(Array.isArray(h.v)?h.v:[h.v]).slice(0,2).map(x=>x===''||x==null||!Number.isFinite(+x)?'':+x)}))};
+  having:(Array.isArray(q.having)?q.having:[]).filter(h=>h&&typeof h==='object'&&h.m).slice(0,30).map(h=>({m:repStr(h.m,120),op:REP_HAVING_OPS.some(o=>o[0]===h.op)?h.op:'gt',v:(Array.isArray(h.v)?h.v:[h.v]).slice(0,2).map(x=>x===''||x==null||!Number.isFinite(+x)?'':+x)}))};
 }
 function repCleanWidget(w){
  w=w&&typeof w==='object'?w:{};
@@ -65,16 +65,16 @@ function repCleanColors(c){
 }
 function repClean(r){
  r=r&&typeof r==='object'?r:{};
- const pages=(Array.isArray(r.pages)?r.pages:[]).filter(p=>p&&typeof p==='object').slice(0,20).map(p=>({id:repStr(p.id,80)||repUid('PG'),name:repStr(p.name,60)||'Page',orient:p.orient==='landscape'?'landscape':'portrait',widgets:(Array.isArray(p.widgets)?p.widgets:[]).slice(0,40).map(repCleanWidget)}));
+ const pages=(Array.isArray(r.pages)?r.pages:[]).filter(p=>p&&typeof p==='object').slice(0,100).map(p=>({id:repStr(p.id,80)||repUid('PG'),name:repStr(p.name,60)||'Page',orient:p.orient==='landscape'?'landscape':'portrait',widgets:(Array.isArray(p.widgets)?p.widgets:[]).slice(0,200).map(repCleanWidget)}));
  const d=r.date&&typeof r.date==='object'?r.date:{},fl=r.filters&&typeof r.filters==='object'&&!Array.isArray(r.filters)?r.filters:{},filters={};
- Object.keys(fl).slice(0,20).forEach(k=>{if(Array.isArray(fl[k])&&fl[k].length)filters[repStr(k,40)]=fl[k].map(x=>repStr(x,120)).slice(0,200);});
+ Object.keys(fl).slice(0,60).forEach(k=>{if(Array.isArray(fl[k])&&fl[k].length)filters[repStr(k,40)]=fl[k].map(x=>repStr(x,120)).slice(0,200);});
  return {id:repStr(r.id,80)||repUid('RP'),name:repStr(r.name,120)||'Untitled report',folder:repStr(r.folder,60),note:repStr(r.note,500),ownerId:repStr(r.ownerId,80),
   share:r.share==='all'||r.share==='me'?r.share:Array.isArray(r.share)?r.share.map(x=>repStr(x,80)).slice(0,200):'me',
-  controls:(Array.isArray(r.controls)?r.controls:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,10),
+  controls:(Array.isArray(r.controls)?r.controls:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,60),
   date:{preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'thisMonth',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},filters,
   screens:{stations:(r.screens&&Array.isArray(r.screens.stations)?r.screens.stations:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,100),people:(r.screens&&Array.isArray(r.screens.people)?r.screens.people:[]).map(x=>repStr(x,80)).filter(Boolean).slice(0,200)},
   /* Свои показатели (reports/formula) и цвета значений, выбранные человеком. */
-  custom:(Array.isArray(r.custom)?r.custom:[]).filter(c=>c&&typeof c==='object'&&c.name&&c.formula&&REP_SRC[c.source]).slice(0,60).map(c=>({id:repStr(c.id,40)||repUid('CM'),name:repStr(c.name,60),formula:repStr(c.formula,600),source:repStr(c.source,40),fmt:['money','pct'].includes(c.fmt)?c.fmt:'number',digits:Math.max(0,Math.min(4,Math.floor(+c.digits||0)))})),
+  custom:(Array.isArray(r.custom)?r.custom:[]).filter(c=>c&&typeof c==='object'&&c.name&&c.formula&&REP_SRC[c.source]).slice(0,300).map(c=>({id:repStr(c.id,40)||repUid('CM'),name:repStr(c.name,60),formula:repStr(c.formula,600),source:repStr(c.source,40),fmt:['money','pct'].includes(c.fmt)?c.fmt:'number',digits:Math.max(0,Math.min(4,Math.floor(+c.digits||0)))})),
   colors:repCleanColors(r.colors),
   pages:pages.length?pages:[{id:repUid('PG'),name:'Page 1',widgets:[]}],createdAt:repStr(r.createdAt,40),updatedAt:repStr(r.updatedAt,40)};
 }
