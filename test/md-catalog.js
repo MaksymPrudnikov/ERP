@@ -29,8 +29,8 @@ module.exports=async function({page,eq}){
   row:'hardwareModel:'+DB.hardwareModel[0].id,hw:true,recipe:'surroundRecipe:'+DB.surroundRecipe[0].id,on:true,
   unknown:DB.surroundRecipe.some(r=>r.rows.some(x=>x.part!=='spacer'&&x.part!=='gas'&&x.amount==null))?{null:false,warn:true}:null})));
  /* Аудит 25.10.2026, D-3: плитки каталога — только в обзоре Catalog. */
- eq('catalog tiles only on the catalog overview: not over other sections, an open card or a search',await t.p.evaluate(()=>{
-  const kpi=()=>!!document.querySelector('[data-md-kpi]');tab='masterdata';mdCatalogGo('glassProduct');const over=kpi();
+ eq('catalog counts in the tree foot (owner 03.11.2026: no tiles); no tiles over other sections, an open card or a search',await t.p.evaluate(()=>{
+  const kpi=()=>!!document.querySelector('[data-md-kpi]');tab='masterdata';mdCatalogGo('glassProduct');const over=/kept in stock/.test((document.querySelector('.md-tree-foot')||{}).textContent||'')&&!kpi();
   mdGlassEdit(DB.glassProduct[0].id);render();const card=kpi();mdEdit=null;
   mdCatalogQuery='argon';render();const search=kpi();mdCatalogQuery='';
   const other=['prices','company','setup','trucks'].map(k=>{mdSetTab(k);render();return kpi();});mdSetTab('materials');render();
