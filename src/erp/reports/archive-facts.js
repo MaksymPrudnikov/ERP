@@ -67,7 +67,7 @@ function repArchiveNeed(r,p){
   if(q.source==='time')REP_ARCH_TIME.forEach(k=>keys.add(k));
   const dates=repDates(S),df=q.date&&dates.includes(q.date.f)?q.date.f:dates[0];if(df)keys.add(df);
   const field=k=>{const f=repField(S,k);if(f)repArchFieldKeys(f,keys);};
-  (q.dims||[]).forEach(d=>field(repDimParse(d).f));(q.filters||[]).forEach(x=>field(x.f));r.controls.forEach(field);
+  (q.dims||[]).concat(q.more||[]).forEach(d=>field(repDimParse(d).f));(q.filters||[]).forEach(x=>field(x.f));r.controls.forEach(field);
   (q.metrics&&q.metrics.length?q.metrics:[S.metrics[0].k]).forEach(k=>repArchMetricKeys(S,repMetric(S,k),keys));
  });
  return need;

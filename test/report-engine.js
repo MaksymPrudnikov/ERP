@@ -449,6 +449,17 @@ module.exports=async function({page,eq,ok}){
    return {keys2:res.keys2.length,other:res.keys2.includes('__other'),first,all,print,bars,slices,days,colors:[0,7,8,16,30].map(repSeriesClass)};
   }finally{delete REP_SRC.qa;}
  }),{keys2:12,other:false,first:300,all:700,print:700,bars:700,slices:700,days:1096,colors:['ch-s1','ch-s8','ch-s1 ch-t2','ch-s1 ch-t3','ch-s7 ch-t3']});
+ eq('Таблица: несколько измерений строк, как в Looker — «батч · стекло · толщина» своими колонками; в графиках — только первое',await t.p.evaluate(()=>{
+  const rows=[{id:'1',at:'2024-01-01',k:'B-2',g:'6CLEAR',mm:'6 mm',n:1},{id:'2',at:'2024-01-01',k:'B-2',g:'6CLEAR',mm:'6 mm',n:1},{id:'3',at:'2024-01-01',k:'B-1',g:'4E272',mm:'4 mm',n:1}];
+  REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','Batch'),REP_F.dim('g','Glass'),REP_F.dim('mm','Thickness'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
+  const w=type=>repCleanWidget({type,q:{source:'qa',dims:['k'],more:['g','mm'],metrics:['count'],sort:{by:'label',dir:'desc'}}}),r=repClean({date:{preset:'all'},pages:[{widgets:[w('table'),w('bars')]}]});
+  try{
+   const box=document.createElement('div');document.body.appendChild(box);box.innerHTML=repChart(r,r.pages[0].widgets[0]);
+   const head=[...box.querySelectorAll('thead th')].map(x=>x.textContent),body=[...box.querySelectorAll('tbody tr')].map(tr=>[...tr.children].map(x=>x.textContent).join(' | ')),foot=box.querySelector('tfoot td').colSpan;
+   box.innerHTML=repChart(r,r.pages[0].widgets[1]);const bars=[...box.querySelectorAll('.ch-hbar-label')].map(x=>x.textContent);box.remove();
+   return {head,body,foot,bars};
+  }finally{delete REP_SRC.qa;}
+ }),{head:['Batch','Glass','Thickness','Rows'],body:['B-2 | 6CLEAR | 6 mm | 2','B-1 | 4E272 | 4 mm | 1'],foot:3,bars:['B-2','B-1']});
  eq('Долгий отчёт: вместо замершей страницы — процент, графики считаются в фоне; после записи прежние графики на экране, пока считаются новые',await t.p.evaluate(async()=>{
   const rows=Array.from({length:50},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+(i%5),n:1}));
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};

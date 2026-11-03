@@ -10,6 +10,8 @@
    Запрос q:
    { source, date:{f, preset | from,to}, filters:[{f, op, v}],
      dims:['station' | 'at:month'] (до двух: строки и разбивка),
+     more:['glass','mm'] — ещё измерения строк таблицы (как в Looker: строка
+     «батч · стекло · толщина»), ключ строки — значения через \u0002,
      metrics:['count' | 'area' | 'area:avg' | 'distinct:customer' …],
      sort:{by:'label'|'metric', i, dir}, limit, other, compare:'prev'|'year' }
    ctx — подстановки экранов: {person, station} для '@me' и '@station'.
@@ -248,7 +250,7 @@ function repOrderKeys(S,d,groups,ms,q,range){
    порядком (seq: «где стекло» — от «не проверено» до «готово») — по нему. */
 function repStationAt(v){const n=(DB.station||[]).map(s=>s.code).indexOf(v);return n<0?999:n;}
 function repSeqSort(S,k){const f=repField(S,k);if(f&&f.seq)return (a,b)=>f.seq(a)-f.seq(b);return k==='station'?(a,b)=>repStationAt(a)-repStationAt(b):null;}
-function repGroupBy(S,rows,d){const g=new Map();rows.forEach(r=>{const k=repDimValue(S,r,d);if(!g.has(k))g.set(k,[]);g.get(k).push(r);});return g;}
+function repGroupBy(S,rows,d,key){const g=new Map();rows.forEach(r=>{const k=key?key(r):repDimValue(S,r,d);if(!g.has(k))g.set(k,[]);g.get(k).push(r);});return g;}
 
 /* ------------------------------- Запрос ------------------------------ */
 function repQuery(q,ctx){
@@ -258,9 +260,12 @@ function repQuery(q,ctx){
  const dims=(q.dims||[]).filter(d=>d&&repField(S,repDimParse(d).f)).slice(0,2);
  const vals=list=>ms.map(m=>repAgg(S,m,list));
  const rows=repSelect(S,df,range,q.filters,ctx);
- const out={source:q.source,label:S.label,df,range,dims,metrics:ms,count:rows.length,rows,total:vals(rows),keys:[],keys2:[],cells:new Map(),rowTotals:new Map(),colTotals:new Map(),groups:new Map()};
+ /* Измерения строк сверх первого — только у списка значений, не у даты. */
+ const more=dims[0]&&!repIsTime(S,dims[0])?(q.more||[]).filter(d=>d&&d!==dims[0]&&repField(S,d)&&!repIsTime(S,d)):[];
+ const rowKey=more.length?r=>[dims[0]].concat(more).map(d=>repDimValue(S,r,d)).join('\u0002'):null;
+ const out={source:q.source,label:S.label,df,range,dims,more,metrics:ms,count:rows.length,rows,total:vals(rows),keys:[],keys2:[],cells:new Map(),rowTotals:new Map(),colTotals:new Map(),groups:new Map()};
  if(dims[0]){
-  const g1=repGroupBy(S,rows,dims[0]);let keys=repOrderKeys(S,dims[0],g1,ms,q,range);
+  const g1=repGroupBy(S,rows,dims[0],rowKey);let keys=repOrderKeys(S,dims[0],g1,ms,q,range);
   /* Топ N: остальное — строкой «Other», если попросили. Даты не режутся. */
   if(!repIsTime(S,dims[0])&&q.limit>0&&keys.length>q.limit){const rest=keys.slice(q.limit);keys=keys.slice(0,q.limit);if(q.other){g1.set('__other',rest.flatMap(k=>g1.get(k)));keys.push('__other');}}
   out.keys=keys;out.groups=g1;keys.forEach(k=>out.rowTotals.set(k,vals(g1.get(k)||[])));
@@ -282,7 +287,7 @@ function repQuery(q,ctx){
   if(cr){
    const crows=repSelect(S,df,cr,q.filters,ctx),c={range:cr,kind:q.compare,total:vals(crows),rowTotals:new Map()};
    if(dims[0]){
-    const g=repGroupBy(S,crows,dims[0]);
+    const g=repGroupBy(S,crows,dims[0],rowKey);
     /* Даты сравниваются по месту: первый месяц с первым месяцем. */
     if(repIsTime(S,dims[0])){const ck=repDateKeys(repDimParse(dims[0]).g||'day',cr,[...g.keys()]);out.keys.forEach((k,i)=>c.rowTotals.set(k,vals(g.get(ck[i])||[])));}
     /* Other прошлого периода — всё, что не в показанном Top N, и то, чего
