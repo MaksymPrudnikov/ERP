@@ -42,7 +42,7 @@ module.exports=async function({page,eq,ok}){
   tab='finance';finTab='accounts';render();
   const tiles=[...document.querySelectorAll('.fin-stat')].map(e=>e.getBoundingClientRect()),btn=document.querySelector('[data-fin-new]').getBoundingClientRect();
   const sums=[...document.querySelectorAll('.fin-stat strong')].every(s=>s.scrollWidth<=s.clientWidth+1&&s.getBoundingClientRect().right<=s.parentElement.getBoundingClientRect().right+1);
-  const rows=new Set(tiles.map(r=>Math.round(r.top))).size,below=tiles.every(r=>r.bottom<=btn.top+1);
+  const rows=new Set(tiles.map(r=>Math.round(r.top))).size,below=tiles.every(r=>r.top>=btn.bottom-1);
   tab='shipping';shippingTab='delivery';render();
   const lines=e=>{const r=document.createRange();r.selectNodeContents(e);return r.getClientRects().length;};
   const day=document.querySelector('.delivery-list'),b=day.querySelector('input[type=date]'),inside=b.getBoundingClientRect().right<=day.getBoundingClientRect().right+1;
