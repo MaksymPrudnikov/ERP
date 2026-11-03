@@ -38,9 +38,11 @@ let skidsSel='',skidsOld=false;
 function skidsSelect(id,on){skidsSel=on?id:'';render();}
 /* Колонки списка скидов: как у всех списков — Columns, фильтр, ширина и порядок. */
 function skidsListColumns(){return [{k:'customer',label:'Customer',type:'text'},{k:'code',label:'Skid',type:'text'},{k:'since',label:'Since',type:'date'},{k:'days',label:'Days',type:'number'},{k:'units',label:'Units',type:'number',sum:true},{k:'kg',label:'Weight kg',type:'number',sum:true,digits:1},{k:'makeup',label:'Makeup',type:'text',tokens:true},{k:'ps',label:'Packing slip',type:'text'},{k:'seen',label:'Seen there',type:'date'}].map(c=>Object.assign({def:true},c));}
+/* Что ушло на этом скиде — по тем же строкам, что на PS; PS без данных — пусто. */
+function skidsOnPs(s,code){try{return shippingDocument(s).skids.find(k=>k.code===code)||null;}catch(e){const n=(s.items||[]).filter(i=>i.skid===code).length;return n?{qty:n,kg:0,rows:[]}:null;}}
 function skidsListInfos(){
  return skidsByCustomer().flatMap(g=>{const chk=carrierCustomerChecks(g.customerId);return g.list.map(x=>{
-  const s=shippingFind(x.psId),sk=s?shippingDocument(s).skids.find(k=>k.code===x.code):null,seen=chk.filter(c=>c.at>=x.since&&c.codes.includes(x.code)).pop();
+  const s=shippingFind(x.psId),sk=s?skidsOnPs(s,x.code):null,seen=chk.filter(c=>c.at>=x.since&&c.codes.includes(x.code)).pop();
   return {o:{id:x.code},x,g,memo:{customer:salesCustomerDisplay(g.customerId),code:x.code,since:finLocalDate(x.since),days:skidDays(x.since),units:sk?sk.qty:null,kg:sk?Math.round(sk.kg*10)/10:null,makeup:sk?[...new Set(sk.rows.map(r=>r.makeup).filter(Boolean))].join(' · '):'',ps:x.ps,seen:seen?finLocalDate(seen.at):''}};});});
 }
 function skidsHTML(){
