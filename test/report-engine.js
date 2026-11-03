@@ -23,6 +23,11 @@ module.exports=async function({page,eq,ok}){
   const cells=q.keys.flatMap(k=>q.keys2.filter(k2=>q.cells.get(k+'\u0001'+k2)[0]).map(k2=>k+' · '+k2+' · '+q.cells.get(k+'\u0001'+k2)[0]));
   return {cells,total:q.metrics.map((m,i)=>repFmt(m,q.total[i])),stationWorkHasInches:repMetricOptions(REP_SRC.glass).some(x=>/Linear in/.test(x[1])),drill:repQuery({source:'drilling',date:{preset:'all'},metrics:['pcs']}).total[0]};
  }),{cells:['Rough Arris · 6 mm · 432','Flat Polish · 12 mm · 140'],total:['572','$22.52'],stationWorkHasInches:false,drill:0});
+ eq('Подсказки: у каждого поля и показателя каждого источника есть пояснение — вид и что это',await t.p.evaluate(()=>{
+  const bad=[];Object.keys(REP_SRC).forEach(k=>{const S=REP_SRC[k];repDimOptions(S).concat(repMetricOptions(S)).forEach(o=>{if(!o[2]||o[2].length<8)bad.push(k+':'+o[0]);});});
+  const S=REP_SRC.batches,m=repMetricOptions(S).map(o=>o[0]+'='+o[2]).filter(x=>/^(distinct|count):glass=/.test(x));
+  return {bad,m,f:repDimOptions(S).find(o=>o[0]==='glass')[2]};
+ }),{bad:[],m:['count:glass=Glass · count — rows where Glass is filled','distinct:glass=Glass · distinct — how many different Glass values'],f:'Glass — glass type (list, group or filter by it)'});
 
  eq('Cutting: сколько порезали по месяцам за год — все 12 месяцев, пустые нулём; сравнение с прошлым годом по тем же месяцам',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'}),who={id:'u1',name:'Vasyl'},y=new Date().getFullYear();

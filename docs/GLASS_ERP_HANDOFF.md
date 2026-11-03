@@ -2,6 +2,32 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Optimization: вид как у Sales, действия над отмеченным, правая кнопка · 3 ноября 2026
+
+Владелец, 03.11.2026: «оптимизация и продакшн выглядят не так, как Sales»; Back и Cancel order «просмотр или
+действие?»; нужен On Hold; вариант C «в стиле A» и правая кнопка с теми же действиями. Этап 6 плана
+`ЗАДАЧА_ПРАВКИ_02_11.md` (единая таблица), экран 1.
+
+- `views/optimization.js`: `viewOrderQueue` рисуется карточкой `sales-list-card` (стили Sales), вместо вкладок —
+  таблетки `sl-quick-pill` с `data-queue-tab`, вместо заголовка «Order queue» и кнопки Columns — шестерёнка в шапке
+  таблицы (`data-columns-button`). Колонки «Action» нет; у заказа на паузе в строке `Release`.
+- `optimizationActions` — один список действий для строки над таблицей (появляется при отметке) и для меню правой
+  кнопки (`optimizationContext`, `optimizationContextHTML`, меню `oq-context` в `salesListMenuHTML`). «Back» теперь
+  «Move back»; новый `On Hold` / `Release` через `salesHoldOpen` / `salesReleaseHold`. Shipping использует тот же вид.
+- Не сделано: вкладки Batches / Stock / Sheets и Production — следующие PR этапа 6.
+- Руководство: `docs/manual/optimization.{ru,en}.md`.
+
+## Reports: пояснения к полям и показателям · 3 ноября 2026
+
+Владелец, 03.11.2026: в настройке графика «Glass все равно два раза без объяснения, что и как».
+
+- `reports/query`: `repFieldNote` (поле: название, что это, вид list/text/date/number) и `repMetricNote` (показатель
+  по `agg`: сумма, число строк, сколько разных, доля, формула). `repDimOptions` и `repMetricOptions` отдают их
+  третьим элементом пункта; работает для всех источников `REP_SRC`, текст берётся из описания источника.
+- `views/reports`: у `<option>` атрибут `title`, под списками Dimension и каждым Metrics строка `data-rep-note`,
+  кнопки полей редактора формулы — `title` и строка `data-rep-cm-tip` под ними при наведении. Руководство
+  «5. Data sources» на двух языках.
+
 ## Reports: план против факта, склад сейчас, Combo, сортировка, CSV, руководство PDF · 3 ноября 2026
 
 Владелец, 03.11.2026: «что было реально, а что было оптимизировано — чтобы выявлять проблемы»; «лопнувшие — не
