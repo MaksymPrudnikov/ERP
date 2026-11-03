@@ -22,11 +22,11 @@
    ===================================================================== */
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
-const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=13;
+const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['combo','Combo'],['line','Line'],['pie','Pie']];
+const REP_SEED_VERSION=14;
 /* Версия 7 (26.10.2026): стартовые Production — по подпапкам (каталог
    деревом, view/reports). У базы переезжают только те, чью папку не меняли. */
-const REP_START_FOLDERS={cut:'Production / Cutting',sheets:'Production / Cutting',sheetcut:'Production / Cutting',offcuts:'Production / Cutting',
+const REP_START_FOLDERS={plan:'Production / Cutting',cut:'Production / Cutting',sheets:'Production / Cutting',sheetcut:'Production / Cutting',offcuts:'Production / Cutting',
  polish:'Production / Edgework',edge:'Production / Edgework',drill:'Production / Drilling & CNC',temper:'Production / Tempering',igu:'Production / IGU & lamination',
  stations:'Production / Shop',shopnow:'Production / Shop',sizes:'Production / Shop'};
 /* Короткий id: отчёт, страница, график. Чистка его не меняет (до 80 знаков). */
@@ -48,25 +48,34 @@ function repCleanQuery(q){
  const arr=(v,n)=>(Array.isArray(v)?v:[]).map(x=>repStr(x,120)).filter(Boolean).slice(0,n);
  const d=q.date&&typeof q.date==='object'?q.date:{};
  return {source:S,date:{f:repStr(d.f,40),use:d.use==='own'?'own':'report',preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},
-  filters:(Array.isArray(q.filters)?q.filters:[]).filter(f=>f&&typeof f==='object'&&f.f).slice(0,20).map(f=>({f:repStr(f.f,40),op:repStr(f.op,20)||'in',v:(Array.isArray(f.v)?f.v:[f.v]).map(x=>repStr(x,120)).slice(0,200)})),
-  dims:arr(q.dims,2),more:arr(q.more,4),metrics:arr(q.metrics,8),sort:q.sort&&typeof q.sort==='object'?{by:q.sort.by==='label'?'label':'metric',i:Math.max(0,Math.min(7,Math.floor(+q.sort.i||0))),dir:q.sort.dir==='asc'?'asc':'desc'}:null,
-  limit:Math.max(0,Math.min(500,Math.floor(+q.limit||0))),other:q.other===true,compare:['prev','year'].includes(q.compare)?q.compare:''};
+  filters:(Array.isArray(q.filters)?q.filters:[]).filter(f=>f&&typeof f==='object'&&f.f).slice(0,60).map(f=>({f:repStr(f.f,40),op:repStr(f.op,20)||'in',v:(Array.isArray(f.v)?f.v:[f.v]).map(x=>repStr(x,120)).slice(0,200)})),
+  dims:arr(q.dims,2),more:arr(q.more,8),metrics:arr(q.metrics,30),sort:q.sort&&typeof q.sort==='object'?{by:q.sort.by==='label'?'label':'metric',i:Math.max(0,Math.min(29,Math.floor(+q.sort.i||0))),dir:q.sort.dir==='asc'?'asc':'desc'}:null,
+  limit:Math.max(0,Math.min(500,Math.floor(+q.limit||0))),other:q.other===true,compare:['prev','year'].includes(q.compare)?q.compare:'',
+  having:(Array.isArray(q.having)?q.having:[]).filter(h=>h&&typeof h==='object'&&h.m).slice(0,30).map(h=>({m:repStr(h.m,120),op:REP_HAVING_OPS.some(o=>o[0]===h.op)?h.op:'gt',v:(Array.isArray(h.v)?h.v:[h.v]).slice(0,2).map(x=>x===''||x==null||!Number.isFinite(+x)?'':+x)}))};
 }
 function repCleanWidget(w){
  w=w&&typeof w==='object'?w:{};
  return {id:repStr(w.id,80)||repUid('W'),type:REP_TYPES.some(t=>t[0]===w.type)?w.type:'table',title:repStr(w.title,120),width:w.width==='half'?'half':'full',
   q:repCleanQuery(w.q),opts:{totals:!(w.opts&&w.opts.totals===false),labels:!!(w.opts&&w.opts.labels)}};
 }
+function repCleanColors(c){
+ const out={};if(!c||typeof c!=='object'||Array.isArray(c))return out;
+ Object.keys(c).slice(0,40).forEach(f=>{const m=c[f];if(!m||typeof m!=='object')return;const x={};Object.keys(m).slice(0,300).forEach(v=>{const n=Math.floor(+m[v]);if(n>=1&&n<=24)x[repStr(v,120)]=n;});if(Object.keys(x).length)out[repStr(f,40)]=x;});
+ return out;
+}
 function repClean(r){
  r=r&&typeof r==='object'?r:{};
- const pages=(Array.isArray(r.pages)?r.pages:[]).filter(p=>p&&typeof p==='object').slice(0,20).map(p=>({id:repStr(p.id,80)||repUid('PG'),name:repStr(p.name,60)||'Page',orient:p.orient==='landscape'?'landscape':'portrait',widgets:(Array.isArray(p.widgets)?p.widgets:[]).slice(0,40).map(repCleanWidget)}));
+ const pages=(Array.isArray(r.pages)?r.pages:[]).filter(p=>p&&typeof p==='object').slice(0,100).map(p=>({id:repStr(p.id,80)||repUid('PG'),name:repStr(p.name,60)||'Page',orient:p.orient==='landscape'?'landscape':'portrait',widgets:(Array.isArray(p.widgets)?p.widgets:[]).slice(0,200).map(repCleanWidget)}));
  const d=r.date&&typeof r.date==='object'?r.date:{},fl=r.filters&&typeof r.filters==='object'&&!Array.isArray(r.filters)?r.filters:{},filters={};
- Object.keys(fl).slice(0,20).forEach(k=>{if(Array.isArray(fl[k])&&fl[k].length)filters[repStr(k,40)]=fl[k].map(x=>repStr(x,120)).slice(0,200);});
+ Object.keys(fl).slice(0,60).forEach(k=>{if(Array.isArray(fl[k])&&fl[k].length)filters[repStr(k,40)]=fl[k].map(x=>repStr(x,120)).slice(0,200);});
  return {id:repStr(r.id,80)||repUid('RP'),name:repStr(r.name,120)||'Untitled report',folder:repStr(r.folder,60),note:repStr(r.note,500),ownerId:repStr(r.ownerId,80),
   share:r.share==='all'||r.share==='me'?r.share:Array.isArray(r.share)?r.share.map(x=>repStr(x,80)).slice(0,200):'me',
-  controls:(Array.isArray(r.controls)?r.controls:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,10),
+  controls:(Array.isArray(r.controls)?r.controls:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,60),
   date:{preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'thisMonth',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},filters,
   screens:{stations:(r.screens&&Array.isArray(r.screens.stations)?r.screens.stations:[]).map(x=>repStr(x,40)).filter(Boolean).slice(0,100),people:(r.screens&&Array.isArray(r.screens.people)?r.screens.people:[]).map(x=>repStr(x,80)).filter(Boolean).slice(0,200)},
+  /* Свои показатели (reports/formula) и цвета значений, выбранные человеком. */
+  custom:(Array.isArray(r.custom)?r.custom:[]).filter(c=>c&&typeof c==='object'&&c.name&&c.formula&&REP_SRC[c.source]).slice(0,300).map(c=>({id:repStr(c.id,40)||repUid('CM'),name:repStr(c.name,60),formula:repStr(c.formula,600),source:repStr(c.source,40),fmt:['money','pct'].includes(c.fmt)?c.fmt:'number',digits:Math.max(0,Math.min(4,Math.floor(+c.digits||0)))})),
+  colors:repCleanColors(r.colors),
   pages:pages.length?pages:[{id:repUid('PG'),name:'Page 1',widgets:[]}],createdAt:repStr(r.createdAt,40),updatedAt:repStr(r.updatedAt,40)};
 }
 function normalizeReports(){
@@ -265,6 +274,19 @@ function REP_STARTERS(){
     repW('table','batches',{title:'By day',dims:['built'],metrics:['batches','glassN','area','sheets','yield','daysFirst','daysLast'],sort:{by:'label',dir:'desc'}}),
     repW('table','batches',{title:'By glass',dims:['glass'],metrics:['batches','glassN','area','sheets','offcuts','sheetFt2','yield','broken']})]],
    ['Batch list',[repW('table','batches',{title:'Batches',dims:['mm'],more:['glass','batch'],metrics:['glassN','area','orders','sheets','offcuts','yield','daysFirst','daysLast']})]]],9),
+  /* Версия 14 (03.11.2026): план раскроя против факта и склад сейчас
+     (владелец: «что было реально, а что было оптимизировано»; «листы
+     инвентаризации — вся инвентаризация сразу»). */
+  R('plan','Cutting · plan vs actual','Production / Cutting','thisMonth',['mm','glass','person'],[
+   ['Summary',[repW('number','plan',{title:'Plan vs actual',metrics:['planSheets','cutSheets','diffSheets','brokenSheets','planPct','actualPct']}),
+    repW('combo','plan',{title:'Sheets cut by month · batches',date:{use:'own',preset:'thisYear'},dims:['at:month'],metrics:['cutSheets','batches']}),
+    repW('table','plan',{title:'By cutter',dims:['person'],metrics:['cutSheets','planSheets','diffSheets','brokenSheets','actualPct','planPct']}),
+    repW('table','plan',{title:'By thickness and glass',dims:['mm'],more:['glass'],metrics:['cutSheets','planSheets','diffSheets','brokenSheets','actualPct','planPct']})]],
+   ['Batches',[repW('table','plan',{title:'Batch · plan vs actual',dims:['mm'],more:['glass','batch'],metrics:['planSheets','cutSheets','diffSheets','brokenSheets','planPct','actualPct','recutFt2']})]]],14),
+  R('stock','Stock now · everything on the shelves','Inventory','all',['kind','glass','status'],[
+   ['Now',[repW('number','stock',{title:'On the shelves',metrics:['pcs','ft2','count']}),
+    repW('table','stock',{title:'Sheets and offcuts',dims:['mm'],more:['glass','size','kind'],metrics:['onHand','free','reserved','ft2'],filters:[{f:'kind',op:'in',v:['Sheet','Offcut']}]}),
+    repW('table','stock',{title:'Consumables and stock items',dims:['kind'],more:['material','unit'],metrics:['onHand','free','reserved','onOrder'],filters:[{f:'kind',op:'notIn',v:['Sheet','Offcut']}]})]]],14),
   /* Версия 10 (27.10.2026): закупки — только с галочкой Purchasing. Деньги
      — по Account (поставщик · валюта): CAD и USD не складываются. */
   R('pursupplier','Purchasing · by supplier','Purchasing','thisYear',['supplier','currency','kind'],[

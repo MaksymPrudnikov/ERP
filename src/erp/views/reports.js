@@ -43,6 +43,8 @@ function repWidgetQuery(r,w){
  const q=JSON.parse(JSON.stringify(w.q)),v=repView(r.id),S=REP_SRC[q.source];
  if(q.date.use!=='own'){const d=v.date||r.date;q.date=Object.assign({},q.date,{preset:d.preset||'',from:d.from||'',to:d.to||''});}
  if(w.type!=='table')q.more=[];
+ const vs=v.s&&v.s[w.id];if(vs)q.sort=vs;
+ q.custom=r.custom||[];
  q.skip=[];Object.entries(repViewFilters(r)).forEach(([f,vals])=>{if(!Array.isArray(vals)||!vals.length||!S)return;if(repField(S,f))q.filters.push({f,op:'in',v:vals});else q.skip.push(f);});
  return q;
 }
@@ -115,12 +117,14 @@ function repCatBar(r){
 function repDelta(cur,prev){if(cur==null||prev==null||!prev)return '';const d=(cur-prev)/Math.abs(prev)*100;return (d>=0?'▲ ':'▼ ')+Math.abs(d).toFixed(Math.abs(d)<10?1:0)+'%';}
 function repCmpText(res){const c=res.compare;return c?(c.kind==='year'?'vs last year':'vs previous period'):'';}
 /* Цвет значения разбивки — по его месту в полном списке значений поля, а не
-   в выборке: фильтр не перекрашивает (dataviz). Цветов восемь; девятое и
-   дальше — те же цвета светлее (ch-t2, ch-t3), значений сколько угодно. */
-function repSeriesClass(i){const t=Math.floor(i/8);return 'ch-s'+(i%8+1)+(t?' ch-t'+Math.min(3,t+1):'');}
+   в выборке: фильтр не перекрашивает (dataviz). Цветов 24 (series-1…24,
+   только для отчётов); 25-е и дальше — те же цвета светлее (ch-t2). Цвет,
+   выбранный человеком квадратиком (r.colors[поле][значение]), — его. */
+let repColorsCur={};
+function repSeriesClass(i){return 'ch-s'+(i%24+1)+(i>=24?' ch-t2':'');}
 function repSeriesCls(S,d,keys){
  const p=repDimParse(d),all=repIsTime(S,d)?keys:repFieldValues(S,p.f),rank=k=>{const i=all.indexOf(k);return i<0?9999:i;};
- const order=keys.filter(k=>k!=='__other').slice().sort((a,b)=>rank(a)-rank(b)),m=new Map();order.forEach((k,i)=>m.set(k,repSeriesClass(i)));m.set('__other','ch-so');return m;
+ const own=repColorsCur[p.f]||{},order=keys.filter(k=>k!=='__other').slice().sort((a,b)=>rank(a)-rank(b)),m=new Map();order.forEach((k,i)=>m.set(k,own[k]?'ch-s'+own[k]:repSeriesClass(i)));m.set('__other','ch-so');return m;
 }
 function repPickAttrs(r,S,d,k){
  const p=repDimParse(d),f=repField(S,p.f);if(!f||f.type==='date'||k==='__other'||k==='—')return '';
@@ -153,7 +157,9 @@ function repTableMore(el){
 function repTableHTML(r,S,res,w){
  const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],cmp=res.compare&&!d2;
  /* Измерения строк: первое и ещё (res.more) — каждое своей колонкой. */
- const rowDims=[d1].concat(res.more||[]),rowHead=at=>rowDims.map(d=>`<th${at||''}>${esc(repDimLabel(S,d))}</th>`).join('');
+ /* Клик по заголовку — порядок строк (как в Looker): свой у зрителя, в этом браузере. */
+ const so=repWidgetQuery(r,w).sort,sortTh=(text,by,i,cls,at,j)=>{const on=!!so&&so.by===by&&(by==='label'?!j:so.i===i);return `<th${at||''} class="${cls||''} rep-sortable${on?' rep-sort-on':''}" data-rep-sort="${by}:${i}" onclick="repSortClick('${esc(w.id)}','${by}',${i})">${esc(text)}${on?(so.dir==='asc'?' ▲':' ▼'):''}</th>`;};
+ const rowDims=[d1].concat(res.more||[]),rowHead=at=>rowDims.map((d,j)=>sortTh(repDimLabel(S,d),'label',0,'',at,j)).join('');
  /* Значение, как в строке выше, — бледно: группа видна, «6 mm · 6CLEAR» и батчи под ней. */
  const rowCells=(k,i,arr)=>{const parts=String(k).split('\u0002'),prev=i>0&&arr?String(arr[i-1]).split('\u0002'):[];let same=rowDims.length>1;
   return rowDims.map((d,j)=>{const v=parts[j];if(v==null)return '<td></td>';same=same&&j<rowDims.length-1&&prev[j]===v;const t=esc(repKeyText(S,d,v));return `<td${repPickAttrs(r,S,d,v)}${same?' class="rep-same"':''}>${j?`<span data-raw>${t}</span>`:`<b data-raw>${t}</b>`}</td>`;}).join('');},totalCell=`<td colspan="${rowDims.length}"><b>Total</b></td>`;
@@ -168,14 +174,18 @@ function repTableHTML(r,S,res,w){
   body=repTableBody(w,keys,(k,i,arr)=>`<tr>${rowCells(k,i,arr)}${k2.map(b=>ms.map((m,i)=>`<td class="n">${cell((res.cells.get(k+'\u0001'+b)||[])[i],m)}</td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(k)[i]))}</b></td>`).join('')}</tr>`);
   if(w.opts.totals)foot=`<tr class="sl-foot">${totalCell}${k2.map(b=>ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.colTotals.get(b)[i]))}</b></td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr>`;
  }else{
-  head=`${rowHead()}${ms.map(m=>`<th class="n">${esc(m.label)}</th>`+(cmp?`<th class="n rep-cmp">${esc(repCmpText(res))}</th>`:'')).join('')}`;
+  head=`${rowHead()}${ms.map((m,i)=>sortTh(m.label,'metric',i,'n')+(cmp?`<th class="n rep-cmp">${esc(repCmpText(res))}</th>`:'')).join('')}`;
   body=repTableBody(w,keys,(k,n,arr)=>`<tr>${rowCells(k,n,arr)}${ms.map((m,i)=>`<td class="n">${repCellHTML(m,res.rowTotals.get(k)[i])}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`);
   if(w.opts.totals)foot=`<tr class="sl-foot">${totalCell}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.total[i],res.compare.total[i]))}</td>`:'')).join('')}</tr>`;
  }
  return `<div class="sales-table-wrap rep-scroll" data-rep-scroll="${esc(w.id)}" onscroll="repTableMore(this)"><table class="sl-table rep-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>REP_TABLE_STEP?`<div class="mut small" data-rep-rows>${chNum(keys.length)} rows</div>`:''}`;
 }
 function repParts(res,cls,k){return res.keys2.map(b=>({value:(res.cells.get(k+'\u0001'+b)||[])[0]||0,cls:cls.get(b)}));}
-function repLegend(S,res,cls){const d2=res.dims[1];return chartLegend(res.keys2.filter(b=>(res.colTotals.get(b)||[])[0]).map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b)})));}
+function repLegend(S,res,cls){const d2=res.dims[1];return chartLegend(res.keys2.filter(b=>(res.colTotals.get(b)||[])[0]).map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b),attrs:repColorAttrs(S,d2,b)})));}
+/* В Edit значение в легенде — выбор цвета квадратиком (два ряда по 12, как в Looker). */
+function repColorAttrs(S,d,k){if(!repEditOn||k==='__other'||repIsTime(S,d))return '';return ` role="button" data-rep-color data-f="${esc(repDimParse(d).f)}" data-v="${esc(k)}" title="Colour" onclick="repColorOpen(event,this.dataset.f,this.dataset.v)"`;}
+function repColorOpen(e,f,v){if(e)e.stopPropagation();repMenu=Object.assign({kind:'color',f,v},repAt(e));render();}
+function repColorSet(n){const m=repMenu;repMenu=null;if(!m)return;repEditCur(r=>{r.colors=r.colors||{};const x=r.colors[m.f]=r.colors[m.f]||{};if(n)x[m.v]=n;else delete x[m.v];});}
 /* ------------------------------ Расчёт графиков ------------------------------ */
 /* Владелец, 03.11.2026: «не показывать, что он завис, а показывать, что он
    грузится, в процентах». Посчитанный график помнится до записи в базе
@@ -239,6 +249,14 @@ function repChart(r,w){
   const rows=res.keys.map(k=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])}));
   return (d2?repLegend(S,res,cls):'')+`<div class="rep-scroll">${chartHBars(rows,{fmt,label:w.title})}</div>`;
  }
+ /* Combo (как в Looker): колонка — первый показатель, внутри узкая колонка —
+    второй по своей шкале (самая высокая — 70% высоты, чтобы оставаться
+    внутри); значения обоих — в подсказке. */
+ if(w.type==='combo'){
+  const m2=res.metrics[1],v2=k=>(res.rowTotals.get(k)||[])[1],max2=Math.max(0,...res.keys.map(k=>+v2(k)||0));
+  const pts=res.keys.map((k,i)=>({label:text(k),value:res.rowTotals.get(k)[0]||0,inner:m2&&max2?(+v2(k)||0)/max2*70:null,tick:i%every===0,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])+(m2?' · '+m2.label+' '+repFmt(m2,v2(k)):'')}));
+  return chartLegend([{label:m.label,cls:'rep-key-acc'}].concat(m2?[{label:m2.label+' (inner)',cls:'ch-inner-key'}]:[]))+chartColumns(pts,{fmt,label:w.title})+(m2?'':'<div class="mut small">Add a second metric for the inner column.</div>');
+ }
  if(w.type==='columns'){
   const pts=res.keys.map((k,i)=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,tick:i%every===0,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])+(res.compare?' · '+repCmpText(res)+' '+fmt((res.compare.rowTotals.get(k)||[])[0]):'')}));
   return (d2?repLegend(S,res,cls):'')+chartColumns(pts,{fmt,label:w.title});
@@ -254,7 +272,7 @@ function repChart(r,w){
  if(w.type==='pie'){
   /* Все доли (владелец, 03.11.2026: «количество долей тоже не ограничивать»). */
   const keys=res.keys.filter(k=>(res.rowTotals.get(k)[0]||0)>0),pc=repSeriesCls(S,d1,keys);
-  const parts=keys.map(k=>({label:text(k),value:res.rowTotals.get(k)[0],cls:pc.get(k),attrs:repPickAttrs(r,S,d1,k)}));
+  const parts=keys.map(k=>({label:text(k),value:res.rowTotals.get(k)[0],cls:pc.get(k),attrs:repEditOn?repColorAttrs(S,d1,k):repPickAttrs(r,S,d1,k)}));
   return chartPie(parts,{fmt,label:w.title})||'<div class="mut">No data for this period and filters.</div>';
  }
  return '';
@@ -267,7 +285,7 @@ function repWidgetTitle(w){
 function repWidgetCard(r,w,i,n){
  const sel=repEditOn&&w.id===repSelW,tools=repEditOn?`<span class="rep-wtools"><button type="button" class="sm" onclick="repSelectWidget('${esc(w.id)}')">Edit</button><button type="button" class="sm" title="Duplicate" onclick="repDupWidget('${esc(w.id)}')">Duplicate</button><button type="button" class="sm" title="Move up" ${i?'':'disabled'} onclick="repMoveWidget('${esc(w.id)}',-1)">↑</button><button type="button" class="sm" title="Move down" ${i<n-1?'':'disabled'} onclick="repMoveWidget('${esc(w.id)}',1)">↓</button><button type="button" class="sm dl" title="Remove" onclick="repDelWidget('${esc(w.id)}')">×</button></span>`:'';
  const src=REP_SRC[w.q.source],own=w.q.date.use==='own'?' · '+repDateText(w.q.date):'';
- return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${esc(w.id)}" data-rep-type="${w.type}"${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select'))repSelectWidget('${esc(w.id)}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span>${tools}</div>${repChart(r,w)}${repSkipHTML(r,w)}</div>`;
+ return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${esc(w.id)}" data-rep-type="${w.type}"${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select'))repSelectWidget('${esc(w.id)}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span>${tools}${w.type!=='number'||!repEditOn?`<button type="button" class="sm rep-csv" data-rep-csv title="Export all rows to CSV" onclick="repCsv('${esc(w.id)}')">CSV</button>`:''}</div>${repChart(r,w)}${repSkipHTML(r,w)}</div>`;
 }
 
 function repSkipHTML(r,w){
@@ -284,7 +302,7 @@ function repControls(r){
  const keys=[...new Set(r.controls.filter(f=>labels.has(f)).concat(active))];
  const btn=f=>{const vals=vf[f]||[],on=vals.length>0;return `<span class="rep-ctl${on?' on':''}"><button type="button" class="sl-quiet" data-rep-ctl="${esc(f)}" onclick="repOpenCtl(event,'${esc(f)}')">${esc(labels.get(f)||f)}${on?': '+esc(vals.length>2?vals.length+' values':vals.join(', ')):''}<span class="sl-disclosure">▾</span></button>${on?`<button type="button" class="rep-x" aria-label="Clear" onclick="repClearCtl('${esc(f)}')">×</button>`:''}${repEditOn&&r.controls.includes(f)?`<button type="button" class="rep-x" title="Remove control" onclick="repDelControl('${esc(f)}')">−</button>`:''}</span>`;};
  const free=[...labels.keys()].filter(f=>!keys.includes(f));
- return `<div class="rep-bar"><button type="button" class="sl-quiet rep-ctl-date" data-rep-date onclick="repOpenDate(event)">Date: ${esc(repDateText(repEditOn?r.date:v.date||r.date))}<span class="sl-disclosure">▾</span></button>${keys.map(btn).join('')}${repEditOn&&free.length?`<select class="rep-add-ctl" aria-label="Add control" onchange="if(this.value)repAddControl(this.value)"><option value="">+ Control</option>${free.map(f=>`<option value="${esc(f)}">${esc(labels.get(f))}</option>`).join('')}</select>`:''}${v.date||v.f!==undefined?`<button type="button" class="sm" data-rep-reset onclick="repResetView()" title="Back to the report's own period and filters">Reset</button>${!repEditOn&&repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-save-view onclick="repSaveDefaults()" title="Keep this period and these filters in the report">Save as default</button>`:''}`:''}</div>`;
+ return `<div class="rep-bar"><button type="button" class="sl-quiet rep-ctl-date" data-rep-date onclick="repOpenDate(event)">Date: ${esc(repDateText(repEditOn?r.date:v.date||r.date))}<span class="sl-disclosure">▾</span></button>${keys.map(btn).join('')}${repEditOn&&free.length?`<select class="rep-add-ctl" aria-label="Add control" onchange="if(this.value)repAddControl(this.value)"><option value="">+ Control</option>${free.map(f=>`<option value="${esc(f)}">${esc(labels.get(f))}</option>`).join('')}</select>`:''}${v.date||v.f!==undefined||v.s?`<button type="button" class="sm" data-rep-reset onclick="repResetView()" title="Back to the report's own period and filters">Reset</button>${!repEditOn&&repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-save-view onclick="repSaveDefaults()" title="Keep this period and these filters in the report">Save as default</button>`:''}`:''}</div>`;
 }
 function repMenuHTML(r){
  const m=repMenu;if(!m||!r)return '';
@@ -300,6 +318,10 @@ function repMenuHTML(r){
   return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-screens-menu><h5>Board of stations</h5><div class="sl-vals">${(DB.station||[]).map(s=>box('stations',s.code,s.code+' · '+sfName(s))).join('')}</div>
    <h5>Overview of people</h5><div class="sl-vals">${people.map(u=>box('people',u.viewProfileId,u.name)).join('')||'<div class="mut">No office users</div>'}</div>
    <div class="hint">Filters “This station” and “Me” follow the screen.</div><div class="sl-actions"><button type="button" class="pri" data-rep-screens-apply onclick="repScreensApply()">Apply</button></div></div>`;
+ }
+ if(m.kind==='color'){
+  const cur=((repColorsCur[m.f]||{})[m.v])||0;
+  return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-color-menu><h5 data-raw>${esc(m.v)}</h5><div class="rep-swatches">${Array.from({length:24},(_,i)=>`<button type="button" class="ch-s${i+1}${cur===i+1?' on':''}" aria-label="Colour ${i+1}" data-rep-swatch="${i+1}" onclick="repColorSet(${i+1})"></button>`).join('')}</div><div class="sl-actions"><button type="button" class="sl-btn" onclick="repColorSet(0)">Automatic</button></div></div>`;
  }
  if(m.kind==='ctl'){
   const all=repControlValues(r,m.f),q=String(m.search||'').toLowerCase(),shown=all.filter(x=>!q||x.toLowerCase().includes(q));
@@ -326,7 +348,33 @@ function repClearCtl(f){const r=repOpenReport();if(!r)return;const base=Object.a
 function repSetViewDate(d){const r=repOpenReport();if(!r)return;const date={preset:d.preset||'',from:d.from||'',to:d.to||''};
  if(repEditOn&&repDraft){repViewSet(r.id,v=>{delete v.date;});repMenu=null;repEditCur(x=>{x.date=date;});return;}
  repViewSet(r.id,v=>{v.date=date;});repMenu=null;render();}
-function repResetView(){const r=repOpenReport();if(!r)return;repViewSet(r.id,v=>{delete v.date;delete v.f;});repMenu=null;render();}
+function repResetView(){const r=repOpenReport();if(!r)return;repViewSet(r.id,v=>{delete v.date;delete v.f;delete v.s;});repMenu=null;render();}
+function repSortClick(wid,by,i){
+ const r=repOpenReport();if(!r)return;const w=r.pages.flatMap(p=>p.widgets).find(x=>x.id===wid);if(!w)return;
+ const cur=repWidgetQuery(r,w).sort,same=cur&&cur.by===by&&(by==='label'||cur.i===i),dir=same?(cur.dir==='asc'?'desc':'asc'):by==='label'?'asc':'desc';
+ repViewSet(r.id,v=>{v.s=v.s&&typeof v.s==='object'?v.s:{};v.s[wid]={by,i,dir};});render();
+}
+/* Export CSV (как в Looker: меню графика → Export): все строки и колонки,
+   как в таблице, числа без форматирования, строка Total. */
+function repCsvText(r,w){
+ const q=repWidgetQuery(r,w),S=REP_SRC[q.source],res=repResultOf(q,repCtx());if(!S||!res)return '';
+ const cell=v=>{const s=v==null?'':String(v);return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;},num=(m,v)=>v==null||!Number.isFinite(+v)?'':m.money?(+v).toFixed(2):String(+(+v).toFixed(6));
+ const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],rowDims=d1?[d1].concat(res.more||[]):[],lines=[];
+ const keys2=d2?res.keys2:[],head=rowDims.map(d=>repDimLabel(S,d)).concat(d2?keys2.flatMap(b=>ms.map(m=>repKeyText(S,d2,b)+' · '+m.label)).concat(ms.map(m=>'Total · '+m.label)):ms.map(m=>m.label));
+ lines.push(head);
+ if(!d1)lines.push(ms.map((m,i)=>num(m,res.total[i])));
+ else{
+  res.keys.forEach(k=>{const parts=String(k).split('\u0002'),dims=rowDims.map((d,j)=>parts[j]==null?'':repKeyText(S,d,parts[j]));
+   lines.push(dims.concat(d2?keys2.flatMap(b=>ms.map((m,i)=>num(m,(res.cells.get(k+'\u0001'+b)||[])[i]))).concat(ms.map((m,i)=>num(m,res.rowTotals.get(k)[i]))):ms.map((m,i)=>num(m,res.rowTotals.get(k)[i]))));});
+  lines.push(['Total'].concat(rowDims.slice(1).map(()=>'')).concat(d2?keys2.flatMap(b=>ms.map((m,i)=>num(m,(res.colTotals.get(b)||[])[i]))).concat(ms.map((m,i)=>num(m,res.total[i]))):ms.map((m,i)=>num(m,res.total[i]))));
+ }
+ return lines.map(l=>l.map(cell).join(',')).join('\r\n')+'\r\n';
+}
+function repCsv(wid){
+ const r=repOpenReport();if(!r)return;const w=r.pages.flatMap(p=>p.widgets).find(x=>x.id===wid);if(!w)return;
+ const name=(r.name+' - '+repWidgetTitle(w)).replace(/[\\/:*?"<>|]+/g,' ').trim()+' '+finToday()+'.csv';
+ storageDownload(name,['\ufeff'+readScope(()=>repCsvText(r,w))],'text/csv');
+}
 /* Save as default: свой период и фильтры становятся периодом и фильтрами отчёта. */
 function repSaveDefaults(){const r=repOpenReport();if(!r||repDraft)return;const v=repView(r.id);if(repEditReport(r.id,x=>{if(v.date)x.date=v.date;if(v.f!==undefined)x.filters=v.f;}))repResetView();}
 
@@ -354,13 +402,15 @@ function repSetup(r){
   <h5>Title</h5><input type="text" value="${esc(w.title)}" placeholder="${esc(repWidgetTitle(Object.assign({},w,{title:''})))}" onchange="repSetW('title',this.value)">
   <h5>Data</h5><select data-rep-source onchange="repSetSource(this.value)">${repSrcOptions(q.source)}</select><div class="hint">${esc(S.hint||'')}</div>
   <h5>Dimension</h5><select data-rep-dim="0" onchange="repSetDim(0,this.value)">${repOpt(dims,q.dims[0]||'','None — totals only')}</select>${repMoreHTML(w,S)}
-  ${w.type!=='number'&&w.type!=='pie'?`<h5>Breakdown</h5><select data-rep-dim="1" onchange="repSetDim(1,this.value)">${repOpt(dims.filter(d=>d[0]!==q.dims[0]),q.dims[1]||'','None')}</select>${q.dims[1]&&w.type!=='table'&&q.metrics.length>1?'<div class="hint" data-rep-first-metric>Chart shows the first metric; Table shows all.</div>':''}`:''}
+  ${w.type==='combo'?'<div class="hint" data-rep-combo>First metric — column; second — inner column.</div>':''}${w.type!=='number'&&w.type!=='pie'&&w.type!=='combo'?`<h5>Breakdown</h5><select data-rep-dim="1" onchange="repSetDim(1,this.value)">${repOpt(dims.filter(d=>d[0]!==q.dims[0]),q.dims[1]||'','None')}</select>${q.dims[1]&&w.type!=='table'&&q.metrics.length>1?'<div class="hint" data-rep-first-metric>Chart shows the first metric; Table shows all.</div>':''}`:''}
   <h5>Metrics</h5>${(q.metrics.length?q.metrics:[S.metrics[0].k]).map((k,i)=>{const c=repCalcParse(k),del=q.metrics.length>1?`<button type="button" class="sm dl" onclick="repDelMetric(${i})">×</button>`:'';
    if(!c)return `<div class="sl-row"><select data-rep-metric="${i}" onchange="repSetMetric(${i},this.value)">${repOpt(mets,k)}</select>${del}</div>`;
    const num=/^n:/.test(c.b);
    return `<div class="rep-calc" data-rep-calc="${i}"><div class="sl-row"><select aria-label="First metric" onchange="repSetCalc(${i},'a',this.value)">${repOpt(mets,c.a)}</select>${del}</div><div class="sl-row"><select aria-label="Operation" onchange="repSetCalc(${i},'op',this.value)">${repOpt(REP_CALC_OPS,c.op)}</select><select aria-label="Second metric or number" onchange="repSetCalc(${i},'b',this.value)">${repOpt([['n:','Number']].concat(mets),num?'n:':c.b)}</select>${num?`<input type="number" step="any" aria-label="Number" value="${esc(c.b.slice(2))}" onchange="repSetCalc(${i},'n',this.value)">`:''}</div></div>`;}).join('')}
   <div class="sl-row"><button type="button" class="sl-btn" data-rep-add-metric onclick="repAddMetric()">+ Add metric</button><button type="button" class="sl-btn" data-rep-add-calc onclick="repAddCalc()" title="Metric ÷ × + − another metric or a number">+ Calculated</button></div>
+  ${repCustomHTML(r,S,q)}
   <h5>Filter</h5>${q.filters.map((f,i)=>repFilterRow(S,f,i)).join('')}<button type="button" class="sl-btn" data-rep-add-filter onclick="repAddFilter()">+ Add filter</button>
+  ${(q.having||[]).map((h,i)=>repHavingRow(mets,h,i)).join('')}<button type="button" class="sl-btn" data-rep-add-having onclick="repAddHaving()" title="Keep rows whose value fits">+ Metric filter</button>
   <h5>Date range</h5>${dates.length>1?`<select aria-label="Date field" onchange="repSetW('date.f',this.value)">${repOpt(dates.map(k=>[k,repField(S,k).label]),q.date.f||dates[0])}</select>`:''}
   <select data-rep-date-use onchange="repSetDateUse(this.value)">${repOpt([['report','Report period']].concat(REP_PRESETS).concat([['custom','Custom dates']]),dateCur)}</select>
   ${dateCur==='custom'?`<div class="sl-row"><input type="date" value="${esc(q.date.from)}" onchange="repSetW('date.from',this.value)"><input type="date" value="${esc(q.date.to)}" onchange="repSetW('date.to',this.value)"></div>`:''}
@@ -390,7 +440,9 @@ function repSetW(path,v){repWEdit(w=>{
  else if(p[0]==='limit')w.q.limit=Math.max(0,Math.floor(+v||0));
  else if(p[0]==='other')w.q.other=!!v;
  else if(p[0]==='compare')w.q.compare=v;
- if(w.type==='number'||w.type==='pie')w.q.dims=w.type==='number'?[]:w.q.dims.slice(0,1);
+ if(w.type==='number'||w.type==='pie'||w.type==='combo')w.q.dims=w.type==='number'?[]:w.q.dims.slice(0,1);
+ /* Combo — два показателя: второй добавляется сам. */
+ if(w.type==='combo'&&w.q.metrics.length<2){const S=REP_SRC[w.q.source],have=w.q.metrics.length?w.q.metrics:[S.metrics[0].k],next=S.metrics.find(x=>!have.includes(x.k));w.q.metrics=have.concat(next?[next.k]:[]);}
 });}
 function repSetSource(k){const S=REP_SRC[k];if(!S)return;repWEdit(w=>{w.q.source=k;w.q.filters=[];w.q.metrics=[S.metrics[0].k];w.q.dims=w.type==='number'?[]:[repDimOptions(S)[0][0]];w.q.sort=null;w.q.date.f='';});}
 /* Ещё измерения строк таблицы (как в Looker): «+ Row dimension». */
@@ -398,9 +450,58 @@ function repMoreHTML(w,S){
  const q=w.q,d0=q.dims[0];if(w.type!=='table'||!d0||repIsTime(S,d0))return '';
  const opts=repDimOptions(S).filter(d=>!d[0].includes(':')&&d[0]!==d0),more=q.more||[],free=opts.find(d=>!more.includes(d[0]));
  return more.map((d,i)=>`<div class="sl-row"><select aria-label="Row dimension" data-rep-more="${i}" onchange="repSetMore(${i},this.value)">${repOpt(opts,d)}</select><button type="button" class="sm dl" onclick="repSetMore(${i},'')">×</button></div>`).join('')
-  +(free&&more.length<4?`<button type="button" class="sl-btn" data-rep-add-row onclick="repSetMore(${more.length},'${esc(free[0])}')">+ Row dimension</button>`:'');
+  +(free&&more.length<8?`<button type="button" class="sl-btn" data-rep-add-row onclick="repSetMore(${more.length},'${esc(free[0])}')">+ Row dimension</button>`:'');
 }
 function repSetMore(i,v){repWEdit(w=>{const m=(w.q.more||[]).slice();if(v)m[i]=v;else m.splice(i,1);w.q.more=m.filter(Boolean);w.q.sort=null;});}
+/* ------------------------- Свои показатели ------------------------- */
+/* Владелец, 03.11.2026: «кастомный показатель — ввожу название и что отнять
+   или что на что поделить, и у меня моя личная формула». Показатель живёт в
+   отчёте (r.custom) и стоит в списке Metrics у всех графиков этого источника. */
+let repCm=null;
+function repCustomHTML(r,S,q){
+ const src=repSrcKey(S),mine=(r.custom||[]).filter(c=>c.source===src);
+ const list=mine.map(c=>`<div class="rep-cm" data-rep-cm="${esc(c.id)}"><b data-raw>${esc(c.name)}</b><span class="rep-cm-acts"><button type="button" class="sm" onclick="repCmOpen('${esc(c.id)}')">Edit</button><button type="button" class="sm dl" title="Delete" onclick="repCmDel('${esc(c.id)}')">×</button></span><code data-raw>${esc(c.formula)}</code></div>`).join('');
+ if(!repCm||repCm.source!==src)return list+`<button type="button" class="sl-btn" data-rep-cm-new onclick="repCmOpen('')" title="Your own metric by formula">+ Custom metric</button>`;
+ /* Поле вставляется с выбранной функцией (как в Looker: Field as Sum, Count…);
+    Auto — число суммой, текст — COUNT_DISTINCT. Метрика источника — как есть. */
+ const f=repFields(S).filter(x=>x.type==='num'||x.type==='dim'||x.type==='text'),as=repCm.as||'auto',wrap=x=>{const t='['+x.label+']',fn=as==='auto'?(x.type==='num'?'':'COUNT_DISTINCT'):x.type!=='num'&&['SUM','AVG','MIN','MAX'].includes(as)?'COUNT_DISTINCT':as;return fn?fn+'('+t+')':t;};
+ const chips=f.map(x=>`<button type="button" class="sm" onclick="repCmInsert(this.dataset.t)" data-t="${esc(wrap(x))}" title="${esc(wrap(x))}">${esc(x.label)}</button>`).join('')+(S.metrics||[]).filter(m=>!f.some(x=>x.label===m.label)).map(m=>`<button type="button" class="sm" onclick="repCmInsert(this.dataset.t)" data-t="${esc('['+m.label+']')}">${esc(m.label)}</button>`).join('');
+ const asSel=`<div class="sl-row"><label class="rep-inline">Field as <select aria-label="Field as" data-rep-cm-as onchange="repCm.as=this.value;render()">${repOpt([['auto','Auto'],['SUM','Sum'],['AVG','Average'],['MIN','Min'],['MAX','Max'],['COUNT','Count'],['COUNT_DISTINCT','Count distinct']],as)}</select></label></div>`;
+ const fns=REP_FORMULA_FUNCS.map(fn=>`<button type="button" class="sm" onclick="repCmInsert('${fn}(')">${fn}</button>`).join('')+['+','−','×','÷','(',')'].map(o=>`<button type="button" class="sm" onclick="repCmInsert(' ${{'−':'-','×':'*','÷':'/'}[o]||o} ')">${o}</button>`).join('');
+ return list+`<div class="rep-calc" data-rep-cm-edit><input type="text" id="repCmName" placeholder="Name, e.g. Waste %" value="${esc(repCm.name)}" oninput="repCm.name=this.value">
+  <textarea id="repCmFormula" class="rep-formula" placeholder="[Waste ft²] / [Sheet ft²] * 100" oninput="repCm.formula=this.value;repCmCheck()">${esc(repCm.formula)}</textarea>
+  <div data-rep-cm-msg class="${repCmMsg().ok?'rep-formula-ok':'rep-formula-err'}">${esc(repCmMsg().text)}</div>
+  <div class="rep-fchips">${fns}</div>${asSel}<div class="rep-fchips">${chips}</div>
+  <div class="sl-row"><select aria-label="Format" onchange="repCm.fmt=this.value">${repOpt([['number','Number'],['money','Money'],['pct','Percent']],repCm.fmt)}</select><select aria-label="Decimals" onchange="repCm.digits=+this.value">${repOpt([0,1,2,3].map(n=>[String(n),n+' decimals']),String(repCm.digits))}</select></div>
+  <div class="sl-row"><button type="button" class="pri sm" data-rep-cm-save onclick="repCmSave()">Save metric</button><button type="button" class="sm" onclick="repCm=null;render()">Cancel</button></div></div>`;
+}
+function repCmSource(){const r=repOpenReport(),w=r&&repSelWidget(r);return w?w.q.source:'';}
+function repCmOpen(id){const r=repOpenReport(),c=id&&(r.custom||[]).find(x=>x.id===id);repCm=c?Object.assign({},c):{id:'',name:'',formula:'',fmt:'number',digits:1,source:repCmSource()};render();}
+function repCmMsg(){
+ if(!repCm||!repCm.formula.trim())return {ok:false,text:'Type a formula: fields in [ ], + − × ÷, SUM, AVG, COUNT_DISTINCT…'};
+ const r=repOpenReport(),S=REP_SRC[repCm.source],p=repFormulaParse(repCm.formula,S,(r.custom||[]).filter(c=>c.source===repCm.source&&c.id!==repCm.id));
+ return p.error?{ok:false,text:p.error}:{ok:true,text:'Formula is OK'};
+}
+function repCmCheck(){const el=document.querySelector('[data-rep-cm-msg]');if(!el)return;const m=repCmMsg();el.textContent=m.text;el.className=m.ok?'rep-formula-ok':'rep-formula-err';}
+function repCmInsert(t){const el=document.getElementById('repCmFormula');if(!el||!repCm)return;const a=el.selectionStart??el.value.length,b=el.selectionEnd??a;el.setRangeText(t,a,b,'end');repCm.formula=el.value;el.focus();repCmCheck();}
+function repCmSave(){
+ const c=repCm;if(!c)return;const name=String(c.name||'').trim();if(!name){alert('Name the metric.');return;}if(!repCmMsg().ok){alert(repCmMsg().text);return;}
+ const r=repOpenReport();if((r.custom||[]).some(x=>x.id!==c.id&&x.source===c.source&&x.name.toLowerCase()===name.toLowerCase())){alert('A metric with this name already exists.');return;}
+ const id=c.id||repUid('CM'),isNew=!c.id;repCm=null;
+ repEditCur(x=>{x.custom=(x.custom||[]).filter(y=>y.id!==id).concat([{id,name,formula:c.formula,source:c.source,fmt:c.fmt,digits:c.digits}]);});
+ if(isNew)repWEdit(w=>{if(w.q.source===c.source){const m=w.q.metrics.length?w.q.metrics:[REP_SRC[w.q.source].metrics[0].k];w.q.metrics=m.concat(['cm:'+id]);}});
+}
+function repCmDel(id){
+ const r=repOpenReport(),c=(r.custom||[]).find(x=>x.id===id);if(!c||!confirm('Delete metric "'+c.name+'"?'))return;
+ repEditCur(x=>{x.custom=(x.custom||[]).filter(y=>y.id!==id);x.pages.forEach(p=>p.widgets.forEach(w=>{w.q.metrics=w.q.metrics.filter(k=>k!=='cm:'+id);w.q.having=(w.q.having||[]).filter(h=>h.m!=='cm:'+id);}));});
+}
+/* Фильтр по показателю: строка графика остаётся, если её значение подходит. */
+function repHavingRow(mets,h,i){
+ return `<div class="rep-filter-row" data-rep-having="${i}"><div class="sl-row"><select aria-label="Metric" onchange="repSetHaving(${i},'m',this.value)">${repOpt(mets,h.m)}</select><select aria-label="Condition" onchange="repSetHaving(${i},'op',this.value)">${repOpt(REP_HAVING_OPS,h.op)}</select><button type="button" class="sm dl" onclick="repSetHaving(${i},'del')">×</button></div>
+  <div class="sl-row"><input type="number" step="any" aria-label="Value" value="${esc(h.v[0]??'')}" onchange="repSetHaving(${i},'v0',this.value)">${h.op==='between'?`<input type="number" step="any" aria-label="To" value="${esc(h.v[1]??'')}" onchange="repSetHaving(${i},'v1',this.value)">`:''}</div></div>`;
+}
+function repAddHaving(){repWEdit(w=>{const m=w.q.metrics[0]||REP_SRC[w.q.source].metrics[0].k;w.q.having=(w.q.having||[]).concat([{m,op:'lt',v:['']}]);});}
+function repSetHaving(i,k,v){repWEdit(w=>{const h=(w.q.having||[])[i];if(!h)return;if(k==='del'){w.q.having.splice(i,1);return;}if(k==='m')h.m=v;else if(k==='op')h.op=v;else if(k==='v0')h.v[0]=v===''?'':+v;else if(k==='v1')h.v[1]=v===''?'':+v;});}
 function repSetDim(i,v){repWEdit(w=>{const d=w.q.dims.slice();d[i]=v;w.q.dims=d.filter(Boolean);if(w.q.dims[0]===w.q.dims[1])w.q.dims.length=1;w.q.sort=null;});}
 function repSetMetric(i,v){repWEdit(w=>{const m=w.q.metrics.length?w.q.metrics.slice():[REP_SRC[w.q.source].metrics[0].k];m[i]=v;w.q.metrics=m;});}
 function repAddMetric(){repWEdit(w=>{const S=REP_SRC[w.q.source],have=w.q.metrics.length?w.q.metrics:[S.metrics[0].k],next=S.metrics.find(m=>!have.includes(m.k));w.q.metrics=have.concat(next?[next.k]:[]);});}
@@ -481,11 +582,11 @@ function repPrintHTML(){const r=repOpenReport();return r?repPrintPageHTML(r,repP
    графики, без правки и фильтров; подстановки — станция и человек экрана. */
 let repScreenPage={};
 function repScreenHTML(r,ctx){
- const was=repCtxOverride,wasEdit=repEditOn;repCtxOverride=ctx;repEditOn=false;
+ const was=repCtxOverride,wasEdit=repEditOn,wasC=[repCustomCur,repColorsCur];repCtxOverride=ctx;repEditOn=false;repCustomCur=r.custom||[];repColorsCur=r.colors||{};
  try{
   const p=r.pages.find(x=>x.id===repScreenPage[r.id])||r.pages[0],tabs=r.pages.length>1?`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-screen-page="${esc(x.id)}" onclick="repScreenPage[this.dataset.rid]=this.dataset.repScreenPage;render()" data-rid="${esc(r.id)}">${esc(x.name)}</button>`).join('')}</div>`:'';
   return `<div class="rep-screen" data-rep-screen="${esc(r.id)}">${tabs}<div class="mut small rep-screen-period">${esc(repDateText(r.date))}</div><div class="rep-ws">${p.widgets.map((w,i)=>repWidgetCard(r,w,i,p.widgets.length)).join('')}</div></div>`;
- }finally{repCtxOverride=was;repEditOn=wasEdit;}
+ }finally{repCtxOverride=was;repEditOn=wasEdit;[repCustomCur,repColorsCur]=wasC;}
 }
 /* Вкладки экрана: «Now» — встроенный экран, дальше — назначенные отчёты. */
 function repScreenTabs(reps,cur,setter){return `<div class="rep-screen-tabs tabs" data-rep-screen-tabs>${[['','Now']].concat(reps.map(r=>[r.id,r.name])).map(([id,n])=>`<button type="button" class="${id===cur?'on':''}" data-rep-screen-tab="${esc(id)}" onclick="${setter}(this.dataset.repScreenTab)">${esc(n)}</button>`).join('')}</div>`;}
@@ -521,6 +622,7 @@ function repMain(r){
 function viewReports(){
  repPicks=[];
  const r=repOpenReport();if(!r){repOpenId='';repEditOn=false;}
+ repCustomCur=r&&r.custom||[];repColorsCur=r&&r.colors||{};
  const setup=r&&repEditOn?repSetup(r):'';
  const hide=repCatHidden();
  return `<div class="rep-app${setup?' editing':''}${hide?' flat':''}">${hide?'':repCatalog()}<div class="rep-main">${hide?repCatBar(r):''}${repMain(r)}</div>${setup}</div>${repMenuHTML(r)}`;

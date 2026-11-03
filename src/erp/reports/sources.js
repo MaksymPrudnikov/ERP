@@ -72,7 +72,7 @@ function repOpFields(){
 }
 const REP_SRC={
  glass:{label:'Station work',group:'Production',hint:'Glass through every station',rows:()=>repWorkFacts(),date:['at'],fields:()=>repScanFields(),
-  metrics:[{k:'count',label:'Glass',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'units',label:'Units',agg:'distinct',f:'unitKey'},
+  metrics:[{k:'count',label:'Glass pcs',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'units',label:'Units',agg:'distinct',f:'unitKey'},
    {k:'orders',label:'Orders',agg:'distinct',f:'order'},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true}]},
  cutting:{label:'Cutting',group:'Production',hint:'Glass cut at CUT',rows:()=>repScansAt([stationCutCode()]),date:['at'],fields:()=>repScanFields('Cutter'),
   metrics:[{k:'count',label:'Glass cut',agg:'count'},{k:'area',label:'ft² cut',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'},{k:'batches',label:'Batches',agg:'distinct',f:'batch'}]},
@@ -82,17 +82,17 @@ const REP_SRC={
   metrics:[{k:'sheets',label:'Sheets',agg:'sum',f:'sheets'},{k:'area',label:'Sheet ft²',agg:'sum',f:'area',digits:1},{k:'used',label:'Glass ft²',agg:'sum',f:'used',digits:1},{k:'waste',label:'Waste ft²',agg:'sum',f:'waste',digits:1},
    {k:'yield',label:'Used %',agg:'ratio',num:'used',den:'area',pct:true,digits:1},{k:'broken',label:'Broken',agg:'sum',f:'broken'}]},
  edgework:{label:'Edgework',group:'Production',hint:'Linear inches by operation',rows:()=>repOpFacts().filter(r=>r.kind==='EDGE'),date:['at'],fields:repOpFields,
-  metrics:[{k:'inches',label:'Linear in',agg:'sum',f:'inches'},{k:'count',label:'Operations',agg:'count'},{k:'glass',label:'Glass',agg:'distinct',f:'piece'},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true}]},
+  metrics:[{k:'inches',label:'Linear in',agg:'sum',f:'inches'},{k:'count',label:'Operations',agg:'count'},{k:'glass',label:'Glass pcs',agg:'distinct',f:'piece'},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true}]},
  drilling:{label:'Drilling & CNC',group:'Production',hint:'Holes, notches, cutouts, hardware',rows:()=>repOpFacts().filter(r=>r.unit==='pcs'),date:['at'],fields:repOpFields,
-  metrics:[{k:'pcs',label:'Pieces',agg:'sum',f:'pcs'},{k:'glass',label:'Glass',agg:'distinct',f:'piece'},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true}]},
+  metrics:[{k:'pcs',label:'Pieces',agg:'sum',f:'pcs'},{k:'glass',label:'Glass pcs',agg:'distinct',f:'piece'},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true}]},
  ops:{label:'All operations',group:'Production',hint:'Every priced work at every station',rows:()=>repOpFacts(),date:['at'],fields:repOpFields,
   metrics:[{k:'qty',label:'Quantity',agg:'sum',f:'qty',digits:1},{k:'inches',label:'Linear in',agg:'sum',f:'inches'},{k:'workFt2',label:'Work ft²',agg:'sum',f:'workFt2',digits:1},{k:'pcs',label:'Pieces',agg:'sum',f:'pcs'},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true}]},
  tempering:{label:'Tempering',group:'Production',hint:'Glass through the furnace',rows:()=>repScansAt(repStationsOf(['tempering','heat_strengthening'])),date:['at'],fields:()=>repScanFields('Operator'),
-  metrics:[{k:'count',label:'Glass',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'}]},
+  metrics:[{k:'count',label:'Glass pcs',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'}]},
  assembly:{label:'IGU & lamination',group:'Production',hint:'Units assembled',rows:()=>repScansAt(stationMergeCodes()),date:['at'],fields:()=>repScanFields('Assembler'),
-  metrics:[{k:'units',label:'Units',agg:'distinct',f:'asmDone'},{k:'count',label:'Glass',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1}]},
+  metrics:[{k:'units',label:'Units',agg:'distinct',f:'asmDone'},{k:'count',label:'Glass pcs',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1}]},
  shipping:{label:'Shipping handout',group:'Shipping',hint:'Glass and units handed out at SHIP',rows:()=>repScansAt([shippingStations().ship]),date:['at'],fields:()=>repScanFields('Handed out by'),
-  metrics:[{k:'units',label:'Units',agg:'distinct',f:'unitKey'},{k:'count',label:'Glass',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'}]},
+  metrics:[{k:'units',label:'Units',agg:'distinct',f:'unitKey'},{k:'count',label:'Glass pcs',agg:'count'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'}]},
  deliveries:{label:'Deliveries & pickups',group:'Shipping',hint:'Packing slips, trips, skids',rows:()=>repDeliveryFacts(),date:['at'],
   fields:()=>[REP_F.date('at','Date'),REP_F.dim('method','Method'),REP_F.dim('status','Status'),REP_F.dim('truck','Truck',r=>r.truck||'—'),REP_F.dim('driver','Driver',r=>r.driver||'—'),
    REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.text('ps','Packing slip'),REP_F.dim('city','City',r=>r.city||'—'),REP_F.dim('depart','Departs',r=>r.depart||'—'),
@@ -122,8 +122,8 @@ const REP_SRC={
   metrics:[{k:'glassN',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'usd',label:'$ by price list',agg:'sum',f:'usd',money:true},{k:'count',label:'Records',agg:'count'}]},
  time:{label:'Time at stations',group:'People',hint:'First to last scan per person and day',rows:()=>repTimeFacts(),date:['at'],
   fields:()=>[REP_F.date('at','Day'),REP_F.dim('person','Person'),REP_F.dim('station','Station'),REP_F.num('start','First scan hour'),REP_F.num('end','Last scan hour'),
-   REP_F.num('hours','Hours between scans',{digits:1}),REP_F.num('glassN','Glass'),REP_F.num('area','Glass ft²',{digits:1})],
-  metrics:[{k:'hours',label:'Hours',agg:'sum',f:'hours',digits:1},{k:'glassN',label:'Glass',agg:'sum',f:'glassN'},{k:'perHour',label:'Glass per hour',agg:'ratio',num:'glassTimed',den:'hoursTimed',digits:1},
+   REP_F.num('hours','Hours between scans',{digits:1}),REP_F.num('glassN','Glass pcs'),REP_F.num('area','Glass ft²',{digits:1})],
+  metrics:[{k:'hours',label:'Hours',agg:'sum',f:'hours',digits:1},{k:'glassN',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'perHour',label:'Glass per hour',agg:'ratio',num:'glassTimed',den:'hoursTimed',digits:1},
    {k:'count',label:'Person-days',agg:'count'}]}
 };
 /* Источник с access виден только с этой галочкой в Users: деньги — Finance. */
@@ -171,8 +171,8 @@ Object.assign(REP_SRC,{
    REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.dim('priority','Priority'),REP_F.dim('delivery','Delivery'),REP_F.dim('hold','On hold'),REP_F.dim('status','Status'),
    REP_F.dim('from','Came from',r=>r.from||'—'),REP_F.dim('on','Dolly / skid',r=>r.on||'—'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),
    REP_F.text('batch','Batch',r=>r.batch||'—'),REP_F.text('piece','Glass ID',r=>r.piece||'—')].concat(repOrderFields(),repLineFields(),
-   [REP_F.num('glassN','Glass'),REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('days','Days waiting'),REP_F.num('daysOver','Days overdue'),REP_F.num('over','Overdue glass')]),
-  metrics:[{k:'glass',label:'Glass',agg:'sum',f:'glassN'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'},
+   [REP_F.num('glassN','Glass pcs'),REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('days','Days waiting'),REP_F.num('daysOver','Days overdue'),REP_F.num('over','Overdue glass')]),
+  metrics:[{k:'glass',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'},
    {k:'overdueOrders',label:'Overdue orders',agg:'distinct',f:'overOrder'},{k:'over',label:'Overdue glass',agg:'sum',f:'over'}]},
  sheetcut:{label:'Sheets cut',group:'Production',hint:'Sheets cut and broken by cutter',rows:()=>repSheetCutFacts(),date:['at'],
   fields:()=>[REP_F.date('at','Date'),REP_F.dim('person','Cutter',r=>r.person||'—'),REP_F.dim('event','Cut or broke'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),
@@ -189,9 +189,9 @@ Object.assign(REP_SRC,{
 REP_SRC.batches={label:'Batches',group:'Production',hint:'Glass, sheets and days to cut by batch',rows:()=>repBatchFacts(),date:['at','first','last'],
  fields:()=>[REP_F.date('at','Built'),REP_F.date('first','First cut'),REP_F.date('last','Last cut'),REP_F.dim('built','Batch day'),REP_F.text('batch','Batch'),REP_F.dim('status','Status'),REP_F.dim('glass','Glass'),
   REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.text('order','Order',r=>r.order||'—'),REP_F.dim('customer','Customer',r=>r.customerId?repCustomer(r.customerId):r.customerName||'—'),
-  REP_F.num('glassN','Glass'),REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('glassCut','Glass cut'),REP_F.num('sheets','Sheets'),REP_F.num('offcuts','Offcuts used'),
+  REP_F.num('glassN','Glass pcs'),REP_F.num('area','Glass ft²',{digits:1}),REP_F.num('glassCut','Glass cut'),REP_F.num('sheets','Sheets'),REP_F.num('offcuts','Offcuts used'),
   REP_F.num('sheetFt2','Sheet ft²',{digits:1}),REP_F.num('usedFt2','Used ft²',{digits:1}),REP_F.num('broken','Sheets broken'),REP_F.num('daysFirst','Days to first cut'),REP_F.num('daysLast','Days to last cut')],
- metrics:[{k:'batches',label:'Batches',agg:'distinct',f:'batch'},{k:'glassN',label:'Glass',agg:'sum',f:'glassN'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'},
+ metrics:[{k:'batches',label:'Batches',agg:'distinct',f:'batch'},{k:'glassN',label:'Glass pcs',agg:'sum',f:'glassN'},{k:'area',label:'Glass ft²',agg:'sum',f:'area',digits:1},{k:'orders',label:'Orders',agg:'distinct',f:'order'},
   {k:'sheets',label:'Sheets',agg:'sum',f:'sheets'},{k:'offcuts',label:'Offcuts used',agg:'sum',f:'offcuts'},{k:'sheetFt2',label:'Sheet ft²',agg:'sum',f:'sheetFt2',digits:1},{k:'yield',label:'Used %',agg:'ratio',num:'usedFt2',den:'sheetFt2',pct:true,digits:1},
   {k:'broken',label:'Sheets broken',agg:'sum',f:'broken'},{k:'daysFirst',label:'Days to first cut · avg',agg:'avg',f:'daysFirst',digits:1},{k:'daysLast',label:'Days to last cut · avg',agg:'avg',f:'daysLast',digits:1}]};
 /* Склад (reports/facts-inventory) — только с галочкой Inventory, денег нет.
@@ -203,7 +203,7 @@ function repConsMetrics(){return [{k:'spacerFt',label:'Spacer ft',agg:'sum',f:'s
 function repMaterialText(r){return r.unit?r.material+' · '+r.unit:r.material||'—';}
 Object.assign(REP_SRC,{
  counts:{label:'Stock counts',group:'Inventory',access:'inventory',hint:'Was → counted, difference, reason',rows:()=>repCountFacts(),date:['at'],
-  fields:()=>[REP_F.date('at','Counted'),REP_F.dim('day','Count day'),REP_F.dim('person','Counted by',r=>r.person||'—'),REP_F.dim('kind','Kind'),REP_F.dim('material','Material',repMaterialText),
+  fields:()=>[REP_F.date('at','Count time'),REP_F.dim('day','Count day'),REP_F.dim('person','Counted by',r=>r.person||'—'),REP_F.dim('kind','Kind'),REP_F.dim('material','Material',repMaterialText),
    REP_F.dim('glass','Glass',r=>r.glass||'—'),REP_F.dim('size','Sheet size',r=>r.size||'—'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('unit','Unit'),
    REP_F.dim('dir','Short or over'),REP_F.dim('reason','Reason'),REP_F.text('note','Note',r=>r.note||'—'),
    REP_F.num('was','Was',{digits:2,unitBy:'unit'}),REP_F.num('counted','Counted',{digits:2,unitBy:'unit'}),REP_F.num('diff','Difference',{digits:2,unitBy:'unit'}),
@@ -242,7 +242,7 @@ Object.assign(REP_SRC,{
    {k:'waiting',label:'Lines waiting',agg:'sum',f:'waiting'},{k:'overdue',label:'Waiting past expected',agg:'sum',f:'overdue'},{k:'unpriced',label:'Lines without price',agg:'sum',f:'unpriced'},
    {k:'sheets',label:'Sheets ordered',agg:'sum',f:'sheets'},{k:'sheetFt2',label:'Sheet ft² ordered',agg:'sum',f:'sheetFt2',digits:1},{k:'suppliers',label:'Suppliers',agg:'distinct',f:'supplier'}]},
  purreceipts:{label:'Supplier receipts',group:'Purchasing',access:'purchasing',hint:'Arrived, broken, late',rows:()=>repPurReceiptFacts(),date:['at','expected'],
-  fields:()=>[REP_F.date('at','Received'),REP_F.date('expected','Expected'),REP_F.text('receipt','Receipt'),REP_F.text('po','PO',r=>r.po||'—'),REP_F.dim('supplier','Supplier'),
+  fields:()=>[REP_F.date('at','Received on'),REP_F.date('expected','Expected'),REP_F.text('receipt','Receipt'),REP_F.text('po','PO',r=>r.po||'—'),REP_F.dim('supplier','Supplier'),
    REP_F.dim('receivedBy','Received by',r=>r.receivedBy||'—'),REP_F.text('slip','Packing slip',r=>r.slip||'—'),REP_F.dim('arrival','New or replacement'),REP_F.dim('state','On time'),
    REP_F.dim('reason','Broken · reason',r=>r.reason||'—'),REP_F.dim('resolution','Broken · resolution',r=>r.resolution||'—')].concat(repPurItemFields(),[
    REP_F.num('qty','Received',{digits:2,unitBy:'unit'}),REP_F.num('broken','Broken',{digits:2,unitBy:'brokenUnit'}),REP_F.num('sheets','Sheets'),REP_F.num('sheetFt2','Sheet ft²',{digits:1}),
@@ -272,7 +272,7 @@ Object.assign(REP_SRC,{
    {k:'lateAmount',label:'Paid late',agg:'sum',f:'lateAmount',money:true,unitBy:'currency'},{k:'daysToPay',label:'Days to pay · avg',agg:'avg',f:'daysToPay',digits:1},
    {k:'customers',label:'Customers',agg:'distinct',f:'customer'}]},
  refunds:{label:'Refunds',group:'Finance',access:'finance',hint:'Money back: amount, reason',rows:()=>repRefundFacts(),date:['at'],
-  fields:()=>[REP_F.date('at','Refunded'),REP_F.text('refund','Refund'),REP_F.text('receipt','From payment',r=>r.receipt||'—'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
+  fields:()=>[REP_F.date('at','Refund date'),REP_F.text('refund','Refund'),REP_F.text('receipt','From payment',r=>r.receipt||'—'),REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),
    REP_F.dim('method','Method'),REP_F.dim('currency','Currency'),REP_F.dim('reason','Reason'),REP_F.dim('rep','Sales rep',r=>r.rep||'—'),
    REP_F.num('amount','Amount',{money:true,unitBy:'currency'}),REP_F.num('days','Days after payment')],
   metrics:[{k:'amount',label:'Refunded',agg:'sum',f:'amount',money:true,unitBy:'currency'},{k:'count',label:'Refunds',agg:'count'},{k:'customers',label:'Customers',agg:'distinct',f:'customer'}]},
@@ -295,4 +295,24 @@ REP_SRC.customers={label:'Customers',group:'Customers',access:'customers',now:tr
  metrics:[{k:'customers',label:'Customers',agg:'sum',f:'customers'},{k:'buying',label:'With orders',agg:'sum',f:'buying'},{k:'active',label:'Ordered in 90 days',agg:'sum',f:'active'},
   {k:'lapsed',label:'No order 180+ days',agg:'sum',f:'lapsed'},{k:'orders',label:'Orders',agg:'sum',f:'orders'},{k:'total',label:'Sales total',agg:'sum',f:'total',money:true,unitBy:'currency'},
   {k:'avgOrder',label:'Average order',agg:'ratio',num:'total',den:'orders',money:true,unitBy:'currency'},{k:'daysSince',label:'Days since last order · avg',agg:'avg',f:'daysSince',digits:0}]};
+/* План раскроя против факта и склад сейчас (reports/facts-plan). Владелец,
+   03.11.2026: «что было реально, а что было оптимизировано — чтобы выявлять
+   проблемы»; лопнувший лист — не порезанный, своей колонкой. */
+REP_SRC.plan={label:'Plan vs actual',group:'Production',hint:'Cut plan against what was really cut',rows:()=>repPlanFacts(),date:['at','cut'],
+ fields:()=>[REP_F.date('at','Built'),REP_F.date('cut','First cut'),REP_F.text('batch','Batch'),REP_F.dim('glass','Glass'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('person','Cutter',r=>r.person||'—'),REP_F.dim('status','Status',r=>r.status||'—'),
+  REP_F.num('planSheets','Plan sheets'),REP_F.num('cutSheets','Sheets cut'),REP_F.num('diffSheets','Sheets over plan'),REP_F.num('brokenSheets','Sheets broken'),
+  REP_F.num('planFt2','Plan sheet ft²',{digits:1}),REP_F.num('cutFt2','Cut sheet ft²',{digits:1}),REP_F.num('brokenFt2','Broken sheet ft²',{digits:1}),
+  REP_F.num('glassFt2','Plan glass ft²',{digits:1}),REP_F.num('goodFt2','Good glass ft²',{digits:1}),REP_F.num('recutFt2','Recut ft²',{digits:1}),REP_F.num('recutN','Recut pcs'),
+  REP_F.num('planWaste','Plan waste ft²',{digits:1}),REP_F.num('actualWaste','Actual waste ft²',{digits:1})],
+ metrics:[{k:'planSheets',label:'Plan sheets',agg:'sum',f:'planSheets'},{k:'cutSheets',label:'Sheets cut',agg:'sum',f:'cutSheets'},{k:'diffSheets',label:'Sheets over plan',agg:'sum',f:'diffSheets'},
+  {k:'brokenSheets',label:'Sheets broken',agg:'sum',f:'brokenSheets'},{k:'planPct',label:'Plan waste %',agg:'ratio',num:'planWaste',den:'planFt2',pct:true,digits:1},
+  {k:'actualPct',label:'Actual waste %',agg:'ratio',num:'actualWaste',den:'cutFt2',pct:true,digits:1},{k:'recutFt2',label:'Recut ft²',agg:'sum',f:'recutFt2',digits:1},
+  {k:'batches',label:'Batches',agg:'distinct',f:'batch'}]};
+REP_SRC.stock={label:'Stock now',group:'Inventory',access:'inventory',now:true,hint:'Everything on the shelves now',rows:()=>repStockFacts(),date:[],
+ fields:()=>[REP_F.dim('kind','Kind'),REP_F.dim('material','Material'),REP_F.dim('glass','Glass',r=>r.glass||'—'),REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('size','Size',r=>r.size||'—'),
+  REP_F.dim('unit','Unit',r=>r.unit||'—'),REP_F.dim('status','Status',r=>r.status||'—'),REP_F.num('onHand','On hand',{digits:2,unitBy:'unit'}),REP_F.num('free','Free',{digits:2,unitBy:'unit'}),
+  REP_F.num('reserved','Reserved',{digits:2,unitBy:'unit'}),REP_F.num('onOrder','On order',{digits:2,unitBy:'unit'}),REP_F.num('min','Minimum',{digits:2,unitBy:'unit'}),
+  REP_F.num('ft2','Sheet ft² on hand',{digits:1}),REP_F.num('pcs','Pieces')],
+ metrics:[{k:'onHand',label:'On hand',agg:'sum',f:'onHand',digits:2,unitBy:'unit'},{k:'free',label:'Free',agg:'sum',f:'free',digits:2,unitBy:'unit'},{k:'reserved',label:'Reserved',agg:'sum',f:'reserved',digits:2,unitBy:'unit'},
+  {k:'onOrder',label:'On order',agg:'sum',f:'onOrder',digits:2,unitBy:'unit'},{k:'ft2',label:'Sheet ft² on hand',agg:'sum',f:'ft2',digits:1},{k:'pcs',label:'Pieces',agg:'sum',f:'pcs'},{k:'count',label:'Lines',agg:'count'}]};
 const REP_GROUPS=['Production','Shipping','Sales','Customers','Inventory','Purchasing','Finance','Quality','People'];

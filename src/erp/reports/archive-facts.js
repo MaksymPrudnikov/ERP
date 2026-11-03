@@ -35,12 +35,13 @@ const ARCH_GENS={
  delivery:{fn:'repDeliveryFacts',shared:true},sheet:{fn:'repSheetFacts',shared:true},sheetcut:{fn:'repSheetCutFacts',shared:true,early:true},move:{fn:'repSheetMoveFacts',shared:true,early:true},
  receipt:{fn:'repReceiptFacts',shared:true},refund:{fn:'repRefundFacts',shared:true},
  batch:{fn:'repBatchFacts',shared:true,cold:true,own:r=>r.orderId},payorder:{fn:'repPayOrderFacts',shared:true,cold:true,own:r=>String(r.id).split('|')[1]},
+ plan:{fn:'repPlanFacts',shared:true},
  igu:{fn:'repIguMaterialFacts',shared:true,sum:['qty','units','missing','spacerFt','sealantKg','gasKg','partsKg']}
 };
 /* Источник отчёта → функция фактов. Чего здесь нет — не зависит от архива:
    закупки, склад без заказов, то, что есть сейчас (now). */
 const REP_ARCH_SRC={glass:'work',cutting:'work',tempering:'work',assembly:'work',shipping:'work',time:'work',edgework:'op',drilling:'op',ops:'op',breaks:'break',orders:'order',ordered:'ordered',
- sold:'sold',quotes:'quote',deliveries:'delivery',sheets:'sheet',sheetcut:'sheetcut',batches:'batch',payments:'receipt',payorders:'payorder',refunds:'refund',moves:'move',igumat:'igu'};
+ sold:'sold',quotes:'quote',deliveries:'delivery',sheets:'sheet',sheetcut:'sheetcut',batches:'batch',payments:'receipt',payorders:'payorder',refunds:'refund',moves:'move',igumat:'igu',plan:'plan'};
 /* Поля, которые читают сами функции поверх строк. */
 const REP_ARCH_KEYS={work:['station'],op:['station','kind','unit'],igu:['record','norm'],delivery:['trip','km','tripFirst','kmDone']};
 const REP_ARCH_TIME=['day','personId','person','station','at','area'];
@@ -54,7 +55,8 @@ function repArchFieldKeys(f,keys){
 }
 function repArchMetricKeys(S,m,keys){
  if(!m)return;if(m.agg==='calc'){repArchMetricKeys(S,m.a,keys);repArchMetricKeys(S,m.b,keys);return;}
- if(m.agg==='distinct'){const f=repField(S,m.f);if(f)repArchFieldKeys(f,keys);else keys.add(m.f);return;}
+ if(m.agg==='formula'){repFormulaWalk(m.ast,n=>{if(n.t==='agg'&&n.f)repArchFieldKeys(n.f,keys);if(n.t==='met')repArchMetricKeys(S,n.m,keys);});return;}
+ if(m.agg==='distinct'||m.agg==='nonempty'){const f=repField(S,m.f);if(f)repArchFieldKeys(f,keys);else keys.add(m.f);return;}
  [m.f,m.num,m.den,m.unitBy].forEach(k=>{if(k)keys.add(k);});
 }
 /* Что нужно странице: функция фактов → поля строки. Строк за годы миллионы:
@@ -68,7 +70,7 @@ function repArchiveNeed(r,p){
   const dates=repDates(S),df=q.date&&dates.includes(q.date.f)?q.date.f:dates[0];if(df)keys.add(df);
   const field=k=>{const f=repField(S,k);if(f)repArchFieldKeys(f,keys);};
   (q.dims||[]).concat(q.more||[]).forEach(d=>field(repDimParse(d).f));(q.filters||[]).forEach(x=>field(x.f));r.controls.forEach(field);
-  (q.metrics&&q.metrics.length?q.metrics:[S.metrics[0].k]).forEach(k=>repArchMetricKeys(S,repMetric(S,k),keys));
+  (q.metrics&&q.metrics.length?q.metrics:[S.metrics[0].k]).concat((q.having||[]).map(h=>h.m)).forEach(k=>repArchMetricKeys(S,repMetric(S,k,q.custom),keys));
  });
  return need;
 }

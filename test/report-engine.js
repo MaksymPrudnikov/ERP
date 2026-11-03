@@ -125,7 +125,7 @@ module.exports=async function({page,eq,ok}){
   DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes','RP-start-km','RP-start-myday','RP-start-myedge','RP-start-mycustomers'].includes(r.id));
   DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
   return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
- }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches','RP-start-pursupplier','RP-start-purbalances','RP-start-payorders','RP-start-agents','RP-start-customers']).sort(),again:28,seed:13});
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches','RP-start-pursupplier','RP-start-purbalances','RP-start-payorders','RP-start-agents','RP-start-customers','RP-start-plan','RP-start-stock']).sort(),again:30,seed:14});
  eq('Км рейса по карте Google: цех → остановки → цех, запоминаются за рейс; отчёт — км и км на рейс; поменяли остановки — видно',await t.p.evaluate(async()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'});DB.truck=[{id:'T1',name:'Truck 1',active:true}];DB.tripKm=[];
   DB.company=Object.assign({},DB.company,{address1:'10 Shop Rd',city:'Vaughan',province:'ON'});
@@ -190,7 +190,7 @@ module.exports=async function({page,eq,ok}){
   const copy=repClean(JSON.parse(JSON.stringify(Object.assign({},mine,{id:'RP-my-copy'}))));DB.report.push(copy);DB.reportSeed=3;normalizeReports();
   const fields=r=>r.pages[0].widgets.map(w=>w.q.date.f).join(),now=DB.report.find(r=>r.id==='RP-start-mycustomers');
   const res={start:fields(now),copy:fields(DB.report.find(r=>r.id==='RP-my-copy')),seed:DB.reportSeed};DB.report=DB.report.filter(r=>r.id!=='RP-my-copy');return res;
- }),{start:'created,created',copy:'due,due',seed:13});
+ }),{start:'created,created',copy:'due,due',seed:14});
 
  eq('Аудит 12.10: отчёты по заказам пересчитываются после скана готовности (SHIPR), а не после любого скана цеха',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},id=rbOrder(c,'6CLEAR','single',[[30,40,2]],{delivery:'pickup'});rbBatch([id]);
@@ -448,7 +448,7 @@ module.exports=async function({page,eq,ok}){
    box.innerHTML=repChart(r,r.pages[0].widgets[1]);const bars=box.querySelectorAll('.ch-hbar').length;box.innerHTML=repChart(r,r.pages[0].widgets[2]);const slices=box.querySelectorAll('.ch-pie-legend>span').length;box.remove();
    return {keys2:res.keys2.length,other:res.keys2.includes('__other'),first,all,bars,slices,days,colors:[0,7,8,16,30].map(repSeriesClass)};
   }finally{delete REP_SRC.qa;}
- }),{keys2:12,other:false,first:300,all:700,bars:700,slices:700,days:1096,colors:['ch-s1','ch-s8','ch-s1 ch-t2','ch-s1 ch-t3','ch-s7 ch-t3']});
+ }),{keys2:12,other:false,first:300,all:700,bars:700,slices:700,days:1096,colors:['ch-s1','ch-s8','ch-s9','ch-s17','ch-s7 ch-t2']});
  eq('Таблица: несколько измерений строк, как в Looker — «батч · стекло · толщина» своими колонками; в графиках — только первое',await t.p.evaluate(()=>{
   const rows=[{id:'1',at:'2024-01-01',k:'B-2',g:'6CLEAR',mm:'6 mm',n:1},{id:'2',at:'2024-01-01',k:'B-2',g:'6CLEAR',mm:'6 mm',n:1},{id:'3',at:'2024-01-01',k:'B-1',g:'4E272',mm:'4 mm',n:1}];
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','Batch'),REP_F.dim('g','Glass'),REP_F.dim('mm','Thickness'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
@@ -463,7 +463,7 @@ module.exports=async function({page,eq,ok}){
    const grouped=[...box.querySelectorAll('tbody tr')].map(tr=>[...tr.children].slice(0,3).map(x=>(x.classList.contains('rep-same')?'~':'')+x.textContent).join(' | '));box.remove();
    return {head,body,foot,bars,grouped};
   }finally{delete REP_SRC.qa;}
- }),{head:['Batch','Glass','Thickness','Rows'],body:['B-2 | 6CLEAR | 6 mm | 2','B-1 | 4E272 | 4 mm | 1'],foot:3,bars:['B-2','B-1'],grouped:['4 mm | 4E272 | B-1','6 mm | 6CLEAR | B-2','~6 mm | ~6CLEAR | B-3']});
+ }),{head:['Batch ▼','Glass','Thickness','Rows'],body:['B-2 | 6CLEAR | 6 mm | 2','B-1 | 4E272 | 4 mm | 1'],foot:3,bars:['B-2','B-1'],grouped:['4 mm | 4E272 | B-1','6 mm | 6CLEAR | B-2','~6 mm | ~6CLEAR | B-3']});
  eq('Печать: каждая страница отчёта — свой лист в своей ориентации, ширина как на экране, уменьшено под лист; граница листа в Edit; дни за годы — плотная гистограмма',await t.p.evaluate(async()=>{
   const rows=Array.from({length:700},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+String(i).padStart(3,'0'),n:1}));
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
@@ -487,6 +487,45 @@ module.exports=async function({page,eq,ok}){
    return {dims:q.dims,more:q.more,limit:q.limit,sort:q.sort,kept:[m.dims,m.limit]};
   }finally{DB.report=was;DB.reportSeed=seed;}
  }),{dims:['mm'],more:['glass','batch'],limit:0,sort:null,kept:[['batch'],50]});
+ /* Владелец, 03.11.2026: «кастомный показатель — моя личная формула»; «фильтр через показатель». */
+ eq('Свой показатель формулой и фильтр по показателю: отход %, листы в день, ошибки словами; строки по условию, итог по оставшимся; свой цвет значения',await t.p.evaluate(()=>{
+  const rows=[{id:'1',at:'2024-01-01',day:'2024-01-01',b:'B1',g:'6CLEAR',sheets:2,area:100,waste:40},{id:'2',at:'2024-01-02',day:'2024-01-02',b:'B1',g:'6CLEAR',sheets:1,area:50,waste:10},
+   {id:'3',at:'2024-01-02',day:'2024-01-02',b:'B2',g:'4CLEAR',sheets:4,area:200,waste:20}];
+  REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('day','Day'),REP_F.dim('b','Batch'),REP_F.dim('g','Glass'),REP_F.num('sheets','Sheets'),REP_F.num('area','Sheet ft²'),REP_F.num('waste','Waste ft²')],
+   metrics:[{k:'count',label:'Rows',agg:'count'},{k:'yield',label:'Used %',agg:'ratio',num:'area',den:'area',pct:true}]};
+  const custom=[{id:'W',name:'Waste %',formula:'[Waste ft²] / [Sheet ft²] * 100',source:'qa',fmt:'pct',digits:1},{id:'D',name:'Sheets per day',formula:'SUM([Sheets]) / COUNT_DISTINCT([Day])',source:'qa',fmt:'number',digits:1},
+   {id:'X',name:'Twice waste',formula:'[Waste %] * 2',source:'qa',fmt:'number',digits:0}];
+  const S=REP_SRC.qa,err=f=>repFormulaParse(f,S,custom).error;
+  try{
+   const all=repQuery({source:'qa',date:{},dims:[],metrics:['cm:W','cm:D','cm:X','count:g'],filters:[],custom}),by=repQuery({source:'qa',date:{},dims:['b'],metrics:['cm:W','sheets'],filters:[],custom,having:[{m:'cm:W',op:'lt',v:[20]}]});
+   const none=repQuery({source:'qa',date:{},dims:[],metrics:['sheets'],filters:[],custom,having:[{m:'cm:W',op:'gt',v:[50]}]});
+   repColorsCur={g:{'4CLEAR':5}};const cls=repSeriesCls(S,'g',['4CLEAR','6CLEAR']);repColorsCur={};
+   const clean=repClean({custom:custom.concat([{id:'Z',name:'Gone',formula:'1',source:'nope'}]),colors:{g:{'6CLEAR':3,'4CLEAR':99},bad:'x'}});
+   return {all:all.total.map(v=>+v.toFixed(2)),label:all.metrics.map(m=>m.label),by:by.keys,byTotal:by.total.map(v=>+v.toFixed(2)),none:none.count,
+    errs:[err('[Nope] / 2'),err('([Sheets] + 1'),err('[Glass] * 2'),err('SUM([Glass])'),err('2 +')],cls:[cls.get('4CLEAR'),cls.get('6CLEAR')],
+    clean:[clean.custom.map(c=>c.id).join(),JSON.stringify(clean.colors)],opts:repMetricOptions(S,custom).filter(o=>/^cm:/.test(o[0])).map(o=>o[1])};
+  }finally{delete REP_SRC.qa;}
+ }),{all:[20,3.5,40,3],label:['Waste %','Sheets per day','Twice waste','Glass · count'],by:['B2'],byTotal:[10,4],none:0,
+   errs:['No field "Nope" in QA.','A bracket is not closed.','[Glass] is not a number — use COUNT_DISTINCT([Glass]).','[Glass] is not a number.','The formula ends too early.'],
+   cls:['ch-s5','ch-s2'],clean:['W,D,X','{"g":{"6CLEAR":3}}'],opts:['Waste %','Sheets per day','Twice waste']});
+ eq('У каждого поля и показателя своё название: «Glass» — тип стекла, «Glass pcs» — штуки; формула не спутает',await t.p.evaluate(()=>Object.entries(REP_SRC).flatMap(([k,S])=>{
+  const f=S.fields(),out=[],by=new Map();f.forEach(x=>{if(by.has(x.label))out.push(k+': two fields "'+x.label+'"');by.set(x.label,x);});
+  (S.metrics||[]).forEach(m=>{const x=by.get(m.label);if(x&&!(x.type==='num'&&m.f===x.k&&m.agg==='sum'))out.push(k+': metric and field "'+m.label+'"');});return out;})),[]);
+ eq('Combo: колонка — первый показатель, внутри узкая — второй; клик по заголовку сортирует (второй клик — наоборот); CSV — все строки, разбивка колонками, Total',await t.p.evaluate(()=>{
+  const rows=[{id:'1',at:'2024-01-01',k:'A',b:'x',n:5,m:1},{id:'2',at:'2024-02-01',k:'B',b:'y',n:2,m:3},{id:'3',at:'2024-02-02',k:'B',b:'x',n:1,m:1},{id:'4',at:'2024-03-01',k:'C, Inc',b:'y',n:9,m:0}];
+  REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.dim('b','B'),REP_F.num('n','N'),REP_F.num('m','M')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
+  const w=(type,o)=>Object.assign({type,q:Object.assign({source:'qa',dims:['k'],metrics:['n','m']},o||{})}),r=repClean({id:'RP-csv-qa',name:'CSV QA',share:'all',date:{preset:'all'},pages:[{widgets:[w('combo',{dims:['at:month']}),w('table'),w('table',{dims:['k','b'],metrics:['n']})]}]});
+  const keep=DB.report;DB.report=keep.concat([r]);
+  try{
+   repOpen(r.id);const ws=r.pages[0].widgets,box=document.createElement('div');document.body.appendChild(box);box.innerHTML=repChart(r,ws[0]);
+   const combo={inner:box.querySelectorAll('.ch-inner').length,legend:[...box.querySelectorAll('.ch-legend>span')].map(x=>x.textContent)};
+   const order=()=>{box.innerHTML=repChart(r,ws[1]);return [...box.querySelectorAll('tbody tr')].map(tr=>tr.firstElementChild.textContent);};
+   const before=order();repSortClick(ws[1].id,'metric',0);const desc=order();repSortClick(ws[1].id,'metric',0);const asc=order();repSortClick(ws[1].id,'label',0);const name=order();
+   const csv=repCsvText(r,ws[2]).trim().split('\r\n'),csv2=repCsvText(r,ws[1]).trim().split('\r\n');box.remove();repResetView();
+   return {combo,before,desc,asc,name,csv,csv2};
+  }finally{DB.report=keep;repOpenId='';delete REP_SRC.qa;}
+ }),{combo:{inner:2,legend:['N','M (inner)']},before:['C, Inc','A','B'],desc:['C, Inc','A','B'],asc:['B','A','C, Inc'],name:['A','B','C, Inc'],
+  csv:['K,x · N,y · N,Total · N','"C, Inc",0,9,9','A,5,0,5','B,1,2,3','Total,6,11,17'],csv2:['K,N,M','A,5,1','B,3,4','"C, Inc",9,0','Total,17,5']});
  eq('Долгий отчёт: вместо замершей страницы — процент, графики считаются в фоне; после записи прежние графики на экране, пока считаются новые',await t.p.evaluate(async()=>{
   const rows=Array.from({length:50},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+(i%5),n:1}));
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
