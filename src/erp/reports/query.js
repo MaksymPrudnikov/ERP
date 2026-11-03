@@ -273,8 +273,9 @@ function repQuery(q,ctx){
     if(g2.has('__other'))k2.push('__other');
    }
    out.keys2=k2;
-   const in2=new Map();k2.forEach(k=>in2.set(k,new Set(g2.get(k)||[])));
-   keys.forEach(a=>{const list=g1.get(a)||[];k2.forEach(b=>out.cells.set(a+'\u0001'+b,vals(list.filter(r=>in2.get(b).has(r)))));});
+   /* Строка — в одной клетке: разбивка по дням за годы — тысячи колонок, перебирать строки на каждую нельзя. */
+   const col=new Map();k2.forEach(k=>(g2.get(k)||[]).forEach(r=>col.set(r,k)));
+   keys.forEach(a=>{const parts=new Map();(g1.get(a)||[]).forEach(r=>{const b=col.get(r);if(b===undefined)return;let l=parts.get(b);if(!l)parts.set(b,l=[]);l.push(r);});k2.forEach(b=>out.cells.set(a+'\u0001'+b,vals(parts.get(b)||[])));});
    k2.forEach(b=>out.colTotals.set(b,vals(g2.get(b)||[])));
   }
  }
