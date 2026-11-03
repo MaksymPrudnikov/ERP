@@ -24,7 +24,7 @@ const MD_CATALOG_TREE=[
  ['Recipes',[['surroundRecipe','IGU surround','materials','igu']]]
 ];
 const MD_CATALOG_TABS=['materials','works','hardware'];
-let mdCatalogQuery='',mdPeek='',mdCatalogAll=false,mdPreview=false;
+let mdCatalogQuery='',mdPeek='',mdCatalogAll=false,mdPreview=true;
 function mdCatalogNode(){
  if(mdTab==='hardware')return 'hardwareModel';
  if(mdTab==='works')return mdCatKind;
@@ -147,7 +147,7 @@ function viewMdCatalog(pills){
  else if(mdTab==='hardware')body=viewMdHardware();
  else if(mdTab==='works')body=viewMdCatalogues()+(mdCatEdit===null&&mdCatKind==='serviceRate'?viewMdAllowance():'');
  else{const hit=mdMatResolve(mdMatCategory,mdMatView).hit;body=hit.view?({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,recipe:viewMdRecipes})[hit.view]():viewMdCatalogues();}
- /* Боковая карточка строки — по кнопке Preview в шапке (вид Sales: щелчок отмечает). */
+ /* Боковая карточка отмеченной строки (владельцу нравится, 03.11.2026); Hide preview в шапке прячет. */
  const peek=mdPeek&&mdPreview&&!open&&(!q||own)?mdPeekHTML():'';
  setTimeout(mdSyncBar,0);
  const scope=`<div class="stk-seg" data-md-scope><button type="button" class="${mdCatalogAll?'':'on'}" data-md-scope-node onclick="mdCatalogScope(false)">${esc(label)}</button><button type="button" class="${mdCatalogAll?'on':''}" data-md-scope-all onclick="mdCatalogScope(true)">All catalog</button></div><input id="mdCatalogSearch" class="md-bar-search" value="${esc(mdCatalogQuery)}" placeholder="${mdCatalogAll?'Search all catalog':'Search '+esc(label)}: name, code, supplier…" oninput="mdCatalogSearchChange(this)">`;
