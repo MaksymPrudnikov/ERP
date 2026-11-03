@@ -39,8 +39,19 @@ function chartBarGrid(rows,cols){
    parts}] — tick ставит подпись под столбиком (каждый третий час, а не все
    24); parts — разбивка столбика цветом [{value, cls}] снизу вверх, cls —
    ch-s1…ch-s8 (серии по порядку) или ch-so («Other»); attrs — нажатие. */
+/* Столбиков больше, чем точек в карточке (дни за годы), — плотная гистограмма
+   SVG: каждый столбик виден, при наведении — дата и число, восемь подписей. */
+const CH_DENSE=120;
+function chartColumnsDense(points,opts){
+ const n=points.length,max=Math.max(0,...points.map(p=>+p.value||0)),fmt=opts.fmt||(v=>chNum(v));
+ const bars=points.map((p,i)=>{const v=+p.value||0;if(!v||!max)return '';const title=`<title>${esc(p.title||p.label+': '+fmt(v))}</title>`;
+  if(!p.parts){const h=v/max*100;return `<rect x="${i}" y="${(100-h).toFixed(2)}" width="1" height="${h.toFixed(2)}">${title}</rect>`;}
+  let y=100;return p.parts.filter(x=>x.value>0).map(x=>{const h=x.value/max*100;y-=h;return `<rect class="${x.cls}" x="${i}" y="${y.toFixed(2)}" width="1" height="${h.toFixed(2)}">${title}</rect>`;}).join('');}).join('');
+ const every=Math.max(1,Math.ceil(n/8)),ticks=points.map((p,i)=>i%every===0?`<em style="left:${((i+0.5)/n*100).toFixed(2)}%">${esc(p.label)}</em>`:'').join('');
+ return `<div class="ch-dense" role="img" aria-label="${esc(opts.label||'')}"><b>${esc(fmt(max))}</b><svg viewBox="0 0 ${n} 100" preserveAspectRatio="none" shape-rendering="crispEdges">${bars}</svg><div class="ch-dense-x">${ticks}</div></div>`;
+}
 function chartColumns(points,opts){
- opts=opts||{};
+ opts=opts||{};if(points.length>CH_DENSE)return chartColumnsDense(points,opts);
  const max=Math.max(0,...points.map(p=>+p.value||0)),top=points.reduce((b,p,i)=>(+p.value||0)>(+points[b].value||0)?i:b,0);
  const cols=points.map((p,i)=>{
   const v=+p.value||0,h=max?Math.max(v?3:0,Math.round(v/max*100)):0,show=v>0&&(i===top||p.on);

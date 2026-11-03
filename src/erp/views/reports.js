@@ -445,16 +445,27 @@ function repPrintPageHTML(r,p){
  const body=p.widgets.map((w,i)=>repWidgetCard(r,w,i,p.widgets.length)).join('');
  return `<div class="rep-print" data-rep-orient="${esc(p.orient||'portrait')}"><div class="rep-print-head"><h2 data-raw>${esc(r.name)}${r.pages.length>1?' · '+esc(p.name):''}</h2><div>${esc(['Date: '+repDateText(v.date||r.date)].concat(filters).join(' · '))}</div><small>Glass Farm · printed ${esc(now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}))} ${esc(now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}))}</small></div><div class="rep-ws">${body}</div></div>`;
 }
-/* Лист: ширина листа, высота — сколько вышло; не влезло — меньше (zoom). */
+/* Лист раскладывается той же ширины, что отчёт на экране (repPrintW), и
+   уменьшается под ширину листа: граница листа в Edit (repSheetMark) — там же,
+   где на бумаге. Ниже границы не влезло — лист уменьшается ещё (zoom). */
+let repPrintW=0;
 function repPrintFit(el){
- const x=el.querySelector('.rep-print');if(!x)return;const land=x.dataset.repOrient==='landscape',[W,H]=REP_SHEET[land?'landscape':'portrait'];
- el.classList.add(land?'rep-land':'rep-port');x.style.width=(W-REP_SHEET_PAD)+'px';x.style.zoom='';
- const h=x.scrollHeight,k=Math.min(1,(H-REP_SHEET_PAD)*REP_SHEET_SPARE/Math.max(1,h));if(k<1)x.style.zoom=String(Math.floor(k*1000)/1000);
+ const x=el.querySelector('.rep-print');if(!x)return;const land=x.dataset.repOrient==='landscape',[W,H]=REP_SHEET[land?'landscape':'portrait'],w=repPrintW||W-REP_SHEET_PAD;
+ el.classList.add(land?'rep-land':'rep-port');x.style.width=w+'px';x.style.zoom='';
+ const h=x.scrollHeight,z=Math.min((W-REP_SHEET_PAD)/w,(H-REP_SHEET_PAD)*REP_SHEET_SPARE/Math.max(1,h));x.style.zoom=String(Math.floor(z*1000)/1000);
+}
+/* Граница печатного листа в Edit (владелец, 03.11.2026: «чтобы я понимал, как
+   расположить данные на печатный лист»): пунктир на высоте листа при ширине
+   отчёта; высота — через padding в процентах от ширины, минус шапка листа. */
+const REP_PRINT_HEAD=76;
+function repSheetMark(p){
+ const [W,H]=REP_SHEET[p.orient==='landscape'?'landscape':'portrait'],pct=((H-REP_SHEET_PAD)*REP_SHEET_SPARE/(W-REP_SHEET_PAD)*100).toFixed(2);
+ return `<div class="rep-sheet-mark" aria-hidden="true" data-rep-sheet style="padding-top:calc(${pct}% - ${REP_PRINT_HEAD}px)"><span>End of sheet · ${p.orient==='landscape'?'Landscape':'Portrait'}</span></div>`;
 }
 let repPrintBusy=false;
 async function repPrint(){
  const r0=repOpenReport();if(!r0||repPrintBusy)return false;
- const was={page:repPageId,edit:repEditOn},sheets=[];repPrintBusy=true;repEditOn=false;repMenu=null;
+ const was={page:repPageId,edit:repEditOn},sheets=[],ws=document.querySelector('.rep-main .rep-ws');repPrintW=ws?ws.clientWidth:0;repPrintBusy=true;repEditOn=false;repMenu=null;
  try{
   for(const p of r0.pages){
    repPageId=p.id;render();
@@ -504,7 +515,7 @@ function repMain(r){
  const ranges=repArchiveRanges(r,p),arch=ranges?archiveScopeFor(ranges,repArchiveNeed(r,p)):'none';
  if(!ranges)archiveScopeDrop();
  const ready=arch==='loading'?'':repPageReady(r,p),wait=arch==='loading'?archiveFactsText(archiveScope):ready==='wait'?repBuildText(repBuild):'';
- const body=wait?`<div class="card mut" data-rep-archive-wait>${esc(wait)}</div>`:p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
+ const body=wait?`<div class="card mut" data-rep-archive-wait>${esc(wait)}</div>`:(repEditOn?repSheetMark(p):'')+p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
  return `<div class="card rep-head"><div class="rep-head-row">${head}<span class="sales-toolbar-sp"></span>${ready==='stale'?`<span class="mut small" data-rep-updating>${esc(repBuildText(repBuild,true))}</span>`:''}${acts}</div>${!can&&!repEditOn?`<div class="mut small">${r.ownerId?'Shared with you':'Starter report'} · Copy to change it</div>`:''}${tabs}${repControls(r)}</div><div class="rep-ws">${body}</div>`;
 }
 function viewReports(){

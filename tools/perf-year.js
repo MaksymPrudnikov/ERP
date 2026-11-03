@@ -226,7 +226,8 @@ function pageSetup() {
       const T = (text, k) => text.replace(/"((?:[^"\\]|\\.)*)"/g, (q, v) => ids.has(v) || num.test(v) ? '"' + v + '~' + k + '"' : q.replace(/(\d{4})-(\d{2})-(\d{2})/g, (x, y, m, d) => day(y, m, d, k)));
       let cold = 0, rows = 0;
       for (let k = 1; k < n; k++) {
-        await each('cold', list => storageIdbTx(['cold'], 'readwrite', tx => { const st = tx.objectStore('cold'); list.forEach(r => { st.put({ tbl: r.tbl, id: JSON.parse(T(JSON.stringify(r.id), k)), seq: r.seq, data: T(r.data, k), owners: (r.owners || []).map(x => JSON.parse(T(JSON.stringify(x), k))), month: r.month ? day(r.month.slice(0, 4), r.month.slice(5, 7), '01', k).slice(0, 7) : '' }); cold++; }); }));
+        /* Только исходный год: копии прошлых проходов (ключ с ~) не копируются ещё раз. */
+        await each('cold', list => storageIdbTx(['cold'], 'readwrite', tx => { const st = tx.objectStore('cold'); list.forEach(r => { if (JSON.stringify(r.id).indexOf('~') >= 0) return; st.put({ tbl: r.tbl, id: JSON.parse(T(JSON.stringify(r.id), k)), seq: r.seq, data: T(r.data, k), owners: (r.owners || []).map(x => JSON.parse(T(JSON.stringify(x), k))), month: r.month ? day(r.month.slice(0, 4), r.month.slice(5, 7), '01', k).slice(0, 7) : '' }); cold++; }); }));
         await each('archive', list => storageIdbTx(['archive'], 'readwrite', tx => { const st = tx.objectStore('archive'); list.forEach(r => { if (String(r.id).indexOf('~') >= 0) return; const id = String(r.id).startsWith('L:') ? String(r.id).replace(/^(L:[^:]+:)(.*)$/, (x, p, v) => p + JSON.parse(T(JSON.stringify(v), k))) : JSON.parse(T(JSON.stringify(r.id), k)); st.put({ id, row: JSON.parse(T(JSON.stringify(r.row), k)) }); rows++; }); }));
       }
       return { ms: Math.round(performance.now() - t), cold, rows };
