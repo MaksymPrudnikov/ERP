@@ -125,7 +125,7 @@ module.exports=async function({page,eq,ok}){
   DB.report=(DB.report||[]).filter(r=>!/^RP-start-/.test(r.id)||r.id==='RP-start-cut');DB.report=DB.report.filter(r=>!['RP-start-quotes','RP-start-payments','RP-start-balances','RP-start-offcuts','RP-start-sizes','RP-start-km','RP-start-myday','RP-start-myedge','RP-start-mycustomers'].includes(r.id));
   DB.reportSeed=1;normalizeReports();const ids=DB.report.filter(r=>/^RP-start-/.test(r.id)).map(r=>r.id).sort();normalizeReports();
   return {ids,again:DB.report.filter(r=>/^RP-start-/.test(r.id)).length,seed:DB.reportSeed};
- }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches','RP-start-pursupplier','RP-start-purbalances','RP-start-payorders','RP-start-agents','RP-start-customers']).sort(),again:28,seed:12});
+ }),{ids:['RP-start-balances','RP-start-cut','RP-start-km','RP-start-mycustomers','RP-start-myday','RP-start-myedge','RP-start-offcuts','RP-start-payments','RP-start-quotes','RP-start-sizes','RP-start-sold'].concat(['RP-start-myasm','RP-start-mycut','RP-start-mydrill','RP-start-myship','RP-start-sheetcut','RP-start-shopnow','RP-start-counts','RP-start-igumat','RP-start-sheetmoves','RP-start-stages','RP-start-salesmonth','RP-start-batches','RP-start-pursupplier','RP-start-purbalances','RP-start-payorders','RP-start-agents','RP-start-customers']).sort(),again:28,seed:13});
  eq('Км рейса по карте Google: цех → остановки → цех, запоминаются за рейс; отчёт — км и км на рейс; поменяли остановки — видно',await t.p.evaluate(async()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'});DB.truck=[{id:'T1',name:'Truck 1',active:true}];DB.tripKm=[];
   DB.company=Object.assign({},DB.company,{address1:'10 Shop Rd',city:'Vaughan',province:'ON'});
@@ -190,7 +190,7 @@ module.exports=async function({page,eq,ok}){
   const copy=repClean(JSON.parse(JSON.stringify(Object.assign({},mine,{id:'RP-my-copy'}))));DB.report.push(copy);DB.reportSeed=3;normalizeReports();
   const fields=r=>r.pages[0].widgets.map(w=>w.q.date.f).join(),now=DB.report.find(r=>r.id==='RP-start-mycustomers');
   const res={start:fields(now),copy:fields(DB.report.find(r=>r.id==='RP-my-copy')),seed:DB.reportSeed};DB.report=DB.report.filter(r=>r.id!=='RP-my-copy');return res;
- }),{start:'created,created',copy:'due,due',seed:12});
+ }),{start:'created,created',copy:'due,due',seed:13});
 
  eq('Аудит 12.10: отчёты по заказам пересчитываются после скана готовности (SHIPR), а не после любого скана цеха',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'Cityline Glass & Mirror'}),who={id:'u1',name:'Nazar'},id=rbOrder(c,'6CLEAR','single',[[30,40,2]],{delivery:'pickup'});rbBatch([id]);
@@ -433,6 +433,74 @@ module.exports=async function({page,eq,ok}){
   try{return {allowed:repSourceAllowed('customers'),chart:repChart(r,r.pages[0].widgets[0]),pick:/value="customers"/.test(repSrcOptions('glass'))};}
   finally{window.accessCan=old;}
  }),{allowed:false,chart:'<div class="mut">Needs Customers access.</div>',pick:false});
+
+ /* Владелец, 03.11.2026: «ничего не ограничивать»; «показывать, что он грузится, в процентах». */
+ eq('Без ограничений показа: 700 строк таблицы (дорисовка при прокрутке), 12 значений разбивки без Other, все полосы и доли, все дни за три года',await t.p.evaluate(()=>{
+  const rows=Array.from({length:700},(_,i)=>({id:'q'+i,at:repAddDays('2023-01-01',i%1096),k:'K'+String(i).padStart(3,'0'),b:'B'+(i%12),n:1}));
+  REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.dim('b','B'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
+  const w=type=>repCleanWidget({type,q:{source:'qa',dims:type==='table'?['k','b']:['k'],metrics:['count']}}),r=repClean({date:{preset:'all'},pages:[{widgets:[w('table'),w('bars'),w('pie')]}]});
+  try{
+   const res=repQuery({source:'qa',date:{},dims:['k','b'],metrics:['count'],filters:[]}),days=repQuery({source:'qa',date:{from:'2023-01-01',to:'2025-12-31'},dims:['at:day'],metrics:['count'],filters:[]}).keys.length;
+   const box=document.createElement('div');document.body.appendChild(box);box.innerHTML=repChart(r,r.pages[0].widgets[0]);
+   const el=box.querySelector('[data-rep-scroll]'),first=el.querySelectorAll('tbody tr').length;
+   for(let i=0;i<10;i++){el.scrollTop=el.scrollHeight;repTableMore(el);}
+   const all=el.querySelectorAll('tbody tr').length;
+   box.innerHTML=repChart(r,r.pages[0].widgets[1]);const bars=box.querySelectorAll('.ch-hbar').length;box.innerHTML=repChart(r,r.pages[0].widgets[2]);const slices=box.querySelectorAll('.ch-pie-legend>span').length;box.remove();
+   return {keys2:res.keys2.length,other:res.keys2.includes('__other'),first,all,bars,slices,days,colors:[0,7,8,16,30].map(repSeriesClass)};
+  }finally{delete REP_SRC.qa;}
+ }),{keys2:12,other:false,first:300,all:700,bars:700,slices:700,days:1096,colors:['ch-s1','ch-s8','ch-s1 ch-t2','ch-s1 ch-t3','ch-s7 ch-t3']});
+ eq('Таблица: несколько измерений строк, как в Looker — «батч · стекло · толщина» своими колонками; в графиках — только первое',await t.p.evaluate(()=>{
+  const rows=[{id:'1',at:'2024-01-01',k:'B-2',g:'6CLEAR',mm:'6 mm',n:1},{id:'2',at:'2024-01-01',k:'B-2',g:'6CLEAR',mm:'6 mm',n:1},{id:'3',at:'2024-01-01',k:'B-1',g:'4E272',mm:'4 mm',n:1}];
+  REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','Batch'),REP_F.dim('g','Glass'),REP_F.dim('mm','Thickness'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
+  const w=type=>repCleanWidget({type,q:{source:'qa',dims:['k'],more:['g','mm'],metrics:['count'],sort:{by:'label',dir:'desc'}}}),r=repClean({date:{preset:'all'},pages:[{widgets:[w('table'),w('bars')]}]});
+  try{
+   const box=document.createElement('div');document.body.appendChild(box);box.innerHTML=repChart(r,r.pages[0].widgets[0]);
+   const head=[...box.querySelectorAll('thead th')].map(x=>x.textContent),body=[...box.querySelectorAll('tbody tr')].map(tr=>[...tr.children].map(x=>x.textContent).join(' | ')),foot=box.querySelector('tfoot td').colSpan;
+   box.innerHTML=repChart(r,r.pages[0].widgets[1]);const bars=[...box.querySelectorAll('.ch-hbar-label')].map(x=>x.textContent);
+   /* Наоборот: толщина, стекло, внутри батчи — по именам, группа подряд, повтор бледно. */
+   const inv=repClean({date:{preset:'all'},pages:[{widgets:[repCleanWidget({type:'table',q:{source:'qa',dims:['mm'],more:['g','k'],metrics:['count']}})]}]});
+   rows.push({id:'4',at:'2024-01-01',k:'B-3',g:'6CLEAR',mm:'6 mm',n:1});box.innerHTML=repChart(inv,inv.pages[0].widgets[0]);
+   const grouped=[...box.querySelectorAll('tbody tr')].map(tr=>[...tr.children].slice(0,3).map(x=>(x.classList.contains('rep-same')?'~':'')+x.textContent).join(' | '));box.remove();
+   return {head,body,foot,bars,grouped};
+  }finally{delete REP_SRC.qa;}
+ }),{head:['Batch','Glass','Thickness','Rows'],body:['B-2 | 6CLEAR | 6 mm | 2','B-1 | 4E272 | 4 mm | 1'],foot:3,bars:['B-2','B-1'],grouped:['4 mm | 4E272 | B-1','6 mm | 6CLEAR | B-2','~6 mm | ~6CLEAR | B-3']});
+ eq('Печать: каждая страница отчёта — свой лист в своей ориентации, ширина как на экране, уменьшено под лист; граница листа в Edit; дни за годы — плотная гистограмма',await t.p.evaluate(async()=>{
+  const rows=Array.from({length:700},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+String(i).padStart(3,'0'),n:1}));
+  REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
+  const w=type=>({type,q:{source:'qa',dims:['k'],metrics:['count']}}),r=repClean({id:'RP-print-qa',name:'Print QA',share:'all',date:{preset:'all'},pages:[{name:'Tall',orient:'landscape',widgets:[w('table'),w('bars'),w('table')]},{name:'Short',widgets:[w('number')]}]});
+  const was=window.print,keep=DB.report;let printed=0;window.print=()=>{printed++;};DB.report=keep.concat([r]);
+  try{
+   tab='reports';repOpen(r.id);await repPrint();
+   const list=[...document.querySelectorAll('#printSheetHost .print-sheet')],zoom=el=>+(el.querySelector('.rep-print').style.zoom||1);
+   const sheets=list.map(el=>({cls:el.classList.contains('rep-land')?'land':el.classList.contains('rep-port')?'port':'',rows:el.querySelectorAll('tbody tr').length,width:el.querySelector('.rep-print').style.width===repPrintW+'px'}));
+   const dense=chartColumns(Array.from({length:200},(_,i)=>({label:'D'+i,value:i%2})),{}),mark=repSheetMark({orient:'landscape'});
+   return {printed,sheets,tallSmaller:zoom(list[0])<zoom(list[1]),orient:repClean({pages:[{orient:'sideways'}]}).pages[0].orient,back:repPage(repOpenReport()).name,
+    dense:[(dense.match(/<rect /g)||[]).length,(dense.match(/<em /g)||[]).length],mark:/End of sheet · Landscape/.test(mark)&&/padding-top:calc\(/.test(mark)};
+  }finally{window.print=was;printSheetCleanup();DB.report=keep;repOpenId='';delete REP_SRC.qa;}
+ }),{printed:1,sheets:[{cls:'land',rows:600,width:true},{cls:'port',rows:0,width:true}],tallSmaller:true,orient:'portrait',back:'Tall',dense:[100,8],mark:true});
+ eq('Список батчей у прежней базы: толщина, стекло, внутри батчи, все батчи; изменённый человеком — не трогается',await t.p.evaluate(()=>{
+  const was=DB.report,seed=DB.reportSeed,old=()=>repClean(Object.assign(REP_STARTERS().find(r=>r.id==='RP-start-batches'),{pages:[{id:'P',name:'Batch list',widgets:[{type:'table',q:{source:'batches',dims:['batch'],metrics:['glassN'],limit:100,sort:{by:'label',dir:'desc'}}}]}]}));
+  try{
+   const mine=old();mine.pages[0].widgets[0].q.limit=50;
+   DB.report=[old()];DB.reportSeed=12;normalizeReports();const q=DB.report.find(r=>r.id==='RP-start-batches').pages[0].widgets[0].q;
+   DB.report=[mine];DB.reportSeed=12;normalizeReports();const m=DB.report.find(r=>r.id==='RP-start-batches').pages[0].widgets[0].q;
+   return {dims:q.dims,more:q.more,limit:q.limit,sort:q.sort,kept:[m.dims,m.limit]};
+  }finally{DB.report=was;DB.reportSeed=seed;}
+ }),{dims:['mm'],more:['glass','batch'],limit:0,sort:null,kept:[['batch'],50]});
+ eq('Долгий отчёт: вместо замершей страницы — процент, графики считаются в фоне; после записи прежние графики на экране, пока считаются новые',await t.p.evaluate(async()=>{
+  const rows=Array.from({length:50},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+(i%5),n:1}));
+  REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
+  const r=repClean({date:{preset:'all'},pages:[{widgets:[repCleanWidget({type:'table',q:{source:'qa',dims:['k'],metrics:['count']}})]}]}),p=r.pages[0];
+  try{
+   repResults=new Map();repStale=new Map();repCost.set('qa',5000);
+   const first=repPageReady(r,p),text=repBuildText(repBuild);
+   for(let i=0;i<100&&repBuild;i++)await new Promise(res=>setTimeout(res,20));
+   const done=repPageReady(r,p);repResultsDrop();repCost.set('qa',5000);const after=repPageReady(r,p),up=repBuildText(repBuild,true);
+   for(let i=0;i<100&&repBuild;i++)await new Promise(res=>setTimeout(res,20));
+   repCost.set('qa',1);repResultsDrop();const quick=repPageReady(r,p);
+   return {first,text,done,after,up,quick};
+  }finally{delete REP_SRC.qa;repCost.delete('qa');repBuild=null;}
+ }),{first:'wait',text:'Building report · 0%',done:'ready',after:'stale',up:'Updating · 0%',quick:'ready'});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();

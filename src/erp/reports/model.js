@@ -23,7 +23,7 @@
 DEFAULT.report=[];
 DEFAULT.reportSeed=0;
 const REP_TYPES=[['number','Number'],['table','Table'],['bars','Bars'],['columns','Columns'],['line','Line'],['pie','Pie']];
-const REP_SEED_VERSION=12;
+const REP_SEED_VERSION=13;
 /* Версия 7 (26.10.2026): стартовые Production — по подпапкам (каталог
    деревом, view/reports). У базы переезжают только те, чью папку не меняли. */
 const REP_START_FOLDERS={cut:'Production / Cutting',sheets:'Production / Cutting',sheetcut:'Production / Cutting',offcuts:'Production / Cutting',
@@ -49,7 +49,7 @@ function repCleanQuery(q){
  const d=q.date&&typeof q.date==='object'?q.date:{};
  return {source:S,date:{f:repStr(d.f,40),use:d.use==='own'?'own':'report',preset:REP_PRESETS.some(p=>p[0]===d.preset)?d.preset:'',from:/^\d{4}-\d{2}-\d{2}$/.test(d.from||'')?d.from:'',to:/^\d{4}-\d{2}-\d{2}$/.test(d.to||'')?d.to:''},
   filters:(Array.isArray(q.filters)?q.filters:[]).filter(f=>f&&typeof f==='object'&&f.f).slice(0,20).map(f=>({f:repStr(f.f,40),op:repStr(f.op,20)||'in',v:(Array.isArray(f.v)?f.v:[f.v]).map(x=>repStr(x,120)).slice(0,200)})),
-  dims:arr(q.dims,2),metrics:arr(q.metrics,8),sort:q.sort&&typeof q.sort==='object'?{by:q.sort.by==='label'?'label':'metric',i:Math.max(0,Math.min(7,Math.floor(+q.sort.i||0))),dir:q.sort.dir==='asc'?'asc':'desc'}:null,
+  dims:arr(q.dims,2),more:arr(q.more,4),metrics:arr(q.metrics,8),sort:q.sort&&typeof q.sort==='object'?{by:q.sort.by==='label'?'label':'metric',i:Math.max(0,Math.min(7,Math.floor(+q.sort.i||0))),dir:q.sort.dir==='asc'?'asc':'desc'}:null,
   limit:Math.max(0,Math.min(500,Math.floor(+q.limit||0))),other:q.other===true,compare:['prev','year'].includes(q.compare)?q.compare:''};
 }
 function repCleanWidget(w){
@@ -59,7 +59,7 @@ function repCleanWidget(w){
 }
 function repClean(r){
  r=r&&typeof r==='object'?r:{};
- const pages=(Array.isArray(r.pages)?r.pages:[]).filter(p=>p&&typeof p==='object').slice(0,20).map(p=>({id:repStr(p.id,80)||repUid('PG'),name:repStr(p.name,60)||'Page',widgets:(Array.isArray(p.widgets)?p.widgets:[]).slice(0,40).map(repCleanWidget)}));
+ const pages=(Array.isArray(r.pages)?r.pages:[]).filter(p=>p&&typeof p==='object').slice(0,20).map(p=>({id:repStr(p.id,80)||repUid('PG'),name:repStr(p.name,60)||'Page',orient:p.orient==='landscape'?'landscape':'portrait',widgets:(Array.isArray(p.widgets)?p.widgets:[]).slice(0,40).map(repCleanWidget)}));
  const d=r.date&&typeof r.date==='object'?r.date:{},fl=r.filters&&typeof r.filters==='object'&&!Array.isArray(r.filters)?r.filters:{},filters={};
  Object.keys(fl).slice(0,20).forEach(k=>{if(Array.isArray(fl[k])&&fl[k].length)filters[repStr(k,40)]=fl[k].map(x=>repStr(x,120)).slice(0,200);});
  return {id:repStr(r.id,80)||repUid('RP'),name:repStr(r.name,120)||'Untitled report',folder:repStr(r.folder,60),note:repStr(r.note,500),ownerId:repStr(r.ownerId,80),
@@ -82,6 +82,11 @@ function normalizeReports(){
      графики, которые ещё как в стартовом. */
   if(seed>=1&&seed<7)Object.entries(REP_START_FOLDERS).forEach(([k,f])=>{const x=DB.report.find(r=>r.id==='RP-start-'+k);if(x&&x.folder==='Production')x.folder=f;});
   if(seed>=3&&seed<4){const x=DB.report.find(r=>r.id==='RP-start-mycustomers');if(x)x.pages.forEach(p=>p.widgets.forEach(w=>{if(w.q.source==='orders'&&w.q.date.f==='due'&&w.q.date.use!=='own')w.q.date.f='created';}));}
+  /* Версия 13 (03.11.2026): список батчей — толщина, стекло, внутри батчи,
+     все батчи (владелец: «понятен номер, но нет типа и мм»; «наоборот: мм,
+     тип и внутри батчи — чтобы быстро найти»; «ничего не ограничивать»).
+     Только если график ещё как в стартовом. */
+  if(seed>=9&&seed<13){const x=DB.report.find(r=>r.id==='RP-start-batches');if(x)x.pages.forEach(p=>p.widgets.forEach(w=>{if(w.q.source==='batches'&&w.q.dims.join()==='batch'&&!w.q.more.length&&w.q.limit===100){w.q.dims=['mm'];w.q.more=['glass','batch'];w.q.limit=0;w.q.sort=null;}}));}
   DB.reportSeed=REP_SEED_VERSION;
  }
 }
@@ -92,7 +97,7 @@ function validateReportsPayload(src){
 
 /* --------------------------- Стартовые ------------------------------- */
 /* Образцы по участкам — первые отчёты каталога. w(тип, источник, …). */
-function repW(type,source,o){o=o||{};return {type,title:o.title||'',width:o.width||'full',q:{source,date:o.date||{},dims:o.dims||[],metrics:o.metrics||[],filters:o.filters||[],sort:o.sort||null,limit:o.limit||0,other:!!o.other,compare:o.compare||''},opts:o.opts||{}};}
+function repW(type,source,o){o=o||{};return {type,title:o.title||'',width:o.width||'full',q:{source,date:o.date||{},dims:o.dims||[],more:o.more||[],metrics:o.metrics||[],filters:o.filters||[],sort:o.sort||null,limit:o.limit||0,other:!!o.other,compare:o.compare||''},opts:o.opts||{}};}
 function REP_STARTERS(){
  const R=(id,name,folder,date,controls,pages,seed)=>({id:'RP-start-'+id,name,folder:REP_START_FOLDERS[id]||folder,ownerId:'',share:'all',seed:seed||1,date:{preset:date},controls,pages:pages.map((p,i)=>({id:'PG-start-'+id+'-'+i,name:p[0],widgets:p[1].map((w,j)=>Object.assign({id:'W-start-'+id+'-'+i+'-'+j},w))}))});
  return [
@@ -259,7 +264,7 @@ function REP_STARTERS(){
     repW('columns','batches',{title:'Batches by day',dims:['at:day'],metrics:['batches']}),
     repW('table','batches',{title:'By day',dims:['built'],metrics:['batches','glassN','area','sheets','yield','daysFirst','daysLast'],sort:{by:'label',dir:'desc'}}),
     repW('table','batches',{title:'By glass',dims:['glass'],metrics:['batches','glassN','area','sheets','offcuts','sheetFt2','yield','broken']})]],
-   ['Batch list',[repW('table','batches',{title:'Batches',dims:['batch'],metrics:['glassN','area','orders','sheets','offcuts','yield','daysFirst','daysLast'],sort:{by:'label',dir:'desc'},limit:100})]]],9),
+   ['Batch list',[repW('table','batches',{title:'Batches',dims:['mm'],more:['glass','batch'],metrics:['glassN','area','orders','sheets','offcuts','yield','daysFirst','daysLast']})]]],9),
   /* Версия 10 (27.10.2026): закупки — только с галочкой Purchasing. Деньги
      — по Account (поставщик · валюта): CAD и USD не складываются. */
   R('pursupplier','Purchasing · by supplier','Purchasing','thisYear',['supplier','currency','kind'],[

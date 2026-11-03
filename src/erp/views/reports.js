@@ -26,7 +26,7 @@ function repDirty(){return !!repDraft&&(!repFind(repDraft.id)||JSON.stringify(re
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(repDirty);
 function repCanLeave(){return !repDirty()||confirm('Leave without saving the report?');}
 function repDropDraft(){repDraft=null;repDraftBase='';repEditOn=false;repSelW='';repMenu=null;}
-(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){if(tab!=='reports'||k==='reports')return false;if(!repCanLeave())return true;repDropDraft();return false;});
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){if(tab!=='reports'||k==='reports')return false;if(!repCanLeave())return true;repDropDraft();repBuild=null;return false;});
 window.addEventListener('beforeunload',function(e){if(!repDirty())return;e.preventDefault();e.returnValue='';});
 /* Фильтры зрителя: свои в этом браузере, иначе — сохранённые в отчёте. */
 function repViewFilters(r){const v=repView(r.id);return v.f!==undefined?v.f:r.filters||{};}
@@ -42,6 +42,7 @@ function repDateText(d){if(!d)return 'All time';if(d.from||d.to)return (d.from?s
 function repWidgetQuery(r,w){
  const q=JSON.parse(JSON.stringify(w.q)),v=repView(r.id),S=REP_SRC[q.source];
  if(q.date.use!=='own'){const d=v.date||r.date;q.date=Object.assign({},q.date,{preset:d.preset||'',from:d.from||'',to:d.to||''});}
+ if(w.type!=='table')q.more=[];
  q.skip=[];Object.entries(repViewFilters(r)).forEach(([f,vals])=>{if(!Array.isArray(vals)||!vals.length||!S)return;if(repField(S,f))q.filters.push({f,op:'in',v:vals});else q.skip.push(f);});
  return q;
 }
@@ -114,10 +115,12 @@ function repCatBar(r){
 function repDelta(cur,prev){if(cur==null||prev==null||!prev)return '';const d=(cur-prev)/Math.abs(prev)*100;return (d>=0?'▲ ':'▼ ')+Math.abs(d).toFixed(Math.abs(d)<10?1:0)+'%';}
 function repCmpText(res){const c=res.compare;return c?(c.kind==='year'?'vs last year':'vs previous period'):'';}
 /* Цвет значения разбивки — по его месту в полном списке значений поля, а не
-   в выборке: фильтр не перекрашивает (dataviz). */
+   в выборке: фильтр не перекрашивает (dataviz). Цветов восемь; девятое и
+   дальше — те же цвета светлее (ch-t2, ch-t3), значений сколько угодно. */
+function repSeriesClass(i){const t=Math.floor(i/8);return 'ch-s'+(i%8+1)+(t?' ch-t'+Math.min(3,t+1):'');}
 function repSeriesCls(S,d,keys){
  const p=repDimParse(d),all=repIsTime(S,d)?keys:repFieldValues(S,p.f),rank=k=>{const i=all.indexOf(k);return i<0?9999:i;};
- const order=keys.filter(k=>k!=='__other').slice().sort((a,b)=>rank(a)-rank(b)),m=new Map();order.forEach((k,i)=>m.set(k,'ch-s'+(i%8+1)));m.set('__other','ch-so');return m;
+ const order=keys.filter(k=>k!=='__other').slice().sort((a,b)=>rank(a)-rank(b)),m=new Map();order.forEach((k,i)=>m.set(k,repSeriesClass(i)));m.set('__other','ch-so');return m;
 }
 function repPickAttrs(r,S,d,k){
  const p=repDimParse(d),f=repField(S,p.f);if(!f||f.type==='date'||k==='__other'||k==='—')return '';
@@ -132,39 +135,109 @@ function repNumbers(res){
 /* Ноль в строке таблицы — точкой, как пустая клетка разбивки: меньше шума.
    Деньги и проценты пишутся как есть. */
 function repCellHTML(m,v){return v===0&&!m.money&&!m.pct?'<span class="mut">·</span>':esc(repFmt(m,v));}
+/* Таблица — все строки (владелец, 03.11.2026: «ничего не ограничивать»):
+   первые REP_TABLE_STEP сразу, дальше дорисовываются, когда карточку
+   прокручивают вниз (repTableMore). */
+const REP_TABLE_STEP=300;
+let repTableRest=new Map();
+function repTableBody(w,keys,rowHTML){
+ if(keys.length<=REP_TABLE_STEP){repTableRest.delete(w.id);return keys.map(rowHTML).join('');}
+ repTableRest.set(w.id,{keys,rowHTML,at:REP_TABLE_STEP});
+ return keys.slice(0,REP_TABLE_STEP).map(rowHTML).join('');
+}
+function repTableMore(el){
+ const x=repTableRest.get(el.dataset.repScroll);if(!x||el.scrollTop+el.clientHeight<el.scrollHeight-600)return;
+ const body=el.querySelector('tbody'),end=Math.min(x.at+REP_TABLE_STEP,x.keys.length);if(!body)return;
+ body.insertAdjacentHTML('beforeend',readScope(()=>{let html='';for(let i=x.at;i<end;i++)html+=x.rowHTML(x.keys[i],i,x.keys);return html;}));x.at=end;if(end>=x.keys.length)repTableRest.delete(el.dataset.repScroll);
+}
 function repTableHTML(r,S,res,w){
- const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],MAX=200,cmp=res.compare&&!d2;
+ const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],cmp=res.compare&&!d2;
+ /* Измерения строк: первое и ещё (res.more) — каждое своей колонкой. */
+ const rowDims=[d1].concat(res.more||[]),rowHead=at=>rowDims.map(d=>`<th${at||''}>${esc(repDimLabel(S,d))}</th>`).join('');
+ /* Значение, как в строке выше, — бледно: группа видна, «6 mm · 6CLEAR» и батчи под ней. */
+ const rowCells=(k,i,arr)=>{const parts=String(k).split('\u0002'),prev=i>0&&arr?String(arr[i-1]).split('\u0002'):[];let same=rowDims.length>1;
+  return rowDims.map((d,j)=>{const v=parts[j];if(v==null)return '<td></td>';same=same&&j<rowDims.length-1&&prev[j]===v;const t=esc(repKeyText(S,d,v));return `<td${repPickAttrs(r,S,d,v)}${same?' class="rep-same"':''}>${j?`<span data-raw>${t}</span>`:`<b data-raw>${t}</b>`}</td>`;}).join('');},totalCell=`<td colspan="${rowDims.length}"><b>Total</b></td>`;
  if(!d1)return `<div class="sales-table-wrap"><table class="sl-table rep-table"><thead><tr>${ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')}</tr></thead><tbody><tr>${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr></tbody></table></div>`;
  const keys=res.keys,label=k=>repKeyText(S,d1,k);let head,body,foot='';
  if(d2){
   /* Разбивка и несколько метрик: у каждого значения разбивки — все метрики
      (раньше молча оставалась только первая). */
   const k2=res.keys2,cell=(v,m)=>v?esc(repFmt(m,v)):'<span class="mut">·</span>',many=ms.length>1;
-  head=many?`<th rowspan="2">${esc(repDimLabel(S,d1))}</th>${k2.map(k=>`<th class="n rep-group" colspan="${ms.length}" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n rep-group" colspan="${ms.length}">Total</th></tr><tr>${k2.concat(['']).map(()=>ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')).join('')}`
-   :`<th>${esc(repDimLabel(S,d1))}</th>${k2.map(k=>`<th class="n" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n">Total</th>`;
-  body=keys.slice(0,MAX).map(k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${k2.map(b=>ms.map((m,i)=>`<td class="n">${cell((res.cells.get(k+'\u0001'+b)||[])[i],m)}</td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(k)[i]))}</b></td>`).join('')}</tr>`).join('');
-  if(w.opts.totals)foot=`<tr class="sl-foot"><td><b>Total</b></td>${k2.map(b=>ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.colTotals.get(b)[i]))}</b></td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr>`;
+  head=many?`${rowHead(' rowspan="2"')}${k2.map(k=>`<th class="n rep-group" colspan="${ms.length}" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n rep-group" colspan="${ms.length}">Total</th></tr><tr>${k2.concat(['']).map(()=>ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')).join('')}`
+   :`${rowHead()}${k2.map(k=>`<th class="n" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n">Total</th>`;
+  body=repTableBody(w,keys,(k,i,arr)=>`<tr>${rowCells(k,i,arr)}${k2.map(b=>ms.map((m,i)=>`<td class="n">${cell((res.cells.get(k+'\u0001'+b)||[])[i],m)}</td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(k)[i]))}</b></td>`).join('')}</tr>`);
+  if(w.opts.totals)foot=`<tr class="sl-foot">${totalCell}${k2.map(b=>ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.colTotals.get(b)[i]))}</b></td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr>`;
  }else{
-  head=`<th>${esc(repDimLabel(S,d1))}</th>${ms.map(m=>`<th class="n">${esc(m.label)}</th>`+(cmp?`<th class="n rep-cmp">${esc(repCmpText(res))}</th>`:'')).join('')}`;
-  body=keys.slice(0,MAX).map(k=>`<tr><td${repPickAttrs(r,S,d1,k)}><b data-raw>${esc(label(k))}</b></td>${ms.map((m,i)=>`<td class="n">${repCellHTML(m,res.rowTotals.get(k)[i])}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`).join('');
-  if(w.opts.totals)foot=`<tr class="sl-foot"><td><b>Total</b></td>${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.total[i],res.compare.total[i]))}</td>`:'')).join('')}</tr>`;
+  head=`${rowHead()}${ms.map(m=>`<th class="n">${esc(m.label)}</th>`+(cmp?`<th class="n rep-cmp">${esc(repCmpText(res))}</th>`:'')).join('')}`;
+  body=repTableBody(w,keys,(k,n,arr)=>`<tr>${rowCells(k,n,arr)}${ms.map((m,i)=>`<td class="n">${repCellHTML(m,res.rowTotals.get(k)[i])}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`);
+  if(w.opts.totals)foot=`<tr class="sl-foot">${totalCell}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.total[i],res.compare.total[i]))}</td>`:'')).join('')}</tr>`;
  }
- return `<div class="sales-table-wrap"><table class="sl-table rep-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>MAX?`<div class="mut">First ${MAX} of ${keys.length}</div>`:''}`;
+ return `<div class="sales-table-wrap rep-scroll" data-rep-scroll="${esc(w.id)}" onscroll="repTableMore(this)"><table class="sl-table rep-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>REP_TABLE_STEP?`<div class="mut small" data-rep-rows>${chNum(keys.length)} rows</div>`:''}`;
 }
 function repParts(res,cls,k){return res.keys2.map(b=>({value:(res.cells.get(k+'\u0001'+b)||[])[0]||0,cls:cls.get(b)}));}
 function repLegend(S,res,cls){const d2=res.dims[1];return chartLegend(res.keys2.filter(b=>(res.colTotals.get(b)||[])[0]).map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b)})));}
+/* ------------------------------ Расчёт графиков ------------------------------ */
+/* Владелец, 03.11.2026: «не показывать, что он завис, а показывать, что он
+   грузится, в процентах». Посчитанный график помнится до записи в базе
+   (storageInvalidate) или нового дня; строки выборки не хранятся — только
+   итоги. Страница, которой нужен долгий расчёт, сначала показывает процент,
+   графики считаются в фоне по одному (repBuild). После записи (скан в другой
+   вкладке) прежние графики остаются на экране, пока считаются новые
+   (repStale), — страница не мигает процентом на каждый скан. Долгий — тот, чей источник в
+   прошлый раз считался дольше REP_SYNC_MS, или ещё не считался на большой
+   базе (repHeavy). */
+const REP_SYNC_MS=300;
+let repResults=new Map(),repStale=new Map(),repCost=new Map(),repBuild=null;
+function repResultsDrop(){if(repResults.size)repStale=repResults;repResults=new Map();}
+function repResultKey(q,ctx){return finToday()+'|'+JSON.stringify([q,ctx,typeof archiveScope!=='undefined'&&archiveScope&&archiveScope.ready?archiveScope.key:'']);}
+function repResultOf(q,ctx){
+ const key=repResultKey(q,ctx);if(repResults.has(key))return repResults.get(key);
+ const t=performance.now(),res=repQuery(q,ctx);repCost.set(q.source,performance.now()-t);
+ if(res){delete res.rows;delete res.groups;}
+ if(repResults.size>300)repResults.delete(repResults.keys().next().value);
+ repResults.set(key,res);return res;
+}
+function repHeavy(){return (DB.stationScan||[]).length+(DB.salesOrder||[]).length*40>60000;}
+function repSlow(q){const c=repCost.get(q.source);return c==null?repHeavy():c>REP_SYNC_MS;}
+function repPageQueries(r,p){return p.widgets.filter(w=>repSourceAllowed(w.q.source)).map(w=>repWidgetQuery(r,w));}
+/* Страница: 'ready' — всё посчитано; 'stale' — показываются прежние графики,
+   новые считаются; 'wait' — процент вместо графиков. Быстрые — сразу. */
+function repPageReady(r,p){
+ const ctx=repCtx(),qs=repPageQueries(r,p).filter(q=>!repResults.has(repResultKey(q,ctx)));
+ qs.forEach(q=>{if(!repSlow(q))repResultOf(q,ctx);});
+ const left=qs.filter(q=>!repResults.has(repResultKey(q,ctx)));
+ if(!left.length){repBuild=null;return 'ready';}
+ const key=r.id+'|'+p.id+'|'+repEditOn;
+ if(!repBuild||repBuild.key!==key)repBuildStart(key,r,p);
+ return left.every(q=>repStale.has(repResultKey(q,ctx)))?'stale':'wait';
+}
+/* Другая страница или другой отчёт — свой repBuild, прежний останавливается. */
+function repBuildStart(key,r,p){
+ const b=repBuild={key,pct:0};
+ const step=()=>{
+  if(repBuild!==b)return;
+  const ctx=repCtx(),qs=repPageQueries(r,p),next=qs.find(q=>!repResults.has(repResultKey(q,ctx)));
+  if(!next){repBuild=null;render();return;}
+  readScope(()=>repResultOf(next,ctx));
+  b.pct=Math.floor(qs.filter(q=>repResults.has(repResultKey(q,ctx))).length/qs.length*100);
+  const el=document.querySelector('[data-rep-archive-wait]'),up=document.querySelector('[data-rep-updating]');if(el)el.textContent=repBuildText(b);if(up)up.textContent=repBuildText(b,true);
+  setTimeout(step,0);
+ };
+ setTimeout(step,0);
+}
+function repBuildText(b,stale){return `${stale?'Updating':'Building report'} · ${b?b.pct:0}%`;}
 function repChart(r,w){
  if(!repSourceAllowed(w.q.source)){const a=(REP_SRC[w.q.source]||{}).access||'finance';return '<div class="mut">Needs '+a.charAt(0).toUpperCase()+a.slice(1)+' access.</div>';}
- const q=repWidgetQuery(r,w),res=repQuery(q,repCtx());if(!res)return '<div class="mut">Choose data.</div>';
+ const q=repWidgetQuery(r,w),ctx=repCtx(),key=repResultKey(q,ctx),res=repResults.has(key)?repResults.get(key):repBuild&&repStale.has(key)?repStale.get(key):repResultOf(q,ctx);if(!res)return '<div class="mut">Choose data.</div>';
  const S=REP_SRC[q.source],m=res.metrics[0],fmt=v=>repFmt(m,v),d1=res.dims[0],d2=res.dims[1];
  if(w.type==='number')return repNumbers(res);
  if(w.type==='table')return repTableHTML(r,S,res,w);
  if(!d1)return repNumbers(res)+'<div class="mut">Choose a dimension to draw this chart.</div>';
  if(!res.count&&!(res.compare&&res.compare.total.some(Boolean)))return '<div class="mut">No data for this period and filters.</div>';
- const cls=d2?repSeriesCls(S,d2,res.keys2):null,text=k=>repKeyText(S,d1,k),every=Math.max(1,Math.ceil(res.keys.length/14));
+ const cls=d2?repSeriesCls(S,d2,res.keys2):null,text=k=>repKeyText(S,d1,k),every=Math.max(1,Math.ceil(res.keys.length/(res.keys.length>60?8:14)));
  if(w.type==='bars'){
-  const rows=res.keys.slice(0,40).map(k=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])}));
-  return (d2?repLegend(S,res,cls):'')+chartHBars(rows,{fmt,label:w.title})+(res.keys.length>40?'<div class="mut">Top 40 — set Top N</div>':'');
+  const rows=res.keys.map(k=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])}));
+  return (d2?repLegend(S,res,cls):'')+`<div class="rep-scroll">${chartHBars(rows,{fmt,label:w.title})}</div>`;
  }
  if(w.type==='columns'){
   const pts=res.keys.map((k,i)=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,tick:i%every===0,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])+(res.compare?' · '+repCmpText(res)+' '+fmt((res.compare.rowTotals.get(k)||[])[0]):'')}));
@@ -179,9 +252,9 @@ function repChart(r,w){
   return legend+chartLine(labels,series,{fmt,label:w.title});
  }
  if(w.type==='pie'){
-  let keys=res.keys.filter(k=>(res.rowTotals.get(k)[0]||0)>0);const pc=repSeriesCls(S,d1,keys.slice(0,7));
-  const parts=keys.slice(0,7).map(k=>({label:text(k),value:res.rowTotals.get(k)[0],cls:pc.get(k),attrs:repPickAttrs(r,S,d1,k)}));
-  if(keys.length>7)parts.push({label:'Other',value:keys.slice(7).reduce((n,k)=>n+(res.rowTotals.get(k)[0]||0),0),cls:'ch-so'});
+  /* Все доли (владелец, 03.11.2026: «количество долей тоже не ограничивать»). */
+  const keys=res.keys.filter(k=>(res.rowTotals.get(k)[0]||0)>0),pc=repSeriesCls(S,d1,keys);
+  const parts=keys.map(k=>({label:text(k),value:res.rowTotals.get(k)[0],cls:pc.get(k),attrs:repPickAttrs(r,S,d1,k)}));
   return chartPie(parts,{fmt,label:w.title})||'<div class="mut">No data for this period and filters.</div>';
  }
  return '';
@@ -280,7 +353,7 @@ function repSetup(r){
   <h5>Chart type</h5><div class="rep-types">${REP_TYPES.map(([k,l])=>`<button type="button" class="${w.type===k?'on':''}" data-rep-type-btn="${k}" onclick="repSetW('type','${k}')">${l}</button>`).join('')}</div>
   <h5>Title</h5><input type="text" value="${esc(w.title)}" placeholder="${esc(repWidgetTitle(Object.assign({},w,{title:''})))}" onchange="repSetW('title',this.value)">
   <h5>Data</h5><select data-rep-source onchange="repSetSource(this.value)">${repSrcOptions(q.source)}</select><div class="hint">${esc(S.hint||'')}</div>
-  <h5>Dimension</h5><select data-rep-dim="0" onchange="repSetDim(0,this.value)">${repOpt(dims,q.dims[0]||'','None — totals only')}</select>
+  <h5>Dimension</h5><select data-rep-dim="0" onchange="repSetDim(0,this.value)">${repOpt(dims,q.dims[0]||'','None — totals only')}</select>${repMoreHTML(w,S)}
   ${w.type!=='number'&&w.type!=='pie'?`<h5>Breakdown</h5><select data-rep-dim="1" onchange="repSetDim(1,this.value)">${repOpt(dims.filter(d=>d[0]!==q.dims[0]),q.dims[1]||'','None')}</select>${q.dims[1]&&w.type!=='table'&&q.metrics.length>1?'<div class="hint" data-rep-first-metric>Chart shows the first metric; Table shows all.</div>':''}`:''}
   <h5>Metrics</h5>${(q.metrics.length?q.metrics:[S.metrics[0].k]).map((k,i)=>{const c=repCalcParse(k),del=q.metrics.length>1?`<button type="button" class="sm dl" onclick="repDelMetric(${i})">×</button>`:'';
    if(!c)return `<div class="sl-row"><select data-rep-metric="${i}" onchange="repSetMetric(${i},this.value)">${repOpt(mets,k)}</select>${del}</div>`;
@@ -320,6 +393,14 @@ function repSetW(path,v){repWEdit(w=>{
  if(w.type==='number'||w.type==='pie')w.q.dims=w.type==='number'?[]:w.q.dims.slice(0,1);
 });}
 function repSetSource(k){const S=REP_SRC[k];if(!S)return;repWEdit(w=>{w.q.source=k;w.q.filters=[];w.q.metrics=[S.metrics[0].k];w.q.dims=w.type==='number'?[]:[repDimOptions(S)[0][0]];w.q.sort=null;w.q.date.f='';});}
+/* Ещё измерения строк таблицы (как в Looker): «+ Row dimension». */
+function repMoreHTML(w,S){
+ const q=w.q,d0=q.dims[0];if(w.type!=='table'||!d0||repIsTime(S,d0))return '';
+ const opts=repDimOptions(S).filter(d=>!d[0].includes(':')&&d[0]!==d0),more=q.more||[],free=opts.find(d=>!more.includes(d[0]));
+ return more.map((d,i)=>`<div class="sl-row"><select aria-label="Row dimension" data-rep-more="${i}" onchange="repSetMore(${i},this.value)">${repOpt(opts,d)}</select><button type="button" class="sm dl" onclick="repSetMore(${i},'')">×</button></div>`).join('')
+  +(free&&more.length<4?`<button type="button" class="sl-btn" data-rep-add-row onclick="repSetMore(${more.length},'${esc(free[0])}')">+ Row dimension</button>`:'');
+}
+function repSetMore(i,v){repWEdit(w=>{const m=(w.q.more||[]).slice();if(v)m[i]=v;else m.splice(i,1);w.q.more=m.filter(Boolean);w.q.sort=null;});}
 function repSetDim(i,v){repWEdit(w=>{const d=w.q.dims.slice();d[i]=v;w.q.dims=d.filter(Boolean);if(w.q.dims[0]===w.q.dims[1])w.q.dims.length=1;w.q.sort=null;});}
 function repSetMetric(i,v){repWEdit(w=>{const m=w.q.metrics.length?w.q.metrics.slice():[REP_SRC[w.q.source].metrics[0].k];m[i]=v;w.q.metrics=m;});}
 function repAddMetric(){repWEdit(w=>{const S=REP_SRC[w.q.source],have=w.q.metrics.length?w.q.metrics:[S.metrics[0].k],next=S.metrics.find(m=>!have.includes(m.k));w.q.metrics=have.concat(next?[next.k]:[]);});}
@@ -344,6 +425,7 @@ function repDelWidget(wid){repEditCur(r=>{r.pages.forEach(p=>{p.widgets=p.widget
 function repMoveWidget(wid,d){repEditCur(r=>{r.pages.forEach(p=>{const i=p.widgets.findIndex(w=>w.id===wid),j=i+d;if(i<0||j<0||j>=p.widgets.length)return;const x=p.widgets[i];p.widgets[i]=p.widgets[j];p.widgets[j]=x;});});}
 function repAddPage(){let id='';repEditCur(r=>{const p={id:repUid('PG'),name:'Page '+(r.pages.length+1),widgets:[]};id=p.id;r.pages.push(p);});repPageId=id;repSelW='';render();}
 function repDelPage(){const r=repOpenReport();if(!r||r.pages.length<2||!confirm('Delete this page and its charts?'))return;const pid=repPage(r).id;repEditCur(x=>{x.pages=x.pages.filter(p=>p.id!==pid);});repPageId='';render();}
+function repSetOrient(v){const pid=repPage(repOpenReport()).id;repEditCur(r=>{const p=r.pages.find(x=>x.id===pid);if(p)p.orient=v==='landscape'?'landscape':'portrait';});}
 function repRenamePage(v){const pid=repPage(repOpenReport()).id;repEditCur(r=>{const p=r.pages.find(x=>x.id===pid);if(p)p.name=String(v||'').trim()||p.name;});}
 function repMovePage(d){const r=repOpenReport(),pid=repPage(r).id;repEditCur(x=>{const i=x.pages.findIndex(p=>p.id===pid),j=i+d;if(i<0||j<0||j>=x.pages.length)return;const t=x.pages[i];x.pages[i]=x.pages[j];x.pages[j]=t;});}
 function repSetMeta(k,v){repEditCur(r=>{if(k==='name')r.name=String(v||'').trim()||r.name;if(k==='folder')r.folder=String(v||'').trim();if(k==='share')r.share=v==='all'?'all':'me';if(k==='date')r.date={preset:v,from:'',to:''};});}
@@ -351,16 +433,49 @@ function repAddControl(f){repEditCur(r=>{if(!r.controls.includes(f))r.controls.p
 function repDelControl(f){repEditCur(r=>{r.controls=r.controls.filter(x=>x!==f);});}
 
 /* ------------------------------ Печать ------------------------------ */
-/* Страница отчёта на Letter, светлым: название, период, фильтры, графики.
-   Путь печати общий (printSheet); в окне печати есть и «Save as PDF». */
-function repPrintHTML(){
- const r=repOpenReport();if(!r)return '';const p=repPage(r),v=repView(r.id),now=new Date();
- const filters=Object.entries(v.f||{}).filter(([f,x])=>x&&x.length).map(([f,x])=>(repControlFields(r).get(f)||f)+': '+x.join(', '));
- repEditOn=false;
+/* Владелец, 03.11.2026: «печать — один лист, одна страница; нужно две — сделаю
+   две страницы»; «нужно горизонтально — горизонтально». Print печатает все
+   страницы отчёта, каждую на свой лист Letter в её ориентации (page.orient):
+   то, что видно на экране, уменьшенное под лист (repPrintFit). Страница с
+   архивом или долгим расчётом сначала открывается и досчитывается. */
+/* Лист Letter в px (96 на дюйм) без полей 9 мм; запас — раскладка печати чуть выше экранной. */
+const REP_SHEET={portrait:[816,1056],landscape:[1056,816]},REP_SHEET_PAD=68,REP_SHEET_SPARE=0.94;
+function repPrintPageHTML(r,p){
+ const v=repView(r.id),now=new Date(),filters=Object.entries(v.f||{}).filter(([f,x])=>x&&x.length).map(([f,x])=>(repControlFields(r).get(f)||f)+': '+x.join(', '));
  const body=p.widgets.map((w,i)=>repWidgetCard(r,w,i,p.widgets.length)).join('');
- return `<div class="rep-print"><div class="rep-print-head"><h2 data-raw>${esc(r.name)}${r.pages.length>1?' · '+esc(p.name):''}</h2><div>${esc(['Date: '+repDateText(v.date||r.date)].concat(filters).join(' · '))}</div><small>Glass Farm · printed ${esc(now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}))} ${esc(now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}))}</small></div><div class="rep-ws">${body}</div></div>`;
+ return `<div class="rep-print" data-rep-orient="${esc(p.orient||'portrait')}"><div class="rep-print-head"><h2 data-raw>${esc(r.name)}${r.pages.length>1?' · '+esc(p.name):''}</h2><div>${esc(['Date: '+repDateText(v.date||r.date)].concat(filters).join(' · '))}</div><small>Glass Farm · printed ${esc(now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}))} ${esc(now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}))}</small></div><div class="rep-ws">${body}</div></div>`;
 }
-function repPrint(){const was=repEditOn,html=repPrintHTML();repEditOn=was;repMenu=null;return html&&printSheet(html,'');}
+/* Лист раскладывается той же ширины, что отчёт на экране (repPrintW), и
+   уменьшается под ширину листа: граница листа в Edit (repSheetMark) — там же,
+   где на бумаге. Ниже границы не влезло — лист уменьшается ещё (zoom). */
+let repPrintW=0;
+function repPrintFit(el){
+ const x=el.querySelector('.rep-print');if(!x)return;const land=x.dataset.repOrient==='landscape',[W,H]=REP_SHEET[land?'landscape':'portrait'],w=repPrintW||W-REP_SHEET_PAD;
+ el.classList.add(land?'rep-land':'rep-port');x.style.width=w+'px';x.style.zoom='';
+ const h=x.scrollHeight,z=Math.min((W-REP_SHEET_PAD)/w,(H-REP_SHEET_PAD)*REP_SHEET_SPARE/Math.max(1,h));x.style.zoom=String(Math.floor(z*1000)/1000);
+}
+/* Граница печатного листа в Edit (владелец, 03.11.2026: «чтобы я понимал, как
+   расположить данные на печатный лист»): пунктир на высоте листа при ширине
+   отчёта; высота — через padding в процентах от ширины, минус шапка листа. */
+const REP_PRINT_HEAD=76;
+function repSheetMark(p){
+ const [W,H]=REP_SHEET[p.orient==='landscape'?'landscape':'portrait'],pct=((H-REP_SHEET_PAD)*REP_SHEET_SPARE/(W-REP_SHEET_PAD)*100).toFixed(2);
+ return `<div class="rep-sheet-mark" aria-hidden="true" data-rep-sheet style="padding-top:calc(${pct}% - ${REP_PRINT_HEAD}px)"><span>End of sheet · ${p.orient==='landscape'?'Landscape':'Portrait'}</span></div>`;
+}
+let repPrintBusy=false;
+async function repPrint(){
+ const r0=repOpenReport();if(!r0||repPrintBusy)return false;
+ const was={page:repPageId,edit:repEditOn},sheets=[],ws=document.querySelector('.rep-main .rep-ws');repPrintW=ws?ws.clientWidth:0;repPrintBusy=true;repEditOn=false;repMenu=null;
+ try{
+  for(const p of r0.pages){
+   repPageId=p.id;render();
+   for(let i=0;i<6000&&document.querySelector('[data-rep-archive-wait]');i++)await new Promise(res=>setTimeout(res,50));
+   const r=repOpenReport();sheets.push(readScope(()=>repPrintPageHTML(r,repPage(r))));
+  }
+ }finally{repPageId=was.page;repEditOn=was.edit;repPrintBusy=false;render();}
+ return printSheet(sheets,'',repPrintFit);
+}
+function repPrintHTML(){const r=repOpenReport();return r?repPrintPageHTML(r,repPage(r)):'';}
 
 /* Отчёт на чужом экране — Board станции или Overview человека: страницы и
    графики, без правки и фильтров; подстановки — станция и человек экрана. */
@@ -395,13 +510,13 @@ function repMain(r){
  const acts=repEditOn?`${dirty?'<span class="mut small" data-rep-unsaved>Unsaved changes</span>':''}<button type="button" class="pri sm" data-rep-save onclick="repSaveEdit()">Save</button><button type="button" class="sm" data-rep-cancel onclick="repCancelEdit()">Cancel</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>${saved?`<button type="button" class="sm dl" onclick="repDeleteOpen()">Delete</button>`:''}`
   :`${saved?`<button type="button" class="sm rep-pin${repPinned(r.id)?' on':''}" data-rep-pin="${esc(r.id)}" title="${repPinned(r.id)?'Unpin':'Pin'}" aria-label="${repPinned(r.id)?'Unpin':'Pin'}" onclick="repPinToggle(this.dataset.repPin)">${repPinned(r.id)?'★':'☆'}</button>`:''}${repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-edit onclick="repEditToggle()">Edit</button>`:''}<button type="button" class="sm" data-rep-copy onclick="repCopyOpen()">Copy</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>`;
  const tabs=`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-page="${esc(x.id)}" onclick="repPageId=this.dataset.repPage;repSelW='';render()">${esc(x.name)}</button>`).join('')}${repEditOn?`<button type="button" onclick="repAddPage()">+ Page</button>`:''}</div>
-  ${repEditOn?`<div class="rep-page-edit"><input type="text" value="${esc(p.name)}" aria-label="Page name" onchange="repRenamePage(this.value)"><button type="button" class="sm" title="Move page left" onclick="repMovePage(-1)">←</button><button type="button" class="sm" title="Move page right" onclick="repMovePage(1)">→</button>${r.pages.length>1?`<button type="button" class="sm dl" onclick="repDelPage()">Delete page</button>`:''}</div>`:''}`;
+  ${repEditOn?`<div class="rep-page-edit"><input type="text" value="${esc(p.name)}" aria-label="Page name" onchange="repRenamePage(this.value)"><select aria-label="Print" data-rep-orient onchange="repSetOrient(this.value)">${repOpt([['portrait','Portrait'],['landscape','Landscape']],p.orient)}</select><button type="button" class="sm" title="Move page left" onclick="repMovePage(-1)">←</button><button type="button" class="sm" title="Move page right" onclick="repMovePage(1)">→</button>${r.pages.length>1?`<button type="button" class="sm dl" onclick="repDelPage()">Delete page</button>`:''}</div>`:''}`;
  /* Период захватывает ушедшие в архив заказы — сначала их строки с диска. */
  const ranges=repArchiveRanges(r,p),arch=ranges?archiveScopeFor(ranges,repArchiveNeed(r,p)):'none';
  if(!ranges)archiveScopeDrop();
- const wait=arch==='loading'?archiveFactsText(archiveScope):'';
- const body=wait?`<div class="card mut" data-rep-archive-wait>${esc(wait)}</div>`:p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
- return `<div class="card rep-head"><div class="rep-head-row">${head}<span class="sales-toolbar-sp"></span>${acts}</div>${!can&&!repEditOn?`<div class="mut small">${r.ownerId?'Shared with you':'Starter report'} · Copy to change it</div>`:''}${tabs}${repControls(r)}</div><div class="rep-ws">${body}</div>`;
+ const ready=arch==='loading'?'':repPageReady(r,p),wait=arch==='loading'?archiveFactsText(archiveScope):ready==='wait'?repBuildText(repBuild):'';
+ const body=wait?`<div class="card mut" data-rep-archive-wait>${esc(wait)}</div>`:(repEditOn?repSheetMark(p):'')+p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
+ return `<div class="card rep-head"><div class="rep-head-row">${head}<span class="sales-toolbar-sp"></span>${ready==='stale'?`<span class="mut small" data-rep-updating>${esc(repBuildText(repBuild,true))}</span>`:''}${acts}</div>${!can&&!repEditOn?`<div class="mut small">${r.ownerId?'Shared with you':'Starter report'} · Copy to change it</div>`:''}${tabs}${repControls(r)}</div><div class="rep-ws">${body}</div>`;
 }
 function viewReports(){
  repPicks=[];

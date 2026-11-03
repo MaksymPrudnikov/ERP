@@ -45,7 +45,7 @@ button.ch-stat.warn b{color:var(--warning)}
 .ch-col-bar>i{display:block;flex-shrink:0;width:100%;max-width:24px;background:var(--accent);border-radius:4px 4px 0 0;opacity:.78}
 .ch-col.on .ch-col-bar>i,.ch-col:hover .ch-col-bar>i{opacity:1}
 .ch-col-bar b{flex-shrink:0;font-size:11.5px;font-weight:650;color:var(--text);margin-bottom:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.ch-col em{font-style:normal;font-size:11px;color:var(--text-3);height:18px;line-height:18px;text-align:center}
+.ch-col em{font-style:normal;font-size:11px;color:var(--text-3);height:18px;line-height:18px;text-align:center;white-space:nowrap}
 
 /* ---- разбивка цветом: слои снизу вверх, 2 px поверхности между ними ---- */
 .ch-stack{display:flex;flex-shrink:0;flex-direction:column-reverse;width:100%;max-width:24px;gap:2px}
@@ -54,6 +54,7 @@ button.ch-stat.warn b{color:var(--warning)}
 .ch-s1{background:var(--series-1);stroke:var(--series-1)}.ch-s2{background:var(--series-2);stroke:var(--series-2)}.ch-s3{background:var(--series-3);stroke:var(--series-3)}.ch-s4{background:var(--series-4);stroke:var(--series-4)}
 .ch-s5{background:var(--series-5);stroke:var(--series-5)}.ch-s6{background:var(--series-6);stroke:var(--series-6)}.ch-s7{background:var(--series-7);stroke:var(--series-7)}.ch-s8{background:var(--series-8);stroke:var(--series-8)}
 .ch-so{background:var(--text-3);stroke:var(--text-3)}
+.ch-t2{opacity:.6}.ch-t3{opacity:.35}
 .ch-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 8px;font-size:12.5px;color:var(--text-2)}
 .ch-legend>span{display:inline-flex;align-items:center;gap:6px}
 .ch-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
@@ -193,9 +194,23 @@ button.ch-stat.warn b{color:var(--warning)}
 .rep-cmp{color:var(--text-3);font-size:12px}
 .rep-w .n{text-align:right;font-variant-numeric:tabular-nums}
 .rep-table td[role=button]{cursor:pointer}
+.rep-table td.rep-same,.rep-table td.rep-same b{color:var(--text-3);font-weight:400}
+/* Все строки и все значения — прокрутка внутри карточки, шапка и итог на месте. */
+.rep-scroll{max-height:70vh;overflow:auto}
+.rep-scroll .rep-table thead th{position:sticky;top:0;z-index:1;background:var(--surface)}
+.rep-scroll .rep-table tfoot td{position:sticky;bottom:0;background:var(--surface)}
+.ch-pie-legend{max-height:60vh;overflow:auto}
 .rep-table td[role=button]:hover b{color:var(--accent)}
 .rep-key-acc{background:var(--accent)}
 .rep-menu{width:300px}
+/* Плотная гистограмма (chartColumnsDense) и граница печатного листа в Edit. */
+.ch-dense{position:relative;padding-top:16px}.ch-dense>b{position:absolute;top:0;right:0;font-size:11.5px}
+.ch-dense svg{display:block;width:100%;height:132px;border-bottom:1px solid var(--line)}.ch-dense rect{fill:var(--accent);opacity:.8}.ch-dense rect:hover{opacity:1}
+.ch-dense .ch-s1{fill:var(--series-1)}.ch-dense .ch-s2{fill:var(--series-2)}.ch-dense .ch-s3{fill:var(--series-3)}.ch-dense .ch-s4{fill:var(--series-4)}.ch-dense .ch-s5{fill:var(--series-5)}.ch-dense .ch-s6{fill:var(--series-6)}.ch-dense .ch-s7{fill:var(--series-7)}.ch-dense .ch-s8{fill:var(--series-8)}.ch-dense .ch-so{fill:var(--text-3)}
+.ch-dense-x{position:relative;height:18px}.ch-dense-x em{position:absolute;top:2px;transform:translateX(-50%);font-style:normal;font-size:11px;color:var(--text-3);white-space:nowrap}
+.rep-ws{position:relative}
+.rep-sheet-mark{position:absolute;left:0;right:0;top:0;height:0;border-bottom:2px dashed var(--accent);pointer-events:none;z-index:3}
+.rep-sheet-mark span{position:absolute;right:0;bottom:2px;background:var(--accent);color:var(--on-solid);font-size:11px;font-weight:650;padding:1px 8px;border-radius:6px 6px 0 0}
 @media (max-width:1100px){.rep-app,.rep-app.editing{grid-template-columns:minmax(0,1fr)}.rep-cat,.rep-setup{position:static;max-height:none}}
 @media (max-width:900px){.rep-ws{grid-template-columns:minmax(0,1fr)}.rep-w,.rep-w.half,.rep-add{grid-column:span 1}}
 /* ---- печать отчёта (printSheet: лист — светлая «бумага» .print-sheet) ---- */
@@ -206,7 +221,14 @@ button.ch-stat.warn b{color:var(--warning)}
 .rep-print-head small{font-size:10.5px;color:var(--text-3)}
 .rep-print .rep-w{box-shadow:none;border:1px solid var(--line);padding:10px 12px}
 .rep-print .ch-track>i,.rep-print .ch-col-bar>i,.rep-print .ch-stack i,.rep-print .ch-hstack i,.rep-print .ch-legend i,.rep-print .ch-track,.rep-print .ch-seg,.rep-print .ch-l{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-@media print{.rep-print .rep-w,.rep-print .ch-stats{break-inside:avoid}.rep-print .sales-table-wrap{overflow:visible;max-height:none}}
+/* Лист отчёта: как на экране — прокрутка обрезана по высоте карточки, весь
+   лист уменьшен под бумагу (repPrintFit). */
+.rep-print .rep-scroll,.rep-print .ch-pie-legend{max-height:520px;overflow:hidden}
+@media print{.rep-print .rep-w,.rep-print .ch-stats{break-inside:avoid}.rep-print .sales-table-wrap:not(.rep-scroll){overflow:visible;max-height:none}
+ @page rep-port{size:letter portrait;margin:9mm}@page rep-land{size:letter landscape;margin:9mm}
+ /* Лист — ровно одна страница: что не влезло после уменьшения, обрезается, а не уходит на второй лист. */
+ .print-sheet.rep-port{page:rep-port;height:255mm;overflow:hidden;background:var(--surface)}.print-sheet.rep-land{page:rep-land;height:194mm;overflow:hidden;background:var(--surface)}
+ .print-sheet .rep-print .rep-w{break-inside:auto}}
 /* Компактнее (владелец: «как Google Analytics, только текст можно поменьше»). */
 .rep-app{font-size:12.5px}
 .rep-app button,.rep-app select,.rep-app input{font-size:12.5px}

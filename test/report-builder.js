@@ -59,7 +59,7 @@ module.exports=async function({page,eq,ok}){
  eq('Стартовые версии 7: Production — по подпапкам; стартовый, которому владелец сменил папку, остаётся в ней',await t.p.evaluate(()=>{
   const a=DB.report.find(r=>r.id==='RP-start-cut'),b=DB.report.find(r=>r.id==='RP-start-temper');a.folder='Production';b.folder='My shop';DB.reportSeed=6;normalizeReports();
   const now=id=>DB.report.find(r=>r.id===id),out={cut:now('RP-start-cut').folder,temper:now('RP-start-temper').folder,seed:DB.reportSeed};now('RP-start-temper').folder='Production / Tempering';return out;
- }),{cut:'Production / Cutting',temper:'My shop',seed:12});
+ }),{cut:'Production / Cutting',temper:'My shop',seed:13});
 
  eq('Edit — черновик: тип графика меняется одной кнопкой, в базу — только по Save; Cancel возвращает; Copy — своя копия только для себя, в базе после Save',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repOpen('RP-start-edge');repEditToggle();const w=repOpenReport().pages[0].widgets[0];repSelectWidget(w.id);
