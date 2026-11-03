@@ -14,6 +14,9 @@ Customers, Agents, Users and Data.
 - **Header** — filter and sort in each column; drag the edge of a header to change its width, drag the header to move
   the column. Widths and order are kept in this browser, per list.
 - **Total row** at the bottom — the count and the sums of the number columns.
+- **Data** — the tree of items is a card on the left; the top row has the ticked row's actions, the search and All
+  catalog; the row card opens on the right (Hide preview hides it).
+- Windows (Activity log, Cut preview) and Shipping → Ready: column widths drag; the order stays.
 - Boards and windows keep what they do (the dolly board, the truck day, the window of a dolly or skid); only their
   header follows this look.
 

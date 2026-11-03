@@ -16,10 +16,15 @@
 - Inventory: разделы таблетками, `invSel` — + Add / − Remove / Count в шапке для отмеченной строки Sheets и Stock items
   (правая кнопка отмечает строку).
 - Customers: Open / Duplicate / Archive / Delete сверху для отмеченного (`custSel`), итог внизу. Users: таблетки,
-  Edit / Remove сверху (`uSel`), итог. Agents: период таблетками. Data: разделы и подразделы таблетками в карточке.
+  Edit / Remove сверху (`uSel`), итог. Agents: период таблетками. Везде «1 selected», имя — подсказкой.
+- Data (`md-catalog.js`, `masterdata.js`) по картинке владельца: дерево — своя карточка слева, внизу счётчики (в стоке,
+  поставки без товара; плиток нет); справа шапка — действия отмеченной строки (`mdSyncBar`: Open, Hide preview и
+  кнопки строки, в строке они скрыты), поиск и All catalog; таблетки разделов и плашки (No price…) в одном ряду;
+  фильтры раздела — компактной строкой; у стекла колонка галочек; карточка строки справа (`mdPreview`, нравится
+  владельцу). Баннера «no short name» нет — фильтр в Status и плашка. Остальные разделы Data — карточка с таблетками.
+- Окна Activity log, Cut preview и Ready: ширина колонок тянется (`cwStaticTable`, порядок постоянный).
 - Optimization → Stock: настоящий список (scope `glassStock`, `stockListColumns`).
 - Опись функций «до / после» на двух базах — без потерь. Руководство: `docs/manual/lists.ru.md` и `lists.en.md`.
-- Не сделано: окна Packing slip, Activity log, Cut preview (ширина и порядок колонок), Purchasing — действия строки.
 
 ## Shipping и Production в виде Sales · 3 ноября 2026
 
