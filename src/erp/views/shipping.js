@@ -207,7 +207,7 @@ function shippingReadyHTML(){
 }
 /* Поиск заказа и «Open a trip» — справа в шапке списка каждой вкладки Shipping. */
 function shippingBarRight(){return shippingLookupHTML().field+shippingTripHTML();}
-function shippingListScope(){return shippingTab==='shipments'?'shippingPS':shippingTab==='awaiting'?'shippingAwaiting':shippingTab==='done'?'shippingDone':shippingTab==='skids'?'shippingSkids':'';}
+function shippingListScope(){return shippingTab==='shipments'?'shippingPS':shippingTab==='awaiting'?'shippingAwaiting':shippingTab==='done'?'shippingDone':shippingTab==='skids'?'shippingSkids':shippingTab==='backorders'?'shippingBackorders':shippingTab==='delivery'?'shippingDelivery':'';}
 function shippingListColumns(){return [{k:'number',label:'Packing slip',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'date',label:'Date',type:'date',range:[['today','Today'],['thisWeek','This week'],['last30','30 days'],['','All time']]},{k:'method',label:'Method',type:'list'},{k:'skids',label:'Skids',type:'text',tokens:true},{k:'units',label:'Units',type:'number',sum:true},{k:'area',label:'ft²',type:'number',sum:true,digits:1},{k:'kg',label:'Weight kg',type:'number',sum:true,digits:1},{k:'glass',label:'Glass',type:'text',tokens:true},{k:'balance',label:'Balance',type:'number',sum:true,money:true},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
 /* Площадь, вес, стекло и баланс заказов PS — колонки списка Shipments (владелец, 03.11.2026). */
 function shippingListExtra(s){
@@ -302,19 +302,27 @@ function shippingDetailHTML(){
  const rows=d.orders.map(o=>`<tr class="shipping-order-row"><td colspan="7"><b>Order ${esc(o.number)}</b>${o.po?' · PO '+esc(o.po):''}</td></tr>`+o.rows.map(r=>`<tr><td>${r.line}${r.mark?' · '+esc(r.mark):''}</td><td>${esc(r.size)}</td><td>${esc(r.makeup)}</td><td>${esc(r.skids)||'<span class="mut">—</span>'}</td><td class="n"><b>${r.now}</b></td><td class="n">${r.before}</td><td class="n">${r.back}</td></tr>`+(r.note?`<tr class="shipping-cancel-note" data-ps-cancel-note><td colspan="7">${esc(r.note)}</td></tr>`:'')).join('')+(o.takes||[]).map(x=>`<tr data-ps-takes><td colspan="4">Cancelled · customer takes · line ${x.line} · ${esc(x.size)}</td><td class="n"><b>${x.pieces}</b> glass</td><td></td><td></td></tr>`).join('')+o.extras.map(x=>`<tr><td colspan="3">From stock · ${esc(x.name)}</td><td><span class="mut">—</span></td><td class="n"><b>${x.now}</b></td><td class="n">${x.before}</td><td class="n">${x.back}</td></tr>`).join('')).join('');
  return `<div class="sales-service-modal-back shipping-detail-back"><div class="sales-service-modal shipping-detail-window" role="dialog" aria-modal="true" aria-label="Packing slip ${esc(s.number)}"><button type="button" class="shipping-detail-close" aria-label="Close" onclick="shippingHide()">×</button><div class="card shipping-detail"><div class="shipping-customer-head"><div><h3>${esc(s.number)} · ${esc(salesCustomerDisplay(s.customerId))}</h3><span class="mut">${esc(docAddressText(s.shipTo))||'Pickup'} · ${esc(salesListShortDay(s.date))}</span></div>${shippingStatusPill(s)}</div>${(d.corrections||[]).map(text=>`<p class="shipping-loaded" data-ps-unbatch>${esc(text)}</p>`).join('')}${loaded?`<p class="shipping-loaded" data-ps-loaded>${esc(loaded)}</p>`:''}${s.status==='delivered'?`<p class="shipping-loaded" data-ps-received>${esc('Received '+salesListShortDay(salesListIsoDay(s.deliveredAt))+(s.receivedBy?' · '+s.receivedBy:''))}</p>`:''}<div class="sales-toolbar">${rest}<span class="sales-toolbar-sp"></span>${main}</div>${rows?`<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Skids</th><th class="n">Qty</th><th class="n">Before</th><th class="n">Back order</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="mut">Open trip · no items selected</p>'}${shippingPreview?'<div class="shipping-preview">'+shippingPages(d).map(docPageSVG).join('')+'</div>':''}</div></div></div>`;
 }
-/* Backorders — один список вида Sales: строка заказа, под ней остаток по строкам. */
+/* Backorders — список вида Sales: строка — остаток строки заказа; заказ и
+   клиент в своих колонках, повтор ниже бледный; Columns, фильтры, итог. */
+function shippingBackorderColumns(){return [{k:'order',label:'Order',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'po',label:'PO',type:'text',def:false},{k:'due',label:'Due',type:'date',def:false},{k:'line',label:'Line / Mark',type:'text'},{k:'size',label:'Size',type:'text'},{k:'ordered',label:'Ordered',type:'number',sum:true},{k:'shipped',label:'Shipped',type:'number',sum:true},{k:'left',label:'Remaining',type:'number',sum:true},{k:'where',label:'In the shop',type:'text'}].map(c=>Object.assign({def:true},c));}
+function shippingBackorderInfos(){
+ const board=prodBoard(),out=[];
+ shippingOrders().map(o=>({o,q:shippingSummary(o)})).filter(x=>x.o.status==='shipping'&&x.q.back>0).forEach(({o,q})=>{
+  const prod=board.find(p=>p.o.id===o.id),base={order:o.businessNumber,customer:salesCustomerDisplay(o.customerId),po:o.customerPo||'',due:o.dueDate||''};
+  q.lines.filter(r=>r.back>0).forEach(r=>{const n=o.lines.indexOf(r.l)+1,p=prod&&prod.lines.find(x=>x.no===n);const where=p?p.lites.map(l=>l.glass+': '+Object.entries(l.counts).filter(([k,n])=>n>0).map(([k,n])=>(k==='queue'?'To batch':k)+' '+n).join(', ')+(l.on.length?' · '+l.on.join(', '):'')).join(' / '):'Awaiting production';out.push({o:{id:o.id+'|'+r.l.id},order:o,memo:Object.assign({line:n+(r.l.mark?' · '+r.l.mark:''),size:docSize(r.l),ordered:r.ordered,shipped:r.shipped,left:r.back,where},base)});});
+  q.extras.filter(r=>r.back>0).forEach(r=>out.push({o:{id:o.id+'|'+r.x.id},order:o,memo:Object.assign({line:'From stock · '+salesExtraItemName(r.x),size:'',ordered:r.ordered,shipped:r.shipped,left:r.back,where:'From stock'},base)}));
+ });
+ return out;
+}
 function shippingBackordersHTML(){
- const board=prodBoard(),list=shippingOrders().map(o=>({o,q:shippingSummary(o)})).filter(x=>x.o.status==='shipping'&&x.q.back>0);let left=0;
- const body=list.map(({o,q})=>{
-  const prod=board.find(p=>p.o.id===o.id);
-  const rows=[];
-  q.lines.filter(r=>r.back>0).forEach(r=>{const n=o.lines.indexOf(r.l)+1,p=prod&&prod.lines.find(x=>x.no===n);left+=r.back;const where=p?p.lites.map(l=>l.glass+': '+Object.entries(l.counts).filter(([k,n])=>n>0).map(([k,n])=>(k==='queue'?'To batch':k)+' '+n).join(', ')+(l.on.length?' · '+l.on.join(', '):'')).join(' / '):'Awaiting production';rows.push([`${n} · ${esc(r.l.mark)}`,esc(docSize(r.l)),r.ordered,r.shipped,`<b>${r.back}</b>`,esc(where)]);});
-  q.extras.filter(r=>r.back>0).forEach(r=>{left+=r.back;rows.push([`From stock · ${esc(salesExtraItemName(r.x))}`,'',r.ordered,r.shipped,r.back,'From stock']);});
-  /* Плоские строки: заказ и клиент в своих колонках, повтор ниже — бледный. */
-  return rows.map((c,k)=>`<tr${k?'':' class="shipping-customer"'}><td${k?' class="sl-rep"':''}>${k?'Order '+esc(o.businessNumber):`<button type="button" class="gb-link" onclick="optimizationOpenOrder('${esc(o.id)}')">Order ${esc(o.businessNumber)}</button>`}</td><td${k?' class="sl-rep"':''}>${k?esc(salesCustomerDisplay(o.customerId)):'<b>'+esc(salesCustomerDisplay(o.customerId))+'</b>'}</td><td>${c[0]}</td><td>${c[1]}</td><td class="n">${c[2]}</td><td class="n">${c[3]}</td><td class="n">${c[4]}</td><td>${c[5]}</td></tr>`).join('');
- }).join('');
- const foot=list.length?`<tfoot><tr class="sl-foot"><td colspan="6"><b>${list.length} order${list.length===1?'':'s'}</b></td><td class="n"><b>${left}</b></td><td></td></tr></tfoot>`:'';
- return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${shippingBarRight()}</div><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Order</th><th>Customer</th><th>Line / Mark</th><th>Size</th><th class="n">Ordered</th><th class="n">Shipped</th><th class="n">Remaining</th><th>In the shop</th></tr></thead><tbody>${body||'<tr><td colspan="8" class="empty">No backorders.</td></tr>'}</tbody>${foot}</table></div></div>`;
+ const infos=shippingBackorderInfos(),rows=salesListRows(infos);
+ const cell=(i,c,prev)=>{const v=i.memo[c.k],same=prev&&prev.order.id===i.order.id;switch(c.k){
+  case 'order':return `<td${same?' class="sl-rep"':''}>${same?'Order '+esc(v):`<button type="button" class="gb-link" onclick="optimizationOpenOrder('${esc(i.order.id)}')">Order ${esc(v)}</button>`}</td>`;
+  case 'customer':return `<td${same?' class="sl-rep"':''}>${same?esc(v):'<b>'+esc(v)+'</b>'}</td>`;
+  case 'due':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
+  case 'left':return `<td class="n"><b>${v}</b></td>`;
+  default:return `<td${c.type==='number'?' class="n"':''}>${v===''||v==null?'<span class="mut">—</span>':esc(String(v))}</td>`;}};
+ return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>${salesListTableHTML({infos,rows,cell,row:(i,k)=>({attrs:k&&rows[k-1].order.id===i.order.id?'':' class="shipping-customer"'}),noun:r=>{const n=new Set(r.map(i=>i.order.id)).size;return n+' order'+(n===1?'':'s');},empty:infos.length?'No backorders match.':'No backorders.'})}</div>`;
 }
 function shippingDraftHTML(){
  const d=shippingDraft;if(!d)return '';const c=salesFindCustomer(d.customerId),os=shippingOrders().filter(o=>o.customerId===d.customerId);

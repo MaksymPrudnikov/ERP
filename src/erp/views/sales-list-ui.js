@@ -81,6 +81,8 @@ function salesListCatalog(){
  if(tab==='inventory'&&typeof invListColumns==='function')return invListColumns();
  if(salesListScope()==='shippingPS')return shippingListColumns();
  if(salesListScope()==='shippingSkids'&&typeof skidsListColumns==='function')return skidsListColumns();
+ if(salesListScope()==='shippingBackorders'&&typeof shippingBackorderColumns==='function')return shippingBackorderColumns();
+ if(salesListScope()==='shippingDelivery'&&typeof deliveryListColumns==='function')return deliveryListColumns();
  if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
  if(salesListScope().startsWith('prod')&&typeof prodListColumns==='function')return prodListColumns();
  if(salesListScope()==='glassSheets'&&typeof sheetUsageColumns==='function')return sheetUsageColumns();
@@ -668,12 +670,24 @@ cwRegister('shipments',{
 
 /* Остальные списки с шапкой Sales: очередь заказов, батчи, стекло, листы, Production
    (этап 6 плана): те же жесты, ширины и порядок — в настройках своего списка. */
-[['optimization','customer',68],['shipping','customer',68],['glassQueue','customer',68],['glassBatches','glass',68],['glassContents','customer',68],['glassSheets','glass',0],['prodOrders','customer',0],['shippingSkids','customer',68]].forEach(([id,fill,lead])=>cwRegister(id,{
+[['optimization','customer',68],['shipping','customer',68],['glassQueue','customer',68],['glassBatches','glass',68],['glassContents','customer',68],['glassSheets','glass',0],['prodOrders','customer',0],['shippingSkids','customer',68],['shippingBackorders','customer',0],['shippingDelivery','customer',68]].forEach(([id,fill,lead])=>cwRegister(id,{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
  def:k=>{const c=salesListColumn(k);return SALES_LIST_WIDTH[k]||(c&&c.station?64:c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead?[lead]:[],trail:20,fill
 }));
+
+/* Таблица списка вида Sales для вкладок со своими строками (Skids, Backorders,
+   Delivery): шестерёнка Columns, фильтр и сортировка в заголовке, ширина и
+   порядок перетаскиванием, итог внизу. o: {infos, rows, cell(info,col,prev),
+   row(info,i) — атрибуты и первая клетка строки, noun, empty}. */
+function salesListTableHTML(o){
+ const p=salesListLoadPrefs(),cols=salesListColumns(),keys=cols.map(c=>c.k),cwId=salesListCwId(),rows=o.rows;
+ const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;};
+ const body=rows.map((i,k)=>{const r=o.row(i,k);return `<tr${r.attrs||''}>${r.first||'<td class="sl-check"></td>'}${cols.map(c=>o.cell(i,c,rows[k-1])).join('')}<td></td></tr>`;}).join('');
+ const lead=Math.max(0,cols.findIndex(c=>salesListCalc(c)!=='none')),foot=rows.length?`<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head"><b>${o.noun(rows)}</b></td>${cols.slice(lead).map(c=>salesListCalcCell(c,rows)).join('')}<td></td></tr></tfoot>`:'';
+ return `${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${o.cls?' '+o.cls:''}${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${o.empty}</td></tr>`}</tbody>${foot}</table></div>${salesListMenuHTML(o.infos)}`;
+}
 
 /* ------------------------------ Выбор строк ---------------------------- */
 /* Все заказы списка по порядку: в странице может быть только их начало. */
