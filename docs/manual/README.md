@@ -10,6 +10,7 @@ they appear on screen.
 
 | Раздел · Section | Русский | English |
 |---|---|---|
+| Lists · Списки | [lists.ru.md](lists.ru.md) | [lists.en.md](lists.en.md) |
 | Reports | [reports.ru.md](reports.ru.md) | [reports.en.md](reports.en.md) |
 | Optimization | [optimization.ru.md](optimization.ru.md) | [optimization.en.md](optimization.en.md) |
 | Shipping | [shipping.ru.md](shipping.ru.md) | [shipping.en.md](shipping.en.md) |

@@ -2,6 +2,25 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Остальные разделы в виде Sales: Finance, Inventory, Customers, Users, Agents, Data, Stock · 3 ноября 2026
+
+Владелец, 03.11.2026: «делай и делай чтобы все работало корректно».
+
+- Общее (`views/sales-list-ui.js`): `salesListHead(c)` — заголовок с фильтром, шириной и переносом;
+  `salesListCwTable(keys,lead,trail,defs)` — ширина и порядок для списка экрана (адаптер по scope при первом показе);
+  `salesListTableHTML(o)` — таблица со своими строками (Columns, фильтры, итог). Подключены Finance, Purchasing,
+  Inventory, Customers, журнал входов.
+- Finance (`finance-lists.js`, `finance-workspace.js`): разделы таблетками, галочка строки (`finSel`), Open / Apply
+  deposit / Invoice / Terms — сверху для отмеченной, шестерёнка слева, `finFrame` — шапка, таблетки и плитки.
+  Карточка клиента и форма оплаты — как были.
+- Inventory: разделы таблетками, `invSel` — + Add / − Remove / Count в шапке для отмеченной строки Sheets и Stock items
+  (правая кнопка отмечает строку).
+- Customers: Open / Duplicate / Archive / Delete сверху для отмеченного (`custSel`), итог внизу. Users: таблетки,
+  Edit / Remove сверху (`uSel`), итог. Agents: период таблетками. Data: разделы и подразделы таблетками в карточке.
+- Optimization → Stock: настоящий список (scope `glassStock`, `stockListColumns`).
+- Опись функций «до / после» на двух базах — без потерь. Руководство: `docs/manual/lists.ru.md` и `lists.en.md`.
+- Не сделано: окна Packing slip, Activity log, Cut preview (ширина и порядок колонок), Purchasing — действия строки.
+
 ## Shipping и Production в виде Sales · 3 ноября 2026
 
 Владелец, 03.11.2026: «все экраны в один стиль», примеры «было / будет» до кода; Delivery — вариант A, Stations —
