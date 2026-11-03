@@ -152,7 +152,7 @@ function salesListColumns(){
  return p.cols.filter(c=>c.on&&(c.k!=='type'||both)&&!salesListAutoHidden(c.k)).map(c=>salesListColumn(c.k));
 }
 /* Таблицы с ширинами и порядком за заголовок (views/col-widths): Sales и список PS. */
-function salesListCwId(){const s=salesListScope();return s==='sales'?'sales':s==='shippingPS'?'shipments':'';}
+function salesListCwId(){const s=salesListScope();return s==='sales'?'sales':s==='shippingPS'?'shipments':CW_TABLES[s]?s:'';}
 function salesListNarrowRule(k){return salesListScope()==='sales'&&window.innerWidth<(SALES_LIST_NARROW[k]||0);}
 function salesListAutoHidden(k){return salesListNarrowRule(k)&&!salesListLoadPrefs().pinned.includes(k);}
 
@@ -664,6 +664,15 @@ cwRegister('shipments',{
  def:k=>SHIPPING_LIST_WIDTH[k]||100,
  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:[40],trail:70,fill:'customer'
 });
+
+/* Остальные списки с шапкой Sales: очередь заказов, батчи, стекло, листы, Production
+   (этап 6 плана): те же жесты, ширины и порядок — в настройках своего списка. */
+[['optimization','customer',68],['shipping','customer',68],['glassQueue','customer',68],['glassBatches','glass',68],['glassContents','customer',68],['glassSheets','glass',0],['prodOrders','customer',0]].forEach(([id,fill,lead])=>cwRegister(id,{
+ widths:()=>salesListLoadPrefs().widths||{},
+ save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
+ def:k=>{const c=salesListColumn(k);return SALES_LIST_WIDTH[k]||(c&&c.station?64:c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
+ min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead?[lead]:[],trail:20,fill
+}));
 
 /* ------------------------------ Выбор строк ---------------------------- */
 /* Все заказы списка по порядку: в странице может быть только их начало. */

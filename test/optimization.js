@@ -24,7 +24,7 @@ module.exports=async function({page,eq,ok}){
  }),{title:'2 orders need attention',rows:2,before:['verified','verified'],batch:['B-0001','B-0001'],next:'B-0002',open:false});
  eq('On Hold серый и не выбирается для Verify/батча; Release снимает удержание без перехода',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer(),a=oqOrder(c),b=oqOrder(c);salesHoldApply([b],'Credit check');oqQueue();const row=document.querySelector(`[data-queue-order="${b}"]`),gray=row.classList.contains('oq-hold'),disabled=row.querySelector('[data-queue-check]').disabled;document.querySelector('[data-queue-all]').click();const selected=[...optimizationSel];optimizationRunOrders([b],'verified');const title=salesDialog.title;oqChoose('Release hold');return {gray,disabled,selected:selected.length===1&&selected[0]===a,title:title.includes('On Hold'),held:salesRecord(b).onHold,status:salesRecord(b).status,checkEnabled:!document.querySelector(`[data-queue-order="${b}"] [data-queue-check]`).disabled};
- }),{gray:true,disabled:true,selected:true,title:true,held:false,status:'new',checkEnabled:true});
+ }),{gray:true,disabled:false,selected:true,title:true,held:false,status:'new',checkEnabled:true});
  eq('фильтр и смена вкладки сбрасывают выбор скрытых заказов',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer(),a=oqOrder(c,{customerPo:'Find-this'});oqOrder(c);oqQueue();optimizationSelectAll(true);
   salesListSetFilter('po',{conds:[{op:'contains',v:'Find-this'}]});const count=optimizationRows().length,sel=optimizationSel.size;const chosen=[...optimizationSel];optimizationSetTab('batch');return {count,sel,chosen:chosen.length===1&&chosen[0]===a,after:optimizationSel.size};

@@ -30,13 +30,16 @@ const SF_TABS=[
 
 /* Переключатель экранов Production — таблетки, как быстрые виды в Sales. */
 function sfScreenPills(){return '<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Production">'+SF_TABS.map(t=>`<button type="button" role="tab" class="sl-quick-pill${subtab===t.k?' on':''}" aria-selected="${subtab===t.k}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')+'</div></div>';}
+function sfStationsBar(){
+ return `<div class="sales-toolbar"><button type="button" class="sl-quiet" data-sf-screen ${sfSel&&DB.station.some(s=>s.code===sfSel)?'':'disabled'} onclick="stationOpen(sfSel)" title="Open the scan screen">Screen</button><button type="button" class="sl-quiet" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`;
+}
 function viewProduction(){
  if(!SF_TABS.some(t=>t.k===subtab)) subtab='orders';
  return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Reference tables updated: stations were reseeded from the factory data.</div>':''}
   ${subtab!=='stations'?'':`<div class="card sf-route-card">${sfRouteHTML()}</div>`}
-  <div class="card${subtab==='orders'?' sales-list-card sl-foot-pin':''}">
-   ${subtab==='orders'?'':sfScreenPills()}
-   ${({orders:viewProdOrders,stations:()=>viewSfStations(false),terminals:viewSfTerminals,carriers:viewProdCarriers})[subtab]()}
+  <div class="card${subtab==='orders'||subtab==='stations'?' sales-list-card sl-foot-pin':''}">
+   ${subtab==='orders'?'':subtab==='stations'?sfStationsBar()+sfScreenPills():sfScreenPills()}
+   ${({orders:viewProdOrders,stations:()=>viewSfStations(false,true),terminals:viewSfTerminals,carriers:viewProdCarriers})[subtab]()}
   </div>
   ${subtab==='stations'?sfImportCard():''}`;
 }
@@ -93,11 +96,14 @@ function sfRouteFocus(el){
 /* Маршрут стекла считается из станций и работ — после правки кэш маршрутов
    сбрасывается, экраны станций сразу видят новый порядок. */
 function stationRouteReset(){if(typeof stationRouteCache!=='undefined')stationRouteCache=new Map();}
-function viewSfStations(edit){
+/* Экран Stations в Production — вид Sales: действия над отмеченной станцией над таблицей. */
+let sfSel='';
+function sfSelect(code,on){sfSel=on?code:'';render();}
+function viewSfStations(edit,framed){
  const steps=new Map();DB.station.forEach(s=>steps.set(s.seq,(steps.get(s.seq)||0)+1));
  const rows=DB.station.map((s,i)=>{
   const w=stationOperations(s.code),par=steps.get(s.seq)>1;
-  return `<tr data-sf-station="${esc(s.code)}"><td style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" onchange="sfStationSetStep(${i},this.value)">`:`<b class="mono">${s.seq}</b>`}${par?' <span class="pill info" title="Same step as another station">parallel</span>':''}</td>
+  return `<tr data-sf-station="${esc(s.code)}"${framed&&sfSel===s.code?' class="oq-selected"':''}>${framed?`<td class="sl-check"><input type="checkbox" data-sf-check aria-label="Select ${esc(s.code)}" ${sfSel===s.code?'checked':''} onchange="sfSelect('${esc(s.code)}',this.checked)"></td>`:''}<td style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" onchange="sfStationSetStep(${i},this.value)">`:`<b class="mono">${s.seq}</b>`}${par?' <span class="pill info" title="Same step as another station">parallel</span>':''}</td>
    <td class="mono"><b>${raw(s.code)}</b></td><td>${sfLabel(s)}</td>
    <td><span class="pill ${s.always?'ok':'info'}">${s.always?'always':'when required'}</span></td>
    <td class="mono">${sfDimText(s)}</td>
@@ -105,7 +111,7 @@ function viewSfStations(edit){
    <td style="white-space:nowrap">${typeof carrierSheetCell==='function'?carrierSheetCell(s,edit):''}</td>
    <td>${w.length?w.slice(0,6).map(o=>`<span class="pill info" data-raw>${esc(o.name||o.id)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>'}</td>
    <td class="mut" style="max-width:260px">${raw(s.note||'')}</td>
-   <td style="white-space:nowrap"><button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>
+   <td style="white-space:nowrap">${framed?'':`<button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>`}
    ${edit?`<button class="sm" onclick="stEditOpen(${i})">Edit</button>
    <button class="sm dl" data-sf-del="${esc(s.code)}" onclick="delSfStation(${i})">×</button>`:''}</td></tr>`+
    /* Колонки листа долли/скида станции — под её строкой (views/carriers-board). */
@@ -113,9 +119,9 @@ function viewSfStations(edit){
  }).join('');
  return `${edit&&stEdit!==null?sfStationForm():''}
   <div class="sub">${edit?'Same step — parallel stations.':'Route steps in order. Stations are added, removed and ordered in Master Data → Stations.'}</div>
-  ${edit?'':`<div class="row" style="margin:0 0 10px"><button class="sm" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`}
-  <div class="sales-table-wrap"><table><thead><tr><th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th title="What glass goes on after this station">Puts on</th><th title="Columns of the printed dolly or skid sheet">Dolly / skid sheet</th><th>Works</th><th>Note</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="10" class="empty">empty</td></tr>'}</tbody></table></div>
+  ${edit||framed?'':`<div class="row" style="margin:0 0 10px"><button class="sm" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`}
+  <div class="sales-table-wrap"><table${framed?' class="sl-table"':''}><thead><tr>${framed?'<th class="sl-check"></th>':''}<th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th title="What glass goes on after this station">Puts on</th><th title="Columns of the printed dolly or skid sheet">Dolly / skid sheet</th><th>Works</th><th>Note</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="11" class="empty">empty</td></tr>'}</tbody></table></div>
   ${edit&&stEdit===null?'<div class="row"><button class="pri" data-sf-add onclick="stEdit=&quot;new&quot;;render()">Add station</button><button data-sf-tidy onclick="sfStationsTidy()" title="Renumber steps 1, 2, 3… keeping parallel stations together">Tidy step numbers</button></div>':''}`;
 }
 /* На что кладут стекло после станции — ставит владелец (6.10.2026). Без

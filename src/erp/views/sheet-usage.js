@@ -41,17 +41,18 @@ function sheetUsageFooter(rows,cols){
  const label=`<b data-sheet-foot>${rows.length} row${rows.length===1?'':'s'} · ${batches} batch${batches===1?'':'es'}</b>`;
  const cell=c=>c.sum?`<td class="n" data-sum="${c.k}">${cutNum(sum(c.k),c.digits||0)}</td>`:c.k==='usedPct'?`<td class="n" data-sum="usedPct">${cutNum(cutPct(sum('used'),sum('area')),1)}%</td>`:'<td></td>';
  const first=cols.findIndex(c=>c.sum||c.k==='usedPct');
- if(first<=0)return `<tfoot><tr class="sl-foot"><td colspan="${cols.length}" class="sl-foot-head">${label}</td></tr><tr class="sl-foot">${cols.map(cell).join('')}</tr></tfoot>`;
- return `<tfoot><tr class="sl-foot"><td colspan="${first}" class="sl-foot-head">${label}</td>${cols.slice(first).map(cell).join('')}</tr></tfoot>`;
+ if(first<=0)return `<tfoot><tr class="sl-foot"><td colspan="${cols.length+1}" class="sl-foot-head">${label}</td></tr><tr class="sl-foot">${cols.map(cell).join('')}<td></td></tr></tfoot>`;
+ return `<tfoot><tr class="sl-foot"><td colspan="${first}" class="sl-foot-head">${label}</td>${cols.slice(first).map(cell).join('')}<td></td></tr></tfoot>`;
 }
 function viewSheetUsage(){
  const infos=sheetUsageInfos(),rows=salesListRows(infos),cols=salesListColumns();
- const th=c=>{const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
- const body=rows.map(i=>`<tr data-sheet-row="${esc(i.r.batch+'|'+i.r.glass+'|'+(i.r.stock||i.r.w+'x'+i.r.h))}">${cols.map(c=>sheetUsageCell(i,c)).join('')}</tr>`).join('')
-  ||`<tr><td colspan="${cols.length}" class="empty" data-sheet-empty>${infos.length?'Nothing matches the filters.':'No built layouts yet.'}</td></tr>`;
+ const cwId=salesListCwId(),keys=cols.map(c=>c.k);
+ const th=c=>{const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;};
+ const body=rows.map(i=>`<tr data-sheet-row="${esc(i.r.batch+'|'+i.r.glass+'|'+(i.r.stock||i.r.w+'x'+i.r.h))}">${cols.map(c=>sheetUsageCell(i,c)).join('')}<td></td></tr>`).join('')
+  ||`<tr><td colspan="${cols.length+1}" class="empty" data-sheet-empty>${infos.length?'Nothing matches the filters.':'No built layouts yet.'}</td></tr>`;
  return `<section class="optimization-queue sheet-usage">
   <div class="card oq-card sales-list-card sl-foot-pin"><div class="oq-toolbar sales-toolbar">${salesListDateButton('built')}<span class="sales-toolbar-sp"></span><button type="button" class="sl-settings" data-columns-button aria-label="Columns" title="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></div>
    ${glassBatchTabs()}${salesListFilterChips()}
-   <div class="sales-table-wrap"><table class="sl-table" data-sheet-table><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>${body}</tbody>${rows.length?sheetUsageFooter(rows,cols):''}</table></div>
+   <div class="sales-table-wrap"><table class="sl-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)} data-sheet-table>${cwColgroup(cwId,keys)}<thead><tr>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body}</tbody>${rows.length?sheetUsageFooter(rows,cols):''}</table></div>
   </div>${salesListMenuHTML(infos)}</section>`;
 }
