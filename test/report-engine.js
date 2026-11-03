@@ -434,6 +434,36 @@ module.exports=async function({page,eq,ok}){
   finally{window.accessCan=old;}
  }),{allowed:false,chart:'<div class="mut">Needs Customers access.</div>',pick:false});
 
+ /* Владелец, 03.11.2026: «ничего не ограничивать»; «показывать, что он грузится, в процентах». */
+ eq('Без ограничений показа: 700 строк таблицы (дорисовка при прокрутке, печать — все), 12 значений разбивки без Other, все полосы и доли, все дни за три года',await t.p.evaluate(()=>{
+  const rows=Array.from({length:700},(_,i)=>({id:'q'+i,at:repAddDays('2023-01-01',i%1096),k:'K'+String(i).padStart(3,'0'),b:'B'+(i%12),n:1}));
+  REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.dim('b','B'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
+  const w=type=>repCleanWidget({type,q:{source:'qa',dims:type==='table'?['k','b']:['k'],metrics:['count']}}),r=repClean({date:{preset:'all'},pages:[{widgets:[w('table'),w('bars'),w('pie')]}]});
+  try{
+   const res=repQuery({source:'qa',date:{},dims:['k','b'],metrics:['count'],filters:[]}),days=repQuery({source:'qa',date:{from:'2023-01-01',to:'2025-12-31'},dims:['at:day'],metrics:['count'],filters:[]}).keys.length;
+   const box=document.createElement('div');document.body.appendChild(box);box.innerHTML=repChart(r,r.pages[0].widgets[0]);
+   const el=box.querySelector('[data-rep-scroll]'),first=el.querySelectorAll('tbody tr').length;
+   for(let i=0;i<10;i++){el.scrollTop=el.scrollHeight;repTableMore(el);}
+   const all=el.querySelectorAll('tbody tr').length;repPrinting=true;box.innerHTML=repChart(r,r.pages[0].widgets[0]);const print=box.querySelectorAll('tbody tr').length;repPrinting=false;
+   box.innerHTML=repChart(r,r.pages[0].widgets[1]);const bars=box.querySelectorAll('.ch-hbar').length;box.innerHTML=repChart(r,r.pages[0].widgets[2]);const slices=box.querySelectorAll('.ch-pie-legend>span').length;box.remove();
+   return {keys2:res.keys2.length,other:res.keys2.includes('__other'),first,all,print,bars,slices,days,colors:[0,7,8,16,30].map(repSeriesClass)};
+  }finally{delete REP_SRC.qa;}
+ }),{keys2:12,other:false,first:300,all:700,print:700,bars:700,slices:700,days:1096,colors:['ch-s1','ch-s8','ch-s1 ch-t2','ch-s1 ch-t3','ch-s7 ch-t3']});
+ eq('Долгий отчёт: вместо замершей страницы — процент, графики считаются в фоне; после записи прежние графики на экране, пока считаются новые',await t.p.evaluate(async()=>{
+  const rows=Array.from({length:50},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+(i%5),n:1}));
+  REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
+  const r=repClean({date:{preset:'all'},pages:[{widgets:[repCleanWidget({type:'table',q:{source:'qa',dims:['k'],metrics:['count']}})]}]}),p=r.pages[0];
+  try{
+   repResults=new Map();repStale=new Map();repCost.set('qa',5000);
+   const first=repPageReady(r,p),text=repBuildText(repBuild);
+   for(let i=0;i<100&&repBuild;i++)await new Promise(res=>setTimeout(res,20));
+   const done=repPageReady(r,p);repResultsDrop();const after=repPageReady(r,p),up=repBuildText(repBuild,true);
+   for(let i=0;i<100&&repBuild;i++)await new Promise(res=>setTimeout(res,20));
+   repCost.set('qa',1);repResultsDrop();const quick=repPageReady(r,p);
+   return {first,text,done,after,up,quick};
+  }finally{delete REP_SRC.qa;repCost.delete('qa');repBuild=null;}
+ }),{first:'wait',text:'Building report · 0%',done:'ready',after:'stale',up:'Updating · 0%',quick:'ready'});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

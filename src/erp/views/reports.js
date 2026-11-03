@@ -26,7 +26,7 @@ function repDirty(){return !!repDraft&&(!repFind(repDraft.id)||JSON.stringify(re
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(repDirty);
 function repCanLeave(){return !repDirty()||confirm('Leave without saving the report?');}
 function repDropDraft(){repDraft=null;repDraftBase='';repEditOn=false;repSelW='';repMenu=null;}
-(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){if(tab!=='reports'||k==='reports')return false;if(!repCanLeave())return true;repDropDraft();return false;});
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){if(tab!=='reports'||k==='reports')return false;if(!repCanLeave())return true;repDropDraft();repBuild=null;return false;});
 window.addEventListener('beforeunload',function(e){if(!repDirty())return;e.preventDefault();e.returnValue='';});
 /* Фильтры зрителя: свои в этом браузере, иначе — сохранённые в отчёте. */
 function repViewFilters(r){const v=repView(r.id);return v.f!==undefined?v.f:r.filters||{};}
@@ -202,14 +202,14 @@ function repPageReady(r,p){
  const left=qs.filter(q=>!repResults.has(repResultKey(q,ctx)));
  if(!left.length){repBuild=null;return 'ready';}
  const key=r.id+'|'+p.id+'|'+repEditOn;
- if(!repBuild||repBuild.key!==key)repBuildStart(key);
+ if(!repBuild||repBuild.key!==key)repBuildStart(key,r,p);
  return left.every(q=>repStale.has(repResultKey(q,ctx)))?'stale':'wait';
 }
-function repBuildStart(key){
+/* Другая страница или другой отчёт — свой repBuild, прежний останавливается. */
+function repBuildStart(key,r,p){
  const b=repBuild={key,pct:0};
  const step=()=>{
-  if(repBuild!==b||tab!=='reports')return;
-  const r=repOpenReport(),p=r&&repPage(r);if(!p||r.id+'|'+p.id+'|'+repEditOn!==key){repBuild=null;return;}
+  if(repBuild!==b)return;
   const ctx=repCtx(),qs=repPageQueries(r,p),next=qs.find(q=>!repResults.has(repResultKey(q,ctx)));
   if(!next){repBuild=null;render();return;}
   readScope(()=>repResultOf(next,ctx));
