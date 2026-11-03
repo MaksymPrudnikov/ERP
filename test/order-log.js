@@ -127,7 +127,7 @@ module.exports=async function({page,eq,ok}){
 
  eq('Users: колонка No. — на вкладке Production; номер новому — сам; чужой номер не сохраняется',await t.p.evaluate(async()=>{
   tab='users';subtab='production';userEditOpen('new');uDraft.name='New Cutter';uDraft.newPin='1111';await saveUser();
-  const made=DB.user.find(u=>u.name==='New Cutter'),head=[...document.querySelectorAll('thead th')].map(th=>th.textContent)[0];
+  const made=DB.user.find(u=>u.name==='New Cutter'),head=[...document.querySelectorAll('thead th')].map(th=>th.textContent)[1];
   userEditOpen('new');uDraft.name='Dup';uDraft.newPin='2222';uDraft.no=String(made.no);await saveUser();
   const err=document.getElementById('e_user').textContent;uEdit=null;uDraft=null;DB.user=DB.user.filter(u=>u!==made);touch();tab='sales';render();
   return {head,auto:made.no>0,err:err==='No. '+userNoText(made)+' belongs to New Cutter'};

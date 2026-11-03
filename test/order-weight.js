@@ -99,7 +99,7 @@ module.exports=async function({page,eq}){
 
  eq('Data → Interlayers: «No density N» — плёнки без плотности; в карточке-превью «no density»',await run(()=>{
   owSetup();tab='masterdata';mdCatalogGo('interlayerProduct');const n=DB.interlayerProduct.filter(x=>x.active!==false&&!DB.materialWeightRates.some(r=>r.key==='film:'+x.id&&r.rate!=null)).length;
-  const chip=[...document.querySelectorAll('[data-md-health] .pill')].map(x=>x.textContent);mdPeek='interlayerProduct:'+owFilm().id;render();
+  const chip=[...document.querySelectorAll('[data-md-health] .pill')].map(x=>x.textContent);mdPreview=true;mdPeek='interlayerProduct:'+owFilm().id;render();
   const peek=[...document.querySelectorAll('[data-md-peek] .pill')].map(x=>x.textContent);mdPeek='';tab='sales';render();return {chip:chip.includes('No density '+n),n:n>0,peek:peek.includes('no density')};
  }),{chip:true,n:true,peek:true});
 

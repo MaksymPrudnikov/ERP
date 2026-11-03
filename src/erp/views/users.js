@@ -36,6 +36,7 @@ function userNowHTML(u){
  if(on.length)return `<span class="user-now on" data-user-now="on"><i></i>${esc(on.join(', '))}</span>`;
  return `<span class="user-now" data-user-now="off"><i></i>${last?esc(salesListShortDay(salesListIsoDay(last))+' · '+new Date(last).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false})):'—'}</span>`;
 }
+let uSel='';
 function viewUsers(){
  const side=usersSide(),prod=side==='production',log=side==='log',cloud=side==='cloud';
  if(cloudAccessOn()&&!cloudAccess.asked)setTimeout(cloudAccessLoad,0);
@@ -43,25 +44,25 @@ function viewUsers(){
  const list=log||cloud?[]:DB.user.map((u,i)=>({u,i})).filter(x=>usersOn(x.u,side));
  const count=k=>k==='cloud'?'':k==='log'?(DB.authEvent||[]).length:DB.user.filter(u=>usersOn(u,k)).length;
  const rows=list.map(({u,i})=>{
-  const actions=`<td style="white-space:nowrap"><button class="sm" onclick="userEditOpen(${i})">Edit</button>
-   <button class="sm dl" title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${i},'${side}')">×</button></td>`;
+  /* Edit и Remove — сверху для отмеченного (вид Sales, владелец 03.11.2026). */
+  const on=uSel===u.viewProfileId,actions='<td></td>',check=`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(u.name)}" ${on?'checked':''} onchange="uSel=this.checked?'${esc(u.viewProfileId)}':'';render()"></td>`;
   return prod
-   ?`<tr data-user-row="${esc(u.viewProfileId)}"><td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td>${userHasPin(u)?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>${actions}</tr>`
-   :`<tr data-user-row="${esc(u.viewProfileId)}"><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td class="user-access-cell">${userAccessHTML(u)}</td>
+   ?`<tr data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ondblclick="userEditOpen(${i})">${check}<td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td>${userHasPin(u)?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>${actions}</tr>`
+   :`<tr data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ondblclick="userEditOpen(${i})">${check}<td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td class="user-access-cell">${userAccessHTML(u)}</td>
    <td>${userHasPassword(u)?'<span class="pill ok">set</span>':u.email&&signinServer()?'<span class="pill ok" title="Server login">server</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}</td>${srv?userServerHTML(u):''}${actions}</tr>`;
  }).join('');
  const head=prod
-  ?'<th title="Station sign-in: number + PIN">No.</th><th>Name</th><th title="Signed in now on this computer">Now</th><th>PIN</th><th></th>'
-  :'<th>Name</th><th title="Signed in now on this computer">Now</th><th>Sections</th><th>Password</th>'+(srv?'<th title="Login on server">Server</th>':'')+'<th></th>';
+  ?'<th class="sl-check"></th><th title="Station sign-in: number + PIN">No.</th><th>Name</th><th title="Signed in now on this computer">Now</th><th>PIN</th><th></th>'
+  :'<th class="sl-check"></th><th>Name</th><th title="Signed in now on this computer">Now</th><th>Sections</th><th>Password</th>'+(srv?'<th title="Login on server">Server</th>':'')+'<th></th>';
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
- const tabs=`<div class="tabs">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button class="${side===k?'on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;render()">${l} <span class="mut">${count(k)}</span></button>`).join('')}</div>`;
- return `<div class="page-head"><div><h2>Users</h2><p>${cloud?'Server for all computers.':log?'Sign-ins and sign-outs on this computer.':prod?'Number and PIN · any station.':'Password and sections.'}</p></div>${off}
-  ${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>
-  ${cloud?`<div class="card">${tabs}${usersCloudHTML()}</div>`:log?`<div class="card sales-list-card users-log-card"><div class="users-log-tabs">${tabs}</div>${authLogTable()}</div>`:`<div class="card">${tabs}
+ const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;uSel='';render()">${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
+ const selI=list.findIndex(x=>x.u.viewProfileId===uSel),sel=selI<0?null:list[selI];
+ const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} onclick="userEditOpen(${sel?sel.i:-1})">Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${sel?sel.i:-1},'${side}');uSel=''">Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>`;
+ return `${cloud?`<div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${off}</div>${tabs}<div style="padding:0 20px 16px">${usersCloudHTML()}</div></div>`:log?`<div class="card sales-list-card users-log-card">${tabs}${authLogTable()}</div>`:`<div class="card sales-list-card sl-foot-pin">${bar}${tabs}
   ${uEdit!==null?userForm():''}
-  <table><thead><tr>${head}</tr></thead>
-  <tbody>${rows||`<tr><td colspan="${srv?6:5}" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody></table>
+  <div class="sales-table-wrap"><table class="sl-table"><thead><tr>${head}</tr></thead>
+  <tbody>${rows||`<tr><td colspan="${srv?7:6}" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody>${list.length?`<tfoot><tr class="sl-foot"><td></td><td colspan="${srv?6:5}"><b>${list.length} ${list.length===1?'person':'people'}</b></td></tr></tfoot>`:''}</table></div>
   </div>`}`;
 }
 /* Вход человека на сервер и совпадает ли он с галочками здесь
@@ -205,10 +206,10 @@ function authLogInfos(){
 }
 function authLogTable(){
  const infos=authLogInfos(),rows=salesListRows(infos).sort((a,b)=>b.e.at.localeCompare(a.e.at)),cols=salesListColumns();
- const head=c=>{const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
+ const head=c=>salesListHead(c),cw=salesListCwTable(cols.map(c=>c.k),[],0);
  const cell=(i,c)=>c.k==='when'?`<td>${esc(salesListShortDay(i.memo.when))} · ${esc(new Date(i.e.at).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false}))}</td>`:c.k==='what'?`<td><span class="pill ${i.e.what==='Sign in'?'ok':''}">${esc(i.e.what)}</span></td>`:`<td>${i.memo[c.k]?raw(String(i.memo[c.k])):'<span class="mut">—</span>'}</td>`;
  return `<div class="sales-toolbar">${salesListDateButton('when')}</div>${salesListFilterChips()}
-  <div class="sales-table-wrap"><table class="sl-table users-log"><thead><tr>${cols.map(head).join('')}</tr></thead>
+  <div class="sales-table-wrap"><table class="sl-table users-log${cw.cls}"${cw.attrs}>${cw.col}<thead><tr>${cols.map(head).join('')}</tr></thead>
   <tbody>${rows.map(i=>`<tr data-auth-row>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="empty">${infos.length?'Nothing matches the filters.':'No sign-ins yet'}</td></tr>`}</tbody></table></div>
   <div class="mut cust-foot">${rows.length} of ${infos.length} records · this computer only</div>${salesListMenuHTML(infos)}`;
 }

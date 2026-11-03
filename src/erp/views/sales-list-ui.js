@@ -86,6 +86,7 @@ function salesListCatalog(){
  if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
  if(salesListScope().startsWith('prod')&&typeof prodListColumns==='function')return prodListColumns();
  if(salesListScope()==='glassSheets'&&typeof sheetUsageColumns==='function')return sheetUsageColumns();
+ if(salesListScope()==='glassStock'&&typeof stockListColumns==='function')return stockListColumns();
  if(typeof glassBatchColumns==='function'&&salesListScope().startsWith('glass'))return glassBatchColumns();
  if(salesListScope()==='mdSupply'&&typeof mdSupplyColumns==='function')return mdSupplyColumns();
  if(salesListScope()==='customers'&&typeof custColumns==='function')return custColumns();
@@ -677,6 +678,28 @@ cwRegister('shipments',{
  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead?[lead]:[],trail:20,fill
 }));
 
+/* Заголовок колонки любого списка: фильтр и сортировка, ширина и перенос. */
+function salesListHead(c){const f=salesListLoadPrefs().filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;}
+/* Ширина и порядок за заголовок для списка этого экрана: адаптер по scope
+   регистрируется при первом показе (lead — служебные колонки слева, trail —
+   кнопки справа, px). Возвращает класс, атрибуты и <colgroup> таблицы. */
+function salesListCwTable(keys,lead,trail,defs){
+ const id=salesListScope();
+ if(!CW_TABLES[id])cwRegister(id,{widths:()=>salesListLoadPrefs().widths||{},
+  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
+  def:k=>{const c=salesListColumn(k);return (defs&&defs[k])||SALES_LIST_WIDTH[k]||(c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
+  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead||[],trail:trail||0,fill:keys.includes('customer')?'customer':''});
+ return {cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
+}
+/* Таблица с постоянными колонками (окна, Ready): ширина тянется за край
+   заголовка и хранится в этом браузере; порядок у таких таблиц постоянный.
+   head — [[ключ, подпись, класс]]. Возвращает {head, cls, attrs, col}. */
+function cwStaticTable(id,head,lead){
+ const key='glass_erp_cw_'+id,read=()=>{try{const v=JSON.parse(localStorage.getItem(key)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return {};}};
+ if(!CW_TABLES[id])cwRegister(id,{widths:read,save:w=>{try{if(Object.keys(w).length)localStorage.setItem(key,JSON.stringify(w));else localStorage.removeItem(key);}catch(e){}render();},def:()=>110,min:()=>CW_MIN,move:()=>{},lead:lead||[],trail:0,fill:''});
+ const keys=head.map(h=>h[0]);
+ return {head:head.map(([k,l,c])=>`<th${c?` class="${c}"`:''} data-cw-key="${k}"><span data-cw-label>${l}</span>${cwGrip()}</th>`).join(''),cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
+}
 /* Таблица списка вида Sales для вкладок со своими строками (Skids, Backorders,
    Delivery): шестерёнка Columns, фильтр и сортировка в заголовке, ширина и
    порядок перетаскиванием, итог внизу. o: {infos, rows, cell(info,col,prev),

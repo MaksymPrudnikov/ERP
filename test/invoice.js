@@ -59,7 +59,7 @@ module.exports=async function({page,eq,ok}){
  }),{first:['new'],ok:true,after:[],changed:['changed'],before:0,row:true});
 
  eq('Finance → Due dates: у выданного заказа кнопка Invoice открывает бланк счёта',await t.p.evaluate(()=>{
-  const id=ivOrder();ivShip(id,shippingAvailable(salesRecord(id)));tab='finance';finSetTab('schedule');
+  const id=ivOrder();ivShip(id,shippingAvailable(salesRecord(id)));tab='finance';finSetTab('schedule');finSelect(id);
   const btn=document.querySelector('[data-fin-invoice="'+salesRecord(id).businessNumber+'"]');if(!btn)return 'no button';btn.click();
   const out={tab,kind:docState&&docState.kind,order:soDraft&&soDraft.id===id};docState=null;salesDraftDrop();tab='dashboard';render();return out;
  }),{tab:'sales',kind:'invoice',order:true});

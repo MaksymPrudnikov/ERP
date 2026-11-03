@@ -17,7 +17,7 @@ module.exports=async function({page,eq}){
  eq('Supply points, Hardware models and Recipes preview a row like Glass; Open card / Open recipe goes to it',await t.p.evaluate(()=>{
   DB.glassSheet=[normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock',leadTimeDays:5})];
   const sh=DB.glassSheet[0],m=DB.hardwareModel[0],rc=DB.surroundRecipe[0],facts=()=>[...document.querySelectorAll('[data-md-peek] dt')].map(d=>d.textContent);
-  const peekOf=sel=>{document.querySelector(sel).click();return document.querySelector('[data-md-peek]').getAttribute('data-md-peek');};
+  const peekOf=sel=>{mdPreview=true;document.querySelector(sel).click();return document.querySelector('[data-md-peek]').getAttribute('data-md-peek');};
   tab='masterdata';mdCatalogGo('glassSheet');const supply=peekOf('[data-md-row="glassSheet:'+sh.id+'"] td:nth-child(3)'),supplyFacts=facts(),noPrice=!supplyFacts.some(f=>f==='Purchase price'||f==='Price'||f==='Freight');
   [...document.querySelectorAll('[data-md-peek] button')].find(b=>b.textContent==='Open card').click();const sheetForm=mdSheetEdit===sh.id;mdSheetEdit=null;
   mdCatalogGo('hardwareModel');const row=peekOf('[data-md-row="hardwareModel:'+m.id+'"] td'),hwFacts=facts();
@@ -29,8 +29,8 @@ module.exports=async function({page,eq}){
   row:'hardwareModel:'+DB.hardwareModel[0].id,hw:true,recipe:'surroundRecipe:'+DB.surroundRecipe[0].id,on:true,
   unknown:DB.surroundRecipe.some(r=>r.rows.some(x=>x.part!=='spacer'&&x.part!=='gas'&&x.amount==null))?{null:false,warn:true}:null})));
  /* Аудит 25.10.2026, D-3: плитки каталога — только в обзоре Catalog. */
- eq('catalog tiles only on the catalog overview: not over other sections, an open card or a search',await t.p.evaluate(()=>{
-  const kpi=()=>!!document.querySelector('[data-md-kpi]');tab='masterdata';mdCatalogGo('glassProduct');const over=kpi();
+ eq('catalog counts in the tree foot (owner 03.11.2026: no tiles); no tiles over other sections, an open card or a search',await t.p.evaluate(()=>{
+  const kpi=()=>!!document.querySelector('[data-md-kpi]');tab='masterdata';mdCatalogGo('glassProduct');const over=/kept in stock/.test((document.querySelector('.md-tree-foot')||{}).textContent||'')&&!kpi();
   mdGlassEdit(DB.glassProduct[0].id);render();const card=kpi();mdEdit=null;
   mdCatalogQuery='argon';render();const search=kpi();mdCatalogQuery='';
   const other=['prices','company','setup','trucks'].map(k=>{mdSetTab(k);render();return kpi();});mdSetTab('materials');render();

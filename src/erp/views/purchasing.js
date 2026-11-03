@@ -20,10 +20,7 @@ function purSupplierInfos(){
  const counts=new Map();(DB.glassSheet||[]).forEach(s=>counts.set(s.supplierId,(counts.get(s.supplierId)||0)+1));
  return (DB.supplier||[]).map(s=>({o:{id:s.id},s,memo:Object.assign({},s,{supplyCount:counts.get(s.id)||0,status:s.active?'Active':'Archived'})}));
 }
-function purListHeader(c){
- const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);
- return `<th class="${c.type==='number'?'n':''}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;
-}
+function purListHeader(c){return salesListHead(c);}
 function viewPurchasing(){
  if(!accessCan('purchasing'))return '<div class="empty">Purchasing access is required.</div>';
  if(purMoneyDraft)return purMoneyForm();
@@ -42,7 +39,7 @@ function viewPurchasing(){
  };
  return `<div class="purchasing-workspace"><div class="card sales-list-card"><div class="sales-toolbar">${purNav()}<span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new onclick="purSupplierEdit('')">+ Supplier</button></div>
   ${purNotice?`<div class="ncr-error" role="alert">${esc(purNotice)}</div>`:''}
-  ${purListFilters(infos)}<div class="sales-table-wrap"><table class="sl-table" data-pur-suppliers><thead><tr><th><button type="button" class="sl-settings" title="Columns" aria-label="Columns" data-columns-button onclick="salesListOpenColumns(event)">${ico('settings')}</button></th>${cols.map(purListHeader).join('')}</tr></thead>
+  ${purListFilters(infos)}<div class="sales-table-wrap">${(cw=>`<table class="sl-table${cw.cls}"${cw.attrs} data-pur-suppliers>${cw.col}`)(salesListCwTable(cols.map(c=>c.k),[44],0))}<thead><tr><th><button type="button" class="sl-settings" title="Columns" aria-label="Columns" data-columns-button onclick="salesListOpenColumns(event)">${ico('settings')}</button></th>${cols.map(purListHeader).join('')}</tr></thead>
   <tbody>${purPageRows(rows).map(i=>`<tr data-pur-supplier="${esc(i.s.id)}"><td></td>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No suppliers yet. Add a supplier when you need a reusable card.'}</td></tr>`}</tbody>
   </table></div>${purListPager(rows)}${salesListMenuHTML(infos)}</div></div>`;
 }

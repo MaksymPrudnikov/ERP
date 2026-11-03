@@ -24,9 +24,11 @@ function finFilterChips(){
 }
 const FIN_TABS=[['accounts','Accounts'],['schedule','Due dates'],['receipts','Payments']];
 function finWorkspaceHTML(){
- return `<div class="card fin-card"><div class="fin-workspace-head">${finOverviewHTML()}<button type="button" class="pri" data-fin-new onclick="finNewReceiptHere()">+ New receipt</button></div>
- <div class="tabs" role="tablist" aria-label="Finance sections">${FIN_TABS.map(t=>`<button role="tab" aria-selected="${finTab===t[0]}" class="${finTab===t[0]?'on':''}" onclick="finSetTab('${t[0]}')">${t[1]}</button>`).join('')}</div>
- ${finTab==='accounts'?(finAccountId?finAccountHTML():finAccountsWorkspace()):finTab==='schedule'?finScheduleHTML():finEdit!==null?finReceiptForm():finReceiptsView()}</div>${finApplyModal()}${finActionHTML()}${finStatementsHTML()}${finPreviewHTML()}${finRangeMenuHTML()}`;
+ const list=finTab==='accounts'?!finAccountId:finTab==='schedule'||finEdit===null;
+ /* Списки — вид Sales (finFrame); карточка клиента и форма оплаты — как были. */
+ return (list?`<div class="card fin-card sales-list-card sl-foot-pin">${finTab==='accounts'?finAccountsWorkspace():finTab==='schedule'?finScheduleHTML():finReceiptsView()}</div>`:`<div class="card fin-card"><div class="fin-workspace-head">${finOverviewHTML()}<button type="button" class="pri" data-fin-new onclick="finNewReceiptHere()">+ New receipt</button></div>
+ ${finPills()}
+ ${finTab==='accounts'?finAccountHTML():finReceiptForm()}</div>`)+`${finApplyModal()}${finActionHTML()}${finStatementsHTML()}${finPreviewHTML()}${finRangeMenuHTML()}`;
 }
 /* Четыре цифры по всем клиентам и переход к списку за каждой. Сколько
    должны нам, сколько из этого просрочено, и сколько денег клиентов у нас:

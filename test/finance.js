@@ -69,7 +69,7 @@ module.exports=async function({page,eq,ok}){
   DB.receipt.push(normalizeReceipt({number:'R-0001',customerId:b.cust.id,amount:250}));
   tab='finance';finSetTab('accounts');
   const rowA=document.querySelector('[data-account="'+a.cust.id+'"]').textContent,rowB=document.querySelector('[data-account="'+b.cust.id+'"]').textContent;
-  return {overLimit:finCustomerAccount(a.cust).overLimit,pill:/Over limit/.test(rowA),terms:/Net 30 days/.test(rowA),deposit:/\$250\.00/.test(rowB),applyButton:/Apply deposit/.test(rowB)};
+  return {overLimit:finCustomerAccount(a.cust).overLimit,pill:/Over limit/.test(rowA),terms:/Net 30 days/.test(rowA),deposit:/\$250\.00/.test(rowB),applyButton:(finSelect(b.cust.id),/Apply deposit/.test(document.querySelector('.fin-card .sales-toolbar').textContent))};
  }),{overLimit:true,pill:true,terms:true,deposit:true,applyButton:true});
 
  eq('заказ: в шапке Paid и Balance, у cash-заказа с внесённым депозитом — «Due at pickup», после доплаты — «Paid»; в списке колонки Receipts и Balance',await t.p.evaluate(()=>{

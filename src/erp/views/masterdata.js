@@ -92,25 +92,12 @@ let mdImportReport=null;
 function viewMasterData(){
  if(!MD_TABS.some(t=>t.k===mdTab))mdTab='materials';
  const sec=MD_SECTIONS.find(s=>s.tabs.includes(mdTab))||MD_SECTIONS[0];
- const total=DB.glassProduct.length,stocked=DB.glassProduct.filter(p=>p.stocked).length;
- const inactive=DB.glassProduct.filter(p=>p.active===false).length;
- const sheets=DB.glassSheet.length,orphans=glassOrphanSheets().length;
- /* Плитки каталога — только в его обзоре: над Prices, Company, Setup и
-    открытой карточкой они место отнимали, а не помогали (аудит 25.10.2026,
-    D-3). */
- const kpi=sec.k==='catalog'&&!mdRowFormOpen()&&!mdCatalogQuery.trim();
- return `<div class="page-head"><div><h2>Master Data</h2><p>Items, works, prices and settings.</p></div><span class="pill info">Master Data · v2</span></div>
-  ${kpi?`<div class="kpi-grid" data-md-kpi>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('layers')}</div></div><div class="kpi-num">${total}</div><div class="kpi-label">catalog items</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('inventory')}</div></div><div class="kpi-num">${stocked}</div><div class="kpi-label">kept in stock</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('purchase')}</div></div><div class="kpi-num">${sheets}</div><div class="kpi-label">supply rows</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico(orphans||inactive?'alert':'check')}</div></div><div class="kpi-num">${orphans}</div><div class="kpi-label">supply rows without a product</div></div>
-  </div>`:''}
-  <div class="card">
-   <div class="tabs" data-md-sections>${MD_SECTIONS.map(s=>`<button class="${s.tabs.includes(mdTab)?'on':''}" data-md-section="${s.k}" onclick="mdSetTab('${s.tabs[0]}')">${s.label}</button>`).join('')}</div>
-   ${sec.k!=='catalog'&&sec.tabs.length>1?`<div class="md-mat-subs" data-md-subtabs>${sec.tabs.map(k=>`<button class="sm ${mdTab===k?'on':''}" onclick="mdSetTab('${k}')">${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div>`:''}
-   ${sec.k==='catalog'?viewMdCatalog():({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
-  </div>
+ const pills=`<div class="sl-filter-row"><div class="sl-quick" role="tablist" data-md-sections>${MD_SECTIONS.map(s=>`<button type="button" role="tab" class="sl-quick-pill${s.tabs.includes(mdTab)?' on':''}" data-md-section="${s.k}" onclick="mdSetTab('${s.tabs[0]}')">${s.label}</button>`).join('')}</div></div>`;
+ const subs=sec.k!=='catalog'&&sec.tabs.length>1?`<div class="sl-filter-row md-mat-subs" data-md-subtabs><div class="sl-quick">${sec.tabs.map(k=>`<button type="button" class="sl-quick-pill${mdTab===k?' on':''}" onclick="mdSetTab('${k}')">${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div></div>`:'';
+ /* Каталог — своя раскладка (viewMdCatalog); остальные разделы — карточка с таблетками. */
+ return `${sec.k==='catalog'?viewMdCatalog(pills):`<div class="card md-card">${pills}${subs}
+   ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
+  </div>`}
   ${mdTab==='materials'&&mdMatCategory==='glass'&&(mdMatView==='glassProduct'||accessCost())?mdImportCard():''}`;
 }
 /* Станции — шаги маршрута; работы в Works ссылаются на них. Сверху — дерево
@@ -294,9 +281,8 @@ function viewMdGlass(){
    <select aria-label="Status" data-md-status onchange="mdStatus=this.value;mdGlassLimit=MD_PAGE;render()">${[['all','Any status'],['stocked','In stock'],['preorder','Pre-order'],['noshort','No short name · '+noShort],['inactive','Discontinued']].map(x=>`<option value="${x[0]}" ${mdStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select>
    <button class="pri" onclick="mdGlassNew()">+ New item</button>
   </div>
-  ${noShort?`<div class="md-short-banner" data-md-short-banner><b>${noShort}</b> glass items have no short name — people see the code.<span class="sp"></span>${mdStatus==='noshort'?`<button class="sm" onclick="mdStatus='all';mdGlassLimit=MD_PAGE;render()">Show all</button>`:`<button class="sm" onclick="mdStatus='noshort';mdGlassLimit=MD_PAGE;render()">Show only these</button>`}</div>`:''}
-  <div class="customer-table-wrap"><table><thead><tr><th>Code</th><th>Short name</th><th class="md-name-col">Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
-  <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="13" class="empty">no items found</td></tr>'}</tbody></table></div>
+    <div class="customer-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"></th><th>Code</th><th>Short name</th><th class="md-name-col">Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
+  <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="14" class="empty">no items found</td></tr>'}</tbody></table></div>
   <div class="md-more"><span class="mut" data-md-shown>${shown.length} of ${rows.length}</span>${rows.length>shown.length?` <button class="sm" data-md-more onclick="mdGlassLimit+=MD_PAGE;render()">Show ${Math.min(MD_PAGE,rows.length-shown.length)} more</button>`:''}</div>`;
 }
 let mdGlassLimit=MD_PAGE;
@@ -318,7 +304,7 @@ function mdGlassSetPrice(id,field,v){
 function mdGlassRow(p){
  const sheets=glassSheetsFor(p.code).length;
  const temper=p.temperMode==='temper_required'?'bad':p.temperMode==='annealed_only'?'warn':'info';
- return `<tr class="${p.active===false?'md-row-off':mdGlassNoShort(p)?'md-row-noshort':''}" data-md-row="glassProduct:${esc(p.id)}"><td class="mono"><b>${raw(p.code)}</b>${p.active===false?' <span class="pill warn">discontinued</span>':''}</td>
+ return `<tr class="${p.active===false?'md-row-off':mdGlassNoShort(p)?'md-row-noshort':''}" data-md-row="glassProduct:${esc(p.id)}"><td class="sl-check"><input type="checkbox" aria-label="Select ${esc(p.code)}" ${mdPeek==='glassProduct:'+p.id?'checked':''} onclick="event.stopPropagation();mdPeek=this.checked?'glassProduct:${esc(p.id)}':'';render()"></td><td class="mono"><b>${raw(p.code)}</b>${p.active===false?' <span class="pill warn">discontinued</span>':''}</td>
   <td data-md-short>${p.shortName?`<b>${raw(p.shortName)}</b>`:`<button type="button" class="gb-link md-short-add" onclick="mdGlassEdit('${esc(p.id)}','short')">add</button>`}</td>
   <td><b>${raw(p.name)}</b><div class="mut">${raw(p.manufacturer)}</div></td>
   <td class="mono">${p.thicknessMm==null?'—':p.thicknessMm+' mm'}</td>

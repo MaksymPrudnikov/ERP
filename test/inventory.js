@@ -158,9 +158,9 @@ module.exports=async function({page,eq}){
 
  eq('Sheets row: + adds with a reason, − removes, Count sets the number; Glass on rack brings a Pre-order glass with its supply sheet; sections are buttons',await t.p.evaluate(()=>{
   ivReset();ivRec([{qty:10,unit:'sheet',widthIn:144,heightIn:96}]);navGo('inventory');invGo('count');invGo('sheets');salesListSetFilter('code',{values:['6CLEAR']});
-  const act=(sel,qty,reason)=>{document.querySelector('[data-inv-row="'+ivKey+'"] '+sel).click();const q=document.getElementById('inv_wo_qty');q.value=qty;q.dispatchEvent(new Event('input'));
+  const act=(sel,qty,reason)=>{invSelect(ivKey);document.querySelector(sel).click();const q=document.getElementById('inv_wo_qty');q.value=qty;q.dispatchEvent(new Event('input'));
    const r=document.getElementById('inv_wo_reason');if(r){r.value=reason;r.dispatchEvent(new Event('change'));}document.querySelector('[data-inv-writeoff-save]').click();return ivRow().onRack;};
-  const noReason=(()=>{document.querySelector('[data-inv-row="'+ivKey+'"] [data-inv-add]').click();const q=document.getElementById('inv_wo_qty');q.value='2';q.dispatchEvent(new Event('input'));document.querySelector('[data-inv-writeoff-save]').click();const e=invNotice;invMoveDraft=null;invNotice='';render();return e;})();
+  const noReason=(()=>{invSelect(ivKey);document.querySelector('[data-inv-add]').click();const q=document.getElementById('inv_wo_qty');q.value='2';q.dispatchEvent(new Event('input'));document.querySelector('[data-inv-writeoff-save]').click();const e=invNotice;invMoveDraft=null;invNotice='';render();return e;})();
   const racks=[act('[data-inv-add]','3','Found'),act('[data-inv-remove]','1','Broken on rack'),act('[data-inv-count-one]','9')];
   const pre=activeGlassProducts().find(g=>!g.stocked&&g.cut!==false&&g.code!=='6CLEAR');DB.glassSheet.push(normalizeGlassSheet({productCode:pre.code,supplier:'Vitro',sheetWIn:120,sheetHIn:84,availability:'order'}));
   document.querySelector('[data-inv-glass-on-rack]').click();invMovePick('code',pre.code);

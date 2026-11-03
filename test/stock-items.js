@@ -142,11 +142,11 @@ module.exports=async function({page,eq}){
   await siReset();siReceive('STK-SD24',5);tab='inventory';invGo('stock');
   const head=[...document.querySelectorAll('.inv-table thead th')].map(th=>th.textContent.trim()).filter(Boolean);
   const tiles=[...document.querySelectorAll('[data-inv-tile]')].map(x=>x.getAttribute('data-inv-tile'));
-  document.querySelector('[data-inv-row="stock:STK-SD24"] [data-inv-stock-count]').click();
+  invSelect('stock:STK-SD24');document.querySelector('[data-inv-stock-count]').click();
   const q=document.getElementById('inv_stock_qty');q.value='4';q.dispatchEvent(new Event('input'));const diff=document.querySelector('[data-inv-stock-diff]').textContent;
   const sel=document.querySelector('[data-inv-stock-reason]');sel.value=sel.options[1].value;sel.dispatchEvent(new Event('change'));
   document.querySelector('[data-inv-stock-save]').click();
-  document.querySelector('[data-inv-row="stock:STK-SD24"] [data-inv-stock-remove]').click();const q2=document.getElementById('inv_stock_qty');q2.value='1';q2.dispatchEvent(new Event('input'));document.querySelector('[data-inv-stock-save]').click();
+  invSelect('stock:STK-SD24');document.querySelector('[data-inv-stock-remove]').click();const q2=document.getElementById('inv_stock_qty');q2.value='1';q2.dispatchEvent(new Event('input'));document.querySelector('[data-inv-stock-save]').click();
   const log=[...document.querySelectorAll('[data-inv-stock-log] tbody tr')].map(tr=>[...tr.children].slice(2,5).map(td=>td.textContent).join('|'));
   const e=DB.stockItemEvent[0];
   document.querySelector('[data-inv-row="stock:STK-SD24"] .inv-glass').click();const journal=[...document.querySelectorAll('[data-inv-row]')].map(tr=>tr.textContent).filter(x=>/Receipt|Count|Remove/.test(x)).length;

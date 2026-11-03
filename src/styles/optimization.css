@@ -51,3 +51,13 @@
 .sf-route-line .sf-route-step.always{background:var(--accent-soft)}.sf-route-line .sf-route-step .n{width:auto;height:auto;background:none;font-size:12px}.sf-route-line .sf-route-step b{font-size:12px}.sf-route-line .sf-route-step .codes{margin:0;font-size:11px}.sf-route-arrow{color:var(--text-3)}
 .cb-body{padding:0 20px 16px}.sales-list-card .cb-tools{margin-bottom:8px}
 .cb-seg .sl-quick-pill.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}
+.md-card .kpi-grid{margin:0 0 14px}
+.md-shell{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px;align-items:start}.md-shell.md-shell-peek{grid-template-columns:200px minmax(0,1fr) 250px}
+.md-shell>.md-tree{border:1px solid var(--line);border-radius:16px;padding:6px 0 12px;position:sticky;top:12px}.md-tree-foot{padding:10px 14px 0}
+.md-catalog-main{padding:0;min-width:0}.md-catalog-main .md-catalog-head{padding:4px 20px 8px}.md-catalog-body{padding:0 20px 16px}
+.md-bar .stk-seg{display:inline-flex}.md-bar-search{width:280px;height:auto;min-height:30px;margin:0;padding:4px 10px}
+.md-catalog-main tr[data-md-row] td:last-child>button{display:none}.md-catalog-main tr[data-md-row]{cursor:pointer}
+@media (max-width:1100px){.md-shell.md-shell-peek{grid-template-columns:200px minmax(0,1fr)}.md-shell .md-peek{grid-column:1/-1}}
+@media (max-width:700px){.md-shell,.md-shell.md-shell-peek{grid-template-columns:1fr}.md-shell>.md-tree{position:static}}
+.md-catalog-main .md-toolbar{gap:6px;margin:0 0 10px}.md-catalog-main .md-toolbar select,.md-catalog-main .md-toolbar input{height:auto;min-height:30px;padding-top:4px;padding-bottom:4px;font-size:13px}
+.md-catalog-main .md-row-noshort td:first-child{box-shadow:none}.md-catalog-main .md-catalog-health{display:inline-flex;gap:6px}

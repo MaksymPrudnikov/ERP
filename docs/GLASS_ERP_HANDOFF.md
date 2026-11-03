@@ -2,6 +2,30 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Остальные разделы в виде Sales: Finance, Inventory, Customers, Users, Agents, Data, Stock · 3 ноября 2026
+
+Владелец, 03.11.2026: «делай и делай чтобы все работало корректно».
+
+- Общее (`views/sales-list-ui.js`): `salesListHead(c)` — заголовок с фильтром, шириной и переносом;
+  `salesListCwTable(keys,lead,trail,defs)` — ширина и порядок для списка экрана (адаптер по scope при первом показе);
+  `salesListTableHTML(o)` — таблица со своими строками (Columns, фильтры, итог). Подключены Finance, Purchasing,
+  Inventory, Customers, журнал входов.
+- Finance (`finance-lists.js`, `finance-workspace.js`): разделы таблетками, галочка строки (`finSel`), Open / Apply
+  deposit / Invoice / Terms — сверху для отмеченной, шестерёнка слева, `finFrame` — шапка, таблетки и плитки.
+  Карточка клиента и форма оплаты — как были.
+- Inventory: разделы таблетками, `invSel` — + Add / − Remove / Count в шапке для отмеченной строки Sheets и Stock items
+  (правая кнопка отмечает строку).
+- Customers: Open / Duplicate / Archive / Delete сверху для отмеченного (`custSel`), итог внизу. Users: таблетки,
+  Edit / Remove сверху (`uSel`), итог. Agents: период таблетками. Везде «1 selected», имя — подсказкой.
+- Data (`md-catalog.js`, `masterdata.js`) по картинке владельца: дерево — своя карточка слева, внизу счётчики (в стоке,
+  поставки без товара; плиток нет); справа шапка — действия отмеченной строки (`mdSyncBar`: Open, Hide preview и
+  кнопки строки, в строке они скрыты), поиск и All catalog; таблетки разделов и плашки (No price…) в одном ряду;
+  фильтры раздела — компактной строкой; у стекла колонка галочек; карточка строки справа (`mdPreview`, нравится
+  владельцу). Баннера «no short name» нет — фильтр в Status и плашка. Остальные разделы Data — карточка с таблетками.
+- Окна Activity log, Cut preview и Ready: ширина колонок тянется (`cwStaticTable`, порядок постоянный).
+- Optimization → Stock: настоящий список (scope `glassStock`, `stockListColumns`).
+- Опись функций «до / после» на двух базах — без потерь. Руководство: `docs/manual/lists.ru.md` и `lists.en.md`.
+
 ## Shipping и Production в виде Sales · 3 ноября 2026
 
 Владелец, 03.11.2026: «все экраны в один стиль», примеры «было / будет» до кода; Delivery — вариант A, Stations —

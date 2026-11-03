@@ -22,7 +22,7 @@ function orderLogDialogHTML(){
  const rows=orderLogFor(o.id).map(r=>`<tr data-order-log-row><td>${esc(orderLogWhen(r.at))}</td><td>${r.by?raw(r.by):'<span class="mut">—</span>'}</td><td><b>${esc(r.what)}</b>${r.note?` <span class="order-log-note">· ${raw(r.note)}</span>`:''}${undo(r)}</td></tr>`).join('');
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)orderLogClose()"><div class="sales-service-modal sales-dialog order-log-dialog" role="dialog" aria-modal="true" aria-label="Activity log" data-order-log>
   <div class="sales-service-modal-head"><div><span>Activity log</span><h3 data-raw>${esc([o.businessNumber,salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))}</h3></div><button type="button" aria-label="Close" onclick="orderLogClose()">×</button></div>
-  <div class="sales-dialog-body"><table class="order-log-table"><thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`;
+  <div class="sales-dialog-body">${(t=>`<table class="order-log-table${t.cls}"${t.attrs}>${t.col}<thead><tr>${t.head}</tr></thead>`)(cwStaticTable('orderLog',[['when','When'],['who','Who'],['what','What']]))}<tbody>${rows}</tbody></table></div></div></div>`;
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(orderLogDialogHTML);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&orderLogView)orderLogClose();});
