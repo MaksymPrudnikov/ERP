@@ -304,16 +304,17 @@ function storageIdbGet(keys){
 /* Набор изменений — одной транзакцией вместе с номером записи, версией и
    меткой TEST (test не передан — метка не трогается). cold — запись уходит
    в архив; warm — запись вернулась из архива (её копия там удаляется);
-   coldClear — архив и его указатель очищаются (Import заменяет базу
-   целиком); `_archive` — строка указателя архива. Остальные записи склад
+   coldClear — архив, его указатель и строки отчётов очищаются (Import
+   заменяет базу целиком); `_archive` — строка указателя архива. Остальные записи склад
    архива не трогают: старт новой установки пишет всё сразу. cloud — пары
    [ключ, значение] склада cloud той же транзакцией (null — удалить): строка
    и её отправка на сервер не расходятся. */
 function storageIdbWrite(changes,rev,build,test,cloud){
- return storageIdbTx(cloud&&cloud.length?['record','cold','archive','meta','cloud']:['record','cold','archive','meta'],'readwrite',tx=>{
+ const stores=['record','cold','archive','meta'].concat(cloud&&cloud.length?['cloud']:[],changes.some(c=>c.coldClear)?['facts']:[]);
+ return storageIdbTx(stores,'readwrite',tx=>{
   const rs=tx.objectStore('record'),cs=tx.objectStore('cold'),as=tx.objectStore('archive'),ms=tx.objectStore('meta');
   changes.forEach(c=>{
-   if(c.coldClear){cs.clear();as.clear();return;}
+   if(c.coldClear){cs.clear();as.clear();tx.objectStore('facts').clear();return;}
    if(c.tbl==='_archive'){if(c.del)as.delete(c.id);else as.put({id:c.id,row:JSON.parse(c.data)});return;}
    const k=[c.tbl,c.id];
    if(c.cold){rs.delete(k);cs.put({tbl:c.tbl,id:c.id,seq:c.seq,data:c.data,owners:c.owners||[],month:c.month||''});}
