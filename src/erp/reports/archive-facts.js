@@ -24,13 +24,15 @@
    оплата на два заказа) приходит с каждым её заказом: одинаковый id —
    одна строка, из двух — более ранняя. Работа важнее архива (shared), кроме
    строк, которым нужен заказ (cold: батч × заказ, оплата × заказ: в работе
-   заказа нет, номер и дни известны только из архива). Материалы IGU — итоги
-   день × человек: одинаковый id складывается (sum).
+   заказа нет, номер и дни известны только из архива), и первого реза листа
+   (early: лист резали два заказа, ранний скан мог уйти в архив, поздний
+   остаться в работе). Материалы IGU — итоги день × человек: одинаковый id
+   складывается (sum).
    ===================================================================== */
 const ARCHIVE_PART=40;
 const ARCH_GENS={
  work:{fn:'repWorkFacts'},op:{fn:'repOpFacts'},break:{fn:'repBreakFacts'},order:{fn:'repOrderFacts'},ordered:{fn:'repOrderedFacts'},sold:{fn:'repSoldFacts'},quote:{fn:'repQuoteFacts'},
- delivery:{fn:'repDeliveryFacts',shared:true},sheet:{fn:'repSheetFacts',shared:true},sheetcut:{fn:'repSheetCutFacts',shared:true},move:{fn:'repSheetMoveFacts',shared:true},
+ delivery:{fn:'repDeliveryFacts',shared:true},sheet:{fn:'repSheetFacts',shared:true},sheetcut:{fn:'repSheetCutFacts',shared:true,early:true},move:{fn:'repSheetMoveFacts',shared:true,early:true},
  receipt:{fn:'repReceiptFacts',shared:true},refund:{fn:'repRefundFacts',shared:true},
  batch:{fn:'repBatchFacts',shared:true,cold:true,own:r=>r.orderId},payorder:{fn:'repPayOrderFacts',shared:true,cold:true,own:r=>String(r.id).split('|')[1]},
  igu:{fn:'repIguMaterialFacts',shared:true,sum:['qty','units','missing','spacerFt','sealantKg','gasKg','partsKg']}
@@ -243,6 +245,7 @@ function archiveFactsMerge(gen,hot,args){
  const g=ARCH_GENS[gen];
  if(!g.shared)out=hot.concat(cold);
  else if(g.sum)out=archiveIguJoin(g,hot,cold);
+ else if(g.early){const m=new Map(hot.map(r=>[r.id,r]));cold.forEach(r=>{const was=m.get(r.id);if(!was||r.at<was.at)m.set(r.id,r);});out=[...m.values()];}
  else if(g.cold){const ids=new Set(cold.map(r=>r.id));out=hot.filter(r=>!ids.has(r.id)).concat(cold);}
  else{const ids=new Set(hot.map(r=>r.id));out=hot.concat(cold.filter(r=>!ids.has(r.id)));}
  if(gen==='delivery')out=archiveTripKm(out);
