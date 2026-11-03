@@ -89,20 +89,21 @@ function stockUiBar(rows){
   +b('data-stock-use-menu','Use in batch ▾',`stockUiUseMenu(event,'${id}')`,!!r&&r.status==='stock'&&!w)+b('data-stock-print','Sticker',`stockUiPrint('${id}')`,!!r&&r.status==='stock'&&!w)
   +b('data-stock-drop','Back to waste',`stockUiDrop('${id}')`,!!r&&r.status==='stock'&&!w,'sl-delete-quiet');
 }
+function stockListColumns(){return [{k:'id',label:'Stock',type:'text'},{k:'glass',label:'Glass',type:'list'},{k:'mm',label:'Thickness',type:'list'},{k:'size',label:'Size',type:'text'},{k:'area',label:'ft²',type:'number',sum:true,digits:2},{k:'from',label:'From',type:'text'},{k:'booked',label:'Booked',type:'date'},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
 function viewStockList(){
  const rows=stockOffcutRows(),live=rows.filter(r=>r.status==='stock'),off=rows.filter(r=>r.status!=='stock');
  const shown=stockShowOff?rows:live;
- const row=r=>`<tr data-stock-row="${esc(r.id)}" class="${r.status==='stock'?'':'off'}${stockSel===r.id?' oq-selected':''}" oncontextmenu="stockUiContext(event,'${esc(r.id)}')">
-  <td class="sl-check"><input type="checkbox" data-stock-check aria-label="Select ${esc(r.id)}" ${stockSel===r.id?'checked':''} onchange="stockUiSelect('${esc(r.id)}',this.checked)"></td>
-  <td><span class="pill ${r.status==='stock'?'ok':''}">${esc(r.id)}</span></td>
-  <td>${esc(r.glass)}${r.mm?' · '+r.mm+' mm':''}</td>
-  <td class="nowrap"><b>${esc(frac16(r.w))} × ${esc(frac16(r.h))}″</b></td>
-  <td class="n">${r.area}</td>
-  <td>${esc(r.batch)}${r.sheet?' · sheet '+r.sheet:''}</td>
-  <td>${esc(salesShortDate(r.at))}</td>
-  <td>${r.status!=='stock'?'<span class="mut">Back to waste</span>':(w=>w?`<span class="pill" data-stock-in>${w.laid?'In':'Picked for'} ${esc(w.batch)}</span>`:'<span class="mut">On the rack</span>')(stockUiWhere(r.id))}</td>
-  <td></td></tr>`;
- const body=shown.map(row).join('')||`<tr><td colspan="9" class="empty" data-stock-empty>Nothing in stock yet. Offcuts get here from a batch layout: right-click an offcut → To stock.</td></tr>`;
+ /* Список вида Sales: Columns, фильтры, ширина и порядок, итог (этап 6). */
+ const where=r=>r.status!=='stock'?'Back to waste':(w=>w?(w.laid?'In ':'Picked for ')+w.batch:'On the rack')(stockUiWhere(r.id));
+ const infos=shown.map(r=>({o:{id:r.id},r,memo:{id:r.id,glass:r.glass,mm:r.mm?r.mm+' mm':'',size:frac16(r.w)+' × '+frac16(r.h)+'″',area:r.area,from:r.batch+(r.sheet?' · sheet '+r.sheet:''),booked:finLocalDate(r.at),status:where(r)}})),list=salesListRows(infos);
+ const cell=(i,c)=>{const r=i.r,v=i.memo[c.k];switch(c.k){
+  case 'id':return `<td><span class="pill ${r.status==='stock'?'ok':''}">${esc(v)}</span></td>`;
+  case 'size':return `<td class="nowrap"><b>${esc(v)}</b></td>`;
+  case 'booked':return `<td>${esc(salesShortDate(r.at))}</td>`;
+  case 'status':return `<td>${r.status!=='stock'?'<span class="mut">Back to waste</span>':(w=>w?`<span class="pill" data-stock-in>${w.laid?'In':'Picked for'} ${esc(w.batch)}</span>`:'<span class="mut">On the rack</span>')(stockUiWhere(r.id))}</td>`;
+  default:return `<td${c.type==='number'?' class="n"':''}>${v===''||v==null?'<span class="mut">—</span>':esc(String(v))}</td>`;}};
+ const row=i=>{const r=i.r;return {attrs:` data-stock-row="${esc(r.id)}" class="${r.status==='stock'?'':'off'}${stockSel===r.id?' oq-selected':''}" oncontextmenu="stockUiContext(event,'${esc(r.id)}')"`,first:`<td class="sl-check"><input type="checkbox" data-stock-check aria-label="Select ${esc(r.id)}" ${stockSel===r.id?'checked':''} onchange="stockUiSelect('${esc(r.id)}',this.checked)"></td>`};};
+ const table=salesListTableHTML({infos,rows:list,cell,row,noun:r=>r.length+' offcut'+(r.length===1?'':'s'),empty:shown.length?'Nothing matches the filters.':'<span data-stock-empty>Nothing in stock yet. Offcuts get here from a batch layout: right-click an offcut → To stock.</span>'});
  return `<section class="optimization-queue">
   <div class="card oq-card sales-list-card sl-foot-pin"><div class="oq-toolbar sales-toolbar">${stockUiBar(shown)}<b class="oq-sel" data-stock-total title="Offcuts booked from cut layouts. To cut one, tick its S-… row in the batch layout: Reset → SHEETS → Build.">${live.length} in stock · ${stockOffcutTotal()} ft\u00b2</b><span class="sales-toolbar-sp"></span>
    ${off.length?`<label class="chk"><input type="checkbox" data-stock-show-off ${stockShowOff?'checked':''} onchange="stockUiShowOff(this.checked)"> Show ${off.length} back to waste</label>`:''}</div>
@@ -110,6 +111,6 @@ function viewStockList(){
    ${cutNotice?`<div class="ncr-error" role="alert" data-stock-error>${esc(cutNotice)}</div>`:''}
    ${stockInfo?`<div class="cut-info" data-stock-info>${esc(stockInfo.id)} ${stockInfo.used?'→':'✕'} ${esc(stockInfo.batch)}${stockInfo.used?' · press Build there':''}
     <button type="button" class="gb-link" data-stock-info-open onclick="stockUiOpenBatch('${esc(stockInfo.batch)}')">Open ${esc(stockInfo.batch)}</button></div>`:''}
-   <div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"></th><th>Stock</th><th>Glass</th><th>Size</th><th class="n">ft\u00b2</th><th>From</th><th>Booked</th><th>Status</th><th></th></tr></thead><tbody>${body}</tbody></table></div>
+   ${table}
   </div>${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;
 }
