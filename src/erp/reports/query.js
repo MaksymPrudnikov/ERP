@@ -265,7 +265,9 @@ function repQuery(q,ctx){
  const rowKey=more.length?r=>[dims[0]].concat(more).map(d=>repDimValue(S,r,d)).join('\u0002'):null;
  const out={source:q.source,label:S.label,df,range,dims,more,metrics:ms,count:rows.length,rows,total:vals(rows),keys:[],keys2:[],cells:new Map(),rowTotals:new Map(),colTotals:new Map(),groups:new Map()};
  if(dims[0]){
-  const g1=repGroupBy(S,rows,dims[0],rowKey);let keys=repOrderKeys(S,dims[0],g1,ms,q,range);
+  /* Несколько измерений строк — по умолчанию по именам: строки одной толщины
+     и одного стекла идут подряд, батчи внутри (найти глазами). */
+  const g1=repGroupBy(S,rows,dims[0],rowKey);let keys=repOrderKeys(S,dims[0],g1,ms,rowKey&&!q.sort?Object.assign({},q,{sort:{by:'label',i:0,dir:'asc'}}):q,range);
   /* Топ N: остальное — строкой «Other», если попросили. Даты не режутся. */
   if(!repIsTime(S,dims[0])&&q.limit>0&&keys.length>q.limit){const rest=keys.slice(q.limit);keys=keys.slice(0,q.limit);if(q.other){g1.set('__other',rest.flatMap(k=>g1.get(k)));keys.push('__other');}}
   out.keys=keys;out.groups=g1;keys.forEach(k=>out.rowTotals.set(k,vals(g1.get(k)||[])));

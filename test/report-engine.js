@@ -456,10 +456,14 @@ module.exports=async function({page,eq,ok}){
   try{
    const box=document.createElement('div');document.body.appendChild(box);box.innerHTML=repChart(r,r.pages[0].widgets[0]);
    const head=[...box.querySelectorAll('thead th')].map(x=>x.textContent),body=[...box.querySelectorAll('tbody tr')].map(tr=>[...tr.children].map(x=>x.textContent).join(' | ')),foot=box.querySelector('tfoot td').colSpan;
-   box.innerHTML=repChart(r,r.pages[0].widgets[1]);const bars=[...box.querySelectorAll('.ch-hbar-label')].map(x=>x.textContent);box.remove();
-   return {head,body,foot,bars};
+   box.innerHTML=repChart(r,r.pages[0].widgets[1]);const bars=[...box.querySelectorAll('.ch-hbar-label')].map(x=>x.textContent);
+   /* Наоборот: толщина, стекло, внутри батчи — по именам, группа подряд, повтор бледно. */
+   const inv=repClean({date:{preset:'all'},pages:[{widgets:[repCleanWidget({type:'table',q:{source:'qa',dims:['mm'],more:['g','k'],metrics:['count']}})]}]});
+   rows.push({id:'4',at:'2024-01-01',k:'B-3',g:'6CLEAR',mm:'6 mm',n:1});box.innerHTML=repChart(inv,inv.pages[0].widgets[0]);
+   const grouped=[...box.querySelectorAll('tbody tr')].map(tr=>[...tr.children].slice(0,3).map(x=>(x.classList.contains('rep-same')?'~':'')+x.textContent).join(' | '));box.remove();
+   return {head,body,foot,bars,grouped};
   }finally{delete REP_SRC.qa;}
- }),{head:['Batch','Glass','Thickness','Rows'],body:['B-2 | 6CLEAR | 6 mm | 2','B-1 | 4E272 | 4 mm | 1'],foot:3,bars:['B-2','B-1']});
+ }),{head:['Batch','Glass','Thickness','Rows'],body:['B-2 | 6CLEAR | 6 mm | 2','B-1 | 4E272 | 4 mm | 1'],foot:3,bars:['B-2','B-1'],grouped:['4 mm | 4E272 | B-1','6 mm | 6CLEAR | B-2','~6 mm | ~6CLEAR | B-3']});
  eq('Долгий отчёт: вместо замершей страницы — процент, графики считаются в фоне; после записи прежние графики на экране, пока считаются новые',await t.p.evaluate(async()=>{
   const rows=Array.from({length:50},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+(i%5),n:1}));
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};

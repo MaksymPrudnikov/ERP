@@ -194,6 +194,7 @@ button.ch-stat.warn b{color:var(--warning)}
 .rep-cmp{color:var(--text-3);font-size:12px}
 .rep-w .n{text-align:right;font-variant-numeric:tabular-nums}
 .rep-table td[role=button]{cursor:pointer}
+.rep-table td.rep-same,.rep-table td.rep-same b{color:var(--text-3);font-weight:400}
 /* Все строки и все значения — прокрутка внутри карточки, шапка и итог на месте. */
 .rep-scroll{max-height:70vh;overflow:auto}
 .rep-scroll .rep-table thead th{position:sticky;top:0;z-index:1;background:var(--surface)}

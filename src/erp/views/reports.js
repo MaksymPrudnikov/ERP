@@ -148,13 +148,15 @@ function repTableBody(w,keys,rowHTML){
 function repTableMore(el){
  const x=repTableRest.get(el.dataset.repScroll);if(!x||el.scrollTop+el.clientHeight<el.scrollHeight-600)return;
  const body=el.querySelector('tbody'),end=Math.min(x.at+REP_TABLE_STEP,x.keys.length);if(!body)return;
- body.insertAdjacentHTML('beforeend',readScope(()=>x.keys.slice(x.at,end).map(x.rowHTML).join('')));x.at=end;if(end>=x.keys.length)repTableRest.delete(el.dataset.repScroll);
+ body.insertAdjacentHTML('beforeend',readScope(()=>{let html='';for(let i=x.at;i<end;i++)html+=x.rowHTML(x.keys[i],i,x.keys);return html;}));x.at=end;if(end>=x.keys.length)repTableRest.delete(el.dataset.repScroll);
 }
 function repTableHTML(r,S,res,w){
  const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],cmp=res.compare&&!d2;
  /* Измерения строк: первое и ещё (res.more) — каждое своей колонкой. */
  const rowDims=[d1].concat(res.more||[]),rowHead=at=>rowDims.map(d=>`<th${at||''}>${esc(repDimLabel(S,d))}</th>`).join('');
- const rowCells=k=>{const parts=String(k).split('\u0002');return rowDims.map((d,j)=>{const v=parts[j];if(v==null)return '<td></td>';const t=esc(repKeyText(S,d,v));return `<td${repPickAttrs(r,S,d,v)}>${j?`<span data-raw>${t}</span>`:`<b data-raw>${t}</b>`}</td>`;}).join('');},totalCell=`<td colspan="${rowDims.length}"><b>Total</b></td>`;
+ /* Значение, как в строке выше, — бледно: группа видна, «6 mm · 6CLEAR» и батчи под ней. */
+ const rowCells=(k,i,arr)=>{const parts=String(k).split('\u0002'),prev=i>0&&arr?String(arr[i-1]).split('\u0002'):[];let same=rowDims.length>1;
+  return rowDims.map((d,j)=>{const v=parts[j];if(v==null)return '<td></td>';same=same&&j<rowDims.length-1&&prev[j]===v;const t=esc(repKeyText(S,d,v));return `<td${repPickAttrs(r,S,d,v)}${same?' class="rep-same"':''}>${j?`<span data-raw>${t}</span>`:`<b data-raw>${t}</b>`}</td>`;}).join('');},totalCell=`<td colspan="${rowDims.length}"><b>Total</b></td>`;
  if(!d1)return `<div class="sales-table-wrap"><table class="sl-table rep-table"><thead><tr>${ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')}</tr></thead><tbody><tr>${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr></tbody></table></div>`;
  const keys=res.keys,label=k=>repKeyText(S,d1,k);let head,body,foot='';
  if(d2){
@@ -163,11 +165,11 @@ function repTableHTML(r,S,res,w){
   const k2=res.keys2,cell=(v,m)=>v?esc(repFmt(m,v)):'<span class="mut">·</span>',many=ms.length>1;
   head=many?`${rowHead(' rowspan="2"')}${k2.map(k=>`<th class="n rep-group" colspan="${ms.length}" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n rep-group" colspan="${ms.length}">Total</th></tr><tr>${k2.concat(['']).map(()=>ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')).join('')}`
    :`${rowHead()}${k2.map(k=>`<th class="n" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n">Total</th>`;
-  body=repTableBody(w,keys,k=>`<tr>${rowCells(k)}${k2.map(b=>ms.map((m,i)=>`<td class="n">${cell((res.cells.get(k+'\u0001'+b)||[])[i],m)}</td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(k)[i]))}</b></td>`).join('')}</tr>`);
+  body=repTableBody(w,keys,(k,i,arr)=>`<tr>${rowCells(k,i,arr)}${k2.map(b=>ms.map((m,i)=>`<td class="n">${cell((res.cells.get(k+'\u0001'+b)||[])[i],m)}</td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(k)[i]))}</b></td>`).join('')}</tr>`);
   if(w.opts.totals)foot=`<tr class="sl-foot">${totalCell}${k2.map(b=>ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.colTotals.get(b)[i]))}</b></td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr>`;
  }else{
   head=`${rowHead()}${ms.map(m=>`<th class="n">${esc(m.label)}</th>`+(cmp?`<th class="n rep-cmp">${esc(repCmpText(res))}</th>`:'')).join('')}`;
-  body=repTableBody(w,keys,k=>`<tr>${rowCells(k)}${ms.map((m,i)=>`<td class="n">${repCellHTML(m,res.rowTotals.get(k)[i])}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`);
+  body=repTableBody(w,keys,(k,n,arr)=>`<tr>${rowCells(k,n,arr)}${ms.map((m,i)=>`<td class="n">${repCellHTML(m,res.rowTotals.get(k)[i])}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`);
   if(w.opts.totals)foot=`<tr class="sl-foot">${totalCell}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.total[i],res.compare.total[i]))}</td>`:'')).join('')}</tr>`;
  }
  return `<div class="sales-table-wrap rep-scroll" data-rep-scroll="${esc(w.id)}" onscroll="repTableMore(this)"><table class="sl-table rep-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>REP_TABLE_STEP?`<div class="mut small" data-rep-rows>${chNum(keys.length)} rows</div>`:''}`;
