@@ -112,8 +112,8 @@ function repDates(S){return (S.date||[]).filter(k=>repField(S,k));}
 function repDimOptions(S){
  const out=[];
  repFields(S).forEach(f=>{
-  if(f.type==='dim'||f.type==='text')out.push([f.k,f.label]);
-  if(f.type==='date')REP_GRAINS.forEach(([g,l])=>{if(g==='hour'&&!/at$/.test(f.k))return;out.push([f.k+':'+g,l+(repDates(S).length>1?' · '+f.label:'')]);});
+  if(f.type==='dim'||f.type==='text')out.push([f.k,f.label,repFieldNote(f)]);
+  if(f.type==='date')REP_GRAINS.forEach(([g,l])=>{if(g==='hour'&&!/at$/.test(f.k))return;out.push([f.k+':'+g,l+(repDates(S).length>1?' · '+f.label:''),'Group by '+l.toLowerCase()+' of '+f.label+' (date)']);});
  });
  return out;
 }
@@ -154,12 +154,31 @@ function repMetric(S,k,custom){
  const agg=REP_AGGS.some(x=>x[0]===b)?b:'sum';
  return {k,label:f.label+(agg==='sum'?'':' · '+REP_AGGS.find(x=>x[0]===agg)[1].toLowerCase()),agg,f:a,digits:agg==='avg'?Math.max(1,f.digits||0):f.digits,money:f.money,unitBy:f.unitBy};
 }
+/* Что это за поле и показатель — одной строкой в подсказках и под списками
+   (владелец, 03.11: «Glass два раза без объяснения, что и как»). */
+const REP_FIELD_NOTES={'Glass':'glass type','Thickness':'glass thickness','Customer':'who ordered','Order':'order number','Batch':'cutting batch','Glass ID':'one piece of glass',
+ 'Sheet size':'size of the raw sheet','Size':'size of the piece','Shape':'rectangle or shape','Manufacturer':'who makes the glass','Station':'where it was scanned','Dolly / skid':'carrier the glass sits on',
+ 'PO':'customer PO number','Sales rep':'who sold it','Unit type':'IGU, lami or single','Temper':'annealed, tempered or heat-strengthened','Due':'date promised','Priority':'order priority','Line mark':'mark on the order line',
+ 'Glass pcs':'number of glass pieces','Glass ft²':'area of the glass pieces','Sheet ft²':'area of the raw sheets','Waste ft²':'offcut area thrown away','Units':'finished units','Sheets':'raw sheets','Linear in':'edge length, inches',
+ '$ by price list':'work priced by the price list','Order total':'order amount'};
+function repFieldNote(f){
+ const ty=f.type==='dim'?'list':f.type==='num'?'number':f.type,n=REP_FIELD_NOTES[f.label];
+ return f.label+' — '+(n?n+' ':'')+'('+ty+(f.type==='dim'?', group or filter by it':f.type==='num'?', can be summed or averaged':'')+')';
+}
+function repMetricNote(S,m){
+ const fl=k=>{const f=repField(S,k);return f?f.label:k;};
+ const w=m.agg==='count'?'counts rows'+(S.hint?': '+S.hint.charAt(0).toLowerCase()+S.hint.slice(1):'')
+  :m.agg==='sum'?'total of '+fl(m.f):m.agg==='avg'?'average of '+fl(m.f):m.agg==='min'?'smallest '+fl(m.f):m.agg==='max'?'largest '+fl(m.f)
+  :m.agg==='distinct'?'how many different '+fl(m.f)+' values':m.agg==='nonempty'?'rows where '+fl(m.f)+' is filled'
+  :m.agg==='ratio'?fl(m.num)+' ÷ '+fl(m.den)+(m.pct?' in %':''):m.agg==='formula'?'your formula':m.agg==='calc'?'calculated':'';
+ return m.label+' — '+w;
+}
 function repMetricOptions(S,custom){
- const out=(S.metrics||[]).map(m=>[m.k,m.label]);
- const src=repSrcKey(S);(custom||repCustomCur).filter(x=>x.source===src).forEach(x=>out.push(['cm:'+x.id,x.name]));
+ const out=(S.metrics||[]).map(m=>[m.k,m.label,repMetricNote(S,m)]);
+ const src=repSrcKey(S);(custom||repCustomCur).filter(x=>x.source===src).forEach(x=>out.push(['cm:'+x.id,x.name,x.name+' — your formula: '+x.formula]));
  repFields(S).forEach(f=>{
-  if(f.type==='num'){REP_AGGS.forEach(([a,l])=>{const k=a==='sum'?f.k:f.k+':'+a;if(!out.some(x=>x[0]===k))out.push([k,f.label+(a==='sum'?'':' · '+l.toLowerCase())]);});}
-  if(f.type==='dim'||f.type==='text'){out.push(['count:'+f.k,f.label+' · count']);out.push(['distinct:'+f.k,f.label+' · distinct']);}
+  if(f.type==='num'){REP_AGGS.forEach(([a,l])=>{const k=a==='sum'?f.k:f.k+':'+a;if(!out.some(x=>x[0]===k)){const m=repMetric(S,k,custom);out.push([k,f.label+(a==='sum'?'':' · '+l.toLowerCase()),m?repMetricNote(S,m):'']);}});}
+  if(f.type==='dim'||f.type==='text'){const c=repMetric(S,'count:'+f.k,custom),d=repMetric(S,'distinct:'+f.k,custom);out.push(['count:'+f.k,f.label+' · count',repMetricNote(S,c)]);out.push(['distinct:'+f.k,f.label+' · distinct',repMetricNote(S,d)]);}
  });
  return out;
 }
