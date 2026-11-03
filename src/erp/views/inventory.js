@@ -34,8 +34,8 @@ function invSelect(id,on=true){invSel=on?id:'';render();}
 function invSelActs(infos){
  const i=infos.find(x=>x.o.id===invSel);if(!i)return '';
  const b=(attr,label,fn,aria)=>'<button type="button" class="sl-quiet" '+attr+(aria?' aria-label="'+aria+'" title="'+aria+'"':'')+' onclick="'+fn+'">'+label+'</button>';
- if(invView==='sheets'){const r=i.r;if(r.sizeMissing)return '';const k=invArg(r.key);return '<b class="oq-sel">'+esc(r.code||'')+'</b>'+b('data-inv-add','+ Add','invMoveOpen('+k+',\'add\')','Add sheets')+b('data-inv-remove','− Remove','invMoveOpen('+k+',\'writeoff\')','Remove sheets')+b('data-inv-count-one','Count','invMoveOpen('+k+',\'count\')');}
- if(invView==='stock'){const r=i.r,id=invArg(r.id);if(invStockEdit&&invStockEdit.id===r.id)return '';return '<b class="oq-sel">'+esc(r.name||r.code||'')+'</b>'+b('data-inv-stock-add','+ Add','invStockOpen('+id+',\'add\')','Add')+b('data-inv-stock-remove','− Remove','invStockOpen('+id+',\'remove\')','Remove')+b('data-inv-stock-count','Count','invStockOpen('+id+',\'count\')');}
+ if(invView==='sheets'){const r=i.r;if(r.sizeMissing)return '';const k=invArg(r.key);return '<b class="oq-sel" title="'+esc(r.code||'')+'">1 selected</b>'+b('data-inv-add','+ Add','invMoveOpen('+k+',\'add\')','Add sheets')+b('data-inv-remove','− Remove','invMoveOpen('+k+',\'writeoff\')','Remove sheets')+b('data-inv-count-one','Count','invMoveOpen('+k+',\'count\')');}
+ if(invView==='stock'){const r=i.r,id=invArg(r.id);if(invStockEdit&&invStockEdit.id===r.id)return '';return '<b class="oq-sel" title="'+esc(r.name||r.code||'')+'">1 selected</b>'+b('data-inv-stock-add','+ Add','invStockOpen('+id+',\'add\')','Add')+b('data-inv-stock-remove','− Remove','invStockOpen('+id+',\'remove\')','Remove')+b('data-inv-stock-count','Count','invStockOpen('+id+',\'count\')');}
  return '';
 }
 /* Раздел — с чистого листа: фильтр журнала по стеклу ставит только

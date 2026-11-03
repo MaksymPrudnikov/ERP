@@ -94,13 +94,14 @@ function finListFooter(all,cols,noun){
    шестерёнка слева, ширина и порядок колонок, итог. */
 let finSel='';
 function finSelect(id,on=true){finSel=on?id:'';render();}
-function finListTable(infos,cell,rowAttrs,noun,empty){
+function finListTable(infos,cell,rowAttrs,noun,empty,names){
  const p=salesListLoadPrefs(),rows=salesListRows(infos),cols=salesListColumns();
  if(finSel&&!rows.some(r=>r.o.id===finSel))finSel='';
  const body=rows.map(r=>{const on=finSel===r.o.id;return `<tr ${rowAttrs(r)}${on?' data-fin-sel':''}><td class="sl-check" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(String(r.memo.number||r.memo.customer||r.o.id))}" ${on?'checked':''} onchange="finSelect('${esc(r.o.id)}',this.checked)"></td>${cols.map(c=>cell(r,c)).join('')}<td></td></tr>`;}).join('');
  const cw=salesListCwTable(cols.map(c=>c.k),[44],20,{due:130,terms:150,days:110,balance:110,outstanding:110,limit:110,state:130,status:110}),sel=rows.find(r=>r.o.id===finSel);
  const acts=(sel&&sel.acts||[]).map(([l,fn,attr])=>`<button type="button" class="sl-quiet" ${attr||''} onclick="${fn}">${l}</button>`).join('');
- return {rows,acts:sel?`<b class="oq-sel">1 selected</b>${acts}`:'',html:`${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table fin-list${cw.cls}"${cw.attrs}>${cw.col}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(c=>finListTh(c,p)).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'Nothing matches the filters.':empty}</td></tr>`}</tbody>${rows.length?finListFooter(rows,cols,noun):''}</table></div>${salesListMenuHTML(infos)}`};
+ /* Ничего не отмечено — те же кнопки серыми, как в Sales: шапка не пустеет. */
+ return {rows,acts:sel?`<b class="oq-sel">1 selected</b>${acts}`:(names||[]).map(l=>`<button type="button" class="sl-quiet" disabled title="Tick a row">${l}</button>`).join(''),html:`${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table fin-list${cw.cls}"${cw.attrs}>${cw.col}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(c=>finListTh(c,p)).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'Nothing matches the filters.':empty}</td></tr>`}</tbody>${rows.length?finListFooter(rows,cols,noun):''}</table></div>${salesListMenuHTML(infos)}`};
 }
 /* Шапка, таблетки разделов и плитки — общие для трёх списков Finance. */
 function finFrame(left,right,html){
@@ -135,7 +136,7 @@ function finAccountCell(r,c){
 function finAccountsList(){return salesListRows(finAccountInfos()).map(r=>({c:r.c,m:r.m}));}
 function finAccountsWorkspace(){
  const infos=finAccountInfos();infos.forEach(r=>{r.acts=[['Open',`finOpenAccount('${esc(r.c.id)}')`]].concat(r.m.money.deposit>0&&r.m.money.balance>0?[['Apply deposit',`finOpenApply('${esc(r.c.id)}')`]]:[]);r.applyHint=r.m.money.deposit>0&&r.m.money.balance>0;});
- const t=finListTable(infos,finAccountCell,r=>`data-account="${esc(r.c.id)}"`,'customer',finAccountAll?'No customers yet':'No open balances');
+ const t=finListTable(infos,finAccountCell,r=>`data-account="${esc(r.c.id)}"`,'customer',finAccountAll?'No customers yet':'No open balances',['Open','Apply deposit']);
  return finFrame(`<button type="button" class="sl-quiet${finAccountAll?'':' on'}" data-accounts="open" onclick="finAccountAll=false;render()">Open accounts</button><button type="button" class="sl-quiet${finAccountAll?' on':''}" data-accounts="all" onclick="finAccountAll=true;render()">All customers</button>${t.acts}`,`<button type="button" class="sl-quiet" onclick="finOpenStatements()" title="Statements for all customers for a month">Statements</button><button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finBalancesExport()">CSV</button><button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finOpenPreview('balances')">Print</button>`,t.html);
 }
 
@@ -171,7 +172,7 @@ function finDueCell(r,c){
 function finDueFiltered(){return salesListRows(finDueInfos());}
 function finScheduleHTML(){
  const infos=finDueInfos();infos.forEach(r=>{r.acts=[['Open order',`optimizationOpenOrder('${esc(r.o.id)}')`]].concat(finInvoiceDate(r.o)?[['Invoice',`finOpenInvoice('${esc(r.o.id)}')`,`data-fin-invoice="${esc(r.o.businessNumber)}"`]]:[]).concat([['Terms',`finEditTerms('${esc(r.o.id)}')`]]);});
- const t=finListTable(infos,finDueCell,r=>`data-due-order="${esc(r.o.id)}"`,'order','Nothing unpaid.');
+ const t=finListTable(infos,finDueCell,r=>`data-due-order="${esc(r.o.id)}"`,'order','Nothing unpaid.',['Open order','Invoice','Terms']);
  return finFrame(t.acts,`${salesListDateButton('due')}<button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finDueExport()">CSV</button><button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finOpenPreview('schedule')">Print</button>`,t.html)+`${infos.review?`<p class="mut small">${infos.review} not priced — not in totals.</p>`:''}`;
 }
 function finDueExport(){const rows=finDueFiltered();if(!rows.length)return;customerDownload('payments-due.csv',finDueCSV(rows),'text/csv;charset=utf-8');}
@@ -199,7 +200,7 @@ function finPaymentCell(r,c){
 function finFilteredReceipts(){return salesListRows(finPaymentInfos()).map(i=>i.r);}
 function finReceiptsView(){
  const infos=finPaymentInfos();infos.forEach(r=>{r.acts=[['Open',`finOpenReceipt('${esc(r.r.id)}')`]];});
- const t=finListTable(infos,finPaymentCell,r=>`class="fin-row${r.r.voided?' fin-void':''}" data-receipt="${esc(r.r.id)}" onclick="finOpenReceipt('${esc(r.r.id)}')"`,'payment','No payments yet');
+ const t=finListTable(infos,finPaymentCell,r=>`class="fin-row${r.r.voided?' fin-void':''}" data-receipt="${esc(r.r.id)}" onclick="finOpenReceipt('${esc(r.r.id)}')"`,'payment','No payments yet',['Open']);
  return finFrame(t.acts,`${salesListDateButton('date')}<button type="button" class="sl-quiet" onclick="finExportCsv()" title="Payments and refunds in this list">CSV</button>${finExportButtonHTML()}`,finFilterChips()+t.html);
 }
 /* Возвраты в CSV — за тот же клиент/заказ и тот же период, что оплаты. */
