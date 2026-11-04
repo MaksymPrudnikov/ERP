@@ -26,7 +26,10 @@ module.exports=async function({page,eq}){
  eq('when the lead time reaches today it is Order now',await t.p.evaluate(()=>{const s=purClone(purSupplierFind(phNear.id));s.leadTimeDays=30;purSupplierSave(s);const a=purHeldGroups(phToday).find(a=>a.supplierName==='Held Near Glass');return [a.orderBy,a.status];}),['2026-10-14','Order now']);
  eq('far stock is OK; a lead time pushes the order date earlier',await t.p.evaluate(()=>{phRec(phA,'s',1,-60);const a=purHeldGroups(phToday).find(a=>a.size==='144 × 102');return {left:a.remaining,perMonth:a.perMonth,runsOut:a.runsOut,lead:a.orderBy===purDayAdd(a.runsOut,-75),status:a.status};}),{left:9,perMonth:0.3,runsOut:'2029-01-01',lead:true,status:'OK'});
  eq('the board lists held glass without a date filter, with bars and PO links',await t.p.evaluate(()=>{
+  /* Доска считает от сегодняшнего дня, данные теста — от phToday. */
+  const realToday=finToday;window.finToday=()=>phToday;
   tab='purchasing';purGo('held');const rows=salesListRows(purReceivingInfos());
+  window.finToday=realToday;
   return {rows:rows.length,date:Object.keys(purListDefaults()).length,bars:document.querySelectorAll('.pur-held-bar').length,links:document.querySelectorAll('.purchasing-workspace .sl-table .fin-link').length,first:rows[0].memo.status};
  }),{rows:3,date:0,bars:3,links:4,first:'Order now'});
  eq('held board has no JavaScript errors',t.errs,[]);await t.c.close();
