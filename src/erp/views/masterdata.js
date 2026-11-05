@@ -29,6 +29,7 @@ const MD_TABS=[
  {k:'hardware',  label:'Hardware'},
  {k:'company',   label:'Company'},
  {k:'stickers',  label:'Stickers'},
+ {k:'forms',     label:'Forms'},
  {k:'cutting',   label:'Cutting'},
  {k:'carriers',  label:'Dollies & Skids'},
  {k:'trucks',    label:'Trucks'},
@@ -45,7 +46,7 @@ const MD_SECTIONS=[
  {k:'prices',    label:'Prices',          tabs:['prices']},
  {k:'production',label:'Production',      tabs:['stations','cutting','carriers','ncr','stockreasons']},
  {k:'shipping',  label:'Shipping',        tabs:['trucks']},
- {k:'print',     label:'Company & print', tabs:['company','stickers']},
+ {k:'print',     label:'Company & print', tabs:['company','stickers','forms']},
  {k:'setup',     label:'Setup',           tabs:['setup','overview']}
 ];
 /* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
@@ -96,7 +97,7 @@ function viewMasterData(){
  const subs=sec.k!=='catalog'&&sec.tabs.length>1?`<div class="sl-filter-row md-mat-subs" data-md-subtabs><div class="sl-quick">${sec.tabs.map(k=>`<button type="button" class="sl-quick-pill${mdTab===k?' on':''}" onclick="mdSetTab('${k}')">${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div></div>`:'';
  /* Каталог — своя раскладка (viewMdCatalog); остальные разделы — карточка с таблетками. */
  return `${sec.k==='catalog'?viewMdCatalog(pills):`<div class="card md-card">${pills}${subs}
-   ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
+   ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,forms:viewMdForms,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
   </div>`}
   ${mdTab==='materials'&&mdMatCategory==='glass'&&(mdMatView==='glassProduct'||accessCost())?mdImportCard():''}`;
 }

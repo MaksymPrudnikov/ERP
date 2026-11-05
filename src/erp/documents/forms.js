@@ -32,10 +32,25 @@ function formFill(s,ctx){
   v=Array.isArray(v)?v.join(', '):String(v);return v===''&&alt!=null?alt:v;
  });
 }
+/* Форматы полей (конструктор, окно Insert field): поле с типом date отдаёт
+   день YYYY-MM-DD, блок выбирает вид. */
+const FORM_FORMATS={date:[
+ {k:'mdy',label:'Mon d, yyyy',f:v=>docDate(v)},
+ {k:'iso',label:'yyyy-mm-dd',f:v=>v},
+ {k:'dmy',label:'dd/mm/yyyy',f:v=>v.slice(8,10)+'/'+v.slice(5,7)+'/'+v.slice(0,4)},
+ {k:'long',label:'long',f:v=>{const d=new Date(+v.slice(0,4),+v.slice(5,7)-1,+v.slice(8,10));return d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});}}]};
+function formFormat(v,type,fmt){
+ const list=FORM_FORMATS[type];if(!list)return v;
+ const f=(list.find(x=>x.k===fmt)||list[0]).f,one=x=>/^\d{4}-\d{2}-\d{2}/.test(String(x))?f(String(x).slice(0,10)):x;
+ return Array.isArray(v)?v.map(one):v==null||v===''?v:one(v);
+}
 function formLines(b,ctx){
- const v=b.type==='text'?formFill(b.text,ctx):ctx.field(b.field);
+ let v=b.type==='text'?formFill(b.text,ctx):ctx.field(b.field);
+ if(b.type==='field'&&ctx.type)v=formFormat(v,ctx.type(b.field),b.format);
  let src=Array.isArray(v)?v.filter(x=>x!=null).map(String):v==null||v===''?[]:[String(v)];
  if(!src.length&&b.empty)src=[b.empty];
+ /* «Текст перед значением» (Date: …) — только у непустого поля. */
+ else if(src.length&&b.prefix)src[0]=b.prefix+src[0];
  const size=b.size||9,out=[];
  src.forEach(t=>{if(b.wrap)out.push(...docWrap(t,size,!!b.bold,b.w||0));else out.push(b.fit?docFit(t,size,!!b.bold,b.w||0):t);});
  return b.max?out.slice(0,b.max):out;
@@ -87,28 +102,39 @@ function formDrawBlock(P,tpl,x,ctx,top,late){
   P.items.push(...barcode128Items(v,sx-BARCODE128_QUIET*m,top,h,m));
  }
 }
+/* Место блока на листе для конструктора: у текста y — линия букв, рамка
+   — от верха букв; пустой текст всё равно занимает строку, чтобы его можно
+   было выбрать мышью. */
+function formRect(tpl,x,top,lines){
+ const b=x.b,text=formIsText(b),bx=x.ax!=null?x.ax:formBlockX(tpl,b);
+ return {x:bx,y:text?top-(b.size||9):top,w:b.w||0,h:text?Math.max(lines==null?x.e:lines*formLh(b),formLh(b)):b.h||0};
+}
 /* Часть целиком на одном листе (верх и низ страницы); блоки рисуются в
-   порядке шаблона. Возвращает высоту части. */
-function formDrawPart(P,tpl,part,ctx,top,late){
+   порядке шаблона. Возвращает высоту части. mark(x, rect) — для
+   конструктора: где на листе оказался блок. */
+function formDrawPart(P,tpl,part,ctx,top,late,mark){
  if(!part)return 0;
  const lay=formLayout(tpl,part,ctx);
- lay.blocks.forEach(x=>formDrawBlock(P,tpl,x,ctx,top+x.top,late));
+ lay.blocks.forEach(x=>{formDrawBlock(P,tpl,x,ctx,top+x.top,late);if(mark)mark(x,formRect(tpl,x,top+x.top));});
  return lay.h;
 }
-function formCtx(ctx,over){return over?{field:k=>Object.prototype.hasOwnProperty.call(over,k)?over[k]:ctx.field(k)}:ctx;}
+function formCtx(ctx,over){return over?{field:k=>Object.prototype.hasOwnProperty.call(over,k)?over[k]:ctx.field(k),type:ctx.type}:ctx;}
 
 /* Ход по листам. Код бланка рисует таблицу сам (f.P, f.y, f.ensure,
    f.page), остальное — из шаблона. f.page(over, top): over — другие
    значения полей на следующих листах, top — другая часть вместо every
-   (лист скида: skidTop); оба держатся до следующего f.page с ними. */
-function formFlow(tpl,ctx){
+   (лист скида: skidTop); оба держатся до следующего f.page с ними.
+   map — для конструктора: сюда пишутся места блоков {page, part, id, x, y,
+   w, h} (блок, разорванный листом, — по куску на лист). */
+function formFlow(tpl,ctx,map){
  const pg=tpl.page,m=pg.margin,late=[];
+ const mark=key=>map?(x,r)=>map.push(Object.assign({page:f.pages.length-1,part:key,id:x.b.id},r)):null;
  const f={tpl,pages:[],P:null,y:0,top:0,topKey:'every',left:m.left,right:pg.w-m.right,bottom:pg.h-m.bottom,over:null};
  f.ctx=()=>formCtx(ctx,f.over);
  f.page=function(over,top){
   if(arguments.length){f.over=over||null;f.topKey=top||'every';}
   f.P=docPage();f.pages.push(f.P);
-  f.y=m.top+formDrawPart(f.P,tpl,tpl.parts[f.topKey],f.ctx(),m.top,late);f.top=f.y;return f;
+  f.y=m.top+formDrawPart(f.P,tpl,tpl.parts[f.topKey],f.ctx(),m.top,late,mark(f.topKey));f.top=f.y;return f;
  };
  f.ensure=h=>{if(f.y+h>f.bottom)f.page();};
  /* Часть в потоке (верх первой, итоги): начинается на этом листе, если на
@@ -118,10 +144,12 @@ function formFlow(tpl,ctx){
   const part=tpl.parts[key];if(!part||!(part.blocks||[]).length)return f;
   const c=f.ctx(),lay=formLayout(tpl,part,c),keep=part.keep!=null?part.keep:lay.h;
   if(f.y+Math.min(keep,f.bottom-f.top)>f.bottom&&f.y>f.top+1)f.page();
-  const units=[];
+  const units=[],mk=mark(key);
   lay.blocks.forEach(x=>{
-   if(x.lines)x.lines.forEach((l,k)=>units.push({y:x.top+k*formLh(x.b),e:formLh(x.b),i:x.i,draw:(P,a)=>formDrawLine(P,tpl,x.b,l,0,a,late,x.ax)}));
-   else units.push({y:x.top,e:x.e,i:x.i,draw:(P,a)=>formDrawBlock(P,tpl,x,c,a,late)});
+   if(x.lines)x.lines.forEach((l,k)=>units.push({y:x.top+k*formLh(x.b),e:formLh(x.b),i:x.i,draw:(P,a)=>{formDrawLine(P,tpl,x.b,l,0,a,late,x.ax);if(mk)mk(x,formRect(tpl,x,a,1));}}));
+   else units.push({y:x.top,e:x.e,i:x.i,draw:(P,a)=>{formDrawBlock(P,tpl,x,c,a,late);if(mk)mk(x,formRect(tpl,x,a));}});
+   /* Пустое поле на листе не видно, но в конструкторе его можно выбрать. */
+   if(mk&&x.lines&&!x.lines.length)units.push({y:x.top,e:0,i:x.i,draw:(P,a)=>mk(x,formRect(tpl,x,a))});
   });
   let off=f.y;
   units.sort((p,q)=>p.y-q.y||p.i-q.i).forEach(u=>{
@@ -134,7 +162,7 @@ function formFlow(tpl,ctx){
  f.finish=()=>{
   const N=f.pages.length,base=formCtx(ctx,null);
   f.pages.forEach((P,i)=>{
-   const own=[];formDrawPart(P,tpl,tpl.parts.bottom,base,f.bottom,own);
+   const own=[],mk=mark('bottom');formDrawPart(P,tpl,tpl.parts.bottom,base,f.bottom,own,mk&&((x,r)=>map.push(Object.assign({page:i,part:'bottom',id:x.b.id},r))));
    own.forEach(x=>{x.page=i+1;});late.push(...own);
   });
   late.forEach(x=>{
@@ -144,4 +172,35 @@ function formFlow(tpl,ctx){
   return f.pages;
  };
  return f;
+}
+
+/* Сохранённый шаблон (конструктор) → чистый: только известные ключи и
+   типы, числа в разумных пределах. Части, которых в сохранённом нет (код
+   добавил новую), берутся по умолчанию; колонки таблиц пока правит только
+   код — они всегда из шаблона по умолчанию. */
+const FORM_BLOCK_TYPES=['text','field','image','line','box','barcode'];
+const FORM_PLACES=['left','center','right','free'];
+function formCleanBlock(b){
+ if(!b||typeof b!=='object'||!FORM_BLOCK_TYPES.includes(b.type))return null;
+ const num=(v,lo,hi)=>{const n=Number(v);return Number.isFinite(n)?Math.min(hi,Math.max(lo,Math.round(n*100)/100)):undefined;};
+ const str=(v,max)=>typeof v==='string'?v.slice(0,max||2000):undefined;
+ const o={id:str(b.id,40)||'b'+Math.random().toString(36).slice(2,9),type:b.type,place:FORM_PLACES.includes(b.place)?b.place:'left'};
+ [['x',-200,800],['y',-200,800],['w',0,800],['h',0,800],['size',4,96],['lh',0,200],['max',0,200],['lw',0,20],['r',0,50],['ls',0,10],['gap',0,200],['module',.5,5]].forEach(([k,lo,hi])=>{const v=num(b[k],lo,hi);if(v!==undefined)o[k]=v;});
+ ['text','field','color','fill','empty','prefix','format','after'].forEach(k=>{const v=str(b[k]);if(v!==undefined)o[k]=v;});
+ if(['left','center','right'].includes(b.align))o.align=b.align;
+ ['bold','wrap','fit'].forEach(k=>{if(b[k])o[k]=true;});
+ if(b.type==='image'&&typeof b.src==='string'&&/^data:image\/jpeg;base64,/.test(b.src)&&b.src.length<3e6)o.src=b.src;
+ if(o.y===undefined)o.y=0;
+ return o;
+}
+function formClean(src,def){
+ if(!src||typeof src!=='object'||!src.parts||typeof src.parts!=='object')return def;
+ const out={form:def.form,page:{w:def.page.w,h:def.page.h,margin:Object.assign({},def.page.margin)},parts:{}};
+ Object.keys(def.parts).forEach(k=>{
+  const d=def.parts[k],s=src.parts[k];
+  if(d.columns||!s||!Array.isArray(s.blocks)){out.parts[k]=d;return;}
+  const h=Number(s.h);
+  out.parts[k]=Object.assign({},d,{h:Number.isFinite(h)?Math.max(0,Math.min(800,h)):d.h,blocks:s.blocks.map(formCleanBlock).filter(Boolean)});
+ });
+ return out;
 }

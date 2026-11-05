@@ -37,7 +37,8 @@ The sheet is built from a template in parts: the top of every page (company, PAC
 customer, date and method, address), the top of the first page (corrections after Unbatch), the table by order (Line /
 Mark, Size, Makeup, Ordered, Before, Now, Back order, Skid), the totals (skids and weight, the note, Received by /
 Signature, Date and time, skids remain ours) and the bottom of the page (number · page / pages). The default template
-prints the same as before. The template will be edited in the form builder, Data → Company & print → Forms.
+prints the same as before. The form is edited in the
+form builder: Data → Company & print → **Forms** (manual `forms`).
 
 ## The skid sheet
 
