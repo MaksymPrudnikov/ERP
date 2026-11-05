@@ -414,6 +414,55 @@ grant execute on function public.erp_apply(text, text, text, jsonb, jsonb), publ
   public.erp_member_set(text, text, boolean, boolean, text[]), public.erp_members(), public.erp_rules(), public.erp_rules_set(jsonb)
   to authenticated;
 
+-- Отчёты: закрытые месяцы архива (владелец, 04.11.2026). Строки отчёта за
+-- месяц ушедших заказов считает один компьютер, остальные берут готовое.
+-- Ключ 'g|<источник>|<месяц>' — как склад facts в браузере; stamp — версия
+-- правил подсчёта и отпечаток заказов месяца; data — столбцы (gzip, base64),
+-- их собирает и читает ERP (reports/archive-facts.js). Читает и пишет тот,
+-- у кого Reports и кто видит все таблицы: иначе строки месяца были бы без
+-- оплат или показали бы оплаты тому, кому их видеть нельзя.
+create table if not exists public.erp_report_month (
+  key text primary key,
+  stamp text not null,
+  data text not null,
+  updated_at timestamptz not null default now(),
+  updated_by uuid
+);
+alter table public.erp_report_month enable row level security;
+revoke all on public.erp_report_month from public, anon, authenticated;
+
+create or replace function public.erp_facts_full(m public.erp_member) returns boolean
+language sql stable set search_path = public, pg_temp as $$
+  select public.erp_can(m, 'reports') and not exists (select 1 from public.erp_table_rule r where not public.erp_can(m, r.read_section))
+$$;
+-- Месяцы по ключам: {full, rows:[{key, stamp, data}]}; with_data false —
+-- только метки (что уже лежит на сервере).
+create or replace function public.erp_facts_get(keys jsonb, with_data boolean default true)
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare me public.erp_member := public.erp_me(); is_full boolean := public.erp_facts_full(me);
+begin
+  if not is_full then return jsonb_build_object('full', false, 'rows', '[]'::jsonb); end if;
+  return jsonb_build_object('full', true, 'rows', coalesce((select jsonb_agg(jsonb_build_object('key', f.key, 'stamp', f.stamp,
+      'data', case when with_data then f.data end))
+    from public.erp_report_month f where f.key in (select jsonb_array_elements_text(coalesce(keys, '[]')))), '[]'::jsonb));
+end $$;
+-- Записать месяцы: [{key, stamp, data}], тот же ключ — заменить.
+create or replace function public.erp_facts_put(items jsonb)
+returns jsonb language plpgsql volatile security definer set search_path = public, pg_temp as $$
+declare me public.erp_member := public.erp_me(); n int;
+begin
+  if not public.erp_facts_full(me) then raise exception 'Report months need Reports and access to all tables.' using errcode = '42501'; end if;
+  insert into public.erp_report_month as f (key, stamp, data, updated_at, updated_by)
+    select r->>'key', r->>'stamp', r->>'data', now(), me.user_id from jsonb_array_elements(coalesce(items, '[]')) r
+    where coalesce(r->>'key', '') ~ '^g\|[a-z]+\|[0-9a-z-]+$' and r->>'stamp' is not null and r->>'data' is not null
+  on conflict (key) do update set stamp = excluded.stamp, data = excluded.data, updated_at = now(), updated_by = excluded.updated_by;
+  get diagnostics n = row_count;
+  return jsonb_build_object('ok', true, 'n', n);
+end $$;
+revoke all on function public.erp_facts_full(public.erp_member) from public, anon, authenticated;
+revoke all on function public.erp_facts_get(jsonb, boolean), public.erp_facts_put(jsonb) from public, anon;
+grant execute on function public.erp_facts_get(jsonb, boolean), public.erp_facts_put(jsonb) to authenticated;
+
 -- Первый администратор — вход admin@glass-erp.test (тестовый проект). Для
 -- другого адреса поменяйте его здесь перед запуском.
 insert into public.erp_member (user_id, name, admin)
