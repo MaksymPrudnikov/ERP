@@ -46,11 +46,11 @@ module.exports=async function({page,eq}){
   tab='dashboard';render();return {blank,long,dash:!!dash,own};
  }),{blank:0,long:0,dash:true,own:['','–','','']});
 
- eq('Optimization и Shipping: навигация — своя карточка над таблицей, вкладки на одном месте на всех вкладках, шапка таблицы одной высоты; Open — только правой кнопкой, пустой ряд кнопок спрятан',await t.p.evaluate(()=>{
+ eq('Optimization и Shipping: навигация — своя карточка над таблицей, в ней только вкладки, на одном месте; шапка таблицы одной высоты; в Optimization Open — правой кнопкой, пустой ряд спрятан; в Shipping Open, Order/PO, номер и Open a trip — одним рядом в карточке таблицы',await t.p.evaluate(()=>{
   const keys=OPTIMIZATION_TABS.map(x=>x[0]).concat(SHIPPING_TABS.map(x=>x[0]));
   const pos=keys.map(k=>{oqQueue(k);const pill=document.querySelector('#app .sl-nav-card [data-queue-tab],#app .sl-nav-card [data-shipping-tab]'),th=document.querySelector('#app table.sl-table thead tr');return Math.round(pill.getBoundingClientRect().top)+'/'+Math.round(th.getBoundingClientRect().height);});
   oqQueue('all');const bar=document.querySelector('#app .sl-after-nav>.sales-toolbar'),open=!!document.querySelector('#app .sales-toolbar [data-queue-open-order]'),hidden=!!bar&&getComputedStyle(bar).display==='none';
-  oqQueue('done');const lookup=!!document.querySelector('#app .sl-nav-card [data-order-lookup]');
+  oqQueue('done');const nav=document.querySelector('#app .sl-nav-card'),row=document.querySelector('#app .sl-after-nav>.sales-toolbar'),lookup=!nav.querySelector('[data-order-lookup],select')&&!!row.querySelector('[data-queue-open-order]')&&!!row.querySelector('[data-order-lookup]')&&!!row.querySelector('select[aria-label="Customer for new trip"]');
   tab='dashboard';render();return {same:[...new Set(pos)].length,open,hidden,lookup};
  }),{same:1,open:false,hidden:true,lookup:true});
 
