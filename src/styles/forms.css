@@ -89,3 +89,24 @@ textarea.fm-in{resize:vertical}
 .fm-vpages{overflow:auto;max-height:76vh;display:flex;flex-direction:column;gap:12px;background:var(--surface-3);border-radius:10px;padding:12px}
 .fm-vsheet{position:relative;width:100%;aspect-ratio:612/792;background:var(--on-solid);box-shadow:0 1px 4px rgba(0,0,0,.15);flex:none}
 .fm-vsheet svg{position:absolute;inset:0}
+/* Колонки таблицы (владелец 05.11.2026): список справа, клик — настройки. */
+.fm-cols{display:flex;flex-direction:column}
+.fm-colrow{display:grid;grid-template-columns:14px 18px minmax(0,1fr) 64px 10px;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line-soft);cursor:pointer}
+.fm-colrow i{color:var(--text-3);font-style:normal;cursor:grab;font-size:11px}
+.fm-colrow .fm-in{padding:4px 7px;font-size:12px}
+.fm-colrow.off .fm-in{color:var(--text-3)}
+.fm-open{color:var(--text-3)}
+.fm-add-col{margin-top:10px}
+.fm-back{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;padding:0;cursor:pointer}
+.fm-danger{color:var(--danger);border-color:var(--danger-line)}
+.fm-colhit{cursor:pointer}
+/* Поля страницы — треугольники на линейке; направляющие — розовые линии. */
+.fm-rgrab{position:absolute;z-index:3;cursor:crosshair}
+.fm-rgrab.x{left:0;right:0;top:-13px;height:12px}
+.fm-rgrab.y{top:0;bottom:0;left:-14px;width:12px}
+.fm-mk{position:absolute;z-index:4;width:0;height:0;cursor:ew-resize}
+.fm-mk.x{top:-9px;margin-left:-5px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid var(--accent)}
+.fm-mk.y{left:-13px;margin-top:-5px;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid var(--accent);cursor:ns-resize}
+.fm-guide{position:absolute;z-index:2}
+.fm-guide.x{top:0;bottom:0;width:7px;margin-left:-3px;border-left:3px solid transparent;border-right:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ew-resize}
+.fm-guide.y{left:0;right:0;height:7px;margin-top:-3px;border-top:3px solid transparent;border-bottom:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ns-resize}

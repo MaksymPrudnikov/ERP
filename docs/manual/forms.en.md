@@ -21,6 +21,20 @@ changes".
   wrap lines; a line or frame has colour, width and
   fill. **Delete** removes the block, ready-made blocks too.
 
+## Table columns
+
+Click **Columns** in the tree (for the table and the skid sheet) — the columns list opens on the right: the tick shows
+or hides a column, ⋮⋮ drags it to change the order, the heading and the width in mm edit right in the row. A click on a
+row, or on a column on the sheet, opens it: **Heading**, **Shows** (Line / Mark, Mark, Size, Makeup, Ordered, Before,
+Now, Back order, Weight kg, Skid; on the skid sheet #, Qty, kg), width, size, **B**, alignment, **Hide this column**,
+**Remove column**. **+ Column** adds a column that is not there yet.
+
+## Page margins and guides
+
+The green triangles on the ruler are the page margins: drag them, Left / Right blocks and the table follow. Drag from
+the ruler onto the sheet for a pink guide (the tip shows where it is in inches); a Free block sticks to guides and
+margins. Drag a guide off the sheet to remove it. Guides do not print.
+
 ## A field — the Insert field window
 
 **+ Field**, or a click on a block's field, opens the window: groups on the left (Company, Customer, Packing slip,
