@@ -87,6 +87,34 @@ module.exports=async function({page,eq}){
   for(let i=0;i<25;i++){formsEdit(t=>{t.parts.every.blocks.find(b=>b.id==='title').size=10+i;});formsSave();}
   return {name:/^form-packing-slip-\d{4}-\d{2}-\d{2}\.json$/.test(got.name),format:[file.format,file.form],bad,ok,size,kept:DB.formVersion.filter(v=>v.form==='packingSlip').length};
  }),{name:true,format:['glass-erp-form','packingSlip'],bad:[false,'Not a form file.',false,'This file is for Invoice.'],ok:true,size:22,kept:20});
+ eq('Forms: table columns — a list on the right; width, hide, add, order; a click on the list or on the sheet opens the column; the packing slip prints that way',await t.p.evaluate(()=>{
+  DB.formTemplate={};feOpen();feClick('[data-forms-columns="table"]');
+  const list=[...document.querySelectorAll('[data-forms-col]')].map(r=>r.dataset.formsCol);
+  const heads=()=>{const pg=shippingPages(shippingFormSample(),null,formsDraft().tpl)[0];const y=pg.items.find(i=>i.s==='Line / Mark').y;return pg.items.filter(i=>i.t==='text'&&i.y===y).map(i=>i.s+'@'+Math.round(i.x));};
+  feClick('[data-forms-col="makeup"]');const open=document.querySelector('[data-forms-col-label]').value;
+  const w=document.querySelector('[data-forms-col-width]');w.value='50';w.dispatchEvent(new Event('change'));const mk=formsDraft().tpl.parts.table.columns.find(c=>c.k==='makeup');
+  feClick('[data-forms-col-hide]');const hid=heads();
+  feClick('.fm-back');const add=document.querySelector('[data-forms-col-add]');add.value='weight';add.dispatchEvent(new Event('change'));
+  formsColMove('table','skid','line');const after=heads();
+  feDrag('table|col:size',0,0);
+  return {list,open,mk:[Math.round(mk.cw*25.4/72),mk.w],hid:hid.some(x=>x.startsWith('Makeup')),after,clicked:document.querySelector('[data-forms-col-label]').value};
+ }),{list:['line','size','makeup','ordered','before','now','back','skid'],open:'Makeup',mk:[50,135.73],hid:false,
+  after:['Skid@62','Line / Mark@123','Size@204','Ordered@340','Before@378','Now@412','Back order@466','Weight kg@511'],clicked:'Size'});
+ eq('Forms: page margins — the triangles on the ruler move Left blocks and the table; a guide from the ruler; a Free block sticks to it; a guide dragged off the sheet goes; guides do not print',await t.p.evaluate(()=>{
+  feOpen();const sheet=()=>document.querySelector('[data-forms-page="0"]'),k=()=>612/sheet().getBoundingClientRect().width;
+  const drag=(sel,dx,dy)=>{const el=document.querySelector(sel),r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2,o={bubbles:true,pointerId:9,button:0,clientX:x,clientY:y},st=document.querySelector('[data-forms-stage]');
+   el.dispatchEvent(new PointerEvent('pointerdown',o));st.dispatchEvent(new PointerEvent('pointermove',Object.assign({},o,{clientX:x+dx,clientY:y+dy})));st.dispatchEvent(new PointerEvent('pointerup',Object.assign({},o,{clientX:x+dx,clientY:y+dy})));};
+  drag('[data-forms-margin="left"]',18/k(),0);const left=formsDraft().tpl.page.margin.left;
+  const pg=shippingPages(shippingFormSample(),null,formsDraft().tpl)[0],co=pg.items.find(i=>i.s==='Line / Mark');
+  const r=sheet().getBoundingClientRect(),ruler=document.querySelector('[data-forms-ruler="x"]'),gx=r.left+300/k(),o={bubbles:true,pointerId:11,button:0,clientX:gx,clientY:r.top-6},st=document.querySelector('[data-forms-stage]');
+  ruler.dispatchEvent(new PointerEvent('pointerdown',o));st.dispatchEvent(new PointerEvent('pointermove',Object.assign({},o,{clientY:r.top+200})));st.dispatchEvent(new PointerEvent('pointerup',Object.assign({},o,{clientY:r.top+200})));
+  const guide=formsDraft().tpl.guides.x[0];
+  feDrag('every|title',0,0);formsPlace('free');const b=formsFind(formsDraft().tpl,{part:'every',id:'title'});b.x=200;formsStageRefresh();
+  feDrag('every|title',(298-200)/k(),0);const snapped=formsFind(formsDraft().tpl,{part:'every',id:'title'}).x;
+  const withG=JSON.stringify(shippingPages(shippingFormSample(),null,formsDraft().tpl)),noG=formsClone(formsDraft().tpl);delete noG.guides;const same=withG===JSON.stringify(shippingPages(shippingFormSample(),null,noG));
+  drag('[data-forms-guide="x0"]',0,-r.height);const gone=!formsDraft().tpl.guides;
+  return {left:Math.round(left),table:Math.round(co.x),guide:Math.round(guide),snapped,same,gone,clean:formClean({page:{margin:{left:'54',top:-5}},guides:{x:[300,'oops',9999]},parts:{}},shippingFormDefault()).page.margin.left};
+ }),{left:54,table:59,guide:300,snapped:300,same:true,gone:true,clean:54});
  eq('Forms: a broken saved form is cleaned — unknown blocks and keys dropped, numbers kept in range, missing parts and table columns from the default',await t.p.evaluate(()=>{
   const def=shippingFormDefault(),bad={parts:{every:{h:'90',blocks:[{type:'script',y:1},{type:'text',text:'Hi',y:5,size:999,onclick:'x',place:'nowhere'},{type:'image',src:'javascript:alert(1)',y:0,w:10,h:10}]},table:{columns:[]}}};
   const c=formClean(bad,def);

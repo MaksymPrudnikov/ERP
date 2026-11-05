@@ -24,6 +24,8 @@ function formsDefs(){
   samples:()=>(DB.shipment||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(s=>({id:s.id,label:s.number+' · '+salesCustomerDisplay(s.customerId)})),
   doc:id=>{const s=id&&shippingFind(id);if(s)try{return shippingDocument(s);}catch(e){}return shippingFormSample();},
   context:d=>shippingFormContext(d),
+  /* Что может стоять в колонках таблиц (Shows, + Column). */
+  columns:{table:SHIPPING_TABLE_COLUMNS,skidTable:SHIPPING_SKID_COLUMNS},
   pages:(tpl,d,map)=>shippingPages(d,null,tpl,map)}];
 }
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
@@ -86,7 +88,7 @@ function formsReset(){
 }
 function formsSetForm(k){const s=formsState();if(s.form===k)return;s.form=k;s.sample='';s.sel=null;s.part='every';s.modal=null;formsState();render();}
 function formsSetSample(id){formsState().sample=id;render();}
-function formsSelect(part,id){const s=formsState();s.sel=id?{part,id}:null;s.part=part;render();}
+function formsSelect(part,id){const s=formsState();s.sel=id?{part,id}:null;s.part=part;s.cols=null;render();}
 
 /* ------------------------------ Блоки -------------------------------- */
 function formsFieldDef(k){return formsDef(formsState().form).fields().find(x=>x.k===k);}
@@ -222,6 +224,100 @@ function formsVersionsHTML(){
    <div class="fm-modal-foot"><button type="button" onclick="formsVersionsClose()">Close</button><button type="button" class="pri" data-forms-restore ${m.sel===0&&list[0].id!=='@default'&&!formsDirty()?'disabled':''} onclick="formsVersionRestore()">Restore this version</button></div></div></div>`;
 }
 
+/* ---------------------------- Колонки -------------------------------- */
+/* Владелец 05.11.2026: колонки списком справа (галочка, порядок, подпись,
+   ширина), клик по строке или по колонке на листе — её настройки. */
+function formsColumns(part,k){const s=formsState();s.cols={part,k:k||''};s.sel=null;s.part=part;render();}
+function formsColCatalog(part){return (formsDef(formsState().form).columns||{})[part]||[];}
+function formsColEdit(part,fn){formsEdit(t=>{const p=t.parts[part];if(!p||!p.columns)return;p.columns=p.columns.map(c=>Object.assign({},c));fn(p.columns);});}
+function formsColSet(part,k,prop,v){formsColEdit(part,cols=>{const c=cols.find(x=>x.k===k);if(!c)return;if(v===''||v==null||v===false)delete c[prop];else c[prop]=v;});}
+function formsColToggle(part,k,prop){const c=(formsDraft().tpl.parts[part].columns||[]).find(x=>x.k===k);if(c)formsColSet(part,k,prop,!c[prop]);}
+/* Ширина — ячейка в мм; перенос текста меняется на столько же. */
+function formsColWidth(part,k,mm){
+ const n=Number(String(mm).replace(',','.'));if(!Number.isFinite(n)||n<=0)return render();
+ formsColEdit(part,cols=>{const c=cols.find(x=>x.k===k);if(!c)return;const cw=Math.round(n/FORMS_PT_MM*100)/100,d=cw-(c.cw||0);c.cw=cw;if(c.w!=null)c.w=Math.max(0,Math.round((c.w+d)*100)/100);});
+}
+function formsColSize(part,k,v){const n=Number(v);if(!Number.isFinite(n)||n<4||n>40)return render();formsColSet(part,k,'size',n);}
+function formsColMove(part,from,to){if(from===to)return;formsColEdit(part,cols=>{const i=cols.findIndex(c=>c.k===from),j=cols.findIndex(c=>c.k===to);if(i<0||j<0)return;const [c]=cols.splice(i,1);cols.splice(j,0,c);});}
+function formsColAdd(part,key){
+ const x=formsColCatalog(part).find(c=>c.k===key);if(!x)return;
+ formsColEdit(part,cols=>{if(cols.some(c=>c.k===key))return;cols.push(x.type==='num'?{k:key,label:x.label,type:'num',cw:45}:{k:key,label:x.label,type:'text',cw:80,w:74});});
+ formsUi.cols={part,k:key};render();
+}
+function formsColRemove(part,k){formsColEdit(part,cols=>{const i=cols.findIndex(c=>c.k===k);if(i>=0)cols.splice(i,1);});formsUi.cols={part,k:''};render();}
+/* Shows — другое поле в той же колонке; подпись меняется, если была по каталогу. */
+function formsColShows(part,k,key){
+ const cat=formsColCatalog(part),x=cat.find(c=>c.k===key),was=cat.find(c=>c.k===k);if(!x)return;
+ formsColEdit(part,cols=>{const c=cols.find(y=>y.k===k);if(!c||cols.some(y=>y.k===key))return;if(!c.label||was&&c.label===was.label)c.label=x.label;c.k=key;if(c.type!==x.type){c.type=x.type;if(x.type==='num')delete c.w;else c.w=Math.max(0,(c.cw||0)-8);}});
+ formsUi.cols={part,k:key};render();
+}
+let formsColDrag='';
+function formsColsHTML(tpl){
+ const s=formsState(),part=s.cols.part,p=tpl.parts[part],cat=formsColCatalog(part),lab=FORMS_PARTS[part]||[part,''];if(!p||!p.columns)return '';
+ const mm=v=>Math.round((v||0)*FORMS_PT_MM),c=p.columns.find(x=>x.k===s.cols.k),free=cat.filter(x=>!p.columns.some(y=>y.k===x.k));
+ if(c){const x=cat.find(y=>y.k===c.k),others=cat.filter(y=>y.k===c.k||!p.columns.some(z=>z.k===y.k)),al=c.align||(c.type==='num'?'right':'left');
+  return `<button type="button" class="fm-back" onclick="formsColumns('${part}','')">‹ Columns</button><div class="fm-h">Selected · Column</div>
+   <label><span>Heading</span><input class="fm-in" data-forms-col-label value="${esc(c.label||'')}" onchange="formsColSet('${part}','${esc(c.k)}','label',this.value)"></label>
+   <label><span>Shows</span><select class="fm-in" data-forms-col-shows onchange="formsColShows('${part}','${esc(c.k)}',this.value)">${others.map(y=>`<option value="${esc(y.k)}" ${y.k===c.k?'selected':''}>${esc(y.label)}</option>`).join('')}${x?'':`<option selected>${esc(c.k)}</option>`}</select></label>
+   <div class="fm-row"><label><span>Width, mm</span><input class="fm-in" data-forms-col-width inputmode="decimal" value="${mm(c.cw)}" onchange="formsColWidth('${part}','${esc(c.k)}',this.value)"></label><label><span>Size, pt</span><input class="fm-in" inputmode="decimal" value="${c.size||(c.type==='num'?9:8)}" onchange="formsColSize('${part}','${esc(c.k)}',this.value)"></label></div>
+   <div class="fm-seg"><button type="button" class="${c.bold?'on':''}" onclick="formsColToggle('${part}','${esc(c.k)}','bold')"><b>B</b></button>${['left','center','right'].map(a=>`<button type="button" class="${al===a?'on':''}" onclick="formsColSet('${part}','${esc(c.k)}','align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
+   <button type="button" class="fm-wide-btn" data-forms-col-hide onclick="formsColToggle('${part}','${esc(c.k)}','hide')">${c.hide?'Show this column':'Hide this column'}</button>
+   <button type="button" class="fm-wide-btn fm-danger" onclick="formsColRemove('${part}','${esc(c.k)}')">Remove column</button>`;}
+ return `<div class="fm-h">${esc(lab[0])} · Columns</div><div class="fm-cols" data-forms-cols>${p.columns.map(x=>`<div class="fm-colrow${x.hide?' off':''}" draggable="true" data-forms-col="${esc(x.k)}" ondragstart="formsColDrag='${esc(x.k)}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();formsColMove('${part}',formsColDrag,'${esc(x.k)}')" onclick="formsColumns('${part}','${esc(x.k)}')">
+   <i title="Drag to reorder">⋮⋮</i><input type="checkbox" ${x.hide?'':'checked'} title="Show" onclick="event.stopPropagation()" onchange="formsColToggle('${part}','${esc(x.k)}','hide')">
+   <input class="fm-in" value="${esc(x.label||'')}" onclick="event.stopPropagation()" onchange="formsColSet('${part}','${esc(x.k)}','label',this.value)">
+   <input class="fm-in fm-mm" value="${mm(x.cw)} mm" onclick="event.stopPropagation()" onfocus="this.value=parseFloat(this.value)||''" onchange="formsColWidth('${part}','${esc(x.k)}',this.value)"><span class="fm-open">›</span></div>`).join('')}</div>
+  ${free.length?`<select class="fm-in fm-add-col" data-forms-col-add onchange="formsColAdd('${part}',this.value)"><option value="">+ Column</option>${free.map(x=>`<option value="${esc(x.k)}">${esc(x.label)}</option>`).join('')}</select>`:''}
+  <p class="fm-note">Drag ⋮⋮ to reorder. Click a column to open it.</p>`;
+}
+
+/* --------------------- Поля страницы и направляющие ------------------ */
+/* Треугольники на линейке — поля страницы; тянуть с линейки — новая
+   направляющая, утащить её за край листа — убрать. Направляющие не
+   печатаются; блок липнет к ним и к полям в 4 pt. */
+function formsSnap(v,list){let best=v,d=4;list.forEach(g=>{if(Math.abs(g-v)<d){d=Math.abs(g-v);best=g;}});return best;}
+function formsGuides(tpl,axis){const m=tpl.page.margin,g=tpl.guides||{};return axis==='x'?[m.left,tpl.page.w-m.right].concat(g.x||[]):[m.top,tpl.page.h-m.bottom].concat(g.y||[]);}
+function formsRulerStart(e,kind,which,index){
+ if(e.button!==0||formsPointer)return;e.preventDefault();e.stopPropagation();
+ const stage=e.currentTarget.closest('[data-forms-stage]'),sheet=stage.querySelector('[data-forms-page="0"]'),d=formsDraft();if(!sheet)return;
+ const r=sheet.getBoundingClientRect(),k=d.tpl.page.w/r.width;
+ if(kind==='new'){if(!d.tpl.guides)d.tpl.guides={x:[],y:[]};const list=d.tpl.guides[which]=(d.tpl.guides[which]||[]).slice();list.push(which==='x'?(e.clientX-r.left)*k:(e.clientY-r.top)*k);kind='guide';index=list.length-1;}
+ formsPointer={kind,which,index,pid:e.pointerId,stage,before:formsClone(d.tpl),k,rect:r};
+ try{stage.setPointerCapture(e.pointerId);}catch(x){}
+ stage.onpointermove=formsRulerMove;stage.onpointerup=ev=>formsRulerEnd(ev,false);stage.onpointercancel=ev=>formsRulerEnd(ev,true);
+}
+function formsRulerMove(e){
+ const p=formsPointer;if(!p||e.pointerId!==p.pid)return;e.preventDefault();
+ const t=formsDraft().tpl,r=p.rect,x=Math.round((e.clientX-r.left)*p.k*2)/2,y=Math.round((e.clientY-r.top)*p.k*2)/2;
+ p.out=e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom;
+ if(p.kind==='margin'){const m=t.page.margin=Object.assign({},t.page.margin),c=v=>Math.max(0,Math.min(250,v));
+  if(p.which==='left')m.left=c(x);else if(p.which==='right')m.right=c(t.page.w-x);else if(p.which==='top')m.top=c(y);else m.bottom=c(t.page.h-y);}
+ else{const g=t.guides=Object.assign({x:[],y:[]},t.guides);g[p.which]=g[p.which].slice();g[p.which][p.index]=p.which==='x'?x:y;}
+ formsStageRefresh();
+}
+function formsRulerEnd(e,cancel){
+ const p=formsPointer;if(!p||e.pointerId!==p.pid)return;formsPointer=null;
+ try{p.stage.releasePointerCapture(p.pid);}catch(x){}p.stage.onpointermove=p.stage.onpointerup=p.stage.onpointercancel=null;
+ const d=formsDraft(),t=d.tpl;
+ if(cancel)d.tpl=p.before;
+ else{
+  if(p.kind==='guide'){const g=t.guides,v=g[p.which][p.index],max=p.which==='x'?t.page.w:t.page.h;if(p.out||!(v>0&&v<max)){g[p.which].splice(p.index,1);}if(!g.x.length&&!g.y.length)delete t.guides;}
+  if(JSON.stringify(p.before)!==JSON.stringify(t)){d.undo.push(p.before);if(d.undo.length>80)d.undo.shift();d.redo=[];formsUi.notice='';}
+ }
+ render();
+}
+function formsRulerMarks(tpl){
+ const W=tpl.page.w,H=tpl.page.h,m=tpl.page.margin,pc=(v,of)=>(v/of*100).toFixed(4)+'%',in2=v=>(Math.round(v/72*100)/100)+'″';
+ const mk=(which,cls,pos,title)=>`<span class="fm-mk ${cls}" data-forms-margin="${which}" style="${cls==='x'?'left':'top'}:${pos}" title="${title}" onpointerdown="formsRulerStart(event,'margin','${which}')"></span>`;
+ return `<div class="fm-rgrab x" data-forms-ruler="x" title="Drag down for a guide" onpointerdown="formsRulerStart(event,'new','x')"></div><div class="fm-rgrab y" data-forms-ruler="y" title="Drag right for a guide" onpointerdown="formsRulerStart(event,'new','y')"></div>`+
+  mk('left','x',pc(m.left,W),'Left margin '+in2(m.left))+mk('right','x',pc(W-m.right,W),'Right margin '+in2(m.right))+mk('top','y',pc(m.top,H),'Top margin '+in2(m.top))+mk('bottom','y',pc(H-m.bottom,H),'Bottom margin '+in2(m.bottom));
+}
+function formsGuidesHTML(tpl){
+ const g=tpl.guides||{},W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',in2=v=>(Math.round(v/72*100)/100)+'″';
+ return (g.x||[]).map((v,i)=>`<div class="fm-guide x" data-forms-guide="x${i}" title="Guide ${in2(v)}" style="left:${pc(v,W)}" onpointerdown="formsRulerStart(event,'guide','x',${i})"></div>`).join('')+
+  (g.y||[]).map((v,i)=>`<div class="fm-guide y" data-forms-guide="y${i}" title="Guide ${in2(v)}" style="top:${pc(v,H)}" onpointerdown="formsRulerStart(event,'guide','y',${i})"></div>`).join('');
+}
+
 /* ------------------------------ Лист --------------------------------- */
 function formsRuler(vert,len){
  let t='';for(let q=0;q*18<=len;q++){const pos=(q*18/len*100).toFixed(3)+'%',big=q%4===0;
@@ -235,10 +331,13 @@ function formsSheetsHTML(){
  return pages.map((pg,i)=>{
   const boxes=new Map();
   map.filter(r=>r.page===i).forEach(r=>{const k=r.part+'|'+r.id,b=boxes.get(k);if(!b)boxes.set(k,Object.assign({},r));else{const x2=Math.max(b.x+b.w,r.x+r.w),y2=Math.max(b.y+b.h,r.y+r.h);b.x=Math.min(b.x,r.x);b.y=Math.min(b.y,r.y);b.w=x2-b.x;b.h=y2-b.y;}});
-  const hits=[...boxes.values()].map(r=>{const sel=s.sel&&s.sel.part===r.part&&s.sel.id===r.id,b=formsFind(tpl,r);if(!b)return '';
+  const hits=[...boxes.values()].map(r=>{
+   if(String(r.id).startsWith('col:')){const k=r.id.slice(4),on=s.cols&&s.cols.part===r.part&&s.cols.k===k;
+    return `<div class="fm-hit fm-colhit${on?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="Column" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(r.h,H)}" onpointerdown="event.preventDefault();formsColumns('${esc(r.part)}','${esc(k)}')"></div>`;}
+   const sel=s.sel&&s.sel.part===r.part&&s.sel.id===r.id,b=formsFind(tpl,r);if(!b)return '';
    const handles=sel?'<span class="fm-rs e" data-forms-resize="e"></span>'+(formIsText(b)?'':'<span class="fm-rs s" data-forms-resize="s"></span>'):'';
    return `<div class="fm-hit${sel?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="${esc(formsBlockLabel(b))}" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(Math.max(r.h,4),H)}" onpointerdown="formsPointerStart(event,'${esc(r.part)}','${esc(r.id)}')">${handles}</div>`;}).join('');
-  return `<div class="fm-sheet" data-forms-page="${i}" data-w="${W}" data-h="${H}">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}${i?'':formsRuler(false,W)+formsRuler(true,H)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${hits}</div>`;
+  return `<div class="fm-sheet" data-forms-page="${i}" data-w="${W}" data-h="${H}">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}${i?'':formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(tpl)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(tpl)}${hits}</div>`;
  }).join('');
 }
 function formsStageRefresh(){const st=document.querySelector('[data-forms-stage]');if(st)st.innerHTML=formsSheetsHTML();}
@@ -260,7 +359,8 @@ function formsPointerMove(e){
  if(Math.abs(e.clientX-p.x)+Math.abs(e.clientY-p.y)>2)p.moved=true;if(!p.moved)return;
  if(p.handle==='e')b.w=Math.max(8,r((p.b0.w||0)+dx));
  else if(p.handle==='s')b.h=Math.max(0,r((p.b0.h||0)+dy));
- else{b.y=r(p.b0.y+dy);if(b.place==='free')b.x=r(p.x0+dx);}
+ else{const t=formsDraft().tpl;b.y=r(p.b0.y+dy);
+  if(b.place==='free'){const nx=r(p.x0+dx),gx=formsGuides(t,'x'),sl=formsSnap(nx,gx),sr=formsSnap(nx+(b.w||0),gx)-(b.w||0);b.x=sl!==nx?sl:sr;}}
  formsStageRefresh();
 }
 function formsPointerEnd(e,cancel){
@@ -275,11 +375,11 @@ function formsPointerEnd(e,cancel){
 function formsTreeHTML(tpl){
  const s=formsState();
  return Object.keys(tpl.parts).map(k=>{const p=tpl.parts[k],lab=FORMS_PARTS[k]||[k,''];
-  const kids=p.columns?`<button type="button" class="fm-node c" disabled>Columns (${p.columns.length})</button>`:(p.blocks||[]).map(b=>`<button type="button" class="fm-node c${s.sel&&s.sel.part===k&&s.sel.id===b.id?' sel':''}" data-forms-node="${esc(k)}|${esc(b.id)}" onclick="formsSelect('${esc(k)}','${esc(b.id)}')">${esc(formsBlockLabel(b))}</button>`).join('');
+  const kids=p.columns?`<button type="button" class="fm-node c${s.cols&&s.cols.part===k?' sel':''}" data-forms-columns="${esc(k)}" onclick="formsColumns('${esc(k)}','')">Columns (${p.columns.filter(c=>!c.hide).length})</button>`:(p.blocks||[]).map(b=>`<button type="button" class="fm-node c${s.sel&&s.sel.part===k&&s.sel.id===b.id?' sel':''}" data-forms-node="${esc(k)}|${esc(b.id)}" onclick="formsSelect('${esc(k)}','${esc(b.id)}')">${esc(formsBlockLabel(b))}</button>`).join('');
   return `<button type="button" class="fm-node p${!s.sel&&s.part===k?' sel':''}" data-forms-part="${esc(k)}" onclick="formsSelect('${esc(k)}','')"><span>${esc(lab[0])}</span><small>${esc(lab[1])}</small></button>${kids}`;}).join('');
 }
 function formsSettingsHTML(tpl){
- const s=formsState(),b=formsFind(tpl,s.sel);
+ const s=formsState();if(s.cols)return formsColsHTML(tpl);const b=formsFind(tpl,s.sel);
  if(!b){const lab=FORMS_PARTS[s.part]||[s.part,''];return `<div class="fm-h">Part · ${esc(lab[0])}</div><p class="fm-note">Click a block on the sheet or in the list. Add puts a new block here.</p>`;}
  const mm=v=>v==null?'':Math.round(v*FORMS_PT_MM*10)/10,f=b.type==='field'||b.type==='barcode'?formsFieldDef(b.field):null,text=formIsText(b);
  const seg=(cur,list,fn)=>`<div class="fm-seg">${list.map(([k,l])=>`<button type="button" class="${cur===k?'on':''}" onclick="${fn}('${k}')">${l}</button>`).join('')}</div>`;

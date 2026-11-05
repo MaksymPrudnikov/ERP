@@ -177,10 +177,31 @@ function formFlow(tpl,ctx,map){
  return f;
 }
 
+/* Колонки таблицы: ячейки по порядку от левого поля, скрытые (hide)
+   пропускаются. cw — ширина ячейки, pad — отступ надписи от края ячейки,
+   w — ширина переноса текста; число (type num) — у правого края. */
+function formColumns(cols,left){
+ let x0=left;
+ return (cols||[]).filter(c=>!c.hide).map(c=>{
+  const cw=c.cw||0,pad=c.pad!=null?c.pad:5,align=c.align||(c.type==='num'?'right':'left');
+  const o=Object.assign({},c,{align,start:x0,x:align==='right'?x0+cw-pad:align==='center'?x0+cw/2:x0+pad,w:c.w!=null?c.w:Math.max(0,cw-2*pad)});
+  x0+=cw;return o;
+ });
+}
+function formCleanColumn(c){
+ if(!c||typeof c!=='object'||typeof c.k!=='string'||!c.k)return null;
+ const num=(v,lo,hi)=>{const n=Number(v);return Number.isFinite(n)?Math.min(hi,Math.max(lo,Math.round(n*100)/100)):undefined;};
+ const o={k:c.k.slice(0,40),label:typeof c.label==='string'?c.label.slice(0,60):'',type:c.type==='num'?'num':'text'};
+ [['cw',0,600],['pad',0,100],['w',0,600],['size',4,40]].forEach(([k,lo,hi])=>{const v=num(c[k],lo,hi);if(v!==undefined)o[k]=v;});
+ if(['left','center','right'].includes(c.align))o.align=c.align;
+ ['bold','alert','hide'].forEach(k=>{if(c[k])o[k]=true;});
+ return o;
+}
 /* Сохранённый шаблон (конструктор) → чистый: только известные ключи и
    типы, числа в разумных пределах. Части, которых в сохранённом нет (код
-   добавил новую), берутся по умолчанию; колонки таблиц пока правит только
-   код — они всегда из шаблона по умолчанию. */
+   добавил новую), берутся по умолчанию; колонки таблицы — сохранённые,
+   если они есть. Поля страницы и направляющие (guides — только для
+   конструктора, не печатаются) — из сохранённого, в разумных пределах. */
 const FORM_BLOCK_TYPES=['text','field','image','line','box','barcode'];
 const FORM_PLACES=['left','center','right','free'];
 function formCleanBlock(b){
@@ -199,10 +220,15 @@ function formCleanBlock(b){
 }
 function formClean(src,def){
  if(!src||typeof src!=='object'||!src.parts||typeof src.parts!=='object')return def;
- const out={form:def.form,page:{w:def.page.w,h:def.page.h,margin:Object.assign({},def.page.margin)},parts:{}};
+ const m=Object.assign({},def.page.margin),sm=src.page&&src.page.margin||{};
+ ['top','right','bottom','left'].forEach(k=>{const v=Number(sm[k]);if(Number.isFinite(v))m[k]=Math.max(0,Math.min(250,Math.round(v*100)/100));});
+ const out={form:def.form,page:{w:def.page.w,h:def.page.h,margin:m},parts:{}};
+ const g=src.guides||{},gl=a=>(Array.isArray(a)?a:[]).map(Number).filter(v=>Number.isFinite(v)&&v>=0&&v<=800).slice(0,40).map(v=>Math.round(v*100)/100);
+ if(gl(g.x).length||gl(g.y).length)out.guides={x:gl(g.x),y:gl(g.y)};
  Object.keys(def.parts).forEach(k=>{
   const d=def.parts[k],s=src.parts[k];
-  if(d.columns||!s||!Array.isArray(s.blocks)){out.parts[k]=d;return;}
+  if(d.columns){const c=s&&Array.isArray(s.columns)?s.columns.map(formCleanColumn).filter(Boolean):null;out.parts[k]=c&&c.length?Object.assign({},d,{columns:c}):d;return;}
+  if(!s||!Array.isArray(s.blocks)){out.parts[k]=d;return;}
   const h=Number(s.h);
   out.parts[k]=Object.assign({},d,{h:Number.isFinite(h)?Math.max(0,Math.min(800,h)):d.h,blocks:s.blocks.map(formCleanBlock).filter(Boolean)});
  });

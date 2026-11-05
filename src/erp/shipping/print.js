@@ -80,11 +80,14 @@ function shippingFormDefault(){
    {id:'shipTo',type:'field',field:'shipTo',place:'left',y:108,w:540,h:13,size:9,lh:13,wrap:true}]},
   first:{h:14,blocks:[
    {id:'corrections',type:'field',field:'corrections',place:'left',y:0,w:480,h:14,size:8,lh:14,bold:true,color:due,wrap:true}]},
+  /* Колонки — ячейки по порядку от левого поля (formColumns): cw — ширина
+     ячейки, pad — отступ надписи, w — перенос текста. Числа подобраны так,
+     что колонки стоят там же, где стояли в коде (Line 41, Ordered 363…). */
   table:{columns:[
-   {k:'line',label:'Line / Mark',x:41,w:75},{k:'size',label:'Size',x:122,w:84},{k:'makeup',label:'Makeup',x:211,w:99},
-   {k:'ordered',label:'Ordered',x:363,align:'right'},{k:'before',label:'Before',x:401,align:'right'},
-   {k:'now',label:'Now',x:435,align:'right',bold:true},{k:'back',label:'Back order',x:489,align:'right',bold:true,alert:true},
-   {k:'skid',label:'Skid',x:520,w:53}]},
+   {k:'line',label:'Line / Mark',type:'text',cw:81,w:75},{k:'size',label:'Size',type:'text',cw:89,w:84},{k:'makeup',label:'Makeup',type:'text',cw:105,w:99},
+   {k:'ordered',label:'Ordered',type:'num',cw:57},{k:'before',label:'Before',type:'num',cw:38},
+   {k:'now',label:'Now',type:'num',cw:34,bold:true},{k:'back',label:'Back order',type:'num',cw:54,bold:true,alert:true},
+   {k:'skid',label:'Skid',type:'text',cw:82,pad:26,w:53}]},
   totals:{h:93,keep:130,blocks:[
    {id:'skids',type:'field',field:'skids',place:'left',y:0,w:480,h:14,size:8,lh:14,wrap:true},
    {id:'note',type:'field',field:'note',place:'left',y:14,w:480,h:14,size:8,lh:14,wrap:true},
@@ -103,8 +106,8 @@ function shippingFormDefault(){
    .concat(card('from',36,'left','FROM','company.name','company.lines'))
    .concat(card('to',311,'right','TO','customer','shipToAddress',[{id:'toDate',type:'field',field:'shipDate',place:'free',x:320,y:141,w:247,h:9,size:7.6,lh:9,color:mut,fit:true}]))},
   skidTable:{columns:[
-   {k:'pos',label:'#',x:41,w:50,bold:true},{k:'line',label:'Line / Mark',x:96,w:70},{k:'size',label:'Size',x:171,w:100},{k:'makeup',label:'Makeup',x:276,w:190},
-   {k:'qty',label:'Qty',x:500,align:'right',bold:true},{k:'kg',label:'kg',x:548,align:'right'}]},
+   {k:'pos',label:'#',type:'text',cw:55,w:50,bold:true},{k:'line',label:'Line / Mark',type:'text',cw:75,w:70},{k:'size',label:'Size',type:'text',cw:105,w:100},{k:'makeup',label:'Makeup',type:'text',cw:200,w:190},
+   {k:'qty',label:'Qty',type:'num',cw:34,bold:true},{k:'kg',label:'kg',type:'num',cw:48}]},
   bottom:{h:67,blocks:[
    {id:'pageNo',type:'text',text:'{number|Skid contents} · {page} / {pages}',place:'right',y:41,w:300,h:13,size:8,color:mut,align:'right'}]}
  }};
@@ -131,6 +134,26 @@ const SHIPPING_FORM_FIELDS=[
  {k:'skidUnits',g:'Skids',label:'Skid units and weight',v:()=>''},
  {k:'skidsProperty',g:'Skids',label:'Skids remain ours',v:d=>d.skids.length?shippingCount(d.skids.length,'skid')+' left on site '+(d.skids.length===1?'remains':'remain')+' property of '+(d.company.name||'the supplier')+'.':''}
 ];
+/* Что может стоять в колонке таблицы (конструктор: Shows, + Column). */
+const SHIPPING_TABLE_COLUMNS=[
+ {k:'line',label:'Line / Mark',type:'text',v:r=>String(r.line)+(r.mark?' · '+r.mark:'')},
+ {k:'mark',label:'Mark',type:'text',v:r=>r.mark||''},
+ {k:'size',label:'Size',type:'text',v:r=>r.size},
+ {k:'makeup',label:'Makeup',type:'text',v:r=>r.makeup},
+ {k:'ordered',label:'Ordered',type:'num',v:r=>r.ordered},
+ {k:'before',label:'Before',type:'num',v:r=>r.before},
+ {k:'now',label:'Now',type:'num',v:r=>r.now},
+ {k:'back',label:'Back order',type:'num',v:r=>r.back},
+ {k:'weight',label:'Weight kg',type:'num',v:r=>docNum((r.kg==null?r.knownKg:r.kg)*r.now,1)},
+ {k:'skid',label:'Skid',type:'text',v:r=>r.skids||'—'}];
+const SHIPPING_SKID_COLUMNS=[
+ {k:'pos',label:'#',type:'text',v:r=>r.pos},
+ {k:'line',label:'Line / Mark',type:'text',v:r=>String(r.line)+(r.mark?' · '+r.mark:'')},
+ {k:'mark',label:'Mark',type:'text',v:r=>r.mark||''},
+ {k:'size',label:'Size',type:'text',v:r=>r.size},
+ {k:'makeup',label:'Makeup',type:'text',v:r=>r.makeup},
+ {k:'qty',label:'Qty',type:'num',v:r=>r.now},
+ {k:'kg',label:'kg',type:'num',v:r=>docNum((r.kg==null?r.knownKg:r.kg)*r.now,1)}];
 function shippingFormContext(d){
  const by=new Map(SHIPPING_FORM_FIELDS.map(x=>[x.k,x]));
  return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},type:k=>(by.get(k)||{}).t||''};
@@ -168,18 +191,20 @@ function shippingPlaceText(list){
 }
 /* tpl и map — для конструктора: свой черновик шаблона и места блоков. */
 function shippingPages(d,skidOnly,tpl,map){
- tpl=tpl||shippingFormTemplate();const f=formFlow(tpl,shippingFormContext(d),map),cols=tpl.parts.table.columns,W=f.right-f.left;let activeOrder;
+ tpl=tpl||shippingFormTemplate();const f=formFlow(tpl,shippingFormContext(d),map),W=f.right-f.left;let activeOrder;
+ const cols=formColumns(tpl.parts.table.columns,f.left),by=new Map(SHIPPING_TABLE_COLUMNS.map(c=>[c.k,c]));
+ /* Шапка таблицы — один раз на лист в места для конструктора (клик по колонке). */
+ const headSeen=new Set(),headMark=(part,list,y)=>{if(!map||headSeen.has(part+f.pages.length))return;headSeen.add(part+f.pages.length);list.forEach(c=>map.push({page:f.pages.length-1,part,id:'col:'+c.k,x:c.start,y:y-11,w:c.cw,h:21}));};
  const line=(text,opts)=>{opts=opts||{};const size=opts.size||9;docWrap(String(text),size,!!opts.bold,W).forEach(t=>{f.ensure(size+5);f.P.text(f.left,f.y,t,opts);f.y+=size+5;});};
- const tableHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});cols.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align||'left'}));f.y+=23;};
- /* Колонки с шириной переносят текст (8 pt), без ширины — число (9 pt). */
- const textCols=cols.filter(c=>c.w),numCols=cols.filter(c=>!c.w);
+ const tableHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});cols.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align}));headMark('table',cols,f.y);f.y+=23;};
+ /* Текст переносится (8 pt), число — одной строкой (9 pt). */
+ const textCols=cols.filter(c=>c.type!=='num'),numCols=cols.filter(c=>c.type==='num'),cell=(c,r)=>{const x=by.get(c.k);const v=x?x.v(r):'';return v==null?'':v;};
  const row=r=>{
-  const val={line:String(r.line)+(r.mark?' · '+r.mark:''),size:r.size,makeup:r.makeup,skid:r.skids||'—',ordered:r.ordered,before:r.before,now:r.now,back:r.back};
-  const wrapped=textCols.map(c=>docWrap(String(val[c.k]==null?'':val[c.k]),8,false,c.w)),lines=Math.max(1,...wrapped.map(a=>a.length)),note=r.note?docWrap(r.note,8,false,W-40):[],h=(lines+note.length)*11+12;
+  const wrapped=textCols.map(c=>docWrap(String(cell(c,r)),c.size||8,!!c.bold,c.w)),lines=Math.max(1,...wrapped.map(a=>a.length)),note=r.note?docWrap(r.note,8,false,W-40):[],h=(lines+note.length)*11+12;
   if(f.y+h>f.bottom-15){f.page();if(activeOrder)line(activeOrder+' · continued',{size:11,bold:true});tableHead();}
-  textCols.forEach((c,n)=>wrapped[n].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,{size:8})));
+  textCols.forEach((c,n)=>wrapped[n].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,Object.assign({size:c.size||8},c.bold?{bold:true}:{},c.align!=='left'?{align:c.align}:{}))));
   note.forEach((t,k)=>f.P.text(f.left+5,f.y+(lines+k)*11,t,{size:8,color:DOC_COLOR.mut}));
-  numCols.forEach(c=>{const v=val[c.k];f.P.text(c.x,f.y,String(v),{size:9,bold:!!c.bold,align:c.align||'right',color:c.alert&&v>0?DOC_COLOR.due:DOC_COLOR.ink});});
+  numCols.forEach(c=>{const v=cell(c,r);f.P.text(c.x,f.y,String(v),{size:c.size||9,bold:!!c.bold,align:c.align,color:c.alert&&v>0?DOC_COLOR.due:DOC_COLOR.ink});});
   f.y+=h;f.P.line(f.left,f.y-6,f.right,f.y-6);
  };
  if(!skidOnly){
@@ -192,13 +217,14 @@ function shippingPages(d,skidOnly,tpl,map){
   if(!d.orders.length)line('Open trip · no items selected');
   f.flow('totals');
  }
- const sc=tpl.parts.skidTable.columns,places=shippingSkidPlaces(d),oid=new Map(d.orders.map(o=>[o.number,o.id])),key=r=>oid.get(r.order)+'|'+r.lineId;
- const skidHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});sc.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align||'left'}));f.y+=23;};
- const skidRow=(val,group)=>{
-  const tc=sc.filter(c=>c.w),wr=tc.map(c=>docWrap(String(val[c.k]==null?'':val[c.k]),8,!!c.bold,c.w)),n=Math.max(1,...wr.map(a=>a.length)),h=n*11+12;
+ const sc=formColumns(tpl.parts.skidTable.columns,f.left),sby=new Map(SHIPPING_SKID_COLUMNS.map(c=>[c.k,c])),places=shippingSkidPlaces(d),oid=new Map(d.orders.map(o=>[o.number,o.id])),key=r=>oid.get(r.order)+'|'+r.lineId;
+ const skidHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});sc.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align}));headMark('skidTable',sc,f.y);f.y+=23;};
+ const skidRow=(r,group)=>{
+  const v=c=>{const x=sby.get(c.k);const t=x?x.v(r):'';return t==null?'':t;};
+  const tc=sc.filter(c=>c.type!=='num'),wr=tc.map(c=>docWrap(String(v(c)),c.size||8,!!c.bold,c.w)),n=Math.max(1,...wr.map(a=>a.length)),h=n*11+12;
   if(f.y+h>f.bottom-15){f.page();line(group+' · continued',{size:11,bold:true});skidHead();}
-  tc.forEach((c,i)=>wr[i].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,{size:8,bold:!!c.bold})));
-  sc.filter(c=>!c.w).forEach(c=>f.P.text(c.x,f.y,String(val[c.k]),{size:9,bold:!!c.bold,align:c.align||'right'}));
+  tc.forEach((c,i)=>wr[i].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,Object.assign({size:c.size||8,bold:!!c.bold},c.align!=='left'?{align:c.align}:{}))));
+  sc.filter(c=>c.type==='num').forEach(c=>f.P.text(c.x,f.y,String(v(c)),{size:c.size||9,bold:!!c.bold,align:c.align}));
   f.y+=h;f.P.line(f.left,f.y-6,f.right,f.y-6);
  };
  d.skids.filter(s=>!skidOnly||s.code===skidOnly).forEach(s=>{
@@ -210,7 +236,7 @@ function shippingPages(d,skidOnly,tpl,map){
   groups.forEach(g=>g.rows.sort((a,b)=>at(a)-at(b)));groups.sort((a,b)=>at(a.rows[0])-at(b.rows[0]));
   groups.forEach(g=>{
    f.ensure(75);line(g.key,{size:11,bold:true});skidHead();
-   g.rows.forEach(r=>skidRow({pos:pos?shippingPlaceText(pos.get(key(r))||[]):'',line:String(r.line)+(r.mark?' · '+r.mark:''),size:r.size,makeup:r.makeup,qty:r.now,kg:docNum((r.kg==null?r.knownKg:r.kg)*r.now,1)},g.key));
+   g.rows.forEach(r=>skidRow(Object.assign({},r,{pos:pos?shippingPlaceText(pos.get(key(r))||[]):''}),g.key));
    f.y+=12;
   });
   f.ensure(30);const q=sc.find(c=>c.k==='qty'),kg=sc.find(c=>c.k==='kg');
