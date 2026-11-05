@@ -55,6 +55,9 @@
      профиль этого прогона не удаляется; --years N на нём размножает архив
      (один раз: копия профиля), --compare <папка прогона> берёт из него
      числа «до». --keep — оставить профиль нового прогона для такого повтора.
+     --only <regex> — только отчёты, у которых «отчёт · страница» подходит
+     (без учёта регистра). --peak — ещё и пик памяти, пока отчёт грузится:
+     раз в 3 с сборка мусора и замер (время отчёта из-за этого чуть больше).
 
    Выход: ~/.glass-erp-walk/perf/<дата>-<имя>/ — report.md, report.json,
    PNG медленных экранов. В Git не класть: это рабочие и тестовые данные.
@@ -69,12 +72,13 @@
           --archive <YYYY-MM-DD> (уход в архив после Import, сверка ответов)
           --years N (с --archive: архив за N лет)
           --reports (все готовые отчёты) --today <YYYY-MM-DD> --profile <папка> --keep
+          --only <regex> --peak
    ===================================================================== */
 const { chromium } = require('playwright');
 const fs = require('fs'), os = require('os'), path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const o = { base: '', name: '', out: path.join(os.homedir(), '.glass-erp-walk', 'perf'), cpu: [1, 4], timeout: 120, dist: false, required: false, compare: '', archive: '', years: 1, reports: false, today: '', profile: '', keep: false };
+const o = { base: '', name: '', out: path.join(os.homedir(), '.glass-erp-walk', 'perf'), cpu: [1, 4], timeout: 120, dist: false, required: false, compare: '', archive: '', years: 1, reports: false, today: '', profile: '', keep: false, only: null, peak: false };
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i], v = () => argv[++i];
@@ -83,6 +87,8 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === '--compare') o.compare = v().replace(/^~(?=\/|$)/, os.homedir());
   else if (a === '--reports') o.reports = true;
   else if (a === '--keep') o.keep = true;
+  else if (a === '--only') o.only = new RegExp(v(), 'i');
+  else if (a === '--peak') o.peak = true;
   else if (a === '--profile') o.profile = v().replace(/^~(?=\/|$)/, os.homedir());
   else if (a === '--today') { o.today = v(); if (!/^\d{4}-\d{2}-\d{2}$/.test(o.today)) { console.error('--today: день YYYY-MM-DD'); process.exit(2); } }
   else if (a === '--years') o.years = Math.max(1, Math.floor(+v() || 1));
@@ -440,12 +446,17 @@ async function runReports(label) {
   const limit = Math.max(o.timeout, 900) * 1000, rows = [], list = await page.evaluate(() => PERF.reportList());
   console.log('\n== отчёты · ' + label + ': ' + list.length);
   for (const r of list) for (const p of r.pages) for (const all of [false, true]) {
+    if (o.only && !o.only.test(r.name + ' · ' + p.name)) continue;
+    /* --peak: пока отчёт грузится, раз в 3 с — память после сборки мусора. */
+    let peak = 0, busy = false;
+    const tick = o.peak ? setInterval(() => { if (busy) return; busy = true; heapMB().then(v => { peak = Math.max(peak, v); }, () => {}).finally(() => { busy = false; }); }, 3000) : null;
     const before = errors.length, x = await within(limit + 30000, page.evaluate(([id, pid, a, l]) => PERF.report(id, pid, a, l), [r.id, p.id, all, limit]));
+    if (tick) clearInterval(tick);
     const row = Object.assign({ report: r.name, page: p.name, period: all ? 'All time' : r.preset }, x.v || { state: x.timeout ? 'hung' : 'error', text: x.error || '', widgets: [] });
     row.errors = errors.slice(before);
-    if (x.timeout) await restart(); else { row.heapMB = await heapMB(); await page.evaluate(() => PERF.reportDrop()); }
+    if (x.timeout) await restart(); else { row.heapMB = await heapMB(); await page.evaluate(() => PERF.reportDrop()); if (o.peak) { row.peakMB = Math.max(peak, row.heapMB); row.afterMB = await heapMB(); } }
     rows.push(row);
-    console.log((row.state === 'ok' && !row.errors.length ? '✓ ' : '✗ ') + (r.name + ' · ' + p.name).padEnd(52) + row.period.padEnd(13) + row.state.padEnd(8) + fmt(row.ms).padEnd(9) + String(row.orders || 0).padEnd(7) + (row.heapMB || '?') + ' МБ');
+    console.log((row.state === 'ok' && !row.errors.length ? '✓ ' : '✗ ') + (r.name + ' · ' + p.name).padEnd(52) + row.period.padEnd(13) + row.state.padEnd(8) + fmt(row.ms).padEnd(9) + String(row.orders || 0).padEnd(7) + (row.heapMB || '?') + ' МБ' + (o.peak ? ' · пик ' + row.peakMB + ' · после ' + row.afterMB : ''));
   }
   return rows;
 }
@@ -463,13 +474,14 @@ async function reportsOnly(report) {
   if (o.compare && !report.before) report.before = JSON.parse(fs.readFileSync(path.join(o.compare, 'reports.json'), 'utf8')).before;
   report.after = await runReports(o.archive || o.profile ? 'после архива' : 'как есть');
   await ctx.close();
-  const rows = report.after, bad = rows.filter(r => r.state !== 'ok' || r.errors.length), diffs = reportsDiff(report.before, rows), max = Math.max(0, ...rows.map(r => r.heapMB || 0));
+  const rows = report.after, bad = rows.filter(r => r.state !== 'ok' || r.errors.length), diffs = reportsDiff(report.before, rows), max = Math.max(0, ...rows.map(r => Math.max(r.heapMB || 0, r.peakMB || 0)));
   const count = s => rows.filter(r => r.state === s).length, slow = rows.slice().sort((a, b) => (b.ms || 0) - (a.ms || 0)).slice(0, 10);
   const L = ['# Готовые отчёты · ' + o.name, '', 'База: `' + path.basename(o.base) + '`' + (o.archive ? ' · архив на ' + o.archive : '') + (o.years > 1 ? ' · ' + o.years + ' лет' : '') + (o.today ? ' · часы ' + o.today : '') + ' · сборка ' + report.build + ' · ' + report.date.slice(0, 16).replace('T', ' ') + '.', '',
     'Страниц × периодов: ' + rows.length + '. Готово: ' + count('ok') + ', отказ «too many»: ' + count('big') + ', не успели: ' + (count('timeout') + count('hung')) + ', ошибки: ' + rows.filter(r => r.errors.length || r.state === 'error').length + '. Память до ' + max + ' МБ.',
     report.before ? 'Числа «до / после архива»: ' + (diffs.length ? '**расходятся** — ' + diffs.length + ' графиков.' : 'все те же.') : '', '',
-    '| Отчёт · страница | Период | Ответ | Время | Заказов архива | Память |', '|---|---|---|---|---|---|'];
-  rows.forEach(r => L.push('| ' + r.report + ' · ' + r.page + ' | ' + r.period + ' | ' + r.state + (r.errors.length ? ' ✗ ' + r.errors[0] : '') + ' | ' + fmt(r.ms) + ' | ' + (r.orders || 0) + ' | ' + (r.heapMB || '—') + ' МБ |'));
+    o.peak ? 'Пик — самая большая память, пока отчёт грузился; «закрыт» — после выхода из отчёта.' : '', '',
+    '| Отчёт · страница | Период | Ответ | Время | Заказов архива | Память |' + (o.peak ? ' Пик | Закрыт |' : ''), '|---|---|---|---|---|---|' + (o.peak ? '---|---|' : '')];
+  rows.forEach(r => L.push('| ' + r.report + ' · ' + r.page + ' | ' + r.period + ' | ' + r.state + (r.errors.length ? ' ✗ ' + r.errors[0] : '') + ' | ' + fmt(r.ms) + ' | ' + (r.orders || 0) + ' | ' + (r.heapMB || '—') + ' МБ |' + (o.peak ? ' ' + (r.peakMB || '—') + ' МБ | ' + (r.afterMB || '—') + ' МБ |' : '')));
   L.push('', '## Самые долгие', '', ...slow.map(r => '- ' + r.report + ' · ' + r.page + ' · ' + r.period + ': ' + fmt(r.ms)));
   if (diffs.length) L.push('', '## Расхождения (первые 40)', '', ...diffs.slice(0, 40).map(d => '- ' + d.key + '\n  - было: ' + d.was.slice(0, 400) + '\n  - стало: ' + d.now.slice(0, 400)));
   fs.writeFileSync(path.join(dir, 'reports.json'), JSON.stringify(Object.assign(report, { diffs }), null, 1));
