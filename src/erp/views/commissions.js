@@ -19,10 +19,11 @@ function viewCommissions(){return comWithScope(viewCommissionsIn);}
    сортировка в заголовке, ширина и порядок мышью, итог внизу. Строка или
    галочка открывают человека ниже, как раньше. */
 function comListScope(){return tab==='commissions'?'agents':'';}
+function comHstHidden(k){return !comHst&&(k==='paid'||k==='comHst')&&salesListScope()==='agents';}
 function comListColumns(){
  const col=(k,label,type,o)=>Object.assign({k,label,type:type||'text',def:true},o||{}),m={money:true,sum:true};
  return [col('name','Person'),col('contact','Contact'),col('customers','Customers · %'),col('orders','Orders','number',{sum:true}),col('base','Paid','number',m),col('com','Commission','number',m)]
-  .concat(comHst?[col('paid','Paid with HST','number',m),col('comHst','Commission with HST','number',m)]:[])
+  .concat([col('paid','Paid with HST','number',m),col('comHst','Commission with HST','number',m)])
   .concat([col('paidOut','Paid out','number',m),col('toPay','To pay','number',m)]);
 }
 function viewCommissionsIn(){

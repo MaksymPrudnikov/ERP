@@ -169,7 +169,8 @@ function salesListFreeze(k){
 /* Таблицы с ширинами и порядком за заголовок (views/col-widths): Sales и список PS. */
 function salesListCwId(){const s=salesListScope();return s==='sales'?'sales':s==='shippingPS'?'shipments':CW_TABLES[s]?s:'';}
 function salesListNarrowRule(k){return salesListScope()==='sales'&&window.innerWidth<(SALES_LIST_NARROW[k]||0);}
-function salesListAutoHidden(k){return salesListNarrowRule(k)&&!salesListLoadPrefs().pinned.includes(k);}
+/* Agents: колонки с HST видны только с галочкой With HST. */
+function salesListAutoHidden(k){return salesListNarrowRule(k)&&!salesListLoadPrefs().pinned.includes(k)||typeof comHstHidden==='function'&&comHstHidden(k);}
 
 /* ------------------------------ Значения ------------------------------- */
 function salesListDay(d){const p=v=>String(v).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
