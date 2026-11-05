@@ -2,6 +2,28 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Reports: режим правки по образцу Looker Studio (этап 6, часть Б) · 5 ноября 2026
+
+Скрины Looker владельца — `~/Documents/ERP_PLAN/этап6-доделать/looker/`. Выбор 05.11.2026: листы слева (вариант 3),
+поля Data отдельной колонкой (вариант 1); в просмотре — стрелки листов, отчёт на всё место.
+
+- `viewReports` в Edit: `.rep-app.rep-edit` — `repPagesPanel` | `repMain` | `repSetup` | `repDataPanel` (190 | 1fr |
+  290 | 210; до 1300 px Data под свойствами). Каталог в Edit не показывается; «‹» панели листов — `repUi().pagesHidden`.
+- Верх Edit — одна строка: `input.rep-name-inline` (имя), папка, «● Unsaved changes», Report settings
+  (`repMenu.kind='settings'` → `repSettingsHTML`: папка, доступ, Show on → `repOpenScreens`, Delete report), Cancel, Save.
+  Строка правки листа (имя, Portrait, стрелки, Delete page) снята — всё в меню листа.
+- Листы: `rep-pitem` (draggable → `repPageDrop`), правая кнопка → `repPageMenuHTML` (Rename, Portrait / Landscape, Move,
+  Duplicate `repPageDup`, Separator above — `page.sep` в `reports/model.js`, Delete). Разделитель виден и во вкладках.
+- Свойства: галерея `REP_TYPE_ICO`, вкладки `repPropTab` Setup | Style (`repStyleHTML`: Title, Full / Half, высота `w.h`,
+  Total row, цвета, `repStyleReset`). Зоны `.rep-drop` (Dimension, Breakdown, Metrics, Filter) принимают поле из Data.
+- Data: `repDataPanel` — поля `repFields` (DATE / ABC) и показатели `repMetricOptions` (123 / fx), поиск без
+  перерисовки экрана (`repDataRefresh`), перетаскивание (`repDragKey` → `repPlaceField`) и клик (`repFieldClick`), «+ Field» —
+  `repCmOpen`.
+- Фильтры отчёта в Edit — таблетки, × (`data-rep-del-ctl`) внутри, «+ Filter» (`repAddCtlHTML`) вместо select «+ Control».
+- Просмотр: `[data-rep-pager]` «‹ Page N of M ›» (`repPageStep`).
+- Проверки: `test/report-builder.js` — новая (меню листа, стрелки, поле из Data, Report settings), Show on — из окна
+  настроек. README 2396. Руководство: `docs/manual/reports.*` §1, §4.
+
 ## Reports: печать и сборка листа (этап 6, часть А) · 5 ноября 2026
 
 Владелец выбрал 05.11.2026 вариант 2 «Линия отреза» (`~/Documents/ERP_PLAN/этап6-доделать/A-вариант-2-выбран.png`):

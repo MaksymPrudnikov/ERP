@@ -11,8 +11,15 @@ yourself (Top N) limits a chart.
 
 - **Left — catalog.** Search, Pinned (★), Recent and folders as a tree: "Production / Cutting" is a folder and a
   sub-folder. "‹" hides the catalog so the report uses the full width; "☰ Reports" brings it back.
-- **Centre — the report.** Name, page tabs, the filter row (Date and filter buttons), then the charts.
-- **Right, in Edit — Chart setup** for the selected chart. In Edit the catalog hides so the sheet is wider.
+- **Centre — the report.** Name, page tabs, the filter row (Date and filter pills), then the charts. A report with
+  several pages shows "‹ Page 2 of 4 ›" at the top — the arrows turn the pages.
+- **Edit works like Looker Studio.** The catalog hides. Left — **Pages**: the page list, drag to reorder, right-click
+  for Rename, Portrait / Landscape, Move up / down, Duplicate page, Separator above, Delete page; "‹" folds the
+  panel. Right — the selected chart's properties (type as icons, **Setup** and **Style** tabs) and the **Data**
+  column: the source's fields with their type (DATE, ABC — text, 123 — number) and a search. Drag a field into Setup
+  (Dimension, Breakdown, Metrics, filter) or just click it — it goes to Dimension or Metrics; "+ Field" is your own metric.
+- **The Edit top is one row:** the report name (edit it in place), the folder, Unsaved changes, **Report settings**
+  (folder, who sees it, Show on, Delete report), Cancel, Save.
 - **Chart buttons are icons in its title row:** in view only CSV; in Edit also edit (pencil), duplicate, up, down and
   × (remove). The corner at the bottom right (Edit) drags: up and down for the table or chart height, sideways for
   half the row or the whole row.
@@ -50,10 +57,11 @@ Starter reports are edited by an administrator; everyone else uses Copy and edit
 ## 4. Building your own report
 
 1. **+ New** (or Copy a starter) → Edit opens.
-2. Name, folder ("Production / Cutting"), who sees it: Only me or Everyone with Reports.
-3. **+ Page** — pages. Page name, ← → order, Portrait or Landscape — how this page prints.
-4. **+ Add chart** — a chart. Click a chart to set it up on the right.
-5. **+ Control** — a filter button above the report (Glass, Thickness, Customer…).
+2. The name — right in the top row; the folder ("Production / Cutting") and who sees it (Only me or Everyone with
+   Reports) — in **Report settings**.
+3. **+ Page** — pages, in the Pages panel on the left. Name, order, Portrait or Landscape — right-click the page.
+4. **+ Add chart** — a chart. Click a chart to see its properties on the right.
+5. **+ Filter** — a filter pill above the report (Glass, Thickness, Customer…); the × inside the pill removes it.
 6. **Save** writes the report. **Cancel** returns it as it was. ERP asks before you leave unsaved changes.
 
 ### 4.1 Chart setup
@@ -74,7 +82,7 @@ Starter reports are edited by an administrator; everyone else uses Copy and edit
 | Date range | Report period or the chart's own period; the date field when there are several (Created, Due, Shipped…). |
 | Comparison | Previous period or Same period last year: the previous number and ▲▼ % next to it. |
 | Sort · rows | Row order; Top N keeps the first N, Other row shows the rest as one row. By default everything is shown. |
-| Layout | Full width or Half width; Totals — the totals row of a table. |
+| Style | The Style tab: Title, width (Full / Half) and height, Total row of a table, colours (click a colour in the legend), Reset to default. |
 
 ### 4.2 Tables, bars, pies, Combo
 
