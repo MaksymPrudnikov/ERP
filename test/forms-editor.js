@@ -67,6 +67,26 @@ module.exports=async function({page,eq}){
   feOpen();feClick('[data-forms-reset]');feClick('[data-forms-save]');const pages=shippingPages(shippingDocument(s));
   return {before,after:feText(pages).includes('Date: 2026-10-08'),barcode:pages[0].items.some(i=>i.t==='rect'&&i.fill==='#000000'),same:JSON.stringify(pages)===JSON.stringify(shippingPages(shippingDocument(s),null,shippingFormDefault()))};
  }),{before:true,after:false,barcode:true,same:true});
+ eq('Forms: History — each Save is a version with what changed; Versions shows the chosen version on the sheet; Restore puts it in the editor, Save keeps it',await t.p.evaluate(()=>{
+  DB.formVersion=[];DB.formTemplate={};feOpen();
+  feClick('[data-forms-part="totals"]');feClick('[data-forms-add="text"]');feClick('[data-forms-save]');
+  feDrag('every|title',0,0);const inp=document.querySelector('[data-forms-num="size"]');inp.value='22';inp.dispatchEvent(new Event('change'));feClick('[data-forms-save]');
+  feClick('[data-forms-history]');const list=[...document.querySelectorAll('[data-forms-version]')].map(b=>b.querySelector('small').textContent);
+  const restore0=document.querySelector('[data-forms-restore]').disabled;feClick('[data-forms-version="1"]');const sheets=document.querySelectorAll('.fm-vsheet').length;
+  const old=[...document.querySelectorAll('.fm-vsheet text')].find(e=>e.textContent==='PACKING SLIP').getAttribute('font-size');
+  feClick('[data-forms-restore]');const after={size:formsFind(formsDraft().tpl,{part:'every',id:'title'}).size,dirty:!!document.querySelector('[data-forms-dirty]'),closed:!document.querySelector('[data-forms-versions]')};
+  feClick('[data-forms-history]');feClick('[data-forms-version="2"]');feClick('[data-forms-restore]');
+  return {list,restore0,sheets:sheets>0,old,after,def:JSON.stringify(shippingPages(shippingFormSample(),null,formsDraft().tpl))===JSON.stringify(shippingPages(shippingFormSample(),null,shippingFormDefault())),versions:DB.formVersion.length};
+ }),{list:['1 block changed','1 block added','The program’s form'],restore0:true,sheets:true,old:'17',after:{size:17,dirty:true,closed:true},def:true,versions:2});
+ eq('Forms: Download this version and Load form file bring the same form back; a wrong file is refused with a reason; 20 versions kept per form',await t.p.evaluate(()=>{
+  let got=null;const keep=storageDownload;storageDownload=(name,text)=>{got={name,text};};
+  try{feOpen();feClick('[data-forms-history]');feClick('[data-forms-version="0"]');feClick('[data-forms-download]');}finally{storageDownload=keep;}
+  const file=JSON.parse(got.text);feClick('[data-forms-history]');
+  const bad=[formsLoadText('{oops'),document.querySelector('[data-forms-file-error]').textContent,formsLoadText(JSON.stringify(Object.assign({},file,{form:'invoice',label:'Invoice'}))),document.querySelector('[data-forms-file-error]').textContent];
+  const ok=formsLoadText(got.text),size=formsFind(formsDraft().tpl,{part:'every',id:'title'}).size;
+  for(let i=0;i<25;i++){formsEdit(t=>{t.parts.every.blocks.find(b=>b.id==='title').size=10+i;});formsSave();}
+  return {name:/^form-packing-slip-\d{4}-\d{2}-\d{2}\.json$/.test(got.name),format:[file.format,file.form],bad,ok,size,kept:DB.formVersion.filter(v=>v.form==='packingSlip').length};
+ }),{name:true,format:['glass-erp-form','packingSlip'],bad:[false,'Not a form file.',false,'This file is for Invoice.'],ok:true,size:22,kept:20});
  eq('Forms: a broken saved form is cleaned — unknown blocks and keys dropped, numbers kept in range, missing parts and table columns from the default',await t.p.evaluate(()=>{
   const def=shippingFormDefault(),bad={parts:{every:{h:'90',blocks:[{type:'script',y:1},{type:'text',text:'Hi',y:5,size:999,onclick:'x',place:'nowhere'},{type:'image',src:'javascript:alert(1)',y:0,w:10,h:10}]},table:{columns:[]}}};
   const c=formClean(bad,def);
