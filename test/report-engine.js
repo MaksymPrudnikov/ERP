@@ -460,16 +460,16 @@ module.exports=async function({page,eq,ok}){
   const w=type=>repCleanWidget({type,q:{source:'qa',dims:['k'],more:['g','mm'],metrics:['count'],sort:{by:'label',dir:'desc'}}}),r=repClean({date:{preset:'all'},pages:[{widgets:[w('table'),w('bars')]}]});
   try{
    const box=document.createElement('div');document.body.appendChild(box);box.innerHTML=repChart(r,r.pages[0].widgets[0]);
-   const head=[...box.querySelectorAll('thead th')].map(x=>x.textContent),body=[...box.querySelectorAll('tbody tr')].map(tr=>[...tr.children].map(x=>x.textContent).join(' | ')),foot=box.querySelector('tfoot td').colSpan;
+   const head=[...box.querySelectorAll('thead th:not(.sl-check)')].map(x=>x.textContent),body=[...box.querySelectorAll('tbody tr')].map(tr=>[...tr.children].filter(x=>!x.classList.contains('sl-check')).map(x=>x.textContent).join(' | ')),foot=box.querySelector('tfoot td:not(.sl-check)').colSpan;
    box.innerHTML=repChart(r,r.pages[0].widgets[1]);const bars=[...box.querySelectorAll('.ch-hbar-label')].map(x=>x.textContent);
    /* Наоборот: толщина, стекло, внутри батчи — по именам, группа подряд, повтор бледно. */
    const inv=repClean({date:{preset:'all'},pages:[{widgets:[repCleanWidget({type:'table',q:{source:'qa',dims:['mm'],more:['g','k'],metrics:['count']}})]}]});
    rows.push({id:'4',at:'2024-01-01',k:'B-3',g:'6CLEAR',mm:'6 mm',n:1});box.innerHTML=repChart(inv,inv.pages[0].widgets[0]);
-   const grouped=[...box.querySelectorAll('tbody tr')].map(tr=>[...tr.children].slice(0,3).map(x=>(x.classList.contains('rep-same')?'~':'')+x.textContent).join(' | '));box.remove();
+   const grouped=[...box.querySelectorAll('tbody tr')].map(tr=>[...tr.children].filter(x=>!x.classList.contains('sl-check')).slice(0,3).map(x=>(x.classList.contains('rep-same')?'~':'')+x.textContent).join(' | '));box.remove();
    return {head,body,foot,bars,grouped};
   }finally{delete REP_SRC.qa;}
  }),{head:['Batch ▼','Glass','Thickness','Rows'],body:['B-2 | 6CLEAR | 6 mm | 2','B-1 | 4E272 | 4 mm | 1'],foot:3,bars:['B-2','B-1'],grouped:['4 mm | 4E272 | B-1','6 mm | 6CLEAR | B-2','~6 mm | ~6CLEAR | B-3']});
- eq('Печать: каждая страница отчёта — свой лист в своей ориентации, ширина как на экране, уменьшено под лист; граница листа в Edit; дни за годы — плотная гистограмма',await t.p.evaluate(async()=>{
+ eq('Печать: каждая страница отчёта — свой лист в своей ориентации, ширина как на экране, уменьшено только по ширине; что ниже края — не печатается, таблица целыми строками, «+ N more rows — CSV» и итог; граница листа; дни за годы — плотная гистограмма',await t.p.evaluate(async()=>{
   const rows=Array.from({length:700},(_,i)=>({id:'q'+i,at:'2024-01-01',k:'K'+String(i).padStart(3,'0'),n:1}));
   REP_SRC.qa={label:'QA',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
   const w=type=>({type,q:{source:'qa',dims:['k'],metrics:['count']}}),r=repClean({id:'RP-print-qa',name:'Print QA',share:'all',date:{preset:'all'},pages:[{name:'Tall',orient:'landscape',widgets:[w('table'),w('bars'),w('table')]},{name:'Short',widgets:[w('number')]}]});
@@ -477,12 +477,13 @@ module.exports=async function({page,eq,ok}){
   try{
    tab='reports';repOpen(r.id);await repPrint();
    const list=[...document.querySelectorAll('#printSheetHost .print-sheet')],zoom=el=>+(el.querySelector('.rep-print').style.zoom||1);
-   const sheets=list.map(el=>({cls:el.classList.contains('rep-land')?'land':el.classList.contains('rep-port')?'port':'',rows:el.querySelectorAll('tbody tr').length,width:el.querySelector('.rep-print').style.width===repPrintW+'px'}));
+   const sheets=list.map(el=>({cls:el.classList.contains('rep-land')?'land':el.classList.contains('rep-port')?'port':'',rows:el.querySelectorAll('tbody tr:not(.rep-more-row)').length>0&&el.querySelectorAll('tbody tr:not(.rep-more-row)').length<600,more:[...el.querySelectorAll('.rep-more-row')].map(x=>/^\+ [\d,]+ more rows — CSV$/.test(x.textContent)),total:el.querySelectorAll('tfoot').length,width:el.querySelector('.rep-print').style.width===repPrintW+'px'}));
+   const bottom=list[0].querySelector('.rep-print').getBoundingClientRect(),inside=[...list[0].querySelectorAll('.rep-w')].every(b=>b.getBoundingClientRect().bottom<=bottom.top+(REP_SHEET.landscape[1]-REP_SHEET_PAD)*REP_SHEET_SPARE+1);
    const dense=chartColumns(Array.from({length:200},(_,i)=>({label:'D'+i,value:i%2})),{}),mark=repSheetMark({orient:'landscape'});
-   return {printed,sheets,tallSmaller:zoom(list[0])<zoom(list[1]),orient:repClean({pages:[{orient:'sideways'}]}).pages[0].orient,back:repPage(repOpenReport()).name,
-    dense:[(dense.match(/<rect /g)||[]).length,(dense.match(/<em /g)||[]).length],mark:/End of sheet · Landscape/.test(mark)&&/padding-top:calc\(/.test(mark)};
+   return {printed,sheets,inside,byWidth:list.every(el=>zoom(el)===Math.floor((REP_SHEET[el.classList.contains('rep-land')?'landscape':'portrait'][0]-REP_SHEET_PAD)/repPrintW*1000)/1000),orient:repClean({pages:[{orient:'sideways'}]}).pages[0].orient,back:repPage(repOpenReport()).name,
+    dense:[(dense.match(/<rect /g)||[]).length,(dense.match(/<em /g)||[]).length],mark:/End of page · Letter landscape/.test(mark)&&/padding-top:calc\(/.test(mark)};
   }finally{window.print=was;printSheetCleanup();DB.report=keep;repOpenId='';delete REP_SRC.qa;}
- }),{printed:1,sheets:[{cls:'land',rows:600,width:true},{cls:'port',rows:0,width:true}],tallSmaller:true,orient:'portrait',back:'Tall',dense:[100,8],mark:true});
+ }),{printed:1,sheets:[{cls:'land',rows:true,more:[true],total:1,width:true},{cls:'port',rows:false,more:[],total:0,width:true}],inside:true,byWidth:true,orient:'portrait',back:'Tall',dense:[100,8],mark:true});
  eq('Список батчей у прежней базы: толщина, стекло, внутри батчи, все батчи; изменённый человеком — не трогается',await t.p.evaluate(()=>{
   const was=DB.report,seed=DB.reportSeed,old=()=>repClean(Object.assign(REP_STARTERS().find(r=>r.id==='RP-start-batches'),{pages:[{id:'P',name:'Batch list',widgets:[{type:'table',q:{source:'batches',dims:['batch'],metrics:['glassN'],limit:100,sort:{by:'label',dir:'desc'}}}]}]}));
   try{
@@ -524,7 +525,7 @@ module.exports=async function({page,eq,ok}){
   try{
    repOpen(r.id);const ws=r.pages[0].widgets,box=document.createElement('div');document.body.appendChild(box);box.innerHTML=repChart(r,ws[0]);
    const combo={inner:box.querySelectorAll('.ch-inner').length,legend:[...box.querySelectorAll('.ch-legend>span')].map(x=>x.textContent)};
-   const order=()=>{box.innerHTML=repChart(r,ws[1]);return [...box.querySelectorAll('tbody tr')].map(tr=>tr.firstElementChild.textContent);};
+   const order=()=>{box.innerHTML=repChart(r,ws[1]);return [...box.querySelectorAll('tbody tr')].map(tr=>tr.querySelector('td:not(.sl-check)').textContent);};
    const before=order();repSortClick(ws[1].id,'metric',0);const desc=order();repSortClick(ws[1].id,'metric',0);const asc=order();repSortClick(ws[1].id,'label',0);const name=order();
    const csv=repCsvText(r,ws[2]).trim().split('\r\n'),csv2=repCsvText(r,ws[1]).trim().split('\r\n');box.remove();repResetView();
    return {combo,before,desc,asc,name,csv,csv2};

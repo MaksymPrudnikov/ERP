@@ -12,7 +12,10 @@ yourself (Top N) limits a chart.
 - **Left — catalog.** Search, Pinned (★), Recent and folders as a tree: "Production / Cutting" is a folder and a
   sub-folder. "‹" hides the catalog so the report uses the full width; "☰ Reports" brings it back.
 - **Centre — the report.** Name, page tabs, the filter row (Date and filter buttons), then the charts.
-- **Right, in Edit — Chart setup** for the selected chart.
+- **Right, in Edit — Chart setup** for the selected chart. In Edit the catalog hides so the sheet is wider.
+- **Chart buttons are icons in its title row:** in view only CSV; in Edit also edit (pencil), duplicate, up, down and
+  × (remove). The corner at the bottom right (Edit) drags: up and down for the table or chart height, sideways for
+  half the row or the whole row.
 
 Report buttons: ☆ Pin, Edit (your report, or you are an administrator), Copy (your own copy of any report), Print.
 Starter reports are edited by an administrator; everyone else uses Copy and edits the copy.
@@ -76,12 +79,17 @@ Starter reports are edited by an administrator; everyone else uses Copy and edit
 ### 4.2 Tables, bars, pies, Combo
 
 - A table shows every row: it scrolls inside its card, the header and Total stay in place. The row count is under it.
+- **Tables work like Sales:** the gear at the left of the header is Columns (which columns show); the header edge
+  drags the width, the header itself moves the column; the icon by a header sorts and hides the column. The view is
+  yours in this browser (Standard view in Columns returns the report's view); in Edit it is the report's view for
+  everyone. An empty cell shows a grey "–".
 - **Sorting:** click a column header to sort by it (▼ biggest first, click again for ▲). The order is yours, in this
   browser; Reset returns the report's order.
 - **CSV** in the corner of every chart — all its rows and columns as a file for Excel, plain numbers, with Total.
 - **Combo** — two metrics on one chart: the column is the first metric, a narrow inner column is the second on its
   own scale. For example "sheets cut per month" with "batches" inside. Hover to see both numbers.
-- Bars and the pie legend show every value and scroll inside the card.
+- Bars and the pie legend show every value and scroll inside the card. The pie sits left, its labels right in columns.
+- **Columns:** a number above every column; hover — the column is outlined and the number is large.
 - Days over years become a dense histogram: every day is visible; hover for the date and number.
 
 ## 5. Data sources
@@ -199,9 +207,13 @@ With no row dimension the filter checks the whole total.
 
 - **Print** prints every page of the report, each on its own Letter sheet. Need two sheets — make two pages.
 - Orientation belongs to the page: Portrait or Landscape (in Edit, next to the page name).
-- A sheet is the report as on screen, scaled to the paper. A table prints as it shows in its card; all rows — use CSV.
-- In Edit, the dashed **End of sheet** line shows where the sheet ends: everything above prints as on screen,
-  anything below makes the sheet scale down further.
+- **One report page = one sheet of paper.** A sheet is the report as on screen, scaled only to the paper width.
+- The red dashed **End of page · Letter portrait** line (in view and in Edit) is the paper edge. Anything below does
+  not print: blocks and rows below fade with hatching, and the line says "N rows won't print". Nothing is shrunk for
+  you: make it fit with a block's corner or a second page (+ Page).
+- On paper a table is what shows in its card above the edge: whole rows, then "+ N more rows — CSV" and Total for
+  all rows. All rows — use CSV.
+- Charts print in colour; the browser's site address and date are not on the sheet.
 - The print window has "Save as PDF".
 
 ## 10. The manual as one PDF

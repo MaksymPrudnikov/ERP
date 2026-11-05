@@ -158,6 +158,7 @@ function renderScreen(){
  renderFocusBack(focus);
  listWindowAfter();
  if(typeof salesListFit==='function')salesListFit();
+ if(tab==='reports'&&typeof repSheetFit==='function')repSheetFit();
  motionAfterRender(document.getElementById('app'),hadWindow);
 }
 /* Курсор переживает перерисовку: поле, где он стоял (или куда только что

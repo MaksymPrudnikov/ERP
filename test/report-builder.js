@@ -75,7 +75,7 @@ module.exports=async function({page,eq,ok}){
   rpScans();const ids=rbIds(DB.salesOrder[0].id),who={id:'u3',name:'Oleg'};ids.forEach(p=>rbGo('HEAT',p,who));
   rpOpenTab();repNew();const r=repOpenReport();
   repSetW('type','table');repSetSource('tempering');repSetDim(0,'mm');repSetMetric(0,'count');repAddMetric();repSetMetric(1,'area');
-  const cells=()=>[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] tbody tr`)].map(tr=>[...tr.children].map(td=>td.textContent.trim()).join('|'));
+  const cells=()=>[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] tbody tr`)].map(tr=>[...tr.children].filter(x=>!x.classList.contains('sl-check')).map(td=>td.textContent.trim()).join('|'));
   const before=cells();repAddFilter();repSetFilter(0,'f','mm');repSetFilter(0,'op','notIn');repFilterAddVal(0,'6 mm');const filtered=cells();
   repDelFilter(0);repSetDateUse('lastYear');const lastYear=cells();repSetDateUse('report');const after=cells(),notYet=!repFind(r.id);repSaveEdit();
   return {name:r.name,before,filtered,lastYear,after,notYet,stored:repFind(r.id).pages[0].widgets[0].q.metrics};
@@ -116,9 +116,9 @@ module.exports=async function({page,eq,ok}){
  }),{dashed:true,legend:['Glass pcs','vs previous period'],print:{name:true,period:true,charts:4,tools:false}});
  eq('+ Calculated: метрика ÷ метрика или число прямо в настройке графика',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repNew();repSetW('type','table');repSetSource('edgework');repSetDim(0,'person');
-  document.querySelector('[data-rep-add-calc]').click();const row=document.querySelector('[data-rep-calc]');const label1=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] thead th`)].map(x=>x.textContent);
-  repSetCalc(1,'b','n:');repSetCalc(1,'n','100');const label2=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] thead th`)].map(x=>x.textContent);
-  const cells=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] tbody tr`)].map(tr=>[...tr.children].map(td=>td.textContent.trim()).join('|'));repCancelEdit();
+  document.querySelector('[data-rep-add-calc]').click();const row=document.querySelector('[data-rep-calc]');const label1=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] thead th:not(.sl-check)`)].map(x=>x.textContent);
+  repSetCalc(1,'b','n:');repSetCalc(1,'n','100');const label2=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] thead th:not(.sl-check)`)].map(x=>x.textContent);
+  const cells=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] tbody tr`)].map(tr=>[...tr.children].filter(x=>!x.classList.contains('sl-check')).map(td=>td.textContent.trim()).join('|'));repCancelEdit();
   return {row:!!row,label1,label2,cells};
  }),{row:true,label1:['Person','Linear in','Linear in ÷ Operations'],label2:['Person','Linear in','Linear in ÷ 100'],cells:['Andrei|432|4.32','Vasyl|280|2.8']});
  eq('Без Finance: источников Payments и Balances нет в списке, их графики пишут «Needs Finance access»',await t.p.evaluate(()=>{
@@ -152,10 +152,10 @@ module.exports=async function({page,eq,ok}){
  eq('Таблица с разбивкой показывает все метрики (у каждой колонки разбивки — каждая метрика), у графика — подсказка, что он рисует первую',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repNew();repSetW('type','table');repSetSource('edgework');repSetDim(0,'person');repSetDim(1,'op');
   document.querySelector('[data-rep-add-metric]').click();const rows=[...document.querySelectorAll(`[data-rep-widget="${repSelW}"] thead tr`)].map(tr=>[...tr.children].map(x=>x.textContent).join('|'));
-  const andrei=[...document.querySelector(`[data-rep-widget="${repSelW}"] tbody tr`).children].map(td=>td.textContent.trim()).join('|'),tableHint=!!document.querySelector('[data-rep-first-metric]');
+  const andrei=[...document.querySelector(`[data-rep-widget="${repSelW}"] tbody tr`).children].filter(x=>!x.classList.contains('sl-check')).map(td=>td.textContent.trim()).join('|'),tableHint=!!document.querySelector('[data-rep-first-metric]');
   repSetW('type','columns');const chartHint=!!document.querySelector('[data-rep-first-metric]');repCancelEdit();
   return {rows,andrei,tableHint,chartHint};
- }),{rows:['Person|Flat Polish|Rough Arris|Total','Linear in|Operations|Linear in|Operations|Linear in|Operations'],andrei:'Andrei|·|·|432|2|432|2',tableHint:false,chartHint:true});
+ }),{rows:['Person|Flat Polish|Rough Arris|Total','Linear in|Operations|Linear in|Operations|Linear in|Operations'],andrei:'Andrei|–|–|432|2|432|2',tableHint:false,chartHint:true});
 
  eq('Date в Edit — период самого отчёта: сохраняется по Save, у зрителя своего периода не остаётся; в просмотре — свой период зрителя',await t.p.evaluate(()=>{
   rpScans();rpOpenTab();repOpen('RP-start-cut');repEditToggle();repSetViewDate({preset:'lastMonth'});

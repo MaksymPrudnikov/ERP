@@ -54,13 +54,13 @@ function chartColumns(points,opts){
  opts=opts||{};if(points.length>CH_DENSE)return chartColumnsDense(points,opts);
  const max=Math.max(0,...points.map(p=>+p.value||0)),top=points.reduce((b,p,i)=>(+p.value||0)>(+points[b].value||0)?i:b,0);
  const cols=points.map((p,i)=>{
-  const v=+p.value||0,h=max?Math.max(v?3:0,Math.round(v/max*100)):0,show=v>0&&(i===top||p.on);
+  const v=+p.value||0,h=max?Math.max(v?3:0,Math.round(v/max*100)):0,show=v>0&&(opts.all||i===top||p.on);
   const bar=p.parts?`<span class="ch-stack" style="height:${h}%">${p.parts.filter(x=>x.value>0).map(x=>`<i class="${x.cls}" style="flex:${x.value} 1 0"></i>`).join('')}</span>`:`<i style="height:${h}%"></i>`;
   /* Combo: второй показатель — узкий столбик внутри, по своей шкале. */
   const inner=p.inner!=null&&p.inner>0?`<s class="ch-inner" style="height:${Math.max(2,Math.round(p.inner))}%"></s>`:'';
   return `<span class="ch-col${p.on?' on':''}" title="${esc(p.title||p.label+': '+chNum(v))}"${p.attrs||''}><span class="ch-col-bar">${show?`<b>${esc(opts.fmt?opts.fmt(v):chNum(v))}</b>`:''}${bar}${inner}</span><em>${p.tick===false?'':esc(p.label)}</em></span>`;
  }).join('');
- return `<div class="ch-cols" role="img" aria-label="${esc(opts.label||'')}">${cols}</div>`;
+ return `<div class="ch-cols${opts.all?' ch-all':''}" role="img" aria-label="${esc(opts.label||'')}">${cols}</div>`;
 }
 /* Легенда разбивки: цветной квадрат и подпись цветом текста. */
 function chartLegend(items){

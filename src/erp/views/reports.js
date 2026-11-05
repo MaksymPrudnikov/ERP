@@ -138,11 +138,14 @@ function repNumbers(res){
 }
 /* Ноль в строке таблицы — точкой, как пустая клетка разбивки: меньше шума.
    Деньги и проценты пишутся как есть. */
-function repCellHTML(m,v){return v===0&&!m.money&&!m.pct?'<span class="mut">·</span>':esc(repFmt(m,v));}
+function repCellHTML(m,v){return v===0&&!m.money&&!m.pct?REP_DASH:esc(repFmt(m,v));}
+/* Пустая клетка — серый прочерк, как в списках Sales (владелец, 04.11.2026). */
+const REP_DASH='<span class="mut sl-dash">–</span>';
 /* Таблица — все строки (владелец, 03.11.2026: «ничего не ограничивать»):
    первые REP_TABLE_STEP сразу, дальше дорисовываются, когда карточку
    прокручивают вниз (repTableMore). */
 const REP_TABLE_STEP=300;
+let repFitRaf=0;
 let repTableRest=new Map();
 function repTableBody(w,keys,rowHTML){
  if(keys.length<=REP_TABLE_STEP){repTableRest.delete(w.id);return keys.map(rowHTML).join('');}
@@ -150,36 +153,79 @@ function repTableBody(w,keys,rowHTML){
  return keys.slice(0,REP_TABLE_STEP).map(rowHTML).join('');
 }
 function repTableMore(el){
+ if(!repFitRaf)repFitRaf=requestAnimationFrame(()=>{repFitRaf=0;repSheetFit();});
  const x=repTableRest.get(el.dataset.repScroll);if(!x||el.scrollTop+el.clientHeight<el.scrollHeight-600)return;
  const body=el.querySelector('tbody'),end=Math.min(x.at+REP_TABLE_STEP,x.keys.length);if(!body)return;
  body.insertAdjacentHTML('beforeend',readScope(()=>{let html='';for(let i=x.at;i<end;i++)html+=x.rowHTML(x.keys[i],i,x.keys);return html;}));x.at=end;if(end>=x.keys.length)repTableRest.delete(el.dataset.repScroll);
 }
+/* Таблица отчёта — как в Sales (владелец, 04.11.2026): ширина и порядок
+   колонок мышью, Columns — какие видны. Вид у зрителя свой (в этом браузере),
+   в Edit — вид отчёта по умолчанию (w.tv). Измерения строк стоят слева. */
+function repTableView(r,w){const v=!repEditOn&&repView(r.id).tv;return v&&v[w.id]?repCleanTableView(v[w.id]):repCleanTableView(w.tv);}
+function repTableViewSet(wid,fn){
+ const r=repOpenReport();if(!r)return;
+ if(repEditOn){repEditCur(x=>x.pages.forEach(p=>p.widgets.forEach(w=>{if(w.id===wid){const v=repCleanTableView(w.tv);fn(v);w.tv=v;}})));return;}
+ const w=r.pages.flatMap(p=>p.widgets).find(x=>x.id===wid);if(!w)return;
+ repViewSet(r.id,v=>{v.tv=v.tv&&typeof v.tv==='object'?v.tv:{};const cur=repCleanTableView(v.tv[wid]||w.tv);fn(cur);v.tv[wid]=cur;});render();
+}
+function repColKey(s){let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))|0;return 'v'+(h>>>0).toString(36);}
 function repTableHTML(r,S,res,w){
  const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],cmp=res.compare&&!d2;
  /* Измерения строк: первое и ещё (res.more) — каждое своей колонкой. */
  /* Клик по заголовку — порядок строк (как в Looker): свой у зрителя, в этом браузере. */
- const so=repWidgetQuery(r,w).sort,sortTh=(text,by,i,cls,at,j)=>{const on=!!so&&so.by===by&&(by==='label'?!j:so.i===i);return `<th${at||''} class="${cls||''} rep-sortable${on?' rep-sort-on':''}" data-rep-sort="${by}:${i}" onclick="repSortClick('${esc(w.id)}','${by}',${i})">${esc(text)}${on?(so.dir==='asc'?' ▲':' ▼'):''}</th>`;};
- const rowDims=[d1].concat(res.more||[]),rowHead=at=>rowDims.map((d,j)=>sortTh(repDimLabel(S,d),'label',0,'',at,j)).join('');
+ const so=repWidgetQuery(r,w).sort,fb=(by,i,key,on)=>`<button type="button" class="sl-fbtn${on?' on':''}" data-rep-colmenu="${key}" aria-label="Sort and columns" onclick="event.stopPropagation();repColMenuOpen(event,'${esc(w.id)}','${by}',${i},'${key}')"></button>`,sortTh=(text,by,i,cls,at,j,key)=>{const on=!!so&&so.by===by&&(by==='label'?!j:so.i===i);return `<th${at||''} class="${cls||''} rep-sortable${on?' rep-sort-on':''}" data-rep-sort="${by}:${i}"${key?` data-cw-key="${key}"`:''} onclick="repSortClick('${esc(w.id)}','${by}',${i})"><span class="sl-th"><span data-cw-label>${esc(text)}${on?(so.dir==='asc'?' ▲':' ▼'):''}</span>${key&&!j||key&&by==='metric'?fb(by,i,key,on):''}</span>${key?cwGrip():''}</th>`;};
+ const rowDims=[d1].concat(res.more||[]);
  /* Значение, как в строке выше, — бледно: группа видна, «6 mm · 6CLEAR» и батчи под ней. */
  const rowCells=(k,i,arr)=>{const parts=String(k).split('\u0002'),prev=i>0&&arr?String(arr[i-1]).split('\u0002'):[];let same=rowDims.length>1;
   return rowDims.map((d,j)=>{const v=parts[j];if(v==null)return '<td></td>';same=same&&j<rowDims.length-1&&prev[j]===v;const t=esc(repKeyText(S,d,v));return `<td${repPickAttrs(r,S,d,v)}${same?' class="rep-same"':''}>${j?`<span data-raw>${t}</span>`:`<b data-raw>${t}</b>`}</td>`;}).join('');},totalCell=`<td colspan="${rowDims.length}"><b>Total</b></td>`;
  if(!d1)return `<div class="sales-table-wrap"><table class="sl-table rep-table"><thead><tr>${ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')}</tr></thead><tbody><tr>${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr></tbody></table></div>`;
- const keys=res.keys,label=k=>repKeyText(S,d1,k);let head,body,foot='';
- if(d2){
+ const keys=res.keys,tv=repTableView(r,w),dimKeys=rowDims.map((d,j)=>'d'+j);let head,body,foot='',cw=null;
+ if(d2&&ms.length>1){
   /* Разбивка и несколько метрик: у каждого значения разбивки — все метрики
-     (раньше молча оставалась только первая). */
-  const k2=res.keys2,cell=(v,m)=>v?esc(repFmt(m,v)):'<span class="mut">·</span>',many=ms.length>1;
-  head=many?`${rowHead(' rowspan="2"')}${k2.map(k=>`<th class="n rep-group" colspan="${ms.length}" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n rep-group" colspan="${ms.length}">Total</th></tr><tr>${k2.concat(['']).map(()=>ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')).join('')}`
-   :`${rowHead()}${k2.map(k=>`<th class="n" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n">Total</th>`;
+     (раньше молча оставалась только первая). Две строки шапки — вид постоянный. */
+  const k2=res.keys2,cell=(v,m)=>v?esc(repFmt(m,v)):REP_DASH;
+  head=`${rowDims.map((d,j)=>sortTh(repDimLabel(S,d),'label',0,'',' rowspan="2"',j)).join('')}${k2.map(k=>`<th class="n rep-group" colspan="${ms.length}" data-raw>${esc(repKeyText(S,d2,k))}</th>`).join('')}<th class="n rep-group" colspan="${ms.length}">Total</th></tr><tr>${k2.concat(['']).map(()=>ms.map(m=>`<th class="n">${esc(m.label)}</th>`).join('')).join('')}`;
   body=repTableBody(w,keys,(k,i,arr)=>`<tr>${rowCells(k,i,arr)}${k2.map(b=>ms.map((m,i)=>`<td class="n">${cell((res.cells.get(k+'\u0001'+b)||[])[i],m)}</td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(k)[i]))}</b></td>`).join('')}</tr>`);
   if(w.opts.totals)foot=`<tr class="sl-foot">${totalCell}${k2.map(b=>ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.colTotals.get(b)[i]))}</b></td>`).join('')).join('')}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`).join('')}</tr>`;
  }else{
-  head=`${rowHead()}${ms.map((m,i)=>sortTh(m.label,'metric',i,'n')+(cmp?`<th class="n rep-cmp">${esc(repCmpText(res))}</th>`:'')).join('')}`;
-  body=repTableBody(w,keys,(k,n,arr)=>`<tr>${rowCells(k,n,arr)}${ms.map((m,i)=>`<td class="n">${repCellHTML(m,res.rowTotals.get(k)[i])}</td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(k)[i],(res.compare.rowTotals.get(k)||[])[i]))}</td>`:'')).join('')}</tr>`);
-  if(w.opts.totals)foot=`<tr class="sl-foot">${totalCell}${ms.map((m,i)=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`+(cmp?`<td class="n rep-cmp">${esc(repDelta(res.total[i],res.compare.total[i]))}</td>`:'')).join('')}</tr>`;
+  /* Колонки значений: {k, th, cell(строка), foot} — видимость, порядок и ширина по виду таблицы. */
+  let list;
+  if(d2){const m=ms[0],cell=v=>v?esc(repFmt(m,v)):REP_DASH;
+   list=res.keys2.map(b=>{const k=repColKey(b),label=repKeyText(S,d2,b);return {k,label,th:`<th class="n" data-cw-key="${k}"><span class="sl-th"><span data-cw-label data-raw>${esc(label)}</span>${fb('col',0,k,false)}</span>${cwGrip()}</th>`,cell:row=>`<td class="n">${cell((res.cells.get(row+'\u0001'+b)||[])[0])}</td>`,foot:()=>`<td class="n"><b>${esc(repFmt(m,res.colTotals.get(b)[0]))}</b></td>`};})
+    .concat([{k:'total',label:'Total',th:`<th class="n" data-cw-key="total"><span class="sl-th"><span data-cw-label>Total</span>${fb('col',0,'total',false)}</span>${cwGrip()}</th>`,cell:row=>`<td class="n"><b>${esc(repFmt(m,res.rowTotals.get(row)[0]))}</b></td>`,foot:()=>`<td class="n"><b>${esc(repFmt(m,res.total[0]))}</b></td>`}]);
+  }else list=ms.flatMap((m,i)=>{const k='m'+repColKey(m.k||m.label).slice(1);return [{k,label:m.label,th:sortTh(m.label,'metric',i,'n','',0,k),cell:row=>`<td class="n">${repCellHTML(m,res.rowTotals.get(row)[i])}</td>`,foot:()=>`<td class="n"><b>${esc(repFmt(m,res.total[i]))}</b></td>`}]
+   .concat(cmp?[{k:k+'c',label:m.label+' · '+repCmpText(res),th:`<th class="n rep-cmp" data-cw-key="${k}c"><span class="sl-th"><span data-cw-label>${esc(repCmpText(res))}</span>${fb('col',0,k+'c',false)}</span>${cwGrip()}</th>`,cell:row=>`<td class="n rep-cmp">${esc(repDelta(res.rowTotals.get(row)[i],(res.compare.rowTotals.get(row)||[])[i]))}</td>`,foot:()=>`<td class="n rep-cmp">${esc(repDelta(res.total[i],res.compare.total[i]))}</td>`}]:[]);});
+  repTableColsCur.set(w.id,list.map(c=>[c.k,c.label]));
+  const pos=k=>{const i=tv.order.indexOf(k);return i<0?1e6+list.findIndex(c=>c.k===k):i;};
+  const cols=list.filter(c=>!tv.hide.includes(c.k)).sort((a,b)=>pos(a.k)-pos(b.k)),allKeys=dimKeys.concat(cols.map(c=>c.k)),id='rep_'+w.id;
+  cwRegister(id,{widths:()=>tv.cw,save:x=>repTableViewSet(w.id,v=>{v.cw=x;}),def:k=>k.startsWith('d')?170:110,min:()=>CW_MIN,
+   move:(from,to,after)=>{if(from.startsWith('d')||to.startsWith('d'))return;repTableViewSet(w.id,v=>{const ord=list.map(c=>c.k).sort((a,b)=>pos(a)-pos(b)).filter(k=>k!==from);let at=ord.indexOf(to);if(at<0)return;if(after)at++;ord.splice(at,0,from);v.order=ord;});},lead:[44],trail:0,fill:''});
+  cw={id,keys:allKeys};
+  const gear=repPrintBusy?'<th class="sl-check"></th>':`<th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-rep-cols title="Columns" aria-label="Columns" onclick="repTableColsOpen(event,'${esc(w.id)}')">${ico('settings')}</button></span></th>`;
+  head=gear+rowDims.map((d,j)=>sortTh(repDimLabel(S,d),'label',0,'','',j,'d'+j)).join('')+cols.map(c=>c.th).join('');
+  body=repTableBody(w,keys,(k,n,arr)=>`<tr><td class="sl-check"></td>${rowCells(k,n,arr)}${cols.map(c=>c.cell(k)).join('')}</tr>`);
+  if(w.opts.totals)foot=`<tr class="sl-foot"><td class="sl-check"></td>${totalCell}${cols.map(c=>c.foot()).join('')}</tr>`;
  }
- return `<div class="sales-table-wrap rep-scroll" data-rep-scroll="${esc(w.id)}" onscroll="repTableMore(this)"><table class="sl-table rep-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>REP_TABLE_STEP?`<div class="mut small" data-rep-rows>${chNum(keys.length)} rows</div>`:''}`;
+ const tcls=cw?cwTableClass(cw.id):'',tattrs=cw?cwTableAttrs(cw.id,cw.keys):'',tcol=cw?cwColgroup(cw.id,cw.keys):'';
+ return `<div class="sales-table-wrap rep-scroll" data-rep-scroll="${esc(w.id)}" onscroll="repTableMore(this)"><table class="sl-table rep-table${tcls}"${tattrs} data-rep-rows="${keys.length}">${tcol}<thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>REP_TABLE_STEP?`<div class="mut small" data-rep-rows>${chNum(keys.length)} rows</div>`:''}`;
 }
+/* Columns у таблицы отчёта: галочка — колонка видна; Standard view — вид отчёта. */
+const repTableColsCur=new Map();
+function repTableColsOpen(e,wid){if(e)e.stopPropagation();repMenu=Object.assign({kind:'tcols',wid},repAt(e));render();}
+function repTableColsHTML(r,m,style){
+ const w=r.pages.flatMap(p=>p.widgets).find(x=>x.id===m.wid),list=repTableColsCur.get(m.wid)||[];if(!w)return '';
+ const tv=repTableView(r,w),own=!repEditOn&&!!(repView(r.id).tv||{})[w.id];
+ return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns" data-rep-cols-menu><h5>Columns · drag a header to reorder</h5>${list.map(([k,l])=>`<label class="sl-cols-row"><input type="checkbox" data-rep-col="${k}" ${tv.hide.includes(k)?'':'checked'} onchange="repTableColToggle('${esc(w.id)}','${k}',this.checked)"> <span data-raw>${esc(l)}</span></label>`).join('')||'<div class="mut">No columns to choose.</div>'}
+  <div class="sl-actions">${repEditOn?`<button type="button" class="sl-btn" onclick="repTableViewSet('${esc(w.id)}',v=>{v.hide=[];v.order=[];v.cw={};})">Reset</button>`:`<button type="button" class="sl-btn" data-rep-cols-std ${own?'':'disabled'} onclick="repTableStd('${esc(w.id)}')">Standard view</button>`}</div></div>`;
+}
+function repColMenuOpen(e,wid,by,i,key){repMenu=Object.assign({kind:'colmenu',wid,by,i,key},repAt(e));render();}
+function repColMenuHTML(r,m,style){
+ const hide=m.key&&!m.key.startsWith('d'),sort=m.by!=='col';
+ return `<div class="sl-menu rep-colmenu" style="${style}" role="menu" data-rep-colmenu-open>${sort?`<button type="button" class="sl-btn" data-rep-sort-asc onclick="repSortSet('${esc(m.wid)}','${m.by}',${m.i},'asc')">Sort A → Z / low → high</button><button type="button" class="sl-btn" data-rep-sort-desc onclick="repSortSet('${esc(m.wid)}','${m.by}',${m.i},'desc')">Sort Z → A / high → low</button>`:''}${hide?`<button type="button" class="sl-btn" data-rep-col-hide onclick="repMenu=null;repTableColToggle('${esc(m.wid)}','${m.key}',false)">Hide column</button>`:''}</div>`;
+}
+function repSortSet(wid,by,i,dir){const r=repOpenReport();repMenu=null;if(!r)return;repViewSet(r.id,v=>{v.s=v.s&&typeof v.s==='object'?v.s:{};v.s[wid]={by,i,dir};});render();}
+function repTableColToggle(wid,k,on){repTableViewSet(wid,v=>{v.hide=v.hide.filter(x=>x!==k);if(!on)v.hide.push(k);});}
+function repTableStd(wid){const r=repOpenReport();if(!r)return;repViewSet(r.id,v=>{if(v.tv)delete v.tv[wid];});repMenu=null;render();}
 function repParts(res,cls,k){return res.keys2.map(b=>({value:(res.cells.get(k+'\u0001'+b)||[])[0]||0,cls:cls.get(b)}));}
 function repLegend(S,res,cls){const d2=res.dims[1];return chartLegend(res.keys2.filter(b=>(res.colTotals.get(b)||[])[0]).map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b),attrs:repColorAttrs(S,d2,b)})));}
 /* В Edit значение в легенде — выбор цвета квадратиком (два ряда по 12, как в Looker). */
@@ -255,11 +301,11 @@ function repChart(r,w){
  if(w.type==='combo'){
   const m2=res.metrics[1],v2=k=>(res.rowTotals.get(k)||[])[1],max2=Math.max(0,...res.keys.map(k=>+v2(k)||0));
   const pts=res.keys.map((k,i)=>({label:text(k),value:res.rowTotals.get(k)[0]||0,inner:m2&&max2?(+v2(k)||0)/max2*70:null,tick:i%every===0,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])+(m2?' · '+m2.label+' '+repFmt(m2,v2(k)):'')}));
-  return chartLegend([{label:m.label,cls:'rep-key-acc'}].concat(m2?[{label:m2.label+' (inner)',cls:'ch-inner-key'}]:[]))+chartColumns(pts,{fmt,label:w.title})+(m2?'':'<div class="mut small">Add a second metric for the inner column.</div>');
+  return chartLegend([{label:m.label,cls:'rep-key-acc'}].concat(m2?[{label:m2.label+' (inner)',cls:'ch-inner-key'}]:[]))+chartColumns(pts,{fmt,label:w.title,all:true})+(m2?'':'<div class="mut small">Add a second metric for the inner column.</div>');
  }
  if(w.type==='columns'){
   const pts=res.keys.map((k,i)=>({label:text(k),value:res.rowTotals.get(k)[0]||0,parts:d2?repParts(res,cls,k):null,tick:i%every===0,attrs:repPickAttrs(r,S,d1,k),title:text(k)+': '+fmt(res.rowTotals.get(k)[0])+(res.compare?' · '+repCmpText(res)+' '+fmt((res.compare.rowTotals.get(k)||[])[0]):'')}));
-  return (d2?repLegend(S,res,cls):'')+chartColumns(pts,{fmt,label:w.title});
+  return (d2?repLegend(S,res,cls):'')+chartColumns(pts,{fmt,label:w.title,all:true});
  }
  if(w.type==='line'){
   const labels=res.keys.map(text);let series;
@@ -282,10 +328,15 @@ function repWidgetTitle(w){
  const ms=w.q.metrics.map(k=>repMetric(S,k)).filter(Boolean).map(m=>m.label).join(', ')||S.metrics[0].label;
  return ms+(w.q.dims[0]?' by '+repDimLabel(S,w.q.dims[0]).toLowerCase():'')+(w.q.dims[1]?' · '+repDimLabel(S,w.q.dims[1]).toLowerCase():'');
 }
+/* Кнопки блока — значками в строке заголовка (владелец, 04.11.2026): в
+   просмотре Columns у таблицы и CSV; правка, копия, порядок и × — только в Edit.
+   Уголок справа внизу (Edit) — высота и ширина блока руками. */
+function repIcoBtn(icon,title,on,attrs,cls){return `<button type="button" class="rep-ib${cls?' '+cls:''}" title="${title}" aria-label="${title}" ${attrs||''} onclick="${on}">${ico(icon)}</button>`;}
 function repWidgetCard(r,w,i,n){
- const sel=repEditOn&&w.id===repSelW,tools=repEditOn?`<span class="rep-wtools"><button type="button" class="sm" onclick="repSelectWidget('${esc(w.id)}')">Edit</button><button type="button" class="sm" title="Duplicate" onclick="repDupWidget('${esc(w.id)}')">Duplicate</button><button type="button" class="sm" title="Move up" ${i?'':'disabled'} onclick="repMoveWidget('${esc(w.id)}',-1)">↑</button><button type="button" class="sm" title="Move down" ${i<n-1?'':'disabled'} onclick="repMoveWidget('${esc(w.id)}',1)">↓</button><button type="button" class="sm dl" title="Remove" onclick="repDelWidget('${esc(w.id)}')">×</button></span>`:'';
+ const sel=repEditOn&&w.id===repSelW,id=esc(w.id),tools=repEditOn?`<span class="rep-wtools">${repIcoBtn('edge','Edit',`repSelectWidget('${id}')`,'data-rep-wedit')}${repIcoBtn('copy','Duplicate',`repDupWidget('${id}')`)}${repIcoBtn('up','Move up',`repMoveWidget('${id}',-1)`,i?'':'disabled')}${repIcoBtn('down','Move down',`repMoveWidget('${id}',1)`,i<n-1?'':'disabled')}${repIcoBtn('close','Remove',`repDelWidget('${id}')`,'','dl')}</span>`:'';
  const src=REP_SRC[w.q.source],own=w.q.date.use==='own'?' · '+repDateText(w.q.date):'';
- return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${esc(w.id)}" data-rep-type="${w.type}"${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select'))repSelectWidget('${esc(w.id)}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span>${tools}${w.type!=='number'||!repEditOn?`<button type="button" class="sm rep-csv" data-rep-csv title="Export all rows to CSV" onclick="repCsv('${esc(w.id)}')">CSV</button>`:''}</div>${repChart(r,w)}${repSkipHTML(r,w)}</div>`;
+ const csv=w.type!=='number'||!repEditOn?repIcoBtn('download','Export all rows to CSV',`repCsv('${id}')`,'data-rep-csv','rep-csv'):'';
+ return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${id}" data-rep-type="${w.type}"${w.h?` style="--rep-h:${w.h}px"`:''}${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select,[data-rep-corner]'))repSelectWidget('${id}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span><span class="rep-wbtns">${tools}${csv}</span></div>${repChart(r,w)}${repSkipHTML(r,w)}${repEditOn?`<span class="rep-corner" data-rep-corner="${id}" title="Drag to resize" aria-hidden="true"></span>`:''}</div>`;
 }
 
 function repSkipHTML(r,w){
@@ -307,6 +358,8 @@ function repControls(r){
 function repMenuHTML(r){
  const m=repMenu;if(!m||!r)return '';
  const style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-320))}px;top:${Math.max(8,m.y)}px`,back='<div class="sl-backdrop" onclick="repMenu=null;render()"></div>';
+ if(m.kind==='tcols')return back+repTableColsHTML(r,m,style);
+ if(m.kind==='colmenu')return back+repColMenuHTML(r,m,style);
  if(m.kind==='date'){
   const cur=repEditOn?r.date:repView(r.id).date||r.date;
   return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-date-menu><h5>Period</h5><div class="sl-presets">${REP_PRESETS.map(([k,l])=>`<button type="button" class="sl-btn${!cur.from&&!cur.to&&cur.preset===k?' on':''}" onclick="repSetViewDate({preset:'${k}'})">${l}</button>`).join('')}</div>
@@ -551,22 +604,87 @@ function repPrintPageHTML(r,p){
  return `<div class="rep-print" data-rep-orient="${esc(p.orient||'portrait')}"><div class="rep-print-head"><h2 data-raw>${esc(r.name)}${r.pages.length>1?' · '+esc(p.name):''}</h2><div>${esc(['Date: '+repDateText(v.date||r.date)].concat(filters).join(' · '))}</div><small>Glass Farm · printed ${esc(now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}))} ${esc(now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}))}</small></div><div class="rep-ws">${body}</div></div>`;
 }
 /* Лист раскладывается той же ширины, что отчёт на экране (repPrintW), и
-   уменьшается под ширину листа: граница листа в Edit (repSheetMark) — там же,
-   где на бумаге. Ниже границы не влезло — лист уменьшается ещё (zoom). */
+   уменьшается только под ширину бумаги: граница листа на экране
+   (repSheetMark) — там же, где край бумаги. Что ниже края, на бумагу не идёт
+   (владелец, 05.11.2026: «вылез — в печать не пойдёт»): блок за краем снят,
+   таблица — по целой строке, «+ N more rows — CSV» и итог Total по всем
+   строкам. Таблица и в своём блоке печатает только то, что видно в нём. */
 let repPrintW=0;
 function repPrintFit(el){
  const x=el.querySelector('.rep-print');if(!x)return;const land=x.dataset.repOrient==='landscape',[W,H]=REP_SHEET[land?'landscape':'portrait'],w=repPrintW||W-REP_SHEET_PAD;
  el.classList.add(land?'rep-land':'rep-port');x.style.width=w+'px';x.style.zoom='';
- const h=x.scrollHeight,z=Math.min((W-REP_SHEET_PAD)/w,(H-REP_SHEET_PAD)*REP_SHEET_SPARE/Math.max(1,h));x.style.zoom=String(Math.floor(z*1000)/1000);
+ const z=(W-REP_SHEET_PAD)/w,top=x.getBoundingClientRect().top,limit=top+(H-REP_SHEET_PAD)*REP_SHEET_SPARE/z;
+ x.querySelectorAll('.rep-w').forEach(b=>{
+  const r=b.getBoundingClientRect();if(r.top>=limit-1){b.remove();return;}
+  const box=b.querySelector('.rep-scroll'),body=box&&box.querySelector('tbody');
+  if(!body){if(r.bottom>limit+1)b.remove();return;}
+  if(!repPrintCutTable(b,box,body,limit))b.remove();
+ });
+ x.style.zoom=String(Math.floor(z*1000)/1000);
+}
+/* Таблица на бумаге: видимое в её блоке и выше края листа — целыми строками;
+   остальное — строкой «+ N more rows — CSV», итог Total остаётся. false — не
+   влезла ни одна строка. */
+function repPrintCutTable(b,box,body,limit){
+ const table=box.querySelector('table'),all=+(table&&table.dataset.repRows)||body.rows.length,cols=(body.rows[0]||{cells:[]}).cells.length||1;
+ const boxBottom=box.getBoundingClientRect().bottom,fits=()=>b.getBoundingClientRect().bottom<=limit+1;
+ if(body.rows.length>=all&&table.getBoundingClientRect().bottom<=boxBottom+1&&fits())return true;
+ let keep=0;for(const tr of body.rows){if(tr.getBoundingClientRect().bottom<=boxBottom)keep++;else break;}
+ while(body.rows.length>keep)body.deleteRow(keep);
+ box.classList.add('rep-print-cut');
+ const tr=body.insertRow(-1);tr.className='rep-more-row';const td=tr.insertCell(0);td.colSpan=cols;
+ const label=()=>{td.textContent='+ '+chNum(all-keep)+' more row'+(all-keep===1?'':'s')+' \u2014 CSV';};label();
+ while(!fits()&&keep>0){body.deleteRow(--keep);label();}
+ return keep>0||fits();
 }
 /* Граница печатного листа в Edit (владелец, 03.11.2026: «чтобы я понимал, как
    расположить данные на печатный лист»): пунктир на высоте листа при ширине
    отчёта; высота — через padding в процентах от ширины, минус шапка листа. */
 const REP_PRINT_HEAD=76;
-function repSheetMark(p){
+function repSheetMark(p,no){
  const [W,H]=REP_SHEET[p.orient==='landscape'?'landscape':'portrait'],pct=((H-REP_SHEET_PAD)*REP_SHEET_SPARE/(W-REP_SHEET_PAD)*100).toFixed(2);
- return `<div class="rep-sheet-mark" aria-hidden="true" data-rep-sheet style="padding-top:calc(${pct}% - ${REP_PRINT_HEAD}px)"><span>End of sheet · ${p.orient==='landscape'?'Landscape':'Portrait'}</span></div>`;
+ return `<div class="rep-sheet-mark" aria-hidden="true" data-rep-sheet style="padding-top:calc(${pct}% - ${REP_PRINT_HEAD}px)"><span>End of page${no?' '+no:''} · Letter ${p.orient==='landscape'?'landscape':'portrait'}</span><b data-rep-over hidden></b></div>`;
 }
+/* Вариант 2 владельца (05.11.2026): «вылез — твои проблемы, в печать не
+   пойдёт». После отрисовки: блоки ниже линии листа и строки таблиц под ней
+   бледнеют со штриховкой, на линии — сколько не войдёт. Сам лист ничего не
+   сжимает: влезть — уголком блока. */
+function repSheetFit(){
+ const ws=document.querySelector('.rep-main .rep-ws'),mark=ws&&ws.querySelector('[data-rep-sheet]');if(!mark)return;
+ const y=mark.getBoundingClientRect().bottom;let rows=0,blocks=0;
+ ws.querySelectorAll('.rep-over,.rep-over-row').forEach(e=>e.classList.remove('rep-over','rep-over-row'));
+ ws.querySelectorAll('.rep-w').forEach(b=>{
+  const r=b.getBoundingClientRect();if(r.bottom<=y+1)return;
+  if(r.top>=y-1){b.classList.add('rep-over');blocks++;return;}
+  const box=b.querySelector('.rep-scroll'),body=box&&box.querySelector('tbody');
+  if(!body){b.classList.add('rep-over');blocks++;return;}
+  const bottom=box.getBoundingClientRect().bottom;
+  [...body.rows].forEach(tr=>{const t=tr.getBoundingClientRect();if(t.top<bottom&&t.bottom>y+1){tr.classList.add('rep-over-row');rows++;}});
+  const foot=box.querySelector('tfoot tr');if(foot&&foot.getBoundingClientRect().bottom>y+1)foot.classList.add('rep-over-row');
+ });
+ const badge=mark.querySelector('[data-rep-over]'),parts=[rows?rows+' row'+(rows===1?'':'s'):'',blocks?blocks+' block'+(blocks===1?'':'s'):''].filter(Boolean);
+ mark.classList.toggle('over',parts.length>0);if(badge){badge.hidden=!parts.length;badge.textContent=parts.join(' · ')+' won\u2019t print';}
+}
+window.addEventListener('resize',()=>{if(typeof tab!=='undefined'&&tab==='reports')repSheetFit();});
+/* Уголок блока (Edit): вниз-вверх — высота области (таблица, столбики, подписи
+   пая), вбок — ширина: меньше трёх четвертей строки — половина. */
+let repRz=null;
+document.addEventListener('pointerdown',e=>{
+ const c=e.button===0&&e.target.closest&&e.target.closest('[data-rep-corner]');if(!c||!repEditOn)return;
+ e.preventDefault();e.stopPropagation();const b=c.closest('.rep-w'),ws=b&&b.closest('.rep-ws');if(!ws)return;
+ const area=b.querySelector('.rep-scroll,.ch-cols,.ch-pie-legend');
+ repRz={wid:c.dataset.repCorner,b,ws,area,h0:area?area.getBoundingClientRect().height:0,x:e.clientX,y:e.clientY,w0:b.getBoundingClientRect().width,half:b.classList.contains('half'),h:0,pointer:e.pointerId};
+ try{c.setPointerCapture(e.pointerId);}catch(x){}document.body.classList.add('rep-resizing');
+},true);
+document.addEventListener('pointermove',e=>{
+ const d=repRz;if(!d||e.pointerId!==d.pointer)return;
+ if(d.area){d.h=Math.max(80,Math.round(d.h0+e.clientY-d.y));d.b.style.setProperty('--rep-h',d.h+'px');}
+ d.half=d.w0+e.clientX-d.x<d.ws.getBoundingClientRect().width*0.75;d.b.classList.toggle('half',d.half);repSheetFit();
+},true);
+document.addEventListener('pointerup',e=>{
+ const d=repRz;if(!d||e.pointerId!==d.pointer)return;repRz=null;document.body.classList.remove('rep-resizing');
+ repEditCur(r=>r.pages.forEach(p=>p.widgets.forEach(w=>{if(w.id===d.wid){if(d.h)w.h=d.h;w.width=d.half?'half':'full';}})));
+},true);
 let repPrintBusy=false;
 async function repPrint(){
  const r0=repOpenReport();if(!r0||repPrintBusy)return false;
@@ -620,7 +738,7 @@ function repMain(r){
  const ranges=repArchiveRanges(r,p),arch=ranges?archiveScopeFor(ranges,repArchiveNeed(r,p)):'none';
  if(!ranges)archiveScopeDrop();
  const ready=arch==='loading'?'':repPageReady(r,p),wait=arch==='loading'?archiveFactsText(archiveScope):ready==='wait'?repBuildText(repBuild):'';
- const body=wait?`<div class="card mut" data-rep-archive-wait>${esc(wait)}</div>`:(repEditOn?repSheetMark(p):'')+p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
+ const body=wait?`<div class="card mut" data-rep-archive-wait>${esc(wait)}</div>`:(n||repEditOn?repSheetMark(p,r.pages.indexOf(p)+1):'')+p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
  return `<div class="card rep-head"><div class="rep-head-row">${head}<span class="sales-toolbar-sp"></span>${ready==='stale'?`<span class="mut small" data-rep-updating>${esc(repBuildText(repBuild,true))}</span>`:''}${acts}</div>${!can&&!repEditOn?`<div class="mut small">${r.ownerId?'Shared with you':'Starter report'} · Copy to change it</div>`:''}${tabs}${repControls(r)}</div><div class="rep-ws">${body}</div>`;
 }
 function viewReports(){
@@ -628,6 +746,7 @@ function viewReports(){
  const r=repOpenReport();if(!r){repOpenId='';repEditOn=false;}
  repCustomCur=r&&r.custom||[];repColorsCur=r&&r.colors||{};
  const setup=r&&repEditOn?repSetup(r):'';
- const hide=repCatHidden();
- return `<div class="rep-app${setup?' editing':''}${hide?' flat':''}">${hide?'':repCatalog()}<div class="rep-main">${hide?repCatBar(r):''}${repMain(r)}</div>${setup}</div>${repMenuHTML(r)}`;
+ /* В Edit список отчётов прячется: лист шире, как на эскизе (владелец, 05.11.2026). */
+ const edit=!!(r&&repEditOn),hide=repCatHidden()||edit;
+ return `<div class="rep-app${setup?' editing':''}${hide?' flat':''}">${hide?'':repCatalog()}<div class="rep-main">${hide&&!edit?repCatBar(r):''}${repMain(r)}</div>${setup}</div>${repMenuHTML(r)}`;
 }

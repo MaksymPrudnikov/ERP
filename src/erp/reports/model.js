@@ -56,7 +56,16 @@ function repCleanQuery(q){
 function repCleanWidget(w){
  w=w&&typeof w==='object'?w:{};
  return {id:repStr(w.id,80)||repUid('W'),type:REP_TYPES.some(t=>t[0]===w.type)?w.type:'table',title:repStr(w.title,120),width:w.width==='half'?'half':'full',
-  q:repCleanQuery(w.q),opts:{totals:!(w.opts&&w.opts.totals===false),labels:!!(w.opts&&w.opts.labels)}};
+  q:repCleanQuery(w.q),opts:{totals:!(w.opts&&w.opts.totals===false),labels:!!(w.opts&&w.opts.labels)},
+  /* Высота блока уголком (px области таблицы или графика) и вид таблицы
+     по умолчанию: скрытые колонки, порядок, ширины (этап 6, владелец 04.11). */
+  h:Number.isFinite(+w.h)&&+w.h>0?Math.min(3000,Math.max(80,Math.round(+w.h))):0,tv:repCleanTableView(w.tv)};
+}
+function repCleanTableView(v){
+ v=v&&typeof v==='object'&&!Array.isArray(v)?v:{};const key=k=>typeof k==='string'&&/^[A-Za-z0-9_]{1,40}$/.test(k);
+ const out={hide:(Array.isArray(v.hide)?v.hide:[]).filter(key).slice(0,200),order:(Array.isArray(v.order)?v.order:[]).filter(key).slice(0,200),cw:{}};
+ if(v.cw&&typeof v.cw==='object')Object.keys(v.cw).filter(key).slice(0,200).forEach(k=>{const n=Math.round(+v.cw[k]);if(n>0)out.cw[k]=Math.min(1200,Math.max(40,n));});
+ return out;
 }
 function repCleanColors(c){
  const out={};if(!c||typeof c!=='object'||Array.isArray(c))return out;
