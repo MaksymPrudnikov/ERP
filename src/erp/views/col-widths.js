@@ -74,8 +74,15 @@ function cwGuide(x,table){
  g.style.left=Math.round(x-1)+'px';g.style.top=top+'px';g.style.height=Math.max(0,bottom-top)+'px';return g;
 }
 function cwClear(){document.querySelectorAll('.cw-guide,.cw-ghost,.cw-drop').forEach(e=>e.remove());document.body.classList.remove('cw-resizing','cw-moving');document.querySelectorAll('th.cw-active,th.cw-src').forEach(th=>th.classList.remove('cw-active','cw-src'));}
-/* Клик после жеста не должен открыть фильтр, сортировку или заказ. */
-function cwSwallowClick(){const f=e=>{e.stopPropagation();e.preventDefault();};document.addEventListener('click',f,true);setTimeout(()=>document.removeEventListener('click',f,true),0);}
+/* Клик после жеста не должен открыть фильтр, сортировку или заказ. Гасится ровно
+   один клик — тот, что браузер рождает отпусканием мыши; не родился (отпустили вне
+   окна) — перехват снимает следующий такт. Раньше перехват держался весь такт и
+   глотал любой клик за ним: в тесте ширин Order Lines Reset widths сразу после
+   переноса колонки не срабатывал, падение зависело от нагрузки машины (05.11.2026). */
+function cwSwallowClick(){
+ const off=()=>document.removeEventListener('click',f,true),f=e=>{off();e.stopPropagation();e.preventDefault();};
+ document.addEventListener('click',f,true);setTimeout(off,0);
+}
 
 function cwDown(e){
  if(e.button!==0||cwDrag)return;
