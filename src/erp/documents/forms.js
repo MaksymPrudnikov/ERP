@@ -51,6 +51,12 @@ function formShift(done,y){
 }
 function formLayout(tpl,part,ctx){
  const bs=(part.blocks||[]).map((b,i)=>{const lines=formIsText(b)?formLines(b,ctx):null;return {b,i,lines,e:lines?lines.length*formLh(b):b.h||0,nb:b.y+(b.h||0)};});
+ /* after — блок стоит на той же строке сразу за первой строкой другого
+    блока (вес рядом с кодом скида любой длины); gap — зазор. */
+ bs.forEach(x=>{
+  const ref=x.b.after&&bs.find(r=>r.b.id===x.b.after);
+  if(ref&&ref.lines&&ref.lines.length)x.ax=formBlockX(tpl,ref.b)+docTextWidth(ref.lines[0],ref.b.size||9,!!ref.b.bold,ref.b.ls)+(x.b.gap!=null?x.b.gap:12);
+ });
  const done=[];
  bs.slice().sort((p,q)=>p.b.y-q.b.y||p.i-q.i).forEach(x=>{x.off=formShift(done,x.b.y);x.top=x.b.y+x.off;done.push(x);});
  return {h:Math.max(0,(part.h||0)+formShift(done,part.h||0)),blocks:bs};
@@ -60,15 +66,18 @@ function formText(P,x,y,s,o,late){
  P.text(x,y,s,o);
  if(late&&/\{pages?\}/.test(s))late.push({item:P.items[P.items.length-1],s});
 }
-function formDrawLine(P,tpl,b,line,k,top,late){
- const x=formBlockX(tpl,b),w=b.w||0,align=b.align||'left';
- formText(P,align==='right'?x+w:align==='center'?x+w/2:x,top+k*formLh(b),line,{size:b.size||9,bold:!!b.bold,color:b.color||DOC_COLOR.ink,align},late);
+/* ax — x блока, который стоит сразу за другим (after). */
+function formDrawLine(P,tpl,b,line,k,top,late,ax){
+ const x=ax!=null?ax:formBlockX(tpl,b),w=b.w||0,align=ax!=null?'left':b.align||'left';
+ formText(P,align==='right'?x+w:align==='center'?x+w/2:x,top+k*formLh(b),line,{size:b.size||9,bold:!!b.bold,color:b.color||DOC_COLOR.ink,align,ls:b.ls||0},late);
 }
 function formDrawBlock(P,tpl,x,ctx,top,late){
  const b=x.b,bx=formBlockX(tpl,b),w=b.w||0,h=b.h||0;
- if(x.lines){x.lines.forEach((l,k)=>formDrawLine(P,tpl,b,l,k,top,late));return;}
- if(b.type==='line')P.line(bx,top,bx+w,top+h,{stroke:b.color||DOC_COLOR.line,lw:b.lw||.6});
- else if(b.type==='box')P.rect(bx,top,w,h,{stroke:b.color||DOC_COLOR.line,fill:b.fill||'',lw:b.lw||.6,r:b.r||0});
+ if(x.lines){x.lines.forEach((l,k)=>formDrawLine(P,tpl,b,l,k,top,late,x.ax));return;}
+ /* Цвет '' у рамки — без контура (только заливка). */
+ const stroke=b.color==null?DOC_COLOR.line:b.color;
+ if(b.type==='line')P.line(bx,top,bx+w,top+h,{stroke:stroke||DOC_COLOR.line,lw:b.lw||.6});
+ else if(b.type==='box')P.rect(bx,top,w,h,{stroke,fill:b.fill||'',lw:b.lw||.6,r:b.r||0});
  else if(b.type==='image'){const src=b.field?ctx.field(b.field):b.src;if(src&&docJpegInfo(src))P.img(bx,top,w,h,src);}
  else if(b.type==='barcode'){
   const v=String(ctx.field(b.field)||'');if(!v)return;
@@ -89,16 +98,17 @@ function formDrawPart(P,tpl,part,ctx,top,late){
 function formCtx(ctx,over){return over?{field:k=>Object.prototype.hasOwnProperty.call(over,k)?over[k]:ctx.field(k)}:ctx;}
 
 /* Ход по листам. Код бланка рисует таблицу сам (f.P, f.y, f.ensure,
-   f.page), остальное — из шаблона. over — другие значения полей на
-   следующих листах (лист скида: свой заголовок, без штрихкода PS). */
+   f.page), остальное — из шаблона. f.page(over, top): over — другие
+   значения полей на следующих листах, top — другая часть вместо every
+   (лист скида: skidTop); оба держатся до следующего f.page с ними. */
 function formFlow(tpl,ctx){
  const pg=tpl.page,m=pg.margin,late=[];
- const f={tpl,pages:[],P:null,y:0,top:0,left:m.left,right:pg.w-m.right,bottom:pg.h-m.bottom,over:null};
+ const f={tpl,pages:[],P:null,y:0,top:0,topKey:'every',left:m.left,right:pg.w-m.right,bottom:pg.h-m.bottom,over:null};
  f.ctx=()=>formCtx(ctx,f.over);
- f.page=function(over){
-  if(arguments.length)f.over=over||null;
+ f.page=function(over,top){
+  if(arguments.length){f.over=over||null;f.topKey=top||'every';}
   f.P=docPage();f.pages.push(f.P);
-  f.y=m.top+formDrawPart(f.P,tpl,tpl.parts.every,f.ctx(),m.top,late);f.top=f.y;return f;
+  f.y=m.top+formDrawPart(f.P,tpl,tpl.parts[f.topKey],f.ctx(),m.top,late);f.top=f.y;return f;
  };
  f.ensure=h=>{if(f.y+h>f.bottom)f.page();};
  /* Часть в потоке (верх первой, итоги): начинается на этом листе, если на
@@ -110,7 +120,7 @@ function formFlow(tpl,ctx){
   if(f.y+Math.min(keep,f.bottom-f.top)>f.bottom&&f.y>f.top+1)f.page();
   const units=[];
   lay.blocks.forEach(x=>{
-   if(x.lines)x.lines.forEach((l,k)=>units.push({y:x.top+k*formLh(x.b),e:formLh(x.b),i:x.i,draw:(P,a)=>formDrawLine(P,tpl,x.b,l,0,a,late)}));
+   if(x.lines)x.lines.forEach((l,k)=>units.push({y:x.top+k*formLh(x.b),e:formLh(x.b),i:x.i,draw:(P,a)=>formDrawLine(P,tpl,x.b,l,0,a,late,x.ax)}));
    else units.push({y:x.top,e:x.e,i:x.i,draw:(P,a)=>formDrawBlock(P,tpl,x,c,a,late)});
   });
   let off=f.y;

@@ -38,6 +38,6 @@ module.exports=async function({page,eq}){
  eq('Packing slip: the default template is plain data (can be saved and loaded), its parts and every block type it uses',await t.p.evaluate(()=>{
   const tpl=shippingFormDefault();
   return {same:JSON.stringify(JSON.parse(JSON.stringify(tpl)))===JSON.stringify(tpl),parts:Object.keys(tpl.parts),types:[...new Set(Object.values(tpl.parts).flatMap(p=>(p.blocks||[]).map(b=>b.type)))],columns:tpl.parts.table.columns.map(c=>c.label),fields:SHIPPING_FORM_FIELDS.every(x=>x.label&&/^[\x20-\x7e]+$/.test(x.label))};
- }),{same:true,parts:['every','first','table','totals','bottom'],types:['field','barcode','text'],columns:['Line / Mark','Size','Makeup','Ordered','Before','Now','Back order','Skid'],fields:true});
+ }),{same:true,parts:['every','first','table','totals','skidTop','skidTable','bottom'],types:['field','barcode','text','box'],columns:['Line / Mark','Size','Makeup','Ordered','Before','Now','Back order','Skid'],fields:true});
  eq('Forms browser errors',t.errs,[]);await t.c.close();
 };

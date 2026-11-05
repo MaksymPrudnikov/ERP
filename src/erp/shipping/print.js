@@ -61,7 +61,13 @@ function shippingNeedsReprint(s){return !!s.printedAt&&s.printedSignature!==JSON
    итогов прежний код печатал 8 pt с шагом 14 и переносом 9 pt на 540 —
    это тот же перенос, что 8 pt на 480. */
 function shippingFormDefault(){
- const ink=DOC_COLOR.ink,mut=DOC_COLOR.mut,due=DOC_COLOR.due;
+ const C=DOC_COLOR,mut=C.mut,due=C.due;
+ /* Плашки From / To листа скида: рамка, подпись, имя и строки внутри. */
+ const card=(id,x,place,label,name,lines,extra)=>[
+  {id,type:'box',place,y:84,w:265,h:66,fill:C.box,color:'',r:4},
+  {id:id+'Label',type:'text',text:label,place:'free',x:x+9,y:95,w:247,h:8,size:5.8,lh:8,bold:true,color:mut,ls:.6},
+  {id:id+'Name',type:'field',field:name,place:'free',x:x+9,y:109,w:247,h:12,size:10,lh:12,bold:true,fit:true},
+  {id:id+'Lines',type:'field',field:lines,place:'free',x:x+9,y:121,w:247,h:20,size:7.6,lh:10,fit:true,max:2}].concat(extra||[]);
  return {form:'packingSlip',page:{w:612,h:792,margin:{top:30,right:36,bottom:67,left:36}},parts:{
   every:{h:133,blocks:[
    {id:'company',type:'field',field:'company.name',place:'left',y:14,w:320,h:20,size:13,lh:20,bold:true,fit:true,empty:'Glass Farm'},
@@ -85,6 +91,20 @@ function shippingFormDefault(){
    {id:'received',type:'text',text:'Received by ____________________    Signature ____________________',place:'left',y:43,w:480,h:14,size:8,lh:14,wrap:true},
    {id:'receivedAt',type:'text',text:'Date and time ____________________',place:'left',y:57,w:480,h:14,size:8,lh:14,wrap:true},
    {id:'skidsProperty',type:'field',field:'skidsProperty',place:'left',y:80,w:540,h:13,size:8,color:mut,wrap:true}]},
+  /* Лист скида (владелец 05.11.2026, вариант Б): QR всегда в правом
+     верхнем углу (пока пустое место), огромный код и вес рядом, ниже From /
+     To; таблица — по заказу, внутри порядок укладки. */
+  skidTop:{h:178,blocks:[
+   {id:'qr',type:'box',place:'right',y:0,w:72,h:72,color:C.chip,lw:.8,r:3},
+   {id:'qrNote',type:'text',text:'QR',place:'right',y:40,w:72,h:12,size:9,lh:12,color:C.faint,align:'center'},
+   {id:'skidTitle',type:'text',text:'SKID CONTENTS · {number}',place:'left',y:14,w:400,h:14,size:11,lh:14,bold:true,color:C.navy},
+   {id:'skidCode',type:'field',field:'skid',place:'left',y:60,w:300,h:24,size:52,lh:24,bold:true},
+   {id:'skidUnits',type:'field',field:'skidUnits',place:'free',after:'skidCode',gap:16,x:200,y:60,w:260,h:24,size:13,lh:24,bold:true}]
+   .concat(card('from',36,'left','FROM','company.name','company.lines'))
+   .concat(card('to',311,'right','TO','customer','shipToAddress',[{id:'toDate',type:'field',field:'shipDate',place:'free',x:320,y:141,w:247,h:9,size:7.6,lh:9,color:mut,fit:true}]))},
+  skidTable:{columns:[
+   {k:'pos',label:'#',x:41,w:50,bold:true},{k:'line',label:'Line / Mark',x:96,w:70},{k:'size',label:'Size',x:171,w:100},{k:'makeup',label:'Makeup',x:276,w:190},
+   {k:'qty',label:'Qty',x:500,align:'right',bold:true},{k:'kg',label:'kg',x:548,align:'right'}]},
   bottom:{h:67,blocks:[
    {id:'pageNo',type:'text',text:'{number|Skid contents} · {page} / {pages}',place:'right',y:41,w:300,h:13,size:8,color:mut,align:'right'}]}
  }};
@@ -99,6 +119,9 @@ const SHIPPING_FORM_FIELDS=[
  {k:'barcode',label:'Packing slip barcode',v:d=>d.number||''},
  {k:'customer',label:'Customer',v:d=>d.customer},
  {k:'shipDate',label:'Date and method',v:d=>docDate(d.date)+' · '+(d.method==='pickup'?'Pickup':'Delivery')},
+ {k:'shipToAddress',label:'Ship to address',v:d=>{const a=d.shipTo;return [docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean);}},
+ {k:'skid',label:'Skid code',v:()=>''},
+ {k:'skidUnits',label:'Skid units and weight',v:()=>''},
  {k:'shipTo',label:'Ship to',v:d=>{const a=d.shipTo;return [a.addressee,docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean);}},
  {k:'corrections',label:'Corrections',v:d=>d.corrections||[]},
  {k:'skids',label:'Skids',v:d=>d.skids.map(s=>s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg')},
@@ -108,6 +131,28 @@ const SHIPPING_FORM_FIELDS=[
 function shippingFormContext(d){
  const by=new Map(SHIPPING_FORM_FIELDS.map(x=>[x.k,x]));
  return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;}};
+}
+/* Порядок укладки на скиде: место каждого юнита по его скану на этот скид
+   (#1 — положили первым), как в окне скида. Считается при печати, в
+   документ PS не пишется (иначе напечатанные PS просили бы перепечатку).
+   Ключ — orderId|lineId → места. Нет скана у какого-то юнита — колонка #
+   пустая и порядок как в документе. */
+function shippingSkidPlaces(d){
+ const out=new Map(),s=(DB.shipment||[]).find(x=>x.number===d.number);if(!s||!d.skids.length)return out;
+ const codes=new Set(d.skids.map(k=>k.code)),at=new Map();
+ (DB.stationScan||[]).forEach(x=>{if(x.undoneAt||!codes.has(x.on))return;const k=x.on+'|'+x.piece;if(!at.has(k)||x.at>at.get(k))at.set(k,x.at);});
+ d.skids.forEach(k=>{
+  const units=(s.items||[]).filter(i=>i.skid===k.code).map((i,n)=>({i,n,t:(i.pieces||[]).map(p=>at.get(k.code+'|'+p)||'').sort().pop()||''}));
+  if(!units.length||units.length!==k.qty||units.some(u=>!u.t))return;
+  const m=new Map();units.sort((a,b)=>a.t.localeCompare(b.t)||a.n-b.n).forEach((u,n)=>{const key=u.i.orderId+'|'+u.i.lineId;if(!m.has(key))m.set(key,[]);m.get(key).push(n+1);});
+  out.set(k.code,m);
+ });
+ return out;
+}
+/* [1,2,3,6] → «#1–3, #6». */
+function shippingPlaceText(list){
+ const r=[];list.slice().sort((a,b)=>a-b).forEach(v=>{const x=r[r.length-1];if(x&&v===x[1]+1)x[1]=v;else r.push([v,v]);});
+ return r.map(x=>'#'+(x[0]===x[1]?x[0]:x[0]+'–'+x[1])).join(', ');
 }
 function shippingPages(d,skidOnly){
  const tpl=shippingFormDefault(),f=formFlow(tpl,shippingFormContext(d)),cols=tpl.parts.table.columns,W=f.right-f.left;let activeOrder;
@@ -134,10 +179,30 @@ function shippingPages(d,skidOnly){
   if(!d.orders.length)line('Open trip · no items selected');
   f.flow('totals');
  }
+ const sc=tpl.parts.skidTable.columns,places=shippingSkidPlaces(d),oid=new Map(d.orders.map(o=>[o.number,o.id])),key=r=>oid.get(r.order)+'|'+r.lineId;
+ const skidHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});sc.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align||'left'}));f.y+=23;};
+ const skidRow=(val,group)=>{
+  const tc=sc.filter(c=>c.w),wr=tc.map(c=>docWrap(String(val[c.k]==null?'':val[c.k]),8,!!c.bold,c.w)),n=Math.max(1,...wr.map(a=>a.length)),h=n*11+12;
+  if(f.y+h>f.bottom-15){f.page();line(group+' · continued',{size:11,bold:true});skidHead();}
+  tc.forEach((c,i)=>wr[i].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,{size:8,bold:!!c.bold})));
+  sc.filter(c=>!c.w).forEach(c=>f.P.text(c.x,f.y,String(val[c.k]),{size:9,bold:!!c.bold,align:c.align||'right'}));
+  f.y+=h;f.P.line(f.left,f.y-6,f.right,f.y-6);
+ };
  d.skids.filter(s=>!skidOnly||s.code===skidOnly).forEach(s=>{
-  f.page({title:'SKID CONTENTS',barcode:''});f.P.text(f.left,f.y+35,s.code,{size:40,bold:true});f.y+=65;
-  line(shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg',{size:12});
-  s.rows.forEach(r=>{f.ensure(75);line('Order '+r.order+(r.po?' · PO '+r.po:''),{size:11,bold:true});line('Line '+r.line+(r.mark?' · '+r.mark:'')+' · '+r.size+' · Qty '+r.now,{bold:true});line(r.makeup);f.y+=9;});
+  const pos=places.get(s.code),units=shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg';
+  f.page({title:'SKID CONTENTS',barcode:'',skid:s.code,skidUnits:units},'skidTop');
+  /* По заказу, внутри — по порядку укладки; заказы — в каком их начали класть. */
+  const at=r=>pos?Math.min(...(pos.get(key(r))||[Infinity])):0,groups=[];
+  s.rows.forEach(r=>{const key='Order '+r.order+(r.po?' · PO '+r.po:'');let g=groups.find(x=>x.key===key);if(!g)groups.push(g={key,rows:[]});g.rows.push(r);});
+  groups.forEach(g=>g.rows.sort((a,b)=>at(a)-at(b)));groups.sort((a,b)=>at(a.rows[0])-at(b.rows[0]));
+  groups.forEach(g=>{
+   f.ensure(75);line(g.key,{size:11,bold:true});skidHead();
+   g.rows.forEach(r=>skidRow({pos:pos?shippingPlaceText(pos.get(key(r))||[]):'',line:String(r.line)+(r.mark?' · '+r.mark:''),size:r.size,makeup:r.makeup,qty:r.now,kg:docNum((r.kg==null?r.knownKg:r.kg)*r.now,1)},g.key));
+   f.y+=12;
+  });
+  f.ensure(30);const q=sc.find(c=>c.k==='qty'),kg=sc.find(c=>c.k==='kg');
+  f.P.text(f.left+5,f.y,'Total',{size:9,bold:true});if(q)f.P.text(q.x,f.y,String(s.qty),{size:9,bold:true,align:'right'});if(kg)f.P.text(kg.x,f.y,docNum(s.kg,1),{size:9,bold:true,align:'right'});
+  if(pos){f.y+=16;f.P.text(f.left+5,f.y,'#1 went on first.',{size:8,color:DOC_COLOR.mut});}
  });
  return f.finish();
 }

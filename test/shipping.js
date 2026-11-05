@@ -70,7 +70,17 @@ module.exports=async function({page,eq,ok}){
  eq('Address is a snapshot, PS has quantities/barcode/signature and one Letter page per skid',await t.p.evaluate(()=>{
   const [id]=shSeed(),o=salesRecord(id);shippingAvailable(o).forEach(i=>i.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));const s=shCreate([id],null,'delivery').value;s.shipTo=shippingAddress({address1:'10 Glass St',city:'Toronto',postalCode:'A1A1A1',contact:'Pat'});const c=salesFindCustomer(o.customerId);c.addresses=[{type:'delivery',address1:'Changed address'}];
   const d=shippingDocument(s),pages=shippingPages(d),text=pages.flatMap(p=>p.items.filter(i=>i.t==='text').map(i=>i.s)).join(' '),skid=pages.at(-1).items.find(i=>i.t==='text'&&i.s==='SL-1');return {pages:pages.length,skid:skid.size,address:text.includes('10 Glass St'),unchanged:!text.includes('Changed address'),columns:['Ordered','Before','Now','Back order'].every(x=>text.includes(x)),signature:text.includes('Signature'),money:/\$|Subtotal|Tax|Balance due/.test(text),barcode:pages[0].items.some(i=>i.t==='rect'&&i.fill==='#000000')};
- }),{pages:2,skid:40,address:true,unchanged:true,columns:true,signature:true,money:false,barcode:true});
+ }),{pages:2,skid:52,address:true,unchanged:true,columns:true,signature:true,money:false,barcode:true});
+ eq('Skid sheet (owner 05.11): QR place in the corner, the code with units beside it, From / To; orders in the order they went on, lines by place # — counted from scans at print time, not stored in the PS',await t.p.evaluate(()=>{
+  const ids=shSeed(2),os=ids.map(salesRecord);let k=0;
+  /* Второй заказ положили на скид первым. */
+  [os[1],os[0]].forEach(o=>shippingAvailable(o).forEach(i=>i.pieces.forEach(p=>{const sc=stationScansFor(p).at(-1);sc.on='SL-1';sc.at='2026-01-01T10:00:'+String(10+k++).padStart(2,'0')+'.000Z';})));
+  const s=shCreate(ids,null,'delivery').value,d=shippingDocument(s),before=JSON.stringify(d),pages=shippingPages(d),sheet=pages.at(-1).items,txt=sheet.filter(i=>i.t==='text');
+  const code=txt.find(i=>i.s==='SL-1'),units=txt.find(i=>/^\d+ units? · /.test(i.s)),heads=txt.filter(i=>/^Order /.test(i.s)).map(i=>i.s.split(' ')[1]);
+  const qr=sheet.find(i=>i.t==='rect'&&i.w===72&&i.h===72),places=txt.filter(i=>/^#\d/.test(i.s)).map(i=>i.s);
+  return {title:txt.some(i=>i.s==='SKID CONTENTS · '+s.number),size:code.size,beside:units.x>code.x+docTextWidth('SL-1',52,true)&&units.y===code.y,qr:qr&&[qr.x+qr.w,qr.y],fromTo:['FROM','TO'].every(x=>txt.some(i=>i.s===x)),
+   first:heads[0]===String(os[1].businessNumber),orders:heads.length,places:places[0]==='#1'||/^#1–/.test(places[0]),total:txt.some(i=>i.s==='Total'),note:txt.some(i=>i.s==='#1 went on first.'),same:JSON.stringify(shippingDocument(s))===before};
+ }),{title:true,size:52,beside:true,qr:[576,30],fromTo:true,first:true,orders:2,places:true,total:true,note:true,same:true});
  eq('Editing a printed planned PS requires reprint and empty dispatch is refused',await t.p.evaluate(()=>{
   const [id]=shSeed(),s=shCreate([id],1).value;shippingPrint(s.id);const d=shippingClone(s);d.items=shippingAvailable(salesRecord(id),s.id).map(shippingItem);shippingUpdate(s.id,d);const reprint=shippingNeedsReprint(s),empty=shippingCreate({customerId:s.customerId,method:'pickup',date:finToday(),shipTo:{},items:[],extras:[]}).value;return {reprint,empty:shippingMarkShipped(empty.id).ok};
  }),{reprint:true,empty:false});
