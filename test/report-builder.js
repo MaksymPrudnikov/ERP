@@ -165,6 +165,22 @@ module.exports=async function({page,eq,ok}){
   return {btn,before,saved,viewer,look,own};
  }),{btn:'Date: Last month▾',before:'thisYear',saved:'lastMonth',viewer:null,look:'lastMonth',own:'thisQuarter'});
 
+ eq('Edit по образцу Looker: листы слева — меню листа (Landscape, копия, разделитель), стрелки листов в просмотре, поле из Data встаёт в Setup, папка в Report settings',await t.p.evaluate(()=>{
+  rpOpenTab();repNew();const r0=repOpenReport();repAddPage();const p1=repOpenReport().pages[1].id;
+  const panel=!!document.querySelector('[data-rep-pages-panel]')&&!!document.querySelector('[data-rep-data]')&&!document.querySelector('[data-rep-catalog]');
+  repPageMenuOpen({preventDefault(){},stopPropagation(){},clientX:100,clientY:100},p1);document.querySelector('[data-rep-orient="landscape"]').click();
+  repPageMenuOpen({preventDefault(){},stopPropagation(){},clientX:100,clientY:100},p1);document.querySelector('[data-rep-page-sep]').click();
+  repPageMenuOpen({preventDefault(){},stopPropagation(){},clientX:100,clientY:100},p1);document.querySelector('[data-rep-page-dup]').click();
+  const pages=repOpenReport().pages.map(p=>[p.orient,p.sep]);
+  const w=repOpenReport().pages.find(p=>p.id===repPageId).widgets[0];repPageId=repOpenReport().pages[0].id;repSelectWidget(repOpenReport().pages[0].widgets[0].id);
+  const before=repSelWidget(repOpenReport()).q.metrics.length,f=[...document.querySelectorAll('[data-rep-field][data-kind="metric"]')].find(x=>!repSelWidget(repOpenReport()).q.metrics.includes(x.dataset.repField));f.click();
+  const added=repSelWidget(repOpenReport()).q.metrics.length-before;
+  repSettingsOpen();const box=!!document.querySelector('[data-rep-settings-box]');repSetMeta('folder','QA / Look');repMenu=null;repSaveEdit();
+  const saved=repFind(r0.id),folder=saved.folder;render();const pager=document.querySelector('[data-rep-pager]').textContent.trim();repPageStep(1);const step=repPage(repOpenReport()).id===saved.pages[1].id;
+  DB.report=DB.report.filter(x=>x.id!==r0.id);rpOpenTab();
+  return {panel,pages,added,box,folder,pager,step};
+ }),{panel:true,pages:[['portrait',false],['landscape',true],['landscape',false]],added:1,box:true,folder:'QA / Look',pager:'Page 1 of 3',step:true});
+
  eq('Show on — своя галочка Screens в Users: без неё и без Users кнопки нет; с ней — есть',await t.p.evaluate(()=>{
   rpScans();const old=window.accessCan,label=userSectionNav('screens').label,btn=()=>{rpOpenTab();repNew();repSettingsOpen();const on=!!document.querySelector('[data-rep-screens]');repMenu=null;repCancelEdit();return on;};
   try{window.accessCan=k=>k!=='users'&&k!=='screens';const none=btn();window.accessCan=k=>k!=='users';const screens=btn();return {label,inSections:USER_SECTIONS.includes('screens'),none,screens};}
