@@ -198,6 +198,27 @@ do $$ begin
   assert (public.erp_apply('off-9', 'b1', 'pc2', '[]', '[{"tbl":"supplier","id":"SUP-1","data":{"id":"SUP-1"}}]')->>'ok')::boolean, 'снятое правило всё ещё закрывает';
 end $$;
 
+-- Месяцы отчётов: пишет и читает администратор; офис без Reports — ничего.
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+do $$
+declare r jsonb;
+begin
+  assert (public.erp_facts_put('[{"key":"g|work|2025-01","stamp":"v1|3|7","data":"z:AAA"},{"key":"bad key","stamp":"s","data":"d"}]')->>'n')::int = 1, 'месяц не записан или записан плохой ключ';
+  perform public.erp_facts_put('[{"key":"g|work|2025-01","stamp":"v1|4|8","data":"z:BBB"}]');
+  r := public.erp_facts_get('["g|work|2025-01","g|sold|2025-01"]');
+  assert r = '{"full": true, "rows": [{"key": "g|work|2025-01", "data": "z:BBB", "stamp": "v1|4|8"}]}', 'месяц с сервера: ' || r::text;
+  r := public.erp_facts_get('["g|work|2025-01"]', false);
+  assert r->'rows'->0->'data' = 'null' and r->'rows'->0->>'stamp' = 'v1|4|8', 'метки без данных: ' || r::text;
+end $$;
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  assert public.erp_facts_get('["g|work|2025-01"]') = '{"full": false, "rows": []}', 'офис без Reports читает месяцы';
+  assert pg_temp.fails($q$select public.erp_facts_put('[{"key":"g|work|2025-02","stamp":"s","data":"d"}]')$q$, 'Report months need%'), 'офис без Reports пишет месяцы';
+  assert pg_temp.fails('select * from public.erp_report_month', 'permission denied%'), 'месяцы открыты напрямую';
+end $$;
+
 -- Отключённый человек больше ничего не может.
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');

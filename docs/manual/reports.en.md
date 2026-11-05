@@ -30,8 +30,15 @@ Starter reports are edited by an administrator; everyone else uses Copy and edit
 ## 3. Loading and the archive
 
 - An order moves to the archive a month after it is shipped and fully paid. A report over past months and years
-  reads the archive by itself: "Reading N archived orders · 42%", then the charts. Rows of closed months are kept on
-  this computer's disk, so the second opening is instant.
+  reads the archive by itself: "Reading N archived orders · 42%", then the charts. Rows of a closed month are kept on
+  this computer's disk and on the server: the second opening and any other computer are instant, without reading
+  the archive.
+- The main tab prepares the months by itself after sign-in (server on): missing and changed ones, in the background,
+  in parts, while you are not typing. There is no button.
+- The past in a report is not recounted: a new agent for a customer, a new price list or catalogue leaves archived
+  orders in the report as they were. An order brought back from the archive gets its month recounted by itself.
+- Ready months come from the server for people with Reports and access to all tables; everyone else counts them
+  on their own computer.
 - Long calculations (years of data) run in the background: "Building report · 42%". The screen never freezes; you
   can go to another section.
 - After a change in another tab (a station scan, for example) the previous charts stay on screen and the header
@@ -213,6 +220,8 @@ Overview of chosen people. Filters "This station" and "Me" use the screen's stat
   from scrolling, drawing on demand and background counting with a percentage.
 - The archive is read in parts and kept per closed month: a 5–7 year report never holds every year's records in
   memory.
+- Month closing, as in large ERPs (owner, 4 Nov 2026): a month is counted once for everyone and kept on the server;
+  the past in reports is not recounted (the owner's option A).
 - Custom metrics and metric filters let you find problems yourself: plan versus actual, waste, breaks, who and where.
 
 ## 12. All fields and metrics (from the code)
