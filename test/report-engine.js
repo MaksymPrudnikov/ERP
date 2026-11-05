@@ -480,10 +480,10 @@ module.exports=async function({page,eq,ok}){
    const sheets=list.map(el=>({cls:el.classList.contains('rep-land')?'land':el.classList.contains('rep-port')?'port':'',rows:el.querySelectorAll('tbody tr:not(.rep-more-row)').length>0&&el.querySelectorAll('tbody tr:not(.rep-more-row)').length<600,more:[...el.querySelectorAll('.rep-more-row')].map(x=>/^\+ [\d,]+ more rows — CSV$/.test(x.textContent)),total:el.querySelectorAll('tfoot').length,width:el.querySelector('.rep-print').style.width===repPrintW+'px'}));
    const bottom=list[0].querySelector('.rep-print').getBoundingClientRect(),inside=[...list[0].querySelectorAll('.rep-w')].every(b=>b.getBoundingClientRect().bottom<=bottom.top+(REP_SHEET.landscape[1]-REP_SHEET_PAD)*REP_SHEET_SPARE+1);
    const dense=chartColumns(Array.from({length:200},(_,i)=>({label:'D'+i,value:i%2})),{}),mark=repSheetMark({orient:'landscape'});
-   return {printed,sheets,inside,sameZoom:zoom(list[0])===zoom(list[1]),orient:repClean({pages:[{orient:'sideways'}]}).pages[0].orient,back:repPage(repOpenReport()).name,
+   return {printed,sheets,inside,byWidth:list.every(el=>zoom(el)===Math.floor((REP_SHEET[el.classList.contains('rep-land')?'landscape':'portrait'][0]-REP_SHEET_PAD)/repPrintW*1000)/1000),orient:repClean({pages:[{orient:'sideways'}]}).pages[0].orient,back:repPage(repOpenReport()).name,
     dense:[(dense.match(/<rect /g)||[]).length,(dense.match(/<em /g)||[]).length],mark:/End of page · Letter landscape/.test(mark)&&/padding-top:calc\(/.test(mark)};
   }finally{window.print=was;printSheetCleanup();DB.report=keep;repOpenId='';delete REP_SRC.qa;}
- }),{printed:1,sheets:[{cls:'land',rows:true,more:[true],total:1,width:true},{cls:'port',rows:false,more:[],total:0,width:true}],inside:true,sameZoom:true,orient:'portrait',back:'Tall',dense:[100,8],mark:true});
+ }),{printed:1,sheets:[{cls:'land',rows:true,more:[true],total:1,width:true},{cls:'port',rows:false,more:[],total:0,width:true}],inside:true,byWidth:true,orient:'portrait',back:'Tall',dense:[100,8],mark:true});
  eq('Список батчей у прежней базы: толщина, стекло, внутри батчи, все батчи; изменённый человеком — не трогается',await t.p.evaluate(()=>{
   const was=DB.report,seed=DB.reportSeed,old=()=>repClean(Object.assign(REP_STARTERS().find(r=>r.id==='RP-start-batches'),{pages:[{id:'P',name:'Batch list',widgets:[{type:'table',q:{source:'batches',dims:['batch'],metrics:['glassN'],limit:100,sort:{by:'label',dir:'desc'}}}]}]}));
   try{
