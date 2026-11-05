@@ -2373,6 +2373,27 @@ textarea.fm-in{resize:vertical}
 .fm-vpages{overflow:auto;max-height:76vh;display:flex;flex-direction:column;gap:12px;background:var(--surface-3);border-radius:10px;padding:12px}
 .fm-vsheet{position:relative;width:100%;aspect-ratio:612/792;background:var(--on-solid);box-shadow:0 1px 4px rgba(0,0,0,.15);flex:none}
 .fm-vsheet svg{position:absolute;inset:0}
+/* Колонки таблицы (владелец 05.11.2026): список справа, клик — настройки. */
+.fm-cols{display:flex;flex-direction:column}
+.fm-colrow{display:grid;grid-template-columns:14px 18px minmax(0,1fr) 64px 10px;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line-soft);cursor:pointer}
+.fm-colrow i{color:var(--text-3);font-style:normal;cursor:grab;font-size:11px}
+.fm-colrow .fm-in{padding:4px 7px;font-size:12px}
+.fm-colrow.off .fm-in{color:var(--text-3)}
+.fm-open{color:var(--text-3)}
+.fm-add-col{margin-top:10px}
+.fm-back{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;padding:0;cursor:pointer}
+.fm-danger{color:var(--danger);border-color:var(--danger-line)}
+.fm-colhit{cursor:pointer}
+/* Поля страницы — треугольники на линейке; направляющие — розовые линии. */
+.fm-rgrab{position:absolute;z-index:3;cursor:crosshair}
+.fm-rgrab.x{left:0;right:0;top:-13px;height:12px}
+.fm-rgrab.y{top:0;bottom:0;left:-14px;width:12px}
+.fm-mk{position:absolute;z-index:4;width:0;height:0;cursor:ew-resize}
+.fm-mk.x{top:-9px;margin-left:-5px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid var(--accent)}
+.fm-mk.y{left:-13px;margin-top:-5px;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid var(--accent);cursor:ns-resize}
+.fm-guide{position:absolute;z-index:2}
+.fm-guide.x{top:0;bottom:0;width:7px;margin-left:-3px;border-left:3px solid transparent;border-right:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ew-resize}
+.fm-guide.y{left:0;right:0;height:7px;margin-top:-3px;border-top:3px solid transparent;border-bottom:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ns-resize}
 
 /* ---- src/styles/cutting.css ---- */
 /* Раскрой: параметры реза в Master Data и экран раскладки у батча. */
@@ -4147,7 +4168,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='992a444df34c';
+var ERP_BUILD='8a8bde6df926';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -24735,10 +24756,31 @@ function formFlow(tpl,ctx,map){
  return f;
 }
 
+/* Колонки таблицы: ячейки по порядку от левого поля, скрытые (hide)
+   пропускаются. cw — ширина ячейки, pad — отступ надписи от края ячейки,
+   w — ширина переноса текста; число (type num) — у правого края. */
+function formColumns(cols,left){
+ let x0=left;
+ return (cols||[]).filter(c=>!c.hide).map(c=>{
+  const cw=c.cw||0,pad=c.pad!=null?c.pad:5,align=c.align||(c.type==='num'?'right':'left');
+  const o=Object.assign({},c,{align,start:x0,x:align==='right'?x0+cw-pad:align==='center'?x0+cw/2:x0+pad,w:c.w!=null?c.w:Math.max(0,cw-2*pad)});
+  x0+=cw;return o;
+ });
+}
+function formCleanColumn(c){
+ if(!c||typeof c!=='object'||typeof c.k!=='string'||!c.k)return null;
+ const num=(v,lo,hi)=>{const n=Number(v);return Number.isFinite(n)?Math.min(hi,Math.max(lo,Math.round(n*100)/100)):undefined;};
+ const o={k:c.k.slice(0,40),label:typeof c.label==='string'?c.label.slice(0,60):'',type:c.type==='num'?'num':'text'};
+ [['cw',0,600],['pad',0,100],['w',0,600],['size',4,40]].forEach(([k,lo,hi])=>{const v=num(c[k],lo,hi);if(v!==undefined)o[k]=v;});
+ if(['left','center','right'].includes(c.align))o.align=c.align;
+ ['bold','alert','hide'].forEach(k=>{if(c[k])o[k]=true;});
+ return o;
+}
 /* Сохранённый шаблон (конструктор) → чистый: только известные ключи и
    типы, числа в разумных пределах. Части, которых в сохранённом нет (код
-   добавил новую), берутся по умолчанию; колонки таблиц пока правит только
-   код — они всегда из шаблона по умолчанию. */
+   добавил новую), берутся по умолчанию; колонки таблицы — сохранённые,
+   если они есть. Поля страницы и направляющие (guides — только для
+   конструктора, не печатаются) — из сохранённого, в разумных пределах. */
 const FORM_BLOCK_TYPES=['text','field','image','line','box','barcode'];
 const FORM_PLACES=['left','center','right','free'];
 function formCleanBlock(b){
@@ -24757,10 +24799,15 @@ function formCleanBlock(b){
 }
 function formClean(src,def){
  if(!src||typeof src!=='object'||!src.parts||typeof src.parts!=='object')return def;
- const out={form:def.form,page:{w:def.page.w,h:def.page.h,margin:Object.assign({},def.page.margin)},parts:{}};
+ const m=Object.assign({},def.page.margin),sm=src.page&&src.page.margin||{};
+ ['top','right','bottom','left'].forEach(k=>{const v=Number(sm[k]);if(Number.isFinite(v))m[k]=Math.max(0,Math.min(250,Math.round(v*100)/100));});
+ const out={form:def.form,page:{w:def.page.w,h:def.page.h,margin:m},parts:{}};
+ const g=src.guides||{},gl=a=>(Array.isArray(a)?a:[]).map(Number).filter(v=>Number.isFinite(v)&&v>=0&&v<=800).slice(0,40).map(v=>Math.round(v*100)/100);
+ if(gl(g.x).length||gl(g.y).length)out.guides={x:gl(g.x),y:gl(g.y)};
  Object.keys(def.parts).forEach(k=>{
   const d=def.parts[k],s=src.parts[k];
-  if(d.columns||!s||!Array.isArray(s.blocks)){out.parts[k]=d;return;}
+  if(d.columns){const c=s&&Array.isArray(s.columns)?s.columns.map(formCleanColumn).filter(Boolean):null;out.parts[k]=c&&c.length?Object.assign({},d,{columns:c}):d;return;}
+  if(!s||!Array.isArray(s.blocks)){out.parts[k]=d;return;}
   const h=Number(s.h);
   out.parts[k]=Object.assign({},d,{h:Number.isFinite(h)?Math.max(0,Math.min(800,h)):d.h,blocks:s.blocks.map(formCleanBlock).filter(Boolean)});
  });
@@ -43460,6 +43507,8 @@ function formsDefs(){
   samples:()=>(DB.shipment||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(s=>({id:s.id,label:s.number+' · '+salesCustomerDisplay(s.customerId)})),
   doc:id=>{const s=id&&shippingFind(id);if(s)try{return shippingDocument(s);}catch(e){}return shippingFormSample();},
   context:d=>shippingFormContext(d),
+  /* Что может стоять в колонках таблиц (Shows, + Column). */
+  columns:{table:SHIPPING_TABLE_COLUMNS,skidTable:SHIPPING_SKID_COLUMNS},
   pages:(tpl,d,map)=>shippingPages(d,null,tpl,map)}];
 }
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
@@ -43522,7 +43571,7 @@ function formsReset(){
 }
 function formsSetForm(k){const s=formsState();if(s.form===k)return;s.form=k;s.sample='';s.sel=null;s.part='every';s.modal=null;formsState();render();}
 function formsSetSample(id){formsState().sample=id;render();}
-function formsSelect(part,id){const s=formsState();s.sel=id?{part,id}:null;s.part=part;render();}
+function formsSelect(part,id){const s=formsState();s.sel=id?{part,id}:null;s.part=part;s.cols=null;render();}
 
 /* ------------------------------ Блоки -------------------------------- */
 function formsFieldDef(k){return formsDef(formsState().form).fields().find(x=>x.k===k);}
@@ -43658,6 +43707,100 @@ function formsVersionsHTML(){
    <div class="fm-modal-foot"><button type="button" onclick="formsVersionsClose()">Close</button><button type="button" class="pri" data-forms-restore ${m.sel===0&&list[0].id!=='@default'&&!formsDirty()?'disabled':''} onclick="formsVersionRestore()">Restore this version</button></div></div></div>`;
 }
 
+/* ---------------------------- Колонки -------------------------------- */
+/* Владелец 05.11.2026: колонки списком справа (галочка, порядок, подпись,
+   ширина), клик по строке или по колонке на листе — её настройки. */
+function formsColumns(part,k){const s=formsState();s.cols={part,k:k||''};s.sel=null;s.part=part;render();}
+function formsColCatalog(part){return (formsDef(formsState().form).columns||{})[part]||[];}
+function formsColEdit(part,fn){formsEdit(t=>{const p=t.parts[part];if(!p||!p.columns)return;p.columns=p.columns.map(c=>Object.assign({},c));fn(p.columns);});}
+function formsColSet(part,k,prop,v){formsColEdit(part,cols=>{const c=cols.find(x=>x.k===k);if(!c)return;if(v===''||v==null||v===false)delete c[prop];else c[prop]=v;});}
+function formsColToggle(part,k,prop){const c=(formsDraft().tpl.parts[part].columns||[]).find(x=>x.k===k);if(c)formsColSet(part,k,prop,!c[prop]);}
+/* Ширина — ячейка в мм; перенос текста меняется на столько же. */
+function formsColWidth(part,k,mm){
+ const n=Number(String(mm).replace(',','.'));if(!Number.isFinite(n)||n<=0)return render();
+ formsColEdit(part,cols=>{const c=cols.find(x=>x.k===k);if(!c)return;const cw=Math.round(n/FORMS_PT_MM*100)/100,d=cw-(c.cw||0);c.cw=cw;if(c.w!=null)c.w=Math.max(0,Math.round((c.w+d)*100)/100);});
+}
+function formsColSize(part,k,v){const n=Number(v);if(!Number.isFinite(n)||n<4||n>40)return render();formsColSet(part,k,'size',n);}
+function formsColMove(part,from,to){if(from===to)return;formsColEdit(part,cols=>{const i=cols.findIndex(c=>c.k===from),j=cols.findIndex(c=>c.k===to);if(i<0||j<0)return;const [c]=cols.splice(i,1);cols.splice(j,0,c);});}
+function formsColAdd(part,key){
+ const x=formsColCatalog(part).find(c=>c.k===key);if(!x)return;
+ formsColEdit(part,cols=>{if(cols.some(c=>c.k===key))return;cols.push(x.type==='num'?{k:key,label:x.label,type:'num',cw:45}:{k:key,label:x.label,type:'text',cw:80,w:74});});
+ formsUi.cols={part,k:key};render();
+}
+function formsColRemove(part,k){formsColEdit(part,cols=>{const i=cols.findIndex(c=>c.k===k);if(i>=0)cols.splice(i,1);});formsUi.cols={part,k:''};render();}
+/* Shows — другое поле в той же колонке; подпись меняется, если была по каталогу. */
+function formsColShows(part,k,key){
+ const cat=formsColCatalog(part),x=cat.find(c=>c.k===key),was=cat.find(c=>c.k===k);if(!x)return;
+ formsColEdit(part,cols=>{const c=cols.find(y=>y.k===k);if(!c||cols.some(y=>y.k===key))return;if(!c.label||was&&c.label===was.label)c.label=x.label;c.k=key;if(c.type!==x.type){c.type=x.type;if(x.type==='num')delete c.w;else c.w=Math.max(0,(c.cw||0)-8);}});
+ formsUi.cols={part,k:key};render();
+}
+let formsColDrag='';
+function formsColsHTML(tpl){
+ const s=formsState(),part=s.cols.part,p=tpl.parts[part],cat=formsColCatalog(part),lab=FORMS_PARTS[part]||[part,''];if(!p||!p.columns)return '';
+ const mm=v=>Math.round((v||0)*FORMS_PT_MM),c=p.columns.find(x=>x.k===s.cols.k),free=cat.filter(x=>!p.columns.some(y=>y.k===x.k));
+ if(c){const x=cat.find(y=>y.k===c.k),others=cat.filter(y=>y.k===c.k||!p.columns.some(z=>z.k===y.k)),al=c.align||(c.type==='num'?'right':'left');
+  return `<button type="button" class="fm-back" onclick="formsColumns('${part}','')">‹ Columns</button><div class="fm-h">Selected · Column</div>
+   <label><span>Heading</span><input class="fm-in" data-forms-col-label value="${esc(c.label||'')}" onchange="formsColSet('${part}','${esc(c.k)}','label',this.value)"></label>
+   <label><span>Shows</span><select class="fm-in" data-forms-col-shows onchange="formsColShows('${part}','${esc(c.k)}',this.value)">${others.map(y=>`<option value="${esc(y.k)}" ${y.k===c.k?'selected':''}>${esc(y.label)}</option>`).join('')}${x?'':`<option selected>${esc(c.k)}</option>`}</select></label>
+   <div class="fm-row"><label><span>Width, mm</span><input class="fm-in" data-forms-col-width inputmode="decimal" value="${mm(c.cw)}" onchange="formsColWidth('${part}','${esc(c.k)}',this.value)"></label><label><span>Size, pt</span><input class="fm-in" inputmode="decimal" value="${c.size||(c.type==='num'?9:8)}" onchange="formsColSize('${part}','${esc(c.k)}',this.value)"></label></div>
+   <div class="fm-seg"><button type="button" class="${c.bold?'on':''}" onclick="formsColToggle('${part}','${esc(c.k)}','bold')"><b>B</b></button>${['left','center','right'].map(a=>`<button type="button" class="${al===a?'on':''}" onclick="formsColSet('${part}','${esc(c.k)}','align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
+   <button type="button" class="fm-wide-btn" data-forms-col-hide onclick="formsColToggle('${part}','${esc(c.k)}','hide')">${c.hide?'Show this column':'Hide this column'}</button>
+   <button type="button" class="fm-wide-btn fm-danger" onclick="formsColRemove('${part}','${esc(c.k)}')">Remove column</button>`;}
+ return `<div class="fm-h">${esc(lab[0])} · Columns</div><div class="fm-cols" data-forms-cols>${p.columns.map(x=>`<div class="fm-colrow${x.hide?' off':''}" draggable="true" data-forms-col="${esc(x.k)}" ondragstart="formsColDrag='${esc(x.k)}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();formsColMove('${part}',formsColDrag,'${esc(x.k)}')" onclick="formsColumns('${part}','${esc(x.k)}')">
+   <i title="Drag to reorder">⋮⋮</i><input type="checkbox" ${x.hide?'':'checked'} title="Show" onclick="event.stopPropagation()" onchange="formsColToggle('${part}','${esc(x.k)}','hide')">
+   <input class="fm-in" value="${esc(x.label||'')}" onclick="event.stopPropagation()" onchange="formsColSet('${part}','${esc(x.k)}','label',this.value)">
+   <input class="fm-in fm-mm" value="${mm(x.cw)} mm" onclick="event.stopPropagation()" onfocus="this.value=parseFloat(this.value)||''" onchange="formsColWidth('${part}','${esc(x.k)}',this.value)"><span class="fm-open">›</span></div>`).join('')}</div>
+  ${free.length?`<select class="fm-in fm-add-col" data-forms-col-add onchange="formsColAdd('${part}',this.value)"><option value="">+ Column</option>${free.map(x=>`<option value="${esc(x.k)}">${esc(x.label)}</option>`).join('')}</select>`:''}
+  <p class="fm-note">Drag ⋮⋮ to reorder. Click a column to open it.</p>`;
+}
+
+/* --------------------- Поля страницы и направляющие ------------------ */
+/* Треугольники на линейке — поля страницы; тянуть с линейки — новая
+   направляющая, утащить её за край листа — убрать. Направляющие не
+   печатаются; блок липнет к ним и к полям в 4 pt. */
+function formsSnap(v,list){let best=v,d=4;list.forEach(g=>{if(Math.abs(g-v)<d){d=Math.abs(g-v);best=g;}});return best;}
+function formsGuides(tpl,axis){const m=tpl.page.margin,g=tpl.guides||{};return axis==='x'?[m.left,tpl.page.w-m.right].concat(g.x||[]):[m.top,tpl.page.h-m.bottom].concat(g.y||[]);}
+function formsRulerStart(e,kind,which,index){
+ if(e.button!==0||formsPointer)return;e.preventDefault();e.stopPropagation();
+ const stage=e.currentTarget.closest('[data-forms-stage]'),sheet=stage.querySelector('[data-forms-page="0"]'),d=formsDraft();if(!sheet)return;
+ const r=sheet.getBoundingClientRect(),k=d.tpl.page.w/r.width;
+ if(kind==='new'){if(!d.tpl.guides)d.tpl.guides={x:[],y:[]};const list=d.tpl.guides[which]=(d.tpl.guides[which]||[]).slice();list.push(which==='x'?(e.clientX-r.left)*k:(e.clientY-r.top)*k);kind='guide';index=list.length-1;}
+ formsPointer={kind,which,index,pid:e.pointerId,stage,before:formsClone(d.tpl),k,rect:r};
+ try{stage.setPointerCapture(e.pointerId);}catch(x){}
+ stage.onpointermove=formsRulerMove;stage.onpointerup=ev=>formsRulerEnd(ev,false);stage.onpointercancel=ev=>formsRulerEnd(ev,true);
+}
+function formsRulerMove(e){
+ const p=formsPointer;if(!p||e.pointerId!==p.pid)return;e.preventDefault();
+ const t=formsDraft().tpl,r=p.rect,x=Math.round((e.clientX-r.left)*p.k*2)/2,y=Math.round((e.clientY-r.top)*p.k*2)/2;
+ p.out=e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom;
+ if(p.kind==='margin'){const m=t.page.margin=Object.assign({},t.page.margin),c=v=>Math.max(0,Math.min(250,v));
+  if(p.which==='left')m.left=c(x);else if(p.which==='right')m.right=c(t.page.w-x);else if(p.which==='top')m.top=c(y);else m.bottom=c(t.page.h-y);}
+ else{const g=t.guides=Object.assign({x:[],y:[]},t.guides);g[p.which]=g[p.which].slice();g[p.which][p.index]=p.which==='x'?x:y;}
+ formsStageRefresh();
+}
+function formsRulerEnd(e,cancel){
+ const p=formsPointer;if(!p||e.pointerId!==p.pid)return;formsPointer=null;
+ try{p.stage.releasePointerCapture(p.pid);}catch(x){}p.stage.onpointermove=p.stage.onpointerup=p.stage.onpointercancel=null;
+ const d=formsDraft(),t=d.tpl;
+ if(cancel)d.tpl=p.before;
+ else{
+  if(p.kind==='guide'){const g=t.guides,v=g[p.which][p.index],max=p.which==='x'?t.page.w:t.page.h;if(p.out||!(v>0&&v<max)){g[p.which].splice(p.index,1);}if(!g.x.length&&!g.y.length)delete t.guides;}
+  if(JSON.stringify(p.before)!==JSON.stringify(t)){d.undo.push(p.before);if(d.undo.length>80)d.undo.shift();d.redo=[];formsUi.notice='';}
+ }
+ render();
+}
+function formsRulerMarks(tpl){
+ const W=tpl.page.w,H=tpl.page.h,m=tpl.page.margin,pc=(v,of)=>(v/of*100).toFixed(4)+'%',in2=v=>(Math.round(v/72*100)/100)+'″';
+ const mk=(which,cls,pos,title)=>`<span class="fm-mk ${cls}" data-forms-margin="${which}" style="${cls==='x'?'left':'top'}:${pos}" title="${title}" onpointerdown="formsRulerStart(event,'margin','${which}')"></span>`;
+ return `<div class="fm-rgrab x" data-forms-ruler="x" title="Drag down for a guide" onpointerdown="formsRulerStart(event,'new','x')"></div><div class="fm-rgrab y" data-forms-ruler="y" title="Drag right for a guide" onpointerdown="formsRulerStart(event,'new','y')"></div>`+
+  mk('left','x',pc(m.left,W),'Left margin '+in2(m.left))+mk('right','x',pc(W-m.right,W),'Right margin '+in2(m.right))+mk('top','y',pc(m.top,H),'Top margin '+in2(m.top))+mk('bottom','y',pc(H-m.bottom,H),'Bottom margin '+in2(m.bottom));
+}
+function formsGuidesHTML(tpl){
+ const g=tpl.guides||{},W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',in2=v=>(Math.round(v/72*100)/100)+'″';
+ return (g.x||[]).map((v,i)=>`<div class="fm-guide x" data-forms-guide="x${i}" title="Guide ${in2(v)}" style="left:${pc(v,W)}" onpointerdown="formsRulerStart(event,'guide','x',${i})"></div>`).join('')+
+  (g.y||[]).map((v,i)=>`<div class="fm-guide y" data-forms-guide="y${i}" title="Guide ${in2(v)}" style="top:${pc(v,H)}" onpointerdown="formsRulerStart(event,'guide','y',${i})"></div>`).join('');
+}
+
 /* ------------------------------ Лист --------------------------------- */
 function formsRuler(vert,len){
  let t='';for(let q=0;q*18<=len;q++){const pos=(q*18/len*100).toFixed(3)+'%',big=q%4===0;
@@ -43671,10 +43814,13 @@ function formsSheetsHTML(){
  return pages.map((pg,i)=>{
   const boxes=new Map();
   map.filter(r=>r.page===i).forEach(r=>{const k=r.part+'|'+r.id,b=boxes.get(k);if(!b)boxes.set(k,Object.assign({},r));else{const x2=Math.max(b.x+b.w,r.x+r.w),y2=Math.max(b.y+b.h,r.y+r.h);b.x=Math.min(b.x,r.x);b.y=Math.min(b.y,r.y);b.w=x2-b.x;b.h=y2-b.y;}});
-  const hits=[...boxes.values()].map(r=>{const sel=s.sel&&s.sel.part===r.part&&s.sel.id===r.id,b=formsFind(tpl,r);if(!b)return '';
+  const hits=[...boxes.values()].map(r=>{
+   if(String(r.id).startsWith('col:')){const k=r.id.slice(4),on=s.cols&&s.cols.part===r.part&&s.cols.k===k;
+    return `<div class="fm-hit fm-colhit${on?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="Column" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(r.h,H)}" onpointerdown="event.preventDefault();formsColumns('${esc(r.part)}','${esc(k)}')"></div>`;}
+   const sel=s.sel&&s.sel.part===r.part&&s.sel.id===r.id,b=formsFind(tpl,r);if(!b)return '';
    const handles=sel?'<span class="fm-rs e" data-forms-resize="e"></span>'+(formIsText(b)?'':'<span class="fm-rs s" data-forms-resize="s"></span>'):'';
    return `<div class="fm-hit${sel?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="${esc(formsBlockLabel(b))}" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(Math.max(r.h,4),H)}" onpointerdown="formsPointerStart(event,'${esc(r.part)}','${esc(r.id)}')">${handles}</div>`;}).join('');
-  return `<div class="fm-sheet" data-forms-page="${i}" data-w="${W}" data-h="${H}">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}${i?'':formsRuler(false,W)+formsRuler(true,H)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${hits}</div>`;
+  return `<div class="fm-sheet" data-forms-page="${i}" data-w="${W}" data-h="${H}">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}${i?'':formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(tpl)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(tpl)}${hits}</div>`;
  }).join('');
 }
 function formsStageRefresh(){const st=document.querySelector('[data-forms-stage]');if(st)st.innerHTML=formsSheetsHTML();}
@@ -43696,7 +43842,8 @@ function formsPointerMove(e){
  if(Math.abs(e.clientX-p.x)+Math.abs(e.clientY-p.y)>2)p.moved=true;if(!p.moved)return;
  if(p.handle==='e')b.w=Math.max(8,r((p.b0.w||0)+dx));
  else if(p.handle==='s')b.h=Math.max(0,r((p.b0.h||0)+dy));
- else{b.y=r(p.b0.y+dy);if(b.place==='free')b.x=r(p.x0+dx);}
+ else{const t=formsDraft().tpl;b.y=r(p.b0.y+dy);
+  if(b.place==='free'){const nx=r(p.x0+dx),gx=formsGuides(t,'x'),sl=formsSnap(nx,gx),sr=formsSnap(nx+(b.w||0),gx)-(b.w||0);b.x=sl!==nx?sl:sr;}}
  formsStageRefresh();
 }
 function formsPointerEnd(e,cancel){
@@ -43711,11 +43858,11 @@ function formsPointerEnd(e,cancel){
 function formsTreeHTML(tpl){
  const s=formsState();
  return Object.keys(tpl.parts).map(k=>{const p=tpl.parts[k],lab=FORMS_PARTS[k]||[k,''];
-  const kids=p.columns?`<button type="button" class="fm-node c" disabled>Columns (${p.columns.length})</button>`:(p.blocks||[]).map(b=>`<button type="button" class="fm-node c${s.sel&&s.sel.part===k&&s.sel.id===b.id?' sel':''}" data-forms-node="${esc(k)}|${esc(b.id)}" onclick="formsSelect('${esc(k)}','${esc(b.id)}')">${esc(formsBlockLabel(b))}</button>`).join('');
+  const kids=p.columns?`<button type="button" class="fm-node c${s.cols&&s.cols.part===k?' sel':''}" data-forms-columns="${esc(k)}" onclick="formsColumns('${esc(k)}','')">Columns (${p.columns.filter(c=>!c.hide).length})</button>`:(p.blocks||[]).map(b=>`<button type="button" class="fm-node c${s.sel&&s.sel.part===k&&s.sel.id===b.id?' sel':''}" data-forms-node="${esc(k)}|${esc(b.id)}" onclick="formsSelect('${esc(k)}','${esc(b.id)}')">${esc(formsBlockLabel(b))}</button>`).join('');
   return `<button type="button" class="fm-node p${!s.sel&&s.part===k?' sel':''}" data-forms-part="${esc(k)}" onclick="formsSelect('${esc(k)}','')"><span>${esc(lab[0])}</span><small>${esc(lab[1])}</small></button>${kids}`;}).join('');
 }
 function formsSettingsHTML(tpl){
- const s=formsState(),b=formsFind(tpl,s.sel);
+ const s=formsState();if(s.cols)return formsColsHTML(tpl);const b=formsFind(tpl,s.sel);
  if(!b){const lab=FORMS_PARTS[s.part]||[s.part,''];return `<div class="fm-h">Part · ${esc(lab[0])}</div><p class="fm-note">Click a block on the sheet or in the list. Add puts a new block here.</p>`;}
  const mm=v=>v==null?'':Math.round(v*FORMS_PT_MM*10)/10,f=b.type==='field'||b.type==='barcode'?formsFieldDef(b.field):null,text=formIsText(b);
  const seg=(cur,list,fn)=>`<div class="fm-seg">${list.map(([k,l])=>`<button type="button" class="${cur===k?'on':''}" onclick="${fn}('${k}')">${l}</button>`).join('')}</div>`;
@@ -49945,11 +50092,14 @@ function shippingFormDefault(){
    {id:'shipTo',type:'field',field:'shipTo',place:'left',y:108,w:540,h:13,size:9,lh:13,wrap:true}]},
   first:{h:14,blocks:[
    {id:'corrections',type:'field',field:'corrections',place:'left',y:0,w:480,h:14,size:8,lh:14,bold:true,color:due,wrap:true}]},
+  /* Колонки — ячейки по порядку от левого поля (formColumns): cw — ширина
+     ячейки, pad — отступ надписи, w — перенос текста. Числа подобраны так,
+     что колонки стоят там же, где стояли в коде (Line 41, Ordered 363…). */
   table:{columns:[
-   {k:'line',label:'Line / Mark',x:41,w:75},{k:'size',label:'Size',x:122,w:84},{k:'makeup',label:'Makeup',x:211,w:99},
-   {k:'ordered',label:'Ordered',x:363,align:'right'},{k:'before',label:'Before',x:401,align:'right'},
-   {k:'now',label:'Now',x:435,align:'right',bold:true},{k:'back',label:'Back order',x:489,align:'right',bold:true,alert:true},
-   {k:'skid',label:'Skid',x:520,w:53}]},
+   {k:'line',label:'Line / Mark',type:'text',cw:81,w:75},{k:'size',label:'Size',type:'text',cw:89,w:84},{k:'makeup',label:'Makeup',type:'text',cw:105,w:99},
+   {k:'ordered',label:'Ordered',type:'num',cw:57},{k:'before',label:'Before',type:'num',cw:38},
+   {k:'now',label:'Now',type:'num',cw:34,bold:true},{k:'back',label:'Back order',type:'num',cw:54,bold:true,alert:true},
+   {k:'skid',label:'Skid',type:'text',cw:82,pad:26,w:53}]},
   totals:{h:93,keep:130,blocks:[
    {id:'skids',type:'field',field:'skids',place:'left',y:0,w:480,h:14,size:8,lh:14,wrap:true},
    {id:'note',type:'field',field:'note',place:'left',y:14,w:480,h:14,size:8,lh:14,wrap:true},
@@ -49968,8 +50118,8 @@ function shippingFormDefault(){
    .concat(card('from',36,'left','FROM','company.name','company.lines'))
    .concat(card('to',311,'right','TO','customer','shipToAddress',[{id:'toDate',type:'field',field:'shipDate',place:'free',x:320,y:141,w:247,h:9,size:7.6,lh:9,color:mut,fit:true}]))},
   skidTable:{columns:[
-   {k:'pos',label:'#',x:41,w:50,bold:true},{k:'line',label:'Line / Mark',x:96,w:70},{k:'size',label:'Size',x:171,w:100},{k:'makeup',label:'Makeup',x:276,w:190},
-   {k:'qty',label:'Qty',x:500,align:'right',bold:true},{k:'kg',label:'kg',x:548,align:'right'}]},
+   {k:'pos',label:'#',type:'text',cw:55,w:50,bold:true},{k:'line',label:'Line / Mark',type:'text',cw:75,w:70},{k:'size',label:'Size',type:'text',cw:105,w:100},{k:'makeup',label:'Makeup',type:'text',cw:200,w:190},
+   {k:'qty',label:'Qty',type:'num',cw:34,bold:true},{k:'kg',label:'kg',type:'num',cw:48}]},
   bottom:{h:67,blocks:[
    {id:'pageNo',type:'text',text:'{number|Skid contents} · {page} / {pages}',place:'right',y:41,w:300,h:13,size:8,color:mut,align:'right'}]}
  }};
@@ -49996,6 +50146,26 @@ const SHIPPING_FORM_FIELDS=[
  {k:'skidUnits',g:'Skids',label:'Skid units and weight',v:()=>''},
  {k:'skidsProperty',g:'Skids',label:'Skids remain ours',v:d=>d.skids.length?shippingCount(d.skids.length,'skid')+' left on site '+(d.skids.length===1?'remains':'remain')+' property of '+(d.company.name||'the supplier')+'.':''}
 ];
+/* Что может стоять в колонке таблицы (конструктор: Shows, + Column). */
+const SHIPPING_TABLE_COLUMNS=[
+ {k:'line',label:'Line / Mark',type:'text',v:r=>String(r.line)+(r.mark?' · '+r.mark:'')},
+ {k:'mark',label:'Mark',type:'text',v:r=>r.mark||''},
+ {k:'size',label:'Size',type:'text',v:r=>r.size},
+ {k:'makeup',label:'Makeup',type:'text',v:r=>r.makeup},
+ {k:'ordered',label:'Ordered',type:'num',v:r=>r.ordered},
+ {k:'before',label:'Before',type:'num',v:r=>r.before},
+ {k:'now',label:'Now',type:'num',v:r=>r.now},
+ {k:'back',label:'Back order',type:'num',v:r=>r.back},
+ {k:'weight',label:'Weight kg',type:'num',v:r=>docNum((r.kg==null?r.knownKg:r.kg)*r.now,1)},
+ {k:'skid',label:'Skid',type:'text',v:r=>r.skids||'—'}];
+const SHIPPING_SKID_COLUMNS=[
+ {k:'pos',label:'#',type:'text',v:r=>r.pos},
+ {k:'line',label:'Line / Mark',type:'text',v:r=>String(r.line)+(r.mark?' · '+r.mark:'')},
+ {k:'mark',label:'Mark',type:'text',v:r=>r.mark||''},
+ {k:'size',label:'Size',type:'text',v:r=>r.size},
+ {k:'makeup',label:'Makeup',type:'text',v:r=>r.makeup},
+ {k:'qty',label:'Qty',type:'num',v:r=>r.now},
+ {k:'kg',label:'kg',type:'num',v:r=>docNum((r.kg==null?r.knownKg:r.kg)*r.now,1)}];
 function shippingFormContext(d){
  const by=new Map(SHIPPING_FORM_FIELDS.map(x=>[x.k,x]));
  return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},type:k=>(by.get(k)||{}).t||''};
@@ -50033,18 +50203,20 @@ function shippingPlaceText(list){
 }
 /* tpl и map — для конструктора: свой черновик шаблона и места блоков. */
 function shippingPages(d,skidOnly,tpl,map){
- tpl=tpl||shippingFormTemplate();const f=formFlow(tpl,shippingFormContext(d),map),cols=tpl.parts.table.columns,W=f.right-f.left;let activeOrder;
+ tpl=tpl||shippingFormTemplate();const f=formFlow(tpl,shippingFormContext(d),map),W=f.right-f.left;let activeOrder;
+ const cols=formColumns(tpl.parts.table.columns,f.left),by=new Map(SHIPPING_TABLE_COLUMNS.map(c=>[c.k,c]));
+ /* Шапка таблицы — один раз на лист в места для конструктора (клик по колонке). */
+ const headSeen=new Set(),headMark=(part,list,y)=>{if(!map||headSeen.has(part+f.pages.length))return;headSeen.add(part+f.pages.length);list.forEach(c=>map.push({page:f.pages.length-1,part,id:'col:'+c.k,x:c.start,y:y-11,w:c.cw,h:21}));};
  const line=(text,opts)=>{opts=opts||{};const size=opts.size||9;docWrap(String(text),size,!!opts.bold,W).forEach(t=>{f.ensure(size+5);f.P.text(f.left,f.y,t,opts);f.y+=size+5;});};
- const tableHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});cols.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align||'left'}));f.y+=23;};
- /* Колонки с шириной переносят текст (8 pt), без ширины — число (9 pt). */
- const textCols=cols.filter(c=>c.w),numCols=cols.filter(c=>!c.w);
+ const tableHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});cols.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align}));headMark('table',cols,f.y);f.y+=23;};
+ /* Текст переносится (8 pt), число — одной строкой (9 pt). */
+ const textCols=cols.filter(c=>c.type!=='num'),numCols=cols.filter(c=>c.type==='num'),cell=(c,r)=>{const x=by.get(c.k);const v=x?x.v(r):'';return v==null?'':v;};
  const row=r=>{
-  const val={line:String(r.line)+(r.mark?' · '+r.mark:''),size:r.size,makeup:r.makeup,skid:r.skids||'—',ordered:r.ordered,before:r.before,now:r.now,back:r.back};
-  const wrapped=textCols.map(c=>docWrap(String(val[c.k]==null?'':val[c.k]),8,false,c.w)),lines=Math.max(1,...wrapped.map(a=>a.length)),note=r.note?docWrap(r.note,8,false,W-40):[],h=(lines+note.length)*11+12;
+  const wrapped=textCols.map(c=>docWrap(String(cell(c,r)),c.size||8,!!c.bold,c.w)),lines=Math.max(1,...wrapped.map(a=>a.length)),note=r.note?docWrap(r.note,8,false,W-40):[],h=(lines+note.length)*11+12;
   if(f.y+h>f.bottom-15){f.page();if(activeOrder)line(activeOrder+' · continued',{size:11,bold:true});tableHead();}
-  textCols.forEach((c,n)=>wrapped[n].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,{size:8})));
+  textCols.forEach((c,n)=>wrapped[n].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,Object.assign({size:c.size||8},c.bold?{bold:true}:{},c.align!=='left'?{align:c.align}:{}))));
   note.forEach((t,k)=>f.P.text(f.left+5,f.y+(lines+k)*11,t,{size:8,color:DOC_COLOR.mut}));
-  numCols.forEach(c=>{const v=val[c.k];f.P.text(c.x,f.y,String(v),{size:9,bold:!!c.bold,align:c.align||'right',color:c.alert&&v>0?DOC_COLOR.due:DOC_COLOR.ink});});
+  numCols.forEach(c=>{const v=cell(c,r);f.P.text(c.x,f.y,String(v),{size:c.size||9,bold:!!c.bold,align:c.align,color:c.alert&&v>0?DOC_COLOR.due:DOC_COLOR.ink});});
   f.y+=h;f.P.line(f.left,f.y-6,f.right,f.y-6);
  };
  if(!skidOnly){
@@ -50057,13 +50229,14 @@ function shippingPages(d,skidOnly,tpl,map){
   if(!d.orders.length)line('Open trip · no items selected');
   f.flow('totals');
  }
- const sc=tpl.parts.skidTable.columns,places=shippingSkidPlaces(d),oid=new Map(d.orders.map(o=>[o.number,o.id])),key=r=>oid.get(r.order)+'|'+r.lineId;
- const skidHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});sc.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align||'left'}));f.y+=23;};
- const skidRow=(val,group)=>{
-  const tc=sc.filter(c=>c.w),wr=tc.map(c=>docWrap(String(val[c.k]==null?'':val[c.k]),8,!!c.bold,c.w)),n=Math.max(1,...wr.map(a=>a.length)),h=n*11+12;
+ const sc=formColumns(tpl.parts.skidTable.columns,f.left),sby=new Map(SHIPPING_SKID_COLUMNS.map(c=>[c.k,c])),places=shippingSkidPlaces(d),oid=new Map(d.orders.map(o=>[o.number,o.id])),key=r=>oid.get(r.order)+'|'+r.lineId;
+ const skidHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});sc.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align}));headMark('skidTable',sc,f.y);f.y+=23;};
+ const skidRow=(r,group)=>{
+  const v=c=>{const x=sby.get(c.k);const t=x?x.v(r):'';return t==null?'':t;};
+  const tc=sc.filter(c=>c.type!=='num'),wr=tc.map(c=>docWrap(String(v(c)),c.size||8,!!c.bold,c.w)),n=Math.max(1,...wr.map(a=>a.length)),h=n*11+12;
   if(f.y+h>f.bottom-15){f.page();line(group+' · continued',{size:11,bold:true});skidHead();}
-  tc.forEach((c,i)=>wr[i].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,{size:8,bold:!!c.bold})));
-  sc.filter(c=>!c.w).forEach(c=>f.P.text(c.x,f.y,String(val[c.k]),{size:9,bold:!!c.bold,align:c.align||'right'}));
+  tc.forEach((c,i)=>wr[i].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,Object.assign({size:c.size||8,bold:!!c.bold},c.align!=='left'?{align:c.align}:{}))));
+  sc.filter(c=>c.type==='num').forEach(c=>f.P.text(c.x,f.y,String(v(c)),{size:c.size||9,bold:!!c.bold,align:c.align}));
   f.y+=h;f.P.line(f.left,f.y-6,f.right,f.y-6);
  };
  d.skids.filter(s=>!skidOnly||s.code===skidOnly).forEach(s=>{
@@ -50075,7 +50248,7 @@ function shippingPages(d,skidOnly,tpl,map){
   groups.forEach(g=>g.rows.sort((a,b)=>at(a)-at(b)));groups.sort((a,b)=>at(a.rows[0])-at(b.rows[0]));
   groups.forEach(g=>{
    f.ensure(75);line(g.key,{size:11,bold:true});skidHead();
-   g.rows.forEach(r=>skidRow({pos:pos?shippingPlaceText(pos.get(key(r))||[]):'',line:String(r.line)+(r.mark?' · '+r.mark:''),size:r.size,makeup:r.makeup,qty:r.now,kg:docNum((r.kg==null?r.knownKg:r.kg)*r.now,1)},g.key));
+   g.rows.forEach(r=>skidRow(Object.assign({},r,{pos:pos?shippingPlaceText(pos.get(key(r))||[]):''}),g.key));
    f.y+=12;
   });
   f.ensure(30);const q=sc.find(c=>c.k==='qty'),kg=sc.find(c=>c.k==='kg');
