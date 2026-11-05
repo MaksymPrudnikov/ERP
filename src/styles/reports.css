@@ -302,3 +302,54 @@ body.rep-resizing{cursor:nwse-resize;user-select:none}
 .rep-print,.rep-print *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .rep-colmenu{width:230px;display:grid;gap:4px}.rep-colmenu .sl-btn{text-align:left}
 .rep-table th .sl-th{display:inline-flex;align-items:center;gap:4px}
+/* ---- Edit по образцу Looker (часть Б): листы слева, свойства и Data справа ---- */
+.rep-app.rep-edit{grid-template-columns:190px minmax(0,1fr) 290px 210px;gap:12px}
+.rep-app.rep-edit.pages-folded{grid-template-columns:44px minmax(0,1fr) 290px 210px}
+@media (max-width:1300px){.rep-app.rep-edit,.rep-app.rep-edit.pages-folded{grid-template-columns:170px minmax(0,1fr) 270px}.rep-app.rep-edit .rep-data-panel{grid-column:3}}
+.rep-pages-panel,.rep-data-panel{position:sticky;top:12px;max-height:calc(100vh - 90px);overflow:auto;margin:0;padding:12px}
+.rep-pages-panel.folded{padding:8px;display:grid;place-items:center}
+.rep-plist{display:grid;gap:5px;margin:8px 0}
+.rep-pitem{display:flex;align-items:center;gap:7px;width:100%;text-align:left;border:1px solid var(--line);border-left:3px solid var(--line-strong);border-radius:7px;background:var(--surface);padding:7px 8px;font:inherit;cursor:pointer;box-shadow:none;color:var(--text)}
+.rep-pitem.on{border-left-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:650}
+.rep-pitem .rep-pname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rep-grip{color:var(--text-3);letter-spacing:-2px;cursor:grab}
+.rep-psep{height:0;border-top:2px solid var(--line-strong);margin:4px 2px}
+.rep-tab-sep{display:inline-block;width:1px;height:18px;background:var(--line-strong);margin:0 6px;vertical-align:middle}
+.rep-padd{width:100%;margin:0 0 6px;border-style:dashed}
+.rep-name-inline{font-size:17px;font-weight:700;border:1px dashed transparent;background:transparent;padding:3px 6px;border-radius:7px;min-width:0;flex:0 1 380px;margin:0}
+.rep-name-inline:hover,.rep-name-inline:focus{border-color:var(--line-strong);background:var(--surface-2)}
+.rep-folder-crumb{white-space:nowrap}
+.rep-unsaved{color:var(--warning);font-size:12.5px;font-weight:650;white-space:nowrap}
+.rep-pager{display:inline-flex;align-items:center;gap:2px;margin-right:6px}
+.rep-ptabs{display:flex;border-bottom:1px solid var(--line);margin:10px 0 4px}
+.rep-ptabs button{flex:1;border:0;border-bottom:2px solid transparent;background:transparent;padding:7px 0;font:inherit;font-weight:650;color:var(--text-2);cursor:pointer;box-shadow:none}
+.rep-ptabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.rep-app.rep-edit .rep-types{grid-template-columns:repeat(4,1fr)}
+.rep-types button{display:grid;justify-items:center;gap:2px;font-size:11px}
+.rep-types button svg{display:block}
+.rep-drop{border:1px dashed transparent;border-radius:8px;margin:0 -4px;padding:0 4px}
+.rep-drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.rep-data-panel h3,.rep-pages-panel h3{margin:0;font-size:14px}
+.rep-data-q{width:100%;box-sizing:border-box;margin:8px 0}
+.rep-data-src{display:flex;justify-content:space-between;gap:6px;border:1px solid var(--accent-line);background:var(--accent-soft);border-radius:8px;padding:6px 9px;margin:0 0 6px}
+.rep-data-panel h5{margin:10px 0 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)}
+.rep-field{display:flex;gap:8px;align-items:center;padding:5px 2px;border-bottom:1px solid var(--line-soft);cursor:grab;font-size:12.5px}
+.rep-field:hover{background:var(--surface-2)}
+.rep-field i{font-style:normal;font-size:9.5px;font-weight:700;width:30px;flex:none;color:var(--accent)}
+.rep-field i.n{color:var(--series-1)}.rep-field i.d{color:var(--warning)}
+.rep-modal{position:fixed;left:50%;top:90px;transform:translateX(-50%);width:440px;max-width:calc(100vw - 32px);background:var(--surface);border-radius:14px;box-shadow:var(--shadow-lg);padding:18px 20px;z-index:60}
+.rep-modal label{display:block;font-size:12px;color:var(--text-2);margin:12px 0 4px}
+.rep-modal input,.rep-modal select{width:100%;box-sizing:border-box;margin:0}
+.rep-modal-foot{display:flex;align-items:center;gap:8px;margin-top:18px}
+.rep-shade{background:var(--inverse);opacity:.25}
+.rep-page-menu{min-width:210px}
+.rep-ctl .rep-x{margin-left:-2px}
+.rep-add-ctl{color:var(--accent);border-style:dashed;font-weight:650}
+.rep-app .rep-name-inline{font-size:17px}
+/* Таблетка фильтра: имя и значения, × — внутри. */
+.rep-ctl{border:1px solid var(--line);border-radius:999px;background:var(--surface);padding:0 4px 0 0}
+.rep-ctl.on{border-color:var(--accent-line);background:var(--accent-soft)}
+.rep-ctl .sl-quiet{border:0;background:transparent;box-shadow:none;border-radius:999px}
+.rep-ctl.on .sl-quiet{border:0;background:transparent}
+.rep-ctl-date{border-radius:999px}
+.rep-add-ctl{border-radius:999px}

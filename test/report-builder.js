@@ -166,7 +166,7 @@ module.exports=async function({page,eq,ok}){
  }),{btn:'Date: Last month▾',before:'thisYear',saved:'lastMonth',viewer:null,look:'lastMonth',own:'thisQuarter'});
 
  eq('Show on — своя галочка Screens в Users: без неё и без Users кнопки нет; с ней — есть',await t.p.evaluate(()=>{
-  rpScans();const old=window.accessCan,label=userSectionNav('screens').label,btn=()=>{rpOpenTab();repNew();const on=!!document.querySelector('[data-rep-screens]');repCancelEdit();return on;};
+  rpScans();const old=window.accessCan,label=userSectionNav('screens').label,btn=()=>{rpOpenTab();repNew();repSettingsOpen();const on=!!document.querySelector('[data-rep-screens]');repMenu=null;repCancelEdit();return on;};
   try{window.accessCan=k=>k!=='users'&&k!=='screens';const none=btn();window.accessCan=k=>k!=='users';const screens=btn();return {label,inSections:USER_SECTIONS.includes('screens'),none,screens};}
   finally{window.accessCan=old;}
  }),{label:'Screens',inSections:true,none:false,screens:true});
