@@ -255,9 +255,9 @@ async function archiveOpenWork(id){
 /* Просмотр закрыт — строки уходят из DB. */
 function archiveVisitEnd(){const v=archiveVisit;if(!v)return;archiveVisit=null;archiveRowsDrop(v.tables);}
 /* Записи ушедших заказов owners с диска (общая запись — один раз). */
-async function archiveRead(owners){
+async function archiveRead(owners,strict){
  const seen=new Set(),recs=[];
- (await storageColdOfMany(owners)).forEach(list=>list.forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}}));
+ (await storageColdOfMany(owners,strict)).forEach(list=>list.forEach(r=>{const k=r.tbl+'\u0000'+r.id;if(!seen.has(k)){seen.add(k);recs.push(r);}}));
  return recs;
 }
 /* Записи архива — в DB на время просмотра или расчёта; сравнение базы их не
@@ -394,7 +394,7 @@ function archiveAuto(){
  if(!ARCHIVE_ON||archiveTimer||typeof window!=='undefined'&&window.GF_NO_ARCHIVE)return;
  const next=ms=>{archiveTimer=setTimeout(()=>{archiveTimer=null;archiveAuto();},ms);},today=salesListDay(new Date());
  if(Date.now()-archiveInputAt<60e3){next(60e3);return;}
- if(!storageWriter||storageRecovery||storageStale||storageStarting||typeof soDraft!=='undefined'&&soDraft||archiveVisit||archiveScope||typeof cloudSync!=='undefined'&&(cloudSync.busy||cloudSync.uploading)){next(10*60e3);return;}
+ if(!storageWriter||storageRecovery||storageStale||storageStarting||typeof soDraft!=='undefined'&&soDraft||archiveVisit||archiveScope||typeof archJobs!=='undefined'&&archJobs.size||typeof cloudSync!=='undefined'&&(cloudSync.busy||cloudSync.uploading)){next(10*60e3);return;}
  if(DB.archiveRunDay===today){next(60*60e3);return;}
  const r=archiveRun(today,{limit:ARCHIVE_BATCH,mark:true});
  next(!r.ok?10*60e3:r.value.orders>=ARCHIVE_BATCH?2000:60*60e3);

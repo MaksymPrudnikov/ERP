@@ -349,11 +349,12 @@ function storageIdbMetaPut(key,value){return storageIdbTx(['meta'],'readwrite',t
 function storageIdbColdOfMany(owners){return storageIdbTx(['cold'],'readonly',tx=>{const ix=tx.objectStore('cold').index('owners'),out={lists:new Array(owners.length)};owners.forEach((o,i)=>{ix.getAll(o).onsuccess=e=>{out.lists[i]=e.target.result||[];};});return out;}).then(o=>o.lists);}
 function storageIdbColdOf(owner){return storageIdbTx(['cold'],'readonly',tx=>{const out={records:[]};tx.objectStore('cold').index('owners').getAll(owner).onsuccess=e=>{out.records=e.target.result||[];};return out;}).then(o=>o.records);}
 /* Архив с сервером: сервер знает всё, на этом компьютере — то, что ушло
-   отсюда (и ещё в очереди без сети). Нет связи — что есть здесь. */
-async function storageColdOfMany(owners){
+   отсюда (и ещё в очереди без сети). Нет связи — что есть здесь; strict —
+   ошибка (месяц отчёта без сервера посчитался бы пустым и так и лежал). */
+async function storageColdOfMany(owners,strict){
  const local=await storageIdbColdOfMany(owners);
  if(typeof cloudSync==='undefined'||!cloudSync.on)return local;
- let got;try{got=await cloudColdOf(owners);}catch(e){console.warn('Archive was not read from the server:',e.message);return local;}
+ let got;try{got=await cloudColdOf(owners);}catch(e){if(strict)throw e;console.warn('Archive was not read from the server:',e.message);return local;}
  return owners.map((o,i)=>{const list=got.filter(r=>r.owners.includes(o)),seen=new Set(list.map(r=>r.tbl+'\u0000'+r.id));return list.concat(local[i].filter(r=>!seen.has(r.tbl+'\u0000'+r.id)));});
 }
 function storageColdOf(owner){return storageColdOfMany([owner]).then(x=>x[0]);}
