@@ -15,19 +15,36 @@ const COM_PERIODS=[['year','This year'],['last','Last year'],['all','All time']]
 function comRange(){const y=+finToday().slice(0,4);return comPeriod==='all'?null:comPeriod==='last'?{from:(y-1)+'-01-01',to:(y-1)+'-12-31'}:{from:y+'-01-01',to:y+'-12-31'};}
 function comCustomerName(id){return finCustomerName(salesFindCustomer(id));}
 function viewCommissions(){return comWithScope(viewCommissionsIn);}
+/* Список людей — вид Sales (этап 6, владелец 03.11.2026): Columns, фильтр и
+   сортировка в заголовке, ширина и порядок мышью, итог внизу. Строка или
+   галочка открывают человека ниже, как раньше. */
+function comListScope(){return tab==='commissions'?'agents':'';}
+function comListColumns(){
+ const col=(k,label,type,o)=>Object.assign({k,label,type:type||'text',def:true},o||{}),m={money:true,sum:true};
+ return [col('name','Person'),col('contact','Contact'),col('customers','Customers · %'),col('orders','Orders','number',{sum:true}),col('base','Paid','number',m),col('com','Commission','number',m)]
+  .concat(comHst?[col('paid','Paid with HST','number',m),col('comHst','Commission with HST','number',m)]:[])
+  .concat([col('paidOut','Paid out','number',m),col('toPay','To pay','number',m)]);
+}
 function viewCommissionsIn(){
  const range=comRange(),list=(DB.referrer||[]).map(r=>({r,s:comSummary(r,range)})).sort((a,b)=>b.s.toPay-a.s.toPay||a.r.name.localeCompare(b.r.name));
- const sum=k=>finMoney(list.reduce((n,x)=>n+x.s[k],0)),money=v=>v?finFmt(v):'<span class="mut">—</span>';
- const hstHead=comHst?'<th class="n">Paid with HST</th><th class="n">Commission with HST</th>':'';
- const rows=list.map(({r,s})=>`<tr data-com-row="${esc(r.id)}" class="fin-row${comOpen===r.id?' shipping-selected':''}" onclick="comOpen='${esc(r.id)}';comDraft=null;comPayDraft=null;render()">
-   <td><b data-raw>${esc(r.name)}</b></td><td class="mut" data-raw>${esc([r.phone,r.email].filter(Boolean).join(' · '))||'—'}</td><td data-raw>${esc(r.customers.map(c=>comCustomerName(c.customerId)+' '+c.pct+'%').join(', '))||'<span class="mut">—</span>'}</td>
-   <td class="n">${s.orders}</td><td class="n">${money(s.base)}</td><td class="n"><b>${money(s.com)}</b></td>${comHst?`<td class="n">${money(s.paid)}</td><td class="n">${money(s.comHst)}</td>`:''}<td class="n">${money(s.paidOut)}</td><td class="n"><b class="${s.toPay>0?'fin-due':''}">${finFmt(s.toPay)}</b></td></tr>`).join('');
- const foot=list.length?`<tfoot><tr class="sl-foot"><td colspan="3"><b>${list.length} ${list.length===1?'person':'people'}</b></td><td class="n">${list.reduce((n,x)=>n+x.s.orders,0)}</td><td class="n">${finFmt(sum('base'))}</td><td class="n"><b>${finFmt(sum('com'))}</b></td>${comHst?`<td class="n">${finFmt(sum('paid'))}</td><td class="n">${finFmt(sum('comHst'))}</td>`:''}<td class="n">${finFmt(sum('paidOut'))}</td><td class="n"><b>${finFmt(sum('toPay'))}</b></td></tr></tfoot>`:'';
+ const infos=list.map(({r,s})=>({o:{id:r.id},r,s,memo:{name:r.name,contact:[r.phone,r.email].filter(Boolean).join(' · '),customers:r.customers.map(c=>comCustomerName(c.customerId)+' '+c.pct+'%').join(', '),
+  orders:s.orders,base:s.base,com:s.com,paid:s.paid,comHst:s.comHst,paidOut:s.paidOut,toPay:s.toPay}})),rows=salesListRows(infos);
+ const none='<span class="mut">—</span>',tip={orders:'Orders with payments in the period',base:'Payments without HST',paidOut:'All time',toPay:'All time: commission − paid out'};
+ const cell=(i,c)=>{const v=i.memo[c.k];
+  if(c.k==='name')return `<td data-com-name><b data-raw>${esc(v)}</b></td>`;
+  if(c.type==='number'&&c.k!=='orders')return `<td class="n">${c.k==='toPay'?`<b class="${v>0?'fin-due':''}">${finFmt(v)}</b>`:c.k==='com'?(v?`<b>${finFmt(v)}</b>`:none):v?finFmt(v):none}</td>`;
+  if(c.k==='orders')return `<td class="n">${v}</td>`;
+  return `<td${c.k==='contact'?' class="mut"':''} data-raw>${v?esc(v):none}</td>`;};
+ const row=i=>{const id=esc(i.r.id),on=comOpen===i.r.id;return {attrs:` data-com-row="${id}" class="fin-row${on?' oq-selected':''}" onclick="comOpen='${id}';comDraft=null;comPayDraft=null;render()"`,
+  first:`<td class="sl-check" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(i.r.name)}" ${on?'checked':''} onchange="comOpen=this.checked?'${id}':'';comDraft=null;comPayDraft=null;render()"></td>`};};
  const tools=`<div class="sales-toolbar"><div class="sl-quick com-period" data-com-period>${COM_PERIODS.map(([k,l])=>`<button type="button" class="sl-quick-pill${comPeriod===k?' on':''}" onclick="comPeriod='${k}';render()">${l}</button>`).join('')}</div><label class="com-check"><input type="checkbox" data-com-hst ${comHst?'checked':''} onchange="comHst=this.checked;render()"> With HST</label><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-com-add onclick="comEditOpen('')">+ Person</button></div>`;
- const table=`<div class="sales-table-wrap"><table class="sl-table fin-list" data-com-table><thead><tr><th>Person</th><th>Contact</th><th>Customers · %</th><th class="n" title="Orders with payments in the period">Orders</th><th class="n" title="Payments without HST">Paid</th><th class="n">Commission</th>${hstHead}<th class="n" title="All time">Paid out</th><th class="n" title="All time: commission − paid out">To pay</th></tr></thead><tbody>${rows||`<tr><td colspan="${comHst?11:9}" class="empty">Nobody yet. + Person — who brought a customer and the percent.</td></tr>`}</tbody>${foot}</table></div>`;
+ const table=salesListTableHTML({infos,rows,cell,row,cls:'fin-list',noun:r=>r.length+(r.length===infos.length?'':' of '+infos.length)+' '+(infos.length===1?'person':'people'),empty:infos.length?'Nobody matches the filters.':'Nobody yet. + Person — who brought a customer and the percent.'})
+  .replace('<table ','<table data-com-table ').replace(/(<th class="n" data-col="(orders|base|paidOut|toPay)")/g,(m,a,k)=>a+` title="${tip[k]}"`);
  return `${comNotice?`<div class="ncr-error" role="alert" data-com-error>${esc(comNotice)}</div>`:''}
-  <div class="card sales-list-card">${tools}${table}</div>${comDraft?comFormHTML():comOpen&&comFind(comOpen)?comDetailHTML(comFind(comOpen),range):''}`;
+  <div class="card sales-list-card sl-foot-pin">${tools}${table}</div>${salesListMenuHTML(infos)}${comDraft?comFormHTML():comOpen&&comFind(comOpen)?comDetailHTML(comFind(comOpen),range):''}`;
 }
+/* Таблицы человека — ширина колонок мышью (порядок постоянный, как в окнах). */
+function comStaticTable(id,head,body,attr){const t=cwStaticTable(id,head);return `<div class="sales-table-wrap"><table class="sl-table${t.cls}"${t.attrs}${attr?' '+attr:''}>${t.col}<thead><tr>${t.head}</tr></thead><tbody>${body}</tbody></table></div>`;}
 /* Заказы человека: начислено за период; «Paid out» и «Due» — за всё время
    по заказу. Выплата — галочками по заказам с долгом, сумма считается сама. */
 function comDetailHTML(r,range){
@@ -45,8 +62,8 @@ function comDetailHTML(r,range){
  return `<div class="card com-detail" data-com-detail><div class="shipping-customer-head"><div><h3 data-raw>${esc(r.name)}</h3><span class="mut" data-raw>${esc([r.phone,r.email].filter(Boolean).join(' · '))}</span></div><div class="sales-toolbar"><button type="button" class="sm" onclick="comEditOpen('${esc(r.id)}')">Edit</button><button type="button" class="sm" data-com-pay onclick="comPayOpen('${esc(r.id)}')">+ Payout</button></div></div>
   <div class="fin-strip"><div><small>Orders</small><b>${s.orders}</b></div><div><small>Paid · no HST</small><b>${finFmt(s.base)}</b></div><div><small>Commission</small><b>${finFmt(s.com)}</b></div><div><small>Paid out · all time</small><b>${finFmt(s.paidOut)}</b></div><div><small>To pay</small><b class="${s.toPay>0?'fin-due':''}" data-com-topay>${finFmt(s.toPay)}</b></div></div>
   ${payForm}
-  <div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Order</th><th>Customer</th><th>Date</th><th class="n">Order total</th><th class="n">Paid · no HST</th><th class="n">%</th><th class="n">Commission</th>${comHst?'<th class="n">Paid with HST</th><th class="n">Commission with HST</th>':''}<th class="n" title="All time">Paid out</th><th class="n" title="All time: commission − paid out">Due</th></tr></thead><tbody>${rows||`<tr><td colspan="${comHst?11:9}" class="empty">No payments in this period.</td></tr>`}</tbody></table></div>
-  ${pays.length?`<h4>Payouts</h4><div class="sales-table-wrap"><table class="sl-table" data-com-payouts><thead><tr><th>Date</th><th class="n">Amount</th><th>Orders</th><th>Note</th><th></th></tr></thead><tbody>${pays.map(p=>`<tr><td>${esc(salesListShortDay(p.date))}</td><td class="n">${finFmt(p.amount)}</td><td class="mono">${esc(p.orders.map(x=>{const o=salesRecord(x.orderId)||(typeof archiveKnown==='function'?{businessNumber:(archiveKnown(x.orderId)||{}).number}:null);return (o&&o.businessNumber?o.businessNumber:'?')+' '+finFmt(x.amount);}).join(' · '))}</td><td data-raw>${esc(p.note)}</td><td class="sales-row-actions"><button type="button" class="sm dl" title="Delete payout — its orders are due again" onclick="comPayDelete('${esc(p.id)}')">×</button></td></tr>`).join('')}</tbody></table></div>`:''}</div>`;
+  ${comStaticTable('agentOrders',[['order','Order'],['customer','Customer'],['date','Date'],['total','Order total','n'],['base','Paid · no HST','n'],['pct','%','n'],['com','Commission','n']].concat(comHst?[['paid','Paid with HST','n'],['comHst','Commission with HST','n']]:[]).concat([['paidOut','<span title="All time">Paid out</span>','n'],['due','<span title="All time: commission − paid out">Due</span>','n']]),rows||`<tr><td colspan="${comHst?11:9}" class="empty">No payments in this period.</td></tr>`)}
+  ${pays.length?`<h4>Payouts</h4>${comStaticTable('agentPayouts',[['date','Date'],['amount','Amount','n'],['orders','Orders'],['note','Note'],['act','']],pays.map(p=>`<tr><td>${esc(salesListShortDay(p.date))}</td><td class="n">${finFmt(p.amount)}</td><td class="mono">${esc(p.orders.map(x=>{const o=salesRecord(x.orderId)||(typeof archiveKnown==='function'?{businessNumber:(archiveKnown(x.orderId)||{}).number}:null);return (o&&o.businessNumber?o.businessNumber:'?')+' '+finFmt(x.amount);}).join(' · '))}</td><td data-raw>${esc(p.note)}</td><td class="sales-row-actions"><button type="button" class="sm dl" title="Delete payout — its orders are due again" onclick="comPayDelete('${esc(p.id)}')">×</button></td></tr>`).join(''),'data-com-payouts')}`:''}</div>`;
 }
 function comFormHTML(){
  const d=comDraft,taken=new Map((DB.referrer||[]).filter(r=>r.id!==d.id).flatMap(r=>r.customers.map(c=>[c.customerId,r.name])));

@@ -55,8 +55,8 @@ module.exports=async function({page,eq,ok}){
   const {sky,north,a,b}=cmSeed();cmPay(a,200);cmPay(b,300);
   comSave({name:'Sergey Petrov',customers:[{customerId:sky.id,pct:3}]});comSave({name:'Olga Marchenko',customers:[{customerId:north.id,pct:5}]});
   comOpen='';comDraft=null;comPayDraft=null;comHst=false;comPeriod='year';tab='commissions';render();
-  const heads=()=>[...document.querySelectorAll('[data-com-table] thead th')].map(x=>x.textContent);const h1=heads();
-  const people=[...document.querySelectorAll('[data-com-row] td:first-child')].map(x=>x.textContent);
+  const heads=()=>[...document.querySelectorAll('[data-com-table] thead th')].map(x=>x.textContent).filter(Boolean);const h1=heads();
+  const people=[...document.querySelectorAll('[data-com-row] [data-com-name]')].map(x=>x.textContent);
   document.querySelector('[data-com-hst]').click();const h2=heads().length;
   document.querySelector(`[data-com-row="${comOfCustomer(north.id).id}"]`).click();const orders=[...document.querySelectorAll('[data-com-order]')].map(x=>x.dataset.comOrder);
   const before=document.querySelector('[data-com-topay]').textContent;document.querySelector('[data-com-pay]').click();

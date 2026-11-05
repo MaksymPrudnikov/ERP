@@ -75,7 +75,7 @@ let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAncho
 /* ------------------------------ Настройки ------------------------------ */
 /* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
 const salesQueuePrefs={optimization:null,shipping:null};
-function salesListScope(){if(tab==='purchasing'&&typeof purListScope==='function')return purListScope();if(tab==='inventory'&&typeof invListScope==='function')return invListScope();if(tab==='shipping'&&typeof shippingListScope==='function'&&shippingListScope())return shippingListScope();if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListScope(){if(tab==='purchasing'&&typeof purListScope==='function')return purListScope();if(tab==='inventory'&&typeof invListScope==='function')return invListScope();if(tab==='shipping'&&typeof shippingListScope==='function'&&shippingListScope())return shippingListScope();if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='commissions'&&typeof comListScope==='function')return comListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
 function salesListCatalog(){
  if(tab==='purchasing'&&typeof purListColumns==='function')return purListColumns();
  if(tab==='inventory'&&typeof invListColumns==='function')return invListColumns();
@@ -91,6 +91,7 @@ function salesListCatalog(){
  if(salesListScope()==='mdSupply'&&typeof mdSupplyColumns==='function')return mdSupplyColumns();
  if(salesListScope()==='customers'&&typeof custColumns==='function')return custColumns();
  if(salesListScope()==='usersLog'&&typeof authLogColumns==='function')return authLogColumns();
+ if(salesListScope()==='agents'&&typeof comListColumns==='function')return comListColumns();
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
  /* Priority видна сразу: Critical-заказ стоял посередине очереди, и офис
     не видел, что он срочный (проход 7.10.2026). */
@@ -362,7 +363,7 @@ function salesListBase(){
  return {all:all.concat(old.map(i=>i.o),ncrs.map(i=>i.o)),pool,infos:salesStatusFilter?pool.filter(r=>salesListStatusKey(r)===salesStatusFilter):pool};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
-function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(tab==='inventory'&&typeof invListDefaultSort==='function')return invListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
+function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(tab==='inventory'&&typeof invListDefaultSort==='function')return invListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='agents'?{k:'toPay',dir:'desc'}:s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
 function salesListDateColumn(){if(tab==='purchasing'&&typeof purListDateColumn==='function')return purListDateColumn();if(tab==='inventory'&&typeof invListDateColumn==='function')return invListDateColumn();return salesListScope()==='usersLog'?'when':salesListScope()==='shippingPS'?'date':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos,skip){
@@ -683,7 +684,7 @@ cwRegister('shipments',{
    (этап 6 плана): те же жесты, ширины и порядок — в настройках своего списка. */
 /* lead — ширина служебной колонки слева (галочка, шестерёнка): без неё <colgroup>
    отдаёт ширины колонок соседям, и ячейки съезжают с заголовков (Backorders, 04.11.2026). */
-[['optimization','customer',68],['shipping','customer',68],['shippingAwaiting','customer',68],['shippingDone','customer',68],['glassQueue','customer',68],['glassBatches','glass',68],['glassContents','customer',68],['glassSheets','glass',68],['glassStock','glass',68],['prodOrders','customer',0],['shippingSkids','customer',68],['shippingBackorders','customer',68],['shippingDelivery','customer',68]].forEach(([id,fill,lead])=>cwRegister(id,{
+[['optimization','customer',68],['shipping','customer',68],['shippingAwaiting','customer',68],['shippingDone','customer',68],['glassQueue','customer',68],['glassBatches','glass',68],['glassContents','customer',68],['glassSheets','glass',68],['glassStock','glass',68],['prodOrders','customer',0],['shippingSkids','customer',68],['shippingBackorders','customer',68],['shippingDelivery','customer',68],['agents','customers',68]].forEach(([id,fill,lead])=>cwRegister(id,{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
  def:k=>{const c=salesListColumn(k);return SALES_LIST_WIDTH[k]||(c&&c.station?64:c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
