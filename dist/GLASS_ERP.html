@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 196 модулей, 26 стиля.
+  Состав сборки: 197 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
@@ -2281,6 +2281,120 @@ button.recut-btn{border-color:var(--warning);color:var(--warning)}
  .stk-print-page svg{display:block}
 }
 
+/* ---- src/styles/forms.css ---- */
+/* Конструктор форм (Data → Company & print → Forms), вид «ТОП» 02.11.2026:
+   строка форм, слева Add и дерево частей, лист с тонкой линейкой (11 px, без
+   рамки и фона), справа настройки блока. */
+.fm{display:flex;flex-direction:column;gap:12px;margin-top:4px}
+.fm-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fm-forms{display:flex;gap:6px;flex-wrap:wrap}
+.fm-sp{flex:1}
+.fm-bar>button,.fm-modal-foot button,.fm-wide-btn{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:6px 11px;font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.fm-bar>button:disabled,.fm-modal-foot button:disabled{opacity:.45;cursor:default}
+.fm-bar>button.pri,.fm-modal-foot button.pri{background:var(--accent);border-color:var(--accent);color:var(--on-solid);font-weight:600}
+.fm-preview{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2)}
+.fm-preview select{border:1px solid var(--line);border-radius:8px;padding:5px 8px;font:inherit;font-size:13px;background:var(--surface);color:var(--text);max-width:260px}
+.fm-dirty{font-size:12px;color:var(--warning)}
+.fm-saved{font-size:12px;color:var(--success)}
+.fm-grid{display:grid;grid-template-columns:236px minmax(0,1fr) 290px;gap:12px;align-items:start}
+.fm-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;position:sticky;top:8px;max-height:calc(100vh - 24px);overflow:auto}
+.fm-h{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--text-3);text-transform:uppercase;margin:12px 0 6px}
+.fm-card>.fm-h:first-child{margin-top:2px}
+.fm-add{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.fm-add button{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:6px 8px;font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.fm-add button:hover{border-color:var(--accent-line);background:var(--accent-soft)}
+.fm-tree{display:flex;flex-direction:column;gap:1px}
+.fm-node{display:flex;justify-content:space-between;align-items:baseline;gap:8px;border:0;background:none;color:var(--text);font:inherit;font-size:13px;text-align:left;padding:4px 6px;border-radius:6px;cursor:pointer}
+.fm-node.p{font-weight:600;margin-top:6px}
+.fm-node.p small{font-weight:400;color:var(--text-3);font-size:11px}
+.fm-node.c{padding-left:20px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.fm-node:disabled{cursor:default}
+.fm-node:not(:disabled):hover{background:var(--surface-2)}
+.fm-node.sel{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.fm-stage{background:var(--surface-3);border-radius:12px;padding:22px 22px 22px 26px;display:flex;flex-direction:column;align-items:center;gap:18px;touch-action:none}
+.fm-sheet{position:relative;width:100%;max-width:760px;aspect-ratio:612/792;background:var(--on-solid);box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.fm-sheet svg{position:absolute;inset:0;display:block}
+.fm-ruler{position:absolute;pointer-events:none}
+.fm-ruler.x{left:0;right:0;top:-12px;height:11px}
+.fm-ruler.y{top:0;bottom:0;left:-13px;width:11px}
+.fm-ruler i{position:absolute;background:var(--line-strong)}
+.fm-ruler.x i{bottom:0;width:1px;height:3px}.fm-ruler.x i.big{height:6px}
+.fm-ruler.y i{right:0;height:1px;width:3px}.fm-ruler.y i.big{width:6px}
+.fm-ruler b{position:absolute;font-size:7px;font-weight:400;color:var(--text-3)}
+.fm-ruler.x b{top:-1px;margin-left:2px}.fm-ruler.y b{left:0;margin-top:1px}
+.fm-margin{position:absolute;top:0;bottom:0;border-left:1px dashed var(--accent-line);border-right:1px dashed var(--accent-line);pointer-events:none}
+.fm-hit{position:absolute;cursor:grab;border:1px solid transparent;border-radius:2px}
+.fm-hit:hover{border-color:var(--accent-line)}
+.fm-hit.sel{border:1.5px solid var(--accent)}
+.fm-rs{position:absolute;width:8px;height:8px;background:var(--accent);border-radius:1px}
+.fm-rs.e{right:-5px;top:50%;margin-top:-4px;cursor:ew-resize}
+.fm-rs.s{bottom:-5px;left:50%;margin-left:-4px;cursor:ns-resize}
+.fm-right label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--text-2);margin-top:8px}
+.fm-right label.wide{margin-top:4px}
+.fm-in{border:1px solid var(--line);border-radius:8px;padding:6px 9px;font:inherit;font-size:13px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box}
+textarea.fm-in{resize:vertical}
+.fm-color{padding:2px 4px;height:32px}
+.fm-field-btn{text-align:left;cursor:pointer}
+.fm-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fm-seg{display:flex;gap:4px;margin-top:6px}
+.fm-seg button{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:5px 0;font:inherit;font-size:12px;cursor:pointer}
+.fm-seg button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+.fm-check{flex-direction:row!important;align-items:center;gap:6px!important;margin-top:24px!important}
+.fm-sel-h{display:flex;justify-content:space-between;align-items:center}
+.fm-del{border:1px solid var(--danger-line);background:var(--surface);color:var(--danger);border-radius:6px;padding:2px 8px;font:inherit;font-size:11px;cursor:pointer;text-transform:none;letter-spacing:0}
+.fm-wide-btn{width:100%;margin-top:6px}
+.fm-note{font-size:12px;color:var(--text-3);margin:6px 0}
+.fm-modal-back{position:fixed;inset:0;background:rgba(20,24,28,.28);z-index:60}
+.fm-modal{position:fixed;left:50%;top:12vh;transform:translateX(-50%);width:min(780px,94vw);background:var(--surface);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.25);z-index:61;padding:16px}
+.fm-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:16px}
+.fm-x{border:0;background:none;font-size:20px;cursor:pointer;color:var(--text-2)}
+.fm-search{width:100%;box-sizing:border-box;border:1px solid var(--accent);border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;margin-bottom:10px;background:var(--surface);color:var(--text)}
+.fm-cols3{display:grid;grid-template-columns:170px 1fr 230px;gap:12px;min-height:260px}
+.fm-groups,.fm-fields{display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow:auto}
+.fm-pick{display:flex;justify-content:space-between;gap:10px;border:0;background:none;color:var(--text);font:inherit;font-size:13px;text-align:left;padding:6px 9px;border-radius:8px;cursor:pointer}
+.fm-pick em{font-style:normal;color:var(--text-3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.fm-pick:hover{background:var(--surface-2)}
+.fm-pick.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.fm-fmt{display:flex;justify-content:space-between;align-items:center;width:100%;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:7px 9px;margin-bottom:6px;font:inherit;font-size:13px;cursor:pointer}
+.fm-fmt small{color:var(--text-3)}
+.fm-fmt.on{border-color:var(--accent);background:var(--accent-soft)}
+.fm-modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+@media (max-width:1360px){.fm-grid{grid-template-columns:210px minmax(0,1fr) 260px}}
+@media (max-width:1180px){.fm-grid{grid-template-columns:210px minmax(0,1fr)}.fm-right{grid-column:1/-1;position:static;max-height:none}}
+/* Окно Versions (вариант В 05.11.2026): слева список, справа лист версии. */
+.fm-modal.fm-versions{top:6vh;width:min(1000px,94vw);display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;max-height:88vh}
+.fm-vlist{display:flex;flex-direction:column;gap:2px;overflow:auto;max-height:84vh}
+.fm-ver{flex-direction:column;align-items:flex-start;gap:2px}
+.fm-ver small{color:var(--text-3);font-weight:400;font-size:12px}
+.fm-vfile{display:flex;gap:6px;margin-top:10px}
+.fm-vfile button{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:6px 4px;font:inherit;font-size:12px;cursor:pointer}
+.fm-error{color:var(--danger);font-size:12px;margin:6px 0}
+.fm-vview{display:flex;flex-direction:column;min-width:0}
+.fm-vpages{overflow:auto;max-height:76vh;display:flex;flex-direction:column;gap:12px;background:var(--surface-3);border-radius:10px;padding:12px}
+.fm-vsheet{position:relative;width:100%;aspect-ratio:612/792;background:var(--on-solid);box-shadow:0 1px 4px rgba(0,0,0,.15);flex:none}
+.fm-vsheet svg{position:absolute;inset:0}
+/* Колонки таблицы (владелец 05.11.2026): список справа, клик — настройки. */
+.fm-cols{display:flex;flex-direction:column}
+.fm-colrow{display:grid;grid-template-columns:14px 18px minmax(0,1fr) 64px 10px;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line-soft);cursor:pointer}
+.fm-colrow i{color:var(--text-3);font-style:normal;cursor:grab;font-size:11px}
+.fm-colrow .fm-in{padding:4px 7px;font-size:12px}
+.fm-colrow.off .fm-in{color:var(--text-3)}
+.fm-open{color:var(--text-3)}
+.fm-add-col{margin-top:10px}
+.fm-back{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;padding:0;cursor:pointer}
+.fm-danger{color:var(--danger);border-color:var(--danger-line)}
+.fm-colhit{cursor:pointer}
+/* Поля страницы — треугольники на линейке; направляющие — розовые линии. */
+.fm-rgrab{position:absolute;z-index:3;cursor:crosshair}
+.fm-rgrab.x{left:0;right:0;top:-13px;height:12px}
+.fm-rgrab.y{top:0;bottom:0;left:-14px;width:12px}
+.fm-mk{position:absolute;z-index:4;width:0;height:0;cursor:ew-resize}
+.fm-mk.x{top:-9px;margin-left:-5px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid var(--accent)}
+.fm-mk.y{left:-13px;margin-top:-5px;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid var(--accent);cursor:ns-resize}
+.fm-guide{position:absolute;z-index:2}
+.fm-guide.x{top:0;bottom:0;width:7px;margin-left:-3px;border-left:3px solid transparent;border-right:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ew-resize}
+.fm-guide.y{left:0;right:0;height:7px;margin-top:-3px;border-top:3px solid transparent;border-bottom:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ns-resize}
+
 /* ---- src/styles/cutting.css ---- */
 /* Раскрой: параметры реза в Master Data и экран раскладки у батча. */
 .cut-md{margin-top:12px}
@@ -4054,7 +4168,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='d10f3dffe362';
+var ERP_BUILD='8a8bde6df926';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -14922,7 +15036,7 @@ const MD_LOG_TABLES={
  priceList:'Price lists',itemGroup:'Item groups',
  spacerSystem:'Spacer systems',surroundRecipe:'Surround recipes',iguPart:'IGU parts',stockReason:'Stock reasons'
 };
-const MD_LOG_SETTINGS={cutting:'Cutting',company:'Company',stickerTemplate:'Stickers',orderSetup:'Setup'};
+const MD_LOG_SETTINGS={cutting:'Cutting',company:'Company',stickerTemplate:'Stickers',formTemplate:'Forms',orderSetup:'Setup'};
 const MD_LOG_TEXT=120;
 
 function normalizeMdLog(){
@@ -23965,7 +24079,13 @@ const DOC_COLOR={paid:'#1d7a46',due:'#b42318',ink:'#1c2330',navy:'#16325c',mut:'
    эталоном (пробел 278, a 556, m 833, W 944, жирная A 722). */
 const DOC_WIDTHS36={
  regular:'7q7q9vfgfgopij5b9999atg87q997q7qfgfgfgfgfgfgfgfgfgfg7q7qg8g8g8fgs7ijijk2k2ijgzlmk27qdwijfgn5k2lmijlmk2ijgzk2ijq8ijijgz7q7q7qd1fg99fgfgdwfgfg7qfgfg6666dw66n5fgfgfgfg99dw7qfgdwk2dwdwdw9a789ag800ko0066fg99rsfgfg99rsij99rs00gz0000666699999qfgrs99rsdw99q800dwij7q99fgfgfgfg78fg99khaafgg800kh99b4f9999999g0ex7q9999a5fgn6n6n6gzijijijijijijrsk2ijijijij7q7q7q7qk2k2lmlmlmlmlmg8lmk2k2k2k2ijijgzfgfgfgfgfgfgopdwfgfgfgfg7q7q7q7qfgfgfgfgfgfgfgf9gzfgfgfgfgdwfgdw',
- bold:'7q99d6fgfgopk26m9999atg87q997q7qfgfgfgfgfgfgfgfgfgfg9999g8g8g8gzr3k2k2k2k2ijgzlmk27qfgk2gzn5k2lmijlmk2ijgzk2ijq8ijijgz997q99g8fg99fggzfggzfg99gzgz7q7qfg7qopgzgzgzgzatfg99gzfglmfgfgdwat7satg800ko007qfgdwrsfgfg99rsij99rs00gz00007q7qdwdw9qfgrs99rsfg99q800dwij7q99fgfgfgfg7sfg99khaafgg800kh99b4f9999999g0fg7q9999a5fgn6n6n6gzk2k2k2k2k2k2rsk2ijijijij7q7q7q7qk2k2lmlmlmlmlmg8lmk2k2k2k2ijijgzfgfgfgfgfgfgopfgfgfgfgfg7q7q7q7qgzgzgzgzgzgzgzf9gzgzgzgzgzfggzfg'
+ bold:'7q99d6fgfgopk26m9999atg87q997q7qfgfgfgfgfgfgfgfgfgfg9999g8g8g8gzr3k2k2k2k2ijgzlmk27qfgk2gzn5k2lmijlmk2ijgzk2ijq8ijijgz997q99g8fg99fggzfggzfg99gzgz7q7qfg7qopgzgzgzgzatfg99gzfglmfgfgdwat7satg800ko007qfgdwrsfgfg99rsij99rs00gz00007q7qdwdw9qfgrs99rsfg99q800dwij7q99fgfgfgfg7sfg99khaafgg800kh99b4f9999999g0fg7q9999a5fgn6n6n6gzk2k2k2k2k2k2rsk2ijijijij7q7q7q7qk2k2lmlmlmlmlmg8lmk2k2k2k2ijijgzfgfgfgfgfgfgopfgfgfgfgfg7q7q7q7qgzgzgzgzgzgzgzf9gzgzgzgzgzfggzfg',
+ /* Times (конструктор форм, 05.11.2026) — из таблиц шрифтов Adobe (AFM),
+    те же, по которым PDF ставит буквы; курсив Helvetica шире не бывает. */
+ times:'6y99bcdwdwn5lm509999dwfo6y996y7qdwdwdwdwdwdwdwdwdwdw7q7qfofofoccplk2ijijk2gzfgk2k299atk2gzopk2k2fgk2ijfggzk2k2q8k2k2gz997q99d1dw99ccdwccdwcc99dwdw7q7qdw7qlmdwdwdwdw99at7qdwdwk2dwdwccdc5kdcf100dw0099dwccrsdwdw99rsfg99op00gz00009999cccc9qdwrs99r8at99k200cck26y99dwdwdwdw5kdw99l47odwfo99l499b4fo8c8c99dwcl6y998c8mdwkukukucck2k2k2k2k2k2opijgzgzgzgz99999999k2k2k2k2k2k2k2fok2k2k2k2k2k2fgdwccccccccccccijcccccccccc7q7q7q7qdwdwdwdwdwdwdwfodwdwdwdwdwdwdwdw',
+ timesBold:'6y99ffdwdwrsn57q9999dwfu6y996y7qdwdwdwdwdwdwdwdwdwdw9999fufufudwpuk2ijk2k2ijgzlmlmatdwlmijq8k2lmgzlmk2fgijk2k2rsk2k2ij997q99g5dw99dwfgccfgcc99dwfg7q99fg7qn5fgdwfgfgccat99fgdwk2dwdwccay64ayeg00dw0099dwdwrsdwdw99rsfg99rs00ij00009999dwdw9qdwrs99rsat99k200cck26y99dwdwdwdw64dw99kr8cdwfu99kr99b4fu8c8c99fgf06y998c96dwkukukudwk2k2k2k2k2k2rsk2ijijijijatatatatk2k2lmlmlmlmlmfulmk2k2k2k2k2gzfgdwdwdwdwdwdwk2cccccccccc7q7q7q7qdwfgdwdwdwdwdwfudwfgfgfgfgdwfgdw',
+ timesItalic:'6y99bodwdwn5lm5y9999dwir6y996y7qdwdwdwdwdwdwdwdwdwdw9999iririrdwpkgzgzijk2gzgzk2k299ccijfgn5ijk2gzk2gzdwfgk2gzn5gzfgfgat7qatbqdw99dwdwccdwcc7qdwdw7q7qcc7qk2dwdwdwdwatat7qdwccijccccatb47nb4f100dw0099dwfgopdwdw99rsdw99q800fg00009999fgfg9qdwop99r8at99ij00atfg6yatdwdwdwdw7ndw99l47odwir99l499b4ir8c8c99dwej6y998c8mdwkukukudwgzgzgzgzgzgzopijgzgzgzgz99999999k2ijk2k2k2k2k2irk2k2k2k2k2fggzdwdwdwdwdwdwdwijcccccccccc7q7q7q7qdwdwdwdwdwdwdwirdwdwdwdwdwccdwcc',
+ timesBoldItalic:'6yatffdwdwn5lm7q9999dwfu6y996y7qdwdwdwdwdwdwdwdwdwdw9999fufufudwn4ijijijk2ijijk2lmatdwijgzopk2k2gzk2ijfggzk2ijopijgzgz997q99fudw99dwdwccdwcc99dwfg7q7qdw7qlmfgdwdwdwatat7qfgccijdwccat9o649ofu00dw0099dwdwrsdwdw99rsfg99q800gz00009999dwdw9qdwrs99rsat99k200atgz6yatdwdwdwdw64dw99kr7edwgu99kr99b4fu8c8c99g0dw6y998c8cdwkukukudwijijijijijijq8ijijijijijatatatatk2k2k2k2k2k2k2fuk2k2k2k2k2gzgzdwdwdwdwdwdwdwk2cccccccccc7q7q7q7qdwfgdwdwdwdwdwfudwfgfgfgfgccdwcc'
 };
 /* Коды 128…159 WinAnsi — типографские знаки; остальное совпадает с Latin-1. */
 const DOC_WIN_HIGH={128:0x20AC,130:0x201A,131:0x192,132:0x201E,133:0x2026,134:0x2020,135:0x2021,136:0x2C6,137:0x2030,138:0x160,139:0x2039,140:0x152,142:0x17D,145:0x2018,146:0x2019,147:0x201C,148:0x201D,149:0x2022,150:0x2013,151:0x2014,152:0x2DC,153:0x2122,154:0x161,155:0x203A,156:0x153,158:0x17E,159:0x178};
@@ -23975,8 +24095,17 @@ const DOC_UNICODE_TO_WIN=(()=>{const m={};Object.keys(DOC_WIN_HIGH).forEach(k=>{
 const DOC_TEXT_SUBST={'″':'"','′':"'",'→':'->','←':'<-','≤':'<=','≥':'>=','−':'-',' ':' ',' ':' ',' ':' ','✓':'v','\t':' '};
 let docWidthTable=null;
 function docWidths(){
- if(!docWidthTable){const dec=s=>{const a=[];for(let i=0;i<s.length;i+=2)a.push(parseInt(s.slice(i,i+2),36));return a;};docWidthTable={r:dec(DOC_WIDTHS36.regular),b:dec(DOC_WIDTHS36.bold)};}
+ if(!docWidthTable){const dec=s=>{const a=[];for(let i=0;i<s.length;i+=2)a.push(parseInt(s.slice(i,i+2),36));return a;},W=DOC_WIDTHS36,mono=new Array(224).fill(600);
+  docWidthTable={r:dec(W.regular),b:dec(W.bold),t:dec(W.times),tb:dec(W.timesBold),ti:dec(W.timesItalic),tbi:dec(W.timesBoldItalic),c:mono,cb:mono};}
  return docWidthTable;
+}
+/* Шрифт текста: '' — Helvetica, 'times', 'courier'; курсив — 'times-i',
+   'courier-i', 'helvetica-i'. Курсив Helvetica и Courier той же ширины. */
+function docFaceTable(bold,face){
+ const f=String(face||''),i=/-i$/.test(f);
+ if(/^times/.test(f))return bold?(i?'tbi':'tb'):(i?'ti':'t');
+ if(/^courier/.test(f))return bold?'cb':'c';
+ return bold?'b':'r';
 }
 function docWinCode(ch){const u=ch.charCodeAt(0);if((u>=32&&u<127)||(u>=160&&u<=255))return u;return DOC_UNICODE_TO_WIN[u]||0;}
 function docText(s){
@@ -23987,30 +24116,30 @@ function docText(s){
  }
  return out;
 }
-function docTextWidth(s,size,bold,ls){
- const t=docWidths()[bold?'b':'r'];let w=0,n=0;
+function docTextWidth(s,size,bold,ls,face){
+ const t=docWidths()[docFaceTable(bold,face)];let w=0,n=0;
  for(const ch of docText(s)){if(ch==='\n')continue;const c=docWinCode(ch);w+=(c>=32?t[c-32]:0)||556;n++;}
  return w*(size||8)/1000+(ls||0)*n;
 }
-function docWrap(s,size,bold,maxW){
+function docWrap(s,size,bold,maxW,face){
  const out=[];
  docText(s).split('\n').forEach(par=>{
   let line='';
   par.split(/ +/).forEach(word=>{
    const cand=line?line+' '+word:word;
-   if(docTextWidth(cand,size,bold)<=maxW){line=cand;return;}
+   if(docTextWidth(cand,size,bold,0,face)<=maxW){line=cand;return;}
    if(line)out.push(line);
    /* Слово длиннее строки режется по буквам, иначе вылезло бы за поле. */
-   let chunk='';for(const ch of word){if(chunk&&docTextWidth(chunk+ch,size,bold)>maxW){out.push(chunk);chunk='';}chunk+=ch;}
+   let chunk='';for(const ch of word){if(chunk&&docTextWidth(chunk+ch,size,bold,0,face)>maxW){out.push(chunk);chunk='';}chunk+=ch;}
    line=chunk;
   });
   out.push(line);
  });
  return out;
 }
-function docFit(s,size,bold,maxW){
- s=docText(s).replace(/\n/g,' ');if(docTextWidth(s,size,bold)<=maxW)return s;
- while(s&&docTextWidth(s+'…',size,bold)>maxW)s=s.slice(0,-1);
+function docFit(s,size,bold,maxW,face){
+ s=docText(s).replace(/\n/g,' ');if(docTextWidth(s,size,bold,0,face)<=maxW)return s;
+ while(s&&docTextWidth(s+'…',size,bold,0,face)>maxW)s=s.slice(0,-1);
  return s+'…';
 }
 
@@ -24042,7 +24171,7 @@ function docJpegInfo(dataUrl){
 function docPage(){
  const items=[];
  return {items,
-  text(x,y,s,o){o=o||{};items.push({t:'text',x,y,s:docText(s),size:o.size||8,bold:!!o.bold,color:o.color||DOC_COLOR.ink,align:o.align||'left',ls:o.ls||0,pageLabel:!!o.pageLabel});},
+  text(x,y,s,o){o=o||{};const it={t:'text',x,y,s:docText(s),size:o.size||8,bold:!!o.bold,color:o.color||DOC_COLOR.ink,align:o.align||'left',ls:o.ls||0,pageLabel:!!o.pageLabel};if(o.face)it.face=o.face;items.push(it);},
   rect(x,y,w,h,o){o=o||{};items.push({t:'rect',x,y,w,h,fill:o.fill||'',stroke:o.stroke||'',lw:o.lw||.6,r:o.r||0});},
   line(x1,y1,x2,y2,o){o=o||{};items.push({t:'line',x1,y1,x2,y2,stroke:o.stroke||DOC_COLOR.line,lw:o.lw||.6});},
   poly(pts,o){o=o||{};items.push({t:'poly',pts,stroke:o.stroke||DOC_COLOR.navy,lw:o.lw||.8,fill:o.fill||'',closed:o.closed!==false});},
@@ -24327,7 +24456,8 @@ function docPageSVG(page){
  page.items.forEach(x=>{
   if(x.t==='text'){
    const anchor=x.align==='right'?' text-anchor="end"':x.align==='center'?' text-anchor="middle"':'';
-   out.push('<text x="'+docR(x.x)+'" y="'+docR(x.y)+'" font-size="'+x.size+'"'+(x.bold?' font-weight="700"':'')+' fill="'+x.color+'"'+(x.ls?' letter-spacing="'+x.ls+'"':'')+anchor+' xml:space="preserve">'+docXml(x.s)+'</text>');
+   const fam=/^times/.test(x.face||'')?' font-family="Times, \'Times New Roman\', serif"':/^courier/.test(x.face||'')?' font-family="Courier, \'Courier New\', monospace"':'';
+   out.push('<text x="'+docR(x.x)+'" y="'+docR(x.y)+'" font-size="'+x.size+'"'+fam+(/-i$/.test(x.face||'')?' font-style="italic"':'')+(x.bold?' font-weight="700"':'')+' fill="'+x.color+'"'+(x.ls?' letter-spacing="'+x.ls+'"':'')+anchor+' xml:space="preserve">'+docXml(x.s)+'</text>');
   }else if(x.t==='rect'){
    out.push('<rect x="'+docR(x.x)+'" y="'+docR(x.y)+'" width="'+docR(x.w)+'" height="'+docR(x.h)+'"'+(x.r?' rx="'+x.r+'"':'')+' fill="'+(x.fill||'none')+'"'+(x.stroke?' stroke="'+x.stroke+'" stroke-width="'+x.lw+'"':'')+'/>');
   }else if(x.t==='line'){
@@ -24381,13 +24511,18 @@ function docPdfRect(x,y,w,h,r){
   n(x+r)+' '+n(y+h)+' l',n(x+r-k)+' '+n(y+h)+' '+n(x)+' '+n(y+h-r+k)+' '+n(x)+' '+n(y+h-r)+' c',
   n(x)+' '+n(y+r)+' l',n(x)+' '+n(y+r-k)+' '+n(x+r-k)+' '+n(y)+' '+n(x+r)+' '+n(y)+' c','h'].join(' ');
 }
-function docPdfContent(page,imageName){
+/* Шрифт PDF текста: стандартный шрифт по начертанию (face из
+   erp/documents/layout). F1 и F2 — Helvetica и жирная, как раньше. */
+const DOC_PDF_FONTS={helvetica:['Helvetica','Helvetica-Bold','Helvetica-Oblique','Helvetica-BoldOblique'],times:['Times-Roman','Times-Bold','Times-Italic','Times-BoldItalic'],courier:['Courier','Courier-Bold','Courier-Oblique','Courier-BoldOblique']};
+function docPdfFontOf(x){const f=String(x.face||''),fam=/^times/.test(f)?'times':/^courier/.test(f)?'courier':'helvetica';return DOC_PDF_FONTS[fam][(x.bold?1:0)+(/-i$/.test(f)?2:0)];}
+function docPdfContent(page,imageName,fontName){
+ fontName=fontName||(x=>x.bold?'F2':'F1');
  const H=DOC_PAGE.h,n=docPdfN,out=[];
  page.items.forEach(x=>{
   if(x.t==='text'){
-   const w=docTextWidth(x.s,x.size,x.bold,x.ls);let tx=x.x;
+   const w=docTextWidth(x.s,x.size,x.bold,x.ls,x.face);let tx=x.x;
    if(x.align==='right')tx-=w;else if(x.align==='center')tx-=w/2;
-   out.push('q BT /'+(x.bold?'F2':'F1')+' '+n(x.size)+' Tf '+docPdfColor(x.color)+' rg '+(x.ls?n(x.ls)+' Tc ':'')+'1 0 0 1 '+n(tx)+' '+n(H-x.y)+' Tm '+docPdfString(x.s)+' Tj ET Q');
+   out.push('q BT /'+fontName(x)+' '+n(x.size)+' Tf '+docPdfColor(x.color)+' rg '+(x.ls?n(x.ls)+' Tc ':'')+'1 0 0 1 '+n(tx)+' '+n(H-x.y)+' Tm '+docPdfString(x.s)+' Tj ET Q');
   }else if(x.t==='rect'){
    const op=x.fill&&x.stroke?'B':x.fill?'f':'S';
    out.push('q '+(x.fill?docPdfColor(x.fill)+' rg ':'')+(x.stroke?docPdfColor(x.stroke)+' RG '+n(x.lw)+' w ':'')+docPdfRect(x.x,H-x.y-x.h,x.w,x.h,x.r)+' '+op+' Q');
@@ -24411,6 +24546,9 @@ function docPdfBytes(pages,info){
  const catalog=add(''),pagesId=add('');
  const f1=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
  const f2=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+ /* Другие шрифты — только те, что есть в тексте, после F1 и F2. */
+ const fonts=new Map([['Helvetica','F1'],['Helvetica-Bold','F2']]),fontIds=[['F1',f1],['F2',f2]];
+ pages.forEach(pg=>pg.items.forEach(x=>{if(x.t!=='text')return;const name=docPdfFontOf(x);if(fonts.has(name))return;const key='F'+(fonts.size+1);fonts.set(name,key);fontIds.push([key,add('<< /Type /Font /Subtype /Type1 /BaseFont /'+name+' /Encoding /WinAnsiEncoding >>')]);}));
  const images=new Map();
  pages.forEach(pg=>pg.items.forEach(x=>{
   if(x.t!=='img'||images.has(x.src))return;
@@ -24421,9 +24559,9 @@ function docPdfBytes(pages,info){
  }));
  const xobjects=images.size?' /XObject << '+Array.from(images.values()).map(v=>'/'+v.name+' '+v.id+' 0 R').join(' ')+' >>':'';
  const kids=pages.map(pg=>{
-  const content=docPdfContent(pg,src=>{const v=images.get(src);return v?v.name:'';});
+  const content=docPdfContent(pg,src=>{const v=images.get(src);return v?v.name:'';},x=>fonts.get(docPdfFontOf(x)));
   const cid=add('<< /Length '+content.length+' >>\nstream\n'+content+'\nendstream');
-  return add('<< /Type /Page /Parent '+pagesId+' 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 '+f1+' 0 R /F2 '+f2+' 0 R >>'+xobjects+' >> /Contents '+cid+' 0 R >>');
+  return add('<< /Type /Page /Parent '+pagesId+' 0 R /MediaBox [0 0 612 792] /Resources << /Font << '+fontIds.map(([k,id])=>'/'+k+' '+id+' 0 R').join(' ')+' >>'+xobjects+' >> /Contents '+cid+' 0 R >>');
  });
  objs[catalog-1]='<< /Type /Catalog /Pages '+pagesId+' 0 R >>';
  objs[pagesId-1]='<< /Type /Pages /Kids ['+kids.map(k=>k+' 0 R').join(' ')+'] /Count '+kids.length+' >>';
@@ -24458,6 +24596,8 @@ function docPdfBytes(pages,info){
    ===================================================================== */
 
 function formIsText(b){return b.type==='text'||b.type==='field';}
+/* Шрифт блока: font times | courier (иначе Helvetica), italic — курсив. */
+function formFace(b){return b.font||b.italic?(b.font||'helvetica')+(b.italic?'-i':''):'';}
 function formLh(b){return b.lh||(b.size||9)+5;}
 function formBlockX(tpl,b){
  const m=tpl.page.margin,right=tpl.page.w-m.right,w=b.w||0;
@@ -24473,12 +24613,28 @@ function formFill(s,ctx){
   v=Array.isArray(v)?v.join(', '):String(v);return v===''&&alt!=null?alt:v;
  });
 }
+/* Форматы полей (конструктор, окно Insert field): поле с типом date отдаёт
+   день YYYY-MM-DD, блок выбирает вид. */
+const FORM_FORMATS={date:[
+ {k:'mdy',label:'Mon d, yyyy',f:v=>docDate(v)},
+ {k:'iso',label:'yyyy-mm-dd',f:v=>v},
+ {k:'dmy',label:'dd/mm/yyyy',f:v=>v.slice(8,10)+'/'+v.slice(5,7)+'/'+v.slice(0,4)},
+ {k:'long',label:'long',f:v=>{const d=new Date(+v.slice(0,4),+v.slice(5,7)-1,+v.slice(8,10));return d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});}}]};
+function formFormat(v,type,fmt){
+ const list=FORM_FORMATS[type];if(!list)return v;
+ const f=(list.find(x=>x.k===fmt)||list[0]).f,one=x=>/^\d{4}-\d{2}-\d{2}/.test(String(x))?f(String(x).slice(0,10)):x;
+ return Array.isArray(v)?v.map(one):v==null||v===''?v:one(v);
+}
 function formLines(b,ctx){
- const v=b.type==='text'?formFill(b.text,ctx):ctx.field(b.field);
+ let v=b.type==='text'?formFill(b.text,ctx):ctx.field(b.field);
+ if(b.type==='field'&&ctx.type)v=formFormat(v,ctx.type(b.field),b.format);
  let src=Array.isArray(v)?v.filter(x=>x!=null).map(String):v==null||v===''?[]:[String(v)];
  if(!src.length&&b.empty)src=[b.empty];
+ /* «Текст перед значением» (Date: …) — только у непустого поля. */
+ else if(src.length&&b.prefix)src[0]=b.prefix+src[0];
  const size=b.size||9,out=[];
- src.forEach(t=>{if(b.wrap)out.push(...docWrap(t,size,!!b.bold,b.w||0));else out.push(b.fit?docFit(t,size,!!b.bold,b.w||0):t);});
+ const face=formFace(b);
+ src.forEach(t=>{if(b.wrap)out.push(...docWrap(t,size,!!b.bold,b.w||0,face));else out.push(b.fit?docFit(t,size,!!b.bold,b.w||0,face):t);});
  return b.max?out.slice(0,b.max):out;
 }
 /* Сдвиг блока, который стоит на высоте y части: он держится за ближайший
@@ -24496,7 +24652,7 @@ function formLayout(tpl,part,ctx){
     блока (вес рядом с кодом скида любой длины); gap — зазор. */
  bs.forEach(x=>{
   const ref=x.b.after&&bs.find(r=>r.b.id===x.b.after);
-  if(ref&&ref.lines&&ref.lines.length)x.ax=formBlockX(tpl,ref.b)+docTextWidth(ref.lines[0],ref.b.size||9,!!ref.b.bold,ref.b.ls)+(x.b.gap!=null?x.b.gap:12);
+  if(ref&&ref.lines&&ref.lines.length)x.ax=formBlockX(tpl,ref.b)+docTextWidth(ref.lines[0],ref.b.size||9,!!ref.b.bold,ref.b.ls,formFace(ref.b))+(x.b.gap!=null?x.b.gap:12);
  });
  const done=[];
  bs.slice().sort((p,q)=>p.b.y-q.b.y||p.i-q.i).forEach(x=>{x.off=formShift(done,x.b.y);x.top=x.b.y+x.off;done.push(x);});
@@ -24510,7 +24666,7 @@ function formText(P,x,y,s,o,late){
 /* ax — x блока, который стоит сразу за другим (after). */
 function formDrawLine(P,tpl,b,line,k,top,late,ax){
  const x=ax!=null?ax:formBlockX(tpl,b),w=b.w||0,align=ax!=null?'left':b.align||'left';
- formText(P,align==='right'?x+w:align==='center'?x+w/2:x,top+k*formLh(b),line,{size:b.size||9,bold:!!b.bold,color:b.color||DOC_COLOR.ink,align,ls:b.ls||0},late);
+ formText(P,align==='right'?x+w:align==='center'?x+w/2:x,top+k*formLh(b),line,{size:b.size||9,bold:!!b.bold,color:b.color||DOC_COLOR.ink,align,ls:b.ls||0,face:formFace(b)},late);
 }
 function formDrawBlock(P,tpl,x,ctx,top,late){
  const b=x.b,bx=formBlockX(tpl,b),w=b.w||0,h=b.h||0;
@@ -24528,28 +24684,39 @@ function formDrawBlock(P,tpl,x,ctx,top,late){
   P.items.push(...barcode128Items(v,sx-BARCODE128_QUIET*m,top,h,m));
  }
 }
+/* Место блока на листе для конструктора: у текста y — линия букв, рамка
+   — от верха букв; пустой текст всё равно занимает строку, чтобы его можно
+   было выбрать мышью. */
+function formRect(tpl,x,top,lines){
+ const b=x.b,text=formIsText(b),bx=x.ax!=null?x.ax:formBlockX(tpl,b);
+ return {x:bx,y:text?top-(b.size||9):top,w:b.w||0,h:text?Math.max(lines==null?x.e:lines*formLh(b),formLh(b)):b.h||0};
+}
 /* Часть целиком на одном листе (верх и низ страницы); блоки рисуются в
-   порядке шаблона. Возвращает высоту части. */
-function formDrawPart(P,tpl,part,ctx,top,late){
+   порядке шаблона. Возвращает высоту части. mark(x, rect) — для
+   конструктора: где на листе оказался блок. */
+function formDrawPart(P,tpl,part,ctx,top,late,mark){
  if(!part)return 0;
  const lay=formLayout(tpl,part,ctx);
- lay.blocks.forEach(x=>formDrawBlock(P,tpl,x,ctx,top+x.top,late));
+ lay.blocks.forEach(x=>{formDrawBlock(P,tpl,x,ctx,top+x.top,late);if(mark)mark(x,formRect(tpl,x,top+x.top));});
  return lay.h;
 }
-function formCtx(ctx,over){return over?{field:k=>Object.prototype.hasOwnProperty.call(over,k)?over[k]:ctx.field(k)}:ctx;}
+function formCtx(ctx,over){return over?{field:k=>Object.prototype.hasOwnProperty.call(over,k)?over[k]:ctx.field(k),type:ctx.type}:ctx;}
 
 /* Ход по листам. Код бланка рисует таблицу сам (f.P, f.y, f.ensure,
    f.page), остальное — из шаблона. f.page(over, top): over — другие
    значения полей на следующих листах, top — другая часть вместо every
-   (лист скида: skidTop); оба держатся до следующего f.page с ними. */
-function formFlow(tpl,ctx){
+   (лист скида: skidTop); оба держатся до следующего f.page с ними.
+   map — для конструктора: сюда пишутся места блоков {page, part, id, x, y,
+   w, h} (блок, разорванный листом, — по куску на лист). */
+function formFlow(tpl,ctx,map){
  const pg=tpl.page,m=pg.margin,late=[];
+ const mark=key=>map?(x,r)=>map.push(Object.assign({page:f.pages.length-1,part:key,id:x.b.id},r)):null;
  const f={tpl,pages:[],P:null,y:0,top:0,topKey:'every',left:m.left,right:pg.w-m.right,bottom:pg.h-m.bottom,over:null};
  f.ctx=()=>formCtx(ctx,f.over);
  f.page=function(over,top){
   if(arguments.length){f.over=over||null;f.topKey=top||'every';}
   f.P=docPage();f.pages.push(f.P);
-  f.y=m.top+formDrawPart(f.P,tpl,tpl.parts[f.topKey],f.ctx(),m.top,late);f.top=f.y;return f;
+  f.y=m.top+formDrawPart(f.P,tpl,tpl.parts[f.topKey],f.ctx(),m.top,late,mark(f.topKey));f.top=f.y;return f;
  };
  f.ensure=h=>{if(f.y+h>f.bottom)f.page();};
  /* Часть в потоке (верх первой, итоги): начинается на этом листе, если на
@@ -24559,10 +24726,12 @@ function formFlow(tpl,ctx){
   const part=tpl.parts[key];if(!part||!(part.blocks||[]).length)return f;
   const c=f.ctx(),lay=formLayout(tpl,part,c),keep=part.keep!=null?part.keep:lay.h;
   if(f.y+Math.min(keep,f.bottom-f.top)>f.bottom&&f.y>f.top+1)f.page();
-  const units=[];
+  const units=[],mk=mark(key);
   lay.blocks.forEach(x=>{
-   if(x.lines)x.lines.forEach((l,k)=>units.push({y:x.top+k*formLh(x.b),e:formLh(x.b),i:x.i,draw:(P,a)=>formDrawLine(P,tpl,x.b,l,0,a,late,x.ax)}));
-   else units.push({y:x.top,e:x.e,i:x.i,draw:(P,a)=>formDrawBlock(P,tpl,x,c,a,late)});
+   if(x.lines)x.lines.forEach((l,k)=>units.push({y:x.top+k*formLh(x.b),e:formLh(x.b),i:x.i,draw:(P,a)=>{formDrawLine(P,tpl,x.b,l,0,a,late,x.ax);if(mk)mk(x,formRect(tpl,x,a,1));}}));
+   else units.push({y:x.top,e:x.e,i:x.i,draw:(P,a)=>{formDrawBlock(P,tpl,x,c,a,late);if(mk)mk(x,formRect(tpl,x,a));}});
+   /* Пустое поле на листе не видно, но в конструкторе его можно выбрать. */
+   if(mk&&x.lines&&!x.lines.length)units.push({y:x.top,e:0,i:x.i,draw:(P,a)=>mk(x,formRect(tpl,x,a))});
   });
   let off=f.y;
   units.sort((p,q)=>p.y-q.y||p.i-q.i).forEach(u=>{
@@ -24575,7 +24744,7 @@ function formFlow(tpl,ctx){
  f.finish=()=>{
   const N=f.pages.length,base=formCtx(ctx,null);
   f.pages.forEach((P,i)=>{
-   const own=[];formDrawPart(P,tpl,tpl.parts.bottom,base,f.bottom,own);
+   const own=[],mk=mark('bottom');formDrawPart(P,tpl,tpl.parts.bottom,base,f.bottom,own,mk&&((x,r)=>map.push(Object.assign({page:i,part:'bottom',id:x.b.id},r))));
    own.forEach(x=>{x.page=i+1;});late.push(...own);
   });
   late.forEach(x=>{
@@ -24585,6 +24754,64 @@ function formFlow(tpl,ctx){
   return f.pages;
  };
  return f;
+}
+
+/* Колонки таблицы: ячейки по порядку от левого поля, скрытые (hide)
+   пропускаются. cw — ширина ячейки, pad — отступ надписи от края ячейки,
+   w — ширина переноса текста; число (type num) — у правого края. */
+function formColumns(cols,left){
+ let x0=left;
+ return (cols||[]).filter(c=>!c.hide).map(c=>{
+  const cw=c.cw||0,pad=c.pad!=null?c.pad:5,align=c.align||(c.type==='num'?'right':'left');
+  const o=Object.assign({},c,{align,start:x0,x:align==='right'?x0+cw-pad:align==='center'?x0+cw/2:x0+pad,w:c.w!=null?c.w:Math.max(0,cw-2*pad)});
+  x0+=cw;return o;
+ });
+}
+function formCleanColumn(c){
+ if(!c||typeof c!=='object'||typeof c.k!=='string'||!c.k)return null;
+ const num=(v,lo,hi)=>{const n=Number(v);return Number.isFinite(n)?Math.min(hi,Math.max(lo,Math.round(n*100)/100)):undefined;};
+ const o={k:c.k.slice(0,40),label:typeof c.label==='string'?c.label.slice(0,60):'',type:c.type==='num'?'num':'text'};
+ [['cw',0,600],['pad',0,100],['w',0,600],['size',4,40]].forEach(([k,lo,hi])=>{const v=num(c[k],lo,hi);if(v!==undefined)o[k]=v;});
+ if(['left','center','right'].includes(c.align))o.align=c.align;
+ ['bold','alert','hide'].forEach(k=>{if(c[k])o[k]=true;});
+ return o;
+}
+/* Сохранённый шаблон (конструктор) → чистый: только известные ключи и
+   типы, числа в разумных пределах. Части, которых в сохранённом нет (код
+   добавил новую), берутся по умолчанию; колонки таблицы — сохранённые,
+   если они есть. Поля страницы и направляющие (guides — только для
+   конструктора, не печатаются) — из сохранённого, в разумных пределах. */
+const FORM_BLOCK_TYPES=['text','field','image','line','box','barcode'];
+const FORM_PLACES=['left','center','right','free'];
+function formCleanBlock(b){
+ if(!b||typeof b!=='object'||!FORM_BLOCK_TYPES.includes(b.type))return null;
+ const num=(v,lo,hi)=>{const n=Number(v);return Number.isFinite(n)?Math.min(hi,Math.max(lo,Math.round(n*100)/100)):undefined;};
+ const str=(v,max)=>typeof v==='string'?v.slice(0,max||2000):undefined;
+ const o={id:str(b.id,40)||'b'+Math.random().toString(36).slice(2,9),type:b.type,place:FORM_PLACES.includes(b.place)?b.place:'left'};
+ [['x',-200,800],['y',-200,800],['w',0,800],['h',0,800],['size',4,96],['lh',0,200],['max',0,200],['lw',0,20],['r',0,50],['ls',0,10],['gap',0,200],['module',.5,5]].forEach(([k,lo,hi])=>{const v=num(b[k],lo,hi);if(v!==undefined)o[k]=v;});
+ ['text','field','color','fill','empty','prefix','format','after'].forEach(k=>{const v=str(b[k]);if(v!==undefined)o[k]=v;});
+ if(['left','center','right'].includes(b.align))o.align=b.align;
+ ['bold','italic','wrap','fit'].forEach(k=>{if(b[k])o[k]=true;});
+ if(b.font==='times'||b.font==='courier')o.font=b.font;
+ if(b.type==='image'&&typeof b.src==='string'&&/^data:image\/jpeg;base64,/.test(b.src)&&b.src.length<3e6)o.src=b.src;
+ if(o.y===undefined)o.y=0;
+ return o;
+}
+function formClean(src,def){
+ if(!src||typeof src!=='object'||!src.parts||typeof src.parts!=='object')return def;
+ const m=Object.assign({},def.page.margin),sm=src.page&&src.page.margin||{};
+ ['top','right','bottom','left'].forEach(k=>{const v=Number(sm[k]);if(Number.isFinite(v))m[k]=Math.max(0,Math.min(250,Math.round(v*100)/100));});
+ const out={form:def.form,page:{w:def.page.w,h:def.page.h,margin:m},parts:{}};
+ const g=src.guides||{},gl=a=>(Array.isArray(a)?a:[]).map(Number).filter(v=>Number.isFinite(v)&&v>=0&&v<=800).slice(0,40).map(v=>Math.round(v*100)/100);
+ if(gl(g.x).length||gl(g.y).length)out.guides={x:gl(g.x),y:gl(g.y)};
+ Object.keys(def.parts).forEach(k=>{
+  const d=def.parts[k],s=src.parts[k];
+  if(d.columns){const c=s&&Array.isArray(s.columns)?s.columns.map(formCleanColumn).filter(Boolean):null;out.parts[k]=c&&c.length?Object.assign({},d,{columns:c}):d;return;}
+  if(!s||!Array.isArray(s.blocks)){out.parts[k]=d;return;}
+  const h=Number(s.h);
+  out.parts[k]=Object.assign({},d,{h:Number.isFinite(h)?Math.max(0,Math.min(800,h)):d.h,blocks:s.blocks.map(formCleanBlock).filter(Boolean)});
+ });
+ return out;
 }
 
 /* ==== src/erp/finance/print.js ==== */
@@ -30167,6 +30394,7 @@ const MD_TABS=[
  {k:'hardware',  label:'Hardware'},
  {k:'company',   label:'Company'},
  {k:'stickers',  label:'Stickers'},
+ {k:'forms',     label:'Forms'},
  {k:'cutting',   label:'Cutting'},
  {k:'carriers',  label:'Dollies & Skids'},
  {k:'trucks',    label:'Trucks'},
@@ -30183,7 +30411,7 @@ const MD_SECTIONS=[
  {k:'prices',    label:'Prices',          tabs:['prices']},
  {k:'production',label:'Production',      tabs:['stations','cutting','carriers','ncr','stockreasons']},
  {k:'shipping',  label:'Shipping',        tabs:['trucks']},
- {k:'print',     label:'Company & print', tabs:['company','stickers']},
+ {k:'print',     label:'Company & print', tabs:['company','stickers','forms']},
  {k:'setup',     label:'Setup',           tabs:['setup','overview']}
 ];
 /* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
@@ -30234,7 +30462,7 @@ function viewMasterData(){
  const subs=sec.k!=='catalog'&&sec.tabs.length>1?`<div class="sl-filter-row md-mat-subs" data-md-subtabs><div class="sl-quick">${sec.tabs.map(k=>`<button type="button" class="sl-quick-pill${mdTab===k?' on':''}" onclick="mdSetTab('${k}')">${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div></div>`:'';
  /* Каталог — своя раскладка (viewMdCatalog); остальные разделы — карточка с таблетками. */
  return `${sec.k==='catalog'?viewMdCatalog(pills):`<div class="card md-card">${pills}${subs}
-   ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
+   ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,forms:viewMdForms,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
   </div>`}
   ${mdTab==='materials'&&mdMatCategory==='glass'&&(mdMatView==='glassProduct'||accessCost())?mdImportCard():''}`;
 }
@@ -43252,6 +43480,423 @@ function stkEditorHTML(){
  </div>`;
 }
 
+/* ==== src/erp/views/forms-ui.js ==== */
+/* =====================================================================
+   erp/views/forms-ui  ·  forms-1.0
+   Конструктор форм (этап 7): Data → Company & print → Forms. Вид «ТОП»
+   (владелец 02.11.2026): строка форм, слева Add и дерево частей листа, в
+   середине живой лист на настоящем PS с тонкой линейкой, справа настройки
+   блока. Поле — окно Insert field (вариант В, 05.11.2026): группа → поле со
+   значением с этого заказа → формат и «текст перед значением».
+   IN : шаблоны erp/documents/forms, бланки (пока Packing slip)
+   OUT: DB.formTemplate[form] — сохранённый шаблон; печать берёт его.
+   Черновик живёт здесь, в базу пишет только Save.
+   ===================================================================== */
+
+/* Сохранённые шаблоны: форма → шаблон. Ключ в DEFAULT — иначе база при
+   старте его не берёт (mergeState). */
+DEFAULT.formTemplate={};
+/* Версии (окно Versions, вариант В 05.11.2026): каждое Save — строка
+   {id, form, at, by, note, tpl}; на форму хранятся последние FORMS_VERSIONS. */
+DEFAULT.formVersion=[];
+const FORMS_VERSIONS=20;
+/* Формы на шаблоне. Остальные бланки переходят сюда по одному, после
+   сверки «печатает то же». */
+function formsDefs(){
+ return [{k:'packingSlip',label:'Packing slip',def:shippingFormDefault,fields:()=>SHIPPING_FORM_FIELDS,
+  samples:()=>(DB.shipment||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(s=>({id:s.id,label:s.number+' · '+salesCustomerDisplay(s.customerId)})),
+  doc:id=>{const s=id&&shippingFind(id);if(s)try{return shippingDocument(s);}catch(e){}return shippingFormSample();},
+  context:d=>shippingFormContext(d),
+  /* Что может стоять в колонках таблиц (Shows, + Column). */
+  columns:{table:SHIPPING_TABLE_COLUMNS,skidTable:SHIPPING_SKID_COLUMNS},
+  pages:(tpl,d,map)=>shippingPages(d,null,tpl,map)}];
+}
+function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
+function formsSaved(k){const def=formsDef(k);return formClean(DB.formTemplate&&DB.formTemplate[k],def.def());}
+function normalizeFormTemplates(){
+ const src=DB.formTemplate&&typeof DB.formTemplate==='object'&&!Array.isArray(DB.formTemplate)?DB.formTemplate:{},out={},defs=formsDefs();
+ defs.forEach(d=>{if(src[d.k])out[d.k]=formClean(src[d.k],d.def());});
+ DB.formTemplate=out;
+ const str=v=>typeof v==='string'?v.slice(0,200):'';
+ const rows=(Array.isArray(DB.formVersion)?DB.formVersion:[]).filter(v=>v&&typeof v==='object'&&typeof v.id==='string'&&v.id&&typeof v.at==='string'&&defs.some(d=>d.k===v.form)&&v.tpl&&typeof v.tpl==='object');
+ DB.formVersion=defs.flatMap(d=>rows.filter(v=>v.form===d.k).slice(-FORMS_VERSIONS).map(v=>({id:v.id,form:v.form,at:v.at,by:str(v.by),note:str(v.note),tpl:formClean(v.tpl,d.def())})));
+}
+function validateFormTemplatePayload(src){
+ if(src.formTemplate!=null&&(typeof src.formTemplate!=='object'||Array.isArray(src.formTemplate)))throw new Error('Form templates must be an object.');
+ if(src.formVersion!=null&&!Array.isArray(src.formVersion))throw new Error('Form versions must be a list.');
+}
+
+const FORMS_PARTS={every:['Page header','every page'],first:['First page','page 1'],table:['Lines table','grows'],totals:['Totals','after table'],skidTop:['Skid sheet','per skid'],skidTable:['Skid table','per skid'],bottom:['Page footer','bottom']};
+const FORMS_PT_MM=25.4/72;
+let formsUi=null,formsPointer=null,formsClickUntil=0;
+function formsState(){
+ if(!formsUi)formsUi={form:'packingSlip',sample:'',drafts:{},sel:null,part:'every',modal:null,notice:''};
+ const k=formsUi.form;
+ if(!formsUi.drafts[k]){const tpl=formsSaved(k);formsUi.drafts[k]={tpl,undo:[],redo:[],saved:JSON.stringify(tpl)};}
+ if(!formsUi.sample){const s=formsDef(k).samples()[0];formsUi.sample=s?s.id:'sample';}
+ return formsUi;
+}
+function formsDraft(){const s=formsState();return s.drafts[s.form];}
+function formsClone(v){return JSON.parse(JSON.stringify(v));}
+function formsDirty(){const d=formsDraft();return JSON.stringify(d.tpl)!==d.saved;}
+function formsFind(tpl,sel){const p=sel&&tpl.parts[sel.part];return p&&(p.blocks||[]).find(b=>b.id===sel.id)||null;}
+function formsEdit(fn,keepRender){
+ const d=formsDraft(),before=formsClone(d.tpl);fn(d.tpl);
+ if(JSON.stringify(before)!==JSON.stringify(d.tpl)){d.undo.push(before);if(d.undo.length>80)d.undo.shift();d.redo=[];formsUi.notice='';}
+ if(!keepRender)render();
+}
+function formsUndo(){const d=formsDraft();if(!d.undo.length)return;d.redo.push(formsClone(d.tpl));d.tpl=d.undo.pop();formsFixSel();render();}
+function formsRedo(){const d=formsDraft();if(!d.redo.length)return;d.undo.push(formsClone(d.tpl));d.tpl=d.redo.pop();formsFixSel();render();}
+function formsFixSel(){const s=formsUi;if(s.sel&&!formsFind(formsDraft().tpl,s.sel))s.sel=null;}
+/* Пометка версии — что поменялось против прошлого Save. */
+function formsDiffNote(was,now,def){
+ if(JSON.stringify(now)===JSON.stringify(formClean(formsClone(def),def)))return 'Default form';
+ was=formClean(formsClone(was),def);
+ const map=t=>{const m=new Map();Object.keys(t.parts).forEach(k=>(t.parts[k].blocks||[]).forEach(b=>m.set(k+'|'+b.id,JSON.stringify(b))));return m;},a=map(was),b=map(now);
+ let add=0,del=0,chg=0;b.forEach((v,k)=>{if(!a.has(k))add++;else if(a.get(k)!==v)chg++;});a.forEach((v,k)=>{if(!b.has(k))del++;});
+ const n=(x,w)=>x?x+' '+(x===1?'block':'blocks')+' '+w:'';
+ return [n(add,'added'),n(chg,'changed'),n(del,'removed')].filter(Boolean).join(' · ')||'Spacing changed';
+}
+function formsSave(){
+ const s=formsState(),d=formsDraft(),def=formsDef(s.form).def(),tpl=formClean(d.tpl,def),was=formsSaved(s.form);
+ const me=typeof signinUser==='function'?signinUser():null;
+ DB.formVersion=(DB.formVersion||[]).concat([{id:salesUid('FV'),form:s.form,at:new Date().toISOString(),by:me?me.name:'',note:formsDiffNote(was,tpl,def),tpl:formsClone(tpl)}]);
+ const mine=DB.formVersion.filter(v=>v.form===s.form);if(mine.length>FORMS_VERSIONS){const drop=new Set(mine.slice(0,mine.length-FORMS_VERSIONS).map(v=>v.id));DB.formVersion=DB.formVersion.filter(v=>!drop.has(v.id));}
+ DB.formTemplate=Object.assign({},DB.formTemplate,{[s.form]:tpl});
+ d.tpl=formsClone(tpl);d.saved=JSON.stringify(d.tpl);s.notice='Saved';touch();render();
+}
+function formsReset(){
+ if(!confirm('Back to the default form? Nothing changes until Save.'))return;
+ const def=formsDef(formsState().form).def();formsUi.sel=null;formsEdit(t=>{Object.keys(t).forEach(k=>delete t[k]);Object.assign(t,formsClone(def));});
+}
+function formsSetForm(k){const s=formsState();if(s.form===k)return;s.form=k;s.sample='';s.sel=null;s.part='every';s.modal=null;formsState();render();}
+function formsSetSample(id){formsState().sample=id;render();}
+function formsSelect(part,id){const s=formsState();s.sel=id?{part,id}:null;s.part=part;s.cols=null;render();}
+
+/* ------------------------------ Блоки -------------------------------- */
+function formsFieldDef(k){return formsDef(formsState().form).fields().find(x=>x.k===k);}
+function formsBlockLabel(b){
+ if(b.type==='text'){const t=String(b.text||'').replace(/\s+/g,' ').trim();return t.length>34?t.slice(0,33)+'…':t||'Text';}
+ if(b.type==='field'){const f=formsFieldDef(b.field);return (b.prefix||'')+(f?f.label:b.field);}
+ if(b.type==='barcode'){const f=formsFieldDef(b.field);return b.field==='barcode'?'Barcode':'Barcode · '+(f?f.label:b.field);}
+ return {line:'Line',box:'Frame',image:'Picture'}[b.type]||b.type;
+}
+function formsTypeLabel(b){return {text:'Text',field:'Field',line:'Line',box:'Frame',image:'Picture',barcode:'Barcode'}[b.type]||'Block';}
+/* Новый блок встаёт под части и раздвигает её — ничего не налезает. */
+function formsAddBlock(make){
+ const s=formsState();let part=s.sel?s.sel.part:s.part||'every';
+ if(!formsDraft().tpl.parts[part]||formsDraft().tpl.parts[part].columns)part='totals';
+ formsEdit(t=>{
+  const p=t.parts[part],b=make(),id='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  b.id=id;b.y=p.h||0;p.blocks=(p.blocks||[]).concat([b]);p.h=(p.h||0)+(b.type==='line'?6:(b.h||14)+4);
+  s.sel={part,id};s.part=part;
+ });
+}
+function formsAdd(type){
+ if(type==='field'){formsOpenField('add');return;}
+ if(type==='image'){const el=document.querySelector('[data-forms-picture]');if(el)el.click();return;}
+ const C=DOC_COLOR,make={
+  text:()=>({type:'text',text:'Text',place:'left',w:240,h:14,size:9,lh:14,wrap:true}),
+  line:()=>({type:'line',place:'left',w:540,h:0,lw:.6,color:C.line}),
+  box:()=>({type:'box',place:'left',w:200,h:40,lw:.6,color:C.line,r:3}),
+  barcode:()=>({type:'barcode',field:'barcode',place:'left',w:200,h:30})}[type];
+ if(make)formsAddBlock(make);
+}
+/* Картинка — в JPEG (PDF вставляет JPEG как есть), не шире 800 точек. */
+function formsPicture(input){
+ const file=input.files&&input.files[0];input.value='';if(!file)return;
+ const reader=new FileReader();
+ reader.onload=()=>{const img=new Image();img.onload=()=>{
+  const k=Math.min(1,800/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*k));c.height=Math.max(1,Math.round(img.height*k));
+  const g=c.getContext('2d');g.fillStyle='#ffffff';g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);
+  const src=c.toDataURL('image/jpeg',.9),s=formsState();
+  if(s.sel&&formsFind(formsDraft().tpl,s.sel)?.type==='image')formsSet('src',src);
+  else formsAddBlock(()=>({type:'image',src,place:'left',w:Math.round(40*c.width/c.height),h:40}));
+ };img.src=reader.result;};
+ reader.readAsDataURL(file);
+}
+function formsDelete(){const s=formsState(),sel=s.sel;if(!sel)return;s.sel=null;formsEdit(t=>{const p=t.parts[sel.part];p.blocks=p.blocks.filter(b=>b.id!==sel.id);});}
+function formsSet(k,v){
+ const s=formsState();if(!s.sel)return;
+ formsEdit(t=>{const b=formsFind(t,s.sel);if(!b)return;
+  if(v===''||v==null)delete b[k];else b[k]=v;
+  if(k==='place'&&v==='free'&&b.x==null)b.x=formBlockX(t,Object.assign({},b,{place:formsUi.lastPlace||'left'}));
+ });
+}
+function formsPlace(v){const b=formsFind(formsDraft().tpl,formsState().sel);if(b)formsUi.lastPlace=b.place;formsSet('place',v);}
+function formsNum(k,v,mm){
+ const n=Number(String(v).replace(',','.'));if(!Number.isFinite(n))return render();
+ formsSet(k,Math.round((mm?n/FORMS_PT_MM:n)*100)/100);
+}
+function formsToggle(k){const b=formsFind(formsDraft().tpl,formsState().sel);if(b)formsSet(k,b[k]?'':true);}
+
+/* ---------------------------- Окно поля ------------------------------ */
+function formsOpenField(mode){
+ const s=formsState(),b=mode==='change'?formsFind(formsDraft().tpl,s.sel):null,f=b&&formsFieldDef(b.field);
+ s.modal={mode,group:f?f.g:formsDef(s.form).fields()[0].g,field:b?b.field:'',format:b&&b.format||'',prefix:b&&b.prefix||'',q:''};render();
+}
+function formsModalSet(k,v){const m=formsUi&&formsUi.modal;if(!m)return;m[k]=v;if(k==='group')m.q='';render();if(k==='q'){const el=document.querySelector('[data-forms-search]');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}}}
+function formsModalClose(){formsUi.modal=null;render();}
+function formsModalApply(){
+ const s=formsState(),m=s.modal;if(!m)return;
+ if(m.field==='@page'){s.modal=null;formsAddBlock(()=>({type:'text',text:(m.prefix||'Page ')+'{page} of {pages}',place:'left',w:200,h:14,size:8,lh:14}));return;}
+ if(!m.field)return;
+ const f=formsFieldDef(m.field),fmt=f&&f.t?m.format||'':'';s.modal=null;
+ if(m.mode==='change'){formsEdit(t=>{const b=formsFind(t,s.sel);if(!b)return;b.field=m.field;if(fmt)b.format=fmt;else delete b.format;if(m.prefix)b.prefix=m.prefix;else delete b.prefix;});return;}
+ formsAddBlock(()=>Object.assign({type:'field',field:m.field,place:'left',w:260,h:14,size:9,lh:14,wrap:true},fmt?{format:fmt}:{},m.prefix?{prefix:m.prefix}:{}));
+}
+function formsModalHTML(ctx){
+ const s=formsState(),m=s.modal;if(!m)return '';
+ const fields=formsDef(s.form).fields(),groups=[...new Set(fields.map(f=>f.g))].concat(['Page']);
+ const val=f=>{let v=ctx.field(f.k);if(f.t)v=formFormat(v,f.t,m.format);v=Array.isArray(v)?v.join(' · '):String(v==null?'':v);return v||'—';};
+ const q=m.q.trim().toLowerCase(),list=q?fields.filter(f=>(f.label+' '+f.g).toLowerCase().includes(q)):m.group==='Page'?[]:fields.filter(f=>f.g===m.group);
+ const rows=list.map(f=>`<button type="button" class="fm-pick${m.field===f.k?' on':''}" data-forms-field="${esc(f.k)}" onclick="formsModalSet('field','${esc(f.k)}')"><span>${esc(f.label)}</span><em>${esc(val(f))}</em></button>`).join('')+(!q&&m.group==='Page'?`<button type="button" class="fm-pick${m.field==='@page'?' on':''}" onclick="formsModalSet('field','@page')"><span>Page number</span><em>1 of 2</em></button>`:'');
+ const f=fields.find(x=>x.k===m.field),formats=f&&f.t?FORM_FORMATS[f.t]:null,sample=f?ctx.field(f.k):'';
+ const fmt=formats?formats.map((x,i)=>`<button type="button" class="fm-fmt${(m.format||formats[0].k)===x.k?' on':''}" onclick="formsModalSet('format','${x.k}')"><span>${esc(String(formFormat(sample||finToday(),f.t,x.k)))}</span><small>${esc(x.label)}</small></button>`).join(''):`<p class="fm-note">${f?'As is':'Choose a field'}</p>`;
+ return `<div class="fm-modal-back" onclick="formsModalClose()"></div><div class="fm-modal" role="dialog" aria-modal="true" aria-label="Insert field" data-forms-modal>
+  <div class="fm-modal-head"><b>${m.mode==='change'?'Change field':'Insert field'}</b><button type="button" class="fm-x" aria-label="Close" onclick="formsModalClose()">×</button></div>
+  <input class="fm-search" data-forms-search placeholder="Search fields…" value="${esc(m.q)}" oninput="formsModalSet('q',this.value)">
+  <div class="fm-cols3"><div class="fm-groups">${groups.map(g=>`<button type="button" class="fm-pick${!q&&m.group===g?' on':''}" onclick="formsModalSet('group','${esc(g)}')">${esc(g)}</button>`).join('')}</div>
+   <div class="fm-fields">${rows||'<p class="fm-note">No fields</p>'}</div>
+   <div><div class="fm-h">Format</div>${fmt}<div class="fm-h">Before the value</div><input class="fm-in" data-forms-prefix value="${esc(m.prefix)}" placeholder="Date: " onchange="formsUi.modal.prefix=this.value"></div></div>
+  <div class="fm-modal-foot"><button type="button" onclick="formsModalClose()">Cancel</button><button type="button" class="pri" data-forms-insert ${m.field?'':'disabled'} onclick="formsModalApply()">${m.mode==='change'?'Apply':'Insert'}</button></div></div>`;
+}
+
+/* ---------------------------- Версии --------------------------------- */
+/* Список окна Versions: сохранённые версии (новые сверху), «сохранено до
+   истории», если бланк сохраняли раньше, и бланк программы. */
+function formsVersionList(){
+ const s=formsState(),def=formsDef(s.form).def(),list=(DB.formVersion||[]).filter(v=>v.form===s.form).slice().reverse();
+ if(!list.length&&DB.formTemplate&&DB.formTemplate[s.form])list.push({id:'@saved',at:'',by:'',note:'Saved before history',tpl:formsSaved(s.form)});
+ return list.concat([{id:'@default',at:'',by:'Glass ERP',note:'The program’s form',tpl:def}]);
+}
+function formsWhen(at){
+ if(!at)return 'Default';const d=new Date(at);if(isNaN(d))return at;const t=d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+ return d.toDateString()===new Date().toDateString()?'Today '+t:DOC_MONTHS[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear()+' '+t;
+}
+function formsVersionsOpen(){formsState().versions={sel:0,error:''};render();}
+function formsVersionsClose(){formsUi.versions=null;render();}
+function formsVersionPick(i){formsUi.versions.sel=i;formsUi.versions.error='';render();}
+function formsVersionRestore(){
+ const s=formsState(),v=formsVersionList()[s.versions.sel];if(!v)return;s.versions=null;s.sel=null;
+ formsEdit(t=>{Object.keys(t).forEach(k=>delete t[k]);Object.assign(t,formsClone(v.tpl));});
+}
+function formsVersionDownload(){
+ const s=formsState(),v=formsVersionList()[s.versions.sel];if(!v)return;
+ const day=(v.at||new Date().toISOString()).slice(0,10),def=formsDef(s.form);
+ storageDownload('form-'+def.label.toLowerCase().replace(/[^a-z0-9]+/g,'-')+'-'+day+'.json',JSON.stringify({format:'glass-erp-form',form:s.form,label:def.label,at:v.at,by:v.by,note:v.note,tpl:v.tpl},null,1));
+}
+/* Файл бланка → черновик (Save — чтобы оставить). */
+function formsLoadText(text){
+ const s=formsState();let o;try{o=JSON.parse(text);}catch(e){o=null;}
+ if(!o||o.format!=='glass-erp-form'||!o.tpl||typeof o.tpl!=='object'){if(s.versions)s.versions.error='Not a form file.';render();return false;}
+ if(o.form!==s.form){if(s.versions)s.versions.error='This file is for '+(o.label||o.form)+'.';render();return false;}
+ s.versions=null;s.sel=null;formsEdit(t=>{Object.keys(t).forEach(k=>delete t[k]);Object.assign(t,formClean(o.tpl,formsDef(s.form).def()));});return true;
+}
+function formsLoadFile(input){const f=input.files&&input.files[0];input.value='';if(!f)return;const r=new FileReader();r.onload=()=>formsLoadText(String(r.result||''));r.readAsText(f);}
+function formsVersionsHTML(){
+ const s=formsState(),m=s.versions;if(!m)return '';
+ const list=formsVersionList(),v=list[m.sel]||list[0],def=formsDef(s.form);
+ let pages=[];try{pages=def.pages(v.tpl,def.doc(s.sample));}catch(e){}
+ return `<div class="fm-modal-back" onclick="formsVersionsClose()"></div><div class="fm-modal fm-versions" role="dialog" aria-modal="true" aria-label="Versions" data-forms-versions>
+  <div class="fm-vlist"><div class="fm-modal-head"><b>Versions · ${esc(def.label)}</b></div>
+   ${list.map((x,i)=>`<button type="button" class="fm-pick fm-ver${i===m.sel?' on':''}" data-forms-version="${i}" onclick="formsVersionPick(${i})"><b>${esc(formsWhen(x.at))}${x.by?' · '+esc(x.by):''}</b><small>${esc(x.note||'')}</small></button>`).join('')}
+   <div class="fm-vfile"><button type="button" data-forms-download onclick="formsVersionDownload()">Download this version</button><button type="button" onclick="document.querySelector('[data-forms-file]').click()">Load form file…</button></div>
+   ${m.error?`<p class="fm-error" data-forms-file-error>${esc(m.error)}</p>`:''}<input type="file" accept=".json,application/json" hidden data-forms-file onchange="formsLoadFile(this)"></div>
+  <div class="fm-vview"><div class="fm-vpages">${pages.map(pg=>`<div class="fm-vsheet">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}</div>`).join('')}</div>
+   <div class="fm-modal-foot"><button type="button" onclick="formsVersionsClose()">Close</button><button type="button" class="pri" data-forms-restore ${m.sel===0&&list[0].id!=='@default'&&!formsDirty()?'disabled':''} onclick="formsVersionRestore()">Restore this version</button></div></div></div>`;
+}
+
+/* ---------------------------- Колонки -------------------------------- */
+/* Владелец 05.11.2026: колонки списком справа (галочка, порядок, подпись,
+   ширина), клик по строке или по колонке на листе — её настройки. */
+function formsColumns(part,k){const s=formsState();s.cols={part,k:k||''};s.sel=null;s.part=part;render();}
+function formsColCatalog(part){return (formsDef(formsState().form).columns||{})[part]||[];}
+function formsColEdit(part,fn){formsEdit(t=>{const p=t.parts[part];if(!p||!p.columns)return;p.columns=p.columns.map(c=>Object.assign({},c));fn(p.columns);});}
+function formsColSet(part,k,prop,v){formsColEdit(part,cols=>{const c=cols.find(x=>x.k===k);if(!c)return;if(v===''||v==null||v===false)delete c[prop];else c[prop]=v;});}
+function formsColToggle(part,k,prop){const c=(formsDraft().tpl.parts[part].columns||[]).find(x=>x.k===k);if(c)formsColSet(part,k,prop,!c[prop]);}
+/* Ширина — ячейка в мм; перенос текста меняется на столько же. */
+function formsColWidth(part,k,mm){
+ const n=Number(String(mm).replace(',','.'));if(!Number.isFinite(n)||n<=0)return render();
+ formsColEdit(part,cols=>{const c=cols.find(x=>x.k===k);if(!c)return;const cw=Math.round(n/FORMS_PT_MM*100)/100,d=cw-(c.cw||0);c.cw=cw;if(c.w!=null)c.w=Math.max(0,Math.round((c.w+d)*100)/100);});
+}
+function formsColSize(part,k,v){const n=Number(v);if(!Number.isFinite(n)||n<4||n>40)return render();formsColSet(part,k,'size',n);}
+function formsColMove(part,from,to){if(from===to)return;formsColEdit(part,cols=>{const i=cols.findIndex(c=>c.k===from),j=cols.findIndex(c=>c.k===to);if(i<0||j<0)return;const [c]=cols.splice(i,1);cols.splice(j,0,c);});}
+function formsColAdd(part,key){
+ const x=formsColCatalog(part).find(c=>c.k===key);if(!x)return;
+ formsColEdit(part,cols=>{if(cols.some(c=>c.k===key))return;cols.push(x.type==='num'?{k:key,label:x.label,type:'num',cw:45}:{k:key,label:x.label,type:'text',cw:80,w:74});});
+ formsUi.cols={part,k:key};render();
+}
+function formsColRemove(part,k){formsColEdit(part,cols=>{const i=cols.findIndex(c=>c.k===k);if(i>=0)cols.splice(i,1);});formsUi.cols={part,k:''};render();}
+/* Shows — другое поле в той же колонке; подпись меняется, если была по каталогу. */
+function formsColShows(part,k,key){
+ const cat=formsColCatalog(part),x=cat.find(c=>c.k===key),was=cat.find(c=>c.k===k);if(!x)return;
+ formsColEdit(part,cols=>{const c=cols.find(y=>y.k===k);if(!c||cols.some(y=>y.k===key))return;if(!c.label||was&&c.label===was.label)c.label=x.label;c.k=key;if(c.type!==x.type){c.type=x.type;if(x.type==='num')delete c.w;else c.w=Math.max(0,(c.cw||0)-8);}});
+ formsUi.cols={part,k:key};render();
+}
+let formsColDrag='';
+function formsColsHTML(tpl){
+ const s=formsState(),part=s.cols.part,p=tpl.parts[part],cat=formsColCatalog(part),lab=FORMS_PARTS[part]||[part,''];if(!p||!p.columns)return '';
+ const mm=v=>Math.round((v||0)*FORMS_PT_MM),c=p.columns.find(x=>x.k===s.cols.k),free=cat.filter(x=>!p.columns.some(y=>y.k===x.k));
+ if(c){const x=cat.find(y=>y.k===c.k),others=cat.filter(y=>y.k===c.k||!p.columns.some(z=>z.k===y.k)),al=c.align||(c.type==='num'?'right':'left');
+  return `<button type="button" class="fm-back" onclick="formsColumns('${part}','')">‹ Columns</button><div class="fm-h">Selected · Column</div>
+   <label><span>Heading</span><input class="fm-in" data-forms-col-label value="${esc(c.label||'')}" onchange="formsColSet('${part}','${esc(c.k)}','label',this.value)"></label>
+   <label><span>Shows</span><select class="fm-in" data-forms-col-shows onchange="formsColShows('${part}','${esc(c.k)}',this.value)">${others.map(y=>`<option value="${esc(y.k)}" ${y.k===c.k?'selected':''}>${esc(y.label)}</option>`).join('')}${x?'':`<option selected>${esc(c.k)}</option>`}</select></label>
+   <div class="fm-row"><label><span>Width, mm</span><input class="fm-in" data-forms-col-width inputmode="decimal" value="${mm(c.cw)}" onchange="formsColWidth('${part}','${esc(c.k)}',this.value)"></label><label><span>Size, pt</span><input class="fm-in" inputmode="decimal" value="${c.size||(c.type==='num'?9:8)}" onchange="formsColSize('${part}','${esc(c.k)}',this.value)"></label></div>
+   <div class="fm-seg"><button type="button" class="${c.bold?'on':''}" onclick="formsColToggle('${part}','${esc(c.k)}','bold')"><b>B</b></button>${['left','center','right'].map(a=>`<button type="button" class="${al===a?'on':''}" onclick="formsColSet('${part}','${esc(c.k)}','align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
+   <button type="button" class="fm-wide-btn" data-forms-col-hide onclick="formsColToggle('${part}','${esc(c.k)}','hide')">${c.hide?'Show this column':'Hide this column'}</button>
+   <button type="button" class="fm-wide-btn fm-danger" onclick="formsColRemove('${part}','${esc(c.k)}')">Remove column</button>`;}
+ return `<div class="fm-h">${esc(lab[0])} · Columns</div><div class="fm-cols" data-forms-cols>${p.columns.map(x=>`<div class="fm-colrow${x.hide?' off':''}" draggable="true" data-forms-col="${esc(x.k)}" ondragstart="formsColDrag='${esc(x.k)}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();formsColMove('${part}',formsColDrag,'${esc(x.k)}')" onclick="formsColumns('${part}','${esc(x.k)}')">
+   <i title="Drag to reorder">⋮⋮</i><input type="checkbox" ${x.hide?'':'checked'} title="Show" onclick="event.stopPropagation()" onchange="formsColToggle('${part}','${esc(x.k)}','hide')">
+   <input class="fm-in" value="${esc(x.label||'')}" onclick="event.stopPropagation()" onchange="formsColSet('${part}','${esc(x.k)}','label',this.value)">
+   <input class="fm-in fm-mm" value="${mm(x.cw)} mm" onclick="event.stopPropagation()" onfocus="this.value=parseFloat(this.value)||''" onchange="formsColWidth('${part}','${esc(x.k)}',this.value)"><span class="fm-open">›</span></div>`).join('')}</div>
+  ${free.length?`<select class="fm-in fm-add-col" data-forms-col-add onchange="formsColAdd('${part}',this.value)"><option value="">+ Column</option>${free.map(x=>`<option value="${esc(x.k)}">${esc(x.label)}</option>`).join('')}</select>`:''}
+  <p class="fm-note">Drag ⋮⋮ to reorder. Click a column to open it.</p>`;
+}
+
+/* --------------------- Поля страницы и направляющие ------------------ */
+/* Треугольники на линейке — поля страницы; тянуть с линейки — новая
+   направляющая, утащить её за край листа — убрать. Направляющие не
+   печатаются; блок липнет к ним и к полям в 4 pt. */
+function formsSnap(v,list){let best=v,d=4;list.forEach(g=>{if(Math.abs(g-v)<d){d=Math.abs(g-v);best=g;}});return best;}
+function formsGuides(tpl,axis){const m=tpl.page.margin,g=tpl.guides||{};return axis==='x'?[m.left,tpl.page.w-m.right].concat(g.x||[]):[m.top,tpl.page.h-m.bottom].concat(g.y||[]);}
+function formsRulerStart(e,kind,which,index){
+ if(e.button!==0||formsPointer)return;e.preventDefault();e.stopPropagation();
+ const stage=e.currentTarget.closest('[data-forms-stage]'),sheet=stage.querySelector('[data-forms-page="0"]'),d=formsDraft();if(!sheet)return;
+ const r=sheet.getBoundingClientRect(),k=d.tpl.page.w/r.width;
+ if(kind==='new'){if(!d.tpl.guides)d.tpl.guides={x:[],y:[]};const list=d.tpl.guides[which]=(d.tpl.guides[which]||[]).slice();list.push(which==='x'?(e.clientX-r.left)*k:(e.clientY-r.top)*k);kind='guide';index=list.length-1;}
+ formsPointer={kind,which,index,pid:e.pointerId,stage,before:formsClone(d.tpl),k,rect:r};
+ try{stage.setPointerCapture(e.pointerId);}catch(x){}
+ stage.onpointermove=formsRulerMove;stage.onpointerup=ev=>formsRulerEnd(ev,false);stage.onpointercancel=ev=>formsRulerEnd(ev,true);
+}
+function formsRulerMove(e){
+ const p=formsPointer;if(!p||e.pointerId!==p.pid)return;e.preventDefault();
+ const t=formsDraft().tpl,r=p.rect,x=Math.round((e.clientX-r.left)*p.k*2)/2,y=Math.round((e.clientY-r.top)*p.k*2)/2;
+ p.out=e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom;
+ if(p.kind==='margin'){const m=t.page.margin=Object.assign({},t.page.margin),c=v=>Math.max(0,Math.min(250,v));
+  if(p.which==='left')m.left=c(x);else if(p.which==='right')m.right=c(t.page.w-x);else if(p.which==='top')m.top=c(y);else m.bottom=c(t.page.h-y);}
+ else{const g=t.guides=Object.assign({x:[],y:[]},t.guides);g[p.which]=g[p.which].slice();g[p.which][p.index]=p.which==='x'?x:y;}
+ formsStageRefresh();
+}
+function formsRulerEnd(e,cancel){
+ const p=formsPointer;if(!p||e.pointerId!==p.pid)return;formsPointer=null;
+ try{p.stage.releasePointerCapture(p.pid);}catch(x){}p.stage.onpointermove=p.stage.onpointerup=p.stage.onpointercancel=null;
+ const d=formsDraft(),t=d.tpl;
+ if(cancel)d.tpl=p.before;
+ else{
+  if(p.kind==='guide'){const g=t.guides,v=g[p.which][p.index],max=p.which==='x'?t.page.w:t.page.h;if(p.out||!(v>0&&v<max)){g[p.which].splice(p.index,1);}if(!g.x.length&&!g.y.length)delete t.guides;}
+  if(JSON.stringify(p.before)!==JSON.stringify(t)){d.undo.push(p.before);if(d.undo.length>80)d.undo.shift();d.redo=[];formsUi.notice='';}
+ }
+ render();
+}
+function formsRulerMarks(tpl){
+ const W=tpl.page.w,H=tpl.page.h,m=tpl.page.margin,pc=(v,of)=>(v/of*100).toFixed(4)+'%',in2=v=>(Math.round(v/72*100)/100)+'″';
+ const mk=(which,cls,pos,title)=>`<span class="fm-mk ${cls}" data-forms-margin="${which}" style="${cls==='x'?'left':'top'}:${pos}" title="${title}" onpointerdown="formsRulerStart(event,'margin','${which}')"></span>`;
+ return `<div class="fm-rgrab x" data-forms-ruler="x" title="Drag down for a guide" onpointerdown="formsRulerStart(event,'new','x')"></div><div class="fm-rgrab y" data-forms-ruler="y" title="Drag right for a guide" onpointerdown="formsRulerStart(event,'new','y')"></div>`+
+  mk('left','x',pc(m.left,W),'Left margin '+in2(m.left))+mk('right','x',pc(W-m.right,W),'Right margin '+in2(m.right))+mk('top','y',pc(m.top,H),'Top margin '+in2(m.top))+mk('bottom','y',pc(H-m.bottom,H),'Bottom margin '+in2(m.bottom));
+}
+function formsGuidesHTML(tpl){
+ const g=tpl.guides||{},W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',in2=v=>(Math.round(v/72*100)/100)+'″';
+ return (g.x||[]).map((v,i)=>`<div class="fm-guide x" data-forms-guide="x${i}" title="Guide ${in2(v)}" style="left:${pc(v,W)}" onpointerdown="formsRulerStart(event,'guide','x',${i})"></div>`).join('')+
+  (g.y||[]).map((v,i)=>`<div class="fm-guide y" data-forms-guide="y${i}" title="Guide ${in2(v)}" style="top:${pc(v,H)}" onpointerdown="formsRulerStart(event,'guide','y',${i})"></div>`).join('');
+}
+
+/* ------------------------------ Лист --------------------------------- */
+function formsRuler(vert,len){
+ let t='';for(let q=0;q*18<=len;q++){const pos=(q*18/len*100).toFixed(3)+'%',big=q%4===0;
+  t+=`<i class="${big?'big':''}" style="${vert?'top':'left'}:${pos}"></i>`+(big&&q?`<b style="${vert?'top':'left'}:${pos}">${q/4}</b>`:'');}
+ return `<div class="fm-ruler ${vert?'y':'x'}" aria-hidden="true">${t}</div>`;
+}
+function formsSheetsHTML(){
+ const s=formsState(),def=formsDef(s.form),tpl=formsDraft().tpl,d=def.doc(s.sample),map=[];
+ let pages;try{pages=def.pages(tpl,d,map);}catch(e){return `<p class="fm-note">Preview failed: ${esc(e.message)}</p>`;}
+ const W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',m=tpl.page.margin;
+ return pages.map((pg,i)=>{
+  const boxes=new Map();
+  map.filter(r=>r.page===i).forEach(r=>{const k=r.part+'|'+r.id,b=boxes.get(k);if(!b)boxes.set(k,Object.assign({},r));else{const x2=Math.max(b.x+b.w,r.x+r.w),y2=Math.max(b.y+b.h,r.y+r.h);b.x=Math.min(b.x,r.x);b.y=Math.min(b.y,r.y);b.w=x2-b.x;b.h=y2-b.y;}});
+  const hits=[...boxes.values()].map(r=>{
+   if(String(r.id).startsWith('col:')){const k=r.id.slice(4),on=s.cols&&s.cols.part===r.part&&s.cols.k===k;
+    return `<div class="fm-hit fm-colhit${on?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="Column" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(r.h,H)}" onpointerdown="event.preventDefault();formsColumns('${esc(r.part)}','${esc(k)}')"></div>`;}
+   const sel=s.sel&&s.sel.part===r.part&&s.sel.id===r.id,b=formsFind(tpl,r);if(!b)return '';
+   const handles=sel?'<span class="fm-rs e" data-forms-resize="e"></span>'+(formIsText(b)?'':'<span class="fm-rs s" data-forms-resize="s"></span>'):'';
+   return `<div class="fm-hit${sel?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="${esc(formsBlockLabel(b))}" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(Math.max(r.h,4),H)}" onpointerdown="formsPointerStart(event,'${esc(r.part)}','${esc(r.id)}')">${handles}</div>`;}).join('');
+  return `<div class="fm-sheet" data-forms-page="${i}" data-w="${W}" data-h="${H}">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}${i?'':formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(tpl)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(tpl)}${hits}</div>`;
+ }).join('');
+}
+function formsStageRefresh(){const st=document.querySelector('[data-forms-stage]');if(st)st.innerHTML=formsSheetsHTML();}
+/* Тянуть блок мышью: Left / Center / Right ходят только вверх-вниз, Free —
+   куда угодно; уголок справа — ширина, снизу — высота рамки и линии. */
+function formsPointerStart(e,part,id){
+ if(e.button!==0||formsPointer)return;
+ const sheet=e.currentTarget.closest('[data-forms-page]'),stage=e.currentTarget.closest('[data-forms-stage]'),d=formsDraft(),b=formsFind(d.tpl,{part,id});if(!sheet||!b)return;
+ e.preventDefault();e.stopPropagation();const s=formsState();s.sel={part,id};s.part=part;
+ const handle=e.target.closest('[data-forms-resize]'),r=sheet.getBoundingClientRect();
+ formsPointer={part,id,pid:e.pointerId,stage,before:formsClone(d.tpl),b0:formsClone(b),x0:formBlockX(d.tpl,b),handle:handle?handle.dataset.formsResize:'move',x:e.clientX,y:e.clientY,k:d.tpl.page.w/r.width,moved:false};
+ try{stage.setPointerCapture(e.pointerId);}catch(x){}
+ stage.onpointermove=formsPointerMove;stage.onpointerup=ev=>formsPointerEnd(ev,false);stage.onpointercancel=ev=>formsPointerEnd(ev,true);
+ formsStageRefresh();
+}
+function formsPointerMove(e){
+ const p=formsPointer;if(!p||e.pointerId!==p.pid)return;e.preventDefault();
+ const b=formsFind(formsDraft().tpl,p),dx=(e.clientX-p.x)*p.k,dy=(e.clientY-p.y)*p.k,r=v=>Math.round(v*2)/2;if(!b)return;
+ if(Math.abs(e.clientX-p.x)+Math.abs(e.clientY-p.y)>2)p.moved=true;if(!p.moved)return;
+ if(p.handle==='e')b.w=Math.max(8,r((p.b0.w||0)+dx));
+ else if(p.handle==='s')b.h=Math.max(0,r((p.b0.h||0)+dy));
+ else{const t=formsDraft().tpl;b.y=r(p.b0.y+dy);
+  if(b.place==='free'){const nx=r(p.x0+dx),gx=formsGuides(t,'x'),sl=formsSnap(nx,gx),sr=formsSnap(nx+(b.w||0),gx)-(b.w||0);b.x=sl!==nx?sl:sr;}}
+ formsStageRefresh();
+}
+function formsPointerEnd(e,cancel){
+ const p=formsPointer;if(!p||e.pointerId!==p.pid)return;formsPointer=null;formsClickUntil=Date.now()+300;
+ try{p.stage.releasePointerCapture(p.pid);}catch(x){}p.stage.onpointermove=p.stage.onpointerup=p.stage.onpointercancel=null;
+ const d=formsDraft();
+ if(cancel)d.tpl=p.before;else if(JSON.stringify(p.before)!==JSON.stringify(d.tpl)){d.undo.push(p.before);if(d.undo.length>80)d.undo.shift();d.redo=[];formsUi.notice='';}
+ render();
+}
+
+/* ---------------------------- Панели --------------------------------- */
+function formsTreeHTML(tpl){
+ const s=formsState();
+ return Object.keys(tpl.parts).map(k=>{const p=tpl.parts[k],lab=FORMS_PARTS[k]||[k,''];
+  const kids=p.columns?`<button type="button" class="fm-node c${s.cols&&s.cols.part===k?' sel':''}" data-forms-columns="${esc(k)}" onclick="formsColumns('${esc(k)}','')">Columns (${p.columns.filter(c=>!c.hide).length})</button>`:(p.blocks||[]).map(b=>`<button type="button" class="fm-node c${s.sel&&s.sel.part===k&&s.sel.id===b.id?' sel':''}" data-forms-node="${esc(k)}|${esc(b.id)}" onclick="formsSelect('${esc(k)}','${esc(b.id)}')">${esc(formsBlockLabel(b))}</button>`).join('');
+  return `<button type="button" class="fm-node p${!s.sel&&s.part===k?' sel':''}" data-forms-part="${esc(k)}" onclick="formsSelect('${esc(k)}','')"><span>${esc(lab[0])}</span><small>${esc(lab[1])}</small></button>${kids}`;}).join('');
+}
+function formsSettingsHTML(tpl){
+ const s=formsState();if(s.cols)return formsColsHTML(tpl);const b=formsFind(tpl,s.sel);
+ if(!b){const lab=FORMS_PARTS[s.part]||[s.part,''];return `<div class="fm-h">Part · ${esc(lab[0])}</div><p class="fm-note">Click a block on the sheet or in the list. Add puts a new block here.</p>`;}
+ const mm=v=>v==null?'':Math.round(v*FORMS_PT_MM*10)/10,f=b.type==='field'||b.type==='barcode'?formsFieldDef(b.field):null,text=formIsText(b);
+ const seg=(cur,list,fn)=>`<div class="fm-seg">${list.map(([k,l])=>`<button type="button" class="${cur===k?'on':''}" onclick="${fn}('${k}')">${l}</button>`).join('')}</div>`;
+ const num=(k,label,v,isMm)=>`<label><span>${label}</span><input class="fm-in" data-forms-num="${k}" inputmode="decimal" value="${esc(String(v))}" onchange="formsNum('${k}',this.value,${isMm?'true':'false'})"></label>`;
+ let what='';
+ if(b.type==='text')what=`<label class="wide"><span>Text</span><textarea class="fm-in" data-forms-text rows="3" onchange="formsSet('text',this.value)">${esc(b.text||'')}</textarea></label><p class="fm-note">Fields in text: {number}, {page} of {pages}</p>`;
+ else if(f||b.type==='field'||b.type==='barcode')what=`<label class="wide"><span>Field</span><button type="button" class="fm-in fm-field-btn" data-forms-change onclick="formsOpenField('change')">${esc(f?f.label:b.field)} ▾</button></label>${b.prefix?`<p class="fm-note">Before: “${esc(b.prefix)}”</p>`:''}`;
+ else if(b.type==='image')what=`<button type="button" class="fm-wide-btn" onclick="document.querySelector('[data-forms-picture]').click()">Replace picture</button>`;
+ const look=text?`<div class="fm-h">Text</div><div class="fm-row">${num('size','Size, pt',b.size||9)}${num('lh','Line spacing, pt',formLh(b))}</div>
+   <label><span>Font</span><select class="fm-in" data-forms-font onchange="formsSet('font',this.value)">${[['','Helvetica'],['times','Times'],['courier','Courier']].map(([k,l])=>`<option value="${k}" ${(b.font||'')===k?'selected':''}>${l}</option>`).join('')}</select></label>
+   <div class="fm-seg"><button type="button" class="${b.bold?'on':''}" onclick="formsToggle('bold')"><b>B</b></button><button type="button" class="${b.italic?'on':''}" data-forms-italic onclick="formsToggle('italic')"><i>I</i></button>${['left','center','right'].map(a=>`<button type="button" class="${(b.align||'left')===a?'on':''}" onclick="formsSet('align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
+   <div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.ink)}" onchange="formsSet('color',this.value)"></label><label class="fm-check"><input type="checkbox" ${b.wrap?'checked':''} onchange="formsToggle('wrap')"><span>Wrap lines</span></label></div>`
+  :b.type==='line'||b.type==='box'?`<div class="fm-h">Line</div><div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.line)}" onchange="formsSet('color',this.value)"></label>${num('lw','Width, pt',b.lw||.6)}</div>${b.type==='box'?`<div class="fm-row"><label><span>Fill</span><input type="color" class="fm-in fm-color" value="${esc(b.fill||'#ffffff')}" onchange="formsSet('fill',this.value==='#ffffff'?'':this.value)"></label>${num('r','Corner, pt',b.r||0)}</div>`:''}`:'';
+ return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete onclick="formsDelete()">Delete</button></div>${what}
+  <div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],'formsPlace')}
+  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>${look}`;
+}
+function viewMdForms(){
+ const s=formsState(),def=formsDef(s.form),d=formsDraft(),tpl=d.tpl,dirty=formsDirty(),samples=def.samples();
+ const ctx=def.context(def.doc(s.sample));
+ const add=[['text','Text'],['field','Field'],['image','Picture'],['line','Line'],['box','Frame'],['barcode','Barcode']];
+ return `<div class="fm" data-forms>
+  <div class="fm-bar"><div class="fm-forms">${formsDefs().map(x=>`<button type="button" class="sl-quick-pill${x.k===s.form?' on':''}" onclick="formsSetForm('${x.k}')">${esc(x.label)}</button>`).join('')}</div><span class="fm-sp"></span>
+   <label class="fm-preview"><span>Preview</span><select data-forms-sample onchange="formsSetSample(this.value)">${samples.length?samples.map(x=>`<option value="${esc(x.id)}" ${x.id===s.sample?'selected':''}>${esc(x.label)}</option>`).join(''):'<option value="sample">Sample</option>'}</select></label>
+   <button type="button" data-forms-undo ${d.undo.length?'':'disabled'} onclick="formsUndo()">Undo</button><button type="button" data-forms-redo ${d.redo.length?'':'disabled'} onclick="formsRedo()">Redo</button><button type="button" data-forms-history onclick="formsVersionsOpen()">History</button><button type="button" data-forms-reset onclick="formsReset()">Reset to default</button>
+   ${dirty?'<span class="fm-dirty" data-forms-dirty>Unsaved changes</span>':s.notice?`<span class="fm-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-forms-save ${dirty?'':'disabled'} onclick="formsSave()">Save</button></div>
+  <div class="fm-grid">
+   <aside class="fm-card fm-left"><div class="fm-h">Add</div><div class="fm-add">${add.map(([k,l])=>`<button type="button" data-forms-add="${k}" onclick="formsAdd('${k}')">+ ${l}</button>`).join('')}</div><input type="file" accept="image/*" hidden data-forms-picture onchange="formsPicture(this)">
+    <div class="fm-h">Parts of the sheet</div><div class="fm-tree">${formsTreeHTML(tpl)}</div></aside>
+   <div class="fm-stage" data-forms-stage>${formsSheetsHTML()}</div>
+   <aside class="fm-card fm-right" data-forms-settings>${formsSettingsHTML(tpl)}</aside>
+  </div>${formsModalHTML(ctx)}${formsVersionsHTML()}</div>`;
+}
+
 /* ==== src/erp/views/cut-layout-ui.js ==== */
 /* =====================================================================
    views/cut-layout-ui  ·  cut-2.0
@@ -49447,11 +50092,14 @@ function shippingFormDefault(){
    {id:'shipTo',type:'field',field:'shipTo',place:'left',y:108,w:540,h:13,size:9,lh:13,wrap:true}]},
   first:{h:14,blocks:[
    {id:'corrections',type:'field',field:'corrections',place:'left',y:0,w:480,h:14,size:8,lh:14,bold:true,color:due,wrap:true}]},
+  /* Колонки — ячейки по порядку от левого поля (formColumns): cw — ширина
+     ячейки, pad — отступ надписи, w — перенос текста. Числа подобраны так,
+     что колонки стоят там же, где стояли в коде (Line 41, Ordered 363…). */
   table:{columns:[
-   {k:'line',label:'Line / Mark',x:41,w:75},{k:'size',label:'Size',x:122,w:84},{k:'makeup',label:'Makeup',x:211,w:99},
-   {k:'ordered',label:'Ordered',x:363,align:'right'},{k:'before',label:'Before',x:401,align:'right'},
-   {k:'now',label:'Now',x:435,align:'right',bold:true},{k:'back',label:'Back order',x:489,align:'right',bold:true,alert:true},
-   {k:'skid',label:'Skid',x:520,w:53}]},
+   {k:'line',label:'Line / Mark',type:'text',cw:81,w:75},{k:'size',label:'Size',type:'text',cw:89,w:84},{k:'makeup',label:'Makeup',type:'text',cw:105,w:99},
+   {k:'ordered',label:'Ordered',type:'num',cw:57},{k:'before',label:'Before',type:'num',cw:38},
+   {k:'now',label:'Now',type:'num',cw:34,bold:true},{k:'back',label:'Back order',type:'num',cw:54,bold:true,alert:true},
+   {k:'skid',label:'Skid',type:'text',cw:82,pad:26,w:53}]},
   totals:{h:93,keep:130,blocks:[
    {id:'skids',type:'field',field:'skids',place:'left',y:0,w:480,h:14,size:8,lh:14,wrap:true},
    {id:'note',type:'field',field:'note',place:'left',y:14,w:480,h:14,size:8,lh:14,wrap:true},
@@ -49470,34 +50118,66 @@ function shippingFormDefault(){
    .concat(card('from',36,'left','FROM','company.name','company.lines'))
    .concat(card('to',311,'right','TO','customer','shipToAddress',[{id:'toDate',type:'field',field:'shipDate',place:'free',x:320,y:141,w:247,h:9,size:7.6,lh:9,color:mut,fit:true}]))},
   skidTable:{columns:[
-   {k:'pos',label:'#',x:41,w:50,bold:true},{k:'line',label:'Line / Mark',x:96,w:70},{k:'size',label:'Size',x:171,w:100},{k:'makeup',label:'Makeup',x:276,w:190},
-   {k:'qty',label:'Qty',x:500,align:'right',bold:true},{k:'kg',label:'kg',x:548,align:'right'}]},
+   {k:'pos',label:'#',type:'text',cw:55,w:50,bold:true},{k:'line',label:'Line / Mark',type:'text',cw:75,w:70},{k:'size',label:'Size',type:'text',cw:105,w:100},{k:'makeup',label:'Makeup',type:'text',cw:200,w:190},
+   {k:'qty',label:'Qty',type:'num',cw:34,bold:true},{k:'kg',label:'kg',type:'num',cw:48}]},
   bottom:{h:67,blocks:[
    {id:'pageNo',type:'text',text:'{number|Skid contents} · {page} / {pages}',place:'right',y:41,w:300,h:13,size:8,color:mut,align:'right'}]}
  }};
 }
-/* Поля бланка: ключ, подпись для конструктора, значение из документа PS. */
+/* Поля бланка: ключ, группа и подпись для конструктора (окно Insert
+   field), значение из документа PS; t:'date' — день, вид выбирает блок. */
 const SHIPPING_FORM_FIELDS=[
- {k:'company.name',label:'Company name',v:d=>d.company.name},
- {k:'company.lines',label:'Company address and contacts',v:d=>d.company.lines},
- {k:'company.logo',label:'Company logo',v:d=>d.company.logo||''},
- {k:'title',label:'Title',v:()=>'PACKING SLIP'},
- {k:'number',label:'Packing slip No.',v:d=>d.number||''},
- {k:'barcode',label:'Packing slip barcode',v:d=>d.number||''},
- {k:'customer',label:'Customer',v:d=>d.customer},
- {k:'shipDate',label:'Date and method',v:d=>docDate(d.date)+' · '+(d.method==='pickup'?'Pickup':'Delivery')},
- {k:'shipToAddress',label:'Ship to address',v:d=>{const a=d.shipTo;return [docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean);}},
- {k:'skid',label:'Skid code',v:()=>''},
- {k:'skidUnits',label:'Skid units and weight',v:()=>''},
- {k:'shipTo',label:'Ship to',v:d=>{const a=d.shipTo;return [a.addressee,docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean);}},
- {k:'corrections',label:'Corrections',v:d=>d.corrections||[]},
- {k:'skids',label:'Skids',v:d=>d.skids.map(s=>s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg')},
- {k:'note',label:'Note',v:d=>d.note||''},
- {k:'skidsProperty',label:'Skids remain our property',v:d=>d.skids.length?shippingCount(d.skids.length,'skid')+' left on site '+(d.skids.length===1?'remains':'remain')+' property of '+(d.company.name||'the supplier')+'.':''}
+ {k:'company.name',g:'Company',label:'Company name',v:d=>d.company.name},
+ {k:'company.lines',g:'Company',label:'Address and contacts',v:d=>d.company.lines},
+ {k:'company.logo',g:'Company',label:'Logo',v:d=>d.company.logo||''},
+ {k:'customer',g:'Customer',label:'Customer',v:d=>d.customer},
+ {k:'shipTo',g:'Customer',label:'Ship to (all lines)',v:d=>{const a=d.shipTo;return [a.addressee,docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean);}},
+ {k:'shipToAddress',g:'Customer',label:'Ship to address',v:d=>{const a=d.shipTo;return [docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean);}},
+ {k:'title',g:'Packing slip',label:'Title',v:()=>'PACKING SLIP'},
+ {k:'number',g:'Packing slip',label:'Packing slip No.',v:d=>d.number||''},
+ {k:'barcode',g:'Packing slip',label:'Barcode',v:d=>d.number||''},
+ {k:'date',g:'Packing slip',label:'Date',t:'date',v:d=>d.date||''},
+ {k:'method',g:'Packing slip',label:'Method',v:d=>d.method==='pickup'?'Pickup':'Delivery'},
+ {k:'shipDate',g:'Packing slip',label:'Date and method',v:d=>docDate(d.date)+' · '+(d.method==='pickup'?'Pickup':'Delivery')},
+ {k:'note',g:'Packing slip',label:'Note',v:d=>d.note||''},
+ {k:'corrections',g:'Packing slip',label:'Corrections',v:d=>d.corrections||[]},
+ {k:'skids',g:'Skids',label:'Skids list',v:d=>d.skids.map(s=>s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg')},
+ {k:'skid',g:'Skids',label:'Skid code',v:()=>''},
+ {k:'skidUnits',g:'Skids',label:'Skid units and weight',v:()=>''},
+ {k:'skidsProperty',g:'Skids',label:'Skids remain ours',v:d=>d.skids.length?shippingCount(d.skids.length,'skid')+' left on site '+(d.skids.length===1?'remains':'remain')+' property of '+(d.company.name||'the supplier')+'.':''}
 ];
+/* Что может стоять в колонке таблицы (конструктор: Shows, + Column). */
+const SHIPPING_TABLE_COLUMNS=[
+ {k:'line',label:'Line / Mark',type:'text',v:r=>String(r.line)+(r.mark?' · '+r.mark:'')},
+ {k:'mark',label:'Mark',type:'text',v:r=>r.mark||''},
+ {k:'size',label:'Size',type:'text',v:r=>r.size},
+ {k:'makeup',label:'Makeup',type:'text',v:r=>r.makeup},
+ {k:'ordered',label:'Ordered',type:'num',v:r=>r.ordered},
+ {k:'before',label:'Before',type:'num',v:r=>r.before},
+ {k:'now',label:'Now',type:'num',v:r=>r.now},
+ {k:'back',label:'Back order',type:'num',v:r=>r.back},
+ {k:'weight',label:'Weight kg',type:'num',v:r=>docNum((r.kg==null?r.knownKg:r.kg)*r.now,1)},
+ {k:'skid',label:'Skid',type:'text',v:r=>r.skids||'—'}];
+const SHIPPING_SKID_COLUMNS=[
+ {k:'pos',label:'#',type:'text',v:r=>r.pos},
+ {k:'line',label:'Line / Mark',type:'text',v:r=>String(r.line)+(r.mark?' · '+r.mark:'')},
+ {k:'mark',label:'Mark',type:'text',v:r=>r.mark||''},
+ {k:'size',label:'Size',type:'text',v:r=>r.size},
+ {k:'makeup',label:'Makeup',type:'text',v:r=>r.makeup},
+ {k:'qty',label:'Qty',type:'num',v:r=>r.now},
+ {k:'kg',label:'kg',type:'num',v:r=>docNum((r.kg==null?r.knownKg:r.kg)*r.now,1)}];
 function shippingFormContext(d){
  const by=new Map(SHIPPING_FORM_FIELDS.map(x=>[x.k,x]));
- return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;}};
+ return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},type:k=>(by.get(k)||{}).t||''};
+}
+/* Шаблон для печати: сохранённый в конструкторе (Data → Company & print →
+   Forms) или по умолчанию. */
+function shippingFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.packingSlip,shippingFormDefault());}
+/* Лист для конструктора, когда PS в базе ещё нет. */
+function shippingFormSample(){
+ return {number:'PS-0001',date:finToday(),method:'delivery',shipTo:{addressee:'Site office',address1:'10 Glass St',city:'Toronto',province:'ON',postalCode:'M1M 1M1',contact:'Pat',phone:'416-555-0100'},customer:'Sample Customer',company:docCompanyBlock(),
+  orders:[{id:'sample',number:'10001',po:'PO-1',state:'complete',rows:[{lineId:'l1',line:1,mark:'Kitchen',size:'36" × 48"',makeup:'6mm Clear Tempered',ordered:2,before:0,now:2,back:0,note:'',kg:25,knownKg:25,skids:'SL-1'},{lineId:'l2',line:2,mark:'',size:'24" × 30"',makeup:'6mm Clear Tempered',ordered:1,before:0,now:1,back:0,note:'',kg:10,knownKg:10,skids:'SL-1'}],extras:[],takes:[]}],
+  skids:[{code:'SL-1',qty:3,kg:60,exact:true,rows:[{order:'10001',po:'PO-1',lineId:'l1',line:1,mark:'Kitchen',size:'36" × 48"',makeup:'6mm Clear Tempered',now:2,kg:25,knownKg:25},{order:'10001',po:'PO-1',lineId:'l2',line:2,mark:'',size:'24" × 30"',makeup:'6mm Clear Tempered',now:1,kg:10,knownKg:10}]}],note:''};
 }
 /* Порядок укладки на скиде: место каждого юнита по его скану на этот скид
    (#1 — положили первым), как в окне скида. Считается при печати, в
@@ -49521,19 +50201,22 @@ function shippingPlaceText(list){
  const r=[];list.slice().sort((a,b)=>a-b).forEach(v=>{const x=r[r.length-1];if(x&&v===x[1]+1)x[1]=v;else r.push([v,v]);});
  return r.map(x=>'#'+(x[0]===x[1]?x[0]:x[0]+'–'+x[1])).join(', ');
 }
-function shippingPages(d,skidOnly){
- const tpl=shippingFormDefault(),f=formFlow(tpl,shippingFormContext(d)),cols=tpl.parts.table.columns,W=f.right-f.left;let activeOrder;
+/* tpl и map — для конструктора: свой черновик шаблона и места блоков. */
+function shippingPages(d,skidOnly,tpl,map){
+ tpl=tpl||shippingFormTemplate();const f=formFlow(tpl,shippingFormContext(d),map),W=f.right-f.left;let activeOrder;
+ const cols=formColumns(tpl.parts.table.columns,f.left),by=new Map(SHIPPING_TABLE_COLUMNS.map(c=>[c.k,c]));
+ /* Шапка таблицы — один раз на лист в места для конструктора (клик по колонке). */
+ const headSeen=new Set(),headMark=(part,list,y)=>{if(!map||headSeen.has(part+f.pages.length))return;headSeen.add(part+f.pages.length);list.forEach(c=>map.push({page:f.pages.length-1,part,id:'col:'+c.k,x:c.start,y:y-11,w:c.cw,h:21}));};
  const line=(text,opts)=>{opts=opts||{};const size=opts.size||9;docWrap(String(text),size,!!opts.bold,W).forEach(t=>{f.ensure(size+5);f.P.text(f.left,f.y,t,opts);f.y+=size+5;});};
- const tableHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});cols.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align||'left'}));f.y+=23;};
- /* Колонки с шириной переносят текст (8 pt), без ширины — число (9 pt). */
- const textCols=cols.filter(c=>c.w),numCols=cols.filter(c=>!c.w);
+ const tableHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});cols.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align}));headMark('table',cols,f.y);f.y+=23;};
+ /* Текст переносится (8 pt), число — одной строкой (9 pt). */
+ const textCols=cols.filter(c=>c.type!=='num'),numCols=cols.filter(c=>c.type==='num'),cell=(c,r)=>{const x=by.get(c.k);const v=x?x.v(r):'';return v==null?'':v;};
  const row=r=>{
-  const val={line:String(r.line)+(r.mark?' · '+r.mark:''),size:r.size,makeup:r.makeup,skid:r.skids||'—',ordered:r.ordered,before:r.before,now:r.now,back:r.back};
-  const wrapped=textCols.map(c=>docWrap(String(val[c.k]==null?'':val[c.k]),8,false,c.w)),lines=Math.max(1,...wrapped.map(a=>a.length)),note=r.note?docWrap(r.note,8,false,W-40):[],h=(lines+note.length)*11+12;
+  const wrapped=textCols.map(c=>docWrap(String(cell(c,r)),c.size||8,!!c.bold,c.w)),lines=Math.max(1,...wrapped.map(a=>a.length)),note=r.note?docWrap(r.note,8,false,W-40):[],h=(lines+note.length)*11+12;
   if(f.y+h>f.bottom-15){f.page();if(activeOrder)line(activeOrder+' · continued',{size:11,bold:true});tableHead();}
-  textCols.forEach((c,n)=>wrapped[n].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,{size:8})));
+  textCols.forEach((c,n)=>wrapped[n].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,Object.assign({size:c.size||8},c.bold?{bold:true}:{},c.align!=='left'?{align:c.align}:{}))));
   note.forEach((t,k)=>f.P.text(f.left+5,f.y+(lines+k)*11,t,{size:8,color:DOC_COLOR.mut}));
-  numCols.forEach(c=>{const v=val[c.k];f.P.text(c.x,f.y,String(v),{size:9,bold:!!c.bold,align:c.align||'right',color:c.alert&&v>0?DOC_COLOR.due:DOC_COLOR.ink});});
+  numCols.forEach(c=>{const v=cell(c,r);f.P.text(c.x,f.y,String(v),{size:c.size||9,bold:!!c.bold,align:c.align,color:c.alert&&v>0?DOC_COLOR.due:DOC_COLOR.ink});});
   f.y+=h;f.P.line(f.left,f.y-6,f.right,f.y-6);
  };
  if(!skidOnly){
@@ -49546,13 +50229,14 @@ function shippingPages(d,skidOnly){
   if(!d.orders.length)line('Open trip · no items selected');
   f.flow('totals');
  }
- const sc=tpl.parts.skidTable.columns,places=shippingSkidPlaces(d),oid=new Map(d.orders.map(o=>[o.number,o.id])),key=r=>oid.get(r.order)+'|'+r.lineId;
- const skidHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});sc.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align||'left'}));f.y+=23;};
- const skidRow=(val,group)=>{
-  const tc=sc.filter(c=>c.w),wr=tc.map(c=>docWrap(String(val[c.k]==null?'':val[c.k]),8,!!c.bold,c.w)),n=Math.max(1,...wr.map(a=>a.length)),h=n*11+12;
+ const sc=formColumns(tpl.parts.skidTable.columns,f.left),sby=new Map(SHIPPING_SKID_COLUMNS.map(c=>[c.k,c])),places=shippingSkidPlaces(d),oid=new Map(d.orders.map(o=>[o.number,o.id])),key=r=>oid.get(r.order)+'|'+r.lineId;
+ const skidHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});sc.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align}));headMark('skidTable',sc,f.y);f.y+=23;};
+ const skidRow=(r,group)=>{
+  const v=c=>{const x=sby.get(c.k);const t=x?x.v(r):'';return t==null?'':t;};
+  const tc=sc.filter(c=>c.type!=='num'),wr=tc.map(c=>docWrap(String(v(c)),c.size||8,!!c.bold,c.w)),n=Math.max(1,...wr.map(a=>a.length)),h=n*11+12;
   if(f.y+h>f.bottom-15){f.page();line(group+' · continued',{size:11,bold:true});skidHead();}
-  tc.forEach((c,i)=>wr[i].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,{size:8,bold:!!c.bold})));
-  sc.filter(c=>!c.w).forEach(c=>f.P.text(c.x,f.y,String(val[c.k]),{size:9,bold:!!c.bold,align:c.align||'right'}));
+  tc.forEach((c,i)=>wr[i].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,Object.assign({size:c.size||8,bold:!!c.bold},c.align!=='left'?{align:c.align}:{}))));
+  sc.filter(c=>c.type==='num').forEach(c=>f.P.text(c.x,f.y,String(v(c)),{size:c.size||9,bold:!!c.bold,align:c.align}));
   f.y+=h;f.P.line(f.left,f.y-6,f.right,f.y-6);
  };
  d.skids.filter(s=>!skidOnly||s.code===skidOnly).forEach(s=>{
@@ -49564,7 +50248,7 @@ function shippingPages(d,skidOnly){
   groups.forEach(g=>g.rows.sort((a,b)=>at(a)-at(b)));groups.sort((a,b)=>at(a.rows[0])-at(b.rows[0]));
   groups.forEach(g=>{
    f.ensure(75);line(g.key,{size:11,bold:true});skidHead();
-   g.rows.forEach(r=>skidRow({pos:pos?shippingPlaceText(pos.get(key(r))||[]):'',line:String(r.line)+(r.mark?' · '+r.mark:''),size:r.size,makeup:r.makeup,qty:r.now,kg:docNum((r.kg==null?r.knownKg:r.kg)*r.now,1)},g.key));
+   g.rows.forEach(r=>skidRow(Object.assign({},r,{pos:pos?shippingPlaceText(pos.get(key(r))||[]):''}),g.key));
    f.y+=12;
   });
   f.ensure(30);const q=sc.find(c=>c.k==='qty'),kg=sc.find(c=>c.k==='kg');
@@ -55632,6 +56316,7 @@ function validateImportedState(src){
  if(typeof validateSkipPayload==='function')validateSkipPayload(src);
  if(typeof validateProductionUnbatchPayload==='function')validateProductionUnbatchPayload(src);
  if(typeof validateStickerPayload==='function')validateStickerPayload(src);
+ if(typeof validateFormTemplatePayload==='function')validateFormTemplatePayload(src);
 
  if(typeof validateCuttingPayload==='function')validateCuttingPayload(src);
 
@@ -55749,6 +56434,7 @@ function normalizeDB(){
  if(typeof normalizeNcrReasons==='function')normalizeNcrReasons();
  if(typeof normalizeStockReasons==='function')normalizeStockReasons();
  if(typeof normalizeStickerTemplates==='function')normalizeStickerTemplates();
+ if(typeof normalizeFormTemplates==='function')normalizeFormTemplates();
 
  if(typeof normalizeCutting==='function')normalizeCutting();
 
