@@ -55,49 +55,91 @@ function shippingDocument(s){
  return shippingUnbatchDocument(s,{number:s.number,date:s.date,method:s.method,shipTo:shippingClone(s.shipTo),customer:salesCustomerDisplay(s.customerId),company:docCompanyBlock(),orders,skids,note:s.note||''});
 }
 function shippingNeedsReprint(s){return !!s.printedAt&&s.printedSignature!==JSON.stringify(shippingDocument(s));}
+/* Шаблон Packing slip по умолчанию (этап 7): числа подобраны так, что лист
+   выходит точка в точку как прежний, нарисованный кодом (сверено на
+   выгрузках 05.11.2026). y текста — линия букв от верха части. Строки
+   итогов прежний код печатал 8 pt с шагом 14 и переносом 9 pt на 540 —
+   это тот же перенос, что 8 pt на 480. */
+function shippingFormDefault(){
+ const ink=DOC_COLOR.ink,mut=DOC_COLOR.mut,due=DOC_COLOR.due;
+ return {form:'packingSlip',page:{w:612,h:792,margin:{top:30,right:36,bottom:67,left:36}},parts:{
+  every:{h:133,blocks:[
+   {id:'company',type:'field',field:'company.name',place:'left',y:14,w:320,h:20,size:13,lh:20,bold:true,fit:true,empty:'Glass Farm'},
+   {id:'title',type:'field',field:'title',place:'right',y:14,w:320,h:20,size:17,lh:20,bold:true,align:'right'},
+   {id:'number',type:'field',field:'number',place:'right',y:34,w:320,h:11,size:13,lh:11,bold:true,align:'right',empty:'Not assigned'},
+   {id:'barcode',type:'barcode',field:'barcode',place:'right',y:45,w:200,h:30,align:'right'},
+   {id:'companyLines',type:'field',field:'company.lines',place:'left',y:34,w:330,h:33,size:8,lh:11,color:mut,fit:true,max:3},
+   {id:'customer',type:'field',field:'customer',place:'left',y:91,w:300,h:17,size:12,lh:17,bold:true},
+   {id:'shipDate',type:'field',field:'shipDate',place:'right',y:91,w:300,h:17,size:9,lh:17,align:'right'},
+   {id:'shipTo',type:'field',field:'shipTo',place:'left',y:108,w:540,h:13,size:9,lh:13,wrap:true}]},
+  first:{h:14,blocks:[
+   {id:'corrections',type:'field',field:'corrections',place:'left',y:0,w:480,h:14,size:8,lh:14,bold:true,color:due,wrap:true}]},
+  table:{columns:[
+   {k:'line',label:'Line / Mark',x:41,w:75},{k:'size',label:'Size',x:122,w:84},{k:'makeup',label:'Makeup',x:211,w:99},
+   {k:'ordered',label:'Ordered',x:363,align:'right'},{k:'before',label:'Before',x:401,align:'right'},
+   {k:'now',label:'Now',x:435,align:'right',bold:true},{k:'back',label:'Back order',x:489,align:'right',bold:true,alert:true},
+   {k:'skid',label:'Skid',x:520,w:53}]},
+  totals:{h:93,keep:130,blocks:[
+   {id:'skids',type:'field',field:'skids',place:'left',y:0,w:480,h:14,size:8,lh:14,wrap:true},
+   {id:'note',type:'field',field:'note',place:'left',y:14,w:480,h:14,size:8,lh:14,wrap:true},
+   {id:'received',type:'text',text:'Received by ____________________    Signature ____________________',place:'left',y:43,w:480,h:14,size:8,lh:14,wrap:true},
+   {id:'receivedAt',type:'text',text:'Date and time ____________________',place:'left',y:57,w:480,h:14,size:8,lh:14,wrap:true},
+   {id:'skidsProperty',type:'field',field:'skidsProperty',place:'left',y:80,w:540,h:13,size:8,color:mut,wrap:true}]},
+  bottom:{h:67,blocks:[
+   {id:'pageNo',type:'text',text:'{number|Skid contents} · {page} / {pages}',place:'right',y:41,w:300,h:13,size:8,color:mut,align:'right'}]}
+ }};
+}
+/* Поля бланка: ключ, подпись для конструктора, значение из документа PS. */
+const SHIPPING_FORM_FIELDS=[
+ {k:'company.name',label:'Company name',v:d=>d.company.name},
+ {k:'company.lines',label:'Company address and contacts',v:d=>d.company.lines},
+ {k:'company.logo',label:'Company logo',v:d=>d.company.logo||''},
+ {k:'title',label:'Title',v:()=>'PACKING SLIP'},
+ {k:'number',label:'Packing slip No.',v:d=>d.number||''},
+ {k:'barcode',label:'Packing slip barcode',v:d=>d.number||''},
+ {k:'customer',label:'Customer',v:d=>d.customer},
+ {k:'shipDate',label:'Date and method',v:d=>docDate(d.date)+' · '+(d.method==='pickup'?'Pickup':'Delivery')},
+ {k:'shipTo',label:'Ship to',v:d=>{const a=d.shipTo;return [a.addressee,docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean);}},
+ {k:'corrections',label:'Corrections',v:d=>d.corrections||[]},
+ {k:'skids',label:'Skids',v:d=>d.skids.map(s=>s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg')},
+ {k:'note',label:'Note',v:d=>d.note||''},
+ {k:'skidsProperty',label:'Skids remain our property',v:d=>d.skids.length?shippingCount(d.skids.length,'skid')+' left on site '+(d.skids.length===1?'remains':'remain')+' property of '+(d.company.name||'the supplier')+'.':''}
+];
+function shippingFormContext(d){
+ const by=new Map(SHIPPING_FORM_FIELDS.map(x=>[x.k,x]));
+ return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;}};
+}
 function shippingPages(d,skidOnly){
- const pages=[];let P,y,pageTitle,activeOrder;
- const line=(text,opts)=>{opts=opts||{};const size=opts.size||9;const lines=docWrap(String(text),size,!!opts.bold,540);lines.forEach(t=>{ensure(size+5);P.text(36,y,t,opts);y+=size+5;});};
- const header=title=>{
-  pageTitle=title;P=docPage();pages.push(P);P.text(36,44,docFit(d.company.name||'Glass Farm',13,true,320),{size:13,bold:true});
-  P.text(576,44,title,{size:17,bold:true,align:'right'});P.text(576,64,d.number||'Not assigned',{size:13,bold:true,align:'right'});
-  /* Штрихкод у правого края, под номером; полоса 0.02″ читается любым сканером. */
-  if(d.number&&title==='PACKING SLIP')P.items.push(...barcode128Items(d.number,576-(barcode128Width(d.number)-BARCODE128_QUIET)*1.44,75,30,1.44));
-  y=64;d.company.lines.slice(0,3).forEach(t=>{P.text(36,y,docFit(t,8,false,330),{size:8,color:DOC_COLOR.mut});y+=11;});y=Math.max(y+8,121);
-  P.text(36,y,d.customer,{size:12,bold:true});P.text(576,y,docDate(d.date)+' · '+(d.method==='pickup'?'Pickup':'Delivery'),{size:9,align:'right'});y+=17;
-  const a=d.shipTo;[a.addressee,docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean).forEach(t=>{docWrap(t,9,false,540).forEach(t=>{P.text(36,y,t,{size:9});y+=13;});});y+=12;
- };
- const ensure=h=>{if(y+h>725)header(pageTitle);};
- const tableHead=()=>{ensure(30);P.rect(36,y-11,540,21,{fill:DOC_COLOR.bar});['Line / Mark','Size','Makeup','Ordered','Before','Now','Back order','Skid'].forEach((t,n)=>P.text([41,122,211,363,401,435,489,520][n],y+2,t,{size:7,bold:true,align:n>=3&&n<=6?'right':'left'}));y+=23;};
+ const tpl=shippingFormDefault(),f=formFlow(tpl,shippingFormContext(d)),cols=tpl.parts.table.columns,W=f.right-f.left;let activeOrder;
+ const line=(text,opts)=>{opts=opts||{};const size=opts.size||9;docWrap(String(text),size,!!opts.bold,W).forEach(t=>{f.ensure(size+5);f.P.text(f.left,f.y,t,opts);f.y+=size+5;});};
+ const tableHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});cols.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align||'left'}));f.y+=23;};
+ /* Колонки с шириной переносят текст (8 pt), без ширины — число (9 pt). */
+ const textCols=cols.filter(c=>c.w),numCols=cols.filter(c=>!c.w);
  const row=r=>{
-  const texts=[String(r.line)+(r.mark?' · '+r.mark:''),r.size,r.makeup,r.skids||'—'],widths=[75,84,99,53];
-  const wrapped=texts.map((t,n)=>docWrap(t,8,false,widths[n])),lines=Math.max(...wrapped.map(a=>a.length)),note=r.note?docWrap(r.note,8,false,500):[],h=(lines+note.length)*11+12;
-  if(y+h>710){header(pageTitle);if(activeOrder)line(activeOrder+' · continued',{size:11,bold:true});tableHead();}
-  [41,122,211,520].forEach((x,n)=>wrapped[n].forEach((t,k)=>P.text(x,y+k*11,t,{size:8})));
-  note.forEach((t,k)=>P.text(41,y+(lines+k)*11,t,{size:8,color:DOC_COLOR.mut}));
-  [r.ordered,r.before,r.now,r.back].forEach((v,n)=>P.text([363,401,435,489][n],y,String(v),{size:9,bold:n>=2,align:'right',color:n===3&&v>0?DOC_COLOR.due:DOC_COLOR.ink}));
-  y+=h;P.line(36,y-6,576,y-6);
+  const val={line:String(r.line)+(r.mark?' · '+r.mark:''),size:r.size,makeup:r.makeup,skid:r.skids||'—',ordered:r.ordered,before:r.before,now:r.now,back:r.back};
+  const wrapped=textCols.map(c=>docWrap(String(val[c.k]==null?'':val[c.k]),8,false,c.w)),lines=Math.max(1,...wrapped.map(a=>a.length)),note=r.note?docWrap(r.note,8,false,W-40):[],h=(lines+note.length)*11+12;
+  if(f.y+h>f.bottom-15){f.page();if(activeOrder)line(activeOrder+' · continued',{size:11,bold:true});tableHead();}
+  textCols.forEach((c,n)=>wrapped[n].forEach((t,k)=>f.P.text(c.x,f.y+k*11,t,{size:8})));
+  note.forEach((t,k)=>f.P.text(f.left+5,f.y+(lines+k)*11,t,{size:8,color:DOC_COLOR.mut}));
+  numCols.forEach(c=>{const v=val[c.k];f.P.text(c.x,f.y,String(v),{size:9,bold:!!c.bold,align:c.align||'right',color:c.alert&&v>0?DOC_COLOR.due:DOC_COLOR.ink});});
+  f.y+=h;f.P.line(f.left,f.y-6,f.right,f.y-6);
  };
  if(!skidOnly){
-  header('PACKING SLIP');
-  (d.corrections||[]).forEach(text=>line(text,{bold:true,color:DOC_COLOR.due}));
+  f.page();f.flow('first');
   d.orders.forEach(o=>{
-   ensure(75);activeOrder='Order '+o.number+(o.po?' · PO '+o.po:'')+' · '+o.state;line(activeOrder,{size:11,bold:true});tableHead();o.rows.forEach(row);
-   o.extras.forEach(x=>{ensure(40);line('From stock · '+x.name,{bold:true});line('Ordered '+x.ordered+' · Before '+x.before+' · Now '+x.now+' · Back order '+x.back,{color:x.back?DOC_COLOR.due:DOC_COLOR.ink});});
-   (o.takes||[]).forEach(x=>{ensure(25);line('Cancelled, customer takes · Line '+x.line+' · '+x.size+' · '+x.pieces+' glass',{bold:true});});y+=12;
+   f.ensure(75);activeOrder='Order '+o.number+(o.po?' · PO '+o.po:'')+' · '+o.state;line(activeOrder,{size:11,bold:true});tableHead();o.rows.forEach(row);
+   o.extras.forEach(x=>{f.ensure(40);line('From stock · '+x.name,{bold:true});line('Ordered '+x.ordered+' · Before '+x.before+' · Now '+x.now+' · Back order '+x.back,{color:x.back?DOC_COLOR.due:DOC_COLOR.ink});});
+   (o.takes||[]).forEach(x=>{f.ensure(25);line('Cancelled, customer takes · Line '+x.line+' · '+x.size+' · '+x.pieces+' glass',{bold:true});});f.y+=12;
   });
   if(!d.orders.length)line('Open trip · no items selected');
-  ensure(130);d.skids.forEach(s=>line(s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg'));
-  if(d.note)line(d.note);
-  y+=15;line('Received by ____________________    Signature ____________________');line('Date and time ____________________');y+=9;
-  if(d.skids.length)line(shippingCount(d.skids.length,'skid')+' left on site '+(d.skids.length===1?'remains':'remain')+' property of '+(d.company.name||'the supplier')+'.',{size:8,color:DOC_COLOR.mut});
+  f.flow('totals');
  }
  d.skids.filter(s=>!skidOnly||s.code===skidOnly).forEach(s=>{
-  header('SKID CONTENTS');P.text(36,y+35,s.code,{size:40,bold:true});y+=65;
+  f.page({title:'SKID CONTENTS',barcode:''});f.P.text(f.left,f.y+35,s.code,{size:40,bold:true});f.y+=65;
   line(shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg',{size:12});
-  s.rows.forEach(r=>{ensure(75);line('Order '+r.order+(r.po?' · PO '+r.po:''),{size:11,bold:true});line('Line '+r.line+(r.mark?' · '+r.mark:'')+' · '+r.size+' · Qty '+r.now,{bold:true});line(r.makeup);y+=9;});
+  s.rows.forEach(r=>{f.ensure(75);line('Order '+r.order+(r.po?' · PO '+r.po:''),{size:11,bold:true});line('Line '+r.line+(r.mark?' · '+r.mark:'')+' · '+r.size+' · Qty '+r.now,{bold:true});line(r.makeup);f.y+=9;});
  });
- pages.forEach((p,n)=>p.text(576,766,(d.number||'Skid contents')+' · '+(n+1)+' / '+pages.length,{size:8,align:'right',color:DOC_COLOR.mut}));return pages;
+ return f.finish();
 }
 function shippingShowPrint(pages){
  const h=docPrintHost();h.innerHTML=pages.map(p=>'<div class="doc-print-page">'+docPageSVG(p)+'</div>').join('');document.body.classList.add('doc-printing');

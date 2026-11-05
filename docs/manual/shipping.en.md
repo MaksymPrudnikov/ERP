@@ -30,3 +30,12 @@ by dragging the header, and the total at the bottom — like Sales.
 
 The dolly / skid window: **#1** (put on first) is on top; widths and order of its columns drag in the header; Columns
 adds or removes them.
+
+## The packing slip form
+
+The sheet is built from a template in parts: the top of every page (company, PACKING SLIP, the number with its barcode,
+customer, date and method, address), the top of the first page (corrections after Unbatch), the table by order (Line /
+Mark, Size, Makeup, Ordered, Before, Now, Back order, Skid), the totals (skids and weight, the note, Received by /
+Signature, Date and time, skids remain ours) and the bottom of the page (number · page / pages). Skid sheets follow
+with the same top, the title SKID CONTENTS and no barcode. The default template prints the same as before. The template
+will be edited in the form builder, Data → Company & print → Forms (next step).
