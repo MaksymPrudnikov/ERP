@@ -3,8 +3,12 @@
    Отчёт за прошлые месяцы без стены (задание правок 02.11, 7б). Записи
    ушедших заказов в DB больше не ставятся: архив читается частями в фоне,
    из каждой части считаются строки отчёта (те же функции фактов), записи
-   выгружаются. Строки закрытого месяца лежат на диске (склад facts) —
-   повторное открытие читает только их.
+   выгружаются. Строки закрытого месяца лежат на диске (склад facts) и на
+   сервере (erp_report_month, владелец 04.11.2026: закрытие месяца, как в
+   больших ERP) — повторное открытие и другой компьютер читают только их.
+   Порядок: диск → сервер → посчитать из заказов и положить в оба места.
+   Месяц считается сразу для всех функций фактов; главная вкладка с сервером
+   сама досчитывает недостающие месяцы в фоне (archiveFactsFill).
    IN : archiveIndex (erp/archive), записи cold, функции фактов reports/*
    OUT: archiveScopeFor(ranges, need) → 'none' | 'loading' | 'ready',
         archiveScopeDrop(), archiveScopeCount(ranges), archiveFactsText(st),
@@ -90,11 +94,74 @@ function archColsOf(rows){
  const cols={};keys.forEach(k=>{const vals=rows.map(r=>r[k]);if(vals.some(v=>v!=null&&typeof v==='object'))return;cols[k]=archColPack(vals);});
  return cols;
 }
+/* Версия правил подсчёта. Метка месяца — она и отпечаток его заказов:
+   номер сборки, прайс, клиенты, каталог месяц не пересчитывают (владелец
+   04.11.2026, вариант А: прошлое в отчётах как было). PR, который меняет
+   функции фактов, ARCH_GENS или расчёт части, поднимает её руками — все
+   месяцы пересчитаются один раз, на каждом компьютере и на сервере. */
+const ARCH_RULES=1;
+const ARCH_ALL=Object.keys(ARCH_GENS);
 function archFactsGet(keys){return storageIdbTx(['facts'],'readonly',tx=>{const st=tx.objectStore('facts'),out={v:new Array(keys.length)};keys.forEach((k,i)=>{st.get(k).onsuccess=e=>{out.v[i]=e.target.result;};});return out;}).then(o=>o.v);}
-/* Запись месяца: заголовок последним — без него столбцы не читаются. */
-function archFactsPut(gen,month,stamp,rows){
- const cols=archColsOf(rows);
- return storageIdbTx(['facts'],'readwrite',tx=>{const st=tx.objectStore('facts');Object.entries(cols).forEach(([k,c])=>st.put(c,'c|'+gen+'|'+month+'|'+k));st.put({stamp,n:rows.length,keys:Object.keys(cols)},'h|'+gen+'|'+month);}).then(()=>cols);
+/* Запись месяца: заголовок последним — без него столбцы не читаются. Диск
+   полон — отчёт всё равно строится: столбцы из памяти. */
+async function archFactsStore(gen,month,stamp,n,cols){
+ const head={stamp,n,keys:Object.keys(cols)};
+ try{await storageIdbTx(['facts'],'readwrite',tx=>{const st=tx.objectStore('facts');Object.entries(cols).forEach(([k,c])=>st.put(c,'c|'+gen+'|'+month+'|'+k));st.put(head,'h|'+gen+'|'+month);});}
+ catch(e){console.warn('Report rows were not stored:',e.message);}
+ return Object.assign(head,{cols});
+}
+/* Все столбцы месяца с диска (отправить на сервер). */
+async function archFactsCols(gen,month,head){
+ if(head.cols)return head.cols;
+ const list=await archFactsGet(head.keys.map(k=>'c|'+gen+'|'+month+'|'+k));
+ return list.every(Boolean)?Object.fromEntries(head.keys.map((k,i)=>[k,list[i]])):null;
+}
+
+/* ------------------------- Месяцы на сервере -------------------------- */
+/* Столбцы → текст: описание (JSON) и байты чисел и номеров подряд, gzip,
+   base64. Месяц «Glass cut» — сотни КБ, не десятки МБ записей заказов. */
+function archB64(u8){let s='';for(let i=0;i<u8.length;i+=32768)s+=String.fromCharCode.apply(null,u8.subarray(i,i+32768));return btoa(s);}
+function archUnB64(s){const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
+async function archZip(u8,how){return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(how)).arrayBuffer());}
+async function archPack(n,cols){
+ const meta={n,c:{}},bins=[];let at=0;
+ Object.entries(cols).forEach(([k,c])=>{const f=c instanceof Float64Array,a=f?c:c.i;meta.c[k]=f?{o:at,l:a.length}:{o:at,l:a.length,d:c.d};bins.push(new Uint8Array(a.buffer,a.byteOffset,a.byteLength));at+=a.byteLength;});
+ const head=new TextEncoder().encode(JSON.stringify(meta)),buf=new Uint8Array(4+head.length+at);
+ new DataView(buf.buffer).setUint32(0,head.length,true);buf.set(head,4);let o=4+head.length;bins.forEach(b=>{buf.set(b,o);o+=b.length;});
+ return 'z:'+archB64(await archZip(buf,new CompressionStream('gzip')));
+}
+async function archUnpack(text){
+ if(!/^z:/.test(text))throw new Error('Unknown report month format.');
+ const buf=await archZip(archUnB64(text.slice(2)),new DecompressionStream('gzip')),len=new DataView(buf.buffer).getUint32(0,true);
+ const meta=JSON.parse(new TextDecoder().decode(buf.subarray(4,4+len))),base=4+len,cols={};
+ Object.entries(meta.c).forEach(([k,c])=>{const b=buf.slice(base+c.o,base+c.o+c.l*(c.d?4:8)).buffer;cols[k]=c.d?{d:c.d,i:new Uint32Array(b)}:new Float64Array(b);});
+ return {n:meta.n,cols};
+}
+/* Кто читает: SQL ещё не вставлен или нет связи — как раньше, считать
+   самим (server false). Не видит всех таблиц — сервер ему не отдаёт и не
+   берёт, а его месяцы на диске помечены им: без оплат они не годятся тому,
+   кто оплаты видит. */
+let archAccess=null;
+async function archAccessOf(){
+ if(typeof cloudSync==='undefined'||!cloudSync.on||typeof CompressionStream==='undefined')return {server:false,full:false,who:''};
+ const email=(cloudConfig().session||{}).email||'';
+ if(archAccess&&archAccess.email===email&&Date.now()-archAccess.at<(archAccess.server?60:10)*60e3)return archAccess;
+ let a={server:false,full:false,who:''};
+ try{const r=await cloudRpc('erp_facts_get',{keys:[],with_data:false});a={server:true,full:!!(r&&r.full),who:r&&r.full?'':'p:'+email};}
+ catch(e){console.warn('Report months are counted here:',e.message);}
+ return archAccess=Object.assign(a,{email,at:Date.now()});
+}
+async function archServerGet(keys,data){
+ const out=[];
+ for(let i=0;i<keys.length;i+=100){const r=await cloudRpc('erp_facts_get',{keys:keys.slice(i,i+100),with_data:data});(r&&r.rows||[]).forEach(x=>out.push(x));}
+ return out;
+}
+/* Месяц на сервер — источник за запросом, по очереди. */
+let archSend=Promise.resolve();
+function archServerSend(gen,month,stamp,head){
+ archSend=archSend.then(async()=>{const cols=await archFactsCols(gen,month,head);if(cols)await cloudRpc('erp_facts_put',{items:[{key:'g|'+gen+'|'+month,stamp,data:await archPack(head.n,cols)}]});})
+  .catch(e=>console.warn('Report month was not sent:',e.message));
+ return archSend;
 }
 
 /* ------------------------- Период отчёта ------------------------------ */
@@ -107,7 +174,7 @@ function archiveScopeFor(ranges,need){
  if(!months.length){archiveScopeDrop();return 'none';}
  const key=months.map(x=>x.m).join()+'|'+[...need].map(([g,k])=>g+':'+[...k].sort().join()).sort().join(';')+'|'+archiveIndex.size;
  if(archiveScope&&archiveScope.key===key)return archiveScope.ready?'ready':'loading';
- const st=archiveScope={key,months,orders:archiveScopeCount(ranges),done:0,pct:0,rows:new Map(),merged:new Map(),hot:null,ready:false};
+ const st=archiveScope={key,months,orders:archiveScopeCount(ranges),done:0,pct:0,rows:new Map(),merged:new Map(),job:null,ready:false};
  archiveFactsBuild(st,need).catch(e=>{if(archiveScope===st)archiveScope=null;console.warn('Archive was not read:',e.message);});
  return 'loading';
 }
@@ -130,12 +197,9 @@ function archiveMonths(ranges){
  archiveIndex.forEach((a,id)=>{const m=a.groupId?groups.get(a.groupId):monthOf(a);let l=months.get(m);if(!l)months.set(m,l=[]);l.push(id);if(archiveSpanIn(a,ranges))hit.add(m);});
  return [...hit].sort().map(m=>({m,owners:months.get(m)}));
 }
-/* Отпечаток того, что не в записях заказа и попало в строки: версия кода,
-   прайс, поля клиента, каталог стекла. */
-function archiveFactsBase(){
- const c=(DB.customer||[]).map(x=>{const i=repCustomerInfo(x.id);return x.id+i.rep+i.city+i.province+i.ctype;}).join(','),g=(DB.glassProduct||[]).map(x=>x&&x.id+(x.manufacturer||'')).join(',');
- return [storageBuildId(),repCatalogStamp(),archHash(c),archHash(g),archHash(JSON.stringify(DB.tripKm||[]))].join('|');
-}
+/* Метка месяца без заказов: версия правил и, если человек видит не все
+   таблицы, он сам. */
+function archiveFactsBase(acc){return 'v'+ARCH_RULES+(acc&&acc.who?'|'+acc.who:'');}
 function archiveMonthStamp(base,mo){return base+'|'+mo.owners.length+'|'+archHash(mo.owners.map(id=>id+(archiveIndex.get(id).archivedAt||'')).sort().join(','));}
 /* Части месяца: квота с группой не разрываются. */
 function archiveParts(owners){
@@ -165,10 +229,11 @@ function archiveHotFor(ix,owners){
    чтения отчёт считал бы работу заново. */
 function archiveCalcSaved(){return [repWorkCache,repWorkDayCache,repOpCache,repBreakCache,repOrderCache,repOrderedCache,repDeliveryCache,repTimeCache,repQuoteCache,repPayCache,repBatchCache,repMoveCache,repIguCache,repSheetCutCache,repSoldCache,repSoldByOrder];}
 function archiveCalcBack(x){[repWorkCache,repWorkDayCache,repOpCache,repBreakCache,repOrderCache,repOrderedCache,repDeliveryCache,repTimeCache,repQuoteCache,repPayCache,repBatchCache,repMoveCache,repIguCache,repSheetCutCache,repSoldCache,repSoldByOrder]=x;}
+/* Записи части по таблицам, по порядку строк. */
+function archiveParse(recs){const by=new Map();recs.slice().sort((a,b)=>a.seq-b.seq).forEach(r=>{let a=by.get(r.tbl);if(!a)by.set(r.tbl,a=[]);a.push(JSON.parse(r.data));});return by;}
 /* Строки части по каждой функции фактов — на подменённых таблицах. */
-function archiveCalc(recs,owners,gens,ix){
- const by=new Map(),set=new Set(owners);
- recs.sort((a,b)=>a.seq-b.seq).forEach(r=>{let a=by.get(r.tbl);if(!a)by.set(r.tbl,a=[]);a.push(JSON.parse(r.data));});
+function archiveCalc(by,owners,gens,ix){
+ const set=new Set(owners);
  const hot=archiveHotFor(ix,owners),keep=new Map(),saved=archiveCalcSaved(),swap=(t,rows)=>{keep.set(t,DB[t]);DB[t]=rows;};
  ARCH_OWN.forEach(t=>swap(t,by.get(t)||[]));
  by.forEach((rows,t)=>{if(!ARCH_OWN.includes(t))swap(t,(hot[t]||DB[t]||[]).concat(rows));});
@@ -179,35 +244,55 @@ function archiveCalc(recs,owners,gens,ix){
  }finally{keep.forEach((rows,t)=>{DB[t]=rows;});archiveCalcOn=false;storageInvalidate();archiveCalcBack(saved);}
 }
 /* Накладная на несколько заказов: вес считается по всем её заказам, даже
-   ушедшим другой частью — их заказы читаются только для этой строки. */
-async function archiveCalcPart(st,owners,gens){
- const recs=await archiveRead(owners),rest=gens.filter(g=>g!=='delivery'),out=new Map();
- if(rest.length)archiveCalc(recs,owners,rest,st.hot).forEach((rows,i)=>out.set(rest[i],rows));
- if(gens.includes('delivery')){
-  const own=new Set(owners),more=[...new Set(recs.filter(r=>r.tbl==='shipment').flatMap(r=>r.owners||[]))].filter(id=>!own.has(id)&&archiveIndex.has(id));
-  const extra=more.length?(await archiveRead(more)).filter(r=>r.tbl==='salesOrder'):[];
-  out.set('delivery',archiveCalc(recs.concat(extra),owners,['delivery'],st.hot)[0]);
+   ушедшим другой частью — их заказы читаются только для этой строки. Между
+   функциями — пауза (rest): экран свободен. */
+async function archiveCalcPart(ix,owners,gens,rest){
+ const recs=await archiveRead(owners,true),by=archiveParse(recs),out=new Map();
+ for(const g of gens){
+  if(g==='delivery'){
+   const own=new Set(owners),more=[...new Set(recs.filter(r=>r.tbl==='shipment').flatMap(r=>r.owners||[]))].filter(id=>!own.has(id)&&archiveIndex.has(id));
+   const extra=more.length?(await archiveRead(more,true)).filter(r=>r.tbl==='salesOrder'):[];
+   out.set(g,archiveCalc(extra.length?archiveParse(recs.concat(extra)):by,owners,[g],ix)[0]);
+  }else out.set(g,archiveCalc(by,owners,[g],ix)[0]);
+  await new Promise(r=>setTimeout(r,rest()));
  }
  return out;
 }
-/* Строки месяца: с диска или посчитать по частям и записать. */
-async function archiveMonthCols(st,mo,gens,base){
- const stamp=archiveMonthStamp(base,mo),heads=await archFactsGet(gens.map(g=>'h|'+g+'|'+mo.m)),out=new Map(),todo=[];
- gens.forEach((g,i)=>{const h=heads[i];if(h&&h.stamp===stamp)out.set(g,h);else todo.push(g);});
- if(todo.length){
-  const parts=archiveParts(mo.owners),all=new Map(todo.map(g=>[g,[]]));
-  for(let i=0;i<parts.length;i++){
-   if(archiveScope!==st)return null;
-   (await archiveCalcPart(st,parts[i],todo)).forEach((rows,g)=>{const a=all.get(g);rows.forEach(r=>a.push(r));});
-   st.pct=Math.floor((st.done+(i+1)/parts.length)/st.months.length*100);archiveFactsShow(st);
-   await new Promise(r=>setTimeout(r));
-  }
-  /* Диск полон — отчёт всё равно строится: столбцы из памяти. */
-  for(const g of todo){const rows=all.get(g);let cols=null;try{cols=await archFactsPut(g,mo.m,stamp,rows);}catch(e){console.warn('Report rows were not stored:',e.message);cols=archColsOf(rows);}out.set(g,{n:rows.length,cols});}
+/* Месяц для всех функций фактов: диск → сервер → посчитать по частям и
+   положить в оба места. Один расчёт месяца на вкладку: отчёт и фон ждут
+   один и тот же; отчёт его торопит (bg false — без пауз). */
+const ARCH_REST=300;
+const archJobs=new Map();
+function archiveMonthReady(mo,acc,bg){
+ const stamp=archiveMonthStamp(archiveFactsBase(acc),mo),was=archJobs.get(mo.m);
+ if(was&&was.stamp===stamp){if(!bg)was.bg=false;return was;}
+ const job={stamp,bg:!!bg,part:0,parts:0,sent:new Set()};
+ job.p=archiveMonthLoad(mo,acc,job).finally(()=>{if(archJobs.get(mo.m)===job)archJobs.delete(mo.m);});
+ archJobs.set(mo.m,job);return job;
+}
+async function archiveMonthLoad(mo,acc,job){
+ const stamp=job.stamp,heads=await archFactsGet(ARCH_ALL.map(g=>'h|'+g+'|'+mo.m)),out=new Map();
+ ARCH_ALL.forEach((g,i)=>{const h=heads[i];if(h&&h.stamp===stamp)out.set(g,h);});
+ let todo=ARCH_ALL.filter(g=>!out.has(g));if(!todo.length)return out;
+ if(acc.full){
+  let got=[];try{got=await archServerGet(todo.map(g=>'g|'+g+'|'+mo.m),true);}catch(e){console.warn('Report month was not read from the server:',e.message);}
+  for(const r of got){const g=String(r.key).split('|')[1];if(r.stamp!==stamp||!r.data||!todo.includes(g)||out.has(g))continue;
+   try{const x=await archUnpack(r.data);out.set(g,await archFactsStore(g,mo.m,stamp,x.n,x.cols));job.sent.add(g);}catch(e){console.warn('Report month was not read:',e.message);}}
+  todo=todo.filter(g=>!out.has(g));if(!todo.length)return out;
  }
+ const parts=archiveParts(mo.owners),all=new Map(todo.map(g=>[g,[]])),ix=archiveHotIndex(),rest=()=>job.bg?ARCH_REST:0;
+ job.parts=parts.length;
+ for(let i=0;i<parts.length;i++){
+  (await archiveCalcPart(ix,parts[i],todo,rest)).forEach((rows,g)=>{const a=all.get(g);rows.forEach(r=>a.push(r));});
+  job.part=i+1;if(archiveScope&&archiveScope.job===job)archiveFactsShow(archiveScope);
+ }
+ for(const g of todo){const rows=all.get(g),head=await archFactsStore(g,mo.m,stamp,rows.length,archColsOf(rows));all.delete(g);out.set(g,head);if(acc.full){archServerSend(g,mo.m,stamp,head);job.sent.add(g);}}
  return out;
 }
-function archiveFactsShow(st){const el=document.querySelector('[data-rep-archive-wait]');if(el)el.textContent=archiveFactsText(st);}
+function archiveFactsShow(st){
+ const j=st.job;st.pct=Math.floor((st.done+(j&&j.parts?j.part/j.parts:0))/st.months.length*100);
+ const el=document.querySelector('[data-rep-archive-wait]');if(el)el.textContent=archiveFactsText(st);
+}
 function archiveFactsText(st){return `Reading ${st.orders} archived orders · ${st.pct}%`;}
 /* Столбцы месяца → строки с полями страницы. */
 async function archiveMonthRows(mo,gen,head,keys){
@@ -217,18 +302,50 @@ async function archiveMonthRows(mo,gen,head,keys){
  return rows;
 }
 async function archiveFactsBuild(st,need){
- const gens=[...need.keys()],base=archiveFactsBase(),raw=new Map(gens.map(g=>[g,[]]));
- st.hot=archiveHotIndex();
+ const gens=[...need.keys()],raw=new Map(gens.map(g=>[g,[]])),acc=await archAccessOf();
  for(const mo of st.months){
   if(archiveScope!==st)return;
-  const heads=await archiveMonthCols(st,mo,gens,base);if(!heads)return;
+  const job=archiveMonthReady(mo,acc,false);st.job=job;
+  const heads=await job.p;st.job=null;
   for(const g of gens){const rows=await archiveMonthRows(mo,g,heads.get(g),need.get(g));if(archiveScope!==st)return;const a=raw.get(g);for(const r of rows)a.push(r);}
-  st.done++;st.pct=Math.floor(st.done/st.months.length*100);archiveFactsShow(st);
+  st.done++;archiveFactsShow(st);
   await new Promise(r=>setTimeout(r));
  }
  raw.forEach((rows,g)=>st.rows.set(g,archiveJoin(g,rows)));
- st.hot=null;st.ready=true;render();
+ st.ready=true;render();
 }
+/* Фон (владелец 04.11.2026: отчёты открывают редко, но тогда нужно сразу):
+   главная вкладка с сервером после входа сама готовит недостающие и
+   изменённые месяцы — новые первыми, по части, с паузами, пока человек не
+   печатает и не правит заказ. Кто видит все таблицы, кладёт на сервер и
+   месяцы, которые лежат только на его диске. Тесты и инструменты выключают
+   (window.GF_NO_ARCHIVE). */
+let archFillTimer=null;
+function archiveFactsFill(ms){
+ if(archFillTimer||typeof window==='undefined'||window.GF_NO_ARCHIVE)return;
+ archFillTimer=setTimeout(async()=>{
+  let next=60*60e3;
+  try{next=await archiveFactsFillRun();}catch(e){console.warn('Report months were not prepared:',e.message);next=10*60e3;}
+  archFillTimer=null;archiveFactsFill(next);
+ },ms);
+}
+function archFillCan(){return storageWriter&&!storageStarting&&!storageRecovery&&!storageStale&&typeof cloudSync!=='undefined'&&cloudSync.on&&accessCan('reports');}
+function archFillBusy(){return Date.now()-archiveInputAt<5000||typeof soDraft!=='undefined'&&!!soDraft||!!archiveVisit;}
+async function archiveFactsFillRun(){
+ if(!archFillCan()||!archiveIndex.size)return 60e3;
+ const acc=await archAccessOf(),months=archiveMonths([['','']]).reverse();
+ const there=acc.full?new Map((await archServerGet([].concat(...months.map(mo=>ARCH_ALL.map(g=>'g|'+g+'|'+mo.m))),false)).map(r=>[r.key,r.stamp])):null;
+ for(const mo of months){
+  while(archFillBusy())await new Promise(r=>setTimeout(r,5000));
+  if(!archFillCan())return 60e3;
+  const job=archiveMonthReady(mo,acc,true),heads=await job.p;
+  if(there)for(const g of ARCH_ALL){const h=heads.get(g);if(h&&!job.sent.has(g)&&there.get('g|'+g+'|'+mo.m)!==job.stamp)await archServerSend(g,mo.m,job.stamp,h);}
+  await new Promise(r=>setTimeout(r,ARCH_REST));
+ }
+ return 60*60e3;
+}
+if(typeof window!=='undefined')archiveFactsFill(60e3);
+
 /* Строка общей записи — одна (ранняя); итоги — сложить. */
 function archiveJoin(gen,rows){
  const g=ARCH_GENS[gen];if(!g.shared)return rows;

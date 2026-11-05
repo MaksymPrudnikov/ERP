@@ -71,6 +71,46 @@ module.exports=async function({page,eq}){
  eq('заказ вернулся из архива или ушёл новый — месяц считается заново: отпечаток месяца другой',await t.p.evaluate(x=>{
   const mo={m:'2026-01',owners:[...archiveIndex.keys()]},a=archiveMonthStamp('B',mo),b=archiveMonthStamp('B',{m:mo.m,owners:mo.owners.slice(1)});return {differ:a!==b,same:a===archiveMonthStamp('B',mo)};
  },ids),{differ:true,same:true});
+ eq('метка месяца — версия правил и заказы: новая сборка, клиент, прайс месяц не пересчитывают',await t.p.evaluate(()=>{
+  const mo={m:'2026-01',owners:[...archiveIndex.keys()]},a=archiveMonthStamp(archiveFactsBase(),mo),build=storageBuildId,c=DB.customer[0],name=c.legalName,rates=DB.serviceRate;
+  storageBuildId=()=>'other';c.legalName='Renamed';DB.serviceRate=[];
+  try{return {same:a===archiveMonthStamp(archiveFactsBase(),mo),rules:/^v\d+\|/.test(a)};}finally{storageBuildId=build;c.legalName=name;DB.serviceRate=rates;}
+ }),{same:true,rules:true});
+ eq('закрытие месяца на сервере: считает один компьютер, все источники сразу; другой берёт готовое без записей заказов; SQL не вставлен — считает сам; видит не все таблицы — без сервера, своя метка; нет связи — месяц не пишется пустым; фон готовит и досылает сам',await t.p.evaluate(async b=>{
+  const q=src=>({source:src,date:{from:'2025-12-01',to:'2026-01-31'},dims:[],metrics:REP_SRC[src].metrics.map(m=>m.k),filters:[]}),srcs=['glass','cutting','orders','payments','sheets'];
+  const rep=repClean({date:{from:'2025-12-01',to:'2026-01-31'},pages:[{widgets:srcs.map(src=>({type:'number',q:q(src)}))}]}),page=rep.pages[0],range=repArchiveRanges(rep,page),need=repArchiveNeed(rep,page);
+  const open=async()=>{archiveScopeDrop();for(let i=0;i<500&&archiveScopeFor(range,need)!=='ready';i++)await new Promise(r=>setTimeout(r,20));};
+  const num=()=>readScope(()=>JSON.stringify(srcs.map(src=>{const r=repQuery(q(src));return [src,r.count,r.total];})));
+  const srv=new Map(),log=[],was={rpc:cloudRpc,on:cloudSync.on,cold:storageColdOfMany,input:archiveInputAt};let mode='full',reads=0,coldDown=false;
+  storageColdOfMany=(x,s)=>{reads++;return was.cold(x,s);};
+  cloudRpc=async(n,a)=>{log.push(n);
+   if(n==='erp_cold_of'){if(coldDown)throw new Error('No connection to the server.');return [];}
+   if(n==='erp_changes')return {rows:[],last:0};
+   if(mode==='none')throw new Error('Could not find the function public.erp_facts_get');
+   if(n==='erp_facts_get')return mode==='part'?{full:false,rows:[]}:{full:true,rows:a.keys.filter(k=>srv.has(k)).map(k=>Object.assign({key:k},srv.get(k),a.with_data?{}:{data:null}))};
+   if(n==='erp_facts_put'){a.items.forEach(x=>srv.set(x.key,{stamp:x.stamp,data:x.data}));return {ok:true,n:a.items.length};}
+   throw new Error('rpc '+n);
+  };
+  const wipe=()=>storageIdbTx(['facts'],'readwrite',tx=>{tx.objectStore('facts').clear();});
+  const step=async m=>{mode=m;archAccess=null;reads=0;log.length=0;await wipe();await open();await archSend;const r={same:num()===b.reports,reads:reads>0,put:log.includes('erp_facts_put')};archiveScopeDrop();return r;};
+  cloudSync.on=true;
+  try{
+   const first=await step('full'),months=[...new Set([...srv.keys()].map(k=>k.split('|')[2]))],gens=new Set([...srv.keys()].map(k=>k.split('|')[1]));
+   const sent={all:ARCH_ALL.every(g=>gens.has(g)),rows:srv.size===ARCH_ALL.length*months.length,stamp:[...srv.values()].every(x=>/^v\d+\|/.test(x.stamp)&&/^z:/.test(x.data))};
+   const other=await step('full'),none=await step('none'),part=await step('part');
+   const partStamp=(await archFactsGet(['h|work|'+months[0]]))[0].stamp;
+   mode='full';archAccess=null;srv.clear();await wipe();coldDown=true;
+   const mo=archiveMonths([['','']])[0],acc=await archAccessOf();let refused=false;
+   try{await archiveMonthReady(mo,acc,false).p;}catch(e){refused=true;}
+   const kept=(await archFactsGet(['h|work|'+mo.m]))[0]||null;coldDown=false;
+   archiveInputAt=0;reads=0;const fill=await archiveFactsFillRun();await archSend;
+   const filled={rows:srv.size===ARCH_ALL.length*months.length,reads:reads>0};
+   srv.clear();reads=0;await archiveFactsFillRun();await archSend;
+   const resent={rows:srv.size===ARCH_ALL.length*months.length,reads};
+   return {first,sent,other,none,part,partMark:/\|p:/.test(partStamp),strict:{refused,kept},fill:fill===60*60e3,filled,resent};
+  }finally{cloudRpc=was.rpc;cloudSync.on=was.on;storageColdOfMany=was.cold;archiveInputAt=was.input;archAccess=null;archiveScopeDrop();}
+ },before),{first:{same:true,reads:true,put:true},sent:{all:true,rows:true,stamp:true},other:{same:true,reads:false,put:false},none:{same:true,reads:true,put:false},
+  part:{same:true,reads:true,put:false},partMark:true,strict:{refused:true,kept:null},fill:true,filled:{rows:true,reads:true},resent:{rows:true,reads:0}});
  eq('строки архива и работы: общая запись — одна, первый рез — ранний, строка с заказом — из архива, итоги дня — вместе',await t.p.evaluate(()=>{
   const was=archiveScope,join=(gen,hot,cold)=>{archiveScope={ready:true,rows:new Map([[gen,archiveJoin(gen,cold)]]),merged:new Map()};return archiveFactsMerge(gen,hot,[]).map(r=>[r.id,r.who||r.qty]);};
   try{return {work:join('work',[{id:'1',who:'h'}],[{id:'2',who:'c'}]),day:(archiveScope={ready:true,rows:new Map([['work',[{id:'2'}]]]),merged:new Map()},archiveFactsMerge('work',[{id:'1'}],['2026-01-01']).length),
