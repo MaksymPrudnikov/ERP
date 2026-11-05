@@ -263,9 +263,12 @@ function archiveHotFor(ix,owners){
  return {glassBatch:batches,cutPlan:of(ix.plan,nums),sheetBreak:of(ix.brk,nums),shipment:of(ix.ship,owners),receipt:receipts,refund:of(ix.back,receipts.map(r=>r.id)),inventoryEvent:[],purchaseReceipt:[]};
 }
 /* Память расчётов по таблицам в работе: подмена её не портит, иначе после
-   чтения отчёт считал бы работу заново. */
-function archiveCalcSaved(){return [repWorkCache,repWorkDayCache,repOpCache,repBreakCache,repOrderCache,repOrderedCache,repDeliveryCache,repTimeCache,repQuoteCache,repPayCache,repBatchCache,repMoveCache,repIguCache,repSheetCutCache,repSoldCache,repSoldByOrder];}
-function archiveCalcBack(x){[repWorkCache,repWorkDayCache,repOpCache,repBreakCache,repOrderCache,repOrderedCache,repDeliveryCache,repTimeCache,repQuoteCache,repPayCache,repBatchCache,repMoveCache,repIguCache,repSheetCutCache,repSoldCache,repSoldByOrder]=x;}
+   чтения отчёт считал бы работу заново. Итоги заказов (finTotalsKeep) — тоже:
+   заказ части попадал туда целиком и оставался навсегда (ушедший заказ не
+   меняется — забыть его некому); 60 лет архива держали так ~0,7 ГБ (замер
+   05.11.2026). */
+function archiveCalcSaved(){return [repWorkCache,repWorkDayCache,repOpCache,repBreakCache,repOrderCache,repOrderedCache,repDeliveryCache,repTimeCache,repQuoteCache,repPayCache,repBatchCache,repMoveCache,repIguCache,repSheetCutCache,repSoldCache,repSoldByOrder,finTotalsKeep];}
+function archiveCalcBack(x){[repWorkCache,repWorkDayCache,repOpCache,repBreakCache,repOrderCache,repOrderedCache,repDeliveryCache,repTimeCache,repQuoteCache,repPayCache,repBatchCache,repMoveCache,repIguCache,repSheetCutCache,repSoldCache,repSoldByOrder,finTotalsKeep]=x;}
 /* Записи части по таблицам, по порядку строк. */
 function archiveParse(recs){const by=new Map();recs.slice().sort((a,b)=>a.seq-b.seq).forEach(r=>{let a=by.get(r.tbl);if(!a)by.set(r.tbl,a=[]);a.push(JSON.parse(r.data));});return by;}
 /* Строки части по каждой функции фактов — на подменённых таблицах. */
@@ -275,7 +278,7 @@ function archiveCalc(by,owners,gens,ix){
  ARCH_OWN.forEach(t=>swap(t,by.get(t)||[]));
  by.forEach((rows,t)=>{if(!ARCH_OWN.includes(t))swap(t,(hot[t]||DB[t]||[]).concat(rows));});
  Object.keys(hot).forEach(t=>{if(!keep.has(t))swap(t,hot[t]);});
- repSoldByOrder=new Map();archiveCalcOn=true;storageInvalidate();
+ repSoldByOrder=new Map();finTotalsKeep=new Map();archiveCalcOn=true;storageInvalidate();
  try{
   return readScope(()=>gens.map(gen=>{const g=ARCH_GENS[gen],rows=window[g.fn]();return (g.own?rows.filter(r=>set.has(g.own(r))):rows).filter(r=>!/^ARCH\|/.test(r.id)).map(r=>Object.assign({},r));}));
  }finally{keep.forEach((rows,t)=>{DB[t]=rows;});archiveCalcOn=false;storageInvalidate();archiveCalcBack(saved);}

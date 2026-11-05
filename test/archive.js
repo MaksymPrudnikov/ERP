@@ -59,15 +59,15 @@ module.exports=async function({page,eq}){
   deposit:JSON.stringify(after.deposit)===JSON.stringify(before.deposit),next:JSON.stringify(after.next)===JSON.stringify(before.next)},
   {index:true,rows:true,inv:true,deposit:true,next:true});
  eq('выписки клиентов (всё время, январь, раздел Orders) — те же после ухода: строки ушедших — из указателя архива',after.statements.map((x,i)=>x===before.statements[i]),before.statements.map(()=>true));
- eq('отчёт за декабрь–январь: строки ушедших заказов считаются частями — те же числа, записей в DB нет; второе открытие — с диска; закрыли — в памяти пусто',await t.p.evaluate(async b=>{
+ eq('отчёт за декабрь–январь: строки ушедших заказов считаются частями — те же числа, записей в DB нет; второе открытие — с диска; закрыли — в памяти пусто, итоги ушедших заказов не остались',await t.p.evaluate(async b=>{
   const q=src=>({source:src,date:{from:'2025-12-01',to:'2026-01-31'},dims:[],metrics:REP_SRC[src].metrics.map(m=>m.k),filters:[]}),srcs=['glass','cutting','orders','payments','sheets'];
   const rep=repClean({date:{from:'2025-12-01',to:'2026-01-31'},pages:[{widgets:srcs.map(src=>({type:'number',q:q(src)}))}]}),page=rep.pages[0],range=repArchiveRanges(rep,page),need=repArchiveNeed(rep,page);
   const open=async()=>{for(let i=0;i<300&&archiveScopeFor(range,need)!=='ready';i++)await new Promise(r=>setTimeout(r,20));};
   const num=()=>readScope(()=>JSON.stringify(srcs.map(src=>{const r=repQuery(q(src));return [src,r.count,r.total];})));
   const first=archiveScopeFor(range,need);await open();const rows=num(),inDb=storageVisit.size,diff=storageDiff(DB).length;
   archiveScopeDrop();let reads=0;const was=storageColdOfMany;storageColdOfMany=x=>{reads++;return was(x);};await open();const again=num();storageColdOfMany=was;archiveScopeDrop();
-  return {first,same:rows===b.reports,inDb,diff,again:again===b.reports,reads,hot:DB.salesOrder.length,none:archiveScopeFor([['2025-01-01','2025-01-31']],need),off:archiveScope};
- },before),{first:'loading',same:true,inDb:0,diff:0,again:true,reads:0,hot:2,none:'none',off:null});
+  return {first,same:rows===b.reports,inDb,diff,again:again===b.reports,reads,hot:DB.salesOrder.length,none:archiveScopeFor([['2025-01-01','2025-01-31']],need),off:archiveScope,totals:[...archiveIndex.keys()].filter(id=>finTotalsKeep.has(id)).length};
+ },before),{first:'loading',same:true,inDb:0,diff:0,again:true,reads:0,hot:2,none:'none',off:null,totals:0});
  eq('заказ вернулся из архива или ушёл новый — месяц считается заново: отпечаток месяца другой',await t.p.evaluate(x=>{
   const mo={m:'2026-01',owners:[...archiveIndex.keys()]},a=archiveMonthStamp('B',mo),b=archiveMonthStamp('B',{m:mo.m,owners:mo.owners.slice(1)});return {differ:a!==b,same:a===archiveMonthStamp('B',mo)};
  },ids),{differ:true,same:true});
