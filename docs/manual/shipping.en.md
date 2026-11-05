@@ -36,6 +36,14 @@ adds or removes them.
 The sheet is built from a template in parts: the top of every page (company, PACKING SLIP, the number with its barcode,
 customer, date and method, address), the top of the first page (corrections after Unbatch), the table by order (Line /
 Mark, Size, Makeup, Ordered, Before, Now, Back order, Skid), the totals (skids and weight, the note, Received by /
-Signature, Date and time, skids remain ours) and the bottom of the page (number · page / pages). Skid sheets follow
-with the same top, the title SKID CONTENTS and no barcode. The default template prints the same as before. The template
-will be edited in the form builder, Data → Company & print → Forms (next step).
+Signature, Date and time, skids remain ours) and the bottom of the page (number · page / pages). The default template
+prints the same as before. The template will be edited in the form builder, Data → Company & print → Forms.
+
+## The skid sheet
+
+After the packing slip — one sheet per skid. On top **SKID CONTENTS · packing slip number**, the skid code large with
+the units and weight beside it; the top right corner keeps a place for a QR code (empty for now). Below, two panels:
+**From** (us) and **To** (customer, address, date). Then the table by order: orders in the order they started going on
+the skid, lines by their place on it. Column **#** — the places (#1 went on first, "#6–9" — four units in a row), then
+Line / Mark, Size, Makeup, Qty, kg; at the bottom **Total** and "#1 went on first.". Places come from the scans onto
+the skid at print time; if a unit has no scan, the # column stays empty and lines follow the order.
