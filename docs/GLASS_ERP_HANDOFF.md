@@ -2,6 +2,32 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Замечания владельца 04.11 к этапу 6: Freeze, шапка, прочерк, Shipping, Purchasing, Inventory · 5 ноября 2026
+
+Владелец смотрел сайт после #420 и #421; варианты вида — картинками, выбраны 05.11: Freeze — B (значок в ряду Sort),
+прочерк — 1 (серый «–» на месте значения); по ходу: тень у края закреплённых, вкладки Shipping — в карточку списка,
+галочка шапки в линию с галочками строк.
+
+- Freeze (`views/sales-list-ui.js`): `prefs.frozen` у каждого списка свой; `salesListColumns()` ставит закреплённые
+  первыми (в порядке Columns), `salesListFreeze(k)` — значок `[data-freeze]` в ряду Sort меню колонки; Standard view
+  снимает. После отрисовки `salesListTableFit` (`views/sales-list-controls.js`, зовёт `salesListFit` и дорисовка
+  `list-window`): галочка и закреплённые — первые N ячеек строки, класс `fz-N`, `left` из `--fz1…` по ширине
+  заголовков; у заголовка — значок (`th.sl-frz-col`); прокрутили вбок (`.sl-scrolled-x`) — тень у края.
+- Шапка не уезжает: `th` списков в карточке `sl-foot-pin` — `position:sticky;top:0` (страница крутится — у верха
+  окна; шире экрана — у верха таблицы). `sl-foot-pin` добавлен Purchasing, Inventory и Customers.
+- Прочерк: `salesListDashes` — пустая ячейка и длинное «—» в списках с меню колонок становятся `<span class="mut
+  sl-dash">–</span>`; поля и кнопки не трогаются; подрядные строки Production (`pb-sub`) — нет.
+- Optimization: ряд кнопок 37 px, шапка таблицы 47 px, строки 52 px на всех шести вкладках; Sheets — шестерёнка в
+  шапке таблицы слева (колонка `sl-check`).
+- Shipping: вкладки — `shippingTabs()` таблетками в карточке каждого списка под рядом кнопок; Shipments — дни
+  колонкой внутри карточки. Backorders — ширина колонки шестерёнки в `<colgroup>` (lead 68: ячейки съезжали с
+  заголовков), колонка Order Items — стекло остатка строки (`shippingBackorderItems`). Done и Awaiting readiness —
+  ширины колонок (`cwRegister`), Order Items в Done по умолчанию, в Awaiting — в Columns. Галочка строки очереди —
+  `td.sl-check`, в линию с шапкой.
+- Purchasing: быстрые виды, статусы и дата — один ряд `sl-filter-row` (таблетки 12 px, как в Sales). Inventory:
+  статусы в ряду разделов, ширины колонок `INV_WIDTH` (1440 px без прокрутки вбок), поле Minimum 26 px.
+- Проверки: `test/table-freeze.js` (10). Руководство: `docs/manual/lists.*`, `shipping.*`, `optimization.*`.
+
 ## Остальные разделы в виде Sales: Finance, Inventory, Customers, Users, Agents, Data, Stock · 3 ноября 2026
 
 Владелец, 03.11.2026: «делай и делай чтобы все работало корректно».

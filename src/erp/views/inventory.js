@@ -106,7 +106,7 @@ function invHeader(c){return salesListHead(c);}
    без прокрутки широкой таблицы. */
 /* Ширины колонок склада: в окно 1440 таблица входит без прокрутки вбок,
    остаток берёт Glass (Item у Stock items). */
-const INV_WIDTH={glass:180,item:180,code:110,mm:56,size:110,onRack:84,onOrder:84,held:90,reserved:84,free:70,status:120,min:90,lastCount:110,kind:110,measures:130,unit:70,onHand:84,available:90,day:100,ref:120,rack:84,by:110,note:160,id:110,area:70,from:150,booked:100,age:84};
+const INV_WIDTH={glass:160,item:180,code:100,mm:64,size:100,onRack:100,onOrder:100,held:110,reserved:100,free:76,status:120,min:100,lastCount:110,kind:110,measures:130,unit:70,onHand:84,available:90,day:100,ref:120,rack:84,by:110,note:160,id:110,area:70,from:150,booked:100,age:84};
 function invTable(cols,rows,cell,extraHead,extraCells,empty,lead){
  const head=cols.map(invHeader).join(''),body=i=>cols.map(c=>cell(i,c)).join(''),xh=extraHead||'',xc=i=>extraCells?extraCells(i):'';
  const cw=salesListCwTable(cols.map(c=>c.k),lead&&xh?[44,120]:[44],!lead&&xh?120:0,INV_WIDTH);

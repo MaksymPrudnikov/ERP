@@ -7,12 +7,18 @@ Customers, Agents, Users and Data.
 
 - **Top row** — actions on the ticked row (Open, Edit, Hold, Invoice, Terms, + Add, Count…), the period and search
   on the right, the main button (+ New …) last. A button that does not fit the ticked row is grey.
-- **Pills** — the sections or quick views of the screen (in the same place on every tab).
+- **Pills** — the sections or quick views of the screen (in the same place on every tab); statuses and the date are
+  in the same row.
 - **Tick a row** to act on it; right click gives the same actions where the screen has a menu.
 - **Gear** (left of the headers) — Columns: tick to show, untick to hide, drag to reorder; Standard view and Reset
   widths.
 - **Header** — filter and sort in each column; drag the edge of a header to change its width, drag the header to move
   the column. Widths and order are kept in this browser, per list.
+- **Freeze** — the pin in the Sort row of the column menu: the column moves to the left and stays when the table
+  scrolls sideways; its header shows the pin, the edge of the frozen columns has a shadow (text goes under them).
+  Click again to unfreeze; Standard view unfreezes all.
+- **The header** of the table stays on top when the list scrolls down.
+- **An empty cell** shows a grey dash «–».
 - **Total row** at the bottom — the count and the sums of the number columns.
 - **Data** — the tree of items is a card on the left; the top row has the ticked row's actions, the search and All
   catalog; the row card opens on the right (Hide preview hides it).

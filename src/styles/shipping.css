@@ -51,3 +51,8 @@
 .shipping-ready-table .shipping-skid label{min-width:0}.shipping-ready-table .shipping-skid>span{flex:none}
 .shipping-lookup-box{position:relative;display:inline-flex}.shipping-lookup-box input{padding-right:30px}.shipping-match{position:absolute;right:3px;top:50%;transform:translateY(-50%);min-height:0;height:22px;padding:0 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);font-size:11px;color:var(--text-2);cursor:pointer}.shipping-match:hover{color:var(--text)}.sl-rep{color:var(--text-3)}
 .ship-top .shipping-lookup-box input{width:150px}
+
+/* Shipments: вкладки и шапка во всю карточку, дни — колонкой слева внутри неё (05.11.2026). */
+.shipping-list-card .ship-split{gap:0}
+.shipping-list-card .ship-days{align-self:stretch;padding:4px 10px 14px 20px;border-right:1px solid var(--line)}
+.shipping-list-card .ship-split-main{min-width:0}

@@ -4,9 +4,9 @@ Everything that leaves the shop: what is ready, packing slips, trucks, skids at 
 
 ## The screen
 
-The row of tabs on top: Awaiting readiness, Ready, Shipments, Delivery, Skids, Backorders, Done. Every tab is one
-card in the Sales look: actions over the ticked rows on top, the lookup and **Open a trip** on the right, the table,
-the total at the bottom.
+One card in the Sales look: actions over the ticked rows on top, the lookup and **Open a trip** on the right; under
+them the tab pills Awaiting readiness, Ready, Shipments, Delivery, Skids, Backorders, Done; then the table and the
+total at the bottom. In Shipments the days are a column on the left inside the card.
 
 - **Lookup** — **Order / PO**, the number and a small button in the field: **=** exact, **≈** contains, **a…** starts
   with (click to change). By default an order number is exact, a PO contains.
@@ -21,7 +21,8 @@ the total at the bottom.
   packing slips** and km. A packing slip without a truck has **Choose truck** in its row.
 - **Skids** — skids at customers, one row each; the customer is faded when repeated. Tick a row: **Checked**, **Skid
   from …**. Click a skid code to see what went on it. **Over 30 days** pill.
-- **Backorders** — what is left of each line, with where it is in the shop.
+- **Backorders** — what is left of each line, its glass (**Order Items**) and where it is in the shop.
+- **Done** — one row per order, as in Sales; the **Order Items** column is on by default (in Awaiting readiness turn it on in Columns).
 
 Skids, Backorders and Delivery have the gear (Columns: add, remove, order), a filter in every header, width and order
 by dragging the header, and the total at the bottom — like Sales.
