@@ -837,6 +837,7 @@ function validateImportedState(src){
  if(typeof validateSkipPayload==='function')validateSkipPayload(src);
  if(typeof validateProductionUnbatchPayload==='function')validateProductionUnbatchPayload(src);
  if(typeof validateStickerPayload==='function')validateStickerPayload(src);
+ if(typeof validateFormTemplatePayload==='function')validateFormTemplatePayload(src);
 
  if(typeof validateCuttingPayload==='function')validateCuttingPayload(src);
 
@@ -954,6 +955,7 @@ function normalizeDB(){
  if(typeof normalizeNcrReasons==='function')normalizeNcrReasons();
  if(typeof normalizeStockReasons==='function')normalizeStockReasons();
  if(typeof normalizeStickerTemplates==='function')normalizeStickerTemplates();
+ if(typeof normalizeFormTemplates==='function')normalizeFormTemplates();
 
  if(typeof normalizeCutting==='function')normalizeCutting();
 

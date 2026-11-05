@@ -2,6 +2,30 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Конструктор форм: основа (этап 7) · 5 ноября 2026
+
+Вид «ТОП» (02.11.2026) и окно Insert field — вариант В (05.11.2026, «интерфейс отсюда ТОП»). Первая форма на
+конструкторе — Packing slip с листом скида.
+
+- `src/erp/views/forms-ui.js`: вкладка `mdTab='forms'` в Company & print (`MD_TABS`, `viewMdForms`). Слева Add (Text,
+  Field, Picture, Line, Frame, Barcode) и дерево частей (`FORMS_PARTS`), в середине все листы выбранного PS
+  (`formsSheetsHTML`, линейка 11 px, пунктир полей), справа настройки блока. Мышь — `formsPointerStart/Move/End`
+  (захват на `[data-forms-stage]`, перерисовка только листа); Left/Center/Right — только Y, Free — X и Y, уголки `e`
+  (ширина) и `s` (высота рамки, линии). Undo/Redo — снимки черновика; Save — `DB.formTemplate[form]`, Reset to default
+  — шаблон кода. Новый блок — внизу выбранной части, часть растёт.
+- Окно Insert field (`formsModalHTML`): группы из `SHIPPING_FORM_FIELDS[].g`, значения с выбранного PS, форматы
+  `FORM_FORMATS.date` (поле с `t:'date'`, блок `format`), «Before the value» — `prefix` (только у непустого поля).
+- Движок: `formFlow(tpl, ctx, map)` пишет места блоков для конструктора (`formRect`, пустое поле тоже можно выбрать);
+  `formClean` — сохранённый шаблон в чистый (известные ключи, пределы чисел, картинка только JPEG, недостающие части и
+  колонки таблиц — из кода). `shippingPages(d, skidOnly, tpl, map)`, печать — `shippingFormTemplate()`.
+- База: `DEFAULT.formTemplate={}` (без ключа в DEFAULT `mergeState` не берёт его при старте), `normalizeFormTemplates`,
+  `validateFormTemplatePayload`, журнал Data — «Forms». Запись — обычная `touch`, `_meta`.
+- Сверка: по умолчанию и «по умолчанию после Save» Packing slip и листы скида те же — 0 расхождений с main (выгрузка
+  владельца 949 случаев, `shop-week` 1153; 42 PS через `formClean`).
+- Проверки: `test/forms-editor.js` (8). README 2412. Руководство: `docs/manual/forms.*` (новый раздел),
+  `docs/manual/shipping.*`. Дальше: шрифты Times / Courier и I, история версий, выгрузка шаблона в файл, колонки
+  таблиц, направляющие и поля страницы на линейке; потом Show if, свои поля, «добавить в другие формы», новая форма.
+
 ## Лист скида таблицей (этап 7) · 5 ноября 2026
 
 Владелец 05.11.2026 по картинкам: таблица «Топ» — по заказу, внутри порядок укладки; верх — вариант Б (From / To);

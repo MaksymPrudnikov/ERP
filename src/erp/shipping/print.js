@@ -109,28 +109,40 @@ function shippingFormDefault(){
    {id:'pageNo',type:'text',text:'{number|Skid contents} · {page} / {pages}',place:'right',y:41,w:300,h:13,size:8,color:mut,align:'right'}]}
  }};
 }
-/* Поля бланка: ключ, подпись для конструктора, значение из документа PS. */
+/* Поля бланка: ключ, группа и подпись для конструктора (окно Insert
+   field), значение из документа PS; t:'date' — день, вид выбирает блок. */
 const SHIPPING_FORM_FIELDS=[
- {k:'company.name',label:'Company name',v:d=>d.company.name},
- {k:'company.lines',label:'Company address and contacts',v:d=>d.company.lines},
- {k:'company.logo',label:'Company logo',v:d=>d.company.logo||''},
- {k:'title',label:'Title',v:()=>'PACKING SLIP'},
- {k:'number',label:'Packing slip No.',v:d=>d.number||''},
- {k:'barcode',label:'Packing slip barcode',v:d=>d.number||''},
- {k:'customer',label:'Customer',v:d=>d.customer},
- {k:'shipDate',label:'Date and method',v:d=>docDate(d.date)+' · '+(d.method==='pickup'?'Pickup':'Delivery')},
- {k:'shipToAddress',label:'Ship to address',v:d=>{const a=d.shipTo;return [docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean);}},
- {k:'skid',label:'Skid code',v:()=>''},
- {k:'skidUnits',label:'Skid units and weight',v:()=>''},
- {k:'shipTo',label:'Ship to',v:d=>{const a=d.shipTo;return [a.addressee,docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean);}},
- {k:'corrections',label:'Corrections',v:d=>d.corrections||[]},
- {k:'skids',label:'Skids',v:d=>d.skids.map(s=>s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg')},
- {k:'note',label:'Note',v:d=>d.note||''},
- {k:'skidsProperty',label:'Skids remain our property',v:d=>d.skids.length?shippingCount(d.skids.length,'skid')+' left on site '+(d.skids.length===1?'remains':'remain')+' property of '+(d.company.name||'the supplier')+'.':''}
+ {k:'company.name',g:'Company',label:'Company name',v:d=>d.company.name},
+ {k:'company.lines',g:'Company',label:'Address and contacts',v:d=>d.company.lines},
+ {k:'company.logo',g:'Company',label:'Logo',v:d=>d.company.logo||''},
+ {k:'customer',g:'Customer',label:'Customer',v:d=>d.customer},
+ {k:'shipTo',g:'Customer',label:'Ship to (all lines)',v:d=>{const a=d.shipTo;return [a.addressee,docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean);}},
+ {k:'shipToAddress',g:'Customer',label:'Ship to address',v:d=>{const a=d.shipTo;return [docAddressText(a),[a.contact,a.phone].filter(Boolean).join(' · ')].filter(Boolean);}},
+ {k:'title',g:'Packing slip',label:'Title',v:()=>'PACKING SLIP'},
+ {k:'number',g:'Packing slip',label:'Packing slip No.',v:d=>d.number||''},
+ {k:'barcode',g:'Packing slip',label:'Barcode',v:d=>d.number||''},
+ {k:'date',g:'Packing slip',label:'Date',t:'date',v:d=>d.date||''},
+ {k:'method',g:'Packing slip',label:'Method',v:d=>d.method==='pickup'?'Pickup':'Delivery'},
+ {k:'shipDate',g:'Packing slip',label:'Date and method',v:d=>docDate(d.date)+' · '+(d.method==='pickup'?'Pickup':'Delivery')},
+ {k:'note',g:'Packing slip',label:'Note',v:d=>d.note||''},
+ {k:'corrections',g:'Packing slip',label:'Corrections',v:d=>d.corrections||[]},
+ {k:'skids',g:'Skids',label:'Skids list',v:d=>d.skids.map(s=>s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg')},
+ {k:'skid',g:'Skids',label:'Skid code',v:()=>''},
+ {k:'skidUnits',g:'Skids',label:'Skid units and weight',v:()=>''},
+ {k:'skidsProperty',g:'Skids',label:'Skids remain ours',v:d=>d.skids.length?shippingCount(d.skids.length,'skid')+' left on site '+(d.skids.length===1?'remains':'remain')+' property of '+(d.company.name||'the supplier')+'.':''}
 ];
 function shippingFormContext(d){
  const by=new Map(SHIPPING_FORM_FIELDS.map(x=>[x.k,x]));
- return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;}};
+ return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},type:k=>(by.get(k)||{}).t||''};
+}
+/* Шаблон для печати: сохранённый в конструкторе (Data → Company & print →
+   Forms) или по умолчанию. */
+function shippingFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.packingSlip,shippingFormDefault());}
+/* Лист для конструктора, когда PS в базе ещё нет. */
+function shippingFormSample(){
+ return {number:'PS-0001',date:finToday(),method:'delivery',shipTo:{addressee:'Site office',address1:'10 Glass St',city:'Toronto',province:'ON',postalCode:'M1M 1M1',contact:'Pat',phone:'416-555-0100'},customer:'Sample Customer',company:docCompanyBlock(),
+  orders:[{id:'sample',number:'10001',po:'PO-1',state:'complete',rows:[{lineId:'l1',line:1,mark:'Kitchen',size:'36" × 48"',makeup:'6mm Clear Tempered',ordered:2,before:0,now:2,back:0,note:'',kg:25,knownKg:25,skids:'SL-1'},{lineId:'l2',line:2,mark:'',size:'24" × 30"',makeup:'6mm Clear Tempered',ordered:1,before:0,now:1,back:0,note:'',kg:10,knownKg:10,skids:'SL-1'}],extras:[],takes:[]}],
+  skids:[{code:'SL-1',qty:3,kg:60,exact:true,rows:[{order:'10001',po:'PO-1',lineId:'l1',line:1,mark:'Kitchen',size:'36" × 48"',makeup:'6mm Clear Tempered',now:2,kg:25,knownKg:25},{order:'10001',po:'PO-1',lineId:'l2',line:2,mark:'',size:'24" × 30"',makeup:'6mm Clear Tempered',now:1,kg:10,knownKg:10}]}],note:''};
 }
 /* Порядок укладки на скиде: место каждого юнита по его скану на этот скид
    (#1 — положили первым), как в окне скида. Считается при печати, в
@@ -154,8 +166,9 @@ function shippingPlaceText(list){
  const r=[];list.slice().sort((a,b)=>a-b).forEach(v=>{const x=r[r.length-1];if(x&&v===x[1]+1)x[1]=v;else r.push([v,v]);});
  return r.map(x=>'#'+(x[0]===x[1]?x[0]:x[0]+'–'+x[1])).join(', ');
 }
-function shippingPages(d,skidOnly){
- const tpl=shippingFormDefault(),f=formFlow(tpl,shippingFormContext(d)),cols=tpl.parts.table.columns,W=f.right-f.left;let activeOrder;
+/* tpl и map — для конструктора: свой черновик шаблона и места блоков. */
+function shippingPages(d,skidOnly,tpl,map){
+ tpl=tpl||shippingFormTemplate();const f=formFlow(tpl,shippingFormContext(d),map),cols=tpl.parts.table.columns,W=f.right-f.left;let activeOrder;
  const line=(text,opts)=>{opts=opts||{};const size=opts.size||9;docWrap(String(text),size,!!opts.bold,W).forEach(t=>{f.ensure(size+5);f.P.text(f.left,f.y,t,opts);f.y+=size+5;});};
  const tableHead=()=>{f.ensure(30);f.P.rect(f.left,f.y-11,W,21,{fill:DOC_COLOR.bar});cols.forEach(c=>f.P.text(c.x,f.y+2,c.label,{size:7,bold:true,align:c.align||'left'}));f.y+=23;};
  /* Колонки с шириной переносят текст (8 pt), без ширины — число (9 pt). */
