@@ -36,13 +36,18 @@ function docPdfRect(x,y,w,h,r){
   n(x+r)+' '+n(y+h)+' l',n(x+r-k)+' '+n(y+h)+' '+n(x)+' '+n(y+h-r+k)+' '+n(x)+' '+n(y+h-r)+' c',
   n(x)+' '+n(y+r)+' l',n(x)+' '+n(y+r-k)+' '+n(x+r-k)+' '+n(y)+' '+n(x+r)+' '+n(y)+' c','h'].join(' ');
 }
-function docPdfContent(page,imageName){
+/* Шрифт PDF текста: стандартный шрифт по начертанию (face из
+   erp/documents/layout). F1 и F2 — Helvetica и жирная, как раньше. */
+const DOC_PDF_FONTS={helvetica:['Helvetica','Helvetica-Bold','Helvetica-Oblique','Helvetica-BoldOblique'],times:['Times-Roman','Times-Bold','Times-Italic','Times-BoldItalic'],courier:['Courier','Courier-Bold','Courier-Oblique','Courier-BoldOblique']};
+function docPdfFontOf(x){const f=String(x.face||''),fam=/^times/.test(f)?'times':/^courier/.test(f)?'courier':'helvetica';return DOC_PDF_FONTS[fam][(x.bold?1:0)+(/-i$/.test(f)?2:0)];}
+function docPdfContent(page,imageName,fontName){
+ fontName=fontName||(x=>x.bold?'F2':'F1');
  const H=DOC_PAGE.h,n=docPdfN,out=[];
  page.items.forEach(x=>{
   if(x.t==='text'){
-   const w=docTextWidth(x.s,x.size,x.bold,x.ls);let tx=x.x;
+   const w=docTextWidth(x.s,x.size,x.bold,x.ls,x.face);let tx=x.x;
    if(x.align==='right')tx-=w;else if(x.align==='center')tx-=w/2;
-   out.push('q BT /'+(x.bold?'F2':'F1')+' '+n(x.size)+' Tf '+docPdfColor(x.color)+' rg '+(x.ls?n(x.ls)+' Tc ':'')+'1 0 0 1 '+n(tx)+' '+n(H-x.y)+' Tm '+docPdfString(x.s)+' Tj ET Q');
+   out.push('q BT /'+fontName(x)+' '+n(x.size)+' Tf '+docPdfColor(x.color)+' rg '+(x.ls?n(x.ls)+' Tc ':'')+'1 0 0 1 '+n(tx)+' '+n(H-x.y)+' Tm '+docPdfString(x.s)+' Tj ET Q');
   }else if(x.t==='rect'){
    const op=x.fill&&x.stroke?'B':x.fill?'f':'S';
    out.push('q '+(x.fill?docPdfColor(x.fill)+' rg ':'')+(x.stroke?docPdfColor(x.stroke)+' RG '+n(x.lw)+' w ':'')+docPdfRect(x.x,H-x.y-x.h,x.w,x.h,x.r)+' '+op+' Q');
@@ -66,6 +71,9 @@ function docPdfBytes(pages,info){
  const catalog=add(''),pagesId=add('');
  const f1=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
  const f2=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+ /* Другие шрифты — только те, что есть в тексте, после F1 и F2. */
+ const fonts=new Map([['Helvetica','F1'],['Helvetica-Bold','F2']]),fontIds=[['F1',f1],['F2',f2]];
+ pages.forEach(pg=>pg.items.forEach(x=>{if(x.t!=='text')return;const name=docPdfFontOf(x);if(fonts.has(name))return;const key='F'+(fonts.size+1);fonts.set(name,key);fontIds.push([key,add('<< /Type /Font /Subtype /Type1 /BaseFont /'+name+' /Encoding /WinAnsiEncoding >>')]);}));
  const images=new Map();
  pages.forEach(pg=>pg.items.forEach(x=>{
   if(x.t!=='img'||images.has(x.src))return;
@@ -76,9 +84,9 @@ function docPdfBytes(pages,info){
  }));
  const xobjects=images.size?' /XObject << '+Array.from(images.values()).map(v=>'/'+v.name+' '+v.id+' 0 R').join(' ')+' >>':'';
  const kids=pages.map(pg=>{
-  const content=docPdfContent(pg,src=>{const v=images.get(src);return v?v.name:'';});
+  const content=docPdfContent(pg,src=>{const v=images.get(src);return v?v.name:'';},x=>fonts.get(docPdfFontOf(x)));
   const cid=add('<< /Length '+content.length+' >>\nstream\n'+content+'\nendstream');
-  return add('<< /Type /Page /Parent '+pagesId+' 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 '+f1+' 0 R /F2 '+f2+' 0 R >>'+xobjects+' >> /Contents '+cid+' 0 R >>');
+  return add('<< /Type /Page /Parent '+pagesId+' 0 R /MediaBox [0 0 612 792] /Resources << /Font << '+fontIds.map(([k,id])=>'/'+k+' '+id+' 0 R').join(' ')+' >>'+xobjects+' >> /Contents '+cid+' 0 R >>');
  });
  objs[catalog-1]='<< /Type /Catalog /Pages '+pagesId+' 0 R >>';
  objs[pagesId-1]='<< /Type /Pages /Kids ['+kids.map(k=>k+' 0 R').join(' ')+'] /Count '+kids.length+' >>';

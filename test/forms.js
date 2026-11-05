@@ -35,6 +35,15 @@ module.exports=async function({page,eq}){
   const a=run('PS-0001'),b=run(''),bars=a.filter(i=>i.t==='rect'&&i.fill==='#000000');
   return {kinds:[...new Set(a.map(i=>i.t))],bars:bars.length>10,right:Math.round(bars.at(-1).x+bars.at(-1).w),noBars:b.filter(i=>i.fill==='#000000').length,after:b.find(i=>i.s==='After').y};
  }),{kinds:['line','rect','img','text'],bars:true,right:576,noBars:0,after:100});
+ eq('Forms: Times and Courier — widths from the Adobe font tables, lines wrap by the chosen font; SVG and PDF use that font, a Helvetica-only PDF stays as it was',await t.p.evaluate(()=>{
+  const r=v=>Math.round(v*100)/100,t='Received by the customer in good order';
+  const P=docPage();P.text(10,20,'A',{face:'times-i',bold:true});P.text(10,40,'B',{face:'courier'});P.text(10,60,'C',{});
+  const svg=docPageSVG(P),pdf=String.fromCharCode(...docPdfBytes([P],{date:'20261105000000'})),plain=docPage();plain.text(10,20,'C',{});const pdf0=String.fromCharCode(...docPdfBytes([plain],{date:'20261105000000'}));
+  return {w:[r(docTextWidth('Hello',10,false)),r(docTextWidth('Hello',10,false,0,'times')),r(docTextWidth('Hello',10,true,0,'times-i')),r(docTextWidth('Hello',10,false,0,'courier')),r(docTextWidth('Hello',10,false,0,'helvetica-i'))],
+   wrap:['','times','courier'].map(f=>docWrap(t,9,false,150,f).length),item:P.items.map(i=>i.face||''),
+   svg:[/font-family="Times[^"]*" font-style="italic" font-weight="700"/.test(svg),/font-family="Courier/.test(svg),(svg.match(/font-family=/g)||[]).length],
+   pdf:['/Times-BoldItalic','/Courier ','/F3','/F4'].map(x=>pdf.includes(x)),plain:['Times','Courier','Oblique','/F3'].some(x=>pdf0.includes(x))};
+ }),{w:[22.78,22.22,22.78,30,22.78],wrap:[2,1,2],item:['times-i','courier',''],svg:[true,true,3],pdf:[true,true,true,true],plain:false});
  eq('Packing slip: the default template is plain data (can be saved and loaded), its parts and every block type it uses',await t.p.evaluate(()=>{
   const tpl=shippingFormDefault();
   return {same:JSON.stringify(JSON.parse(JSON.stringify(tpl)))===JSON.stringify(tpl),parts:Object.keys(tpl.parts),types:[...new Set(Object.values(tpl.parts).flatMap(p=>(p.blocks||[]).map(b=>b.type)))],columns:tpl.parts.table.columns.map(c=>c.label),fields:SHIPPING_FORM_FIELDS.every(x=>x.label&&/^[\x20-\x7e]+$/.test(x.label))};

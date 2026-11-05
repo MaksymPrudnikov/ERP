@@ -19,7 +19,13 @@ const DOC_COLOR={paid:'#1d7a46',due:'#b42318',ink:'#1c2330',navy:'#16325c',mut:'
    эталоном (пробел 278, a 556, m 833, W 944, жирная A 722). */
 const DOC_WIDTHS36={
  regular:'7q7q9vfgfgopij5b9999atg87q997q7qfgfgfgfgfgfgfgfgfgfg7q7qg8g8g8fgs7ijijk2k2ijgzlmk27qdwijfgn5k2lmijlmk2ijgzk2ijq8ijijgz7q7q7qd1fg99fgfgdwfgfg7qfgfg6666dw66n5fgfgfgfg99dw7qfgdwk2dwdwdw9a789ag800ko0066fg99rsfgfg99rsij99rs00gz0000666699999qfgrs99rsdw99q800dwij7q99fgfgfgfg78fg99khaafgg800kh99b4f9999999g0ex7q9999a5fgn6n6n6gzijijijijijijrsk2ijijijij7q7q7q7qk2k2lmlmlmlmlmg8lmk2k2k2k2ijijgzfgfgfgfgfgfgopdwfgfgfgfg7q7q7q7qfgfgfgfgfgfgfgf9gzfgfgfgfgdwfgdw',
- bold:'7q99d6fgfgopk26m9999atg87q997q7qfgfgfgfgfgfgfgfgfgfg9999g8g8g8gzr3k2k2k2k2ijgzlmk27qfgk2gzn5k2lmijlmk2ijgzk2ijq8ijijgz997q99g8fg99fggzfggzfg99gzgz7q7qfg7qopgzgzgzgzatfg99gzfglmfgfgdwat7satg800ko007qfgdwrsfgfg99rsij99rs00gz00007q7qdwdw9qfgrs99rsfg99q800dwij7q99fgfgfgfg7sfg99khaafgg800kh99b4f9999999g0fg7q9999a5fgn6n6n6gzk2k2k2k2k2k2rsk2ijijijij7q7q7q7qk2k2lmlmlmlmlmg8lmk2k2k2k2ijijgzfgfgfgfgfgfgopfgfgfgfgfg7q7q7q7qgzgzgzgzgzgzgzf9gzgzgzgzgzfggzfg'
+ bold:'7q99d6fgfgopk26m9999atg87q997q7qfgfgfgfgfgfgfgfgfgfg9999g8g8g8gzr3k2k2k2k2ijgzlmk27qfgk2gzn5k2lmijlmk2ijgzk2ijq8ijijgz997q99g8fg99fggzfggzfg99gzgz7q7qfg7qopgzgzgzgzatfg99gzfglmfgfgdwat7satg800ko007qfgdwrsfgfg99rsij99rs00gz00007q7qdwdw9qfgrs99rsfg99q800dwij7q99fgfgfgfg7sfg99khaafgg800kh99b4f9999999g0fg7q9999a5fgn6n6n6gzk2k2k2k2k2k2rsk2ijijijij7q7q7q7qk2k2lmlmlmlmlmg8lmk2k2k2k2ijijgzfgfgfgfgfgfgopfgfgfgfgfg7q7q7q7qgzgzgzgzgzgzgzf9gzgzgzgzgzfggzfg',
+ /* Times (конструктор форм, 05.11.2026) — из таблиц шрифтов Adobe (AFM),
+    те же, по которым PDF ставит буквы; курсив Helvetica шире не бывает. */
+ times:'6y99bcdwdwn5lm509999dwfo6y996y7qdwdwdwdwdwdwdwdwdwdw7q7qfofofoccplk2ijijk2gzfgk2k299atk2gzopk2k2fgk2ijfggzk2k2q8k2k2gz997q99d1dw99ccdwccdwcc99dwdw7q7qdw7qlmdwdwdwdw99at7qdwdwk2dwdwccdc5kdcf100dw0099dwccrsdwdw99rsfg99op00gz00009999cccc9qdwrs99r8at99k200cck26y99dwdwdwdw5kdw99l47odwfo99l499b4fo8c8c99dwcl6y998c8mdwkukukucck2k2k2k2k2k2opijgzgzgzgz99999999k2k2k2k2k2k2k2fok2k2k2k2k2k2fgdwccccccccccccijcccccccccc7q7q7q7qdwdwdwdwdwdwdwfodwdwdwdwdwdwdwdw',
+ timesBold:'6y99ffdwdwrsn57q9999dwfu6y996y7qdwdwdwdwdwdwdwdwdwdw9999fufufudwpuk2ijk2k2ijgzlmlmatdwlmijq8k2lmgzlmk2fgijk2k2rsk2k2ij997q99g5dw99dwfgccfgcc99dwfg7q99fg7qn5fgdwfgfgccat99fgdwk2dwdwccay64ayeg00dw0099dwdwrsdwdw99rsfg99rs00ij00009999dwdw9qdwrs99rsat99k200cck26y99dwdwdwdw64dw99kr8cdwfu99kr99b4fu8c8c99fgf06y998c96dwkukukudwk2k2k2k2k2k2rsk2ijijijijatatatatk2k2lmlmlmlmlmfulmk2k2k2k2k2gzfgdwdwdwdwdwdwk2cccccccccc7q7q7q7qdwfgdwdwdwdwdwfudwfgfgfgfgdwfgdw',
+ timesItalic:'6y99bodwdwn5lm5y9999dwir6y996y7qdwdwdwdwdwdwdwdwdwdw9999iririrdwpkgzgzijk2gzgzk2k299ccijfgn5ijk2gzk2gzdwfgk2gzn5gzfgfgat7qatbqdw99dwdwccdwcc7qdwdw7q7qcc7qk2dwdwdwdwatat7qdwccijccccatb47nb4f100dw0099dwfgopdwdw99rsdw99q800fg00009999fgfg9qdwop99r8at99ij00atfg6yatdwdwdwdw7ndw99l47odwir99l499b4ir8c8c99dwej6y998c8mdwkukukudwgzgzgzgzgzgzopijgzgzgzgz99999999k2ijk2k2k2k2k2irk2k2k2k2k2fggzdwdwdwdwdwdwdwijcccccccccc7q7q7q7qdwdwdwdwdwdwdwirdwdwdwdwdwccdwcc',
+ timesBoldItalic:'6yatffdwdwn5lm7q9999dwfu6y996y7qdwdwdwdwdwdwdwdwdwdw9999fufufudwn4ijijijk2ijijk2lmatdwijgzopk2k2gzk2ijfggzk2ijopijgzgz997q99fudw99dwdwccdwcc99dwfg7q7qdw7qlmfgdwdwdwatat7qfgccijdwccat9o649ofu00dw0099dwdwrsdwdw99rsfg99q800gz00009999dwdw9qdwrs99rsat99k200atgz6yatdwdwdwdw64dw99kr7edwgu99kr99b4fu8c8c99g0dw6y998c8cdwkukukudwijijijijijijq8ijijijijijatatatatk2k2k2k2k2k2k2fuk2k2k2k2k2gzgzdwdwdwdwdwdwdwk2cccccccccc7q7q7q7qdwfgdwdwdwdwdwfudwfgfgfgfgccdwcc'
 };
 /* Коды 128…159 WinAnsi — типографские знаки; остальное совпадает с Latin-1. */
 const DOC_WIN_HIGH={128:0x20AC,130:0x201A,131:0x192,132:0x201E,133:0x2026,134:0x2020,135:0x2021,136:0x2C6,137:0x2030,138:0x160,139:0x2039,140:0x152,142:0x17D,145:0x2018,146:0x2019,147:0x201C,148:0x201D,149:0x2022,150:0x2013,151:0x2014,152:0x2DC,153:0x2122,154:0x161,155:0x203A,156:0x153,158:0x17E,159:0x178};
@@ -29,8 +35,17 @@ const DOC_UNICODE_TO_WIN=(()=>{const m={};Object.keys(DOC_WIN_HIGH).forEach(k=>{
 const DOC_TEXT_SUBST={'″':'"','′':"'",'→':'->','←':'<-','≤':'<=','≥':'>=','−':'-',' ':' ',' ':' ',' ':' ','✓':'v','\t':' '};
 let docWidthTable=null;
 function docWidths(){
- if(!docWidthTable){const dec=s=>{const a=[];for(let i=0;i<s.length;i+=2)a.push(parseInt(s.slice(i,i+2),36));return a;};docWidthTable={r:dec(DOC_WIDTHS36.regular),b:dec(DOC_WIDTHS36.bold)};}
+ if(!docWidthTable){const dec=s=>{const a=[];for(let i=0;i<s.length;i+=2)a.push(parseInt(s.slice(i,i+2),36));return a;},W=DOC_WIDTHS36,mono=new Array(224).fill(600);
+  docWidthTable={r:dec(W.regular),b:dec(W.bold),t:dec(W.times),tb:dec(W.timesBold),ti:dec(W.timesItalic),tbi:dec(W.timesBoldItalic),c:mono,cb:mono};}
  return docWidthTable;
+}
+/* Шрифт текста: '' — Helvetica, 'times', 'courier'; курсив — 'times-i',
+   'courier-i', 'helvetica-i'. Курсив Helvetica и Courier той же ширины. */
+function docFaceTable(bold,face){
+ const f=String(face||''),i=/-i$/.test(f);
+ if(/^times/.test(f))return bold?(i?'tbi':'tb'):(i?'ti':'t');
+ if(/^courier/.test(f))return bold?'cb':'c';
+ return bold?'b':'r';
 }
 function docWinCode(ch){const u=ch.charCodeAt(0);if((u>=32&&u<127)||(u>=160&&u<=255))return u;return DOC_UNICODE_TO_WIN[u]||0;}
 function docText(s){
@@ -41,30 +56,30 @@ function docText(s){
  }
  return out;
 }
-function docTextWidth(s,size,bold,ls){
- const t=docWidths()[bold?'b':'r'];let w=0,n=0;
+function docTextWidth(s,size,bold,ls,face){
+ const t=docWidths()[docFaceTable(bold,face)];let w=0,n=0;
  for(const ch of docText(s)){if(ch==='\n')continue;const c=docWinCode(ch);w+=(c>=32?t[c-32]:0)||556;n++;}
  return w*(size||8)/1000+(ls||0)*n;
 }
-function docWrap(s,size,bold,maxW){
+function docWrap(s,size,bold,maxW,face){
  const out=[];
  docText(s).split('\n').forEach(par=>{
   let line='';
   par.split(/ +/).forEach(word=>{
    const cand=line?line+' '+word:word;
-   if(docTextWidth(cand,size,bold)<=maxW){line=cand;return;}
+   if(docTextWidth(cand,size,bold,0,face)<=maxW){line=cand;return;}
    if(line)out.push(line);
    /* Слово длиннее строки режется по буквам, иначе вылезло бы за поле. */
-   let chunk='';for(const ch of word){if(chunk&&docTextWidth(chunk+ch,size,bold)>maxW){out.push(chunk);chunk='';}chunk+=ch;}
+   let chunk='';for(const ch of word){if(chunk&&docTextWidth(chunk+ch,size,bold,0,face)>maxW){out.push(chunk);chunk='';}chunk+=ch;}
    line=chunk;
   });
   out.push(line);
  });
  return out;
 }
-function docFit(s,size,bold,maxW){
- s=docText(s).replace(/\n/g,' ');if(docTextWidth(s,size,bold)<=maxW)return s;
- while(s&&docTextWidth(s+'…',size,bold)>maxW)s=s.slice(0,-1);
+function docFit(s,size,bold,maxW,face){
+ s=docText(s).replace(/\n/g,' ');if(docTextWidth(s,size,bold,0,face)<=maxW)return s;
+ while(s&&docTextWidth(s+'…',size,bold,0,face)>maxW)s=s.slice(0,-1);
  return s+'…';
 }
 
@@ -96,7 +111,7 @@ function docJpegInfo(dataUrl){
 function docPage(){
  const items=[];
  return {items,
-  text(x,y,s,o){o=o||{};items.push({t:'text',x,y,s:docText(s),size:o.size||8,bold:!!o.bold,color:o.color||DOC_COLOR.ink,align:o.align||'left',ls:o.ls||0,pageLabel:!!o.pageLabel});},
+  text(x,y,s,o){o=o||{};const it={t:'text',x,y,s:docText(s),size:o.size||8,bold:!!o.bold,color:o.color||DOC_COLOR.ink,align:o.align||'left',ls:o.ls||0,pageLabel:!!o.pageLabel};if(o.face)it.face=o.face;items.push(it);},
   rect(x,y,w,h,o){o=o||{};items.push({t:'rect',x,y,w,h,fill:o.fill||'',stroke:o.stroke||'',lw:o.lw||.6,r:o.r||0});},
   line(x1,y1,x2,y2,o){o=o||{};items.push({t:'line',x1,y1,x2,y2,stroke:o.stroke||DOC_COLOR.line,lw:o.lw||.6});},
   poly(pts,o){o=o||{};items.push({t:'poly',pts,stroke:o.stroke||DOC_COLOR.navy,lw:o.lw||.8,fill:o.fill||'',closed:o.closed!==false});},
@@ -381,7 +396,8 @@ function docPageSVG(page){
  page.items.forEach(x=>{
   if(x.t==='text'){
    const anchor=x.align==='right'?' text-anchor="end"':x.align==='center'?' text-anchor="middle"':'';
-   out.push('<text x="'+docR(x.x)+'" y="'+docR(x.y)+'" font-size="'+x.size+'"'+(x.bold?' font-weight="700"':'')+' fill="'+x.color+'"'+(x.ls?' letter-spacing="'+x.ls+'"':'')+anchor+' xml:space="preserve">'+docXml(x.s)+'</text>');
+   const fam=/^times/.test(x.face||'')?' font-family="Times, \'Times New Roman\', serif"':/^courier/.test(x.face||'')?' font-family="Courier, \'Courier New\', monospace"':'';
+   out.push('<text x="'+docR(x.x)+'" y="'+docR(x.y)+'" font-size="'+x.size+'"'+fam+(/-i$/.test(x.face||'')?' font-style="italic"':'')+(x.bold?' font-weight="700"':'')+' fill="'+x.color+'"'+(x.ls?' letter-spacing="'+x.ls+'"':'')+anchor+' xml:space="preserve">'+docXml(x.s)+'</text>');
   }else if(x.t==='rect'){
    out.push('<rect x="'+docR(x.x)+'" y="'+docR(x.y)+'" width="'+docR(x.w)+'" height="'+docR(x.h)+'"'+(x.r?' rx="'+x.r+'"':'')+' fill="'+(x.fill||'none')+'"'+(x.stroke?' stroke="'+x.stroke+'" stroke-width="'+x.lw+'"':'')+'/>');
   }else if(x.t==='line'){

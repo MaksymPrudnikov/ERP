@@ -17,6 +17,8 @@
    ===================================================================== */
 
 function formIsText(b){return b.type==='text'||b.type==='field';}
+/* Шрифт блока: font times | courier (иначе Helvetica), italic — курсив. */
+function formFace(b){return b.font||b.italic?(b.font||'helvetica')+(b.italic?'-i':''):'';}
 function formLh(b){return b.lh||(b.size||9)+5;}
 function formBlockX(tpl,b){
  const m=tpl.page.margin,right=tpl.page.w-m.right,w=b.w||0;
@@ -52,7 +54,8 @@ function formLines(b,ctx){
  /* «Текст перед значением» (Date: …) — только у непустого поля. */
  else if(src.length&&b.prefix)src[0]=b.prefix+src[0];
  const size=b.size||9,out=[];
- src.forEach(t=>{if(b.wrap)out.push(...docWrap(t,size,!!b.bold,b.w||0));else out.push(b.fit?docFit(t,size,!!b.bold,b.w||0):t);});
+ const face=formFace(b);
+ src.forEach(t=>{if(b.wrap)out.push(...docWrap(t,size,!!b.bold,b.w||0,face));else out.push(b.fit?docFit(t,size,!!b.bold,b.w||0,face):t);});
  return b.max?out.slice(0,b.max):out;
 }
 /* Сдвиг блока, который стоит на высоте y части: он держится за ближайший
@@ -70,7 +73,7 @@ function formLayout(tpl,part,ctx){
     блока (вес рядом с кодом скида любой длины); gap — зазор. */
  bs.forEach(x=>{
   const ref=x.b.after&&bs.find(r=>r.b.id===x.b.after);
-  if(ref&&ref.lines&&ref.lines.length)x.ax=formBlockX(tpl,ref.b)+docTextWidth(ref.lines[0],ref.b.size||9,!!ref.b.bold,ref.b.ls)+(x.b.gap!=null?x.b.gap:12);
+  if(ref&&ref.lines&&ref.lines.length)x.ax=formBlockX(tpl,ref.b)+docTextWidth(ref.lines[0],ref.b.size||9,!!ref.b.bold,ref.b.ls,formFace(ref.b))+(x.b.gap!=null?x.b.gap:12);
  });
  const done=[];
  bs.slice().sort((p,q)=>p.b.y-q.b.y||p.i-q.i).forEach(x=>{x.off=formShift(done,x.b.y);x.top=x.b.y+x.off;done.push(x);});
@@ -84,7 +87,7 @@ function formText(P,x,y,s,o,late){
 /* ax — x блока, который стоит сразу за другим (after). */
 function formDrawLine(P,tpl,b,line,k,top,late,ax){
  const x=ax!=null?ax:formBlockX(tpl,b),w=b.w||0,align=ax!=null?'left':b.align||'left';
- formText(P,align==='right'?x+w:align==='center'?x+w/2:x,top+k*formLh(b),line,{size:b.size||9,bold:!!b.bold,color:b.color||DOC_COLOR.ink,align,ls:b.ls||0},late);
+ formText(P,align==='right'?x+w:align==='center'?x+w/2:x,top+k*formLh(b),line,{size:b.size||9,bold:!!b.bold,color:b.color||DOC_COLOR.ink,align,ls:b.ls||0,face:formFace(b)},late);
 }
 function formDrawBlock(P,tpl,x,ctx,top,late){
  const b=x.b,bx=formBlockX(tpl,b),w=b.w||0,h=b.h||0;
@@ -188,7 +191,8 @@ function formCleanBlock(b){
  [['x',-200,800],['y',-200,800],['w',0,800],['h',0,800],['size',4,96],['lh',0,200],['max',0,200],['lw',0,20],['r',0,50],['ls',0,10],['gap',0,200],['module',.5,5]].forEach(([k,lo,hi])=>{const v=num(b[k],lo,hi);if(v!==undefined)o[k]=v;});
  ['text','field','color','fill','empty','prefix','format','after'].forEach(k=>{const v=str(b[k]);if(v!==undefined)o[k]=v;});
  if(['left','center','right'].includes(b.align))o.align=b.align;
- ['bold','wrap','fit'].forEach(k=>{if(b[k])o[k]=true;});
+ ['bold','italic','wrap','fit'].forEach(k=>{if(b[k])o[k]=true;});
+ if(b.font==='times'||b.font==='courier')o.font=b.font;
  if(b.type==='image'&&typeof b.src==='string'&&/^data:image\/jpeg;base64,/.test(b.src)&&b.src.length<3e6)o.src=b.src;
  if(o.y===undefined)o.y=0;
  return o;

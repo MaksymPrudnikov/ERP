@@ -17,7 +17,8 @@ changes".
   drag to move (Left, Center, Right — up and down only, **Free** — anywhere); the right handle sets the width, the
   bottom one the height of a frame or line. Blocks under a growing one (address, skids list) move down by themselves.
 - On the right — the block settings: field or text, **Place on sheet** (Left, Center, Right, Free), X, Y, width and
-  height in mm, font size, line spacing, **B**, alignment, colour, wrap lines; a line or frame has colour, width and
+  height in mm, **Font** (Helvetica, Times, Courier), size, line spacing, **B**, **I** (italic), alignment, colour,
+  wrap lines; a line or frame has colour, width and
   fill. **Delete** removes the block, ready-made blocks too.
 
 ## A field — the Insert field window
@@ -27,6 +28,12 @@ Skids, Page), the fields with their value on the chosen packing slip in the midd
 Oct 2, 2026 / 2026-10-02 / 02/10/2026 / October 2, 2026) and **Before the value** — words before the value ("Date: "),
 printed only when the field is not empty. Search looks in all groups. Text blocks can hold fields too: `{number}`,
 `Page {page} of {pages}`.
+
+## Fonts
+
+Helvetica, Times and Courier are the standard PDF fonts: they are not embedded, every viewer and printer knows them,
+no fee. Windows may show a look-alike of the same width instead of Helvetica — lines land the same. Line breaks are
+the same on screen, in print and in the PDF.
 
 ## Saving
 
