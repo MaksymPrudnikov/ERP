@@ -1885,6 +1885,61 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .line-units-hold{color:var(--red)}.line-units-hold span{color:var(--red)}.line-units-cancelled span{color:var(--text-2)}.line-units-cancelled label{display:inline-flex;gap:6px;align-items:center;color:var(--text-2);text-transform:none;letter-spacing:0;font-size:13px;font-weight:400;margin:0}.line-units-cancelled input{width:110px;margin-top:0;text-align:right}
 .sl-partial{margin-left:6px;padding:1px 6px;font-size:10px;font-weight:700;vertical-align:1px}
 
+/* Шапка списка не уезжает при прокрутке вниз (владелец, 04.11.2026): страница
+   крутится сама — шапка у верха окна; шире экрана (sl-wide) — у верха таблицы. */
+.sales-list-card.sl-foot-pin table.sl-table>thead>tr>th{position:sticky;top:0;z-index:4}
+/* Freeze: первые N ячеек строки (галочка и закреплённые колонки) стоят у левого
+   края при прокрутке вбок; left — по ширине заголовков (salesListTableFit). */
+.sl-table.fz-1>:is(thead,tbody)>tr>:nth-child(1),.sl-table.fz-2>:is(thead,tbody)>tr>:nth-child(1),.sl-table.fz-3>:is(thead,tbody)>tr>:nth-child(1),.sl-table.fz-4>:is(thead,tbody)>tr>:nth-child(1),.sl-table.fz-5>:is(thead,tbody)>tr>:nth-child(1),.sl-table.fz-6>:is(thead,tbody)>tr>:nth-child(1),.sl-table.fz-7>:is(thead,tbody)>tr>:nth-child(1),.sl-table.fz-8>:is(thead,tbody)>tr>:nth-child(1),.sl-table.fz-9>:is(thead,tbody)>tr>:nth-child(1),.sl-table.fz-10>:is(thead,tbody)>tr>:nth-child(1),.sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(1),.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(1){left:var(--fz1,0)}
+.sl-table.fz-2>:is(thead,tbody)>tr>:nth-child(2),.sl-table.fz-3>:is(thead,tbody)>tr>:nth-child(2),.sl-table.fz-4>:is(thead,tbody)>tr>:nth-child(2),.sl-table.fz-5>:is(thead,tbody)>tr>:nth-child(2),.sl-table.fz-6>:is(thead,tbody)>tr>:nth-child(2),.sl-table.fz-7>:is(thead,tbody)>tr>:nth-child(2),.sl-table.fz-8>:is(thead,tbody)>tr>:nth-child(2),.sl-table.fz-9>:is(thead,tbody)>tr>:nth-child(2),.sl-table.fz-10>:is(thead,tbody)>tr>:nth-child(2),.sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(2),.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(2){left:var(--fz2,0)}
+.sl-table.fz-3>:is(thead,tbody)>tr>:nth-child(3),.sl-table.fz-4>:is(thead,tbody)>tr>:nth-child(3),.sl-table.fz-5>:is(thead,tbody)>tr>:nth-child(3),.sl-table.fz-6>:is(thead,tbody)>tr>:nth-child(3),.sl-table.fz-7>:is(thead,tbody)>tr>:nth-child(3),.sl-table.fz-8>:is(thead,tbody)>tr>:nth-child(3),.sl-table.fz-9>:is(thead,tbody)>tr>:nth-child(3),.sl-table.fz-10>:is(thead,tbody)>tr>:nth-child(3),.sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(3),.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(3){left:var(--fz3,0)}
+.sl-table.fz-4>:is(thead,tbody)>tr>:nth-child(4),.sl-table.fz-5>:is(thead,tbody)>tr>:nth-child(4),.sl-table.fz-6>:is(thead,tbody)>tr>:nth-child(4),.sl-table.fz-7>:is(thead,tbody)>tr>:nth-child(4),.sl-table.fz-8>:is(thead,tbody)>tr>:nth-child(4),.sl-table.fz-9>:is(thead,tbody)>tr>:nth-child(4),.sl-table.fz-10>:is(thead,tbody)>tr>:nth-child(4),.sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(4),.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(4){left:var(--fz4,0)}
+.sl-table.fz-5>:is(thead,tbody)>tr>:nth-child(5),.sl-table.fz-6>:is(thead,tbody)>tr>:nth-child(5),.sl-table.fz-7>:is(thead,tbody)>tr>:nth-child(5),.sl-table.fz-8>:is(thead,tbody)>tr>:nth-child(5),.sl-table.fz-9>:is(thead,tbody)>tr>:nth-child(5),.sl-table.fz-10>:is(thead,tbody)>tr>:nth-child(5),.sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(5),.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(5){left:var(--fz5,0)}
+.sl-table.fz-6>:is(thead,tbody)>tr>:nth-child(6),.sl-table.fz-7>:is(thead,tbody)>tr>:nth-child(6),.sl-table.fz-8>:is(thead,tbody)>tr>:nth-child(6),.sl-table.fz-9>:is(thead,tbody)>tr>:nth-child(6),.sl-table.fz-10>:is(thead,tbody)>tr>:nth-child(6),.sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(6),.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(6){left:var(--fz6,0)}
+.sl-table.fz-7>:is(thead,tbody)>tr>:nth-child(7),.sl-table.fz-8>:is(thead,tbody)>tr>:nth-child(7),.sl-table.fz-9>:is(thead,tbody)>tr>:nth-child(7),.sl-table.fz-10>:is(thead,tbody)>tr>:nth-child(7),.sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(7),.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(7){left:var(--fz7,0)}
+.sl-table.fz-8>:is(thead,tbody)>tr>:nth-child(8),.sl-table.fz-9>:is(thead,tbody)>tr>:nth-child(8),.sl-table.fz-10>:is(thead,tbody)>tr>:nth-child(8),.sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(8),.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(8){left:var(--fz8,0)}
+.sl-table.fz-9>:is(thead,tbody)>tr>:nth-child(9),.sl-table.fz-10>:is(thead,tbody)>tr>:nth-child(9),.sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(9),.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(9){left:var(--fz9,0)}
+.sl-table.fz-10>:is(thead,tbody)>tr>:nth-child(10),.sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(10),.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(10){left:var(--fz10,0)}
+.sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(11),.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(11){left:var(--fz11,0)}
+.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(12){left:var(--fz12,0)}
+.sl-table.fz-1>:is(thead,tbody)>tr>:nth-child(-n+1),.sl-table.fz-2>:is(thead,tbody)>tr>:nth-child(-n+2),.sl-table.fz-3>:is(thead,tbody)>tr>:nth-child(-n+3),.sl-table.fz-4>:is(thead,tbody)>tr>:nth-child(-n+4),.sl-table.fz-5>:is(thead,tbody)>tr>:nth-child(-n+5),.sl-table.fz-6>:is(thead,tbody)>tr>:nth-child(-n+6),.sl-table.fz-7>:is(thead,tbody)>tr>:nth-child(-n+7),.sl-table.fz-8>:is(thead,tbody)>tr>:nth-child(-n+8),.sl-table.fz-9>:is(thead,tbody)>tr>:nth-child(-n+9),.sl-table.fz-10>:is(thead,tbody)>tr>:nth-child(-n+10),.sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(-n+11),.sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(-n+12){position:sticky;z-index:2}
+.sales-list-card .sl-table.fz-1>thead>tr>:nth-child(-n+1),.sales-list-card .sl-table.fz-2>thead>tr>:nth-child(-n+2),.sales-list-card .sl-table.fz-3>thead>tr>:nth-child(-n+3),.sales-list-card .sl-table.fz-4>thead>tr>:nth-child(-n+4),.sales-list-card .sl-table.fz-5>thead>tr>:nth-child(-n+5),.sales-list-card .sl-table.fz-6>thead>tr>:nth-child(-n+6),.sales-list-card .sl-table.fz-7>thead>tr>:nth-child(-n+7),.sales-list-card .sl-table.fz-8>thead>tr>:nth-child(-n+8),.sales-list-card .sl-table.fz-9>thead>tr>:nth-child(-n+9),.sales-list-card .sl-table.fz-10>thead>tr>:nth-child(-n+10),.sales-list-card .sl-table.fz-11>thead>tr>:nth-child(-n+11),.sales-list-card .sl-table.fz-12>thead>tr>:nth-child(-n+12){z-index:5}
+.sl-table.sl-frz>tfoot>tr>:first-child{left:0;z-index:4}
+:where(.sl-table.sl-frz>tbody>tr>td){background:var(--surface)}
+/* Прокрутили вбок — тень у правого края закреплённых: видно, что текст уходит под них. */
+.sl-scrolled-x .sl-table.fz-1>:is(thead,tbody)>tr>:nth-child(1),.sl-scrolled-x .sl-table.fz-2>:is(thead,tbody)>tr>:nth-child(2),.sl-scrolled-x .sl-table.fz-3>:is(thead,tbody)>tr>:nth-child(3),.sl-scrolled-x .sl-table.fz-4>:is(thead,tbody)>tr>:nth-child(4),.sl-scrolled-x .sl-table.fz-5>:is(thead,tbody)>tr>:nth-child(5),.sl-scrolled-x .sl-table.fz-6>:is(thead,tbody)>tr>:nth-child(6),.sl-scrolled-x .sl-table.fz-7>:is(thead,tbody)>tr>:nth-child(7),.sl-scrolled-x .sl-table.fz-8>:is(thead,tbody)>tr>:nth-child(8),.sl-scrolled-x .sl-table.fz-9>:is(thead,tbody)>tr>:nth-child(9),.sl-scrolled-x .sl-table.fz-10>:is(thead,tbody)>tr>:nth-child(10),.sl-scrolled-x .sl-table.fz-11>:is(thead,tbody)>tr>:nth-child(11),.sl-scrolled-x .sl-table.fz-12>:is(thead,tbody)>tr>:nth-child(12){box-shadow:inset -1px 0 var(--line-strong);overflow:clip;overflow-clip-margin:12px}
+.sl-scrolled-x .sl-table.fz-1>:is(thead::after,tbody)>tr>:nth-child(1)::after,.sl-scrolled-x .sl-table.fz-2>:is(thead::after,tbody)>tr>:nth-child(2)::after,.sl-scrolled-x .sl-table.fz-3>:is(thead::after,tbody)>tr>:nth-child(3)::after,.sl-scrolled-x .sl-table.fz-4>:is(thead::after,tbody)>tr>:nth-child(4)::after,.sl-scrolled-x .sl-table.fz-5>:is(thead::after,tbody)>tr>:nth-child(5)::after,.sl-scrolled-x .sl-table.fz-6>:is(thead::after,tbody)>tr>:nth-child(6)::after,.sl-scrolled-x .sl-table.fz-7>:is(thead::after,tbody)>tr>:nth-child(7)::after,.sl-scrolled-x .sl-table.fz-8>:is(thead::after,tbody)>tr>:nth-child(8)::after,.sl-scrolled-x .sl-table.fz-9>:is(thead::after,tbody)>tr>:nth-child(9)::after,.sl-scrolled-x .sl-table.fz-10>:is(thead::after,tbody)>tr>:nth-child(10)::after,.sl-scrolled-x .sl-table.fz-11>:is(thead::after,tbody)>tr>:nth-child(11)::after,.sl-scrolled-x .sl-table.fz-12>:is(thead::after,tbody)>tr>:nth-child(12)::after{content:'';position:absolute;top:0;bottom:0;right:-12px;width:12px;pointer-events:none;background:linear-gradient(to right,rgba(16,24,40,.16),rgba(16,24,40,0))}
+/* Значок Freeze: в ряду Sort меню колонки и у заголовка закреплённой колонки. */
+.sl-row>.sl-freeze{flex:0 0 36px;display:flex;align-items:center;justify-content:center;padding:5px 0}
+.sl-freeze>span,.sl-freeze svg{display:block;width:15px;height:15px}
+.sl-table th.sl-frz-col [data-cw-label]::before{content:'';display:inline-block;width:11px;height:11px;margin-right:3px;vertical-align:-1px;background:var(--accent);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 3h6l-1 6 3 3H7l3-3z'/%3E%3Cpath d='M12 12v9'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 3h6l-1 6 3 3H7l3-3z'/%3E%3Cpath d='M12 12v9'/%3E%3C/svg%3E") center/contain no-repeat}
+/* Пустая ячейка — серый «–» на месте значения (владелец, 05.11.2026, вариант 1). */
+.sl-dash{color:var(--text-3)}
+/* Шапка списка одной высоты на всех экранах и вкладках (Optimization прыгала,
+   04.11.2026): ряд кнопок, заголовки таблицы; строки — по середине. */
+.card.sales-list-card>.sales-toolbar{min-height:37px;margin-bottom:8px}
+.sales-list-card table.sl-table>thead>tr{height:47px}
+.sales-list-card table.sl-table>tbody>tr>td{vertical-align:middle}
+/* Строки и текст списков — как в Sales на всех экранах (владелец, 05.11.2026: «размеры
+   строчек и текста разные»): строка не ниже 52 px, текст ячейки 13.5 px. Подстроки
+   производства (pb-sub) и распорка дорисовки — свои. */
+.sales-list-card table.sl-table>tbody>tr:not(.list-rest):not(.pb-sub){height:52px}
+.sales-list-card table.sl-table>tbody>tr:not(.pb-sub)>td{font-size:13.5px}
+/* Галочка «выбрать все» в шапке — в одну линию с галочками строк (05.11.2026). */
+.sales-list-card .oq-table-wrap :is(th,td).sl-check{text-align:left}
+/* Optimization и Shipping: навигация — своя карточка над таблицей, только вкладки
+   (владелец, 05.11.2026); кнопки, поиск и Open a trip — в карточке таблицы. Переносит salesListSplitNav. */
+.card.sl-nav-card{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 16px;padding:0 20px 0 0;min-height:54px}
+.shipping-workspace>.card.sl-nav-card{margin:0}
+#app .card.sl-nav-card>.sl-filter-row{flex:1 1 auto;min-width:0;padding:13px 0 13px 20px}
+.sales-list-card table.sl-table>tbody>tr>td :is(button.sm,input:not([type=checkbox]),select){height:25px;min-height:0;padding-top:0;padding-bottom:0;box-sizing:border-box}
+/* Вторая строка в ячейке (код клиента в Finance, юрлицо в Customers) — серым в той же
+   строке; не влезла — многоточие, полностью — подсказкой. */
+.sales-list-card table.sl-table>tbody>tr>td>div.mut{display:inline;margin-left:6px}
+/* Ряд кнопок без кнопок (ничего не отмечено, Open — правой кнопкой) места не занимает
+   (владелец, 05.11.2026). */
+.card.sales-list-card>.sales-toolbar:not(:has(>:not(.sales-toolbar-sp,[hidden]))){display:none}
+
 /* ---- src/styles/col-widths.css ---- */
 /* Ширина и порядок колонок (views/col-widths): Sales и Order Lines одинаково. */
 table[data-cw-table] th[data-cw-key]{position:relative;cursor:grab}
@@ -3218,16 +3273,6 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 .shipping-workspace>.oq-tabs button.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}
 .shipping-workspace>.oq-tabs button.on b{color:inherit;opacity:.8}
 /* Список PS: слева дни, справа листы дня (владелец, 02.11.2026, вариант 3). */
-.ship-split{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px;align-items:start}
-.ship-split>.card{margin:0}
-.ship-days{display:grid;gap:2px;padding:14px 10px;position:sticky;top:12px}
-.ship-days h5{margin:6px 10px;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-2)}
-.ship-days p{margin:6px 10px}
-.ship-day{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;padding:8px 10px;border:0;border-radius:8px;background:transparent;color:var(--text);font-size:13px;font-weight:600;text-align:left}
-.ship-day b{font-size:12px;font-weight:500;color:var(--text-2)}
-.ship-day:hover{background:var(--surface-2)}
-.ship-day.on{background:var(--accent);color:var(--on-solid)}
-.ship-day.on b{color:inherit;opacity:.8}
 .shipping-scan.ship-top{gap:8px;padding:12px 20px;border-bottom:0;align-items:center}
 .ship-top label,.ship-top label:first-child{display:inline-flex;flex:none;min-width:0;gap:8px;align-items:center;white-space:nowrap;font-size:12px;font-weight:600;color:var(--text-2)}
 .ship-top input,.ship-top select{min-height:34px;font-size:13px}
@@ -3238,14 +3283,13 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 .ship-top>select{width:176px}
 .shipping-ps-table td.sales-row-actions{text-align:right}
 .shipping-ps-table .shipping-pills{flex-wrap:nowrap}
-@media(max-width:1400px){.ship-split{grid-template-columns:160px minmax(0,1fr)}}
-@media(max-width:1100px){.ship-split{grid-template-columns:minmax(0,1fr)}.ship-days{position:static;display:flex;gap:6px;padding:8px;overflow-x:auto}.ship-days h5,.ship-days p{display:none}.ship-day{width:auto;flex:none;gap:10px}}
 .delivery-truck-acts{display:inline-flex;align-items:center;gap:6px;margin-left:10px;padding-left:10px;border-left:1px solid var(--line)}.delivery-bar input[type=date]{height:28px;margin:0;width:140px}.shipping-customer-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.shipping-ready-table .shipping-skid{display:inline-flex;align-items:center;gap:4px}.sales-toolbar .shipping-lookup-field{display:inline-flex;gap:4px}
 .sales-toolbar select[aria-label="Customer for new trip"]{width:200px;margin:0;height:30px}.sales-toolbar .shipping-lookup-field select,.sales-toolbar .shipping-lookup-field input{height:30px;margin:0}.sales-toolbar .shipping-lookup-field input{width:150px}.shipping-ready-table .shipping-customer-head{justify-content:flex-start;gap:14px}.shipping-ready-table .shipping-customer-head .mut{font-size:12px}.delivery-list .sales-toolbar{flex-wrap:wrap}
 .sales-toolbar select[aria-label="Customer for new trip"],.sales-toolbar .shipping-lookup-field select,.sales-toolbar .shipping-lookup-field input{height:auto;min-height:30px;padding-top:4px;padding-bottom:4px}.shipping-ready-table .shipping-skid{display:inline-flex;align-items:center;gap:4px;border:0;padding:0;margin:0;width:auto;min-height:0;grid-template-columns:none}.shipping-ready-table .shipping-skid label{display:inline-flex;margin:0}
 .shipping-ready-table .shipping-skid label{min-width:0}.shipping-ready-table .shipping-skid>span{flex:none}
 .shipping-lookup-box{position:relative;display:inline-flex}.shipping-lookup-box input{padding-right:30px}.shipping-match{position:absolute;right:3px;top:50%;transform:translateY(-50%);min-height:0;height:22px;padding:0 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);font-size:11px;color:var(--text-2);cursor:pointer}.shipping-match:hover{color:var(--text)}.sl-rep{color:var(--text-3)}
 .ship-top .shipping-lookup-box input{width:150px}
+
 
 /* ---- src/styles/carriers.css ---- */
 /* Долли и скиды в офисе: Production → Dollies & Skids и окно «что на ней
@@ -3805,7 +3849,7 @@ button.inv-tile{cursor:pointer}button.inv-tile:hover{border-color:var(--line-str
 .inv-wo-note{flex:1;min-width:180px}.inv-wo-note input{width:100%;box-sizing:border-box}
 .inv-wo-actions{display:flex;gap:8px}
 @media (max-width:700px){.inv-tiles{padding:12px 12px 4px}.inv-hint,.inv-writeoff{margin-left:12px;margin-right:12px}}
-.inv-table input.inv-min,.inv-table input.inv-count{height:30px;min-height:0;padding:3px 8px;font-size:13px}
+.inv-table input.inv-min,.inv-table input.inv-count{height:26px;min-height:0;padding:2px 8px;font-size:13px}
 .inv-lost-cell,.inv-lost-head{text-align:center}
 .cut-size-free{font-size:11px;font-weight:600;color:var(--text-2);margin-top:2px}
 .cut-size-free.short{color:var(--danger)}.cut-size-free.mut{font-weight:500;color:var(--text-3)}
@@ -3917,7 +3961,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='774ec03c2cf3';
+var ERP_BUILD='5da0b2c7b388';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -16623,6 +16667,7 @@ const ICONS={
  contact:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="10" r="2.8"/><path d="M7.5 17a4.5 4.5 0 0 1 9 0"/>',
  phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>',
  mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+ freeze:'<path d="M9 3h6l-1 6 3 3H7l3-3z"/><path d="M12 12v9"/>',
  pin:'<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
  lock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
  unlock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/>',
@@ -16902,6 +16947,7 @@ function renderScreen(){
  const focus=renderFocusKey(),hadWindow=motionHasWindow(document.getElementById('app'));
  document.getElementById('app').innerHTML = (V ? V() : '<div class="empty">module planned</div>')+(window.APP_OVERLAYS||[]).map(f=>f()).join('');
  navHideRepeatedTitle(meta[0]);
+ if(typeof salesListSplitNav==='function')salesListSplitNav();
  afterRender();
  renderFocusBack(focus);
  listWindowAfter();
@@ -18278,7 +18324,7 @@ function customerList(){
  const sel=custSel&&(DB.customer||[]).find(x=>x.id===custSel),used=sel&&customerHasReferences(sel.id),q=(act,label,fn,cls,dis,title)=>`<button type="button" class="sl-quiet${cls?' '+cls:''}" data-cust-act="${act}" ${sel&&!dis?'':'disabled'} ${title?`title="${esc(title)}"`:''} onclick="${fn}">${label}</button>`;
  const acts=(sel?`<b class="oq-sel" title="${esc(salesCustomerDisplay(sel.id))}">1 selected</b>`:'')+q('open','Open',`customerEdit(custSel)`)+q('duplicate','Duplicate',`customerDuplicate(custSel)`)+q('archive',sel&&sel.status==='archived'?'Restore':'Archive',`customerToggleArchive(custSel)`)+q('delete','Delete',`customerDelete(custSel)`,'sl-delete-quiet',used,used?'Has orders — archive instead':'');
  const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
- return `<div class="card sales-list-card">
+ return `<div class="card sales-list-card sl-foot-pin">
   <div class="sales-toolbar">${acts}<span class="sales-toolbar-sp"></span>${salesListDateButton('created')}<button class="pri" data-customer-new onclick="customerNew()">+ New customer</button><button type="button" class="cust-more" data-customer-more title="Export" aria-label="Export" onclick="custMenuOpen(event,'more')">⋯</button></div>
   ${salesListFilterChips()}
   <div class="sales-table-wrap">${(cw=>`<table class="sl-table cust-table${cw.cls}"${cw.attrs}>${cw.col}`)(salesListCwTable(cols.map(c=>c.k),[44],20))}<thead><tr><th class="sl-check"><span class="sl-header-tools">${settings}</span></th>${cols.map(custHeader).join('')}<th></th></tr></thead>
@@ -24574,7 +24620,7 @@ function cwMove(e){
 }
 function cwUp(e){
  const d=cwDrag;if(!d||(e&&e.pointerId!==d.pointer))return;cwDrag=null;cwClear();
- if(d.kind==='resize'){CW_TABLES[d.id].save(cwClean(d.w));cwSwallowClick();return;}
+ if(d.kind==='resize'){CW_TABLES[d.id].save(cwClean(d.w));cwSwallowClick();if(typeof salesListFit==='function')salesListFit();return;}
  if(!d.on)return;cwSwallowClick();
  const t=d.target;if(!t||t.th===d.th)return;
  CW_TABLES[d.id].move(d.key,t.th.dataset.cwKey,t.after);
@@ -28949,7 +28995,6 @@ function viewOrderQueue(shipping){
  optimizationSel=new Set([...optimizationSel].filter(id=>rows.some(o=>o.id===id)));
  const selected=rows.filter(o=>optimizationSel.has(o.id)),n=selected.length,all=selectable.length>0&&n===selectable.length;
  const acts=optimizationActions(shipping,key,selected);
- const only=n===1?selected[0]:null;
  const bar=acts.map(x=>`<button type="button" class="sl-quiet${x.cls?' '+x.cls:''}" data-queue-action="${x.delivery||x.act}" ${x.enabled?'':'disabled'} onclick="optimizationAction('${x.act}'${x.delivery?",'"+x.delivery+"'":''})">${x.label}</button>`).join('');
  const tabs=orderQueueTabs().map(t=>`<button type="button" role="tab" aria-selected="${key===t[0]}" data-queue-tab="${t[0]}" class="sl-quick-pill${key===t[0]?' on':''}" onclick="optimizationSetTab('${t[0]}')">${t[1]} <b>${optimizationTabCount(t[0])}</b></button>`).join('');
  const cwId=salesListCwId(),keys=cols.map(c=>c.k);
@@ -28957,12 +29002,12 @@ function viewOrderQueue(shipping){
  const body=filtered.map(info=>{
   const o=info.o,chosen=optimizationSel.has(o.id);
   const cell=c=>c.k==='readyQty'?`<td>${shippingSummary(o).physicalReady} / ${shippingSummary(o).glass}</td>`:c.k==='batch'?`<td class="oq-batches">${salesOrderBatchNumbers(o).map(v=>`<span class="pill">${esc(v)}</span>`).join(' ')||'—'}</td>`:c.k==='newLines'?`<td class="n">${salesUnbatchedLines(o).length}</td>`:salesListCell(info,c);
-  return `<tr data-queue-order="${esc(o.id)}" class="${o.onHold?'oq-hold':chosen?'oq-selected':''}" oncontextmenu="optimizationContext(event,'${esc(o.id)}')"><td><input type="checkbox" data-queue-check aria-label="Select order ${esc(o.businessNumber)}" ${chosen?'checked':''} onchange="optimizationToggle('${esc(o.id)}',this.checked)"></td>${cols.map(cell).join('')}
+  return `<tr data-queue-order="${esc(o.id)}" class="${o.onHold?'oq-hold':chosen?'oq-selected':''}" oncontextmenu="optimizationContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-queue-check aria-label="Select order ${esc(o.businessNumber)}" ${chosen?'checked':''} onchange="optimizationToggle('${esc(o.id)}',this.checked)"></td>${cols.map(cell).join('')}
    <td></td></tr>`;
  }).join('');
  return `<section class="optimization-queue ${shipping?'shipping-queue':''}">
-  <div class="card sales-list-card oq-card sl-foot-pin"><div class="sales-toolbar"><button type="button" class="sl-quiet" data-queue-open-order ${only?'':'disabled'} onclick="optimizationOpenOrder('${only?esc(only.id):''}')">Open</button>${n?`<b class="oq-sel" data-queue-selection>${n} selected</b>${bar}`:`<b class="oq-sel" data-queue-selection hidden>0 selected</b>`}${shipping&&typeof shippingBarRight==='function'?'<span class="sales-toolbar-sp"></span>'+shippingBarRight():''}</div>
-  ${shipping?'':`<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Order queues">${tabs}</div></div>`}
+  <div class="card sales-list-card oq-card sl-foot-pin"><div class="sales-toolbar">${shipping?`<button type="button" class="sl-quiet" data-queue-open-order ${n===1?'':'disabled'} onclick="optimizationOpenOrder('${n===1?esc(selected[0].id):''}')">Open</button>`:''}${n?`<b class="oq-sel" data-queue-selection>${n} selected</b>${bar}`:`<b class="oq-sel" data-queue-selection hidden>0 selected</b>`}${shipping&&typeof shippingBarRight==='function'?'<span class="sales-toolbar-sp"></span>'+shippingBarRight():''}</div>
+  ${shipping?shippingTabs():`<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Order queues">${tabs}</div></div>`}
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
    ${optimizationNotice?`<div class="oq-notice${optimizationNotice.error?' bad':''}" role="${optimizationNotice.error?'alert':'status'}"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>
@@ -28994,7 +29039,9 @@ function shippingTabCount(key){
 /* Delivery — свой экран, не очередь заказов: в SHIPPING_TABS (вкладки
    очереди, erp/views/optimization) он не входит. */
 function shippingViewTabs(){const t=SHIPPING_TABS.slice();t.splice(t.findIndex(x=>x[0]==='shipments')+1,0,['delivery','Delivery'],['skids','Skids']);return t;}
-function shippingTabs(){return '<div class="oq-tabs" role="tablist">'+shippingViewTabs().map(([key,name])=>`<button type="button" role="tab" data-shipping-tab="${key}" aria-selected="${shippingTab===key}" class="${shippingTab===key?'on':''}" onclick="shippingSetTab('${key}')">${name} <b>${shippingTabCount(key)}</b></button>`).join('')+'</div>';}
+/* Вкладки — таблетками в карточке списка, под рядом кнопок, как в Optimization
+   (владелец, 05.11.2026: «зачем вверху линия — всё в одну таблицу»). */
+function shippingTabs(){return '<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Shipping">'+shippingViewTabs().map(([key,name])=>`<button type="button" role="tab" data-shipping-tab="${key}" aria-selected="${shippingTab===key}" class="sl-quick-pill${shippingTab===key?' on':''}" onclick="shippingSetTab('${key}')">${name} <b>${shippingTabCount(key)}</b></button>`).join('')+'</div></div>';}
 function shippingOrders(){return readMemo('shippingOrders',[DB.salesOrder,DB.shipment,DB.stationScan],()=>(DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&!['cancelled','closed'].includes(o.status)&&!shippingLegacy(o)&&(o.status!=='new'||shippingAvailable(o).length>0)));}
 /* Ready — только то, что можно положить в PS: готовые юниты без PS и товары
    склада. Заказ, где готового нет, сюда не попадает (он в Awaiting). */
@@ -29175,7 +29222,7 @@ function shippingReadyHTML(){
  }).join('');
  const bar=`<div class="sales-toolbar"><button type="button" class="sl-quiet" data-create-ps="${esc(cur)}" ${cur?'':'disabled'} title="${cur?'':'Tick a customer, order or skid'}" onclick="shippingOpen(shippingCustomer)">Create packing slip</button>${cur?`<b class="oq-sel" title="${esc(salesCustomerDisplay(cur))}">${shippingSelection.size} selected</b>`:''}<span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>`;
  const foot=customers.length?`<tfoot><tr class="sl-foot"><td></td><td colspan="4"><b>${customers.length} customer${customers.length===1?'':'s'} · ${orders.length} order${orders.length===1?'':'s'}</b></td><td class="n"><b>${sumReady}</b></td><td class="n"><b>${sumLeft}</b></td><td></td><td></td><td></td></tr></tfoot>`:'';
- return `<div class="card sales-list-card sl-foot-pin">${bar}<div class="sales-table-wrap">${(t=>`<table class="sl-table shipping-ready-table${t.cls}"${t.attrs}>${t.col}<thead><tr><th class="sl-check"></th>${t.head}</tr></thead>`)(cwStaticTable('shippingReady',[['order','Order'],['line','Line / Mark'],['size','Size'],['makeup','Makeup'],['ready','Ready','n'],['left','Not ready','n'],['back','Back order','n'],['queue','Queue'],['qty','Select qty']],[44]))}<tbody>${body||'<tr><td colspan="10" class="empty">No units ready for a packing slip.</td></tr>'}</tbody>${foot}</table></div></div>`;
+ return `<div class="card sales-list-card sl-foot-pin">${bar}${shippingTabs()}<div class="sales-table-wrap">${(t=>`<table class="sl-table shipping-ready-table${t.cls}"${t.attrs}>${t.col}<thead><tr><th class="sl-check"></th>${t.head}</tr></thead>`)(cwStaticTable('shippingReady',[['order','Order'],['line','Line / Mark'],['size','Size'],['makeup','Makeup'],['ready','Ready','n'],['left','Not ready','n'],['back','Back order','n'],['queue','Queue'],['qty','Select qty']],[44]))}<tbody>${body||'<tr><td colspan="10" class="empty">No units ready for a packing slip.</td></tr>'}</tbody>${foot}</table></div></div>`;
 }
 /* Поиск заказа и «Open a trip» — справа в шапке списка каждой вкладки Shipping. */
 function shippingBarRight(){return shippingLookupHTML().field+shippingTripHTML();}
@@ -29189,10 +29236,10 @@ function shippingListExtra(s){
  return {area:Math.round(area*10)/10,kg:Math.round(deliveryLoad(s).kg*10)/10,glass:[...new Set(orders.map(o=>salesListGlass(o,true)).join(' · ').split(/\s*·\s*/).filter(Boolean))].join(' · '),balance:bal.length?finMoney(bal.reduce((n,v)=>n+v,0)):null};
 }
 function shippingListInfos(){return (DB.shipment||[]).map(s=>({o:s,memo:Object.assign(shippingListExtra(s),{number:s.number,customer:salesCustomerDisplay(s.customerId),date:s.date,method:s.method==='pickup'?'Pickup':'Delivery',skids:(Array.isArray(s.skidsOut)?s.skidsOut:[...new Set(s.items.map(i=>i.skid).filter(Boolean))]).join(', '),units:s.items.length+s.extras.reduce((n,i)=>n+i.qty,0),status:shippingStatus(s)})}));}
-/* Список PS (владелец, 02.11.2026, вариант 3): слева дни, справа листы дня; шапка и
-   таблица — блоки Sales. День — фильтр колонки Date, поэтому та же кнопка Date, чипы
-   и меню колонки. Быстрый вид вне All смотрит поверх дней, как в Sales. */
-const SHIPPING_LIST_STATUSES=['Planned','Shipped','Delivered','Picked up','Cancelled'],SHIPPING_DAYS_SHOWN=12;
+/* Список PS (владелец, 02.11.2026, вариант 3; 05.11.2026 — без колонки дней слева): шапка и
+   таблица — блоки Sales. День — фильтр колонки Date: кнопка Date, чипы и меню колонки.
+   Быстрый вид вне All смотрит поверх дня, как в Sales. */
+const SHIPPING_LIST_STATUSES=['Planned','Shipped','Delivered','Picked up','Cancelled'];
 let shippingStatusKey='';
 function shippingDayFilter(day){return salesListCleanFilter('date',{conds:[{op:'between',v:day,v2:day}]});}
 function shippingCurrentDay(){const d=salesListDateParts(salesListLoadPrefs().filters.date);return d.simple&&d.from&&d.from===d.to?d.from:'';}
@@ -29230,15 +29277,6 @@ function shippingStatusPills(rows){
  const n={};rows.forEach(r=>{n[r.memo.status]=(n[r.memo.status]||0)+1;});
  return `<span class="sl-filter-sep" aria-hidden="true"></span>${SHIPPING_LIST_STATUSES.map(k=>`<button type="button" class="sl-quick-pill sl-status-pill${k===shippingStatusKey?' on':''}" aria-pressed="${k===shippingStatusKey}" data-status-chip="${esc(k)}" onclick="shippingStatusPick(${esc(JSON.stringify(k))})">${k}<b>${(n[k]||0).toLocaleString('en-US')}</b></button>`).join('')}`;
 }
-function shippingDaysHTML(anyDay,quick){
- const counts=new Map();anyDay.forEach(i=>counts.set(i.o.date,(counts.get(i.o.date)||0)+1));
- const cur=quick==='all'?shippingCurrentDay():'',all=[...counts.keys()].sort().reverse();
- let at=all.findIndex(d=>d<=finToday());if(at<0)at=all.length;
- const days=all.slice(Math.max(0,at-3)).slice(0,SHIPPING_DAYS_SHOWN);
- if(cur&&!days.includes(cur))days.push(cur),days.sort().reverse();
- const none=quick==='all'&&!salesListFilterActive(salesListLoadPrefs().filters.date);
- return `<aside class="card ship-days" aria-label="Days"><h5>Days</h5>${days.map(d=>`<button type="button" class="ship-day${d===cur?' on':''}" data-day="${d}" onclick="shippingSetDay('${d}')"><span>${esc(salesListShortDay(d))}</span><b>${counts.get(d)||0}</b></button>`).join('')||'<p class="mut">No packing slips.</p>'}<h5>Other</h5><button type="button" class="ship-day" data-day-pick onclick="salesListOpenDate(event,'date')"><span>Pick a date…</span></button><button type="button" class="ship-day${none?' on':''}" data-day-all onclick="shippingSetDay('')"><span>All time</span><b>${anyDay.length}</b></button></aside>`;
-}
 function shippingTripHTML(){return `<select aria-label="Customer for new trip" onchange="if(this.value)shippingOpen(this.value)"><option value="">Open a trip · customer</option>${(DB.customer||[]).filter(c=>c.status!=='archived').map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}</option>`).join('')}</select>`;}
 function shippingTopHTML(lookupField){
  return `<div class="ship-top shipping-scan"><label>Signed packing slip<input id="shippingSigned" data-signed-ps placeholder="PS number" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingSigned(this.value)}"></label><input id="shippingReceiver" aria-label="Received by" value="${esc(shippingReceivedBy)}" placeholder="Received by" oninput="shippingReceivedBy=this.value"><input id="shippingReceivedOn" type="date" aria-label="Received on" title="Received on" value="${shippingReceivedOn||finToday()}" max="${finToday()}" onchange="shippingReceivedOn=this.value"><span class="sales-toolbar-sp"></span>${lookupField}${shippingTripHTML()}</div>`;
@@ -29261,7 +29299,8 @@ function shippingListHTML(lookupField){
  const body=listWindowBody(rows,i=>`<tr data-ps="${esc(i.o.number)}" class="${i.o.id===shippingOpenId?'shipping-selected':''}"><td class="sl-check"></td>${cols.map(c=>`<td${c.type==='number'?' class="n"':''}>${cell(i,c)}</td>`).join('')}<td class="sales-row-actions"><button class="sm" ${i.o.status==='cancelled'&&!i.o.unbatchedItems?.length?'disabled':''} onclick="shippingPrint('${esc(i.o.id)}')">Print</button></td></tr>`,cols.length+2,{table:'.shipping-ps-table'});
  const keys=cols.map(c=>c.k);
  const table=`<div class="sales-table-wrap"><table class="sl-table shipping-ps-table${cwTableClass('shipments')}"${cwTableAttrs('shipments',keys)}>${cwColgroup('shipments',keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'No packing slips match.':'No packing slips.'}</td></tr>`}</tbody>${rows.length?shippingListFooter(rows,cols):''}</table></div>`;
- return `<div class="ship-split">${shippingDaysHTML(anyDay,quick)}<div class="card sales-list-card shipping-list-card sl-foot-pin">${shippingTopHTML(lookupField)}<div class="sl-filter-row">${salesQuickHTML(anyDay,anyDay,{cur:shippingStatusKey?'-':quick,set:'shippingQuickPick',test:shippingQuickTest,name:shippingQuickName})}${shippingStatusPills(shown)}<span class="sales-toolbar-sp"></span>${salesListDateButton('date')}</div>${salesListFilterChips()}${table}${salesListMenuHTML(infos)}</div></div>${shippingDetailHTML()}`;
+ /* Вид NOW без колонки дней слева (владелец, 05.11.2026): день — кнопка Date; сверху — карточка навигации. */
+ return `<div class="card sl-nav-card">${shippingTabs()}</div><div class="card sales-list-card shipping-list-card sl-foot-pin">${shippingTopHTML(lookupField)}<div class="sl-filter-row">${salesQuickHTML(anyDay,anyDay,{cur:shippingStatusKey?'-':quick,set:'shippingQuickPick',test:shippingQuickTest,name:shippingQuickName})}${shippingStatusPills(shown)}<span class="sales-toolbar-sp"></span>${salesListDateButton('date')}</div>${salesListFilterChips()}${table}${salesListMenuHTML(infos)}</div>${shippingDetailHTML()}`;
 }
 function shippingDetailHTML(){
  const s=shippingFind(shippingOpenId);if(!s)return '';const d=shippingDocument(s),loaded=s.status==='planned'?shippingLoadText(shippingLoadState(s)):'';
@@ -29276,13 +29315,18 @@ function shippingDetailHTML(){
 }
 /* Backorders — список вида Sales: строка — остаток строки заказа; заказ и
    клиент в своих колонках, повтор ниже бледный; Columns, фильтры, итог. */
-function shippingBackorderColumns(){return [{k:'order',label:'Order',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'po',label:'PO',type:'text',def:false},{k:'due',label:'Due',type:'date',def:false},{k:'line',label:'Line / Mark',type:'text'},{k:'size',label:'Size',type:'text'},{k:'ordered',label:'Ordered',type:'number',sum:true},{k:'shipped',label:'Shipped',type:'number',sum:true},{k:'left',label:'Remaining',type:'number',sum:true},{k:'where',label:'In the shop',type:'text'}].map(c=>Object.assign({def:true},c));}
+function shippingBackorderColumns(){return [{k:'order',label:'Order',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'po',label:'PO',type:'text',def:false},{k:'due',label:'Due',type:'date',def:false},{k:'line',label:'Line / Mark',type:'text'},{k:'size',label:'Size',type:'text'},{k:'items',label:'Order Items',type:'text'},{k:'ordered',label:'Ordered',type:'number',sum:true},{k:'shipped',label:'Shipped',type:'number',sum:true},{k:'left',label:'Remaining',type:'number',sum:true},{k:'where',label:'In the shop',type:'text'}].map(c=>Object.assign({def:true},c));}
+/* Order Items остатка строки — стекло и штуки, как колонка Order Items в Sales. */
+function shippingBackorderItems(o,l,n){
+ const sum=new Map();glassBatchComponents(o,l).forEach(c=>{const g=glassProductById(c.glassId),k=g?glassShortName(g):'Unknown glass';sum.set(k,(sum.get(k)||0)+n);});
+ return [...sum].map(([k,v])=>k+': '+v).join(' | ');
+}
 function shippingBackorderInfos(){
  const board=prodBoard(),out=[];
  shippingOrders().map(o=>({o,q:shippingSummary(o)})).filter(x=>x.o.status==='shipping'&&x.q.back>0).forEach(({o,q})=>{
   const prod=board.find(p=>p.o.id===o.id),base={order:o.businessNumber,customer:salesCustomerDisplay(o.customerId),po:o.customerPo||'',due:o.dueDate||''};
-  q.lines.filter(r=>r.back>0).forEach(r=>{const n=o.lines.indexOf(r.l)+1,p=prod&&prod.lines.find(x=>x.no===n);const where=p?p.lites.map(l=>l.glass+': '+Object.entries(l.counts).filter(([k,n])=>n>0).map(([k,n])=>(k==='queue'?'To batch':k)+' '+n).join(', ')+(l.on.length?' · '+l.on.join(', '):'')).join(' / '):'Awaiting production';out.push({o:{id:o.id+'|'+r.l.id},order:o,memo:Object.assign({line:n+(r.l.mark?' · '+r.l.mark:''),size:docSize(r.l),ordered:r.ordered,shipped:r.shipped,left:r.back,where},base)});});
-  q.extras.filter(r=>r.back>0).forEach(r=>out.push({o:{id:o.id+'|'+r.x.id},order:o,memo:Object.assign({line:'From stock · '+salesExtraItemName(r.x),size:'',ordered:r.ordered,shipped:r.shipped,left:r.back,where:'From stock'},base)}));
+  q.lines.filter(r=>r.back>0).forEach(r=>{const n=o.lines.indexOf(r.l)+1,p=prod&&prod.lines.find(x=>x.no===n);const where=p?p.lites.map(l=>l.glass+': '+Object.entries(l.counts).filter(([k,n])=>n>0).map(([k,n])=>(k==='queue'?'To batch':k)+' '+n).join(', ')+(l.on.length?' · '+l.on.join(', '):'')).join(' / '):'Awaiting production';out.push({o:{id:o.id+'|'+r.l.id},order:o,memo:Object.assign({line:n+(r.l.mark?' · '+r.l.mark:''),size:docSize(r.l),items:shippingBackorderItems(o,r.l,r.back),ordered:r.ordered,shipped:r.shipped,left:r.back,where},base)});});
+  q.extras.filter(r=>r.back>0).forEach(r=>out.push({o:{id:o.id+'|'+r.x.id},order:o,memo:Object.assign({line:'From stock · '+salesExtraItemName(r.x),size:'',items:salesExtraItemName(r.x)+': '+r.back,ordered:r.ordered,shipped:r.shipped,left:r.back,where:'From stock'},base)}));
  });
  return out;
 }
@@ -29293,8 +29337,9 @@ function shippingBackordersHTML(){
   case 'customer':return `<td${same?' class="sl-rep"':''}>${same?esc(v):'<b>'+esc(v)+'</b>'}</td>`;
   case 'due':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'left':return `<td class="n"><b>${v}</b></td>`;
+  case 'items':return `<td><span class="sl-glass" title="${esc(v)}">${v?esc(v):'—'}</span></td>`;
   default:return `<td${c.type==='number'?' class="n"':''}>${v===''||v==null?'<span class="mut">—</span>':esc(String(v))}</td>`;}};
- return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>${salesListTableHTML({infos,rows,cell,row:(i,k)=>({attrs:k&&rows[k-1].order.id===i.order.id?'':' class="shipping-customer"'}),noun:r=>{const n=new Set(r.map(i=>i.order.id)).size;return n+' order'+(n===1?'':'s');},empty:infos.length?'No backorders match.':'No backorders.'})}</div>`;
+ return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>${shippingTabs()}${salesListTableHTML({infos,rows,cell,row:(i,k)=>({attrs:k&&rows[k-1].order.id===i.order.id?'':' class="shipping-customer"'}),noun:r=>{const n=new Set(r.map(i=>i.order.id)).size;return n+' order'+(n===1?'':'s');},empty:infos.length?'No backorders match.':'No backorders.'})}</div>`;
 }
 function shippingDraftHTML(){
  const d=shippingDraft;if(!d)return '';const c=salesFindCustomer(d.customerId),os=shippingOrders().filter(o=>o.customerId===d.customerId);
@@ -29311,7 +29356,7 @@ function viewShipping(){
  return shippingWithCtx(()=>{
  const lookup=shippingLookupHTML(),list=shippingTab==='shipments';
  const body=list?shippingListHTML(lookup.field):shippingTab==='ready'?shippingReadyHTML():shippingTab==='delivery'?deliveryHTML():shippingTab==='skids'?skidsHTML():shippingTab==='backorders'?shippingBackordersHTML():viewOrderQueue(true);
- return `<section class="shipping-workspace">${shippingTabs()}${shippingNotice?`<div class="shipping-notice ${shippingNotice.error?'bad':''}" role="${shippingNotice.error?'alert':'status'}">${esc(shippingNotice.text)}</div>`:''}${lookup.card}${body}${shippingDraftHTML()}</section>`;
+ return `<section class="shipping-workspace">${shippingNotice?`<div class="shipping-notice ${shippingNotice.error?'bad':''}" role="${shippingNotice.error?'alert':'status'}">${esc(shippingNotice.text)}</div>`:''}${lookup.card}${body}${shippingDraftHTML()}</section>`;
  });
 }
 document.addEventListener('focusout',()=>{if(tab==='shipping')setTimeout(shippingFocus,150);});
@@ -32918,9 +32963,9 @@ function viewPurchasing(){
   if(c.k==='status')return `<td><span class="pill ${i.s.active?'ok':''}">${esc(v)}</span></td>`;
   return `<td class="${c.type==='number'?'n':''}" data-raw>${v==null||v===''?'<span class="mut">—</span>':esc(v)}</td>`;
  };
- return `<div class="purchasing-workspace"><div class="card sales-list-card"><div class="sales-toolbar">${purNav()}<span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new onclick="purSupplierEdit('')">+ Supplier</button></div>
+ return `<div class="purchasing-workspace"><div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${purNav()}<span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new onclick="purSupplierEdit('')">+ Supplier</button></div>
   ${purNotice?`<div class="ncr-error" role="alert">${esc(purNotice)}</div>`:''}
-  ${purListFilters(infos)}<div class="sales-table-wrap">${(cw=>`<table class="sl-table${cw.cls}"${cw.attrs} data-pur-suppliers>${cw.col}`)(salesListCwTable(cols.map(c=>c.k),[44],0))}<thead><tr><th><button type="button" class="sl-settings" title="Columns" aria-label="Columns" data-columns-button onclick="salesListOpenColumns(event)">${ico('settings')}</button></th>${cols.map(purListHeader).join('')}</tr></thead>
+  ${purListFilters(infos)}<div class="sales-table-wrap">${(cw=>`<table class="sl-table${cw.cls}"${cw.attrs} data-pur-suppliers>${cw.col}`)(salesListCwTable(cols.map(c=>c.k),[44],0))}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" title="Columns" aria-label="Columns" data-columns-button onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(purListHeader).join('')}</tr></thead>
   <tbody>${purPageRows(rows).map(i=>`<tr data-pur-supplier="${esc(i.s.id)}"><td></td>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No suppliers yet. Add a supplier when you need a reusable card.'}</td></tr>`}</tbody>
   </table></div>${purListPager(rows)}${salesListMenuHTML(infos)}</div></div>`;
 }
@@ -33009,8 +33054,8 @@ function purOrderList(){
   if(c.k==='number'||history&&c.k==='name')return '<td><button type="button" class="fin-link" data-pur-po="'+esc(i.p?i.p.id:i.e.entityId)+'" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purHistoryOpen('+purArg(i.e.entity)+','+purArg(i.e.entityId)+')')+'">'+esc(v)+'</button></td>';
   return '<td data-raw class="'+(c.type==='number'?'n':'')+'">'+(v==null||v===''?'—':c.k==='amount'?esc(docNum(v,2)):c.k==='at'?esc(new Date(i.e.at).toLocaleString()):esc(v))+'</td>';
  };
- return '<div class="purchasing-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(history?'':'<button type="button" class="pri" data-pur-po-new onclick="purOrderEdit(\'\')">+ New Purchase Order</button>')+'</div>'+purListFilters(infos)+
-  (cw=>'<div class="sales-table-wrap"><table class="sl-table'+cw.cls+'"'+cw.attrs+'>'+cw.col)(salesListCwTable(cols.map(c=>c.k),[44],0))+'<thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
+ return '<div class="purchasing-workspace"><div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(history?'':'<button type="button" class="pri" data-pur-po-new onclick="purOrderEdit(\'\')">+ New Purchase Order</button>')+'</div>'+purListFilters(infos)+
+  (cw=>'<div class="sales-table-wrap"><table class="sl-table'+cw.cls+'"'+cw.attrs+'>'+cw.col)(salesListCwTable(cols.map(c=>c.k),[44],0))+'<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></span></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
   purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
 }
 function purHistoryOpen(entity,id){if(PUR_MONEY[entity])purMoneyEdit(entity,id);else if(PUR_FULFIL[entity])purFulfilEdit(entity,id);else if(entity==='po')purOrderEdit(id);else purSupplierEdit(id);}
@@ -33213,7 +33258,9 @@ function purListFilters(infos){
   status=salesListStatusControlHTML(statuses.map(n=>({key:n,label:n,n:base.filter(i=>salesListValue(i,'status')===n).length})),selected,base.length,'purListStatus');
  }
  const quick=purView==='orders'?salesQuickHTML(salesListRows(infos),salesListRows(infos,['date']),{test:purQuickTest,set:'purQuickSet'}):'',date=purListDateColumn();
- return quick+'<div class="sl-view-controls">'+status+(date?salesListDateButton(date):'')+'</div>'+salesListFilterChips();
+ /* Один ряд, как в Sales: быстрые виды, статусы, дата справа (владелец, 04.11.2026:
+    Purchasing был крупнее остальных экранов). */
+ return '<div class="sl-filter-row">'+quick+(quick&&status?'<span class="sl-filter-sep" aria-hidden="true"></span>':'')+status+(date?'<span class="sales-toolbar-sp"></span>'+salesListDateButton(date):'')+'</div>'+salesListFilterChips();
 }
 function purQuickTest(key,info){
  if(key==='all')return true;const p=info.p;if(!p||p.deletedAt||['Received','Closed','Cancelled'].includes(purOrderStatus(p)))return false;
@@ -33419,8 +33466,8 @@ function purReceivingInfos(){
 function purReceivingList(){
  const infos=purReceivingInfos(),rows=salesListRows(infos),cols=salesListColumns(),kind=purView==='receipts'?'receipt':'request',waiting=['backorders','held'].includes(purView),title=({receipts:'Receipts',requests:'Delivery requests',backorders:'Waiting from suppliers',held:'Held at supplier'})[purView];
  const cell=(i,c)=>{const v=salesListValue(i,c.k);if(i.held)return purHeldCell(i.held,c,v);return '<td'+(c.type==='number'?' class="n"':'')+'>'+(c.k==='number'?'<button type="button" class="fin-link" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purFulfilEdit('+purArg(i.kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>'+(i.kind==='receipt'&&!i.d.voidAt&&i.d.lines.some(purEnterSheets)?' <span class="pill warn" data-pur-enter-sheets-list>Enter sheets</span>':''):v==null||v===''?'—':esc(v))+'</td>';};
- return '<div class="purchasing-workspace">'+'<div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(waiting?'':'<label><input type="checkbox" '+(purShowUndone?'checked':'')+' onchange="purShowUndone=this.checked;render()"> Include undone / cancelled</label><button type="button" class="pri" onclick="purFulfilEdit(\''+kind+'\',\'\')">+ '+(kind==='receipt'?'Receipt':'Request')+'</button>')+'</div>'+(purView==='held'?'<p class="mut pur-held-note">Pace: last 90 days. Order by = runs out − lead time.</p>':'')+purListFilters(infos)+
-  (cw=>'<div class="sales-table-wrap"><table class="sl-table'+cw.cls+'"'+cw.attrs+'>'+cw.col)(salesListCwTable(cols.map(c=>c.k),[44],0))+'<thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
+ return '<div class="purchasing-workspace">'+'<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(waiting?'':'<label><input type="checkbox" '+(purShowUndone?'checked':'')+' onchange="purShowUndone=this.checked;render()"> Include undone / cancelled</label><button type="button" class="pri" onclick="purFulfilEdit(\''+kind+'\',\'\')">+ '+(kind==='receipt'?'Receipt':'Request')+'</button>')+'</div>'+(purView==='held'?'<p class="mut pur-held-note">Pace: last 90 days. Order by = runs out − lead time.</p>':'')+purListFilters(infos)+
+  (cw=>'<div class="sales-table-wrap"><table class="sl-table'+cw.cls+'"'+cw.attrs+'>'+cw.col)(salesListCwTable(cols.map(c=>c.k),[44],0))+'<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></span></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
 }
 /* Held board cells: a bar of what is still at the supplier, coloured by
    when to order, and links to every PO of the row. */
@@ -33558,8 +33605,8 @@ function purMoneyList(){
  if(purAccountKey)return purAccountHTML();
  const infos=purMoneyInfos(),rows=salesListRows(infos),cols=salesListColumns(),accounts=purView==='payables',kind=purView==='invoices'?'invoice':'payment';
  const cell=(i,c)=>{const v=salesListValue(i,c.k),link=i.account&&c.k==='supplierName'||i.d&&c.k===(kind==='invoice'?'reference':'number');return '<td class="'+(c.type==='number'?'n':'')+'">'+(link?'<button type="button" class="fin-link" onclick="'+(i.account?'purAccountKey='+purArg(i.account.id)+';render()':'purMoneyEdit('+purArg(kind)+','+purArg(i.d.id)+')')+'">'+esc(v)+'</button>':v==null||v===''?'—':esc(c.type==='number'&&!['unknown','review'].includes(c.k)?docNum(v,2):v))+'</td>';};
- return '<div class="purchasing-workspace">'+'<div class="card sales-list-card"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(accounts?'':'<label><input type="checkbox" '+(purMoneyShowUndone?'checked':'')+' onchange="purMoneyShowUndone=this.checked;render()"> Include deleted / undone</label><button type="button" class="pri" onclick="purMoneyEdit(\''+kind+'\',\'\')">+ '+(kind==='invoice'?'Invoice':'Payment record')+'</button>')+'</div>'+(accounts?'<p class="mut">Each currency has its own balance. Negative balances are supplier credits.</p>':'')+purListFilters(infos)+
-  (cw=>'<div class="sales-table-wrap"><table class="sl-table'+cw.cls+'"'+cw.attrs+'>'+cw.col)(salesListCwTable(cols.map(c=>c.k),[44],0))+'<thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
+ return '<div class="purchasing-workspace">'+'<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(accounts?'':'<label><input type="checkbox" '+(purMoneyShowUndone?'checked':'')+' onchange="purMoneyShowUndone=this.checked;render()"> Include deleted / undone</label><button type="button" class="pri" onclick="purMoneyEdit(\''+kind+'\',\'\')">+ '+(kind==='invoice'?'Invoice':'Payment record')+'</button>')+'</div>'+(accounts?'<p class="mut">Each currency has its own balance. Negative balances are supplier credits.</p>':'')+purListFilters(infos)+
+  (cw=>'<div class="sales-table-wrap"><table class="sl-table'+cw.cls+'"'+cw.attrs+'>'+cw.col)(salesListCwTable(cols.map(c=>c.k),[44],0))+'<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></span></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
 }
 function purAccountHTML(){
  const a=purSupplierAccounts().find(a=>a.id===purAccountKey);if(!a){purAccountKey='';return purMoneyList();}
@@ -33605,11 +33652,13 @@ function listWindowTail(){return listRest&&document.querySelector('[data-list-re
 function listWindowDrop(table){if(listRest&&listRest.table===table)listRest=null;}
 function listWindowGrow(){
  const tail=listWindowTail();if(!tail)return false;
- const r=listRest,end=Math.min(r.at+LIST_BATCH,r.rows.length);
+ const r=listRest,end=Math.min(r.at+LIST_BATCH,r.rows.length),table=tail.closest('table');
  tail.insertAdjacentHTML('beforebegin',readScope(()=>r.rows.slice(r.at,end).map(r.rowHTML).join('')));
  r.at=end;
  if(end<r.rows.length)tail.firstChild.style.height=(r.rows.length-end)*r.rowPx+'px';else{tail.remove();listRest=null;}
  storageLockButtons();
+ /* Прочерки и Freeze — и у дорисованных строк (views/sales-list-controls). */
+ if(table&&typeof salesListTableFit==='function')salesListTableFit(table);
  return !!listRest;
 }
 /* Нужен конец таблицы: новая строка заказа внизу. */
@@ -33733,7 +33782,7 @@ function salesListCatalog(){
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
  /* Priority видна сразу: Critical-заказ стоял посередине очереди, и офис
     не видел, что он срочный (проход 7.10.2026). */
- const defaults=['number','customer','due','status','priority','glass','unitType','units','batch','balance'];
+ const defaults=['number','customer','due','status','priority','glass','unitType','units','batch','balance'].concat(tab==='shipping'&&shippingTab==='done'?['orderItems']:[]);
  /* Оптимизатору деньги не нужны — «лишняя информация» (владелец,
     7.10.2026): в очереди Optimization нет Total, Receipts и Balance. В
     Shipping долг остаётся — по нему решают, отдавать ли. */
@@ -33742,7 +33791,8 @@ function salesListCatalog(){
     Area ft² видна сразу, рядом с Units — Glass pcs, стекло к резке (у
     стеклопакета два-три, у ламината — каждая плита, как в To batch). */
  const pcs={k:'pcs',label:'Glass pcs',type:'number',def:true,sum:true};
- return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote','orderItems'].includes(c.k)&&!(money&&c.money)).flatMap(c=>{const col=Object.assign({},c,{def:defaults.includes(c.k)||money&&c.k==='area',tokens:c.k==='glass'});return money&&c.k==='units'?[col,pcs]:[col];})
+ /* Order Items — в очередях Shipping, как в Sales (владелец, 04.11.2026). */
+ return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].concat(tab==='shipping'?[]:['orderItems']).includes(c.k)&&!(money&&c.money)).flatMap(c=>{const col=Object.assign({},c,{def:defaults.includes(c.k)||money&&c.k==='area',tokens:c.k==='glass'});return money&&c.k==='units'?[col,pcs]:[col];})
   .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]).concat(tab==='shipping'&&shippingTab==='awaiting'?[{k:'readyQty',label:'Ready',type:'text',def:true}]:[]);
 }
 function salesListColumn(k){return salesListCatalog().find(c=>c.k===k)||null;}
@@ -33770,7 +33820,7 @@ function salesListCleanPrefs(p){
  if(tab==='purchasing'&&p.purchasingDateInitialized!==true&&typeof purListDefaults==='function')Object.entries(purListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
  const calc={},src2=p.calc&&typeof p.calc==='object'&&!Array.isArray(p.calc)?p.calc:{};
  Object.keys(src2).forEach(k=>{const c=salesListColumn(k);if(c&&salesListCalcOptions(c).some(x=>x[0]===src2[k]))calc[k]=src2[k];});
- const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,statusHidden:p.statusHidden===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all',calc,pinned:(Array.isArray(p.pinned)?p.pinned:[]).filter(k=>salesListColumn(k))};
+ const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,statusHidden:p.statusHidden===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all',calc,pinned:(Array.isArray(p.pinned)?p.pinned:[]).filter(k=>salesListColumn(k)),frozen:(Array.isArray(p.frozen)?p.frozen:[]).filter(k=>salesListColumn(k))};
  if(tab==='inventory'&&p.inventoryDateInitialized!==true&&typeof invListDefaults==='function')Object.entries(invListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
  if(tab==='purchasing')clean.purchasingDateInitialized=true;
  if(salesListCwId()){const w=cwClean(p.widths);if(Object.keys(w).length)clean.widths=w;}
@@ -33792,7 +33842,16 @@ function salesListCleanFilter(k,f){
 function salesListColumns(){
  const p=salesListLoadPrefs(),both=['orders','quotes','ncr'].filter(k=>salesShow[k]).length>1;
  /* Type нужна, только когда в списке больше одного вида: заказы, квоты, NCR. */
- return p.cols.filter(c=>c.on&&(c.k!=='type'||both)&&!salesListAutoHidden(c.k)).map(c=>salesListColumn(c.k));
+ const cols=p.cols.filter(c=>c.on&&(c.k!=='type'||both)&&!salesListAutoHidden(c.k)).map(c=>salesListColumn(c.k));
+ /* Закреплённые (Freeze) — слева, в порядке Columns; снятая встаёт на своё место. */
+ return cols.filter(c=>p.frozen.includes(c.k)).concat(cols.filter(c=>!p.frozen.includes(c.k)));
+}
+/* Freeze (владелец, 05.11.2026, вариант B — значок в ряду Sort): колонка
+   встаёт слева и не уезжает при прокрутке вбок. Закрепить можно и скрытую:
+   включится, когда её снова покажут. */
+function salesListFreeze(k){
+ const p=salesListLoadPrefs();p.frozen=p.frozen.includes(k)?p.frozen.filter(x=>x!==k):p.frozen.concat(k);
+ salesListMenu=null;salesListSavePrefs();render();
 }
 /* Таблицы с ширинами и порядком за заголовок (views/col-widths): Sales и список PS. */
 function salesListCwId(){const s=salesListScope();return s==='sales'?'sales':s==='shippingPS'?'shipments':CW_TABLES[s]?s:'';}
@@ -34211,7 +34270,7 @@ function salesListFilterHTML(m,infos,style){
  const col=salesListColumn(m.col);if(!col)return '';
  const d=m.draft,p=salesListLoadPrefs(),sort=p.sort||salesListDefaultSort();
  const labels=col.type==='number'?['↑ Smallest first','↓ Largest first']:col.type==='date'?['↑ Oldest first','↓ Newest first']:['↑ A → Z','↓ Z → A'];
- let html=`<div class="sl-menu" style="${style}" role="dialog" aria-label="Filter ${esc(col.label)}" data-filter-menu="${col.k}"><h5>Sort</h5><div class="sl-row"><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='asc'?' on':''}" data-sort="asc" onclick="salesListSort('${col.k}','asc')">${labels[0]}</button><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='desc'?' on':''}" data-sort="desc" onclick="salesListSort('${col.k}','desc')">${labels[1]}</button></div>`;
+ let html=`<div class="sl-menu" style="${style}" role="dialog" aria-label="Filter ${esc(col.label)}" data-filter-menu="${col.k}"><h5>Sort</h5><div class="sl-row"><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='asc'?' on':''}" data-sort="asc" onclick="salesListSort('${col.k}','asc')">${labels[0]}</button><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='desc'?' on':''}" data-sort="desc" onclick="salesListSort('${col.k}','desc')">${labels[1]}</button><button type="button" class="sl-btn sl-freeze${p.frozen.includes(col.k)?' on':''}" data-freeze="${col.k}" aria-pressed="${p.frozen.includes(col.k)}" title="${p.frozen.includes(col.k)?'Unfreeze':'Freeze'}" aria-label="${p.frozen.includes(col.k)?'Unfreeze':'Freeze'} ${esc(col.label)}" onclick="salesListFreeze('${col.k}')">${ico('freeze')}</button></div>`;
  if(salesListCalcHere()){const on=salesListCalc(col);html+=`<h5>Show at bottom</h5><div class="sl-calc-pick">${salesListCalcOptions(col).map(x=>`<button type="button" class="sl-btn${on===x[0]?' on':''}" data-calc="${x[0]}" onclick="salesListSetCalc('${col.k}','${x[0]}')">${x[1]}</button>`).join('')}</div>`;}
  if(col.type==='date')html+=`<h5>Date</h5><div class="sl-presets">${(col.presets||SALES_LIST_PRESETS).map(x=>`<button type="button" class="sl-btn${d.preset===x[0]?' on':''}" data-preset="${x[0]}" onclick="salesListDraft('preset','${x[0]}')">${x[1]}</button>`).join('')}</div>`;
  if(col.type!=='list'){
@@ -34283,7 +34342,7 @@ function salesListDropColumn(k){
  const cols=salesListLoadPrefs().cols,at=cols.findIndex(c=>c.k===from);if(at<0)return;
  const [c]=cols.splice(at,1);cols.splice(cols.findIndex(x=>x.k===k),0,c);salesListSavePrefs();render();
 }
-function salesListStandardView(){const p=salesListLoadPrefs();p.cols=salesListCatalog().map(c=>({k:c.k,on:!!c.def}));p.pinned=[];delete p.widths;salesListSavePrefs();render();}
+function salesListStandardView(){const p=salesListLoadPrefs();p.cols=salesListCatalog().map(c=>({k:c.k,on:!!c.def}));p.pinned=[];p.frozen=[];delete p.widths;salesListSavePrefs();render();}
 /* Reset widths — только ширины этой таблицы: порядок, видимость, фильтры и выбор строк на месте. */
 function salesListResetWidths(){delete salesListLoadPrefs().widths;salesListSavePrefs();render();}
 /* Перенос колонки за заголовок — тот же порядок, что в меню Columns. */
@@ -34292,7 +34351,7 @@ function salesListMoveColumnTo(from,to,after){
  const [c]=cols.splice(a,1),b=cols.findIndex(x=>x.k===to);if(b<0){cols.splice(a,0,c);return;}
  cols.splice(after?b+1:b,0,c);salesListSavePrefs();render();
 }
-const SALES_LIST_WIDTH={type:76,number:88,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:170,units:76,area:92,total:100,receipts:100,balance:100};
+const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100};
 cwRegister('sales',{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
@@ -34310,7 +34369,9 @@ cwRegister('shipments',{
 
 /* Остальные списки с шапкой Sales: очередь заказов, батчи, стекло, листы, Production
    (этап 6 плана): те же жесты, ширины и порядок — в настройках своего списка. */
-[['optimization','customer',68],['shipping','customer',68],['glassQueue','customer',68],['glassBatches','glass',68],['glassContents','customer',68],['glassSheets','glass',0],['prodOrders','customer',0],['shippingSkids','customer',68],['shippingBackorders','customer',0],['shippingDelivery','customer',68]].forEach(([id,fill,lead])=>cwRegister(id,{
+/* lead — ширина служебной колонки слева (галочка, шестерёнка): без неё <colgroup>
+   отдаёт ширины колонок соседям, и ячейки съезжают с заголовков (Backorders, 04.11.2026). */
+[['optimization','customer',68],['shipping','customer',68],['shippingAwaiting','customer',68],['shippingDone','customer',68],['glassQueue','customer',68],['glassBatches','glass',68],['glassContents','customer',68],['glassSheets','glass',68],['glassStock','glass',68],['prodOrders','customer',0],['shippingSkids','customer',68],['shippingBackorders','customer',68],['shippingDelivery','customer',68]].forEach(([id,fill,lead])=>cwRegister(id,{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
  def:k=>{const c=salesListColumn(k);return SALES_LIST_WIDTH[k]||(c&&c.station?64:c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
@@ -34327,7 +34388,7 @@ function salesListCwTable(keys,lead,trail,defs){
  if(!CW_TABLES[id])cwRegister(id,{widths:()=>salesListLoadPrefs().widths||{},
   save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
   def:k=>{const c=salesListColumn(k);return (defs&&defs[k])||SALES_LIST_WIDTH[k]||(c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
-  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead||[],trail:trail||0,fill:keys.includes('customer')?'customer':''});
+  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead||[],trail:trail||0,fill:['customer','glass','item'].find(k=>keys.includes(k))||''});
  return {cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
 }
 /* Таблица с постоянными колонками (окна, Ready): ширина тянется за край
@@ -34508,17 +34569,58 @@ function salesListStatusMenuHTML(style){
    пока обёртка таблицы не прокручивается. Шире экрана (включили колонку,
    потянули ширины) — таблица крутится сама, итоги внизу её окна. */
 function salesListFit(){
- const wrap=document.querySelector('#app .sl-foot-pin .sales-table-wrap');if(!wrap)return;
+ document.querySelectorAll('#app table.sl-table').forEach(salesListTableFit);
+ const wrap=document.querySelector('#app .sl-foot-pin .sales-table-wrap');if(!wrap||!wrap.firstElementChild)return;
  const foot=(document.querySelector('.app-foot')||{}).offsetHeight||0,wide=wrap.firstElementChild.offsetWidth>wrap.clientWidth+1;
  wrap.style.setProperty('--sl-foot-bottom',foot+'px');wrap.classList.toggle('sl-wide',wide);
  wrap.style.maxHeight=wide?Math.max(260,window.innerHeight-foot-wrap.getBoundingClientRect().top-window.scrollY-12)+'px':'';
  if(wide&&salesListScrollKeep){wrap.scrollLeft=salesListScrollKeep.x;wrap.scrollTop=salesListScrollKeep.y;}
+ wrap.classList.toggle('sl-scrolled-x',wrap.scrollLeft>0);
 }
+/* Таблицу прокрутили вбок — у закреплённых колонок тень: текст уходит под них. */
+document.addEventListener('scroll',e=>{const w=e.target;if(w&&w.classList&&w.classList.contains('sales-table-wrap'))w.classList.toggle('sl-scrolled-x',w.scrollLeft>0);},true);
 window.addEventListener('resize',()=>{
- if(tab==='shipping'){salesListFit();return;}
- if(tab!=='sales'||soEdit!==null)return;
+ if(tab!=='sales'||soEdit!==null){salesListFit();return;}
  if(salesListStep()===salesListStepNow)salesListFit();else render();
 });
+/* Optimization и Shipping: навигация — своя карточка над таблицей, в ней только вкладки
+   (владелец, 05.11.2026); Open, поиск, Open a trip и действия — в ряду карточки таблицы.
+   Сразу после отрисовки, до возврата фокуса (nav.js render): кнопки с onclick переносятся как есть. */
+function salesListSplitNav(){
+ const tabs=document.querySelector('#app .card.sales-list-card>.sl-filter-row:has([data-queue-tab],[data-shipping-tab])');if(!tabs)return;
+ const card=tabs.parentElement,nav=document.createElement('div');
+ nav.className='card sl-nav-card';nav.appendChild(tabs);
+ card.before(nav);card.classList.add('sl-after-nav');
+}
+/* Список с меню колонок (заголовки data-col) после отрисовки:
+   - Freeze: галочка и закреплённые колонки — первые N ячеек строки, им
+     position:sticky и left (--fz1…, по ширине заголовков), класс fz-N;
+   - пустая ячейка — серый «–» на месте значения, длинное «—» — тоже «–»
+     (владелец, 05.11.2026, вариант 1). Подгрузка строк (list-window) зовёт
+     ещё раз. Подрядные строки производства (pb-sub) пустые нарочно. */
+const SL_FRZ_MAX=12;
+function salesListTableFit(table){
+ const head=table.tHead&&table.tHead.rows[0];if(!head)return;
+ const ths=[...head.cells],lead=ths.findIndex(th=>th.dataset.col);if(lead<0)return;
+ const frozen=salesListLoadPrefs().frozen||[];let n=0;
+ ths.forEach(th=>{const on=!!th.dataset.col&&frozen.includes(th.dataset.col);th.classList.toggle('sl-frz-col',on);if(on)n++;});
+ const N=n?Math.min(SL_FRZ_MAX,lead+n):0;
+ table.className=table.className.replace(/\s*\bfz-\d+\b/g,'');table.classList.toggle('sl-frz',!!N);
+ if(N){table.classList.add('fz-'+N);let x=0;for(let i=0;i<N;i++){table.style.setProperty('--fz'+(i+1),x+'px');x+=ths[i].getBoundingClientRect().width;}}
+ salesListDashes(table,ths,lead);
+}
+function salesListDashes(table,ths,lead){
+ const span=ths.length,end=ths[span-1].dataset.col?span:span-1;
+ [...table.tBodies].forEach(tb=>[...tb.rows].forEach(tr=>{
+  if(tr.cells.length!==span||tr.classList.contains('pb-sub'))return;
+  for(let i=lead;i<end;i++){
+   const td=tr.cells[i],t=td.textContent.trim();
+   if(t&&t!=='—'&&t!=='-')continue;
+   if(td.querySelector('input,select,button,textarea,img,svg,canvas'))continue;
+   td.innerHTML='<span class="mut sl-dash">–</span>';
+  }
+ }));
+}
 function salesListToggleStatuses(){const p=salesListLoadPrefs();p.statusExpanded=!p.statusExpanded;salesListSavePrefs();render();}
 function salesListDateParts(f){
  if(!f||!salesListFilterActive(f))return {preset:'',from:'',to:'',simple:true};
@@ -44278,19 +44380,19 @@ function sheetUsageFooter(rows,cols){
  const label=`<b data-sheet-foot>${rows.length} row${rows.length===1?'':'s'} · ${batches} batch${batches===1?'':'es'}</b>`;
  const cell=c=>c.sum?`<td class="n" data-sum="${c.k}">${cutNum(sum(c.k),c.digits||0)}</td>`:c.k==='usedPct'?`<td class="n" data-sum="usedPct">${cutNum(cutPct(sum('used'),sum('area')),1)}%</td>`:'<td></td>';
  const first=cols.findIndex(c=>c.sum||c.k==='usedPct');
- if(first<=0)return `<tfoot><tr class="sl-foot"><td colspan="${cols.length+1}" class="sl-foot-head">${label}</td></tr><tr class="sl-foot">${cols.map(cell).join('')}<td></td></tr></tfoot>`;
- return `<tfoot><tr class="sl-foot"><td colspan="${first}" class="sl-foot-head">${label}</td>${cols.slice(first).map(cell).join('')}<td></td></tr></tfoot>`;
+ if(first<=0)return `<tfoot><tr class="sl-foot"><td colspan="${cols.length+2}" class="sl-foot-head">${label}</td></tr><tr class="sl-foot"><td></td>${cols.map(cell).join('')}<td></td></tr></tfoot>`;
+ return `<tfoot><tr class="sl-foot"><td colspan="${first+1}" class="sl-foot-head">${label}</td>${cols.slice(first).map(cell).join('')}<td></td></tr></tfoot>`;
 }
 function viewSheetUsage(){
  const infos=sheetUsageInfos(),rows=salesListRows(infos),cols=salesListColumns();
  const cwId=salesListCwId(),keys=cols.map(c=>c.k);
  const th=c=>{const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;};
- const body=rows.map(i=>`<tr data-sheet-row="${esc(i.r.batch+'|'+i.r.glass+'|'+(i.r.stock||i.r.w+'x'+i.r.h))}">${cols.map(c=>sheetUsageCell(i,c)).join('')}<td></td></tr>`).join('')
-  ||`<tr><td colspan="${cols.length+1}" class="empty" data-sheet-empty>${infos.length?'Nothing matches the filters.':'No built layouts yet.'}</td></tr>`;
+ const body=rows.map(i=>`<tr data-sheet-row="${esc(i.r.batch+'|'+i.r.glass+'|'+(i.r.stock||i.r.w+'x'+i.r.h))}"><td class="sl-check"></td>${cols.map(c=>sheetUsageCell(i,c)).join('')}<td></td></tr>`).join('')
+  ||`<tr><td colspan="${cols.length+2}" class="empty" data-sheet-empty>${infos.length?'Nothing matches the filters.':'No built layouts yet.'}</td></tr>`;
  return `<section class="optimization-queue sheet-usage">
-  <div class="card oq-card sales-list-card sl-foot-pin"><div class="oq-toolbar sales-toolbar">${salesListDateButton('built')}<span class="sales-toolbar-sp"></span><button type="button" class="sl-settings" data-columns-button aria-label="Columns" title="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></div>
+  <div class="card oq-card sales-list-card sl-foot-pin"><div class="oq-toolbar sales-toolbar">${salesListDateButton('built')}<span class="sales-toolbar-sp"></span></div>
    ${glassBatchTabs()}${salesListFilterChips()}
-   <div class="sales-table-wrap"><table class="sl-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)} data-sheet-table>${cwColgroup(cwId,keys)}<thead><tr>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body}</tbody>${rows.length?sheetUsageFooter(rows,cols):''}</table></div>
+   <div class="sales-table-wrap"><table class="sl-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)} data-sheet-table>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button aria-label="Columns" title="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body}</tbody>${rows.length?sheetUsageFooter(rows,cols):''}</table></div>
   </div>${salesListMenuHTML(infos)}</section>`;
 }
 
@@ -44323,7 +44425,8 @@ const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'
 function invArg(v){return esc(JSON.stringify(String(v)));}
 /* Разделы склада кнопками в ряд (владелец, 23.10.2026): выпадашка
    прятала Count и Journal. */
-function invNav(){return '<div class="sl-filter-row"><div class="sl-quick inv-tabs" role="tablist" data-inv-sections>'+INV_VIEWS.map(([k,n])=>'<button type="button" role="tab" class="sl-quick-pill'+(k===invView?' on':'')+'" data-inv-section="'+k+'" onclick="invGo(\''+k+'\')">'+n+'</button>').join('')+'</div></div>';}
+/* В том же ряду — статусы и дата раздела, как в Sales (владелец, 04.11.2026). */
+function invNav(extra){return '<div class="sl-filter-row"><div class="sl-quick inv-tabs" role="tablist" data-inv-sections>'+INV_VIEWS.map(([k,n])=>'<button type="button" role="tab" class="sl-quick-pill'+(k===invView?' on':'')+'" data-inv-section="'+k+'" onclick="invGo(\''+k+'\')">'+n+'</button>').join('')+'</div>'+(extra||'')+'</div>';}
 /* Отмеченная строка Sheets / Stock items: её + − Count — сверху в шапке
    (вид Sales, владелец 03.11.2026). */
 let invSel='';
@@ -44379,7 +44482,8 @@ function invPager(rows){
  return '<div class="pur-pagination"><span>'+from+'–'+to+' of '+rows.length+' rows</span><span class="sales-toolbar-sp"></span>'+buttons+'</div>';
 }
 function invListStatus(value){if(value)salesListSetFilter('status',{values:[value]});else salesListClearFilter('status');}
-function invListFilters(infos){
+function invListFilters(){return salesListFilterChips();}
+function invListFilterBits(infos){
  let status='';
  if(invView==='offcuts'){
   const base=salesListRows(infos,['status']),f=salesListLoadPrefs().filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
@@ -44394,15 +44498,18 @@ function invListFilters(infos){
   status=salesListStatusControlHTML(INV_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,'invListStatus');
  }
  const date=invListDateColumn();
- return '<div class="sl-view-controls">'+status+(date?salesListDateButton(date):'')+'</div>'+salesListFilterChips();
+ return (status?'<span class="sl-filter-sep" aria-hidden="true"></span>'+status:'')+(date?'<span class="sales-toolbar-sp"></span>'+salesListDateButton(date):'');
 }
 function invHeader(c){return salesListHead(c);}
 /* lead — лишние ячейки слева, сразу за шестерёнкой: кнопки строки видны
    без прокрутки широкой таблицы. */
+/* Ширины колонок склада: в окно 1440 таблица входит без прокрутки вбок,
+   остаток берёт Glass (Item у Stock items). */
+const INV_WIDTH={glass:160,item:180,code:100,mm:64,size:100,onRack:100,onOrder:100,held:110,reserved:100,free:76,status:120,min:100,lastCount:110,kind:110,measures:130,unit:70,onHand:84,available:90,day:100,ref:120,rack:84,by:110,note:160,id:110,area:70,from:150,booked:100,age:84};
 function invTable(cols,rows,cell,extraHead,extraCells,empty,lead){
  const head=cols.map(invHeader).join(''),body=i=>cols.map(c=>cell(i,c)).join(''),xh=extraHead||'',xc=i=>extraCells?extraCells(i):'';
- const cw=salesListCwTable(cols.map(c=>c.k),lead&&xh?[44,120]:[44],!lead&&xh?120:0);
- return '<div class="sales-table-wrap"><table class="sl-table inv-table'+cw.cls+'"'+cw.attrs+'>'+cw.col+'<thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+(lead?xh+head:head+xh)+'</tr></thead><tbody>'+
+ const cw=salesListCwTable(cols.map(c=>c.k),lead&&xh?[44,120]:[44],!lead&&xh?120:0,INV_WIDTH);
+ return '<div class="sales-table-wrap"><table class="sl-table inv-table'+cw.cls+'"'+cw.attrs+'>'+cw.col+'<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></span></th>'+(lead?xh+head:head+xh)+'</tr></thead><tbody>'+
   (invPageRows(rows).map(i=>'<tr data-inv-row="'+esc(i.o.id)+'"'+(invSel===i.o.id?' class="oq-selected"':'')+' oncontextmenu="'+(invView==='sheets'||invView==='stock'?'event.preventDefault();invSelect(\''+esc(i.o.id)+'\')':'')+'">'+(invView==='sheets'||invView==='stock'?'<td class="sl-check"><input type="checkbox" data-inv-check aria-label="Select '+esc(i.o.id)+'" '+(invSel===i.o.id?'checked':'')+' onchange="invSelect(\''+esc(i.o.id)+'\',this.checked)"></td>':'<td></td>')+(lead?xc(i)+body(i):body(i)+xc(i))+'</tr>').join('')||'<tr><td colspan="'+(cols.length+1+(extraHead?1:0))+'" class="empty" data-inv-empty>'+empty+'</td></tr>')+'</tbody></table></div>'+invPager(rows);
 }
 function invNum(v){return v==null||v===''?'<span class="mut">—</span>':esc(v);}
@@ -44754,9 +44861,9 @@ function viewInventory(){
  const count=invView==='count',off=invView==='offcuts',stock=invView==='stock',infos=invView==='journal'?invMoveInfos():off?invOffcutInfos():stock?invStockInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):off?invOffcutsView(infos):stock?invStockView(infos):count?invCountView(infos):invSheetsView(infos);
  const n=Object.keys(invCountDraft).length;
  if(invSel&&!infos.some(i=>i.o.id===invSel))invSel='';
- return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invSelActs(infos)+'<span class="sales-toolbar-sp"></span>'+
+ return '<div class="inventory-workspace"><div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">'+invSelActs(infos)+'<span class="sales-toolbar-sp"></span>'+
   (count||invView==='sheets'?'<button type="button" data-inv-glass-on-rack onclick="invMoveOpen(\'\',\'add\')">+ Glass on rack</button>':'')+(count?'<button type="button" class="pri" data-inv-count-save onclick="invCountSaveUi()">Save count · <span data-inv-count-n>'+n+'</span></button>':'')+
-  (off?'<label class="chk"><input type="checkbox" data-inv-offcut-all '+(invOffcutAll?'checked':'')+' onchange="invOffcutAll=this.checked;render()"> Show used and written off</label><button type="button" data-inv-lost-save onclick="invOffcutLostUi()">Write off <span data-inv-lost-n>'+invOffcutLostDraft.size+'</span> not found</button>':'')+'</div>'+invNav()+
+  (off?'<label class="chk"><input type="checkbox" data-inv-offcut-all '+(invOffcutAll?'checked':'')+' onchange="invOffcutAll=this.checked;render()"> Show used and written off</label><button type="button" data-inv-lost-save onclick="invOffcutLostUi()">Write off <span data-inv-lost-n>'+invOffcutLostDraft.size+'</span> not found</button>':'')+'</div>'+invNav(invListFilterBits(infos))+
   (invNotice?'<div class="ncr-error" role="alert">'+esc(invNotice)+'</div>':'')+body+salesListMenuHTML(infos)+'</div></div>';
 }
 
@@ -47097,7 +47204,7 @@ function deliveryHTML(){
   default:return `<td${c.type==='number'?' class="n"':''}>${v===''||v==null?'<span class="mut">—</span>':esc(String(v))}</td>`;}};
  const row=i=>{const x=i.x,s=x.s,on=deliverySel===s.id;return {attrs:` ${x.kind==='truck'?`data-stop="${esc(s.number)}"`:x.kind==='free'?`data-free="${esc(s.number)}"`:`data-pickup="${esc(s.number)}"`} class="${x.kind==='pickup'?'delivery-pickup':''}${on?' oq-selected':''}" oncontextmenu="event.preventDefault();deliverySelect('${esc(s.id)}',true)"`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(s.number)}" ${on?'checked':''} onchange="deliverySelect('${esc(s.id)}',this.checked)"></td>`};};
  const none=!active.length?'No trucks yet. Add them in Master Data → Trucks.':'No packing slips for this day.';
- return (deliveryNotice?`<div class="shipping-notice bad" role="alert">${esc(deliveryNotice)}</div>`:'')+`<div class="card sales-list-card sl-foot-pin delivery-list">${bar}${pills}${salesListTableHTML({infos,rows:list,cell,row,cls:'delivery-table',noun:r=>r.length+' packing slip'+(r.length===1?'':'s'),empty:rows.length?'No packing slips match.':none})}</div>`;
+ return (deliveryNotice?`<div class="shipping-notice bad" role="alert">${esc(deliveryNotice)}</div>`:'')+`<div class="card sales-list-card sl-foot-pin delivery-list">${bar}${shippingTabs()}${pills}${salesListTableHTML({infos,rows:list,cell,row,cls:'delivery-table',noun:r=>r.length+' packing slip'+(r.length===1?'':'s'),empty:rows.length?'No packing slips match.':none})}</div>`;
 }
 function deliveryPages(date,truckId){
  const t=truckFind(truckId),stops=deliveryStops(date,truckId),company=docCompanyBlock(),driver=deliveryDriver(date,truckId),pages=[];let P,y;
@@ -47212,7 +47319,7 @@ function skidsHTML(){
  const body=rows.map((i,k)=>{const on=cur===i.g.customerId;return `<tr data-skid-out="${esc(i.x.code)}"${k&&rows[k-1].g.customerId===i.g.customerId?'':` data-skids-customer="${esc(i.g.customerId)}"`}${on?' class="oq-selected"':''} oncontextmenu="event.preventDefault();skidsSelect('${esc(i.g.customerId)}',true)"><td class="sl-check"><input type="checkbox" aria-label="Select ${esc(i.x.code)}" ${on?'checked':''} onchange="skidsSelect('${esc(i.g.customerId)}',this.checked)"></td>${cols.map(c=>cell(i,c,rows[k-1])).join('')}<td></td></tr>`;}).join('');
  const lead=Math.max(0,cols.findIndex(c=>salesListCalc(c)!=='none')),foot=rows.length?`<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head"><b>${rows.length} skid${rows.length===1?'':'s'} · ${new Set(rows.map(i=>i.g.customerId)).size} customers</b></td>${cols.slice(lead).map(c=>salesListCalcCell(c,rows)).join('')}<td></td></tr></tfoot>`:'';
  const table=`<div class="sales-table-wrap"><table class="sl-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'No skids match.':'No skids at customers.'}</td></tr>`}</tbody>${foot}</table></div>`;
- return notice+`<div class="card sales-list-card sl-foot-pin">${bar}${pills}${salesListFilterChips()}${table}${salesListMenuHTML(infos)}</div>`;
+ return notice+`<div class="card sales-list-card sl-foot-pin">${bar}${shippingTabs()}${pills}${salesListFilterChips()}${table}${salesListMenuHTML(infos)}</div>`;
 }
 
 

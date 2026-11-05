@@ -40,3 +40,9 @@
 .shipping-lookup-box{position:relative;display:inline-flex}.shipping-lookup-box input{padding-right:30px}.shipping-match{position:absolute;right:3px;top:50%;transform:translateY(-50%);min-height:0;height:22px;padding:0 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);font-size:11px;color:var(--text-2);cursor:pointer}.shipping-match:hover{color:var(--text)}.sl-rep{color:var(--text-3)}
 .ship-top .shipping-lookup-box input{width:150px}
 
+/* Ряды кнопок Shipping — одним стилем (владелец, 05.11.2026: «разнобой» 28–40 px): поля,
+   выпадающие списки и кнопки — 32 px, шрифт 13 px, по одной линии. */
+.shipping-workspace .sales-list-card :is(.sales-toolbar,.ship-top) :is(input:not([type=checkbox]),select){height:32px;min-height:0;padding-top:0;padding-bottom:0;font-size:13px;box-sizing:border-box;margin:0}
+.shipping-workspace .sales-list-card :is(.sales-toolbar,.ship-top) button:not(.shipping-match){height:32px;min-height:0;padding-top:0;padding-bottom:0;font-size:13px;box-sizing:border-box}
+.shipping-workspace .sales-list-card :is(.sales-toolbar,.ship-top){align-items:center}
+.shipping-workspace .sales-list-card .ship-top>label{height:32px;margin:0}
