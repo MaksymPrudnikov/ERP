@@ -75,12 +75,13 @@ function cwGuide(x,table){
 }
 function cwClear(){document.querySelectorAll('.cw-guide,.cw-ghost,.cw-drop').forEach(e=>e.remove());document.body.classList.remove('cw-resizing','cw-moving');document.querySelectorAll('th.cw-active,th.cw-src').forEach(th=>th.classList.remove('cw-active','cw-src'));}
 /* Клик после жеста не должен открыть фильтр, сортировку или заказ. Гасится ровно
-   один клик — тот, что браузер рождает отпусканием мыши; не родился (отпустили вне
-   окна) — перехват снимает следующий такт. Раньше перехват держался весь такт и
-   глотал любой клик за ним: в тесте ширин Order Lines Reset widths сразу после
-   переноса колонки не срабатывал, падение зависело от нагрузки машины (05.11.2026). */
+   один настоящий клик мыши — тот, что браузер рождает отпусканием; не родился —
+   перехват снимает следующий такт. Программный клик (кнопка, вызванная кодом) жестом
+   не бывает и проходит. Раньше перехват держался весь такт и глотал любой клик за ним:
+   проверка ширин Order Lines (Reset widths сразу после переноса колонки) падала
+   и на main, в зависимости от нагрузки машины (05.11.2026). */
 function cwSwallowClick(){
- const off=()=>document.removeEventListener('click',f,true),f=e=>{off();e.stopPropagation();e.preventDefault();};
+ const off=()=>document.removeEventListener('click',f,true),f=e=>{if(!e.isTrusted)return;off();e.stopPropagation();e.preventDefault();};
  document.addEventListener('click',f,true);setTimeout(off,0);
 }
 
