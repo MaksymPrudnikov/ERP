@@ -231,7 +231,9 @@ body.rep-resizing{cursor:nwse-resize;user-select:none}
 @media (max-width:900px){.rep-ws{grid-template-columns:minmax(0,1fr)}.rep-w,.rep-w.half,.rep-add{grid-column:span 1}}
 /* ---- печать отчёта (printSheet: лист — светлая «бумага» .print-sheet) ---- */
 .rep-print{font-family:var(--font);color:var(--text)}
-.rep-print-head{margin:0 0 4mm}
+/* Шапка листа — ровно REP_PRINT_HEAD (76 px) вместе с отступом: линия листа на экране и край бумаги совпадают. */
+.rep-print-head{height:62px;margin:0 0 14px;box-sizing:border-box;overflow:hidden}
+.rep-print .sl-fbtn,.rep-print .cw-grip{display:none}
 .rep-print-head h2{margin:0 0 1mm;font-size:18px}
 .rep-print-head div{font-size:12px;color:var(--text-2)}
 .rep-print-head small{font-size:10.5px;color:var(--text-3)}
