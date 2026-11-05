@@ -17,20 +17,22 @@
   окна; шире экрана — у верха таблицы). `sl-foot-pin` добавлен Purchasing, Inventory и Customers.
 - Прочерк: `salesListDashes` — пустая ячейка и длинное «—» в списках с меню колонок становятся `<span class="mut
   sl-dash">–</span>`; поля и кнопки не трогаются; подрядные строки Production (`pb-sub`) — нет.
-- Optimization: ряд кнопок 37 px, шапка таблицы 47 px, строки 52 px на всех шести вкладках; Sheets — шестерёнка в
+- Optimization: шапка таблицы 47 px, строки 52 px на всех шести вкладках; Sheets — шестерёнка в
   шапке таблицы слева (колонка `sl-check`).
 - Навигация Optimization и Shipping — своя карточка над таблицей, только вкладки (`salesListSplitNav` в `nav.js
   render` до возврата фокуса переносит ряд таблеток в `.sl-nav-card`). Кнопки вкладки, поиск Order / PO и Open a trip —
   одним рядом в карточке таблицы; пустой ряд кнопок спрятан. В очереди Optimization кнопки Open нет — правая кнопка →
-  Open; в Shipping Open в ряду с поиском (владелец, 05.11.2026). Shipments: скан подписанного PS (`shippingScanHTML`) и дни — колонкой
-  слева. Вкладки с кнопками (To batch, Batches, Ready, Skids…) — таблица на ряд ниже, чем у вкладок без кнопок.
+  Open; в Shipping Open в ряду с поиском (владелец, 05.11.2026). Shipments — вид NOW (владелец: «оставь NOW»), но без колонки дней
+  слева (05.11.2026): день — кнопка Date; скан PS, поиск и Open a trip — в ряду карточки списка; навигация — `.sl-nav-card` в
+  `shippingListHTML`. Вкладки с кнопками (To batch, Batches, Ready, Skids…) — таблица на ряд ниже, чем у вкладок без кнопок.
 - Строки списков в карточке Sales — не ниже 52 px, текст 13.5 px, кнопки и поля в строке 25 px; вторая строка
-  ячейки (`td>div.mut`: код клиента Finance, юрлицо Customers) — в той же строке. Backorders — ширина колонки шестерёнки в `<colgroup>` (lead 68: ячейки съезжали с
+  ячейки (`td>div.mut`: код клиента Finance, юрлицо Customers) — в той же строке.
+- Shipping → Backorders — ширина колонки шестерёнки в `<colgroup>` (lead 68: ячейки съезжали с
   заголовков), колонка Order Items — стекло остатка строки (`shippingBackorderItems`). Done и Awaiting readiness —
   ширины колонок (`cwRegister`), Order Items в Done по умолчанию, в Awaiting — в Columns. Галочка строки очереди —
   `td.sl-check`, в линию с шапкой.
 - Purchasing: быстрые виды, статусы и дата — один ряд `sl-filter-row` (таблетки 12 px, как в Sales). Inventory:
-  статусы в ряду разделов, ширины колонок `INV_WIDTH` (1440 px без прокрутки вбок), поле Minimum 26 px.
+  статусы в ряду разделов, ширины колонок `INV_WIDTH` (1440 px без прокрутки вбок), поле Minimum 25 px.
 - Проверки: `test/table-freeze.js` (10). Руководство: `docs/manual/lists.*`, `shipping.*`, `optimization.*`.
 
 ## Остальные разделы в виде Sales: Finance, Inventory, Customers, Users, Agents, Data, Stock · 3 ноября 2026

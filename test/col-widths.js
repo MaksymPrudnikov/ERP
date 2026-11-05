@@ -8,7 +8,7 @@ module.exports=async function({page,eq}){
  const box=sel=>t.p.evaluate(s=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height};},sel);
  /* Настоящая мышь: граница — нажать, протянуть, отпустить (где угодно). */
  /* Заголовок за подпись — на место другой колонки (правый край цели). */
- const carry=async(fromSel,toSel)=>{const a=await box(fromSel),b=await box(toSel);if(!a||!b)return false;await t.p.mouse.move(a.x+4,a.y+4);await t.p.mouse.down();await t.p.mouse.move(a.x+40,a.y+4,{steps:3});await t.p.mouse.move(b.x+(b.x<a.x?3:b.w-4),a.y+4,{steps:8});await t.p.mouse.up();return true;};
+ const carry=async(fromSel,toSel)=>{const a=await box(fromSel),b=await box(toSel);if(!a||!b)return false;await t.p.mouse.move(a.x+4,a.y+4);await t.p.mouse.down();await t.p.mouse.move(a.x+40,a.y+4,{steps:3});await t.p.mouse.move(b.x+(b.x<a.x?3:b.w-4),a.y+4,{steps:8});await t.p.mouse.up();/* клик после переноса гасится до следующего такта (cwSwallowClick) */await t.p.waitForTimeout(50);return true;};
  const drag=async(sel,dx,dy,opts)=>{const b=await box(sel);if(!b)return false;const x=b.x+Math.min(b.w-2,4),y=b.y+b.h/2;await t.p.mouse.move(x,y);await t.p.mouse.down();await t.p.mouse.move(x+dx/2,y+(dy||0)/2,{steps:3});await t.p.mouse.move(x+dx,y+(dy||0),{steps:3});if(opts&&opts.escape)await t.p.keyboard.press('Escape');await t.p.mouse.up();return true;};
  const setup=()=>run(()=>{
   const g=c=>glassProductByCode(c);g('4CLEAR').shortName='4CL';touch();

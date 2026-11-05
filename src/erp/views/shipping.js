@@ -219,10 +219,10 @@ function shippingListExtra(s){
  return {area:Math.round(area*10)/10,kg:Math.round(deliveryLoad(s).kg*10)/10,glass:[...new Set(orders.map(o=>salesListGlass(o,true)).join(' · ').split(/\s*·\s*/).filter(Boolean))].join(' · '),balance:bal.length?finMoney(bal.reduce((n,v)=>n+v,0)):null};
 }
 function shippingListInfos(){return (DB.shipment||[]).map(s=>({o:s,memo:Object.assign(shippingListExtra(s),{number:s.number,customer:salesCustomerDisplay(s.customerId),date:s.date,method:s.method==='pickup'?'Pickup':'Delivery',skids:(Array.isArray(s.skidsOut)?s.skidsOut:[...new Set(s.items.map(i=>i.skid).filter(Boolean))]).join(', '),units:s.items.length+s.extras.reduce((n,i)=>n+i.qty,0),status:shippingStatus(s)})}));}
-/* Список PS (владелец, 02.11.2026, вариант 3): слева дни, справа листы дня; шапка и
-   таблица — блоки Sales. День — фильтр колонки Date, поэтому та же кнопка Date, чипы
-   и меню колонки. Быстрый вид вне All смотрит поверх дней, как в Sales. */
-const SHIPPING_LIST_STATUSES=['Planned','Shipped','Delivered','Picked up','Cancelled'],SHIPPING_DAYS_SHOWN=12;
+/* Список PS (владелец, 02.11.2026, вариант 3; 05.11.2026 — без колонки дней слева): шапка и
+   таблица — блоки Sales. День — фильтр колонки Date: кнопка Date, чипы и меню колонки.
+   Быстрый вид вне All смотрит поверх дня, как в Sales. */
+const SHIPPING_LIST_STATUSES=['Planned','Shipped','Delivered','Picked up','Cancelled'];
 let shippingStatusKey='';
 function shippingDayFilter(day){return salesListCleanFilter('date',{conds:[{op:'between',v:day,v2:day}]});}
 function shippingCurrentDay(){const d=salesListDateParts(salesListLoadPrefs().filters.date);return d.simple&&d.from&&d.from===d.to?d.from:'';}
@@ -260,21 +260,9 @@ function shippingStatusPills(rows){
  const n={};rows.forEach(r=>{n[r.memo.status]=(n[r.memo.status]||0)+1;});
  return `<span class="sl-filter-sep" aria-hidden="true"></span>${SHIPPING_LIST_STATUSES.map(k=>`<button type="button" class="sl-quick-pill sl-status-pill${k===shippingStatusKey?' on':''}" aria-pressed="${k===shippingStatusKey}" data-status-chip="${esc(k)}" onclick="shippingStatusPick(${esc(JSON.stringify(k))})">${k}<b>${(n[k]||0).toLocaleString('en-US')}</b></button>`).join('')}`;
 }
-function shippingDaysHTML(anyDay,quick){
- const counts=new Map();anyDay.forEach(i=>counts.set(i.o.date,(counts.get(i.o.date)||0)+1));
- const cur=quick==='all'?shippingCurrentDay():'',all=[...counts.keys()].sort().reverse();
- let at=all.findIndex(d=>d<=finToday());if(at<0)at=all.length;
- const days=all.slice(Math.max(0,at-3)).slice(0,SHIPPING_DAYS_SHOWN);
- if(cur&&!days.includes(cur))days.push(cur),days.sort().reverse();
- const none=quick==='all'&&!salesListFilterActive(salesListLoadPrefs().filters.date);
- return `<aside class="ship-days" aria-label="Days">${shippingScanHTML()}<h5>Days</h5>${days.map(d=>`<button type="button" class="ship-day${d===cur?' on':''}" data-day="${d}" onclick="shippingSetDay('${d}')"><span>${esc(salesListShortDay(d))}</span><b>${counts.get(d)||0}</b></button>`).join('')||'<p class="mut">No packing slips.</p>'}<h5>Other</h5><button type="button" class="ship-day" data-day-pick onclick="salesListOpenDate(event,'date')"><span>Pick a date…</span></button><button type="button" class="ship-day${none?' on':''}" data-day-all onclick="shippingSetDay('')"><span>All time</span><b>${anyDay.length}</b></button></aside>`;
-}
 function shippingTripHTML(){return `<select aria-label="Customer for new trip" onchange="if(this.value)shippingOpen(this.value)"><option value="">Open a trip · customer</option>${(DB.customer||[]).filter(c=>c.status!=='archived').map(c=>`<option value="${esc(c.id)}">${esc(c.displayName||c.legalName)}</option>`).join('')}</select>`;}
-/* Shipments: верхняя полоса — как у других вкладок (поиск, Open a trip); скан
-   подписанного PS — над днями слева, чтобы вкладки и таблица не прыгали (05.11.2026). */
-function shippingTopHTML(lookupField){return `<div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${lookupField}${shippingTripHTML()}</div>`;}
-function shippingScanHTML(){
- return `<div class="ship-top shipping-scan"><label>Signed packing slip<input id="shippingSigned" data-signed-ps placeholder="PS number" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingSigned(this.value)}"></label><input id="shippingReceiver" aria-label="Received by" value="${esc(shippingReceivedBy)}" placeholder="Received by" oninput="shippingReceivedBy=this.value"><input id="shippingReceivedOn" type="date" aria-label="Received on" title="Received on" value="${shippingReceivedOn||finToday()}" max="${finToday()}" onchange="shippingReceivedOn=this.value"></div>`;
+function shippingTopHTML(lookupField){
+ return `<div class="ship-top shipping-scan"><label>Signed packing slip<input id="shippingSigned" data-signed-ps placeholder="PS number" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();shippingSigned(this.value)}"></label><input id="shippingReceiver" aria-label="Received by" value="${esc(shippingReceivedBy)}" placeholder="Received by" oninput="shippingReceivedBy=this.value"><input id="shippingReceivedOn" type="date" aria-label="Received on" title="Received on" value="${shippingReceivedOn||finToday()}" max="${finToday()}" onchange="shippingReceivedOn=this.value"><span class="sales-toolbar-sp"></span>${lookupField}${shippingTripHTML()}</div>`;
 }
 function shippingListFooter(rows,cols){
  const n={};rows.forEach(r=>{n[r.memo.status]=(n[r.memo.status]||0)+1;});
@@ -294,7 +282,8 @@ function shippingListHTML(lookupField){
  const body=listWindowBody(rows,i=>`<tr data-ps="${esc(i.o.number)}" class="${i.o.id===shippingOpenId?'shipping-selected':''}"><td class="sl-check"></td>${cols.map(c=>`<td${c.type==='number'?' class="n"':''}>${cell(i,c)}</td>`).join('')}<td class="sales-row-actions"><button class="sm" ${i.o.status==='cancelled'&&!i.o.unbatchedItems?.length?'disabled':''} onclick="shippingPrint('${esc(i.o.id)}')">Print</button></td></tr>`,cols.length+2,{table:'.shipping-ps-table'});
  const keys=cols.map(c=>c.k);
  const table=`<div class="sales-table-wrap"><table class="sl-table shipping-ps-table${cwTableClass('shipments')}"${cwTableAttrs('shipments',keys)}>${cwColgroup('shipments',keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'No packing slips match.':'No packing slips.'}</td></tr>`}</tbody>${rows.length?shippingListFooter(rows,cols):''}</table></div>`;
- return `<div class="card sales-list-card shipping-list-card sl-foot-pin">${shippingTopHTML(lookupField)}${shippingTabs()}<div class="ship-split">${shippingDaysHTML(anyDay,quick)}<div class="ship-split-main"><div class="sl-filter-row">${salesQuickHTML(anyDay,anyDay,{cur:shippingStatusKey?'-':quick,set:'shippingQuickPick',test:shippingQuickTest,name:shippingQuickName})}${shippingStatusPills(shown)}<span class="sales-toolbar-sp"></span>${salesListDateButton('date')}</div>${salesListFilterChips()}${table}</div></div>${salesListMenuHTML(infos)}</div>${shippingDetailHTML()}`;
+ /* Вид NOW без колонки дней слева (владелец, 05.11.2026): день — кнопка Date; сверху — карточка навигации. */
+ return `<div class="card sl-nav-card">${shippingTabs()}</div><div class="card sales-list-card shipping-list-card sl-foot-pin">${shippingTopHTML(lookupField)}<div class="sl-filter-row">${salesQuickHTML(anyDay,anyDay,{cur:shippingStatusKey?'-':quick,set:'shippingQuickPick',test:shippingQuickTest,name:shippingQuickName})}${shippingStatusPills(shown)}<span class="sales-toolbar-sp"></span>${salesListDateButton('date')}</div>${salesListFilterChips()}${table}${salesListMenuHTML(infos)}</div>${shippingDetailHTML()}`;
 }
 function shippingDetailHTML(){
  const s=shippingFind(shippingOpenId);if(!s)return '';const d=shippingDocument(s),loaded=s.status==='planned'?shippingLoadText(shippingLoadState(s)):'';

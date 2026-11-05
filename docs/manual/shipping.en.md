@@ -6,8 +6,7 @@ Everything that leaves the shop: what is ready, packing slips, trucks, skids at 
 
 On top — the navigation card: only the tab pills Awaiting readiness, Ready, Shipments, Delivery, Skids, Backorders,
 Done. Below — the table card: one row with the tab's buttons (Open and actions on the ticked rows), the **Order / PO**
-lookup and **Open a trip** on the right; the table, the total at the bottom. In Shipments the signed packing slip scan
-and the days are a column on the left.
+lookup and **Open a trip** on the right; the table, the total at the bottom. In Shipments the signed packing slip scan is in the row above the list.
 
 - **Lookup** — **Order / PO**, the number and a small button in the field: **=** exact, **≈** contains, **a…** starts
   with (click to change). By default an order number is exact, a PO contains.
@@ -16,7 +15,8 @@ and the days are a column on the left.
 - **Ready** — one list: a customer row (address, skids — tick a skid to take its units, click the code for the skid
   sheet), under it the orders and their lines with **Queue** and **Select qty**. Tick a customer, order or skid and press
   **Create packing slip**.
-- **Shipments** — packing slips by day. Columns include **ft²**, **Weight kg**, **Glass** and **Balance**.
+- **Shipments** — packing slips of a day: pick the day with **Date** on the right of the filter row (Pick a date, All
+  time). Columns include **ft²**, **Weight kg**, **Glass** and **Balance**.
 - **Delivery** — all stops of the day in one list; pills by truck, Not on a truck, Pickups. Tick a stop: Move up /
   down, Off the truck. The truck of the pill or of the ticked stop shows its load, **Driver**, **Trip sheet**, **With
   packing slips** and km. A packing slip without a truck has **Choose truck** in its row.
