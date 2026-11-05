@@ -113,7 +113,7 @@ module.exports=async function({page,eq,ok}){
  eq('Shipments look like the Sales list: short date, status pill, PS contents as a table with the main action highlighted',await t.p.evaluate(()=>{
   const [id]=shSeed(),s=shCreate([id],null,'delivery').value;tab='shipping';shippingTab='shipments';shippingOpenId=s.id;render();
   const row=document.querySelector('[data-ps="'+s.number+'"]'),card=document.querySelector('.shipping-detail');
-  return {date:row.cells[3].textContent===salesListShortDay(finToday()),pill:row.querySelector('.pill.st-new').textContent,card:card.querySelector('.shipping-customer-head .pill').textContent,head:[...card.querySelectorAll('th')].map(e=>e.textContent).join('|'),main:card.querySelector('button.pri').textContent,toolbar:!!document.querySelector('.shipping-list-card [data-order-lookup]')};
+  return {date:row.cells[3].textContent===salesListShortDay(finToday()),pill:row.querySelector('.pill.st-new').textContent,card:card.querySelector('.shipping-customer-head .pill').textContent,head:[...card.querySelectorAll('th')].map(e=>e.textContent).join('|'),main:card.querySelector('button.pri').textContent,toolbar:!!document.querySelector('.sl-nav-card [data-order-lookup]')};
  }),{date:true,pill:'Planned',card:'Planned',head:'Line / Mark|Size|Makeup|Skids|Qty|Before|Back order',main:'Ship',toolbar:true});
  eq('Shipments: days on the left, the day is the Date filter, a quick view looks past the day, a status narrows the day',await t.p.evaluate(()=>{
   const ids=shSeed(2),a=shCreate([ids[0]],null,'delivery').value,b=shCreate([ids[1]],null,'delivery').value,old=salesListDay(new Date(Date.now()-3*864e5));

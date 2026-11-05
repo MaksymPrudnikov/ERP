@@ -56,3 +56,7 @@
 .shipping-list-card .ship-split{gap:0}
 .shipping-list-card .ship-days{align-self:stretch;padding:4px 10px 14px 20px;border-right:1px solid var(--line)}
 .shipping-list-card .ship-split-main{min-width:0}
+/* Скан подписанного PS — столбиком над днями. */
+.ship-days>.shipping-scan.ship-top{display:grid;gap:6px;padding:0 0 12px;margin:0 0 6px;border-bottom:1px solid var(--line)}
+.ship-days>.ship-top label{display:grid;gap:4px;white-space:normal}
+.ship-days>.ship-top :is(#shippingSigned,#shippingReceiver,#shippingReceivedOn){width:100%;box-sizing:border-box}

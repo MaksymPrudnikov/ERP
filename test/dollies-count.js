@@ -180,7 +180,7 @@ module.exports=async function({page,eq}){
   DB.shipment.push({id:'PSZ',number:'PS-0020',customerId:c.id,status:'shipped',method:'delivery',shippedAt:new Date(Date.now()-5*864e5).toISOString(),items:[],skidsOut:['SL-1','SL-2','SL-3']});touch();
   tab='shipping';shippingTab='skids';render();
   skidsCheckAsk(c.id);salesDialog.input.value='sl-1, SL-3';oqChoose('Save');
-  const codes={text:dcText('[data-skids-check]'),seen:[...document.querySelectorAll('[data-skid-seen]')].map(x=>x.textContent?'✓':'').join('|')};
+  const codes={text:dcText('[data-skids-check]'),seen:[...document.querySelectorAll('[data-skid-seen]')].map(x=>x.textContent&&x.textContent!=='–'?'✓':'').join('|')};
   skidsCheckAsk(c.id);salesDialog.input.value='2';oqChoose('Save');
   const count=dcText('[data-skids-check]'),last=carrierCustomerChecks(c.id).pop();
   return {codes:{text:codes.text.replace(/Checked .*? ·/,'Checked D ·'),seen:codes.seen},count:count.replace(/Checked .*? ·/,'Checked D ·'),last:{count:last.count,codes:last.codes.length}};

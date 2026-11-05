@@ -19,6 +19,8 @@ Customers, Agents, Users and Data.
   Click again to unfreeze; Standard view unfreezes all.
 - **The header** of the table stays on top when the list scrolls down.
 - **An empty cell** shows a grey dash «–».
+- **Rows** have the same height and text size everywhere, as in Sales; a second line of a cell (customer code, legal
+  name) is grey on the same line.
 - **Total row** at the bottom — the count and the sums of the number columns.
 - **Data** — the tree of items is a card on the left; the top row has the ticked row's actions, the search and All
   catalog; the row card opens on the right (Hide preview hides it).

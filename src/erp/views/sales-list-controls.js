@@ -53,6 +53,18 @@ window.addEventListener('resize',()=>{
  if(tab!=='sales'||soEdit!==null){salesListFit();return;}
  if(salesListStep()===salesListStepNow)salesListFit();else render();
 });
+/* Optimization и Shipping: навигация — своя карточка над таблицей (владелец, 05.11.2026):
+   в ней только вкладки и то, что одинаково на всех вкладках (в Shipping — поиск заказа и
+   Open a trip); Open и действия остаются в карточке таблицы. Сразу после отрисовки, до
+   возврата фокуса (nav.js render): кнопки с onclick переносятся как есть. */
+function salesListSplitNav(){
+ const tabs=document.querySelector('#app .card.sales-list-card>.sl-filter-row:has([data-queue-tab],[data-shipping-tab])');if(!tabs)return;
+ const card=tabs.parentElement,bar=card.querySelector(':scope>.sales-toolbar'),nav=document.createElement('div');
+ nav.className='card sl-nav-card';nav.appendChild(tabs);
+ const common=bar?[...bar.querySelectorAll(':scope>.shipping-lookup-field,:scope>select[aria-label="Customer for new trip"]')]:[];
+ if(common.length){const tools=document.createElement('div');tools.className='sl-nav-tools';common.forEach(el=>tools.appendChild(el));nav.appendChild(tools);}
+ card.before(nav);card.classList.add('sl-after-nav');
+}
 /* Список с меню колонок (заголовки data-col) после отрисовки:
    - Freeze: галочка и закреплённые колонки — первые N ячеек строки, им
      position:sticky и left (--fz1…, по ширине заголовков), класс fz-N;

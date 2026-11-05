@@ -43,7 +43,7 @@ module.exports=async function({page,eq}){
   return {full,back,norm:(DB.materialWeightRates.find(r=>r.key==='film:'+f.id)||{rate:null}).rate};
  }),{full:{kg:81.6,complete:true,partial:false,gaps:[],text:''},back:{kg:80,complete:false,partial:true,gaps:['film@1'],text:'Interlayer weight not included'},norm:null});
 
- eq('Sales: 80 Partial, 25 и заказ без размеров — ячейки «80 Partial», «25», «—»; итог 105 Partial; только неизвестный — «—», а не 0; число для сортировки — 80.0',await run(()=>{
+ eq('Sales: 80 Partial, 25 и заказ без размеров — ячейки «80 Partial», «25», «–» (прочерк 05.11); итог 105 Partial; только неизвестный — «—», а не 0; число для сортировки — 80.0',await run(()=>{
   owSetup();DB.salesOrder=[];const a=owOrder(),b=owOrder({rows:[['B',1]]}),c=owOrder({rows:[['B',3]]});salesRecord(c).lines[0].width16=0;touch();
   salesListPrefs=null;const p=salesListLoadPrefs();p.cols.forEach(x=>{if(x.k==='weight')x.on=true;});tab='sales';render();
   const cell=id=>{const tr=[...document.querySelectorAll('table.sl-table tbody tr')].find(r=>r.textContent.includes(salesRecord(id).businessNumber));const i=[...document.querySelectorAll('table.sl-table thead th')].findIndex(h=>/Weight kg/.test(h.textContent));return tr.children[i].textContent.trim();};
@@ -51,7 +51,7 @@ module.exports=async function({page,eq}){
   const cols=salesListColumns(),only=salesListFooter([salesListInfo(salesRecord(c))],cols).match(/data-sum="weight"[^>]*>(.*?)<\/td>/)[1].replace(/<[^>]+>/g,'');
   const tip=document.querySelector('[data-weight-partial]').title;
   return {cells:[cell(a),cell(b),cell(c)],foot,only,sort:+salesListValue(salesListInfo(salesRecord(a)),'weight').toFixed(1),tip};
- }),{cells:['80Partial','25','—'],foot:'105Partial',only:'—',sort:80,tip:'Interlayer weight not included\nEVA Clear density → Data → Materials → Lamination → EVA Clear (line 1)'});
+ }),{cells:['80Partial','25','–'],foot:'105Partial',only:'—',sort:80,tip:'Interlayer weight not included\nEVA Clear density → Data → Materials → Lamination → EVA Clear (line 1)'});
 
  /* Владелец, 30.10.2026: вес — не отдельной строкой в итогах, а «внизу
     сумм, как в Excel — сабтотал для всех таких переменных». */

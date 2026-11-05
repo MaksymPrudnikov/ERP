@@ -188,6 +188,26 @@
 .card.sales-list-card>.sales-toolbar{min-height:37px;margin-bottom:8px}
 .sales-list-card table.sl-table>thead>tr{height:47px}
 .sales-list-card table.sl-table>tbody>tr>td{vertical-align:middle}
-.optimization-queue .sales-list-card table.sl-table>tbody>tr:not(.list-rest){height:52px}
+/* Строки и текст списков — как в Sales на всех экранах (владелец, 05.11.2026: «размеры
+   строчек и текста разные»): строка не ниже 52 px, текст ячейки 13.5 px. Подстроки
+   производства (pb-sub) и распорка дорисовки — свои. */
+.sales-list-card table.sl-table>tbody>tr:not(.list-rest):not(.pb-sub){height:52px}
+.sales-list-card table.sl-table>tbody>tr:not(.pb-sub)>td{font-size:13.5px}
 /* Галочка «выбрать все» в шапке — в одну линию с галочками строк (05.11.2026). */
 .sales-list-card .oq-table-wrap :is(th,td).sl-check{text-align:left}
+/* Optimization и Shipping: навигация — своя карточка над таблицей (владелец, 05.11.2026):
+   вкладки и одинаковое на всех вкладках (поиск, Open a trip); кнопки управления — в
+   карточке таблицы. Переносит salesListSplitNav. */
+.card.sl-nav-card{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 16px;padding:0 20px 0 0;min-height:54px}
+.shipping-workspace>.card.sl-nav-card{margin:0}
+#app .card.sl-nav-card>.sl-filter-row{flex:1 1 auto;min-width:0;padding:13px 0 13px 20px}
+.sl-nav-tools{display:flex;align-items:center;gap:8px;margin-left:auto}
+.sl-nav-tools .shipping-lookup-box input{width:150px}
+.sl-nav-tools>select,.sl-nav-tools .shipping-lookup-field{margin:0}
+.sales-list-card table.sl-table>tbody>tr>td :is(button.sm,input:not([type=checkbox]),select){height:25px;min-height:0;padding-top:0;padding-bottom:0;box-sizing:border-box}
+/* Вторая строка в ячейке (код клиента в Finance, юрлицо в Customers) — серым в той же
+   строке; не влезла — многоточие, полностью — подсказкой. */
+.sales-list-card table.sl-table>tbody>tr>td>div.mut{display:inline;margin-left:6px}
+/* Ряд кнопок без кнопок (ничего не отмечено, Open — правой кнопкой) места не занимает
+   (владелец, 05.11.2026). */
+.card.sales-list-card>.sales-toolbar:not(:has(>:not(.sales-toolbar-sp,[hidden]))){display:none}

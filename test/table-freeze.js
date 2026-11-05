@@ -46,10 +46,13 @@ module.exports=async function({page,eq}){
   tab='dashboard';render();return {blank,long,dash:!!dash,own};
  }),{blank:0,long:0,dash:true,own:['','–','','']});
 
- eq('Optimization: ряд кнопок, таблетки и шапка таблицы стоят на одном месте на всех шести вкладках',await t.p.evaluate(()=>{
-  const pos=OPTIMIZATION_TABS.map(([k])=>{oqQueue(k);const pill=document.querySelector('#app [data-queue-tab]'),th=document.querySelector('#app table.sl-table thead tr');return [Math.round(pill.getBoundingClientRect().top),Math.round(th.getBoundingClientRect().top),Math.round(th.getBoundingClientRect().height)].join('/');});
-  tab='dashboard';render();return [...new Set(pos)].length;
- }),1);
+ eq('Optimization и Shipping: навигация — своя карточка над таблицей, вкладки на одном месте на всех вкладках, шапка таблицы одной высоты; Open — только правой кнопкой, пустой ряд кнопок спрятан',await t.p.evaluate(()=>{
+  const keys=OPTIMIZATION_TABS.map(x=>x[0]).concat(SHIPPING_TABS.map(x=>x[0]));
+  const pos=keys.map(k=>{oqQueue(k);const pill=document.querySelector('#app .sl-nav-card [data-queue-tab],#app .sl-nav-card [data-shipping-tab]'),th=document.querySelector('#app table.sl-table thead tr');return Math.round(pill.getBoundingClientRect().top)+'/'+Math.round(th.getBoundingClientRect().height);});
+  oqQueue('all');const bar=document.querySelector('#app .sl-after-nav>.sales-toolbar'),open=!!document.querySelector('#app .sales-toolbar [data-queue-open-order]'),hidden=!!bar&&getComputedStyle(bar).display==='none';
+  oqQueue('done');const lookup=!!document.querySelector('#app .sl-nav-card [data-order-lookup]');
+  tab='dashboard';render();return {same:[...new Set(pos)].length,open,hidden,lookup};
+ }),{same:1,open:false,hidden:true,lookup:true});
 
  eq('Optimization → Sheets: шестерёнка Columns в шапке таблицы слева, как на других вкладках',await t.p.evaluate(()=>{
   oqQueue('sheets');const th=document.querySelector('#app table.sl-table thead th');const r={first:!!th&&th.classList.contains('sl-check')&&!!th.querySelector('[data-columns-button]'),top:!!document.querySelector('#app .sales-toolbar [data-columns-button]')};

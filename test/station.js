@@ -155,7 +155,7 @@ module.exports=async function({page,eq,ok}){
   sub:['Line 1|37 × 71 · 2 units · Kitchen|6CLEAR Lite 1|1|1|·','||6Q240 Lite 2|·|·|2','Line 2|30 × 40 · 1 unit · Bedroom|6CLEAR Lite 1|1|·|·','||6Q240 Lite 2|·|·|1'],
   edgeRows:2,chip:true,iguRows:0,back:2,tiles:['To batch:3','CUT:2','ARRIS:2'],noIds:true,cutCell:'1 / 1, 1 / 3'});
 
- eq('маршрут в строке: станции нет в маршруте — клетка пустая (одинарное стекло и IGU), прошли все — ✓, ещё не дошли — ·',await t.p.evaluate(async()=>{
+ eq('маршрут в строке: станции нет в маршруте — прочерк «–» (одинарное стекло и IGU), прошли все — ✓, ещё не дошли — ·',await t.p.evaluate(async()=>{
   stReset();const single=stOrder([[36,24,2]]);stBatch(single);stIds(single).forEach(g=>stScan('CUT',g));
   const dgu=oqOrder(oqCustomer());soDraft=null;soEdit=null;salesSetRecordStatus(dgu,'verified');stBatch(dgu);
   tab='production';subtab='orders';prodOpen=new Set();const p=salesListLoadPrefs();p.filters={};render();
@@ -163,7 +163,7 @@ module.exports=async function({page,eq,ok}){
   const cell=(oid,h)=>{const td=document.querySelector(`[data-prod-order="${oid}"]`).children[heads.indexOf(h)];return td?td.textContent.trim():'no column';};
   const out={single:['CUT','ARRIS','IGU'].map(h=>cell(single,h)).join('|'),dgu:['CUT','ARRIS','IGU'].map(h=>cell(dgu,h)).join('|')};
   tab='dashboard';render();return out;
- }),{single:'✓|2|',dgu:'6|·|·'});
+ }),{single:'✓|2|–',dgu:'6|·|·'});
 
  eq('Users → Production: PIN — четыре цифры; без офиса и без навыков',await t.p.evaluate(async()=>{
   tab='users';subtab='production';userEditOpen('new');uDraft.name='Pin Test';uDraft.newPin='12';render();await saveUser();const err=document.getElementById('e_user').textContent;

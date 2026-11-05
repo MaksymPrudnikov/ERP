@@ -4,9 +4,10 @@ Everything that leaves the shop: what is ready, packing slips, trucks, skids at 
 
 ## The screen
 
-One card in the Sales look: actions over the ticked rows on top, the lookup and **Open a trip** on the right; under
-them the tab pills Awaiting readiness, Ready, Shipments, Delivery, Skids, Backorders, Done; then the table and the
-total at the bottom. In Shipments the days are a column on the left inside the card.
+On top — the navigation card: the tab pills Awaiting readiness, Ready, Shipments, Delivery, Skids, Backorders, Done,
+with the order lookup and **Open a trip** on the right (the same on every tab). Below — the table card: the tab's
+buttons for the ticked rows (no buttons — no row), the table, the total at the bottom. Open an order with right click →
+Open. In Shipments the signed packing slip scan and the days are a column on the left.
 
 - **Lookup** — **Order / PO**, the number and a small button in the field: **=** exact, **≈** contains, **a…** starts
   with (click to change). By default an order number is exact, a PO contains.
