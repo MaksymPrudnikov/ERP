@@ -25,6 +25,19 @@
   Пай — подписи колонками на всю ширину. В Edit каталог прячется.
 - Проверки: `test/report-engine.js` (печать по краю листа), `report-builder.js` (шестерёнка, прочерк). Руководство:
   `docs/manual/reports.*` §1, §4.2, §9.
+## Agents и карточка клиента Finance в виде Sales (этап 6, часть В) · 5 ноября 2026
+
+Сверка «таблиц без общего списка» из `docs/ЗАДАЧА_ПРАВКИ_02_11.md` по коду:
+- Agents (`views/commissions.js`): список людей — scope `agents` (`comListScope`, `comListColumns`), строки через
+  `salesListTableHTML`: Columns, фильтр и сортировка, ширина и порядок, Freeze, итог SUM. По умолчанию — по To pay.
+  With HST добавляет две колонки, как раньше. Строка и галочка — `comOpen`, человек открывается ниже. Заказы и
+  выплаты человека — `comStaticTable` (`cwStaticTable`, ширина мышью). Окно выплаты не трогали.
+- Finance → карточка клиента (`views/finance-workspace.js`): Orders, Payments, Refunds — `finStaticTable`
+  (`sl-table fin-table`, ширина мышью, порядок постоянный). Окно Statements не трогали.
+- Shipping → Delivery (`views/delivery.js`) — уже список Sales (#421). Data → Catalog и Sheets — тоже (#421).
+- Data: Cutting, Stations, Trucks, Prices (`price-lists-ui.js`), NCR, Stock reasons, Setup — формы с полями в
+  каждой строке, а не списки; оставлены как есть (как строки заказа и таблицы окон).
+- Проверки: `test/commissions.js` — шапка без пустых клеток, имя по `[data-com-name]`. Руководство: `docs/manual/lists.*`.
 
 ## Reports на 10 лет: память при пересчёте архива · 5 ноября 2026
 
