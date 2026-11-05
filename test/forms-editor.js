@@ -32,6 +32,12 @@ module.exports=async function({page,eq}){
   const after={size:size(),svg:svg(),dirty:!!document.querySelector('[data-forms-dirty]')};feClick('[data-forms-undo]');
   return {panel,after,undo:{size:size(),svg:svg(),dirty:!!document.querySelector('[data-forms-dirty]')}};
  }),{panel:true,after:{size:20,svg:'20',dirty:true},undo:{size:17,svg:'17',dirty:false}});
+ eq('Forms: Font Times or Courier and I (italic) — the block, the live sheet and the PDF follow',await t.p.evaluate(()=>{
+  feOpen();feDrag('every|title',0,0);const sel=document.querySelector('[data-forms-font]');sel.value='times';sel.dispatchEvent(new Event('change'));feClick('[data-forms-italic]');
+  const b=formsFind(formsDraft().tpl,{part:'every',id:'title'}),el=[...document.querySelectorAll('[data-forms-page="0"] text')].find(e=>e.textContent==='PACKING SLIP');
+  const pages=shippingPages(shippingFormSample(),null,formsDraft().tpl),pdf=String.fromCharCode(...docPdfBytes(pages));
+  return {block:[b.font,b.italic],svg:[el.getAttribute('font-family').split(',')[0],el.getAttribute('font-style')],pdf:pdf.includes('/Times-BoldItalic'),on:document.querySelector('[data-forms-italic]').classList.contains('on')};
+ }),{block:['times',true],svg:['Times','italic'],pdf:true,on:true});
  eq('Forms: + Text goes to the chosen part under its blocks; drag moves it down, Free moves it anywhere, the right corner sets the width',await t.p.evaluate(()=>{
   feOpen();feClick('[data-forms-part="totals"]');const h0=formsDraft().tpl.parts.totals.h;feClick('[data-forms-add="text"]');
   const sel=formsUi.sel,b=()=>formsFind(formsDraft().tpl,sel),ta=document.querySelector('[data-forms-text]');ta.value='Thank you for your business';ta.dispatchEvent(new Event('change'));
