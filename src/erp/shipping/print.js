@@ -154,8 +154,21 @@ const SHIPPING_SKID_COLUMNS=[
  {k:'makeup',label:'Makeup',type:'text',v:r=>r.makeup},
  {k:'qty',label:'Qty',type:'num',v:r=>r.now},
  {k:'kg',label:'kg',type:'num',v:r=>docNum((r.kg==null?r.knownKg:r.kg)*r.now,1)}];
+/* Простой расчёт по строкам PS (группа Totals): сколько юнитов, заказано,
+   осталось, вес, строк, скидов. */
+function shippingFormTotals(){
+ const rows=d=>(d.orders||[]).flatMap(o=>o.rows||[]),sum=(d,f)=>rows(d).reduce((n,r)=>n+(Number(f(r))||0),0);
+ return [
+  {k:'total.units',g:'Totals',label:'Units on this slip',v:d=>String(sum(d,r=>r.now))},
+  {k:'total.ordered',g:'Totals',label:'Ordered',v:d=>String(sum(d,r=>r.ordered))},
+  {k:'total.back',g:'Totals',label:'Back order',v:d=>String(sum(d,r=>r.back))},
+  {k:'total.weight',g:'Totals',label:'Weight kg',v:d=>docNum(sum(d,r=>(r.kg==null?r.knownKg:r.kg)*r.now),1)},
+  {k:'total.lines',g:'Totals',label:'Lines',v:d=>String(rows(d).filter(r=>r.now).length)},
+  {k:'total.skids',g:'Totals',label:'Skids',v:d=>String((d.skids||[]).length)}];
+}
+function shippingFormFields(){return SHIPPING_FORM_FIELDS.concat(shippingFormTotals(),formMyFields());}
 function shippingFormContext(d){
- const by=new Map(SHIPPING_FORM_FIELDS.map(x=>[x.k,x]));
+ const by=new Map(shippingFormFields().map(x=>[x.k,x]));
  return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},type:k=>(by.get(k)||{}).t||''};
 }
 /* Шаблон для печати: сохранённый в конструкторе (Data → Company & print →

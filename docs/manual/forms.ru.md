@@ -47,6 +47,14 @@ Helvetica, Times и Courier — стандартные шрифты PDF: в фа
 платить за них не нужно. На Windows вместо Helvetica может стоять похожий шрифт той же ширины — строки ложатся
 так же. Переносы на экране, в печати и в PDF одинаковые.
 
+## Свои поля, суммы и Show if
+
+- **My fields** — внизу Data → Company: название и значение (WSIB No., Warranty…), **+ Add field**, × убирает. В окне
+  Insert field они в группе **My fields**; бланк печатает то, что сейчас записано в Company.
+- **Totals** — простой расчёт по строкам PS: Units on this slip, Ordered, Back order, Weight kg, Lines, Skids.
+- **Show if** в настройках блока: Always, A field is filled, A field is… (например Packing slip · Method = Delivery),
+  A field is not…. Пока условие неверно, блок не печатается и места не занимает — блоки ниже поднимаются.
+
 ## Сохранение
 
 **Save** — бланк сохраняется в базе и с этого момента печатается так (Print в Shipments, пачка рейса). **Reset to

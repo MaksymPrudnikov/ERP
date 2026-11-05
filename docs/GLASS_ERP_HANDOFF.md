@@ -2,6 +2,20 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Конструктор форм: свои поля, суммы, Show if (этап 7) · 5 ноября 2026
+
+Владелец 05.11.2026: свои поля — вариант А (раздел внизу Company) + группа My fields в окне Insert field.
+
+- `DB.company.myFields [{id, name, value}]` (`normalizeCompany`, до 30), Company — `viewMdCompany` (`companyMyAdd`,
+  `companyMySet`, `companyMyRemove`). Поля бланка — `formMyFields()` (`my.<id>`, группа My fields; значение живое из
+  Company, не из замороженного документа PS).
+- Totals — `shippingFormTotals()` (Units on this slip, Ordered, Back order, Weight kg, Lines, Skids) — простой расчёт по
+  строкам. Полный список полей PS — `shippingFormFields()`.
+- Show if — `block.show {when: filled | is | not, field, value}`, `formShow` (без регистра); скрытый блок как пустое поле
+  (место 0, блоки ниже поднимаются, не рисуется). Панель блока — Show if (`formsShow`).
+- «Добавить в другие формы» и «новая форма» — после бланков заказа: пока на конструкторе один Packing slip.
+- Проверки: `test/forms-editor.js` (+2). README 2420. Руководство `docs/manual/forms.*` — «Свои поля, суммы и Show if».
+
 ## Конструктор форм: колонки, поля страницы, направляющие (этап 7) · 5 ноября 2026
 
 Владелец 05.11.2026: колонки «списком и можно кликнуть и открыть» (вариант А + клик из Б).

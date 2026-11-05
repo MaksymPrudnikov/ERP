@@ -115,6 +115,30 @@ module.exports=async function({page,eq}){
   drag('[data-forms-guide="x0"]',0,-r.height);const gone=!formsDraft().tpl.guides;
   return {left:Math.round(left),table:Math.round(co.x),guide:Math.round(guide),snapped,same,gone,clean:formClean({page:{margin:{left:'54',top:-5}},guides:{x:[300,'oops',9999]},parts:{}},shippingFormDefault()).page.margin.left};
  }),{left:54,table:59,guide:300,snapped:300,same:true,gone:true,clean:54});
+ eq('Forms: My fields — added in Data → Company, inserted from the My fields group, printed with the company value; Totals sums the lines',await t.p.evaluate(()=>{
+  DB.formTemplate={};DB.company.myFields=[];navGo('masterdata');mdSection='print';mdSetTab('company');render();
+  feClick('[data-company-myfield-add]');const row=document.querySelector('.doc-myfield'),[n,v]=row.querySelectorAll('input');n.value='WSIB No.';n.dispatchEvent(new Event('change'));
+  document.querySelector('.doc-myfield').querySelectorAll('input')[1].value='1234567';document.querySelector('.doc-myfield').querySelectorAll('input')[1].dispatchEvent(new Event('change'));
+  const stored=DB.company.myFields.map(f=>[f.name,f.value]);
+  feOpen();feClick('[data-forms-part="totals"]');feClick('[data-forms-add="field"]');[...document.querySelectorAll('.fm-groups .fm-pick')].find(b=>b.textContent==='My fields').click();
+  const shown=[...document.querySelectorAll('.fm-fields .fm-pick')].map(b=>b.textContent);document.querySelector('.fm-fields .fm-pick').click();feClick('[data-forms-insert]');
+  feClick('[data-forms-add="field"]');[...document.querySelectorAll('.fm-groups .fm-pick')].find(b=>b.textContent==='Totals').click();const totals=[...document.querySelectorAll('.fm-fields .fm-pick span')].map(b=>b.textContent);
+  feClick('[data-forms-field="total.weight"]');feClick('[data-forms-insert]');
+  const txt=()=>feText(shippingPages(shippingFormSample(),null,formsDraft().tpl));const before=txt();DB.company.myFields[0].value='7654321';
+  return {stored,shown,totals,printed:[before.includes('1234567'),before.includes('60.0'),txt().includes('7654321')]};
+ }),{stored:[['WSIB No.','1234567']],shown:['WSIB No.1234567'],totals:['Units on this slip','Ordered','Back order','Weight kg','Lines','Skids'],printed:[true,true,true]});
+ eq('Forms: Show if — a block prints only when its condition holds (Method is Delivery, a field is filled)',await t.p.evaluate(()=>{
+  DB.formTemplate={};feOpen();feClick('[data-forms-part="totals"]');feClick('[data-forms-add="text"]');const sel=formsUi.sel;
+  const ta=document.querySelector('[data-forms-text]');ta.value='Call the site before delivery';ta.dispatchEvent(new Event('change'));
+  const w=document.querySelector('[data-forms-show]');w.value='is';w.dispatchEvent(new Event('change'));
+  const f=document.querySelector('[data-forms-show-field]');f.value='method';f.dispatchEvent(new Event('change'));
+  const v=document.querySelector('[data-forms-show-value]');v.value='delivery';v.dispatchEvent(new Event('change'));
+  const doc=m=>Object.assign(shippingFormSample(),{method:m}),pages=m=>shippingPages(doc(m),null,formsDraft().tpl),has=m=>feText(pages(m)).includes('Call the site before delivery');
+  const b=formsClone(formsFind(formsDraft().tpl,sel)),cond={delivery:has('delivery'),pickup:has('pickup')};
+  formsShow('when','filled');formsShow('field','note');const filled=[feText(shippingPages(Object.assign(shippingFormSample(),{note:''}),null,formsDraft().tpl)).includes('Call the site before delivery'),feText(shippingPages(Object.assign(shippingFormSample(),{note:'Gate code 12'}),null,formsDraft().tpl)).includes('Call the site before delivery')];
+  formsShow('when','');
+  return {show:b.show,delivery:cond.delivery,pickup:cond.pickup,filled,always:!formsFind(formsDraft().tpl,sel).show,clean:formCleanBlock({type:'text',y:0,show:{when:'is',field:'method',value:'Delivery'}}).show};
+ }),{show:{when:'is',field:'method',value:'delivery'},delivery:true,pickup:false,filled:[false,true],always:true,clean:{when:'is',field:'method',value:'Delivery'}});
  eq('Forms: a broken saved form is cleaned — unknown blocks and keys dropped, numbers kept in range, missing parts and table columns from the default',await t.p.evaluate(()=>{
   const def=shippingFormDefault(),bad={parts:{every:{h:'90',blocks:[{type:'script',y:1},{type:'text',text:'Hi',y:5,size:999,onclick:'x',place:'nowhere'},{type:'image',src:'javascript:alert(1)',y:0,w:10,h:10}]},table:{columns:[]}}};
   const c=formClean(bad,def);

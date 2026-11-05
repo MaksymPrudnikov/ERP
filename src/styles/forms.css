@@ -110,3 +110,4 @@ textarea.fm-in{resize:vertical}
 .fm-guide{position:absolute;z-index:2}
 .fm-guide.x{top:0;bottom:0;width:7px;margin-left:-3px;border-left:3px solid transparent;border-right:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ew-resize}
 .fm-guide.y{left:0;right:0;height:7px;margin-top:-3px;border-top:3px solid transparent;border-bottom:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ns-resize}
+.fm-gap{margin-top:6px}
