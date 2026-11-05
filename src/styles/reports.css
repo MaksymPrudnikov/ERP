@@ -166,8 +166,18 @@ button.ch-stat.warn b{color:var(--warning)}
 .rep-wh{display:flex;align-items:baseline;gap:10px;margin:0 0 10px;flex-wrap:wrap}
 .rep-wh h3{margin:0;font-size:14px}
 .rep-wh .mut{font-size:12px}
-.rep-wtools{margin-left:auto;display:flex;gap:4px}
-.rep-csv{margin-left:auto}.rep-wtools+.rep-csv{margin-left:0}.rep-print .rep-csv,.rep-screen .rep-csv{display:none}
+/* Кнопки блока — значками в строке заголовка; правка — только в Edit. */
+.rep-wbtns{margin-left:auto;display:flex;gap:2px;align-items:center;align-self:center}
+.rep-wtools{display:flex;gap:2px;padding-right:6px;margin-right:4px;border-right:1px solid var(--line)}
+.rep-ib{width:28px;height:28px;padding:0;display:inline-grid;place-items:center;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--text-2);cursor:pointer;box-shadow:none}
+.rep-ib svg{width:15px;height:15px}.rep-ib:hover:not(:disabled){border-color:var(--line);background:var(--surface-2);color:var(--text)}
+.rep-ib.dl{color:var(--danger)}.rep-ib:disabled{opacity:.35;cursor:default}
+.rep-print .rep-wbtns,.rep-screen .rep-wbtns [data-rep-cols],.rep-screen .rep-csv{display:none}
+/* Уголок блока (Edit): тянуть — высота области и ширина (половина / вся строка). */
+.rep-w{position:relative}
+.rep-corner{position:absolute;right:3px;bottom:3px;width:14px;height:14px;cursor:nwse-resize;border-radius:0 0 8px 0;background:linear-gradient(135deg,transparent 50%,var(--text-3) 50%,var(--text-3) 58%,transparent 58%,transparent 70%,var(--text-3) 70%,var(--text-3) 78%,transparent 78%)}
+.rep-corner:hover,.rep-resizing .rep-corner{background:linear-gradient(135deg,transparent 50%,var(--accent) 50%,var(--accent) 58%,transparent 58%,transparent 70%,var(--accent) 70%,var(--accent) 78%,transparent 78%)}
+body.rep-resizing{cursor:nwse-resize;user-select:none}
 .rep-add{grid-column:span 2;border:1px dashed var(--line-strong);background:transparent;color:var(--text-2);font:inherit;padding:18px;cursor:pointer;margin:0;box-shadow:none}
 .rep-add:hover{border-color:var(--accent);color:var(--accent)}
 .rep-empty{text-align:center;padding:40px 20px}
@@ -196,10 +206,10 @@ button.ch-stat.warn b{color:var(--warning)}
 .rep-table td[role=button]{cursor:pointer}
 .rep-table td.rep-same,.rep-table td.rep-same b{color:var(--text-3);font-weight:400}
 /* Все строки и все значения — прокрутка внутри карточки, шапка и итог на месте. */
-.rep-scroll{max-height:70vh;overflow:auto}
+.rep-scroll{max-height:var(--rep-h,560px);overflow:auto}
 .rep-scroll .rep-table thead th{position:sticky;top:0;z-index:1;background:var(--surface)}
 .rep-scroll .rep-table tfoot td{position:sticky;bottom:0;background:var(--surface)}
-.ch-pie-legend{max-height:60vh;overflow:auto}
+.ch-pie-legend{max-height:var(--rep-h,420px);overflow:auto}
 .rep-table td[role=button]:hover b{color:var(--accent)}
 .rep-key-acc{background:var(--accent)}
 .rep-menu{width:300px}
@@ -211,40 +221,43 @@ button.ch-stat.warn b{color:var(--warning)}
 .ch-col-bar{position:relative}.ch-inner{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:34%;max-width:9px;background:var(--series-3);border-radius:2px 2px 0 0;text-decoration:none}
 .ch-inner-key{background:var(--series-3)}
 .rep-sortable{cursor:pointer;user-select:none}.rep-sortable:hover{color:var(--accent)}.rep-sort-on{color:var(--accent)}
-.rep-sheet-mark{position:absolute;left:0;right:0;top:0;height:0;border-bottom:2px dashed var(--accent);pointer-events:none;z-index:3}
+.rep-sheet-mark{position:absolute;left:-8px;right:-8px;top:0;height:0;border-bottom:2px dashed var(--danger);pointer-events:none;z-index:3}
 .rep-swatches{display:grid;grid-template-columns:repeat(12,22px);gap:6px;margin:4px 0 8px}.rep-swatches button{width:22px;height:22px;border-radius:5px;border:2px solid transparent;padding:0;cursor:pointer;box-shadow:none}.rep-swatches button.on{border-color:var(--text)}
 .ch-legend [data-rep-color]{cursor:pointer}.rep-formula{width:100%;box-sizing:border-box;min-height:64px;font:13px/1.4 var(--mono,monospace)}.rep-formula-err{color:var(--danger);font-size:12px;margin:2px 0 6px}.rep-formula-ok{color:var(--success);font-size:12px;margin:2px 0 6px}
 .rep-cm{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center;padding:6px 8px;margin:0 0 6px;border:1px solid var(--accent-line);border-radius:8px;background:var(--accent-soft)}.rep-cm code{grid-column:1/-1;font-size:11.5px;color:var(--text-2);overflow-wrap:anywhere}.rep-cm-acts{display:flex;gap:4px}
 .rep-fchips{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 8px}.rep-fchips button{font-size:11.5px;padding:2px 7px}
-.rep-sheet-mark span{position:absolute;right:0;bottom:2px;background:var(--accent);color:var(--on-solid);font-size:11px;font-weight:650;padding:1px 8px;border-radius:6px 6px 0 0}
+.rep-sheet-mark span{position:absolute;left:8px;bottom:-11px;background:var(--surface);color:var(--danger);border:1px solid var(--danger-line);font-size:11.5px;font-weight:650;padding:2px 10px;border-radius:999px}
 @media (max-width:1100px){.rep-app,.rep-app.editing{grid-template-columns:minmax(0,1fr)}.rep-cat,.rep-setup{position:static;max-height:none}}
 @media (max-width:900px){.rep-ws{grid-template-columns:minmax(0,1fr)}.rep-w,.rep-w.half,.rep-add{grid-column:span 1}}
 /* ---- печать отчёта (printSheet: лист — светлая «бумага» .print-sheet) ---- */
-.rep-print{font:12px/1.35 var(--font);color:var(--text)}
+.rep-print{font-family:var(--font);color:var(--text)}
 .rep-print-head{margin:0 0 4mm}
 .rep-print-head h2{margin:0 0 1mm;font-size:18px}
 .rep-print-head div{font-size:12px;color:var(--text-2)}
 .rep-print-head small{font-size:10.5px;color:var(--text-3)}
-.rep-print .rep-w{box-shadow:none;border:1px solid var(--line);padding:10px 12px}
+.rep-print .rep-w{box-shadow:none;border:1px solid var(--line)}
 .rep-print .ch-track>i,.rep-print .ch-col-bar>i,.rep-print .ch-stack i,.rep-print .ch-hstack i,.rep-print .ch-legend i,.rep-print .ch-track,.rep-print .ch-seg,.rep-print .ch-l{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 /* Лист отчёта: как на экране — прокрутка обрезана по высоте карточки, весь
    лист уменьшен под бумагу (repPrintFit). */
-.rep-print .rep-scroll,.rep-print .ch-pie-legend{max-height:520px;overflow:hidden}
-@media print{.rep-print .rep-w,.rep-print .ch-stats{break-inside:avoid}.rep-print .sales-table-wrap:not(.rep-scroll){overflow:visible;max-height:none}
- @page rep-port{size:letter portrait;margin:9mm}@page rep-land{size:letter landscape;margin:9mm}
- /* Лист — ровно одна страница: что не влезло после уменьшения, обрезается, а не уходит на второй лист. */
- .print-sheet.rep-port{page:rep-port;height:255mm;overflow:hidden;background:var(--surface)}.print-sheet.rep-land{page:rep-land;height:194mm;overflow:hidden;background:var(--surface)}
- .print-sheet .rep-print .rep-w{break-inside:auto}}
+.rep-print .ch-pie-legend{max-height:none;overflow:visible}
+@media print{.rep-print .sales-table-wrap:not(.rep-scroll){overflow:visible;max-height:none}
+ /* Поля листа — внутри самого листа: без полей @page браузер не печатает адрес сайта и дату. */
+ @page rep-port{size:letter portrait;margin:0}@page rep-land{size:letter landscape;margin:0}
+ /* Лист — ровно одна страница: что ниже края, на бумагу не идёт (repPrintFit). */
+ .print-sheet.rep-port{page:rep-port;box-sizing:border-box;padding:9mm;height:279mm;overflow:hidden;background:var(--surface)}.print-sheet.rep-land{page:rep-land;box-sizing:border-box;padding:9mm;height:215mm;overflow:hidden;background:var(--surface)}
+ .print-sheet .rep-print .rep-w{break-inside:auto}
+ /* Общее правило бумаги растягивает любой svg на всю ширину — у графиков отчёта размер как на экране. */
+ .print-sheet .rep-print .ch-pie svg{width:170px;height:170px;max-height:none}.print-sheet .rep-print .ch-dense svg{width:100%;height:132px;max-height:none}.print-sheet .rep-print svg.ch-line{width:100%;height:auto;max-height:none}}
 /* Компактнее (владелец: «как Google Analytics, только текст можно поменьше»). */
-.rep-app{font-size:12.5px}
+.rep-app,.rep-print{font-size:12.5px}
 .rep-app button,.rep-app select,.rep-app input{font-size:12.5px}
-.rep-app .sl-table{font-size:12.5px}
-.rep-app .sl-table th,.rep-app .sl-table td{padding:6px 10px}
-.rep-app .ch-stat{padding:8px 11px}
-.rep-app .ch-stat b{font-size:20px}
-.rep-app .ch-stat span,.rep-app .ch-stat small{font-size:11.5px}
-.rep-app .ch-hbars,.rep-app .ch-grid{font-size:12px}
-.rep-app .ch-legend{font-size:11.5px}
+.rep-app .sl-table,.rep-print .sl-table{font-size:12.5px}
+.rep-app .sl-table th,.rep-app .sl-table td,.rep-print .sl-table th,.rep-print .sl-table td{padding:6px 10px}
+.rep-app .ch-stat,.rep-print .ch-stat{padding:8px 11px}
+.rep-app .ch-stat b,.rep-print .ch-stat b{font-size:20px}
+.rep-app .ch-stat span,.rep-app .ch-stat small,.rep-print .ch-stat span,.rep-print .ch-stat small{font-size:11.5px}
+.rep-app .ch-hbars,.rep-app .ch-grid,.rep-print .ch-hbars,.rep-print .ch-grid{font-size:12px}
+.rep-app .ch-legend,.rep-print .ch-legend{font-size:11.5px}
 .rep-app .tabs button{font-size:12.5px}
 .rep-app .sl-quiet{font-size:12.5px;padding:5px 10px}
 .rep-cat-head h3,.rep-setup-head h3{font-size:14px}
@@ -266,3 +279,24 @@ button.ch-stat.warn b{color:var(--warning)}
 .sb-report{padding:12px 16px 16px}
 .rep-screen-tabs{margin:0 0 14px}
 .rep-screen-period{margin:0 0 8px}
+
+/* Высота блока уголком: и у столбиков, и у полос. */
+.rep-w[style*="--rep-h"] .ch-cols{height:var(--rep-h)}
+/* Граница листа (вариант 2 владельца, 05.11.2026): за ней — бледно со штриховкой и «N won't print». */
+.rep-sheet-mark b{position:absolute;right:8px;bottom:-12px;background:var(--danger);color:var(--on-solid);font-size:12px;font-weight:650;padding:3px 12px;border-radius:999px}
+.rep-w.rep-over{opacity:.5;background-image:repeating-linear-gradient(135deg,var(--danger-soft) 0 8px,transparent 8px 16px)}
+.rep-table tr.rep-over-row td{background:repeating-linear-gradient(135deg,var(--danger-soft) 0 8px,var(--surface) 8px 16px);color:var(--danger)}
+/* Число над каждым столбиком; наведение — столбик обведён, число крупно. */
+.ch-all .ch-col-bar b{transition:transform .12s ease;transform-origin:50% 100%}
+.ch-all .ch-col:hover .ch-col-bar b{transform:scale(1.8);position:relative;z-index:2;background:var(--inverse);color:var(--on-solid);padding:1px 5px;border-radius:5px}
+.ch-all .ch-col:hover .ch-col-bar>i,.ch-all .ch-col:hover .ch-stack{outline:2px solid var(--text);outline-offset:1px}
+/* Пай слева, подписи справа колонками на всю ширину блока. */
+.rep-w .ch-pie{flex-wrap:nowrap;align-items:flex-start}
+.rep-w .ch-pie-legend{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));column-gap:28px;row-gap:0}
+.rep-w .ch-pie-legend>span{border-bottom:1px solid var(--line-soft);padding:4px 0}.rep-w .ch-pie-legend>span>span{flex:1}
+/* Бумага: строка «+ N more rows — CSV» и итог по всем строкам. */
+.rep-print .rep-print-cut{max-height:none;overflow:visible}
+.rep-print .rep-more-row td{color:var(--danger);font-weight:650;background:var(--danger-soft)}
+.rep-print,.rep-print *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rep-colmenu{width:230px;display:grid;gap:4px}.rep-colmenu .sl-btn{text-align:left}
+.rep-table th .sl-th{display:inline-flex;align-items:center;gap:4px}
