@@ -122,6 +122,17 @@ module.exports=async function({page,eq}){
   const rows=[{id:'a',n:1.5,e:null,w:[1]},{id:'b',n:null,e:'',w:null},{id:'b',n:0,e:'x',w:null}],c=archColsOf(rows);
   return {keys:Object.keys(c),id:[0,1,2].map(i=>archColAt(c.id,i)),n:[0,1,2].map(i=>archColAt(c.n,i)),e:[0,1,2].map(i=>archColAt(c.e,i))};
  }),{keys:['id','n','e'],id:['a','b','b'],n:[1.5,null,0],e:[null,'','x']});
+ eq('столбцы месяца из частей — те же, что из всех строк сразу (ключи, словарь, пусто, вложенное)',await t.p.evaluate(()=>{
+  const rows=[{id:'a',n:1,s:2},{id:'b',n:null,w:{x:1}},{id:'c',s:'x',t:true},{id:'d',n:-0,s:null,w:null},{id:'e',x:'1'},{id:'f',n:2.5,s:3,t:false}];
+  const flat=c=>Object.entries(c).map(([k,v])=>[k,v instanceof Float64Array?'f':'d',v instanceof Float64Array?[...v].map(x=>x===x?x:'NaN'):[v.d,[...v.i]]]);
+  const one=JSON.stringify(flat(archColsOf(rows))),split=[[0,1],[1,3],[3,3],[3,6]].map(([a,b])=>archColsPart(rows.slice(a,b)));
+  return {same:JSON.stringify(flat(archColsJoin(split)))===one,keys:Object.keys(archColsJoin(split))};
+ }),{same:true,keys:['id','n','s','t','x']});
+ eq('после отчёта за всё время операции и время людей не держат строки архива',await t.p.evaluate(()=>{
+  const hot=repWorkCache.rows||[],was=[repOpCache,repTimeCache],merged=hot.concat([{id:'cold'}]);
+  try{repOpCache={src:merged,rows:[]};repTimeCache={src:hot,rows:[]};archiveScopeDrop();return [repOpCache.src===null,repTimeCache.src===hot];}
+  finally{[repOpCache,repTimeCache]=was;}
+ }),[true,true]);
  eq('период и сравнение «год назад» — два отрезка, а не год между ними: дыра не читается',await t.p.evaluate(()=>{
   const w=repCleanWidget({type:'number',q:{source:'cutting',metrics:['count'],compare:'year'}}),r=repClean({date:{from:'2026-11-03',to:'2026-11-03'},pages:[{widgets:[w]}]});
   /* Жизнь заказов — с января 2026: отрезки по обе стороны их не задевают. */
