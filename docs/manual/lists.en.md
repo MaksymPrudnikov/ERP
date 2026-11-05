@@ -24,7 +24,12 @@ Customers, Agents, Users and Data.
 - **Total row** at the bottom — the count and the sums of the number columns.
 - **Data** — the tree of items is a card on the left; the top row has the ticked row's actions, the search and All
   catalog; the row card opens on the right (Hide preview hides it).
-- Windows (Activity log, Cut preview) and Shipping → Ready: column widths drag; the order stays.
+- **Agents** — the people list works like Sales; a row or its tick opens the person below (their orders, + Payout).
+  Period and With HST sit in the top row.
+- Windows (Activity log, Cut preview), Shipping → Ready, the customer card in Finance (Orders, Payments, Refunds)
+  and a person's tables in Agents: column widths drag; the order stays.
+- Settings in Data (Cutting, Stations, Trucks, Prices and others) are forms with fields in rows, not lists: they
+  stay as they were.
 - Boards and windows keep what they do (the dolly board, the truck day, the window of a dolly or skid); only their
   header follows this look.
 

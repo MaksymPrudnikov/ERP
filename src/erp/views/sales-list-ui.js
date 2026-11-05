@@ -684,7 +684,7 @@ cwRegister('shipments',{
    (этап 6 плана): те же жесты, ширины и порядок — в настройках своего списка. */
 /* lead — ширина служебной колонки слева (галочка, шестерёнка): без неё <colgroup>
    отдаёт ширины колонок соседям, и ячейки съезжают с заголовков (Backorders, 04.11.2026). */
-[['optimization','customer',68],['shipping','customer',68],['shippingAwaiting','customer',68],['shippingDone','customer',68],['glassQueue','customer',68],['glassBatches','glass',68],['glassContents','customer',68],['glassSheets','glass',68],['glassStock','glass',68],['prodOrders','customer',0],['shippingSkids','customer',68],['shippingBackorders','customer',68],['shippingDelivery','customer',68],['agents','customers',68]].forEach(([id,fill,lead])=>cwRegister(id,{
+[['optimization','customer',68],['shipping','customer',68],['shippingAwaiting','customer',68],['shippingDone','customer',68],['glassQueue','customer',68],['glassBatches','glass',68],['glassContents','customer',68],['glassSheets','glass',68],['glassStock','glass',68],['prodOrders','customer',0],['shippingSkids','customer',68],['shippingBackorders','customer',68],['shippingDelivery','customer',68]].forEach(([id,fill,lead])=>cwRegister(id,{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
  def:k=>{const c=salesListColumn(k);return SALES_LIST_WIDTH[k]||(c&&c.station?64:c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
