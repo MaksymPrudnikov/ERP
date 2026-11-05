@@ -119,7 +119,8 @@ async function archFactsCols(gen,month,head){
 
 /* ------------------------- Месяцы на сервере -------------------------- */
 /* Столбцы → текст: описание (JSON) и байты чисел и номеров подряд, gzip,
-   base64. Месяц «Glass cut» — сотни КБ, не десятки МБ записей заказов. */
+   base64. Месяц всех источников на ~110 заказов — 100–150 КБ (симуляция,
+   05.11.2026), а не 3 МБ записей на каждые 40 заказов. */
 function archB64(u8){let s='';for(let i=0;i<u8.length;i+=32768)s+=String.fromCharCode.apply(null,u8.subarray(i,i+32768));return btoa(s);}
 function archUnB64(s){const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
 async function archZip(u8,how){return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(how)).arrayBuffer());}
