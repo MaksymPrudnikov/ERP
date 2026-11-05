@@ -118,7 +118,7 @@ function cwMove(e){
 }
 function cwUp(e){
  const d=cwDrag;if(!d||(e&&e.pointerId!==d.pointer))return;cwDrag=null;cwClear();
- if(d.kind==='resize'){CW_TABLES[d.id].save(cwClean(d.w));cwSwallowClick();return;}
+ if(d.kind==='resize'){CW_TABLES[d.id].save(cwClean(d.w));cwSwallowClick();if(typeof salesListFit==='function')salesListFit();return;}
  if(!d.on)return;cwSwallowClick();
  const t=d.target;if(!t||t.th===d.th)return;
  CW_TABLES[d.id].move(d.key,t.th.dataset.cwKey,t.after);

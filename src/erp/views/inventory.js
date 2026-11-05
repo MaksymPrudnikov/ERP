@@ -26,7 +26,8 @@ const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'
 function invArg(v){return esc(JSON.stringify(String(v)));}
 /* Разделы склада кнопками в ряд (владелец, 23.10.2026): выпадашка
    прятала Count и Journal. */
-function invNav(){return '<div class="sl-filter-row"><div class="sl-quick inv-tabs" role="tablist" data-inv-sections>'+INV_VIEWS.map(([k,n])=>'<button type="button" role="tab" class="sl-quick-pill'+(k===invView?' on':'')+'" data-inv-section="'+k+'" onclick="invGo(\''+k+'\')">'+n+'</button>').join('')+'</div></div>';}
+/* В том же ряду — статусы и дата раздела, как в Sales (владелец, 04.11.2026). */
+function invNav(extra){return '<div class="sl-filter-row"><div class="sl-quick inv-tabs" role="tablist" data-inv-sections>'+INV_VIEWS.map(([k,n])=>'<button type="button" role="tab" class="sl-quick-pill'+(k===invView?' on':'')+'" data-inv-section="'+k+'" onclick="invGo(\''+k+'\')">'+n+'</button>').join('')+'</div>'+(extra||'')+'</div>';}
 /* Отмеченная строка Sheets / Stock items: её + − Count — сверху в шапке
    (вид Sales, владелец 03.11.2026). */
 let invSel='';
@@ -82,7 +83,8 @@ function invPager(rows){
  return '<div class="pur-pagination"><span>'+from+'–'+to+' of '+rows.length+' rows</span><span class="sales-toolbar-sp"></span>'+buttons+'</div>';
 }
 function invListStatus(value){if(value)salesListSetFilter('status',{values:[value]});else salesListClearFilter('status');}
-function invListFilters(infos){
+function invListFilters(){return salesListFilterChips();}
+function invListFilterBits(infos){
  let status='';
  if(invView==='offcuts'){
   const base=salesListRows(infos,['status']),f=salesListLoadPrefs().filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
@@ -97,15 +99,18 @@ function invListFilters(infos){
   status=salesListStatusControlHTML(INV_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,'invListStatus');
  }
  const date=invListDateColumn();
- return '<div class="sl-view-controls">'+status+(date?salesListDateButton(date):'')+'</div>'+salesListFilterChips();
+ return (status?'<span class="sl-filter-sep" aria-hidden="true"></span>'+status:'')+(date?'<span class="sales-toolbar-sp"></span>'+salesListDateButton(date):'');
 }
 function invHeader(c){return salesListHead(c);}
 /* lead — лишние ячейки слева, сразу за шестерёнкой: кнопки строки видны
    без прокрутки широкой таблицы. */
+/* Ширины колонок склада: в окно 1440 таблица входит без прокрутки вбок,
+   остаток берёт Glass (Item у Stock items). */
+const INV_WIDTH={glass:180,item:180,code:110,mm:56,size:110,onRack:84,onOrder:84,held:90,reserved:84,free:70,status:120,min:90,lastCount:110,kind:110,measures:130,unit:70,onHand:84,available:90,day:100,ref:120,rack:84,by:110,note:160,id:110,area:70,from:150,booked:100,age:84};
 function invTable(cols,rows,cell,extraHead,extraCells,empty,lead){
  const head=cols.map(invHeader).join(''),body=i=>cols.map(c=>cell(i,c)).join(''),xh=extraHead||'',xc=i=>extraCells?extraCells(i):'';
- const cw=salesListCwTable(cols.map(c=>c.k),lead&&xh?[44,120]:[44],!lead&&xh?120:0);
- return '<div class="sales-table-wrap"><table class="sl-table inv-table'+cw.cls+'"'+cw.attrs+'>'+cw.col+'<thead><tr><th><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></th>'+(lead?xh+head:head+xh)+'</tr></thead><tbody>'+
+ const cw=salesListCwTable(cols.map(c=>c.k),lead&&xh?[44,120]:[44],!lead&&xh?120:0,INV_WIDTH);
+ return '<div class="sales-table-wrap"><table class="sl-table inv-table'+cw.cls+'"'+cw.attrs+'>'+cw.col+'<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></span></th>'+(lead?xh+head:head+xh)+'</tr></thead><tbody>'+
   (invPageRows(rows).map(i=>'<tr data-inv-row="'+esc(i.o.id)+'"'+(invSel===i.o.id?' class="oq-selected"':'')+' oncontextmenu="'+(invView==='sheets'||invView==='stock'?'event.preventDefault();invSelect(\''+esc(i.o.id)+'\')':'')+'">'+(invView==='sheets'||invView==='stock'?'<td class="sl-check"><input type="checkbox" data-inv-check aria-label="Select '+esc(i.o.id)+'" '+(invSel===i.o.id?'checked':'')+' onchange="invSelect(\''+esc(i.o.id)+'\',this.checked)"></td>':'<td></td>')+(lead?xc(i)+body(i):body(i)+xc(i))+'</tr>').join('')||'<tr><td colspan="'+(cols.length+1+(extraHead?1:0))+'" class="empty" data-inv-empty>'+empty+'</td></tr>')+'</tbody></table></div>'+invPager(rows);
 }
 function invNum(v){return v==null||v===''?'<span class="mut">—</span>':esc(v);}
@@ -457,8 +462,8 @@ function viewInventory(){
  const count=invView==='count',off=invView==='offcuts',stock=invView==='stock',infos=invView==='journal'?invMoveInfos():off?invOffcutInfos():stock?invStockInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):off?invOffcutsView(infos):stock?invStockView(infos):count?invCountView(infos):invSheetsView(infos);
  const n=Object.keys(invCountDraft).length;
  if(invSel&&!infos.some(i=>i.o.id===invSel))invSel='';
- return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar">'+invSelActs(infos)+'<span class="sales-toolbar-sp"></span>'+
+ return '<div class="inventory-workspace"><div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">'+invSelActs(infos)+'<span class="sales-toolbar-sp"></span>'+
   (count||invView==='sheets'?'<button type="button" data-inv-glass-on-rack onclick="invMoveOpen(\'\',\'add\')">+ Glass on rack</button>':'')+(count?'<button type="button" class="pri" data-inv-count-save onclick="invCountSaveUi()">Save count · <span data-inv-count-n>'+n+'</span></button>':'')+
-  (off?'<label class="chk"><input type="checkbox" data-inv-offcut-all '+(invOffcutAll?'checked':'')+' onchange="invOffcutAll=this.checked;render()"> Show used and written off</label><button type="button" data-inv-lost-save onclick="invOffcutLostUi()">Write off <span data-inv-lost-n>'+invOffcutLostDraft.size+'</span> not found</button>':'')+'</div>'+invNav()+
+  (off?'<label class="chk"><input type="checkbox" data-inv-offcut-all '+(invOffcutAll?'checked':'')+' onchange="invOffcutAll=this.checked;render()"> Show used and written off</label><button type="button" data-inv-lost-save onclick="invOffcutLostUi()">Write off <span data-inv-lost-n>'+invOffcutLostDraft.size+'</span> not found</button>':'')+'</div>'+invNav(invListFilterBits(infos))+
   (invNotice?'<div class="ncr-error" role="alert">'+esc(invNotice)+'</div>':'')+body+salesListMenuHTML(infos)+'</div></div>';
 }

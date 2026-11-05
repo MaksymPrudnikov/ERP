@@ -304,13 +304,18 @@ function shippingDetailHTML(){
 }
 /* Backorders — список вида Sales: строка — остаток строки заказа; заказ и
    клиент в своих колонках, повтор ниже бледный; Columns, фильтры, итог. */
-function shippingBackorderColumns(){return [{k:'order',label:'Order',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'po',label:'PO',type:'text',def:false},{k:'due',label:'Due',type:'date',def:false},{k:'line',label:'Line / Mark',type:'text'},{k:'size',label:'Size',type:'text'},{k:'ordered',label:'Ordered',type:'number',sum:true},{k:'shipped',label:'Shipped',type:'number',sum:true},{k:'left',label:'Remaining',type:'number',sum:true},{k:'where',label:'In the shop',type:'text'}].map(c=>Object.assign({def:true},c));}
+function shippingBackorderColumns(){return [{k:'order',label:'Order',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'po',label:'PO',type:'text',def:false},{k:'due',label:'Due',type:'date',def:false},{k:'line',label:'Line / Mark',type:'text'},{k:'size',label:'Size',type:'text'},{k:'items',label:'Order Items',type:'text'},{k:'ordered',label:'Ordered',type:'number',sum:true},{k:'shipped',label:'Shipped',type:'number',sum:true},{k:'left',label:'Remaining',type:'number',sum:true},{k:'where',label:'In the shop',type:'text'}].map(c=>Object.assign({def:true},c));}
+/* Order Items остатка строки — стекло и штуки, как колонка Order Items в Sales. */
+function shippingBackorderItems(o,l,n){
+ const sum=new Map();glassBatchComponents(o,l).forEach(c=>{const g=glassProductById(c.glassId),k=g?glassShortName(g):'Unknown glass';sum.set(k,(sum.get(k)||0)+n);});
+ return [...sum].map(([k,v])=>k+': '+v).join(' | ');
+}
 function shippingBackorderInfos(){
  const board=prodBoard(),out=[];
  shippingOrders().map(o=>({o,q:shippingSummary(o)})).filter(x=>x.o.status==='shipping'&&x.q.back>0).forEach(({o,q})=>{
   const prod=board.find(p=>p.o.id===o.id),base={order:o.businessNumber,customer:salesCustomerDisplay(o.customerId),po:o.customerPo||'',due:o.dueDate||''};
-  q.lines.filter(r=>r.back>0).forEach(r=>{const n=o.lines.indexOf(r.l)+1,p=prod&&prod.lines.find(x=>x.no===n);const where=p?p.lites.map(l=>l.glass+': '+Object.entries(l.counts).filter(([k,n])=>n>0).map(([k,n])=>(k==='queue'?'To batch':k)+' '+n).join(', ')+(l.on.length?' · '+l.on.join(', '):'')).join(' / '):'Awaiting production';out.push({o:{id:o.id+'|'+r.l.id},order:o,memo:Object.assign({line:n+(r.l.mark?' · '+r.l.mark:''),size:docSize(r.l),ordered:r.ordered,shipped:r.shipped,left:r.back,where},base)});});
-  q.extras.filter(r=>r.back>0).forEach(r=>out.push({o:{id:o.id+'|'+r.x.id},order:o,memo:Object.assign({line:'From stock · '+salesExtraItemName(r.x),size:'',ordered:r.ordered,shipped:r.shipped,left:r.back,where:'From stock'},base)}));
+  q.lines.filter(r=>r.back>0).forEach(r=>{const n=o.lines.indexOf(r.l)+1,p=prod&&prod.lines.find(x=>x.no===n);const where=p?p.lites.map(l=>l.glass+': '+Object.entries(l.counts).filter(([k,n])=>n>0).map(([k,n])=>(k==='queue'?'To batch':k)+' '+n).join(', ')+(l.on.length?' · '+l.on.join(', '):'')).join(' / '):'Awaiting production';out.push({o:{id:o.id+'|'+r.l.id},order:o,memo:Object.assign({line:n+(r.l.mark?' · '+r.l.mark:''),size:docSize(r.l),items:shippingBackorderItems(o,r.l,r.back),ordered:r.ordered,shipped:r.shipped,left:r.back,where},base)});});
+  q.extras.filter(r=>r.back>0).forEach(r=>out.push({o:{id:o.id+'|'+r.x.id},order:o,memo:Object.assign({line:'From stock · '+salesExtraItemName(r.x),size:'',items:salesExtraItemName(r.x)+': '+r.back,ordered:r.ordered,shipped:r.shipped,left:r.back,where:'From stock'},base)}));
  });
  return out;
 }
@@ -321,6 +326,7 @@ function shippingBackordersHTML(){
   case 'customer':return `<td${same?' class="sl-rep"':''}>${same?esc(v):'<b>'+esc(v)+'</b>'}</td>`;
   case 'due':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'left':return `<td class="n"><b>${v}</b></td>`;
+  case 'items':return `<td><span class="sl-glass" title="${esc(v)}">${v?esc(v):'—'}</span></td>`;
   default:return `<td${c.type==='number'?' class="n"':''}>${v===''||v==null?'<span class="mut">—</span>':esc(String(v))}</td>`;}};
  return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>${salesListTableHTML({infos,rows,cell,row:(i,k)=>({attrs:k&&rows[k-1].order.id===i.order.id?'':' class="shipping-customer"'}),noun:r=>{const n=new Set(r.map(i=>i.order.id)).size;return n+' order'+(n===1?'':'s');},empty:infos.length?'No backorders match.':'No backorders.'})}</div>`;
 }
