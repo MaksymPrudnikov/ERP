@@ -2361,6 +2361,18 @@ textarea.fm-in{resize:vertical}
 .fm-modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 @media (max-width:1360px){.fm-grid{grid-template-columns:210px minmax(0,1fr) 260px}}
 @media (max-width:1180px){.fm-grid{grid-template-columns:210px minmax(0,1fr)}.fm-right{grid-column:1/-1;position:static;max-height:none}}
+/* Окно Versions (вариант В 05.11.2026): слева список, справа лист версии. */
+.fm-modal.fm-versions{top:6vh;width:min(1000px,94vw);display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;max-height:88vh}
+.fm-vlist{display:flex;flex-direction:column;gap:2px;overflow:auto;max-height:84vh}
+.fm-ver{flex-direction:column;align-items:flex-start;gap:2px}
+.fm-ver small{color:var(--text-3);font-weight:400;font-size:12px}
+.fm-vfile{display:flex;gap:6px;margin-top:10px}
+.fm-vfile button{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:6px 4px;font:inherit;font-size:12px;cursor:pointer}
+.fm-error{color:var(--danger);font-size:12px;margin:6px 0}
+.fm-vview{display:flex;flex-direction:column;min-width:0}
+.fm-vpages{overflow:auto;max-height:76vh;display:flex;flex-direction:column;gap:12px;background:var(--surface-3);border-radius:10px;padding:12px}
+.fm-vsheet{position:relative;width:100%;aspect-ratio:612/792;background:var(--on-solid);box-shadow:0 1px 4px rgba(0,0,0,.15);flex:none}
+.fm-vsheet svg{position:absolute;inset:0}
 
 /* ---- src/styles/cutting.css ---- */
 /* Раскрой: параметры реза в Master Data и экран раскладки у батча. */
@@ -4135,7 +4147,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='5984ad3c0a86';
+var ERP_BUILD='992a444df34c';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -43437,6 +43449,10 @@ function stkEditorHTML(){
 /* Сохранённые шаблоны: форма → шаблон. Ключ в DEFAULT — иначе база при
    старте его не берёт (mergeState). */
 DEFAULT.formTemplate={};
+/* Версии (окно Versions, вариант В 05.11.2026): каждое Save — строка
+   {id, form, at, by, note, tpl}; на форму хранятся последние FORMS_VERSIONS. */
+DEFAULT.formVersion=[];
+const FORMS_VERSIONS=20;
 /* Формы на шаблоне. Остальные бланки переходят сюда по одному, после
    сверки «печатает то же». */
 function formsDefs(){
@@ -43449,12 +43465,16 @@ function formsDefs(){
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
 function formsSaved(k){const def=formsDef(k);return formClean(DB.formTemplate&&DB.formTemplate[k],def.def());}
 function normalizeFormTemplates(){
- const src=DB.formTemplate&&typeof DB.formTemplate==='object'&&!Array.isArray(DB.formTemplate)?DB.formTemplate:{},out={};
- formsDefs().forEach(d=>{if(src[d.k])out[d.k]=formClean(src[d.k],d.def());});
+ const src=DB.formTemplate&&typeof DB.formTemplate==='object'&&!Array.isArray(DB.formTemplate)?DB.formTemplate:{},out={},defs=formsDefs();
+ defs.forEach(d=>{if(src[d.k])out[d.k]=formClean(src[d.k],d.def());});
  DB.formTemplate=out;
+ const str=v=>typeof v==='string'?v.slice(0,200):'';
+ const rows=(Array.isArray(DB.formVersion)?DB.formVersion:[]).filter(v=>v&&typeof v==='object'&&typeof v.id==='string'&&v.id&&typeof v.at==='string'&&defs.some(d=>d.k===v.form)&&v.tpl&&typeof v.tpl==='object');
+ DB.formVersion=defs.flatMap(d=>rows.filter(v=>v.form===d.k).slice(-FORMS_VERSIONS).map(v=>({id:v.id,form:v.form,at:v.at,by:str(v.by),note:str(v.note),tpl:formClean(v.tpl,d.def())})));
 }
 function validateFormTemplatePayload(src){
  if(src.formTemplate!=null&&(typeof src.formTemplate!=='object'||Array.isArray(src.formTemplate)))throw new Error('Form templates must be an object.');
+ if(src.formVersion!=null&&!Array.isArray(src.formVersion))throw new Error('Form versions must be a list.');
 }
 
 const FORMS_PARTS={every:['Page header','every page'],first:['First page','page 1'],table:['Lines table','grows'],totals:['Totals','after table'],skidTop:['Skid sheet','per skid'],skidTable:['Skid table','per skid'],bottom:['Page footer','bottom']};
@@ -43479,8 +43499,20 @@ function formsEdit(fn,keepRender){
 function formsUndo(){const d=formsDraft();if(!d.undo.length)return;d.redo.push(formsClone(d.tpl));d.tpl=d.undo.pop();formsFixSel();render();}
 function formsRedo(){const d=formsDraft();if(!d.redo.length)return;d.undo.push(formsClone(d.tpl));d.tpl=d.redo.pop();formsFixSel();render();}
 function formsFixSel(){const s=formsUi;if(s.sel&&!formsFind(formsDraft().tpl,s.sel))s.sel=null;}
+/* Пометка версии — что поменялось против прошлого Save. */
+function formsDiffNote(was,now,def){
+ if(JSON.stringify(now)===JSON.stringify(formClean(formsClone(def),def)))return 'Default form';
+ was=formClean(formsClone(was),def);
+ const map=t=>{const m=new Map();Object.keys(t.parts).forEach(k=>(t.parts[k].blocks||[]).forEach(b=>m.set(k+'|'+b.id,JSON.stringify(b))));return m;},a=map(was),b=map(now);
+ let add=0,del=0,chg=0;b.forEach((v,k)=>{if(!a.has(k))add++;else if(a.get(k)!==v)chg++;});a.forEach((v,k)=>{if(!b.has(k))del++;});
+ const n=(x,w)=>x?x+' '+(x===1?'block':'blocks')+' '+w:'';
+ return [n(add,'added'),n(chg,'changed'),n(del,'removed')].filter(Boolean).join(' · ')||'Spacing changed';
+}
 function formsSave(){
- const s=formsState(),d=formsDraft(),tpl=formClean(d.tpl,formsDef(s.form).def());
+ const s=formsState(),d=formsDraft(),def=formsDef(s.form).def(),tpl=formClean(d.tpl,def),was=formsSaved(s.form);
+ const me=typeof signinUser==='function'?signinUser():null;
+ DB.formVersion=(DB.formVersion||[]).concat([{id:salesUid('FV'),form:s.form,at:new Date().toISOString(),by:me?me.name:'',note:formsDiffNote(was,tpl,def),tpl:formsClone(tpl)}]);
+ const mine=DB.formVersion.filter(v=>v.form===s.form);if(mine.length>FORMS_VERSIONS){const drop=new Set(mine.slice(0,mine.length-FORMS_VERSIONS).map(v=>v.id));DB.formVersion=DB.formVersion.filter(v=>!drop.has(v.id));}
  DB.formTemplate=Object.assign({},DB.formTemplate,{[s.form]:tpl});
  d.tpl=formsClone(tpl);d.saved=JSON.stringify(d.tpl);s.notice='Saved';touch();render();
 }
@@ -43581,6 +43613,51 @@ function formsModalHTML(ctx){
   <div class="fm-modal-foot"><button type="button" onclick="formsModalClose()">Cancel</button><button type="button" class="pri" data-forms-insert ${m.field?'':'disabled'} onclick="formsModalApply()">${m.mode==='change'?'Apply':'Insert'}</button></div></div>`;
 }
 
+/* ---------------------------- Версии --------------------------------- */
+/* Список окна Versions: сохранённые версии (новые сверху), «сохранено до
+   истории», если бланк сохраняли раньше, и бланк программы. */
+function formsVersionList(){
+ const s=formsState(),def=formsDef(s.form).def(),list=(DB.formVersion||[]).filter(v=>v.form===s.form).slice().reverse();
+ if(!list.length&&DB.formTemplate&&DB.formTemplate[s.form])list.push({id:'@saved',at:'',by:'',note:'Saved before history',tpl:formsSaved(s.form)});
+ return list.concat([{id:'@default',at:'',by:'Glass ERP',note:'The program’s form',tpl:def}]);
+}
+function formsWhen(at){
+ if(!at)return 'Default';const d=new Date(at);if(isNaN(d))return at;const t=d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+ return d.toDateString()===new Date().toDateString()?'Today '+t:DOC_MONTHS[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear()+' '+t;
+}
+function formsVersionsOpen(){formsState().versions={sel:0,error:''};render();}
+function formsVersionsClose(){formsUi.versions=null;render();}
+function formsVersionPick(i){formsUi.versions.sel=i;formsUi.versions.error='';render();}
+function formsVersionRestore(){
+ const s=formsState(),v=formsVersionList()[s.versions.sel];if(!v)return;s.versions=null;s.sel=null;
+ formsEdit(t=>{Object.keys(t).forEach(k=>delete t[k]);Object.assign(t,formsClone(v.tpl));});
+}
+function formsVersionDownload(){
+ const s=formsState(),v=formsVersionList()[s.versions.sel];if(!v)return;
+ const day=(v.at||new Date().toISOString()).slice(0,10),def=formsDef(s.form);
+ storageDownload('form-'+def.label.toLowerCase().replace(/[^a-z0-9]+/g,'-')+'-'+day+'.json',JSON.stringify({format:'glass-erp-form',form:s.form,label:def.label,at:v.at,by:v.by,note:v.note,tpl:v.tpl},null,1));
+}
+/* Файл бланка → черновик (Save — чтобы оставить). */
+function formsLoadText(text){
+ const s=formsState();let o;try{o=JSON.parse(text);}catch(e){o=null;}
+ if(!o||o.format!=='glass-erp-form'||!o.tpl||typeof o.tpl!=='object'){if(s.versions)s.versions.error='Not a form file.';render();return false;}
+ if(o.form!==s.form){if(s.versions)s.versions.error='This file is for '+(o.label||o.form)+'.';render();return false;}
+ s.versions=null;s.sel=null;formsEdit(t=>{Object.keys(t).forEach(k=>delete t[k]);Object.assign(t,formClean(o.tpl,formsDef(s.form).def()));});return true;
+}
+function formsLoadFile(input){const f=input.files&&input.files[0];input.value='';if(!f)return;const r=new FileReader();r.onload=()=>formsLoadText(String(r.result||''));r.readAsText(f);}
+function formsVersionsHTML(){
+ const s=formsState(),m=s.versions;if(!m)return '';
+ const list=formsVersionList(),v=list[m.sel]||list[0],def=formsDef(s.form);
+ let pages=[];try{pages=def.pages(v.tpl,def.doc(s.sample));}catch(e){}
+ return `<div class="fm-modal-back" onclick="formsVersionsClose()"></div><div class="fm-modal fm-versions" role="dialog" aria-modal="true" aria-label="Versions" data-forms-versions>
+  <div class="fm-vlist"><div class="fm-modal-head"><b>Versions · ${esc(def.label)}</b></div>
+   ${list.map((x,i)=>`<button type="button" class="fm-pick fm-ver${i===m.sel?' on':''}" data-forms-version="${i}" onclick="formsVersionPick(${i})"><b>${esc(formsWhen(x.at))}${x.by?' · '+esc(x.by):''}</b><small>${esc(x.note||'')}</small></button>`).join('')}
+   <div class="fm-vfile"><button type="button" data-forms-download onclick="formsVersionDownload()">Download this version</button><button type="button" onclick="document.querySelector('[data-forms-file]').click()">Load form file…</button></div>
+   ${m.error?`<p class="fm-error" data-forms-file-error>${esc(m.error)}</p>`:''}<input type="file" accept=".json,application/json" hidden data-forms-file onchange="formsLoadFile(this)"></div>
+  <div class="fm-vview"><div class="fm-vpages">${pages.map(pg=>`<div class="fm-vsheet">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}</div>`).join('')}</div>
+   <div class="fm-modal-foot"><button type="button" onclick="formsVersionsClose()">Close</button><button type="button" class="pri" data-forms-restore ${m.sel===0&&list[0].id!=='@default'&&!formsDirty()?'disabled':''} onclick="formsVersionRestore()">Restore this version</button></div></div></div>`;
+}
+
 /* ------------------------------ Лист --------------------------------- */
 function formsRuler(vert,len){
  let t='';for(let q=0;q*18<=len;q++){const pos=(q*18/len*100).toFixed(3)+'%',big=q%4===0;
@@ -43663,14 +43740,14 @@ function viewMdForms(){
  return `<div class="fm" data-forms>
   <div class="fm-bar"><div class="fm-forms">${formsDefs().map(x=>`<button type="button" class="sl-quick-pill${x.k===s.form?' on':''}" onclick="formsSetForm('${x.k}')">${esc(x.label)}</button>`).join('')}</div><span class="fm-sp"></span>
    <label class="fm-preview"><span>Preview</span><select data-forms-sample onchange="formsSetSample(this.value)">${samples.length?samples.map(x=>`<option value="${esc(x.id)}" ${x.id===s.sample?'selected':''}>${esc(x.label)}</option>`).join(''):'<option value="sample">Sample</option>'}</select></label>
-   <button type="button" data-forms-undo ${d.undo.length?'':'disabled'} onclick="formsUndo()">Undo</button><button type="button" data-forms-redo ${d.redo.length?'':'disabled'} onclick="formsRedo()">Redo</button><button type="button" data-forms-reset onclick="formsReset()">Reset to default</button>
+   <button type="button" data-forms-undo ${d.undo.length?'':'disabled'} onclick="formsUndo()">Undo</button><button type="button" data-forms-redo ${d.redo.length?'':'disabled'} onclick="formsRedo()">Redo</button><button type="button" data-forms-history onclick="formsVersionsOpen()">History</button><button type="button" data-forms-reset onclick="formsReset()">Reset to default</button>
    ${dirty?'<span class="fm-dirty" data-forms-dirty>Unsaved changes</span>':s.notice?`<span class="fm-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-forms-save ${dirty?'':'disabled'} onclick="formsSave()">Save</button></div>
   <div class="fm-grid">
    <aside class="fm-card fm-left"><div class="fm-h">Add</div><div class="fm-add">${add.map(([k,l])=>`<button type="button" data-forms-add="${k}" onclick="formsAdd('${k}')">+ ${l}</button>`).join('')}</div><input type="file" accept="image/*" hidden data-forms-picture onchange="formsPicture(this)">
     <div class="fm-h">Parts of the sheet</div><div class="fm-tree">${formsTreeHTML(tpl)}</div></aside>
    <div class="fm-stage" data-forms-stage>${formsSheetsHTML()}</div>
    <aside class="fm-card fm-right" data-forms-settings>${formsSettingsHTML(tpl)}</aside>
-  </div>${formsModalHTML(ctx)}</div>`;
+  </div>${formsModalHTML(ctx)}${formsVersionsHTML()}</div>`;
 }
 
 /* ==== src/erp/views/cut-layout-ui.js ==== */
