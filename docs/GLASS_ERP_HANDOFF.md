@@ -2,6 +2,40 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Замечания владельца 04.11 к этапу 6: Freeze, шапка, прочерк, Shipping, Purchasing, Inventory · 5 ноября 2026
+
+Владелец смотрел сайт после #420 и #421; варианты вида — картинками, выбраны 05.11: Freeze — B (значок в ряду Sort),
+прочерк — 1 (серый «–» на месте значения); по ходу: тень у края закреплённых, вкладки Shipping — в карточку списка,
+галочка шапки в линию с галочками строк.
+
+- Freeze (`views/sales-list-ui.js`): `prefs.frozen` у каждого списка свой; `salesListColumns()` ставит закреплённые
+  первыми (в порядке Columns), `salesListFreeze(k)` — значок `[data-freeze]` в ряду Sort меню колонки; Standard view
+  снимает. После отрисовки `salesListTableFit` (`views/sales-list-controls.js`, зовёт `salesListFit` и дорисовка
+  `list-window`): галочка и закреплённые — первые N ячеек строки, класс `fz-N`, `left` из `--fz1…` по ширине
+  заголовков; у заголовка — значок (`th.sl-frz-col`); прокрутили вбок (`.sl-scrolled-x`) — тень у края.
+- Шапка не уезжает: `th` списков в карточке `sl-foot-pin` — `position:sticky;top:0` (страница крутится — у верха
+  окна; шире экрана — у верха таблицы). `sl-foot-pin` добавлен Purchasing, Inventory и Customers.
+- Прочерк: `salesListDashes` — пустая ячейка и длинное «—» в списках с меню колонок становятся `<span class="mut
+  sl-dash">–</span>`; поля и кнопки не трогаются; подрядные строки Production (`pb-sub`) — нет.
+- Optimization: шапка таблицы 47 px, строки 52 px на всех шести вкладках; Sheets — шестерёнка в
+  шапке таблицы слева (колонка `sl-check`).
+- Навигация Optimization и Shipping — своя карточка над таблицей, только вкладки (`salesListSplitNav` в `nav.js
+  render` до возврата фокуса переносит ряд таблеток в `.sl-nav-card`). Кнопки вкладки, поиск Order / PO и Open a trip —
+  одним рядом в карточке таблицы; пустой ряд кнопок спрятан. В очереди Optimization кнопки Open нет — правая кнопка →
+  Open; в Shipping Open в ряду с поиском (владелец, 05.11.2026). Shipments — вид NOW (владелец: «оставь NOW»), но без колонки дней
+  слева (05.11.2026): день — кнопка Date; скан PS, поиск и Open a trip — в ряду карточки списка; навигация — `.sl-nav-card` в
+  `shippingListHTML`. Вкладки с кнопками (To batch, Batches, Ready, Skids…) — таблица на ряд ниже, чем у вкладок без кнопок.
+- Ряды кнопок Shipping — одним стилем: поля, выпадающие списки и кнопки 32 px, шрифт 13 px (`styles/shipping.css`).
+- Строки списков в карточке Sales — не ниже 52 px, текст 13.5 px, кнопки и поля в строке 25 px; вторая строка
+  ячейки (`td>div.mut`: код клиента Finance, юрлицо Customers) — в той же строке.
+- Shipping → Backorders — ширина колонки шестерёнки в `<colgroup>` (lead 68: ячейки съезжали с
+  заголовков), колонка Order Items — стекло остатка строки (`shippingBackorderItems`). Done и Awaiting readiness —
+  ширины колонок (`cwRegister`), Order Items в Done по умолчанию, в Awaiting — в Columns. Галочка строки очереди —
+  `td.sl-check`, в линию с шапкой.
+- Purchasing: быстрые виды, статусы и дата — один ряд `sl-filter-row` (таблетки 12 px, как в Sales). Inventory:
+  статусы в ряду разделов, ширины колонок `INV_WIDTH` (1440 px без прокрутки вбок), поле Minimum 25 px.
+- Проверки: `test/table-freeze.js` (10). Руководство: `docs/manual/lists.*`, `shipping.*`, `optimization.*`.
+
 ## Тест ширин Order Lines: клик после переноса колонки · 5 ноября 2026
 
 - `cwSwallowClick` (`views/col-widths.js`) гасит ровно один настоящий клик мыши (`isTrusted`) — тот, что рождает

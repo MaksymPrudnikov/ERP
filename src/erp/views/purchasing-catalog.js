@@ -85,7 +85,9 @@ function purListFilters(infos){
   status=salesListStatusControlHTML(statuses.map(n=>({key:n,label:n,n:base.filter(i=>salesListValue(i,'status')===n).length})),selected,base.length,'purListStatus');
  }
  const quick=purView==='orders'?salesQuickHTML(salesListRows(infos),salesListRows(infos,['date']),{test:purQuickTest,set:'purQuickSet'}):'',date=purListDateColumn();
- return quick+'<div class="sl-view-controls">'+status+(date?salesListDateButton(date):'')+'</div>'+salesListFilterChips();
+ /* Один ряд, как в Sales: быстрые виды, статусы, дата справа (владелец, 04.11.2026:
+    Purchasing был крупнее остальных экранов). */
+ return '<div class="sl-filter-row">'+quick+(quick&&status?'<span class="sl-filter-sep" aria-hidden="true"></span>':'')+status+(date?'<span class="sales-toolbar-sp"></span>'+salesListDateButton(date):'')+'</div>'+salesListFilterChips();
 }
 function purQuickTest(key,info){
  if(key==='all')return true;const p=info.p;if(!p||p.deletedAt||['Received','Closed','Cancelled'].includes(purOrderStatus(p)))return false;

@@ -115,15 +115,15 @@ module.exports=async function({page,eq,ok}){
   const row=document.querySelector('[data-ps="'+s.number+'"]'),card=document.querySelector('.shipping-detail');
   return {date:row.cells[3].textContent===salesListShortDay(finToday()),pill:row.querySelector('.pill.st-new').textContent,card:card.querySelector('.shipping-customer-head .pill').textContent,head:[...card.querySelectorAll('th')].map(e=>e.textContent).join('|'),main:card.querySelector('button.pri').textContent,toolbar:!!document.querySelector('.shipping-list-card [data-order-lookup]')};
  }),{date:true,pill:'Planned',card:'Planned',head:'Line / Mark|Size|Makeup|Skids|Qty|Before|Back order',main:'Ship',toolbar:true});
- eq('Shipments: days on the left, the day is the Date filter, a quick view looks past the day, a status narrows the day',await t.p.evaluate(()=>{
+ eq('Shipments: no days column (owner, 05.11.2026), the day is the Date filter, a quick view looks past the day, a status narrows the day',await t.p.evaluate(()=>{
   const ids=shSeed(2),a=shCreate([ids[0]],null,'delivery').value,b=shCreate([ids[1]],null,'delivery').value,old=salesListDay(new Date(Date.now()-3*864e5));
   DB.shipment.find(s=>s.id===b.id).date=old;tab='shipping';shippingTab='shipments';shippingOpenId='';shippingStatusKey='';render();
   const rows=()=>[...document.querySelectorAll('tr[data-ps]')].map(r=>r.dataset.ps).join(','),foot=()=>document.querySelector('.sl-foot [data-foot-count] b').textContent,date=()=>document.querySelector('[data-created-range]').textContent.replace('▾','');
-  const out={first:[rows()===a.number,date()==='Date: '+salesListShortDay(finToday()),[...document.querySelectorAll('[data-day]')].map(e=>e.dataset.day+':'+e.querySelector('b').textContent).join()===finToday()+':1,'+old+':1']};
+  const out={first:[rows()===a.number,date()==='Date: '+salesListShortDay(finToday()),!document.querySelector('[data-day],.ship-days')]};
   shippingSetDay(old);out.day=[rows()===b.number,date()==='Date: '+salesListShortDay(old)];
   shippingQuickPick('attention');out.attention=[rows()===b.number,document.querySelector('[data-quick=attention]').textContent.includes('1')];
   shippingQuickPick('today');out.today=rows()===a.number;
-  shippingQuickPick('all');shippingSetDay('');out.all=[rows().split(',').length,foot(),document.querySelector('[data-day-all]').classList.contains('on')];
+  shippingQuickPick('all');shippingSetDay('');out.all=[rows().split(',').length,foot(),date()==='Date: All time'];
   shippingStatusPick('Shipped');out.shipped=[rows(),!document.querySelector('.sl-foot')];shippingStatusPick('Shipped');
   shippingSetDay(finToday());shippingOpenId=b.id;render();out.reveal=[rows()===b.number,date()==='Date: '+salesListShortDay(old)];
   return out;
