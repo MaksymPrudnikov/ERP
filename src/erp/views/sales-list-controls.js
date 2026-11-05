@@ -39,17 +39,58 @@ function salesListStatusMenuHTML(style){
    пока обёртка таблицы не прокручивается. Шире экрана (включили колонку,
    потянули ширины) — таблица крутится сама, итоги внизу её окна. */
 function salesListFit(){
- const wrap=document.querySelector('#app .sl-foot-pin .sales-table-wrap');if(!wrap)return;
+ document.querySelectorAll('#app table.sl-table').forEach(salesListTableFit);
+ const wrap=document.querySelector('#app .sl-foot-pin .sales-table-wrap');if(!wrap||!wrap.firstElementChild)return;
  const foot=(document.querySelector('.app-foot')||{}).offsetHeight||0,wide=wrap.firstElementChild.offsetWidth>wrap.clientWidth+1;
  wrap.style.setProperty('--sl-foot-bottom',foot+'px');wrap.classList.toggle('sl-wide',wide);
  wrap.style.maxHeight=wide?Math.max(260,window.innerHeight-foot-wrap.getBoundingClientRect().top-window.scrollY-12)+'px':'';
  if(wide&&salesListScrollKeep){wrap.scrollLeft=salesListScrollKeep.x;wrap.scrollTop=salesListScrollKeep.y;}
+ wrap.classList.toggle('sl-scrolled-x',wrap.scrollLeft>0);
 }
+/* Таблицу прокрутили вбок — у закреплённых колонок тень: текст уходит под них. */
+document.addEventListener('scroll',e=>{const w=e.target;if(w&&w.classList&&w.classList.contains('sales-table-wrap'))w.classList.toggle('sl-scrolled-x',w.scrollLeft>0);},true);
 window.addEventListener('resize',()=>{
- if(tab==='shipping'){salesListFit();return;}
- if(tab!=='sales'||soEdit!==null)return;
+ if(tab!=='sales'||soEdit!==null){salesListFit();return;}
  if(salesListStep()===salesListStepNow)salesListFit();else render();
 });
+/* Optimization и Shipping: навигация — своя карточка над таблицей, в ней только вкладки
+   (владелец, 05.11.2026); Open, поиск, Open a trip и действия — в ряду карточки таблицы.
+   Сразу после отрисовки, до возврата фокуса (nav.js render): кнопки с onclick переносятся как есть. */
+function salesListSplitNav(){
+ const tabs=document.querySelector('#app .card.sales-list-card>.sl-filter-row:has([data-queue-tab],[data-shipping-tab])');if(!tabs)return;
+ const card=tabs.parentElement,nav=document.createElement('div');
+ nav.className='card sl-nav-card';nav.appendChild(tabs);
+ card.before(nav);card.classList.add('sl-after-nav');
+}
+/* Список с меню колонок (заголовки data-col) после отрисовки:
+   - Freeze: галочка и закреплённые колонки — первые N ячеек строки, им
+     position:sticky и left (--fz1…, по ширине заголовков), класс fz-N;
+   - пустая ячейка — серый «–» на месте значения, длинное «—» — тоже «–»
+     (владелец, 05.11.2026, вариант 1). Подгрузка строк (list-window) зовёт
+     ещё раз. Подрядные строки производства (pb-sub) пустые нарочно. */
+const SL_FRZ_MAX=12;
+function salesListTableFit(table){
+ const head=table.tHead&&table.tHead.rows[0];if(!head)return;
+ const ths=[...head.cells],lead=ths.findIndex(th=>th.dataset.col);if(lead<0)return;
+ const frozen=salesListLoadPrefs().frozen||[];let n=0;
+ ths.forEach(th=>{const on=!!th.dataset.col&&frozen.includes(th.dataset.col);th.classList.toggle('sl-frz-col',on);if(on)n++;});
+ const N=n?Math.min(SL_FRZ_MAX,lead+n):0;
+ table.className=table.className.replace(/\s*\bfz-\d+\b/g,'');table.classList.toggle('sl-frz',!!N);
+ if(N){table.classList.add('fz-'+N);let x=0;for(let i=0;i<N;i++){table.style.setProperty('--fz'+(i+1),x+'px');x+=ths[i].getBoundingClientRect().width;}}
+ salesListDashes(table,ths,lead);
+}
+function salesListDashes(table,ths,lead){
+ const span=ths.length,end=ths[span-1].dataset.col?span:span-1;
+ [...table.tBodies].forEach(tb=>[...tb.rows].forEach(tr=>{
+  if(tr.cells.length!==span||tr.classList.contains('pb-sub'))return;
+  for(let i=lead;i<end;i++){
+   const td=tr.cells[i],t=td.textContent.trim();
+   if(t&&t!=='—'&&t!=='-')continue;
+   if(td.querySelector('input,select,button,textarea,img,svg,canvas'))continue;
+   td.innerHTML='<span class="mut sl-dash">–</span>';
+  }
+ }));
+}
 function salesListToggleStatuses(){const p=salesListLoadPrefs();p.statusExpanded=!p.statusExpanded;salesListSavePrefs();render();}
 function salesListDateParts(f){
  if(!f||!salesListFilterActive(f))return {preset:'',from:'',to:'',simple:true};

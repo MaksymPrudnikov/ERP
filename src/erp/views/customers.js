@@ -56,7 +56,7 @@ function customerList(){
  const sel=custSel&&(DB.customer||[]).find(x=>x.id===custSel),used=sel&&customerHasReferences(sel.id),q=(act,label,fn,cls,dis,title)=>`<button type="button" class="sl-quiet${cls?' '+cls:''}" data-cust-act="${act}" ${sel&&!dis?'':'disabled'} ${title?`title="${esc(title)}"`:''} onclick="${fn}">${label}</button>`;
  const acts=(sel?`<b class="oq-sel" title="${esc(salesCustomerDisplay(sel.id))}">1 selected</b>`:'')+q('open','Open',`customerEdit(custSel)`)+q('duplicate','Duplicate',`customerDuplicate(custSel)`)+q('archive',sel&&sel.status==='archived'?'Restore':'Archive',`customerToggleArchive(custSel)`)+q('delete','Delete',`customerDelete(custSel)`,'sl-delete-quiet',used,used?'Has orders — archive instead':'');
  const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
- return `<div class="card sales-list-card">
+ return `<div class="card sales-list-card sl-foot-pin">
   <div class="sales-toolbar">${acts}<span class="sales-toolbar-sp"></span>${salesListDateButton('created')}<button class="pri" data-customer-new onclick="customerNew()">+ New customer</button><button type="button" class="cust-more" data-customer-more title="Export" aria-label="Export" onclick="custMenuOpen(event,'more')">⋯</button></div>
   ${salesListFilterChips()}
   <div class="sales-table-wrap">${(cw=>`<table class="sl-table cust-table${cw.cls}"${cw.attrs}>${cw.col}`)(salesListCwTable(cols.map(c=>c.k),[44],20))}<thead><tr><th class="sl-check"><span class="sl-header-tools">${settings}</span></th>${cols.map(custHeader).join('')}<th></th></tr></thead>

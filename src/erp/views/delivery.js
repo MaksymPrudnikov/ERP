@@ -67,7 +67,7 @@ function deliveryHTML(){
   default:return `<td${c.type==='number'?' class="n"':''}>${v===''||v==null?'<span class="mut">—</span>':esc(String(v))}</td>`;}};
  const row=i=>{const x=i.x,s=x.s,on=deliverySel===s.id;return {attrs:` ${x.kind==='truck'?`data-stop="${esc(s.number)}"`:x.kind==='free'?`data-free="${esc(s.number)}"`:`data-pickup="${esc(s.number)}"`} class="${x.kind==='pickup'?'delivery-pickup':''}${on?' oq-selected':''}" oncontextmenu="event.preventDefault();deliverySelect('${esc(s.id)}',true)"`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(s.number)}" ${on?'checked':''} onchange="deliverySelect('${esc(s.id)}',this.checked)"></td>`};};
  const none=!active.length?'No trucks yet. Add them in Master Data → Trucks.':'No packing slips for this day.';
- return (deliveryNotice?`<div class="shipping-notice bad" role="alert">${esc(deliveryNotice)}</div>`:'')+`<div class="card sales-list-card sl-foot-pin delivery-list">${bar}${pills}${salesListTableHTML({infos,rows:list,cell,row,cls:'delivery-table',noun:r=>r.length+' packing slip'+(r.length===1?'':'s'),empty:rows.length?'No packing slips match.':none})}</div>`;
+ return (deliveryNotice?`<div class="shipping-notice bad" role="alert">${esc(deliveryNotice)}</div>`:'')+`<div class="card sales-list-card sl-foot-pin delivery-list">${bar}${shippingTabs()}${pills}${salesListTableHTML({infos,rows:list,cell,row,cls:'delivery-table',noun:r=>r.length+' packing slip'+(r.length===1?'':'s'),empty:rows.length?'No packing slips match.':none})}</div>`;
 }
 function deliveryPages(date,truckId){
  const t=truckFind(truckId),stops=deliveryStops(date,truckId),company=docCompanyBlock(),driver=deliveryDriver(date,truckId),pages=[];let P,y;

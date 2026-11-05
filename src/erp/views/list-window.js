@@ -33,11 +33,13 @@ function listWindowTail(){return listRest&&document.querySelector('[data-list-re
 function listWindowDrop(table){if(listRest&&listRest.table===table)listRest=null;}
 function listWindowGrow(){
  const tail=listWindowTail();if(!tail)return false;
- const r=listRest,end=Math.min(r.at+LIST_BATCH,r.rows.length);
+ const r=listRest,end=Math.min(r.at+LIST_BATCH,r.rows.length),table=tail.closest('table');
  tail.insertAdjacentHTML('beforebegin',readScope(()=>r.rows.slice(r.at,end).map(r.rowHTML).join('')));
  r.at=end;
  if(end<r.rows.length)tail.firstChild.style.height=(r.rows.length-end)*r.rowPx+'px';else{tail.remove();listRest=null;}
  storageLockButtons();
+ /* Прочерки и Freeze — и у дорисованных строк (views/sales-list-controls). */
+ if(table&&typeof salesListTableFit==='function')salesListTableFit(table);
  return !!listRest;
 }
 /* Нужен конец таблицы: новая строка заказа внизу. */

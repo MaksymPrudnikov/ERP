@@ -153,6 +153,7 @@ function renderScreen(){
  const focus=renderFocusKey(),hadWindow=motionHasWindow(document.getElementById('app'));
  document.getElementById('app').innerHTML = (V ? V() : '<div class="empty">module planned</div>')+(window.APP_OVERLAYS||[]).map(f=>f()).join('');
  navHideRepeatedTitle(meta[0]);
+ if(typeof salesListSplitNav==='function')salesListSplitNav();
  afterRender();
  renderFocusBack(focus);
  listWindowAfter();
