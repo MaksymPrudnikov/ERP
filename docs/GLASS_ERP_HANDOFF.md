@@ -2,6 +2,19 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Конструктор форм: история версий и файл бланка (этап 7) · 5 ноября 2026
+
+Владелец 05.11.2026 выбрал окно Versions (вариант В): слева список, справа лист выбранной версии.
+
+- `DEFAULT.formVersion=[]` — строки `{id, form, at, by, note, tpl}`; каждое Save добавляет версию (`by` — вошедший,
+  `note` — `formsDiffNote`: добавлено / изменено / убрано блоков против прошлого Save, «Default form»), на форму —
+  последние `FORMS_VERSIONS` = 20; нормализация — в `normalizeFormTemplates`, импорт — `validateFormTemplatePayload`.
+- Окно (`formsVersionsHTML`): версии новые сверху, «Saved before history» (если бланк сохраняли до истории), Default;
+  справа все листы выбранной версии на PS из Preview. Restore this version — в черновик (Undo работает, печать — после
+  Save); Download this version — `storageDownload` файла `{format:'glass-erp-form', form, label, at, by, note, tpl}`;
+  Load form file… — `formsLoadText`: чужой бланк или не файл бланка — ошибка в окне, шаблон проходит `formClean`.
+- Проверки: `test/forms-editor.js` (+2). README 2416. Руководство `docs/manual/forms.*` — «История».
+
 ## Конструктор форм: шрифты Times, Courier и курсив (этап 7) · 5 ноября 2026
 
 - `layout.js`: ширины Times (обычный, жирный, курсив, жирный курсив) — из AFM Adobe (стандартные шрифты PDF,

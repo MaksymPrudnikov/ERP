@@ -6,7 +6,7 @@ now the Packing slip (with its skid sheet) is on the builder; the other forms mo
 ## The screen
 
 On top — the forms (pills), on the right **Preview** (a real packing slip to see how the form lands), **Undo**,
-**Redo**, **Reset to default**, **Save**. Until Save, printing uses the previous form; unsaved work is marked "Unsaved
+**Redo**, **History**, **Reset to default**, **Save**. Until Save, printing uses the previous form; unsaved work is marked "Unsaved
 changes".
 
 - On the left **Add** — a new block: **Text** (any words), **Field** (data of the form), **Picture** (JPEG or PNG),
@@ -40,3 +40,11 @@ the same on screen, in print and in the PDF.
 **Save** — the form is stored in the database and prints this way from now on (Print in Shipments, the trip pack).
 **Reset to default** brings back the program's form — it prints exactly what it did before the builder; nothing
 changes without Save.
+
+## History — the Versions window
+
+**History** opens the window: versions on the left — every **Save** (date, who saved and what changed: "1 block added
+· 2 changed"), the last 20 per form, and the program's form (Default) at the bottom. On the right — the chosen version
+on the same packing slip. **Restore this version** puts it into the builder; printing changes only after Save.
+**Download this version** — a form file (`.json`) to keep, send, or load on another computer with **Load form
+file…**. A file of another form, or not a form file, is refused with the reason.
