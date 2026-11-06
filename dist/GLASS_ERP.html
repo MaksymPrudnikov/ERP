@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 198 модулей, 27 стиля.
+  Состав сборки: 199 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
@@ -1084,7 +1084,19 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    становится чёрным: сторону называет буква, а метку — её значок и подпись.
    Обводка текста остаётся белой — это подложка, без неё цифры сливаются с
    линиями. */
-.print-shape-sheet .sheet-field svg *:not(text):not(tspan){stroke:var(--text-3)!important}
+.print-shape-sheet .sheet-field svg *:not(text):not(tspan){stroke:var(--dw-line,var(--text-3))!important}
+/* Вид чертежа из Data → Forms → Drawing (владелец, 06.11.2026: «что чёрного
+   цвета, а что серого», «цвет оставь за мной»). Переменную ставит лист
+   (salesSheetStyleAttr) только для того, что поменяли; нет её — прежний
+   цвет. Толщину — только класс dw-w-*: без значения CSS сбросил бы её. */
+.print-shape-sheet .sheet-field svg :is(.shape-edge,.shape-sheet-glass){stroke:var(--dw-edge,var(--dw-line,var(--text-3)))!important}
+.print-shape-sheet .sheet-field svg :is(.shape-feature,.shape-feature *){stroke:var(--dw-feature,var(--dw-line,var(--text-3)))!important}
+.print-shape-sheet.dw-w-line .sheet-field svg *:not(text):not(tspan){stroke-width:var(--dw-line-w)!important}
+.print-shape-sheet.dw-w-edge .sheet-field svg :is(.shape-edge,.shape-sheet-glass){stroke-width:var(--dw-edge-w)!important}
+.print-shape-sheet.dw-w-feature .sheet-field svg :is(.shape-feature,.shape-feature *){stroke-width:var(--dw-feature-w)!important}
+.print-shape-sheet.dw-nobg .sheet-field svg .shape-ann-bg{display:none}
+.print-shape-sheet.dw-fs-label .sheet-field svg :is(.shape-edge-label-outside,.shape-radius-callout text){font-size:var(--dw-label-fs)!important}
+.print-shape-sheet.dw-fs-ftext .sheet-field svg :is(.shape-feature-text,.shape-mi-marker text){font-size:var(--dw-ftext-fs)!important}
 /* Подложка под подписью на линии — белая и без обводки: иначе печать дала бы
    ей чёрную рамку. */
 .print-shape-sheet .sheet-field svg .shape-ann-bg{stroke:none!important;fill:var(--surface)!important}
@@ -1093,8 +1105,11 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    прямоугольники в корне чертежа, и когда salesSheetFitDrawing убирает фон,
    первым становится бар: белый бар терял обводку (владелец, 27.09.2026). */
 .print-shape-sheet .sheet-field svg>rect:first-of-type:not([x]):not([y]){stroke:none!important}
-.print-shape-sheet .sheet-field svg marker path{fill:var(--inverse)!important}
-.print-shape-sheet .sheet-field svg text{fill:var(--text)!important}
+.print-shape-sheet .sheet-field svg marker path{fill:var(--dw-arrow,var(--inverse))!important}
+.print-shape-sheet .sheet-field svg text{fill:var(--dw-text,var(--text))!important}
+.print-shape-sheet .sheet-field svg :is(.shape-edge-label-outside,.shape-radius-callout text){fill:var(--dw-label,var(--dw-text,var(--text)))!important}
+.print-shape-sheet .sheet-field svg :is(.shape-feature-text,.shape-mi-marker text){fill:var(--dw-ftext,var(--dw-text,var(--text)))!important}
+.print-shape-sheet .sheet-field svg .shape-alt-units{fill:var(--dw-alt,var(--text-3))!important}
 .print-shape-sheet .sheet-field svg .shape-inch-reference{fill:var(--inverse)!important}
 .sheet-route{flex:0 0 auto;border-top:1px solid var(--text-3);padding-top:3px}
 .sheet-route-t{font-size:7.5px;letter-spacing:.11em;color:var(--text-2);font-weight:600;margin-bottom:2px}
@@ -1116,7 +1131,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 /* Общее печатное правило .print-sheet svg растягивает ЛЮБОЙ svg на всю ширину
    листа — оно старше по специфичности, поэтому схема пакета раздувалась во весь
    верх. Обе картинки листа размеры задают себе сами. */
-.print-sheet .print-shape-sheet .sheet-field svg{width:100%!important;height:100%!important;max-height:none!important}
+.print-sheet .print-shape-sheet .sheet-field svg{width:var(--dw-size,100%)!important;height:var(--dw-size,100%)!important;max-height:none!important}
 @media print{
   .print-sheet .print-shape-sheet{height:96vh}
 }
@@ -1306,6 +1321,19 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 /* Stock item: вид и измерения (пункт 4). */
 .md-stock-kind{margin:0 0 14px}.md-stock-kind-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.md-stock-kind-row input{width:160px}
 .md-stock-measures{max-width:680px}.md-stock-measures input{width:100%}.md-stock-tiles{padding:0 0 10px;max-width:620px}
+/* Альбомный лист чертежа (Data → Forms → Drawing) и в окне Drawings лежит. */
+.doc-drawing:has(.dw-land){width:1100px;height:850px}
+.st-drawthumb-paper:has(.dw-land){width:242px;height:187px}
+.st-drawthumb-sheet:has(.dw-land){width:1100px;height:850px}
+.sheet-free{white-space:nowrap}
+/* Галочки Info / Route формы Drawing: что не показывать на листе. */
+.dw-no-qty .sheet-qty,.dw-no-finished .sheet-size,.dw-no-mass :is(.sheet-mass,.sheet-mass-note),.dw-no-scheme .sheet-mk,.dw-no-route .sheet-route{display:none}
+.dw-info-bottom .sheet-body{grid-template-rows:minmax(0,1fr) auto}
+.dw-info-bottom .sheet-side{grid-row:2}.dw-info-bottom .sheet-field{grid-row:1}
+.dw-route-top .sheet-id{order:-2}.dw-route-top .sheet-route{order:-1;border-top:0;border-bottom:1px solid var(--text-3);padding:3px 0}
+.dw-no-line .sheet-who>:is(span,b):nth-child(-n+2),.dw-no-note .sheet-who>:is(span,b):nth-child(n+3){display:none}
+.sheet-id-c>div+div,.sheet-id-p>div+div,.sheet-id-o>div+div{margin-top:1px}
+.sheet-foot-g>span+span{margin-left:12px}
 
 /* ---- src/styles/service-sets.css ---- */
 /* =====================================================================
@@ -2322,7 +2350,7 @@ button.recut-btn{border-color:var(--warning);color:var(--warning)}
 .fm-node.fm-node-note:hover{background:none}
 .fm-stage{background:var(--surface-3);border-radius:12px;padding:22px 22px 22px 26px;display:flex;flex-direction:column;align-items:center;gap:18px;touch-action:none}
 .fm-sheet{position:relative;width:100%;max-width:760px;aspect-ratio:612/792;background:var(--on-solid);box-shadow:0 1px 4px rgba(0,0,0,.15)}
-.fm-sheet svg{position:absolute;inset:0;display:block}
+.fm-sheet:not(.fm-dsheet) svg{position:absolute;inset:0;display:block}
 .fm-ruler{position:absolute;pointer-events:none}
 .fm-ruler.x{left:0;right:0;top:-12px;height:11px}
 .fm-ruler.y{top:0;bottom:0;left:-13px;width:11px}
@@ -2381,7 +2409,10 @@ textarea.fm-in{resize:vertical}
 .fm-vview{display:flex;flex-direction:column;min-width:0}
 .fm-vpages{overflow:auto;max-height:76vh;display:flex;flex-direction:column;gap:12px;background:var(--surface-3);border-radius:10px;padding:12px}
 .fm-vsheet{position:relative;width:100%;aspect-ratio:612/792;background:var(--on-solid);box-shadow:0 1px 4px rgba(0,0,0,.15);flex:none}
-.fm-vsheet svg{position:absolute;inset:0}
+.fm-vsheet:not(.fm-vdraw) svg{position:absolute;inset:0}
+/* Версия листа чертежа (History) — в размер бумаги, ужата, как живой лист. */
+.fm-vsheet.fm-vdraw{width:8.5in;height:11in;aspect-ratio:auto;padding:9mm;box-sizing:border-box;zoom:.6}
+.fm-vdraw .print-sheet{height:100%}
 /* Колонки таблицы (владелец 05.11.2026): список справа, клик — настройки. */
 .fm-cols{display:flex;flex-direction:column}
 .fm-colrow{display:grid;grid-template-columns:14px 18px minmax(0,1fr) 64px 10px;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line-soft);cursor:pointer}
@@ -2404,6 +2435,33 @@ textarea.fm-in{resize:vertical}
 .fm-guide.x{top:0;bottom:0;width:7px;margin-left:-3px;border-left:3px solid transparent;border-right:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ew-resize}
 .fm-guide.y{left:0;right:0;height:7px;margin-top:-3px;border-top:3px solid transparent;border-bottom:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ns-resize}
 .fm-gap{margin-top:6px}
+/* Лист чертежа (форма Drawing): в размер бумаги с полями печати 9 мм —
+   pt блока на экране те же, что на бумаге; ужат zoom, чтобы влез. */
+.fm-sheet.fm-dsheet{width:8.5in;height:11in;max-width:none;aspect-ratio:auto;padding:9mm;box-sizing:border-box;zoom:.9}
+.fm-sheet.fm-dsheet.land{width:11in;height:8.5in;zoom:.69}
+.fm-dsheet .print-sheet{height:100%}
+.fm-dsheet [data-forms-hit]{cursor:grab;outline:1px dashed transparent;outline-offset:1px}
+.fm-dsheet [data-forms-hit]:hover,.fm-dsheet [data-forms-part-hit]:hover{outline:1px dashed var(--accent-line)}
+.fm-dsheet [data-forms-part-hit]{cursor:pointer}
+.fm-dsheet [data-forms-sel]{outline:1.5px solid var(--accent)!important}
+.fm-dnote{padding:40px;text-align:center}
+.fm-dsec{display:grid;gap:6px;padding:10px 0;border-top:1px solid var(--line-soft)}
+.fm-dsec>b{font-size:12.5px;font-weight:650}
+.fm-dsub{display:grid;gap:3px;font-size:11.5px;color:var(--text-2)}
+.fm-dex{font-size:12px;color:var(--text-2);background:var(--surface-2);border-radius:8px;padding:6px 9px}
+.fm-dex b{font-size:15px;color:var(--text);margin-left:4px}.fm-dex span{color:var(--text-3);font-size:12px;margin-left:4px}
+.fm-drow{display:grid;grid-template-columns:minmax(0,1fr) auto 18px;gap:6px;align-items:center;font-size:12.5px}
+.fm-drow .fm-color{width:44px;height:26px;padding:1px 3px;box-sizing:border-box;cursor:pointer}
+.fm-dreset{border:0;background:none;padding:0;color:var(--text-3);cursor:pointer;font-size:14px}
+.fm-step{display:inline-grid;grid-template-columns:26px 48px 26px 18px;align-items:center}
+.fm-step button{height:26px;padding:0;border:1px solid var(--line-strong);background:var(--surface);font-size:15px;line-height:1;cursor:pointer}
+.fm-step button:first-child{border-radius:7px 0 0 7px}.fm-step button:nth-of-type(2){border-radius:0 7px 7px 0}
+.fm-step input{height:26px;border-radius:0;border-left:0;border-right:0;text-align:center;padding:0 2px;box-sizing:border-box}
+.fm-step i{font-style:normal;font-size:10.5px;color:var(--text-3);padding-left:3px}
+/* Наложение блоков на листе чертежа: видно, но сохранить можно. */
+.fm-dsheet [data-forms-overlap]{outline:1.5px dashed var(--warning)!important}
+.fm-doverlap{align-self:stretch;background:var(--warning-soft);color:var(--warning);border-radius:8px;padding:6px 10px;font-size:12.5px}
+.fm-right .fm-check.fm-dshow{display:flex;gap:8px;align-items:center;margin:0;padding:3px 0;font-size:13px}
 
 /* ---- src/styles/cutting.css ---- */
 /* Раскрой: параметры реза в Master Data и экран раскладки у батча. */
@@ -4178,7 +4236,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='8caba61a4da3';
+var ERP_BUILD='b849131883c9';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -4215,6 +4273,38 @@ function frac16(v){
   return (whole?whole+' ':'')+n+'/'+d;
 }
 function dimIn16(v){return frac16(v)+'″';}
+/* Единицы печатного листа чертежа (Data → Forms → Drawing; владелец,
+   06.11.2026: «вдруг компания перейдёт на мм, или все чертежи с мм и
+   инчами»). DIM_PRINT задаёт лист только на время своей отрисовки:
+   {units:'in16'|'in'|'mm', alt:''|'in16'|'in'|'mm'}; null — дюймы 1/16,
+   как на экране. Дюймы дробью — по сетке 1/16, десятичные — до сотых,
+   мм — до десятых (владелец: «844.6»). Вторые единицы идут за маркером
+   DIM_ALT: лист делает из них серую подпись (dimPrintAltSvg). */
+var DIM_PRINT=null,DIM_ALT='⁣';
+function dimUnitText(v,units,sign){
+  v=+v||0;
+  if(units==='mm'){var mm=String(Math.round(v*254)/10);return sign?mm+' mm':mm;}
+  if(units==='in'){var d=(Math.round(v*100)/100).toFixed(2);return sign?d+'″':d;}
+  return sign?dimIn16(v):frac16(v);
+}
+/* Число размера на чертеже без знака единиц: inchText — как его пишет
+   чертёж сейчас (дробь 1/16, у цепочек 3-1/4). */
+function dimPrint(v,inchText){
+  var p=DIM_PRINT;if(!p)return inchText;
+  var main=p.units==='in16'||!p.units?inchText:dimUnitText(v,p.units,false);
+  return p.alt&&p.alt!==p.units?main+DIM_ALT+'('+dimUnitText(v,p.alt,true)+')':main;
+}
+/* Размер в тексте листа (Finished, подписи фритты): со знаком единиц. */
+function dimPrintText(v){
+  var p=DIM_PRINT;if(!p)return dimIn16(v);
+  var main=dimUnitText(v,p.units||'in16',true);
+  return p.alt&&p.alt!==p.units?main+' ('+dimUnitText(v,p.alt,true)+')':main;
+}
+/* Вторые единицы в готовом SVG — серой подписью меньшим кеглем. Маркер в
+   атрибуте (подсказка, data-) просто становится пробелом. */
+function dimPrintAltSvg(svg){
+  return String(svg).replace(/⁣([^<"⁣]*)(?=<)/g,'<tspan class="shape-alt-units" font-size="80%"> $1</tspan>').replace(/⁣/g,' ');
+}
 function fabParseDimStrict(v){
   if(typeof v==='number')return isFinite(v)?{ok:true,v:v}:{ok:false,v:0};
   var t=String(v==null?'':v).trim().replace(/[\u2033\u201D"]/g,'');
@@ -6485,7 +6575,7 @@ function shapeCheckDxf(result){
 
 /* ---------- формат размера: 9 15/16 → 9-15/16, как на чертежах цеха ---------- */
 function shapeAnnDim(v){
-  try{return String(dimIn16(Math.abs(+v||0))).replace(/[″”"]/g,'').trim().replace(/^(\d+)\s+(\d+\/\d+)$/,'$1-$2');}
+  try{var a=Math.abs(+v||0);return dimPrint(a,String(dimIn16(a)).replace(/[″”"]/g,'').trim().replace(/^(\d+)\s+(\d+\/\d+)$/,'$1-$2'));}
   catch(e){return String(v==null?'':v);}
 }
 /* Кегль чертежа (владелец, 28.09.2026: «размеры чуточку увеличить», выбран
@@ -7176,7 +7266,7 @@ function shapeAnnContour(r,DP,active,mono){
   edges.forEach(function(e){
     var a=DP(e.p1),b=DP(e.p2),sel=active&&active===e.id;
     var col=mono?'#101828':e.id.indexOf('R:')===0?'#101828':shapeEdgeColor(names[e.id]||e.id),w=mono?(sel?4.6:1.9):(sel?4.6:1.3);
-    out+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+col+'" stroke-width="'+w+'"'+(sel?' stroke-linecap="square"':'')+'/>';
+    out+='<line class="shape-edge" x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+col+'" stroke-width="'+w+'"'+(sel?' stroke-linecap="square"':'')+'/>';
   });
   return out;
 }
@@ -7222,7 +7312,7 @@ function shapeXml(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/
 function shapeSvgPath(P,X,Y){return (P||[]).map(function(p,i){return (i?'L ':'M ')+X(p[0])+' '+Y(p[1]);}).join(' ')+' Z';}
 /* На самом листе единицы уже объявлены один раз в примечании. Повторять знак
    дюйма у каждого числа — визуальный шум, особенно вокруг фурнитуры. */
-function shapeDrawingDim(v){return String(dimIn16(v)).replace(/[″”"]/g,'').trim();}
+function shapeDrawingDim(v){return dimPrint(v,String(dimIn16(v)).replace(/[″”"]/g,'').trim());}
 /* Поля кадра задаёт вызывающий: производственному чертежу нужен запас под
    цепочки размеров и вид сверху, раскройному — нет. */
 function shapeDrawingFrame(points,opts){
@@ -7832,9 +7922,9 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext
 }
 function shapeProductionFeaturesSvg(result,F){
   var fg=result.featureGeometry,out='';
-  fg.holes.forEach(function(h,i){var x=F.X(h.center[0]),y=F.Y(h.center[1]),r=Math.max(3,h.diameter/2*F.sc),right=h.center[0]<(F.b.minX+F.b.maxX)/2,lx=x+(right?55:-55),anchor=right?'start':'end';out+='<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><line x1="'+(x+(right?r:-r))+'" y1="'+(y-r)+'" x2="'+lx+'" y2="'+(y-28-i*4)+'" stroke="#667085"/><text x="'+(lx+(right?4:-4))+'" y="'+(y-30-i*4)+'" text-anchor="'+anchor+'" font-size="13" fill="#101828">Ø '+shapeXml(shapeDrawingDim(h.diameter))+' · X '+shapeXml(shapeDrawingDim(h.center[0]))+' · Y '+shapeXml(shapeDrawingDim(h.center[1]))+'</text>';});
-  fg.cutouts.forEach(function(c,i){out+='<path d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><text x="'+F.X(c.x+c.width/2)+'" y="'+(F.Y(c.y+c.height)-8-i*3)+'" text-anchor="middle" font-size="13" fill="#101828">CUTOUT '+shapeXml(shapeDrawingDim(c.width))+' × '+shapeXml(shapeDrawingDim(c.height))+'</text>';});
-  fg.hardware.forEach(function(h,i){if(h.invalid)return;out+='<path d="'+shapeSvgPath(h.points,F.X,F.Y)+'" fill="#fff" stroke="#7f56d9" stroke-width="1.7"/><circle cx="'+F.X(h.center[0])+'" cy="'+F.Y(h.center[1])+'" r="'+Math.max(2,h.holeDia/2*F.sc)+'" fill="#fff" stroke="#7f56d9"/><text x="'+(F.X(h.center[0])+12)+'" y="'+(F.Y(h.center[1])-12-i*3)+'" font-size="13" fill="#6941c6">'+shapeXml(h.name)+' · '+shapeXml(h.edgeId)+'</text>';});
+  fg.holes.forEach(function(h,i){var x=F.X(h.center[0]),y=F.Y(h.center[1]),r=Math.max(3,h.diameter/2*F.sc),right=h.center[0]<(F.b.minX+F.b.maxX)/2,lx=x+(right?55:-55),anchor=right?'start':'end';out+='<circle class="shape-feature" cx="'+x+'" cy="'+y+'" r="'+r+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><line x1="'+(x+(right?r:-r))+'" y1="'+(y-r)+'" x2="'+lx+'" y2="'+(y-28-i*4)+'" stroke="#667085"/><text x="'+(lx+(right?4:-4))+'" y="'+(y-30-i*4)+'" class="shape-feature-text" text-anchor="'+anchor+'" font-size="13" fill="#101828">Ø '+shapeXml(shapeDrawingDim(h.diameter))+' · X '+shapeXml(shapeDrawingDim(h.center[0]))+' · Y '+shapeXml(shapeDrawingDim(h.center[1]))+'</text>';});
+  fg.cutouts.forEach(function(c,i){out+='<path class="shape-feature" d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><text x="'+F.X(c.x+c.width/2)+'" y="'+(F.Y(c.y+c.height)-8-i*3)+'" class="shape-feature-text" text-anchor="middle" font-size="13" fill="#101828">CUTOUT '+shapeXml(shapeDrawingDim(c.width))+' × '+shapeXml(shapeDrawingDim(c.height))+'</text>';});
+  fg.hardware.forEach(function(h,i){if(h.invalid)return;out+='<path class="shape-feature" d="'+shapeSvgPath(h.points,F.X,F.Y)+'" fill="#fff" stroke="#7f56d9" stroke-width="1.7"/><circle cx="'+F.X(h.center[0])+'" cy="'+F.Y(h.center[1])+'" r="'+Math.max(2,h.holeDia/2*F.sc)+'" fill="#fff" stroke="#7f56d9"/><text x="'+(F.X(h.center[0])+12)+'" y="'+(F.Y(h.center[1])-12-i*3)+'" class="shape-feature-text" font-size="13" fill="#6941c6">'+shapeXml(h.name)+' · '+shapeXml(h.edgeId)+'</text>';});
   fg.stamps.forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeStampDrawingSpec(s.source);out+='<g class="shape-temper-stamp" data-stamp-id="'+shapeXml(s.id)+'"><rect x="'+(x-spec.w/2)+'" y="'+(y-spec.h/2)+'" width="'+spec.w+'" height="'+spec.h+'" rx="2" fill="#fff" stroke="#101828" stroke-width="1.4"/><text x="'+x+'" y="'+(y+spec.font*.4)+'" text-anchor="middle" font-size="'+spec.font+'" font-weight="700" fill="#101828">'+shapeXml(s.text)+'</text></g>';});
   (fg.sandblasts||[]).forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeSandblastDrawingSpec(s.source,F.W*F.sc);out+='<g class="shape-sandblast-mark" data-sandblast-id="'+shapeXml(s.id)+'"><rect x="'+(x-spec.w/2)+'" y="'+(y-spec.h/2)+'" width="'+spec.w+'" height="'+spec.h+'" rx="2" fill="#fff" stroke="#087e8b" stroke-width="1.4" stroke-dasharray="5 3"/><text x="'+x+'" y="'+(y-2)+'" text-anchor="middle" font-size="'+spec.font+'" font-weight="700" fill="#075e68"><tspan x="'+x+'">'+shapeXml(spec.lines[0])+'</tspan><tspan x="'+x+'" dy="'+(spec.font+2)+'">'+shapeXml(spec.lines[1])+'</tspan></text></g>';});return out;
 }
@@ -23081,7 +23171,8 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
   var areaFt2=stepLite?stepLite.area/144:ok?result.area/144:0;
   var w=salesSheetWeight(line,order,stepLite?liteIndex:null),weight=salesSheetWeightText(w);
 
-  var finished=stepLite?dimIn16(stepLite.w)+' × '+dimIn16(stepLite.h):ok?dimIn16(result.width)+' × '+dimIn16(result.height):'';
+  /* Единицы листа — из настройки чертежа (Data → Forms → Drawing). */
+  var finished=drawWithStyle(function(){var u=dimPrintText;return stepLite?u(stepLite.w)+' × '+u(stepLite.h):ok?u(result.width)+' × '+u(result.height):'';});
   var size=finished?'Finished '+finished:'';
   var mass=[areaFt2?areaFt2.toFixed(2)+' sq ft':'',weight?weight:''].filter(Boolean).join(' · ');
   var lineText=salesSheetLineNumber(line);
@@ -23098,17 +23189,29 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
   /* Метка строки — это примечание цеху, поэтому она стоит в NOTE, а не рядом с
      номером: владелец «Note это и есть d2». Свободный текст строки идёт следом. */
   var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');
-  return '<div class="print-shape-sheet">'+
+  /* Шапка и низ — из шаблона формы Drawing (erp/documents/drawing-form);
+     по умолчанию это прежние строки листа. Поля листа — его же числа. */
+  var tpl=drawFormTpl(),st=drawStyle(tpl),root=drawSheetRootAttrs(st,tpl),edit=drawFormPreview&&drawFormPreview.edit;
+  var fields=drawSheetLastFields={customer:order?salesCustomerDisplay(order.customerId):'',po:order&&order.customerPo||'',order:order&&order.businessNumber||'',
+    date:new Date().toISOString().slice(0,10),line:lineText,glass:t.name,spec:t.spec||'',qty:qty,finished:finished,mass:mass,note:note,tag:'',
+    company:DB.company&&DB.company.legalName||''};
+  /* Данные компании и цены — по запросу поля (функцией): лист без них их не
+     считает. Цены — ячейки строки в Sales (salesMetricCell): Unit Price,
+     Line Total, Materials; ручная цена строки — тоже оттуда. */
+  var co=DB.company||{},price=null,money=function(v){return v==null||!isFinite(v)?'':docMoney(v);};
+  var priced=function(){if(!price&&line&&order)try{price=salesLineCommercialPrice(line,order);}catch(e){price={};}return price||{};};
+  var address=function(){return [[co.address1,co.address2].filter(Boolean).join(', '),[co.city,[co.province,co.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).join(', ');};
+  Object.assign(fields,{companyAddress:address,
+    companyPhone:co.phone||'',companyEmail:co.email||'',companyWebsite:co.website||'',companyHst:co.hstNumber?'HST # '+co.hstNumber:'',companyLogo:co.logo||'',dueDate:order&&order.dueDate||'',
+    companyLine:function(){return [co.legalName,address(),co.phone,co.email,co.website].filter(Boolean).join(' · ');},
+    unitPrice:function(){return money(priced().unit);},linePrice:function(){return money(priced().line);},
+    materialsPrice:function(){var p=priced();return p.missingMaterials||p.unsupportedCurrency?'':money(p.materials);}});
+  formMyFields().forEach(function(f){fields[f.k]=f.v();});
+  var ctx={field:function(k){var v=fields[k];if(typeof v==='function')v=fields[k]=v();return v==null?'':v;}};
+  return '<div class="print-shape-sheet'+root.cls+'"'+root.style+'>'+
     /* Три опоры, по которым лист опознают, — одной строкой поверх всего:
        заказчик слева, PO по центру, номер заказа справа. */
-    '<div class="sheet-id">'+
-      '<div class="sheet-id-c"><span>Customer:</span><b>'+
-        esc(order?salesCustomerDisplay(order.customerId):'')+'</b></div>'+
-      '<div class="sheet-id-p"><span>PO:</span><b>'+
-        esc(order&&order.customerPo||'')+'</b></div>'+
-      '<div class="sheet-id-o"><span>Order Number:</span><b>'+
-        esc(order&&order.businessNumber||'')+'</b></div>'+
-    '</div>'+
+    drawHeadHTML(tpl,ctx,edit)+
     /* Чертёж слева во всю высоту, состав и числа — колонкой справа. */
     '<div class="sheet-body">'+
       '<div class="sheet-field">'+svg+'</div>'+
@@ -23132,15 +23235,15 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
       '</div>'+
     '</div>'+
     salesSheetRouteHTML(route)+
-    '<div class="sheet-foot"><span></span>'+
-      '<span>'+esc(new Date().toISOString().slice(0,10))+' · 1 / 1</span></div>'+
+    drawFootHTML(tpl,ctx,edit)+
   '</div>';
 }
 /* Подпись стекла слева в подвале (там пусто): печать чертежей из батча —
    «каждое стекло — стикер, к нему бумажка» (владелец, 4 октября 2026).
    Лист строки строится один раз, подпись дописывается на каждое стекло. */
+/* Место подписи задаёт шаблон формы Drawing (блок Glass tag). */
 function salesSheetFoot(html,text){
-  return text?String(html).replace('<div class="sheet-foot"><span></span>','<div class="sheet-foot"><span class="sheet-tag">'+esc(text)+'</span>'):html;
+  return text?String(html).replace(/<span([^>]*)><!--sheet-tag--><\/span>/,function(m,a){return '<span class="sheet-tag"'+a+'>'+esc(text)+'</span>';}):html;
 }
 /* Лист чертежа строки без открытия редактора — окно Drawings и печать
    нескольких чертежей сразу. Владелец, 26.09.2026: после батча чертёж было не
@@ -23342,8 +23445,8 @@ function salesFritSampleSvg(record,x,y,note){
   body+=salesFritSvgText(80,86,'CUSTOM',11,'middle')+salesFritSvgText(80,103,'See silk screen sheet',9,'middle');
  }
  lines.push((mdById('fritProduct',f.productId)||{}).name||'Frit',f.pattern, f.color+' · Ø '+f.dotMm+' mm');
- if(p)lines.push('Pitch '+dimIn16(p.dx)+' × '+dimIn16(p.dy)+(p.stag?' · staggered':''));
- lines.push('W '+dimIn16(f.marginW16/16)+' / H '+dimIn16(f.marginH16/16),f.marginFrom+' → dot centre');
+ if(p)lines.push('Pitch '+dimPrintText(p.dx)+' × '+dimPrintText(p.dy)+(p.stag?' · staggered':''));
+ lines.push('W '+dimPrintText(f.marginW16/16)+' / H '+dimPrintText(f.marginH16/16),f.marginFrom+' → dot centre');
  if(f.marking)lines.push('Mark: '+f.marking);
  if(note)lines.push(note);
  var yy=165;
@@ -23370,8 +23473,8 @@ function salesFritSetoutSvg(dot,T,ids){
  var out=line(ex,y,ex,hY+dy*5,true)+line(x,y,x,hY+dy*5,true)+arrow(ex,hY,x,hY)+
   line(x,ey,vX+dx*5,ey,true)+line(x,y,vX+dx*5,y,true)+arrow(vX,ey,vX,y);
  // Labels sit beyond the short 1-inch segments, so text cannot collide with arrows.
- out+=salesFritSvgText(x+dx*8,hY+dy*13,'W '+dimIn16(dot.w),10,dx<0?'end':'start');
- out+=salesFritSvgText(vX+dx*8,y+dy*13,'H '+dimIn16(dot.h),10,dx<0?'end':'start');
+ out+=salesFritSvgText(x+dx*8,hY+dy*13,'W '+dimPrintText(dot.w),10,dx<0?'end':'start');
+ out+=salesFritSvgText(vX+dx*8,y+dy*13,'H '+dimPrintText(dot.h),10,dx<0?'end':'start');
  out+='<circle class="frit-first-dot" data-x="'+dot.x+'" data-y="'+dot.y+'" cx="'+x+'" cy="'+y+'" r="2.5" fill="#fff" stroke="#111" stroke-width="0.8"/>';
  out+=line(x-5,y,x+5,y,false)+line(x,y-5,x,y+5,false);
  out+=salesFritSvgText(x+dx*8,y-dy*9,ids,10,dx<0?'end':'start');
@@ -24924,7 +25027,7 @@ function formCleanBlock(b){
  const num=(v,lo,hi)=>{const n=Number(v);return Number.isFinite(n)?Math.min(hi,Math.max(lo,Math.round(n*100)/100)):undefined;};
  const str=(v,max)=>typeof v==='string'?v.slice(0,max||2000):undefined;
  const o={id:str(b.id,40)||'b'+Math.random().toString(36).slice(2,9),type:b.type,place:FORM_PLACES.includes(b.place)?b.place:'left'};
- [['x',-200,800],['y',-200,800],['w',0,800],['h',0,800],['size',4,96],['lh',0,200],['max',0,200],['lw',0,20],['r',0,50],['ls',0,10],['gap',0,200],['module',.5,5],['sa',0,200],['lead',0,200],['keep',0,800]].forEach(([k,lo,hi])=>{const v=num(b[k],lo,hi);if(v!==undefined)o[k]=v;});
+ [['x',-200,800],['y',-200,800],['w',0,800],['h',0,800],['size',4,96],['lh',0,200],['max',0,200],['lw',0,20],['r',0,50],['ls',0,10],['gap',0,200],['module',.5,5],['sa',0,200],['lead',0,200],['keep',0,800],['z',-50,50]].forEach(([k,lo,hi])=>{const v=num(b[k],lo,hi);if(v!==undefined)o[k]=v;});
  ['text','field','color','fill','empty','prefix','format','after','before','k','opt'].forEach(k=>{const v=str(b[k]);if(v!==undefined)o[k]=v;});
  if(['left','center','right'].includes(b.align))o.align=b.align;
  ['bold','italic','wrap','fit','pin'].forEach(k=>{if(b[k])o[k]=true;});
@@ -24941,6 +25044,10 @@ function formClean(src,def){
  const out={form:def.form,page:{w:def.page.w,h:def.page.h,margin:m},parts:{}};
  const g=src.guides||{},gl=a=>(Array.isArray(a)?a:[]).map(Number).filter(v=>Number.isFinite(v)&&v>=0&&v<=800).slice(0,40).map(v=>Math.round(v*100)/100);
  if(gl(g.x).length||gl(g.y).length)out.guides={x:gl(g.x),y:gl(g.y)};
+ /* Вид листа (у чертежа — единицы, цвета, бумага): только ключи
+    умолчания и их типы; что значит значение, проверяет сам лист. */
+ if(def.style){const ss=src.style&&typeof src.style==='object'?src.style:{};out.style={};
+  Object.keys(def.style).forEach(k=>{const d=def.style[k],v=ss[k];out.style[k]=typeof v!==typeof d||typeof v==='number'&&!Number.isFinite(v)?d:typeof v==='string'?v.slice(0,40):v;});}
  Object.keys(def.parts).forEach(k=>{
   const d=def.parts[k],s=src.parts[k];
   if(d.columns){const c=s&&Array.isArray(s.columns)?s.columns.map(formCleanColumn).filter(Boolean):null;out.parts[k]=c&&c.length?Object.assign({},d,{columns:c}):d;return;}
@@ -25147,6 +25254,296 @@ function docFormFinSample(kind,id){
  m.cols=[{label:'Order',x:36,w:80,bold:true},{label:'Amount',x:576,w:90,align:'right'}];m.rows=[];m.empty='No rows.';
  m.end={left:[],rows:[],grand:{label:kind==='receipt'?'Amount received':'Balance due',value:docMoney(0)}};
  return m;
+}
+
+/* ==== src/erp/documents/drawing-form.js ==== */
+/* =====================================================================
+   erp/documents/drawing-form  ·  drawing-1.0
+   Лист чертежа стекла на конструкторе форм (Data → Company & print →
+   Forms → Drawing; вариант A владельца, 06.11.2026). Настраивает офис или
+   владелец, цех доступа к Data не имеет.
+   IN : шаблон формы drawing — шапка (head) и низ (foot) из блоков, вид
+        чертежа (style); поля листа (salesShapeSheetHTML)
+   OUT: разметка шапки и низа листа, переменные вида, единицы и кегли на
+        время отрисовки чертежа
+   Лист — HTML (sales/print-sheet), а не docPage: состав, маршрут и SVG
+   чертежа так и рисует код. Поэтому шапка и низ набираются той же
+   разметкой, что и раньше: шаблон по умолчанию даёт ровно прежний лист.
+   Блоки text / field; place left | center | right — колонка строки (в
+   колонке блоки идут сверху вниз), free — своё место x, y от угла
+   строки; y у колонки — сдвиг вниз. Размеры в pt, как в конструкторе.
+   ===================================================================== */
+
+/* Вид чертежа по умолчанию — правила 28.09.2026: размеры кеглем 18,
+   подписи уклона 16, белая подложка под подписью. Пустой цвет и толщина —
+   как сейчас: линии серые, текст чёрный (CSS листа). Лист книжный
+   (владелец, 06.11.2026: «по умолчанию портрет, но настройка того и того
+   вида нужна»). */
+const DRAW_STYLE_DEFAULT={paper:'portrait',size:100,units:'in16',alt:'',dimSize:18,noteSize:16,bg:true,
+ edge:'',line:'',arrow:'',feature:'',text:'',label:'',ftext:'',altColor:'',edgeW:0,lineW:0,featureW:0,labelSize:0,serviceSize:0,
+ showQty:true,showFinished:true,showMass:true,showLine:true,showNote:true,showScheme:true,showRoute:true,
+ infoPlace:'top',routePlace:'bottom'};
+/* Что показывать в частях, которые рисует программа (галочки Info / Route):
+   ключ, подпись, класс листа «спрятать». */
+const DRAW_SHOW=[['showQty','Qty','dw-no-qty','info'],['showFinished','Finished size','dw-no-finished','info'],['showMass','sq ft · kg','dw-no-mass','info'],
+ ['showLine','LINE','dw-no-line','info'],['showNote','NOTE','dw-no-note','info'],['showScheme','Makeup scheme','dw-no-scheme','info'],['showRoute','Route','dw-no-route','route']];
+/* + Picture у листа чертежа — логотип из Data → Company, если он есть;
+   иначе выбор файла, как в других бланках. */
+function drawFormAddPicture(){
+ if(!(DB.company&&DB.company.logo))return false;
+ formsAddBlock(()=>({type:'image',field:'companyLogo',place:'left',w:120,h:28}));return true;
+}
+const DRAW_UNITS=[['in16','Inches · 1/16'],['in','Decimal inches'],['mm','mm']];
+/* Что на чертеже красится отдельно: ключ стиля, подпись, цвет как сейчас
+   (переменная CSS листа), ключ толщины линии, ключ кегля подписи. Сервисы —
+   отверстия, фурнитура, вырезы: их значки, подписи и размеры (владелец,
+   06.11.2026: «управление размеров сервисов тоже на чертеже»). */
+const DRAW_LOOK=[
+ ['edge','Glass edge','#7b858f','edgeW',''],
+ ['line','Dimension lines','#7b858f','lineW',''],
+ ['arrow','Arrows','#1d2328','',''],
+ ['feature','Services · marks','#7b858f','featureW',''],
+ ['text','Numbers','#14181c','',''],
+ ['label','Edge work, radius','#14181c','','labelSize'],
+ ['ftext','Services · labels, sizes','#14181c','','serviceSize'],
+ ['altColor','Second units','#7b858f','','']];
+/* Шапка: заказчик слева, PO по центру, номер заказа справа (владелец);
+   кегль 12 pt = прежние 16px. Низ: подпись стекла из батча слева, дата
+   справа (7.5px и 10px прежнего листа). */
+const DRAW_HEAD_SIZE=12,DRAW_FOOT_SIZE=5.63,DRAW_TAG_SIZE=7.5;
+/* Поля листа — поля печати 9 мм (@page в modules.css): x блока Free — от
+   края бумаги, как на линейке конструктора. */
+const DRAW_MARGIN=25.51;
+function drawFormDefault(){
+ const m=DRAW_MARGIN;
+ return {form:'drawing',page:{w:612,h:792,margin:{top:m,right:m,bottom:m,left:m}},style:Object.assign({},DRAW_STYLE_DEFAULT),parts:{
+  head:{h:0,blocks:[
+   {id:'customer',type:'field',field:'customer',prefix:'Customer:',place:'left',y:0,size:DRAW_HEAD_SIZE,bold:true},
+   {id:'po',type:'field',field:'po',prefix:'PO:',place:'center',y:0,size:DRAW_HEAD_SIZE,bold:true},
+   {id:'order',type:'field',field:'order',prefix:'Order Number:',place:'right',y:0,size:DRAW_HEAD_SIZE,bold:true}]},
+  info:{lines:true},
+  drawing:{},
+  route:{lines:true},
+  foot:{h:0,blocks:[
+   {id:'tag',type:'field',field:'tag',place:'left',y:0,size:DRAW_TAG_SIZE,bold:true},
+   {id:'date',type:'text',text:'{date} · 1 / 1',place:'right',y:0,size:DRAW_FOOT_SIZE}]}}};
+}
+function drawFormFields(){
+ const f=(g,k,label)=>({g,k,label});
+ const d=(g,k,label)=>({g,k,label,t:'date'});
+ return [f('Order','customer','Customer'),f('Order','po','PO'),f('Order','order','Order Number'),d('Order','dueDate','Due date'),d('Order','date','Date printed'),
+  f('Line','line','Line'),f('Line','glass','Glass / Makeup'),f('Line','spec','Makeup spec'),f('Line','qty','Qty'),
+  f('Line','finished','Finished size'),f('Line','mass','sq ft · kg'),f('Line','note','Note'),f('Line','tag','Glass tag (batch)'),
+  f('Prices','unitPrice','Unit price'),f('Prices','linePrice','Line total'),f('Prices','materialsPrice','Materials'),
+  f('Company','company','Company name'),f('Company','companyLine','Company details, one line'),f('Company','companyAddress','Address'),
+  f('Company','companyPhone','Phone'),f('Company','companyEmail','Email'),f('Company','companyWebsite','Website'),f('Company','companyHst','HST number'),f('Company','companyLogo','Company logo')].concat(formMyFields());
+}
+/* Черновик конструктора — на время живого листа; иначе сохранённый. */
+let drawFormPreview=null,drawSheetLastFields={};
+function drawFormTpl(){
+ if(drawFormPreview)return drawFormPreview.tpl;
+ return formClean(DB.formTemplate&&DB.formTemplate.drawing,drawFormDefault());
+}
+/* Вид — чистый: перечисления, цвета #rrggbb, числа в пределах. */
+function drawStyle(tpl){
+ const s=Object.assign({},DRAW_STYLE_DEFAULT,(tpl||drawFormTpl()).style||{}),d=DRAW_STYLE_DEFAULT,o={};
+ const units=v=>DRAW_UNITS.some(u=>u[0]===v)?v:'';
+ const num=(v,lo,hi,def)=>{const n=Number(v);return Number.isFinite(n)?Math.min(hi,Math.max(lo,n)):def;};
+ o.paper=s.paper==='landscape'?'landscape':'portrait';
+ o.size=num(s.size,40,100,100);o.units=units(s.units)||'in16';o.alt=units(s.alt);if(o.alt===o.units)o.alt='';
+ DRAW_SHOW.forEach(([k])=>{o[k]=s[k]!==false;});
+ o.infoPlace=s.infoPlace==='bottom'?'bottom':'top';o.routePlace=s.routePlace==='top'?'top':'bottom';
+ o.dimSize=num(s.dimSize,8,40,d.dimSize);o.noteSize=num(s.noteSize,8,40,d.noteSize);o.bg=s.bg!==false;
+ DRAW_LOOK.forEach(([k,,,w,z])=>{o[k]=/^#[0-9a-f]{6}$/i.test(s[k]||'')?String(s[k]).toLowerCase():'';if(w)o[w]=num(s[w],0,12,0);if(z)o[z]=num(s[z],0,40,0);});
+ return o;
+}
+/* Корень листа: классы и переменные только для изменённого — лист по
+   умолчанию остаётся прежней разметкой. */
+function drawSheetRootAttrs(st,tpl){
+ const cls=[],vars=[];
+ /* Блок под чертежом (слой ниже нуля) не уходит под бумагу. */
+ if(tpl&&['head','foot'].some(k=>((tpl.parts[k]||{}).blocks||[]).some(b=>b.z<0)))vars.push('isolation:isolate');
+ if(st.paper==='landscape')cls.push('dw-land');
+ if(!st.bg)cls.push('dw-nobg');
+ DRAW_SHOW.forEach(([k,,c])=>{if(!st[k])cls.push(c);});
+ if(st.infoPlace==='bottom')cls.push('dw-info-bottom');if(st.routePlace==='top')cls.push('dw-route-top');
+ if(st.size<100)vars.push('--dw-size:'+st.size+'%');
+ DRAW_LOOK.forEach(([k,,,w,z])=>{
+  if(st[k])vars.push('--dw-'+(k==='altColor'?'alt':k)+':'+st[k]);
+  if(w&&st[w]>0){cls.push('dw-w-'+k);vars.push('--dw-'+k+'-w:'+st[w]+'px');}
+  if(z&&st[z]>0){cls.push('dw-fs-'+k);vars.push('--dw-'+k+'-fs:'+st[z]+'px');}
+ });
+ return {cls:cls.length?' '+cls.join(' '):'',style:vars.length?' style="'+vars.join(';')+'"':''};
+}
+/* Единицы и кегли чертежа — только на время отрисовки листа: экран
+   редактора остаётся в дюймах 1/16 и при своих кеглях. */
+function drawWithStyle(fn){
+ const st=drawStyle(),keep={p:DIM_PRINT,d:SHAPE_DIM_FONT,n:SHAPE_NOTE_FONT};
+ DIM_PRINT=st.units==='in16'&&!st.alt?null:{units:st.units,alt:st.alt};
+ SHAPE_DIM_FONT=st.dimSize;SHAPE_NOTE_FONT=st.noteSize;
+ try{return fn(st);}finally{DIM_PRINT=keep.p;SHAPE_DIM_FONT=keep.d;SHAPE_NOTE_FONT=keep.n;}
+}
+/* ------------------------- Шапка и низ листа ------------------------- */
+function drawBlockStyle(b,base,kind){
+ const st=[];
+ if(b.size!=null&&Math.abs(b.size-base)>.01)st.push('font-size:'+b.size+'pt');
+ if(kind==='head'&&!b.bold)st.push('font-weight:400');
+ if(kind!=='head'&&b.bold&&b.field!=='tag')st.push('font-weight:700');
+ if(b.italic)st.push('font-style:italic');
+ if(b.font)st.push('font-family:'+(b.font==='times'?'Times,serif':'Courier,monospace'));
+ if(/^#[0-9a-f]{3,6}$/i.test(b.color||''))st.push('color:'+b.color);
+ if(b.place==='free')st.push('position:absolute','left:'+Math.round(((b.x||0)-DRAW_MARGIN)*100)/100+'pt','top:'+(b.y||0)+'pt');
+ else if(b.y)st.push('position:relative','top:'+b.y+'pt');
+ /* Слой (как в Figma: To front / To back): выше нуля — поверх чертежа,
+    ниже — под ним. */
+ if(b.z){if(!st.some(x=>/^position/.test(x)))st.push('position:relative');st.push('z-index:'+b.z);}
+ return st;
+}
+/* Атрибуты блока; в конструкторе ещё и «взять мышью». */
+function drawBlockAttrs(part,b,st,edit){
+ let a=st.length?' style="'+st.join(';')+'"':'';
+ if(edit)a+=' data-forms-hit="'+esc(part)+'|'+esc(b.id)+'" onpointerdown="formsPointerStart(event,\''+esc(part)+'\',\''+esc(b.id)+'\')"'+(edit.sel&&edit.sel.part===part&&edit.sel.id===b.id?' data-forms-sel':'');
+ return a;
+}
+function drawBlockText(b,ctx){
+ let v=b.type==='text'?formFill(b.text,ctx).replace(/\{page\}/g,'1').replace(/\{pages\}/g,'1'):ctx.field(b.field);
+ /* Дата — в виде, выбранном в окне Insert field (Mon d, yyyy …). */
+ const f=b.type==='field'&&drawFormFields().find(x=>x.k===b.field);if(f&&f.t)v=formFormat(v,f.t,b.format);
+ return Array.isArray(v)?v.join(', '):String(v==null?'':v);
+}
+/* Картинка (логотип компании или своя): высота блока, ширина по картинке. */
+function drawImageHTML(b,ctx){
+ const src=b.src||(b.field?ctx.field(b.field):'');
+ return /^data:image\/jpeg;base64,/.test(src||'')?'<img src="'+esc(src)+'" alt="" style="display:inline-block;vertical-align:middle;height:'+(b.h||28)+'pt;width:auto">':'';
+}
+function drawColumns(tpl,part,ctx){
+ const p=tpl.parts[part]||{},cols={left:[],center:[],right:[]},free=[];
+ (p.blocks||[]).filter(b=>(formIsText(b)||b.type==='image')&&formShow(b,ctx)).forEach(b=>(b.place==='free'?free:cols[b.place]||cols.left).push(b));
+ Object.keys(cols).forEach(k=>cols[k].sort((a,b)=>(a.y||0)-(b.y||0)));
+ return {cols,free};
+}
+/* Строка над чертежом: три опоры листа — заказчик, PO, номер заказа. */
+function drawHeadHTML(tpl,ctx,edit){
+ const {cols,free}=drawColumns(tpl,'head',ctx),cls={left:'sheet-id-c',center:'sheet-id-p',right:'sheet-id-o'};
+ const inner=b=>{if(b.type==='image'){const st=drawBlockStyle(b,DRAW_HEAD_SIZE,'head').filter(x=>/^(position|left|top|z-index)/.test(x));return {st,html:drawImageHTML(b,ctx)};}
+  const st=drawBlockStyle(b,DRAW_HEAD_SIZE,'head'),pre=b.type==='field'&&b.prefix?'<span'+(st.some(x=>/^font-size/.test(x))?' style="font-size:'+(b.size*13.5/16).toFixed(2)+'pt"':'')+'>'+esc(b.prefix)+'</span>':'';
+  return {st,html:pre+'<b'+(st.length?' style="'+st.filter(x=>!/^(position|left|top|z-index)/.test(x)).join(';')+'"':'')+'>'+esc(drawBlockText(b,ctx))+'</b>'};};
+ const col=k=>{const list=cols[k];
+  if(list.length===1){const b=list[0],x=inner(b),pos=x.st.filter(s=>/^(position|top|z-index)/.test(s));return '<div class="'+cls[k]+'"'+drawBlockAttrs('head',b,pos,edit)+'>'+x.html+'</div>';}
+  return '<div class="'+cls[k]+'">'+list.map(b=>{const x=inner(b);return '<div'+drawBlockAttrs('head',b,x.st.filter(s=>/^(position|top|z-index)/.test(s)),edit)+'>'+x.html+'</div>';}).join('')+'</div>';};
+ return '<div class="sheet-id"'+(free.length?' style="position:relative"':'')+'>'+col('left')+col('center')+col('right')+
+  free.map(b=>{const x=inner(b);return '<div class="sheet-free"'+drawBlockAttrs('head',b,x.st.filter(s=>/^(position|left|top|z-index)/.test(s)),edit)+'>'+x.html+'</div>';}).join('')+'</div>';
+}
+/* Низ листа: подпись стекла (её дописывает печать батча, salesSheetFoot)
+   и дата. */
+function drawFootHTML(tpl,ctx,edit){
+ const {cols,free}=drawColumns(tpl,'foot',ctx);
+ const one=b=>{const st=drawBlockStyle(b,b.field==='tag'?DRAW_TAG_SIZE:DRAW_FOOT_SIZE,'foot');
+  return '<span'+drawBlockAttrs('foot',b,st,edit)+'>'+(b.type==='image'?drawImageHTML(b,ctx):b.field==='tag'?'<!--sheet-tag-->':esc(drawBlockText(b,ctx)))+'</span>';};
+ const col=k=>{const list=cols[k];return !list.length?'<span></span>':list.length===1?one(list[0]):'<span class="sheet-foot-g">'+list.map(one).join('')+'</span>';};
+ return '<div class="sheet-foot"'+(free.length?' style="position:relative"':'')+'>'+col('left')+(cols.center.length?col('center'):'')+col('right')+free.map(one).join('')+'</div>';
+}
+/* ------------------------ Конструктор: живой лист -------------------- */
+/* Образцы — свежие строки заказов с формой: какой чертёж смотреть. */
+function drawFormSamples(){
+ const out=[];
+ (DB.salesOrder||[]).filter(o=>o&&o.businessNumber&&!o.deletedAt).sort((a,b)=>String(b.businessNumber).localeCompare(String(a.businessNumber),undefined,{numeric:true})).some(o=>{
+  (o.lines||[]).forEach((l,i)=>{if(out.length<100&&l&&l.shapeRef){const sh=salesShapeByRef(l.shapeRef);if(sh)out.push({id:o.id+'|'+l.id,label:o.businessNumber+' · Line '+(i+1)+' · '+String(sh.type||'shape').replace(/^\w/,c=>c.toUpperCase())});}});
+  return out.length>=100;});
+ return out;
+}
+function drawFormContext(){return {field:k=>{let v=drawSheetLastFields[k];if(typeof v==='function')v=v();return v==null?'':v;}};}
+/* Части листа, которые рисует код, выбираются кликом по листу. */
+/* view — только посмотреть (окно History): без выбора и перетаскивания. */
+function drawFormSheetHTML(tpl,id,view){
+ const [oid,lid]=String(id||'').split('|'),o=(DB.salesOrder||[]).find(x=>x.id===oid),l=o&&(o.lines||[]).find(x=>x.id===lid);
+ if(!l)return '<div class="fm-note fm-dnote">No drawings yet: add a shape to an order line.</div>';
+ const s=formsState(),keep=drawFormPreview;drawFormPreview={tpl,edit:view?null:{sel:s.sel}};
+ let d;try{d=finWithOrder(o,()=>salesLineDrawing(l));}finally{drawFormPreview=keep;}
+ if(!d||!d.html)return '<div class="fm-note fm-dnote">'+esc(d&&d.error||'No drawing')+'</div>';
+ const pick=(cls,part)=>h=>h.replace('class="'+cls,'data-forms-part-hit="'+part+'"'+(!s.sel&&s.part===part?' data-forms-sel':'')+' onpointerdown="formsSelect(\''+part+'\',\'\')" class="'+cls);
+ let h=printSheetUniqueIds(d.html);
+ if(!view)[['sheet-field','drawing'],['sheet-side','info'],['sheet-route"','route']].forEach(([c,p])=>{h=pick(c,p)(h);});
+ return '<div class="print-sheet gf-light">'+h+'</div>';
+}
+/* Правая панель части Drawing (владелец, 06.11.2026: «интерфейс максимально
+   дружелюбным»): группы Paper / Units / Text / Lines / Colors, у чисел − и +,
+   быстрые наборы для всех линий и цветов, пример единиц. Сейчас (пусто) —
+   прежний вид. */
+const DRAW_TEXT=[['dimSize','Numbers',18],['noteSize','Slope notes',16],['labelSize','Edge work, radius',12],['serviceSize','Service labels, sizes',14]];
+const DRAW_LINES=[['edgeW','Glass edge',1.9],['lineW','Dimension lines',1],['featureW','Service marks',1.5]];
+const DRAW_LINE_STEPS=[[.7,'Thinner'],[0,'As now'],[1.5,'Bolder']];
+function drawFormStyleHTML(tpl){
+ const st=drawStyle(tpl),set=(k,v)=>`formsStyle('${k}',${v})`;
+ const seg=(k,cur,list,raw)=>`<div class="fm-seg">${list.map(([v,l])=>`<button type="button" class="${String(cur)===String(v)?'on':''}" onclick="${set(k,raw?v:`'${v}'`)}">${l}</button>`).join('')}</div>`;
+ const sel=(k,cur,list)=>`<select class="fm-in" data-draw-${k} onchange="${set(k,'this.value')}">${list.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('')}</select>`;
+ /* Число с − и +: пусто — как сейчас, первое нажатие идёт от прежнего значения. */
+ const step=(k,now,d,unit)=>{const v=st[k];return `<span class="fm-step" data-draw-step="${k}"><button type="button" title="Less" onclick="formsStyleStep('${k}',${-d},${now})">−</button><input class="fm-in" inputmode="decimal" placeholder="${now}" title="Empty — as now" value="${v||''}" onchange="${set(k,'Number(this.value)||0')}"><button type="button" title="More" onclick="formsStyleStep('${k}',${d},${now})">+</button><i>${unit}</i></span>`;};
+ const row=(label,ctl,reset)=>`<div class="fm-drow"><span>${label}</span>${ctl}${reset||'<i></i>'}</div>`;
+ const back=k=>`<button type="button" class="fm-dreset" title="As now" onclick="${set(k,k==='dimSize'?18:k==='noteSize'?16:0)}">×</button>`;
+ const changed=k=>k==='dimSize'?st[k]!==18:k==='noteSize'?st[k]!==16:st[k]>0;
+ const lines=DRAW_LINES.every(([k])=>!st[k])?0:(DRAW_LINE_STEPS.find(([f])=>f&&DRAW_LINES.every(([k,,now])=>st[k]===Math.round(now*f*10)/10))||[-1])[0];
+ const black=DRAW_LOOK.every(([k])=>k==='altColor'||st[k]==='#000000'),now=DRAW_LOOK.every(([k])=>!st[k]);
+ const ex=dimUnitText(33.25,st.units,false),ex2=st.alt?' ('+dimUnitText(33.25,st.alt,true)+')':'';
+ return `<div class="fm-h">Part · Drawing</div>
+  <div class="fm-dsec"><b>Paper</b>${seg('paper',st.paper,[['portrait','▯ Portrait'],['landscape','▭ Landscape']])}</div>
+  <div class="fm-dsec"><b>Drawing size</b>${seg('size',st.size,[[75,'75%'],[90,'90%'],[100,'Fill']],true)}</div>
+  <div class="fm-dsec"><b>Units</b>${sel('units',st.units,DRAW_UNITS)}
+   <label class="fm-dsub"><span>Second units, small gray</span>${sel('alt',st.alt,[['','None']].concat(DRAW_UNITS.filter(u=>u[0]!==st.units)))}</label>
+   <div class="fm-dex" data-draw-example>Example: <b>${esc(ex)}</b>${ex2?`<span>${esc(ex2)}</span>`:''}</div></div>
+  <div class="fm-dsec"><b>Text size</b>${DRAW_TEXT.map(([k,l,n])=>row(l,step(k,n,1,'px'),changed(k)?back(k):'')).join('')}
+   <label class="fm-check"><input type="checkbox" data-draw-bg ${st.bg?'checked':''} onchange="${set('bg','this.checked')}"><span>White under numbers</span></label></div>
+  <div class="fm-dsec"><b>Lines</b><div class="fm-seg" data-draw-lines>${DRAW_LINE_STEPS.map(([f,l])=>`<button type="button" class="${lines===f?'on':''}" onclick="formsStyleLines(${f})">${l}</button>`).join('')}</div>
+   ${DRAW_LINES.map(([k,l,n])=>row(l,step(k,n,.2,'px'),changed(k)?back(k):'')).join('')}</div>
+  <div class="fm-dsec"><b>Colors</b><div class="fm-seg" data-draw-colors><button type="button" class="${now?'on':''}" onclick="formsStyleColors('')">As now</button><button type="button" class="${black?'on':''}" onclick="formsStyleColors('#000000')">All black</button></div>
+   ${DRAW_LOOK.map(([k,label,was])=>row(label,`<input type="color" class="fm-in fm-color" data-draw-color="${k}" value="${st[k]||was}" title="Pick a color" onchange="${set(k,'this.value')}">`,st[k]?`<button type="button" class="fm-dreset" title="As now" onclick="${set(k,"''")}">×</button>`:'')).join('')}</div>
+  <p class="fm-note">The sheet shows every change at once. Save — all prints.</p>`;
+}
+function formsStyle(k,v){formsEdit(t=>{t.style=Object.assign({},DRAW_STYLE_DEFAULT,t.style,{[k]:v});});}
+/* − / +: от сохранённого или прежнего значения, шаг 1 px у текста, 0.2 px у линий. */
+function formsStyleStep(k,d,now){
+ const st=drawStyle(formsDraft().tpl),line=DRAW_LINES.some(x=>x[0]===k),lo=line?.2:6,hi=line?12:40;
+ formsStyle(k,Math.min(hi,Math.max(lo,Math.round(((st[k]||now)+d)*10)/10)));
+}
+/* Все линии сразу: тоньше, как сейчас, толще — от прежних толщин. */
+function formsStyleLines(f){formsEdit(t=>{t.style=Object.assign({},DRAW_STYLE_DEFAULT,t.style);DRAW_LINES.forEach(([k,,now])=>{t.style[k]=f?Math.round(now*f*10)/10:0;});});}
+function formsStyleColors(c){formsEdit(t=>{t.style=Object.assign({},DRAW_STYLE_DEFAULT,t.style);DRAW_LOOK.forEach(([k])=>{t.style[k]=c&&k!=='altColor'?c:'';});});}
+/* ------------------------ Слои и наложения ------------------------- */
+/* Слой блока шапки и низа: To back / Back / Forward / To front — среди
+   всех блоков листа (владелец, 06.11.2026: «как обычно в Figma или в
+   Adobe»). Чертёж — слой 0: To back кладёт блок под него. */
+function drawLayerHTML(b){
+ const z=b.z||0,btn=(k,l,t)=>`<button type="button" data-draw-layer="${k}" title="${t}" onclick="formsLayer('${k}')">${l}</button>`;
+ return `<div class="fm-h">Layer</div><div class="fm-seg">${btn('toBack','To back','Under everything')}${btn('back','Back','One layer down')}${btn('forward','Forward','One layer up')}${btn('toFront','To front','Over everything')}</div><p class="fm-note">Layer ${z>0?'+'+z:z}${z<0?' · under the drawing':''}</p>`;
+}
+function formsLayer(k){
+ const s=formsState();if(!s.sel)return;
+ formsEdit(t=>{const b=formsFind(t,s.sel);if(!b)return;
+  const zs=['head','foot'].flatMap(p=>((t.parts[p]||{}).blocks||[]).filter(x=>x!==b).map(x=>x.z||0)).concat([0]);
+  const z=k==='toFront'?Math.max(...zs)+1:k==='toBack'?Math.min(...zs)-1:(b.z||0)+(k==='forward'?1:-1);
+  if(z)b.z=Math.max(-50,Math.min(50,z));else delete b.z;});
+}
+/* Наложения на живом листе: блоки, чьи тексты пересеклись, — оранжевой
+   рамкой и строкой над листом. Сохранить можно: что сверху, решает Layer. */
+function drawFormOverlaps(){
+ const stage=document.querySelector('[data-forms-stage]');if(!stage)return;
+ const old=stage.querySelector('[data-draw-overlap]');if(old)old.remove();
+ const box=el=>{const r=document.createRange();r.selectNodeContents(el);return r.getBoundingClientRect();};
+ const els=[...stage.querySelectorAll('.fm-dsheet [data-forms-hit]')].filter(el=>el.textContent.trim()),hit=new Set(),names=[];
+ els.forEach((a,i)=>els.slice(i+1).forEach(b=>{const p=box(a),q=box(b);
+  if(p.width&&q.width&&p.left<q.right-1&&q.left<p.right-1&&p.top<q.bottom-1&&q.top<p.bottom-1){[a,b].forEach(e=>{if(!hit.has(e)){hit.add(e);names.push([...e.childNodes].map(n=>n.textContent.trim()).filter(Boolean).join(' ').slice(0,28));}});}}));
+ els.forEach(e=>e.toggleAttribute('data-forms-overlap',hit.has(e)));
+ if(hit.size)stage.insertAdjacentHTML('afterbegin',`<div class="fm-doverlap" data-draw-overlap>Overlap: ${names.map(esc).join(' · ')} — Save works, Layer sets what is on top</div>`);
+}
+/* Панели Info и Route: галочки «показывать» (пусто на листе — место
+   уходит соседям). */
+function drawFormShowHTML(part,tpl){
+ const st=drawStyle(tpl),list=DRAW_SHOW.filter(x=>x[3]===part),lab=part==='info'?'Info':'Route';
+ /* Блок целиком — над чертежом или под ним (владелец: «переместить можно
+    сам блок?»); чертёж берёт всё остальное место. */
+ const pk=part==='info'?'infoPlace':'routePlace',place=`<div class="fm-h">Place</div><div class="fm-seg" data-draw-place="${part}">${[['top',part==='info'?'Top (above drawing)':'Top (under header)'],['bottom',part==='info'?'Bottom (under drawing)':'Bottom']].map(([v,l])=>`<button type="button" class="${st[pk]===v?'on':''}" onclick="formsStyle('${pk}','${v}')">${l}</button>`).join('')}</div>`;
+ return `<div class="fm-h">Part · ${lab}</div><p class="fm-note">Drawn by the program — you choose where and what.</p>${place}<div class="fm-h">Show</div>
+  ${list.map(([k,l])=>`<label class="fm-check fm-dshow"><input type="checkbox" data-draw-show="${k}" ${st[k]?'checked':''} onchange="formsStyle('${k}',this.checked)"><span>${l}</span></label>`).join('')}`;
 }
 
 /* ==== src/erp/finance/print.js ==== */
@@ -26485,7 +26882,7 @@ function shapeFrac16(v){
 }
 function shapeDim16(v){return shapeFrac16(v)+'″';}
 /* Короткое число для листа: единицы указаны в примечании чертежа. */
-function shapeDrawingDim16(v){return shapeFrac16(v);}
+function shapeDrawingDim16(v){return dimPrint(+v,shapeFrac16(v));}
 function shapeManufacturingGeometry(){
   if(shapeIsDxfSource(sDraft)){var source=shapeNormalizeSource(sDraft.source),P=source.preview.points||[];if(P.length<3)return null;return {P:P,b:fabEdgeBounds(P)};}
   var r=shapeDraftResult();if(!r||!r.valid||!(r.points||[]).length)return null;return {P:r.points,b:fabEdgeBounds(r.points)};
@@ -27211,7 +27608,7 @@ function shapeManufacturingMarkersSvg(source,T){
       var pairDim=shapeHoleInternalDimsSvg(item,centerPx,T,chosen,sideRight,sideTop,r),diameterText=(centerPx.length>1?centerPx.length+' × Ø ':'Ø ')+shapeDrawingDim(dia);
       return `<g class='shape-mi-marker hole${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>
         ${hChain}${vChain}${pairDim}
-        ${centerPx.map(function(c){return `<circle cx='${c[0]}' cy='${c[1]}' r='${r}'/>`;}).join('')}
+        ${centerPx.map(function(c){return `<circle class='shape-feature' cx='${c[0]}' cy='${c[1]}' r='${r}'/>`;}).join('')}
         <line x1='${x+diamDirX*r}' y1='${y+diamDirY*r}' x2='${diamX}' y2='${diamY}' class='shape-mi-hole-leader'/>
         ${(function(){var by=labelBaseline(diamX+diamDirX*4,diamY+(diamDirY<0?-5:13),diameterText,diamAnchor),tx=diamX+diamDirX*4,w=String(diameterText).length*LABEL_CH;return shapeAnnItem(lay,'feat:'+item.id+':dia',`<text x='${tx}' y='${by}' text-anchor='${diamAnchor}'>${centerPx.length>1?centerPx.length+' × ':''}Ø ${esc(shapeDrawingDim(dia))}</text>`,tx+(diamAnchor==='end'?-w/2:w/2),by-6,{from:[diamX,diamY],inline:true});})()}
       </g>`;
@@ -27220,8 +27617,8 @@ function shapeManufacturingMarkersSvg(source,T){
     /* Свой значок нарисован только у зажима: у него другая посадка. Остальная
        фурнитура, включая виды, добавленные владельцем, берёт общий значок —
        что именно стоит, говорит подпись с кодом вида и именем модели. */
-    if(item.type==='clamp')mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-13' y='-13' width='26' height='26' rx='3'/><path d='M -5 -10 V 10 M 5 -10 V 10'/></g>`;
-    else mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-16' y='-10' width='32' height='20' rx='3'/><line x1='0' y1='-10' x2='0' y2='10'/><circle cx='-7' cy='0' r='2.4'/><circle cx='7' cy='0' r='2.4'/></g>`;
+    if(item.type==='clamp')mark=`<g class='shape-feature' transform='translate(${x} ${y}) rotate(${ang})'><rect x='-13' y='-13' width='26' height='26' rx='3'/><path d='M -5 -10 V 10 M 5 -10 V 10'/></g>`;
+    else mark=`<g class='shape-feature' transform='translate(${x} ${y}) rotate(${ang})'><rect x='-16' y='-10' width='32' height='20' rx='3'/><line x1='0' y1='-10' x2='0' y2='10'/><circle cx='-7' cy='0' r='2.4'/><circle cx='7' cy='0' r='2.4'/></g>`;
     var edge=item.edge||e.edge,band=lane(edge==='left'||edge==='right'?edge:edge)%4;
     /* Откуда меряем — выбор оператора, как Left/Right у отверстия. Хранится в
        карте оформления: сама величина `distance` всегда считается от начала
@@ -27922,7 +28319,14 @@ function shapeFitPreview(){
    его контур, габарит и отметки ERP, как на вкладке Production Drawing ·
    DXF; внутренних размеров нет — исходный файл ERP не хранит. */
 function shapeSheetOk(r){return !!r&&(r.valid||!!(r.externalFile&&r.sourceValid));}
+/* Единицы, кегли и вторые единицы — из настройки чертежа (Data → Forms →
+   Drawing). Включённый на компьютере Metric detail печатает, как раньше,
+   свой подробный мм-вид (возможность не снимаем, test/step-unit). */
 function shapeSheetSvg(r,cutting,extra){
+  if(cutting||sMetricDetail)return shapeSheetSvgBody(r,cutting,extra);
+  return drawWithStyle(function(){return dimPrintAltSvg(shapeSheetSvgBody(r,cutting,extra));});
+}
+function shapeSheetSvgBody(r,cutting,extra){
   /* Лист одного стекла ступенчатого юнита — по его контуру, у DXF тоже. */
   if(!cutting&&extra&&extra.lite)return shapeDrawnProductionSvg(r,false,Object.assign({sheet:true},extra));
   if(!cutting&&extra&&extra.noStep&&!r.externalFile)return shapeDrawnProductionSvg(r,false,{sheet:true,noStep:true});
@@ -43898,7 +44302,12 @@ function formsDefs(){
   parts:{every:['Page header','every page'],table:['Stops','grows']},
   samples:()=>[...new Map((DB.shipment||[]).filter(s=>s.method==='delivery'&&s.truckId&&s.date).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(s=>[s.date+'|'+s.truckId,s])).values()].slice(0,100).map(s=>({id:s.date+'|'+s.truckId,label:docDate(s.date)+' · '+((truckFind(s.truckId)||{}).name||'Truck')})),
   doc:id=>{const [date,truckId]=String(id||'').split('|'),day=date||finToday();return {date:day,truckId:truckId||'',t:truckFind(truckId),driver:deliveryDriver(day,truckId),stops:deliveryStops(day,truckId)};},
-  context:d=>deliveryFormContext(d),columns:{},pages:(tpl,d,map)=>deliveryPages(d.date,d.truckId,tpl,map)}]);
+  context:d=>deliveryFormContext(d),columns:{},pages:(tpl,d,map)=>deliveryPages(d.date,d.truckId,tpl,map)},
+  /* Лист чертежа (erp/documents/drawing-form) — HTML-лист, а не docPage:
+     живой лист — настоящий чертёж строки заказа. */
+  {k:'drawing',label:'Drawing',def:drawFormDefault,fields:()=>drawFormFields(),add:['text','field','image'],
+  parts:{head:['Header','top line'],info:['Info','beside drawing'],drawing:['Drawing','units · colors'],route:['Route','bottom'],foot:['Footer','bottom line']},
+  samples:()=>drawFormSamples(),doc:id=>id,context:()=>drawFormContext(),columns:{},html:(tpl,id,view)=>drawFormSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),panel:(part,tpl)=>part==='drawing'?drawFormStyleHTML(tpl):part==='info'||part==='route'?drawFormShowHTML(part,tpl):''}]);
 }
 function formsPartLabel(k){const d=formsDef(formsState().form);return (d.parts&&d.parts[k])||FORMS_PARTS[k]||[k,''];}
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
@@ -43942,10 +44351,11 @@ function formsFixSel(){const s=formsUi;if(s.sel&&!formsFind(formsDraft().tpl,s.s
 function formsDiffNote(was,now,def){
  if(JSON.stringify(now)===JSON.stringify(formClean(formsClone(def),def)))return 'Default form';
  was=formClean(formsClone(was),def);
+ const look=JSON.stringify(was.style)!==JSON.stringify(now.style)?'Drawing look changed':'';
  const map=t=>{const m=new Map();Object.keys(t.parts).forEach(k=>(t.parts[k].blocks||[]).forEach(b=>m.set(k+'|'+b.id,JSON.stringify(b))));return m;},a=map(was),b=map(now);
  let add=0,del=0,chg=0;b.forEach((v,k)=>{if(!a.has(k))add++;else if(a.get(k)!==v)chg++;});a.forEach((v,k)=>{if(!b.has(k))del++;});
  const n=(x,w)=>x?x+' '+(x===1?'block':'blocks')+' '+w:'';
- return [n(add,'added'),n(chg,'changed'),n(del,'removed')].filter(Boolean).join(' · ')||'Spacing changed';
+ return [n(add,'added'),n(chg,'changed'),n(del,'removed'),look].filter(Boolean).join(' · ')||'Spacing changed';
 }
 function formsSave(){
  const s=formsState(),d=formsDraft(),def=formsDef(s.form).def(),tpl=formClean(d.tpl,def),was=formsSaved(s.form);
@@ -43968,7 +44378,7 @@ function formsFieldDef(k){return formsDef(formsState().form).fields().find(x=>x.
 function formsBlockLabel(b){
  if(b.type==='section')return DOC_SECTIONS[b.k]||'Section';
  if(b.type==='text'){const t=String(b.text||'').replace(/\s+/g,' ').trim();return t.length>34?t.slice(0,33)+'…':t||'Text';}
- if(b.type==='field'){const f=formsFieldDef(b.field);return (b.prefix||'')+(f?f.label:b.field);}
+ if(b.type==='field'){const f=formsFieldDef(b.field);return (b.prefix?b.prefix.replace(/\s*$/,' '):'')+(f?f.label:b.field);}
  if(b.type==='barcode'){const f=formsFieldDef(b.field);return b.field==='barcode'?'Barcode':'Barcode · '+(f?f.label:b.field);}
  return {line:'Line',box:'Frame',image:'Picture'}[b.type]||b.type;
 }
@@ -43976,16 +44386,18 @@ function formsTypeLabel(b){return {text:'Text',field:'Field',line:'Line',box:'Fr
 /* Новый блок встаёт под части и раздвигает её — ничего не налезает. */
 function formsAddBlock(make){
  const s=formsState();let part=s.sel?s.sel.part:s.part||'every';
- const ps=formsDraft().tpl.parts,pp=ps[part];if(!pp||pp.columns||pp.lines)part=ps.totals?'totals':'every';
+ const ps=formsDraft().tpl.parts,pp=ps[part];if(!pp||pp.columns||pp.lines||!pp.blocks)part=ps.totals?'totals':ps.every?'every':Object.keys(ps).find(k=>ps[k].blocks);
+ /* У листа чертежа блоки колонки идут друг под другом сами (y — сдвиг). */
+ const flow=!formsDef(s.form).html;
  formsEdit(t=>{
   const p=t.parts[part],b=make(),id='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-  b.id=id;b.y=p.h||0;p.blocks=(p.blocks||[]).concat([b]);p.h=(p.h||0)+(b.type==='line'?6:(b.h||14)+4);
+  b.id=id;b.y=flow?p.h||0:0;p.blocks=(p.blocks||[]).concat([b]);if(flow)p.h=(p.h||0)+(b.type==='line'?6:(b.h||14)+4);
   s.sel={part,id};s.part=part;
  });
 }
 function formsAdd(type){
  if(type==='field'){formsOpenField('add');return;}
- if(type==='image'){const el=document.querySelector('[data-forms-picture]');if(el)el.click();return;}
+ if(type==='image'){if(formsState().form==='drawing'&&drawFormAddPicture())return;const el=document.querySelector('[data-forms-picture]');if(el)el.click();return;}
  const C=DOC_COLOR,make={
   text:()=>({type:'text',text:'Text',place:'left',w:240,h:14,size:9,lh:14,wrap:true}),
   line:()=>({type:'line',place:'left',w:540,h:0,lw:.6,color:C.line}),
@@ -44096,13 +44508,16 @@ function formsLoadFile(input){const f=input.files&&input.files[0];input.value=''
 function formsVersionsHTML(){
  const s=formsState(),m=s.versions;if(!m)return '';
  const list=formsVersionList(),v=list[m.sel]||list[0],def=formsDef(s.form);
- let pages=[];try{pages=def.pages(v.tpl,def.doc(s.sample));}catch(e){}
+ let pages=[],sheet='';
+ /* Лист чертежа — HTML: версия на том же чертеже строки, без правки мышью. */
+ if(def.html){try{sheet=`<div class="fm-vsheet fm-vdraw">${def.html(v.tpl,def.doc(s.sample),true)}</div>`;}catch(e){}setTimeout(()=>document.querySelectorAll('.fm-vdraw .print-sheet').forEach(el=>salesSheetFitDrawing(el)),0);}
+ else try{pages=def.pages(v.tpl,def.doc(s.sample));}catch(e){}
  return `<div class="fm-modal-back" onclick="formsVersionsClose()"></div><div class="fm-modal fm-versions" role="dialog" aria-modal="true" aria-label="Versions" data-forms-versions>
   <div class="fm-vlist"><div class="fm-modal-head"><b>Versions · ${esc(def.label)}</b></div>
    ${list.map((x,i)=>`<button type="button" class="fm-pick fm-ver${i===m.sel?' on':''}" data-forms-version="${i}" onclick="formsVersionPick(${i})"><b>${esc(formsWhen(x.at))}${x.by?' · '+esc(x.by):''}</b><small>${esc(x.note||'')}</small></button>`).join('')}
    <div class="fm-vfile"><button type="button" data-forms-download onclick="formsVersionDownload()">Download this version</button><button type="button" onclick="document.querySelector('[data-forms-file]').click()">Load form file…</button></div>
    ${m.error?`<p class="fm-error" data-forms-file-error>${esc(m.error)}</p>`:''}<input type="file" accept=".json,application/json" hidden data-forms-file onchange="formsLoadFile(this)"></div>
-  <div class="fm-vview"><div class="fm-vpages">${pages.map(pg=>`<div class="fm-vsheet">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}</div>`).join('')}</div>
+  <div class="fm-vview"><div class="fm-vpages">${sheet}${pages.map(pg=>`<div class="fm-vsheet">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}</div>`).join('')}</div>
    <div class="fm-modal-foot"><button type="button" onclick="formsVersionsClose()">Close</button><button type="button" class="pri" data-forms-restore ${m.sel===0&&list[0].id!=='@default'&&!formsDirty()?'disabled':''} onclick="formsVersionRestore()">Restore this version</button></div></div></div>`;
 }
 
@@ -44162,7 +44577,7 @@ function formsGuides(tpl,axis){const m=tpl.page.margin,g=tpl.guides||{};return a
 function formsRulerStart(e,kind,which,index){
  if(e.button!==0||formsPointer)return;e.preventDefault();e.stopPropagation();
  const stage=e.currentTarget.closest('[data-forms-stage]'),sheet=stage.querySelector('[data-forms-page="0"]'),d=formsDraft();if(!sheet)return;
- const r=sheet.getBoundingClientRect(),k=d.tpl.page.w/r.width;
+ const r=sheet.getBoundingClientRect(),k=(+sheet.dataset.w||d.tpl.page.w)/r.width;
  if(kind==='new'){if(!d.tpl.guides)d.tpl.guides={x:[],y:[]};const list=d.tpl.guides[which]=(d.tpl.guides[which]||[]).slice();list.push(which==='x'?(e.clientX-r.left)*k:(e.clientY-r.top)*k);kind='guide';index=list.length-1;}
  formsPointer={kind,which,index,pid:e.pointerId,stage,before:formsClone(d.tpl),k,rect:r};
  try{stage.setPointerCapture(e.pointerId);}catch(x){}
@@ -44183,16 +44598,16 @@ function formsRulerEnd(e,cancel){
  const d=formsDraft(),t=d.tpl;
  if(cancel)d.tpl=p.before;
  else{
-  if(p.kind==='guide'){const g=t.guides,v=g[p.which][p.index],max=p.which==='x'?t.page.w:t.page.h;if(p.out||!(v>0&&v<max)){g[p.which].splice(p.index,1);}if(!g.x.length&&!g.y.length)delete t.guides;}
+  if(p.kind==='guide'){const g=t.guides,v=g[p.which][p.index],max=p.k*(p.which==='x'?p.rect.width:p.rect.height);if(p.out||!(v>0&&v<max)){g[p.which].splice(p.index,1);}if(!g.x.length&&!g.y.length)delete t.guides;}
   if(JSON.stringify(p.before)!==JSON.stringify(t)){d.undo.push(p.before);if(d.undo.length>80)d.undo.shift();d.redo=[];formsUi.notice='';}
  }
  render();
 }
-function formsRulerMarks(tpl){
+function formsRulerMarks(tpl,fixed){
  const W=tpl.page.w,H=tpl.page.h,m=tpl.page.margin,pc=(v,of)=>(v/of*100).toFixed(4)+'%',in2=v=>(Math.round(v/72*100)/100)+'″';
  const mk=(which,cls,pos,title)=>`<span class="fm-mk ${cls}" data-forms-margin="${which}" style="${cls==='x'?'left':'top'}:${pos}" title="${title}" onpointerdown="formsRulerStart(event,'margin','${which}')"></span>`;
- return `<div class="fm-rgrab x" data-forms-ruler="x" title="Drag down for a guide" onpointerdown="formsRulerStart(event,'new','x')"></div><div class="fm-rgrab y" data-forms-ruler="y" title="Drag right for a guide" onpointerdown="formsRulerStart(event,'new','y')"></div>`+
-  mk('left','x',pc(m.left,W),'Left margin '+in2(m.left))+mk('right','x',pc(W-m.right,W),'Right margin '+in2(m.right))+mk('top','y',pc(m.top,H),'Top margin '+in2(m.top))+mk('bottom','y',pc(H-m.bottom,H),'Bottom margin '+in2(m.bottom));
+ return `<div class="fm-rgrab x" data-forms-ruler="x" title="Drag down for a guide" onpointerdown="formsRulerStart(event,'new','x')"></div><div class="fm-rgrab y" data-forms-ruler="y" title="Drag right for a guide" onpointerdown="formsRulerStart(event,'new','y')"></div>`+(fixed?'':
+  mk('left','x',pc(m.left,W),'Left margin '+in2(m.left))+mk('right','x',pc(W-m.right,W),'Right margin '+in2(m.right))+mk('top','y',pc(m.top,H),'Top margin '+in2(m.top))+mk('bottom','y',pc(H-m.bottom,H),'Bottom margin '+in2(m.bottom)));
 }
 function formsGuidesHTML(tpl){
  const g=tpl.guides||{},W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',in2=v=>(Math.round(v/72*100)/100)+'″';
@@ -44208,6 +44623,16 @@ function formsRuler(vert,len){
 }
 function formsSheetsHTML(){
  const s=formsState(),def=formsDef(s.form),tpl=formsDraft().tpl,d=def.doc(s.sample),map=[];
+ if(def.html){
+  /* Лист в размер бумаги: позиции блоков в pt, как на печати. */
+  const land=tpl.style&&tpl.style.paper==='landscape';let h;
+  try{h=def.html(tpl,d);}catch(e){return `<p class="fm-note">Preview failed: ${esc(e.message)}</p>`;}
+  setTimeout(()=>{document.querySelectorAll('[data-forms-stage] .print-sheet').forEach(el=>salesSheetFitDrawing(el));if(def.after)def.after();},0);
+  /* Линейка и направляющие (владелец: «рулетку тоже, чтобы выравнивать»);
+     поля — поля печати, их не тянут. */
+  const W=land?792:612,H=land?612:792,v=Object.assign({},tpl,{page:Object.assign({},tpl.page,{w:W,h:H})}),m=tpl.page.margin,pc=(x,of)=>(x/of*100).toFixed(4)+'%';
+  return `<div class="fm-sheet fm-dsheet${land?' land':''}" data-forms-page="0" data-w="${W}" data-h="${H}">${h}${formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(v,true)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(v)}</div>`;
+ }
  let pages;try{pages=def.pages(tpl,d,map);}catch(e){return `<p class="fm-note">Preview failed: ${esc(e.message)}</p>`;}
  const W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',m=tpl.page.margin;
  return pages.map((pg,i)=>{
@@ -44230,7 +44655,7 @@ function formsPointerStart(e,part,id){
  const sheet=e.currentTarget.closest('[data-forms-page]'),stage=e.currentTarget.closest('[data-forms-stage]'),d=formsDraft(),b=formsFind(d.tpl,{part,id});if(!sheet||!b)return;
  e.preventDefault();e.stopPropagation();const s=formsState();s.sel={part,id};s.part=part;
  const handle=e.target.closest('[data-forms-resize]'),r=sheet.getBoundingClientRect();
- formsPointer={part,id,pid:e.pointerId,stage,before:formsClone(d.tpl),b0:formsClone(b),x0:formBlockX(d.tpl,b),handle:handle?handle.dataset.formsResize:'move',x:e.clientX,y:e.clientY,k:d.tpl.page.w/r.width,moved:false};
+ formsPointer={part,id,pid:e.pointerId,stage,before:formsClone(d.tpl),b0:formsClone(b),x0:formBlockX(d.tpl,b),handle:handle?handle.dataset.formsResize:'move',x:e.clientX,y:e.clientY,k:(+sheet.dataset.w||d.tpl.page.w)/r.width,moved:false};
  try{stage.setPointerCapture(e.pointerId);}catch(x){}
  stage.onpointermove=formsPointerMove;stage.onpointerup=ev=>formsPointerEnd(ev,false);stage.onpointercancel=ev=>formsPointerEnd(ev,true);
  formsStageRefresh();
@@ -44263,18 +44688,21 @@ function formsTreeHTML(tpl){
 }
 function formsSettingsHTML(tpl){
  const s=formsState();if(s.cols)return formsColsHTML(tpl);const b=formsFind(tpl,s.sel);
+ const panel=!b&&formsDef(s.form).panel&&formsDef(s.form).panel(s.part,tpl);if(panel)return panel;
  if(!b){const lab=formsPartLabel(s.part);return `<div class="fm-h">Part · ${esc(lab[0])}</div><p class="fm-note">Click a block on the sheet or in the list. Add puts a new block here.</p>`;}
  const mm=v=>v==null?'':Math.round(v*FORMS_PT_MM*10)/10,f=b.type==='field'||b.type==='barcode'?formsFieldDef(b.field):null,text=formIsText(b);
+ /* Лист чертежа: строка текста в колонке — без ширины, интервала, переноса. */
+ const hl=!!formsDef(s.form).html;
  const seg=(cur,list,fn)=>`<div class="fm-seg">${list.map(([k,l])=>`<button type="button" class="${cur===k?'on':''}" onclick="${fn}('${k}')">${l}</button>`).join('')}</div>`;
  const num=(k,label,v,isMm)=>`<label><span>${label}</span><input class="fm-in" data-forms-num="${k}" inputmode="decimal" value="${esc(String(v))}" onchange="formsNum('${k}',this.value,${isMm?'true':'false'})"></label>`;
  let what='';
  if(b.type==='text')what=`<label class="wide"><span>Text</span><textarea class="fm-in" data-forms-text rows="3" onchange="formsSet('text',this.value)">${esc(b.text||'')}</textarea></label><p class="fm-note">Fields in text: {number}, {page} of {pages}</p>`;
  else if(f||b.type==='field'||b.type==='barcode')what=`<label class="wide"><span>Field</span><button type="button" class="fm-in fm-field-btn" data-forms-change onclick="formsOpenField('change')">${esc(f?f.label:b.field)} ▾</button></label>${b.prefix?`<p class="fm-note">Before: “${esc(b.prefix)}”</p>`:''}`;
  else if(b.type==='image')what=`<button type="button" class="fm-wide-btn" onclick="document.querySelector('[data-forms-picture]').click()">Replace picture</button>`;
- const look=text?`<div class="fm-h">Text</div><div class="fm-row">${num('size','Size, pt',b.size||9)}${num('lh','Line spacing, pt',formLh(b))}</div>
+ const look=text?`<div class="fm-h">Text</div><div class="fm-row">${num('size','Size, pt',b.size||9)}${hl?'':num('lh','Line spacing, pt',formLh(b))}</div>
    <label><span>Font</span><select class="fm-in" data-forms-font onchange="formsSet('font',this.value)">${[['','Helvetica'],['times','Times'],['courier','Courier']].map(([k,l])=>`<option value="${k}" ${(b.font||'')===k?'selected':''}>${l}</option>`).join('')}</select></label>
-   <div class="fm-seg"><button type="button" class="${b.bold?'on':''}" onclick="formsToggle('bold')"><b>B</b></button><button type="button" class="${b.italic?'on':''}" data-forms-italic onclick="formsToggle('italic')"><i>I</i></button>${['left','center','right'].map(a=>`<button type="button" class="${(b.align||'left')===a?'on':''}" onclick="formsSet('align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
-   <div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.ink)}" onchange="formsSet('color',this.value)"></label><label class="fm-check"><input type="checkbox" ${b.wrap?'checked':''} onchange="formsToggle('wrap')"><span>Wrap lines</span></label></div>`
+   <div class="fm-seg"><button type="button" class="${b.bold?'on':''}" onclick="formsToggle('bold')"><b>B</b></button><button type="button" class="${b.italic?'on':''}" data-forms-italic onclick="formsToggle('italic')"><i>I</i></button>${hl?'':['left','center','right'].map(a=>`<button type="button" class="${(b.align||'left')===a?'on':''}" onclick="formsSet('align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
+   <div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.ink)}" onchange="formsSet('color',this.value)"></label>${hl?'':`<label class="fm-check"><input type="checkbox" ${b.wrap?'checked':''} onchange="formsToggle('wrap')"><span>Wrap lines</span></label>`}</div>`
   :b.type==='line'||b.type==='box'?`<div class="fm-h">Line</div><div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.line)}" onchange="formsSet('color',this.value)"></label>${num('lw','Width, pt',b.lw||.6)}</div>${b.type==='box'?`<div class="fm-row"><label><span>Fill</span><input type="color" class="fm-in fm-color" value="${esc(b.fill||'#ffffff')}" onchange="formsSet('fill',this.value==='#ffffff'?'':this.value)"></label>${num('r','Corner, pt',b.r||0)}</div>`:''}`:'';
  const sh=b.show||{},fl=formsDef(s.form).fields(),sec=b.type==='section';
  const showIf=`<div class="fm-h">Show if</div><select class="fm-in" data-forms-show onchange="formsShow('when',this.value)">${[['','Always'],['filled','A field is filled'],['is','A field is…'],['not','A field is not…']].map(([k,l])=>`<option value="${k}" ${(sh.when||'')===k?'selected':''}>${l}</option>`).join('')}</select>
@@ -44282,12 +44710,12 @@ function formsSettingsHTML(tpl){
  return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete onclick="formsDelete()">Delete</button></div>${what}
   ${sec?`<p class="fm-note">Drawn by the program.${formsDef(s.form).custom?' What it shows — ✎ Customize.':''}</p><div class="fm-h">Place on sheet</div><div class="fm-row">${num('y','Y, mm',mm(b.y),true)}</div>`
   :`<div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],'formsPlace')}
-  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${look}${showIf}`;
+  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${hl?'':num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${hl?drawLayerHTML(b):''}${look}${showIf}`;
 }
 function viewMdForms(){
  const s=formsState(),def=formsDef(s.form),d=formsDraft(),tpl=d.tpl,dirty=formsDirty(),samples=def.samples();
  const ctx=def.context(def.doc(s.sample));
- const add=[['text','Text'],['field','Field'],['image','Picture'],['line','Line'],['box','Frame'],['barcode','Barcode']];
+ const add=[['text','Text'],['field','Field'],['image','Picture'],['line','Line'],['box','Frame'],['barcode','Barcode']].filter(([k])=>!def.add||def.add.includes(k));
  return `<div class="fm" data-forms>
   <div class="fm-bar"><div class="fm-forms">${formsDefs().map(x=>`<button type="button" class="sl-quick-pill${x.k===s.form?' on':''}" onclick="formsSetForm('${x.k}')">${esc(x.label)}</button>`).join('')}</div><span class="fm-sp"></span>
    <label class="fm-preview"><span>Preview</span><select data-forms-sample onchange="formsSetSample(this.value)">${samples.length?samples.map(x=>`<option value="${esc(x.id)}" ${x.id===s.sample?'selected':''}>${esc(x.label)}</option>`).join(''):'<option value="sample">Sample</option>'}</select></label>
@@ -47652,7 +48080,8 @@ function stationDrawStep(d){
  const lines=stationDrawItems(salesRecord(x.orderId)),at=lines.findIndex(l=>l.id===x.lineId),next=lines[Math.max(0,Math.min(lines.length-1,at+d))];
  if(next&&next.id!==x.lineId){x.lineId=next.id;render();}
 }
-function stationDrawZoom(){return Math.max(.2,Math.min(1,(Math.min(1400,window.innerWidth)-160)/850,(window.innerHeight-64-150)/1100));}
+/* Альбомный лист (Data → Forms → Drawing) лежит и на экране станции. */
+function stationDrawZoom(){const land=typeof drawStyle==='function'&&drawStyle().paper==='landscape',w=land?1100:850,h=land?850:1100;return Math.max(.2,Math.min(1,(Math.min(1400,window.innerWidth)-160)/w,(window.innerHeight-64-150)/h));}
 /* Чертёж — белый лист и в тёмной теме: класс gf-light держит светлые токены. */
 function stationDrawSheet(d){return !d?'':d.html?'<div class="print-sheet gf-light">'+printSheetUniqueIds(d.html)+'</div>':'<div class="doc-drawing-error">'+esc(d.error||'No drawing')+'</div>';}
 function stationDrawFit(){document.querySelectorAll('[data-station-draw] .print-sheet,.st-drawthumb .print-sheet').forEach(el=>salesSheetFitDrawing(el));}
@@ -57025,7 +57454,9 @@ function printSheetPrepare(svg,caption,after){
   if(!list.length)return false;
   printOthersCleanup();
   var h=printSheetHost();
-  h.innerHTML=list.map(function(x){return '<div class="print-sheet">'+printSheetUniqueIds(x)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';}).join('');
+  /* Бумага листа чертежа — книжная или альбомная (Data → Forms → Drawing). */
+  var paper=typeof drawStyle==='function'&&list.some(function(x){return String(x).indexOf('print-shape-sheet')>=0;})?'<style>@media print{@page{size:'+drawStyle().paper+'}}</style>':'';
+  h.innerHTML=paper+list.map(function(x){return '<div class="print-sheet">'+printSheetUniqueIds(x)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';}).join('');
   document.body.classList.add('printing');
   /* Доводка выполняется ПОСЛЕ вставки: чертёж подгоняется под отведённое место
      по фактическому содержимому, а его можно измерить только в документе. */
