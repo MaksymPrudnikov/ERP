@@ -122,7 +122,7 @@ function docFormAdded(kind,tpl){
 }
 function docFormContext(m,tpl){
  if(!m.data)m=Object.assign({},m,{data:{}});
- const opts=m.opts||{company:true},by=new Map(docFormFields(m.kind).map(x=>[x.k,x])),added=new Set(docFormAdded(m.kind,tpl||docFormTemplate(m.kind)).map(x=>x.b.id)),cache=new Map();
+ const opts=m.opts||{company:true},by=new Map(docFormFields(m.kind).map(x=>[x.k,x])),added=new Set(docFormAdded(m.kind,tpl||docFormTemplate(m.kind,m.form)).map(x=>x.b.id)),cache=new Map();
  const sec={
   meta:()=>m.meta.length?{h:38,draw(P,y){docCells(P,m.meta,y,28,7.8);}}:null,
   boxes:()=>{if(!m.boxes.length)return null;const L=docBoxesLay(m.boxes);return {h:L.h+12,draw:L.draw};},
@@ -135,11 +135,22 @@ function docFormContext(m,tpl){
      свой блок — b:<id>. */
   off:b=>b.opt?!opts[b.opt]:added.has(b.id)&&opts['b:'+b.id]===false};
 }
-function docFormTemplate(kind){return formClean(DB.formTemplate&&DB.formTemplate[kind],docFormDefault(kind));}
+function docFormTemplate(kind,form){const c=form&&docCustomForm(form);return formClean(DB.formTemplate&&DB.formTemplate[c&&c.base===kind?c.k:kind],docFormDefault(kind));}
+/* Свои формы (06.11.2026): новая форма с нуля или копией бланка заказа.
+   DB.formCustom — {k, name, base}; шаблон — DB.formTemplate[k]; данные и
+   ✎ Customize — бланка base, печать — из окна бланков заказа рядом с ним. */
+function docCustomForms(){return (Array.isArray(DB.formCustom)?DB.formCustom:[]).filter(f=>f&&DOC_FORM_KINDS.includes(f.base));}
+function docCustomForm(k){return docCustomForms().find(f=>f.k===k)||null;}
+/* С нуля: лист без блоков, строки заказа остаются (их рисует код). */
+function docFormBlank(kind){
+ const t=JSON.parse(JSON.stringify(docFormDefault(kind)));
+ Object.keys(t.parts).forEach(k=>{const p=t.parts[k];if(p.blocks){p.blocks=[];if(k!=='bottom')p.h=0;}});
+ return t;
+}
 /* Строки заказа рисуются как раньше (docItemParts): лист кончается только
    между частями строки, шапка таблицы повторяется на каждом листе. */
 function docFormPages(m,tpl,map){
- tpl=tpl||docFormTemplate(m.kind);
+ tpl=tpl||docFormTemplate(m.kind,m.form);
  const f=formFlow(tpl,docFormContext(m,tpl),map);let inTable=false;
  const start=()=>{f.page();if(inTable){f.y=docTableHead(f.P,m,f.y);f.top=f.y;}};
  const fits=h=>f.y+h<=f.bottom,room=h=>{if(!fits(h)&&f.y>f.top+1)start();};
