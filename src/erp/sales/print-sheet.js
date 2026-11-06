@@ -312,7 +312,8 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
   var areaFt2=stepLite?stepLite.area/144:ok?result.area/144:0;
   var w=salesSheetWeight(line,order,stepLite?liteIndex:null),weight=salesSheetWeightText(w);
 
-  var finished=stepLite?dimIn16(stepLite.w)+' × '+dimIn16(stepLite.h):ok?dimIn16(result.width)+' × '+dimIn16(result.height):'';
+  /* Единицы листа — из настройки чертежа (Data → Forms → Drawing). */
+  var finished=drawWithStyle(function(){var u=dimPrintText;return stepLite?u(stepLite.w)+' × '+u(stepLite.h):ok?u(result.width)+' × '+u(result.height):'';});
   var size=finished?'Finished '+finished:'';
   var mass=[areaFt2?areaFt2.toFixed(2)+' sq ft':'',weight?weight:''].filter(Boolean).join(' · ');
   var lineText=salesSheetLineNumber(line);
@@ -329,17 +330,18 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
   /* Метка строки — это примечание цеху, поэтому она стоит в NOTE, а не рядом с
      номером: владелец «Note это и есть d2». Свободный текст строки идёт следом. */
   var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');
-  return '<div class="print-shape-sheet">'+
+  /* Шапка и низ — из шаблона формы Drawing (erp/documents/drawing-form);
+     по умолчанию это прежние строки листа. Поля листа — его же числа. */
+  var tpl=drawFormTpl(),st=drawStyle(tpl),root=drawSheetRootAttrs(st),edit=drawFormPreview&&drawFormPreview.edit;
+  var fields=drawSheetLastFields={customer:order?salesCustomerDisplay(order.customerId):'',po:order&&order.customerPo||'',order:order&&order.businessNumber||'',
+    date:new Date().toISOString().slice(0,10),line:lineText,glass:t.name,spec:t.spec||'',qty:qty,finished:finished,mass:mass,note:note,tag:'',
+    company:DB.company&&DB.company.legalName||''};
+  formMyFields().forEach(function(f){fields[f.k]=f.v();});
+  var ctx={field:function(k){return fields[k]==null?'':fields[k];}};
+  return '<div class="print-shape-sheet'+root.cls+'"'+root.style+'>'+
     /* Три опоры, по которым лист опознают, — одной строкой поверх всего:
        заказчик слева, PO по центру, номер заказа справа. */
-    '<div class="sheet-id">'+
-      '<div class="sheet-id-c"><span>Customer:</span><b>'+
-        esc(order?salesCustomerDisplay(order.customerId):'')+'</b></div>'+
-      '<div class="sheet-id-p"><span>PO:</span><b>'+
-        esc(order&&order.customerPo||'')+'</b></div>'+
-      '<div class="sheet-id-o"><span>Order Number:</span><b>'+
-        esc(order&&order.businessNumber||'')+'</b></div>'+
-    '</div>'+
+    drawHeadHTML(tpl,ctx,edit)+
     /* Чертёж слева во всю высоту, состав и числа — колонкой справа. */
     '<div class="sheet-body">'+
       '<div class="sheet-field">'+svg+'</div>'+
@@ -363,15 +365,15 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
       '</div>'+
     '</div>'+
     salesSheetRouteHTML(route)+
-    '<div class="sheet-foot"><span></span>'+
-      '<span>'+esc(new Date().toISOString().slice(0,10))+' · 1 / 1</span></div>'+
+    drawFootHTML(tpl,ctx,edit)+
   '</div>';
 }
 /* Подпись стекла слева в подвале (там пусто): печать чертежей из батча —
    «каждое стекло — стикер, к нему бумажка» (владелец, 4 октября 2026).
    Лист строки строится один раз, подпись дописывается на каждое стекло. */
+/* Место подписи задаёт шаблон формы Drawing (блок Glass tag). */
 function salesSheetFoot(html,text){
-  return text?String(html).replace('<div class="sheet-foot"><span></span>','<div class="sheet-foot"><span class="sheet-tag">'+esc(text)+'</span>'):html;
+  return text?String(html).replace(/<span([^>]*)><!--sheet-tag--><\/span>/,function(m,a){return '<span class="sheet-tag"'+a+'>'+esc(text)+'</span>';}):html;
 }
 /* Лист чертежа строки без открытия редактора — окно Drawings и печать
    нескольких чертежей сразу. Владелец, 26.09.2026: после батча чертёж было не
@@ -386,10 +388,12 @@ function salesSheetFoot(html,text){
 function salesLineDrawing(line,recut,liteIndex){
   var geo=recut&&typeof recutLine==='function'?recutLine(recut,line):line;
   var shape=geo&&salesShapeByRef(geo.shapeRef);if(!shape)return null;
-  var keep={draft:sDraft,bridge:salesBridge,view:sView,lite:typeof sEdgeLite==='undefined'?null:sEdgeLite,place:sManufacturingPlace};
+  /* Единицы листа задаёт Data → Forms → Drawing, а не кнопка Metric detail
+     редактора на этом компьютере: станция печатает как все (06.11.2026). */
+  var keep={draft:sDraft,bridge:salesBridge,view:sView,lite:typeof sEdgeLite==='undefined'?null:sEdgeLite,place:sManufacturingPlace,metric:sMetricDetail};
   try{
     sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));salesBridge=Object.assign({kind:'shape',lineId:line.id},geo!==line?{recutId:recut.id}:{});
-    sView='production';sEdgeLite=null;sManufacturingPlace=null;
+    sView='production';sEdgeLite=null;sManufacturingPlace=null;sMetricDetail=false;
     if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(geo,sDraft);
     var r=ShapeModule.compute(sDraft);
     if(!shapeSheetOk(r))return {line:line,error:String((r.errors&&r.errors[0])||r.reason||'Invalid geometry')};
@@ -397,7 +401,7 @@ function salesLineDrawing(line,recut,liteIndex){
     if(sheet)return Object.assign({line:line,lite:liteIndex},sheet);
     return {line:line,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false),'PRODUCTION DRAWING')};
   }catch(e){return {line:line,error:String(e&&e.message||e)};}
-  finally{sDraft=keep.draft;salesBridge=keep.bridge;sView=keep.view;sEdgeLite=keep.lite;sManufacturingPlace=keep.place;}
+  finally{sDraft=keep.draft;salesBridge=keep.bridge;sView=keep.view;sEdgeLite=keep.lite;sManufacturingPlace=keep.place;sMetricDetail=keep.metric;}
 }
 /* Лист одного стекла ступенчатого юнита по текущей форме (sDraft, r) —
    общий для окна Drawings, станции и печати из редактора формы. Лайт с

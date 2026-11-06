@@ -48,7 +48,12 @@ function formsDefs(){
   parts:{every:['Page header','every page'],table:['Stops','grows']},
   samples:()=>[...new Map((DB.shipment||[]).filter(s=>s.method==='delivery'&&s.truckId&&s.date).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(s=>[s.date+'|'+s.truckId,s])).values()].slice(0,100).map(s=>({id:s.date+'|'+s.truckId,label:docDate(s.date)+' · '+((truckFind(s.truckId)||{}).name||'Truck')})),
   doc:id=>{const [date,truckId]=String(id||'').split('|'),day=date||finToday();return {date:day,truckId:truckId||'',t:truckFind(truckId),driver:deliveryDriver(day,truckId),stops:deliveryStops(day,truckId)};},
-  context:d=>deliveryFormContext(d),columns:{},pages:(tpl,d,map)=>deliveryPages(d.date,d.truckId,tpl,map)}]);
+  context:d=>deliveryFormContext(d),columns:{},pages:(tpl,d,map)=>deliveryPages(d.date,d.truckId,tpl,map)},
+  /* Лист чертежа (erp/documents/drawing-form) — HTML-лист, а не docPage:
+     живой лист — настоящий чертёж строки заказа. */
+  {k:'drawing',label:'Drawing',def:drawFormDefault,fields:()=>drawFormFields(),add:['text','field'],
+  parts:{head:['Header','top line'],info:['Info','beside drawing'],drawing:['Drawing','units · colors'],route:['Route','bottom'],foot:['Footer','bottom line']},
+  samples:()=>drawFormSamples(),doc:id=>id,context:()=>drawFormContext(),columns:{},html:(tpl,id)=>drawFormSheetHTML(tpl,id),panel:(part,tpl)=>part==='drawing'?drawFormStyleHTML(tpl):''}]);
 }
 function formsPartLabel(k){const d=formsDef(formsState().form);return (d.parts&&d.parts[k])||FORMS_PARTS[k]||[k,''];}
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
@@ -92,10 +97,11 @@ function formsFixSel(){const s=formsUi;if(s.sel&&!formsFind(formsDraft().tpl,s.s
 function formsDiffNote(was,now,def){
  if(JSON.stringify(now)===JSON.stringify(formClean(formsClone(def),def)))return 'Default form';
  was=formClean(formsClone(was),def);
+ const look=JSON.stringify(was.style)!==JSON.stringify(now.style)?'Drawing look changed':'';
  const map=t=>{const m=new Map();Object.keys(t.parts).forEach(k=>(t.parts[k].blocks||[]).forEach(b=>m.set(k+'|'+b.id,JSON.stringify(b))));return m;},a=map(was),b=map(now);
  let add=0,del=0,chg=0;b.forEach((v,k)=>{if(!a.has(k))add++;else if(a.get(k)!==v)chg++;});a.forEach((v,k)=>{if(!b.has(k))del++;});
  const n=(x,w)=>x?x+' '+(x===1?'block':'blocks')+' '+w:'';
- return [n(add,'added'),n(chg,'changed'),n(del,'removed')].filter(Boolean).join(' · ')||'Spacing changed';
+ return [n(add,'added'),n(chg,'changed'),n(del,'removed'),look].filter(Boolean).join(' · ')||'Spacing changed';
 }
 function formsSave(){
  const s=formsState(),d=formsDraft(),def=formsDef(s.form).def(),tpl=formClean(d.tpl,def),was=formsSaved(s.form);
@@ -118,7 +124,7 @@ function formsFieldDef(k){return formsDef(formsState().form).fields().find(x=>x.
 function formsBlockLabel(b){
  if(b.type==='section')return DOC_SECTIONS[b.k]||'Section';
  if(b.type==='text'){const t=String(b.text||'').replace(/\s+/g,' ').trim();return t.length>34?t.slice(0,33)+'…':t||'Text';}
- if(b.type==='field'){const f=formsFieldDef(b.field);return (b.prefix||'')+(f?f.label:b.field);}
+ if(b.type==='field'){const f=formsFieldDef(b.field);return (b.prefix?b.prefix.replace(/\s*$/,' '):'')+(f?f.label:b.field);}
  if(b.type==='barcode'){const f=formsFieldDef(b.field);return b.field==='barcode'?'Barcode':'Barcode · '+(f?f.label:b.field);}
  return {line:'Line',box:'Frame',image:'Picture'}[b.type]||b.type;
 }
@@ -126,10 +132,12 @@ function formsTypeLabel(b){return {text:'Text',field:'Field',line:'Line',box:'Fr
 /* Новый блок встаёт под части и раздвигает её — ничего не налезает. */
 function formsAddBlock(make){
  const s=formsState();let part=s.sel?s.sel.part:s.part||'every';
- const ps=formsDraft().tpl.parts,pp=ps[part];if(!pp||pp.columns||pp.lines)part=ps.totals?'totals':'every';
+ const ps=formsDraft().tpl.parts,pp=ps[part];if(!pp||pp.columns||pp.lines||!pp.blocks)part=ps.totals?'totals':ps.every?'every':Object.keys(ps).find(k=>ps[k].blocks);
+ /* У листа чертежа блоки колонки идут друг под другом сами (y — сдвиг). */
+ const flow=!formsDef(s.form).html;
  formsEdit(t=>{
   const p=t.parts[part],b=make(),id='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-  b.id=id;b.y=p.h||0;p.blocks=(p.blocks||[]).concat([b]);p.h=(p.h||0)+(b.type==='line'?6:(b.h||14)+4);
+  b.id=id;b.y=flow?p.h||0:0;p.blocks=(p.blocks||[]).concat([b]);if(flow)p.h=(p.h||0)+(b.type==='line'?6:(b.h||14)+4);
   s.sel={part,id};s.part=part;
  });
 }
@@ -358,6 +366,13 @@ function formsRuler(vert,len){
 }
 function formsSheetsHTML(){
  const s=formsState(),def=formsDef(s.form),tpl=formsDraft().tpl,d=def.doc(s.sample),map=[];
+ if(def.html){
+  /* Лист в размер бумаги: позиции блоков в pt, как на печати. */
+  const land=tpl.style&&tpl.style.paper==='landscape';let h;
+  try{h=def.html(tpl,d);}catch(e){return `<p class="fm-note">Preview failed: ${esc(e.message)}</p>`;}
+  setTimeout(()=>document.querySelectorAll('[data-forms-stage] .print-sheet').forEach(el=>salesSheetFitDrawing(el)),0);
+  return `<div class="fm-sheet fm-dsheet${land?' land':''}" data-forms-page="0" data-w="${land?792:612}" data-h="${land?612:792}">${h}</div>`;
+ }
  let pages;try{pages=def.pages(tpl,d,map);}catch(e){return `<p class="fm-note">Preview failed: ${esc(e.message)}</p>`;}
  const W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',m=tpl.page.margin;
  return pages.map((pg,i)=>{
@@ -380,7 +395,7 @@ function formsPointerStart(e,part,id){
  const sheet=e.currentTarget.closest('[data-forms-page]'),stage=e.currentTarget.closest('[data-forms-stage]'),d=formsDraft(),b=formsFind(d.tpl,{part,id});if(!sheet||!b)return;
  e.preventDefault();e.stopPropagation();const s=formsState();s.sel={part,id};s.part=part;
  const handle=e.target.closest('[data-forms-resize]'),r=sheet.getBoundingClientRect();
- formsPointer={part,id,pid:e.pointerId,stage,before:formsClone(d.tpl),b0:formsClone(b),x0:formBlockX(d.tpl,b),handle:handle?handle.dataset.formsResize:'move',x:e.clientX,y:e.clientY,k:d.tpl.page.w/r.width,moved:false};
+ formsPointer={part,id,pid:e.pointerId,stage,before:formsClone(d.tpl),b0:formsClone(b),x0:formBlockX(d.tpl,b),handle:handle?handle.dataset.formsResize:'move',x:e.clientX,y:e.clientY,k:(+sheet.dataset.w||d.tpl.page.w)/r.width,moved:false};
  try{stage.setPointerCapture(e.pointerId);}catch(x){}
  stage.onpointermove=formsPointerMove;stage.onpointerup=ev=>formsPointerEnd(ev,false);stage.onpointercancel=ev=>formsPointerEnd(ev,true);
  formsStageRefresh();
@@ -413,18 +428,21 @@ function formsTreeHTML(tpl){
 }
 function formsSettingsHTML(tpl){
  const s=formsState();if(s.cols)return formsColsHTML(tpl);const b=formsFind(tpl,s.sel);
+ const panel=!b&&formsDef(s.form).panel&&formsDef(s.form).panel(s.part,tpl);if(panel)return panel;
  if(!b){const lab=formsPartLabel(s.part);return `<div class="fm-h">Part · ${esc(lab[0])}</div><p class="fm-note">Click a block on the sheet or in the list. Add puts a new block here.</p>`;}
  const mm=v=>v==null?'':Math.round(v*FORMS_PT_MM*10)/10,f=b.type==='field'||b.type==='barcode'?formsFieldDef(b.field):null,text=formIsText(b);
+ /* Лист чертежа: строка текста в колонке — без ширины, интервала, переноса. */
+ const hl=!!formsDef(s.form).html;
  const seg=(cur,list,fn)=>`<div class="fm-seg">${list.map(([k,l])=>`<button type="button" class="${cur===k?'on':''}" onclick="${fn}('${k}')">${l}</button>`).join('')}</div>`;
  const num=(k,label,v,isMm)=>`<label><span>${label}</span><input class="fm-in" data-forms-num="${k}" inputmode="decimal" value="${esc(String(v))}" onchange="formsNum('${k}',this.value,${isMm?'true':'false'})"></label>`;
  let what='';
  if(b.type==='text')what=`<label class="wide"><span>Text</span><textarea class="fm-in" data-forms-text rows="3" onchange="formsSet('text',this.value)">${esc(b.text||'')}</textarea></label><p class="fm-note">Fields in text: {number}, {page} of {pages}</p>`;
  else if(f||b.type==='field'||b.type==='barcode')what=`<label class="wide"><span>Field</span><button type="button" class="fm-in fm-field-btn" data-forms-change onclick="formsOpenField('change')">${esc(f?f.label:b.field)} ▾</button></label>${b.prefix?`<p class="fm-note">Before: “${esc(b.prefix)}”</p>`:''}`;
  else if(b.type==='image')what=`<button type="button" class="fm-wide-btn" onclick="document.querySelector('[data-forms-picture]').click()">Replace picture</button>`;
- const look=text?`<div class="fm-h">Text</div><div class="fm-row">${num('size','Size, pt',b.size||9)}${num('lh','Line spacing, pt',formLh(b))}</div>
+ const look=text?`<div class="fm-h">Text</div><div class="fm-row">${num('size','Size, pt',b.size||9)}${hl?'':num('lh','Line spacing, pt',formLh(b))}</div>
    <label><span>Font</span><select class="fm-in" data-forms-font onchange="formsSet('font',this.value)">${[['','Helvetica'],['times','Times'],['courier','Courier']].map(([k,l])=>`<option value="${k}" ${(b.font||'')===k?'selected':''}>${l}</option>`).join('')}</select></label>
-   <div class="fm-seg"><button type="button" class="${b.bold?'on':''}" onclick="formsToggle('bold')"><b>B</b></button><button type="button" class="${b.italic?'on':''}" data-forms-italic onclick="formsToggle('italic')"><i>I</i></button>${['left','center','right'].map(a=>`<button type="button" class="${(b.align||'left')===a?'on':''}" onclick="formsSet('align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
-   <div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.ink)}" onchange="formsSet('color',this.value)"></label><label class="fm-check"><input type="checkbox" ${b.wrap?'checked':''} onchange="formsToggle('wrap')"><span>Wrap lines</span></label></div>`
+   <div class="fm-seg"><button type="button" class="${b.bold?'on':''}" onclick="formsToggle('bold')"><b>B</b></button><button type="button" class="${b.italic?'on':''}" data-forms-italic onclick="formsToggle('italic')"><i>I</i></button>${hl?'':['left','center','right'].map(a=>`<button type="button" class="${(b.align||'left')===a?'on':''}" onclick="formsSet('align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
+   <div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.ink)}" onchange="formsSet('color',this.value)"></label>${hl?'':`<label class="fm-check"><input type="checkbox" ${b.wrap?'checked':''} onchange="formsToggle('wrap')"><span>Wrap lines</span></label>`}</div>`
   :b.type==='line'||b.type==='box'?`<div class="fm-h">Line</div><div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.line)}" onchange="formsSet('color',this.value)"></label>${num('lw','Width, pt',b.lw||.6)}</div>${b.type==='box'?`<div class="fm-row"><label><span>Fill</span><input type="color" class="fm-in fm-color" value="${esc(b.fill||'#ffffff')}" onchange="formsSet('fill',this.value==='#ffffff'?'':this.value)"></label>${num('r','Corner, pt',b.r||0)}</div>`:''}`:'';
  const sh=b.show||{},fl=formsDef(s.form).fields(),sec=b.type==='section';
  const showIf=`<div class="fm-h">Show if</div><select class="fm-in" data-forms-show onchange="formsShow('when',this.value)">${[['','Always'],['filled','A field is filled'],['is','A field is…'],['not','A field is not…']].map(([k,l])=>`<option value="${k}" ${(sh.when||'')===k?'selected':''}>${l}</option>`).join('')}</select>
@@ -432,12 +450,12 @@ function formsSettingsHTML(tpl){
  return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete onclick="formsDelete()">Delete</button></div>${what}
   ${sec?`<p class="fm-note">Drawn by the program.${formsDef(s.form).custom?' What it shows — ✎ Customize.':''}</p><div class="fm-h">Place on sheet</div><div class="fm-row">${num('y','Y, mm',mm(b.y),true)}</div>`
   :`<div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],'formsPlace')}
-  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${look}${showIf}`;
+  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${hl?'':num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${look}${showIf}`;
 }
 function viewMdForms(){
  const s=formsState(),def=formsDef(s.form),d=formsDraft(),tpl=d.tpl,dirty=formsDirty(),samples=def.samples();
  const ctx=def.context(def.doc(s.sample));
- const add=[['text','Text'],['field','Field'],['image','Picture'],['line','Line'],['box','Frame'],['barcode','Barcode']];
+ const add=[['text','Text'],['field','Field'],['image','Picture'],['line','Line'],['box','Frame'],['barcode','Barcode']].filter(([k])=>!def.add||def.add.includes(k));
  return `<div class="fm" data-forms>
   <div class="fm-bar"><div class="fm-forms">${formsDefs().map(x=>`<button type="button" class="sl-quick-pill${x.k===s.form?' on':''}" onclick="formsSetForm('${x.k}')">${esc(x.label)}</button>`).join('')}</div><span class="fm-sp"></span>
    <label class="fm-preview"><span>Preview</span><select data-forms-sample onchange="formsSetSample(this.value)">${samples.length?samples.map(x=>`<option value="${esc(x.id)}" ${x.id===s.sample?'selected':''}>${esc(x.label)}</option>`).join(''):'<option value="sample">Sample</option>'}</select></label>

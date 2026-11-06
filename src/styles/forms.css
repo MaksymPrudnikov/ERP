@@ -31,7 +31,7 @@
 .fm-node.fm-node-note:hover{background:none}
 .fm-stage{background:var(--surface-3);border-radius:12px;padding:22px 22px 22px 26px;display:flex;flex-direction:column;align-items:center;gap:18px;touch-action:none}
 .fm-sheet{position:relative;width:100%;max-width:760px;aspect-ratio:612/792;background:var(--on-solid);box-shadow:0 1px 4px rgba(0,0,0,.15)}
-.fm-sheet svg{position:absolute;inset:0;display:block}
+.fm-sheet:not(.fm-dsheet) svg{position:absolute;inset:0;display:block}
 .fm-ruler{position:absolute;pointer-events:none}
 .fm-ruler.x{left:0;right:0;top:-12px;height:11px}
 .fm-ruler.y{top:0;bottom:0;left:-13px;width:11px}
@@ -113,3 +113,19 @@ textarea.fm-in{resize:vertical}
 .fm-guide.x{top:0;bottom:0;width:7px;margin-left:-3px;border-left:3px solid transparent;border-right:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ew-resize}
 .fm-guide.y{left:0;right:0;height:7px;margin-top:-3px;border-top:3px solid transparent;border-bottom:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ns-resize}
 .fm-gap{margin-top:6px}
+/* Лист чертежа (форма Drawing): в размер бумаги с полями печати 9 мм —
+   pt блока на экране те же, что на бумаге; ужат zoom, чтобы влез. */
+.fm-sheet.fm-dsheet{width:8.5in;height:11in;max-width:none;aspect-ratio:auto;padding:9mm;box-sizing:border-box;zoom:.9}
+.fm-sheet.fm-dsheet.land{width:11in;height:8.5in;zoom:.69}
+.fm-dsheet .print-sheet{height:100%}
+.fm-dsheet [data-forms-hit]{cursor:grab;outline:1px dashed transparent;outline-offset:1px}
+.fm-dsheet [data-forms-hit]:hover,.fm-dsheet [data-forms-part-hit]:hover{outline:1px dashed var(--accent-line)}
+.fm-dsheet [data-forms-part-hit]{cursor:pointer}
+.fm-dsheet [data-forms-sel]{outline:1.5px solid var(--accent)!important}
+.fm-dnote{padding:40px;text-align:center}
+.fm-dlook{display:grid;gap:4px}
+.fm-drow{display:grid;grid-template-columns:minmax(0,1fr) 38px 18px 52px;gap:6px;align-items:center;font-size:12px}
+.fm-drow.fm-dhead{font-size:10.5px;color:var(--text-3)}
+.fm-drow .fm-color,.fm-drow .fm-dnum{height:26px;padding:1px 4px;box-sizing:border-box}
+.fm-dreset{border:0;background:none;padding:0;color:var(--text-3);cursor:pointer}
+.fm-dnum{text-align:right}

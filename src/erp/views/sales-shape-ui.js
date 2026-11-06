@@ -367,7 +367,7 @@ function shapeFrac16(v){
 }
 function shapeDim16(v){return shapeFrac16(v)+'″';}
 /* Короткое число для листа: единицы указаны в примечании чертежа. */
-function shapeDrawingDim16(v){return shapeFrac16(v);}
+function shapeDrawingDim16(v){return dimPrint(+v,shapeFrac16(v));}
 function shapeManufacturingGeometry(){
   if(shapeIsDxfSource(sDraft)){var source=shapeNormalizeSource(sDraft.source),P=source.preview.points||[];if(P.length<3)return null;return {P:P,b:fabEdgeBounds(P)};}
   var r=shapeDraftResult();if(!r||!r.valid||!(r.points||[]).length)return null;return {P:r.points,b:fabEdgeBounds(r.points)};
@@ -1093,7 +1093,7 @@ function shapeManufacturingMarkersSvg(source,T){
       var pairDim=shapeHoleInternalDimsSvg(item,centerPx,T,chosen,sideRight,sideTop,r),diameterText=(centerPx.length>1?centerPx.length+' × Ø ':'Ø ')+shapeDrawingDim(dia);
       return `<g class='shape-mi-marker hole${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>
         ${hChain}${vChain}${pairDim}
-        ${centerPx.map(function(c){return `<circle cx='${c[0]}' cy='${c[1]}' r='${r}'/>`;}).join('')}
+        ${centerPx.map(function(c){return `<circle class='shape-feature' cx='${c[0]}' cy='${c[1]}' r='${r}'/>`;}).join('')}
         <line x1='${x+diamDirX*r}' y1='${y+diamDirY*r}' x2='${diamX}' y2='${diamY}' class='shape-mi-hole-leader'/>
         ${(function(){var by=labelBaseline(diamX+diamDirX*4,diamY+(diamDirY<0?-5:13),diameterText,diamAnchor),tx=diamX+diamDirX*4,w=String(diameterText).length*LABEL_CH;return shapeAnnItem(lay,'feat:'+item.id+':dia',`<text x='${tx}' y='${by}' text-anchor='${diamAnchor}'>${centerPx.length>1?centerPx.length+' × ':''}Ø ${esc(shapeDrawingDim(dia))}</text>`,tx+(diamAnchor==='end'?-w/2:w/2),by-6,{from:[diamX,diamY],inline:true});})()}
       </g>`;
@@ -1102,8 +1102,8 @@ function shapeManufacturingMarkersSvg(source,T){
     /* Свой значок нарисован только у зажима: у него другая посадка. Остальная
        фурнитура, включая виды, добавленные владельцем, берёт общий значок —
        что именно стоит, говорит подпись с кодом вида и именем модели. */
-    if(item.type==='clamp')mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-13' y='-13' width='26' height='26' rx='3'/><path d='M -5 -10 V 10 M 5 -10 V 10'/></g>`;
-    else mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-16' y='-10' width='32' height='20' rx='3'/><line x1='0' y1='-10' x2='0' y2='10'/><circle cx='-7' cy='0' r='2.4'/><circle cx='7' cy='0' r='2.4'/></g>`;
+    if(item.type==='clamp')mark=`<g class='shape-feature' transform='translate(${x} ${y}) rotate(${ang})'><rect x='-13' y='-13' width='26' height='26' rx='3'/><path d='M -5 -10 V 10 M 5 -10 V 10'/></g>`;
+    else mark=`<g class='shape-feature' transform='translate(${x} ${y}) rotate(${ang})'><rect x='-16' y='-10' width='32' height='20' rx='3'/><line x1='0' y1='-10' x2='0' y2='10'/><circle cx='-7' cy='0' r='2.4'/><circle cx='7' cy='0' r='2.4'/></g>`;
     var edge=item.edge||e.edge,band=lane(edge==='left'||edge==='right'?edge:edge)%4;
     /* Откуда меряем — выбор оператора, как Left/Right у отверстия. Хранится в
        карте оформления: сама величина `distance` всегда считается от начала
@@ -1804,7 +1804,13 @@ function shapeFitPreview(){
    его контур, габарит и отметки ERP, как на вкладке Production Drawing ·
    DXF; внутренних размеров нет — исходный файл ERP не хранит. */
 function shapeSheetOk(r){return !!r&&(r.valid||!!(r.externalFile&&r.sourceValid));}
+/* Единицы, кегли и вторые единицы — из настройки чертежа (Data → Forms →
+   Drawing). Включённый Metric detail печатает то, что видно на экране. */
 function shapeSheetSvg(r,cutting,extra){
+  if(cutting||sMetricDetail)return shapeSheetSvgBody(r,cutting,extra);
+  return drawWithStyle(function(){return dimPrintAltSvg(shapeSheetSvgBody(r,cutting,extra));});
+}
+function shapeSheetSvgBody(r,cutting,extra){
   /* Лист одного стекла ступенчатого юнита — по его контуру, у DXF тоже. */
   if(!cutting&&extra&&extra.lite)return shapeDrawnProductionSvg(r,false,Object.assign({sheet:true},extra));
   if(!cutting&&extra&&extra.noStep&&!r.externalFile)return shapeDrawnProductionSvg(r,false,{sheet:true,noStep:true});

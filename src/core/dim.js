@@ -33,6 +33,38 @@ function frac16(v){
   return (whole?whole+' ':'')+n+'/'+d;
 }
 function dimIn16(v){return frac16(v)+'″';}
+/* Единицы печатного листа чертежа (Data → Forms → Drawing; владелец,
+   06.11.2026: «вдруг компания перейдёт на мм, или все чертежи с мм и
+   инчами»). DIM_PRINT задаёт лист только на время своей отрисовки:
+   {units:'in16'|'in'|'mm', alt:''|'in16'|'in'|'mm'}; null — дюймы 1/16,
+   как на экране. Дюймы дробью — по сетке 1/16, десятичные — до сотых,
+   мм — до десятых (владелец: «844.6»). Вторые единицы идут за маркером
+   DIM_ALT: лист делает из них серую подпись (dimPrintAltSvg). */
+var DIM_PRINT=null,DIM_ALT='⁣';
+function dimUnitText(v,units,sign){
+  v=+v||0;
+  if(units==='mm'){var mm=String(Math.round(v*254)/10);return sign?mm+' mm':mm;}
+  if(units==='in'){var d=(Math.round(v*100)/100).toFixed(2);return sign?d+'″':d;}
+  return sign?dimIn16(v):frac16(v);
+}
+/* Число размера на чертеже без знака единиц: inchText — как его пишет
+   чертёж сейчас (дробь 1/16, у цепочек 3-1/4). */
+function dimPrint(v,inchText){
+  var p=DIM_PRINT;if(!p)return inchText;
+  var main=p.units==='in16'||!p.units?inchText:dimUnitText(v,p.units,false);
+  return p.alt&&p.alt!==p.units?main+DIM_ALT+'('+dimUnitText(v,p.alt,true)+')':main;
+}
+/* Размер в тексте листа (Finished, подписи фритты): со знаком единиц. */
+function dimPrintText(v){
+  var p=DIM_PRINT;if(!p)return dimIn16(v);
+  var main=dimUnitText(v,p.units||'in16',true);
+  return p.alt&&p.alt!==p.units?main+' ('+dimUnitText(v,p.alt,true)+')':main;
+}
+/* Вторые единицы в готовом SVG — серой подписью меньшим кеглем. Маркер в
+   атрибуте (подсказка, data-) просто становится пробелом. */
+function dimPrintAltSvg(svg){
+  return String(svg).replace(/⁣([^<"⁣]*)(?=<)/g,'<tspan class="shape-alt-units" font-size="80%"> $1</tspan>').replace(/⁣/g,' ');
+}
 function fabParseDimStrict(v){
   if(typeof v==='number')return isFinite(v)?{ok:true,v:v}:{ok:false,v:0};
   var t=String(v==null?'':v).trim().replace(/[\u2033\u201D"]/g,'');

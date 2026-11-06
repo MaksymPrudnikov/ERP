@@ -79,6 +79,33 @@ quotes (Quote) or orders (the rest).
 - **Trip sheet** — the top of every page (company, TRIP SHEET, date, truck and driver) and the bottom; the program draws
   the stops and the total. The live sheet — the latest days with trucks.
 
+## Drawing — the glass drawing sheet
+
+The **Drawing** form is the drawing sheet printed from Sales (Print / PDF), the Drawings window, the stations and the
+batch print. One setting works everywhere; by default the sheet is exactly what it was. The office or the owner sets it
+— the shop has no access to Data. The live sheet is a real drawing of an order line (Preview: order · line · shape).
+
+- **Header** — the line above the drawing: Customer left, PO center, Order Number right. **+ Text** and **+ Field**
+  blocks, places Left / Center / Right (a column of the line, blocks in it go top down; Y moves down) and Free (its own
+  place, drag with the mouse). Size, B, I, font, color, Show if — as in other forms.
+- **Footer** — the bottom of the sheet: Glass tag (the glass label in a batch print) and the date. The Glass tag block can
+  be moved or removed.
+- **Info** and **Route** are drawn by the program (makeup, Finished, weight, LINE, NOTE; the route by stations). Click
+  them on the sheet to select the part.
+- **Drawing** — click the drawing or the part in the list to open the drawing look on the right:
+  - **Paper** — Portrait (default) or Landscape: the print dialog opens this way on every computer.
+  - **Units** — inches in 1/16 fractions (as before), decimal inches (hundredths) or mm (tenths: 844.6).
+    **Second units** — a second smaller gray label next to the number: "844.6 (33 1/4″)". The Finished line uses these
+    units too. The route (CUT …) stays in inches — the sticker prints the same route.
+  - **Drawing size** — 75 %, 90 % or Fill (all the room, as before).
+  - **Numbers** and **Slope notes** — text size of dimensions (18) and slope labels (16).
+  - **White under numbers** — the white patch under a number on a line.
+  - **Look** — every element has its own color (any color, click it), lines a width, labels a text size: glass edge,
+    dimension lines, arrows, services (hole, hardware and cutout marks), numbers, edge work and radius, service labels
+    and sizes, second units. Empty — as now (lines gray, text black); × — color as now.
+- The Metric detail button in the shape editor does not change prints from the Drawings window, stations or batches:
+  they follow Drawing. Print / PDF in the editor itself prints what is on the screen.
+
 ## My fields, totals and Show if
 
 - **My fields** — at the bottom of Data → Company: a name and a value (WSIB No., Warranty…), **+ Add field**, × removes.
