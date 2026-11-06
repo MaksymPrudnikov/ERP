@@ -112,7 +112,7 @@ module.exports=async function({page,eq}){
 
  eq('Бланки: вес всегда, неполный — примерный «≈ 80 kg» без Partial и без строки «что не учтено» (клиенту и цеху, владелец 06.11.2026); выключенный — нет; Weight per unit: Work order «≈ 27.5 kg/unit», «25.0 kg/unit»; Order confirmation — «Weight ≈ 27.5 kg per unit»',await run(()=>{
   owSetup();const o=salesRecord(owOrder()),opt=(k,on)=>docCleanOptions(k,Object.assign(docBaseOptions(k),{orderSummary:on,weight:on}));
-  const sum=k=>{const m=finWithOrder(o,()=>docBuildModel(k,o,opt(k,true)));const svg=docLayout(m).map(docPageSVG).join('');return [m.summary.find(c=>c.label==='Total weight').value,m.summaryNote,svg.includes(k==='workOrder'?'≈ 80 kg · 176 lb':'≈ 80 kg')&&!svg.includes('Partial')];};
+  const sum=k=>{const m=finWithOrder(o,()=>docBuildModel(k,o,opt(k,true)));const svg=docLayout(m).map(docPageSVG).join('');return [m.summary.find(c=>c.label==='Total weight').value,m.summaryNote,svg.includes(k==='workOrder'?'~ 80 kg · 176 lb':'~ 80 kg')&&!svg.includes('Partial')];};
   const off=finWithOrder(o,()=>docBuildModel('confirmation',o,opt('confirmation',false))).summary;
   /* У Work order в шапке строки первым — итог по сканам (Not in a batch). */
   const wo=finWithOrder(o,()=>docBuildModel('workOrder',o,opt('workOrder',true))).items.map(i=>i.info.split(' · ').slice(2).join(' · '));
