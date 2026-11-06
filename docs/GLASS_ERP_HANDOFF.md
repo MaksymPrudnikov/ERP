@@ -22,8 +22,8 @@
 - Цвет и толщина — CSS листа (`modules.css`): переменные `--dw-*` с прежним цветом в запасе; толщина и кегль — только
   классом `dw-w-*` / `dw-fs-*`. Классы `shape-edge` (контур), `shape-feature` / `shape-feature-text` (сервисы) —
   разметка, на вид не влияют. Бумага — `<style>@page{size}` в `printSheetPrepare`; окно Drawings альбомное по `:has(.dw-land)`.
-- `salesLineDrawing` на время листа ставит `sMetricDetail=false`: станция и батч печатают по Drawing, не по кнопке
-  Metric detail этого компьютера. Print / PDF редактора — как на экране (Metric detail печатает мм-вид).
+- Включённый на компьютере Metric detail (localStorage) печатает, как раньше, свой подробный мм-вид — без настроек
+  Drawing (`shapeSheetSvg`): возможность сторожат проверки `test/step-unit.js` («в Metric detail — как был»).
 - Конструктор: форма с `html` — живой лист HTML (`drawFormSheetHTML`, бумага 8.5×11 in и поля 9 мм, pt как на печати),
   линейка и направляющие (поля `DRAW_MARGIN` — поля печати, не тянутся; x блока Free — от края бумаги), `panel` —
   правая панель части (`drawFormStyleHTML`: Paper, Drawing size, Units с примером, Text size и Lines с − / +, наборы
@@ -32,7 +32,11 @@
 - Сверка (старый dist main против сборки ветки, печать листа, PNG попиксельно): выгрузка владельца 117 / 117, с подписью
   батча 40 / 40, audit-2m 400 / 400 — 0 расхождений (7 и 2 листа в первом прогоне — шум растра: старый dist против себя
   даёт то же, повтор — совпадение).
-- Проверки: `test/drawing-form.js` (8), `test/forms-editor.js` — в строке форм Drawing. Руководство
+- Слои (владелец: «как в Figma или Adobe»): `b.z` у блоков шапки и низа (−50…50, `z-index`; ниже нуля — под
+  чертежом, корень листа тогда `isolation:isolate`), кнопки Layer `drawLayerHTML` / `formsLayer`. Наложения —
+  `drawFormOverlaps`: пересёкшиеся тексты блоков — оранжевой рамкой и строкой над листом; Save не запрещён (правило
+  «без кирпичей»).
+- Проверки: `test/drawing-form.js` (9), `test/forms-editor.js` — в строке форм Drawing. Руководство
   `docs/manual/forms.*` — «Drawing — лист чертежа стекла».
 
 ## Все бланки на конструкторе форм (этап 7) · 6 ноября 2026

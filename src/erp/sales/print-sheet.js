@@ -332,7 +332,7 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
   var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');
   /* Шапка и низ — из шаблона формы Drawing (erp/documents/drawing-form);
      по умолчанию это прежние строки листа. Поля листа — его же числа. */
-  var tpl=drawFormTpl(),st=drawStyle(tpl),root=drawSheetRootAttrs(st),edit=drawFormPreview&&drawFormPreview.edit;
+  var tpl=drawFormTpl(),st=drawStyle(tpl),root=drawSheetRootAttrs(st,tpl),edit=drawFormPreview&&drawFormPreview.edit;
   var fields=drawSheetLastFields={customer:order?salesCustomerDisplay(order.customerId):'',po:order&&order.customerPo||'',order:order&&order.businessNumber||'',
     date:new Date().toISOString().slice(0,10),line:lineText,glass:t.name,spec:t.spec||'',qty:qty,finished:finished,mass:mass,note:note,tag:'',
     company:DB.company&&DB.company.legalName||''};
@@ -388,12 +388,10 @@ function salesSheetFoot(html,text){
 function salesLineDrawing(line,recut,liteIndex){
   var geo=recut&&typeof recutLine==='function'?recutLine(recut,line):line;
   var shape=geo&&salesShapeByRef(geo.shapeRef);if(!shape)return null;
-  /* Единицы листа задаёт Data → Forms → Drawing, а не кнопка Metric detail
-     редактора на этом компьютере: станция печатает как все (06.11.2026). */
-  var keep={draft:sDraft,bridge:salesBridge,view:sView,lite:typeof sEdgeLite==='undefined'?null:sEdgeLite,place:sManufacturingPlace,metric:sMetricDetail};
+  var keep={draft:sDraft,bridge:salesBridge,view:sView,lite:typeof sEdgeLite==='undefined'?null:sEdgeLite,place:sManufacturingPlace};
   try{
     sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));salesBridge=Object.assign({kind:'shape',lineId:line.id},geo!==line?{recutId:recut.id}:{});
-    sView='production';sEdgeLite=null;sManufacturingPlace=null;sMetricDetail=false;
+    sView='production';sEdgeLite=null;sManufacturingPlace=null;
     if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(geo,sDraft);
     var r=ShapeModule.compute(sDraft);
     if(!shapeSheetOk(r))return {line:line,error:String((r.errors&&r.errors[0])||r.reason||'Invalid geometry')};
@@ -401,7 +399,7 @@ function salesLineDrawing(line,recut,liteIndex){
     if(sheet)return Object.assign({line:line,lite:liteIndex},sheet);
     return {line:line,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false),'PRODUCTION DRAWING')};
   }catch(e){return {line:line,error:String(e&&e.message||e)};}
-  finally{sDraft=keep.draft;salesBridge=keep.bridge;sView=keep.view;sEdgeLite=keep.lite;sManufacturingPlace=keep.place;sMetricDetail=keep.metric;}
+  finally{sDraft=keep.draft;salesBridge=keep.bridge;sView=keep.view;sEdgeLite=keep.lite;sManufacturingPlace=keep.place;}
 }
 /* Лист одного стекла ступенчатого юнита по текущей форме (sDraft, r) —
    общий для окна Drawings, станции и печати из редактора формы. Лайт с

@@ -47,7 +47,7 @@ module.exports=async function({page,eq}){
   const t=formClean({parts:{},style:{units:'feet',edge:'url(x)',size:'big',paper:'sideways',dimSize:999}},drawFormDefault()),s=drawStyle(t);
   return [s.units,s.edge,s.size,s.paper,s.dimSize];
  }),['in16','',100,'portrait',40]);
- eq('Drawing form: Data → Forms → Drawing — parts, the live drawing of an order line; Units changes the sheet; Save — stations print the same; Metric detail on this computer does not change it',await t.p.evaluate(()=>{
+ eq('Drawing form: Data → Forms → Drawing — parts, the live drawing of an order line; Units changes the sheet; Save — stations print the same',await t.p.evaluate(()=>{
   const o=dfOrder();dfOpen();const s=formsState();
   const parts=[...document.querySelectorAll('[data-forms-part]')].map(b=>b.querySelector('span').textContent),add=[...document.querySelectorAll('[data-forms-add]')].map(b=>b.textContent);
   const live=!!document.querySelector('[data-forms-stage] .print-shape-sheet .sheet-field svg'),hits=[...document.querySelectorAll('[data-forms-stage] [data-forms-hit]')].map(e=>e.dataset.formsHit);
@@ -56,7 +56,7 @@ module.exports=async function({page,eq}){
   const u=document.querySelector('[data-draw-units]');u.value='mm';u.dispatchEvent(new Event('change'));
   const liveMm=[...document.querySelectorAll('[data-forms-stage] .sheet-field svg text')].some(e=>e.textContent==='939.8'),dirty=!!document.querySelector('[data-forms-dirty]');
   document.querySelector('[data-forms-save]').click();
-  const was=sMetricDetail;sMetricDetail=true;const printed=[...dfDoc(dfSheet(o)).querySelectorAll('.sheet-field svg text')].some(e=>e.textContent==='939.8');sMetricDetail=was;
+  const printed=[...dfDoc(dfSheet(o)).querySelectorAll('.sheet-field svg text')].some(e=>e.textContent==='939.8');
   return {parts,add,live,hits,panel,liveMm,dirty,saved:DB.formTemplate.drawing.style.units,printed,sample:s.sample.startsWith(o.id+'|')};
  }),{parts:['Header','Info','Drawing','Route','Footer'],add:['+ Text','+ Field'],live:true,hits:['head|customer','head|po','head|order','foot|tag','foot|date'],panel:true,liveMm:true,dirty:true,saved:'mm',printed:true,sample:true});
  eq('Drawing form: Lines — Thinner / As now / Bolder for all lines, − and + per line; Colors — All black; the ruler and guides on the sheet',await t.p.evaluate(()=>{
@@ -71,5 +71,14 @@ module.exports=async function({page,eq}){
   return {bold,on,less,dim,black,now:['edgeW','lineW','featureW'].map(k=>st()[k]),cls:sheet.className,ruler:!!document.querySelector('.fm-dsheet .fm-ruler.x')&&!!document.querySelector('.fm-dsheet [data-forms-ruler="y"]'),
    margins:document.querySelectorAll('.fm-dsheet [data-forms-margin]').length,example:document.querySelector('[data-draw-example]').textContent};
  }),{bold:[2.8,1.5,2.3],on:true,less:2.6,dim:19,black:['#000000','#000000',''],now:[0,0,0],cls:'print-shape-sheet',ruler:true,margins:0,example:'Example: 33 1/4'});
+ eq('Drawing form: blocks that overlap — marked on the sheet with a note, Save still works; Layer — To back puts the block under the drawing, To front over everything',await t.p.evaluate(async()=>{
+  dfOrder();dfOpen();formsEdit(t=>{t.parts.head.blocks.push({id:'over',type:'text',text:'OVERLAPPING NOTE',place:'free',x:30,y:0,size:12,bold:true});});
+  await new Promise(r=>setTimeout(r,50));
+  const note=document.querySelector('[data-draw-overlap]'),marked=[...document.querySelectorAll('[data-forms-overlap]')].map(e=>e.dataset.formsHit).sort(),save=!document.querySelector('[data-forms-save]').disabled;
+  formsSelect('head','over');document.querySelector('[data-draw-layer="toBack"]').click();const back=[formsDraft().tpl.parts.head.blocks.find(b=>b.id==='over').z,/isolation:isolate/.test(document.querySelector('[data-forms-stage] .print-shape-sheet').getAttribute('style')||''),/z-index:-1/.test(document.querySelector('[data-forms-hit="head|over"]').getAttribute('style'))];
+  document.querySelector('[data-draw-layer="toFront"]').click();const front=formsDraft().tpl.parts.head.blocks.find(b=>b.id==='over').z;
+  document.querySelector('[data-draw-layer="back"]').click();const none=formsDraft().tpl.parts.head.blocks.find(b=>b.id==='over').z;
+  return {note:!!note&&note.textContent.includes('Save works'),marked,save,back,front,none:none==null};
+ }),{note:true,marked:['head|customer','head|over'],save:true,back:[-1,true,true],front:1,none:true});
  eq('Drawing form browser errors',t.errs,[]);await t.c.close();
 };

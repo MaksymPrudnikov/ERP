@@ -88,7 +88,9 @@ batch print. One setting works everywhere; by default the sheet is exactly what 
 - **Header** — the line above the drawing: Customer left, PO center, Order Number right. **+ Text** and **+ Field**
   blocks, places Left / Center / Right (a column of the line, blocks in it go top down; Y moves down) and Free (its own
   place, drag with the mouse). Size, B, I, font, color, Show if — as in other forms. A ruler in inches runs along the
-  sheet, the dashed lines are the 9 mm print margins; drag a guide off the ruler, a Free block snaps to it.
+  sheet, the dashed lines are the 9 mm print margins; drag a guide off the ruler, a Free block snaps to it. **Layer** —
+  To back / Back / Forward / To front, as in Figma: what is on top; To back puts the block under the drawing. Blocks
+  that overlap get an orange frame and a note above the sheet; Save still works, the sheet prints as set.
 - **Footer** — the bottom of the sheet: Glass tag (the glass label in a batch print) and the date. The Glass tag block can
   be moved or removed.
 - **Info** and **Route** are drawn by the program (makeup, Finished, weight, LINE, NOTE; the route by stations). Click
@@ -107,8 +109,8 @@ batch print. One setting works everywhere; by default the sheet is exactly what 
   - **Colors** — As now or All black in one click; every element has its own color (any color, click it): edge,
     dimension lines, arrows, service marks, numbers, edge work, service labels, second units. × — as now.
   - Empty or × — as now (lines gray, text black).
-- The Metric detail button in the shape editor does not change prints from the Drawings window, stations or batches:
-  they follow Drawing. Print / PDF in the editor itself prints what is on the screen.
+- The Metric detail button in the shape editor is its own detailed mm view (angles, hundredths): while it is on on a
+  computer, that computer prints drawings in it, as before. Off — prints follow Drawing.
 
 ## My fields, totals and Show if
 

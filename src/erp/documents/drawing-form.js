@@ -83,8 +83,10 @@ function drawStyle(tpl){
 }
 /* Корень листа: классы и переменные только для изменённого — лист по
    умолчанию остаётся прежней разметкой. */
-function drawSheetRootAttrs(st){
+function drawSheetRootAttrs(st,tpl){
  const cls=[],vars=[];
+ /* Блок под чертежом (слой ниже нуля) не уходит под бумагу. */
+ if(tpl&&['head','foot'].some(k=>((tpl.parts[k]||{}).blocks||[]).some(b=>b.z<0)))vars.push('isolation:isolate');
  if(st.paper==='landscape')cls.push('dw-land');
  if(!st.bg)cls.push('dw-nobg');
  if(st.size<100)vars.push('--dw-size:'+st.size+'%');
@@ -114,6 +116,9 @@ function drawBlockStyle(b,base,kind){
  if(/^#[0-9a-f]{3,6}$/i.test(b.color||''))st.push('color:'+b.color);
  if(b.place==='free')st.push('position:absolute','left:'+Math.round(((b.x||0)-DRAW_MARGIN)*100)/100+'pt','top:'+(b.y||0)+'pt');
  else if(b.y)st.push('position:relative','top:'+b.y+'pt');
+ /* Слой (как в Figma: To front / To back): выше нуля — поверх чертежа,
+    ниже — под ним. */
+ if(b.z){if(!st.some(x=>/^position/.test(x)))st.push('position:relative');st.push('z-index:'+b.z);}
  return st;
 }
 /* Атрибуты блока; в конструкторе ещё и «взять мышью». */
@@ -136,12 +141,12 @@ function drawColumns(tpl,part,ctx){
 function drawHeadHTML(tpl,ctx,edit){
  const {cols,free}=drawColumns(tpl,'head',ctx),cls={left:'sheet-id-c',center:'sheet-id-p',right:'sheet-id-o'};
  const inner=b=>{const st=drawBlockStyle(b,DRAW_HEAD_SIZE,'head'),pre=b.type==='field'&&b.prefix?'<span'+(st.some(x=>/^font-size/.test(x))?' style="font-size:'+(b.size*13.5/16).toFixed(2)+'pt"':'')+'>'+esc(b.prefix)+'</span>':'';
-  return {st,html:pre+'<b'+(st.length?' style="'+st.filter(x=>!/^(position|left|top)/.test(x)).join(';')+'"':'')+'>'+esc(drawBlockText(b,ctx))+'</b>'};};
+  return {st,html:pre+'<b'+(st.length?' style="'+st.filter(x=>!/^(position|left|top|z-index)/.test(x)).join(';')+'"':'')+'>'+esc(drawBlockText(b,ctx))+'</b>'};};
  const col=k=>{const list=cols[k];
-  if(list.length===1){const b=list[0],x=inner(b),pos=x.st.filter(s=>/^(position|top)/.test(s));return '<div class="'+cls[k]+'"'+drawBlockAttrs('head',b,pos,edit)+'>'+x.html+'</div>';}
-  return '<div class="'+cls[k]+'">'+list.map(b=>{const x=inner(b);return '<div'+drawBlockAttrs('head',b,x.st.filter(s=>/^(position|top)/.test(s)),edit)+'>'+x.html+'</div>';}).join('')+'</div>';};
+  if(list.length===1){const b=list[0],x=inner(b),pos=x.st.filter(s=>/^(position|top|z-index)/.test(s));return '<div class="'+cls[k]+'"'+drawBlockAttrs('head',b,pos,edit)+'>'+x.html+'</div>';}
+  return '<div class="'+cls[k]+'">'+list.map(b=>{const x=inner(b);return '<div'+drawBlockAttrs('head',b,x.st.filter(s=>/^(position|top|z-index)/.test(s)),edit)+'>'+x.html+'</div>';}).join('')+'</div>';};
  return '<div class="sheet-id"'+(free.length?' style="position:relative"':'')+'>'+col('left')+col('center')+col('right')+
-  free.map(b=>{const x=inner(b);return '<div class="sheet-free"'+drawBlockAttrs('head',b,x.st.filter(s=>/^(position|left|top)/.test(s)),edit)+'>'+x.html+'</div>';}).join('')+'</div>';
+  free.map(b=>{const x=inner(b);return '<div class="sheet-free"'+drawBlockAttrs('head',b,x.st.filter(s=>/^(position|left|top|z-index)/.test(s)),edit)+'>'+x.html+'</div>';}).join('')+'</div>';
 }
 /* Низ листа: подпись стекла (её дописывает печать батча, salesSheetFoot)
    и дата. */
@@ -216,3 +221,30 @@ function formsStyleStep(k,d,now){
 /* Все линии сразу: тоньше, как сейчас, толще — от прежних толщин. */
 function formsStyleLines(f){formsEdit(t=>{t.style=Object.assign({},DRAW_STYLE_DEFAULT,t.style);DRAW_LINES.forEach(([k,,now])=>{t.style[k]=f?Math.round(now*f*10)/10:0;});});}
 function formsStyleColors(c){formsEdit(t=>{t.style=Object.assign({},DRAW_STYLE_DEFAULT,t.style);DRAW_LOOK.forEach(([k])=>{t.style[k]=c&&k!=='altColor'?c:'';});});}
+/* ------------------------ Слои и наложения ------------------------- */
+/* Слой блока шапки и низа: To back / Back / Forward / To front — среди
+   всех блоков листа (владелец, 06.11.2026: «как обычно в Figma или в
+   Adobe»). Чертёж — слой 0: To back кладёт блок под него. */
+function drawLayerHTML(b){
+ const z=b.z||0,btn=(k,l,t)=>`<button type="button" data-draw-layer="${k}" title="${t}" onclick="formsLayer('${k}')">${l}</button>`;
+ return `<div class="fm-h">Layer</div><div class="fm-seg">${btn('toBack','To back','Under everything')}${btn('back','Back','One layer down')}${btn('forward','Forward','One layer up')}${btn('toFront','To front','Over everything')}</div><p class="fm-note">Layer ${z>0?'+'+z:z}${z<0?' · under the drawing':''}</p>`;
+}
+function formsLayer(k){
+ const s=formsState();if(!s.sel)return;
+ formsEdit(t=>{const b=formsFind(t,s.sel);if(!b)return;
+  const zs=['head','foot'].flatMap(p=>((t.parts[p]||{}).blocks||[]).filter(x=>x!==b).map(x=>x.z||0)).concat([0]);
+  const z=k==='toFront'?Math.max(...zs)+1:k==='toBack'?Math.min(...zs)-1:(b.z||0)+(k==='forward'?1:-1);
+  if(z)b.z=Math.max(-50,Math.min(50,z));else delete b.z;});
+}
+/* Наложения на живом листе: блоки, чьи тексты пересеклись, — оранжевой
+   рамкой и строкой над листом. Сохранить можно: что сверху, решает Layer. */
+function drawFormOverlaps(){
+ const stage=document.querySelector('[data-forms-stage]');if(!stage)return;
+ const old=stage.querySelector('[data-draw-overlap]');if(old)old.remove();
+ const box=el=>{const r=document.createRange();r.selectNodeContents(el);return r.getBoundingClientRect();};
+ const els=[...stage.querySelectorAll('.fm-dsheet [data-forms-hit]')].filter(el=>el.textContent.trim()),hit=new Set(),names=[];
+ els.forEach((a,i)=>els.slice(i+1).forEach(b=>{const p=box(a),q=box(b);
+  if(p.width&&q.width&&p.left<q.right-1&&q.left<p.right-1&&p.top<q.bottom-1&&q.top<p.bottom-1){[a,b].forEach(e=>{if(!hit.has(e)){hit.add(e);names.push([...e.childNodes].map(n=>n.textContent.trim()).filter(Boolean).join(' ').slice(0,28));}});}}));
+ els.forEach(e=>e.toggleAttribute('data-forms-overlap',hit.has(e)));
+ if(hit.size)stage.insertAdjacentHTML('afterbegin',`<div class="fm-doverlap" data-draw-overlap>Overlap: ${names.map(esc).join(' · ')} — Save works, Layer sets what is on top</div>`);
+}

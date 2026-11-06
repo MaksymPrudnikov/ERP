@@ -136,3 +136,6 @@ textarea.fm-in{resize:vertical}
 .fm-step button:first-child{border-radius:7px 0 0 7px}.fm-step button:nth-of-type(2){border-radius:0 7px 7px 0}
 .fm-step input{height:26px;border-radius:0;border-left:0;border-right:0;text-align:center;padding:0 2px;box-sizing:border-box}
 .fm-step i{font-style:normal;font-size:10.5px;color:var(--text-3);padding-left:3px}
+/* Наложение блоков на листе чертежа: видно, но сохранить можно. */
+.fm-dsheet [data-forms-overlap]{outline:1.5px dashed var(--warning,#d97706)!important}
+.fm-doverlap{align-self:stretch;background:var(--warning-soft,#fff6dd);color:var(--warning,#7a5a00);border-radius:8px;padding:6px 10px;font-size:12.5px}

@@ -1805,7 +1805,8 @@ function shapeFitPreview(){
    DXF; внутренних размеров нет — исходный файл ERP не хранит. */
 function shapeSheetOk(r){return !!r&&(r.valid||!!(r.externalFile&&r.sourceValid));}
 /* Единицы, кегли и вторые единицы — из настройки чертежа (Data → Forms →
-   Drawing). Включённый Metric detail печатает то, что видно на экране. */
+   Drawing). Включённый на компьютере Metric detail печатает, как раньше,
+   свой подробный мм-вид (возможность не снимаем, test/step-unit). */
 function shapeSheetSvg(r,cutting,extra){
   if(cutting||sMetricDetail)return shapeSheetSvgBody(r,cutting,extra);
   return drawWithStyle(function(){return dimPrintAltSvg(shapeSheetSvgBody(r,cutting,extra));});
