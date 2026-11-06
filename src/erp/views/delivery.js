@@ -69,28 +69,57 @@ function deliveryHTML(){
  const none=!active.length?'No trucks yet. Add them in Master Data → Trucks.':'No packing slips for this day.';
  return (deliveryNotice?`<div class="shipping-notice bad" role="alert">${esc(deliveryNotice)}</div>`:'')+`<div class="card sales-list-card sl-foot-pin delivery-list">${bar}${shippingTabs()}${pills}${salesListTableHTML({infos,rows:list,cell,row,cls:'delivery-table',noun:r=>r.length+' packing slip'+(r.length===1?'':'s'),empty:rows.length?'No packing slips match.':none})}</div>`;
 }
-function deliveryPages(date,truckId){
- const t=truckFind(truckId),stops=deliveryStops(date,truckId),company=docCompanyBlock(),driver=deliveryDriver(date,truckId),pages=[];let P,y;
+/* Лист рейса на шаблоне конструктора форм (этап 7): шапка каждой страницы и
+   низ — блоки, остановки и итог рисует код, как раньше (места те же). */
+function deliveryFormDefault(){
+ const mut=DOC_COLOR.mut;
+ return {form:'tripSheet',page:{w:612,h:792,margin:{top:30,right:36,bottom:72,left:36}},parts:{
+  every:{h:74,blocks:[
+   {id:'company',type:'field',field:'company.name',place:'left',y:14,w:320,h:13,lh:13,size:13,bold:true,fit:true,empty:'Glass Farm'},
+   {id:'title',type:'text',text:'TRIP SHEET',place:'right',pin:true,y:14,w:300,h:17,lh:17,size:17,bold:true,align:'right'},
+   {id:'date',type:'field',field:'trip.date',place:'right',pin:true,y:34,w:300,h:13,lh:13,size:13,bold:true,align:'right'},
+   {id:'truck',type:'field',field:'trip.truck',place:'left',pin:true,y:40,w:380,h:12,lh:12,size:12,bold:true,fit:true}]},
+  table:{lines:true},
+  bottom:{h:72,blocks:[
+   {id:'pageNo',type:'text',text:'Trip sheet · {page} / {pages}',place:'right',pin:true,y:46,w:300,h:8,lh:8,size:8,color:mut,align:'right'}]}}};
+}
+/* Поля листа рейса (окно Insert field); d = {date, t, driver, stops}. */
+const DELIVERY_FORM_FIELDS=[
+ {k:'company.name',g:'Company',label:'Company name',v:()=>docCompanyBlock().name},
+ {k:'company.lines',g:'Company',label:'Address and contacts',v:()=>docCompanyBlock().lines},
+ {k:'company.logo',g:'Company',label:'Logo',v:()=>docCompanyBlock().logo||''},
+ {k:'trip.date',g:'Trip',label:'Date',v:d=>docDate(d.date)},
+ {k:'trip.truck',g:'Trip',label:'Truck and driver',v:d=>(d.t?d.t.name:'Truck')+' · Driver: '+(d.driver?d.driver.name:'not set')},
+ {k:'trip.truckName',g:'Trip',label:'Truck',v:d=>d.t?d.t.name:''},
+ {k:'trip.driver',g:'Trip',label:'Driver',v:d=>d.driver?d.driver.name:''},
+ {k:'trip.stops',g:'Totals',label:'Stops',v:d=>String(d.stops.length)},
+ {k:'trip.skids',g:'Totals',label:'Skids',v:d=>String(d.stops.reduce((n,s)=>n+deliveryLoad(s).skids.length,0))},
+ {k:'trip.weight',g:'Totals',label:'Weight',v:d=>{const l=d.stops.map(deliveryLoad);return (l.every(x=>x.exact)?'':'~')+docNum(l.reduce((n,x)=>n+x.kg,0),0)+' kg';}}];
+function deliveryFormFields(){return DELIVERY_FORM_FIELDS.concat(formMyFields());}
+function deliveryFormContext(d){const by=new Map(deliveryFormFields().map(x=>[x.k,x]));return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;}};}
+function deliveryFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.tripSheet,deliveryFormDefault());}
+function deliveryPages(date,truckId,tpl,map){
+ const t=truckFind(truckId),stops=deliveryStops(date,truckId),driver=deliveryDriver(date,truckId);
+ tpl=tpl||deliveryFormTemplate();const f=formFlow(tpl,deliveryFormContext({date,t,driver,stops}),map);
  const header=()=>{
-  P=docPage();pages.push(P);P.text(36,44,docFit(company.name||'Glass Farm',13,true,320),{size:13,bold:true});
-  P.text(576,44,'TRIP SHEET',{size:17,bold:true,align:'right'});P.text(576,64,docDate(date),{size:13,bold:true,align:'right'});
-  P.text(36,70,docFit((t?t.name:'Truck')+' · Driver: '+(driver?driver.name:'not set'),12,true,380),{size:12,bold:true});y=104;
-  P.rect(36,y-11,540,21,{fill:DOC_COLOR.bar});['#','Departs','Customer / address','Packing slip','Skids','Weight'].forEach((h,n)=>P.text([41,62,122,372,452,571][n],y+2,h,{size:7,bold:true,align:n===5?'right':'left'}));y+=25;
+  f.page();const P=f.P,y=f.y;
+  P.rect(36,y-11,540,21,{fill:DOC_COLOR.bar});['#','Departs','Customer / address','Packing slip','Skids','Weight'].forEach((h,n)=>P.text([41,62,122,372,452,571][n],y+2,h,{size:7,bold:true,align:n===5?'right':'left'}));f.y+=25;
  };
  header();let total=0,exact=true,skids=0;
  stops.forEach((s,i)=>{
   const load=deliveryLoad(s),a=s.shipTo,place=docWrap([a.addressee,docAddressText(a)].filter(Boolean).join(' · ')||'No address',8,false,240),contact=[a.contact,a.phone].filter(Boolean).join(' · ');
   const lines=[salesCustomerDisplay(s.customerId)].concat(place,contact?[contact]:[]),sk=docWrap(load.skids.join(', ')||'—',8,false,70),h=Math.max(lines.length,sk.length,2)*11+14;
-  if(y+h>720)header();
+  if(f.y+h>f.bottom)header();
+  const P=f.P,y=f.y;
   P.text(41,y,String(i+1),{size:9,bold:true});P.text(62,y,deliveryTime(s.departAt),{size:9,bold:true});
   lines.forEach((text,k)=>P.text(122,y+k*11,docFit(text,k?8:9,!k,240),{size:k?8:9,bold:!k}));
   P.text(372,y,s.number,{size:9,bold:true});P.text(372,y+11,shippingCount(load.units,'unit'),{size:8,color:DOC_COLOR.mut});
   sk.forEach((text,k)=>P.text(452,y+k*11,text,{size:8}));P.text(571,y,deliveryWeight(load),{size:9,align:'right'});
-  y+=h;P.line(36,y-6,576,y-6);total+=load.kg;exact=exact&&load.exact;skids+=load.skids.length;
+  f.y+=h;P.line(36,f.y-6,576,f.y-6);total+=load.kg;exact=exact&&load.exact;skids+=load.skids.length;
  });
- if(!stops.length){P.text(41,y,'No stops',{size:9});y+=20;}
- P.text(576,y+10,shippingCount(stops.length,'stop')+' · '+shippingCount(skids,'skid')+' · '+(exact?'':'~')+docNum(total,0)+' kg',{size:10,bold:true,align:'right'});
- pages.forEach((p,n)=>p.text(576,766,'Trip sheet · '+(n+1)+' / '+pages.length,{size:8,align:'right',color:DOC_COLOR.mut}));return pages;
+ if(!stops.length){f.P.text(41,f.y,'No stops',{size:9});f.y+=20;}
+ f.P.text(576,f.y+10,shippingCount(stops.length,'stop')+' · '+shippingCount(skids,'skid')+' · '+(exact?'':'~')+docNum(total,0)+' kg',{size:10,bold:true,align:'right'});
+ return f.finish();
 }
 /* withPS — лист рейса и PS всех остановок одной пачкой; долг проверяется,
    как при печати каждого PS. Один лист ничего не записывает и не проверяет. */

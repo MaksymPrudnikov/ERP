@@ -83,7 +83,7 @@ function formLines(b,ctx,w){
 function formShift(done,y){
  const above=done.filter(a=>a.nb<=y+1e-9);if(!above.length)return 0;
  const nb=Math.max(...above.map(a=>a.nb));
- const anchor=Math.max(...above.filter(a=>a.nb===nb).map(a=>a.off+a.e-(a.b.h||0)));
+ const anchor=Math.max(...above.filter(a=>a.nb===nb).map(a=>a.off+a.e-(a.nh!=null?a.nh:a.b.h||0)));
  return Math.max(anchor,Math.max(...above.map(a=>a.top+a.e))-y);
 }
 /* Картинка с fit — по своим пропорциям, не шире w (логотип бланка). */
@@ -97,7 +97,8 @@ function formSection(b,ctx){const s=ctx.section?ctx.section(b.k):null;return s&&
 function formLayout(tpl,part,ctx){
  /* Скрытый (Show if) блок — как пустое поле: места не занимает, блоки ниже
     поднимаются. */
- const bs=(part.blocks||[]).map((b,i)=>{const sec=b.type==='section'?formSection(b,ctx):null,hide=!formShow(b,ctx)||b.type==='section'&&!sec,yt=b.y-(b.lead||0);return {b,i,sec,hide,yt,nb:yt+(b.h||0)};});
+ /* Картинка без файла (нет логотипа) места не занимает. */
+ const bs=(part.blocks||[]).map((b,i)=>{const sec=b.type==='section'?formSection(b,ctx):null,hide=!formShow(b,ctx)||b.type==='section'&&!sec||b.type==='image'&&!formImage(b,ctx),yt=b.y-(b.lead||0),nh=(b.h||0)+(b.sa||0);return {b,i,sec,hide,yt,nh,nb:yt+nh};});
  const text=x=>{x.lines=formIsText(x.b)?(x.hide?[]:formLines(x.b,ctx,x.aw)):null;};
  bs.forEach(x=>{if(!x.b.after&&!x.b.before)text(x);});
  /* after — блок стоит на той же строке сразу за первой строкой другого
@@ -115,8 +116,8 @@ function formLayout(tpl,part,ctx){
   }
   if(b.after||b.before)text(x);
  });
- /* sa — интервал после текста (только у непустого). */
- bs.forEach(x=>{x.e=x.lines?(x.lines.length?x.lines.length*formLh(x.b)+(x.b.sa||0):0):x.hide?0:x.sec?x.sec.h:x.b.h||0;});
+ /* sa — интервал после блока (у текста — только у непустого). */
+ bs.forEach(x=>{x.e=x.lines?(x.lines.length?x.lines.length*formLh(x.b)+(x.b.sa||0):0):x.hide?0:(x.sec?x.sec.h:x.b.h||0)+(x.b.sa||0);});
  /* pin — место закреплено: блок не ходит за блоками выше (шапка справа). */
  const done=[];
  bs.slice().sort((p,q)=>p.yt-q.yt||p.i-q.i).forEach(x=>{x.off=x.b.pin?0:formShift(done,x.yt);x.top=x.yt+x.off;done.push(x);});
@@ -139,7 +140,8 @@ function formDrawBlock(P,tpl,x,ctx,top,late){
  /* Цвет '' у рамки — без контура (только заливка). */
  const stroke=b.color==null?DOC_COLOR.line:b.color;
  if(b.type==='line')P.line(bx,top,bx+w,top+h,{stroke:stroke||DOC_COLOR.line,lw:b.lw||.6});
- else if(b.type==='box')P.rect(bx,top,w,h,{stroke,fill:b.fill||'',lw:b.lw||.6,r:b.r||0});
+ /* Рамка без контура и заливки — просто отступ (лист PO: пустая строка). */
+ else if(b.type==='box'){if(stroke||b.fill)P.rect(bx,top,w,h,{stroke,fill:b.fill||'',lw:b.lw||.6,r:b.r||0});}
  else if(b.type==='image'){const im=formImage(b,ctx);if(im)P.img(bx,top,im.w,h,im.src);}
  else if(b.type==='barcode'){
   const v=String(ctx.field(b.field)||'');if(!v)return;
@@ -181,7 +183,9 @@ function formFlow(tpl,ctx,map){
  f.page=function(over,top){
   if(arguments.length){f.over=over||null;f.topKey=top||'every';}
   f.P=docPage();f.pages.push(f.P);
-  f.y=m.top+formDrawPart(f.P,tpl,tpl.parts[f.topKey],f.ctx(),m.top,late,mark(f.topKey));f.top=f.y;return f;
+  f.y=m.top+formDrawPart(f.P,tpl,tpl.parts[f.topKey],f.ctx(),m.top,late,mark(f.topKey));
+  /* onPage — код бланка дорисовывает свой верх листа (шапка таблицы PO). */
+  if(f.onPage)f.onPage();f.top=f.y;return f;
  };
  f.ensure=h=>{if(f.y+h>f.bottom)f.page();};
  /* Часть в потоке (верх первой, итоги): начинается на этом листе, если на

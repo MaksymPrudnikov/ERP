@@ -1,7 +1,8 @@
 # Forms · form builder
 
 Data → Company & print → **Forms**. A form is built from blocks, like in Word, and printing takes it right away. The
-Packing slip (with its skid sheet) and the Quote are on the builder; the other order forms move here one at a time.
+builder has every form: Packing slip (with its skid sheet), Quote, Proforma invoice, Order confirmation, Invoice,
+Work order, Receipt, Statement, Purchase order (and Delivery request) and Trip sheet. Stickers keep their own builder.
 
 ## The screen
 
@@ -49,10 +50,10 @@ Helvetica, Times and Courier are the standard PDF fonts: they are not embedded, 
 no fee. Windows may show a look-alike of the same width instead of Helvetica — lines land the same. Line breaks are
 the same on screen, in print and in the PDF.
 
-## Order forms: Quote
+## Order forms: Quote, Proforma, Order confirmation, Invoice, Work order
 
-The Quote prints from its form in Forms; by default the sheet is exactly what it was. Proforma, Order confirmation,
-Invoice and Work order come next.
+All five print from their forms in Forms; by default the sheet is exactly what it was. The live sheet uses the latest
+quotes (Quote) or orders (the rest).
 
 - Parts of the sheet: **Page 1 header** (top of the first page: logo, company, QUOTE and its number, the Date / Valid
   until… cells, addresses), **Page header** (top of the next pages), **Lines table** (order lines — the ✎ Customize
@@ -60,12 +61,23 @@ Invoice and Work order come next.
   **Page footer**.
 - **Section** — a part the program draws: Header cells, Addresses, Totals and payment, Order summary, Customer
   approval. Move it (Y), give it Show if or remove it; what it shows — the ✎ Customize ticks.
-- The ✎ **Customize** window of the Quote builds its ticks from the form blocks: remove the Header cells section and
+- The ✎ **Customize** window of a form on the builder builds its ticks from the form blocks: remove the Header cells section and
   the Date, Valid until, Customer PO… ticks go; your own block (say "Thank you, {customer}!") is a tick of its own in
   **Added blocks**, ticked by default. **Save as default** keeps it too.
 - Order form fields (Insert field): Company, Document (number, dates, PAID stamp, terms), Order (PO, payment terms,
   currency), Customer (addresses, contact), Totals (units, area, weight, Subtotal, HST, Total, paid, balance),
   My fields.
+
+## Receipt, Statement, Purchase order, Trip sheet
+
+- **Receipt** and **Statement** — the same header, cells, addresses and totals as the order forms; the program draws the
+  table (orders, money movements). The live sheet — the latest receipts; a statement — a customer for this month.
+- **Purchase order** — the top of every page (PURCHASE ORDER and the number), the first page (company details, dates,
+  supplier, contacts, terms — each line a block with its own PO Customize tick), the lines (drawn by the program),
+  then the total, notes, supplier invoices and payments, company terms. A blank line between parts is a frame without
+  an outline. **Delivery request** prints with this form under its own title.
+- **Trip sheet** — the top of every page (company, TRIP SHEET, date, truck and driver) and the bottom; the program draws
+  the stops and the total. The live sheet — the latest days with trucks.
 
 ## My fields, totals and Show if
 

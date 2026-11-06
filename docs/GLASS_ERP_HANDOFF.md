@@ -2,6 +2,35 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Все бланки на конструкторе форм (этап 7) · 6 ноября 2026
+
+Владелец 06.11.2026: оставшиеся бланки — одним PR, prepush один раз в конце. Бланк Spiel пока не трогать (роль и поля
+Credits / Panels уточнит у бухгалтера), основной Invoice на вид Spiel не переключать.
+
+- Бланки заказа: `DOC_FORM_KINDS` — все пять (Quote, Proforma, Order confirmation, Invoice, Work order); `docLayout` остаётся
+  только как эталон сверки (тест).
+- Receipt, Statement (`DOC_FORM_FIN`): модель — `finReceiptModel` / `finStatementModel`, печать — `finDocPages` → тот же
+  шаблон бланка заказа (`docFormDefault('receipt' | 'statement')`; у квитанции низ без `{footer.right}`, номер с подписью
+  — поле `number.label`), таблицы — `finDocTable` (места `finDocLayout`). Внутренние списки (Payments due, Customer
+  balances) — прежней `finDocLayout`. Поля — `docFormFields(kind)` без полей заказа.
+- Purchase order: `purFormDefault()` (части every / first / table / totals / bottom; строки «Подпись: значение» — поле с
+  `prefix`, у каждой своя галочка PO Customize через `opt`; пустая строка — рамка без контура и заливки), `purDocPages(p,
+  raw, title, tpl, map)` — позиции кодом как раньше; `f.onPage` — шапка таблицы и на листах после неё (как раньше).
+  Delivery request — тот же бланк с заголовком. Окно PO Customize не менялось.
+- Trip sheet: `deliveryFormDefault()` (шапка каждой страницы и низ), `deliveryPages(date, truckId, tpl, map)` —
+  остановки и итог кодом.
+- Движок: картинка без файла места не занимает; `sa` у любого блока и входит в исходную высоту (`nh`); рамка без контура
+  и заливки ничего не рисует; `f.onPage`.
+- Конструктор: в строке форм все 10 бланков (`formsDefs`; `custom` — у бланка есть ✎ Customize, иначе таблица «Drawn by
+  the program»), новый блок без части totals идёт в every.
+- Сверка (старый dist main против новой сборки, все фигуры до 1e-6): бланки заказа — выгрузка владельца 5 382, shop-week
+  8 280, audit-2m 46 368; Receipt 24 / 36 / 354; Statement 360 / 360 / 360 (каждый клиент × 3 периода); PO 162 / 144
+  (наборы галочек) + 27 / 24 с длинной заметкой; Delivery request 3 / 3; Trip sheet 21 / 18 / 114; Packing slip 37 / 49
+  / 464 — 0 расхождений везде (× 3 вида реквизитов компании).
+- Проверки: `test/order-forms.js` (+2: Receipt / Statement — те же листы, PO / Delivery request / Trip sheet — блок из
+  Forms на каждом листе). README 2428. Руководство `docs/manual/forms.*` — «Бланки заказа…», «Receipt, Statement,
+  Purchase order, Trip sheet».
+
 ## Бланки заказа на конструкторе форм: Quote (этап 7) · 6 ноября 2026
 
 Задание — `docs/ЗАДАЧА_ПРАВКИ_02_11.md`, «Этап 7»: Quote, Proforma, Order confirmation, Invoice, Work order — по PR на
