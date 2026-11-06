@@ -1,7 +1,8 @@
 # Forms · form builder
 
 Data → Company & print → **Forms**. A form is built from blocks, like in Word, and printing takes it right away. The
-Packing slip (with its skid sheet) and the Quote are on the builder; the other order forms move here one at a time.
+Packing slip (with its skid sheet), the Quote and the Proforma invoice are on the builder; the other order forms move
+here one at a time.
 
 ## The screen
 
@@ -49,10 +50,10 @@ Helvetica, Times and Courier are the standard PDF fonts: they are not embedded, 
 no fee. Windows may show a look-alike of the same width instead of Helvetica — lines land the same. Line breaks are
 the same on screen, in print and in the PDF.
 
-## Order forms: Quote
+## Order forms: Quote, Proforma
 
-The Quote prints from its form in Forms; by default the sheet is exactly what it was. Proforma, Order confirmation,
-Invoice and Work order come next.
+The Quote and the Proforma invoice print from their forms in Forms; by default the sheet is exactly what it was.
+Order confirmation, Invoice and Work order come next. The Proforma live sheet uses the latest orders.
 
 - Parts of the sheet: **Page 1 header** (top of the first page: logo, company, QUOTE and its number, the Date / Valid
   until… cells, addresses), **Page header** (top of the next pages), **Lines table** (order lines — the ✎ Customize
@@ -60,7 +61,7 @@ Invoice and Work order come next.
   **Page footer**.
 - **Section** — a part the program draws: Header cells, Addresses, Totals and payment, Order summary, Customer
   approval. Move it (Y), give it Show if or remove it; what it shows — the ✎ Customize ticks.
-- The ✎ **Customize** window of the Quote builds its ticks from the form blocks: remove the Header cells section and
+- The ✎ **Customize** window of a form on the builder builds its ticks from the form blocks: remove the Header cells section and
   the Date, Valid until, Customer PO… ticks go; your own block (say "Thank you, {customer}!") is a tick of its own in
   **Added blocks**, ticked by default. **Save as default** keeps it too.
 - Order form fields (Insert field): Company, Document (number, dates, PAID stamp, terms), Order (PO, payment terms,

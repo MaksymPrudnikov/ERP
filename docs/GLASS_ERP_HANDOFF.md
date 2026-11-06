@@ -2,6 +2,15 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Бланки заказа на конструкторе форм: Proforma (этап 7) · 6 ноября 2026
+
+- `DOC_FORM_KINDS=['quote','proforma']`: Proforma invoice печатается из шаблона (`docFormDefault('proforma')` — тот же,
+  что у Quote, заголовок и номер — из модели), в Forms — третья форма, живой лист на последних заказах.
+- Сверка (как у Quote): старый dist `docLayout` против новой сборки `docPages` — выгрузка владельца 1 170 случаев,
+  `shop-week` 1 800, `audit-2m` 10 080; 0 расхождений.
+- Проверки: `test/order-forms.js` — сверка идёт по всем видам из `DOC_FORM_KINDS`; строка форм в `test/forms-editor.js`.
+  Новых проверок нет, README 2426. Руководство `docs/manual/forms.*` — «Бланки заказа: Quote, Proforma».
+
 ## Бланки заказа на конструкторе форм: Quote (этап 7) · 6 ноября 2026
 
 Задание — `docs/ЗАДАЧА_ПРАВКИ_02_11.md`, «Этап 7»: Quote, Proforma, Order confirmation, Invoice, Work order — по PR на

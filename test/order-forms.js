@@ -33,16 +33,16 @@ module.exports=async function({page,eq}){
   const run=(y,lines,sec)=>{const f=formFlow(tpl,ofCtx({n:lines},{section:k=>sec?{h:20,draw:(P,yy)=>P.rect(36,yy,540,20,{})}:null}));f.page();f.y=y;f.flow('totals');return f.finish().map(P=>P.items.map(i=>i.t==='rect'?'R@'+i.y:i.s+'@'+Math.round(i.y*10)/10).join(' '));};
   return {fits:run(640,['a','b'],true),label:run(677,['a','b'],true),one:run(677,['a'],true),noSec:run(661,['a','b'],false)};
  }),{fits:['R@640 NOTES@673 a@684 b@694'],label:['R@677','NOTES@53 a@64 b@74'],one:['R@677 NOTES@710 a@721'],noSec:['NOTES@674 a@685 b@695']});
- eq('Order forms: Quote prints from its form and the sheets are the same as before (one and two pages, every price mode, notes and terms); the other order forms keep the old layout for now',await t.p.evaluate(()=>{
+ eq('Order forms: Quote and Proforma print from their forms and the sheets are the same as before (one and two pages, every price mode, notes and terms); the other order forms keep the old layout for now',await t.p.evaluate(()=>{
   const keep=JSON.parse(JSON.stringify(DB.company));DB.company.termsText='Terms. '.repeat(120);DB.company.logo=ofJpeg;
   const out={};
-  [1,14].forEach(n=>{const o=ofOrder(n);['full','split','glass','unit','none'].forEach(mode=>{
-   const all=Object.fromEntries(docFieldsFor('quote').map(f=>[f.k,true]));
-   [docBaseOptions('quote'),Object.assign(all,{priceMode:mode})].forEach((opts,i)=>{const m=docBuildModel('quote',o,opts),a=ofSer(docLayout(m)),b=ofSer(docPages(m));out[n+mode+i]=a===b?JSON.parse(a).length:'differs';});
-  });});
+  DOC_FORM_KINDS.forEach(kind=>[1,14].forEach(n=>{const o=ofOrder(n);['full','split','glass','unit','none'].forEach(mode=>{
+   const all=Object.fromEntries(docFieldsFor(kind).map(f=>[f.k,true]));
+   [docBaseOptions(kind),Object.assign(all,{priceMode:mode})].forEach((opts,i)=>{const m=docBuildModel(kind,o,opts),a=ofSer(docLayout(m)),b=ofSer(docPages(m));out[kind+n+mode+i]=a===b?JSON.parse(a).length:'differs';});
+  });}));
   const v=Object.values(out);DB.company=keep;
-  return {cases:v.length,differ:v.filter(x=>x==='differs').length,many:Math.max(...v)>1,kinds:DOC_FORM_KINDS,proforma:docPages(docBuildModel('proforma',ofOrder(1)))[0].items.length===docLayout(docBuildModel('proforma',ofOrder(1)))[0].items.length};
- }),{cases:20,differ:0,many:true,kinds:['quote'],proforma:true});
+  return {cases:v.length,differ:v.filter(x=>x==='differs').length,many:Math.max(...v)>1,kinds:DOC_FORM_KINDS};
+ }),{cases:40,differ:0,many:true,kinds:['quote','proforma']});
  eq('Order forms: ✎ Customize ticks come from the form blocks — a removed section takes its ticks away, an added block is a tick of its own; unticked it does not print; Save as default keeps it',await t.p.evaluate(()=>{
   ofOrder(1,'quote');docOpen('quote');docState.panel=true;render();
   const ticks=()=>[...document.querySelectorAll('.doc-panel [data-doc-field]')].map(i=>i.dataset.docField+(i.checked?'':'-'));
@@ -65,6 +65,6 @@ module.exports=async function({page,eq}){
   formsAdd('field');const groups=[...document.querySelectorAll('.fm-groups button')].map(b=>b.textContent);formsModalSet('group','Totals');const total=(document.querySelector('[data-forms-field="total.grand"] em')||{}).textContent;formsModalClose();
   const sheet=document.querySelector('[data-forms-page="0"] svg').textContent;
   return {forms,parts,lines,sec,groups,total:/^\$[\d,]+\.\d\d$/.test(total||''),sheet:/QUOTE/.test(sheet)};
- }),{forms:['Packing slip','Quote'],parts:['Page 1 header','Page header','Lines table','After lines','Page footer'],lines:true,sec:{note:true,place:true},groups:['Company','Document','Order','Customer','Totals','My fields','Page'],total:true,sheet:true});
+ }),{forms:['Packing slip','Quote','Proforma invoice'],parts:['Page 1 header','Page header','Lines table','After lines','Page footer'],lines:true,sec:{note:true,place:true},groups:['Company','Document','Order','Customer','Totals','My fields','Page'],total:true,sheet:true});
  eq('Order forms browser errors',t.errs,[]);await t.c.close();
 };

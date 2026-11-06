@@ -1,7 +1,7 @@
 # Forms · конструктор бланков
 
 Data → Company & print → **Forms**. Здесь бланк собирается из блоков, как в Ворде, и печать сразу берёт его. На
-конструкторе Packing slip (вместе с листом скида) и Quote; остальные бланки заказа переходят по одному.
+конструкторе Packing slip (вместе с листом скида), Quote и Proforma invoice; остальные бланки заказа переходят по одному.
 
 ## Экран
 
@@ -47,17 +47,17 @@ Helvetica, Times и Courier — стандартные шрифты PDF: в фа
 платить за них не нужно. На Windows вместо Helvetica может стоять похожий шрифт той же ширины — строки ложатся
 так же. Переносы на экране, в печати и в PDF одинаковые.
 
-## Бланки заказа: Quote
+## Бланки заказа: Quote, Proforma
 
-Quote печатается из своего бланка в Forms; по умолчанию лист точно тот же, что раньше. Proforma, Order confirmation,
-Invoice и Work order переходят следующими.
+Quote и Proforma invoice печатаются из своих бланков в Forms; по умолчанию лист точно тот же, что раньше. Order
+confirmation, Invoice и Work order переходят следующими. Живой лист Proforma — на последних заказах.
 
 - Части листа: **Page 1 header** (верх первой страницы: логотип, компания, QUOTE и номер, ячейки Date / Valid until…,
   адреса), **Page header** (верх следующих страниц), **Lines table** (строки заказа — их вид задаёт окно ✎ Customize),
   **After lines** (итоги и оплата, сводка заказа, заметки, условия, подпись клиента), **Page footer**.
 - **Section** — часть, которую рисует программа: Header cells, Addresses, Totals and payment, Order summary, Customer
   approval. Её можно передвинуть (Y), поставить Show if или убрать; что в ней — галочки ✎ Customize.
-- Окно ✎ **Customize** у Quote строит галочки из блоков бланка: убрали секцию Header cells — пропали галочки Date,
+- Окно ✎ **Customize** у бланка на конструкторе строит галочки из блоков бланка: убрали секцию Header cells — пропали галочки Date,
   Valid until, Customer PO…; свой блок (например «Thank you, {customer}!») — своя галочка в группе **Added blocks**,
   по умолчанию стоит. **Save as default** запоминает и её.
 - Поля бланка заказа (Insert field): Company, Document (номер, даты, отметка PAID, условия), Order (PO, условия
