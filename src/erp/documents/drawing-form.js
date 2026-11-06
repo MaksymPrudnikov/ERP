@@ -62,7 +62,9 @@ function drawFormFields(){
  return [f('Order','customer','Customer'),f('Order','po','PO'),f('Order','order','Order Number'),f('Order','date','Date printed'),
   f('Line','line','Line'),f('Line','glass','Glass / Makeup'),f('Line','spec','Makeup spec'),f('Line','qty','Qty'),
   f('Line','finished','Finished size'),f('Line','mass','sq ft · kg'),f('Line','note','Note'),f('Line','tag','Glass tag (batch)'),
-  f('Company','company','Company name')].concat(formMyFields());
+  f('Prices','unitPrice','Unit price'),f('Prices','linePrice','Line total'),f('Prices','glassPrice','Glass, line'),
+  f('Company','company','Company name'),f('Company','companyLine','Company details, one line'),f('Company','companyAddress','Address'),
+  f('Company','companyPhone','Phone'),f('Company','companyEmail','Email'),f('Company','companyWebsite','Website'),f('Company','companyHst','HST number')].concat(formMyFields());
 }
 /* Черновик конструктора — на время живого листа; иначе сохранённый. */
 let drawFormPreview=null,drawSheetLastFields={};
@@ -166,7 +168,7 @@ function drawFormSamples(){
   return out.length>=100;});
  return out;
 }
-function drawFormContext(){return {field:k=>{const v=drawSheetLastFields[k];return v==null?'':v;}};}
+function drawFormContext(){return {field:k=>{let v=drawSheetLastFields[k];if(typeof v==='function')v=v();return v==null?'':v;}};}
 /* Части листа, которые рисует код, выбираются кликом по листу. */
 function drawFormSheetHTML(tpl,id){
  const [oid,lid]=String(id||'').split('|'),o=(DB.salesOrder||[]).find(x=>x.id===oid),l=o&&(o.lines||[]).find(x=>x.id===lid);

@@ -36,7 +36,10 @@
   чертежом, корень листа тогда `isolation:isolate`), кнопки Layer `drawLayerHTML` / `formsLayer`. Наложения —
   `drawFormOverlaps`: пересёкшиеся тексты блоков — оранжевой рамкой и строкой над листом; Save не запрещён (правило
   «без кирпичей»).
-- Проверки: `test/drawing-form.js` (9), `test/forms-editor.js` — в строке форм Drawing. Руководство
+- Поля листа (окно Insert field): Order, Line, Prices (Unit price, Line total, Glass line — цена заказа
+  `salesLineCommercialPrice`, считается только если поле стоит на листе), Company (имя, строка реквизитов, адрес,
+  телефон, email, сайт, HST), My fields. Владелец 06.11: «добавить данные компании в самый низ листа или вверх».
+- Проверки: `test/drawing-form.js` (10), `test/forms-editor.js` — в строке форм Drawing. Руководство
   `docs/manual/forms.*` — «Drawing — лист чертежа стекла».
 
 ## Все бланки на конструкторе форм (этап 7) · 6 ноября 2026

@@ -93,6 +93,10 @@ batch print. One setting works everywhere; by default the sheet is exactly what 
   that overlap get an orange frame and a note above the sheet; Save still works, the sheet prints as set.
 - **Footer** — the bottom of the sheet: Glass tag (the glass label in a batch print) and the date. The Glass tag block can
   be moved or removed.
+- **+ Field** in Header or Footer (pick the part on the left) — a field of the sheet: the order (Customer, PO, number,
+  date), the line (glass, qty, Finished, weight, NOTE), **Prices** (unit price, line total, glass of the line — as in
+  the order), **Company** (name, details in one line, address, phone, email, website, HST) and My fields. A price on
+  the sheet is seen by the shop too — add it only when needed.
 - **Info** and **Route** are drawn by the program (makeup, Finished, weight, LINE, NOTE; the route by stations). Click
   them on the sheet to select the part.
 - **Drawing** — click the drawing or the part in the list to open the drawing look on the right:

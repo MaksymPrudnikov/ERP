@@ -80,5 +80,13 @@ module.exports=async function({page,eq}){
   document.querySelector('[data-draw-layer="back"]').click();const none=formsDraft().tpl.parts.head.blocks.find(b=>b.id==='over').z;
   return {note:!!note&&note.textContent.includes('Save works'),marked,save,back,front,none:none==null};
  }),{note:true,marked:['head|customer','head|over'],save:true,back:[-1,true,true],front:1,none:true});
+ eq('Drawing form: company details and prices as fields — top or bottom of the sheet; the price is the order price, as on the Invoice',await t.p.evaluate(()=>{
+  const o=dfOrder();DB.company=Object.assign({},DB.company,{legalName:'Infinity Glass',address1:'200 Shop Rd',city:'Vaughan',province:'ON',postalCode:'L4K 2Z9',phone:'905-555-0100',email:'office@example.com',website:''});
+  dfSave({},t=>{t.parts.foot.blocks.push({id:'co',type:'field',field:'companyLine',place:'center'});t.parts.head.blocks.push({id:'pr',type:'field',field:'linePrice',prefix:'Line total:',place:'right'});});
+  const d=dfDoc(dfSheet(o)),p=finWithOrder(o,()=>salesLineCommercialPrice(o.lines[0],o)),inv=finWithOrder(o,()=>docBuildModel('invoice',o,docDefaultOptions('invoice'))).items[0].amount;
+  return {foot:d.querySelector('.sheet-foot').children[1].textContent,price:[d.querySelector('.sheet-id-o').children[1].textContent===('Line total:'+docMoney(p.line)),docMoney(p.line)===inv],has:!!p.line,
+   fields:drawFormFields().filter(f=>f.g==='Prices'||f.g==='Company').map(f=>f.k)};
+ }),{foot:'Infinity Glass · 200 Shop Rd, Vaughan, ON L4K 2Z9 · 905-555-0100 · office@example.com',price:[true,true],has:true,
+  fields:['unitPrice','linePrice','glassPrice','company','companyLine','companyAddress','companyPhone','companyEmail','companyWebsite','companyHst']});
  eq('Drawing form browser errors',t.errs,[]);await t.c.close();
 };
