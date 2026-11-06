@@ -62,7 +62,7 @@ function drawFormFields(){
  return [f('Order','customer','Customer'),f('Order','po','PO'),f('Order','order','Order Number'),f('Order','date','Date printed'),
   f('Line','line','Line'),f('Line','glass','Glass / Makeup'),f('Line','spec','Makeup spec'),f('Line','qty','Qty'),
   f('Line','finished','Finished size'),f('Line','mass','sq ft · kg'),f('Line','note','Note'),f('Line','tag','Glass tag (batch)'),
-  f('Prices','unitPrice','Unit price'),f('Prices','linePrice','Line total'),f('Prices','glassPrice','Glass, line'),
+  f('Prices','unitPrice','Unit price'),f('Prices','linePrice','Line total'),f('Prices','materialsPrice','Materials'),
   f('Company','company','Company name'),f('Company','companyLine','Company details, one line'),f('Company','companyAddress','Address'),
   f('Company','companyPhone','Phone'),f('Company','companyEmail','Email'),f('Company','companyWebsite','Website'),f('Company','companyHst','HST number')].concat(formMyFields());
 }
