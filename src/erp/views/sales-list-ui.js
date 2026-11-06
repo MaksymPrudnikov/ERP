@@ -404,10 +404,10 @@ function salesInvoicedSet(){
 /* Ячейка Invoice: Invoiced зелёным; Not invoiced — сколько дней заказ
    выдан без счёта, с 3 дней жёлтым; в работе — прочерк. */
 function salesInvoicePill(o,v){
- if(v==='Invoiced')return '<span class="pill ok">Invoiced</span>';
+ if(v==='Invoiced')return '<span class="pill ok sl-inv-pill">Invoiced</span>';
  if(v!=='Not invoiced')return v?`<span class="mut" title="${esc(v)}">—</span>`:'';
  const d=Math.max(0,Math.round((Date.parse(finToday())-Date.parse(finInvoiceDate(o)))/864e5));
- return `<span class="pill${d>=3?' warn':''}" title="Days without invoice">Not invoiced · ${d} d</span>`;
+ return `<span class="pill sl-inv-pill${d>=3?' warn':''}" title="Days without invoice">Not invoiced · ${d} d</span>`;
 }
 function salesQuickOpen(o){return !salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status);}
 function salesQuickTest(key,info){
@@ -696,7 +696,7 @@ function salesListMoveColumnTo(from,to,after){
  const [c]=cols.splice(a,1),b=cols.findIndex(x=>x.k===to);if(b<0){cols.splice(a,0,c);return;}
  cols.splice(after?b+1:b,0,c);salesListSavePrefs();render();
 }
-const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100,invoice:150};
+const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100,invoice:126};
 cwRegister('sales',{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
