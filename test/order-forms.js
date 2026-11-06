@@ -24,7 +24,7 @@ module.exports=async function({page,eq}){
  eq('Order forms: Pin keeps a block in place, Space after pushes the blocks below, a field after a picture starts after it and keeps its right edge, No. stands right before the number',await t.p.evaluate(()=>{
   const blocks=[{id:'logo',type:'image',field:'logo',y:0,w:130,h:40,fit:true},{id:'name',type:'field',field:'name',after:'logo',gap:10,y:10,w:330,h:10,lh:10,size:8,fit:true},
    {id:'lines',type:'field',field:'lines',y:20,w:200,h:10,lh:10,sa:8,size:8},{id:'num',type:'field',field:'num',place:'right',pin:true,y:20,w:200,h:10,lh:10,size:10,bold:true,align:'right'},
-   {id:'no',type:'text',text:'No.',place:'right',pin:true,before:'num',gap:3,y:20,w:40,h:10,lh:10,size:8,align:'right'},{id:'below',type:'text',text:'Below',y:30,w:100,h:10,lh:10,size:8}];
+   {id:'no',type:'text',text:'No.',place:'right',pin:true,before:'num',gap:3,y:20,w:40,h:10,lh:10,size:8,align:'right'},{id:'below',type:'text',text:'Below',y:38,w:100,h:10,lh:10,size:8}];
   const run=(v)=>{const f=formFlow(ofTpl({every:{h:40,blocks}}),ofCtx(v));f.page();const it=s=>f.P.items.find(i=>i.s===s)||{};return {name:it('Glass').x,img:(f.P.items.find(i=>i.t==='img')||{}).w,num:it('7').y,no:Math.round(it('No.').x*100)/100,below:it('Below').y};};
   return {logo:run({logo:ofJpeg,name:'Glass',lines:['a','b','c'],num:'7'}),none:run({logo:'',name:'Glass',lines:['a'],num:'7'}),fit:docFit('W'.repeat(60),8,false,330-(40*3+10)).length<docFit('W'.repeat(60),8,false,330).length,noX:Math.round((576-docTextWidth('7',10,true)-3)*100)/100};
  }),{logo:{name:166,img:120,num:50,no:567.44,below:88},none:{name:36,num:50,no:567.44,below:68},fit:true,noX:567.44});
@@ -33,7 +33,7 @@ module.exports=async function({page,eq}){
   const run=(y,lines,sec)=>{const f=formFlow(tpl,ofCtx({n:lines},{section:k=>sec?{h:20,draw:(P,yy)=>P.rect(36,yy,540,20,{})}:null}));f.page();f.y=y;f.flow('totals');return f.finish().map(P=>P.items.map(i=>i.t==='rect'?'R@'+i.y:i.s+'@'+Math.round(i.y*10)/10).join(' '));};
   return {fits:run(640,['a','b'],true),label:run(677,['a','b'],true),one:run(677,['a'],true),noSec:run(661,['a','b'],false)};
  }),{fits:['R@640 NOTES@673 a@684 b@694'],label:['R@677','NOTES@53 a@64 b@74'],one:['R@677 NOTES@710 a@721'],noSec:['NOTES@674 a@685 b@695']});
- eq('Order forms: Quote and Proforma print from their forms and the sheets are the same as before (one and two pages, every price mode, notes and terms); the other order forms keep the old layout for now',await t.p.evaluate(()=>{
+ eq('Order forms: all five order forms print from their forms and the sheets are the same as before (one and two pages, every price mode, notes and terms)',await t.p.evaluate(()=>{
   const keep=JSON.parse(JSON.stringify(DB.company));DB.company.termsText='Terms. '.repeat(120);DB.company.logo=ofJpeg;
   const out={};
   DOC_FORM_KINDS.forEach(kind=>[1,14].forEach(n=>{const o=ofOrder(n);['full','split','glass','unit','none'].forEach(mode=>{
@@ -42,7 +42,7 @@ module.exports=async function({page,eq}){
   });}));
   const v=Object.values(out);DB.company=keep;
   return {cases:v.length,differ:v.filter(x=>x==='differs').length,many:Math.max(...v)>1,kinds:DOC_FORM_KINDS};
- }),{cases:40,differ:0,many:true,kinds:['quote','proforma']});
+ }),{cases:100,differ:0,many:true,kinds:['quote','proforma','confirmation','invoice','workOrder']});
  eq('Order forms: ✎ Customize ticks come from the form blocks — a removed section takes its ticks away, an added block is a tick of its own; unticked it does not print; Save as default keeps it',await t.p.evaluate(()=>{
   ofOrder(1,'quote');docOpen('quote');docState.panel=true;render();
   const ticks=()=>[...document.querySelectorAll('.doc-panel [data-doc-field]')].map(i=>i.dataset.docField+(i.checked?'':'-'));
@@ -65,6 +65,23 @@ module.exports=async function({page,eq}){
   formsAdd('field');const groups=[...document.querySelectorAll('.fm-groups button')].map(b=>b.textContent);formsModalSet('group','Totals');const total=(document.querySelector('[data-forms-field="total.grand"] em')||{}).textContent;formsModalClose();
   const sheet=document.querySelector('[data-forms-page="0"] svg').textContent;
   return {forms,parts,lines,sec,groups,total:/^\$[\d,]+\.\d\d$/.test(total||''),sheet:/QUOTE/.test(sheet)};
- }),{forms:['Packing slip','Quote','Proforma invoice'],parts:['Page 1 header','Page header','Lines table','After lines','Page footer'],lines:true,sec:{note:true,place:true},groups:['Company','Document','Order','Customer','Totals','My fields','Page'],total:true,sheet:true});
+ }),{forms:['Packing slip','Quote','Proforma invoice','Order confirmation','Invoice','Work order','Receipt','Statement','Purchase order','Trip sheet'],parts:['Page 1 header','Page header','Lines table','After lines','Page footer'],lines:true,sec:{note:true,place:true},groups:['Company','Document','Order','Customer','Totals','My fields','Page'],total:true,sheet:true});
+ eq('Receipt and Statement print from their forms — the same sheets as before (a table over two pages, an empty table, notes and totals)',await t.p.evaluate(()=>{
+  const keep=JSON.parse(JSON.stringify(DB.company));DB.company.logo=ofJpeg;
+  const model=(kind,n)=>{const m=finDocBase(kind==='receipt'?'PAYMENT RECEIPT':'STATEMENT',kind==='receipt'?'Receipt':'Statement','R-7',null);m.kind=kind;if(kind==='statement'){m.numberLabel='Account';m.footerRight='October 2026';}
+   m.meta=[{label:'Date',value:'Oct 9, 2026'},{label:'Currency',value:'CAD'}];m.boxes=[{label:'Received from',title:'Sample Customer',lines:['10 Glass St, Toronto']}];
+   m.sections=[{title:'Orders',empty:'No orders.',cols:[{label:'Order',x:36,w:80,bold:true},{label:'Amount',x:576,w:90,align:'right'}],rows:Array.from({length:n},(x,i)=>({due:i%3===0,cells:['1000'+i,'$'+i+'.00']}))},{title:'Activity',empty:'',cols:[{label:'Date',x:36,w:58}],rows:[]}];
+   m.end={left:[{label:'Note',text:'Thank you. '.repeat(20)}],rows:[{label:'Applied',value:'$1.00'}],grand:{label:'Amount received',value:'$1.00'}};return m;};
+  const out=[];['receipt','statement'].forEach(k=>[0,3,70].forEach(n=>{const m=model(k,n);out.push(ofSer(finDocLayout(m))===ofSer(finDocPages(m))?JSON.parse(ofSer(finDocPages(m))).length:'differs');}));
+  DB.company=keep;return out;
+ }),[1,1,2,1,1,2]);
+ eq('Purchase order, Delivery request and Trip sheet print from their forms: a block added in Forms prints on every page; a PO note too long for the page carries the table heading over, as before',await t.p.evaluate(()=>{
+  const p=purOrderClean({number:'PO-0042',supplierName:'Cardinal',currency:'CAD',date:'2026-11-01',note:'Unload at door 3. '.repeat(400),lines:[{description:'Clear 6mm',qty:2,unit:'block'}]});
+  const add=(form,part,def)=>{const t=def();t.parts[part].blocks.push({id:'stampX',type:'text',text:'CHECKED',place:'right',pin:true,y:2,w:100,h:8,lh:8,size:6,align:'right'});DB.formTemplate=Object.assign({},DB.formTemplate,{[form]:t});};
+  add('purchaseOrder','every',purFormDefault);add('tripSheet','every',deliveryFormDefault);
+  const marks=pages=>pages.map(P=>P.items.filter(i=>i.s==='CHECKED').length),po=purDocPages(p,{}),req=purRequestPages({number:'DR-1',poId:'',lines:[],note:''},{}),trip=deliveryPages('2026-11-06','');
+  const heads=po.slice(1).map(P=>P.items.some(i=>i.s==='DESCRIPTION'));DB.formTemplate={};
+  return {po:[...new Set(marks(po))],pages:po.length>1,heads:[...new Set(heads)],req:marks(req),reqTitle:req[0].items.some(i=>i.s==='DELIVERY REQUEST'),trip:marks(trip),stops:trip[0].items.some(i=>i.s==='No stops')};
+ }),{po:[1],pages:true,heads:[true],req:[1],reqTitle:true,trip:[1],stops:true});
  eq('Order forms browser errors',t.errs,[]);await t.c.close();
 };
