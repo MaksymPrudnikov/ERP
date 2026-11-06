@@ -291,7 +291,9 @@ function salesSheetWeight(line,order,liteIndex){
 function salesSheetWeightText(w){
   if(!w)return '';
   var kg=(w.kg>=10?Math.round(w.kg):w.kg.toFixed(1))+' kg';
-  return w.complete?(w.estimated?'≈ ':'')+kg:kg+' · Partial';
+  /* Владелец 06.11.2026: цеху — примерный вес «≈», без Partial и без «чего
+     нет» (лишнее путает); подробности — офису на экране заказа. */
+  return (w.complete&&!w.estimated?'':'≈ ')+kg;
 }
 /* opts.liteIndex — лист одного стекла ступенчатого юнита: размер, площадь,
    вес и маршрут этого стекла, его строка в составе выделена. opts.step —
@@ -366,7 +368,7 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
         '<div class="sheet-nums">'+
           (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
           (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+
-          (w&&w.missing?'<div class="sheet-mass-note">'+esc(w.missing)+'</div>':'')+
+          
           '<div class="sheet-who">'+
             '<span>LINE</span><b>'+esc(lineText)+'</b>'+
             '<span>NOTE</span><b class="sheet-note">'+esc(note)+'</b>'+

@@ -129,7 +129,7 @@ const SHIPPING_FORM_FIELDS=[
  {k:'shipDate',g:'Packing slip',label:'Date and method',v:d=>docDate(d.date)+' · '+(d.method==='pickup'?'Pickup':'Delivery')},
  {k:'note',g:'Packing slip',label:'Note',v:d=>d.note||''},
  {k:'corrections',g:'Packing slip',label:'Corrections',v:d=>d.corrections||[]},
- {k:'skids',g:'Skids',label:'Skids list',v:d=>d.skids.map(s=>s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg')},
+ {k:'skids',g:'Skids',label:'Skids list',v:d=>d.skids.map(s=>s.code+' · '+shippingCount(s.qty,'unit')+' · '+(s.exact?'':'≈ ')+docNum(s.kg,1)+' kg')},
  {k:'skid',g:'Skids',label:'Skid code',v:()=>''},
  {k:'skidUnits',g:'Skids',label:'Skid units and weight',v:()=>''},
  {k:'skidsProperty',g:'Skids',label:'Skids remain ours',v:d=>d.skids.length?shippingCount(d.skids.length,'skid')+' left on site '+(d.skids.length===1?'remains':'remain')+' property of '+(d.company.name||'the supplier')+'.':''}
@@ -241,7 +241,7 @@ function shippingPages(d,skidOnly,tpl,map){
   f.y+=h;f.P.line(f.left,f.y-6,f.right,f.y-6);
  };
  d.skids.filter(s=>!skidOnly||s.code===skidOnly).forEach(s=>{
-  const pos=places.get(s.code),units=shippingCount(s.qty,'unit')+' · '+(s.exact?'':'Known ')+docNum(s.kg,1)+' kg';
+  const pos=places.get(s.code),units=shippingCount(s.qty,'unit')+' · '+(s.exact?'':'≈ ')+docNum(s.kg,1)+' kg';
   f.page({title:'SKID CONTENTS',barcode:'',skid:s.code,skidUnits:units},'skidTop');
   /* По заказу, внутри — по порядку укладки; заказы — в каком их начали класть. */
   const at=r=>pos?Math.min(...(pos.get(key(r))||[Infinity])):0,groups=[];

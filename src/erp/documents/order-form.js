@@ -25,22 +25,26 @@ const DOC_SECTIONS={meta:'Header cells',boxes:'Addresses',end:'Totals and paymen
 /* Шаблон по умолчанию. Числа — места прежней раскладки (layout.js): y —
    от верха части, у текста — линия букв; поля листа 34 / 36 / 44 / 36. */
 function docFormDefault(kind){
- const C=DOC_COLOR,label=(id,text,y,keep,field)=>({id,type:'text',text,place:'left',y,w:540,h:16,lh:16,lead:13,keep,size:5.8,bold:true,color:C.mut,ls:.6,show:{when:'filled',field}});
+ const wo=kind==='workOrder',C=DOC_COLOR,label=(id,text,y,keep,field)=>({id,type:'text',text,place:'left',y,w:540,h:16,lh:16,lead:13,keep,size:5.8,bold:true,color:C.mut,ls:.6,show:{when:'filled',field}});
  return {form:kind,page:{w:612,h:792,margin:{top:34,right:36,bottom:44,left:36}},parts:{
-  head:{h:134,blocks:[
+  head:{h:wo?152:134,blocks:[
    {id:'logo',type:'image',field:'company.logo',place:'left',y:0,w:130,h:42,fit:true,opt:'company'},
    {id:'company',type:'field',field:'company.name',place:'left',after:'logo',gap:10,y:11,w:330,h:11,lh:11,size:11.5,bold:true,color:C.navy,fit:true,empty:'',opt:'company'},
    {id:'companyLines',type:'field',field:'company.lines',place:'left',after:'logo',gap:10,y:22,w:330,h:18.8,lh:9.4,sa:8,size:7.4,color:C.mut,fit:true,opt:'company'},
    {id:'title',type:'field',field:'title',place:'right',pin:true,y:15,w:300,h:15,lh:15,size:18,bold:true,color:C.navy,align:'right'},
    {id:'number',type:'field',field:'number',place:'right',pin:true,y:30,w:300,h:11,lh:11,size:10.5,bold:true,align:'right'},
    {id:'numberLabel',type:'field',field:'number.label',place:'right',pin:true,before:'number',gap:3,y:30,w:40,h:11,lh:11,size:8,align:'right'},
-   {id:'pageNo',type:'text',text:'Page {page} of {pages}',place:'right',pin:true,y:41,w:150,h:10,lh:10,size:7,color:C.faint,align:'right'},
+  ].concat(wo?[
+   /* Work order (владелец 06.11.2026, вариант G): штрихкод номера под номером. */
+   {id:'barcode',type:'barcode',field:'number',place:'right',pin:true,y:36,w:200,h:20,align:'right'},
+   {id:'pageNo',type:'text',text:'Page {page} of {pages}',place:'right',pin:true,y:64,w:150,h:10,lh:10,size:7,color:C.faint,align:'right'}]:[
+   {id:'pageNo',type:'text',text:'Page {page} of {pages}',place:'right',pin:true,y:41,w:150,h:10,lh:10,size:7,color:C.faint,align:'right'}]).concat([
    /* Оплаченный счёт — отметка PAID рамкой слева от заголовка. */
    {id:'stamp',type:'box',place:'free',pin:true,x:376,y:3,w:92,h:38,color:C.paid,lw:2,r:4,show:{when:'filled',field:'stamp'}},
    {id:'stampText',type:'field',field:'stamp',place:'free',pin:true,x:376,y:25,w:92,h:20,lh:20,size:20,bold:true,color:C.paid,align:'center',ls:2},
    {id:'stampDate',type:'field',field:'stamp.date',place:'free',pin:true,x:376,y:36,w:92,h:9,lh:9,size:7,bold:true,color:C.paid,align:'center'},
-   {id:'meta',type:'section',k:'meta',place:'left',y:56,w:540,h:38},
-   {id:'boxes',type:'section',k:'boxes',place:'left',y:94,w:540,h:40}]},
+   {id:'meta',type:'section',k:'meta',place:'left',y:wo?74:56,w:540,h:38},
+   {id:'boxes',type:'section',k:'boxes',place:'left',y:wo?112:94,w:540,h:40}])},
   every:{h:36,blocks:[
    {id:'company',type:'field',field:'company.name',place:'left',y:10,w:300,h:11,lh:11,size:10.5,bold:true,color:C.navy,fit:true,opt:'company'},
    {id:'docLine',type:'field',field:'header.short',place:'left',y:21,w:330,h:11,lh:11,size:7.4,color:C.mut,fit:true,empty:''},
@@ -57,8 +61,13 @@ function docFormDefault(kind){
    {id:'signature',type:'section',k:'signature',place:'left',y:155.8,w:540,h:84}]},
   bottom:{h:44,blocks:[
    {id:'footLine',type:'line',place:'left',y:7,w:540,h:0,color:C.line,lw:.5},
-   {id:'footLeft',type:'field',field:'footer.left',place:'left',y:16,w:240,h:9,lh:9,size:6.8,color:C.faint,fit:true},
-   {id:'footRight',type:'text',text:(kind==='receipt'?'':'{footer.right} · ')+'Page {page} of {pages}',place:'right',pin:true,y:16,w:400,h:9,lh:9,size:6.8,color:C.faint,align:'right'}]}
+  ].concat(wo?[
+   /* Work order: итоги «до этой страницы» (как у Spiel, но юниты и стёкла
+      раздельно и в кг) и когда напечатан — статус по сканам на этот момент. */
+   {id:'pageTotals',type:'field',field:'page.upto',place:'left',y:16,w:300,h:9,lh:9,size:6.8,bold:true,fit:true},
+   {id:'printed',type:'text',text:'{footer.left} · Printed {printed} · status from station scans at print time',place:'left',y:26,w:340,h:9,lh:9,size:6.2,color:C.faint,fit:true}]:[
+   {id:'footLeft',type:'field',field:'footer.left',place:'left',y:16,w:240,h:9,lh:9,size:6.8,color:C.faint,fit:true}]).concat([
+   {id:'footRight',type:'text',text:(kind==='receipt'?'':'{footer.right} · ')+'Page {page} of {pages}',place:'right',pin:true,y:16,w:400,h:9,lh:9,size:6.8,color:C.faint,align:'right'}])}
  }};
 }
 /* Поля бланка заказа (окно Insert field); m — модель docBuildModel. */
@@ -80,6 +89,7 @@ const DOC_FORM_FIELDS=[
  {k:'terms',g:'Document',label:'Terms and conditions',v:m=>m.terms},
  {k:'footer.left',g:'Document',label:'Footer text',v:m=>m.footerLeft},
  {k:'footer.right',g:'Document',label:'Company and number',v:m=>m.footerRight},
+ {k:'printed',g:'Document',label:'Printed at',v:()=>{const d=new Date();return docDate(d.toISOString().slice(0,10))+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});}},
  {k:'customerPo',g:'Order',label:'Customer PO',v:m=>m.data.customerPo},
  {k:'paymentTerms',g:'Order',label:'Payment terms',v:m=>m.data.terms},
  {k:'currency',g:'Order',label:'Currency',v:m=>m.data.currency},
@@ -98,7 +108,9 @@ const DOC_FORM_FIELDS=[
  {k:'total.hst',g:'Totals',label:'HST',v:m=>m.data.hst},
  {k:'total.grand',g:'Totals',label:'Total',v:m=>m.data.grand},
  {k:'total.paid',g:'Totals',label:'Paid to date',v:m=>m.data.paid},
- {k:'total.balance',g:'Totals',label:'Balance',v:m=>m.data.balance}];
+ {k:'total.balance',g:'Totals',label:'Balance',v:m=>m.data.balance},
+ /* Итоги «до этой страницы» — значение своё у каждого листа (pageFields). */
+ {k:'page.upto',g:'Totals',label:'Up to this page',v:()=>''}];
 /* Квитанция и выписка — без полей заказа (даты, условия, итоги заказа). */
 const DOC_FORM_FIN_FIELDS=['company.name','company.lines','company.logo','title','docName','number','number.label','header.short','footer.left','footer.right','customer'];
 function docFormFields(kind){return formWithCompany(DOC_FORM_FIN.includes(kind)?DOC_FORM_FIELDS.filter(f=>DOC_FORM_FIN_FIELDS.includes(f.k)):DOC_FORM_FIELDS).concat(formMyFields());}
@@ -136,16 +148,24 @@ function docFormPages(m,tpl,map){
  if(!m.items){finDocTable(f,m);f.flow('totals');return f.finish();}
  if(m.items.length||m.extra){
   inTable=true;f.y=docTableHead(f.P,m,f.y);f.top=f.y;
+  /* Work order: на каком листе началась каждая строка — итоги «до этой
+     страницы» внизу листа. */
+  const first=new Map();
   m.items.forEach(it=>{
-   const parts=docItemParts(m,it);
+   const parts=docItemParts(m,it),d=parts[0].draw;parts[0].draw=(P,y)=>{if(!first.has(it.n))first.set(it.n,f.pages.length-1);d(P,y);};
    room(parts.slice(0,3).reduce((s,p)=>s+p.h,0));
    flow(parts,(pg,yy)=>{pg.text(DOC_COL.item,yy+9,'Line '+it.n+(it.mark?' · '+it.mark:'')+' (continued)',{size:7.4,color:DOC_COLOR.mut});return yy+13;});
   });
   if(m.extra){const parts=docExtraParts(m);room(parts.slice(0,2).reduce((s,p)=>s+p.h,0));flow(parts);}
   inTable=false;
+  if(m.lineTotals)f.pageFields=i=>({'page.upto':docPageUpto(m,[...first].filter(([n,p])=>p<=i).map(([n])=>n))});
  }
  f.flow('totals');
  return f.finish();
+}
+function docPageUpto(m,lines){
+ const t={units:0,panels:0,area:0,kg:0};lines.forEach(n=>{const x=m.lineTotals[n-1];if(x)Object.keys(t).forEach(k=>{t[k]+=x[k];});});
+ return 'Up to this page: '+t.units+' units · '+t.panels+' panels · '+docNum(t.area,1)+' ft² · '+docNum(t.kg,0)+' kg';
 }
 /* Листы бланка: из шаблона — у бланков, которые уже перешли, иначе прежней
    раскладкой. */
@@ -153,7 +173,7 @@ function docPages(m){return DOC_FORM_KINDS.includes(m.kind)?docFormPages(m):docL
 /* ✎ Customize: галочки строятся из блоков шаблона. Поле набора видно, если
    в шаблоне есть его блок или секция; строки (Lines, Prices on lines) —
    всегда. */
-const DOC_FORM_OPT_BLOCK={company:'opt',date:'meta',validUntil:'meta',customerPo:'meta',dueDate:'meta',terms:'meta',currency:'meta',priority:'meta',delivery:'meta',accountCode:'meta',taxNumber:'meta',
+const DOC_FORM_OPT_BLOCK={company:'opt',date:'meta',enteredBy:'meta',validUntil:'meta',customerPo:'meta',dueDate:'meta',terms:'meta',currency:'meta',priority:'meta',delivery:'meta',accountCode:'meta',taxNumber:'meta',
  billTo:'boxes',contact:'boxes',shipTo:'boxes',groupTotals:'end',totals:'end',receipts:'end',payment:'end',paymentInstructions:'end',notes:'end notes',orderSummary:'summary',termsText:'terms',signature:'signature'};
 function docFormHas(tpl,k){
  const want=DOC_FORM_OPT_BLOCK[k];if(!want)return true;

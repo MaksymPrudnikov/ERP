@@ -65,6 +65,22 @@ Helvetica, Times и Courier — стандартные шрифты PDF: в фа
   оплаты, валюта), Customer (адреса, контакт), Totals (юниты, площадь, вес, Subtotal, HST, Total, оплачено, остаток),
   My fields.
 
+## Work order: статус по сканам
+
+Work order сам показывает, где каждое стекло: подписи руками не нужны, статус берётся из сканов станций на момент
+печати (внизу листа — «Printed … · status from station scans at print time»).
+
+- В строке стекла (Lite 1, Lite 2, его стекло — 6SOLARGRAY, 6CLEAR…) маршрут по станциям, и каждая фишка — статус:
+  **зелёная с галочкой** — все стёкла прошли; **жёлтая** «IGU 1 · DL-57» — стоят тут сейчас, сколько и на какой долли
+  или скиде («—» — ни на чём; на скиде ещё номер PS, если стекло уже в packing slip); «3/4» — прошла часть; **серая** —
+  ещё не дошли. В конце — Shipping ready (SHIPR) и Ship.
+- Разбитое — «1 broken» красным, под ним строка **Recut N** со своим маршрутом; Recut без стёкол — «Not in a batch yet».
+- В шапке позиции — итог строки: Shipped, Made · waiting to ship, In work.
+- Шапка: штрихкод номера, Required с днём недели, Entered by, в Ship to — контакт и машина рейса.
+- Сводка: IGU units, Single lites, Panels (glass) отдельно, площадь, вес кг и lb. Внизу каждого листа — «Up to this page»:
+  юниты, стёкла, ft² и кг строк до этого листа.
+- ✎ Customize: Status from station scans (снять — маршрут без статуса), Entered by.
+
 ## Receipt, Statement, Purchase order, Trip sheet
 
 - **Receipt** и **Statement** — та же шапка, ячейки, адреса и итоги, что у бланков заказа; таблицу (заказы, движение

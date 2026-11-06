@@ -248,8 +248,9 @@ function formFlow(tpl,ctx,map){
  };
  f.finish=()=>{
   const N=f.pages.length,base=formCtx(ctx,null);
+  /* pageFields(i) — значения полей своего листа (итоги «до этой страницы»). */
   f.pages.forEach((P,i)=>{
-   const own=[],mk=mark('bottom');formDrawPart(P,tpl,tpl.parts.bottom,base,f.bottom,own,mk&&((x,r)=>map.push(Object.assign({page:i,part:'bottom',id:x.b.id},r))));
+   const own=[],mk=mark('bottom');formDrawPart(P,tpl,tpl.parts.bottom,f.pageFields?formCtx(base,f.pageFields(i)):base,f.bottom,own,mk&&((x,r)=>map.push(Object.assign({page:i,part:'bottom',id:x.b.id},r))));
    own.forEach(x=>{x.page=i+1;});late.push(...own);
   });
   late.forEach(x=>{

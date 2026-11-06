@@ -31,8 +31,9 @@ const DOC_WIDTHS36={
 const DOC_WIN_HIGH={128:0x20AC,130:0x201A,131:0x192,132:0x201E,133:0x2026,134:0x2020,135:0x2021,136:0x2C6,137:0x2030,138:0x160,139:0x2039,140:0x152,142:0x17D,145:0x2018,146:0x2019,147:0x201C,148:0x201D,149:0x2022,150:0x2013,151:0x2014,152:0x2DC,153:0x2122,154:0x161,155:0x203A,156:0x153,158:0x17E,159:0x178};
 const DOC_UNICODE_TO_WIN=(()=>{const m={};Object.keys(DOC_WIN_HIGH).forEach(k=>{m[DOC_WIN_HIGH[k]]=+k;});return m;})();
 /* Знаки, которых в шрифте PDF нет, заменяются близкими — дюйм программа пишет
-   двойным штрихом ″, а на бланке он становится обычной кавычкой. */
-const DOC_TEXT_SUBST={'″':'"','′':"'",'→':'->','←':'<-','≤':'<=','≥':'>=','−':'-',' ':' ',' ':' ',' ':' ','✓':'v','\t':' '};
+   двойным штрихом ″, а на бланке он становится обычной кавычкой; примерный вес
+   «≈ 80 kg» печатается «~ 80 kg» (раньше выходил «?»). */
+const DOC_TEXT_SUBST={'≈':'~','″':'"','′':"'",'→':'->','←':'<-','≤':'<=','≥':'>=','−':'-',' ':' ',' ':' ',' ':' ','✓':'v','\t':' '};
 let docWidthTable=null;
 function docWidths(){
  if(!docWidthTable){const dec=s=>{const a=[];for(let i=0;i<s.length;i+=2)a.push(parseInt(s.slice(i,i+2),36));return a;},W=DOC_WIDTHS36,mono=new Array(224).fill(600);
@@ -265,6 +266,7 @@ function docDrawingPart(d){
  }};
 }
 function docRoutePart(l){
+ if(l.scanned||l.pending)return docRouteStatusPart(l);
  const C=DOC_COLOR,chips=[];let cx=DOC_COL.chips,row=0;
  l.chips.forEach(ch=>{
   const w=5+docTextWidth(ch.code,6.8,true)+(ch.text?3+docTextWidth(ch.text,7.2):0)+5;
@@ -282,6 +284,40 @@ function docRoutePart(l){
    P.text(c.x+5,cy+8.3,c.ch.code,{size:6.8,bold:true});
    if(c.ch.text)P.text(c.x+5+docTextWidth(c.ch.code,6.8,true)+3,cy+8.3,c.ch.text,{size:7.2});
    const next=chips[i+1];if(next&&next.row===c.row)P.text(c.x+c.w+5,cy+8.3,'›',{size:8,color:C.faint,align:'center'});
+  });
+ }};
+}
+/* Маршрут со статусом по сканам (Work order, вариант G владельца 06.11.2026):
+   фишка — зелёная с галочкой (все прошли), жёлтая со «сколько · тара» (стоят
+   тут сейчас), «3/4» (часть прошла), серая (не дошли); «1 broken» красным;
+   строка Recut — красной подписью. */
+const DOC_SCAN={green:'#1d7a46',greenBg:'#e8f4ec',amber:'#b54708',amberBg:'#fff4e5'};
+function docRouteStatusPart(l){
+ const C=DOC_COLOR,S=DOC_SCAN,chips=[];let cx=DOC_COL.chips,row=0;
+ if(l.pending)return {h:16,draw(P,y){P.text(DOC_COL.desc,y+11,l.label,{size:7.8,bold:true,color:C.due});P.text(DOC_COL.chips,y+11,docFit(l.pending,7.2,false,DOC_COL.amount-DOC_COL.chips),{size:7.2,color:C.due});}};
+ const put=w=>{if(cx+w>DOC_COL.amount&&cx>DOC_COL.chips){row++;cx=DOC_COL.chips;}const at={x:cx,row};cx+=w+10;return at;};
+ l.chips.forEach(ch=>{
+  const w=5+(ch.done?10:ch.tag?docTextWidth(ch.tag,6.8,true)+4:0)+docTextWidth(ch.code,6.8,true)+(ch.text?3+docTextWidth(ch.text,7.2):0)+(ch.here?6+docTextWidth(ch.here,7,true):0)+5;
+  chips.push(Object.assign({ch,w},put(w)));
+ });
+ if(l.broken){const t=l.broken+' broken';chips.push(Object.assign({broken:t,w:docTextWidth(t,7,true)},put(docTextWidth(t,7,true))));}
+ const h=4+(row+1)*14;
+ return {h,draw(P,y){
+  P.text(DOC_COL.desc,y+11,l.label,{size:7.8,bold:true,color:l.recut?C.due:C.ink});
+  const gx=DOC_COL.desc+docTextWidth(l.label,7.8,true)+5;
+  if(l.glass)P.text(gx,y+11,docFit(l.glass,7,false,DOC_COL.chips-gx-4),{size:7,color:C.mut});
+  chips.forEach((c,i)=>{
+   const cy=y+3+c.row*14,ch=c.ch;
+   if(c.broken){P.text(c.x,cy+8.3,c.broken,{size:7,bold:true,color:C.due});return;}
+   const seen=ch.done||ch.here||ch.tag;
+   P.rect(c.x,cy,c.w,11.5,{stroke:ch.here?S.amber:ch.done?S.green:C.chip,fill:ch.here?S.amberBg:ch.done?S.greenBg:'',lw:ch.here?.9:.6,r:2.5});
+   let tx=c.x+5;
+   if(ch.done){P.poly([[tx,cy+5.6],[tx+2.4,cy+8.2],[tx+6.6,cy+3]],{stroke:S.green,lw:1.3,closed:false});tx+=10;}
+   else if(ch.tag){P.text(tx,cy+8.3,ch.tag,{size:6.8,bold:true,color:S.amber});tx+=docTextWidth(ch.tag,6.8,true)+4;}
+   P.text(tx,cy+8.3,ch.code,{size:6.8,bold:true,color:seen?C.ink:C.faint});tx+=docTextWidth(ch.code,6.8,true);
+   if(ch.text){P.text(tx+3,cy+8.3,ch.text,{size:7.2,color:seen?C.ink:C.faint});tx+=3+docTextWidth(ch.text,7.2);}
+   if(ch.here)P.text(tx+6,cy+8.3,ch.here,{size:7,bold:true,color:S.amber});
+   const next=chips[i+1];if(next&&next.row===c.row&&!next.broken)P.text(c.x+c.w+5,cy+8.3,'›',{size:8,color:C.faint,align:'center'});
   });
  }};
 }
