@@ -1585,6 +1585,8 @@ table.cw-fixed tr[data-picked] td>select:has(+.line-locked-pill){width:calc(100%
 .fin-summary b{font-variant-numeric:tabular-nums}
 .fin-over{color:var(--danger)}
 .fin-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.fin-due-now{gap:8px;align-items:center}
+.fin-due-picks{display:flex;flex-wrap:wrap;gap:4px 14px;margin:2px 0 8px;font-size:12px}
 .fin-modal{width:min(560px,96vw)}
 .fin-modal-body{padding:16px}
 .sales-editor-top .fin-strip{margin-left:auto;margin-right:12px}
@@ -1630,7 +1632,7 @@ table.cw-fixed tr[data-picked] td>select:has(+.line-locked-pill){width:calc(100%
 @media(max-width:900px){.fin-workspace-head{align-items:flex-start;flex-wrap:wrap}.fin-stat{min-width:0;flex:1}.fin-event-diff{padding:0 0 12px;grid-template-columns:1fr}.fin-event-time{max-width:120px}.fin-account-head .row{flex-wrap:wrap}.fin-account-totals{gap:16px}}
 /* Телефон: четыре плитки в одну строку не помещаются — по две, кнопка ниже. */
 @media(max-width:650px){.fin-overview{flex-basis:100%}.fin-stat{flex:1 1 130px}}
-.fin-form>.fin-form-actions{position:sticky;bottom:0;background:var(--surface);padding:12px 0;border-top:1px solid var(--line);z-index:1}
+.fin-form>.fin-form-actions{position:sticky;bottom:46px;background:var(--surface);padding:12px 0;border-top:1px solid var(--line);z-index:1}
 /* Таблицы Finance на движке Sales (views/finance-lists) */
 .fin-card .sl-quiet.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}
 .fin-list td.fin-actions,.fin-list th.fin-actions{text-align:right;width:1%}
@@ -4261,7 +4263,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='9c8a44db0b2b';
+var ERP_BUILD='e5d57bd98fb1';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -15405,6 +15407,8 @@ const DOC_PRICE_MODES=[
 const DOC_ALL=['workOrder','proforma','confirmation','invoice','quote'],DOC_SALE=['proforma','confirmation','invoice','quote'],DOC_ORDER_SALE=['proforma','confirmation','invoice'],DOC_SHOP=['workOrder'];
 const DOC_FIELDS=[
  {k:'company',g:'Header',label:'Company logo and details',kinds:DOC_ALL,on:DOC_ALL},
+ /* Строка итогов на первой странице после клиента (владелец 06.11.2026). */
+ {k:'totalsTop',g:'Header',label:'Totals strip',hint:'total, credits, balance, qty, weight, ft²',kinds:DOC_ORDER_SALE,on:DOC_ORDER_SALE},
  {k:'date',g:'Header',label:'Date',kinds:DOC_ALL,on:DOC_ALL,as:{invoice:'Invoice date'}},
  {k:'validUntil',g:'Header',label:'Valid until',kinds:['quote'],on:['quote']},
  {k:'customerPo',g:'Header',label:'Customer PO',kinds:DOC_ALL,on:DOC_ALL},
@@ -15427,7 +15431,8 @@ const DOC_FIELDS=[
  {k:'shapeDrawing',g:'Lines',label:'Shape drawing',hint:'small drawing next to shaped lines',kinds:DOC_ALL,on:[]},
  {k:'billableArea',g:'Lines',label:'Billable area',kinds:DOC_SALE,on:DOC_SALE},
  {k:'actualArea',g:'Lines',label:'Actual area',kinds:DOC_ALL,on:DOC_SHOP},
- {k:'weight',g:'Lines',label:'Weight per unit / per line',kinds:DOC_ALL,on:DOC_SHOP},
+ {k:'weight',g:'Lines',label:'Weight per unit / per line',kinds:DOC_ALL,on:DOC_SHOP.concat(DOC_ORDER_SALE)},
+ {k:'weightLb',g:'Lines',label:'Weight in lb',hint:'some customers ask',kinds:DOC_SALE,on:[]},
  {k:'route',g:'Production',label:'Route by station',kinds:DOC_SHOP,on:DOC_SHOP},
  {k:'scanStatus',g:'Production',label:'Status from station scans',hint:'where each glass is now',kinds:DOC_SHOP,on:DOC_SHOP},
  {k:'cutSize',g:'Production',label:'Cut size at CUT',kinds:DOC_SHOP,on:DOC_SHOP},
@@ -15438,7 +15443,7 @@ const DOC_FIELDS=[
  {k:'extraItems',g:'Bottom',label:'Additional items',kinds:DOC_ALL,on:DOC_ALL},
  {k:'groupTotals',g:'Bottom',label:'Totals by group',hint:'glass / services / surcharges',kinds:DOC_SALE,on:[]},
  {k:'totals',g:'Bottom',label:'Subtotal · ES · HST · Total',kinds:DOC_SALE,on:DOC_SALE},
- {k:'receipts',g:'Bottom',label:'Receipts and balance',hint:'paid to date and balance due, when paid',kinds:DOC_ORDER_SALE,on:DOC_ORDER_SALE},
+ {k:'receipts',g:'Bottom',label:'Payments and balance',hint:'each payment, credits total, balance',kinds:DOC_ORDER_SALE,on:DOC_ORDER_SALE},
  {k:'orderSummary',g:'Bottom',label:'Order summary',hint:'units, ft², kg',kinds:DOC_ALL,on:DOC_SHOP},
  {k:'payment',g:'Bottom',label:'Deposit or credit terms',kinds:DOC_SALE,on:DOC_SALE,as:{invoice:'Amount due and due date'}},
  {k:'paymentInstructions',g:'Bottom',label:'Payment instructions',kinds:DOC_ORDER_SALE,on:['proforma','invoice']},
@@ -16966,7 +16971,7 @@ const PUR_FORM_FIELDS=[
  {k:'supplier.method',g:'Supplier',label:'Payment method',v:d=>(d.p.supplier||{}).paymentMethod}];
 function purFormFields(){return formWithCompany(PUR_FORM_FIELDS).concat(formMyFields());}
 function purFormContext(d){const by=new Map(purFormFields().map(x=>[x.k,x]));return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},off:b=>!!b.opt&&!d.opt[b.opt]};}
-function purFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.purchaseOrder,purFormDefault());}
+function purFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate[formUseKey('purchaseOrder')],purFormDefault());}
 function purDocPages(p,raw,title,tpl,map){
  const opt=purDocOptions(raw),W=DOC_PAGE,C=DOC_COLOR,cols=purDocColumns(p,opt);let tableOn=false;
  tpl=tpl||purFormTemplate();const f=formFlow(tpl,purFormContext({p,opt,title}),map);
@@ -24030,7 +24035,7 @@ function docSaleItem(model,line,index,order){
  const bits=[];
  if(opts.billableArea&&a.valid)bits.push('Billable '+docNum(a.billable,1)+' ft²'+(q>1?' × '+q+' = '+areaAll:''));
  /* Галочка Weight per unit / per line предлагается и бланкам продаж (пункт 14). */
- if(opts.weight)bits.push('Weight '+docUnitWeightText(salesLineWeight(line,order),'kg per unit'));
+ if(opts.weight)bits.push('Weight '+docLineWeightText(salesLineWeight(line,order),q,opts));
  if(opts.perFt2&&['split','glass','unit'].includes(mode)&&!p.missingMaterials&&a.valid)bits.push('glass '+docMoney(p.materialRate)+'/ft²');
  if(bits.length)it.sub.push({text:bits.join(' · ')});
  docItemDetails(it,opts,line,m,order);
@@ -24090,6 +24095,25 @@ function docItemDetails(it,opts,line,m,order){
 /* Владелец 06.11.2026: вес на бумаге всегда; клиенту и цеху — примерный «≈»,
    без Partial и без «что не учтено» (лишнее путает); Partial — только офису на
    экранах. */
+/* Вес на бланке продаж: кг, галочка Weight in lb — фунты; неполный — «≈»
+   (на бумаге «~»). */
+function docWeightText(kg,opts,approx,dec){const lb=opts&&opts.weightLb,v=lb?kg*2.20462:kg,d=dec!=null?dec:v<10?1:0;return (approx?'≈ ':'')+docNum(v,d)+(lb?' lb':' kg');}
+/* Вес строки: штука × количество = строка (владелец 06.11.2026: «вес
+   каждого и потом сумма»). */
+function docLineWeightText(w,q,opts){
+ const kg=w.complete?w.kg:w.knownKg>0?w.knownKg:null;if(kg==null)return '—';
+ const approx=!w.complete||!!w.estimated,one=docWeightText(kg,opts,approx,1);
+ return q>1?one+' × '+q+' = '+docWeightText(kg*q,opts,approx,1):one;
+}
+/* Оплаты заказа — каждая своей строкой (бухгалтер 06.11.2026: не одной
+   суммой). До дня счёта — Deposit, с него — Payment. */
+function docOrderCredits(order,billed){
+ if(typeof finActiveReceipts!=='function')return [];
+ const cur=finCurrency(order);
+ return finActiveReceipts().filter(r=>finCurrency(r)===cur).map(r=>({r,a:finMoney((r.allocations||[]).filter(x=>x.orderId===order.id).reduce((s,x)=>s+x.amount,0))})).filter(x=>x.a>0)
+  .sort((a,b)=>String(a.r.date).localeCompare(String(b.r.date))||String(a.r.number).localeCompare(String(b.r.number),undefined,{numeric:true}))
+  .map(x=>({label:(billed&&x.r.date>=billed?'Payment':'Deposit')+' · '+x.r.number+' · '+docDate(x.r.date),amount:x.a}));
+}
 function docUnitWeightText(w,unit){
  return w.complete?(w.estimated?'≈ ':'')+docNum(w.kg,1)+' '+unit:w.knownKg>0?'≈ '+docNum(w.knownKg,1)+' '+unit:'— kg';
 }
@@ -24284,7 +24308,9 @@ function docBuildModel(kind,order,opts){
   let paid=null;
   if(opts.receipts&&rows&&got.paid>0){
    const rest=salesMoney(t.grand-got.paid);
-   paid=[{label:'Paid to date · '+got.receipts+' receipt'+(got.receipts>1?'s':''),value:docMoney(got.paid)},{label:review?'Review required':rest>0?'Balance due':rest<0?'Overpaid':'Paid in full',value:t.complete?docMoney(review?rest:Math.abs(rest)):'—',tone:rest>0?'due':''}];
+   paid=docOrderCredits(order,billed).map(c=>({label:c.label,value:'−'+docMoney(c.amount)})).concat([{label:'Credits total',value:'−'+docMoney(got.paid)}]);
+   /* Счёт: остаток — в рамке «Balance · this order» ниже. */
+   if(!invoice||!opts.payment||review)paid.push({label:review?'Review required':rest>0?'Balance due':rest<0?'Overpaid':'Paid in full',value:t.complete?docMoney(review?rest:Math.abs(rest)):'—',tone:rest>0?'due':''});
   }
   /* Счёт: к оплате — остаток и срок; оплачено полностью — отметка PAID
      (владелец: «у нас маленький штамп, но если будет PAID на бумаге — топ»). */
@@ -24293,7 +24319,7 @@ function docBuildModel(kind,order,opts){
   if(review&&opts.payment)deposit=[{label:'Review required',value:money(t.grand),strong:true}];
   else if(invoice&&opts.payment){
    deposit=rest!=null&&rest<=0?[{label:'Paid in full · thank you',value:docMoney(0),strong:true}]
-    :[{label:payDue&&terms.paymentMode==='credit'?'Payment due '+docDate(payDue)+' · '+paymentTermsLabel(terms):'Due on receipt',value:money(rest),strong:true}];
+    :[{label:'Balance · this order',value:money(rest),strong:true}];
   }else if(opts.payment){
    const pct=paymentDepositPercent(terms);
    if(terms.paymentMode==='credit')deposit=[{label:'Payment terms · '+paymentTermsLabel(terms),value:money(t.grand),strong:true},{label:terms.creditDays!=null?'Due within '+terms.creditDays+' days of invoice · no deposit':'On credit · no deposit',value:''}];
@@ -24305,7 +24331,12 @@ function docBuildModel(kind,order,opts){
    else deposit=[{label:'Payment due on completion',value:money(t.grand),strong:true}];
   }
   if(left.length||rows||deposit)model.end={left,rows,grand,paid,deposit,missing:t.complete?'':t.missing+(t.missing>1?' items need pricing':' item needs pricing')};
-  if(opts.termsText&&company.termsText)model.terms=company.termsText;
+  /* Бланки заказа с ценами: условия и GST/HST — внизу слева, рядом с итогами
+     (владелец 06.11.2026, как у Spiel). */
+  if(DOC_ORDER_SALE.includes(kind)&&model.end){
+   if(opts.termsText&&company.termsText)model.end.left.push({label:'Terms and conditions',text:company.termsText});
+   if(opts.totals&&company.hstNumber)model.end.left.push({label:'GST/HST No.',text:company.hstNumber});
+  }else if(opts.termsText&&company.termsText)model.terms=company.termsText;
   const depositFirst=terms.paymentMode==='cash'&&paymentDepositPercent(terms)>0;
  if(opts.signature)model.signature=kind==='quote'
   ?'Prices are valid until '+docDate(salesQuoteValidUntil(order))+'. To accept, reply to the email or sign and return this quote. Production starts after the order is confirmed'+(depositFirst?' and the deposit is received.':'.')
@@ -24326,6 +24357,12 @@ function docBuildModel(kind,order,opts){
   model.summary=kind==='workOrder'?docShopSummary(order,w,weightText):[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:weightText},{label:'Due date',value:docDate(order.dueDate)||'—'}];
 
  }
+ /* Строка итогов на первой странице: сколько к оплате видно сразу. */
+ if(sale&&opts.totalsTop&&DOC_ORDER_SALE.includes(kind)){
+  const st=salesOrderCommercialTotals(order),pd=typeof finOrderPaid==='function'?finOrderPaid(order.id).paid:0,cash=v=>st.complete?docMoney(v):'—';
+  model.strip=[{label:'Total '+order.currency,value:cash(st.grand)}].concat(pd>0?[{label:'Credits',value:'−'+docMoney(pd)}]:[],
+   [{label:'Balance due',value:cash(salesMoney(st.grand-pd))},{label:'Quantity',value:String(units)},{label:'Weight',value:w.kg==null?'—':docWeightText(w.kg,opts,w.estimated||!w.complete)},{label:'Area',value:docNum(area,0)+' ft²'}]);
+ }
  model.footerRight=[company.legalName,docName+' '+number].filter(Boolean).join(' · ');
  if(kind==='workOrder')model.lineTotals=(order.lines||[]).map(l=>docLineTotals(l,order));
  /* Значения полей для конструктора форм (окно Insert field): дни —
@@ -24339,6 +24376,8 @@ function docBuildModel(kind,order,opts){
   account:C&&C.code||'',billTo:C?docAddressText(customerAddressByType(C,'billing')):'',contact:pc?[pc.name,pc.phone,pc.email].filter(Boolean).join(' · '):'',
   shipTo:went?[went.title||model.customerName,went.text].filter(Boolean):order.delivery==='delivery'?[(ship&&ship.addressee)||model.customerName,docAddressText(ship)].filter(Boolean):['Customer pickup'],
   units:String(units),area:docNum(area,1)+' ft²',weight:weightText,lines:String((order.lines||[]).length),
+  weightLb:w.kg==null?'':docWeightText(w.kg,{weightLb:true},w.estimated||!w.complete),credits:tt&&paid>0?'−'+docMoney(paid):'',
+  creditLines:sale?docOrderCredits(order,billed).map(c=>c.label+' · '+docMoney(c.amount)):[],
   subtotal:tt?cash(tt.subtotal):'',hst:tt&&tt.charges.hst.enabled?cash(tt.hst):'',grand:tt?cash(tt.grand):'',paid:tt&&paid>0?cash(paid):'',balance:tt?cash(salesMoney(tt.grand-paid)):''};
  return model;
 }
@@ -25209,6 +25248,9 @@ function formCleanBlock(b){
  if(o.y===undefined)o.y=0;
  return o;
 }
+/* Своя форма вместо бланка (Data → Forms → New form, Use for printing):
+   печать любого бланка берёт её шаблон. */
+function formUseKey(base){const c=(Array.isArray(DB.formCustom)?DB.formCustom:[]).find(f=>f&&f.base===base&&f.use);return c&&DB.formTemplate&&DB.formTemplate[c.k]?c.k:base;}
 function formClean(src,def){
  if(!src||typeof src!=='object'||!src.parts||typeof src.parts!=='object')return def;
  const m=Object.assign({},def.page.margin),sm=src.page&&src.page.margin||{};
@@ -25253,14 +25295,14 @@ const DOC_FORM_KINDS=['quote','proforma','confirmation','invoice','workOrder'];
    таблицы рисует finDocTable. */
 const DOC_FORM_FIN=['receipt','statement'];
 function docFormLabel(k){return {receipt:'Receipt',statement:'Statement'}[k]||docKindLabel(k);}
-const DOC_SECTIONS={meta:'Header cells',boxes:'Addresses',end:'Totals and payment',summary:'Order summary',signature:'Customer approval'};
+const DOC_SECTIONS={strip:'Totals strip',meta:'Header cells',boxes:'Addresses',end:'Totals and payment',summary:'Order summary',signature:'Customer approval'};
 
 /* Шаблон по умолчанию. Числа — места прежней раскладки (layout.js): y —
    от верха части, у текста — линия букв; поля листа 34 / 36 / 44 / 36. */
 function docFormDefault(kind){
- const wo=kind==='workOrder',C=DOC_COLOR,label=(id,text,y,keep,field)=>({id,type:'text',text,place:'left',y,w:540,h:16,lh:16,lead:13,keep,size:5.8,bold:true,color:C.mut,ls:.6,show:{when:'filled',field}});
+ const wo=kind==='workOrder',strip=DOC_ORDER_SALE.includes(kind),C=DOC_COLOR,label=(id,text,y,keep,field)=>({id,type:'text',text,place:'left',y,w:540,h:16,lh:16,lead:13,keep,size:5.8,bold:true,color:C.mut,ls:.6,show:{when:'filled',field}});
  return {form:kind,page:{w:612,h:792,margin:{top:34,right:36,bottom:44,left:36}},parts:{
-  head:{h:wo?152:134,blocks:[
+  head:{h:wo?152:strip?176:134,blocks:[
    {id:'logo',type:'image',field:'company.logo',place:'left',y:0,w:130,h:42,fit:true,opt:'company'},
    {id:'company',type:'field',field:'company.name',place:'left',after:'logo',gap:10,y:11,w:330,h:11,lh:11,size:11.5,bold:true,color:C.navy,fit:true,empty:'',opt:'company'},
    {id:'companyLines',type:'field',field:'company.lines',place:'left',after:'logo',gap:10,y:22,w:330,h:18.8,lh:9.4,sa:8,size:7.4,color:C.mut,fit:true,opt:'company'},
@@ -25277,7 +25319,10 @@ function docFormDefault(kind){
    {id:'stampText',type:'field',field:'stamp',place:'free',pin:true,x:376,y:25,w:92,h:20,lh:20,size:20,bold:true,color:C.paid,align:'center',ls:2},
    {id:'stampDate',type:'field',field:'stamp.date',place:'free',pin:true,x:376,y:36,w:92,h:9,lh:9,size:7,bold:true,color:C.paid,align:'center'},
    {id:'meta',type:'section',k:'meta',place:'left',y:wo?74:56,w:540,h:38},
-   {id:'boxes',type:'section',k:'boxes',place:'left',y:wo?112:94,w:540,h:40}])},
+   {id:'boxes',type:'section',k:'boxes',place:'left',y:wo?112:94,w:540,h:40}]).concat(strip?[
+   /* Строка итогов под адресами (владелец 06.11.2026): адреса выросли —
+      она ниже. */
+   {id:'strip',type:'section',k:'strip',place:'left',y:134,w:540,h:32,sa:10}]:[])},
   every:{h:36,blocks:[
    {id:'company',type:'field',field:'company.name',place:'left',y:10,w:300,h:11,lh:11,size:10.5,bold:true,color:C.navy,fit:true,opt:'company'},
    {id:'docLine',type:'field',field:'header.short',place:'left',y:21,w:330,h:11,lh:11,size:7.4,color:C.mut,fit:true,empty:''},
@@ -25337,10 +25382,13 @@ const DOC_FORM_FIELDS=[
  {k:'total.lines',g:'Totals',label:'Lines',v:m=>m.data.lines},
  {k:'total.area',g:'Totals',label:'Total area',v:m=>m.data.area},
  {k:'total.weight',g:'Totals',label:'Total weight',v:m=>m.data.weight},
+ {k:'total.weight.lb',g:'Totals',label:'Total weight, lb',v:m=>m.data.weightLb},
  {k:'total.subtotal',g:'Totals',label:'Subtotal',v:m=>m.data.subtotal},
  {k:'total.hst',g:'Totals',label:'HST',v:m=>m.data.hst},
  {k:'total.grand',g:'Totals',label:'Total',v:m=>m.data.grand},
  {k:'total.paid',g:'Totals',label:'Paid to date',v:m=>m.data.paid},
+ {k:'total.credits',g:'Totals',label:'Credits',v:m=>m.data.credits},
+ {k:'credits',g:'Totals',label:'Payments, one per line',v:m=>m.data.creditLines},
  {k:'total.balance',g:'Totals',label:'Balance',v:m=>m.data.balance},
  /* Итоги «до этой страницы» — значение своё у каждого листа (pageFields). */
  {k:'page.upto',g:'Totals',label:'Up to this page',v:()=>''}];
@@ -25355,8 +25403,9 @@ function docFormAdded(kind,tpl){
 }
 function docFormContext(m,tpl){
  if(!m.data)m=Object.assign({},m,{data:{}});
- const opts=m.opts||{company:true},by=new Map(docFormFields(m.kind).map(x=>[x.k,x])),added=new Set(docFormAdded(m.kind,tpl||docFormTemplate(m.kind)).map(x=>x.b.id)),cache=new Map();
+ const opts=m.opts||{company:true},by=new Map(docFormFields(m.kind).map(x=>[x.k,x])),added=new Set(docFormAdded(m.kind,tpl||docFormTemplate(m.kind,m.form)).map(x=>x.b.id)),cache=new Map();
  const sec={
+  strip:()=>m.strip&&m.strip.length?{h:32,draw(P,y){docCells(P,m.strip,y,32,10.5);}}:null,
   meta:()=>m.meta.length?{h:38,draw(P,y){docCells(P,m.meta,y,28,7.8);}}:null,
   boxes:()=>{if(!m.boxes.length)return null;const L=docBoxesLay(m.boxes);return {h:L.h+12,draw:L.draw};},
   end:()=>m.end?docEndBlock(m):null,
@@ -25368,11 +25417,22 @@ function docFormContext(m,tpl){
      свой блок — b:<id>. */
   off:b=>b.opt?!opts[b.opt]:added.has(b.id)&&opts['b:'+b.id]===false};
 }
-function docFormTemplate(kind){return formClean(DB.formTemplate&&DB.formTemplate[kind],docFormDefault(kind));}
+function docFormTemplate(kind,form){const c=form&&docCustomForm(form);return formClean(DB.formTemplate&&DB.formTemplate[c&&c.base===kind?c.k:DOC_FORM_FIN.includes(kind)?formUseKey(kind):kind],docFormDefault(kind));}
+/* Свои формы (06.11.2026): новая форма с нуля или копией бланка заказа.
+   DB.formCustom — {k, name, base}; шаблон — DB.formTemplate[k]; данные и
+   ✎ Customize — бланка base, печать — из окна бланков заказа рядом с ним. */
+function docCustomForms(){return (Array.isArray(DB.formCustom)?DB.formCustom:[]).filter(f=>f&&DOC_FORM_KINDS.includes(f.base));}
+function docCustomForm(k){return docCustomForms().find(f=>f.k===k)||null;}
+/* С нуля: лист без блоков, строки заказа остаются (их рисует код). */
+function docFormBlank(kind){
+ const t=JSON.parse(JSON.stringify(docFormDefault(kind)));
+ Object.keys(t.parts).forEach(k=>{const p=t.parts[k];if(p.blocks){p.blocks=[];if(k!=='bottom')p.h=0;}});
+ return t;
+}
 /* Строки заказа рисуются как раньше (docItemParts): лист кончается только
    между частями строки, шапка таблицы повторяется на каждом листе. */
 function docFormPages(m,tpl,map){
- tpl=tpl||docFormTemplate(m.kind);
+ tpl=tpl||docFormTemplate(m.kind,m.form);
  const f=formFlow(tpl,docFormContext(m,tpl),map);let inTable=false;
  const start=()=>{f.page();if(inTable){f.y=docTableHead(f.P,m,f.y);f.top=f.y;}};
  const fits=h=>f.y+h<=f.bottom,room=h=>{if(!fits(h)&&f.y>f.top+1)start();};
@@ -25406,7 +25466,7 @@ function docPages(m){return DOC_FORM_KINDS.includes(m.kind)?docFormPages(m):docL
 /* ✎ Customize: галочки строятся из блоков шаблона. Поле набора видно, если
    в шаблоне есть его блок или секция; строки (Lines, Prices on lines) —
    всегда. */
-const DOC_FORM_OPT_BLOCK={company:'opt',date:'meta',enteredBy:'meta',validUntil:'meta',customerPo:'meta',dueDate:'meta',terms:'meta',currency:'meta',priority:'meta',delivery:'meta',accountCode:'meta',taxNumber:'meta',
+const DOC_FORM_OPT_BLOCK={company:'opt',totalsTop:'strip',date:'meta',enteredBy:'meta',validUntil:'meta',customerPo:'meta',dueDate:'meta',terms:'meta',currency:'meta',priority:'meta',delivery:'meta',accountCode:'meta',taxNumber:'meta',
  billTo:'boxes',contact:'boxes',shipTo:'boxes',groupTotals:'end',totals:'end',receipts:'end',payment:'end',paymentInstructions:'end',notes:'end notes',orderSummary:'summary',termsText:'terms',signature:'signature'};
 function docFormHas(tpl,k){
  const want=DOC_FORM_OPT_BLOCK[k];if(!want)return true;
@@ -25535,7 +25595,7 @@ let drawFormPreview=null,drawSheetLastFields={};
 function drawFormTpl(o){
  if(drawFormPreview)return drawFormPreview.tpl;
  const f=drawFrozenOf(o===undefined?(typeof soDraft!=='undefined'?soDraft:null):o);if(f)return f.tpl;
- return formClean(DB.formTemplate&&DB.formTemplate.drawing,drawFormDefault());
+ return formClean(DB.formTemplate&&DB.formTemplate[formUseKey('drawing')],drawFormDefault());
 }
 /* ----------------------- Вид на день архивации ----------------------- */
 /* Владелец, 06.11.2026: «в заказе, который заархивирован, чертёж не
@@ -25546,7 +25606,7 @@ function drawFormTpl(o){
    Вернули в работу (archiveReturn) — снова нынешний вид. */
 DEFAULT.drawingFrozen={};
 function drawFrozenKeep(){
- const v={tpl:formClean(DB.formTemplate&&DB.formTemplate.drawing,drawFormDefault()),company:JSON.parse(JSON.stringify(DB.company||{}))};
+ const v={tpl:formClean(DB.formTemplate&&DB.formTemplate[formUseKey('drawing')],drawFormDefault()),company:JSON.parse(JSON.stringify(DB.company||{}))};
  const key='D'+sha256Hex(JSON.stringify(v)).slice(0,16),all=DB.drawingFrozen&&typeof DB.drawingFrozen==='object'?DB.drawingFrozen:{};
  if(!all[key])DB.drawingFrozen=Object.assign({},all,{[key]:v});
  return key;
@@ -25812,7 +25872,7 @@ function carrierFormFields(){
   f('Order','customer','Customer (one order)'),f('Order','order','Order Number (one order)'),f('Order','customerPo','PO (one order)')].concat(formCompanyFields(),formMyFields());
 }
 let carrierFormPreview=null;
-function carrierFormTpl(){return carrierFormPreview?carrierFormPreview.tpl:formClean(DB.formTemplate&&DB.formTemplate.carrierSheet,carrierFormDefault());}
+function carrierFormTpl(){return carrierFormPreview?carrierFormPreview.tpl:formClean(DB.formTemplate&&DB.formTemplate[formUseKey('carrierSheet')],carrierFormDefault());}
 function carrierFormStyle(tpl){
  const s=Object.assign({},carrierFormDefault().style,(tpl||carrierFormTpl()).style||{}),o={};
  CS_LOOK.forEach(([k])=>{o[k]=/^#[0-9a-f]{6}$/i.test(s[k]||'')?String(s[k]).toLowerCase():'';});
@@ -25910,7 +25970,7 @@ function carrierLabelFields(){
   .concat(formCompanyFields(),formMyFields());
 }
 let carrierLabelPreview=null;
-function carrierLabelTpl(){return carrierLabelPreview?carrierLabelPreview.tpl:formClean(DB.formTemplate&&DB.formTemplate.carrierLabel,carrierLabelDefault());}
+function carrierLabelTpl(){return carrierLabelPreview?carrierLabelPreview.tpl:formClean(DB.formTemplate&&DB.formTemplate[formUseKey('carrierLabel')],carrierLabelDefault());}
 function carrierLabelCtx(code){
  const t=carrierType(code)||{label:''},fields={code,type:String(t.label||'').toUpperCase(),typeName:t.label||'',date:new Date().toISOString().slice(0,10)};
  formCompanyFields().concat(formMyFields()).forEach(f=>{fields[f.k]=f.v;});
@@ -25986,7 +26046,7 @@ function finDocLayout(m){
   cur=sec;head();
   sec.rows.forEach(r=>{
    const h=15;if(y+h>W.bottom)start();
-   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;P.text(c.x,y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
+   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;P.text(c.x,y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.hi||r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
    P.line(W.left,y+h,W.right,y+h,{stroke:C.line,lw:.5});y+=h;
   });
   if(!sec.rows.length&&sec.empty){P.text(W.left,y+12,sec.empty,{size:7.8,color:C.mut});y+=18;}
@@ -26017,7 +26077,7 @@ function finDocTable(f,m){
   cur=sec;head();
   sec.rows.forEach(r=>{
    const h=15;if(f.y+h>f.bottom)start();
-   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;f.P.text(c.x,f.y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
+   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;f.P.text(c.x,f.y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.hi||r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
    f.P.line(W.left,f.y+h,W.right,f.y+h,{stroke:C.line,lw:.5});f.y+=h;
   });
   if(!sec.rows.length&&sec.empty){f.P.text(W.left,f.y+12,sec.empty,{size:7.8,color:C.mut});f.y+=18;}
@@ -26080,8 +26140,13 @@ function finStatementOrders(customerId,from,to,today){
 }
 /* Выписка за период — клиенту раз в месяц для его учёта: какие заказы и на
    сколько, что он заплатил, остаток на начало и на конец периода. */
-function finStatementDoc(customerId,from,to,today){const m=finStatementModel(customerId,from,to,today);return m?finDocPages(m):[];}
-function finStatementModel(customerId,from,to,today){
+function finStatementDoc(customerId,from,to,today,due,activity){const m=finStatementModel(customerId,from,to,today,due,activity);return m?finDocPages(m):[];}
+/* Due now (владелец 06.11.2026): бухгалтер выбирает, что выставить к оплате —
+   счета до даты (неделя, понедельник…) и галочки по одному; выделены
+   жёлтым, их сумма — Due now, остальное — Current. Было — в Excel руками. */
+function finStatementDueOpen(x){return !x.archived&&!!x.billed&&x.f.b.status!=='review'&&x.f.b.balance>0;}
+function finStatementDuePick(x,due){if(!due||!finStatementDueOpen(x))return false;const p=due.pick&&due.pick[x.o.id];return p!=null?!!p:!!due.by&&x.billed<=due.by;}
+function finStatementModel(customerId,from,to,today,due,activity){
  const c=salesFindCustomer(customerId);if(!c)return null;
  const day=today||finToday(),money=docMoney,company=DB.company||{},d=finStatementData(c.id,from,to);
  const m=finDocBase('STATEMENT','Statement',c.code||'—',c);m.numberLabel='Account';m.kind='statement';
@@ -26090,11 +26155,13 @@ function finStatementModel(customerId,from,to,today){
  m.boxes=[{label:'Bill to',title:m.customerName||'—',lines:[finDocAddress(c)].filter(Boolean)}];
  const orders=finStatementOrders(c.id,from,to,day);
  m.sections=[
-  {title:'Orders',empty:'No orders in this period.',cols:[{label:'Order',x:36,w:58,bold:true},{label:'Customer PO',x:98,w:96},{label:'Picked up',x:198,w:64},{label:'Due',x:266,w:100,due:true},{label:'Total',x:430,w:62,align:'right'},{label:'Paid',x:504,w:62,align:'right'},{label:'Balance',x:576,w:62,align:'right',bold:true,due:true}],
-   rows:orders.map(({o,f,billed})=>({due:f.overdue>0,mut:!billed,cells:[o.businessNumber,o.customerPo||'—',billed?docDate(billed):'In work',f.b.status==='review'?'Review required':finDueText(f)+(f.overdue?' · overdue':''),money(f.b.total),money(f.b.paid),money(f.b.status==='review'?f.b.balance:Math.max(0,f.b.balance))]}))},
-  {title:'Account activity',empty:'',cols:[{label:'Date',x:36,w:58},{label:'Document',x:98,w:52,bold:true},{label:'Description',x:154,w:204},{label:'Charges',x:418,w:58,align:'right'},{label:'Payments',x:494,w:58,align:'right'},{label:'Balance',x:576,w:66,align:'right',bold:true}],
+  /* Счета как в таблице Spiel (владелец 06.11.2026): каждый один раз;
+     выбранные к оплате (Due now) — красным, сроки — в итогах внизу. */
+  {title:'Invoices',empty:'No invoices in this period.',cols:[{label:'Invoice No',x:36,w:70,bold:true},{label:'Date',x:112,w:74},{label:'Reference',x:192,w:220},{label:'Amount',x:486,w:80,align:'right'},{label:'Balance',x:576,w:80,align:'right',bold:true}],
+   rows:orders.map((x,i)=>({hi:finStatementDuePick(x,due),mut:!x.billed,cells:[x.o.businessNumber,x.billed?docDate(x.billed):'In work',x.o.customerPo||'—',money(x.f.b.total),x.f.b.status==='review'?'Review required':finSigned(x.f.b.balance)]}))},
+  activity&&{title:'Account activity',empty:'',cols:[{label:'Date',x:36,w:58},{label:'Document',x:98,w:52,bold:true},{label:'Description',x:154,w:204},{label:'Charges',x:418,w:58,align:'right'},{label:'Payments',x:494,w:58,align:'right'},{label:'Balance',x:576,w:66,align:'right',bold:true}],
    rows:[{mut:true,cells:[from?docDate(from):'','','Balance forward','','',finSigned(d.opening)]}].concat(d.rows.map(l=>({due:l.overdue,cells:[docDate(l.date),l.doc,l.text,l.charge?money(l.charge):'',l.payment?money(l.payment):'',finSigned(l.balance)]})))}
- ];
+ ].filter(Boolean);
  const left=[];if(company.paymentInstructions)left.push({label:'Payment',text:company.paymentInstructions});
  const review=orders.some(x=>x.f.b.status==='review');
  if(review)left.push({label:'Review required',text:'Negative order totals need review. Please contact us to resolve them.'});
@@ -26102,6 +26169,14 @@ function finStatementModel(customerId,from,to,today){
  const rows=[{label:'Balance forward',value:finSigned(d.opening)},{label:'Orders billed',value:money(d.billed)},{label:'Payments received',value:d.paid>0?'-'+money(d.paid):money(0)}];
  if(d.refunded>0)rows.push({label:'Refunds',value:money(d.refunded)});
  m.end={left,rows,grand:review&&d.closing<0?{label:'Review required',value:finSigned(d.closing)}:d.closing>=0?{label:'Balance due',value:money(d.closing)}:{label:'Credit balance',value:money(-d.closing)},paid:d.overdue>0?[{label:'Overdue now',value:money(d.overdue),tone:'due'}]:null};
+ /* Итоги по срокам (как у Spiel, вместе — весь долг по счетам): просрочка
+    90+ и 60+ дней; Due now — выбранное бухгалтером (без выбора — уже
+    просроченное); Current — остальное. */
+ const open=orders.filter(finStatementDueOpen),late=x=>x.f.dueOn&&x.f.dueOn<day?Math.floor((Date.parse(day)-Date.parse(x.f.dueOn))/864e5):0,sum=l=>money(finMoney(l.reduce((s,x)=>s+x.f.b.balance,0)));
+ if(open.length){
+  const o90=open.filter(x=>late(x)>=90),o60=open.filter(x=>late(x)>=60&&late(x)<90),young=open.filter(x=>late(x)<60),chosen=!!due,now=young.filter(x=>chosen?finStatementDuePick(x,due):late(x)>0);
+  m.summary=[{label:'Overdue 90+ days',value:sum(o90)},{label:'Overdue 60+ days',value:sum(o60)},{label:'Due now',value:sum(now)},{label:'Current',value:sum(young.filter(x=>!now.includes(x)))}];
+ }
  m.footerRight=finPeriodText(from,to);
  return m;
 }
@@ -33436,7 +33511,13 @@ let docState=null,docLastKind='proforma';
 /* Квота печатается только бланком Quote, заказ — тремя бланками заказа. У
    квоты с ревизиями галочками выбирается, какие ревизии печатать и слать. */
 /* Invoice — только когда клиент получил последний юнит (finInvoiceDate). */
-function docKindsFor(o){return DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote'&&(d.k!=='invoice'||!!finInvoiceDate(o)));}
+function docKindsFor(o){
+ const list=DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote'&&(d.k!=='invoice'||!!finInvoiceDate(o))),ks=new Set(list.map(d=>d.k));
+ /* Свои формы (Data → Forms → New form) — рядом со своим бланком. */
+ return list.concat(docCustomForms().filter(f=>ks.has(f.base)).map(f=>({k:f.k,label:f.name,base:f.base})));
+}
+/* Вкладка окна → бланк (данные, ✎ Customize) и своя форма, если она. */
+function docKindForm(k){const c=docCustomForm(k);return c?{kind:c.base,form:c.k}:{kind:k,form:''};}
 /* Чертежи строк — не бланк, а своя вкладка окна (владелец, 26–27.09.2026):
    лист текущей строки крупно, лента мини-листов, печать — этот лист или все.
    focus — строка, с которой открыть окно (клик по форме строки в батче). */
@@ -33445,13 +33526,15 @@ function docOpen(kind,focus){
  const kinds=docKindsFor(soDraft).map(d=>d.k),q=salesIsQuote(soDraft);
  kind=kind==='drawings'||kinds.includes(kind)?kind:q?'quote':kinds.includes(docLastKind)?docLastKind:kinds[0];
  const cur=q?salesQuoteCurrentId():null;
- docState={kind,opts:kind==='drawings'?{}:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur,focus:focus||'',current:focus||'',drawings:null};
+ const kf=docKindForm(kind);kind=kf.kind;
+ docState={kind,form:kf.form,opts:kind==='drawings'?{}:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur,focus:focus||'',current:focus||'',drawings:null};
  render();
 }
 function docClose(){docState=null;render();}
 function docSetKind(kind){
  if(!docState||!soDraft||!(kind==='drawings'||docKindsFor(soDraft).some(d=>d.k===kind)))return;
  if(kind!=='quote'&&kind!=='drawings')docLastKind=kind;
+ const kf=docKindForm(kind);kind=kf.kind;docState.form=kf.form;
  docState.kind=kind;docState.opts=kind==='drawings'?{}:docDefaultOptions(kind);docState.status='';if(kind==='drawings')docState.panel=false;render();
 }
 function docTogglePanel(){if(!docState)return;docState.panel=!docState.panel;render();}
@@ -33480,8 +33563,9 @@ function docToggleRev(id,on){
  docState.revs=[...s];docState.status='';render();
 }
 function docCurrentPages(){
- if(docState.kind!=='quote')return docPages(docBuildModel(docState.kind,soDraft,docState.opts));
- return docQuoteRecords().flatMap(r=>finWithOrder(r,()=>docPages(docBuildModel('quote',r,docState.opts))));
+ const form=docState.form||'';
+ if(docState.kind!=='quote')return docPages(Object.assign(docBuildModel(docState.kind,soDraft,docState.opts),{form}));
+ return docQuoteRecords().flatMap(r=>finWithOrder(r,()=>docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form}))));
 }
 function docRevisionPicker(){
  if(!docState||docState.kind!=='quote')return '';
@@ -33505,7 +33589,7 @@ function docModal(){
  let pages=[],error='';
  if(!drawings)try{pages=docCurrentPages();}catch(e){error=e&&e.message||String(e);console.error(e);}
  const warn=docWarnings(),status=docState.status?'<span>'+esc(docState.status)+'</span>':'';
- const kinds=docKindsFor(soDraft).map(d=>`<button type="button" class="${d.k===docState.kind?'on':''}" onclick="docSetKind('${d.k}')">${d.label}</button>`).join('')+`<button type="button" class="${drawings?'on':''}" data-doc-kind="drawings" onclick="docSetKind('drawings')">Drawings</button>`;
+ const kinds=docKindsFor(soDraft).map(d=>`<button type="button" class="${d.k===(docState.form||docState.kind)?'on':''}" onclick="docSetKind('${esc(d.k)}')">${esc(d.label)}</button>`).join('')+`<button type="button" class="${drawings?'on':''}" data-doc-kind="drawings" onclick="docSetKind('drawings')">Drawings</button>`;
  const tools=drawings?docDrawingTools(items):`<button type="button" class="doc-pen${docState.panel?' on':''}" aria-pressed="${docState.panel}" onclick="docTogglePanel()">✎ Customize</button>`;
  const body=drawings?docDrawingsBody(items):`<div class="doc-pages">${error?`<div class="err" style="display:block">${esc(error)}</div>`:pages.map(pg=>`<div class="doc-sheet">${docPageSVG(pg)}</div>`).join('')}</div>`;
  return `<div class="doc-back" onclick="if(event.target===this)docClose()"><div class="doc-window" role="dialog" aria-modal="true" aria-label="Documents">
@@ -33600,7 +33684,7 @@ function docDrawingsPrint(which){
  if(printSheet(sheets,'',salesSheetFitDrawing)&&soDraft&&typeof orderLogAdd==='function')orderLogAdd(soDraft.id,'Printed','Drawings'+(sheets.length>1?' · '+sheets.length:''));
 }
 function docPanel(){
- const kind=docState.kind,o=docState.opts,groups=[],tpl=DOC_FORM_KINDS.includes(kind)?docFormTemplate(kind):null;
+ const kind=docState.kind,o=docState.opts,groups=[],tpl=DOC_FORM_KINDS.includes(kind)?docFormTemplate(kind,docState.form):null;
  /* Бланк на шаблоне формы: галочки — из его блоков; свой блок — своя
     галочка (по умолчанию стоит). */
  docFieldsFor(kind).filter(f=>!tpl||docFormHas(tpl,f.k)).concat(tpl?docFormAdded(kind,tpl).map(x=>({k:'b:'+x.b.id,g:'Added blocks',label:docFormBlockLabel(x.b),on:true})):[]).forEach(f=>{let g=groups.find(x=>x.name===f.g);if(!g){g={name:f.g,fields:[]};groups.push(g);}g.fields.push(f);});
@@ -33721,7 +33805,7 @@ function docEmailQuote(){
  if(before!==cur)ids=ids.filter(id=>id!==before).concat(cur);
  if(!ids.length)ids=[cur];
  const recs=ids.map(id=>DB.salesOrder.find(o=>o.id===id)).sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0)),files=[];
- try{recs.forEach(r=>{const pages=finWithOrder(r,()=>docPages(docBuildModel('quote',r,docState.opts)));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
+ try{recs.forEach(r=>{const pages=finWithOrder(r,()=>docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form:docState.form||''})));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
  catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
  const C=salesFindCustomer(recs[0].customerId),to=C?(C.invoiceEmail||customerPrimaryContact(C).email||''):'';
  const url=docGmailUrl(to,docQuoteEmailSubject(recs),docQuoteEmailBody(recs));
@@ -34115,7 +34199,7 @@ function finPreviewPages(){
  if(p.kind==='receipt')return finReceiptDoc(p.id);
  if(p.kind==='statement'){
   if(finPeriodError(p))return [];
-  const pages=finStatementDoc(p.id,p.from,p.to);if(!p.invoices)return pages;
+  const pages=finStatementDoc(p.id,p.from,p.to,undefined,finStatementDue(p),!!p.activity);if(!p.invoices)return pages;
   const key=p.id+'|'+p.from+'|'+p.to;if(p.invoiceKey!==key){p.invoiceKey=key;p.invoicePages=null;setTimeout(()=>finStatementInvoiceBuild(p,key),0);}
   /* Пока счета собираются, Print и Email PDF ждут — иначе ушла бы одна выписка. */
   return p.invoicePages?pages.concat(p.invoicePages):[];
@@ -34141,13 +34225,23 @@ function finPreviewInfo(){
 }
 function finStatementControls(p){
  const err=finPeriodError(p),skipped=err?[]:finStatementData(p.id,p.from,p.to).skipped;
- return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<label class="chk fin-statement-invoices" title="Invoices for the period after the statement"><input type="checkbox" data-statement-invoices ${p.invoices?'checked':''} onchange="finStatementInvoices(this.checked)"> Invoices</label><span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>
+ return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<label class="chk" title="Every charge and payment by date"><input type="checkbox" data-statement-activity ${p.activity?'checked':''} onchange="finPreview.activity=this.checked;render()"> Account activity</label><label class="chk fin-statement-invoices" title="Invoices for the period after the statement"><input type="checkbox" data-statement-invoices ${p.invoices?'checked':''} onchange="finStatementInvoices(this.checked)"> Invoices</label><span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>${err?'':finStatementDueHTML(p)}
  ${err?`<p role="alert" class="fin-due fin-preview-note">${esc(err)}</p>`:''}${skipped.length?`<p class="fin-hint fin-preview-note">Not priced, left out: ${esc(skipped.map(o=>o.businessNumber).join(', '))}</p>`:''}${p.invoices&&!err?`<p class="fin-hint fin-preview-note" data-statement-invoices-note>${p.invoicePages?p.invoiceCount?p.invoiceCount+' invoice'+(p.invoiceCount===1?'':'s')+' after the statement':'No invoices in this period':'Preparing invoices…'}</p>`:''}`;
 }
 /* Счета за период к выписке (владелец, 22.10.2026: «выслать клиенту все
    инвойсы, информацию за год»): Invoice каждого заказа, выданного в
    периоде, — после выписки, одним PDF. Ушедшие в архив читаются с диска на
    время сборки (archiveWith). */
+/* Due now: до даты и галочки по счёту (finStatementDuePick). */
+function finStatementDue(p){return p&&(p.dueBy||Object.keys(p.duePick||{}).length)?{by:p.dueBy||'',pick:p.duePick||{}}:null;}
+function finStatementDueBy(v){const p=finPreview;if(!p)return;p.dueBy=v||'';p.duePick={};p.status='';render();}
+function finStatementDueToggle(id,on){const p=finPreview;if(!p)return;p.duePick=Object.assign({},p.duePick,{[id]:!!on});render();}
+function finLastWeekday(wd){const d=new Date(finToday()+'T12:00:00');while(d.getDay()!==wd)d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);}
+function finStatementDueHTML(p){
+ const due=finStatementDue(p),open=finStatementOrders(p.id,p.from,p.to).filter(finStatementDueOpen);if(!open.length)return '';
+ const picks=due?`<div class="fin-due-picks" data-statement-due-picks>${open.map(x=>`<label class="chk"><input type="checkbox" data-statement-due-pick="${esc(x.o.id)}" ${finStatementDuePick(x,due)?'checked':''} onchange="finStatementDueToggle('${esc(x.o.id)}',this.checked)"> ${esc(x.o.businessNumber)} · ${esc(docDate(x.billed))} · ${esc(docMoney(x.f.b.balance))}</label>`).join('')}</div>`:'';
+ return `<div class="sales-toolbar fin-preview-period fin-due-now"><b>Due now</b><label class="chk">up to <input type="date" data-statement-due value="${esc(p.dueBy||'')}" onchange="finStatementDueBy(this.value)"></label><button type="button" onclick="finStatementDueBy(finLastWeekday(1))">Last Monday</button><button type="button" onclick="finStatementDueBy(finLastWeekday(5))">Last Friday</button><button type="button" onclick="finStatementDueBy(finToday())">Today</button>${due?'<button type="button" onclick="finStatementDueBy(\'\')">Clear</button>':''}</div>${picks}`;
+}
 function finStatementInvoices(on){const p=finPreview;if(!p)return;p.invoices=!!on;p.status='';render();}
 async function finStatementInvoiceBuild(p,key){
  const inPeriod=d=>!!d&&(!p.from||d>=p.from)&&(!p.to||d<=p.to),list=finStatementOrders(p.id,p.from,p.to).filter(x=>inPeriod(x.billed)),old=list.filter(x=>x.archived).map(x=>x.o.id);
@@ -35413,6 +35507,9 @@ const SALES_LIST_COLUMNS=[
  {k:'total',label:'Total',type:'number',def:true,sum:true,money:true},
  {k:'receipts',label:'Receipts',type:'number',def:true,sum:true,money:true},
  {k:'balance',label:'Balance',type:'number',def:true,sum:true,money:true},
+ /* Счёт (владелец 06.11.2026): Invoiced — бухгалтер напечатал или отправил
+    Invoice клиенту (журнал заказа); Not invoiced — всё выдано, счёта не было. */
+ {k:'invoice',label:'Invoice',type:'list'},
  {k:'hold',label:'On Hold',type:'list'},
  {k:'delivery',label:'Delivery',type:'list'},
  {k:'rep',label:'Sales rep',type:'text'},
@@ -35505,7 +35602,7 @@ function salesListCleanPrefs(p){
  if(tab==='purchasing'&&p.purchasingDateInitialized!==true&&typeof purListDefaults==='function')Object.entries(purListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
  const calc={},src2=p.calc&&typeof p.calc==='object'&&!Array.isArray(p.calc)?p.calc:{};
  Object.keys(src2).forEach(k=>{const c=salesListColumn(k);if(c&&salesListCalcOptions(c).some(x=>x[0]===src2[k]))calc[k]=src2[k];});
- const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,statusHidden:p.statusHidden===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all',calc,pinned:(Array.isArray(p.pinned)?p.pinned:[]).filter(k=>salesListColumn(k)),frozen:(Array.isArray(p.frozen)?p.frozen:[]).filter(k=>salesListColumn(k))};
+ const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,statusHidden:p.statusHidden===true,quick:SALES_QUICK_ALL.some(q=>q[0]===p.quick)?p.quick:'all',calc,pinned:(Array.isArray(p.pinned)?p.pinned:[]).filter(k=>salesListColumn(k)),frozen:(Array.isArray(p.frozen)?p.frozen:[]).filter(k=>salesListColumn(k))};
  if(tab==='inventory'&&p.inventoryDateInitialized!==true&&typeof invListDefaults==='function')Object.entries(invListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
  if(tab==='purchasing')clean.purchasingDateInitialized=true;
  if(salesListCwId()){const w=cwClean(p.widths);if(Object.keys(w).length)clean.widths=w;}
@@ -35638,6 +35735,7 @@ function salesListValue(info,k){
   case 'rep':v=c.salesRep||'';break;
   case 'createdBy':{const e=orderCreatedBy(o.id);v=e?e.by:'';break;}
   case 'terms':v=finTermsFor(o).paymentMode==='credit'?'Credit':'Cash';break;
+  case 'invoice':v=q||!finInvoiceDate(o)?'':salesInvoicedSet().has(o.id)?'Invoiced':'Not invoiced';break;
   case 'lines':v=lines.length;break;
   /* Пункт 14: известный вес всегда, неполный — с Partial (salesListWeightCell);
      число — для сортировки и фильтра, признак — в memo. */
@@ -35752,19 +35850,30 @@ function salesListRows(infos,skip){
    Выданные, закрытые и отменённые заказы в сроки и «внимание» не попадают —
    с ними уже ничего делать не нужно. */
 const SALES_QUICK=[['all','All'],['today','Today'],['week','Due this week'],['attention','Needs attention']];
+/* Только в Sales: заказы, которым пора выставить счёт. */
+const SALES_QUICK_ALL=SALES_QUICK.concat([['invoice','Not invoiced']]);
+/* Заказы, чей Invoice напечатан или отправлен (журнал заказа). */
+let salesInvoicedCache=null;
+function salesInvoicedSet(){
+ const ev=Array.isArray(DB.orderEvent)?DB.orderEvent:[];
+ if(salesInvoicedCache&&salesInvoicedCache.ev===ev&&salesInvoicedCache.n===ev.length)return salesInvoicedCache.s;
+ const s=new Map();ev.forEach(e=>{if(e&&(e.what==='Printed'||e.what==='Emailed')&&e.note==='Invoice'){const d=String(e.at||'').slice(0,10);if(!s.has(e.orderId)||d<s.get(e.orderId))s.set(e.orderId,d);}});
+ salesInvoicedCache={ev,n:ev.length,s};return s;
+}
 function salesQuickOpen(o){return !salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status);}
 function salesQuickTest(key,info){
  if(key==='all'||info.n)return key==='all';
+ if(key==='invoice')return salesListValue(info,'invoice')==='Not invoiced';
  const o=info.o,today=salesListDay(new Date()),week=salesListPresetRange('thisWeek'),due=o.dueDate||'';
  if(!salesQuickOpen(o))return false;
  if(key==='today')return due===today;
  if(key==='week')return !!due&&due>=today&&due<=week[1];
  return !!o.onHold||(o.lines||[]).some(l=>l.onHold)||(!!due&&due<today);
 }
-function salesQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK.some(q=>q[0]===key)?key:'all';salesListSel=new Set();salesListSavePrefs();render();}
+function salesQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK_ALL.some(q=>q[0]===key)?key:'all';salesListSel=new Set();salesListSavePrefs();render();}
 function salesQuickHTML(rows,anyDate,options){
  const cur=options&&options.cur||salesListLoadPrefs().quick||'all',test=options&&options.test||salesQuickTest,set=options&&options.set||'salesQuickSet',name=options&&options.name||(x=>x);
- return `<div class="sl-quick" role="tablist" aria-label="Quick views">${SALES_QUICK.map(([k,label])=>{const n=(k==='all'?rows:anyDate).filter(r=>test(k,r)).length;
+ return `<div class="sl-quick" role="tablist" aria-label="Quick views">${(options&&options.invoice?SALES_QUICK_ALL:SALES_QUICK).map(([k,label])=>{const n=(k==='all'?rows:anyDate).filter(r=>test(k,r)).length;if(k==='invoice'&&!n&&cur!=='invoice')return '';
   return `<button type="button" role="tab" class="sl-quick-pill${k===cur?' on':''}${k==='attention'&&n?' warn':''}" aria-selected="${k===cur}" data-quick="${k}" onclick="${set}('${k}')">${name(label)}${k==='all'||n?`<b>${n}</b>`:''}</button>`;}).join('')}</div>`;
 }
 /* В очереди флажок Glass — конкретное стекло из каталога, даже если оно
@@ -35917,7 +36026,7 @@ function salesListView(){
  },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
  const wide=window.innerWidth>=1600,dateBtn=salesListDateButton(),chips=salesStatusChips(shown);salesListChipsNow=chips;
- return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -36037,7 +36146,7 @@ function salesListMoveColumnTo(from,to,after){
  const [c]=cols.splice(a,1),b=cols.findIndex(x=>x.k===to);if(b<0){cols.splice(a,0,c);return;}
  cols.splice(after?b+1:b,0,c);salesListSavePrefs();render();
 }
-const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100};
+const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100,invoice:96};
 cwRegister('sales',{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
@@ -44678,11 +44787,13 @@ DEFAULT.formTemplate={};
 /* Версии (окно Versions, вариант В 05.11.2026): каждое Save — строка
    {id, form, at, by, note, tpl}; на форму хранятся последние FORMS_VERSIONS. */
 DEFAULT.formVersion=[];
+/* Свои формы (New form): {k, name, base} — erp/documents/order-form. */
+DEFAULT.formCustom=[];
 const FORMS_VERSIONS=20;
 /* Формы на шаблоне. Остальные бланки переходят сюда по одному, после
    сверки «печатает то же». */
 function formsDefs(){
- return [{k:'packingSlip',label:'Packing slip',def:shippingFormDefault,fields:()=>shippingFormFields(),
+ const list=[{k:'packingSlip',label:'Packing slip',def:shippingFormDefault,fields:()=>shippingFormFields(),
   samples:()=>(DB.shipment||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(s=>({id:s.id,label:s.number+' · '+salesCustomerDisplay(s.customerId)})),
   doc:id=>{const s=id&&shippingFind(id);if(s)try{return shippingDocument(s);}catch(e){}return shippingFormSample();},
   context:d=>shippingFormContext(d),
@@ -44691,10 +44802,7 @@ function formsDefs(){
   pages:(tpl,d,map)=>shippingPages(d,null,tpl,map)}]
  /* Бланки заказа (erp/documents/order-form): живой лист — заказ с набором
     галочек ✎ Customize по умолчанию. */
- .concat(DOC_FORM_KINDS.map(k=>({k,label:docKindLabel(k),custom:true,def:()=>docFormDefault(k),fields:()=>docFormFields(),
-  parts:{head:['Page 1 header','page 1'],every:['Page header','page 2 on'],table:['Lines table','grows'],totals:['After lines','totals, notes']},
-  samples:()=>docFormSamples(k),doc:id=>docFormSample(k,id),context:m=>docFormContext(m),columns:{},
-  pages:(tpl,m,map)=>docFormPages(m,tpl,map)})))
+ .concat(DOC_FORM_KINDS.map(formsOrderDef))
  .concat(DOC_FORM_FIN.map(k=>({k,label:docFormLabel(k),def:()=>docFormDefault(k),fields:()=>docFormFields(k),
   parts:{head:['Page 1 header','page 1'],every:['Page header','page 2 on'],table:['Table','grows'],totals:['After table','totals']},
   samples:()=>docFormFinSamples(k),doc:id=>docFormFinSample(k,id),context:m=>docFormContext(m),columns:{},
@@ -44725,13 +44833,26 @@ function formsDefs(){
   /* Наклейка тары 4 × 6 (erp/documents/carrier-form): живой лист — наклейка. */
   {k:'carrierLabel',label:'Dolly / Skid label',def:carrierLabelDefault,fields:()=>carrierLabelFields(),add:['text','field','image','barcode'],sheetClass:tpl=>'fm-lsheet'+(carrierLabelSize(tpl)==='3x4'?' cl-small':''),
   parts:{label:['Label 4 × 6','portrait'],small:['Label 3 × 4','landscape']},samples:()=>carrierLabelSamples(),doc:id=>id,context:id=>carrierLabelCtx(id&&id!=='sample'?id:'SA-10'),columns:{},
-  html:(tpl,id,view)=>carrierLabelSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),pageOf:tpl=>carrierLabelPage(tpl),panel:(part,tpl)=>carrierLabelPanelHTML(part,tpl)}]);
+  html:(tpl,id,view)=>carrierLabelSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),pageOf:tpl=>carrierLabelPage(tpl),panel:(part,tpl)=>carrierLabelPanelHTML(part,tpl)}])
+ /* Свои формы — в конце строки форм; данные и печать — бланка base. */
+;
+ /* Свои формы — в конце строки форм; данные и печать — бланка base. */
+ return list.concat((Array.isArray(DB.formCustom)?DB.formCustom:[]).map(f=>{const d=f&&list.find(x=>x.k===f.base);return d&&Object.assign({},d,{k:f.k,label:f.name,base:f.base,use:!!f.use});}).filter(Boolean));
+}
+function formsOrderDef(k){
+ return {k,label:docKindLabel(k),custom:true,def:()=>docFormDefault(k),fields:()=>docFormFields(),
+  parts:{head:['Page 1 header','page 1'],every:['Page header','page 2 on'],table:['Lines table','grows'],totals:['After lines','totals, notes']},
+  samples:()=>docFormSamples(k),doc:id=>docFormSample(k,id),context:m=>docFormContext(m),columns:{},
+  pages:(tpl,m,map)=>docFormPages(m,tpl,map)};
 }
 function formsPartLabel(k){const d=formsDef(formsState().form);return (d.parts&&d.parts[k])||FORMS_PARTS[k]||[k,''];}
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
 function formsSaved(k){const def=formsDef(k);return formClean(DB.formTemplate&&DB.formTemplate[k],def.def());}
 function normalizeFormTemplates(){
  if(typeof normalizeDrawingFrozen==='function')normalizeDrawingFrozen();
+ const seen=new Set(),bases=formsDefs().filter(d=>!d.base).map(d=>d.k);
+ DB.formCustom=(Array.isArray(DB.formCustom)?DB.formCustom:[]).filter(f=>f&&typeof f.k==='string'&&/^my-[a-z0-9]{4,24}$/.test(f.k)&&!seen.has(f.k)&&seen.add(f.k)&&bases.includes(f.base)&&typeof f.name==='string'&&f.name.trim())
+  .map(f=>Object.assign({k:f.k,name:f.name.trim().slice(0,40),base:f.base},f.use&&!DOC_FORM_KINDS.includes(f.base)?{use:true}:{}));
  const src=DB.formTemplate&&typeof DB.formTemplate==='object'&&!Array.isArray(DB.formTemplate)?DB.formTemplate:{},out={},defs=formsDefs();
  defs.forEach(d=>{if(src[d.k])out[d.k]=formClean(src[d.k],d.def());});
  DB.formTemplate=out;
@@ -44740,6 +44861,7 @@ function normalizeFormTemplates(){
  DB.formVersion=defs.flatMap(d=>rows.filter(v=>v.form===d.k).slice(-FORMS_VERSIONS).map(v=>({id:v.id,form:v.form,at:v.at,by:str(v.by),note:str(v.note),tpl:formClean(v.tpl,d.def())})));
 }
 function validateFormTemplatePayload(src){
+ if(src.formCustom!=null&&!Array.isArray(src.formCustom))throw new Error('Custom forms must be a list.');
  if(src.formTemplate!=null&&(typeof src.formTemplate!=='object'||Array.isArray(src.formTemplate)))throw new Error('Form templates must be an object.');
  if(src.formVersion!=null&&!Array.isArray(src.formVersion))throw new Error('Form versions must be a list.');
 }
@@ -45138,14 +45260,70 @@ function viewMdForms(){
  return `<div class="fm" data-forms>
   <div class="fm-bar"><div class="fm-forms">${formsDefs().map(x=>`<button type="button" class="sl-quick-pill${x.k===s.form?' on':''}" onclick="formsSetForm('${x.k}')">${esc(x.label)}</button>`).join('')}</div><span class="fm-sp"></span>
    <label class="fm-preview"><span>Preview</span><select data-forms-sample onchange="formsSetSample(this.value)">${samples.length?samples.map(x=>`<option value="${esc(x.id)}" ${x.id===s.sample?'selected':''}>${esc(x.label)}</option>`).join(''):'<option value="sample">Sample</option>'}</select></label>
-   <button type="button" data-forms-undo ${d.undo.length?'':'disabled'} onclick="formsUndo()">Undo</button><button type="button" data-forms-redo ${d.redo.length?'':'disabled'} onclick="formsRedo()">Redo</button><button type="button" data-forms-history onclick="formsVersionsOpen()">History</button><button type="button" data-forms-reset onclick="formsReset()">Reset to default</button>
+   <button type="button" data-forms-undo ${d.undo.length?'':'disabled'} onclick="formsUndo()">Undo</button><button type="button" data-forms-redo ${d.redo.length?'':'disabled'} onclick="formsRedo()">Redo</button><button type="button" data-forms-new onclick="formsNewOpen()">+ New form</button>${def.base&&!DOC_FORM_KINDS.includes(def.base)?`<label class="fm-check" title="Prints instead of ${esc(formsDef(def.base).label)}"><input type="checkbox" data-forms-use ${def.use?'checked':''} onchange="formsUseForm(this.checked)"><span>Use for printing</span></label>`:''}${def.base?`<button type="button" data-forms-rename onclick="formsRenameForm()">Rename</button><button type="button" data-forms-remove onclick="formsRemoveForm()">Delete form</button>`:''}<button type="button" data-forms-history onclick="formsVersionsOpen()">History</button><button type="button" data-forms-reset onclick="formsReset()">Reset to default</button>
    ${dirty?'<span class="fm-dirty" data-forms-dirty>Unsaved changes</span>':s.notice?`<span class="fm-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-forms-save ${dirty?'':'disabled'} onclick="formsSave()">Save</button></div>
   <div class="fm-grid">
    <aside class="fm-card fm-left"><div class="fm-h">Add</div><div class="fm-add">${add.map(([k,l])=>`<button type="button" data-forms-add="${k}" onclick="formsAdd('${k}')">+ ${l}</button>`).join('')}</div><input type="file" accept="image/*" hidden data-forms-picture onchange="formsPicture(this)">
     <div class="fm-h">Parts of the sheet</div><div class="fm-tree">${formsTreeHTML(tpl)}</div></aside>
    <div class="fm-stage" data-forms-stage>${formsSheetsHTML()}</div>
    <aside class="fm-card fm-right" data-forms-settings>${formsSettingsHTML(tpl)}</aside>
-  </div>${formsModalHTML(ctx)}${formsVersionsHTML()}${formsAddToHTML()}</div>`;
+  </div>${formsModalHTML(ctx)}${formsVersionsHTML()}${formsAddToHTML()}${formsNewHTML()}</div>`;
+}
+
+/* ------------------------------ Новая форма -------------------------- */
+/* С нуля или копией (задание Spiel, 06.11.2026): своё имя; печатается из
+   окна бланков заказа рядом с бланком, данные которого берёт. */
+function formsNewOpen(){
+ const s=formsState(),d=formsDef(s.form),base=d.base||s.form;
+ s.newForm={name:'',base,from:s.form};render();
+ const el=document.querySelector('[data-forms-new-name]');if(el)el.focus();
+}
+function formsNewClose(){formsUi.newForm=null;render();}
+function formsNewSet(k,v){const m=formsUi.newForm;if(!m)return;m[k]=v;if(k==='base')m.from='blank';if(k!=='name')render();}
+function formsNewSources(base){return [{k:'blank',label:'Blank sheet'}].concat(formsDefs().filter(d=>d.k===base||d.base===base).map(d=>({k:d.k,label:'Copy of '+d.label})));}
+function formsNewHTML(){
+ const m=formsState().newForm;if(!m)return '';
+ return `<div class="fm-modal-back" onclick="formsNewClose()"></div><div class="fm-modal fm-addto" role="dialog" aria-modal="true" aria-label="New form" data-forms-new-modal>
+  <div class="fm-modal-head"><b>New form</b><button type="button" class="fm-x" aria-label="Close" onclick="formsNewClose()">×</button></div>
+  <label class="fm-row"><span>Name</span><input class="fm-in" data-forms-new-name maxlength="40" value="${esc(m.name)}" placeholder="Invoice · Spiel" oninput="formsNewSet('name',this.value)"></label>
+  <label class="fm-row"><span>Prints with</span><select class="fm-in" data-forms-new-base onchange="formsNewSet('base',this.value)">${formsDefs().filter(d=>!d.base).map(d=>`<option value="${d.k}" ${d.k===m.base?'selected':''}>${esc(d.label)}</option>`).join('')}</select></label>
+  <label class="fm-row"><span>Start from</span><select class="fm-in" data-forms-new-from onchange="formsNewSet('from',this.value)">${formsNewSources(m.base).map(x=>`<option value="${esc(x.k)}" ${x.k===m.from?'selected':''}>${esc(x.label)}</option>`).join('')}</select></label>
+  <p class="fm-note">${DOC_FORM_KINDS.includes(m.base)?'Sales → order → Documents, next to '+esc(docKindLabel(m.base))+'.':'Prints instead of '+esc(formsDef(m.base).label)+' when Use for printing is on.'}</p>
+  <div class="fm-modal-foot"><button type="button" onclick="formsNewClose()">Cancel</button><button type="button" class="pri" data-forms-new-create onclick="formsNewCreate()">Create</button></div></div>`;
+}
+function formsNewCreate(){
+ const s=formsState(),m=s.newForm;if(!m)return;
+ const name=String(m.name||'').trim().slice(0,40);if(!name){alert('Enter a form name.');return;}
+ if(formsDefs().some(d=>d.label.toLowerCase()===name.toLowerCase())){alert('A form with this name already exists.');return;}
+ const k='my-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),def=formsDef(m.base).def();
+ const src=m.from!=='blank'&&formsNewSources(m.base).some(x=>x.k===m.from)?formsClone(formsSaved(m.from)):DOC_FORM_KINDS.includes(m.base)?docFormBlank(m.base):formsBlank(def);
+ const tpl=formClean(src,def),me=typeof signinUser==='function'?signinUser():null;
+ DB.formCustom=(DB.formCustom||[]).concat([{k,name,base:m.base}]);
+ DB.formTemplate=Object.assign({},DB.formTemplate,{[k]:tpl});
+ DB.formVersion=(DB.formVersion||[]).concat([{id:salesUid('FV'),form:k,at:new Date().toISOString(),by:me?me.name:'',note:m.from==='blank'?'New form · blank':'New form · '+formsDef(m.from).label,tpl:formsClone(tpl)}]);
+ s.newForm=null;touch();formsSetForm(k);s.notice='Created';render();
+}
+/* С нуля у остальных бланков: те же части листа без блоков. */
+function formsBlank(def){const t=formsClone(def);Object.keys(t.parts).forEach(k=>{if(t.parts[k].blocks)t.parts[k].blocks=[];});return t;}
+/* Use for printing: печатается вместо бланка base; у бланка одна такая. */
+function formsUseForm(on){
+ const s=formsState(),f=(DB.formCustom||[]).find(x=>x.k===s.form);if(!f)return;
+ DB.formCustom=DB.formCustom.map(x=>x.base!==f.base?x:x.k===f.k&&on?Object.assign({},x,{use:true}):(({use,...r})=>r)(x));
+ s.notice=on?'Prints instead of '+formsDef(f.base).label:'Not used for printing';touch();render();
+}
+function formsRenameForm(){
+ const s=formsState(),f=(DB.formCustom||[]).find(x=>x.k===s.form);if(!f)return;
+ const v=prompt('Form name',f.name);if(v==null)return;const name=String(v).trim().slice(0,40);if(!name||name===f.name)return;
+ if(formsDefs().some(d=>d.k!==f.k&&d.label.toLowerCase()===name.toLowerCase())){alert('A form with this name already exists.');return;}
+ DB.formCustom=DB.formCustom.map(x=>x.k===f.k?Object.assign({},x,{name}):x);s.notice='Renamed';touch();render();
+}
+function formsRemoveForm(){
+ const s=formsState(),f=(DB.formCustom||[]).find(x=>x.k===s.form);if(!f)return;
+ if(!confirm('Delete form “'+f.name+'”? It will no longer print.'))return;
+ DB.formCustom=DB.formCustom.filter(x=>x.k!==f.k);
+ const t=Object.assign({},DB.formTemplate);delete t[f.k];DB.formTemplate=t;
+ DB.formVersion=(DB.formVersion||[]).filter(v=>v.form!==f.k);delete s.drafts[f.k];
+ s.form=f.base;s.sample='';s.sel=null;s.cols=null;s.part=Object.keys(formsDef(f.base).def().parts)[0];s.notice='Form deleted';touch();render();
 }
 
 /* ------------------------ Добавить в другие формы -------------------- */
@@ -49457,7 +49635,7 @@ const DELIVERY_FORM_FIELDS=[
  {k:'trip.weight',g:'Totals',label:'Weight',v:d=>{const l=d.stops.map(deliveryLoad);return (l.every(x=>x.exact)?'':'~')+docNum(l.reduce((n,x)=>n+x.kg,0),0)+' kg';}}];
 function deliveryFormFields(){return formWithCompany(DELIVERY_FORM_FIELDS).concat(formMyFields());}
 function deliveryFormContext(d){const by=new Map(deliveryFormFields().map(x=>[x.k,x]));return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;}};}
-function deliveryFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.tripSheet,deliveryFormDefault());}
+function deliveryFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate[formUseKey('tripSheet')],deliveryFormDefault());}
 function deliveryPages(date,truckId,tpl,map){
  const t=truckFind(truckId),stops=deliveryStops(date,truckId),driver=deliveryDriver(date,truckId);
  tpl=tpl||deliveryFormTemplate();const f=formFlow(tpl,deliveryFormContext({date,t,driver,stops}),map);
@@ -51528,7 +51706,7 @@ function shippingFormContext(d){
 }
 /* Шаблон для печати: сохранённый в конструкторе (Data → Company & print →
    Forms) или по умолчанию. */
-function shippingFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.packingSlip,shippingFormDefault());}
+function shippingFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate[formUseKey('packingSlip')],shippingFormDefault());}
 /* Лист для конструктора, когда PS в базе ещё нет. */
 function shippingFormSample(){
  return {number:'PS-0001',date:finToday(),method:'delivery',shipTo:{addressee:'Site office',address1:'10 Glass St',city:'Toronto',province:'ON',postalCode:'M1M 1M1',contact:'Pat',phone:'416-555-0100'},customer:'Sample Customer',company:docCompanyBlock(),
