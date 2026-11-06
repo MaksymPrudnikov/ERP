@@ -43,7 +43,9 @@
 - Info и Route — галочки «показывать» (`DRAW_SHOW`: Qty, Finished, sq ft · kg, LINE, NOTE, схема пакета, маршрут;
   классы `dw-no-*`, по умолчанию всё видно). History показывает версию на том же чертеже (`def.html(tpl, id, view)`).
   Альбомный лист лежит и на экране станции (`stationDrawZoom`) и в миниатюрах.
-- Проверки: `test/drawing-form.js` (12), `test/forms-editor.js` — в строке форм Drawing. Руководство
+- Info и Route переносятся целиком: Place Top / Bottom (`infoPlace`, `routePlace`; классы `dw-info-bottom`,
+  `dw-route-top`). Свободно мышью — нет: чертёж берёт всё оставшееся место и подгоняется под него.
+- Проверки: `test/drawing-form.js` (13), `test/forms-editor.js` — в строке форм Drawing. Руководство
   `docs/manual/forms.*` — «Drawing — лист чертежа стекла».
 
 ## Все бланки на конструкторе форм (этап 7) · 6 ноября 2026

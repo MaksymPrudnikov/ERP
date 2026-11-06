@@ -902,6 +902,9 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sheet-free{white-space:nowrap}
 /* Галочки Info / Route формы Drawing: что не показывать на листе. */
 .dw-no-qty .sheet-qty,.dw-no-finished .sheet-size,.dw-no-mass :is(.sheet-mass,.sheet-mass-note),.dw-no-scheme .sheet-mk,.dw-no-route .sheet-route{display:none}
+.dw-info-bottom .sheet-body{grid-template-rows:minmax(0,1fr) auto}
+.dw-info-bottom .sheet-side{grid-row:2}.dw-info-bottom .sheet-field{grid-row:1}
+.dw-route-top .sheet-id{order:-2}.dw-route-top .sheet-route{order:-1;border-top:0;border-bottom:1px solid var(--text-3);padding:3px 0}
 .dw-no-line .sheet-who>:is(span,b):nth-child(-n+2),.dw-no-note .sheet-who>:is(span,b):nth-child(n+3){display:none}
 .sheet-id-c>div+div,.sheet-id-p>div+div,.sheet-id-o>div+div{margin-top:1px}
 .sheet-foot-g>span+span{margin-left:12px}

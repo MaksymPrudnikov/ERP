@@ -108,5 +108,11 @@ module.exports=async function({page,eq}){
   return out;
  }),{cls:'print-shape-sheet dw-no-mass dw-no-note dw-no-route',mass:[false],route:[false],who:[true,true,false,false],size:[true],
   panel:['showQty','showFinished','showMass','showLine','showNote','showScheme'],qty:false,history:true});
+ eq('Drawing form: Info and Route move as a whole — Info under the drawing, Route under the header',await t.p.evaluate(()=>{
+  const o=dfOrder();dfSave({infoPlace:'bottom',routePlace:'top'});printSheetPrepare([dfSheet(o)],'',salesSheetFitDrawing);
+  const h=document.getElementById('printSheetHost'),y=s=>h.querySelector(s).getBoundingClientRect().top,out={cls:h.querySelector('.print-shape-sheet').className,
+   order:['.sheet-id','.sheet-route','.sheet-field','.sheet-side','.sheet-foot'].map(s=>[s,y(s)]).sort((a,b)=>a[1]-b[1]).map(x=>x[0])};printSheetCleanup();
+  DB.formTemplate={};dfOpen();formsSelect('route','');out.panel=[...document.querySelectorAll('[data-draw-place="route"] button')].map(b=>b.textContent);return out;
+ }),{cls:'print-shape-sheet dw-info-bottom dw-route-top',order:['.sheet-id','.sheet-route','.sheet-field','.sheet-side','.sheet-foot'],panel:['Top (under header)','Bottom']});
  eq('Drawing form browser errors',t.errs,[]);await t.c.close();
 };

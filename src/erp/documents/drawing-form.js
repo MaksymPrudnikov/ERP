@@ -22,7 +22,8 @@
    вида нужна»). */
 const DRAW_STYLE_DEFAULT={paper:'portrait',size:100,units:'in16',alt:'',dimSize:18,noteSize:16,bg:true,
  edge:'',line:'',arrow:'',feature:'',text:'',label:'',ftext:'',altColor:'',edgeW:0,lineW:0,featureW:0,labelSize:0,serviceSize:0,
- showQty:true,showFinished:true,showMass:true,showLine:true,showNote:true,showScheme:true,showRoute:true};
+ showQty:true,showFinished:true,showMass:true,showLine:true,showNote:true,showScheme:true,showRoute:true,
+ infoPlace:'top',routePlace:'bottom'};
 /* Что показывать в частях, которые рисует программа (галочки Info / Route):
    ключ, подпись, класс листа «спрятать». */
 const DRAW_SHOW=[['showQty','Qty','dw-no-qty','info'],['showFinished','Finished size','dw-no-finished','info'],['showMass','sq ft · kg','dw-no-mass','info'],
@@ -92,6 +93,7 @@ function drawStyle(tpl){
  o.paper=s.paper==='landscape'?'landscape':'portrait';
  o.size=num(s.size,40,100,100);o.units=units(s.units)||'in16';o.alt=units(s.alt);if(o.alt===o.units)o.alt='';
  DRAW_SHOW.forEach(([k])=>{o[k]=s[k]!==false;});
+ o.infoPlace=s.infoPlace==='bottom'?'bottom':'top';o.routePlace=s.routePlace==='top'?'top':'bottom';
  o.dimSize=num(s.dimSize,8,40,d.dimSize);o.noteSize=num(s.noteSize,8,40,d.noteSize);o.bg=s.bg!==false;
  DRAW_LOOK.forEach(([k,,,w,z])=>{o[k]=/^#[0-9a-f]{6}$/i.test(s[k]||'')?String(s[k]).toLowerCase():'';if(w)o[w]=num(s[w],0,12,0);if(z)o[z]=num(s[z],0,40,0);});
  return o;
@@ -105,6 +107,7 @@ function drawSheetRootAttrs(st,tpl){
  if(st.paper==='landscape')cls.push('dw-land');
  if(!st.bg)cls.push('dw-nobg');
  DRAW_SHOW.forEach(([k,,c])=>{if(!st[k])cls.push(c);});
+ if(st.infoPlace==='bottom')cls.push('dw-info-bottom');if(st.routePlace==='top')cls.push('dw-route-top');
  if(st.size<100)vars.push('--dw-size:'+st.size+'%');
  DRAW_LOOK.forEach(([k,,,w,z])=>{
   if(st[k])vars.push('--dw-'+(k==='altColor'?'alt':k)+':'+st[k]);
@@ -277,6 +280,9 @@ function drawFormOverlaps(){
    уходит соседям). */
 function drawFormShowHTML(part,tpl){
  const st=drawStyle(tpl),list=DRAW_SHOW.filter(x=>x[3]===part),lab=part==='info'?'Info':'Route';
- return `<div class="fm-h">Part · ${lab}</div><p class="fm-note">Drawn by the program. Show on the sheet:</p>
+ /* Блок целиком — над чертежом или под ним (владелец: «переместить можно
+    сам блок?»); чертёж берёт всё остальное место. */
+ const pk=part==='info'?'infoPlace':'routePlace',place=`<div class="fm-h">Place</div><div class="fm-seg" data-draw-place="${part}">${[['top',part==='info'?'Top (above drawing)':'Top (under header)'],['bottom',part==='info'?'Bottom (under drawing)':'Bottom']].map(([v,l])=>`<button type="button" class="${st[pk]===v?'on':''}" onclick="formsStyle('${pk}','${v}')">${l}</button>`).join('')}</div>`;
+ return `<div class="fm-h">Part · ${lab}</div><p class="fm-note">Drawn by the program — you choose where and what.</p>${place}<div class="fm-h">Show</div>
   ${list.map(([k,l])=>`<label class="fm-check fm-dshow"><input type="checkbox" data-draw-show="${k}" ${st[k]?'checked':''} onchange="formsStyle('${k}',this.checked)"><span>${l}</span></label>`).join('')}`;
 }
