@@ -27,6 +27,8 @@
 .fm-node:disabled{cursor:default}
 .fm-node:not(:disabled):hover{background:var(--surface-2)}
 .fm-node.sel{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.fm-node.fm-node-note{cursor:default;color:var(--text-3);font-size:12px}
+.fm-node.fm-node-note:hover{background:none}
 .fm-stage{background:var(--surface-3);border-radius:12px;padding:22px 22px 22px 26px;display:flex;flex-direction:column;align-items:center;gap:18px;touch-action:none}
 .fm-sheet{position:relative;width:100%;max-width:760px;aspect-ratio:612/792;background:var(--on-solid);box-shadow:0 1px 4px rgba(0,0,0,.15)}
 .fm-sheet svg{position:absolute;inset:0;display:block}

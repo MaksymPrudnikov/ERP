@@ -169,19 +169,22 @@ function docCells(P,cells,y,h,valueSize){
  });
  return y+h;
 }
-function docBoxes(P,boxes,y){
+/* Плашки адресов: высота известна до рисования (секция шаблона формы). */
+function docBoxesLay(boxes){
  const W=DOC_PAGE,C=DOC_COLOR,gap=10,w=(W.right-W.left-gap*(boxes.length-1))/boxes.length;
  const laid=boxes.map(b=>{const lines=[];b.lines.forEach(t=>docWrap(t,7.6,false,w-18).forEach(l=>lines.push(l)));return {b,lines:lines.slice(0,4),title:docFit(b.title,9,true,w-18)};});
  const h=Math.max(...laid.map(x=>28+x.lines.length*9.6));
- laid.forEach((x,i)=>{
-  const bx=W.left+i*(w+gap);
-  P.rect(bx,y,w,h,{fill:C.box,r:4});
-  docLabel(P,bx+9,y+10.5,x.b.label);
-  P.text(bx+9,y+22,x.title,{size:9,bold:true});
-  x.lines.forEach((l,k)=>P.text(bx+9,y+32+k*9.6,l,{size:7.6}));
- });
- return y+h;
+ return {h,draw(P,y){
+  laid.forEach((x,i)=>{
+   const bx=W.left+i*(w+gap);
+   P.rect(bx,y,w,h,{fill:C.box,r:4});
+   docLabel(P,bx+9,y+10.5,x.b.label);
+   P.text(bx+9,y+22,x.title,{size:9,bold:true});
+   x.lines.forEach((l,k)=>P.text(bx+9,y+32+k*9.6,l,{size:7.6}));
+  });
+ }};
 }
+function docBoxes(P,boxes,y){const L=docBoxesLay(boxes);L.draw(P,y);return y+L.h;}
 function docTableHead(P,m,y){
  const W=DOC_PAGE,C=DOC_COLOR;
  if(m.table.amount){

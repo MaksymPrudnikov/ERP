@@ -374,13 +374,26 @@ function docBuildModel(kind,order,opts){
  /* Order summary — в каждом бланке, где его отметили в Customize (пункт 14:
     раньше только в бланках без цен). Вес — известное и Partial с тем, что не
     учтено, строкой под блоком: на бумаге без наведения. */
+ let units=0,area=0;
+ (order.lines||[]).forEach(l=>{const q=salesPositiveInt(l.qty,1),a=salesLineAreas(l,order);units+=q;if(a.valid)area+=a.actual*q;});
+ const w=salesOrderWeight(order),weightText=w.kg==null?'Weight unavailable':(w.complete&&w.estimated?'≈ ':'')+docNum(w.kg,w.kg<10?2:0)+' kg'+(w.complete?'':' · Partial');
  if(opts.orderSummary){
-  let units=0,area=0;
-  (order.lines||[]).forEach(l=>{const q=salesPositiveInt(l.qty,1),a=salesLineAreas(l,order);units+=q;if(a.valid)area+=a.actual*q;});
-  const w=salesOrderWeight(order),miss=salesWeightMissingText(w);
-  model.summary=[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:w.kg==null?'Weight unavailable':(w.complete&&w.estimated?'≈ ':'')+docNum(w.kg,w.kg<10?2:0)+' kg'+(w.complete?'':' · Partial')},{label:'Due date',value:docDate(order.dueDate)||'—'}];
+  const miss=salesWeightMissingText(w);
+  model.summary=[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:weightText},{label:'Due date',value:docDate(order.dueDate)||'—'}];
   if(w.partial&&miss)model.summaryNote='Partial weight: '+miss.charAt(0).toLowerCase()+miss.slice(1)+'.';
  }
  model.footerRight=[company.legalName,docName+' '+number].filter(Boolean).join(' · ');
+ /* Значения полей для конструктора форм (окно Insert field): дни —
+    YYYY-MM-DD (вид выбирает блок), остальное — как на бланке; деньги — только
+    у бланков с ценами. */
+ const pc=C&&Array.isArray(C.contacts)?customerPrimaryContact(C):null,ship=C&&order.delivery==='delivery'?customerAddressByType(C,'delivery'):null,went=invoice?docInvoiceShipTo(order):null;
+ const tt=sale?salesOrderCommercialTotals(order):null,paid=sale&&typeof finOrderPaid==='function'?finOrderPaid(order.id).paid:0,cash=v=>tt&&tt.complete?docMoney(v):'';
+ const day=v=>String(v||'').slice(0,10);
+ model.data={date:day(invoice?billed:kind==='quote'&&order.sentAt||order.createdAt),dueDate:day(invoice?payDue:order.dueDate),validUntil:kind==='quote'?day(salesQuoteValidUntil(order)):'',
+  customerPo:order.customerPo||'',terms:sale?paymentTermsLabel(terms):'',currency:sale?order.currency||'':'',priority:salesPriorityLabel(order.priority),delivery:salesDeliveryLabel(order.delivery),
+  account:C&&C.code||'',billTo:C?docAddressText(customerAddressByType(C,'billing')):'',contact:pc?[pc.name,pc.phone,pc.email].filter(Boolean).join(' · '):'',
+  shipTo:went?[went.title||model.customerName,went.text].filter(Boolean):order.delivery==='delivery'?[(ship&&ship.addressee)||model.customerName,docAddressText(ship)].filter(Boolean):['Customer pickup'],
+  units:String(units),area:docNum(area,1)+' ft²',weight:weightText,lines:String((order.lines||[]).length),
+  subtotal:tt?cash(tt.subtotal):'',hst:tt&&tt.charges.hst.enabled?cash(tt.hst):'',grand:tt?cash(tt.grand):'',paid:tt&&paid>0?cash(paid):'',balance:tt?cash(salesMoney(tt.grand-paid)):''};
  return model;
 }

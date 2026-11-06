@@ -161,6 +161,8 @@ function docCleanOptions(kind,raw){
   if(k==='priceMode')o[k]=DOC_PRICE_MODES.some(m=>m.k===src[k])?src[k]:base[k];
   else o[k]=typeof src[k]==='boolean'?src[k]:base[k];
  });
+ /* Свой блок шаблона формы — своя галочка b:<id> (erp/documents/order-form). */
+ Object.keys(src).forEach(k=>{if(/^b:[\w-]{1,40}$/.test(k)&&typeof src[k]==='boolean')o[k]=src[k];});
  return o;
 }
 DEFAULT.documentSettings={};
