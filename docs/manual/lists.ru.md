@@ -33,3 +33,9 @@ Customers, Agents, Users и Data.
   только их шапка.
 
 Подробно по разделам: [Optimization](optimization.ru.md), [Shipping](shipping.ru.md), [Reports](reports.ru.md).
+
+## Sales: счёт выставлен или нет
+
+Колонка Invoice (включить в списке колонок): Invoiced — Invoice заказа напечатан или отправлен клиенту; Not invoiced —
+заказ выдан целиком, а счёта ещё не было; пусто — выдан не весь. Вкладка Not invoiced вверху Sales — только такие
+заказы; появляется, когда они есть.

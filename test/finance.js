@@ -143,6 +143,12 @@ module.exports=async function({page,eq,ok}){
   finCleanup();render();
   return /[А-яЁё]/.test(text);
  }),false);
+ eq('Statement · Due now: выданные с остатком до даты — к оплате, галочка по счёту важнее даты; не выданные, оплаченные и из архива — нет',await t.p.evaluate(()=>{
+  const x=(id,billed,bal,extra)=>Object.assign({o:{id},billed,f:{b:{status:bal>0?'due':'paid',balance:bal}}},extra||{}),due=(by,pick)=>({by,pick:pick||{}});
+  return [finStatementDuePick(x('a','2026-10-01',10),due('2026-10-05')),finStatementDuePick(x('a','2026-10-06',10),due('2026-10-05')),finStatementDuePick(x('a','2026-10-06',10),due('2026-10-05',{a:true})),
+   finStatementDuePick(x('a','2026-10-01',10),due('2026-10-05',{a:false})),finStatementDuePick(x('a','',10),due('2026-10-05')),finStatementDuePick(x('a','2026-10-01',0),due('2026-10-05')),
+   finStatementDuePick(x('a','2026-10-01',10,{archived:true}),due('2026-10-05')),finStatementDuePick(x('a','2026-10-01',10),null)];
+ }),[true,false,true,false,false,false,false,false]);
  eq('Finance не дал ошибок страницы',t.errs,[]);
  await t.c.close();
 };

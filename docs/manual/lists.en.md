@@ -34,3 +34,9 @@ Customers, Agents, Users and Data.
   header follows this look.
 
 Section details: [Optimization](optimization.en.md), [Shipping](shipping.en.md), [Reports](reports.en.md).
+
+## Sales: invoiced or not
+
+Invoice column (add it in the column list): Invoiced — the order's Invoice was printed or emailed; Not invoiced — the
+order is fully picked up but no invoice yet; empty — not all picked up. The Not invoiced tab at the top of Sales shows
+only those orders; it appears when there are any.
