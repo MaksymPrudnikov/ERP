@@ -148,8 +148,8 @@ function docInvoiceShipTo(order){
 function docLastPaidOn(order){
  return (DB.receipt||[]).filter(r=>!r.voided&&(r.allocations||[]).some(a=>a.orderId===order.id&&+a.amount>0)).map(r=>r.date).sort().pop()||'';
 }
-function docCompanyBlock(){
- const c=DB.company||{};
+function docCompanyBlock(src){
+ const c=src||DB.company||{};
  /* Провинция без города и индекса — ещё не адрес: пока реквизиты не
     заполнены, под названием компании печаталось одинокое «ON». */
  const city=c.city||c.postalCode?[c.city,[c.province,c.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', '):'';

@@ -2,6 +2,46 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Лист скида / долли на конструкторе, Add to other forms, один набор полей · 6 ноября 2026
+
+Владелец 06.11.2026: «положим и шаблон скидов доллей и что мы ещё забыли»; «везде должно быть одно название, нам не
+нужно плодить разные наборы».
+
+- `src/erp/documents/carrier-form.js`: форма `carrierSheet` (Dolly / Skid sheet). Части: head — блоки (свои составные
+  поля `companyBlock` — прежний `.cs-co`, `codeBlock` — прежний `.cs-code`; text, field, image), strip / customer /
+  table / total — рисует `carrierSheetHTML` (галочки `CS_SHOW` → классы `cs-no-*`, ячейки полосы `cs-c-*`), foot —
+  блоки в полях `@page` (`carrierFootCss`: Left / Center / Right, `{page}` / `{pages}` → `counter()`); цвета `CS_LOOK`
+  → `--cs-*`. В конструкторе низ страницы виден строкой (`cs-foot-preview`).
+- Общие помощники листа (`drawBlockStyle` с полем `ml`, `drawColumns`, `drawImageHTML`, `drawBlockText` с `ctx.defs`,
+  слои, наложения) — из `drawing-form.js`.
+- **Add to other forms…** (forms-ui, `formsAddTo*`): блок — в часть с тем же именем или в первую часть с блоками,
+  бланк сохраняется сразу (версия «Block added from …»), его черновик получает блок; бланк без поля — серым.
+- **Один набор полей компании** — `formCompanyFields(src)` / `formWithCompany(list)` (erp/documents/forms): все бланки,
+  одни имена `company.*`; `docCompanyBlock(src)`. Прежние имена листа чертежа (`company`, `companyLogo`, …, `po`) —
+  `FORM_FIELD_RENAMED` в `formCleanBlock`: сохранённый шаблон получает общие имена при чтении.
+- Сверка по умолчанию (старый dist main против ветки, печать, PNG + строка `@page`): листы скида / долли 15 + 17 + 1 — 0
+  расхождений; чертежи 117 — 0.
+- **Наклейка тары** (владелец: «управление стикерами долли и скида — добавь», «3×4 тоже»): форма `carrierLabel`
+  (Dolly / Skid label) в `carrier-form.js` — SVG, части label (4 × 6 стоя) и small (3 × 4 лёжа), `style.size`;
+  `carrierLabelSVG(code)` печатает по ней, по умолчанию разметка побайтно = `carrierLabelLegacySVG` (прежняя, эталон
+  проверки); `@page stk` и страница печати — по размеру. Конструктор стикеров (Data → Stickers) не тронут: его
+  раскладка прежнюю наклейку один в один не повторяет. В конструкторе форм — `def.pageOf`, `sheetClass(tpl)`.
+- Проверки: `test/carrier-form.js` (6), `test/drawing-form.js` — один набор полей во всех бланках. README 2448.
+
+## Архивный заказ — чертёж на день ухода в архив · 6 ноября 2026
+
+Владелец 06.11.2026: «в заказе, который заархивирован, чертёж не меняется, чтобы случайно ничего не изменить».
+
+- `archiveRun` (erp/archive) после строк указателя зовёт `drawFrozenKeep()`: шаблон Drawing (`formClean`) и копия
+  `DB.company` — одна запись `DB.drawingFrozen[D<16 hex sha256>]` на вид (тысячи заказов — одна запись), ключ — в
+  строке указателя `row.drawing`.
+- `drawFrozenOf(o)`: заказ открыт из архива (`archiveViewing`) — его вид и компания; нет ключа (ушёл до 06.11) —
+  `drawFormDefault()` и нынешняя компания. `drawFormTpl(o)` (по умолчанию `soDraft`) и поля компании / My fields листа
+  берут их. `archiveReturn` снимает строку указателя — заказ снова в нынешнем виде.
+- Бумага печати — по листу (`dw-land` в разметке), а не по нынешней настройке.
+- `normalizeDrawingFrozen` (в `normalizeFormTemplates`): ключи `D…`, шаблон через `formClean`.
+- Проверка: `test/drawing-form.js` — архив, правка Drawing и Company, лист прежний; возврат в работу — нынешний.
+
 ## Лист чертежа на конструкторе форм: Data → Forms → Drawing · 6 ноября 2026
 
 Владелец 06.11.2026: «шапки — текст, размеры и расположение, хэдер, футер; размер чертежа, толщину линий; мм или инчи —

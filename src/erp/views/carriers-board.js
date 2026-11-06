@@ -293,13 +293,22 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&carrierWin&&!(typeo
 const CARRIER_NOWRAP=['pos','line','size','id','next','due','weight'];
 function carrierStamp(iso){return iso?docDate(finLocalDate(iso))+' · '+stationTime(iso):'—';}
 function carrierSheetKind(m){return m.code?(carrierWord(m.code)==='skid'?'Skid contents':'Dolly contents'):'Not on a '+(m.word==='No skid'?'skid':'dolly');}
+/* «Printed … by … at …» — строка низа страницы листа. */
+let carrierPrintWhere='';
+function carrierPrintedLine(who,where){return 'Printed '+carrierStamp(new Date().toISOString())+(who&&who.name?' by '+who.name:'')+(where?' at '+where:'');}
 function carrierSheetHTML(m,cols,who){
  const C=DOC_COLOR,co=docCompanyBlock(),me=who||carrierMe(),loaded=m.items.length>0,rows=loaded?m.items:m.gone,orders=carrierOrders(rows),one=orders.length===1?orders[0].o:null;
  const use=cols.filter(c=>!['order','customer','po'].includes(c.k));carrierWeightMemo=new Map();
  const kgs=rows.map(carrierKg),kg=kgs.reduce((n,w)=>n+(w?w.kg:0),0),kgExact=kgs.every(w=>w&&w.exact);
  const where=[...new Set(m.items.map(i=>i.place&&i.place.waiting).filter(Boolean))].join(', ')||(m.out?salesCustomerDisplay(m.out.customerId):'');
  const prio=o=>o.priority==='critical'?'<span class="cs-prio bad">Critical</span>':o.priority==='rush'?'<span class="cs-prio warn">Rush</span>':'';
- const cells=[['Station',where||'—'],[loaded?'Since':'Shipped',carrierStamp(loaded?m.list.map(x=>x.scan.at).filter(Boolean).sort()[0]:m.out&&m.out.since)],['On it',carrierCountText(rows)+(orders.length>1?' · '+orders.length+' orders':'')],kg>0?['Weight',(kgExact?'':'~')+docNum(kg,1)+' kg']:null,['Printed by',me.name||'—']].filter(Boolean);
+ const cells=[['Station',where||'—','station'],[loaded?'Since':'Shipped',carrierStamp(loaded?m.list.map(x=>x.scan.at).filter(Boolean).sort()[0]:m.out&&m.out.since),'since'],['On it',carrierCountText(rows)+(orders.length>1?' · '+orders.length+' orders':''),'onit'],kg>0?['Weight',(kgExact?'':'~')+docNum(kg,1)+' kg','weight']:null,['Printed by',me.name||'—','printedby']].filter(Boolean);
+ /* Шапка, цвета и что показывать — из формы Dolly / Skid sheet (erp/documents/carrier-form). */
+ const tpl=carrierFormTpl(),st=carrierFormStyle(tpl),cell=k=>{const c=cells.find(x=>x[2]===k);return c?c[1]:'';};
+ const fields=carrierSheetLastFields={companyBlockData:co,kind:carrierSheetKind(m),code:m.code||m.station,type:m.type?m.type.label:'',station:cell('station'),since:cell('since'),onIt:cell('onit'),weight:cell('weight'),
+  printedBy:me.name||'',printedLine:carrierPrintedLine(me,carrierPrintWhere),date:new Date().toISOString().slice(0,10),customer:one?salesCustomerDisplay(one.customerId):'',order:one?one.businessNumber||'':'',customerPo:one?one.customerPo||'':''};
+ formCompanyFields().concat(formMyFields()).forEach(f=>{fields[f.k]=f.v;});
+ const ctx={field:k=>{let v=fields[k];if(typeof v==='function')v=fields[k]=v();return v==null?'':v;},defs:carrierFormFields},edit=carrierFormPreview&&carrierFormPreview.edit;
  let customer='';
  if(one){
   const c=salesFindCustomer(one.customerId)||{},a=typeof shippingDefaultAddress==='function'?shippingDefaultAddress(c):{};
@@ -313,10 +322,11 @@ function carrierSheetHTML(m,cols,who){
      лежит последний поставленный, как на самом скиде. */
   return head+g.items.map(it=>`<tr>${use.map(c=>`<td class="${CARRIER_NOWRAP.includes(c.k)?'cs-nw':''}${c.k==='size'||c.k==='id'?' cs-b':''}${c.k==='weight'?' cs-n':''}" data-raw>${cell(it,c)}</td>`).join('')}</tr>`).join('');
  }).join('');
- const style=`--cs-ink:${C.ink};--cs-mut:${C.mut};--cs-line:${C.line};--cs-bar:${C.bar};--cs-box:${C.box};--cs-navy:${C.navy};--cs-due:${C.due};--cs-warn:${C.warn};--cs-paper:#ffffff`;
- return `<div class="cs-sheet" style="${style}" data-carrier-sheet="${esc(m.code||m.station)}">
-  <div class="cs-head"><div class="cs-co"><b data-raw>${esc(co.name||'')}</b>${co.lines.slice(0,2).map(t=>`<div data-raw>${esc(t)}</div>`).join('')}</div><div class="cs-code"><small>${esc(carrierSheetKind(m).toUpperCase())}</small><b>${esc(m.code||m.station)}</b>${m.type?`<span>${esc(m.type.label)}</span>`:''}</div></div>
-  <div class="cs-strip">${cells.map(([l,v])=>`<div><small>${esc(l)}</small><b data-raw>${esc(v)}</b></div>`).join('')}</div>
+ const K=(k,tok)=>carrierFormColor(st,k,tok);
+ const style=`--cs-ink:${K('csInk','ink')};--cs-mut:${K('csMut','mut')};--cs-line:${K('csLine','line')};--cs-bar:${K('csBar','bar')};--cs-box:${K('csBox','box')};--cs-navy:${K('csNavy','navy')};--cs-due:${C.due};--cs-warn:${C.warn};--cs-paper:#ffffff`;
+ return `<div class="cs-sheet${carrierFormClasses(st)}" style="${style}" data-carrier-sheet="${esc(m.code||m.station)}">
+  ${carrierHeadHTML(tpl,ctx,edit)}
+  <div class="cs-strip">${cells.map(([l,v,k])=>`<div class="cs-c-${k}"><small>${esc(l)}</small><b data-raw>${esc(v)}</b></div>`).join('')}</div>
   ${customer}
   <table class="cs-table"><thead><tr>${use.map(c=>`<th${c.k==='weight'?' class="cs-n"':''}>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
   <div class="cs-total">Total: ${esc(carrierCountText(rows))} · ${stationPlural(orders.length,'order','orders')}${loaded&&rows.length>1?' · #1 went on first':''}</div>
@@ -329,10 +339,10 @@ function carrierPrintCleanup(){document.body.classList.remove('carrier-printing'
 function carrierPrintSheet(m,cols,who,where){
  if(!m||!(m.items.length||m.gone.length))return false;
  let host=document.getElementById('carrierPrintHost');if(!host){host=document.createElement('div');host.id='carrierPrintHost';document.body.appendChild(host);}
- who=who||carrierMe();host.innerHTML=carrierSheetHTML(m,cols,who);
- const q=t=>'"'+String(t).replace(/["\\]/g,'')+'"',foot='font:8px Helvetica,Arial,sans-serif;color:'+DOC_COLOR.mut;
+ who=who||carrierMe();carrierPrintWhere=where||'';host.innerHTML=carrierSheetHTML(m,cols,who);
  let st=document.getElementById('carrierPageStyle');if(!st){st=document.createElement('style');st.id='carrierPageStyle';document.head.appendChild(st);}
- st.textContent='@page carriersheet{margin:10mm 10mm 12mm;@bottom-left{content:'+q('Printed '+carrierStamp(new Date().toISOString())+(who.name?' by '+who.name:'')+(where?' at '+where:''))+';'+foot+'}@bottom-right{content:'+q(carrierSheetKind(m)+' · '+(m.code||m.station)+' · ')+' counter(page) " / " counter(pages);'+foot+'}}@media print{html,body.carrier-printing{background:#ffffff!important}}';
+ /* Низ страницы — блоки формы Dolly / Skid sheet (по умолчанию прежние строки). */
+ st.textContent='@page carriersheet{margin:10mm 10mm 12mm;'+carrierFootCss(carrierFormTpl(),carrierFormContext())+'}@media print{html,body.carrier-printing{background:#ffffff!important}}';carrierPrintWhere='';
  document.body.classList.add('carrier-printing');
  window.addEventListener('afterprint',carrierPrintCleanup,{once:true});setTimeout(carrierPrintCleanup,60000);
  try{window.print();}catch(e){carrierPrintCleanup();return false;}

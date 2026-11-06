@@ -116,8 +116,43 @@ batch print. One setting works everywhere; by default the sheet is exactly what 
   - **Colors** — As now or All black in one click; every element has its own color (any color, click it): edge,
     dimension lines, arrows, service marks, numbers, edge work, service labels, second units. × — as now.
   - Empty or × — as now (lines gray, text black).
+- **An archived order prints with the look of the day it went to the archive** (owner: "so nothing changes by
+  accident"): editing Drawing or the company details does not change its sheet. Archived before this setting — the
+  default look. Back in work (NCR) — today's look again.
 - The Metric detail button in the shape editor is its own detailed mm view (angles, hundredths): while it is on on a
   computer, that computer prints drawings in it, as before. Off — prints follow Drawing.
+
+## Dolly / Skid sheet
+
+The same sheet is printed from the dolly window, Shipping → Skid sheet and the stations (Print what is on …). By default
+it is the sheet as before.
+
+- **Header** — the company name and address on the left, the kind and number (SKID CONTENTS · SA-10) on the right;
+  these are blocks: move them, change the size, remove them, add your own text, field or logo (+ Text, + Field,
+  + Picture).
+- **Strip, Customer, Total** are drawn by the program — click a part: ticks for what to show (Station, Since /
+  Shipped, On it, Weight, Printed by, the customer and order, the total) and the sheet colors (As now, Black text or
+  any).
+- **Table** — the columns are still set per station (Production → Stations) or with ⚙ Columns in the dolly window.
+- **Page footer** — the bottom of every page: "Printed … by … at …" on the left and the page number on the right;
+  blocks Left / Center / Right, `{page}` and `{pages}` are the page number and the page count.
+
+## Dolly / Skid label
+
+The label stuck on a dolly or skid (printed from Dollies & Skids and at the stations). By default it is the label as
+before: the type, the big number, the barcode of the number (stations scan it) and the number in small print.
+
+- **Label size** — 4 × 6 (portrait) or 3 × 4 (landscape); each size keeps its own layout, printing uses the chosen one.
+- Blocks: + Text, + Field (number, type, date, company fields, My fields), + Picture (logo), + Barcode. Mouse, ruler,
+  Left / Center / Right / Free and layers — as in other forms.
+
+## Add to other forms and one set of fields
+
+- In the block settings — **Add to other forms…**: the same block (logo, text, field) into other forms at once. A form
+  without that field is gray. Each form is saved at once and gets its own version in History.
+- The company fields are one set with one name in every form: Company name, Address and contacts, Logo, Company
+  details one line, Address one line, Phone, Email, Website, HST number. Customer, PO (`customerPo`), Due date have
+  one name too.
 
 ## My fields, totals and Show if
 

@@ -332,22 +332,21 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
   var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');
   /* Шапка и низ — из шаблона формы Drawing (erp/documents/drawing-form);
      по умолчанию это прежние строки листа. Поля листа — его же числа. */
-  var tpl=drawFormTpl(),st=drawStyle(tpl),root=drawSheetRootAttrs(st,tpl),edit=drawFormPreview&&drawFormPreview.edit;
-  var fields=drawSheetLastFields={customer:order?salesCustomerDisplay(order.customerId):'',po:order&&order.customerPo||'',order:order&&order.businessNumber||'',
-    date:new Date().toISOString().slice(0,10),line:lineText,glass:t.name,spec:t.spec||'',qty:qty,finished:finished,mass:mass,note:note,tag:'',
-    company:DB.company&&DB.company.legalName||''};
-  /* Данные компании и цены — по запросу поля (функцией): лист без них их не
-     считает. Цены — ячейки строки в Sales (salesMetricCell): Unit Price,
-     Line Total, Materials; ручная цена строки — тоже оттуда. */
-  var co=DB.company||{},price=null,money=function(v){return v==null||!isFinite(v)?'':docMoney(v);};
+  var tpl=drawFormTpl(order),st=drawStyle(tpl),root=drawSheetRootAttrs(st,tpl),edit=drawFormPreview&&drawFormPreview.edit;
+  var fields=drawSheetLastFields={customer:order?salesCustomerDisplay(order.customerId):'',customerPo:order&&order.customerPo||'',order:order&&order.businessNumber||'',
+    date:new Date().toISOString().slice(0,10),line:lineText,glass:t.name,spec:t.spec||'',qty:qty,finished:finished,mass:mass,note:note,tag:'',dueDate:order&&order.dueDate||''};
+  /* Поля компании — общий набор бланков (formCompanyFields); у заказа из
+     архива — реквизиты дня его ухода. */
+  var frozen=drawFrozenOf(order),co=frozen&&frozen.company||null;
+  formCompanyFields(co).forEach(function(f){fields[f.k]=f.v;});
+  /* Цены — по запросу поля (функцией): лист без них их не считает. Цены —
+     ячейки строки в Sales (salesMetricCell): Unit Price, Line Total,
+     Materials; ручная цена строки — тоже оттуда. */
+  var price=null,money=function(v){return v==null||!isFinite(v)?'':docMoney(v);};
   var priced=function(){if(!price&&line&&order)try{price=salesLineCommercialPrice(line,order);}catch(e){price={};}return price||{};};
-  var address=function(){return [[co.address1,co.address2].filter(Boolean).join(', '),[co.city,[co.province,co.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).join(', ');};
-  Object.assign(fields,{companyAddress:address,
-    companyPhone:co.phone||'',companyEmail:co.email||'',companyWebsite:co.website||'',companyHst:co.hstNumber?'HST # '+co.hstNumber:'',companyLogo:co.logo||'',dueDate:order&&order.dueDate||'',
-    companyLine:function(){return [co.legalName,address(),co.phone,co.email,co.website].filter(Boolean).join(' · ');},
-    unitPrice:function(){return money(priced().unit);},linePrice:function(){return money(priced().line);},
+  Object.assign(fields,{unitPrice:function(){return money(priced().unit);},linePrice:function(){return money(priced().line);},
     materialsPrice:function(){var p=priced();return p.missingMaterials||p.unsupportedCurrency?'':money(p.materials);}});
-  formMyFields().forEach(function(f){fields[f.k]=f.v();});
+  (co?(co.myFields||[]).map(function(f){return {k:'my.'+f.id,v:function(){return f.value;}};}):formMyFields()).forEach(function(f){fields[f.k]=f.v();});
   var ctx={field:function(k){var v=fields[k];if(typeof v==='function')v=fields[k]=v();return v==null?'':v;}};
   return '<div class="print-shape-sheet'+root.cls+'"'+root.style+'>'+
     /* Три опоры, по которым лист опознают, — одной строкой поверх всего:

@@ -65,7 +65,7 @@ module.exports=async function({page,eq}){
   formsAdd('field');const groups=[...document.querySelectorAll('.fm-groups button')].map(b=>b.textContent);formsModalSet('group','Totals');const total=(document.querySelector('[data-forms-field="total.grand"] em')||{}).textContent;formsModalClose();
   const sheet=document.querySelector('[data-forms-page="0"] svg').textContent;
   return {forms,parts,lines,sec,groups,total:/^\$[\d,]+\.\d\d$/.test(total||''),sheet:/QUOTE/.test(sheet)};
- }),{forms:['Packing slip','Quote','Proforma invoice','Order confirmation','Invoice','Work order','Receipt','Statement','Purchase order','Trip sheet','Drawing'],parts:['Page 1 header','Page header','Lines table','After lines','Page footer'],lines:true,sec:{note:true,place:true},groups:['Company','Document','Order','Customer','Totals','My fields','Page'],total:true,sheet:true});
+ }),{forms:['Packing slip','Quote','Proforma invoice','Order confirmation','Invoice','Work order','Receipt','Statement','Purchase order','Trip sheet','Drawing','Dolly / Skid sheet','Dolly / Skid label'],parts:['Page 1 header','Page header','Lines table','After lines','Page footer'],lines:true,sec:{note:true,place:true},groups:['Company','Document','Order','Customer','Totals','My fields','Page'],total:true,sheet:true});
  eq('Receipt and Statement print from their forms — the same sheets as before (a table over two pages, an empty table, notes and totals)',await t.p.evaluate(()=>{
   const keep=JSON.parse(JSON.stringify(DB.company));DB.company.logo=ofJpeg;
   const model=(kind,n)=>{const m=finDocBase(kind==='receipt'?'PAYMENT RECEIPT':'STATEMENT',kind==='receipt'?'Receipt':'Statement','R-7',null);m.kind=kind;if(kind==='statement'){m.numberLabel='Account';m.footerRight='October 2026';}

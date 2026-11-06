@@ -363,6 +363,8 @@ function archiveRun(day,opts){
   const ids=new Set(due);if(!ids.size)return {orders:0,records:0};
   const set=archiveCollect(ids),ctx=archiveContext();
   const rows=readScope(()=>(DB.salesOrder||[]).filter(o=>ids.has(o.id)).map(o=>[o.id,archiveRowOf(o,archiveDayOf(o,ctx),now)]));
+  /* Вид чертежа на день ухода — заказ в архиве печатается им (erp/documents/drawing-form). */
+  if(typeof drawFrozenKeep==='function'){const dk=drawFrozenKeep();rows.forEach(([,row])=>{row.drawing=dk;});}
   const num=(v,re)=>{const m=re.exec(String(v||''));return m?+m[1]:0;};
   set.forEach(x=>{
    if(x.tbl==='salesOrder'){if(salesIsQuote(x.row))archiveFloorRaise('quote',num(x.row.businessNumber,/^Q-(\d+)/));else archiveFloorRaise('order',+String(x.row.businessNumber||'').replace(/\D/g,'')||0);

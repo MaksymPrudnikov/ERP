@@ -157,3 +157,8 @@ button.cb-tile:hover{border-color:var(--accent-line)}
 .cc-table td:last-child,.cc-table td:nth-child(3){white-space:nowrap}
 .cc-warn{color:var(--warning)}.cc-bad{color:var(--danger)}
 .cc-table .cw-code{white-space:nowrap}
+/* Форма Dolly / Skid sheet: свои блоки шапки, колонки из нескольких блоков,
+   что не показывать. */
+.cs-col{display:flex;flex-direction:column;gap:2px}.cs-col-right{align-items:flex-end;text-align:right}.cs-col-center{align-items:center;text-align:center}
+.cs-free{white-space:nowrap}
+.cs-no-station .cs-c-station,.cs-no-since .cs-c-since,.cs-no-onit .cs-c-onit,.cs-no-weight .cs-c-weight,.cs-no-printedby .cs-c-printedby,.cs-no-customer .cs-cust,.cs-no-total .cs-total{display:none}

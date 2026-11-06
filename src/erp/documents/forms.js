@@ -51,6 +51,28 @@ function formFormat(v,type,fmt){
  const f=(list.find(x=>x.k===fmt)||list[0]).f,one=x=>/^\d{4}-\d{2}-\d{2}/.test(String(x))?f(String(x).slice(0,10)):x;
  return Array.isArray(v)?v.map(one):v==null||v===''?v:one(v);
 }
+/* Поля компании — один набор во всех бланках, одни имена (владелец,
+   06.11.2026: «везде должно быть одно название, не плодить разные наборы»).
+   src — свои реквизиты (заказ из архива печатается реквизитами дня ухода). */
+const FORM_COMPANY_BASE=['company.name','company.lines','company.logo'];
+function formCompanyFields(src){
+ const c=()=>src||DB.company||{},b=()=>docCompanyBlock(src);
+ const addr=()=>{const x=c();return [[x.address1,x.address2].filter(Boolean).join(', '),[x.city,[x.province,x.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).join(', ');};
+ const f=(k,label,v)=>({k,g:'Company',label,v});
+ return [f('company.name','Company name',()=>b().name),f('company.lines','Address and contacts',()=>b().lines),f('company.logo','Logo',()=>b().logo||''),
+  f('company.line','Company details, one line',()=>[c().legalName,addr(),c().phone,c().email,c().website].filter(Boolean).join(' · ')),
+  f('company.address','Address, one line',addr),f('company.phone','Phone',()=>c().phone||''),f('company.email','Email',()=>c().email||''),
+  f('company.website','Website',()=>c().website||''),f('company.hst','HST number',()=>c().hstNumber?'HST # '+c().hstNumber:'')];
+}
+/* Список полей бланка с общим набором компании: свои три поля (у Packing
+   slip — из документа) остаются, остальные встают сразу за ними. */
+function formWithCompany(list){
+ const extra=formCompanyFields().filter(f=>!FORM_COMPANY_BASE.includes(f.k)),at=list.findIndex(f=>f.k==='company.logo');
+ return at<0?formCompanyFields().filter(f=>!list.some(x=>x.k===f.k)).concat(list):list.slice(0,at+1).concat(extra,list.slice(at+1));
+}
+/* Прежние имена полей листа чертежа (до 06.11.2026) — общие имена. */
+const FORM_FIELD_RENAMED={company:'company.name',companyLogo:'company.logo',companyLine:'company.line',companyAddress:'company.address',
+ companyPhone:'company.phone',companyEmail:'company.email',companyWebsite:'company.website',companyHst:'company.hst',po:'customerPo'};
 /* Свои поля из Data → Company (My fields) — одинаковы для всех бланков. */
 function formMyFields(){return ((DB.company&&DB.company.myFields)||[]).map(f=>({k:'my.'+f.id,g:'My fields',label:f.name||'Untitled field',v:()=>f.value}));}
 /* Show if: блок печатается, только если условие верно. show = {when:
@@ -273,10 +295,11 @@ function formCleanBlock(b){
  const o={id:str(b.id,40)||'b'+Math.random().toString(36).slice(2,9),type:b.type,place:FORM_PLACES.includes(b.place)?b.place:'left'};
  [['x',-200,800],['y',-200,800],['w',0,800],['h',0,800],['size',4,96],['lh',0,200],['max',0,200],['lw',0,20],['r',0,50],['ls',0,10],['gap',0,200],['module',.5,5],['sa',0,200],['lead',0,200],['keep',0,800],['z',-50,50]].forEach(([k,lo,hi])=>{const v=num(b[k],lo,hi);if(v!==undefined)o[k]=v;});
  ['text','field','color','fill','empty','prefix','format','after','before','k','opt'].forEach(k=>{const v=str(b[k]);if(v!==undefined)o[k]=v;});
+ if(o.field&&FORM_FIELD_RENAMED[o.field])o.field=FORM_FIELD_RENAMED[o.field];
  if(['left','center','right'].includes(b.align))o.align=b.align;
  ['bold','italic','wrap','fit','pin'].forEach(k=>{if(b[k])o[k]=true;});
  if(b.font==='times'||b.font==='courier')o.font=b.font;
- if(b.show&&typeof b.show==='object'&&['filled','is','not'].includes(b.show.when)&&typeof b.show.field==='string')o.show={when:b.show.when,field:b.show.field.slice(0,60),value:String(b.show.value==null?'':b.show.value).slice(0,200)};
+ if(b.show&&typeof b.show==='object'&&['filled','is','not'].includes(b.show.when)&&typeof b.show.field==='string')o.show={when:b.show.when,field:FORM_FIELD_RENAMED[b.show.field]||b.show.field.slice(0,60),value:String(b.show.value==null?'':b.show.value).slice(0,200)};
  if(b.type==='image'&&typeof b.src==='string'&&/^data:image\/jpeg;base64,/.test(b.src)&&b.src.length<3e6)o.src=b.src;
  if(o.y===undefined)o.y=0;
  return o;

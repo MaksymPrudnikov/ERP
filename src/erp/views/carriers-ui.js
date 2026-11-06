@@ -49,7 +49,10 @@ function carrierEmptyBack(){
 function carrierPick(code,on){if(on)carrierSel.add(code);else carrierSel.delete(code);render();}
 /* Этикетка 4 × 6″ стоя: крупный код — его видно через цех, тип словами,
    штрихкод Code 128 с тем же текстом — сканер вводит ровно код тары. */
-function carrierLabelSVG(code){
+/* Вид наклейки — форма Dolly / Skid label (erp/documents/carrier-form);
+   по умолчанию — прежняя (carrierLabelLegacySVG — эталон проверки). */
+function carrierLabelSVG(code){return carrierLabelSVGOf(carrierLabelTpl(),code,null);}
+function carrierLabelLegacySVG(code){
  const t=carrierType(code)||{label:''},W=288,H=432,bars=barcode128Items(code,0,0,110,2.4),bw=barcode128Width(code)*2.4,x0=(W-bw)/2;
  return `<svg xmlns="http://www.w3.org/2000/svg" width="4in" height="6in" viewBox="0 0 ${W} ${H}" font-family="Helvetica, Arial, sans-serif">
   <rect x="0" y="0" width="${W}" height="${H}" fill="#fff"/>
@@ -62,8 +65,10 @@ function carrierLabelSVG(code){
 function carrierPrintLabels(codes){
  const list=(codes||[]).map(carrierFind).filter(Boolean);if(!list.length)return false;
  let st=document.getElementById('stkPageStyle');if(!st){st=document.createElement('style');st.id='stkPageStyle';document.head.appendChild(st);}
- st.textContent='@page stk{size:4in 6in;margin:0}';
- stkPrintHost().innerHTML=list.map(c=>`<div class="stk-print-page" style="width:4in;height:6in" data-carrier-label="${esc(c.code)}">${carrierLabelSVG(c.code)}</div>`).join('');
+ /* Размер наклейки — из формы Dolly / Skid label (4 × 6 или 3 × 4). */
+ const Z=CL_SIZES[carrierLabelSize(carrierLabelTpl())];
+ st.textContent='@page stk{size:'+Z.inW+'in '+Z.inH+'in;margin:0}';
+ stkPrintHost().innerHTML=list.map(c=>`<div class="stk-print-page" style="width:${Z.inW}in;height:${Z.inH}in" data-carrier-label="${esc(c.code)}">${carrierLabelSVG(c.code)}</div>`).join('');
  document.body.classList.add('stk-printing');
  window.addEventListener('afterprint',stkPrintCleanup,{once:true});setTimeout(stkPrintCleanup,60000);
  try{window.print();}catch(e){stkPrintCleanup();return false;}
