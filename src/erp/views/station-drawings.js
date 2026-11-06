@@ -57,7 +57,8 @@ function stationDrawStep(d){
  const lines=stationDrawItems(salesRecord(x.orderId)),at=lines.findIndex(l=>l.id===x.lineId),next=lines[Math.max(0,Math.min(lines.length-1,at+d))];
  if(next&&next.id!==x.lineId){x.lineId=next.id;render();}
 }
-function stationDrawZoom(){return Math.max(.2,Math.min(1,(Math.min(1400,window.innerWidth)-160)/850,(window.innerHeight-64-150)/1100));}
+/* Альбомный лист (Data → Forms → Drawing) лежит и на экране станции. */
+function stationDrawZoom(){const land=typeof drawStyle==='function'&&drawStyle().paper==='landscape',w=land?1100:850,h=land?850:1100;return Math.max(.2,Math.min(1,(Math.min(1400,window.innerWidth)-160)/w,(window.innerHeight-64-150)/h));}
 /* Чертёж — белый лист и в тёмной теме: класс gf-light держит светлые токены. */
 function stationDrawSheet(d){return !d?'':d.html?'<div class="print-sheet gf-light">'+printSheetUniqueIds(d.html)+'</div>':'<div class="doc-drawing-error">'+esc(d.error||'No drawing')+'</div>';}
 function stationDrawFit(){document.querySelectorAll('[data-station-draw] .print-sheet,.st-drawthumb .print-sheet').forEach(el=>salesSheetFitDrawing(el));}

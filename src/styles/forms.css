@@ -90,7 +90,10 @@ textarea.fm-in{resize:vertical}
 .fm-vview{display:flex;flex-direction:column;min-width:0}
 .fm-vpages{overflow:auto;max-height:76vh;display:flex;flex-direction:column;gap:12px;background:var(--surface-3);border-radius:10px;padding:12px}
 .fm-vsheet{position:relative;width:100%;aspect-ratio:612/792;background:var(--on-solid);box-shadow:0 1px 4px rgba(0,0,0,.15);flex:none}
-.fm-vsheet svg{position:absolute;inset:0}
+.fm-vsheet:not(.fm-vdraw) svg{position:absolute;inset:0}
+/* Версия листа чертежа (History) — в размер бумаги, ужата, как живой лист. */
+.fm-vsheet.fm-vdraw{width:8.5in;height:11in;aspect-ratio:auto;padding:9mm;box-sizing:border-box;zoom:.6}
+.fm-vdraw .print-sheet{height:100%}
 /* Колонки таблицы (владелец 05.11.2026): список справа, клик — настройки. */
 .fm-cols{display:flex;flex-direction:column}
 .fm-colrow{display:grid;grid-template-columns:14px 18px minmax(0,1fr) 64px 10px;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line-soft);cursor:pointer}
@@ -139,3 +142,4 @@ textarea.fm-in{resize:vertical}
 /* Наложение блоков на листе чертежа: видно, но сохранить можно. */
 .fm-dsheet [data-forms-overlap]{outline:1.5px dashed var(--warning)!important}
 .fm-doverlap{align-self:stretch;background:var(--warning-soft);color:var(--warning);border-radius:8px;padding:6px 10px;font-size:12.5px}
+.fm-right .fm-check.fm-dshow{display:flex;gap:8px;align-items:center;margin:0;padding:3px 0;font-size:13px}

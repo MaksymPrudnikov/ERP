@@ -97,5 +97,16 @@ module.exports=async function({page,eq}){
   const d=dfDoc(dfSheet(o));
   return {block:[b.type,b.field,b.h],live:!!img,printed:!!d.querySelector('.sheet-foot img[src^="data:image/jpeg"]'),h:d.querySelector('.sheet-foot img').style.height,due:d.querySelector('.sheet-id-o').children[1].textContent};
  }),{block:['image','companyLogo',28],live:true,printed:true,h:'28pt',due:'Due:Nov 20, 2026'});
+ eq('Drawing form: Info and Route — ticks hide sq ft · kg, NOTE and the route; the panel opens from the sheet; History shows a version on the drawing',await t.p.evaluate(async()=>{
+  const o=dfOrder();dfSave({showMass:false,showNote:false,showRoute:false});printSheetPrepare([dfSheet(o)],'',salesSheetFitDrawing);
+  const h=document.getElementById('printSheetHost'),vis=sel=>[...h.querySelectorAll(sel)].map(e=>getComputedStyle(e).display!=='none');
+  const out={cls:h.querySelector('.print-shape-sheet').className,mass:vis('.sheet-mass'),route:vis('.sheet-route'),who:vis('.sheet-who>*'),size:vis('.sheet-size')};printSheetCleanup();
+  DB.formTemplate={};dfOpen();document.querySelector('[data-forms-part-hit="info"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+  out.panel=[...document.querySelectorAll('[data-draw-show]')].map(e=>e.dataset.drawShow);
+  const tick=document.querySelector('[data-draw-show="showQty"]');tick.checked=false;tick.dispatchEvent(new Event('change'));out.qty=drawStyle(formsDraft().tpl).showQty;
+  document.querySelector('[data-forms-save]').click();formsVersionsOpen();await new Promise(r=>setTimeout(r,30));out.history=!!document.querySelector('[data-forms-versions] .fm-vdraw .print-shape-sheet.dw-no-qty');formsVersionsClose();
+  return out;
+ }),{cls:'print-shape-sheet dw-no-mass dw-no-note dw-no-route',mass:[false],route:[false],who:[true,true,false,false],size:[true],
+  panel:['showQty','showFinished','showMass','showLine','showNote','showScheme'],qty:false,history:true});
  eq('Drawing form browser errors',t.errs,[]);await t.c.close();
 };

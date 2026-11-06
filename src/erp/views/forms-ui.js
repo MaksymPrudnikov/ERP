@@ -53,7 +53,7 @@ function formsDefs(){
      живой лист — настоящий чертёж строки заказа. */
   {k:'drawing',label:'Drawing',def:drawFormDefault,fields:()=>drawFormFields(),add:['text','field','image'],
   parts:{head:['Header','top line'],info:['Info','beside drawing'],drawing:['Drawing','units · colors'],route:['Route','bottom'],foot:['Footer','bottom line']},
-  samples:()=>drawFormSamples(),doc:id=>id,context:()=>drawFormContext(),columns:{},html:(tpl,id)=>drawFormSheetHTML(tpl,id),after:()=>drawFormOverlaps(),panel:(part,tpl)=>part==='drawing'?drawFormStyleHTML(tpl):''}]);
+  samples:()=>drawFormSamples(),doc:id=>id,context:()=>drawFormContext(),columns:{},html:(tpl,id,view)=>drawFormSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),panel:(part,tpl)=>part==='drawing'?drawFormStyleHTML(tpl):part==='info'||part==='route'?drawFormShowHTML(part,tpl):''}]);
 }
 function formsPartLabel(k){const d=formsDef(formsState().form);return (d.parts&&d.parts[k])||FORMS_PARTS[k]||[k,''];}
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
@@ -254,13 +254,16 @@ function formsLoadFile(input){const f=input.files&&input.files[0];input.value=''
 function formsVersionsHTML(){
  const s=formsState(),m=s.versions;if(!m)return '';
  const list=formsVersionList(),v=list[m.sel]||list[0],def=formsDef(s.form);
- let pages=[];try{pages=def.pages(v.tpl,def.doc(s.sample));}catch(e){}
+ let pages=[],sheet='';
+ /* Лист чертежа — HTML: версия на том же чертеже строки, без правки мышью. */
+ if(def.html){try{sheet=`<div class="fm-vsheet fm-vdraw">${def.html(v.tpl,def.doc(s.sample),true)}</div>`;}catch(e){}setTimeout(()=>document.querySelectorAll('.fm-vdraw .print-sheet').forEach(el=>salesSheetFitDrawing(el)),0);}
+ else try{pages=def.pages(v.tpl,def.doc(s.sample));}catch(e){}
  return `<div class="fm-modal-back" onclick="formsVersionsClose()"></div><div class="fm-modal fm-versions" role="dialog" aria-modal="true" aria-label="Versions" data-forms-versions>
   <div class="fm-vlist"><div class="fm-modal-head"><b>Versions · ${esc(def.label)}</b></div>
    ${list.map((x,i)=>`<button type="button" class="fm-pick fm-ver${i===m.sel?' on':''}" data-forms-version="${i}" onclick="formsVersionPick(${i})"><b>${esc(formsWhen(x.at))}${x.by?' · '+esc(x.by):''}</b><small>${esc(x.note||'')}</small></button>`).join('')}
    <div class="fm-vfile"><button type="button" data-forms-download onclick="formsVersionDownload()">Download this version</button><button type="button" onclick="document.querySelector('[data-forms-file]').click()">Load form file…</button></div>
    ${m.error?`<p class="fm-error" data-forms-file-error>${esc(m.error)}</p>`:''}<input type="file" accept=".json,application/json" hidden data-forms-file onchange="formsLoadFile(this)"></div>
-  <div class="fm-vview"><div class="fm-vpages">${pages.map(pg=>`<div class="fm-vsheet">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}</div>`).join('')}</div>
+  <div class="fm-vview"><div class="fm-vpages">${sheet}${pages.map(pg=>`<div class="fm-vsheet">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}</div>`).join('')}</div>
    <div class="fm-modal-foot"><button type="button" onclick="formsVersionsClose()">Close</button><button type="button" class="pri" data-forms-restore ${m.sel===0&&list[0].id!=='@default'&&!formsDirty()?'disabled':''} onclick="formsVersionRestore()">Restore this version</button></div></div></div>`;
 }
 

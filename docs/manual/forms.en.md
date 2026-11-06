@@ -99,7 +99,8 @@ batch print. One setting works everywhere; by default the sheet is exactly what 
   cells in Sales), **Company** (name, details in one line, address, phone, email, website, HST) and My fields. A price on
   the sheet is seen by the shop too — add it only when needed.
 - **Info** and **Route** are drawn by the program (makeup, Finished, weight, LINE, NOTE; the route by stations). Click
-  them on the sheet to select the part.
+  them on the sheet or in the list — ticks for what to show: Qty, Finished size, sq ft · kg, LINE, NOTE, Makeup scheme,
+  Route.
 - **Drawing** — click the drawing or the part in the list to open the drawing look on the right:
   - **Paper** — Portrait (default) or Landscape: the print dialog opens this way on every computer.
   - **Units** — inches in 1/16 fractions (as before), decimal inches (hundredths) or mm (tenths: 844.6).

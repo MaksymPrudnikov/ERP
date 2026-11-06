@@ -897,6 +897,11 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .md-stock-measures{max-width:680px}.md-stock-measures input{width:100%}.md-stock-tiles{padding:0 0 10px;max-width:620px}
 /* Альбомный лист чертежа (Data → Forms → Drawing) и в окне Drawings лежит. */
 .doc-drawing:has(.dw-land){width:1100px;height:850px}
+.st-drawthumb-paper:has(.dw-land){width:242px;height:187px}
+.st-drawthumb-sheet:has(.dw-land){width:1100px;height:850px}
 .sheet-free{white-space:nowrap}
+/* Галочки Info / Route формы Drawing: что не показывать на листе. */
+.dw-no-qty .sheet-qty,.dw-no-finished .sheet-size,.dw-no-mass :is(.sheet-mass,.sheet-mass-note),.dw-no-scheme .sheet-mk,.dw-no-route .sheet-route{display:none}
+.dw-no-line .sheet-who>:is(span,b):nth-child(-n+2),.dw-no-note .sheet-who>:is(span,b):nth-child(n+3){display:none}
 .sheet-id-c>div+div,.sheet-id-p>div+div,.sheet-id-o>div+div{margin-top:1px}
 .sheet-foot-g>span+span{margin-left:12px}

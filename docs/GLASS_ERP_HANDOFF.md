@@ -40,7 +40,10 @@
   в Sales, `salesLineCommercialPrice`; владелец: «цену брать с ячейки по линии»; считается, только если поле на листе), Company (имя, строка реквизитов, адрес,
   телефон, email, сайт, HST, логотип), Due date (формат даты — как в других бланках), My fields. **+ Picture** —
   логотип из Data → Company (`drawFormAddPicture`, блок image с полем `companyLogo`), иначе файл. Владелец 06.11: «добавить данные компании в самый низ листа или вверх».
-- Проверки: `test/drawing-form.js` (11), `test/forms-editor.js` — в строке форм Drawing. Руководство
+- Info и Route — галочки «показывать» (`DRAW_SHOW`: Qty, Finished, sq ft · kg, LINE, NOTE, схема пакета, маршрут;
+  классы `dw-no-*`, по умолчанию всё видно). History показывает версию на том же чертеже (`def.html(tpl, id, view)`).
+  Альбомный лист лежит и на экране станции (`stationDrawZoom`) и в миниатюрах.
+- Проверки: `test/drawing-form.js` (12), `test/forms-editor.js` — в строке форм Drawing. Руководство
   `docs/manual/forms.*` — «Drawing — лист чертежа стекла».
 
 ## Все бланки на конструкторе форм (этап 7) · 6 ноября 2026
