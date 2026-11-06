@@ -59,7 +59,11 @@ function formsDefs(){
   {k:'carrierSheet',label:'Dolly / Skid sheet',def:carrierFormDefault,fields:()=>carrierFormFields(),add:['text','field','image'],sheetClass:'fm-csheet',
   parts:{head:['Header','top'],strip:['Strip','station, since, weight'],customer:['Customer','one order'],table:['Table','glass on it'],total:['Total','under the table'],foot:['Page footer','every page']},
   samples:()=>carrierFormSamples(),doc:id=>id,context:()=>carrierFormContext(),columns:{},html:(tpl,id,view)=>carrierFormSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),
-  panel:(part,tpl)=>part==='head'||part==='foot'?'':carrierFormPanelHTML(part,tpl)}]);
+  panel:(part,tpl)=>part==='head'||part==='foot'?'':carrierFormPanelHTML(part,tpl)},
+  /* Наклейка тары 4 × 6 (erp/documents/carrier-form): живой лист — наклейка. */
+  {k:'carrierLabel',label:'Dolly / Skid label',def:carrierLabelDefault,fields:()=>carrierLabelFields(),add:['text','field','image','barcode'],sheetClass:tpl=>'fm-lsheet'+(carrierLabelSize(tpl)==='3x4'?' cl-small':''),
+  parts:{label:['Label 4 × 6','portrait'],small:['Label 3 × 4','landscape']},samples:()=>carrierLabelSamples(),doc:id=>id,context:id=>carrierLabelCtx(id&&id!=='sample'?id:'SA-10'),columns:{},
+  html:(tpl,id,view)=>carrierLabelSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),pageOf:tpl=>carrierLabelPage(tpl),panel:(part,tpl)=>carrierLabelPanelHTML(part,tpl)}]);
 }
 function formsPartLabel(k){const d=formsDef(formsState().form);return (d.parts&&d.parts[k])||FORMS_PARTS[k]||[k,''];}
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
@@ -383,8 +387,8 @@ function formsSheetsHTML(){
   setTimeout(()=>{document.querySelectorAll('[data-forms-stage] .print-sheet').forEach(el=>salesSheetFitDrawing(el));if(def.after)def.after();},0);
   /* Линейка и направляющие (владелец: «рулетку тоже, чтобы выравнивать»);
      поля — поля печати, их не тянут. */
-  const W=land?792:612,H=land?612:792,v=Object.assign({},tpl,{page:Object.assign({},tpl.page,{w:W,h:H})}),m=tpl.page.margin,pc=(x,of)=>(x/of*100).toFixed(4)+'%';
-  return `<div class="fm-sheet fm-dsheet${land?' land':''}${def.sheetClass?' '+def.sheetClass:''}" data-forms-page="0" data-w="${W}" data-h="${H}">${h}${formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(v,true)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(v)}</div>`;
+  const pg=def.pageOf?def.pageOf(tpl):tpl.page,W=land?pg.h:pg.w,H=land?pg.w:pg.h,v=Object.assign({},tpl,{page:Object.assign({},tpl.page,{w:W,h:H})}),m=tpl.page.margin,pc=(x,of)=>(x/of*100).toFixed(4)+'%';
+  return `<div class="fm-sheet fm-dsheet${land?' land':''}${def.sheetClass?' '+(typeof def.sheetClass==='function'?def.sheetClass(tpl):def.sheetClass):''}" data-forms-page="0" data-w="${W}" data-h="${H}">${h}${formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(v,true)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(v)}</div>`;
  }
  let pages;try{pages=def.pages(tpl,d,map);}catch(e){return `<p class="fm-note">Preview failed: ${esc(e.message)}</p>`;}
  const W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',m=tpl.page.margin;

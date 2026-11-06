@@ -137,6 +137,15 @@ it is the sheet as before.
 - **Page footer** — the bottom of every page: "Printed … by … at …" on the left and the page number on the right;
   blocks Left / Center / Right, `{page}` and `{pages}` are the page number and the page count.
 
+## Dolly / Skid label
+
+The label stuck on a dolly or skid (printed from Dollies & Skids and at the stations). By default it is the label as
+before: the type, the big number, the barcode of the number (stations scan it) and the number in small print.
+
+- **Label size** — 4 × 6 (portrait) or 3 × 4 (landscape); each size keeps its own layout, printing uses the chosen one.
+- Blocks: + Text, + Field (number, type, date, company fields, My fields), + Picture (logo), + Barcode. Mouse, ruler,
+  Left / Center / Right / Free and layers — as in other forms.
+
 ## Add to other forms and one set of fields
 
 - In the block settings — **Add to other forms…**: the same block (logo, text, field) into other forms at once. A form

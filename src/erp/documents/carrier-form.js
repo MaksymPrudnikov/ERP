@@ -109,3 +109,77 @@ function carrierFormLookHTML(st,set){
   ${CS_LOOK.map(([k,l,tok])=>`<div class="fm-drow"><span>${l}</span><input type="color" class="fm-in fm-color" data-cs-color="${k}" value="${st[k]||DOC_COLOR[tok]}" title="Pick a color" onchange="${set(k,'this.value')}">${st[k]?`<button type="button" class="fm-dreset" title="As now" onclick="${set(k,"''")}">×</button>`:'<i></i>'}</div>`).join('')}</div>`;
 }
 function formsCarrierColors(c){formsEdit(t=>{t.style=Object.assign({},carrierFormDefault().style,t.style);CS_LOOK.forEach(([k])=>{t.style[k]=c==='black'&&['csInk','csMut','csNavy'].includes(k)?'#000000':'';});});}
+/* ===================== Наклейка долли / скида 4 × 6 ==================== */
+/* Форма carrierLabel (Data → Forms → Dolly / Skid label; владелец
+   06.11.2026: «управление стикерами долли и скида — добавь»). Наклейка —
+   SVG 4 × 6″ стоя, 288 × 432 pt; блок: text, field, barcode, image; y у
+   текста — линия букв, у штрихкода и картинки — верх. По умолчанию —
+   прежняя наклейка: тип тары, крупный номер, штрихкод Code 128 номера,
+   номер мелко. */
+/* Размеры (владелец: «3×4 тоже»): 4 × 6 стоя — часть label, 3 × 4 лёжа —
+   часть small, как стикеры стекла этого размера; у каждого своя раскладка. */
+const CL_SIZES={'4x6':{w:288,h:432,part:'label',inW:4,inH:6,label:'4 × 6'},'3x4':{w:288,h:216,part:'small',inW:4,inH:3,label:'3 × 4'}},CL_MARGIN=12;
+function carrierLabelDefault(){
+ const m=CL_MARGIN;
+ return {form:'carrierLabel',page:{w:288,h:432,margin:{top:m,right:m,bottom:m,left:m}},style:{size:'4x6'},parts:{
+  label:{h:0,blocks:[
+   {id:'type',type:'field',field:'type',place:'center',y:60,size:22,bold:true},
+   {id:'code',type:'field',field:'code',place:'center',y:190,size:100,bold:true},
+   {id:'bar',type:'barcode',field:'code',place:'center',y:250,h:110,module:2.4},
+   {id:'num',type:'field',field:'code',place:'center',y:390,size:18}]},
+  small:{h:0,blocks:[
+   {id:'type',type:'field',field:'type',place:'center',y:34,size:18,bold:true},
+   {id:'code',type:'field',field:'code',place:'center',y:118,size:80,bold:true},
+   {id:'bar',type:'barcode',field:'code',place:'center',y:134,h:56,module:2.4},
+   {id:'num',type:'field',field:'code',place:'center',y:206,size:14}]}}};
+}
+function carrierLabelSize(tpl){const k=tpl&&tpl.style&&tpl.style.size;return CL_SIZES[k]?k:'4x6';}
+function carrierLabelFields(){
+ const f=(g,k,label)=>({g,k,label});
+ return [f('Dolly / skid','code','Number'),f('Dolly / skid','type','Type, uppercase'),f('Dolly / skid','typeName','Type'),{g:'Dolly / skid',k:'date',label:'Date printed',t:'date'}]
+  .concat(formCompanyFields(),formMyFields());
+}
+let carrierLabelPreview=null;
+function carrierLabelTpl(){return carrierLabelPreview?carrierLabelPreview.tpl:formClean(DB.formTemplate&&DB.formTemplate.carrierLabel,carrierLabelDefault());}
+function carrierLabelCtx(code){
+ const t=carrierType(code)||{label:''},fields={code,type:String(t.label||'').toUpperCase(),typeName:t.label||'',date:new Date().toISOString().slice(0,10)};
+ formCompanyFields().concat(formMyFields()).forEach(f=>{fields[f.k]=f.v;});
+ return {field:k=>{let v=fields[k];if(typeof v==='function')v=fields[k]=v();return v==null?'':v;},defs:carrierLabelFields};
+}
+/* Наклейка: блоки по порядку (слой — z), x по месту блока. */
+function carrierLabelSVGOf(tpl,code,edit){
+ const Z=CL_SIZES[carrierLabelSize(tpl)],CL_W=Z.w,CL_H=Z.h,part=Z.part;
+ const ctx=carrierLabelCtx(code),blocks=((tpl.parts[part]||{}).blocks||[]).filter(b=>formShow(b,ctx)).map((b,i)=>({b,i})).sort((a,c)=>(a.b.z||0)-(c.b.z||0)||a.i-c.i).map(x=>x.b);
+ const hit=b=>edit?' data-forms-hit="'+part+'|'+esc(b.id)+'" onpointerdown="formsPointerStart(event,\''+part+'\',\''+esc(b.id)+'\')"'+(edit.sel&&edit.sel.part===part&&edit.sel.id===b.id?' data-forms-sel':''):'';
+ const at=(b,w)=>b.place==='free'?{x:b.x||0,a:'start'}:b.place==='left'?{x:CL_MARGIN,a:'start'}:b.place==='right'?{x:CL_W-CL_MARGIN-(w||0),a:'end'}:{x:CL_W/2,a:'middle'};
+ const out=blocks.map(b=>{
+  if(b.type==='barcode'){const v=String(ctx.field(b.field||'code')||'');if(!v)return '';const mod=b.module||2.4,h=b.h||110,bars=barcode128Items(v,0,0,h,mod),bw=barcode128Width(v)*mod;
+   const x0=b.place==='free'?b.x||0:b.place==='left'?CL_MARGIN:b.place==='right'?CL_W-CL_MARGIN-bw:(CL_W-bw)/2;
+   return `<g transform="translate(${x0.toFixed(1)} ${b.y||0})"${hit(b)}>${bars.map(r=>`<rect x="${r.x.toFixed(2)}" y="0" width="${r.w.toFixed(2)}" height="${h}" fill="${/^#[0-9a-f]{3,6}$/i.test(b.color||'')?b.color:'#000'}"/>`).join('')}</g>`;}
+  if(b.type==='image'){const src=b.src||(b.field?ctx.field(b.field):'');if(!/^data:image\/jpeg;base64,/.test(src||''))return '';const h=b.h||40,w=b.w||h*3,p=at(b);
+   return `<image href="${esc(src)}" x="${(p.a==='middle'?p.x-w/2:p.a==='end'?CL_W-CL_MARGIN-w:p.x).toFixed(1)}" y="${b.y||0}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"${hit(b)}/>`;}
+  const v=drawBlockText(b,ctx),p=at(b);if(!v&&!edit)return '';
+  /* Крупный номер — как прежняя наклейка: 800, длинный (больше 5 знаков) мельче. */
+  const big=b.field==='code'&&b.size>=40,size=big&&v.length>5?Math.round(b.size*.84):b.size||14,weight=b.bold?(big?800:700):0;
+  return `<text x="${p.x}" y="${b.y||0}" text-anchor="${p.a}" font-size="${size}"${weight?` font-weight="${weight}"`:''}${b.italic?' font-style="italic"':''}${b.font?` font-family="${b.font==='times'?'Times, serif':'Courier, monospace'}"`:''} fill="${/^#[0-9a-f]{3,6}$/i.test(b.color||'')?b.color:'#000'}"${hit(b)}>${esc((b.type==='field'&&b.prefix?b.prefix:'')+v)}</text>`;
+ }).join('\n  ');
+ return `<svg xmlns="http://www.w3.org/2000/svg" width="${Z.inW}in" height="${Z.inH}in" viewBox="0 0 ${CL_W} ${CL_H}" font-family="Helvetica, Arial, sans-serif">
+  <rect x="0" y="0" width="${CL_W}" height="${CL_H}" fill="#fff"/>
+  ${out}
+ </svg>`;
+}
+function carrierLabelSamples(){return (DB.carrier||[]).slice(0,60).map(c=>({id:c.code,label:c.code+' · '+((carrierType(c.code)||{}).label||'')}));}
+function carrierLabelSheetHTML(tpl,code,view){
+ code=code&&code!=='sample'?code:'SA-10';
+ /* Новый блок встаёт в раскладку того размера, что на экране. */
+ const s=formsState(),part=CL_SIZES[carrierLabelSize(tpl)].part;if(!view&&s.part!==part&&!s.sel)s.part=part;
+ return '<div class="cl-paper">'+carrierLabelSVGOf(tpl,code,view?null:{sel:s.sel})+'</div>';
+}
+function carrierLabelPage(tpl){const Z=CL_SIZES[carrierLabelSize(tpl)];return {w:Z.w,h:Z.h};}
+/* Панель части: размер наклейки — на экране и на печати. */
+function carrierLabelPanelHTML(part,tpl){
+ const cur=carrierLabelSize(tpl);
+ return `<div class="fm-h">Label size</div><div class="fm-seg" data-cl-size>${Object.keys(CL_SIZES).map(k=>`<button type="button" class="${cur===k?'on':''}" onclick="formsLabelSize('${k}')">${CL_SIZES[k].label}${k==='3x4'?' (landscape)':''}</button>`).join('')}</div>
+  <p class="fm-note">Prints on this size. Each size keeps its own layout.</p>`;
+}
+function formsLabelSize(k){if(!CL_SIZES[k])return;formsStyle('size',k);const s=formsState();s.sel=null;s.part=CL_SIZES[k].part;render();}

@@ -157,3 +157,9 @@ textarea.fm-in{resize:vertical}
 .fm-addto-list .fm-check{display:grid;grid-template-columns:20px 1fr auto;align-items:center;gap:8px;padding:5px 4px;margin:0}
 .fm-addto-list .fm-check small{color:var(--text-3);font-size:11.5px}
 .fm-addto-list .fm-check.off span{color:var(--text-3)}
+/* Наклейка долли / скида 4 × 6 (форма Dolly / Skid label). */
+.fm-sheet.fm-dsheet.fm-lsheet{width:4in;height:6in;padding:0;zoom:1.25}
+.fm-sheet.fm-dsheet.fm-lsheet.cl-small{width:4in;height:3in}
+.fm-lsheet .cl-paper,.fm-lsheet .cl-paper svg{display:block;width:100%;height:100%}
+.fm-lsheet svg [data-forms-hit]{cursor:grab}
+.fm-lsheet svg [data-forms-sel]{outline:1.5px solid var(--accent)}

@@ -38,5 +38,21 @@ module.exports=async function({page,eq}){
   return {live,parts,ticks,off,drawing:has('drawing'),invoice:has('invoice'),versions:DB.formVersion.map(v=>v.form+':'+v.note).sort(),notice:formsUi.notice};
  }),{live:true,parts:['Header','Strip','Customer','Table','Total','Page footer'],ticks:['showStation','showSince','showOnIt','showWeight','showPrintedBy'],off:[],drawing:true,invoice:true,
   versions:['drawing:Block added from Dolly / Skid sheet','invoice:Block added from Dolly / Skid sheet'],notice:'Added to Invoice, Drawing'});
+ eq('Dolly / Skid label: by default exactly the old label (the same SVG) for every type and a long number; 3 × 4 — its own layout and the 4 × 3 in page; a moved block prints where it stands',await t.p.evaluate(()=>{
+  DB.formTemplate={};DB.carrier=[];DB.carrierSeq={};carrierAdd('DL',1);carrierAdd('DA',1);carrierAdd('SL',1);carrierAdd('SA',1);
+  const codes=DB.carrier.map(c=>c.code),same=codes.concat(['SL-12345']).map(c=>carrierLabelSVG(c)===carrierLabelLegacySVG(c));
+  carrierPrintLabels(['DL-1']);const page4=document.getElementById('stkPageStyle').textContent,dim4=document.querySelector('[data-carrier-label]').getAttribute('style');stkPrintCleanup();
+  const t=carrierLabelDefault();t.style.size='3x4';t.parts.small.blocks.find(b=>b.id==='type').y=50;DB.formTemplate={carrierLabel:formClean(t,carrierLabelDefault())};
+  carrierPrintLabels(['DL-1']);const page3=document.getElementById('stkPageStyle').textContent,svg=document.querySelector('[data-carrier-label] svg');
+  const out={same,page4,dim4,page3,box:svg.getAttribute('viewBox'),size:[svg.getAttribute('width'),svg.getAttribute('height')],typeY:svg.querySelector('text').getAttribute('y')};stkPrintCleanup();DB.formTemplate={};
+  return out;
+ }),{same:[true,true,true,true,true],page4:'@page stk{size:4in 6in;margin:0}',dim4:'width:4in;height:6in',page3:'@page stk{size:4in 3in;margin:0}',box:'0 0 288 216',size:['4in','3in'],typeY:'50'});
+ eq('Dolly / Skid label in Data → Forms: the label on screen, Label size 4 × 6 / 3 × 4 switches the layout; + Barcode is there',await t.p.evaluate(()=>{
+  DB.formTemplate={};formsUi=null;navGo('masterdata');mdSection='print';mdSetTab('forms');formsSetForm('carrierLabel');formsSelect('label','');
+  const four=[document.querySelector('[data-forms-page]').dataset.w,document.querySelector('[data-forms-page]').dataset.h],hits=document.querySelectorAll('[data-forms-stage] svg [data-forms-hit^="label|"]').length;
+  [...document.querySelectorAll('[data-cl-size] button')].find(b=>b.textContent.startsWith('3 × 4')).click();
+  const three=[document.querySelector('[data-forms-page]').dataset.w,document.querySelector('[data-forms-page]').dataset.h],small=document.querySelectorAll('[data-forms-stage] svg [data-forms-hit^="small|"]').length;
+  return {four,hits,three,small,part:formsUi.part,add:[...document.querySelectorAll('[data-forms-add]')].map(b=>b.textContent)};
+ }),{four:['288','432'],hits:4,three:['288','216'],small:4,part:'small',add:['+ Text','+ Field','+ Picture','+ Barcode']});
  eq('Dolly / Skid sheet browser errors',t.errs,[]);await t.c.close();
 };
