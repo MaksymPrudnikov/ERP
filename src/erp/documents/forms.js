@@ -207,13 +207,16 @@ function formFlow(tpl,ctx,map){
       конструкторе его можно выбрать. */
    if(mk&&(x.lines?!x.lines.length:x.hide))units.push({y:x.top,e:0,skip:true,i:x.i,draw:(P,a)=>mk(x,formRect(tpl,x,a))});
   });
-  /* 1e-6 — строка ровно до края листа влезает: иначе решала бы погрешность
-     сложения дробных (738.6 + 9.4). */
-  let off=f.y;
+  /* Строка вплотную под предыдущей ставится прибавлением её высоты, как
+     складывал прежний код бланка: строка ровно до края листа (738,6 + 9,4)
+     иначе решалась бы другой погрешностью дробных. */
+  let off=f.y,prev=null;
   units.sort((p,q)=>p.y-q.y||p.i-q.i).forEach(u=>{
    let a=u.y+off;
-   if(!u.skip&&a+Math.max(u.e,u.need||0)>f.bottom+1e-6&&a>f.top+1){f.page();off=f.y-u.y;a=f.y;}
+   if(prev&&!u.skip&&Math.abs(u.y-prev.y-prev.e)<1e-6)a=prev.a+prev.e;
+   if(!u.skip&&a+Math.max(u.e,u.need||0)>f.bottom&&a>f.top+1){f.page();off=f.y-u.y;a=f.y;}
    u.draw(f.P,a);
+   if(!u.skip)prev={y:u.y,e:u.e,a};
   });
   f.y=lay.h+off;return f;
  };
