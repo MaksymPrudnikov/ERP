@@ -1,7 +1,7 @@
 # Forms · form builder
 
-Data → Company & print → **Forms**. A form is built from blocks, like in Word, and printing takes it right away. For
-now the Packing slip (with its skid sheet) is on the builder; the other forms move here one at a time.
+Data → Company & print → **Forms**. A form is built from blocks, like in Word, and printing takes it right away. The
+Packing slip (with its skid sheet) and the Quote are on the builder; the other order forms move here one at a time.
 
 ## The screen
 
@@ -48,6 +48,24 @@ printed only when the field is not empty. Search looks in all groups. Text block
 Helvetica, Times and Courier are the standard PDF fonts: they are not embedded, every viewer and printer knows them,
 no fee. Windows may show a look-alike of the same width instead of Helvetica — lines land the same. Line breaks are
 the same on screen, in print and in the PDF.
+
+## Order forms: Quote
+
+The Quote prints from its form in Forms; by default the sheet is exactly what it was. Proforma, Order confirmation,
+Invoice and Work order come next.
+
+- Parts of the sheet: **Page 1 header** (top of the first page: logo, company, QUOTE and its number, the Date / Valid
+  until… cells, addresses), **Page header** (top of the next pages), **Lines table** (order lines — the ✎ Customize
+  window sets how they look), **After lines** (totals and payment, order summary, notes, terms, customer approval),
+  **Page footer**.
+- **Section** — a part the program draws: Header cells, Addresses, Totals and payment, Order summary, Customer
+  approval. Move it (Y), give it Show if or remove it; what it shows — the ✎ Customize ticks.
+- The ✎ **Customize** window of the Quote builds its ticks from the form blocks: remove the Header cells section and
+  the Date, Valid until, Customer PO… ticks go; your own block (say "Thank you, {customer}!") is a tick of its own in
+  **Added blocks**, ticked by default. **Save as default** keeps it too.
+- Order form fields (Insert field): Company, Document (number, dates, PAID stamp, terms), Order (PO, payment terms,
+  currency), Customer (addresses, contact), Totals (units, area, weight, Subtotal, HST, Total, paid, balance),
+  My fields.
 
 ## My fields, totals and Show if
 

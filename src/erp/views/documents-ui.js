@@ -58,8 +58,8 @@ function docToggleRev(id,on){
  docState.revs=[...s];docState.status='';render();
 }
 function docCurrentPages(){
- if(docState.kind!=='quote')return docLayout(docBuildModel(docState.kind,soDraft,docState.opts));
- return docQuoteRecords().flatMap(r=>finWithOrder(r,()=>docLayout(docBuildModel('quote',r,docState.opts))));
+ if(docState.kind!=='quote')return docPages(docBuildModel(docState.kind,soDraft,docState.opts));
+ return docQuoteRecords().flatMap(r=>finWithOrder(r,()=>docPages(docBuildModel('quote',r,docState.opts))));
 }
 function docRevisionPicker(){
  if(!docState||docState.kind!=='quote')return '';
@@ -178,10 +178,12 @@ function docDrawingsPrint(which){
  if(printSheet(sheets,'',salesSheetFitDrawing)&&soDraft&&typeof orderLogAdd==='function')orderLogAdd(soDraft.id,'Printed','Drawings'+(sheets.length>1?' · '+sheets.length:''));
 }
 function docPanel(){
- const kind=docState.kind,o=docState.opts,groups=[];
- docFieldsFor(kind).forEach(f=>{let g=groups.find(x=>x.name===f.g);if(!g){g={name:f.g,fields:[]};groups.push(g);}g.fields.push(f);});
+ const kind=docState.kind,o=docState.opts,groups=[],tpl=DOC_FORM_KINDS.includes(kind)?docFormTemplate(kind):null;
+ /* Бланк на шаблоне формы: галочки — из его блоков; свой блок — своя
+    галочка (по умолчанию стоит). */
+ docFieldsFor(kind).filter(f=>!tpl||docFormHas(tpl,f.k)).concat(tpl?docFormAdded(kind,tpl).map(x=>({k:'b:'+x.b.id,g:'Added blocks',label:docFormBlockLabel(x.b),on:true})):[]).forEach(f=>{let g=groups.find(x=>x.name===f.g);if(!g){g={name:f.g,fields:[]};groups.push(g);}g.fields.push(f);});
  const hint=h=>h?'<small>'+h+'</small>':'';
- const box=f=>`<label class="doc-opt"><input type="checkbox" data-doc-field="${f.k}" ${o[f.k]?'checked':''} onchange="docSetOption('${f.k}',this.checked)"><span>${f.label}${hint(f.hint)}</span></label>`;
+ const box=f=>`<label class="doc-opt"><input type="checkbox" data-doc-field="${esc(f.k)}" ${(/^b:/.test(f.k)?o[f.k]!==false:o[f.k])?'checked':''} onchange="docSetOption('${esc(f.k)}',this.checked)"><span>${esc(f.label)}${hint(f.hint)}</span></label>`;
  const body=groups.map(g=>{
   if(g.name!=='Prices on lines')return `<h4>${g.name}</h4>${g.fields.map(box).join('')}`;
   const modes=DOC_PRICE_MODES.map(m=>`<label class="doc-opt"><input type="radio" name="docPriceMode" data-doc-price="${m.k}" ${o.priceMode===m.k?'checked':''} onchange="docSetOption('priceMode','${m.k}')"><span>${m.label}${hint(m.hint)}</span></label>`).join('');
@@ -297,7 +299,7 @@ function docEmailQuote(){
  if(before!==cur)ids=ids.filter(id=>id!==before).concat(cur);
  if(!ids.length)ids=[cur];
  const recs=ids.map(id=>DB.salesOrder.find(o=>o.id===id)).sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0)),files=[];
- try{recs.forEach(r=>{const pages=finWithOrder(r,()=>docLayout(docBuildModel('quote',r,docState.opts)));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
+ try{recs.forEach(r=>{const pages=finWithOrder(r,()=>docPages(docBuildModel('quote',r,docState.opts)));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
  catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
  const C=salesFindCustomer(recs[0].customerId),to=C?(C.invoiceEmail||customerPrimaryContact(C).email||''):'';
  const url=docGmailUrl(to,docQuoteEmailSubject(recs),docQuoteEmailBody(recs));
