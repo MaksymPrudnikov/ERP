@@ -22,8 +22,14 @@
   this page: units · panels · ft² · kg» (строки, начатые на этом листе и раньше; `m.lineTotals`, `f.pageFields` движка
   — поля своего листа) и «Internal · no prices · Printed … · status from station scans at print time».
 - ✎ Customize Work order: Entered by (Header), Status from station scans (Production; снята — маршрут как раньше).
-- Остальные бланки не изменились: сверка Quote / Proforma / OC / Invoice, Receipt / Statement / PO / Trip sheet и
-  Packing slip — старый dist против ветки, 0 расхождений (выгрузка владельца, shop-week).
+- Вес на бумаге (владелец 06.11.2026): «всегда показывать, даже неполный; клиенту — приблизительный, производству —
+  тоже, много информации путает; Partial и что не указано — офису». Бланки заказа, Packing slip и лист скида, чертёж
+  стекла: неполный вес — «≈ 80 kg» (`docUnitWeightText`, сводка, `salesSheetWeightText`; на PS «Known» → «≈»), строки
+  «Partial weight: …» под сводкой и «чего нет» на чертеже больше нет. На экранах офиса Partial и подсказки — как были.
+  Это меняет решение пункта 14 (30.10.2026: «клиент видит, что вес неполный»).
+- Остальное в бланках не изменилось: сверка Quote / Proforma / OC / Invoice, Receipt / Statement / PO / Trip sheet и
+  Packing slip — старый dist против ветки до правки веса — 0 расхождений (выгрузка владельца, shop-week); после неё
+  отличаются только строки неполного веса.
 - Проверки: `test/order-forms.js` (+2). README 2450. Руководство `docs/manual/forms.*` — «Work order: статус по сканам».
 
 ## Лист скида / долли на конструкторе, Add to other forms, один набор полей · 6 ноября 2026

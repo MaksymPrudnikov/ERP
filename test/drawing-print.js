@@ -96,8 +96,9 @@ module.exports=async function({page,eq}){
 
  /* Вес на листе — расчёт заказа (решение владельца 30.10.2026 для этапа 7):
     нормы заказа, геометрия лайтов строки; лист стекла — только его слои;
-    неполный — «N kg · Partial» и чего нет; норма Data после Save лист не меняет. */
- eq('вес на чертеже — расчёт заказа: юнит со всем, что в нём, лист стекла — его стекло; Data после Save не меняет; ламинат без плотности плёнки — «63 kg · Partial» и чего нет, внесли плотность — полный',await t.p.evaluate(()=>{
+    неполный — «≈ N kg» без «чего нет» (владелец 06.11.2026: цеху лишнее не
+    нужно); норма Data после Save лист не меняет. */
+ eq('вес на чертеже — расчёт заказа: юнит со всем, что в нём, лист стекла — его стекло; Data после Save не меняет; ламинат без плотности плёнки — «≈ 63 kg» без подробностей, внесли плотность — полный',await t.p.evaluate(()=>{
   oqReset();const o=dpCtl('SEAL-SIL'),l=o.lines[1],w=salesLineWeight(l,o);
   const mass=h=>dpDoc(h).querySelector('.sheet-mass').textContent.split(' · ').slice(1).join(' · ');
   const unit=mass(dpDraw(o,l).html),lite=mass(dpDraw(o,l,0).html),liteKg=w.rows.filter(r=>r.lite===0).reduce((s,r)=>s+r.kg,0);
@@ -110,7 +111,7 @@ module.exports=async function({page,eq}){
   const part=dpDoc(dpDraw(lam,lam.lines[0]).html),partial=[mass(part.innerHTML),(part.querySelector('.sheet-mass-note')||{textContent:''}).textContent];
   DB.materialWeightRates.push({key:'film:'+fid,label:'Film',rate:1070,unit:'kg/m³',note:''});const full=dpDoc(dpDraw(lam,lam.lines[0]).html);
   return {unit:unit===Math.round(w.knownKg)+' kg',lite:lite===Math.round(liteKg)+' kg',more:w.knownKg>liteKg*2,after:after===unit,partial,full:[mass(full.innerHTML),!!full.querySelector('.sheet-mass-note')]};
- }),{unit:true,lite:true,more:true,after:true,partial:['63 kg · Partial','Interlayer weight not included'],full:['64 kg',false]});
+ }),{unit:true,lite:true,more:true,after:true,partial:['≈ 63 kg',''],full:['64 kg',false]});
 
  /* Пункт 9, P9-R1…R5: Print drawing в окне Drawings станции — ровно
     открытый лист (позиция, Lite, Recut), той же печатью, что офис. */

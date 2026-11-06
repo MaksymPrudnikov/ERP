@@ -226,8 +226,11 @@ function docItemDetails(it,opts,line,m,order){
 /* Вес юнита на бумаге (пункт 14, вариант 1 владельца 30.10.2026): известное
    число и Partial — клиент видит, что вес неполный, без внутренних подсказок;
    нет ничего — «—». */
+/* Владелец 06.11.2026: вес на бумаге всегда; клиенту и цеху — примерный «≈»,
+   без Partial и без «что не учтено» (лишнее путает); Partial — только офису на
+   экранах. */
 function docUnitWeightText(w,unit){
- return w.complete?(w.estimated?'≈ ':'')+docNum(w.kg,1)+' '+unit:w.knownKg>0?docNum(w.knownKg,1)+' '+unit+' · Partial':'— kg';
+ return w.complete?(w.estimated?'≈ ':'')+docNum(w.kg,1)+' '+unit:w.knownKg>0?'≈ '+docNum(w.knownKg,1)+' '+unit:'— kg';
 }
 function docShopItem(model,line,index,order){
  const opts=model.opts,m=salesMakeupById(order,line.makeupId),a=salesLineAreas(line,order),q=salesPositiveInt(line.qty,1);
@@ -456,11 +459,11 @@ function docBuildModel(kind,order,opts){
     учтено, строкой под блоком: на бумаге без наведения. */
  let units=0,area=0;
  (order.lines||[]).forEach(l=>{const q=salesPositiveInt(l.qty,1),a=salesLineAreas(l,order);units+=q;if(a.valid)area+=a.actual*q;});
- const w=salesOrderWeight(order),weightText=w.kg==null?'Weight unavailable':(w.complete&&w.estimated?'≈ ':'')+docNum(w.kg,w.kg<10?2:0)+' kg'+(w.complete?'':' · Partial');
+ const w=salesOrderWeight(order),weightText=w.kg==null?'Weight unavailable':(w.estimated||!w.complete?'≈ ':'')+docNum(w.kg,w.kg<10?2:0)+' kg';
  if(opts.orderSummary){
   const miss=salesWeightMissingText(w);
   model.summary=kind==='workOrder'?docShopSummary(order,w,weightText):[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:weightText},{label:'Due date',value:docDate(order.dueDate)||'—'}];
-  if(w.partial&&miss)model.summaryNote='Partial weight: '+miss.charAt(0).toLowerCase()+miss.slice(1)+'.';
+
  }
  model.footerRight=[company.legalName,docName+' '+number].filter(Boolean).join(' · ');
  if(kind==='workOrder')model.lineTotals=(order.lines||[]).map(l=>docLineTotals(l,order));
