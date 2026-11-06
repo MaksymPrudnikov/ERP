@@ -68,8 +68,9 @@ const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek
 /* Сроки оплаты смотрят вперёд (Finance → Due dates): просрочено и ближайшие дни. */
 const SALES_LIST_DUE_PRESETS=[['overdue','Overdue'],['today','Today'],['next7','Next 7 days'],['next30','Next 30 days'],['thisMonth','This month'],['nextMonth','Next month']];
 const SALES_HOLD_REASONS=['Waiting for payment','Customer asked to wait','Sizes or drawing to confirm','Credit check'];
-/* Sales: колонка прячется на экране уже этой ширины (владелец, 2.11.2026). */
-const SALES_LIST_NARROW={orderItems:1800,glass:1620,created:1620,priority:1400,area:1400,units:1200,po:1200,receipts:1200};
+/* Sales: колонка прячется на экране уже этой ширины (владелец, 2.11.2026).
+   Created — до 1820 (07.11.2026): место колонке Invoice, таблица без прокрутки. */
+const SALES_LIST_NARROW={orderItems:1800,glass:1620,created:1820,priority:1400,area:1400,units:1200,po:1200,receipts:1200};
 /* Show at bottom: что считать под колонкой. Таблицы с итогом salesListFooter. */
 const SALES_LIST_CALC_NUMBER=[['sum','Sum'],['avg','Average'],['count','Count'],['min','Min'],['max','Max'],['none','None']];
 const SALES_LIST_CALC_TEXT=[['count','Count'],['unique','Unique'],['none','None']];

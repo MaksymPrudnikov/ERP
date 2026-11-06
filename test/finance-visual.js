@@ -51,7 +51,7 @@ module.exports=async function({page,eq}){
   salesQuickSet('invoice');const one=!document.querySelector('.sl-status-row');salesQuickSet('all');
   const saved=JSON.parse(localStorage.getItem(SALES_LIST_PREFS_KEY)).invoiceShown;
   return {after:ths[at-1],cells,row2,one,saved};
- }),{after:'status',cells:['Not invoiced · 160 d pill warn','Not invoiced · 48 d pill warn','Invoiced pill ok'],row2:true,one:true,saved:true});
+ }),{after:'status',cells:['Not invoiced · 160 d pill sl-inv-pill warn','Not invoiced · 48 d pill sl-inv-pill warn','Invoiced pill ok sl-inv-pill'],row2:true,one:true,saved:true});
  eq('no browser errors',t.errs,[]);
  await t.c.close();
 };

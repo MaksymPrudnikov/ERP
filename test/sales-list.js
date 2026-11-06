@@ -235,7 +235,7 @@ module.exports=async function({page,eq,ok}){
   salesListPrefs=null;render();const after=document.querySelectorAll('[data-status-chip]').length;
   all().click();return {one,reset,hidden,saved,after,shown:document.querySelectorAll('[data-status-chip]').length>0};
  }),{one:1,reset:{quick:'all',status:'',chips:true},hidden:0,saved:true,after:0,shown:true});
- const WIDTHS={1920:[],1800:[],1799:['orderItems'],1620:['orderItems'],1600:['orderItems','glass','created'],1440:['orderItems','glass','created'],1399:['orderItems','glass','created','priority','area'],1280:['orderItems','glass','created','priority','area'],1199:['orderItems','glass','created','priority','area','units','po','receipts'],1024:['orderItems','glass','created','priority','area','units','po','receipts']};
+ const WIDTHS={1920:[],1800:['created'],1799:['orderItems','created'],1620:['orderItems','created'],1600:['orderItems','glass','created'],1440:['orderItems','glass','created'],1399:['orderItems','glass','created','priority','area'],1280:['orderItems','glass','created','priority','area'],1199:['orderItems','glass','created','priority','area','units','po','receipts'],1024:['orderItems','glass','created','priority','area','units','po','receipts']};
  await t.p.evaluate(()=>{slCleanup();const a=slCustomer('Very Long Customer Name Architectural Glass And Mirror Incorporated');slOrder(a,{days:1,po:'PO-123456789012345'});salesShow={orders:true,quotes:false,ncr:false};render();});
  for(const w of Object.keys(WIDTHS).map(Number)){
   await t.p.setViewportSize({width:w,height:900});await t.p.waitForFunction(x=>innerWidth===x,w);

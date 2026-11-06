@@ -23,6 +23,8 @@
   `invoiceShown`); ячейка `salesInvoicePill`: Invoiced — `pill ok`, «Not invoiced · N d» — с 3 дней `pill warn`, в
   работе — прочерк, значение фильтра In work. Статусы — `salesListStatusRow`: второй строкой, только на All (или
   когда выбран статус); на узком экране — прежняя кнопка Status.
+  Колонка Invoice 126 px (таблетка `.sl-inv-pill` плотнее); чтобы таблица осталась без прокрутки, Created теперь
+  прячется на экране уже 1820 px (было 1620) — `SALES_LIST_NARROW`.
 - Тесты: `test/finance-visual.js` (5); `test/finance.js` ждёт Paid вместо Credits; `test/sales-list.js` берёт счёт
   статусов из `salesListChipsNow` — на Today кнопок больше нет.
 - Замечено, не правил: в Accounts итоги внизу (строка «19 customers») стоят на колонку левее своих — было и до этой
